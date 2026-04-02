@@ -23706,6 +23706,7 @@ const doc = new Document({
 function loadXLSX(cb){ cb(); } // compatibility shim, not needed anymore
 </script>
 <style>
+.dim-box{opacity:0.35}
 :root{
   --bg:#0d1117;--sur:#161b22;--card:#1c2128;--card2:#21262d;--bor:#30363d;
   --acc:#e8a838;--a2:#3ecf8e;--a3:#60a5fa;
@@ -26277,7 +26278,7 @@ function rIRL(){
         <div class="sm mu">Bail du ${l.debut?new Date(l.debut).toLocaleDateString('fr-FR'):'-'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="text-align:center;padding:4px 8px;background:rgba(255,255,255,.03);border-radius:var(--r);font-size:10px;opacity:${irl.baseVal?1:0.35}">
+        <div style="text-align:center;padding:4px 8px;background:rgba(255,255,255,.03);border-radius:var(--r);font-size:10px" class="${irl.baseVal?'':'dim-box'}">
           <div style="color:var(--t3)">Réf. signature</div>
           <div style="font-weight:600">${irl.baseTrim||'—'}</div>
           <div style="color:var(--acc)">${irl.baseVal||'—'}</div>
@@ -27049,7 +27050,7 @@ window.onload=()=>{migrateDB();initFilters();rDash();};
 // ══════════════════════════════════════════════════════
 // PWA — Service Worker registration
 // ══════════════════════════════════════════════════════
-if('serviceWorker' in navigator){
+if('serviceWorker' in navigator && location.hostname.includes('github.io')){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js')
       .then(r => console.log('SW registered:', r.scope))
