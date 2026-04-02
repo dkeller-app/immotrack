@@ -23979,6 +23979,12 @@ textarea{min-height:60px;resize:vertical}
   .pdf-wrap{border:none!important;padding:14px!important;max-width:100%!important;margin:0!important}
   body{background:#fff!important;color:#000!important}
 }
+
+@media print {
+  .sb-nav, .tb, #irl-letter-list, .card:not(:has(#pdf-irl-wrap)),
+  .btn, .tabs, .pc > :not(#pdf-irl-wrap) { display:none!important; }
+  #pdf-irl-wrap { display:block!important; }
+}
 </style>
 </head>
 <body>
@@ -24223,7 +24229,7 @@ Exemple :
   <div class="pc">
     <div class="card mb12 scroll-x"><table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th>Mois</th><th>HC</th><th>Charges</th><th>CC</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="quit-tbody"></tbody></table></div>
     <div id="pdf-quit-wrap" class="hidden">
-      <div class="flex-b mb8"><div style="font-size:12px;font-weight:500">Quittance — <span id="pdf-quit-lbl"></span></div><div class="flex gap8"><button class="btn bs" onclick="document.getElementById('pdf-quit-wrap').classList.add('hidden')">Fermer</button><button class="btn bp" onclick="window.print()">🖨 PDF</button></div></div>
+      <div class="flex-b mb8"><div style="font-size:12px;font-weight:500">Quittance — <span id="pdf-quit-lbl"></span></div><div class="flex gap8"><button class="btn bs" onclick="document.getElementById('pdf-quit-wrap').classList.add('hidden')">Fermer</button><button class="btn bp" onclick="printIRLLetter()">🖨 PDF</button></div></div>
       <div class="pdf-wrap" id="pdf-quit-content"></div>
     </div>
   </div>
@@ -24236,7 +24242,7 @@ Exemple :
     <div class="g2">
       <div class="card"><div class="ct">Sélectionner</div><div id="irl-letter-list"></div></div>
       <div id="pdf-irl-wrap" class="hidden">
-        <div class="flex-b mb8"><div style="font-size:12px;font-weight:500">Aperçu</div><button class="btn bp" onclick="window.print()">🖨 PDF</button></div>
+        <div class="flex-b mb8"><div style="font-size:12px;font-weight:500">Aperçu</div><button class="btn bp" onclick="printIRLLetter()">🖨 PDF</button></div>
         <div class="pdf-wrap" id="pdf-irl-content"></div>
       </div>
     </div>
@@ -25010,7 +25016,7 @@ function _openRegulDoc(refs,from,to){
   win.document.close();
 }
 </script>
-<div id="m-drive-picker" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px"><div style="background:var(--sur);border-radius:var(--rl);width:100%;max-width:420px;overflow:hidden"><div style="padding:16px 20px;border-bottom:1px solid var(--bor);display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700">📂 Sauvegardes Drive</div><button onclick="document.getElementById('m-drive-picker').classList.add('hidden')" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer">×</button></div><div id="drive-files-list" style="max-height:50vh;overflow-y:auto;padding:8px"></div></div></div>
+<div id="m-drive-picker" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px"><div style="background:var(--sur);border-radius:var(--rl);width:100%;max-width:420px;overflow:hidden"><div style="padding:16px 20px;border-bottom:1px solid var(--bor);display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700">📂 Sauvegardes Drive</div><button onclick="document.getElementById('m-drive-picker').classList.add('hidden')" style="background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer">×</button></div><div id="drive-files-list" style="max-height:50vh;overflow-y:auto;padding:8px"></div></div></div>
 <style>.drive-file-item{padding:12px 16px;border-bottom:1px solid var(--bor);cursor:pointer;transition:background .15s}.drive-file-item:hover{background:rgba(255,255,255,.05)}</style>
 <script>
 if("serviceWorker" in navigator&&location.hostname.includes("github.io")){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}
@@ -25021,7 +25027,20 @@ function initGIS(){if(typeof google==="undefined"||!google.accounts)return;gisRe
 function withDriveToken(cb){window._driveCallback=cb;if(driveToken){cb();return;}if(!gisReady){alert("Google non chargé");return;}tokenClient.requestAccessToken({prompt:""});}
 async function saveToDrive(){withDriveToken(async()=>{try{const date=new Date().toISOString().slice(0,10),fn="ImmoTrack_"+date+".json";const body=JSON.stringify(DB,null,2);const q=encodeURIComponent("name='"+fn+"' and trashed=false");const sd=await(await fetch("https://www.googleapis.com/drive/v3/files?q="+q+"&fields=files(id)",{headers:{Authorization:"Bearer "+driveToken}})).json();if(sd.error){driveToken=null;alert("Session expirée");return;}const meta={name:fn,mimeType:"application/json"};const form=new FormData();form.append("metadata",new Blob([JSON.stringify(meta)],{type:"application/json"}));form.append("file",new Blob([body],{type:"application/json"}));const isUpd=sd.files&&sd.files.length>0;const url="https://www.googleapis.com/upload/drive/v3/files"+(isUpd?"/"+sd.files[0].id:"")+"?uploadType=multipart";const r=await(await fetch(url,{method:isUpd?"PATCH":"POST",headers:{Authorization:"Bearer "+driveToken},body:form})).json();if(r.id)showToast("✓ "+fn);else alert("Err: "+JSON.stringify(r.error||r));}catch(e){alert("Err: "+e.message);}});}
 async function loadFromDrive(){withDriveToken(async()=>{try{const q=encodeURIComponent("name contains 'ImmoTrack' and trashed=false and mimeType='application/json'");const r=await(await fetch("https://www.googleapis.com/drive/v3/files?q="+q+"&orderBy=modifiedTime+desc&fields=files(id,name,modifiedTime)",{headers:{Authorization:"Bearer "+driveToken}})).json();if(r.error){driveToken=null;alert("Session expirée");return;}const files=r.files||[];if(!files.length){alert("Aucune sauvegarde");return;}showDrivePicker(files);}catch(e){alert("Err: "+e.message);}});}
-function showDrivePicker(files){document.getElementById("drive-files-list").innerHTML=files.map(f=>{const d=new Date(f.modifiedTime).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});return'<div class="drive-file-item" onclick="restoreFromDrive('+JSON.stringify(f.id)+","+JSON.stringify(f.name)+')"><div style="font-weight:600;font-size:13px">'+f.name+'</div><div style="font-size:11px;color:var(--t3)">'+d+"</div></div>";}).join("");document.getElementById("m-drive-picker").classList.remove("hidden");}
+function showDrivePicker(files){
+  const list=document.getElementById("drive-files-list");
+  list.innerHTML="";
+  files.forEach(f=>{
+    const d=new Date(f.modifiedTime).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    const el=document.createElement("div");
+    el.className="drive-file-item";
+    el.style.cssText="padding:12px 16px;border-bottom:1px solid var(--bor);cursor:pointer";
+    el.innerHTML='<div style="font-weight:600;font-size:13px">'+f.name+'</div><div style="font-size:11px;color:var(--t3)">'+d+"</div>";
+    el.addEventListener("click",function(){restoreFromDrive(f.id,f.name);});
+    list.appendChild(el);
+  });
+  document.getElementById("m-drive-picker").classList.remove("hidden");
+}
 async function restoreFromDrive(id,name){document.getElementById("m-drive-picker").classList.add("hidden");if(!confirm("Restaurer "+name+" ?"))return;try{const r=await(await fetch("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media",{headers:{Authorization:"Bearer "+driveToken}})).json();if(!r.logements&&!r.mouvements){alert("Fichier invalide");return;}DB=r;save();showToast("✓ Restauré: "+name);setTimeout(()=>location.reload(),1000);}catch(e){alert("Err: "+e.message);}}
 function showToast(msg){let t=document.getElementById("drive-toast");if(!t){t=document.createElement("div");t.id="drive-toast";t.style.cssText="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--grn);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:9999;transition:opacity .3s";document.body.appendChild(t);}t.textContent=msg;t.style.opacity="1";setTimeout(()=>t.style.opacity="0",2500);}
 (function(){const s=document.createElement("script");s.src="https://accounts.google.com/gsi/client";s.onload=initGIS;s.async=true;document.head.appendChild(s);}());
@@ -26741,6 +26760,30 @@ function genIRLLetter(ref){
   document.getElementById('pdf-irl-wrap').scrollIntoView({behavior:'smooth'});
 }
 
+function printIRLLetter(){
+  const content=document.getElementById('pdf-irl-content');
+  if(!content||!content.innerHTML.trim()){alert('Sélectionner un logement d\'abord.');return;}
+  const win=window.open('','_blank');
+  if(!win){alert('Popup bloquée — autoriser les popups pour ce site.');return;}
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lettre IRL</title>'
+    +'<style>body{font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:32px;font-size:12px}'
+    +'.ptbl{width:100%;border-collapse:collapse;font-size:11px}'
+    +'.ptbl th,.ptbl td{padding:5px 8px;border:1px solid #ccc;text-align:left}'
+    +'.ptbl th{background:#f5f5f5;font-weight:600;width:55%}'
+    +'.sig-g{display:flex;gap:40px;margin-top:24px}'
+    +'.sig-b{flex:1;border-top:1px solid #333;padding-top:6px;font-size:11px}'
+    +'.np{padding:12px;background:#f5f5f5;display:flex;gap:8px;position:sticky;top:0;z-index:10}'
+    +'@media print{.np{display:none!important}}'
+    +'</style></head><body>'
+    +'<div class="np">'
+    +'<button onclick="window.print()" style="padding:7px 18px;background:#1a1a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px">🖨 Imprimer / PDF</button>'
+    +'<button onclick="window.close()" style="padding:7px 14px;background:#eee;color:#333;border:none;border-radius:4px;cursor:pointer;font-size:13px">✕ Fermer</button>'
+    +'</div>'
+    +content.innerHTML
+    +'</body></html>');
+  win.document.close();
+}
+
 // ═══════════════════════════════════════════════════
 // EDL PROFESSIONNEL + PHOTO DIRECTE
 // ═══════════════════════════════════════════════════
@@ -27048,7 +27091,7 @@ function saveParamLog(){
   const d={ref,imm:v('pl-imm'),entity:v('pl-entity'),type:v('pl-type'),surf:parseFloat(v('pl-surf'))||0,etage:v('pl-etage'),adr:v('pl-adr'),hc:pf('pl-hc'),ch:pf('pl-ch'),notes:v('pl-notes')};
   if(idx>=0)DB.logements[idx]={...DB.logements[idx],...d};
   else DB.logements.push({id:nid(),...d,locataire:'',tel:'',mail:'',debut:'',fin:'',dg:0,irl:'T3'});
-  save();closeM('m-param-log');rParamLogs();
+  save();initFilters();closeM('m-param-log');rParamLogs();
 }
 function delLog(id){if(!confirm('Supprimer ce logement ?'))return;DB.logements=DB.logements.filter(l=>l.id!==id);save();rParamLogs();}
 
@@ -27224,7 +27267,9 @@ function initFilters(){
   const imms=immeubles();
   ['mv-f-imm','baux-f'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
+    const cur=el.value;
     el.innerHTML='<option value="">Tous</option>'+imms.map(i=>`<option value="${i}">${i}</option>`).join('');
+    if(cur&&imms.includes(cur))el.value=cur;
   });
 }
 
