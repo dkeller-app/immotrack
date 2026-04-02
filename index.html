@@ -24001,6 +24001,7 @@ textarea{min-height:60px;resize:vertical}
     <div class="ni" onclick="go('baux',this)"><span class="ni-ic">◎</span>Baux &amp; Locataires</div>
     <div class="ni" onclick="go('assurances',this)"><span class="ni-ic">◉</span>Assurances<span class="ni-bd hidden" id="bd-ass">!</span></div>
     <div class="ni" onclick="go('irl',this)"><span class="ni-ic">↑</span>Révision IRL</div>
+    <div class="ni" onclick="go('regul',this)"><span class="ni-ic">⚖</span>Régularisation charges</div>
     <div class="sb-sec">Documents</div>
     <div class="ni" onclick="go('quittances',this)"><span class="ni-ic">◻</span>Quittances PDF</div>
     <div class="ni" onclick="go('lettres',this)"><span class="ni-ic">✉</span>Lettres IRL</div>
@@ -24716,6 +24717,879 @@ function parseXLSviaLib(data, cb){
 }
 function loadXLSXLib(cb){ cb(); } // XLSX already embedded
 </script>
+
+
+<style>
+.dim-box{opacity:0.35}
+:root{
+  --bg:#0d1117;--sur:#161b22;--card:#1c2128;--card2:#21262d;--bor:#30363d;
+  --acc:#e8a838;--a2:#3ecf8e;--a3:#60a5fa;
+  --tx:#e6edf3;--t2:#8b949e;--t3:#484f58;
+  --red:#f85149;--ora:#f0883e;--grn:#3fb950;--blu:#58a6ff;--pur:#bc8cff;
+  --f:'system-ui',-apple-system,sans-serif;--s:'Georgia',serif;
+  --sw:230px;--r:6px;--rl:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:var(--f);background:var(--bg);color:var(--tx);font-size:13px;line-height:1.5}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--bor);border-radius:2px}
+
+/* ─── LAYOUT ─── */
+.app{display:flex;min-height:100vh}
+.sb{width:var(--sw);background:var(--sur);border-right:1px solid var(--bor);position:fixed;top:0;left:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;z-index:100;transition:transform .25s}
+.main{margin-left:var(--sw);flex:1;min-height:100vh;display:flex;flex-direction:column}
+
+/* ─── SIDEBAR ─── */
+.sb-logo{padding:18px 14px 14px;border-bottom:1px solid var(--bor)}
+.sb-logo-n{font-family:var(--s);font-size:19px;color:var(--acc)}
+.sb-logo-v{font-size:9px;background:var(--acc);color:#000;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:700;vertical-align:middle}
+.sb-logo-s{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.sb-nav{flex:1;padding:6px 0}
+.sb-sec{padding:10px 14px 3px;font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px}
+.ni{display:flex;align-items:center;gap:7px;padding:8px 14px;cursor:pointer;color:var(--t2);font-size:12px;transition:all .1s;border-left:2px solid transparent;min-height:40px}
+.ni:hover,.ni:active{color:var(--tx);background:rgba(255,255,255,.03)}
+.ni.on{color:var(--tx);background:rgba(232,168,56,.07);border-left-color:var(--acc)}
+.ni-ic{font-size:14px;width:16px;text-align:center;flex-shrink:0}
+.ni-bd{margin-left:auto;background:var(--red);color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;font-weight:700}
+.sb-foot{padding:10px 14px;border-top:1px solid var(--bor)}
+.sb-btn{width:100%;padding:7px 10px;background:rgba(255,255,255,.04);border:1px solid var(--bor);border-radius:var(--r);color:var(--t2);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .12s;min-height:36px}
+.sb-btn:hover{border-color:var(--acc);color:var(--acc)}
+.sb-sync{font-size:9px;color:var(--t3);text-align:center;margin-top:4px}
+
+/* ─── TOPBAR ─── */
+.tb{background:var(--sur);border-bottom:1px solid var(--bor);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px;flex-wrap:wrap}
+.tb-left{display:flex;align-items:center;gap:10px}
+.tb-menu{display:none;background:none;border:none;color:var(--t2);cursor:pointer;font-size:20px;padding:4px}
+.tb-title{font-family:var(--s);font-size:18px;font-weight:normal}
+.tb-sub{font-size:11px;color:var(--t2);margin-top:1px}
+.tb-act{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* ─── BUTTONS ─── */
+.btn{padding:7px 13px;border-radius:var(--r);font-size:11px;cursor:pointer;border:none;font-family:inherit;transition:all .1s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;min-height:34px}
+.bp{background:var(--acc);color:#000;font-weight:600}.bp:hover,.bp:active{background:#d4952e}
+.bs{background:transparent;color:var(--t2);border:1px solid var(--bor)}.bs:hover,.bs:active{border-color:var(--t2);color:var(--tx)}
+.bg2{background:transparent;color:var(--a2);border:1px solid var(--a2)}.bg2:hover{background:rgba(62,207,142,.08)}
+.bb{background:transparent;color:var(--blu);border:1px solid var(--blu)}.bb:hover{background:rgba(96,165,250,.08)}
+.br2{background:transparent;color:var(--red);border:1px solid var(--red)}.br2:hover{background:rgba(248,81,73,.08)}
+
+/* ─── CONTENT ─── */
+.pc{padding:16px 20px;flex:1}
+
+/* ─── CARDS ─── */
+.card{background:var(--card);border-radius:var(--rl);border:1px solid var(--bor);padding:14px 16px}
+.ct{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px}
+
+/* ─── ALERTS SECTION ─── */
+.alert-section{background:var(--card);border-radius:var(--rl);border:1px solid var(--bor);margin-bottom:16px;overflow:hidden}
+.alert-section-head{padding:12px 16px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;background:rgba(248,81,73,.05)}
+.alert-section-title{font-size:12px;font-weight:600;color:var(--tx);display:flex;align-items:center;gap:8px}
+.alert-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.03);font-size:12px}
+.alert-item:last-child{border-bottom:none}
+.alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.alert-dot-r{background:var(--red)}
+.alert-dot-o{background:var(--ora)}
+.alert-dot-g{background:var(--grn)}
+.alert-label{flex:1}
+.alert-tag{font-size:9px;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.alert-tag-r{background:rgba(248,81,73,.12);color:var(--red)}
+.alert-tag-o{background:rgba(240,136,62,.12);color:var(--ora)}
+.alert-tag-g{background:rgba(63,185,80,.12);color:var(--grn)}
+
+/* ─── KPI ─── */
+.kpi-g{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px}
+.kpi-l{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px}
+.kpi-v{font-size:20px;font-family:var(--s);margin:3px 0 1px}
+.kpi-d{font-size:10px;color:var(--t2)}
+.immo-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:16px}
+.immo-card{background:var(--card);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;cursor:pointer;transition:border-color .15s}
+.immo-card:hover{border-color:rgba(232,168,56,.4)}
+.immo-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.immo-card-name{font-family:var(--s);font-size:14px}
+.immo-mkpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.imk{background:var(--sur);border-radius:var(--r);padding:7px 9px}
+.imk-l{font-size:9px;color:var(--t3)}
+.imk-v{font-size:13px;font-family:var(--s);margin-top:1px}
+
+/* ─── TABLE ─── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 9px;font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--bor);font-weight:500}
+.tbl td{padding:9px 9px;border-bottom:1px solid rgba(255,255,255,.025);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.015)}
+.ta button{background:none;border:none;cursor:pointer;font-size:11px;padding:2px 5px;border-radius:3px;margin-left:2px}
+
+/* ─── BADGES ─── */
+.b{display:inline-flex;align-items:center;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600}
+.bgg{background:rgba(63,185,80,.12);color:var(--grn)}
+.bgo{background:rgba(240,136,62,.12);color:var(--ora)}
+.bgr{background:rgba(248,81,73,.12);color:var(--red)}
+.bgb{background:rgba(96,165,250,.12);color:var(--blu)}
+.bgp{background:rgba(188,140,255,.12);color:var(--pur)}
+.bgq{background:rgba(255,255,255,.07);color:var(--t2)}
+.bga{background:rgba(232,168,56,.12);color:var(--acc)}
+
+/* ─── TABS ─── */
+.tabs{display:flex;border-bottom:1px solid var(--bor);margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:8px 13px;font-size:11px;cursor:pointer;color:var(--t2);border-bottom:2px solid transparent;transition:all .1s;white-space:nowrap;min-height:36px;display:flex;align-items:center}
+.tab.on{color:var(--tx);border-bottom-color:var(--acc)}
+
+/* ─── FORMS ─── */
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:10px;color:var(--t2);font-weight:500}
+.fg.full{grid-column:1/-1}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.fg4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
+input,select,textarea{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:8px 10px;font-size:13px;font-family:inherit;color:var(--tx);width:100%;transition:border .1s;-webkit-appearance:none;min-height:36px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc)}
+select option{background:var(--sur)}
+textarea{min-height:60px;resize:vertical}
+
+/* ─── MODAL ─── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal{background:var(--card);border:1px solid var(--bor);border-radius:14px 14px 0 0;width:100%;max-width:780px;max-height:92vh;overflow-y:auto;border-bottom:none}
+.modal-c{border-radius:14px;max-height:92vh}
+.mh{padding:14px 18px 10px;border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);z-index:1}
+.mt2{font-family:var(--s);font-size:16px;font-weight:normal}
+.mc{background:none;border:none;color:var(--t2);cursor:pointer;font-size:22px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:4px;line-height:1}
+.mc:hover{background:var(--bor);color:var(--tx)}
+.mb2{padding:14px 18px}
+.mf{padding:10px 18px;border-top:1px solid var(--bor);display:flex;justify-content:flex-end;gap:6px;position:sticky;bottom:0;background:var(--card)}
+
+/* ─── CHART ─── */
+.chart-bars{display:flex;align-items:flex-end;gap:3px;height:90px}
+.bc{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.brc{width:100%;border-radius:2px 2px 0 0}
+.bl{font-size:8px;color:var(--t3)}
+
+/* ─── EDL ─── */
+.edl-piece{background:var(--card2);border:1px solid var(--bor);border-radius:var(--r);margin-bottom:6px;overflow:hidden}
+.edl-ph{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;min-height:44px}
+.edl-ph:hover{background:rgba(255,255,255,.02)}
+.edl-ph-n{font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px}
+.edl-body{padding:0 12px 10px;border-top:1px solid var(--bor)}
+.edl-elem{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.edl-elem:last-child{border-bottom:none}
+.edl-elem-n{font-size:11px;color:var(--t2);margin-bottom:5px}
+.edl-ets{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+.edl-et{padding:5px 10px;border-radius:var(--r);font-size:11px;cursor:pointer;border:1px solid var(--bor);background:none;color:var(--t2);font-family:inherit;min-height:34px}
+.edl-et.sel-bon{border-color:var(--grn);background:rgba(63,185,80,.12);color:var(--grn)}
+.edl-et.sel-usure{border-color:var(--ora);background:rgba(240,136,62,.12);color:var(--ora)}
+.edl-et.sel-defaut{border-color:var(--red);background:rgba(248,81,73,.12);color:var(--red)}
+.ph-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.ph-mini{width:52px;height:52px;border-radius:5px;object-fit:cover;border:1px solid var(--bor);cursor:pointer}
+.ph-add-btn{width:52px;height:52px;border-radius:5px;border:1.5px dashed var(--bor);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:22px;flex-shrink:0}
+.ph-add-btn:hover,.ph-add-btn:active{border-color:var(--acc);color:var(--acc)}
+
+/* ─── BAIL CARD ─── */
+.baux-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.bail-c{background:var(--card);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;transition:border-color .12s}
+.bail-c:hover{border-color:rgba(232,168,56,.4)}
+.bail-stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;background:var(--sur);border-radius:var(--r);padding:8px;margin-bottom:8px}
+.bail-st-i{text-align:center}
+.bail-st-l{font-size:9px;color:var(--t3)}
+.bail-st-v{font-size:13px;font-family:var(--s);font-weight:600}
+.prog{background:var(--sur);border-radius:2px;height:3px;overflow:hidden;margin-top:5px}
+.prog-f{height:100%;border-radius:2px}
+
+/* ─── PDF ─── */
+.pdf-wrap{background:#fff;color:#000;border-radius:var(--rl);padding:24px;font-family:Georgia,serif;font-size:12px;line-height:1.7;max-width:620px;margin:0 auto;border:1px solid var(--bor)}
+.pdf-wrap h1{font-size:16px;margin-bottom:3px}
+.pdf-wrap h2{font-size:13px;margin:12px 0 5px;border-bottom:1px solid #ddd;padding-bottom:3px}
+.ptbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:11px}
+.ptbl td,.ptbl th{border:1px solid #ddd;padding:5px 8px}
+.ptbl th{background:#f5f5f5;font-weight:600}
+.sig-g{margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sig-b{border-top:1px solid #bbb;padding-top:7px;font-size:10px;color:#666}
+
+/* ─── IRL TABLE ─── */
+.irl-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.03);flex-wrap:wrap}
+.irl-ref{width:60px;font-weight:600;font-family:var(--s);font-size:13px;flex-shrink:0}
+.irl-loc{flex:1;font-size:10px;color:var(--t2);min-width:80px}
+.irl-calc{display:flex;align-items:center;gap:6px}
+.irl-old{font-size:12px;text-decoration:line-through;color:var(--t3)}
+.irl-new{font-family:var(--s);font-size:15px;color:var(--grn);font-weight:bold}
+.irl-delta{font-size:10px;color:var(--grn);background:rgba(63,185,80,.1);padding:2px 6px;border-radius:10px}
+
+/* ─── STAGING ─── */
+.staging-row{display:grid;grid-template-columns:80px 1fr 80px;gap:5px;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:11px}
+.staging-sels{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+
+/* ─── PARAMS ─── */
+.param-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.param-row:last-child{border-bottom:none}
+
+/* ─── UTILS ─── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.flex{display:flex}.flex-b{display:flex;justify-content:space-between;align-items:center}
+.gap4{gap:4px}.gap6{gap:6px}.gap8{gap:8px}
+.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}
+.mt8{margin-top:8px}.mt12{margin-top:12px}
+.mu{color:var(--t2)}.sm{font-size:10px}.sr{font-family:var(--s)}
+.hidden{display:none!important}
+.w100{width:100%}
+.sep{height:1px;background:var(--bor);margin:10px 0}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ─── MOBILE ─── */
+@media(max-width:768px){
+  :root{--sw:0px}
+  .sb{transform:translateX(-100%)}
+  .sb.open{transform:translateX(0);width:85vw;max-width:280px}
+  .main{margin-left:0}
+  .tb-menu{display:block}
+  .sb-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;display:none}
+  .sb-overlay.on{display:block}
+  .kpi-g{grid-template-columns:1fr 1fr;gap:8px}
+  .immo-cards,.fg2,.fg3,.fg4,.g2,.g3,.baux-g{grid-template-columns:1fr}
+  .fg.full{grid-column:1}
+  .card{padding:11px 12px}
+  .pc{padding:10px 12px}
+  .tb{padding:9px 12px;flex-wrap:wrap;gap:6px}
+  .tb-act{width:100%;justify-content:flex-end}
+  .ov{align-items:flex-end}
+  .modal,.modal-c{width:100%!important;max-width:100%!important;border-radius:16px 16px 0 0!important;max-height:90vh}
+  .mh{padding:11px 13px 9px}
+  .mb2{padding:11px 13px}
+  .mf{padding:9px 13px}
+  .irl-row{flex-wrap:wrap;gap:5px;padding:12px 0}
+  .irl-loc{order:10;width:100%;font-size:10px}
+  .irl-calc{flex-wrap:wrap;gap:5px}
+  .alert-bubbles-row{flex-direction:column;gap:7px}
+  .alert-bubble{max-width:100%!important;min-width:unset!important}
+  .btn{min-height:40px;padding:8px 14px}
+  .ni{min-height:44px}
+  .kpi-v{font-size:17px}
+  .edl-elem{grid-template-columns:1fr;gap:4px}
+  .edl-et{min-height:36px;font-size:12px}
+  .bail-stat-grid{grid-template-columns:1fr 1fr 1fr}
+  .chart-bars{height:70px}
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tabs::-webkit-scrollbar{display:none}
+  .tbl{font-size:11px}
+  .tbl th,.tbl td{padding:6px 7px}
+}
+
+/* ─── PRINT ─── */
+/* ─── ALERT BUBBLES ─── */
+.alert-bubbles-row{display:flex;gap:10px;flex-wrap:wrap;padding:12px 14px}
+.alert-bubble{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--rl);border:1px solid;cursor:pointer;transition:opacity .12s;min-width:200px;max-width:280px;flex:1}
+.alert-bubble:hover{opacity:.85}
+.ab-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.ab-body{flex:1;min-width:0}
+.ab-title{font-size:11px;font-weight:600;margin-bottom:4px}
+.ab-item{font-size:10px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.6}
+.ab-more{font-size:10px;color:var(--t3);font-style:italic}
+.ab-count{font-size:11px;font-weight:700;min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto;padding:0 5px}
+@media(max-width:768px){.alert-bubbles-row{flex-direction:column}.alert-bubble{max-width:100%}}
+
+/* ─── INLINE EDIT ─── */
+.edit-row td{background:rgba(232,168,56,.04)!important}
+.edit-row input,.edit-row select{padding:4px 6px;font-size:11px;min-height:28px;background:var(--bg);border-color:var(--acc)}
+.edit-actions{display:flex;gap:4px}
+@media print{
+  .sb,.tb,.tb-act,.mf,.ta,.btn,button,.ov,.alert-section .btn,.tabs{display:none!important}
+  .main{margin:0!important}.pc{padding:0!important}
+  .pdf-wrap{border:none!important;padding:14px!important;max-width:100%!important;margin:0!important}
+  body{background:#fff!important;color:#000!important}
+}
+</style>
+</head>
+<body>
+<div class="sb-overlay" id="sb-overlay" onclick="closeSb()"></div>
+<div class="app">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sb" id="sb">
+  <div class="sb-logo">
+    <div class="sb-logo-n">ImmoTrack<span class="sb-logo-v">V4</span></div>
+    <div class="sb-logo-s">Gestion locative</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Pilotage</div>
+    <div class="ni on" onclick="go('dashboard',this)"><span class="ni-ic">◈</span>Tableau de bord</div>
+    <div class="sb-sec">Gestion</div>
+    <div class="ni" onclick="go('import',this)"><span class="ni-ic">↓</span>Import bancaire</div>
+    <div class="ni" onclick="go('loyers',this)"><span class="ni-ic">€</span>Loyers &amp; Mouvements</div>
+    <div class="ni" onclick="go('baux',this)"><span class="ni-ic">◎</span>Baux &amp; Locataires</div>
+    <div class="ni" onclick="go('assurances',this)"><span class="ni-ic">◉</span>Assurances<span class="ni-bd hidden" id="bd-ass">!</span></div>
+    <div class="ni" onclick="go('irl',this)"><span class="ni-ic">↑</span>Révision IRL</div>
+    <div class="ni" onclick="go('regul',this)"><span class="ni-ic">⚖</span>Régularisation charges</div>
+    <div class="sb-sec">Documents</div>
+    <div class="ni" onclick="go('quittances',this)"><span class="ni-ic">◻</span>Quittances PDF</div>
+    <div class="ni" onclick="go('lettres',this)"><span class="ni-ic">✉</span>Lettres IRL</div>
+    <div class="ni" onclick="go('edl',this)"><span class="ni-ic">⊞</span>États des lieux</div>
+    <div class="ni" onclick="go('edl-compare',this)"><span class="ni-ic">⇔</span>Comparaison EDL</div>
+    <div class="sb-sec">Paramètres</div>
+    <div class="ni" onclick="go('params',this)"><span class="ni-ic">⚙</span>Référentiel &amp; Listes</div>
+    <div class="ni" onclick="go('export',this)"><span class="ni-ic">↗</span>Export / Sauvegarde</div>
+    <div style="margin:12px 0 6px;border-top:1px solid var(--bor);padding-top:10px">
+      <div class="ni" onclick="saveToDrive();closeSb()"><span class="ni-ic">☁</span>Sauvegarder Drive</div>
+      <div class="ni" onclick="loadFromDrive();closeSb()"><span class="ni-ic">📂</span>Restaurer Drive</div>
+    </div>
+  </nav>
+  <div class="sb-foot">
+    <button class="sb-btn" onclick="exportJSON()"><span>▲</span>Sauvegarder JSON</button>
+    <div class="sb-sync" id="sync-lbl">Drive : export manuel</div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+<!-- ── DASHBOARD ── -->
+<div id="p-dashboard">
+  <div class="tb">
+    <div class="tb-left">
+      <button class="tb-menu" onclick="openSb()">☰</button>
+      <div><div class="tb-title">Tableau de bord</div><div class="tb-sub" id="dash-date"></div></div>
+    </div>
+    <div class="tb-act">
+      <select class="btn bs" id="dash-year" onchange="rDash()" style="padding:7px 9px"></select>
+      <select class="btn bs" id="dash-mois" onchange="rDash()" style="padding:7px 9px">
+        <option value="">Année</option>
+        <option value="1">Jan</option><option value="2">Fév</option><option value="3">Mar</option>
+        <option value="4">Avr</option><option value="5">Mai</option><option value="6">Juin</option>
+        <option value="7">Juil</option><option value="8">Août</option><option value="9">Sep</option>
+        <option value="10">Oct</option><option value="11">Nov</option><option value="12">Déc</option>
+      </select>
+    </div>
+  </div>
+  <!-- Onglets entité -->
+  <div class="tabs" id="dash-entity-tabs" style="padding:0 20px;background:var(--sur);border-bottom:1px solid var(--bor)"></div>
+  <div class="pc">
+    <!-- SECTION ALERTES -->
+    <div class="alert-section" id="alert-section"></div>
+    <!-- CARDS IMMEUBLE -->
+    <div class="immo-cards" id="immo-cards"></div>
+    <!-- KPIs GLOBAUX -->
+    <div class="ct" style="margin-bottom:8px">SYNTHÈSE GLOBALE</div>
+    <div class="kpi-g" id="dash-kpis"></div>
+    <!-- CHART + LOYERS -->
+    <div class="g2">
+      <div class="card" style="display:flex;flex-direction:column">
+        <div class="ct">Cash-flow 12 mois</div>
+        <canvas id="dash-chart" style="width:100%;height:180px;display:block"></canvas>
+        <div style="display:flex;justify-content:center;gap:16px;margin-top:8px">
+          <span class="sm mu" style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--grn);border-radius:2px;display:inline-block"></span>Revenus</span>
+          <span class="sm mu" style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--red);border-radius:2px;display:inline-block"></span>Charges</span>
+          <span class="sm mu" style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--acc);border-radius:2px;display:inline-block"></span>Net</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">Loyers ce mois</div>
+        <table class="tbl" id="dash-loyers"><thead><tr><th>Logement</th><th>CC</th><th>Statut</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <!-- Camembert dépenses + sauvegarde info -->
+    <div class="g2 mt8" style="margin-top:14px">
+      <div class="card">
+        <div class="ct">Charges par catégorie</div>
+        <canvas id="dash-pie" style="width:100%;height:220px;display:block"></canvas>
+      </div>
+      <div class="card">
+        <div class="ct">Sauvegarde &amp; Synchronisation</div>
+        <div style="font-size:11px;color:var(--t2);line-height:2.2">
+          <strong style="color:var(--tx)">📱 Comment accéder depuis plusieurs appareils ?</strong><br>
+          Les données sont sauvegardées dans le <strong>localStorage</strong> de ton navigateur (local à chaque appareil).<br>
+          <br>
+          <strong style="color:var(--tx)">Pour synchroniser :</strong><br>
+          1. Aller dans <em>Export / Sauvegarde</em><br>
+          2. Cliquer <strong>Exporter JSON</strong> → fichier téléchargé<br>
+          3. Sur l'autre appareil : ouvrir l'app → <strong>Importer JSON</strong><br>
+          4. Ou stocker le JSON dans iCloud / Google Drive et l'importer à chaque fois<br>
+          <br>
+          <strong style="color:var(--tx)">iPhone Safari :</strong> ouvrir le fichier HTML → partager → "Sur mon iPhone" ou "Fichiers"
+        </div>
+        <div class="flex gap8 mt8">
+          <button class="btn bg2" style="flex:1" onclick="go('export',document.querySelector('.ni[onclick*=export]'))">Exporter JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── IMPORT ── -->
+<div id="p-import" class="hidden">
+  <div class="tb">
+    <div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Import bancaire</div></div></div>
+    <div class="tb-act"><label class="btn bp" style="cursor:pointer">📂 Importer XLSX/CSV<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importBancaire(event)"></label></div>
+  </div>
+  <div class="pc">
+    <div class="card mb12">
+      <div class="ct">Mode d'emploi</div>
+      <div style="font-size:11px;color:var(--t2);line-height:2.2">1. Exporter les relevés de votre banque en Excel ou CSV<br>2. Importer → les colonnes Date / Libellé / Montant sont détectées auto<br>3. Assigner immeuble, catégorie et logement pour chaque ligne<br>4. Valider → ajout au journal</div>
+    </div>
+    <div id="import-staging" class="hidden">
+      <div class="flex-b mb12">
+        <div style="font-size:13px;font-weight:500"><span id="import-count">0</span> lignes</div>
+        <div class="flex gap8"><button class="btn bs" onclick="cancelImport()">Annuler</button><button class="btn bp" onclick="validerImport()">✓ Valider</button></div>
+      </div>
+      <div class="card scroll-x"><div id="staging-rows"></div></div>
+    </div>
+    <div id="import-empty">
+      <div class="card mb12" style="text-align:center">
+        <div class="ct">Option 1 — Fichier Excel / CSV</div>
+        <div class="mu sm mb8">Exporter depuis votre banque et importer ci-dessus</div>
+        <div style="font-size:11px;color:var(--t2);line-height:2">Format reconnu : <strong>SCI DD2AMELEVIERES</strong> Crédit Agricole (colonnes Date, Libellé, Débit, Crédit)</div>
+      </div>
+      <div class="card">
+        <div class="ct">Option 2 — Coller depuis Excel / copier-coller</div>
+        <div class="sm mu mb8">Copier les lignes directement depuis Excel ou le site bancaire (Ctrl+C) et coller ici</div>
+        <textarea id="paste-area" rows="8" style="font-size:11px;font-family:monospace;resize:vertical" placeholder="Coller ici les données copiées depuis Excel ou le site de la banque...
+Exemple :
+04/01/2026	VIR INST JEREMY YARDIN LOYER	 	430
+06/01/2026	ECH PRET CAP+IN 01400 213174 07	-2289.89	"></textarea>
+        <div class="flex gap8 mt8">
+          <button class="btn bp" onclick="pasteImport()">Analyser le collé</button>
+          <button class="btn bs" onclick="document.getElementById('paste-area').value=''">Effacer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LOYERS ── -->
+<div id="p-loyers" class="hidden">
+  <div class="tb">
+    <div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Loyers &amp; Mouvements</div></div></div>
+    <div class="tb-act">
+      <select class="btn bs" id="mv-f-imm" onchange="rMv()" style="padding:7px 9px"><option value="">Tous</option></select>
+      <button class="btn bs" onclick="openM('m-mv')">+ Mouvement</button>
+    </div>
+  </div>
+  <div class="pc">
+    <div class="tabs" id="mv-tabs">
+      <div class="tab on" onclick="setTab('mv','all',this)">Tous</div>
+      <div class="tab" onclick="setTab('mv','Loyers',this)">Loyers</div>
+      <div class="tab" onclick="setTab('mv','db',this)">Charges</div>
+      <div class="tab" onclick="setTab('mv','Prêt',this)">Emprunts</div>
+      <div class="tab" onclick="setTab('mv','Assurances PNO',this)">Assurances</div>
+    </div>
+    <!-- Filtres colonnes -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+      <input type="text" id="mvf-lib" placeholder="🔍 Libellé..." style="flex:2;min-width:120px;padding:6px 9px;font-size:11px" oninput="rMv()">
+      <input type="text" id="mvf-fac" placeholder="N° facture..." style="flex:1;min-width:90px;padding:6px 9px;font-size:11px" oninput="rMv()" title="Filtrer par numéro de facture">
+      <select id="mvf-qui" style="flex:1;min-width:100px;padding:6px 9px;font-size:11px" onchange="rMv()"><option value="">— Logement</option></select>
+      <select id="mvf-cat" style="flex:1;min-width:110px;padding:6px 9px;font-size:11px" onchange="rMv()"><option value="">— Catégorie</option></select>
+      <input type="date" id="mvf-from" style="flex:1;min-width:110px;padding:6px 9px;font-size:11px" onchange="rMv()" title="Date début">
+      <input type="date" id="mvf-to" style="flex:1;min-width:110px;padding:6px 9px;font-size:11px" onchange="rMv()" title="Date fin">
+      <button class="btn bs" style="font-size:10px;padding:5px 10px" onclick="clearMvFilters()">✕ Effacer</button>
+      <span class="sm mu" id="mvf-count"></span>
+    </div>
+    <div class="card scroll-x"><table class="tbl"><thead><tr><th>Date</th><th>Libellé</th><th>Immeuble</th><th>Catégorie</th><th>Qui</th><th style="text-align:right">Débit</th><th style="text-align:right">Crédit</th><th>N° Facture</th><th></th></tr></thead><tbody id="mv-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ── BAUX ── -->
+<div id="p-baux" class="hidden">
+  <div class="tb">
+    <div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Baux &amp; Locataires</div></div></div>
+    <div class="tb-act">
+      <select class="btn bs" id="baux-f" onchange="rBaux()" style="padding:7px 9px"><option value="">Tous</option></select>
+      <button class="btn bp" onclick="openBail(null)">+ Bail</button>
+    </div>
+  </div>
+  <div class="pc"><div class="baux-g" id="baux-g"></div></div>
+</div>
+
+<!-- ── ASSURANCES ── -->
+<div id="p-assurances" class="hidden">
+  <div class="tb">
+    <div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Assurances</div></div></div>
+    <div class="tb-act"><button class="btn bp" onclick="openM('m-ass')">+ SCI</button><button class="btn bs" onclick="openM('m-mrh')">+ MRH locataire</button></div>
+  </div>
+  <div class="pc">
+    <div class="tabs">
+      <div class="tab on" onclick="setAssTab('sci',this)">SCI (PNO / Crédit / RC)</div>
+      <div class="tab" onclick="setAssTab('loc',this)">MRH Locataires</div>
+    </div>
+    <div id="ass-sci-wrap"><div class="card scroll-x"><table class="tbl"><thead><tr><th>Bien</th><th>Type</th><th>Contrat</th><th>Assureur</th><th>Mensualité</th><th>Échéance</th><th>Statut</th><th></th></tr></thead><tbody id="ass-sci-tbody"></tbody></table></div></div>
+    <div id="ass-loc-wrap" class="hidden"><div class="card scroll-x"><table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th>Attestation</th><th>Valide jusqu'au</th><th>Assureur</th><th>Statut</th><th></th></tr></thead><tbody id="ass-loc-tbody"></tbody></table></div></div>
+  </div>
+</div>
+
+<!-- ── IRL ── -->
+<div id="p-irl" class="hidden">
+  <div class="tb">
+    <div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Révision IRL</div><div class="tb-sub">Appartement par appartement · IRL automatique</div></div></div>
+  </div>
+  <div class="pc">
+    <div class="card mb12">
+      <div class="ct">Base de données IRL INSEE (T1 2022 → présent)</div>
+      <div class="sm mu" style="margin-bottom:8px">L'IRL de référence et l'IRL en vigueur sont sélectionnés automatiquement selon la date de bail. Modifier manuellement si besoin.</div>
+      <div class="flex-b">
+        <div class="sm mu">Trimestre manquant ? <a href="https://www.insee.fr/fr/statistiques/serie/010516404" target="_blank" style="color:var(--blu)">Mettre à jour sur insee.fr</a></div>
+        <button class="btn bs sm" onclick="openM('m-irl-params')">⚙ Modifier valeurs IRL</button>
+      </div>
+    </div>
+    <div class="card"><div class="ct">Simulation par logement</div><div id="irl-rows"></div></div>
+  </div>
+</div>
+
+<!-- ── QUITTANCES ── -->
+<div id="p-quittances" class="hidden">
+  <div class="tb">
+    <div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Quittances PDF</div></div></div>
+    <div class="tb-act"><button class="btn bg2" onclick="genAllQuit()">Générer ce mois</button></div>
+  </div>
+  <div class="pc">
+    <div class="card mb12 scroll-x"><table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th>Mois</th><th>HC</th><th>Charges</th><th>CC</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="quit-tbody"></tbody></table></div>
+    <div id="pdf-quit-wrap" class="hidden">
+      <div class="flex-b mb8"><div style="font-size:12px;font-weight:500">Quittance — <span id="pdf-quit-lbl"></span></div><div class="flex gap8"><button class="btn bs" onclick="document.getElementById('pdf-quit-wrap').classList.add('hidden')">Fermer</button><button class="btn bp" onclick="window.print()">🖨 PDF</button></div></div>
+      <div class="pdf-wrap" id="pdf-quit-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LETTRES IRL ── -->
+<div id="p-lettres" class="hidden">
+  <div class="tb"><div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Lettres IRL</div></div></div></div>
+  <div class="pc">
+    <div class="g2">
+      <div class="card"><div class="ct">Sélectionner</div><div id="irl-letter-list"></div></div>
+      <div id="pdf-irl-wrap" class="hidden">
+        <div class="flex-b mb8"><div style="font-size:12px;font-weight:500">Aperçu</div><button class="btn bp" onclick="window.print()">🖨 PDF</button></div>
+        <div class="pdf-wrap" id="pdf-irl-content"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDL ── -->
+<div id="p-edl" class="hidden">
+  <div class="tb">
+    <div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">États des lieux</div><div class="tb-sub">Photos en direct · Templates mémorisés</div></div></div>
+    <div class="tb-act"><button class="btn bp" onclick="openNewEDL(null)">+ Nouvel EDL</button></div>
+  </div>
+  <div class="pc">
+    <div class="card scroll-x"><table class="tbl"><thead><tr><th>Logement</th><th>Type</th><th>Locataire</th><th>Date</th><th>Pièces</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="edl-tbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ── EDL COMPARE ── -->
+<div id="p-edl-compare" class="hidden">
+  <div class="tb"><div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Comparaison EDL</div></div></div></div>
+  <div class="pc">
+    <div class="g2 mb12">
+      <div class="fg"><label>EDL d'entrée</label><select id="cmp-in" onchange="rCompare()"></select></div>
+      <div class="fg"><label>EDL de sortie</label><select id="cmp-out" onchange="rCompare()"></select></div>
+    </div>
+    <div id="cmp-result"></div>
+  </div>
+</div>
+
+<!-- ── PARAMS ── -->
+<div id="p-params" class="hidden">
+  <div class="tb"><div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Référentiel &amp; Listes</div></div></div></div>
+  <div class="pc">
+    <div class="tabs" style="overflow-x:auto">
+      <div class="tab on" onclick="setTab('param','logements',this)">Logements</div>
+      <div class="tab" onclick="setTab('param','entites',this)">Entités SCI/SAS</div>
+      <div class="tab" onclick="setTab('param','cats',this)">Catégories</div>
+      <div class="tab" onclick="setTab('param','pieces',this)">Pièces EDL</div>
+    </div>
+    <div id="param-logements">
+      <div class="flex-b mb8"><div class="ct" style="margin:0">Logements</div><button class="btn bp" onclick="openParamLog(null)">+ Logement</button></div>
+      <div class="card scroll-x"><table class="tbl"><thead><tr><th>Réf.</th><th>Immeuble</th><th>Entité</th><th>Type</th><th>m²</th><th>HC</th><th>Ch.</th><th>Locataire</th><th></th></tr></thead><tbody id="param-log-tbody"></tbody></table></div>
+    </div>
+    <div id="param-entites" class="hidden">
+      <div class="flex-b mb8"><div class="ct" style="margin:0">Entités (SCI, SAS, perso...)</div><button class="btn bp" onclick="openParamEnt(null)">+ Entité</button></div>
+      <div class="card scroll-x"><table class="tbl"><thead><tr><th>Nom</th><th>Type</th><th>SIREN</th><th>Siège</th><th>Gérant</th><th>IBAN</th><th></th></tr></thead><tbody id="param-ent-tbody"></tbody></table></div>
+    </div>
+    <div id="param-cats" class="hidden">
+      <div class="flex-b mb8"><div class="ct" style="margin:0">Catégories</div><button class="btn bp" onclick="addCat()">+ Catégorie</button></div>
+      <div class="card" id="cat-list"></div>
+    </div>
+    <div id="param-pieces" class="hidden">
+      <div class="flex-b mb8"><div class="ct" style="margin:0">Pièces par défaut EDL</div><button class="btn bp" onclick="addDefPiece()">+ Pièce</button></div>
+      <div class="card" id="pieces-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── EXPORT ── -->
+<div id="p-export" class="hidden">
+  <div class="tb"><div class="tb-left"><button class="tb-menu" onclick="openSb()">☰</button><div><div class="tb-title">Export / Sauvegarde</div></div></div></div>
+  <div class="pc">
+    <div class="g2 mb12">
+      <div class="card">
+        <div class="ct">Exports CSV</div>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:6px">
+          <div class="flex-b" style="padding:8px;border:1px solid var(--bor);border-radius:var(--r)"><div><div style="font-size:12px;font-weight:500">Mouvements</div><div class="sm mu" id="exp-mv-c"></div></div><button class="btn bg2" onclick="exportCSV('mouvements')">CSV</button>
+            <button class="btn bg2" style="background:rgba(33,136,56,.15);border-color:rgba(33,136,56,.4);color:#2ea043" onclick="exportExcel()">📊 Excel comptable</button></div>
+          <div class="flex-b" style="padding:8px;border:1px solid var(--bor);border-radius:var(--r)"><div><div style="font-size:12px;font-weight:500">Logements</div><div class="sm mu" id="exp-lg-c"></div></div><button class="btn bg2" onclick="exportCSV('logements')">CSV</button></div>
+          <div class="flex-b" style="padding:8px;border:1px solid var(--bor);border-radius:var(--r)"><div><div style="font-size:12px;font-weight:500">Quittances</div><div class="sm mu" id="exp-qt-c"></div></div><button class="btn bg2" onclick="exportCSV('quittances')">CSV</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ct">Sauvegarde JSON complète</div>
+        <div style="font-size:11px;color:var(--t2);line-height:2;margin-bottom:12px">▸ Inclut toutes les données, EDL, templates<br>▸ Transfert entre appareils / navigateurs</div>
+        <div class="flex gap8 mb8"><button class="btn bg2 w100" onclick="exportJSON()">Exporter JSON</button></div>
+        <label class="btn bb w100" style="cursor:pointer;justify-content:center">Importer JSON<input type="file" accept=".json" style="display:none" onchange="importJSON(event)"></label>
+        <div class="sm mu mt8">💡 Google Drive : exporter le JSON et le glisser manuellement dans votre Drive. Une vraie sync auto nécessite un serveur OAuth2.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════ -->
+
+<!-- Mouvement -->
+<div id="m-mv" class="ov hidden" onclick="closeBg(event,'m-mv')">
+  <div class="modal modal-c" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2">Mouvement</div><button class="mc" onclick="closeM('m-mv')">×</button></div>
+    <div class="mb2">
+      <div class="fg2 mb8">
+        <div class="fg"><label>Date</label><input type="date" id="mv-date"></div>
+        <div class="fg"><label>Immeuble</label><select id="mv-imm"></select></div>
+        <div class="fg full"><label>Libellé</label><input type="text" id="mv-lib"></div>
+        <div class="fg"><label>Catégorie</label><select id="mv-cat"></select></div>
+        <div class="fg"><label>Logement (Qui)</label><select id="mv-qui"></select></div>
+        <div class="fg"><label>Débit € (charge)</label><input type="number" id="mv-db" step="0.01" placeholder="0.00"></div>
+        <div class="fg"><label>Crédit € (recette)</label><input type="number" id="mv-cr" step="0.01" placeholder="0.00"></div>
+        <div class="fg"><label>Référence</label><input type="text" id="mv-fac"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-mv')">Annuler</button><button class="btn bp" onclick="saveMv()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Bail complet (reprend infos entité + locataire) -->
+<div id="m-bail" class="ov hidden" onclick="closeBg(event,'m-bail')">
+  <div class="modal modal-c" style="max-width:860px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2" id="bail-mtitle">Bail de location</div><button class="mc" onclick="closeM('m-bail')">×</button></div>
+    <div class="mb2">
+      <!-- Entité bailleur -->
+      <div class="ct">Bailleur</div>
+      <div class="fg2 mb12">
+        <div class="fg"><label>Entité bailleur</label><select id="bl-entity" onchange="preFillBailEntity();autoBailDates()"></select></div>
+        <div class="fg"><label>Logement</label><select id="bl-ref" onchange="preFillBailLog()"></select></div>
+      </div>
+      <div id="bail-entity-preview" style="background:var(--sur);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:11px;color:var(--t2);display:none">
+        <span id="bail-entity-info"></span>
+      </div>
+      <div class="sep"></div>
+      <!-- Locataire 1 -->
+      <div class="ct">Locataire 1</div>
+      <div class="fg4 mb8">
+        <div class="fg full" style="grid-column:1/3"><label>Nom &amp; Prénom</label><input type="text" id="bl-nom" placeholder="NOM Prénom"></div>
+        <div class="fg"><label>Date de naissance</label><input type="date" id="bl-ddn"></div>
+        <div class="fg"><label>Lieu de naissance</label><input type="text" id="bl-lieu-naiss" placeholder="Ville (Dpt)"></div>
+        <div class="fg full" style="grid-column:1/-1"><label>Adresse actuelle</label><input type="text" id="bl-adr-loc"></div>
+        <div class="fg"><label>Téléphone</label><input type="tel" id="bl-tel"></div>
+        <div class="fg"><label>Email</label><input type="email" id="bl-mail"></div>
+      </div>
+      <!-- Locataires supplémentaires -->
+      <div id="extra-locs-container"></div>
+      <div class="flex gap8 mt8 mb12">
+        <button class="btn bs sm" onclick="addLocataire()" style="color:var(--blu)">+ Ajouter un co-locataire</button>
+        <div class="sm mu" style="align-self:center" id="extra-locs-count"></div>
+      </div>
+      <div class="sep"></div>
+      <!-- Garant -->
+      <div class="ct">Garant / Caution</div>
+      <div class="fg2 mb12">
+        <div class="fg"><label>Nom &amp; Prénom garant</label><input type="text" id="bl-garant" placeholder="Néant si aucun"></div>
+        <div class="fg"><label>Adresse garant</label><input type="text" id="bl-adr-garant"></div>
+        <div class="fg"><label>Date naissance garant</label><input type="date" id="bl-ddn-garant"></div>
+        <div class="fg"><label>Lieu naissance garant</label><input type="text" id="bl-lieu-garant"></div>
+      </div>
+      <div class="sep"></div>
+      <!-- Logement et financier -->
+      <div class="ct">Logement &amp; Conditions financières</div>
+      <div class="fg4 mb8">
+        <div class="fg"><label>Date de prise d'effet</label><input type="date" id="bl-deb" onchange="autoBailDates()"></div>
+        <div class="fg"><label>Fin bail <span id="bail-fin-hint" style="color:var(--t3);font-size:9px;font-weight:400"></span></label><input type="date" id="bl-fin"></div>
+        <div class="fg"><label>Loyer HC €</label><input type="number" id="bl-hc" step="0.01"></div>
+        <div class="fg"><label>Charges € / mois</label><input type="number" id="bl-ch" step="0.01"></div>
+        <div class="fg"><label>Dépôt de garantie €</label><input type="number" id="bl-dg" step="0.01"></div>
+        <div class="fg"><label>Jour de paiement</label><input type="number" id="bl-jpay" placeholder="5" min="1" max="31" value="5"></div>
+        <div class="fg"><label>IRL trimestre réf.</label><select id="bl-irl"><option>T1</option><option>T2</option><option>T3</option><option value="T3" selected>T3</option><option>T4</option></select></div>
+        <div class="fg"><label>Zone loyer</label><select id="bl-zone"><option>Non tendue</option><option>Zone tendue</option></select></div>
+      </div>
+      <div class="sep"></div>
+      <!-- Diagnostics DDT -->
+      <div class="ct">Dossier de Diagnostics Techniques (DDT)</div>
+      <div class="fg4 mb8">
+        <div class="fg"><label>Classe DPE</label><select id="bl-dpe"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
+        <div class="fg"><label>GES</label><select id="bl-ges"><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
+        <div class="fg"><label>Date DPE</label><input type="date" id="bl-dpe-date"></div>
+        <div class="fg"><label>Diagnostiqueur (nom)</label><input type="text" id="bl-diag" placeholder="Cabinet DIAGIMMO"></div>
+        <div class="fg"><label>Société diagnostiqueur</label><input type="text" id="bl-diag-soc" placeholder="DIAGIMMO SAS — 12 rue du Rhône 67000 Strasbourg"></div>
+        <div class="fg"><label>ERP (risques et pollutions)</label><select id="bl-erp"><option>Non soumis</option><option>Soumis</option></select></div>
+        <div class="fg"><label>Plomb / CREP</label><select id="bl-plomb"><option>Absence</option><option>Présence</option><option>N/A (post-1949)</option></select></div>
+        <div class="fg"><label>Amiante</label><select id="bl-amiante"><option>Absence</option><option>Présence</option><option>N/A (post-1997)</option></select></div>
+        <div class="fg"><label>Électricité</label><select id="bl-elec"><option>Conforme</option><option>Non conforme</option><option>N/A (- 15 ans)</option></select></div>
+        <div class="fg"><label>Gaz</label><select id="bl-gaz"><option>Conforme</option><option>Non conforme</option><option>N/A (- 15 ans)</option></select></div>
+        <div class="fg"><label>Bruit (zone d'exposition)</label><select id="bl-bruit"><option>Non soumis</option><option>Soumis</option></select></div>
+        <div class="fg"><label>Ville de signature bail</label><input type="text" id="bl-ville-sig" placeholder="Strasbourg"></div>
+      </div>
+            <div class="sep"></div>
+      <!-- Désignation logement -->
+      <div class="ct">Désignation détaillée du logement</div>
+      <div class="fg2 mb8">
+        <div class="fg full"><label>⚠ Adresse complète du bien loué</label><input type="text" id="bl-adr-bien" placeholder="3 avenue du Général de Gaulle, Résidence Les Érables, 57800 Freyming-Merlebach"></div>
+      </div>
+      <div class="fg4 mb8">
+        <div class="fg"><label>Type (F1/F2/F3…)</label><input type="text" id="bl-ftype" placeholder="F3"></div>
+        <div class="fg"><label>Étage</label><input type="text" id="bl-etage-bail" placeholder="1er"></div>
+        <div class="fg"><label>Surface habitable m²</label><input type="number" id="bl-surf" step="0.01"></div>
+        <div class="fg"><label>Nb pièces principales</label><input type="number" id="bl-npp" min="1"></div>
+        <div class="fg full"><label>Désignation des pièces</label><input type="text" id="bl-pieces-desc" placeholder="entrée / séjour / cuisine / 1 chambre / salle de bains / WC"></div>
+        <div class="fg"><label>Parties communes</label><input type="text" id="bl-parties-communes" placeholder="Hall / escaliers / Néant"></div>
+        <div class="fg"><label>Chauffage</label><input type="text" id="bl-chauff" placeholder="Individuel électrique"></div>
+        <div class="fg"><label>Annexes privatives</label><input type="text" id="bl-annexes" placeholder="Cave n°X / Néant"></div>
+        <div class="fg"><label>N° lot copropriété</label><input type="text" id="bl-lot" placeholder="N/A"></div>
+        <div class="fg"><label>Numéro fiscal du bien</label><input type="text" id="bl-fiscal-bien" placeholder="57248-C-0347"></div>
+      </div>
+            <div class="sep"></div>
+      <div class="fg full"><label>Notes internes (non imprimées)</label><textarea id="bl-notes" rows="2"></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeM('m-bail')">Annuler</button>
+      <button class="btn bg2" onclick="saveBailAndGenDoc()" title="Enregistrer et générer le contrat Word (.docx)">📄 Enregistrer + DOCX</button>
+      <button class="btn bp" onclick="saveBail()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assurance SCI -->
+<div id="m-ass" class="ov hidden" onclick="closeBg(event,'m-ass')">
+  <div class="modal modal-c" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2">Assurance SCI</div><button class="mc" onclick="closeM('m-ass')">×</button></div>
+    <div class="mb2">
+      <div class="fg2">
+        <div class="fg"><label>Bien assuré</label><input type="text" id="as-bien"></div>
+        <div class="fg"><label>Type</label><select id="as-type"><option>PNO</option><option>Multirisque Immeuble</option><option>Assurance Crédit Emprunteur</option><option>RC Propriétaire</option><option>GLI</option></select></div>
+        <div class="fg"><label>N° contrat</label><input type="text" id="as-ct"></div>
+        <div class="fg"><label>Assureur</label><input type="text" id="as-assureur"></div>
+        <div class="fg"><label>Mensualité €</label><input type="number" id="as-mois" step="0.01"></div>
+        <div class="fg"><label>Échéance</label><input type="date" id="as-fin"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-ass')">Annuler</button><button class="btn bp" onclick="saveAss()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- MRH -->
+<div id="m-mrh" class="ov hidden" onclick="closeBg(event,'m-mrh')">
+  <div class="modal modal-c" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2">Attestation MRH</div><button class="mc" onclick="closeM('m-mrh')">×</button></div>
+    <div class="mb2">
+      <div class="fg2">
+        <div class="fg"><label>Logement</label><select id="mrh-log" onchange="preFillMRH()"></select></div>
+        <div class="fg"><label>Locataire</label><input type="text" id="mrh-loc"></div>
+        <div class="fg"><label>Date attestation reçue</label><input type="date" id="mrh-date"></div>
+        <div class="fg"><label>Valide jusqu'au</label><input type="date" id="mrh-fin"></div>
+        <div class="fg"><label>Assureur</label><input type="text" id="mrh-assureur"></div>
+        <div class="fg"><label>N° police</label><input type="text" id="mrh-police"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-mrh')">Annuler</button><button class="btn bp" onclick="saveMRH()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- IRL params -->
+<div id="m-irl-params" class="ov hidden" onclick="closeBg(event,'m-irl-params')">
+  <div class="modal modal-c" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2">Valeurs IRL INSEE</div><button class="mc" onclick="closeM('m-irl-params')">×</button></div>
+    <div class="mb2">
+      <div class="sm mu mb8">Format : Trimestre AAAA → valeur. Exemple : T3 2025 → 145.11</div>
+      <div id="irl-params-list"></div>
+      <div class="flex gap8 mt8">
+        <input type="text" id="irl-new-key" placeholder="T3 2025" style="flex:1">
+        <input type="number" id="irl-new-val" placeholder="145.11" step="0.01" style="flex:1">
+        <button class="btn bp" onclick="addIRLVal()">+</button>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bp" onclick="closeM('m-irl-params')">Fermer</button></div>
+  </div>
+</div>
+
+<!-- EDL -->
+<div id="m-edl" class="ov hidden" onclick="closeBg(event,'m-edl')">
+  <div class="modal modal-c" style="max-width:900px" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2" id="edl-mtitle">Nouvel EDL</div><button class="mc" onclick="closeM('m-edl')">×</button></div>
+    <div class="mb2">
+      <div class="fg4 mb12">
+        <div class="fg"><label>Logement</label><select id="edl-log" onchange="loadEDLTemplate()"></select></div>
+        <div class="fg"><label>Type</label><select id="edl-type"><option>Entrée</option><option>Sortie</option></select></div>
+        <div class="fg"><label>Locataire</label><input type="text" id="edl-loc"></div>
+        <div class="fg"><label>Date</label><input type="date" id="edl-date"></div>
+      </div>
+      <div class="fg3 mb12">
+        <div class="fg"><label>Relevé eau (m³)</label><input type="text" id="edl-eau" placeholder="1234.5"></div>
+        <div class="fg"><label>Relevé élec. (kWh)</label><input type="text" id="edl-elec" placeholder="5678"></div>
+        <div class="fg"><label>Gaz / autre</label><input type="text" id="edl-gaz" placeholder="321 m³"></div>
+      </div>
+      <div class="flex-b mb8">
+        <div style="font-size:12px;font-weight:500">Pièces &amp; équipements</div>
+        <div class="flex gap6">
+          <button class="btn bs sm" onclick="addPieceEDL()">+ Pièce</button>
+          <button class="btn bs sm" onclick="addChambreEDL()">+ Chambre</button>
+        </div>
+      </div>
+      <div id="edl-pieces-container"></div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-edl')">Annuler</button><button class="btn bp" onclick="saveEDL()">Enregistrer l'EDL</button></div>
+  </div>
+</div>
+
+<!-- Param Logement -->
+<div id="m-param-log" class="ov hidden" onclick="closeBg(event,'m-param-log')">
+  <div class="modal modal-c" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2">Logement</div><button class="mc" onclick="closeM('m-param-log')">×</button></div>
+    <div class="mb2">
+      <div class="fg2">
+        <div class="fg"><label>Référence</label><input type="text" id="pl-ref"></div>
+        <div class="fg"><label>Immeuble</label><input type="text" id="pl-imm" placeholder="Freyming, Damelevières..."></div>
+        <div class="fg"><label>Entité SCI</label><select id="pl-entity"></select></div>
+        <div class="fg"><label>Type</label><select id="pl-type"><option>T1</option><option>T2</option><option>T3</option><option>T4</option><option>T5</option><option>Local commercial</option><option>Cave / Garage</option></select></div>
+        <div class="fg"><label>Surface m²</label><input type="number" id="pl-surf"></div>
+        <div class="fg"><label>Étage</label><input type="text" id="pl-etage" placeholder="RDC, 1er..."></div>
+        <div class="fg full"><label>Adresse complète</label><input type="text" id="pl-adr"></div>
+        <div class="fg"><label>Loyer HC €</label><input type="number" id="pl-hc" step="0.01"></div>
+        <div class="fg"><label>Charges €</label><input type="number" id="pl-ch" step="0.01"></div>
+        <div class="fg full"><label>Notes</label><textarea id="pl-notes" rows="2"></textarea></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-param-log')">Annuler</button><button class="btn bp" onclick="saveParamLog()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Param Entité -->
+<div id="m-param-ent" class="ov hidden" onclick="closeBg(event,'m-param-ent')">
+  <div class="modal modal-c" onclick="event.stopPropagation()">
+    <div class="mh"><div class="mt2">Entité juridique</div><button class="mc" onclick="closeM('m-param-ent')">×</button></div>
+    <div class="mb2">
+      <div class="fg2">
+        <div class="fg full"><label>Nom</label><input type="text" id="pe-nom" placeholder="SCI DD FREYMING, SCI SMARTOSAURUS, Perso..."></div>
+        <div class="fg"><label>Type</label><select id="pe-type"><option>SCI IS</option><option>SCI IR</option><option>SAS</option><option>SARL</option><option>Personne physique</option><option>Indivision</option></select></div>
+        <div class="fg"><label>SIREN / SIRET</label><input type="text" id="pe-siren"></div>
+        <div class="fg"><label>N° RCS (tribunal)</label><input type="text" id="pe-rcs" placeholder="994 086 379 R.C.S. Colmar"></div>
+        <div class="fg"><label>Gérant(s)</label><input type="text" id="pe-gerant" placeholder="Marion Raimbeaux, Didier Keller"></div>
+        <div class="fg full"><label>Siège social</label><input type="text" id="pe-siege" placeholder="10 B Sentier de la Luss — 68000 COLMAR"></div>
+        <div class="fg"><label>IBAN</label><input type="text" id="pe-iban" placeholder="FR76..."></div>
+        <div class="fg"><label>BIC</label><input type="text" id="pe-bic"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeM('m-param-ent')">Annuler</button><button class="btn bp" onclick="saveParamEnt()">Enregistrer</button></div>
+  </div>
+</div>
+
+
+
+
+
+
 <script>
 // ═══════════════════════════════════════════════════
 // IRL TABLE (INSEE officielle, trimestres récents)
@@ -24900,6 +25774,7 @@ function rPage(p){
   else if(p==='edl-compare')rCmpSelects();
   else if(p==='params')rParams();
   else if(p==='export')rExport();
+  else if(p==='regul')rRegulInit();
 }
 
 function setTab(ctx,f,el){
@@ -26844,82 +27719,33 @@ function rExport(){
   document.getElementById('exp-lg-c').textContent=DB.logements.length+' logements';
   document.getElementById('exp-qt-c').textContent=DB.quittances.length+' quittances';
 }
-function colRef(n){let s="";n++;while(n>0){s=String.fromCharCode(64+(n%26||26))+s;n=Math.floor((n-(n%26||26))/26);}return s;}
-function escXML(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
-function crc32(data){let crc=0xFFFFFFFF;for(let i=0;i<data.length;i++){let b=(crc^data[i])&0xFF;for(let j=0;j<8;j++)b=(b&1)?(0xEDB88320^(b>>>1)):(b>>>1);crc=(crc>>>8)^b;}return(crc^0xFFFFFFFF)>>>0;}
-function buildZip(files){const enc=new TextEncoder();const parts=[];const cd=[];let off=0;for(const[name,content]of Object.entries(files)){const nb=enc.encode(name);const db=typeof content==="string"?enc.encode(content):content;const crc=crc32(db);const lh=new Uint8Array(30+nb.length);const dv=new DataView(lh.buffer);dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint32(14,crc,true);dv.setUint32(18,db.length,true);dv.setUint32(22,db.length,true);dv.setUint16(26,nb.length,true);lh.set(nb,30);cd.push({nb,off,crc,sz:db.length});parts.push(lh,db);off+=lh.length+db.length;}const cdp=[];let cdsz=0;for(const{nb,off:o,crc,sz}of cd){const c=new Uint8Array(46+nb.length);const dv=new DataView(c.buffer);dv.setUint32(0,0x02014b50,true);dv.setUint16(4,20,true);dv.setUint16(6,20,true);dv.setUint32(16,crc,true);dv.setUint32(20,sz,true);dv.setUint32(24,sz,true);dv.setUint16(28,nb.length,true);dv.setUint32(42,o,true);c.set(nb,46);cdp.push(c);cdsz+=c.length;}const eocd=new Uint8Array(22);const ev=new DataView(eocd.buffer);ev.setUint32(0,0x06054b50,true);ev.setUint16(8,cd.length,true);ev.setUint16(10,cd.length,true);ev.setUint32(12,cdsz,true);ev.setUint32(16,off,true);const all=[...parts,...cdp,eocd];const tot=all.reduce((s,a)=>s+a.length,0);const out=new Uint8Array(tot);let pos=0;for(const a of all){out.set(a,pos);pos+=a.length;}return out;}
-function makeXLSX(sheets){const strs=[];const strIdx={};const si=(s)=>{const k=String(s??"");if(strIdx[k]===undefined){strIdx[k]=strs.length;strs.push(k);}return strIdx[k];};const sheetXMLs=sheets.map(({rows})=>'<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+rows.map((row,ri)=>'<row r="'+(ri+1)+'">'+row.map((cell,ci)=>{const ref=colRef(ci)+(ri+1);if(cell===null||cell===undefined||cell==="")return"";if(typeof cell==="number")return'<c r="'+ref+'" t="n"><v>'+cell+'</v></c>';return'<c r="'+ref+'" t="s"><v>'+si(cell)+'</v></c>';}).join("")+'</row>').join("")+'</sheetData></worksheet>');const ssXML='<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+strs.length+'" uniqueCount="'+strs.length+'">'+strs.map(s=>'<si><t xml:space="preserve">'+escXML(s)+'</t></si>').join("")+'</sst>';const files={"[Content_Types].xml":'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+sheets.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("")+'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>',"_rels/.rels":'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',"xl/workbook.xml":'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((s,i)=>'<sheet name="'+escXML(s.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join("")+'</sheets></workbook>',"xl/_rels/workbook.xml.rels":'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+'<Relationship Id="rId'+(sheets.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/></Relationships>',"xl/sharedStrings.xml":ssXML};sheets.forEach((s,i)=>{files["xl/worksheets/sheet"+(i+1)+".xml"]=sheetXMLs[i];});return buildZip(files);}
 
-function exportExcel(){
-  try{
-  const XL=window.XLSX||window._XL||(typeof XLSX!=='undefined'?XLSX:null);
-  if(!XL||!XL.utils){alert('XLSX non chargé. Rechargez la page et réessayez.\n\nXLSX='+typeof window.XLSX+' _XL='+typeof window._XL);return;}
-  const wb=XL.utils.book_new();
 
-  // Mouvements
-  const wsMv=XL.utils.aoa_to_sheet([
-    ['Date','Libellé','Immeuble','Catégorie','Qui','Débit €','Crédit €','N° Facture'],
-    ...DB.mouvements.map(m=>[m.date,m.lib,m.imm||'',m.cat||'',m.qui||'',m.db||0,m.cr||0,m.fac||''])
-  ]);
-  wsMv['!cols']=[{wch:12},{wch:45},{wch:18},{wch:22},{wch:20},{wch:10},{wch:10},{wch:14}];
-  XL.utils.book_append_sheet(wb,wsMv,'Mouvements');
 
-  // Synthèse par catégorie
-  const bycat={};
-  DB.mouvements.forEach(m=>{
-    const y=new Date(m.date).getFullYear(),cat=m.cat||'Divers',k=y+'|'+cat;
-    if(!bycat[k])bycat[k]={year:y,cat,db:0,cr:0};
-    bycat[k].db+=m.db||0;bycat[k].cr+=m.cr||0;
-  });
-  const wsSyn=XL.utils.aoa_to_sheet([
-    ['Année','Catégorie','Charges €','Revenus €','Net €'],
-    ...Object.values(bycat).sort((a,b)=>b.year-a.year||a.cat.localeCompare(b.cat))
-      .map(r=>[r.year,r.cat,r.db,r.cr,r.cr-r.db])
-  ]);
-  wsSyn['!cols']=[{wch:8},{wch:25},{wch:12},{wch:12},{wch:12}];
-  XL.utils.book_append_sheet(wb,wsSyn,'Synthèse catégories');
 
-  // Loyers mensuels
-  const lm={};
-  DB.mouvements.filter(m=>m.cat==='Loyers').forEach(m=>{
-    const d=new Date(m.date),k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-    if(!lm[k])lm[k]={};
-    lm[k][m.qui||m.imm||'?']=(lm[k][m.qui||m.imm||'?']||0)+(m.cr||0);
-  });
+
+
+
+
+function colRef(n){let s='';n++;while(n>0){s=String.fromCharCode(64+(n%26||26))+s;n=Math.floor((n-(n%26||26))/26);}return s;}
+function _escX(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _crc32(d){let c=0xFFFFFFFF;for(let i=0;i<d.length;i++){let b=(c^d[i])&0xFF;for(let j=0;j<8;j++)b=(b&1)?(0xEDB88320^(b>>>1)):(b>>>1);c=(c>>>8)^b;}return(c^0xFFFFFFFF)>>>0;}
+function _buildZip(files){const enc=new TextEncoder();const pts=[];const cd=[];let off=0;for(const[name,content]of Object.entries(files)){const nb=enc.encode(name);const db=typeof content==='string'?enc.encode(content):content;const crc=_crc32(db);const lh=new Uint8Array(30+nb.length);const dv=new DataView(lh.buffer);dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint32(14,crc,true);dv.setUint32(18,db.length,true);dv.setUint32(22,db.length,true);dv.setUint16(26,nb.length,true);lh.set(nb,30);cd.push({nb,off,crc,sz:db.length});pts.push(lh,db);off+=lh.length+db.length;}const cdp=[];let cdsz=0;for(const{nb,off:o,crc,sz}of cd){const c=new Uint8Array(46+nb.length);const dv=new DataView(c.buffer);dv.setUint32(0,0x02014b50,true);dv.setUint16(4,20,true);dv.setUint16(6,20,true);dv.setUint32(16,crc,true);dv.setUint32(20,sz,true);dv.setUint32(24,sz,true);dv.setUint16(28,nb.length,true);dv.setUint32(42,o,true);c.set(nb,46);cdp.push(c);cdsz+=c.length;}const eocd=new Uint8Array(22);const ev=new DataView(eocd.buffer);ev.setUint32(0,0x06054b50,true);ev.setUint16(8,cd.length,true);ev.setUint16(10,cd.length,true);ev.setUint32(12,cdsz,true);ev.setUint32(16,off,true);const all=[...pts,...cdp,eocd];const tot=all.reduce((s,a)=>s+a.length,0);const out=new Uint8Array(tot);let pos=0;for(const a of all){out.set(a,pos);pos+=a.length;}return out;}
+function makeXLSX(sheets){const strs=[];const idx={};const si=s=>{const k=String(s??'');if(idx[k]===undefined){idx[k]=strs.length;strs.push(k);}return idx[k];};const wXMLs=sheets.map(({rows})=>'<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+rows.map((row,ri)=>'<row r="'+(ri+1)+'">'+row.map((cell,ci)=>{const ref=colRef(ci)+(ri+1);if(cell===null||cell===undefined||cell==='')return'';if(typeof cell==='number')return'<c r="'+ref+'" t="n"><v>'+cell+'</v></c>';return'<c r="'+ref+'" t="s"><v>'+si(cell)+'</v></c>';}).join('')+'</row>').join('')+'</sheetData></worksheet>');const ss='<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+strs.length+'" uniqueCount="'+strs.length+'">'+strs.map(s=>'<si><t xml:space="preserve">'+_escX(s)+'</t></si>').join('')+'</sst>';const f={'[Content_Types].xml':'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+sheets.map((_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>','_rels/.rels':'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>','xl/workbook.xml':'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((s,i)=>'<sheet name="'+_escX(s.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join('')+'</sheets></workbook>','xl/_rels/workbook.xml.rels':'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('')+'<Relationship Id="rId'+(sheets.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/></Relationships>','xl/sharedStrings.xml':ss};sheets.forEach((s,i)=>{f['xl/worksheets/sheet'+(i+1)+'.xml']=wXMLs[i];});return _buildZip(f);}
+function exportExcel(){try{
+  const mvRows=[['Date','Libellé','Immeuble','Catégorie','Qui','Débit €','Crédit €','N° Facture'],...DB.mouvements.map(m=>[m.date||'',m.lib||'',m.imm||'',m.cat||'',m.qui||'',m.db||0,m.cr||0,m.fac||''])];
+  const bycat={};DB.mouvements.forEach(m=>{const y=new Date(m.date).getFullYear(),cat=m.cat||'Divers',k=y+'|'+cat;if(!bycat[k])bycat[k]={year:y,cat,db:0,cr:0};bycat[k].db+=m.db||0;bycat[k].cr+=m.cr||0;});
+  const synRows=[['Année','Catégorie','Charges €','Revenus €','Net €'],...Object.values(bycat).sort((a,b)=>b.year-a.year||a.cat.localeCompare(b.cat)).map(r=>[r.year,r.cat,r.db,r.cr,r.cr-r.db])];
+  const lm={};DB.mouvements.filter(m=>m.cat==='Loyers').forEach(m=>{const d=new Date(m.date),k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');if(!lm[k])lm[k]={};lm[k][m.qui||'?']=(lm[k][m.qui||'?']||0)+(m.cr||0);});
   const refs=DB.logements.map(l=>l.ref);
-  const wsLoy=XL.utils.aoa_to_sheet([
-    ['Mois',...refs,'Total'],
-    ...Object.keys(lm).sort().map(mois=>{
-      const vals=refs.map(r=>lm[mois][r]||0);
-      return[mois,...vals,vals.reduce((s,v)=>s+v,0)];
-    })
-  ]);
-  wsLoy['!cols']=[{wch:10},...refs.map(()=>({wch:10})),{wch:10}];
-  XL.utils.book_append_sheet(wb,wsLoy,'Loyers mensuels');
-
-  // Logements
-  const wsLog=XL.utils.aoa_to_sheet([
-    ['Ref','Immeuble','Entité','Locataire','Loyer HC','Charges','DG','Début','Fin','Email','Tél'],
-    ...DB.logements.map(l=>[l.ref,l.imm,l.entity,l.locataire,l.hc,l.ch,l.dg,l.debut,l.fin,l.mail||'',l.tel||''])
-  ]);
-  wsLog['!cols']=[{wch:10},{wch:18},{wch:22},{wch:25},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12},{wch:25},{wch:14}];
-  XL.utils.book_append_sheet(wb,wsLog,'Logements');
-
-  // Browser download via base64
-  const b64 = XL.write(wb, {bookType:'xlsx', type:'base64'});
-  if(!b64){alert('Échec génération Excel (write returned empty)');return;}
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
-  const blob = new Blob([arr], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'ImmoTrack_Comptable_' + new Date().toISOString().slice(0,10) + '.xlsx';
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);}, 200);
-  }catch(err){alert('Erreur export Excel : '+err.message);}
-}
+  const loyRows=[['Mois',...refs,'Total'],...Object.keys(lm).sort().map(mois=>{const vals=refs.map(r=>lm[mois][r]||0);return[mois,...vals,vals.reduce((s,v)=>s+v,0)];})];
+  const logRows=[['Ref','Immeuble','Entité','Locataire','HC','Charges','DG','Début','Fin'],...DB.logements.map(l=>[l.ref,l.imm,l.entity,l.locataire,l.hc,l.ch,l.dg,l.debut||'',l.fin||''])];
+  const bytes=makeXLSX([{name:'Mouvements',rows:mvRows},{name:'Synthèse',rows:synRows},{name:'Loyers',rows:loyRows},{name:'Logements',rows:logRows}]);
+  const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download='ImmoTrack_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},200);
+}catch(err){alert('Erreur: '+err.message);}}
 
 function exportCSV(type){
   let csv='',fn='';
@@ -27050,8 +27876,345 @@ function migrateDB(){
   DB.mouvements.forEach(m=>{if(m.fac===undefined){m.fac='';changed=true;}});
   if(changed)save();
 }
-window.onload=()=>{migrateDB();initFilters();rDash();};
+
+// ══════════════════════════════════════════════
+// RÉGULARISATION DES CHARGES
+// ══════════════════════════════════════════════
+
+function computeRegul(from, to){
+  // Returns {byLog: {ref: {ref,imm,locataire,ch,reel,detail,provisions}}}
+  const dFrom=new Date(from), dTo=new Date(to);
+  const nbMois=(dTo.getFullYear()-dFrom.getFullYear())*12+(dTo.getMonth()-dFrom.getMonth())+1;
+  const chargeMvs=DB.mouvements.filter(m=>{
+    if(m.cat!=='Charges'||!m.date)return false;
+    const d=new Date(m.date);return d>=dFrom&&d<=dTo;
+  });
+  const byLog={};
+  DB.logements.forEach(l=>{byLog[l.ref]={ref:l.ref,imm:l.imm,entity:l.entity,locataire:l.locataire,ch:l.ch||0,reel:0,detail:[],provisions:(l.ch||0)*nbMois};});
+  chargeMvs.forEach(m=>{
+    const mt=m.db||0;if(!mt)return;
+    const logMatch=DB.logements.find(l=>l.ref===m.qui);
+    if(logMatch){byLog[logMatch.ref].reel+=mt;byLog[logMatch.ref].detail.push({lib:m.lib,date:m.date,mt,rep:'100%'});return;}
+    const logsImm=m.imm?DB.logements.filter(l=>l.imm===m.imm):DB.logements;
+    if(!logsImm.length)return;
+    const share=mt/logsImm.length,pct=Math.round(100/logsImm.length)+'%';
+    logsImm.forEach(l=>{if(!byLog[l.ref])return;byLog[l.ref].reel+=share;byLog[l.ref].detail.push({lib:m.lib,date:m.date,mt:share,rep:pct+' de '+fmt(mt)});});
+  });
+  return{byLog,nbMois};
+}
+
+function rRegul(){
+  const from=document.getElementById('regul-from').value;
+  const to=document.getElementById('regul-to').value;
+
+  // Build entity tabs
+  const tabsEl=document.getElementById('regul-ent-tabs');
+  if(tabsEl){
+    const ents=['Tous',...DB.entites.map(e=>e.nom)];
+    const cur=tabsEl.dataset.active||'Tous';
+    tabsEl.innerHTML=ents.map(e=>{
+      const safe=e.replace(/'/g,'&#39;');
+      return '<div class="tab '+(e===cur?'on':'')+'" onclick="setRegulEnt(\''+safe+'\')">'+(e==='Tous'?'🏢 Tous':e)+'</div>';
+    }).join('');
+  }
+  const activeEnt=tabsEl?.dataset.active||'Tous';
+
+  // Build immeuble selector
+  const immSel=document.getElementById('regul-imm');
+  const curImm=immSel?.value||'';
+  const imms=[...new Set(DB.logements.filter(l=>activeEnt==='Tous'||l.entity===activeEnt).map(l=>l.imm).filter(Boolean))].sort();
+  if(immSel){
+    immSel.innerHTML='<option value="">Tous les immeubles</option>'+imms.map(i=>'<option value="'+i+'"'+(i===curImm?' selected':'')+'>'+i+'</option>').join('');
+  }
+
+  if(!from||!to){
+    document.getElementById('regul-cards').innerHTML='<div class="sm mu" style="padding:20px;grid-column:1/-1">Sélectionner une période.</div>';
+    return;
+  }
+
+  const{byLog,nbMois}=computeRegul(from,to);
+
+  // Filter
+  let logs=Object.values(byLog).sort((a,b)=>(a.imm+a.ref).localeCompare(b.imm+b.ref));
+  if(activeEnt!=='Tous') logs=logs.filter(l=>l.entity===activeEnt);
+  if(curImm) logs=logs.filter(l=>l.imm===curImm);
+
+  // KPIs
+  const totalProv=logs.reduce((s,l)=>s+l.provisions,0);
+  const totalReel=logs.reduce((s,l)=>s+l.reel,0);
+  const totalDelta=totalReel-totalProv;
+  const nPos=logs.filter(l=>l.reel-l.provisions>0.5).length;
+  const nNeg=logs.filter(l=>l.reel-l.provisions<-0.5).length;
+
+  document.getElementById('regul-kpis').innerHTML=`
+    <div class="kpi"><div class="kpi-l">Période</div><div class="kpi-v" style="font-size:12px">${from}<br>→ ${to}</div><div class="kpi-d">${nbMois} mois</div></div>
+    <div class="kpi"><div class="kpi-l">Provisions perçues</div><div class="kpi-v" style="color:var(--grn)">${fmt(totalProv)}</div><div class="kpi-d">${logs.length} logements</div></div>
+    <div class="kpi"><div class="kpi-l">Charges réelles</div><div class="kpi-v" style="color:var(--red)">${fmt(totalReel)}</div></div>
+    <div class="kpi"><div class="kpi-l">Solde global</div><div class="kpi-v" style="color:${totalDelta>0?'var(--red)':totalDelta<0?'var(--grn)':'var(--t2)'}">${totalDelta>0?'+':''}${fmt(totalDelta)}</div><div class="kpi-d">${nPos} à rappeler · ${nNeg} à rembourser</div></div>`;
+
+  // Cards
+  document.getElementById('regul-cards').innerHTML=logs.map(l=>{
+    const delta=l.reel-l.provisions;
+    const isPos=delta>0.5, isNeg=delta<-0.5;
+    const deltaColor=isPos?'var(--red)':isNeg?'var(--grn)':'var(--t2)';
+    const deltaIcon=isPos?'⬆':'⬇';
+    const deltaLabel=isPos?'À rappeler':isNeg?'À rembourser':'Équilibré';
+    const pct=l.provisions>0?Math.round(l.reel/l.provisions*100):0;
+
+    return`<div class="card" style="position:relative;cursor:default">
+      <!-- Checkbox sélection -->
+      <label style="position:absolute;top:10px;right:10px;cursor:pointer">
+        <input type="checkbox" class="regul-cb" data-ref="${l.ref}" style="width:16px;height:16px">
+      </label>
+
+      <!-- En-tête logement -->
+      <div style="margin-bottom:12px;padding-right:28px">
+        <div style="font-size:13px;font-weight:700">${l.ref} <span style="color:var(--t3);font-weight:400">· ${l.imm}</span></div>
+        <div style="font-size:11px;color:var(--t2)">${l.locataire}</div>
+      </div>
+
+      <!-- Bulle solde principale -->
+      <div style="background:${isPos?'rgba(248,81,73,.1)':isNeg?'rgba(63,185,80,.1)':'rgba(100,100,100,.08)'};border:1px solid ${isPos?'rgba(248,81,73,.3)':isNeg?'rgba(63,185,80,.3)':'var(--bor)'};border-radius:var(--rl);padding:12px;margin-bottom:10px;text-align:center">
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px">${deltaLabel}</div>
+        <div style="font-size:26px;font-weight:800;color:${deltaColor};font-family:var(--s)">${(isPos?'+':'')}${fmt(delta)}</div>
+        <div style="font-size:10px;color:var(--t3)">${nbMois} mois</div>
+      </div>
+
+      <!-- Barre de progression -->
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-bottom:3px">
+          <span>Provisions ${fmt(l.provisions)}</span>
+          <span>${pct}% consommé</span>
+        </div>
+        <div style="height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(pct,200)}%;background:${pct>110?'var(--red)':pct>90?'var(--ora)':'var(--grn)'};border-radius:3px;transition:width .3s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:3px">
+          <span>Réel ${fmt(l.reel)}</span>
+          <span>${l.detail.length} ligne${l.detail.length>1?'s':''} de charges</span>
+        </div>
+      </div>
+
+      <!-- Bouton document -->
+      <button class="btn bp" style="width:100%;font-size:11px;padding:7px" onclick="printRegulLog('${l.ref}')">
+        📄 Document officiel ${l.ref}
+      </button>
+    </div>`;
+  }).join('')||'<div class="sm mu" style="padding:20px;grid-column:1/-1">Aucun logement pour cette sélection.</div>';
+}
+
+function setRegulEnt(ent){
+  const tabsEl=document.getElementById('regul-ent-tabs');
+  if(tabsEl)tabsEl.dataset.active=ent;
+  // Reset immeuble filter
+  const immSel=document.getElementById('regul-imm');
+  if(immSel)immSel.value='';
+  rRegul();
+}
+
+function regulSelectAll(checked){
+  document.querySelectorAll('.regul-cb').forEach(cb=>cb.checked=checked);
+}
+
+function printRegulSelected(){
+  const refs=[...document.querySelectorAll('.regul-cb:checked')].map(cb=>cb.dataset.ref);
+  if(!refs.length){alert('Sélectionner au moins un logement.');return;}
+  const from=document.getElementById('regul-from').value;
+  const to=document.getElementById('regul-to').value;
+  _openRegulDoc(refs,from,to);
+}
+
+function printRegulAll(){
+  const from=document.getElementById('regul-from').value;
+  const to=document.getElementById('regul-to').value;
+  const{byLog}=computeRegul(from,to);
+  const activeEnt=document.getElementById('regul-ent-tabs')?.dataset.active||'Tous';
+  const curImm=document.getElementById('regul-imm')?.value||'';
+  let refs=Object.keys(byLog).filter(ref=>{
+    const l=byLog[ref];
+    if(activeEnt!=='Tous'&&l.entity!==activeEnt)return false;
+    if(curImm&&l.imm!==curImm)return false;
+    return true;
+  });
+  _openRegulDoc(refs,from,to);
+}
+
+function printRegulLog(ref){
+  const from=document.getElementById('regul-from').value;
+  const to=document.getElementById('regul-to').value;
+  _openRegulDoc([ref],from,to);
+}
+
+function _openRegulDoc(refs,from,to){
+  const{byLog,nbMois}=computeRegul(from,to);
+  const ent=DB.entites[0]||{};
+
+  const pages=refs.sort().map(ref=>{
+    const l=byLog[ref];if(!l)return'';
+    const delta=l.reel-l.provisions;
+    const isPos=delta>0.5,isNeg=delta<-0.5;
+    const b=DB.baux[ref]||{};
+    const detailRows=l.detail.map(d=>`
+      <tr>
+        <td>${fd(d.date)}</td>
+        <td>${d.lib||'—'}</td>
+        <td style="text-align:right">${fmt(d.mt)}</td>
+        <td style="text-align:right;color:#888;font-size:11px">${d.rep}</td>
+      </tr>`).join('');
+
+    return`<div class="page">
+      <div class="header-block">
+        <div>
+          <strong>${ent.nom||'Bailleur'}</strong><br>
+          ${ent.siege||''}<br>
+          ${ent.rcs?'<small>RCS '+ent.rcs+'</small>':''}
+        </div>
+        <div style="text-align:right">
+          <strong>Décompte de charges locatives</strong><br>
+          Période : ${from} au ${to} (${nbMois} mois)<br>
+          Date d'édition : ${new Date().toLocaleDateString('fr-FR')}
+        </div>
+      </div>
+
+      <div style="display:flex;gap:24px;margin:16px 0;padding:12px;background:#f9f9f9;border-radius:6px">
+        <div style="flex:1">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px">Logement</div>
+          <strong>${l.ref}</strong> — ${l.imm}<br>
+          ${b.adrBien||''}
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px">Locataire</div>
+          <strong>${l.locataire}</strong><br>
+          Bail du ${fd(b.debut||'')}
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr style="background:#f0f0f0">
+            <th style="text-align:left">Date</th>
+            <th style="text-align:left">Libellé</th>
+            <th style="text-align:right">Montant</th>
+            <th style="text-align:right">Répartition</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${detailRows||'<tr><td colspan="4" style="text-align:center;color:#888;padding:12px">Aucune charge sur la période</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid #333">
+            <td colspan="2"><strong>TOTAL CHARGES RÉELLES</strong></td>
+            <td style="text-align:right"><strong>${fmt(l.reel)}</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="margin-top:20px;border:2px solid #333;border-radius:6px;padding:16px">
+        <table style="width:100%">
+          <tr>
+            <td>Provisions versées (${nbMois} × ${fmt(l.ch)}/mois)</td>
+            <td style="text-align:right;color:green"><strong>${fmt(l.provisions)}</strong></td>
+          </tr>
+          <tr>
+            <td>Charges réelles de la période</td>
+            <td style="text-align:right;color:#c00"><strong>${fmt(l.reel)}</strong></td>
+          </tr>
+          <tr style="border-top:1px solid #ccc">
+            <td><strong>${isPos?'Complément à payer par le locataire':isNeg?'Remboursement dû au locataire':'Solde équilibré'}</strong></td>
+            <td style="text-align:right;font-size:20px;font-weight:800;color:${isPos?'#c00':isNeg?'green':'#555'}">
+              ${isPos?'+':''}${fmt(delta)}
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="margin-top:32px;display:flex;gap:40px">
+        <div style="flex:1;border-top:1px solid #333;padding-top:6px;text-align:center;font-size:11px">Le Bailleur<br>(${ent.gerant||ent.nom||''})</div>
+        <div style="flex:1;border-top:1px solid #333;padding-top:6px;text-align:center;font-size:11px">Le Locataire<br>(${l.locataire})</div>
+      </div>
+
+      <div style="margin-top:12px;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:8px">
+        Document établi conformément à l'article 23 de la loi n° 89-462 du 6 juillet 1989 et au décret n° 87-713 du 26 août 1987.
+        Les justificatifs sont tenus à disposition pendant un mois à compter de l'envoi du présent décompte.
+      </div>
+    </div>`;
+  }).join('<div style="page-break-after:always"></div>');
+
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Décompte charges ${from}→${to}</title>
+    <style>
+      *{box-sizing:border-box}
+      body{font-family:Arial,sans-serif;font-size:12px;color:#222;margin:0;padding:0}
+      .page{max-width:800px;margin:0 auto;padding:32px;min-height:100vh}
+      .header-block{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #222}
+      table{width:100%;border-collapse:collapse;margin-top:12px}
+      th,td{padding:6px 8px;border-bottom:1px solid #eee;vertical-align:top}
+      th{font-size:11px;color:#555;text-transform:uppercase;font-weight:600}
+      .no-print{display:flex;gap:8px;padding:16px;background:#f5f5f5;position:sticky;top:0;z-index:10}
+      @media print{.no-print{display:none!important}.page{padding:16px}div[style*="page-break"]{page-break-after:always}}
+    </style></head><body>
+    <div class="no-print">
+      <button onclick="window.print()" style="padding:8px 20px;background:#1a1a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px">🖨 Imprimer / PDF</button>
+      <button onclick="window.close()" style="padding:8px 16px;background:#eee;color:#333;border:none;border-radius:4px;cursor:pointer;font-size:13px">✕ Fermer</button>
+      <span style="margin-left:8px;font-size:12px;color:#666">${refs.length} logement${refs.length>1?'s':''} · ${from} → ${to}</span>
+    </div>
+    ${pages}
+  </body></html>`);
+  win.document.close();
+}
+
+function rRegulInit(){
+  const ny=new Date().getFullYear();
+  const frEl=document.getElementById('regul-from');
+  const toEl=document.getElementById('regul-to');
+  if(frEl&&!frEl.value)frEl.value=ny+'-01-01';
+  if(toEl&&!toEl.value)toEl.value=ny+'-12-31';
+  rRegul();
+}
+
+window.onload=()=>{
+  migrateDB();initFilters();rDash();
+
+};
 </script>
+
+
+<!-- ── RÉGULARISATION DES CHARGES ── -->
+<div id="p-regul" class="hidden">
+  <div class="tb">
+    <div class="tb-left">
+      <button class="tb-menu" onclick="openSb()">☰</button>
+      <div><div class="tb-title">Régularisation des charges</div><div class="tb-sub">Calcul et document officiel par logement</div></div>
+    </div>
+    <div class="tb-act">
+      <input type="date" id="regul-from" style="padding:7px 9px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor);color:var(--tx);font-size:12px" onchange="rRegul()">
+      <span style="color:var(--t3);font-size:12px">→</span>
+      <input type="date" id="regul-to" style="padding:7px 9px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor);color:var(--tx);font-size:12px" onchange="rRegul()">
+    </div>
+  </div>
+  <!-- Filtres entité + immeuble -->
+  <div style="background:var(--sur);border-bottom:1px solid var(--bor);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="tabs" id="regul-ent-tabs" style="flex:1;min-width:200px;border:none;padding:0"></div>
+    <select id="regul-imm" class="btn bs" style="padding:6px 10px;font-size:12px" onchange="rRegul()">
+      <option value="">Tous les immeubles</option>
+    </select>
+  </div>
+  <div class="pc">
+    <div id="regul-kpis" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--t3)">
+        <label style="cursor:pointer"><input type="checkbox" id="regul-select-all" onchange="regulSelectAll(this.checked)" style="margin-right:6px">Tout sélectionner</label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bs" onclick="printRegulSelected()" style="font-size:11px">📄 Imprimer sélection</button>
+        <button class="btn bp" onclick="printRegulAll()" style="font-size:11px">🖨 Tout imprimer</button>
+      </div>
+    </div>
+    <div id="regul-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px"></div>
+  </div>
+</div>
 
 <!-- Drive file picker modal -->
 <div id="m-drive-picker" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px">
@@ -27229,6 +28392,42 @@ function showToast(msg){
 })();
 </script>
 
+
+
+<!-- ── RÉGULARISATION DES CHARGES ── -->
+<div id="p-regul" class="hidden">
+  <div class="tb">
+    <div class="tb-left">
+      <button class="tb-menu" onclick="openSb()">☰</button>
+      <div><div class="tb-title">Régularisation des charges</div><div class="tb-sub">Calcul et document officiel par logement</div></div>
+    </div>
+    <div class="tb-act">
+      <input type="date" id="regul-from" style="padding:7px 9px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor);color:var(--tx);font-size:12px" onchange="rRegul()">
+      <span style="color:var(--t3);font-size:12px">→</span>
+      <input type="date" id="regul-to" style="padding:7px 9px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor);color:var(--tx);font-size:12px" onchange="rRegul()">
+    </div>
+  </div>
+  <!-- Filtres entité + immeuble -->
+  <div style="background:var(--sur);border-bottom:1px solid var(--bor);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="tabs" id="regul-ent-tabs" style="flex:1;min-width:200px;border:none;padding:0"></div>
+    <select id="regul-imm" class="btn bs" style="padding:6px 10px;font-size:12px" onchange="rRegul()">
+      <option value="">Tous les immeubles</option>
+    </select>
+  </div>
+  <div class="pc">
+    <div id="regul-kpis" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--t3)">
+        <label style="cursor:pointer"><input type="checkbox" id="regul-select-all" onchange="regulSelectAll(this.checked)" style="margin-right:6px">Tout sélectionner</label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn bs" onclick="printRegulSelected()" style="font-size:11px">📄 Imprimer sélection</button>
+        <button class="btn bp" onclick="printRegulAll()" style="font-size:11px">🖨 Tout imprimer</button>
+      </div>
+    </div>
+    <div id="regul-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px"></div>
+  </div>
+</div>
 
 <!-- Drive file picker modal -->
 <div id="m-drive-picker" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px">
