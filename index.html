@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.17</title>
+<title>ImmoTrack v12.18</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -790,6 +790,75 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 6 — Cartes entité / immeuble / logement cliquables
+   (cahier §3.8 : simple clic partout, progressive disclosure, drill 4 niveaux)
+   ══════════════════════════════════════════════════════════════ */
+.dw-ent-card{
+  cursor:pointer;
+  transition:transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
+}
+.dw-ent-card:hover{
+  transform:translateY(-1px);
+  box-shadow:var(--shadow-card-hover);
+  border-color:rgba(59,126,246,.4);
+}
+.dw-ent-card:focus-visible{outline:2px solid var(--fg-info);outline-offset:2px}
+.dw-imm-bulle{
+  cursor:pointer;
+  transition:transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
+}
+.dw-imm-bulle:hover{
+  transform:translateY(-1px);
+  box-shadow:0 3px 10px rgba(59,126,246,.15);
+  border-color:rgba(59,126,246,.4)!important;
+}
+.dw-log-mini{
+  cursor:pointer;
+  transition:transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
+}
+.dw-log-mini:hover{
+  transform:translateY(-1px);
+  box-shadow:0 2px 6px rgba(59,126,246,.15);
+  border-color:rgba(59,126,246,.4)!important;
+}
+.dw-ent-toggle{
+  background:var(--sur2);border:1px solid var(--bor);border-radius:16px;
+  padding:4px 12px;font-size:11px;font-weight:600;color:var(--t2);
+  cursor:pointer;transition:all var(--t-fast);white-space:nowrap;
+}
+.dw-ent-toggle:hover{
+  background:var(--sur3);color:var(--t1);border-color:var(--fg-info);
+}
+.dw-ent-collapsed-imms{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.dw-ent-collapsed-imm{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:8px 12px;background:var(--sur2);
+  border:1px solid var(--bor);border-radius:var(--r);
+  font-size:12px;cursor:pointer;transition:all var(--t-fast);
+}
+.dw-ent-collapsed-imm:hover{background:var(--sur3);border-color:rgba(59,126,246,.4)}
+.dw-ent-collapsed-imm-name{
+  font-weight:500;color:var(--t1);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+/* Modale ov-ent-detail — scope chip + bouton parent (cahier §3.8.7) */
+.ov-ent-scope-wrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ov-ent-scope-chip{
+  display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;
+  font-size:11px;font-weight:700;letter-spacing:.3px;
+  background:var(--bg-info);color:var(--fg-info);white-space:nowrap;
+}
+.ov-ent-scope-chip.scope-immeuble{background:var(--bg-warning);color:var(--fg-warning)}
+.ov-ent-scope-chip.scope-logement{background:var(--bg-success);color:var(--fg-success)}
+.ov-ent-parent-btn{
+  background:transparent;border:1px solid var(--bor);border-radius:16px;
+  padding:3px 10px;font-size:11px;color:var(--t2);cursor:pointer;
+  transition:all var(--t-fast);font-weight:500;
+  max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.ov-ent-parent-btn:hover{background:var(--sur2);color:var(--t1);border-color:var(--fg-info)}
+
+/* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 5 — Charts enrichis dans les drill-downs
    ══════════════════════════════════════════════════════════════ */
 .drill-chart{
@@ -1037,7 +1106,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.17</em>
+      <em>v12.18</em>
     </div>
   </div>
 
@@ -1701,7 +1770,11 @@ textarea.inp{resize:vertical;min-height:70px}
 <div class="ov hidden" id="ov-ent-detail" onclick="closeBg(event,'ov-ent-detail')">
 <div class="modal xl" style="max-height:90vh;overflow-y:auto">
   <div class="m-head">
-    <h3 id="ov-ent-title">Détail entité</h3>
+    <div class="ov-ent-scope-wrap">
+      <button class="ov-ent-parent-btn" id="ov-ent-parent-btn" style="display:none" onclick="_navToParent()">‹ Retour</button>
+      <span class="ov-ent-scope-chip" id="ov-ent-scope-chip">Entité</span>
+      <h3 id="ov-ent-title" style="margin:0">Détail</h3>
+    </div>
     <div class="flex-c">
       <button class="btn bs bb" id="ov-ent-loyers-btn" onclick="drillEntToLoyers()">💶 Mouvements</button>
       <button class="m-close" onclick="closeM('ov-ent-detail')">✕</button>
@@ -3922,9 +3995,10 @@ function rDash() {
   renderDashGrid(layout, _dashCtx);
 
   const entsToShow = activeEnt ? DB.entites.filter(e=>e.nom===activeEnt) : DB.entites;
+  const escAttr = s => String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   el('dash-ent-cards').innerHTML = entsToShow.map(e=>{
     const eLogs = DB.logements.filter(l=>l.entity===e.nom);
-    const eImms = [...new Set(eLogs.map(l=>l.imm))];
+    const eImms = [...new Set(eLogs.map(l=>l.imm).filter(Boolean))];
     const eMvs  = DB.mouvements.filter(m=>{
       if(!m.date?.startsWith(yr)) return false;
       if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
@@ -3936,7 +4010,30 @@ function rDash() {
     const eOcc = eLogs.filter(l=>l.locataire).length;
     const byImm = {};
     eLogs.forEach(l=>{ const k=l.imm||'—'; if(!byImm[k]) byImm[k]=[]; byImm[k].push(l); });
-    const immBulles = Object.entries(byImm).map(([imm,iLogs])=>{
+
+    // v2 Phase 6 — Progressive disclosure : plié si > 2 immeubles (config user)
+    const canCollapse = eImms.length > 2;
+    const expanded = _isEntExpanded(e.nom);
+    const showFullBulles = !canCollapse || expanded;
+
+    // Vue pliée : liste compacte d'immeubles (un clic → drill immeuble)
+    const immCollapsedList = Object.entries(byImm).map(([imm, iLogs]) => {
+      const iRefs = iLogs.map(l => l.ref);
+      const iMvs = DB.mouvements.filter(m => {
+        if(!m.date?.startsWith(yr)) return false;
+        if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
+        return iRefs.includes(m.qui) || m.imm === imm;
+      });
+      const iRes = iMvs.reduce((s,m)=>s+(m.cr||0),0) - iMvs.reduce((s,m)=>s+(m.db||0),0);
+      const iOcc = iLogs.filter(l => l.locataire).length;
+      return `<div class="dw-ent-collapsed-imm" onclick="_immBulleClick(event,'${escAttr(imm)}')" role="button" tabindex="0" aria-label="Voir le détail ${escHtml(imm)}">`
+        + `<span class="dw-ent-collapsed-imm-name">\ud83c\udfe2 ${escHtml(imm)}</span>`
+        + `<span style="font-size:11px;color:var(--t2);white-space:nowrap">${iOcc}/${iLogs.length} logement(s) \u00b7 <b class="${iRes>=0?'pos':'neg'}">${iRes>=0?'+':''}${fmt(iRes)}</b></span>`
+        + `</div>`;
+    }).join('');
+
+    // Vue dépliée : bulles immeuble avec mini-cartes logement
+    const immFullBulles = Object.entries(byImm).map(([imm,iLogs])=>{
       const iRefs = iLogs.map(l=>l.ref);
       const iMvs  = DB.mouvements.filter(m=>{
         if(!m.date?.startsWith(yr)) return false;
@@ -3947,16 +4044,16 @@ function rDash() {
       const iDb  = iMvs.reduce((s,m)=>s+(m.db||0),0);
       const iRes = iCr - iDb;
       const iOcc = iLogs.filter(l=>l.locataire).length;
-      return `<div class="card mb8" style="background:var(--bg);cursor:pointer" title="Double-clic \u2192 d\u00e9tail ${imm}" ondblclick="event.stopPropagation();drillToImm('${imm.replace(/'/g,"\\\\'")}')">`
-        +`<div class="flex-b mb8"><div class="flex-c" style="gap:8px"><b style="font-size:13px">\ud83c\udfe2 ${imm}<\/b><span class="mu sm">${iOcc}/${iLogs.length} logement(s)<\/span><\/div><\/div>`
+      return `<div class="card dw-imm-bulle mb8" style="background:var(--bg)" onclick="_immBulleClick(event,'${escAttr(imm)}')" role="button" tabindex="0" aria-label="Voir le détail ${escHtml(imm)}">`
+        +`<div class="flex-b mb8"><div class="flex-c" style="gap:8px"><b style="font-size:13px">\ud83c\udfe2 ${escHtml(imm)}<\/b><span class="mu sm">${iOcc}/${iLogs.length} logement(s)<\/span><\/div><\/div>`
         +`<div class="g3 mb10" style="gap:10px;padding:8px 10px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">`
         +`<div><div class="mu sm" style="font-size:10px">Recettes<\/div><div class="pos" style="font-size:14px;font-weight:600">${fmt(iCr)}<\/div><\/div>`
         +`<div><div class="mu sm" style="font-size:10px">D\u00e9penses<\/div><div class="neg" style="font-size:14px;font-weight:600">${fmt(iDb)}<\/div><\/div>`
         +`<div><div class="mu sm" style="font-size:10px">R\u00e9sultat<\/div><div class="${iRes>=0?'pos':'neg'}" style="font-size:14px;font-weight:700">${fmt(iRes)}<\/div><\/div><\/div>`
         +`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">${iLogs.map(l=>{
           const hc=l.hc||0, ch=l.ch||0, att=hc+ch;
-          if(!l.locataire) return `<div style="padding:9px 11px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">`
-            +`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:12px">${l.ref}<\/b><span class="badge red" style="font-size:10px">Vacant<\/span><\/div>`
+          if(!l.locataire) return `<div class="dw-log-mini" style="padding:9px 11px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)" onclick="_logMiniClick(event,'${escAttr(l.ref)}')" role="button" tabindex="0" aria-label="Voir le détail ${escHtml(l.ref)}">`
+            +`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:12px">${escHtml(l.ref)}<\/b><span class="badge red" style="font-size:10px">Vacant<\/span><\/div>`
             +`<div style="font-size:12px;color:var(--t2)">${att>0?'Th\u00e9orique\u00a0: '+fmt(att):'—'}<\/div><\/div>`;
           const enc = DB.mouvements.filter(m=>m.qui===l.ref&&m.cat==='Loyers'&&m.cr>0&&m.date&&m.date.startsWith(refYrMo)).reduce((s,m)=>s+(m.cr||0),0);
           const reste=Math.max(0,att-enc), payeC=enc>=att, partP=enc>0&&!payeC;
@@ -3964,21 +4061,34 @@ function rDash() {
           const ic=payeC?'var(--grn)':partP?'var(--ora)':'var(--red)';
           const si=payeC?'\u2713':partP?'~':'\u2717';
           const sbg=payeC?'rgba(63,185,80,.15)':partP?'rgba(240,136,62,.15)':'rgba(248,81,73,.12)';
-          return `<div style="padding:9px 11px;background:var(--sur2);border-radius:var(--r);border:1px solid ${bdc}">`
-            +`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:12px">${l.ref}<\/b><span style="font-size:11px;font-weight:700;color:${ic};background:${sbg};padding:1px 6px;border-radius:10px">${si}<\/span><\/div>`
+          return `<div class="dw-log-mini" style="padding:9px 11px;background:var(--sur2);border-radius:var(--r);border:1px solid ${bdc}" onclick="_logMiniClick(event,'${escAttr(l.ref)}')" role="button" tabindex="0" aria-label="Voir le détail ${escHtml(l.ref)}">`
+            +`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:12px">${escHtml(l.ref)}<\/b><span style="font-size:11px;font-weight:700;color:${ic};background:${sbg};padding:1px 6px;border-radius:10px">${si}<\/span><\/div>`
             +`<div style="font-size:11px;color:var(--t2);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(l.locataire)}">${escHtml(l.locataire)}<\/div>`
             +`<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;font-weight:700;color:var(--t1)">${fmt(att)}<\/span><span style="font-size:11px;color:var(--t2)">HC ${fmt(hc)}${ch>0?' + ch '+fmt(ch):''}<\/span><\/div>`
             +`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;padding-top:4px;border-top:1px solid var(--bor)"><span style="font-size:11px;color:var(--t3)">Reste \u00e0 payer<\/span><span style="font-size:13px;font-weight:700;color:${reste>0?'var(--red)':'var(--grn)'}">${fmt(reste)}<\/span><\/div><\/div>`;
         }).join('')}<\/div><\/div>`;
     }).join('');
-    return `<div class="card mb12" style="cursor:pointer" title="Double-clic \u2192 d\u00e9tail entit\u00e9" ondblclick="drillToEnt('${e.nom.replace(/'/g,"\\\\'")}')">
-      <div class="flex-b mb8"><div><b>${escHtml(e.nom)}<\/b><span class="badge gry" style="margin-left:6px">${escHtml(e.type)}<\/span><\/div><span class="mu sm">${eOcc}/${eLogs.length} logement(s)<\/span><\/div>
+
+    const toggleBtn = canCollapse
+      ? `<button class="dw-ent-toggle" onclick="toggleEntExpand('${escAttr(e.nom)}',event)" aria-expanded="${expanded}">${expanded ? '\u2039 Replier' : 'Voir les logements \u203a'}</button>`
+      : '';
+
+    return `<div class="card dw-ent-card mb12" onclick="_entCardClick('${escAttr(e.nom)}')" role="button" tabindex="0" aria-label="Voir le détail de ${escHtml(e.nom)}">
+      <div class="flex-b mb8">
+        <div><b>${escHtml(e.nom)}<\/b><span class="badge gry" style="margin-left:6px">${escHtml(e.type)}<\/span><\/div>
+        <div class="flex-c" style="gap:10px">
+          <span class="mu sm">${eOcc}/${eLogs.length} logement(s)<\/span>
+          ${toggleBtn}
+        <\/div>
+      <\/div>
       <div class="g3 mb10" style="gap:12px">
         <div><div class="mu sm">Recettes<\/div><div class="pos" style="font-size:15px;font-weight:600">${fmt(eCr)}<\/div><\/div>
         <div><div class="mu sm">D\u00e9penses<\/div><div class="neg" style="font-size:15px;font-weight:600">${fmt(eDb)}<\/div>${eSci>0?`<div style="font-size:10px;color:var(--t3)">dont ${fmt(eSci)} SCI<\/div>`:''}<\/div>
         <div><div class="mu sm">R\u00e9sultat<\/div><div class="${eCr-eDb>=0?'pos':'neg'}" style="font-size:15px;font-weight:600">${fmt(eCr-eDb)}<\/div><\/div>
       <\/div>
-      ${immBulles}
+      ${showFullBulles
+        ? immFullBulles
+        : `<div class="dw-ent-collapsed-imms">${immCollapsedList}<\/div>`}
     <\/div>`;
   }).join('');
 
@@ -5937,6 +6047,7 @@ let _drillEntNom = '';
 let _drillEntImm = '';
 
 function drillToEnt(nom) {
+  if(typeof _dashEditMode !== 'undefined' && _dashEditMode) return;
   _drillEntNom = nom; _drillEntImm = '';
   const yr = v('dash-year') || new Date().getFullYear().toString();
   const mo = v('dash-mois');
@@ -5948,10 +6059,11 @@ function drillToEnt(nom) {
     if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
     return eLogs.some(l=>l.ref===m.qui) || eImms.includes(m.imm) || m.qui==='SCI:'+nom;
   });
-  _showEntModal(nom, e, eMvs);
+  _showEntModal(nom, e, eMvs, {scope:'Entité'});
 }
 
 function drillToImm(imm) {
+  if(typeof _dashEditMode !== 'undefined' && _dashEditMode) return;
   _drillEntNom = ''; _drillEntImm = imm;
   const yr = v('dash-year') || new Date().getFullYear().toString();
   const mo = v('dash-mois');
@@ -5962,11 +6074,94 @@ function drillToImm(imm) {
     if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
     return iLogs.some(l=>l.ref===m.qui) || m.imm===imm;
   });
-  _showEntModal(imm, ent, eMvs);
+  _showEntModal(imm, ent, eMvs, {scope:'Immeuble', parent:ent.nom||'', parentType:'Entité'});
 }
 
-function _showEntModal(titre, ent, mvs) {
+/* v2 Phase 6 — Drill logement (niveau 4, cahier §3.8.6).
+   Ouvre la modale ov-ent-detail scopée sur un logement spécifique avec :
+   - Mouvements du logement sur la période sélectionnée
+   - Scope chip "Logement" + bouton retour vers immeuble parent */
+function drillToLog(ref) {
+  if(typeof _dashEditMode !== 'undefined' && _dashEditMode) return;
+  const log = DB.logements.find(l => l.ref === ref);
+  if(!log) return;
+  _drillEntNom = log.entity||''; _drillEntImm = log.imm||'';
+  const yr = v('dash-year') || new Date().getFullYear().toString();
+  const mo = v('dash-mois');
+  const logMvs = DB.mouvements.filter(m => {
+    if(!m.date || !m.date.startsWith(yr)) return false;
+    if(mo && new Date(m.date+'T00:00:00').getMonth()+1 !== parseInt(mo)) return false;
+    return m.qui === ref;
+  });
+  const titleDetail = log.locataire ? ref+' — '+log.locataire : ref+' (vacant)';
+  _showEntModal(titleDetail, {nom:ref, type:'Logement', locataire:log.locataire, imm:log.imm, entity:log.entity}, logMvs,
+    {scope:'Logement', parent:log.imm||'', parentType:'Immeuble'});
+}
+
+/* v2 Phase 6 — Handlers de clic avec stopPropagation pour gérer
+   la hiérarchie carte entité > bulle immeuble > mini-carte logement. */
+function _entCardClick(name) { drillToEnt(name); }
+function _immBulleClick(ev, imm) {
+  if(ev) ev.stopPropagation();
+  drillToImm(imm);
+}
+function _logMiniClick(ev, ref) {
+  if(ev) ev.stopPropagation();
+  drillToLog(ref);
+}
+
+/* v2 Phase 6 — Progressive disclosure (cahier §3.8.5).
+   Par défaut : plié si > 2 immeubles. Persistance par entité dans DB.params.entExpanded. */
+function _isEntExpanded(name) {
+  const imms = [...new Set(DB.logements.filter(l => l.entity === name).map(l => l.imm).filter(Boolean))];
+  const autoExpanded = imms.length <= 2;
+  if(DB.params && DB.params.entExpanded && DB.params.entExpanded[name] !== undefined) {
+    return DB.params.entExpanded[name];
+  }
+  return autoExpanded;
+}
+function toggleEntExpand(name, ev) {
+  if(ev) ev.stopPropagation();
+  if(!DB.params) DB.params = {};
+  if(!DB.params.entExpanded) DB.params.entExpanded = {};
+  DB.params.entExpanded[name] = !_isEntExpanded(name);
+  saveDB();
+  rDash();
+}
+
+/* v2 Phase 6 — Navigation vers le parent depuis la modale (bouton "‹ Entité"). */
+function _navToParent() {
+  const btn = el('ov-ent-parent-btn');
+  if(!btn) return;
+  const parent = btn.dataset.parent;
+  const type = btn.dataset.parentType;
+  if(!parent) return;
+  if(type === 'Immeuble') drillToImm(parent);
+  else drillToEnt(parent);
+}
+
+function _showEntModal(titre, ent, mvs, opts) {
+  opts = opts || {};
   el('ov-ent-title').textContent = titre;
+  // v2 Phase 6 — Scope chip + bouton parent (cahier §3.8.7)
+  const scope = opts.scope || 'Entité';
+  const chip = el('ov-ent-scope-chip');
+  if(chip) {
+    chip.textContent = scope;
+    chip.className = 'ov-ent-scope-chip scope-'+scope.toLowerCase().replace(/[éè]/g,'e');
+  }
+  const parentBtn = el('ov-ent-parent-btn');
+  if(parentBtn) {
+    if(opts.parent) {
+      parentBtn.textContent = '‹ '+opts.parent;
+      parentBtn.style.display = '';
+      parentBtn.dataset.parent = opts.parent;
+      parentBtn.dataset.parentType = opts.parentType || 'Entité';
+    } else {
+      parentBtn.style.display = 'none';
+      parentBtn.dataset.parent = '';
+    }
+  }
   const totCr = mvs.reduce((s,m)=>s+(m.cr||0),0);
   const totDb = mvs.reduce((s,m)=>s+(m.db||0),0);
   const cashFlow = totCr - totDb;
