@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.15</title>
+<title>ImmoTrack v12.16</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -672,6 +672,14 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 .dw-hero-meta-sep{color:var(--t3);opacity:.6}
 .dw-hero-meta strong{color:var(--t1);font-weight:600}
+/* Ligne loyers impayés (Phase 4 polish) */
+.dw-hero-impaye{
+  flex-basis:100%;margin-top:6px;padding-top:6px;
+  border-top:1px dashed var(--bor);
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;color:var(--fg-danger);
+}
+.dw-hero-impaye strong{color:var(--fg-danger);font-weight:700}
 .dw-hero-right{flex-shrink:0}
 .dw-hero-spark{display:block}
 /* Sparkline wrapper + axe tous-labels (cahier §3.2 — contexte temporel) */
@@ -782,54 +790,85 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 
 /* ══════════════════════════════════════════════════════════════
-   DASHBOARD v2 Phase 4 — Carte "À traiter" unifiée (cahier §3.5)
+   DASHBOARD v2 Phase 4 polish — "À traiter" en 4 quadrants
+   (refonte user : 4 catégories cliquables vers onglets métier)
    ══════════════════════════════════════════════════════════════ */
 .dw-todo-head{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;
 }
 .dw-todo-title{font-size:14px;font-weight:600;color:var(--t1);letter-spacing:-.01em}
 .dw-todo-count{
   font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
-  background:var(--bg-info);color:var(--fg-info);white-space:nowrap;
+  background:var(--bg-success);color:var(--fg-success);white-space:nowrap;
 }
 .dw-todo-count.red{background:var(--bg-danger);color:var(--fg-danger)}
 .dw-todo-count.ora{background:var(--bg-warning);color:var(--fg-warning)}
-.dw-todo-count.grn{background:var(--bg-success);color:var(--fg-success)}
+.dw-todo-count.info{background:var(--bg-info);color:var(--fg-info)}
+
+/* Grille 2×2 des 4 catégories (MRH · IRL · Équipement · Régul) */
+.dw-todo-quads{
+  display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:8px;
+  min-height:0;flex:1;
+}
+.dw-todo-quad{
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:10px 12px;border-radius:var(--r);
+  background:var(--sur2);border:1px solid var(--bor);
+  cursor:pointer;min-width:0;min-height:0;
+  transition:transform var(--t-fast),box-shadow var(--t-fast),border-color var(--t-fast);
+}
+.dw-todo-quad:hover{transform:translateY(-1px);box-shadow:var(--shadow-card-hover)}
+.dw-todo-quad.red   {border-color:var(--fg-danger);  background:var(--bg-danger)}
+.dw-todo-quad.ora   {border-color:var(--fg-warning); background:var(--bg-warning)}
+.dw-todo-quad.info  {border-color:var(--fg-info);    background:var(--bg-info)}
+.dw-todo-quad.grn   {border-color:var(--fg-success); background:var(--bg-success)}
+.dw-todo-quad-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.dw-todo-quad-label{
+  font-size:11px;color:var(--t2);font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+  display:flex;align-items:center;gap:5px;min-width:0;
+}
+.dw-todo-quad-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-todo-quad.red .dw-todo-quad-label{color:var(--fg-danger)}
+.dw-todo-quad.ora .dw-todo-quad-label{color:var(--fg-warning)}
+.dw-todo-quad.info .dw-todo-quad-label{color:var(--fg-info)}
+.dw-todo-quad.grn .dw-todo-quad-label{color:var(--fg-success)}
+.dw-todo-quad-count{
+  font-family:'Manrope',sans-serif;font-size:26px;font-weight:600;line-height:1;
+  color:var(--t1);
+}
+.dw-todo-quad.red .dw-todo-quad-count{color:var(--fg-danger)}
+.dw-todo-quad.ora .dw-todo-quad-count{color:var(--fg-warning)}
+.dw-todo-quad.info .dw-todo-quad-count{color:var(--fg-info)}
+.dw-todo-quad.grn .dw-todo-quad-count{color:var(--fg-success)}
+.dw-todo-quad-sub{
+  font-size:10px;color:var(--t3);line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.dw-todo-empty-full{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:16px;flex:1;
+  background:var(--bg-success);border-radius:var(--r);
+  color:var(--fg-success);font-size:13px;font-weight:500;text-align:center;
+}
+.dw-todo-empty-full::before{content:'\2713';font-size:22px;font-weight:700}
+
+/* Legacy list styles (drill modal) */
 .dw-todo-list{display:flex;flex-direction:column;gap:6px;min-width:0}
 .dw-todo-item{
   display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);
   background:transparent;border:1px solid transparent;
-  cursor:pointer;transition:background var(--t-fast),border-color var(--t-fast);
-  min-width:0;
+  cursor:pointer;transition:background var(--t-fast);
 }
 .dw-todo-item:hover{background:var(--sur2);border-color:var(--bor)}
-.dw-todo-dot{
-  width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--fg-info);
-}
+.dw-todo-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--fg-info)}
 .dw-todo-dot.red{background:var(--fg-danger)}
 .dw-todo-dot.ora{background:var(--fg-warning)}
 .dw-todo-dot.info{background:var(--fg-info)}
 .dw-todo-body{flex:1;min-width:0;overflow:hidden}
-.dw-todo-itemtitle{
-  font-size:13px;font-weight:500;color:var(--t1);line-height:1.3;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
-.dw-todo-sub{
-  font-size:11px;color:var(--t2);line-height:1.3;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
+.dw-todo-itemtitle{font-size:13px;font-weight:500;color:var(--t1);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-todo-sub{font-size:11px;color:var(--t2);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dw-todo-arrow{color:var(--t3);font-size:13px;flex-shrink:0;opacity:0;transition:opacity var(--t-fast)}
 .dw-todo-item:hover .dw-todo-arrow{opacity:1}
-.dw-todo-more{
-  font-size:11px;color:var(--t3);margin-top:4px;padding:5px 10px;
-  text-align:center;font-style:italic;
-}
-.dw-todo-empty{
-  display:flex;align-items:center;gap:10px;padding:16px;
-  background:var(--bg-success);border-radius:var(--r);
-  color:var(--fg-success);font-size:13px;font-weight:500;
-}
-.dw-todo-empty::before{content:'\2713';font-size:18px;font-weight:700}
 
 /* Liste à barres horizontales — charges par catégorie (layout col 3 row 2 ≤108px)
    Compact : grid [name | bar | %], on drop le montant (visible dans drill). */
@@ -971,7 +1010,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.15</em>
+      <em>v12.16</em>
     </div>
   </div>
 
@@ -3922,10 +3961,11 @@ function rDash() {
 // =================== DASHBOARD v2 ===================
 
 const DASH_DEFAULT_LAYOUT = [
-  /* v2 — tête du dashboard : bandeau contextuel + hero cash-flow */
-  {id:'context-bar', label:'Bandeau contextuel (v2)',  col:12, row:1, visible:true},
-  {id:'hero',        label:'Cash-flow — Hero (v2)',    col:12, row:3, visible:true},
-  {id:'sep-finance', type:'separator', label:'Finance',          col:12, row:1, visible:true},
+  /* v2 — tête du dashboard : bandeau contextuel + hero cash-flow + à traiter (côte-à-côte) */
+  {id:'context-bar',  label:'Bandeau contextuel (v2)',  col:12, row:1, visible:true},
+  {id:'hero',         label:'Cash-flow — Hero (v2)',    col:8,  row:3, visible:true},
+  {id:'todo-unified', label:'À traiter (v2)',           col:4,  row:3, visible:true},
+  {id:'sep-finance', type:'separator', label:'Finance', col:12, row:1, visible:true},
   /* v2 Phase 3 FINAL — layout « 5 KPIs » validé user :
      Flux col 6 row 4 à gauche (2 hauteurs) · 4 cartes col 3 row 2 à droite en 2x2 */
   {id:'flux',  label:'Revenus vs Charges',          col:6, row:4, visible:true},
@@ -3942,9 +3982,8 @@ const DASH_DEFAULT_LAYOUT = [
   {id:'prog',  label:'Progression annuelle',        col:4, row:2, visible:false},
   {id:'solde', label:'Solde provisions',            col:8, row:2, visible:false},
   {id:'sep-gestion', type:'separator', label:'Gestion locative', col:12, row:1, visible:true},
-  /* v2 Phase 4 — Agenda + À traiter (cartes col 6 row 4 symétriques) */
-  {id:'agenda-dash',  label:'Agenda — 15 prochains jours', col:6, row:4, visible:true},
-  {id:'todo-unified', label:'À traiter (v2)',              col:6, row:4, visible:true},
+  /* v2 Phase 4 polish — À traiter a été remonté à côté du hero (top) → agenda seul ici */
+  {id:'agenda-dash',  label:'Agenda — 15 prochains jours', col:12, row:4, visible:true},
   /* v2 — widgets gestion individuels : tous fusionnés dans todo-unified, visible:false */
   {id:'mag',   label:'Manque à gagner vacance',     col:3, row:2, visible:false},
   {id:'mrh',   label:'MRH manquantes',              col:3, row:2, visible:false},
@@ -4548,7 +4587,7 @@ function _computeUnifiedTodo(ctx) {
   const today = new Date();
   const out = [];
 
-  // 1. MRH manquante (critique)
+  // 1a. MRH (locataire) manquante — critique
   scopeLogs.filter(l => l.locataire).forEach(l => {
     const hasMrh = DB.mrh && DB.mrh.some(m => m.logement === l.ref);
     if(!hasMrh) {
@@ -4562,59 +4601,42 @@ function _computeUnifiedTodo(ctx) {
       });
     }
   });
-
-  // 2. Baux expirés / à terme
-  scopeLogs.filter(l => l.fin && l.locataire).forEach(l => {
-    const fin = new Date(l.fin);
-    const diff = Math.round((fin - today) / 86400000);
-    if(diff < 0) {
-      out.push({
-        type:'bail', severity:'red', score:100,
-        title:'Bail expiré',
-        subtitle:l.ref+' \u2014 '+l.locataire+' (fin '+fd(l.fin)+')',
-        contextRef:l.ref,
-        actionLabel:'Ouvrir le bail',
-        actionFn:'go(\'baux\',null)'
-      });
-    } else if(diff <= 90) {
-      out.push({
-        type:'bail', severity: diff <= 30 ? 'red' : 'ora',
-        score: Math.max(10, 90 - diff),
-        title:'Bail à terme dans '+diff+' j',
-        subtitle:l.ref+' \u2014 '+l.locataire+' (fin '+fd(l.fin)+')',
-        contextRef:l.ref,
-        actionLabel:'Ouvrir le bail',
-        actionFn:'go(\'baux\',null)'
-      });
-    }
-  });
-
-  // 3. Loyers impayés (cahier §3.5 : > 30j = rouge)
-  // On check le mois en cours : si reste > 0 et qu'on dépasse le 5 du mois, on flag.
-  const curY = today.getFullYear(), curM = today.getMonth()+1;
-  const curYM = curY+'-'+String(curM).padStart(2,'0');
-  const dayOfMonth = today.getDate();
-  scopeLogs.filter(l => l.locataire).forEach(l => {
-    const attendu = (l.hc||0) + (l.ch||0);
-    if(attendu <= 0) return;
-    const enc = DB.mouvements
-      .filter(m => m.qui === l.ref && m.cat === 'Loyers' && (m.cr||0) > 0 && m.date && m.date.startsWith(curYM))
-      .reduce((s,m) => s+(m.cr||0), 0);
-    const reste = attendu - enc;
-    if(reste <= 0.5) return;  // payé (ou presque)
-    // Si mois en cours et < 10 du mois, on est tolérant
-    if(dayOfMonth < 10) return;
-    const overdue30 = dayOfMonth > 30 || enc === 0;  // proxy pour "> 30j"
-    out.push({
-      type:'impaye', severity: enc === 0 ? 'red' : 'ora',
-      score: enc === 0 ? 95 : 75,
-      title:'Loyer impayé — '+_DMC[curM-1],
-      subtitle:l.ref+' \u2014 '+l.locataire+' \u2014 reste '+fmt(reste),
-      contextRef:l.ref,
-      actionLabel:'Voir les loyers',
-      actionFn:'go(\'loyers\',null)'
+  // 1b. MRH expirant < 30 j — alerte (orange)
+  if(DB.mrh && Array.isArray(DB.mrh)) {
+    DB.mrh.forEach(m => {
+      if(!m.echeance) return;
+      if(activeEnt) {
+        const log = DB.logements.find(l => l.ref === m.logement);
+        if(!log || log.entity !== activeEnt) return;
+      }
+      const ech = new Date(m.echeance);
+      const diff = Math.round((ech - today) / 86400000);
+      if(diff < 0) {
+        out.push({
+          type:'mrh', severity:'red', score:95,
+          title:'MRH expirée',
+          subtitle:m.logement+' \u2014 échéance '+fd(m.echeance),
+          contextRef:m.logement,
+          actionLabel:'Renouveler',
+          actionFn:'goToAssurances(\''+m.logement+'\')'
+        });
+      } else if(diff <= 30) {
+        out.push({
+          type:'mrh', severity:'ora', score:60,
+          title:'MRH expire dans '+diff+' j',
+          subtitle:m.logement,
+          contextRef:m.logement,
+          actionLabel:'Renouveler',
+          actionFn:'goToAssurances(\''+m.logement+'\')'
+        });
+      }
     });
-  });
+  }
+
+  // 2. Baux expirés/à terme : hors scope À traiter (déjà dans l'Agenda).
+
+  // 3. Loyers impayés : DÉPLACÉS dans le hero meta (user : pas dans À traiter).
+  //    Voir _computeImpayes(ctx) ci-dessous.
 
   // 4. Révision IRL applicable / à venir
   scopeLogs.filter(l => l.locataire && l.debut).forEach(l => {
@@ -4644,7 +4666,8 @@ function _computeUnifiedTodo(ctx) {
     }
   });
 
-  // 5. Assurances PNO expirant / expirées (< 30 j)
+  // 5. Assurances PNO : fusionnées dans la catégorie MRH du widget (assurances au sens large).
+  //    MRH locataire (obligatoire) + PNO propriétaire affichés ensemble.
   (DB.assurances||[]).forEach(a => {
     if(!a.echeance) return;
     if(activeEnt) {
@@ -4655,7 +4678,7 @@ function _computeUnifiedTodo(ctx) {
     const diff = Math.round((ech - today) / 86400000);
     if(diff < 0) {
       out.push({
-        type:'assur', severity:'red', score:90,
+        type:'mrh', severity:'red', score:90,
         title:'Assurance PNO expirée',
         subtitle:a.logement+' ('+(a.compagnie||'?')+') \u2014 '+fd(a.echeance),
         contextRef:a.logement,
@@ -4664,7 +4687,7 @@ function _computeUnifiedTodo(ctx) {
       });
     } else if(diff <= 30) {
       out.push({
-        type:'assur', severity:'ora', score:50,
+        type:'mrh', severity:'ora', score:50,
         title:'Assurance PNO expire dans '+diff+' j',
         subtitle:a.logement+' ('+(a.compagnie||'?')+')',
         contextRef:a.logement,
@@ -4674,51 +4697,117 @@ function _computeUnifiedTodo(ctx) {
     }
   });
 
-  // 6. Vacance (durée depuis dernier loyer reçu comme proxy de "jours vacants")
-  scopeLogs.filter(l => !l.locataire).forEach(l => {
-    // Proxy jours vacants : date du dernier loyer reçu sur ce logement
-    const lastLoy = DB.mouvements
-      .filter(m => m.qui === l.ref && m.cat === 'Loyers' && (m.cr||0) > 0 && m.date)
-      .sort((a,b) => b.date.localeCompare(a.date))[0];
-    const joursVac = lastLoy
-      ? Math.round((today - new Date(lastLoy.date)) / 86400000)
-      : 365;  // inconnu → assume long
-    const perte = ((l.hc||0) + (l.ch||0)) * 12;
-    out.push({
-      type:'vacance', severity: joursVac > 30 ? 'ora' : 'info',
-      score: 60 + (joursVac > 30 ? 20 : 0),
-      title: joursVac > 60 ? 'Vacant depuis > 60 j' : (joursVac > 30 ? 'Vacant depuis > 30 j' : 'Logement vacant'),
-      subtitle:l.ref+(l.imm?' \u2014 '+l.imm:'')+' \u2014 perte potentielle '+fmt(perte)+'/an',
-      contextRef:l.ref,
-      actionLabel:'Relouer',
-      actionFn:'go(\'logements\',null)'
-    });
-  });
+  // 6. Vacance : DÉPLACÉE dans le widget Occupation (ligne "Manque à gagner").
+  //    Non reprise dans À traiter par choix utilisateur (déjà visible ailleurs).
 
-  // 7. Régularisation de charges à émettre
-  const yr = String(today.getFullYear());
-  const yrPrev = String(today.getFullYear() - 1);
+  // 7. Régularisation de charges à émettre (user clarif : régul N+1 si charges en N-1,
+  // pas de régul si aucune charge perçue en année précédente).
+  const yrCur  = today.getFullYear();
+  const yrPrev = yrCur - 1;
   scopeLogs.filter(l => l.locataire && (l.ch||0) > 0).forEach(l => {
-    const hasRegul = DB.mouvements.some(m =>
-      m.qui === l.ref && m.cat && /r.gularisation/i.test(m.cat) &&
-      m.date && (m.date.startsWith(yr) || m.date.startsWith(yrPrev))
+    // Était le logement loué avec charges en N-1 ?
+    const wasRentedN1 = DB.mouvements.some(m =>
+      m.qui === l.ref && m.cat === 'Loyers' && (m.cr||0) > 0 &&
+      m.date && m.date.startsWith(String(yrPrev))
     );
-    if(!hasRegul) {
+    if(!wasRentedN1) return;  // pas de charges perçues en N-1 → pas de régul à faire
+    // Régul déjà émise en année N (courante) ?
+    const hasRegulN = DB.mouvements.some(m =>
+      m.qui === l.ref && m.cat && /r.gularisation/i.test(m.cat) &&
+      m.date && m.date.startsWith(String(yrCur))
+    );
+    if(!hasRegulN) {
       out.push({
         type:'regul', severity:'info', score:40,
-        title:'Régularisation à émettre',
-        subtitle:l.ref+' \u2014 '+l.locataire+' (charges '+fmt(l.ch)+'/mois)',
+        title:'Régularisation '+yrPrev+' à émettre',
+        subtitle:l.ref+' \u2014 '+l.locataire,
         contextRef:l.ref,
         actionLabel:'Émettre régul',
-        actionFn:'go(\'regularisation\',null)'
+        actionFn:'go(\'regul\',null)'
       });
     }
   });
+
+  // 8. Équipements : entretien en retard ou à venir (< 30 j) — cf. EQUIP_RULES
+  if(typeof EQUIP_RULES !== 'undefined' && DB.baux) {
+    scopeLogs.filter(l => l.locataire).forEach(l => {
+      const bail = DB.baux[l.ref];
+      if(!bail || !bail.debut) return;
+      const equipData = (DB.equipements||{})[l.ref] || {};
+      EQUIP_RULES.forEach(rule => {
+        if(!rule.condFn(bail)) return;
+        const lastEntry = equipData[rule.key];
+        let nextDate;
+        if(lastEntry && lastEntry.lastDate) {
+          nextDate = new Date(lastEntry.lastDate + 'T00:00:00');
+          if(rule.intervalMonths) nextDate.setMonth(nextDate.getMonth() + rule.intervalMonths);
+          else nextDate.setFullYear(nextDate.getFullYear() + (rule.intervalYears||1));
+        } else {
+          // Jamais d'intervention enregistrée : prochaine échéance = 1 cycle après début de bail
+          nextDate = new Date(bail.debut + 'T00:00:00');
+          while(nextDate <= today) {
+            if(rule.intervalMonths) nextDate.setMonth(nextDate.getMonth() + rule.intervalMonths);
+            else nextDate.setFullYear(nextDate.getFullYear() + (rule.intervalYears||1));
+          }
+        }
+        const diff = Math.round((nextDate - today) / 86400000);
+        if(diff < 0) {
+          out.push({
+            type:'equip', severity:'red', score:85,
+            title:(rule.icon||'🔧')+' '+rule.label+' — en retard '+Math.abs(diff)+' j',
+            subtitle:l.ref+(l.locataire?' \u2014 '+l.locataire:''),
+            contextRef:l.ref,
+            actionLabel:'Enregistrer intervention',
+            actionFn:'go(\'equipements\',null)'
+          });
+        } else if(diff <= 30) {
+          out.push({
+            type:'equip', severity:'ora', score:55,
+            title:(rule.icon||'🔧')+' '+rule.label+' — dans '+diff+' j',
+            subtitle:l.ref+(l.locataire?' \u2014 '+l.locataire:''),
+            contextRef:l.ref,
+            actionLabel:'Planifier',
+            actionFn:'go(\'equipements\',null)'
+          });
+        }
+      });
+    });
+  }
 
   // Tri : score desc, puis severity (red > ora > info)
   const sevRank = {red:3, ora:2, info:1};
   out.sort((a,b) => (b.score - a.score) || (sevRank[b.severity] - sevRank[a.severity]));
   return out;
+}
+
+/* Calcule les loyers impayés du mois courant (ou mois sélectionné) — pour le hero meta.
+   Retourne {count, totalDue, items}. */
+function _computeImpayes(ctx) {
+  const {scopeLogs, yr, mo} = ctx;
+  const today = new Date();
+  const refY = mo ? parseInt(yr) : today.getFullYear();
+  const refM = mo ? parseInt(mo) : today.getMonth() + 1;
+  const refYM = refY + '-' + String(refM).padStart(2, '0');
+  // Si on check le mois en cours et qu'on est tôt dans le mois, tolérance
+  const isCurrentMonth = (refY === today.getFullYear() && refM === (today.getMonth()+1));
+  if(isCurrentMonth && today.getDate() < 10) return {count:0, totalDue:0, items:[]};
+  let count = 0, totalDue = 0;
+  const items = [];
+  scopeLogs.filter(l => l.locataire).forEach(l => {
+    const attendu = (l.hc||0) + (l.ch||0);
+    if(attendu <= 0) return;
+    const enc = DB.mouvements
+      .filter(m => m.qui === l.ref && m.cat === 'Loyers' && (m.cr||0) > 0 &&
+                   m.date && m.date.startsWith(refYM))
+      .reduce((s,m) => s+(m.cr||0), 0);
+    const reste = attendu - enc;
+    if(reste > 0.5) {
+      count++;
+      totalDue += reste;
+      items.push({ref:l.ref, locataire:l.locataire, reste});
+    }
+  });
+  return {count, totalDue, items};
 }
 
 /* Drill-down tableau complet "À traiter" — groupé par sévérité. */
@@ -4979,9 +5068,16 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     } else {
       statusTxt = todoItems.length+' rappel'+(todoItems.length>1?'s':''); statusDot = 'blu';
     }
+    // v2 Phase 4 polish : loyers impayés visibles sur une 2e ligne dédiée
+    const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : {count:0,totalDue:0};
+    const moisImp = mo ? _DMF[parseInt(mo)-1] : _DMF[(new Date()).getMonth()];
+    const impayeLine = imp.count > 0
+      ? '<div class="dw-hero-impaye"><span class="dw-pill-dot red"></span> <strong>Loyers impayés '+escHtml(moisImp)+'</strong> : '+imp.count+' logement'+(imp.count>1?'s':'')+' \u2014 '+fmt(imp.totalDue)+' en attente</div>'
+      : '';
     const meta = metaCore
       + '<span class="dw-hero-meta-sep">\u00b7</span> '
-      + '<span class="dw-pill-dot '+statusDot+'"></span> '+statusTxt;
+      + '<span class="dw-pill-dot '+statusDot+'"></span> '+statusTxt
+      + impayeLine;
     _DD['hero'] = _buildHeroDrill(ctx, cf, prevCf, cfYTD2);
     const sign = cf >= 0 ? '+' : '';
     const body = '<button type="button" class="dw-hero-click" onclick="_dashCardClick(\'hero\',event)" aria-label="Voir le détail du cash-flow">'
@@ -4998,41 +5094,67 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     return wd(body, '', heroStatus);
   }
 
-  /* ── v2 Phase 4 — Carte "À traiter" unifiée (cahier §3.5)
-     Fusionne MRH + bail + IRL + vacance + regul + assur + loyers impayés.
-     Liste priorisée top N + drill complet. État vide si rien à traiter. ── */
+  /* ── v2 Phase 4 polish — "À traiter" en 4 quadrants (choix user)
+     MRH (+PNO) · IRL · Équipement · Régularisation — cartes cliquables vers
+     les onglets métier. État vide si tout est OK. Drill = tableau complet. ── */
   if(id==='todo-unified') {
     const items = _computeUnifiedTodo(ctx);
-    const TOP = Math.max(3, Math.min(7, row * 2 - 1));  // s'adapte à la hauteur
-    const shown = items.slice(0, TOP);
-    const more = items.length - shown.length;
-    const sevRank = {red:3, ora:2, info:1};
-    const maxSev = items.reduce((s, i) => sevRank[i.severity] > sevRank[s] ? i.severity : s, 'info');
-    const countCls = items.length === 0 ? 'grn' : maxSev;
     _DD['todo-unified'] = _buildTodoDrill(ctx);
-    const list = items.length === 0
-      ? '<div class="dw-todo-empty">Rien à traiter. Continuez comme ça.</div>'
-      : '<div class="dw-todo-list">'
-        + shown.map(it =>
-            '<div class="dw-todo-item" onclick="if(!_dashEditMode){event.stopPropagation();'+it.actionFn+'}" title="'+escHtml(it.actionLabel||'')+'">'
-            + '<span class="dw-todo-dot '+it.severity+'"></span>'
-            + '<div class="dw-todo-body">'
-            +   '<div class="dw-todo-itemtitle">'+escHtml(it.title)+'</div>'
-            +   '<div class="dw-todo-sub">'+escHtml(it.subtitle)+'</div>'
-            + '</div>'
-            + '<span class="dw-todo-arrow" aria-hidden="true">\u203a</span>'
-            + '</div>'
-          ).join('')
-        + (more > 0
-            ? '<div class="dw-todo-more" onclick="_dashCardClick(\'todo-unified\',event)">+ '+more+' autre'+(more>1?'s':'')+' \u2014 voir tout \u203a</div>'
-            : '')
-        + '</div>';
-    const body = '<div class="dw-todo-head">'
-      +   '<span class="dw-todo-title">À traiter</span>'
-      +   '<span class="dw-todo-count '+countCls+'">'+items.length+'</span>'
+    // Agrégation par catégorie (on ne garde que les 4 demandées + le max severity)
+    const sevRank = {red:3, ora:2, info:1};
+    function cat(type) {
+      const list = items.filter(i => i.type === type);
+      if(list.length === 0) return {count:0, sev:'grn', list:[]};
+      const sev = list.reduce((s, i) => sevRank[i.severity] > (sevRank[s]||0) ? i.severity : s, 'info');
+      return {count:list.length, sev, list};
+    }
+    const mrh   = cat('mrh');     // inclut MRH locataire manquantes + PNO expirant
+    const irl   = cat('irl');
+    const equip = cat('equip');
+    const regul = cat('regul');
+    const totalTodo = mrh.count + irl.count + equip.count + regul.count;
+    const maxSev = [mrh, irl, equip, regul]
+      .filter(q => q.count > 0)
+      .reduce((s, q) => sevRank[q.sev] > (sevRank[s]||0) ? q.sev : s, 'info');
+
+    // État vide : tout est OK
+    if(totalTodo === 0) {
+      const body = '<div class="dw-todo-head">'
+        + '<span class="dw-todo-title">À traiter</span>'
+        + '<span class="dw-todo-count grn">0</span>'
+        + '</div>'
+        + '<div class="dw-todo-empty-full">Rien à traiter. Continuez comme ça.</div>';
+      return wd(body, '', 'grn');
+    }
+
+    const quad = (q, labelIcon, labelText, goFn, subIfOk, subIfKo) =>
+      '<button type="button" class="dw-todo-quad '+(q.count === 0 ? 'grn' : q.sev)+'" '
+      + 'onclick="if(!_dashEditMode){event.stopPropagation();'+goFn+'}" '
+      + 'aria-label="'+escHtml(labelText+' — '+q.count)+'">'
+      + '<div class="dw-todo-quad-top">'
+      +   '<span class="dw-todo-quad-label">'+labelIcon+' <span>'+escHtml(labelText)+'</span></span>'
       + '</div>'
-      + list;
-    const status = items.length === 0 ? 'grn' : (maxSev === 'red' ? 'red' : maxSev === 'ora' ? 'ora' : 'blu');
+      + '<div class="dw-todo-quad-count">'+q.count+'</div>'
+      + '<div class="dw-todo-quad-sub">'+escHtml(q.count === 0 ? subIfOk : subIfKo)+'</div>'
+      + '</button>';
+
+    const mrhSub = mrh.count === 0 ? 'Tout est à jour' : 'Manquantes ou <30 j';
+    const irlSub = irl.count === 0 ? 'Aucune à traiter' : 'Applicables/à venir';
+    const eqSub  = equip.count === 0 ? 'Aucune échéance' : 'Retards + <30 j';
+    const rgSub  = regul.count === 0 ? 'Aucune à émettre' : 'Année précédente';
+
+    const body = '<div class="dw-todo-head">'
+      + '<span class="dw-todo-title">À traiter</span>'
+      + '<span class="dw-todo-count '+maxSev+'">'+totalTodo+'</span>'
+      + '</div>'
+      + '<div class="dw-todo-quads">'
+      +   quad(mrh,   '🛡', 'Assurances',  "go('assurances',null)", 'Tout est à jour',    mrhSub)
+      +   quad(irl,   '📈', 'IRL',          "go('irl',null)",         'Aucune à appliquer', irlSub)
+      +   quad(equip, '🔧', 'Équipements', "go('equipements',null)", 'Aucune échéance',    eqSub)
+      +   quad(regul, '⚖️', 'Régul',        "go('regul',null)",       'Aucune à émettre',   rgSub)
+      + '</div>';
+
+    const status = maxSev === 'red' ? 'red' : maxSev === 'ora' ? 'ora' : 'blu';
     return wd(body, '', status);
   }
 
