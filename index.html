@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.20</title>
+<title>ImmoTrack v12.21</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -129,8 +129,13 @@ a{color:var(--blu);text-decoration:none}
 }
 .sb-logo-icon{font-size:22px;flex-shrink:0;line-height:1}
 .sb-logo-text{display:flex;flex-direction:column;gap:1px;overflow:hidden;white-space:nowrap;transition:opacity 180ms,width 180ms}
-.sb-logo-text strong{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;color:#fff;letter-spacing:-.3px}
-.sb-logo-text em{font-size:10px;color:rgba(255,255,255,.35);font-style:normal;letter-spacing:.3px}
+.sb-logo-text strong{font-family:'Manrope',sans-serif;font-weight:700;font-size:16px;color:#fff;letter-spacing:-.2px}
+.sb-logo-text em{
+  font-size:10px;color:rgba(255,255,255,.45);font-style:normal;letter-spacing:.4px;
+  font-weight:600;text-transform:uppercase;
+  display:inline-block;padding:1px 6px;margin-top:2px;
+  background:rgba(59,126,246,.15);border-radius:4px;
+}
 .sb-collapse-btn{
   position:absolute;top:18px;right:-12px;
   width:24px;height:24px;border-radius:50%;
@@ -146,36 +151,37 @@ a{color:var(--blu);text-decoration:none}
 /* Sections */
 .sb-section{padding:6px 0}
 .sb-section-title{
-  font-size:9.5px;font-weight:700;color:rgba(255,255,255,.25);
-  text-transform:uppercase;letter-spacing:1.2px;
-  padding:10px 20px 4px;
+  font-size:11px;font-weight:700;color:rgba(255,255,255,.35);
+  text-transform:uppercase;letter-spacing:1.4px;
+  padding:12px 20px 5px;
   white-space:nowrap;overflow:hidden;
   transition:opacity 180ms;
 }
 .sb-nav.sb-collapsed .sb-section-title{opacity:0;padding-left:0;padding-right:0}
 
-/* Nav items */
+/* Nav items (v2 Phase 7 polish : typo plus large + hover plus doux) */
 .ni{
-  display:flex;align-items:center;gap:11px;
-  padding:9px 18px;
-  color:rgba(255,255,255,.5);
-  cursor:pointer;font-size:13.5px;font-weight:500;
-  transition:all .15s;position:relative;
-  white-space:nowrap;overflow:hidden;
+  display:flex;align-items:center;gap:12px;
+  padding:10px 18px;
+  color:rgba(255,255,255,.65);
+  cursor:pointer;font-size:14px;font-weight:500;
+  transition:color var(--t-fast), background var(--t-fast);
+  position:relative;white-space:nowrap;overflow:hidden;
   border-radius:0;
 }
-.ni:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.07)}
+.ni:hover{color:#fff;background:rgba(255,255,255,.08)}
 .ni.act{
   color:#fff;
-  background:linear-gradient(90deg,rgba(59,126,246,.25) 0%,rgba(59,126,246,.08) 100%);
+  background:linear-gradient(90deg,rgba(59,126,246,.28) 0%,rgba(59,126,246,.06) 100%);
   font-weight:600;
 }
 .ni.act::before{
-  content:'';position:absolute;left:0;top:20%;bottom:20%;
+  content:'';position:absolute;left:0;top:18%;bottom:18%;
   width:3px;border-radius:0 2px 2px 0;
-  background:linear-gradient(180deg,#5b9af8,#3b7ef6);
+  background:linear-gradient(180deg,#7eb1ff,#3b7ef6);
+  box-shadow:0 0 8px rgba(59,126,246,.4);
 }
-.ni .ico{width:20px;text-align:center;font-size:15px;flex-shrink:0;line-height:1}
+.ni .ico{width:22px;text-align:center;font-size:16px;flex-shrink:0;line-height:1}
 .ni-label{transition:opacity 180ms,width 180ms;overflow:hidden}
 .sb-nav.sb-collapsed .ni-label{opacity:0;width:0}
 .sb-nav.sb-collapsed .ni{padding:10px 0;justify-content:center}
@@ -790,6 +796,71 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 7 — Empty state / Onboarding
+   ══════════════════════════════════════════════════════════════ */
+.dash-onboarding{
+  grid-column:1/-1;
+  max-width:720px;margin:40px auto;
+  padding:40px 32px;
+  background:var(--sur);border:1px solid var(--bor);
+  border-radius:var(--rl);box-shadow:var(--shadow-card);
+  text-align:center;
+}
+.dash-onboarding-hero{margin-bottom:32px}
+.dash-onboarding-icon{font-size:56px;line-height:1;margin-bottom:16px}
+.dash-onboarding-title{
+  font-family:'Manrope',sans-serif;
+  font-size:28px;font-weight:600;letter-spacing:-.02em;
+  color:var(--t1);margin-bottom:10px;
+}
+.dash-onboarding-sub{
+  font-size:14px;color:var(--t2);line-height:1.5;
+  max-width:520px;margin:0 auto;
+}
+.dash-onboarding-steps{
+  display:flex;flex-direction:column;gap:14px;
+  max-width:560px;margin:0 auto;text-align:left;
+}
+.dash-onboarding-step{
+  display:flex;align-items:flex-start;gap:16px;
+  padding:16px 18px;
+  background:var(--sur2);border:1px solid var(--bor);
+  border-radius:var(--r);
+  transition:all var(--t-fast);
+}
+.dash-onboarding-step:hover{
+  border-color:var(--fg-info);
+  box-shadow:var(--shadow-card-hover);
+}
+.dash-onboarding-step.done{opacity:.6}
+.dash-onboarding-step.done .step-num{
+  background:var(--bg-success);color:var(--fg-success);
+}
+.dash-onboarding-step .step-num{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--bg-info);color:var(--fg-info);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:14px;flex-shrink:0;
+}
+.dash-onboarding-step .step-body{flex:1;min-width:0}
+.dash-onboarding-step .step-title{
+  font-size:15px;font-weight:600;color:var(--t1);margin-bottom:3px;
+}
+.dash-onboarding-step .step-desc{
+  font-size:12px;color:var(--t2);margin-bottom:10px;
+}
+.dash-onboarding-step .step-check{
+  color:var(--fg-success);font-size:13px;font-weight:600;
+}
+.dash-onboarding-step .btn{margin:0}
+@media(max-width:600px){
+  .dash-onboarding{padding:24px 18px;margin:20px auto}
+  .dash-onboarding-title{font-size:22px}
+  .dash-onboarding-icon{font-size:44px}
+  .dash-onboarding-step{flex-direction:column;gap:8px}
+}
+
+/* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 6 — Cartes entité / immeuble / logement cliquables
    (cahier §3.8 : simple clic partout, progressive disclosure, drill 4 niveaux)
    ══════════════════════════════════════════════════════════════ */
@@ -1163,7 +1234,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.20</em>
+      <em>v12.21</em>
     </div>
   </div>
 
@@ -4010,6 +4081,47 @@ function previewBailTemplate() {
 function setBailTab(tab, el2) { setTab('#ov-bail',el2,'bp-'); }
 
 // =================== DASHBOARD ===================
+/* v2 Phase 7 — Onboarding empty state : rendu quand l'utilisateur n'a encore
+   aucun logement (app fraîchement installée). Remplace tout le contenu du
+   dashboard par un CTA d'accueil clair avec parcours guidé. */
+function _renderDashOnboarding() {
+  const hasEnt = DB.entites && DB.entites.length > 0;
+  return ''
+    + '<div class="dash-onboarding">'
+    +   '<div class="dash-onboarding-hero">'
+    +     '<div class="dash-onboarding-icon">\ud83c\udfe0</div>'
+    +     '<h2 class="dash-onboarding-title">Bienvenue sur ImmoTrack</h2>'
+    +     '<p class="dash-onboarding-sub">Pour voir appara\u00eetre votre cash-flow, votre occupation et vos actions \u00e0 traiter, il suffit d\'ajouter votre premier logement.</p>'
+    +   '</div>'
+    +   '<div class="dash-onboarding-steps">'
+    +     '<div class="dash-onboarding-step'+(hasEnt?' done':'')+'">'
+    +       '<div class="step-num">1</div>'
+    +       '<div class="step-body">'
+    +         '<div class="step-title">Cr\u00e9er une entit\u00e9</div>'
+    +         '<div class="step-desc">SCI, SARL, ou \u00e0 votre nom personnel</div>'
+    +         (hasEnt ? '<div class="step-check">\u2713 Fait</div>' : '<button class="btn bp" onclick="go(\'referentiel\',null)">R\u00e9f\u00e9rentiel \u203a</button>')
+    +       '</div>'
+    +     '</div>'
+    +     '<div class="dash-onboarding-step">'
+    +       '<div class="step-num">2</div>'
+    +       '<div class="step-body">'
+    +         '<div class="step-title">Ajouter un logement</div>'
+    +         '<div class="step-desc">Adresse, surface, loyer HC + charges</div>'
+    +         '<button class="btn bp" onclick="go(\'logements\',null)">Ajouter un logement \u203a</button>'
+    +       '</div>'
+    +     '</div>'
+    +     '<div class="dash-onboarding-step">'
+    +       '<div class="step-num">3</div>'
+    +       '<div class="step-body">'
+    +         '<div class="step-title">Importer vos mouvements</div>'
+    +         '<div class="step-desc">Relev\u00e9s bancaires CSV ou saisie manuelle</div>'
+    +         '<button class="btn bs" onclick="go(\'import\',null)">Import / Donn\u00e9es \u203a</button>'
+    +       '</div>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
+}
+
 function rDash() {
   const yr = v('dash-year') || new Date().getFullYear().toString();
   const mo = v('dash-mois');
@@ -4023,6 +4135,18 @@ function rDash() {
   es.innerHTML = '<option value="">Toutes entités</option>'+DB.entites.map(e=>`<option value="${escHtml(e.nom)}">${escHtml(e.nom)}</option>`).join('');
   if(curEnt) es.value = curEnt;
   const activeEnt = es.value;
+
+  // v2 Phase 7 — État vide global : si 0 logement, on affiche un onboarding
+  if(!DB.logements || DB.logements.length === 0) {
+    const grid = el('dash-kpi-grid');
+    if(grid) grid.innerHTML = _renderDashOnboarding();
+    const entCards = el('dash-ent-cards');
+    if(entCards) entCards.innerHTML = '';
+    // Masque les alertes section aussi
+    const alertsSec = el('dash-alerts');
+    if(alertsSec) alertsSec.innerHTML = '';
+    return;
+  }
 
   const scopeLogs = activeEnt ? DB.logements.filter(l=>l.entity===activeEnt) : DB.logements;
   const scopeRefs = scopeLogs.map(l=>l.ref);
