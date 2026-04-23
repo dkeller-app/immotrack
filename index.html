@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.12</title>
+<title>ImmoTrack v12.13</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -51,12 +51,16 @@
   --t-slow:350ms cubic-bezier(.4,0,.2,1);
 }
 [data-theme="dark"] {
+  color-scheme:dark;   /* v2 audit : force les contrôles natifs (scrollbars, <option>) en dark */
   --bg:#0d1520;
-  --sur:rgba(255,255,255,.055);
-  --sur2:rgba(255,255,255,.03);
-  --sur3:rgba(255,255,255,.02);
-  --bor:rgba(255,255,255,.1);
-  --bor2:rgba(255,255,255,.05);
+  /* v2 audit dark mode : --sur bumpé de .055 à .13 — les cartes se détachent
+     franchement du fond de l'app (avant : quasi invisibles).
+     --sur2 bumpé de .03 à .08 pour garder la hiérarchie carte > sous-surface. */
+  --sur:rgba(255,255,255,.13);
+  --sur2:rgba(255,255,255,.08);
+  --sur3:rgba(255,255,255,.04);
+  --bor:rgba(255,255,255,.14);
+  --bor2:rgba(255,255,255,.07);
   --t1:#e4ecf5;
   --t2:#7a8fa8;
   --t3:#3e5068;
@@ -75,6 +79,19 @@
   /* ── v2 Dashboard — card shadows (dark) ── */
   --shadow-card:0 1px 2px rgba(0,0,0,.25);
   --shadow-card-hover:0 4px 16px rgba(59,126,246,.22),0 1px 3px rgba(0,0,0,.35);
+}
+
+/* ── v2 audit dark mode : fix <select>/<option> illisibles (bug pré-existant)
+   Avant : dropdown rendu par le navigateur avec bg blanc → texte invisible en dark.
+   Fix : color-scheme:dark (ci-dessus) + override explicite des options. ── */
+[data-theme="dark"] select.inp,
+[data-theme="dark"] select{
+  background-color:#1a2332;
+  color:var(--t1);
+}
+[data-theme="dark"] option{
+  background-color:#1a2332;
+  color:#e4ecf5;
 }
 [data-fontsize="lg"] { --font-base:19px; }
 
@@ -440,12 +457,13 @@ textarea.inp{resize:vertical;min-height:70px}
 .dw-r6{grid-row:span 6}   /* 492px */
 
 /* ── Carte de base ── */
-/* v2 : bordure fine 0.5px + shadow-card plus discret (cahier §4.4–4.5).
-   La bordure gauche 3px transparente reste pour compat .dw-s-* (retirée en phase 6). */
+/* v2 : shadow-card plus discret. Accent statut via pseudo-élément ::before
+   (plus fiable que border-left 3px + border-radius + overflow hidden qui
+   pouvait clipper/masquer le liseré selon le navigateur/zoom).
+   Retiré totalement en phase 6 (remplacé par la hiérarchie typo + donut). */
 .dw{
   background:var(--sur);
-  border:0.5px solid var(--bor);
-  border-left:3px solid transparent;   /* accent statut — coloré par .dw-s-* */
+  border:1px solid var(--bor);
   border-radius:var(--rl);
   padding:0;                            /* padding géré par .dw-body/.dw-foot */
   box-shadow:var(--shadow-card);
@@ -453,8 +471,16 @@ textarea.inp{resize:vertical;min-height:70px}
   position:relative;
   display:flex;
   flex-direction:column;
-  transition:box-shadow var(--t-fast),border-left-color .25s,transform var(--t-fast);
+  transition:box-shadow var(--t-fast),transform var(--t-fast);
   box-sizing:border-box;
+  --dw-accent:transparent;
+}
+.dw::before{
+  content:'';
+  position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--dw-accent);
+  pointer-events:none;z-index:1;
+  transition:background var(--t-fast);
 }
 .dw:not(.dw-sep):hover{box-shadow:var(--shadow-hover)}
 
@@ -474,10 +500,12 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 
 /* ── Signal statut — bordure gauche colorée ── */
-.dw-s-red  { border-left-color:var(--red) }
-.dw-s-ora  { border-left-color:var(--ora) }
-.dw-s-grn  { border-left-color:var(--grn) }
-.dw-s-blu  { border-left-color:var(--acc) }
+.dw-s-red  { --dw-accent:var(--red) }
+.dw-s-ora  { --dw-accent:var(--ora) }
+.dw-s-grn  { --dw-accent:var(--grn) }
+.dw-s-blu  { --dw-accent:var(--acc) }
+/* En mode édition : on masque l'accent pour laisser la bordure dashed dominer */
+[data-dash-edit="true"] .dw::before{display:none}
 
 /* ── Typographie interne ── */
 .dw-label{
@@ -578,6 +606,139 @@ textarea.inp{resize:vertical;min-height:70px}
   background:rgba(59,126,246,.12);padding:3px 10px;border-radius:20px;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 — Context bar + Hero Pulse (cahier §3.1 & §3.2)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Pill générique (entité active, période, delta) ── */
+.dw-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 11px;border-radius:20px;
+  font-size:11px;font-weight:500;line-height:1;
+  background:var(--sur2);border:1px solid var(--bor);color:var(--t2);
+  white-space:nowrap;
+}
+.dw-pill-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block;flex-shrink:0;
+}
+.dw-pill-dot.grn{background:var(--fg-success)}
+.dw-pill-dot.red{background:var(--fg-danger)}
+.dw-pill-dot.ora{background:var(--fg-warning)}
+.dw-pill-dot.blu{background:var(--fg-info)}
+.dw-pill.delta-up  {background:var(--bg-success);color:var(--fg-success);border-color:transparent}
+.dw-pill.delta-down{background:var(--bg-danger); color:var(--fg-danger); border-color:transparent}
+
+/* ── Context bar ── */
+.dw-context-grid{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  width:100%;height:100%;flex-wrap:wrap;
+}
+.dw-context-left{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dw-context-date{font-size:11px;color:var(--t3);letter-spacing:.3px}
+.dw-context-greet{font-size:18px;font-weight:500;color:var(--t1);line-height:1.2}
+.dw-context-right{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+
+/* ── Hero Pulse ── */
+.dw-hero-click{
+  position:relative;display:block;
+  cursor:pointer;border:none;background:none;padding:0;margin:0;width:100%;text-align:left;
+  font:inherit;color:inherit;
+}
+.dw-hero-click:focus-visible{outline:2px solid var(--fg-info);outline-offset:2px;border-radius:var(--r)}
+.dw-hero-grid{
+  display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;
+  width:100%;
+}
+@media(max-width:768px){ .dw-hero-grid{grid-template-columns:1fr} .dw-hero-right{display:none} }
+.dw-hero-left{display:flex;flex-direction:column;gap:6px;min-width:0}
+.dw-hero-label{
+  font-size:11px;color:var(--t3);letter-spacing:.4px;font-weight:500;
+}
+.dw-hero-value{
+  font-family:'Manrope',sans-serif;
+  font-size:56px;font-weight:500;letter-spacing:-.02em;line-height:1;
+  white-space:nowrap;
+}
+@media(max-width:900px){ .dw-hero-value{font-size:44px} }
+@media(max-width:768px){ .dw-hero-value{font-size:36px} }
+.dw-hero-delta{margin-top:2px}
+.dw-hero-meta{
+  font-size:12px;color:var(--t2);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;
+  line-height:1.4;
+}
+.dw-hero-meta-sep{color:var(--t3);opacity:.6}
+.dw-hero-meta strong{color:var(--t1);font-weight:600}
+.dw-hero-right{flex-shrink:0}
+.dw-hero-spark{display:block}
+/* Sparkline wrapper + axe tous-labels (cahier §3.2 — contexte temporel) */
+.dw-spark-wrap{display:flex;flex-direction:column;gap:4px}
+.dw-spark-axis{
+  display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
+  font-size:10px;color:var(--t2);text-align:center;letter-spacing:.2px;
+  line-height:1;padding:0 4px;
+}
+.dw-spark-axis span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-spark-label{fill:var(--t2)}
+.dw-spark-pt:hover{opacity:1!important}
+.dw-hero-arrow{
+  position:absolute;top:-4px;right:-4px;
+  font-size:14px;color:var(--t3);opacity:0;
+  transition:opacity var(--t-fast),transform var(--t-fast);
+  pointer-events:none;line-height:1;
+}
+.dw-hero-click:hover .dw-hero-arrow{opacity:1;transform:translate(2px,-2px)}
+@media (hover:none){ .dw-hero-arrow{opacity:.6} }
+/* En mode édition, pas d'arrow pour ne pas masquer les handles */
+[data-dash-edit="true"] .dw-hero-arrow{display:none}
+
+/* ── Dark mode — overrides scopés v2 (contrast AA, cahier §7) ── */
+[data-theme="dark"] .dw-hero-label,
+[data-theme="dark"] .dw-context-date{
+  color:#8ca3be;
+}
+[data-theme="dark"] .dw-hero-meta,
+[data-theme="dark"] .dw-spark-axis,
+[data-theme="dark"] .dw-spark-label{
+  color:#b5c7de;
+}
+[data-theme="dark"] .dw-spark-label{fill:#b5c7de}
+[data-theme="dark"] .dw-hero-meta strong{color:#eef4fb}
+[data-theme="dark"] .dw-hero-meta-sep{color:#6b819a;opacity:.8}
+[data-theme="dark"] .dw-context-greet{color:#eef4fb}
+/* Pills : en dark, bg OPAQUE solide franchement plus clair que la carte */
+[data-theme="dark"] .dw-pill{
+  background:#3d547a;
+  border:1.5px solid rgba(255,255,255,.3);
+  color:#ffffff;
+  font-weight:700;
+}
+/* Delta pills : bg sémantique opaque */
+[data-theme="dark"] .dw-pill.delta-up{
+  color:#bbf7d0;background:#166534;border-color:rgba(22,163,74,.5);
+}
+[data-theme="dark"] .dw-pill.delta-down{
+  color:#fecaca;background:#991b1b;border-color:rgba(220,38,38,.5);
+}
+
+/* ── Sparkline — tooltip HTML instantané au survol d'un point ── */
+.dw-spark-wrap{position:relative}
+.dw-spark-tip{
+  position:fixed;pointer-events:none;    /* fixed → échappe à tout overflow:hidden ancêtre */
+  transform:translate(-50%,calc(-100% - 10px));
+  background:#1a2332;color:#fff;
+  font-size:12px;font-weight:600;line-height:1.3;
+  padding:6px 11px;border-radius:6px;white-space:nowrap;
+  opacity:0;transition:opacity var(--t-fast);
+  z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.35);
+}
+.dw-spark-tip::after{
+  content:'';position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);
+  width:0;height:0;border:4px solid transparent;border-top-color:#1a2332;border-bottom:0;
+}
+.dw-spark-tip.show{opacity:1}
+[data-theme="dark"] .dw-spark-tip{background:#eef4fb;color:#0d1520}
+[data-theme="dark"] .dw-spark-tip::after{border-top-color:#eef4fb}
+
 /* ── AGENDA ───────────────────────────────────────────────── */
 .agenda-list{display:flex;flex-direction:column;gap:8px}
 .agenda-card{
@@ -642,7 +803,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.12</em>
+      <em>v12.13</em>
     </div>
   </div>
 
@@ -3593,6 +3754,9 @@ function rDash() {
 // =================== DASHBOARD v2 ===================
 
 const DASH_DEFAULT_LAYOUT = [
+  /* v2 — tête du dashboard : bandeau contextuel + hero cash-flow */
+  {id:'context-bar', label:'Bandeau contextuel (v2)',  col:12, row:1, visible:true},
+  {id:'hero',        label:'Cash-flow — Hero (v2)',    col:12, row:3, visible:true},
   {id:'sep-finance', type:'separator', label:'Finance',          col:12, row:1, visible:true},
   {id:'rev',   label:'Revenus loyers',              col:3, row:2, visible:true},
   {id:'chg',   label:'Charges totales',             col:3, row:2, visible:true},
@@ -3799,6 +3963,219 @@ function deleteSep(id) {
   rDash();
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 — Helpers partagés (cahier §3.2 Hero, §3.3 KPI)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Sparkline SVG réutilisable (Hero, KPI strip, Phase 3).
+   series = [{value:number, label?:string}, ...]  — min 2 points.
+   opts : {
+     w, h, stroke, fill, showArea, showEnd, padding,
+     labels:[début,fin],     // labels aux extrémités
+     allLabels:true,          // chaque series[i].label sous le SVG
+     tooltipFormat:fn(pt),    // texte <title> par point (hover natif)
+     signColoring:true,       // gradient vert(≥0)/rouge(<0) + ligne de base 0
+     zeroLabel:'0 €'          // étiquette optionnelle à droite de la baseline
+   } */
+function _mkSparkline(series, opts) {
+  opts = opts || {};
+  if(!Array.isArray(series) || series.length < 2) return '';
+  const W = opts.w || 180, H = opts.h || 66, PAD = (opts.padding != null ? opts.padding : 6);
+  const values = series.map(s => +s.value || 0);
+  const minV = Math.min(...values);
+  const maxV = Math.max(...values);
+  // Domaine Y : force l'inclusion de 0 si signColoring pour que la baseline soit dans le cadre
+  const domMin = opts.signColoring ? Math.min(minV, 0) : minV;
+  const domMax = opts.signColoring ? Math.max(maxV, 0) : maxV;
+  const range = (domMax - domMin) || 1;
+  const dx = (W - 2*PAD) / (series.length - 1);
+  const yOf = val => H - PAD - ((val - domMin) / range) * (H - 2*PAD);
+  const pts = values.map((val, i) => [PAD + i*dx, yOf(val)]);
+  const polyline = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  // Coloration par signe (gradient + baseline 0)
+  const crossesZero = opts.signColoring && minV < 0 && maxV > 0;
+  const zeroY = opts.signColoring ? yOf(0) : null;
+  const gradId  = '_spk' + Math.random().toString(36).slice(2,8);
+  const gradIdF = gradId + 'f';
+  let stroke = opts.stroke || (opts.signColoring
+    ? (values[values.length-1] >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)')
+    : 'var(--fg-success)');
+  let fill = opts.fill || (opts.signColoring
+    ? (values[values.length-1] >= 0 ? 'var(--bg-success)' : 'var(--bg-danger)')
+    : 'var(--bg-success)');
+  let gradientDef = '';
+  if(crossesZero) {
+    const pctY0 = ((zeroY / H) * 100).toFixed(2);
+    gradientDef =
+      '<defs>'
+      + '<linearGradient id="'+gradId+'" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="'+H+'">'
+      +   '<stop offset="0%" stop-color="var(--fg-success)"/>'
+      +   '<stop offset="'+pctY0+'%" stop-color="var(--fg-success)"/>'
+      +   '<stop offset="'+pctY0+'%" stop-color="var(--fg-danger)"/>'
+      +   '<stop offset="100%" stop-color="var(--fg-danger)"/>'
+      + '</linearGradient>'
+      + '<linearGradient id="'+gradIdF+'" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="'+H+'">'
+      +   '<stop offset="0%" stop-color="var(--bg-success)"/>'
+      +   '<stop offset="'+pctY0+'%" stop-color="var(--bg-success)"/>'
+      +   '<stop offset="'+pctY0+'%" stop-color="var(--bg-danger)"/>'
+      +   '<stop offset="100%" stop-color="var(--bg-danger)"/>'
+      + '</linearGradient>'
+      + '</defs>';
+    stroke = 'url(#'+gradId+')';
+    fill   = 'url(#'+gradIdF+')';
+  }
+  // Aire : si coloration par signe, l'aire descend jusqu'à la baseline 0 (pas PAD)
+  const areaBaseY = (opts.signColoring ? zeroY : (H - PAD)).toFixed(1);
+  const area = 'M ' + pts[0][0].toFixed(1) + ' ' + areaBaseY
+             + ' L ' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L ')
+             + ' L ' + pts[pts.length-1][0].toFixed(1) + ' ' + areaBaseY + ' Z';
+  const endX = pts[pts.length-1][0], endY = pts[pts.length-1][1];
+  const endColor = opts.signColoring
+    ? (values[values.length-1] >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)')
+    : stroke;
+  const showArea = opts.showArea !== false;
+  const showEnd  = opts.showEnd  !== false;
+  const edgeLabels = opts.labels
+    ? '<text x="'+PAD+'" y="'+(H-1)+'" font-size="10" class="dw-spark-label">'+escHtml(opts.labels[0]||'')+'</text>'
+      +'<text x="'+(W-PAD).toFixed(1)+'" y="'+(H-1)+'" text-anchor="end" font-size="10" class="dw-spark-label">'+escHtml(opts.labels[1]||'')+'</text>'
+    : '';
+  // Baseline zéro + étiquette optionnelle
+  const zeroBaseline = (opts.signColoring && zeroY != null)
+    ? '<line x1="'+PAD+'" y1="'+zeroY.toFixed(1)+'" x2="'+(W-PAD).toFixed(1)+'" y2="'+zeroY.toFixed(1)+'" stroke="var(--t3)" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>'
+      + (opts.zeroLabel
+          ? '<text x="'+(W-PAD-2).toFixed(1)+'" y="'+(zeroY-3).toFixed(1)+'" text-anchor="end" font-size="9" class="dw-spark-label" opacity=".8">'+escHtml(opts.zeroLabel)+'</text>'
+          : '')
+    : '';
+  // Points interactifs avec tooltip HTML custom (affichage instantané au survol)
+  // + <title> natif gardé pour l'accessibilité (lecteurs d'écran)
+  const tipFn = opts.tooltipFormat;
+  const hitpoints = tipFn
+    ? pts.map((p,i) => {
+        const t = escHtml(tipFn(series[i], i));
+        return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="8" fill="currentColor" opacity="0" '
+          + 'style="pointer-events:all;cursor:default" class="dw-spark-pt" '
+          + 'data-tip="'+t+'" '
+          + 'onmouseenter="_sparkTip(this)" onmouseleave="_sparkTip(null)">'
+          + '<title>'+t+'</title></circle>';
+      }).join('')
+    : '';
+  const svg = '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" preserveAspectRatio="none" class="dw-hero-spark" aria-hidden="true" style="overflow:visible">'
+    + gradientDef
+    + (showArea ? '<path d="'+area+'" fill="'+fill+'" opacity=".85"/>' : '')
+    + zeroBaseline
+    + '<polyline points="'+polyline+'" fill="none" stroke="'+stroke+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+    + (showEnd ? '<circle cx="'+endX.toFixed(1)+'" cy="'+endY.toFixed(1)+'" r="3.5" fill="'+endColor+'"/>' : '')
+    + hitpoints + edgeLabels + '</svg>';
+  // Ruban de labels sous le SVG (option allLabels) + conteneur relatif pour le tooltip
+  if(opts.allLabels || tipFn) {
+    const lbls = opts.allLabels
+      ? '<div class="dw-spark-axis">'+series.map(s => '<span>'+escHtml(s.label||'')+'</span>').join('')+'</div>'
+      : '';
+    return '<div class="dw-spark-wrap">'+svg+lbls+'<div class="dw-spark-tip" aria-hidden="true"></div></div>';
+  }
+  return svg;
+}
+
+/* Tooltip instantané au survol d'un point sparkline (remplace le <title> lent).
+   position:fixed + getBoundingClientRect → échappe à tout overflow:hidden.
+   Clamp horizontal après render pour rester dans le viewport. */
+function _sparkTip(el) {
+  document.querySelectorAll('.dw-spark-tip.show').forEach(t => t.classList.remove('show'));
+  if(!el) return;
+  const wrap = el.closest('.dw-spark-wrap');
+  if(!wrap) return;
+  const tip = wrap.querySelector('.dw-spark-tip');
+  if(!tip) return;
+  tip.textContent = el.getAttribute('data-tip') || '';
+  // Coords viewport du centre du point (pas du SVG — car position:fixed)
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width/2;
+  const cy = r.top  + r.height/2;
+  tip.style.left = cx + 'px';
+  tip.style.top  = cy + 'px';
+  tip.classList.add('show');
+  // Clamp horizontal après que le DOM ait mesuré la taille du tooltip
+  requestAnimationFrame(() => {
+    const tr = tip.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const PAD = 8;
+    let dx = 0;
+    if(tr.right > vw - PAD)       dx = (vw - PAD) - tr.right;
+    else if(tr.left < PAD)        dx = PAD - tr.left;
+    if(dx) tip.style.left = (cx + dx) + 'px';
+  });
+}
+
+/* Clic sur carte interactive : no-op en mode édition (évite conflit avec drag). */
+function _dashCardClick(key, ev) {
+  if(_dashEditMode) return;
+  if(ev && ev.stopPropagation) ev.stopPropagation();
+  _openDD(key);
+}
+
+/* Série cash-flow mensuel sur N mois glissants (scope respecté). Single-pass sur DB.mouvements. */
+function _heroCashflowSeries(ctx, nMonths) {
+  const {activeEnt, scopeRefs, scopeImms} = ctx;
+  const today = new Date();
+  const buckets = {};
+  const order = [];
+  for(let i = nMonths - 1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    buckets[ym] = {value:0, label:_DMC[d.getMonth()], ym, yr:d.getFullYear(), mo:d.getMonth()+1};
+    order.push(ym);
+  }
+  const first = order[0], last = order[order.length-1];
+  for(const m of DB.mouvements) {
+    if(!m.date) continue;
+    const ym = m.date.slice(0,7);
+    if(ym < first || ym > last || !buckets[ym]) continue;
+    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+    buckets[ym].value += (m.cr || 0) - (m.db || 0);
+  }
+  return order.map(ym => buckets[ym]);
+}
+
+/* Contenu drill-down cash-flow (modale ov-dash-drill). */
+function _buildHeroDrill(ctx, cfNow, cfPrev, cfYTD) {
+  const {mvs, yr, mo} = ctx;
+  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
+  const prevLabel = mo ? 'Mois précédent' : 'Année précédente';
+  const byCat = {};
+  for(const m of mvs) {
+    const cat = m.cat || 'Sans catégorie';
+    if(!byCat[cat]) byCat[cat] = {cat, cr:0, db:0};
+    byCat[cat].cr += (m.cr || 0);
+    byCat[cat].db += (m.db || 0);
+  }
+  const rows = Object.values(byCat).sort((a,b) => (b.cr+b.db) - (a.cr+a.db));
+  const tCr = rows.reduce((s,r) => s+r.cr, 0);
+  const tDb = rows.reduce((s,r) => s+r.db, 0);
+  const card = (lab, val, color) =>
+    '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    + '<div style="font-size:10px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">'+escHtml(lab)+'</div>'
+    + '<div style="font-size:20px;font-weight:600;margin-top:4px;color:'+color+'">'+val+'</div></div>';
+  const signed = n => (n>=0?'+':'')+fmt(n);
+  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
+    + card(periodLabel, signed(cfNow), cfNow>=0?'var(--fg-success)':'var(--fg-danger)')
+    + card(prevLabel,   signed(cfPrev),'var(--t2)')
+    + card('YTD '+yr,   signed(cfYTD), cfYTD>=0?'var(--fg-success)':'var(--fg-danger)')
+    + '</div>';
+  const table = rows.length
+    ? '<table class="tbl"><thead><tr><th>Catégorie</th><th style="text-align:right">Revenus</th><th style="text-align:right">Charges</th><th style="text-align:right">Net</th></tr></thead><tbody>'
+    + rows.map(r =>
+        '<tr><td>'+escHtml(r.cat)+'</td>'
+        +'<td style="text-align:right;color:var(--fg-success)">'+(r.cr>0?fmt(r.cr):'–')+'</td>'
+        +'<td style="text-align:right;color:var(--fg-danger)">' +(r.db>0?fmt(r.db):'–')+'</td>'
+        +'<td style="text-align:right;font-weight:600">'+fmt(r.cr-r.db)+'</td></tr>'
+      ).join('')
+    + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td>Total</td>'
+    + '<td style="text-align:right">'+fmt(tCr)+'</td><td style="text-align:right">'+fmt(tDb)+'</td>'
+    + '<td style="text-align:right">'+fmt(tCr-tDb)+'</td></tr></tfoot></table>'
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun mouvement sur la période.</div>';
+  return {title:'Cash-flow — '+periodLabel, html:summary+table};
+}
+
 function buildDashWidget(id, ctx, col=3, row=2) {
   const {scopeLogs, mvs, mvsYTD, mvsPrev, yr, mo, refYrMo, activeEnt, scopeRefs, scopeImms} = ctx;
   // Hauteur réelle de la cellule : N×72px + (N-1)×12px de gap
@@ -3843,6 +4220,97 @@ function buildDashWidget(id, ctx, col=3, row=2) {
   // Shorthand pour le bouton "Voir tout" ancré dans .dw-foot
   const seeAll = (key, label='Voir tout') => `<button class="dw-see-all" data-w="${key}" onclick="_openDD(this.dataset.w)">${label}<\/button>`;
   const seeLink = (label, fn) => `<button class="dw-see-all" onclick="${fn}">${label}<\/button>`;
+
+  /* ── v2 Context bar — date + salutation + pills (cahier §3.1) ── */
+  if(id==='context-bar') {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    const greet = (typeof getSalutation === 'function') ? getSalutation() : 'Bonjour';
+    const entPill = activeEnt
+      ? '<span class="dw-pill"><span class="dw-pill-dot blu"></span>'+escHtml(activeEnt)+'</span>'
+      : '<span class="dw-pill"><span class="dw-pill-dot"></span>Toutes entités</span>';
+    const periodPill = '<span class="dw-pill">'+escHtml(periodLabel)+'</span>';
+    const body = '<div class="dw-context-grid">'
+      + '<div class="dw-context-left">'
+      +   '<div class="dw-context-date">'+escHtml(dateStr)+'</div>'
+      +   '<div class="dw-context-greet">'+escHtml(greet)+'</div>'
+      + '</div>'
+      + '<div class="dw-context-right">'+entPill+periodPill+'</div>'
+      + '</div>';
+    return wd(body, '', '');
+  }
+
+  /* ── v2 Hero Pulse — cash-flow, sparkline 12 mois, drill (cahier §3.2) ── */
+  if(id==='hero') {
+    const cf     = totalCr - totalDb;
+    const prevCf = prevCr - prevDb;
+    const cfYTD2 = crYTD - dbYTD;
+    const pct    = objAnnuel > 0 ? (cfYTD2 / objAnnuel * 100) : 0;
+    const deltaPct = (prevCf !== 0) ? ((cf - prevCf) / Math.abs(prevCf) * 100) : null;
+    const col2  = cf >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+    const heroStatus = cf >= 0 ? 'grn' : 'red';  // accent lat\u00e9ral selon signe
+    // Statut global textuel intentionnellement retir\u00e9 en Phase 2 :
+    // baser un statut uniquement sur le signe du cash-flow est trompeur
+    // (ex. afficherait "sous contr\u00f4le" alors qu'il manque une MRH).
+    // R\u00e9introduit en Phase 4 avec _computeUnifiedTodo() qui compte MRH+IRL+baux+r\u00e9gul+vacances.
+    // S\u00e9rie 12 mois glissants
+    const series12 = _heroCashflowSeries(ctx, 12);
+    const hasEnoughData = series12.filter(s => s.value !== 0).length >= 3;
+    const sparkline = hasEnoughData
+      ? _mkSparkline(series12, {
+          w:360, h:130,
+          signColoring: true,     // gradient vert(≥0)/rouge(<0) + baseline 0 pointillée
+          zeroLabel: '0 €',
+          allLabels: true,
+          tooltipFormat: (pt) =>
+            _DMF[pt.mo-1]+' '+pt.yr+' : '+(pt.value>=0?'+':'')+fmt(pt.value)
+        })
+      : '<div style="font-size:11px;color:var(--t3);padding:12px 14px;text-align:center">Données historiques insuffisantes</div>';
+    const deltaPill = (deltaPct === null)
+      ? ''
+      : '<span class="dw-pill '+(deltaPct>=0?'delta-up':'delta-down')+'">'
+        + (deltaPct>=0?'▲':'▼')+' '+Math.abs(deltaPct).toFixed(1)+'\u00a0% vs '+(mo?'mois':'an')+' précédent'
+        + '</span>';
+    // M\u00e9ta intelligente : jamais redondante avec la value principale du hero.
+    // - Vue mois : YTD + cumul 12 mois glissants (deux perspectives distinctes)
+    // - Vue ann\u00e9e : moyenne mensuelle + meilleur/pire mois (la value = YTD, donc YTD serait redondant)
+    const sgn = n => (n>=0?'+':'')+fmt(n);
+    const nonZeroMonths = series12.filter(p => p.value !== 0);
+    let meta;
+    if(mo) {
+      const cum12 = series12.reduce((s,p) => s + p.value, 0);
+      meta = 'YTD <strong>'+sgn(cfYTD2)+'</strong>'
+        + '<span class="dw-hero-meta-sep">\u00b7</span> '
+        + 'Cumul 12 mois glissants <strong>'+sgn(cum12)+'</strong>';
+    } else if(nonZeroMonths.length >= 3) {
+      const avg12 = series12.reduce((s,p) => s + p.value, 0) / series12.length;
+      const best  = nonZeroMonths.reduce((a,b) => b.value > a.value ? b : a);
+      const worst = nonZeroMonths.reduce((a,b) => b.value < a.value ? b : a);
+      const fmtPt = p => _DMC[p.mo-1]+' '+String(p.yr).slice(-2)+' '+sgn(p.value);
+      meta = 'Moyenne mensuelle <strong>'+sgn(avg12)+'</strong>'
+        + '<span class="dw-hero-meta-sep">\u00b7</span> '
+        + 'Meilleur <strong>'+fmtPt(best)+'</strong>'
+        + '<span class="dw-hero-meta-sep">\u00b7</span> '
+        + 'Pire <strong>'+fmtPt(worst)+'</strong>';
+    } else {
+      meta = '<span style="color:var(--t3);font-style:italic">Historique insuffisant pour plus de contexte</span>';
+    }
+    _DD['hero'] = _buildHeroDrill(ctx, cf, prevCf, cfYTD2);
+    const sign = cf >= 0 ? '+' : '';
+    const body = '<button type="button" class="dw-hero-click" onclick="_dashCardClick(\'hero\',event)" aria-label="Voir le détail du cash-flow">'
+      + '<div class="dw-hero-grid">'
+      +   '<div class="dw-hero-left">'
+      +     '<div class="dw-hero-label">Cash-flow — '+escHtml(periodLabel)+'</div>'
+      +     '<div class="dw-hero-value" style="color:'+col2+'">'+sign+fmt(cf)+'</div>'
+      +     (deltaPill ? '<div class="dw-hero-delta">'+deltaPill+'</div>' : '')
+      +     '<div class="dw-hero-meta">'+meta+'</div>'
+      +   '</div>'
+      +   (sparkline ? '<div class="dw-hero-right">'+sparkline+'</div>' : '<div></div>')
+      + '</div>'
+      + '<span class="dw-hero-arrow" aria-hidden="true">↗</span>'
+      + '</button>';
+    return wd(body, '', heroStatus);
+  }
 
   if(id==='rev') {
     const l2=mvs.filter(m=>m.cat==='Loyers').reduce((s,m)=>s+(m.cr||0),0);
