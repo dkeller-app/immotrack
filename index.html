@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.14</title>
+<title>ImmoTrack v12.15</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -781,6 +781,56 @@ textarea.inp{resize:vertical;min-height:70px}
   transition:width var(--t-normal);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 4 — Carte "À traiter" unifiée (cahier §3.5)
+   ══════════════════════════════════════════════════════════════ */
+.dw-todo-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;
+}
+.dw-todo-title{font-size:14px;font-weight:600;color:var(--t1);letter-spacing:-.01em}
+.dw-todo-count{
+  font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+  background:var(--bg-info);color:var(--fg-info);white-space:nowrap;
+}
+.dw-todo-count.red{background:var(--bg-danger);color:var(--fg-danger)}
+.dw-todo-count.ora{background:var(--bg-warning);color:var(--fg-warning)}
+.dw-todo-count.grn{background:var(--bg-success);color:var(--fg-success)}
+.dw-todo-list{display:flex;flex-direction:column;gap:6px;min-width:0}
+.dw-todo-item{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);
+  background:transparent;border:1px solid transparent;
+  cursor:pointer;transition:background var(--t-fast),border-color var(--t-fast);
+  min-width:0;
+}
+.dw-todo-item:hover{background:var(--sur2);border-color:var(--bor)}
+.dw-todo-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--fg-info);
+}
+.dw-todo-dot.red{background:var(--fg-danger)}
+.dw-todo-dot.ora{background:var(--fg-warning)}
+.dw-todo-dot.info{background:var(--fg-info)}
+.dw-todo-body{flex:1;min-width:0;overflow:hidden}
+.dw-todo-itemtitle{
+  font-size:13px;font-weight:500;color:var(--t1);line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.dw-todo-sub{
+  font-size:11px;color:var(--t2);line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.dw-todo-arrow{color:var(--t3);font-size:13px;flex-shrink:0;opacity:0;transition:opacity var(--t-fast)}
+.dw-todo-item:hover .dw-todo-arrow{opacity:1}
+.dw-todo-more{
+  font-size:11px;color:var(--t3);margin-top:4px;padding:5px 10px;
+  text-align:center;font-style:italic;
+}
+.dw-todo-empty{
+  display:flex;align-items:center;gap:10px;padding:16px;
+  background:var(--bg-success);border-radius:var(--r);
+  color:var(--fg-success);font-size:13px;font-weight:500;
+}
+.dw-todo-empty::before{content:'\2713';font-size:18px;font-weight:700}
+
 /* Liste à barres horizontales — charges par catégorie (layout col 3 row 2 ≤108px)
    Compact : grid [name | bar | %], on drop le montant (visible dans drill). */
 .dw-cat-list{
@@ -921,7 +971,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.14</em>
+      <em>v12.15</em>
     </div>
   </div>
 
@@ -3892,10 +3942,12 @@ const DASH_DEFAULT_LAYOUT = [
   {id:'prog',  label:'Progression annuelle',        col:4, row:2, visible:false},
   {id:'solde', label:'Solde provisions',            col:8, row:2, visible:false},
   {id:'sep-gestion', type:'separator', label:'Gestion locative', col:12, row:1, visible:true},
-  {id:'agenda-dash',label:'Agenda — 15 prochains jours', col:6, row:4, visible:true},
-  {id:'mag',   label:'Manque à gagner vacance',     col:3, row:2, visible:false},  // v2 : fusionné dans occ
-  /* dg déjà défini plus haut en col:5 row:2 visible (section finance v2) */
-  {id:'mrh',   label:'MRH manquantes',              col:3, row:2, visible:true},
+  /* v2 Phase 4 — Agenda + À traiter (cartes col 6 row 4 symétriques) */
+  {id:'agenda-dash',  label:'Agenda — 15 prochains jours', col:6, row:4, visible:true},
+  {id:'todo-unified', label:'À traiter (v2)',              col:6, row:4, visible:true},
+  /* v2 — widgets gestion individuels : tous fusionnés dans todo-unified, visible:false */
+  {id:'mag',   label:'Manque à gagner vacance',     col:3, row:2, visible:false},
+  {id:'mrh',   label:'MRH manquantes',              col:3, row:2, visible:false},
   {id:'irl',   label:'Révisions IRL',               col:3, row:2, visible:false},
   {id:'bail',  label:'Baux à terme',                col:3, row:2, visible:false},
   {id:'regul', label:'Régularisations',             col:3, row:2, visible:false},
@@ -4481,6 +4533,247 @@ function _buildFluxDrill(ctx) {
   return {title:'Revenus vs Charges — 12 mois glissants', html};
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 4 — "À traiter" unifié (cahier §3.5)
+   Agrège MRH + bail + IRL + vacance + regul + assur + loyers impayés
+   en une seule liste priorisée. Scoring selon cahier §3.5.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Sévérités :
+   - red  : critique (MRH manquante, bail expiré, loyer impayé > 30j)
+   - ora  : attention (bail J-90, IRL applicable, vacance 30-60j, assur < 30j)
+   - info : à surveiller (régul, vacance < 30j, IRL à venir, rappels) */
+function _computeUnifiedTodo(ctx) {
+  const {scopeLogs, activeEnt} = ctx;
+  const today = new Date();
+  const out = [];
+
+  // 1. MRH manquante (critique)
+  scopeLogs.filter(l => l.locataire).forEach(l => {
+    const hasMrh = DB.mrh && DB.mrh.some(m => m.logement === l.ref);
+    if(!hasMrh) {
+      out.push({
+        type:'mrh', severity:'red', score:100,
+        title:'MRH manquante',
+        subtitle:l.ref+(l.locataire?' \u2014 '+l.locataire:''),
+        contextRef:l.ref,
+        actionLabel:'Ajouter dans Assurances',
+        actionFn:'goToAssurances(\''+l.ref+'\')'
+      });
+    }
+  });
+
+  // 2. Baux expirés / à terme
+  scopeLogs.filter(l => l.fin && l.locataire).forEach(l => {
+    const fin = new Date(l.fin);
+    const diff = Math.round((fin - today) / 86400000);
+    if(diff < 0) {
+      out.push({
+        type:'bail', severity:'red', score:100,
+        title:'Bail expiré',
+        subtitle:l.ref+' \u2014 '+l.locataire+' (fin '+fd(l.fin)+')',
+        contextRef:l.ref,
+        actionLabel:'Ouvrir le bail',
+        actionFn:'go(\'baux\',null)'
+      });
+    } else if(diff <= 90) {
+      out.push({
+        type:'bail', severity: diff <= 30 ? 'red' : 'ora',
+        score: Math.max(10, 90 - diff),
+        title:'Bail à terme dans '+diff+' j',
+        subtitle:l.ref+' \u2014 '+l.locataire+' (fin '+fd(l.fin)+')',
+        contextRef:l.ref,
+        actionLabel:'Ouvrir le bail',
+        actionFn:'go(\'baux\',null)'
+      });
+    }
+  });
+
+  // 3. Loyers impayés (cahier §3.5 : > 30j = rouge)
+  // On check le mois en cours : si reste > 0 et qu'on dépasse le 5 du mois, on flag.
+  const curY = today.getFullYear(), curM = today.getMonth()+1;
+  const curYM = curY+'-'+String(curM).padStart(2,'0');
+  const dayOfMonth = today.getDate();
+  scopeLogs.filter(l => l.locataire).forEach(l => {
+    const attendu = (l.hc||0) + (l.ch||0);
+    if(attendu <= 0) return;
+    const enc = DB.mouvements
+      .filter(m => m.qui === l.ref && m.cat === 'Loyers' && (m.cr||0) > 0 && m.date && m.date.startsWith(curYM))
+      .reduce((s,m) => s+(m.cr||0), 0);
+    const reste = attendu - enc;
+    if(reste <= 0.5) return;  // payé (ou presque)
+    // Si mois en cours et < 10 du mois, on est tolérant
+    if(dayOfMonth < 10) return;
+    const overdue30 = dayOfMonth > 30 || enc === 0;  // proxy pour "> 30j"
+    out.push({
+      type:'impaye', severity: enc === 0 ? 'red' : 'ora',
+      score: enc === 0 ? 95 : 75,
+      title:'Loyer impayé — '+_DMC[curM-1],
+      subtitle:l.ref+' \u2014 '+l.locataire+' \u2014 reste '+fmt(reste),
+      contextRef:l.ref,
+      actionLabel:'Voir les loyers',
+      actionFn:'go(\'loyers\',null)'
+    });
+  });
+
+  // 4. Révision IRL applicable / à venir
+  scopeLogs.filter(l => l.locataire && l.debut).forEach(l => {
+    const rev = typeof computeIRLRevision === 'function' ? computeIRLRevision(l) : null;
+    if(!rev || rev.insuffisant || rev.pasEncoreApplicable) return;
+    const anniv = rev.dateRevision;
+    if(!anniv) return;
+    const diffAnniv = Math.round((anniv - today) / 86400000);
+    if(rev.isApplicable && rev.diff !== 0 && !rev.dejaApplique) {
+      out.push({
+        type:'irl', severity:'ora', score:70,
+        title:'Révision IRL applicable',
+        subtitle:l.ref+' \u2014 '+fmt(l.hc)+' \u2192 '+fmt(rev.nouveauHC),
+        contextRef:l.ref,
+        actionLabel:'Appliquer',
+        actionFn:'go(\'irl\',null)'
+      });
+    } else if(!rev.dejaApplique && diffAnniv >= 0 && diffAnniv <= 45) {
+      out.push({
+        type:'irl', severity:'info', score:60,
+        title:'Révision IRL dans '+diffAnniv+' j',
+        subtitle:l.ref+' \u2014 '+fmt(l.hc)+' \u2192 '+fmt(rev.nouveauHC),
+        contextRef:l.ref,
+        actionLabel:'Préparer',
+        actionFn:'go(\'irl\',null)'
+      });
+    }
+  });
+
+  // 5. Assurances PNO expirant / expirées (< 30 j)
+  (DB.assurances||[]).forEach(a => {
+    if(!a.echeance) return;
+    if(activeEnt) {
+      const log = DB.logements.find(l => l.ref === a.logement);
+      if(!log || log.entity !== activeEnt) return;
+    }
+    const ech = new Date(a.echeance);
+    const diff = Math.round((ech - today) / 86400000);
+    if(diff < 0) {
+      out.push({
+        type:'assur', severity:'red', score:90,
+        title:'Assurance PNO expirée',
+        subtitle:a.logement+' ('+(a.compagnie||'?')+') \u2014 '+fd(a.echeance),
+        contextRef:a.logement,
+        actionLabel:'Renouveler',
+        actionFn:'go(\'assurances\',null)'
+      });
+    } else if(diff <= 30) {
+      out.push({
+        type:'assur', severity:'ora', score:50,
+        title:'Assurance PNO expire dans '+diff+' j',
+        subtitle:a.logement+' ('+(a.compagnie||'?')+')',
+        contextRef:a.logement,
+        actionLabel:'Renouveler',
+        actionFn:'go(\'assurances\',null)'
+      });
+    }
+  });
+
+  // 6. Vacance (durée depuis dernier loyer reçu comme proxy de "jours vacants")
+  scopeLogs.filter(l => !l.locataire).forEach(l => {
+    // Proxy jours vacants : date du dernier loyer reçu sur ce logement
+    const lastLoy = DB.mouvements
+      .filter(m => m.qui === l.ref && m.cat === 'Loyers' && (m.cr||0) > 0 && m.date)
+      .sort((a,b) => b.date.localeCompare(a.date))[0];
+    const joursVac = lastLoy
+      ? Math.round((today - new Date(lastLoy.date)) / 86400000)
+      : 365;  // inconnu → assume long
+    const perte = ((l.hc||0) + (l.ch||0)) * 12;
+    out.push({
+      type:'vacance', severity: joursVac > 30 ? 'ora' : 'info',
+      score: 60 + (joursVac > 30 ? 20 : 0),
+      title: joursVac > 60 ? 'Vacant depuis > 60 j' : (joursVac > 30 ? 'Vacant depuis > 30 j' : 'Logement vacant'),
+      subtitle:l.ref+(l.imm?' \u2014 '+l.imm:'')+' \u2014 perte potentielle '+fmt(perte)+'/an',
+      contextRef:l.ref,
+      actionLabel:'Relouer',
+      actionFn:'go(\'logements\',null)'
+    });
+  });
+
+  // 7. Régularisation de charges à émettre
+  const yr = String(today.getFullYear());
+  const yrPrev = String(today.getFullYear() - 1);
+  scopeLogs.filter(l => l.locataire && (l.ch||0) > 0).forEach(l => {
+    const hasRegul = DB.mouvements.some(m =>
+      m.qui === l.ref && m.cat && /r.gularisation/i.test(m.cat) &&
+      m.date && (m.date.startsWith(yr) || m.date.startsWith(yrPrev))
+    );
+    if(!hasRegul) {
+      out.push({
+        type:'regul', severity:'info', score:40,
+        title:'Régularisation à émettre',
+        subtitle:l.ref+' \u2014 '+l.locataire+' (charges '+fmt(l.ch)+'/mois)',
+        contextRef:l.ref,
+        actionLabel:'Émettre régul',
+        actionFn:'go(\'regularisation\',null)'
+      });
+    }
+  });
+
+  // Tri : score desc, puis severity (red > ora > info)
+  const sevRank = {red:3, ora:2, info:1};
+  out.sort((a,b) => (b.score - a.score) || (sevRank[b.severity] - sevRank[a.severity]));
+  return out;
+}
+
+/* Drill-down tableau complet "À traiter" — groupé par sévérité. */
+function _buildTodoDrill(ctx) {
+  const items = _computeUnifiedTodo(ctx);
+  if(!items.length) {
+    return {title:'À traiter', html:'<div class="dw-todo-empty" style="margin:0">Rien à traiter. Continuez comme ça.</div>'};
+  }
+  const byType = {};
+  items.forEach(it => {
+    if(!byType[it.type]) byType[it.type] = [];
+    byType[it.type].push(it);
+  });
+  const typeLabels = {
+    mrh:'MRH manquante', bail:'Baux', impaye:'Loyers impayés',
+    irl:'Révisions IRL', assur:'Assurances PNO', vacance:'Logements vacants',
+    regul:'Régularisations'
+  };
+  const sevClr = {red:'var(--fg-danger)', ora:'var(--fg-warning)', info:'var(--fg-info)'};
+  const sevBg  = {red:'var(--bg-danger)', ora:'var(--bg-warning)', info:'var(--bg-info)'};
+  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">'
+    + ['red','ora','info'].map(sev => {
+        const cnt = items.filter(i => i.severity === sev).length;
+        const lbl = sev === 'red' ? 'Critique' : sev === 'ora' ? 'Attention' : 'Info';
+        return '<div style="padding:12px 14px;background:'+sevBg[sev]+';border-radius:var(--r);border:1px solid var(--bor)">'
+          + '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">'+lbl+'</div>'
+          + '<div style="font-size:26px;font-weight:600;margin-top:2px;color:'+sevClr[sev]+'">'+cnt+'</div>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+  const table = '<table class="tbl"><thead><tr><th style="width:24px"></th><th>Type</th><th>Détail</th><th style="text-align:right">Action</th></tr></thead><tbody>'
+    + items.map(it => {
+        const clr = sevClr[it.severity] || 'var(--t2)';
+        return '<tr>'
+          + '<td style="text-align:center"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+clr+'"></span></td>'
+          + '<td style="font-weight:500;white-space:nowrap">'+escHtml(typeLabels[it.type]||it.type)+'</td>'
+          + '<td><b>'+escHtml(it.title)+'</b><div style="font-size:11px;color:var(--t2);margin-top:2px">'+escHtml(it.subtitle)+'</div></td>'
+          + '<td style="text-align:right;white-space:nowrap">'
+          +   (it.actionFn
+              ? '<a href="#" onclick="closeM(\'ov-dash-drill\');'+it.actionFn+';return false" style="color:var(--fg-info);font-weight:600;font-size:12px">'+escHtml(it.actionLabel||'Ouvrir')+' \u203a</a>'
+              : '')
+          + '</td></tr>';
+      }).join('')
+    + '</tbody></table>';
+  return {title:'À traiter \u2014 '+items.length+' action'+(items.length>1?'s':''), html:summary+table};
+}
+
+/* Helper navigation : ouvre l'onglet Assurances avec le logement pré-sélectionné.
+   Fallback simple si la fonction détaillée n'existe pas encore. */
+function goToAssurances(ref) {
+  closeM('ov-dash-drill');
+  const navEl = document.querySelector('.ni[onclick*="\'assurances\'"]');
+  if(typeof go === 'function') go('assurances', navEl);
+}
+
 function _buildRdtDrill(ctx) {
   const {scopeLogs, activeEnt, scopeRefs, scopeImms} = ctx;
   const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
@@ -4653,10 +4946,10 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     // - Vue ann\u00e9e : moyenne mensuelle + meilleur/pire mois (la value = YTD, donc YTD serait redondant)
     const sgn = n => (n>=0?'+':'')+fmt(n);
     const nonZeroMonths = series12.filter(p => p.value !== 0);
-    let meta;
+    let metaCore;
     if(mo) {
       const cum12 = series12.reduce((s,p) => s + p.value, 0);
-      meta = 'YTD <strong>'+sgn(cfYTD2)+'</strong>'
+      metaCore = 'YTD <strong>'+sgn(cfYTD2)+'</strong>'
         + '<span class="dw-hero-meta-sep">\u00b7</span> '
         + 'Cumul 12 mois glissants <strong>'+sgn(cum12)+'</strong>';
     } else if(nonZeroMonths.length >= 3) {
@@ -4664,14 +4957,31 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       const best  = nonZeroMonths.reduce((a,b) => b.value > a.value ? b : a);
       const worst = nonZeroMonths.reduce((a,b) => b.value < a.value ? b : a);
       const fmtPt = p => _DMC[p.mo-1]+' '+String(p.yr).slice(-2)+' '+sgn(p.value);
-      meta = 'Moyenne mensuelle <strong>'+sgn(avg12)+'</strong>'
+      metaCore = 'Moyenne mensuelle <strong>'+sgn(avg12)+'</strong>'
         + '<span class="dw-hero-meta-sep">\u00b7</span> '
         + 'Meilleur <strong>'+fmtPt(best)+'</strong>'
         + '<span class="dw-hero-meta-sep">\u00b7</span> '
         + 'Pire <strong>'+fmtPt(worst)+'</strong>';
     } else {
-      meta = '<span style="color:var(--t3);font-style:italic">Historique insuffisant pour plus de contexte</span>';
+      metaCore = '<span style="color:var(--t3);font-style:italic">Historique insuffisant pour plus de contexte</span>';
     }
+    // v2 Phase 4 : statut global reconnecté via _computeUnifiedTodo (source honnête)
+    const todoItems = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
+    const redCount = todoItems.filter(i => i.severity === 'red').length;
+    const oraCount = todoItems.filter(i => i.severity === 'ora').length;
+    let statusTxt, statusDot;
+    if(todoItems.length === 0) {
+      statusTxt = 'Tout est sous contr\u00f4le'; statusDot = 'grn';
+    } else if(redCount > 0) {
+      statusTxt = redCount+' point'+(redCount>1?'s':'')+' critique'+(redCount>1?'s':''); statusDot = 'red';
+    } else if(oraCount > 0) {
+      statusTxt = 'Attention : '+oraCount+' point'+(oraCount>1?'s':''); statusDot = 'ora';
+    } else {
+      statusTxt = todoItems.length+' rappel'+(todoItems.length>1?'s':''); statusDot = 'blu';
+    }
+    const meta = metaCore
+      + '<span class="dw-hero-meta-sep">\u00b7</span> '
+      + '<span class="dw-pill-dot '+statusDot+'"></span> '+statusTxt;
     _DD['hero'] = _buildHeroDrill(ctx, cf, prevCf, cfYTD2);
     const sign = cf >= 0 ? '+' : '';
     const body = '<button type="button" class="dw-hero-click" onclick="_dashCardClick(\'hero\',event)" aria-label="Voir le détail du cash-flow">'
@@ -4686,6 +4996,44 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       + '</div>'
       + '</button>';
     return wd(body, '', heroStatus);
+  }
+
+  /* ── v2 Phase 4 — Carte "À traiter" unifiée (cahier §3.5)
+     Fusionne MRH + bail + IRL + vacance + regul + assur + loyers impayés.
+     Liste priorisée top N + drill complet. État vide si rien à traiter. ── */
+  if(id==='todo-unified') {
+    const items = _computeUnifiedTodo(ctx);
+    const TOP = Math.max(3, Math.min(7, row * 2 - 1));  // s'adapte à la hauteur
+    const shown = items.slice(0, TOP);
+    const more = items.length - shown.length;
+    const sevRank = {red:3, ora:2, info:1};
+    const maxSev = items.reduce((s, i) => sevRank[i.severity] > sevRank[s] ? i.severity : s, 'info');
+    const countCls = items.length === 0 ? 'grn' : maxSev;
+    _DD['todo-unified'] = _buildTodoDrill(ctx);
+    const list = items.length === 0
+      ? '<div class="dw-todo-empty">Rien à traiter. Continuez comme ça.</div>'
+      : '<div class="dw-todo-list">'
+        + shown.map(it =>
+            '<div class="dw-todo-item" onclick="if(!_dashEditMode){event.stopPropagation();'+it.actionFn+'}" title="'+escHtml(it.actionLabel||'')+'">'
+            + '<span class="dw-todo-dot '+it.severity+'"></span>'
+            + '<div class="dw-todo-body">'
+            +   '<div class="dw-todo-itemtitle">'+escHtml(it.title)+'</div>'
+            +   '<div class="dw-todo-sub">'+escHtml(it.subtitle)+'</div>'
+            + '</div>'
+            + '<span class="dw-todo-arrow" aria-hidden="true">\u203a</span>'
+            + '</div>'
+          ).join('')
+        + (more > 0
+            ? '<div class="dw-todo-more" onclick="_dashCardClick(\'todo-unified\',event)">+ '+more+' autre'+(more>1?'s':'')+' \u2014 voir tout \u203a</div>'
+            : '')
+        + '</div>';
+    const body = '<div class="dw-todo-head">'
+      +   '<span class="dw-todo-title">À traiter</span>'
+      +   '<span class="dw-todo-count '+countCls+'">'+items.length+'</span>'
+      + '</div>'
+      + list;
+    const status = items.length === 0 ? 'grn' : (maxSev === 'red' ? 'red' : maxSev === 'ora' ? 'ora' : 'blu');
+    return wd(body, '', status);
   }
 
   /* ── v2 Phase 3 — KPI fusionné "Revenus vs Charges" (choix utilisateur)
