@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.18</title>
+<title>ImmoTrack v12.19</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1106,7 +1106,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.18</em>
+      <em>v12.19</em>
     </div>
   </div>
 
@@ -4740,8 +4740,9 @@ function _buildOccDrill(ctx) {
   const pct = totalL > 0 ? Math.round(occupied / totalL * 100) : 0;
   const color = pct >= 90 ? 'var(--fg-success)' : pct >= 50 ? 'var(--fg-warning)' : 'var(--fg-danger)';
   const vacs = scopeLogs.filter(l => !l.locataire);
-  const magMois = vacs.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
-  const magAn = magMois * 12;
+  // v2 — Manque à gagner en HC seul (charges = pass-through, pas un revenu)
+  const magMoisHC = vacs.reduce((s,l) => s+(l.hc||0), 0);
+  const magAnHC   = magMoisHC * 12;
   const summary = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'
     + '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
     +   '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">Occupation</div>'
@@ -4749,21 +4750,21 @@ function _buildOccDrill(ctx) {
     +   '<div style="font-size:12px;color:var(--t2);margin-top:2px">'+occupied+' / '+totalL+' logements</div>'
     + '</div>'
     + '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
-    +   '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">Manque \u00e0 gagner</div>'
-    +   '<div style="font-size:26px;font-weight:600;margin-top:2px;color:'+(vacs.length?'var(--fg-danger)':'var(--fg-success)')+'">'+fmt(magAn)+'</div>'
-    +   '<div style="font-size:12px;color:var(--t2);margin-top:2px">'+(vacs.length?fmt(magMois)+'/mois \u00b7 '+vacs.length+' vacant'+(vacs.length>1?'s':''):'Aucun vacant')+'</div>'
+    +   '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">Manque \u00e0 gagner (HC)</div>'
+    +   '<div style="font-size:26px;font-weight:600;margin-top:2px;color:'+(vacs.length?'var(--fg-danger)':'var(--fg-success)')+'">'+fmt(magAnHC)+'</div>'
+    +   '<div style="font-size:12px;color:var(--t2);margin-top:2px">'+(vacs.length?fmt(magMoisHC)+' HC/mois \u00b7 '+vacs.length+' vacant'+(vacs.length>1?'s':''):'Aucun vacant')+'</div>'
     + '</div>'
     + '</div>';
   const table = totalL
-    ? '<table class="tbl"><thead><tr><th>Logement</th><th>Immeuble</th><th>Statut</th><th>Locataire</th><th style="text-align:right">Loyer TCC</th><th style="text-align:right">Perte/an si vacant</th></tr></thead><tbody>'
+    ? '<table class="tbl"><thead><tr><th>Logement</th><th>Immeuble</th><th>Statut</th><th>Locataire</th><th style="text-align:right">Loyer TTC (HC+CH)</th><th style="text-align:right">Perte HC/an si vacant</th></tr></thead><tbody>'
     + scopeLogs.map(l => {
         const statut = l.locataire
           ? '<span style="color:var(--fg-success);font-weight:600">Occup\u00e9</span>'
           : '<span style="color:var(--fg-danger);font-weight:600">Vacant</span>';
-        const loyer = (l.hc||0)+(l.ch||0);
-        const perte = l.locataire ? '\u2014' : fmt(loyer*12);
+        const loyerTTC = (l.hc||0)+(l.ch||0);
+        const perte = l.locataire ? '\u2014' : fmt((l.hc||0)*12);
         const perteCol = l.locataire ? 'var(--t3)' : 'var(--fg-danger)';
-        return '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.imm||'—')+'</td><td>'+statut+'</td><td>'+escHtml(l.locataire||'—')+'</td><td style="text-align:right">'+fmt(loyer)+'</td><td style="text-align:right;color:'+perteCol+';font-weight:'+(l.locataire?'400':'600')+'">'+perte+'</td></tr>';
+        return '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.imm||'—')+'</td><td>'+statut+'</td><td>'+escHtml(l.locataire||'—')+'</td><td style="text-align:right">'+fmt(loyerTTC)+'</td><td style="text-align:right;color:'+perteCol+';font-weight:'+(l.locataire?'400':'600')+'">'+perte+'</td></tr>';
       }).join('')
     + '</tbody></table>'
     : '<div class="mu sm" style="text-align:center;padding:24px">Aucun logement dans ce scope.</div>';
@@ -5120,8 +5121,8 @@ function _buildRdtDrill(ctx) {
   cutoff.setMonth(cutoff.getMonth() - 12);
   const cutoffISO = cutoff.toISOString().slice(0,10);
   const now = new Date();
-  // Single-pass : loyers 12 mois glissants + date du 1er mouvement par immeuble
-  const loysByImm = {};
+  // Single-pass : HC reçu (m.cr - l.ch) 12 mois glissants + date 1er mouvement
+  const hcByImm = {};
   const firstByImm = {};
   for(const m of DB.mouvements) {
     if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date) continue;
@@ -5129,12 +5130,14 @@ function _buildRdtDrill(ctx) {
     const log = scopeLogs.find(l => l.ref === m.qui);
     if(!log || !log.imm) continue;
     if(!firstByImm[log.imm] || m.date < firstByImm[log.imm]) firstByImm[log.imm] = m.date;
-    if(m.date >= cutoffISO) loysByImm[log.imm] = (loysByImm[log.imm] || 0) + m.cr;
+    if(m.date >= cutoffISO) {
+      const hcPart = Math.max(0, (m.cr||0) - (log.ch||0));
+      hcByImm[log.imm] = (hcByImm[log.imm] || 0) + hcPart;
+    }
   }
   const rows = immsDistinct.map(immNom => {
     const iL = scopeLogs.filter(l => l.imm === immNom);
-    const loysEff = loysByImm[immNom] || 0;
-    const loysTheo = iL.reduce((s,l) => s+(l.hc||0), 0) * 12;
+    const hcRecu = hcByImm[immNom] || 0;
     const first = firstByImm[immNom];
     let moisEcoules = 12;
     if(first) {
@@ -5143,44 +5146,40 @@ function _buildRdtDrill(ctx) {
         (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()) + 1
       ));
     }
-    const loysAnnualises = first ? loysEff * 12 / moisEcoules : 0;
+    const hcAnnualise = first ? hcRecu * 12 / moisEcoules : 0;
     const entNom = iL[0] && iL[0].entity;
     const ent2 = entNom ? DB.entites.find(e => e.nom === entNom) : null;
     const imObj = ent2 && ent2.immeubles ? ent2.immeubles.find(i => i.nom === immNom) : null;
     const valeur = (imObj && imObj.valeurEstimee) || 0;
     const travaux = (imObj && imObj.montantTravaux) || 0;
     const totalInv = valeur + travaux;
-    const taux = totalInv > 0 && first ? (loysAnnualises / totalInv * 100) : null;
-    const tauxTheo = totalInv > 0 ? (loysTheo / totalInv * 100) : null;
-    return {immNom, loysEff, loysTheo, loysAnnualises, moisEcoules, first, valeur, travaux, totalInv, taux, tauxTheo};
+    const taux = totalInv > 0 && first ? (hcAnnualise / totalInv * 100) : null;
+    return {immNom, hcRecu, hcAnnualise, moisEcoules, first, totalInv, taux};
   }).sort((a,b) => (b.taux||0) - (a.taux||0));
-  const totalLoysAnn = rows.reduce((s,r) => s+r.loysAnnualises, 0);
-  const totalTheo = rows.reduce((s,r) => s+r.loysTheo, 0);
+  const totalHcAnn = rows.reduce((s,r) => s+r.hcAnnualise, 0);
   const totalInv  = rows.reduce((s,r) => s+r.totalInv, 0);
-  const globalRdt = totalInv > 0 ? (totalLoysAnn/totalInv*100) : null;
-  const globalTheo = totalInv > 0 ? (totalTheo/totalInv*100) : null;
+  const totalHcTheo = scopeLogs.reduce((s,l) => s+(l.hc||0), 0) * 12;
+  const globalRdt = totalInv > 0 ? (totalHcAnn/totalInv*100) : null;
+  const globalTheo = totalInv > 0 ? (totalHcTheo/totalInv*100) : null;
   const summary = '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:16px">'
-    + '<div style="font-size:12px;color:var(--t3);letter-spacing:.3px">Rendement brut effectif (annualis\u00e9 par immeuble)</div>'
+    + '<div style="font-size:12px;color:var(--t3);letter-spacing:.3px">Rendement brut effectif HC (annualis\u00e9 par immeuble)</div>'
     + '<div style="font-size:26px;font-weight:600;margin-top:4px;color:var(--t1)">'+(globalRdt !== null ? globalRdt.toFixed(1)+'\u00a0%' : '—')+'</div>'
-    + '<div style="font-size:12px;color:var(--t2);margin-top:3px">Loyers annualis\u00e9s '+fmt(totalLoysAnn)+' \u00b7 Valeur globale '+(totalInv>0?fmt(totalInv):'non renseign\u00e9e')+(globalTheo !== null ? ' \u00b7 Th\u00e9orique '+globalTheo.toFixed(1)+'\u00a0%' : '')+'</div>'
+    + '<div style="font-size:12px;color:var(--t2);margin-top:3px">HC annualis\u00e9 '+fmt(totalHcAnn)+' \u00b7 Valeur globale '+(totalInv>0?fmt(totalInv):'non renseign\u00e9e')+(globalTheo !== null ? ' \u00b7 Th\u00e9orique '+globalTheo.toFixed(1)+'\u00a0%' : '')+'</div>'
     + '</div>';
   const table = rows.length
-    ? '<table class="tbl"><thead><tr><th>Immeuble</th><th style="text-align:right">1er mouvement</th><th style="text-align:right">Mois de données</th><th style="text-align:right">Loyers reçus</th><th style="text-align:right">Annualisés</th><th style="text-align:right">Valeur + travaux</th><th style="text-align:right">Rdt effectif</th></tr></thead><tbody>'
+    ? '<table class="tbl"><thead><tr><th>Immeuble</th><th style="text-align:right">HC re\u00e7u (12 mois)</th><th style="text-align:right">Annualis\u00e9</th><th style="text-align:right">Valeur + travaux</th><th style="text-align:right">Rdt effectif</th></tr></thead><tbody>'
     + rows.map(r => {
         const tauxHtml = r.taux !== null
           ? '<span style="color:var(--fg-success);font-weight:600">'+r.taux.toFixed(1)+'\u00a0%</span>'
           : '<span style="color:var(--t3);font-style:italic">N/C</span>';
-        const firstFmt = r.first ? (new Date(r.first)).toLocaleDateString('fr-FR') : '\u2014';
         return '<tr><td><b>'+escHtml(r.immNom)+'</b></td>'
-          +'<td style="text-align:right;color:var(--t2)">'+firstFmt+'</td>'
-          +'<td style="text-align:right;color:var(--t2)">'+r.moisEcoules+'</td>'
-          +'<td style="text-align:right">'+fmt(r.loysEff)+'</td>'
-          +'<td style="text-align:right;font-weight:500">'+fmt(r.loysAnnualises)+'</td>'
+          +'<td style="text-align:right">'+fmt(r.hcRecu)+'</td>'
+          +'<td style="text-align:right;font-weight:500">'+fmt(r.hcAnnualise)+'</td>'
           +'<td style="text-align:right">'+(r.totalInv>0?fmt(r.totalInv):'—')+'</td>'
           +'<td style="text-align:right">'+tauxHtml+'</td></tr>';
       }).join('')
     + '</tbody></table>'
-    + '<div class="mu sm" style="margin-top:10px;font-size:11px;color:var(--t3);font-style:italic">Annualisation : loyers re\u00e7us \u00d7 (12 / mois \u00e9coul\u00e9s depuis 1er mouvement). Un immeuble acquis r\u00e9cemment n\'est pas p\u00e9nalis\u00e9 par les mois "vides" pr\u00e9c\u00e9dents. Valeurs estim\u00e9es \u00e0 renseigner dans R\u00e9f\u00e9rentiel \u25b8 Entit\u00e9s.</div>'
+    + '<div class="mu sm" style="margin-top:10px;font-size:11px;color:var(--t3);font-style:italic">HC re\u00e7u = paiements loyers encaiss\u00e9s \u2212 charges th\u00e9oriques mensuelles (l.ch) par mouvement. Annualisation : HC re\u00e7u \u00d7 (12 / mois \u00e9coul\u00e9s depuis 1er mouvement). Valeurs estim\u00e9es \u00e0 renseigner dans R\u00e9f\u00e9rentiel \u25b8 Entit\u00e9s.</div>'
     : '<div class="mu sm" style="text-align:center;padding:24px">Aucun immeuble.</div>';
   return {title:'Rendement brut effectif par immeuble', html:summary+table};
 }
@@ -5549,10 +5548,11 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     const color = pct >= 90 ? 'var(--fg-success)' : pct >= 50 ? 'var(--fg-warning)' : 'var(--fg-danger)';
     const status = pct >= 90 ? 'grn' : pct >= 50 ? 'ora' : 'red';
     const vacs = scopeLogs.filter(l => !l.locataire);
-    const magMois = vacs.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
-    const magAn   = magMois * 12;
+    // v2 — Manque à gagner calculé sur HC seulement (les charges ne sont pas un revenu pour le bailleur)
+    const magMoisHC = vacs.reduce((s,l) => s+(l.hc||0), 0);
+    const magAnHC   = magMoisHC * 12;
     const vacInfo = vacs.length
-      ? '<div style="font-size:12px;color:var(--fg-danger);margin-top:3px;font-weight:600">Manque \u00e0 gagner : '+fmt(magAn)+'/an</div>'
+      ? '<div style="font-size:12px;color:var(--fg-danger);margin-top:3px;font-weight:600">Manque \u00e0 gagner : '+fmt(magAnHC)+'/an (HC)</div>'
       : '<div style="font-size:12px;color:var(--fg-success);margin-top:3px">\u2713 Aucun logement vacant</div>';
     const viz = '<div class="dw-kpi-bar" style="--p:'+pct+'%;--c:'+color+'"><div class="dw-kpi-bar-fill"></div></div>'
       + '<div style="font-size:12px;color:var(--t3);margin-top:5px">'+occupied+' / '+nbLogs+' logements occup\u00e9s'+(vacs.length?' \u00b7 '+vacs.length+' vacant'+(vacs.length>1?'s':''):'')+'</div>'
@@ -5770,7 +5770,8 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     cutoff.setMonth(cutoff.getMonth() - 12);
     const cutoffISO = cutoff.toISOString().slice(0,10);
     const now = new Date();
-    // Single-pass : bucket loyers + date du 1er mouvement par immeuble
+    // Single-pass : bucket HC reçu (m.cr - ch théorique) + date du 1er mouvement par immeuble
+    // v2 : on soustrait les charges théoriques (l.ch) de chaque paiement pour n'avoir que la partie HC
     const loysByImm = {};
     const firstByImm = {};
     for(const m of DB.mouvements) {
@@ -5780,8 +5781,11 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       if(!log || !log.imm) continue;
       // Date du 1er loyer (pour annualisation)
       if(!firstByImm[log.imm] || m.date < firstByImm[log.imm]) firstByImm[log.imm] = m.date;
-      // Loyers reçus dans la fenêtre 12 mois glissants
-      if(m.date >= cutoffISO) loysByImm[log.imm] = (loysByImm[log.imm] || 0) + m.cr;
+      // HC reçu = paiement reçu - 1 mois de charges théoriques (clamped ≥ 0)
+      if(m.date >= cutoffISO) {
+        const hcPart = Math.max(0, (m.cr||0) - (log.ch||0));
+        loysByImm[log.imm] = (loysByImm[log.imm] || 0) + hcPart;
+      }
     }
     // Calcul : annualiser par immeuble selon durée depuis 1er mouvement (cap 12 mois)
     let totalLoysAnn = 0, totalValue = 0;
@@ -5818,10 +5822,14 @@ function buildDashWidget(id, ctx, col=3, row=2) {
                  : rdtPct >= 5     ? 'grn'
                  : rdtPct >= 3     ? 'ora'
                  :                   'red';
-    // Sparkline : rdt mensuel = (loyers reçus × 12) / totalValue
+    // Sparkline : rdt mensuel = (HC reçu × 12) / totalValue — cohérent avec le KPI
     const series = totalValue > 0
-      ? _kpiMonthlySeries(ctx, 6, m => m.cat === 'Loyers' && m.cr > 0 ? m.cr : 0)
-          .map(s => ({...s, value: s.value * 12 / totalValue * 100}))
+      ? _kpiMonthlySeries(ctx, 6, m => {
+          if(m.cat !== 'Loyers' || !(m.cr > 0)) return 0;
+          const log = scopeLogs.find(l => l.ref === m.qui);
+          if(!log) return 0;
+          return Math.max(0, (m.cr||0) - (log.ch||0));
+        }).map(s => ({...s, value: s.value * 12 / totalValue * 100}))
       : [];
     const hasData = series.some(s => s.value > 0);
     // Théorique inline dans le titre (demande user) : "Rendement brut (8.6 % théo.)"
