@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.16</title>
+<title>ImmoTrack v12.17</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -790,6 +790,33 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 5 — Charts enrichis dans les drill-downs
+   ══════════════════════════════════════════════════════════════ */
+.drill-chart{
+  padding:14px 16px;background:var(--sur2);border-radius:var(--r);
+  border:1px solid var(--bor);margin-bottom:18px;
+}
+.drill-chart-title{
+  font-size:12px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase;
+  margin-bottom:8px;font-weight:600;
+}
+.drill-chart-wrap{position:relative;margin:0 -4px}
+.drill-chart-svg{display:block;overflow:visible;max-width:100%}
+.drill-chart-meta{
+  font-size:12px;color:var(--t2);margin-top:10px;padding-top:8px;
+  border-top:1px dashed var(--bor);display:flex;gap:16px;flex-wrap:wrap;
+}
+.drill-chart-meta strong{color:var(--t1);font-weight:600}
+.drill-chart-legend{
+  display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;
+  font-size:12px;color:var(--t2);
+}
+.drill-chart-legend-item{display:inline-flex;align-items:center;gap:6px}
+.drill-chart-legend-swatch{
+  width:12px;height:3px;border-radius:2px;flex-shrink:0;
+}
+
+/* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 4 polish — "À traiter" en 4 quadrants
    (refonte user : 4 catégories cliquables vers onglets métier)
    ══════════════════════════════════════════════════════════════ */
@@ -1010,7 +1037,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.16</em>
+      <em>v12.17</em>
     </div>
   </div>
 
@@ -4295,6 +4322,76 @@ function _mkSparkline(series, opts) {
   return svg;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 5 — Charts enrichis dans les drill-downs
+   ══════════════════════════════════════════════════════════════ */
+
+/* Multi-line chart (N séries, axes X partagés, min/max auto, tooltips par point).
+   groups = [{label, color, series:[{value, label, yr?, mo?}]}]  — toutes même longueur.
+   opts   = {w, h, padding, tooltipFormat?(pt,g,i), zeroLine?}
+   Retourne un bloc HTML avec SVG + tooltip holder + légende. */
+function _mkMultiLineChart(groups, opts) {
+  opts = opts || {};
+  if(!Array.isArray(groups) || !groups.length) return '';
+  const nPts = groups[0].series.length;
+  if(nPts < 2) return '';
+  const W = opts.w || 600, H = opts.h || 200, PAD = opts.padding || 14;
+  const PAD_BOTTOM = 22;  // place pour labels X
+  const plotH = H - PAD - PAD_BOTTOM;
+  // Domaine Y : global sur toutes les séries
+  const allValues = groups.flatMap(g => g.series.map(s => +s.value || 0));
+  let minV = Math.min(...allValues);
+  let maxV = Math.max(...allValues);
+  if(opts.zeroLine) { minV = Math.min(minV, 0); maxV = Math.max(maxV, 0); }
+  const range = (maxV - minV) || 1;
+  const dx = (W - 2*PAD) / (nPts - 1);
+  const yOf = v => PAD + plotH - ((v - minV) / range) * plotH;
+  // Grille Y (3 lignes : 0, médiane, max)
+  const yTicks = [maxV, minV + range/2, minV];
+  const gridLines = yTicks.map(v => {
+    const y = yOf(v).toFixed(1);
+    return '<line x1="'+PAD+'" y1="'+y+'" x2="'+(W-PAD).toFixed(1)+'" y2="'+y+'" stroke="var(--bor)" stroke-width="1" stroke-dasharray="2 3" opacity=".5"/>'
+      + '<text x="'+(W-PAD-2).toFixed(1)+'" y="'+(yOf(v)-3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--t3)">'+fmt(v)+'</text>';
+  }).join('');
+  // Baseline 0 si demandée et visible
+  const zeroLine = (opts.zeroLine && minV < 0 && maxV > 0)
+    ? '<line x1="'+PAD+'" y1="'+yOf(0).toFixed(1)+'" x2="'+(W-PAD).toFixed(1)+'" y2="'+yOf(0).toFixed(1)+'" stroke="var(--t2)" stroke-width="1" opacity=".7"/>'
+    : '';
+  // Polylines + hit points
+  const tipFn = opts.tooltipFormat;
+  const linesSvg = groups.map((g, gi) => {
+    const pts = g.series.map((s, i) => [PAD + i*dx, yOf(+s.value||0)]);
+    const poly = pts.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    const endX = pts[pts.length-1][0], endY = pts[pts.length-1][1];
+    const hits = tipFn
+      ? pts.map((p, i) => {
+          const t = escHtml(tipFn(g.series[i], g, i));
+          return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="8" fill="currentColor" opacity="0" '
+            +'style="pointer-events:all;cursor:default" class="dw-spark-pt" '
+            +'data-tip="'+t+'" '
+            +'onmouseenter="_sparkTip(this)" onmouseleave="_sparkTip(null)"></circle>';
+        }).join('')
+      : '';
+    return '<polyline points="'+poly+'" fill="none" stroke="'+g.color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+      + '<circle cx="'+endX.toFixed(1)+'" cy="'+endY.toFixed(1)+'" r="3" fill="'+g.color+'"/>'
+      + hits;
+  }).join('');
+  // Labels X (utilise la première série)
+  const xLabels = groups[0].series.map((s, i) => {
+    const x = (PAD + i*dx).toFixed(1);
+    return '<text x="'+x+'" y="'+(H-4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="var(--t3)">'+escHtml(s.label||'')+'</text>';
+  }).join('');
+  const svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="none" class="drill-chart-svg" aria-hidden="true">'
+    + gridLines + zeroLine + linesSvg + xLabels + '</svg>';
+  // Légende
+  const legend = '<div class="drill-chart-legend">'
+    + groups.map(g =>
+        '<span class="drill-chart-legend-item"><span class="drill-chart-legend-swatch" style="background:'+g.color+'"></span>'+escHtml(g.label)+'</span>'
+      ).join('')
+    + '</div>';
+  return '<div class="dw-spark-wrap drill-chart-wrap">'+svg+'<div class="dw-spark-tip" aria-hidden="true"></div></div>'+legend;
+}
+
 /* Tooltip instantané au survol d'un point sparkline (remplace le <title> lent).
    position:fixed + getBoundingClientRect → échappe à tout overflow:hidden.
    Clamp horizontal après render pour rester dans le viewport. */
@@ -4355,11 +4452,40 @@ function _heroCashflowSeries(ctx, nMonths) {
   return order.map(ym => buckets[ym]);
 }
 
-/* Contenu drill-down cash-flow (modale ov-dash-drill). */
+/* Contenu drill-down cash-flow (modale ov-dash-drill).
+   v2 Phase 5 : ajout d'un area chart 12 mois glissants avec gradient sign (vert/rouge)
+   au-dessus du tableau par catégorie. */
 function _buildHeroDrill(ctx, cfNow, cfPrev, cfYTD) {
   const {mvs, yr, mo} = ctx;
   const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
   const prevLabel = mo ? 'Mois précédent' : 'Année précédente';
+  // Chart 12 mois glissants
+  const series12 = _heroCashflowSeries(ctx, 12);
+  const nonZero = series12.filter(s => s.value !== 0);
+  const chartBlock = nonZero.length >= 2
+    ? (function() {
+        const values = series12.map(s => s.value);
+        const minV = Math.min(...values), maxV = Math.max(...values);
+        const avg = values.reduce((s,v) => s+v, 0) / values.length;
+        const minPt = nonZero.reduce((a,b) => b.value < a.value ? b : a);
+        const maxPt = nonZero.reduce((a,b) => b.value > a.value ? b : a);
+        const chart = _mkSparkline(series12, {
+          w:700, h:200, padding:8,
+          signColoring: true, zeroLabel:'0 €',
+          allLabels: true,
+          tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+(pt.value>=0?'+':'')+fmt(pt.value)
+        });
+        const signed = n => (n>=0?'+':'')+fmt(n);
+        const meta = '<div class="drill-chart-meta">'
+          + '<span>Moyenne <strong>'+signed(avg)+'</strong></span>'
+          + '<span>Meilleur <strong>'+_DMC[maxPt.mo-1]+' '+String(maxPt.yr).slice(-2)+' '+signed(maxPt.value)+'</strong></span>'
+          + '<span>Pire <strong>'+_DMC[minPt.mo-1]+' '+String(minPt.yr).slice(-2)+' '+signed(minPt.value)+'</strong></span>'
+          + '</div>';
+        return '<div class="drill-chart">'
+          + '<div class="drill-chart-title">Évolution cash-flow — 12 mois glissants</div>'
+          + chart + meta + '</div>';
+      })()
+    : '';
   const byCat = {};
   for(const m of mvs) {
     const cat = m.cat || 'Sans catégorie';
@@ -4392,7 +4518,7 @@ function _buildHeroDrill(ctx, cfNow, cfPrev, cfYTD) {
     + '<td style="text-align:right">'+fmt(tCr)+'</td><td style="text-align:right">'+fmt(tDb)+'</td>'
     + '<td style="text-align:right">'+fmt(tCr-tDb)+'</td></tr></tfoot></table>'
     : '<div class="mu sm" style="text-align:center;padding:24px">Aucun mouvement sur la période.</div>';
-  return {title:'Cash-flow — '+periodLabel, html:summary+table};
+  return {title:'Cash-flow — '+periodLabel, html:summary+chartBlock+table};
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -4535,7 +4661,8 @@ function _buildOccDrill(ctx) {
 }
 
 /* Drill-down pour le KPI fusionné flux (Revenus vs Charges) —
-   tableau mois par mois sur 12 mois glissants avec net. */
+   v2 Phase 5 : dual-line chart 12 mois glissants (Y-axis graduée + légende)
+   + tableau mois par mois. */
 function _buildFluxDrill(ctx) {
   const revS = _kpiMonthlySeries(ctx, 12, m => m.cat === 'Loyers' ? (m.cr||0) : 0);
   const chgS = _kpiMonthlySeries(ctx, 12, m => (m.db||0));
@@ -4548,8 +4675,21 @@ function _buildFluxDrill(ctx) {
   const totRev = rows.reduce((s,r) => s+r.rev, 0);
   const totChg = rows.reduce((s,r) => s+r.chg, 0);
   const totNet = totRev - totChg;
-  const html =
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
+  // Dual-line chart 12 mois (Revenus + Charges) avec Y-axis graduée via _mkMultiLineChart
+  const hasData = rows.some(r => r.rev > 0 || r.chg > 0);
+  const chartBlock = hasData
+    ? '<div class="drill-chart">'
+      + '<div class="drill-chart-title">Évolution Revenus vs Charges — 12 mois glissants</div>'
+      + _mkMultiLineChart([
+          {label:'Revenus', color:'var(--fg-success)', series:revS},
+          {label:'Charges', color:'var(--fg-danger)',  series:chgS}
+        ], {
+          w:700, h:220, padding:14,
+          tooltipFormat:(pt, g, i) => _DMF[pt.mo-1]+' '+pt.yr+' — '+g.label+' : '+fmt(pt.value)+' — Net '+(rows[i].net>=0?'+':'')+fmt(rows[i].net)
+        })
+      + '</div>'
+    : '';
+  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
     + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
     +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Revenus 12 mois</div>'
     +   '<div style="font-size:20px;font-weight:600;color:var(--fg-success);margin-top:4px">'+fmt(totRev)+'</div></div>'
@@ -4559,8 +4699,8 @@ function _buildFluxDrill(ctx) {
     + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
     +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Cash-flow net</div>'
     +   '<div style="font-size:20px;font-weight:600;color:'+(totNet>=0?'var(--fg-success)':'var(--fg-danger)')+';margin-top:4px">'+(totNet>=0?'+':'')+fmt(totNet)+'</div></div>'
-    + '</div>'
-    + '<table class="tbl">'
+    + '</div>';
+  const table = '<table class="tbl">'
     + '<thead><tr><th>Mois</th><th style="text-align:right">Revenus</th><th style="text-align:right">Charges</th><th style="text-align:right">Net</th></tr></thead><tbody>'
     + rows.map(r =>
         '<tr><td>'+escHtml(r.label)+'</td>'
@@ -4569,7 +4709,7 @@ function _buildFluxDrill(ctx) {
         +'<td style="text-align:right;font-weight:600;color:'+(r.net>=0?'var(--fg-success)':'var(--fg-danger)')+'">'+(r.net>=0?'+':'')+fmt(r.net)+'</td></tr>'
       ).join('')
     + '</tbody></table>';
-  return {title:'Revenus vs Charges — 12 mois glissants', html};
+  return {title:'Revenus vs Charges — 12 mois glissants', html:summary+chartBlock+table};
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -5054,30 +5194,15 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     } else {
       metaCore = '<span style="color:var(--t3);font-style:italic">Historique insuffisant pour plus de contexte</span>';
     }
-    // v2 Phase 4 : statut global reconnecté via _computeUnifiedTodo (source honnête)
-    const todoItems = (typeof _computeUnifiedTodo === 'function') ? _computeUnifiedTodo(ctx) : [];
-    const redCount = todoItems.filter(i => i.severity === 'red').length;
-    const oraCount = todoItems.filter(i => i.severity === 'ora').length;
-    let statusTxt, statusDot;
-    if(todoItems.length === 0) {
-      statusTxt = 'Tout est sous contr\u00f4le'; statusDot = 'grn';
-    } else if(redCount > 0) {
-      statusTxt = redCount+' point'+(redCount>1?'s':'')+' critique'+(redCount>1?'s':''); statusDot = 'red';
-    } else if(oraCount > 0) {
-      statusTxt = 'Attention : '+oraCount+' point'+(oraCount>1?'s':''); statusDot = 'ora';
-    } else {
-      statusTxt = todoItems.length+' rappel'+(todoItems.length>1?'s':''); statusDot = 'blu';
-    }
-    // v2 Phase 4 polish : loyers impayés visibles sur une 2e ligne dédiée
+    // v2 Phase 5 : ligne statut "Tout est sous contrôle / N points critiques" retirée
+    // (retour user : formulation inappropriée). Le vrai résumé est dans le widget "À traiter".
+    // Ligne loyers impayés conservée (info concrète, pas d'interprétation).
     const imp = (typeof _computeImpayes === 'function') ? _computeImpayes(ctx) : {count:0,totalDue:0};
     const moisImp = mo ? _DMF[parseInt(mo)-1] : _DMF[(new Date()).getMonth()];
     const impayeLine = imp.count > 0
       ? '<div class="dw-hero-impaye"><span class="dw-pill-dot red"></span> <strong>Loyers impayés '+escHtml(moisImp)+'</strong> : '+imp.count+' logement'+(imp.count>1?'s':'')+' \u2014 '+fmt(imp.totalDue)+' en attente</div>'
       : '';
-    const meta = metaCore
-      + '<span class="dw-hero-meta-sep">\u00b7</span> '
-      + '<span class="dw-pill-dot '+statusDot+'"></span> '+statusTxt
-      + impayeLine;
+    const meta = metaCore + impayeLine;
     _DD['hero'] = _buildHeroDrill(ctx, cf, prevCf, cfYTD2);
     const sign = cf >= 0 ? '+' : '';
     const body = '<button type="button" class="dw-hero-click" onclick="_dashCardClick(\'hero\',event)" aria-label="Voir le détail du cash-flow">'
@@ -5472,8 +5597,26 @@ function buildDashWidget(id, ctx, col=3, row=2) {
         + '<span class="dw-cat-pct">'+pct+'\u00a0%</span>'
         + '</div>';
     }).join('');
+    // v2 Phase 5 : drill donut enrichi avec multi-line chart évolution 6 mois top 5 catégories
+    const topCats = sorted.slice(0, 5).map(e => e[0]);
+    const chartGroups = topCats.map((cat, i) => ({
+      label: cat.length > 22 ? cat.slice(0,20)+'…' : cat,
+      color: _DDC[i % _DDC.length],
+      series: _kpiMonthlySeries(ctx, 6, m => (m.cat === cat && (m.db||0) > 0) ? m.db : 0)
+    }));
+    const hasChartData = chartGroups.some(g => g.series.some(s => s.value > 0));
+    const chartBlock = hasChartData
+      ? '<div class="drill-chart">'
+        + '<div class="drill-chart-title">Évolution 6 derniers mois — Top 5 catégories</div>'
+        + _mkMultiLineChart(chartGroups, {
+            w:700, h:200, padding:14,
+            tooltipFormat:(pt, g, i) => _DMF[pt.mo-1]+' '+pt.yr+' — '+g.label+' : '+fmt(pt.value)
+          })
+        + '</div>'
+      : '';
     _DD['donut'] = {title:'Charges par cat\u00e9gorie \u2014 '+periodLabel,
-      html:'<table class="tbl"><thead><tr><th>Cat\u00e9gorie</th><th style="text-align:right">Montant</th><th style="text-align:right">%</th></tr></thead><tbody>'
+      html: chartBlock
+      + '<table class="tbl"><thead><tr><th>Cat\u00e9gorie</th><th style="text-align:right">Montant</th><th style="text-align:right">%</th></tr></thead><tbody>'
       + sorted.map((e,i) => '<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+_DDC[i%_DDC.length]+';margin-right:7px;vertical-align:middle"></span>'+escHtml(e[0])+'</td><td style="text-align:right;font-weight:500">'+fmt(e[1])+'</td><td style="text-align:right;color:var(--t2)">'+Math.round(e[1]/totAll*100)+'\u00a0%</td></tr>').join('')
       + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td>Total charges</td><td style="text-align:right">'+fmt(totAll)+'</td><td style="text-align:right">100\u00a0%</td></tr></tfoot></table>'};
     const body = '<button type="button" class="dw-kpi-click" '
@@ -7647,7 +7790,7 @@ function previewBailData(bail, log, ref) {
       : '')
     +'<h2>15 \u2014 Cautionnement solidaire</h2>'
     +(bail.garant
-      ? '<p>Le pr\u00e9sent bail est accompagn\u00e9 d\u2019un acte de cautionnement solidaire \u00e9tabli conform\u00e9ment au mod\u00e8le type du d\u00e9cret n\u00b0\u00a02015-587 du 29\u00a0mai\u00a02015 et \u00e0 l\u2019article\u00a022-1 de la loi du 6\u00a0juillet\u00a01989, sign\u00e9 par\u00a0:</p>'
+      ? '<p>Le pr\u00e9sent bail est accompagn\u00e9 d\u2019un acte de cautionnement solidaire \u00e9tabli conform\u00e9ment \u00e0 l\u2019article\u00a02297 du Code civil et \u00e0 l\u2019article\u00a022-1 de la loi du 6\u00a0juillet\u00a01989, sign\u00e9 par\u00a0:</p>'
         +'<ul style="margin:4px 0 6px 20px">'
         +'<li><strong>'+S(bail.garant)+'</strong>'+(bail.adrGarant?' \u2014 demeurant '+S(bail.adrGarant):'')+'</li>'
         +(bail.garant2?'<li><strong>'+S(bail.garant2)+'</strong>'+(bail.adrGarant2?' \u2014 demeurant '+S(bail.adrGarant2):'')+'</li>':'')
@@ -7655,7 +7798,7 @@ function previewBailData(bail, log, ref) {
         +(bail.garant2
           ? '<p>Les deux cautions sont <strong>solidairement et indivisiblement tenues</strong> envers le BAILLEUR, sans b\u00e9n\u00e9fice de division ni de discussion (art.\u00a01310 et 2298 C.\u00a0civ.). Le BAILLEUR peut agir contre l\u2019une ou l\u2019autre pour la totalit\u00e9 des sommes dues.</p>'
           : '')
-        +'<p>L\u2019acte de cautionnement, portant les <strong>mentions manuscrites obligatoires</strong> pr\u00e9vues par la loi, est annex\u00e9 au pr\u00e9sent bail et en fait partie int\u00e9grante (Annexe\u00a06).</p>'
+        +'<p>L\u2019acte de cautionnement, portant la <strong>d\u00e9claration d\u2019engagement</strong> et la <strong>mention manuscrite recommand\u00e9e</strong> du garant, est annex\u00e9 au pr\u00e9sent bail et en fait partie int\u00e9grante (Annexe\u00a06).</p>'
         +'<p>Conform\u00e9ment \u00e0 l\u2019article\u00a022-1 al.\u00a02 de la loi du 6\u00a0juillet\u00a01989, le BAILLEUR informera le(s) GARANT(S) de tout d\u00e9faut de paiement du LOCATAIRE dans le <strong>mois suivant l\u2019incident de paiement</strong>, \u00e0 peine de forclusion de sa cr\u00e9ance pour les p\u00e9nalit\u00e9s et int\u00e9r\u00eats ant\u00e9rieurs \u00e0 cette information.</p>'
       : '<p>Aucune caution solidaire n\u2019a \u00e9t\u00e9 constitu\u00e9e pour le pr\u00e9sent bail. La pr\u00e9sente clause est sans objet.</p>')
     +'<h2>16 \u2014 Dispositions diverses</h2>'
@@ -7974,10 +8117,10 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
     +`<p class="note"><em>Ci-après désigné(s) « le(s) GARANT(S) » d'autre part,</em></p>` : '';
 
   const sectionGarant15 = bail.garant ? `<h2>15 — Cautionnement solidaire</h2>
-<p>Le présent bail est accompagné d'un acte de cautionnement solidaire établi conformément au modèle type du décret n°\u00a02015-587 du 29\u00a0mai\u00a02015 et à l'article\u00a022-1 de la loi du 6\u00a0juillet\u00a01989, signé par :</p>
+<p>Le présent bail est accompagné d'un acte de cautionnement solidaire établi conformément à l'article\u00a02297 du Code civil et à l'article\u00a022-1 de la loi du 6\u00a0juillet\u00a01989, signé par :</p>
 <ul>${bail.garant?'<li><strong>'+S(bail.garant)+'</strong>'+(bail.adrGarant?' — '+S(bail.adrGarant):'')+'</li>':''}${bail.garant2?'<li><strong>'+S(bail.garant2)+'</strong>'+(bail.adrGarant2?' — '+S(bail.adrGarant2):'')+'</li>':''}</ul>
 ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisiblement tenues</strong> envers le BAILLEUR, sans bénéfice de division ni de discussion (art. 1310 et 2298 C. civ.). Le BAILLEUR peut agir contre l'une ou l'autre pour la totalité des sommes dues.</p>`:''}
-<p>L'acte de cautionnement, portant les mentions manuscrites obligatoires prévues par la loi, est annexé au présent bail et en fait partie intégrante (Annexe 6).</p>
+<p>L'acte de cautionnement, portant la déclaration d'engagement et la mention manuscrite recommandée du garant, est annexé au présent bail et en fait partie intégrante (Annexe 6).</p>
 <p>Conformément à l'article 22-1 al. 2 de la loi du 6\u00a0juillet\u00a01989, le BAILLEUR informera le(s) GARANT(S) de tout défaut de paiement du LOCATAIRE dans le mois suivant l'incident de paiement, à peine de forclusion de sa créance pour les pénalités et intérêts antérieurs à cette information.</p>` : `<h2>15 — Cautionnement solidaire</h2>
 <p>Aucune caution solidaire n'a été constituée pour le présent bail. La présente clause est sans objet.</p>`;
 
@@ -9699,9 +9842,8 @@ async function _driveGetOrCreateFolder(name, parentId) {
     ? `name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
     : `name='${safeName}' and 'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 
-  const res=await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`,
-    {headers:{Authorization:'Bearer '+_driveToken}}
+  const res=await driveFetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)`
   );
   const data=await res.json();
   if(data.files?.length) return data.files[0].id; // dossier trouvé
@@ -9709,9 +9851,9 @@ async function _driveGetOrCreateFolder(name, parentId) {
   // Créer le dossier
   const meta={name, mimeType:'application/vnd.google-apps.folder'};
   if(parentId) meta.parents=[parentId];
-  const cr=await fetch('https://www.googleapis.com/drive/v3/files',{
+  const cr=await driveFetch('https://www.googleapis.com/drive/v3/files',{
     method:'POST',
-    headers:{Authorization:'Bearer '+_driveToken,'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json'},
     body:JSON.stringify(meta)
   });
   const created=await cr.json();
@@ -9730,9 +9872,9 @@ async function _driveUploadJpeg(folderId, filename, dataUrl) {
   const form=new FormData();
   form.append('metadata',new Blob([meta],{type:'application/json'}));
   form.append('file',blob);
-  const r=await fetch(
+  const r=await driveFetch(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
-    {method:'POST',headers:{Authorization:'Bearer '+_driveToken},body:form}
+    {method:'POST',body:form}
   );
   const result=await r.json();
   if(!result.id) throw new Error(result.error?.message||'Upload échoué');
@@ -10516,18 +10658,13 @@ function _cautionnementBlock(bail, log, ent, garantNom, garantAdr, garantDdn, ga
   const fd2 = s => s ? new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}) : '\u2014';
   const lignes = n => '<div style="border-bottom:1px solid #888;margin:6px 0;height:24px;width:100%"><\/div>'.repeat(n)+'<div style="height:10px"><\/div>';
 
-  // 3 mentions manuscrites officielles — Décret 2015-587, art. 22-1 loi 89-462
-  const m1 = `En me portant caution de <strong>${locNames}<\/strong>, dans la limite de la somme de <strong>${plafondLettres} (${plafondFmt}\u00a0\u20ac)<\/strong> couvrant le paiement du loyer, des charges, des indemnit\u00e9s d\u2019occupation et des r\u00e9parations locatives pendant la dur\u00e9e initiale du contrat de location et durant toutes ses reconductions \u00e9ventuelles,`;
-  const m2 = `En renonçant au b\u00e9n\u00e9fice de discussion d\u00e9fini \u00e0 l\u2019article\u00a02298 du Code civil et en m\u2019obligeant solidairement avec <strong>${locNames}<\/strong> \u00e0 rembourser le bailleur sans pouvoir exiger qu\u2019il poursuive pr\u00e9alablement <strong>${locNames}<\/strong>,`;
-  const m3 = `Approuv\u00e9 l\u2019engagement de caution solidaire pour la somme de <strong>${plafondLettres} (${plafondFmt}\u00a0\u20ac)<\/strong>.`;
-
   return `
 <h1>ACTE DE CAUTIONNEMENT SOLIDAIRE<\/h1>
-<h2>Mod\u00e8le type \u2014 D\u00e9cret n\u00b0\u00a02015-587 du 29\u00a0mai\u00a02015<br>Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, article\u00a022-1<\/h2>
+<h2>Article\u00a02297 du Code civil \u2014 Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, article\u00a022-1<br>Ordonnance n\u00b0\u00a02021-1192 du 15\u00a0septembre\u00a02021 portant r\u00e9forme du droit des s\u00fbret\u00e9s<\/h2>
 
 <div class="alerte">
 <strong>\u26a0\u00a0Important \u2014 \u00e0 lire avant de signer<\/strong><br>
-Les trois mentions encadr\u00e9es ci-dessous (§\u00a0IV) doivent \u00eatre recopie\u00e9es <u>int\u00e9gralement et exclusivement de la main du garant<\/u>, mot pour mot, sous peine de nullit\u00e9 de l\u2019acte (art.\u00a022-1 al.\u00a03 loi 89-462). L\u2019original sign\u00e9 doit \u00eatre remis au bailleur lors de la signature du bail.
+Depuis l\u2019ordonnance du 15\u00a0septembre\u00a02021, la recopie manuscrite des trois mentions de l\u2019ancien r\u00e9gime n\u2019est plus obligatoire. La <strong>d\u00e9claration d\u2019engagement<\/strong> (§\u00a0IV) vaut engagement de caution d\u00e8s lors qu\u2019elle est dat\u00e9e et sign\u00e9e par le garant. Une <strong>mention manuscrite recommand\u00e9e<\/strong> (§\u00a0V) mat\u00e9rialise en outre la pleine connaissance de l\u2019engagement. L\u2019original sign\u00e9 doit \u00eatre remis au bailleur lors de la signature du bail.
 <\/div>
 
 <h3>I \u2014 Identification des parties<\/h3>
@@ -10554,37 +10691,34 @@ Les trois mentions encadr\u00e9es ci-dessous (§\u00a0IV) doivent \u00eatre reco
 <tr><td>Nature<\/td><td><strong>Solidaire<\/strong> \u2014 avec renonciation expresse au b\u00e9n\u00e9fice de discussion (art.\u00a02298 C.\u00a0civ.) et au b\u00e9n\u00e9fice de division (art.\u00a02303 C.\u00a0civ.)<\/td><\/tr>
 <\/table>
 
-<h3>IV \u2014 Mentions manuscrites obligatoires du garant<\/h3>
-<p style="font-size:9.5pt;color:#b71c1c;font-weight:bold;margin:0 0 8px">\u26a0\u00a0Recopier les trois mentions ci-dessous INT\u00c9GRALEMENT de votre propre main \u2014 aucune modification ou omission n\u2019est autoris\u00e9e \u2014 \u00e0 peine de nullit\u00e9 de l\u2019acte.<\/p>
+<h3>IV \u2014 D\u00e9claration d\u2019engagement<\/h3>
+<div style="text-align:justify;line-height:1.5;font-size:10.5pt">
+<p>Je soussign\u00e9(e) <strong>${garantNom||'\u2013'}<\/strong>, n\u00e9(e) le ${fd2(garantDdn)}\u00a0\u00e0\u00a0${garantLieu||'\u2013'}, r\u00e9sidant \u00e0 l\u2019adresse suivante\u00a0: ${garantAdr||'\u2013'}, d\u00e9clare me porter caution solidaire de <strong>${locNames}<\/strong> pour les obligations r\u00e9sultant du bail qui lui a \u00e9t\u00e9 consenti par le bailleur <strong>${ent.nom||bail.entity||'\u2013'}<\/strong>, demeurant ${ent.siege||'\u2013'}, pour la location du logement situ\u00e9\u00a0: <strong>${bail.adrBien||log?.adr||'\u2013'}<\/strong>.<\/p>
+<p>J\u2019ai pris connaissance du montant du loyer de <strong>${loyerLettres}<\/strong> (hors charges et en euros), soit <strong>${fmtN(bail.hc||0)}\u00a0\u20ac<\/strong> par mois. Il sera r\u00e9vis\u00e9 annuellement \u00e0 la date anniversaire du bail selon la variation de l\u2019indice de r\u00e9f\u00e9rence des loyers (IRL) publi\u00e9 par l\u2019INSEE.<\/p>
+<p>Cet engagement vaut pour le paiement, en cas de d\u00e9faillance du locataire, des loyers, des indemnit\u00e9s d\u2019occupation, des charges, des r\u00e9parations et des d\u00e9gradations locatives, des imp\u00f4ts et taxes, des frais et d\u00e9pens de proc\u00e9dure, des co\u00fbts des actes dus, dans la limite de loyer\u00a0\u00d7\u00a012\u00a0\u00d7\u00a0la dur\u00e9e du bail, soit <strong>${plafondFmt}\u00a0\u20ac<\/strong>, en principal et accessoires.<\/p>
+<p>Cet engagement est valable pour une dur\u00e9e d\u00e9termin\u00e9e (${_dureeAns}\u00a0ans \u00e0 compter du ${fd2(bail.debut)}).<\/p>
+<p>Je reconnais avoir pris connaissance de l\u2019avant-dernier alin\u00e9a de l\u2019article\u00a022-1 de la loi du 6\u00a0juillet\u00a01989, selon lequel\u00a0:<\/p>
+<div style="margin-left:20px;font-style:italic;margin-bottom:10px">\u00ab\u00a0Lorsque le cautionnement d\u2019obligations r\u00e9sultant d\u2019un contrat de location conclu en application du pr\u00e9sent titre ne comporte aucune indication de dur\u00e9e ou lorsque la dur\u00e9e du cautionnement est stipul\u00e9e ind\u00e9termin\u00e9e, la caution peut le r\u00e9silier unilat\u00e9ralement. La r\u00e9siliation prend effet au terme du contrat de location, qu\u2019il s\u2019agisse du contrat initial ou d\u2019un contrat reconduit ou renouvel\u00e9 au cours duquel le bailleur re\u00e7oit notification de la r\u00e9siliation.\u00a0\u00bb<\/div>
+<p>Je reconnais \u00e9galement avoir pris connaissance de l\u2019article\u00a02297 du code civil, selon lequel\u00a0:<\/p>
+<div style="margin-left:20px;font-style:italic;margin-bottom:10px">\u00ab\u00a0Si la caution est priv\u00e9e des b\u00e9n\u00e9fices de discussion ou de division, elle reconna\u00eet ne pouvoir exiger du cr\u00e9ancier qu\u2019il poursuive d\u2019abord le d\u00e9biteur ou qu\u2019il divise ses poursuites entre les cautions. \u00c0 d\u00e9faut, elle conserve le droit de se pr\u00e9valoir de ces b\u00e9n\u00e9fices.\u00a0\u00bb<\/div>
+<\/div>
+
+<h3>V \u2014 Mention manuscrite recommand\u00e9e<\/h3>
+
+<div class="alerte">
+<strong>\u270d\u00a0Mention manuscrite recommand\u00e9e<\/strong><br>
+Depuis l\u2019ordonnance du 15\u00a0septembre\u00a02021, la recopie manuscrite n\u2019est plus l\u00e9galement impos\u00e9e. Toutefois, il est <u>vivement recommand\u00e9<\/u> que le garant recopie le texte ci-dessous <strong>int\u00e9gralement et de sa propre main<\/strong>, afin de mat\u00e9rialiser pleinement son engagement.
+<\/div>
 
 <div class="mention-bloc">
-<strong>Mention 1 \u2014 Texte \u00e0 recopier de la main du garant\u00a0:<\/strong><br>${m1}
+<strong>Texte mod\u00e8le \u00e0 recopier \u00e0 la main\u00a0:<\/strong><br><br>
+\u00ab\u00a0Je soussign\u00e9(e) <strong>${garantNom||'\u2013'}<\/strong>, me porte caution solidaire de <strong>${locNames}<\/strong> pour la location du logement situ\u00e9 <strong>${bail.adrBien||log?.adr||'\u2013'}<\/strong>, moyennant un loyer mensuel de <strong>${loyerLettres}<\/strong> euros (<strong>${fmtN(bail.hc||0)}\u00a0\u20ac<\/strong>) hors charges, r\u00e9visable annuellement selon l\u2019IRL. Je m\u2019engage pour une dur\u00e9e de ${_dureeAns}\u00a0ans \u00e0 compter du ${fd2(bail.debut)}, dans la limite de <strong>${plafondLettres}<\/strong> euros (<strong>${plafondFmt}\u00a0\u20ac<\/strong>) en principal et accessoires. Je renonce express\u00e9ment aux b\u00e9n\u00e9fices de discussion et de division. Lu, approuv\u00e9 et bon pour engagement de caution solidaire.\u00a0\u00bb
 <\/div>
-<div style="border:1px dashed #aaa;border-radius:4px;padding:10px 14px;background:#fff;margin:4px 0 14px">
-<div style="font-size:8pt;color:#aaa;margin-bottom:4px;font-style:italic">\u21e9\u00a0Recopier ici, \u00e0 la main, la mention 1<\/div>${lignes(6)}<\/div>
 
-<div class="mention-bloc">
-<strong>Mention 2 \u2014 Texte \u00e0 recopier de la main du garant\u00a0:<\/strong><br>${m2}
-<\/div>
 <div style="border:1px dashed #aaa;border-radius:4px;padding:10px 14px;background:#fff;margin:4px 0 14px">
-<div style="font-size:8pt;color:#aaa;margin-bottom:4px;font-style:italic">\u21e9\u00a0Recopier ici, \u00e0 la main, la mention 2<\/div>${lignes(5)}<\/div>
+<div style="font-size:8pt;color:#aaa;margin-bottom:4px;font-style:italic">\u21e9\u00a0Recopier ici, \u00e0 la main, le texte ci-dessus<\/div>${lignes(12)}<\/div>
 
-<div class="mention-bloc">
-<strong>Mention 3 \u2014 Texte \u00e0 recopier de la main du garant\u00a0:<\/strong><br>${m3}
-<\/div>
-<div style="border:1px dashed #aaa;border-radius:4px;padding:10px 14px;background:#fff;margin:4px 0 14px">
-<div style="font-size:8pt;color:#aaa;margin-bottom:4px;font-style:italic">\u21e9\u00a0Recopier ici, \u00e0 la main, la mention 3<\/div>${lignes(3)}<\/div>
-
-<h3>V \u2014 Engagement personnel du garant (imprim\u00e9)<\/h3>
-<p>Je soussign\u00e9(e) <strong>${garantNom||'\u2013'}<\/strong>${garantDdn?', n\u00e9(e) le '+fd2(garantDdn):''}${garantLieu?', \u00e0 '+garantLieu:''}${garantAdr?', demeurant '+garantAdr:''}, d\u00e9clare me porter caution solidaire de <strong>${locNames}<\/strong> pour l\u2019ex\u00e9cution de toutes les obligations d\u00e9coulant du bail portant sur le logement situ\u00e9 au <strong>${bail.adrBien||log?.adr||'\u2013'}<\/strong>, notamment le paiement des loyers, charges r\u00e9cup\u00e9rables, indemnit\u00e9s d\u2019occupation et r\u00e9parations locatives, dans la limite globale de <strong>${plafondFmt}\u00a0\u20ac (${plafondLettres})<\/strong>.<\/p>
-<p>Cet engagement est consenti au profit de <strong>${ent.nom||bail.entity||'\u2013'}<\/strong> et couvre la dur\u00e9e initiale du bail ainsi que ses renouvellements et reconductions tacites \u00e9ventuelles, conform\u00e9ment aux articles 22-1 et suivants de la loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989.<\/p>
-<p>Je d\u00e9clare en outre\u00a0:<\/p>
-<ul style="margin:4px 0 10px;padding-left:18px;font-size:10.5pt">
-<li>Avoir re\u00e7u un exemplaire du bail conclu entre les parties et en avoir pris connaissance int\u00e9gralement.<\/li>
-<li>\u00catre inform\u00e9(e) de la situation financi\u00e8re du LOCATAIRE.<\/li>
-<li>\u00catre inform\u00e9(e) que le pr\u00e9sent cautionnement est r\u00e9silié à tout moment par lettre recommand\u00e9e, avec effet \u00e0 l\u2019expiration du bail en cours (art.\u00a022-1 al. 4 loi 89-462).<\/li>
-<li>Avoir \u00e9t\u00e9 inform\u00e9(e) que le BAILLEUR m\u2019informera de tout d\u00e9faut de paiement du LOCATAIRE dans le mois suivant l\u2019\u00e9ch\u00e9ance imp\u00e9ry\u00e9e, \u00e0 peine de ne pas pouvoir me r\u00e9clamer les p\u00e9nalit\u00e9s et int\u00e9r\u00eats \u00e9chus ant\u00e9rieurement \u00e0 cette information (art.\u00a022-1 al.\u00a02 loi 89-462).<\/li>
-<\/ul>
+<p style="font-size:10pt;margin:10px 0">Fait \u00e0\u00a0________________________ , le\u00a0________________________<\/p>
 
 <h3>VI \u2014 Signatures<\/h3>
 <div class="grid2">
@@ -10601,7 +10735,7 @@ Les trois mentions encadr\u00e9es ci-dessous (§\u00a0IV) doivent \u00eatre reco
 <\/div>
 
 <p style="font-size:8.5pt;color:#666;margin-top:20px;border-top:1px solid #ddd;padding-top:8px">
-R\u00e9f\u00e9rences l\u00e9gales\u00a0: Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, art.\u00a022-1 \u2014 D\u00e9cret n\u00b0\u00a02015-587 du 29\u00a0mai\u00a02015 \u2014 Code civil art.\u00a02288, 2298, 2303, 1310 et suivants
+R\u00e9f\u00e9rences l\u00e9gales\u00a0: Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, art.\u00a022-1 \u2014 Code civil art.\u00a02288, 2297, 2298, 2303 et suivants \u2014 Ordonnance n\u00b0\u00a02021-1192 du 15\u00a0septembre\u00a02021 portant r\u00e9forme du droit des s\u00fbret\u00e9s
 <\/p>`;
 }
 
@@ -12079,9 +12213,44 @@ const DRIVE_SCOPE=[
 ].join(' ');
 
 let _driveToken=null;
+let _driveTokenExp=0;             // epoch ms, expiration avec marge de 60s
+let _driveTokenPromise=null;      // single-flight refresh
+let _driveTokenCb=null;           // callback GIS
 let _gisClient=null;
 let _userEmail='';
 let _userName='';
+
+function _driveTokenValid(){ return !!_driveToken && Date.now()<_driveTokenExp; }
+
+function _ensureDriveToken(force){
+  if(!force && _driveTokenValid()) return Promise.resolve();
+  if(_driveTokenPromise) return _driveTokenPromise;
+  _driveTokenPromise=new Promise((resolve,reject)=>{
+    let done=false;
+    const finish=(err)=>{ if(done)return; done=true; _driveTokenPromise=null; err?reject(err):resolve(); };
+    _driveTokenCb=finish;
+    try{ _gisClient.requestAccessToken({prompt:''}); }
+    catch(e){ _driveTokenCb=null; finish(e); }
+    setTimeout(()=>{ if(!done){ _driveTokenCb=null; finish(new Error('Drive token refresh timeout')); } }, 20000);
+  });
+  return _driveTokenPromise;
+}
+
+async function driveFetch(url, opts){
+  opts=opts||{};
+  await _ensureDriveToken();
+  const send=()=>{
+    const h=Object.assign({}, opts.headers||{}, {Authorization:'Bearer '+_driveToken});
+    return fetch(url, Object.assign({}, opts, {headers:h}));
+  };
+  let r=await send();
+  if(r.status===401){
+    _driveToken=null; _driveTokenExp=0;
+    await _ensureDriveToken(true);
+    r=await send();
+  }
+  return r;
+}
 
 async function _fetchUserInfo() {
   if(!_driveToken) return;
@@ -12101,29 +12270,35 @@ function initGIS() {
       client_id:DRIVE_CLIENT_ID, scope:DRIVE_SCOPE,
       callback:(resp)=>{
         if(resp.access_token){
+          const isFirstConnect=!_driveToken;
           _driveToken=resp.access_token;
-          _fetchUserInfo();
-          _updateDriveFab();
-          // 1) Charger les données partenaires depuis Drive
-          // 2) Puis sauvegarder l'état local fusionné (sync bidirectionnel)
-          _driveLoadEntityFiles().then(()=>{
-            setTimeout(()=>_driveAutoSaveNow(), 800);
-          });
-          if(_driveTokenCb){_driveTokenCb();_driveTokenCb=null;}
+          _driveTokenExp=Date.now()+((+resp.expires_in||3600)-60)*1000;
+          if(isFirstConnect){
+            _fetchUserInfo();
+            _updateDriveFab();
+            // 1) Charger les données partenaires depuis Drive
+            // 2) Puis sauvegarder l'état local fusionné (sync bidirectionnel)
+            _driveLoadEntityFiles().then(()=>{
+              setTimeout(()=>_driveAutoSaveNow(), 800);
+            });
+          } else {
+            _updateDriveFab();
+          }
+          if(_driveTokenCb){ const cb=_driveTokenCb; _driveTokenCb=null; cb(); }
+        } else if(_driveTokenCb){
+          const cb=_driveTokenCb; _driveTokenCb=null;
+          cb(new Error(resp.error||'auth_failed'));
         }
       }
     });
   } catch(e){ console.warn('GIS init failed',e); }
 }
 
-let _driveTokenCb=null;
 function withDriveToken(cb) {
-  if(_driveToken){cb();return;}
-  _driveTokenCb=cb;
-  try{ _gisClient.requestAccessToken(); }catch(e){showToast('Google Sign-In non disponible','err');}
+  _ensureDriveToken().then(cb).catch(e=>showToast('Drive : '+(e.message||e),'err'));
 }
 function connectDrive() {
-  if(_driveToken){showToast('Drive déjà connecté ✓','ok');return;}
+  if(_driveTokenValid()){showToast('Drive déjà connecté ✓','ok');return;}
   closeM('ov-drive-connect'); // fermer le modal si ouvert
   localStorage.removeItem('_driveModalDismiss'); // réinitialiser si l'utilisateur se reconnecte
   try{ _gisClient.requestAccessToken(); }catch(e){showToast('Google Sign-In non disponible — vérifiez la connexion internet','err');}
@@ -12211,9 +12386,9 @@ async function _driveSaveOneEntity(ent) {
 
   if(ent.driveFileId){
     // PATCH — mise à jour du contenu (le dossier parent ne change pas)
-    const r=await fetch(
+    const r=await driveFetch(
       `https://www.googleapis.com/upload/drive/v3/files/${ent.driveFileId}?uploadType=media`,
-      {method:'PATCH',headers:{Authorization:'Bearer '+_driveToken,'Content-Type':'application/json'},body:blob}
+      {method:'PATCH',headers:{'Content-Type':'application/json'},body:blob}
     );
     const f=await r.json();
     if(f.error) throw new Error(f.error.message);
@@ -12225,9 +12400,9 @@ async function _driveSaveOneEntity(ent) {
     const form=new FormData();
     form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
     form.append('file',blob);
-    const r=await fetch(
+    const r=await driveFetch(
       'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
-      {method:'POST',headers:{Authorization:'Bearer '+_driveToken},body:form}
+      {method:'POST',body:form}
     );
     const f=await r.json();
     if(!f.id) throw new Error(f.error?.message||'Création fichier Drive échouée');
@@ -12263,9 +12438,8 @@ async function _driveLoadEntityFiles() {
   if(!_driveToken) return;
   try {
     const q=encodeURIComponent("name contains 'immotrack-entity-'");
-    const r=await fetch(
-      `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&pageSize=50`,
-      {headers:{Authorization:'Bearer '+_driveToken}}
+    const r=await driveFetch(
+      `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&pageSize=50`
     );
     const data=await r.json();
     const files=data.files||[];
@@ -12273,9 +12447,8 @@ async function _driveLoadEntityFiles() {
     let merged=0;
     for(const f of files){
       try {
-        const fr=await fetch(
-          `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`,
-          {headers:{Authorization:'Bearer '+_driveToken}}
+        const fr=await driveFetch(
+          `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`
         );
         const payload=await fr.json();
         if(payload.version>=2&&payload.entityId){
@@ -12348,9 +12521,9 @@ async function driveInviteMember(entityId, email) {
     showToast('Sauvegardez d\'abord sur Drive (bouton ☁️)','warn'); return;
   }
   try {
-    const r=await fetch(
+    const r=await driveFetch(
       `https://www.googleapis.com/drive/v3/files/${ent.driveFileId}/permissions?sendNotificationEmail=true`,
-      {method:'POST',headers:{Authorization:'Bearer '+_driveToken,'Content-Type':'application/json'},
+      {method:'POST',headers:{'Content-Type':'application/json'},
        body:JSON.stringify({type:'user',role:'reader',emailAddress:email})}
     );
     const d=await r.json();
@@ -12368,9 +12541,9 @@ async function driveRevokeMember(entityId, email, permId) {
   const ent=(DB.entites||[]).find(e=>e.entityId===entityId);
   if(!ent?.driveFileId||!_driveToken){ showToast('Impossible de révoquer','err'); return; }
   try {
-    const r=await fetch(
+    const r=await driveFetch(
       `https://www.googleapis.com/drive/v3/files/${ent.driveFileId}/permissions/${permId}`,
-      {method:'DELETE',headers:{Authorization:'Bearer '+_driveToken}}
+      {method:'DELETE'}
     );
     if(r.status!==204&&r.status!==200) throw new Error('Statut HTTP '+r.status);
     ent.members=(ent.members||[]).filter(m=>m.email!==email);
@@ -12445,7 +12618,7 @@ function saveToDrive() { withDriveToken(()=>_driveAutoSaveNow()); }
 
 function loadFromDrive() {
   withDriveToken(()=>{
-    fetch(`https://www.googleapis.com/drive/v3/files?q=name+contains+'immotrack'&orderBy=modifiedTime+desc&fields=files(id,name,modifiedTime)&pageSize=30`,{headers:{Authorization:'Bearer '+_driveToken}})
+    driveFetch(`https://www.googleapis.com/drive/v3/files?q=name+contains+'immotrack'&orderBy=modifiedTime+desc&fields=files(id,name,modifiedTime)&pageSize=30`)
       .then(r=>r.json()).then(data=>showDrivePicker(data.files||[]))
       .catch(()=>showToast('Erreur Drive','err'));
   });
@@ -12468,7 +12641,7 @@ function showDrivePicker(files) {
 function restoreFromDrive(id, name) {
   if(!confirm2(`Restaurer le fichier "${name}" ? (écrase la base actuelle)`)) return;
   closeM('m-drive-picker');
-  fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`,{headers:{Authorization:'Bearer '+_driveToken}})
+  driveFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`)
     .then(r=>r.json()).then(data=>{DB=data;saveDB();initFilters();showToast('Base restaurée depuis Drive','ok');rExport();})
     .catch(()=>showToast('Erreur restauration','err'));
 }
