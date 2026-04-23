@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.13</title>
+<title>ImmoTrack v12.14</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -62,8 +62,8 @@
   --bor:rgba(255,255,255,.14);
   --bor2:rgba(255,255,255,.07);
   --t1:#e4ecf5;
-  --t2:#7a8fa8;
-  --t3:#3e5068;
+  --t2:#9badc4;   /* v2 audit : était #7a8fa8, bumpé pour contraste AA body */
+  --t3:#7d93ae;   /* v2 audit : était #3e5068 (contraste ~2:1, échec AA). Passe à ~4.5:1 */
   --shadow:0 1px 3px rgba(0,0,0,.4),0 4px 18px rgba(0,0,0,.3);
   --shadow-lg:0 8px 40px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.4);
   --shadow-hover:0 4px 20px rgba(59,126,246,.3),0 1px 4px rgba(0,0,0,.4);
@@ -438,8 +438,8 @@ textarea.inp{resize:vertical;min-height:70px}
 #dash-kpi-grid{
   display:grid;
   grid-template-columns:repeat(12,1fr);
-  grid-auto-rows:72px;
-  gap:12px;
+  grid-auto-rows:60px;  /* v2 Phase 3 polish : compressé de 72 à 60 pour fit 1 écran */
+  gap:10px;             /* v2 : gap 12 → 10 pour respirer sans gâcher l'espace */
 }
 
 /* Colonnes 1→12 */
@@ -448,13 +448,14 @@ textarea.inp{resize:vertical;min-height:70px}
 .dw-c7{grid-column:span 7}.dw-c8{grid-column:span 8}.dw-c9{grid-column:span 9}
 .dw-c10{grid-column:span 10}.dw-c11{grid-column:span 11}.dw-c12{grid-column:span 12}
 
-/* Rangées — hauteur strictement définie par grid-row:span N */
-.dw-r1{grid-row:span 1}   /* 72px  */
-.dw-r2{grid-row:span 2}   /* 156px */
-.dw-r3{grid-row:span 3}   /* 240px */
-.dw-r4{grid-row:span 4}   /* 324px */
-.dw-r5{grid-row:span 5}   /* 408px */
-.dw-r6{grid-row:span 6}   /* 492px */
+/* Rangées — hauteur strictement définie par grid-row:span N
+   v2 Phase 3 polish : grid-auto-rows passé de 72 à 60px + gap de 12 à 10 */
+.dw-r1{grid-row:span 1}   /* 60px  */
+.dw-r2{grid-row:span 2}   /* 130px */
+.dw-r3{grid-row:span 3}   /* 200px */
+.dw-r4{grid-row:span 4}   /* 270px */
+.dw-r5{grid-row:span 5}   /* 340px */
+.dw-r6{grid-row:span 6}   /* 410px */
 
 /* ── Carte de base ── */
 /* v2 : shadow-card plus discret. Accent statut via pseudo-élément ::before
@@ -531,19 +532,22 @@ textarea.inp{resize:vertical;min-height:70px}
 .dw-see-all::after{content:'›';font-size:13px;line-height:1;transition:transform .15s}
 .dw-see-all:hover::after{transform:translateX(2px)}
 
-/* ── Separator ── */
+/* ── Separator v2 — ligne horizontale propre + texte centré
+   Occupe sa cellule grille normalement (pas de hack margin négatif).
+   La compression du dashboard se fait via grid-auto-rows plus petit. ── */
 .dw-sep{
   grid-column:1/-1;grid-row:span 1;
-  background:transparent;border:none;border-left:none;
-  border-top:1.5px solid var(--bor);
-  border-radius:0;padding:6px 0 2px;box-shadow:none;
-  display:flex;align-items:center;gap:10px;
-  overflow:visible;
+  background:transparent;box-shadow:none;
+  border:none;border-radius:0;padding:0;
+  display:flex;align-items:center;gap:0;
+  overflow:visible;opacity:.75;
 }
-.dw-sep:hover{box-shadow:none}
+.dw-sep::before{display:none!important}  /* pas d'accent latéral sur un séparateur */
+.dw-sep:hover{opacity:1}
 .dw-sep-label{
-  font-size:10px;font-weight:800;color:var(--t3);
-  text-transform:uppercase;letter-spacing:2px;white-space:nowrap;
+  font-size:10px;font-weight:700;color:var(--t3);
+  text-transform:uppercase;letter-spacing:2.5px;white-space:nowrap;
+  padding:0 10px;
 }
 .dw-sep-line{flex:1;height:1px;background:var(--bor)}
 
@@ -634,8 +638,8 @@ textarea.inp{resize:vertical;min-height:70px}
   width:100%;height:100%;flex-wrap:wrap;
 }
 .dw-context-left{display:flex;flex-direction:column;gap:2px;min-width:0}
-.dw-context-date{font-size:11px;color:var(--t3);letter-spacing:.3px}
-.dw-context-greet{font-size:18px;font-weight:500;color:var(--t1);line-height:1.2}
+.dw-context-date{font-size:12px;color:var(--t3);letter-spacing:.3px}
+.dw-context-greet{font-size:18px;font-weight:500;color:var(--t1);line-height:1.25}
 .dw-context-right{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
 
 /* ── Hero Pulse ── */
@@ -652,15 +656,15 @@ textarea.inp{resize:vertical;min-height:70px}
 @media(max-width:768px){ .dw-hero-grid{grid-template-columns:1fr} .dw-hero-right{display:none} }
 .dw-hero-left{display:flex;flex-direction:column;gap:6px;min-width:0}
 .dw-hero-label{
-  font-size:11px;color:var(--t3);letter-spacing:.4px;font-weight:500;
+  font-size:15px;color:var(--t3);letter-spacing:.4px;font-weight:500;
 }
 .dw-hero-value{
   font-family:'Manrope',sans-serif;
-  font-size:56px;font-weight:500;letter-spacing:-.02em;line-height:1;
+  font-size:48px;font-weight:500;letter-spacing:-.02em;line-height:1;
   white-space:nowrap;
 }
-@media(max-width:900px){ .dw-hero-value{font-size:44px} }
-@media(max-width:768px){ .dw-hero-value{font-size:36px} }
+@media(max-width:900px){ .dw-hero-value{font-size:40px} }
+@media(max-width:768px){ .dw-hero-value{font-size:34px} }
 .dw-hero-delta{margin-top:2px}
 .dw-hero-meta{
   font-size:12px;color:var(--t2);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;
@@ -680,16 +684,9 @@ textarea.inp{resize:vertical;min-height:70px}
 .dw-spark-axis span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dw-spark-label{fill:var(--t2)}
 .dw-spark-pt:hover{opacity:1!important}
-.dw-hero-arrow{
-  position:absolute;top:-4px;right:-4px;
-  font-size:14px;color:var(--t3);opacity:0;
-  transition:opacity var(--t-fast),transform var(--t-fast);
-  pointer-events:none;line-height:1;
-}
-.dw-hero-click:hover .dw-hero-arrow{opacity:1;transform:translate(2px,-2px)}
-@media (hover:none){ .dw-hero-arrow{opacity:.6} }
-/* En mode édition, pas d'arrow pour ne pas masquer les handles */
-[data-dash-edit="true"] .dw-hero-arrow{display:none}
+/* Flèche ↗ retirée — redondante avec curseur pointer + élévation hover.
+   L'utilisateur n'y voyait pas de valeur ajoutée, la carte entière est
+   cliquable et l'affordance visuelle est suffisante. */
 
 /* ── Dark mode — overrides scopés v2 (contrast AA, cahier §7) ── */
 [data-theme="dark"] .dw-hero-label,
@@ -738,6 +735,127 @@ textarea.inp{resize:vertical;min-height:70px}
 .dw-spark-tip.show{opacity:1}
 [data-theme="dark"] .dw-spark-tip{background:#eef4fb;color:#0d1520}
 [data-theme="dark"] .dw-spark-tip::after{border-top-color:#eef4fb}
+
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 — KPI strip (cahier §3.3)
+   4 cartes : Revenus · Charges · Occupation · Rendement — toutes cliquables
+   ══════════════════════════════════════════════════════════════ */
+.dw-kpi-click{
+  position:relative;display:block;
+  cursor:pointer;border:none;background:none;padding:0;margin:0;
+  width:100%;height:100%;text-align:left;
+  font:inherit;color:inherit;
+}
+.dw-kpi-click:focus-visible{outline:2px solid var(--fg-info);outline-offset:2px;border-radius:var(--r)}
+.dw-kpi-label{
+  font-size:14px;color:var(--t3);letter-spacing:.3px;font-weight:500;
+  margin-bottom:5px;
+}
+.dw-kpi-value{
+  font-family:'Manrope',sans-serif;
+  font-size:26px;font-weight:500;letter-spacing:-.01em;
+  line-height:1.1;color:var(--t1);white-space:nowrap;
+}
+.dw-kpi-viz{margin-top:6px;min-height:22px}
+.dw-kpi-delta{margin-top:4px}
+.dw-kpi-arrow{
+  position:absolute;top:-2px;right:-2px;
+  font-size:13px;color:var(--t3);opacity:0;
+  transition:opacity var(--t-fast),transform var(--t-fast);
+  pointer-events:none;line-height:1;
+}
+.dw-kpi-click:hover .dw-kpi-arrow{opacity:1;transform:translate(2px,-2px)}
+@media (hover:none){ .dw-kpi-arrow{opacity:.5} }
+[data-dash-edit="true"] .dw-kpi-arrow{display:none}
+/* Dark mode : labels plus lisibles */
+[data-theme="dark"] .dw-kpi-label{color:#8ca3be}
+
+/* Barre de progression (occupation) */
+.dw-kpi-bar{
+  height:5px;border-radius:3px;background:var(--bor);
+  position:relative;overflow:hidden;
+}
+.dw-kpi-bar-fill{
+  position:absolute;inset:0;width:var(--p,0%);border-radius:3px;
+  background:var(--c,var(--acc));
+  transition:width var(--t-normal);
+}
+
+/* Liste à barres horizontales — charges par catégorie (layout col 3 row 2 ≤108px)
+   Compact : grid [name | bar | %], on drop le montant (visible dans drill). */
+.dw-cat-list{
+  display:flex;flex-direction:column;gap:5px;margin-top:6px;
+}
+.dw-cat-row{
+  display:grid;grid-template-columns:minmax(0,1.2fr) minmax(40px,1.5fr) auto;
+  gap:8px;align-items:center;font-size:12px;color:var(--t1);line-height:1.2;
+}
+.dw-cat-name{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:500;
+}
+.dw-cat-bar{
+  position:relative;height:6px;background:var(--bor);border-radius:3px;overflow:hidden;
+}
+.dw-cat-bar-fill{
+  position:absolute;inset:0 auto 0 0;border-radius:3px;
+  transition:width var(--t-normal);
+}
+.dw-cat-pct{font-size:11px;color:var(--t2);font-weight:600;min-width:28px;text-align:right}
+/* Total affiché sous la liste, compact */
+.dw-cat-total{
+  font-size:11px;color:var(--t3);margin-top:6px;padding-top:5px;
+  border-top:1px dashed var(--bor);display:flex;justify-content:space-between;
+}
+.dw-cat-total strong{color:var(--t1);font-weight:600}
+
+/* Flux KPI (Revenus vs Charges fusionnés — cahier §3.3 modifié user)
+   Layout horizontal : valeurs à gauche, sparkline à droite (gain vertical). */
+.dw-flux-grid{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(140px,auto);
+  gap:14px;align-items:center;margin-top:2px;
+}
+.dw-flux-left{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dw-flux-right{min-width:0;max-width:100%}
+.dw-flux-values{
+  display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap;
+}
+.dw-flux-values > div{min-width:0}
+@media(max-width:700px){
+  .dw-flux-grid{grid-template-columns:1fr}
+  .dw-flux-right{display:none}  /* sparkline cachée en petit viewport */
+}
+.dw-flux-sublabel{
+  font-size:13px;color:var(--t3);letter-spacing:.3px;margin-bottom:2px;
+  text-transform:none;
+}
+.dw-flux-value{
+  font-family:'Manrope',sans-serif;
+  font-size:26px;font-weight:500;letter-spacing:-.01em;line-height:1;
+  white-space:nowrap;
+}
+.dw-flux-net{
+  font-size:13px;color:var(--t2);margin-top:4px;
+}
+.dw-flux-net strong{color:var(--t1);font-weight:600}
+[data-theme="dark"] .dw-flux-sublabel{color:#8ca3be}
+@media(max-width:480px){
+  .dw-flux-value{font-size:18px}
+  .dw-flux-values{gap:14px}
+}
+
+/* Responsive KPI strip (cahier §3.3)
+   Les 4 cartes c3 occupent 3 de 12 cols = 4/row par défaut.
+   Sur tablette (≤900 px) : 2 par ligne via span 6.
+   Sur mobile (≤768) : la grille devient 4 cols, c3 = 75% → 1/row naturellement.
+   Sur très petit (≤480) : pleine largeur. */
+@media(max-width:900px) and (min-width:769px){
+  .dw-c3{grid-column:span 6}
+}
+@media(max-width:480px){
+  .dw-c3{grid-column:1/-1}
+  .dw-kpi-value{font-size:20px}
+}
 
 /* ── AGENDA ───────────────────────────────────────────────── */
 .agenda-list{display:flex;flex-direction:column;gap:8px}
@@ -803,7 +921,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.13</em>
+      <em>v12.14</em>
     </div>
   </div>
 
@@ -2079,7 +2197,7 @@ textarea.inp{resize:vertical;min-height:70px}
 
 <!-- MODAL: DASH DRILL DOWN -->
 <div class="ov hidden" id="ov-dash-drill" onclick="closeBg(event,'ov-dash-drill')">
-<div class="modal" style="max-width:700px">
+<div class="modal" style="max-width:1100px">
   <div class="m-head"><h3 id="dash-drill-title">Détail</h3><button class="m-close" onclick="closeM('ov-dash-drill')">✕</button></div>
   <div class="m-body" id="dash-drill-body" style="max-height:70vh;overflow-y:auto"></div>
   <div class="m-foot"><button class="btn bs" onclick="closeM('ov-dash-drill')">Fermer</button></div>
@@ -3758,20 +3876,25 @@ const DASH_DEFAULT_LAYOUT = [
   {id:'context-bar', label:'Bandeau contextuel (v2)',  col:12, row:1, visible:true},
   {id:'hero',        label:'Cash-flow — Hero (v2)',    col:12, row:3, visible:true},
   {id:'sep-finance', type:'separator', label:'Finance',          col:12, row:1, visible:true},
-  {id:'rev',   label:'Revenus loyers',              col:3, row:2, visible:true},
-  {id:'chg',   label:'Charges totales',             col:3, row:2, visible:true},
-  {id:'cf',    label:'Cash-flow net',               col:3, row:2, visible:true},
-  {id:'cfyr',  label:'Cash-flow YTD',               col:3, row:2, visible:true},
-  {id:'bars',  label:'Graphique rev./charges',      col:6, row:4, visible:true},
-  {id:'occ',   label:'Encaissement & occupation',   col:6, row:2, visible:true},
-  {id:'donut', label:'Charges catégories',          col:4, row:3, visible:true},
-  {id:'prog',  label:'Progression annuelle',        col:4, row:2, visible:true},
-  {id:'rdt',   label:'Rendement brut',              col:4, row:2, visible:true},
-  {id:'solde', label:'Solde provisions',            col:8, row:2, visible:true},
+  /* v2 Phase 3 FINAL — layout « 5 KPIs » validé user :
+     Flux col 6 row 4 à gauche (2 hauteurs) · 4 cartes col 3 row 2 à droite en 2x2 */
+  {id:'flux',  label:'Revenus vs Charges',          col:6, row:4, visible:true},
+  {id:'occ',   label:'Occupation',                  col:3, row:2, visible:true},
+  {id:'rdt',   label:'Rendement brut',              col:3, row:2, visible:true},
+  {id:'donut', label:'Charges catégories',          col:3, row:2, visible:true},
+  {id:'dg',    label:'Dépôts de garantie',          col:3, row:2, visible:true},
+  /* v2 — masqués par défaut, rôle repris par flux/hero (réactivables via ⚙ Widgets) */
+  {id:'rev',   label:'Revenus loyers',              col:3, row:2, visible:false},  // fusionné dans flux
+  {id:'chg',   label:'Charges totales',             col:3, row:2, visible:false},  // fusionné dans flux
+  {id:'bars',  label:'Graphique rev./charges',      col:6, row:4, visible:false},  // redondant avec flux
+  {id:'cf',    label:'Cash-flow net',               col:3, row:2, visible:false},
+  {id:'cfyr',  label:'Cash-flow YTD',               col:3, row:2, visible:false},
+  {id:'prog',  label:'Progression annuelle',        col:4, row:2, visible:false},
+  {id:'solde', label:'Solde provisions',            col:8, row:2, visible:false},
   {id:'sep-gestion', type:'separator', label:'Gestion locative', col:12, row:1, visible:true},
   {id:'agenda-dash',label:'Agenda — 15 prochains jours', col:6, row:4, visible:true},
-  {id:'mag',   label:'Manque à gagner vacance',     col:3, row:2, visible:true},
-  {id:'dg',    label:'Dépôts de garantie',          col:3, row:2, visible:true},
+  {id:'mag',   label:'Manque à gagner vacance',     col:3, row:2, visible:false},  // v2 : fusionné dans occ
+  /* dg déjà défini plus haut en col:5 row:2 visible (section finance v2) */
   {id:'mrh',   label:'MRH manquantes',              col:3, row:2, visible:true},
   {id:'irl',   label:'Révisions IRL',               col:3, row:2, visible:false},
   {id:'bail',  label:'Baux à terme',                col:3, row:2, visible:false},
@@ -3879,11 +4002,16 @@ function toggleDashWidget(id) {
 function renderDashPanelBtns(layout) {
   const c = el('dash-panel-btns');
   if(!c) return;
-  c.innerHTML = layout.filter(w=>w.type!=='separator').map(w=>`<button onclick="toggleDashWidget('${w.id}')"
+  // v2 : séparateurs inclus dans le panneau (activables/désactivables comme les widgets)
+  c.innerHTML = layout.map(w=>{
+    const isSep = w.type==='separator';
+    const lbl = isSep ? '\u2014\u00a0'+(w.label||'Séparateur') : (w.label||w.id);
+    return `<button onclick="toggleDashWidget('${w.id}')"
     style="padding:4px 11px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:${w.visible?'600':'400'};transition:all .15s;
-    border:1.5px solid ${w.visible?'var(--blu)':'var(--bor)'};
+    border:1.5px ${isSep?'dashed':'solid'} ${w.visible?'var(--blu)':'var(--bor)'};
     background:${w.visible?'rgba(59,126,246,.12)':'var(--sur2)'};
-    color:${w.visible?'var(--blu)':'var(--t2)'}">${escHtml(w.label)}<\/button>`).join('');
+    color:${w.visible?'var(--blu)':'var(--t2)'}">${escHtml(lbl)}<\/button>`;
+  }).join('');
 }
 
 function renderDashGrid(layout, ctx) {
@@ -4176,6 +4304,255 @@ function _buildHeroDrill(ctx, cfNow, cfPrev, cfYTD) {
   return {title:'Cash-flow — '+periodLabel, html:summary+table};
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 3 — KPI strip helpers (cahier §3.3)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Série mensuelle générique scopée entité. Single-pass sur DB.mouvements.
+   valueFn(m) retourne la contribution du mouvement à la valeur mensuelle. */
+function _kpiMonthlySeries(ctx, nMonths, valueFn) {
+  const {activeEnt, scopeRefs, scopeImms} = ctx;
+  const today = new Date();
+  const buckets = {};
+  const order = [];
+  for(let i = nMonths-1; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth()-i, 1);
+    const ym = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    buckets[ym] = {value:0, label:_DMC[d.getMonth()], ym, yr:d.getFullYear(), mo:d.getMonth()+1};
+    order.push(ym);
+  }
+  const first = order[0], last = order[order.length-1];
+  for(const m of DB.mouvements) {
+    if(!m.date) continue;
+    const ym = m.date.slice(0,7);
+    if(ym < first || ym > last || !buckets[ym]) continue;
+    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+    buckets[ym].value += valueFn(m);
+  }
+  return order.map(ym => buckets[ym]);
+}
+
+/* Assemblage HTML d'une carte KPI v2 (cliquable, drill unifié).
+   Pas de flèche ↗ sur les KPIs : la carte entière est cliquable, l'affordance
+   hover (élévation + bordure) suffit. ↗ réservée au hero (plus d'espace, moins ambigu). */
+function _kpiBody(opts) {
+  return '<button type="button" class="dw-kpi-click" '
+    + 'onclick="_dashCardClick(\''+opts.drillKey+'\',event)" '
+    + 'aria-label="Voir le détail : '+escHtml(opts.label)+'">'
+    + '<div class="dw-kpi-label">'+escHtml(opts.label)+'</div>'
+    + '<div class="dw-kpi-value"'+(opts.valueColor?' style="color:'+opts.valueColor+'"':'')+'>'+opts.value+'</div>'
+    + (opts.viz   ? '<div class="dw-kpi-viz">'+opts.viz+'</div>'     : '')
+    + (opts.delta ? '<div class="dw-kpi-delta">'+opts.delta+'</div>' : '')
+    + '</button>';
+}
+
+/* Delta pill v2 (calcul pct cur vs prev, inverseIsGood : baisse = vert pour charges). */
+function _kpiDelta(cur, prev, inverseIsGood) {
+  if(!prev || prev === 0) return '';
+  const pct = (cur - prev) / Math.abs(prev) * 100;
+  const up = pct >= 0;
+  const good = inverseIsGood ? !up : up;
+  return '<span class="dw-pill '+(good?'delta-up':'delta-down')+'" style="font-size:10px;padding:2px 8px">'
+    + (up?'▲':'▼')+' '+Math.abs(pct).toFixed(1)+'\u00a0% vs pér. préc.</span>';
+}
+
+/* ── Drill-down builders pour les 4 KPIs ─────────────────────── */
+
+function _buildRevDrill(ctx) {
+  const {scopeLogs, mvs, yr, mo} = ctx;
+  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
+  const byLog = {};
+  for(const m of mvs) {
+    if(m.cat !== 'Loyers' || !(m.cr > 0)) continue;
+    const key = m.qui || '?';
+    if(!byLog[key]) byLog[key] = {ref:key, cr:0};
+    byLog[key].cr += m.cr;
+  }
+  const rows = Object.values(byLog).sort((a,b) => b.cr - a.cr);
+  const total = rows.reduce((s,r) => s+r.cr, 0);
+  const logName = ref => {
+    const l = scopeLogs.find(x => x.ref === ref);
+    return l ? (l.locataire || 'Vacant') : '';
+  };
+  const table = rows.length
+    ? '<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">Loyers reçus</th></tr></thead><tbody>'
+    + rows.map(r => '<tr><td><b>'+escHtml(r.ref)+'</b></td><td>'+escHtml(logName(r.ref))+'</td><td style="text-align:right;color:var(--fg-success)">'+fmt(r.cr)+'</td></tr>').join('')
+    + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total</td><td style="text-align:right">'+fmt(total)+'</td></tr></tfoot></table>'
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun loyer reçu sur la période.</div>';
+  return {title:'Revenus loyers — '+periodLabel, html:table};
+}
+
+function _buildChgDrill(ctx) {
+  const {mvs, yr, mo} = ctx;
+  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
+  const byCat = {};
+  for(const m of mvs) {
+    if(!(m.db > 0)) continue;
+    const cat = m.cat || 'Sans catégorie';
+    if(!byCat[cat]) byCat[cat] = {cat, db:0, count:0};
+    byCat[cat].db += m.db;
+    byCat[cat].count++;
+  }
+  const rows = Object.values(byCat).sort((a,b) => b.db - a.db);
+  const total = rows.reduce((s,r) => s+r.db, 0);
+  const table = rows.length
+    ? '<table class="tbl"><thead><tr><th>Catégorie</th><th style="text-align:right">Nb mvts</th><th style="text-align:right">Montant</th><th style="text-align:right">%</th></tr></thead><tbody>'
+    + rows.map(r => {
+        const pct = total > 0 ? (r.db / total * 100).toFixed(1) : '0';
+        return '<tr><td>'+escHtml(r.cat)+'</td><td style="text-align:right">'+r.count+'</td><td style="text-align:right;color:var(--fg-danger)">'+fmt(r.db)+'</td><td style="text-align:right">'+pct+'\u00a0%</td></tr>';
+      }).join('')
+    + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total</td><td style="text-align:right">'+fmt(total)+'</td><td></td></tr></tfoot></table>'
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucune charge sur la période.</div>';
+  return {title:'Charges — '+periodLabel, html:table};
+}
+
+function _buildOccDrill(ctx) {
+  const {scopeLogs} = ctx;
+  const occupied = scopeLogs.filter(l => l.locataire).length;
+  const totalL = scopeLogs.length;
+  const pct = totalL > 0 ? Math.round(occupied / totalL * 100) : 0;
+  const color = pct >= 90 ? 'var(--fg-success)' : pct >= 50 ? 'var(--fg-warning)' : 'var(--fg-danger)';
+  const vacs = scopeLogs.filter(l => !l.locataire);
+  const magMois = vacs.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
+  const magAn = magMois * 12;
+  const summary = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'
+    + '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    +   '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">Occupation</div>'
+    +   '<div style="font-size:26px;font-weight:600;margin-top:2px;color:'+color+'">'+pct+'\u00a0%</div>'
+    +   '<div style="font-size:12px;color:var(--t2);margin-top:2px">'+occupied+' / '+totalL+' logements</div>'
+    + '</div>'
+    + '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    +   '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">Manque \u00e0 gagner</div>'
+    +   '<div style="font-size:26px;font-weight:600;margin-top:2px;color:'+(vacs.length?'var(--fg-danger)':'var(--fg-success)')+'">'+fmt(magAn)+'</div>'
+    +   '<div style="font-size:12px;color:var(--t2);margin-top:2px">'+(vacs.length?fmt(magMois)+'/mois \u00b7 '+vacs.length+' vacant'+(vacs.length>1?'s':''):'Aucun vacant')+'</div>'
+    + '</div>'
+    + '</div>';
+  const table = totalL
+    ? '<table class="tbl"><thead><tr><th>Logement</th><th>Immeuble</th><th>Statut</th><th>Locataire</th><th style="text-align:right">Loyer TCC</th><th style="text-align:right">Perte/an si vacant</th></tr></thead><tbody>'
+    + scopeLogs.map(l => {
+        const statut = l.locataire
+          ? '<span style="color:var(--fg-success);font-weight:600">Occup\u00e9</span>'
+          : '<span style="color:var(--fg-danger);font-weight:600">Vacant</span>';
+        const loyer = (l.hc||0)+(l.ch||0);
+        const perte = l.locataire ? '\u2014' : fmt(loyer*12);
+        const perteCol = l.locataire ? 'var(--t3)' : 'var(--fg-danger)';
+        return '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.imm||'—')+'</td><td>'+statut+'</td><td>'+escHtml(l.locataire||'—')+'</td><td style="text-align:right">'+fmt(loyer)+'</td><td style="text-align:right;color:'+perteCol+';font-weight:'+(l.locataire?'400':'600')+'">'+perte+'</td></tr>';
+      }).join('')
+    + '</tbody></table>'
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun logement dans ce scope.</div>';
+  return {title:'Occupation & manque \u00e0 gagner vacance', html:summary+table};
+}
+
+/* Drill-down pour le KPI fusionné flux (Revenus vs Charges) —
+   tableau mois par mois sur 12 mois glissants avec net. */
+function _buildFluxDrill(ctx) {
+  const revS = _kpiMonthlySeries(ctx, 12, m => m.cat === 'Loyers' ? (m.cr||0) : 0);
+  const chgS = _kpiMonthlySeries(ctx, 12, m => (m.db||0));
+  const rows = revS.map((s, i) => ({
+    label: _DMF[s.mo-1]+' '+s.yr,
+    rev: s.value,
+    chg: chgS[i].value,
+    net: s.value - chgS[i].value
+  }));
+  const totRev = rows.reduce((s,r) => s+r.rev, 0);
+  const totChg = rows.reduce((s,r) => s+r.chg, 0);
+  const totNet = totRev - totChg;
+  const html =
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
+    + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Revenus 12 mois</div>'
+    +   '<div style="font-size:20px;font-weight:600;color:var(--fg-success);margin-top:4px">'+fmt(totRev)+'</div></div>'
+    + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Charges 12 mois</div>'
+    +   '<div style="font-size:20px;font-weight:600;color:var(--fg-danger);margin-top:4px">'+fmt(totChg)+'</div></div>'
+    + '<div style="padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    +   '<div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.3px">Cash-flow net</div>'
+    +   '<div style="font-size:20px;font-weight:600;color:'+(totNet>=0?'var(--fg-success)':'var(--fg-danger)')+';margin-top:4px">'+(totNet>=0?'+':'')+fmt(totNet)+'</div></div>'
+    + '</div>'
+    + '<table class="tbl">'
+    + '<thead><tr><th>Mois</th><th style="text-align:right">Revenus</th><th style="text-align:right">Charges</th><th style="text-align:right">Net</th></tr></thead><tbody>'
+    + rows.map(r =>
+        '<tr><td>'+escHtml(r.label)+'</td>'
+        +'<td style="text-align:right;color:var(--fg-success)">'+(r.rev>0?fmt(r.rev):'–')+'</td>'
+        +'<td style="text-align:right;color:var(--fg-danger)">' +(r.chg>0?fmt(r.chg):'–')+'</td>'
+        +'<td style="text-align:right;font-weight:600;color:'+(r.net>=0?'var(--fg-success)':'var(--fg-danger)')+'">'+(r.net>=0?'+':'')+fmt(r.net)+'</td></tr>'
+      ).join('')
+    + '</tbody></table>';
+  return {title:'Revenus vs Charges — 12 mois glissants', html};
+}
+
+function _buildRdtDrill(ctx) {
+  const {scopeLogs, activeEnt, scopeRefs, scopeImms} = ctx;
+  const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 12);
+  const cutoffISO = cutoff.toISOString().slice(0,10);
+  const now = new Date();
+  // Single-pass : loyers 12 mois glissants + date du 1er mouvement par immeuble
+  const loysByImm = {};
+  const firstByImm = {};
+  for(const m of DB.mouvements) {
+    if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date) continue;
+    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+    const log = scopeLogs.find(l => l.ref === m.qui);
+    if(!log || !log.imm) continue;
+    if(!firstByImm[log.imm] || m.date < firstByImm[log.imm]) firstByImm[log.imm] = m.date;
+    if(m.date >= cutoffISO) loysByImm[log.imm] = (loysByImm[log.imm] || 0) + m.cr;
+  }
+  const rows = immsDistinct.map(immNom => {
+    const iL = scopeLogs.filter(l => l.imm === immNom);
+    const loysEff = loysByImm[immNom] || 0;
+    const loysTheo = iL.reduce((s,l) => s+(l.hc||0), 0) * 12;
+    const first = firstByImm[immNom];
+    let moisEcoules = 12;
+    if(first) {
+      const d = new Date(first);
+      moisEcoules = Math.max(1, Math.min(12,
+        (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()) + 1
+      ));
+    }
+    const loysAnnualises = first ? loysEff * 12 / moisEcoules : 0;
+    const entNom = iL[0] && iL[0].entity;
+    const ent2 = entNom ? DB.entites.find(e => e.nom === entNom) : null;
+    const imObj = ent2 && ent2.immeubles ? ent2.immeubles.find(i => i.nom === immNom) : null;
+    const valeur = (imObj && imObj.valeurEstimee) || 0;
+    const travaux = (imObj && imObj.montantTravaux) || 0;
+    const totalInv = valeur + travaux;
+    const taux = totalInv > 0 && first ? (loysAnnualises / totalInv * 100) : null;
+    const tauxTheo = totalInv > 0 ? (loysTheo / totalInv * 100) : null;
+    return {immNom, loysEff, loysTheo, loysAnnualises, moisEcoules, first, valeur, travaux, totalInv, taux, tauxTheo};
+  }).sort((a,b) => (b.taux||0) - (a.taux||0));
+  const totalLoysAnn = rows.reduce((s,r) => s+r.loysAnnualises, 0);
+  const totalTheo = rows.reduce((s,r) => s+r.loysTheo, 0);
+  const totalInv  = rows.reduce((s,r) => s+r.totalInv, 0);
+  const globalRdt = totalInv > 0 ? (totalLoysAnn/totalInv*100) : null;
+  const globalTheo = totalInv > 0 ? (totalTheo/totalInv*100) : null;
+  const summary = '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:16px">'
+    + '<div style="font-size:12px;color:var(--t3);letter-spacing:.3px">Rendement brut effectif (annualis\u00e9 par immeuble)</div>'
+    + '<div style="font-size:26px;font-weight:600;margin-top:4px;color:var(--t1)">'+(globalRdt !== null ? globalRdt.toFixed(1)+'\u00a0%' : '—')+'</div>'
+    + '<div style="font-size:12px;color:var(--t2);margin-top:3px">Loyers annualis\u00e9s '+fmt(totalLoysAnn)+' \u00b7 Valeur globale '+(totalInv>0?fmt(totalInv):'non renseign\u00e9e')+(globalTheo !== null ? ' \u00b7 Th\u00e9orique '+globalTheo.toFixed(1)+'\u00a0%' : '')+'</div>'
+    + '</div>';
+  const table = rows.length
+    ? '<table class="tbl"><thead><tr><th>Immeuble</th><th style="text-align:right">1er mouvement</th><th style="text-align:right">Mois de données</th><th style="text-align:right">Loyers reçus</th><th style="text-align:right">Annualisés</th><th style="text-align:right">Valeur + travaux</th><th style="text-align:right">Rdt effectif</th></tr></thead><tbody>'
+    + rows.map(r => {
+        const tauxHtml = r.taux !== null
+          ? '<span style="color:var(--fg-success);font-weight:600">'+r.taux.toFixed(1)+'\u00a0%</span>'
+          : '<span style="color:var(--t3);font-style:italic">N/C</span>';
+        const firstFmt = r.first ? (new Date(r.first)).toLocaleDateString('fr-FR') : '\u2014';
+        return '<tr><td><b>'+escHtml(r.immNom)+'</b></td>'
+          +'<td style="text-align:right;color:var(--t2)">'+firstFmt+'</td>'
+          +'<td style="text-align:right;color:var(--t2)">'+r.moisEcoules+'</td>'
+          +'<td style="text-align:right">'+fmt(r.loysEff)+'</td>'
+          +'<td style="text-align:right;font-weight:500">'+fmt(r.loysAnnualises)+'</td>'
+          +'<td style="text-align:right">'+(r.totalInv>0?fmt(r.totalInv):'—')+'</td>'
+          +'<td style="text-align:right">'+tauxHtml+'</td></tr>';
+      }).join('')
+    + '</tbody></table>'
+    + '<div class="mu sm" style="margin-top:10px;font-size:11px;color:var(--t3);font-style:italic">Annualisation : loyers re\u00e7us \u00d7 (12 / mois \u00e9coul\u00e9s depuis 1er mouvement). Un immeuble acquis r\u00e9cemment n\'est pas p\u00e9nalis\u00e9 par les mois "vides" pr\u00e9c\u00e9dents. Valeurs estim\u00e9es \u00e0 renseigner dans R\u00e9f\u00e9rentiel \u25b8 Entit\u00e9s.</div>'
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun immeuble.</div>';
+  return {title:'Rendement brut effectif par immeuble', html:summary+table};
+}
+
 function buildDashWidget(id, ctx, col=3, row=2) {
   const {scopeLogs, mvs, mvsYTD, mvsPrev, yr, mo, refYrMo, activeEnt, scopeRefs, scopeImms} = ctx;
   // Hauteur réelle de la cellule : N×72px + (N-1)×12px de gap
@@ -4307,17 +4684,117 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       +   '</div>'
       +   (sparkline ? '<div class="dw-hero-right">'+sparkline+'</div>' : '<div></div>')
       + '</div>'
-      + '<span class="dw-hero-arrow" aria-hidden="true">↗</span>'
       + '</button>';
     return wd(body, '', heroStatus);
   }
 
-  if(id==='rev') {
-    const l2=mvs.filter(m=>m.cat==='Loyers').reduce((s,m)=>s+(m.cr||0),0);
-    const p2=mvsPrev.filter(m=>m.cat==='Loyers').reduce((s,m)=>s+(m.cr||0),0);
-    return wd(lbl('Revenus loyers')+wval(fmt(l2),'var(--grn)')+wsub(periodLabel)+wdelta(l2,p2), '', 'grn');
+  /* ── v2 Phase 3 — KPI fusionné "Revenus vs Charges" (choix utilisateur)
+     Remplace rev + chg + bars : une carte avec les 2 chiffres côte-à-côte et
+     un double sparkline superposé (vert rev, rouge chg) sur 6 mois. L'écart
+     entre les courbes = cash-flow visible d'un coup d'œil. ── */
+  if(id==='flux') {
+    const l2 = mvs.filter(m => m.cat === 'Loyers').reduce((s,m) => s+(m.cr||0), 0);
+    const netCf = l2 - totalDb;
+    const revSeries = _kpiMonthlySeries(ctx, 6, m => m.cat === 'Loyers' ? (m.cr||0) : 0);
+    const chgSeries = _kpiMonthlySeries(ctx, 6, m => (m.db||0));
+    const hasData = revSeries.some(s => s.value > 0) || chgSeries.some(s => s.value > 0);
+    // Double sparkline inline (même domaine Y, max = max global des 2 séries)
+    let viz = '';
+    if(hasData) {
+      const W = 320, H = 85, PAD = 4;  // row 4 laisse ~248px → sparkline généreuse
+      const maxV = Math.max(1, ...revSeries.map(s => s.value), ...chgSeries.map(s => s.value));
+      const dx = (W - 2*PAD) / (revSeries.length - 1);
+      const yOf = v => H - PAD - (v / maxV) * (H - 2*PAD);
+      const ptsR = revSeries.map((s,i) => [PAD + i*dx, yOf(s.value)]);
+      const ptsC = chgSeries.map((s,i) => [PAD + i*dx, yOf(s.value)]);
+      const toP = pts => pts.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+      const toArea = pts => 'M '+pts[0][0].toFixed(1)+' '+(H-PAD).toFixed(1)
+        +' L '+pts.map(p => p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L ')
+        +' L '+pts[pts.length-1][0].toFixed(1)+' '+(H-PAD).toFixed(1)+' Z';
+      // 2 hit points par mois : un sur chaque courbe (utilisateur : pas de point au milieu)
+      const hit = revSeries.map((s,i) => {
+        const net = revSeries[i].value - chgSeries[i].value;
+        const t = _DMF[s.mo-1]+' '+s.yr+' \u2014 Rev '+fmt(revSeries[i].value)+' \u00b7 Chg '+fmt(chgSeries[i].value)+' \u00b7 Net '+(net>=0?'+':'')+fmt(net);
+        const cxR = ptsR[i][0].toFixed(1), cyR = ptsR[i][1].toFixed(1);
+        const cxC = ptsC[i][0].toFixed(1), cyC = ptsC[i][1].toFixed(1);
+        return '<circle cx="'+cxR+'" cy="'+cyR+'" r="10" fill="var(--fg-success)" opacity="0" '
+          +'style="pointer-events:all;cursor:default" class="dw-spark-pt" '
+          +'data-tip="'+escHtml(t)+'" '
+          +'onmouseenter="_sparkTip(this)" onmouseleave="_sparkTip(null)"></circle>'
+          +'<circle cx="'+cxC+'" cy="'+cyC+'" r="10" fill="var(--fg-danger)" opacity="0" '
+          +'style="pointer-events:all;cursor:default" class="dw-spark-pt" '
+          +'data-tip="'+escHtml(t)+'" '
+          +'onmouseenter="_sparkTip(this)" onmouseleave="_sparkTip(null)"></circle>';
+      }).join('');
+      const svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="none" style="overflow:visible;display:block;max-width:100%" aria-hidden="true">'
+        + '<path d="'+toArea(ptsC)+'" fill="var(--bg-danger)" opacity=".55"/>'
+        + '<path d="'+toArea(ptsR)+'" fill="var(--bg-success)" opacity=".6"/>'
+        + '<polyline points="'+toP(ptsC)+'" fill="none" stroke="var(--fg-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '<polyline points="'+toP(ptsR)+'" fill="none" stroke="var(--fg-success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+        + hit + '</svg>';
+      // Axe mois restauré (row 4 a la place — on lit en un coup d'œil sans devoir survoler)
+      const axis = '<div class="dw-spark-axis">'+revSeries.map(s => '<span>'+escHtml(s.label||'')+'</span>').join('')+'</div>';
+      viz = '<div class="dw-spark-wrap">'+svg+axis+'<div class="dw-spark-tip" aria-hidden="true"></div></div>';
+    } else {
+      viz = '<div style="font-size:11px;color:var(--t3);padding:12px 0;text-align:center">Pas de données sur les 6 derniers mois</div>';
+    }
+    _DD['flux'] = _buildFluxDrill(ctx);
+    const netCol = netCf >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+    const netSign = netCf >= 0 ? '+' : '';
+    // Layout vertical : row 4 donne ~248px, place pour values + net + sparkline respirée
+    const body = '<button type="button" class="dw-kpi-click" '
+      + 'onclick="_dashCardClick(\'flux\',event)" '
+      + 'aria-label="Voir le détail Revenus vs Charges">'
+      + '<div class="dw-kpi-label">Revenus vs Charges — '+escHtml(periodLabel)+'</div>'
+      + '<div class="dw-flux-values">'
+      +   '<div><div class="dw-flux-sublabel">Revenus</div><div class="dw-flux-value" style="color:var(--fg-success)">'+fmt(l2)+'</div></div>'
+      +   '<div><div class="dw-flux-sublabel">Charges</div><div class="dw-flux-value" style="color:var(--fg-danger)">'+fmt(totalDb)+'</div></div>'
+      + '</div>'
+      + '<div class="dw-flux-net">Net <strong style="color:'+netCol+'">'+netSign+fmt(netCf)+'</strong></div>'
+      + '<div class="dw-kpi-viz" style="margin-top:10px">'+viz+'</div>'
+      + '</button>';
+    return wd(body, '', netCf >= 0 ? 'grn' : 'red');
   }
-  if(id==='chg') return wd(lbl('Charges totales')+wval(fmt(totalDb),'var(--red)')+wsub(periodLabel)+wdelta(totalDb,prevDb,true), '', totalDb>0?'red':'');
+
+  /* ── v2 KPI primaire — Revenus loyers (cahier §3.3) ── */
+  if(id==='rev') {
+    const l2 = mvs.filter(m => m.cat === 'Loyers').reduce((s,m) => s+(m.cr||0), 0);
+    const p2 = mvsPrev.filter(m => m.cat === 'Loyers').reduce((s,m) => s+(m.cr||0), 0);
+    const series = _kpiMonthlySeries(ctx, 6, m => m.cat === 'Loyers' ? (m.cr||0) : 0);
+    const hasData = series.some(s => s.value !== 0);
+    const viz = hasData ? _mkSparkline(series, {
+      w:200, h:40, padding:3,
+      stroke:'var(--fg-success)', fill:'var(--bg-success)',
+      allLabels: true,
+      tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+fmt(pt.value)
+    }) : '';
+    _DD['rev'] = _buildRevDrill(ctx);
+    return wd(_kpiBody({
+      label:'Revenus loyers',
+      value:fmt(l2), valueColor:'var(--fg-success)',
+      viz, delta:_kpiDelta(l2, p2, false),
+      drillKey:'rev'
+    }), '', 'grn');
+  }
+
+  /* ── v2 KPI primaire — Charges totales (cahier §3.3) ── */
+  if(id==='chg') {
+    const series = _kpiMonthlySeries(ctx, 6, m => (m.db||0));
+    const hasData = series.some(s => s.value !== 0);
+    const viz = hasData ? _mkSparkline(series, {
+      w:200, h:40, padding:3,
+      stroke:'var(--fg-danger)', fill:'var(--bg-danger)',
+      allLabels: true,
+      tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+fmt(pt.value)
+    }) : '';
+    _DD['chg'] = _buildChgDrill(ctx);
+    return wd(_kpiBody({
+      label:'Charges totales',
+      value:fmt(totalDb), valueColor:'var(--fg-danger)',
+      viz, delta:_kpiDelta(totalDb, prevDb, true),  // baisse = bonne nouvelle
+      drillKey:'chg'
+    }), '', totalDb > 0 ? 'red' : '');
+  }
   if(id==='cf') {
     const cf=totalCr-totalDb;
     return wd(lbl('Cash-flow net')+wval(fmt(cf),cf>=0?'var(--grn)':'var(--red)')+wsub(periodLabel)+wdelta(cf,prevCr-prevDb), '', cf>=0?'grn':'red');
@@ -4359,27 +4836,29 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     const legend = `<div style="display:flex;gap:12px;margin-top:5px;font-size:9px;color:var(--t3)"><span><span style="display:inline-block;width:7px;height:7px;background:var(--grn);border-radius:1px;margin-right:2px"><\/span>Revenus<\/span><span><span style="display:inline-block;width:7px;height:7px;background:var(--red);border-radius:1px;margin-right:2px"><\/span>Charges<\/span><\/div>`;
     return wd(lbl('Revenus\u00a0/\u00a0charges \u2014 6 derniers mois')+`<svg viewBox="0 0 ${totalW} ${SH}" width="100%" height="${SH}px" preserveAspectRatio="none" style="display:block;margin-top:8px;overflow:visible">${svgBars}<\/svg>`+legend, '', 'blu');
   }
+  /* ── v2 Phase 3 polish — Occupation + Manque à gagner vacance fusionnés
+     (demande utilisateur : les 2 widgets étaient complémentaires).
+     Value principale = Occupation %. Sous-ligne = vacants + manque à gagner /an. ── */
   if(id==='occ') {
-    const mElOcc = mo ? 1 : today.getMonth()+1;
-    const loyEnc = mvs.filter(m=>m.cat==='Loyers'&&m.cr>0&&scopeRefs.includes(m.qui)).reduce((s,m)=>s+(m.cr||0),0);
-    const objPeriod = objMens * mElOcc;
-    const tEnc = objPeriod>0 ? Math.round(loyEnc/objPeriod*100) : 0;
-    const tOcc = nbLogs>0 ? Math.round(occupied/nbLogs*100) : 0;
-    const cE = tEnc>=90?'var(--grn)':tEnc>=50?'var(--ora)':'var(--red)', cO=tOcc>=90?'var(--grn)':'var(--ora)';
-    const st = tEnc>=90?'grn':tEnc>=50?'ora':'red';
-    _DD['occ'] = {title:'Encaissement \u2014 '+periodLabel, html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>Attendu</th><th>Re\u00e7u</th><th>Reste</th></tr></thead><tbody>'
-      +scopeLogs.map(l=>{
-        const att=((l.hc||0)+(l.ch||0))*mElOcc;
-        const enc2=mvs.filter(m=>m.qui===l.ref&&m.cat==='Loyers'&&m.cr>0).reduce((s,m)=>s+(m.cr||0),0);
-        const reste=Math.max(0,att-enc2);
-        return '<tr><td><b>'+l.ref+'</b></td><td>'+escHtml((l.locataire||'Vacant').substring(0,25))+'</td><td>'+fmt(att)+'</td><td style="color:'+(enc2>0?'var(--grn)':'var(--red)')+'">'+fmt(enc2)+'</td><td style="font-weight:600;color:'+(reste<=0?'var(--grn)':'var(--red)')+'">'+fmt(reste)+'</td></tr>';
-      }).join('')+'</tbody></table>'};
-    return wd(
-      lbl('Encaissement\u00a0& occupation')
-      +`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">`
-      +`<div><div style="font-size:9px;color:var(--t3);margin-bottom:2px">Encaissement (${mo?'mois':'YTD'})</div><div style="font-size:18px;font-weight:700;color:${cE}">${tEnc}\u00a0%</div>${gauge(tEnc,cE)}<div style="font-size:9px;color:var(--t3);margin-top:2px">${fmt(loyEnc)}\u00a0/\u00a0${fmt(objPeriod)}</div></div>`
-      +`<div><div style="font-size:9px;color:var(--t3);margin-bottom:2px">Occupation</div><div style="font-size:18px;font-weight:700;color:${cO}">${tOcc}\u00a0%</div>${gauge(tOcc,cO)}<div style="font-size:9px;color:var(--t3);margin-top:2px">${occupied}\u00a0/\u00a0${nbLogs} logements</div></div></div>`,
-      seeAll('occ','D\u00e9tail logements'), st);
+    const pct = nbLogs > 0 ? Math.round(occupied / nbLogs * 100) : 0;
+    const color = pct >= 90 ? 'var(--fg-success)' : pct >= 50 ? 'var(--fg-warning)' : 'var(--fg-danger)';
+    const status = pct >= 90 ? 'grn' : pct >= 50 ? 'ora' : 'red';
+    const vacs = scopeLogs.filter(l => !l.locataire);
+    const magMois = vacs.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
+    const magAn   = magMois * 12;
+    const vacInfo = vacs.length
+      ? '<div style="font-size:12px;color:var(--fg-danger);margin-top:3px;font-weight:600">Manque \u00e0 gagner : '+fmt(magAn)+'/an</div>'
+      : '<div style="font-size:12px;color:var(--fg-success);margin-top:3px">\u2713 Aucun logement vacant</div>';
+    const viz = '<div class="dw-kpi-bar" style="--p:'+pct+'%;--c:'+color+'"><div class="dw-kpi-bar-fill"></div></div>'
+      + '<div style="font-size:12px;color:var(--t3);margin-top:5px">'+occupied+' / '+nbLogs+' logements occup\u00e9s'+(vacs.length?' \u00b7 '+vacs.length+' vacant'+(vacs.length>1?'s':''):'')+'</div>'
+      + vacInfo;
+    _DD['occ'] = _buildOccDrill(ctx);
+    return wd(_kpiBody({
+      label:'Occupation',
+      value:pct+'\u00a0%', valueColor:color,
+      viz, delta:'',
+      drillKey:'occ'
+    }), '', status);
   }
   if(id==='mag') {
     const vacs=scopeLogs.filter(l=>!l.locataire);
@@ -4392,19 +4871,22 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       +(mag>0?`<div style="font-size:9px;color:var(--t3);margin-top:4px">\u2192\u00a0${fmt(mag*12)}\u00a0/\u00a0an</div>`:''),
       vacs.length?seeAll('mag'):'', vacs.length>0?'red':'grn');
   }
+  /* ── v2 Phase 3 FINAL — Dépôts de garantie (col 3 row 2, minimaliste)
+     Affichage : total + count uniquement. Détail complet via drill-down. ── */
   if(id==='dg') {
-    const dgs=scopeLogs.filter(l=>l.locataire&&(l.dg||0)>0).sort((a,b)=>(b.dg||0)-(a.dg||0));
-    const tot=dgs.reduce((s,l)=>s+(l.dg||0),0);
-    _DD['dg'] = {title:'D\u00e9p\u00f4ts de garantie', html:'<table class="tbl"><thead><tr><th>Log.</th><th>Locataire</th><th>DG</th></tr></thead><tbody>'
-      +dgs.map(l=>'<tr><td><b>'+l.ref+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td style="font-weight:600">'+fmt(l.dg)+'</td></tr>').join('')
-      +'</tbody></table><p style="margin-top:8px;font-size:12px;color:var(--t2)">Total\u00a0: <b>'+fmt(tot)+'</b></p>'};
-    return wd(
-      lbl('D\u00e9p\u00f4ts de garantie')+wval(fmt(tot))+wsub(dgs.length+' DG d\u00e9tenus')
-      +'<div style="margin-top:5px;font-size:9px;display:flex;flex-direction:column;gap:2px">'
-      +dgs.slice(0,_maxItems).map(l=>'<div style="display:flex;justify-content:space-between;color:var(--t3)"><span>'+l.ref+' \u2014 '+escHtml((l.locataire||'').substring(0,20))+'</span><span style="color:var(--t1);font-weight:600">'+fmt(l.dg)+'</span></div>').join('')
-      +(dgs.length>_maxItems?'<div style="color:var(--t3);margin-top:2px">+\u00a0'+(dgs.length-_maxItems)+' autres</div>':'')
-      +'</div>',
-      seeAll('dg'), 'blu');
+    const dgs = scopeLogs.filter(l => l.locataire && (l.dg||0) > 0).sort((a,b) => (b.dg||0) - (a.dg||0));
+    const tot = dgs.reduce((s,l) => s+(l.dg||0), 0);
+    _DD['dg'] = {title:'Dépôts de garantie', html:'<table class="tbl"><thead><tr><th>Logement</th><th>Locataire</th><th style="text-align:right">DG</th></tr></thead><tbody>'
+      + dgs.map(l => '<tr><td><b>'+escHtml(l.ref)+'</b></td><td>'+escHtml(l.locataire||'')+'</td><td style="text-align:right;font-weight:600">'+fmt(l.dg)+'</td></tr>').join('')
+      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td colspan="2">Total ('+dgs.length+' DG détenus)</td><td style="text-align:right">'+fmt(tot)+'</td></tr></tfoot></table>'};
+    const body = '<button type="button" class="dw-kpi-click" '
+      + 'onclick="_dashCardClick(\'dg\',event)" '
+      + 'aria-label="Voir le détail des dépôts de garantie">'
+      + '<div class="dw-kpi-label">Dépôts de garantie</div>'
+      + '<div class="dw-kpi-value" style="color:var(--t1)">'+fmt(tot)+'</div>'
+      + '<div style="font-size:12px;color:var(--t3);margin-top:3px">'+dgs.length+' DG détenus</div>'
+      + '</button>';
+    return wd(body, '', 'blu');
   }
   if(id==='irl') {
     const items=[];
@@ -4491,38 +4973,47 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       +(miss.length>_maxItems?ai('+\u00a0'+(miss.length-_maxItems)+' autres...','flat'):''),
       miss.length?seeAll('regul'):'', miss.length>0?'ora':'grn');
   }
+  /* ── v2 Phase 3 polish — Charges par catégorie : LISTE À BARRES (choix utilisateur)
+     Remplace l'ancien donut jugé peu visuel. Lignes triées par montant décroissant,
+     barre horizontale proportionnelle au % du total, nom + % + montant sur 1 ligne.
+     Bien plus scannable qu'un donut pour 5+ catégories. ── */
   if(id==='donut') {
-    const cats={};
-    mvs.filter(m=>m.db>0&&m.cat).forEach(m=>{cats[m.cat]=(cats[m.cat]||0)+(m.db||0);});
-    const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
-    const top=sorted.slice(0,4), othV=sorted.slice(4).reduce((s,x)=>s+x[1],0);
-    if(othV>0) top.push(['\u2026 Autres',othV]);
-    const totD=top.reduce((s,x)=>s+x[1],0);
-    if(!totD) return wd(lbl('Charges par cat\u00e9gorie')+'<div style="margin-top:8px;font-size:11px;color:var(--t3)">Aucune d\u00e9pense sur la p\u00e9riode</div>', '', 'blu');
-    let ang=-90, paths='';
-    const cx=35,cy=35,r=28,ri=16;   // ri=16 → trou plus grand = place pour le texte centre
-    top.forEach((e,i)=>{
-      const a=e[1]/totD*360, r1=ang*Math.PI/180, r2=(ang+a)*Math.PI/180;
-      const x1=cx+r*Math.cos(r1),y1=cy+r*Math.sin(r1),x2=cx+r*Math.cos(r2),y2=cy+r*Math.sin(r2);
-      const xi1=cx+ri*Math.cos(r1),yi1=cy+ri*Math.sin(r1),xi2=cx+ri*Math.cos(r2),yi2=cy+ri*Math.sin(r2);
-      paths+=`<path d="M${xi1.toFixed(1)},${yi1.toFixed(1)} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${a>180?1:0},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${xi2.toFixed(1)},${yi2.toFixed(1)} A${ri},${ri} 0 ${a>180?1:0},0 ${xi1.toFixed(1)},${yi1.toFixed(1)} Z" fill="${_DDC[i%_DDC.length]}"/>`; ang+=a;
-    });
-    // Valeur totale au centre du donut
-    const totStr = totD>=1000000?Math.round(totD/1000)+'k':totD>=10000?Math.round(totD/1000)+'k':Math.round(totD)+'';
-    paths += `<text x="35" y="32" text-anchor="middle" font-size="7.5" font-weight="700" fill="currentColor" opacity=".85">${totStr}<\/text>`;
-    paths += `<text x="35" y="40" text-anchor="middle" font-size="5.5" fill="currentColor" opacity=".45">\u20ac<\/text>`;
-    const totAll=sorted.reduce((s,x)=>s+x[1],0);
-    if(totAll) _DD['donut'] = {title:'Charges par cat\u00e9gorie \u2014 '+periodLabel, html:'<table class="tbl"><thead><tr><th>Cat\u00e9gorie</th><th>Montant</th><th>%</th></tr></thead><tbody>'
-      +sorted.map((e,i)=>'<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+_DDC[i%_DDC.length]+';margin-right:5px"></span>'+escHtml(e[0])+'</td><td style="font-weight:500">'+fmt(e[1])+'</td><td style="color:var(--t2)">'+Math.round(e[1]/totAll*100)+'\u00a0%</td></tr>').join('')
-      +'</tbody></table><p style="margin-top:8px;font-size:12px;color:var(--t2)">Total d\u00e9penses\u00a0: <b>'+fmt(totAll)+'</b></p>'};
-    const svgSz = Math.max(60, Math.min(_chartH, 120));
-    const leg=top.map((e,i)=>'<div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--t2);margin-bottom:3px"><div style="width:8px;height:8px;border-radius:2px;flex-shrink:0;background:'+_DDC[i%_DDC.length]+'"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(e[0])+'</span><b style="color:var(--t1);padding-left:4px">'+Math.round(e[1]/totD*100)+'%</b></div>').join('');
-    return wd(
-      lbl('Charges par cat\u00e9gorie\u00a0\u2014\u00a0'+periodLabel)
-      +'<div style="display:flex;gap:12px;align-items:center;margin-top:6px">'
-      +'<svg width="'+svgSz+'" height="'+svgSz+'" viewBox="0 0 70 70" style="flex-shrink:0">'+paths+'</svg>'
-      +'<div style="flex:1;min-width:0">'+leg+'</div></div>',
-      seeAll('donut'), 'blu');
+    const cats = {};
+    mvs.filter(m => m.db > 0 && m.cat).forEach(m => { cats[m.cat] = (cats[m.cat]||0) + (m.db||0); });
+    const sorted = Object.entries(cats).sort((a,b) => b[1] - a[1]);
+    const totAll = sorted.reduce((s,x) => s + x[1], 0);
+    if(!totAll) {
+      return wd('<div class="dw-kpi-label">Charges par cat\u00e9gorie \u2014 '+escHtml(periodLabel)+'</div>'
+        +'<div style="margin-top:12px;font-size:12px;color:var(--t3);text-align:center;padding:20px 0">Aucune d\u00e9pense sur la p\u00e9riode</div>', '', 'blu');
+    }
+    // Top 3 + agrégat "Autres" = max 4 lignes (col 3 row 2 très serré)
+    const top = sorted.slice(0, 3);
+    const othV = sorted.slice(3).reduce((s,x) => s + x[1], 0);
+    const othCount = sorted.slice(3).length;
+    if(othV > 0) top.push(['\u2026 Autres ('+othCount+')', othV]);
+    const maxV = Math.max(...top.map(e => e[1]));
+    const rows = top.map((e, i) => {
+      const pct = Math.round(e[1] / totAll * 100);
+      const widthPct = (e[1] / maxV * 100).toFixed(1);
+      const color = _DDC[i % _DDC.length];
+      return '<div class="dw-cat-row" title="'+escHtml(e[0])+' : '+fmt(e[1])+' ('+pct+'%)">'
+        + '<span class="dw-cat-name">'+escHtml(e[0])+'</span>'
+        + '<span class="dw-cat-bar"><span class="dw-cat-bar-fill" style="width:'+widthPct+'%;background:'+color+'"></span></span>'
+        + '<span class="dw-cat-pct">'+pct+'\u00a0%</span>'
+        + '</div>';
+    }).join('');
+    _DD['donut'] = {title:'Charges par cat\u00e9gorie \u2014 '+periodLabel,
+      html:'<table class="tbl"><thead><tr><th>Cat\u00e9gorie</th><th style="text-align:right">Montant</th><th style="text-align:right">%</th></tr></thead><tbody>'
+      + sorted.map((e,i) => '<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+_DDC[i%_DDC.length]+';margin-right:7px;vertical-align:middle"></span>'+escHtml(e[0])+'</td><td style="text-align:right;font-weight:500">'+fmt(e[1])+'</td><td style="text-align:right;color:var(--t2)">'+Math.round(e[1]/totAll*100)+'\u00a0%</td></tr>').join('')
+      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)"><td>Total charges</td><td style="text-align:right">'+fmt(totAll)+'</td><td style="text-align:right">100\u00a0%</td></tr></tfoot></table>'};
+    const body = '<button type="button" class="dw-kpi-click" '
+      + 'onclick="_dashCardClick(\'donut\',event)" '
+      + 'aria-label="Voir le d\u00e9tail des charges par cat\u00e9gorie">'
+      + '<div class="dw-kpi-label">Charges par cat\u00e9gorie</div>'
+      + '<div class="dw-cat-list">'+rows+'</div>'
+      + '<div class="dw-cat-total">Total <strong>'+fmt(totAll)+'</strong></div>'
+      + '</button>';
+    return wd(body, '', 'blu');
   }
   if(id==='prog') {
     const inclYTD = new Set(DB.categories.filter(c=>DB.catConfig&&DB.catConfig[c]&&DB.catConfig[c].inclYTD));
@@ -4542,26 +5033,92 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       +`<div style="font-size:9px;color:var(--t3);margin-top:3px">Cat\u00e9gories\u00a0: ${[...inclYTD].join(', ')||'Aucune \u2014 configurer dans R\u00e9f\u00e9rentiel \u203a Cat\u00e9gories'}<\/div>`,
       '', ecart>=0?'grn':'red');
   }
+  /* ── v2 Phase 3 polish — Rendement brut EFFECTIF ANNUALISÉ PAR IMMEUBLE
+     (choix utilisateur : ne prendre que depuis le 1er mouvement de l'immeuble).
+     Méthode :
+       1. Pour chaque immeuble, trouver la date du 1er loyer reçu (≤ 12 mois glissants)
+       2. Annualiser : loyers_reçus × (12 / mois_écoulés_depuis_1er_loyer)
+       3. Diviser par (valeur + travaux)
+     Résultat : un immeuble acheté il y a 3 mois avec 2 400 € de loyers reçus
+     donne un rendement extrapolé sur 12 mois (pas divisé par 12 mois "vides"). ── */
   if(id==='rdt') {
-    const immsDistinct = [...new Set(scopeLogs.map(l=>l.imm).filter(Boolean))];
-    const rows = immsDistinct.map(immNom=>{
-      const iL = scopeLogs.filter(l=>l.imm===immNom);
-      const loysA = iL.reduce((s,l)=>s+(l.hc||0),0)*12;
-      const entNom = iL[0]?.entity;
-      const ent2 = entNom ? DB.entites.find(e=>e.nom===entNom) : null;
-      const imObj = ent2?.immeubles?.find(i=>i.nom===immNom);
-      const valeur = imObj?.valeurEstimee||0;
-      const taux = valeur>0?(loysA/valeur*100).toFixed(1):null;
-      const trvx = imObj?.montantTravaux>0 ? ` \u00b7 Travaux\u00a0: ${fmt(imObj.montantTravaux)}` : '';
-      return `<div style="margin-top:6px">`
-        +`<div style="font-size:10px;display:flex;justify-content:space-between;margin-bottom:2px">`
-        +`<span style="color:var(--t3)">${escHtml(immNom)}<\/span>`
-        +`<span style="font-weight:600;color:${taux?'var(--grn)':'var(--t3)'}">${taux?taux+'\u00a0%':'Valeur non renseign\u00e9e'}<\/span><\/div>`
-        +(taux?gauge(Math.min(100,parseFloat(taux)*10),'var(--grn)'):'')
-        +`<div style="font-size:9px;color:var(--t3)">${valeur>0?'Valeur\u00a0: '+fmt(valeur):''}${trvx}<\/div><\/div>`;
-    }).join('');
-    return wd(lbl('Rendement brut\u00a0/\u00a0immeuble')+rows
-      +`<div style="font-size:9px;color:var(--t3);margin-top:6px;font-style:italic">Valeur estim\u00e9e \u00e0 renseigner dans R\u00e9f\u00e9rentiel \u203a Entit\u00e9s<\/div>`, '', 'blu');
+    const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 12);
+    const cutoffISO = cutoff.toISOString().slice(0,10);
+    const now = new Date();
+    // Single-pass : bucket loyers + date du 1er mouvement par immeuble
+    const loysByImm = {};
+    const firstByImm = {};
+    for(const m of DB.mouvements) {
+      if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date) continue;
+      if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+      const log = scopeLogs.find(l => l.ref === m.qui);
+      if(!log || !log.imm) continue;
+      // Date du 1er loyer (pour annualisation)
+      if(!firstByImm[log.imm] || m.date < firstByImm[log.imm]) firstByImm[log.imm] = m.date;
+      // Loyers reçus dans la fenêtre 12 mois glissants
+      if(m.date >= cutoffISO) loysByImm[log.imm] = (loysByImm[log.imm] || 0) + m.cr;
+    }
+    // Calcul : annualiser par immeuble selon durée depuis 1er mouvement (cap 12 mois)
+    let totalLoysAnn = 0, totalValue = 0;
+    for(const immNom of immsDistinct) {
+      const iL = scopeLogs.filter(l => l.imm === immNom);
+      const entNom = iL[0] && iL[0].entity;
+      const ent2 = entNom ? DB.entites.find(e => e.nom === entNom) : null;
+      const imObj = ent2 && ent2.immeubles ? ent2.immeubles.find(i => i.nom === immNom) : null;
+      const valImm = ((imObj && imObj.valeurEstimee) || 0) + ((imObj && imObj.montantTravaux) || 0);
+      totalValue += valImm;
+      const loysRecus = loysByImm[immNom] || 0;
+      const first = firstByImm[immNom];
+      let moisEcoules = 12;
+      if(first) {
+        const d = new Date(first);
+        moisEcoules = Math.max(1, Math.min(12,
+          (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()) + 1
+        ));
+      } else {
+        // Pas de mouvement du tout → pas d'annualisation possible, on ignore
+        continue;
+      }
+      totalLoysAnn += loysRecus * 12 / moisEcoules;
+    }
+    const rdtPct = totalValue > 0 ? (totalLoysAnn / totalValue * 100) : null;
+    // Théorique (HC × 12 sur tous les logements en scope) pour comparaison dans la carte
+    const totalLoysTheo = scopeLogs.reduce((s,l) => s+(l.hc||0), 0) * 12;
+    const rdtTheoPct = totalValue > 0 ? (totalLoysTheo / totalValue * 100) : null;
+    const color = rdtPct === null ? 'var(--t2)'
+                : rdtPct >= 5     ? 'var(--fg-success)'
+                : rdtPct >= 3     ? 'var(--fg-warning)'
+                :                   'var(--fg-danger)';
+    const status = rdtPct === null ? 'blu'
+                 : rdtPct >= 5     ? 'grn'
+                 : rdtPct >= 3     ? 'ora'
+                 :                   'red';
+    // Sparkline : rdt mensuel = (loyers reçus × 12) / totalValue
+    const series = totalValue > 0
+      ? _kpiMonthlySeries(ctx, 6, m => m.cat === 'Loyers' && m.cr > 0 ? m.cr : 0)
+          .map(s => ({...s, value: s.value * 12 / totalValue * 100}))
+      : [];
+    const hasData = series.some(s => s.value > 0);
+    // Théorique inline dans le titre (demande user) : "Rendement brut (8.6 % théo.)"
+    const labelText = rdtTheoPct !== null
+      ? 'Rendement brut ('+rdtTheoPct.toFixed(1)+'\u00a0% théo.)'
+      : 'Rendement brut';
+    const viz = hasData ? _mkSparkline(series, {
+      w:200, h:35, padding:3,
+      stroke:'var(--fg-info)', fill:'var(--bg-info)',
+      allLabels: true,
+      tooltipFormat:(pt) => _DMF[pt.mo-1]+' '+pt.yr+' : '+pt.value.toFixed(1)+'\u00a0%'
+    }) : '<div style="font-size:11px;color:var(--t3);font-style:italic;padding:4px 0">Renseigner valeurs estimées</div>';
+    _DD['rdt'] = _buildRdtDrill(ctx);
+    return wd(_kpiBody({
+      label: labelText,
+      value: rdtPct !== null ? rdtPct.toFixed(1)+'\u00a0%' : 'N/C',
+      valueColor: color,
+      viz, delta: '',
+      drillKey:'rdt'
+    }), '', status);
   }
   if(id==='solde') {
     const nbMois=mo?1:today.getMonth()+1;
