@@ -33,6 +33,22 @@
   --sb:260px;
   --font-base:17px;
   --lh:1.56;
+  /* ── v2 Dashboard — semantic colors (light) ── */
+  --bg-success:rgba(22,163,74,.10);
+  --bg-danger:rgba(220,38,38,.10);
+  --bg-warning:rgba(234,88,12,.12);
+  --bg-info:rgba(59,126,246,.10);
+  --fg-success:#16a34a;
+  --fg-danger:#dc2626;
+  --fg-warning:#ea580c;
+  --fg-info:#3b7ef6;
+  /* ── v2 Dashboard — card shadows ── */
+  --shadow-card:0 1px 2px rgba(0,0,0,.04);
+  --shadow-card-hover:0 4px 16px rgba(59,126,246,.10),0 1px 3px rgba(0,0,0,.05);
+  /* ── v2 Dashboard — timings ── */
+  --t-fast:120ms cubic-bezier(.4,0,.2,1);
+  --t-normal:200ms cubic-bezier(.4,0,.2,1);
+  --t-slow:350ms cubic-bezier(.4,0,.2,1);
 }
 [data-theme="dark"] {
   --bg:#0d1520;
@@ -47,6 +63,18 @@
   --shadow:0 1px 3px rgba(0,0,0,.4),0 4px 18px rgba(0,0,0,.3);
   --shadow-lg:0 8px 40px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.4);
   --shadow-hover:0 4px 20px rgba(59,126,246,.3),0 1px 4px rgba(0,0,0,.4);
+  /* ── v2 Dashboard — semantic colors (dark, opacity bumped to .18 per cahier §4.1) ── */
+  --bg-success:rgba(22,163,74,.18);
+  --bg-danger:rgba(220,38,38,.18);
+  --bg-warning:rgba(234,88,12,.20);
+  --bg-info:rgba(59,126,246,.18);
+  --fg-success:#4ade80;
+  --fg-danger:#f87171;
+  --fg-warning:#fb923c;
+  --fg-info:#60a5fa;
+  /* ── v2 Dashboard — card shadows (dark) ── */
+  --shadow-card:0 1px 2px rgba(0,0,0,.25);
+  --shadow-card-hover:0 4px 16px rgba(59,126,246,.22),0 1px 3px rgba(0,0,0,.35);
 }
 [data-fontsize="lg"] { --font-base:19px; }
 
@@ -412,18 +440,20 @@ textarea.inp{resize:vertical;min-height:70px}
 .dw-r6{grid-row:span 6}   /* 492px */
 
 /* ── Carte de base ── */
+/* v2 : bordure fine 0.5px + shadow-card plus discret (cahier §4.4–4.5).
+   La bordure gauche 3px transparente reste pour compat .dw-s-* (retirée en phase 6). */
 .dw{
   background:var(--sur);
-  border:1px solid var(--bor);
+  border:0.5px solid var(--bor);
   border-left:3px solid transparent;   /* accent statut — coloré par .dw-s-* */
   border-radius:var(--rl);
   padding:0;                            /* padding géré par .dw-body/.dw-foot */
-  box-shadow:var(--shadow);
+  box-shadow:var(--shadow-card);
   overflow:hidden;
   position:relative;
   display:flex;
   flex-direction:column;
-  transition:box-shadow .2s,border-left-color .25s;
+  transition:box-shadow var(--t-fast),border-left-color .25s,transform var(--t-fast);
   box-sizing:border-box;
 }
 .dw:not(.dw-sep):hover{box-shadow:var(--shadow-hover)}
@@ -1181,6 +1211,17 @@ textarea.inp{resize:vertical;min-height:70px}
       <div class="tab-panel" id="tp-global">
         <div style="max-width:600px">
           <div class="ct mb16">⚙️ Paramètres globaux</div>
+
+          <!-- Utilisateur (v2) -->
+          <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
+            <div style="font-weight:700;color:var(--acc);margin-bottom:4px">👤 Utilisateur</div>
+            <div class="mu sm mb8">Prénom utilisé pour la salutation du tableau de bord (« Bonjour Didier »). Laisser vide = salutation neutre.</div>
+            <div class="fg mb8">
+              <label style="font-size:11px">Prénom</label>
+              <input class="inp" id="param-user-name" placeholder="ex: Didier" style="width:100%">
+            </div>
+            <button class="btn bp bb" onclick="saveGlobalParams()">💾 Enregistrer</button>
+          </div>
 
           <!-- Google Drive -->
           <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
@@ -8905,6 +8946,8 @@ function rParamsGlobal() {
   if(inp) inp.value = DB.params.edlDriveFolderId || DEFAULT_DRIVE;
   const g = el('param-gerant-defaut');
   if(g) g.value = DB.params.gerantDefaut || 'Didier Keller';
+  const u = el('param-user-name');
+  if(u) u.value = DB.params.userName || '';
 }
 
 function rMandRef() {
@@ -9143,10 +9186,21 @@ function saveGlobalParams() {
   if(!DB.params) DB.params = {};
   const folderId = v('param-drive-folder-id').trim() || '1nodzkJIr6a07Cm7WVYu12Jgz5IyNlUum';
   const gerant   = v('param-gerant-defaut').trim();
+  const userName = (el('param-user-name') ? v('param-user-name').trim() : '');
   DB.params.edlDriveFolderId = folderId;
   DB.params.gerantDefaut     = gerant || 'Didier Keller';
+  DB.params.userName         = userName;
   saveDB();
   showToast('Paramètres enregistrés ✓', 'ok');
+}
+
+/* v2 Dashboard — salutation contextuelle (cahier §3.1 & §8.1).
+   Appelée par la Context bar en Phase 2. Safe si userName absent. */
+function getSalutation() {
+  const h = new Date().getHours();
+  const base = h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const nm = (DB && DB.params && DB.params.userName) ? String(DB.params.userName).trim() : '';
+  return nm ? (base + ' ' + nm) : base;
 }
 
 
