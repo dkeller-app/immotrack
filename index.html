@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.19</title>
+<title>ImmoTrack v12.20</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1077,7 +1077,32 @@ textarea.inp{resize:vertical;min-height:70px}
   margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
-/* ── MOBILE ───────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE — refactor v2 Phase 7 (mobile-first friendly)
+   Cible : iPhone SE (375) → Pro Max (430), Android 360-428,
+   iPad mini (768) → Pro (1024), desktop (>1280).
+   Cahier §6 breakpoints : 1280 / 1024 / 768 / 480.
+   Portrait et landscape géré via largeur uniquement.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Laptop / tablet-landscape 1025-1280 : sidebar compacte */
+@media(min-width:769px) and (max-width:1280px){
+  :root{--sb:220px}
+  .g4{grid-template-columns:1fr 1fr}
+  /* Hero col 8 → col 12 (prend toute la largeur, todo passe dessous) */
+  .dw-c8{grid-column:span 12}
+  .dw-c4{grid-column:span 12}
+}
+
+/* Tablet portrait / phone landscape 769-1024 : widgets plus compacts */
+@media(max-width:1024px) and (min-width:769px){
+  .dw-c6{grid-column:span 12}   /* flux full width */
+  .dw-c7{grid-column:span 12}
+  .dw-c5{grid-column:span 6}
+  .dw-c3{grid-column:span 6}    /* KPIs 2 par ligne (déjà fait avant mais renforcé) */
+}
+
+/* Phone ≤ 768 : tout en pleine largeur (1 colonne) */
 @media(max-width:768px){
   .sb-nav{position:fixed;top:0;left:0;height:100%;transform:translateX(-100%);width:var(--sb)!important;transition:transform .25s}
   .sb-nav.open{transform:translateX(0)}
@@ -1085,14 +1110,46 @@ textarea.inp{resize:vertical;min-height:70px}
   .tb-menu{display:block}
   .g2,.g3,.g4{grid-template-columns:1fr}
   .fg2,.fg3{grid-template-columns:1fr}
-  .pc{padding:14px}
+  .pc{padding:14px 10px}
   .ov{padding:16px 8px}
-  .modal.lg,.modal.xl{max-width:100%}
-  #dash-kpi-grid{grid-template-columns:repeat(4,1fr)}
+  .modal,.modal.lg,.modal.xl{max-width:100%;width:100%}
+  /* Dashboard grid : garde 12 cols mais force tous les widgets col>2 en pleine largeur */
+  #dash-kpi-grid{grid-template-columns:repeat(12,1fr);gap:8px}
+  .dw-c2,.dw-c3,.dw-c4,.dw-c5,.dw-c6,.dw-c7,.dw-c8,.dw-c9,.dw-c10,.dw-c11{
+    grid-column:1 / -1 !important;
+  }
+  /* Context bar empilée verticalement (pills sous date+greeting) */
+  .dw-context-grid{flex-direction:column;align-items:flex-start;gap:8px}
+  .dw-context-right{flex-wrap:wrap}
+  /* Drive FAB mobile : badge email caché, FAB compact */
+  #drive-user-badge{display:none!important}
+  #drive-fab{padding:4px 8px;font-size:10px}
+  /* Barre top mobile : titre à gauche, espace pour FAB à droite */
+  .tb{padding-right:100px;}
+  /* Modale drill : plein écran, plus de scroll horizontal */
+  #ov-dash-drill .modal{max-width:100%!important;width:100%}
+  /* Tableaux drill : scroll horizontal si besoin */
+  .m-body .tbl{font-size:12px}
+  .drill-chart{padding:10px 8px}
 }
-@media(min-width:769px) and (max-width:1200px){
-  :root{--sb:220px}
-  .g4{grid-template-columns:1fr 1fr}
+
+/* Small phone ≤ 480 : tight spacing + reduced hero */
+@media(max-width:480px){
+  .dw-body{padding:12px 14px 6px}
+  .dw-kpi-value{font-size:20px}
+  .dw-flux-value{font-size:22px}
+  .dw-hero-value{font-size:30px}
+  .dw-kpi-label,.dw-hero-label{font-size:12px}
+  /* À traiter 4 quadrants : compactés (label en 2 lignes max) */
+  .dw-todo-quad{padding:8px 10px;min-height:0}
+  .dw-todo-quad-label{font-size:10px;letter-spacing:.2px}
+  .dw-todo-quad-count{font-size:22px}
+  .dw-todo-quad-sub{font-size:9px}
+  /* Context bar : un peu plus serrée */
+  .dw-context-date{font-size:11px}
+  .dw-context-greet{font-size:16px}
+  /* Sélecteurs : plein largeur chacun */
+  .filters .inp, #p-dashboard select.inp{flex:1 1 auto;min-width:130px}
 }
 </style>
 </head>
@@ -1106,7 +1163,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.19</em>
+      <em>v12.20</em>
     </div>
   </div>
 
@@ -4505,6 +4562,32 @@ function _mkMultiLineChart(groups, opts) {
 /* Tooltip instantané au survol d'un point sparkline (remplace le <title> lent).
    position:fixed + getBoundingClientRect → échappe à tout overflow:hidden.
    Clamp horizontal après render pour rester dans le viewport. */
+/* ══════════════════════════════════════════════════════════════
+   Phase 7 — Fix PWA Safari iOS : bouton « Fermer » injecté
+   automatiquement dans chaque aperçu ouvert via window.open.
+   Sans ce bouton, en mode standalone (app ajoutée à l'écran
+   d'accueil), l'utilisateur est bloqué sans moyen de quitter.
+   ══════════════════════════════════════════════════════════════ */
+function _injectPreviewCloseButton(html) {
+  const closeHtml = '<style>'
+    + '.pwa-close-btn{'
+    +   'position:fixed;top:12px;right:12px;z-index:2147483647;'
+    +   'background:#dc2626;color:#fff;border:none;'
+    +   'padding:10px 16px;border-radius:8px;font-size:14px;'
+    +   'cursor:pointer;font-family:system-ui,-apple-system,Arial,sans-serif;'
+    +   'font-weight:700;letter-spacing:.3px;'
+    +   'box-shadow:0 3px 12px rgba(0,0,0,.35);'
+    +   'min-height:44px;min-width:44px;'
+    + '}'
+    + '.pwa-close-btn:active{transform:scale(.95);background:#b91c1c}'
+    + '@media print{.pwa-close-btn{display:none!important}}'
+    + '</style>'
+    + '<button class="pwa-close-btn" onclick="try{window.close()}catch(e){};setTimeout(function(){if(!window.closed){try{history.back()}catch(e){}}},80)">\u2715 Fermer</button>';
+  // Insère juste avant </body> pour que le bouton soit toujours fixed-top
+  if(/<\/body>/i.test(html)) return html.replace(/<\/body>/i, closeHtml + '</body>');
+  return html + closeHtml;
+}
+
 function _sparkTip(el) {
   document.querySelectorAll('.dw-spark-tip.show').forEach(t => t.classList.remove('show'));
   if(!el) return;
@@ -8219,7 +8302,7 @@ function previewBailData(bail, log, ref) {
     +'<div id="doc-wrap">'+p1+p2+p3+p4+p5+p6+p7+p8+p9+p10+p11+p12+p13+'<\/div>'
     +scripts+'<\/body><\/html>';
 
-  win.document.write(finalHtml);
+  win.document.write(_injectPreviewCloseButton(finalHtml));
   win.document.close();
 }
 
@@ -9101,7 +9184,7 @@ function printRegulDoc() {
   const content = el('regul-doc-content').innerHTML;
   const win = window.open('','_blank');
   if(!win) { showToast('Popup bloquée','err'); return; }
-  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Décompte charges</title><style>body{font-family:Arial,sans-serif;font-size:13px;margin:30px;color:#222;line-height:1.6}button{display:none}@media print{button{display:none}}</style></head><body>'+content+'<\/body><\/html>');
+  win.document.write(_injectPreviewCloseButton('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Décompte charges</title><style>body{font-family:Arial,sans-serif;font-size:13px;margin:30px;color:#222;line-height:1.6}button{display:none}@media print{button{display:none}}</style></head><body>'+content+'<\/body><\/html>'));
   win.document.close();
   setTimeout(()=>win.print(), 500);
 }
@@ -9309,12 +9392,12 @@ ${enteteHtml}
 <div class="mention">Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire.</div>`;
   }
 
-  win.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+  win.document.write(_injectPreviewCloseButton(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <title>${estComplet?'Quittance':estPartiel?'Reçu partiel':'Non émissible'} — ${escHtml(q.logement)} — ${escHtml(q.mois)}</title>
 <style>${cssCommun}</style></head><body>
 <button class="no-print" onclick="window.print()" style="float:right;padding:6px 14px;cursor:pointer;margin-bottom:10px;font-size:12px">🖨 Imprimer</button>
 ${bodyContent}
-<\/body><\/html>`);
+<\/body><\/html>`));
   win.document.close();
 }
 
@@ -9437,13 +9520,13 @@ function printIRLLetter() {
   if(!content||!content.innerHTML.trim()||content.innerHTML.includes('Sélectionner')) { showToast('Sélectionner un logement','err'); return; }
   const win = window.open('','_blank');
   if(!win) { showToast('Popup bloquée','err'); return; }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lettre IRL</title><style>
+  win.document.write(_injectPreviewCloseButton(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lettre IRL</title><style>
   body{font-family:Arial,sans-serif;font-size:11.5px;max-width:680px;margin:24px auto;color:#222;line-height:1.4}
   p{margin:6px 0} table{width:100%;border-collapse:collapse} td{padding:3px 7px;border-bottom:1px solid #eee}
   @media print{button{display:none}body{margin:12px auto}}
   </style></head><body>
   <button onclick="window.print()" style="float:right;padding:6px 14px;cursor:pointer;margin-bottom:10px">🖨 Imprimer</button>
-  `+content.innerHTML+`<\/body><\/html>`);
+  `+content.innerHTML+`<\/body><\/html>`));
   win.document.close();
 }
 
@@ -9968,7 +10051,7 @@ function edlViewPhoto(pi,ei,side,phi){
   const ph=arr[phi];if(!ph)return;
   const src=_photoCache[ph.idbKey]||ph.data||'';
   const w=window.open('','_blank');
-  w.document.write(`<html><head><title>${escHtml(ph.name||'Photo')}</title></head><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100vh"></body></html>`);
+  w.document.write(_injectPreviewCloseButton(`<html><head><title>${escHtml(ph.name||'Photo')}</title></head><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100vh"></body></html>`));
   w.document.close();
 }
 
@@ -10154,7 +10237,7 @@ function edlCleViewPhoto(i,phi,side='E'){
   const ph=arr[phi];if(!ph)return;
   const src=_photoCache[ph.idbKey]||ph.data||'';
   const w=window.open('','_blank');
-  w.document.write(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100vh"></body></html>`);
+  w.document.write(_injectPreviewCloseButton(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100vh"></body></html>`));
   w.document.close();
 }
 
@@ -10197,7 +10280,7 @@ function edlCptViewPhoto(key,phi){
   const ph=(_edlCptPhotos[key]||[])[phi];if(!ph)return;
   const src=_photoCache[ph.idbKey]||ph.data||'';
   const w=window.open('','_blank');
-  w.document.write(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100vh"></body></html>`);
+  w.document.write(_injectPreviewCloseButton(`<html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100vh"></body></html>`));
   w.document.close();
 }
 function _edlCptPhMeta(ph){return{name:ph.name||'',idbKey:ph.idbKey||'',ts:ph.ts||'',synced:!!ph.synced};}
@@ -10458,7 +10541,7 @@ ${e.notes?`<h2>Observations</h2><p>${e.notes}</p>`:''}
 <div class="two"><div><div class="box"><b>Le bailleur</b><br><em style="font-size:9pt">Par sa signature, certifie exact le présent état des lieux</em>${sigB}</div></div>
 <div><div class="box"><b>Le(s) locataire(s)</b><br><em style="font-size:9pt">Par sa signature, certifie exact le présent état des lieux</em>${sigL}</div></div></div>
 </body></html>`;
-  const w=window.open('','_blank');if(!w){showToast('Popup bloquée','err');return;}w.document.write(html);w.document.close();
+  const w=window.open('','_blank');if(!w){showToast('Popup bloquée','err');return;}w.document.write(_injectPreviewCloseButton(html));w.document.close();
 }
 
 
@@ -10962,7 +11045,7 @@ ${bloc1}${bloc2}
 
   const win = window.open('','_blank');
   if(!win) { showToast('Popup bloqu\u00e9e \u2014 autorisez les popups pour ce site','err'); return; }
-  win.document.write(html);
+  win.document.write(_injectPreviewCloseButton(html));
   win.document.close();
 }
 
