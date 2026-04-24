@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.21</title>
+<title>ImmoTrack v12.22</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -687,7 +687,7 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 .dw-hero-impaye strong{color:var(--fg-danger);font-weight:700}
 .dw-hero-right{flex-shrink:0}
-.dw-hero-spark{display:block}
+.dw-hero-spark{display:block;max-width:100%;height:auto}
 /* Sparkline wrapper + axe tous-labels (cahier §3.2 — contexte temporel) */
 .dw-spark-wrap{display:flex;flex-direction:column;gap:4px}
 .dw-spark-axis{
@@ -1234,7 +1234,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.21</em>
+      <em>v12.22</em>
     </div>
   </div>
 
@@ -4693,9 +4693,15 @@ function _mkMultiLineChart(groups, opts) {
    d'accueil), l'utilisateur est bloqué sans moyen de quitter.
    ══════════════════════════════════════════════════════════════ */
 function _injectPreviewCloseButton(html) {
+  // Position top-LEFT (choix user : ne chevauche plus le bouton Imprimer qui
+  // est typiquement en float:right sur les aperçus bail/quittance/IRL).
+  // Respecte env(safe-area-inset-*) pour la notch iOS en PWA standalone.
   const closeHtml = '<style>'
     + '.pwa-close-btn{'
-    +   'position:fixed;top:12px;right:12px;z-index:2147483647;'
+    +   'position:fixed;'
+    +   'top:max(12px,env(safe-area-inset-top,12px));'
+    +   'left:max(12px,env(safe-area-inset-left,12px));'
+    +   'z-index:2147483647;'
     +   'background:#dc2626;color:#fff;border:none;'
     +   'padding:10px 16px;border-radius:8px;font-size:14px;'
     +   'cursor:pointer;font-family:system-ui,-apple-system,Arial,sans-serif;'
@@ -4707,7 +4713,6 @@ function _injectPreviewCloseButton(html) {
     + '@media print{.pwa-close-btn{display:none!important}}'
     + '</style>'
     + '<button class="pwa-close-btn" onclick="try{window.close()}catch(e){};setTimeout(function(){if(!window.closed){try{history.back()}catch(e){}}},80)">\u2715 Fermer</button>';
-  // Insère juste avant </body> pour que le bouton soit toujours fixed-top
   if(/<\/body>/i.test(html)) return html.replace(/<\/body>/i, closeHtml + '</body>');
   return html + closeHtml;
 }
