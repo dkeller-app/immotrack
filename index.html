@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.32</title>
+<title>ImmoTrack v12.33</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1368,7 +1368,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.32</em>
+      <em>v12.33</em>
     </div>
   </div>
 
@@ -4042,16 +4042,16 @@ function initFilters() {
   ['mv-f-imm','baux-f','ass-f-imm','irl-f-imm','quit-f-imm'].forEach(id=>{
     const s = el(id); if(!s) return;
     const cur = s.value;
-    s.innerHTML = `<option value="">Tous immeubles</option>`+imms.map(i=>`<option value="${i}">${i}</option>`).join('');
+    s.innerHTML = `<option value="">Tous immeubles</option>`+imms.map(i=>`<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
     if(cur && imms.includes(cur)) s.value = cur;
   });
   // Catégories filter in mouvements
   const mc = el('mvf-cat');
-  if(mc){ const cur=mc.value; mc.innerHTML='<option value="">Toutes catégories</option>'+DB.categories.map(c=>`<option value="${c}">${c}</option>`).join(''); if(cur) mc.value=cur; }
+  if(mc){ const cur=mc.value; mc.innerHTML='<option value="">Toutes catégories</option>'+DB.categories.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join(''); if(cur) mc.value=cur; }
   // Fill imm datalists
   ['mv-imm-list','log-imm-list'].forEach(id=>{
     const dl=el(id); if(!dl) return;
-    dl.innerHTML=imms.map(i=>`<option value="${i}">`).join('');
+    dl.innerHTML=imms.map(i=>`<option value="${escHtml(i)}">`).join('');
   });
 }
 
@@ -10152,7 +10152,7 @@ function rQuit() {
   const fimm = v('quit-f-imm');
   const flog = v('quit-f-log');
   // Fill logement select
-  const ql = el('quit-f-log'); if(ql){ const cur=ql.value; ql.innerHTML='<option value="">Tous logements</option>'+DB.logements.filter(l=>!fimm||l.imm===fimm).map(l=>`<option value="${l.ref}">${l.ref} – ${l.locataire||'Vacant'}</option>`).join(''); if(cur)ql.value=cur; }
+  const ql = el('quit-f-log'); if(ql){ const cur=ql.value; ql.innerHTML='<option value="">Tous logements</option>'+DB.logements.filter(l=>!fimm||l.imm===fimm).map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} – ${escHtml(l.locataire||'Vacant')}</option>`).join(''); if(cur)ql.value=cur; }
   let quittances = DB.quittances.filter(q=>(!fimm||DB.logements.find(l=>l.ref===q.logement)?.imm===fimm)&&(!flog||q.logement===flog));
   quittances.sort((a,b)=>b.date?.localeCompare(a.date));
   el('quit-tbody').innerHTML = quittances.map(q=>`<tr>
@@ -12591,7 +12591,7 @@ function openEquipIntervention(ref, key) {
 
   // Remplir le select logement
   const logSel = el('ei-log');
-  logSel.innerHTML = DB.logements.filter(l=>l.locataire).map(l=>`<option value="${l.ref}">${l.ref} — ${escHtml((l.locataire||'').substring(0,25))}</option>`).join('');
+  logSel.innerHTML = DB.logements.filter(l=>l.locataire).map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml((l.locataire||'').substring(0,25))}</option>`).join('');
   if(ref) logSel.value = ref;
 
   // Remplir les types d'équipements selon le logement sélectionné
@@ -13872,7 +13872,7 @@ function showDrivePicker(files) {
   files.forEach(f=>{
     const item=document.createElement('div');
     item.className='drive-file-item';
-    item.innerHTML=`<div><div style="font-weight:500">${f.name}</div><div class="mu sm">${new Date(f.modifiedTime).toLocaleString('fr-FR')}</div></div><button class="btn bp bb">Restaurer</button>`;
+    item.innerHTML=`<div><div style="font-weight:500">${escHtml(f.name)}</div><div class="mu sm">${new Date(f.modifiedTime).toLocaleString('fr-FR')}</div></div><button class="btn bp bb">Restaurer</button>`;
     item.addEventListener('click',()=>restoreFromDrive(f.id,f.name));
     list.appendChild(item);
   });
