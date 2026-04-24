@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.27</title>
+<title>ImmoTrack v12.32</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1368,7 +1368,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.27</em>
+      <em>v12.32</em>
     </div>
   </div>
 
@@ -4871,13 +4871,30 @@ function _mkMultiLineChart(groups, opts) {
     const x = (PAD + i*dx).toFixed(1);
     return '<text x="'+x+'" y="'+(H-4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="var(--t3)">'+escHtml(s.label||'')+'</text>';
   }).join('');
+  // Marqueurs verticaux optionnels (ex: changement de bail). Chaque marqueur :
+  // {pointIdx: index dans la série, label: texte tooltip, color?: override}
+  const markers = Array.isArray(opts.verticalMarkers) ? opts.verticalMarkers : [];
+  const markersSvg = markers.map(m => {
+    if(m.pointIdx < 0 || m.pointIdx >= nPts) return '';
+    const x = (PAD + m.pointIdx * dx).toFixed(1);
+    const col = m.color || 'var(--fg-warning)';
+    const tip = escHtml(m.label || '');
+    return '<line x1="'+x+'" y1="'+PAD+'" x2="'+x+'" y2="'+(PAD+plotH).toFixed(1)+'" stroke="'+col+'" stroke-width="1.2" stroke-dasharray="3 3" opacity=".7"/>'
+      + '<circle cx="'+x+'" cy="'+(PAD+4).toFixed(1)+'" r="5" fill="'+col+'" class="dw-spark-pt" '
+      + 'data-tip="'+tip+'" onmouseenter="_sparkTip(this)" onmouseleave="_sparkTip(null)" '
+      + 'style="pointer-events:all;cursor:default"/>'
+      + '<text x="'+x+'" y="'+(PAD+7).toFixed(1)+'" text-anchor="middle" font-size="8" fill="#fff" font-weight="700" style="pointer-events:none">!</text>';
+  }).join('');
   const svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="none" class="drill-chart-svg" aria-hidden="true">'
-    + gridLines + zeroLine + linesSvg + xLabels + '</svg>';
+    + gridLines + zeroLine + markersSvg + linesSvg + xLabels + '</svg>';
   // Légende
   const legend = '<div class="drill-chart-legend">'
     + groups.map(g =>
         '<span class="drill-chart-legend-item"><span class="drill-chart-legend-swatch" style="background:'+g.color+'"></span>'+escHtml(g.label)+'</span>'
       ).join('')
+    + (markers.length
+        ? '<span class="drill-chart-legend-item"><span class="drill-chart-legend-swatch" style="background:var(--fg-warning);border-radius:50%"></span>Changement de bail</span>'
+        : '')
     + '</div>';
   return '<div class="dw-spark-wrap drill-chart-wrap">'+svg+'<div class="dw-spark-tip" aria-hidden="true"></div></div>'+legend;
 }
@@ -5185,6 +5202,161 @@ function _buildOccDrill(ctx) {
 /* Drill-down pour le KPI fusionné flux (Revenus vs Charges) —
    v2 Phase 5 : dual-line chart 12 mois glissants (Y-axis graduée + légende)
    + tableau mois par mois. */
+/* v2 Phase 7 — Helpers bail-based pour "Progression annuelle" (Option B user).
+   Respecte les changements de bail au cours de l'année : un logement qui
+   passe du locataire A (HC 800) au locataire B (HC 850) compte les loyers
+   de chaque bail sur sa période active.
+   Fallback sur le bail le plus récent pour les gaps (manque à gagner conservé). */
+/* Lookup tolérant : cherche DB.baux par clé exacte puis par variantes
+   (trim, lowercase) — évite qu'un espace ou une différence de casse masque
+   un bail existant. */
+function _findBailByRefTolerant(refWanted) {
+  if(!DB.baux) return null;
+  if(DB.baux[refWanted]) return DB.baux[refWanted];
+  const norm = s => String(s || '').trim().toLowerCase();
+  const want = norm(refWanted);
+  if(!want) return null;
+  for(const k of Object.keys(DB.baux)) {
+    if(norm(k) === want) return DB.baux[k];
+  }
+  return null;
+}
+function _getAllBailsForLog(ref) {
+  const bails = [];
+  const _bailNom = (b) => b.nom || (b.locataires && b.locataires[0] && b.locataires[0].nom) || '';
+  const norm = s => String(s || '').trim().toLowerCase();
+  const want = norm(ref);
+  const current = _findBailByRefTolerant(ref);
+  if(current && current.debut) {
+    bails.push({
+      debut: current.debut,
+      fin: current.finEffective || current.fin || null,
+      hc: current.hc || 0,
+      ch: current.ch || 0,
+      nom: _bailNom(current),
+      _type:'current'
+    });
+  }
+  if(DB.baux_historique) {
+    DB.baux_historique.filter(b => b.debut && (b.ref === ref || norm(b.ref) === want)).forEach(b => {
+      bails.push({
+        debut: b.debut,
+        fin: b.finEffective || b.fin || null,
+        hc: b.hc || 0,
+        ch: b.ch || 0,
+        nom: _bailNom(b),
+        _type:'archive'
+      });
+    });
+  }
+  bails.sort((a, b) => a.debut.localeCompare(b.debut));
+  return bails;
+}
+
+/* Date de "démarrage effectif" d'un logement dans l'app (tous millésimes).
+   Règle : 1er mouvement Loyers cr>0 JAMAIS reçu pour ce ref.
+   Fallback : si aucun paiement historique, début du bail le plus ancien connu
+   (permet de conserver le manque à gagner pour un logement récemment mis en
+   location mais jamais encore payé). Sinon null. */
+function _getLogementStartIso(ref) {
+  let firstPayment = null;
+  for(const m of DB.mouvements) {
+    if(m.qui !== ref) continue;
+    if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date) continue;
+    if(!firstPayment || m.date < firstPayment) firstPayment = m.date;
+  }
+  if(firstPayment) return firstPayment;
+  const bails = _getAllBailsForLog(ref);
+  return bails.length ? bails[0].debut : null;
+}
+
+/* Indice de mois (0..11) de démarrage du logement pour une année donnée.
+   - null si le logement n'a pas encore démarré à la fin de l'année
+   - 0 si le démarrage est antérieur à l'année
+   - sinon le mois dans l'année */
+function _getLogementStartMi(ref, yr) {
+  const iso = _getLogementStartIso(ref);
+  if(!iso) return null;
+  const yrStart = yr + '-01-01', yrEnd = yr + '-12-31';
+  if(iso > yrEnd) return null;
+  if(iso < yrStart) return 0;
+  return parseInt(iso.slice(5,7)) - 1;
+}
+
+/* Construit la séquence de segments bail/vacance sur l'année pour un logement.
+   Chaque segment regroupe des mois consécutifs partageant le même "bail source"
+   (bail réellement actif → segment 'bail', ou fallback → segment 'vacance').
+   Borné inférieurement par la date de démarrage effectif du logement. */
+function _buildBailSegments(ref, yr, lastVisibleMonth) {
+  const bails = _getAllBailsForLog(ref);
+  if(!bails.length) return [];
+  const firstMi = _getLogementStartMi(ref, yr);
+  if(firstMi == null) return [];
+  const segments = [];
+  let cur = null;
+  for(let mi = firstMi; mi < lastVisibleMonth; mi++) {
+    const monthIso = yr + '-' + String(mi+1).padStart(2,'0') + '-15';
+    const active = bails.find(b => b.debut <= monthIso && (b.fin || '9999-12-31') >= monthIso);
+    let key, type, srcBail;
+    if(active) {
+      key = 'b:' + active.debut;
+      type = 'bail';
+      srcBail = active;
+    } else {
+      const prev = bails.filter(b => b.debut <= monthIso);
+      if(!prev.length) {
+        if(cur) { segments.push(cur); cur = null; }
+        continue;
+      }
+      srcBail = prev[prev.length - 1];
+      key = 'v:' + srcBail.debut;
+      type = 'vacance';
+    }
+    const hcch = (srcBail.hc || 0) + (srcBail.ch || 0);
+    if(!cur || cur.key !== key) {
+      if(cur) segments.push(cur);
+      cur = {key, type, bail:srcBail, startMi:mi, endMi:mi, attendu:hcch, realise:0};
+    } else {
+      cur.endMi = mi;
+      cur.attendu += hcch;
+    }
+  }
+  if(cur) segments.push(cur);
+  return segments;
+}
+
+/* Retourne le HC+CH à prendre en compte pour un logement sur un mois donné.
+   - Si bail actif ce mois → son HC+CH
+   - Sinon, si au moins un bail a déjà démarré avant → HC+CH du bail le plus
+     récent (fallback manque à gagner, cas travaux/vacance entre 2 baux)
+   - Sinon → 0 (logement pas encore productif) */
+function _getActiveBailHcCh(ref, yr, monthIdx0) {
+  const monthIso = yr + '-' + String(monthIdx0+1).padStart(2,'0') + '-15';
+  const bails = _getAllBailsForLog(ref);
+  if(!bails.length) return 0;
+  const active = bails.find(b => {
+    const fin = b.fin || '9999-12-31';
+    return b.debut <= monthIso && monthIso <= fin;
+  });
+  if(active) return (active.hc||0) + (active.ch||0);
+  const prev = bails.filter(b => b.debut <= monthIso);
+  if(!prev.length) return 0;
+  const mostRecent = prev[prev.length - 1];
+  return (mostRecent.hc||0) + (mostRecent.ch||0);
+}
+
+/* Attendu total pour un logement sur l'année, cumulé par mois actif.
+   Borné inférieurement par la date de démarrage effectif du logement. */
+function _computeExpectedRent(ref, yr, lastVisibleMonth) {
+  const firstMi = _getLogementStartMi(ref, yr);
+  if(firstMi == null) return 0;
+  let total = 0;
+  for(let mi = firstMi; mi < lastVisibleMonth; mi++) {
+    total += _getActiveBailHcCh(ref, yr, mi);
+  }
+  return total;
+}
+
 /* Drill "Progression annuelle" — résumé + chart cumul 12 mois + tableau par logement */
 function _buildProgDrill(ctx) {
   const {scopeLogs, yr, activeEnt, scopeRefs, scopeImms} = ctx;
@@ -5192,24 +5364,26 @@ function _buildProgDrill(ctx) {
   const today = new Date();
   const isCurYr = today.getFullYear() === parseInt(yr);
   const lastVisibleMonth = isCurYr ? today.getMonth() + 1 : 12;  // 1..12
-  // Pour chaque immeuble : 1er mois où un loyer a été reçu dans l'année
-  const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
-  const immFirstMonth = {};  // {imm: monthIdx 0-11}
+  // 1er loyer RÉELLEMENT reçu (date du 1er mouvement Loyers cr>0) par ref/immeuble
+  const firstLoyerByRef = {};
+  const firstLoyerByImm = {};
   for(const m of DB.mouvements) {
     if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date || !m.date.startsWith(yr)) continue;
-    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+    if(!firstLoyerByRef[m.qui] || m.date < firstLoyerByRef[m.qui]) firstLoyerByRef[m.qui] = m.date;
     const log = scopeLogs.find(l => l.ref === m.qui);
-    const imm = (log && log.imm) || m.imm;
-    if(!imm || !immsDistinct.includes(imm)) continue;
-    const mi = parseInt(m.date.slice(5,7)) - 1;
-    if(immFirstMonth[imm] == null || mi < immFirstMonth[imm]) immFirstMonth[imm] = mi;
+    if(log && log.imm) {
+      if(!firstLoyerByImm[log.imm] || m.date < firstLoyerByImm[log.imm]) firstLoyerByImm[log.imm] = m.date;
+    }
   }
-  // Attendu par mois : Σ (HC+CH) des logements dont l'immeuble a démarré à ≤ m
+  const loyerLabel = (iso) => iso ? _DMC[parseInt(iso.slice(5,7))-1] : '—';
+  // v2 Option B — Attendu par mois via bail-based (respecte changements de bail)
+  // Chaque logement démarre à sa date de démarrage effectif (1er paiement historique).
   const monthsAttendu = Array(12).fill(0);
-  for(let m = 0; m < 12; m++) {
-    for(const l of scopeLogs) {
-      const firstM = immFirstMonth[l.imm];
-      if(firstM != null && m >= firstM) monthsAttendu[m] += (l.hc||0) + (l.ch||0);
+  for(const l of scopeLogs) {
+    const firstMi = _getLogementStartMi(l.ref, yr);
+    if(firstMi == null) continue;
+    for(let mi = firstMi; mi < lastVisibleMonth; mi++) {
+      monthsAttendu[mi] += _getActiveBailHcCh(l.ref, yr, mi);
     }
   }
   // Réalisé par mois : mvts inclYTD cr > 0
@@ -5245,15 +5419,38 @@ function _buildProgDrill(ctx) {
     + card('Réalisé', fmt(totRealise), totRealise>=totAttendu?'var(--fg-success)':'var(--t1)', totPct+' % collecté')
     + card('Écart', signed(totEcart), totEcart>=0?'var(--fg-success)':'var(--fg-danger)', totEcart>=0?'En avance':'En retard')
     + '</div>';
+  // Pré-calcul segments par logement (sert au chart markers + aux sous-lignes tableau)
+  const segsByRef = {};
+  for(const l of scopeLogs) segsByRef[l.ref] = _buildBailSegments(l.ref, yr, lastVisibleMonth);
+  // Collecte des changements de bail pour les marqueurs du chart (groupés par mois)
+  const bailChangesByMi = {};
+  for(const l of scopeLogs) {
+    const segs = segsByRef[l.ref];
+    if(!segs || segs.length < 2) continue;
+    for(let si = 1; si < segs.length; si++) {
+      const prev = segs[si-1], cur = segs[si];
+      const mi = cur.startMi;
+      const prevLab = prev.type === 'vacance' ? 'vacance' : (prev.bail.nom || '\u2014');
+      const curLab = cur.type === 'vacance' ? 'vacance' : (cur.bail.nom || '\u2014');
+      if(!bailChangesByMi[mi]) bailChangesByMi[mi] = [];
+      bailChangesByMi[mi].push(l.ref + ' : ' + prevLab + ' \u2192 ' + curLab);
+    }
+  }
+  const chartMarkers = Object.entries(bailChangesByMi).map(([mi, changes]) => ({
+    pointIdx: parseInt(mi),
+    label: _DMC[mi] + ' ' + yr + ' \u2014 ' + changes.join(' \u00b7 ')
+  }));
   // Chart cumul
   const chartBlock = cumAttendu.length >= 2
     ? '<div class="drill-chart">'
       + '<div class="drill-chart-title">Progression cumulative — '+yr+'</div>'
+      + '<div style="font-size:11px;color:var(--t3);margin:-4px 0 8px 0;font-style:italic">Cumul mois par mois de l\'attendu (somme des HC+CH des baux actifs) et du r\u00e9alis\u00e9 (paiements re\u00e7us). L\'\u00e9cart entre les deux courbes = manque \u00e0 gagner / avance de paiement.</div>'
       + _mkMultiLineChart([
           {label:'Attendu cumulé', color:'var(--fg-warning)', series:cumAttendu},
           {label:'Réalisé cumulé', color:'var(--fg-info)',    series:cumRealise}
         ], {
           w:700, h:220, padding:14,
+          verticalMarkers: chartMarkers,
           tooltipFormat:(pt, g) => _DMC[pt.mo-1]+' '+pt.yr+' — '+g.label+' : '+fmt(pt.value)
         })
       + '</div>'
@@ -5269,41 +5466,97 @@ function _buildProgDrill(ctx) {
     // Compute entity totals
     let eAtt = 0, eRea = 0;
     const immRows = Object.entries(byImm).map(([immNom, iL]) => {
-      const firstM = immFirstMonth[immNom];
-      if(firstM == null) return null;  // immeuble sans 1er loyer ignoré
-      const monthsEl = Math.max(1, lastVisibleMonth - firstM);
+      // v2 — immeuble toujours affiché dès qu'il a ≥ 1 logement (pas de filtre attendu)
       // Per logement
+      let iAtt = 0, iRea = 0;
       const logRows = iL.map(l => {
-        const att = ((l.hc||0) + (l.ch||0)) * monthsEl;
-        const rea = DB.mouvements
-          .filter(m => m.qui === l.ref && m.date && m.date.startsWith(yr) && inclYTD.has(m.cat) && m.cr > 0)
-          .reduce((s,m) => s + m.cr, 0);
-        const ec = rea - att;
-        const pct = att > 0 ? Math.round(rea/att*100) : 0;
+        const att = _computeExpectedRent(l.ref, yr, lastVisibleMonth);
+        // Attribue chaque mouvement au segment qui couvre son mois
+        const segs = segsByRef[l.ref] || [];
+        const segsCopy = segs.map(s => ({...s, realise:0}));
+        let logRea = 0;
+        for(const m of DB.mouvements) {
+          if(m.qui !== l.ref) continue;
+          if(!m.date || !m.date.startsWith(yr)) continue;
+          if(!inclYTD.has(m.cat) || !(m.cr > 0)) continue;
+          const miMov = parseInt(m.date.slice(5,7)) - 1;
+          if(miMov >= lastVisibleMonth) continue;
+          logRea += m.cr;
+          const seg = segsCopy.find(s => s.startMi <= miMov && miMov <= s.endMi);
+          if(seg) seg.realise += m.cr;
+          else if(segsCopy.length) {
+            // paiement hors fenêtre des segments connus → rattache au dernier précédent
+            const prev = segsCopy.filter(s => s.endMi < miMov);
+            if(prev.length) prev[prev.length-1].realise += m.cr;
+          }
+        }
+        const ec = logRea - att;
+        const pct = att > 0 ? Math.round(logRea/att*100) : 0;
         const ecCol = ec >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
-        eAtt += att; eRea += rea;
-        return '<tr>'
-          + '<td style="padding:4px 6px 4px 28px;color:var(--t2)">\u00a0\u00a0'+escHtml(l.ref)+(l.locataire?' \u00b7 '+escHtml(l.locataire):'')+'</td>'
-          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+_DMC[firstM]+'</td>'
-          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+monthsEl+'</td>'
+        eAtt += att; eRea += logRea;
+        iAtt += att; iRea += logRea;
+        // 1er loyer : 1er paiement RÉEL reçu dans l'année (mouvement)
+        const firstLabel = loyerLabel(firstLoyerByRef[l.ref]);
+        // Nb mois actifs (mois où _getActiveBailHcCh > 0) depuis le démarrage du logement
+        let monthsActive = 0;
+        const _firstMiLog = _getLogementStartMi(l.ref, yr);
+        if(_firstMiLog != null) {
+          for(let mi = _firstMiLog; mi < lastVisibleMonth; mi++) {
+            if(_getActiveBailHcCh(l.ref, yr, mi) > 0) monthsActive++;
+          }
+        }
+        // Pastille diagnostic si attendu = 0 (aide saisie : bail manquant, HC/CH à 0, etc.)
+        let warnBadge = '';
+        if(att === 0) {
+          const allBails = _getAllBailsForLog(l.ref);
+          if(!allBails.length) {
+            warnBadge = ' <span style="font-size:10px;color:var(--fg-warning);font-weight:600" title="Aucun bail courant ni archivé rattaché à cette ref">\u26a0 Aucun bail</span>';
+          } else if(allBails.every(b => ((b.hc||0) + (b.ch||0)) === 0)) {
+            warnBadge = ' <span style="font-size:10px;color:var(--fg-warning);font-weight:600" title="Bail présent mais HC et CH à 0 — saisir les montants">\u26a0 HC/CH \u00e0 0</span>';
+          } else if(_getLogementStartMi(l.ref, yr) == null) {
+            warnBadge = ' <span style="font-size:10px;color:var(--fg-warning);font-weight:600" title="Le bail démarre après l\'année affichée">\u26a0 Bail futur</span>';
+          }
+        }
+        const mainRow = '<tr>'
+          + '<td style="padding:4px 6px 4px 28px;color:var(--t2)">\u00a0\u00a0'+escHtml(l.ref)+(l.locataire?' \u00b7 '+escHtml(l.locataire):'')+warnBadge+'</td>'
+          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+firstLabel+'</td>'
+          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+monthsActive+'</td>'
           + '<td style="text-align:right;padding:4px 6px">'+fmt(att)+'</td>'
-          + '<td style="text-align:right;padding:4px 6px">'+fmt(rea)+'</td>'
+          + '<td style="text-align:right;padding:4px 6px">'+fmt(logRea)+'</td>'
           + '<td style="text-align:right;padding:4px 6px;color:'+ecCol+';font-weight:500">'+signed(ec)+'</td>'
           + '<td style="text-align:right;padding:4px 6px;color:'+ecCol+'">'+pct+'\u00a0%</td></tr>';
+        // Sous-lignes par bail uniquement si transition (≥ 2 segments)
+        if(segsCopy.length < 2) return mainRow;
+        const segRows = segsCopy.map(s => {
+          const range = s.startMi === s.endMi ? _DMC[s.startMi] : _DMC[s.startMi]+'\u2192'+_DMC[s.endMi];
+          const segLab = s.type === 'vacance'
+            ? '\u26a0 Vacance ('+range+')'
+            : (s.bail.nom ? escHtml(s.bail.nom) : '(sans locataire)') + ' ('+range+')';
+          const sEc = s.realise - s.attendu;
+          const sPct = s.attendu > 0 ? Math.round(s.realise/s.attendu*100) : 0;
+          const sCol = sEc >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+          const rowStyle = s.type === 'vacance'
+            ? 'background:var(--bg-warning,rgba(234,179,8,.06))'
+            : '';
+          return '<tr style="'+rowStyle+'">'
+            + '<td style="padding:3px 6px 3px 44px;color:var(--t3);font-size:11px;font-style:italic">\u00b7 '+segLab+'</td>'
+            + '<td></td><td></td>'
+            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:var(--t2)">'+fmt(s.attendu)+'</td>'
+            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:var(--t2)">'+fmt(s.realise)+'</td>'
+            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:'+sCol+'">'+signed(sEc)+'</td>'
+            + '<td style="text-align:right;padding:3px 6px;font-size:11px;color:'+sCol+'">'+sPct+'\u00a0%</td></tr>';
+        }).join('');
+        return mainRow + segRows;
       }).join('');
-      // Immeuble header row
-      const iAtt = iL.reduce((s,l) => s + ((l.hc||0)+(l.ch||0)) * monthsEl, 0);
-      const iRea = DB.mouvements
-        .filter(m => m.date && m.date.startsWith(yr) && inclYTD.has(m.cat) && m.cr > 0
-                  && (iL.some(l => l.ref === m.qui) || m.imm === immNom))
-        .reduce((s,m) => s + m.cr, 0);
+      // Immeuble header row (totaux agrégés)
       const iEc = iRea - iAtt;
       const iPct = iAtt > 0 ? Math.round(iRea/iAtt*100) : 0;
       const iCol = iEc >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+      const immFirstLabel = loyerLabel(firstLoyerByImm[immNom]);
       const immHeader = '<tr style="background:var(--sur3);font-weight:600">'
         + '<td style="padding:5px 6px 5px 14px;color:var(--t1)">\u2514\u00a0'+escHtml(immNom)+'</td>'
-        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">'+_DMC[firstM]+'</td>'
-        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">'+monthsEl+'</td>'
+        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">'+immFirstLabel+'</td>'
+        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">—</td>'
         + '<td style="text-align:right;padding:5px 6px">'+fmt(iAtt)+'</td>'
         + '<td style="text-align:right;padding:5px 6px">'+fmt(iRea)+'</td>'
         + '<td style="text-align:right;padding:5px 6px;color:'+iCol+'">'+signed(iEc)+'</td>'
@@ -5325,10 +5578,11 @@ function _buildProgDrill(ctx) {
     return entHeader + immRows;
   }).filter(Boolean).join('');
   const tableHtml = rowsHtml
-    ? '<table class="tbl"><thead><tr><th>Entité / Immeuble / Logement</th><th style="text-align:right">1er loyer</th><th style="text-align:right">Mois</th><th style="text-align:right">Attendu</th><th style="text-align:right">Réalisé</th><th style="text-align:right">Écart</th><th style="text-align:right">% coll.</th></tr></thead><tbody>'
+    ? '<table class="tbl"><thead><tr><th>Entité / Immeuble / Logement</th><th style="text-align:right">1er loyer reçu</th><th style="text-align:right">Mois</th><th style="text-align:right">Attendu</th><th style="text-align:right">Réalisé</th><th style="text-align:right">Écart</th><th style="text-align:right">% coll.</th></tr></thead><tbody>'
       + rowsHtml
       + '</tbody></table>'
-    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun 1er loyer reçu dans l\'année pour cette scope.</div>';
+      + (chartMarkers.length ? '<div style="margin-top:8px;font-size:10.5px;color:var(--t3);font-style:italic">\u26a0 Les sous-lignes en italique indiquent les changements de locataire (ou vacances) \u00b7 somme = total du logement.</div>' : '')
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun logement dans cette scope.</div>';
   return {title:'Progression annuelle — '+yr, html:summary+chartBlock+tableHtml};
 }
 
@@ -6378,62 +6632,49 @@ function buildDashWidget(id, ctx, col=3, row=2) {
     return wd(body, '', 'blu');
   }
   /* ── v2 Phase 7 — Progression annuelle HIÉRARCHIQUE par entité > immeuble
-     Chaque immeuble démarre son compteur à son 1er loyer reçu dans l'année.
-     Attendu = Σ(HC+CH) logements × mois_écoulés depuis 1er loyer.
-     Travaux / vacances inclus dans l'attendu (cf. delta = manque à gagner).
+     v2 Option B — Bail-based : attendu calculé via le bail actif pour chaque mois
+     (bail courant + historique). Fallback : si un mois n'a pas de bail actif mais
+     le logement a déjà eu un bail, on utilise le HC+CH du bail précédent le plus
+     récent (conserve la vision "manque à gagner" pendant les vacances).
      Structure : entité en ligne-titre, immeubles en sous-lignes. ── */
   if(id==='prog') {
     const inclYTD = new Set(DB.categories.filter(c => DB.catConfig && DB.catConfig[c] && DB.catConfig[c].inclYTD));
     const todayForProg = new Date();
-    const endPeriod = mo
-      ? new Date(parseInt(yr), parseInt(mo), 0)
-      : (todayForProg.getFullYear() === parseInt(yr) ? todayForProg : new Date(parseInt(yr), 11, 31));
+    const lastVisibleMonth = mo
+      ? parseInt(mo)
+      : (todayForProg.getFullYear() === parseInt(yr) ? todayForProg.getMonth() + 1
+         : (todayForProg.getFullYear() > parseInt(yr) ? 12 : 0));
 
-    // Helper : calcule attendu + réalisé pour un groupe de logements
+    // Helper : calcule attendu (bail-based) + réalisé pour un groupe de logements
     const computeGroup = (logs) => {
-      if(!logs.length) return {attendu:0, realise:0, firstIso:null};
+      if(!logs.length) return {attendu:0, realise:0};
       const refs = logs.map(l => l.ref);
       const imms = [...new Set(logs.map(l => l.imm).filter(Boolean))];
-      let firstIso = null;
       let realise = 0;
       for(const m of DB.mouvements) {
         if(!m.date || !m.date.startsWith(yr)) continue;
+        const miMov = parseInt(m.date.slice(5,7));
+        if(miMov > lastVisibleMonth) continue;
         const matches = refs.includes(m.qui) || imms.includes(m.imm);
         if(!matches) continue;
-        // 1er loyer reçu (pour la date de démarrage de l'attendu)
-        if(m.cat === 'Loyers' && (m.cr||0) > 0 && (!firstIso || m.date < firstIso)) firstIso = m.date;
-        // Réalisé : catégories cochées inclYTD avec cr > 0
         if(inclYTD.has(m.cat) && (m.cr||0) > 0) realise += m.cr;
       }
-      let attendu = 0;
-      if(firstIso) {
-        const firstDate = new Date(firstIso + 'T00:00:00');
-        if(firstDate <= endPeriod) {
-          const months = Math.max(1,
-            (endPeriod.getFullYear() - firstDate.getFullYear()) * 12 +
-            (endPeriod.getMonth() - firstDate.getMonth()) + 1
-          );
-          const monthlyRev = logs.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
-          attendu = monthlyRev * months;
-        }
-      }
-      return {attendu, realise, firstIso};
+      const attendu = logs.reduce((s,l) => s + _computeExpectedRent(l.ref, yr, lastVisibleMonth), 0);
+      return {attendu, realise};
     };
 
-    // Grouper par entité > immeuble
+    // Grouper par entité > immeuble (on affiche toute entité/immeuble avec ≥ 1 logement)
     const entsToShow = activeEnt ? DB.entites.filter(e => e.nom === activeEnt) : DB.entites;
-    const groups = [];  // [{entNom, attendu, realise, firstIso, immeubles:[{immNom, ...}]}]
+    const groups = [];  // [{entNom, attendu, realise, immeubles:[{immNom, ...}]}]
     for(const e of entsToShow) {
       const eLogs = scopeLogs.filter(l => l.entity === e.nom);
       if(!eLogs.length) continue;
       const entRes = computeGroup(eLogs);
-      if(!entRes.firstIso) continue;  // entité sans 1er loyer ignorée
-      // Sous-groupes par immeuble
+      // Sous-groupes par immeuble (tous gardés)
       const byImm = {};
       eLogs.forEach(l => { const k = l.imm || '\u2014'; if(!byImm[k]) byImm[k] = []; byImm[k].push(l); });
       const immeubles = Object.entries(byImm)
         .map(([immNom, iL]) => ({immNom, ...computeGroup(iL)}))
-        .filter(r => r.firstIso)
         .sort((a,b) => (b.attendu - b.realise) - (a.attendu - a.realise));  // tri par écart décroissant (pire en haut)
       groups.push({entNom: e.nom, ...entRes, immeubles});
     }
@@ -6480,7 +6721,7 @@ function buildDashWidget(id, ctx, col=3, row=2) {
         +   '<td style="text-align:right;padding:6px">'+fmt(totRealise)+'</td>'
         +   '<td style="text-align:right;padding:6px;color:'+deltaCol(totEcart)+'">'+signed(totEcart)+'</td>'
         + '</tr></tfoot></table>'
-      : '<div class="mu sm" style="margin-top:10px;text-align:center">Aucun 1er loyer reçu dans l\'année sur cette scope.</div>';
+      : '<div class="mu sm" style="margin-top:10px;text-align:center">Aucun logement dans cette scope.</div>';
 
     _DD['prog'] = _buildProgDrill(ctx);
     const header = '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">'
@@ -6493,7 +6734,7 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       + header
       + gauge(barPct, totEcart >= 0 ? 'var(--grn)' : 'var(--red)', 7)
       + tableHtml
-      + `<div style="font-size:10px;color:var(--t3);margin-top:6px;font-style:italic">Base : 1er loyer par immeuble \u00b7 Travaux/vacances inclus dans l'attendu (manque \u00e0 gagner) \u00b7 Cat\u00e9gories : ${[...inclYTD].join(', ')||'configurer dans R\u00e9f\u00e9rentiel'}</div>`
+      + `<div style="font-size:10px;color:var(--t3);margin-top:6px;font-style:italic">D\u00e9marrage : 1er loyer re\u00e7u historique \u00b7 Bail actif par mois (courant + archiv\u00e9s) \u00b7 Vacances entre baux = manque \u00e0 gagner \u00b7 Cat\u00e9gories : ${[...inclYTD].join(', ')||'configurer dans R\u00e9f\u00e9rentiel'}</div>`
       + '</button>';
     return wd(body, '', totEcart >= 0 ? 'grn' : 'red');
   }
