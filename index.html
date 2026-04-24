@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.24</title>
+<title>ImmoTrack v12.25</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -104,8 +104,8 @@
 [data-fontsize="lg"] .dw-flux-sublabel{ font-size: 15px }
 [data-fontsize="lg"] .dw-flux-value   { font-size: 30px }
 [data-fontsize="lg"] .dw-flux-net     { font-size: 15px }
-[data-fontsize="lg"] .dw-context-date { font-size: 14px }
-[data-fontsize="lg"] .dw-context-greet{ font-size: 25px }
+[data-fontsize="lg"] .dw-context-date { font-size: 13px }
+[data-fontsize="lg"] .dw-context-greet{ font-size: 21px }  /* row 1 = 60px, limite */
 [data-fontsize="lg"] .dw-sep-label    { font-size: 13px }
 [data-fontsize="lg"] .dw-todo-title   { font-size: 16px }
 [data-fontsize="lg"] .dw-todo-count   { font-size: 13px }
@@ -1368,7 +1368,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.24</em>
+      <em>v12.25</em>
     </div>
   </div>
 
@@ -4480,7 +4480,7 @@ const DASH_DEFAULT_LAYOUT = [
   {id:'cf',    label:'Cash-flow net',               col:3, row:2, visible:false},
   {id:'cfyr',  label:'Cash-flow YTD',               col:3, row:2, visible:false},
   {id:'prog',  label:'Progression annuelle',        col:4, row:2, visible:false},
-  {id:'solde', label:'Solde provisions',            col:8, row:2, visible:false},
+  {id:'solde', label:'Solde provisions par immeuble', col:8, row:3, visible:true},
   {id:'sep-gestion', type:'separator', label:'Gestion locative', col:12, row:1, visible:true},
   /* v2 Phase 4 polish — À traiter a été remonté à côté du hero (top) → agenda seul ici */
   {id:'agenda-dash',  label:'Agenda — 15 prochains jours', col:12, row:4, visible:true},
@@ -6147,22 +6147,60 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       + '</button>';
     return wd(body, '', 'blu');
   }
+  /* ── v2 Phase 7 — Progression annuelle PAR IMMEUBLE (choix user)
+     Chaque immeuble démarre son compteur à son 1er loyer reçu dans l'année.
+     L'attendu = Σ(HC+CH) des logements de l'immeuble × mois_écoulés.
+     Travaux / vacances inclus dans l'attendu (manque à gagner visible
+     dans le delta attendu − réalisé). ── */
   if(id==='prog') {
     const inclYTD = new Set(DB.categories.filter(c=>DB.catConfig&&DB.catConfig[c]&&DB.catConfig[c].inclYTD));
     const realYTD = mvsYTD.filter(m=>m.cr>0&&inclYTD.has(m.cat)).reduce((s,m)=>s+(m.cr||0),0);
-    const mEl = mo ? parseInt(mo) : today.getMonth()+1;
-    const objMens2 = scopeLogs.reduce((s,l)=>s+(l.hc||0)+(l.ch||0),0);
-    const attenduADate = objMens2 * mEl;
+    // Fin de période : fin du mois sélectionné ou aujourd'hui si année courante
+    const todayForProg = new Date();
+    const endPeriod = mo
+      ? new Date(parseInt(yr), parseInt(mo), 0)
+      : (todayForProg.getFullYear() === parseInt(yr) ? todayForProg : new Date(parseInt(yr), 11, 31));
+    // Grouper les logements par immeuble
+    const logsByImm = {};
+    for(const l of scopeLogs) {
+      const k = l.imm || '\u2014';
+      if(!logsByImm[k]) logsByImm[k] = [];
+      logsByImm[k].push(l);
+    }
+    // Pour chaque immeuble : trouver 1er mvt loyer dans l'année, calculer attendu
+    let attenduADate = 0;
+    let nbImmCompte = 0;
+    for(const [immNom, iL] of Object.entries(logsByImm)) {
+      const refs = iL.map(l => l.ref);
+      let firstIso = null;
+      for(const m of DB.mouvements) {
+        if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date) continue;
+        if(!m.date.startsWith(yr)) continue;
+        if(!refs.includes(m.qui) && m.imm !== immNom) continue;
+        if(!firstIso || m.date < firstIso) firstIso = m.date;
+      }
+      if(!firstIso) continue;  // immeuble non actif cette année
+      const firstDate = new Date(firstIso + 'T00:00:00');
+      if(firstDate > endPeriod) continue;
+      const months = Math.max(1,
+        (endPeriod.getFullYear() - firstDate.getFullYear()) * 12 +
+        (endPeriod.getMonth() - firstDate.getMonth()) + 1
+      );
+      const monthlyRev = iL.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
+      attenduADate += monthlyRev * months;
+      nbImmCompte++;
+    }
     const ecart = realYTD - attenduADate;
-    const taux = attenduADate>0 ? Math.round(realYTD/attenduADate*100) : 0;
-    const barPct = attenduADate>0 ? Math.min(100,Math.round(realYTD/attenduADate*100)) : 0;
+    const taux = attenduADate > 0 ? Math.round(realYTD/attenduADate*100) : 0;
+    const barPct = attenduADate > 0 ? Math.min(100, taux) : 0;
+    const metaImm = nbImmCompte + ' immeuble'+(nbImmCompte>1?'s':'')+' actif'+(nbImmCompte>1?'s':'');
     return wd(lbl('Progression annuelle\u00a0\u2014\u00a0'+yr)
       +`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:5px">`
-      +`<div><div style="font-size:9px;color:var(--t3)">Attendu \u00e0 date<\/div><div style="font-size:13px;font-weight:600">${fmt(attenduADate)}<\/div><div style="font-size:9px;color:var(--t3)">${mEl}\u00a0mois \u00d7\u00a0${fmt(objMens2)}<\/div><\/div>`
+      +`<div><div style="font-size:9px;color:var(--t3)">Attendu \u00e0 date<\/div><div style="font-size:13px;font-weight:600">${fmt(attenduADate)}<\/div><div style="font-size:9px;color:var(--t3)">${metaImm}<\/div><\/div>`
       +`<div><div style="font-size:9px;color:var(--t3)">R\u00e9alis\u00e9 YTD<\/div><div style="font-size:13px;font-weight:600;color:${realYTD>=attenduADate?'var(--grn)':'var(--t1)'}">${fmt(realYTD)}<\/div><div style="font-size:9px;color:var(--t3)">${taux}\u00a0% collect\u00e9<\/div><\/div>`
       +`<div><div style="font-size:9px;color:var(--t3)">Avance\u00a0/\u00a0Retard<\/div><div style="font-size:13px;font-weight:700;color:${ecart>=0?'var(--grn)':'var(--red)'}">${ecart>=0?'+':''}${fmt(ecart)}<\/div><div style="font-size:9px;color:${ecart>=0?'var(--grn)':'var(--red)'}">${ecart>=0?'En avance':'En retard'}<\/div><\/div><\/div>`
       +gauge(barPct,ecart>=0?'var(--grn)':'var(--red)',7)
-      +`<div style="font-size:9px;color:var(--t3);margin-top:3px">Cat\u00e9gories\u00a0: ${[...inclYTD].join(', ')||'Aucune \u2014 configurer dans R\u00e9f\u00e9rentiel \u203a Cat\u00e9gories'}<\/div>`,
+      +`<div style="font-size:9px;color:var(--t3);margin-top:3px">Cat\u00e9gories\u00a0: ${[...inclYTD].join(', ')||'Aucune \u2014 configurer dans R\u00e9f\u00e9rentiel \u203a Cat\u00e9gories'} \u00b7 Base : 1er loyer par immeuble<\/div>`,
       '', ecart>=0?'grn':'red');
   }
   /* ── v2 Phase 3 polish — Rendement brut EFFECTIF ANNUALISÉ PAR IMMEUBLE
@@ -6220,8 +6258,20 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       totalLoysAnn += loysRecus * 12 / moisEcoules;
     }
     const rdtPct = totalValue > 0 ? (totalLoysAnn / totalValue * 100) : null;
-    // Théorique (HC × 12 sur tous les logements en scope) pour comparaison dans la carte
-    const totalLoysTheo = scopeLogs.reduce((s,l) => s+(l.hc||0), 0) * 12;
+    // Théorique (HC × 12) — FIX bug : on ne compte que les HC des logements
+    // dont l'immeuble a une valeur renseignée (sinon numérateur géant vs
+    // dénominateur partiel → ratio aberrant type "47155 %").
+    let totalLoysTheo = 0;
+    for(const immNom of immsDistinct) {
+      const iL = scopeLogs.filter(l => l.imm === immNom);
+      const entNom = iL[0] && iL[0].entity;
+      const ent2 = entNom ? DB.entites.find(e => e.nom === entNom) : null;
+      const imObj = ent2 && ent2.immeubles ? ent2.immeubles.find(i => i.nom === immNom) : null;
+      const valImm = ((imObj && imObj.valeurEstimee) || 0) + ((imObj && imObj.montantTravaux) || 0);
+      if(valImm > 0) {
+        totalLoysTheo += iL.reduce((s,l) => s+(l.hc||0), 0) * 12;
+      }
+    }
     const rdtTheoPct = totalValue > 0 ? (totalLoysTheo / totalValue * 100) : null;
     const color = rdtPct === null ? 'var(--t2)'
                 : rdtPct >= 5     ? 'var(--fg-success)'
@@ -6260,20 +6310,59 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       drillKey:'rdt'
     }), '', status);
   }
+  /* ── v2 Phase 7 — Solde provisions de charges PAR IMMEUBLE (choix user)
+     Les charges étant par immeuble (ou logement), le widget affiche un
+     tableau avec 1 ligne par immeuble + total. ── */
   if(id==='solde') {
-    const nbMois=mo?1:today.getMonth()+1;
-    const provTh=scopeLogs.filter(l=>l.locataire).reduce((s,l)=>s+(l.ch||0),0)*nbMois;
-    const inclCh=new Set(DB.categories.filter(c=>DB.catConfig&&DB.catConfig[c]&&DB.catConfig[c].inclCharges));
-    const chargesR=mvsYTD.filter(m=>m.db>0&&inclCh.has(m.cat)).reduce((s,m)=>s+(m.db||0),0);
-    const solde=provTh-chargesR;
-    const hint=inclCh.size?[...inclCh].join(', '):'Aucune cat\u00e9gorie coch\u00e9e \u2014 configurer dans R\u00e9f\u00e9rentiel \u203a Cat\u00e9gories';
-    return wd(lbl('Solde provisions de charges')
-      +`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px">`
-      +`<div><div style="font-size:9px;color:var(--t3)">Provisions<\/div><div style="font-size:14px;font-weight:600">${fmt(provTh)}<\/div><div style="font-size:9px;color:var(--t3)">${nbMois}\u00a0mois<\/div><\/div>`
-      +`<div><div style="font-size:9px;color:var(--t3)">Charges<\/div><div style="font-size:14px;font-weight:600;color:var(--red)">${fmt(chargesR)}<\/div><\/div>`
-      +`<div><div style="font-size:9px;color:var(--t3)">Solde<\/div><div style="font-size:14px;font-weight:700;color:${solde>=0?'var(--grn)':'var(--red)'}">${fmt(solde)}<\/div><\/div><\/div>`
-      +gauge(provTh>0?Math.min(100,chargesR/provTh*100):0,solde>=0?'var(--grn)':'var(--red)',6)
-      +`<div style="font-size:9px;color:var(--t3);margin-top:3px">Cat\u00e9gories\u00a0: ${hint}<\/div>`, '', solde>=0?'grn':'red');
+    const nbMois = mo ? 1 : today.getMonth()+1;
+    const inclCh = new Set(DB.categories.filter(c => DB.catConfig && DB.catConfig[c] && DB.catConfig[c].inclCharges));
+    // Regroupement logements par immeuble
+    const logsByImm = {};
+    for(const l of scopeLogs) {
+      const k = l.imm || '\u2014';
+      if(!logsByImm[k]) logsByImm[k] = [];
+      logsByImm[k].push(l);
+    }
+    // Calcul par immeuble
+    const rows = Object.entries(logsByImm).map(([immNom, iL]) => {
+      const refs = iL.map(l => l.ref);
+      const provTh = iL.filter(l => l.locataire).reduce((s,l) => s+(l.ch||0), 0) * nbMois;
+      const chargesR = mvsYTD
+        .filter(m => m.db > 0 && inclCh.has(m.cat) && (refs.includes(m.qui) || m.imm === immNom))
+        .reduce((s,m) => s+(m.db||0), 0);
+      return {immNom, provTh, chargesR, solde: provTh - chargesR};
+    }).sort((a,b) => Math.abs(b.solde) - Math.abs(a.solde));
+    const totProv = rows.reduce((s,r) => s+r.provTh, 0);
+    const totCh = rows.reduce((s,r) => s+r.chargesR, 0);
+    const totSol = totProv - totCh;
+    const hint = inclCh.size
+      ? [...inclCh].slice(0,3).join(', ')+(inclCh.size>3?' ('+inclCh.size+' cat.)':'')
+      : 'Aucune cat. cochée';
+    const tableHtml = rows.length
+      ? '<table style="width:100%;font-size:11px;margin-top:6px;border-collapse:collapse">'
+        + '<thead><tr style="color:var(--t3);font-weight:600;border-bottom:1px solid var(--bor)">'
+        +   '<th style="text-align:left;padding:3px 4px">Immeuble</th>'
+        +   '<th style="text-align:right;padding:3px 4px">Prov.</th>'
+        +   '<th style="text-align:right;padding:3px 4px">Charges</th>'
+        +   '<th style="text-align:right;padding:3px 4px">Solde</th>'
+        + '</tr></thead><tbody>'
+        + rows.map(r =>
+            '<tr><td style="padding:3px 4px;color:var(--t1)">'+escHtml(r.immNom)+'</td>'
+            +'<td style="text-align:right;padding:3px 4px">'+fmt(r.provTh)+'</td>'
+            +'<td style="text-align:right;padding:3px 4px;color:var(--red)">'+fmt(r.chargesR)+'</td>'
+            +'<td style="text-align:right;padding:3px 4px;font-weight:600;color:'+(r.solde>=0?'var(--grn)':'var(--red)')+'">'+fmt(r.solde)+'</td></tr>'
+          ).join('')
+        + '</tbody><tfoot><tr style="font-weight:700;border-top:1px solid var(--bor)">'
+        +   '<td style="padding:4px">Total</td>'
+        +   '<td style="text-align:right;padding:4px">'+fmt(totProv)+'</td>'
+        +   '<td style="text-align:right;padding:4px;color:var(--red)">'+fmt(totCh)+'</td>'
+        +   '<td style="text-align:right;padding:4px;color:'+(totSol>=0?'var(--grn)':'var(--red)')+'">'+fmt(totSol)+'</td>'
+        + '</tr></tfoot></table>'
+      : '<div class="mu sm" style="margin-top:8px;text-align:center">Aucun logement dans ce scope.</div>';
+    return wd(lbl('Solde provisions de charges \u2014 par immeuble ('+nbMois+'\u00a0mois)')
+      + tableHtml
+      + `<div style="font-size:9px;color:var(--t3);margin-top:4px">Cat\u00e9gories incluses : ${hint}</div>`,
+      '', totSol >= 0 ? 'grn' : 'red');
   }
   if(id==='enc') {
     const loyEnc=mvs.filter(m=>m.cat==='Loyers'&&m.cr>0).reduce((s,m)=>s+(m.cr||0),0);
