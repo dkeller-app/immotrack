@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.22</title>
+<title>ImmoTrack v12.23</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -796,6 +796,72 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 
 /* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 7 — Animations apparition + skeleton loading
+   (cahier §4.6 animations, §5.5 loading states)
+   ══════════════════════════════════════════════════════════════ */
+@keyframes dw-fade-in-up{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+.dw-animated{
+  animation:dw-fade-in-up 260ms cubic-bezier(.4,0,.2,1) both;
+  animation-delay:calc(var(--i,0) * 40ms);
+}
+/* Respect prefers-reduced-motion — accessibilité (cahier §7) */
+@media (prefers-reduced-motion: reduce){
+  .dw-animated{animation:none!important}
+  .dw-skeleton-block::before{animation:none!important}
+  *{transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+
+/* Skeleton shimmer — remplace "Chargement..." par des blocs animés */
+@keyframes dw-shimmer{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+.dw-skeleton-block{
+  position:relative;overflow:hidden;
+  background:var(--sur2);border-radius:var(--r);
+  min-height:40px;
+}
+.dw-skeleton-block::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,.06) 30%,
+    rgba(255,255,255,.14) 50%,
+    rgba(255,255,255,.06) 70%,
+    transparent 100%);
+  background-size:200% 100%;
+  animation:dw-shimmer 1.4s ease-in-out infinite;
+}
+[data-theme="light"] .dw-skeleton-block::before,
+:root:not([data-theme="dark"]) .dw-skeleton-block::before{
+  background:linear-gradient(90deg,
+    transparent 0%,
+    rgba(0,0,0,.04) 30%,
+    rgba(0,0,0,.08) 50%,
+    rgba(0,0,0,.04) 70%,
+    transparent 100%);
+  background-size:200% 100%;
+}
+.dw-skeleton-lines{display:flex;flex-direction:column;gap:8px;padding:14px 16px}
+.dw-skeleton-line{
+  height:10px;background:var(--sur3);border-radius:5px;
+  position:relative;overflow:hidden;
+}
+.dw-skeleton-line::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);
+  background-size:200% 100%;
+  animation:dw-shimmer 1.4s ease-in-out infinite;
+}
+.dw-skeleton-line.w-60{width:60%}
+.dw-skeleton-line.w-40{width:40%}
+.dw-skeleton-line.w-80{width:80%}
+.dw-skeleton-line.tall{height:40px}
+
+/* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 7 — Empty state / Onboarding
    ══════════════════════════════════════════════════════════════ */
 .dash-onboarding{
@@ -1234,7 +1300,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.22</em>
+      <em>v12.23</em>
     </div>
   </div>
 
@@ -4428,8 +4494,11 @@ function renderDashGrid(layout, ctx) {
   if(!grid) return;
   const visible = layout.filter(w=>w.visible);
   const ed = _dashEditMode;
+  // v2 Phase 7 — Animation apparition : seulement au premier rendu (pas sur
+  // chaque re-render, sinon agaçant quand on change de mois/année).
+  const animateIn = !grid.dataset.animated && !ed;
 
-  grid.innerHTML = visible.map(w=>{
+  grid.innerHTML = visible.map((w, idx)=>{
     const isSep = w.type === 'separator';
     const col   = isSep ? 12 : Math.max(1, Math.min(12, w.col||3));
     const row   = isSep ? 1  : Math.max(1, Math.min(6,  w.row||2));
@@ -4442,7 +4511,12 @@ function renderDashGrid(layout, ctx) {
         if(r && typeof r === 'object') { body=r.body||''; foot=r.foot||''; status=r.status||''; }
         else { body = r||''; }
       } else {
-        body = '<div style="color:var(--t3);font-size:11px">Chargement…</div>';
+        // v2 Phase 7 — Skeleton shimmer au lieu d'un texte "Chargement…"
+        body = '<div class="dw-skeleton-lines">'
+          + '<div class="dw-skeleton-line w-40"></div>'
+          + '<div class="dw-skeleton-line tall"></div>'
+          + '<div class="dw-skeleton-line w-60"></div>'
+          + '</div>';
       }
     }
 
@@ -4462,6 +4536,7 @@ function renderDashGrid(layout, ctx) {
       isSep ? '' : `dw-r${row}`,
       ed ? 'dw-edit' : '',
       (!isSep && status) ? `dw-s-${status}` : '',
+      animateIn ? 'dw-animated' : '',
     ].filter(Boolean).join(' ');
 
     const edAttrs = ed
@@ -4479,8 +4554,14 @@ function renderDashGrid(layout, ctx) {
       ? `<div class="dw-drag-handle">⠿</div>`
       : '';
 
-    return `<div id="dw-${w.id}" data-wid="${w.id}" class="${cls}" ${edAttrs}>${inner}${resizeBtn}${dragH}</div>`;
+    const animStyle = animateIn ? ` style="--i:${idx}"` : '';
+    return `<div id="dw-${w.id}" data-wid="${w.id}" class="${cls}"${animStyle} ${edAttrs}>${inner}${resizeBtn}${dragH}</div>`;
   }).join('');
+
+  if(animateIn) {
+    // Marqueur pour ne pas rejouer l'animation sur les re-renders suivants
+    grid.dataset.animated = '1';
+  }
 }
 
 function editSepLabel(id) {
