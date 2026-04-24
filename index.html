@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.23</title>
+<title>ImmoTrack v12.24</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -94,6 +94,54 @@
   color:#e4ecf5;
 }
 [data-fontsize="lg"] { --font-base:19px; }
+/* v2 Phase 7 — Bouton "A" étendu : scaling appliqué aussi aux éléments
+   v2 qui utilisent des px fixes (hero value, KPI values, labels).
+   Amélioration accessibilité malvoyants (~+15% typographie). */
+[data-fontsize="lg"] .dw-kpi-label    { font-size: 16px }
+[data-fontsize="lg"] .dw-kpi-value    { font-size: 30px }
+[data-fontsize="lg"] .dw-hero-label   { font-size: 17px }
+[data-fontsize="lg"] .dw-hero-value   { font-size: 56px }
+[data-fontsize="lg"] .dw-flux-sublabel{ font-size: 15px }
+[data-fontsize="lg"] .dw-flux-value   { font-size: 30px }
+[data-fontsize="lg"] .dw-flux-net     { font-size: 15px }
+[data-fontsize="lg"] .dw-context-date { font-size: 14px }
+[data-fontsize="lg"] .dw-context-greet{ font-size: 25px }
+[data-fontsize="lg"] .dw-sep-label    { font-size: 13px }
+[data-fontsize="lg"] .dw-todo-title   { font-size: 16px }
+[data-fontsize="lg"] .dw-todo-count   { font-size: 13px }
+[data-fontsize="lg"] .dw-todo-quad-label { font-size: 13px }
+[data-fontsize="lg"] .dw-todo-quad-count { font-size: 30px }
+[data-fontsize="lg"] .dw-todo-quad-sub   { font-size: 12px }
+[data-fontsize="lg"] .dw-pill         { font-size: 13px }
+[data-fontsize="lg"] .dw-cat-row      { font-size: 15px }
+[data-fontsize="lg"] .dw-cat-pct      { font-size: 13px }
+[data-fontsize="lg"] .dw-sub          { font-size: 13px }
+@media (max-width: 480px) {
+  /* Sur petit mobile, le "A+" doit rester dans les limites de place */
+  [data-fontsize="lg"] .dw-hero-value { font-size: 34px }
+  [data-fontsize="lg"] .dw-kpi-value,
+  [data-fontsize="lg"] .dw-flux-value,
+  [data-fontsize="lg"] .dw-todo-quad-count { font-size: 24px }
+}
+
+/* v2 Phase 7 — Support prefers-contrast: more (cahier §7 a11y) :
+   utilisateurs avec préférence système "contraste élevé" obtiennent
+   des bordures plus épaisses et des séparateurs plus opaques. */
+@media (prefers-contrast: more) {
+  :root {
+    --bor: rgba(0,0,0,.25);
+    --bor2: rgba(0,0,0,.15);
+  }
+  [data-theme="dark"] {
+    --bor: rgba(255,255,255,.4);
+    --bor2: rgba(255,255,255,.25);
+  }
+  .dw { border-width: 2px }
+  .dw-pill { border-width: 2px }
+  .dw-sep-line { height: 2px }
+  .dw-cat-bar { height: 8px }
+  .dw-kpi-bar { height: 6px }
+}
 
 /* ── BASE ─────────────────────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -862,6 +910,26 @@ textarea.inp{resize:vertical;min-height:70px}
 .dw-skeleton-line.tall{height:40px}
 
 /* ══════════════════════════════════════════════════════════════
+   DASHBOARD v2 Phase 7 — Migration banner (cahier §8.4)
+   ══════════════════════════════════════════════════════════════ */
+.dash-migration-banner{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px 18px;margin-bottom:14px;flex-wrap:wrap;
+  background:linear-gradient(90deg,var(--bg-info) 0%,var(--sur) 100%);
+  border:1px solid var(--fg-info);border-radius:var(--rl);
+  box-shadow:var(--shadow-card);
+}
+.dash-migration-body{display:flex;align-items:center;gap:14px;flex:1;min-width:240px}
+.dash-migration-icon{font-size:26px;flex-shrink:0}
+.dash-migration-title{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:3px}
+.dash-migration-sub{font-size:12px;color:var(--t2);line-height:1.4}
+.dash-migration-actions{display:flex;gap:8px;flex-shrink:0}
+@media(max-width:600px){
+  .dash-migration-actions{width:100%}
+  .dash-migration-actions .btn{flex:1}
+}
+
+/* ══════════════════════════════════════════════════════════════
    DASHBOARD v2 Phase 7 — Empty state / Onboarding
    ══════════════════════════════════════════════════════════════ */
 .dash-onboarding{
@@ -1300,7 +1368,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.23</em>
+      <em>v12.24</em>
     </div>
   </div>
 
@@ -4150,6 +4218,52 @@ function setBailTab(tab, el2) { setTab('#ov-bail',el2,'bp-'); }
 /* v2 Phase 7 — Onboarding empty state : rendu quand l'utilisateur n'a encore
    aucun logement (app fraîchement installée). Remplace tout le contenu du
    dashboard par un CTA d'accueil clair avec parcours guidé. */
+/* v2 Phase 7 — Migration toast non-forcé (cahier §8.4).
+   Proposé une seule fois aux utilisateurs qui ont un layout pré-v2 sauvegardé.
+   Permet de revenir au nouveau layout par défaut sans perdre ses données. */
+function _checkDashMigrationV2() {
+  if(!DB.params) return;
+  if(DB.params.dashMigrationV2Prompted) return;  // Déjà proposé
+  const saved = DB.params.dashLayout || [];
+  if(!saved.length) { DB.params.dashMigrationV2Prompted = true; saveDB(); return; }
+  // Détection : widgets pré-v2 encore visibles ET aucun widget v2 présent
+  const PRE_V2 = ['cf','cfyr','rev','chg','bars','prog','solde','mag','mrh','irl','bail','regul','ass','vac','stat','enc'];
+  const V2_NEW = ['todo-unified','flux','hero','context-bar'];
+  const hasOldVisible = saved.some(w => PRE_V2.includes(w.id) && w.visible);
+  const hasV2 = saved.some(w => V2_NEW.includes(w.id));
+  if(!hasOldVisible || hasV2) { DB.params.dashMigrationV2Prompted = true; saveDB(); return; }
+  // Banner intégré au dashboard (pas un toast éphémère — décision posée)
+  const grid = el('dash-kpi-grid');
+  if(!grid) return;
+  const banner = document.createElement('div');
+  banner.className = 'dash-migration-banner';
+  banner.innerHTML = ''
+    + '<div class="dash-migration-body">'
+    +   '<span class="dash-migration-icon">\u2728</span>'
+    +   '<div>'
+    +     '<div class="dash-migration-title">Nouveau dashboard v2 disponible</div>'
+    +     '<div class="dash-migration-sub">Ton layout actuel contient d\'anciens widgets. R\u00e9initialiser pour b\u00e9n\u00e9ficier du nouvel agencement (hero + \u00c0 traiter + KPIs).</div>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="dash-migration-actions">'
+    +   '<button class="btn bp" onclick="_migrationV2Accept()">R\u00e9initialiser</button>'
+    +   '<button class="btn bs" onclick="_migrationV2Dismiss()">Plus tard</button>'
+    + '</div>';
+  grid.parentNode.insertBefore(banner, grid);
+}
+function _migrationV2Accept() {
+  if(DB.params) { DB.params.dashMigrationV2Prompted = true; }
+  if(typeof resetDashLayout === 'function') resetDashLayout();
+  document.querySelectorAll('.dash-migration-banner').forEach(b => b.remove());
+  if(typeof showToast === 'function') showToast('Dashboard r\u00e9initialis\u00e9 \u2713','ok');
+}
+function _migrationV2Dismiss() {
+  if(!DB.params) DB.params = {};
+  DB.params.dashMigrationV2Prompted = true;
+  saveDB();
+  document.querySelectorAll('.dash-migration-banner').forEach(b => b.remove());
+}
+
 function _renderDashOnboarding() {
   const hasEnt = DB.entites && DB.entites.length > 0;
   return ''
@@ -4240,6 +4354,8 @@ function rDash() {
   renderDashPanelBtns(layout);
   _dashCtx = {scopeLogs, mvs, mvsYTD, mvsPrev, yr, mo, refYrMo, activeEnt, scopeRefs, scopeImms};
   renderDashGrid(layout, _dashCtx);
+  // v2 Phase 7 — Vérifie une seule fois si l'utilisateur a besoin de la migration v2
+  if(typeof _checkDashMigrationV2 === 'function') _checkDashMigrationV2();
 
   const entsToShow = activeEnt ? DB.entites.filter(e=>e.nom===activeEnt) : DB.entites;
   const escAttr = s => String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
