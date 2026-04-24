@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.26</title>
+<title>ImmoTrack v12.27</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1368,7 +1368,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.26</em>
+      <em>v12.27</em>
     </div>
   </div>
 
@@ -5185,6 +5185,234 @@ function _buildOccDrill(ctx) {
 /* Drill-down pour le KPI fusionné flux (Revenus vs Charges) —
    v2 Phase 5 : dual-line chart 12 mois glissants (Y-axis graduée + légende)
    + tableau mois par mois. */
+/* Drill "Progression annuelle" — résumé + chart cumul 12 mois + tableau par logement */
+function _buildProgDrill(ctx) {
+  const {scopeLogs, yr, activeEnt, scopeRefs, scopeImms} = ctx;
+  const inclYTD = new Set(DB.categories.filter(c => DB.catConfig && DB.catConfig[c] && DB.catConfig[c].inclYTD));
+  const today = new Date();
+  const isCurYr = today.getFullYear() === parseInt(yr);
+  const lastVisibleMonth = isCurYr ? today.getMonth() + 1 : 12;  // 1..12
+  // Pour chaque immeuble : 1er mois où un loyer a été reçu dans l'année
+  const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
+  const immFirstMonth = {};  // {imm: monthIdx 0-11}
+  for(const m of DB.mouvements) {
+    if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date || !m.date.startsWith(yr)) continue;
+    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+    const log = scopeLogs.find(l => l.ref === m.qui);
+    const imm = (log && log.imm) || m.imm;
+    if(!imm || !immsDistinct.includes(imm)) continue;
+    const mi = parseInt(m.date.slice(5,7)) - 1;
+    if(immFirstMonth[imm] == null || mi < immFirstMonth[imm]) immFirstMonth[imm] = mi;
+  }
+  // Attendu par mois : Σ (HC+CH) des logements dont l'immeuble a démarré à ≤ m
+  const monthsAttendu = Array(12).fill(0);
+  for(let m = 0; m < 12; m++) {
+    for(const l of scopeLogs) {
+      const firstM = immFirstMonth[l.imm];
+      if(firstM != null && m >= firstM) monthsAttendu[m] += (l.hc||0) + (l.ch||0);
+    }
+  }
+  // Réalisé par mois : mvts inclYTD cr > 0
+  const monthsRealise = Array(12).fill(0);
+  for(const m of DB.mouvements) {
+    if(!m.date || !m.date.startsWith(yr)) continue;
+    if(!inclYTD.has(m.cat) || !(m.cr > 0)) continue;
+    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+    const mi = parseInt(m.date.slice(5,7)) - 1;
+    monthsRealise[mi] += m.cr;
+  }
+  // Cumul visible
+  const cumAttendu = [], cumRealise = [];
+  let cA = 0, cR = 0;
+  for(let m = 0; m < lastVisibleMonth; m++) {
+    cA += monthsAttendu[m];
+    cR += monthsRealise[m];
+    cumAttendu.push({value:cA, label:_DMC[m], mo:m+1, yr:parseInt(yr)});
+    cumRealise.push({value:cR, label:_DMC[m], mo:m+1, yr:parseInt(yr)});
+  }
+  const totAttendu = cA, totRealise = cR, totEcart = cR - cA;
+  const totPct = totAttendu > 0 ? Math.round(totRealise / totAttendu * 100) : 0;
+  // Cartes résumé
+  const card = (lab, val, color, sub) =>
+    '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    + '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">'+escHtml(lab)+'</div>'
+    + '<div style="font-size:24px;font-weight:600;margin-top:2px;color:'+color+'">'+val+'</div>'
+    + (sub ? '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+escHtml(sub)+'</div>' : '')
+    + '</div>';
+  const signed = v => (v>=0?'+':'')+fmt(v);
+  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
+    + card('Attendu à date', fmt(totAttendu), 'var(--t1)')
+    + card('Réalisé', fmt(totRealise), totRealise>=totAttendu?'var(--fg-success)':'var(--t1)', totPct+' % collecté')
+    + card('Écart', signed(totEcart), totEcart>=0?'var(--fg-success)':'var(--fg-danger)', totEcart>=0?'En avance':'En retard')
+    + '</div>';
+  // Chart cumul
+  const chartBlock = cumAttendu.length >= 2
+    ? '<div class="drill-chart">'
+      + '<div class="drill-chart-title">Progression cumulative — '+yr+'</div>'
+      + _mkMultiLineChart([
+          {label:'Attendu cumulé', color:'var(--fg-warning)', series:cumAttendu},
+          {label:'Réalisé cumulé', color:'var(--fg-info)',    series:cumRealise}
+        ], {
+          w:700, h:220, padding:14,
+          tooltipFormat:(pt, g) => _DMC[pt.mo-1]+' '+pt.yr+' — '+g.label+' : '+fmt(pt.value)
+        })
+      + '</div>'
+    : '';
+  // Tableau détaillé Entité > Immeuble > Logement
+  const entsToShow = activeEnt ? DB.entites.filter(e => e.nom === activeEnt) : DB.entites;
+  const rowsHtml = entsToShow.map(e => {
+    const eLogs = scopeLogs.filter(l => l.entity === e.nom);
+    if(!eLogs.length) return '';
+    // Par immeuble puis par logement
+    const byImm = {};
+    eLogs.forEach(l => { const k = l.imm || '—'; if(!byImm[k]) byImm[k] = []; byImm[k].push(l); });
+    // Compute entity totals
+    let eAtt = 0, eRea = 0;
+    const immRows = Object.entries(byImm).map(([immNom, iL]) => {
+      const firstM = immFirstMonth[immNom];
+      if(firstM == null) return null;  // immeuble sans 1er loyer ignoré
+      const monthsEl = Math.max(1, lastVisibleMonth - firstM);
+      // Per logement
+      const logRows = iL.map(l => {
+        const att = ((l.hc||0) + (l.ch||0)) * monthsEl;
+        const rea = DB.mouvements
+          .filter(m => m.qui === l.ref && m.date && m.date.startsWith(yr) && inclYTD.has(m.cat) && m.cr > 0)
+          .reduce((s,m) => s + m.cr, 0);
+        const ec = rea - att;
+        const pct = att > 0 ? Math.round(rea/att*100) : 0;
+        const ecCol = ec >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+        eAtt += att; eRea += rea;
+        return '<tr>'
+          + '<td style="padding:4px 6px 4px 28px;color:var(--t2)">\u00a0\u00a0'+escHtml(l.ref)+(l.locataire?' \u00b7 '+escHtml(l.locataire):'')+'</td>'
+          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+_DMC[firstM]+'</td>'
+          + '<td style="text-align:right;padding:4px 6px;color:var(--t3)">'+monthsEl+'</td>'
+          + '<td style="text-align:right;padding:4px 6px">'+fmt(att)+'</td>'
+          + '<td style="text-align:right;padding:4px 6px">'+fmt(rea)+'</td>'
+          + '<td style="text-align:right;padding:4px 6px;color:'+ecCol+';font-weight:500">'+signed(ec)+'</td>'
+          + '<td style="text-align:right;padding:4px 6px;color:'+ecCol+'">'+pct+'\u00a0%</td></tr>';
+      }).join('');
+      // Immeuble header row
+      const iAtt = iL.reduce((s,l) => s + ((l.hc||0)+(l.ch||0)) * monthsEl, 0);
+      const iRea = DB.mouvements
+        .filter(m => m.date && m.date.startsWith(yr) && inclYTD.has(m.cat) && m.cr > 0
+                  && (iL.some(l => l.ref === m.qui) || m.imm === immNom))
+        .reduce((s,m) => s + m.cr, 0);
+      const iEc = iRea - iAtt;
+      const iPct = iAtt > 0 ? Math.round(iRea/iAtt*100) : 0;
+      const iCol = iEc >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+      const immHeader = '<tr style="background:var(--sur3);font-weight:600">'
+        + '<td style="padding:5px 6px 5px 14px;color:var(--t1)">\u2514\u00a0'+escHtml(immNom)+'</td>'
+        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">'+_DMC[firstM]+'</td>'
+        + '<td style="text-align:right;padding:5px 6px;color:var(--t2)">'+monthsEl+'</td>'
+        + '<td style="text-align:right;padding:5px 6px">'+fmt(iAtt)+'</td>'
+        + '<td style="text-align:right;padding:5px 6px">'+fmt(iRea)+'</td>'
+        + '<td style="text-align:right;padding:5px 6px;color:'+iCol+'">'+signed(iEc)+'</td>'
+        + '<td style="text-align:right;padding:5px 6px;color:'+iCol+'">'+iPct+'\u00a0%</td></tr>';
+      return immHeader + logRows;
+    }).filter(Boolean).join('');
+    if(!immRows) return '';
+    // Entity header
+    const eEc = eRea - eAtt;
+    const ePct = eAtt > 0 ? Math.round(eRea/eAtt*100) : 0;
+    const eCol = eEc >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+    const entHeader = '<tr style="background:var(--sur2);font-weight:700;border-top:1px solid var(--bor)">'
+      + '<td style="padding:6px 8px;color:var(--t1)">'+escHtml(e.nom)+'</td>'
+      + '<td></td><td></td>'
+      + '<td style="text-align:right;padding:6px 8px">'+fmt(eAtt)+'</td>'
+      + '<td style="text-align:right;padding:6px 8px">'+fmt(eRea)+'</td>'
+      + '<td style="text-align:right;padding:6px 8px;color:'+eCol+'">'+signed(eEc)+'</td>'
+      + '<td style="text-align:right;padding:6px 8px;color:'+eCol+'">'+ePct+'\u00a0%</td></tr>';
+    return entHeader + immRows;
+  }).filter(Boolean).join('');
+  const tableHtml = rowsHtml
+    ? '<table class="tbl"><thead><tr><th>Entité / Immeuble / Logement</th><th style="text-align:right">1er loyer</th><th style="text-align:right">Mois</th><th style="text-align:right">Attendu</th><th style="text-align:right">Réalisé</th><th style="text-align:right">Écart</th><th style="text-align:right">% coll.</th></tr></thead><tbody>'
+      + rowsHtml
+      + '</tbody></table>'
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun 1er loyer reçu dans l\'année pour cette scope.</div>';
+  return {title:'Progression annuelle — '+yr, html:summary+chartBlock+tableHtml};
+}
+
+/* Drill "Solde provisions" — résumé + tableau croisé immeuble × catégorie */
+function _buildSoldeDrill(ctx) {
+  const {scopeLogs, yr, mo, activeEnt, scopeRefs, scopeImms} = ctx;
+  const nbMois = mo ? 1 : (new Date().getMonth() + 1);
+  const inclCh = new Set(DB.categories.filter(c => DB.catConfig && DB.catConfig[c] && DB.catConfig[c].inclCharges));
+  // Provisions par immeuble
+  const immsDistinct = [...new Set(scopeLogs.map(l => l.imm).filter(Boolean))];
+  const provByImm = {};
+  for(const l of scopeLogs) {
+    if(!l.locataire) continue;
+    const imm = l.imm || '—';
+    provByImm[imm] = (provByImm[imm] || 0) + (l.ch || 0) * nbMois;
+  }
+  // Matrice charges : matrix[imm][cat] = montant
+  const matrix = {};
+  const catTotals = {};
+  for(const m of DB.mouvements) {
+    if(!m.date || !m.date.startsWith(yr)) continue;
+    if(!(m.db > 0) || !inclCh.has(m.cat)) continue;
+    if(activeEnt && !scopeRefs.includes(m.qui) && !scopeImms.includes(m.imm) && m.qui !== 'SCI:'+activeEnt) continue;
+    const log = scopeLogs.find(l => l.ref === m.qui);
+    const imm = (log && log.imm) || m.imm;
+    if(!imm || !immsDistinct.includes(imm)) continue;
+    if(!matrix[imm]) matrix[imm] = {};
+    matrix[imm][m.cat] = (matrix[imm][m.cat] || 0) + m.db;
+    catTotals[m.cat] = (catTotals[m.cat] || 0) + m.db;
+  }
+  const cats = Object.keys(catTotals).sort((a,b) => catTotals[b] - catTotals[a]);
+  // Totaux globaux
+  const totProv = Object.values(provByImm).reduce((s,v) => s+v, 0);
+  const totCharges = Object.values(catTotals).reduce((s,v) => s+v, 0);
+  const totSolde = totProv - totCharges;
+  // Cartes résumé
+  const card = (lab, val, color, sub) =>
+    '<div style="padding:12px 14px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor)">'
+    + '<div style="font-size:11px;color:var(--t3);letter-spacing:.3px;text-transform:uppercase">'+escHtml(lab)+'</div>'
+    + '<div style="font-size:24px;font-weight:600;margin-top:2px;color:'+color+'">'+val+'</div>'
+    + (sub ? '<div style="font-size:11px;color:var(--t2);margin-top:2px">'+escHtml(sub)+'</div>' : '')
+    + '</div>';
+  const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">'
+    + card('Provisions', fmt(totProv), 'var(--t1)', nbMois+' mois')
+    + card('Charges payées', fmt(totCharges), 'var(--fg-danger)')
+    + card('Solde', (totSolde>=0?'+':'')+fmt(totSolde), totSolde>=0?'var(--fg-success)':'var(--fg-danger)', totSolde>=0?'Provisions suffisantes':'Manque à combler')
+    + '</div>';
+  // Tableau croisé
+  const tableHtml = immsDistinct.length
+    ? '<table class="tbl" style="font-size:12px">'
+      + '<thead><tr>'
+      +   '<th style="text-align:left">Immeuble</th>'
+      +   '<th style="text-align:right">Provisions</th>'
+      +   cats.map(c => '<th style="text-align:right">'+escHtml(c)+'</th>').join('')
+      +   '<th style="text-align:right">Total charges</th>'
+      +   '<th style="text-align:right">Solde</th>'
+      + '</tr></thead><tbody>'
+      + immsDistinct.sort().map(imm => {
+          const prov = provByImm[imm] || 0;
+          const catRow = cats.map(c => {
+            const v = (matrix[imm] && matrix[imm][c]) || 0;
+            return '<td style="text-align:right;padding:5px 8px;color:'+(v>0?'var(--fg-danger)':'var(--t3)')+'">'+(v>0?fmt(v):'—')+'</td>';
+          }).join('');
+          const totImmCh = cats.reduce((s,c) => s + ((matrix[imm] && matrix[imm][c]) || 0), 0);
+          const solde = prov - totImmCh;
+          const soldeCol = solde >= 0 ? 'var(--fg-success)' : 'var(--fg-danger)';
+          return '<tr><td style="padding:5px 8px;font-weight:500">'+escHtml(imm)+'</td>'
+            + '<td style="text-align:right;padding:5px 8px">'+fmt(prov)+'</td>'
+            + catRow
+            + '<td style="text-align:right;padding:5px 8px;font-weight:500;color:var(--fg-danger)">'+fmt(totImmCh)+'</td>'
+            + '<td style="text-align:right;padding:5px 8px;font-weight:700;color:'+soldeCol+'">'+(solde>=0?'+':'')+fmt(solde)+'</td></tr>';
+        }).join('')
+      + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)">'
+      +   '<td style="padding:6px 8px">Total</td>'
+      +   '<td style="text-align:right;padding:6px 8px">'+fmt(totProv)+'</td>'
+      +   cats.map(c => '<td style="text-align:right;padding:6px 8px;color:var(--fg-danger)">'+fmt(catTotals[c])+'</td>').join('')
+      +   '<td style="text-align:right;padding:6px 8px;color:var(--fg-danger)">'+fmt(totCharges)+'</td>'
+      +   '<td style="text-align:right;padding:6px 8px;color:'+(totSolde>=0?'var(--fg-success)':'var(--fg-danger)')+'">'+(totSolde>=0?'+':'')+fmt(totSolde)+'</td>'
+      + '</tr></tfoot></table>'
+    : '<div class="mu sm" style="text-align:center;padding:24px">Aucun immeuble dans ce scope.</div>';
+  const periodLabel = mo ? _DMF[parseInt(mo)-1]+' '+yr : 'Année '+yr;
+  return {title:'Solde provisions de charges — '+periodLabel, html:summary+tableHtml};
+}
+
 function _buildFluxDrill(ctx) {
   const revS = _kpiMonthlySeries(ctx, 12, m => m.cat === 'Loyers' ? (m.cr||0) : 0);
   const chgS = _kpiMonthlySeries(ctx, 12, m => (m.db||0));
@@ -6254,16 +6482,20 @@ function buildDashWidget(id, ctx, col=3, row=2) {
         + '</tr></tfoot></table>'
       : '<div class="mu sm" style="margin-top:10px;text-align:center">Aucun 1er loyer reçu dans l\'année sur cette scope.</div>';
 
+    _DD['prog'] = _buildProgDrill(ctx);
     const header = '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">'
       + '<span class="dw-kpi-label" style="margin-bottom:0">Progression annuelle \u2014 '+yr+'</span>'
       + '<span style="font-size:13px;font-weight:700;color:'+deltaCol(totEcart)+'">'+totTaux+'\u00a0% collect\u00e9</span>'
       + '</div>';
-
-    return wd(header
+    const body = '<button type="button" class="dw-kpi-click" '
+      + 'onclick="_dashCardClick(\'prog\',event)" '
+      + 'aria-label="Voir le détail de la progression annuelle">'
+      + header
       + gauge(barPct, totEcart >= 0 ? 'var(--grn)' : 'var(--red)', 7)
       + tableHtml
-      + `<div style="font-size:10px;color:var(--t3);margin-top:6px;font-style:italic">Base : 1er loyer par immeuble \u00b7 Travaux/vacances inclus dans l'attendu (manque \u00e0 gagner) \u00b7 Cat\u00e9gories : ${[...inclYTD].join(', ')||'configurer dans R\u00e9f\u00e9rentiel'}</div>`,
-      '', totEcart >= 0 ? 'grn' : 'red');
+      + `<div style="font-size:10px;color:var(--t3);margin-top:6px;font-style:italic">Base : 1er loyer par immeuble \u00b7 Travaux/vacances inclus dans l'attendu (manque \u00e0 gagner) \u00b7 Cat\u00e9gories : ${[...inclYTD].join(', ')||'configurer dans R\u00e9f\u00e9rentiel'}</div>`
+      + '</button>';
+    return wd(body, '', totEcart >= 0 ? 'grn' : 'red');
   }
   /* ── v2 Phase 3 polish — Rendement brut EFFECTIF ANNUALISÉ PAR IMMEUBLE
      (choix utilisateur : ne prendre que depuis le 1er mouvement de l'immeuble).
@@ -6421,10 +6653,15 @@ function buildDashWidget(id, ctx, col=3, row=2) {
         +   '<td style="text-align:right;padding:4px;color:'+(totSol>=0?'var(--grn)':'var(--red)')+'">'+fmt(totSol)+'</td>'
         + '</tr></tfoot></table>'
       : '<div class="mu sm" style="margin-top:8px;text-align:center">Aucun logement dans ce scope.</div>';
-    return wd(lbl('Solde provisions de charges \u2014 par immeuble ('+nbMois+'\u00a0mois)')
+    _DD['solde'] = _buildSoldeDrill(ctx);
+    const body = '<button type="button" class="dw-kpi-click" '
+      + 'onclick="_dashCardClick(\'solde\',event)" '
+      + 'aria-label="Voir le détail du solde de provisions">'
+      + lbl('Solde provisions de charges \u2014 par immeuble ('+nbMois+'\u00a0mois)')
       + tableHtml
-      + `<div style="font-size:9px;color:var(--t3);margin-top:4px">Cat\u00e9gories incluses : ${hint}</div>`,
-      '', totSol >= 0 ? 'grn' : 'red');
+      + `<div style="font-size:9px;color:var(--t3);margin-top:4px">Cat\u00e9gories incluses : ${hint}</div>`
+      + '</button>';
+    return wd(body, '', totSol >= 0 ? 'grn' : 'red');
   }
   if(id==='enc') {
     const loyEnc=mvs.filter(m=>m.cat==='Loyers'&&m.cr>0).reduce((s,m)=>s+(m.cr||0),0);
