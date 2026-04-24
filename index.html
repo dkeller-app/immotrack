@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.35</title>
+<title>ImmoTrack v12.36</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1368,7 +1368,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.35</em>
+      <em>v12.36</em>
     </div>
   </div>
 
@@ -1720,6 +1720,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <div class="page" id="p-equipements">
       <div class="flex-b mb16" style="flex-wrap:wrap;gap:10px">
         <div class="flex-c" style="gap:8px">
+          <select class="inp" id="equip-f-imm" onchange="onEquipImmChange()" style="width:200px"><option value="">Tous immeubles</option></select>
           <select class="inp" id="equip-f-log" onchange="rEquipements()" style="width:200px"><option value="">Tous logements</option></select>
         </div>
         <button class="btn bp" onclick="openEquipIntervention(null)">+ Intervention</button>
@@ -1732,10 +1733,6 @@ textarea.inp{resize:vertical;min-height:70px}
       <div class="modal" style="max-width:500px">
         <div class="m-head"><h3>Enregistrer une intervention</h3><button class="m-close" onclick="closeM('ov-equip-interv')">✕</button></div>
         <div class="m-body">
-          <div class="fg">
-            <label>Immeuble</label>
-            <select class="inp" id="ei-imm"></select>
-          </div>
           <div class="fg2">
             <div class="fg">
               <label>Logement</label>
@@ -12517,18 +12514,38 @@ function agendaSyncAuto() {
 // ÉQUIPEMENTS — Suivi entretiens par logement
 // ══════════════════════════════════════════════════════════════
 
+function onEquipImmChange() {
+  // Reset le filtre logement quand l'immeuble change (évite d'avoir une
+  // sélection logement incohérente avec le nouvel immeuble)
+  const logSel = el('equip-f-log');
+  if(logSel) logSel.value = '';
+  rEquipements();
+}
+
 function rEquipements() {
+  const fImm = v('equip-f-imm');
   const fLog = v('equip-f-log');
-  // Remplir le filtre logement
+
+  // Remplir le filtre immeuble (dérivé des logements occupés)
+  const immSel = el('equip-f-imm');
+  if(immSel) {
+    const cur = immSel.value;
+    const imms = [...new Set(DB.logements.filter(l=>l.locataire).map(l=>l.imm))].filter(Boolean).sort();
+    immSel.innerHTML = '<option value="">Tous immeubles</option>'
+      + imms.map(i=>`<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
+    if(cur) immSel.value = cur;
+  }
+
+  // Remplir le filtre logement (filtré par immeuble si sélectionné)
   const logSel = el('equip-f-log');
   if(logSel) {
     const cur = logSel.value;
     logSel.innerHTML = '<option value="">Tous logements</option>'
-      + DB.logements.filter(l=>l.locataire).map(l=>`<option value="${l.ref}">${l.ref} — ${escHtml((l.locataire||'').substring(0,25))}</option>`).join('');
+      + DB.logements.filter(l=>l.locataire && (!fImm || l.imm===fImm)).map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml((l.locataire||'').substring(0,25))}</option>`).join('');
     if(cur) logSel.value = cur;
   }
 
-  const logs = DB.logements.filter(l => l.locataire && (!fLog || l.ref === fLog));
+  const logs = DB.logements.filter(l => l.locataire && (!fImm || l.imm===fImm) && (!fLog || l.ref === fLog));
   const container = el('equip-list'); if(!container) return;
   if(!logs.length) { container.innerHTML = '<p class="mu">Aucun logement loué trouvé.</p>'; return; }
 
@@ -12593,24 +12610,10 @@ function openEquipIntervention(ref, key) {
   _equipEditRef = ref || null;
   _equipEditKey = key || null;
 
-  // Remplir le select immeuble (dérivé des logements occupés)
-  const immSel = el('ei-imm');
-  const imms = [...new Set(DB.logements.filter(l=>l.locataire).map(l=>l.imm))].filter(Boolean).sort();
-  immSel.innerHTML = '<option value="">Tous immeubles</option>' + imms.map(i=>`<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
-
-  // Pré-sélectionner l'immeuble si un logement est fourni
-  if(ref) {
-    const log = DB.logements.find(l=>l.ref===ref);
-    if(log && log.imm) immSel.value = log.imm;
-  }
-
-  // Remplir le select logement (filtré par immeuble si sélectionné)
-  _fillEquipLogSelect();
+  // Remplir le select logement
   const logSel = el('ei-log');
+  logSel.innerHTML = DB.logements.filter(l=>l.locataire).map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml((l.locataire||'').substring(0,25))}</option>`).join('');
   if(ref) logSel.value = ref;
-
-  // Handlers : changement d'immeuble → re-filtrer logement + types
-  immSel.onchange = ()=>{ _fillEquipLogSelect(); _fillEquipTypeSelect(); };
 
   // Remplir les types d'équipements selon le logement sélectionné
   _fillEquipTypeSelect();
@@ -12626,15 +12629,6 @@ function openEquipIntervention(ref, key) {
   el('ei-notes').value  = entry.notes  || '';
 
   openM('ov-equip-interv');
-}
-
-function _fillEquipLogSelect() {
-  const immFilter = el('ei-imm').value;
-  const logSel = el('ei-log');
-  const cur = logSel.value;
-  const logs = DB.logements.filter(l=>l.locataire && (!immFilter || l.imm===immFilter));
-  logSel.innerHTML = logs.map(l=>`<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml((l.locataire||'').substring(0,25))}</option>`).join('');
-  if(cur && logs.some(l=>l.ref===cur)) logSel.value = cur;
 }
 
 function _fillEquipTypeSelect() {
