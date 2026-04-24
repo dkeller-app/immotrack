@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.25</title>
+<title>ImmoTrack v12.26</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -105,7 +105,7 @@
 [data-fontsize="lg"] .dw-flux-value   { font-size: 30px }
 [data-fontsize="lg"] .dw-flux-net     { font-size: 15px }
 [data-fontsize="lg"] .dw-context-date { font-size: 13px }
-[data-fontsize="lg"] .dw-context-greet{ font-size: 21px }  /* row 1 = 60px, limite */
+[data-fontsize="lg"] .dw-context-greet{ font-size: 19px; line-height:1.1 }  /* row 1 = 60px, ne pas déborder */
 [data-fontsize="lg"] .dw-sep-label    { font-size: 13px }
 [data-fontsize="lg"] .dw-todo-title   { font-size: 16px }
 [data-fontsize="lg"] .dw-todo-count   { font-size: 13px }
@@ -693,7 +693,7 @@ textarea.inp{resize:vertical;min-height:70px}
 }
 .dw-context-left{display:flex;flex-direction:column;gap:2px;min-width:0}
 .dw-context-date{font-size:12px;color:var(--t3);letter-spacing:.3px}
-.dw-context-greet{font-size:18px;font-weight:500;color:var(--t1);line-height:1.25}
+.dw-context-greet{font-size:18px;font-weight:500;color:var(--t1);line-height:1.15}
 .dw-context-right{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
 
 /* ── Hero Pulse ── */
@@ -1368,7 +1368,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.25</em>
+      <em>v12.26</em>
     </div>
   </div>
 
@@ -4473,14 +4473,16 @@ const DASH_DEFAULT_LAYOUT = [
   {id:'rdt',   label:'Rendement brut',              col:3, row:2, visible:true},
   {id:'donut', label:'Charges catégories',          col:3, row:2, visible:true},
   {id:'dg',    label:'Dépôts de garantie',          col:3, row:2, visible:true},
+  /* v2 Phase 7 — Progression & Solde provisions côte-à-côte sous la rangée KPI
+     (col 6 + col 6, row 4 — même hauteur que flux au-dessus) */
+  {id:'prog',  label:'Progression annuelle',            col:6, row:4, visible:true},
+  {id:'solde', label:'Solde provisions par immeuble',   col:6, row:4, visible:true},
   /* v2 — masqués par défaut, rôle repris par flux/hero (réactivables via ⚙ Widgets) */
   {id:'rev',   label:'Revenus loyers',              col:3, row:2, visible:false},  // fusionné dans flux
   {id:'chg',   label:'Charges totales',             col:3, row:2, visible:false},  // fusionné dans flux
   {id:'bars',  label:'Graphique rev./charges',      col:6, row:4, visible:false},  // redondant avec flux
   {id:'cf',    label:'Cash-flow net',               col:3, row:2, visible:false},
   {id:'cfyr',  label:'Cash-flow YTD',               col:3, row:2, visible:false},
-  {id:'prog',  label:'Progression annuelle',        col:4, row:2, visible:false},
-  {id:'solde', label:'Solde provisions par immeuble', col:8, row:3, visible:true},
   {id:'sep-gestion', type:'separator', label:'Gestion locative', col:12, row:1, visible:true},
   /* v2 Phase 4 polish — À traiter a été remonté à côté du hero (top) → agenda seul ici */
   {id:'agenda-dash',  label:'Agenda — 15 prochains jours', col:12, row:4, visible:true},
@@ -6147,61 +6149,121 @@ function buildDashWidget(id, ctx, col=3, row=2) {
       + '</button>';
     return wd(body, '', 'blu');
   }
-  /* ── v2 Phase 7 — Progression annuelle PAR IMMEUBLE (choix user)
+  /* ── v2 Phase 7 — Progression annuelle HIÉRARCHIQUE par entité > immeuble
      Chaque immeuble démarre son compteur à son 1er loyer reçu dans l'année.
-     L'attendu = Σ(HC+CH) des logements de l'immeuble × mois_écoulés.
-     Travaux / vacances inclus dans l'attendu (manque à gagner visible
-     dans le delta attendu − réalisé). ── */
+     Attendu = Σ(HC+CH) logements × mois_écoulés depuis 1er loyer.
+     Travaux / vacances inclus dans l'attendu (cf. delta = manque à gagner).
+     Structure : entité en ligne-titre, immeubles en sous-lignes. ── */
   if(id==='prog') {
-    const inclYTD = new Set(DB.categories.filter(c=>DB.catConfig&&DB.catConfig[c]&&DB.catConfig[c].inclYTD));
-    const realYTD = mvsYTD.filter(m=>m.cr>0&&inclYTD.has(m.cat)).reduce((s,m)=>s+(m.cr||0),0);
-    // Fin de période : fin du mois sélectionné ou aujourd'hui si année courante
+    const inclYTD = new Set(DB.categories.filter(c => DB.catConfig && DB.catConfig[c] && DB.catConfig[c].inclYTD));
     const todayForProg = new Date();
     const endPeriod = mo
       ? new Date(parseInt(yr), parseInt(mo), 0)
       : (todayForProg.getFullYear() === parseInt(yr) ? todayForProg : new Date(parseInt(yr), 11, 31));
-    // Grouper les logements par immeuble
-    const logsByImm = {};
-    for(const l of scopeLogs) {
-      const k = l.imm || '\u2014';
-      if(!logsByImm[k]) logsByImm[k] = [];
-      logsByImm[k].push(l);
-    }
-    // Pour chaque immeuble : trouver 1er mvt loyer dans l'année, calculer attendu
-    let attenduADate = 0;
-    let nbImmCompte = 0;
-    for(const [immNom, iL] of Object.entries(logsByImm)) {
-      const refs = iL.map(l => l.ref);
+
+    // Helper : calcule attendu + réalisé pour un groupe de logements
+    const computeGroup = (logs) => {
+      if(!logs.length) return {attendu:0, realise:0, firstIso:null};
+      const refs = logs.map(l => l.ref);
+      const imms = [...new Set(logs.map(l => l.imm).filter(Boolean))];
       let firstIso = null;
+      let realise = 0;
       for(const m of DB.mouvements) {
-        if(m.cat !== 'Loyers' || !(m.cr > 0) || !m.date) continue;
-        if(!m.date.startsWith(yr)) continue;
-        if(!refs.includes(m.qui) && m.imm !== immNom) continue;
-        if(!firstIso || m.date < firstIso) firstIso = m.date;
+        if(!m.date || !m.date.startsWith(yr)) continue;
+        const matches = refs.includes(m.qui) || imms.includes(m.imm);
+        if(!matches) continue;
+        // 1er loyer reçu (pour la date de démarrage de l'attendu)
+        if(m.cat === 'Loyers' && (m.cr||0) > 0 && (!firstIso || m.date < firstIso)) firstIso = m.date;
+        // Réalisé : catégories cochées inclYTD avec cr > 0
+        if(inclYTD.has(m.cat) && (m.cr||0) > 0) realise += m.cr;
       }
-      if(!firstIso) continue;  // immeuble non actif cette année
-      const firstDate = new Date(firstIso + 'T00:00:00');
-      if(firstDate > endPeriod) continue;
-      const months = Math.max(1,
-        (endPeriod.getFullYear() - firstDate.getFullYear()) * 12 +
-        (endPeriod.getMonth() - firstDate.getMonth()) + 1
-      );
-      const monthlyRev = iL.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
-      attenduADate += monthlyRev * months;
-      nbImmCompte++;
+      let attendu = 0;
+      if(firstIso) {
+        const firstDate = new Date(firstIso + 'T00:00:00');
+        if(firstDate <= endPeriod) {
+          const months = Math.max(1,
+            (endPeriod.getFullYear() - firstDate.getFullYear()) * 12 +
+            (endPeriod.getMonth() - firstDate.getMonth()) + 1
+          );
+          const monthlyRev = logs.reduce((s,l) => s+(l.hc||0)+(l.ch||0), 0);
+          attendu = monthlyRev * months;
+        }
+      }
+      return {attendu, realise, firstIso};
+    };
+
+    // Grouper par entité > immeuble
+    const entsToShow = activeEnt ? DB.entites.filter(e => e.nom === activeEnt) : DB.entites;
+    const groups = [];  // [{entNom, attendu, realise, firstIso, immeubles:[{immNom, ...}]}]
+    for(const e of entsToShow) {
+      const eLogs = scopeLogs.filter(l => l.entity === e.nom);
+      if(!eLogs.length) continue;
+      const entRes = computeGroup(eLogs);
+      if(!entRes.firstIso) continue;  // entité sans 1er loyer ignorée
+      // Sous-groupes par immeuble
+      const byImm = {};
+      eLogs.forEach(l => { const k = l.imm || '\u2014'; if(!byImm[k]) byImm[k] = []; byImm[k].push(l); });
+      const immeubles = Object.entries(byImm)
+        .map(([immNom, iL]) => ({immNom, ...computeGroup(iL)}))
+        .filter(r => r.firstIso)
+        .sort((a,b) => (b.attendu - b.realise) - (a.attendu - a.realise));  // tri par écart décroissant (pire en haut)
+      groups.push({entNom: e.nom, ...entRes, immeubles});
     }
-    const ecart = realYTD - attenduADate;
-    const taux = attenduADate > 0 ? Math.round(realYTD/attenduADate*100) : 0;
-    const barPct = attenduADate > 0 ? Math.min(100, taux) : 0;
-    const metaImm = nbImmCompte + ' immeuble'+(nbImmCompte>1?'s':'')+' actif'+(nbImmCompte>1?'s':'');
-    return wd(lbl('Progression annuelle\u00a0\u2014\u00a0'+yr)
-      +`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:5px">`
-      +`<div><div style="font-size:9px;color:var(--t3)">Attendu \u00e0 date<\/div><div style="font-size:13px;font-weight:600">${fmt(attenduADate)}<\/div><div style="font-size:9px;color:var(--t3)">${metaImm}<\/div><\/div>`
-      +`<div><div style="font-size:9px;color:var(--t3)">R\u00e9alis\u00e9 YTD<\/div><div style="font-size:13px;font-weight:600;color:${realYTD>=attenduADate?'var(--grn)':'var(--t1)'}">${fmt(realYTD)}<\/div><div style="font-size:9px;color:var(--t3)">${taux}\u00a0% collect\u00e9<\/div><\/div>`
-      +`<div><div style="font-size:9px;color:var(--t3)">Avance\u00a0/\u00a0Retard<\/div><div style="font-size:13px;font-weight:700;color:${ecart>=0?'var(--grn)':'var(--red)'}">${ecart>=0?'+':''}${fmt(ecart)}<\/div><div style="font-size:9px;color:${ecart>=0?'var(--grn)':'var(--red)'}">${ecart>=0?'En avance':'En retard'}<\/div><\/div><\/div>`
-      +gauge(barPct,ecart>=0?'var(--grn)':'var(--red)',7)
-      +`<div style="font-size:9px;color:var(--t3);margin-top:3px">Cat\u00e9gories\u00a0: ${[...inclYTD].join(', ')||'Aucune \u2014 configurer dans R\u00e9f\u00e9rentiel \u203a Cat\u00e9gories'} \u00b7 Base : 1er loyer par immeuble<\/div>`,
-      '', ecart>=0?'grn':'red');
+
+    const totAttendu = groups.reduce((s,g) => s+g.attendu, 0);
+    const totRealise = groups.reduce((s,g) => s+g.realise, 0);
+    const totEcart = totRealise - totAttendu;
+    const totTaux = totAttendu > 0 ? Math.round(totRealise/totAttendu*100) : 0;
+    const barPct = totAttendu > 0 ? Math.min(100, totTaux) : 0;
+
+    const deltaCol = (v) => v >= 0 ? 'var(--grn)' : 'var(--red)';
+    const signed = (v) => (v>=0?'+':'')+fmt(v);
+
+    const tableHtml = groups.length
+      ? '<table style="width:100%;font-size:11.5px;margin-top:8px;border-collapse:collapse">'
+        + '<thead><tr style="color:var(--t3);font-weight:600;border-bottom:1px solid var(--bor)">'
+        +   '<th style="text-align:left;padding:4px 5px">Entité / Immeuble</th>'
+        +   '<th style="text-align:right;padding:4px 5px">Attendu</th>'
+        +   '<th style="text-align:right;padding:4px 5px">Réalisé</th>'
+        +   '<th style="text-align:right;padding:4px 5px">Écart</th>'
+        + '</tr></thead><tbody>'
+        + groups.map(g => {
+            const gEcart = g.realise - g.attendu;
+            const entRow = '<tr style="background:var(--sur2);font-weight:700">'
+              + '<td style="padding:5px 6px;color:var(--t1)">'+escHtml(g.entNom)+'</td>'
+              + '<td style="text-align:right;padding:5px 6px">'+fmt(g.attendu)+'</td>'
+              + '<td style="text-align:right;padding:5px 6px">'+fmt(g.realise)+'</td>'
+              + '<td style="text-align:right;padding:5px 6px;color:'+deltaCol(gEcart)+'">'+signed(gEcart)+'</td>'
+              + '</tr>';
+            const immRows = g.immeubles.map(im => {
+              const imEcart = im.realise - im.attendu;
+              return '<tr>'
+                + '<td style="padding:4px 6px 4px 20px;color:var(--t2)">\u2514\u00a0'+escHtml(im.immNom)+'</td>'
+                + '<td style="text-align:right;padding:4px 6px">'+fmt(im.attendu)+'</td>'
+                + '<td style="text-align:right;padding:4px 6px">'+fmt(im.realise)+'</td>'
+                + '<td style="text-align:right;padding:4px 6px;color:'+deltaCol(imEcart)+'">'+signed(imEcart)+'</td>'
+                + '</tr>';
+            }).join('');
+            return entRow + immRows;
+          }).join('')
+        + '</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--bor)">'
+        +   '<td style="padding:6px">Total</td>'
+        +   '<td style="text-align:right;padding:6px">'+fmt(totAttendu)+'</td>'
+        +   '<td style="text-align:right;padding:6px">'+fmt(totRealise)+'</td>'
+        +   '<td style="text-align:right;padding:6px;color:'+deltaCol(totEcart)+'">'+signed(totEcart)+'</td>'
+        + '</tr></tfoot></table>'
+      : '<div class="mu sm" style="margin-top:10px;text-align:center">Aucun 1er loyer reçu dans l\'année sur cette scope.</div>';
+
+    const header = '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px">'
+      + '<span class="dw-kpi-label" style="margin-bottom:0">Progression annuelle \u2014 '+yr+'</span>'
+      + '<span style="font-size:13px;font-weight:700;color:'+deltaCol(totEcart)+'">'+totTaux+'\u00a0% collect\u00e9</span>'
+      + '</div>';
+
+    return wd(header
+      + gauge(barPct, totEcart >= 0 ? 'var(--grn)' : 'var(--red)', 7)
+      + tableHtml
+      + `<div style="font-size:10px;color:var(--t3);margin-top:6px;font-style:italic">Base : 1er loyer par immeuble \u00b7 Travaux/vacances inclus dans l'attendu (manque \u00e0 gagner) \u00b7 Cat\u00e9gories : ${[...inclYTD].join(', ')||'configurer dans R\u00e9f\u00e9rentiel'}</div>`,
+      '', totEcart >= 0 ? 'grn' : 'red');
   }
   /* ── v2 Phase 3 polish — Rendement brut EFFECTIF ANNUALISÉ PAR IMMEUBLE
      (choix utilisateur : ne prendre que depuis le 1er mouvement de l'immeuble).
