@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.39</title>
+<title>ImmoTrack v12.40</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1416,7 +1416,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.39</em>
+      <em>v12.40</em>
     </div>
   </div>
 
@@ -2219,7 +2219,7 @@ textarea.inp{resize:vertical;min-height:70px}
         </div>
       </div>
       <div class="fg2">
-        <div class="fg"><label>Loyer HC (€) *</label><input class="inp" type="number" id="b-hc" min="0" step="0.01"></div>
+        <div class="fg"><label title="Hors Charges — loyer net mensuel hors provisions de charges">Loyer HC (€) *</label><input class="inp" type="number" id="b-hc" min="0" step="0.01"></div>
         <div class="fg"><label>Charges mensuelles (€)</label><input class="inp" type="number" id="b-ch" min="0" step="0.01"></div>
       </div>
       <div class="fg2">
@@ -2238,7 +2238,7 @@ textarea.inp{resize:vertical;min-height:70px}
       </div>
       <div class="fg2">
         <div class="fg">
-          <label>Trimestre IRL référence <span class="mu sm">(auto depuis date début)</span></label>
+          <label title="Indice de Référence des Loyers — base INSEE (T4 1998 = 100), publié trimestriellement, sert au calcul de la révision annuelle">Trimestre IRL référence <span class="mu sm">(auto depuis date début)</span></label>
           <div style="display:flex;gap:6px;align-items:center">
             <select class="inp" id="b-irl" style="flex:1"></select>
             <button class="btn bs bb" onclick="autoIRLTrimestre()" title="Calculer depuis date début">⚡ Auto</button>
@@ -2408,8 +2408,8 @@ textarea.inp{resize:vertical;min-height:70px}
     <!-- Tab: Diagnostics -->
     <div class="tab-panel" id="bp-diag">
       <div class="fg2">
-        <div class="fg"><label>Classe DPE</label><select class="inp" id="b-dpe"><option value="">-</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
-        <div class="fg"><label>Classe GES</label><select class="inp" id="b-ges"><option value="">-</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
+        <div class="fg"><label title="Diagnostic de Performance Énergétique — note de A (très performant) à G (très énergivore), obligatoire dans le bail">Classe DPE</label><select class="inp" id="b-dpe"><option value="">-</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
+        <div class="fg"><label title="émissions de Gaz à Effet de Serre — note de A (faibles émissions) à G (fortes), associée au DPE">Classe GES</label><select class="inp" id="b-ges"><option value="">-</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
       </div>
       <div class="fg2">
         <div class="fg"><label>Date DPE</label><input class="inp" type="date" id="b-dpeDate"></div>
@@ -2425,7 +2425,7 @@ textarea.inp{resize:vertical;min-height:70px}
       </div>
       <div class="fg2">
         <div class="fg"><label>Bruit</label><input class="inp" id="b-bruit" placeholder="RAS / Zone..."></div>
-        <div class="fg"><label>ERP / État des risques</label><input class="inp" id="b-erp" placeholder="RAS / Date..."></div>
+        <div class="fg"><label title="État des Risques et Pollutions — informe le locataire des risques naturels, miniers, technologiques, sismiques et radon dans la commune (loi ENL 2003)">ERP / État des risques</label><input class="inp" id="b-erp" placeholder="RAS / Date..."></div>
       </div>
       <div class="fg"><label>Société diagnostic</label><input class="inp" id="b-diagSoc"></div>
     </div>
@@ -8033,8 +8033,8 @@ function rBaux() {
     return `<div class="bail-card">
       <div class="bc-top">
         <div>
-          <div class="bc-ref">${l.ref} <span class="mu" style="font-weight:400;font-size:12px">${l.type} ${l.surf?l.surf+'m²':''} ${l.etage||''}</span></div>
-          <div class="bc-loc">${l.locataire||'<span class="mu">Vacant</span>'}</div>
+          <div class="bc-ref">${escHtml(l.ref)} <span class="mu" style="font-weight:400;font-size:12px">${escHtml(l.type||'')} ${l.surf?l.surf+'m²':''} ${escHtml(l.etage||'')}</span></div>
+          <div class="bc-loc">${l.locataire?escHtml(l.locataire):'<span class="mu">Vacant</span>'}</div>
         </div>
         <div class="flex-c">
           ${status.badge}
@@ -8056,7 +8056,7 @@ function rBaux() {
           <button class="btn bs bb" onclick="genActeCautionnementRef('${l.ref}')" title="Acte de cautionnement séparé">📋 Garant</button>
           <button class="btn br bb" onclick="delBail('${l.ref}')">🗑</button>
         </div>
-        <div class="mu sm">${l.entity||'–'}</div>
+        <div class="mu sm">${l.entity?escHtml(l.entity):'–'}</div>
       </div>
     </div>`;
   }).join('');
@@ -8478,6 +8478,20 @@ function saveBail() {
   if(!ref) { showToast('Référence logement requise','err'); return; }
   const locs = getBailLocs().filter(l=>l.nom.trim());
   if(!locs.length) { showToast('Au moins un locataire requis','err'); return; }
+
+  // Validations supplémentaires (v12.40 — étape 3 phase 1a)
+  // Bloquante : dates incohérentes
+  const _debut = v('b-debut'), _fin = v('b-fin');
+  if(_debut && _fin && _debut > _fin) {
+    showToast('Date début doit être antérieure à date fin','err'); return;
+  }
+  // Soft : HC = 0 → demander confirmation (cas atypique, p.ex. logement gratuit)
+  if(pf('b-hc') === 0) {
+    if(!confirm2('Loyer HC = 0 €. Confirmer ?')) return;
+  }
+  // Soft : email format invalide → warn sans bloquer (corriger plus tard)
+  const _badMail = locs.find(l => l.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(l.email));
+  if(_badMail) showToast(`⚠️ Email invalide pour ${_badMail.nom} : ${_badMail.email}`, 'warn');
 
   // Protection contre l'écrasement d'un bail actif avec un locataire différent
   const editRef = v('b-edit-ref'); // vide si nouveau bail, rempli si modification
