@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.51</title>
+<title>ImmoTrack v12.52</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.51</em>
+      <em>v12.52</em>
     </div>
   </div>
 
@@ -12430,6 +12430,18 @@ ${bloc1}${bloc2}
   win.document.write(_injectPreviewCloseButton(html));
   win.document.close();
 }
+
+// ─── Phase 3a (v12.52) — Namespace BailDocument ──────────────────────────────
+// API canonique des générateurs de documents Bail.
+// Implémentation alias-only : pointe vers les fonctions globales existantes
+// (zéro déplacement de code → zéro risque de régression sur le rendu).
+// Les corps évolueront en 3b (templates ES6) et 3c (extraction des constantes).
+// Phase 3d intégrera ce namespace dans Bail.document = BailDocument.
+const BailDocument = {
+  previewHTML:               previewBailData,
+  exportWord:                exportBailWord,
+  generateActeCautionnement: genActeCautionnementDoc,
+};
 
 function autoPlafondCaution() {
   const hc = parseFloat(el('b-hc')?.value||0);
