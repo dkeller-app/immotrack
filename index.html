@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.42</title>
+<title>ImmoTrack v12.43</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -504,10 +504,10 @@ textarea.inp{resize:vertical;min-height:70px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── BAIL CARD ────────────────────────────────────────────── */
-.bail-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:18px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow);transition:box-shadow .15s,transform .15s}
-.bail-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-1px)}
+.bail-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:18px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow);transition:box-shadow .15s,transform .15s,border-color .15s}
+.bail-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-1px);border-color:var(--fg-info)}
 .bail-card .bc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.bail-card .bc-ref{font-weight:700;font-size:15px;color:var(--blu);font-family:'Manrope',sans-serif}
+.bail-card .bc-ref{font-weight:700;font-size:15px;color:var(--fg-info);font-family:'Manrope',sans-serif}
 .bail-card .bc-loc{font-size:14px;font-weight:600}
 .bail-card .bc-info{font-size:12.5px;color:var(--t2);display:flex;flex-wrap:wrap;gap:4px 14px}
 .bail-card .bc-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1416,7 +1416,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.42</em>
+      <em>v12.43</em>
     </div>
   </div>
 
