@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.45</title>
+<title>ImmoTrack v12.46</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.45</em>
+      <em>v12.46</em>
     </div>
   </div>
 
@@ -2204,24 +2204,12 @@ textarea.inp{resize:vertical;min-height:70px}
       </div>
       <div class="fg"><label>Adresse précédente</label><input class="inp" id="b-adrLoc" placeholder="Adresse avant entrée dans le logement"></div>
       <hr style="border:none;border-top:1px solid var(--bor);margin:18px 0 14px">
-      <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:10px">🛡️ Garant 1 <span class="mu sm" style="font-weight:400">— facultatif (mutuellement exclusif avec une GLI)</span></div>
-      <div class="fg2">
-        <div class="fg"><label>Nom garant 1</label><input class="inp" id="b-garant" placeholder="Nom complet"></div>
-        <div class="fg"><label>Adresse garant 1</label><input class="inp" id="b-adrGarant"></div>
-      </div>
-      <div class="fg2">
-        <div class="fg"><label>Date naissance garant 1</label><input class="inp" type="date" id="b-ddnGarant"></div>
-        <div class="fg"><label>Lieu naissance garant 1</label><input class="inp" id="b-lieuGarant"></div>
-      </div>
-      <hr style="border:none;border-top:1px solid var(--bor);margin:18px 0 14px">
-      <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:10px">🛡️ Garant 2 <span class="mu sm" style="font-weight:400">— second garant solidaire</span></div>
-      <div class="fg2">
-        <div class="fg"><label>Nom garant 2</label><input class="inp" id="b-garant2" placeholder="Nom complet"></div>
-        <div class="fg"><label>Adresse garant 2</label><input class="inp" id="b-adrGarant2"></div>
-      </div>
-      <div class="fg2">
-        <div class="fg"><label>Date naissance garant 2</label><input class="inp" type="date" id="b-ddnGarant2"></div>
-        <div class="fg"><label>Lieu naissance garant 2</label><input class="inp" id="b-lieuGarant2"></div>
+      <div id="b-garants-wrap">
+        <div class="flex-b mb8">
+          <span style="font-size:13px;font-weight:600;color:var(--t1)">🛡️ Garants <span class="mu sm" style="font-weight:400">— facultatif (mutuellement exclusif avec une GLI)</span></span>
+          <button class="btn bs bb" id="b-add-garant-btn" onclick="addGarant()">+ Ajouter un garant</button>
+        </div>
+        <div id="b-garants-list"></div>
       </div>
       <div class="fg2">
         <div class="fg">
@@ -8100,10 +8088,8 @@ function openBailHist(i) {
   const locs = b.locataires||(b.nom?[{nom:b.nom,ddn:b.ddn,lieuNaiss:b.lieuNaiss}]:[]);
   renderBailLocs(locs);
   el('b-adrLoc').value = b.adrLoc||'';
-  el('b-garant').value = b.garant||''; el('b-adrGarant').value = b.adrGarant||'';
-  el('b-ddnGarant').value = b.ddnGarant||''; el('b-lieuGarant').value = b.lieuGarant||'';
-  el('b-garant2').value = b.garant2||''; el('b-adrGarant2').value = b.adrGarant2||'';
-  el('b-ddnGarant2').value = b.ddnGarant2||''; el('b-lieuGarant2').value = b.lieuGarant2||'';
+  // Garants (UI dynamique — historique idem)
+  renderBailGarants(_bailLegacyToGarants(b));
   fillSel('b-entity', DB.entites, e=>e.nom, e=>e.nom);
   el('b-entity').value = b.entity||'';
   if(el('b-typeContrat')) el('b-typeContrat').value = b.typeContrat||'initial';
@@ -8360,16 +8346,9 @@ function openBail(ref) {
   renderBailLocs(bail.locataires || (bail.nom?[{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}]:[]));
   el('b-adrLoc').value = bail.adrLoc||log?.adrLoc||'';
 
-  // Garant 1 & 2
-  el('b-garant').value = bail.garant||'';
+  // Garants (UI dynamique — chargée depuis champs legacy bail.garant + bail.garant2)
   if(el('b-withMandataire')) { el('b-withMandataire').checked = !!bail.withMandataire; toggleBailMandataire(!!bail.withMandataire); }
-  el('b-adrGarant').value = bail.adrGarant||'';
-  el('b-ddnGarant').value = bail.ddnGarant||'';
-  el('b-lieuGarant').value = bail.lieuGarant||'';
-  el('b-garant2').value = bail.garant2||'';
-  el('b-adrGarant2').value = bail.adrGarant2||'';
-  el('b-ddnGarant2').value = bail.ddnGarant2||'';
-  el('b-lieuGarant2').value = bail.lieuGarant2||'';
+  renderBailGarants(_bailLegacyToGarants(bail));
 
   // Conditions
   fillSel('b-entity', DB.entites, e2=>e2.nom, e2=>e2.nom);
@@ -8652,6 +8631,68 @@ function getBailLocs() {
   return noms.map((nom,i)=>({civilite:civs[i]||'', nom, ddn:ddns[i]||'', lieuNaiss:lieus[i]||'', tel:tels[i]||'', email:emails[i]||''}));
 }
 
+// ─── Garants dynamiques (v12.46 — pattern aligné sur locataires) ────────
+// Stockage interne reste en champs legacy : bail.garant/garant2 + bail.adrGarant/adrGarant2
+// etc. (préserve compatibilité previewBailData / genBailHTML / actes cautionnement).
+// L'UI dynamique convertit dans les 2 sens via _bailLegacyToGarants / _bailLegacyGarantFields.
+function renderBailGarants(garants) {
+  if(!garants) garants = [];
+  el('b-garants-list').innerHTML = garants.map((g,i)=>`
+    <div class="card mb8" id="bloc-gar-${i}">
+      <div class="flex-b mb8"><b style="font-size:12px">🛡️ Garant ${i+1}</b><button class="btn br bb" onclick="removeGarant(${i})">✕</button></div>
+      <div class="fg2">
+        <div class="fg"><label>Nom complet</label><input class="inp gar-nom" data-i="${i}" value="${escHtml(g.nom||'')}" placeholder="Nom Prénom"></div>
+        <div class="fg"><label>Adresse</label><input class="inp gar-adr" data-i="${i}" value="${escHtml(g.adresse||'')}"></div>
+      </div>
+      <div class="fg2">
+        <div class="fg"><label>Date de naissance</label><input class="inp gar-ddn" data-i="${i}" type="date" value="${g.ddn||''}"></div>
+        <div class="fg"><label>Lieu de naissance</label><input class="inp gar-lieu" data-i="${i}" value="${escHtml(g.lieu||'')}"></div>
+      </div>
+    </div>`).join('');
+  // Cap visuel : max 2 garants (cohérent avec le schéma legacy garant + garant2)
+  const btn = el('b-add-garant-btn');
+  if(btn) btn.style.display = (garants.length >= 2) ? 'none' : '';
+}
+
+function addGarant() {
+  const cur = getBailGarants();
+  if(cur.length >= 2) { showToast('Maximum 2 garants','warn'); return; }
+  cur.push({nom:'',adresse:'',ddn:'',lieu:''});
+  renderBailGarants(cur);
+}
+
+function removeGarant(i) {
+  const cur = getBailGarants();
+  cur.splice(i,1);
+  renderBailGarants(cur);
+}
+
+function getBailGarants() {
+  const c = el('b-garants-list') || document;
+  const noms  = [...c.querySelectorAll('.gar-nom')].map(e=>e.value);
+  const adrs  = [...c.querySelectorAll('.gar-adr')].map(e=>e.value);
+  const ddns  = [...c.querySelectorAll('.gar-ddn')].map(e=>e.value);
+  const lieus = [...c.querySelectorAll('.gar-lieu')].map(e=>e.value);
+  return noms.map((nom,i)=>({nom, adresse:adrs[i]||'', ddn:ddns[i]||'', lieu:lieus[i]||''}));
+}
+
+// Bridge bidirectionnel array <-> champs legacy
+function _bailLegacyToGarants(b) {
+  const out = [];
+  if(b.garant)  out.push({nom:b.garant,  adresse:b.adrGarant||'',  ddn:b.ddnGarant||'',  lieu:b.lieuGarant||''});
+  if(b.garant2) out.push({nom:b.garant2, adresse:b.adrGarant2||'', ddn:b.ddnGarant2||'', lieu:b.lieuGarant2||''});
+  return out;
+}
+function _bailLegacyGarantFields() {
+  const gs = getBailGarants();
+  const g1 = gs[0] || {};
+  const g2 = gs[1] || {};
+  return {
+    garant:  g1.nom||'',  adrGarant:  g1.adresse||'',  ddnGarant:  g1.ddn||'',  lieuGarant:  g1.lieu||'',
+    garant2: g2.nom||'',  adrGarant2: g2.adresse||'',  ddnGarant2: g2.ddn||'',  lieuGarant2: g2.lieu||'',
+  };
+}
+
 // Helper : salutation adaptée à la civilité des locataires
 function _civSalut(locs) {
   const civs = (locs||[]).map(l=>l.civilite).filter(Boolean);
@@ -8710,8 +8751,7 @@ function saveBail() {
     nom: locs[0].nom, ddn: locs[0].ddn, lieuNaiss: locs[0].lieuNaiss,
     locataires: locs,
     adrLoc: v('b-adrLoc'),
-    garant: v('b-garant'), adrGarant: v('b-adrGarant'), ddnGarant: v('b-ddnGarant'), lieuGarant: v('b-lieuGarant'),
-    garant2: v('b-garant2'), adrGarant2: v('b-adrGarant2'), ddnGarant2: v('b-ddnGarant2'), lieuGarant2: v('b-lieuGarant2'),
+    ..._bailLegacyGarantFields(),
     entity: v('b-entity'), jpay: v('b-jpay'), irl: v('b-irl'),
     signataires: getBailSignataireSelection(),
     hc: pf('b-hc'), ch: pf('b-ch'), dg: pf('b-dg'),
@@ -8805,8 +8845,7 @@ function getBailDataFromForm() {
     loyerRefMajore: pf('b-loyerRefMajore'),
     complementLoyer: pf('b-complementLoyer'),
     complementJustif: v('b-complementJustif'),
-    garant: v('b-garant'), adrGarant: v('b-adrGarant'), ddnGarant: v('b-ddnGarant'), lieuGarant: v('b-lieuGarant'),
-    garant2: v('b-garant2'), adrGarant2: v('b-adrGarant2'), ddnGarant2: v('b-ddnGarant2'), lieuGarant2: v('b-lieuGarant2'),
+    ..._bailLegacyGarantFields(),
     withMandataire: el('b-withMandataire') ? el('b-withMandataire').checked : false,
     plafondCaution: pf('b-plafondCaution'),
     entity: v('b-entity'), hc: pf('b-hc'), ch: pf('b-ch'), dg: pf('b-dg'),
