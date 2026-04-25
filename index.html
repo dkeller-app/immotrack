@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.38</title>
+<title>ImmoTrack v12.39</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1416,7 +1416,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.38</em>
+      <em>v12.39</em>
     </div>
   </div>
 
@@ -8765,7 +8765,7 @@ function previewBailData(bail, log, ref) {
   var trGarant = garNoms
     ? '<tr><td style="background:#f0f0f0;font-weight:bold">Garant(s) / Caution</td><td><strong>'+garNoms+'</strong></td></tr>' : '';
 
-  var statut_caution = bail.garant ? 'Ci-inclus (\u00a7\u00a015)' : 'N/A';
+  var statut_caution = bail.garant ? 'Ci-inclus (\u00a7\u00a015)' : 'Le cas \u00e9ch\u00e9ant';
 
   /* ── numToWords simplifié pour DG ─────────────────────────── */
   function nw(n) {
@@ -9462,7 +9462,7 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'GARANT_SECTION': garantSection,
     'SECTION_GARANT_15': sectionGarant15,
     'NOTES_SECTION': notesSection,
-    'STATUT_CAUTION': bail.garant ? 'Ci-inclus (§ 15)' : 'N/A',
+    'STATUT_CAUTION': bail.garant ? 'Ci-inclus (§ 15)' : 'Le cas échéant',
     'VILLE_SIGNATURE': S(villeSig),
     'DATE_SIGNATURE': new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}),
     // Décret 2015-587 — nouveaux champs
