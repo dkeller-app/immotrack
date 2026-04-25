@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.40</title>
+<title>ImmoTrack v12.41</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1416,7 +1416,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.40</em>
+      <em>v12.41</em>
     </div>
   </div>
 
@@ -8485,10 +8485,8 @@ function saveBail() {
   if(_debut && _fin && _debut > _fin) {
     showToast('Date début doit être antérieure à date fin','err'); return;
   }
-  // Soft : HC = 0 → demander confirmation (cas atypique, p.ex. logement gratuit)
-  if(pf('b-hc') === 0) {
-    if(!confirm2('Loyer HC = 0 €. Confirmer ?')) return;
-  }
+  // Soft : HC = 0 → toast warn sans bloquer (cohérent avec email format)
+  if(pf('b-hc') === 0) showToast('⚠️ Loyer HC à 0 € — vérifie la saisie','warn');
   // Soft : email format invalide → warn sans bloquer (corriger plus tard)
   const _badMail = locs.find(l => l.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(l.email));
   if(_badMail) showToast(`⚠️ Email invalide pour ${_badMail.nom} : ${_badMail.email}`, 'warn');
