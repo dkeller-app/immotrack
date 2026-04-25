@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.48</title>
+<title>ImmoTrack v12.49</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.48</em>
+      <em>v12.49</em>
     </div>
   </div>
 
@@ -8270,43 +8270,66 @@ function getBailProgress(l) {
 function openNewBailChoix() {
   const existing = document.getElementById('ov-bail-choix');
   if(existing) existing.remove();
+  // Baux actifs (non clôturés)
   const bails = Object.keys(DB.baux).filter(k=>DB.baux[k]&&!DB.baux[k].cloture);
   const opts = bails.map(k=>{
     const noms = (DB.baux[k].locataires||[{nom:DB.baux[k].nom||'?'}]).map(l=>l.nom).join(', ');
     return `<option value="${escHtml(k)}">${escHtml(k)} — ${escHtml(noms)}</option>`;
   }).join('');
+  // Baux archivés (DB.baux_historique[]) — index = clé pour copyBailFrom(idx, true)
+  const hist = (DB.baux_historique||[]);
+  const histOpts = hist.map((h,i)=>{
+    const noms = (h.locataires||[{nom:h.nom||'?'}]).map(l=>l.nom).join(', ');
+    const dt = h._archivedAt ? fd(h._archivedAt) : '?';
+    return `<option value="${i}">${escHtml(h.ref||'?')} — ${escHtml(noms)} (clos ${escHtml(dt)})</option>`;
+  }).join('');
   const ov = document.createElement('div');
   ov.className='ov'; ov.id='ov-bail-choix';
   ov.onclick = e=>{ if(e.target===ov) ov.remove(); };
   ov.innerHTML = `
-    <div class="modal" style="max-width:420px">
+    <div class="modal" style="max-width:480px">
       <div class="m-head"><h3>Nouveau bail</h3><button class="m-close" onclick="document.getElementById('ov-bail-choix').remove()">✕</button></div>
       <div class="m-body">
-        <div class="g2" style="gap:12px;margin-bottom:16px">
-          <button class="btn bp" style="height:68px;flex-direction:column;gap:4px"
-            onclick="document.getElementById('ov-bail-choix').remove();openBail(null)">
-            📄<br><span style="font-size:11px;font-weight:400">Formulaire vide</span>
-          </button>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            <div class="mu sm">Copier depuis un bail existant :</div>
-            <select class="inp" id="bail-choix-src" style="width:100%">
-              <option value="">— Sélectionner —</option>${opts}
-            </select>
-            <button class="btn bs" onclick="
-              var src=document.getElementById('bail-choix-src').value;
-              if(!src){showToast('Sélectionner un bail source','err');return;}
-              document.getElementById('ov-bail-choix').remove();
-              copyBailFrom(src);">📋 Copier ce bail</button>
-          </div>
+        <button class="btn bp" style="width:100%;justify-content:center;margin-bottom:14px;height:54px"
+          onclick="document.getElementById('ov-bail-choix').remove();openBail(null)">
+          📄 Formulaire vide
+        </button>
+        <hr style="border:none;border-top:1px solid var(--bor);margin:14px 0 10px">
+        <div class="mu sm mb8">Copier depuis un bail actif :</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+          <select class="inp" id="bail-choix-src" style="width:100%" ${!bails.length?'disabled':''}>
+            <option value="">${bails.length?'— Sélectionner —':'(aucun bail actif)'}</option>${opts}
+          </select>
+          <button class="btn bs" ${!bails.length?'disabled':''} onclick="
+            var src=document.getElementById('bail-choix-src').value;
+            if(!src){showToast('Sélectionner un bail source','err');return;}
+            document.getElementById('ov-bail-choix').remove();
+            copyBailFrom(src);">📋 Copier ce bail</button>
         </div>
-        ${!bails.length?'<div class="alert info">Aucun bail actif — seul le formulaire vide est disponible.</div>':''}
+        <hr style="border:none;border-top:1px solid var(--bor);margin:14px 0 10px">
+        <div class="mu sm mb8">Copier depuis un bail archivé :</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <select class="inp" id="bail-choix-src-hist" style="width:100%" ${!hist.length?'disabled':''}>
+            <option value="">${hist.length?'— Sélectionner —':'(aucun bail archivé)'}</option>${histOpts}
+          </select>
+          <button class="btn bs" ${!hist.length?'disabled':''} onclick="
+            var src=document.getElementById('bail-choix-src-hist').value;
+            if(src===''){showToast('Sélectionner un bail archivé','err');return;}
+            document.getElementById('ov-bail-choix').remove();
+            copyBailFrom(src, true);">📋 Copier ce bail archivé</button>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(ov);
 }
 
-function copyBailFrom(srcRef) {
-  const src = DB.baux[srcRef]; if(!src) return;
+function copyBailFrom(srcRef, fromHist) {
+  // fromHist=true : srcRef est l'index numérique dans DB.baux_historique[]
+  // fromHist=false (défaut) : srcRef est la clé d'un bail actif dans DB.baux{}
+  const src = fromHist
+    ? (DB.baux_historique||[])[parseInt(srcRef,10)]
+    : DB.baux[srcRef];
+  if(!src) return;
   openBail(null);
   const fieldMap = {
     adrBien:'b-adrBien', ftype:'b-ftype', etage:'b-etage', surf:'b-surf',
@@ -8322,7 +8345,8 @@ function copyBailFrom(srcRef) {
     hc:'b-hc', ch:'b-ch', dg:'b-dg', jpay:'b-jpay', entity:'b-entity',
   };
   Object.entries(fieldMap).forEach(([k,id])=>{ if(src[k]!=null && el(id)) el(id).value=src[k]; });
-  showToast('Infos bien copiées depuis '+srcRef+' — complétez locataires et dates','ok',4000);
+  const label = fromHist ? `${src.ref||'?'} (archivé)` : srcRef;
+  showToast('Infos bien copiées depuis '+label+' — complétez locataires et dates','ok',4000);
 }
 
 function openBail(ref) {
