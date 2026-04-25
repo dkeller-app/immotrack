@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.36</title>
+<title>ImmoTrack v12.37</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -116,17 +116,33 @@
 [data-fontsize="lg"] .dw-cat-row      { font-size: 15px }
 [data-fontsize="lg"] .dw-cat-pct      { font-size: 13px }
 [data-fontsize="lg"] .dw-sub          { font-size: 13px }
+/* Étape 2 fondations — A+ étendu aux classes legacy (px fixes hors --font-base) */
+[data-fontsize="lg"] .tab             { font-size: 15px }
+[data-fontsize="lg"] .tbl             { font-size: 15px }
+[data-fontsize="lg"] .badge           { font-size: 13px }
+[data-fontsize="lg"] .alert           { font-size: 15px }
+[data-fontsize="lg"] .ct              { font-size: 12px }
+[data-fontsize="lg"] .fg label        { font-size: 13px }
+[data-fontsize="lg"] .m-head h3       { font-size: 18px }
+[data-fontsize="lg"] .btn             { font-size: 15px }
+[data-fontsize="lg"] .btn.bb          { font-size: 13px }
+[data-fontsize="lg"] .inp             { font-size: 15px }
+[data-fontsize="lg"] .kpi .kv         { font-size: 28px }
+[data-fontsize="lg"] .kpi .kl         { font-size: 12px }
+[data-fontsize="lg"] .kpi .kt         { font-size: 12px }
 @media (max-width: 480px) {
   /* Sur petit mobile, le "A+" doit rester dans les limites de place */
   [data-fontsize="lg"] .dw-hero-value { font-size: 34px }
   [data-fontsize="lg"] .dw-kpi-value,
   [data-fontsize="lg"] .dw-flux-value,
   [data-fontsize="lg"] .dw-todo-quad-count { font-size: 24px }
+  [data-fontsize="lg"] .kpi .kv       { font-size: 22px }
 }
 
 /* v2 Phase 7 — Support prefers-contrast: more (cahier §7 a11y) :
    utilisateurs avec préférence système "contraste élevé" obtiennent
-   des bordures plus épaisses et des séparateurs plus opaques. */
+   des bordures plus épaisses et des séparateurs plus opaques.
+   Étape 2 fondations : étendu aux classes legacy. */
 @media (prefers-contrast: more) {
   :root {
     --bor: rgba(0,0,0,.25);
@@ -141,6 +157,38 @@
   .dw-sep-line { height: 2px }
   .dw-cat-bar { height: 8px }
   .dw-kpi-bar { height: 6px }
+  /* Classes legacy partagées par les onglets non-dashboard */
+  .card { border-width: 2px }
+  .modal { border-width: 2px }
+  .alert { border-width: 2px }
+  .tbl-wrap { border-width: 2px }
+  .bs, .br, .bg { border-width: 2px }
+  .inp { border-width: 2.5px }
+  .badge { box-shadow: inset 0 0 0 1px currentColor }
+}
+
+/* Étape 2 fondations — focus-visible étendu aux classes legacy.
+   Critère a11y : navigation clavier doit avoir un contour visible
+   sur tous les interactifs, pas seulement les composants .dw-*.
+   Tokens cohérents avec dashboard (var(--fg-info), --r). */
+.btn:focus-visible,
+.ni:focus-visible,
+.m-close:focus-visible,
+.sb-icon-btn:focus-visible,
+.sb-collapse-btn:focus-visible,
+.tbl tr[onclick]:focus-visible,
+.tb-menu:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: 2px;
+  border-radius: var(--r);
+}
+/* Onglets et entêtes de tableau cliquables : contour intégré pour
+   ne pas casser le layout (offset négatif) */
+.tab:focus-visible,
+.tbl th[onclick]:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: -2px;
+  border-radius: var(--r);
 }
 
 /* ── BASE ─────────────────────────────────────────────────── */
@@ -1368,7 +1416,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.36</em>
+      <em>v12.37</em>
     </div>
   </div>
 
