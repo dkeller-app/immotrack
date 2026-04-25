@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.50</title>
+<title>ImmoTrack v12.51</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.50</em>
+      <em>v12.51</em>
     </div>
   </div>
 
@@ -2258,8 +2258,8 @@ textarea.inp{resize:vertical;min-height:70px}
         </div>
       </div>
       <div class="fg2">
-        <div class="fg"><label title="Hors Charges — loyer net mensuel hors provisions de charges">Loyer HC (€) *</label><input class="inp" type="number" id="b-hc" min="0" step="0.01" oninput="onBailLoyerChange()"></div>
-        <div class="fg"><label>Charges mensuelles (€)</label><input class="inp" type="number" id="b-ch" min="0" step="0.01" oninput="onBailLoyerChange()"></div>
+        <div class="fg"><label title="Hors Charges — loyer net mensuel hors provisions de charges">Loyer HC (€) *</label><input class="inp" type="number" id="b-hc" min="0" step="0.01" onchange="onBailLoyerChange()"></div>
+        <div class="fg"><label>Charges mensuelles (€)</label><input class="inp" type="number" id="b-ch" min="0" step="0.01" onchange="onBailLoyerChange()"></div>
       </div>
       <div class="fg2">
         <div class="fg"><label>Dépôt de garantie (€)</label><input class="inp" type="number" id="b-dg" min="0" step="0.01"></div>
@@ -8605,28 +8605,41 @@ function onBailDebutChange() {
   onBailLoyerChange();
 }
 
-// Auto-fill quand HC ou charges changent (v12.50) :
-// - Plafond caution si bloc visible (≥ 1 garant) et champ vide
-// - DG si vide (défaut = 1 × HC, soit 1 mois — règle bail NU)
-//   NOTE : le DG selon type bail (2 mois en meublé, etc.) viendra avec
-//   le système de types de bail (item 1 — recherche en cours).
+// Auto-update DG + plafond quand HC/charges changent (v12.51) :
+// Recalcule TOUJOURS (pas seulement si vide) pour garder la cohérence
+// avec le loyer affiché. L'utilisateur peut toujours sur-écrire ensuite.
+// Toast info récapitulatif des champs effectivement modifiés.
 function onBailLoyerChange() {
   const hc = parseFloat(el('b-hc')?.value||0);
   const ch = parseFloat(el('b-ch')?.value||0);
-  // 1) Plafond caution — uniquement si bloc visible (= ≥ 1 garant)
+  const updated = [];
+  // 1) DG = 1 × HC (règle bail NU, art. 22 loi 89-462)
+  //    À étendre pour meublé/étudiant (2 × HC) lors de la phase A types de bail.
+  if(el('b-dg') && hc > 0) {
+    const newDg = hc;
+    if(parseFloat(el('b-dg').value||0) !== newDg) {
+      el('b-dg').value = newDg;
+      updated.push('Dépôt de garantie');
+    }
+  }
+  // 2) Plafond caution — uniquement si bloc visible (= ≥ 1 garant)
   const pw = el('b-plafond-wrap');
-  if(pw && pw.style.display !== 'none' && el('b-plafondCaution') && !el('b-plafondCaution').value && (hc + ch) > 0) {
+  if(pw && pw.style.display !== 'none' && el('b-plafondCaution') && (hc + ch) > 0) {
     const _d = el('b-debut')?.value, _f = el('b-fin')?.value;
     let ans = 6;
     if(_d && _f) {
       const ms = new Date(_f) - new Date(_d);
       ans = Math.max(1, Math.ceil(ms / (1000*60*60*24*365.25)));
     }
-    el('b-plafondCaution').value = Math.round(ans * 12 * (hc + ch) * 100) / 100;
+    const newPlafond = Math.round(ans * 12 * (hc + ch) * 100) / 100;
+    if(parseFloat(el('b-plafondCaution').value||0) !== newPlafond) {
+      el('b-plafondCaution').value = newPlafond;
+      updated.push('Plafond caution');
+    }
   }
-  // 2) DG par défaut = 1 × HC (bail nu, règle légale art. 22 loi 89-462)
-  if(el('b-dg') && !el('b-dg').value && hc > 0) {
-    el('b-dg').value = hc;
+  // 3) Toast info si quelque chose a été mis à jour (évite spam si rien ne change)
+  if(updated.length) {
+    showToast(updated.join(' + ') + ' mis à jour automatiquement', 'info');
   }
 }
 
