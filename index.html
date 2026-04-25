@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.49</title>
+<title>ImmoTrack v12.50</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.49</em>
+      <em>v12.50</em>
     </div>
   </div>
 
@@ -2258,8 +2258,8 @@ textarea.inp{resize:vertical;min-height:70px}
         </div>
       </div>
       <div class="fg2">
-        <div class="fg"><label title="Hors Charges — loyer net mensuel hors provisions de charges">Loyer HC (€) *</label><input class="inp" type="number" id="b-hc" min="0" step="0.01"></div>
-        <div class="fg"><label>Charges mensuelles (€)</label><input class="inp" type="number" id="b-ch" min="0" step="0.01"></div>
+        <div class="fg"><label title="Hors Charges — loyer net mensuel hors provisions de charges">Loyer HC (€) *</label><input class="inp" type="number" id="b-hc" min="0" step="0.01" oninput="onBailLoyerChange()"></div>
+        <div class="fg"><label>Charges mensuelles (€)</label><input class="inp" type="number" id="b-ch" min="0" step="0.01" oninput="onBailLoyerChange()"></div>
       </div>
       <div class="fg2">
         <div class="fg"><label>Dépôt de garantie (€)</label><input class="inp" type="number" id="b-dg" min="0" step="0.01"></div>
@@ -8331,22 +8331,52 @@ function copyBailFrom(srcRef, fromHist) {
     : DB.baux[srcRef];
   if(!src) return;
   openBail(null);
+  // INPUTS / SELECTS / TEXTAREAS — copie via .value
   const fieldMap = {
+    // Étape 2 — Conditions
+    entity:'b-entity', typeContrat:'b-typeContrat', modalitePaiement:'b-modalitePaiement',
+    hc:'b-hc', ch:'b-ch', dg:'b-dg', fiscal:'b-fiscal', jpay:'b-jpay',
+    premiereLoc:'b-premiereLoc', dernierLoyerPrec:'b-dernierLoyerPrec',
+    loyerRefMajore:'b-loyerRefMajore', complementLoyer:'b-complementLoyer',
+    complementJustif:'b-complementJustif',
+    notes:'b-notes',
+    // Étape 3 — Le bien
     adrBien:'b-adrBien', ftype:'b-ftype', etage:'b-etage', surf:'b-surf',
     npp:'b-npp', piecesDesc:'b-piecesDesc', partiesCommunes:'b-partiesCommunes',
-    chauff:'b-chauff', annexes:'b-annexes', lot:'b-lot', villeSignature:'b-villeSign',
+    locauxPrivatifs:'b-locauxPrivatifs',
     typeHabitat:'b-typeHabitat', regimeJuridique:'b-regimeJuridique',
     periodeConstr:'b-periodeConstr', numFiscal:'b-numFiscal',
     equipCuisine:'b-equipCuisine', equipSanitaires:'b-equipSanitaires',
-    ecs:'b-ecs', techInfo:'b-techInfo', depensesEnergie:'b-depensesEnergie',
+    chauffAutre:'b-chauff-autre',
+    techInfo:'b-techInfo', depensesEnergie:'b-depensesEnergie',
+    precedentLoc:'b-precedentLoc', precedentLoyerDetail:'b-precedentLoyerDetail',
+    // Étape 4 — Diagnostics & finaliser
     dpe:'b-dpe', ges:'b-ges', dpeDate:'b-dpeDate', diag:'b-diag',
     diagSoc:'b-diagSoc', erp:'b-erp', plomb:'b-plomb', amiante:'b-amiante',
     elec:'b-elec', gaz:'b-gaz', bruit:'b-bruit',
-    hc:'b-hc', ch:'b-ch', dg:'b-dg', jpay:'b-jpay', entity:'b-entity',
+    annexes:'b-annexes', lot:'b-lot', villeSignature:'b-villeSign',
   };
   Object.entries(fieldMap).forEach(([k,id])=>{ if(src[k]!=null && el(id)) el(id).value=src[k]; });
+  // CHECKBOXES — copie via .checked (booléen)
+  const checkboxMap = {
+    chauffElec:'b-chauff-elec', chauffGaz:'b-chauff-gaz', chauffFioul:'b-chauff-fioul',
+    chauffBois:'b-chauff-bois', chauffPoeleBois:'b-chauff-poele-bois',
+    chauffPoeleGran:'b-chauff-poele-gran', chauffInsert:'b-chauff-insert',
+    chauffCheminee:'b-chauff-cheminee', chauffClim:'b-chauff-clim', chauffColl:'b-chauff-coll',
+    ecsElec:'b-ecs-elec', ecsGaz:'b-ecs-gaz', ecsColl:'b-ecs-coll',
+    zoneTendue:'b-zoneTendue', encadrementLoyers:'b-encadrementLoyers',
+    quittAutoGen:'b-quittAutoGen', withMandataire:'b-withMandataire',
+  };
+  Object.entries(checkboxMap).forEach(([k,id])=>{ if(el(id)) el(id).checked = !!src[k]; });
+  // Re-déclencher les togglers pour synchroniser les blocs conditionnels
+  if(typeof toggleZoneTendue === 'function') toggleZoneTendue();
+  if(typeof toggleEncadrement === 'function') toggleEncadrement();
+  if(typeof togglePremiereLoc === 'function') togglePremiereLoc();
+  if(typeof toggleBailMandataire === 'function') toggleBailMandataire(!!el('b-withMandataire')?.checked);
+  // Re-rendre les signataires (dépend de l'entité copiée)
+  if(typeof renderBailSignataires === 'function') renderBailSignataires(src.signataires);
   const label = fromHist ? `${src.ref||'?'} (archivé)` : srcRef;
-  showToast('Infos bien copiées depuis '+label+' — complétez locataires et dates','ok',4000);
+  showToast('Infos bien copiées depuis '+label+' — complétez locataires, garants et dates','ok',4000);
 }
 
 function openBail(ref) {
@@ -8571,6 +8601,33 @@ function autoIRLTrimestre() {
 function onBailDebutChange() {
   autoIRLTrimestre();
   if(v('b-entity')) autoFinBail();
+  // Recalcule plafond aussi (durée change avec date début/fin)
+  onBailLoyerChange();
+}
+
+// Auto-fill quand HC ou charges changent (v12.50) :
+// - Plafond caution si bloc visible (≥ 1 garant) et champ vide
+// - DG si vide (défaut = 1 × HC, soit 1 mois — règle bail NU)
+//   NOTE : le DG selon type bail (2 mois en meublé, etc.) viendra avec
+//   le système de types de bail (item 1 — recherche en cours).
+function onBailLoyerChange() {
+  const hc = parseFloat(el('b-hc')?.value||0);
+  const ch = parseFloat(el('b-ch')?.value||0);
+  // 1) Plafond caution — uniquement si bloc visible (= ≥ 1 garant)
+  const pw = el('b-plafond-wrap');
+  if(pw && pw.style.display !== 'none' && el('b-plafondCaution') && !el('b-plafondCaution').value && (hc + ch) > 0) {
+    const _d = el('b-debut')?.value, _f = el('b-fin')?.value;
+    let ans = 6;
+    if(_d && _f) {
+      const ms = new Date(_f) - new Date(_d);
+      ans = Math.max(1, Math.ceil(ms / (1000*60*60*24*365.25)));
+    }
+    el('b-plafondCaution').value = Math.round(ans * 12 * (hc + ch) * 100) / 100;
+  }
+  // 2) DG par défaut = 1 × HC (bail nu, règle légale art. 22 loi 89-462)
+  if(el('b-dg') && !el('b-dg').value && hc > 0) {
+    el('b-dg').value = hc;
+  }
 }
 
 // Clôturer un bail
