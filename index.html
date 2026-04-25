@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.47</title>
+<title>ImmoTrack v12.48</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.47</em>
+      <em>v12.48</em>
     </div>
   </div>
 
@@ -8472,10 +8472,14 @@ function onBailRefChange(sel) {
   if(!ref) return;
   const log = DB.logements.find(l=>l.ref===ref);
   if(!log) return;
-  // Pré-remplir depuis le logement
-  if(!el('b-hc').value) el('b-hc').value = log.hc||'';
-  if(!el('b-ch').value) el('b-ch').value = log.ch||'';
-  if(!el('b-dg').value) el('b-dg').value = log.dg||'';
+  // Pré-remplir depuis le logement (mode édition uniquement pour HC/CH/DG :
+  // évite que les montants d'un ancien bail apparaissent par défaut sur un
+  // nouveau bail vierge — choix utilisateur v12.48)
+  if(_bailIsEdit) {
+    if(!el('b-hc').value) el('b-hc').value = log.hc||'';
+    if(!el('b-ch').value) el('b-ch').value = log.ch||'';
+    if(!el('b-dg').value) el('b-dg').value = log.dg||'';
+  }
   if(!el('b-entity').value) el('b-entity').value = log.entity||'';
   if(!el('b-debut').value && log.debut) {
     el('b-debut').value = log.debut;
