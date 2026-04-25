@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.43</title>
+<title>ImmoTrack v12.44</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -512,6 +512,43 @@ textarea.inp{resize:vertical;min-height:70px}
 .bail-card .bc-info{font-size:12.5px;color:var(--t2);display:flex;flex-wrap:wrap;gap:4px 14px}
 .bail-card .bc-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .bail-card .bc-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ── BAIL WIZARD BAR (étape 3 phase 2 — wizard 4 étapes) ──────────
+   Remplace l'ancienne barre d'onglets par une barre de progression
+   avec puces cliquables, séparateurs visuels, états visited / current /
+   pending. Cohérent avec tokens v2 (var(--fg-info), var(--bor), --r).
+   Compactée sur mobile (chiffres uniquement, libellés masqués). */
+.bail-wizard-bar{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:14px 4px 18px;border-bottom:1px solid var(--bor);
+  margin-bottom:18px;
+}
+.ws-step{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 14px;border-radius:var(--r);
+  background:transparent;border:1px solid transparent;
+  color:var(--t2);font-size:13px;font-weight:500;
+  cursor:pointer;transition:all .15s;font-family:inherit;
+}
+.ws-step:hover{background:var(--sur2);color:var(--t1)}
+.ws-step.act{
+  background:var(--bg-info);color:var(--fg-info);
+  border-color:var(--fg-info);font-weight:600;
+}
+.ws-step.done .ws-num{color:var(--fg-success)}
+.ws-step.done .ws-num::before{content:'✓ ';font-weight:700}
+.ws-num{font-size:15px;font-weight:700;font-family:'Manrope',sans-serif}
+.ws-label{white-space:nowrap}
+.ws-sep{
+  flex:1;max-width:24px;height:1.5px;
+  background:var(--bor);border-radius:1px;
+}
+@media(max-width:600px){
+  .bail-wizard-bar{padding:10px 0 14px;gap:2px}
+  .ws-step{padding:6px 8px;gap:4px}
+  .ws-label{display:none}
+  .ws-sep{max-width:12px}
+}
 
 /* ── EDL ──────────────────────────────────────────────────── */
 .piece-card{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:14px;margin-bottom:9px}
@@ -1416,7 +1453,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.43</em>
+      <em>v12.44</em>
     </div>
   </div>
 
@@ -2136,12 +2173,22 @@ textarea.inp{resize:vertical;min-height:70px}
 <div class="modal xl">
   <div class="m-head"><h3 id="m-bail-title">Bail</h3><button class="m-close" onclick="closeM('ov-bail')">✕</button></div>
   <div class="m-body">
-    <div class="tabs">
-      <div class="tab act" onclick="setBailTab('locataire',this)">👤 Locataire</div>
-      <div class="tab" onclick="setBailTab('conditions',this)">💶 Conditions</div>
-      <div class="tab" onclick="setBailTab('bien',this)">🏠 Bien</div>
-      <div class="tab" onclick="setBailTab('diag',this)">📋 Diagnostics</div>
-      <div class="tab" onclick="setBailTab('finbail',this)">🔚 Fin de bail</div>
+    <div class="bail-wizard-bar" role="navigation" aria-label="Étapes du bail">
+      <button type="button" class="ws-step act" data-step="1" onclick="goBailStep(1)">
+        <span class="ws-num">①</span><span class="ws-label">Personnes</span>
+      </button>
+      <span class="ws-sep" aria-hidden="true"></span>
+      <button type="button" class="ws-step" data-step="2" onclick="goBailStep(2)">
+        <span class="ws-num">②</span><span class="ws-label">Conditions</span>
+      </button>
+      <span class="ws-sep" aria-hidden="true"></span>
+      <button type="button" class="ws-step" data-step="3" onclick="goBailStep(3)">
+        <span class="ws-num">③</span><span class="ws-label">Le bien</span>
+      </button>
+      <span class="ws-sep" aria-hidden="true"></span>
+      <button type="button" class="ws-step" data-step="4" onclick="goBailStep(4)">
+        <span class="ws-num">④</span><span class="ws-label">Finaliser</span>
+      </button>
     </div>
     <!-- Tab: Locataire -->
     <div class="tab-panel act" id="bp-locataire">
@@ -2428,39 +2475,54 @@ textarea.inp{resize:vertical;min-height:70px}
         <div class="fg"><label title="État des Risques et Pollutions — informe le locataire des risques naturels, miniers, technologiques, sismiques et radon dans la commune (loi ENL 2003)">ERP / État des risques</label><input class="inp" id="b-erp" placeholder="RAS / Date..."></div>
       </div>
       <div class="fg"><label>Société diagnostic</label><input class="inp" id="b-diagSoc"></div>
-    </div>
-    <!-- Tab: Fin de bail -->
-    <div class="tab-panel" id="bp-finbail">
-      <div class="alert info mb12">Renseigner ici les informations lors de la fin du bail. Les données sont conservées dans l'historique.</div>
-      <div class="fg2">
-        <div class="fg"><label>Date de fin effective</label><input class="inp" type="date" id="b-fin-effective"></div>
-        <div class="fg"><label>Motif de fin</label><select class="inp" id="b-fin-motif">
-          <option value="">— Sélectionner —</option>
-          <option>Congé donné par le locataire</option>
-          <option>Congé donné par le bailleur (reprise)</option>
-          <option>Congé donné par le bailleur (vente)</option>
-          <option>Résiliation amiable</option>
-          <option>Résiliation judiciaire</option>
-          <option>Fin de bail (terme)</option>
-          <option>Autre</option>
-        </select></div>
+      <hr style="border:none;border-top:1px solid var(--bor);margin:18px 0 14px">
+      <div class="sm mu mb8">Génération de documents (avant enregistrement)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button class="btn bs bb" onclick="previewBail()">👁 Aperçu HTML</button>
+        <button class="btn bs bb" onclick="exportBailWord(null,null,v('b-ref')||v('b-edit-ref'))">📄 Export Word</button>
+        <button class="btn bs bb" onclick="genActeCautionnement()" title="Acte de cautionnement séparé à envoyer au garant">📋 Acte garant</button>
       </div>
-      <div class="fg"><label>Nouvelle adresse du locataire</label><input class="inp" id="b-loc-nouv-adr" placeholder="Adresse de destination"></div>
-      <div class="fg2">
-        <div class="fg"><label>DG restitué (€)</label><input class="inp" type="number" id="b-dg-restitue" min="0" step="0.01" placeholder="0.00"></div>
-        <div class="fg"><label>Retenues sur DG (€)</label><input class="inp" type="number" id="b-dg-retenu" min="0" step="0.01" placeholder="0.00"></div>
-      </div>
-      <div class="fg"><label>Notes de fin de bail</label><textarea class="inp" id="b-fin-notes" rows="3" placeholder="Observations, état du logement à la sortie..."></textarea></div>
-      <button class="btn br" onclick="terminerBail()" style="margin-top:8px">🔚 Clôturer ce bail</button>
     </div>
     <input type="hidden" id="b-edit-ref">
   </div>
   <div class="m-foot">
-    <button class="btn bs" onclick="closeM('ov-bail')">Annuler</button>
-    <button class="btn bs" onclick="previewBail()">👁 Aperçu</button>
-    <button class="btn bs" onclick="exportBailWord(null,null,v('b-ref')||v('b-edit-ref'))">📄 Export Word</button>
-    <button class="btn bs" onclick="genActeCautionnement()" title="Acte de cautionnement séparé à envoyer au garant">📋 Acte garant</button>
-    <button class="btn bp" onclick="saveBail()">Enregistrer</button>
+    <button class="btn bs" id="bail-prev-btn" onclick="prevBailStep()" style="display:none">← Précédent</button>
+    <button class="btn bs" onclick="closeBailWizard()">Annuler</button>
+    <button class="btn bp" id="bail-next-btn" onclick="nextBailStep()">Suivant →</button>
+    <button class="btn bp" id="bail-save-btn" onclick="saveBail()" style="display:none">💾 Enregistrer</button>
+  </div>
+</div></div>
+
+<!-- MODAL: CLÔTURER UN BAIL (extraite de l'ancien onglet "Fin de bail" — étape 3 phase 2 wizard) -->
+<div class="ov hidden" id="ov-bail-clore" onclick="closeBg(event,'ov-bail-clore')">
+<div class="modal" style="max-width:600px">
+  <div class="m-head"><h3 id="m-bail-clore-title">Clôturer un bail</h3><button class="m-close" onclick="closeM('ov-bail-clore')">✕</button></div>
+  <div class="m-body">
+    <div class="alert info mb12">Renseigner les informations de fin de bail. Le bail sera archivé dans l'historique et le logement marqué vacant.</div>
+    <input type="hidden" id="b-clore-ref">
+    <div class="fg2">
+      <div class="fg"><label>Date de fin effective *</label><input class="inp" type="date" id="b-fin-effective"></div>
+      <div class="fg"><label>Motif de fin *</label><select class="inp" id="b-fin-motif">
+        <option value="">— Sélectionner —</option>
+        <option>Congé donné par le locataire</option>
+        <option>Congé donné par le bailleur (reprise)</option>
+        <option>Congé donné par le bailleur (vente)</option>
+        <option>Résiliation amiable</option>
+        <option>Résiliation judiciaire</option>
+        <option>Fin de bail (terme)</option>
+        <option>Autre</option>
+      </select></div>
+    </div>
+    <div class="fg"><label>Nouvelle adresse du locataire</label><input class="inp" id="b-loc-nouv-adr" placeholder="Adresse de destination"></div>
+    <div class="fg2">
+      <div class="fg"><label>DG restitué (€)</label><input class="inp" type="number" id="b-dg-restitue" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="fg"><label>Retenues sur DG (€)</label><input class="inp" type="number" id="b-dg-retenu" min="0" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="fg"><label>Notes de fin de bail</label><textarea class="inp" id="b-fin-notes" rows="3" placeholder="Observations, état du logement à la sortie..."></textarea></div>
+  </div>
+  <div class="m-foot">
+    <button class="btn bs" onclick="closeM('ov-bail-clore')">Annuler</button>
+    <button class="btn br" onclick="saveBailClore()">🔚 Clôturer ce bail</button>
   </div>
 </div></div>
 
@@ -4262,6 +4324,110 @@ function previewBailTemplate() {
   previewBailData(bail, log, firstRef||'F-000');
 }
 function setBailTab(tab, el2) { setTab('#ov-bail',el2,'bp-'); }
+
+// ═══════════════════════════════════════════════════════════════════
+// BAIL WIZARD — étape 3 phase 2 v12.44
+// 4 étapes : 1=Personnes, 2=Conditions, 3=Le bien, 4=Finaliser
+// Panels DOM mappés par data-step → bp-locataire / bp-conditions / bp-bien / bp-diag
+// ═══════════════════════════════════════════════════════════════════
+let _bailStep = 1;
+let _bailDirty = false;
+let _bailIsEdit = false;
+const _BAIL_STEPS = ['locataire','conditions','bien','diag'];
+
+function goBailStep(n) {
+  // W3 : navigation libre en édition, séquentielle en création
+  if(!_bailIsEdit && n > _bailStep + 1) {
+    showToast('Termine d\'abord l\'étape '+(_bailStep+1)+' avant de sauter','info');
+    return;
+  }
+  _bailStep = Math.max(1, Math.min(4, n));
+  // Update panels (CSS .tab-panel.act → display:block)
+  document.querySelectorAll('#ov-bail .tab-panel').forEach((p,i)=>{
+    p.classList.toggle('act', i === _bailStep - 1);
+  });
+  // Update wizard bar visual state
+  document.querySelectorAll('#ov-bail .ws-step').forEach((b,i)=>{
+    const n2 = i+1;
+    b.classList.toggle('act', n2 === _bailStep);
+    b.classList.toggle('done', n2 < _bailStep);
+  });
+  // Update footer buttons (Précédent / Suivant / Save)
+  el('bail-prev-btn').style.display = _bailStep > 1 ? '' : 'none';
+  el('bail-next-btn').style.display = _bailStep < 4 ? '' : 'none';
+  el('bail-save-btn').style.display = _bailStep === 4 ? '' : 'none';
+  // Scroll panel back to top (UX)
+  const body = document.querySelector('#ov-bail .m-body');
+  if(body) body.scrollTop = 0;
+}
+function nextBailStep() { goBailStep(_bailStep + 1); }
+function prevBailStep() { goBailStep(_bailStep - 1); }
+
+// W5 : confirmation à la fermeture si modifs non enregistrées
+function closeBailWizard() {
+  if(_bailDirty && !confirm2('Quitter sans enregistrer ? Les modifications seront perdues.')) return;
+  closeM('ov-bail');
+  _bailDirty = false;
+}
+
+// Tracking dirty : un seul listener délégué sur le body de la modale,
+// activé après openBail (sinon tout le pré-remplissage flag dirty)
+function _bindBailDirtyTracking() {
+  const body = document.querySelector('#ov-bail .m-body');
+  if(!body || body.dataset.dirtyBound === '1') return;
+  body.dataset.dirtyBound = '1';
+  body.addEventListener('input',  ()=>{ _bailDirty = true; });
+  body.addEventListener('change', ()=>{ _bailDirty = true; });
+}
+
+// ─── Modale Clôturer un bail (extraite de l'ancien onglet "Fin de bail") ─────
+function openBailClore(ref) {
+  if(!ref) return;
+  const bail = DB.baux[ref];
+  if(!bail) { showToast('Bail introuvable','err'); return; }
+  el('b-clore-ref').value = ref;
+  el('m-bail-clore-title').textContent = 'Clôturer le bail '+ref;
+  // Pré-remplir avec les valeurs existantes si elles ont été saisies par le passé
+  el('b-fin-effective').value = bail.finEffective || '';
+  el('b-fin-motif').value     = bail.finMotif     || '';
+  el('b-loc-nouv-adr').value  = bail.locNouvelleAdr || '';
+  el('b-dg-restitue').value   = bail.dgRestitue   || '';
+  el('b-dg-retenu').value     = bail.dgRetenu     || '';
+  el('b-fin-notes').value     = bail.finNotes     || '';
+  openM('ov-bail-clore');
+}
+
+function saveBailClore() {
+  const ref = el('b-clore-ref').value;
+  if(!ref) { showToast('Aucun bail sélectionné','err'); return; }
+  const bail = DB.baux[ref];
+  if(!bail) { showToast('Bail introuvable','err'); return; }
+  // Validations bloquantes
+  const finEff = v('b-fin-effective');
+  const motif  = v('b-fin-motif');
+  if(!finEff) { showToast('Date de fin effective requise','err'); return; }
+  if(!motif)  { showToast('Motif de fin requis','err'); return; }
+  // Confirmation finale (action destructive : archive + vacant)
+  if(!confirm2(`Clôturer le bail ${ref} au ${fd(finEff)} ?\nLe logement sera marqué vacant et le bail archivé.`)) return;
+  // Persister les infos de clôture
+  bail.finEffective   = finEff;
+  bail.finMotif       = motif;
+  bail.locNouvelleAdr = v('b-loc-nouv-adr');
+  bail.dgRestitue     = pf('b-dg-restitue');
+  bail.dgRetenu       = pf('b-dg-retenu');
+  bail.finNotes       = v('b-fin-notes');
+  bail.cloture        = true;
+  bail.ref            = ref;
+  bail._archivedAt    = td();
+  // Archiver dans historique + retirer des actifs
+  if(!DB.baux_historique) DB.baux_historique = [];
+  DB.baux_historique.push({...bail});
+  delete DB.baux[ref];
+  const log = DB.logements.find(l=>l.ref===ref);
+  if(log) { log.locataire = ''; log.fin = finEff; }
+  saveDB(); closeM('ov-bail-clore'); initFilters(); rBaux();
+  showToast(`Bail ${ref} clôturé au ${fd(finEff)}`,'ok');
+}
 
 // =================== DASHBOARD ===================
 /* v2 Phase 7 — Onboarding empty state : rendu quand l'utilisateur n'a encore
@@ -8054,6 +8220,7 @@ function rBaux() {
           <button class="btn bs bb" onclick="previewBailRef('${l.ref}')">👁 Aperçu</button>
           <button class="btn bs bb" onclick="exportBailWord(DB.baux['${l.ref}'],DB.logements.find(x=>x.ref==='${l.ref}'),'${l.ref}')">📄 Word</button>
           <button class="btn bs bb" onclick="genActeCautionnementRef('${l.ref}')" title="Acte de cautionnement séparé">📋 Garant</button>
+          ${bail?`<button class="btn bs bb" onclick="openBailClore('${l.ref}')" title="Archiver ce bail (fin de bail)">🔚 Clôturer</button>`:''}
           <button class="btn br bb" onclick="delBail('${l.ref}')">🗑</button>
         </div>
         <div class="mu sm">${l.entity?escHtml(l.entity):'–'}</div>
@@ -8282,6 +8449,12 @@ function openBail(ref) {
   el('b-dg-restitue').value = bail.dgRestitue||'';
   el('b-dg-retenu').value = bail.dgRetenu||'';
   el('b-fin-notes').value = bail.finNotes||'';
+
+  // Wizard v12.44 : reset à l'étape 1 + flag édition + dirty tracking
+  _bailIsEdit = !!ref;
+  _bailDirty  = false;
+  goBailStep(1);
+  _bindBailDirtyTracking();
 
   openM('ov-bail');
 }
