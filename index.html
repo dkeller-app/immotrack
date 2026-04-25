@@ -8487,6 +8487,8 @@ function saveBail() {
   }
   // Soft : HC = 0 → toast warn sans bloquer (cohérent avec email format)
   if(pf('b-hc') === 0) showToast('⚠️ Loyer HC à 0 € — vérifie la saisie','warn');
+  // Soft : charges = 0 ou vide → toast warn sans bloquer
+  if(pf('b-ch') === 0) showToast('⚠️ Charges à 0 € ou vides — vérifie la saisie','warn');
   // Soft : email format invalide → warn sans bloquer (corriger plus tard)
   const _badMail = locs.find(l => l.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(l.email));
   if(_badMail) showToast(`⚠️ Email invalide pour ${_badMail.nom} : ${_badMail.email}`, 'warn');
