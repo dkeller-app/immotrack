@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.37</title>
+<title>ImmoTrack v12.38</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1416,7 +1416,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.37</em>
+      <em>v12.38</em>
     </div>
   </div>
 
@@ -9090,7 +9090,7 @@ function previewBailData(bail, log, ref) {
           : '')
         +'<p>L\u2019acte de cautionnement, portant la <strong>d\u00e9claration d\u2019engagement</strong> et la <strong>mention manuscrite recommand\u00e9e</strong> du garant, est annex\u00e9 au pr\u00e9sent bail et en fait partie int\u00e9grante (Annexe\u00a06).</p>'
         +'<p>Conform\u00e9ment \u00e0 l\u2019article\u00a022-1 al.\u00a02 de la loi du 6\u00a0juillet\u00a01989, le BAILLEUR informera le(s) GARANT(S) de tout d\u00e9faut de paiement du LOCATAIRE dans le <strong>mois suivant l\u2019incident de paiement</strong>, \u00e0 peine de forclusion de sa cr\u00e9ance pour les p\u00e9nalit\u00e9s et int\u00e9r\u00eats ant\u00e9rieurs \u00e0 cette information.</p>'
-      : '<p>Aucune caution solidaire n\u2019a \u00e9t\u00e9 constitu\u00e9e pour le pr\u00e9sent bail. La pr\u00e9sente clause est sans objet.</p>')
+      : '<p>Le pr\u00e9sent bail est, le cas \u00e9ch\u00e9ant, accompagn\u00e9 d\u2019un acte de cautionnement solidaire sign\u00e9 par le garant d\u00e9sign\u00e9 \u00e0 la premi\u00e8re page du pr\u00e9sent contrat. En l\u2019absence de garant, la pr\u00e9sente clause est sans objet.</p>')
     +'<h2>16 \u2014 Dispositions diverses</h2>'
     +'<h3>Protection des donn\u00e9es personnelles (RGPD)</h3>'
     +'<p>Les donn\u00e9es personnelles collect\u00e9es dans le cadre du pr\u00e9sent contrat font l\u2019objet d\u2019un traitement n\u00e9cessaire \u00e0 son ex\u00e9cution et \u00e0 l\u2019application de la r\u00e9glementation relative \u00e0 la lutte contre le blanchiment de capitaux. Elles sont conserv\u00e9es pendant la dur\u00e9e du bail augment\u00e9e des d\u00e9lais l\u00e9gaux de prescription. Chaque partie peut acc\u00e9der \u00e0 ses donn\u00e9es, les rectifier ou s\u2019opposer \u00e0 leur exploitation en adressant un courrier au BAILLEUR. Toute r\u00e9clamation peut \u00eatre introduite aupr\u00e8s de la CNIL (www.cnil.fr).</p>'
@@ -9412,7 +9412,7 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
 ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisiblement tenues</strong> envers le BAILLEUR, sans bénéfice de division ni de discussion (art. 1310 et 2298 C. civ.). Le BAILLEUR peut agir contre l'une ou l'autre pour la totalité des sommes dues.</p>`:''}
 <p>L'acte de cautionnement, portant la déclaration d'engagement et la mention manuscrite recommandée du garant, est annexé au présent bail et en fait partie intégrante (Annexe 6).</p>
 <p>Conformément à l'article 22-1 al. 2 de la loi du 6\u00a0juillet\u00a01989, le BAILLEUR informera le(s) GARANT(S) de tout défaut de paiement du LOCATAIRE dans le mois suivant l'incident de paiement, à peine de forclusion de sa créance pour les pénalités et intérêts antérieurs à cette information.</p>` : `<h2>15 — Cautionnement solidaire</h2>
-<p>Aucune caution solidaire n'a été constituée pour le présent bail. La présente clause est sans objet.</p>`;
+<p>Le présent bail est, le cas échéant, accompagné d'un acte de cautionnement solidaire signé par le garant désigné à la première page du présent contrat. En l'absence de garant, la présente clause est sans objet.</p>`;
 
   const notesSection = bail.notes ? `<h3>Conditions particulières</h3><p>${bail.notes}</p>` : '';
 
