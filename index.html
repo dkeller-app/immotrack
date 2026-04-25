@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.44</title>
+<title>ImmoTrack v12.45</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -512,6 +512,10 @@ textarea.inp{resize:vertical;min-height:70px}
 .bail-card .bc-info{font-size:12.5px;color:var(--t2);display:flex;flex-wrap:wrap;gap:4px 14px}
 .bail-card .bc-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .bail-card .bc-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Modale Bail (wizard) : zone de défilement plus haute pour limiter le
+   scroll caché (étape 1 avec 2 garants + mandataire est dense). */
+#ov-bail .m-body{max-height:78vh}
 
 /* ── BAIL WIZARD BAR (étape 3 phase 2 — wizard 4 étapes) ──────────
    Remplace l'ancienne barre d'onglets par une barre de progression
@@ -1453,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.44</em>
+      <em>v12.45</em>
     </div>
   </div>
 
@@ -2199,8 +2203,8 @@ textarea.inp{resize:vertical;min-height:70px}
         <div id="b-locs-list"></div>
       </div>
       <div class="fg"><label>Adresse précédente</label><input class="inp" id="b-adrLoc" placeholder="Adresse avant entrée dans le logement"></div>
-      <hr style="border:none;border-top:1px solid var(--bor);margin:12px 0">
-      <div class="sm mu mb8">Garant 1 (facultatif)</div>
+      <hr style="border:none;border-top:1px solid var(--bor);margin:18px 0 14px">
+      <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:10px">🛡️ Garant 1 <span class="mu sm" style="font-weight:400">— facultatif (mutuellement exclusif avec une GLI)</span></div>
       <div class="fg2">
         <div class="fg"><label>Nom garant 1</label><input class="inp" id="b-garant" placeholder="Nom complet"></div>
         <div class="fg"><label>Adresse garant 1</label><input class="inp" id="b-adrGarant"></div>
@@ -2209,8 +2213,8 @@ textarea.inp{resize:vertical;min-height:70px}
         <div class="fg"><label>Date naissance garant 1</label><input class="inp" type="date" id="b-ddnGarant"></div>
         <div class="fg"><label>Lieu naissance garant 1</label><input class="inp" id="b-lieuGarant"></div>
       </div>
-      <hr style="border:none;border-top:1px solid var(--bor);margin:12px 0">
-      <div class="sm mu mb8">Garant 2 (facultatif)</div>
+      <hr style="border:none;border-top:1px solid var(--bor);margin:18px 0 14px">
+      <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:10px">🛡️ Garant 2 <span class="mu sm" style="font-weight:400">— second garant solidaire</span></div>
       <div class="fg2">
         <div class="fg"><label>Nom garant 2</label><input class="inp" id="b-garant2" placeholder="Nom complet"></div>
         <div class="fg"><label>Adresse garant 2</label><input class="inp" id="b-adrGarant2"></div>
@@ -2261,7 +2265,7 @@ textarea.inp{resize:vertical;min-height:70px}
           <label>Modalité de paiement</label>
           <select class="inp" id="b-modalitePaiement">
             <option value="terme_echu">À terme échu (paiement fin de période)</option>
-            <option value="echeoir">À terme à échoir (paiement en début de période)</option>
+            <option value="echeoir" selected>À terme à échoir (paiement en début de période)</option>
           </select>
         </div>
       </div>
@@ -4360,8 +4364,32 @@ function goBailStep(n) {
   const body = document.querySelector('#ov-bail .m-body');
   if(body) body.scrollTop = 0;
 }
-function nextBailStep() { goBailStep(_bailStep + 1); }
+function nextBailStep() {
+  // W2 — Soft validation par étape : warn (pas bloquer) avant de passer
+  _validateBailStep(_bailStep);
+  goBailStep(_bailStep + 1);
+}
 function prevBailStep() { goBailStep(_bailStep - 1); }
+
+/* Validation soft par étape — affiche des toasts warn mais ne bloque pas
+   la progression. La validation bloquante reste dans saveBail (étape 4). */
+function _validateBailStep(step) {
+  if(step === 1) {
+    // Personnes : ≥ 1 locataire avec nom + emails au format si remplis
+    const locs = (typeof getBailLocs === 'function') ? getBailLocs().filter(l=>l.nom.trim()) : [];
+    if(!locs.length) showToast('⚠️ Aucun locataire saisi','warn');
+    const badMail = locs.find(l => l.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(l.email));
+    if(badMail) showToast(`⚠️ Email invalide pour ${badMail.nom||'?'} : ${badMail.email}`,'warn');
+  } else if(step === 2) {
+    // Conditions : HC, charges, dates
+    if(pf('b-hc') === 0) showToast('⚠️ Loyer HC à 0 € ou non renseigné','warn');
+    if(pf('b-ch') === 0) showToast('⚠️ Charges à 0 € ou non renseignées','warn');
+    const _d = v('b-debut'), _f = v('b-fin');
+    if(_d && _f && _d > _f) showToast('⚠️ Date début doit être antérieure à date fin','warn');
+  }
+  // Étape 3 (Le bien) et 4 (Finaliser) : pas de validation soft.
+  // L'étape 4 déclenche saveBail qui valide bloquant ce qui est critique.
+}
 
 // W5 : confirmation à la fermeture si modifs non enregistrées
 function closeBailWizard() {
