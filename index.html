@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.46</title>
+<title>ImmoTrack v12.47</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.46</em>
+      <em>v12.47</em>
     </div>
   </div>
 
@@ -2211,12 +2211,12 @@ textarea.inp{resize:vertical;min-height:70px}
         </div>
         <div id="b-garants-list"></div>
       </div>
-      <div class="fg2">
+      <div class="fg2" id="b-plafond-wrap" style="display:none">
         <div class="fg">
           <label>Plafond engagement caution (€) <span class="mu sm">auto = durée × 12 × loyer TCC</span></label>
           <div style="display:flex;gap:6px;align-items:center">
             <input class="inp" type="number" id="b-plafondCaution" min="0" step="0.01" placeholder="Auto" style="flex:1">
-            <button class="btn bs bb" onclick="autoPlafondCaution()" title="Calculer automatiquement">⚡ Auto</button>
+            <button class="btn bs bb" onclick="autoPlafondCaution()" title="Recalculer">⚡ Auto</button>
           </div>
         </div>
       </div>
@@ -8652,6 +8652,32 @@ function renderBailGarants(garants) {
   // Cap visuel : max 2 garants (cohérent avec le schéma legacy garant + garant2)
   const btn = el('b-add-garant-btn');
   if(btn) btn.style.display = (garants.length >= 2) ? 'none' : '';
+  // Plafond engagement caution : visible UNIQUEMENT si ≥ 1 garant.
+  // Auto-rempli au 1er affichage si vide ET HC+ch > 0 (silencieux, pas de toast).
+  const pw = el('b-plafond-wrap');
+  if(pw) {
+    if(garants.length >= 1) {
+      const wasHidden = pw.style.display === 'none';
+      pw.style.display = '';
+      if(wasHidden && el('b-plafondCaution') && !el('b-plafondCaution').value) {
+        const _hc = parseFloat(el('b-hc')?.value||0);
+        const _ch = parseFloat(el('b-ch')?.value||0);
+        if(_hc + _ch > 0) {
+          const _d = el('b-debut')?.value, _f = el('b-fin')?.value;
+          let _ans = 6;
+          if(_d && _f) {
+            const _ms = new Date(_f) - new Date(_d);
+            _ans = Math.max(1, Math.ceil(_ms / (1000*60*60*24*365.25)));
+          }
+          el('b-plafondCaution').value = Math.round(_ans * 12 * (_hc + _ch) * 100) / 100;
+        }
+      }
+    } else {
+      pw.style.display = 'none';
+      // 0 garant = pas de caution → reset valeur (cohérence champ caché vs DB)
+      if(el('b-plafondCaution')) el('b-plafondCaution').value = '';
+    }
+  }
 }
 
 function addGarant() {
