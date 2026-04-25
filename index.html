@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.52</title>
+<title>ImmoTrack v12.53</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.52</em>
+      <em>v12.53</em>
     </div>
   </div>
 
@@ -1939,7 +1939,7 @@ textarea.inp{resize:vertical;min-height:70px}
           {{JOUR_PAIEMENT}} {{SURFACE}} {{NB_PIECES}} {{TYPE_LOGEMENT}} {{ETAGE}} {{PIECES_DESC}} {{PARTIES_COMMUNES}} {{ANNEXES}} {{CHAUFFAGE}}
           {{NUM_FISCAL}} {{NUM_LOT}} {{DPE_CLASSE}} {{GES_CLASSE}} {{DPE_DATE}} {{ERP}} {{PLOMB}} {{AMIANTE}} {{ELEC}} {{GAZ}} {{BRUIT}}
           {{IRL_TRIMESTRE}} {{IRL_VALEUR}} {{GARANT_NOM}} {{GARANT_SECTION}} {{SECTION_GARANT_15}} {{NOTES_SECTION}} {{STATUT_CAUTION}}
-          {{VILLE_SIGNATURE}} {{DATE_SIGNATURE}} {{REF}}
+          {{SECTION_9BIS}} {{SECTION_14BIS}} {{VILLE_SIGNATURE}} {{DATE_SIGNATURE}} {{REF}}
         </div>
         <textarea id="bail-template-editor" class="inp" style="width:100%;height:600px;font-family:monospace;font-size:12px;resize:vertical" oninput="el('bail-template-preview-btn').style.display='inline-flex'"></textarea>
         <div class="flex-c mt8">
@@ -3288,7 +3288,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <tr><td style="background:#f0f0f0;font-weight:bold">Dépôt de garantie</td><td>{{DG}} € (= 1 mois de loyer HC)</td></tr>
 </table>
 
-<h2>ENTRE LES SOUSSIGNÉS</h2>
+<h2>Entre les soussignés</h2>
 <h3>Le Bailleur</h3>
 <p><strong>{{NOM_SCI}}</strong>, Société Civile Immobilière soumise à l'Impôt sur les Sociétés (IS), dont le siège social est à {{ADRESSE_SIEGE}}, immatriculée au RCS de {{RCS_VILLE}} sous le numéro {{NUM_RCS}} et représentée par son Gérant <strong>{{NOM_GERANT}}</strong>.</p>
 {{MANDATAIRE_SECTION}}
@@ -3379,7 +3379,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <tr><td style="background:#f0f0f0;font-weight:bold">BIC</td><td>{{BIC}}</td></tr>
 <tr><td style="background:#f0f0f0;font-weight:bold">Référence</td><td>{{LOCATAIRES}} — {{ADRESSE_BIEN}}</td></tr>
 </table>
-<h3>5.2 — Révision annuelle du loyer — IRL</h3>
+<h3>5.2 — Révision annuelle du loyer (IRL)</h3>
 <p>Le loyer sera révisé annuellement à la date anniversaire du bail selon la variation de la moyenne sur quatre trimestres de l'<strong>Indice de Référence des Loyers (IRL)</strong> publié par l'INSEE, conformément à l'article 17-1 de la loi du 6 juillet 1989.</p>
 <p>L'indice de base est l'indice du <strong>{{IRL_TRIMESTRE}}</strong>, dont la valeur est <strong>{{IRL_VALEUR}}</strong>.</p>
 <p><strong>Nouveau loyer = Loyer actuel × (IRL trimestre de révision ÷ IRL même trimestre année précédente)</strong></p>
@@ -3458,8 +3458,10 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <h3>Animaux</h3>
 <p>La détention d'un animal de compagnie est autorisée sous réserve qu'il ne cause aucun dégât aux locaux, parties communes ou biens des voisins, et aucun trouble de jouissance (bruits, odeurs, souillures). Le LOCATAIRE est seul responsable de tous les dommages occasionnés par ses animaux. La détention d'un chien de 1<sup>re</sup> catégorie (chien d'attaque — art. L. 211-12 du Code rural et de la pêche maritime) est formellement interdite. En cas de nuisances répétées dûment constatées, le BAILLEUR pourra exiger le retrait de l'animal dans un délai d'un mois.</p>
 
+{{SECTION_9BIS}}
+
 <h2>10 — Responsabilité et assurance</h2>
-<h3>10.1 — Responsabilité du locataire</h3>
+<h3>10.1 — Responsabilité du LOCATAIRE</h3>
 <p>Le LOCATAIRE est responsable des dégradations et pertes qui surviennent dans les locaux dont il a la jouissance exclusive pendant la durée du bail, sauf preuve que ces dégradations résultent d'un cas de force majeure, d'une faute du BAILLEUR ou du fait d'un tiers qu'il n'a pas introduit dans les lieux. Il est également responsable des dommages causés par les personnes de son ménage, ses préposés, ses invités, ses sous-locataires éventuels, et les animaux ou objets dont il est gardien.</p>
 <h3>10.2 — Obligation d'assurance</h3>
 <p>Le LOCATAIRE est tenu, pendant toute la durée du bail, de souscrire et de maintenir en vigueur une assurance multirisque habitation couvrant a minima : incendie, explosion, dégâts des eaux, bris de glace, risques locatifs, recours des voisins et des tiers, et responsabilité civile vie privée.</p>
@@ -3467,7 +3469,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <p>À défaut de souscription ou de renouvellement après commandement d'assurer demeuré infructueux pendant un (1) mois, le BAILLEUR peut souscrire une assurance pour le compte du LOCATAIRE. La prime annuelle ainsi que les frais de souscription, majorés de dix (10) %, sont récupérables auprès du LOCATAIRE selon les modalités des charges.</p>
 <h3>10.3 — Déclaration de sinistre</h3>
 <p>Le LOCATAIRE est tenu de déclarer immédiatement à son assureur tout sinistre survenu dans les locaux loués et d'en aviser le BAILLEUR par écrit sans délai. Tout manquement à cette obligation qui causerait un préjudice au BAILLEUR engage la responsabilité du LOCATAIRE.</p>
-<h3>10.4 — Visites du bailleur</h3>
+<h3>10.4 — Visites du BAILLEUR</h3>
 <p>Le BAILLEUR ou son mandataire peut accéder aux locaux loués dans les conditions suivantes :</p>
 <ul>
 <li><strong>Pour travaux ou vérification :</strong> avec un préavis minimum de <strong>quarante-huit (48) heures</strong>, notifié par tout moyen permettant d'en attester la réception ;</li>
@@ -3476,7 +3478,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 </ul>
 
 <h2>11 — Entretien et réparations</h2>
-<h3>11.1 — Obligations du locataire (réparations locatives)</h3>
+<h3>11.1 — Obligations du LOCATAIRE (réparations locatives)</h3>
 <p>Le LOCATAIRE supporte l'entretien courant du logement et les réparations locatives définies par le décret n° 87-712 du 26 août 1987 (reproduit en Annexe A), sauf lorsqu'elles sont rendues nécessaires par la vétusté, un vice de construction, une malfaçon, un cas fortuit ou un cas de force majeure. Sans que cette liste soit exhaustive, il est notamment tenu de :</p>
 <ul>
 <li><strong>Parties extérieures à usage privatif :</strong> entretien courant du jardin (tonte, taille, désherbage, arrosage), nettoyage des allées, terrasses et auvents, dégorgement des gouttières et chêneaux privatifs.</li>
@@ -3488,7 +3490,7 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 </ul>
 <p>Le LOCATAIRE s'engage à ne suspendre aux murs et plafonds que des éléments légers et à reboucher proprement tout trou. Il s'interdit de percer le carrelage ou le parquet. Toute transformation ou amélioration nécessite l'accord préalable et écrit du BAILLEUR ; à défaut, le BAILLEUR peut exiger la remise en état immédiate aux frais du LOCATAIRE. Les travaux de rafraîchissement (peinture, papier peint) sont autorisés en couleurs neutres et claires ; ils ne donnent lieu à aucune indemnisation.</p>
 <p>Le LOCATAIRE ne peut faire usage d'aucun appareil de chauffage à combustion (mazout, gaz en bouteille) sans autorisation écrite préalable du BAILLEUR et mise aux normes de ventilation.</p>
-<h3>11.2 — Obligations du bailleur (grosses réparations)</h3>
+<h3>11.2 — Obligations du BAILLEUR (grosses réparations)</h3>
 <p>Le BAILLEUR est tenu d'entretenir le logement en état de servir à l'usage prévu et d'y effectuer toutes les réparations autres que locatives, nécessaires au maintien en bon état, notamment les grosses réparations visées à l'article 606 du Code civil (gros murs, couvertures, canalisations principales, installation électrique vétuste).</p>
 <p>Le LOCATAIRE est tenu d'informer le BAILLEUR, sans délai et par écrit, de toute dégradation ou dysfonctionnement nécessitant une intervention à la charge du BAILLEUR. À défaut, il engage sa responsabilité pour l'aggravation qui en résulte.</p>
 <h3>11.3 — Tolérance des travaux</h3>
@@ -3529,6 +3531,8 @@ img.sig18-img{border:1.5px solid #999;border-radius:3px;display:none;max-width:1
 <h2>14 — Clause de constatation d'abandon du logement</h2>
 <p>Conformément à l'article 14-1 de la loi du 6 juillet 1989 (loi n° 2010-1609 du 22 décembre 2010), lorsque des éléments laissent supposer que le logement est abandonné, le BAILLEUR peut mettre en demeure le LOCATAIRE de justifier qu'il l'occupe, par acte de commissaire de justice.</p>
 <p>S'il n'a pas été déféré à cette mise en demeure un mois après signification, le commissaire de justice peut dresser un procès-verbal constatant l'état d'abandon, inventoriant les biens laissés sur place. La résiliation du bail est alors constatée par le juge selon la procédure fixée par le décret n° 2011-945 du 10 août 2011.</p>
+
+{{SECTION_14BIS}}
 
 {{SECTION_GARANT_15}}
 
@@ -9794,6 +9798,27 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
 
   const notesSection = bail.notes ? `<h3>Conditions particulières</h3><p>${bail.notes}</p>` : '';
 
+  // §9 bis — Solidarité et indivisibilité (conditionnel sur nb de locataires)
+  const section9bis = locs.length>=2
+    ? `<h2>9 bis — Solidarité et indivisibilité (colocation)</h2>
+<p>Les colocataires soussignés, désignés ensemble sous le vocable «&nbsp;le LOCATAIRE&nbsp;», reconnaissent expressément s'engager <strong>solidairement et indivisiblement</strong> à l'exécution de l'ensemble des obligations résultant du présent bail, tant entre eux qu'à l'égard de leurs ayants droit.</p>
+<p>Cette solidarité et cette indivisibilité visent notamment le paiement du loyer, des charges, du dépôt de garantie, des réparations locatives, des indemnités d'occupation et de toute somme due au titre du présent bail ou de ses suites.</p>
+<p>En cas de congé délivré par l'un des colocataires, celui-ci reste tenu solidairement du paiement des loyers, charges et accessoires, ainsi que de l'ensemble des obligations du bail, pendant une durée maximale de <strong>six mois</strong> à compter de la date d'effet du congé (art.&nbsp;8-1 de la loi n°&nbsp;89-462 du 6&nbsp;juillet&nbsp;1989). La solidarité cesse avant l'expiration de ce délai si un nouveau colocataire, accepté par le BAILLEUR, figure au bail.</p>
+<p>Le BAILLEUR déclare n'avoir consenti le présent bail qu'en considération de la présente cotitularité solidaire, cette clause constituant une <strong>condition substantielle</strong> du contrat.</p>
+<p>En cas de départ d'un ou plusieurs colocataires, le dépôt de garantie ne sera restitué qu'après libération totale des lieux par l'ensemble des colocataires, dans le délai légal à compter de la remise des clés (art.&nbsp;22 loi 89-462).</p>`
+    : `<h2>9 bis — Solidarité et indivisibilité</h2>
+<p>Le présent bail est conclu avec un locataire unique. En cas d'évolution de la situation familiale ou personnelle du LOCATAIRE (mariage, PACS, cotitularité légale au sens de l'article&nbsp;1751 du Code civil), la présente clause s'appliquera de plein droit à tous les cotitulaires du bail qui seront alors <strong>solidairement et indivisiblement tenus</strong> de l'ensemble des obligations résultant du présent contrat.</p>
+<p>Toute modification de la composition locative (adjonction ou départ de cotitulaires) nécessite l'accord préalable et écrit du BAILLEUR et donnera lieu à un avenant au présent bail précisant les modalités de la solidarité entre les cotitulaires.</p>
+<p>Les dispositions du présent article s'entendent sans préjudice de l'article&nbsp;8-1 de la loi du 6&nbsp;juillet&nbsp;1989 relatif à la solidarité du colocataire sortant.</p>`;
+
+  // §14 bis — Acceptation des notifications électroniques (LRE)
+  const section14bis = `<h2>14 bis — Acceptation des notifications électroniques</h2>
+<p>Le LOCATAIRE donne son accord exprès pour que les notifications qui lui seront adressées en exécution du présent bail soient effectuées par <strong>lettre recommandée électronique (LRE)</strong> à l'adresse électronique qu'il a communiquée au BAILLEUR, conformément aux dispositions de l'article&nbsp;1126 du Code civil et de l'article L.&nbsp;100 du Code des postes et des communications électroniques.</p>
+<p>Le LOCATAIRE s'engage à maintenir valide cette adresse électronique pendant toute la durée du bail et à informer le BAILLEUR sans délai de toute modification. À défaut, les notifications adressées à l'adresse figurant au présent contrat seront réputées valablement effectuées.</p>${locs.length>=2
+    ? `
+<p>En cas de pluralité de locataires, l'acceptation des LRE vaut pour chacun d'eux, les notifications adressées à l'un étant opposables à tous en application de la clause de solidarité et d'indivisibilité (cf. §&nbsp;9 bis).</p>`
+    : ''}`;
+
   const replacements = {
     'REF': S(ref||''),
     'LOCATAIRES': locNames,
@@ -9840,6 +9865,8 @@ ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisibleme
     'GARANT_SECTION': garantSection,
     'SECTION_GARANT_15': sectionGarant15,
     'NOTES_SECTION': notesSection,
+    'SECTION_9BIS': section9bis,
+    'SECTION_14BIS': section14bis,
     'STATUT_CAUTION': bail.garant ? 'Ci-inclus (§ 15)' : 'Le cas échéant',
     'VILLE_SIGNATURE': S(villeSig),
     'DATE_SIGNATURE': new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}),
