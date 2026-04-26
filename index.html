@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.55</title>
+<title>ImmoTrack v12.56</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.55</em>
+      <em>v12.56</em>
     </div>
   </div>
 
@@ -12471,6 +12471,89 @@ const BailDocument = {
   previewHTML:               previewBailData,
   exportWord:                exportBailWord,
   generateActeCautionnement: genActeCautionnementDoc,
+};
+
+// ─── Phase 3d (v12.56) — Namespace Bail global ───────────────────────────────
+// API canonique du module Bail. Alias des fonctions globales existantes
+// (zéro déplacement de code → zéro risque). Les onclick HTML inline et les
+// callers JS continuent de marcher tels quels.
+// Permet l'introspection du module : taper `Bail.` dans la console DevTools
+// autocomplète toute l'API publique du module.
+const Bail = {
+  // ── CRUD ──────────────────────────────────────────────
+  open:    openBail,
+  save:    saveBail,
+  delete:  delBail,
+  copy:    copyBailFrom,
+
+  // ── Cycle de vie (clôture / fin de bail) ──────────────
+  cloreOpen: openBailClore,    // ouvre la modale de clôture
+  cloreSave: saveBailClore,    // confirme la clôture
+  terminate: terminerBail,     // bouton "Terminer" depuis le formulaire
+  archive:   archiverBail,     // archivage direct (legacy)
+
+  // ── Render listes (page principale / historique) ──────
+  renderActifs:     rBaux,
+  renderHistorique: rBauxHistorique,
+
+  // ── Render formulaire (sous-listes dynamiques) ────────
+  renderLocs:        renderBailLocs,
+  renderGarants:     renderBailGarants,
+  renderSignataires: renderBailSignataires,
+
+  // ── Locataires / Garants — CRUD inline ────────────────
+  addLocataire,
+  removeLocataire,
+  addGarant,
+  removeGarant,
+
+  // ── Helpers form (extraction des données saisies) ─────
+  getDataFromForm: getBailDataFromForm,
+  getLocs:         getBailLocs,
+  getGarants:      getBailGarants,
+  getSignataires:  getBailSignataireSelection,
+
+  // ── Status (calculés) ─────────────────────────────────
+  getStatus:   getBailStatus,
+  getProgress: getBailProgress,
+
+  // ── Auto-fill / handlers form ─────────────────────────
+  onRefChange:        onBailRefChange,
+  onDebutChange:      onBailDebutChange,
+  onLoyerChange:      onBailLoyerChange,
+  autoFin:            autoFinBail,
+  autoIRLTrimestre,
+  autoPlafondCaution,
+  toggleMandataire:   toggleBailMandataire,
+
+  // ── Wizard 4 étapes ───────────────────────────────────
+  wizard: {
+    goStep:   goBailStep,
+    nextStep: nextBailStep,
+    prevStep: prevBailStep,
+    close:    closeBailWizard,
+  },
+
+  // ── Preview / Documents (façades + sub-namespace) ─────
+  preview:    previewBail,        // preview depuis form courant
+  previewRef: previewBailRef,     // preview depuis ref logement
+  document:   BailDocument,       // sub-namespace exports docs (Phase 3a)
+
+  // ── Historique (sous-objet dédié) ─────────────────────
+  hist: {
+    open:       openBailHist,
+    close:      closeBailHist,
+    preview:    previewBailHist,
+    exportWord: exportBailHistWord,
+    delete:     delBailHist,
+  },
+
+  // ── Template editor (Params > Bail) ───────────────────
+  templateEditor: {
+    save:    saveBailTemplate,
+    preview: previewBailTemplate,
+    reset:   resetBailTemplate,
+  },
 };
 
 function autoPlafondCaution() {
