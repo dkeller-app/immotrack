@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.54</title>
+<title>ImmoTrack v12.55</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.54</em>
+      <em>v12.55</em>
     </div>
   </div>
 
@@ -9205,7 +9205,7 @@ function previewBailData(bail, log, ref) {
   /* ── HTML des 10 pages ───────────────────────────────────── */
 
   // PAGE 1 : Couverture + Entre les soussignés
-  var p1 = '<div class="bail-page" id="page-1">'
+  const p1 = '<div class="bail-page" id="page-1">'
     +'<h1>BAIL DE LOCATION DE LOGEMENT NU</h1>'
     +'<p class="center note">Loi n\u00b0 89-462 du 6 juillet 1989 \u2014 Art. 10 \u2014 Bailleur personne morale</p>'
     +'<p class="center" style="margin-top:6px">Au profit de\u00a0: <strong>'+locNames+'</strong></p>'
@@ -9227,7 +9227,7 @@ function previewBailData(bail, log, ref) {
     +garantSouss
     +pz(1)+'</div>';
 
-  var p2 = '<div class="bail-page" id="page-2">'
+  const p2 = '<div class="bail-page" id="page-2">'
     +'<h2>1 \u2014 D\u00e9signation du logement</h2>'
     +'<table>'
     +'<tr><td>Adresse compl\u00e8te</td><td>'+adrBien+(etage&&etage!=='\u2013'?' \u2014 '+etage:'')+'</td></tr>'
@@ -9263,7 +9263,7 @@ function previewBailData(bail, log, ref) {
     +'<p>Le LOCATAIRE pourra donner cong\u00e9 au BAILLEUR \u00e0 tout moment du contrat moyennant un pr\u00e9avis de <strong>trois (3) mois</strong>, par lettre recommand\u00e9e avec avis de r\u00e9ception ou par acte de commissaire de justice.</p>'
     +pz(2)+'</div>';
 
-  var p3 = '<div class="bail-page" id="page-3">'
+  const p3 = '<div class="bail-page" id="page-3">'
     +'<p>Ce d\u00e9lai est r\u00e9duit \u00e0 <strong>un (1) mois</strong> si le LOCATAIRE\u00a0: est mut\u00e9 ou perd involontairement son emploi\u00a0; obtient un premier emploi\u00a0; est \u00e2g\u00e9 de plus de 60 ans et son \u00e9tat de sant\u00e9 n\u00e9cessite un changement de domicile\u00a0; b\u00e9n\u00e9ficie du RSA ou de l\u2019AAH\u00a0; obtient un logement social\u00a0; r\u00e9side en zone tendue.</p>'
     +'<p>Le BAILLEUR n\u2019aura aucune facult\u00e9 de r\u00e9silier le contrat par anticipation. Il n\u2019aura que le droit d\u2019en demander la r\u00e9siliation judiciaire pour inex\u00e9cution d\u2019une des conditions des pr\u00e9sentes, sauf b\u00e9n\u00e9fice de la clause r\u00e9solutoire ci-apr\u00e8s.</p>'
     +'<h3>Cong\u00e9 \u00e0 l\u2019expiration du bail</h3>'
@@ -9294,7 +9294,7 @@ function previewBailData(bail, log, ref) {
             +(bail.complementLoyer>0?'Compl\u00e9ment de loyer\u00a0: '+bail.complementLoyer+'\u20ac/mois'+(bail.complementJustif?' ('+bail.complementJustif+')':'')+'.' :'Compl\u00e9ment de loyer\u00a0: n\u00e9ant.')
             +'</p>';
         } else {
-          var premLabel = bail.premiereLoc==='relocation'
+          const premLabel = bail.premiereLoc==='relocation'
             ?'Remise en location (vacant &lt; 18 mois) \u2014 loyer plafonn\u00e9 au dernier loyer'+(bail.dernierLoyerPrec?' de '+bail.dernierLoyerPrec+'\u00a0\u20ac':'')+'.'
             :'Premi\u00e8re mise en location \u2014 loyer fix\u00e9 librement (art. 17, II, 1\u00b0).';
           zoneSect='<p style="font-size:9.5pt;padding:6px 10px;background:#f0f4ff;border-left:3px solid var(--blu);border-radius:2px;margin-top:6px">'
@@ -9316,7 +9316,7 @@ function previewBailData(bail, log, ref) {
     +'<p>Le nouveau montant sera exigible d\u00e8s la premi\u00e8re \u00e9ch\u00e9ance suivant la date de r\u00e9vision, sans notification pr\u00e9alable. \u00c0 d\u00e9faut d\u2019application dans l\u2019ann\u00e9e suivant sa prise d\u2019effet, la r\u00e9vision est r\u00e9put\u00e9e abandonn\u00e9e pour cette p\u00e9riode.</p>'
     +pz(3)+'</div>';
 
-  var p4 = '<div class="bail-page" id="page-4">'
+  const p4 = '<div class="bail-page" id="page-4">'
     +'<h3>5.3 \u2014 Quittance</h3>'
     +'<p>Lorsque le LOCATAIRE en fera la demande, le BAILLEUR lui remettra <strong>gratuitement</strong> une quittance portant le d\u00e9tail des sommes vers\u00e9es (loyer et charges distingu\u00e9s). Dans tous les cas de paiement partiel, le BAILLEUR d\u00e9livrera un re\u00e7u. Aucun frais li\u00e9 \u00e0 la gestion de l\u2019avis d\u2019\u00e9ch\u00e9ance ou de la quittance ne peut \u00eatre factur\u00e9 au LOCATAIRE (art. 21 loi 89-462).</p>'
     +'<h3>5.4 \u2014 D\u00e9penses \u00e9nerg\u00e9tiques</h3>'
@@ -9368,14 +9368,14 @@ function previewBailData(bail, log, ref) {
     +'<p>Le LOCATAIRE s\u2019interdit express\u00e9ment de proposer ou de mettre \u00e0 disposition tout ou partie des locaux sur une plateforme de location saisonni\u00e8re ou de courte dur\u00e9e (type Airbnb, Booking, etc.), m\u00eame pour une seule nuit, sauf autorisation \u00e9crite pr\u00e9alable du BAILLEUR. Une telle mise \u00e0 disposition constitue un changement de destination des locaux et un motif grave de r\u00e9siliation.</p>'
     +pz(4)+'</div>';
 
-  var p5 = '<div class="bail-page" id="page-5">'
+  const p5 = '<div class="bail-page" id="page-5">'
     +'<h3>Parties communes</h3>'
     +'<p>Le LOCATAIRE s\u2019engage \u00e0 ne pas encombrer les parties communes (cages d\u2019escalier, couloirs, paliers) avec des objets tels que bicyclettes, poussettes, mobilier ou cartons, en dehors des espaces express\u00e9ment pr\u00e9vus \u00e0 cet effet. Tout objet laiss\u00e9 sans droit pourra \u00eatre \u00e9vacu\u00e9 aux frais du LOCATAIRE apr\u00e8s mise en demeure rest\u00e9e sans effet.</p>'
     +'<h3>Animaux</h3>'
     +'<p>La d\u00e9tention d\u2019un animal de compagnie est autoris\u00e9e sous r\u00e9serve qu\u2019il ne cause aucun d\u00e9g\u00e2t aux locaux, parties communes ou biens des voisins, et aucun trouble de jouissance (bruits, odeurs, souillures). Le LOCATAIRE est seul responsable de tous les dommages occasionn\u00e9s par ses animaux. La d\u00e9tention d\u2019un chien de 1<sup>re</sup> cat\u00e9gorie (chien d\u2019attaque \u2014 art. L.\u00a0211-12 du Code rural et de la p\u00eache maritime) est formellement interdite. En cas de nuisances r\u00e9p\u00e9t\u00e9es d\u00fbment constat\u00e9es, le BAILLEUR pourra exiger le retrait de l\u2019animal dans un d\u00e9lai d\u2019un mois.</p>'
     +pz(5)+'</div>';
 
-  var p6 = '<div class="bail-page" id="page-6">'
+  const p6 = '<div class="bail-page" id="page-6">'
     +(function(){
       if(locs.length>=2) {
         return '<h2>9 bis \u2014 Solidarit\u00e9 et indivisibilit\u00e9 (colocation)</h2>'
@@ -9409,7 +9409,7 @@ function previewBailData(bail, log, ref) {
     +'<ul style="margin:4px 0 6px 20px"><li><strong>Pour travaux, entretien, expertise ou v\u00e9rification\u00a0:</strong> avec un pr\u00e9avis raisonnable d\u2019au moins <strong>quarante-huit (48) heures</strong>, notifi\u00e9 par tout moyen permettant d\u2019en attester la r\u00e9ception\u00a0;</li>'
     +pz(6)+'</div>';
 
-  var p7 = '<div class="bail-page" id="page-7">'
+  const p7 = '<div class="bail-page" id="page-7">'
     +'<li><strong>En cas d\u2019urgence</strong> (risque pour la s\u00e9curit\u00e9 des personnes ou des biens, fuite d\u2019eau, sinistre imminent)\u00a0: l\u2019acc\u00e8s est possible \u00e0 tout moment, sous r\u00e9serve d\u2019en informer le LOCATAIRE dans les meilleurs d\u00e9lais\u00a0;</li>'
     +'<li><strong>En cas de mise en vente ou remise en location\u00a0:</strong> les visites s\u2019effectuent les jours ouvrables uniquement, hors dimanches et jours f\u00e9ri\u00e9s, pour une dur\u00e9e maximale de <strong>deux (2) heures par jour</strong>, aux horaires convenus entre les parties (\u00e0 d\u00e9faut entre 17\u202fh et 19\u202fh), conform\u00e9ment \u00e0 l\u2019article 4 de la loi 89-462.</li></ul>'
     +'<h2>11 \u2014 Entretien et r\u00e9parations</h2>'
@@ -9430,7 +9430,7 @@ function previewBailData(bail, log, ref) {
     +'<p>Le LOCATAIRE est tenu d\u2019informer le BAILLEUR, sans d\u00e9lai et par \u00e9crit, de toute d\u00e9gradation ou dysfonctionnement n\u00e9cessitant une intervention \u00e0 la charge du BAILLEUR. \u00c0 d\u00e9faut, il engage sa responsabilit\u00e9 pour l\u2019aggravation qui en r\u00e9sulte.</p>'
     +pz(7)+'</div>';
 
-  var p8 = '<div class="bail-page" id="page-8">'
+  const p8 = '<div class="bail-page" id="page-8">'
     +'<h3>11.3 \u2014 Tol\u00e9rance des travaux</h3>'
     +'<p>Le LOCATAIRE doit laisser effectuer dans les locaux lou\u00e9s et les parties communes les travaux d\u2019am\u00e9lioration, de mise en conformit\u00e9 ou d\u2019entretien n\u00e9cessaires, quelle qu\u2019en soit la dur\u00e9e, sans pouvoir pr\u00e9tendre \u00e0 une indemnit\u00e9 pour la g\u00eane occasionn\u00e9e, sauf si ces travaux durent plus de <strong>quarante (40) jours ouvr\u00e9s</strong>, auquel cas il peut demander une r\u00e9duction de loyer proportionnelle \u00e0 la dur\u00e9e et \u00e0 l\u2019importance de la privation de jouissance.</p>'
     +'<h2>12 \u2014 Clause r\u00e9solutoire</h2>'
@@ -9456,7 +9456,7 @@ function previewBailData(bail, log, ref) {
     +'<p>S\u2019il n\u2019a pas \u00e9t\u00e9 d\u00e9f\u00e9r\u00e9 \u00e0 cette mise en demeure un mois apr\u00e8s signification, le commissaire de justice peut dresser un proc\u00e8s-verbal constatant l\u2019\u00e9tat d\u2019abandon, inventoriant les biens laiss\u00e9s sur place. La r\u00e9siliation du bail est alors constat\u00e9e par le juge selon la proc\u00e9dure fix\u00e9e par le d\u00e9cret n\u00b0\u00a02011-945 du 10\u00a0ao\u00fbt 2011.</p>'
     +pz(8)+'</div>';
 
-  var p9 = '<div class="bail-page" id="page-9">'
+  const p9 = '<div class="bail-page" id="page-9">'
     +'<h2>14 bis \u2014 Acceptation des notifications \u00e9lectroniques</h2>'
     +'<p>Le LOCATAIRE donne son accord expr\u00e8s pour que les notifications qui lui seront adress\u00e9es en ex\u00e9cution du pr\u00e9sent bail soient effectu\u00e9es par <strong>lettre recommand\u00e9e \u00e9lectronique (LRE)</strong> \u00e0 l\u2019adresse \u00e9lectronique qu\u2019il a communiqu\u00e9e au BAILLEUR, conform\u00e9ment aux dispositions de l\u2019article\u00a01126 du Code civil et de l\u2019article L.\u00a0100 du Code des postes et des communications \u00e9lectroniques.</p>'
     +'<p>Le LOCATAIRE s\u2019engage \u00e0 maintenir valide cette adresse \u00e9lectronique pendant toute la dur\u00e9e du bail et \u00e0 informer le BAILLEUR sans d\u00e9lai de toute modification. \u00c0 d\u00e9faut, les notifications adress\u00e9es \u00e0 l\u2019adresse figurant au pr\u00e9sent contrat seront r\u00e9put\u00e9es valablement effectu\u00e9es.</p>'
@@ -9492,7 +9492,7 @@ function previewBailData(bail, log, ref) {
     +'<p>Pour les besoins de l\u2019ex\u00e9cution du pr\u00e9sent bail, le BAILLEUR fait \u00e9lection de domicile \u00e0 son si\u00e8ge social indiqu\u00e9 en t\u00eate des pr\u00e9sentes. Le LOCATAIRE fait \u00e9lection de domicile dans les locaux lou\u00e9s. Toute correspondance adress\u00e9e \u00e0 ces adresses est r\u00e9put\u00e9e valablement notifi\u00e9e.</p>'
     +pz(9)+'</div>';
 
-  var p10 = '<div class="bail-page" id="page-10">'
+  const p10 = '<div class="bail-page" id="page-10">'
     +'<h2>17 \u2014 Annexes obligatoires</h2>'
     +'<p class="note" style="margin-bottom:6px">Les annexes ci-dessous font partie int\u00e9grante du pr\u00e9sent bail. Les documents marqu\u00e9s \u00ab\u00a0N/A\u00a0\u00bb ne sont pas applicables au pr\u00e9sent bail.</p>'
     +(function(){
@@ -9527,7 +9527,7 @@ function previewBailData(bail, log, ref) {
     })()
     +pz(10)+'</div>';
 
-  var p11 = '<div class="bail-page" id="page-11">'
+  const p11 = '<div class="bail-page" id="page-11">'
     +'<h2>18 \u2014 Signatures</h2>'
     +'<p>Fait \u00e0 <strong>'+villeSig+'</strong>, le '+dateStr+', en 3 exemplaires originaux, dont un remis \u00e0 chaque partie qui le reconna\u00eet.</p>'
     +'<label style="display:flex;align-items:center;gap:10px;background:#fff8e1;border:1px solid #c9a000;border-radius:5px;padding:10px 14px;margin:12px 0;font-size:11pt;color:#7a5c00;cursor:pointer">'
@@ -9535,7 +9535,7 @@ function previewBailData(bail, log, ref) {
     +sig18Blocs
     +'</div>';
 
-  var p12 = '<div class="bail-page" id="page-12">'
+  const p12 = '<div class="bail-page" id="page-12">'
     +'<h2 class="ann">Annexe A \u2014 Liste des r\u00e9parations locatives</h2>'
     +'<p class="note">(D\u00e9cret n\u00b0 87-712 du 26 ao\u00fbt 1987)</p>'
     +'<h3>I \u2014 Parties ext\u00e9rieures</h3><p>Jardins privatifs\u00a0: entretien courant (all\u00e9es, pelouses, massifs, bassins, piscines), taille, \u00e9lagage, remplacement arbustes. Auvents, terrasses\u00a0: enl\u00e8vement mousse. Goutti\u00e8res\u00a0: d\u00e9gorgement.</p>'
@@ -9558,7 +9558,7 @@ function previewBailData(bail, log, ref) {
     +'<p class="note" style="margin-top:14px"><em>Le pr\u00e9sent contrat est soumis \u00e0 la loi n\u00b0 89-462 du 6 juillet 1989 modifi\u00e9e, notamment par la loi ALUR du 24 mars 2014, la loi ELAN du 23 novembre 2018 et la loi Climat et R\u00e9silience du 22 ao\u00fbt 2021.</em></p>'
     +'</div>';
 
-  var p13 = '';
+  const p13 = '';
 
 
   /* ── CSS ─────────────────────────────────────────────────── */
