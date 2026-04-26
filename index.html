@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.63</title>
+<title>ImmoTrack v12.64</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.63</em>
+      <em>v12.64</em>
     </div>
   </div>
 
@@ -9770,22 +9770,59 @@ function previewBailData(bail, log, ref) {
     +  'var next=document.getElementById("wiz-next-btn");'
     +  'if(next)next.textContent=window._wizCurrent>=total?"✓ Terminer & générer PDF":"Suivant →";'
     +'}'
+    /* === Phase polish v12.64 — Génération PDF native via jsPDF + html2canvas === */
+    /* Remplace window.print() par jsPDF : PDF téléchargé directement, indépendant
+       du dialog d\'impression nav (donc indépendant du choix utilisateur "Sauvegarder en PDF" + décocher "En-têtes nav" + choix marges). Plus déterministe sur Chrome / Edge / Safari mobile. */
     +'function genPDF(){'
+    +  'if(typeof window.jspdf==="undefined"||typeof html2canvas==="undefined"){'
+    +    'alert("Bibliothèques PDF pas encore chargées. Réessaie dans 2 secondes (vérifie ta connexion internet : libs chargées depuis CDN).");'
+    +    'return;'
+    +  '}'
+    +  'var jsPDFCls=window.jspdf.jsPDF;'
+    /* Swap canvas → img (signatures + paraphes signés) pour que html2canvas capture les images au lieu des canvas vides */
     +  'var caps={};'
     +  'document.querySelectorAll("canvas.sig-cv,canvas.pz-cv").forEach(function(c){caps[c.id]=c.toDataURL("image/png");});'
     +  'var restored=[];'
     +  'document.querySelectorAll("canvas.sig-cv,canvas.pz-cv").forEach(function(c){'
     +    'var img=document.getElementById("img-"+c.id);'
-    +    'if(img){img.src=caps[c.id];img.style.display="block";c.style.display="none";restored.push({c:c,img:img});}'
+    +    'if(img&&caps[c.id]){img.src=caps[c.id];img.style.display="block";c.style.display="none";restored.push({c:c,img:img});}'
     +  '});'
-    +  'var done=false;'
-    +  'function restore(){if(done)return;done=true;'
-    +    'restored.forEach(function(s){s.img.style.display="none";s.c.style.display="block";});}'
-    +  'window.addEventListener("afterprint",function h(){window.removeEventListener("afterprint",h);restore();});'
-    +  'setTimeout(restore,8000);'
-    +  'requestAnimationFrame(function(){requestAnimationFrame(function(){'
-    +    'setTimeout(function(){window.print();},300);'
-    +  '});});'
+    /* Sortir temporairement de wizard-mode pour rendu identique au mode lecture (évite cadres orange disproportionnés dans le PDF) */
+    +  'var wasWiz=document.body.classList.contains("wizard-mode");'
+    +  'if(wasWiz)document.body.classList.remove("wizard-mode");'
+    +  'function restore(){'
+    +    'restored.forEach(function(s){s.img.style.display="none";s.c.style.display="block";});'
+    +    'if(wasWiz)document.body.classList.add("wizard-mode");'
+    +  '}'
+    /* Génération PDF page par page : 1 .bail-page = 1 page A4 portrait */
+    +  'var pdf=new jsPDFCls({unit:"mm",format:"a4",orientation:"portrait"});'
+    +  'var pages=document.querySelectorAll(".bail-page");'
+    +  'var pdfW=210,pdfH=297;'
+    +  'var promise=Promise.resolve();'
+    +  'pages.forEach(function(page,i){'
+    +    'promise=promise.then(function(){'
+    +      'return html2canvas(page,{scale:2,useCORS:true,backgroundColor:"#fff",logging:false}).then(function(cv){'
+    +        'var imgData=cv.toDataURL("image/png");'
+    +        'if(i>0)pdf.addPage();'
+    +        'var imgRatio=cv.height/cv.width;'
+    +        'var imgW=pdfW,imgH=imgW*imgRatio;'
+    +        'if(imgH>pdfH){imgH=pdfH;imgW=imgH/imgRatio;}'
+    +        'pdf.addImage(imgData,"PNG",0,0,imgW,imgH);'
+    /* Numérotation discrète bas-droite */
+    +        'pdf.setFontSize(8);pdf.setTextColor(140);'
+    +        'pdf.text("Page "+(i+1)+" / "+pages.length,pdfW-25,pdfH-6);'
+    +      '});'
+    +    '});'
+    +  '});'
+    +  'promise.then(function(){'
+    +    'restore();'
+    +    'var fileName=(document.title||"Bail").replace(/^Bail\\s*[—\\-]\\s*/i,"").replace(/[^\\w\\-]+/g,"_")||"bail";'
+    +    'pdf.save("Bail_signé_"+fileName+".pdf");'
+    +  '}).catch(function(err){'
+    +    'console.error("[genPDF]",err);'
+    +    'alert("Erreur génération PDF : "+(err&&err.message?err.message:String(err)));'
+    +    'restore();'
+    +  '});'
     +'}'
     +'document.querySelectorAll("canvas.sig-cv").forEach(initPad);'
     +'buildAllPzBars();'
