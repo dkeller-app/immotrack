@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.59</title>
+<title>ImmoTrack v12.60</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.59</em>
+      <em>v12.60</em>
     </div>
   </div>
 
@@ -9602,6 +9602,39 @@ function previewBailData(bail, log, ref) {
     +'img.pz-img{border:1.5px solid #aaa;border-radius:2px;display:none}'
     +'.pz-pgnum{margin-left:auto;font-size:8pt;color:#ccc;white-space:nowrap;flex-shrink:0}'
     +'.btn-x{font-size:7.5pt;border:none;background:none;cursor:pointer;color:#c00;padding:0;line-height:1}'
+    /* === Phase polish v12.60 — Mode wizard signature page par page === */
+    +'#toolbar .btn-wiz{background:#f59e0b;color:#fff}'
+    +'#toolbar .wiz-counter{display:none;align-items:center;padding:4px 10px;background:rgba(255,255,255,.25);border-radius:12px;font-size:11px;font-weight:bold;margin-right:auto}'
+    +'.wiz-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #ccc;padding:10px 14px;display:none;gap:8px;z-index:9998;box-shadow:0 -2px 12px rgba(0,0,0,.15)}'
+    +'.wiz-nav button{flex:1;min-height:48px;border:none;border-radius:6px;font-size:14pt;font-weight:bold;cursor:pointer;font-family:inherit}'
+    +'.wiz-nav .wiz-prev{background:#e0e0e0;color:#333;flex:0 1 35%}'
+    +'.wiz-nav .wiz-next{background:#27ae60;color:#fff}'
+    +'.wiz-nav .wiz-next:disabled{background:#aaa;cursor:not-allowed}'
+    /* En mode wizard : 1 page A4 plein écran, paraphes mis en valeur */
+    +'body.wizard-mode #toolbar{background:#27ae60}'
+    +'body.wizard-mode #toolbar .wiz-counter{display:inline-flex}'
+    +'body.wizard-mode #toolbar .btn-wiz,body.wizard-mode #toolbar .btn-pdf{display:none}'
+    +'body.wizard-mode #doc-wrap{padding:0;max-width:none}'
+    +'body.wizard-mode .bail-page{display:none;box-shadow:none;margin:0;padding:14mm 12mm 100px;min-height:calc(100vh - 50px);border-radius:0;max-width:none}'
+    +'body.wizard-mode .bail-page.wiz-current{display:block}'
+    +'body.wizard-mode .pz-bar{background:#fff8e1;border:2px solid #f59e0b;border-radius:8px;padding:14px 12px;margin-top:20px;flex-direction:column;align-items:stretch;gap:10px}'
+    +'body.wizard-mode .pz-lbl{font-size:12pt;color:#7a5c00;text-align:center;font-weight:bold;min-width:auto;font-style:normal}'
+    +'body.wizard-mode .pz-slot{margin:0;align-items:stretch}'
+    +'body.wizard-mode .pz-slot canvas.pz-cv,body.wizard-mode .pz-slot img.pz-img{width:100%;max-width:280px;height:80px;margin:0 auto;display:block}'
+    +'body.wizard-mode .pz-name{font-size:10pt;color:#7a5c00;margin-top:4px;text-align:center;font-weight:600}'
+    +'body.wizard-mode .pz-pgnum{display:none}'
+    +'body.wizard-mode .btn-x{font-size:11pt;color:#c00;padding:4px 10px;background:#fff;border:1px solid #c00;border-radius:4px;margin-top:6px}'
+    /* Mobile responsive : optimisations pour smartphone */
+    +'@media (max-width:600px){'
+    +'#toolbar{padding:8px 10px;font-size:12px;flex-wrap:wrap}'
+    +'#toolbar .ttl{font-size:10px;flex-basis:100%;order:-1;margin-bottom:4px}'
+    +'#toolbar button{padding:6px 10px;font-size:11px}'
+    +'#doc-wrap{max-width:none;padding:6px}'
+    +'.bail-page{padding:14px 16px 0}'
+    +'body.wizard-mode .bail-page{padding:8mm 6mm 100px}'
+    +'.wiz-nav{padding:8px 10px}'
+    +'.wiz-nav button{font-size:13pt}'
+    +'}'
     +'@media print{'
     +'body{background:#fff;margin-top:0}'
     +'#toolbar,.no-print{display:none!important}'
@@ -9617,8 +9650,14 @@ function previewBailData(bail, log, ref) {
   /* ── Toolbar ─────────────────────────────────────────────── */
   var toolbar = '<div id="toolbar" class="no-print">'
     +'<span class="ttl">\ud83d\udcdc Bail \u2014 '+titleLabel+'</span>'
+    +'<span id="wiz-counter" class="wiz-counter">\ud83d\udcc4 Page 1 / '+N_PAGES+'</span>'
+    +'<button class="btn-wiz" onclick="startSignatureWizard()">\u270d\ufe0f D\u00e9marrer signature</button>'
     +'<button class="btn-pdf" onclick="genPDF()">\ud83d\udcc4 G\u00e9n\u00e9rer PDF sign\u00e9</button>'
     +'<button class="btn-cl" onclick="window.close()">\u2715 Fermer</button>'
+    +'</div>'
+    +'<div class="wiz-nav no-print">'
+    +'<button class="wiz-prev" id="wiz-prev-btn" onclick="prevWizPage()">\u2190 Pr\u00e9c\u00e9dent</button>'
+    +'<button class="wiz-next" id="wiz-next-btn" onclick="nextWizPage()">Suivant \u2192</button>'
     +'</div>';
 
   /* ── Scripts ─────────────────────────────────────────────── */
@@ -9642,13 +9681,16 @@ function previewBailData(bail, log, ref) {
     +'}'
     +'function buildPzBar(id,label,pageNum,totalPages){'
     +  'var el=document.getElementById(id);if(!el)return;'
-    +  'var h=\'<span class="pz-lbl">Paraphes :</span>\';'
+    /* En mode wizard : canvas plus grand (250x80 au lieu de 70x27) pour signature au doigt confortable + label plus explicite */
+    +  'var w=window._wizMode?250:70,hh=window._wizMode?80:27;'
+    +  'var lbl=window._wizMode?\'Veuillez parapher cette page :\':\'Paraphes :\';'
+    +  'var h=\'<span class="pz-lbl">\'+lbl+\'</span>\';'
     +  '_SIGS.forEach(function(s){'
     +    'var cid="pz-"+label+"-"+s.id;'
     +    'h+=\'<span class="pz-slot">\''
-    +      '+\'<canvas id="\'+cid+\'" class="pz-cv" width="70" height="27"></canvas>\''
-    +      '+\'<img id="img-\'+cid+\'" class="pz-img" width="70" height="27">\''
-    +      '+\'<button id="clr-\'+cid+\'" class="btn-x">\u2715</button>\''
+    +      '+\'<canvas id="\'+cid+\'" class="pz-cv" width="\'+w+\'" height="\'+hh+\'"></canvas>\''
+    +      '+\'<img id="img-\'+cid+\'" class="pz-img" width="\'+w+\'" height="\'+hh+\'">\''
+    +      '+\'<button id="clr-\'+cid+\'" class="btn-x">\u2715 Effacer</button>\''
     +      '+\'<span class="pz-name">\'+s.nomCourt+\'</span>\''
     +      '+\'</span>\';'
     +  '});'
@@ -9664,6 +9706,61 @@ function previewBailData(bail, log, ref) {
     +    'var label=id.replace(/^pz-p?/,"");'
     +    'buildPzBar(id,label,i+1,total);'
     +  '});'
+    +'}'
+    /* === Wizard signature page par page (Phase polish v12.60) === */
+    +'window._wizMode=false;window._wizCurrent=1;window._wizParaphes={};'
+    +'function startSignatureWizard(){'
+    +  'window._wizMode=true;window._wizCurrent=1;window._wizParaphes={};'
+    +  'document.body.classList.add("wizard-mode");'
+    +  'document.querySelectorAll(".bail-page").forEach(function(p,i){p.classList.toggle("wiz-current",i===0);});'
+    +  'buildAllPzBars();updateWizUI();window.scrollTo(0,0);'
+    +'}'
+    +'function exitSignatureWizard(){'
+    +  'window._wizMode=false;'
+    +  'document.body.classList.remove("wizard-mode");'
+    +  'document.querySelectorAll(".bail-page").forEach(function(p){p.classList.remove("wiz-current");});'
+    +  'buildAllPzBars();'
+    +'}'
+    +'function nextWizPage(){'
+    +  'var pages=document.querySelectorAll(".bail-page");'
+    +  'var current=pages[window._wizCurrent-1];'
+    +  'var pzBar=current?current.querySelector(".pz-bar"):null;'
+    +  'var canvases=pzBar?pzBar.querySelectorAll("canvas.pz-cv"):[];'
+    +  'if(canvases.length>0){'
+    +    'var allSigned=true;'
+    +    'canvases.forEach(function(c){'
+    +      'var data=c.getContext("2d").getImageData(0,0,c.width,c.height).data;'
+    +      'var hasInk=false;for(var i=3;i<data.length;i+=4){if(data[i]>0){hasInk=true;break;}}'
+    +      'if(!hasInk)allSigned=false;'
+    +    '});'
+    +    'if(!allSigned){alert("Tous les signataires doivent parapher cette page avant de continuer.");return;}'
+    +    'var captured={};canvases.forEach(function(c){captured[c.id]=c.toDataURL("image/png");});'
+    +    'window._wizParaphes[window._wizCurrent]=captured;'
+    +  '}'
+    +  'var total=pages.length;'
+    +  'if(window._wizCurrent<total){'
+    +    'window._wizCurrent++;'
+    +    'pages.forEach(function(p,i){p.classList.toggle("wiz-current",i===window._wizCurrent-1);});'
+    +    'updateWizUI();window.scrollTo(0,0);'
+    +  '}else{'
+    +    'if(confirm("Toutes les pages sont paraphées. Générer le PDF maintenant ?")){genPDF();}'
+    +  '}'
+    +'}'
+    +'function prevWizPage(){'
+    +  'if(window._wizCurrent>1){'
+    +    'window._wizCurrent--;'
+    +    'document.querySelectorAll(".bail-page").forEach(function(p,i){p.classList.toggle("wiz-current",i===window._wizCurrent-1);});'
+    +    'updateWizUI();window.scrollTo(0,0);'
+    +  '}'
+    +'}'
+    +'function updateWizUI(){'
+    +  'var total=document.querySelectorAll(".bail-page").length;'
+    +  'var counter=document.getElementById("wiz-counter");'
+    +  'if(counter)counter.textContent="📄 Page "+window._wizCurrent+" / "+total;'
+    +  'var prev=document.getElementById("wiz-prev-btn");'
+    +  'if(prev)prev.disabled=window._wizCurrent<=1;'
+    +  'var next=document.getElementById("wiz-next-btn");'
+    +  'if(next)next.textContent=window._wizCurrent>=total?"✓ Terminer & générer PDF":"Suivant →";'
     +'}'
     +'function genPDF(){'
     +  'var caps={};'
