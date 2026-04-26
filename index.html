@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.64</title>
+<title>ImmoTrack v12.65</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.64</em>
+      <em>v12.65</em>
     </div>
   </div>
 
@@ -9531,7 +9531,7 @@ function previewBailData(bail, log, ref) {
     +'<h2>18 \u2014 Signatures</h2>'
     +'<p>Fait \u00e0 <strong>'+villeSig+'</strong>, le '+dateStr+', en 3 exemplaires originaux, dont un remis \u00e0 chaque partie qui le reconna\u00eet.</p>'
     +'<label style="display:flex;align-items:center;gap:10px;background:#fff8e1;border:1px solid #c9a000;border-radius:5px;padding:10px 14px;margin:12px 0;font-size:11pt;color:#7a5c00;cursor:pointer">'
-    +'<input type="checkbox" style="width:18px;height:18px;flex-shrink:0"> J\u2019ai lu et approuv\u00e9 l\u2019int\u00e9gralit\u00e9 du pr\u00e9sent bail</label>'
+    +'<input type="checkbox" id="bail-lu-approuve" style="width:18px;height:18px;flex-shrink:0"> J\u2019ai lu et approuv\u00e9 l\u2019int\u00e9gralit\u00e9 du pr\u00e9sent bail <span style="color:#c00;font-weight:bold">*</span></label>'
     +sig18Blocs
     +'</div>';
 
@@ -9773,11 +9773,36 @@ function previewBailData(bail, log, ref) {
     /* === Phase polish v12.64 — Génération PDF native via jsPDF + html2canvas === */
     /* Remplace window.print() par jsPDF : PDF téléchargé directement, indépendant
        du dialog d\'impression nav (donc indépendant du choix utilisateur "Sauvegarder en PDF" + décocher "En-têtes nav" + choix marges). Plus déterministe sur Chrome / Edge / Safari mobile. */
+    +'function _libsReady(){return typeof window.jspdf!=="undefined"&&typeof html2canvas!=="undefined";}'
+    +'function _waitLibs(maxMs,cb){'
+    +  'var t0=Date.now();'
+    +  'function check(){'
+    +    'if(_libsReady()){cb(true);return;}'
+    +    'if(Date.now()-t0>maxMs){cb(false);return;}'
+    +    'setTimeout(check,150);'
+    +  '}'
+    +  'check();'
+    +'}'
     +'function genPDF(){'
-    +  'if(typeof window.jspdf==="undefined"||typeof html2canvas==="undefined"){'
-    +    'alert("Bibliothèques PDF pas encore chargées. Réessaie dans 2 secondes (vérifie ta connexion internet : libs chargées depuis CDN).");'
+    /* Validation checkbox "J\'ai lu et approuvé" : impérative avant génération PDF */
+    +  'var luBox=document.getElementById("bail-lu-approuve");'
+    +  'if(luBox&&!luBox.checked){'
+    +    'alert("Vous devez confirmer avoir lu et approuvé l’intégralité du bail (case à cocher §18) avant de générer le PDF signé.");'
+    +    'if(luBox.scrollIntoView)luBox.scrollIntoView({behavior:"smooth",block:"center"});'
+    +    'luBox.style.outline="3px solid #c00";'
+    +    'setTimeout(function(){luBox.style.outline="";},2500);'
     +    'return;'
     +  '}'
+    /* Vérification libs avec retry intelligent (max 5s) au lieu d\'un fail immédiat */
+    +  '_waitLibs(5000,function(ok){'
+    +    'if(!ok){'
+    +      'alert("Bibliothèques PDF non chargées après 5 secondes. Causes possibles :\\n\\n1. Pas de connexion internet (les libs viennent du CDN cdnjs.cloudflare.com)\\n2. Adblocker / proxy d’entreprise bloque cdnjs\\n3. Service Worker offline qui intercepte les requêtes externes\\n\\nVérifie ta connexion ou désactive temporairement les bloqueurs.");'
+    +      'return;'
+    +    '}'
+    +    '_genPDFCore();'
+    +  '});'
+    +'}'
+    +'function _genPDFCore(){'
     +  'var jsPDFCls=window.jspdf.jsPDF;'
     /* Swap canvas → img (signatures + paraphes signés) pour que html2canvas capture les images au lieu des canvas vides */
     +  'var caps={};'
