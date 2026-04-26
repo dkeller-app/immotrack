@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.57</title>
+<title>ImmoTrack v12.58</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.57</em>
+      <em>v12.58</em>
     </div>
   </div>
 
@@ -9606,9 +9606,8 @@ function previewBailData(bail, log, ref) {
     +'body{background:#fff;margin-top:0}'
     +'#toolbar,.no-print{display:none!important}'
     +'#doc-wrap{padding:0;max-width:none}'
-    /* Chaque .bail-page = 1 page A4 complète. flex column + margin-top:auto sur .pz-bar = paraphes systématiquement collés en bas. */
-    +'.bail-page{box-shadow:none;padding:12mm 16mm;margin:0;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column}'
-    +'.bail-page>.pz-bar{margin-top:auto;page-break-inside:avoid}'
+    /* padding 12mm 16mm = compense @page{margin:0} ci-dessus, préserve les marges visuelles. Pas de min-height/flex : "paraphes vraiment en bas" reporté à la refonte previewBailData (post-3d). */
+    +'.bail-page{box-shadow:none;padding:12mm 16mm;margin:0}'
     +'canvas.sig-cv,canvas.pz-cv{display:none!important}'
     +'img.sig-img,img.pz-img{display:block!important}'
     +'.pz-bar{background:#fff}'
