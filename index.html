@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.60</title>
+<title>ImmoTrack v12.61</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.60</em>
+      <em>v12.61</em>
     </div>
   </div>
 
@@ -8097,7 +8097,7 @@ function openBailHist(i) {
   fillSel('b-entity', DB.entites, e=>e.nom, e=>e.nom);
   el('b-entity').value = b.entity||'';
   if(el('b-typeContrat')) el('b-typeContrat').value = b.typeContrat||'initial';
-  if(el('b-modalitePaiement')) el('b-modalitePaiement').value = b.modalitePaiement||'terme_echu';
+  if(el('b-modalitePaiement')) el('b-modalitePaiement').value = b.modalitePaiement||'echeoir';
   el('b-hc').value = b.hc||''; el('b-ch').value = b.ch||''; el('b-dg').value = b.dg||'';
   el('b-fiscal').value = b.fiscal||''; el('b-jpay').value = b.jpay||'1';
   const irlKeys = sortedIRLKeys();
@@ -8413,7 +8413,7 @@ function openBail(ref) {
   el('b-entity').value = bail.entity||log?.entity||'';
   renderBailSignataires(bail.signataires);
   if(el('b-typeContrat')) el('b-typeContrat').value = bail.typeContrat||'initial';
-  if(el('b-modalitePaiement')) el('b-modalitePaiement').value = bail.modalitePaiement||'terme_echu';
+  if(el('b-modalitePaiement')) el('b-modalitePaiement').value = bail.modalitePaiement||'echeoir';
   el('b-hc').value = bail.hc||log?.hc||'';
   el('b-ch').value = bail.ch||log?.ch||'';
   el('b-dg').value = bail.dg||log?.dg||'';
@@ -8963,7 +8963,7 @@ function getBailDataFromForm() {
     ref: _bref, nom: locs[0]?.nom, locataires: locs,
     adrLoc: v('b-adrLoc'),
     typeContrat: v('b-typeContrat')||'initial',
-    modalitePaiement: v('b-modalitePaiement')||'terme_echu',
+    modalitePaiement: v('b-modalitePaiement')||'echeoir',
     destinationLocaux: v('b-destinationLocaux')||'habitation',
     locauxPrivatifs: v('b-locauxPrivatifs'),
     zoneTendue: !!el('b-zoneTendue')?.checked,
