@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.56</title>
+<title>ImmoTrack v12.57</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.56</em>
+      <em>v12.57</em>
     </div>
   </div>
 
@@ -9563,7 +9563,7 @@ function previewBailData(bail, log, ref) {
 
   /* ── CSS ─────────────────────────────────────────────────── */
   var css = '<style>'
-    +'@page{size:A4 portrait;margin:12mm 16mm}'
+    +'@page{size:A4 portrait;margin:0}'  /* margin:0 pour supprimer en-têtes/pieds nav imprimés */
     +'body{font-family:Arial,sans-serif;font-size:10.5pt;margin-top:48px;background:#e8e8e8;color:#111}'
     +'#toolbar{position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a4b8c;color:#fff;display:flex;align-items:center;gap:8px;padding:6px 14px;font-family:Arial,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.3)}'
     +'#toolbar .ttl{font-size:11px;font-weight:bold;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
@@ -9606,7 +9606,9 @@ function previewBailData(bail, log, ref) {
     +'body{background:#fff;margin-top:0}'
     +'#toolbar,.no-print{display:none!important}'
     +'#doc-wrap{padding:0;max-width:none}'
-    +'.bail-page{box-shadow:none;padding:0;margin:0}'
+    /* Chaque .bail-page = 1 page A4 complète. flex column + margin-top:auto sur .pz-bar = paraphes systématiquement collés en bas. */
+    +'.bail-page{box-shadow:none;padding:12mm 16mm;margin:0;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column}'
+    +'.bail-page>.pz-bar{margin-top:auto;page-break-inside:avoid}'
     +'canvas.sig-cv,canvas.pz-cv{display:none!important}'
     +'img.sig-img,img.pz-img{display:block!important}'
     +'.pz-bar{background:#fff}'
