@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.53</title>
+<title>ImmoTrack v12.54</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.53</em>
+      <em>v12.54</em>
     </div>
   </div>
 
@@ -9181,6 +9181,27 @@ function previewBailData(bail, log, ref) {
   /* ── mkPzBar : placeholder; buildAllPzBars le remplit en JS ─ */
   function pz(n){ return '<div class="pz-bar" id="pz-p'+n+'"></div>'; }
 
+  /* ── Grille de vétusté (rows réutilisés en §8.2). Hors var p4 pour éviter
+        que ASI ferme p4 prématurément et perde §7/§8/§9. ───────────────── */
+  var vetusteRows = [
+    ['Peintures, papiers peints','2 ans','7 ans','18 %','10 %'],
+    ['Moquette','2 ans','7 ans','18 %','10 %'],
+    ['Parquet, carrelage, revêtement sol','5 ans','25 ans','4 %','20 %'],
+    ['Revêtement plastique (lino, PVC)','3 ans','10 ans','11 %','20 %'],
+    ['Faïence murale','10 ans','20 ans','8 %','20 %'],
+    ['Menuiserie intérieure','5 ans','20 ans','6 %','15 %'],
+    ['Serrurerie, quincaillerie','2 ans','10 ans','11 %','15 %'],
+    ['Robinetterie','5 ans','15 ans','9 %','15 %'],
+    ['Plomberie','5 ans','15 ans','9 %','15 %'],
+    ['Appareils sanitaires','7 ans','20 ans','6 %','20 %'],
+    ['Chauffe-eau électrique / ballon ECS','3 ans','10 ans','12 %','15 %'],
+    ['Chaudière','3 ans','15 ans','7 %','15 %'],
+    ['Persiennes PVC / bois','5 ans','15 ans','8 %','20 %'],
+    ['Volets roulants','3 ans','15 ans','8 %','10 %'],
+    ['Convecteurs électriques','3 ans','10 ans','12 %','15 %'],
+    ['Radiateurs','5 ans','20 ans','6 %','10 %'],
+  ].map(function(r){ return '<tr><td>'+r[0]+'</td><td style="text-align:center">'+r[1]+'</td><td style="text-align:center">'+r[2]+'</td><td style="text-align:center">'+r[3]+'</td><td style="text-align:center">'+r[4]+'</td></tr>'; }).join('');
+
   /* ── HTML des 10 pages ───────────────────────────────────── */
 
   // PAGE 1 : Couverture + Entre les soussignés
@@ -9319,24 +9340,6 @@ function previewBailData(bail, log, ref) {
     +'<p>Accessoirement au loyer, le LOCATAIRE remboursera au BAILLEUR sa quote-part dans les charges r\u00e9cup\u00e9rables limitativement \u00e9num\u00e9r\u00e9es par le d\u00e9cret n\u00b0\u00a087-713 du 26\u00a0ao\u00fbt 1987 (reproduit en Annexe\u00a0B). La provision mensuelle est fix\u00e9e \u00e0 <strong>'+charges+'\u00a0\u20ac</strong>, payable en m\u00eame temps que le loyer.</p>'
     +'<p>Ces charges feront l\u2019objet d\u2019une <strong>r\u00e9gularisation annuelle</strong> sur pr\u00e9sentation des justificatifs. Un mois avant la r\u00e9gularisation, le BAILLEUR communiquera au LOCATAIRE le d\u00e9compte par nature de charges. Les pi\u00e8ces justificatives seront tenues \u00e0 la disposition du LOCATAIRE pendant un mois \u00e0 compter de l\u2019envoi du d\u00e9compte.</p>'
     +'<p>Toute modification du montant de la provision devra \u00eatre notifi\u00e9e au LOCATAIRE avec communication des r\u00e9sultats de la pr\u00e9c\u00e9dente r\u00e9gularisation ou, \u00e0 d\u00e9faut, d\u2019un budget pr\u00e9visionnel.</p>'
-  var vetusteRows = [
-    ['Peintures, papiers peints','2 ans','7 ans','18\u00a0%','10\u00a0%'],
-    ['Moquette','2 ans','7 ans','18\u00a0%','10\u00a0%'],
-    ['Parquet, carrelage, rev\u00eatement sol','5 ans','25 ans','4\u00a0%','20\u00a0%'],
-    ['Rev\u00eatement plastique (lino, PVC)','3 ans','10 ans','11\u00a0%','20\u00a0%'],
-    ['Fa\u00efence murale','10 ans','20 ans','8\u00a0%','20\u00a0%'],
-    ['Menuiserie int\u00e9rieure','5 ans','20 ans','6\u00a0%','15\u00a0%'],
-    ['Serrurerie, quincaillerie','2 ans','10 ans','11\u00a0%','15\u00a0%'],
-    ['Robinetterie','5 ans','15 ans','9\u00a0%','15\u00a0%'],
-    ['Plomberie','5 ans','15 ans','9\u00a0%','15\u00a0%'],
-    ['Appareils sanitaires','7 ans','20 ans','6\u00a0%','20\u00a0%'],
-    ['Chauffe-eau \u00e9lectrique / ballon ECS','3 ans','10 ans','12\u00a0%','15\u00a0%'],
-    ['Chaudi\u00e8re','3 ans','15 ans','7\u00a0%','15\u00a0%'],
-    ['Persiennes PVC / bois','5 ans','15 ans','8\u00a0%','20\u00a0%'],
-    ['Volets roulants','3 ans','15 ans','8\u00a0%','10\u00a0%'],
-    ['Convecteurs \u00e9lectriques','3 ans','10 ans','12\u00a0%','15\u00a0%'],
-    ['Radiateurs','5 ans','20 ans','6\u00a0%','10\u00a0%'],
-  ].map(function(r){ return '<tr><td>'+r[0]+'</td><td style="text-align:center">'+r[1]+'</td><td style="text-align:center">'+r[2]+'</td><td style="text-align:center">'+r[3]+'</td><td style="text-align:center">'+r[4]+'</td></tr>'; }).join('');
     +'<h2>7 \u2014 D\u00e9p\u00f4t de garantie</h2>'
     +'<p>Le LOCATAIRE verse ce jour, \u00e0 titre de d\u00e9p\u00f4t de garantie, la somme de <strong>'+dgLettres+'</strong> (= un mois de loyer hors charges), conform\u00e9ment \u00e0 l\u2019article 22 de la loi du 6\u00a0juillet\u00a01989. Ce d\u00e9p\u00f4t ne peut exc\u00e9der un mois de loyer hors charges.</p>'
     +'<p>Ce d\u00e9p\u00f4t restera sur le compte du BAILLEUR pendant toute la dur\u00e9e du bail, sans r\u00e9vision ni production d\u2019int\u00e9r\u00eats. Il sera restitu\u00e9 dans un d\u00e9lai maximum de\u00a0:</p>'
