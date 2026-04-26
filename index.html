@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.58</title>
+<title>ImmoTrack v12.59</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1457,7 +1457,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.58</em>
+      <em>v12.59</em>
     </div>
   </div>
 
@@ -9686,8 +9686,15 @@ function previewBailData(bail, log, ref) {
     +'buildAllPzBars();'
     +'<\/script>';
 
+  /* \u2500\u2500 Phase polish (v12.59) \u2014 Mobile-first preview \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+     viewport meta : indispensable pour rendu mobile/tablette correct (avant : preview en mode desktop par d\u00e9faut, illisible au doigt).
+     jsPDF + html2canvas en CDN : pr\u00e9parent la g\u00e9n\u00e9ration PDF native (Commit 3) qui remplacera window.print() pour les paraphes par page individuels. */
   var finalHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
-    +'<title>Bail \u2014 '+titleLabel+'<\/title>'+css+'<\/head><body>'
+    +'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
+    +'<title>Bail \u2014 '+titleLabel+'<\/title>'+css
+    +'<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer><\/script>'
+    +'<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer><\/script>'
+    +'<\/head><body>'
     +toolbar
     +'<div id="doc-wrap">'+p1+p2+p3+p4+p5+p6+p7+p8+p9+p10+p11+p12+p13+'<\/div>'
     +scripts+'<\/body><\/html>';
