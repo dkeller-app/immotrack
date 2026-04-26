@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ImmoTrack v12.66</title>
+<title>ImmoTrack v12.67</title>
 <!-- Phase polish v12.66 — Libs PDF embarquées en local pour bail (bypass adblock + offline). Décodées et inlinées dans le HTML preview du bail (cf. previewBailData). -->
 <script src="vendor/bail-pdf-libs.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1459,7 +1459,7 @@ textarea.inp{resize:vertical;min-height:70px}
     <span class="sb-logo-icon">🏠</span>
     <div class="sb-logo-text">
       <strong>ImmoTrack</strong>
-      <em>v12.66</em>
+      <em>v12.67</em>
     </div>
   </div>
 
@@ -9798,7 +9798,10 @@ function previewBailData(bail, log, ref) {
     /* Vérification libs avec retry intelligent (max 5s) au lieu d\'un fail immédiat */
     +  '_waitLibs(5000,function(ok){'
     +    'if(!ok){'
-    +      'alert("Bibliothèques PDF non chargées après 5 secondes. Causes possibles :\\n\\n1. Pas de connexion internet (les libs viennent du CDN cdnjs.cloudflare.com)\\n2. Adblocker / proxy d’entreprise bloque cdnjs\\n3. Service Worker offline qui intercepte les requêtes externes\\n\\nVérifie ta connexion ou désactive temporairement les bloqueurs.");'
+    +      'var diag="";'
+    +      'if(typeof window.jspdf==="undefined")diag+="• jsPDF non disponible dans cette fenêtre.\\n";'
+    +      'if(typeof html2canvas==="undefined")diag+="• html2canvas non disponible dans cette fenêtre.\\n";'
+    +      'alert("Bibliothèques PDF non chargées (timeout 5s).\\n\\n"+diag+"\\nCauses possibles :\\n1. Fichier vendor/bail-pdf-libs.js manquant ou pas trouvé (doit être à côté d’index.html, ~750KB)\\n2. Cache navigateur obsolète : Hard refresh Ctrl+Shift+R\\n3. Service Worker sert une vieille version d’index.html sans le <script vendor> : DevTools > Application > Service Workers > Unregister puis recharger\\n\\nSi le problème persiste : vérifie chrome://serviceworker-internals et le contenu du dossier vendor/.");'
     +      'return;'
     +    '}'
     +    '_genPDFCore();'
@@ -9861,11 +9864,21 @@ function previewBailData(bail, log, ref) {
      index.html principal) : bypass adblock + offline-safe. D\u00e9codage base64 \u2192
      atob \u2192 injection dans <script> du preview. */
   var pdfLibsScripts = '';
-  if (window._BAIL_PDF_LIBS && window._BAIL_PDF_LIBS.jspdf && window._BAIL_PDF_LIBS.html2canvas) {
+  var pdfLibsDiag = ''; // Diagnostic visible si probl\u00e8me
+  if (!window._BAIL_PDF_LIBS) {
+    pdfLibsDiag = 'window._BAIL_PDF_LIBS UNDEFINED \u2014 fichier vendor/bail-pdf-libs.js non charg\u00e9';
+    showToast('\u26a0 vendor/bail-pdf-libs.js pas charg\u00e9. G\u00e9n\u00e9ration PDF d\u00e9sactiv\u00e9e.', 'err', 6000);
+  } else if (!window._BAIL_PDF_LIBS.jspdf || !window._BAIL_PDF_LIBS.html2canvas) {
+    pdfLibsDiag = 'window._BAIL_PDF_LIBS charg\u00e9 mais jspdf/html2canvas manquant';
+    showToast('\u26a0 vendor incomplet. G\u00e9n\u00e9ration PDF d\u00e9sactiv\u00e9e.', 'err', 6000);
+  } else {
     try {
       pdfLibsScripts = '<script>' + atob(window._BAIL_PDF_LIBS.jspdf) + '<\/script>'
                      + '<script>' + atob(window._BAIL_PDF_LIBS.html2canvas) + '<\/script>';
-    } catch(e) { console.warn('[Bail] Decoding _BAIL_PDF_LIBS failed:', e); }
+    } catch(e) {
+      pdfLibsDiag = 'atob() \u00e9chou\u00e9 : ' + e.message;
+      showToast('\u26a0 D\u00e9codage libs PDF \u00e9chou\u00e9 : ' + e.message, 'err', 6000);
+    }
   }
   var finalHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
     +'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
