@@ -113,7 +113,7 @@
 
 | Code | Sujet | Prio | Taille | Statut | Note |
 |---|---|---|---|---|---|
-| BAIL-PRINT-POLISH | Polish Bail (paraphes bas page, en-têtes nav, cautionnement, logo entité, UX éditeur template) | P2 | M | ⬜ À faire | cf `project_bail_print_polish.md` · session dédiée après 3d (3d livré) |
+| BAIL-PRINT-POLISH | Polish Bail (paraphes / en-têtes nav / cautionnement / logo entité / UX éditeur template) | P2 | M | 🔄 4/5 livrés v13.05-13.28 | Points 1+6 obsolètes (source unique v13.05) · 2+3 cautionnement print v13.25-27 · 4 logo entité v13.28 · Reste : 5 UX éditeur template (session dédiée) |
 | BAIL-PDF-NATIF | Refonte PDF Bail natif (pdf.text/pdf.rect + signatures + emplacements vides) | P2 | L | ✅ Livré v13.24 | Phase A-B-C livrées sessions 2026-04-26/27 · Phase D Notice arrêté 2015 livrée v13.24 commit 064c4c6 · cf `project_bail_pdf_native.md` |
 | BAIL-TRAVAUX-INTERLOC | Champ "Travaux réalisés depuis précédent locataire" manquant dans le formulaire | P2 | XS | ✅ Livré v13.23 | commit 529e261 · textarea + visibilité conditionnelle (zone tendue/encadrement/<18 mois) |
 | BAIL-LOC-ADR-PREC | Adresse précédente par locataire (au lieu d'un champ unique concaténé) | P2 | S | ✅ Livré v13.23 | commit 529e261 · 1 input par locataire + checkbox "même adresse" + migration legacy |
