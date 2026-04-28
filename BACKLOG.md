@@ -23,7 +23,7 @@
 | Onglet | Codes (prio) |
 |---|---|
 | 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
-| 📜 **Bail** | BUG-BAIL-003 (P1) · BUG-BAIL-002 (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-PDF-NATIF (P2) · BAIL-TYPES (P2) · DOC-CIVILITE (P2) · BAIL-A-ECHOIR (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
+| 📜 **Bail** | BUG-BAIL-002 (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-PDF-NATIF (P2) · BAIL-TYPES (P2) · DOC-CIVILITE (P2) · BAIL-A-ECHOIR (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
@@ -50,7 +50,7 @@
 | BUG-CHARGE-001 | Régularisation des charges ne fonctionne pas | P1 | M | ⬜ À faire | [docs/subjects/BUG-CHARGE-001.md](docs/subjects/BUG-CHARGE-001.md) · à diagnostiquer |
 | BUG-DASH-001 | Dashboard : prendre les baux en vigueur dans le mois choisi | P1 | M | ⬜ À faire | [docs/subjects/BUG-DASH-001.md](docs/subjects/BUG-DASH-001.md) |
 | BUG-BAIL-002 | Bail : seule la 1re signature garant apparaît si 2 garants | P1 | S | ⬜ À faire | [docs/subjects/BUG-BAIL-002.md](docs/subjects/BUG-BAIL-002.md) |
-| BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ⬜ À faire | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · root cause identifié : buildBailStructure émet 1 seul bloc signature-bailleur |
+| BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ✅ Livré v13.19 | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · commit eca0faa · à tester avec entité 2 co-gérants |
 | IRL-VALIDATION | IRL : case validation envoi + rappel date augmentation | P1 | M | ⬜ À faire | [docs/subjects/IRL-VALIDATION.md](docs/subjects/IRL-VALIDATION.md) |
 | BUG-LOG-001 | Logement : référence non modifiable après création | P2 | XS | ⬜ À faire | [docs/subjects/BUG-LOG-001.md](docs/subjects/BUG-LOG-001.md) |
 | BUG-EQUIP-FILTER | Onglet Équipements : filtre exclut logements vacants | P2 | XS | ⬜ À faire | Hérité de v12.36 · à voir dans refonte Équipements |
@@ -202,9 +202,11 @@
 | | DRIVE-2B | Timestamps `_modifiedAt` + merge timestamp-aware | v13.18 · commit 619f8ff |
 | | DRIVE-2E | Toast warning sur conflit détecté au load | v13.18 · commit 619f8ff |
 
-### Bail — sessions avril 2026 (v12.50 → v13.11)
+### Bail — sessions avril 2026 (v12.50 → v13.19)
+
 | Code | Sujet | Note |
 |---|---|---|
+| BUG-BAIL-003 | Multi-bailleurs : N cadres signature au lieu d'un seul | v13.19 · commit eca0faa |
 | BAIL-WIZARD | Wizard 4 étapes Bail | v12.44-50 |
 | BAIL-3a | Extraction namespace BailDocument | v12.52 |
 | BAIL-3b | Conversion ES5 → ES6 (partielle, var → const) | v12.53-55 |
