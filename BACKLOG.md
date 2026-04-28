@@ -23,7 +23,7 @@
 | Onglet | Codes (prio) |
 |---|---|
 | 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
-| 📜 **Bail** | BUG-BAIL-002 (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-PDF-NATIF (P2) · BAIL-TRAVAUX-INTERLOC (P2) · BAIL-LOC-ADR-PREC (P2) · BAIL-TYPES (P2) · DOC-CIVILITE (P2) · BAIL-A-ECHOIR (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
+| 📜 **Bail** | BUG-BAIL-002 (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-PDF-NATIF (P2) · BAIL-TYPES (P2) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
@@ -114,8 +114,8 @@
 |---|---|---|---|---|---|
 | BAIL-PRINT-POLISH | Polish Bail (paraphes bas page, en-têtes nav, cautionnement, logo entité, UX éditeur template) | P2 | M | ⬜ À faire | cf `project_bail_print_polish.md` · session dédiée après 3d (3d livré) |
 | BAIL-PDF-NATIF | Refonte PDF Bail natif (pdf.text/pdf.rect + signatures + emplacements vides Acrobat) | P2 | L | ⬜ À faire | cf `project_bail_pdf_native.md` · ~10h en 3 sessions · validé 2026-04-26 · prioritaire sur les autres types |
-| BAIL-TRAVAUX-INTERLOC | Champ "Travaux réalisés depuis précédent locataire" manquant dans le formulaire | P2 | XS | ⬜ À faire | [docs/subjects/BAIL-TRAVAUX-INTERLOC.md](docs/subjects/BAIL-TRAVAUX-INTERLOC.md) · placeholder TRAVAUX_INTER_LOC existe en data + template, input form jamais ajouté · essentiel encadrement loyers zone tendue |
-| BAIL-LOC-ADR-PREC | Adresse précédente par locataire (au lieu d'un champ unique concaténé) | P2 | S | ⬜ À faire | [docs/subjects/BAIL-LOC-ADR-PREC.md](docs/subjects/BAIL-LOC-ADR-PREC.md) · UX 2 locataires + checkbox "même adresse" |
+| BAIL-TRAVAUX-INTERLOC | Champ "Travaux réalisés depuis précédent locataire" manquant dans le formulaire | P2 | XS | ✅ Livré v13.23 | commit 529e261 · textarea + visibilité conditionnelle (zone tendue/encadrement/<18 mois) |
+| BAIL-LOC-ADR-PREC | Adresse précédente par locataire (au lieu d'un champ unique concaténé) | P2 | S | ✅ Livré v13.23 | commit 529e261 · 1 input par locataire + checkbox "même adresse" + migration legacy |
 | BAIL-TYPES | Ajout 5 types bail (meublé/garage/mobilité/étudiant + Autre) | P2 | L | ⬜ À faire | 5 sous-phases A-E · cf `project_bail_types.md` · session dédiée après PDF natif |
 
 ## 🟠 P2 — Détectés en usage (par onglet)
@@ -137,7 +137,7 @@
 | DOC-PJ | Pouvoir ajouter des PJ (factures, CR entretien, photos) | P2 | M | ⬜ À faire | [docs/subjects/DOC-PJ.md](docs/subjects/DOC-PJ.md) |
 | TRAV-SUIVI | Suivi entretien / travaux avec calendrier | P2 | L | ⬜ À faire | [docs/subjects/TRAV-SUIVI.md](docs/subjects/TRAV-SUIVI.md) · CDC requis |
 | **Courriers / Templates** | | | | | |
-| DOC-CIVILITE | Reprendre civilité du locataire dans formules de politesse | P2 | XS | ⬜ À faire | [docs/subjects/DOC-CIVILITE.md](docs/subjects/DOC-CIVILITE.md) |
+| DOC-CIVILITE | Reprendre civilité du locataire dans formules de politesse | P2 | XS | ✅ Livré v13.23 | commit 529e261 · helpers _civSalut/_civConge incluent maintenant les noms ("Madame ARSLAN, Monsieur HARNIST,") |
 | **Associés** | | | | | |
 | ASSO-PARTAGE | Refonte du fonctionnement du partage entre associés | P2 | L | ⬜ À faire | [docs/subjects/ASSO-PARTAGE.md](docs/subjects/ASSO-PARTAGE.md) · CDC requis |
 
@@ -161,7 +161,7 @@
 
 | Code | Sujet | Prio | Taille | Statut | Détail |
 |---|---|---|---|---|---|
-| BAIL-A-ECHOIR | Bail : "à échoir" par défaut | P3 | XS | ⬜ À faire | [docs/subjects/BAIL-A-ECHOIR.md](docs/subjects/BAIL-A-ECHOIR.md) |
+| BAIL-A-ECHOIR | Bail : "à échoir" par défaut | P3 | XS | ✅ Livré v13.23 | commit 529e261 · data DEMO modalitePaiement de "terme_echu" → "echeoir" |
 | MVT-SCIND-LIMIT | Mouvements : limite scindage ligne ? | P3 | XS | ⬜ À faire | [docs/subjects/MVT-SCIND-LIMIT.md](docs/subjects/MVT-SCIND-LIMIT.md) · investigation |
 | LOG-DG-LABEL | Logement : label "DG" explicite (Dépôt de Garantie) | P3 | XS | ⬜ À faire | [docs/subjects/LOG-DG-LABEL.md](docs/subjects/LOG-DG-LABEL.md) |
 | BAIL-NAMESPACE-MIGRATION | Retirer alias globaux Bail.* — migration onclick inline → addEventListener | P3 | XL | ⏳ En attente | Énorme chantier · pas avant V3 visuelle terminée · cf phase 3d notes |
@@ -207,10 +207,14 @@
 | | DRIVE-2B | Timestamps `_modifiedAt` + merge timestamp-aware | v13.18 · commit 619f8ff |
 | | DRIVE-2E | Toast warning sur conflit détecté au load | v13.18 · commit 619f8ff |
 
-### Bail — sessions avril 2026 (v12.50 → v13.19)
+### Bail — sessions avril 2026 (v12.50 → v13.23)
 
 | Code | Sujet | Note |
 |---|---|---|
+| BAIL-A-ECHOIR | Modalité paiement "à échoir" par défaut (data DEMO) | v13.23 · commit 529e261 |
+| BAIL-TRAVAUX-INTERLOC | Champ travaux d'amélioration entre 2 locataires | v13.23 · commit 529e261 |
+| DOC-CIVILITE | Civilité + nom dans formules de politesse | v13.23 · commit 529e261 |
+| BAIL-LOC-ADR-PREC | Adresse précédente par locataire + checkbox "même" | v13.23 · commit 529e261 |
 | BUG-BAIL-003 | Multi-bailleurs : N cadres signature au lieu d'un seul | v13.19 · commit eca0faa |
 | BAIL-WIZARD | Wizard 4 étapes Bail | v12.44-50 |
 | BAIL-3a | Extraction namespace BailDocument | v12.52 |
