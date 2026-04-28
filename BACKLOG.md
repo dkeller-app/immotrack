@@ -29,7 +29,7 @@
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) |
 | ⚡ **Charges / Régul** | BUG-CHARGE-001 (P1) · V3-REFONTE-REGUL (P2) · CHARGE-REGLES (P2) |
-| 📈 **IRL** | BUG-IRL-001 (P0) · IRL-VALIDATION (P1) · V3-REFONTE-IRL (P2) |
+| 📈 **IRL** | BUG-IRL-001 (P0) · IRL-VALIDATION (P1) · IRL-DPE-FG (P1) · V3-REFONTE-IRL (P2) |
 | 📋 **EDL** | EDL-VALIDATION-AVOCAT (P1) · EDL-DELEGUE-EXPORT (P2) · EDL-DELEGUE-IMPORT (P2) |
 | 🛡️ **MRH** | MRH-AUTO-LOC (P2) |
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
@@ -37,7 +37,7 @@
 | ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL (P1) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · V3-REFONTE-PARAMS (P2) |
 | 💾 **Drive sync** | DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) |
-| 📥 **Import** | IMPORT-EXCEL-LOG (P2) |
+| 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) |
 
 ---
@@ -52,6 +52,7 @@
 | BUG-BAIL-002 | Bail : seule la 1re signature garant apparaît si 2 garants | P1 | S | ⬜ À faire | [docs/subjects/BUG-BAIL-002.md](docs/subjects/BUG-BAIL-002.md) |
 | BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ✅ Livré v13.19 | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · commit eca0faa · à tester avec entité 2 co-gérants |
 | IRL-VALIDATION | IRL : case validation envoi + rappel date augmentation | P1 | M | ⬜ À faire | [docs/subjects/IRL-VALIDATION.md](docs/subjects/IRL-VALIDATION.md) |
+| IRL-DPE-FG | IRL : pas de révision si bail en DPE F ou G (loi Climat 2021) | P1 | S | ⬜ À faire | [docs/subjects/IRL-DPE-FG.md](docs/subjects/IRL-DPE-FG.md) · gel du loyer |
 | BUG-LOG-001 | Logement : référence non modifiable après création | P2 | XS | ⬜ À faire | [docs/subjects/BUG-LOG-001.md](docs/subjects/BUG-LOG-001.md) |
 | BUG-EQUIP-FILTER | Onglet Équipements : filtre exclut logements vacants | P2 | XS | ⬜ À faire | Hérité de v12.36 · à voir dans refonte Équipements |
 | BUG-HC-GARDE-FOU | Garde-fou saisie HC : alerte si valeur aberrante | P2 | XS | ⬜ À faire | Hérité de v2 · ratio HC/médiane > 10 ou seuil absolu |
@@ -150,6 +151,7 @@
 | 19 | QUIT-EMAIL | Envoi email quittances au locataire | P2 | M | ⬜ À faire | Critère 3.3 · standard chez tous concurrents |
 | 20 | AVIS-ECHEANCE | Avis d'échéance avant paiement | P2 | S | ⬜ À faire | Critère 3.7 · manque vs Qalimo/Rentila/BailFacile |
 | 21 | RAPPEL-IMPAYE | Rappel automatique locataire (impayé) | P2 | M | ⬜ À faire | Critère 4.12 · standard marché |
+|  | IMPORT-CONCURRENTS | Migration depuis solutions concurrentes (Rentila / BailFacile / Qalimo / etc.) | P2 | L | ⬜ À faire | [docs/subjects/IMPORT-CONCURRENTS.md](docs/subjects/IMPORT-CONCURRENTS.md) · CDC requis · onboarding clé pour commercialisation |
 
 ---
 
@@ -222,6 +224,9 @@
 | BAIL-WORKFLOW-LOCATAIRE | Workflow signature différée in-app | v13.08 |
 | BAIL-DRIVE-PDF-SIGNE | Drive upload PDF signé automatique après wizard | v13.09 |
 | BAIL-SNAPSHOT | Snapshot signé + Voir bail signé + highlight diff Aperçu | v13.10-11 |
+| BUG-BAIL-003 | Multi-bailleurs : PDF rend N cadres signature (1 par bailleur) | v13.19 · commit eca0faa |
+| BAIL-CARTE-MODIFIER-ACTIF | Modifier bail toujours actif même bilatéral signé | v13.20 · commit 78e706f |
+| BAIL-HIGHLIGHTS-FIX | Backfill snapshot + locataires/garants + Voir signé honnête | v13.21 · commit 17101d6 |
 
 ### EDL — session avril 2026
 | # | Code | Sujet | Note |
@@ -258,6 +263,15 @@
 ### 2026-04-28 — Vue par onglet pour pilotage
 - Ajout d'une section "📑 Vue par onglet" en tête de BACKLOG → permet de travailler onglet par onglet (1 session = 1 onglet, tous sujets traités d'un coup)
 - TodoWrite réorganisée par onglet en mode pilotage
+
+### 2026-04-28 — IRL : gel pour DPE F/G (loi Climat 2021)
+- IRL-DPE-FG ajouté : pas de révision possible si bail en DPE F ou G (loi 2021-1104, art. 23, applicable depuis le 24/08/2022)
+- Bloque la révision dur (pas d'override) car la loi est claire ; doit s'appliquer même aux baux antérieurs
+
+### 2026-04-28 — Migration depuis concurrents
+- IMPORT-CONCURRENTS : sujet onboarding clé pour la commercialisation
+- Approche : template ImmoTrack standard + mappers par concurrent (Rentila, BailFacile, Qalimo, ImmobilierLoyer, Smovin, etc.)
+- CDC requis : choisir top 3 concurrents prioritaires
 
 ### 2026-04-28 — 18 remarques utilisateur classées
 - Bugs P0/P1 : BUG-IRL-001, BUG-CHARGE-001, BUG-DASH-001, BUG-BAIL-002, IRL-VALIDATION
