@@ -50,7 +50,7 @@
 | BUG-CHARGE-001 | Régularisation des charges ne fonctionne pas | P1 | M | ⬜ À faire | [docs/subjects/BUG-CHARGE-001.md](docs/subjects/BUG-CHARGE-001.md) · à diagnostiquer |
 | BUG-DASH-001 | Dashboard : prendre les baux en vigueur dans le mois choisi | P1 | M | ⬜ À faire | [docs/subjects/BUG-DASH-001.md](docs/subjects/BUG-DASH-001.md) |
 | BUG-BAIL-002 | Bail : seule la 1re signature garant apparaît si 2 garants | P1 | S | ⬜ À faire | [docs/subjects/BUG-BAIL-002.md](docs/subjects/BUG-BAIL-002.md) |
-| BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ✅ Livré v13.19 | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · commit eca0faa · à tester avec entité 2 co-gérants |
+| BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ✅ Livré v13.19 | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · commit eca0faa · ✅ testé OK 2026-04-29 (bail Ferrette ARSLAN/HARNIST 2 sigs visibles) |
 | IRL-VALIDATION | IRL : case validation envoi + rappel date augmentation | P1 | M | ⬜ À faire | [docs/subjects/IRL-VALIDATION.md](docs/subjects/IRL-VALIDATION.md) |
 | IRL-DPE-FG | IRL : pas de révision si bail en DPE F ou G (loi Climat 2021) | P1 | S | ⬜ À faire | [docs/subjects/IRL-DPE-FG.md](docs/subjects/IRL-DPE-FG.md) · gel du loyer |
 | BUG-LOG-001 | Logement : référence non modifiable après création | P2 | XS | ⬜ À faire | [docs/subjects/BUG-LOG-001.md](docs/subjects/BUG-LOG-001.md) |
