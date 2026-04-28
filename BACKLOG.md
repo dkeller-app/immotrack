@@ -23,7 +23,7 @@
 | Onglet | Codes (prio) |
 |---|---|
 | 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
-| 📜 **Bail** | BUG-BAIL-002 (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-PDF-NATIF (P2) · BAIL-TYPES (P2) · DOC-CIVILITE (P2) · BAIL-A-ECHOIR (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
+| 📜 **Bail** | BUG-BAIL-002 (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-PDF-NATIF (P2) · BAIL-TRAVAUX-INTERLOC (P2) · BAIL-LOC-ADR-PREC (P2) · BAIL-TYPES (P2) · DOC-CIVILITE (P2) · BAIL-A-ECHOIR (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
@@ -114,6 +114,8 @@
 |---|---|---|---|---|---|
 | BAIL-PRINT-POLISH | Polish Bail (paraphes bas page, en-têtes nav, cautionnement, logo entité, UX éditeur template) | P2 | M | ⬜ À faire | cf `project_bail_print_polish.md` · session dédiée après 3d (3d livré) |
 | BAIL-PDF-NATIF | Refonte PDF Bail natif (pdf.text/pdf.rect + signatures + emplacements vides Acrobat) | P2 | L | ⬜ À faire | cf `project_bail_pdf_native.md` · ~10h en 3 sessions · validé 2026-04-26 · prioritaire sur les autres types |
+| BAIL-TRAVAUX-INTERLOC | Champ "Travaux réalisés depuis précédent locataire" manquant dans le formulaire | P2 | XS | ⬜ À faire | [docs/subjects/BAIL-TRAVAUX-INTERLOC.md](docs/subjects/BAIL-TRAVAUX-INTERLOC.md) · placeholder TRAVAUX_INTER_LOC existe en data + template, input form jamais ajouté · essentiel encadrement loyers zone tendue |
+| BAIL-LOC-ADR-PREC | Adresse précédente par locataire (au lieu d'un champ unique concaténé) | P2 | S | ⬜ À faire | [docs/subjects/BAIL-LOC-ADR-PREC.md](docs/subjects/BAIL-LOC-ADR-PREC.md) · UX 2 locataires + checkbox "même adresse" |
 | BAIL-TYPES | Ajout 5 types bail (meublé/garage/mobilité/étudiant + Autre) | P2 | L | ⬜ À faire | 5 sous-phases A-E · cf `project_bail_types.md` · session dédiée après PDF natif |
 
 ## 🟠 P2 — Détectés en usage (par onglet)
