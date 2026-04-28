@@ -1,7 +1,8 @@
 # BUG-BAIL-002 — Bail : seule la 1re signature garant apparaît si 2 garants
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : S
+**Status** : ✅ Obsolète (2026-04-29) · **Prio** : P1 · **Taille** : S
 **Détecté** : 2026-04-28
+**Vérifié obsolète** : 2026-04-29 par utilisateur — `genActeCautionnementDoc` génère bien 2 actes complets séparés par page-break si `bail.garant2` existe, chacun avec sa case signature dédiée. Bug résolu par la refonte UI dynamique des garants (`_bailLegacyGarantFields()` qui mappe correctement les 2 garants au save).
 **Lié à** : BAIL-PRINT-POLISH · BAIL-PDF-NATIF · V3-REFONTE-BAIL
 
 ## Contexte
@@ -24,3 +25,4 @@ Soit problème de template (1 seule case prévue), soit problème de rendu (la 2
 
 ## Journal
 - 2026-04-28 : créé
+- 2026-04-29 : marqué obsolète après vérification utilisateur. Le code actuel `genActeCautionnementDoc` ([index.html:14956](../../index.html#L14956)) génère déjà : `bloc1 = _cautionnementBlock(garant1)` + `bloc2 = page-break + _cautionnementBlock(garant2)` si `bail.garant2` existe. Chaque bloc contient sa propre case signature "Le Garant".

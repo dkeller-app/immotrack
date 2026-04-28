@@ -23,7 +23,7 @@
 | Onglet | Codes (prio) |
 |---|---|
 | 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
-| 📜 **Bail** | BUG-BAIL-002 (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-TYPES (P2) · BAIL-NAMESPACE-MIGRATION (P3) |
+| 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-TYPES (P2) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
@@ -49,7 +49,7 @@
 | BUG-IRL-001 | Lettre IRL : "date anniversaire du bail" est faux, c'est le mois | P0 | XS | ⬜ À faire | [docs/subjects/BUG-IRL-001.md](docs/subjects/BUG-IRL-001.md) · erreur juridique sur courrier officiel |
 | BUG-CHARGE-001 | Régularisation des charges ne fonctionne pas | P1 | M | ⬜ À faire | [docs/subjects/BUG-CHARGE-001.md](docs/subjects/BUG-CHARGE-001.md) · à diagnostiquer |
 | BUG-DASH-001 | Dashboard : prendre les baux en vigueur dans le mois choisi | P1 | M | ⬜ À faire | [docs/subjects/BUG-DASH-001.md](docs/subjects/BUG-DASH-001.md) |
-| BUG-BAIL-002 | Bail : seule la 1re signature garant apparaît si 2 garants | P1 | S | ⬜ À faire | [docs/subjects/BUG-BAIL-002.md](docs/subjects/BUG-BAIL-002.md) |
+| BUG-BAIL-002 | Bail : seule la 1re signature garant apparaît si 2 garants | P1 | S | ✅ Obsolète 2026-04-29 | [docs/subjects/BUG-BAIL-002.md](docs/subjects/BUG-BAIL-002.md) · vérifié par utilisateur : 2 actes cautionnement bien générés (1 par garant) avec page-break + sig dédiée. Bug résolu par refonte UI dynamique garants. |
 | BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ✅ Livré v13.19 | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · commit eca0faa · ✅ testé OK 2026-04-29 (bail Ferrette ARSLAN/HARNIST 2 sigs visibles) |
 | IRL-VALIDATION | IRL : case validation envoi + rappel date augmentation | P1 | M | ⬜ À faire | [docs/subjects/IRL-VALIDATION.md](docs/subjects/IRL-VALIDATION.md) |
 | IRL-DPE-FG | IRL : pas de révision si bail en DPE F ou G (loi Climat 2021) | P1 | S | ⬜ À faire | [docs/subjects/IRL-DPE-FG.md](docs/subjects/IRL-DPE-FG.md) · gel du loyer |
