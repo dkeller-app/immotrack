@@ -23,7 +23,7 @@
 | Onglet | Codes (prio) |
 |---|---|
 | 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
-| 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-TYPES (P2) · BAIL-NAMESPACE-MIGRATION (P3) |
+| 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-PRINT-POLISH (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
@@ -165,6 +165,7 @@
 | BAIL-A-ECHOIR | Bail : "à échoir" par défaut | P3 | XS | ✅ Livré v13.23 | commit 529e261 · data DEMO modalitePaiement de "terme_echu" → "echeoir" |
 | MVT-SCIND-LIMIT | Mouvements : limite scindage ligne ? | P3 | XS | ⬜ À faire | [docs/subjects/MVT-SCIND-LIMIT.md](docs/subjects/MVT-SCIND-LIMIT.md) · investigation |
 | LOG-DG-LABEL | Logement : label "DG" explicite (Dépôt de Garantie) | P3 | XS | ⬜ À faire | [docs/subjects/LOG-DG-LABEL.md](docs/subjects/LOG-DG-LABEL.md) |
+| BAIL-PARAPHE-PLACEHOLDER | Bail : supprimer le texte "à compléter" dans cadre paraphe locataire | P3 | XS | ⬜ À faire | [docs/subjects/BAIL-PARAPHE-PLACEHOLDER.md](docs/subjects/BAIL-PARAPHE-PLACEHOLDER.md) |
 | BAIL-NAMESPACE-MIGRATION | Retirer alias globaux Bail.* — migration onclick inline → addEventListener | P3 | XL | ⏳ En attente | Énorme chantier · pas avant V3 visuelle terminée · cf phase 3d notes |
 
 ---
