@@ -47,13 +47,13 @@
 
 | Code | Sujet | Prio | Taille | Statut | Détail |
 |---|---|---|---|---|---|
-| BUG-IRL-001 | Lettre IRL : "date anniversaire du bail" est faux, c'est le mois | P0 | XS | ⬜ À faire | [docs/subjects/BUG-IRL-001.md](docs/subjects/BUG-IRL-001.md) · erreur juridique sur courrier officiel |
+| BUG-IRL-001 | Lettre IRL : "date anniversaire du bail" est faux, c'est le mois | P0 | XS | ✅ Livré v13.30 | commit 661d0e7 · "date anniversaire, soit le 15 juin 2026" → "mois anniversaire (juin 2026)" + helper _dfm |
 | BUG-CHARGE-001 | Régularisation des charges ne fonctionne pas | P1 | M | ⬜ À faire | [docs/subjects/BUG-CHARGE-001.md](docs/subjects/BUG-CHARGE-001.md) · à diagnostiquer |
 | BUG-DASH-001 | Dashboard : prendre les baux en vigueur dans le mois choisi | P1 | M | ⬜ À faire | [docs/subjects/BUG-DASH-001.md](docs/subjects/BUG-DASH-001.md) |
 | BUG-BAIL-002 | Bail : seule la 1re signature garant apparaît si 2 garants | P1 | S | ✅ Obsolète 2026-04-29 | [docs/subjects/BUG-BAIL-002.md](docs/subjects/BUG-BAIL-002.md) · vérifié par utilisateur : 2 actes cautionnement bien générés (1 par garant) avec page-break + sig dédiée. Bug résolu par refonte UI dynamique garants. |
 | BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ✅ Livré v13.19 | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · commit eca0faa · ✅ testé OK 2026-04-29 (bail Ferrette ARSLAN/HARNIST 2 sigs visibles) |
 | IRL-VALIDATION | IRL : case validation envoi + rappel date augmentation | P1 | M | ⬜ À faire | [docs/subjects/IRL-VALIDATION.md](docs/subjects/IRL-VALIDATION.md) |
-| IRL-DPE-FG | IRL : pas de révision si bail en DPE F ou G (loi Climat 2021) | P1 | S | ⬜ À faire | [docs/subjects/IRL-DPE-FG.md](docs/subjects/IRL-DPE-FG.md) · gel du loyer |
+| IRL-DPE-FG | IRL : pas de révision si bail en DPE F ou G (loi Climat 2021) | P1 | S | ✅ Livré v13.31 | commit 625638c · 4 surfaces (computeIRLRevision + rIRL + genIRLLetter + applyIRL) · DPE F/G bloque dur, DPE manquant alerte popup, DPE >10 ans warning |
 | BUG-LOG-001 | Logement : référence non modifiable après création | P2 | XS | ⬜ À faire | [docs/subjects/BUG-LOG-001.md](docs/subjects/BUG-LOG-001.md) |
 | BUG-EQUIP-FILTER | Onglet Équipements : filtre exclut logements vacants | P2 | XS | ⬜ À faire | Hérité de v12.36 · à voir dans refonte Équipements |
 | BUG-HC-GARDE-FOU | Garde-fou saisie HC : alerte si valeur aberrante | P2 | XS | ⬜ À faire | Hérité de v2 · ratio HC/médiane > 10 ou seuil absolu |
