@@ -1,6 +1,6 @@
 # BIZPLAN-STRATEGIE — Étude de marché + Business plan + Stratégie commerciale
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : L (1-3 jours en session dédiée, hors enquête utilisateur)
+**Status** : 🔄 En cours (depuis 2026-04-29) · **Prio** : P2 · **Taille** : L (1-3 jours en session dédiée, hors enquête utilisateur)
 **Détecté** : 2026-04-29
 **Lié à** : project_commercialization (mémoire) · IMPORT-CONCURRENTS · LEGAL-2044 · SAAS-MULTIUSERS
 
@@ -44,11 +44,23 @@ Le dossier final structuré en 8 sections :
 - Tendances 2024-2026 (Loi Climat, DPE, digitalisation)
 - Marché SaaS gestion locative ~15% croissance/an
 
-#### 3. Analyse concurrentielle
-Source : `ImmoTrack_Comparatif_Concurrents_2026.xlsx`
-- Top 8 concurrents : Rentila, BailFacile, Qalimo, ImmobilierLoyer, Smovin, Lockimmo, Gererseul, Itsmycoaching
-- Pour chacun : pricing, features, positionnement, parts de marché estimées
-- Carte de positionnement (axes : prix vs richesse fonctionnelle, ou solo vs pro)
+#### 3. Analyse concurrentielle (B2C + B2B / pro)
+Source : `ImmoTrack_Comparatif_Concurrents_2026.xlsx` + recherche web complémentaire
+
+**B2C particuliers** :
+- Rentila, BailFacile, Qalimo, ImmobilierLoyer, Smovin, Lockimmo, Gererseul, Itsmycoaching
+
+**B2B / solutions pro** (admin de biens, agences, syndics) — IL EXISTE un écosystème pro structurant à analyser :
+- **Septeo Group** (leader marché pro FR) : ICS, Crypto
+- Sequentiel — gestion locative pro
+- Powimo — syndic + admin biens
+- Hektor — CRM transaction immo
+- Even / Vilogi — syndic
+- Adapt-Immo, ImmoFacile, MyHexa — agences
+- Manda, Hellio, Imodirect — gestion managée
+
+Pour chacun (B2C + B2B) : pricing, cible, USP, faiblesses, parts de marché estimées (sources publiques, levées de fonds, communiqués).
+Carte de positionnement 2D : axe X solo↔pro · axe Y prix↔richesse fonctionnelle, ImmoTrack placé.
 
 #### 4. Positionnement ImmoTrack
 - **Forces différenciantes uniques** à pousser :
@@ -83,6 +95,43 @@ Source : `ImmoTrack_Comparatif_Concurrents_2026.xlsx`
 - **Q3 2026** (jul-sept) : multi-users + Drive 2H/2F/2G · beta privée 30-50 utilisateurs · feedback
 - **Q4 2026** (oct-déc) : lancement public · contenu marketing · 100 premiers clients
 - **2027** : module agence (CRG, mandants) · API · expansion EU
+
+#### 9. Chiffrage de l'effort de déploiement (LIVRABLE CLÉ)
+À chiffrer en jours-homme + budget € (réaliste, hypothèse Didier solo ~15-18 j-h/mois) :
+
+**A. Pré-V1 commerciale (manques bloquants techniques)**
+- LEGAL-2044, LEGAL-BILAN-ANNUEL, QUIT-EMAIL, IMPORT-CONCURRENTS, IRL-DPE-FG
+- AUDIT-GLOBAL, SECU-INNERHTML, ARCHI-DB-DOUBLONS
+- Multi-users (SAAS-MULTIUSERS) si modèle SaaS retenu
+- DRIVE-2H/2F/2G si Drive sync conservé
+
+**B. Infrastructure & DevOps**
+- Hébergement (Vercel / Cloudflare / OVH / AWS) — coûts mensuels par scénario (100/1000/10k users)
+- CI/CD, monitoring (Sentry, Plausible), backups, DNS, CDN, certificats
+
+**C. Support client**
+- Helpdesk (Crisp/Intercom/Zendesk)
+- FAQ + base de connaissances
+- Tutos vidéos onboarding (10-15 vidéos)
+- SLA support
+
+**D. Légal & compliance**
+- CGU, CGV, mentions légales
+- RGPD : registre, DPA, sous-traitants, info utilisateur
+- Hébergement données France/UE obligatoire ?
+
+**E. Marketing & lancement**
+- Site vitrine + landing pages
+- Identité visuelle (logo, charte)
+- Contenu SEO (50+ articles avant lancement)
+- Réseaux sociaux
+
+**F. Comptabilité / facturation**
+- Stripe vs Paddle (Paddle MoR pour TVA EU = recommandé)
+- Compta intégration (Pennylane / Tiime)
+- Facturation auto
+
+**Total** : j-h + budget € avec hypothèses claires. Préciser ce qui demande recrutement (designer, marketeur, dev junior).
 
 ## Décisions à prendre
 - [ ] Confirmer la profondeur attendue (brouillon 5p vs dossier 30p)
@@ -122,3 +171,4 @@ Produire en sortie :
 
 ## Journal
 - 2026-04-29 : créé · attente cadrage utilisateur (4 questions clés) avant production
+- 2026-04-29 : passé en 🔄 En cours · session dédiée démarrée par utilisateur · enrichissement scope (concurrents pro B2B + chiffrage effort déploiement explicite en livrable n°5)

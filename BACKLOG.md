@@ -39,7 +39,7 @@
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) |
-| 📈 **Stratégie / Business** | BIZPLAN-STRATEGIE (P2) |
+| 📈 **Stratégie / Business** | BIZPLAN-STRATEGIE 🔄 (P2) |
 
 ---
 
@@ -157,7 +157,7 @@
 | 20 | AVIS-ECHEANCE | Avis d'échéance avant paiement | P2 | S | ⬜ À faire | Critère 3.7 · manque vs Qalimo/Rentila/BailFacile |
 | 21 | RAPPEL-IMPAYE | Rappel automatique locataire (impayé) | P2 | M | ⬜ À faire | Critère 4.12 · standard marché |
 |  | IMPORT-CONCURRENTS | Migration depuis solutions concurrentes (Rentila / BailFacile / Qalimo / etc.) | P2 | L | ⬜ À faire | [docs/subjects/IMPORT-CONCURRENTS.md](docs/subjects/IMPORT-CONCURRENTS.md) · CDC requis · onboarding clé pour commercialisation |
-|  | BIZPLAN-STRATEGIE | Étude de marché + business plan + positionnement + plan d'actions | P2 | L | ⬜ À faire | [docs/subjects/BIZPLAN-STRATEGIE.md](docs/subjects/BIZPLAN-STRATEGIE.md) · cadrage 4 questions avant production · session dédiée |
+|  | BIZPLAN-STRATEGIE | Étude de marché + business plan + positionnement + effort déploiement (B2C + B2B pro) | P2 | L | 🔄 En cours | [docs/subjects/BIZPLAN-STRATEGIE.md](docs/subjects/BIZPLAN-STRATEGIE.md) · session dédiée démarrée 2026-04-29 · 5 livrables dans `docs/strategie/` |
 
 ---
 
