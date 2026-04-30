@@ -1,6 +1,6 @@
 # BIZPLAN-STRATEGIE — Étude de marché + Business plan + Stratégie commerciale
 
-**Status** : 🔄 En cours (depuis 2026-04-29) · **Prio** : P2 · **Taille** : L (1-3 jours en session dédiée, hors enquête utilisateur)
+**Status** : ✅ Livré 2026-04-30 · **Prio** : P2 · **Taille** : L (1-3 jours en session dédiée, hors enquête utilisateur)
 **Détecté** : 2026-04-29
 **Lié à** : project_commercialization (mémoire) · IMPORT-CONCURRENTS · LEGAL-2044 · SAAS-MULTIUSERS
 
@@ -172,3 +172,16 @@ Produire en sortie :
 ## Journal
 - 2026-04-29 : créé · attente cadrage utilisateur (4 questions clés) avant production
 - 2026-04-29 : passé en 🔄 En cours · session dédiée démarrée par utilisateur · enrichissement scope (concurrents pro B2B + chiffrage effort déploiement explicite en livrable n°5)
+- 2026-04-30 : ✅ Livré · 5 livrables produits dans `docs/strategie/` totalisant ~2 500 lignes markdown :
+  - [BIZPLAN.md](../strategie/BIZPLAN.md) — dossier décisionnel 9 sections (vision, marché, concurrence, positionnement, valeur, modèle éco, GTM, roadmap, effort)
+  - [CARTE_POSITIONNEMENT.md](../strategie/CARTE_POSITIONNEMENT.md) — analyse concurrentielle B2C+B2B + carte 2D + 12 ⭐ ImmoTrack
+  - [PROJECTIONS.md](../strategie/PROJECTIONS.md) — 3 scénarios bas/médian/haut sur 3 ans · ARR cible médian 540 K€ fin 2029 · break-even Q4 2027
+  - [PLAN_ACTIONS.md](../strategie/PLAN_ACTIONS.md) — roadmap trimestrielle Q2 2026 → Q4 2027 + ressources
+  - [EFFORT_DEPLOIEMENT.md](../strategie/EFFORT_DEPLOIEMENT.md) — chiffrage j-h Didier + budget € par poste (cash-out V1 ~14 600 €)
+- 2026-04-30 : recommandations clés livrées :
+  - Pricing : 0 € freemium / 9,90 € Investisseur / 19,90 € SCI/Patrimoine + EDL délégué pay-per-use 9 €
+  - Modèle éco : SaaS pur + freemium agressif + EDL pay-per-use combinés (recommandé)
+  - Cible V1 : B2C particuliers 2-10 logements + SCI familiales · B2B agence pilote V2 (Q3 2027)
+  - Statut : AE début + bascule SASU dès atteinte seuil
+  - Lancement V1 cible : 14 octobre 2026 (mardi de Toussaint)
+  - Bootstrap viable scénario médian sans levée · pre-seed 200-300 K€ optionnel scénario haut Q1 2027
