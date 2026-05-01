@@ -22,7 +22,7 @@
 
 | Onglet | Codes (prio) |
 |---|---|
-| 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
+| 📊 **Dashboard** | DASH-PROFILES 🔄 (P1) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | NAV-RESTRUCTURE (P1) · LOG-FICHE-360 (P1) · LOG-LISTE-CARDS (P1) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-ARCHIVE (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
@@ -84,6 +84,7 @@
 | SECU-INNERHTML | Sites `innerHTML=` non échappés restants (~107 occurrences, 10 wrappés) | P1 | M | ⬜ À faire | Renders tableaux/cartes/modales onglets baux-hist, mv, quit, ass, etc. · à traiter au fil refonte onglet par onglet · l.7310 dash-alerts non-escapable |
 | MOBILE-AUDIT-ONGLETS | Audit + correctifs UX mobile onglet par onglet (irréprochable sur téléphone) | P1 | L | ⬜ À faire | [docs/subjects/MOBILE-AUDIT-ONGLETS.md](docs/subjects/MOBILE-AUDIT-ONGLETS.md) · 13 onglets à auditer · 1 commit / onglet · v13.37-40 = base déjà solide · critique pour V1 commerciale |
 | LOG-FICHE-360 | Vue 360° consolidée par bien (à la Qalimo) — header photos + sous-onglets Général/Documents/Candidats/EDL/Compta/Compteurs/Entretien | P1 | L | ⬜ À faire | [docs/subjects/LOG-FICHE-360.md](docs/subjects/LOG-FICHE-360.md) · pattern standard solutions pro · manque UX critique vs Qalimo/BailFacile/Smovin · refonte UX d'agrégation (data déjà là) · phase 1 minimale (S) puis phase 2 sous-onglets (M) |
+| DASH-PROFILES | Dashboards par lentille (Propriétaire / Financier / Gestionnaire / Fiscal / Investisseur / Échéances / Prévisionnel / Patrimoine + Custom) | P1 | XL | 🔄 En cours (Phase aperçu) | [docs/subjects/DASH-PROFILES.md](docs/subjects/DASH-PROFILES.md) · 8 lentilles · Phase 1 = aperçu HTML mockups (cette session) · Phase 2 = implémentation après validation utilisateur · différenciant marché majeur (aucun concurrent) |
 | LOG-LISTE-CARDS | Refonte liste logements/immeubles en cartes (à la Qalimo) — image + ratio occupation + toolbar Ajouter/Exporter/Rechercher/Filtrer/Tri + tabs Actifs/Archivés | P1 | M | ⬜ À faire | [docs/subjects/LOG-LISTE-CARDS.md](docs/subjects/LOG-LISTE-CARDS.md) · couple avec LOG-FICHE-360, LOG-PHOTOS, LOG-ARCHIVE |
 | NAV-RESTRUCTURE | Sortir Biens + Bailleurs du Référentiel → onglets top-nav dédiés | P1 | S | ⬜ À faire | [docs/subjects/NAV-RESTRUCTURE.md](docs/subjects/NAV-RESTRUCTURE.md) · à attaquer avec LOG-LISTE-CARDS · pattern Qalimo/BailFacile/Smovin |
 
