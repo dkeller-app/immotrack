@@ -24,7 +24,7 @@
 |---|---|
 | 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
-| 🏢 **Logement / Équipement** | BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-DG-LABEL (P3) |
+| 🏢 **Logement / Équipement** | BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) |
@@ -141,6 +141,9 @@
 | ENT-SAVE-IMM | Modifier entité : Enregistrer entité sauve aussi l'immeuble en saisie | P2 | S | ⬜ À faire | [docs/subjects/ENT-SAVE-IMM.md](docs/subjects/ENT-SAVE-IMM.md) |
 | **MRH** | | | | | |
 | MRH-AUTO-LOC | MRH : récupérer auto le locataire selon logement | P2 | S | ⬜ À faire | [docs/subjects/MRH-AUTO-LOC.md](docs/subjects/MRH-AUTO-LOC.md) |
+| **Logement** | | | | | |
+| LOG-PHOTOS | Photos illustratives sur la fiche logement (galerie permanente) | P2 | M | ⬜ À faire | [docs/subjects/LOG-PHOTOS.md](docs/subjects/LOG-PHOTOS.md) · réutiliser pattern EDL-PHOTOS-IDXDB · couple avec LOG-ANNONCE |
+| LOG-ANNONCE | Bouton "Générer annonce de location" pour logements vacants | P2 | M | ⬜ À faire | [docs/subjects/LOG-ANNONCE.md](docs/subjects/LOG-ANNONCE.md) · différenciant marché vs Rentila/BailFacile |
 | **Travaux / PJ** | | | | | |
 | DOC-PJ | Pouvoir ajouter des PJ (factures, CR entretien, photos) | P2 | M | ⬜ À faire | [docs/subjects/DOC-PJ.md](docs/subjects/DOC-PJ.md) |
 | TRAV-SUIVI | Suivi entretien / travaux avec calendrier | P2 | L | ⬜ À faire | [docs/subjects/TRAV-SUIVI.md](docs/subjects/TRAV-SUIVI.md) · CDC requis |
