@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Lentille 3 — Gestionnaire · ImmoTrack Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-lens="gestionnaire">
+  <div id="mu-header-slot"></div>
+
+  <main class="mu-page">
+
+    <div class="mu-demo-banner">
+      <span class="mu-demo-banner-icon">🛠️</span>
+      <span><b>Lentille 3 — Gestionnaire</b> · Vue opérationnelle. Persona : admin biens hands-on, gestionnaire SCI familiale, futur agent. Focus actions concrètes.</span>
+    </div>
+
+    <div class="mu-context">
+      <div class="mu-context-left">
+        <div class="mu-context-date">Vendredi 1er mai 2026 · vue opérationnelle</div>
+        <div class="mu-context-greet">À gérer cette semaine — 7 actions</div>
+      </div>
+      <div class="mu-context-right">
+        <span class="mu-pill"><span class="mu-pill-dot red"></span>3 urgentes</span>
+        <span class="mu-pill"><span class="mu-pill-dot ora"></span>4 cette sem.</span>
+        <span class="mu-pill delta-up">▲ 2 traitées hier</span>
+      </div>
+    </div>
+
+    <div class="mu-grid">
+
+      <!-- KPIs -->
+      <div class="dw c3 r2 s-red kpi-row">
+        <div class="dw-body">
+          <div class="dw-label">Vacances locatives</div>
+          <div class="dw-value" style="color:var(--fg-danger)">2</div>
+          <div class="dw-sub">F-004 · 30 j  |  F-005 · 60 j</div>
+        </div>
+      </div>
+
+      <div class="dw c3 r2 s-red kpi-row">
+        <div class="dw-body">
+          <div class="dw-label">Impayés en cours</div>
+          <div class="dw-value" style="color:var(--fg-danger)">1</div>
+          <div class="dw-sub">F-001 ARSLAN · 1 850 €</div>
+        </div>
+      </div>
+
+      <div class="dw c3 r2 s-ora kpi-row">
+        <div class="dw-body">
+          <div class="dw-label">Échéances &lt; 90 j</div>
+          <div class="dw-value">12</div>
+          <div class="dw-sub">3 cette sem. · 9 ce mois</div>
+        </div>
+      </div>
+
+      <div class="dw c3 r2 s-blu kpi-row">
+        <div class="dw-body">
+          <div class="dw-label">Actions à faire</div>
+          <div class="dw-value">7</div>
+          <div class="dw-sub">3 urgentes · 4 normales</div>
+        </div>
+      </div>
+
+      <!-- "À faire cette semaine" — checklist principale -->
+      <div class="dw c12 r5 s-blu">
+        <div class="dw-body">
+          <div class="dw-label">À faire cette semaine</div>
+          <div class="mu-mt-8" style="display:flex;flex-direction:column;gap:6px">
+
+            <div class="mu-check">
+              <input type="checkbox" />
+              <div class="mu-flex-1">
+                <div class="mu-check-label"><span class="badge red">URGENT</span> Relancer Mme ARSLAN F-001 — impayé 1 850 €</div>
+                <div class="mu-check-meta">Échéance dépassée depuis 60 jours · LRAR à envoyer</div>
+              </div>
+              <div class="mu-check-actions">
+                <button class="btn br bb">LRAR</button>
+                <button class="btn bs bb">Tél</button>
+              </div>
+            </div>
+
+            <div class="mu-check">
+              <input type="checkbox" />
+              <div class="mu-flex-1">
+                <div class="mu-check-label"><span class="badge red">URGENT</span> Programmer EDL sortie F-005 Colmar</div>
+                <div class="mu-check-meta">Mme PFISTER partie le 1er mars · 2 mois sans EDL = risque légal</div>
+              </div>
+              <div class="mu-check-actions">
+                <button class="btn bp bb">Programmer</button>
+              </div>
+            </div>
+
+            <div class="mu-check">
+              <input type="checkbox" />
+              <div class="mu-flex-1">
+                <div class="mu-check-label"><span class="badge red">URGENT</span> Envoyer lettre IRL F-002 Ferrette</div>
+                <div class="mu-check-meta">Anniversaire 15 juin · lettre à envoyer avant 15 mai (préavis 1 mois)</div>
+              </div>
+              <div class="mu-check-actions">
+                <button class="btn bp bb">Générer</button>
+              </div>
+            </div>
+
+            <div class="mu-check">
+              <input type="checkbox" />
+              <div class="mu-flex-1">
+                <div class="mu-check-label">Renouveler MRH F-002 (Allianz)</div>
+                <div class="mu-check-meta">Échéance 22 mai · attestation à demander</div>
+              </div>
+              <div class="mu-check-actions">
+                <button class="btn bs bb">Email</button>
+              </div>
+            </div>
+
+            <div class="mu-check">
+              <input type="checkbox" />
+              <div class="mu-flex-1">
+                <div class="mu-check-label">Générer quittances mai (3 logements)</div>
+                <div class="mu-check-meta">F-001 / F-002 / F-003 · à envoyer après réception loyers</div>
+              </div>
+              <div class="mu-check-actions">
+                <button class="btn bs bb">Générer</button>
+              </div>
+            </div>
+
+            <div class="mu-check done">
+              <input type="checkbox" checked />
+              <div class="mu-flex-1">
+                <div class="mu-check-label">Diffuser annonce F-005 Colmar (LeBonCoin)</div>
+                <div class="mu-check-meta">Fait hier · 4 visites programmées</div>
+              </div>
+            </div>
+
+            <div class="mu-check done">
+              <input type="checkbox" checked />
+              <div class="mu-flex-1">
+                <div class="mu-check-label">Régul charges 2025 SCI envoyée</div>
+                <div class="mu-check-meta">Fait hier · 3 régularisations validées</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <div class="dw-foot">
+          <span class="dw-sub" style="margin-right:auto">2 / 7 traitées · 5 restantes</span>
+          <button class="dw-see-all">Voir toutes (12 ce mois)</button>
+        </div>
+      </div>
+
+      <!-- Calendrier mini 3 mois -->
+      <div class="dw c5 r6 s-blu">
+        <div class="dw-body">
+          <div class="dw-label">Calendrier — 90 prochains jours</div>
+
+          <div class="mu-cal-month-label">Mai 2026</div>
+          <div class="mu-cal-grid">
+            <div class="mu-cal-day mu-muted">L</div><div class="mu-cal-day mu-muted">M</div><div class="mu-cal-day mu-muted">M</div><div class="mu-cal-day mu-muted">J</div>
+            <div class="mu-cal-day mu-muted">V</div><div class="mu-cal-day mu-muted">S</div><div class="mu-cal-day mu-muted">D</div>
+            <div class="mu-cal-day"></div><div class="mu-cal-day"></div><div class="mu-cal-day"></div><div class="mu-cal-day"></div>
+            <div class="mu-cal-day lvl3" title="EDL F-005 + IRL F-002 + TF SCI">1</div>
+            <div class="mu-cal-day">2</div><div class="mu-cal-day">3</div>
+            <div class="mu-cal-day">4</div><div class="mu-cal-day lvl1">5</div><div class="mu-cal-day">6</div>
+            <div class="mu-cal-day">7</div><div class="mu-cal-day lvl2" title="Anniv bail F-001">8</div>
+            <div class="mu-cal-day">9</div><div class="mu-cal-day">10</div>
+            <div class="mu-cal-day">11</div><div class="mu-cal-day">12</div><div class="mu-cal-day">13</div>
+            <div class="mu-cal-day lvl1">14</div><div class="mu-cal-day lvl2" title="Anniv bail F-001">15</div>
+            <div class="mu-cal-day">16</div><div class="mu-cal-day">17</div>
+            <div class="mu-cal-day">18</div><div class="mu-cal-day">19</div><div class="mu-cal-day">20</div>
+            <div class="mu-cal-day">21</div><div class="mu-cal-day lvl1" title="MRH F-002">22</div>
+            <div class="mu-cal-day">23</div><div class="mu-cal-day">24</div>
+            <div class="mu-cal-day">25</div><div class="mu-cal-day">26</div><div class="mu-cal-day">27</div>
+            <div class="mu-cal-day">28</div><div class="mu-cal-day">29</div><div class="mu-cal-day">30</div>
+            <div class="mu-cal-day">31</div>
+          </div>
+
+          <div class="mu-cal-month-label">Juin 2026</div>
+          <div class="mu-cal-grid">
+            <div class="mu-cal-day lvl1">1</div><div class="mu-cal-day">2</div><div class="mu-cal-day">3</div>
+            <div class="mu-cal-day">4</div><div class="mu-cal-day">5</div><div class="mu-cal-day">6</div>
+            <div class="mu-cal-day">7</div>
+            <div class="mu-cal-day">8</div><div class="mu-cal-day">9</div><div class="mu-cal-day">10</div>
+            <div class="mu-cal-day">11</div><div class="mu-cal-day">12</div><div class="mu-cal-day">13</div>
+            <div class="mu-cal-day">14</div>
+            <div class="mu-cal-day lvl3" title="Application IRL F-002">15</div><div class="mu-cal-day">16</div>
+            <div class="mu-cal-day">17</div><div class="mu-cal-day">18</div><div class="mu-cal-day">19</div>
+            <div class="mu-cal-day">20</div><div class="mu-cal-day">21</div>
+            <div class="mu-cal-day">22</div><div class="mu-cal-day">23</div><div class="mu-cal-day">24</div>
+            <div class="mu-cal-day">25</div><div class="mu-cal-day">26</div><div class="mu-cal-day">27</div>
+            <div class="mu-cal-day">28</div>
+            <div class="mu-cal-day">29</div><div class="mu-cal-day lvl2" title="Date butoir 2044">30</div>
+          </div>
+
+          <div class="mu-legend mu-mt-12">
+            <span class="mu-legend-item"><span class="mu-legend-swatch" style="background:rgba(59,126,246,.18)"></span>1 action</span>
+            <span class="mu-legend-item"><span class="mu-legend-swatch" style="background:rgba(59,126,246,.40)"></span>2-3 actions</span>
+            <span class="mu-legend-item"><span class="mu-legend-swatch" style="background:rgba(220,38,38,.55)"></span>4+ actions</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Liste vacances locatives -->
+      <div class="dw c7 r3 s-ora">
+        <div class="dw-body">
+          <div class="dw-label">Vacances locatives — 2 biens</div>
+          <div class="mu-mt-8" style="display:flex;flex-direction:column;gap:6px">
+            <div class="mu-check">
+              <div class="mu-flex-1">
+                <div class="mu-check-label"><b>F-005 Colmar Centre</b> · T2 50m² · loyer cible 720 €</div>
+                <div class="mu-check-meta">Vacant depuis 60 jours · manque à gagner cumulé : 1 440 €</div>
+              </div>
+              <div class="mu-check-actions">
+                <button class="btn bp bb">Annonce</button>
+                <button class="btn bs bb">Visites (4)</button>
+              </div>
+            </div>
+            <div class="mu-check">
+              <div class="mu-flex-1">
+                <div class="mu-check-label"><b>F-004 Strasbourg Wacken</b> · Garage · loyer cible 95 €</div>
+                <div class="mu-check-meta">Vacant depuis 30 jours · manque à gagner cumulé : 95 €</div>
+              </div>
+              <div class="mu-check-actions">
+                <button class="btn bp bb">Annonce</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- À clore (EDL/Baux/Régul) -->
+      <div class="dw c7 r3 s-pur">
+        <div class="dw-body">
+          <div class="dw-label">À clore</div>
+          <div class="mu-flex mu-mt-8" style="gap:14px;flex-wrap:wrap">
+            <div style="flex:1;min-width:140px">
+              <div class="dw-value lg" style="color:var(--blu)">2</div>
+              <div class="dw-sub">EDL sortie en attente</div>
+            </div>
+            <div style="flex:1;min-width:140px">
+              <div class="dw-value lg" style="color:var(--ora)">1</div>
+              <div class="dw-sub">Bail à archiver</div>
+            </div>
+            <div style="flex:1;min-width:140px">
+              <div class="dw-value lg" style="color:var(--pur)">3</div>
+              <div class="dw-sub">Régul charges à valider</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="mu-synth mu-mt-18">
+      <h3 style="margin-top:0">📌 À noter sur cette lentille</h3>
+      <ul>
+        <li><b>Effort prod : ~5 j-h</b> — heatmap calendrier nouveau composant, le reste réutilise listes existantes (alertes dashboard, tableaux baux).</li>
+        <li><b>Persona</b> : admin biens hands-on (souvent le fils/cousin dans les SCI familiales), futur agent (B2B Pro).</li>
+        <li><b>Différenciant</b> : faible (Qalimo a similar). Reste utile pour la persona Agence Pro V2 49.90€.</li>
+        <li><b>Reco V2 (2027)</b> : <span class="badge ora">Lancée avec le module Agence</span> (sujet AGENCE-GESTION).</li>
+      </ul>
+    </div>
+
+  </main>
+
+  <script src="assets/nav.js"></script>
+</body>
+</html>

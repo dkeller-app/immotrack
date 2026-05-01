@@ -1,6 +1,6 @@
 # DASH-PROFILES — Dashboards par lentille (persona / cas d'usage)
 
-**Status** : 🔄 En cours (Phase aperçu, sans codage prod) — depuis 2026-05-01
+**Status** : ⏳ Phase 1 (aperçu) livrée — attente validation utilisateur · depuis 2026-05-01
 **Prio** : P1 · **Taille** : XL (refonte dashboard majeure, ~1-2 semaines en codage prod après validation aperçu)
 **Détecté** : 2026-05-01
 **Lié à** : DASH-V2 · DASH-KPI-HC · BIZPLAN · BUG-DASH-001
@@ -161,3 +161,10 @@ Livrables :
 
 ## Journal
 - 2026-05-01 : créé · 8 lentilles proposées (3 utilisateur + 5 Claude) · attente Phase 1 aperçu
+- 2026-05-01 : **Phase 1 aperçu livrée** · session dédiée ~3h
+  - `docs/strategie/DASH-PROFILES-SPEC.md` (576 lignes) : spec détaillée 8 lentilles + matrice priorisation + 6 questions ouvertes + données fictives cohérentes
+  - `docs/strategie/dashboard-mockups/` : 9 fichiers HTML (index sélecteur + 8 lentilles cliquables) + CSS partagé (671 lignes, design tokens identiques à index.html prod) + nav.js (sélecteur + dark/light toggle)
+  - Données fictives : SCI Familiale Keller, 5 logements, 1 impayé, 1 vacance, 1 DPE F · cohérentes entre les 8 mockups → l'utilisateur peut comparer "même réalité, vues différentes"
+  - Reco initiale V1 (4 lentilles, ~12 j-h) : Propriétaire + Financier + Fiscale 2044 + Échéances · V2 (4 lentilles + Custom, ~26 j-h) : Gestionnaire + Investisseur + Prévisionnel + Patrimoine
+  - 6 questions à arbitrer documentées (V1 scope, sélecteur UI, custom V1/V2, auto-saison Fiscale, IA Prévisionnel, data model financier)
+  - Pas de modif `index.html` prod (consigne respectée)

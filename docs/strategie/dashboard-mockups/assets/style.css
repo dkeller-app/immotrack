@@ -1,0 +1,672 @@
+/* ════════════════════════════════════════════════════════════════════
+   DASH-PROFILES — CSS partagé pour les 8 mockups de lentilles
+   Reprend strictement le design system d'ImmoTrack (index.html lignes 24-1100)
+   pour garantir constance visuelle (cf feedback_design_consistency.md).
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── DESIGN TOKENS — clair (par défaut) ─────────────────────────── */
+:root{
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.93);
+  --sur2:rgba(255,255,255,.65);
+  --sur3:rgba(255,255,255,.85);
+  --bor:rgba(0,0,0,.09);
+  --bor2:rgba(0,0,0,.05);
+  --t1:#0f172a;
+  --t2:#475569;
+  --t3:#94a3b8;
+  --blu:#3b7ef6;
+  --grn:#16a34a;
+  --red:#dc2626;
+  --ora:#ea580c;
+  --pur:#7c3aed;
+  --acc:#3b7ef6;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(59,126,246,.18),0 1px 4px rgba(0,0,0,.07);
+  --r:8px; --rl:14px;
+  --font-base:15px;
+  --lh:1.55;
+
+  --bg-success:rgba(22,163,74,.10);
+  --bg-danger:rgba(220,38,38,.10);
+  --bg-warning:rgba(234,88,12,.12);
+  --bg-info:rgba(59,126,246,.10);
+  --fg-success:#16a34a;
+  --fg-danger:#dc2626;
+  --fg-warning:#ea580c;
+  --fg-info:#3b7ef6;
+
+  --shadow-card:0 1px 2px rgba(0,0,0,.04);
+  --shadow-card-hover:0 4px 16px rgba(59,126,246,.10),0 1px 3px rgba(0,0,0,.05);
+
+  --t-fast:120ms cubic-bezier(.4,0,.2,1);
+  --t-normal:200ms cubic-bezier(.4,0,.2,1);
+}
+
+/* ── DESIGN TOKENS — sombre ─────────────────────────────────────── */
+[data-theme="dark"]{
+  --bg:#0d1520;
+  --sur:rgba(255,255,255,.06);
+  --sur2:rgba(255,255,255,.04);
+  --sur3:rgba(255,255,255,.10);
+  --bor:rgba(255,255,255,.14);
+  --bor2:rgba(255,255,255,.07);
+  --t1:#e8eef7;
+  --t2:#aab6c8;
+  --t3:#6f7e92;
+
+  --shadow:0 1px 3px rgba(0,0,0,.4),0 4px 18px rgba(0,0,0,.3);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.4);
+  --shadow-hover:0 4px 20px rgba(59,126,246,.3),0 1px 4px rgba(0,0,0,.4);
+
+  --bg-success:rgba(22,163,74,.18);
+  --bg-danger:rgba(220,38,38,.18);
+  --bg-warning:rgba(234,88,12,.20);
+  --bg-info:rgba(59,126,246,.18);
+  --fg-success:#4ade80;
+  --fg-danger:#f87171;
+  --fg-warning:#fb923c;
+  --fg-info:#60a5fa;
+
+  --shadow-card:0 1px 2px rgba(0,0,0,.25);
+  --shadow-card-hover:0 4px 16px rgba(59,126,246,.22),0 1px 3px rgba(0,0,0,.35);
+}
+
+/* ── BASE ──────────────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  background:var(--bg); color:var(--t1);
+  font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  font-size:var(--font-base); line-height:var(--lh);
+  min-height:100vh;
+}
+a{color:var(--blu);text-decoration:none}
+button{font-family:inherit}
+
+/* ── HEADER MOCKUP (sélecteur lentille + dark toggle + retour accueil) ── */
+.mu-header{
+  position:sticky; top:0; z-index:50;
+  background:var(--sur); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--bor);
+  padding:10px 20px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+}
+.mu-brand{
+  display:flex; align-items:center; gap:8px;
+  font-family:'Manrope',sans-serif; font-weight:700; font-size:15px;
+  color:var(--t1); text-decoration:none;
+}
+.mu-brand-icon{font-size:18px;line-height:1}
+.mu-brand-tag{
+  font-size:9.5px; font-weight:700; letter-spacing:.5px;
+  background:rgba(59,126,246,.15); color:var(--blu);
+  padding:2px 6px; border-radius:4px; text-transform:uppercase;
+  margin-left:4px;
+}
+.mu-spacer{flex:1}
+.mu-lens-select{
+  display:flex; align-items:center; gap:8px;
+  background:var(--sur2); border:1px solid var(--bor);
+  border-radius:var(--r); padding:6px 10px 6px 12px;
+  font-size:13px; color:var(--t1); cursor:pointer;
+  transition:border var(--t-fast), background var(--t-fast);
+}
+.mu-lens-select:hover{border-color:var(--blu); background:var(--sur3)}
+.mu-lens-select select{
+  background:transparent; border:none; color:var(--t1);
+  font-family:inherit; font-size:13px; font-weight:500;
+  cursor:pointer; outline:none; padding-right:2px;
+}
+.mu-lens-label{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.mu-icon-btn{
+  width:34px; height:34px; border-radius:var(--r);
+  background:var(--sur2); border:1px solid var(--bor);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:15px; color:var(--t2);
+  transition:all var(--t-fast);
+}
+.mu-icon-btn:hover{background:var(--sur3); color:var(--t1); border-color:var(--blu)}
+.mu-back-btn{
+  display:flex; align-items:center; gap:6px;
+  padding:7px 12px; border-radius:var(--r);
+  background:var(--sur2); border:1px solid var(--bor);
+  color:var(--t1); font-size:13px; font-weight:500;
+  cursor:pointer; transition:all var(--t-fast);
+  text-decoration:none;
+}
+.mu-back-btn:hover{background:var(--sur3); border-color:var(--blu)}
+
+@media(max-width:680px){
+  .mu-header{padding:8px 12px;gap:8px}
+  .mu-brand-tag{display:none}
+  .mu-lens-label{display:none}
+}
+
+/* ── PAGE CONTAINER ─────────────────────────────────────────────── */
+.mu-page{
+  max-width:1280px;
+  margin:0 auto;
+  padding:18px 20px 40px;
+}
+
+/* ── CONTEXT BAR (date / entité / période) ──────────────────────── */
+.mu-context{
+  background:var(--sur); border:1px solid var(--bor);
+  border-radius:var(--rl); padding:12px 16px; margin-bottom:14px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:14px; flex-wrap:wrap;
+  box-shadow:var(--shadow-card);
+}
+.mu-context-left{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mu-context-date{font-size:12px;color:var(--t3);letter-spacing:.3px;font-weight:600;text-transform:uppercase}
+.mu-context-greet{font-size:18px;font-weight:500;color:var(--t1);line-height:1.15}
+.mu-context-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.mu-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 11px;border-radius:20px;
+  font-size:11.5px;font-weight:500;line-height:1;
+  background:var(--sur2);border:1px solid var(--bor);color:var(--t2);
+  white-space:nowrap;
+}
+.mu-pill-dot{width:6px;height:6px;border-radius:50%;background:var(--t3);flex-shrink:0}
+.mu-pill-dot.grn{background:var(--fg-success)}
+.mu-pill-dot.red{background:var(--fg-danger)}
+.mu-pill-dot.ora{background:var(--fg-warning)}
+.mu-pill-dot.blu{background:var(--fg-info)}
+.mu-pill.delta-up  {background:var(--bg-success);color:var(--fg-success);border-color:transparent}
+.mu-pill.delta-down{background:var(--bg-danger); color:var(--fg-danger); border-color:transparent}
+.mu-pill.delta-flat{background:var(--sur2);color:var(--t2)}
+
+/* ── GRILLE 12 COLONNES (= dashboard prod) ──────────────────────── */
+.mu-grid{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  grid-auto-rows:60px;
+  gap:10px;
+}
+
+/* Colonnes 1→12 */
+.c1 {grid-column:span 1}.c2 {grid-column:span 2}.c3 {grid-column:span 3}
+.c4 {grid-column:span 4}.c5 {grid-column:span 5}.c6 {grid-column:span 6}
+.c7 {grid-column:span 7}.c8 {grid-column:span 8}.c9 {grid-column:span 9}
+.c10{grid-column:span 10}.c11{grid-column:span 11}.c12{grid-column:span 12}
+
+/* Rangées : 1 unité = 60px + 10px gap → r1=60, r2=130, r3=200, r4=270, r5=340, r6=410, r7=480, r8=550 */
+.r1{grid-row:span 1}.r2{grid-row:span 2}.r3{grid-row:span 3}.r4{grid-row:span 4}
+.r5{grid-row:span 5}.r6{grid-row:span 6}.r7{grid-row:span 7}.r8{grid-row:span 8}
+
+/* ── CARTE WIDGET (.dw — identique au prod) ─────────────────────── */
+.dw{
+  background:var(--sur);
+  border:1px solid var(--bor);
+  border-radius:var(--rl);
+  padding:0;
+  box-shadow:var(--shadow-card);
+  overflow:hidden;
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  transition:box-shadow var(--t-fast),transform var(--t-fast);
+  --dw-accent:transparent;
+  cursor:pointer;
+}
+.dw::before{
+  content:''; position:absolute; left:0; top:0; bottom:0;
+  width:3px; background:var(--dw-accent);
+  pointer-events:none; z-index:1;
+  transition:background var(--t-fast);
+}
+.dw:hover{box-shadow:var(--shadow-hover); transform:translateY(-1px)}
+
+.dw-body{flex:1; min-height:0; overflow:hidden; padding:14px 16px 8px}
+.dw-foot{flex-shrink:0; padding:0 16px 10px; display:flex; justify-content:flex-end; align-items:center}
+
+/* Accent statut */
+.s-red{--dw-accent:var(--red)}
+.s-ora{--dw-accent:var(--ora)}
+.s-grn{--dw-accent:var(--grn)}
+.s-blu{--dw-accent:var(--blu)}
+.s-pur{--dw-accent:var(--pur)}
+
+/* Typographie interne widgets */
+.dw-label{
+  font-size:9.5px;font-weight:800;letter-spacing:.9px;
+  text-transform:uppercase;color:var(--t3);margin-bottom:6px;
+}
+.dw-value{
+  font-weight:800;line-height:1;letter-spacing:-.03em;
+  font-family:'Manrope',sans-serif;color:var(--t1);
+  font-size:24px;
+}
+.dw-value.lg{font-size:32px}
+.dw-value.xl{font-size:40px}
+.dw-value.sm{font-size:18px}
+.dw-sub{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.3}
+.dw-see-all{
+  font-size:11px;font-weight:600;color:var(--acc);
+  background:none;border:none;cursor:pointer;padding:0;
+  font-family:inherit;letter-spacing:.2px;
+  opacity:.75;transition:opacity .15s;
+  display:inline-flex;align-items:center;gap:3px;
+}
+.dw-see-all:hover{opacity:1}
+.dw-see-all::after{content:'›';font-size:13px;line-height:1;transition:transform .15s}
+.dw-see-all:hover::after{transform:translateX(2px)}
+
+/* Séparateur de section */
+.mu-sep{
+  grid-column:1/-1;grid-row:span 1;
+  background:transparent;box-shadow:none;
+  border:none;border-radius:0;padding:0;
+  display:flex;align-items:center;gap:0;
+  overflow:visible;opacity:.75;
+}
+.mu-sep-label{
+  font-size:10px;font-weight:700;color:var(--t3);
+  text-transform:uppercase;letter-spacing:2.5px;white-space:nowrap;
+  padding:0 10px;
+}
+.mu-sep-line{flex:1;height:1px;background:var(--bor)}
+
+/* ── BOUTONS ─────────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:7px 14px;border-radius:var(--r);border:none;
+  cursor:pointer;font-size:13px;font-weight:500;
+  transition:all .15s;white-space:nowrap;
+  font-family:'IBM Plex Sans',sans-serif;
+}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bp:hover:not(:disabled){background:#2d6de0;box-shadow:0 4px 14px rgba(59,126,246,.4)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bs:hover:not(:disabled){background:var(--sur3);border-color:var(--blu)}
+.br{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.2)}
+.br:hover:not(:disabled){background:rgba(220,38,38,.18)}
+.bg{background:rgba(22,163,74,.1);color:var(--grn);border:1px solid rgba(22,163,74,.2)}
+.bg:hover:not(:disabled){background:rgba(22,163,74,.18)}
+.bb{padding:4px 10px;font-size:12px}
+
+/* ── BADGES ─────────────────────────────────────────────────────── */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;line-height:1.4}
+.badge.grn{background:rgba(22,163,74,.12);color:var(--grn)}
+.badge.red{background:rgba(220,38,38,.12);color:var(--red)}
+.badge.ora{background:rgba(234,88,12,.12);color:var(--ora)}
+.badge.blu{background:rgba(59,126,246,.12);color:var(--blu)}
+.badge.pur{background:rgba(124,58,237,.12);color:var(--pur)}
+.badge.gry{background:rgba(90,110,135,.12);color:var(--t2)}
+
+/* ── TABLES ─────────────────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--bor)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{
+  text-align:left;padding:8px 12px;font-size:10.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.6px;color:var(--t3);
+  background:var(--sur2);border-bottom:1px solid var(--bor);
+}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--bor2);color:var(--t1);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(59,126,246,.04)}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif}
+.tbl tfoot td{font-weight:700;border-top:2px solid var(--bor);background:var(--sur2)}
+
+/* ── ALERTES ────────────────────────────────────────────────────── */
+.alert{padding:10px 14px;border-radius:var(--r);font-size:13px;margin-bottom:8px;border:1px solid;display:flex;gap:8px;align-items:flex-start}
+.alert.info{background:rgba(59,126,246,.08);border-color:rgba(59,126,246,.2);color:var(--blu)}
+.alert.warn{background:rgba(234,88,12,.08);border-color:rgba(234,88,12,.2);color:var(--ora)}
+.alert.err{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.2);color:var(--red)}
+.alert.ok{background:rgba(22,163,74,.08);border-color:rgba(22,163,74,.2);color:var(--grn)}
+.alert-icon{font-size:14px;flex-shrink:0;line-height:1.3}
+.alert-body{flex:1;min-width:0}
+.alert-title{font-weight:600;margin-bottom:2px}
+.alert-sub{font-size:12px;opacity:.85}
+
+/* ── KPI CHIFFRES (variante "kt" sub) ───────────────────────────── */
+.kt-up   {color:var(--fg-success)}
+.kt-down {color:var(--fg-danger)}
+.kt-flat {color:var(--t3)}
+
+/* ── CHECKLIST (Lentille 3 / 8) ─────────────────────────────────── */
+.mu-check{
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px; border-radius:var(--r);
+  background:var(--sur2); border:1px solid var(--bor2);
+  font-size:13px; color:var(--t1);
+  margin-bottom:6px;
+}
+.mu-check input{width:14px;height:14px;cursor:pointer;accent-color:var(--blu)}
+.mu-check-label{flex:1;min-width:0;line-height:1.35}
+.mu-check-meta{font-size:11px;color:var(--t3);margin-top:1px}
+.mu-check-actions{display:flex;gap:4px;flex-shrink:0}
+.mu-check.done{opacity:.55}
+.mu-check.done .mu-check-label{text-decoration:line-through;color:var(--t3)}
+
+/* ── TIMELINE (Lentille 6) ──────────────────────────────────────── */
+.mu-timeline{
+  position:relative;
+  padding:24px 20px 32px;
+  background:var(--sur2);
+  border-radius:var(--r);
+  margin-bottom:14px;
+  overflow-x:auto;
+}
+.mu-timeline-axis{
+  position:relative;
+  height:2px;
+  background:var(--bor);
+  margin:24px 0;
+  min-width:600px;
+}
+.mu-timeline-tick{
+  position:absolute;
+  width:1px; height:8px; background:var(--bor);
+  bottom:-4px; transform:translateX(-50%);
+}
+.mu-timeline-tick-label{
+  position:absolute;
+  top:14px; transform:translateX(-50%);
+  font-size:10px; color:var(--t3); letter-spacing:.4px;
+  white-space:nowrap;
+}
+.mu-timeline-event{
+  position:absolute;
+  width:14px; height:14px; border-radius:50%;
+  top:-7px; transform:translateX(-50%);
+  border:2px solid var(--sur);
+  cursor:pointer;
+  transition:transform var(--t-fast);
+}
+.mu-timeline-event:hover{transform:translateX(-50%) scale(1.4)}
+.mu-timeline-event.cat-bail{background:var(--blu)}
+.mu-timeline-event.cat-irl{background:var(--pur)}
+.mu-timeline-event.cat-edl{background:var(--ora)}
+.mu-timeline-event.cat-fiscal{background:var(--grn)}
+.mu-timeline-event.cat-entretien{background:var(--t2)}
+.mu-timeline-event.cat-mrh{background:var(--red)}
+
+.mu-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--t2)}
+.mu-legend-item{display:inline-flex;align-items:center;gap:5px}
+.mu-legend-swatch{width:9px;height:9px;border-radius:50%}
+
+/* ── BARRES HORIZONTALES (Lentille 8 bilan) ─────────────────────── */
+.mu-bar-row{
+  display:grid; grid-template-columns:90px 1fr 100px;
+  gap:10px; align-items:center; margin:6px 0;
+}
+.mu-bar-label{font-size:12px;color:var(--t2);font-weight:500}
+.mu-bar-track{
+  height:24px; background:var(--sur2);
+  border-radius:6px; overflow:hidden; position:relative;
+  border:1px solid var(--bor2);
+}
+.mu-bar-fill{
+  height:100%; border-radius:5px;
+  transition:width var(--t-normal);
+  display:flex; align-items:center; justify-content:flex-end;
+  padding-right:8px; color:#fff; font-size:11px; font-weight:600;
+}
+.mu-bar-fill.actif {background:linear-gradient(90deg,#3b7ef6,#5a93ff)}
+.mu-bar-fill.passif{background:linear-gradient(90deg,#dc2626,#ef4444)}
+.mu-bar-fill.net   {background:linear-gradient(90deg,#16a34a,#22c55e)}
+.mu-bar-value{font-size:13px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums;text-align:right;font-family:'Manrope',sans-serif}
+
+/* ── DONUT MINI (Lentille 1/2/8) ────────────────────────────────── */
+.mu-donut-svg{width:80px;height:80px}
+
+/* ── SPARKLINE (réplique du prod) ───────────────────────────────── */
+.mu-spark{display:block;width:100%;height:auto}
+
+/* ── CHART MULTI-LIGNE (réplique du prod) ───────────────────────── */
+.mu-chart{width:100%;display:block}
+.mu-chart-legend{
+  display:flex;flex-wrap:wrap;gap:14px;justify-content:center;
+  margin-top:8px;font-size:11.5px;color:var(--t2);
+}
+.mu-chart-legend-item{display:inline-flex;align-items:center;gap:5px}
+.mu-chart-legend-sw{width:10px;height:3px;border-radius:2px}
+
+/* ── HEATMAP CALENDRIER (Lentille 3) ────────────────────────────── */
+.mu-cal-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:3px;
+}
+.mu-cal-day{
+  aspect-ratio:1;
+  background:var(--sur2);
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--t3);
+  position:relative;
+  cursor:pointer;
+  transition:all var(--t-fast);
+}
+.mu-cal-day:hover{background:var(--sur3);transform:scale(1.05)}
+.mu-cal-day.lvl1{background:rgba(59,126,246,.18);color:var(--blu)}
+.mu-cal-day.lvl2{background:rgba(59,126,246,.40);color:#fff;font-weight:600}
+.mu-cal-day.lvl3{background:rgba(220,38,38,.55);color:#fff;font-weight:700}
+.mu-cal-month-label{
+  font-size:11px;font-weight:600;color:var(--t2);
+  text-transform:uppercase;letter-spacing:.5px;
+  margin:8px 0 6px;text-align:center;
+}
+
+/* ── CAMEMBERT (donut Lentille 2) ───────────────────────────────── */
+.mu-pie-svg{width:140px;height:140px}
+.mu-pie-legend{flex:1;min-width:0}
+.mu-pie-legend-row{
+  display:grid; grid-template-columns:14px 1fr auto auto;
+  gap:8px; align-items:center;
+  font-size:12px; padding:3px 0;
+}
+.mu-pie-legend-sw{width:12px;height:12px;border-radius:3px}
+.mu-pie-legend-name{color:var(--t1);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mu-pie-legend-val{font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif;color:var(--t1);font-weight:500}
+.mu-pie-legend-pct{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums}
+
+/* ── WATERFALL (Lentille 2) ─────────────────────────────────────── */
+.mu-waterfall{display:flex;align-items:flex-end;gap:6px;height:140px;padding:8px 0}
+.mu-wf-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.mu-wf-track{flex:1;width:100%;background:var(--sur2);border-radius:4px 4px 0 0;display:flex;align-items:flex-end;border:1px solid var(--bor2);position:relative}
+.mu-wf-fill{
+  width:100%;border-radius:4px 4px 0 0;
+  display:flex;align-items:flex-start;justify-content:center;
+  padding-top:4px;font-size:10.5px;font-weight:700;color:#fff;
+  font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif;
+}
+.mu-wf-fill.pos{background:linear-gradient(180deg,#22c55e,#16a34a)}
+.mu-wf-fill.neg{background:linear-gradient(180deg,#ef4444,#dc2626)}
+.mu-wf-fill.tot{background:linear-gradient(180deg,#5a93ff,#3b7ef6)}
+.mu-wf-label{font-size:10px;color:var(--t3);text-align:center;line-height:1.2}
+
+/* ── SLIDERS (Lentille 7) ───────────────────────────────────────── */
+.mu-slider-row{display:grid;grid-template-columns:120px 1fr 60px;gap:10px;align-items:center;margin-bottom:10px}
+.mu-slider-label{font-size:12px;color:var(--t2);font-weight:500}
+.mu-slider{width:100%;accent-color:var(--blu);cursor:pointer}
+.mu-slider-value{font-size:12px;color:var(--t1);font-weight:600;font-family:'Manrope',sans-serif;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ── TABS internes (sous-onglets dans une lentille) ─────────────── */
+.mu-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bor);margin-bottom:12px}
+.mu-tab{
+  padding:8px 14px;border:none;background:transparent;
+  font-size:13px;font-weight:500;color:var(--t2);
+  cursor:pointer;border-bottom:2px solid transparent;
+  transition:all var(--t-fast);font-family:inherit;
+}
+.mu-tab:hover{color:var(--t1)}
+.mu-tab.act{color:var(--blu);border-bottom-color:var(--blu);font-weight:600}
+
+/* ── HOMEPAGE — sélecteur visuel des 8 lentilles ────────────────── */
+.mu-hero{
+  text-align:center;
+  padding:36px 20px 24px;
+}
+.mu-hero h1{
+  font-family:'Manrope',sans-serif;font-weight:800;
+  font-size:32px;letter-spacing:-.02em;line-height:1.1;
+  margin-bottom:10px;color:var(--t1);
+}
+.mu-hero h1 small{
+  display:block;font-size:13px;font-weight:600;color:var(--blu);
+  text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;
+}
+.mu-hero p{
+  max-width:680px;margin:0 auto;color:var(--t2);font-size:15px;line-height:1.6;
+}
+
+.mu-lens-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:14px;
+  margin:28px 0;
+}
+.mu-lens-card{
+  background:var(--sur);border:1px solid var(--bor);
+  border-radius:var(--rl);padding:20px;
+  cursor:pointer;
+  transition:all var(--t-fast);
+  text-decoration:none;color:inherit;
+  display:flex;flex-direction:column;gap:8px;
+  position:relative;
+  box-shadow:var(--shadow-card);
+}
+.mu-lens-card:hover{
+  border-color:var(--blu);
+  box-shadow:var(--shadow-hover);
+  transform:translateY(-2px);
+}
+.mu-lens-card-icon{font-size:30px;line-height:1}
+.mu-lens-card-title{font-size:16px;font-weight:700;color:var(--t1);font-family:'Manrope',sans-serif}
+.mu-lens-card-num{
+  position:absolute;top:14px;right:14px;
+  font-size:11px;font-weight:700;color:var(--t3);
+  font-family:'Manrope',sans-serif;
+}
+.mu-lens-card-sub{font-size:12.5px;color:var(--t2);line-height:1.45;flex:1}
+.mu-lens-card-meta{
+  display:flex;gap:6px;flex-wrap:wrap;font-size:10.5px;
+  margin-top:auto;padding-top:8px;border-top:1px solid var(--bor2);
+}
+
+/* ── SECTION SYNTHÈSE (homepage) ────────────────────────────────── */
+.mu-synth{
+  background:var(--sur);border:1px solid var(--bor);
+  border-radius:var(--rl);padding:24px;margin-top:30px;
+  box-shadow:var(--shadow-card);
+}
+.mu-synth h2{
+  font-family:'Manrope',sans-serif;font-weight:700;
+  font-size:22px;margin-bottom:6px;color:var(--t1);
+}
+.mu-synth h2 small{
+  display:block;font-size:11.5px;font-weight:600;color:var(--blu);
+  letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px;
+}
+.mu-synth h3{
+  font-family:'Manrope',sans-serif;font-weight:700;
+  font-size:15px;color:var(--t1);
+  margin:18px 0 10px;
+  padding-bottom:6px;border-bottom:1px solid var(--bor2);
+}
+.mu-synth p{font-size:13.5px;color:var(--t2);line-height:1.6;margin-bottom:8px}
+.mu-synth ul{padding-left:20px;font-size:13px;color:var(--t1);line-height:1.7}
+.mu-synth ul li{margin-bottom:4px}
+.mu-synth strong{color:var(--t1);font-weight:600}
+
+.mu-rectab{
+  width:100%;border-collapse:collapse;font-size:13px;
+  margin:10px 0 14px;
+}
+.mu-rectab th, .mu-rectab td{
+  padding:8px 10px; text-align:left;
+  border-bottom:1px solid var(--bor2);
+}
+.mu-rectab th{
+  background:var(--sur2);
+  font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+  font-weight:700;color:var(--t3);
+}
+.mu-rectab td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif}
+.mu-rectab tr.v1 td:first-child{border-left:3px solid var(--grn);padding-left:8px}
+.mu-rectab tr.v2 td:first-child{border-left:3px solid var(--ora);padding-left:8px}
+
+.mu-ques{
+  background:var(--bg-info);border:1px solid rgba(59,126,246,.2);
+  border-radius:var(--r);padding:14px 16px;margin-bottom:10px;
+}
+.mu-ques-q{font-weight:600;color:var(--blu);font-size:13.5px;margin-bottom:6px}
+.mu-ques-opts{font-size:12.5px;color:var(--t1);line-height:1.6}
+.mu-ques-default{font-size:11.5px;color:var(--t3);margin-top:4px;font-style:italic}
+
+/* ── RESPONSIVE — mobile breakpoints ─────────────────────────────── */
+@media (max-width:768px){
+  .mu-page{padding:14px 12px 30px}
+  .mu-grid{grid-auto-rows:64px;gap:8px}
+  .dw-value{font-size:20px}
+  .dw-value.lg{font-size:24px}
+  .dw-value.xl{font-size:28px}
+  /* Tous les widgets multi-col passent pleine largeur sur mobile */
+  .c2,.c3,.c4,.c5,.c6,.c7,.c8,.c9,.c10,.c11,.c12{grid-column:1/-1}
+  /* Mais on garde 2 KPIs par ligne pour la première rangée si possible */
+  .mu-grid > .kpi-row .c3{grid-column:span 6}
+  .mu-grid > .kpi-row .c4{grid-column:span 6}
+}
+
+@media (max-width:480px){
+  .mu-hero h1{font-size:24px}
+  .mu-context-greet{font-size:16px}
+  .mu-grid > .kpi-row .c3, .mu-grid > .kpi-row .c4{grid-column:1/-1}
+  .dw-body{padding:12px 14px 6px}
+  .mu-bar-row{grid-template-columns:1fr;gap:4px}
+  .mu-bar-row .mu-bar-value{text-align:left}
+  .mu-slider-row{grid-template-columns:1fr;gap:4px}
+}
+
+/* ── TABLE-TO-CARDS sur mobile (cohérent IRL prod) ──────────────── */
+@media (max-width:600px){
+  .tbl-mobile{display:block}
+  .tbl-mobile thead{display:none}
+  .tbl-mobile tbody{display:block}
+  .tbl-mobile tr{
+    display:block;background:var(--sur2);border:1px solid var(--bor);
+    border-radius:var(--r);padding:8px;margin-bottom:6px;
+  }
+  .tbl-mobile td{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:4px 0;border:none;font-size:13px;
+  }
+  .tbl-mobile td::before{
+    content:attr(data-label);
+    font-size:10.5px;color:var(--t3);font-weight:600;
+    text-transform:uppercase;letter-spacing:.4px;
+    margin-right:8px;flex-shrink:0;
+  }
+  .tbl-mobile td.num{justify-content:space-between}
+}
+
+/* ── UTILITIES ──────────────────────────────────────────────────── */
+.mu-flex{display:flex;align-items:center;gap:10px}
+.mu-flex-col{display:flex;flex-direction:column;gap:8px}
+.mu-flex-1{flex:1;min-width:0}
+.mu-mt-8{margin-top:8px}
+.mu-mt-12{margin-top:12px}
+.mu-mt-18{margin-top:18px}
+.mu-mb-8{margin-bottom:8px}
+.mu-mb-12{margin-bottom:12px}
+.mu-text-center{text-align:center}
+.mu-num{font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif}
+.mu-mono{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+.mu-muted{color:var(--t3)}
+.mu-strong{font-weight:600;color:var(--t1)}
+
+/* Annonce démo */
+.mu-demo-banner{
+  background:linear-gradient(90deg,rgba(59,126,246,.10),rgba(124,58,237,.06));
+  border:1px solid rgba(59,126,246,.25);
+  border-radius:var(--rl);padding:10px 16px;margin-bottom:14px;
+  font-size:12.5px;color:var(--t1);display:flex;gap:10px;align-items:center;
+}
+.mu-demo-banner-icon{font-size:16px;flex-shrink:0}
+.mu-demo-banner b{color:var(--blu);font-weight:600}
