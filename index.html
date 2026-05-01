@@ -2114,11 +2114,10 @@ textarea.field-modified-since-sig{
     <div class="ni" data-tip="Loyers & Mouvements" onclick="go('loyers',this)"><span class="ico">💶</span><span class="ni-label"> Loyers & Mouvements</span></div>
   </div>
 
-  <!-- v14.2 NAV-RESTRUCTURE : section Patrimoine — Biens + Bailleurs sortis du Référentiel -->
+  <!-- v14.3 PATRIMOINE-NAV-UNIFY : un seul hub "Biens" avec toggle 3 modes (Bailleurs/Immeubles/Logements) -->
   <div class="sb-section">
     <div class="sb-section-title">Patrimoine</div>
-    <div class="ni" data-tip="Biens" onclick="go('biens',this)"><span class="ico">🏠</span><span class="ni-label"> Biens</span></div>
-    <div class="ni" data-tip="Bailleurs" onclick="go('bailleurs',this)"><span class="ico">👤</span><span class="ni-label"> Bailleurs</span></div>
+    <div class="ni" data-tip="Biens (Bailleurs · Immeubles · Logements)" onclick="go('biens',this)"><span class="ico">🏠</span><span class="ni-label"> Biens</span></div>
   </div>
 
   <div class="sb-section">
@@ -2547,6 +2546,7 @@ textarea.field-modified-since-sig{
       <div class="biens-toolbar">
         <div class="biens-toolbar-left">
           <div class="biens-view-toggle" role="tablist" aria-label="Mode d'affichage">
+            <button class="bvt" id="bvt-bailleurs" role="tab" aria-selected="false" onclick="setBiensView('bailleurs')">👤 Bailleurs</button>
             <button class="bvt act" id="bvt-immeubles" role="tab" aria-selected="true" onclick="setBiensView('immeubles')">🏢 Immeubles</button>
             <button class="bvt" id="bvt-logements" role="tab" aria-selected="false" onclick="setBiensView('logements')">🏠 Logements</button>
           </div>
@@ -2601,19 +2601,10 @@ textarea.field-modified-since-sig{
             </div>
           </div>
           <button class="btn bs" onclick="exportBiensCSV()" title="Exporter la liste en CSV">📥 Exporter</button>
-          <button class="btn bp" onclick="openNewLog()">+ Bien</button>
+          <button class="btn bp" id="biens-add-btn" onclick="openBiensAdd()">+ Bien</button>
         </div>
       </div>
       <div id="biens-list-wrap"></div>
-    </div>
-
-    <!-- PAGE: BAILLEURS (v14.2 NAV-RESTRUCTURE — sorti du Référentiel) -->
-    <div class="page" id="p-bailleurs">
-      <div class="flex-b mb12">
-        <span class="mu sm">Entités juridiques propriétaires (SCI, particuliers, indivisions…)</span>
-        <button class="btn bp bb" onclick="openNewEnt()">+ Bailleur</button>
-      </div>
-      <div class="tbl-wrap" id="bailleurs-list-wrap"></div>
     </div>
 
     <!-- PAGE: LOG-FICHE-360 Phase 1 (v14.2) — vue 360 dédiée d'un bien -->
@@ -5020,6 +5011,12 @@ function fillSel(id, items, valFn, labFn) {
 let currentPage = 'dashboard';
 
 function go(page, elNav) {
+  // v14.3 PATRIMOINE-NAV-UNIFY : 'bailleurs' alias du hub Biens (mode bailleurs)
+  if(page === 'bailleurs') {
+    _biensViewMode = 'bailleurs';
+    try { localStorage.setItem('immotrack_biens_view', 'bailleurs'); } catch(e){}
+    return go('biens', elNav);
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('act'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('act'));
   const pg = el('p-'+page);
@@ -16105,15 +16102,28 @@ function _closeBienMenus() {
 }
 
 function setBiensView(mode) {
-  if(mode!=='immeubles' && mode!=='logements') return;
+  if(mode!=='bailleurs' && mode!=='immeubles' && mode!=='logements') return;
   _biensViewMode = mode;
   try { localStorage.setItem('immotrack_biens_view', mode); } catch(e){}
-  const ti = el('bvt-immeubles'), tl = el('bvt-logements');
-  if(ti && tl) {
-    ti.classList.toggle('act', mode==='immeubles'); ti.setAttribute('aria-selected', mode==='immeubles');
-    tl.classList.toggle('act', mode==='logements'); tl.setAttribute('aria-selected', mode==='logements');
-  }
+  const tb = el('bvt-bailleurs'), ti = el('bvt-immeubles'), tl = el('bvt-logements');
+  [['bvt-bailleurs','bailleurs'],['bvt-immeubles','immeubles'],['bvt-logements','logements']].forEach(([id,m])=>{
+    const btn = el(id); if(!btn) return;
+    btn.classList.toggle('act', mode===m); btn.setAttribute('aria-selected', mode===m);
+  });
+  // Sync bouton "+" contextuel + placeholder recherche
+  const addBtn = el('biens-add-btn');
+  if(addBtn) addBtn.textContent = mode==='bailleurs' ? '+ Bailleur' : '+ Bien';
+  const inp = el('biens-search');
+  if(inp) inp.placeholder = mode==='bailleurs'
+    ? 'Rechercher un bailleur (nom, SIREN, gérant…)'
+    : 'Rechercher (nom, locataire, adresse…)';
   rBiens();
+}
+
+// v14.3 PATRIMOINE-NAV-UNIFY : bouton "+" contextuel selon mode
+function openBiensAdd() {
+  if(_biensViewMode === 'bailleurs') openNewEnt();
+  else openNewLog();
 }
 
 // Bail "actif" pour un logement = bail existe, non clôturé, et fin >= aujourd'hui (ou pas de fin).
@@ -16387,6 +16397,122 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// v14.3 PATRIMOINE-NAV-UNIFY — carte d'un bailleur (entité juridique propriétaire)
+// Aggrège : N immeubles · M logements actifs · ratio occupation global · loyer HC mensuel cumulé
+function _renderBailleurCard(ent) {
+  const myLogs   = (DB.logements||[]).filter(l => l.entity === ent.nom && !l.archived);
+  const nbImms   = (ent.immeubles||[]).length;
+  const nbLogs   = myLogs.length;
+  const occupes  = myLogs.filter(l => _bienIsBailActif(l.ref)).length;
+  const ratioPct = nbLogs ? Math.round(occupes / nbLogs * 100) : 0;
+  const fillCls  = nbLogs === 0 || occupes === 0 ? 'empty' : (occupes < nbLogs ? 'partial' : '');
+  const loyerHC  = myLogs.filter(l => _bienIsBailActif(l.ref)).reduce((s,l) => s + (+l.hc || 0), 0);
+  const idEsc    = +ent.id || 0;
+  const onClick  = `openEntFiche(${idEsc})`;
+  const occupTxt = nbLogs ? `${occupes}/${nbLogs} ${nbLogs>1?'logements loués':'logement loué'}` : 'Aucun logement';
+  const subtitle = ent.siren ? `SIREN ${escHtml(ent.siren)}` : (ent.gerant ? `Gérant : ${escHtml(ent.gerant)}` : '');
+  return `<article class="bien-card" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
+    <div class="bien-card-header">
+      <span class="bch-bailleur" title="${escHtml(ent.type||'Bailleur')}">${escHtml(ent.type||'Bailleur')}</span>
+      <button class="bien-card-menu" onclick="event.stopPropagation();openBailleurMenu(event,${idEsc})" aria-label="Actions">⋮</button>
+    </div>
+    <div class="bien-card-img">
+      ${ent.logo ? `<img src="${ent.logo}" alt="" style="max-width:65%;max-height:75%;object-fit:contain">` : '<span aria-hidden="true">🏛</span>'}
+      <div class="bien-card-occup">
+        <span class="bien-card-occup-label">${occupTxt}</span>
+        <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
+      </div>
+    </div>
+    <div class="bien-card-body">
+      <div class="bien-card-title" title="${escHtml(ent.nom||'—')}">${escHtml(ent.nom||'—')}</div>
+      ${subtitle ? `<div class="bien-card-subtitle">${subtitle}</div>` : ''}
+      <div class="bien-card-meta">
+        <span class="bien-card-badge">${nbImms} ${nbImms>1?'immeubles':'immeuble'}</span>
+        <span>${nbLogs} ${nbLogs>1?'biens':'bien'}</span>
+      </div>
+      <div class="bien-card-period">${ent.siege ? escHtml(ent.siege) : '—'}</div>
+      <div class="bien-card-rent">
+        <span>${fmt(loyerHC)}<small> /mois HC</small></span>
+      </div>
+    </div>
+  </article>`;
+}
+
+// Stub commit 1 : ouvre la modale d'édition existante. Sera remplacé par la vraie route
+// #ent-fiche-{id} dans le commit 3 (ENT-FICHE-360 Phase 1).
+function openEntFiche(entId) {
+  if(!entId) return;
+  openNewEnt(entId);
+}
+
+function openBailleurMenu(evt, entId) {
+  evt.preventDefault(); evt.stopPropagation();
+  const btn = evt.currentTarget;
+  const card = btn.closest('.bien-card');
+  const existing = card && card.querySelector('.bien-menu-popover');
+  _closeBienMenus();
+  if(existing) return;
+  const ent = (DB.entites||[]).find(e => +e.id === +entId);
+  if(!ent) return;
+  const idEsc = +entId;
+  const pop = document.createElement('div');
+  pop.className = 'bien-menu-popover';
+  pop.setAttribute('role','menu');
+  pop.innerHTML =
+    `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openEntFiche(${idEsc})">📋 Voir détails</button>` +
+    `<button class="bmp-item" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();openNewEnt(${idEsc})">✏ Modifier</button>` +
+    `<div class="bmp-divider" role="separator"></div>` +
+    `<button class="bmp-item bmp-danger" role="menuitem" onclick="event.stopPropagation();_closeBienMenus();delEnt(${idEsc})">🗑 Supprimer</button>`;
+  if(card) card.appendChild(pop);
+  else btn.parentElement.appendChild(pop);
+}
+
+// v14.3 PATRIMOINE-NAV-UNIFY — render mode Bailleurs (cards d'entités)
+// Search inclut nom/SIREN/RCS/gérant/siège/IBAN/type. Tri par nom A-Z (default) ou Z-A.
+function _renderBiensModeBailleurs(wrap, cntEl) {
+  let ents = (DB.entites||[]).slice();
+  const q = (_biensFilters.search||'').toLowerCase();
+  if(q) {
+    ents = ents.filter(e =>
+      (e.nom||'').toLowerCase().includes(q) ||
+      (e.siren||'').toLowerCase().includes(q) ||
+      (e.rcs||'').toLowerCase().includes(q) ||
+      (e.gerant||'').toLowerCase().includes(q) ||
+      (e.siege||'').toLowerCase().includes(q) ||
+      (e.iban||'').toLowerCase().includes(q) ||
+      (e.type||'').toLowerCase().includes(q)
+    );
+  }
+  switch(_biensFilters.sort) {
+    case 'name-desc': ents.sort((a,b)=>(b.nom||'').localeCompare(a.nom||'')); break;
+    default:          ents.sort((a,b)=>(a.nom||'').localeCompare(b.nom||''));
+  }
+  const totalEnts = (DB.entites||[]).length;
+  const nbBiens   = ents.reduce((s,e)=> s + (DB.logements||[]).filter(l=>l.entity===e.nom && !l.archived).length, 0);
+  if(!totalEnts) {
+    if(cntEl) cntEl.textContent = '';
+    wrap.innerHTML = `<div class="biens-empty">
+      <div class="biens-empty-icon">🏛</div>
+      <div class="biens-empty-title">Aucun bailleur enregistré</div>
+      <div class="biens-empty-msg">Créez votre première entité juridique propriétaire (SCI, particulier, indivision…) pour commencer.</div>
+      <button class="btn bp" onclick="openNewEnt()">+ Ajouter un bailleur</button>
+    </div>`;
+    return;
+  }
+  if(!ents.length) {
+    if(cntEl) cntEl.textContent = `0 résultat sur ${totalEnts}`;
+    wrap.innerHTML = `<div class="biens-empty">
+      <div class="biens-empty-icon">🔍</div>
+      <div class="biens-empty-title">Aucun bailleur ne correspond à votre recherche</div>
+      <button class="btn bs" onclick="clearBiensFilters()">↺ Réinitialiser</button>
+    </div>`;
+    return;
+  }
+  const filtSuffix = ents.length < totalEnts ? ' (filtré)' : '';
+  if(cntEl) cntEl.textContent = `${ents.length} ${ents.length>1?'bailleurs':'bailleur'}${filtSuffix} · ${nbBiens} ${nbBiens>1?'biens':'bien'} actif${nbBiens>1?'s':''}`;
+  wrap.innerHTML = `<div class="biens-grid">${ents.map(_renderBailleurCard).join('')}</div>`;
+}
+
 function rBiens() {
   const wrap = el('biens-list-wrap'); if(!wrap) return;
   if(!DB.logements) { wrap.innerHTML='<p class="mu">Chargement…</p>'; return; }
@@ -16403,12 +16529,18 @@ function rBiens() {
     tabA.classList.toggle('act', _biensTab==='actifs'); tabA.setAttribute('aria-selected', _biensTab==='actifs');
     tabZ.classList.toggle('act', _biensTab==='archives'); tabZ.setAttribute('aria-selected', _biensTab==='archives');
   }
-  // Sync UI toggle vue
-  const ti = el('bvt-immeubles'), tl = el('bvt-logements');
-  if(ti && tl) {
-    ti.classList.toggle('act', _biensViewMode==='immeubles'); ti.setAttribute('aria-selected', _biensViewMode==='immeubles');
-    tl.classList.toggle('act', _biensViewMode==='logements'); tl.setAttribute('aria-selected', _biensViewMode==='logements');
-  }
+  // Sync UI toggle vue (3 modes : Bailleurs / Immeubles / Logements)
+  [['bvt-bailleurs','bailleurs'],['bvt-immeubles','immeubles'],['bvt-logements','logements']].forEach(([id,m])=>{
+    const btn = el(id); if(!btn) return;
+    btn.classList.toggle('act', _biensViewMode===m); btn.setAttribute('aria-selected', _biensViewMode===m);
+  });
+  // Sync bouton "+" contextuel + placeholder recherche
+  const addBtn = el('biens-add-btn');
+  if(addBtn) addBtn.textContent = _biensViewMode==='bailleurs' ? '+ Bailleur' : '+ Bien';
+  const inpSearch = el('biens-search');
+  if(inpSearch) inpSearch.placeholder = _biensViewMode==='bailleurs'
+    ? 'Rechercher un bailleur (nom, SIREN, gérant…)'
+    : 'Rechercher (nom, locataire, adresse…)';
   // Sync badge filtres
   const fbtn = el('biens-filter-btn'), fbadge = el('biens-filter-badge');
   if(fbtn && fbadge) {
@@ -16419,6 +16551,12 @@ function rBiens() {
   }
   const sc = el('biens-search-clear'); if(sc) sc.classList.toggle('show', !!_biensFilters.search);
   const cnt = el('biens-count');
+
+  // v14.3 PATRIMOINE-NAV-UNIFY : mode Bailleurs = render dédié sur DB.entites
+  // Le tab Actifs/Archivés ne s'applique pas aux bailleurs (les entités n'ont pas de cycle de vie soft-delete)
+  if(_biensViewMode === 'bailleurs') {
+    return _renderBiensModeBailleurs(wrap, cnt);
+  }
 
   // Pool selon le tab actif (LOG-ARCHIVE)
   const pool = _biensTab === 'archives' ? _archivedLogements() : _activeLogements();
@@ -16703,6 +16841,17 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') _closeBienMenus(); });
 
+// v14.3 PATRIMOINE-NAV-UNIFY — raccourci "/" : focus rapide la recherche Biens (pattern GitHub/Linear)
+document.addEventListener('keydown', e => {
+  if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(currentPage !== 'biens') return;
+  const ae = document.activeElement;
+  const tag = ae && ae.tagName;
+  if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable)) return;
+  const inp = el('biens-search');
+  if(inp) { inp.focus(); inp.select(); e.preventDefault(); }
+});
+
 function inlineEdit(span, ref, field) {
   const log = DB.logements.find(l=>l.ref===ref); if(!log) return;
   const cur = log[field]||'';
@@ -16789,21 +16938,10 @@ function delLog(ref) {
   saveDB(); initFilters(); rBiens(); showToast('Logement supprimé');
 }
 
-// v14.2 NAV-RESTRUCTURE : renommé rParamsEnt → rBailleurs, container bailleurs-list-wrap.
+// v14.3 PATRIMOINE-NAV-UNIFY : rBailleurs n'a plus de page dédiée, devient un wrapper qui rafraîchit
+// le hub Biens si on y est. Préservé pour compat avec saveEnt/delEnt/restoreDriveBackup qui l'appellent.
 function rBailleurs() {
-  const wrap = el('bailleurs-list-wrap'); if(!wrap) return;
-  if(!DB.entites) { wrap.innerHTML=''; return; }
-  wrap.innerHTML=`<table class="tbl"><thead><tr><th>Nom</th><th>Type</th><th>SIREN</th><th>Gérant</th><th>Siège</th><th>Immeubles</th><th>IBAN</th><th></th></tr></thead><tbody>
-  ${DB.entites.map(e=>`<tr>
-    <td><b>${e.nom}</b></td><td>${e.type||'–'}</td><td>${e.siren||'–'}</td><td>${e.gerant||'–'}</td>
-    <td>${e.siege||'–'}</td>
-    <td><span class="badge gry">${(e.immeubles||[]).length} imm.</span></td>
-    <td class="mu sm">${e.iban||'–'}</td>
-    <td class="act-cell">
-      <button class="btn bs bb" onclick="openNewEnt(${e.id})">✏️</button>
-      <button class="btn br bb" onclick="delEnt(${e.id})">🗑</button>
-    </td></tr>`).join('')}
-  </tbody></table>`;
+  if(currentPage === 'biens') rBiens();
 }
 
 function openNewEnt(id) {
