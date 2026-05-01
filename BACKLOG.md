@@ -40,7 +40,7 @@
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) |
 | 📈 **Stratégie / Business** | *BIZPLAN-STRATEGIE ✅ Livré 2026-04-30 (5 docs `docs/strategie/`)* |
-| 📱 **Mobile / PWA / Offline** | MOBILE-PWA-OFFLINE (P2) |
+| 📱 **Mobile / PWA / Offline** | MOBILE-AUDIT-ONGLETS (P1) · MOBILE-PWA-OFFLINE (P2) |
 
 ---
 
@@ -82,6 +82,7 @@
 |---|---|---|---|---|---|
 | AUDIT-GLOBAL | Audit global avant V3 (sécu XSS, perf, code quality, OAuth, PWA) | P1 | M | ⬜ À faire | Étape 1 V3 transition · agent Explore + skills review/security-review · cf `project_v3_transition.md` |
 | SECU-INNERHTML | Sites `innerHTML=` non échappés restants (~107 occurrences, 10 wrappés) | P1 | M | ⬜ À faire | Renders tableaux/cartes/modales onglets baux-hist, mv, quit, ass, etc. · à traiter au fil refonte onglet par onglet · l.7310 dash-alerts non-escapable |
+| MOBILE-AUDIT-ONGLETS | Audit + correctifs UX mobile onglet par onglet (irréprochable sur téléphone) | P1 | L | ⬜ À faire | [docs/subjects/MOBILE-AUDIT-ONGLETS.md](docs/subjects/MOBILE-AUDIT-ONGLETS.md) · 13 onglets à auditer · 1 commit / onglet · v13.37-40 = base déjà solide · critique pour V1 commerciale |
 
 ---
 
