@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>ImmoTrack — Aperçu Dashboard 8 Lentilles (DASH-PROFILES)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-lens="home">
+  <div id="mu-header-slot"></div>
+
+  <main class="mu-page">
+
+    <!-- ── HERO ────────────────────────────────────────────────── -->
+    <section class="mu-hero">
+      <h1>
+        <small>DASH-PROFILES — Phase 1 aperçu</small>
+        Dashboards par lentille
+      </h1>
+      <p>
+        Aperçu visuel des <strong>8 lentilles</strong> proposées pour le dashboard ImmoTrack.
+        Une lentille = une grille de widgets pré-configurée pour répondre à une douleur métier précise.
+        Données fictives cohérentes (SCI Familiale Keller, 5 logements actifs).
+      </p>
+    </section>
+
+    <!-- ── SÉLECTEUR VISUEL DES 8 LENTILLES ────────────────────── -->
+    <section class="mu-lens-grid">
+
+      <a class="mu-lens-card" href="lentille-1-proprietaire.html">
+        <span class="mu-lens-card-num">01</span>
+        <span class="mu-lens-card-icon">🏠</span>
+        <span class="mu-lens-card-title">Propriétaire</span>
+        <span class="mu-lens-card-sub">Vue rassurante "tout va bien" — KPIs + alertes + sparkline. Identique au dashboard actuel.</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge grn">V1 (existant)</span>
+          <span class="badge gry">0 j-h</span>
+        </span>
+      </a>
+
+      <a class="mu-lens-card" href="lentille-2-financier.html">
+        <span class="mu-lens-card-num">02</span>
+        <span class="mu-lens-card-icon">💶</span>
+        <span class="mu-lens-card-title">Financier</span>
+        <span class="mu-lens-card-sub">Cash-flow expert — chart 12m revenus/charges, impayés, camembert charges, waterfall N/N-1.</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge grn">V1</span>
+          <span class="badge gry">~3 j-h</span>
+        </span>
+      </a>
+
+      <a class="mu-lens-card" href="lentille-3-gestionnaire.html">
+        <span class="mu-lens-card-num">03</span>
+        <span class="mu-lens-card-icon">🛠️</span>
+        <span class="mu-lens-card-title">Gestionnaire</span>
+        <span class="mu-lens-card-sub">"À faire cette semaine" — checklist + actions inline + calendrier mini + impayés à relancer.</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge ora">V2</span>
+          <span class="badge gry">~5 j-h</span>
+        </span>
+      </a>
+
+      <a class="mu-lens-card" href="lentille-4-fiscale.html">
+        <span class="mu-lens-card-num">04</span>
+        <span class="mu-lens-card-icon">📋</span>
+        <span class="mu-lens-card-title">Préparation fiscale 2044</span>
+        <span class="mu-lens-card-sub">Saisonnier auto mars-juin — pré-rempli 2044, charges déductibles par catégorie, export PDF/CSV.</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge grn">V1 (auto-saison)</span>
+          <span class="badge gry">~5 j-h</span>
+        </span>
+      </a>
+
+      <a class="mu-lens-card" href="lentille-5-investisseur.html">
+        <span class="mu-lens-card-num">05</span>
+        <span class="mu-lens-card-icon">📈</span>
+        <span class="mu-lens-card-title">Investisseur</span>
+        <span class="mu-lens-card-sub">Rentabilité pure — TRI par bien, cash-on-cash, DSCR, valorisation, comparatif vs SCPI/Livret A.</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge ora">V2</span>
+          <span class="badge gry">~7 j-h</span>
+        </span>
+      </a>
+
+      <a class="mu-lens-card" href="lentille-6-echeances.html">
+        <span class="mu-lens-card-num">06</span>
+        <span class="mu-lens-card-icon">⏰</span>
+        <span class="mu-lens-card-title">Échéances & alertes</span>
+        <span class="mu-lens-card-sub">Timeline horizontale 90j — regroupement Cette semaine/Ce mois/Trimestre + gamification.</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge grn">V1</span>
+          <span class="badge gry">~4 j-h</span>
+        </span>
+      </a>
+
+      <a class="mu-lens-card" href="lentille-7-previsionnel.html">
+        <span class="mu-lens-card-num">07</span>
+        <span class="mu-lens-card-icon">🔮</span>
+        <span class="mu-lens-card-title">Prévisionnel</span>
+        <span class="mu-lens-card-sub">Cash-flow projeté 24m + curseurs paramètres + simulations "Si je vends X" / "Si je rénove DPE F→C".</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge ora">V2</span>
+          <span class="badge gry">~8 j-h</span>
+        </span>
+      </a>
+
+      <a class="mu-lens-card" href="lentille-8-patrimoine.html">
+        <span class="mu-lens-card-num">08</span>
+        <span class="mu-lens-card-icon">🛡️</span>
+        <span class="mu-lens-card-title">Patrimoine & conformité</span>
+        <span class="mu-lens-card-sub">Bilan actif/passif, calendrier interdictions DPE 2025-2034, biens à risque F/G + coût rénovation.</span>
+        <span class="mu-lens-card-meta">
+          <span class="badge ora">V2</span>
+          <span class="badge gry">~6 j-h</span>
+        </span>
+      </a>
+
+    </section>
+
+    <!-- ── SYNTHÈSE COMPARATIVE ──────────────────────────────────── -->
+    <section class="mu-synth">
+      <h2>
+        <small>Synthèse</small>
+        Comparatif des 8 lentilles
+      </h2>
+      <p>
+        Matrice de priorisation par persona cible, effort d'implémentation et différenciation marché.
+        Source : <a href="../DASH-PROFILES-SPEC.md">DASH-PROFILES-SPEC.md</a> (spec détaillée),
+        <a href="../BIZPLAN.md">BIZPLAN</a> (personas & pricing),
+        <a href="../CARTE_POSITIONNEMENT.md">CARTE_POSITIONNEMENT</a> (concurrence).
+      </p>
+
+      <table class="mu-rectab">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Lentille</th>
+            <th>Persona</th>
+            <th class="num">Effort</th>
+            <th>Différenciant</th>
+            <th>Reco</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="v1"><td>1</td><td>🏠 Propriétaire</td><td>Tous (1-3 lots)</td><td class="num">0 j</td><td>Standard</td><td><b>V1</b> (existant)</td></tr>
+          <tr class="v1"><td>2</td><td>💶 Financier</td><td>Comptable, rentier</td><td class="num">~3 j</td><td>Moyen</td><td><b>V1</b></td></tr>
+          <tr class="v2"><td>3</td><td>🛠️ Gestionnaire</td><td>Admin, agent SCI</td><td class="num">~5 j</td><td>Faible</td><td>V2</td></tr>
+          <tr class="v1"><td>4</td><td>📋 Fiscale 2044</td><td>SCI patrimoniale</td><td class="num">~5 j</td><td><b>FORT</b></td><td><b>V1</b> (auto-saison)</td></tr>
+          <tr class="v2"><td>5</td><td>📈 Investisseur</td><td>SCI premium 19€</td><td class="num">~7 j</td><td><b>FORT</b></td><td>V2</td></tr>
+          <tr class="v1"><td>6</td><td>⏰ Échéances</td><td>Tous</td><td class="num">~4 j</td><td>Moyen</td><td><b>V1</b> (gamif)</td></tr>
+          <tr class="v2"><td>7</td><td>🔮 Prévisionnel</td><td>Stratège</td><td class="num">~8 j</td><td><b>FORT</b></td><td>V2</td></tr>
+          <tr class="v2"><td>8</td><td>🛡️ Patrimoine</td><td>SCI ≥ 5 lots</td><td class="num">~6 j</td><td><b>FORT</b></td><td>V2</td></tr>
+        </tbody>
+      </table>
+
+      <h3>🎯 Reco V1 commerciale (Q4 2026) — 4 lentilles, ~12 j-h</h3>
+      <ul>
+        <li><b>1. 🏠 Propriétaire</b> — par défaut, l'existant</li>
+        <li><b>2. 💶 Financier</b> — cash-flow + impayés (couvre persona Investisseur 9.90€)</li>
+        <li><b>4. 📋 Fiscale 2044</b> — auto saisonnier mars-juin (différenciant fort vs concurrents)</li>
+        <li><b>6. ⏰ Échéances & alertes</b> — gamification engagement</li>
+      </ul>
+      <p style="margin-top:8px">
+        <strong>Justification</strong> — Couverture des 3 personas commerciales (Investisseur 9.90€ / SCI 19.90€) + 2 différenciants USP exploitables (Fiscale et Échéances ont un vrai avantage marché).
+        Effort cumulé maîtrisé (~3 semaines calendaire).
+      </p>
+
+      <h3>🚀 Reco V2 (2027) — 4 lentilles + Custom, ~26 j-h</h3>
+      <ul>
+        <li><b>3. 🛠️ Gestionnaire</b> — V1 agence (B2B Pro à 49.90€)</li>
+        <li><b>5. 📈 Investisseur</b> — premium SCI 19€ (TRI / DSCR / cash-on-cash)</li>
+        <li><b>7. 🔮 Prévisionnel</b> — stratège (simulations "Si je...")</li>
+        <li><b>8. 🛡️ Patrimoine</b> — premium SCI 19€ (DPE / bilan / conformité)</li>
+        <li><b>9. Custom drag-drop</b> — V2 SaaS (pré-requis : SAAS-MULTIUSERS)</li>
+      </ul>
+
+      <h3>🤔 Décisions à arbitrer</h3>
+
+      <div class="mu-ques">
+        <div class="mu-ques-q">Q1. V1 = ces 4 lentilles ou autre combinaison ?</div>
+        <div class="mu-ques-opts">
+          A. 4 lentilles ci-dessus (Propriétaire + Financier + Fiscale + Échéances)<br>
+          B. 5 lentilles (ajout Patrimoine V1 pour différencier le pricing 19€)<br>
+          C. 3 lentilles seulement (Propriétaire + Financier + Échéances) — plus simple, lance V1 plus vite
+        </div>
+        <div class="mu-ques-default">Hypothèse par défaut : <b>A</b></div>
+      </div>
+
+      <div class="mu-ques">
+        <div class="mu-ques-q">Q2. Sélecteur lentille — quelle UI ?</div>
+        <div class="mu-ques-opts">
+          A. Selectbox compact <code>[Voir comme : 🏠 Propriétaire ▾]</code> (1 ligne)<br>
+          B. Tabs horizontaux <code>[🏠] [💶] [📋] [⏰]</code> (visuel mais consomme + de place)<br>
+          C. Sidebar verticale (à la Notion) — pas adapté au dashboard one-screen
+        </div>
+        <div class="mu-ques-default">Hypothèse par défaut : <b>A</b> (selectbox)</div>
+      </div>
+
+      <div class="mu-ques">
+        <div class="mu-ques-q">Q3. Custom layout (drag-drop) — V1 ou V2 ?</div>
+        <div class="mu-ques-opts">
+          A. V2 uniquement (V1 = lentilles fixes)<br>
+          B. V1 (mais plus d'effort, ~5 j-h supplémentaires)
+        </div>
+        <div class="mu-ques-default">Hypothèse par défaut : <b>A</b> (V2)</div>
+      </div>
+
+      <div class="mu-ques">
+        <div class="mu-ques-q">Q4. Activation auto saisonnière Fiscale (mars-juin) — comportement ?</div>
+        <div class="mu-ques-opts">
+          A. Toast "Période fiscale — voir le dashboard fiscal ?" (suggestion non-imposée, on/off Paramètres)<br>
+          B. Bascule auto (force la lentille) — plus intrusif<br>
+          C. Pas d'auto, juste un badge "🆕 Période fiscale" sur le sélecteur
+        </div>
+        <div class="mu-ques-default">Hypothèse par défaut : <b>A</b></div>
+      </div>
+
+      <div class="mu-ques">
+        <div class="mu-ques-q">Q5. Lentille Prévisionnel — IA ou simulations naïves ?</div>
+        <div class="mu-ques-opts">
+          A. Naïves V1 (slope linéaire, calculs déterministes)<br>
+          B. IA dès V1 (LLM via API Anthropic — coût/mois, dépendance externe)
+        </div>
+        <div class="mu-ques-default">Hypothèse par défaut : <b>A</b> (naïves V1, IA en V2 si feedback positif)</div>
+      </div>
+
+      <div class="mu-ques">
+        <div class="mu-ques-q">Q6. Data model — champs financiers étendus (prixAchat, apport, mensualitePret, valeurEstimée, capitalRestantDu)</div>
+        <div class="mu-ques-opts">
+          Sont-ils saisis manuellement ou inférés (mensualité = simulation à partir du prix d'achat + taux + durée) ?<br>
+          A. Saisis manuels (ajout 5 champs formulaire Logement → +1 j-h)<br>
+          B. Sous-formulaire dédié "Acquisition / Financement" → +2 j-h
+        </div>
+        <div class="mu-ques-default">Hypothèse par défaut : <b>A</b> (manuels en V1, lentilles 5/7/8 en V2)</div>
+      </div>
+
+      <h3>📦 Données fictives utilisées dans tous les mockups</h3>
+      <p>Pour pouvoir comparer les 8 lentilles sur la même réalité, tous les mockups partagent ce portfolio :</p>
+      <ul>
+        <li><b>SCI Familiale Keller</b> — 5 logements actifs, 1 immeuble Strasbourg (3 lots), 1 garage</li>
+        <li>Revenus annuels bruts : <span class="mu-mono">41 700 €</span> · Cash-flow net : <span class="mu-mono">29 850 €</span> · MRI : <span class="mu-mono">71.6 %</span></li>
+        <li>Patrimoine estimé : <span class="mu-mono">1 240 000 €</span> · Dettes : <span class="mu-mono">620 000 €</span> · Net : <span class="mu-mono">620 000 €</span></li>
+        <li><b>1 impayé</b> F-001 ARSLAN <span class="mu-mono">-1 850 €</span> (mars+avril 2026)</li>
+        <li><b>1 vacance</b> F-005 Colmar (depuis 2 mois) + 1 garage F-004 (depuis 1 mois)</li>
+        <li><b>DPE F</b> F-003 Mulhouse (interdiction location 2028, CAPEX rénovation ≈ 22 k€)</li>
+        <li><b>IRL à réviser</b> F-002 Ferrette le 15 juin 2026 (+2.31 % = +25 €/mois)</li>
+      </ul>
+
+    </section>
+
+  </main>
+
+  <script src="assets/nav.js"></script>
+</body>
+</html>

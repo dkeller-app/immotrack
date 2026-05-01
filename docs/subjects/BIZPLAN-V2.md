@@ -1,0 +1,153 @@
+# BIZPLAN-V2 — Dossier commercial + plan d'attaque opérationnel
+
+**Status** : 🔄 En cours (depuis 2026-05-01) · **Prio** : P2 · **Taille** : XL (12-15 h sur 2-3 sessions dédiées)
+**Détecté** : 2026-05-01
+**Lié à** : BIZPLAN-STRATEGIE ✅ (v1 livré 2026-04-30) · IMPORT-CONCURRENTS · SAAS-MULTIUSERS
+
+## Contexte
+
+La v1 du BIZPLAN (livrée 2026-04-30, 5 livrables markdown dans `docs/strategie/`) est un bon **dossier d'analyse** mais ne suffit pas pour :
+- **Vendre le projet** à un partenaire commercial (CGP, EC, GLI, agences)
+- **Savoir où attaquer en premier** sur la partie commerciale (calendrier exécutable)
+- **Onboarder un freelance dev backend** (V1.5 multi-users + V2 backend EU)
+
+→ La v2 produit le **dossier commercial + plan d'attaque opérationnel + matériaux ready-to-delegate**.
+
+## 4 décisions architecturales figées (validées 2026-05-01)
+
+### 1. App mobile = Capacitor V1.1 (décembre 2026)
+- Wrapper Capacitor : 1 codebase HTML+JS → builds iOS + Android
+- Distribution App Store + Play Store (visibilité prospects)
+- Effort : 6-8 j-h Didier · 500 € comptes stores (Apple 99 $/an + Google 25 $)
+- PAS de natif Swift+Kotlin (sur-ingénierie pour V1)
+
+### 2. PC = PWA installable (pas Electron)
+- L'utilisateur installe ImmoTrack via "Ajouter à l'écran d'accueil" Chrome/Edge
+- Compatible PC, Mac, Linux, iPad, Chromebook (pas de build Electron)
+- Argument commercial : "Compatible TOUS appareils sans installation lourde"
+
+### 3. Stockage = stratégie 3 niveaux de souveraineté
+| Niveau | V1 (oct 2026) | V1.5 (déc 2026) | V2 (Q1 2027) |
+|---|---|---|---|
+| 🆓 **Local-first** : IndexedDB + export JSON | ✅ | – | – |
+| 💼 **Sync souverain** : Drive perso | ✅ | + WebDAV (Infomaniak FR, Nextcloud) | – |
+| 🏛️ **Cloud ImmoTrack EU** : backend Postgres EU + multi-users | – | – | ✅ (cible CGP/SCI multi) |
+
+### 4. Facturation = forfait + soft-block client (pas de comptage backend V1)
+- Plans : 0 € (1 lot freemium) / 9,90 € (2-10 lots) / 19,90 € (11-30 lots) / Cloud EU 14,90-24,90 €
+- Soft-block popup à l'ajout du logement N+1 du plan : "veuillez upgrader"
+- Confiance présumée (3-5 % fraude max observée chez Rentila/BailFacile/Smartloc)
+- Si fraude > 10 % post-launch : bascule vers micro-backend "beacon" (1 j-h dev) en V1.5
+
+## 3 décisions de scope v2 (validées 2026-05-01)
+
+### A. Cible deck = partenaires/CGP/vendeurs (pas investisseurs)
+- **CGP** = priorité 1 (effet levier × 50-200 par signature)
+  - ~6 500 CGP indépendants FR (ANACOFI 2024) + 10 000 si on inclut bancaires
+  - Modèle commission : 30 % première année (≈ 36 €/an Investisseur, 60 €/an SCI) + cobranding
+- **Vendeurs/agents commerciaux indé** = priorité 2
+- **EC + notaires + GLI** = priorité 3
+- **Investisseurs** = exclu de la cible v2 (pre-seed Q1 2027 = option, pas obligatoire)
+
+### B. 2 pitches distincts (validé)
+- **`PITCH_COMMERCIAL.pptx`** : démarchage CGP/EC/partenaires (12-15 slides : problème → solution → ROI partenariat → timeline → CTA)
+- **`PRESENTATION_INTERNE.pptx`** : roadmap visuelle + état produit + timeline + équipe (15-20 slides) — pour Didier + futurs collaborateurs
+
+### C. CDC technique = backend V1.5 multi-users + V2 backend EU (validé)
+- Pas le freelance front (Didier le fait seul)
+- Le freelance backend = celui qui débloque la cible CGP/SCI multi → priorité 1
+- Spec : architecture multi-users, stack, API REST, sync, auth, schemas DB Postgres EU
+
+## Livrables v2 (11 docs)
+
+| # | Livrable | Format | Description |
+|---|---|---|---|
+| 1 | `PITCH_COMMERCIAL.pptx` | PowerPoint | Démarchage CGP/EC/partenaires (12-15 slides) |
+| 2 | `PRESENTATION_INTERNE.pptx` | PowerPoint | Roadmap + timeline + état produit (15-20 slides) |
+| 3 | `ONE_PAGER.pdf` | PDF A4 | Recto/verso dense pour 1er contact partenaire |
+| 4 | `PLAN_COMMERCIAL_V2.md` + `.docx` | Markdown + Word | Channel CGP prioritaire (cibles + commission) · calendrier 30 articles SEO (titres + mots-clés + volume) · plan LinkedIn 12 sem · plan PR + scripts presse · beta-testeurs SCI/pro · Product Hunt J-30→J+30 · referral · A/B pricing |
+| 5 | `MODELE_FINANCIER.xlsx` | Excel | Dynamique scénario-able (curseurs ARPU/churn/CAC/conv) avec recalcul auto bas/médian/haut |
+| 6 | `CDC_TECHNIQUE.md` + `.docx` | Markdown + Word | Architecture V1.5 multi-users + V2 backend EU (stack, API, schemas, jalons) pour onboarder freelance dev |
+| 7 | `BRIEFS_CREA.md` + `.docx` | Markdown + Word | Brief identité visuelle complet · brief landing 5 sections · brief onboarding wizard "first 5 min" · brief 30 articles SEO · brief 10 tutos vidéos |
+| 8 | `SWOT_CONCURRENTS.md` | Markdown | Analyse SWOT × 8 concurrents (Rentila, BailFacile, Smartloc, Qalimo, Gererseul, ImmobilierLoyer, Smovin, Septeo/Crypto) |
+| 9 | `TAM_SAM_SOM.md` | Markdown | Chiffrage marché rigoureux : Total Addressable / Serviceable Addressable / Serviceable Obtainable Market avec sources |
+| 10 | `PLAN_ACTIONS_v2.md` | Markdown | Révision PLAN_ACTIONS v1 avec accélération + Capacitor V1.1 + WebDAV V1.5 + Cloud EU V2 + channel CGP intégré |
+| 11 | `PROJECTIONS_v2.md` | Markdown | Révision PROJECTIONS v1 avec ARPU bonifié plan Cloud EU (14,90/24,90 €) + impact channel CGP sur acquisition |
+
+→ **Tous livrés dans `docs/strategie/v2/`**.
+→ **Conversion automatique markdown → docx pour ouverture Word** (déjà testée v1).
+→ **Beta-testeurs SCI/pro** : plan d'acquisition from scratch (5 canaux + scripts) + Didier active ses contacts perso en parallèle.
+
+## Effort estimé
+
+12-15 h sur **2-3 sessions dédiées** :
+- **Session 1** (5-6 h) : recherches web complémentaires (CGP marché, levées concurrents v2, partenariats benchmarks) + production livrables 1+2+3 (pitches + one-pager) + 8+9 (SWOT + TAM/SAM/SOM)
+- **Session 2** (5-6 h) : production livrables 4+10+11 (plan commercial v2 + révisions plan actions + projections) + livrable 5 (modèle financier Excel dynamique)
+- **Session 3** (3-4 h) : production livrables 6+7 (CDC technique + briefs créa) + relecture cohérence + commit final
+
+## Prompt de démarrage de session (à coller dans une nouvelle session Claude Code)
+
+```
+Session dédiée : production v2 du dossier BIZPLAN ImmoTrack — pitch commercial + plan d'attaque opérationnel.
+
+Contexte préalable validé :
+- v1 livré 2026-04-30 (5 docs markdown dans docs/strategie/) — bon début mais pas suffisant pour vendre/exécuter
+- 4 décisions architecturales figées :
+  1. App mobile = Capacitor V1.1 décembre 2026 (pas natif)
+  2. PC = PWA installable (pas Electron)
+  3. Stockage = 3 niveaux souveraineté : Local-first → Drive/WebDAV → Cloud EU multi-users
+  4. Facturation = forfait + soft-block client (pas comptage backend V1)
+- Cible v2 = partenaires CGP (priorité 1) / vendeurs (priorité 2) / EC notaires GLI (priorité 3) — PAS investisseurs
+- 2 pitches distincts (commercial CGP + présentation interne)
+- CDC technique = freelance backend V1.5 multi-users + V2 backend EU (pas freelance front)
+- Beta-testeurs SCI/pro = plan acquisition from scratch + Didier ajoute ses contacts en cours de session
+
+À lire AVANT toute production (dans cet ordre) :
+1. docs/subjects/BIZPLAN-V2.md (ce fichier — scope complet figé)
+2. docs/strategie/BIZPLAN.md (v1 — synthèse à enrichir)
+3. docs/strategie/CARTE_POSITIONNEMENT.md (v1 — concurrence + 12 ⭐)
+4. docs/strategie/PROJECTIONS.md + PLAN_ACTIONS.md + EFFORT_DEPLOIEMENT.md (v1 — bases à réviser)
+5. ImmoTrack_Comparatif_Concurrents_2026.xlsx (skill xlsx)
+6. BACKLOG.md (état produit avril 2026)
+
+Périmètre = 11 livrables (cf docs/subjects/BIZPLAN-V2.md §Livrables) :
+1. PITCH_COMMERCIAL.pptx (skill pptx)
+2. PRESENTATION_INTERNE.pptx (skill pptx)
+3. ONE_PAGER.pdf (skill canvas-design ou pdf)
+4. PLAN_COMMERCIAL_V2.md + .docx (channel CGP + 30 articles SEO + LinkedIn + PR + beta-testeurs + PH + referral + A/B pricing)
+5. MODELE_FINANCIER.xlsx (skill xlsx — curseurs scénarios)
+6. CDC_TECHNIQUE.md + .docx (backend V1.5 + V2 EU)
+7. BRIEFS_CREA.md + .docx (identité + landing + onboarding + 30 SEO + 10 tutos)
+8. SWOT_CONCURRENTS.md (× 8 concurrents)
+9. TAM_SAM_SOM.md (chiffrage rigoureux)
+10. PLAN_ACTIONS_v2.md (révision avec accélération + Capacitor + WebDAV + CGP)
+11. PROJECTIONS_v2.md (révision avec ARPU bonifié Cloud EU + impact CGP)
+
+Tous dans docs/strategie/v2/.
+
+Méthodologie (non négociable) :
+- Rigueur factuelle : citer toutes sources (URL, INSEE, communiqués). "Estimation" + base d'estimation si pas source fiable.
+- Pas de bullshit corporate (éviter "synergie", "écosystème", "innovation disruptive"). Concret, chiffré.
+- Confronter hypothèses : pour chaque reco, 2-3 alternatives écartées + POURQUOI.
+- Effort réaliste : Didier solo + freelance backend dès sept 2026 = capacité ~10-12 j-h/mois utiles dev.
+- Outils web : WebFetch/WebSearch pour pricing concurrents, marché CGP ANACOFI, partenariats benchmarks. NE PAS INVENTER.
+- Skills : pptx pour decks, xlsx pour modèle financier dynamique, docx pour conversions, canvas-design pour one-pager.
+- Sortie en français.
+
+Workflow suggéré (3 sessions) :
+- Session 1 (5-6 h) : recherches web (CGP marché, levées concu v2, benchmarks partenariats) + livrables 1+2+3+8+9
+- Session 2 (5-6 h) : livrables 4+5+10+11
+- Session 3 (3-4 h) : livrables 6+7 + relecture cohérence + commit final + update BACKLOG (BIZPLAN-V2 → ✅ Livré)
+
+En sortie de chaque session : commit `BIZPLAN-V2 : session N livree (X livrables)` + résumé final 5 bullets max + liens vers livrables.
+```
+
+## Notes utilisateur
+
+> 💬 2026-04-30 : "je vois que c'est un bon début de BP. Par contre cela ne suffit pas pour vendre le projet ou savoir où attaquer en premier pour la partie commerciale. Tu fais un v2 plus poussée ?"
+> 💬 2026-05-01 : "il faut que la V2 arrive vite. Je pense que c'est le moyen le plus efficace de se développer. (...) il faut attaquer les CGP ou vendeur pour faire connaître la solution. (...) Un pitch commercial. Il faudra aussi un CDC pour continuer à développer. Je veux un pitch aussi de présentation (ppt ?) avec timeline."
+> 💬 2026-05-01 : "on démarre avec google et on fera évoluer" (validation stratégie 3 niveaux souveraineté)
+
+## Journal
+
+- 2026-05-01 : créé · scope figé · 4 décisions architecturales validées (Capacitor, PWA installable, 3 niveaux souveraineté, soft-block) · 3 décisions scope validées (2 pitches, CDC backend, plan beta from scratch) · prompt de démarrage prêt-à-coller
