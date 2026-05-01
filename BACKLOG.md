@@ -39,7 +39,8 @@
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) |
-| 📈 **Stratégie / Business** | BIZPLAN-STRATEGIE ✅ (P2) |
+| 📈 **Stratégie / Business** | *BIZPLAN-STRATEGIE ✅ Livré 2026-04-30 (5 docs `docs/strategie/`)* |
+| 📱 **Mobile / PWA / Offline** | MOBILE-PWA-OFFLINE (P2) |
 
 ---
 
