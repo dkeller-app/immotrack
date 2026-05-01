@@ -549,6 +549,106 @@ a{color:var(--blu);text-decoration:none}
   font-size:12px;padding:4px 8px;border-radius:4px;font-family:'IBM Plex Sans',sans-serif;
 }
 .biens-popover-clear:hover{color:var(--red);background:rgba(220,38,38,.07)}
+/* v14.2 LOG-FICHE-360 Phase 1 — vue dédiée full-page d'un bien */
+.logf-back{
+  background:transparent;border:none;color:var(--t2);cursor:pointer;
+  font-size:13px;font-weight:600;padding:6px 10px;border-radius:5px;
+  margin-bottom:8px;transition:all var(--t-fast);
+  font-family:'IBM Plex Sans',sans-serif;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.logf-back:hover{background:var(--sur2);color:var(--t1)}
+.logf-breadcrumb{
+  font-size:11.5px;color:var(--t3);margin-bottom:14px;
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+}
+.logf-breadcrumb .sep{color:var(--bor);font-weight:400}
+.logf-breadcrumb a{color:var(--t2);text-decoration:none;cursor:pointer}
+.logf-breadcrumb a:hover{color:var(--acc);text-decoration:underline}
+.logf-hero{
+  display:grid;grid-template-columns:340px 1fr;gap:20px;
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  padding:18px;box-shadow:var(--shadow);margin-bottom:18px;
+}
+.logf-photos{
+  aspect-ratio:4/3;background:linear-gradient(135deg,var(--sur2),var(--sur3));
+  border-radius:var(--r);display:flex;align-items:center;justify-content:center;
+  color:var(--t3);font-size:60px;
+}
+[data-theme="dark"] .logf-photos{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02))}
+.logf-info{display:flex;flex-direction:column;gap:10px;min-width:0}
+.logf-title{
+  font-size:24px;font-weight:700;color:var(--t1);margin:0;
+  font-family:'Manrope',sans-serif;line-height:1.2;
+}
+.logf-title-suffix{font-size:14px;font-weight:500;color:var(--t3);margin-left:6px}
+.logf-adr{font-size:14px;color:var(--t2);line-height:1.4}
+.logf-badges{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.logf-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:14px;font-size:11px;font-weight:700;
+  background:rgba(59,126,246,.12);color:var(--acc);
+}
+.logf-badge.b-ok{background:rgba(22,163,74,.14);color:#16a34a}
+.logf-badge.b-warn{background:rgba(234,88,12,.14);color:var(--ora)}
+.logf-badge.b-mute{background:var(--sur2);color:var(--t2);border:1px solid var(--bor)}
+.logf-actions{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap;padding-top:8px}
+.logf-subtabs{
+  display:flex;gap:0;border-bottom:1px solid var(--bor);margin-bottom:18px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+.logf-subtab{
+  background:transparent;border:none;padding:11px 16px;
+  font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:color var(--t-fast),border-color var(--t-fast);
+  font-family:'IBM Plex Sans',sans-serif;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.logf-subtab:hover:not(.disabled){color:var(--t1)}
+.logf-subtab.act{color:var(--acc);border-bottom-color:var(--acc)}
+.logf-subtab.disabled{opacity:.5;cursor:not-allowed}
+.logf-subtab .soon{
+  background:var(--sur2);color:var(--t3);font-size:9.5px;font-weight:700;
+  padding:1px 6px;border-radius:8px;letter-spacing:.4px;text-transform:uppercase;
+}
+.logf-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.logf-panel{
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  padding:18px;box-shadow:var(--shadow);
+}
+.logf-panel-title{
+  font-size:13px;font-weight:700;color:var(--t1);
+  margin:0 0 14px;display:flex;align-items:center;gap:8px;
+}
+.logf-panel-empty{
+  font-size:13px;color:var(--t3);font-style:italic;text-align:center;
+  padding:18px 0;margin-bottom:8px;
+}
+.logf-row{
+  display:grid;grid-template-columns:140px 1fr;gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--bor2);font-size:13px;
+  align-items:baseline;
+}
+.logf-row:last-child{border-bottom:none}
+.logf-label{color:var(--t3);font-weight:500}
+.logf-value{color:var(--t1);font-weight:600;text-align:right;word-break:break-word}
+.logf-value-num{font-family:'Manrope',sans-serif;font-weight:700}
+.logf-value-strong{color:var(--acc);font-weight:700}
+.logf-value-strong small{font-size:11px;color:var(--t3);font-weight:500;margin-left:2px}
+@media (max-width:900px){
+  .logf-hero{grid-template-columns:1fr;gap:14px}
+  .logf-photos{aspect-ratio:16/9;font-size:48px}
+  .logf-title{font-size:20px}
+  .logf-panels{grid-template-columns:1fr;gap:12px}
+}
+@media (max-width:600px){
+  .logf-hero{padding:14px}
+  .logf-row{grid-template-columns:1fr;gap:2px;padding:7px 0}
+  .logf-row .logf-value{text-align:left;font-size:14px}
+  .logf-actions .btn{flex:1;justify-content:center}
+}
+
 @media (max-width:1280px){.biens-grid{grid-template-columns:repeat(3,1fr);gap:16px}}
 @media (max-width:1023px){.biens-grid{grid-template-columns:repeat(2,1fr);gap:14px}}
 @media (max-width:600px){
@@ -2430,6 +2530,11 @@ textarea.field-modified-since-sig{
         <button class="btn bp bb" onclick="openNewEnt()">+ Bailleur</button>
       </div>
       <div class="tbl-wrap" id="bailleurs-list-wrap"></div>
+    </div>
+
+    <!-- PAGE: LOG-FICHE-360 Phase 1 (v14.2) — vue 360 dédiée d'un bien -->
+    <div class="page" id="p-log-fiche">
+      <div id="log-fiche-content"></div>
     </div>
 
     <!-- PAGE: PARAMS (v14.2 : Logements + Entités déplacés vers Biens / Bailleurs) -->
@@ -4850,6 +4955,7 @@ function go(page, elNav) {
     baux:'Baux & Locataires',assurances:'Assurances',irl:'Révision IRL',regul:'Régularisation charges',
     quittances:'Quittances',edl:'États des lieux',
     biens:'Biens',bailleurs:'Bailleurs', // v14.2 NAV-RESTRUCTURE
+    'log-fiche':'Fiche bien',            // v14.2 LOG-FICHE-360
     params:'Paramètres',export:'Export / Sauvegarde'};
   el('tb-title').textContent = titles[page]||page;
   el('tb-actions').innerHTML = '';
@@ -4870,6 +4976,7 @@ function go(page, elNav) {
     edl:()=>{initFilters();rEDLList();},
     biens:rBiens,         // v14.2 NAV-RESTRUCTURE
     bailleurs:rBailleurs, // v14.2 NAV-RESTRUCTURE
+    'log-fiche':rLogFiche,// v14.2 LOG-FICHE-360
     params:rParams,
     export:rExport,
   };
@@ -16291,13 +16398,170 @@ function rBiens() {
   wrap.innerHTML = `<div class="biens-grid">${cards.join('')}</div>`;
 }
 
-// Étape 5 (LOG-FICHE-360) remplacera ce stub par la vraie route #log-fiche-{ref}.
-// Pour l'étape 2, on ouvre la modale d'édition existante comme fallback.
+// v14.2 LOG-FICHE-360 Phase 1 — vue dédiée full-page d'un bien.
+// Route hash #log-fiche-{ref} pour deeplink ; navigation interne via go('log-fiche').
+let _currentLogFicheRef = null;
+
 function openLogFiche(ref) {
   if(!ref) return;
-  // TODO étape 5 : navigation route dédiée full-page avec sous-onglets.
-  openNewLog(ref);
+  _currentLogFicheRef = ref;
+  // Active la page interne (rLogFiche est appelée par go() via le map des renderers)
+  go('log-fiche', null);
+  // Met à jour le hash sans recharger — bookmarkable / partageable / back navigable
+  try {
+    const target = '#log-fiche-' + encodeURIComponent(ref);
+    if(location.hash !== target) history.pushState(null, '', target);
+  } catch(e){}
+  // Update titre topbar avec le nom du bien
+  const log = (DB.logements||[]).find(l=>l.ref===ref);
+  if(log) {
+    const tb = el('tb-title');
+    if(tb) tb.textContent = log.imm ? `${log.imm} — ${ref}` : ref;
+  }
 }
+
+function closeLogFiche() {
+  _currentLogFicheRef = null;
+  // Retour à l'onglet Biens (active le bon item nav pour cohérence visuelle)
+  const navBiens = document.querySelector('.ni[data-tip="Biens"]');
+  go('biens', navBiens || null);
+  try { history.pushState(null, '', location.pathname + location.search); } catch(e){}
+}
+
+function rLogFiche() {
+  const wrap = el('log-fiche-content'); if(!wrap) return;
+  const ref = _currentLogFicheRef;
+  if(!ref) {
+    wrap.innerHTML = '<p class="mu">Aucun bien sélectionné.</p>';
+    return;
+  }
+  const log = (DB.logements||[]).find(l=>l.ref===ref);
+  if(!log) {
+    wrap.innerHTML = `<div class="biens-empty">
+      <div class="biens-empty-icon">⚠</div>
+      <div class="biens-empty-title">Bien introuvable</div>
+      <div class="biens-empty-msg">Le bien « ${escHtml(ref)} » n'existe pas ou a été supprimé.</div>
+      <button class="btn bs" onclick="closeLogFiche()">← Retour aux biens</button>
+    </div>`;
+    return;
+  }
+  const bail = _bienActiveBail(ref);
+  const occupied = !!bail;
+  const isArchived = !!log.archived;
+  let statusBadge = '';
+  if(isArchived)    statusBadge = '<span class="logf-badge b-mute">📦 Archivé</span>';
+  else if(occupied) statusBadge = '<span class="logf-badge b-ok">● Loué</span>';
+  else              statusBadge = '<span class="logf-badge b-warn">○ Vacant</span>';
+
+  const refSafe = (ref||'').replace(/'/g,"\\'");
+  wrap.innerHTML = `
+    <button class="logf-back" onclick="closeLogFiche()">← Retour aux biens</button>
+    <div class="logf-breadcrumb">
+      <a onclick="closeLogFiche();return false">Biens</a>
+      ${log.imm?`<span class="sep">›</span><span>${escHtml(log.imm)}</span>`:''}
+      <span class="sep">›</span><span>${escHtml(ref)}</span>
+    </div>
+    <div class="logf-hero">
+      <div class="logf-photos" aria-hidden="true">🏠</div>
+      <div class="logf-info">
+        <h1 class="logf-title">${escHtml(log.imm || ref)}${log.imm?` <span class="logf-title-suffix">— ${escHtml(ref)}</span>`:''}</h1>
+        ${log.adr?`<div class="logf-adr">${escHtml(log.adr)}${log.etage?', '+escHtml(log.etage):''}</div>`:''}
+        <div class="logf-badges">
+          <span class="logf-badge">🏛 ${escHtml(log.entity||'—')}</span>
+          ${log.type?`<span class="logf-badge b-mute">${escHtml(log.type)}</span>`:''}
+          ${log.surf?`<span class="logf-badge b-mute">${fmtN(log.surf)} m²</span>`:''}
+          ${statusBadge}
+        </div>
+        <div class="logf-actions">
+          <button class="btn bp" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>
+          ${isArchived
+            ? `<button class="btn bs" onclick="restoreLogement('${refSafe}')">↺ Restaurer</button>`
+            : `<button class="btn bs" onclick="archiveLogement('${refSafe}')">📦 Archiver</button>`
+          }
+        </div>
+      </div>
+    </div>
+    <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche bien">
+      <button class="logf-subtab act" role="tab" aria-selected="true">📋 Général</button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">📁 Documents <span class="soon">À venir</span></button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">📋 États des lieux <span class="soon">À venir</span></button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">💰 Comptabilité <span class="soon">À venir</span></button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">⚡ Compteurs <span class="soon">À venir</span></button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">🔧 Entretien <span class="soon">À venir</span></button>
+    </div>
+    ${_renderLogFichePanelGeneral(log, bail)}
+  `;
+}
+
+function _renderLogFichePanelGeneral(log, bail) {
+  // ── Panneau Locataire actuel
+  let locPanel;
+  if(bail) {
+    const locataires = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{nom: log.locataire}];
+    const principal = locataires[0] || {};
+    const totalLoyer = (+bail.hc || +log.hc || 0) + (+bail.ch || +log.ch || 0);
+    locPanel = `
+      <div class="logf-panel">
+        <h3 class="logf-panel-title">👤 Locataire actuel</h3>
+        <div class="logf-row"><span class="logf-label">Nom</span><span class="logf-value">${escHtml(principal.nom || log.locataire || '—')}</span></div>
+        ${principal.email?`<div class="logf-row"><span class="logf-label">Email</span><span class="logf-value">${escHtml(principal.email)}</span></div>`:''}
+        ${principal.tel?`<div class="logf-row"><span class="logf-label">Téléphone</span><span class="logf-value">${escHtml(principal.tel)}</span></div>`:''}
+        ${locataires.length>1?`<div class="logf-row"><span class="logf-label">Co-locataires</span><span class="logf-value">+${locataires.length-1} autre${locataires.length>2?'s':''}</span></div>`:''}
+        <div class="logf-row"><span class="logf-label">Période du bail</span><span class="logf-value">${fd(bail.debut)} → ${bail.fin?fd(bail.fin):'en cours'}</span></div>
+        <div class="logf-row"><span class="logf-label">Loyer total</span><span class="logf-value logf-value-strong">${fmt(totalLoyer)}<small>/mois</small></span></div>
+      </div>`;
+  } else {
+    const refSafe = (log.ref||'').replace(/'/g,"\\'");
+    locPanel = `
+      <div class="logf-panel">
+        <h3 class="logf-panel-title">👤 Locataire actuel</h3>
+        <div class="logf-panel-empty">${log.archived ? 'Bien archivé — historique consultable dans les baux passés' : 'Bien vacant — aucun locataire en cours'}</div>
+        ${!log.archived?`<div style="text-align:center"><button class="btn bs bb" onclick="openNewLog('${refSafe}')">+ Créer un bail</button></div>`:''}
+      </div>`;
+  }
+  // ── Panneau Conditions du bail
+  let condPanel;
+  const typeContratMap = { initial:'Initial', renouvellement:'Renouvellement', avenant:'Avenant' };
+  if(bail) {
+    const irlInfo = bail.irl || log.irl || '–';
+    const dgInfo  = +bail.dg || +log.dg || 0;
+    const typeContrat = typeContratMap[bail.typeContrat] || bail.typeContrat || '—';
+    condPanel = `
+      <div class="logf-panel">
+        <h3 class="logf-panel-title">📜 Conditions du bail</h3>
+        <div class="logf-row"><span class="logf-label">Loyer hors charges</span><span class="logf-value logf-value-num">${fmt(+bail.hc||+log.hc||0)}</span></div>
+        <div class="logf-row"><span class="logf-label">Provision charges</span><span class="logf-value logf-value-num">${fmt(+bail.ch||+log.ch||0)}</span></div>
+        <div class="logf-row"><span class="logf-label">Dépôt de garantie</span><span class="logf-value logf-value-num">${fmt(dgInfo)}</span></div>
+        <div class="logf-row"><span class="logf-label">Type de contrat</span><span class="logf-value">${escHtml(typeContrat)}</span></div>
+        <div class="logf-row"><span class="logf-label">Indice IRL</span><span class="logf-value">${escHtml(irlInfo)}</span></div>
+        ${bail.jpay?`<div class="logf-row"><span class="logf-label">Jour paiement</span><span class="logf-value">${escHtml(String(bail.jpay))}</span></div>`:''}
+      </div>`;
+  } else {
+    condPanel = `
+      <div class="logf-panel">
+        <h3 class="logf-panel-title">📜 Conditions du bail</h3>
+        <div class="logf-panel-empty">Aucun bail en cours sur ce bien</div>
+        ${log.hc?`<div class="logf-row"><span class="logf-label">Loyer HC indicatif</span><span class="logf-value logf-value-num">${fmt(log.hc)}</span></div>`:''}
+        ${log.ch?`<div class="logf-row"><span class="logf-label">Charges indicatives</span><span class="logf-value logf-value-num">${fmt(log.ch)}</span></div>`:''}
+        ${log.dg?`<div class="logf-row"><span class="logf-label">DG indicatif</span><span class="logf-value logf-value-num">${fmt(log.dg)}</span></div>`:''}
+      </div>`;
+  }
+  return `<div class="logf-panels">${locPanel}${condPanel}</div>`;
+}
+
+// Hash routing : ouvre la fiche au load ou à un changement de hash externe (back/forward, paste URL)
+window.addEventListener('hashchange', () => {
+  const m = location.hash.match(/^#log-fiche-(.+)$/);
+  if(m) {
+    const ref = decodeURIComponent(m[1]);
+    if(_currentLogFicheRef !== ref || currentPage !== 'log-fiche') {
+      _currentLogFicheRef = ref;
+      go('log-fiche', null);
+    }
+  } else if(currentPage === 'log-fiche') {
+    closeLogFiche();
+  }
+});
 
 // v14.2 LOG-ARCHIVE : vrai menu dropdown sur la carte (Voir / Modifier / Archiver|Restaurer / Supprimer).
 function openBienMenu(evt, kind, ref, immNom) {
@@ -19776,6 +20040,14 @@ window.addEventListener('DOMContentLoaded', ()=>{
   ys.innerHTML=[cy-2,cy-1,cy,cy+1].map(y=>`<option value="${y}"${y===cy?' selected':''}>${y}</option>`).join('');
   // Render dashboard
   rDash();
+  // v14.2 LOG-FICHE-360 : deeplink au boot — si l'URL contient #log-fiche-{ref}, ouvrir la fiche directement
+  try {
+    const m = location.hash.match(/^#log-fiche-(.+)$/);
+    if(m) {
+      const ref = decodeURIComponent(m[1]);
+      if((DB.logements||[]).some(l => l.ref === ref)) openLogFiche(ref);
+    }
+  } catch(e){}
   // Toast bienvenue premier lancement (données démo)
   if (window._demoWelcome) {
     setTimeout(()=> showToast('👋 Bienvenue sur ImmoTrack ! Des données de démonstration ont été chargées — remplacez-les par vos données réelles.','ok',5500), 900);
