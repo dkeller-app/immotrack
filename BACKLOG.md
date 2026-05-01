@@ -24,7 +24,7 @@
 |---|---|
 | 📊 **Dashboard** | BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
-| 🏢 **Logement / Équipement** | LOG-FICHE-360 (P1) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) |
+| 🏢 **Logement / Équipement** | LOG-FICHE-360 (P1) · LOG-LISTE-CARDS (P1) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-ARCHIVE (P2) · LOG-DG-LABEL (P3) |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) |
@@ -84,6 +84,7 @@
 | SECU-INNERHTML | Sites `innerHTML=` non échappés restants (~107 occurrences, 10 wrappés) | P1 | M | ⬜ À faire | Renders tableaux/cartes/modales onglets baux-hist, mv, quit, ass, etc. · à traiter au fil refonte onglet par onglet · l.7310 dash-alerts non-escapable |
 | MOBILE-AUDIT-ONGLETS | Audit + correctifs UX mobile onglet par onglet (irréprochable sur téléphone) | P1 | L | ⬜ À faire | [docs/subjects/MOBILE-AUDIT-ONGLETS.md](docs/subjects/MOBILE-AUDIT-ONGLETS.md) · 13 onglets à auditer · 1 commit / onglet · v13.37-40 = base déjà solide · critique pour V1 commerciale |
 | LOG-FICHE-360 | Vue 360° consolidée par bien (à la Qalimo) — header photos + sous-onglets Général/Documents/Candidats/EDL/Compta/Compteurs/Entretien | P1 | L | ⬜ À faire | [docs/subjects/LOG-FICHE-360.md](docs/subjects/LOG-FICHE-360.md) · pattern standard solutions pro · manque UX critique vs Qalimo/BailFacile/Smovin · refonte UX d'agrégation (data déjà là) · phase 1 minimale (S) puis phase 2 sous-onglets (M) |
+| LOG-LISTE-CARDS | Refonte liste logements/immeubles en cartes (à la Qalimo) — image + ratio occupation + toolbar Ajouter/Exporter/Rechercher/Filtrer/Tri + tabs Actifs/Archivés | P1 | M | ⬜ À faire | [docs/subjects/LOG-LISTE-CARDS.md](docs/subjects/LOG-LISTE-CARDS.md) · couple avec LOG-FICHE-360, LOG-PHOTOS, LOG-ARCHIVE |
 
 ---
 
@@ -145,6 +146,7 @@
 | **Logement** | | | | | |
 | LOG-PHOTOS | Photos illustratives sur la fiche logement (galerie permanente) | P2 | M | ⬜ À faire | [docs/subjects/LOG-PHOTOS.md](docs/subjects/LOG-PHOTOS.md) · réutiliser pattern EDL-PHOTOS-IDXDB · couple avec LOG-ANNONCE |
 | LOG-ANNONCE | Bouton "Générer annonce de location" pour logements vacants | P2 | M | ⬜ À faire | [docs/subjects/LOG-ANNONCE.md](docs/subjects/LOG-ANNONCE.md) · différenciant marché vs Rentila/BailFacile |
+| LOG-ARCHIVE | Archivage de biens (vendu, non géré) — soft-delete avec onglet "Archivés" | P2 | S | ⬜ À faire | [docs/subjects/LOG-ARCHIVE.md](docs/subjects/LOG-ARCHIVE.md) · sujet jumeau LOG-LISTE-CARDS Phase 3 |
 | **Travaux / PJ** | | | | | |
 | DOC-PJ | Pouvoir ajouter des PJ (factures, CR entretien, photos) | P2 | M | ⬜ À faire | [docs/subjects/DOC-PJ.md](docs/subjects/DOC-PJ.md) |
 | TRAV-SUIVI | Suivi entretien / travaux avec calendrier | P2 | L | ⬜ À faire | [docs/subjects/TRAV-SUIVI.md](docs/subjects/TRAV-SUIVI.md) · CDC requis |
