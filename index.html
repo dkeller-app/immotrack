@@ -436,15 +436,87 @@ a{color:var(--blu);text-decoration:none}
 .biens-empty-icon{font-size:48px;margin-bottom:12px;opacity:.55}
 .biens-empty-title{font-size:15px;font-weight:600;color:var(--t2);margin-bottom:6px}
 .biens-empty-msg{font-size:12.5px;margin-bottom:16px}
+/* v14.2 LOG-LISTE-CARDS Phase 2 — toolbar : recherche, filtres, tri, export */
+.biens-search-wrap{position:relative;display:flex;align-items:center}
+.biens-search{
+  width:240px;padding:8px 30px 8px 34px;
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);
+  font-size:13px;color:var(--t1);font-family:'IBM Plex Sans',sans-serif;
+  transition:border-color var(--t-fast),box-shadow var(--t-fast);
+}
+.biens-search:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px rgba(59,126,246,.14)}
+.biens-search::placeholder{color:var(--t3)}
+.biens-search-icon{position:absolute;left:11px;color:var(--t3);font-size:14px;pointer-events:none}
+.biens-search-clear{
+  position:absolute;right:6px;background:transparent;border:none;
+  color:var(--t3);cursor:pointer;font-size:14px;padding:3px 7px;
+  border-radius:4px;display:none;line-height:1;
+}
+.biens-search-clear.show{display:inline-flex;align-items:center}
+.biens-search-clear:hover{background:var(--sur2);color:var(--t1)}
+.biens-filter-wrap{position:relative}
+.biens-filter-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 12px;background:var(--sur);border:1px solid var(--bor);
+  border-radius:var(--r);cursor:pointer;font-size:13px;color:var(--t1);
+  font-family:'IBM Plex Sans',sans-serif;transition:all var(--t-fast);white-space:nowrap;
+}
+.biens-filter-btn:hover{border-color:var(--acc);color:var(--acc)}
+.biens-filter-btn.has-active{border-color:var(--acc);color:var(--acc);background:rgba(59,126,246,.06)}
+.biens-filter-btn-badge{
+  background:var(--acc);color:#fff;font-size:10px;font-weight:700;
+  padding:1px 6px;border-radius:9px;line-height:1.4;min-width:14px;text-align:center;
+}
+.biens-popover{
+  position:absolute;top:calc(100% + 6px);right:0;
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  box-shadow:var(--shadow-card-hover);padding:14px;min-width:240px;z-index:100;
+  display:none;
+}
+.biens-popover.open{display:block;animation:biensPopIn .15s ease-out}
+@keyframes biensPopIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.biens-popover-row{margin-bottom:12px}
+.biens-popover-row:last-of-type{margin-bottom:0}
+.biens-popover-label{
+  font-size:10.5px;font-weight:700;color:var(--t3);
+  text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;
+}
+.biens-popover-row select,.biens-popover-row input[type=text]{
+  width:100%;padding:7px 10px;background:var(--sur2);
+  border:1px solid var(--bor);border-radius:var(--r);font-size:13px;
+  color:var(--t1);font-family:'IBM Plex Sans',sans-serif;
+}
+.biens-popover-row select:focus,.biens-popover-row input[type=text]:focus{
+  outline:none;border-color:var(--acc);box-shadow:0 0 0 2px rgba(59,126,246,.14);
+}
+.biens-popover-row label.cb{
+  display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer;
+  padding:5px 0;line-height:1.3;
+}
+.biens-popover-row label.cb:hover{color:var(--acc)}
+.biens-popover-row label.cb input{margin:0}
+.biens-popover-actions{
+  display:flex;justify-content:space-between;gap:8px;align-items:center;
+  border-top:1px solid var(--bor2);padding-top:10px;margin-top:10px;
+}
+.biens-popover-clear{
+  background:transparent;border:none;color:var(--t3);cursor:pointer;
+  font-size:12px;padding:4px 8px;border-radius:4px;font-family:'IBM Plex Sans',sans-serif;
+}
+.biens-popover-clear:hover{color:var(--red);background:rgba(220,38,38,.07)}
 @media (max-width:1280px){.biens-grid{grid-template-columns:repeat(3,1fr);gap:16px}}
 @media (max-width:1023px){.biens-grid{grid-template-columns:repeat(2,1fr);gap:14px}}
 @media (max-width:600px){
   .biens-grid{grid-template-columns:1fr;gap:12px}
   .biens-toolbar{flex-direction:column;align-items:stretch}
-  .biens-toolbar-left,.biens-toolbar-right{width:100%}
+  .biens-toolbar-left,.biens-toolbar-right{width:100%;flex-wrap:wrap}
   .biens-view-toggle{width:100%}
   .biens-view-toggle .bvt{flex:1;text-align:center}
-  .biens-toolbar-right .btn{width:100%;justify-content:center;height:42px}
+  .biens-search-wrap{flex:1 1 100%;min-width:0}
+  .biens-search{width:100%}
+  .biens-toolbar-right .btn,.biens-filter-btn{flex:1;justify-content:center}
+  .biens-toolbar-right > .btn.bp{flex:1 1 100%;height:42px;margin-top:4px}
+  .biens-popover{position:fixed;top:auto;bottom:0;left:0;right:0;border-radius:14px 14px 0 0;max-height:75vh;overflow-y:auto;padding:18px 16px 22px}
   .bien-card-img{aspect-ratio:16/9}
 }
 
@@ -2233,7 +2305,7 @@ textarea.field-modified-since-sig{
     </div>
 
 
-    <!-- PAGE: BIENS (v14.2 NAV-RESTRUCTURE + LOG-LISTE-CARDS Phase 1) -->
+    <!-- PAGE: BIENS (v14.2 NAV-RESTRUCTURE + LOG-LISTE-CARDS Phases 1 & 2) -->
     <div class="page" id="p-biens">
       <div class="biens-toolbar">
         <div class="biens-toolbar-left">
@@ -2244,6 +2316,54 @@ textarea.field-modified-since-sig{
           <span class="biens-count" id="biens-count"></span>
         </div>
         <div class="biens-toolbar-right">
+          <div class="biens-search-wrap">
+            <span class="biens-search-icon" aria-hidden="true">🔍</span>
+            <input class="biens-search" id="biens-search" type="text" placeholder="Rechercher (nom, locataire, adresse…)" oninput="setBiensSearch(this.value)" aria-label="Rechercher un bien">
+            <button class="biens-search-clear" id="biens-search-clear" onclick="setBiensSearch('')" aria-label="Effacer la recherche">✕</button>
+          </div>
+          <div class="biens-filter-wrap">
+            <button class="biens-filter-btn" id="biens-filter-btn" onclick="toggleBiensFilter(event)" aria-haspopup="true" aria-expanded="false">
+              <span>🎯 Filtrer</span>
+              <span class="biens-filter-btn-badge" id="biens-filter-badge" style="display:none">0</span>
+            </button>
+            <div class="biens-popover" id="biens-filter-popover" role="dialog" aria-label="Filtres">
+              <div class="biens-popover-row">
+                <div class="biens-popover-label">Bailleur</div>
+                <select id="biens-f-entity" onchange="setBiensFilter('entity',this.value)"><option value="">Tous</option></select>
+              </div>
+              <div class="biens-popover-row">
+                <div class="biens-popover-label">Statut d'occupation</div>
+                <select id="biens-f-occup" onchange="setBiensFilter('occup',this.value)">
+                  <option value="">Tous</option>
+                  <option value="loue">Loués uniquement</option>
+                  <option value="vacant">Vacants uniquement</option>
+                </select>
+              </div>
+              <div class="biens-popover-row">
+                <div class="biens-popover-label">Type</div>
+                <select id="biens-f-type" onchange="setBiensFilter('type',this.value)"><option value="">Tous</option></select>
+              </div>
+              <div class="biens-popover-actions">
+                <button class="biens-popover-clear" onclick="clearBiensFilters()">↺ Réinitialiser</button>
+                <button class="btn bs bb" onclick="closeBiensFilter()">Fermer</button>
+              </div>
+            </div>
+          </div>
+          <div class="biens-filter-wrap">
+            <button class="biens-filter-btn" id="biens-sort-btn" onclick="toggleBiensSort(event)" aria-haspopup="true" aria-expanded="false">↕ Trier</button>
+            <div class="biens-popover" id="biens-sort-popover" role="dialog" aria-label="Tri">
+              <div class="biens-popover-row">
+                <div class="biens-popover-label">Trier par</div>
+                <label class="cb"><input type="radio" name="biens-sort" value="name" checked onchange="setBiensSort('name')"> Nom (A → Z)</label>
+                <label class="cb"><input type="radio" name="biens-sort" value="name-desc" onchange="setBiensSort('name-desc')"> Nom (Z → A)</label>
+                <label class="cb"><input type="radio" name="biens-sort" value="rent-desc" onchange="setBiensSort('rent-desc')"> Loyer (élevé → bas)</label>
+                <label class="cb"><input type="radio" name="biens-sort" value="rent-asc" onchange="setBiensSort('rent-asc')"> Loyer (bas → élevé)</label>
+                <label class="cb"><input type="radio" name="biens-sort" value="occup-desc" onchange="setBiensSort('occup-desc')"> Occupation (élevée → faible)</label>
+                <label class="cb"><input type="radio" name="biens-sort" value="recent" onchange="setBiensSort('recent')"> Plus récents</label>
+              </div>
+            </div>
+          </div>
+          <button class="btn bs" onclick="exportBiensCSV()" title="Exporter la liste en CSV">📥 Exporter</button>
           <button class="btn bp" onclick="openNewLog()">+ Bien</button>
         </div>
       </div>
@@ -15810,17 +15930,170 @@ function _renderLogementCardFlat(l) {
   </article>`;
 }
 
+// v14.2 LOG-LISTE-CARDS Phase 2 — état toolbar (recherche / filtres / tri).
+// Persiste uniquement le mode de vue ; les filtres restent en RAM (volatile par session).
+let _biensFilters = { search:'', entity:'', occup:'', type:'', sort:'name' };
+
+function setBiensSearch(val) {
+  _biensFilters.search = (val||'').trim();
+  const inp = el('biens-search'); if(inp && inp.value !== val) inp.value = val||'';
+  const clr = el('biens-search-clear'); if(clr) clr.classList.toggle('show', !!_biensFilters.search);
+  rBiens();
+}
+
+function setBiensFilter(key, val) {
+  if(!(key in _biensFilters)) return;
+  _biensFilters[key] = val||'';
+  rBiens();
+}
+
+function setBiensSort(val) {
+  _biensFilters.sort = val||'name';
+  rBiens();
+  // Laisse le popover ouvert pour permettre l'essai de plusieurs tris ; ferme via clic extérieur.
+}
+
+function clearBiensFilters() {
+  _biensFilters.search = ''; _biensFilters.entity = ''; _biensFilters.occup = ''; _biensFilters.type = '';
+  const inp = el('biens-search'); if(inp) inp.value = '';
+  ['biens-f-entity','biens-f-occup','biens-f-type'].forEach(id => { const e = el(id); if(e) e.value = ''; });
+  el('biens-search-clear')?.classList.remove('show');
+  rBiens();
+}
+
+function _biensActiveFilterCount() {
+  let n = 0;
+  if(_biensFilters.search) n++;
+  if(_biensFilters.entity) n++;
+  if(_biensFilters.occup) n++;
+  if(_biensFilters.type) n++;
+  return n;
+}
+
+function _populateBiensFilterSelects() {
+  const ents = [...new Set((DB.logements||[]).map(l=>l.entity).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const types = [...new Set((DB.logements||[]).map(l=>l.type).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const entSel = el('biens-f-entity');
+  if(entSel) {
+    const cur = _biensFilters.entity;
+    entSel.innerHTML = '<option value="">Tous</option>' + ents.map(e=>`<option value="${escHtml(e)}"${e===cur?' selected':''}>${escHtml(e)}</option>`).join('');
+  }
+  const typeSel = el('biens-f-type');
+  if(typeSel) {
+    const cur = _biensFilters.type;
+    typeSel.innerHTML = '<option value="">Tous</option>' + types.map(t=>`<option value="${escHtml(t)}"${t===cur?' selected':''}>${escHtml(t)}</option>`).join('');
+  }
+  const occupSel = el('biens-f-occup'); if(occupSel) occupSel.value = _biensFilters.occup||'';
+}
+
+function _filterAndSortLogs(logs) {
+  let out = logs.slice();
+  const q = (_biensFilters.search||'').toLowerCase();
+  if(q) {
+    out = out.filter(l =>
+      (l.ref||'').toLowerCase().includes(q) ||
+      (l.imm||'').toLowerCase().includes(q) ||
+      (l.entity||'').toLowerCase().includes(q) ||
+      (l.locataire||'').toLowerCase().includes(q) ||
+      (l.adr||'').toLowerCase().includes(q) ||
+      (l.type||'').toLowerCase().includes(q)
+    );
+  }
+  if(_biensFilters.entity) out = out.filter(l => l.entity === _biensFilters.entity);
+  if(_biensFilters.type)   out = out.filter(l => l.type === _biensFilters.type);
+  if(_biensFilters.occup) {
+    const wantLoue = _biensFilters.occup === 'loue';
+    out = out.filter(l => _bienIsBailActif(l.ref) === wantLoue);
+  }
+  switch(_biensFilters.sort) {
+    case 'name-desc':  out.sort((a,b)=>(b.imm||b.ref||'').localeCompare(a.imm||a.ref||'')); break;
+    case 'rent-desc':  out.sort((a,b)=>(+b.hc||0)-(+a.hc||0)); break;
+    case 'rent-asc':   out.sort((a,b)=>(+a.hc||0)-(+b.hc||0)); break;
+    case 'occup-desc': out.sort((a,b)=>(_bienIsBailActif(b.ref)?1:0)-(_bienIsBailActif(a.ref)?1:0)); break;
+    case 'recent':     out.sort((a,b)=>(b._modifiedAt||'').localeCompare(a._modifiedAt||'')); break;
+    default:           out.sort((a,b)=>(a.imm||a.ref||'').localeCompare(b.imm||b.ref||''));
+  }
+  return out;
+}
+
+function exportBiensCSV() {
+  if(!DB.logements || !DB.logements.length) { showToast('Aucun bien à exporter','err'); return; }
+  const rowsLogs = _filterAndSortLogs(DB.logements);
+  if(!rowsLogs.length) { showToast('Aucun bien ne correspond aux filtres','err'); return; }
+  const headers = ['Ref','Immeuble','Bailleur','Type','Surface m²','Étage','Adresse','HC €','Charges €','DG €','Locataire','Date début','Date fin','Statut','IRL'];
+  const escCsv = v => `"${String(v==null?'':v).replace(/"/g,'""')}"`;
+  const rows = rowsLogs.map(l => [
+    l.ref,l.imm||'',l.entity||'',l.type||'',l.surf||'',l.etage||'',l.adr||'',
+    l.hc||0,l.ch||0,l.dg||0,l.locataire||'',l.debut||'',l.fin||'',
+    _bienIsBailActif(l.ref)?'Loué':'Vacant', l.irl||''
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(escCsv).join(';')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `ImmoTrack_biens_${td()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`${rows.length} bien${rows.length>1?'s':''} exporté${rows.length>1?'s':''}`,'ok');
+}
+
+function toggleBiensFilter(evt) {
+  if(evt) evt.stopPropagation();
+  el('biens-sort-popover')?.classList.remove('open');
+  const pop = el('biens-filter-popover'); if(!pop) return;
+  const opening = !pop.classList.contains('open');
+  if(opening) _populateBiensFilterSelects();
+  pop.classList.toggle('open', opening);
+  el('biens-filter-btn')?.setAttribute('aria-expanded', opening);
+}
+function closeBiensFilter() {
+  el('biens-filter-popover')?.classList.remove('open');
+  el('biens-filter-btn')?.setAttribute('aria-expanded','false');
+}
+function toggleBiensSort(evt) {
+  if(evt) evt.stopPropagation();
+  closeBiensFilter();
+  const pop = el('biens-sort-popover'); if(!pop) return;
+  const opening = !pop.classList.contains('open');
+  pop.classList.toggle('open', opening);
+  el('biens-sort-btn')?.setAttribute('aria-expanded', opening);
+}
+
+// Click hors popover ferme + Esc ferme. Attaché une seule fois.
+document.addEventListener('click', e => {
+  if(!e.target.closest('.biens-filter-wrap')) {
+    closeBiensFilter();
+    el('biens-sort-popover')?.classList.remove('open');
+    el('biens-sort-btn')?.setAttribute('aria-expanded','false');
+  }
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') {
+    closeBiensFilter();
+    el('biens-sort-popover')?.classList.remove('open');
+    el('biens-sort-btn')?.setAttribute('aria-expanded','false');
+  }
+});
+
 function rBiens() {
   const wrap = el('biens-list-wrap'); if(!wrap) return;
   if(!DB.logements) { wrap.innerHTML='<p class="mu">Chargement…</p>'; return; }
-  // Sync UI toggle au cas où le mode a été chargé depuis localStorage à l'init de la page.
+  // Sync UI toggle vue
   const ti = el('bvt-immeubles'), tl = el('bvt-logements');
   if(ti && tl) {
     ti.classList.toggle('act', _biensViewMode==='immeubles'); ti.setAttribute('aria-selected', _biensViewMode==='immeubles');
     tl.classList.toggle('act', _biensViewMode==='logements'); tl.setAttribute('aria-selected', _biensViewMode==='logements');
   }
+  // Sync badge filtres
+  const fbtn = el('biens-filter-btn'), fbadge = el('biens-filter-badge');
+  if(fbtn && fbadge) {
+    const c = _biensActiveFilterCount();
+    fbtn.classList.toggle('has-active', c > 0);
+    fbadge.style.display = c > 0 ? 'inline-flex' : 'none';
+    fbadge.textContent = c;
+  }
+  const sc = el('biens-search-clear'); if(sc) sc.classList.toggle('show', !!_biensFilters.search);
   const cnt = el('biens-count');
-  // Empty state global
+
+  // Empty state DB vide
   if(!DB.logements.length) {
     if(cnt) cnt.textContent = '';
     wrap.innerHTML = `<div class="biens-empty">
@@ -15831,24 +16104,54 @@ function rBiens() {
     </div>`;
     return;
   }
-  if(_biensViewMode === 'logements') {
-    if(cnt) cnt.textContent = `${DB.logements.length} ${DB.logements.length>1?'logements':'logement'}`;
-    wrap.innerHTML = `<div class="biens-grid">${DB.logements.map(_renderLogementCardFlat).join('')}</div>`;
+  const filtered = _filterAndSortLogs(DB.logements);
+  // Empty state filtres
+  if(!filtered.length) {
+    if(cnt) cnt.textContent = `0 résultat sur ${DB.logements.length}`;
+    wrap.innerHTML = `<div class="biens-empty">
+      <div class="biens-empty-icon">🔍</div>
+      <div class="biens-empty-title">Aucun bien ne correspond à vos filtres</div>
+      <div class="biens-empty-msg">Modifiez la recherche ou réinitialisez les filtres.</div>
+      <button class="btn bs" onclick="clearBiensFilters()">↺ Réinitialiser les filtres</button>
+    </div>`;
     return;
   }
-  // Mode Immeubles : group par (entité, immeuble.nom). Logements sans imm → groupe "Logements isolés" par entité.
-  const groups = new Map(); // key = entNom + '||' + immNom (vide = orphelins)
-  DB.logements.forEach(l => {
+
+  if(_biensViewMode === 'logements') {
+    if(cnt) cnt.textContent = `${filtered.length} ${filtered.length>1?'logements':'logement'}${filtered.length<DB.logements.length?` sur ${DB.logements.length}`:''}`;
+    wrap.innerHTML = `<div class="biens-grid">${filtered.map(_renderLogementCardFlat).join('')}</div>`;
+    return;
+  }
+
+  // Mode Immeubles : group par (entité, immeuble.nom). Logements sans imm → groupe orphelins par entité.
+  const groups = new Map();
+  filtered.forEach(l => {
     const key = (l.entity||'—') + '||' + (l.imm||'');
     if(!groups.has(key)) groups.set(key, { entNom:l.entity||'—', immNom:l.imm||'', logs:[] });
     groups.get(key).logs.push(l);
   });
-  const cards = [];
-  groups.forEach(g => {
+  const groupsArr = [...groups.values()];
+  // Précalcul des aggrégats pour le tri (évite N appels redondants)
+  groupsArr.forEach(g => g._agg = _aggregateBuilding(g.logs));
+  switch(_biensFilters.sort) {
+    case 'name-desc':  groupsArr.sort((a,b)=>(b.immNom||'').localeCompare(a.immNom||'')); break;
+    case 'rent-desc':  groupsArr.sort((a,b)=>b._agg.loyerHC - a._agg.loyerHC); break;
+    case 'rent-asc':   groupsArr.sort((a,b)=>a._agg.loyerHC - b._agg.loyerHC); break;
+    case 'occup-desc': groupsArr.sort((a,b)=>(b._agg.nbOccupes/Math.max(1,b._agg.nbTotal)) - (a._agg.nbOccupes/Math.max(1,a._agg.nbTotal))); break;
+    case 'recent':     groupsArr.sort((a,b)=>{
+      // Math.max sur strings retourne NaN → reduce avec comparaison lexicographique des dates ISO
+      const am = a.logs.reduce((m,l) => (l._modifiedAt||'') > m ? (l._modifiedAt||'') : m, '');
+      const bm = b.logs.reduce((m,l) => (l._modifiedAt||'') > m ? (l._modifiedAt||'') : m, '');
+      return bm.localeCompare(am);
+    }); break;
+    default:           groupsArr.sort((a,b)=>(a.immNom||'').localeCompare(b.immNom||''));
+  }
+  const cards = groupsArr.map(g => {
     const ent = (DB.entites||[]).find(e=>e.nom===g.entNom) || null;
-    cards.push(_renderBuildingCard(g.entNom, g.immNom, g.logs, ent));
+    return _renderBuildingCard(g.entNom, g.immNom, g.logs, ent);
   });
-  if(cnt) cnt.textContent = `${groups.size} ${groups.size>1?'immeubles':'immeuble'} · ${DB.logements.length} ${DB.logements.length>1?'biens':'bien'}`;
+  const filtSuffix = filtered.length < DB.logements.length ? ' (filtré)' : '';
+  if(cnt) cnt.textContent = `${groupsArr.length} ${groupsArr.length>1?'immeubles':'immeuble'} · ${filtered.length} ${filtered.length>1?'biens':'bien'}${filtSuffix}`;
   wrap.innerHTML = `<div class="biens-grid">${cards.join('')}</div>`;
 }
 
