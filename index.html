@@ -392,6 +392,62 @@ a{color:var(--blu);text-decoration:none}
 .bg:hover:not(:disabled){background:rgba(22,163,74,.18)}
 .bb{padding:5px 11px;font-size:12px}
 
+/* ── v14.2 LOG-LISTE-CARDS Phase 1 — vue cartes pour #p-biens ───────────────
+   Grid responsive 4/3/2/1 cols, cartes immeuble (ou logement à plat) avec
+   ratio occupation, image placeholder, période de bail et loyer total mensuel. */
+.biens-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.biens-toolbar-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.biens-toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.biens-view-toggle{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:3px;gap:2px}
+.biens-view-toggle .bvt{background:transparent;border:none;padding:7px 14px;font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer;border-radius:5px;transition:all var(--t-fast);font-family:'IBM Plex Sans',sans-serif}
+.biens-view-toggle .bvt.act{background:var(--sur);color:var(--acc);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.biens-view-toggle .bvt:not(.act):hover{color:var(--t1)}
+.biens-count{font-size:12px;color:var(--t3);font-weight:500}
+.biens-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.bien-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:transform var(--t-fast),box-shadow var(--t-fast),border-color var(--t-fast);box-shadow:var(--shadow);position:relative}
+.bien-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-card-hover);border-color:rgba(59,126,246,.4)}
+.bien-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.bien-card-header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--bor2);font-size:11.5px;font-weight:600;color:var(--t2);min-height:38px}
+.bien-card-header .bch-bailleur{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.bien-card-menu{background:transparent;border:none;color:var(--t3);cursor:pointer;padding:2px 8px;border-radius:4px;font-size:18px;line-height:1;flex-shrink:0}
+.bien-card-menu:hover{background:var(--sur2);color:var(--t1)}
+.bien-card-img{width:100%;aspect-ratio:16/10;background:linear-gradient(135deg,var(--sur2),var(--sur3));display:flex;align-items:center;justify-content:center;font-size:42px;color:var(--t3);position:relative}
+[data-theme="dark"] .bien-card-img{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02))}
+.bien-card-occup{position:absolute;left:10px;bottom:10px;right:10px;background:rgba(255,255,255,.93);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:8px;color:#1a2332}
+[data-theme="dark"] .bien-card-occup{background:rgba(20,30,45,.88);color:var(--t1)}
+.bien-card-occup-label{white-space:nowrap;font-size:11px;font-weight:700}
+.bien-card-occup-bar{flex:1;height:4px;background:rgba(0,0,0,.12);border-radius:2px;overflow:hidden;min-width:30px}
+[data-theme="dark"] .bien-card-occup-bar{background:rgba(255,255,255,.18)}
+.bien-card-occup-fill{height:100%;background:#16a34a;border-radius:2px;transition:width .3s ease-out}
+.bien-card-occup-fill.partial{background:var(--ora)}
+.bien-card-occup-fill.empty{background:var(--red)}
+.bien-card-body{padding:14px;display:flex;flex-direction:column;gap:7px;flex:1}
+.bien-card-title{font-size:15px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Manrope',sans-serif;line-height:1.25}
+.bien-card-subtitle{font-size:11.5px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bien-card-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--t2)}
+.bien-card-badge{display:inline-flex;align-items:center;padding:2px 8px;background:rgba(59,126,246,.12);color:var(--acc);border-radius:10px;font-size:10.5px;font-weight:700;letter-spacing:.2px}
+.bien-card-badge.b-ok{background:rgba(22,163,74,.14);color:#16a34a}
+.bien-card-badge.b-warn{background:rgba(234,88,12,.14);color:var(--ora)}
+.bien-card-badge.b-mute{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}
+.bien-card-period{font-size:11.5px;color:var(--t3);margin-top:auto}
+.bien-card-rent{font-size:14.5px;font-weight:700;color:var(--t1);border-top:1px solid var(--bor2);padding-top:9px;margin-top:4px;display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.bien-card-rent small{font-size:11px;font-weight:500;color:var(--t3)}
+.biens-empty{text-align:center;padding:48px 16px;color:var(--t3);border:2px dashed var(--bor);border-radius:var(--rl);background:var(--sur2)}
+.biens-empty-icon{font-size:48px;margin-bottom:12px;opacity:.55}
+.biens-empty-title{font-size:15px;font-weight:600;color:var(--t2);margin-bottom:6px}
+.biens-empty-msg{font-size:12.5px;margin-bottom:16px}
+@media (max-width:1280px){.biens-grid{grid-template-columns:repeat(3,1fr);gap:16px}}
+@media (max-width:1023px){.biens-grid{grid-template-columns:repeat(2,1fr);gap:14px}}
+@media (max-width:600px){
+  .biens-grid{grid-template-columns:1fr;gap:12px}
+  .biens-toolbar{flex-direction:column;align-items:stretch}
+  .biens-toolbar-left,.biens-toolbar-right{width:100%}
+  .biens-view-toggle{width:100%}
+  .biens-view-toggle .bvt{flex:1;text-align:center}
+  .biens-toolbar-right .btn{width:100%;justify-content:center;height:42px}
+  .bien-card-img{aspect-ratio:16/9}
+}
+
 /* v14.1 REFONTE-DRIVE Phase 2 : mode lecture seule (Drive non connecté) ───────
    Bandeau orange en haut + désactivation des actions d'écriture. */
 #readonly-banner{
@@ -2177,13 +2233,21 @@ textarea.field-modified-since-sig{
     </div>
 
 
-    <!-- PAGE: BIENS (v14.2 NAV-RESTRUCTURE — sorti du Référentiel) -->
+    <!-- PAGE: BIENS (v14.2 NAV-RESTRUCTURE + LOG-LISTE-CARDS Phase 1) -->
     <div class="page" id="p-biens">
-      <div class="flex-b mb12">
-        <span class="mu sm">Logements gérés — édition inline (double-clic sur une cellule)</span>
-        <button class="btn bp bb" onclick="openNewLog()">+ Bien</button>
+      <div class="biens-toolbar">
+        <div class="biens-toolbar-left">
+          <div class="biens-view-toggle" role="tablist" aria-label="Mode d'affichage">
+            <button class="bvt act" id="bvt-immeubles" role="tab" aria-selected="true" onclick="setBiensView('immeubles')">🏢 Immeubles</button>
+            <button class="bvt" id="bvt-logements" role="tab" aria-selected="false" onclick="setBiensView('logements')">🏠 Logements</button>
+          </div>
+          <span class="biens-count" id="biens-count"></span>
+        </div>
+        <div class="biens-toolbar-right">
+          <button class="btn bp" onclick="openNewLog()">+ Bien</button>
+        </div>
       </div>
-      <div class="tbl-wrap" id="biens-list-wrap"></div>
+      <div id="biens-list-wrap"></div>
     </div>
 
     <!-- PAGE: BAILLEURS (v14.2 NAV-RESTRUCTURE — sorti du Référentiel) -->
@@ -15606,28 +15670,203 @@ function rParams() {
   rParamsRules(); rParamsTheme(); updateDBSizeBadge();
 }
 
-// v14.2 NAV-RESTRUCTURE : renommé rParamsLog → rBiens, container biens-list-wrap.
-// Vue cartes en étape 2 (LOG-LISTE-CARDS) — ici on garde la table dense legacy.
+// v14.2 LOG-LISTE-CARDS Phase 1 : refonte vue Biens en cartes (Immeubles ↔ Logements).
+// Click carte → openLogFiche (Étape 5 : route #log-fiche-{ref}). Menu ⋮ : Modifier / Voir / (Archiver TBD étape 4).
+let _biensViewMode = (() => {
+  try { return localStorage.getItem('immotrack_biens_view') || 'immeubles'; } catch(e){ return 'immeubles'; }
+})();
+
+function setBiensView(mode) {
+  if(mode!=='immeubles' && mode!=='logements') return;
+  _biensViewMode = mode;
+  try { localStorage.setItem('immotrack_biens_view', mode); } catch(e){}
+  const ti = el('bvt-immeubles'), tl = el('bvt-logements');
+  if(ti && tl) {
+    ti.classList.toggle('act', mode==='immeubles'); ti.setAttribute('aria-selected', mode==='immeubles');
+    tl.classList.toggle('act', mode==='logements'); tl.setAttribute('aria-selected', mode==='logements');
+  }
+  rBiens();
+}
+
+// Bail "actif" pour un logement = bail existe, non clôturé, et fin >= aujourd'hui (ou pas de fin).
+function _bienIsBailActif(ref) {
+  const b = DB.baux && DB.baux[ref];
+  if(!b || b.cloture) return false;
+  if(!b.fin) return true;
+  return b.fin >= td();
+}
+
+function _bienActiveBail(ref) {
+  const b = DB.baux && DB.baux[ref];
+  if(!b || b.cloture) return null;
+  if(b.fin && b.fin < td()) return null;
+  return b;
+}
+
+// Agrégation d'un immeuble (entNom + immNom) : nb logements, nb occupés, loyer total, période min/max.
+function _aggregateBuilding(logs) {
+  const nbTotal = logs.length;
+  let nbOccupes = 0, loyerHC = 0, loyerCH = 0;
+  let dateMin = null, dateMax = null;
+  const types = new Set();
+  logs.forEach(l => {
+    if(l.type) types.add(l.type);
+    const bail = _bienActiveBail(l.ref);
+    if(bail) {
+      nbOccupes++;
+      loyerHC += +(l.hc||bail.hc||0);
+      loyerCH += +(l.ch||bail.ch||0);
+      if(bail.debut && (!dateMin || bail.debut < dateMin)) dateMin = bail.debut;
+      if(bail.fin && (!dateMax || bail.fin > dateMax)) dateMax = bail.fin;
+    }
+  });
+  return { nbTotal, nbOccupes, loyerHC, loyerCH, dateMin, dateMax, types: [...types] };
+}
+
+function _renderBuildingCard(entNom, immNom, logs, ent) {
+  const agg = _aggregateBuilding(logs);
+  const ratioPct = agg.nbTotal ? Math.round((agg.nbOccupes / agg.nbTotal) * 100) : 0;
+  const fillCls = agg.nbOccupes === 0 ? 'empty' : (agg.nbOccupes < agg.nbTotal ? 'partial' : '');
+  const typeLabel = agg.types.length ? agg.types[0] + (agg.types.length>1 ? ' +' : '') : 'Habitation';
+  const period = (agg.dateMin || agg.dateMax)
+    ? `${agg.dateMin?fd(agg.dateMin):'–'} → ${agg.dateMax?fd(agg.dateMax):'en cours'}`
+    : 'Aucun bail actif';
+  const titleEsc = escHtml(immNom || 'Logements isolés');
+  const subtitleEsc = escHtml((logs[0]&&logs[0].adr) || '');
+  const bailleurEsc = escHtml(entNom || '—');
+  // Click carte = ouvrir fiche 360 sur le 1er logement de l'immeuble (Étape 5).
+  // Si plusieurs logements, fiche = vue de l'immeuble (à raffiner étape 5).
+  const firstRef = logs[0] && logs[0].ref;
+  const onClick = firstRef ? `openLogFiche('${escHtml(firstRef)}')` : '';
+  const menuId = 'bcm_' + (immNom||'').replace(/[^a-z0-9]/gi,'_') + '_' + Math.random().toString(36).slice(2,7);
+  return `<article class="bien-card" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
+    <div class="bien-card-header">
+      <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
+      <button class="bien-card-menu" id="${menuId}" onclick="event.stopPropagation();openBienMenu(event,'building','${escHtml(firstRef||'')}','${escHtml(immNom||'')}')" aria-label="Actions">⋮</button>
+    </div>
+    <div class="bien-card-img">
+      <span aria-hidden="true">🏢</span>
+      <div class="bien-card-occup">
+        <span class="bien-card-occup-label">${agg.nbOccupes} / ${agg.nbTotal} ${agg.nbTotal>1?'biens loués':'bien loué'}</span>
+        <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
+      </div>
+    </div>
+    <div class="bien-card-body">
+      <div class="bien-card-title" title="${titleEsc}">${titleEsc}</div>
+      ${subtitleEsc ? `<div class="bien-card-subtitle">${subtitleEsc}</div>` : ''}
+      <div class="bien-card-meta">
+        <span class="bien-card-badge">${escHtml(typeLabel)}</span>
+        <span>${agg.nbTotal} ${agg.nbTotal>1?'biens':'bien'}</span>
+      </div>
+      <div class="bien-card-period">${period}</div>
+      <div class="bien-card-rent">
+        <span>${fmt(agg.loyerHC)}<small> /mois HC</small></span>
+        ${agg.loyerCH ? `<small>+ ${fmt(agg.loyerCH)} ch.</small>` : ''}
+      </div>
+    </div>
+  </article>`;
+}
+
+function _renderLogementCardFlat(l) {
+  const bail = _bienActiveBail(l.ref);
+  const occupied = !!bail;
+  const ratioPct = occupied ? 100 : 0;
+  const fillCls = occupied ? '' : 'empty';
+  const occupLabel = occupied ? 'Loué' : 'Vacant';
+  const titleEsc = escHtml(l.ref || '—');
+  const subtitleEsc = escHtml(l.locataire || (occupied ? 'Bail actif' : 'Aucun locataire'));
+  const bailleurEsc = escHtml(l.entity || '—');
+  const period = bail
+    ? `${fd(bail.debut)} → ${bail.fin?fd(bail.fin):'en cours'}`
+    : 'Vacant';
+  const typeLabel = l.type || 'Habitation';
+  const onClick = `openLogFiche('${escHtml(l.ref)}')`;
+  return `<article class="bien-card" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
+    <div class="bien-card-header">
+      <span class="bch-bailleur" title="${bailleurEsc}">${bailleurEsc}</span>
+      <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${escHtml(l.ref)}','${escHtml(l.imm||'')}')" aria-label="Actions">⋮</button>
+    </div>
+    <div class="bien-card-img">
+      <span aria-hidden="true">🏠</span>
+      <div class="bien-card-occup">
+        <span class="bien-card-occup-label">${occupLabel}</span>
+        <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
+      </div>
+    </div>
+    <div class="bien-card-body">
+      <div class="bien-card-title" title="${titleEsc}">${titleEsc}</div>
+      <div class="bien-card-subtitle">${subtitleEsc}</div>
+      <div class="bien-card-meta">
+        <span class="bien-card-badge">${escHtml(typeLabel)}</span>
+        ${l.imm?`<span class="bien-card-badge b-mute">${escHtml(l.imm)}</span>`:''}
+        ${l.surf?`<span>${fmtN(l.surf)} m²</span>`:''}
+      </div>
+      <div class="bien-card-period">${period}</div>
+      <div class="bien-card-rent">
+        <span>${fmt(l.hc||0)}<small> /mois HC</small></span>
+        ${l.ch?`<small>+ ${fmt(l.ch)} ch.</small>`:''}
+      </div>
+    </div>
+  </article>`;
+}
+
 function rBiens() {
   const wrap = el('biens-list-wrap'); if(!wrap) return;
-  if(!DB.logements) { wrap.innerHTML='<p class="mu">Chargement...</p>'; return; }
-  wrap.innerHTML=`<table class="tbl"><thead><tr>
-    <th>Ref</th><th>Immeuble</th><th>Entité</th><th>Type</th><th class="num">Surface</th>
-    <th class="num">HC</th><th class="num">Charges</th><th>Locataire</th><th></th>
-  </tr></thead><tbody>${DB.logements.map(l=>`<tr>
-    <td><b>${l.ref}</b></td>
-    <td><span ondblclick="inlineEdit(this,'${l.ref}','imm')">${l.imm||'–'}</span></td>
-    <td><span ondblclick="inlineEdit(this,'${l.ref}','entity')">${l.entity||'–'}</span></td>
-    <td><span ondblclick="inlineEdit(this,'${l.ref}','type')">${l.type||'–'}</span></td>
-    <td class="num"><span ondblclick="inlineEdit(this,'${l.ref}','surf')">${l.surf||'–'}</span></td>
-    <td class="num"><span ondblclick="inlineEdit(this,'${l.ref}','hc')">${fmt(l.hc)}</span></td>
-    <td class="num"><span ondblclick="inlineEdit(this,'${l.ref}','ch')">${fmt(l.ch)}</span></td>
-    <td><span ondblclick="inlineEdit(this,'${l.ref}','locataire')">${l.locataire||'–'}</span></td>
-    <td class="act-cell">
-      <button class="btn bs bb" onclick="openNewLog('${l.ref}')">✏️</button>
-      <button class="btn br bb" onclick="delLog('${l.ref}')">🗑</button>
-    </td>
-  </tr>`).join('')}</tbody></table>`;
+  if(!DB.logements) { wrap.innerHTML='<p class="mu">Chargement…</p>'; return; }
+  // Sync UI toggle au cas où le mode a été chargé depuis localStorage à l'init de la page.
+  const ti = el('bvt-immeubles'), tl = el('bvt-logements');
+  if(ti && tl) {
+    ti.classList.toggle('act', _biensViewMode==='immeubles'); ti.setAttribute('aria-selected', _biensViewMode==='immeubles');
+    tl.classList.toggle('act', _biensViewMode==='logements'); tl.setAttribute('aria-selected', _biensViewMode==='logements');
+  }
+  const cnt = el('biens-count');
+  // Empty state global
+  if(!DB.logements.length) {
+    if(cnt) cnt.textContent = '';
+    wrap.innerHTML = `<div class="biens-empty">
+      <div class="biens-empty-icon">🏠</div>
+      <div class="biens-empty-title">Aucun bien enregistré</div>
+      <div class="biens-empty-msg">Commencez par ajouter votre premier logement pour visualiser votre patrimoine en cartes.</div>
+      <button class="btn bp" onclick="openNewLog()">+ Ajouter un bien</button>
+    </div>`;
+    return;
+  }
+  if(_biensViewMode === 'logements') {
+    if(cnt) cnt.textContent = `${DB.logements.length} ${DB.logements.length>1?'logements':'logement'}`;
+    wrap.innerHTML = `<div class="biens-grid">${DB.logements.map(_renderLogementCardFlat).join('')}</div>`;
+    return;
+  }
+  // Mode Immeubles : group par (entité, immeuble.nom). Logements sans imm → groupe "Logements isolés" par entité.
+  const groups = new Map(); // key = entNom + '||' + immNom (vide = orphelins)
+  DB.logements.forEach(l => {
+    const key = (l.entity||'—') + '||' + (l.imm||'');
+    if(!groups.has(key)) groups.set(key, { entNom:l.entity||'—', immNom:l.imm||'', logs:[] });
+    groups.get(key).logs.push(l);
+  });
+  const cards = [];
+  groups.forEach(g => {
+    const ent = (DB.entites||[]).find(e=>e.nom===g.entNom) || null;
+    cards.push(_renderBuildingCard(g.entNom, g.immNom, g.logs, ent));
+  });
+  if(cnt) cnt.textContent = `${groups.size} ${groups.size>1?'immeubles':'immeuble'} · ${DB.logements.length} ${DB.logements.length>1?'biens':'bien'}`;
+  wrap.innerHTML = `<div class="biens-grid">${cards.join('')}</div>`;
+}
+
+// Étape 5 (LOG-FICHE-360) remplacera ce stub par la vraie route #log-fiche-{ref}.
+// Pour l'étape 2, on ouvre la modale d'édition existante comme fallback.
+function openLogFiche(ref) {
+  if(!ref) return;
+  // TODO étape 5 : navigation route dédiée full-page avec sous-onglets.
+  openNewLog(ref);
+}
+
+// Menu contextuel basique de carte. Étape 4 (LOG-ARCHIVE) ajoutera "Archiver / Restaurer".
+function openBienMenu(evt, kind, ref, immNom) {
+  evt.preventDefault();
+  // Phase 1 : pas de dropdown stylé encore — on ouvre directement la modale d'édition.
+  // Le kind/immNom sont passés pour préparer l'extension future (menu sur immeuble vs logement).
+  if(ref) openNewLog(ref);
+  else if(kind === 'building') showToast('Sélectionnez un logement de l\'immeuble pour le modifier','info');
 }
 
 function inlineEdit(span, ref, field) {
