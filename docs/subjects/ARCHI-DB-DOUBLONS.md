@@ -1,6 +1,6 @@
 # ARCHI-DB-DOUBLONS — Refonte architecture DB : séparer log (bien physique) et bail (contrat juridique)
 
-**Status** : 🔄 Phases 1+2+3a+3b+**4a (wizard bail readonly)** ✅ livrées v14.17 · Phase 4b (refacto 149 sites + cleanup champs obsolètes) ⬜ prête · **Prio** : P1 · **Taille** : XL (~12-15h, ~3-5h restantes)
+**Status** : 🔄 Phases 1+2+3a+3b+4a+**4b fondation** ✅ livrées v14.17.2 · Phase 4b refacto code ⬜ session dédiée future · **Prio** : P1 · **Taille** : XL (~12-15h, ~3-4h restantes session dédiée)
 **Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel + CDC)
 **Lié à** : LOG-FICHE-360 Phase 2 · FICHES-PARITE-360 (prérequis) · BAIL-NAMESPACE-MIGRATION · BAIL-TYPES (lien fort via log.typeUsage) · V3-VISUEL · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG (parallèle, hors scope ARCHI)
 
@@ -323,6 +323,12 @@ bail (DB.baux[ref]) — CONTRAT JURIDIQUE LIÉ AU BIEN
 - 2026-04-23 : créé (initial, dans BACKLOG.md uniquement)
 - 2026-05-02 (matin) : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 4 phases + tests post-implémentation. Doc séparé créé.
 - 2026-05-02 (soir) : **Phase 1 (CDC) livrée** — décisions Q1-Q8 arbitrées en dialogue avec utilisateur. Audit code complété (165 sites + 5 fonctions PDF). Champs à créer/retirer documentés. Plan détaillé Phases 2-4 prêt à coder. **Q4bis ajouté** : `log.typeUsage` (7 valeurs) + lien fort BAIL-TYPES (mobilier annexe). **Q2bis ajouté** : tab Mobilier dans formulaire logement (visible si meublé/étudiant/mobilité).
+- 2026-05-02 (soir) : **Phase 4b fondation livrée v14.17.2** commit `1a42721` (~10min, +44/-6 lignes)
+  - `_readLogForBail(bail, log)` enrichi : retourne maintenant un objet API-legacy compatible (adrBien, ftype, dpe, ges, dpeDate, dpeAn, dpeValConv, dpeValEner, erp, plomb, amiante, elec, gaz, bruit, chauff/chauffElec/Gaz/Coll/Autre, ecsElec/Gaz/Coll/Label) — champs flat aliases des sous-objets log.dpe/etatRisques/chauffage/ecs
+  - Pattern d'usage documenté pour la session future Phase 4b complète : `const bLog = _readLogForBail(bail, log); // puis remplacer bail.X par bLog.X`
+  - **Phase 4b complète reste à faire en session dédiée** (~3-4h) : refacto manuelle des 149 sites de lecture dans previewBailData (l.12260), previewBailDataV2 (l.10961), genBailHTML (l.13947), exportBailWord (l.13875), genPDFNative (l.13570) + listings rBaux/rMv/rDash/rEDLList/rQuit + suppression définitive 33 champs obsolètes + suppression `_syncLogToBail` extension. Tests intégrés bail PDF obligatoires (3 baux : DEMO, signé, historique).
+  - **Pourquoi maintenant la fondation seule** : previewBailData et les autres fonctions PDF sont massives (notice arrêté 2015, acte cautionnement, mentions légales). Refacto à chaud sans validation visuelle = risque élevé régression PDF utilisé en prod.
+  - **Ce qui marche déjà v14.17 grâce à Phase 3b sync étendu** : `_syncLogToBail` propage 24 champs bien depuis log vers bail courant non signé → les 5 fonctions PDF lisent `bail.X` avec les bonnes valeurs sans refacto. Phase 4b complète = optimisation architecturale (suppression duplication), pas une feature visible utilisateur.
 - 2026-05-02 (soir) : **Phase 4a livrée v14.17** commit `5fd2ca0` (~30min, +45/-2 lignes)
   - Wizard bail tab "Le bien" (#bp-bien) en **lecture seule complète** (~60 inputs)
   - `_makeBailBienTabReadOnly()` : applique readOnly/disabled à tous les inputs/selects/textareas du tab + classe `.readonly-bien`
