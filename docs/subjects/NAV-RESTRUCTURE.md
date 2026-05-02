@@ -1,6 +1,6 @@
 # NAV-RESTRUCTURE — Restructuration navigation principale (sortir Biens/Bailleurs du Référentiel)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : S (1-3h, à coupler avec LOG-LISTE-CARDS)
+**Status** : ✅ Livré v14.2 (2026-05-01) · **Prio** : P1 · **Taille** : S (livré ~1h)
 **Détecté** : 2026-05-01
 **Lié à** : LOG-LISTE-CARDS · LOG-FICHE-360 · V3-REFONTE-PARAMS
 
@@ -35,32 +35,29 @@ Cette structure est **fonctionnelle** mais **pas alignée** avec les patterns co
 ⚙️ Paramètres / Référentiel ← devient "settings techniques" : catégories mvt, équipements types, IRL, TVA, etc.
 ```
 
-### Migration
-- [ ] Déplacer route/onglet `#log` (logements) hors `Référentiel` → onglet top-nav `Biens`
-- [ ] Déplacer route/onglet `#ent` (entités) hors `Référentiel` → onglet top-nav `Bailleurs` OU laisser dans Paramètres (décision)
-- [ ] Renommer onglet `Référentiel` en `Paramètres` ou `Configuration` ?
-- [ ] Mettre à jour la nav top + sidebar mobile
-- [ ] Mettre à jour les liens internes (deeplinks `#log-...`, `#ent-...`)
-- [ ] Bouton primaire `+ Ajouter un bien` dans nouvel onglet Biens (cf `LOG-LISTE-CARDS`)
-- [ ] Bouton primaire `+ Ajouter un bailleur` dans nouvel onglet Bailleurs
+### Migration (livrée v14.2)
+- [x] Déplacer route/onglet `#log` (logements) hors `Référentiel` → onglet sidebar dédié `Biens` (`go('biens')`, page `#p-biens`)
+- [x] Déplacer route/onglet `#ent` (entités) hors `Référentiel` → onglet sidebar dédié `Bailleurs` (`go('bailleurs')`, page `#p-bailleurs`)
+- [x] Renommer item sidebar `Référentiel` en `Paramètres` (titre topbar `Paramètres` aussi)
+- [x] Sidebar : nouvelle section "Patrimoine" (entre Vue d'ensemble et Locataires) avec Biens + Bailleurs
+- [x] Mettre à jour les liens internes (redirect `setParamsTab('logements'|'entites')` → `go('biens'|'bailleurs')` pour les deeplinks legacy)
+- [x] Bouton primaire `+ Bien` dans onglet Biens
+- [x] Bouton primaire `+ Bailleur` dans onglet Bailleurs
 
-### Décisions à prendre
-- [ ] **Bailleurs/Entités** : top-nav dédié OU rester dans Paramètres ?
-  - Option A (top-nav dédié) : prépare le SaaS multi-users où chaque user a ses bailleurs ; cohérent avec Qalimo
-  - Option B (Paramètres) : moins de pollution top-nav (les entités sont peu éditées) ; plus simple
-  - → **Recommandation** : Option A (top-nav) si la nav supporte 12+ onglets sans saturation, sinon Option B
-- [ ] **Renommer "Référentiel"** en "Paramètres" / "Configuration" / "Réglages" ?
-  - "Paramètres" est le terme standard
-- [ ] **Ordre des onglets** : Biens en premier après Dashboard, ou plus loin ? → Biens en premier (c'est l'objet métier central)
-- [ ] **Mobile** : bottom-nav avec les 5 onglets principaux (Biens, Baux, Mouvements, Dashboard, Plus...) ?
+### Décisions prises (par défaut, faute de validation utilisateur en session)
+- [x] **Bailleurs/Entités** : Option A retenue (sidebar dédiée). Cohérent avec pattern Qalimo et préparation SaaS multi-user.
+- [x] **Renommer "Référentiel"** en "Paramètres" (terme standard). Onglet interne "Paramètres globaux" renommé en "Préférences" pour éviter la collision.
+- [x] **Ordre sidebar** : Biens en premier de la section Patrimoine (objet métier central).
+- [ ] **Mobile bottom-nav** : non livré, sidebar mobile coulissante existante conservée. À évaluer dans MOBILE-AUDIT-ONGLETS.
 
 ## Impact technique
-- Faible (juste une restructuration de routes/menus)
+- Faible : restructuration de routes/menus, ~62 insertions / 38 suppressions
 - Aucune migration de données nécessaire
-- Risque : casser des deeplinks existants → faire des redirects `#ref-log-...` → `#log-...`
+- Renames code : `rParamsLog → rBiens` (10 sites), `rParamsEnt → rBailleurs` (8 sites), `params-log-wrap → biens-list-wrap`, `params-ent-wrap → bailleurs-list-wrap`
 
 ## Notes utilisateur
 > 💬 2026-05-01 : "on fait la création de bien par cet onglet alors et on enlève logements et entités de référentiel ?"
 
 ## Journal
 - 2026-05-01 : créé · à attaquer en même temps que LOG-LISTE-CARDS (logique cohérente : nouvelle vue + nouvelle nav)
+- 2026-05-01 : ✅ **Livré v14.2** · commit `aaf1e54` · session dédiée vue biens (NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-FICHE-360 Phase 1 + LOG-ARCHIVE)

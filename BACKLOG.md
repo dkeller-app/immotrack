@@ -24,7 +24,7 @@
 |---|---|
 | 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 livrée — attente validation) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
-| 🏢 **Logement / Équipement** | NAV-RESTRUCTURE (P1) · LOG-FICHE-360 (P1) · LOG-LISTE-CARDS (P1) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-ARCHIVE (P2) · LOG-DG-LABEL (P3) |
+| 🏢 **Logement / Équipement** | LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅* |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) |
@@ -83,10 +83,8 @@
 | AUDIT-GLOBAL | Audit global avant V3 (sécu XSS, perf, code quality, OAuth, PWA) | P1 | M | ⬜ À faire | Étape 1 V3 transition · agent Explore + skills review/security-review · cf `project_v3_transition.md` |
 | SECU-INNERHTML | Sites `innerHTML=` non échappés restants (~107 occurrences, 10 wrappés) | P1 | M | ⬜ À faire | Renders tableaux/cartes/modales onglets baux-hist, mv, quit, ass, etc. · à traiter au fil refonte onglet par onglet · l.7310 dash-alerts non-escapable |
 | MOBILE-AUDIT-ONGLETS | Audit + correctifs UX mobile onglet par onglet (irréprochable sur téléphone) | P1 | L | ⬜ À faire | [docs/subjects/MOBILE-AUDIT-ONGLETS.md](docs/subjects/MOBILE-AUDIT-ONGLETS.md) · 13 onglets à auditer · 1 commit / onglet · v13.37-40 = base déjà solide · critique pour V1 commerciale |
-| LOG-FICHE-360 | Vue 360° consolidée par bien (à la Qalimo) — header photos + sous-onglets Général/Documents/Candidats/EDL/Compta/Compteurs/Entretien | P1 | L | ⬜ À faire | [docs/subjects/LOG-FICHE-360.md](docs/subjects/LOG-FICHE-360.md) · pattern standard solutions pro · manque UX critique vs Qalimo/BailFacile/Smovin · refonte UX d'agrégation (data déjà là) · phase 1 minimale (S) puis phase 2 sous-onglets (M) |
+| LOG-FICHE-360 | Vue 360° consolidée par bien (Phase 2 sous-onglets Documents/EDL/Compta/Compteurs/Entretien) | P1 | M | 🔄 Phase 1 livrée v14.2 | [docs/subjects/LOG-FICHE-360.md](docs/subjects/LOG-FICHE-360.md) · Phase 1 livrée commit `1036bdf` (route + header + onglet Général) · Phase 2 à planifier en session dédiée — stub ergonomique des 5 sous-onglets déjà en place |
 | DASH-PROFILES | Dashboards par lentille (Propriétaire / Financier / Gestionnaire / Fiscal / Investisseur / Échéances / Prévisionnel / Patrimoine + Custom) | P1 | XL | ⏳ Phase 1 livrée — attente validation | [docs/subjects/DASH-PROFILES.md](docs/subjects/DASH-PROFILES.md) · **Phase 1 aperçu livrée 2026-05-01** : [DASH-PROFILES-SPEC.md](docs/strategie/DASH-PROFILES-SPEC.md) + 8 mockups HTML cliquables [dashboard-mockups/](docs/strategie/dashboard-mockups/index.html) · Reco V1 (4 lentilles : Propriétaire+Financier+Fiscale+Échéances, ~12 j-h) vs V2 (4 lentilles + Custom, ~26 j-h) · 6 questions ouvertes à arbitrer · Phase 2 implémentation après validation utilisateur |
-| LOG-LISTE-CARDS | Refonte liste logements/immeubles en cartes (à la Qalimo) — image + ratio occupation + toolbar Ajouter/Exporter/Rechercher/Filtrer/Tri + tabs Actifs/Archivés | P1 | M | ⬜ À faire | [docs/subjects/LOG-LISTE-CARDS.md](docs/subjects/LOG-LISTE-CARDS.md) · couple avec LOG-FICHE-360, LOG-PHOTOS, LOG-ARCHIVE |
-| NAV-RESTRUCTURE | Sortir Biens + Bailleurs du Référentiel → onglets top-nav dédiés | P1 | S | ⬜ À faire | [docs/subjects/NAV-RESTRUCTURE.md](docs/subjects/NAV-RESTRUCTURE.md) · à attaquer avec LOG-LISTE-CARDS · pattern Qalimo/BailFacile/Smovin |
 
 ---
 
@@ -146,9 +144,8 @@
 | **MRH** | | | | | |
 | MRH-AUTO-LOC | MRH : récupérer auto le locataire selon logement | P2 | S | ⬜ À faire | [docs/subjects/MRH-AUTO-LOC.md](docs/subjects/MRH-AUTO-LOC.md) |
 | **Logement** | | | | | |
-| LOG-PHOTOS | Photos illustratives sur la fiche logement (galerie permanente) | P2 | M | ⬜ À faire | [docs/subjects/LOG-PHOTOS.md](docs/subjects/LOG-PHOTOS.md) · réutiliser pattern EDL-PHOTOS-IDXDB · couple avec LOG-ANNONCE |
+| LOG-PHOTOS | Photos illustratives sur la fiche logement (galerie permanente) | P2 | M | ⬜ À faire | [docs/subjects/LOG-PHOTOS.md](docs/subjects/LOG-PHOTOS.md) · réutiliser pattern EDL-PHOTOS-IDXDB · couple avec LOG-ANNONCE · alimenterait l'image principale des cartes Biens (placeholder actuel) et le hero de LOG-FICHE-360 |
 | LOG-ANNONCE | Bouton "Générer annonce de location" pour logements vacants | P2 | M | ⬜ À faire | [docs/subjects/LOG-ANNONCE.md](docs/subjects/LOG-ANNONCE.md) · différenciant marché vs Rentila/BailFacile |
-| LOG-ARCHIVE | Archivage de biens (vendu, non géré) — soft-delete avec onglet "Archivés" | P2 | S | ⬜ À faire | [docs/subjects/LOG-ARCHIVE.md](docs/subjects/LOG-ARCHIVE.md) · sujet jumeau LOG-LISTE-CARDS Phase 3 |
 | **Travaux / PJ** | | | | | |
 | DOC-PJ | Pouvoir ajouter des PJ (factures, CR entretien, photos) | P2 | M | ⬜ À faire | [docs/subjects/DOC-PJ.md](docs/subjects/DOC-PJ.md) |
 | TRAV-SUIVI | Suivi entretien / travaux avec calendrier | P2 | L | ⬜ À faire | [docs/subjects/TRAV-SUIVI.md](docs/subjects/TRAV-SUIVI.md) · CDC requis |
@@ -212,6 +209,15 @@
 ---
 
 ## ✅ Livré récemment
+
+### Vue Biens (Qalimo-like) — session 2026-05-01 (~6h, 5 commits, v14.1 → v14.2)
+| Code | Sujet | Note |
+|---|---|---|
+| NAV-RESTRUCTURE | Sortir Biens + Bailleurs du Référentiel → 2 onglets sidebar dédiés (section Patrimoine) ; Référentiel renommé Paramètres ; redirects legacy | v14.2 · commit `aaf1e54` |
+| LOG-LISTE-CARDS Phase 1 | Grid responsive cartes immeubles 4/3/2/1 cols + toggle Immeubles↔Logements + ratio occupation visuel + image placeholder + agrégation période/loyer total | v14.2 · commit `df7b66f` |
+| LOG-LISTE-CARDS Phase 2 | Toolbar : recherche live + popovers Filtrer (bailleur/statut/type) et Trier (6 critères) + export CSV 15 colonnes + badge filtres actifs + auto-fermeture popovers | v14.2 · commit `a4bed74` |
+| LOG-ARCHIVE | Soft-delete réversible + champs `archived`/`archivedAt` + tabs Actifs/Archivés avec compteurs + menu dropdown ⋮ (Voir/Modifier/Archiver-Restaurer/Supprimer) + bloc archivage si bail actif + style is-archived + migration ciblée 5 selects de création | v14.2 · commit `7070fb3` |
+| LOG-FICHE-360 Phase 1 | Vue full-page route `#log-fiche-{ref}` (deeplink + back/forward + boot) + hero (placeholder photos + badges) + onglet Général (panneaux Locataire actuel + Conditions du bail) + 5 sous-onglets stubbés "À venir" | v14.2 · commit `1036bdf` |
 
 ### Drive sync — session 2026-04-28 (~5h, 7 commits, v13.12 → v13.18)
 | # | Code | Sujet | Note |
@@ -296,6 +302,15 @@
 ---
 
 ## 📌 Décisions structurantes (journal)
+
+### 2026-05-01 — Refonte vue Biens (parité Qalimo/BailFacile/Smovin) — v14.2
+- Sidebar : nouvelle section **Patrimoine** entre Vue d'ensemble et Locataires (Biens + Bailleurs)
+- Référentiel renommé en **Paramètres** (terme standard)
+- Vue Biens en cartes (immeubles par défaut, toggle vers logements) avec toolbar complète (recherche/filtres/tri/export CSV) et tabs Actifs/Archivés
+- Fiche bien dédiée full-page (route `#log-fiche-{ref}`, header + onglet Général en Phase 1, 5 sous-onglets stubbés pour Phase 2)
+- Soft-delete réversible avec règle **bloque l'archivage tant qu'un bail est actif** (cohérence métier)
+- Décisions par défaut prises faute de validation utilisateur en cours de session : Bailleurs en sidebar dédiée (Option A), Immeubles par défaut, route dédiée pour fiche 360, placeholder image en attendant LOG-PHOTOS
+- Restant : LOG-PHOTOS (image principale réelle), LOG-FICHE-360 Phase 2 (sous-onglets riches Documents/EDL/Compta/Compteurs/Entretien)
 
 ### 2026-04-29 — Principe directeur : constance visuelle / design system
 - Toute modification UI (formulaires, modales, tableaux, popups, lettres/PDF, dashboard) doit respecter le **design system** existant et **conserver la cohérence visuelle sur toutes les pages**

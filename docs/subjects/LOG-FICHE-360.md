@@ -1,6 +1,6 @@
 # LOG-FICHE-360 — Vue 360° consolidée par bien (à la Qalimo)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (1-3 jours)
+**Status** : 🔄 Phase 1 livrée v14.2 (2026-05-01) · Phase 2 (sous-onglets riches) à planifier · **Prio** : P1 · **Taille** : L
 **Détecté** : 2026-05-01
 **Lié à** : V3-VISUEL · V3-REFONTE-EQUIP · LOG-PHOTOS · LOG-ANNONCE · DOC-PJ · TRAV-SUIVI · BIZPLAN
 
@@ -22,18 +22,20 @@ Vue fiche bien Qalimo :
 
 ## Scope
 
-### Phase 1 — Vue agrégée minimale (P1 / S, ~3-5h)
-**Objectif** : sur clic d'un bien dans Logements, ouvrir une fiche dédiée full-page avec ce qu'on a déjà.
+### Phase 1 — Vue agrégée minimale ✅ Livré v14.2 commit `1036bdf`
 
-- [ ] Route / vue `#log-fiche-{id}` ou modale full-screen (à arbitrer)
-- [ ] Header : nom bien + adresse + badge entité bailleur + photos (cf `LOG-PHOTOS` quand livré)
-- [ ] Onglet "Général" : 2 panneaux
-  - Locataire actuel (depuis bail en cours) : nom, loyer, date début/fin, statut paiement
-  - Conditions du bail : loyer HC + charges + TVA, DG, type bail, IRL prochaine révision
-- [ ] Bouton "Modifier" → ouvre form édition logement existant
-- [ ] Bouton "Retour" → retour à la liste logements
+- [x] Route `#log-fiche-{ref}` (history.pushState pour deeplink bookmarkable + back/forward + listener hashchange + check au boot DOMContentLoaded)
+- [x] Header : nom bien + suffixe ref + adresse+étage + badges (bailleur + type + surface + statut Loué/Vacant/Archivé) + photos placeholder (icône 🏠 sur dégradé)
+- [x] Onglet "Général" (responsive grid 2 cols / 1 col <900px) : 2 panneaux
+  - **Locataire actuel** : nom + email + tel + co-locataires + période bail + loyer total mensuel ; empty state si vacant ou archivé avec CTA "Créer un bail"
+  - **Conditions du bail** : loyer HC + provision charges + DG + type contrat + indice IRL + jour paiement ; empty state avec valeurs indicatives logement si pas de bail
+- [x] Bouton "Modifier le bien" → ouvre form édition logement existant
+- [x] Bouton "Retour aux biens" → retour onglet Biens
+- [x] Bonus : breadcrumb (Biens › Immeuble › Ref), bouton Archiver/Restaurer dans le hero, titre topbar dynamique (nom immeuble + ref)
 
-### Phase 2 — Sous-onglets internes (P1 / M, ~5-8h)
+### Phase 2 — Sous-onglets internes (P1 / M, ~5-8h) — **À planifier en session dédiée**
+**Stub déjà en place** : 5 sous-onglets visibles désactivés avec mention "À venir" dans la fiche v14.2 (Documents / EDL / Comptabilité / Compteurs / Entretien). Ergonomie de la barre prête, reste à implémenter le rendu de chaque onglet.
+
 - [ ] **Documents** : tous les PDFs liés (bail signé, EDL entrée, EDL sortie, lettres IRL, quittances) → réutilise `DOC-PJ`
 - [ ] **Candidats** : 🆕 nouveau concept — pipeline de prospects locataires (à classer en sujet `LOG-CANDIDATS` séparé)
 - [ ] **État des lieux** : liste des EDL passés (entrée/sortie) avec accès direct
@@ -88,3 +90,5 @@ Vue fiche bien Qalimo :
 
 ## Journal
 - 2026-05-01 : créé · P1 car comble un manque UX critique pour V1 commerciale (parité avec solutions pro)
+- 2026-05-01 : ✅ **Phase 1 livrée v14.2** · commit `1036bdf` · vue full-page route `#log-fiche-{ref}`, hero header (placeholder photos + badges), onglet Général (2 panneaux Locataire actuel + Conditions du bail), 5 sous-onglets stubbés "À venir" (Documents/EDL/Compta/Compteurs/Entretien), hash routing complet (deeplink + back/forward + boot)
+- 2026-05-01 : Phase 2 (sous-onglets riches) **à planifier en session dédiée** — ergonomie de la barre déjà en place, ne reste qu'à implémenter chaque rendu
