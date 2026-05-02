@@ -649,6 +649,31 @@ a{color:var(--blu);text-decoration:none}
   .logf-actions .btn{flex:1;justify-content:center}
 }
 
+/* v14.3 IMM-FICHE-360 Phase 1 — fiche immeuble dédiée (réutilise .logf-* pour cohérence) */
+.logf-hero.immf-hero{grid-template-columns:340px 1fr 200px;align-items:center}
+@media (max-width:1100px){.logf-hero.immf-hero{grid-template-columns:1fr 200px}}
+@media (max-width:900px){.logf-hero.immf-hero{grid-template-columns:1fr;gap:14px}.logf-hero.immf-hero .immf-donut{margin:0 auto}}
+.logf-badge[onclick]{cursor:pointer;transition:background var(--t-fast)}
+.logf-badge[onclick]:hover{background:rgba(59,126,246,.22)}
+.immf-donut{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.immf-donut-svg{display:block}
+.immf-donut-cap{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+.immf-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.immf-kpi{
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  padding:14px 16px;box-shadow:var(--shadow);text-align:center;
+  transition:box-shadow var(--t-fast),transform var(--t-fast);
+}
+.immf-kpi:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-1px)}
+.immf-kpi-v{font-size:22px;font-weight:700;color:var(--t1);font-family:'Manrope',sans-serif;line-height:1.1}
+.immf-kpi-v.k-num{font-size:24px}
+.immf-kpi-v.k-money{font-size:20px}
+.immf-kpi-v.k-warn{color:var(--ora)}
+.immf-kpi-v.k-ok{color:#16a34a}
+.immf-kpi-l{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-top:6px}
+@media (max-width:900px){.immf-kpis{grid-template-columns:repeat(2,1fr);gap:10px}}
+@media (max-width:480px){.immf-kpi-v{font-size:18px}.immf-kpi-v.k-money{font-size:17px}.immf-kpi-l{font-size:10px}}
+
 @media (max-width:1280px){.biens-grid{grid-template-columns:repeat(3,1fr);gap:16px}}
 @media (max-width:1023px){.biens-grid{grid-template-columns:repeat(2,1fr);gap:14px}}
 @media (max-width:600px){
@@ -2610,6 +2635,11 @@ textarea.field-modified-since-sig{
     <!-- PAGE: LOG-FICHE-360 Phase 1 (v14.2) — vue 360 dédiée d'un bien -->
     <div class="page" id="p-log-fiche">
       <div id="log-fiche-content"></div>
+    </div>
+
+    <!-- PAGE: IMM-FICHE-360 Phase 1 (v14.3) — vue dédiée d'un immeuble -->
+    <div class="page" id="p-imm-fiche">
+      <div id="imm-fiche-content"></div>
     </div>
 
     <!-- PAGE: PARAMS (v14.2 : Logements + Entités déplacés vers Biens / Bailleurs) -->
@@ -5030,6 +5060,7 @@ function go(page, elNav) {
     quittances:'Quittances',edl:'États des lieux',
     biens:'Biens',bailleurs:'Bailleurs', // v14.2 NAV-RESTRUCTURE
     'log-fiche':'Fiche bien',            // v14.2 LOG-FICHE-360
+    'imm-fiche':'Fiche immeuble',        // v14.3 IMM-FICHE-360
     params:'Paramètres',export:'Export / Sauvegarde'};
   el('tb-title').textContent = titles[page]||page;
   el('tb-actions').innerHTML = '';
@@ -5051,6 +5082,7 @@ function go(page, elNav) {
     biens:rBiens,         // v14.2 NAV-RESTRUCTURE
     bailleurs:rBailleurs, // v14.2 NAV-RESTRUCTURE
     'log-fiche':rLogFiche,// v14.2 LOG-FICHE-360
+    'imm-fiche':rImmFiche,// v14.3 IMM-FICHE-360
     params:rParams,
     export:rExport,
   };
@@ -16173,7 +16205,11 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
   const subtitleEsc = escHtml((logs[0]&&logs[0].adr) || '');
   const bailleurEsc = escHtml(entNom || '—');
   const firstRef = logs[0] && logs[0].ref;
-  const onClick = firstRef ? `openLogFiche('${escHtml(firstRef)}')` : '';
+  // v14.3 IMM-FICHE-360 : click carte immeuble → ouvre la fiche immeuble dédiée (et plus le 1er logement)
+  const im = ent && immNom ? (ent.immeubles||[]).find(i => i.nom === immNom) : null;
+  let onClick = '';
+  if(ent && +ent.id && im && +im.id) onClick = `openImmFiche(${+ent.id},${+im.id})`;
+  else if(firstRef) onClick = `openLogFiche('${escHtml(firstRef)}')`; // fallback pour logements orphelins (pas d'immeuble structuré)
   const archCls = isArchived ? ' is-archived' : '';
   const archBadge = isArchived ? '<span class="bien-card-archived-badge">Archivé</span>' : '';
   return `<article class="bien-card${archCls}" tabindex="0" onclick="${onClick}" onkeydown="if(event.key==='Enter'||event.key===' '){${onClick};event.preventDefault()}">
@@ -16785,17 +16821,169 @@ function _renderLogFichePanelGeneral(log, bail) {
   return `<div class="logf-panels">${locPanel}${condPanel}</div>`;
 }
 
+// v14.3 IMM-FICHE-360 Phase 1 — vue dédiée d'un immeuble (hub patrimoine intermédiaire).
+// Le hub manquant entre Bailleur et Logement. Drill-in cohérent : Bailleur > Immeuble > Logement.
+let _currentImmFiche = null; // { entId, immId }
+
+function openImmFiche(entId, immId) {
+  if(!entId || !immId) return;
+  _currentImmFiche = { entId: +entId, immId: +immId };
+  go('imm-fiche', null);
+  try {
+    const target = `#imm-fiche-${+entId}-${+immId}`;
+    if(location.hash !== target) history.pushState(null, '', target);
+  } catch(e){}
+  // Titre topbar dynamique
+  const ent = (DB.entites||[]).find(e => +e.id === +entId);
+  const im  = ent && (ent.immeubles||[]).find(i => +i.id === +immId);
+  if(im) {
+    const tb = el('tb-title');
+    if(tb) tb.textContent = ent ? `${im.nom||'Immeuble'} — ${ent.nom||''}` : (im.nom||'Immeuble');
+  }
+}
+
+function closeImmFiche() {
+  _currentImmFiche = null;
+  const navBiens = document.querySelector('.ni[data-tip*="Biens"]');
+  go('biens', navBiens || null);
+  try { history.pushState(null, '', location.pathname + location.search); } catch(e){}
+}
+
+// Donut SVG natif d'occupation (animé, pas de dépendance externe)
+function _renderOccupationDonut(loues, total, sizePx) {
+  sizePx = sizePx || 120;
+  const r = (sizePx - 16) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = total ? loues / total : 0;
+  const filled = c * pct;
+  const empty = c - filled;
+  const color = pct === 1 ? '#16a34a' : (pct === 0 ? '#dc2626' : '#ea580c');
+  const half = sizePx / 2;
+  const pctTxt = total ? Math.round(pct*100) + '%' : '—';
+  return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" class="immf-donut-svg" role="img" aria-label="${loues} sur ${total} logements loués">
+    <circle cx="${half}" cy="${half}" r="${r.toFixed(2)}" fill="none" stroke="var(--bor)" stroke-width="10"/>
+    <circle cx="${half}" cy="${half}" r="${r.toFixed(2)}" fill="none" stroke="${color}" stroke-width="10"
+      stroke-dasharray="${filled.toFixed(2)} ${empty.toFixed(2)}" stroke-dashoffset="${(c/4).toFixed(2)}"
+      transform="rotate(-90 ${half} ${half})" stroke-linecap="round"
+      style="transition:stroke-dasharray .6s ease-out"/>
+    <text x="${half}" y="${(half - 2).toFixed(0)}" text-anchor="middle" font-size="${(sizePx*0.22).toFixed(0)}" font-weight="700" fill="var(--t1)" font-family="Manrope, sans-serif">${pctTxt}</text>
+    <text x="${half}" y="${(half + 18).toFixed(0)}" text-anchor="middle" font-size="${(sizePx*0.1).toFixed(0)}" fill="var(--t3)">${loues}/${total||0}</text>
+  </svg>`;
+}
+
+function rImmFiche() {
+  const wrap = el('imm-fiche-content'); if(!wrap) return;
+  if(!_currentImmFiche) { wrap.innerHTML = '<p class="mu">Aucun immeuble sélectionné.</p>'; return; }
+  const { entId, immId } = _currentImmFiche;
+  const ent = (DB.entites||[]).find(e => +e.id === entId);
+  const im  = ent && (ent.immeubles||[]).find(i => +i.id === immId);
+  if(!ent || !im) {
+    wrap.innerHTML = `<div class="biens-empty">
+      <div class="biens-empty-icon">⚠</div>
+      <div class="biens-empty-title">Immeuble introuvable</div>
+      <div class="biens-empty-msg">L'immeuble demandé n'existe pas ou a été supprimé.</div>
+      <button class="btn bs" onclick="closeImmFiche()">← Retour aux biens</button>
+    </div>`;
+    return;
+  }
+  const allLogs    = (DB.logements||[]).filter(l => l.entity === ent.nom && l.imm === im.nom);
+  const activeLogs = allLogs.filter(l => !l.archived);
+  const archivedLogs = allLogs.filter(l => l.archived);
+  const nbLogs    = activeLogs.length;
+  const occupes   = activeLogs.filter(l => _bienIsBailActif(l.ref)).length;
+  const vacance   = nbLogs - occupes;
+  const vacancePct = nbLogs ? Math.round(vacance/nbLogs*100) : 0;
+  const loyerHC   = activeLogs.filter(l => _bienIsBailActif(l.ref)).reduce((s,l)=>s+(+l.hc||0), 0);
+  const occupCls  = occupes === nbLogs && nbLogs ? 'k-ok' : (vacance > 0 && nbLogs ? 'k-warn' : '');
+  const entNomEsc = escHtml(ent.nom||'');
+  const immNomEsc = escHtml(im.nom||'—');
+  const adrLine = im.adr ? `<div class="logf-adr">${escHtml(im.adr)}${im.annee?' · construit en '+(+im.annee||''):''}</div>` : '';
+
+  wrap.innerHTML = `
+    <button class="logf-back" onclick="closeImmFiche()">← Retour aux biens</button>
+    <div class="logf-breadcrumb">
+      <a onclick="closeImmFiche();return false">Biens</a>
+      <span class="sep">›</span>
+      <a onclick="openEntFiche(${+ent.id});return false">${entNomEsc}</a>
+      <span class="sep">›</span>
+      <span>${immNomEsc}</span>
+    </div>
+    <div class="logf-hero immf-hero">
+      <div class="logf-photos" aria-hidden="true">🏢</div>
+      <div class="logf-info">
+        <h1 class="logf-title">${immNomEsc}</h1>
+        ${adrLine}
+        <div class="logf-badges">
+          <span class="logf-badge" onclick="openEntFiche(${+ent.id})" title="Voir le bailleur">🏛 ${entNomEsc}</span>
+          ${im.regimeJuridique?`<span class="logf-badge b-mute">${escHtml(im.regimeJuridique)}</span>`:''}
+          ${im.periodeConstr?`<span class="logf-badge b-mute">${escHtml(im.periodeConstr)}</span>`:''}
+        </div>
+        <div class="logf-actions">
+          <button class="btn bp" onclick="openNewEnt(${+ent.id})">✏ Modifier l'immeuble</button>
+          <button class="btn bs" onclick="openEntFiche(${+ent.id})">🏛 Voir le bailleur</button>
+        </div>
+      </div>
+      <div class="immf-donut">
+        ${_renderOccupationDonut(occupes, nbLogs, 130)}
+        <div class="immf-donut-cap">Occupation</div>
+      </div>
+    </div>
+    <div class="immf-kpis">
+      <div class="immf-kpi"><div class="immf-kpi-v k-num">${nbLogs}</div><div class="immf-kpi-l">Logement${nbLogs>1?'s':''}</div></div>
+      <div class="immf-kpi"><div class="immf-kpi-v k-num ${occupCls}">${occupes}</div><div class="immf-kpi-l">Loué${occupes>1?'s':''}</div></div>
+      <div class="immf-kpi"><div class="immf-kpi-v k-num ${vacance>0?'k-warn':''}">${vacancePct}%</div><div class="immf-kpi-l">Vacance</div></div>
+      <div class="immf-kpi"><div class="immf-kpi-v k-money">${fmt(loyerHC)}</div><div class="immf-kpi-l">Loyer HC /mois</div></div>
+    </div>
+    <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche immeuble">
+      <button class="logf-subtab act" role="tab" aria-selected="true">🏠 Logements (${nbLogs})</button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — timeline Gantt 24 mois passés + 12 futurs">📅 Plan d'occupation <span class="soon">À venir</span></button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — règlement copro, attestations communes">📁 Documents communs <span class="soon">À venir</span></button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — compteurs collectifs, charges récupérables">⚡ Charges communes <span class="soon">À venir</span></button>
+      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — équipements partagés, travaux communs">🔧 Travaux & équipements <span class="soon">À venir</span></button>
+    </div>
+    ${nbLogs
+      ? `<div class="biens-grid">${activeLogs.map(_renderLogementCardFlat).join('')}</div>`
+      : `<div class="biens-empty">
+          <div class="biens-empty-icon">🏠</div>
+          <div class="biens-empty-title">Cet immeuble n'a pas encore de logement</div>
+          <div class="biens-empty-msg">Ajoutez le premier logement pour commencer le suivi locatif.</div>
+          <button class="btn bp" onclick="_immFicheNewLog('${escHtml(ent.nom)}','${escHtml(im.nom)}')">+ Ajouter un logement</button>
+        </div>`
+    }
+    ${archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">📦 ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
+  `;
+}
+
+// Pré-remplit la modale "+ Logement" avec l'entité et l'immeuble courants (depuis empty state)
+function _immFicheNewLog(entNom, immNom) {
+  openNewLog();
+  setTimeout(() => {
+    const entSel = el('log-entity'); if(entSel) entSel.value = entNom;
+    if(typeof refreshLogImmSelect === 'function') refreshLogImmSelect();
+    const immSel = el('log-imm'); if(immSel) immSel.value = immNom;
+  }, 50);
+}
+
 // Hash routing : ouvre la fiche au load ou à un changement de hash externe (back/forward, paste URL)
 window.addEventListener('hashchange', () => {
-  const m = location.hash.match(/^#log-fiche-(.+)$/);
-  if(m) {
-    const ref = decodeURIComponent(m[1]);
+  const mLog = location.hash.match(/^#log-fiche-(.+)$/);
+  const mImm = location.hash.match(/^#imm-fiche-(\d+)-(\d+)$/);
+  if(mImm) {
+    const entId = +mImm[1], immId = +mImm[2];
+    if(!_currentImmFiche || _currentImmFiche.entId !== entId || _currentImmFiche.immId !== immId || currentPage !== 'imm-fiche') {
+      _currentImmFiche = { entId, immId };
+      go('imm-fiche', null);
+    }
+  } else if(mLog) {
+    const ref = decodeURIComponent(mLog[1]);
     if(_currentLogFicheRef !== ref || currentPage !== 'log-fiche') {
       _currentLogFicheRef = ref;
       go('log-fiche', null);
     }
   } else if(currentPage === 'log-fiche') {
     closeLogFiche();
+  } else if(currentPage === 'imm-fiche') {
+    closeImmFiche();
   }
 });
 
@@ -20221,11 +20409,17 @@ window.addEventListener('DOMContentLoaded', ()=>{
   ys.innerHTML=[cy-2,cy-1,cy,cy+1].map(y=>`<option value="${y}"${y===cy?' selected':''}>${y}</option>`).join('');
   // Render dashboard
   rDash();
-  // v14.2 LOG-FICHE-360 : deeplink au boot — si l'URL contient #log-fiche-{ref}, ouvrir la fiche directement
+  // v14.2 LOG-FICHE-360 + v14.3 IMM-FICHE-360 : deeplink au boot — ouvre la fiche directement
   try {
-    const m = location.hash.match(/^#log-fiche-(.+)$/);
-    if(m) {
-      const ref = decodeURIComponent(m[1]);
+    const mImm = location.hash.match(/^#imm-fiche-(\d+)-(\d+)$/);
+    const mLog = location.hash.match(/^#log-fiche-(.+)$/);
+    if(mImm) {
+      const entId = +mImm[1], immId = +mImm[2];
+      const ent = (DB.entites||[]).find(e => +e.id === entId);
+      const im  = ent && (ent.immeubles||[]).find(i => +i.id === immId);
+      if(ent && im) openImmFiche(entId, immId);
+    } else if(mLog) {
+      const ref = decodeURIComponent(mLog[1]);
       if((DB.logements||[]).some(l => l.ref === ref)) openLogFiche(ref);
     }
   } catch(e){}
