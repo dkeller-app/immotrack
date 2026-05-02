@@ -219,6 +219,11 @@
 
 ## ✅ Livré récemment
 
+### BUG-DEL-FICHE-360 — session 2026-05-02 (~30 min, 1 commit, v14.26)
+| Code | Sujet | Note |
+|---|---|---|
+| BUG-DEL-FICHE-360 | Fix régression UX post-UNDO-OP : `delLog`/`delImm`/`delEnt`/`delBail` ne fermaient plus la modale d'édition ni ne quittaient la fiche 360° de l'élément supprimé. Ajout `closeM('ov-X')` + `closeXFiche()` conditionnel **avant** le `_undoOp` (préserve Ctrl+Z) | v14.26 · [docs/subjects/BUG-DEL-FICHE-360.md](docs/subjects/BUG-DEL-FICHE-360.md) |
+
 ### UNDO-OP — session 2026-05-02 (~3h, 4 commits, v14.21 → v14.24)
 | Code | Sujet | Note |
 |---|---|---|
