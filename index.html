@@ -17639,14 +17639,26 @@ function _backupBeforeMigration(label) {
 //   6. Toast utilisateur explicite
 // IMPORTANT Phase 2 : on NE retire PAS les anciens champs (compat code legacy).
 //                     La suppression définitive est en Phase 4 cleanup.
+// v14.14 fix : marqueur dans localStorage (pas DB) pour survivre au mode lecture seule
+// (saveDB() bloqué quand Drive non connecté → DB._migratedArchiV1 ne se persiste pas).
+// Marqueur par device, indépendant du payload Drive. La migration est idempotente
+// donc cross-device n'a pas besoin de coordination via DB.
+const _ARCHI_V1_KEY = 'immotrack_archi_v1_done';
+function _archiV1IsDone() {
+  try { return localStorage.getItem(_ARCHI_V1_KEY) === '1'; } catch(e) { return false; }
+}
+function _archiV1MarkDone() {
+  try { localStorage.setItem(_ARCHI_V1_KEY, '1'); } catch(e) {}
+}
+
 function _migrateArchiV1IfNeeded() {
   if(!DB.logements) return; // initDB pas encore prête, sera rappelée plus tard
 
-  // Backup et toast UNE SEULE FOIS (premier boot après MAJ)
+  // Backup et toast UNE SEULE FOIS (premier boot, marqueur localStorage)
   // L'enrichissement des logements/snapshots tourne à CHAQUE boot (idempotent via if(!log.X))
   // → robuste pour les nouveaux logements créés entre Phase 2 et Phase 3+,
-  //    et pour les imports JSON d'autres devices.
-  const isFirstRun = !DB._migratedArchiV1;
+  //    pour les imports JSON cross-device, ET pour le mode lecture seule Drive.
+  const isFirstRun = !_archiV1IsDone();
   if(isFirstRun) _backupBeforeMigration('archi-v1');
 
   let nbBauxSnapshotEnrichis = 0;
@@ -17739,11 +17751,17 @@ function _migrateArchiV1IfNeeded() {
     nbLogsEnrichis++;
   });
 
+  // Marqueur 1 : localStorage (toujours persisté, même Drive non connecté / mode lecture seule)
+  _archiV1MarkDone();
+  // Marqueur 2 : DB (sera persisté au prochain saveDB réussi, utile cross-device via Drive sync)
   DB._migratedArchiV1 = true;
-  saveDB();
 
-  // Toast utilisateur explicite UNE SEULE FOIS (premier run, cf Q7=A)
-  // Les boots suivants restent silencieux même si la migration enrichit de nouveaux objets
+  // Tentative saveDB silencieuse — si bloqué (read-only Drive), la migration reste en mémoire
+  // et sera idempotente au prochain boot. Le marqueur localStorage évite le retoast/rebackup.
+  try { saveDB(); } catch(e) { /* read-only mode acceptable */ }
+
+  // Toast utilisateur UNE SEULE FOIS (premier run via marqueur localStorage)
+  // Les boots suivants restent silencieux même si l'enrichissement re-tourne (mode read-only persistant)
   if(isFirstRun) {
     setTimeout(() => {
       try {
@@ -17754,7 +17772,7 @@ function _migrateArchiV1IfNeeded() {
       } catch(e) {}
     }, 800);
   }
-  console.log('[ARCHI] Migration v1 :', { isFirstRun, nbLogsEnrichis, nbBauxSnapshotEnrichis });
+  console.log('[ARCHI] Migration v1 :', { isFirstRun, nbLogsEnrichis, nbBauxSnapshotEnrichis, persistedToDB: !!DB._migratedArchiV1 });
 }
 
 // Agrégation d'un immeuble (entNom + immNom) : nb logements, nb occupés, loyer total, période min/max.
