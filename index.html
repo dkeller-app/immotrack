@@ -15059,17 +15059,82 @@ const EDL_COLORS = {'Neuf':'#3fb950',"Bon état":'#58a6ff',"État d'usage":'#d29
 const EDL_ABBREV = {'Neuf':'N',"Bon état":'B',"État d'usage":'U','Mauvais état':'M','Absent':'–'};
 const EDL_DESC   = {'Neuf':'Jamais utilisé',"Bon état":'Propre et fonctionnel',"État d'usage":'Vétusté normale, non imputable','Mauvais état':'Dégradation anormale à charge du locataire','Absent':'Absent ou non applicable'};
 
-// v14.7 EDL-ENRICHISSEMENT (E1+E2) :
-// - Nouvelle section "Extérieurs / Communs" en début (garage, cave, terrasse,
-//   sonnette, boîte aux lettres, détecteur fumée, poubelles multiflux, jardin)
-// - Enrichissement de chaque pièce : Plinthes, Porte/Menuiserie, Thermostat
-//   radiateur, Sangle volet/Chaîne, Autres observations
-// - Prises : séparées en Électriques (avec caches), Interrupteurs (avec caches),
-//   Internet (RJ45)
-// - Cuisine : meubles bas/haut détaillés (portes, étagères, tiroirs), Crédence
+// v14.9 EDL-ORDRE-LOGIQUE :
+// - Réordonné EDL_TPL selon l'ordre logique de visite : Entrée, Séjour, Cuisine,
+//   WC, Salle de bain, Chambre 1, Extérieurs / Communs (déplacé en fin)
+// - Ajout "Clé et poignée" après "Porte / Menuiserie" et "Porte d'entrée" partout
+//
+// v14.7 EDL-ENRICHISSEMENT (E1+E2) - ENRICHISSEMENT INITIAL :
+// - Section "Extérieurs / Communs" (garage, cave, terrasse, sonnette, boîte aux
+//   lettres, détecteur fumée, poubelles multiflux, jardin)
+// - Plinthes, Porte/Menuiserie, Thermostat radiateur, Sangle volet/Chaîne,
+//   Autres observations
+// - Prises : Électriques (+caches) / Interrupteurs (+caches) / Internet (RJ45)
+// - Cuisine : meubles bas/haut détaillés, Crédence
 // - SDB : Robinetterie baignoire/douche, Sous-bassement lavabo/vasque
 // - WC : Lave-mains
 const EDL_TPL = [
+  {nom:"Entrée / Couloir",  e:[
+    "Sol","Plinthes","Murs","Plafond",
+    "Porte d'entrée","Clé et poignée","Serrure / Verrou",
+    "Porte / Menuiserie","Clé et poignée (autres portes)",
+    "Radiateur","Thermostat radiateur",
+    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
+    "Éclairage","VMC / Aération",
+    "Autres observations"
+  ]},
+  {nom:"Séjour / Salon",    e:[
+    "Sol","Plinthes","Murs","Plafond",
+    "Fenêtres","Volets / Stores","Sangle volet / Chaîne",
+    "Porte / Menuiserie","Clé et poignée",
+    "Radiateur","Thermostat radiateur",
+    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
+    "Éclairage","VMC / Aération",
+    "Autres observations"
+  ]},
+  {nom:"Cuisine",           e:[
+    "Sol","Plinthes","Murs","Plafond",
+    "Fenêtre","Volet / Store",
+    "Porte / Menuiserie","Clé et poignée",
+    "Évier","Robinetterie évier",
+    "Meubles bas (portes, étagères, tiroirs)",
+    "Meubles hauts (portes, étagères, tiroirs)",
+    "Plan de travail","Crédence",
+    "Plaques de cuisson","Hotte aspirante","Four","Réfrigérateur","Lave-vaisselle",
+    "Radiateur","Thermostat radiateur",
+    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
+    "Éclairage","VMC / Aération",
+    "Autres observations"
+  ]},
+  {nom:"WC",                e:[
+    "Sol","Plinthes","Murs","Plafond",
+    "Porte / Menuiserie","Clé et poignée",
+    "Cuvette WC","Chasse d'eau","Abattant",
+    "Lave-mains","Robinetterie lave-mains",
+    "Prises électriques (+ caches)","Interrupteurs (+ caches)",
+    "Éclairage","VMC / Aération",
+    "Autres observations"
+  ]},
+  {nom:"Salle de bain",     e:[
+    "Sol","Plinthes","Murs","Plafond",
+    "Fenêtre","Volet / Store",
+    "Porte / Menuiserie","Clé et poignée",
+    "Baignoire / Douche","Robinetterie baignoire / douche","Paroi / Rideau",
+    "Lavabo / Vasque","Sous-bassement lavabo / vasque","Robinetterie lavabo",
+    "Miroir","Radiateur sèche-serviette",
+    "Prises électriques (+ caches)","Interrupteurs (+ caches)",
+    "Éclairage","VMC / Aération",
+    "Autres observations"
+  ]},
+  {nom:"Chambre 1",         e:[
+    "Sol","Plinthes","Murs","Plafond",
+    "Fenêtre","Volet / Store","Sangle volet / Chaîne",
+    "Porte / Menuiserie","Clé et poignée",
+    "Radiateur","Thermostat radiateur",
+    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
+    "Éclairage","Placard / Penderie","VMC / Aération",
+    "Autres observations"
+  ]},
   {nom:"Extérieurs / Communs", e:[
     "Garage",
     "Cave",
@@ -15083,116 +15148,59 @@ const EDL_TPL = [
     "Éclairage extérieur",
     "Autres observations"
   ]},
-  {nom:"Entrée / Couloir",  e:[
-    "Sol","Plinthes","Murs","Plafond",
-    "Porte d'entrée","Porte / Menuiserie","Serrure / Verrou",
-    "Radiateur","Thermostat radiateur",
-    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","VMC / Aération",
-    "Autres observations"
-  ]},
-  {nom:"Séjour / Salon",    e:[
-    "Sol","Plinthes","Murs","Plafond",
-    "Fenêtres","Volets / Stores","Sangle volet / Chaîne",
-    "Porte / Menuiserie",
-    "Radiateur","Thermostat radiateur",
-    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","VMC / Aération",
-    "Autres observations"
-  ]},
-  {nom:"Chambre 1",         e:[
-    "Sol","Plinthes","Murs","Plafond",
-    "Fenêtre","Volet / Store","Sangle volet / Chaîne",
-    "Porte / Menuiserie",
-    "Radiateur","Thermostat radiateur",
-    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","Placard / Penderie","VMC / Aération",
-    "Autres observations"
-  ]},
-  {nom:"Salle de bain",     e:[
-    "Sol","Plinthes","Murs","Plafond",
-    "Fenêtre","Volet / Store",
-    "Porte / Menuiserie",
-    "Baignoire / Douche","Robinetterie baignoire / douche","Paroi / Rideau",
-    "Lavabo / Vasque","Sous-bassement lavabo / vasque","Robinetterie lavabo",
-    "Miroir","Radiateur sèche-serviette",
-    "Prises électriques (+ caches)","Interrupteurs (+ caches)",
-    "Éclairage","VMC / Aération",
-    "Autres observations"
-  ]},
-  {nom:"WC",                e:[
-    "Sol","Plinthes","Murs","Plafond",
-    "Porte / Menuiserie",
-    "Cuvette WC","Chasse d'eau","Abattant",
-    "Lave-mains","Robinetterie lave-mains",
-    "Prises électriques (+ caches)","Interrupteurs (+ caches)",
-    "Éclairage","VMC / Aération",
-    "Autres observations"
-  ]},
-  {nom:"Cuisine",           e:[
-    "Sol","Plinthes","Murs","Plafond",
-    "Fenêtre","Volet / Store",
-    "Porte / Menuiserie",
-    "Évier","Robinetterie évier",
-    "Meubles bas (portes, étagères, tiroirs)",
-    "Meubles hauts (portes, étagères, tiroirs)",
-    "Plan de travail","Crédence",
-    "Plaques de cuisson","Hotte aspirante","Four","Réfrigérateur","Lave-vaisselle",
-    "Radiateur","Thermostat radiateur",
-    "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","VMC / Aération",
-    "Autres observations"
-  ]},
 ];
 const EDL_EXTRA = [
   {nom:"Chambre",   e:[
     "Sol","Plinthes","Murs","Plafond",
     "Fenêtre","Volet / Store","Sangle volet / Chaîne",
-    "Porte / Menuiserie",
+    "Porte / Menuiserie","Clé et poignée",
     "Radiateur","Thermostat radiateur",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
     "Éclairage","Placard / Penderie","VMC / Aération",
     "Autres observations"
   ]},
   {nom:"Balcon / Terrasse",e:[
-    "Sol","Murs / Façade","Garde-corps","Porte-fenêtre","Volet / Store","Sangle volet / Chaîne",
+    "Sol","Murs / Façade","Garde-corps","Porte-fenêtre","Clé et poignée","Volet / Store","Sangle volet / Chaîne",
     "Éclairage","Robinet extérieur","Autres observations"
   ]},
   {nom:"Cave / Garage",    e:[
-    "Sol","Murs","Plafond","Porte / Portail","Serrure",
+    "Sol","Murs","Plafond","Porte / Portail","Clé et poignée","Serrure",
     "Éclairage","Prises électriques","Autres observations"
   ]},
   {nom:"Bureau",   e:[
     "Sol","Plinthes","Murs","Plafond",
     "Fenêtre","Volet","Sangle volet / Chaîne",
-    "Porte / Menuiserie",
+    "Porte / Menuiserie","Clé et poignée",
     "Radiateur","Thermostat radiateur",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
     "Éclairage","Autres observations"
   ]},
   {nom:"Dressing", e:[
-    "Sol","Plinthes","Murs","Plafond","Porte / Menuiserie",
+    "Sol","Plinthes","Murs","Plafond",
+    "Porte / Menuiserie","Clé et poignée",
     "Rangements (étagères, tiroirs, penderies)",
     "Éclairage","Prises électriques","Autres observations"
   ]},
   {nom:"Couloir",  e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Porte / Menuiserie",
+    "Porte / Menuiserie","Clé et poignée",
     "Éclairage","Prises électriques (+ caches)","Interrupteurs (+ caches)",
     "Autres observations"
   ]},
   {nom:"Cellier",  e:[
-    "Sol","Plinthes","Murs","Plafond","Porte / Menuiserie",
+    "Sol","Plinthes","Murs","Plafond",
+    "Porte / Menuiserie","Clé et poignée",
     "Étagères","Éclairage","Prises électriques","Autres observations"
   ]},
   {nom:"Buanderie",e:[
-    "Sol","Plinthes","Murs","Plafond","Porte / Menuiserie",
+    "Sol","Plinthes","Murs","Plafond",
+    "Porte / Menuiserie","Clé et poignée",
     "Évier / Bac à laver","Robinetterie",
     "Prises électriques (+ caches)","VMC / Aération","Éclairage",
     "Autres observations"
   ]},
   {nom:"Jardin",   e:[
-    "Clôture / Portail","Pelouse / Espaces verts","Allées",
+    "Clôture / Portail","Clé et poignée","Pelouse / Espaces verts","Allées",
     "Robinet extérieur","Éclairage extérieur","Autres observations"
   ]},
 ];
