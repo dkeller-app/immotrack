@@ -1,8 +1,14 @@
 # UNDO-OP — Bouton « Annuler la dernière opération » multi-niveau
 
-**Status** : 🔄 En cours (depuis 2026-05-02) · **Prio** : P0 · **Taille** : M (~4-6h)
+**Status** : ✅ Livré v14.21-24 (2026-05-02) · **Prio** : P0 · **Taille** : M (~4-6h)
 **Détecté** : 2026-05-02
 **Lié à** : DRIVE-ARBORESCENCE (Phase A livrée v14.20 — partage hooks suppressions) · DRIVE-2F (OCC futur, complémentaire)
+
+## Résumé livraison
+- **v14.21** (commit `07e591a`) Phase 1 : cœur stack RAM 20 niveaux + helpers `_undoSnapshot`/`_undoOp`/`_undoUndo`/`_undoClear`/`_undoOnSaveDB`/`_undoOnSaveDBSuccess` + hook saveDB symétrique + init aux 2 sites loadDB
+- **v14.22** (commit `9b9cf3f`) Phase 2 : UI — CSS `#fab-undo` bottom-left, `_undoUIInit()` injection FAB + listener Ctrl+Z global avec guard `_inEditableField`, helper `_undoToast(message, type)` pour bouton « Annuler » inline
+- **v14.23** (commit `bb1f23d`) Phase 3 : 11 wrappers `_undoOp` sur les suppressions critiques (delLog, delImm, delEnt, delMv, delBail, delBailHist, delAss, delMrh, delIRL, delQuit, delEDL) avec libellés explicites + `_undoToast`
+- **v14.24** (commit `4c5b4f5`) Phase 4 : flag `_drivePullChangedDB` + helper `_drvMark()` — 24 instrumentations dans `_mergeEntityPayload` + 2 dans `_mergeGlobalPayload` ; `_driveLoadEntityFiles` vide la stack undo après pull avec modifs externes (multi-device safety)
 
 ## Contexte
 Demande utilisateur 2026-05-02 :
@@ -134,3 +140,4 @@ function delLog(ref) {
 
 ## Journal
 - 2026-05-02 : créé · brainstorm Q1→Q6 finalisé · spec validée par utilisateur · prêt pour writing-plans
+- 2026-05-02 : ✅ Livré v14.21-24 · 4 phases en ~3h · stack 20 niveaux RAM · 11 suppressions wrappées · multi-device safety via vidage au pull Drive · approche subtile validée : `_undoLastSnapshot` capturé en fin de saveDB(N) sert de « prev » au saveDB(N+1) suivant (sémantique pré-modif sans intercepter chaque mutation). Code modifié : ~330 lignes ajoutées / ~30 modifiées sur `index.html`. Spec et plan committés en amont (`9b66946` + `4a5e2f1`).

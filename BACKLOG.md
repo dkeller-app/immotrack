@@ -102,7 +102,7 @@
 | DRIVE-2H | Re-architecture fichiers Drive (par-user vs partagé vs référentiel) | P1 | M | ⬜ À faire | À faire EN PREMIER (base de 2F/2G) · [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
 | DRIVE-2F | Optimistic Concurrency Control (OCC) au file level | P1 | M | ⬜ À faire | Après 2H · [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · **REMINDER** : v14.0 push immédiat = "last writer wins" trivial → 2 devices simultanés = écrasement silencieux. OCC via `If-Match: etag` Drive header empêcherait l'écrasement → toast conflit + merge manuel. CRITIQUE pour multi-user (cf user feedback 2026-05-01) |
 | DRIVE-2G | Awareness UI (qui édite quoi) | P1 | S | ⬜ À faire | Couche UX · [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
-| DRIVE-ARBORESCENCE | Arborescence Drive Entité/Immeuble/Logement/[9 sous-dossiers métier] + sync bidirectionnel | P1 | L | 🔄 En cours | [docs/subjects/DRIVE-ARBORESCENCE.md](docs/subjects/DRIVE-ARBORESCENCE.md) · session dédiée démarrée 2026-05-01 · sous-dossiers : EDL, Bail, Documents, Photos, Quittances, IRL, MRH, Travaux, Charges · sync bidir must V1 (dépôt direct Drive détecté par l'app) · englobe/remplace DRIVE-2K · à coupler avec DOC-PJ et LOG-PHOTOS |
+| DRIVE-ARBORESCENCE | Arborescence Drive Entité/Immeuble/Logement/[9 sous-dossiers métier] + sync bidirectionnel | P1 | L | 🔄 Phase A livrée v14.20 (`528eafe` + `03cd686`) · B/D/E restantes | [docs/subjects/DRIVE-ARBORESCENCE.md](docs/subjects/DRIVE-ARBORESCENCE.md) · session dédiée démarrée 2026-05-01, interrompue 2026-05-02 pour UNDO-OP urgent, reprise prévue après · **Phase A livrée v14.20** : helpers `_drvImmoTrackRoot` / `_drvEnsureEntityFolder` / `_drvEnsureImmeubleFolder` / `_drvEnsureLogementTree` (parallélisation 9 sous-dossiers) / `_drvRenameFolder` / `_drvTrashFolder` ; hooks save/del Ent/Imm/Log fire-and-forget · Sous-dossiers : 📋 EDL, 📜 Bail, 📄 Documents, 🖼️ Photos, 🧾 Quittances, 📈 IRL, 🛡️ MRH, 🔧 Travaux, ⚡ Charges · Reste Phase B (helper `_drvUploadDoc` app→Drive) + Phase D (UI Paramètres « Réorganiser ») + Phase E (sync pilotage final) · englobe/remplace DRIVE-2K · à coupler avec DOC-PJ et LOG-PHOTOS |
 
 ---
 
@@ -218,6 +218,14 @@
 ---
 
 ## ✅ Livré récemment
+
+### UNDO-OP — session 2026-05-02 (~3h, 4 commits, v14.21 → v14.24)
+| Code | Sujet | Note |
+|---|---|---|
+| UNDO-OP Phase 1 | Cœur stack RAM 20 niveaux + helpers `_undoOp`/`_undoUndo`/`_undoClear` + hook saveDB symétrique (`_undoOnSaveDB` pré + `_undoOnSaveDBSuccess` post) + init aux 2 sites loadDB + flag `_undoSuppressCapture` anti-récursion | v14.21 · commit `07e591a` |
+| UNDO-OP Phase 2 | UI : CSS `#fab-undo` bottom-left (responsive 52px mobile) + `_undoUIInit` injection FAB au boot + listener Ctrl+Z global avec guard `_inEditableField` (laisse undo natif des inputs/textarea) + helper `_undoToast(message, type)` pour bouton « ↶ Annuler » 8s inline | v14.22 · commit `9b9cf3f` |
+| UNDO-OP Phase 3 | 11 wrappers `_undoOp` sur les suppressions critiques avec libellés explicites : delLog, delImm, delEnt, delMv, delBail, delBailHist, delAss, delMrh, delIRL, delQuit, delEDL · Drive trash garde hors du `_undoOp` (cf spec Q6b : V1 corbeille manuelle 30j) | v14.23 · commit `bb1f23d` |
+| UNDO-OP Phase 4 | Multi-device safety : flag `_drivePullChangedDB` + helper `_drvMark()` → 24 instrumentations dans `_mergeEntityPayload` + 2 dans `_mergeGlobalPayload` (mouvements globaux uniquement) ; `_driveLoadEntityFiles` vide la stack undo après pull avec modifs externes via `_undoClear('drive_pull')` + toast info | v14.24 · commit `4c5b4f5` |
 
 ### Vue Biens (Qalimo-like) — session 2026-05-01 (~6h, 5 commits, v14.1 → v14.2)
 | Code | Sujet | Note |
