@@ -1,65 +1,109 @@
-# BUG-DEL-FICHE-360 — La suppression ne ferme pas la modale / ne quitte pas la fiche 360°
+# BUG-DEL-FICHE-360 + UX-IMM-MODAL — Suppression silencieuse + bulle entité/immeuble imbriquée
 
-**Status** : ✅ **Livré v14.26** · **Prio** : P1 (régression UX) · **Taille** : XS (~30 min)
+**Status** : ✅ **Livré v14.26 (suppression) + v14.27 (modale immeuble autonome)** · **Prio** : P1 (régression UX) · **Taille** : XS+S (~30 min + ~45 min)
 **Détecté** : 2026-05-02
 **Lié à** : UNDO-OP (v14.21-24, frosty-stonebraker) · ARCHI-DB-DOUBLONS · FICHES-PARITE-360
 
-## Symptôme utilisateur
+---
 
-> 💬 2026-05-02 : « quand je supprime, ça ne supprime pas directement avec soit retour en arrière soit disparition de la bulle »
+## Volet 1 — v14.26 : suppression ne ferme pas la modale / la fiche 360°
 
-Reproduction :
-1. Ouvrir la fiche 360° d'un logement / immeuble / bailleur (ou la modale d'édition)
-2. Cliquer sur 🗑 Supprimer
-3. Confirmer
-4. **Bug** : la modale reste ouverte, ou la page fiche 360° reste affichée avec un identifiant désormais orphelin (élément supprimé en DB mais panneau persistant). L'utilisateur doit cliquer manuellement « ✕ » ou recharger.
+### Symptôme
+> 💬 « quand je supprime, ça ne supprime pas directement avec soit retour en arrière soit disparition de la bulle »
 
-## Cause racine
+### Cause
+Lors du wrap `_undoOp` (v14.23), la mutation DB est désormais **différée** dans la closure. Aucun `closeM()` ni `closeXFiche()` n'avait été ajouté → la modale ouverte ou la fiche 360° en cours restait à l'écran.
 
-Lors de la session frosty-stonebraker (UNDO-OP v14.21-24), les fonctions `delLog` / `delImm` / `delEnt` / `delBail` ont été enveloppées dans `_undoOp(label, fn)` pour permettre l'annulation Ctrl+Z. La mutation DB est désormais **différée** dans la closure `fn`, mais aucun appel à `closeM()` ou `closeXFiche()` n'a été ajouté avant ou après l'`_undoOp`.
-
-Avant la refacto (v14.20), la mutation immédiate suivie de `rBaux()` / `rBiens()` / `rBailleurs()` masquait partiellement le bug parce que la liste sous-jacente disparaissait — mais la modale ouverte ou la page fiche 360° en cours restait à l'écran.
-
-## Fix v14.26
-
-Pour chaque fonction de suppression, ajout **avant** l'`_undoOp` :
-1. `closeM('ov-X')` pour fermer une éventuelle modale d'édition de la même catégorie
-2. Si on est sur la fiche 360° de l'élément en train d'être supprimé, appeler `closeXFiche()` pour rediriger vers le hub Biens
-
-```js
-function delLog(ref) {
-  if(!confirm2(`Supprimer le logement ${ref} ? ...`)) return;
-  // BUG-DEL-FICHE-360 v14.26
-  closeM('ov-log');
-  if(currentPage === 'log-fiche' && _currentLogFicheRef === ref) closeLogFiche();
-  _undoOp(`Suppression du logement ${ref}`, () => { ... });
-  _undoToast(`Logement ${ref} supprimé`);
-}
-```
-
-Pattern appliqué aux 4 fonctions :
+### Fix v14.26
+Pour chaque fonction de suppression, ajout **avant** `_undoOp` :
 
 | Fonction | Modal fermée | Redirect fiche 360° |
 |---|---|---|
 | `delLog(ref)` | `ov-log` | `closeLogFiche()` si `_currentLogFicheRef === ref` |
 | `delImm(idx)` | `ov-imm` | `closeImmFiche()` si `_currentImmFiche.entId/immId` matchent |
 | `delEnt(id)`  | `ov-ent` | `closeEntFiche()` si `_currentEntFiche === id` |
-| `delBail(ref)` | `ov-bail` | refresh `rLogFiche()` si on est sur la fiche logement (pas un closeFiche, le logement existe toujours, c'est juste son bail courant qui change) |
+| `delBail(ref)` | `ov-bail` | refresh `rLogFiche()` si on est sur la fiche du bien |
 
-## Compatibilité UNDO-OP préservée
+Le wrapper `_undoOp` reste intact (Ctrl+Z restaure toujours la donnée en DB).
 
-Le pattern `_undoOp` reste intact : la fermeture de la modale / fiche se fait **avant** l'enregistrement de l'opération annulable, donc Ctrl+Z restaurera bien la donnée en DB. Si l'utilisateur veut revoir la fiche après undo, il devra rouvrir manuellement (acceptable car c'est l'inverse du flux normal).
+---
+
+## Volet 2 — v14.27 : modale immeuble autonome (« 1 création = 1 bulle »)
+
+### Symptôme
+> 💬 « on a toujours le problème entre les bulles entité et immeuble »
+> 💬 (rappel 2026-05-02) « la création immeuble se fait dans la bulle bailleur pourquoi? c'est nul. en plus il y a plusieurs boutons enregistré un ou dessus de l'autre. une création une bulle »
+
+Reproduction :
+1. « + Bailleur » → modale entité s'ouvre. La modale contient une section « Immeubles » + bouton « + Immeuble ».
+2. Clic « + Immeuble » → la modale `#ov-imm` s'empile **par dessus** `#ov-ent`. Deux bulles superposées.
+3. Pire : « + Immeuble » depuis vue Biens (1 entité existante) ouvrait `ov-ent` AUTOMATIQUEMENT puis `ov-imm` dessus.
+
+### Cause
+Reliquat de la version inline (avant v14.20) : la modale entité hébergeait la liste + le bouton de création. v14.20 a extrait le formulaire en modale dédiée, mais le bouton est resté dans `ov-ent`. Résultat : `ov-ent` est un passage obligé pour atteindre `ov-imm`.
+
+### Fix v14.27 — refonte complète des flux
+
+**HTML**
+- ❌ Section « Immeubles » + bouton `+ Immeuble` retirés de `ov-ent`
+- ❌ `ent-imm-list` / `ent-add-imm-btn` / `ent-imm-hint` retirés (remplacés par un texte d'info masqué)
+- ✅ Hidden input `imm-ent-id` ajouté dans `ov-imm` → la modale immeuble est **autoportante** (porte sa propre référence d'entité)
+
+**JS — fonctions imm refactorées avec `entIdOverride`**
+- `addImmForm(entIdOverride)` — accepte l'entId en param, écrit dans `imm-ent-id`. Fallback legacy : `ent-edit-id` (modale entité) puis `_currentEntFiche` (fiche bailleur).
+- `editImm(idx, entIdOverride)` — idem
+- `delImm(idx, entIdOverride)` — idem + fallback `_currentImmFiche.entId`
+- `saveImm()` — lit l'entId depuis `imm-ent-id` (fallback `ent-edit-id`). Refresh contextuel : `rEntFiche()` ou `rBiens()` selon page courante.
+- `_syncOvImmEntLabel()` — résout l'entité par cascade (`imm-ent-id` → `ent-edit-id` → `_currentEntFiche`).
+
+**JS — flux de création directs (plus d'ov-ent intermédiaire)**
+- `openNewImm()` (bouton vue Biens) :
+  - 0 entité → toast + `openNewEnt()` (création bailleur d'abord)
+  - 1 entité → `addImmForm(ents[0].id)` direct
+  - N entités → picker `#ov-imm-picker` → `addImmForm(entId)` direct
+- `_confirmImmPicker()` → `addImmForm(entId)` direct (plus d'`openNewEnt()`)
+
+**Fiche bailleur 360°**
+- ✅ Bouton « + Immeuble » ajouté en haut de la grille immeubles : `addImmForm(${ent.id})`
+- ✅ Empty state remis à jour : « Cliquez + Immeuble ci-dessus »
+
+**Menu ⋮ carte building (vue Biens + fiche bailleur)**
+- ❌ Avant : `if(ref) → actions logement` masquait `else if(kind==='building')` (jamais atteint quand l'immeuble avait des logements)
+- ✅ Après : `if(kind==='building')` PRIORITAIRE → menu immeuble dédié :
+  - 📋 Voir détails (→ `openImmFiche`)
+  - ✏ Modifier l'immeuble (→ `editImm` direct, sans ov-ent)
+  - 🗑 Supprimer l'immeuble (→ `delImm` direct)
+- Cas « Logements isolés » (carte virtuelle d'orphelins) : retombe sur le menu logement legacy
+
+### Compat / non-régression
+- `renderImmList(imms)` reste défini en no-op safe (early-return si `ent-imm-list` absent) — pas de crash sur appels legacy depuis `openNewEnt`.
+- `_syncEntImmAddBtn()` idem (early-return si `ent-add-imm-btn` absent).
+- Les hooks DRIVE-ARBORESCENCE (`_drvHookEnsureImmeuble`, `_drvHookRename`, `_drvHookTrash`) sont préservés à l'identique dans `saveImm` / `delImm`.
+- L'UNDO-OP reste fonctionnel sur `delImm`.
+
+---
 
 ## Critères d'acceptance
 
-- [x] Cliquer sur 🗑 dans une fiche 360° de logement → modale fermée + redirect vers Biens
-- [x] Cliquer sur 🗑 dans une fiche 360° d'immeuble → redirect Biens (mode bailleurs)
-- [x] Cliquer sur 🗑 dans une fiche 360° de bailleur → redirect Biens
-- [x] Cliquer sur 🗑 dans la modale d'édition → modale fermée
-- [x] Cliquer sur 🗑 dans la liste tabulaire (rBaux, rBiens, …) → comportement existant préservé
-- [x] FAB Annuler (Ctrl+Z) reste fonctionnel pour les 4 cas
+### v14.26 (suppression)
+- [x] Cliquer 🗑 dans fiche 360° logement → modale fermée + redirect Biens
+- [x] Cliquer 🗑 dans fiche 360° immeuble → redirect Biens (mode bailleurs)
+- [x] Cliquer 🗑 dans fiche 360° bailleur → redirect Biens
+- [x] Cliquer 🗑 dans modale d'édition → modale fermée
+- [x] FAB Annuler (Ctrl+Z) reste fonctionnel
 - [x] Aucune régression sur le toast de confirmation
+
+### v14.27 (modale immeuble autonome)
+- [x] Modale entité ne contient PLUS de section Immeubles
+- [x] « + Immeuble » depuis fiche bailleur 360° → `ov-imm` direct (pas d'ov-ent)
+- [x] « + Immeuble » depuis vue Biens (1 entité) → `ov-imm` direct
+- [x] « + Immeuble » depuis vue Biens (N entités) → picker → `ov-imm` direct
+- [x] Menu ⋮ carte immeuble → 3 actions (voir / modifier / supprimer) — plus le menu logement par erreur
+- [x] Édition immeuble depuis menu ⋮ → `ov-imm` seul, pas d'`ov-ent` derrière
+- [x] Suppression immeuble : modale fermée + fiche bailleur/Biens refresh + UNDO fonctionnel
+- [x] Création immeuble depuis fiche bailleur : refresh immédiat de la liste
 
 ## Journal
 
-- 2026-05-02 : créé · fix livré v14.26 (commit à venir) · diagnostic post-merge frosty-stonebraker · 4 sites patchés (delLog/delImm/delEnt/delBail)
+- 2026-05-02 (matin) : créé · fix v14.26 livré (commit `8743d69`) · 4 sites patchés (delLog/delImm/delEnt/delBail)
+- 2026-05-02 (midi) : volet 2 (UX-IMM-MODAL) livré v14.27 · refonte complète flux modale immeuble · principe « 1 création = 1 bulle » respecté à 100% · menu ⋮ carte building corrigé (kind prioritaire sur ref)
