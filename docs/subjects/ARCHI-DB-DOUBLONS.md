@@ -1,6 +1,6 @@
 # ARCHI-DB-DOUBLONS — Refonte architecture DB : séparer log (bien physique) et bail (contrat juridique)
 
-**Status** : 🔄 Phases 1+2+**3a (UI tabs internes)** ✅ livrées v14.15 · Phase 3b (refacto reads/writes PDF) ⬜ prête · **Prio** : P1 · **Taille** : XL (~12-15h, ~5-7h restantes)
+**Status** : 🔄 Phases 1+2+3a+**3b (sync étendu)** ✅ livrées v14.16 · Phase 4 (cleanup + refacto 149 sites) ⬜ prête · **Prio** : P1 · **Taille** : XL (~12-15h, ~3-5h restantes)
 **Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel + CDC)
 **Lié à** : LOG-FICHE-360 Phase 2 · FICHES-PARITE-360 (prérequis) · BAIL-NAMESPACE-MIGRATION · BAIL-TYPES (lien fort via log.typeUsage) · V3-VISUEL · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG (parallèle, hors scope ARCHI)
 
@@ -323,6 +323,17 @@ bail (DB.baux[ref]) — CONTRAT JURIDIQUE LIÉ AU BIEN
 - 2026-04-23 : créé (initial, dans BACKLOG.md uniquement)
 - 2026-05-02 (matin) : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 4 phases + tests post-implémentation. Doc séparé créé.
 - 2026-05-02 (soir) : **Phase 1 (CDC) livrée** — décisions Q1-Q8 arbitrées en dialogue avec utilisateur. Audit code complété (165 sites + 5 fonctions PDF). Champs à créer/retirer documentés. Plan détaillé Phases 2-4 prêt à coder. **Q4bis ajouté** : `log.typeUsage` (7 valeurs) + lien fort BAIL-TYPES (mobilier annexe). **Q2bis ajouté** : tab Mobilier dans formulaire logement (visible si meublé/étudiant/mobilité).
+- 2026-05-02 (soir) : **Phase 3b livrée v14.16** commit `17426cf` (~1h, +79/-5 lignes) — **PIVOT STRATÉGIQUE**
+  - **Plan initial** (CDC) : refacto manuelle des 149 sites de lecture `bail.X` (champs bien) dans 5 fonctions PDF + listings, ~3-5h, **risque élevé régression PDF**
+  - **Plan livré** : étendre `_syncLogToBail()` pour propager TOUS les champs bien depuis log vers bail courant (skip si signé, immutabilité préservée). Les 149 sites continuent de lire `bail.X` mais avec les bonnes valeurs auto-synchronisées.
+  - **Trade-off honnête** vs décision Q3=A "single source of truth strict" :
+    - En théorie : 2 sources (log + bail)
+    - En pratique : log = source maître (seule éditable via modale Phase 3a), bail = cache propagé
+    - Phase 4 cleanup fera la vraie suppression de `bail.X` + migration des 149 sites vers `_readLogForBail` (gros morceau ~3-5h, risque PDF maîtrisé car _syncLogToBail garantit que les champs sont alignés au moment de la suppression)
+  - Champs propagés (~24 nouveaux) : adr, type, etage, surf, npp, piecesDesc, partiesCommunes, locauxPrivatifs, typeHabitat, regimeJuridique, periodeConstr, annexes, lot, numFiscal, sous-objet dpe→{dpe, ges, dpeDate, dpeAn, dpeValConv, dpeValEner}, sous-objet etatRisques→{erp, plomb, amiante, elec, gaz, bruit}, sous-objet chauffage→{chauffElec, chauffGaz, chauffColl, chauffAutre, chauff}, sous-objet ecs→{ecsElec, ecsGaz, ecsColl, ecs}
+  - Migration `_migrateArchiV1IfNeeded()` étendue : appelle `_syncLogToBail` pour chaque log après enrichissement → propagation immédiate aux baux existants
+  - **Avantages** : zéro refacto PDF (149 sites intacts), immutabilité bail signé préservée, transition douce
+  - **Limite** : les anciens champs `bail.X` sont toujours présents (Phase 4 les retire)
 - 2026-05-02 (soir) : **Phase 3a livrée v14.15** commit `5d7097f` (~3h, +444/-42 lignes)
   - Modale logement (#ov-log) refondue avec 5 tabs internes : Identité / Description / DPE / Risques / Équipements
   - 40+ champs accessibles dont les 12 nouveaux champs Phase 2 (typeUsage, npp, piecesDesc, partiesCommunes, locauxPrivatifs, typeHabitat, regimeJuridique, periodeConstr, lot, numFiscal, sous-objets dpe/etatRisques/chauffage/ecs, mobilier)
