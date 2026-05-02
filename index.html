@@ -659,6 +659,69 @@ a{color:var(--blu);text-decoration:none}
   .logf-actions .btn{flex:1;justify-content:center}
 }
 
+/* v14.13 A3 — onglet Bail dans LOG-FICHE-360 (panneau, timeline historique, liste) */
+.logf-bail-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:0 24px;
+  margin-bottom:14px;
+}
+.logf-bail-actions{
+  display:flex;flex-wrap:wrap;gap:8px;
+  border-top:1px solid var(--bor2);padding-top:14px;margin-top:6px;
+}
+.logf-bail-history-list{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.logf-bail-hist-row{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);
+  border-radius:var(--r);font-size:13px;
+}
+.logf-bail-hist-row:hover{background:var(--sur3);border-color:rgba(59,126,246,.3)}
+.logf-bail-hist-row .mu{font-size:11px;color:var(--t3)}
+
+/* Timeline horizontale des baux (bail courant + historique empilés sur axe temporel) */
+.bail-tl{
+  position:relative;
+  background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);
+  padding:18px 16px 8px;margin:14px 0;
+}
+.bail-tl-bars{
+  position:relative;height:36px;
+  background:linear-gradient(to bottom,transparent 49%,var(--bor) 49%,var(--bor) 51%,transparent 51%);
+}
+.bail-tl-bar{
+  position:absolute;top:6px;height:24px;
+  border-radius:6px;
+  display:flex;align-items:center;padding:0 9px;
+  font-size:11px;font-weight:700;color:#fff;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  box-shadow:0 1px 4px rgba(0,0,0,.18);cursor:pointer;
+  transition:transform var(--t-fast),box-shadow var(--t-fast);
+  text-shadow:0 1px 2px rgba(0,0,0,.25);
+  min-width:24px;
+}
+.bail-tl-bar:hover{transform:scale(1.04);box-shadow:0 3px 10px rgba(0,0,0,.28);z-index:3}
+.bail-tl-bar.current{outline:2px solid #fff;outline-offset:-1px;box-shadow:0 1px 4px rgba(0,0,0,.18),0 0 0 3px var(--acc)}
+.bail-tl-marker-now{
+  position:absolute;top:-6px;bottom:-6px;width:2px;
+  background:var(--red);z-index:2;
+}
+.bail-tl-marker-now::after{
+  content:'auj.';position:absolute;top:-16px;left:50%;
+  transform:translateX(-50%);
+  background:var(--red);color:#fff;
+  font-size:9px;font-weight:700;padding:1px 5px;border-radius:7px;
+  letter-spacing:.4px;
+}
+.bail-tl-axis{
+  display:flex;justify-content:space-between;
+  font-size:10px;color:var(--t3);font-weight:600;
+  margin-top:8px;letter-spacing:.4px;
+}
+@media (max-width:600px){
+  .logf-bail-grid{grid-template-columns:1fr;gap:0}
+  .logf-bail-actions .btn{flex:1;justify-content:center}
+  .bail-tl-bar{font-size:10px;padding:0 5px}
+}
+
 /* v14.3 IMM-FICHE-360 Phase 1 — fiche immeuble dédiée (réutilise .logf-* pour cohérence) */
 .logf-hero.immf-hero{grid-template-columns:340px 1fr 200px;align-items:center}
 @media (max-width:1100px){.logf-hero.immf-hero{grid-template-columns:1fr 200px}}
@@ -18121,6 +18184,15 @@ function openLogFiche(ref) {
   }
 }
 
+// v14.13 A3 — état du sous-onglet actif dans la fiche logement (Général / Bail / [stubs])
+let _currentLogFicheTab = 'general';
+
+function setLogFicheTab(t) {
+  if(t !== 'general' && t !== 'bail') return; // les autres sont stubs Phase 2
+  _currentLogFicheTab = t;
+  rLogFiche();
+}
+
 // v14.13 A2 — drill-back intelligent : remonte d'un seul niveau dans la hiérarchie
 // Logement → Immeuble si imm, sinon Bailleur si entity, sinon Biens (root)
 function closeLogFiche() {
@@ -18227,18 +18299,22 @@ function rLogFiche() {
       </div>
     </div>
     <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche bien">
-      <button class="logf-subtab act" role="tab" aria-selected="true">📋 Général</button>
+      <button class="logf-subtab${_currentLogFicheTab==='general'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='general'}" onclick="setLogFicheTab('general')">📋 Général</button>
+      <button class="logf-subtab${_currentLogFicheTab==='bail'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='bail'}" onclick="setLogFicheTab('bail')">📜 Bail</button>
       <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">📁 Documents <span class="soon">À venir</span></button>
       <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">📋 États des lieux <span class="soon">À venir</span></button>
       <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">💰 Comptabilité <span class="soon">À venir</span></button>
       <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">⚡ Compteurs <span class="soon">À venir</span></button>
       <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — à venir">🔧 Entretien <span class="soon">À venir</span></button>
     </div>
-    ${_renderLogFichePanelGeneral(log, bail)}
+    ${_currentLogFicheTab === 'bail' ? _renderLogFichePanelBail(log, bail, ref) : _renderLogFichePanelGeneral(log, bail)}
   `;
 }
 
+// v14.13 A3 — onglet Général : Locataire actuel + Caractéristiques du bien (les conditions du bail
+// ont été migrées vers l'onglet Bail dédié pour clarifier la séparation locataire/contrat/bien).
 function _renderLogFichePanelGeneral(log, bail) {
+  const refSafe = (log.ref||'').replace(/'/g,"\\'");
   // ── Panneau Locataire actuel
   let locPanel;
   if(bail) {
@@ -18249,6 +18325,7 @@ function _renderLogFichePanelGeneral(log, bail) {
       <div class="logf-panel">
         <h3 class="logf-panel-title">👤 Locataire actuel</h3>
         <div class="logf-row"><span class="logf-label">Nom</span><span class="logf-value">${escHtml(principal.nom || log.locataire || '—')}</span></div>
+        ${principal.civilite?`<div class="logf-row"><span class="logf-label">Civilité</span><span class="logf-value">${escHtml(principal.civilite)}</span></div>`:''}
         ${principal.email?`<div class="logf-row"><span class="logf-label">Email</span><span class="logf-value">${escHtml(principal.email)}</span></div>`:''}
         ${principal.tel?`<div class="logf-row"><span class="logf-label">Téléphone</span><span class="logf-value">${escHtml(principal.tel)}</span></div>`:''}
         ${locataires.length>1?`<div class="logf-row"><span class="logf-label">Co-locataires</span><span class="logf-value">+${locataires.length-1} autre${locataires.length>2?'s':''}</span></div>`:''}
@@ -18256,42 +18333,208 @@ function _renderLogFichePanelGeneral(log, bail) {
         <div class="logf-row"><span class="logf-label">Loyer total</span><span class="logf-value logf-value-strong">${fmt(totalLoyer)}<small>/mois</small></span></div>
       </div>`;
   } else {
-    const refSafe = (log.ref||'').replace(/'/g,"\\'");
     locPanel = `
       <div class="logf-panel">
         <h3 class="logf-panel-title">👤 Locataire actuel</h3>
         <div class="logf-panel-empty">${log.archived ? 'Bien archivé — historique consultable dans les baux passés' : 'Bien vacant — aucun locataire en cours'}</div>
-        ${!log.archived?`<div style="text-align:center"><button class="btn bs bb" onclick="openNewLog('${refSafe}')">+ Créer un bail</button></div>`:''}
+        ${!log.archived?`<div style="text-align:center"><button class="btn bs bb" onclick="setLogFicheTab('bail')">📜 Voir l'onglet Bail</button></div>`:''}
       </div>`;
   }
-  // ── Panneau Conditions du bail
-  let condPanel;
+  // ── Panneau Caractéristiques du bien (informations matérielles, indépendantes du contrat)
+  const bienPanel = `
+    <div class="logf-panel">
+      <h3 class="logf-panel-title">🏠 Caractéristiques du bien</h3>
+      <div class="logf-row"><span class="logf-label">Référence</span><span class="logf-value">${escHtml(log.ref||'—')}</span></div>
+      ${log.type?`<div class="logf-row"><span class="logf-label">Type</span><span class="logf-value">${escHtml(log.type)}</span></div>`:''}
+      ${log.surf?`<div class="logf-row"><span class="logf-label">Surface</span><span class="logf-value logf-value-num">${fmtN(log.surf)} m²</span></div>`:''}
+      ${log.etage?`<div class="logf-row"><span class="logf-label">Étage</span><span class="logf-value">${escHtml(log.etage)}</span></div>`:''}
+      ${log.adr?`<div class="logf-row"><span class="logf-label">Adresse</span><span class="logf-value">${escHtml(log.adr)}</span></div>`:''}
+      ${log.imm?`<div class="logf-row"><span class="logf-label">Immeuble</span><span class="logf-value">${escHtml(log.imm)}</span></div>`:''}
+      ${log.entity?`<div class="logf-row"><span class="logf-label">Bailleur</span><span class="logf-value">${escHtml(log.entity)}</span></div>`:''}
+      ${log.dpe?`<div class="logf-row"><span class="logf-label">DPE</span><span class="logf-value">${escHtml(log.dpe)}</span></div>`:''}
+      ${log.irl?`<div class="logf-row"><span class="logf-label">Indice IRL bail</span><span class="logf-value">${escHtml(log.irl)}</span></div>`:''}
+      ${log.notes?`<div class="logf-row"><span class="logf-label">Notes</span><span class="logf-value" style="font-style:italic;font-weight:400">${escHtml(log.notes)}</span></div>`:''}
+    </div>`;
+  return `<div class="logf-panels">${locPanel}${bienPanel}</div>`;
+}
+
+// v14.13 A3 — onglet Bail dédié : bail courant détaillé + actions + historique + timeline horizontale
+function _renderLogFichePanelBail(log, bail, ref) {
+  const refSafe = (ref||'').replace(/'/g,"\\'");
   const typeContratMap = { initial:'Initial', renouvellement:'Renouvellement', avenant:'Avenant' };
+
+  // ── Section Bail en cours
+  let currentSection;
   if(bail) {
-    const irlInfo = bail.irl || log.irl || '–';
-    const dgInfo  = +bail.dg || +log.dg || 0;
-    const typeContrat = typeContratMap[bail.typeContrat] || bail.typeContrat || '—';
-    condPanel = `
-      <div class="logf-panel">
-        <h3 class="logf-panel-title">📜 Conditions du bail</h3>
-        <div class="logf-row"><span class="logf-label">Loyer hors charges</span><span class="logf-value logf-value-num">${fmt(+bail.hc||+log.hc||0)}</span></div>
-        <div class="logf-row"><span class="logf-label">Provision charges</span><span class="logf-value logf-value-num">${fmt(+bail.ch||+log.ch||0)}</span></div>
-        <div class="logf-row"><span class="logf-label">Dépôt de garantie</span><span class="logf-value logf-value-num">${fmt(dgInfo)}</span></div>
-        <div class="logf-row"><span class="logf-label">Type de contrat</span><span class="logf-value">${escHtml(typeContrat)}</span></div>
-        <div class="logf-row"><span class="logf-label">Indice IRL</span><span class="logf-value">${escHtml(irlInfo)}</span></div>
-        ${bail.jpay?`<div class="logf-row"><span class="logf-label">Jour paiement</span><span class="logf-value">${escHtml(String(bail.jpay))}</span></div>`:''}
+    const totalLoyer = (+bail.hc || +log.hc || 0) + (+bail.ch || +log.ch || 0);
+    const sigBailleur = bail.signatures && bail.signatures.bailleur;
+    const sigLocataire = bail.signatures && bail.signatures.locataire;
+    const allSigned = !!(sigBailleur && sigLocataire);
+    const partial   = !!(sigBailleur && !sigLocataire);
+    const sigBadge  = allSigned
+      ? '<span class="logf-badge b-ok">✓ Signé bilatéralement</span>'
+      : (partial ? '<span class="logf-badge b-warn">⚠ Bailleur signé, locataire en attente</span>'
+                 : '<span class="logf-badge b-warn">⚠ Non signé</span>');
+    const locataires = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{nom: log.locataire}];
+    const locNoms = locataires.map(l => l && l.nom).filter(Boolean).join(', ') || log.locataire || '—';
+    currentSection = `
+      <div class="logf-panel" style="grid-column:1/-1">
+        <div class="flex-b" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <h3 class="logf-panel-title" style="margin:0">📜 Bail en cours</h3>
+          ${sigBadge}
+        </div>
+        <div class="logf-bail-grid">
+          <div class="logf-row"><span class="logf-label">Locataire(s)</span><span class="logf-value">${escHtml(locNoms)}</span></div>
+          <div class="logf-row"><span class="logf-label">Type contrat</span><span class="logf-value">${escHtml(typeContratMap[bail.typeContrat] || bail.typeContrat || '—')}</span></div>
+          <div class="logf-row"><span class="logf-label">Période</span><span class="logf-value">${fd(bail.debut)} → ${bail.fin?fd(bail.fin):'en cours'}</span></div>
+          <div class="logf-row"><span class="logf-label">Modalité</span><span class="logf-value">${escHtml(bail.modalitePaiement === 'echeoir' ? 'À échoir' : (bail.modalitePaiement === 'terme_echu' ? 'Terme échu' : '—'))}</span></div>
+          <div class="logf-row"><span class="logf-label">Loyer HC</span><span class="logf-value logf-value-num">${fmt(+bail.hc||+log.hc||0)}</span></div>
+          <div class="logf-row"><span class="logf-label">Charges</span><span class="logf-value logf-value-num">${fmt(+bail.ch||+log.ch||0)}</span></div>
+          <div class="logf-row"><span class="logf-label">Loyer total</span><span class="logf-value logf-value-strong">${fmt(totalLoyer)}<small>/mois</small></span></div>
+          <div class="logf-row"><span class="logf-label">Dépôt de garantie</span><span class="logf-value logf-value-num">${fmt(+bail.dg||+log.dg||0)}</span></div>
+          <div class="logf-row"><span class="logf-label">Indice IRL</span><span class="logf-value">${escHtml(bail.irl||log.irl||'–')}</span></div>
+          ${bail.jpay?`<div class="logf-row"><span class="logf-label">Jour paiement</span><span class="logf-value">${escHtml(String(bail.jpay))}</span></div>`:''}
+          ${bail.fiscal?`<div class="logf-row"><span class="logf-label">Régime fiscal</span><span class="logf-value">${escHtml(bail.fiscal)}</span></div>`:''}
+          ${bail.notes?`<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Notes</span><span class="logf-value" style="font-style:italic;font-weight:400;text-align:left">${escHtml(bail.notes)}</span></div>`:''}
+        </div>
+        <div class="logf-bail-actions">
+          <button class="btn bp" onclick="openBail('${refSafe}')">✏ Voir / Modifier le bail</button>
+          <button class="btn bs" onclick="previewBailRef('${refSafe}')">👁 Aperçu PDF</button>
+          ${!bail.cloture?`<button class="btn br" onclick="openBailClore('${refSafe}')">🔒 Clôturer</button>`:''}
+        </div>
       </div>`;
   } else {
-    condPanel = `
-      <div class="logf-panel">
-        <h3 class="logf-panel-title">📜 Conditions du bail</h3>
-        <div class="logf-panel-empty">Aucun bail en cours sur ce bien</div>
-        ${log.hc?`<div class="logf-row"><span class="logf-label">Loyer HC indicatif</span><span class="logf-value logf-value-num">${fmt(log.hc)}</span></div>`:''}
-        ${log.ch?`<div class="logf-row"><span class="logf-label">Charges indicatives</span><span class="logf-value logf-value-num">${fmt(log.ch)}</span></div>`:''}
-        ${log.dg?`<div class="logf-row"><span class="logf-label">DG indicatif</span><span class="logf-value logf-value-num">${fmt(log.dg)}</span></div>`:''}
+    currentSection = `
+      <div class="logf-panel" style="grid-column:1/-1">
+        <h3 class="logf-panel-title">📜 Bail en cours</h3>
+        <div class="logf-panel-empty">${log.archived ? 'Bien archivé — pas de bail actif' : 'Aucun bail en cours sur ce bien'}</div>
+        ${!log.archived?`<div style="text-align:center"><button class="btn bp" onclick="openNewLog('${refSafe}')">+ Créer / saisir un bail</button></div>`:''}
       </div>`;
   }
-  return `<div class="logf-panels">${locPanel}${condPanel}</div>`;
+
+  // ── Section Historique des baux (DB.baux_historique filtré + index global pour openBailHist)
+  const histAll = (DB.baux_historique||[]);
+  const history = histAll.map((h,idx) => ({...h, _idx:idx})).filter(h => h.ref === ref)
+                          .sort((a,b) => (b._archivedAt||'').localeCompare(a._archivedAt||''));
+
+  // Timeline (toujours rendue si on a au moins le bail courant)
+  const timelineHTML = (bail || history.length) ? _renderBailTimeline(bail, history, ref) : '';
+
+  let historySection = '';
+  if(history.length) {
+    historySection = `
+      <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
+        <h3 class="logf-panel-title">🗂 Historique des baux (${history.length})</h3>
+        ${timelineHTML}
+        <div class="logf-bail-history-list">
+          ${history.map(h => {
+            const locs = (Array.isArray(h.locataires) && h.locataires.length)
+              ? h.locataires.map(l=>l && l.nom).filter(Boolean).join(', ')
+              : (h.locataire||'—');
+            const totalH = (+h.hc||0)+(+h.ch||0);
+            const motif = h.finMotif ? ` · ${escHtml(h.finMotif)}` : (h._archivedAuto?' · clôture auto':'');
+            return `<div class="logf-bail-hist-row">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(locs)}</div>
+                <div class="mu">${fd(h.debut)} → ${h.fin?fd(h.fin):(h.finEffective?fd(h.finEffective):'?')}${motif}</div>
+              </div>
+              <div class="flex-c" style="gap:10px;flex-shrink:0">
+                <span class="mu">${fmt(totalH)}<span style="font-size:10px">/mois</span></span>
+                <button class="btn bs bb" onclick="openBailHist(${h._idx})" title="Voir le bail archivé">👁</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  } else if(bail) {
+    historySection = `
+      <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
+        <h3 class="logf-panel-title">🗂 Historique des baux</h3>
+        ${timelineHTML}
+        <div class="logf-panel-empty" style="padding:8px 0">Aucun bail antérieur — c'est le premier bail sur ce bien.</div>
+      </div>`;
+  }
+
+  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${historySection}</div>`;
+}
+
+// Timeline horizontale empilée bail courant + historique. Couleur par locataire principal (hash).
+// Marker rouge "auj." pour position relative aujourd'hui sur l'axe.
+function _renderBailTimeline(currentBail, history, ref) {
+  const allBails = [];
+  if(currentBail) allBails.push(Object.assign({}, currentBail, { _isCurrent: true }));
+  history.forEach(h => allBails.push(Object.assign({}, h, { _isCurrent: false })));
+  if(!allBails.length) return '';
+
+  const today = new Date();
+  let minDate = null, maxDate = null;
+  allBails.forEach(b => {
+    if(b.debut) {
+      const d = new Date(b.debut + 'T00:00:00');
+      if(!isNaN(d) && (!minDate || d < minDate)) minDate = d;
+    }
+    const finStr = b.fin || b.finEffective;
+    if(finStr) {
+      const d = new Date(finStr + 'T00:00:00');
+      if(!isNaN(d) && (!maxDate || d > maxDate)) maxDate = d;
+    }
+  });
+  if(!minDate) minDate = new Date(today.getFullYear()-1, 0, 1);
+  if(!maxDate || maxDate < today) maxDate = new Date(today.getTime() + 1000*60*60*24*180); // padding 6 mois si bail en cours
+  // Pad début aussi (3 mois avant le 1er bail) pour la lisibilité
+  minDate = new Date(minDate.getTime() - 1000*60*60*24*60);
+  const range = maxDate - minDate;
+  if(range <= 0) return '';
+
+  const todayPct = Math.max(0, Math.min(100, ((today - minDate) / range) * 100));
+
+  const bars = allBails.map(b => {
+    if(!b.debut) return '';
+    const start = new Date(b.debut + 'T00:00:00');
+    const finStr = b.fin || b.finEffective;
+    const end = finStr ? new Date(finStr + 'T00:00:00') : today;
+    if(isNaN(start) || isNaN(end) || end <= start) return '';
+    const leftPct = ((start - minDate) / range) * 100;
+    const widthPct = ((end - start) / range) * 100;
+    if(widthPct <= 0.3) return '';
+    const locNoms = (Array.isArray(b.locataires) && b.locataires.length)
+      ? b.locataires.map(l => l && l.nom).filter(Boolean).join(', ')
+      : (b.locataire || '—');
+    const color = _bailColorFromName(locNoms);
+    const label = `${locNoms} · ${fd(b.debut)} → ${b.fin?fd(b.fin):(b.finEffective?fd(b.finEffective):'en cours')}`;
+    const cls = b._isCurrent ? ' current' : '';
+    return `<div class="bail-tl-bar${cls}" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color}" title="${escHtml(label)}">${escHtml(locNoms)}</div>`;
+  }).join('');
+
+  // Axe années
+  const minYear = minDate.getFullYear();
+  const maxYear = maxDate.getFullYear();
+  const years = [];
+  for(let y = minYear; y <= maxYear; y++) years.push(y);
+  // Si trop d'années, garder ~6 max (sample)
+  let displayedYears = years;
+  if(years.length > 8) {
+    const step = Math.ceil(years.length / 6);
+    displayedYears = years.filter((_,i) => i % step === 0 || i === years.length-1);
+  }
+  const axisHTML = displayedYears.map(y => `<span>${y}</span>`).join('');
+
+  return `<div class="bail-tl">
+    <div class="bail-tl-bars">
+      ${bars}
+      <div class="bail-tl-marker-now" style="left:${todayPct.toFixed(2)}%" title="Aujourd'hui"></div>
+    </div>
+    <div class="bail-tl-axis">${axisHTML}</div>
+  </div>`;
+}
+
+// Couleur stable hash-basée à partir du nom du/des locataire(s) — saturation et luminosité fixes
+function _bailColorFromName(s) {
+  s = String(s || '');
+  let h = 0;
+  for(let i = 0; i < s.length; i++) h = (h*31 + s.charCodeAt(i)) & 0xffff;
+  const hue = h % 360;
+  return `hsl(${hue}, 52%, 46%)`;
 }
 
 // v14.3 IMM-FICHE-360 Phase 1 — vue dédiée d'un immeuble (hub patrimoine intermédiaire).
