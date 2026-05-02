@@ -1,6 +1,6 @@
 # FICHES-PARITE-360 — Parité totale onglets ↔ fiches 360°
 
-**Status** : ⬜ À faire — **dépend de ARCHI-DB-DOUBLONS** · **Prio** : P1 · **Taille** : XL (~27h, multi-sessions)
+**Status** : 🔄 **Session 1 ✅ Compta riche logement livrée v14.18** · 7 sessions restantes · **Prio** : P1 · **Taille** : XL (~27h, ~23h restantes)
 **Détecté** : 2026-05-02
 **Lié à** : ARCHI-DB-DOUBLONS (prérequis) · LOG-FICHE-360 · IMM-FICHE-360 · ENT-FICHE-360 · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG
 
@@ -146,3 +146,14 @@ Ordre par ROI décroissant :
 ## Journal
 
 - 2026-05-02 : créé · audit complet 9 onglets ↔ 3 fiches · pattern technique factorisation `_renderXForLog(ref)` · phasing 8 sessions par ROI · prérequis ARCHI-DB-DOUBLONS (sinon double refacto)
+- 2026-05-02 (soir) : **Session 1 livrée v14.18** commit `a2ae89c` (~3h, +258/-6 lignes)
+  - Sous-onglet "💰 Comptabilité" de LOG-FICHE-360 activé et fonctionnel (sortie du stub disabled)
+  - 5 helpers factorisables créés : `_renderComptaKPIsForLog`, `_renderComptaCashFlowChart`, `_renderMvForLog`, `_renderQuitForLog`, `_renderIrlForLog`
+  - 4 KPIs annuels : loyers encaissés, charges payées, solde net (vert/rouge), vacance estimée %
+  - **Cash-flow mensuel SVG natif** : 12 barres colorées (vert/rouge/gris), marker mois courant, tooltip détaillé, échelle auto, ligne zéro pointillée
+  - 3 sections listées : mouvements, quittances, IRL — lignes compactes grid 5 cols (date/lib/cat/amt/act)
+  - Toolbar : sélecteur année (3 ans) + bouton "+ Mvt" + "+ Quittance" + "↗ Onglet Mouvements"
+  - Section Régularisation = stub avec lien (logique régul complexe, session future dédiée)
+  - State `_logFicheComptaYear` (default année courante)
+  - CSS `.compta-*` : toolbar, cashflow card, liste rows responsive
+  - **Sessions restantes** : 2 (Plan d'occupation Gantt) → 8 (Plan immeuble) — voir tableau ROI ci-dessus
