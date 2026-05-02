@@ -11023,12 +11023,16 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       { type:'p', text:'Conformément à l\'article 22-1 al. 2 de la loi du 6 juillet 1989, le BAILLEUR informera le(s) GARANT(S) de tout défaut de paiement du LOCATAIRE dans le mois suivant l\'incident de paiement, à peine de forclusion de sa créance pour les pénalités et intérêts antérieurs à cette information.' }
     );
   } else {
-    // v14.6 BUG-BAIL-CAUTION-WORDING : texte neutre quand pas de garant.
-    // Avant : 'le garant désigné à la première page' (référence à un garant
-    // inexistant, formulation maladroite). Maintenant : texte explicite.
+    // v14.8 BUG-BAIL-CAUTION-WORDING : formulation FLOUE quand pas de garant.
+    // Raison juridique : avec GLI (Garantie Loyers Impayés), le bailleur n'a pas
+    // le droit d'exiger un garant en plus (sauf exceptions étudiants/apprentis,
+    // art. 22-1 loi 89-462). Mentionner explicitement "pas de garant" suggère
+    // absence de GLI et fragilise la position du bailleur. Donc on énonce
+    // uniquement le PRINCIPE du cautionnement avec "le cas échéant" — formule
+    // juridique standard qui couvre les 2 cas (avec ou sans garant) sans rien révéler.
     out.push(
       { type:'h2', text:'15 — Cautionnement solidaire' },
-      { type:'p', text:'Aucun cautionnement n\'est requis pour le présent bail. Le LOCATAIRE n\'est pas tenu de fournir de garant.' }
+      { type:'p', text:'Conformément à l\'article 22-1 de la loi n° 89-462 du 6 juillet 1989 et aux articles 2288 et suivants du Code civil, le présent bail peut, le cas échéant, être assorti d\'un ou plusieurs actes de cautionnement solidaire en garantie des obligations du LOCATAIRE. Tout acte de cautionnement souscrit en application du présent contrat est annexé au bail et en fait partie intégrante.' }
     );
   }
 
@@ -13498,7 +13502,7 @@ function genBailHTML(bail, log, ref, ent, locs, totalMensuel, irlKey, irlValRef,
 ${bail.garant2?`<p>Les deux cautions sont <strong>solidairement et indivisiblement tenues</strong> envers le BAILLEUR, sans bénéfice de division ni de discussion (art. 1310 et 2298 C. civ.). Le BAILLEUR peut agir contre l'une ou l'autre pour la totalité des sommes dues.</p>`:''}
 <p>L'acte de cautionnement, portant la déclaration d'engagement et la mention manuscrite recommandée du garant, est annexé au présent bail et en fait partie intégrante (Annexe 6).</p>
 <p>Conformément à l'article 22-1 al. 2 de la loi du 6\u00a0juillet\u00a01989, le BAILLEUR informera le(s) GARANT(S) de tout défaut de paiement du LOCATAIRE dans le mois suivant l'incident de paiement, à peine de forclusion de sa créance pour les pénalités et intérêts antérieurs à cette information.</p>` : `<h2>15 — Cautionnement solidaire</h2>
-<p>Aucun cautionnement n'est requis pour le présent bail. Le LOCATAIRE n'est pas tenu de fournir de garant.</p>`;
+<p>Conformément à l'article 22-1 de la loi n° 89-462 du 6 juillet 1989 et aux articles 2288 et suivants du Code civil, le présent bail peut, le cas échéant, être assorti d'un ou plusieurs actes de cautionnement solidaire en garantie des obligations du LOCATAIRE. Tout acte de cautionnement souscrit en application du présent contrat est annexé au bail et en fait partie intégrante.</p>`;
 
   const notesSection = bail.notes ? `<h3>Conditions particulières</h3><p>${bail.notes}</p>` : '';
 
