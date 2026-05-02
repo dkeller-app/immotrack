@@ -99,10 +99,12 @@ ImmoTrack/
 | **EDL-PDF-DRIVE** (✅ Livré v14.10.3) | **À aligner** : actuellement PDF EDL upload Drive root. À déplacer dans `EDL/` du logement (Phase D) |
 | **LOG-FICHE-360** Phase 2 (sous-onglets) | **Cohérence directe** : les 5 sous-onglets futurs (Documents/EDL/Compta/Compteurs/Entretien) lisent dans les sous-dossiers Drive correspondants |
 
-## Indivisions / SCI / propriétaire unique
+## Indivisions / SCI / propriétaire unique — **Option A validée 2026-05-01**
 - **Propriétaire unique** : 1 entité = 1 dossier
 - **SCI** : 1 entité = 1 dossier (les associés sont des notations internes, pas des dossiers Drive séparés)
-- **Indivision** : 1 entité unique = 1 dossier (au même titre qu'une SCI). Si l'app ne gère pas encore les indivisions, c'est une note pour `ASSO-PARTAGE` (refonte partage entre associés)
+- **Indivision** : 1 entité unique = 1 dossier (au même titre qu'une SCI) — **Option A confirmée par utilisateur**. Pas de doublon par associé. Les associés sont des notations internes à l'entité d'indivision.
+
+→ Si l'app ne gère pas encore le concept d'indivision en tant que type d'entité (à vérifier), c'est une note pour `ASSO-PARTAGE` (refonte partage entre associés) qui devra exposer ce type lors de sa session dédiée.
 
 ## Notes utilisateur
 > 💬 2026-05-01 : "pour enregistrement drive je propose l'architecture suivante : entité / immeuble / logement / sous-dossiers (EDL, documents (DPE and co), bail ...). L'idée est de permettre à l'utilisateur d'enregistrer les documents via l'app ou directement sur le drive dans le bon dossier."
@@ -110,6 +112,8 @@ ImmoTrack/
 > 💬 2026-05-01 : "[bidirectionnel] = un must"
 > 💬 2026-05-01 : "Dans l'app on voit juste le titre du document et le lien vers le drive pour ouvrir non ?"
 > 💬 2026-05-01 : "[migration] on repart de 0"
+> 💬 2026-05-01 : "indivision option A" → 1 entité d'indivision = 1 dossier Drive unique (pas de doublon par associé)
 
 ## Journal
 - 2026-05-01 : créé · 9 sous-dossiers validés, sync bidirectionnel must V1, affichage différencié PDF (lien Drive) vs images (miniatures), pas de migration (zéro), DRIVE-2K englobé/remplacé
+- 2026-05-01 : décision indivision **Option A confirmée** — 1 entité d'indivision = 1 dossier Drive unique (au même titre qu'une SCI), pas de doublon par associé
