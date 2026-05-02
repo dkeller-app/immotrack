@@ -35,7 +35,7 @@
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
 | ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL (P1) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) |
-| 💾 **Drive sync** | DRIVE-ARBORESCENCE (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
+| 💾 **Drive sync** | DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) |
@@ -102,7 +102,7 @@
 | DRIVE-2H | Re-architecture fichiers Drive (par-user vs partagé vs référentiel) | P1 | M | ⬜ À faire | À faire EN PREMIER (base de 2F/2G) · [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
 | DRIVE-2F | Optimistic Concurrency Control (OCC) au file level | P1 | M | ⬜ À faire | Après 2H · [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · **REMINDER** : v14.0 push immédiat = "last writer wins" trivial → 2 devices simultanés = écrasement silencieux. OCC via `If-Match: etag` Drive header empêcherait l'écrasement → toast conflit + merge manuel. CRITIQUE pour multi-user (cf user feedback 2026-05-01) |
 | DRIVE-2G | Awareness UI (qui édite quoi) | P1 | S | ⬜ À faire | Couche UX · [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
-| DRIVE-ARBORESCENCE | Arborescence Drive Entité/Immeuble/Logement/[9 sous-dossiers métier] + sync bidirectionnel | P1 | L | ⬜ À faire | [docs/subjects/DRIVE-ARBORESCENCE.md](docs/subjects/DRIVE-ARBORESCENCE.md) · sous-dossiers : EDL, Bail, Documents, Photos, Quittances, IRL, MRH, Travaux, Charges · sync bidir must V1 (dépôt direct Drive détecté par l'app) · englobe/remplace DRIVE-2K · à coupler avec DOC-PJ et LOG-PHOTOS |
+| DRIVE-ARBORESCENCE | Arborescence Drive Entité/Immeuble/Logement/[9 sous-dossiers métier] + sync bidirectionnel | P1 | L | 🔄 En cours | [docs/subjects/DRIVE-ARBORESCENCE.md](docs/subjects/DRIVE-ARBORESCENCE.md) · session dédiée démarrée 2026-05-01 · sous-dossiers : EDL, Bail, Documents, Photos, Quittances, IRL, MRH, Travaux, Charges · sync bidir must V1 (dépôt direct Drive détecté par l'app) · englobe/remplace DRIVE-2K · à coupler avec DOC-PJ et LOG-PHOTOS |
 
 ---
 

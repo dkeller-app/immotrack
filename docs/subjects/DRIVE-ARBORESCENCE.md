@@ -1,6 +1,6 @@
 # DRIVE-ARBORESCENCE — Arborescence Drive hiérarchique avec sync bidirectionnel
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (1-3 jours, en couplage avec DRIVE-2H)
+**Status** : 🔄 En cours (depuis 2026-05-01) · **Prio** : P1 · **Taille** : L (1-3 jours, indépendant de DRIVE-2H/2F/2G)
 **Détecté** : 2026-05-01
 **Lié à** : DRIVE-2H · DRIVE-2K · DOC-PJ · LOG-PHOTOS · EDL-PHOTOS-IDXDB · EDL-PDF-DRIVE
 
