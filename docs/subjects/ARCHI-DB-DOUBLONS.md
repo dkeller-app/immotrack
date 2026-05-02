@@ -1,8 +1,8 @@
 # ARCHI-DB-DOUBLONS — Refonte architecture DB : séparer log (bien physique) et bail (contrat juridique)
 
-**Status** : ⏳ En attente — **CDC requis avant tout code** · **Prio** : P1 · **Taille** : XL (~12-15h)
-**Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel)
-**Lié à** : LOG-FICHE-360 Phase 2 · BAIL-NAMESPACE-MIGRATION · V3-VISUEL · LOG-PHOTOS
+**Status** : ⏳ Phase 1 (CDC) **livrée 2026-05-02** — décisions Q1-Q8 arbitrées · **Phases 2-4 prêtes à coder** · **Prio** : P1 · **Taille** : XL (~12-15h)
+**Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel + CDC)
+**Lié à** : LOG-FICHE-360 Phase 2 · FICHES-PARITE-360 (prérequis) · BAIL-NAMESPACE-MIGRATION · BAIL-TYPES (lien fort via log.typeUsage) · V3-VISUEL · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG (parallèle, hors scope ARCHI)
 
 ## Contexte
 
@@ -57,6 +57,148 @@ Visibles dans le formulaire logement (capture utilisateur 2026-05-02) :
 | `ch` | `bail.ch` |
 
 Ces champs correspondent au "bail courant" actif sur le logement. Aujourd'hui ils sont copiés sur log pour faciliter les listings (carte logement avec locataire visible directement), mais c'est de la dénormalisation.
+
+## Décisions CDC arbitrées (2026-05-02)
+
+Synthèse des 8 questions/réponses lors de la session Phase 1 (CDC) :
+
+| Q | Décision | Rationale |
+|---|---|---|
+| Q1 | **A** : Wizard bail étape "Le bien" devient **lecture seule** + bouton "Modifier le bien" qui ouvre la modale logement | Affiche pour validation visuelle + permet correction sans re-saisie. Garde le repère wizard 4 étapes. |
+| Q2 | **B** : Modale logement refondue avec **tabs internes** : `Identité / Description / DPE / Risques / Équipements` | Pattern existe déjà dans l'app (modale Bail wizard, onglet Référentiel). Formulaire compartimenté lisible. |
+| **Q2bis** | **Tab "Équipements" inclut sous-section Mobilier** (visible si bail meublé/étudiant/mobilité) | Lié à BAIL-TYPES (génération annexe inventaire obligatoire loi 89-462 art. 25-1). Synergie possible avec EDL-TEMPLATE-PER-LOG. |
+| Q3 | **A** : **Suppression brute** des champs bail dupliqués sur log (`log.locataire`, `log.dg`, etc.). Helpers `getCurrentBailFor()`, `getCurrentTenant()`, `getCurrentRent()` partout. | Single source of truth strict. Pas de désync possible. `_syncLogToBail()` devient obsolète. Performance impact négligeable (~5ms total même sur 50 logements). |
+| Q4 | **B** : Migration **hard** + backup auto + toast utilisateur explicite. 4 backups distincts (1 par phase). | Pattern DRIVE-2C existant. 1 utilisateur principal (testeur). Pas de double maintenance pendant 3 versions. |
+| **Q4bis** | **Champ `log.typeUsage`** (NEW) avec 7 valeurs : `habitation-nu`/`habitation-meuble`/`mobilite`/`etudiant`/`garage`/`local-pro`/`autre`. Override possible via `bail.typeBail`. | Source de vérité du type sur le **bien** (le bien détermine quels baux possibles). Lien fort avec BAIL-TYPES (templates PDF) et BAIL-MOBILIER (annexe inventaire). |
+| Q5 | **A** : Étendre `bailSnapshot` avec **deep copy de log** à la signature. Helper `_readLogForBail(bail, log)` retourne snapshot.log si signé sinon log dynamique. | Immutabilité légale du bail signé. Volume négligeable (~75 KB par snapshot). Compatible avec le mécanisme de "Réinitialiser signatures" pour avenant. |
+| Q6 | **A** : EDL **hors scope** ARCHI. Couvert par EDL-TEMPLATE-PER-LOG (P2/M, ~6h, session parallèle). | Snapshot EDL est conceptuellement légitime (instantané à date T). EDL-TEMPLATE-PER-LOG cible la centralisation du template (matériaux, équipements). Codable en parallèle (zones distinctes). |
+| Q7 | **A** : Migration **auto au boot**, idempotente (`DB._migratedArchiV1`), avec backup automatique + toast explicite. | Robuste, transparent. Toast informe de l'assomption "le bien n'a pas été modifié post-signature sans ré-signer". Backup permet rollback complet en cas de problème. |
+| Q8 | **OK** : Ordre 4 phases : CDC → Migration data + getters → Refacto code reads/writes → Cleanup champs obsolètes | Logique de dépendance : data avant code, lecture migrée avant suppression. Rollback possible à chaque phase via backup. |
+
+### Précisions importantes des décisions
+
+- **Bail vivant ≠ bail figé** :
+  - `bail.X` (vivant) = modifiable. IRL appliqué change `bail.hc`, modifs locataire (mail, tel) propagent.
+  - `bail.signatures.bailSnapshot` (figé) = immutable, ce qui a été signé. Le PDF "Voir bail signé" lit là-dedans.
+  - `log.X` (vivant) = modifiable. DPE refait, équipement ajouté.
+  - `bail.signatures.bailSnapshot.log` (figé) = état du bien à la signature, immutable.
+- **IRL appliqué** : `bail.hc` change (nouveau loyer pour les futurs mouvements/quittances), **mais** `bailSnapshot.hc` reste l'ancien.
+- **Avenant nécessaire** (ex: prolongation, changement loyer hors IRL) → ré-signature = nouveau snapshot. Mécanisme "Réinitialiser signatures" déjà en place v13.x.
+
+## Audit code détaillé (2026-05-02)
+
+### Sites de lecture par catégorie
+
+| Catégorie | Pattern | Sites | Critique |
+|---|---|---|---|
+| bail.X (champs bien dupliqués sur bail) | regex `bail\.(dpeClasse\|surf\|etage\|chauffage\|...)` | **85** | DPE 3 / ERP+co 26 / surf+etage 16 / autres ~40 |
+| log.X (champs bail dupliqués sur log) | regex `log\.(locataire\|hc\|ch\|dg\|...)` | **79** | locataire 24 / debut+fin 13 / hc+ch+dg+irl 42 |
+| log.X (champs bien dejà sur log, partiel) | regex `log\.(dpeClasse\|surf\|adr\|...)` | **25** | Champs partiellement présents |
+| bailSnapshot | regex `bailSnapshot\|signatures\.bailSnapshot` | **9** | Critique pour immutabilité |
+| **Total à migrer** | | **~165** | |
+
+### Fonctions PDF impactées (toutes reçoivent `log` déjà en paramètre — bonne nouvelle)
+
+| Fonction | Ligne | Risque migration | Action Phase 3 |
+|---|---|---|---|
+| `previewBailData(bail, log, ref, opts)` | 11982 | **Élevé** — gros morceau | Lecture via `_readLogForBail(bail, log)` |
+| `previewBailDataV2(bail, log, ref)` | 10961 | Moyen | idem |
+| `genBailHTML(bail, log, ref, ent, locs, ...)` | 13947 | **Élevé** — template Word légal | idem |
+| `exportBailWord(bail, log, ref)` | 13875 | Moyen | idem |
+| `genPDFNative` (string template) | 13570 | **Élevé** — PDF natif texte sélectionnable | idem |
+
+### Champs à CRÉER sur log (n'existent pas aujourd'hui)
+
+| Champ | Type | Origine | Note |
+|---|---|---|---|
+| `log.typeUsage` | string enum | NEW Q4bis | 7 valeurs (cf décisions). Cardinal pour la fiche bien. |
+| `log.npp` | int | bail.npp | Nb pièces principales |
+| `log.piecesDesc` | string | bail.piecesDesc | Description pièces |
+| `log.partiesCommunes` | string | bail.partiesCommunes | |
+| `log.locauxPrivatifs` | string | bail.locauxPrivatifs | Annexes privatives (cave, parking) |
+| `log.typeHabitat` | string | bail.typeHabitat | |
+| `log.regimeJuridique` | string | bail.regimeJuridique | |
+| `log.chauffage` | string[] | bail.chauffage[] | Array : électrique, gaz, fioul, bois, poêle bois, poêle granulés |
+| `log.annexes` | string | bail.annexes | Texte libre |
+| `log.mobilier` | object[] | NEW Q2bis | `[{piece, items: [{nom, qty, etat}]}]` — visible si typeUsage meublé/étudiant/mobilité |
+| `log.dpe` | sous-objet | bail.dpe* (4 champs) | `{classe, date, valConv, valEner, an, ges}` |
+| `log.etatRisques` | sous-objet | bail.erp/plomb/... (6 champs) | `{erp, plomb, amiante, elec, gaz, bruit}` |
+
+### Champs à RETIRER (Phase 4 cleanup)
+
+**Sur log** : `locataire`, `tel`, `mail`, `debut`, `fin`, `dg`, `irl`, `hc`, `ch` (9 champs, ~79 sites de lecture migrés)
+
+**Sur bail** : `adrBien`, `ftype`, `surf`, `etage`, `npp`, `piecesDesc`, `partiesCommunes`, `locauxPrivatifs`, `typeHabitat`, `regimeJuridique`, `chauffage`, `annexes`, `dpeClasse`, `dpeDate`, `dpeValConv`, `dpeValEner`, `dpeAn`, `gesClasse`, `erp`, `plomb`, `amiante`, `elec`, `gaz`, `bruit` (24 champs, ~85 sites de lecture migrés)
+
+### Helpers à créer
+
+| Helper | Signature | Phase | Description |
+|---|---|---|---|
+| `getCurrentBailFor(ref)` | → bail \| null | 2 | Bail actif sur log.ref (non clôturé) |
+| `getCurrentTenant(ref)` | → locataire \| null | 2 | `bail.locataires[0]` du bail actif |
+| `getCurrentRent(ref)` | → `{hc, ch, total}` \| null | 2 | Loyer du bail actif |
+| `_captureBailSnapshot(ref, bail, log)` | mutation bail.signatures.bailSnapshot | 2 | Étend snapshot avec deep copy log |
+| `_readLogForBail(bail, log)` | → log object | 2 | Snapshot.log si signé, log dynamique sinon |
+| `_migrateArchiV1IfNeeded()` | mutation DB | 2 | Migration auto au boot, idempotente |
+| `_backupBeforeMigration(label)` | side-effect localStorage | 2 | Pattern DRIVE-2C existant |
+
+## Plan détaillé Phases 2-4
+
+### Phase 2 — Migration data + getters (~3-4h, 1 commit)
+
+**Output** : nouvelle version v14.X avec data migrée mais code legacy fonctionnel.
+
+1. Schéma data : ajouter les 12 nouveaux champs/sous-objets sur log (~30 min)
+2. Implémenter les 7 helpers (`getCurrentBailFor`, etc.) (~1h)
+3. Migration auto au boot : `_migrateArchiV1IfNeeded()` (~1h)
+   - Backup auto via DRIVE-2C pattern
+   - Pour chaque bail signé : enrichir `bailSnapshot.log` (deep copy log actuel)
+   - Pour chaque log : copier les champs bien depuis bail courant si absents
+   - Pour chaque log : déduire `log.typeUsage` depuis `bail.typeContrat` (`'meuble'` → `'habitation-meuble'`, sinon `'habitation-nu'`)
+   - Marqueur `DB._migratedArchiV1 = true`
+4. Toast utilisateur explicite (~15 min)
+5. **NE PAS retirer encore les anciens champs** (compat code legacy intact)
+6. Tests : `DB.logements[0].dpe` non-null, `getCurrentTenant('F-001').nom` retourne le bon locataire (~30 min)
+
+### Phase 3 — Refacto code reads/writes (~6-8h, splittable en 2 commits)
+
+#### Phase 3a — UI formulaires (~3h, 1 commit)
+
+1. Modale logement (`#ov-log` ~ligne 3420) : refonte avec tabs internes
+   - Tab Identité : ref, type, **typeUsage** (NEW), imm, etage, surf, adresse
+   - Tab Description : npp, piecesDesc, partiesCommunes, locauxPrivatifs, typeHabitat, regimeJuridique
+   - Tab DPE : sous-objet `dpe.{classe, date, valConv, valEner, an, ges}` (caché si typeUsage = garage)
+   - Tab Risques : sous-objet `etatRisques.{erp, plomb, amiante, elec, gaz, bruit}` (caché si typeUsage = garage)
+   - Tab Équipements : chauffage[], annexes, **mobilier[]** (visible si typeUsage meublé/étudiant/mobilité)
+2. Wizard bail étape "Le bien" (`#ov-bail` ~ligne 2996) : lecture seule + bouton "Modifier le bien" → openNewLog(ref)
+3. Conditional rendering pour les tabs cachés (typeUsage = garage)
+4. Tests : édition complète d'un bien sur tous les tabs, sauvegarde, vérif data
+
+#### Phase 3b — Reads/writes PDF + listings (~4-5h, 1 commit)
+
+1. Migrer les ~85 sites `bail.X` (champs bien) vers `_readLogForBail(bail, log).X` (~2h)
+2. Migrer les ~79 sites `log.X` (champs bail) vers `getCurrentBailFor(ref).X` ou `getCurrentTenant(ref).X` (~2h)
+3. Fonctions PDF : `previewBailData`, `previewBailDataV2`, `genBailHTML`, `exportBailWord`, `genPDFNative` toutes adaptées
+4. Listings (`rBaux`, `rMv`, `rDash`, `rEDLList`, `rQuit`, fiches 360°) : remplacer reads
+5. Wizard bail (étapes Personnes/Conditions/Finaliser) : lecture log via getters au lieu de bail.X pour pré-remplissage
+6. **Tests intégrés obligatoires** :
+   - 3 PDF bails (1 nu signé, 1 meublé non signé, 1 historique) — comparer rendu avant/après
+   - Aperçu HTML bail courant
+   - Voir bail signé (lit depuis `bailSnapshot.log`)
+   - Modif log.dpe.classe → vérif PDF signé garde l'ancienne, PDF non signé reflète la nouvelle
+   - Drive sync round-trip après migration
+   - IRL DPE F/G : lit depuis `log.dpe.classe`
+   - EDL création : adresse, surface, type lus via log
+   - Quittance mensuelle : locataire et loyer lus via getters
+
+### Phase 4 — Cleanup champs obsolètes (~1-2h, 1 commit)
+
+1. Suppression définitive des 9 champs sur log + 24 champs sur bail
+2. Suppression `_syncLogToBail()` (devient obsolète)
+3. Vérif aucun read résiduel via grep des patterns `bail\.dpeClasse\|...` et `log\.locataire\|...`
+4. Suppression marqueur `_migratedArchiV1` (migration terminée)
+5. Tests intégrés finaux : génération bail tous types, EDL, quittance, IRL, dashboard, drive sync round-trip
+6. Suppression aussi des fonctions intermédiaires si plus utilisées
 
 ## Cible architecturale
 
@@ -179,4 +321,5 @@ bail (DB.baux[ref]) — CONTRAT JURIDIQUE LIÉ AU BIEN
 ## Journal
 
 - 2026-04-23 : créé (initial, dans BACKLOG.md uniquement)
-- 2026-05-02 : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 3 phases + tests post-implémentation. Doc séparé créé.
+- 2026-05-02 (matin) : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 4 phases + tests post-implémentation. Doc séparé créé.
+- 2026-05-02 (soir) : **Phase 1 (CDC) livrée** — décisions Q1-Q8 arbitrées en dialogue avec utilisateur. Audit code complété (165 sites + 5 fonctions PDF). Champs à créer/retirer documentés. Plan détaillé Phases 2-4 prêt à coder. **Q4bis ajouté** : `log.typeUsage` (7 valeurs) + lien fort BAIL-TYPES (mobilier annexe). **Q2bis ajouté** : tab Mobilier dans formulaire logement (visible si meublé/étudiant/mobilité).
