@@ -17548,6 +17548,151 @@ async function _driveUploadJpeg(folderId, filename, dataUrl) {
 
 function _edlSanitize(s){return(s||'').replace(/[^a-zA-Z0-9_\-]/g,'_').substring(0,60);}
 
+/* ═══ DRIVE-ARBORESCENCE — Phase A (session 2026-05-02) ═════════════════════
+   Arborescence Drive hiérarchique : ImmoTrack/{Entité}/{Immeuble}/{Logement}/
+   + 9 sous-dossiers métier (EDL, Bail, Documents, Photos, Quittances, IRL,
+   MRH, Travaux, Charges). Cf docs/subjects/DRIVE-ARBORESCENCE.md.
+
+   Principe : tous les hooks sont fire-and-forget — si Drive est déconnecté ou
+   en erreur, l'enregistrement DB local n'est PAS bloqué (toast warn). On ne
+   force JAMAIS l'OAuth depuis ces hooks (pas de withDriveToken). */
+
+const DRV_SUB_FOLDERS = [
+  { key: 'edl',        name: '📋 EDL' },
+  { key: 'bail',       name: '📜 Bail' },
+  { key: 'documents',  name: '📄 Documents' },
+  { key: 'photos',     name: '🖼️ Photos' },
+  { key: 'quittances', name: '🧾 Quittances' },
+  { key: 'irl',        name: '📈 IRL' },
+  { key: 'mrh',        name: '🛡️ MRH' },
+  { key: 'travaux',    name: '🔧 Travaux' },
+  { key: 'charges',    name: '⚡ Charges' }
+];
+
+function _drvSafeName(s) {
+  return (s || '').replace(/[\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
+}
+
+/* Retourne l'id du dossier ImmoTrack/ racine Drive (le crée si absent).
+   Stocké dans DB.params.imRootFolderId pour ne pas casser le legacy
+   DB.params.edlDriveFolderId (utilisé par EDL/Baux historiques). */
+async function _drvImmoTrackRoot() {
+  if (!DB.params) DB.params = {};
+  if (DB.params.imRootFolderId) return DB.params.imRootFolderId;
+  const id = await _driveGetOrCreateFolder('ImmoTrack', null);
+  DB.params.imRootFolderId = id;
+  saveDB();
+  return id;
+}
+
+/* Ensure dossier d'une entité. Stocke ent.driveFolderId. */
+async function _drvEnsureEntityFolder(ent) {
+  if (!ent || !ent.nom) return null;
+  const rootId = await _drvImmoTrackRoot();
+  const id = await _driveGetOrCreateFolder(_drvSafeName(ent.nom), rootId);
+  if (ent.driveFolderId !== id) { ent.driveFolderId = id; saveDB(); }
+  return id;
+}
+
+/* Ensure dossier d'un immeuble. Stocke imm.driveFolderId. */
+async function _drvEnsureImmeubleFolder(ent, imm) {
+  if (!ent || !imm || !imm.nom) return null;
+  const entFolderId = await _drvEnsureEntityFolder(ent);
+  if (!entFolderId) return null;
+  const id = await _driveGetOrCreateFolder(_drvSafeName(imm.nom), entFolderId);
+  if (imm.driveFolderId !== id) { imm.driveFolderId = id; saveDB(); }
+  return id;
+}
+
+/* Ensure arborescence complète d'un logement : dossier logement + 9 sous-dossiers
+   en parallèle (Promise.all). Stocke log.driveFolders = {root, edl, bail,
+   documents, photos, quittances, irl, mrh, travaux, charges}. */
+async function _drvEnsureLogementTree(log) {
+  if (!log || !log.ref) throw new Error('Logement invalide (ref manquant)');
+  const ent = (DB.entites || []).find(e => e.nom === log.entity);
+  if (!ent) throw new Error('Entité « ' + (log.entity||'?') + ' » introuvable pour logement ' + log.ref);
+  const imm = (ent.immeubles || []).find(i => i.nom === log.imm);
+  if (!imm) throw new Error('Immeuble « ' + (log.imm||'?') + ' » introuvable pour logement ' + log.ref);
+
+  const immFolderId = await _drvEnsureImmeubleFolder(ent, imm);
+  if (!immFolderId) throw new Error('Impossible de créer dossier immeuble Drive');
+
+  const parts = [log.ref];
+  if (log.type) parts.push('(' + log.type + (log.etage ? ' ' + log.etage : '') + ')');
+  const logFolderName = _drvSafeName(parts.join(' '));
+  const logFolderId = await _driveGetOrCreateFolder(logFolderName, immFolderId);
+
+  const subResults = await Promise.all(
+    DRV_SUB_FOLDERS.map(s => _driveGetOrCreateFolder(s.name, logFolderId))
+  );
+  const folders = { root: logFolderId };
+  DRV_SUB_FOLDERS.forEach((s, i) => { folders[s.key] = subResults[i]; });
+  log.driveFolders = folders;
+  saveDB();
+  return folders;
+}
+
+/* Renomme un dossier Drive existant (files.update PATCH name). */
+async function _drvRenameFolder(folderId, newName) {
+  const r = await driveFetch(
+    'https://www.googleapis.com/drive/v3/files/' + folderId + '?fields=id,name',
+    { method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: _drvSafeName(newName) }) }
+  );
+  const data = await r.json();
+  if (!data.id) throw new Error(data.error?.message || 'Renommage Drive échoué');
+  return data;
+}
+
+/* Met un dossier Drive à la corbeille (recoverable 30j côté Drive). */
+async function _drvTrashFolder(folderId) {
+  const r = await driveFetch(
+    'https://www.googleapis.com/drive/v3/files/' + folderId,
+    { method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trashed: true }) }
+  );
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return true;
+}
+
+/* Hooks fire-and-forget : skip silencieux si Drive déconnecté.
+   Toast en cas d'erreur, mais l'écriture DB locale n'est jamais bloquée. */
+function _drvHookEnsureEntity(ent) {
+  if (!_driveTokenValid() || !ent) return;
+  _drvEnsureEntityFolder(ent)
+    .catch(err => { console.warn('[drvHookEnt]', err); showToast('⚠️ Drive entité : ' + (err.message||err), 'warn', 5000); });
+}
+
+function _drvHookEnsureImmeuble(ent, imm) {
+  if (!_driveTokenValid() || !ent || !imm) return;
+  _drvEnsureImmeubleFolder(ent, imm)
+    .catch(err => { console.warn('[drvHookImm]', err); showToast('⚠️ Drive immeuble : ' + (err.message||err), 'warn', 5000); });
+}
+
+function _drvHookEnsureLogement(log) {
+  if (!_driveTokenValid() || !log) return;
+  _drvEnsureLogementTree(log)
+    .then(() => showToast('📁 Arborescence Drive créée pour ' + log.ref, 'ok', 3500))
+    .catch(err => { console.warn('[drvHookLog]', err); showToast('⚠️ Drive logement : ' + (err.message||err), 'warn', 5000); });
+}
+
+function _drvHookRename(folderId, newName, kind) {
+  if (!folderId || !_driveTokenValid()) return;
+  _drvRenameFolder(folderId, newName)
+    .then(() => showToast('✅ Dossier Drive renommé : ' + newName, 'ok', 3500))
+    .catch(err => { console.warn('[drvHookRename]', err); showToast('⚠️ Renommage Drive ' + (kind||'') + ' échoué', 'warn', 5000); });
+}
+
+function _drvHookTrash(folderId, label) {
+  if (!folderId || !_driveTokenValid()) return;
+  _drvTrashFolder(folderId)
+    .then(() => showToast('🗑️ Dossier Drive ' + (label||'') + ' déplacé à la corbeille', 'ok', 4000))
+    .catch(err => { console.warn('[drvHookTrash]', err); showToast('⚠️ Suppression Drive échouée', 'warn', 5000); });
+}
+/* ═══ FIN DRIVE-ARBORESCENCE Phase A ════════════════════════════════════════ */
+
 // ── Clés ──────────────────────────────────────────────────────
 // Les clés sont stockées en mémoire avec photos : [{type,nb,obs,photos:[{name,data}]}]
 let _edlCles = [];
@@ -20035,6 +20180,10 @@ function saveParamLog() {
   const ref = v('log-ref').trim() || v('log-edit-ref');
   if(!ref) { showToast('Référence requise','err'); return; }
   let log = DB.logements.find(l=>l.ref===ref);
+  const isNew = !log;
+  // DRIVE-ARBORESCENCE : capturer le nom de dossier précédent pour détecter
+  // un changement (ref / type / etage / entity / imm) qui imposerait un rename.
+  const prevSnapshot = log ? { ref: log.ref, type: log.type, etage: log.etage, entity: log.entity, imm: log.imm, driveFolderRoot: log.driveFolders?.root } : null;
   if(!log) { log={id:nid()}; DB.logements.push(log); }
   // ── Tab Identité (legacy + typeUsage NEW Q4bis)
   log.ref=ref; log.imm=v('log-imm'); log.entity=v('log-entity'); log.type=v('log-type');
@@ -20097,12 +20246,44 @@ function saveParamLog() {
   _stamp(log); // v13.18
   _syncLogToBail(ref, log); // ← propagation vers le bail actif (legacy, retiré Phase 4)
   saveDB(); closeM('ov-log'); initFilters(); rBiens(); showToast('Logement enregistré','ok');
+
+  // DRIVE-ARBORESCENCE Phase A : ensure tree pour ce logement.
+  // Cas 1 : nouveau logement → création 9 sous-dossiers.
+  // Cas 2 : logement existant + changement de nom de dossier (ref/type/etage)
+  //         → rename du dossier root puis re-ensure (les 9 sous-dossiers gardent leur id).
+  // Cas 3 : déplacement entité/immeuble → on laisse l'ancienne arbo en place et on
+  //         crée une nouvelle (cas rare, à gérer plus tard si besoin).
+  if (isNew) {
+    _drvHookEnsureLogement(log);
+  } else if (prevSnapshot && prevSnapshot.driveFolderRoot) {
+    const prevName = prevSnapshot.ref + (prevSnapshot.type ? ' (' + prevSnapshot.type + (prevSnapshot.etage ? ' ' + prevSnapshot.etage : '') + ')' : '');
+    const newName  = log.ref + (log.type ? ' (' + log.type + (log.etage ? ' ' + log.etage : '') + ')' : '');
+    if (prevName !== newName && _driveTokenValid()) {
+      if (confirm2('Renommer aussi le dossier Drive « ' + prevName + ' » → « ' + newName + ' » ?')) {
+        _drvHookRename(prevSnapshot.driveFolderRoot, newName, 'logement');
+      }
+    } else if (prevSnapshot.entity !== log.entity || prevSnapshot.imm !== log.imm) {
+      // Déplacement vers une autre entité/immeuble : on crée la nouvelle arbo (l'ancienne reste).
+      _drvHookEnsureLogement(log);
+    }
+  } else {
+    // Logement existant sans driveFolders (cas legacy avant DRIVE-ARBORESCENCE) → ensure.
+    _drvHookEnsureLogement(log);
+  }
 }
 
 function delLog(ref) {
   if(!confirm2(`Supprimer le logement ${ref} ? (baux et données associées conservées)`)) return;
+  // DRIVE-ARBORESCENCE : capturer driveFolderId avant suppression DB.
+  const log = DB.logements.find(l=>l.ref===ref);
+  const driveFolderId = log?.driveFolders?.root;
   DB.logements = DB.logements.filter(l=>l.ref!==ref);
   saveDB(); initFilters(); rBiens(); showToast('Logement supprimé');
+  if (driveFolderId && _driveTokenValid()) {
+    if (confirm2('Mettre aussi le dossier Drive de ce logement à la corbeille ?\n(Récupérable 30 jours dans la corbeille Drive)')) {
+      _drvHookTrash(driveFolderId, ref);
+    }
+  }
 }
 
 // v14.3 PATRIMOINE-NAV-UNIFY : rBailleurs n'a plus de page dédiée, devient un wrapper qui rafraîchit
@@ -20195,21 +20376,38 @@ function saveImm() {
   const ent = entId ? DB.entites.find(e=>e.id===parseInt(entId)) : null;
   if(ent) {
     if(!ent.immeubles) ent.immeubles=[];
-    const im = {id:nid(), nom, adr:el('imm-adr').value,
+    const idx = el('imm-edit-id').value;
+    // DRIVE-ARBORESCENCE : préserver driveFolderId existant (bug pré-existant : push créait
+    // un objet neuf en perdant tout champ non listé). Snapshot pour détection rename.
+    const existingIm = idx !== '' ? ent.immeubles[parseInt(idx)] : null;
+    const im = {
+      id: existingIm?.id || nid(),
+      nom,
+      adr:el('imm-adr').value,
       annee:parseInt(el('imm-annee').value)||0,
       periodeConstr:el('imm-periodeConstr').value,
       regimeJuridique:el('imm-regimeJuridique').value,
       valeurEstimee:parseFloat(el('imm-valeur').value)||0,
       travaux:el('imm-travaux').value,
       montantTravaux:parseFloat(el('imm-mtravaux').value)||0,
-      notes:el('imm-notes').value};
-    const idx = el('imm-edit-id').value;
+      notes:el('imm-notes').value,
+      driveFolderId: existingIm?.driveFolderId || null
+    };
     if(idx!=='') ent.immeubles[parseInt(idx)] = im;
     else ent.immeubles.push(im);
     saveDB();
     renderImmList(ent.immeubles);
     cancelImmForm();
     showToast('Immeuble enregistré','ok');
+
+    // DRIVE-ARBORESCENCE Phase A
+    if (!existingIm) {
+      _drvHookEnsureImmeuble(ent, im);
+    } else if (existingIm.nom !== nom && im.driveFolderId && _driveTokenValid()) {
+      if (confirm2('Renommer aussi le dossier Drive « ' + existingIm.nom + ' » → « ' + nom + ' » ?')) {
+        _drvHookRename(im.driveFolderId, nom, 'immeuble');
+      }
+    }
   }
 }
 
@@ -20217,12 +20415,23 @@ function delImm(idx) {
   if(!confirm2('Supprimer cet immeuble ?')) return;
   const entId = el('ent-edit-id').value;
   const ent = entId ? DB.entites.find(e=>e.id===parseInt(entId)) : null;
-  if(ent?.immeubles) { ent.immeubles.splice(idx,1); saveDB(); renderImmList(ent.immeubles); }
+  if(ent?.immeubles) {
+    const driveFolderId = ent.immeubles[idx]?.driveFolderId;
+    const immNom = ent.immeubles[idx]?.nom;
+    ent.immeubles.splice(idx,1); saveDB(); renderImmList(ent.immeubles);
+    if (driveFolderId && _driveTokenValid()) {
+      if (confirm2('Mettre aussi le dossier Drive « ' + (immNom||'immeuble') + ' » à la corbeille ?\n(Récupérable 30 jours dans la corbeille Drive)')) {
+        _drvHookTrash(driveFolderId, immNom);
+      }
+    }
+  }
 }
 
 function saveEnt() {
   const id=el('ent-edit-id').value;
   const existing = id ? DB.entites.find(e=>e.id===parseInt(id)) : null;
+  // DRIVE-ARBORESCENCE : capturer ancien nom pour détection rename
+  const prevNom = existing?.nom;
   /* MOD-03 : saisie multi-lignes → array gerants + string legacy */
   const gerantsArr = v('ent-gerants').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   const ent={
@@ -20238,15 +20447,38 @@ function saveEnt() {
     // Préserver les champs Drive multi-entité
     entityId: existing?.entityId || ('eid_'+Math.random().toString(36).slice(2,9)+'_'+Date.now().toString(36)),
     members:  existing?.members||[],
-    driveFileId: existing?.driveFileId||null
+    driveFileId: existing?.driveFileId||null,
+    // DRIVE-ARBORESCENCE : préserver l'id du dossier Drive de l'entité
+    driveFolderId: existing?.driveFolderId||null
   };
   if(!ent.nom){showToast('Nom requis','err');return;}
   _stamp(ent); // v13.18
   if(id){const i=DB.entites.findIndex(e=>e.id===parseInt(id));if(i>=0)DB.entites[i]=ent;}else DB.entites.push(ent);
   saveDB();closeM('ov-ent');rBailleurs();showToast('Entité enregistrée','ok');
+
+  // DRIVE-ARBORESCENCE Phase A
+  if (!existing) {
+    _drvHookEnsureEntity(ent);
+  } else if (prevNom !== ent.nom && ent.driveFolderId && _driveTokenValid()) {
+    if (confirm2('Renommer aussi le dossier Drive « ' + prevNom + ' » → « ' + ent.nom + ' » ?')) {
+      _drvHookRename(ent.driveFolderId, ent.nom, 'entité');
+    }
+  }
 }
 
-function delEnt(id){if(!confirm2('Supprimer ?'))return;DB.entites=DB.entites.filter(e=>e.id!==id);saveDB();rBailleurs();}
+function delEnt(id){
+  if(!confirm2('Supprimer ?'))return;
+  // DRIVE-ARBORESCENCE : capturer driveFolderId avant filtrage DB
+  const ent = DB.entites.find(e=>e.id===id);
+  const driveFolderId = ent?.driveFolderId;
+  const entNom = ent?.nom;
+  DB.entites=DB.entites.filter(e=>e.id!==id);saveDB();rBailleurs();
+  if (driveFolderId && _driveTokenValid()) {
+    if (confirm2('Mettre aussi le dossier Drive « ' + (entNom||'entité') + ' » à la corbeille ?\n(Inclut tous les immeubles/logements de cette entité. Récupérable 30 jours.)')) {
+      _drvHookTrash(driveFolderId, entNom);
+    }
+  }
+}
 
 function refreshLogImmSelect() {
   const entNom = v('log-entity');
