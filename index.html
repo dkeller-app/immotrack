@@ -18367,14 +18367,16 @@ function _renderLogFichePanelBail(log, bail, ref) {
   let currentSection;
   if(bail) {
     const totalLoyer = (+bail.hc || +log.hc || 0) + (+bail.ch || +log.ch || 0);
-    const sigBailleur = bail.signatures && bail.signatures.bailleur;
-    const sigLocataire = bail.signatures && bail.signatures.locataire;
-    const allSigned = !!(sigBailleur && sigLocataire);
-    const partial   = !!(sigBailleur && !sigLocataire);
-    const sigBadge  = allSigned
+    // v14.13 A4 fix : utiliser les flags réels de signature (signedAt + mode) cohérents avec rBaux
+    const sigSign  = bail.signatures && bail.signatures.signedAt;
+    const sigMode  = bail.signatures && bail.signatures.mode;
+    const complet  = sigSign && sigMode !== 'bailleur-seul';
+    const partial  = sigSign && sigMode === 'bailleur-seul';
+    const sigBadge = complet
       ? '<span class="logf-badge b-ok">✓ Signé bilatéralement</span>'
       : (partial ? '<span class="logf-badge b-warn">⚠ Bailleur signé, locataire en attente</span>'
                  : '<span class="logf-badge b-warn">⚠ Non signé</span>');
+    const driveLink = bail.signatures && bail.signatures.driveWebViewLink;
     const locataires = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{nom: log.locataire}];
     const locNoms = locataires.map(l => l && l.nom).filter(Boolean).join(', ') || log.locataire || '—';
     currentSection = `
@@ -18398,9 +18400,14 @@ function _renderLogFichePanelBail(log, bail, ref) {
           ${bail.notes?`<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Notes</span><span class="logf-value" style="font-style:italic;font-weight:400;text-align:left">${escHtml(bail.notes)}</span></div>`:''}
         </div>
         <div class="logf-bail-actions">
-          <button class="btn bp" onclick="openBail('${refSafe}')">✏ Voir / Modifier le bail</button>
-          <button class="btn bs" onclick="previewBailRef('${refSafe}')">👁 Aperçu PDF</button>
-          ${!bail.cloture?`<button class="btn br" onclick="openBailClore('${refSafe}')">🔒 Clôturer</button>`:''}
+          <button class="btn bs bb" onclick="openBail('${refSafe}')" title="${complet?'Bail signé bilatéralement — modifs autorisées (snapshot signé reste figé)':(partial?'Bailleur signé — locataire en attente, modifications autorisées':'')}">✏️ Modifier bail</button>
+          <button class="btn bs bb" onclick="previewBailRef('${refSafe}')">👁 Aperçu</button>
+          ${sigSign?`<button class="btn bs bb" onclick="previewSignedBailRef('${refSafe}')" style="background:#1a4b8c;color:#fff" title="Voir le bail tel que signé (snapshot figé au moment de la signature)">📜 Voir bail signé</button>`:''}
+          <button class="btn bs bb" onclick="genActeCautionnementRef('${refSafe}')" title="Aperçu acte de cautionnement séparé">📋 Aperçu garant</button>
+          ${partial?`<button class="btn bs bb" onclick="previewBailLocataireRef('${refSafe}')" style="background:#16a34a;color:#fff" title="Phase 2 — le locataire signe le bail in-app (paraphes + signature finale)">✍️ Le locataire signe</button>`:''}
+          ${driveLink?`<button class="btn bs bb" onclick="window.open('${driveLink}','_blank')" style="background:#0ea5e9;color:#fff" title="Ouvrir le PDF signé sur Google Drive">📂 PDF Drive</button>`:''}
+          ${sigSign?`<button class="btn bs bb" onclick="resetBailSignatures('${refSafe}')" style="background:#f59e0b;color:#fff" title="Réinitialiser les signatures (double confirmation)">🔄 Réinitialiser</button>`:''}
+          ${!bail.cloture?`<button class="btn bs bb" onclick="openBailClore('${refSafe}')" title="Archiver ce bail (fin de bail)">🔚 Clôturer</button>`:''}
         </div>
       </div>`;
   } else {
@@ -18433,10 +18440,15 @@ function _renderLogFichePanelBail(log, bail, ref) {
               : (h.locataire||'—');
             const totalH = (+h.hc||0)+(+h.ch||0);
             const motif = h.finMotif ? ` · ${escHtml(h.finMotif)}` : (h._archivedAuto?' · clôture auto':'');
+            // v14.13 A4 fix : prioriser finEffective (date réelle de sortie) sur fin (théorique)
+            const finReelle = h.finEffective || h.fin;
+            const periodeLabel = `${fd(h.debut)} → ${finReelle?fd(finReelle):'?'}`;
+            const finTheoSuffix = (h.finEffective && h.fin && h.finEffective !== h.fin)
+              ? ` <span class="mu" style="font-size:10px;color:var(--t3)">(prévu jusqu'au ${fd(h.fin)})</span>` : '';
             return `<div class="logf-bail-hist-row">
               <div style="flex:1;min-width:0">
                 <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(locs)}</div>
-                <div class="mu">${fd(h.debut)} → ${h.fin?fd(h.fin):(h.finEffective?fd(h.finEffective):'?')}${motif}</div>
+                <div class="mu">${periodeLabel}${finTheoSuffix}${motif}</div>
               </div>
               <div class="flex-c" style="gap:10px;flex-shrink:0">
                 <span class="mu">${fmt(totalH)}<span style="font-size:10px">/mois</span></span>
@@ -18473,7 +18485,10 @@ function _renderBailTimeline(currentBail, history, ref) {
       const d = new Date(b.debut + 'T00:00:00');
       if(!isNaN(d) && (!minDate || d < minDate)) minDate = d;
     }
-    const finStr = b.fin || b.finEffective;
+    // v14.13 A4 fix : prioriser finEffective (date réelle clôture) sur fin (théorique)
+    // Pour bail courant non clôturé : finEffective vide → utilise fin (échéance théorique)
+    // Pour bail clôturé : finEffective défini → reflète la vraie sortie
+    const finStr = b.finEffective || b.fin;
     if(finStr) {
       const d = new Date(finStr + 'T00:00:00');
       if(!isNaN(d) && (!maxDate || d > maxDate)) maxDate = d;
@@ -18491,7 +18506,9 @@ function _renderBailTimeline(currentBail, history, ref) {
   const bars = allBails.map(b => {
     if(!b.debut) return '';
     const start = new Date(b.debut + 'T00:00:00');
-    const finStr = b.fin || b.finEffective;
+    // v14.13 A4 fix : la fin RÉELLE = finEffective (clôture réelle) sinon fin théorique
+    // sinon today (bail courant en cours sans date de fin saisie)
+    const finStr = b.finEffective || b.fin;
     const end = finStr ? new Date(finStr + 'T00:00:00') : today;
     if(isNaN(start) || isNaN(end) || end <= start) return '';
     const leftPct = ((start - minDate) / range) * 100;
@@ -18501,7 +18518,10 @@ function _renderBailTimeline(currentBail, history, ref) {
       ? b.locataires.map(l => l && l.nom).filter(Boolean).join(', ')
       : (b.locataire || '—');
     const color = _bailColorFromName(locNoms);
-    const label = `${locNoms} · ${fd(b.debut)} → ${b.fin?fd(b.fin):(b.finEffective?fd(b.finEffective):'en cours')}`;
+    const finReelle = b.finEffective || b.fin;
+    const finLabel = finReelle ? fd(finReelle) : 'en cours';
+    const finTheoExtra = (b.finEffective && b.fin && b.finEffective !== b.fin) ? ` (prévu ${fd(b.fin)})` : '';
+    const label = `${locNoms} · ${fd(b.debut)} → ${finLabel}${finTheoExtra}`;
     const cls = b._isCurrent ? ' current' : '';
     return `<div class="bail-tl-bar${cls}" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color}" title="${escHtml(label)}">${escHtml(locNoms)}</div>`;
   }).join('');
