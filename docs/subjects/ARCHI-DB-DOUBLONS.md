@@ -1,6 +1,6 @@
 # ARCHI-DB-DOUBLONS — Refonte architecture DB : séparer log (bien physique) et bail (contrat juridique)
 
-**Status** : 🔄 Phase 1 (CDC) ✅ + **Phase 2 (data + getters)** ✅ livrées v14.14 · Phase 3 (refacto code) ⬜ prête à coder · **Prio** : P1 · **Taille** : XL (~12-15h, ~7-10h restantes)
+**Status** : 🔄 Phases 1+2+**3a (UI tabs internes)** ✅ livrées v14.15 · Phase 3b (refacto reads/writes PDF) ⬜ prête · **Prio** : P1 · **Taille** : XL (~12-15h, ~5-7h restantes)
 **Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel + CDC)
 **Lié à** : LOG-FICHE-360 Phase 2 · FICHES-PARITE-360 (prérequis) · BAIL-NAMESPACE-MIGRATION · BAIL-TYPES (lien fort via log.typeUsage) · V3-VISUEL · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG (parallèle, hors scope ARCHI)
 
@@ -323,6 +323,16 @@ bail (DB.baux[ref]) — CONTRAT JURIDIQUE LIÉ AU BIEN
 - 2026-04-23 : créé (initial, dans BACKLOG.md uniquement)
 - 2026-05-02 (matin) : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 4 phases + tests post-implémentation. Doc séparé créé.
 - 2026-05-02 (soir) : **Phase 1 (CDC) livrée** — décisions Q1-Q8 arbitrées en dialogue avec utilisateur. Audit code complété (165 sites + 5 fonctions PDF). Champs à créer/retirer documentés. Plan détaillé Phases 2-4 prêt à coder. **Q4bis ajouté** : `log.typeUsage` (7 valeurs) + lien fort BAIL-TYPES (mobilier annexe). **Q2bis ajouté** : tab Mobilier dans formulaire logement (visible si meublé/étudiant/mobilité).
+- 2026-05-02 (soir) : **Phase 3a livrée v14.15** commit `5d7097f` (~3h, +444/-42 lignes)
+  - Modale logement (#ov-log) refondue avec 5 tabs internes : Identité / Description / DPE / Risques / Équipements
+  - 40+ champs accessibles dont les 12 nouveaux champs Phase 2 (typeUsage, npp, piecesDesc, partiesCommunes, locauxPrivatifs, typeHabitat, regimeJuridique, periodeConstr, lot, numFiscal, sous-objets dpe/etatRisques/chauffage/ecs, mobilier)
+  - **Mobilier dynamique** (Q2bis) : tab Équipements section "Inventaire mobilier" visible uniquement si `typeUsage in [habitation-meuble, etudiant, mobilite]` — builder add/remove de lignes (pièce + nom + qty + état)
+  - Encart legacy dans tab Identité : champs bail courant (loyer/locataire/dates) conservés avec avertissement "modifs recommandées depuis l'onglet Bail" (suppression Phase 4)
+  - Encart info dans wizard bail étape "Le bien" : bouton "Modifier le bien dans sa fiche" → ouvre openNewLog(ref) (refonte lecture seule complète prévue Phase 3b)
+  - Helpers : setLogModalTab, _logModalSyncMobilierVisibility, _logMobilier* (Add/Remove/Update/Render)
+  - Refonte openNewLog : pré-fill complet des 40+ champs avec defaults safe sur sous-objets
+  - Refonte saveParamLog : sauvegarde 5 tabs avec sous-objets, mobilier filtré (rows vides retirées)
+  - CSS .logmod-* ajouté : tabs responsive overflow-x mobile, panes avec animation fadeIn, sections séparées par border-top, info-banner accent bleu, mobilier-row en grid
 - 2026-05-02 (soir) : **Phase 2 livrée v14.14** commit `511faf3` (~3h, +216 lignes)
   - 5 helpers publics : `getCurrentBailFor`, `getCurrentTenant`, `getCurrentRent`, `_captureBailSnapshot`, `_readLogForBail`
   - 1 helper backup : `_backupBeforeMigration` (pattern DRIVE-2C)
