@@ -35,7 +35,7 @@
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
 | ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL (P1) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) |
-| 💾 **Drive sync** | DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
+| 💾 **Drive sync** | DRIVE-ARBORESCENCE (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) |
@@ -72,7 +72,7 @@
 | 14 | LEGAL-2044 | Aide déclaration 2044 — mapping catégories → lignes fiscales | P1 | L | ⬜ À faire | Critères 7.1/7.2 — ImmoTrack seul sans cette feature vs concurrents · CDC requis avant code |
 | 15 | LEGAL-BILAN-ANNUEL | Bilan annuel par entité PDF | P1 | M | ⬜ À faire | Critère 7.5 — pré-requis fiscal |
 | 38 | EDL-VALIDATION-AVOCAT | Validation légale template EDL par avocat (bail habitation) | P1 | XS | ⬜ À faire | Décret 2016-382 · clés (nombre+destination), réf EDL entrée dans sortie, comparatif pièce par pièce |
-| 32 | ARCHI-DB-DOUBLONS | Refonte architecture DB — supprimer doublons logements/baux | P1 | XL | ⏳ En attente | CDC requis avant refacto. Fix provisoire `_syncLogToBail()` en place. ~191 reads, 3 write sites à migrer |
+| 32 | ARCHI-DB-DOUBLONS | Refonte architecture DB — séparer log (bien physique) et bail (contrat), bidirectionnel | P1 | XL (~12-15h) | ⏳ CDC + audit (Phase 1) puis 3 phases | [docs/subjects/ARCHI-DB-DOUBLONS.md](docs/subjects/ARCHI-DB-DOUBLONS.md) · enrichi 2026-05-02 audit bidirectionnel : champs bien (DPE, surface, chauffage, ERP…) à tort sur bail + champs bail (locataire, dates, DG, loyer, IRL) à tort sur log · plan 4 phases (CDC / migration data / refacto code / cleanup) · risque élevé regression génération PDF bail · `bailSnapshot` figé pour immutabilité légale baux signés |
 
 ---
 
