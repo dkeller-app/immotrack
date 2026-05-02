@@ -1,6 +1,6 @@
 # ARCHI-DB-DOUBLONS — Refonte architecture DB : séparer log (bien physique) et bail (contrat juridique)
 
-**Status** : 🔄 Phases 1+2+3a+**3b (sync étendu)** ✅ livrées v14.16 · Phase 4 (cleanup + refacto 149 sites) ⬜ prête · **Prio** : P1 · **Taille** : XL (~12-15h, ~3-5h restantes)
+**Status** : 🔄 Phases 1+2+3a+3b+**4a (wizard bail readonly)** ✅ livrées v14.17 · Phase 4b (refacto 149 sites + cleanup champs obsolètes) ⬜ prête · **Prio** : P1 · **Taille** : XL (~12-15h, ~3-5h restantes)
 **Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel + CDC)
 **Lié à** : LOG-FICHE-360 Phase 2 · FICHES-PARITE-360 (prérequis) · BAIL-NAMESPACE-MIGRATION · BAIL-TYPES (lien fort via log.typeUsage) · V3-VISUEL · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG (parallèle, hors scope ARCHI)
 
@@ -323,6 +323,15 @@ bail (DB.baux[ref]) — CONTRAT JURIDIQUE LIÉ AU BIEN
 - 2026-04-23 : créé (initial, dans BACKLOG.md uniquement)
 - 2026-05-02 (matin) : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 4 phases + tests post-implémentation. Doc séparé créé.
 - 2026-05-02 (soir) : **Phase 1 (CDC) livrée** — décisions Q1-Q8 arbitrées en dialogue avec utilisateur. Audit code complété (165 sites + 5 fonctions PDF). Champs à créer/retirer documentés. Plan détaillé Phases 2-4 prêt à coder. **Q4bis ajouté** : `log.typeUsage` (7 valeurs) + lien fort BAIL-TYPES (mobilier annexe). **Q2bis ajouté** : tab Mobilier dans formulaire logement (visible si meublé/étudiant/mobilité).
+- 2026-05-02 (soir) : **Phase 4a livrée v14.17** commit `5fd2ca0` (~30min, +45/-2 lignes)
+  - Wizard bail tab "Le bien" (#bp-bien) en **lecture seule complète** (~60 inputs)
+  - `_makeBailBienTabReadOnly()` : applique readOnly/disabled à tous les inputs/selects/textareas du tab + classe `.readonly-bien`
+  - CSS visuel : background sur2, border dashed, opacity réduite, cursor not-allowed, focus désactivé
+  - Appelé à chaque `openBail(ref)` juste avant `openM('ov-bail')`
+  - Décision Q1=A appliquée à 100% (l'encart info Phase 3a guidait, Phase 4a applique)
+  - Boutons (`<button>`) non affectés → "✏ Modifier le bien dans sa fiche" reste fonctionnel
+  - L'édition se fait exclusivement via la modale logement Phase 3a (5 tabs internes)
+  - `_syncLogToBail` étendu Phase 3b propage les modifs au bail courant automatiquement
 - 2026-05-02 (soir) : **Phase 3b livrée v14.16** commit `17426cf` (~1h, +79/-5 lignes) — **PIVOT STRATÉGIQUE**
   - **Plan initial** (CDC) : refacto manuelle des 149 sites de lecture `bail.X` (champs bien) dans 5 fonctions PDF + listings, ~3-5h, **risque élevé régression PDF**
   - **Plan livré** : étendre `_syncLogToBail()` pour propager TOUS les champs bien depuis log vers bail courant (skip si signé, immutabilité préservée). Les 149 sites continuent de lire `bail.X` mais avec les bonnes valeurs auto-synchronisées.
