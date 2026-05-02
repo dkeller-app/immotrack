@@ -499,6 +499,16 @@ a{color:var(--blu);text-decoration:none}
 }
 .biens-search-clear.show{display:inline-flex;align-items:center}
 .biens-search-clear:hover{background:var(--sur2);color:var(--t1)}
+/* v14.8.1 — indicateur visuel du raccourci clavier (caché si search a le focus ou contient du texte) */
+.biens-search-kbd{
+  position:absolute;right:8px;display:inline-flex;align-items:center;gap:3px;
+  background:var(--sur2);border:1px solid var(--bor);border-radius:4px;
+  padding:1px 5px;font-size:10px;color:var(--t3);font-family:'IBM Plex Mono','Menlo',monospace;
+  pointer-events:none;line-height:1.3;letter-spacing:.3px;
+  transition:opacity var(--t-fast);
+}
+.biens-search-wrap:focus-within .biens-search-kbd{opacity:0}
+.biens-search-clear.show ~ .biens-search-kbd{opacity:0}
 .biens-filter-wrap{position:relative}
 .biens-filter-btn{
   display:inline-flex;align-items:center;gap:6px;
@@ -657,6 +667,10 @@ a{color:var(--blu);text-decoration:none}
 .logf-badge[onclick]:hover{background:rgba(59,126,246,.22)}
 .immf-donut{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
 .immf-donut-svg{display:block}
+/* v14.8.1 fix donut : variable dédiée plus contrastée que --bor (qui est rgba .09 trop transparent) */
+:root{--donut-track:rgba(0,0,0,.13)}
+[data-theme="dark"] .immf-donut-svg,
+[data-theme="dark"] :root{--donut-track:rgba(255,255,255,.22)}
 .immf-donut-cap{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;font-weight:700}
 .immf-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
 .immf-kpi{
@@ -2580,8 +2594,9 @@ textarea.field-modified-since-sig{
         <div class="biens-toolbar-right">
           <div class="biens-search-wrap">
             <span class="biens-search-icon" aria-hidden="true">🔍</span>
-            <input class="biens-search" id="biens-search" type="text" placeholder="Rechercher (nom, locataire, adresse…)" oninput="setBiensSearch(this.value)" aria-label="Rechercher un bien">
+            <input class="biens-search" id="biens-search" type="text" placeholder="Rechercher (nom, locataire, adresse…)" oninput="setBiensSearch(this.value)" aria-label="Rechercher un bien" title="Raccourcis : / ou Ctrl+K">
             <button class="biens-search-clear" id="biens-search-clear" onclick="setBiensSearch('')" aria-label="Effacer la recherche">✕</button>
+            <kbd class="biens-search-kbd" aria-hidden="true">/</kbd>
           </div>
           <div class="biens-filter-wrap">
             <button class="biens-filter-btn" id="biens-filter-btn" onclick="toggleBiensFilter(event)" aria-haspopup="true" aria-expanded="false">
@@ -17303,8 +17318,8 @@ function _renderOccupationDonut(loues, total, sizePx) {
   const half = sizePx / 2;
   const pctTxt = total ? Math.round(pct*100) + '%' : '—';
   return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}" class="immf-donut-svg" role="img" aria-label="${loues} sur ${total} logements loués">
-    <circle cx="${half}" cy="${half}" r="${r.toFixed(2)}" fill="none" stroke="var(--bor)" stroke-width="10"/>
-    <circle cx="${half}" cy="${half}" r="${r.toFixed(2)}" fill="none" stroke="${color}" stroke-width="10"
+    <circle cx="${half}" cy="${half}" r="${r.toFixed(2)}" fill="none" stroke="var(--donut-track)" stroke-width="11"/>
+    <circle cx="${half}" cy="${half}" r="${r.toFixed(2)}" fill="none" stroke="${color}" stroke-width="11"
       stroke-dasharray="${filled.toFixed(2)} ${empty.toFixed(2)}" stroke-dashoffset="${(c/4).toFixed(2)}"
       transform="rotate(-90 ${half} ${half})" stroke-linecap="round"
       style="transition:stroke-dasharray .6s ease-out"/>
@@ -17481,13 +17496,20 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') _closeBienMenus(); });
 
-// v14.3 PATRIMOINE-NAV-UNIFY — raccourci "/" : focus rapide la recherche Biens (pattern GitHub/Linear)
+// v14.3 + v14.8.1 PATRIMOINE-NAV-UNIFY — raccourcis recherche Biens
+//   "/" : focus rapide (pattern GitHub/Linear, Shift+: sur AZERTY FR)
+//   "Ctrl+K" / "Cmd+K" : alternative universelle (pattern Notion/Linear/Slack)
 document.addEventListener('keydown', e => {
-  if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const isSlash    = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey;
+  const isCtrlK    = (e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey) && !e.altKey;
+  if(!isSlash && !isCtrlK) return;
   if(currentPage !== 'biens') return;
-  const ae = document.activeElement;
-  const tag = ae && ae.tagName;
-  if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable)) return;
+  if(isSlash) {
+    // "/" : ne PAS intercepter si l'utilisateur tape dans un input/textarea/select/contentEditable
+    const ae = document.activeElement;
+    const tag = ae && ae.tagName;
+    if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (ae && ae.isContentEditable)) return;
+  }
   const inp = el('biens-search');
   if(inp) { inp.focus(); inp.select(); e.preventDefault(); }
 });
