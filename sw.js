@@ -1,7 +1,7 @@
 // ImmoTrack Service Worker — Network-First pour index.html
 // Bumper CACHE_VER à chaque déploiement pour invalider les anciens caches
 
-const CACHE_VER = 'immotrack-v23';
+const CACHE_VER = 'immotrack-v24';
 
 // ── Install : skipWaiting immédiat + pré-cache offline fallback ──────────────
 self.addEventListener('install', e => {
