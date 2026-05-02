@@ -17842,9 +17842,9 @@ function rEntFiche() {
     : `<span aria-hidden="true">🏛</span>`;
 
   wrap.innerHTML = `
-    <button class="logf-back" onclick="closeEntFiche()">← Retour aux biens</button>
+    <button class="logf-back" onclick="closeEntFiche()">← Aux biens</button>
     <div class="logf-breadcrumb">
-      <a onclick="closeEntFiche();return false">Biens</a>
+      <a onclick="_goToBiensRoot();return false">Biens</a>
       <span class="sep">›</span>
       <span>${entNomEsc}</span>
     </div>
@@ -18121,10 +18121,43 @@ function openLogFiche(ref) {
   }
 }
 
+// v14.13 A2 — drill-back intelligent : remonte d'un seul niveau dans la hiérarchie
+// Logement → Immeuble si imm, sinon Bailleur si entity, sinon Biens (root)
 function closeLogFiche() {
+  const ref = _currentLogFicheRef;
+  const log = ref ? (DB.logements||[]).find(l => l.ref === ref) : null;
   _currentLogFicheRef = null;
-  // Retour à l'onglet Biens (active le bon item nav pour cohérence visuelle)
-  const navBiens = document.querySelector('.ni[data-tip="Biens"]');
+  if(log) {
+    if(log.imm && log.entity) {
+      const ent = (DB.entites||[]).find(e => e.nom === log.entity);
+      const im  = ent && (ent.immeubles||[]).find(i => i.nom === log.imm);
+      if(ent && im) { openImmFiche(+ent.id, +im.id); return; }
+    }
+    if(log.entity) {
+      const ent = (DB.entites||[]).find(e => e.nom === log.entity);
+      if(ent) { openEntFiche(+ent.id); return; }
+    }
+  }
+  // Fallback (pas de parent résolu) : retour grille Biens
+  const navBiens = document.querySelector('.ni[data-tip*="Biens"]');
+  go('biens', navBiens || null);
+  try { history.pushState(null, '', location.pathname + location.search); } catch(e){}
+}
+
+// Helper label dynamique du bouton retour pour un logement
+function _logFicheBackLabel(log) {
+  if(log && log.imm) return `← ${log.imm}`;
+  if(log && log.entity) return `← ${log.entity}`;
+  return '← Aux biens';
+}
+
+// v14.13 A2 — accès direct à la racine Biens depuis n'importe quelle fiche
+// Utilisé par le breadcrumb "Biens" (pas le bouton retour qui fait drill-back).
+function _goToBiensRoot() {
+  _currentLogFicheRef = null;
+  _currentImmFiche    = null;
+  _currentEntFiche    = null;
+  const navBiens = document.querySelector('.ni[data-tip*="Biens"]');
   go('biens', navBiens || null);
   try { history.pushState(null, '', location.pathname + location.search); } catch(e){}
 }
@@ -18167,9 +18200,9 @@ function rLogFiche() {
     ? `<span class="logf-badge" onclick="openEntFiche(${+parentEnt.id})" title="Voir le bailleur">🏛 ${escHtml(log.entity)}</span>`
     : `<span class="logf-badge">🏛 ${escHtml(log.entity||'—')}</span>`;
   wrap.innerHTML = `
-    <button class="logf-back" onclick="closeLogFiche()">← Retour aux biens</button>
+    <button class="logf-back" onclick="closeLogFiche()" title="Retour au parent direct">${_logFicheBackLabel(log)}</button>
     <div class="logf-breadcrumb">
-      <a onclick="closeLogFiche();return false">Biens</a>
+      <a onclick="_goToBiensRoot();return false">Biens</a>
       ${crumbImm}
       <span class="sep">›</span><span>${escHtml(ref)}</span>
     </div>
@@ -18282,8 +18315,14 @@ function openImmFiche(entId, immId) {
   }
 }
 
+// v14.13 A2 — drill-back intelligent : Immeuble → Bailleur (1 seul niveau)
 function closeImmFiche() {
+  const ctx = _currentImmFiche;
   _currentImmFiche = null;
+  if(ctx && ctx.entId) {
+    const ent = (DB.entites||[]).find(e => +e.id === +ctx.entId);
+    if(ent) { openEntFiche(+ent.id); return; }
+  }
   const navBiens = document.querySelector('.ni[data-tip*="Biens"]');
   go('biens', navBiens || null);
   try { history.pushState(null, '', location.pathname + location.search); } catch(e){}
@@ -18340,9 +18379,9 @@ function rImmFiche() {
   const adrLine = im.adr ? `<div class="logf-adr">${escHtml(im.adr)}${im.annee?' · construit en '+(+im.annee||''):''}</div>` : '';
 
   wrap.innerHTML = `
-    <button class="logf-back" onclick="closeImmFiche()">← Retour aux biens</button>
+    <button class="logf-back" onclick="closeImmFiche()" title="Retour au bailleur">← ${escHtml(ent.nom||'Bailleur')}</button>
     <div class="logf-breadcrumb">
-      <a onclick="closeImmFiche();return false">Biens</a>
+      <a onclick="_goToBiensRoot();return false">Biens</a>
       <span class="sep">›</span>
       <a onclick="openEntFiche(${+ent.id});return false">${entNomEsc}</a>
       <span class="sep">›</span>
