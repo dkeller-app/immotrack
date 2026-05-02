@@ -1,6 +1,6 @@
 # ARCHI-DB-DOUBLONS — Refonte architecture DB : séparer log (bien physique) et bail (contrat juridique)
 
-**Status** : ⏳ Phase 1 (CDC) **livrée 2026-05-02** — décisions Q1-Q8 arbitrées · **Phases 2-4 prêtes à coder** · **Prio** : P1 · **Taille** : XL (~12-15h)
+**Status** : 🔄 Phase 1 (CDC) ✅ + **Phase 2 (data + getters)** ✅ livrées v14.14 · Phase 3 (refacto code) ⬜ prête à coder · **Prio** : P1 · **Taille** : XL (~12-15h, ~7-10h restantes)
 **Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel + CDC)
 **Lié à** : LOG-FICHE-360 Phase 2 · FICHES-PARITE-360 (prérequis) · BAIL-NAMESPACE-MIGRATION · BAIL-TYPES (lien fort via log.typeUsage) · V3-VISUEL · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG (parallèle, hors scope ARCHI)
 
@@ -323,3 +323,12 @@ bail (DB.baux[ref]) — CONTRAT JURIDIQUE LIÉ AU BIEN
 - 2026-04-23 : créé (initial, dans BACKLOG.md uniquement)
 - 2026-05-02 (matin) : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 4 phases + tests post-implémentation. Doc séparé créé.
 - 2026-05-02 (soir) : **Phase 1 (CDC) livrée** — décisions Q1-Q8 arbitrées en dialogue avec utilisateur. Audit code complété (165 sites + 5 fonctions PDF). Champs à créer/retirer documentés. Plan détaillé Phases 2-4 prêt à coder. **Q4bis ajouté** : `log.typeUsage` (7 valeurs) + lien fort BAIL-TYPES (mobilier annexe). **Q2bis ajouté** : tab Mobilier dans formulaire logement (visible si meublé/étudiant/mobilité).
+- 2026-05-02 (soir) : **Phase 2 livrée v14.14** commit `511faf3` (~3h, +216 lignes)
+  - 5 helpers publics : `getCurrentBailFor`, `getCurrentTenant`, `getCurrentRent`, `_captureBailSnapshot`, `_readLogForBail`
+  - 1 helper backup : `_backupBeforeMigration` (pattern DRIVE-2C)
+  - Migration auto `_migrateArchiV1IfNeeded()` hookée dans `initDB()` avant `saveDB()` final
+  - 12 nouveaux champs créés sur log (typeUsage, npp, piecesDesc, partiesCommunes, locauxPrivatifs, typeHabitat, regimeJuridique, periodeConstr, annexes, lot, numFiscal, chauffage{}, ecs{}, mobilier[], dpe{}, etatRisques{})
+  - Migration idempotente : enrichissement à chaque boot (robustesse imports JSON cross-device + nouveaux logements créés entre phases), backup + toast UNE SEULE FOIS au premier run via marqueur `DB._migratedArchiV1`
+  - Champ ECS (eau chaude sanitaire) ajouté en plus du CDC initial — présent dans le seed bail (chauffElec/Gaz/Coll/Autre + ecsElec/Gaz/Coll/label), copié pour cohérence
+  - Tests passés : `DB._migratedArchiV1` true, sous-objets dpe/etatRisques/chauffage/ecs/mobilier remplis sur DEMO-F2, `getCurrentTenant('DEMO-F2')` retourne MARTIN Jean, `getCurrentRent('DEMO-F2')` retourne `{hc:620, ch:55, total:675}`, localStorage backup créé, toast affiché au 1er boot, silencieux aux suivants
+  - **Code legacy intact** : aucun ancien champ supprimé, fonctions PDF non touchées (Phase 3)
