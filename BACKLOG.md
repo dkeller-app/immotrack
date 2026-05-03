@@ -219,6 +219,14 @@
 
 ## ✅ Livré récemment
 
+### BUG-DRIVE-RESURRECTION — session 2026-05-03 (~2h, 4 commits, v14.30 → v14.32) 🔥 P0
+| Code | Sujet | Note |
+|---|---|---|
+| BUG-DRIVE-RESURRECTION Phase 1 | Helper `_isAlive` + 10 fonctions `delX` converties au pattern tombstone (delLog/Imm/Ent/Bail/BailHist/Mv/Quit/Ass/Mrh/IRL) — préserve les champs de filtrage (entity, logement, qui, ref) pour cohérence avec `_buildEntityPayload` | v14.30 · commit `3ed2ac0` |
+| BUG-DRIVE-RESURRECTION Phase 2 | Helper `_alive(coll)` polyvalent + filtrage tombstones dans 12 renderers principaux + helpers `immeubles()`/`_activeLogements()` + 3 sites SCI options (préventif crash sur `e.type` manquant) + IRL dictionnaire mixte (typeof number || _isAlive) | v14.31 · commit `94b2b07` |
+| BUG-DRIVE-RESURRECTION Phase 3 | Cas spécial entité multi-device : helper `_cascadeDeleteEntity(entNom, entityId)` qui tombstone récursivement tous les sous-objets liés (logements/baux/mvt/quit/edl/ass/mrh/historique) ; hook local dans `delEnt` (DANS le `_undoOp` pour que la snapshot pré-modif capture l'état complet et l'undo restaure tout en bloc) ; hook pull dans `_mergeEntityPayload` quand `payload.entity._deleted === true` (cascade côté pull + early return) ; push fichier Drive avec `entity._deleted:true` au top-level géré automatiquement par `_driveAutoSaveNow` qui itère sur tombstones | v14.32 · commit `f77bcd2` |
+| Cause racine | 10 fonctions delX faisaient `filter()` ou `delete` direct → l'objet disparaissait localement, saveDB poussait sa version locale, mais le merge UNION du pull ré-injectait l'objet absent → résurrection silencieuse (et propagation suppression bloquée multi-device). Seul `delEDL` (v14.4 BUG-EDL-DELETE-NOSYNC) avait déjà le pattern tombstone. | Spec [docs/subjects/BUG-DRIVE-RESURRECTION.md](docs/subjects/BUG-DRIVE-RESURRECTION.md) · commit spec `fdda0ec` |
+
 ### VACANCE-VIZ — session 2026-05-03 (~1h30, 1 commit, v14.29)
 | Code | Sujet | Note |
 |---|---|---|

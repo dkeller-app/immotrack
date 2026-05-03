@@ -1,6 +1,12 @@
 # BUG-DRIVE-RESURRECTION — Suppressions ressuscitées au pull Drive
 
-**Status** : 🔄 En cours (depuis 2026-05-03) · **Prio** : **P0 critique** · **Taille** : M (~3-4h)
+**Status** : ✅ Livré v14.30-32 (2026-05-03) · **Prio** : **P0 critique** · **Taille** : M (~3-4h)
+
+## Résumé livraison
+- **v14.30** (commit `3ed2ac0`) Phase 1 : helper `_isAlive` + 10 fonctions delX converties au pattern tombstone (delLog/Imm/Ent/Bail/BailHist/Mv/Quit/Ass/Mrh/IRL)
+- **v14.31** (commit `94b2b07`) Phase 2 : helper `_alive` polyvalent + filtrage tombstones dans 12 renderers principaux + helpers `immeubles()`/`_activeLogements()` + sites SCI options + IRL dictionnaire mixte
+- **v14.32** (commit `f77bcd2`) Phase 3 : helper `_cascadeDeleteEntity` (cascade tombstone sur logements/baux/mouvements/quittances/edls/assurances/mrh/historique liés à l'entité supprimée) + hook local dans `delEnt` + hook pull dans `_mergeEntityPayload` quand `payload.entity._deleted === true`
+
 **Détecté** : 2026-05-03 (utilisateur en conditions réelles post-livraison UNDO-OP)
 **Lié à** : BUG-EDL-DELETE-NOSYNC (v14.4 — fix tombstone EDL, jamais étendu) · UNDO-OP (v14.21-24, fonctionne nativement avec tombstones) · DRIVE-2H (refonte par-user/shared, à venir)
 
@@ -155,3 +161,4 @@ V2 (sujet futur `DRIVE-GC-TOMBSTONES`) : purge auto après 90 jours des tombston
 
 ## Journal
 - 2026-05-03 : créé suite à bug remonté en conditions réelles · brainstorm Q1B + Q2B finalisé · ready for plan
+- 2026-05-03 : ✅ Livré v14.30-32 · 3 phases en ~2h · pattern tombstone universel sur 10 collections · UNDO-OP fonctionne nativement (snapshot pré-modif restore par-dessus tombstone) · cascade entité multi-device : suppression PC d'une entité + tous ses sous-objets (logements/baux/mvt/quit/edl/ass/mrh/hist) propagée en bloc au téléphone via `entity._deleted:true` au top-level du fichier Drive entité. **Leçon sauvegardée en mémoire** (`feedback_wrapping_context.md`) : wrapper une fonction = lire tout son contexte UX et propagation, pas juste la mutation DB.
