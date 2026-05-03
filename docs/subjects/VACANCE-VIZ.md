@@ -153,7 +153,47 @@ Critique acceptée :
 - KPI Compta « Manque à gagner -Y € » (refonte du 4ᵉ KPI), inchangé depuis v14.29
 - La mémoire du dernier loyer reste assurée par `_getActiveBailHcCh` + `DB.baux_historique`
 
+---
+
+## Volet 4 — v14.34 : extension du pattern aux fiches bailleur + immeuble
+
+### Pushback utilisateur 2026-05-03
+
+> 💬 « il faut revoir les pages bailleurs et immeubles. On doit voir directement en dessous. est-ce possible d'intégrer la bande avec les infos immeuble logement loué loyer dans la bulle ? De plus, les infos ne sont pas juste ... rien ne s'affiche. »
+
+3 problèmes :
+1. Hero ent-fiche / imm-fiche : 220 px hero + 80 px bande KPI = 300 px avant les sous-onglets, alors que la fiche logement v14.33 fait 190 px en intégrant tout
+2. Cards immeubles dans `_renderEntFicheImmeubles` : avec `aspect-ratio:16/10` et grille 4 colonnes pour 1 seule carte → image 175 px de haut, body sous le pli
+3. Bouton « ✏ Modifier l'immeuble » sur imm-fiche appelait `openNewEnt` (modale bailleur) au lieu de la modale immeuble
+
+### Fix v14.34
+
+**A. Refonte hero ent-fiche + imm-fiche en option C choisie par l'utilisateur**
+- Grille 3 colonnes : image (96 × 96) | info+stats+actions | donut compact (96 × 96)
+- Suppression de la bande `.immf-kpis` séparée → KPIs intégrés en grid 4 dans la colonne info
+- Réutilise les classes `.logf-hero-stats` et `.logf-stat` du logement (cohérence visuelle)
+- Nouvelles classes : `.entf-hero-compact`, `.entf-photos-mini`, `.entf-donut-compact`, `.logf-hero-stats-4`
+
+| Page | Hero v14.33 | Hero v14.34 |
+|---|---|---|
+| ent-fiche | ~220 px hero + 80 px KPIs = **~300 px** | **~210 px** intégré |
+| imm-fiche | ~220 px hero + 80 px KPIs = **~300 px** | **~210 px** intégré |
+
+**B. Cards `_renderBuildingCard` plus compactes**
+- `.bien-card-img` `aspect-ratio` : 16/10 → **21/9** (image plus large/courte)
+- Pour une carte de 280 px de large : image passe de 175 px → 120 px
+- Le body (titre + adresse + meta + période + loyer) remonte au-dessus du pli même avec 1 seule carte dans la grille
+
+**C. Fix bouton « Modifier l'immeuble »**
+- Avant : `openNewEnt(${ent.id})` (ouvrait la modale bailleur, bug UX)
+- Après : `editImm(${immIdx},${ent.id})` (ouvre la modale immeuble dédiée v14.27)
+
+**D. Responsive**
+- 768 px : donut passe sous l'info (grid-column:1/-1, flex-row pour rester centré)
+- 600 px : image 64 × 64, padding réduit
+
 ## Journal
 
 - 2026-05-03 (matin) : créé · option C livrée v14.29 · jugé trop imposant + redondant par utilisateur
 - 2026-05-03 (après-midi) : refonte v14.33 (option 1 + pulse fine) · bandeau et timeline 24m supprimés · hero compact avec 4 KPIs scoreboard + pulse 8px en séparateur · gain ~230 px vs v14.29
+- 2026-05-03 (soir) : extension v14.34 (volet 4) · pattern compact appliqué aux fiches bailleur + immeuble · option C (donut conservé en colonne droite + scoreboard 4 KPIs intégré dans l'info) · cards immeubles plus compactes (aspect-ratio 21/9) · fix bouton « Modifier l'immeuble »
