@@ -103,7 +103,70 @@ Reliquat de la version inline (avant v14.20) : la modale entité hébergeait la 
 - [x] Suppression immeuble : modale fermée + fiche bailleur/Biens refresh + UNDO fonctionnel
 - [x] Création immeuble depuis fiche bailleur : refresh immédiat de la liste
 
+---
+
+## Volet 3 — v14.28 : REFRESH-LIVE après chaque mutation (création + édition + suppression)
+
+### Symptôme
+> 💬 « quand on enregistre, le logement / entité ou autre ne s'affiche pas directement. C'est idem que la suppression. Il faut que si supprimer ça disparaisse de suite, si créé apparition direct »
+
+Reproduction : sur la fiche immeuble 360°, cliquer « + Ajouter un logement » → toast « Logement enregistré » → la page reste vide (KPIs à 0, liste vide). Reload manuel nécessaire.
+
+### Cause
+Les fonctions de sauvegarde (`saveParamLog`, `saveBail`, `saveMv`, `saveQuit`, `saveEnt`, `saveImm`) appelaient seulement le renderer de leur **onglet d'origine** (`rBiens`, `rBaux`, `rMv`, `rQuit`, `rBailleurs`). Si l'utilisateur était sur une **fiche 360°** (log/imm/ent), la page restait figée car son `rXxxFiche()` n'était pas dans la chaîne d'appel.
+
+Idem pour les fonctions de suppression wrappées dans `_undoOp` : la closure de mutation n'incluait pas de refresh des fiches 360°.
+
+### Fix v14.28 — helper centralisé `_refreshAfterMutation()`
+
+**Helper unique** déclaré près de `currentPage` :
+
+```js
+function _refreshAfterMutation() {
+  switch(currentPage) {
+    case 'log-fiche': rLogFiche(); break;
+    case 'imm-fiche': rImmFiche(); break;
+    case 'ent-fiche': rEntFiche(); break;
+    case 'biens':     rBiens();    break;
+  }
+}
+```
+
+**Sites patchés** (appel ajouté après `saveDB()` ou dans la closure `_undoOp`) :
+
+| Catégorie | Fonction | Site |
+|---|---|---|
+| Save | `saveParamLog` | après `rBiens()` |
+| Save | `saveBail` | après `rBaux()` |
+| Save | `terminerBail` | après `rBaux()` |
+| Save | `saveMv` | après `rMv()` |
+| Save | `saveQuit` | après `rQuit()` |
+| Save | `saveEnt` | après `rBailleurs()` |
+| Save | `saveImm` | après `closeM('ov-imm')` (remplace switch custom v14.27) |
+| Save | `saveAss` | après `rAss()` |
+| Save | `saveMrh` | après `rAss()` |
+| Del | `delLog` | dans `_undoOp` closure |
+| Del | `delImm` | dans `_undoOp` closure (remplace switch custom v14.27) |
+| Del | `delEnt` | dans `_undoOp` closure |
+| Del | `delBail` | dans `_undoOp` closure (remplace check explicite log-fiche) |
+| Del | `delMv` | dans `_undoOp` closure |
+| Del | `delQuit` | dans `_undoOp` closure |
+| Del | `delEDL` | dans `_undoOp` closure |
+| Del | `delAss` | dans `_undoOp` closure |
+| Del | `delMrh` | dans `_undoOp` closure |
+| Del | `delIRL` | dans `_undoOp` closure |
+
+### Critères d'acceptance
+
+- [x] Création d'un logement depuis fiche immeuble 360° → la carte logement apparaît immédiatement + KPIs (Logement/Loué/Loyer HC) mis à jour
+- [x] Création d'un mouvement depuis sous-onglet Compta de la fiche logement → la ligne apparaît immédiatement + KPIs annuels mis à jour
+- [x] Édition d'un bail depuis fiche logement → bandeau Locataire actuel mis à jour immédiatement
+- [x] Suppression d'un logement, immeuble, entité, bail, mouvement, quittance, EDL → carte/ligne disparaît immédiatement
+- [x] FAB Annuler (Ctrl+Z) reste fonctionnel sur toutes les suppressions
+- [x] Aucun appel sur page non concernée (helper ne fait que switch sur `currentPage`)
+
 ## Journal
 
 - 2026-05-02 (matin) : créé · fix v14.26 livré (commit `8743d69`) · 4 sites patchés (delLog/delImm/delEnt/delBail)
 - 2026-05-02 (midi) : volet 2 (UX-IMM-MODAL) livré v14.27 · refonte complète flux modale immeuble · principe « 1 création = 1 bulle » respecté à 100% · menu ⋮ carte building corrigé (kind prioritaire sur ref)
+- 2026-05-03 : volet 3 (REFRESH-LIVE) livré v14.28 · helper centralisé `_refreshAfterMutation()` · 19 sites patchés · création/édition/suppression désormais reflétées instantanément sur fiche 360° courante

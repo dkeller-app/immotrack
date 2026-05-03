@@ -219,11 +219,12 @@
 
 ## ✅ Livré récemment
 
-### BUG-DEL-FICHE-360 + UX-IMM-MODAL — session 2026-05-02 (~1h15, 2 commits, v14.26 + v14.27)
+### BUG-DEL-FICHE-360 + UX-IMM-MODAL + REFRESH-LIVE — sessions 2026-05-02/03 (~2h, 3 commits, v14.26 → v14.28)
 | Code | Sujet | Note |
 |---|---|---|
 | BUG-DEL-FICHE-360 | Fix régression UX post-UNDO-OP : `delLog`/`delImm`/`delEnt`/`delBail` ne fermaient plus la modale d'édition ni ne quittaient la fiche 360° de l'élément supprimé. Ajout `closeM('ov-X')` + `closeXFiche()` conditionnel **avant** le `_undoOp` (préserve Ctrl+Z) | v14.26 · [docs/subjects/BUG-DEL-FICHE-360.md](docs/subjects/BUG-DEL-FICHE-360.md) |
 | UX-IMM-MODAL | Modale immeuble rendue **autonome** (« 1 création = 1 bulle ») : section Immeubles retirée de `ov-ent`, hidden `imm-ent-id` ajouté à `ov-imm`, refacto `addImmForm/editImm/delImm/saveImm` avec `entIdOverride`, `openNewImm`/`_confirmImmPicker` n'ouvrent plus `ov-ent` intermédiaire, bouton « + Immeuble » sur fiche bailleur 360°, menu ⋮ carte building enfin opérationnel (kind prioritaire sur ref) | v14.27 · [docs/subjects/BUG-DEL-FICHE-360.md](docs/subjects/BUG-DEL-FICHE-360.md) (volet 2) |
+| REFRESH-LIVE | Helper centralisé `_refreshAfterMutation()` injecté dans **19 sites** (saveParamLog, saveBail x2, saveMv, saveQuit, saveEnt, saveImm, saveAss, saveMrh + 10 del*). Création/édition/suppression désormais reflétées **instantanément** sur la fiche 360° courante (avant : page figée jusqu'au reload manuel) | v14.28 · [docs/subjects/BUG-DEL-FICHE-360.md](docs/subjects/BUG-DEL-FICHE-360.md) (volet 3) |
 
 ### UNDO-OP — session 2026-05-02 (~3h, 4 commits, v14.21 → v14.24)
 | Code | Sujet | Note |
