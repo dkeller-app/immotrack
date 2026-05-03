@@ -152,10 +152,10 @@
 | **MRH** | | | | | |
 | MRH-AUTO-LOC | MRH : récupérer auto le locataire selon logement | P2 | S | ⬜ À faire | [docs/subjects/MRH-AUTO-LOC.md](docs/subjects/MRH-AUTO-LOC.md) |
 | **Logement** | | | | | |
-| LOG-PHOTOS | Photos illustratives sur la fiche logement (galerie permanente) | P2 | M | ⬜ À faire | [docs/subjects/LOG-PHOTOS.md](docs/subjects/LOG-PHOTOS.md) · réutiliser pattern EDL-PHOTOS-IDXDB · couple avec LOG-ANNONCE · alimenterait l'image principale des cartes Biens (placeholder actuel) et le hero de LOG-FICHE-360 |
+| LOG-PHOTOS | Photos illustratives sur la fiche logement (galerie permanente) | P2 | M | ⬜ À faire | [docs/subjects/LOG-PHOTOS.md](docs/subjects/LOG-PHOTOS.md) · réutiliser pattern EDL-PHOTOS-IDXDB · couple avec LOG-ANNONCE · alimenterait l'image principale des cartes Biens (placeholder actuel) et le hero de LOG-FICHE-360 · **🔗 À COUPLER avec DRIVE-ARBORESCENCE Phase C** (sync Drive→app lazy scan) — utilise `_drvUploadDoc(logRef, 'photos', file)` pour upload + helper de scan à implémenter pour détecter les photos déposées manuellement dans Drive |
 | LOG-ANNONCE | Bouton "Générer annonce de location" pour logements vacants | P2 | M | ⬜ À faire | [docs/subjects/LOG-ANNONCE.md](docs/subjects/LOG-ANNONCE.md) · différenciant marché vs Rentila/BailFacile |
 | **Travaux / PJ** | | | | | |
-| DOC-PJ | Pouvoir ajouter des PJ (factures, CR entretien, photos) | P2 | M | ⬜ À faire | [docs/subjects/DOC-PJ.md](docs/subjects/DOC-PJ.md) |
+| DOC-PJ | Pouvoir ajouter des PJ (factures, CR entretien, photos) | P2 | M | ⬜ À faire | [docs/subjects/DOC-PJ.md](docs/subjects/DOC-PJ.md) · **🔗 À COUPLER avec DRIVE-ARBORESCENCE Phase C** (sync Drive→app lazy scan) — utilise `_drvUploadDoc(logRef, category, file)` pour upload (helpers v14.35) + besoin du helper de scan Drive→app pour détecter les fichiers déposés manuellement par l'utilisateur dans les sous-dossiers Drive |
 | TRAV-SUIVI | Suivi entretien / travaux avec calendrier | P2 | L | ⬜ À faire | [docs/subjects/TRAV-SUIVI.md](docs/subjects/TRAV-SUIVI.md) · CDC requis |
 | **Courriers / Templates** | | | | | |
 | DOC-CIVILITE | Reprendre civilité du locataire dans formules de politesse | P2 | XS | ✅ Livré v13.23 | commit 529e261 · helpers _civSalut/_civConge incluent maintenant les noms ("Madame ARSLAN, Monsieur HARNIST,") |

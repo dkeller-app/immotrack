@@ -2,7 +2,17 @@
 
 **Status** : ⬜ À faire · **Prio** : P2 · **Taille** : M
 **Détecté** : 2026-04-28
-**Lié à** : TRAV-SUIVI · DRIVE-2H
+**Lié à** : TRAV-SUIVI · DRIVE-2H · **🔗 DRIVE-ARBORESCENCE Phase C** (à coupler — voir ci-dessous)
+
+> **🔗 COUPLAGE OBLIGATOIRE — DRIVE-ARBORESCENCE Phase C** (sync Drive→app lazy scan)
+>
+> Quand on attaque DOC-PJ, on traite **EN MÊME TEMPS** la Phase C reportée de DRIVE-ARBORESCENCE :
+> - **Côté upload (déjà prêt v14.35)** : utiliser `_drvUploadDoc(logRef, category, file)` qui gère compression + nommage + push Drive + métadonnées dans `DB.documents`
+> - **Côté scan (à implémenter)** : helper `_drvScanLogementFolders(logRef)` qui liste les fichiers de chaque sous-dossier Drive du logement (`files.list` avec parent=folderId), compare avec `DB.documents`, ajoute en DB les fichiers Drive absents (catégorie déduite du sous-dossier parent) et supprime/tombstone les références DB pour les fichiers absents de Drive (suppression manuelle utilisateur depuis Drive web)
+> - **Trigger lazy scan** : à l'ouverture de `LOG-FICHE-360` (sous-onglet Documents) — pas au login pour éviter les appels API massifs
+> - **Toast découverte** : « X documents découverts dans Drive ajoutés à votre fiche »
+>
+> Sans ce couplage, le drag-drop côté app fonctionne mais les dépôts manuels de l'utilisateur dans Drive web ne sont jamais détectés → bidirectionnel cassé. Cf [docs/subjects/DRIVE-ARBORESCENCE.md](DRIVE-ARBORESCENCE.md) journal 2026-05-03.
 
 ## Contexte
 Aujourd'hui pas de système global de PJ. L'utilisateur veut pouvoir attacher des **fichiers** (PDF facture, photo CR d'intervention, devis, etc.) à différentes entités :
