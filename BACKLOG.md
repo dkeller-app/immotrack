@@ -219,6 +219,11 @@
 
 ## ✅ Livré récemment
 
+### VACANCE-VIZ — session 2026-05-03 (~1h30, 1 commit, v14.29)
+| Code | Sujet | Note |
+|---|---|---|
+| VACANCE-VIZ | Visualisation manque à gagner sur fiche logement 360° : (a) bandeau status loué/vacant en haut (vert/rouge avec montant), (b) timeline 24 mois SVG (mois loué vs vacant, tooltips natifs), (c) refonte 4ᵉ KPI Compta « Vacance % » → « Manque à gagner -Y € » avec sub « X% vacance ». Réutilise `_getActiveBailHcCh` existant (fallback dernier bail = mémoire du loyer en vacance). Helpers factorisables : `_daysBetweenIso`, `_monthsBetweenIso`, `_getLastBailForLog`, `_getLastClosedBailEndIso`, `_renderLogFicheOccupationBanner`, `_renderLogFicheTimeline24`. | v14.29 · [docs/subjects/VACANCE-VIZ.md](docs/subjects/VACANCE-VIZ.md) |
+
 ### BUG-DEL-FICHE-360 + UX-IMM-MODAL + REFRESH-LIVE — sessions 2026-05-02/03 (~2h, 3 commits, v14.26 → v14.28)
 | Code | Sujet | Note |
 |---|---|---|
