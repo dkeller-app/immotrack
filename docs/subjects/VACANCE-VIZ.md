@@ -106,6 +106,54 @@ Responsive 600px : bandeau passe en colonne (icône+message en haut, montant en 
 - **Timeline 24 mois fixe** : pas de zoom/pan, pas de plage modifiable. À étendre si besoin (plage 12/36/60 mois en switch). Cohérent avec FICHES-PARITE-360 Session 2 (Plan d'occupation Gantt immeuble) qui ira plus loin.
 - **Dashboard KPI mag toujours invisible** : si l'utilisateur veut une vision multi-biens du manque à gagner, passer par le drill-down du widget `todo-unified` (existant) ou prévoir un futur `BAILLEUR-FICHE-360 / Performance par immeuble` (FICHES-PARITE-360 Session 7).
 
+## Refonte v14.33 — retour utilisateur 2026-05-03
+
+### Pushback utilisateur sur v14.29
+
+> 💬 « le visuel ne me convient pas. ça prend toute la fenêtre avec pas d'informations très utile... il faut revoir absolument cela ! [...] les infos de location et l'occupation des 24 derniers mois ça peut se trouver dans la bulle du bien (qui est déjà trop haute à mon goût). en plus cette timeline est redondante avec la timeline dans bail. »
+
+Critique acceptée :
+- Bandeau pleine largeur 70 px + timeline 130 px = 200 px de hauteur pour 2 infos
+- Timeline 24 mois redondante avec `_renderBailTimeline` de l'onglet Bail
+- Le hero était déjà jugé trop haut
+
+### Refonte v14.33 — option « Scoreboard + pulse fine »
+
+**Choix** option 1 (scoreboard 4 KPIs) **+ pulse 8px en séparateur entre badges et stats**.
+
+**Suppressions** :
+- ❌ `_renderLogFicheOccupationBanner` (bandeau pleine largeur)
+- ❌ `_renderLogFicheTimeline24` (timeline 130 px avec labels mois/année)
+- ❌ CSS `.logf-occup-banner`, `.logf-timeline24`, `.lt-pill`, `.lt-dot`
+
+**Ajouts** :
+- ✅ `_renderLogFicheHeroPulse(ref)` : SVG 240 px × 11 px (8 px barre + 1 px gap + 2 px marker), 24 cellules de 10 px, tooltip natif `<title>`, marqueur triangulaire pour le mois courant
+- ✅ `_renderLogFicheHeroStats(log, ref)` : 4 micro-KPIs en grid `repeat(4, 1fr)`
+  - KPI 1 : Loyer mensuel courant (ou dernier loyer ref si vacant, en gris)
+  - KPI 2 : Durée loué (X mois / X ans Y mois) ou jours vacance
+  - KPI 3 : Taux d'occupation 24m (%)
+  - KPI 4 : Solde YTD (loué) ou Manque à gagner cumulé en € (vacant)
+- ✅ `.logf-hero-compact` (grid `120px 1fr`, padding réduit) + `.logf-photos-mini` (96 × 96 au lieu de 200 × 200)
+- ✅ `.logf-hero-pulse` + `.logf-hero-stats` + `.logf-stat` CSS
+- ✅ Responsive : 768 px → KPIs en 2 × 2 ; 600 px → image 64 × 64
+
+### Bilan hauteur (gain)
+
+| Version | Hero | Bandeau | Timeline | Total avant sous-onglets |
+|---|---|---|---|---|
+| Avant v14.29 | 220 px | 0 | 0 | **220 px** |
+| v14.29 | 220 px | 70 px | 130 px | **420 px** |
+| **v14.33** | **190 px** (compact + pulse + stats inline) | 0 | 0 | **~190 px** |
+
+→ Gain net **~230 px** vs v14.29 et même **gain ~30 px** vs avant la feature, en intégrant 4 KPIs + une pulse 24 mois.
+
+### Conservé
+
+- Helpers `_daysBetweenIso`, `_monthsBetweenIso`, `_getLastBailForLog`, `_getLastClosedBailEndIso`
+- KPI Compta « Manque à gagner -Y € » (refonte du 4ᵉ KPI), inchangé depuis v14.29
+- La mémoire du dernier loyer reste assurée par `_getActiveBailHcCh` + `DB.baux_historique`
+
 ## Journal
 
-- 2026-05-03 : créé · option C choisie par utilisateur · livré v14.29 (commit à venir)
+- 2026-05-03 (matin) : créé · option C livrée v14.29 · jugé trop imposant + redondant par utilisateur
+- 2026-05-03 (après-midi) : refonte v14.33 (option 1 + pulse fine) · bandeau et timeline 24m supprimés · hero compact avec 4 KPIs scoreboard + pulse 8px en séparateur · gain ~230 px vs v14.29
