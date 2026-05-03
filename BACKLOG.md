@@ -102,7 +102,7 @@
 | DRIVE-2H | Re-architecture fichiers Drive (par-user vs partagé vs référentiel) | P1 | M | ⬜ À faire | À faire EN PREMIER (base de 2F/2G) · [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
 | DRIVE-2F | Optimistic Concurrency Control (OCC) au file level | P1 | M | ⬜ À faire | Après 2H · [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · **REMINDER** : v14.0 push immédiat = "last writer wins" trivial → 2 devices simultanés = écrasement silencieux. OCC via `If-Match: etag` Drive header empêcherait l'écrasement → toast conflit + merge manuel. CRITIQUE pour multi-user (cf user feedback 2026-05-01) |
 | DRIVE-2G | Awareness UI (qui édite quoi) | P1 | S | ⬜ À faire | Couche UX · [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
-| DRIVE-ARBORESCENCE | Arborescence Drive Entité/Immeuble/Logement/[9 sous-dossiers métier] + sync bidirectionnel | P1 | L | 🔄 Phase A livrée v14.20 (`528eafe` + `03cd686`) · B/D/E restantes | [docs/subjects/DRIVE-ARBORESCENCE.md](docs/subjects/DRIVE-ARBORESCENCE.md) · session dédiée démarrée 2026-05-01, interrompue 2026-05-02 pour UNDO-OP urgent, reprise prévue après · **Phase A livrée v14.20** : helpers `_drvImmoTrackRoot` / `_drvEnsureEntityFolder` / `_drvEnsureImmeubleFolder` / `_drvEnsureLogementTree` (parallélisation 9 sous-dossiers) / `_drvRenameFolder` / `_drvTrashFolder` ; hooks save/del Ent/Imm/Log fire-and-forget · Sous-dossiers : 📋 EDL, 📜 Bail, 📄 Documents, 🖼️ Photos, 🧾 Quittances, 📈 IRL, 🛡️ MRH, 🔧 Travaux, ⚡ Charges · Reste Phase B (helper `_drvUploadDoc` app→Drive) + Phase D (UI Paramètres « Réorganiser ») + Phase E (sync pilotage final) · englobe/remplace DRIVE-2K · à coupler avec DOC-PJ et LOG-PHOTOS |
+| DRIVE-ARBORESCENCE | Arborescence Drive Entité/Immeuble/Logement/[9 sous-dossiers métier] + sync bidirectionnel | P1 | L | ✅ Phases A + B + D livrées v14.20 + v14.35-36 (Phase C reportée) | [docs/subjects/DRIVE-ARBORESCENCE.md](docs/subjects/DRIVE-ARBORESCENCE.md) · **Livré 2026-05-03** · Phase A `528eafe`+`03cd686` v14.20 (création arborescence + helpers + hooks save/del), Phase B `7997ce2` v14.35 (helper `_drvUploadDoc` + `DB.documents` collection plate + propagation Drive bidir + cascade entité), Phase D `0d7928a` v14.36 (UI Paramètres « 🗂️ Stockage Drive » avec compteur dynamique + bouton « 🔄 Réorganiser » chunks de 3 + bouton « 📂 Ouvrir folder Drive »). Phase C lazy scan Drive→app reportée à un sujet séparé (utile quand DOC-PJ ou LOG-PHOTOS exposeront l'UI consommatrice). Englobe/remplace DRIVE-2K. |
 
 ---
 
@@ -218,6 +218,14 @@
 ---
 
 ## ✅ Livré récemment
+
+### DRIVE-ARBORESCENCE — sessions 2026-05-02/03 (~5h, 4 commits, v14.20 + v14.35-36)
+| Code | Sujet | Note |
+|---|---|---|
+| DRIVE-ARBORESCENCE Phase A | Création arborescence `ImmoTrack/{Entité}/{Immeuble}/{Logement}/[9 sous-dossiers]` (📋 EDL, 📜 Bail, 📄 Documents, 🖼️ Photos, 🧾 Quittances, 📈 IRL, 🛡️ MRH, 🔧 Travaux, ⚡ Charges) ; helpers `_drvImmoTrackRoot`/`_drvEnsureEntityFolder`/`_drvEnsureImmeubleFolder`/`_drvEnsureLogementTree` (parallélisation `Promise.all` 9 sous-dossiers) + `_drvRenameFolder`/`_drvTrashFolder` ; hooks fire-and-forget dans saveEnt/saveImm/saveParamLog/delEnt/delImm/delLog avec confirms create/rename/trash | v14.20 · commits `528eafe` + `03cd686` |
+| DRIVE-ARBORESCENCE Phase B | Helper `_drvUploadDoc(logRef, category, file)` : compression image > 2 Mo (canvas resize 1600px max + jpeg 0.8) + refus > 10 Mo + nommage `{cat}_{ISO}_{file}.{ext}` ; collection plate `DB.documents = []` (cohérent avec assurances/mrh/quittances) ; propagation Drive bidirectionnelle (`_buildEntityPayload` + merge par id avec `_drvWins`/`_drvMark` + cascade dans `_cascadeDeleteEntity`). Helper sans UI utilisable par DOC-PJ et LOG-PHOTOS futurs. | v14.35 · commit `7997ce2` |
+| DRIVE-ARBORESCENCE Phase D | Section UI Paramètres « 🗂️ Stockage Drive — Arborescence ImmoTrack » avec compteur dynamique `X / Y biens avec arborescence` (couleur vert/orange/bleu selon couverture, warn si Drive déconnecté) + bouton « 🔄 Réorganiser mon Drive » (chunks de 3 paralléles, idempotent skip biens déjà arborescence, toast progress incrémental) + bouton « 📂 Ouvrir mon dossier ImmoTrack dans Drive » (nouvel onglet). Hook `_drvUpdateStorageStats` dans `rParams`. Touch targets ≥ 44px, mode sombre testé. | v14.36 · commit `0d7928a` |
+| Phase C reportée | Sync Drive→app lazy scan à l'ouverture de LOG-FICHE-360 (détecter fichiers déposés manuellement dans Drive) — sujet futur, sera utile quand DOC-PJ ou LOG-PHOTOS exposeront l'UI consommatrice. Pas bloquant pour V1 car helpers d'upload + arborescence en place. | Sujet futur |
 
 ### BUG-DRIVE-RESURRECTION — session 2026-05-03 (~2h, 4 commits, v14.30 → v14.32) 🔥 P0
 | Code | Sujet | Note |

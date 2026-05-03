@@ -1,8 +1,14 @@
 # DRIVE-ARBORESCENCE — Arborescence Drive hiérarchique avec sync bidirectionnel
 
-**Status** : 🔄 En cours (depuis 2026-05-01) · **Prio** : P1 · **Taille** : L (1-3 jours, indépendant de DRIVE-2H/2F/2G)
+**Status** : ✅ Livré v14.20 + v14.35-36 (Phases A + B + D — Phase C lazy scan reportée à un sujet séparé) · **Prio** : P1 · **Taille** : L (1-3 jours, indépendant de DRIVE-2H/2F/2G)
 **Détecté** : 2026-05-01
-**Lié à** : DRIVE-2H · DRIVE-2K · DOC-PJ · LOG-PHOTOS · EDL-PHOTOS-IDXDB · EDL-PDF-DRIVE
+**Lié à** : DRIVE-2H · DRIVE-2K (englobé/remplacé) · DOC-PJ · LOG-PHOTOS · EDL-PHOTOS-IDXDB · EDL-PDF-DRIVE · BUG-DRIVE-RESURRECTION (v14.30-32 — pattern tombstone réutilisé pour DB.documents)
+
+## Résumé livraison
+- **v14.20** (commits `528eafe` + `03cd686`) Phase A : helpers `_drvImmoTrackRoot` / `_drvEnsureEntityFolder` / `_drvEnsureImmeubleFolder` / `_drvEnsureLogementTree` (parallélisation 9 sous-dossiers `Promise.all`) / `_drvRenameFolder` / `_drvTrashFolder` ; hooks fire-and-forget dans saveEnt/saveImm/saveParamLog/delEnt/delImm/delLog (création/renommage/trash avec confirms)
+- **v14.35** (commit `7997ce2`) Phase B : helper `_drvUploadDoc(logRef, category, file)` avec compression image > 2 Mo + refus > 10 Mo ; nommage `{cat}_{ISO}_{file}.{ext}` ; collection plate `DB.documents = []` (option B) avec propagation Drive bidirectionnelle (`_buildEntityPayload` + merge + cascade entité)
+- **v14.36** (commit `0d7928a`) Phase D : section UI Paramètres « Stockage Drive » avec compteur dynamique (X / Y biens avec arborescence créée), bouton « 🔄 Réorganiser mon Drive » (chunks de 3 paralléles, idempotent), bouton « 📂 Ouvrir mon dossier ImmoTrack dans Drive »
+- **Phase C reportée** : sync Drive→app lazy scan à l'ouverture de LOG-FICHE-360 — sujet séparé (utilisateur a explicitement sauté Phase C dans le brief). À traiter quand DOC-PJ ou LOG-PHOTOS exposeront l'UI consommatrice de `_drvUploadDoc`.
 
 ## Contexte
 Demande utilisateur 2026-05-01 :
@@ -117,3 +123,8 @@ ImmoTrack/
 ## Journal
 - 2026-05-01 : créé · 9 sous-dossiers validés, sync bidirectionnel must V1, affichage différencié PDF (lien Drive) vs images (miniatures), pas de migration (zéro), DRIVE-2K englobé/remplacé
 - 2026-05-01 : décision indivision **Option A confirmée** — 1 entité d'indivision = 1 dossier Drive unique (au même titre qu'une SCI), pas de doublon par associé
+- 2026-05-02 : ✅ Phase A livrée v14.20 — création arborescence + helpers + hooks save/del Ent/Imm/Log
+- 2026-05-02 : interruption pour UNDO-OP urgent (v14.21-24) puis BUG-DRIVE-RESURRECTION P0 (v14.30-32)
+- 2026-05-03 : ✅ Phase B livrée v14.35 — helper `_drvUploadDoc` + `DB.documents` + propagation Drive bidirectionnelle + cascade tombstone entité
+- 2026-05-03 : ✅ Phase D livrée v14.36 — UI Paramètres « Stockage Drive » avec bouton Réorganiser + lien ouvrir folder
+- 2026-05-03 : Phase C reportée à un sujet futur (sync Drive→app lazy scan) — sera utile quand DOC-PJ ou LOG-PHOTOS exposeront l'UI drag-drop consommatrice de `_drvUploadDoc`. Pas bloquant pour V1 car les helpers d'upload + arborescence sont en place.
