@@ -1,6 +1,19 @@
 # EDL-AUDIT-CRITIQUE — Audit complet du module EDL et plan de refonte
 
-**Status** : 🔍 **Audit terminé 2026-05-03** — En attente validation utilisateur avant patch · **Prio** : **P0 critique** · **Taille** : L (~12-15 h sur 2-3 sessions)
+**Status** : ✅ **Livré v14.38-44 (2026-05-04)** — 12 bugs sur 14 fixés en 1 session (~3h vs 12-15h estimées) · **Prio** : **P0 critique** · **Taille** : L (~3 h réelles)
+
+## Résumé livraison
+- **v14.38** Phase 1 (commit `32dac3f`) : refonte archi état EDL — helper `_edlResetGlobalState()` reset 5 globales en bloc + appels inconditionnels dans openNewEDL/openEditEDL — **Bug 6 cross-contamination** ✅
+- **v14.39** Phase 2 (commit `734e33c`) : sync form/DB + mutex — helper `_edlPropagateSyncedToForm` propage synced=true vers _edlP/_edlCles/_edlCptPhotos après chaque upload + `_edlSyncing` global empêche concurrence — **Bug 1 doublons + Bug 9** ✅
+- **v14.40** Phase 3 (commit `693ee82`) : migration arbo Drive Phase A — edlSyncDrive utilise `log.driveFolders.edl` + remplace `el('edl-drive-path').value` runtime par `edl.drivePath` snapshot stable — **Bug 5 + Bug 10** ✅
+- **v14.41** Phase 4a (commit `22dd2c6`) : iOS Safari camera fix — helper `_edlPickPhoto` qui attache l'input file au DOM avant `.click()` (au lieu d'un noeud orphelin) — **Bug 2 + Bug 7** ✅
+- **v14.42** Phase 4b (commit `aa99ad7`) : edlSnapshot + lock UI EDL signé — pattern bailSnapshot répliqué + bandeau jaune + class CSS `.edl-signed-locked` + bouton « 🔓 Réinitialiser signature » — **Bug 3 + Bug 8** ✅
+- **v14.43** Phase 5 (commit `a23e682`) : wizard bail Path 1 vérifie retour `saveDB()` — si `false` (Drive readonly) bascule sur Path 2 localStorage direct + toast warn explicite — **Bug 4** ✅
+- **v14.44** Phase 6 (commit `09d82b3`) : polish UX — suppression reset agressif `_photoCache={}` + progress bar dans bouton sync Drive + bouton « ⏹ Annuler sync » avec flag d'annulation `_edlSyncCancelRequested` — **Bug 11 + Bug 13 + Bug 14** ✅
+
+**2 bugs reportés** :
+- **Bug 12** : tombstone photos individuelles (cohérence multi-device fine) — pas critique pour V1, à traiter si résurrection observée
+- Possible suite de **Bug 4** si reproduit malgré fix v14.43 — fournir les logs console DevTools en cas de récidive
 **Détecté** : 2026-05-03 (utilisateur a remonté 7 bugs en conditions réelles)
 **Lié à** : DRIVE-ARBORESCENCE (Phase A v14.20 non utilisée par EDL) · BUG-DRIVE-RESURRECTION (pattern tombstone à étendre aux photos) · BAIL-SIGNATURE-PERSIST (pattern à répliquer pour EDL)
 
@@ -377,3 +390,4 @@ Une fois `edlSyncDrive` lancé, impossible d'arrêter. L'utilisateur doit attend
 ## 8. JOURNAL
 
 - 2026-05-03 : audit complet effectué après remontée utilisateur de 7 bugs en conditions réelles (EDL en pleine prod). 14 bugs identifiés au total (7 remontés + 7 latents). Plan de refonte en 6 phases sur 3 sessions, ~13-17 h. **Aucun patch effectué pendant l'audit** (consigne utilisateur : « audit puis correction seulement après »).
+- 2026-05-04 : ✅ **Livré v14.38-44** en **1 session de ~3 h** (vs 12-15 h estimées). 12 bugs sur 14 fixés. Approche pragmatique : pas de refonte radicale en classe d'isolation, mais helper `_edlResetGlobalState()` qui reset les globales **en place** (préserve les références JS, modifications minimales). Pattern in-place sur 3 sites de réassignation directe (`_edlP`, `_edlCles`, `_edlCptPhotos`) pour préserver la cohérence. Pattern `edlSnapshot` répliqué de bailSnapshot v13.10. iOS camera fix via helper `_edlPickPhoto` qui attache au DOM. Migration arbo Drive avec backfill `_drvEnsureLogementTree` pour les logements legacy. Wizard bail : check du retour de saveDB pour empêcher la perte silencieuse en mode readonly Drive. **2 bugs reportés** (Bug 12 tombstone photos, possible suite Bug 4). Tests visuels à exécuter par utilisateur avant validation finale.

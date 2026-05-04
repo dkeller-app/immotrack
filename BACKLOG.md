@@ -220,6 +220,22 @@
 
 ## ✅ Livré récemment
 
+### EDL-AUDIT-CRITIQUE — session 2026-05-03/04 (~3h, 7 commits, v14.38 → v14.44) 🔥 P0
+> Refonte module EDL après audit complet (7 bugs remontés + 7 bugs latents = 14 bugs identifiés). 12 sur 14 fixés. **Loin d'une solution pro → maintenant utilisable en prod.**
+
+| Code | Sujet | Note |
+|---|---|---|
+| EDL-AUDIT-CRITIQUE Audit | Audit complet du module EDL : 14 bugs identifiés (7 remontés utilisateur + 7 latents détectés), plan en 6 phases. **Aucun patch pendant l'audit** | spec [docs/subjects/EDL-AUDIT-CRITIQUE.md](docs/subjects/EDL-AUDIT-CRITIQUE.md) · commit `ad65abb` |
+| Phase 1 v14.38 | Refonte archi état EDL : helper `_edlResetGlobalState()` reset 5 globales en bloc + appels inconditionnels dans openNewEDL/openEditEDL + pattern in-place pour préserver les références JS sur 3 sites de réassignation directe (`_edlP`, `_edlCles`, `_edlCptPhotos`) | commit `32dac3f` · **Bug 6 cross-contamination photos** ✅ |
+| Phase 2 v14.39 | Sync form/DB après edlSyncDrive : helper `_edlPropagateSyncedToForm` matche par idbKey et propage synced=true vers `_edlP`/`_edlCles`/`_edlCptPhotos` après chaque upload + mutex `_edlSyncing` empêche concurrence + bouton UI disable pendant sync | commit `734e33c` · **Bug 1 doublons + Bug 9 concurrence** ✅ |
+| Phase 3 v14.40 | Migration arbo Drive Phase A : edlSyncDrive utilise `log.driveFolders.edl` (DRIVE-ARBORESCENCE Phase A v14.20) avec fallback `_drvEnsureLogementTree` pour logements legacy + remplace `el('edl-drive-path').value` runtime par résolution stable depuis `edl.logement → DB.logements` | commit `693ee82` · **Bug 5 ancien chemin + Bug 10 drive-path runtime** ✅ |
+| Phase 4a v14.41 | iOS Safari camera fix : helper `_edlPickPhoto(onPhotos)` qui attache l'input file au DOM (off-screen invisible) avant `.click()` au lieu d'un noeud orphelin → onchange fire correctement après bouton « Utiliser » caméra native iPhone. Refactor des 3 fonctions photo (pièces / clés / compteurs) | commit `22dd2c6` · **Bug 2 photos perdues iPhone + Bug 7 photos compteurs** ✅ |
+| Phase 4b v14.42 | EDL signé verrouillé : pattern `edlSnapshot` répliqué de bailSnapshot v13.10 (capture clone du record au moment de la 1re signature complète) + bandeau jaune `#edl-locked-banner` + class CSS `.edl-signed-locked` qui désactive inputs/textareas/select + bouton « 🔓 Réinitialiser signature » avec double-confirm + warning légal + saveEDL préserve les sigs originales si EDL signé en DB (anti-écrasement par canvas vide) | commit `aa99ad7` · **Bug 3 signature perdue à réouverture + Bug 8 race signature au save** ✅ |
+| Phase 5 v14.43 | Wizard bail saveDB return check : Path 1 vérifie le retour de `window.opener.saveDB()`. Si `false` (mode readonly Drive token expiré) → ne marque PAS `ok=true` → bascule sur Path 2 (localStorage direct) qui écrit même en readonly + toast warn explicite. Logging détaillé console.warn | commit `a23e682` · **Bug 4 bail signature locataire échouée mais PDF OK** ✅ |
+| Phase 6 v14.44 | Polish UX : suppression du reset agressif `_photoCache={}` dans openEditEDL (vidait le cache pour TOUS les EDL pré-chargés) + progress bar dans bouton sync Drive (texte « ⏹ Annuler (M/N…) ») + bouton « ⏹ Annuler sync » avec flag `_edlSyncCancelRequested` qui break la boucle d'upload entre 2 photos | commit `09d82b3` · **Bug 11 cache + Bug 13 progress bar + Bug 14 annulation** ✅ |
+| Bugs reportés | Bug 12 tombstone photos individuelles (cohérence multi-device fine — pas critique V1, à traiter si résurrection observée) · possible suite Bug 4 si reproduit malgré fix v14.43 — fournir logs DevTools |
+
+
 ### DRIVE-ARBORESCENCE — sessions 2026-05-02/03 (~5h, 4 commits, v14.20 + v14.35-36)
 | Code | Sujet | Note |
 |---|---|---|
