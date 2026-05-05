@@ -157,3 +157,15 @@ Footer passe de `.logf-hero-stats-3` à `.logf-hero-stats-4` (responsive : 4 col
 ## Journal
 
 - 2026-05-04 : créé · helpers `_bailPreavisInfo` + `_bailEcheanceEffective` · catégorie agenda BAIL_PREVIS · auto-events fin-de-bail (avec tacite reconduction) + préavis · hooks saveBail/delBail/terminerBail · Gantt overlay orange + badge ⚠️ + KPI footer 4 tiles · CSS animations `igp-pulse` (urgent) + `igp-blink` (badge) · livré v14.48
+- 2026-05-04 (bug ZITO) : 2 bugs trouvés via console
+  1. **`bail.fin` vide** (ZITO bail nu signé 2022-06, pas de fin renseignée) → `_bailEcheanceEffective` retournait null → ni projection ni préavis
+  2. **Tacite reconduction `+1 an` au lieu du cycle correct** : pour bail nu = +3 ans, pour personne morale = +6 ans
+- 2026-05-04 (fix v14.49) :
+  - **NEW helper `_bailDureeMois(bail, log, ent)`** : durée standard selon type (mobilité 6m / étudiant 9m / meublé 12m / nu particulier 36m / nu personne morale 72m)
+  - Détection personne morale via regex `/sci|sarl|sas|sasu|eurl|snc|société|gfa|sccv/` sur `ent.type`
+  - **Fix `_bailEcheanceEffective`** :
+    - Couvre 3 cas désormais : fin renseignée future / fin renseignée passée (tacite) / fin VIDE (calcul depuis debut + dureeMois)
+    - Tacite reconduction utilise `setMonth(+dureeMois)` au lieu de `setFullYear(+1)` → cycles légaux corrects
+    - Lookup entité (priorité `bail.entity`, fallback `log.entity`) pour distinguer particulier/personne morale
+  - **Refactor Gantt** : la logique inline tacite reconduction (8 lignes) est remplacée par un appel à `_bailEcheanceEffective`. Couvre désormais le cas `bail.fin` vide (ZITO).
+  - Cas ZITO résolu : bail nu particulier 2022-06 sans fin → calcul fin théorique = 2025-06 → tacite reconduction → 2028-06 (cycle 3 ans, today < 2028-06). Préavis 6 mois avant = 2027-12. Gantt affichera barre solide 2022-06 → today + projection rayée today → 2028-06 + overlay orange préavis 2027-12 → 2028-06.
