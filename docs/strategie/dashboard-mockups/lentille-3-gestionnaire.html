@@ -3,11 +3,144 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Lentille 3 — Gestionnaire · ImmoTrack Mockup</title>
+  <title>Vue Gestionnaire (1 écran) · ImmoTrack Mockup</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/style.css" />
+  <style>
+    /* Densité Gestionnaire — 1 écran ~900 px */
+    .mu-page { padding-top:10px; padding-bottom:14px; }
+    .mu-grid { grid-auto-rows:54px; gap:8px; }
+
+    .mu-toolbar{
+      background:var(--sur); border:1px solid var(--bor); border-radius:var(--rl);
+      padding:10px 14px; margin-bottom:10px;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      box-shadow:var(--shadow-card);
+    }
+    .mu-toolbar-tabs{display:flex;gap:2px;border-radius:var(--r);background:var(--sur2);padding:3px;border:1px solid var(--bor)}
+    .mu-toolbar-tabs .tab{
+      padding:5px 12px;border:none;background:transparent;
+      font-size:12.5px;font-weight:500;color:var(--t2);cursor:pointer;
+      border-radius:6px;font-family:inherit;transition:all var(--t-fast);
+    }
+    .mu-toolbar-tabs .tab:hover{color:var(--t1)}
+    .mu-toolbar-tabs .tab.act{background:var(--blu);color:#fff;font-weight:600;box-shadow:0 1px 3px rgba(59,126,246,.3)}
+    .mu-mini-select{
+      background:var(--sur2);border:1px solid var(--bor);border-radius:6px;
+      padding:5px 10px; font-size:12.5px;color:var(--t1);cursor:pointer;
+      font-family:inherit;
+    }
+    .mu-tb-actions{margin-left:auto;display:flex;gap:6px}
+
+    .mu-greet{
+      display:flex;align-items:center;justify-content:space-between;gap:14px;
+      padding:6px 4px 8px; flex-wrap:wrap;
+    }
+    .mu-greet-t{font-size:13px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;line-height:1}
+    .mu-greet-h{font-size:17px;font-weight:500;color:var(--t1);line-height:1.2;margin-top:3px}
+
+    /* KPI dense */
+    .dw.dense .dw-body{padding:8px 14px 6px}
+    .dw.dense .dw-value{font-size:24px}
+    .dw.dense .dw-label{font-size:9px;margin-bottom:3px}
+    .dw.dense .dw-sub{font-size:10.5px;margin-top:2px;line-height:1.3}
+
+    /* Checklist compactée */
+    .mu-check{
+      display:flex; align-items:center; gap:8px;
+      padding:6px 8px; border-radius:var(--r);
+      background:var(--sur2); border:1px solid var(--bor2);
+      font-size:12.5px; color:var(--t1);
+      margin-bottom:4px;
+    }
+    .mu-check input{width:14px;height:14px;cursor:pointer;accent-color:var(--blu);flex-shrink:0}
+    .mu-check-label{flex:1;min-width:0;line-height:1.3}
+    .mu-check-meta{font-size:10.5px;color:var(--t3);margin-top:1px}
+    .mu-check-actions{display:flex;gap:4px;flex-shrink:0}
+    .mu-check.done{opacity:.55}
+    .mu-check.done .mu-check-label{text-decoration:line-through;color:var(--t3)}
+    .btn.bb-xs{padding:3px 8px;font-size:11px}
+
+    /* Mini calendrier 60j compact */
+    .mu-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+    .mu-cal-day{
+      aspect-ratio:1;background:var(--sur2);border-radius:3px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;color:var(--t3);position:relative;cursor:pointer;
+      transition:all var(--t-fast);
+    }
+    .mu-cal-day:hover{background:var(--sur3);transform:scale(1.1)}
+    .mu-cal-day.lvl1{background:rgba(59,126,246,.18);color:var(--blu)}
+    .mu-cal-day.lvl2{background:rgba(59,126,246,.40);color:#fff;font-weight:600}
+    .mu-cal-day.lvl3{background:rgba(220,38,38,.55);color:#fff;font-weight:700}
+    .mu-cal-month-label{
+      font-size:10px;font-weight:600;color:var(--t2);
+      text-transform:uppercase;letter-spacing:.4px;
+      margin:6px 0 4px;text-align:center;
+    }
+
+    /* Timeline 90j absorbée d'Échéances */
+    .mu-timeline-compact{
+      position:relative; padding:18px 14px 24px;
+      background:var(--sur2); border-radius:var(--r);
+    }
+    .mu-tl-axis{
+      position:relative; height:2px; background:var(--bor);
+      margin:8px 4px;
+    }
+    .mu-tl-tick{position:absolute;width:1px;height:6px;background:var(--bor);bottom:-3px;transform:translateX(-50%)}
+    .mu-tl-tick-label{position:absolute;top:10px;transform:translateX(-50%);font-size:9.5px;color:var(--t3);white-space:nowrap}
+    .mu-tl-event{
+      position:absolute; width:11px; height:11px; border-radius:50%;
+      top:-5.5px; transform:translateX(-50%);
+      border:2px solid var(--sur); cursor:pointer;
+      transition:transform var(--t-fast);
+    }
+    .mu-tl-event:hover{transform:translateX(-50%) scale(1.5)}
+    .mu-tl-event.cat-bail{background:var(--blu)}
+    .mu-tl-event.cat-irl{background:var(--pur)}
+    .mu-tl-event.cat-edl{background:var(--ora)}
+    .mu-tl-event.cat-fiscal{background:var(--grn)}
+    .mu-tl-event.cat-entretien{background:var(--t2)}
+    .mu-tl-event.cat-mrh{background:var(--red)}
+
+    .mu-tl-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10.5px;color:var(--t2);margin-top:4px}
+    .mu-tl-legend-item{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+    .mu-tl-legend-sw{width:8px;height:8px;border-radius:50%}
+    .mu-tl-legend-item.muted{opacity:.4}
+
+    /* Vacances + Impayés rows */
+    .mu-task-row{
+      display:flex; align-items:center; gap:10px;
+      padding:7px 10px; background:var(--sur2);
+      border:1px solid var(--bor2); border-radius:var(--r);
+      font-size:12.5px; margin-bottom:4px;
+    }
+    .mu-task-row .meta{flex:1;min-width:0;line-height:1.35}
+    .mu-task-row .sub{font-size:10.5px;color:var(--t3)}
+    .mu-task-row .acts{display:flex;gap:4px;flex-shrink:0}
+
+    /* À clore strip */
+    .mu-strip{
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+      padding:6px 14px;
+    }
+    .mu-strip-item{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:5px 12px; background:var(--sur2); border:1px solid var(--bor2);
+      border-radius:18px; font-size:12px; color:var(--t1); cursor:pointer;
+    }
+    .mu-strip-item:hover{border-color:var(--blu)}
+    .mu-strip-item .num{
+      font-family:'Manrope',sans-serif; font-weight:800; font-size:15px;
+      line-height:1; padding:0 6px; border-radius:8px; min-width:22px; text-align:center;
+    }
+    .mu-strip-item .num.blu{background:rgba(59,126,246,.15);color:var(--blu)}
+    .mu-strip-item .num.ora{background:rgba(234,88,12,.15);color:var(--ora)}
+    .mu-strip-item .num.pur{background:rgba(124,58,237,.15);color:var(--pur)}
+  </style>
 </head>
 <body data-lens="gestionnaire">
   <div id="mu-header-slot"></div>
@@ -16,163 +149,182 @@
 
     <div class="mu-demo-banner">
       <span class="mu-demo-banner-icon">🛠️</span>
-      <span><b>Lentille 3 — Gestionnaire</b> · Vue opérationnelle. Persona : admin biens hands-on, gestionnaire SCI familiale, futur agent. Focus actions concrètes.</span>
+      <span><b>Vue Gestionnaire — 1 écran</b> · Refonte de la lentille 3 + absorption de l'ex-lentille 6 Échéances. Focus actions concrètes : "qu'est-ce que je dois faire cette semaine".</span>
     </div>
 
-    <div class="mu-context">
-      <div class="mu-context-left">
-        <div class="mu-context-date">Vendredi 1er mai 2026 · vue opérationnelle</div>
-        <div class="mu-context-greet">À gérer cette semaine — 7 actions</div>
+    <!-- Toolbar onglets cohérents avec Propriétaire -->
+    <div class="mu-toolbar">
+      <div class="mu-toolbar-tabs" role="tablist">
+        <button class="tab" role="tab" onclick="window.location='lentille-1-proprietaire.html'">🏠 Propriétaire</button>
+        <button class="tab act" role="tab" aria-selected="true">🛠️ Gestionnaire</button>
+        <button class="tab" role="tab" title="= prod actuelle (tous widgets visibles)">📐 Complet</button>
+        <button class="tab" role="tab" title="Mode édition drag-drop existant">✎ Custom</button>
       </div>
-      <div class="mu-context-right">
+      <select class="mu-mini-select"><option>2026</option></select>
+      <select class="mu-mini-select"><option>Mai</option></select>
+      <select class="mu-mini-select" style="min-width:200px"><option>SCI DD2AMELEVIERES</option></select>
+      <span class="badge red" style="font-size:11px"><b>3 urgentes</b></span>
+      <div class="mu-tb-actions">
+        <button class="btn bs bb">⚙ Widgets</button>
+        <button class="btn bs bb">✎ Éditer</button>
+      </div>
+    </div>
+
+    <!-- Greeting compact -->
+    <div class="mu-greet">
+      <div>
+        <div class="mu-greet-t">Mardi 5 mai 2026 · vue opérationnelle</div>
+        <div class="mu-greet-h">À gérer cette semaine — <b>7 actions</b></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
         <span class="mu-pill"><span class="mu-pill-dot red"></span>3 urgentes</span>
         <span class="mu-pill"><span class="mu-pill-dot ora"></span>4 cette sem.</span>
         <span class="mu-pill delta-up">▲ 2 traitées hier</span>
       </div>
     </div>
 
+    <!-- ── GRILLE ────────────────────────────────────────────── -->
     <div class="mu-grid">
 
-      <!-- KPIs -->
-      <div class="dw c3 r2 s-red kpi-row">
+      <!-- ROW 1 : 4 KPIs ops -->
+      <div class="dw c3 r2 dense s-red">
         <div class="dw-body">
           <div class="dw-label">Vacances locatives</div>
           <div class="dw-value" style="color:var(--fg-danger)">2</div>
-          <div class="dw-sub">F-004 · 30 j  |  F-005 · 60 j</div>
+          <div class="dw-sub">D-002 · 30 j  |  dsqqds · 60 j</div>
         </div>
       </div>
-
-      <div class="dw c3 r2 s-red kpi-row">
+      <div class="dw c3 r2 dense s-red">
         <div class="dw-body">
-          <div class="dw-label">Impayés en cours</div>
+          <div class="dw-label">Impayés actifs</div>
           <div class="dw-value" style="color:var(--fg-danger)">1</div>
-          <div class="dw-sub">F-001 ARSLAN · 1 850 €</div>
+          <div class="dw-sub">D-105 BOULALA · 597,64 €</div>
+        </div>
+      </div>
+      <div class="dw c3 r2 dense s-ora">
+        <div class="dw-body">
+          <div class="dw-label">Cette semaine</div>
+          <div class="dw-value" style="color:var(--fg-warning)">3</div>
+          <div class="dw-sub">2 urgentes · 1 normale</div>
+        </div>
+      </div>
+      <div class="dw c3 r2 dense s-blu">
+        <div class="dw-body">
+          <div class="dw-label">Trimestre (90 j)</div>
+          <div class="dw-value">45</div>
+          <div class="dw-sub">12 ce mois · 30 ensuite</div>
         </div>
       </div>
 
-      <div class="dw c3 r2 s-ora kpi-row">
+      <!-- ROW 2 : Hero "À faire cette semaine" (c8×r5) + Mini calendrier (c4×r5) -->
+      <div class="dw c8 r5 s-blu">
         <div class="dw-body">
-          <div class="dw-label">Échéances &lt; 90 j</div>
-          <div class="dw-value">12</div>
-          <div class="dw-sub">3 cette sem. · 9 ce mois</div>
-        </div>
-      </div>
-
-      <div class="dw c3 r2 s-blu kpi-row">
-        <div class="dw-body">
-          <div class="dw-label">Actions à faire</div>
-          <div class="dw-value">7</div>
-          <div class="dw-sub">3 urgentes · 4 normales</div>
-        </div>
-      </div>
-
-      <!-- "À faire cette semaine" — checklist principale -->
-      <div class="dw c12 r5 s-blu">
-        <div class="dw-body">
-          <div class="dw-label">À faire cette semaine</div>
-          <div class="mu-mt-8" style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div class="dw-label" style="margin:0">À faire cette semaine</div>
+            <span class="badge red" style="font-size:10px">3 urgentes</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0">
 
             <div class="mu-check">
               <input type="checkbox" />
-              <div class="mu-flex-1">
-                <div class="mu-check-label"><span class="badge red">URGENT</span> Relancer Mme ARSLAN F-001 — impayé 1 850 €</div>
-                <div class="mu-check-meta">Échéance dépassée depuis 60 jours · LRAR à envoyer</div>
+              <div class="mu-check-label" style="flex:1;min-width:0">
+                <span class="badge red" style="font-size:9.5px;padding:1px 6px;margin-right:4px">URGENT</span>
+                Relancer <b>D-105 BOULALA</b> — impayé 597,64 €
+                <div class="mu-check-meta">échéance dépassée 60 j · LRAR</div>
               </div>
               <div class="mu-check-actions">
-                <button class="btn br bb">LRAR</button>
-                <button class="btn bs bb">Tél</button>
+                <button class="btn br bb-xs">LRAR</button>
+                <button class="btn bs bb-xs">Tél</button>
               </div>
             </div>
 
             <div class="mu-check">
               <input type="checkbox" />
-              <div class="mu-flex-1">
-                <div class="mu-check-label"><span class="badge red">URGENT</span> Programmer EDL sortie F-005 Colmar</div>
-                <div class="mu-check-meta">Mme PFISTER partie le 1er mars · 2 mois sans EDL = risque légal</div>
+              <div class="mu-check-label" style="flex:1;min-width:0">
+                <span class="badge red" style="font-size:9.5px;padding:1px 6px;margin-right:4px">URGENT</span>
+                Programmer EDL sortie <b>dsqqds Freyming</b>
+                <div class="mu-check-meta">départ il y a 60 j · risque légal</div>
               </div>
               <div class="mu-check-actions">
-                <button class="btn bp bb">Programmer</button>
+                <button class="btn bp bb-xs">Programmer</button>
               </div>
             </div>
 
             <div class="mu-check">
               <input type="checkbox" />
-              <div class="mu-flex-1">
-                <div class="mu-check-label"><span class="badge red">URGENT</span> Envoyer lettre IRL F-002 Ferrette</div>
-                <div class="mu-check-meta">Anniversaire 15 juin · lettre à envoyer avant 15 mai (préavis 1 mois)</div>
+              <div class="mu-check-label" style="flex:1;min-width:0">
+                <span class="badge red" style="font-size:9.5px;padding:1px 6px;margin-right:4px">URGENT</span>
+                Lettre IRL <b>F-101 ZITO</b> envoyée le 1<sup>er</sup> mai
+                <div class="mu-check-meta">à appliquer le 1<sup>er</sup> juin · loyer 440 → 443,42 €</div>
               </div>
               <div class="mu-check-actions">
-                <button class="btn bp bb">Générer</button>
+                <button class="btn bg bb-xs">Valider</button>
               </div>
             </div>
 
             <div class="mu-check">
               <input type="checkbox" />
-              <div class="mu-flex-1">
-                <div class="mu-check-label">Renouveler MRH F-002 (Allianz)</div>
-                <div class="mu-check-meta">Échéance 22 mai · attestation à demander</div>
+              <div class="mu-check-label" style="flex:1;min-width:0">
+                MRH manquante <b>F-Local MANGIN</b>
+                <div class="mu-check-meta">demander attestation</div>
               </div>
               <div class="mu-check-actions">
-                <button class="btn bs bb">Email</button>
+                <button class="btn bs bb-xs">Email</button>
               </div>
             </div>
 
             <div class="mu-check">
               <input type="checkbox" />
-              <div class="mu-flex-1">
-                <div class="mu-check-label">Générer quittances mai (3 logements)</div>
-                <div class="mu-check-meta">F-001 / F-002 / F-003 · à envoyer après réception loyers</div>
+              <div class="mu-check-label" style="flex:1;min-width:0">
+                Diffuser annonce <b>D-002 Damelevières</b>
+                <div class="mu-check-meta">vacant 30 j · LeBonCoin / SeLoger</div>
               </div>
               <div class="mu-check-actions">
-                <button class="btn bs bb">Générer</button>
+                <button class="btn bp bb-xs">Annonce</button>
               </div>
             </div>
 
             <div class="mu-check done">
               <input type="checkbox" checked />
-              <div class="mu-flex-1">
-                <div class="mu-check-label">Diffuser annonce F-005 Colmar (LeBonCoin)</div>
-                <div class="mu-check-meta">Fait hier · 4 visites programmées</div>
+              <div class="mu-check-label" style="flex:1;min-width:0">
+                Régul charges 2025 SCI envoyée
+                <div class="mu-check-meta">fait hier · 13 régul validées</div>
               </div>
             </div>
 
             <div class="mu-check done">
               <input type="checkbox" checked />
-              <div class="mu-flex-1">
-                <div class="mu-check-label">Régul charges 2025 SCI envoyée</div>
-                <div class="mu-check-meta">Fait hier · 3 régularisations validées</div>
+              <div class="mu-check-label" style="flex:1;min-width:0">
+                Quittances avril générées
+                <div class="mu-check-meta">fait hier · 13 quittances</div>
               </div>
             </div>
 
           </div>
         </div>
-        <div class="dw-foot">
-          <span class="dw-sub" style="margin-right:auto">2 / 7 traitées · 5 restantes</span>
+        <div class="dw-foot" style="padding:0 14px 8px">
+          <span class="dw-sub" style="margin-right:auto;font-size:11px">2 / 7 traitées</span>
           <button class="dw-see-all">Voir toutes (12 ce mois)</button>
         </div>
       </div>
 
-      <!-- Calendrier mini 3 mois -->
-      <div class="dw c5 r6 s-blu">
+      <!-- Mini calendrier 60j -->
+      <div class="dw c4 r5 s-blu">
         <div class="dw-body">
-          <div class="dw-label">Calendrier — 90 prochains jours</div>
+          <div class="dw-label">Calendrier — 60 j</div>
 
           <div class="mu-cal-month-label">Mai 2026</div>
           <div class="mu-cal-grid">
             <div class="mu-cal-day mu-muted">L</div><div class="mu-cal-day mu-muted">M</div><div class="mu-cal-day mu-muted">M</div><div class="mu-cal-day mu-muted">J</div>
             <div class="mu-cal-day mu-muted">V</div><div class="mu-cal-day mu-muted">S</div><div class="mu-cal-day mu-muted">D</div>
             <div class="mu-cal-day"></div><div class="mu-cal-day"></div><div class="mu-cal-day"></div><div class="mu-cal-day"></div>
-            <div class="mu-cal-day lvl3" title="EDL F-005 + IRL F-002 + TF SCI">1</div>
-            <div class="mu-cal-day">2</div><div class="mu-cal-day">3</div>
-            <div class="mu-cal-day">4</div><div class="mu-cal-day lvl1">5</div><div class="mu-cal-day">6</div>
-            <div class="mu-cal-day">7</div><div class="mu-cal-day lvl2" title="Anniv bail F-001">8</div>
-            <div class="mu-cal-day">9</div><div class="mu-cal-day">10</div>
-            <div class="mu-cal-day">11</div><div class="mu-cal-day">12</div><div class="mu-cal-day">13</div>
-            <div class="mu-cal-day lvl1">14</div><div class="mu-cal-day lvl2" title="Anniv bail F-001">15</div>
-            <div class="mu-cal-day">16</div><div class="mu-cal-day">17</div>
+            <div class="mu-cal-day lvl3" title="Lettre IRL + EDL + impayé">1</div><div class="mu-cal-day">2</div><div class="mu-cal-day">3</div>
+            <div class="mu-cal-day">4</div><div class="mu-cal-day lvl1" style="ring:2px solid var(--blu)">5</div><div class="mu-cal-day">6</div>
+            <div class="mu-cal-day lvl2">7</div><div class="mu-cal-day">8</div><div class="mu-cal-day">9</div><div class="mu-cal-day">10</div>
+            <div class="mu-cal-day">11</div><div class="mu-cal-day">12</div><div class="mu-cal-day lvl1">13</div>
+            <div class="mu-cal-day">14</div><div class="mu-cal-day lvl2">15</div><div class="mu-cal-day">16</div><div class="mu-cal-day">17</div>
             <div class="mu-cal-day">18</div><div class="mu-cal-day">19</div><div class="mu-cal-day">20</div>
-            <div class="mu-cal-day">21</div><div class="mu-cal-day lvl1" title="MRH F-002">22</div>
-            <div class="mu-cal-day">23</div><div class="mu-cal-day">24</div>
+            <div class="mu-cal-day">21</div><div class="mu-cal-day lvl1">22</div><div class="mu-cal-day">23</div><div class="mu-cal-day">24</div>
             <div class="mu-cal-day">25</div><div class="mu-cal-day">26</div><div class="mu-cal-day">27</div>
             <div class="mu-cal-day">28</div><div class="mu-cal-day">29</div><div class="mu-cal-day">30</div>
             <div class="mu-cal-day">31</div>
@@ -180,13 +332,13 @@
 
           <div class="mu-cal-month-label">Juin 2026</div>
           <div class="mu-cal-grid">
-            <div class="mu-cal-day lvl1">1</div><div class="mu-cal-day">2</div><div class="mu-cal-day">3</div>
+            <div class="mu-cal-day lvl3" title="Application IRL F-101">1</div><div class="mu-cal-day">2</div><div class="mu-cal-day">3</div>
             <div class="mu-cal-day">4</div><div class="mu-cal-day">5</div><div class="mu-cal-day">6</div>
             <div class="mu-cal-day">7</div>
             <div class="mu-cal-day">8</div><div class="mu-cal-day">9</div><div class="mu-cal-day">10</div>
             <div class="mu-cal-day">11</div><div class="mu-cal-day">12</div><div class="mu-cal-day">13</div>
             <div class="mu-cal-day">14</div>
-            <div class="mu-cal-day lvl3" title="Application IRL F-002">15</div><div class="mu-cal-day">16</div>
+            <div class="mu-cal-day">15</div><div class="mu-cal-day">16</div>
             <div class="mu-cal-day">17</div><div class="mu-cal-day">18</div><div class="mu-cal-day">19</div>
             <div class="mu-cal-day">20</div><div class="mu-cal-day">21</div>
             <div class="mu-cal-day">22</div><div class="mu-cal-day">23</div><div class="mu-cal-day">24</div>
@@ -194,73 +346,165 @@
             <div class="mu-cal-day">28</div>
             <div class="mu-cal-day">29</div><div class="mu-cal-day lvl2" title="Date butoir 2044">30</div>
           </div>
+        </div>
+      </div>
 
-          <div class="mu-legend mu-mt-12">
-            <span class="mu-legend-item"><span class="mu-legend-swatch" style="background:rgba(59,126,246,.18)"></span>1 action</span>
-            <span class="mu-legend-item"><span class="mu-legend-swatch" style="background:rgba(59,126,246,.40)"></span>2-3 actions</span>
-            <span class="mu-legend-item"><span class="mu-legend-swatch" style="background:rgba(220,38,38,.55)"></span>4+ actions</span>
+      <!-- ROW 3 : Timeline 90 j (absorption ex-lentille 6) -->
+      <div class="dw c12 r3 s-pur">
+        <div class="dw-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div class="dw-label" style="margin:0">Timeline 90 jours · 5 mai → 3 août</div>
+            <div class="mu-tl-legend">
+              <span class="mu-tl-legend-item"><span class="mu-tl-legend-sw" style="background:var(--blu)"></span>Baux</span>
+              <span class="mu-tl-legend-item"><span class="mu-tl-legend-sw" style="background:var(--pur)"></span>IRL</span>
+              <span class="mu-tl-legend-item"><span class="mu-tl-legend-sw" style="background:var(--ora)"></span>EDL</span>
+              <span class="mu-tl-legend-item"><span class="mu-tl-legend-sw" style="background:var(--grn)"></span>Fiscal</span>
+              <span class="mu-tl-legend-item"><span class="mu-tl-legend-sw" style="background:var(--t2)"></span>Entretien</span>
+              <span class="mu-tl-legend-item"><span class="mu-tl-legend-sw" style="background:var(--red)"></span>MRH</span>
+            </div>
+          </div>
+
+          <div class="mu-timeline-compact">
+            <div class="mu-tl-axis">
+              <span class="mu-tl-tick" style="left:0%"></span><span class="mu-tl-tick-label" style="left:0%">5 mai</span>
+              <span class="mu-tl-tick" style="left:11%"></span><span class="mu-tl-tick-label" style="left:11%">15 mai</span>
+              <span class="mu-tl-tick" style="left:22%"></span><span class="mu-tl-tick-label" style="left:22%">25 mai</span>
+              <span class="mu-tl-tick" style="left:33%"></span><span class="mu-tl-tick-label" style="left:33%">5 juin</span>
+              <span class="mu-tl-tick" style="left:44%"></span><span class="mu-tl-tick-label" style="left:44%">15 juin</span>
+              <span class="mu-tl-tick" style="left:55%"></span><span class="mu-tl-tick-label" style="left:55%">25 juin</span>
+              <span class="mu-tl-tick" style="left:66%"></span><span class="mu-tl-tick-label" style="left:66%">5 juil</span>
+              <span class="mu-tl-tick" style="left:77%"></span><span class="mu-tl-tick-label" style="left:77%">15 juil</span>
+              <span class="mu-tl-tick" style="left:88%"></span><span class="mu-tl-tick-label" style="left:88%">25 juil</span>
+              <span class="mu-tl-tick" style="left:100%"></span><span class="mu-tl-tick-label" style="left:100%">3 août</span>
+
+              <span class="mu-tl-event cat-edl"      style="left:3%"  title="EDL sortie dsqqds · 7 mai"></span>
+              <span class="mu-tl-event cat-irl"      style="left:6%"  title="Lettre IRL F-002 · 8 mai"></span>
+              <span class="mu-tl-event cat-fiscal"   style="left:8%"  title="Taxe foncière SCI · 10 mai"></span>
+              <span class="mu-tl-event cat-bail"     style="left:14%" title="Anniv bail F-001 · 15 mai"></span>
+              <span class="mu-tl-event cat-mrh"      style="left:23%" title="Renouv MRH F-002 · 22 mai"></span>
+              <span class="mu-tl-event cat-bail"     style="left:33%" title="Quittances mensuelles juin"></span>
+              <span class="mu-tl-event cat-irl"      style="left:34%" title="Application IRL F-101 +0,78 % · 1 juin"></span>
+              <span class="mu-tl-event cat-entretien" style="left:43%" title="Ramonage chaudière F-002"></span>
+              <span class="mu-tl-event cat-irl"      style="left:48%" title="Application IRL F-002 · 15 juin"></span>
+              <span class="mu-tl-event cat-fiscal"   style="left:64%" title="Date butoir 2044 · 30 juin"></span>
+              <span class="mu-tl-event cat-entretien" style="left:72%" title="Contrôle VMC immeuble"></span>
+              <span class="mu-tl-event cat-edl"      style="left:80%" title="EDL entrée nouveau locataire dsqqds"></span>
+              <span class="mu-tl-event cat-bail"     style="left:84%" title="Quittances juillet"></span>
+              <span class="mu-tl-event cat-mrh"      style="left:96%" title="Cautionnement F-001 · 28 juil"></span>
+            </div>
+
+            <!-- Bandeau résumé sous l'axe -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px;font-size:11px">
+              <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:5px 9px">
+                <div style="font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;font-weight:600">Cette semaine</div>
+                <div style="font-family:Manrope,sans-serif;font-size:14px;font-weight:700;color:var(--fg-danger)">3 actions</div>
+              </div>
+              <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:5px 9px">
+                <div style="font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;font-weight:600">Ce mois (mai)</div>
+                <div style="font-family:Manrope,sans-serif;font-size:14px;font-weight:700;color:var(--fg-warning)">12 actions</div>
+              </div>
+              <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:5px 9px">
+                <div style="font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;font-weight:600">Trimestre 90 j</div>
+                <div style="font-family:Manrope,sans-serif;font-size:14px;font-weight:700;color:var(--fg-info)">45 actions</div>
+              </div>
+              <div style="background:var(--sur);border:1px solid var(--bor);border-radius:6px;padding:5px 9px">
+                <div style="font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;font-weight:600">Retards non traités</div>
+                <div style="font-family:Manrope,sans-serif;font-size:14px;font-weight:700;color:var(--fg-danger)">2 actions</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Liste vacances locatives -->
-      <div class="dw c7 r3 s-ora">
+      <!-- ROW 4 : Vacances + Impayés à relancer -->
+      <div class="dw c6 r3 s-ora">
         <div class="dw-body">
-          <div class="dw-label">Vacances locatives — 2 biens</div>
-          <div class="mu-mt-8" style="display:flex;flex-direction:column;gap:6px">
-            <div class="mu-check">
-              <div class="mu-flex-1">
-                <div class="mu-check-label"><b>F-005 Colmar Centre</b> · T2 50m² · loyer cible 720 €</div>
-                <div class="mu-check-meta">Vacant depuis 60 jours · manque à gagner cumulé : 1 440 €</div>
-              </div>
-              <div class="mu-check-actions">
-                <button class="btn bp bb">Annonce</button>
-                <button class="btn bs bb">Visites (4)</button>
-              </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div class="dw-label" style="margin:0">Vacances locatives — 2 biens</div>
+            <span class="badge ora" style="font-size:10px">5 640 €/an MAG</span>
+          </div>
+          <div class="mu-task-row">
+            <div class="meta">
+              <b>D-002 Damelevières</b> · théorique <span class="mu-mono">490 €</span>
+              <div class="sub">Vacant 30 j · cumul perdu 490 €</div>
             </div>
-            <div class="mu-check">
-              <div class="mu-flex-1">
-                <div class="mu-check-label"><b>F-004 Strasbourg Wacken</b> · Garage · loyer cible 95 €</div>
-                <div class="mu-check-meta">Vacant depuis 30 jours · manque à gagner cumulé : 95 €</div>
-              </div>
-              <div class="mu-check-actions">
-                <button class="btn bp bb">Annonce</button>
-              </div>
+            <div class="acts">
+              <button class="btn bp bb-xs">Annonce</button>
+              <button class="btn bs bb-xs">Visites</button>
+            </div>
+          </div>
+          <div class="mu-task-row">
+            <div class="meta">
+              <b>dsqqds Freyming</b> · théorique <span class="mu-mono">~470 €</span>
+              <div class="sub">Vacant 60 j · cumul perdu 940 € · EDL sortie en attente !</div>
+            </div>
+            <div class="acts">
+              <button class="btn bp bb-xs">Annonce</button>
+              <button class="btn br bb-xs">EDL S</button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- À clore (EDL/Baux/Régul) -->
-      <div class="dw c7 r3 s-pur">
+      <div class="dw c6 r3 s-red">
         <div class="dw-body">
-          <div class="dw-label">À clore</div>
-          <div class="mu-flex mu-mt-8" style="gap:14px;flex-wrap:wrap">
-            <div style="flex:1;min-width:140px">
-              <div class="dw-value lg" style="color:var(--blu)">2</div>
-              <div class="dw-sub">EDL sortie en attente</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div class="dw-label" style="margin:0">Impayés à relancer</div>
+            <span class="badge red" style="font-size:10px">1 850 € exposé</span>
+          </div>
+          <div class="mu-task-row">
+            <div class="meta">
+              <b>D-105 BOULALA Florian</b> · loyer <span class="mu-mono">577,64 €</span>
+              <div class="sub">Impayé avril <span class="mu-mono" style="color:var(--fg-danger)">-597,64 €</span> · 60 j retard</div>
             </div>
-            <div style="flex:1;min-width:140px">
-              <div class="dw-value lg" style="color:var(--ora)">1</div>
-              <div class="dw-sub">Bail à archiver</div>
+            <div class="acts">
+              <button class="btn br bb-xs">LRAR</button>
+              <button class="btn bs bb-xs">Tél</button>
+              <button class="btn bs bb-xs">📧</button>
             </div>
-            <div style="flex:1;min-width:140px">
-              <div class="dw-value lg" style="color:var(--pur)">3</div>
-              <div class="dw-sub">Régul charges à valider</div>
+          </div>
+          <div class="mu-task-row">
+            <div class="meta" style="color:var(--t3)">
+              Aucun autre impayé en cours
+              <div class="sub">Tous les autres locataires à jour ✓</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 5 : À clore (1 ligne) -->
+      <div class="dw c12 r1">
+        <div class="dw-body" style="padding:0">
+          <div class="mu-strip">
+            <span class="dw-label" style="margin:0">À clore</span>
+            <span class="mu-strip-item">
+              <span class="num blu">2</span>
+              <span>EDL sortie en attente</span>
+            </span>
+            <span class="mu-strip-item">
+              <span class="num ora">1</span>
+              <span>Bail à archiver</span>
+            </span>
+            <span class="mu-strip-item">
+              <span class="num pur">3</span>
+              <span>Régul charges à valider</span>
+            </span>
+            <button class="dw-see-all" style="margin-left:auto">Voir toutes →</button>
           </div>
         </div>
       </div>
 
     </div>
 
+    <!-- ── NOTE PÉDAGOGIQUE ────────────────────────────────────── -->
     <div class="mu-synth mu-mt-18">
-      <h3 style="margin-top:0">📌 À noter sur cette lentille</h3>
+      <h3 style="margin-top:0">📌 Ce qui change vs lentille 3 v1</h3>
       <ul>
-        <li><b>Effort prod : ~5 j-h</b> — heatmap calendrier nouveau composant, le reste réutilise listes existantes (alertes dashboard, tableaux baux).</li>
-        <li><b>Persona</b> : admin biens hands-on (souvent le fils/cousin dans les SCI familiales), futur agent (B2B Pro).</li>
-        <li><b>Différenciant</b> : faible (Qalimo a similar). Reste utile pour la persona Agence Pro V2 49.90€.</li>
-        <li><b>Reco V2 (2027)</b> : <span class="badge ora">Lancée avec le module Agence</span> (sujet AGENCE-GESTION).</li>
+        <li><b>Densifié 1 écran (~900 px)</b> : 4 KPIs ops compactés en r2 au lieu de r2 séparé · Hero "À faire" + Calendrier 60 j côte à côte (5r) au lieu de 5r+6r séparés</li>
+        <li><b>Absorbé l'ex-lentille 6 Échéances</b> (que tu jugeais redondante) en une <b>timeline 90 j horizontale</b> + bandeau résumé "Cette semaine / Ce mois / Trimestre / Retards" — tu retrouves la vue calendrier visuelle qui complète bien le calendrier mensuel.</li>
+        <li><b>Gardé tel quel</b> : checklist "À faire" avec actions inline (LRAR / Programmer / Email), Vacances locatives + Impayés à relancer côte à côte, "À clore" compact 1 ligne en bas.</li>
+        <li><b>Onglets en haut</b> cohérents avec Propriétaire — un clic pour basculer entre les 4 vues.</li>
+        <li><b>Suppression Lentille 6 séparée</b> : la timeline est maintenant ici. Plus de redondance.</li>
       </ul>
     </div>
 

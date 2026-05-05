@@ -1,6 +1,6 @@
 # DASH-PROFILES — Dashboards par lentille (persona / cas d'usage)
 
-**Status** : ⏳ Phase 1 (aperçu) livrée — attente validation utilisateur · depuis 2026-05-01
+**Status** : ⏳ Phase 1 v2 livrée — attente validation finale · depuis 2026-05-05
 **Prio** : P1 · **Taille** : XL (refonte dashboard majeure, ~1-2 semaines en codage prod après validation aperçu)
 **Détecté** : 2026-05-01
 **Lié à** : DASH-V2 · DASH-KPI-HC · BIZPLAN · BUG-DASH-001
@@ -161,10 +161,30 @@ Livrables :
 
 ## Journal
 - 2026-05-01 : créé · 8 lentilles proposées (3 utilisateur + 5 Claude) · attente Phase 1 aperçu
-- 2026-05-01 : **Phase 1 aperçu livrée** · session dédiée ~3h
+- 2026-05-01 : **Phase 1 v1 livrée** · session dédiée ~3h
   - `docs/strategie/DASH-PROFILES-SPEC.md` (576 lignes) : spec détaillée 8 lentilles + matrice priorisation + 6 questions ouvertes + données fictives cohérentes
   - `docs/strategie/dashboard-mockups/` : 9 fichiers HTML (index sélecteur + 8 lentilles cliquables) + CSS partagé (671 lignes, design tokens identiques à index.html prod) + nav.js (sélecteur + dark/light toggle)
   - Données fictives : SCI Familiale Keller, 5 logements, 1 impayé, 1 vacance, 1 DPE F · cohérentes entre les 8 mockups → l'utilisateur peut comparer "même réalité, vues différentes"
   - Reco initiale V1 (4 lentilles, ~12 j-h) : Propriétaire + Financier + Fiscale 2044 + Échéances · V2 (4 lentilles + Custom, ~26 j-h) : Gestionnaire + Investisseur + Prévisionnel + Patrimoine
   - 6 questions à arbitrer documentées (V1 scope, sélecteur UI, custom V1/V2, auto-saison Fiscale, IA Prévisionnel, data model financier)
   - Pas de modif `index.html` prod (consigne respectée)
+
+- 2026-05-05 : **Feedback utilisateur direct** · session de recadrage
+  - 💬 "Pas convaincu par tous les dashboards. Je veux un dashboard 'complet' qui parle à un propriétaire d'immeuble — visu simple et rapide finance + état du bien (comme moi)"
+  - 💬 Investisseur/Prévisionnel/Patrimoine = "des paillettes, pas viable en grattant"
+  - 💬 Échéances = "redondant avec Gestionnaire"
+  - 💬 Fiscale 2044 = "à garder quand on aura avancé sur le sujet"
+  - 💬 "Normalement un dashboard c'est un écran pas une continuité. Là c'est pas excellent."
+  - User partage 3 screenshots prod actuel comme baseline
+  - Réponse Q2 : onglets en haut du dashboard (Propriétaire / Gestionnaire / Complet / Custom)
+
+- 2026-05-05 : **Phase 1 v2 livrée** · refonte complète après feedback
+  - **`DASH-PROFILES-SPEC.md` v2** réécrit (350 lignes) : 4 onglets au lieu de 8 lentilles, plan implémentation Phase 2 (~4.5 j-h vs ~38 j-h avant), 3 décisions D1-D3 à arbitrer
+  - **Nouvelle Vue Propriétaire 1 écran** : refonte profonde de la lentille 1 (qui n'était que l'existant rebrandé) → fusion ex-Lentille 1 + ex-Lentille 2 Financier, densifié pour ~900 px : Hero + À-traiter + 4 KPIs Finance compactés + Revenus/Charges + Progression annuelle + Alertes 1-ligne + Mon parc effondré
+  - **Nouvelle Vue Gestionnaire** améliorée : absorbe ex-Lentille 6 Échéances (timeline 90j) · KPIs ops + Hero "À faire" + Calendrier 60j + Vacances + Impayés + À clore
+  - **Onglets Complet + Custom** : pas de mockup (= prod actuelle telle quelle pour Complet, mode édition existant pour Custom)
+  - **6 lentilles archivées** dans `dashboard-mockups/_attic/` avec README.md + bandeau "📦 Archivé" : lentille-2-financier · lentille-4-fiscale · lentille-5-investisseur · lentille-6-echeances · lentille-7-previsionnel · lentille-8-patrimoine
+  - **Données fictives mises à jour** : SCI DD2AMELEVIERES (SCI IS) 16 logements, 2 vacants, 1 impayé · données réelles tirées des screenshots utilisateur
+  - **`nav.js` simplifié** : 3 entrées actives (home + Propriétaire + Gestionnaire) + 2 entrées info (Complet + Custom = pas de mockup)
+  - **`index.html` refondu** en hub des 4 onglets + plan implémentation Phase 2 + 3 décisions D1-D3 + section "Outils différés"
+  - Effort estimé Phase 2 : **~4.5 j-h (~1 semaine calendaire)** au lieu de ~38 j-h dans la v1
