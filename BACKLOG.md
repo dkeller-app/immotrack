@@ -220,6 +220,13 @@
 
 ## ✅ Livré récemment
 
+### GANTT-OCCUPATION — session 2026-05-03 (~3h, 1 commit, v14.45) 🔥 Killer feature
+> Plan d'occupation Gantt 36 mois (24 passés + mois courant + 11 futurs) sur la fiche immeuble 360°. Killer feature différenciante vs Qalimo / BailFacile / Smovin. FICHES-PARITE-360 Session 2 livrée.
+
+| Code | Sujet | Note |
+|---|---|---|
+| GANTT-OCCUPATION | Sous-onglet « 📅 Plan d'occupation » sur fiche immeuble : Gantt 36 mois, 1 ligne par logement, barres bail colorées par locataire (hash HSL déterministe → mémoire visuelle inter-vues), mini-strip occupation globale, marker AUJOURD'HUI vertical animé, hover bar → highlight cross-row du locataire (parcours dans l'immeuble), click → drill-in fiche logement, segments réalisé vs projection (rayures), stats footer 3 KPIs (taux occup 24m / durée bail moyenne / manque à gagner cumulé). Helpers `_tenantColor`, `_renderImmFichePlanGantt`, `_ganttHighlight`, `setImmFicheTab`. CSS responsive 3 breakpoints (PC ≥ 1280 / tablette 768-1279 / mobile ≤ 600). | v14.45 · [docs/subjects/GANTT-OCCUPATION.md](docs/subjects/GANTT-OCCUPATION.md) |
+
 ### EDL-AUDIT-CRITIQUE — session 2026-05-03/04 (~3h, 7 commits, v14.38 → v14.44) 🔥 P0
 > Refonte module EDL après audit complet (7 bugs remontés + 7 bugs latents = 14 bugs identifiés). 12 sur 14 fixés. **Loin d'une solution pro → maintenant utilisable en prod.**
 
