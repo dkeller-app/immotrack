@@ -176,3 +176,48 @@ Pour chaque mois (×36), on calcule :
 
 - 2026-05-03 : créé · vision design + 7 éléments wahoo + responsive 3 breakpoints + stats footer
 - 2026-05-03 : livré v14.45 · helpers `_tenantColor` / `_tenantColorLight` / `_renderImmFichePlanGantt` / `_ganttHighlight` / `setImmFicheTab` · CSS `~200 lignes` · animations CSS `@keyframes igt-pulse` + `igb-pulse`
+- 2026-05-03 (v14.46) : 3 améliorations suite retour utilisateur
+
+### v14.46 — Tacite reconduction + zones vacance labellisées + pictogramme bail clôturé
+
+#### Bug : projection manquante sur baux en tacite reconduction
+> 💬 « zito a son anniversaire de bail en juin. ok pour les améliorations »
+
+ZITO bail signé en 06/2024, fin théorique 06/2025 (1 an meublé) → fin date passée. Mais le bail est en **tacite reconduction** : pas de clôture, le bail est toujours actif jusqu'à la prochaine échéance anniversaire.
+
+**Fix** : détection tacite reconduction via lecture directe `DB.baux[ref]` :
+```js
+const isTaciteReconduction = rawCurrent
+  && !rawCurrent.cloture
+  && !rawCurrent.finEffective
+  && rawCurrent.fin
+  && rawCurrent.fin <= todayIso;
+```
+Si vrai, calcul de la prochaine échéance anniversaire (+1 an itéré jusqu'à dépasser today) et override de la fin pour le rendu Gantt. La barre courante s'étend ainsi jusqu'à la prochaine date anniversaire et le segment projection apparaît correctement.
+
+Tooltip enrichi : `(tacite reconduction → prochaine échéance)` au lieu de `(échéance projetée)` pour ces baux-là.
+
+#### Amélioration 1 : labels « Vacant X mois (-Y €) » dans zones vacance ≥ 3 mois
+- Calcul des `vacancySpans` par logement (gaps entre baux dans la fenêtre 36m)
+- Filtre : durée ≥ 3 mois ET largeur visible > 4% de la timeline
+- Pour chaque zone retenue, rendu d'un overlay `.immf-gantt-vac` avec :
+  - Background hachures rouges plus visibles que celles du fond (vs `.06` → `.16` opacity)
+  - Bordure dashed rouge légère
+  - Label centré : `🚫 Vacant 5 mois · -2 800 €` (full) ou `🚫 5 mois` (compact si < 10% largeur)
+  - Tooltip natif détaillé
+- Calcul du manque à gagner : `(months × dernier loyer ref antérieur)` cumulé sur la zone
+
+#### Amélioration 2 : pictogramme ✓ à la fin des baux clôturés
+Pour chaque bail dont la fin est dans le passé ET qui n'est PAS en tacite reconduction (= bail vraiment terminé) :
+- CSS `.immf-gantt-bar-ended::after` : disque blanc 14×14 px avec ✓ noir, position absolute right
+- Box-shadow subtle pour détacher du fond
+- Tooltip enrichi `(bail terminé)`
+- Adaptation dark mode
+
+Permet de visuellement distinguer « bail courant qui finit naturellement bientôt » d'un « bail vraiment terminé sans renouvellement ».
+
+#### CSS ajoutés
+- `.immf-gantt-bar-ended::after` (pictogramme ✓)
+- `.immf-gantt-vac` (overlay vacance avec hachures + bordure)
+- `.immf-gantt-vac:hover` (intensification au survol)
+- `.immf-gantt-vac-lbl` (typographie label vacance)
