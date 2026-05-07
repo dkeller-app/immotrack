@@ -44,6 +44,73 @@
 
 ---
 
+## 🎯 Vision produit V1 commerciale (audit 2026-05-07)
+
+> **ImmoTrack = SaaS universel de gestion immobilière** — cible : particulier solo + gestionnaire pro. Tout statut juridique (particulier / SCI / SAS / LMP/LMNP / mandataire Hoguet). Toute pratique comptable (autonome / Excel / logiciel pro / expert-comptable).
+
+### Roadmap par phase
+
+| Phase | Contenu | Coût | Bloqueur ? |
+|---|---|---|---|
+| **V1.0** | Charges récup + reporting bailleur + 2044 (en cours v14.61-65) | ~10h | Tous |
+| **V1.1** | Gestion pro indispensable (mandat + CRG + FEC + audit + DG + impayés + RGPD) | ~30h | Pro Hoguet, V1 commerciale |
+| **V1.2** | Compléments sectoriels (TVA / amortissement / encadrement loyer / sinistres / travaux) | ~20h | Selon profils |
+| **V2** | SaaS multi-utilisateurs (rôles + portail bailleur + portail locataire + notifs) | ~45h | Refonte data model |
+| **V3** | Différenciants premium (OCR / comparateur / signature eIDAS) | ~25h | Nice-to-have |
+
+### V1.0 — En cours (charges + reporting bailleur + 2044)
+
+| # | Code | Sujet | Coût | Statut |
+|---|---|---|---|---|
+| 1 | CHARGES-COMMUNES Phase 1 | Compteurs collectifs immeuble + saisie + tableau quote-part | 3h | ✅ v14.59 |
+| 2 | CHARGES-COMMUNES Phase 1.5 | Single source DB.mouvements + lien mv.compteurCcId | 1h | ✅ v14.60 |
+| 3 | CHARGES-COMMUNES Phase 2 | Modélisation 5 cas + part bailleur + scope/composition/fallback | 1h30 | 🔄 v14.61 |
+| 4 | CHARGES-COMMUNES Phase 3 | Régul enrichie + card part bailleur + PDF récap loi 1989 | 2h30 | ⬜ v14.62-63 |
+| 5 | REPORTING-BAILLEUR | Sous-onglet Compta globale + vue mensuelle + CSV | 3h | ⬜ v14.64 |
+| 6 | LEGAL-2044 | Wizard 2044 + mapping catégories → lignes + PDF | 3-4h | ⬜ v14.65 |
+
+### V1.1 — Gestion pro (~30h, ordre par dépendance)
+
+| # | Code | Sujet | Coût | Prio | Bloqueur |
+|---|---|---|---|---|---|
+| 1 | **AUDIT-TRAIL** | Journal modifications (qui/quand/quoi) | 3h | 🔥 P0 | Pré-requis CRG + RGPD |
+| 2 | **GESTION-MANDAT** | Mandat de gestion + honoraires + reversement bailleur | 5h | 🔥 P0 | Hoguet (carte T) |
+| 3 | **GESTION-CRG** | Compte Rendu de Gestion automatisé (PDF + Drive) | 6h | 🔥 P0 | Réglementaire mandataire |
+| 4 | **EXPORT-COMPTABLE** | FEC + journal + grand livre (formats Sage/EBP/Quadra) | 6h | 🔥 P0 | Expert-comptable |
+| 5 | **GESTION-DG** | Suivi caution / restitution / retenues justifiées | 3h | P1 | Légal (1m/2m délai) |
+| 6 | **GESTION-IMPAYE** | Pré-contentieux : mise en demeure + commandement de payer | 4h | P1 | Business critical |
+| 7 | **RGPD-COMPLIANCE** | Registre traitement + durée conservation + droit oubli | 3h | 🔥 P0 | Obligation légale 2018 |
+
+### V1.2 — Compléments sectoriels (~20h)
+
+| # | Code | Sujet | Coût | Profil concerné |
+|---|---|---|---|---|
+| 1 | GESTION-TVA | Régime BIC / meublé pro / paramétrage TVA | 5h | SCI IS, LMP, commercial |
+| 2 | AMORTISSEMENT-LMNP | Table amortissement + dotations annuelles | 4h | LMNP/LMP |
+| 3 | ENCADREMENT-LOYER | Vérif au bail (zones tendues : Paris/Lille/Bordeaux/etc.) | 3h | Zones tendues |
+| 4 | GESTION-SINISTRE | Déclaration → suivi → indemnisation | 3h | Tous |
+| 5 | GESTION-TRAVAUX | Workflow devis → ordre → facture → contrôle | 5h | Gestionnaires actifs |
+
+### V2 — SaaS multi-utilisateurs (~45h)
+
+| # | Code | Sujet | Coût |
+|---|---|---|---|
+| 1 | MULTI-USER | Rôles (admin/gestionnaire/bailleur/locataire) + permissions + cloisonnement | 15h |
+| 2 | PORTAIL-BAILLEUR | Lecture seule + emails auto + CRG en ligne | 10h |
+| 3 | PORTAIL-LOCATAIRE | Quittances en ligne + paiement Stripe/SEPA | 15h |
+| 4 | NOTIFICATIONS | Email/SMS auto (échéances, IRL, CRG) | 5h |
+
+### V3 — Différenciants premium (~25h)
+
+| # | Code | Sujet | Coût |
+|---|---|---|---|
+| 1 | OCR-FACTURE | Extraction auto montant/date depuis PDF/photo | 5h |
+| 2 | COMPARATEUR-LOYER | Benchmark zone (data SeLoger/Pap) | 6h |
+| 3 | PORTAIL-VISITE | Agenda visites + pré-dossier locataire | 8h |
+| 4 | SIGN-EIDAS | Signature électronique conforme bail (loi Hamon) | 5h |
+
+---
+
 ## 🔥 Priorité immédiate — bugs critiques
 
 > **🚨 2 chantiers de fond bloquants pour V1 commerciale (à attaquer en sessions dédiées)** :

@@ -315,3 +315,116 @@ Appelée au boot (loadDB section migrations) :
 - 2026-05-07 : créé · Phase 1 livrée v14.59 · sous-onglet Charges communes sur fiche immeuble · CRUD compteur collectif (CC_TYPES, CC_REPARTITION_LABELS) · helper `_calcCcQuotePart` 4 clés (tantiemes, surface, sous-compteurs, forfait) · CRUD relevés + factures (V1 prompts) · tableau quote-part auto-calculé par logement · banner pédagogique avec stats bases dispo · KPI « Reste à imputer » alerte rouge · champ `log.tantiemes` ajouté modale logement (tab Description) · CSS `.cc-grid` / `.cc-table` / `.cc-row-exclu` · responsive 768
 - 2026-05-07 : Phase 1.5 livrée v14.60 · question utilisateur sur le lien Mouvements ↔ Compteurs collectifs · choix Option A (single source DB.mouvements) · refonte vue compteur lecture-only depuis DB.mouvements · champ `mv.compteurCcId` saisi dans modale mouvement · helpers `_mvSyncCcSelect`, `openNewMvForCc`, `viewCcMouvements`, `_migrateCcFacturesToMouvements` · migration douce idempotente au boot · UI cards refondue (« + Facture (mouvement) » + « ↗ N mouvements liés »)
 - 2026-05-07 : Phase 2-3 à planifier (~5h restant) : quote-part fiche logement + régul enrichie avec auto-calcul + PDF récap loi 1989
+
+---
+
+## Phase 2 livrée (v14.61) — Modélisation complète + part bailleur
+
+### Décisions utilisateur (audit complet)
+
+> 💬 « Pour les compteurs, je me dis qu'il faut qu'on fasse quelque chose de bien… »
+> 💬 « divisé par le nombre de lots au prorata des jours d'occupation »
+> 💬 « il faudrait une coche pour dire si le logement est compté dans la répartition »
+> 💬 « j'ai un compteur qui a 2 sous-compteurs pour 2 logements dans mon immeuble sur 5 »
+> 💬 « chauffage collectif : une partie au tantième et l'autre partie à la consommation réelle »
+> 💬 « la part bailleur lors des vacances on n'en a pas encore parlé »
+
+### 5 cas couverts
+
+| Cas | Champ | Comportement |
+|---|---|---|
+| 1. Tous logements, 1 clé simple | `cleRepartition` ∈ {tantiemes, surface, proportionnel, forfait} | Ratio × prorata jours |
+| 2. Sous-ensemble logements (compteur ne dessert pas tous) | `scope: [logRefs]` | Restriction stricte au scope |
+| 3. Sous-compteurs partiels (mix réel + fallback) | `cleRepartition: 'sous-compteurs'` + `fallbackRepartition: 'tantiemes'\|...` | Réel pour ceux avec compteur, fallback sur le reste pour ceux sans |
+| 4. Composite (chauffage 30/70) | `cleRepartition: 'composite'` + `composition: [{ratio: 0.3, cle: 'tantiemes'}, {ratio: 0.7, cle: 'sous-compteurs'}]` | Chaque ligne calculée séparément, sommée |
+| Défaut sans règle | (pas de `compteurCcId` sur mvt) | 1/N × prorata jours sur logements `compteCharges=true` |
+
+### Part bailleur (vacances)
+
+Pendant les périodes de vacance, la quote-part théorique du logement reste à la **charge du bailleur** (perte de vacance). Calculé séparément avec dimension `isBailleur: true`.
+
+Exemple : F-101 (200/1000 millièmes), facture 1000 € sur l'année, vacant 6 mois :
+- Locataire : 1000 × 0.2 × (181/365) = **99,18 €**
+- Bailleur : 1000 × 0.2 × (184/365) = **100,82 €** 🟠
+
+### Champ `log.compteCharges`
+
+Coche dans la modale logement (tab Description) :
+- **Default `true`** : tous les logements existants comptent dans la répartition
+- **Décocher** pour les garages, caves, parkings isolés qui ne supportent pas les charges immeuble
+- Migration automatique au boot : tous les logements sans valeur → `true`
+
+### Helper `_calcCcRepartition(im, cc, allLogs, montant, periodFrom, periodTo)`
+
+API unifiée qui retourne :
+```js
+{
+  parts: [
+    { ref, log, montant, methode, isBailleur, occJours, locataire, debut, fin, denomLabel, exclu, raison }
+    // 1 entrée par logement × segment temporel (locataire ou vacance)
+  ],
+  totaux: {
+    montantFacture, totalLocataires, totalBailleur, totalNonImpute
+  }
+}
+```
+
+Implémentation :
+- `_ccLogsInScope(cc, allLogs)` : filtre selon scope + compteCharges
+- `_ccConsoLogPeriod(log, type, from, to)` : conso bornée sur la période (relevés EDL + manuels)
+- `_ccLogOccupations(log, from, to)` : segments locataires + vacances avec `isBailleur` flag
+- `_ccApplyCleSimple(cle, montant, logs, cc, im)` : 5 clés simples (tantiemes/surface/proportionnel/forfait + fallback)
+- `_ccApplySousCompteurs(montant, logs, cc, im, from, to)` : hybride réel + fallback pour sous-compteurs partiels
+- Boucle composition : applique chaque ligne séparément, somme par logement
+
+### Pop-up info au save mouvement
+
+`_mvShowChargeRepartitionInfo(m)` détecte 3 cas et affiche un toast :
+- **Avec compteurCcId** : récap clé + alertes pré-requis manquants (tantièmes, surfaces, parts forfait, relevés sous-compteurs)
+- **Sans règle ni qui** : « Charge répartie 1/N × prorata jours sur X logement(s) (Y exclus) »
+- **Avec qui** : pas de message (charge directe)
+
+### Hero immeuble enrichi
+
+Le KPI « Logements » affiche désormais `8/6 ⚖` (8 logements actifs, 6 dans répartition charges). Tooltip détaillé.
+
+### Préparation Reporting bailleur (v14.64) et 2044 (v14.65)
+
+Migration automatique : `DB.catConfig[cat].recuperable` et `.deductible2044` ajoutés (default null) sur toutes les catégories existantes. Permet de paramétrer plus tard sans casser l'existant.
+
+### Mode test isolé (livraison parallèle)
+
+Helper `_isTestMode` détecte si `index-test.html` ou `?sandbox=1`. Si actif :
+- Préfixe `_test_` sur tout localStorage → DB isolée prod
+- Drive auto-connect désactivé
+- Bandeau orange permanent en haut + boutons « 🎲 Charger dataset démo » / « 🗑 Reset DB test »
+- Dataset démo = 1 SCI · 1 immeuble · 4 logements (dont 1 garage exclu, 1 vacant) · 2 baux · 12 mvts loyers + 2 charges
+
+`regen-test.bat` permet de re-générer la copie après chaque release prod.
+
+### Critères d'acceptance Phase 2 v14.61
+
+- [x] Champ `log.compteCharges` (default true, migration auto)
+- [x] Coche dans modale logement (tab Description) avec banner pédagogique
+- [x] Clé `proportionnel` (1/N) ajoutée à `CC_REPARTITION_LABELS`
+- [x] Champ `cc.scope` saisi via prompt (refs séparées par virgule)
+- [x] Champ `cc.fallbackRepartition` saisi via prompt si clé = 'sous-compteurs'
+- [x] Champ `cc.composition` initialisé à `[]` (édition manuelle V1, UI Phase 3)
+- [x] Helper `_calcCcRepartition` avec 5 cas + part bailleur + scope + composition + fallback
+- [x] Helpers internes `_ccLogsInScope`, `_ccConsoLogPeriod`, `_ccLogOccupations`, `_ccApplyCleSimple`, `_ccApplySousCompteurs`
+- [x] Pop-up info au save mouvement (`_mvShowChargeRepartitionInfo`)
+- [x] Hero immeuble : N logements / N compte-charges
+- [x] `DB.catConfig` enrichi avec `recuperable` + `deductible2044` (default null)
+- [x] Mode test : `_isTestMode`, `_lsKey`, bandeau, dataset démo, Drive désactivé
+- [x] `index-test.html` créé + `regen-test.bat` pour synchro
+
+### Limites Phase 2 (Phase 3 à venir)
+
+- **CRUD via prompts** : V1 fonctionnelle. Phase 3 → vraie modale `#ov-cc` avec UI structurée.
+- **Édition `cc.composition`** : à éditer via console JS pour V1. Phase 3 → UI dédiée.
+- **Tableau quote-part de la card compteur** : utilise encore `_calcCcQuotePart` (vue annuelle simple). Phase 3 → utiliser `_calcCcRepartition` pour décomposition locataire/bailleur.
+- **Régul** : utilise encore l'ancien `computeRegul`. Phase 3 → refonte avec `_calcCcRepartition`.
+
+## Journal
+
+- 2026-05-07 (suite) : Phase 2 livrée v14.61 · 5 cas couverts (clé simple + scope + sous-compteurs partiels + composite + défaut 1/N×prorata) · part bailleur (vacances) modélisée avec `isBailleur` · helper unifié `_calcCcRepartition(im, cc, allLogs, montant, periodFrom, periodTo)` · champ `log.compteCharges` (coche + migration default true) · clé `proportionnel` · champs `cc.scope`/`cc.fallbackRepartition`/`cc.composition` · pop-up info au save mouvement · hero immeuble enrichi · préparation `DB.catConfig.recuperable`/`deductible2044` · MODE TEST isolé livré en parallèle (`_isTestMode`, `_lsKey`, bandeau orange, dataset démo, Drive désactivé, `index-test.html` + `regen-test.bat`)
