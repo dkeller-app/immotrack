@@ -25,7 +25,7 @@
 | 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A (drill + onglet Bail) livré v14.13 ✅* |
-| 🏛️ **Entité / Immeuble** | **BUG-ENT-RENAME-CASCADE 🔥 (P0, ~30min)** · BUG-ENT-ORPHANS-CLEANUP (P2) · ENT-SAVE-IMM (P2) |
+| 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅ (audit boot + modale UI 1-clic)* |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) |
 | ⚡ **Charges / Régul** | BUG-CHARGE-001 (P1) · V3-REFONTE-REGUL (P2) · CHARGE-REGLES (P2) |
@@ -132,8 +132,9 @@
 | IRL-VALIDATION | IRL : enveloppe couleur + valider envoi + valider IRL + popup mois anniversaire | P1 | M | ✅ Livré v13.33 | refonte v13.33 (v13.32 rejeté : encart dans lettre = bricolage). Enveloppe 3 états (gris/orange/rouge/vert) dans cellule actions + boutons "Valider envoi" et "💶 Valider IRL" cohérents tous états + popup `#ov-irl-rappel` mois anniversaire (login 1×/jour + ouverture onglet IRL 1×/session) + dashboard alerts enrichies + lettre PDF nettoyée (zéro encart validation) |
 | IRL-DPE-FG | IRL : pas de révision si bail en DPE F ou G (loi Climat 2021) | P1 | S | ✅ Livré v13.31 | commit 625638c · 4 surfaces (computeIRLRevision + rIRL + genIRLLetter + applyIRL) · DPE F/G bloque dur, DPE manquant alerte popup, DPE >10 ans warning |
 | BUG-PJ-LOCALSTORAGE | **PJ documents mouvements gonflent localStorage** (quota 5-10 Mo navigateur) — toast « Stockage plein » + perte modifs locales si tab fermée avant push Drive | **P1** | M (~3-5h) | ⬜ À faire | [docs/subjects/BUG-PJ-LOCALSTORAGE.md](docs/subjects/BUG-PJ-LOCALSTORAGE.md) · détecté 2026-05-03 · cause : `m.pj.dataB64` en base64 dans `DB.mouvements[i]` au lieu d'IndexedDB (pattern correct existe déjà via `EDL-PHOTOS-IDXDB`) · 3 phases : (1) nouvelles PJ vers IDB, (2) migration auto des PJ legacy, (3) sync cross-device via Drive · **Phase 3 peut réutiliser `_drvUploadDoc` v14.35** (DRIVE-ARBORESCENCE Phase B) → PJ ira dans `📄 Documents/` du logement Drive |
-| BUG-ENT-RENAME-CASCADE | **Renommage entité ne propage pas** vers logements/baux/quittances → KPIs dashboard à 0 après rename | **P0** | XS (~30min) | ⬜ À faire | [docs/subjects/BUG-ENT-RENAME-CASCADE.md](docs/subjects/BUG-ENT-RENAME-CASCADE.md) · détecté 2026-05-05 (utilisateur a renommé "Perso — Didier Keller" → "Didier Keller", tous KPIs à 0) · cause : `saveEnt()` change `entite.nom` mais ne cascade pas sur les ~136 occurrences de `.entity` · **fix : ~20 lignes dans saveEnt** + bonus normalisation Unicode à la saisie (em-dash U+2014 vs trait-union U+002D = pièges invisibles) · migration des données déjà cassées via `BUG-ENT-ORPHANS-CLEANUP` |
-| BUG-ENT-ORPHANS-CLEANUP | Détection + nettoyage des rattachements orphelins (logements pointant vers entités supprimées ou renommées) | P2 | S (~2h) | ⬜ À faire | [docs/subjects/BUG-ENT-ORPHANS-CLEANUP.md](docs/subjects/BUG-ENT-ORPHANS-CLEANUP.md) · détecté 2026-05-05 · 3 phases : (1) audit boot + toast, (2) modale Paramètres "Détecter orphelins" avec rattachement manuel, (3) fuzzy-match auto optionnel · pré-requis : `BUG-ENT-RENAME-CASCADE` livré |
+| BUG-ENT-RENAME-CASCADE | Renommage entité ne propage pas vers logements/baux/quittances → KPIs dashboard à 0 après rename | P0 | XS | ✅ Livré v14.51 | commit ee48bad · `saveEnt()` cascade sur 5 collections (logements / baux / baux_historique / quittances / mouvements globaux SCI:nom) + normalisation Unicode à la saisie (em-dash U+2014 / en-dash U+2013 / NBSP → ASCII safe) · toast "Entité renommée — N rattachement(s) propagé(s)" |
+| BUG-ENT-ORPHANS-CLEANUP | Détection + nettoyage des rattachements orphelins (logements pointant vers entités supprimées ou renommées) | P2 | S | ✅ Livré v14.52-53 | [docs/subjects/BUG-ENT-ORPHANS-CLEANUP.md](docs/subjects/BUG-ENT-ORPHANS-CLEANUP.md) · Phase 1 v14.52 commit 7e209a5 (audit boot + toast warning + console.warn détaillée) · Phase 2 v14.53 commit 79b93bc (modale Paramètres "Maintenance — Rattachements orphelins" avec UI 1-clic Rattacher / Supprimer, réutilise cascade rename de saveEnt) · Phase 3 fuzzy-match auto = standby (pas urgent) |
+| BUG-BIENS-TABS-FILTER | Page Biens / mode Bailleurs : toggle Tous/Archivés affichait les mêmes 3 cards dans les 2 vues | P2 | XS | ✅ Livré v14.54 | [docs/subjects/BUG-BIENS-TABS-FILTER.md](docs/subjects/BUG-BIENS-TABS-FILTER.md) · commit ae7b24b · `_renderBiensModeBailleurs` filtre sur `_entsWithArchived()` quand `_biensTab==='archives'` + `_renderBailleurCard(ent, isArchivedTab)` compte selon scope · empty state "Aucun bailleur n'a de bien archivé" + libellé "N biens **actif**(s)" / "**archivé**(s)" |
 | BUG-LOG-001 | Logement : référence non modifiable après création | P2 | XS | ⬜ À faire | [docs/subjects/BUG-LOG-001.md](docs/subjects/BUG-LOG-001.md) |
 | BUG-EQUIP-FILTER | Onglet Équipements : filtre exclut logements vacants | P2 | XS | ⬜ À faire | Hérité de v12.36 · à voir dans refonte Équipements |
 | BUG-HC-GARDE-FOU | Garde-fou saisie HC : alerte si valeur aberrante | P2 | XS | ⬜ À faire | Hérité de v2 · ratio HC/médiane > 10 ou seuil absolu |
@@ -289,6 +290,28 @@
 ---
 
 ## ✅ Livré récemment
+
+### ENT-CASCADE-FIXES + BIENS-TABS — session 2026-05-05/06 (~2h, 4 commits, v14.51 → v14.54)
+> Détectés pendant la session DASH-PROFILES Phase 1 v2 (mockups). Utilisateur a renommé entité bailleur "Perso — Didier Keller" → "Didier Keller" et tous ses KPIs sont passés à 0. Diagnostic systématique → 3 bugs corrigés en cascade.
+
+| Code | Sujet | Note |
+|---|---|---|
+| BUG-ENT-RENAME-CASCADE | `saveEnt()` ne propageait pas le renommage entité vers `.entity` (logements/baux/baux_historique/quittances) ni `.qui` (mouvements globaux SCI:nom) → KPIs dashboard à 0 silencieusement après rename. Fix : cascade ~20 lignes dans saveEnt avec garde `prevNom !== ent.nom` + skip tombstones + `_modifiedAt` pour merge Drive timestamp-aware. **Bonus normalisation Unicode à la saisie** (em-dash U+2014 / en-dash U+2013 / NBSP → ASCII safe) pour éviter pièges invisibles à l'œil. | v14.51 · commit `ee48bad` · [docs/subjects/BUG-ENT-RENAME-CASCADE.md](docs/subjects/BUG-ENT-RENAME-CASCADE.md) |
+| BUG-ENT-ORPHANS-CLEANUP Phase 1 | Audit boot des rattachements orphelins (5 collections) avec helper `_auditOrphans()` + toast warning 9s + console.warn détaillée par entité inconnue. Délai 2200ms après boot pour ne pas spammer. | v14.52 · commit `7e209a5` |
+| BUG-ENT-ORPHANS-CLEANUP Phase 2 | Modale UI "🛠 Maintenance — Rattachements orphelins" dans Paramètres globaux. Pour chaque entité orpheline : sélecteur d'entité active + boutons Rattacher (cascade rename) ou Supprimer (tombstone). Réutilise même logique que saveEnt v14.51. Détecte aussi mouvements globaux `SCI:nom`. | v14.53 · commit `79b93bc` · [docs/subjects/BUG-ENT-ORPHANS-CLEANUP.md](docs/subjects/BUG-ENT-ORPHANS-CLEANUP.md) |
+| BUG-BIENS-TABS-FILTER | Page Biens / mode Bailleurs : toggle Tous/Archivés affichait les 3 mêmes cards. Fix `_renderBiensModeBailleurs` filtre via `_entsWithArchived()` quand `_biensTab==='archives'` + `_renderBailleurCard(ent, isArchivedTab)` compte logements selon scope. Empty state "Aucun bailleur n'a de bien archivé" + libellé compteur "actif(s)" / "archivé(s)". | v14.54 · commit `ae7b24b` · [docs/subjects/BUG-BIENS-TABS-FILTER.md](docs/subjects/BUG-BIENS-TABS-FILTER.md) |
+
+**Migration de la donnée user déjà cassée** : 3 records corrigés en console (1 logement Delle + 1 bail + 1 quittance) avant que le fix v14.51 soit poussé en prod, pour ne pas attendre.
+
+**Outils session promus en repo principal** : `screenshot-mockups.js` (puppeteer générateur PNG mockups, réutilisable Phase 2 DASH-PROFILES + futurs aperçus), `launch.json` (config preview server `npx http-server`), `package.json` + `.gitignore` (`node_modules/` + worktrees).
+
+**Règle pilotage codifiée** : "BACKLOG en temps réel" — mise à jour à chaque livraison, pas en fin de session. Ajoutée dans `docs/PILOTAGE.md` + mémoire user `feedback_pilotage_realtime.md`.
+
+### DASH-PROFILES Phase 1 aperçu — session 2026-05-01/05 (~5h, 2 commits)
+| Code | Sujet | Note |
+|---|---|---|
+| DASH-PROFILES Phase 1 v1 | 8 lentilles dashboard proposées (Propriétaire / Financier / Gestionnaire / Fiscale 2044 / Investisseur / Échéances / Prévisionnel / Patrimoine). Mockups HTML cliquables + spec MD + 18 screenshots. | commit `6749a76` (v1 abandonnée v2) |
+| DASH-PROFILES Phase 1 v2 | Refonte après feedback user "paillettes" (Investisseur/Prévisionnel/Patrimoine) + "redondant" (Échéances). 4 onglets retenus (Propriétaire 1-écran refonte profonde + Gestionnaire amélioré absorbant Échéances + Complet = prod actuelle + Custom = mode édition). 6 lentilles archivées dans `_attic/`. Effort Phase 2 ramené ~38 j-h → ~4.5 j-h. | commit `6749a76` · [DASH-PROFILES-SPEC.md](docs/strategie/DASH-PROFILES-SPEC.md) · ⏳ attente validation finale + 3 décisions D1-D3 |
 
 ### GANTT-OCCUPATION — session 2026-05-03 (~3h, 1 commit, v14.45) 🔥 Killer feature
 > Plan d'occupation Gantt 36 mois (24 passés + mois courant + 11 futurs) sur la fiche immeuble 360°. Killer feature différenciante vs Qalimo / BailFacile / Smovin. FICHES-PARITE-360 Session 2 livrée.
