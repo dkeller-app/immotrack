@@ -1,8 +1,18 @@
 # AUDIT-GLOBAL — Audit global + nettoyage + analyse modularité (avant V3)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (1-2 jours, élargi 2026-05-05)
+**Status** : 🔄 En cours · **Prio** : P1 · **Taille** : L (1-2 jours, élargi 2026-05-05)
 **Lié à** : `project_v3_transition.md` (étape 1), `project_commercialization.md`, V3-VISUEL, SECU-INNERHTML, **ARCHI-MODULAR**
 **Bloquant** : V3 visuelle (devrait être fait avant pour prioriser intelligemment) + ARCHI-MODULAR (le rapport de faisabilité oriente la refonte)
+
+## ⚠️ Consigne fichiers index.html / index-test.html
+
+Au 2026-05-07 : `index.html` (prod) et `index-test.html` (sandbox/bac à sable) sont **identiques** (4.4 MB / 31 190 lignes). Le sandbox est utilisé pour tester sans risquer les données prod (cf mémoire `feedback_modify_verify.md`).
+
+**Règle pour cette session AUDIT** :
+- **Phases 1-5 + 7 (lecture)** : analyser `index.html` (les 2 sont identiques)
+- **Phase 6 (nettoyage actif)** : modifier les **DEUX fichiers** dans le **même commit**
+- **Vérification après chaque commit Phase 6** : `diff index.html index-test.html` doit retourner vide (les 2 fichiers restent identiques en taille et contenu, sauf les éventuelles directives sandbox-only documentées)
+- **Tester ouverture des 2 fichiers** dans le navigateur après chaque commit pour valider que rien ne casse en prod ni en sandbox
 
 ## Contexte
 
