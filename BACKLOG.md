@@ -34,7 +34,7 @@
 | 🛡️ **MRH** | MRH-AUTO-LOC (P2) |
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
-| ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL (P1) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) |
+| ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) |
 | 💾 **Drive sync** | DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
@@ -157,7 +157,8 @@
 | Code | Sujet | Prio | Taille | Statut | Note |
 |---|---|---|---|---|---|
 | **FICHES-PARITE-360** 🔥 | **Parité totale onglets ↔ fiches 360° (logement / immeuble / bailleur) — single source of truth** | **P1** | **XL (~27h, ~23h restantes)** | 🔄 **Session 1 ✅ Compta riche logement livrée v14.18** · 7 sessions restantes | [docs/subjects/FICHES-PARITE-360.md](docs/subjects/FICHES-PARITE-360.md) · **Session 1 commit `a2ae89c` v14.18** : sous-onglet 💰 Comptabilité fiche logement (KPIs annuels + cash-flow SVG 12 barres + listes compactes mouvements/quittances/IRL filtrées par ref+année + sélecteur année + boutons "+ Mvt"/"+ Quittance"). Helpers factorisables `_renderComptaKPIsForLog`, `_renderComptaCashFlowChart`, `_renderMvForLog`, `_renderQuitForLog`, `_renderIrlForLog`. **Sessions restantes par ROI** : 2 Plan d'occupation Gantt immeuble (~3h, killer feature), 3 EDL fiche logement + EDL-TEMPLATE-PER-LOG (~7h), 4 Compteurs + graphique conso (~2h), 5 Entretien équipements+assurances+agenda (~2h), 6 Documents agrégés (~1h), 7 Performance + compta bailleur (~5h), 8 Plan immeuble charges communes+travaux (~3h). |
-| AUDIT-GLOBAL | Audit global avant V3 (sécu XSS, perf, code quality, OAuth, PWA) | P1 | M | ⬜ À faire | Étape 1 V3 transition · agent Explore + skills review/security-review · cf `project_v3_transition.md` |
+| AUDIT-GLOBAL | Audit + nettoyage actif + analyse faisabilité modularité (index.html = 30 083 lignes au 2026-05-05) | P1 | L | 🔄 En cours | [docs/subjects/AUDIT-GLOBAL.md](docs/subjects/AUDIT-GLOBAL.md) · Phases 1-5 audit lecture, Phase 6 nettoyage safe (1 commit/catégorie), Phase 7 rapport faisabilité modulaire 3 stratégies |
+| ARCHI-MODULAR | Refonte modulaire monolithe index.html (ES modules natifs ou Vite) | P1 | XL | ⬜ À faire | [docs/subjects/ARCHI-MODULAR.md](docs/subjects/ARCHI-MODULAR.md) · pré-requis : rapport AUDIT-GLOBAL Phase 7 · 5 phases (core, components, onglets ×13, lazy-load, tests) · 5-15 j-h selon stratégie retenue |
 | SECU-INNERHTML | Sites `innerHTML=` non échappés restants (~107 occurrences, 10 wrappés) | P1 | M | ⬜ À faire | Renders tableaux/cartes/modales onglets baux-hist, mv, quit, ass, etc. · à traiter au fil refonte onglet par onglet · l.7310 dash-alerts non-escapable |
 | MOBILE-AUDIT-ONGLETS | Audit + correctifs UX mobile onglet par onglet (irréprochable sur téléphone) | P1 | L | 🔄 Phase 1+2 livrées v14.11/14.12 | [docs/subjects/MOBILE-AUDIT-ONGLETS.md](docs/subjects/MOBILE-AUDIT-ONGLETS.md) · **Phase 1 (v14.11)** : anti-zoom iOS Safari global (font-size:16px <768px). **Phase 2 (v14.12)** : refonte EDL liste cards + formulaire modal plein écran + compteurs/clés cards verticales + signatures empilées + footer sticky. **Phase 3 restante** : Bail wizard mobile, form Logement/Immeuble, form IRL, modals générales (padding, height 100dvh). **Phase 4 polish** : touch targets 44px partout, scroll-margin, test PWA standalone, espacement vertical pouce. Breakpoints standardisés : <480 / <768 / <1024. |
 | LOG-FICHE-360 | Vue 360° consolidée par bien (Phase 2 sous-onglets Documents/EDL/Compta/Compteurs/Entretien) | P1 | M | 🔄 Phase 1 livrée v14.2 | [docs/subjects/LOG-FICHE-360.md](docs/subjects/LOG-FICHE-360.md) · Phase 1 livrée commit `1036bdf` (route + header + onglet Général) · Phase 2 à planifier en session dédiée — stub ergonomique des 5 sous-onglets déjà en place |
@@ -502,3 +503,37 @@
 ### 2026-04-27 — Pas de solution passable
 - Règle non négociable : refonte complète plutôt que compromis temporaire, planifier en session dédiée si trop gros
 - Référence : mémoire `feedback_no_compromise.md`
+
+### 2026-05-07 — 🛑 Modification + vérification TOUJOURS
+- **Règle non négociable** captée après 6 itérations cassées en chaîne (v14.62→67 SANDBOX-MODE)
+- Citation user : *« on vérifie tout ce qu'on a fait pour être sur que c'est bien fait ! […] modification + vérification toujour stoujours !! »*
+- Avant CHAQUE bump et CHAQUE demande de test :
+  1. Grep le symbole modifié → tous les sites collatéraux protégés ?
+  2. Si user teste sur fichier dérivé (`index-test.html`) → copier le fix + vérifier la copie
+  3. Si modif d'init/migration → penser au state localStorage déjà persisté (cleanup ou migration)
+  4. Si nouvel écran vide → guider l'utilisateur (pas de "vide non guidé")
+  5. Test mental Ctrl+F5 : "qu'est-ce que je vois et qu'est-ce que je dois faire ?"
+- Référence : mémoire `feedback_modify_verify.md`
+
+### 2026-05-07 — 🚀 Penser déploiement + commercialisation TOUJOURS
+- **Règle non négociable** : ImmoTrack est destiné à être commercialisé (cf `project_commercialization.md`). Chaque feature doit être conçue pour le marché SaaS, pas juste pour le besoin perso.
+- Citation user : *« il faut penser déploiement et commercialisation (à mettre dans le doc des règles !) »*
+- 2 options à chaque conception :
+  - **Option A — Complet** : tous statuts juridiques (particulier/SCI/SARL/LMP/LMNP/Hoguet) + tous profils + responsive 3 formats + propagation Drive
+  - **Option B — Nécessaire + extensible** : minimum vital + mécanisme d'extension UI (bouton « + nouveau type » + stockage `DB.params.X[]`)
+  - **Interdit Option C** : « pour mon besoin uniquement » sans extension UI → mur invisible avant le lancement commercial
+- À la livraison d'une feature, marquer dans `docs/subjects/X.md` :
+  - ✅ Statuts juridiques couverts · ✅ Profils utilisateurs · ✅ Mécanisme d'extension · ⚠ Hors scope
+- Référence : mémoire `feedback_deploy_commercialize.md`
+
+### 2026-05-07 — 🤐 Pas d'idées pour proposer · Si tu ne sais pas, dis-le
+- **Règle non négociable** captée après proposition non motivée (charges propriétaires hors scope V1, inventées « pour avoir l'air complet »)
+- Citation user : *« me propose pas des idées pour proposer. Si tu n'as pas d'idées tu ne dis rien. Idem si tu ne sais pas tu le dis : à noter dans les règles »*
+- Une proposition n'est valide QUE si elle s'appuie sur 1 des 4 :
+  1. Cas réel rencontré par le user (qu'il a explicité)
+  2. Obligation légale citée précisément
+  3. Référence dans le code existant qui appelle l'extension
+  4. Référence dans `project_commercialization.md` ou `BACKLOG.md`
+- Si aucun des 4 ne s'applique → **silence ou question**, pas de fluff
+- Formulations autorisées : « Je ne sais pas » · « À confirmer » · « Hors de mon périmètre »
+- Référence : mémoire `feedback_no_bullshit.md`

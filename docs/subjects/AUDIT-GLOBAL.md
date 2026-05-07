@@ -1,19 +1,26 @@
-# AUDIT-GLOBAL — Audit global avant refonte V3
+# AUDIT-GLOBAL — Audit global + nettoyage + analyse modularité (avant V3)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M (3-5h)
-**Lié à** : `project_v3_transition.md` (étape 1), `project_commercialization.md`, V3-VISUEL, SECU-INNERHTML
-**Bloquant** : V3 visuelle (devrait être fait avant pour prioriser intelligemment)
+**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (1-2 jours, élargi 2026-05-05)
+**Lié à** : `project_v3_transition.md` (étape 1), `project_commercialization.md`, V3-VISUEL, SECU-INNERHTML, **ARCHI-MODULAR**
+**Bloquant** : V3 visuelle (devrait être fait avant pour prioriser intelligemment) + ARCHI-MODULAR (le rapport de faisabilité oriente la refonte)
 
 ## Contexte
 
-Avant d'attaquer V3-VISUEL puis V3-REFONTE-* onglet par onglet, faire un état des lieux complet de l'app pour :
-- Cartographier le monofichier `index.html` (~17000 lignes vanilla JS)
+`index.html` fait **30 083 lignes** au 2026-05-05 (vs ~17000 prévu initialement). Le monolithe devient un problème pour :
+- **Maintenance** : difficile de comprendre l'architecture pour un dev junior ou un futur recrutement
+- **Performance** : tout chargé au boot (parsing JS lourd au démarrage), pas de lazy-load par onglet
+- **Sécurité** : ~107 sites `innerHTML=` non échappés (XSS)
+- **Commercialisation V1** : un monolithe 30k lignes effraie les acquéreurs / investisseurs / développeurs
+
+Avant d'attaquer V3-VISUEL puis V3-REFONTE-* onglet par onglet, faire un état des lieux complet de l'app + nettoyage safe + analyse de faisabilité modulaire pour :
+- Cartographier le monofichier
 - Inventaire pages/onglets et leur état UX
-- Identifier les zones de duplication / dead code / scope leaks
+- Identifier + **nettoyer** zones de duplication / dead code / scope leaks / patches inutiles / console.log oubliés
 - Repérer les vulnérabilités sécu (XSS, OAuth, PWA)
 - Mesurer la perf (rendus, DB ops, Drive sync)
+- **Recommander une stratégie de modularisation** (sans bundler / ES modules natifs / bundler Vite)
 
-Output : un rapport priorisé qui guide les sessions suivantes.
+Output : 2 rapports priorisés (`docs/strategie/AUDIT-CODE.md` + `docs/strategie/ARCHI-MODULAR-FAISABILITE.md`) + commits de nettoyage safe.
 
 ## Scope
 
@@ -44,11 +51,66 @@ Output : un rapport priorisé qui guide les sessions suivantes.
 - [ ] Conventions ES5 vs ES6 (var/const/let, function/arrow)
 
 ### Phase Audit-5 : rapport priorisé
-- [ ] Output : `docs/audit-2026-04.md` avec :
-  - Top 5 risques sécu
+- [ ] Output : `docs/strategie/AUDIT-CODE.md` avec :
+  - Top 5 risques sécu (avec code:line)
   - Top 5 quick wins perf
-  - Top 5 dettes techniques
+  - Top 10 dettes techniques classées par effort/impact
+  - Liste exhaustive des patches inutiles (commentaires `// FIX`, `// TODO`, `// HACK` avec contexte)
+  - Liste des `console.log` / `console.error` / `debugger` oubliés
+  - Liste des fonctions mortes (jamais appelées)
+  - Liste des duplications majeures (extraire helper recommandé)
   - Recommandations pour V3-VISUEL et V3-REFONTE
+
+### Phase Audit-6 : nettoyage actif (commits safe)
+**Objectif** : effectuer les nettoyages **non-comportementaux** identifiés en Audit-1→4. Pas de refacto fonctionnel — uniquement les opérations sûres.
+
+Catégories de nettoyage **autorisées dans cette phase** (1 commit par catégorie) :
+- [ ] **`console.log` / `console.warn` / `debugger` oubliés** (sauf ceux dans `_drv*` qui sont diagnostics utiles)
+- [ ] **Commentaires obsolètes** : `// TODO 2024-...`, `// FIX patch v12.x`, `// HACK temporaire`
+- [ ] **Code mort prouvé** : fonctions définies jamais appelées (vérifier grep zéro occurrence + cf indexer)
+- [ ] **Variables inutilisées** : déclarées et jamais lues (linter manuel)
+- [ ] **Imports / globals inutiles** : helpers définis et jamais utilisés
+- [ ] **Duplications strictes** : 2+ blocs identiques → extraire helper (uniquement si trivial, sinon en backlog ARCHI-DEDUP)
+- [ ] **Magic strings standardisables** : extraire en const partagées (limité, pas de gros refacto)
+- [ ] **Indentation / formatting** : si inconsistant et que ça aide à la lisibilité (sans formatter auto qui changerait tout)
+
+Catégories **HORS scope cette phase** (renvoyer en backlog dédié) :
+- ❌ Refonte fonction lourde (>200 lignes) → sujet backlog dédié
+- ❌ Changement de signature publique de fonction (impact en chaîne)
+- ❌ `innerHTML` → `textContent` ou template (renvoi à `SECU-INNERHTML`)
+- ❌ Migration ES5→ES6 systématique (renvoi à sujet dédié)
+- ❌ Modularisation (renvoi à `ARCHI-MODULAR`)
+
+Workflow obligatoire : 1 commit par catégorie + tester l'app après chaque commit (fonctionne en local + dashboard charge + onglets navigables).
+
+### Phase Audit-7 : analyse de faisabilité modulaire
+**Objectif** : produire `docs/strategie/ARCHI-MODULAR-FAISABILITE.md` qui répond à la question : faut-il découper `index.html` en modules ?
+
+Contenu du rapport :
+- [ ] **Métriques actuelles** :
+  - Nombre de lignes par section (HTML / CSS / JS) avec graphique répartition
+  - Top 20 fonctions les plus longues
+  - Top 20 fonctions les plus appelées (= candidats core)
+  - Tableau "fonction → onglet appelant" pour identifier les frontières
+- [ ] **3 stratégies évaluées** (forces/faiblesses/coûts) :
+  1. **Status quo** (rester monolithe) : OK si <50k lignes, simplicité déploiement
+  2. **ES modules natifs sans bundler** : 1 fichier JS par onglet + 1 core.js, `<script type="module">`. Pas de build, déploiement Vercel/Cloudflare statique
+  3. **Bundler Vite** (ou esbuild/Rollup) : minification + tree-shaking + lazy-load + HMR. Build step à maintenir.
+- [ ] **Recommandation chiffrée** :
+  - Coût migration en jours-homme par stratégie
+  - Risque de régression
+  - Bénéfices concrets (perf chiffrée, maintenance, embarquement futurs devs)
+  - Compatibilité avec Drive sync, IndexedDB, OAuth GIS, PWA
+- [ ] **Plan de découpage proposé** (si stratégie 2 ou 3 retenue) :
+  - Ossature `js/core/` (DB, Drive, helpers, utils, design system) → ~5000-8000 lignes
+  - Onglets `js/tabs/` : 1 module par onglet (`dashboard.js`, `baux.js`, `edl.js`, etc.) → 13 modules ~1500-3000 lignes chacun
+  - Composants `js/components/` (modales, FichesPourBien, signature canvas, etc.)
+  - Diagramme de dépendances entre modules
+  - Commande de migration progressive (1 onglet à la fois, parallèle au refactor)
+- [ ] **Décisions à arbitrer par utilisateur** (à inclure dans le rapport) :
+  - Stratégie cible (1, 2 ou 3)
+  - Calendrier (avant V1 commerciale Q4 2026 ou après V1 ?)
+  - Recrutement éventuel d'un dev junior pour assister le découpage
 
 ## Outils
 
