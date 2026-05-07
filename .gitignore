@@ -1,0 +1,40 @@
+# Dépendances
+node_modules/
+package-lock.json
+
+# Builds & caches
+*.log
+.DS_Store
+Thumbs.db
+
+# Worktrees Claude (chaque worktree = repo isolé qui ne doit pas se committer dans le main)
+.claude/worktrees/
+
+# Sauvegardes locales / fichiers de travail temporaires
+Sauvegardes/
+~$*.xlsx
+~$*.docx
+*.tmp
+*.bak
+
+# Backups index.html historiques (préfixés "index ...")
+index\ -\ *.html
+index\ *.html
+!index.html
+
+# Fichiers de test divers
+_check.js
+apply_new_row.bat
+
+# Fichiers utilisateur générés par l'app (peuvent contenir des données réelles)
+"Actes de cautionnement.pdf"
+"EDL (1)/"
+"Quittance \342\200\224*.pdf"
+
+# IDE
+.vscode/
+.idea/
+
+# Note : les screenshots dashboard-mockups/_screenshots/ sont commités
+# (régénérables via .claude/screenshot-mockups.js) — utiles pour partager
+# l'aperçu visuel via GitHub sans avoir à servir l'app.
