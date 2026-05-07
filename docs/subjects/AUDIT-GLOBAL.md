@@ -4,15 +4,29 @@
 **Lié à** : `project_v3_transition.md` (étape 1), `project_commercialization.md`, V3-VISUEL, SECU-INNERHTML, **ARCHI-MODULAR**
 **Bloquant** : V3 visuelle (devrait être fait avant pour prioriser intelligemment) + ARCHI-MODULAR (le rapport de faisabilité oriente la refonte)
 
-## ⚠️ Consigne fichiers index.html / index-test.html
+## ⚠️ Consigne fichiers index.html / index-test.html (mise à jour 2026-05-07)
 
-Au 2026-05-07 : `index.html` (prod) et `index-test.html` (sandbox/bac à sable) sont **identiques** (4.4 MB / 31 190 lignes). Le sandbox est utilisé pour tester sans risquer les données prod (cf mémoire `feedback_modify_verify.md`).
+Au 2026-05-07 : `index.html` (prod) et `index-test.html` (sandbox/bac à sable) sont **identiques** (4.4 MB / 31 190 lignes).
 
-**Règle pour cette session AUDIT** :
-- **Phases 1-5 + 7 (lecture)** : analyser `index.html` (les 2 sont identiques)
-- **Phase 6 (nettoyage actif)** : modifier les **DEUX fichiers** dans le **même commit**
-- **Vérification après chaque commit Phase 6** : `diff index.html index-test.html` doit retourner vide (les 2 fichiers restent identiques en taille et contenu, sauf les éventuelles directives sandbox-only documentées)
-- **Tester ouverture des 2 fichiers** dans le navigateur après chaque commit pour valider que rien ne casse en prod ni en sandbox
+**Règle workflow (cf mémoire `feedback_sandbox_first.md`)** :
+- Toute modif se fait d'abord dans `index-test.html`
+- `index.html` (prod) ne reçoit les modifs **qu'après validation explicite de l'utilisateur**
+
+**Application pour cette session AUDIT** :
+- **Phases 1-5 + 7 (lecture)** : analyser `index.html` ou `index-test.html` (identiques aujourd'hui, peu importe)
+- **Phase 6 (nettoyage actif)** :
+  1. Modifier UNIQUEMENT `index-test.html`
+  2. Bumper version dans `index-test.html`
+  3. Tester ouverture `index-test.html` après chaque catégorie nettoyée
+  4. 1 commit par catégorie de nettoyage avec mention "(sandbox)"
+  5. ❌ **NE PAS toucher** `index.html` pendant cette session
+  6. À la fin : produire un rapport listant les modifs faites pour que l'utilisateur valide la bascule vers prod
+  7. **Bascule sandbox → prod** : commit séparé après validation utilisateur, en dehors du scope de cette session AUDIT
+
+**Vérification après chaque commit Phase 6** :
+- `diff index.html index-test.html` indique les modifs en attente de validation user
+- L'utilisateur teste sur `index-test.html`
+- Quand il valide, on bascule vers `index.html` dans une session de merge dédiée
 
 ## Contexte
 
