@@ -88,6 +88,48 @@ Quand l'utilisateur revient dans la session maître :
 
 ## Règles importantes
 
+### 🔥 RÈGLE NON NÉGOCIABLE — BACKLOG en temps réel
+
+> **À chaque livraison d'un sujet pendant une session, le BACKLOG.md DOIT être mis à jour
+> immédiatement (statut + version + commit `Pilotage : ...`), PAS en fin de session.**
+
+**Pourquoi** : ImmoTrack est piloté en multi-sessions parallèles (le user ouvre plusieurs
+sessions Claude pour avancer en parallèle sur différents sujets). Si une session laisse
+le BACKLOG dans un état périmé, les autres sessions repartent avec une fausse image et
+peuvent dupliquer le travail ou créer des conflits.
+
+**Trigger d'update obligatoire** :
+- Commit livrant un sujet (`v14.X : SUJET`) → update BACKLOG **dans le même commit ou juste après**
+- Création d'un nouveau sujet en session → ajout BACKLOG immédiat
+- Détection d'un bug en cours de session → ajout BACKLOG + sujet `docs/subjects/*.md` immédiat
+- Changement de statut (⬜ → 🔄 → ✅) → update BACKLOG immédiat
+
+**Workflow correct** :
+```
+1. Livrer un fix (commit code v14.X)
+2. Update BACKLOG.md (statut ✅ Livré v14.X + version + lien commit)
+3. Update docs/subjects/{CODE}.md (journal d'avancement)
+4. Commit pilotage : `Pilotage : {CODE} livré v14.X`
+5. Continuer la session
+```
+
+**Workflow INCORRECT (à éviter)** :
+```
+1. Livrer un fix (commit code v14.X)
+2. Livrer un autre fix (commit code v14.X+1)
+3. Livrer un autre fix (commit code v14.X+2)
+4. À la fin de session : update BACKLOG en bloc
+   ↑ Si la session est interrompue ou si une autre session prend le relais entre 2 et 4,
+   le BACKLOG est faux pendant tout ce temps.
+```
+
+**Exception acceptable** : si une session livre 2-3 fixes liés (ex : v14.51 + v14.52 + v14.53
+sur le même chantier BUG-X), un commit pilotage à la fin du chantier (pas de la session) est
+acceptable, à condition que le chantier dure < 1h et que les fixes soient fortement liés.
+
+**Sanity check à appliquer en fin de session** : avant le récap final, faire un `git log --oneline -10`
++ `grep` du BACKLOG sur les codes des derniers commits → s'assurer que tous les statuts sont alignés.
+
 ### Codes de sujets
 Format : `{CATEGORIE}-{NUMERO}` ou `{CATEGORIE}-{SOUS-CATEGORIE}-{NUMERO}`
 
