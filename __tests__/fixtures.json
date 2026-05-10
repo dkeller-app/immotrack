@@ -1,0 +1,339 @@
+{
+  "_meta": {
+    "name": "ImmoTrack test fixtures",
+    "purpose": "Données de test reproductibles pour skills (TDD, debugging, frontend-design, brainstorming)",
+    "version": "1.0",
+    "createdAt": "2026-05-10",
+    "anonymized": true,
+    "scenarios": [
+      "1 SCI IS avec 2 immeubles (Alpha + Beta) → 4 logements",
+      "1 propriétaire particulier LMP avec 1 logement standalone DPE F (cas gel IRL loi Climat)",
+      "5 logements au total : 2 occupés Immeuble Alpha, 1 occupé + 1 vacant Immeuble Beta, 1 standalone vacant",
+      "4 baux actifs avec révisions IRL historiques (test BUG-DASH-001 dimension 2)",
+      "Mouvements 12 mois : loyers récurrents + 1 régul charges + 1 travaux + 1 PNO",
+      "1 quittance + 1 MRH + 1 EDL entrée par bail principal",
+      "1 logement archivé (test LOG-ARCHIVE)"
+    ],
+    "useCases": {
+      "TDD helper _loyerHCAtDate": "bail SCI-A-T2 a une révision IRL en jan 2025 (650→665€), tester _loyerHCAtDate() à plusieurs dates",
+      "TDD helper IRL gel DPE F/G": "bail PERS-001 a DPE F → computeIRLRevision doit retourner 0",
+      "Test BUG-DASH-001": "calculer KPIs sur mai 2024 (avant révision) puis fév 2025 (après) → loyer attendu différent",
+      "Test LOG-ARCHIVE": "logement BETA-002 archivé → exclu des actifs, inclus dans tab Archivés",
+      "Frontend-design DASH-PROFILES": "lentille Financier sur 12 mois mvts, lentille Échéances sur 90j",
+      "Frontend-design LOG-LISTE-CARDS": "5 cartes logements + 2 cartes immeubles avec ratios occupation"
+    }
+  },
+
+  "entites": [
+    {
+      "id": 1,
+      "nom": "SCI Test Patrimoine",
+      "type": "SCI IS",
+      "siren": "111 222 333",
+      "rcs": "RCS Paris",
+      "gerant": "Test Gérant",
+      "siege": "1 rue Test 75001 PARIS",
+      "iban": "FR76 0000 0000 0000 0000 0000 000",
+      "bic": "TESTFR2A",
+      "immeubles": [
+        {
+          "id": 100,
+          "nom": "Immeuble Alpha",
+          "adr": "10 rue Alpha 75011 PARIS",
+          "annee": 1980,
+          "periodeConstr": "1949-1974",
+          "regimeJuridique": "Copropriété",
+          "valeurEstimee": 800000,
+          "travaux": "",
+          "montantTravaux": 0,
+          "notes": "Test fixture immeuble Alpha"
+        },
+        {
+          "id": 101,
+          "nom": "Immeuble Beta",
+          "adr": "20 rue Beta 75012 PARIS",
+          "annee": 2010,
+          "periodeConstr": "Après 2005",
+          "regimeJuridique": "Monopropriété",
+          "valeurEstimee": 600000,
+          "travaux": "",
+          "montantTravaux": 0,
+          "notes": "Test fixture immeuble Beta"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "nom": "Marie Particulier",
+      "type": "Particulier LMP",
+      "siren": "",
+      "rcs": "",
+      "gerant": "Marie Particulier",
+      "siege": "5 rue Particulier 75015 PARIS",
+      "iban": "FR76 1111 2222 3333 4444 5555 666",
+      "bic": "TESTFR2A",
+      "immeubles": []
+    }
+  ],
+
+  "logements": [
+    {
+      "id": 1,
+      "ref": "ALPHA-001",
+      "imm": "Immeuble Alpha",
+      "entity": "SCI Test Patrimoine",
+      "type": "T2",
+      "surf": 45,
+      "etage": "1er",
+      "adr": "10 rue Alpha 75011 PARIS",
+      "hc": 650,
+      "ch": 50,
+      "locataire": "Jean LOCATAIRE-A",
+      "tel": "06 11 11 11 11",
+      "mail": "jean.test@example.com",
+      "debut": "2024-01-01",
+      "fin": "2027-01-01",
+      "dg": 650,
+      "irl": "T4 2023",
+      "dpe": "C",
+      "ges": "B",
+      "notes": "Test fixture occupé Alpha T2"
+    },
+    {
+      "id": 2,
+      "ref": "ALPHA-002",
+      "imm": "Immeuble Alpha",
+      "entity": "SCI Test Patrimoine",
+      "type": "T3",
+      "surf": 65,
+      "etage": "2ème",
+      "adr": "10 rue Alpha 75011 PARIS",
+      "hc": 950,
+      "ch": 80,
+      "locataire": "Sophie LOCATAIRE-B et Paul LOCATAIRE-B",
+      "tel": "06 22 22 22 22",
+      "mail": "sophie.test@example.com",
+      "debut": "2025-06-01",
+      "fin": "2028-06-01",
+      "dg": 950,
+      "irl": "T2 2025",
+      "dpe": "D",
+      "ges": "C",
+      "notes": "Test fixture colocation Alpha T3"
+    },
+    {
+      "id": 3,
+      "ref": "BETA-001",
+      "imm": "Immeuble Beta",
+      "entity": "SCI Test Patrimoine",
+      "type": "T1",
+      "surf": 28,
+      "etage": "RDC",
+      "adr": "20 rue Beta 75012 PARIS",
+      "hc": 550,
+      "ch": 30,
+      "locataire": "Lucie LOCATAIRE-C",
+      "tel": "06 33 33 33 33",
+      "mail": "lucie.test@example.com",
+      "debut": "2025-09-01",
+      "fin": "2028-09-01",
+      "dg": 550,
+      "irl": "T2 2025",
+      "dpe": "B",
+      "ges": "A",
+      "notes": "Test fixture studio Beta"
+    },
+    {
+      "id": 4,
+      "ref": "BETA-002",
+      "imm": "Immeuble Beta",
+      "entity": "SCI Test Patrimoine",
+      "type": "Garage",
+      "surf": 15,
+      "etage": "Sous-sol",
+      "adr": "20 rue Beta 75012 PARIS",
+      "hc": 0,
+      "ch": 0,
+      "locataire": "",
+      "tel": "",
+      "mail": "",
+      "debut": "",
+      "fin": "",
+      "dg": 0,
+      "irl": "",
+      "dpe": "",
+      "ges": "",
+      "notes": "Test fixture garage archivé",
+      "archived": true,
+      "archivedAt": "2026-01-15T10:00:00Z"
+    },
+    {
+      "id": 5,
+      "ref": "PERS-001",
+      "imm": "",
+      "entity": "Marie Particulier",
+      "type": "Studio meublé",
+      "surf": 22,
+      "etage": "3ème",
+      "adr": "5 rue Particulier 75015 PARIS",
+      "hc": 750,
+      "ch": 40,
+      "locataire": "Étudiant LOCATAIRE-D",
+      "tel": "06 44 44 44 44",
+      "mail": "etudiant.test@example.com",
+      "debut": "2025-09-01",
+      "fin": "2026-08-31",
+      "dg": 1500,
+      "irl": "T2 2025",
+      "dpe": "F",
+      "ges": "E",
+      "notes": "Test fixture LMP étudiant DPE F (test gel IRL loi Climat 2021)"
+    }
+  ],
+
+  "baux": {
+    "ALPHA-001": {
+      "nom": "Jean LOCATAIRE-A",
+      "locataires": [{"nom": "Jean LOCATAIRE-A", "tel": "06 11 11 11 11", "email": "jean.test@example.com"}],
+      "entity": "SCI Test Patrimoine",
+      "jpay": "5",
+      "irl": "T4 2023",
+      "hc": 650,
+      "ch": 50,
+      "dg": 650,
+      "debut": "2024-01-01",
+      "fin": "2027-01-01",
+      "adrBien": "10 rue Alpha 75011 PARIS",
+      "ftype": "T2",
+      "etage": "1er",
+      "surf": 45,
+      "dpe": "C",
+      "ges": "B",
+      "revisions": [
+        {"date": "2025-01-01", "ancienHC": 650, "nouveauHC": 665.4, "irlBase": "T4 2023", "irlNouv": "T4 2024", "indiceBase": 142.06, "indiceNouv": 145.41}
+      ],
+      "_modifiedAt": "2025-01-05T10:00:00Z"
+    },
+    "ALPHA-002": {
+      "nom": "Sophie LOCATAIRE-B",
+      "locataires": [
+        {"nom": "Sophie LOCATAIRE-B", "tel": "06 22 22 22 22", "email": "sophie.test@example.com"},
+        {"nom": "Paul LOCATAIRE-B", "tel": "06 22 22 22 23", "email": "paul.test@example.com"}
+      ],
+      "entity": "SCI Test Patrimoine",
+      "jpay": "1",
+      "irl": "T2 2025",
+      "hc": 950,
+      "ch": 80,
+      "dg": 950,
+      "debut": "2025-06-01",
+      "fin": "2028-06-01",
+      "adrBien": "10 rue Alpha 75011 PARIS",
+      "ftype": "T3",
+      "etage": "2ème",
+      "surf": 65,
+      "dpe": "D",
+      "ges": "C",
+      "revisions": [],
+      "_modifiedAt": "2025-06-01T09:00:00Z"
+    },
+    "BETA-001": {
+      "nom": "Lucie LOCATAIRE-C",
+      "locataires": [{"nom": "Lucie LOCATAIRE-C", "tel": "06 33 33 33 33", "email": "lucie.test@example.com"}],
+      "entity": "SCI Test Patrimoine",
+      "jpay": "10",
+      "irl": "T2 2025",
+      "hc": 550,
+      "ch": 30,
+      "dg": 550,
+      "debut": "2025-09-01",
+      "fin": "2028-09-01",
+      "adrBien": "20 rue Beta 75012 PARIS",
+      "ftype": "T1",
+      "etage": "RDC",
+      "surf": 28,
+      "dpe": "B",
+      "ges": "A",
+      "revisions": [],
+      "_modifiedAt": "2025-09-01T09:00:00Z"
+    },
+    "PERS-001": {
+      "nom": "Étudiant LOCATAIRE-D",
+      "locataires": [{"nom": "Étudiant LOCATAIRE-D", "tel": "06 44 44 44 44", "email": "etudiant.test@example.com"}],
+      "entity": "Marie Particulier",
+      "jpay": "1",
+      "irl": "T2 2025",
+      "hc": 750,
+      "ch": 40,
+      "dg": 1500,
+      "debut": "2025-09-01",
+      "fin": "2026-08-31",
+      "adrBien": "5 rue Particulier 75015 PARIS",
+      "ftype": "Studio meublé",
+      "etage": "3ème",
+      "surf": 22,
+      "dpe": "F",
+      "ges": "E",
+      "revisions": [],
+      "_modifiedAt": "2025-09-01T09:00:00Z",
+      "_irlGelDPEFG": true
+    }
+  },
+
+  "mouvements": [
+    {"id": 1, "date": "2026-01-05", "lib": "VIR Loyer Jean", "imm": "Immeuble Alpha", "cat": "Loyers", "qui": "ALPHA-001", "db": 0, "cr": 715.4, "fac": ""},
+    {"id": 2, "date": "2026-02-05", "lib": "VIR Loyer Jean", "imm": "Immeuble Alpha", "cat": "Loyers", "qui": "ALPHA-001", "db": 0, "cr": 715.4, "fac": ""},
+    {"id": 3, "date": "2026-03-05", "lib": "VIR Loyer Jean", "imm": "Immeuble Alpha", "cat": "Loyers", "qui": "ALPHA-001", "db": 0, "cr": 715.4, "fac": ""},
+    {"id": 4, "date": "2026-01-01", "lib": "VIR Loyer Sophie+Paul", "imm": "Immeuble Alpha", "cat": "Loyers", "qui": "ALPHA-002", "db": 0, "cr": 1030, "fac": ""},
+    {"id": 5, "date": "2026-02-01", "lib": "VIR Loyer Sophie+Paul", "imm": "Immeuble Alpha", "cat": "Loyers", "qui": "ALPHA-002", "db": 0, "cr": 1030, "fac": ""},
+    {"id": 6, "date": "2026-01-10", "lib": "VIR Loyer Lucie", "imm": "Immeuble Beta", "cat": "Loyers", "qui": "BETA-001", "db": 0, "cr": 580, "fac": ""},
+    {"id": 7, "date": "2026-02-10", "lib": "VIR Loyer Lucie", "imm": "Immeuble Beta", "cat": "Loyers", "qui": "BETA-001", "db": 0, "cr": 580, "fac": ""},
+    {"id": 8, "date": "2026-01-01", "lib": "VIR Loyer Étudiant", "imm": "", "cat": "Loyers", "qui": "PERS-001", "db": 0, "cr": 790, "fac": ""},
+    {"id": 9, "date": "2026-02-01", "lib": "VIR Loyer Étudiant", "imm": "", "cat": "Loyers", "qui": "PERS-001", "db": 0, "cr": 790, "fac": ""},
+    {"id": 10, "date": "2026-01-15", "lib": "Régul charges 2025", "imm": "Immeuble Alpha", "cat": "Charges", "qui": "ALPHA-001", "db": 120, "cr": 0, "fac": ""},
+    {"id": 11, "date": "2026-02-20", "lib": "Plombier Robinet cuisine", "imm": "Immeuble Beta", "cat": "Travaux", "qui": "BETA-001", "db": 250, "cr": 0, "fac": "FAC-2026-001"},
+    {"id": 12, "date": "2026-01-31", "lib": "Assurance PNO annuelle", "imm": "Immeuble Alpha", "cat": "Assurances", "qui": "", "db": 480, "cr": 0, "fac": ""}
+  ],
+
+  "quittances": [
+    {"id": 1, "logement": "ALPHA-001", "locataire": "Jean LOCATAIRE-A", "mois": "janvier 2026", "hc": 665.4, "ch": 50, "entity": "SCI Test Patrimoine", "paye": true},
+    {"id": 2, "logement": "ALPHA-001", "locataire": "Jean LOCATAIRE-A", "mois": "février 2026", "hc": 665.4, "ch": 50, "entity": "SCI Test Patrimoine", "paye": true},
+    {"id": 3, "logement": "ALPHA-002", "locataire": "Sophie LOCATAIRE-B", "mois": "janvier 2026", "hc": 950, "ch": 80, "entity": "SCI Test Patrimoine", "paye": true},
+    {"id": 4, "logement": "BETA-001", "locataire": "Lucie LOCATAIRE-C", "mois": "janvier 2026", "hc": 550, "ch": 30, "entity": "SCI Test Patrimoine", "paye": true},
+    {"id": 5, "logement": "PERS-001", "locataire": "Étudiant LOCATAIRE-D", "mois": "janvier 2026", "hc": 750, "ch": 40, "entity": "Marie Particulier", "paye": true}
+  ],
+
+  "mrh": [
+    {"id": 1, "logement": "ALPHA-001", "locataire": "Jean LOCATAIRE-A", "date": "2024-01-01", "fin": "2027-01-01", "assureur": "Test Assurance", "police": "MRH-A001"},
+    {"id": 2, "logement": "ALPHA-002", "locataire": "Sophie LOCATAIRE-B", "date": "2025-06-01", "fin": "2026-06-01", "assureur": "Test Assurance", "police": "MRH-A002"}
+  ],
+
+  "edl": [
+    {
+      "id": 1,
+      "logement": "ALPHA-001",
+      "type": "entree",
+      "date": "2024-01-01",
+      "locataire": "Jean LOCATAIRE-A",
+      "compteurs": {"elec": 12345, "gaz": 6789, "eauC": 234, "eauF": 567},
+      "pieces": [
+        {"nom": "Séjour", "etat": {"sol": "Bon", "murs": "Bon", "plafond": "Bon"}, "obs": ""},
+        {"nom": "Chambre", "etat": {"sol": "Bon", "murs": "Bon", "plafond": "Bon"}, "obs": ""},
+        {"nom": "Cuisine", "etat": {"sol": "Bon", "murs": "Bon", "plafond": "Bon"}, "obs": "Plaque vitrocéramique récente"},
+        {"nom": "SDB", "etat": {"sol": "Bon", "murs": "Bon", "plafond": "Bon"}, "obs": ""}
+      ]
+    }
+  ],
+
+  "irlTable": {
+    "T4 2023": {"valeur": 142.06, "date": "2023-10-01"},
+    "T1 2024": {"valeur": 143.46, "date": "2024-01-01"},
+    "T2 2024": {"valeur": 144.38, "date": "2024-04-01"},
+    "T3 2024": {"valeur": 144.51, "date": "2024-07-01"},
+    "T4 2024": {"valeur": 145.41, "date": "2024-10-01"},
+    "T1 2025": {"valeur": 145.47, "date": "2025-01-01"},
+    "T2 2025": {"valeur": 145.79, "date": "2025-04-01"}
+  },
+
+  "categories": ["Loyers", "Charges", "Travaux", "Assurances", "Taxes", "Honoraires", "Autres"]
+}
