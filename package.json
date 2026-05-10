@@ -1,0 +1,28 @@
+{
+  "name": "immotrack",
+  "version": "1.0.0",
+  "description": "App web vanilla JS de gestion locative immobilière (offline-first + Drive sync)",
+  "main": "sw.js",
+  "directories": {
+    "doc": "docs",
+    "test": "__tests__"
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  },
+  "keywords": [
+    "immobilier",
+    "gestion-locative",
+    "vanilla-js",
+    "offline-first"
+  ],
+  "author": "Didier Keller",
+  "license": "ISC",
+  "type": "module"
+}

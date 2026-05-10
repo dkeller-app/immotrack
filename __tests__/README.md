@@ -105,18 +105,58 @@ Si tu enrichis les fixtures, **garde l'anonymisation**. Aucune donnée réelle n
 
 ---
 
-## Setup Vitest (à venir, Sprint 1 étape 3)
+## Setup Vitest (LIVRÉ Sprint 1 étape 3, 2026-05-10)
 
-Pas encore en place. Plan :
+✅ Opérationnel. 20 tests passent.
+
 ```bash
-npm install -D vitest
-# package.json : "test": "vitest"
-# vitest.config.js minimal : ESM + jsdom env
+# Installation 1ère fois
+npm install
+
+# Lancer les tests
+npm test            # mode watch interactif
+npm run test:run    # 1 passe puis exit (CI-ready)
+npm run test:ui     # interface graphique navigateur
 ```
 
-Le défi : `index.html` est un monolithe vanilla, les helpers ne sont pas exportés en modules. Stratégie :
-1. **Court terme** : extraire 1 helper pur dans `__tests__/extracted/dates.js` (copie) pour tester l'API
-2. **Moyen terme** (post-AUDIT) : si ARCHI-MODULAR retenu, les helpers seront naturellement exportés depuis `js/core/utils.js` → tests directs
+### Helpers testables livrés
+
+`__tests__/helpers/dates.js` (extraits / stubs pour TDD) :
+- `_loyerHCAtDate(bail, dateRef)` — loyer HC en vigueur à une date donnée (BUG-DASH-001 dim 2)
+- `_chargesAtDate(bail, dateRef)` — idem charges
+- `_bailEstActif(bail, dateRef)` — bail actif à cette date (BUG-DASH-001 dim 1)
+- `_bailGelIRL(bail)` — DPE F/G → gel loi Climat 2021
+
+### Stratégie « stubs testables »
+
+`index.html` est un monolithe vanilla, les helpers ne sont pas exportés en modules. Solution :
+1. **Court terme** (sprint actuel) : on développe les helpers dans `__tests__/helpers/*.js` comme stubs ES6 testables. La spec est définie par les tests.
+2. **Quand on attaque le sujet associé** (ex BUG-DASH-001) : on porte le helper dans `index.html` à l'API exacte testée. Les tests continuent de servir de référence (le stub reste comme spec).
+3. **Post-ARCHI-MODULAR** : si découpage modulaire retenu, les helpers seront directement importés depuis `js/core/dates.js` → 1 seule source de vérité.
+
+### Ajouter un nouveau helper testable
+
+```bash
+# 1. Créer le helper dans __tests__/helpers/<domaine>.js
+# 2. Créer le test dans __tests__/helpers/<domaine>.test.js
+# 3. import { ... } from './<domaine>.js'
+# 4. import fixtures from '../fixtures.json'
+# 5. npm test (mode watch) → red/green/refactor
+```
+
+### Limites actuelles
+- Pas de tests UI/DOM (env=node, pas jsdom)
+- Pas de mocks Drive sync
+- Pas de coverage report par défaut (ajouter `npm install -D @vitest/coverage-v8` si besoin)
+
+### Couverture cible
+| Sujet | Helpers à tester | Statut |
+|---|---|---|
+| BUG-DASH-001 | `_loyerHCAtDate`, `_chargesAtDate`, `_bailEstActif` | ✅ testés (stubs) |
+| IRL-DPE-FG | `_bailGelIRL`, `computeIRLRevision` | ✅ partiel (stub _bailGelIRL) |
+| CHARGE-REGLES | `_repartCharge` (tantième + compteur) | ⬜ à venir |
+| LEGAL-2044 | `_map2044`, `_calc2044` | ⬜ à venir |
+| BUG-HC-GARDE-FOU | `_validateHC` | ⬜ à venir |
 
 ---
 
