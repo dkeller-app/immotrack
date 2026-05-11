@@ -53,6 +53,10 @@ import {
   _auditEntry, _diffShallow, _auditFilter, _auditToCsv, _auditClean
 } from './core/audit-trail.js';
 
+import {
+  _compute2044, _format2044Recap, _2044ToCsv
+} from './core/legal-2044.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -98,6 +102,11 @@ window._auditFilter = _auditFilter;
 window._auditToCsv = _auditToCsv;
 window._auditClean = _auditClean;
 
+// LEGAL-2044 (Sprint 3B) - calcul résultat foncier déclaration fiscale
+window._compute2044 = _compute2044;
+window._format2044Recap = _format2044Recap;
+window._2044ToCsv = _2044ToCsv;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
   phase: 2,
@@ -111,8 +120,9 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_bailEstActifAt', '_loyerHCAtDate', '_chargesAtDate',
     '_idbOpen', '_idbPut', '_idbGet', '_idbDel', '_idbKey',
     'showToast', 'openM', 'closeM', 'closeBg', 'confirm2',
-    '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean'
+    '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean',
+    '_compute2044', '_format2044Recap', '_2044ToCsv'
   ]
 };
 
-console.info('[main.js] Sprint 3A chargé - 31 helpers (utils + idb + components + audit) exposés à window');
+console.info('[main.js] Sprint 3B chargé - 34 helpers (utils + idb + components + audit + legal-2044) exposés à window');
