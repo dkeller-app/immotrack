@@ -61,6 +61,10 @@ import {
   _findPersonalDataForRef, _generateGdprExport, _planErasure, _isEraseEligible
 } from './core/rgpd.js';
 
+import {
+  _computeBilanAnnuel, _formatBilanTexte
+} from './core/legal-bilan.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -117,6 +121,10 @@ window._generateGdprExport = _generateGdprExport;
 window._planErasure = _planErasure;
 window._isEraseEligible = _isEraseEligible;
 
+// LEGAL-BILAN-ANNUEL (Sprint 3C) - bilan par entité
+window._computeBilanAnnuel = _computeBilanAnnuel;
+window._formatBilanTexte = _formatBilanTexte;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
   phase: 2,
@@ -132,8 +140,9 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     'showToast', 'openM', 'closeM', 'closeBg', 'confirm2',
     '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean',
     '_compute2044', '_format2044Recap', '_2044ToCsv',
-    '_findPersonalDataForRef', '_generateGdprExport', '_planErasure', '_isEraseEligible'
+    '_findPersonalDataForRef', '_generateGdprExport', '_planErasure', '_isEraseEligible',
+    '_computeBilanAnnuel', '_formatBilanTexte'
   ]
 };
 
-console.info('[main.js] Sprint 3D chargé - 38 helpers (utils + idb + components + audit + legal-2044 + rgpd) exposés à window');
+console.info('[main.js] Sprint 3C chargé - 40 helpers (utils + idb + components + audit + legal-2044 + rgpd + bilan) exposés à window');
