@@ -65,6 +65,10 @@ import {
   _computeBilanAnnuel, _formatBilanTexte
 } from './core/legal-bilan.js';
 
+import {
+  _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
+} from './core/export-comptable.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -124,6 +128,13 @@ window._isEraseEligible = _isEraseEligible;
 // LEGAL-BILAN-ANNUEL (Sprint 3C) - bilan par entité
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
+
+// EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
+window._buildEcritures = _buildEcritures;
+window._buildGrandLivre = _buildGrandLivre;
+window._toFEC = _toFEC;
+window._journalToCsv = _journalToCsv;
+window._grandLivreToCsv = _grandLivreToCsv;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
