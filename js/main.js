@@ -46,6 +46,9 @@ import {
   _idbOpen, _idbPut, _idbGet, _idbDel, _idbKey
 } from './core/idb.js';
 
+import { showToast } from './components/toast.js';
+import { openM, closeM, closeBg, confirm2 } from './components/modal.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -77,10 +80,17 @@ window._idbGet = _idbGet;
 window._idbDel = _idbDel;
 window._idbKey = _idbKey;
 
+// Components UI (Phase 2)
+window.showToast = showToast;
+window.openM = openM;
+window.closeM = closeM;
+window.closeBg = closeBg;
+window.confirm2 = confirm2;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
   phase: 2,
-  version: '14.87',
+  version: '14.88',
   loadedAt: new Date().toISOString(),
   helpersExposed: [
     'escHtml', '_esc', '_h', '_raw',
@@ -88,8 +98,9 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_isDpeClassValide', '_bailGelDpeFG', '_dpeExpire', '_estRevisableIRL',
     '_isLoyerCategory', '_isChargeRecupCategory',
     '_bailEstActifAt', '_loyerHCAtDate', '_chargesAtDate',
-    '_idbOpen', '_idbPut', '_idbGet', '_idbDel', '_idbKey'
+    '_idbOpen', '_idbPut', '_idbGet', '_idbDel', '_idbKey',
+    'showToast', 'openM', 'closeM', 'closeBg', 'confirm2'
   ]
 };
 
-console.info('[main.js] Phase 1b chargé - 21 helpers (utils + idb) exposés à window');
+console.info('[main.js] Phase 2 chargé - 26 helpers (utils + idb + components) exposés à window');
