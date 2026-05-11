@@ -16,11 +16,65 @@
  * Le code applicatif reste encore dans les <script> inline de index-test.html.
  */
 
-// Marqueur pour les tests d'intégration (Phase 4 cleanup vérifiera la présence)
+// v14.86 ARCHI-MODULAR Phase 1a : import core/utils + expose à window pour
+// compatibilité avec les onclick inline (toujours présents dans index-test.html).
+//
+// PATTERN DE TRANSITION :
+// Tant qu'index-test.html garde ses définitions inline de escHtml, _h, etc.,
+// ces exposures via window.X = X sont REDONDANTES (l'inline les définit déjà
+// comme globales). Mais quand on migrera vers Phase 4 (cleanup inline), ces
+// exposures deviendront LA SOURCE des fonctions globales.
+//
+// Aujourd'hui ces exposures ne CASSENT rien : assigner window.escHtml = escHtml
+// re-écrit la même fonction au même nom (la version core/utils.js).
+//
+// 🚨 IMPORTANT : tant que l'inline existe ENCORE dans index-test.html, le code
+// inline s'exécute AVANT main.js (qui est en `defer` implicite via type="module").
+// Donc l'inline gagne. La ré-écriture par main.js arrive après, mais c'est
+// IDEMPOTENT puisqu'on définit la même version (source unique).
+
+import {
+  escHtml, _esc, _h, _raw,
+  _validateHC, _validateHCCH, _outlierVsMedian,
+  _isDpeClassValide, _bailGelDpeFG, _dpeExpire, _estRevisableIRL,
+  _isLoyerCategory, _isChargeRecupCategory,
+  _bailEstActifAt, _loyerHCAtDate, _chargesAtDate
+} from './core/utils.js';
+
+// Expose les helpers à window pour compatibilité onclick inline + ev handlers.
+// Ces helpers sont aussi définis inline dans index-test.html actuellement.
+window.escHtml = escHtml;
+window._esc = _esc;
+window._h = _h;
+window._raw = _raw;
+window._validateHC = _validateHC;
+window._validateHCCH = _validateHCCH;
+window._outlierVsMedian = _outlierVsMedian;
+window._isDpeClassValide = _isDpeClassValide;
+window._bailGelDpeFG = _bailGelDpeFG;
+window._dpeExpire = _dpeExpire;
+window._estRevisableIRL = _estRevisableIRL;
+window._isLoyerCategory = _isLoyerCategory;
+window._isChargeRecupCategory = _isChargeRecupCategory;
+window._bailEstActifAt = _bailEstActifAt;
+// _loyerHCAtDate : signature module = (log, dateRef, irlHistorique). On wrappe
+// pour que window._loyerHCAtDate(log, dateRef) consomme DB.irlHistorique global
+// (compat avec le code inline qui appelle sans le 3e arg).
+window._loyerHCAtDate = (log, dateRef) => _loyerHCAtDate(log, dateRef, window.DB?.irlHistorique || []);
+window._chargesAtDate = _chargesAtDate;
+
+// Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
-  phase: 0,
-  version: '14.85',
-  loadedAt: new Date().toISOString()
+  phase: 1,
+  version: '14.86',
+  loadedAt: new Date().toISOString(),
+  helpersExposed: [
+    'escHtml', '_esc', '_h', '_raw',
+    '_validateHC', '_validateHCCH', '_outlierVsMedian',
+    '_isDpeClassValide', '_bailGelDpeFG', '_dpeExpire', '_estRevisableIRL',
+    '_isLoyerCategory', '_isChargeRecupCategory',
+    '_bailEstActifAt', '_loyerHCAtDate', '_chargesAtDate'
+  ]
 };
 
-console.info('[main.js] Phase 0 skeleton chargé (Sprint 2 ARCHI-MODULAR)');
+console.info('[main.js] Phase 1a chargé - 16 helpers core/utils.js exposés à window');
