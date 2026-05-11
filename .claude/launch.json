@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/docs/strategie/dashboard-mockups", "-p", "8765", "-c-1", "--silent"],
       "port": 8765
+    },
+    {
+      "name": "immotrack-sandbox",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo", "-p", "8766", "-c-1", "--silent"],
+      "port": 8766
     }
   ]
 }
