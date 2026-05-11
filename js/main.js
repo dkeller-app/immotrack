@@ -57,6 +57,10 @@ import {
   _compute2044, _format2044Recap, _2044ToCsv
 } from './core/legal-2044.js';
 
+import {
+  _findPersonalDataForRef, _generateGdprExport, _planErasure, _isEraseEligible
+} from './core/rgpd.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -107,6 +111,12 @@ window._compute2044 = _compute2044;
 window._format2044Recap = _format2044Recap;
 window._2044ToCsv = _2044ToCsv;
 
+// RGPD (Sprint 3D) - droits accès / portabilité / effacement art. 15-22
+window._findPersonalDataForRef = _findPersonalDataForRef;
+window._generateGdprExport = _generateGdprExport;
+window._planErasure = _planErasure;
+window._isEraseEligible = _isEraseEligible;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
   phase: 2,
@@ -121,8 +131,9 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_idbOpen', '_idbPut', '_idbGet', '_idbDel', '_idbKey',
     'showToast', 'openM', 'closeM', 'closeBg', 'confirm2',
     '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean',
-    '_compute2044', '_format2044Recap', '_2044ToCsv'
+    '_compute2044', '_format2044Recap', '_2044ToCsv',
+    '_findPersonalDataForRef', '_generateGdprExport', '_planErasure', '_isEraseEligible'
   ]
 };
 
-console.info('[main.js] Sprint 3B chargé - 34 helpers (utils + idb + components + audit + legal-2044) exposés à window');
+console.info('[main.js] Sprint 3D chargé - 38 helpers (utils + idb + components + audit + legal-2044 + rgpd) exposés à window');

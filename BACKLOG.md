@@ -79,7 +79,7 @@
 | 4 | **EXPORT-COMPTABLE** | FEC + journal + grand livre (formats Sage/EBP/Quadra) | 6h | 🔥 P0 | Expert-comptable |
 | 5 | **GESTION-DG** | Suivi caution / restitution / retenues justifiées | 3h | P1 | Légal (1m/2m délai) |
 | 6 | **GESTION-IMPAYE** | Pré-contentieux : mise en demeure + commandement de payer | 4h | P1 | Business critical |
-| 7 | **RGPD-COMPLIANCE** | Registre traitement + durée conservation + droit oubli | 3h | 🔥 P0 | Obligation légale 2018 |
+| 7 | **RGPD-COMPLIANCE** | Registre traitement + durée conservation + droit oubli | ✅ Livré v14.91 (Sprint 3D) | 🔥 P0 | `docs/legal/RGPD-REGISTRE.md` (registre art. 30 RGPD avec 4 traitements documentés + droits art. 15-22) + `docs/legal/DPA-GOOGLE-DRIVE.md` (analyse sous-traitant). `js/core/rgpd.js` (9 KB, 4 exports : `_findPersonalDataForRef`, `_generateGdprExport`, `_planErasure`, `_isEraseEligible`). UI dans p-export : carte "🔒 RGPD" avec sélecteur logement + 3 boutons (rapport données art. 15 / export portabilité art. 20 / plan effacement art. 17). 18 tests Vitest. Politique prescription civile 3 ans appliquée à `_isEraseEligible`. **Exécution effective de l'effacement** reportée V1.1 (nécessite UX double-confirm + cascade audit). |
 
 ### V1.2 — Compléments sectoriels (~20h)
 
