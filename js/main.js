@@ -41,6 +41,11 @@ import {
   _bailEstActifAt, _loyerHCAtDate, _chargesAtDate
 } from './core/utils.js';
 
+import {
+  _IDB_NAME, _IDB_STORE,
+  _idbOpen, _idbPut, _idbGet, _idbDel, _idbKey
+} from './core/idb.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -63,18 +68,28 @@ window._bailEstActifAt = _bailEstActifAt;
 window._loyerHCAtDate = (log, dateRef) => _loyerHCAtDate(log, dateRef, window.DB?.irlHistorique || []);
 window._chargesAtDate = _chargesAtDate;
 
+// IndexedDB helpers (Phase 1b)
+window._IDB_NAME = _IDB_NAME;
+window._IDB_STORE = _IDB_STORE;
+window._idbOpen = _idbOpen;
+window._idbPut = _idbPut;
+window._idbGet = _idbGet;
+window._idbDel = _idbDel;
+window._idbKey = _idbKey;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
-  phase: 1,
-  version: '14.86',
+  phase: 2,
+  version: '14.87',
   loadedAt: new Date().toISOString(),
   helpersExposed: [
     'escHtml', '_esc', '_h', '_raw',
     '_validateHC', '_validateHCCH', '_outlierVsMedian',
     '_isDpeClassValide', '_bailGelDpeFG', '_dpeExpire', '_estRevisableIRL',
     '_isLoyerCategory', '_isChargeRecupCategory',
-    '_bailEstActifAt', '_loyerHCAtDate', '_chargesAtDate'
+    '_bailEstActifAt', '_loyerHCAtDate', '_chargesAtDate',
+    '_idbOpen', '_idbPut', '_idbGet', '_idbDel', '_idbKey'
   ]
 };
 
-console.info('[main.js] Phase 1a chargé - 16 helpers core/utils.js exposés à window');
+console.info('[main.js] Phase 1b chargé - 21 helpers (utils + idb) exposés à window');
