@@ -1,6 +1,6 @@
 # AUDIT-GLOBAL — Audit global + nettoyage + analyse modularité (avant V3)
 
-**Status** : 🔄 En cours · **Prio** : P1 · **Taille** : L (1-2 jours, élargi 2026-05-05)
+**Status** : ⏳ Phases 1-5+7 livrées 2026-05-11 (Phase 6 nettoyage actif reportée) · **Prio** : P1 · **Taille** : L (1-2 jours, élargi 2026-05-05)
 **Lié à** : `project_v3_transition.md` (étape 1), `project_commercialization.md`, V3-VISUEL, SECU-INNERHTML, **ARCHI-MODULAR**
 **Bloquant** : V3 visuelle (devrait être fait avant pour prioriser intelligemment) + ARCHI-MODULAR (le rapport de faisabilité oriente la refonte)
 
@@ -172,3 +172,9 @@ Estimation : 3-5h en session dédiée.
 ## Journal
 
 - 2026-04-28 : créé suite vérification mémoire `project_v3_transition.md` (j'avais oublié l'étape 1 audit dans le BACKLOG initial)
+- 2026-05-05 : scope élargi (Phase 6 nettoyage + Phase 7 analyse modulaire)
+- 2026-05-07 : ajout consigne sandbox-first (Phase 6 sur index-test uniquement)
+- 2026-05-11 : **Phases 1-5 + 7 livrées en session pilotage**. 2 rapports produits :
+  - `docs/strategie/AUDIT-CODE.md` (cartographie, sécu 157 innerHTML, perf, code quality, top recommandations)
+  - `docs/strategie/ARCHI-MODULAR-FAISABILITE.md` (3 stratégies évaluées, reco Stratégie 2 ES modules natifs en Q1 2027 post-V1)
+  - **Phase 6 reportée** : 2011 lignes uncommitted dans `index*.html` empêchent un nettoyage propre. Pré-requis : commit propre des features v14.63→v14.76 avant. Plan détaillé dans AUDIT-CODE.md section Phase 6.
