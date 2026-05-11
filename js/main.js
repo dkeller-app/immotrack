@@ -49,6 +49,10 @@ import {
 import { showToast } from './components/toast.js';
 import { openM, closeM, closeBg, confirm2 } from './components/modal.js';
 
+import {
+  _auditEntry, _diffShallow, _auditFilter, _auditToCsv, _auditClean
+} from './core/audit-trail.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -87,6 +91,13 @@ window.closeM = closeM;
 window.closeBg = closeBg;
 window.confirm2 = confirm2;
 
+// Audit Trail (Sprint 3A) - helpers purs réutilisables par UI Paramètres
+window._auditEntry = _auditEntry;
+window._auditDiffShallowPure = _diffShallow; // suffixé pour ne pas écraser l'inline _auditDiffShallow
+window._auditFilter = _auditFilter;
+window._auditToCsv = _auditToCsv;
+window._auditClean = _auditClean;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
   phase: 2,
@@ -99,8 +110,9 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_isLoyerCategory', '_isChargeRecupCategory',
     '_bailEstActifAt', '_loyerHCAtDate', '_chargesAtDate',
     '_idbOpen', '_idbPut', '_idbGet', '_idbDel', '_idbKey',
-    'showToast', 'openM', 'closeM', 'closeBg', 'confirm2'
+    'showToast', 'openM', 'closeM', 'closeBg', 'confirm2',
+    '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean'
   ]
 };
 
-console.info('[main.js] Phase 2 chargé - 26 helpers (utils + idb + components) exposés à window');
+console.info('[main.js] Sprint 3A chargé - 31 helpers (utils + idb + components + audit) exposés à window');
