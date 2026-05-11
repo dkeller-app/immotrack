@@ -77,12 +77,16 @@ Immo/
 7. Commit séparé "vX.Y : merge sandbox → prod"
 ```
 
-### 2. Modification + vérification toujours (cf `feedback_modify_verify.md`)
-Après chaque modif :
+### 2. Modification + vérification toujours (cf `feedback_modify_verify.md`) — **GARDE-FOU #1 V1**
+**Re-rappelé par utilisateur le 2026-05-11 au démarrage du plan V1 commerciale.** Pas de commit sans :
 - Grep le symbole modifié → tous les sites collatéraux ont le même fix ?
 - Si guard de mode (`_isTestMode`, `_appReadOnly`) → tous les sites de modification protégés ?
 - Si nouveau state → reset, persistance, propagation Drive vérifiés ?
 - Si nouveau bouton/UX → 3 formats testés (PC / tablette / mobile) ?
+- Si helper pur → test Vitest écrit et qui passe ?
+- Si UI touchée → app testée dans navigateur (Ctrl+F5) ?
+
+**Pas de petit patch isolé.** Audit en bloc avant commit. Si tu n'es pas sûr d'avoir tout couvert, **demander à l'utilisateur** plutôt que livrer un fix incomplet.
 
 ### 3. Workflow par phases (cf `feedback_workflow.md`)
 Phase par phase. 1 phase = 1 commit. Tester avant de passer à la suivante. Pas de commit géant.

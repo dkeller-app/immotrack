@@ -1,6 +1,6 @@
 # ARCHI-MODULAR — Refonte modulaire du monolithe index.html
 
-**Status** : ⬜ À faire (en attente du rapport AUDIT-GLOBAL Phase 7) · **Prio** : P1 · **Taille** : XL (5-15 jours selon stratégie)
+**Status** : ⏳ Décision stratégie validée 2026-05-11 — Stratégie 2 (ES modules natifs sans bundler). Planifié Sprint 2 · **Prio** : P1 · **Taille** : L (6-9 j-h après confirmation audit)
 **Détecté** : 2026-05-05
 **Lié à** : AUDIT-GLOBAL (Phase 7 = analyse de faisabilité de ce sujet) · V3-VISUEL · ARCHI-DB-DOUBLONS · BIZPLAN
 
