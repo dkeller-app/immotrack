@@ -527,6 +527,12 @@
 - Règle non négociable : refonte complète plutôt que compromis temporaire, planifier en session dédiée si trop gros
 - Référence : mémoire `feedback_no_compromise.md`
 
+### 2026-05-10 — 🚨 AUDIT TRANSVERSAL POST-FIX = MANDATORY (pas optionnel)
+- Citation user : *« tu me fatigues ! faire un audit suite au bug est mandatory pas optionnel ! »*
+- Précédent : v14.79 j'avais présenté « c'est corrigé » sans audit transversal des call-sites. Le user a dû me demander 2 fois (« as-tu fait l'audit ? ») avant que je le fasse réellement.
+- L'audit a révélé 2 bugs supplémentaires non fixés (ytdMvts L23049 + confirmSplitMvList L11434) — preuve directe de la nécessité de la règle.
+- **Règle gravée** : à chaque fix, AVANT de dire « corrigé », exécuter les 6 étapes de `feedback_modify_verify.md` § « RÈGLE ABSOLUE ». Pas négociable.
+
 ### 2026-05-07 — 🛑 Modification + vérification TOUJOURS
 - **Règle non négociable** captée après 6 itérations cassées en chaîne (v14.62→67 SANDBOX-MODE)
 - Citation user : *« on vérifie tout ce qu'on a fait pour être sur que c'est bien fait ! […] modification + vérification toujour stoujours !! »*
