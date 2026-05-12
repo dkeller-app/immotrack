@@ -69,6 +69,10 @@ import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
 } from './core/export-comptable.js';
 
+import {
+  _mapRentila, _mapBailFacile, _mergeImport
+} from './core/import-concurrents.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -135,6 +139,11 @@ window._buildGrandLivre = _buildGrandLivre;
 window._toFEC = _toFEC;
 window._journalToCsv = _journalToCsv;
 window._grandLivreToCsv = _grandLivreToCsv;
+
+// IMPORT-CONCURRENTS (Sprint 3G) - mappers Rentila + BailFacile
+window._mapRentila = _mapRentila;
+window._mapBailFacile = _mapBailFacile;
+window._mergeImport = _mergeImport;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
