@@ -3431,3 +3431,126 @@ textarea.field-modified-since-sig{
   /* Sélecteurs : plein largeur chacun */
   .filters .inp, #p-dashboard select.inp{flex:1 1 auto;min-width:130px}
 }
+
+/* ───────────────────────────────────────────────────────────
+   v14.95 MOBILE-AUDIT-ONGLETS Phase 3+4 (Sprint 3H)
+   Règles génériques mobile pour finaliser l'audit Phase 1+2 (anti-zoom iOS,
+   refonte EDL livré v14.11/12). Cible : touch targets 44px partout, formes
+   plein écran sur mobile, scroll-margin pour anchors, espacement vertical
+   pouce. Source : BACKLOG MOBILE-AUDIT-ONGLETS Phase 3+4.
+   ─────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Touch targets 44×44 px minimum (WCAG 2.1 AAA + Apple HIG) */
+  button, .btn, a.btn, input[type="button"], input[type="submit"],
+  select.inp, .bien-card-menu, .agenda-list button {
+    min-height: 44px;
+  }
+  .btn.bs, .btn.bb {
+    min-height: 36px; /* "small button" reste 36 mais touch zone via padding */
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  /* Forms : inputs ≥ 16px pour empêcher zoom auto iOS Safari (renforce v14.11) */
+  input[type="text"], input[type="number"], input[type="email"],
+  input[type="tel"], input[type="date"], input[type="password"],
+  input[type="search"], textarea, select {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  /* Sauf les textarea multilignes qui peuvent rester plus serrés */
+  textarea[rows] {
+    min-height: auto;
+  }
+
+  /* Modales : plein écran mobile (100dvh pour s'adapter aux barres iOS dynamiques) */
+  .modal, .ov, .overlay-content, [class*="overlay"] > .card {
+    min-height: 100dvh;
+    max-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  /* m-foot sticky pour boutons toujours accessibles */
+  .m-foot {
+    position: sticky;
+    bottom: 0;
+    background: var(--sur);
+    border-top: 1px solid var(--bor);
+    padding: 12px;
+    z-index: 10;
+    box-shadow: 0 -2px 8px rgba(0,0,0,.08);
+  }
+
+  /* Scroll-margin pour anchors : évite que le header sticky masque la cible */
+  .page > .card, .page > section, [id^="ov-"] {
+    scroll-margin-top: 60px;
+  }
+
+  /* Espacement vertical pour zone de pouce confortable */
+  .flex-c, .filters {
+    gap: 10px;
+  }
+  .card + .card {
+    margin-top: 12px;
+  }
+
+  /* Tableaux scrollables horizontalement (préserve la lecture sur mobile) */
+  .tbl-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Wizard Bail mobile : étapes empilées + boutons next/prev sticky */
+  .bail-wizard-step, .wizard-content {
+    padding: 12px;
+  }
+  .bail-wizard-nav, .wizard-nav {
+    position: sticky;
+    bottom: 0;
+    background: var(--sur);
+    padding: 10px;
+    border-top: 1px solid var(--bor);
+  }
+
+  /* Form Logement / Immeuble / IRL : labels au-dessus inputs (pas en grid 2 cols) */
+  form.form-grid, .form-2col {
+    grid-template-columns: 1fr !important;
+  }
+  form label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+
+  /* Toast : largeur max + position centrée bas */
+  #toast {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+}
+
+/* ──── Très petits écrans 320-480 px ──── */
+@media (max-width: 480px) {
+  .ct, h2, .page-title {
+    font-size: 18px;
+  }
+  .kpi-tile, .dw-todo-quad {
+    padding: 8px 10px;
+  }
+  /* Sidebar fermée par défaut : utiliser le burger menu */
+  .sb {
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+  }
+  .sb.open {
+    transform: translateX(0);
+  }
+}
+
+/* ──── Dark mode respect partout ──── */
+@media (prefers-color-scheme: dark) {
+  .m-foot { background: var(--sur); }
+  #toast { background: var(--sur2); }
+}
