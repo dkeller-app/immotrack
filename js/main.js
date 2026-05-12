@@ -73,6 +73,10 @@ import {
   _mapRentila, _mapBailFacile, _mergeImport
 } from './core/import-concurrents.js';
 
+import {
+  _logError, _logEvent, _installGlobalCapture, _exportMonitoringLogs, _clearMonitoringLogs
+} from './core/monitoring.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -144,6 +148,16 @@ window._grandLivreToCsv = _grandLivreToCsv;
 window._mapRentila = _mapRentila;
 window._mapBailFacile = _mapBailFacile;
 window._mergeImport = _mergeImport;
+
+// MONITORING (Sprint 4C) - capture erreurs + events anonymes
+window._logError = _logError;
+window._logEvent = _logEvent;
+window._exportMonitoringLogs = _exportMonitoringLogs;
+window._clearMonitoringLogs = _clearMonitoringLogs;
+// Install global capture si user opt-in (DB.params.monitoringEnabled)
+if (window.DB?.params?.monitoringEnabled === true) {
+  _installGlobalCapture();
+}
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
