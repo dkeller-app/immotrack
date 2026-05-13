@@ -1,172 +1,138 @@
-# EQUIP-CONTROLES-PERIODIQUES — Inventaire complet équipements à contrôle périodique légal
+# EQUIP-CONTROLES-PERIODIQUES — Équipements à entretien périodique LOCATAIRE
 
 **Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M (4-6h)
-**Détecté** : 2026-05-13 (régression onglet Équipements détectée)
-**Lié à** : V3-REFONTE-EQUIP · BUG-EQUIP-FILTER · TRAV-SUIVI · DASH-PROFILES (lentille Échéances)
+**Détecté** : 2026-05-13 (régression onglet Équipements) · **Re-cadré 2026-05-13** : focus obligations LOCATAIRE uniquement
+**Lié à** : V3-REFONTE-EQUIP · BAILLEUR-DIAGNOSTICS-DDT (jumeau côté bailleur) · BAIL-CLAUSES-PERSO · CHARGE-REGLES · TRAV-SUIVI · DASH-PROFILES (lentille Échéances)
 
 ## Contexte
-Demande utilisateur 2026-05-13 (avec capture onglet Équipements logement D-102) :
+Demande utilisateur 2026-05-13 :
 > 💬 « dans équipements tu n'as pas pris ma remarque en compte pour remettre tous les équipements qui donne lieu à un controle périodique (tu te démerdes tu as supprimé tu retrouves et tu cherches le légal !) »
 
-### Constat capture 2026-05-13
-L'onglet Équipements actuel ne contient que :
-- **CHAUFFAGE** : Électrique / Gaz / Collectif + Autre/précision + Description complète
-- **EAU CHAUDE SANITAIRE** : Chauffe-eau électrique / Chaudière gaz / Collective + Description
-- **ANNEXES** : Description libre
+Re-cadrage 2026-05-13 par utilisateur :
+> 💬 « les autres catégories sont des obligations bailleur pas locataire. il faut les gérer mais autrement »
 
-→ **Régression** : beaucoup d'équipements à contrôle périodique légal manquent (entretien obligatoire annuel/biannuel/quinquennal). Il faut tous les remettre + ajouter le suivi des dates de contrôle pour alerter l'utilisateur.
-
-## Cadre légal — Inventaire exhaustif
-
-### A. CHAUFFAGE (obligation annuelle ou biennale)
-| Équipement | Obligation | Texte légal |
-|---|---|---|
-| Chaudière gaz, fioul, bois ≥ 4 kW | **Entretien annuel** | Art. R224-31 à R224-41 Code env. + décret 2009-649 |
-| Chaudière électrique | Pas d'entretien obligatoire | — |
-| PAC (pompe à chaleur) > 4 kW | **Entretien annuel** (ou biennal selon fluide frigorigène) | Décret 2010-349 + arrêté 15/10/2009 |
-| Conduit de fumée (cheminée, poêle, insert) | **Ramonage annuel** | RSDD département + Code des assurances |
-| VMC | **Vérification triennale** (collectif) | Arrêté 31 oct 2005 |
-| Climatisation > 12 kW | **Inspection périodique 2 ans** | Décret 2010-349 |
-| Citerne fioul individuelle | **Contrôle quinquennal** + nettoyage 5 ans | Arrêté 1 juillet 2004 |
-
-### B. EAU
-| Équipement | Obligation | Texte légal |
-|---|---|---|
-| Chauffe-eau électrique | Pas d'obligation entretien (mais recommandé vidange annuelle) | — |
-| Chauffe-eau gaz | **Entretien annuel** (intégré dans entretien chaudière si commune) | idem chaudière |
-| Chauffe-eau thermodynamique | **Entretien biennal** | Décret 2020-912 |
-| Adoucisseur d'eau | Pas d'obligation légale (recommandé annuel) | — |
-| Disconnecteur | Contrôle annuel si installé | RSDD |
-
-### C. SÉCURITÉ (obligations bail location)
-| Équipement | Obligation | Texte légal |
-|---|---|---|
-| **Détecteur de fumée DAAF** | **Installation obligatoire** + pile à entretenir | Loi 2010-238 + arrêté 5 février 2013 |
-| Détecteur CO (monoxyde) | Recommandé si combustion (non obligatoire mais sécurité) | — |
-| Extincteur | Pas obligatoire en logement (sauf RSDD spécifique) | — |
-| Garde-corps / balcon | **État conservation à vérifier** | DTU 39-4 + RSDD |
-
-### D. ASCENSEUR (collectif)
-| Équipement | Obligation | Texte légal |
-|---|---|---|
-| Ascenseur | **Maintenance contractuelle** (mensuel ou bimestriel) + **Contrôle technique 5 ans** | Décret 2004-964 + arrêté 18 nov 2004 |
-| Monte-charge | Idem ascenseur | idem |
-
-### E. DIAGNOSTICS OBLIGATOIRES BAIL (validités)
-| Diagnostic | Validité | Cible | Texte légal |
-|---|---|---|---|
-| **DPE** (perf énergétique) | **10 ans** | Tous logements | Loi 2010-788 + décret 2020-1610 |
-| **CREP** (plomb) | **1 an** si présence / **illimité** si absence | Logement avant 1949 | Art. L1334-5 à L1334-9 Code santé |
-| **État amiante (DAPP/DTA)** | **Illimité** si absence | Permis avant 1er juillet 1997 | Art. R1334-15 à R1334-29 |
-| **État installation gaz** | **6 ans** | Installation >15 ans | Art. L134-6 |
-| **État installation élec** | **6 ans** | Installation >15 ans | Art. L134-7 |
-| **État risques (ERP)** | **6 mois** | Zone à risques | Art. L125-5 |
-| **Termites / parasitaire** | **6 mois** | Zone à arrêté préfectoral | Art. L133-6 |
-| **Bruit aérien** | Illimité si non concerné | Zone aéroport | Art. L112-11 Code urb. |
-| **Mérule** | À déclarer si zone concernée | Zone à arrêté préfectoral | Art. L133-7 |
-
-### F. ANNEXES (description / état)
-- Cave, grenier, parking, place stationnement, garage, jardin privatif, terrasse
-- Pas de contrôle périodique légal mais utile pour bail (clauses annexes)
+**Distinction clé** :
+- **CE sujet (EQUIP-CONTROLES-PERIODIQUES)** = obligations LOCATAIRE pendant le bail : entretien récurrent à sa charge
+- **Sujet jumeau (BAILLEUR-DIAGNOSTICS-DDT)** = obligations BAILLEUR avant entrée locataire : Dossier Diagnostic Technique (DPE, CREP, amiante, gaz, élec, ERP, termites)
 
 ## Scope
 
-### Phase 1 — Refonte onglet Équipements wizard bien (~2-3h)
-Restructurer en sections thématiques avec **case "présent" + date dernier contrôle + date prochain contrôle (calculée auto)** :
+### Cadre légal — Obligations LOCATAIRE
+Liste des entretiens à charge du locataire pendant le bail (décret 87-712 du 26 août 1987 modifié — réparations locatives) :
 
-**1. Chauffage**
-- [ ] Type : Électrique / Gaz / Fioul / Bois-Granulés / PAC / Collectif / Autre
-- Date dernier entretien : [DATE]
-- Prochain entretien : auto (= dernier + 12 mois si obligatoire)
+| Équipement | Obligation locataire | Texte légal | Récupérable côté bailleur ? |
+|---|---|---|---|
+| **Chaudière gaz/fioul/bois ≥ 4 kW** | Entretien annuel | Art. R224-31 Code env. + décret 2009-649 | Oui si bailleur fait + facture (charges récup) |
+| **PAC > 4 kW** | Entretien annuel ou biennal selon fluide | Décret 2010-349 + arrêté 15/10/2009 | Idem chaudière |
+| **Conduit de fumée / poêle / insert** | Ramonage annuel | RSDD département + Code assurances | Oui si bailleur fait + facture |
+| **Climatisation > 12 kW** | Inspection 2 ans | Décret 2010-349 | Idem |
+| **VMC individuelle** | Nettoyage bouches | RSDD | Locataire (VMC collective = bailleur cf BAILLEUR-DIAGNOSTICS) |
+| **Citerne fioul individuelle** | Contrôle 5 ans + nettoyage 5 ans | Arrêté 1 juillet 2004 | Locataire si individuelle |
+| **DAAF détecteur fumée** | **Entretien (pile)** | Loi 2010-238 + arrêté 5 fév 2013 | Pile = locataire, installation = bailleur |
+
+### DAAF — Cas particulier (instruction utilisateur explicite 2026-05-13)
+> 💬 « DAAF : il faut bien indiquer au locataire de la faire dans le bail mais pas de rappel et il faut l'avoir dans EDL et prendre une photo non négociable (en cas d'un incendie pour prouver que c'était bien présent) »
+
+Donc pour DAAF :
+- **PAS d'alerte récurrente** dans le dashboard (entretien à la charge locataire, pas le bailleur)
+- **Mention obligatoire au bail** (clause type fixe rappelant l'obligation entretien pile au locataire)
+- **OBLIGATOIRE dans wizard EDL entrée** : checkbox "DAAF présent" + photo (non bloquant mais fortement recommandé) → preuve juridique en cas d'incendie
+
+## Scope
+
+### Phase 1 — Refonte onglet Équipements wizard bien (~2h)
+Restructurer en sections thématiques **focus locataire** avec **case "présent" + date dernier contrôle + date prochain contrôle (calculée auto)** :
+
+**1. Chauffage** (présence + type)
+- Type : Électrique / Gaz / Fioul / Bois-Granulés / PAC / Collectif / Autre
+- Si Gaz/Fioul/Bois/PAC → **Date dernier entretien** + Prochain (auto +12 mois)
 - Prestataire (texte libre)
+- Note : « Entretien à la charge du locataire (récupérable si fait par bailleur) »
 
 **2. Conduit de fumée / ramonage**
-- [ ] Présence cheminée / poêle / insert
-- Date dernier ramonage
-- Prochain ramonage : auto +12 mois
+- Présence cheminée / poêle / insert (oui/non)
+- Si oui → **Date dernier ramonage** + Prochain (auto +12 mois)
 
 **3. VMC**
-- [ ] Présence + type (simple flux / double flux)
-- Date dernière vérification
-- Prochaine vérification : auto +36 mois (si collectif)
+- Type : Aucune / Individuelle / Collective
+- Si individuelle → entretien locataire (nettoyage bouches)
+- Si collective → renvoyer vers BAILLEUR-DIAGNOSTICS-DDT (immeuble)
 
 **4. Eau chaude sanitaire**
-- [ ] Type : Électrique / Gaz / Thermodynamique / Solaire / Collective / Autre
-- Date dernier entretien (si gaz ou thermodynamique)
+- Type : Électrique / Gaz / Thermodynamique / Solaire / Collective / Autre
+- Si Gaz/Thermodynamique → date dernier entretien
 
-**5. Climatisation / PAC réversible** (si > 12 kW)
-- [ ] Présence
-- Date dernière inspection
-- Prochaine : auto +24 mois
+**5. Climatisation** (si > 12 kW)
+- Présence + Date dernière inspection + Prochaine (auto +24 mois)
 
-**6. Citerne fioul** (si fioul)
-- Date dernier contrôle
-- Prochaine inspection : auto +60 mois
+**6. Citerne fioul individuelle** (si chauffage fioul)
+- Date dernier contrôle + Prochaine inspection (auto +60 mois)
 
-**7. Sécurité incendie**
-- [ ] DAAF installé (présomption oui pour bail)
-- Date installation / dernier remplacement pile
+**7. DAAF détecteur fumée**
+- **Présent oui/non**
+- Date installation (info bailleur, pas alerté)
+- ⚠️ Pas d'alerte récurrente
+- Lien vers wizard EDL pour photo (cf Phase 4)
 
-**8. Ascenseur** (immeuble uniquement, pas logement)
-- → géré au niveau Immeuble, pas Logement
+**8. Annexes** (existant, garder)
+- Description libre (cave, grenier, parking, etc.)
 
-**9. Diagnostics bail (validité)**
-- DPE : classe + date diag + validité 10 ans
-- CREP plomb : présent O/N + date + validité 1 an si présence
-- Amiante : présent O/N + date
-- Gaz : conforme O/N + date + validité 6 ans
-- Élec : conforme O/N + date + validité 6 ans
-- ERP : date + validité 6 mois
-- Termites : si applicable
-- Bruit aérien : si applicable
+→ Toutes les sections "diagnostics bailleur" (DPE, CREP, gaz, élec, ERP, termites, amiante) sont **gérées dans BAILLEUR-DIAGNOSTICS-DDT** (sujet jumeau), pas ici.
 
-**10. Annexes** (existant, garder)
-- Description libre
+### Phase 2 — Clauses bail générées auto (~1h)
+Dans le PDF bail, section "Article XX — Entretien à la charge du locataire" :
+- Liste auto des équipements présents avec leur fréquence d'entretien locataire
+- Mention obligatoire DAAF (texte type loi 2010-238) :
+  > « Le présent logement est équipé d'un détecteur de fumée. Conformément à l'article R129-13 du Code de la construction et de l'habitation, l'entretien de cet équipement, notamment le remplacement de la pile, incombe au locataire. »
+- Mention chaudière/PAC obligation entretien annuel à charge locataire
 
-### Phase 2 — Alertes dashboard + agenda (~1-2h)
-- Lentille Échéances DASH-PROFILES (déjà recommandée V1) → ajouter catégorie "🔧 Contrôles équipements" avec :
-  - Entretien chaudière (alerte 30j avant)
-  - Ramonage (alerte 30j avant)
-  - Diagnostic gaz/élec (alerte 6 mois avant expiration)
-  - DPE (alerte 12 mois avant les 10 ans)
-  - CREP plomb (alerte 1 mois avant si présent)
-- Helper `_equipementsAControlerSous(jours)` → liste des équipements à contrôler dans les N jours
+### Phase 3 — Alertes dashboard lentille Échéances (~1h)
+- Lentille Échéances (DASH-PROFILES) → catégorie "🔧 Contrôles équipements locataire" :
+  - Chaudière entretien annuel (alerte 30j avant prochaine échéance)
+  - Ramonage annuel (alerte 30j avant)
+  - PAC entretien (alerte 30j avant)
+  - Climatisation inspection (alerte 60j avant)
+  - Citerne fioul (alerte 6 mois avant)
+- ⚠️ DAAF **NON inclus** dans les alertes (instruction user)
 
-### Phase 3 — Tests Vitest (~30min)
-- `_calculerProchainControle(equipement, dateDernier)` → cas chaudière (12 mois), PAC (12 mois), citerne (60 mois), DPE (120 mois)
-- `_estDiagExpire(diag, dateRef)` pour les 7 diagnostics bail
-- Tests cas : date manquante, équipement absent, double frequence (entretien biennal)
+### Phase 4 — DAAF dans wizard EDL entrée (~30min)
+- Dans wizard EDL entrée, **section dédiée "Sécurité incendie"** :
+  - Checkbox "DAAF détecteur de fumée présent" (à cocher)
+  - **Champ photo obligatoire** si coché (fortement recommandé, pas bloquant)
+  - Pré-renseigner si déjà dans logement.equipements.daaf
+  - Auto-sync vers logement.equipements.daaf (date constat = date EDL)
+- ⚠️ Bouton "Sauter" possible mais avec warning rouge « Risque juridique en cas d'incendie sans preuve d'installation »
 
-### Phase 4 — Migration baux existants (~30min)
-- Champ `logement.equipements` enrichi (rétrocompatible)
-- Migration silencieuse au boot : convertir l'ancien `chauffage` simple en nouvelle structure
-- Sans casser la prod
+### Phase 5 — Tests Vitest (~30min)
+- `_calculerProchainControle(equipement, dateDernier, frequenceMois)` → cas chaudière (12), PAC (12/24), citerne (60)
+- `_clauseLocataire(logement.equipements)` → string de la clause bail générée
+- Tests cas : équipement absent, date manquante, fréquence biennale
 
-### Phase 5 — Génération PDF bail (~1h)
-- Section "Article XX — Équipements et diagnostics" dans le PDF bail
-- Liste des équipements présents + leurs prochaines échéances
-- Diagnostics avec date validité (loi 89-462 art. 3-3 + décret 2002-120)
+### Phase 6 — Migration baux existants (~30min)
+- Champ `logement.equipements` enrichi avec rétrocompatibilité
+- Migration silencieuse au boot : convertir ancien `chauffage` simple en nouvelle structure
 
 ## Décisions à prendre
-- [ ] **Niveau d'obligation user** : forcer la saisie de TOUS les équipements pertinents ou laisser optionnel ?
-  - Recommandation : laisser optionnel + bannière "Équipements à risque : X manquants" sur fiche logement
-- [ ] **Bail commercial** : règles différentes (V2 si module commercial)
-- [ ] **Ascenseur** : géré au niveau Immeuble (1 ascenseur = N logements) ou Logement ?
-  - Recommandation : Immeuble (cf IMM-FICHE-360 sous-onglet Équipements collectifs)
+- [ ] **VMC collective immeuble** : géré dans BAILLEUR-DIAGNOSTICS-DDT (immeuble) → confirmer le sujet jumeau
+- [ ] **Alerte DAAF** : strictement 0 alerte ? Ou une alerte unique à la 1ère ouverture du logement après bail (rappel installation pile à -1 mois) ?
+  - Recommandation : 0 alerte (instruction user) — la pile est au locataire
+- [ ] **Bouton "Sauter photo DAAF" dans EDL** : autorisé avec warning OU bloquant ?
+  - Recommandation : autorisé avec warning rouge
 
 ## Différenciant marché
-| Solution | Équipements + contrôles |
+| Solution | Équipements locataire + DAAF EDL photo |
 |---|---|
-| Rentila | Liste basique sans suivi |
-| BailFacile | Liste + alertes basiques |
-| Qalimo | Vue dédiée avec calendrier |
-| ICS / Crypto (pro) | Module Entretien complet |
+| Rentila | Liste basique, pas de DAAF EDL |
+| BailFacile | Liste + alertes, pas de photo obligatoire |
+| Qalimo | Vue dédiée, pas de DAAF preuve photo |
 | **ImmoTrack actuel** | 3 champs (régression) |
-| **ImmoTrack après EQUIP-CONTROLES-PERIODIQUES** | 10 catégories + alertes automatiques + génération PDF |
+| **ImmoTrack après EQUIP-CONTROLES-PERIODIQUES** | 7 catégories locataire + clauses bail auto + photo DAAF EDL = **différenciant juridique** |
 
 ## Notes utilisateur
-> 💬 2026-05-13 : "dans équipements tu n'as pas pris ma remarque en compte pour remettre tous les équipements qui donne lieu à un controle périodique (tu te démerdes tu as supprimé tu retrouves et tu cherches le légal !)"
-> 💬 capture : actuellement réduit à Chauffage / ECS / Annexes (régression vs versions antérieures)
+> 💬 2026-05-13 : "dans équipements tu n'as pas pris ma remarque en compte pour remettre tous les équipements qui donne lieu à un controle périodique"
+> 💬 2026-05-13 : "DAAF détecteur fumée : il faut bien indiquer au locataire de la faire dans le bail mais pas de rappel et il faut l'avoir dans EDL et prendre une photo non négociable (en cas d'un incendie pour prouver que c'était bien présent)"
+> 💬 2026-05-13 : "les autres catégories sont des obligations bailleur pas locataire. il faut les gérer mais autrement"
 
 ## Journal
-- 2026-05-13 : créé · inventaire légal exhaustif fait (10 catégories + 9 diagnostics avec textes légaux) · à mettre en œuvre Sprint V1.1
+- 2026-05-13 : créé · inventaire légal exhaustif
+- 2026-05-13 : re-cadré → focus obligations LOCATAIRE uniquement. Obligations bailleur extraites dans sujet jumeau BAILLEUR-DIAGNOSTICS-DDT. DAAF cas particulier (clause bail + EDL photo, pas d'alerte récurrente).
