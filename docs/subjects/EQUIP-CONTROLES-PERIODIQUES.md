@@ -112,12 +112,10 @@ Dans le PDF bail, section "Article XX — Entretien à la charge du locataire" :
 - Champ `logement.equipements` enrichi avec rétrocompatibilité
 - Migration silencieuse au boot : convertir ancien `chauffage` simple en nouvelle structure
 
-## Décisions à prendre
-- [ ] **VMC collective immeuble** : géré dans BAILLEUR-DIAGNOSTICS-DDT (immeuble) → confirmer le sujet jumeau
-- [ ] **Alerte DAAF** : strictement 0 alerte ? Ou une alerte unique à la 1ère ouverture du logement après bail (rappel installation pile à -1 mois) ?
-  - Recommandation : 0 alerte (instruction user) — la pile est au locataire
-- [ ] **Bouton "Sauter photo DAAF" dans EDL** : autorisé avec warning OU bloquant ?
-  - Recommandation : autorisé avec warning rouge
+## Décisions arbitrées 2026-05-13
+- [x] **VMC collective immeuble** : géré dans BAILLEUR-DIAGNOSTICS-DDT (sujet jumeau créé)
+- [x] **Alerte DAAF** : 0 alerte (instruction user, pile à charge locataire)
+- [x] **Bouton "Sauter photo DAAF" dans EDL** : autorisé avec warning rouge (user validé)
 
 ## Différenciant marché
 | Solution | Équipements locataire + DAAF EDL photo |

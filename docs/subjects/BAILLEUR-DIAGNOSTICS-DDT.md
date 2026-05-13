@@ -105,13 +105,10 @@ Lentille Patrimoine & conformité (DASH-PROFILES, V2 mais à anticiper) → list
 - DRIVE-ARBORESCENCE : sous-dossier `Documents/DDT/` pour stocker PDFs diagnostics
 - BAIL-CHARGES-DETAIL (nouveau) : préciser que diagnostics PAS récupérables (charge bailleur exclusive)
 
-## Décisions à prendre
-- [ ] **Sous-onglet "Diagnostics" dans LOG-FICHE-360** OU section dédiée dans onglet Équipements ?
-  - Recommandation : **sous-onglet dédié** (séparation claire UX bailleur vs locataire)
-- [ ] **Bloquage bail si DDT incomplet** : strict ou avec override "à mes risques" ?
-  - Recommandation : override possible avec log audit-trail (utilisateur reste responsable)
-- [ ] **Data PPR / Termites / PEB** : statique hardcoded (V1) OU API Géorisques (V1.1) ?
-  - Recommandation : statique liste communes V1, API V1.1 si volumétrie justifie
+## Décisions arbitrées 2026-05-13
+- [x] **Sous-onglet "Diagnostics" dans LOG-FICHE-360** (séparation claire UX bailleur vs locataire)
+- [x] **Bloquage bail si DDT incomplet** : override "à mes risques" possible avec log audit-trail (user validé)
+- [ ] **Data PPR / Termites / PEB** : statique V1, API Géorisques V1.1 (à confirmer selon volumétrie)
 
 ## Différenciant marché
 | Solution | Gestion DDT bailleur |
