@@ -81,6 +81,8 @@ import {
   _emailCompose, _emailTypesSupportes, _interpolateEmail
 } from './core/email-compose.js';
 
+import { openEmailModal, _buildMailtoUrl } from './components/email-modal.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -167,6 +169,9 @@ if (window.DB?.params?.monitoringEnabled === true) {
 window._emailCompose = _emailCompose;
 window._emailTypesSupportes = _emailTypesSupportes;
 window._interpolateEmail = _interpolateEmail;
+window._openEmailModal = openEmailModal;
+window.openEmailModal = openEmailModal;
+window._buildMailtoUrl = _buildMailtoUrl;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
