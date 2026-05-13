@@ -7,11 +7,13 @@
  *  - _emailCompose : 1 test par type (10) + variable manquante + ctx vide + type inconnu + escape HTML
  *  - _logEmailSent / _getEmailHistory (Phase 3)
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   _emailCompose,
   _emailTypesSupportes,
-  _interpolateEmail
+  _interpolateEmail,
+  _logEmailSent,
+  _getEmailHistory
 } from '../../js/core/email-compose.js';
 
 import fixtures from '../fixtures.json' assert { type: 'json' };
@@ -269,5 +271,118 @@ describe('_emailCompose — sécurité', () => {
     ctx.locataire = { ...ctx.locataire, nom: 'Jean <jean@x.fr>' };
     const out = _emailCompose('quittance', ctx);
     expect(out.body).toContain('Jean <jean@x.fr>');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 3 — Historique d'envoi DB.emailsSent
+// ────────────────────────────────────────────────────────────────────────────
+describe('_logEmailSent — Phase 3', () => {
+  beforeEach(() => {
+    globalThis.window = globalThis.window || {};
+    globalThis.window.DB = { emailsSent: [] };
+    globalThis.window.saveDB = () => {};
+  });
+
+  it('crée une entry avec id (préfixe em_), sentAt ISO, status', () => {
+    const entry = _logEmailSent('logement', 'ALPHA-001', {
+      type: 'quittance',
+      to: 'jean@x.fr',
+      subject: 'Quittance jan 2026',
+      status: 'mailto'
+    });
+    expect(entry.id).toMatch(/^em_\d+_[a-z0-9]+$/);
+    expect(entry.sentAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(entry.status).toBe('mailto');
+    expect(entry.type).toBe('quittance');
+    expect(entry.to).toBe('jean@x.fr');
+    expect(entry.entityType).toBe('logement');
+    expect(entry.entityId).toBe('ALPHA-001');
+  });
+
+  it('ne persiste PAS le body (RGPD — limiter rétention données perso)', () => {
+    const entry = _logEmailSent('logement', 'ALPHA-001', {
+      type: 'quittance',
+      to: 'jean@x.fr',
+      subject: 'Quittance',
+      body: 'Bonjour Jean, voici votre quittance avec données privées...',
+      status: 'mailto'
+    });
+    expect(entry.body).toBeUndefined();
+    expect(JSON.stringify(entry)).not.toContain('données privées');
+  });
+
+  it('append à window.DB.emailsSent en prod (2 appels → 2 entries)', () => {
+    expect(window.DB.emailsSent).toHaveLength(0);
+    _logEmailSent('logement', 'ALPHA-001', { type: 'quittance', status: 'copied' });
+    expect(window.DB.emailsSent).toHaveLength(1);
+    _logEmailSent('logement', 'ALPHA-001', { type: 'avis-echeance', status: 'mailto' });
+    expect(window.DB.emailsSent).toHaveLength(2);
+  });
+
+  it('initialise DB.emailsSent si absent', () => {
+    delete window.DB.emailsSent;
+    _logEmailSent('bail', 'X', { type: 'quittance', status: 'mailto' });
+    expect(Array.isArray(window.DB.emailsSent)).toBe(true);
+    expect(window.DB.emailsSent).toHaveLength(1);
+  });
+
+  it('emailData null → entry vide valide (defaults appliqués)', () => {
+    const entry = _logEmailSent('logement', 'X', null);
+    expect(entry.type).toBe('');
+    expect(entry.status).toBe('proposed');
+    expect(entry.entityType).toBe('logement');
+  });
+
+  it('saveDB invoqué après push (callback prod synchrone)', () => {
+    let saved = false;
+    window.saveDB = () => { saved = true; };
+    _logEmailSent('logement', 'X', { type: 'quittance', status: 'mailto' });
+    expect(saved).toBe(true);
+  });
+
+  it('saveDB qui throw → pas de crash (silencieux)', () => {
+    window.saveDB = () => { throw new Error('read-only mode'); };
+    expect(() => _logEmailSent('logement', 'X', { type: 'quittance' })).not.toThrow();
+    expect(window.DB.emailsSent).toHaveLength(1);
+  });
+});
+
+describe('_getEmailHistory — Phase 3', () => {
+  beforeEach(() => {
+    globalThis.window = globalThis.window || {};
+    globalThis.window.DB = { emailsSent: [] };
+  });
+
+  it('retourne [] si DB.emailsSent vide', () => {
+    expect(_getEmailHistory()).toHaveLength(0);
+  });
+
+  it('filtre par entityType + entityId', () => {
+    const list = [
+      { id: 1, entityType: 'logement', entityId: 'A', type: 'quittance' },
+      { id: 2, entityType: 'logement', entityId: 'B', type: 'quittance' },
+      { id: 3, entityType: 'bail', entityId: 'A', type: 'avis-echeance' }
+    ];
+    expect(_getEmailHistory('logement', 'A', list)).toHaveLength(1);
+    expect(_getEmailHistory('logement', null, list)).toHaveLength(2);
+    expect(_getEmailHistory(null, 'A', list)).toHaveLength(2);
+    expect(_getEmailHistory(null, null, list)).toHaveLength(3);
+  });
+
+  it('retourne une copie (pas l\'array original)', () => {
+    const list = [{ id: 1 }];
+    const out = _getEmailHistory(null, null, list);
+    expect(out).not.toBe(list);
+    expect(out).toEqual(list);
+  });
+
+  it('lit window.DB.emailsSent si pas d\'arg list', () => {
+    window.DB.emailsSent = [
+      { id: 1, entityType: 'logement', entityId: 'A' },
+      { id: 2, entityType: 'logement', entityId: 'B' }
+    ];
+    expect(_getEmailHistory('logement', 'A')).toHaveLength(1);
+    expect(_getEmailHistory()).toHaveLength(2);
   });
 });

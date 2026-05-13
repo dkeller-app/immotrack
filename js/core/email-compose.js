@@ -374,3 +374,74 @@ export function _emailCompose(type, context = {}, opts = {}) {
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Historique d'envoi (Phase 3) — DB.emailsSent[]
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Log un envoi d'email dans DB.emailsSent[]. Ne persiste PAS le body (RGPD :
+ * limiter la rétention des données personnelles). Persiste uniquement les
+ * métadonnées : type, destinataires, sujet, date, statut, entité liée.
+ *
+ * Side-effect : si window.DB existe (prod), append + window.saveDB() si dispo.
+ * En tests sans DB, retourne juste l'entry construite (pas de persistance).
+ *
+ * @param {string} entityType - 'logement' | 'bail' | 'entite' | 'quittance' | etc.
+ * @param {string} entityId - Référence de l'entité (log.ref, quittance.id, etc.)
+ * @param {object} emailData - { type, to, cc, subject, status: 'proposed'|'mailto'|'copied'|'shared' }
+ * @returns {object} L'entry créée (id, sentAt, type, to, cc, subject, status, entityType, entityId)
+ */
+export function _logEmailSent(entityType, entityId, emailData) {
+  const data = emailData || {};
+  const entry = {
+    id: 'em_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    type: data.type || '',
+    to: data.to || '',
+    cc: data.cc || '',
+    subject: data.subject || '',
+    sentAt: new Date().toISOString(),
+    status: data.status || 'proposed',
+    entityType: entityType || '',
+    entityId: entityId || ''
+  };
+
+  // Persistance en prod (window.DB existe).
+  if (typeof window !== 'undefined' && window.DB) {
+    if (!Array.isArray(window.DB.emailsSent)) window.DB.emailsSent = [];
+    window.DB.emailsSent.push(entry);
+    if (typeof window.saveDB === 'function') {
+      try { window.saveDB(); } catch (_) { /* silent — saveDB peut être bloqué en mode read-only */ }
+    }
+  }
+
+  return entry;
+}
+
+/**
+ * Retourne l'historique d'envoi filtré par entityType + entityId.
+ * Si pas de paramètres → retourne tout l'historique (copie).
+ *
+ * @param {string} [entityType]
+ * @param {string} [entityId]
+ * @param {Array} [emailsSent] - Liste à filtrer (par défaut window.DB.emailsSent ou [])
+ * @returns {Array}
+ */
+export function _getEmailHistory(entityType, entityId, emailsSent) {
+  let list;
+  if (Array.isArray(emailsSent)) {
+    list = emailsSent;
+  } else if (typeof window !== 'undefined' && window.DB && Array.isArray(window.DB.emailsSent)) {
+    list = window.DB.emailsSent;
+  } else {
+    list = [];
+  }
+
+  if (!entityType && !entityId) return list.slice();
+
+  return list.filter(e => {
+    if (entityType && e.entityType !== entityType) return false;
+    if (entityId && e.entityId !== entityId) return false;
+    return true;
+  });
+}
+
