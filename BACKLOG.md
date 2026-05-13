@@ -27,7 +27,7 @@
 | 🏢 **Logement / Équipement** | **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A (drill + onglet Bail) livré v14.13 ✅* |
 | 🏛️ **Entité / Immeuble** | ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅ (audit boot + modale UI 1-clic)* |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
-| 🧾 **Quittances** | EMAIL-AUTO 🔄 (P1, infra commune transversale) · V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) |
+| 🧾 **Quittances** | EMAIL-AUTO ✅ V1 livré sandbox v14.97 (infra + 3 intégrations UI) · V3-REFONTE-QUIT (P2) · QUIT-EMAIL 🔄 partiel (UI livrée) · AVIS-ECHEANCE 🔄 partiel (infra) · RAPPEL-IMPAYE 🔄 partiel (infra escalade 1/2/3) |
 | ⚡ **Charges / Régul** | BUG-CHARGE-001 (P1) · V3-REFONTE-REGUL (P2) · CHARGE-REGLES (P2) |
 | 📈 **IRL** | V3-REFONTE-IRL (P2) — *BUG-IRL-001 + IRL-VALIDATION + IRL-DPE-FG livrés v13.30/31/33 ✅* |
 | 📋 **EDL** | EDL-VALIDATION-AVOCAT (P1) · EDL-TEMPLATE-PER-LOG (P2, ~6h) · EDL-DELEGUE-EXPORT (P2) · EDL-DELEGUE-IMPORT (P2) |
@@ -245,9 +245,9 @@
 | 16 | EDL-DELEGUE-EXPORT | EDL délégué : export HTML offline pour tiers | P2 | L | ⬜ À faire | Critères 2.15+16.5 · différenciant total absent de TOUS les concurrents |
 | 17 | EDL-DELEGUE-IMPORT | EDL délégué : import JSON + statut À valider | P2 | M | ⬜ À faire | Critère 2.16 · complémentaire du point 16 |
 | 18 | IMPORT-EXCEL-LOG | Import Excel logements/locataires (template SheetJS) | P2 | M | ⬜ À faire | Critères 14.1+14.2 · onboarding · SheetJS déjà embarqué |
-| 19 | QUIT-EMAIL | Envoi email quittances au locataire | P2 | M | ⬜ À faire | Critère 3.3 · standard chez tous concurrents |
-| 20 | AVIS-ECHEANCE | Avis d'échéance avant paiement | P2 | S | ⬜ À faire | Critère 3.7 · manque vs Qalimo/Rentila/BailFacile |
-| 21 | RAPPEL-IMPAYE | Rappel automatique locataire (impayé) | P2 | M | ⬜ À faire | Critère 4.12 · standard marché |
+| 19 | QUIT-EMAIL | Envoi email quittances au locataire | P2 | M | ✅ Livré sandbox v14.97 | Bouton 📧 dans tableau quittances → modale `_openEmailModal('quittance', ctx)` (infra commune EMAIL-AUTO) |
+| 20 | AVIS-ECHEANCE | Avis d'échéance avant paiement | P2 | S | 🔄 Partiel — infra livrée v14.97 (UI V1.1) | Type `avis-echeance` prêt dans `js/core/email-compose.js` · UI à brancher : alerte dashboard "J-5 paiement" + bouton 📧 sur card alerte |
+| 21 | RAPPEL-IMPAYE | Rappel automatique locataire (impayé) | P2 | M | 🔄 Partiel — infra livrée v14.97 (UI V1.1) | 3 types prêts (`rappel-impaye-1/2/3`) avec escalade J+5/J+15/J+30 + ton croissant (amical → ferme → MISE EN DEMEURE LRAR art. 24) · UI à brancher : section "Impayés" du dashboard + boutons 📧 par niveau |
 |  | IMPORT-CONCURRENTS | Migration depuis solutions concurrentes (Rentila / BailFacile / Qalimo / etc.) | P2 | L | 🔄 Structure livrée v14.94 (Sprint 3G) | `js/core/import-concurrents.js` (8 KB, 3 exports : `_mapRentila`, `_mapBailFacile`, `_mergeImport`). Mappers basés sur schémas publics : Rentila JSON (biens/locataires/baux/paiements), BailFacile XLSX (3 onglets Logements/Baux/Paiements). Politique merge : skip si ref existante (pas d'écrasement) + dédup mouvements par signature date+ref+montant. 18 tests Vitest. **UI reportée Sprint 4 polish** : nécessite exemples réels (fichiers anonymisés exportés par utilisateurs Rentila/BailFacile) pour ajuster les mappers aux formats exacts. Qalimo/ImmobilierLoyer/Smovin hors scope V1. |
 |  | BIZPLAN-STRATEGIE | Étude de marché + business plan + positionnement + effort déploiement (B2C + B2B pro) | P2 | L | ✅ Livré 2026-04-30 | 5 livrables dans `docs/strategie/` : [BIZPLAN](docs/strategie/BIZPLAN.md) · [CARTE_POSITIONNEMENT](docs/strategie/CARTE_POSITIONNEMENT.md) · [PROJECTIONS](docs/strategie/PROJECTIONS.md) · [PLAN_ACTIONS](docs/strategie/PLAN_ACTIONS.md) · [EFFORT_DEPLOIEMENT](docs/strategie/EFFORT_DEPLOIEMENT.md) |
 |  | BIZPLAN-V2 | Pitch commercial CGP + plan attaque opérationnel + CDC technique (V2 dossier) | P2 | XL | 🔄 En cours | [docs/subjects/BIZPLAN-V2.md](docs/subjects/BIZPLAN-V2.md) · 11 livrables (2 pptx + xlsx + pdf one-pager + 7 md/docx) sur 2-3 sessions dédiées · 4 décisions archi figées (Capacitor V1.1, PWA installable, 3 niveaux souveraineté, soft-block) · cible CGP/vendeurs |
@@ -291,6 +291,24 @@
 ---
 
 ## ✅ Livré récemment
+
+### EMAIL-AUTO V1 — session 2026-05-13 (~3-4h, 5 commits, sandbox v14.96 → v14.97, branche `claude/adoring-morse-1565eb`)
+> Infrastructure commune de proposition de mails sortants (V1 mode "proposition" — pas d'envoi backend). 10 types V1, 3 cas d'usage intégrés UI, 59 tests Vitest. Helpers prêts pour les 6 autres cas (intégration UI V1.1).
+
+| Code | Sujet | Note |
+|---|---|---|
+| EMAIL-AUTO.1 | `js/core/email-compose.js` : `_emailCompose(type, ctx)` → `{to, cc, subject, body, attachments, legalNote}`, `_emailTypesSupportes()` (10 types), `_interpolateEmail({{path}})` avec fallback `(inconnu)` + mode escapeHtml. Templates inline (textes formels FR avec articles légaux cités : art. 24 / 17-1 / 7g / 23 / 3-2 loi 89-462 + loi Climat 2021 DPE F/G). | commit `bce5268` · 30 tests Vitest |
+| EMAIL-AUTO.2 | `js/components/email-modal.js` : DOM modale injecté dynamiquement (idempotent, réutilise design system `.ov .modal .m-head .m-body .m-foot`) + helper `_buildMailtoUrl` (encode RFC 3986) + 3 boutons (mailto cutoff 1800c, clipboard, share Web Share API mobile masqué sauf si dispo) + notes légales affichées + warning type inconnu. | commit `fa8dab7` · 18 tests Vitest |
+| EMAIL-AUTO.3 | Historique `DB.emailsSent[]` : `_logEmailSent(entityType, entityId, emailData)` + `_getEmailHistory(entityType?, entityId?)`. **Body NON persisté (RGPD)**. saveDB silencieux si throw. Hook auto-invoqué par email-modal après mailto/copy/share. | commit `03ddb2d` · 11 tests Vitest |
+| EMAIL-AUTO.4 | Intégration UI 3 cas prioritaires + bump v14.97 : (1) Quittance — bouton 📧 dans tableau quittances + `envoyerQuittanceParEmail(id)` ; (2) IRL — bouton "📧 Envoyer" à côté de "🖨 Imprimer" sur pane aperçu + modale `ov-irl-lettre`, vérifie gel DPE F/G ; (3) Décompte régul — bouton 📧 sur chaque card régul, calcule solde + soldeSens (art. 23 al. 4 loi 89-462). | commit `e266843` |
+
+**6 types prêts en infra mais sans intégration UI (V1.1)** : avis-echeance, rappel-impaye-1/2/3, mrh-renouvellement, bail-signe-final, convocation-edl-sortie. Helpers `_emailCompose('<type>', ctx)` et templates fonctionnels — il suffira d'ajouter les boutons UI dans les écrans correspondants.
+
+**Tests Vitest** : 321/321 passent (262 base session marathon + 59 EMAIL-AUTO).
+
+**Test navigateur** (preview server :8770) : modules ES chargés, handlers globaux définis, modale s'ouvre avec contexte pré-rempli (to/subject/body/attachments/legalNote validés via eval JS).
+
+⚠️ **Note multi-session** : les 3 premiers commits (Phases 1-3) ont initialement atterri sur `master` par erreur de paths absolus (paths repo principal au lieu du worktree). Cherry-pickés sur `claude/adoring-morse-1565eb` (commits `bce5268`, `fa8dab7`, `03ddb2d`). Phase 4 propre directement sur worktree (`e266843`). Pour merger : `git merge claude/adoring-morse-1565eb` depuis master. NB : les commits master `ac6a67a`/`5154bfd`/`76c5855` (identiques en contenu aux cherry-picks) peuvent être considérés comme déjà mergés. Le commit `046e252` (session parallèle) a absorbé une partie des modifs Phase 4 uncommitted (handlers + bump partiel) ce qui peut créer un merge un peu redondant — à arbitrer manuellement.
 
 ### ENT-CASCADE-FIXES + BIENS-TABS — session 2026-05-05/06 (~2h, 4 commits, v14.51 → v14.54)
 > Détectés pendant la session DASH-PROFILES Phase 1 v2 (mockups). Utilisateur a renommé entité bailleur "Perso — Didier Keller" → "Didier Keller" et tous ses KPIs sont passés à 0. Diagnostic systématique → 3 bugs corrigés en cascade.

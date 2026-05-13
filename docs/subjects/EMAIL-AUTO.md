@@ -1,7 +1,7 @@
 # EMAIL-AUTO — Infrastructure d'envoi / proposition emails sortants
 
-**Status** : 🔄 En cours (depuis 2026-05-13, session dédiée) · **Prio** : P1 · **Taille** : M (3-5h pour V1 mode "proposition", +L pour V2 mode "automatique")
-**Détecté** : 2026-05-11
+**Status** : ✅ V1 livrée sandbox v14.97 (2026-05-13) — branche `claude/adoring-morse-1565eb` · **Prio** : P1 · **Taille** : M
+**Détecté** : 2026-05-11 · **Livré** : 2026-05-13 (~3-4h session dédiée)
 **Lié à** : QUIT-EMAIL · AVIS-ECHEANCE · RAPPEL-IMPAYE · IRL-VALIDATION · MRH-AUTO-LOC · DRIVE-ARBORESCENCE
 
 ## Contexte
@@ -124,3 +124,21 @@ Pour chaque type, créer `docs/templates/emails/{type}.md` avec :
 ## Journal
 - 2026-05-11 : créé · sujet transversal qui regroupe l'infra commune sous QUIT-EMAIL / AVIS-ECHEANCE / RAPPEL-IMPAYE / etc.
 - 2026-05-11 : V1 = mode "proposition" (mailto: ou modale clipboard). V2 SaaS = mode "automatique" (SendGrid/Postmark) post-V1 commerciale
+- 2026-05-13 : **V1 livrée sandbox v14.97** sur branche `claude/adoring-morse-1565eb` (4 commits + Phase 5 sync) :
+  - **EMAIL-AUTO.1 (bce5268)** : `js/core/email-compose.js` (10 types V1 inline templates avec articles légaux cités : art. 24 / 17-1 / 7g / 23 / 3-2 loi 89-462 + loi Climat 2021 art. 23) + helper `_interpolateEmail({{path.to.value}})` + fallback `(inconnu)` pour variables manquantes + mode `opts.escapeHtml` pour aperçu HTML safe. **30 tests Vitest**.
+  - **EMAIL-AUTO.2 (fa8dab7)** : `js/components/email-modal.js` (DOM modale injecté dynamiquement, idempotent, réutilise `.ov .modal .m-head .m-body .m-foot` design system) + helper `_buildMailtoUrl` (encode espaces/accents/CC via encodeURIComponent) + 3 boutons (mailto: cutoff 1800 chars, clipboard `navigator.clipboard.writeText`, share Web Share API mobile masqué sauf si dispo) + notes légales affichées + warning type inconnu. **18 tests Vitest**.
+  - **EMAIL-AUTO.3 (03ddb2d)** : `_logEmailSent(entityType, entityId, emailData)` + `_getEmailHistory(entityType?, entityId?, list?)` — DB.emailsSent[] avec id `em_*`, sentAt ISO, status `proposed|mailto|copied|shared`. **Body NON persisté (RGPD)**. saveDB() silencieux si throw (read-only mode). Hook auto-invoqué par email-modal après chaque action. **11 tests Vitest**.
+  - **EMAIL-AUTO.4 (e266843)** : intégration UI 3 cas prioritaires + bump v14.97 :
+    - Quittance : bouton 📧 dans cellule actions du tableau quittances → `envoyerQuittanceParEmail(id)` construit contexte (locataire/bail/logement/entité/quittance) et appelle `window._openEmailModal('quittance', ctx, {entityType: 'quittance', entityId})`.
+    - IRL : bouton "📧 Envoyer" à côté de "🖨 Imprimer" sur pane aperçu + modale `ov-irl-lettre` → `envoyerLettreIRLParEmail()` lit `_letterRef`, vérifie `computeIRLRevision`, bloque si DPE manquant/F/G, ouvre modale type `irl-revision`.
+    - Décompte régul : bouton 📧 sur chaque card régul → `envoyerDecompteParEmail(entryKey)` relit `computeRegul`, calcule solde + soldeSens + soldeAction (art. 23 al. 4 loi 89-462), ouvre modale type `decompte-regul-annuel`.
+  - **Tests Vitest totaux** : 321/321 passent (262 base session marathon + 59 ajoutés EMAIL-AUTO).
+  - **Test navigateur** (preview server :8770) : modules ES chargés (_emailCompose, _openEmailModal, 10 types listés), handlers globaux définis, modale s'ouvre avec contexte pré-rempli (to/subject/body/attachments/legalNote validés via eval JS).
+- 2026-05-13 : **6 autres types prêts en infra mais sans intégration UI** (V1.1) : avis-echeance, rappel-impaye-1/2/3, mrh-renouvellement, bail-signe-final, convocation-edl-sortie. Helpers `_emailCompose('<type>', ctx)` et templates fonctionnels — il suffira d'ajouter les boutons UI dans les écrans correspondants.
+
+## V1.1 — Intégration UI restante (6 cas)
+- [ ] **avis-echeance** : alerte dashboard "J-5 paiement" + bouton 📧 sur card alerte
+- [ ] **rappel-impaye-1/2/3** : section "Impayés" du dashboard, escalade J+5/J+15/J+30 + boutons 📧 par niveau
+- [ ] **mrh-renouvellement** : alerte dashboard "MRH expire < 30j" + bouton 📧 sur fiche MRH
+- [ ] **bail-signe-final** : auto-proposer après signature bail dans wizard (étape post-signature)
+- [ ] **convocation-edl-sortie** : sur fiche bail → bouton "Convoquer EDL sortie" qui demande date/heure puis ouvre modale
