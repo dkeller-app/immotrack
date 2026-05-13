@@ -84,6 +84,14 @@ import {
 
 import { openEmailModal, _buildMailtoUrl } from './components/email-modal.js';
 
+// v14.99 BUG-PJ-LOCALSTORAGE - helpers attachements (PJ unifiées Drive + IDB)
+import {
+  _attachmentBuildDoc, _attachmentValidateFile, _attachmentMatch,
+  _attachmentResolve, _attachmentDriveName, _planLegacyPjMigration,
+  _attachmentOrphans,
+  ATTACHMENT_PARENT_TYPES, ATTACHMENT_CATEGORIES, ATTACHMENT_DEFAULT_MAX_SIZE
+} from './core/attachments.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -176,10 +184,22 @@ window._buildMailtoUrl = _buildMailtoUrl;
 window._logEmailSent = _logEmailSent;
 window._getEmailHistory = _getEmailHistory;
 
+// ATTACHMENTS (v14.99 BUG-PJ-LOCALSTORAGE) - système unifié de PJ Drive + IDB
+window._attachmentBuildDoc = _attachmentBuildDoc;
+window._attachmentValidateFile = _attachmentValidateFile;
+window._attachmentMatch = _attachmentMatch;
+window._attachmentResolve = _attachmentResolve;
+window._attachmentDriveName = _attachmentDriveName;
+window._planLegacyPjMigration = _planLegacyPjMigration;
+window._attachmentOrphans = _attachmentOrphans;
+window.ATTACHMENT_PARENT_TYPES = ATTACHMENT_PARENT_TYPES;
+window.ATTACHMENT_CATEGORIES = ATTACHMENT_CATEGORIES;
+window.ATTACHMENT_DEFAULT_MAX_SIZE = ATTACHMENT_DEFAULT_MAX_SIZE;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
-  phase: 2,
-  version: '14.88',
+  phase: 5,
+  version: '14.99',
   loadedAt: new Date().toISOString(),
   helpersExposed: [
     'escHtml', '_esc', '_h', '_raw',
