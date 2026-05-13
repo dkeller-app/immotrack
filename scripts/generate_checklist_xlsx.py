@@ -1,0 +1,1411 @@
+"""
+Génère docs/audit/CHECKLIST-VALIDATION-V1.xlsx — version Excel de la checklist.
+
+3 feuilles :
+  1. Checklist : 200+ points avec colonnes Section / Action / Attendu / Statut / Notes
+  2. Synthèse : compteurs ✅/❌/⏭️ par section + barre de progression
+  3. Commandes : terminal commands à copier-coller
+"""
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.formatting.rule import CellIsRule, FormulaRule
+from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.workbook.defined_name import DefinedName
+
+wb = Workbook()
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Style helpers
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+HEADER_FILL = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+HEADER_FONT = Font(color="FFFFFF", bold=True, size=11)
+
+SECTION_FILL = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
+SECTION_FONT = Font(bold=True, size=12, color="1F4E78")
+
+SUBSECTION_FILL = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+SUBSECTION_FONT = Font(bold=True, size=11, color="333333")
+
+thin_border = Border(
+    left=Side(style='thin', color='CCCCCC'),
+    right=Side(style='thin', color='CCCCCC'),
+    top=Side(style='thin', color='CCCCCC'),
+    bottom=Side(style='thin', color='CCCCCC')
+)
+
+WRAP = Alignment(wrap_text=True, vertical="top")
+CENTER = Alignment(horizontal="center", vertical="center")
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CHECKLIST data (toutes les sections)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CHECKLIST = [
+    # (Section, Sous-section, N°, Action, Résultat attendu, Où vérifier, KO si, Durée min)
+
+    # ━━━━━━━━━ PARTIE 1 — Auto ━━━━━━━━━
+    ("1. AUTO", "1.1 Tests Vitest", "1.1.1",
+     "Ouvrir terminal + `npm run test:run`",
+     "`Test Files 17 passed (17)` et `Tests 321 passed (321)`",
+     "Sortie console",
+     "Test rouge OU durée > 30s OU erreur module", 2),
+    ("1. AUTO", "1.1 Tests Vitest", "1.1.2",
+     "Vérifier absence de message rouge ✗",
+     "Tous fichiers en vert ✓",
+     "Couleur sortie console",
+     "Un ✗ rouge → noter test/ligne/message", 1),
+    ("1. AUTO", "1.1 Tests Vitest", "1.1.3",
+     "Vérifier `Duration < 5s`",
+     "Affiché en bas (~1-2s typique)",
+     "Bas de sortie console",
+     "Durée > 5000 ms = perf problème", 1),
+    ("1. AUTO", "1.1 Tests Vitest", "1.1.4",
+     "`npm test` (watch mode)",
+     "Lance Vitest et attend modifications",
+     "Console",
+     "Erreur de boot ou crash", 1),
+
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.1",
+     "Lancer http-server : `npx --yes http-server . -p 8766 -c-1 --silent &`",
+     "Serveur démarré sans erreur",
+     "Console terminal",
+     "Port déjà utilisé OU permission denied", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.2",
+     "`curl -I http://localhost:8766/css/main.css`",
+     "HTTP/1.1 200 + Content-Length ≥ 160000",
+     "Sortie curl",
+     "404 → fichier manquant OU 5xx → erreur serveur", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.3",
+     "`curl -I http://localhost:8766/js/main.js`",
+     "HTTP 200 + ~7-8 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.4",
+     "`curl -I http://localhost:8766/js/core/utils.js`",
+     "HTTP 200 + ~10 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.5",
+     "`curl -I http://localhost:8766/js/core/idb.js`",
+     "HTTP 200 + ~2.3 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.6",
+     "`curl -I http://localhost:8766/js/core/audit-trail.js`",
+     "HTTP 200 + ~5.8 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.7",
+     "`curl -I http://localhost:8766/js/core/legal-2044.js`",
+     "HTTP 200 + ~10.8 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.8",
+     "`curl -I http://localhost:8766/js/core/legal-bilan.js`",
+     "HTTP 200 + ~9.2 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.9",
+     "`curl -I http://localhost:8766/js/core/rgpd.js`",
+     "HTTP 200 + ~9.1 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.10",
+     "`curl -I http://localhost:8766/js/core/export-comptable.js`",
+     "HTTP 200 + ~9.2 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.11",
+     "`curl -I http://localhost:8766/js/core/import-concurrents.js`",
+     "HTTP 200 + ~10.4 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.12",
+     "`curl -I http://localhost:8766/js/core/monitoring.js`",
+     "HTTP 200 + ~4.9 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.13",
+     "`curl -I http://localhost:8766/js/core/email-compose.js`",
+     "HTTP 200 + ~19.7 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.14",
+     "`curl -I http://localhost:8766/js/components/toast.js`",
+     "HTTP 200 + ~1.3 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.15",
+     "`curl -I http://localhost:8766/js/components/modal.js`",
+     "HTTP 200 + ~1.1 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+    ("1. AUTO", "1.2 HTTP Modules", "1.2.16",
+     "`curl -I http://localhost:8766/js/components/email-modal.js`",
+     "HTTP 200 + ~13 KB",
+     "Sortie curl",
+     "404 / 5xx", 1),
+
+    ("1. AUTO", "1.3 Console DevTools", "1.3.1",
+     "Ouvrir Chrome → http://localhost:8766/index-test.html ; F12 ; tab Console",
+     "Zéro erreur rouge",
+     "DevTools Console",
+     "Erreur JS bloquante → fix avant suite", 2),
+    ("1. AUTO", "1.3 Console DevTools", "1.3.2",
+     "Vérifier message vert `[main.js] Sprint 3D chargé - 38 helpers...`",
+     "Présence du log info",
+     "Console",
+     "Absent → module ES n'a pas chargé (vérifier Network)", 1),
+    ("1. AUTO", "1.3 Console DevTools", "1.3.3",
+     "Onglet Network → vérifier `main.js` status 200 type=module",
+     "Affiché en vert",
+     "DevTools Network",
+     "Rouge → CSP/CORS/404", 1),
+    ("1. AUTO", "1.3 Console DevTools", "1.3.4",
+     "Console : taper `window.__IMMOTRACK_MODULE_BOOTSTRAP__`",
+     "Objet `{phase, version, loadedAt, helpersExposed: [...]}`",
+     "Console",
+     "`undefined` → main.js n'a pas exécuté", 1),
+    ("1. AUTO", "1.3 Console DevTools", "1.3.5",
+     "`window.__IMMOTRACK_MODULE_BOOTSTRAP__.helpersExposed.length`",
+     "Nombre ≥ 38",
+     "Console",
+     "< 38 → vérifier imports manquants", 1),
+    ("1. AUTO", "1.3 Console DevTools", "1.3.6",
+     "`typeof window.escHtml === 'function'`",
+     "`true`",
+     "Console",
+     "`false` → bug import core/utils", 1),
+    ("1. AUTO", "1.3 Console DevTools", "1.3.7",
+     "`typeof window._compute2044 === 'function'`",
+     "`true`",
+     "Console",
+     "`false` → bug import legal-2044", 1),
+    ("1. AUTO", "1.3 Console DevTools", "1.3.8",
+     "`typeof window._auditEntry === 'function'`",
+     "`true`",
+     "Console",
+     "`false` → bug import audit-trail", 1),
+
+    # ━━━━━━━━━ PARTIE 2 — SÉCURITÉ ━━━━━━━━━
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.1",
+     "Console : `escHtml('<x>')`",
+     "Retour : `\"&lt;x&gt;\"`",
+     "Console",
+     "Valeur différente → escHtml cassé, bloquant V1", 1),
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.2",
+     "Console : `escHtml('\"')`",
+     "Retour : `\"&quot;\"`",
+     "Console",
+     "Valeur différente", 1),
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.3",
+     "Console : `escHtml(\"'\")`",
+     "Retour : `\"&#39;\"`",
+     "Console",
+     "Valeur différente", 1),
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.4",
+     "Console : `escHtml('&')`",
+     "Retour : `\"&amp;\"`",
+     "Console",
+     "Valeur différente", 1),
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.5",
+     "Console : `escHtml(null)`",
+     "Retour : `\"\"` (string vide)",
+     "Console",
+     "Throw ou autre valeur", 1),
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.6",
+     "Console : `escHtml(undefined)`",
+     "Retour : `\"\"`",
+     "Console",
+     "Throw ou autre valeur", 1),
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.7",
+     "Console : `` _h`<b>${'<script>'}</b>` ``",
+     "Retour : `\"<b>&lt;script&gt;</b>\"`",
+     "Console",
+     "`<script>` non échappé → bug _h", 1),
+    ("2. SÉCU XSS", "2.1 Helpers échappement", "2.1.8",
+     "Console : `` _h`<b>${_raw('<strong>OK</strong>')}</b>` ``",
+     "Retour : `\"<b><strong>OK</strong></b>\"`",
+     "Console",
+     "Strong échappé → bug _raw", 1),
+
+    ("2. SÉCU XSS", "2.2 XSS entité", "2.2.1",
+     "Paramètres → Bailleurs → Ajouter entité",
+     "Modale `#ov-ent` s'ouvre",
+     "Visuel UI",
+     "Modale ne s'ouvre pas", 1),
+    ("2. SÉCU XSS", "2.2 XSS entité", "2.2.2",
+     "Nom = `<img src=x onerror=\"window.__xss=1\">` ; type Particulier ; sauver",
+     "Champ accepte ; toast \"Entité enregistrée\"",
+     "Toast + Console",
+     "Erreur JS bloquante", 2),
+    ("2. SÉCU XSS", "2.2 XSS entité", "2.2.3",
+     "Aller Dashboard",
+     "KPIs affichés normalement, pas d'alert",
+     "Visuel + Console",
+     "Alert/popup déclenchée → XSS active BLOQUANT", 1),
+    ("2. SÉCU XSS", "2.2 XSS entité", "2.2.4",
+     "Console : `window.__xss`",
+     "`undefined`",
+     "Console",
+     "`1` → XSS exécuté, BLOQUANT V1", 1),
+    ("2. SÉCU XSS", "2.2 XSS entité", "2.2.5",
+     "Console : `document.body.innerHTML.includes('<img src=x onerror')`",
+     "`false`",
+     "Console",
+     "`true` → injection brute non échappée", 1),
+
+    ("2. SÉCU XSS", "2.3 XSS catégorie", "2.3.1",
+     "Paramètres → Catégories → Ajouter avec nom `<script>window.__xss2=1</script>`",
+     "Acceptée OU refusée selon validation",
+     "Toast",
+     "Erreur bloquante", 2),
+    ("2. SÉCU XSS", "2.3 XSS catégorie", "2.3.2",
+     "Console : `window.__xss2`",
+     "`undefined`",
+     "Console",
+     "`1` → XSS, BLOQUANT", 1),
+
+    ("2. SÉCU XSS", "2.4 XSS locataire (PII)", "2.4.1",
+     "Créer logement F-XSS + bail locataire `<img src=x onerror=alert(1)>`",
+     "Création OK",
+     "Toast",
+     "Erreur bloquante", 2),
+    ("2. SÉCU XSS", "2.4 XSS locataire (PII)", "2.4.2",
+     "Naviguer Dashboard / Quittances / Mouvements",
+     "Aucun alert/popup",
+     "Visuel + Console",
+     "Alert déclenchée → BLOQUANT", 2),
+
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.1",
+     "Créer logement avec ref `<script>`",
+     "Toast erreur \"Référence invalide\", logement non créé",
+     "Toast",
+     "Logement créé avec ref invalide", 1),
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.2",
+     "Ref `F-001!@#$`",
+     "Rejet (caractères dangereux)",
+     "Toast",
+     "Accepté", 1),
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.3",
+     "Ref `F-001 bis` (espace + alphanum)",
+     "Accepté",
+     "Toast OK",
+     "Rejet à tort", 1),
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.4",
+     "Ref `Studio-RDC_apt2/lot5`",
+     "Accepté (caractères . - _ /)",
+     "Toast",
+     "Rejet", 1),
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.5",
+     "Ref de 100 caractères",
+     "Rejet (max 60)",
+     "Toast",
+     "Accepté > 60", 1),
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.6",
+     "HC = 99999 dans logement",
+     "Confirm dialog \"Loyer HC paraît excessif (> 50 000 €)\"",
+     "Dialog",
+     "Aucun warning", 1),
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.7",
+     "HC = 800 + CH = 1000",
+     "Confirm \"Charges supérieures au loyer principal\"",
+     "Dialog",
+     "Aucun warning", 1),
+    ("2. SÉCU XSS", "2.5 Validation saisie", "2.5.8",
+     "HC = 800 + CH = 50 (normal)",
+     "Aucune alerte, save normal",
+     "Toast OK",
+     "Warning à tort", 1),
+
+    # ━━━━━━━━━ PARTIE 3 — ARCHITECTURE ━━━━━━━━━
+    ("3. ARCHI", "3.1 Fichiers", "3.1.1",
+     "Terminal : `ls -la css/main.css js/main.js`",
+     "Tous présents, css ~164 KB, main.js ~7-8 KB",
+     "Sortie ls",
+     "Fichier manquant", 1),
+    ("3. ARCHI", "3.1 Fichiers", "3.1.2",
+     "Terminal : `ls js/core/`",
+     "10 fichiers .js (utils, idb, audit-trail, legal-2044, legal-bilan, rgpd, export-comptable, import-concurrents, monitoring, email-compose)",
+     "Sortie ls",
+     "Fichier manquant ou en trop", 1),
+    ("3. ARCHI", "3.1 Fichiers", "3.1.3",
+     "Terminal : `ls js/components/`",
+     "3 fichiers (toast, modal, email-modal)",
+     "Sortie ls",
+     "Fichier manquant", 1),
+
+    ("3. ARCHI", "3.2 Tag git rollback", "3.2.1",
+     "`git tag | grep pre-modular-sprint2`",
+     "Affiche : `pre-modular-sprint2`",
+     "Sortie git",
+     "Tag absent → rollback impossible", 1),
+
+    ("3. ARCHI", "3.3 Pattern shadow", "3.3.1",
+     "Console : `window.escHtml === escHtml`",
+     "`true`",
+     "Console",
+     "`false` → 2 fns différentes (pas idempotent)", 1),
+    ("3. ARCHI", "3.3 Pattern shadow", "3.3.2",
+     "Console : `window.openM === openM`",
+     "`true`",
+     "Console",
+     "`false`", 1),
+    ("3. ARCHI", "3.3 Pattern shadow", "3.3.3",
+     "Cliquer un onclick legacy (ex bouton + Mouvement)",
+     "Modale s'ouvre normalement",
+     "Visuel UI",
+     "Bouton inactif", 1),
+
+    ("3. ARCHI", "3.4 Backward compat", "3.4.1",
+     "Sidebar : Dashboard",
+     "KPIs rendus, pas d'écran blanc",
+     "Visuel",
+     "Écran blanc / erreur JS", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.2",
+     "Sidebar : Biens",
+     "Cards bailleurs/logements rendues",
+     "Visuel",
+     "Page vide / erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.3",
+     "Sidebar : Baux",
+     "Cards baux rendues",
+     "Visuel",
+     "Erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.4",
+     "Sidebar : Mouvements",
+     "Tableau rendu",
+     "Visuel",
+     "Erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.5",
+     "Sidebar : Quittances",
+     "Tableau rendu",
+     "Visuel",
+     "Erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.6",
+     "Sidebar : IRL",
+     "Tableau IRL rendu",
+     "Visuel",
+     "Erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.7",
+     "Sidebar : Régul",
+     "Cards régul rendues",
+     "Visuel",
+     "Erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.8",
+     "Sidebar : EDL",
+     "Liste EDL rendue",
+     "Visuel",
+     "Erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.9",
+     "Sidebar : Paramètres",
+     "Sections rendues",
+     "Visuel",
+     "Erreur", 1),
+    ("3. ARCHI", "3.4 Backward compat", "3.4.10",
+     "Sidebar : Export — NOUVELLES cartes",
+     "Cartes RGPD + Aide 2044 + Bilan annuel + FEC + Compta visibles",
+     "Visuel",
+     "Cartes manquantes → main.js pas chargé", 2),
+
+    # ━━━━━━━━━ PARTIE 4 — CONFORMITÉ LÉGALE ━━━━━━━━━
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.1",
+     "Paramètres → saisir nom utilisateur \"Didier\" → Enregistrer",
+     "Toast OK",
+     "Toast",
+     "Erreur save", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.2",
+     "Console : `DB.params.userName`",
+     "`\"Didier\"`",
+     "Console",
+     "Valeur différente ou undefined", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.3",
+     "Console : `DB.params.userId`",
+     "String `usr_xxxxxx` (auto)",
+     "Console",
+     "Vide → userId pas généré", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.4",
+     "Créer un mouvement",
+     "Toast \"Mouvement enregistré\"",
+     "Toast",
+     "Erreur", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.5",
+     "Console : `DB.auditTrail.slice(-1)[0]`",
+     "Objet `{ts, userId, userName: 'Didier', action: 'create', entityType: 'mouvement', entityRef: ...}`",
+     "Console",
+     "auditTrail vide → hooks cassés", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.6",
+     "Modifier ce mouvement (changer libellé)",
+     "Toast OK",
+     "Toast",
+     "Erreur", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.7",
+     "Console : `DB.auditTrail.slice(-1)[0]`",
+     "`action: 'update'` + `diff: { lib: { from: 'X', to: 'Y' } }`",
+     "Console",
+     "Pas de diff", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.8",
+     "Supprimer un bail",
+     "Toast OK",
+     "Toast",
+     "Erreur", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.9",
+     "Console : `DB.auditTrail.filter(e => e.action === 'delete').slice(-1)[0]`",
+     "`entityType: 'bail'` + ref",
+     "Console",
+     "Pas d'entrée delete", 1),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.10",
+     "Audit complétude v14.98 : créer 1 immeuble, 1 quittance, 1 assurance, 1 MRH, 1 EDL",
+     "Toasts OK, audit-trail enrichi",
+     "Toast",
+     "Save sans audit-trail", 5),
+    ("4. CONFORMITÉ", "4.1 AUDIT-TRAIL", "4.1.11",
+     "Console : compteur types couverts `[...new Set(DB.auditTrail.map(e => e.entityType))]`",
+     "Array contient : entite, immeuble, logement, bail, quittance, assurance, mrh, edl, mouvement",
+     "Console",
+     "Type manquant → hook absent", 2),
+
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.1",
+     "Onglet Export → trouver carte \"📋 Aide déclaration 2044\"",
+     "Carte visible",
+     "Visuel",
+     "Carte absente", 1),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.2",
+     "Sélecteur Année : 4 options cy-3..cy",
+     "OK (2023-2026 par exemple)",
+     "Visuel select",
+     "Vide", 1),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.3",
+     "Sélecteur Entité : entités vivantes + 'Toutes'",
+     "OK",
+     "Visuel",
+     "Vide", 1),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.4",
+     "Bouton \"📊 Calculer + voir le récap\"",
+     "Récap apparaît dans `<pre>` formaté",
+     "Visuel",
+     "Aucune réponse / erreur", 1),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.5",
+     "Récap inclut : \"DÉCLARATION 2044\", \"Ligne 211\", \"Total recettes\", \"RÉSULTAT FONCIER\"",
+     "Toutes les mentions présentes",
+     "Visuel pre",
+     "Texte incomplet", 2),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.6",
+     "Si résultat foncier < 0 : phrase \"⚠ déficit foncier possible\"",
+     "Présente",
+     "Visuel",
+     "Absente quand résultat négatif", 1),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.7",
+     "Si catégorie custom non mappée : phrase \"⚠ N mouvement(s) avec catégorie non mappée\"",
+     "Présente",
+     "Visuel",
+     "Absente", 1),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.8",
+     "Bouton \"📥 Télécharger CSV pour comptable\"",
+     "Fichier .csv téléchargé",
+     "~/Downloads",
+     "Pas de download", 1),
+    ("4. CONFORMITÉ", "4.2 LEGAL-2044", "4.2.9",
+     "Ouvrir CSV dans Excel/LibreOffice",
+     "8 colonnes : ligne_2044, description, nb_mouvements, montant_eur + lignes TOTAL_RECETTES, TOTAL_CHARGES, RESULTAT_FONCIER",
+     "Excel",
+     "Colonnes incorrectes", 2),
+
+    ("4. CONFORMITÉ", "4.3 BILAN ANNUEL", "4.3.1",
+     "Onglet Export → carte \"📊 Bilan annuel par entité\"",
+     "Visible",
+     "Visuel",
+     "Absent", 1),
+    ("4. CONFORMITÉ", "4.3 BILAN ANNUEL", "4.3.2",
+     "Sélecteur Entité (obligatoire) + Année",
+     "OK",
+     "Visuel",
+     "Selectbox vide", 1),
+    ("4. CONFORMITÉ", "4.3 BILAN ANNUEL", "4.3.3",
+     "Bouton \"📊 Générer le bilan\"",
+     "Texte récap apparaît",
+     "Visuel",
+     "Aucune réponse", 1),
+    ("4. CONFORMITÉ", "4.3 BILAN ANNUEL", "4.3.4",
+     "Récap : \"BILAN ANNUEL\", nom entité, \"Revenus totaux\", \"Cash-flow opérationnel\", \"DÉTAIL PAR LOGEMENT\"",
+     "Toutes mentions présentes",
+     "Visuel pre",
+     "Sections manquantes", 2),
+    ("4. CONFORMITÉ", "4.3 BILAN ANNUEL", "4.3.5",
+     "Détail par logement : ligne par bien avec ref, type, locataire, occ%, revenus, charges, cash-flow",
+     "Aligné en colonnes",
+     "Visuel",
+     "Désaligné / manquant", 2),
+    ("4. CONFORMITÉ", "4.3 BILAN ANNUEL", "4.3.6",
+     "KPI \"Manque à gagner cumulé\" affiché",
+     "OK",
+     "Visuel",
+     "Manquant", 1),
+
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.1",
+     "Onglet Export → carte \"🔒 RGPD\"",
+     "Visible avec liens docs/legal/*",
+     "Visuel",
+     "Absent", 1),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.2",
+     "Vérifier `docs/legal/RGPD-REGISTRE.md` existe",
+     "Affiché dans Explorer",
+     "FS",
+     "Fichier absent", 1),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.3",
+     "Vérifier `docs/legal/DPA-GOOGLE-DRIVE.md` existe",
+     "OK",
+     "FS",
+     "Absent", 1),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.4",
+     "Sélecteur logement, bouton \"👁 Voir données collectées\"",
+     "Rapport texte multilignes",
+     "Visuel",
+     "Aucune réponse", 1),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.5",
+     "Rapport : \"Art. 15\", \"Logement: OUI\", nb mouvements, nb quittances, \"TOTAL ENREGISTREMENTS\"",
+     "Présent",
+     "Visuel",
+     "Sections manquantes", 2),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.6",
+     "Bouton \"📦 Export portabilité (art. 20)\"",
+     "Fichier `RGPD_export_<ref>_<date>.json` téléchargé",
+     "Downloads",
+     "Pas de download", 1),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.7",
+     "Ouvrir JSON exporté",
+     "`_meta.rgpdArticle === 'Art. 20 RGPD'` + `data.totalRecords > 0`",
+     "Texte JSON",
+     "Structure incorrecte", 2),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.8",
+     "Bouton \"🗑 Plan d'effacement (art. 17)\" sur un bail < 3 ans",
+     "\"❌ NON\" + raison \"prescription 3 ans non écoulée\"",
+     "Visuel",
+     "Marqué éligible à tort", 1),
+    ("4. CONFORMITÉ", "4.4 RGPD", "4.4.9",
+     "Plan : \"Total opérations prévues\", \"EXÉCUTION non implémentée en V1\"",
+     "Présent (V1.1 todo)",
+     "Visuel",
+     "Bouton exécuter présent à tort", 1),
+
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.1",
+     "Onglet Export → carte \"💼 Export comptable\"",
+     "Visible",
+     "Visuel",
+     "Absent", 1),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.2",
+     "Bouton \"📄 Export FEC\" + année + entité",
+     "Fichier `FEC_<année>.txt` téléchargé",
+     "Downloads",
+     "Pas de download", 1),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.3",
+     "Ouvrir le .txt dans éditeur",
+     "1ère ligne = header avec 18 colonnes séparées TAB",
+     "Texte",
+     "Colonnes incorrectes", 2),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.4",
+     "Header colonnes : JournalCode, JournalLib, EcritureNum, EcritureDate, CompteNum, CompteLib, CompAuxNum, CompAuxLib, PieceRef, PieceDate, EcritureLib, Debit, Credit, EcritureLet, DateLet, ValidDate, Montantdevise, Idevise",
+     "18 colonnes exactement",
+     "Texte",
+     "Colonnes manquantes ou ordre différent", 3),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.5",
+     "Dates lignes data format YYYYMMDD",
+     "Ex `20250115` (pas `2025-01-15`)",
+     "Texte",
+     "Format ISO ou autre", 1),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.6",
+     "Montants format virgule décimale FR",
+     "Ex `800,00` (PAS `800.00`)",
+     "Texte",
+     "Point décimal", 1),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.7",
+     "EcritureNum format `GL000001`",
+     "Préfixe GL + 6 chiffres pad",
+     "Texte",
+     "Format différent", 1),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.8",
+     "Bouton \"📒 Journal général (.csv)\"",
+     "Fichier .csv téléchargé",
+     "Downloads",
+     "Pas de download", 1),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.9",
+     "Vérifier équilibre débit=crédit (somme par num d'écriture)",
+     "Toutes équilibrées",
+     "Excel sur CSV",
+     "Déséquilibre → bug partie double", 3),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.10",
+     "Bouton \"📚 Grand livre (.csv)\"",
+     "CSV avec solde progressif + lignes \"TOTAL\" par compte",
+     "Excel",
+     "Structure incorrecte", 2),
+    ("4. CONFORMITÉ", "4.5 EXPORT-COMPTABLE FEC", "4.5.11",
+     "Test FEC réel : envoyer le FEC à un expert-comptable",
+     "Validation \"OK arrêté 29/07/2013 BOI-CF-IOR-60-40-20\"",
+     "Email expert",
+     "Format rejeté par l'expert", 10),
+
+    ("4. CONFORMITÉ", "4.6 IMPORT-CONCURRENTS", "4.6.1",
+     "Console : `window._mapRentila({biens:[{id:1, reference:'TEST'}]})`",
+     "Objet `{out, errors: [], summary: {logements: 1, baux: 0, mouvements: 0}}`",
+     "Console",
+     "Throw / structure différente", 1),
+    ("4. CONFORMITÉ", "4.6 IMPORT-CONCURRENTS", "4.6.2",
+     "Console : `window._mapBailFacile({Logements:[{Ref:'X', Type:'T2', Surface:50}]})`",
+     "`summary.logements === 1`",
+     "Console",
+     "Structure différente", 1),
+    ("4. CONFORMITÉ", "4.6 IMPORT-CONCURRENTS", "4.6.3",
+     "Console : `window._mergeImport(DB, {logements:[{ref:'F-IMPORT-001'}]})`",
+     "`{added: {logements: 1, baux: 0, mouvements: 0}, skipped: ...}`",
+     "Console",
+     "Échec merge", 1),
+    ("4. CONFORMITÉ", "4.6 IMPORT-CONCURRENTS", "4.6.4",
+     "Ré-exécuter même mergeImport",
+     "`skipped.logements === 1` (déduplication)",
+     "Console",
+     "Doublons créés", 1),
+
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.1",
+     "DevTools Ctrl+Shift+M → 320 px (iPhone SE)",
+     "Sidebar fermée + burger menu, lisible sans scroll horizontal",
+     "Visuel responsive",
+     "Scroll horizontal / sidebar bloque", 2),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.2",
+     "390 px (iPhone 14 Pro)",
+     "Modales 100dvh, boutons ≥ 44 px",
+     "Visuel",
+     "Modale tronquée / boutons trop petits", 2),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.3",
+     "428 px (iPhone Pro Max)",
+     "Forms 1 colonne, labels au-dessus inputs",
+     "Visuel",
+     "Layout 2 cols restant", 1),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.4",
+     "768 px (iPad)",
+     "Sidebar visible, layout 2 cols",
+     "Visuel",
+     "Layout cassé", 1),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.5",
+     "1280 px (desktop)",
+     "Layout 3-4 cols selon page",
+     "Visuel",
+     "Layout cassé", 1),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.6",
+     "Cliquer bouton \"btn bs\" (small) sur mobile",
+     "Zone tactile confortable (padding ≥ 10px)",
+     "Visuel tactile",
+     "Zone trop petite", 1),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.7",
+     "Ouvrir modale sur mobile",
+     "`m-foot` sticky bottom avec safe-area iPhone",
+     "Visuel",
+     "Boutons sortent du viewport", 1),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.8",
+     "Tap input texte sur mobile (ex Nom logement)",
+     "font-size 16px (aucun zoom auto iOS)",
+     "Visuel + DevTools styles",
+     "Zoom auto iOS Safari", 1),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.9",
+     "Tableau large (mouvements)",
+     "Scroll horizontal `tbl-wrap`",
+     "Visuel",
+     "Débordement / squish", 1),
+    ("4. CONFORMITÉ", "4.7 MOBILE responsive", "4.7.10",
+     "Afficher toast sur mobile",
+     "Largeur quasi pleine (left/right 12px)",
+     "Visuel",
+     "Largeur fixe", 1),
+
+    # ━━━━━━━━━ PARTIE 5 — BUGS P1 ━━━━━━━━━
+    ("5. BUGS P1", "5.1 BUG-CHARGE-001", "5.1.1",
+     "Créer un mvt cat `Loyers encaissés` cr=800 qui=F-001",
+     "OK",
+     "Toast",
+     "Erreur save", 1),
+    ("5. BUGS P1", "5.1 BUG-CHARGE-001", "5.1.2",
+     "Ouvrir onglet Régul (Charges)",
+     "Sans bug : provisions ≠ 0 (=800€ pour 1 mois)",
+     "Visuel KPI",
+     "provisions = 0 → bug régression", 1),
+    ("5. BUGS P1", "5.1 BUG-CHARGE-001", "5.1.3",
+     "Créer mvt `Provisions pour charges de copropriété` db=500 imm=Beta",
+     "OK",
+     "Toast",
+     "Erreur", 1),
+    ("5. BUGS P1", "5.1 BUG-CHARGE-001", "5.1.4",
+     "Régul → charges réelles = 500",
+     "OK",
+     "Visuel",
+     "= 0 → bug", 1),
+    ("5. BUGS P1", "5.1 BUG-CHARGE-001", "5.1.5",
+     "Mix legacy 'Loyers' + LEGAL-2044 'Loyers encaissés'",
+     "Les 2 comptés",
+     "Régul calcul",
+     "Un type ignoré", 1),
+
+    ("5. BUGS P1", "5.2 BUG-DASH-001", "5.2.1",
+     "Pré-requis : un bail avec révision IRL historique (DB.irlHistorique ≥ 1)",
+     "DB peuplée",
+     "Console",
+     "Pas de bail testable", 2),
+    ("5. BUGS P1", "5.2 BUG-DASH-001", "5.2.2",
+     "Dashboard → mai 2024 (avant révision jan 2025)",
+     "Loyer attendu = ancien HC",
+     "Visuel",
+     "Affiche nouveau HC", 1),
+    ("5. BUGS P1", "5.2 BUG-DASH-001", "5.2.3",
+     "Dashboard → juin 2025 (après révision)",
+     "Loyer attendu = nouveau HC",
+     "Visuel",
+     "Affiche ancien HC", 1),
+    ("5. BUGS P1", "5.2 BUG-DASH-001", "5.2.4",
+     "Console : `_loyerHCAtDate(DB.logements[0], '2024-05-15')`",
+     "Retourne ancien HC",
+     "Console",
+     "Retourne nouveau HC (bug)", 1),
+    ("5. BUGS P1", "5.2 BUG-DASH-001", "5.2.5",
+     "Console : `_loyerHCAtDate(DB.logements[0], '2025-06-15')`",
+     "Retourne nouveau HC",
+     "Console",
+     "Retourne ancien HC", 1),
+
+    ("5. BUGS P1", "5.3 DB-CORRUPT-FALLBACK", "5.3.1",
+     "Console : `localStorage.setItem('immotrack_db_v1', '{invalide JSON')`",
+     "OK silencieux",
+     "Console",
+     "Throw immédiat", 1),
+    ("5. BUGS P1", "5.3 DB-CORRUPT-FALLBACK", "5.3.2",
+     "F5 (rechargement)",
+     "Toast erreur 12s rouge \"Base corrompue\"",
+     "Visuel + Console",
+     "App crash sans warning", 1),
+    ("5. BUGS P1", "5.3 DB-CORRUPT-FALLBACK", "5.3.3",
+     "Console : `Object.keys(localStorage).filter(k => k.includes('corrupt_backup'))`",
+     "Au moins 1 clé `immotrack_db_v1_corrupt_backup_<ts>`",
+     "Console",
+     "Vide → backup pas créé", 1),
+
+    ("5. BUGS P1", "5.4 BUG-EQUIP-FILTER", "5.4.1",
+     "Créer un logement vacant (sans locataire)",
+     "OK",
+     "Toast",
+     "Erreur", 1),
+    ("5. BUGS P1", "5.4 BUG-EQUIP-FILTER", "5.4.2",
+     "Onglet Équipements → sélecteur logement",
+     "Logement vacant inclus avec label \"Vacant\"",
+     "Visuel select",
+     "Vacant exclu → bug régression", 1),
+    ("5. BUGS P1", "5.4 BUG-EQUIP-FILTER", "5.4.3",
+     "Sélecteur immeuble",
+     "Inclut immeubles avec vacants",
+     "Visuel",
+     "Immeuble vacant exclu", 1),
+
+    # ━━━━━━━━━ PARTIE 6 — MONITORING + CI ━━━━━━━━━
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.1",
+     "Console : `DB.params.monitoringEnabled = true; saveDB()`",
+     "Toast OK",
+     "Toast",
+     "Erreur save", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.2",
+     "Console : `window._installGlobalCapture()`",
+     "Aucune erreur",
+     "Console",
+     "Throw", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.3",
+     "Console : `setTimeout(() => { throw new Error('Test monitoring'); }, 100)`",
+     "Erreur dans console (Unhandled error)",
+     "Console",
+     "Aucune erreur capturée", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.4",
+     "Attendre 1s, puis `DB.errorLog.slice(-1)[0]`",
+     "Objet `{ts, message: 'Test monitoring', stack, pathHash, uaHash}`",
+     "Console",
+     "errorLog vide → capture cassée", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.5",
+     "Console : `DB.errorLog[0].uaHash`",
+     "Hash hexadécimal (PAS `Mozilla/...` clair)",
+     "Console",
+     "userAgent en clair → leak RGPD", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.6",
+     "Console : `_logEvent('test_event', {key: 'val'})`",
+     "Objet retourné, ajouté DB.eventLog",
+     "Console",
+     "null retourné", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.7",
+     "Console : `_exportMonitoringLogs(DB)`",
+     "String JSON avec `_meta.app === 'ImmoTrack'`, errorLog, eventLog",
+     "Console",
+     "Structure incorrecte", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.8",
+     "Console : `_clearMonitoringLogs(DB)`",
+     "Retourne `{cleared: N}` ; DB.errorLog et eventLog vidés",
+     "Console",
+     "Pas vidé", 1),
+    ("6. MONIT+CI", "6.1 Monitoring", "6.1.9",
+     "Désactiver : `DB.params.monitoringEnabled = false; _logError(new Error('x'))`",
+     "Retourne `null`",
+     "Console",
+     "Capture quand même → bug opt-out", 1),
+
+    ("6. MONIT+CI", "6.2 CI GitHub", "6.2.1",
+     "Terminal : `cat .github/workflows/test.yml`",
+     "Workflow YAML valide",
+     "Sortie cat",
+     "Fichier absent", 1),
+    ("6. MONIT+CI", "6.2 CI GitHub", "6.2.2",
+     "`git push origin <branche>` (test)",
+     "Workflow se déclenche sur GitHub",
+     "GitHub Actions tab",
+     "Pas déclenché", 2),
+    ("6. MONIT+CI", "6.2 CI GitHub", "6.2.3",
+     "Vérifier workflow vert (Vitest + syntax)",
+     "Tout passe vert",
+     "GitHub Actions",
+     "Rouge → analyser logs", 5),
+    ("6. MONIT+CI", "6.2 CI GitHub", "6.2.4",
+     "Ouvrir une PR",
+     "Workflow se relance auto",
+     "GitHub PR",
+     "Pas relancé", 1),
+
+    # ━━━━━━━━━ PARTIE 7 — EMAIL-AUTO ━━━━━━━━━
+    ("7. EMAIL-AUTO", "7. Email", "7.1",
+     "Console : `window._emailTypesSupportes()`",
+     "Array des 10 types (relance impayé, fin de bail, IRL, etc.)",
+     "Console",
+     "undefined → module pas chargé", 1),
+    ("7. EMAIL-AUTO", "7. Email", "7.2",
+     "Console : `window._emailCompose(...)`",
+     "Objet `{sujet, corps, destinataires}`",
+     "Console",
+     "throw", 1),
+    ("7. EMAIL-AUTO", "7. Email", "7.3",
+     "UI : trouver bouton Email dans l'app (selon impl. autre session)",
+     "Bouton(s) sur fiches/baux/quittances",
+     "Visuel UI",
+     "Pas de bouton (UI à venir)", 2),
+    ("7. EMAIL-AUTO", "7. Email", "7.4",
+     "Console : `DB.emailsSent`",
+     "Array (vide ou peuplé)",
+     "Console",
+     "undefined → DB pas initialisée", 1),
+
+    # ━━━━━━━━━ PARTIE 8 — DRIVE ━━━━━━━━━
+    ("8. DRIVE SYNC", "8. Drive", "8.1",
+     "Onglet Export → \"⬆️ Sauvegarder sur Drive\"",
+     "OAuth Google → consent OK",
+     "OAuth popup",
+     "Refus / erreur OAuth", 3),
+    ("8. DRIVE SYNC", "8. Drive", "8.2",
+     "Vérifier compte Drive → dossier `ImmoTrack/` créé",
+     "OK",
+     "Google Drive web",
+     "Dossier absent", 1),
+    ("8. DRIVE SYNC", "8. Drive", "8.3",
+     "Structure `ImmoTrack/<entité>/<immeuble>/<logement>/` avec 9 sous-dossiers (EDL/Bail/Documents/Photos/Quittances/IRL/MRH/Travaux/Charges)",
+     "9 sous-dossiers présents",
+     "Drive",
+     "Sous-dossier manquant", 3),
+    ("8. DRIVE SYNC", "8. Drive", "8.4",
+     "Vérifier fichier `entity-*.json` ou `user-*.json` racine",
+     "OK",
+     "Drive",
+     "Absent", 1),
+    ("8. DRIVE SYNC", "8. Drive", "8.5",
+     "Modifier 1 mouvement → push auto",
+     "Toast \"✅ Synchronisé\"",
+     "Toast",
+     "Pas de sync auto", 2),
+    ("8. DRIVE SYNC", "8. Drive", "8.6",
+     "Sur 2ème device (ou reset DB local) : pull",
+     "Données rechargées",
+     "Visuel UI",
+     "Pull échoue", 5),
+    ("8. DRIVE SYNC", "8. Drive", "8.7",
+     "Console après pull : `DB.auditTrail.slice(-1)[0]`",
+     "Inclut entrées sync",
+     "Console",
+     "Pas d'audit pull", 1),
+    ("8. DRIVE SYNC", "8. Drive", "8.8",
+     "Supprimer 1 logement → tombstone propagé",
+     "Logement disparaît sur 2ème device",
+     "Visuel",
+     "Logement ressuscite", 2),
+
+    # ━━━━━━━━━ PARTIE 9 — Parcours ━━━━━━━━━
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.1",
+     "Créer 1 entité \"Test Bailleur\" type Particulier",
+     "Apparaît liste Bailleurs",
+     "Visuel",
+     "Erreur", 1),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.2",
+     "Créer 1 immeuble \"Immeuble Test\" attaché",
+     "Apparaît fiche bailleur",
+     "Visuel",
+     "Pas rattaché", 1),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.3",
+     "Créer logement \"TEST-001\" T2 50m² hc=800 ch=50",
+     "Apparaît Biens",
+     "Visuel",
+     "Erreur", 1),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.4",
+     "Créer bail locataire \"MARTIN Jean\" début 2024-01-01 IRL T4",
+     "Apparaît Baux",
+     "Visuel",
+     "Erreur", 2),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.5",
+     "Saisir 12 mvts loyers mensuels 2025 (800€ cat 'Loyers encaissés' qui=TEST-001)",
+     "12 mvts visibles",
+     "Tableau mouvements",
+     "Mvts manquants", 5),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.6",
+     "Saisir 2 mvts charges (cat 'Provisions copropriété' db=200)",
+     "2 mvts",
+     "Tableau",
+     "Mvts perdus", 2),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.7",
+     "1 mvt travaux (cat 'Travaux réparation' db=500)",
+     "OK",
+     "Tableau",
+     "Erreur", 1),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.8",
+     "1 mvt taxe foncière (cat 'Taxe foncière' db=600)",
+     "OK",
+     "Tableau",
+     "Erreur", 1),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.9",
+     "Onglet Quittances → vérifier 12 quittances auto-générées",
+     "12 lignes",
+     "Tableau quittances",
+     "Manque quittances → quittAutoGen ne fonctionne pas", 2),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.10",
+     "Onglet Régul → vérifier régul 2025 calculée",
+     "Provisions ≠ 0, charges réelles cohérentes",
+     "Visuel KPI",
+     "Calcul faux", 2),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.11",
+     "Export → Aide 2044 → résultat foncier cohérent",
+     "`(800×12) - (200×2 + 500 + 600) = 8100€`",
+     "Texte récap",
+     "Valeur différente", 3),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.12",
+     "Export → Bilan annuel → KPIs",
+     "Tx occupation 100%, cash-flow ~8100",
+     "Texte récap",
+     "Valeurs incohérentes", 2),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.13",
+     "Export → FEC téléchargé",
+     "12 lignes loyer + 4 lignes charges = 32 écritures partie double",
+     "Texte FEC",
+     "Nombre incorrect", 3),
+    ("9. PARCOURS", "9.1 Bailleur particulier", "9.1.14",
+     "Console : `DB.auditTrail.length` après parcours complet",
+     "≥ 16 entrées (création + 12 mvts + autres)",
+     "Console",
+     "< 16 → hooks manquants", 1),
+
+    ("9. PARCOURS", "9.2 IRL complet", "9.2.1",
+     "Saisir DPE classe D pour TEST-001 + date 2024-06-01",
+     "OK save",
+     "Toast",
+     "Erreur", 1),
+    ("9. PARCOURS", "9.2 IRL complet", "9.2.2",
+     "Vérifier IRL calculée (bail début 2024-01, anniv 1er janv 2025)",
+     "Onglet IRL ligne \"À préparer\"",
+     "Visuel IRL",
+     "Pas de ligne → bug calcul", 2),
+    ("9. PARCOURS", "9.2 IRL complet", "9.2.3",
+     "Bouton \"👁 Aperçu\" → modal lettre IRL",
+     "Lettre rendue avec mois anniversaire",
+     "Visuel",
+     "Modal vide", 1),
+    ("9. PARCOURS", "9.2 IRL complet", "9.2.4",
+     "Bouton \"Valider envoi\" → enveloppe verte",
+     "Toast OK",
+     "Visuel + toast",
+     "Erreur", 1),
+    ("9. PARCOURS", "9.2 IRL complet", "9.2.5",
+     "Bouton \"💶 Valider IRL\" → confirm",
+     "DB.irlHistorique a 1 entrée + log.hc mis à jour",
+     "Console + UI",
+     "Pas d'historique", 2),
+    ("9. PARCOURS", "9.2 IRL complet", "9.2.6",
+     "Dashboard → vérifier loyer attendu AVANT révision = ancien HC",
+     "Cohérent BUG-DASH-001 fix",
+     "Visuel",
+     "Affiche nouveau HC", 1),
+    ("9. PARCOURS", "9.2 IRL complet", "9.2.7",
+     "Test gel DPE F : changer DPE → F → ouvrir IRL → blocage",
+     "\"🔒 Loyer GELÉ\" (loi Climat 2021)",
+     "Visuel IRL",
+     "Révision proposée → bug légal", 2),
+
+    ("9. PARCOURS", "9.3 EDL complet", "9.3.1",
+     "Nouvel EDL type entrée pour TEST-001",
+     "Modale EDL",
+     "Visuel",
+     "Erreur", 1),
+    ("9. PARCOURS", "9.3 EDL complet", "9.3.2",
+     "Ajouter 3 pièces (Salon, Cuisine, Chambre)",
+     "Pièces ajoutées",
+     "Visuel",
+     "Pas d'ajout", 2),
+    ("9. PARCOURS", "9.3 EDL complet", "9.3.3",
+     "Ajouter 1 photo par pièce (upload image test)",
+     "Photos en thumb",
+     "Visuel",
+     "Upload échoue", 3),
+    ("9. PARCOURS", "9.3 EDL complet", "9.3.4",
+     "Signatures bailleur + locataire",
+     "2 canvas signés",
+     "Visuel",
+     "Canvas vide", 2),
+    ("9. PARCOURS", "9.3 EDL complet", "9.3.5",
+     "Save EDL → Console : `DB.auditTrail.slice(-1)[0]`",
+     "`entityType: 'edl'` (audit hook v14.98)",
+     "Console",
+     "Pas d'audit → hook v14.98 cassé", 1),
+    ("9. PARCOURS", "9.3 EDL complet", "9.3.6",
+     "Bouton \"Générer PDF\"",
+     "PDF téléchargé avec 7 colonnes + photos + signatures",
+     "Downloads",
+     "Génération échoue", 3),
+    ("9. PARCOURS", "9.3 EDL complet", "9.3.7",
+     "Si Drive connecté : photos uploadées dans `📋 EDL/` du logement",
+     "Visible Drive",
+     "Drive web",
+     "Photos manquent", 2),
+
+    # ━━━━━━━━━ PARTIE 10 — Console ━━━━━━━━━
+    ("10. ERRORS", "10.1 No errors boot", "10.1.1",
+     "F5 (reload page)",
+     "Aucune erreur rouge dans Console",
+     "Console",
+     "Erreur JS bloquante", 1),
+    ("10. ERRORS", "10.1 No errors boot", "10.1.2",
+     "Console → niveau \"Errors only\"",
+     "Vide",
+     "Console",
+     "Erreurs présentes", 1),
+    ("10. ERRORS", "10.1 No errors boot", "10.1.3",
+     "Network → filtre \"Failed\"",
+     "Aucun fichier en échec",
+     "Network",
+     "404 / 5xx présent", 1),
+
+    # ━━━━━━━━━ PARTIE 11 — Avancé ━━━━━━━━━
+    ("11. AVANCÉ", "11.1 Audit completude", "11.1.1",
+     "Console : voir snippet dans CHECKLIST.md section 11.1",
+     "Tous types audit-trail ✅ après parcours 9.1",
+     "Console",
+     "Type marqué ⚠️ → hook manquant", 2),
+    ("11. AVANCÉ", "11.2 Performance", "11.2.1",
+     "DevTools Performance → record 5s navigation",
+     "FPS > 30 sur navigation",
+     "Performance tab",
+     "FPS < 30 → bottleneck", 3),
+    ("11. AVANCÉ", "11.2 Performance", "11.2.2",
+     "Memory → snapshot",
+     "Heap < 50 MB sur dataset démo",
+     "Memory tab",
+     "> 100 MB → fuite", 2),
+    ("11. AVANCÉ", "11.2 Performance", "11.2.3",
+     "Console : `JSON.stringify(localStorage).length / 1024 / 1024`",
+     "< 5 MB",
+     "Console",
+     "> 5 MB → photos passent en localStorage", 1),
+    ("11. AVANCÉ", "11.3 Accessibilité", "11.3.1",
+     "DevTools Lighthouse → Accessibility audit",
+     "Score > 80",
+     "Lighthouse report",
+     "Score < 60 → améliorer", 3),
+
+    # ━━━━━━━━━ PARTIE 12 — Bascule prod ━━━━━━━━━
+    ("12. BASCULE", "12.1 Backups", "12.1.1",
+     "Terminal : `cp index.html index.prod.backup-$(date +%Y%m%d).html`",
+     "Fichier backup créé",
+     "ls",
+     "Erreur copie", 1),
+    ("12. BASCULE", "12.1 Backups", "12.1.2",
+     "Export JSON via Paramètres → sauver localement",
+     "Fichier `ImmoTrack_YYYY-MM-DD.json` téléchargé",
+     "Downloads",
+     "Pas de download", 1),
+    ("12. BASCULE", "12.1 Backups", "12.1.3",
+     "`git tag pre-bascule-prod-$(date +%Y%m%d)`",
+     "Tag créé",
+     "git tag",
+     "Erreur", 1),
+    ("12. BASCULE", "12.1 Backups", "12.1.4",
+     "Vérifier tag `pre-modular-sprint2` existe",
+     "Rollback ultime dispo",
+     "git tag",
+     "Tag absent", 1),
+    ("12. BASCULE", "12.2 Bascule commits", "12.2.1",
+     "Terminal : `git log --oneline pre-modular-sprint2..HEAD --reverse`",
+     "Liste des 19 commits à reproduire",
+     "Sortie git",
+     "Liste vide / incorrecte", 1),
+    ("12. BASCULE", "12.2 Bascule commits", "12.2.2",
+     "Pour chaque commit : reproduire diff sur index.html + bump + commit séparé",
+     "1 commit prod / sprint sandbox",
+     "git log",
+     "Commit géant → granularité perdue", 60),
+]
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# FEUILLE 1 : Checklist
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ws = wb.active
+ws.title = "Checklist"
+
+# Headers
+headers = ["Section", "Sous-section", "N°", "Action à effectuer", "Résultat attendu", "Où vérifier", "KO si...", "Statut", "Notes", "Min."]
+for col, h in enumerate(headers, 1):
+    c = ws.cell(row=1, column=col, value=h)
+    c.fill = HEADER_FILL
+    c.font = HEADER_FONT
+    c.alignment = CENTER
+    c.border = thin_border
+
+# Data rows
+current_section = None
+current_subsection = None
+for row_idx, item in enumerate(CHECKLIST, start=2):
+    section, subsection, num, action, attendu, ou_verif, ko, duree = item
+
+    # Header de section : ligne séparatrice si changement
+    if section != current_section:
+        current_section = section
+        # Ligne section
+        ws.cell(row=row_idx, column=1, value=section).fill = SECTION_FILL
+        ws.cell(row=row_idx, column=1).font = SECTION_FONT
+        # Merge cells de la ligne section
+        ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=10)
+        # Skip data row for this header line - on incrémente pour la prochaine
+        continue
+
+    ws.cell(row=row_idx, column=1, value=section).alignment = WRAP
+    ws.cell(row=row_idx, column=2, value=subsection).alignment = WRAP
+    ws.cell(row=row_idx, column=3, value=num).alignment = CENTER
+    ws.cell(row=row_idx, column=4, value=action).alignment = WRAP
+    ws.cell(row=row_idx, column=5, value=attendu).alignment = WRAP
+    ws.cell(row=row_idx, column=6, value=ou_verif).alignment = WRAP
+    ws.cell(row=row_idx, column=7, value=ko).alignment = WRAP
+    ws.cell(row=row_idx, column=8, value="").alignment = CENTER  # Statut vide
+    ws.cell(row=row_idx, column=9, value="").alignment = WRAP    # Notes
+    ws.cell(row=row_idx, column=10, value=duree).alignment = CENTER  # Durée
+
+    # Bordures
+    for col in range(1, 11):
+        ws.cell(row=row_idx, column=col).border = thin_border
+
+# Largeurs colonnes
+column_widths = {
+    'A': 14, 'B': 22, 'C': 8, 'D': 50, 'E': 50, 'F': 18, 'G': 35, 'H': 9, 'I': 25, 'J': 6
+}
+for col_letter, width in column_widths.items():
+    ws.column_dimensions[col_letter].width = width
+
+# Hauteurs lignes (lignes data plus hautes pour le wrap)
+for row in range(2, ws.max_row + 1):
+    cell_val = ws.cell(row=row, column=4).value
+    if cell_val and len(str(cell_val)) > 60:
+        ws.row_dimensions[row].height = 45
+    else:
+        ws.row_dimensions[row].height = 32
+
+# Freeze header
+ws.freeze_panes = "A2"
+
+# Validation données pour colonne Statut (H)
+from openpyxl.worksheet.datavalidation import DataValidation
+dv = DataValidation(type="list", formula1='"✅,❌,⏭️,⚠️"', allow_blank=True)
+dv.error = "Choisir : ✅ OK | ❌ KO | ⏭️ Skip | ⚠️ Partiel"
+dv.errorTitle = "Statut invalide"
+dv.prompt = "✅ OK ❌ KO ⏭️ Skip ⚠️ Partiel"
+dv.promptTitle = "Statut"
+ws.add_data_validation(dv)
+dv.add(f"H2:H{ws.max_row}")
+
+# Formatage conditionnel : Statut ✅ → vert, ❌ → rouge, ⏭️ → gris, ⚠️ → orange
+from openpyxl.styles import PatternFill
+green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+gray_fill = PatternFill(start_color="E0E0E0", end_color="E0E0E0", fill_type="solid")
+orange_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+
+# Apply via FormulaRule sur la ligne entière selon statut H
+last_row = ws.max_row
+ws.conditional_formatting.add(f"A2:J{last_row}", FormulaRule(formula=[f'$H2="✅"'], fill=green_fill))
+ws.conditional_formatting.add(f"A2:J{last_row}", FormulaRule(formula=[f'$H2="❌"'], fill=red_fill))
+ws.conditional_formatting.add(f"A2:J{last_row}", FormulaRule(formula=[f'$H2="⏭️"'], fill=gray_fill))
+ws.conditional_formatting.add(f"A2:J{last_row}", FormulaRule(formula=[f'$H2="⚠️"'], fill=orange_fill))
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# FEUILLE 2 : Synthèse
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ws2 = wb.create_sheet("Synthèse")
+
+ws2['A1'] = "SYNTHÈSE VALIDATION V1 COMMERCIALE ImmoTrack v14.98"
+ws2['A1'].font = Font(size=16, bold=True, color="1F4E78")
+ws2.merge_cells('A1:F1')
+
+ws2['A3'] = "Compteurs globaux"
+ws2['A3'].font = Font(size=14, bold=True)
+
+ws2['A4'] = "Total points :"
+ws2['B4'] = f'=COUNTA(Checklist!C2:C{last_row})'
+ws2['A5'] = "✅ OK :"
+ws2['B5'] = f'=COUNTIF(Checklist!H2:H{last_row}, "✅")'
+ws2['B5'].fill = green_fill
+ws2['A6'] = "❌ KO :"
+ws2['B6'] = f'=COUNTIF(Checklist!H2:H{last_row}, "❌")'
+ws2['B6'].fill = red_fill
+ws2['A7'] = "⚠️ Partiel :"
+ws2['B7'] = f'=COUNTIF(Checklist!H2:H{last_row}, "⚠️")'
+ws2['B7'].fill = orange_fill
+ws2['A8'] = "⏭️ Skip :"
+ws2['B8'] = f'=COUNTIF(Checklist!H2:H{last_row}, "⏭️")'
+ws2['B8'].fill = gray_fill
+ws2['A9'] = "Non testés :"
+ws2['B9'] = f'=B4-B5-B6-B7-B8'
+ws2['A10'] = "Progression :"
+ws2['B10'] = f'=(B5+B7+B8)/B4'
+ws2['B10'].number_format = '0.0%'
+
+ws2['A12'] = "Compteurs par section"
+ws2['A12'].font = Font(size=14, bold=True)
+
+ws2['A13'] = "Section"
+ws2['B13'] = "Total"
+ws2['C13'] = "✅"
+ws2['D13'] = "❌"
+ws2['E13'] = "⚠️"
+ws2['F13'] = "⏭️"
+ws2['G13'] = "Restant"
+ws2['H13'] = "%"
+for col in 'ABCDEFGH':
+    ws2[f'{col}13'].fill = HEADER_FILL
+    ws2[f'{col}13'].font = HEADER_FONT
+    ws2[f'{col}13'].alignment = CENTER
+
+sections = [
+    "1. AUTO", "2. SÉCU XSS", "3. ARCHI", "4. CONFORMITÉ",
+    "5. BUGS P1", "6. MONIT+CI", "7. EMAIL-AUTO", "8. DRIVE SYNC",
+    "9. PARCOURS", "10. ERRORS", "11. AVANCÉ", "12. BASCULE"
+]
+for idx, sec in enumerate(sections, start=14):
+    ws2[f'A{idx}'] = sec
+    ws2[f'B{idx}'] = f'=COUNTIF(Checklist!A:A, "{sec}")'
+    ws2[f'C{idx}'] = f'=COUNTIFS(Checklist!A:A, "{sec}", Checklist!H:H, "✅")'
+    ws2[f'D{idx}'] = f'=COUNTIFS(Checklist!A:A, "{sec}", Checklist!H:H, "❌")'
+    ws2[f'E{idx}'] = f'=COUNTIFS(Checklist!A:A, "{sec}", Checklist!H:H, "⚠️")'
+    ws2[f'F{idx}'] = f'=COUNTIFS(Checklist!A:A, "{sec}", Checklist!H:H, "⏭️")'
+    ws2[f'G{idx}'] = f'=B{idx}-C{idx}-D{idx}-E{idx}-F{idx}'
+    ws2[f'H{idx}'] = f'=IF(B{idx}=0,0,(C{idx}+E{idx}+F{idx})/B{idx})'
+    ws2[f'H{idx}'].number_format = '0%'
+
+# Largeurs synthèse
+ws2.column_dimensions['A'].width = 16
+ws2.column_dimensions['B'].width = 10
+for col in 'CDEFGH':
+    ws2.column_dimensions[col].width = 8
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# FEUILLE 3 : Commandes à copier
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ws3 = wb.create_sheet("Commandes")
+ws3['A1'] = "COMMANDES TERMINAL / CONSOLE À COPIER-COLLER"
+ws3['A1'].font = Font(size=14, bold=True, color="1F4E78")
+ws3.merge_cells('A1:B1')
+
+commandes = [
+    ("CONFIG", "Démarrer http-server sandbox", "cd C:/Users/Did_K/Desktop/Immo && npx --yes http-server . -p 8766 -c-1 --silent &"),
+    ("CONFIG", "Lancer Vitest", "cd C:/Users/Did_K/Desktop/Immo && npm run test:run"),
+    ("CONFIG", "Vitest watch mode", "npm test"),
+    ("CONFIG", "Ouvrir l'app dans Chrome", "start chrome http://localhost:8766/index-test.html"),
+    ("HTTP", "Test HTTP modules ES batch", '''for f in css/main.css js/main.js js/core/utils.js js/core/idb.js js/core/audit-trail.js js/core/legal-2044.js js/core/legal-bilan.js js/core/rgpd.js js/core/export-comptable.js js/core/import-concurrents.js js/core/monitoring.js js/core/email-compose.js js/components/toast.js js/components/modal.js js/components/email-modal.js; do
+  curl -s -o /dev/null -w "%{http_code} %{size_download} $f\\n" "http://localhost:8766/$f"
+done'''),
+    ("CONSOLE", "Sanity check window.escHtml", 'typeof window.escHtml === "function"'),
+    ("CONSOLE", "Sanity check bootstrap", 'window.__IMMOTRACK_MODULE_BOOTSTRAP__'),
+    ("CONSOLE", "Compte helpers exposés", 'window.__IMMOTRACK_MODULE_BOOTSTRAP__.helpersExposed.length'),
+    ("CONSOLE XSS", "Test escHtml chaîne basique", 'escHtml("<x>")'),
+    ("CONSOLE XSS", "Test _h tag function", '_h`<b>${"<script>"}</b>`'),
+    ("CONSOLE XSS", "Test _h + _raw", '_h`<b>${_raw("<strong>OK</strong>")}</b>`'),
+    ("CONSOLE XSS", "Vérifier window.__xss après test entité", 'window.__xss'),
+    ("CONSOLE AUDIT", "Dernière entrée audit-trail", 'DB.auditTrail.slice(-1)[0]'),
+    ("CONSOLE AUDIT", "Types audit couverts", '[...new Set(DB.auditTrail.map(e => e.entityType))]'),
+    ("CONSOLE AUDIT", "Verif tous save<X> hookés", '''(()=>{const saveTypes=["mouvement","bail","entite","immeuble","logement","quittance","assurance","mrh","edl"];const auditTypes=new Set((DB.auditTrail||[]).map(e=>e.entityType));return saveTypes.map(t=>({type:t,audited:auditTypes.has(t)?"✅":"⚠️ MANQUE"}));})()'''),
+    ("CONSOLE LEGAL-2044", "Test compute", 'window._compute2044(DB.mouvements, STD_CATEGORIES, {yr: "2025", from: "2025-01-01", to: "2025-12-31"})'),
+    ("CONSOLE RGPD", "Trouver données locataire", 'window._findPersonalDataForRef(DB, "F-001")'),
+    ("CONSOLE RGPD", "Vérifier éligibilité effacement", 'window._isEraseEligible(DB, "F-001")'),
+    ("CONSOLE BILAN", "Bilan annuel entité", 'window._computeBilanAnnuel(DB, STD_CATEGORIES, "Mon Entité", 2025)'),
+    ("CONSOLE COMPTA", "Build écritures FEC", 'window._buildEcritures(DB.mouvements, STD_CATEGORIES, {yr: "2025"}).length'),
+    ("CONSOLE MONITORING", "Activer monitoring", 'DB.params.monitoringEnabled = true; saveDB(); window._installGlobalCapture();'),
+    ("CONSOLE MONITORING", "Test logError", '_logError(new Error("test")); DB.errorLog.slice(-1)[0]'),
+    ("CONSOLE MONITORING", "Export logs", 'console.log(_exportMonitoringLogs(DB))'),
+    ("CONSOLE MONITORING", "Clear logs", '_clearMonitoringLogs(DB)'),
+    ("CONSOLE LEAK", "Taille localStorage en MB", 'JSON.stringify(localStorage).length / 1024 / 1024'),
+    ("CONSOLE LEAK", "Vérif pas userAgent en clair (RGPD)", 'DB.errorLog.length > 0 && /Mozilla|Chrome|Safari/.test(JSON.stringify(DB.errorLog))'),
+    ("CONSOLE DB-CORRUPT", "Simuler corruption", 'localStorage.setItem("immotrack_db_v1", "{invalide JSON")'),
+    ("CONSOLE DB-CORRUPT", "Vérif backups corruptions", 'Object.keys(localStorage).filter(k => k.includes("corrupt_backup"))'),
+    ("CONSOLE IMPORT", "Test mapRentila", 'window._mapRentila({biens:[{id:1, reference:"TEST", surface:50, loyer_hc:800}]})'),
+    ("CONSOLE IMPORT", "Test mapBailFacile", 'window._mapBailFacile({Logements:[{Ref:"X", Type:"T2", Surface:50, "Loyer HC":800}]})'),
+    ("CONSOLE EMAIL", "Liste types email", 'window._emailTypesSupportes()'),
+    ("CONSOLE EMAIL", "Historique emails", 'DB.emailsSent'),
+    ("GIT", "Liste 19 commits marathon", 'git log --oneline pre-modular-sprint2..HEAD --reverse'),
+    ("GIT", "Tag git pre-bascule", 'git tag pre-bascule-prod-$(date +%Y%m%d)'),
+    ("GIT", "Backup index.html prod", 'cp index.html index.prod.backup-$(date +%Y%m%d).html'),
+    ("GIT", "Vérif tag rollback", 'git tag | grep pre-modular-sprint2'),
+    ("GIT", "Rollback total si catastrophe", 'git reset --hard pre-modular-sprint2'),
+    ("AUDIT", "Re-scan XSS résiduel", 'grep -nE "innerHTML\\s*=" index-test.html | grep -v escHtml | grep -E "\\$\\{[a-z]\\.(nom|ref|locataire|cat|lib)" | wc -l'),
+    ("AUDIT", "Compteur _auditLog total", 'grep -c "_auditLog(" index-test.html'),
+    ("AUDIT", "Compteur tests Vitest", 'npm run test:run 2>&1 | grep "Tests" | tail -1'),
+]
+
+ws3['A3'] = "Catégorie"
+ws3['B3'] = "Description"
+ws3['C3'] = "Commande"
+for col in 'ABC':
+    ws3[f'{col}3'].fill = HEADER_FILL
+    ws3[f'{col}3'].font = HEADER_FONT
+
+for idx, (cat, desc, cmd) in enumerate(commandes, start=4):
+    ws3[f'A{idx}'] = cat
+    ws3[f'B{idx}'] = desc
+    ws3[f'C{idx}'] = cmd
+    ws3[f'A{idx}'].alignment = Alignment(vertical="top")
+    ws3[f'B{idx}'].alignment = Alignment(vertical="top", wrap_text=True)
+    ws3[f'C{idx}'].alignment = Alignment(vertical="top", wrap_text=True)
+    ws3[f'C{idx}'].font = Font(name="Consolas", size=10)
+    if len(cmd) > 80:
+        ws3.row_dimensions[idx].height = 50
+
+ws3.column_dimensions['A'].width = 18
+ws3.column_dimensions['B'].width = 35
+ws3.column_dimensions['C'].width = 80
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Sauvegarde
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+import os
+os.makedirs("C:/Users/Did_K/Desktop/Immo/docs/audit", exist_ok=True)
+out_path = "C:/Users/Did_K/Desktop/Immo/docs/audit/CHECKLIST-VALIDATION-V1.xlsx"
+wb.save(out_path)
+
+# Stats finales
+print(f"✅ Fichier généré : {out_path}")
+print(f"   Feuilles : 3 (Checklist, Synthèse, Commandes)")
+print(f"   Points checklist : {len(CHECKLIST)}")
+print(f"   Commandes : {len(commandes)}")
+print(f"   Taille : {os.path.getsize(out_path)} octets")
