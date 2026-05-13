@@ -77,50 +77,164 @@ graph TD
 
 ---
 
-## 🗺️ Arborescence UX (sidebar + interactions)
+## 🗺️ Arborescence UX (sidebar + interactions inter-onglets)
+
+### Diagramme 1 — Hub Dashboard + alertes
+
+Le **Tableau de bord** est le hub central. Toutes les alertes pointent vers l'onglet de résolution.
 
 ```mermaid
 graph LR
-    subgraph "Sidebar (8-15 onglets selon profil)"
-        TB[📊 Tableau de bord]
+    TB[📊 Tableau de bord<br/>Hub & Alertes]
+
+    TB -->|"clic KPI loyers/cash-flow"| MV[💰 Mouvements]
+    TB -->|"clic alerte IRL mois anniv"| IR[📈 IRL]
+    TB -->|"clic alerte vacance"| BI[🏢 Biens vacants]
+    TB -->|"clic alerte MRH expire"| AS[🛡️ MRH]
+    TB -->|"clic alerte impayé"| MV
+    TB -->|"clic alerte EDL à faire"| ED[📋 EDL]
+    TB -->|"clic alerte régul"| CH[⚡ Charges/Régul]
+    TB -->|"clic alerte entretien"| TR[🔧 Travaux]
+    TB -->|"clic alerte candidatures"| CD[🎯 Candidats V1.1]
+    TB -->|"clic alerte DG à restituer"| GDG[💼 Gestion DG V1.1]
+    TB -->|"lentille Échéances"| PI[🎯 Pilotage V1.1]
+    TB -->|"lentille Fiscal mars-juin"| FI[🏛️ Fiscalité 2044]
+
+    style TB fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    style PI fill:#fff3e0
+    style CD fill:#fff3e0
+    style GDG fill:#fff3e0
+```
+
+### Diagramme 2 — Cycle de vie bail (interactions données)
+
+Le **bail** est l'objet métier pivot. Tous les autres onglets gravitent autour.
+
+```mermaid
+graph TB
+    subgraph Acquisition
         BI[🏢 Biens]
         BL[👤 Bailleurs]
-        LC[👥 Locataires]
-        CD[🎯 Candidats V1.1]
-        BX[📜 Baux]
-        MV[💰 Mouvements]
-        QT[🧾 Quittances]
-        IR[📈 IRL]
-        ED[📋 EDL]
-        CH[⚡ Charges/Régul]
-        AS[🛡️ MRH/Assurances]
-        TR[🔧 Travaux]
-        PI[🎯 Pilotage V1.1]
-        FI[🏛️ Fiscalité 2044]
-        FN[💳 Finances]
-        CR[📇 Carnet adresse V1.1]
-        PR[⚙️ Paramètres]
+        BI -->|"appartient à"| BL
     end
 
-    TB -->|"clic KPI"| MV
-    TB -->|"clic alerte IRL"| IR
-    TB -->|"clic vacance"| BI
-    BI -->|"clic carte"| FB[Fiche Bien 360]
-    BL -->|"clic carte"| FE[Fiche Bailleur 360]
-    FB -->|"sous-onglet bail"| BX
-    FB -->|"sous-onglet docs"| DOCS[Documents Drive]
-    FB -->|"sous-onglet compta"| MV
-    BX -->|"signer"| EDC[EDL entrée]
-    BX -->|"générer"| QT
-    QT -->|"envoyer"| EMAIL[EMAIL-AUTO ✅]
-    IR -->|"valider révision"| MV
-    CH -->|"régul annuelle"| MV
-    CD -->|"convertir candidat"| BX
-    FI -->|"calcul 2044"| MV
+    subgraph "Candidature → Bail"
+        CD[🎯 Candidats V1.1]
+        CD -->|"convertir candidat"| BX[📜 Baux]
+        BI -->|"location"| BX
+        BL -->|"signe"| BX
+    end
 
-    style TB fill:#e3f2fd
-    style PI fill:#fff3e0
+    subgraph "Phase Entrée"
+        BX -->|"convoque EDL"| EDC[📋 EDL entrée]
+        BX -->|"reçoit"| DG[💰 Mouvement DG]
+        EDC -->|"photos compteurs"| MV2[💰 État compteurs]
+    end
+
+    subgraph "Vie du bail (mensuel/annuel)"
+        BX -->|"génère mensuel"| QT[🧾 Quittances]
+        QT -->|"crée mvt"| MV[💰 Mouvements loyers]
+        BX -->|"révision annuelle"| IR[📈 IRL]
+        IR -->|"crée mvt révisé"| MV
+        BX -->|"charges récupérables<br/>détail décret 87-713"| CH[⚡ Charges/Régul]
+        CH -->|"régul annuelle"| MV
+        BX -->|"MRH locataire"| AS[🛡️ MRH]
+        AS -->|"renouvellement annuel"| MV
+        BX -->|"entretien chaudière annuel"| TR[🔧 Travaux/Entretien]
+        TR -->|"facture"| MV
+    end
+
+    subgraph "Sortie / Solde"
+        BX -->|"préavis 3 mois"| EDS[📋 EDL sortie]
+        EDS -->|"comparatif compteurs"| EDC
+        EDS -->|"restitution"| GDG[💼 Gestion DG<br/>1m ou 2m]
+        GDG -->|"crée mvt"| MV
+    end
+
+    style BX fill:#fff3e0,stroke:#f57c00,stroke-width:3px
+    style MV fill:#e8f5e9
+    style CD fill:#fff3e0
+    style GDG fill:#fff3e0
 ```
+
+### Diagramme 3 — Outputs (PDF + Email) + Sync Drive
+
+Toutes les actions génèrent **soit un PDF, soit un email, soit les deux**, et passent par Drive.
+
+```mermaid
+graph LR
+    subgraph "Sources internes"
+        BX2[📜 Bail]
+        QT2[🧾 Quittance]
+        IR2[📈 Lettre IRL]
+        EDC2[📋 EDL]
+        CH2[⚡ Décompte régul]
+        FI2[🏛️ Déclaration 2044]
+        BIL[📊 Bilan annuel]
+        CRG[📊 CRG mensuel V1.1]
+        FEC[📊 FEC comptable]
+    end
+
+    subgraph "Outputs"
+        PDF[📄 PDF<br/>généré natif]
+        EMAIL[📧 EMAIL-AUTO<br/>32 types cycle locataire]
+    end
+
+    subgraph "Stockage"
+        DBJ[(DB.json<br/>localStorage)]
+        DRV[☁️ Google Drive<br/>arborescence 9 sous-dossiers]
+        IDB[(IndexedDB<br/>photos binaires)]
+    end
+
+    BX2 --> PDF
+    QT2 --> PDF
+    IR2 --> PDF
+    EDC2 --> PDF
+    CH2 --> PDF
+    FI2 --> PDF
+    BIL --> PDF
+    CRG --> PDF
+    FEC --> PDF
+
+    PDF -->|"PJ"| EMAIL
+    BX2 -.->|"envoi"| EMAIL
+    QT2 -.->|"envoi mensuel"| EMAIL
+    IR2 -.->|"envoi annuel"| EMAIL
+    EDC2 -.->|"convocation/signé"| EMAIL
+    CH2 -.->|"décompte annuel"| EMAIL
+
+    PDF -->|"upload auto"| DRV
+    DBJ <-->|"sync bidir"| DRV
+    EDC2 -.->|"photos"| IDB
+    IDB <-->|"sync"| DRV
+
+    style EMAIL fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style DRV fill:#e3f2fd
+    style PDF fill:#fff3e0
+```
+
+### Diagramme 4 — Profils utilisateur → modules activés
+
+```mermaid
+graph TD
+    SW[Setup wizard 4 questions]
+    SW -->|"1-3 lots particulier"| P1[🏠 Solo 60%]
+    SW -->|"3-10 lots SCI"| P2[👨‍👩‍👧 SCI Familiale 25%]
+    SW -->|"10-30 lots invest"| P3[💼 Pro 10%]
+    SW -->|"30+ lots gestion tiers"| P4[🏢 Mandataire 5%]
+
+    P1 --> M1[Modules : Dashboard simple<br/>+ Biens + Locataires + Mouvements<br/>+ Quittances + IRL + EDL + MRH + Params<br/>= 8 onglets]
+    P2 --> M2[Modules Solo<br/>+ Bailleurs multi<br/>+ Candidats + Charges + Travaux<br/>+ Fiscal 2044 + Dashboard lentilles<br/>= 14 onglets]
+    P3 --> M3[Modules SCI<br/>+ Pilotage matriciel<br/>+ Bank-Integration + Export FEC<br/>+ Carnet adresse + Audit-trail UI<br/>= 18 onglets]
+    P4 --> M4[Modules Pro<br/>+ Mandat + CRG mensuel<br/>+ SEPA prélèvements<br/>= TOUT activé]
+
+    style P1 fill:#e3f2fd
+    style P2 fill:#fff3e0
+    style P3 fill:#fce4ec
+    style P4 fill:#f3e5f5
+```
+
+→ Cf sujet `USER-PROFILE-FILTERS` pour implémentation.
 
 ---
 
