@@ -1,6 +1,6 @@
 # USER-PROFILE-FILTERS — Profils utilisateur + filtres d'activation modules
 
-**Status** : ⬜ À faire · **Prio** : P1 V1.1 · **Taille** : M (3-5h)
+**Status** : ✅ Livré v15.04 (Sprint 6 V1.1, 2026-05-13) · **Prio** : P1 V1.1 · **Taille** : M (3-5h → ~4h réalisé)
 **Détecté** : 2026-05-13 (suite analyse ARBORESCENCE-APP.md)
 **Lié à** : `feedback_pas_copier_concurrent.md` (vision simple) · DASH-PROFILES · BIZPLAN
 
@@ -71,8 +71,8 @@ Override par utilisateur via `DB.params.modulesEnabled[moduleKey]` (true/false).
 - [x] **Vision "simple d'utilisation"** (user)
 - [x] **4 profils** (Solo / SCI Familiale / Pro / Mandataire) au lieu de 1 monolithe
 - [x] **Override possible par module** (un solo peut activer Candidats s'il le veut)
-- [ ] **Setup wizard** : obligatoire au 1er load OU skippable ? → Recommandation skippable (default = Solo, le moins surchargé)
-- [ ] **Modules désactivés** : masqués sidebar OU grisés avec "🔒 Pro Connect" ? → Recommandation masqués (UX plus propre)
+- [x] **Setup wizard** : skippable (default = Solo) — implémenté avec bouton "Passer (par défaut Solo)"
+- [x] **Modules désactivés** : masqués sidebar (UX plus propre) — implémenté via `_renderSidebarFiltered()`
 
 ## Différenciant marché
 
@@ -91,3 +91,14 @@ Override par utilisateur via `DB.params.modulesEnabled[moduleKey]` (true/false).
 
 ## Journal
 - 2026-05-13 : créé · le sujet qui change tout — permet de garder toutes les features sans surcharger l'UX amateur. **À attaquer en premier Sprint 6 V1.1.**
+- 2026-05-13 : ✅ Livré v15.04 (Sprint 6 V1.1, ~4h). 5 phases livrées :
+  - **Phase 1** (modèle + wizard) : `DB.params.userProfile/modulesEnabled/profileWizardDone` migration douce + helpers `_calculateProfile(answers)` + `_isModuleEnabled(moduleKey, profile, overrides)` + modal `#ov-profile-wizard` 4 questions (nb logements, statut, mandataire, compta) avec live preview + hook boot 2.5s skippable.
+  - **Phase 2** (matrice) : inline dans `_isModuleEnabled` — 12 modules CORE toujours actifs, SOLO_OFF 10 modules masqués, SCI_OFF/PRO_OFF subset, mandataire = tout actif. Override prioritaire sur matrice.
+  - **Phase 3** (sidebar dynamique) : `data-module="..."` sur 14 tabs + `data-module-section="..."` sur 5 sections + `_renderSidebarFiltered()` qui masque tabs+sections vides. Trigger boot après initDB + appel après save wizard + appel après toggle Paramètres.
+  - **Phase 4** (UI Paramètres) : onglet "👤 Profil utilisateur" + `rParamsProfile()` : badge profil + récap réponses wizard + 14 toggles modules avec badge "override actif" + bouton modifier profil + bouton réinit modules. `_profileToggleModule(key, on)` + `_profileResetOverrides()`.
+  - **Phase 5** (tests) : `__tests__/helpers/profile.test.js` — 68 tests (calcul profil ×13 / matrice modules ×42 / overrides ×4 / edge cases ×3 / cohérence labels ×1). 446 tests total au lieu de 378.
+- Décisions arbitrées :
+  - Wizard skippable, default = solo (vision UX simple).
+  - Modules désactivés = masqués sidebar (pas grisés Pro Connect).
+  - Modules "à venir" (Sprint 7+) déjà dans la matrice + toggles UI avec mention "À venir" : extensibilité sans toucher le wizard.
+- **Bonus session** : BUG-CHARGE-001 résiduel (6 sites legacy) + BUG-DASH-001 résiduel fixés dans le même Sprint 6 (audit Explore avait détecté `_buildProgDrill` l.5892 CRITIQUE DASHBOARD).
