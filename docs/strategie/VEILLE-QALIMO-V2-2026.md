@@ -181,6 +181,48 @@ Repositionnement ImmoTrack vs Qalimo V2 :
 > 💬 2026-05-13 : "faire une analyse de qalimo ils ont sorti une nouvelle version. Je continue après avec les imprim écran qalimo"
 > 💬 captures partagées : Dashboard / Liste Bailleurs / Fiche Bailleur Général + Automatisation + Paramètres
 
+## 📺 Veille YouTube + sources publiques (ajout 2026-05-13)
+
+### Tutoriels officiels qalimo.fr (catalogue complet 2026)
+
+**Présentation générale** : Présentation + Les différents menus
+**Biens immobiliers (5)** : Liste, Ajouter, Colocations, Gérer, Préparer EDL
+**Locataires (4)** : Liste, Ajouter, Fiche, Gestion
+**Tableaux de bord & paramètres (6)** : Tableau de bord, Profils bailleurs, Biens, Locataires, Candidats, Finances
+**Spécifiques** : Gestion des candidats · Finances/comptabilité automatisée
+
+→ ~22 tutoriels vidéo officiels = onboarding utilisateur très investi (signal commercial pro).
+
+### Vidéos YouTube identifiées
+- [Qalimo - Application gestion locative en ligne (présentation)](https://www.youtube.com/watch?v=RHJ3WdHszLU)
+- [Logiciel de gestion locative AUTOMATISÉ (short)](https://www.youtube.com/shorts/WyBF6L5veeE)
+- [Comment gérer toutes les galères de l'investissement locatif ? (interview Nicolas Qalimo)](https://www.youtube.com/watch?v=88ku9DM-moo)
+- [Automatisez votre gestion locative Qalimo depuis MaBrik Immo](https://www.youtube.com/watch?v=6C8P-lqgOes)
+- [Simplifiez votre GESTION LOCATIVE avec Qalimo](https://www.youtube.com/watch?v=p64qDUJmV0w)
+- [Avis Qalimo - logiciel/application de gestion locative](https://www.youtube.com/watch?v=g5Y2e_0S3yE)
+
+### Confirmations vs analyse précédente
+
+| Feature analysée | Confirmation source publique | Impact ImmoTrack |
+|---|---|---|
+| Baux à jour réglementaire (Alur 2014 + Elan 2018 + Climat 2021) | ✅ confirmé qalimo.fr | Notre marathon V1 Sprint 1-4 a déjà aligné (BUG-IRL-001 + IRL-DPE-FG livrés v13.30/31, BAIL-CHARGES-DETAIL noté) |
+| Gestion candidatures (dépôt dossier + analyse solvabilité) | ✅ confirmé site officiel | LOG-CANDIDATS (P1) déjà créé suite capture user 2026-05-13 |
+| Synchronisation bancaire | ✅ confirmé site officiel | BANK-INTEGRATION (P2 V1 / P1 V2) déjà créé avec étude AISP complète |
+| EDL numérique | ✅ confirmé | ImmoTrack déjà très enrichi v14.7+ (avantage probable) |
+| Automatisations centralisées | ✅ confirmé tutoriels | PARAM-BAILLEUR-AUTOMATISATIONS (P1/L) déjà créé |
+
+### Signaux commerciaux notables 2026
+
+- **Trustpilot Qalimo : 4,9/5** (positionnement "best of market")
+- **Google reviews : 5/5** (1er rang plateformes gestion locative)
+- **Investissement éditorial** : ~22 tutoriels vidéo officiels (signal d'onboarding pro)
+- **Notoriété** : interviews dirigeants sur chaînes immobilier influentes (Nicolas Qalimo, MaBrik Immo)
+
+→ **Implication pour ImmoTrack V1** : la concurrence est de plus en plus visible et bien notée. Le différenciant doit être **clairement formulé** (offline-first + Drive perso + DDT auto + DAAF EDL preuve) dès la landing page de commercialisation. Sinon, sera comparé direct à Qalimo et perçu comme "moins riche que Qalimo" alors que ImmoTrack vise une cible différente.
+
 ## Journal
-- 2026-05-13 : créé suite captures utilisateur
-- 2026-05-13 : 9 lacunes identifiées + 8 sujets backlog créés
+- 2026-05-13 : créé suite captures utilisateur (5 captures initiales)
+- 2026-05-13 : enrichi avec 5 captures supplémentaires (form bailleur, Biens cartes, Fiche Immeuble, Locataires, Candidats)
+- 2026-05-13 : enrichi avec captures onglet Pilotage (4 sous-onglets) + Mes banques → BANK-INTEGRATION
+- 2026-05-13 : ajout veille YouTube + tutoriels officiels qalimo.fr (~22 vidéos catalogue + 6 vidéos externes)
+- 2026-05-13 : **12 sujets backlog créés au total** (LOG-CANDIDATS, PARAM-BAILLEUR-AUTOMATISATIONS, BAILLEUR-FORM-RICHE, IMM-FICHE-SOUS-ONGLETS, PILOTAGE-MATRICIEL, SEPA-PRELEVEMENTS, BANK-INTEGRATION, CARNET-ADRESSE + 4 lacunes notées (DASH-RACCOURCIS, DASH-AGENDA-INTEGRE, PARAM-BAILLEUR-LOGO-SIG, PARAM-BAILLEUR-FACTURATION))

@@ -213,16 +213,12 @@ Statuts régulés par l'ACPR (FR) ou équivalent EU :
 | Vendor lock-in agrégateur | 🟡 Moyenne | Abstraction API maison + tests Saltedge ET Bridge |
 | Coût scale imprévisible | 🟡 Moyenne | Saltedge à 30€ MVP, migration Bridge si volumétrie |
 
-## Décisions à prendre
+## Décisions arbitrées 2026-05-13
 
-- [ ] **V1 CSV/OFX maintenant** OU attendre V2 SaaS direct ?
-  - Recommandation : **V1 CSV/OFX** (effort raisonnable, valeur immédiate)
-- [ ] **AISP cible V2 SaaS** : Saltedge MVP ou Bridge/Powens direct ?
-  - Recommandation : **Saltedge MVP** (~30€/mois, pricing transparent), migration Bridge si scale
-- [ ] **Pricing user-facing** : inclus dans abonnement V1.X € ou supplément "Pro Connect" 5€/mois ?
-  - Recommandation : **supplément Pro Connect** (segmentation pro vs amateur)
-- [ ] **Backend** : Cloudflare Workers (préféré) ou Vercel Edge Functions ?
-  - Recommandation : Cloudflare Workers (latency + free tier généreux)
+- [x] **V1 CSV/OFX maintenant** (user validé "oui pour tes propositions")
+- [x] **AISP cible V2 SaaS** : **Saltedge MVP** (~30€/mois), migration Bridge/Powens si scale >100 comptes
+- [x] **Pricing user-facing** : supplément **"Pro Connect" 5€/mois** (segmentation pro vs amateur)
+- [x] **Backend V2** : Cloudflare Workers (latency + free tier généreux)
 
 ## Différenciant marché
 
