@@ -1,6 +1,6 @@
 # EMAIL-AUTO — Infrastructure d'envoi / proposition emails sortants
 
-**Status** : ✅ Livré sandbox 2026-05-13 (V1 mode "proposition") · **Prio** : P1 · **Taille** : M (livré ~3-5h)
+**Status** : 🔄 V1 livré (3 cas), EXTENSION V1.1 attendue (couverture cycle locataire complet) · **Prio** : P1 · **Taille** : V1 livré ~3-5h, **extension V1.1 ~5-7h**
 **Détecté** : 2026-05-11
 **Lié à** : QUIT-EMAIL · AVIS-ECHEANCE · RAPPEL-IMPAYE · IRL-VALIDATION · MRH-AUTO-LOC · DRIVE-ARBORESCENCE
 
@@ -118,9 +118,88 @@ Pour chaque type, créer `docs/templates/emails/{type}.md` avec :
 - PJ recommandées (liste)
 - Notes légales (obligation envoi LRAR pour certains, etc.)
 
+## 🚀 Extension V1.1 — Couverture cycle locataire complet (demande user 2026-05-13)
+
+> 💬 « email doit couvre plus de points (EDL, IRL, bail ... tout ce qu'on communique au locataire) »
+
+L'infrastructure `js/core/email-compose.js` est livrée v14.97 avec 3 types intégrés UI (quittance, IRL, régul). Il faut **étendre** à tous les emails sortants au locataire **tout au long du cycle de vie du bail**.
+
+### Cycle de vie locataire — 20+ types d'emails à supporter
+
+**Phase 1 — Pré-bail / Candidature** (lié LOG-CANDIDATS) :
+1. `candidat-confirmation-reception` — Confirmation candidature reçue
+2. `candidat-demande-pieces` — Demande pièces complémentaires (RIB, avis impôt, contrat travail…)
+3. `candidat-refus` — Refus motivé courtois
+4. `candidat-acceptation` — Acceptation + suite (signature bail)
+
+**Phase 2 — Signature bail** :
+5. `bail-pret-a-signer` — Lien wizard signature
+6. `bail-signe-final` — PDF bail signé en pièce jointe + récap
+7. `cautionnement-signe` — Acte cautionnement reçu (au garant)
+8. `bail-avenant` — Avenant à signer (changement loyer, ajout colocataire, etc.)
+
+**Phase 3 — Entrée locataire** :
+9. `edl-convocation-entree` — Convocation EDL entrée (date + heure + adresse)
+10. `edl-entree-signe` — EDL entrée signé en PJ + récap compteurs
+11. `bienvenue-infos-pratiques` — Compteurs, voisins, syndic, règles copro, contacts urgence
+12. `dg-recu` — Confirmation réception dépôt de garantie
+
+**Phase 4 — Vie du bail (mensuel/annuel)** :
+13. ✅ `quittance` — Quittance mensuelle (intégré v14.97)
+14. ⬜ `avis-echeance` — J-5 avant date paiement (AVIS-ECHEANCE P2)
+15. ⬜ `rappel-impaye-1` — J+5 après échéance (RAPPEL-IMPAYE P2)
+16. ⬜ `rappel-impaye-2` — J+15 escalade
+17. ⬜ `rappel-impaye-3` — J+30 mise en demeure (lien GESTION-IMPAYE P1 V1.1)
+18. ✅ `irl-revision` — Lettre IRL annuelle (intégré v14.97)
+19. ✅ `decompte-regul-annuel` — Décompte régularisation charges (intégré v14.97)
+20. `demande-attest-entretien-chauffage` — Demande annuelle attestation chaudière (cf EQUIP-CONTROLES-PERIODIQUES P1)
+21. `demande-attest-mrh` — Demande renouvellement MRH (cf MRH-AUTO-LOC P2)
+22. `notification-travaux-a-venir` — Travaux planifiés dans le logement (date + nature + durée)
+23. `notification-visite` — Demande créneau visite (entretien, diagnostic, agent immo, etc.)
+
+**Phase 5 — Évolution / fin de bail** :
+24. `bail-renouvellement-3ans` — Renouvellement tacite ou nouvelle proposition
+25. `bail-conge-bailleur-6mois` — Préavis bailleur (vente, reprise, motif grave)
+26. `bail-preavis-recu` — Accusé réception préavis 3 mois locataire
+27. `edl-convocation-sortie` — Convocation EDL sortie
+28. `edl-sortie-signe` — EDL sortie + comparatif compteurs
+
+**Phase 6 — Sortie / Solde** :
+29. `dg-restitution-integrale` — DG restitué intégral sous 1 mois (pas de retenue)
+30. `dg-restitution-partielle` — DG restitué partiel + justificatifs retenues (factures, devis)
+31. `solde-tout-compte` — Solde de tout compte final
+32. `attestation-logement-libere` — Attestation officielle libération
+
+### Scope d'extension V1.1 (~5-7h)
+
+**Phase E1 — Templates étendus** (~2h)
+- Étendre `js/core/email-compose.js` : ajouter les 23 nouveaux types (templates inline)
+- Variables interpolées par contexte (bail, locataire, mouvements, dates, dg)
+- Tests Vitest : 1-2 tests par type minimum (couverture ~50 tests au total)
+
+**Phase E2 — Intégration UI par phase** (~3-5h)
+Boutons "📧 Envoyer email" à placer dans :
+- Fiche candidat (LOG-CANDIDATS) → 4 types Phase 1
+- Wizard bail → 4 types Phase 2
+- Wizard EDL → 3 types Phase 3
+- Fiche bail → boutons phase 4-6 (avenant, congé, préavis, restitution)
+- Onglet Travaux (TRAV-SUIVI) → notification travaux
+- Onglet Équipements → demande attestation entretien
+
+**Phase E3 — Historique global** (~30min)
+- Étendre `DB.emailsSent[]` avec filtre par type/locataire/bail
+- Vue "Historique communications" par fiche locataire/bail
+
+### Couverture cible — Tout est traçable
+
+→ **0 communication ad-hoc** : l'utilisateur ne devrait jamais avoir à écrire un email lui-même, tout est templatisé et historisé.
+
 ## Notes utilisateur
 > 💬 2026-05-11 : "possible de faire un envoi automatique ou proposition de mail (par exemple pour quittance) ?"
+> 💬 2026-05-13 : « email doit couvre plus de points (EDL, IRL, bail ... tout ce qu'on communique au locataire) »
 
 ## Journal
 - 2026-05-11 : créé · sujet transversal qui regroupe l'infra commune sous QUIT-EMAIL / AVIS-ECHEANCE / RAPPEL-IMPAYE / etc.
 - 2026-05-11 : V1 = mode "proposition" (mailto: ou modale clipboard). V2 SaaS = mode "automatique" (SendGrid/Postmark) post-V1 commerciale
+- 2026-05-13 : ✅ V1 livré sandbox v14.97 (3 cas intégrés : quittance + IRL + régul)
+- 2026-05-13 : 🚀 EXTENSION V1.1 actée — étendre à **23 nouveaux types** couvrant cycle locataire complet (candidature → signature → entrée → vie → évolution → sortie). 6 phases UX × ~4 types chacun. Effort V1.1 : ~5-7h.

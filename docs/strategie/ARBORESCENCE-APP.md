@@ -375,9 +375,41 @@ graph LR
 9. **MOBILE-AUDIT-ONGLETS** — audit + fix onglet par onglet.
 
 ### Phase F — Polish UX final (Sprint 11, ~5h)
-10. Bugs P2 résiduels : MVT-SCIND-CAT, MVT-RECURRENT, MRH-AUTO-LOC, ENT-SAVE-IMM, BUG-LOG-001, BUG-UI-DARK-MODAL.
+10. Bugs P2 résiduels : MVT-SCIND-CAT, MVT-RECURRENT, MRH-AUTO-LOC, ENT-SAVE-IMM, BUG-LOG-001, BUG-UI-DARK-MODAL, BUG-EQUIP-FILTER.
 
 **Total Sprint 6-11 V1.1** : ~40-50h (réparti sur ~3 mois à 15-18h/mois solo).
+
+---
+
+## 🔄 Plan V1.1 CORRIGÉ (2026-05-13) — couverture complète backlog
+
+Suite à audit honnête, mon plan ne couvrait que ~18/83 sujets. Ajout de 4 sprints :
+
+| Sprint | Phase | Effort | Sujets clés |
+|---|---|---|---|
+| 6 | A. Foundations Simplicité | 6-8h | **USER-PROFILE-FILTERS** + BUG-CHARGE-001 + BUG-DASH-001 |
+| 7 | B. Différenciants critiques | 12-15h | **LOG-CANDIDATS** + BAIL-CHARGES-DETAIL + EDL-VALIDATION-AVOCAT |
+| 8 | C. Pilotage & Bank | 10-15h | **PILOTAGE-MATRICIEL** + BANK-INTEGRATION V1 CSV |
+| 9 | D. Légal équipements | 10-12h | EQUIP-CONTROLES-PERIODIQUES + BAILLEUR-DIAGNOSTICS-DDT |
+| **10 🆕** | **E. EMAIL-AUTO Extension cycle locataire** | **5-7h** | **23 nouveaux types email** (candidatures, bail, EDL, vie, évolution, sortie) + intégration UI fiche candidat/bail/EDL/équipements |
+| **11 🆕** | **F. Quittances actives** | 4-6h | AVIS-ECHEANCE + RAPPEL-IMPAYE (consommatrices EMAIL-AUTO étendu) |
+| **12 🆕** | **G. Gestion DG & Impayés** | 7-9h | GESTION-DG (P1 V1.1) + GESTION-IMPAYE (P1 V1.1) |
+| **13 🆕** | **H. DASH-PROFILES Phase 2** | 8-10h | Implémentation 4 lentilles (après validation aperçu) |
+| **14 🆕** | **I. EDL délégué + Drive arbo** | 8-10h | EDL-DELEGUE-EXPORT/IMPORT (différenciant unique) + finalisation DRIVE-ARBORESCENCE |
+| 15 | J. Mobile irréprochable | 1-2j (~10h) | MOBILE-AUDIT-ONGLETS |
+| 16 | K. Polish UX final | ~5h | Bugs P2 résiduels |
+
+**Total V1.1 corrigé** : **~75-95h sur 4-5 mois** (réparti à 15-18h/mois solo).
+
+### Sujets explicitement HORS V1.1
+- FICHES-PARITE-360 (27h) → V1.2 indépendant
+- ARCHI-MODULAR Phase 3+ → V2 post-V1
+- ARCHI-DB-DOUBLONS → CDC requis avant
+- GESTION-MANDAT + CRG complet → V1.2 si pivot mandataire confirmé
+- DRIVE-2H/2F/2G → V2 SaaS multi-users
+- V3-REFONTE-* onglet par onglet → V1.2/V2 progressif
+- V1.2 sectoriel (TVA / LMNP / encadrement / sinistre / travaux)
+- V3 premium (OCR / comparateur / eIDAS / portail loc)
 
 ---
 
