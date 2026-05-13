@@ -78,7 +78,8 @@ import {
 } from './core/monitoring.js';
 
 import {
-  _emailCompose, _emailTypesSupportes, _interpolateEmail
+  _emailCompose, _emailTypesSupportes, _interpolateEmail,
+  _logEmailSent, _getEmailHistory
 } from './core/email-compose.js';
 
 import { openEmailModal, _buildMailtoUrl } from './components/email-modal.js';
@@ -172,6 +173,8 @@ window._interpolateEmail = _interpolateEmail;
 window._openEmailModal = openEmailModal;
 window.openEmailModal = openEmailModal;
 window._buildMailtoUrl = _buildMailtoUrl;
+window._logEmailSent = _logEmailSent;
+window._getEmailHistory = _getEmailHistory;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
