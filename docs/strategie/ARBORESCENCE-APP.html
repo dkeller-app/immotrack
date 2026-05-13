@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ARBORESCENCE-APP — Cartographie complète + analyse features + plan d'actions</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1f2937;
+    --muted: #6b7280;
+    --accent: #2196f3;
+    --accent-dark: #1976d2;
+    --code-bg: #f5f5f5;
+    --border: #e5e7eb;
+    --table-zebra: #fafafa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    line-height: 1.65;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  h1 { border-bottom: 3px solid var(--accent); padding-bottom: 10px; margin-top: 0; }
+  h2 { border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 2.5em; }
+  h3 { color: var(--accent-dark); margin-top: 1.8em; }
+  h4 { color: #555; margin-top: 1.5em; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.88em;
+    font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  }
+  pre {
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.45;
+  }
+  pre code { background: transparent; padding: 0; font-size: 0.85em; }
+  table {
+    border-collapse: collapse;
+    margin: 1em 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f8fafc; font-weight: 600; }
+  tr:nth-child(even) { background: var(--table-zebra); }
+  blockquote {
+    border-left: 4px solid var(--accent);
+    margin: 1em 0;
+    padding: 8px 16px;
+    color: #4b5563;
+    background: #f0f9ff;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 0.3em 0; }
+  .mermaid {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-align: center;
+    margin: 1.5em 0;
+    overflow-x: auto;
+  }
+  a { color: var(--accent-dark); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  hr { border: none; border-top: 2px solid var(--border); margin: 2.5em 0; }
+  ul, ol { padding-left: 28px; }
+  li { margin: 0.3em 0; }
+  /* Sticky TOC button — bonus */
+  .toc-toggle {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    font-size: 1.5em;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  }
+  @media print {
+    .toc-toggle { display: none; }
+    body { background: #fff; padding: 0; }
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --fg: #e5e7eb;
+      --muted: #9ca3af;
+      --code-bg: #2d2d2d;
+      --border: #3a3a3a;
+      --table-zebra: #222;
+    }
+    table, pre, .mermaid { background: #2a2a2a; }
+    th { background: #333; }
+    blockquote { background: #1e2a3a; color: #cbd5e1; }
+  }
+</style>
+</head>
+<body>
+<h1>ARBORESCENCE-APP — Cartographie complète + analyse features + plan d&#39;actions</h1>
+<p><strong>Date</strong> : 2026-05-13
+<strong>Version analysée</strong> : v15.01 sandbox (29 830 lignes) / v14.96 prod (29 533 lignes)
+<strong>Auteur</strong> : session pilotage Claude
+<strong>Cible</strong> : <code>feedback_pas_copier_concurrent.md</code> → vision « simple d&#39;utilisation + UX améliorée »</p>
+<hr>
+<h2>🎯 Vision filtre — Profils utilisateur</h2>
+<p>ImmoTrack doit s&#39;adapter à <strong>4 profils</strong> distincts plutôt que TOUT montrer à TOUT LE MONDE :</p>
+<table>
+<thead>
+<tr>
+<th>Profil</th>
+<th>Cible % marché</th>
+<th>Onglets activés par défaut</th>
+<th>Modules cachés par défaut</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>🏠 <strong>Particulier Solo</strong> (1-3 lots)</td>
+<td>60%</td>
+<td>Dashboard, Biens, Locataires, Mouvements, Quittances, IRL, EDL, Paramètres</td>
+<td>Pilotage matriciel, CRG, FEC, Mandat Hoguet, SEPA, Carnet d&#39;adresse, Candidats</td>
+</tr>
+<tr>
+<td>👨‍👩‍👧 <strong>SCI Familiale</strong> (3-10 lots)</td>
+<td>25%</td>
+<td>+ Bailleurs (multi), Charges/Régul, Fiscalité 2044, Travaux, MRH</td>
+<td>CRG, FEC, Mandat Hoguet, SEPA</td>
+</tr>
+<tr>
+<td>💼 <strong>Investisseur Pro</strong> (10-30 lots)</td>
+<td>10%</td>
+<td>+ Pilotage matriciel, Bank-Integration, Candidats, Carnet d&#39;adresse</td>
+<td>Mandat Hoguet, CRG mensuel</td>
+</tr>
+<tr>
+<td>🏢 <strong>Mandataire Hoguet</strong> (30+ lots, gestionnaire pro)</td>
+<td>5%</td>
+<td>TOUT activé (Mandat, CRG, FEC, SEPA, Audit-trail)</td>
+<td>Rien caché</td>
+</tr>
+</tbody></table>
+<p>→ <strong>Mécanisme proposé</strong> : Setup wizard à la 1ère ouverture qui choisit le profil + bouton &quot;Modifier mon profil&quot; dans Paramètres → active/désactive les onglets sidebar et sections.</p>
+<hr>
+<h2>📊 Arborescence DATA (entités + relations)</h2>
+<div class="mermaid">graph TD
+    DB[(DB localStorage)]
+    DB --> E[entites/]
+    DB --> L[logements/]
+    DB --> B[baux/]
+    DB --> M[mouvements/]
+    DB --> Q[quittances/]
+    DB --> A[assurances PNO/]
+    DB --> MRH[mrh/]
+    DB --> EDL[edl/]
+    DB --> IRL[irlTable/]
+    DB --> C[candidats/ V1.1]
+    DB --> AT[auditTrail/]
+    DB --> PJ[pj/]
+
+    E -->|"contient (1..N)"| IM[immeubles]
+    IM -->|"contient (1..N)"| L
+    L -->|"location (0..1 actif)"| B
+    B -->|"signé par"| LOC[locataires]
+    B -->|"garanti par (0..2)"| GAR[garants]
+    B -->|"révisions IRL[]"| IRL
+    B -->|"DDT joint"| DDT[diagnostics]
+    L -->|"équipements"| EQ[chauffage/ECS/DAAF]
+    L -->|"photos"| PHO[Drive Photos/]
+
+    M -->|"catégorisé"| CAT[Loyers/Charges/Travaux/Assur/Taxes]
+    M -->|"affecté à"| L
+    M -->|"justifié par"| PJ
+    Q -->|"généré depuis"| B
+    Q -->|"correspond à"| M
+    MRH -->|"par"| LOC
+
+    IDB[(IndexedDB)]
+    IDB --> PHIDB[photos EDL/logement]
+
+    DRV[Google Drive]
+    DRV --> DBJSON[DB.json sync]
+    DRV --> DOCS[Documents PDF par entité/immeuble/logement]
+    DRV --> PJDRV[PJ factures/CR/photos]
+
+    style DB fill:#e1f5ff
+    style IDB fill:#fff4e1
+    style DRV fill:#e8f5e9</div>
+<p><strong>Sources de vérité</strong> :</p>
+<ul>
+<li><strong>localStorage <code>DB</code></strong> : entités/logements/baux/mouvements/quittances/MRH/EDL/IRL/candidats/auditTrail (texte ≤ 700 Ko)</li>
+<li><strong>IndexedDB <code>immotrack_photos</code></strong> : photos binaires EDL + logement (peut atteindre 100+ Mo)</li>
+<li><strong>Drive (optionnel)</strong> : sync DB.json + sous-dossiers documents (cf DRIVE-ARBORESCENCE)</li>
+</ul>
+<hr>
+<h2>🗺️ Arborescence UX (sidebar + interactions)</h2>
+<div class="mermaid">graph LR
+    subgraph "Sidebar (8-15 onglets selon profil)"
+        TB[📊 Tableau de bord]
+        BI[🏢 Biens]
+        BL[👤 Bailleurs]
+        LC[👥 Locataires]
+        CD[🎯 Candidats V1.1]
+        BX[📜 Baux]
+        MV[💰 Mouvements]
+        QT[🧾 Quittances]
+        IR[📈 IRL]
+        ED[📋 EDL]
+        CH[⚡ Charges/Régul]
+        AS[🛡️ MRH/Assurances]
+        TR[🔧 Travaux]
+        PI[🎯 Pilotage V1.1]
+        FI[🏛️ Fiscalité 2044]
+        FN[💳 Finances]
+        CR[📇 Carnet adresse V1.1]
+        PR[⚙️ Paramètres]
+    end
+
+    TB -->|"clic KPI"| MV
+    TB -->|"clic alerte IRL"| IR
+    TB -->|"clic vacance"| BI
+    BI -->|"clic carte"| FB[Fiche Bien 360]
+    BL -->|"clic carte"| FE[Fiche Bailleur 360]
+    FB -->|"sous-onglet bail"| BX
+    FB -->|"sous-onglet docs"| DOCS[Documents Drive]
+    FB -->|"sous-onglet compta"| MV
+    BX -->|"signer"| EDC[EDL entrée]
+    BX -->|"générer"| QT
+    QT -->|"envoyer"| EMAIL[EMAIL-AUTO ✅]
+    IR -->|"valider révision"| MV
+    CH -->|"régul annuelle"| MV
+    CD -->|"convertir candidat"| BX
+    FI -->|"calcul 2044"| MV
+
+    style TB fill:#e3f2fd
+    style PI fill:#fff3e0</div>
+<hr>
+<h2>📦 Inventaire complet par onglet (✅ livré / 🔄 partiel / ⬜ manquant)</h2>
+<h3>📊 Dashboard</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict simplicité</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>KPI tuiles (loyers/occupation/cash-flow)</td>
+<td>✅ DASH-V2 livré</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Sparklines tendance</td>
+<td>✅ livré</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>Drill-down entité/immeuble/logement</td>
+<td>✅ livré</td>
+<td>⚠️ peut-être trop pour solo (filtre profil)</td>
+</tr>
+<tr>
+<td>Markers changement de bail</td>
+<td>✅ livré v12.28-32</td>
+<td>⚠️ détail utile pro</td>
+</tr>
+<tr>
+<td>Lentilles persona</td>
+<td>⏳ DASH-PROFILES Phase 1 livrée, attente validation</td>
+<td>⭐ vraie valeur si 2-4 lentilles max</td>
+</tr>
+<tr>
+<td>Calcul temporel correct (mois passé)</td>
+<td>⬜ BUG-DASH-001 P1</td>
+<td>🔴 critique</td>
+</tr>
+<tr>
+<td>KPI HC vs TTC</td>
+<td>⬜ DASH-KPI-HC</td>
+<td>⚠️ détail expert</td>
+</tr>
+</tbody></table>
+<h3>🏢 Biens / Logements</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Liste cartes (LOG-LISTE-CARDS)</td>
+<td>✅ livré v14.2</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Toolbar (recherche/filtre/tri/export)</td>
+<td>✅ livré v14.2</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Toggle Immeubles ↔ Logements</td>
+<td>✅ livré v14.2</td>
+<td>✅ utile multi-lots</td>
+</tr>
+<tr>
+<td>Tabs Actifs/Archivés</td>
+<td>✅ livré v14.2</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>Fiche 360 (header + onglet Bail + drill)</td>
+<td>✅ Bloc A livré v14.13</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Fiche 360 sous-onglets Phase 2 (5)</td>
+<td>⬜ LOG-FICHE-360 Phase 2</td>
+<td>⚠️ utile si on attaque sans surcharger</td>
+</tr>
+<tr>
+<td>Galerie photos logement</td>
+<td>✅ LOG-PHOTOS Sprint 5C v15.01</td>
+<td>✅ utile (couplé annonces)</td>
+</tr>
+<tr>
+<td>Référence modifiable</td>
+<td>⬜ BUG-LOG-001</td>
+<td>✅ fix simple</td>
+</tr>
+<tr>
+<td>Garde-fou HC aberrant</td>
+<td>✅ BUG-HC-GARDE-FOU livré v14.84</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>Équipements contrôles périodiques</td>
+<td>⬜ EQUIP-CONTROLES-PERIODIQUES P1</td>
+<td>⚠️ surcharge si &gt; 10 catégories</td>
+</tr>
+</tbody></table>
+<h3>👤 Bailleurs / Entités</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Liste cartes</td>
+<td>✅ livré</td>
+<td>✅ essentiel multi-bailleur</td>
+</tr>
+<tr>
+<td>Fiche 360 (ENT-FICHE)</td>
+<td>✅ Phase 1 livré</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Form profil enrichi (SIRET API, IBAN)</td>
+<td>⬜ BAILLEUR-FORM-RICHE</td>
+<td>⚠️ P3 sauf si SEPA</td>
+</tr>
+<tr>
+<td>Automatisations centralisées</td>
+<td>⬜ PARAM-BAILLEUR-AUTOMATISATIONS P2</td>
+<td>⚠️ utile à 5+ baux</td>
+</tr>
+<tr>
+<td>Rename cascade</td>
+<td>✅ BUG-ENT-RENAME-CASCADE livré v14.51</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Orphans cleanup</td>
+<td>✅ BUG-ENT-ORPHANS-CLEANUP livré v14.52-53</td>
+<td>✅ technique safe</td>
+</tr>
+</tbody></table>
+<h3>📜 Baux</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Wizard 4 étapes</td>
+<td>✅ V3-REFONTE-BAIL en cours</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Signature électronique (canvas)</td>
+<td>✅ livré</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Snapshot signé + diff Aperçu</td>
+<td>✅ livré v13.10-11</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>PDF natif</td>
+<td>⬜ BAIL-PDF-NATIF P2</td>
+<td>⚠️ qualité PDF</td>
+</tr>
+<tr>
+<td>Clauses personnalisables</td>
+<td>⬜ BAIL-CLAUSES-PERSO P2</td>
+<td>⚠️ utile pro</td>
+</tr>
+<tr>
+<td>5 types bail (meublé/garage/mobilité/étudiant)</td>
+<td>⬜ BAIL-TYPES P2</td>
+<td>⚠️ utile LMNP</td>
+</tr>
+<tr>
+<td>Charges détaillées décret 87-713</td>
+<td>⬜ BAIL-CHARGES-DETAIL P1</td>
+<td>🔴 protection légale critique</td>
+</tr>
+<tr>
+<td>Multi-bailleurs + multi-garants</td>
+<td>✅ livré v13.19-21 + v13.36</td>
+<td>✅ utile SCI</td>
+</tr>
+</tbody></table>
+<h3>💰 Mouvements</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Saisie mouvement</td>
+<td>✅ existant</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Scindage ligne</td>
+<td>✅ existant</td>
+<td>⚠️ utile expert</td>
+</tr>
+<tr>
+<td>Catégorie au scindage</td>
+<td>⬜ MVT-SCIND-CAT</td>
+<td>✅ amélioration UX simple</td>
+</tr>
+<tr>
+<td>Mouvements récurrents</td>
+<td>⬜ MVT-RECURRENT P2</td>
+<td>✅ utile (assurance, prêt mensuel)</td>
+</tr>
+<tr>
+<td>Import CSV/OFX bancaire</td>
+<td>⬜ BANK-INTEGRATION V1 P2</td>
+<td>⭐ vraie valeur</td>
+</tr>
+</tbody></table>
+<h3>🧾 Quittances</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Génération PDF</td>
+<td>✅ existant</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Envoi email (mode proposition)</td>
+<td>✅ EMAIL-AUTO v14.97</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>Envoi automatique</td>
+<td>⬜ V1.1</td>
+<td>⚠️ V2 SaaS pour vrai auto</td>
+</tr>
+<tr>
+<td>Avis échéance</td>
+<td>⬜ AVIS-ECHEANCE P2</td>
+<td>⚠️ utile multi-baux</td>
+</tr>
+<tr>
+<td>Rappels impayés escalade</td>
+<td>⬜ RAPPEL-IMPAYE P2</td>
+<td>⚠️ utile multi-baux</td>
+</tr>
+</tbody></table>
+<h3>📈 IRL</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Lettre IRL conforme</td>
+<td>✅ IRL-LETTRE-REVISION livré</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Validation envoi + rappel</td>
+<td>✅ IRL-VALIDATION v13.33</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Gel DPE F/G (loi Climat)</td>
+<td>✅ IRL-DPE-FG v13.31</td>
+<td>✅ essentiel légal</td>
+</tr>
+<tr>
+<td>Mention &quot;mois anniversaire&quot; correcte</td>
+<td>✅ BUG-IRL-001 v13.30</td>
+<td>✅ légal</td>
+</tr>
+<tr>
+<td>Bulk update IRL annuel</td>
+<td>⬜ PILOTAGE-MATRICIEL P1</td>
+<td>⭐ gain temps réel</td>
+</tr>
+</tbody></table>
+<h3>📋 EDL</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>EDL entrée/sortie photos</td>
+<td>✅ livré v14.4-7</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>PDF natif + Drive auto</td>
+<td>✅ EDL-PDF-DRIVE v14.10.3</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Comparatif compteurs</td>
+<td>✅ livré</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Validation template avocat</td>
+<td>⬜ EDL-VALIDATION-AVOCAT P1</td>
+<td>🔴 légal critique avant commerce</td>
+</tr>
+<tr>
+<td>EDL délégué (tiers fait l&#39;EDL)</td>
+<td>⬜ EDL-DELEGUE-EXPORT/IMPORT P2</td>
+<td>⭐ différenciant unique</td>
+</tr>
+<tr>
+<td>Template par logement</td>
+<td>⬜ EDL-TEMPLATE-PER-LOG P2</td>
+<td>⚠️ surcharge si peu de variation</td>
+</tr>
+<tr>
+<td>DAAF photo obligatoire</td>
+<td>⬜ EQUIP-CONTROLES-PERIODIQUES P1</td>
+<td>⭐ preuve juridique différenciante</td>
+</tr>
+</tbody></table>
+<h3>⚡ Charges / Régul</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Calcul régul</td>
+<td>🔴 BUG-CHARGE-001 P1 (KO actuellement)</td>
+<td>🔴 critique fix</td>
+</tr>
+<tr>
+<td>Charges communes immeuble</td>
+<td>✅ CHARGES-COMMUNES Phase 1-2 livré v14.59-61</td>
+<td>✅ essentiel copro</td>
+</tr>
+<tr>
+<td>Règles tantième/compteur (chauffage 30/70)</td>
+<td>⬜ CHARGE-REGLES P2</td>
+<td>⚠️ utile copro</td>
+</tr>
+</tbody></table>
+<h3>🏛️ Fiscal / Légal</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Wizard 2044</td>
+<td>✅ LEGAL-2044 livré v14.90</td>
+<td>⭐ différenciant fort</td>
+</tr>
+<tr>
+<td>Bilan annuel PDF</td>
+<td>✅ LEGAL-BILAN-ANNUEL livré v14.92</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>Export comptable FEC + journal + grand livre</td>
+<td>✅ EXPORT-COMPTABLE livré v14.93</td>
+<td>⚠️ pro uniquement (filtre profil)</td>
+</tr>
+<tr>
+<td>Liasse 2072 SCI IR</td>
+<td>⬜ LEGAL-2072 P3</td>
+<td>⚠️ niche</td>
+</tr>
+<tr>
+<td>RGPD UI Mes données</td>
+<td>✅ RGPD-COMPLIANCE livré v14.91</td>
+<td>✅ obligatoire</td>
+</tr>
+<tr>
+<td>Audit-trail</td>
+<td>✅ AUDIT-TRAIL livré v14.89</td>
+<td>⚠️ technique, masqué par défaut</td>
+</tr>
+</tbody></table>
+<h3>💾 Drive / Sync</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Sync DB JSON</td>
+<td>✅ existant</td>
+<td>✅ essentiel</td>
+</tr>
+<tr>
+<td>Protection signature offline</td>
+<td>✅ BUG-DRIVE-OVERWRITE v13.38</td>
+<td>✅ critique</td>
+</tr>
+<tr>
+<td>Token expiry géré</td>
+<td>✅ BUG-DRIVE-DISCONNECT v13.41</td>
+<td>✅ critique</td>
+</tr>
+<tr>
+<td>Arborescence 9 sous-dossiers + bidir</td>
+<td>⬜ DRIVE-ARBORESCENCE 🔄</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>Multi-users (OCC + awareness)</td>
+<td>⬜ DRIVE-2H/2F/2G</td>
+<td>V2 SaaS</td>
+</tr>
+<tr>
+<td>Audit log Drive</td>
+<td>⬜ DRIVE-2I</td>
+<td>V2 SaaS</td>
+</tr>
+</tbody></table>
+<h3>🎯 Pilotage matriciel (V1.1 — nouveau)</h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Suivi comptable multi-baux</td>
+<td>⬜ PILOTAGE-MATRICIEL P1</td>
+<td>⭐ gain temps pro</td>
+</tr>
+<tr>
+<td>Suivi documents compliance</td>
+<td>⬜ même sujet</td>
+<td>⭐ visualisation compliance</td>
+</tr>
+<tr>
+<td>Bulk update loyers IRL annuel</td>
+<td>⬜ même sujet</td>
+<td>⭐ vraie économie temps</td>
+</tr>
+<tr>
+<td>SEPA prélèvements V1</td>
+<td>⬜ SEPA-PRELEVEMENTS V2 SaaS</td>
+<td>⚠️ V2 SaaS</td>
+</tr>
+</tbody></table>
+<h3>Autres modules</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Statut</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Candidats (pipeline + conversion bail)</td>
+<td>⬜ LOG-CANDIDATS P1</td>
+<td>⭐ utile bailleur autonome</td>
+</tr>
+<tr>
+<td>MRH auto-locataire</td>
+<td>⬜ MRH-AUTO-LOC P2</td>
+<td>✅ fix UX simple</td>
+</tr>
+<tr>
+<td>Travaux + calendrier</td>
+<td>⬜ TRAV-SUIVI P2</td>
+<td>⚠️ surcharge si peu de travaux</td>
+</tr>
+<tr>
+<td>PJ documents</td>
+<td>✅ DOC-PJ Sprint 5B livré v15.00</td>
+<td>✅ utile</td>
+</tr>
+<tr>
+<td>Import Excel</td>
+<td>⬜ IMPORT-EXCEL-LOG P2</td>
+<td>⚠️ utile onboarding</td>
+</tr>
+<tr>
+<td>Import depuis concurrents</td>
+<td>⬜ IMPORT-CONCURRENTS P2</td>
+<td>✅ utile onboarding migration</td>
+</tr>
+<tr>
+<td>Mobile audit onglets</td>
+<td>⬜ MOBILE-AUDIT-ONGLETS P1</td>
+<td>🔴 critique cible 50% mobile</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>❌ Features à ÉCARTER (superflues pour la cible)</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Pourquoi superflu</th>
+<th>Statut</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>DASH-RACCOURCIS</strong></td>
+<td>La sidebar fait déjà le job, doublonner = pollution UX</td>
+<td>❌ déjà écarté</td>
+</tr>
+<tr>
+<td><strong>DASH-AGENDA-INTEGRE</strong></td>
+<td>Doublon DASH-PROFILES lentille Échéances</td>
+<td>❌ déjà écarté</td>
+</tr>
+<tr>
+<td><strong>CARNET-ADRESSE</strong> (P3)</td>
+<td>Pour bailleur 1-10 lots, le téléphone perso suffit</td>
+<td>P3 (V2 pro)</td>
+</tr>
+<tr>
+<td><strong>PARAM-BAILLEUR-LOGO-SIG par bailleur</strong></td>
+<td>Logo global suffit pour particulier</td>
+<td>V2 SaaS multi-tenant</td>
+</tr>
+<tr>
+<td><strong>PARAM-BAILLEUR-SMTP par bailleur</strong></td>
+<td>Mode &quot;proposition&quot; mailto: suffit en V1</td>
+<td>V2 SaaS</td>
+</tr>
+<tr>
+<td><strong>IMM-FICHE-SOUS-ONGLETS</strong> (7 sous-onglets)</td>
+<td>5/7 doublons d&#39;autres sujets</td>
+<td>Re-scope P3 minimal</td>
+</tr>
+<tr>
+<td><strong>AGENCE-GESTION/CRG/HONORAIRES</strong></td>
+<td>Cible mandataire pro Hoguet uniquement</td>
+<td>V2 ou V1.1 si pivot</td>
+</tr>
+<tr>
+<td><strong>SAAS-MULTIUSERS / PORTAIL-LOC</strong></td>
+<td>V2 SaaS uniquement</td>
+<td>V2</td>
+</tr>
+<tr>
+<td><strong>OCR-FACTURE / COMPARATEUR-LOYER</strong></td>
+<td>Nice-to-have V3</td>
+<td>V3</td>
+</tr>
+</tbody></table>
+<p>→ Ces features restent dans le backlog mais <strong>NE doivent PAS polluer la roadmap V1.1</strong>.</p>
+<hr>
+<h2>🔴 Features MANQUANTES critiques (à attaquer V1.1)</h2>
+<h3>P0 — Bloquant V1 commerciale</h3>
+<ol>
+<li><strong>BUG-CHARGE-001</strong> régul charges KO (fix P1/M)</li>
+<li><strong>BUG-DASH-001</strong> temporalité dashboard (fix P1/M)</li>
+<li><strong>EDL-VALIDATION-AVOCAT</strong> validation décret 2016-382 (XS, juste envoi)</li>
+<li><strong>SECU-INNERHTML résidus</strong> si pas 100% fixé Sprint 1A</li>
+</ol>
+<h3>P1 — Différenciants vraie valeur (V1.1)</h3>
+<ol>
+<li><strong>LOG-CANDIDATS</strong> — pipeline + conversion auto bail (5-8h)</li>
+<li><strong>PILOTAGE-MATRICIEL</strong> — bulk update IRL + compliance docs (8-12h)</li>
+<li><strong>BANK-INTEGRATION V1 CSV/OFX</strong> — import transactions (5-8h)</li>
+<li><strong>BAIL-CHARGES-DETAIL</strong> — protection légale décret 87-713 (3-5h)</li>
+<li><strong>EQUIP-CONTROLES-PERIODIQUES</strong> + <strong>BAILLEUR-DIAGNOSTICS-DDT</strong> — légal + différenciant DAAF EDL (10h combinés)</li>
+<li><strong>MOBILE-AUDIT-ONGLETS</strong> — irréprochable mobile (1-2j)</li>
+</ol>
+<h3>P2 — Polish UX V1.1</h3>
+<ul>
+<li><strong>MVT-SCIND-CAT</strong> (catégorie au scindage) — XS</li>
+<li><strong>MVT-RECURRENT</strong> (assurance/prêt récurrent) — M</li>
+<li><strong>MRH-AUTO-LOC</strong> — S</li>
+<li><strong>ENT-SAVE-IMM</strong> — S</li>
+<li><strong>BUG-LOG-001</strong> réf logement modifiable — XS</li>
+<li><strong>BUG-UI-DARK-MODAL</strong> — XS</li>
+</ul>
+<hr>
+<h2>🛠️ Proposition technique — Filtres d&#39;activation profils</h2>
+<h3>Mécanisme</h3>
+<ul>
+<li>Nouveau champ <code>DB.params.userProfile</code> : <code>&#39;solo&#39; | &#39;sci_familiale&#39; | &#39;pro&#39; | &#39;mandataire&#39;</code></li>
+<li>Setup wizard à la 1ère ouverture : 4 questions max<ol>
+<li>Combien de logements ? (1-3 / 3-10 / 10-30 / 30+)</li>
+<li>Statut juridique ? (Particulier / SCI / SAS / Mandataire Hoguet)</li>
+<li>Activité commerciale (mandataire pour autres) ? (Oui/Non)</li>
+<li>Niveau pro comptable ? (Autonome / Excel / Expert-comptable)</li>
+</ol>
+</li>
+<li>Détermine le profil + active les onglets/modules cibles</li>
+</ul>
+<h3>Configuration par profil (matrice activation)</h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Solo</th>
+<th>SCI</th>
+<th>Pro</th>
+<th>Mandataire</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dashboard simple (4 KPI)</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Dashboard avancé (lentilles)</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Biens</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Bailleurs multi</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Locataires</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Candidats</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Baux</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Mouvements</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Quittances</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>IRL</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>EDL</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Charges/Régul</td>
+<td>basique</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>MRH</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Travaux</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Pilotage matriciel</td>
+<td>masqué</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Fiscal 2044</td>
+<td>basique</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Export FEC</td>
+<td>masqué</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Mandat / CRG / SEPA</td>
+<td>masqué</td>
+<td>masqué</td>
+<td>masqué</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Audit-trail UI</td>
+<td>masqué</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Carnet d&#39;adresse</td>
+<td>masqué</td>
+<td>masqué</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Bank-Integration</td>
+<td>masqué</td>
+<td>option</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+</tbody></table>
+<h3>UI</h3>
+<ul>
+<li>Onglet Paramètres → section &quot;Profil utilisateur&quot; avec :<ul>
+<li>Profil actuel (badge cliquable)</li>
+<li>Bouton &quot;Modifier mon profil&quot;</li>
+<li><strong>Liste des modules</strong> avec toggles individuels (override par défaut profil)</li>
+</ul>
+</li>
+<li>Mémorisation localStorage <code>immotrack_user_profile</code></li>
+<li>Auto-détection du nb de logements + suggestion changement profil si dépassement seuil</li>
+</ul>
+<h3>Sujet backlog à créer</h3>
+<p><strong>USER-PROFILE-FILTERS</strong> (P1 V1.1, ~3-5h) — système profils + filtres activation modules. Permet à un solo de ne voir que ses 8 onglets utiles, et à un mandataire d&#39;avoir tout. <strong>Pas de surcharge UX par profil.</strong></p>
+<hr>
+<h2>📋 Plan d&#39;actions V1.1 (priorisé, ~28-40h)</h2>
+<h3>Phase A — Foundations Simplicité (Sprint 6, ~6-8h)</h3>
+<ol>
+<li><strong>USER-PROFILE-FILTERS</strong> (3-5h) — Setup wizard + filtres modules par profil. <strong>Ouvre la voie à la simplicité UX cible</strong>.</li>
+<li><strong>BUG-CHARGE-001</strong> fix (3h) — débloque feature régul cassée.</li>
+</ol>
+<h3>Phase B — Différenciants critiques (Sprint 7, ~12-15h)</h3>
+<ol start="3">
+<li><strong>LOG-CANDIDATS</strong> (5-8h) — pipeline + conversion auto bail (différenciant gros gain temps user).</li>
+<li><strong>BAIL-CHARGES-DETAIL</strong> (3-5h) — protection légale décret 87-713.</li>
+<li><strong>EDL-VALIDATION-AVOCAT</strong> (1-2h envoi avocat) — débloquer validation légale décret 2016-382.</li>
+</ol>
+<h3>Phase C — Pilotage &amp; Bank (Sprint 8, ~10-15h)</h3>
+<ol start="6">
+<li><strong>PILOTAGE-MATRICIEL</strong> (8-12h) — vue multi-baux bulk update IRL.</li>
+<li><strong>BANK-INTEGRATION V1 CSV/OFX</strong> (5-8h) — import transactions.</li>
+</ol>
+<h3>Phase D — Légal équipements (Sprint 9, ~10-12h)</h3>
+<ol start="8">
+<li><strong>EQUIP-CONTROLES-PERIODIQUES</strong> + <strong>BAILLEUR-DIAGNOSTICS-DDT</strong> combinés (~10h) — différenciants DAAF EDL photo + DDT bloquage bail.</li>
+</ol>
+<h3>Phase E — Mobile irréprochable (Sprint 10, 1-2j)</h3>
+<ol start="9">
+<li><strong>MOBILE-AUDIT-ONGLETS</strong> — audit + fix onglet par onglet.</li>
+</ol>
+<h3>Phase F — Polish UX final (Sprint 11, ~5h)</h3>
+<ol start="10">
+<li>Bugs P2 résiduels : MVT-SCIND-CAT, MVT-RECURRENT, MRH-AUTO-LOC, ENT-SAVE-IMM, BUG-LOG-001, BUG-UI-DARK-MODAL.</li>
+</ol>
+<p><strong>Total Sprint 6-11 V1.1</strong> : ~40-50h (réparti sur ~3 mois à 15-18h/mois solo).</p>
+<hr>
+<h2>🎯 Recommandations stratégiques finales</h2>
+<ol>
+<li><strong>USER-PROFILE-FILTERS est LA feature qui change tout</strong> : permet de garder TOUTES les features du backlog tout en n&#39;en montrant à chaque user que ce qui le concerne. <strong>À attaquer en 1ère</strong> pour la vision « simple d&#39;utilisation ».</li>
+<li><strong>LOG-CANDIDATS + PILOTAGE-MATRICIEL + BANK-INTEGRATION V1 CSV</strong> = les 3 vraies pépites V1.1.</li>
+<li><strong>Bypass tous les P2/P3 non bloquants</strong> jusqu&#39;à la commercialisation publique (V1.1 → bêta).</li>
+<li><strong>Validation visuelle marathon V1 (Sprint 1-4 sandbox v14.96)</strong> prioritaire AVANT V1.1 — sinon dette technique sandbox/prod.</li>
+</ol>
+<hr>
+<h2>📜 Sources / Références</h2>
+<ul>
+<li>BACKLOG.md (~83 sujets actifs)</li>
+<li>AUDIT-CODE.md (rapport audit Sprint complet)</li>
+<li>VEILLE-QALIMO-V2-2026.md (analyse 10 captures + YouTube)</li>
+<li>BIZPLAN.md (vision commerciale Q4 2026)</li>
+<li>Mémoires : <code>feedback_pas_copier_concurrent.md</code> (filtre 4 critères), <code>feedback_sandbox_first.md</code>, <code>feedback_modify_verify.md</code></li>
+</ul>
+
+
+<button class="toc-toggle" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Retour haut">↑</button>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+  mermaid.run({ querySelector: '.mermaid' });
+</script>
+</body>
+</html>
