@@ -88,6 +88,9 @@ Override par utilisateur via `DB.params.modulesEnabled[moduleKey]` (true/false).
 ## Notes utilisateur
 > 💬 2026-05-13 : « on fait une solution qui est simple d'utilisation »
 > 💬 2026-05-13 : « définir les features manquantes et celles qui sont superflues pour une utilisation fluide (on peut peut etre mettre des filtres d'activation) »
+> 💬 2026-05-13 (post-livraison v15.04) : « là comme ça je ne vois pas l'utilité. mais bon ça peut servir demain pour limiter ou ouvrir des accès en fonction du type d'abonnement »
+>
+> **Validation de l'insight stratégique** : pour le solo actuel l'effet visible est nul (12 modules CORE inchangés), mais l'infrastructure est exactement la bonne pour le gating SaaS par tier d'abonnement. Sujet capté → `docs/subjects/SAAS-PRICING-TIERS.md`. Activera la matrice quand on basculera en commercial.
 
 ## Journal
 - 2026-05-13 : créé · le sujet qui change tout — permet de garder toutes les features sans surcharger l'UX amateur. **À attaquer en premier Sprint 6 V1.1.**
