@@ -77,6 +77,10 @@ import {
   _logError, _logEvent, _installGlobalCapture, _exportMonitoringLogs, _clearMonitoringLogs
 } from './core/monitoring.js';
 
+import {
+  _emailCompose, _emailTypesSupportes, _interpolateEmail
+} from './core/email-compose.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -158,6 +162,11 @@ window._clearMonitoringLogs = _clearMonitoringLogs;
 if (window.DB?.params?.monitoringEnabled === true) {
   _installGlobalCapture();
 }
+
+// EMAIL-AUTO (v14.97) - proposition de mails sortants (10 types V1, mode mailto/clipboard)
+window._emailCompose = _emailCompose;
+window._emailTypesSupportes = _emailTypesSupportes;
+window._interpolateEmail = _interpolateEmail;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
