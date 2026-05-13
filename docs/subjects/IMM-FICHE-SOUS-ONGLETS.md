@@ -1,6 +1,18 @@
 # IMM-FICHE-SOUS-ONGLETS — Sous-onglets riches dans fiche immeuble (parité Qalimo V2)
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : L (5-8h)
+**Status** : ⬜ À faire — RE-PRIORISÉ P3 2026-05-13 · **Prio** : P3 (re-scope minimal) · **Taille** : S (1-2h re-scope)
+
+## ⚠️ Verdict honnête 2026-05-13 (filtre `feedback_pas_copier_concurrent.md`)
+
+Sur les 7 sous-onglets Qalimo, **5 sont des doublons** avec d'autres sujets ImmoTrack :
+- Biens actifs/archivés → LOG-LISTE-CARDS sait filtrer par immeuble ✅ couvert
+- Documents → DRIVE-ARBORESCENCE ✅ couvert
+- Comptabilité → filtre par immeuble dans Mouvements ✅ couvert
+- Entretien → TRAV-SUIVI ✅ couvert
+
+**Vraie valeur unique** : seulement **compteurs collectifs + paramètres copropriété** (tantièmes, syndic) — utile pour copropriété, rare chez bailleur particulier ImmoTrack cible.
+
+→ Re-scope **P3 / 1-2h** : ajouter section "Copropriété" dans IMM-FICHE-360 existant avec compteurs collectifs + champ syndic + champ tantièmes. Pas de refonte 7 sous-onglets.
 **Détecté** : 2026-05-13 (capture Qalimo V2 fiche immeuble Damelevières)
 **Lié à** : IMM-FICHE-360 (Phase 1 livrée v14.x) · LOG-FICHE-360 · LOG-PHOTOS · DRIVE-ARBORESCENCE · TRAV-SUIVI · BAILLEUR-DIAGNOSTICS-DDT
 

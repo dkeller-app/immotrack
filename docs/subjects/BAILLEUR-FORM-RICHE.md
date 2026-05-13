@@ -1,6 +1,9 @@
 # BAILLEUR-FORM-RICHE — Enrichir le formulaire profil bailleur (parité Qalimo V2)
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : M (3-5h)
+**Status** : ⬜ À faire — RE-PRIORISÉ P3 2026-05-13 · **Prio** : P3 · **Taille** : M (3-5h)
+
+## ⚠️ Verdict honnête 2026-05-13
+Filtre 4 critères : 1/4 (form actuel fait le job, vraie valeur seulement validation IBAN pour SEPA-PRELEVEMENTS). Re-prio P3 — nice-to-have, à activer si SEPA passe en V1.
 **Détecté** : 2026-05-13 (captures Qalimo V2)
 **Lié à** : ENT-FICHE-360 · LEGAL-2044 · EXPORT-COMPTABLE (livré) · ASSO-PARTAGE
 

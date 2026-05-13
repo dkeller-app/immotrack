@@ -12,6 +12,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo", "-p", "8766", "-c-1", "--silent"],
       "port": 8766
+    },
+    {
+      "name": "immotrack-worktree-email-auto",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb", "-p", "8770", "-c-1", "--silent"],
+      "port": 8770
     }
   ]
 }

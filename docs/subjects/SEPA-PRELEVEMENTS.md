@@ -1,6 +1,9 @@
 # SEPA-PRELEVEMENTS — Prélèvements SEPA automatiques
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : L (8-12h)
+**Status** : ⬜ À faire — REPORTÉ V2 SaaS 2026-05-13 · **Prio** : V2 SaaS · **Taille** : L (8-12h V2)
+
+## ⚠️ Verdict honnête 2026-05-13
+Filtre 4 critères : 2/4 V1 (V1 = juste fichier XML manuel à déposer à la banque = peu de gain user). Vraie valeur seulement V2 SaaS avec Open Banking. Reporté V2 SaaS — pas V1.
 **Détecté** : 2026-05-13 (capture Qalimo V2 onglet Pilotage > Prélèvements)
 **Lié à** : PILOTAGE-MATRICIEL · BAILLEUR-FORM-RICHE (ICS) · SAAS-MULTIUSERS (V2 backend)
 

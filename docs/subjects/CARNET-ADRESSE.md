@@ -1,6 +1,9 @@
 # CARNET-ADRESSE — Annuaire contacts (parité Qalimo V2)
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : M (4-6h)
+**Status** : ⬜ À faire — RE-PRIORISÉ P3 2026-05-13 · **Prio** : P3 · **Taille** : M (4-6h)
+
+## ⚠️ Verdict honnête 2026-05-13
+Filtre 4 critères : 1/4 (pour bailleur particulier 1-10 logements, le carnet téléphone perso suffit). Vraie valeur seulement pour pro multi-baux. Re-prio P3 — à activer si pivot pro/mandataire.
 **Détecté** : 2026-05-13 (validé important user — capture Qalimo V2)
 **Lié à** : EMAIL-AUTO (livré v14.97) · ENT-FICHE-360 · LOG-FICHE-360 · BAILLEUR-FORM-RICHE
 

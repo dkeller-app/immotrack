@@ -1,6 +1,9 @@
 # PARAM-BAILLEUR-AUTOMATISATIONS — Panneau centralisé automatisations par bailleur
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M-L (5-7h)
+**Status** : ⬜ À faire — RE-PRIORISÉ P2 2026-05-13 · **Prio** : P2 · **Taille** : M-L (5-7h)
+
+## ⚠️ Verdict honnête 2026-05-13
+Filtre 4 critères : 2/4 (centralise des features qui existent déjà, UX pure). Vraie valeur émerge à partir de 5+ baux à gérer en parallèle. Re-prio P2 — pas P1.
 **Détecté** : 2026-05-13 (capture Qalimo V2 — différenciant UX majeur)
 **Lié à** : EMAIL-AUTO (livré v14.97) · QUIT-EMAIL · AVIS-ECHEANCE · RAPPEL-IMPAYE · IRL-VALIDATION (livré) · GESTION-CRG · EQUIP-CONTROLES-PERIODIQUES
 
