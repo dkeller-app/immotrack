@@ -1,6 +1,6 @@
 # EMAIL-AUTO — Infrastructure d'envoi / proposition emails sortants
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M (3-5h pour V1 mode "proposition", +L pour V2 mode "automatique")
+**Status** : 🔄 En cours (depuis 2026-05-13, session dédiée) · **Prio** : P1 · **Taille** : M (3-5h pour V1 mode "proposition", +L pour V2 mode "automatique")
 **Détecté** : 2026-05-11
 **Lié à** : QUIT-EMAIL · AVIS-ECHEANCE · RAPPEL-IMPAYE · IRL-VALIDATION · MRH-AUTO-LOC · DRIVE-ARBORESCENCE
 
