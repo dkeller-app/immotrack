@@ -422,9 +422,154 @@ Suite à audit honnête, mon plan ne couvrait que ~18/83 sujets. Ajout de 4 spri
 
 ---
 
+## 🎯 Audit 360° — 5 vues croisées (ajout 2026-05-13)
+
+Pour ne plus rien oublier, croiser TOUTE feature/sujet selon ces 5 vues. **Si une feature n'est pas cohérente avec les 5 → écarter ou re-cadrer.**
+
+### Vue 1 — Cycle de vie complet bail+locataire
+
+```mermaid
+flowchart LR
+    AQ[Acquisition logement]
+    AC[Acquisition candidat]
+    SI[Signature bail]
+    EN[Entrée locataire]
+    VI[Vie du bail<br/>loyers/IRL/charges/entretien]
+    EV[Évolution<br/>avenants/renouvellements]
+    SO[Sortie locataire]
+    AR[Archivage]
+    VE[Vente bien]
+    SU[Succession bailleur]
+
+    AQ --> AC --> SI --> EN --> VI
+    VI --> EV --> VI
+    VI --> SO --> AR
+    AR --> VE
+    AQ -.-> SU
+```
+
+| Étape cycle | Couverture V1.1 | Trous identifiés |
+|---|---|---|
+| Acquisition logement | ✅ Biens / Fiche bien | IMPORT-EXCEL-LOG (P2) non dans plan |
+| Acquisition candidat | ⬜ LOG-CANDIDATS Sprint 7 | Bon |
+| Signature bail | ✅ wizard livré | Avenants étendus EMAIL-AUTO |
+| Entrée locataire | ✅ EDL + DG livrés | Bienvenue infos pratiques → EMAIL-AUTO étendu Sprint 10 |
+| Vie du bail | ✅ très couvert | Notifications travaux/visites → EMAIL-AUTO étendu |
+| Évolution | ⬜ renouvellement / congé bailleur 6 mois | Sprint 10 EMAIL-AUTO + Sprint 12 GESTION-DG |
+| Sortie | ⬜ workflow EDL sortie + DG restitution 1m/2m | Sprint 10 EMAIL-AUTO + Sprint 12 GESTION-DG |
+| Archivage | ✅ LOG-ARCHIVE livré | Bon |
+| **Vente bien** | ❌ **TROU** | À créer LOG-VENTE-CESSION (P3, V1.2) |
+| **Succession** | ❌ **TROU** | À documenter V2 (rare, dépend SAAS-MULTIUSERS) |
+
+### Vue 2 — Rôles utilisateur
+
+| Rôle | Profil USER-PROFILE-FILTERS | Couverture V1.1 |
+|---|---|---|
+| Bailleur particulier 1-3 lots | Solo (60% marché) | ✅ couvert complet |
+| SCI familiale 3-10 lots | SCI Familiale (25%) | ✅ couvert |
+| Investisseur 10-30 lots | Pro (10%) | ✅ couvert Sprint 8 PILOTAGE-MATRICIEL |
+| Mandataire Hoguet 30+ lots | Mandataire (5%) | ⚠️ partiel (GESTION-MANDAT + CRG complets reportés V1.2) |
+| Expert-comptable invité (lecture) | (V2 SaaS) | ❌ trou — V2 SAAS-MULTIUSERS |
+| Co-associé SCI consultation | (V2 SaaS) | ❌ trou — V2 |
+| Locataire portail | (V2 SaaS) | ❌ trou — V2 PORTAIL-LOC |
+
+### Vue 3 — Typologies de bien
+
+| Type | Couverture V1.1 |
+|---|---|
+| Bail vide loi 89-462 | ✅ couvert (défaut) |
+| Bail meublé LMNP | ⚠️ partiel — BAIL-TYPES P2 reporté V1.2 (mais utilisable avec template défaut) |
+| Garage / parking | ⬜ BAIL-TYPES V1.2 |
+| Bail mobilité 1-10 mois | ⬜ BAIL-TYPES V1.2 |
+| Bail étudiant 9 mois | ⬜ BAIL-TYPES V1.2 |
+| Bail colocation | ✅ multi-locataires livré |
+| **Bail saisonnier / Airbnb** | ❌ **TROU** — niche, à acter V2 si demande |
+| **Bail commercial / Pinel** | ❌ **TROU** — V2 si pivot pro |
+
+### Vue 4 — Axes techniques
+
+| Axe | Couverture V1.1 |
+|---|---|
+| Sécurité XSS | ✅ SECU-INNERHTML livré Sprint 1A v14.80 |
+| OAuth Drive | ✅ BUG-DRIVE-DISCONNECT livré v13.41 |
+| RGPD | ✅ RGPD-COMPLIANCE livré v14.91 |
+| Perf rendu | ⚠️ partiel — ARCHI-MODULAR Phase 1-2 livré, Phase 3 reportée V2 |
+| Mobile / responsive | ⬜ MOBILE-AUDIT-ONGLETS Sprint 15 |
+| PWA / offline | ⬜ MOBILE-PWA-OFFLINE P2 reporté V1.2 |
+| Sync multi-device Drive | ✅ géré (avec BUG-DRIVE-OVERWRITE livré) |
+| Multi-users Drive concurrent | ⬜ DRIVE-2H/2F/2G V2 SaaS |
+| **Backup auto localStorage** | ⚠️ Drive sync = backup implicite, mais pas de snapshot horodaté → à étudier V1.2 |
+| Tests unitaires Vitest | ✅ ~262 tests livrés marathon |
+| **Tests E2E** (Playwright/Cypress) | ❌ **TROU** — V1.2 ou V2 |
+| **Accessibilité WCAG 2.1 AA** | ❌ **TROU** — pas audité, V1.2 |
+| **Performance budget** (Lighthouse 90+) | ❌ **TROU** — pas mesuré, V1.2 |
+| **i18n** (anglais) | ❌ FR only, V3 ou V2 international |
+| **Monitoring prod activé** | ⬜ stub livré, activation = **PROD-MONITORING-CI Sprint 16** |
+| **CI validée opérationnelle** | ⬜ workflow livré, validation = **PROD-MONITORING-CI Sprint 16** |
+
+### Vue 5 — Axes commerciaux
+
+| Axe | Statut | Action |
+|---|---|---|
+| Pricing / facturation Stripe-Paddle | ⬜ Hors auto-pilote | À FAIRE PAR USER avant bêta |
+| Site vitrine + landing pages | ⬜ Hors auto-pilote | À FAIRE PAR USER avant bêta |
+| CGU / CGV / mentions légales | ⬜ Hors auto-pilote (templates RGPD livrés) | À faire valider avocat |
+| Marketing / SEO / contenu | ⬜ Hors auto-pilote | À FAIRE PAR USER |
+| Tutos vidéos (Qalimo ~22 vidéos) | ⬜ Hors auto-pilote | À FAIRE PAR USER (essentiel onboarding) |
+| FAQ / base connaissances | ⬜ Hors auto-pilote | À FAIRE PAR USER |
+| Helpdesk (Crisp/Intercom) | ⬜ Hors auto-pilote | À FAIRE PAR USER bêta |
+| Migration depuis concurrents | ⬜ IMPORT-CONCURRENTS partial v14.94 (Rentila + BailFacile mappers) → finaliser Sprint 14 ou ajout sujet | Sprint 14 si pas déjà fait |
+| Recrutement bêta-testeurs | ⬜ Hors auto-pilote | À FAIRE PAR USER (10-20 users) |
+| **Monitoring prod actif** | ⬜ Sprint 16 PROD-MONITORING-CI | À acter |
+
+---
+
+## 🆕 Sujets ajoutés suite audit 360° (filtre pré-vol validé)
+
+| Sujet | Prio | Effort | Justification (5 critères) |
+|---|---|---|---|
+| **LEGAL-DPE-INTERDICTION-LOCATION** | P1 V1.1 | 2-3h | 1/4 critères : cible 7% parc locatif FR · loi Climat 2021-1104 art. 23 · étend IRL-DPE-FG · trou cycle "Signature bail" |
+| **PROD-MONITORING-CI** | P1 V1.1 | 2-3h | 4/4 : avant V1 commerciale obligatoire · stub livré v14.96 non activé · monitoring + CI valider · trou vue commerciale |
+
+### Sujets documentés HORS V1.1 (avec justification)
+
+- **LOG-VENTE-CESSION** (P3 V1.2) — workflow vente bien différent archivage. 2-4h. Justifié niche solo mais critique multi-bailleur Pro.
+- **BAIL-SAISONNIER** (V2 si pivot) — Airbnb / location courte durée. Réglementation différente (CCH + commune).
+- **BAIL-COMMERCIAL-PINEL** (V2 si pivot) — bail commercial loi Pinel. Réglementation très différente.
+- **SUCCESSION-BAILLEUR** (V2) — transmission héritage. Couplé V2 SAAS-MULTIUSERS.
+- **TESTS-E2E** (V1.2) — Playwright/Cypress en complément Vitest.
+- **A11Y-AUDIT** (V1.2) — WCAG 2.1 AA conformité avec Lighthouse / axe-core.
+- **PERFORMANCE-BUDGET** (V1.2) — Lighthouse 90+ + monitoring Web Vitals.
+- **I18N-EN** (V3) — internationalisation anglais.
+
+---
+
+## 🔁 Plan V1.1 FINAL (audit 360° corrigé)
+
+| Sprint | Phase | Effort | Sujets clés |
+|---|---|---|---|
+| 6 | A. Foundations Simplicité | 6-8h | USER-PROFILE-FILTERS + BUG-CHARGE-001 + BUG-DASH-001 |
+| 7 | B. Différenciants critiques + DPE | 14-17h | LOG-CANDIDATS + BAIL-CHARGES-DETAIL + EDL-VALIDATION-AVOCAT + **LEGAL-DPE-INTERDICTION-LOCATION 🆕** |
+| 8 | C. Pilotage & Bank | 10-15h | PILOTAGE-MATRICIEL + BANK-INTEGRATION V1 CSV |
+| 9 | D. Légal équipements | 10-12h | EQUIP-CONTROLES-PERIODIQUES + BAILLEUR-DIAGNOSTICS-DDT |
+| 10 | E. EMAIL-AUTO extension | 5-7h | 23 types email cycle locataire complet |
+| 11 | F. Quittances actives | 4-6h | AVIS-ECHEANCE + RAPPEL-IMPAYE |
+| 12 | G. Gestion DG & Impayés | 7-9h | GESTION-DG + GESTION-IMPAYE |
+| 13 | H. DASH-PROFILES Phase 2 | 8-10h | Implémentation 4 lentilles |
+| 14 | I. EDL délégué + Drive arbo + Import concurrents | 10-13h | EDL-DELEGUE-EXPORT/IMPORT + finaliser DRIVE-ARBORESCENCE + finaliser IMPORT-CONCURRENTS |
+| 15 | J. Mobile irréprochable | ~10h | MOBILE-AUDIT-ONGLETS |
+| 16 | K. **🆕 Production-ready** | 2-3h | **PROD-MONITORING-CI** (Sentry activé + Plausible + CI validée) |
+| 17 | L. Polish UX final | ~5h | Bugs P2 résiduels (MVT-SCIND-CAT, MVT-RECURRENT, MRH-AUTO-LOC, ENT-SAVE-IMM, BUG-LOG-001, BUG-UI-DARK-MODAL, BUG-EQUIP-FILTER) |
+
+**Total V1.1 audité 360°** : **~85-110h sur 5-6 mois** (réparti à 15-18h/mois solo).
+
+→ Tout le reste (FICHES-PARITE-360, ARCHI-MODULAR Phase 3, GESTION-MANDAT/CRG complets, BAIL-TYPES, V3-REFONTE-*, V1.2/V2/V3, A11Y, E2E, i18n) est **explicitement reporté avec justification** ci-dessus.
+
+---
+
 ## 📜 Sources / Références
 - BACKLOG.md (~83 sujets actifs)
 - AUDIT-CODE.md (rapport audit Sprint complet)
 - VEILLE-QALIMO-V2-2026.md (analyse 10 captures + YouTube)
 - BIZPLAN.md (vision commerciale Q4 2026)
-- Mémoires : `feedback_pas_copier_concurrent.md` (filtre 4 critères), `feedback_sandbox_first.md`, `feedback_modify_verify.md`
+- Mémoires : `feedback_pre-flight-checklist.md` (5 critères), `feedback_pas_copier_concurrent.md` (filtre 4 critères), `feedback_sandbox_first.md`, `feedback_modify_verify.md`, `feedback_no_bullshit.md`, etc. (15 règles gravées)

@@ -1179,13 +1179,433 @@
 <li><strong>Validation visuelle marathon V1 (Sprint 1-4 sandbox v14.96)</strong> prioritaire AVANT V1.1 — sinon dette technique sandbox/prod.</li>
 </ol>
 <hr>
+<h2>🎯 Audit 360° — 5 vues croisées (ajout 2026-05-13)</h2>
+<p>Pour ne plus rien oublier, croiser TOUTE feature/sujet selon ces 5 vues. <strong>Si une feature n&#39;est pas cohérente avec les 5 → écarter ou re-cadrer.</strong></p>
+<h3>Vue 1 — Cycle de vie complet bail+locataire</h3>
+<div class="mermaid">flowchart LR
+    AQ[Acquisition logement]
+    AC[Acquisition candidat]
+    SI[Signature bail]
+    EN[Entrée locataire]
+    VI[Vie du bail<br/>loyers/IRL/charges/entretien]
+    EV[Évolution<br/>avenants/renouvellements]
+    SO[Sortie locataire]
+    AR[Archivage]
+    VE[Vente bien]
+    SU[Succession bailleur]
+
+    AQ --> AC --> SI --> EN --> VI
+    VI --> EV --> VI
+    VI --> SO --> AR
+    AR --> VE
+    AQ -.-> SU</div>
+<table>
+<thead>
+<tr>
+<th>Étape cycle</th>
+<th>Couverture V1.1</th>
+<th>Trous identifiés</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Acquisition logement</td>
+<td>✅ Biens / Fiche bien</td>
+<td>IMPORT-EXCEL-LOG (P2) non dans plan</td>
+</tr>
+<tr>
+<td>Acquisition candidat</td>
+<td>⬜ LOG-CANDIDATS Sprint 7</td>
+<td>Bon</td>
+</tr>
+<tr>
+<td>Signature bail</td>
+<td>✅ wizard livré</td>
+<td>Avenants étendus EMAIL-AUTO</td>
+</tr>
+<tr>
+<td>Entrée locataire</td>
+<td>✅ EDL + DG livrés</td>
+<td>Bienvenue infos pratiques → EMAIL-AUTO étendu Sprint 10</td>
+</tr>
+<tr>
+<td>Vie du bail</td>
+<td>✅ très couvert</td>
+<td>Notifications travaux/visites → EMAIL-AUTO étendu</td>
+</tr>
+<tr>
+<td>Évolution</td>
+<td>⬜ renouvellement / congé bailleur 6 mois</td>
+<td>Sprint 10 EMAIL-AUTO + Sprint 12 GESTION-DG</td>
+</tr>
+<tr>
+<td>Sortie</td>
+<td>⬜ workflow EDL sortie + DG restitution 1m/2m</td>
+<td>Sprint 10 EMAIL-AUTO + Sprint 12 GESTION-DG</td>
+</tr>
+<tr>
+<td>Archivage</td>
+<td>✅ LOG-ARCHIVE livré</td>
+<td>Bon</td>
+</tr>
+<tr>
+<td><strong>Vente bien</strong></td>
+<td>❌ <strong>TROU</strong></td>
+<td>À créer LOG-VENTE-CESSION (P3, V1.2)</td>
+</tr>
+<tr>
+<td><strong>Succession</strong></td>
+<td>❌ <strong>TROU</strong></td>
+<td>À documenter V2 (rare, dépend SAAS-MULTIUSERS)</td>
+</tr>
+</tbody></table>
+<h3>Vue 2 — Rôles utilisateur</h3>
+<table>
+<thead>
+<tr>
+<th>Rôle</th>
+<th>Profil USER-PROFILE-FILTERS</th>
+<th>Couverture V1.1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bailleur particulier 1-3 lots</td>
+<td>Solo (60% marché)</td>
+<td>✅ couvert complet</td>
+</tr>
+<tr>
+<td>SCI familiale 3-10 lots</td>
+<td>SCI Familiale (25%)</td>
+<td>✅ couvert</td>
+</tr>
+<tr>
+<td>Investisseur 10-30 lots</td>
+<td>Pro (10%)</td>
+<td>✅ couvert Sprint 8 PILOTAGE-MATRICIEL</td>
+</tr>
+<tr>
+<td>Mandataire Hoguet 30+ lots</td>
+<td>Mandataire (5%)</td>
+<td>⚠️ partiel (GESTION-MANDAT + CRG complets reportés V1.2)</td>
+</tr>
+<tr>
+<td>Expert-comptable invité (lecture)</td>
+<td>(V2 SaaS)</td>
+<td>❌ trou — V2 SAAS-MULTIUSERS</td>
+</tr>
+<tr>
+<td>Co-associé SCI consultation</td>
+<td>(V2 SaaS)</td>
+<td>❌ trou — V2</td>
+</tr>
+<tr>
+<td>Locataire portail</td>
+<td>(V2 SaaS)</td>
+<td>❌ trou — V2 PORTAIL-LOC</td>
+</tr>
+</tbody></table>
+<h3>Vue 3 — Typologies de bien</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Couverture V1.1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bail vide loi 89-462</td>
+<td>✅ couvert (défaut)</td>
+</tr>
+<tr>
+<td>Bail meublé LMNP</td>
+<td>⚠️ partiel — BAIL-TYPES P2 reporté V1.2 (mais utilisable avec template défaut)</td>
+</tr>
+<tr>
+<td>Garage / parking</td>
+<td>⬜ BAIL-TYPES V1.2</td>
+</tr>
+<tr>
+<td>Bail mobilité 1-10 mois</td>
+<td>⬜ BAIL-TYPES V1.2</td>
+</tr>
+<tr>
+<td>Bail étudiant 9 mois</td>
+<td>⬜ BAIL-TYPES V1.2</td>
+</tr>
+<tr>
+<td>Bail colocation</td>
+<td>✅ multi-locataires livré</td>
+</tr>
+<tr>
+<td><strong>Bail saisonnier / Airbnb</strong></td>
+<td>❌ <strong>TROU</strong> — niche, à acter V2 si demande</td>
+</tr>
+<tr>
+<td><strong>Bail commercial / Pinel</strong></td>
+<td>❌ <strong>TROU</strong> — V2 si pivot pro</td>
+</tr>
+</tbody></table>
+<h3>Vue 4 — Axes techniques</h3>
+<table>
+<thead>
+<tr>
+<th>Axe</th>
+<th>Couverture V1.1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Sécurité XSS</td>
+<td>✅ SECU-INNERHTML livré Sprint 1A v14.80</td>
+</tr>
+<tr>
+<td>OAuth Drive</td>
+<td>✅ BUG-DRIVE-DISCONNECT livré v13.41</td>
+</tr>
+<tr>
+<td>RGPD</td>
+<td>✅ RGPD-COMPLIANCE livré v14.91</td>
+</tr>
+<tr>
+<td>Perf rendu</td>
+<td>⚠️ partiel — ARCHI-MODULAR Phase 1-2 livré, Phase 3 reportée V2</td>
+</tr>
+<tr>
+<td>Mobile / responsive</td>
+<td>⬜ MOBILE-AUDIT-ONGLETS Sprint 15</td>
+</tr>
+<tr>
+<td>PWA / offline</td>
+<td>⬜ MOBILE-PWA-OFFLINE P2 reporté V1.2</td>
+</tr>
+<tr>
+<td>Sync multi-device Drive</td>
+<td>✅ géré (avec BUG-DRIVE-OVERWRITE livré)</td>
+</tr>
+<tr>
+<td>Multi-users Drive concurrent</td>
+<td>⬜ DRIVE-2H/2F/2G V2 SaaS</td>
+</tr>
+<tr>
+<td><strong>Backup auto localStorage</strong></td>
+<td>⚠️ Drive sync = backup implicite, mais pas de snapshot horodaté → à étudier V1.2</td>
+</tr>
+<tr>
+<td>Tests unitaires Vitest</td>
+<td>✅ ~262 tests livrés marathon</td>
+</tr>
+<tr>
+<td><strong>Tests E2E</strong> (Playwright/Cypress)</td>
+<td>❌ <strong>TROU</strong> — V1.2 ou V2</td>
+</tr>
+<tr>
+<td><strong>Accessibilité WCAG 2.1 AA</strong></td>
+<td>❌ <strong>TROU</strong> — pas audité, V1.2</td>
+</tr>
+<tr>
+<td><strong>Performance budget</strong> (Lighthouse 90+)</td>
+<td>❌ <strong>TROU</strong> — pas mesuré, V1.2</td>
+</tr>
+<tr>
+<td><strong>i18n</strong> (anglais)</td>
+<td>❌ FR only, V3 ou V2 international</td>
+</tr>
+<tr>
+<td><strong>Monitoring prod activé</strong></td>
+<td>⬜ stub livré, activation = <strong>PROD-MONITORING-CI Sprint 16</strong></td>
+</tr>
+<tr>
+<td><strong>CI validée opérationnelle</strong></td>
+<td>⬜ workflow livré, validation = <strong>PROD-MONITORING-CI Sprint 16</strong></td>
+</tr>
+</tbody></table>
+<h3>Vue 5 — Axes commerciaux</h3>
+<table>
+<thead>
+<tr>
+<th>Axe</th>
+<th>Statut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Pricing / facturation Stripe-Paddle</td>
+<td>⬜ Hors auto-pilote</td>
+<td>À FAIRE PAR USER avant bêta</td>
+</tr>
+<tr>
+<td>Site vitrine + landing pages</td>
+<td>⬜ Hors auto-pilote</td>
+<td>À FAIRE PAR USER avant bêta</td>
+</tr>
+<tr>
+<td>CGU / CGV / mentions légales</td>
+<td>⬜ Hors auto-pilote (templates RGPD livrés)</td>
+<td>À faire valider avocat</td>
+</tr>
+<tr>
+<td>Marketing / SEO / contenu</td>
+<td>⬜ Hors auto-pilote</td>
+<td>À FAIRE PAR USER</td>
+</tr>
+<tr>
+<td>Tutos vidéos (Qalimo ~22 vidéos)</td>
+<td>⬜ Hors auto-pilote</td>
+<td>À FAIRE PAR USER (essentiel onboarding)</td>
+</tr>
+<tr>
+<td>FAQ / base connaissances</td>
+<td>⬜ Hors auto-pilote</td>
+<td>À FAIRE PAR USER</td>
+</tr>
+<tr>
+<td>Helpdesk (Crisp/Intercom)</td>
+<td>⬜ Hors auto-pilote</td>
+<td>À FAIRE PAR USER bêta</td>
+</tr>
+<tr>
+<td>Migration depuis concurrents</td>
+<td>⬜ IMPORT-CONCURRENTS partial v14.94 (Rentila + BailFacile mappers) → finaliser Sprint 14 ou ajout sujet</td>
+<td>Sprint 14 si pas déjà fait</td>
+</tr>
+<tr>
+<td>Recrutement bêta-testeurs</td>
+<td>⬜ Hors auto-pilote</td>
+<td>À FAIRE PAR USER (10-20 users)</td>
+</tr>
+<tr>
+<td><strong>Monitoring prod actif</strong></td>
+<td>⬜ Sprint 16 PROD-MONITORING-CI</td>
+<td>À acter</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>🆕 Sujets ajoutés suite audit 360° (filtre pré-vol validé)</h2>
+<table>
+<thead>
+<tr>
+<th>Sujet</th>
+<th>Prio</th>
+<th>Effort</th>
+<th>Justification (5 critères)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>LEGAL-DPE-INTERDICTION-LOCATION</strong></td>
+<td>P1 V1.1</td>
+<td>2-3h</td>
+<td>1/4 critères : cible 7% parc locatif FR · loi Climat 2021-1104 art. 23 · étend IRL-DPE-FG · trou cycle &quot;Signature bail&quot;</td>
+</tr>
+<tr>
+<td><strong>PROD-MONITORING-CI</strong></td>
+<td>P1 V1.1</td>
+<td>2-3h</td>
+<td>4/4 : avant V1 commerciale obligatoire · stub livré v14.96 non activé · monitoring + CI valider · trou vue commerciale</td>
+</tr>
+</tbody></table>
+<h3>Sujets documentés HORS V1.1 (avec justification)</h3>
+<ul>
+<li><strong>LOG-VENTE-CESSION</strong> (P3 V1.2) — workflow vente bien différent archivage. 2-4h. Justifié niche solo mais critique multi-bailleur Pro.</li>
+<li><strong>BAIL-SAISONNIER</strong> (V2 si pivot) — Airbnb / location courte durée. Réglementation différente (CCH + commune).</li>
+<li><strong>BAIL-COMMERCIAL-PINEL</strong> (V2 si pivot) — bail commercial loi Pinel. Réglementation très différente.</li>
+<li><strong>SUCCESSION-BAILLEUR</strong> (V2) — transmission héritage. Couplé V2 SAAS-MULTIUSERS.</li>
+<li><strong>TESTS-E2E</strong> (V1.2) — Playwright/Cypress en complément Vitest.</li>
+<li><strong>A11Y-AUDIT</strong> (V1.2) — WCAG 2.1 AA conformité avec Lighthouse / axe-core.</li>
+<li><strong>PERFORMANCE-BUDGET</strong> (V1.2) — Lighthouse 90+ + monitoring Web Vitals.</li>
+<li><strong>I18N-EN</strong> (V3) — internationalisation anglais.</li>
+</ul>
+<hr>
+<h2>🔁 Plan V1.1 FINAL (audit 360° corrigé)</h2>
+<table>
+<thead>
+<tr>
+<th>Sprint</th>
+<th>Phase</th>
+<th>Effort</th>
+<th>Sujets clés</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>6</td>
+<td>A. Foundations Simplicité</td>
+<td>6-8h</td>
+<td>USER-PROFILE-FILTERS + BUG-CHARGE-001 + BUG-DASH-001</td>
+</tr>
+<tr>
+<td>7</td>
+<td>B. Différenciants critiques + DPE</td>
+<td>14-17h</td>
+<td>LOG-CANDIDATS + BAIL-CHARGES-DETAIL + EDL-VALIDATION-AVOCAT + <strong>LEGAL-DPE-INTERDICTION-LOCATION 🆕</strong></td>
+</tr>
+<tr>
+<td>8</td>
+<td>C. Pilotage &amp; Bank</td>
+<td>10-15h</td>
+<td>PILOTAGE-MATRICIEL + BANK-INTEGRATION V1 CSV</td>
+</tr>
+<tr>
+<td>9</td>
+<td>D. Légal équipements</td>
+<td>10-12h</td>
+<td>EQUIP-CONTROLES-PERIODIQUES + BAILLEUR-DIAGNOSTICS-DDT</td>
+</tr>
+<tr>
+<td>10</td>
+<td>E. EMAIL-AUTO extension</td>
+<td>5-7h</td>
+<td>23 types email cycle locataire complet</td>
+</tr>
+<tr>
+<td>11</td>
+<td>F. Quittances actives</td>
+<td>4-6h</td>
+<td>AVIS-ECHEANCE + RAPPEL-IMPAYE</td>
+</tr>
+<tr>
+<td>12</td>
+<td>G. Gestion DG &amp; Impayés</td>
+<td>7-9h</td>
+<td>GESTION-DG + GESTION-IMPAYE</td>
+</tr>
+<tr>
+<td>13</td>
+<td>H. DASH-PROFILES Phase 2</td>
+<td>8-10h</td>
+<td>Implémentation 4 lentilles</td>
+</tr>
+<tr>
+<td>14</td>
+<td>I. EDL délégué + Drive arbo + Import concurrents</td>
+<td>10-13h</td>
+<td>EDL-DELEGUE-EXPORT/IMPORT + finaliser DRIVE-ARBORESCENCE + finaliser IMPORT-CONCURRENTS</td>
+</tr>
+<tr>
+<td>15</td>
+<td>J. Mobile irréprochable</td>
+<td>~10h</td>
+<td>MOBILE-AUDIT-ONGLETS</td>
+</tr>
+<tr>
+<td>16</td>
+<td>K. <strong>🆕 Production-ready</strong></td>
+<td>2-3h</td>
+<td><strong>PROD-MONITORING-CI</strong> (Sentry activé + Plausible + CI validée)</td>
+</tr>
+<tr>
+<td>17</td>
+<td>L. Polish UX final</td>
+<td>~5h</td>
+<td>Bugs P2 résiduels (MVT-SCIND-CAT, MVT-RECURRENT, MRH-AUTO-LOC, ENT-SAVE-IMM, BUG-LOG-001, BUG-UI-DARK-MODAL, BUG-EQUIP-FILTER)</td>
+</tr>
+</tbody></table>
+<p><strong>Total V1.1 audité 360°</strong> : <strong>~85-110h sur 5-6 mois</strong> (réparti à 15-18h/mois solo).</p>
+<p>→ Tout le reste (FICHES-PARITE-360, ARCHI-MODULAR Phase 3, GESTION-MANDAT/CRG complets, BAIL-TYPES, V3-REFONTE-*, V1.2/V2/V3, A11Y, E2E, i18n) est <strong>explicitement reporté avec justification</strong> ci-dessus.</p>
+<hr>
 <h2>📜 Sources / Références</h2>
 <ul>
 <li>BACKLOG.md (~83 sujets actifs)</li>
 <li>AUDIT-CODE.md (rapport audit Sprint complet)</li>
 <li>VEILLE-QALIMO-V2-2026.md (analyse 10 captures + YouTube)</li>
 <li>BIZPLAN.md (vision commerciale Q4 2026)</li>
-<li>Mémoires : <code>feedback_pas_copier_concurrent.md</code> (filtre 4 critères), <code>feedback_sandbox_first.md</code>, <code>feedback_modify_verify.md</code></li>
+<li>Mémoires : <code>feedback_pre-flight-checklist.md</code> (5 critères), <code>feedback_pas_copier_concurrent.md</code> (filtre 4 critères), <code>feedback_sandbox_first.md</code>, <code>feedback_modify_verify.md</code>, <code>feedback_no_bullshit.md</code>, etc. (15 règles gravées)</li>
 </ul>
 
 
