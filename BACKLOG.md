@@ -314,6 +314,17 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Phase A1 — BUG-PRORATA-DASH (fix calculs loyer intra-mois) — session 2026-05-15 (~3h, v15.19)
+> **Bug bloquant pour monétisation V1**. Locataire entré mi-mois (1-15) marqué « impayé » dans dashboard alors qu'il avait payé son prorata. Cause : `_getActiveBailHcCh` testait au 15 du mois et retournait le loyer plein → cassait `_computeImpayes`, `_computeExpectedRent`, `_buildProgDrill`.
+>
+> **Fix** : nouveau helper `_loyerProrataMois(log, yr, mi, bails, irlHist)` testable (loi 6 juillet 1989 + jurisprudence Cass. 3e civ.). Gère entrée mi-mois, sortie mi-mois, transition de 2 baux mi-mois, révisions IRL pour bail courant vs `bail.hc` figé pour bail historique clos. Wrapper inline `_getActiveBailHcChProrated`. Les 3 callsites de calcul d'attendu refactorés (hero impayés, attendu vs encaissé, progression annuelle).
+>
+> **Tests Vitest** : 713 → **744** (+31 nouveaux, zéro régression). 7 tests scénario user reproductible (cas Marion entrée 10/03).
+>
+> **Doc sujet** : [BUG-PRORATA-DASH.md](docs/subjects/BUG-PRORATA-DASH.md).
+>
+> **Reste à valider visuellement par user** dans `index-test.html` avant promotion vers `index.html`.
+
 ### Sprints 14-15-16-17 V1.1 + Fixes UX — session 2026-05-14 (~2h, v15.14 → v15.17)
 > **Clôture du marathon V1.1**. Sprint 14 IMPORT-EXCEL-LOG déjà livré (template + import existants). Sprint 15 mobile = RAS (39 media queries en place depuis Sprint 3H v14.95). Sprint 16 cleanup Hub Communications (marqué @deprecated suite retour user "communication dans bail n'a aucune logique"). Sprint 17 polish UX → **reporté à l'audit onglet par onglet** vu les retours utilisateur sur la direction globale.
 

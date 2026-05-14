@@ -39,7 +39,7 @@ import {
   _isDpeClassValide, _bailGelDpeFG, _dpeExpire, _estRevisableIRL,
   _dpeInterditLocationAuDate, _dpeInterdictionCalendrier,
   _isLoyerCategory, _isChargeRecupCategory,
-  _bailEstActifAt, _loyerHCAtDate, _chargesAtDate
+  _bailEstActifAt, _loyerHCAtDate, _chargesAtDate, _loyerProrataMois
 } from './core/utils.js';
 
 import {
@@ -136,6 +136,9 @@ window._bailEstActifAt = _bailEstActifAt;
 // (compat avec le code inline qui appelle sans le 3e arg).
 window._loyerHCAtDate = (log, dateRef) => _loyerHCAtDate(log, dateRef, window.DB?.irlHistorique || []);
 window._chargesAtDate = _chargesAtDate;
+// v15.19 Phase A1 BUG-PRORATA-DASH : prorata jours intra-mois
+window._loyerProrataMois = (log, yr, mi, bails) =>
+  _loyerProrataMois(log, yr, mi, bails, window.DB?.irlHistorique || []);
 
 // IndexedDB helpers (Phase 1b)
 window._IDB_NAME = _IDB_NAME;

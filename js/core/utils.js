@@ -266,3 +266,79 @@ export function _chargesAtDate(log /*, dateRef, chHistorique */) {
   if (!log) return 0;
   return Number(log.ch) || 0;
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Prorata loyer intra-mois (v15.19 — Phase A1 BUG-PRORATA-DASH)
+// Loi 6 juillet 1989 + jurisprudence Cass. 3e civ. : loyer dû au prorata du
+// temps d'occupation pour entrée/sortie/transition intra-mois.
+//
+// AVANT v15.19 : _getActiveBailHcCh testait au 15 du mois et retournait le
+// loyer plein si actif. Bug : locataire entré le 10/03 → attendu plein 1000€
+// → payé prorata 710€ → marqué "impayé" à tort dans dashboard + quittances.
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calcule le loyer attendu (HC+CH) pour un logement sur un mois donné, avec
+ * prorata jours pour entrées/sorties/transitions de bail intra-mois.
+ *
+ * Gère naturellement :
+ *   - Bail démarrant en cours de mois (entrée mi-mois)
+ *   - Bail finissant en cours de mois (sortie mi-mois)
+ *   - Transition de 2 baux dans le même mois (somme prorata)
+ *   - Bail courant (sans fin OU fin future) : HC via _loyerHCAtDate (révisions IRL)
+ *   - Bail historique clôturé : bail.hc figé (pas de révision rétroactive)
+ *
+ * @param {object} log — logement (au moins {ref, hc})
+ * @param {string|number} yr — année (ex: 2026 ou '2026')
+ * @param {number} mi — index du mois 0-based (0=jan, 11=dec)
+ * @param {Array<{debut, fin, hc, ch}>} bails — TOUS les baux du logement
+ * @param {Array} irlHistorique — révisions IRL (peut être [] ou omis)
+ * @param {Date} [todayRef] — date "aujourd'hui" pour distinguer bail courant vs historique (test only)
+ * @returns {number} montant prorata total HC+CH pour le mois (somme baux qui chevauchent)
+ */
+export function _loyerProrataMois(log, yr, mi, bails, irlHistorique = [], todayRef = new Date()) {
+  if (!log || !Array.isArray(bails) || !bails.length) return 0;
+  const y = parseInt(yr);
+  const m = parseInt(mi);
+  if (Number.isNaN(y) || Number.isNaN(m) || m < 0 || m > 11) return 0;
+
+  // Bornes ISO du mois
+  const mm = String(m + 1).padStart(2, '0');
+  const firstDayOfMonth = `${y}-${mm}-01`;
+  const lastDayNum = new Date(y, m + 1, 0).getDate(); // 28/29/30/31
+  const lastDayOfMonth = `${y}-${mm}-${String(lastDayNum).padStart(2, '0')}`;
+  const joursDansMois = lastDayNum;
+
+  const todayIso = todayRef.toISOString().slice(0, 10);
+
+  let total = 0;
+
+  for (const bail of bails) {
+    if (!bail || !bail.debut) continue;
+    const bDebut = String(bail.debut).slice(0, 10);
+    const bFin = bail.fin ? String(bail.fin).slice(0, 10) : '9999-12-31';
+    // Le bail chevauche-t-il le mois ?
+    if (bDebut > lastDayOfMonth) continue;
+    if (bFin < firstDayOfMonth) continue;
+    // Période effective intersectée avec le mois
+    const debutEff = bDebut > firstDayOfMonth ? bDebut : firstDayOfMonth;
+    const finEff = bFin < lastDayOfMonth ? bFin : lastDayOfMonth;
+    if (debutEff > finEff) continue;
+    // Jours d'occupation = (finDay - debutDay) + 1
+    const debutDay = parseInt(debutEff.slice(8, 10));
+    const finDay = parseInt(finEff.slice(8, 10));
+    const joursOcc = (finDay - debutDay) + 1;
+    if (joursOcc <= 0) continue;
+    // HC à appliquer : bail courant → _loyerHCAtDate (consulte révisions IRL)
+    // Bail historique clôturé → bail.hc figé (clos avec son HC final)
+    const isCurrent = !bail.fin || bail.fin >= todayIso;
+    const hc = isCurrent
+      ? _loyerHCAtDate(log, debutEff, irlHistorique)
+      : (Number(bail.hc) || 0);
+    const ch = Number(bail.ch) || 0;
+    const loyerMensuel = hc + ch;
+    total += loyerMensuel * (joursOcc / joursDansMois);
+  }
+
+  return total;
+}
