@@ -667,7 +667,7 @@ flowchart LR
 | 8 | C. Pilotage & Bank | 10-15h | PILOTAGE-MATRICIEL + BANK-INTEGRATION V1 CSV |
 | 9 | D. Légal équipements | 10-12h | EQUIP-CONTROLES-PERIODIQUES + BAILLEUR-DIAGNOSTICS-DDT |
 | 10 | E. EMAIL-AUTO extension | 5-7h | 23 types email cycle locataire complet |
-| 11 | F. Quittances actives | 4-6h | AVIS-ECHEANCE + RAPPEL-IMPAYE |
+| 11 | F. Quittances actives + **🆕 IRL refonte UX** | 7-10h | AVIS-ECHEANCE + RAPPEL-IMPAYE + **IRL-REVISION-UX-FIX** (cartes cohérence app + bouton unique + logique temporelle stricte `bail.revisions[]`) |
 | 12 | G. Gestion DG & Impayés | 7-9h | GESTION-DG + GESTION-IMPAYE |
 | 13 | H. DASH-PROFILES Phase 2 | 8-10h | Implémentation 4 lentilles |
 | 14 | I. EDL délégué + Drive arbo + Import concurrents | 10-13h | EDL-DELEGUE-EXPORT/IMPORT + finaliser DRIVE-ARBORESCENCE + finaliser IMPORT-CONCURRENTS |
