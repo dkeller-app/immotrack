@@ -1,6 +1,6 @@
 # DASH-PROFILES — Dashboards par lentille (persona / cas d'usage)
 
-**Status** : ⏳ Phase 1 v2 livrée — attente validation finale · depuis 2026-05-05
+**Status** : ✅ Phase 2 livrée v15.13 (Sprint 13 V1.1, 2026-05-14) — 4 onglets opérationnels
 **Prio** : P1 · **Taille** : XL (refonte dashboard majeure, ~1-2 semaines en codage prod après validation aperçu)
 **Détecté** : 2026-05-01
 **Lié à** : DASH-V2 · DASH-KPI-HC · BIZPLAN · BUG-DASH-001
@@ -188,3 +188,13 @@ Livrables :
   - **`nav.js` simplifié** : 3 entrées actives (home + Propriétaire + Gestionnaire) + 2 entrées info (Complet + Custom = pas de mockup)
   - **`index.html` refondu** en hub des 4 onglets + plan implémentation Phase 2 + 3 décisions D1-D3 + section "Outils différés"
   - Effort estimé Phase 2 : **~4.5 j-h (~1 semaine calendaire)** au lieu de ~38 j-h dans la v1
+
+- 2026-05-14 : ✅ **Phase 2 livrée v15.13** (Sprint 13 V1.1, ~3h) :
+  - **Phase 2a** : Onglets en haut du dashboard (`Propriétaire / Gestionnaire / Complet / Custom`) avec persist `DB.params.dashTab` (décision D1 = B : par-utilisateur sync Drive). Helper `setDashTab(tab, e)` + `_currentDashTab()`. Migration douce `initDB()` default `'proprio'`.
+  - **Phase 2b** : Onglet Propriétaire densifié via preset `DASH_TAB_PRESETS.proprio` — masque `agenda-dash` + `sep-gestion`, garde `context-bar / hero / todo-unified / sep-finance / flux / occ / rdt / donut / dg / prog / solde`. Vue 1-écran finance + alertes.
+  - **Phase 2c** : Onglet Gestionnaire via preset `DASH_TAB_PRESETS.gestion` — masque les KPIs finance lourds (`flux/occ/rdt/donut/dg/solde/prog`), garde `context-bar / hero / todo-unified / sep-gestion / agenda-dash + widgets ops` (vac, mag, mrh, irl, bail, regul, stat). Vue opérationnelle.
+  - **Phase 2d (Complet)** : utilise `_mergeWithDefaults(saved)` — respecte les overrides utilisateur OU défaut `DASH_DEFAULT_LAYOUT` complet (tous widgets activables via panneau ⚙ Widgets).
+  - **Phase 2e (Custom)** : idem Complet en lecture, mais le mode édition (drag-drop) sauvegarde dans `DB.params.dashLayout` — layout dédié indépendant (décision D2 = B). Note : l'éditeur actuel impacte aussi Complet ; cleanup ultérieur pour séparer 100% (Sprint V2).
+  - **Phase 2f (drill-down)** : la section `dash-ent-cards` existante sert de "Mon parc" effondré. Drill par bien → clic carte ouvre fiche logement (décision D3 = A : modale type fiche 360°). Pas de nouvelle modale plein-écran nécessaire.
+  - Tests Vitest : 713 toujours passants (rien cassé, fix UI uniquement).
+- Différenciant marché atteint : aucun concurrent (Rentila/BailFacile/Qalimo/Smovin) n'a de onglets dashboard par persona. Argument marketing premium pricing validé.

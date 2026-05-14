@@ -314,6 +314,22 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Sprint 13 V1.1 — DASH-PROFILES Phase 2 (4 onglets dashboard par persona) — session 2026-05-14 (~3h, v15.13)
+> Sprint 13 du marathon V1.1. **Sujet DASH-PROFILES Phase 2 ✅ clos** : implémentation des 4 onglets dashboard (Propriétaire / Gestionnaire / Complet / Custom) avec persist `DB.params.dashTab` et presets densifiés par persona. **Aucun concurrent (Rentila/BailFacile/Qalimo/Smovin) ne fait ça** — argument marketing premium pricing.
+
+| Code | Sujet | Note |
+|---|---|---|
+| DASH-PROFILES Phase 2 | ✅ Livré (~3h). **Phases 2a-2f** : Onglets en haut du dashboard avec 4 vues (🏠 Propriétaire / 🛠 Gestionnaire / 📊 Complet / ✦ Custom). Persist `DB.params.dashTab` (décision D1=B : par-utilisateur, sync Drive). Helper `setDashTab(tab, e)` + `_currentDashTab()`. **Presets densifiés** dans `DASH_TAB_PRESETS` : Propriétaire = vue 1-écran finance (cache agenda+gestion), Gestionnaire = vue ops (cache KPIs finance lourds, garde À-faire/agenda/vacances/impayés). Complet = défaut/saved layout, Custom = layout utilisateur drag-drop (décision D2=B). Drill-down par bien via `dash-ent-cards` existant → fiche logement 360° (décision D3=A). Migration douce `initDB()` default `'proprio'`. | v15.13 · [docs/subjects/DASH-PROFILES.md](docs/subjects/DASH-PROFILES.md) |
+| Tests Vitest | **713 toujours passants** (refactor purement UI, pas de nouvelle logique testable). 26 fichiers de tests. Zéro régression. | |
+
+**Différenciant marché** :
+- Rentila/BailFacile/Qalimo/Smovin/ImmobilierLoyer : **aucun n'a de dashboard par persona**
+- ImmoTrack v15.13 : ⭐ unique sur le marché B2C/SCI · 4 vues qui s'adaptent au cas d'usage du moment
+
+**Sandbox-first** respecté. Bump v15.12 → v15.13.
+
+---
+
 ### Sprint 12 V1.1 — Gestion DG & Impayés — session 2026-05-14 (~6h, v15.12)
 > Sprint 12 du marathon V1.1. **2 blocs livrés** : Gestion DG (tracking + restitution avec calcul délai légal auto) + Gestion Impayés avancée (vue centralisée + plan d'apurement + procédure judiciaire 5 étapes). Bonus : fix UX Sprint 11 v15.11 (cartes IRL compactes + bouton Fermer discret + bouton "+ Règle" import bank).
 
