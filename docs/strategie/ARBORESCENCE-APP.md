@@ -671,10 +671,10 @@ flowchart LR
 | 12 | G. Gestion DG & Impayés | 7-9h | GESTION-DG + GESTION-IMPAYE |
 | 13 | H. DASH-PROFILES Phase 2 | 8-10h | Implémentation 4 lentilles |
 | 14 | I. EDL délégué + Drive arbo + Import concurrents | 10-13h | EDL-DELEGUE-EXPORT/IMPORT + finaliser DRIVE-ARBORESCENCE + finaliser IMPORT-CONCURRENTS |
-| **14bis 🆕** | **J0. Infra tests E2E** | **10-15h** | **TEST-E2E-PLAYWRIGHT** (13 scénarios + visual regression + a11y + Lighthouse + CI) — pose les baselines AVANT MOBILE-AUDIT |
-| 15 | J. Mobile irréprochable | ~10h | MOBILE-AUDIT-ONGLETS (utilise les baselines Playwright pour catch régressions) |
+| 15 | J. Mobile irréprochable | ~10h | MOBILE-AUDIT-ONGLETS |
 | 16 | K. Production-ready | 2-3h | PROD-MONITORING-CI (Sentry activé + Plausible + CI validée) |
 | 17 | L. Polish UX final | ~5h | Bugs P2 résiduels (MVT-SCIND-CAT, MVT-RECURRENT, MRH-AUTO-LOC, ENT-SAVE-IMM, BUG-LOG-001, BUG-UI-DARK-MODAL, BUG-EQUIP-FILTER) |
+| **18 🆕** | **M. Infra tests E2E (qualité finale)** | **10-15h** | **TEST-E2E-PLAYWRIGHT** (13 scénarios + visual regression + a11y + Lighthouse + CI) — pose baselines complètes sur la prod-ready avant rapport V1.1 |
 
 **Total V1.1 audité 360° + tests E2E** : **~95-125h sur 6-7 mois** (réparti à 15-18h/mois solo).
 

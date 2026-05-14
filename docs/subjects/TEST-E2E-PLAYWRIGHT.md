@@ -145,11 +145,11 @@ playwright.config.js          ← Config root
 
 ## Décisions à arbitrer
 
-- [ ] **Quand l'attaquer** :
-  - **Option A** : Sprint 15bis (juste avant MOBILE-AUDIT-ONGLETS, mutualisation captures)
-  - **Option B** : Sprint 6.5 (entre Sprint 6 livré et Sprint 7) — protège tout le reste
-  - **Option C** : Reporter V1.2 → tests manuels uniquement en V1
-  - → **Recommandation : Option A** (avant MOBILE-AUDIT-ONGLETS, mutualisation maximale)
+- [x] **Quand l'attaquer** : **Sprint 18 (FIN du marathon V1.1)** — décision user 2026-05-14
+  - Justification : baselines posées sur l'app **complète et stable** (après Sprint 17 polish final)
+  - Permet de tester d'un coup TOUTES les features V1.1 livrées Sprint 6-17
+  - Trade-off : Sprint 15 MOBILE-AUDIT ne réutilise pas Playwright (compense par checklist manuelle)
+  - Avant rapport final V1.1 → tests E2E = dernière barrière qualité avant bascule prod
 - [ ] **Visual regression baseline** : multi-browser ou Chromium seul ?
   - → Recommandation : multi-browser (catch les diffs Safari/Firefox)
 - [ ] **Threshold diff pixels** : 0.1% strict ou 0.5% tolérant ?
@@ -168,7 +168,8 @@ ImmoTrack avec Playwright + a11y + perf = qualité **avant** ship V1. Évite les
 ## Notes utilisateur
 
 > 💬 2026-05-14 : « est-ce que tu sais tester toute l'application et le bon rendu et le bon fonctionnement et interface ? quels agents devons nous solliciter ? »
-> 💬 2026-05-14 (suite proposition A/B/C) : « vas y » → Option A retenue (Sprint 15bis avant MOBILE-AUDIT-ONGLETS)
+> 💬 2026-05-14 (suite proposition A/B/C) : « vas y » → initialement Option A (Sprint 14bis avant MOBILE-AUDIT)
+> 💬 2026-05-14 (post-création) : « tu ajoutes à la fin des sprints le sujet test ? » → **déplacé Sprint 18 (fin marathon V1.1)** — baselines sur app stabilisée
 
 ## Journal
 
