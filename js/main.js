@@ -105,6 +105,13 @@ import {
   _planQuittancesAGenerer, QUITTANCE_STATUS
 } from './core/quittances-actives.js';
 
+// v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
+import {
+  _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG,
+  _planApurementStatut, _procedureJudiciaireEtat, _listerImpayesActifs,
+  DG_STATUS, PROCEDURE_ETAT
+} from './core/gestion-dg-impayes.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -228,6 +235,16 @@ window._matchPaiementQuittance = _matchPaiementQuittance;
 window._escaladeAlerte = _escaladeAlerte;
 window._planQuittancesAGenerer = _planQuittancesAGenerer;
 window.QUITTANCE_STATUS = QUITTANCE_STATUS;
+
+// GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
+window._dgStatut = _dgStatut;
+window._calculerDelaiRestitution = _calculerDelaiRestitution;
+window._calculerSoldeDG = _calculerSoldeDG;
+window._planApurementStatut = _planApurementStatut;
+window._procedureJudiciaireEtat = _procedureJudiciaireEtat;
+window._listerImpayesActifs = _listerImpayesActifs;
+window.DG_STATUS = DG_STATUS;
+window.PROCEDURE_ETAT = PROCEDURE_ETAT;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

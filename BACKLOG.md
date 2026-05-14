@@ -314,6 +314,24 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Sprint 12 V1.1 — Gestion DG & Impayés — session 2026-05-14 (~6h, v15.12)
+> Sprint 12 du marathon V1.1. **2 blocs livrés** : Gestion DG (tracking + restitution avec calcul délai légal auto) + Gestion Impayés avancée (vue centralisée + plan d'apurement + procédure judiciaire 5 étapes). Bonus : fix UX Sprint 11 v15.11 (cartes IRL compactes + bouton Fermer discret + bouton "+ Règle" import bank).
+
+| Code | Sujet | Note |
+|---|---|---|
+| Gestion DG (Bloc A) | ✅ Livré (~3h). Module `js/core/gestion-dg-impayes.js` (8 KB, 8 exports) + shadow inline. **Helpers purs** : `_dgStatut` (6 états : manquant/partiel/complet/a_restituer/restitue/en_retard) · `_calculerDelaiRestitution` (1 mois si EDL sortie sans dégradation, 2 mois sinon loi 89-462 art. 22 ALUR 2014) · `_calculerSoldeDG` (DG versé - retenues - loyers impayés cumulés). **UI** : modale `#ov-dg-restitution` avec calcul auto-recalculé live + détail retenues + IBAN + date · alertes dashboard graduées (J-30 / J-7 / J+0 / J+1+ retard avec pénalité 10%/mois loi ALUR) + alertes DG manquant/partiel pendant bail. | v15.12 |
+| Gestion Impayés avancée (Bloc B) | ✅ Livré (~3h). **Helpers** : `_planApurementStatut` (a_jour/retard/termine/aucun avec retardJours) · `_procedureJudiciaireEtat` (5 états : mise_en_demeure / commandement_payer / assignation / jugement / cloturee) · `_listerImpayesActifs` (agrégation tri par avancement procédure puis ancienneté). **UI** : bouton "💰 Impayés actifs" dans Pilotage matriciel → modale `#ov-impayes-vue` table récap + colonne statut coloré + modale `#ov-impayes-actions` (hub : email rappels + plan apurement + procédure) · modale `#ov-plan-apurement` saisie échéances avec checkbox payée + tracking · modale `#ov-procedure` 5 étapes datées (LRAR / commandement huissier / assignation tribunal / jugement / clôture) avec audit-trail. | v15.12 |
+| Tests Vitest | **713 passants** (vs 679 Sprint 11 → +34 gestion-dg-impayes). 26 fichiers de tests. Zéro régression. | |
+
+**Différenciant marché** :
+- Rentila/BailFacile : 0 workflow DG · 0 procédure judiciaire trackée
+- Qalimo V2 : tracking DG basique · partial procédure
+- **ImmoTrack v15.12** : ⭐ délai légal DG auto-calculé (1/2 mois) selon EDL sortie + alertes pénalité 10%/mois + procédure judiciaire 5 étapes documentées avec audit-trail RGPD
+
+**Sandbox-first** respecté. Bump v15.10 → v15.12 (v15.11 = fix UX intermédiaire).
+
+---
+
 ### Sprint 11 V1.1 — IRL-REVISION-UX-FIX + Quittances actives — session 2026-05-14 (~8h, v15.10)
 > Sprint 11 du marathon V1.1. **2 sujets P1 clos** : IRL-REVISION-UX-FIX (refonte UX cartes + bouton unique + logique temporelle stricte loi 89-462 art. 17-1) + Quittances actives (statut dynamique 7 états + matching paiement + escalade graduée 4 niveaux + génération auto mensuelle). Intégration EMAIL-AUTO Sprint 10 via les rappels d'escalade. **Différenciant marché majeur** : quittance mai 2026 = ancien loyer, quittance juin = nouveau (impossible avant v15.10 où `bail.hc` était muté direct).
 
