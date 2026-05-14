@@ -107,9 +107,10 @@ describe('_emailTypesSupportes', () => {
     expect(types.every(t => typeof t === 'string')).toBe(true);
   });
 
-  it('contient les 10 types V1', () => {
+  it('contient les 29 types V1+V1.1 (10 V1 v14.97 + 19 extension v15.09)', () => {
     const types = _emailTypesSupportes();
-    expect(types).toHaveLength(10);
+    expect(types).toHaveLength(29);
+    // V1 v14.97 (10 types)
     expect(types).toContain('quittance');
     expect(types).toContain('avis-echeance');
     expect(types).toContain('rappel-impaye-1');
@@ -120,6 +121,26 @@ describe('_emailTypesSupportes', () => {
     expect(types).toContain('bail-signe-final');
     expect(types).toContain('convocation-edl-sortie');
     expect(types).toContain('decompte-regul-annuel');
+    // V1.1 v15.09 (19 nouveaux)
+    expect(types).toContain('bail-pret-a-signer');
+    expect(types).toContain('cautionnement-signe');
+    expect(types).toContain('bail-avenant');
+    expect(types).toContain('edl-convocation-entree');
+    expect(types).toContain('edl-entree-signe');
+    expect(types).toContain('bienvenue-infos-pratiques');
+    expect(types).toContain('dg-recu');
+    expect(types).toContain('demande-attest-entretien-chauffage');
+    expect(types).toContain('demande-attest-mrh');
+    expect(types).toContain('notification-travaux-a-venir');
+    expect(types).toContain('notification-visite');
+    expect(types).toContain('bail-renouvellement-3ans');
+    expect(types).toContain('bail-conge-bailleur-6mois');
+    expect(types).toContain('bail-preavis-recu');
+    expect(types).toContain('edl-sortie-signe');
+    expect(types).toContain('dg-restitution-integrale');
+    expect(types).toContain('dg-restitution-partielle');
+    expect(types).toContain('solde-tout-compte');
+    expect(types).toContain('attestation-logement-libere');
   });
 });
 
@@ -384,5 +405,213 @@ describe('_getEmailHistory — Phase 3', () => {
     ];
     expect(_getEmailHistory('logement', 'A')).toHaveLength(1);
     expect(_getEmailHistory()).toHaveLength(2);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  v15.09 Sprint 10 — Tests extension 19 nouveaux types
+// ═══════════════════════════════════════════════════════════════════
+
+describe('EMAIL-AUTO extension v15.09 — Phase signature bail', () => {
+  it('bail-pret-a-signer : sujet personnalisé + PJ projet bail', () => {
+    const ctx = { ...ctxAlpha(), dureeBail: '3 ans', dateSignature: '2026-06-15', lieuSignatureTxt: ' au cabinet du notaire' };
+    const r = _emailCompose('bail-pret-a-signer', ctx);
+    expect(r.subject).toMatch(/prêt à être signé/);
+    expect(r.body).toMatch(/2026-06-15/);
+    expect(r.body).toMatch(/cabinet du notaire/);
+    expect(r.attachments).toHaveLength(1);
+    expect(r.attachments[0].name).toMatch(/Projet-bail/);
+  });
+
+  it('cautionnement-signe : destinataire garant, sujet acte reçu', () => {
+    const ctx = { garant: { nom: 'M. DUPONT Père' }, locataire: { nom: 'M. DUPONT Jean' }, bail: { adrBien: '8 av des Tilleuls' }, entite: { gerant: 'Did K', nom: 'SCI' } };
+    const r = _emailCompose('cautionnement-signe', ctx);
+    expect(r.subject).toMatch(/cautionnement bien reçu/);
+    expect(r.body).toMatch(/M\. DUPONT Père/);
+    expect(r.attachments[0].type).toBe('pdf');
+  });
+
+  it('bail-avenant : motif et date d\'application interpolés', () => {
+    const ctx = { ...ctxAlpha(), motifAvenant: 'Ajout colocataire', dateApplication: '2026-09-01' };
+    const r = _emailCompose('bail-avenant', ctx);
+    expect(r.body).toMatch(/Ajout colocataire/);
+    expect(r.body).toMatch(/2026-09-01/);
+    expect(r.attachments[0].name).toMatch(/Avenant/);
+  });
+});
+
+describe('EMAIL-AUTO extension v15.09 — Phase entrée locataire', () => {
+  it('edl-convocation-entree : date EDL + heure interpolés', () => {
+    const ctx = { ...ctxAlpha(), dateEDL: '2026-06-15', heureEDL: '10h00' };
+    const r = _emailCompose('edl-convocation-entree', ctx);
+    expect(r.subject).toMatch(/État des lieux d'entrée/);
+    expect(r.body).toMatch(/2026-06-15/);
+    expect(r.body).toMatch(/10h00/);
+    expect(r.body).toMatch(/article 3-2/);
+    expect(r.legalNote).toMatch(/présomption en faveur du locataire/);
+  });
+
+  it('edl-entree-signe : relevé compteurs interpolé', () => {
+    const ctx = { ...ctxAlpha(), dateEDL: '2026-06-15', compteurElec: 'HP 12345 / HC 6789', compteurGaz: '3456', compteurEauF: '432.1', compteurEauC: '210.5' };
+    const r = _emailCompose('edl-entree-signe', ctx);
+    expect(r.body).toMatch(/HP 12345 \/ HC 6789/);
+    expect(r.body).toMatch(/3456/);
+    expect(r.body).toMatch(/10 jours/);
+    expect(r.attachments[0].name).toMatch(/EDL-entree/);
+  });
+
+  it('bienvenue-infos-pratiques : infos pratiques interpolées', () => {
+    const ctx = { ...ctxAlpha(), contactEau: 'Eaux du Rhône — 04XXX',
+      technologiesDispo: 'fibre + ADSL', jourCollecteOM: 'mardi', jourCollecteTri: 'jeudi',
+      localPoubelles: 'sous-sol côté cave', syndic: 'Cabinet Foncia', contactGardien: 'M. Martin — 06XX',
+      contactUrgence: 'syndic 24/7 + bailleur' };
+    const r = _emailCompose('bienvenue-infos-pratiques', ctx);
+    expect(r.body).toMatch(/Eaux du Rhône/);
+    expect(r.body).toMatch(/Cabinet Foncia/);
+    expect(r.body).toMatch(/MRH/);
+    expect(r.subject).toMatch(/Bienvenue/);
+  });
+
+  it('dg-recu : montant DG + date versement', () => {
+    const ctx = { ...ctxAlpha(), dateVersement: '2026-06-15' };
+    const r = _emailCompose('dg-recu', ctx);
+    expect(r.subject).toMatch(/dépôt de garantie/);
+    expect(r.body).toMatch(/2026-06-15/);
+    expect(r.body).toMatch(/article 22 de la loi/);
+  });
+});
+
+describe('EMAIL-AUTO extension v15.09 — Vie du bail', () => {
+  it('demande-attest-entretien-chauffage : année + référence légale', () => {
+    const ctx = { ...ctxAlpha(), annee: 2026 };
+    const r = _emailCompose('demande-attest-entretien-chauffage', ctx);
+    expect(r.subject).toMatch(/2026/);
+    expect(r.body).toMatch(/R224-31/);
+    expect(r.body).toMatch(/décret n° 2009-649/);
+  });
+
+  it('demande-attest-mrh : date fin MRH interpolée + article 7g', () => {
+    const ctx = { ...ctxAlpha(), dateFinMRH: '2026-09-30' };
+    const r = _emailCompose('demande-attest-mrh', ctx);
+    expect(r.body).toMatch(/2026-09-30/);
+    expect(r.body).toMatch(/article 7g/);
+    expect(r.body).toMatch(/10 %/);
+  });
+
+  it('notification-travaux-a-venir : nature + date + durée', () => {
+    const ctx = { ...ctxAlpha(), natureTravaux: 'Ravalement façade', dateDebut: '2026-09-01',
+      dureeEstimee: '4 semaines', intervenant: 'Entreprise BTP Sud', detailContexte: '' };
+    const r = _emailCompose('notification-travaux-a-venir', ctx);
+    expect(r.body).toMatch(/Ravalement façade/);
+    expect(r.body).toMatch(/4 semaines/);
+    expect(r.body).toMatch(/21 jours ouvrés/);
+  });
+
+  it('notification-visite : 3 créneaux proposés', () => {
+    const ctx = { ...ctxAlpha(), motifVisite: 'Diagnostic électrique',
+      creneau1: 'Mer 12/06 14h', creneau2: 'Jeu 13/06 10h', creneau3: 'Ven 14/06 16h' };
+    const r = _emailCompose('notification-visite', ctx);
+    expect(r.body).toMatch(/Diagnostic électrique/);
+    expect(r.body).toMatch(/Mer 12\/06 14h/);
+    expect(r.legalNote).toMatch(/violation de domicile/);
+  });
+});
+
+describe('EMAIL-AUTO extension v15.09 — Fin de bail', () => {
+  it('bail-renouvellement-3ans : date fin + note révision', () => {
+    const ctx = { ...ctxAlpha(), dateFin: '2028-12-31', noteRevisionLoyer: 'Nous envisageons une révision art. 17-2.' };
+    const r = _emailCompose('bail-renouvellement-3ans', ctx);
+    expect(r.body).toMatch(/2028-12-31/);
+    expect(r.body).toMatch(/tacitement reconduit/);
+    expect(r.body).toMatch(/art\. 17-2/);
+  });
+
+  it('bail-conge-bailleur-6mois : LRAR + motif obligatoire', () => {
+    const ctx = { ...ctxAlpha(), motifConge: 'vente', motifDetail: 'Cession du bien à un tiers',
+      dateFin: '2027-06-30', dateLettre: '2026-12-31' };
+    const r = _emailCompose('bail-conge-bailleur-6mois', ctx);
+    expect(r.body).toMatch(/Lettre recommandée/);
+    expect(r.body).toMatch(/Cession du bien/);
+    expect(r.body).toMatch(/2027-06-30/);
+    expect(r.body).toMatch(/article 15-II/);
+    expect(r.legalNote).toMatch(/LRAR/);
+  });
+
+  it('bail-preavis-recu : durée préavis + date EDL sortie', () => {
+    const ctx = { ...ctxAlpha(), datePreavis: '2026-04-01', typeBail: 'nu', dureePreavis: '3',
+      dateFinPreavis: '2026-07-01', motifReduction: 'mutation professionnelle',
+      dateEDLSortie: '2026-06-30', heureEDLSortie: '14h' };
+    const r = _emailCompose('bail-preavis-recu', ctx);
+    expect(r.body).toMatch(/préavis/);
+    expect(r.body).toMatch(/mutation professionnelle/);
+    expect(r.body).toMatch(/2026-06-30/);
+  });
+});
+
+describe('EMAIL-AUTO extension v15.09 — Sortie & solde', () => {
+  it('edl-sortie-signe : comparatif compteurs + bilan', () => {
+    const ctx = { ...ctxAlpha(), dateEDL: '2026-06-30',
+      comparatifCompteurs: 'consommations cohérentes',
+      degradationsBilan: 'Aucune dégradation',
+      conclusionEDL: 'Logement restitué en bon état.' };
+    const r = _emailCompose('edl-sortie-signe', ctx);
+    expect(r.body).toMatch(/consommations cohérentes/);
+    expect(r.body).toMatch(/Aucune dégradation/);
+    expect(r.attachments[0].name).toMatch(/EDL-sortie/);
+  });
+
+  it('dg-restitution-integrale : virement IBAN + délai 1 mois', () => {
+    const ctx = { ...ctxAlpha(), dateEDLSortie: '2026-06-30',
+      ibanLocataire: 'FR76 1234 5678 ...', dateRestitution: '2026-07-25' };
+    const r = _emailCompose('dg-restitution-integrale', ctx);
+    expect(r.body).toMatch(/intégralité/);
+    expect(r.body).toMatch(/2026-07-25/);
+    expect(r.body).toMatch(/délai légal d'un mois/);
+    expect(r.legalNote).toMatch(/10 %/);
+  });
+
+  it('dg-restitution-partielle : retenues détaillées + IBAN', () => {
+    const ctx = { ...ctxAlpha(), dateEDLSortie: '2026-06-30',
+      detailRetenues: '• Peinture séjour : 280 €\n• Joint salle de bain : 60 €',
+      montantRetenu: '340', soldeRestitue: '900',
+      ibanLocataire: 'FR76 1234', dateRestitution: '2026-08-30' };
+    const r = _emailCompose('dg-restitution-partielle', ctx);
+    expect(r.body).toMatch(/Peinture séjour : 280/);
+    expect(r.body).toMatch(/2 mois/);
+    expect(r.legalNote).toMatch(/Justificatifs OBLIGATOIRES/);
+  });
+
+  it('solde-tout-compte : crédits + débits + solde net', () => {
+    const ctx = { ...ctxAlpha(), tropPercuCharges: '120', autresCredits: '0',
+      totalCredit: '1360', loyerImpaye: '0', chargesDues: '0', retenuesDG: '340',
+      autresDebits: '0', totalDebit: '340', soldeNet: '1020', senseSolde: 'à votre profit',
+      instructionsReglement: 'Virement effectué le 2026-08-30 sur votre IBAN.' };
+    const r = _emailCompose('solde-tout-compte', ctx);
+    expect(r.body).toMatch(/Solde net : 1020/);
+    expect(r.body).toMatch(/à votre profit/);
+  });
+
+  it('attestation-logement-libere : libération + signataire', () => {
+    const ctx = { ...ctxAlpha(), dateLiberation: '2026-06-30',
+      dateEDLSortie: '2026-06-30', modaliteRemiseClef: 'en main propre',
+      dateAttestation: '2026-07-01' };
+    const r = _emailCompose('attestation-logement-libere', ctx);
+    expect(r.subject).toMatch(/Attestation/);
+    expect(r.body).toMatch(/2026-06-30/);
+    expect(r.body).toMatch(/changement d'adresse/);
+  });
+});
+
+describe('EMAIL-AUTO extension v15.09 — variables manquantes (fallback (inconnu))', () => {
+  it('Variable manquante → "(inconnu)"', () => {
+    const r = _emailCompose('bail-pret-a-signer', { locataire: { nom: 'TEST' }, bail: { adrBien: 'ADR' } });
+    expect(r.body).toMatch(/\(inconnu\)/);
+  });
+
+  it('Toutes les variables manquantes → toujours générable', () => {
+    const r = _emailCompose('dg-restitution-partielle', {});
+    expect(r.body).toBeDefined();
+    expect(r.body).toMatch(/\(inconnu\)/);
+    expect(r.error).toBeUndefined();
   });
 });

@@ -249,6 +249,524 @@ Cordialement,
     legalNote: 'Sans présence du locataire, EDL par huissier à ses frais (art. 3-2 loi 1989). Possibilité de RDV en deux temps si besoin.'
   },
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // v15.09 Sprint 10 V1.1 — EMAIL-AUTO extension cycle locataire complet
+  // 19 nouveaux types : signature bail, entrée locataire, vie du bail,
+  // évolution, fin de bail, sortie/solde.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ─── PHASE SIGNATURE BAIL ──────────────────────────────────────────────
+
+  'bail-pret-a-signer': {
+    subject: 'Votre bail est prêt à être signé — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Le projet de bail concernant le logement situé {{bail.adrBien}} est prêt à être signé.
+
+Détail principal :
+- Date de prise d'effet : {{bail.debut}}
+- Durée : {{dureeBail}}
+- Loyer hors charges : {{bail.hc}} €/mois
+- Provisions sur charges : {{bail.ch}} €/mois
+- Dépôt de garantie : {{bail.dg}} €
+
+Vous trouverez en pièce jointe le projet de bail complet à relire. Merci de bien vouloir nous transmettre vos éventuelles questions / remarques avant la signature.
+
+La signature aura lieu le {{dateSignature}}{{lieuSignatureTxt}}.
+
+Documents à apporter le jour de la signature :
+- Pièce d'identité en cours de validité
+- Justificatif de domicile de moins de 3 mois
+- Attestation MRH (assurance habitation) ou engagement de la souscrire avant entrée
+- Acte de cautionnement signé par le(s) garant(s) le cas échéant
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [
+      { name: 'Projet-bail-{{logement.ref}}.pdf', type: 'pdf' }
+    ],
+    legalNote: 'Conserver une trace de l\'envoi du projet (sert de preuve d\'information préalable du locataire).'
+  },
+
+  'cautionnement-signe': {
+    subject: 'Acte de cautionnement bien reçu — {{bail.adrBien}}',
+    body: `Bonjour {{garant.nom}},
+
+Nous accusons réception de l'acte de cautionnement signé par vos soins en garantie des obligations locatives de {{locataire.nom}} pour le logement situé {{bail.adrBien}}.
+
+Cet acte engage votre solidarité au paiement des loyers, charges, et éventuelles indemnités d'occupation, dans les limites définies par le document signé.
+
+Vous trouverez en pièce jointe une copie de l'acte cautionnement.
+
+Pour rappel, vous pouvez à tout moment :
+- Demander un point sur la situation locative (état des règlements)
+- Mettre fin au cautionnement à durée indéterminée par lettre recommandée (avec préavis prévu à l'acte)
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [
+      { name: 'Cautionnement-{{logement.ref}}.pdf', type: 'pdf' }
+    ],
+    legalNote: 'Conservation de l\'acte original 5 ans après la fin du bail (prescription).'
+  },
+
+  'bail-avenant': {
+    subject: 'Avenant à votre bail — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Nous vous transmettons en pièce jointe un avenant à votre bail concernant le logement {{bail.adrBien}}.
+
+Objet de l'avenant : {{motifAvenant}}
+
+Date d'application proposée : {{dateApplication}}
+
+Merci de bien vouloir :
+- Relire attentivement l'avenant
+- Le signer dans les meilleurs délais (signature manuscrite ou électronique)
+- Nous retourner un exemplaire signé
+
+L'avenant ne modifie aucune autre clause du bail initial.
+
+À votre disposition pour toute question avant signature.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [
+      { name: 'Avenant-{{logement.ref}}-{{dateApplication}}.pdf', type: 'pdf' }
+    ],
+    legalNote: 'L\'avenant doit être accepté explicitement (signé). Sans signature, le bail initial reste applicable.'
+  },
+
+  // ─── PHASE ENTRÉE LOCATAIRE ────────────────────────────────────────────
+
+  'edl-convocation-entree': {
+    subject: 'Convocation — État des lieux d\'entrée — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Nous vous donnons rendez-vous pour l'état des lieux d'entrée du logement situé {{bail.adrBien}} :
+
+  Date : {{dateEDL}}
+  Heure : {{heureEDL}}
+  Sur place : {{bail.adrBien}}
+
+Conformément à l'article 3-2 de la loi n° 89-462 du 6 juillet 1989, cet état des lieux contradictoire et écrit sera annexé à votre bail. Il décrit précisément l'état du logement et des équipements à votre entrée — il servira de référence à la sortie pour évaluer d'éventuelles dégradations.
+
+Merci de :
+- Confirmer votre disponibilité par retour de mail
+- Prévoir 1 à 2 heures pour un examen détaillé pièce par pièce
+- Vous munir d'une pièce d'identité
+- Avoir souscrit votre assurance habitation (obligation art. 7g loi 1989) — apporter l'attestation
+
+Si vous êtes empêché, vous pouvez vous faire représenter par un mandataire muni d'une procuration écrite.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Sans EDL contradictoire, présomption en faveur du locataire (logement loué en bon état art. 1731 Code civil) → grave perte pour le bailleur.'
+  },
+
+  'edl-entree-signe': {
+    subject: 'État des lieux d\'entrée signé — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Vous trouverez en pièce jointe l'état des lieux d'entrée signé conjointement le {{dateEDL}} pour le logement situé {{bail.adrBien}}.
+
+Ce document constitue la **référence officielle** de l'état du logement et de ses équipements à votre entrée.
+
+Relevé des compteurs à votre entrée :
+- Électricité : {{compteurElec}}
+- Gaz : {{compteurGaz}}
+- Eau froide : {{compteurEauF}}
+- Eau chaude : {{compteurEauC}}
+
+Conservez bien ce document — il sera comparé à l'état des lieux de sortie pour évaluer d'éventuelles réparations à votre charge.
+
+Si vous constatez une anomalie non mentionnée dans les 10 jours suivant votre entrée, vous pouvez nous demander une révision par écrit (article 3-2 alinéa 5 loi 1989).
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [
+      { name: 'EDL-entree-{{logement.ref}}.pdf', type: 'pdf' }
+    ],
+    legalNote: 'Le locataire a 10 jours après son entrée pour demander la modification de l\'EDL. Au-delà, l\'EDL est figé.'
+  },
+
+  'bienvenue-infos-pratiques': {
+    subject: 'Bienvenue ! Informations pratiques — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Bienvenue dans votre nouveau logement {{bail.adrBien}}.
+
+Voici quelques informations pratiques pour vous installer sereinement :
+
+📡 RACCORDEMENTS
+- Électricité : à mettre en service à votre nom auprès du fournisseur de votre choix
+- Gaz : idem (si applicable)
+- Eau : {{contactEau}}
+- Internet / TV / Téléphone : opérateurs au choix (logement éligible {{technologiesDispo}})
+
+🚮 ORDURES MÉNAGÈRES
+- Jour de collecte ordures : {{jourCollecteOM}}
+- Jour de collecte tri sélectif : {{jourCollecteTri}}
+- Local poubelles : {{localPoubelles}}
+
+🏢 COPROPRIÉTÉ / VOISINAGE
+- Syndic : {{syndic}}
+- Règlement de copropriété : disponible sur demande
+- Contacts utiles voisins / gardien : {{contactGardien}}
+
+🚨 EN CAS D'URGENCE
+- Coupure générale eau / gaz / élec : {{contactUrgence}}
+- Dégât des eaux : appeler immédiatement votre assurance + nous prévenir
+- Incendie : 18 (pompiers) puis nous prévenir
+
+🛡 OBLIGATIONS RAPPEL
+- Assurance habitation (MRH) à souscrire avant entrée si pas encore fait
+- Entretien chaudière annuel à organiser par vos soins (si chauffage gaz/fioul/bois)
+- Détecteur de fumée à entretenir (pile à remplacer)
+
+Pour toute question, n'hésitez pas à nous contacter par mail ou téléphone.
+
+Bonne installation et excellente vie dans votre nouveau logement.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: ''
+  },
+
+  'dg-recu': {
+    subject: 'Confirmation réception dépôt de garantie — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Nous accusons bonne réception du dépôt de garantie d'un montant de {{bail.dg}} € versé le {{dateVersement}} pour le logement {{bail.adrBien}}.
+
+Ce dépôt de garantie sera conservé pendant toute la durée du bail et restitué dans les conditions prévues par l'article 22 de la loi du 6 juillet 1989 :
+- Délai de 1 mois si EDL de sortie sans dégradation par rapport à l'EDL d'entrée
+- Délai de 2 mois si dégradations constatées (et arrêté de comptes copro non encore disponible)
+
+Le dépôt de garantie est rémunéré uniquement dans certaines conditions très restrictives (non applicable dans la majorité des baux d'habitation classiques).
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Date de versement à conserver pour le calcul du délai de restitution. Si paiement par chèque, attendre encaissement effectif.'
+  },
+
+  // ─── PHASE VIE DU BAIL — DEMANDES ATTESTATIONS / NOTIFICATIONS ─────────
+
+  'demande-attest-entretien-chauffage': {
+    subject: 'Demande d\'attestation d\'entretien chauffage {{annee}} — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Conformément à l'article R224-31 du Code de l'environnement et au décret n° 2009-649 du 9 juin 2009, l'entretien annuel de la chaudière du logement {{bail.adrBien}} est à votre charge.
+
+Pour {{annee}}, nous n'avons pas encore reçu votre attestation d'entretien. Merci de bien vouloir nous la transmettre dès que possible (PDF ou photo lisible du certificat d'entretien).
+
+Cette attestation doit être remise par le professionnel ayant réalisé l'intervention. Elle est obligatoire et engage votre responsabilité civile (assurance habitation) en cas d'incident lié au chauffage.
+
+Si l'entretien n'a pas encore été réalisé pour cette année, merci de prévoir l'intervention dans les meilleurs délais et de nous transmettre le justificatif ensuite.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Obligation locataire (décret 2009-649). À conserver dans la fiche logement.'
+  },
+
+  'demande-attest-mrh': {
+    subject: 'Renouvellement attestation d\'assurance habitation — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+L'attestation d'assurance habitation actuellement en notre possession arrive à échéance le {{dateFinMRH}}.
+
+Conformément à l'article 7g de la loi n° 89-462 du 6 juillet 1989, vous avez l'obligation de souscrire et maintenir une assurance habitation (responsabilité civile locative au minimum) pendant toute la durée du bail.
+
+Merci de nous transmettre votre nouvelle attestation MRH avant le {{dateFinMRH}}, par retour de mail (PDF ou photo lisible).
+
+À défaut de réception dans les délais, nous serions contraints, conformément à votre contrat, de souscrire une assurance pour votre compte et de vous en répercuter le coût majoré de 10 % (art. 7g).
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Obligation art. 7g loi 1989. Sans MRH, le bail peut être résilié à torts du locataire.'
+  },
+
+  'notification-travaux-a-venir': {
+    subject: 'Notification de travaux à venir — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Nous vous informons que des travaux vont être réalisés dans / sur le logement situé {{bail.adrBien}} :
+
+Nature des travaux : {{natureTravaux}}
+Date de début : {{dateDebut}}
+Durée estimée : {{dureeEstimee}}
+Intervenant : {{intervenant}}
+
+{{detailContexte}}
+
+Conformément à l'article 7e de la loi n° 89-462 du 6 juillet 1989, le locataire est tenu de laisser exécuter les travaux d'amélioration des parties communes ou des parties privatives, ainsi que les travaux nécessaires au maintien en état et à l'entretien normal des locaux loués.
+
+Si les travaux durent plus de 21 jours ouvrés, vous pouvez prétendre à une réduction proportionnelle de loyer (art. 1724 Code civil).
+
+Pour tout aménagement de planning, contactez-nous au plus tôt.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Préavis raisonnable (8 jours minimum recommandé sauf urgence). Réduction loyer obligatoire si > 21 jours ouvrés.'
+  },
+
+  'notification-visite': {
+    subject: 'Demande de créneau pour visite — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Nous aurions besoin d'accéder au logement {{bail.adrBien}} pour : {{motifVisite}}
+
+Nous vous proposons les créneaux suivants :
+- {{creneau1}}
+- {{creneau2}}
+- {{creneau3}}
+
+Merci de nous indiquer celui qui vous conviendrait, ou de nous proposer un autre créneau si aucun ne fonctionne.
+
+Conformément à la jurisprudence (article 9 loi 1989 + Cass. civ. 3e), l'accès au logement loué nécessite votre accord préalable, sauf en cas d'urgence (dégât des eaux, incendie, etc.).
+
+Nous restons à votre disposition.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Sans accord du locataire = violation de domicile. Toujours négocier un créneau, sauf urgence avérée.'
+  },
+
+  // ─── PHASE ÉVOLUTION / FIN DE BAIL ─────────────────────────────────────
+
+  'bail-renouvellement-3ans': {
+    subject: 'Renouvellement de votre bail — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Votre bail concernant le logement {{bail.adrBien}} arrive à son terme initial le {{dateFin}}.
+
+Conformément à l'article 10 de la loi n° 89-462 du 6 juillet 1989, sauf congé donné dans les formes légales par l'une ou l'autre des parties, votre bail sera **tacitement reconduit** pour une nouvelle période de 3 ans (ou 1 an pour un bail meublé) aux mêmes conditions.
+
+Nous restons à votre disposition pour toute discussion concernant cette reconduction.
+
+{{noteRevisionLoyer}}
+
+Bonne continuation dans votre logement.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Tacite reconduction = mêmes conditions financières. Pour modifier le loyer en renouvellement, suivre la procédure encadrée art. 17-2 loi 1989 (préavis 6 mois + références).'
+  },
+
+  'bail-conge-bailleur-6mois': {
+    subject: 'Congé pour {{motifConge}} — {{bail.adrBien}}',
+    body: `Lettre recommandée avec accusé de réception
+(et copie par email)
+
+{{locataire.nom}}
+{{bail.adrBien}}
+
+Objet : Congé pour {{motifConge}} — Bail du {{bail.debut}}
+
+{{locataire.nom}},
+
+Conformément aux articles 15-I et 15-II de la loi n° 89-462 du 6 juillet 1989, je vous donne par la présente congé du logement {{bail.adrBien}} que je vous loue depuis le {{bail.debut}}, pour le motif suivant :
+
+{{motifDetail}}
+
+Le présent congé prend effet au terme du bail, soit le {{dateFin}}.
+
+Le préavis légal de 6 mois (pour un bail nu) ou 3 mois (pour un meublé) avant cette date est respecté.
+
+Vous trouverez ci-joint, le cas échéant, les pièces justifiant le motif allégué (offre de vente, justificatif de reprise pour un proche, etc.) conformément à la loi.
+
+Conformément à l'article 15-II, vous bénéficiez d'un droit de préemption en cas de congé pour vente. Le présent congé vaut offre de vente aux conditions précisées en annexe.
+
+Veuillez agréer, {{locataire.nom}}, l'expression de mes salutations distinguées.
+
+Fait à {{entite.siege}}, le {{dateLettre}}.
+
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'OBLIGATOIRE : LRAR ou signification par huissier ou remise en main propre contre récépissé. Mentionner précisément le motif (vente, reprise pour soi/proche, motif sérieux et légitime). Joindre justificatifs.'
+  },
+
+  'bail-preavis-recu': {
+    subject: 'Accusé de réception de votre préavis — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Nous accusons bonne réception de votre préavis de départ du logement situé {{bail.adrBien}}, daté du {{datePreavis}}.
+
+Conformément à votre courrier et à la loi du 6 juillet 1989 :
+- Type de bail : {{typeBail}}
+- Durée du préavis : {{dureePreavis}} mois
+- Date d'effet : {{dateFinPreavis}}
+- Motif (si réduit) : {{motifReduction}}
+
+Nous vous proposons de procéder à l'état des lieux de sortie à proximité de cette date :
+- Date proposée : {{dateEDLSortie}}
+- Heure : {{heureEDLSortie}}
+
+Merci de :
+- Confirmer cette date ou nous proposer une alternative
+- Restituer toutes les clés (logement, boîte aux lettres, garage, cave, parties communes)
+- Effectuer les éventuelles réparations locatives à votre charge avant l'EDL
+- Préparer votre nouvelle adresse pour le solde de tout compte
+
+Le dépôt de garantie ({{bail.dg}} €) vous sera restitué selon les délais légaux après EDL de sortie.
+
+Nous vous remercions pour ces années de bail et vous souhaitons une bonne suite.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Conserver le préavis original (papier ou email). Le délai de préavis court à compter de la réception par le bailleur (cachet de la Poste).'
+  },
+
+  // ─── PHASE SORTIE / SOLDE ───────────────────────────────────────────────
+
+  'edl-sortie-signe': {
+    subject: 'État des lieux de sortie signé — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Vous trouverez en pièce jointe l'état des lieux de sortie signé conjointement le {{dateEDL}} pour le logement situé {{bail.adrBien}}.
+
+Synthèse :
+- Comparatif compteurs entrée / sortie : {{comparatifCompteurs}}
+- Dégradations constatées : {{degradationsBilan}}
+
+{{conclusionEDL}}
+
+Le solde de votre dépôt de garantie sera traité dans les délais légaux (1 mois si pas de dégradation, 2 mois si dégradations à déduire).
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [
+      { name: 'EDL-sortie-{{logement.ref}}.pdf', type: 'pdf' }
+    ],
+    legalNote: 'Si désaccord sur l\'EDL → noter les réserves sur le document avant signature OU refuser de signer (constat par huissier à demander dans ce cas).'
+  },
+
+  'dg-restitution-integrale': {
+    subject: 'Restitution intégrale de votre dépôt de garantie — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Suite à l'état des lieux de sortie du {{dateEDLSortie}} qui n'a fait apparaître aucune dégradation par rapport à l'entrée, nous vous restituons l'intégralité de votre dépôt de garantie.
+
+Montant restitué : {{bail.dg}} €
+Mode : virement bancaire
+IBAN destinataire : {{ibanLocataire}}
+Date prévue du virement : {{dateRestitution}}
+
+Conformément à l'article 22 de la loi n° 89-462 du 6 juillet 1989, ce remboursement intervient dans le délai légal d'un mois suivant la restitution des clés.
+
+Nous vous souhaitons une bonne suite et restons à votre disposition pour toute attestation utile (logement libéré, etc.).
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Délai 1 mois suivant remise des clés. Au-delà, pénalité de 10 % du loyer par mois de retard entamé (loi ALUR).'
+  },
+
+  'dg-restitution-partielle': {
+    subject: 'Restitution partielle de votre dépôt de garantie — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+Suite à l'état des lieux de sortie du {{dateEDLSortie}}, certaines dégradations ont été constatées et nécessitent une retenue sur votre dépôt de garantie.
+
+Décompte :
+- Dépôt de garantie initial : {{bail.dg}} €
+- Retenues détaillées (factures / devis joints) :
+{{detailRetenues}}
+- Total retenu : {{montantRetenu}} €
+- Solde restitué : {{soldeRestitue}} €
+
+Le solde sera viré sur le compte suivant :
+- IBAN : {{ibanLocataire}}
+- Date prévue du virement : {{dateRestitution}}
+
+Vous trouverez en pièce jointe les factures / devis justifiant les retenues, conformément à l'article 22 de la loi du 6 juillet 1989.
+
+Le délai légal de restitution est de 2 mois suivant l'EDL de sortie lorsque des retenues sont effectuées.
+
+Si vous souhaitez contester un poste, merci de nous adresser un courrier motivé sous 15 jours.
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Justificatifs OBLIGATOIRES (factures, devis détaillés). Retenue sans justif = irrecevable juridiquement et passible de la pénalité 10 %/mois.'
+  },
+
+  'solde-tout-compte': {
+    subject: 'Solde de tout compte final — {{bail.adrBien}}',
+    body: `Bonjour {{locataire.nom}},
+
+À la suite de la sortie du logement {{bail.adrBien}}, nous établissons ci-dessous le solde de tout compte final :
+
+Crédits (sommes en votre faveur) :
+- Dépôt de garantie : {{bail.dg}} €
+- Trop-perçu charges (régul annuelle) : {{tropPercuCharges}} €
+- Autre : {{autresCredits}} €
+Total crédit : {{totalCredit}} €
+
+Débits (sommes restant à votre charge) :
+- Loyer impayé : {{loyerImpaye}} €
+- Charges restant dues : {{chargesDues}} €
+- Retenues sur DG (réparations) : {{retenuesDG}} €
+- Autre : {{autresDebits}} €
+Total débit : {{totalDebit}} €
+
+Solde net : {{soldeNet}} € ({{senseSolde}})
+
+{{instructionsReglement}}
+
+Cordialement,
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Le solde de tout compte ne peut être imposé. Si le locataire conteste, action en justice possible (Tribunal Judiciaire — 5 ans de prescription).'
+  },
+
+  'attestation-logement-libere': {
+    subject: 'Attestation officielle — Libération du logement {{bail.adrBien}}',
+    body: `ATTESTATION DE LIBÉRATION DE LOGEMENT
+
+Je soussigné(e), {{entite.gerant}}, agissant en qualité de bailleur (ou son mandataire) pour le compte de {{entite.nom}}, atteste par la présente que :
+
+{{locataire.nom}}, locataire du logement situé {{bail.adrBien}}, a effectivement libéré ledit logement en date du {{dateLiberation}}.
+
+L'état des lieux contradictoire de sortie a été établi le {{dateEDLSortie}}. Les clés ont été remises {{modaliteRemiseClef}}.
+
+Cette attestation est délivrée pour servir et valoir ce que de droit (changement d'adresse, démarches administratives, nouveau bail, etc.).
+
+Fait à {{entite.siege}}, le {{dateAttestation}}.
+
+{{entite.gerant}}
+{{entite.nom}}`,
+    attachments: [],
+    legalNote: 'Utile au locataire pour CAF, employeur, nouveau bailleur, opérateurs téléphoniques, etc. Bonne pratique de la délivrer systématiquement.'
+  },
+
   // ─── Décompte régularisation annuelle ──────────────────────────────────
   'decompte-regul-annuel': {
     subject: 'Décompte de régularisation des charges {{annee}} — {{bail.adrBien}}',

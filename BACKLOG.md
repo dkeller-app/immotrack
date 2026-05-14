@@ -314,6 +314,25 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Sprint 10 V1.1 — EMAIL-AUTO extension cycle locataire complet — session 2026-05-14 (~4h, v15.09)
+> Sprint 10 du marathon V1.1. Sujet **EMAIL-AUTO** ✅ clos avec 29 types couvrant tout le cycle de vie du bail (signature → entrée → vie → fin → sortie) + **hub centralisé UX** (1 endroit > 19 boutons disséminés) + historique RGPD-compliant. Différenciant marché : aucun concurrent ne propose une telle granularité.
+
+| Code | Sujet | Note |
+|---|---|---|
+| EMAIL-AUTO extension V1.1 | ✅ Livré (~4h). 19 nouveaux templates dans `js/core/email-compose.js` (29 types total vs 10 V1) avec variables interpolées, PJ + notes légales. Hub centralisé **"📧 Communications"** dans fiche logement onglet Bail : modal `#ov-comms-hub` groupe 29 types par 5 phases (Signature / Entrée / Vie du bail / Fin / Sortie) avec icônes, badges historique "✓ déjà envoyé". Prompts UI auto pour variables manquantes (dates EDL, IBAN, motifs, montants retenue DG). Helper `_buildEmailCtxFromRef(ref, extra)` factorise la construction du contexte. Section **"📧 Historique communications"** dans la fiche logement listant les 10 dernières communications (date, type, sujet, destinataire, statut). 21 nouveaux tests Vitest (62 total `email-compose.test.js`). 4 templates candidat-* reportés post LOG-CANDIDATS futur. | v15.09 · [docs/subjects/EMAIL-AUTO.md](docs/subjects/EMAIL-AUTO.md) |
+| Tests Vitest | **646 passants** (vs 625 Sprint 9 → +21). 24 fichiers de tests. Zéro régression. | |
+
+**Couverture cible atteinte** : 0 communication ad-hoc — toutes les communications bailleur ↔ locataire au cours du bail passent par les templates ImmoTrack avec historisation RGPD-compliant. **Hub centralisé** UX choisie vs boutons disséminés (1 endroit visible > scrolling cherche boutons).
+
+**Différenciant marché** :
+- Rentila/BailFacile : quittance + IRL templates basiques
+- Qalimo V2 : ~8 templates standards
+- ImmoTrack v15.09 : ⭐ **29 templates** couvrant 6 phases + variables interpolées + hub UX + historique automatique
+
+**Sandbox-first** respecté. Bump v15.08 → v15.09.
+
+---
+
 ### Sprint 9 V1.1 — EQUIP-CONTROLES-PERIODIQUES complet + fix jargon DDT — session 2026-05-14 (~5.5h, v15.08)
 > Sprint 9 "Légal équipements" du marathon V1.1. Sujet **EQUIP-CONTROLES-PERIODIQUES** ✅ clos en 6 phases. **Différenciant juridique fort** : photo DAAF EDL = preuve juridique en cas d'incendie (aucun concurrent ne le fait). Capture en bonus de la **règle UX anti-jargon** suite au feedback "c'est quoi DDT ?".
 

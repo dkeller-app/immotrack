@@ -1,6 +1,6 @@
 # EMAIL-AUTO — Infrastructure d'envoi / proposition emails sortants
 
-**Status** : 🔄 V1 livré (3 cas), EXTENSION V1.1 attendue (couverture cycle locataire complet) · **Prio** : P1 · **Taille** : V1 livré ~3-5h, **extension V1.1 ~5-7h**
+**Status** : ✅ V1 + V1.1 livrés v15.09 (Sprint 10) — 29 types couverts + hub centralisé · **Prio** : P1 · **Taille** : V1 ~3-5h + V1.1 ~4h réalisé
 **Détecté** : 2026-05-11
 **Lié à** : QUIT-EMAIL · AVIS-ECHEANCE · RAPPEL-IMPAYE · IRL-VALIDATION · MRH-AUTO-LOC · DRIVE-ARBORESCENCE
 
@@ -203,3 +203,9 @@ Boutons "📧 Envoyer email" à placer dans :
 - 2026-05-11 : V1 = mode "proposition" (mailto: ou modale clipboard). V2 SaaS = mode "automatique" (SendGrid/Postmark) post-V1 commerciale
 - 2026-05-13 : ✅ V1 livré sandbox v14.97 (3 cas intégrés : quittance + IRL + régul)
 - 2026-05-13 : 🚀 EXTENSION V1.1 actée — étendre à **23 nouveaux types** couvrant cycle locataire complet (candidature → signature → entrée → vie → évolution → sortie). 6 phases UX × ~4 types chacun. Effort V1.1 : ~5-7h.
+- 2026-05-14 : ✅ **EXTENSION V1.1 livrée v15.09** (Sprint 10, ~4h) :
+  - **Phase E1** : 19 nouveaux templates ajoutés dans `js/core/email-compose.js` (4 candidat-* reportés post LOG-CANDIDATS) → total **29 types** : bail-pret-a-signer, cautionnement-signe, bail-avenant, edl-convocation-entree, edl-entree-signe, bienvenue-infos-pratiques, dg-recu, demande-attest-entretien-chauffage, demande-attest-mrh, notification-travaux-a-venir, notification-visite, bail-renouvellement-3ans, bail-conge-bailleur-6mois, bail-preavis-recu, edl-sortie-signe, dg-restitution-integrale, dg-restitution-partielle, solde-tout-compte, attestation-logement-libere. Chaque template : sujet + corps + variables interpolées + PJ + note légale. **21 nouveaux tests Vitest** (62 total dans email-compose.test.js).
+  - **Phase E2** : **Hub centralisé "📧 Communications"** dans fiche logement onglet Bail. Modal `#ov-comms-hub` qui liste les 29 types groupés par 5 phases du bail (Signature / Entrée / Vie du bail / Fin / Sortie) avec icônes + labels. Bouton par type → prompts UI pour variables manquantes (date EDL, IBAN, motif congé, retenues DG, etc.) → ouvre `_openEmailModal` avec ctx pré-rempli depuis le bail. Helper `_buildEmailCtxFromRef(ref, extra)` factorise la construction du contexte. UX choisie hub vs boutons dispersés (1 endroit centralisé > 19 boutons disséminés).
+  - **Phase E3** : section **"📧 Historique communications"** dans fiche logement onglet Bail. Liste les 10 dernières communications envoyées (date, type, sujet, destinataire, statut). Indicateur "✓ déjà envoyé" badge vert dans le hub à côté de chaque type pour lequel un email a déjà été envoyé pour ce logement.
+- **Couverture cible atteinte** : 0 communication ad-hoc — toutes les communications bailleur ↔ locataire au cours du bail passent par les templates ImmoTrack avec historisation RGPD-compliant.
+- **Bump v15.08 → v15.09** · Tests : 646 (vs 625 Sprint 9 → +21 templates). Zéro régression.
