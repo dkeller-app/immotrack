@@ -1,6 +1,6 @@
 # BANK-INTEGRATION — Intégration comptes bancaires (étude de marché + pricing)
 
-**Status** : ⬜ À faire — décision stratégique à arbitrer · **Prio** : P2 (V1) / P1 (V2 SaaS) · **Taille** : XL (refonte data + backend)
+**Status** : ✅ V1 CSV/OFX livré v15.07 (Sprint 8 V1.1) — V2 Saltedge backend reportée post-commercialisation · **Prio** : P2 (V1) / P1 (V2 SaaS) · **Taille** : XL total (V1 ~5h livrée + V2 ~50h backend)
 **Détecté** : 2026-05-13 (capture Qalimo V2 onglet Mes banques avec Crédit Mutuel connecté)
 **Lié à** : ALERTE-VIREMENT-ENTRANT · SEPA-PRELEVEMENTS · MVT-RECURRENT · BUG-CHARGE-001 (livré) · SAAS-MULTIUSERS (V2)
 
@@ -238,3 +238,14 @@ Statuts régulés par l'ACPR (FR) ou équivalent EU :
 
 ## Journal
 - 2026-05-13 : créé · étude marché 6 AISP + reco 3 phases (V1 CSV, V2 Saltedge, V2.1+ Bridge) + chiffrage coûts mensuels 30-280€
+- 2026-05-13/14 : ✅ **V1 CSV/OFX livré v15.07** (Sprint 8 V1.1, ~5h, ~0€ coût récurrent) :
+  - Module `js/core/bank-import.js` (10 KB, 8 exports) + shadow inline complet dans `index-test.html` pour mode file://.
+  - Parsers : `_bankParseCSV` (détection auto délimiteur ;/,/tab + champs guillemets), `_bankParseOFX` (SGML/XML standard), `_bankParseAmount` (FR 1.234,56 / EN 1,234.56 / €$£), `_bankParseDate` (ISO/FR/OFX compact YYYYMMDD/2 chiffres).
+  - Auto-détection colonnes : `_bankAutoDetectColumns` heuristiques sur en-têtes FR/EN (Date / Libellé / Débit+Crédit séparés OU Montant unique signé / Solde).
+  - Normalisation : `_bankNormalizeCSV(parsed, cols)` → lignes `{ date, libelle, debit, credit, signedAmount, raw }`.
+  - **Matching auto** `_bankMatchHeuristic(line, ctx)` : (1) match nom locataire par mot ≥3 chars + montant ≈ loyer attendu ±5€ → "Loyers encaissés" + ref bail avec confidence 60-95% ; (2) mots-clés (assurance/EDF/syndic/travaux/taxe foncière/emprunt/notaire/diagnostic) → catégorie + confidence 75-95% ; (3) fallback "Autres" 20%.
+  - **Dédup** `_bankDedup(newLines, mvts)` : (a) fitid OFX exact = match certain peu importe la date, (b) sinon date ±3j + montant ±1€ → match. Tolérances configurables.
+  - UI inline : bouton "🏦 Importer banque" dans onglet Mouvements → modale `#ov-bank-import` 3 étapes (upload CSV/OFX → preview avec selects catégorie/bail prélus + checkboxes par ligne + badges doublons → confirmation import dans `DB.mouvements` avec audit-trail `_source:'bank_import'`).
+  - **Tests Vitest** `__tests__/helpers/bank-import.test.js` : **52 nouveaux tests** (CSV parser ×8 + auto-detect ×7 + amounts ×7 + dates ×5 + normalize ×4 + OFX ×3 + match heuristic ×9 + dedup ×8).
+  - **Limite explicite V1** : import manuel uniquement (export depuis banque → upload dans app). Pas de sync temps réel.
+- V2 Saltedge backend = ~50h (Cloudflare Worker + OAuth DSP2 + chiffrement tokens KMS + webhook polling), reporté post-SAAS-MULTIUSERS car nécessite mode SaaS commercial (SAAS-PRICING-TIERS Pro Connect +5€/mois).

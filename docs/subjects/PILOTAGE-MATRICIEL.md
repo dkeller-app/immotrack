@@ -1,6 +1,6 @@
 # PILOTAGE-MATRICIEL — Vue multi-baux centralisée (parité Qalimo V2 onglet Pilotage)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (8-12h)
+**Status** : ✅ Livré v15.07 (Sprint 8 V1.1, 2026-05-13/14) — 6 phases complètes (Phase 5 stub) · **Prio** : P1 · **Taille** : L (8-12h → ~7h réalisé)
 **Détecté** : 2026-05-13 (capture Qalimo V2 onglet Pilotage avec 4 sous-onglets)
 **Lié à** : DASH-PROFILES · PARAM-BAILLEUR-AUTOMATISATIONS · BAILLEUR-DIAGNOSTICS-DDT · EMAIL-AUTO
 
@@ -132,3 +132,11 @@ Tableau par locataire avec **8 toggles individuels** (override par bail des para
 
 ## Journal
 - 2026-05-13 : créé · vue matricielle multi-baux = différenciant pro Qalimo V2, P1 pour cible gestionnaire pro/mandataire Hoguet
+- 2026-05-13/14 : ✅ Livré v15.07 (Sprint 8 V1.1, ~7h) :
+  - **Phase 1** : Onglet sidebar "🎛 Pilotage" (data-module="pilotage-matriciel" → visible Pro/Mandataire uniquement via matrice USER-PROFILE-FILTERS) + page `#p-pilotage` avec 4 sous-onglets internes (tabs) + filtres communs (Statut/Entité/Recherche) + route `go('pilotage')`.
+  - **Phase 2** : Suivi comptable — tableau locataire × DG (versé/dû) × Solde cumulé × 4 colonnes mensuelles M-3..M, cellules colorées vert/orange/rouge selon ok/partial/impayé, tri par solde décroissant, bulk select avec checkbox, bouton "📈 Mettre à jour les loyers" → modale `#ov-pil-bulk-irl` avec aperçu N baux × ancien HC → nouveau HC × variation %, **exclusion auto** gel DPE F/G + IRL N-1 manquant + déjà appliqué cette année, audit-trail bulk. Helpers `_pilSoldeLocataire`, `_pilEncaisseMois`, `_pilGetFilteredRows`, `_pilBulkMajLoyersSimule`.
+  - **Phase 3** : Suivi documents — tableau locataire × 6 colonnes (Bail/EDL/MRH/Chauffage/Caution/DDT) avec badges colorés OK/Expiré/Absent/N/A + click cellule = ouvre l'onglet correspondant. Helper `_pilStatutDoc(bail, log, type, dateRef)` testé sur 17 cas.
+  - **Phase 4** : Automatisations override par bail — 8 toggles (quittance / avis_echeance / revision_irl / assurance_mrh / entretien_chauffage / fin_bail / impaye / virement), héritage du bailleur via `ent.automatisations` + override `bail.automatisations`, icône ⇧ si différent du bailleur, bouton "↺ Reset" = supprime override. Helper `_pilAutomGet(bail, ent)`.
+  - **Phase 5** : Stub Prélèvements V1 — sous-onglet placeholder avec message "Bientôt disponible — V2 SaaS" (nécessite statut PISP via prestataire pour SEPA pain.008).
+  - **Phase 6** : Tests Vitest `__tests__/helpers/pilotage.test.js` — **36 tests** (`_pilSoldeLocataire` ×8 + `_pilStatutDoc` ×17 + `_pilBulkMajLoyersSimule` ×8). Pattern réplique inline (drive-scan.test.js style).
+- **Différenciant marché atteint** : parité Qalimo V2 + bulk IRL avec exclusion DPE F/G automatique (différenciant supplémentaire vs Qalimo qui n'exclut pas auto).

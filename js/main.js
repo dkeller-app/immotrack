@@ -93,6 +93,12 @@ import {
   ATTACHMENT_PARENT_TYPES, ATTACHMENT_CATEGORIES, ATTACHMENT_DEFAULT_MAX_SIZE
 } from './core/attachments.js';
 
+// v15.07 BANK-INTEGRATION V1 - import CSV/OFX + matching auto
+import {
+  _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
+  _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup
+} from './core/bank-import.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -199,6 +205,16 @@ window._attachmentOrphans = _attachmentOrphans;
 window.ATTACHMENT_PARENT_TYPES = ATTACHMENT_PARENT_TYPES;
 window.ATTACHMENT_CATEGORIES = ATTACHMENT_CATEGORIES;
 window.ATTACHMENT_DEFAULT_MAX_SIZE = ATTACHMENT_DEFAULT_MAX_SIZE;
+
+// BANK-INTEGRATION V1 (v15.07 Sprint 8) - import CSV/OFX manuel
+window._bankParseCSV = _bankParseCSV;
+window._bankAutoDetectColumns = _bankAutoDetectColumns;
+window._bankParseAmount = _bankParseAmount;
+window._bankParseDate = _bankParseDate;
+window._bankNormalizeCSV = _bankNormalizeCSV;
+window._bankParseOFX = _bankParseOFX;
+window._bankMatchHeuristic = _bankMatchHeuristic;
+window._bankDedup = _bankDedup;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

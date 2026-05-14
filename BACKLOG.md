@@ -34,7 +34,7 @@
 | 🛡️ **MRH** | MRH-AUTO-LOC (P2) |
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
-| ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) : 4 profils + matrice 15 modules + wizard + UI Paramètres + 68 tests Vitest* |
+| ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) · PILOTAGE-MATRICIEL ✅ Livré v15.07 (Sprint 8) · BANK-INTEGRATION V1 ✅ Livré v15.07* |
 | 💾 **Drive sync** | DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) — *LEGAL-DPE-INTERDICTION-LOCATION ✅ Livré v15.05 (Sprint 7) : blocage strict bail si DPE interdit loi Climat 2021* |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
@@ -291,6 +291,24 @@
 ---
 
 ## ✅ Livré récemment
+
+### Sprint 8 V1.1 — PILOTAGE-MATRICIEL complet + BANK-INTEGRATION V1 — session 2026-05-13/14 (~12h, v15.07)
+> Sprint 8 "Pilotage & Bank" du marathon V1.1. **2 sujets P1 livrés intégralement en une session** (vision user "on ne fait pas à moitié"). PILOTAGE-MATRICIEL = différenciant pro Qalimo V2, BANK-INTEGRATION V1 = différenciant FR sans concurrence (Rentila/BailFacile/Qalimo ont aucun import bancaire dans le V1). 591 tests passants (+88 vs Sprint 7B).
+
+| Code | Sujet | Note |
+|---|---|---|
+| PILOTAGE-MATRICIEL | ✅ Livré complet (~7h). Vue matricielle multi-baux gestionnaire pro, parité Qalimo V2. **6 phases** : (1) Onglet sidebar `🎛 Pilotage` + page 4 sous-onglets + route. (2) Suivi comptable — tableau locataire × DG + Solde cumulé + 4 mois M-3..M, bulk select + bouton `📈 Mettre à jour les loyers` avec exclusion auto gel DPE F/G + IRL N-1 manquant. Helpers `_pilSoldeLocataire`, `_pilBulkMajLoyersSimule`. (3) Suivi documents — tableau × 6 colonnes Bail/EDL/MRH/Chauffage/Caution/DDT avec badges colorés. Helper `_pilStatutDoc`. (4) Automatisations override par bail — 8 toggles avec héritage bailleur + override `bail.automatisations`, icône ⇧ si override, bouton reset. (5) Stub Prélèvements V1 (V2 SaaS). (6) Tests Vitest `pilotage.test.js` — **36 nouveaux tests** purs. Le tab Pilotage est masqué automatiquement pour profil solo/SCI via la matrice USER-PROFILE-FILTERS livrée Sprint 6 (`data-module="pilotage-matriciel"` → visible Pro/Mandataire uniquement). | v15.07 · [docs/subjects/PILOTAGE-MATRICIEL.md](docs/subjects/PILOTAGE-MATRICIEL.md) |
+| BANK-INTEGRATION V1 | ✅ V1 CSV/OFX complet (~5h, **0€ coût récurrent**). Module `js/core/bank-import.js` (10 KB, 8 exports) + shadow inline complet pour mode file://. Parsers CSV (détection auto délimiteur ;/,/tab + champs guillemets) + OFX (SGML/XML standard) + amounts FR/EN + dates ISO/FR/OFX. Auto-détection colonnes par heuristiques. Matching auto par nom locataire ×3 chars + montant ≈ loyer attendu ±5€ + 8 mots-clés catégoriels (assurance/EDF/syndic/travaux/taxe foncière/emprunt/notaire/diagnostic). Dédup par fitid OFX exact (match certain) ou date ±3j + montant ±1€. UI : bouton `🏦 Importer banque` dans onglet Mouvements → modale upload+preview+correction+confirm avec selects catégorie/bail prélus + badges doublons + checkboxes par ligne. Persistance `DB.mouvements` avec `_source:'bank_import'` + audit-trail. **52 tests Vitest** dans `bank-import.test.js`. **V2 Saltedge backend** (Cloudflare Worker + OAuth DSP2 + KMS) explicitement reporté post-SAAS-MULTIUSERS (~50h, nécessite mode SaaS commercial avec Pro Connect +5€/mois). | v15.07 · [docs/subjects/BANK-INTEGRATION.md](docs/subjects/BANK-INTEGRATION.md) |
+| Tests Vitest | **591 passants** (vs 503 Sprint 7B → +88 nouveaux : 36 pilotage + 52 bank-import). 23 fichiers de tests. Zéro régression. | |
+
+**Différenciants marché v15.07** :
+- Rentila/BailFacile : ❌ pas de vue matricielle pro · ❌ pas d'import bancaire
+- Qalimo V2 : ⭐ vue Pilotage 4 sous-onglets · ✅ intégration bancaire (via Bridge/Linxo)
+- ImmoTrack v15.07 : ⭐ parité Qalimo Pilotage + bulk IRL avec exclusion DPE auto · ⭐ import CSV/OFX V1 (0€, offline-first) + V2 Saltedge prête en architecture
+
+**Sandbox-first** : `index-test.html` uniquement. Prod intacte.
+
+---
 
 ### Sprint 7B V1.1 — BAILLEUR-DIAGNOSTICS-DDT Phases 2-3-4 (clôture du sujet) — session 2026-05-13 (~2.5h, v15.06)
 > Continuation du Sprint 7 sur demande utilisateur (cohérence sujet). 3 phases complètes : récap DDT imprimable + PDF, bloquage bail soft (override "à mes risques"), alertes dashboard. **Sujet BAILLEUR-DIAGNOSTICS-DDT ✅ complet (5 phases en ~5h total)**.
