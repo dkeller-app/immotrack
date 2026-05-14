@@ -48,6 +48,28 @@
 
 > **ImmoTrack = SaaS universel de gestion immobilière** — cible : particulier solo + gestionnaire pro. Tout statut juridique (particulier / SCI / SAS / LMP/LMNP / mandataire Hoguet). Toute pratique comptable (autonome / Excel / logiciel pro / expert-comptable).
 
+### 🚫 Règle UX non négociable — Pas de jargon ni d'acronyme dans l'UI
+**Captée 2026-05-14 (Sprint 9, après livraison BAILLEUR-DIAGNOSTICS-DDT v15.05-v15.06)** :
+> 💬 « c'est quoi DDT ? si je ne sais pas ça ne sera pas clair dans app non plus. pas mettre de raccourci comme ça »
+
+**Règle** : aucun acronyme métier dans les libellés UI **visibles** au bailleur particulier solo. Le terme complet en français courant doit toujours être utilisé. Acronymes uniquement tolérés :
+- Dans le **bail signé / PDF juridique** (où c'est cité par la loi, ex `Dossier de Diagnostic Technique (DDT)` art. 3-3 loi 89-462) — le terme complet + abréviation = pratique standard juridique
+- Dans le **code interne** (commentaires JS, codes de sujet `BAILLEUR-DIAGNOSTICS-DDT`)
+
+Liste vivante des termes complets à utiliser dans l'UI :
+| À éviter | À utiliser dans l'UI |
+|---|---|
+| DDT | « Diagnostics » / « Dossier de diagnostic technique » |
+| DPE F/G | « DPE classé F ou G » |
+| MRH | « Assurance habitation » (locataire) / « PNO » → « Assurance propriétaire non occupant » |
+| EDL | « État des lieux » |
+| CRG | « Compte rendu de gérance » |
+| CREP | « Constat de risque d'exposition au plomb » |
+| SCI / SAS | OK (statuts juridiques courants) |
+| IRL | OK (terme contractuel cité dans bail) |
+
+Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dossier de diagnostic technique » en clair.
+
 ### Roadmap par phase
 
 | Phase | Contenu | Coût | Bloqueur ? |
