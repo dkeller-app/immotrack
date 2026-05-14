@@ -24,7 +24,7 @@
 |---|---|
 | 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | BAIL-CHARGES-DETAIL (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
-| 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · EQUIP-CONTROLES-PERIODIQUES (P1, locataire) · BAILLEUR-DIAGNOSTICS-DDT 🔄 (P1, Phase 1+5 ✅ v15.05, Phases 2-4 restantes) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅* |
+| 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · EQUIP-CONTROLES-PERIODIQUES (P1, locataire) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅ · BAILLEUR-DIAGNOSTICS-DDT ✅ Livré v15.05+v15.06 (Sprint 7+7B, 5 phases)* |
 | 🏛️ **Entité / Immeuble** | PARAM-BAILLEUR-AUTOMATISATIONS (P1) · IMM-FICHE-SOUS-ONGLETS (P2) · BAILLEUR-FORM-RICHE (P2) · ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅* |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) — *EMAIL-AUTO ✅ Livré sandbox v14.97 (3 cas intégrés : quittance + IRL + régul)* |
@@ -291,6 +291,21 @@
 ---
 
 ## ✅ Livré récemment
+
+### Sprint 7B V1.1 — BAILLEUR-DIAGNOSTICS-DDT Phases 2-3-4 (clôture du sujet) — session 2026-05-13 (~2.5h, v15.06)
+> Continuation du Sprint 7 sur demande utilisateur (cohérence sujet). 3 phases complètes : récap DDT imprimable + PDF, bloquage bail soft (override "à mes risques"), alertes dashboard. **Sujet BAILLEUR-DIAGNOSTICS-DDT ✅ complet (5 phases en ~5h total)**.
+
+| Code | Sujet | Note |
+|---|---|---|
+| BAILLEUR-DIAGNOSTICS-DDT Phase 2 | ✅ Récap DDT imprimable. Bouton `📎 Récap DDT` dans sous-onglet Diagnostics → modale `#ov-ddt-recap` avec page de garde (bailleur entité + logement + adresse + année construction) + tableau récap 9 diagnostics (icône + label + classe DPE + statut badge + détail date/expiration + diagnostiqueur) + cadre légal + 3 boutons : Fermer / 🖨 Imprimer (window.print sur popup) / 📄 Télécharger PDF (jsPDF + html2canvas multi-pages A4). Helper `_buildDdtRecapHTML(log)` print-friendly. **Limite explicite** : pas de concaténation des PDF source des diagnostics (sera fait en V2 avec pdf-lib si demandé) — chaque PJ reste dans Drive accessible séparément. | v15.06 |
+| BAILLEUR-DIAGNOSTICS-DDT Phase 3 | ✅ Bloquage bail si DDT incomplet (override "à mes risques"). Intercepte `saveBail()` ligne ~10240 après le check DPE interdit strict. Si `_ddtComplet().complet=false` → modale orange `#ov-ddt-incomplet` (≠ rouge DPE interdit) listant les diagnostics manquants + expirés + 3 boutons : Annuler / **⚠ Continuer quand même** (force la sauvegarde + log audit-trail `_auditLog('override','bail',ref,'DDT_INCOMPLET_FORCE')` + flag `_skipDdtCheckOnce` consommé une fois) / **✦ Mettre à jour** (redirige fiche logement onglet Diagnostics). Override conscient et tracé = RGPD-compliant. Différent de LEGAL-DPE-INTERDICTION qui est strict (pas d'override). | v15.06 |
+| BAILLEUR-DIAGNOSTICS-DDT Phase 4 | ✅ Alertes Conformité dashboard. Intégration dans `rAlertsSection()` du dashboard : 2 nouveaux types d'alertes (🏷 DDT incomplet — warn pour chaque logement loué avec `_ddtComplet` incomplet ; 🌡 DPE expire bientôt — info, anticipation rénovation 12 mois avant pour éviter gel IRL F/G). Liens cliquables qui ouvrent `openLogFiche(ref) + setLogFicheTab('diagnostics')` en 200ms. Compteur intégré au pill dashboard existant. | v15.06 |
+
+**Différenciant marché total BAILLEUR-DIAGNOSTICS-DDT v15.05+v15.06** : DDT 9 diagnostics auto-détectés par contexte logement + récap imprimable PDF + bloquage bail avec override tracé + alertes dashboard intégrées. Aucun concurrent (Rentila/BailFacile/Qalimo) ne couvre cette parité bailleur pro.
+
+**Tests Vitest** : 503 toujours passants (rien cassé) — Phases 2-4 sont UI + intégration, pas de nouveaux helpers purs à tester.
+
+---
 
 ### Sprint 7 V1.1 — DPE & Différenciants (LEGAL-DPE-INTERDICTION-LOCATION + BAILLEUR-DIAGNOSTICS-DDT Phase 1+5) — session 2026-05-13 (~4.5h, v15.05)
 > Sprint 7 "DPE & Différenciants" du marathon V1.1. Réponse à 2 trous légaux V1 critiques détectés à l'audit 360° : (1) absence de blocage strict bail si DPE interdit loi Climat 2021 → amende 15 000 € + nullité bail ; (2) absence d'UI pour les 9 diagnostics obligatoires bailleur (DDT loi 89-462 art. 3-3). Différenciant marché clair vs Rentila/BailFacile qui ne couvrent ni l'un ni l'autre.
