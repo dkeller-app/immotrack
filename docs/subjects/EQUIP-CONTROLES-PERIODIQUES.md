@@ -1,6 +1,6 @@
 # EQUIP-CONTROLES-PERIODIQUES — Équipements à entretien périodique LOCATAIRE
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M (4-6h)
+**Status** : ✅ Livré v15.08 (Sprint 9 V1.1, 2026-05-14) — 6 phases complètes · **Prio** : P1 · **Taille** : M (4-6h → ~5h réalisé)
 **Détecté** : 2026-05-13 (régression onglet Équipements) · **Re-cadré 2026-05-13** : focus obligations LOCATAIRE uniquement
 **Lié à** : V3-REFONTE-EQUIP · BAILLEUR-DIAGNOSTICS-DDT (jumeau côté bailleur) · BAIL-CLAUSES-PERSO · CHARGE-REGLES · TRAV-SUIVI · DASH-PROFILES (lentille Échéances)
 
@@ -134,3 +134,12 @@ Dans le PDF bail, section "Article XX — Entretien à la charge du locataire" :
 ## Journal
 - 2026-05-13 : créé · inventaire légal exhaustif
 - 2026-05-13 : re-cadré → focus obligations LOCATAIRE uniquement. Obligations bailleur extraites dans sujet jumeau BAILLEUR-DIAGNOSTICS-DDT. DAAF cas particulier (clause bail + EDL photo, pas d'alerte récurrente).
+- 2026-05-14 : ✅ **Livré v15.08** (Sprint 9 V1.1, ~5h) :
+  - **Phase 1** : `EQUIP_RULES` étendu de 12 à 17 règles (ECS gaz/thermo, climatisation > 12 kW, citerne fioul, VMC individuelle info-only). `condFn(bail, log)` accepte maintenant le logement pour lire `log.equipements.*`. Section UI "⚙ Configuration des équipements" dépliable dans chaque card de l'onglet Équipements : 5 champs (ECS type / VMC type / Clim été + puissance / Citerne fioul / Conduit fumée) + bloc DAAF dédié (radio présent/défaut/absent + date installation + notes). Helper `_equipSaveCfg(ref, field, value)` → sauve + re-sync agenda.
+  - **Phase 2** : article bail **11.1 bis "Équipements spécifiques de ce logement et entretien associé"** injecté automatiquement après l'article 11.1 dans `genBailContentSpec`. Liste auto via helper `_buildClauseEntretienItems(log, bail)` + **mention DAAF obligatoire** (loi 2010-238 art. R129-13) personnalisée selon les équipements.
+  - **Phase 3** : alertes dashboard via `rAlertsSection()` + agendaAutoSync. Règles avec `rappels:[]` (VMC) = info-only, pas d'alerte. DAAF non alerté (instruction user).
+  - **Phase 4** : section "🚨 Sécurité incendie — Détecteur de fumée" injectée dans le wizard EDL entre §1 et §2 compteurs. Radio statut (présent/défaut/absent) + photo recommandée (réutilise pipeline `_edlCptPhotos`) + warning juridique rouge si statut "absent" ou pas de photo. Persistance `edl.daaf = { statut, notes, photos }` + sync `log.equipements.daafPresent` au save.
+  - **Phase 5** : module `js/core/equipements.js` (3 KB, 3 exports) + tests Vitest `equipements.test.js` **34 tests** (`_calculerProchainControle` ×9 + `_buildClauseEntretienItems` ×15 + `_isDaafCovered` ×8 + edge cases).
+  - **Phase 6** : migration douce dans `initDB()` — chaque logement reçoit `log.equipements = {}` avec 8 champs par défaut (ecsType, vmcType, daafPresent, daafDateInstallation, climEte, climEtePuissance, citerneFioul, conduitFumee). Idempotent.
+- **Bonus session** : règle UX anti-jargon captée dans BACKLOG (suite au feedback user sur "DDT"). Tous les libellés DDT visibles UI remplacés par "Diagnostics" / "Dossier de diagnostic technique" en clair (v15.08 commit séparé).
+- **Tests** : 625 passants (+34 vs Sprint 8). Zéro régression.

@@ -24,7 +24,7 @@
 |---|---|
 | 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | BAIL-CHARGES-DETAIL (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
-| 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · EQUIP-CONTROLES-PERIODIQUES (P1, locataire) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅ · BAILLEUR-DIAGNOSTICS-DDT ✅ Livré v15.05+v15.06 (Sprint 7+7B, 5 phases)* |
+| 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅ · BAILLEUR-DIAGNOSTICS-DDT ✅ Livré v15.05+v15.06 (Sprint 7+7B) · EQUIP-CONTROLES-PERIODIQUES ✅ Livré v15.08 (Sprint 9, 6 phases)* |
 | 🏛️ **Entité / Immeuble** | PARAM-BAILLEUR-AUTOMATISATIONS (P1) · IMM-FICHE-SOUS-ONGLETS (P2) · BAILLEUR-FORM-RICHE (P2) · ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅* |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) — *EMAIL-AUTO ✅ Livré sandbox v14.97 (3 cas intégrés : quittance + IRL + régul)* |
@@ -313,6 +313,23 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 ---
 
 ## ✅ Livré récemment
+
+### Sprint 9 V1.1 — EQUIP-CONTROLES-PERIODIQUES complet + fix jargon DDT — session 2026-05-14 (~5.5h, v15.08)
+> Sprint 9 "Légal équipements" du marathon V1.1. Sujet **EQUIP-CONTROLES-PERIODIQUES** ✅ clos en 6 phases. **Différenciant juridique fort** : photo DAAF EDL = preuve juridique en cas d'incendie (aucun concurrent ne le fait). Capture en bonus de la **règle UX anti-jargon** suite au feedback "c'est quoi DDT ?".
+
+| Code | Sujet | Note |
+|---|---|---|
+| EQUIP-CONTROLES-PERIODIQUES | ✅ Livré complet (~5h). 17 règles EQUIP_RULES (vs 12 avant) avec ECS gaz/thermo, climatisation > 12 kW, citerne fioul, VMC indiv info-only. condFn(bail, log) lit `log.equipements.*` pour les nouvelles règles. **Section UI "Configuration équipements"** dépliable dans chaque card onglet Équipements (5 champs + bloc DAAF dédié). **Article bail 11.1 bis** "Équipements spécifiques" auto-injecté avec liste personnalisée + mention DAAF obligatoire (loi 2010-238 R129-13). **Section EDL "🚨 Sécurité incendie — DAAF"** entre §1 et §2 compteurs : radio statut (présent/défaut/absent) + photo recommandée + warning juridique rouge si absent. Persistance `edl.daaf` + sync `log.equipements.daafPresent`. Migration douce `initDB()` 8 champs par défaut. Module `js/core/equipements.js` + 34 tests Vitest (_calculerProchainControle, _buildClauseEntretienItems, _isDaafCovered). | v15.08 · [docs/subjects/EQUIP-CONTROLES-PERIODIQUES.md](docs/subjects/EQUIP-CONTROLES-PERIODIQUES.md) |
+| Fix jargon DDT (bonus session) | ✅ Tous les libellés UI "DDT" remplacés par "Diagnostics" / "Dossier de diagnostic technique" en clair (badges, modales, alertes dashboard, colonnes Pilotage, nom PDF, popup impression). DDT conservé uniquement dans le bail PDF signé (terme légal cité par loi 89-462). **Règle UX anti-jargon captée dans BACKLOG.md section Vision produit** avec tableau "À éviter / À utiliser" (DDT, DPE F/G, MRH, EDL, CRG, CREP, etc.). | v15.08 |
+| Tests Vitest | **625 passants** (vs 591 Sprint 8 → +34 equipements). 24 fichiers de tests. Zéro régression. | |
+
+**Différenciant marché** :
+- Rentila/BailFacile/Qalimo : liste basique d'équipements + alertes basiques, **pas de photo DAAF EDL**
+- ImmoTrack v15.08 : 5 catégories locataire auto-détectées + clauses bail générées + **photo DAAF EDL = preuve juridique post-incendie**
+
+**Sandbox-first** respecté. Bump v15.07 → v15.08.
+
+---
 
 ### Sprint 8 V1.1 — PILOTAGE-MATRICIEL complet + BANK-INTEGRATION V1 — session 2026-05-13/14 (~12h, v15.07)
 > Sprint 8 "Pilotage & Bank" du marathon V1.1. **2 sujets P1 livrés intégralement en une session** (vision user "on ne fait pas à moitié"). PILOTAGE-MATRICIEL = différenciant pro Qalimo V2, BANK-INTEGRATION V1 = différenciant FR sans concurrence (Rentila/BailFacile/Qalimo ont aucun import bancaire dans le V1). 591 tests passants (+88 vs Sprint 7B).
