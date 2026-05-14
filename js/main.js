@@ -99,6 +99,12 @@ import {
   _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup
 } from './core/bank-import.js';
 
+// v15.10 QUITTANCES-ACTIVES - statut dynamique + matching + escalade + génération auto
+import {
+  _statutQuittance, _matchPaiementQuittance, _escaladeAlerte,
+  _planQuittancesAGenerer, QUITTANCE_STATUS
+} from './core/quittances-actives.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -215,6 +221,13 @@ window._bankNormalizeCSV = _bankNormalizeCSV;
 window._bankParseOFX = _bankParseOFX;
 window._bankMatchHeuristic = _bankMatchHeuristic;
 window._bankDedup = _bankDedup;
+
+// QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
+window._statutQuittance = _statutQuittance;
+window._matchPaiementQuittance = _matchPaiementQuittance;
+window._escaladeAlerte = _escaladeAlerte;
+window._planQuittancesAGenerer = _planQuittancesAGenerer;
+window.QUITTANCE_STATUS = QUITTANCE_STATUS;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

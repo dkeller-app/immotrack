@@ -1,6 +1,6 @@
 # IRL-REVISION-UX-FIX — Refonte UX onglet IRL + logique temporelle + bouton unique
 
-**Status** : ⬜ À faire · **Prio** : P1 V1.1 · **Taille** : M (3-4h)
+**Status** : ✅ Livré v15.10 (Sprint 11 V1.1, 2026-05-14) · **Prio** : P1 V1.1 · **Taille** : M (3-4h → ~3.5h réalisé)
 **Détecté** : 2026-05-14 (feedback user post-livraison IRL-VALIDATION v13.33)
 **Lié à** : IRL-VALIDATION (livré v13.33, à remplacer) · BUG-DASH-001 (helper `_loyerHCAtDate` livré v14.83) · V3-REFONTE-IRL (P2 pending, peut être marqué obsolète) · `feedback_design_consistency.md`
 
@@ -187,3 +187,10 @@ Le **contenu** de la lettre PDF est OK (validé user 2026-05-14 : « on peut tou
 ## Journal
 
 - 2026-05-14 : créé · refonte UX cartes + bouton unique + logique temporelle stricte (`bail.revisions[]` source de vérité, `_loyerHCAtDate` consommateur). Inclus Sprint 11 V1.1 « Quittances actives ».
+- 2026-05-14 : ✅ Livré v15.10 (Sprint 11 Bloc A, ~3.5h) :
+  - **Phase A1+A2** : Refonte rIRL() en grid de cartes responsive (320px min, auto-fill). 4 statuts visuels colorés : 🟢 À valider / 🟡 Envoyée en attente / ✅ Appliquée / 🔒 Gel DPE F/G. Bouton unique **"✦ Valider et envoyer la lettre IRL"** → modale `#ov-irl-valider` aperçu structuré (calcul + dates + alerte si application différée) → confirm appelle `applyIRL()`. Toggle vue cartes ↔ tableau legacy persisté localStorage.
+  - **Phase A3** : `applyIRL` rewrite — stocke `dateApplication`, `pendingApply: true` si futur. **`bail.hc` PAS muté direct si dateApplication > today**. Helper `_applyPendingIRLRevisions()` au boot applique automatiquement les révisions devenues actives (vérification cohérence `log.hc === ancienHC` avant mutation, sinon skip pour audit manuel). Toast confirmation + audit-trail.
+  - **Phase A4** : Section **"📈 Historique des révisions IRL"** dans LOG-FICHE-360 onglet Bail. Table chronologique avec colonnes Validée le / Application / Ancien HC / Nouveau HC / Variation / Indices / Statut (⏳ En attente / ✅ Appliquée / ⊘ Renonciation).
+  - **Phase A5** : couverture indirecte via tests existants `_loyerHCAtDate` (Sprint 1D) + `_isLoyerCategory` (Sprint 1C) + nouvelle `_statutQuittance` Sprint 11 B5 qui dépend de la logique temporelle.
+  - **Phase A6** : audit migration baux existants au boot (setTimeout 3.5s) — détecte incohérence `log.hc ≠ _loyerHCAtDate(log, today)` → console.warn + toast warning. Pas de migration destructive.
+- Différenciant marché : ImmoTrack v15.10 = cartes cohérentes app + logique temporelle stricte loi 89-462 art. 17-1 (quittance mai = ancien loyer, juin = nouveau).

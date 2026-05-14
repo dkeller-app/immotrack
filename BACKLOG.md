@@ -314,6 +314,24 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Sprint 11 V1.1 — IRL-REVISION-UX-FIX + Quittances actives — session 2026-05-14 (~8h, v15.10)
+> Sprint 11 du marathon V1.1. **2 sujets P1 clos** : IRL-REVISION-UX-FIX (refonte UX cartes + bouton unique + logique temporelle stricte loi 89-462 art. 17-1) + Quittances actives (statut dynamique 7 états + matching paiement + escalade graduée 4 niveaux + génération auto mensuelle). Intégration EMAIL-AUTO Sprint 10 via les rappels d'escalade. **Différenciant marché majeur** : quittance mai 2026 = ancien loyer, quittance juin = nouveau (impossible avant v15.10 où `bail.hc` était muté direct).
+
+| Code | Sujet | Note |
+|---|---|---|
+| IRL-REVISION-UX-FIX | ✅ Livré complet (~3.5h, Bloc A). **3 remarques utilisateur 2026-05-14 respectées** : (1) UX cartes cohérentes design system, (2) bouton unique "Valider et envoyer", (3) `bail.hc` jamais muté direct, `_loyerHCAtDate` consommateur. **Phases 1-6** : refonte rIRL() en grid 320px responsive · 4 statuts visuels colorés (À valider / Envoyée en attente / Appliquée / Gel DPE F/G) · modale `#ov-irl-valider` aperçu structuré · `applyIRL` rewrite avec `pendingApply` + `dateApplication` + cron boot `_applyPendingIRLRevisions` (vérif cohérence avant mutation) · section "📈 Historique des révisions IRL" dans LOG-FICHE-360 · audit migration baux existants (toast warning, pas de mutation auto). Toggle vue cartes↔tableau persisté localStorage. | v15.10 · [docs/subjects/IRL-REVISION-UX-FIX.md](docs/subjects/IRL-REVISION-UX-FIX.md) |
+| Quittances actives | ✅ Livré complet (~4.5h, Bloc B). Sujet transversal (QUIT-EMAIL + AVIS-ECHEANCE + RAPPEL-IMPAYE intégrés). Module `js/core/quittances-actives.js` (5 KB, 5 exports) + shadow inline. **Statut dynamique 7 états** (`_statutQuittance`) : attendue / payée / partielle / impayée_J5 / impayée_J15 / impayée_J30 / mise_en_demeure. **Matching auto paiement** dans `saveMv` : nouveau mvt Loyers + qui=ref → association à `quittance.paymentMatchedMvtId`. **Escalade dashboard 4 niveaux** : alertes graduées avec lien direct vers l'email correspondant via templates Sprint 10 (avis-echeance / rappel-impaye-1 / rappel-impaye-2 / rappel-impaye-3). **Génération auto mensuelle** : toggle `DB.params.quittancesAutoGen` dans Paramètres + cron boot idempotent `_quittancesAutoGenAtBoot`. **33 nouveaux tests Vitest** dans `quittances-actives.test.js` (statut ×17 + matching ×6 + escalade ×6 + plan génération ×7). | v15.10 |
+| Tests Vitest | **679 passants** (vs 646 Sprint 10 → +33 quittances-actives). 25 fichiers de tests. Zéro régression. | |
+
+**Différenciant marché** :
+- Rentila/BailFacile : génération manuelle + 0 suivi paiement automatique
+- Qalimo V2 : génération auto + alerte impayé simple
+- **ImmoTrack v15.10** : ⭐ logique temporelle stricte IRL (cohérent loi 89-462 art. 17-1) + 7 statuts dynamiques + matching auto + escalade 4 niveaux liée aux 29 templates email + génération auto idempotente
+
+**Sandbox-first** respecté. Bump v15.09 → v15.10.
+
+---
+
 ### Sprint 10 V1.1 — EMAIL-AUTO extension cycle locataire complet — session 2026-05-14 (~4h, v15.09)
 > Sprint 10 du marathon V1.1. Sujet **EMAIL-AUTO** ✅ clos avec 29 types couvrant tout le cycle de vie du bail (signature → entrée → vie → fin → sortie) + **hub centralisé UX** (1 endroit > 19 boutons disséminés) + historique RGPD-compliant. Différenciant marché : aucun concurrent ne propose une telle granularité.
 
