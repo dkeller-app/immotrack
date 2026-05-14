@@ -117,6 +117,73 @@ export function _estRevisableIRL(bail) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// LEGAL-DPE-INTERDICTION-LOCATION — v15.05 Sprint 7 V1.1
+// Loi Climat & Résilience 2021-1104, art. 23 + décret 2022-945.
+// Calendrier interdictions nouvelle location :
+//   - 1er janvier 2023 : G+ (conso > 450 kWh/m²/an) interdits
+//   - 1er janvier 2025 : G interdits
+//   - 1er janvier 2028 : F interdits
+//   - 1er janvier 2034 : E interdits
+// Override IMPOSSIBLE (amende 15 000 €). Différent du gel IRL (qui est sur
+// baux en cours) : ici on bloque la CRÉATION/RENOUVELLEMENT d'un nouveau bail.
+// ────────────────────────────────────────────────────────────────────────────
+
+const DPE_INTERDICTION_CALENDRIER = [
+  // Note : 'G+' = G avec conso > 450 kWh/m²/an. Pas systématiquement encodé
+  // côté DB ; on traite ici sur la classe seule. La distinction G/G+ peut
+  // être ajoutée plus tard via un champ logement.dpeKwh.
+  { classe: 'G', anneeBlocage: 2025, dateBlocage: '2025-01-01', loi: 'Loi Climat 2021-1104 art. 23' },
+  { classe: 'F', anneeBlocage: 2028, dateBlocage: '2028-01-01', loi: 'Loi Climat 2021-1104 art. 23' },
+  { classe: 'E', anneeBlocage: 2034, dateBlocage: '2034-01-01', loi: 'Loi Climat 2021-1104 art. 23' }
+];
+
+/**
+ * Indique si un logement classé `dpe` est interdit à la location à la date `dateRef`.
+ * @param {string} dpe — classe DPE 'A'..'G' (case-insensitive)
+ * @param {string|Date} dateRef — date à laquelle on souhaite signer/renouveler le bail (ISO YYYY-MM-DD ou Date)
+ * @returns {{ interdit: boolean, raison: string, anneeBlocage: number|null, dateBlocage: string|null, classe: string }}
+ *
+ * Notes :
+ *   - DPE A à D : jamais interdit.
+ *   - DPE E à G : interdit à partir de la date de blocage du calendrier (incluse).
+ *   - DPE absent ou invalide : retourne `interdit: false` (pas notre rôle d'imposer
+ *     un DPE — d'autres garde-fous gèrent l'absence de DPE, ici on parle d'interdiction
+ *     stricte loi Climat).
+ */
+export function _dpeInterditLocationAuDate(dpe, dateRef) {
+  const result = { interdit: false, raison: '', anneeBlocage: null, dateBlocage: null, classe: '' };
+  if (!dpe) return result;
+  const c = String(dpe).toUpperCase().trim();
+  if (!_isDpeClassValide(c)) return result;
+  result.classe = c;
+  const rule = DPE_INTERDICTION_CALENDRIER.find(r => r.classe === c);
+  if (!rule) return result; // DPE A-D : jamais interdit
+  // Normalise dateRef
+  let refTs;
+  if (dateRef instanceof Date) {
+    refTs = dateRef.getTime();
+  } else if (typeof dateRef === 'string' && dateRef.length >= 10) {
+    refTs = new Date(dateRef.slice(0, 10) + 'T00:00:00').getTime();
+  } else {
+    refTs = new Date().getTime();
+  }
+  if (Number.isNaN(refTs)) return result;
+  const blockTs = new Date(rule.dateBlocage + 'T00:00:00').getTime();
+  if (refTs >= blockTs) {
+    result.interdit = true;
+    result.anneeBlocage = rule.anneeBlocage;
+    result.dateBlocage = rule.dateBlocage;
+    result.raison = `DPE ${c} interdit à la location depuis le ${rule.dateBlocage} (${rule.loi})`;
+  }
+  return result;
+}
+
+/** Expose le calendrier pour UI (lentille Conformité, alertes). */
+export function _dpeInterdictionCalendrier() {
+  return DPE_INTERDICTION_CALENDRIER.slice(); // copie défensive
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Classification catégories (Sprint 1C BUG-CHARGE-001)
 // ────────────────────────────────────────────────────────────────────────────
 

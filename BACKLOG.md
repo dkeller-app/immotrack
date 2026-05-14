@@ -24,7 +24,7 @@
 |---|---|
 | 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2) |
 | 📜 **Bail** | BAIL-CHARGES-DETAIL (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
-| 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · EQUIP-CONTROLES-PERIODIQUES (P1, locataire) · BAILLEUR-DIAGNOSTICS-DDT (P1, bailleur) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅* |
+| 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · EQUIP-CONTROLES-PERIODIQUES (P1, locataire) · BAILLEUR-DIAGNOSTICS-DDT 🔄 (P1, Phase 1+5 ✅ v15.05, Phases 2-4 restantes) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE (P2) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅* |
 | 🏛️ **Entité / Immeuble** | PARAM-BAILLEUR-AUTOMATISATIONS (P1) · IMM-FICHE-SOUS-ONGLETS (P2) · BAILLEUR-FORM-RICHE (P2) · ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅* |
 | 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) — *EMAIL-AUTO ✅ Livré sandbox v14.97 (3 cas intégrés : quittance + IRL + régul)* |
@@ -36,7 +36,7 @@
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
 | ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) : 4 profils + matrice 15 modules + wizard + UI Paramètres + 68 tests Vitest* |
 | 💾 **Drive sync** | DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
-| 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) |
+| 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) — *LEGAL-DPE-INTERDICTION-LOCATION ✅ Livré v15.05 (Sprint 7) : blocage strict bail si DPE interdit loi Climat 2021* |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) · **SAAS-PRICING-TIERS (P2, ~3-5h)** — *gating modules par abonnement, build sur l'infra USER-PROFILE-FILTERS livrée v15.04* |
 | 📈 **Stratégie / Business** | VEILLE-QALIMO-V2 (P2, analyse 2-3h) · BIZPLAN-V2 🔄 (P2) — *BIZPLAN-STRATEGIE ✅ Livré 2026-04-30 (5 docs `docs/strategie/`)* |
@@ -291,6 +291,24 @@
 ---
 
 ## ✅ Livré récemment
+
+### Sprint 7 V1.1 — DPE & Différenciants (LEGAL-DPE-INTERDICTION-LOCATION + BAILLEUR-DIAGNOSTICS-DDT Phase 1+5) — session 2026-05-13 (~4.5h, v15.05)
+> Sprint 7 "DPE & Différenciants" du marathon V1.1. Réponse à 2 trous légaux V1 critiques détectés à l'audit 360° : (1) absence de blocage strict bail si DPE interdit loi Climat 2021 → amende 15 000 € + nullité bail ; (2) absence d'UI pour les 9 diagnostics obligatoires bailleur (DDT loi 89-462 art. 3-3). Différenciant marché clair vs Rentila/BailFacile qui ne couvrent ni l'un ni l'autre.
+
+| Code | Sujet | Note |
+|---|---|---|
+| LEGAL-DPE-INTERDICTION-LOCATION | ✅ Complet (~2h). Helper `_dpeInterditLocationAuDate(dpe, dateRef)` dans `js/core/utils.js` + inline shadow + exposition window via `js/main.js`. Calendrier loi Climat 2021-1104 art. 23 : G interdit 2025, F interdit 2028, E interdit 2034. Bloquage `saveBail()` ligne ~10230 : intercepte avant écriture DB → modale rouge `#ov-dpe-interdit` avec bandeau ⛔ + raison + calendrier + boutons "Annuler" / "Mettre à jour DPE" (redirige fiche logement). Override **impossible** (différent de DDT bloquage qui aura override "à mes risques" en Phase 3 BAILLEUR-DIAGNOSTICS-DDT). Couvre création + renouvellement (check sur `bail.debut`). Tests Vitest : 20 nouveaux dans `dpe.test.js` (DPE A-D jamais interdits ×4 + G 2025 ×3 + F 2028 ×3 + E 2034 ×2 + edge cases ×6 + calendrier expose ×2). | v15.05 · [docs/subjects/LEGAL-DPE-INTERDICTION-LOCATION.md](docs/subjects/LEGAL-DPE-INTERDICTION-LOCATION.md) |
+| BAILLEUR-DIAGNOSTICS-DDT Phase 1+5 | 🔄 Phases 1+5 livrées (~2.5h). Module `js/core/diagnostics.js` (8 KB) + helpers inline shadow : catalogue 9 diagnostics (`DIAGS_CATALOG` : DPE/CREP/amiante/gaz/élec/ERP/termites/mérule/bruit) avec validité légale + référence texte + auto-détection applicabilité par contexte logement (CREP <1949, amiante <1997, gaz/élec >15 ans installation, ERP zone risques par défaut, termites/mérule/PEB sur déclaration). Helpers purs `_diagCatalogEntry`, `_diagGet` (rétrocompat champs flat DPE), `_estDiagApplicable`, `_diagDateExpiration` (string-based pour éviter bug timezone setMonth), `_estDiagExpire`, `_diagStatut` (6 statuts : valide/expirebientot/expire/na/inapplicable/manquant), `_ddtComplet`. UI : nouveau sous-onglet `🏷 Diagnostics` dans `LOG-FICHE-360` à côté de Conformité, badge DDT complet/incomplet en header, 9 cartes statut + section "Contexte logement" (année construction + installation gaz/élec + 4 cases zones réglementaires) + modale d'édition par diagnostic `#ov-diag-edit` avec champs spécifiques (DPE → classe + kWh ; CREP/amiante/termites/mérule → présence oui/non ; gaz/élec → conforme oui/non) + audit-trail sur save. Phases 2 (génération auto PDF DDT) + 3 (bloquage bail si DDT incomplet) + 4 (alertes dashboard lentille Conformité) reportées Sprint 8 V1.1 (~3-4h restants). Tests Vitest : 37 nouveaux dans `diagnostics.test.js` (catalogue + lookup + rétrocompat + applicabilité × 10 + dates + expire + statut + DDT complet). | v15.05 · [docs/subjects/BAILLEUR-DIAGNOSTICS-DDT.md](docs/subjects/BAILLEUR-DIAGNOSTICS-DDT.md) |
+| Tests Vitest | 503 tests passants au total (vs 446 avant Sprint 7) — +57 nouveaux (20 DPE + 37 diagnostics). Zéro régression. 21 fichiers de tests. | |
+
+**Différenciant marché** :
+- Rentila/BailFacile : ❌ aucun blocage DPE interdit + ❌ pas d'UI DDT structurée
+- Qalimo V2 : partial blocage DPE (warning sans blocage strict) + ❌ pas d'UI DDT auto-détectée par contexte
+- ImmoTrack v15.05 : ⭐ blocage strict loi Climat (override impossible) + ⭐ DDT 9 diagnostics auto-détectés par âge logement et zone
+
+**Sandbox-first respecté** : tout dans `index-test.html` uniquement. Prod intacte v14.99/15.00.
+
+---
 
 ### Sprint 6 V1.1 — USER-PROFILE-FILTERS + résiduel BUG-CHARGE-001/BUG-DASH-001 — session 2026-05-13 (~4h, v15.04)
 > Sprint 6 "Foundations Simplicité" du marathon V1.1. Réponse à la demande user 2026-05-13 « solution simple d'utilisation et UX améliorée + filtres d'activation ». Différenciant marché unique vs Qalimo/Rentila/BailFacile qui montrent tout à tous.

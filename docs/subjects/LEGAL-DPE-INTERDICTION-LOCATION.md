@@ -1,6 +1,6 @@
 # LEGAL-DPE-INTERDICTION-LOCATION — Bloquer création/renouvellement bail si DPE interdit à la location
 
-**Status** : ⬜ À faire · **Prio** : P1 V1.1 · **Taille** : S (2-3h)
+**Status** : ✅ Livré v15.05 (Sprint 7 V1.1, 2026-05-13) · **Prio** : P1 V1.1 · **Taille** : S (2-3h → ~2h réalisé)
 **Détecté** : 2026-05-13 (audit 360°)
 **Lié à** : IRL-DPE-FG (livré v13.31) · BAILLEUR-DIAGNOSTICS-DDT · BAIL wizard
 
@@ -62,3 +62,9 @@
 
 ## Journal
 - 2026-05-13 : créé (audit 360° → identifié comme trou critique V1.1)
+- 2026-05-13 : ✅ Livré v15.05 (Sprint 7 V1.1, ~2h) :
+  - Helper `_dpeInterditLocationAuDate(dpe, dateRef)` dans `js/core/utils.js` + inline shadow dans `index-test.html`. Retour `{ interdit, raison, anneeBlocage, dateBlocage, classe }`. Calendrier inline `DPE_INTERDICTION_CALENDRIER` exposé via `_dpeInterdictionCalendrier()` pour UI.
+  - Tests Vitest étendus dans `__tests__/helpers/dpe.test.js` : 20 nouveaux tests (DPE A-D jamais interdits, G interdit 2025, F interdit 2028, E interdit 2034, edge cases dont case-insensitive + Date object + dateRef vide).
+  - Bloquage `saveBail()` (ligne ~10230) : intercepte avant écriture DB, appelle `_dpeShowInterdictionModal(verdict, ref)` → modale rouge `#ov-dpe-interdit` avec bandeau ⛔ + raison + calendrier complet + boutons "Annuler" / "✦ Mettre à jour le DPE" (redirige fiche logement).
+  - **Override impossible** comme spécifié (amende 15 000 €).
+  - Couvre nouvelle création **ET renouvellement** (le check est sur `bail.debut`).

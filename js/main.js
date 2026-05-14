@@ -37,6 +37,7 @@ import {
   escHtml, _esc, _h, _raw,
   _validateHC, _validateHCCH, _outlierVsMedian,
   _isDpeClassValide, _bailGelDpeFG, _dpeExpire, _estRevisableIRL,
+  _dpeInterditLocationAuDate, _dpeInterdictionCalendrier,
   _isLoyerCategory, _isChargeRecupCategory,
   _bailEstActifAt, _loyerHCAtDate, _chargesAtDate
 } from './core/utils.js';
@@ -105,6 +106,9 @@ window._isDpeClassValide = _isDpeClassValide;
 window._bailGelDpeFG = _bailGelDpeFG;
 window._dpeExpire = _dpeExpire;
 window._estRevisableIRL = _estRevisableIRL;
+// v15.05 Sprint 7 V1.1 LEGAL-DPE-INTERDICTION-LOCATION
+window._dpeInterditLocationAuDate = _dpeInterditLocationAuDate;
+window._dpeInterdictionCalendrier = _dpeInterdictionCalendrier;
 window._isLoyerCategory = _isLoyerCategory;
 window._isChargeRecupCategory = _isChargeRecupCategory;
 window._bailEstActifAt = _bailEstActifAt;

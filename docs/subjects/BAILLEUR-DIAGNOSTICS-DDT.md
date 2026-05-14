@@ -1,8 +1,8 @@
 # BAILLEUR-DIAGNOSTICS-DDT — Dossier Diagnostic Technique + obligations bailleur
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M-L (5-8h)
+**Status** : 🔄 Phase 1+5 livrées v15.05 (Sprint 7 V1.1) · Phases 2-3-4 à faire Sprint 8+ · **Prio** : P1 · **Taille** : M-L (5-8h, ~2.5h livrés)
 **Détecté** : 2026-05-13 (instruction utilisateur — distinction obligations locataire vs bailleur)
-**Lié à** : EQUIP-CONTROLES-PERIODIQUES (jumeau côté locataire) · BAIL-CLAUSES-PERSO · IRL-DPE-FG (livré) · LEGAL-2044 (livré) · DASH-PROFILES lentille Conformité
+**Lié à** : EQUIP-CONTROLES-PERIODIQUES (jumeau côté locataire) · BAIL-CLAUSES-PERSO · IRL-DPE-FG (livré) · LEGAL-2044 (livré) · DASH-PROFILES lentille Conformité · LEGAL-DPE-INTERDICTION-LOCATION (✅ livré v15.05)
 
 ## Contexte
 Demande utilisateur 2026-05-13 :
@@ -124,3 +124,10 @@ Lentille Patrimoine & conformité (DASH-PROFILES, V2 mais à anticiper) → list
 
 ## Journal
 - 2026-05-13 : créé · extraction des obligations bailleur depuis EQUIP-CONTROLES-PERIODIQUES (qui se concentre sur locataire) · 9 diagnostics couverts + DDT généré auto + bloquage bail conditionnel
+- 2026-05-13 : 🔄 Phases 1+5 livrées v15.05 (Sprint 7 V1.1, ~2.5h) :
+  - **Phase 1 (sous-onglet Diagnostics fiche logement)** : nouvel onglet `🏷 Diagnostics` dans `LOG-FICHE-360` à côté de Conformité. Module `js/core/diagnostics.js` (8 KB) + helpers inline shadow : catalogue 9 diagnostics (`DIAGS_CATALOG`), helpers purs `_diagCatalogEntry`, `_diagGet` (avec rétrocompat champs flat `log.dpe`/`log.dpeDate`), `_estDiagApplicable` (auto-détection par contexte : CREP <1949, amiante <1997, gaz/élec >15 ans installation, ERP zone risques, etc.), `_diagDateExpiration` (string-based pour éviter bug timezone), `_estDiagExpire`, `_diagStatut` (6 statuts : valide/expirebientot/expire/na/inapplicable/manquant), `_ddtComplet`. UI : badge DDT complet/incomplet + 9 cartes statut + section "Contexte logement" (4 champs : année construction / installation gaz / installation élec / 4 cases zones réglementaires) + modale d'édition par diagnostic avec champs spécifiques (DPE → classe + kWh, CREP/amiante/termites/mérule → présence oui/non, gaz/élec → conforme oui/non). Sauvegarde dans `log.diagnostics[diagKey]` + sync rétrocompat `log.dpe`/`log.dpeDate` côté DPE + audit-trail.
+  - **Phase 5 (tests Vitest)** : `__tests__/helpers/diagnostics.test.js` 37 tests (catalogue ×2, lookup ×2, rétrocompat ×4, applicabilité ×10, date expiration ×8, expire ×3, statut ×6, DDT complet ×4). Total Sprint 7 : 57 nouveaux tests (20 LEGAL-DPE-INTERDICTION + 37 diagnostics).
+- **Phases 2-3-4 reportées Sprint 8 V1.1** (~3-4h restants) :
+  - Phase 2 : génération auto PDF DDT compilant tous les diagnostics applicables
+  - Phase 3 : bloquage bail si DDT incomplet (warning override "à mes risques" possible, ≠ LEGAL-DPE-INTERDICTION strict)
+  - Phase 4 : alertes dashboard lentille Conformité (DPE expirent dans 12 mois, ERP dans 30j, etc.)

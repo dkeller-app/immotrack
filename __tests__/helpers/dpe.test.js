@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { _isDpeClassValide, _bailGelDpeFG, _dpeExpire, _estRevisableIRL } from './dpe.js';
+import {
+  _isDpeClassValide, _bailGelDpeFG, _dpeExpire, _estRevisableIRL,
+  _dpeInterditLocationAuDate, _dpeInterdictionCalendrier
+} from './dpe.js';
 
 describe('_isDpeClassValide', () => {
   it('accepte les 7 classes officielles', () => {
@@ -119,5 +122,108 @@ describe('_estRevisableIRL', () => {
     expect(r.revisable).toBe(true);
     expect(r.blocking).toBe(false);
     expect(r.raison).toMatch(/expiré/i);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  _dpeInterditLocationAuDate — Loi Climat 2021 art. 23 (v15.05)
+// ═══════════════════════════════════════════════════════════════════
+
+describe('_dpeInterditLocationAuDate — DPE A-D jamais interdits', () => {
+  ['A','B','C','D'].forEach(c => {
+    it(`${c} jamais interdit (même en 2050)`, () => {
+      const r = _dpeInterditLocationAuDate(c, '2050-01-01');
+      expect(r.interdit).toBe(false);
+      expect(r.anneeBlocage).toBeNull();
+      expect(r.classe).toBe(c);
+    });
+  });
+});
+
+describe('_dpeInterditLocationAuDate — DPE G (interdit 2025)', () => {
+  it('G interdit le 01/01/2025', () => {
+    const r = _dpeInterditLocationAuDate('G', '2025-01-01');
+    expect(r.interdit).toBe(true);
+    expect(r.anneeBlocage).toBe(2025);
+    expect(r.dateBlocage).toBe('2025-01-01');
+    expect(r.raison).toMatch(/2025-01-01/);
+    expect(r.raison).toMatch(/Climat/);
+  });
+  it('G interdit le 15/06/2025 (après date blocage)', () => {
+    const r = _dpeInterditLocationAuDate('G', '2025-06-15');
+    expect(r.interdit).toBe(true);
+  });
+  it('G PAS interdit le 31/12/2024 (avant date blocage)', () => {
+    const r = _dpeInterditLocationAuDate('G', '2024-12-31');
+    expect(r.interdit).toBe(false);
+    expect(r.anneeBlocage).toBeNull();
+  });
+});
+
+describe('_dpeInterditLocationAuDate — DPE F (interdit 2028)', () => {
+  it('F interdit le 01/01/2028', () => {
+    const r = _dpeInterditLocationAuDate('F', '2028-01-01');
+    expect(r.interdit).toBe(true);
+    expect(r.anneeBlocage).toBe(2028);
+  });
+  it('F PAS interdit le 31/12/2027', () => {
+    expect(_dpeInterditLocationAuDate('F', '2027-12-31').interdit).toBe(false);
+  });
+  it('F PAS interdit en 2025 (G interdit, F encore OK)', () => {
+    expect(_dpeInterditLocationAuDate('F', '2025-06-01').interdit).toBe(false);
+  });
+});
+
+describe('_dpeInterditLocationAuDate — DPE E (interdit 2034)', () => {
+  it('E interdit le 01/01/2034', () => {
+    const r = _dpeInterditLocationAuDate('E', '2034-01-01');
+    expect(r.interdit).toBe(true);
+    expect(r.anneeBlocage).toBe(2034);
+  });
+  it('E PAS interdit en 2028 (F interdit, E encore OK)', () => {
+    expect(_dpeInterditLocationAuDate('E', '2028-06-01').interdit).toBe(false);
+  });
+});
+
+describe('_dpeInterditLocationAuDate — edge cases', () => {
+  it('DPE vide → pas interdit (pas notre rôle)', () => {
+    expect(_dpeInterditLocationAuDate('', '2030-01-01').interdit).toBe(false);
+  });
+  it('DPE null → pas interdit', () => {
+    expect(_dpeInterditLocationAuDate(null, '2030-01-01').interdit).toBe(false);
+  });
+  it('DPE invalide \'Z\' → pas interdit', () => {
+    expect(_dpeInterditLocationAuDate('Z', '2030-01-01').interdit).toBe(false);
+  });
+  it('case-insensitive : g → G interdit en 2025', () => {
+    const r = _dpeInterditLocationAuDate('g', '2025-06-01');
+    expect(r.interdit).toBe(true);
+    expect(r.classe).toBe('G');
+  });
+  it('accepte Date object', () => {
+    const r = _dpeInterditLocationAuDate('G', new Date('2025-06-01'));
+    expect(r.interdit).toBe(true);
+  });
+  it('dateRef vide ou invalide → utilise today', () => {
+    // En 2026 today, G interdit (anneeBlocage 2025)
+    const r = _dpeInterditLocationAuDate('G', null);
+    // Selon la date système du test, ça peut être true. On vérifie au moins
+    // que la fonction ne plante pas et que classe='G' est bien renseigné.
+    expect(r.classe).toBe('G');
+  });
+});
+
+describe('_dpeInterdictionCalendrier — exposition pour UI', () => {
+  it('retourne un array de 3 règles (G, F, E)', () => {
+    const cal = _dpeInterdictionCalendrier();
+    expect(Array.isArray(cal)).toBe(true);
+    expect(cal.length).toBe(3);
+    expect(cal.map(r => r.classe).sort()).toEqual(['E','F','G']);
+  });
+  it('copie défensive : mutation externe n\'affecte pas l\'interne', () => {
+    const cal = _dpeInterdictionCalendrier();
+    cal.push({ classe: 'X' });
+    const cal2 = _dpeInterdictionCalendrier();
+    expect(cal2.length).toBe(3); // pas affecté
   });
 });

@@ -3,5 +3,7 @@ export {
   _isDpeClassValide,
   _bailGelDpeFG,
   _dpeExpire,
-  _estRevisableIRL
+  _estRevisableIRL,
+  _dpeInterditLocationAuDate,
+  _dpeInterdictionCalendrier
 } from '../../js/core/utils.js';
