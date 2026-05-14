@@ -314,6 +314,45 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Sprints 14-15-16-17 V1.1 + Fixes UX — session 2026-05-14 (~2h, v15.14 → v15.17)
+> **Clôture du marathon V1.1**. Sprint 14 IMPORT-EXCEL-LOG déjà livré (template + import existants). Sprint 15 mobile = RAS (39 media queries en place depuis Sprint 3H v14.95). Sprint 16 cleanup Hub Communications (marqué @deprecated suite retour user "communication dans bail n'a aucune logique"). Sprint 17 polish UX → **reporté à l'audit onglet par onglet** vu les retours utilisateur sur la direction globale.
+
+**3 retours utilisateur critiques traités v15.14-v15.17** :
+- v15.14 : 4 fixes UX (bug clôture bail, refonte cartes quittances, alertes remontées, section DG dédiée fiche bail)
+- v15.15 : rollback alertes remontées (« 1b c'est vraiment de la merde »)
+- v15.16 : retrait Hub Communications + Historique communications de la fiche bail (« communication dans bail n'a aucune logique »)
+- v15.17 : Hub Communications JS marqué @deprecated (code conservé pour audit)
+
+**Audit onglet par onglet planifié post-marathon** : suite aux retours user multiples sur direction globale ("plein de rajouts peu compréhensibles qui complexifient tout"), audit ensemble pour décider quoi garder/cacher/virer dans tous les ajouts Sprints 6-13.
+
+| Sprint | Statut | Détail |
+|---|---|---|
+| 14 IMPORT-EXCEL-LOG | ✅ Déjà livré | `genImportTemplate` + `handleImportRef` existants (6 onglets xlsx) |
+| 15 Mobile | ✅ RAS code | Viewport + 39 media queries déjà OK |
+| 16 Cleanup | ✅ Hub Comm @deprecated | Bouton fiche bail retiré v15.16 · appels DG/impayés retirés v15.16 · code JS conservé en lecture seule pour audit |
+| 17 Polish UX | ⏳ Reporté audit | À traiter onglet par onglet avec user |
+
+**Bilan marathon V1.1 complet (Sprints 6-17)** :
+
+| Sprint | Versions | Livré | Effort |
+|---|---|---|---|
+| 6 | v15.04 | USER-PROFILE-FILTERS | ~4h |
+| 7+7B | v15.05-06 | LEGAL-DPE-INTERDICTION + DIAGNOSTICS-DDT | ~7h |
+| 8 | v15.07 | PILOTAGE-MATRICIEL + BANK-INTEGRATION V1 | ~12h |
+| 9 | v15.08 | EQUIP-CONTROLES-PERIODIQUES | ~5.5h |
+| 10 | v15.09 | EMAIL-AUTO extension | ~4h |
+| 11 | v15.10/11 | IRL-REVISION-UX-FIX + Quittances actives | ~8h |
+| 12 | v15.12 | Gestion DG & Impayés | ~6h |
+| 13 | v15.13 | DASH-PROFILES Phase 2 | ~3h |
+| 14-17 | v15.14-17 | Fixes UX + cleanup | ~2h |
+| **Total** | **v15.04 → v15.17** | **11 sujets P1/P2 + 13 modules core/** | **~52h** |
+
+**Tests Vitest** : 713 passants (vs 378 avant marathon → +335 nouveaux tests, 26 fichiers, zéro régression).
+
+**Prochaine étape** : audit onglet par onglet ensemble (post-marathon).
+
+---
+
 ### Sprint 13 V1.1 — DASH-PROFILES Phase 2 (4 onglets dashboard par persona) — session 2026-05-14 (~3h, v15.13)
 > Sprint 13 du marathon V1.1. **Sujet DASH-PROFILES Phase 2 ✅ clos** : implémentation des 4 onglets dashboard (Propriétaire / Gestionnaire / Complet / Custom) avec persist `DB.params.dashTab` et presets densifiés par persona. **Aucun concurrent (Rentila/BailFacile/Qalimo/Smovin) ne fait ça** — argument marketing premium pricing.
 
