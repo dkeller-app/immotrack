@@ -4403,7 +4403,227 @@ textarea.field-modified-since-sig{
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   v15.36 DASH-REFONTE-GLOBALE-V4 CP2 — Cockpit Hero V4 Stripe narrative
+   Remplace .cockpit-v2 (jauge SVG 220×220) par format narrative :
+   eyebrow + titre + delta vs mois-1 + barre progress + 4 satellites.
+   Les classes .cockpit-v2 / .cockpit-gauge restent en CSS (orphelines, inertes).
+   ═══════════════════════════════════════════════════════════════════════ */
+.cockpit-v4 {
+  display: block;
+  width: 100%;
+  padding: 18px 22px 16px;
+  background: var(--sur);
+  border: 1px solid var(--bor);
+  border-radius: 14px;
+  cursor: pointer;
+  position: relative;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: all var(--t-fast);
+}
+.cockpit-v4:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover, 0 4px 18px rgba(0,0,0,.18));
+  border-color: var(--acc, var(--fg-info));
+}
+.cockpit-v4:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: 2px;
+}
+.cv4-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.cv4-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--cta, var(--fg-success));
+  display: inline-block;
+  box-shadow: 0 0 8px var(--cta, var(--fg-success));
+}
+.cv4-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: 23px;
+  font-weight: 700;
+  color: var(--t2);
+  letter-spacing: -0.02em;
+  margin-bottom: 5px;
+  line-height: 1.25;
+}
+.cv4-title strong { color: var(--t1); font-weight: 800; }
+.cv4-pct { font-weight: 800; }
+.cv4-pct.pos { color: var(--fg-success); }
+.cv4-pct.warn { color: var(--fg-warning); }
+.cv4-pct.neg { color: var(--fg-danger); }
+.cv4-delta {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.cv4-delta.pos { color: var(--fg-success); }
+.cv4-delta.neg { color: var(--fg-danger); }
+.cv4-delta.neu { color: var(--t3); font-style: italic; }
+.cv4-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--sur3, rgba(255,255,255,.06));
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.cv4-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .8s cubic-bezier(.4,0,.2,1);
+}
+.cv4-progress-fill.pos {
+  background: linear-gradient(90deg, var(--fg-success), var(--cta, var(--fg-success)));
+}
+.cv4-progress-fill.warn {
+  background: linear-gradient(90deg, var(--fg-warning), var(--cta, var(--fg-success)));
+}
+.cv4-progress-fill.neg {
+  background: linear-gradient(90deg, var(--fg-danger), var(--fg-warning));
+}
+.cv4-sats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.cv4-sat {
+  background: var(--sur2);
+  border: 1px solid var(--bor);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.cv4-sat-lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--t3);
+}
+.cv4-sat-val {
+  font-family: 'Manrope', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cv4-sat-val.pos { color: var(--fg-success); }
+.cv4-sat-val.neg { color: var(--fg-danger); }
+.cv4-sat-delta {
+  font-size: 10.5px;
+  font-weight: 600;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cv4-sat-delta.pos { color: var(--fg-success); }
+.cv4-sat-delta.neg { color: var(--fg-danger); }
+.cv4-sat-delta.warn { color: var(--fg-warning); }
+.cv4-sat-delta.neu { color: var(--t3); font-style: italic; font-weight: 500; }
+.cv4-drill {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--sur2);
+  color: var(--t3);
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  transition: all var(--t-fast);
+}
+.cockpit-v4:hover .cv4-drill {
+  background: var(--acc, var(--fg-info));
+  color: #fff;
+}
+@media (max-width: 1024px) {
+  .cv4-sats { grid-template-columns: repeat(2, 1fr); }
+  .cv4-title { font-size: 20px; }
+}
+@media (max-width: 500px) {
+  .cv4-sats { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cv4-title { font-size: 17px; }
+  .cv4-sat-val { font-size: 17px; }
+  .cockpit-v4 { padding: 14px 14px 12px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   v15.36 DASH-REFONTE-GLOBALE-V4 CP3 — KPI Bloomberg : eyebrow + valeur
+   grosse + delta avec flèche couleur + mini-sparkline inline.
+   ═══════════════════════════════════════════════════════════════════════ */
+.bb-eyebrow {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  display: block;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bb-card .dw-kpi-label { /* surcharge label legacy → cache (eyebrow le remplace) */
+  display: none;
+}
+.bb-card .dw-kpi-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.bb-delta {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.bb-delta.pos { color: var(--fg-success); }
+.bb-delta.neg { color: var(--fg-danger); }
+.bb-delta.warn { color: var(--fg-warning); }
+.bb-delta.neu { color: var(--t3); font-style: italic; font-weight: 500; }
+.bb-sub {
+  font-size: 11px;
+  color: var(--t3);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+.bb-spark {
+  margin-top: auto;
+  padding-top: 6px;
+  width: 100%;
+}
+.bb-spark svg { display: block; width: 100%; height: 30px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
    v15.33 Phase B Étape A — Widget HERO COCKPIT (jauge + 4 satellites)
+   ⚠ ORPHELIN depuis v15.36 CP2 (remplacé par .cockpit-v4) — conservé pour
+   compat (mais aucun rendu ne l'utilise plus). À supprimer en V3-VISUEL.
    ═══════════════════════════════════════════════════════════════════════ */
 .cockpit-v2 {
   display: grid;

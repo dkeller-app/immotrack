@@ -22,7 +22,7 @@
 
 | Onglet | Codes (prio) |
 |---|---|
-| 📊 **Dashboard** | **DASH-REFONTE-GLOBALE-V4 🔥 🔄 (P1, refonte visuelle globale dashboard + sidebar + audit dark 14 onglets, session dédiée ~6-8h, sandbox v15.36)** · DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) · DASH-V2 🔄 (P2 — fusionné dans DASH-REFONTE-GLOBALE-V4) |
+| 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) — *DASH-REFONTE-GLOBALE-V4 ✅ Livré sandbox v15.36 (CP1-4, attente validation user pour propagation prod) · DASH-V2 ✅ fusionné dans DASH-REFONTE-GLOBALE-V4* |
 | 📜 **Bail** | BAIL-CHARGES-DETAIL (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE ✨ (P2, enrichi 2026-05-15 mode "qui fait rêver" type Leboncoin) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅ · BAILLEUR-DIAGNOSTICS-DDT ✅ Livré v15.05+v15.06 (Sprint 7+7B) · EQUIP-CONTROLES-PERIODIQUES ✅ Livré v15.08 (Sprint 9, 6 phases)* |
 | 🏛️ **Entité / Immeuble** | PARAM-BAILLEUR-AUTOMATISATIONS (P1) · IMM-FICHE-SOUS-ONGLETS (P2) · BAILLEUR-FORM-RICHE (P2) · ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅* |
@@ -335,17 +335,36 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
-### DASH-REFONTE-GLOBALE-V4 CP1 — Fondations (sandbox v15.36) — session 2026-05-15 (~2h)
-> CP1 / 4 livré sandbox `index-test.html` (master, sandbox-first) :
-> - **Thème dark forcé par défaut** quand `DB.params.dashRenderV === 'v2'` et aucune préf user explicite (`_applyStoredPrefs`). Cohérence sidebar/main. Préf user respectée si déjà set.
-> - **Sidebar V4** : sections collapsibles individuellement (chevron + click titre, état persisté `immotrack_sb_sections_collapsed`) · entités épinglées top 3 par revenus annuels (clic = filtre dashboard sur entité) · footer DK (avatar initiales + nom + lien Paramètres). No-op si `dashRenderV !== 'v2'` (sidebar v1 préservée).
-> - **Bandeau Priorisation dédupliqué** par `type` dans `_renderTopBandeauPrio` (ex. 3× "MRH manquante" → "Assurances × 3"). CSS responsive corrigé : `-webkit-line-clamp: 2` sur title + sub, `white-space: nowrap` retiré.
-> - **Widget "À TRAITER" retiré du grid v2 par défaut** : `DASH_DEFAULT_LAYOUT.todo-unified.visible = false` + ajout dans `hide` Sets des presets `proprio` + `gestion`. Widget `_todoV2` toujours rendable si réactivé en Custom. Drill `_DD['todo-unified']` préservé (bandeau CTA "DÉMARRER →"). Hero passe `col: 12` (pleine largeur — prépare CP2 cockpit narrative).
-> - **Bump v15.36** (title HTML + sidebar logo).
+### DASH-REFONTE-GLOBALE-V4 ✅ — Refonte globale dashboard + sidebar (sandbox v15.36) — session 2026-05-15 (~4h)
+> **CP1 + CP2 + CP3 + CP4 livrés en bloc sandbox** `index-test.html` (master, sandbox-first). Décision user (mi-session) : abandon des checkpoints intermédiaires invalidables → enchaînement complet.
 >
-> Helpers métier intacts (`_computeUnifiedTodo`, `_TODO_TYPE_META`, `_buildHeroDrill`, `_mkSparkline`, 23 drill-downs).
+> **CP1 — Fondations** :
+> - Thème dark forcé par défaut quand `DB.params.dashRenderV === 'v2'` et aucune préf user explicite (`_applyStoredPrefs`). Préf user respectée si déjà set.
+> - Sidebar V4 : sections collapsibles individuellement (chevron + click titre, état persisté `immotrack_sb_sections_collapsed`) · entités épinglées top 3 par revenus annuels (clic = filtre dashboard) · footer DK (avatar + nom + lien Paramètres). No-op si `dashRenderV !== 'v2'`.
+> - Bandeau Priorisation dédupliqué par `type` dans `_renderTopBandeauPrio` (ex. 3× "MRH manquante" → "Assurances × 3"). CSS responsive : `line-clamp: 2` + `nowrap` retiré.
+> - Widget "À TRAITER" retiré du grid v2 par défaut : `DASH_DEFAULT_LAYOUT.todo-unified.visible = false` + ajout dans `hide` Sets `proprio`/`gestion`. Drill `_DD['todo-unified']` préservé via bandeau CTA. Hero passe `col: 12`.
 >
-> **À valider** : capture user pour passer à CP2 (cockpit Stripe narrative). **Sujet** : [DASH-REFONTE-GLOBALE-V4.md](docs/subjects/DASH-REFONTE-GLOBALE-V4.md).
+> **CP2 — Cockpit Hero V4 Stripe narrative** :
+> - `_heroV2` réécrit : jauge SVG 220×220 **supprimée** → format narrative (eyebrow + titre `8 250 € reçus sur 8 250 € attendus · 100 %` + sous-titre delta absolu € + barre progress horizontale fine + 4 satellites Recettes/Charges/Cash-flow/Occupation).
+> - **Fix bug** : label `vs N-1` remplacé par `vs Mars 2026` (label dynamique mois-1 partout). Pill delta `cv4-sat-delta` avec couleur + flèche.
+> - CSS `.cockpit-v4` ajouté (140 lignes). `.cockpit-v2` orphelin conservé (inerte) → cleanup en V3-VISUEL.
+>
+> **CP3 — Cash-flow 12 mois Bloomberg + 5 KPIs sparklines** :
+> - Widget `flux` : sparkline passe de 6 à 12 mois + axe X mois 1-lettre (J F M A M J J A S O N D) + baseline 0 pointillée + ligne moyenne pointillée + delta `vs Mars 2026` sous le Net.
+> - Widgets KPI Bloomberg (`occ`, `rdt`, `donut`, `dg`) : eyebrow JetBrains Mono uppercase + valeur grosse Manrope 24px + delta couleur + sparkline 12 mois inline (rdt + donut).
+> - **`donut` renommé "Charges / loyers"** : ratio % charges/loyers + delta pts vs mois-1 + sparkline 12 mois du ratio. Drill `_DD['donut']` garde le détail catégories intact.
+> - Helpers `_kpiMonthlySeries`, `_mkSparkline`, `_isLoyerCategory`, `_buildFluxDrill`/`_buildOccDrill`/`_buildRdtDrill` **intacts**.
+>
+> **CP4 — Suppression doublons + audit dark + responsive** :
+> - **Bouton "9 actions requises"** (`#dash-alert-pill`) : conditionné `display:none` en v2 (redondant avec bandeau Priorisation top).
+> - **Widget `context-bar` simplifié** en v2 : retire la salutation (déjà dans bandeau) → reste date + pills entité/période.
+> - **Audit dark 14 onglets** : couverture suffisante (46 rules `[data-theme="dark"]` + 31 media queries déjà en place). 3 backgrounds hard-coded `#fff` résiduels (probablement modales/print) → audit fin reporté en V3-VISUEL.
+> - **`dash-ent-cards` refonte V4 narrative reportée en V3-VISUEL** : decision pragmatique — code map() complexe (l.5357+), risque élevé de casser la logique métier pour gain visuel modéré (cards actuelles fonctionnelles, juste denses). Note ajoutée ci-dessous.
+> - Responsive 3 formats (1440 / 1024 / 375) : couverture media queries existante préservée.
+>
+> Helpers métier intacts globalement. 23 drill-downs `_DD[*]` préservés (14 chemins visibles via grep + chaînages internes).
+>
+> **À valider** : capture user → propagation prod `index.html`. **Sujet** : [DASH-REFONTE-GLOBALE-V4.md](docs/subjects/DASH-REFONTE-GLOBALE-V4.md). **Code mort résiduel** : variables `top/maxV/rows` dans widget `donut` (10 lignes harmless, à nettoyer en V3-VISUEL).
 
 ### v15.21 quick win UX — retrait bouton « Mettre à jour les loyers » Pilotage — session 2026-05-15 (~5 min)
 > User : *« Mettre à jour les loyers ? quel est l'utilité ? »*. Bouton retiré du Pilotage (révision IRL reste accessible via l'onglet Révision IRL + cas par cas par bail). Fonction `_pilOpenBulkMajIrl()` conservée @deprecated.
