@@ -332,6 +332,19 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### v15.21 quick win UX — retrait bouton « Mettre à jour les loyers » Pilotage — session 2026-05-15 (~5 min)
+> User : *« Mettre à jour les loyers ? quel est l'utilité ? »*. Bouton retiré du Pilotage (révision IRL reste accessible via l'onglet Révision IRL + cas par cas par bail). Fonction `_pilOpenBulkMajIrl()` conservée @deprecated.
+
+### Phase D spec — STRIPE-PAYWALL-V1 (doc 30-50h estimé) — session 2026-05-15
+> Spec complète Stripe paywall V1 vanilla JS : modèle économique 4 tiers (Free 1 lot · Solo 14,90€ · Co-gestion 19,90€ · Gestionnaire 29,90€/user · Pro 89€/user), architecture sans backend (Stripe Payment Links + Customer Portal + 1 cloud function proxy auth), roadmap implé D0-D5.
+>
+> **Doc** : [STRIPE-PAYWALL-V1.md](docs/subjects/STRIPE-PAYWALL-V1.md). Implé après Phase B/C alignées et validation pricing par entretiens Phase E.
+
+### Phase E spec — ENTRETIENS-HOGUET (sourcing + script + templates) — session 2026-05-15
+> Plan complet 10 entretiens gestionnaires Hoguet 10-50 lots : objectifs (pricing 29,90€/user + différenciants + décision V2), méthodologie 30 min visio, plan d'entretien minute par minute, templates messages LinkedIn/email/forum, tableau suivi Google Sheet, coût estimé 630€.
+>
+> **Doc** : [ENTRETIENS-HOGUET.md](docs/subjects/ENTRETIENS-HOGUET.md). Sourcing à démarrer en parallèle Phase D dev. Livrable final = décision V2 GO/PIVOT/NO-GO.
+
 ### Phase A3 — BUG-DRIVE-PARTAGE-TIERS (workaround V1 documenté) — session 2026-05-15 (~15 min, doc only)
 > User : *« j'ai donné accès à un tiers et elle n'a pas toutes les infos et ne peut pas enregistrer »*. Cause structurelle : OAuth `drive.file` ne permet pas d'écrire dans un fichier créé par un autre user, même si Drive natif autorise l'édition.
 >
