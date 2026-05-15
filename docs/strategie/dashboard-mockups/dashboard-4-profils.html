@@ -302,6 +302,122 @@
   .pilot-status.warn { background: rgba(255,176,32,0.15); color: var(--warn); }
   .pilot-status.danger { background: rgba(255,77,124,0.15); color: var(--neg); }
 
+  /* PATRIMOINE — vue Entité / Immeuble / Logements */
+  #view-patrimoine .content {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: 9px;
+  }
+  .pat-ent {
+    grid-column: 1 / -1;
+    background: var(--bg2);
+    border: 1px solid var(--bor);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 18px;
+    align-items: center;
+  }
+  .pat-ent-h { display: flex; align-items: center; gap: 10px; }
+  .pat-ent-name { font-size: 16px; font-weight: 700; }
+  .pat-ent-type {
+    background: var(--bg3); border: 1px solid var(--bor);
+    color: var(--t2); padding: 2px 8px; border-radius: 6px;
+    font-size: 10.5px; font-weight: 600;
+  }
+  .pat-ent-stat { display: flex; flex-direction: column; }
+  .pat-ent-stat-l { font-size: 10.5px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .pat-ent-stat-v { font-size: 18px; font-weight: 800; margin-top: 2px; }
+  .pat-ent-stat-v.pos { color: var(--pos); }
+  .pat-ent-stat-v.neg { color: var(--neg); }
+  .pat-ent-counter {
+    font-size: 11px; color: var(--t3);
+    margin-left: auto;
+    padding: 4px 10px;
+    background: var(--bg3); border-radius: 6px;
+  }
+
+  .pat-body {
+    grid-column: 1 / -1;
+    overflow: auto;
+    padding-right: 4px;
+  }
+  .pat-imm {
+    background: var(--bg2);
+    border: 1px solid var(--bor);
+    border-radius: 11px;
+    padding: 10px 13px;
+    margin-bottom: 10px;
+  }
+  .pat-imm-h {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 14px;
+    align-items: center;
+    padding-bottom: 8px;
+    margin-bottom: 9px;
+    border-bottom: 1px solid var(--bor);
+  }
+  .pat-imm-name { font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .pat-imm-count { font-size: 11px; color: var(--t3); margin-left: 6px; font-weight: 500; }
+  .pat-imm-stat-l { font-size: 9.5px; color: var(--t3); text-transform: uppercase; font-weight: 600; }
+  .pat-imm-stat-v { font-size: 14px; font-weight: 700; }
+  .pat-imm-stat-v.pos { color: var(--pos); }
+  .pat-imm-stat-v.neg { color: var(--neg); }
+  .pat-logs {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+  .pat-log {
+    background: var(--bg3);
+    border: 1px solid var(--bor);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex; flex-direction: column;
+    gap: 3px;
+  }
+  .pat-log:hover { transform: translateY(-1px); }
+  .pat-log.ok { border-color: rgba(0,204,188,0.4); }
+  .pat-log.partial { border-color: rgba(255,176,32,0.5); }
+  .pat-log.danger { border-color: rgba(255,77,124,0.5); }
+  .pat-log.vacant { border-color: rgba(160,170,199,0.3); background: rgba(160,170,199,0.05); }
+  .pat-log-h { display: flex; justify-content: space-between; align-items: center; }
+  .pat-log-ref { font-size: 11.5px; font-weight: 700; }
+  .pat-log-status {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .pat-log-status.ok { background: rgba(0,204,188,0.18); color: var(--pos); }
+  .pat-log-status.partial { background: rgba(255,176,32,0.18); color: var(--warn); }
+  .pat-log-status.danger { background: rgba(255,77,124,0.18); color: var(--neg); }
+  .pat-log-status.vacant { background: rgba(160,170,199,0.15); color: var(--t3); font-size: 8.5px; }
+  .pat-log-loc {
+    font-size: 10px; color: var(--t2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pat-log-loyer {
+    font-size: 12.5px; font-weight: 700;
+  }
+  .pat-log-loyer-sub {
+    font-size: 9.5px; color: var(--t3);
+  }
+  .pat-log-reste {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 4px; margin-top: 2px;
+    border-top: 1px solid var(--bor);
+    font-size: 10px;
+  }
+  .pat-log-reste-l { color: var(--t3); }
+  .pat-log-reste-v { font-weight: 700; }
+  .pat-log-reste-v.pos { color: var(--pos); }
+  .pat-log-reste-v.neg { color: var(--neg); }
+
   /* AGENCE multi-portfolio */
   #view-agence .content {
     grid-template-columns: repeat(12, 1fr);
@@ -410,6 +526,9 @@
   </button>
   <button class="view-btn" data-view="gestion">
     🛠 Gestionnaire <span class="price">/ même tier, mode gestion</span>
+  </button>
+  <button class="view-btn" data-view="patrimoine">
+    🏘 Patrimoine <span class="price">/ vue parc temps réel</span>
   </button>
   <button class="view-btn" data-view="agence">
     🏢 Agence <span class="price">/ multi-bailleurs</span>
@@ -589,6 +708,7 @@
       <div class="tb-mode-toggle">
         <button class="tb-mode-btn active">💰 Finance</button>
         <button class="tb-mode-btn" onclick="switchTo('gestion')">🛠 Gestion</button>
+        <button class="tb-mode-btn" onclick="switchTo('patrimoine')">🏘 Patrimoine</button>
       </div>
       <div class="tb-user"><div class="tb-avatar">DK</div><div class="tb-user-name">Didier</div></div>
     </header>
@@ -737,6 +857,7 @@
       <div class="tb-mode-toggle">
         <button class="tb-mode-btn" onclick="switchTo('premium')">💰 Finance</button>
         <button class="tb-mode-btn active">🛠 Gestion</button>
+        <button class="tb-mode-btn" onclick="switchTo('patrimoine')">🏘 Patrimoine</button>
       </div>
       <div class="tb-user"><div class="tb-avatar">DK</div><div class="tb-user-name">Didier</div></div>
     </header>
@@ -837,6 +958,182 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- VUE PATRIMOINE — Entité / Immeuble / Logements (style capture user) -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="stage" id="view-patrimoine" style="display:none">
+  <aside class="sb">
+    <div class="sb-brand">
+      <div class="sb-brand-logo">I</div>
+      <div>
+        <div class="sb-brand-name">ImmoTrack</div>
+        <div class="sb-brand-sub">Premium · mode patrimoine</div>
+      </div>
+    </div>
+    <div class="sb-section">Vue d'ensemble</div>
+    <div class="sb-item active"><span class="sb-item-icon">📊</span> Tableau de bord</div>
+    <div class="sb-item"><span class="sb-item-icon">💶</span> Loyers</div>
+    <div class="sb-item"><span class="sb-item-icon">🧾</span> Quittances <span class="badge">2</span></div>
+    <div class="sb-section">Patrimoine</div>
+    <div class="sb-item"><span class="sb-item-icon">🏠</span> Mes biens</div>
+    <div class="sb-item"><span class="sb-item-icon">📋</span> Mes locataires</div>
+    <div class="sb-section">Plus</div>
+    <div class="sb-item"><span class="sb-item-icon">📅</span> Agenda</div>
+    <div class="sb-item"><span class="sb-item-icon">📈</span> Révision annuelle</div>
+    <div class="sb-item"><span class="sb-item-icon">🛡</span> Assurances</div>
+    <div class="sb-item"><span class="sb-item-icon">⚙️</span> Paramètres</div>
+  </aside>
+  <div class="main">
+    <header class="tb">
+      <div class="tb-title">Tableau de bord</div>
+      <div class="tb-filters">
+        <span class="pill active">2026</span>
+        <span class="pill">Avril ▾</span>
+        <span class="pill">Toutes entités ▾</span>
+      </div>
+      <div class="tb-spacer"></div>
+      <div class="tb-mode-toggle">
+        <button class="tb-mode-btn" onclick="switchTo('premium')">💰 Finance</button>
+        <button class="tb-mode-btn" onclick="switchTo('gestion')">🛠 Gestion</button>
+        <button class="tb-mode-btn active">🏘 Patrimoine</button>
+      </div>
+      <div class="tb-user"><div class="tb-avatar">DK</div><div class="tb-user-name">Didier</div></div>
+    </header>
+
+    <div class="content">
+
+      <!-- Header SCI (entité) -->
+      <div class="pat-ent">
+        <div class="pat-ent-h">
+          <div class="pat-ent-name">SCI Keller Patrimoine</div>
+          <div class="pat-ent-type">SCI IR</div>
+          <div class="pat-ent-counter">10/11 logement(s)</div>
+        </div>
+        <div class="pat-ent-stat">
+          <div class="pat-ent-stat-l">Recettes</div>
+          <div class="pat-ent-stat-v pos">34 870 €</div>
+        </div>
+        <div class="pat-ent-stat">
+          <div class="pat-ent-stat-l">Dépenses</div>
+          <div class="pat-ent-stat-v neg">- 6 460 €</div>
+          <div style="font-size:9.5px;color:var(--t3);margin-top:1px">dont 412 € SCI</div>
+        </div>
+        <div class="pat-ent-stat">
+          <div class="pat-ent-stat-l">Résultat YTD</div>
+          <div class="pat-ent-stat-v pos">+ 28 410 €</div>
+        </div>
+      </div>
+
+      <!-- Body : 3 immeubles -->
+      <div class="pat-body">
+
+        <!-- Immeuble Paris 17e -->
+        <div class="pat-imm">
+          <div class="pat-imm-h">
+            <div class="pat-imm-name">🏢 Paris 17e — Lévis<span class="pat-imm-count">6/6 logement(s)</span></div>
+            <div><div class="pat-imm-stat-l">Recettes</div><div class="pat-imm-stat-v pos">22 060 €</div></div>
+            <div><div class="pat-imm-stat-l">Dépenses</div><div class="pat-imm-stat-v neg">- 3 240 €</div></div>
+            <div><div class="pat-imm-stat-l">Résultat</div><div class="pat-imm-stat-v pos">+ 18 820 €</div></div>
+          </div>
+          <div class="pat-logs">
+            <div class="pat-log ok" onclick="alert('Drill: F-001')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-001</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">M. BERTRAND Julien</div>
+              <div class="pat-log-loyer">670,00 €<span class="pat-log-loyer-sub"> HC 650 + ch 20</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+            <div class="pat-log ok" onclick="alert('Drill: F-002')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-002</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">MME DUBOIS Caroline</div>
+              <div class="pat-log-loyer">410,00 €<span class="pat-log-loyer-sub"> HC 380 + ch 30</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+            <div class="pat-log ok" onclick="alert('Drill: F-003')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-003</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">M. MARTIN Sébastien</div>
+              <div class="pat-log-loyer">460,00 €<span class="pat-log-loyer-sub"> HC 440 + ch 20</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+            <div class="pat-log ok" onclick="alert('Drill: F-004')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-004</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">MME LEFÈVRE Pauline</div>
+              <div class="pat-log-loyer">660,00 €<span class="pat-log-loyer-sub"> HC 650 + ch 10</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+            <div class="pat-log ok" onclick="alert('Drill: F-005')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-005</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">M. CHARPENTIER Lucas</div>
+              <div class="pat-log-loyer">430,00 €<span class="pat-log-loyer-sub"> HC 400 + ch 30</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+            <div class="pat-log ok" onclick="alert('Drill: F-006')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-006</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">M. REGIS MANGIN</div>
+              <div class="pat-log-loyer">250,00 €<span class="pat-log-loyer-sub"> HC 235 + ch 15</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Immeuble Lyon Préfecture -->
+        <div class="pat-imm">
+          <div class="pat-imm-h">
+            <div class="pat-imm-name">🏢 Lyon — Préfecture<span class="pat-imm-count">3/4 logement(s)</span></div>
+            <div><div class="pat-imm-stat-l">Recettes</div><div class="pat-imm-stat-v pos">11 540 €</div></div>
+            <div><div class="pat-imm-stat-l">Dépenses</div><div class="pat-imm-stat-v neg">- 2 875 €</div></div>
+            <div><div class="pat-imm-stat-l">Résultat</div><div class="pat-imm-stat-v pos">+ 8 665 €</div></div>
+          </div>
+          <div class="pat-logs">
+            <div class="pat-log ok" onclick="alert('Drill: F-007')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-007</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">M. DUPONT Maxime</div>
+              <div class="pat-log-loyer">820,00 €<span class="pat-log-loyer-sub"> HC 800 + ch 20</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+            <div class="pat-log partial" onclick="alert('Drill: F-008 — locataire entré 10/03, prorata')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-008</div><div class="pat-log-status partial">~</div></div>
+              <div class="pat-log-loc">MME ROCHE Isabelle</div>
+              <div class="pat-log-loyer">1 020,00 €<span class="pat-log-loyer-sub"> HC 1000 + ch 20</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer (prorata)</span><span class="pat-log-reste-v neg">335,00 €</span></div>
+            </div>
+            <div class="pat-log vacant" onclick="alert('Drill: F-009 vacant 18 j')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-009</div><div class="pat-log-status vacant">Vac</div></div>
+              <div class="pat-log-loc" style="color:var(--t3);font-style:italic">Aucun locataire</div>
+              <div class="pat-log-loyer" style="color:var(--t3)">Théorique : 490 €</div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Manque à louer</span><span class="pat-log-reste-v neg">490,00 €</span></div>
+            </div>
+            <div class="pat-log ok" onclick="alert('Drill: F-010')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-010</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">M. LAMBERT Antoine</div>
+              <div class="pat-log-loyer">735,00 €<span class="pat-log-loyer-sub"> HC 715 + ch 20</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Garage Paris -->
+        <div class="pat-imm">
+          <div class="pat-imm-h">
+            <div class="pat-imm-name">🅿 Garage Paris — Lévis<span class="pat-imm-count">1/1 logement(s)</span></div>
+            <div><div class="pat-imm-stat-l">Recettes</div><div class="pat-imm-stat-v pos">1 270 €</div></div>
+            <div><div class="pat-imm-stat-l">Dépenses</div><div class="pat-imm-stat-v neg">- 345 €</div></div>
+            <div><div class="pat-imm-stat-l">Résultat</div><div class="pat-imm-stat-v pos">+ 925 €</div></div>
+          </div>
+          <div class="pat-logs">
+            <div class="pat-log ok" onclick="alert('Drill: F-011 Garage')">
+              <div class="pat-log-h"><div class="pat-log-ref">F-011</div><div class="pat-log-status ok">✓</div></div>
+              <div class="pat-log-loc">MME PIERRON Florence</div>
+              <div class="pat-log-loyer">80,00 €<span class="pat-log-loyer-sub"> HC 80</span></div>
+              <div class="pat-log-reste"><span class="pat-log-reste-l">Reste à payer</span><span class="pat-log-reste-v pos">0,00 €</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 </div>
@@ -1037,7 +1334,7 @@
 
 <script>
   // Switcher de vues
-  const views = ['solo', 'premium', 'gestion', 'agence', 'compta'];
+  const views = ['solo', 'premium', 'gestion', 'patrimoine', 'agence', 'compta'];
   document.querySelectorAll('.view-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTo(btn.dataset.view));
   });
@@ -1061,7 +1358,7 @@
   }
   // Raccourcis clavier
   document.addEventListener('keydown', e => {
-    const idx = ['1','2','3','4','5'].indexOf(e.key);
+    const idx = ['1','2','3','4','5','6'].indexOf(e.key);
     if (idx >= 0) switchTo(views[idx]);
     if (e.key === 'Escape') hideCompta();
   });
