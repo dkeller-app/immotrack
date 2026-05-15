@@ -3921,18 +3921,19 @@ textarea.field-modified-since-sig{
   background: var(--acc);
   color: #fff;
 }
-.todo-v2-list {
+/* v15.32 — Vue compacte agrégée par THÈME (1 ligne par type) */
+.todo-v2-rows {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   overflow: hidden;
   flex: 1;
 }
-.todo-v2-item {
+.todo-v2-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 9px;
+  gap: 10px;
+  padding: 7px 10px;
   border-radius: 7px;
   background: var(--sur2);
   border: 1px solid transparent;
@@ -3943,52 +3944,63 @@ textarea.field-modified-since-sig{
   font: inherit;
   color: inherit;
 }
-.todo-v2-item:hover {
+.todo-v2-row:hover {
   background: var(--sur3);
   border-color: var(--bor);
   transform: translateX(2px);
 }
-.todo-v2-item:focus-visible {
+.todo-v2-row:focus-visible {
   outline: 2px solid var(--fg-info);
   outline-offset: 1px;
 }
-.todo-v2-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.todo-v2-row-icon {
+  font-size: 16px;
   flex-shrink: 0;
+  width: 22px;
+  text-align: center;
 }
-.todo-v2-dot.red { background: var(--fg-danger); box-shadow: 0 0 0 2px var(--bg-danger); }
-.todo-v2-dot.ora { background: var(--fg-warning); box-shadow: 0 0 0 2px var(--bg-warning); }
-.todo-v2-dot.info { background: var(--fg-info); box-shadow: 0 0 0 2px var(--bg-info); }
-.todo-v2-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+.todo-v2-row-label {
   flex: 1;
-  min-width: 0;
-}
-.todo-v2-text {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--t1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.todo-v2-sub {
-  font-size: 10.5px;
-  color: var(--t3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.todo-v2-row-count {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  padding: 1px 8px;
+  border-radius: 11px;
+  min-width: 24px;
+  text-align: center;
+  flex-shrink: 0;
 }
-.todo-v2-more {
-  font-size: 11px;
+.todo-v2-row-count.red { background: var(--bg-danger); color: var(--fg-danger); }
+.todo-v2-row-count.ora { background: var(--bg-warning); color: var(--fg-warning); }
+.todo-v2-row-count.info { background: var(--bg-info); color: var(--fg-info); }
+.todo-v2-row-arrow {
+  color: var(--t3);
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: transform var(--t-fast), color var(--t-fast);
+}
+.todo-v2-row:hover .todo-v2-row-arrow {
+  color: var(--acc);
+  transform: translateX(2px);
+}
+.todo-v2-hint {
+  font-size: 10px;
   color: var(--t3);
   font-style: italic;
   text-align: center;
-  padding: 4px 0 2px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--bor);
+  margin-top: 4px;
 }
 .todo-v2-empty {
   display: flex;
@@ -4002,9 +4014,8 @@ textarea.field-modified-since-sig{
 
 /* Responsive todo-v2 */
 @media (max-width: 767px) {
-  .todo-v2-item { padding: 8px 10px; min-height: 44px; }  /* touch target */
-  .todo-v2-text { font-size: 13px; }
-  .todo-v2-sub { font-size: 11px; }
+  .todo-v2-row { padding: 9px 10px; min-height: 44px; }  /* touch target */
+  .todo-v2-row-label { font-size: 13.5px; }
 }
 
 /* Responsive hero v2 */
