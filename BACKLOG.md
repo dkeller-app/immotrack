@@ -39,6 +39,7 @@
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) — *LEGAL-DPE-INTERDICTION-LOCATION ✅ Livré v15.05 (Sprint 7) : blocage strict bail si DPE interdit loi Climat 2021* |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) · **SAAS-PRICING-TIERS (P2, ~3-5h)** — *gating modules par abonnement, build sur l'infra USER-PROFILE-FILTERS livrée v15.04* |
+| 🤖 **IA / Pro Connect V2** | **IA-V2 🔮 (V2 post-commercialisation, ~15-25h)** — *opt-in payant Pro Connect ~5€/mois · 5 use cases prioritaires : OCR DPE/diagnostics · OCR factures travaux · OCR justifs candidat · annonce LLM-generated · classification auto Drive · 4 secondaires V2.5 · 5 écartés (conseil fiscal/analyse EDL/prédiction loyer = risque juridique). Pas en V1.1 (zéro coût récurrent)* |
 | 📈 **Stratégie / Business** | VEILLE-QALIMO-V2 (P2, analyse 2-3h) · BIZPLAN-V2 🔄 (P2) — *BIZPLAN-STRATEGIE ✅ Livré 2026-04-30 (5 docs `docs/strategie/`)* |
 | 📱 **Mobile / PWA / Offline** | MOBILE-AUDIT-ONGLETS (P1) · MOBILE-PWA-OFFLINE (P2) |
 
@@ -299,6 +300,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | 29 | SIGN-EIDAS | Signature électronique eIDAS (via prestataire) | P3 | L | ⬜ À faire | Critère 13.6 · valeur légale renforcée vs canvas |
 | 30 | PORTAIL-LOC | Portail locataire (accès en ligne lecture) | P3 | XL | ⬜ À faire | Critère 12.7 · nécessite SaaS |
 | 31 | SAAS-MULTIUSERS | Multi-utilisateurs + rôles (SaaS) | P3 | XL | ⬜ À faire | Critères 16.1+16.2 · backend nécessaire · CDC architecture SaaS requis |
+| 32 | **IA-V2** 🔮 | Module IA opt-in "Pro Connect" : OCR DPE/diagnostics + OCR factures + OCR justifs candidat + annonce LLM + classification Drive auto | V2 | L (15-25h) | ⬜ V2 post-commercialisation | [docs/subjects/IA-V2.md](docs/subjects/IA-V2.md) · 5 use cases prio + 4 secondaires + 5 écartés (risque juridique) · tier payant ~5€/mois SaaS · zéro coût récurrent ImmoTrack V1 · différenciant majeur marché FR (Rentila/BailFacile/Qalimo = aucun OCR) |
 
 ---
 

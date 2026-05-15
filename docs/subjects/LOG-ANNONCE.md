@@ -170,7 +170,7 @@ Ajout aux variables existantes (Phase 1) :
 - [ ] Importer / exporter templates
 - [ ] Toggle "verrouiller le ton évocateur ImmoTrack" vs "template libre"
 
-### Phase 4 — Génération LLM (optionnel V2) ~3-4h
+### Phase 4 — Génération LLM (optionnel V2) ~3-4h — cf [IA-V2](IA-V2.md) UC4
 - [ ] Si l'utilisateur active **ImmoTrack Pro Connect** (LLM Claude API ou OpenAI) :
   - [ ] Envoyer les caractéristiques structurées du bien à l'API
   - [ ] Récupérer une description évocatrice sur mesure (250-400 mots)
