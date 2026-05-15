@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DASH-PROFILES — Spec v2 (refonte après feedback)</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1f2937;
+    --muted: #6b7280;
+    --accent: #2196f3;
+    --accent-dark: #1976d2;
+    --code-bg: #f5f5f5;
+    --border: #e5e7eb;
+    --table-zebra: #fafafa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    line-height: 1.65;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  h1 { border-bottom: 3px solid var(--accent); padding-bottom: 10px; margin-top: 0; }
+  h2 { border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 2.5em; }
+  h3 { color: var(--accent-dark); margin-top: 1.8em; }
+  h4 { color: #555; margin-top: 1.5em; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.88em;
+    font-family: 'SF Mono', Monaco, Consolas, 'Courier New', monospace;
+  }
+  pre {
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.45;
+  }
+  pre code { background: transparent; padding: 0; font-size: 0.85em; }
+  table {
+    border-collapse: collapse;
+    margin: 1em 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f8fafc; font-weight: 600; }
+  tr:nth-child(even) { background: var(--table-zebra); }
+  blockquote {
+    border-left: 4px solid var(--accent);
+    margin: 1em 0;
+    padding: 8px 16px;
+    color: #4b5563;
+    background: #f0f9ff;
+    border-radius: 0 4px 4px 0;
+  }
+  blockquote p { margin: 0.3em 0; }
+  .mermaid {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-align: center;
+    margin: 1.5em 0;
+    overflow-x: auto;
+  }
+  a { color: var(--accent-dark); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  hr { border: none; border-top: 2px solid var(--border); margin: 2.5em 0; }
+  ul, ol { padding-left: 28px; }
+  li { margin: 0.3em 0; }
+  /* Sticky TOC button — bonus */
+  .toc-toggle {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    font-size: 1.5em;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  }
+  @media print {
+    .toc-toggle { display: none; }
+    body { background: #fff; padding: 0; }
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --fg: #e5e7eb;
+      --muted: #9ca3af;
+      --code-bg: #2d2d2d;
+      --border: #3a3a3a;
+      --table-zebra: #222;
+    }
+    table, pre, .mermaid { background: #2a2a2a; }
+    th { background: #333; }
+    blockquote { background: #1e2a3a; color: #cbd5e1; }
+  }
+</style>
+</head>
+<body>
+<h1>DASH-PROFILES — Spec v2 (refonte après feedback)</h1>
+<blockquote>
+<p><strong>Phase 1 — Aperçu (sans codage prod) — V2 du 2026-05-05</strong>
+Document de spécification du dashboard à 4 onglets pour validation utilisateur avant implémentation.
+Référence visuelle : mockups HTML statiques dans <code>dashboard-mockups/</code>.
+Status : ⏳ Phase 1 v2 livrée — attente validation finale · Lié à <code>docs/subjects/DASH-PROFILES.md</code></p>
+</blockquote>
+<hr>
+<h2>0. Historique de la spec</h2>
+<ul>
+<li><strong>v1</strong> (2026-05-01) — proposition initiale &quot;8 lentilles&quot; (Propriétaire / Financier / Gestionnaire / Fiscale / Investisseur / Échéances / Prévisionnel / Patrimoine + Custom). Mockups produits dans <code>dashboard-mockups/</code>.</li>
+<li><strong>v2</strong> (2026-05-05) — <strong>refonte après feedback utilisateur</strong> :<ul>
+<li>4 lentilles jugées &quot;paillettes&quot; (Investisseur / Prévisionnel / Patrimoine + Échéances redondante)</li>
+<li>1 lentille différée (Fiscale 2044 → outil dédié dans <code>LEGAL-2044</code>)</li>
+<li>1 lentille fusionnée (Financier → dans Propriétaire)</li>
+<li><strong>Lentille 1 Propriétaire</strong> repensée : c&#39;était l&#39;existant rebrandé, refondue en <strong>vue 1 écran</strong> densifiée</li>
+<li>Sélecteur lentille remplacé par <strong>onglets en haut du dashboard</strong></li>
+<li>4 onglets retenus : Propriétaire (par défaut) · Gestionnaire · Complet · Custom</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h2>1. Architecture v2 — 4 onglets</h2>
+<pre><code>Dashboard
+├─ [🏠 Propriétaire]   ← onglet par défaut, refonte 1 écran (~900 px)
+├─ [🛠️ Gestionnaire]   ← amélioration ex-lentille 3 + absorption ex-lentille 6 Échéances
+├─ [📐 Complet]        ← prod actuelle telle quelle (= "tout afficher", scroll OK)
+└─ [✎ Custom]          ← mode édition existant (drag-drop, panneau Widgets)</code></pre>
+<p><strong>Position des onglets</strong> : barre toolbar en haut du dashboard, à gauche des sélecteurs année/mois/entité. UI : segmented buttons (radio visuel) avec celui actif en bleu plein.</p>
+<p><strong>Persistance</strong> : <code>DB.params.dashTab</code> (par utilisateur, sync Drive — cohérent avec <code>dashLayout</code> existant).</p>
+<p><strong>Activation par défaut</strong> : <code>dashTab=&#39;proprietaire&#39;</code> au premier login.</p>
+<hr>
+<h2>2. Onglet Propriétaire (refonte profonde)</h2>
+<h3>Cible</h3>
+<p>Tenir sur <strong>1 écran (~900 px hauteur utile, viewport desktop 1280-1320 px de large)</strong>.</p>
+<h3>Cas d&#39;usage</h3>
+<p>&quot;J&#39;ouvre ImmoTrack le matin, je veux voir d&#39;un coup d&#39;œil mon état financier + état du parc + alertes critiques. Sans scroll.&quot;</p>
+<h3>Layout (12 col, grid-auto-rows 54 px, gap 8 px)</h3>
+<table>
+<thead>
+<tr>
+<th>Row</th>
+<th>c</th>
+<th>r</th>
+<th>Widget</th>
+<th>Contenu</th>
+<th>Drill-down</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>8</td>
+<td>3</td>
+<td>Hero Cash-flow</td>
+<td>+208,80 € + sparkline 12m + creux Janvier + alerte impayé inline</td>
+<td><code>_buildHeroDrill</code> (existant)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>4</td>
+<td>3</td>
+<td>À traiter (4 quads)</td>
+<td>Assurances/IRL/Équipements/Régul cliquables</td>
+<td><code>_buildTodoDrill</code> (existant)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>3</td>
+<td>2</td>
+<td>KPI Occupation</td>
+<td>88 % · 14/16 · MAG</td>
+<td><code>_buildOccDrill</code> (existant)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>3</td>
+<td>2</td>
+<td>KPI Rendement brut</td>
+<td>4.6 % (théo. 8.6 %) + sparkline mini</td>
+<td><code>_buildRdtDrill</code> (existant)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>3</td>
+<td>2</td>
+<td>KPI Charges/cat (donut)</td>
+<td>Prêt 81 % / Trv 7 % / Copro 5 % / Autres 7 %</td>
+<td>drill existant + Solde provisions absorbé ici</td>
+</tr>
+<tr>
+<td>2</td>
+<td>3</td>
+<td>2</td>
+<td>KPI DG</td>
+<td>5 980 € · 13 DG</td>
+<td>drill existant</td>
+</tr>
+<tr>
+<td>3</td>
+<td>6</td>
+<td>4</td>
+<td>Revenus vs Charges 6m</td>
+<td>chart multi-ligne</td>
+<td><code>_buildFluxDrill</code> (existant)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>6</td>
+<td>4</td>
+<td>Progression annuelle</td>
+<td>260 % collecté + table par entité/immeuble</td>
+<td><code>_buildProgDrill</code> (existant)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>12</td>
+<td>1</td>
+<td>Bandeau Alertes (4)</td>
+<td>1 ligne dense : IRL F-101 / Impayé D-105 / MRH F-Local / 2 vacants</td>
+<td>onglet Agenda existant</td>
+</tr>
+<tr>
+<td>5</td>
+<td>12</td>
+<td>2</td>
+<td>Mon parc — synthèse</td>
+<td>1 ligne par entité (Recettes/Dép./Résultat/Occ/Détail →)</td>
+<td><strong>modale plein-écran</strong> avec vue prod actuelle</td>
+</tr>
+</tbody></table>
+<h3>Effondrements vs prod actuelle</h3>
+<ol>
+<li><strong>§3 Gestion locative</strong> (entité→immeuble→cards logement, ~400-800 px en prod) → <strong>1 ligne synthétique par entité</strong> (~70 px) + bouton &quot;Détail →&quot; ouvre modale plein-écran avec vue identique à la prod (zéro régression). À long terme cette vue déménagera vers l&#39;onglet &quot;Mes biens&quot; (sujet <code>LOG-LISTE-CARDS</code>).</li>
+<li><strong>Solde provisions de charges</strong> (widget standalone en prod) → <strong>drill-down depuis le KPI Charges/cat</strong> (sous le donut).</li>
+<li><strong>Agenda 15 j</strong> (widget 4×4r en prod) → <strong>bandeau Alertes (4) 1 ligne</strong> + drill-down &quot;Voir toutes&quot; qui pointe vers l&#39;onglet Agenda existant.</li>
+<li><strong>5 KPIs Finance</strong> en prod (flux 6×4 + 4 KPIs 3×2 + prog 6×4 + solde 6×4) → <strong>4 KPIs 3×2</strong> sur 1 rangée + flux/prog côte-à-côte.</li>
+</ol>
+<h3>Effort estimé V1 : ~1 j-h (densification + bandeau + ligne entité)</h3>
+<hr>
+<h2>3. Onglet Gestionnaire (amélioration + absorption)</h2>
+<h3>Cible</h3>
+<p>1 écran (~900 px). Focus opérationnel &quot;qu&#39;est-ce que je dois faire cette semaine&quot;.</p>
+<h3>Cas d&#39;usage</h3>
+<p>&quot;Je suis admin biens / hands-on. Je veux ma liste d&#39;actions concrètes du jour, sans avoir à fouiller.&quot;</p>
+<h3>Layout</h3>
+<table>
+<thead>
+<tr>
+<th>Row</th>
+<th>c</th>
+<th>r</th>
+<th>Widget</th>
+<th>Contenu</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>KPI Vacances</td>
+<td>2 (D-002 30j, dsqqds 60j)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>KPI Impayés actifs</td>
+<td>1 (D-105 BOULALA 597 €)</td>
+</tr>
+<tr>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>KPI Cette semaine</td>
+<td>3 actions</td>
+</tr>
+<tr>
+<td>1</td>
+<td>3</td>
+<td>2</td>
+<td>KPI Trimestre 90j</td>
+<td>45 actions</td>
+</tr>
+<tr>
+<td>2</td>
+<td>8</td>
+<td>5</td>
+<td>Hero &quot;À faire cette semaine&quot;</td>
+<td>checklist 7 items + actions inline (LRAR / Programmer / Email / Annonce)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>4</td>
+<td>5</td>
+<td>Calendrier 60 j</td>
+<td>heatmap mensuel mai + juin avec densité par jour</td>
+</tr>
+<tr>
+<td>3</td>
+<td>12</td>
+<td>3</td>
+<td><strong>Timeline 90 j (absorbée d&#39;ex-lentille 6)</strong></td>
+<td>axe horizontal + pastilles colorées par catégorie + bandeau résumé &quot;Cette sem./Ce mois/Trimestre/Retards&quot;</td>
+</tr>
+<tr>
+<td>4</td>
+<td>6</td>
+<td>3</td>
+<td>Vacances locatives</td>
+<td>cards par bien + actions Annonce/Visites</td>
+</tr>
+<tr>
+<td>4</td>
+<td>6</td>
+<td>3</td>
+<td>Impayés à relancer</td>
+<td>cards + actions LRAR/Tél/Email</td>
+</tr>
+<tr>
+<td>5</td>
+<td>12</td>
+<td>1</td>
+<td>À clore</td>
+<td>strip 3 chips : EDL sortie 2 · Bail 1 · Régul 3</td>
+</tr>
+</tbody></table>
+<h3>Différence vs ex-lentille 3 (v1)</h3>
+<ul>
+<li><strong>+ Timeline 90 j</strong> (absorbée d&#39;ex-lentille 6 Échéances que tu jugeais redondante)</li>
+<li><strong>+ Densifié</strong> (passer de ~1 200 px à ~900 px en compactant les rangées)</li>
+<li><strong>+ Onglets en haut</strong> cohérents avec Propriétaire</li>
+</ul>
+<h3>Effort estimé V1 : ~2 j-h (checklist déjà semi-existante via dashboard alerts, timeline nouvelle, calendrier nouveau)</h3>
+<hr>
+<h2>4. Onglet Complet</h2>
+<p>= <strong>Le dashboard prod actuel TEL QUEL</strong>, sans modification.</p>
+<ul>
+<li>Pour utilisateur expert qui veut tout voir d&#39;un coup (bilan trimestriel, audit, etc.)</li>
+<li>Scroll OK, pas de cible 900 px</li>
+<li>Tous les widgets visibles par défaut (= layout prod actuel)</li>
+<li>0 j-h (juste rendre l&#39;onglet sélectionnable)</li>
+</ul>
+<hr>
+<h2>5. Onglet Custom</h2>
+<p>= <strong>Le mode édition existant en prod</strong>.</p>
+<ul>
+<li>Bouton &quot;Éditer&quot; existant active drag-drop</li>
+<li>Panneau &quot;Widgets&quot; existant permet d&#39;ajouter/retirer widgets (~14 widgets désactivables réactivables)</li>
+<li>Sauvegarde dans <code>DB.params.dashLayout</code> (déjà en place)</li>
+<li>0 j-h (juste rendre l&#39;onglet sélectionnable)</li>
+</ul>
+<p><strong>Note</strong> : le layout Custom est SÉPARÉ du layout Complet (l&#39;utilisateur a 2 layouts indépendants si décision D2 = B).</p>
+<hr>
+<h2>6. Outils différés / standby</h2>
+<p>Ces 5 idées de la v1 sont <strong>abandonnées en tant que dashboards</strong> mais peuvent revenir comme <strong>outils dédiés</strong> plus tard :</p>
+<table>
+<thead>
+<tr>
+<th>Idée v1</th>
+<th>Devenir</th>
+<th>Sujet associé</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>💶 Financier (lentille 2)</td>
+<td>Fusionnée dans Propriétaire</td>
+<td>—</td>
+</tr>
+<tr>
+<td>📋 Fiscale 2044 (lentille 4)</td>
+<td><strong>Outil dédié</strong> (P1, garde la prio)</td>
+<td><code>LEGAL-2044</code> (déjà au backlog)</td>
+</tr>
+<tr>
+<td>📈 Investisseur (lentille 5)</td>
+<td>Standby</td>
+<td>À créer si besoin (pré-requis : data model étendu <code>LOG-FINANCE-FIELDS</code>)</td>
+</tr>
+<tr>
+<td>⏰ Échéances (lentille 6)</td>
+<td>Absorbée dans Gestionnaire (timeline 90 j)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>🔮 Prévisionnel (lentille 7)</td>
+<td>Standby (outil &quot;Simulateur&quot; séparé)</td>
+<td>À créer si besoin</td>
+</tr>
+<tr>
+<td>🛡️ Patrimoine (lentille 8)</td>
+<td>Standby (outil &quot;Bilan &amp; conformité&quot; séparé)</td>
+<td>À créer si besoin (pré-requis : data model étendu)</td>
+</tr>
+</tbody></table>
+<p>Mockups archivés dans <code>dashboard-mockups/_attic/</code> (consultables avec bandeau &quot;📦 Archivé&quot;).</p>
+<hr>
+<h2>7. Plan d&#39;implémentation Phase 2</h2>
+<table>
+<thead>
+<tr>
+<th>Étape</th>
+<th>Livrable</th>
+<th>Effort</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2a</td>
+<td>Onglets en haut du dashboard + persist <code>DB.params.dashTab</code></td>
+<td>~0.5 j-h</td>
+</tr>
+<tr>
+<td>2b</td>
+<td>Onglet Propriétaire : densification widgets (4 KPIs au lieu de 5, alertes-strip au lieu d&#39;agenda 4×4r, parc effondré ligne synthétique)</td>
+<td>~1 j-h</td>
+</tr>
+<tr>
+<td>2c</td>
+<td>Onglet Gestionnaire : nouveau layout (KPIs ops, hero À-faire, timeline 90j, vacances+impayés, à-clore)</td>
+<td>~2 j-h</td>
+</tr>
+<tr>
+<td>2d</td>
+<td>Onglet Complet = mappe sur layout existant (juste exposition tab)</td>
+<td>0 j-h</td>
+</tr>
+<tr>
+<td>2e</td>
+<td>Onglet Custom = mappe sur mode édition existant (juste exposition tab)</td>
+<td>0 j-h</td>
+</tr>
+<tr>
+<td>2f</td>
+<td>Drill-down &quot;Mon parc&quot; en modale plein-écran (vue prod préservée)</td>
+<td>~1 j-h</td>
+</tr>
+<tr>
+<td><strong>Total V1</strong></td>
+<td><strong>~4.5 j-h (~1 semaine calendaire)</strong></td>
+<td></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>8. Décisions à arbitrer</h2>
+<h3>D1. Persistance onglet — par-utilisateur ou par-device ?</h3>
+<ul>
+<li>A. <code>localStorage.dashTab</code> (par device, simple)</li>
+<li>B. <code>DB.params.dashTab</code> (par utilisateur, sync Drive)</li>
+<li><strong>Hypothèse par défaut : B</strong> (cohérence avec <code>dashLayout</code> existant)</li>
+</ul>
+<h3>D2. Onglet Custom = renommage de l&#39;existant ou layout séparé ?</h3>
+<ul>
+<li>A. Custom = même layout que Complet en mode édition (= bouton ✎ Éditer existant)</li>
+<li>B. Custom = layout SÉPARÉ de Complet (l&#39;utilisateur a 2 layouts indépendants)</li>
+<li><strong>Hypothèse par défaut : B</strong> (Custom = layout dédié, Complet reste figé)</li>
+</ul>
+<h3>D3. Vue détaillée par logement — modale ou nouvel onglet ?</h3>
+<ul>
+<li>A. Modale plein-écran depuis &quot;Détail →&quot; (immédiat, pas de migration)</li>
+<li>B. Migration directe vers nouvel onglet &quot;Mes biens&quot; (sujet <code>LOG-LISTE-CARDS</code>)</li>
+<li><strong>Hypothèse par défaut : A</strong> en V1, B après livraison de <code>LOG-LISTE-CARDS</code></li>
+</ul>
+<hr>
+<h2>9. Conventions design (inchangées)</h2>
+<ul>
+<li><strong>Variables CSS, composants, typo</strong> : strictement identiques à <code>index.html</code> prod (<code>feedback_design_consistency.md</code>)</li>
+<li><strong>Mode sombre</strong> : tous les widgets en <code>var(--*)</code>, bascule via <code>[data-theme=&quot;dark&quot;]</code></li>
+<li><strong>Responsive</strong> : mobile 320 px / tablette 768 px / desktop 1280 px (<code>feedback_responsive.md</code>)</li>
+<li><strong>Drill-downs</strong> : tous préservés via <code>_dashCardClick</code> existant</li>
+</ul>
+<hr>
+<h2>10. Données fictives (mises à jour avec ta SCI réelle)</h2>
+<p>Sur la base des screenshots utilisateur (5 mai 2026) :</p>
+<ul>
+<li><strong>SCI DD2AMELEVIERES (SCI IS)</strong> · 16 logements (Freyming 7 + Damelevières 9) · 14 occupés + 2 vacants</li>
+<li><strong>Avril 2026</strong> · Recettes 6 146,41 € · Dépenses 5 937,61 € · Cash-flow +208,80 €</li>
+<li><strong>YTD</strong> -2 168,15 € · <strong>12m glissants</strong> -2 168,15 €</li>
+<li><strong>1 impayé</strong> D-105 BOULALA -597,64 €</li>
+<li><strong>2 vacants</strong> D-002 Damelevières (30 j) + dsqqds Freyming (60 j)</li>
+<li><strong>1 IRL en cours</strong> F-101 ZITO 440 → 443,42 € (+0,78 %, application 1<sup>er</sup> juin)</li>
+<li><strong>1 MRH manquante</strong> F-Local MANGIN</li>
+<li><strong>Progression annuelle</strong> 260 % collecté · attendu 9 520 € · réalisé 24 752 €</li>
+<li><strong>Occupation</strong> 88 % · <strong>Rendement brut</strong> 4.6 % (théo. 8.6 %)</li>
+<li><strong>DG détenus</strong> 5 980 € (13 DG)</li>
+<li><strong>Charges/cat</strong> Prêt 81 % · Travaux 7 % · Copro 5 % · Autres 7 %</li>
+</ul>
+<hr>
+<p><strong>Document v2 écrit le 2026-05-05 après feedback utilisateur.</strong></p>
+
+
+<button class="toc-toggle" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Retour haut">↑</button>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+  mermaid.run({ querySelector: '.mermaid' });
+</script>
+</body>
+</html>
