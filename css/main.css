@@ -3859,6 +3859,154 @@ textarea.field-modified-since-sig{
   color: #fff;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   v15.31 Phase B — Widget TODO-UNIFIED v2 (liste priorisée)
+   ═══════════════════════════════════════════════════════════════════════ */
+.todo-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+}
+.todo-v2:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: 2px;
+  border-radius: var(--r);
+}
+.todo-v2-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.todo-v2-title {
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+.todo-v2-count {
+  font-family: 'Manrope', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  padding: 2px 9px;
+  border-radius: 12px;
+  min-width: 28px;
+  text-align: center;
+}
+.todo-v2-count.red { background: var(--bg-danger); color: var(--fg-danger); }
+.todo-v2-count.ora { background: var(--bg-warning); color: var(--fg-warning); }
+.todo-v2-count.info { background: var(--bg-info); color: var(--fg-info); }
+.todo-v2-count.grn { background: var(--bg-success); color: var(--fg-success); }
+.todo-v2-drill-ind {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--sur2);
+  color: var(--t3);
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  transition: all var(--t-fast);
+}
+.todo-v2:hover .todo-v2-drill-ind {
+  background: var(--acc);
+  color: #fff;
+}
+.todo-v2-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+  flex: 1;
+}
+.todo-v2-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--sur2);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+.todo-v2-item:hover {
+  background: var(--sur3);
+  border-color: var(--bor);
+  transform: translateX(2px);
+}
+.todo-v2-item:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: 1px;
+}
+.todo-v2-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.todo-v2-dot.red { background: var(--fg-danger); box-shadow: 0 0 0 2px var(--bg-danger); }
+.todo-v2-dot.ora { background: var(--fg-warning); box-shadow: 0 0 0 2px var(--bg-warning); }
+.todo-v2-dot.info { background: var(--fg-info); box-shadow: 0 0 0 2px var(--bg-info); }
+.todo-v2-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.todo-v2-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-v2-sub {
+  font-size: 10.5px;
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-v2-more {
+  font-size: 11px;
+  color: var(--t3);
+  font-style: italic;
+  text-align: center;
+  padding: 4px 0 2px;
+}
+.todo-v2-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--fg-success);
+  font-weight: 600;
+}
+
+/* Responsive todo-v2 */
+@media (max-width: 767px) {
+  .todo-v2-item { padding: 8px 10px; min-height: 44px; }  /* touch target */
+  .todo-v2-text { font-size: 13px; }
+  .todo-v2-sub { font-size: 11px; }
+}
+
 /* Responsive hero v2 */
 @media (max-width: 900px) {
   .hero-v2-grid { gap: 10px; }
