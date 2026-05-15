@@ -4106,6 +4106,210 @@ textarea.field-modified-since-sig{
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   v15.34 Phase B Sprint 1 — Bandeau "Priorisation Avril 2026" (top dashboard)
+   Affiché uniquement si DB.params.dashRenderV === 'v2'
+   ═══════════════════════════════════════════════════════════════════════ */
+.dash-top-bandeau-wrap { width: 100%; }
+.dash-top-bandeau-wrap:empty { display: none; }
+.dash-prio-bandeau {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  background: linear-gradient(120deg, var(--sur, var(--sur2)), var(--sur2));
+  border: 1px solid var(--bor);
+  border-radius: 14px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.dash-prio-bandeau::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -10%;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, var(--warn, var(--fg-warning)) 0%, transparent 70%);
+  opacity: 0.08;
+  pointer-events: none;
+}
+.dash-prio-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+.dash-prio-headtxt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dash-prio-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--warn, var(--fg-warning));
+}
+.dash-prio-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn, var(--fg-warning));
+  display: inline-block;
+  box-shadow: 0 0 8px var(--warn, var(--fg-warning));
+}
+.dash-prio-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -0.02em;
+}
+.dash-prio-empty .dash-prio-eyebrow {
+  color: var(--fg-success);
+}
+.dash-prio-empty .dash-prio-dot {
+  background: var(--fg-success);
+  box-shadow: 0 0 8px var(--fg-success);
+}
+.dash-prio-sub {
+  font-size: 13px;
+  color: var(--t2);
+}
+.dash-prio-cta {
+  flex-shrink: 0;
+  background: var(--warn, var(--fg-warning));
+  color: #1a1a1a;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  white-space: nowrap;
+}
+.dash-prio-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(251, 176, 64, 0.35);
+}
+.dash-prio-cta:active {
+  transform: translateY(0);
+}
+.dash-prio-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+.dash-prio-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  background: var(--sur2);
+  border: 1px solid var(--bor);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.dash-prio-card:hover {
+  border-color: var(--warn, var(--fg-warning));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+.dash-prio-card:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: 2px;
+}
+.dash-prio-card-num {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--bg-warning);
+  color: var(--warn, var(--fg-warning));
+  display: grid;
+  place-items: center;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+}
+.dash-prio-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.dash-prio-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-prio-card-sub {
+  font-size: 11px;
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-prio-card-arrow {
+  flex-shrink: 0;
+  color: var(--t3);
+  font-size: 16px;
+  font-weight: 700;
+  transition: all var(--t-fast);
+}
+.dash-prio-card:hover .dash-prio-card-arrow {
+  color: var(--warn, var(--fg-warning));
+  transform: translateX(2px);
+}
+.dash-prio-more {
+  background: transparent;
+  border: 1px dashed var(--bor);
+  color: var(--t3);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 0 14px;
+  font-family: inherit;
+  transition: all var(--t-fast);
+}
+.dash-prio-more:hover {
+  border-color: var(--warn, var(--fg-warning));
+  color: var(--warn, var(--fg-warning));
+}
+
+/* Responsive Bandeau Priorisation */
+@media (max-width: 900px) {
+  .dash-prio-cards { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .dash-prio-cards { grid-template-columns: 1fr; }
+  .dash-prio-title { font-size: 18px; }
+  .dash-prio-head { flex-direction: column; align-items: flex-start; }
+  .dash-prio-cta { align-self: stretch; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    v15.33 Phase B Étape A — Widget HERO COCKPIT (jauge + 4 satellites)
    ═══════════════════════════════════════════════════════════════════════ */
 .cockpit-v2 {
