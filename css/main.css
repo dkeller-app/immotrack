@@ -3921,86 +3921,81 @@ textarea.field-modified-since-sig{
   background: var(--acc);
   color: #fff;
 }
-/* v15.32 — Vue compacte agrégée par THÈME (1 ligne par type) */
-.todo-v2-rows {
+/* v15.33 — Vue carrés (grille) par THÈME, style v1 amélioré */
+.todo-v2-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  flex: 1;
+  align-content: start;
+}
+.todo-v2-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  overflow: hidden;
-  flex: 1;
-}
-.todo-v2-row {
-  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  border-radius: 7px;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 8px 10px;
+  border-radius: 10px;
   background: var(--sur2);
-  border: 1px solid transparent;
+  border: 1.5px solid var(--bor);
   cursor: pointer;
   transition: all var(--t-fast);
-  text-align: left;
-  width: 100%;
+  text-align: center;
   font: inherit;
   color: inherit;
+  min-height: 110px;
+  position: relative;
 }
-.todo-v2-row:hover {
-  background: var(--sur3);
-  border-color: var(--bor);
-  transform: translateX(2px);
+.todo-v2-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
 }
-.todo-v2-row:focus-visible {
+.todo-v2-card:focus-visible {
   outline: 2px solid var(--fg-info);
   outline-offset: 1px;
 }
-.todo-v2-row-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-  width: 22px;
-  text-align: center;
+/* Bordure colorée selon sévérité (style v1 carrés mais avec accent visible) */
+.todo-v2-card.red {
+  border-color: var(--fg-danger);
+  background: linear-gradient(180deg, var(--bg-danger) 0%, var(--sur2) 60%);
 }
-.todo-v2-row-label {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--t1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.todo-v2-card.ora {
+  border-color: var(--fg-warning);
+  background: linear-gradient(180deg, var(--bg-warning) 0%, var(--sur2) 60%);
 }
-.todo-v2-row-count {
-  font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  padding: 1px 8px;
-  border-radius: 11px;
-  min-width: 24px;
-  text-align: center;
-  flex-shrink: 0;
+.todo-v2-card.info {
+  border-color: var(--fg-info);
+  background: linear-gradient(180deg, var(--bg-info) 0%, var(--sur2) 60%);
 }
-.todo-v2-row-count.red { background: var(--bg-danger); color: var(--fg-danger); }
-.todo-v2-row-count.ora { background: var(--bg-warning); color: var(--fg-warning); }
-.todo-v2-row-count.info { background: var(--bg-info); color: var(--fg-info); }
-.todo-v2-row-arrow {
-  color: var(--t3);
-  font-size: 16px;
+.todo-v2-card-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.todo-v2-card-label {
+  font-size: 11px;
   font-weight: 700;
-  flex-shrink: 0;
-  transition: transform var(--t-fast), color var(--t-fast);
+  letter-spacing: 0.3px;
+  color: var(--t2);
+  text-transform: uppercase;
+  margin-top: 2px;
 }
-.todo-v2-row:hover .todo-v2-row-arrow {
-  color: var(--acc);
-  transform: translateX(2px);
+.todo-v2-card-count {
+  font-family: 'Manrope', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-top: 2px;
+  color: var(--t1);
 }
-.todo-v2-hint {
+.todo-v2-card.red .todo-v2-card-count { color: var(--fg-danger); }
+.todo-v2-card.ora .todo-v2-card-count { color: var(--fg-warning); }
+.todo-v2-card.info .todo-v2-card-count { color: var(--fg-info); }
+.todo-v2-card-sub {
   font-size: 10px;
   color: var(--t3);
   font-style: italic;
-  text-align: center;
-  padding-top: 4px;
-  border-top: 1px dashed var(--bor);
-  margin-top: 4px;
 }
 .todo-v2-empty {
   display: flex;
@@ -4012,16 +4007,196 @@ textarea.field-modified-since-sig{
   font-weight: 600;
 }
 
-/* Responsive todo-v2 */
+/* Responsive todo-v2 — sur mobile, cartes plus grandes */
 @media (max-width: 767px) {
-  .todo-v2-row { padding: 9px 10px; min-height: 44px; }  /* touch target */
-  .todo-v2-row-label { font-size: 13.5px; }
+  .todo-v2-cards { grid-template-columns: repeat(2, 1fr); }
+  .todo-v2-card { min-height: 96px; padding: 10px 6px 8px; }
+  .todo-v2-card-icon { font-size: 20px; }
+  .todo-v2-card-count { font-size: 24px; }
+}
+@media (max-width: 380px) {
+  .todo-v2-cards { grid-template-columns: 1fr; }
 }
 
 /* Responsive hero v2 */
 @media (max-width: 900px) {
   .hero-v2-grid { gap: 10px; }
   .hero-v2 .hero-value { font-size: 24px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   v15.33 Phase B Étape A — Widget HERO COCKPIT (jauge + 4 satellites)
+   ═══════════════════════════════════════════════════════════════════════ */
+.cockpit-v2 {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--sur);
+  border: 1px solid var(--bor);
+  border-radius: 14px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: all var(--t-fast);
+}
+.cockpit-v2:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--acc);
+}
+.cockpit-v2:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: 2px;
+}
+.cockpit-glow {
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, var(--cta, var(--fg-success)) 0%, transparent 70%);
+  opacity: 0.08;
+  pointer-events: none;
+}
+.cockpit-gauge {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cockpit-gauge svg {
+  transform: rotate(-90deg);
+}
+.cockpit-gauge-fill {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cockpit-gauge-text {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.cockpit-gauge-pct {
+  font-family: 'Manrope', sans-serif;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.cockpit-gauge-pct small {
+  font-size: 24px;
+  font-weight: 700;
+}
+.cockpit-gauge-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+.cockpit-body {
+  position: relative;
+  z-index: 1;
+}
+.cockpit-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+.cockpit-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+.cockpit-sats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.cockpit-sat {
+  background: var(--sur2);
+  border-radius: 11px;
+  padding: 9px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid var(--bor);
+}
+.cockpit-sat-lbl {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--t3);
+}
+.cockpit-sat-val {
+  font-family: 'Manrope', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--t1);
+  letter-spacing: -0.02em;
+}
+.cockpit-sat-val.pos { color: var(--fg-success); }
+.cockpit-sat-val.neg { color: var(--fg-danger); }
+.cockpit-sat-delta {
+  font-size: 11px;
+  font-weight: 600;
+}
+.cockpit-sat-delta.pos { color: var(--fg-success); }
+.cockpit-sat-delta.neg { color: var(--fg-danger); }
+.cockpit-sat-delta.warn { color: var(--fg-warning); }
+.cockpit-sat-delta.neu { color: var(--t3); font-style: italic; font-weight: 500; }
+.cockpit-drill-ind {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--sur2);
+  color: var(--t3);
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  transition: all var(--t-fast);
+}
+.cockpit-v2:hover .cockpit-drill-ind {
+  background: var(--acc);
+  color: #fff;
+}
+
+/* Responsive cockpit */
+@media (max-width: 900px) {
+  .cockpit-v2 { grid-template-columns: 180px 1fr; gap: 12px; }
+  .cockpit-gauge { width: 170px; height: 170px; }
+  .cockpit-gauge svg { width: 170px; height: 170px; }
+  .cockpit-gauge-pct { font-size: 36px; }
+  .cockpit-gauge-pct small { font-size: 18px; }
+  .cockpit-sat-val { font-size: 17px; }
+}
+@media (max-width: 767px) {
+  .cockpit-v2 { grid-template-columns: 1fr; }
+  .cockpit-gauge { margin: 0 auto; }
+  .cockpit-sats { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 768px) {
   .hero-v2-grid {
