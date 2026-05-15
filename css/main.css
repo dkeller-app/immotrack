@@ -3735,6 +3735,219 @@ textarea.field-modified-since-sig{
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   v15.24 Phase B — POLISH VISUEL WIDGETS DASHBOARD (refonte CSS-only)
+   Améliore visuellement les widgets existants sans toucher au JS.
+   Drill-downs et logique métier 100% préservés (cf. DASHBOARD-DRILLDOWNS-INVENTAIRE).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Container widget (dans dash-kpi-grid) : élévation + transition ── */
+#dash-kpi-grid > div {
+  border-radius: 12px;
+  transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
+}
+
+/* ── Hero (Cash-flow) : padding + radius + hover élévation + value taille ── */
+.dw-hero-click {
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.dw-hero-click:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+.dw-hero-value {
+  font-size: 42px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+@media (max-width: 900px) { .dw-hero-value { font-size: 36px; } }
+@media (max-width: 768px) { .dw-hero-value { font-size: 30px; } }
+.dw-hero-label {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  font-weight: 700;
+  color: var(--t3);
+}
+
+/* ── KPI tiles (Occupation / Rendement / Charges / DG) : cards marquées ── */
+.dw-kpi-click {
+  border-radius: 12px;
+  padding: 12px 15px;
+  background: var(--sur);
+  border: 1px solid var(--bor);
+  transition: all var(--t-fast);
+  box-shadow: var(--shadow-card);
+}
+.dw-kpi-click:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--acc);
+}
+.dw-kpi-label {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: var(--t3);
+}
+.dw-kpi-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+/* Drill indicator ↗ plus visible au hover */
+.dw-kpi-arrow {
+  color: var(--acc);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ── À traiter (todo-unified) : pastilles plus visibles ── */
+.dw-todo-quad,
+.dw-todo-item {
+  border-radius: 8px;
+  transition: all var(--t-fast);
+}
+.dw-todo-item:hover {
+  background: var(--sur2);
+  transform: translateX(2px);
+}
+
+/* ── Pills (général) : padding et weight améliorés ── */
+.dw-pill {
+  font-weight: 600;
+  padding: 5px 12px;
+}
+.dw-pill.delta-up,
+.dw-pill.delta-down {
+  font-weight: 700;
+}
+
+/* ── Mini-cards Patrimoine (vue Entité/Immeuble/Logements) ── */
+/* Cards entité : ombre + bordure arrondie marquée */
+.dw-ent-card {
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--t-fast);
+  border: 1px solid var(--bor);
+}
+.dw-ent-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--bor2);
+}
+
+/* Cards immeuble : un peu de chaleur sur le hover */
+.dw-imm-bulle {
+  border-radius: 11px !important;
+  transition: all var(--t-fast);
+  cursor: pointer;
+}
+.dw-imm-bulle:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Mini-cards logement : statuts ✓ ~ ✗ avec bordures + animation hover */
+.dw-log-mini {
+  border-radius: 10px !important;
+  transition: all var(--t-fast);
+}
+.dw-log-mini:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+/* Pastille statut : agrandir légèrement + ombre */
+.dw-log-mini span[style*="border-radius:10px"] {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  min-width: 22px;
+  text-align: center;
+}
+
+/* ── Context bar : header bandeau plus marqué ── */
+.dw-context-greet {
+  font-weight: 600;
+}
+.dw-context-date {
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+}
+
+/* ── Section titles (Alertes & Actions) : style consolidé ── */
+#p-dashboard .ct {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  color: var(--t3);
+}
+
+/* ── Tabs dashboard : tab actif plus marqué ── */
+#p-dashboard > .tabs[role="tablist"] .tab {
+  border-radius: 8px 8px 0 0;
+  transition: all var(--t-fast);
+}
+#p-dashboard > .tabs[role="tablist"] .tab.act {
+  font-weight: 700;
+  position: relative;
+}
+#p-dashboard > .tabs[role="tablist"] .tab.act::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--acc);
+  border-radius: 3px 3px 0 0;
+}
+
+/* ── Dark mode polish : KPI tiles & hero plus marquées sur fond foncé ── */
+[data-theme="dark"] .dw-kpi-click,
+[data-theme="dark"] .dw-hero-click {
+  background: var(--sur);
+}
+[data-theme="dark"] .dw-kpi-click:hover {
+  box-shadow: 0 6px 24px rgba(59, 126, 246, 0.18), 0 1px 3px rgba(0, 0, 0, 0.4);
+  border-color: rgba(59, 126, 246, 0.5);
+}
+[data-theme="dark"] .dw-ent-card,
+[data-theme="dark"] .dw-imm-bulle,
+[data-theme="dark"] .dw-log-mini {
+  background: var(--sur);
+}
+
+/* ── Coloré mode polish : accents teal Deliveroo visibles ── */
+[data-theme="colore"] .dw-kpi-click:hover {
+  border-color: var(--pos);
+  box-shadow: 0 6px 22px rgba(0, 204, 188, 0.22), 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+[data-theme="colore"] .dw-hero-click:hover {
+  box-shadow: 0 8px 28px rgba(0, 204, 188, 0.18);
+}
+[data-theme="colore"] .dw-log-mini:hover {
+  border-color: var(--pos);
+}
+
+/* ── Sobre mode polish : noir/blanc minimaliste ── */
+[data-theme="sobre"] .dw-kpi-click:hover,
+[data-theme="sobre"] .dw-hero-click:hover {
+  border-color: var(--t1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Drill modal (openDashDrill) : design plus moderne ── */
+.ov .modal {
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+}
+.m-head {
+  border-radius: 14px 14px 0 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    RESPONSIVE Très petit mobile <480
    ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 479px) {
