@@ -3921,7 +3921,88 @@ textarea.field-modified-since-sig{
   background: var(--acc);
   color: #fff;
 }
-/* v15.33 — Vue carrés (grille) par THÈME, style v1 amélioré */
+/* v15.34 — Vue lignes compactes par THÈME (utilisée par _todoV2 actuel) */
+.todo-v2-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  overflow: hidden;
+}
+.todo-v2-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--sur2);
+  border: 1px solid var(--bor);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+.todo-v2-row:hover {
+  background: var(--sur3, var(--sur2));
+  border-color: var(--acc);
+  transform: translateX(2px);
+}
+.todo-v2-row:focus-visible {
+  outline: 2px solid var(--fg-info);
+  outline-offset: 1px;
+}
+.todo-v2-row-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+.todo-v2-row-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-v2-row-count {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 12px;
+  min-width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.todo-v2-row-count.red { background: var(--bg-danger); color: var(--fg-danger); }
+.todo-v2-row-count.ora { background: var(--bg-warning); color: var(--fg-warning); }
+.todo-v2-row-count.info { background: var(--bg-info); color: var(--fg-info); }
+.todo-v2-row-arrow {
+  color: var(--t3);
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all var(--t-fast);
+}
+.todo-v2-row:hover .todo-v2-row-arrow {
+  color: var(--acc);
+  transform: translateX(2px);
+}
+.todo-v2-hint {
+  font-size: 10.5px;
+  color: var(--t3);
+  font-style: italic;
+  text-align: center;
+  padding: 6px 0 2px;
+  border-top: 1px dashed var(--bor);
+  margin-top: 6px;
+}
+
+/* v15.33 — Vue carrés (grille) par THÈME, style v1 amélioré (non utilisé actuellement) */
 .todo-v2-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
