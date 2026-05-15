@@ -314,6 +314,15 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Phase A3 — BUG-DRIVE-PARTAGE-TIERS (workaround V1 documenté) — session 2026-05-15 (~15 min, doc only)
+> User : *« j'ai donné accès à un tiers et elle n'a pas toutes les infos et ne peut pas enregistrer »*. Cause structurelle : OAuth `drive.file` ne permet pas d'écrire dans un fichier créé par un autre user, même si Drive natif autorise l'édition.
+>
+> 4 options évaluées (synthèse SaaS V2). **Option D retenue** : Drive partagé Google (anciennement Team Drive) → tous les membres sont propriétaires effectifs → OAuth `drive.file` autorise lecture+écriture pour Marion. **Zéro modif app**, 30 min setup user.
+>
+> Procédure pas-à-pas dans le doc sujet. Fix structurel multi-tenant = Phase D / V2 Q4 2027.
+>
+> **Doc sujet** : [BUG-DRIVE-PARTAGE-TIERS.md](docs/subjects/BUG-DRIVE-PARTAGE-TIERS.md). Note Phase D : tier « Co-gestion » à ~19€/mois pour formaliser commercialement le partage.
+
 ### Phase A2 — BUG-POPUP-QUITTANCE (régression v15.10) — session 2026-05-15 (~30 min, v15.20)
 > User : *« J'ai enregistré un mouvement... Je n'ai pas eu le pop up (v14.63) »*. En réalité régression v15.10 Sprint 11 : auto-gen boot + matching auto silencieux faisaient que la quittance existait DÉJÀ au moment du saveMv → l'ancien code passait dans la branche `_exists = true` → toast inutile au lieu du popup.
 >
