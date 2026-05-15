@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard refondu — 4 profils + vue comptable invitée</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #050816;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #E8EBF5;
+    min-height: 100vh;
+  }
+
+  :root {
+    --bg: #0A0E27; --bg2: #0D1330; --bg3: #131A3F;
+    --bor: #1F2A52; --bor2: #2A3863;
+    --t: #E8EBF5; --t2: #A0AAC7; --t3: #6B7595;
+    --acc: #0E73F6; --acc2: #4A9EFF;
+    --pos: #00CCBC; --neg: #FF4D7C;
+    --warn: #FFB020; --info: #7C8FFF;
+    --ag: #B584FF; /* violet Agence */
+  }
+
+  /* Sélecteur de vue (sticky top) */
+  .selector {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(10,14,39,0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--bor);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .selector-title {
+    font-weight: 700; font-size: 14px;
+    margin-right: 12px;
+  }
+  .view-btn {
+    background: var(--bg3); border: 1px solid var(--bor);
+    color: var(--t2); padding: 8px 13px;
+    border-radius: 8px; cursor: pointer;
+    font-size: 12.5px; font-weight: 500;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .view-btn:hover { border-color: var(--acc); color: var(--t); }
+  .view-btn.active { background: rgba(14,115,246,0.18); color: var(--t); border-color: var(--acc); font-weight: 700; }
+  .view-btn .price { color: var(--t3); font-size: 10.5px; font-weight: 500; }
+  .view-btn.active .price { color: var(--acc2); }
+
+  /* Stage 1440×900 */
+  .stage {
+    width: 1440px; height: 900px;
+    margin: 16px auto 32px;
+    background: var(--bg); overflow: hidden;
+    border: 1px solid var(--bor);
+    border-radius: 12px;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    grid-template-rows: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  /* Sidebar */
+  .sb { background: var(--bg2); border-right: 1px solid var(--bor); padding: 16px 0; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+  .sb-brand { padding: 0 14px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--bor); margin-bottom: 12px; }
+  .sb-brand-logo { width: 28px; height: 28px; background: linear-gradient(135deg, var(--acc), var(--acc2)); border-radius: 7px; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 14px; }
+  .sb-brand-name { font-weight: 700; font-size: 14px; }
+  .sb-brand-sub { font-size: 10px; color: var(--t3); margin-top: 1px; }
+  .sb-section { padding: 8px 12px 4px; font-size: 9.5px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.7px; font-weight: 700; margin-top: 6px; }
+  .sb-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin: 0 6px; border-radius: 7px; cursor: pointer; font-size: 12.5px; color: var(--t2); transition: all 0.1s; }
+  .sb-item:hover { background: var(--bg3); color: var(--t); }
+  .sb-item.active { background: linear-gradient(90deg, rgba(14,115,246,0.18), transparent); color: var(--t); font-weight: 600; box-shadow: inset 3px 0 0 var(--acc); }
+  .sb-item-icon { font-size: 15px; width: 18px; text-align: center; }
+  .badge { margin-left: auto; background: var(--neg); color: #fff; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 8px; }
+
+  /* Main */
+  .main { display: grid; grid-template-rows: 56px 1fr; overflow: hidden; }
+
+  .tb { display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--bor); background: var(--bg2); gap: 14px; }
+  .tb-title { font-size: 15px; font-weight: 600; }
+  .tb-filters { display: flex; gap: 6px; margin-left: 14px; }
+  .pill { background: var(--bg3); border: 1px solid var(--bor); color: var(--t2); padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .pill.active { background: rgba(14,115,246,0.15); border-color: var(--acc); color: var(--acc2); font-weight: 600; }
+  .tb-spacer { flex: 1; }
+  .tb-mode-toggle {
+    display: flex;
+    border: 1px solid var(--bor);
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--bg3);
+  }
+  .tb-mode-btn {
+    background: transparent; border: none; color: var(--t2);
+    padding: 6px 13px; cursor: pointer;
+    font-size: 12px; font-weight: 600;
+  }
+  .tb-mode-btn.active { background: var(--acc); color: #fff; }
+  .tb-user { display: flex; align-items: center; gap: 8px; padding: 3px 9px 3px 3px; border-radius: 22px; background: var(--bg3); cursor: pointer; }
+  .tb-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--pos), var(--acc)); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+  .tb-user-name { font-size: 12px; font-weight: 600; }
+
+  /* Content commun */
+  .content {
+    padding: 12px 22px;
+    overflow: hidden;
+    display: grid;
+    gap: 9px;
+    height: calc(900px - 56px);
+  }
+
+  .card {
+    background: var(--bg2); border: 1px solid var(--bor);
+    border-radius: 11px; padding: 11px 13px;
+    overflow: hidden; position: relative;
+    transition: all 0.15s;
+  }
+  .card.drillable { cursor: pointer; }
+  .card.drillable:hover { border-color: var(--acc); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(14,115,246,0.12); }
+  .card-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .card-t { font-size: 10.5px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+  .drill-ind { width: 17px; height: 17px; border-radius: 4px; background: var(--bg3); color: var(--t3); font-size: 10px; display: grid; place-items: center; transition: all 0.12s; }
+  .card.drillable:hover .drill-ind { background: var(--acc); color: #fff; }
+
+  /* Context bar */
+  .ctx-bar {
+    background: linear-gradient(90deg, rgba(14,115,246,0.10), transparent 60%);
+    border: 1px solid var(--bor); border-radius: 11px;
+    padding: 9px 14px;
+    display: grid; gap: 14px;
+    align-items: center;
+  }
+  .ctx-greet { display: flex; align-items: center; gap: 10px; }
+  .ctx-greet-icon { font-size: 20px; }
+  .ctx-greet-title { font-size: 13.5px; font-weight: 600; }
+  .ctx-greet-sub { font-size: 11px; color: var(--t3); margin-top: 1px; }
+  .ctx-metric { display: flex; flex-direction: column; }
+  .ctx-metric-l { font-size: 9.5px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+  .ctx-metric-v { font-size: 14px; font-weight: 700; }
+  .ctx-metric-v.pos { color: var(--pos); }
+  .ctx-metric-v.neg { color: var(--neg); }
+  .ctx-metric-v.warn { color: var(--warn); }
+
+  /* À traiter */
+  .todo-list { display: flex; flex-direction: column; gap: 5px; flex: 1; overflow: hidden; }
+  .todo-item { display: flex; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 6px; background: var(--bg3); cursor: pointer; }
+  .todo-item:hover { background: var(--bor); }
+  .todo-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .todo-dot.red { background: var(--neg); }
+  .todo-dot.ora { background: var(--warn); }
+  .todo-dot.info { background: var(--info); }
+  .todo-text { font-size: 11.5px; color: var(--t); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .todo-sub { font-size: 10px; color: var(--t3); }
+
+  /* Hero blocks */
+  .hero-blk { display: flex; flex-direction: column; }
+  .hero-blk + .hero-blk { border-left: 1px solid var(--bor); padding-left: 13px; }
+  .hero-label { font-size: 10.5px; color: var(--t3); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 5px; }
+  .hero-value { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .hero-value.pos { color: var(--pos); }
+  .hero-value.neg { color: var(--neg); }
+  .hero-sub { font-size: 11px; color: var(--t2); margin-top: 2px; }
+  .hero-impaye-pill { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,77,124,0.12); border: 1px solid rgba(255,77,124,0.35); color: var(--neg); padding: 3px 7px; border-radius: 5px; font-size: 10.5px; font-weight: 600; margin-top: 6px; cursor: pointer; width: fit-content; }
+
+  /* Sparkline */
+  .spark { height: 30px; margin-top: 6px; display: flex; align-items: flex-end; gap: 2px; }
+  .spark-bar { flex: 1; background: var(--acc); opacity: 0.55; border-radius: 2px 2px 0 0; min-height: 2px; }
+  .spark-bar.this { opacity: 1; background: var(--pos); }
+
+  /* Flux */
+  .w-flux-body { flex: 1; display: flex; align-items: flex-end; justify-content: space-around; gap: 4px; padding-top: 4px; min-height: 90px; }
+  .flux-month { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .flux-bars { width: 100%; display: flex; align-items: flex-end; gap: 2px; height: 85px; }
+  .flux-bar { flex: 1; border-radius: 3px 3px 0 0; min-height: 2px; }
+  .flux-bar.recette { background: var(--pos); }
+  .flux-bar.depense { background: var(--neg); }
+  .flux-lbl { font-size: 9.5px; color: var(--t3); font-weight: 600; }
+  .flux-totals { display: flex; justify-content: space-between; padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--bor); gap: 10px; }
+  .flux-totals-i { display: flex; flex-direction: column; }
+  .flux-totals-l { color: var(--t3); font-size: 9.5px; }
+  .flux-totals-v { font-weight: 700; font-size: 13px; }
+  .flux-totals-v.pos { color: var(--pos); }
+  .flux-totals-v.neg { color: var(--neg); }
+
+  /* KPI */
+  .kpi-grid-2x2 { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 9px; }
+  .kpi .v { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; margin: 2px 0 3px; }
+  .kpi .sub { font-size: 10.5px; color: var(--t2); }
+  .kpi .ico { position: absolute; top: 10px; right: 10px; font-size: 13px; opacity: 0.5; }
+
+  /* Donut */
+  .donut-mini { width: 48px; height: 48px; border-radius: 50%; background: conic-gradient(var(--acc) 0deg 130deg, var(--pos) 130deg 220deg, var(--warn) 220deg 290deg, var(--neg) 290deg 360deg); position: relative; margin-right: 8px; flex-shrink: 0; }
+  .donut-mini::after { content: ''; position: absolute; inset: 9px; background: var(--bg2); border-radius: 50%; }
+  .donut-card-body { display: flex; align-items: center; }
+  .donut-leg { font-size: 9.5px; color: var(--t2); display: flex; flex-direction: column; gap: 1px; }
+  .donut-leg span::before { content: '●'; margin-right: 3px; }
+  .donut-leg .l1::before { color: var(--acc); }
+  .donut-leg .l2::before { color: var(--pos); }
+  .donut-leg .l3::before { color: var(--warn); }
+  .donut-leg .l4::before { color: var(--neg); }
+
+  /* Prog */
+  .prog-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 11px; margin-bottom: 8px; }
+  .prog-stat-l { font-size: 10px; color: var(--t3); }
+  .prog-stat-v { font-size: 15px; font-weight: 700; margin-top: 1px; }
+  .prog-stat-v.pos { color: var(--pos); }
+  .prog-stat-v.neg { color: var(--neg); }
+  .prog-chart { flex: 1; position: relative; min-height: 65px; border-bottom: 1px solid var(--bor); border-left: 1px solid var(--bor); }
+  .prog-line-attendu { background: linear-gradient(180deg, transparent 60%, rgba(160,170,199,0.08)); border-top: 2px dashed var(--t3); height: 60%; position: absolute; left: 0; right: 0; bottom: 0; }
+  .prog-line-realise { background: linear-gradient(180deg, transparent 50%, rgba(0,204,188,0.15)); border-top: 2.5px solid var(--pos); height: 50%; position: absolute; left: 0; right: 0; bottom: 0; }
+
+  /* Solde */
+  .solde-list { display: flex; flex-direction: column; gap: 5px; }
+  .solde-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: var(--bg3); border-radius: 6px; }
+  .solde-imm { font-size: 11.5px; font-weight: 600; }
+  .solde-imm-sub { font-size: 10px; color: var(--t3); }
+  .solde-bar-wrap { flex: 1; height: 5px; background: var(--bor); border-radius: 3px; overflow: hidden; max-width: 130px; }
+  .solde-bar { height: 100%; border-radius: 3px; }
+  .solde-bar.pos { background: var(--pos); }
+  .solde-bar.neg { background: var(--neg); }
+  .solde-v { font-size: 11.5px; font-weight: 700; width: 72px; text-align: right; }
+  .solde-v.pos { color: var(--pos); }
+  .solde-v.neg { color: var(--neg); }
+
+  /* Vues spécifiques */
+  .view { display: none; }
+  .view.active { display: contents; }
+
+  /* SOLO DÉBUTANT */
+  #view-solo .content {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+  }
+  .upsell-banner {
+    background: linear-gradient(135deg, rgba(0,204,188,0.18), rgba(14,115,246,0.10));
+    border: 1px solid rgba(0,204,188,0.4);
+    border-radius: 11px;
+    padding: 14px 18px;
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .upsell-icon { font-size: 28px; }
+  .upsell-text { flex: 1; }
+  .upsell-title { font-weight: 700; font-size: 14px; }
+  .upsell-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+  .upsell-cta {
+    background: var(--pos); color: #002420;
+    border: none; padding: 9px 18px;
+    border-radius: 8px; font-weight: 700;
+    cursor: pointer; font-size: 13px;
+  }
+
+  /* PIVOT mode switch banner (Premium / Gestion) */
+  .pivot-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px;
+    background: rgba(124,143,255,0.08);
+    border: 1px solid rgba(124,143,255,0.25);
+    border-radius: 8px;
+    margin-bottom: 4px;
+    grid-column: 1 / -1;
+  }
+  .pivot-bar-icon { font-size: 16px; }
+  .pivot-bar-text { font-size: 11.5px; color: var(--t2); flex: 1; }
+  .pivot-bar-text strong { color: var(--t); }
+
+  /* PREMIUM mode (Didier finance + gestion) */
+  #view-premium .content {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+  }
+  .pr-ctx { grid-column: 1 / -1; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; }
+  .pr-hero { grid-column: 1 / 9; grid-row: 2; min-height: 145px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 11px; padding: 12px 14px; }
+  .pr-todo { grid-column: 9 / 13; grid-row: 2; min-height: 145px; display: flex; flex-direction: column; }
+  .pr-flux { grid-column: 1 / 7; grid-row: 3; display: flex; flex-direction: column; }
+  .pr-kpi { grid-column: 7 / 13; grid-row: 3; }
+  .pr-prog { grid-column: 1 / 7; grid-row: 4; display: flex; flex-direction: column; min-height: 175px; }
+  .pr-solde { grid-column: 7 / 13; grid-row: 4; display: flex; flex-direction: column; min-height: 175px; }
+
+  /* GESTIONNAIRE mode (gestion only, pas financier) */
+  #view-gestion .content {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+  }
+  .gs-ctx { grid-column: 1 / -1; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; }
+  .gs-todo { grid-column: 1 / 5; grid-row: 2 / 4; display: flex; flex-direction: column; min-height: 0; }
+  .gs-pilot { grid-column: 5 / 13; grid-row: 2; min-height: 145px; }
+  .gs-agenda { grid-column: 5 / 13; grid-row: 3; }
+  .gs-vacance { grid-column: 1 / 5; grid-row: 4; }
+  .gs-irl { grid-column: 5 / 9; grid-row: 4; }
+  .gs-mrh { grid-column: 9 / 13; grid-row: 4; }
+
+  /* Pilotage matricial mini */
+  .pilot-table { width: 100%; font-size: 11px; }
+  .pilot-table th { color: var(--t3); font-size: 10px; text-transform: uppercase; text-align: left; padding: 4px 6px; font-weight: 700; letter-spacing: 0.4px; }
+  .pilot-table td { padding: 5px 6px; border-top: 1px solid var(--bor); }
+  .pilot-status { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 10px; font-size: 9.5px; font-weight: 700; }
+  .pilot-status.ok { background: rgba(0,204,188,0.15); color: var(--pos); }
+  .pilot-status.warn { background: rgba(255,176,32,0.15); color: var(--warn); }
+  .pilot-status.danger { background: rgba(255,77,124,0.15); color: var(--neg); }
+
+  /* AGENCE multi-portfolio */
+  #view-agence .content {
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+  }
+  .ag-portfolio-switcher {
+    display: flex; gap: 7px; padding: 9px 14px;
+    background: linear-gradient(90deg, rgba(181,132,255,0.10), transparent 70%);
+    border: 1px solid rgba(181,132,255,0.25);
+    border-radius: 11px;
+    grid-column: 1 / -1;
+    align-items: center;
+  }
+  .ag-bailleur-pill {
+    background: var(--bg3); border: 1px solid var(--bor);
+    color: var(--t2); padding: 5px 10px; border-radius: 16px;
+    font-size: 11px; cursor: pointer;
+  }
+  .ag-bailleur-pill.all { background: rgba(181,132,255,0.18); border-color: var(--ag); color: var(--ag); font-weight: 700; }
+  .ag-bailleur-pill:hover { border-color: var(--ag); color: var(--t); }
+  .ag-invite-btn {
+    margin-left: auto;
+    background: transparent; border: 1px solid var(--ag);
+    color: var(--ag); padding: 5px 11px; border-radius: 6px;
+    font-size: 11.5px; font-weight: 600; cursor: pointer;
+  }
+  .ag-stats { grid-column: 1 / 13; grid-row: 2; display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 9px; }
+  .ag-stat-card { background: var(--bg2); border: 1px solid var(--bor); border-radius: 11px; padding: 11px 13px; cursor: pointer; transition: all 0.15s; }
+  .ag-stat-card:hover { border-color: var(--ag); transform: translateY(-1px); }
+  .ag-stat-l { font-size: 10px; color: var(--t3); text-transform: uppercase; font-weight: 700; }
+  .ag-stat-v { font-size: 22px; font-weight: 800; margin: 3px 0; letter-spacing: -0.5px; }
+  .ag-stat-v.pos { color: var(--pos); }
+  .ag-stat-v.ag { color: var(--ag); }
+  .ag-stat-sub { font-size: 10.5px; color: var(--t2); }
+  .ag-top-bail { grid-column: 1 / 7; grid-row: 3; }
+  .ag-pilot { grid-column: 7 / 13; grid-row: 3; }
+  .ag-agenda { grid-column: 1 / 7; grid-row: 4; }
+  .ag-commiss { grid-column: 7 / 13; grid-row: 4; }
+  .top-bail-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-bottom: 1px solid var(--bor); font-size: 11.5px; }
+  .top-bail-row:last-child { border-bottom: none; }
+  .top-bail-rank { width: 22px; height: 22px; background: var(--bg3); border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 11px; color: var(--ag); }
+  .top-bail-name { font-weight: 600; flex: 1; }
+  .top-bail-sub { font-size: 10px; color: var(--t3); }
+  .top-bail-val { font-weight: 700; color: var(--pos); font-size: 12px; }
+
+  /* Vue COMPTABLE invitée (overlay accessible depuis Agence) */
+  .compta-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(5,8,22,0.92);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .compta-overlay.show { display: flex; }
+  .compta-modal {
+    width: 1300px; max-height: 850px;
+    background: var(--bg);
+    border: 1px solid var(--bor);
+    border-radius: 14px;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 56px 1fr;
+  }
+  .compta-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 22px;
+    background: linear-gradient(90deg, rgba(124,143,255,0.18), transparent);
+    border-bottom: 1px solid var(--bor);
+  }
+  .compta-bar-icon { font-size: 18px; }
+  .compta-bar-title { font-weight: 700; font-size: 14px; }
+  .compta-bar-sub { font-size: 11px; color: var(--t2); }
+  .compta-bar-readonly { margin-left: auto; background: rgba(255,176,32,0.15); color: var(--warn); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+  .compta-bar-close { background: var(--bg3); border: 1px solid var(--bor); color: var(--t); width: 30px; height: 30px; border-radius: 6px; cursor: pointer; }
+  .compta-content { padding: 16px 22px; overflow: auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; grid-template-rows: auto auto 1fr; }
+  .compta-ctx { grid-column: 1 / -1; padding: 12px 14px; background: var(--bg2); border: 1px solid var(--bor); border-radius: 10px; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 14px; align-items: center; }
+  .compta-export-list { grid-column: 1 / 5; grid-row: 2 / 4; }
+  .compta-recettes { grid-column: 5 / 9; grid-row: 2; }
+  .compta-charges { grid-column: 9 / 13; grid-row: 2; }
+  .compta-cf { grid-column: 5 / 13; grid-row: 3; }
+  .export-btn { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg3); border: 1px solid var(--bor); border-radius: 7px; margin-bottom: 6px; cursor: pointer; font-size: 12px; }
+  .export-btn:hover { border-color: var(--info); }
+  .export-btn-icon { width: 24px; }
+  .ventil-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 11.5px; border-bottom: 1px dashed var(--bor); }
+  .ventil-row:last-child { border-bottom: none; font-weight: 700; padding-top: 7px; border-top: 1px solid var(--bor); border-bottom: none; margin-top: 4px; }
+
+  /* Légende */
+  .legend { background: rgba(255,255,255,0.04); border: 1px solid var(--bor); border-radius: 8px; padding: 7px 14px; font-size: 11px; color: var(--t2); margin: 14px auto; max-width: 1440px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .legend strong { color: var(--t); }
+  .legend kbd { background: var(--bg3); border: 1px solid var(--bor); border-radius: 4px; padding: 1px 5px; font-family: monospace; font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<!-- ─── SÉLECTEUR DE VUE ─── -->
+<div class="selector">
+  <span class="selector-title">🎨 Profils dashboard</span>
+  <button class="view-btn active" data-view="solo">
+    🪴 Solo débutant <span class="price">/ minime</span>
+  </button>
+  <button class="view-btn" data-view="premium">
+    🏠 Solo Premium <span class="price">/ mode finance</span>
+  </button>
+  <button class="view-btn" data-view="gestion">
+    🛠 Gestionnaire <span class="price">/ même tier, mode gestion</span>
+  </button>
+  <button class="view-btn" data-view="agence">
+    🏢 Agence <span class="price">/ multi-bailleurs</span>
+  </button>
+  <button class="view-btn" data-view="compta" style="margin-left:8px;border-color:var(--info);color:var(--info)">
+    📊 Comptable invité <span class="price">(vu depuis Agence)</span>
+  </button>
+</div>
+
+<div class="legend">
+  <span><strong>Cartes ↗</strong> = drill-down (clic → modale détail)</span>
+  <span>·</span>
+  <span><strong>1440 × 900 px</strong> · zéro scroll</span>
+  <span>·</span>
+  <span>Raccourcis : <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd></span>
+  <span>·</span>
+  <span style="color:var(--ag)"><strong>Solo Premium ↔ Gestionnaire</strong> = même tier, juste un toggle d'affichage en haut</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- VUE 1 : SOLO DÉBUTANT -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="stage" id="view-solo">
+  <aside class="sb">
+    <div class="sb-brand">
+      <div class="sb-brand-logo">I</div>
+      <div>
+        <div class="sb-brand-name">ImmoTrack</div>
+        <div class="sb-brand-sub">Solo débutant</div>
+      </div>
+    </div>
+    <div class="sb-section">Mon compte</div>
+    <div class="sb-item active"><span class="sb-item-icon">📊</span> Tableau de bord</div>
+    <div class="sb-item"><span class="sb-item-icon">🏠</span> Mon bien</div>
+    <div class="sb-item"><span class="sb-item-icon">💶</span> Loyers</div>
+    <div class="sb-item"><span class="sb-item-icon">📋</span> Mon locataire</div>
+    <div class="sb-item"><span class="sb-item-icon">⚙️</span> Paramètres</div>
+    <div style="margin-top:auto;padding:10px;border-top:1px solid var(--bor)">
+      <button class="upsell-cta" style="width:100%;font-size:11.5px;padding:7px">⚡ Passer Premium</button>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="tb">
+      <div class="tb-title">Tableau de bord</div>
+      <div class="tb-filters">
+        <span class="pill active">2026</span>
+        <span class="pill">Avril ▾</span>
+      </div>
+      <div class="tb-spacer"></div>
+      <div class="tb-user"><div class="tb-avatar">M</div><div class="tb-user-name">Manon</div></div>
+    </header>
+    <div class="content">
+
+      <!-- Bandeau upsell -->
+      <div class="upsell-banner">
+        <div class="upsell-icon">🌱</div>
+        <div class="upsell-text">
+          <div class="upsell-title">Bienvenue Manon — 1 logement actif</div>
+          <div class="upsell-sub">Pour gérer plusieurs biens, vos quittances en masse et vos déclarations 2044 — passez Premium</div>
+        </div>
+        <button class="upsell-cta">⚡ Voir Premium</button>
+      </div>
+
+      <!-- Hero ultra-simple 3 blocs -->
+      <div class="card" style="grid-column:1/9;grid-row:2;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:14px 16px;min-height:135px">
+        <div class="hero-blk">
+          <div class="hero-label">À recevoir</div>
+          <div class="hero-value">650 €</div>
+          <div class="hero-sub">Loyer F-Étudiant</div>
+        </div>
+        <div class="hero-blk">
+          <div class="hero-label">Encaissé</div>
+          <div class="hero-value pos">650 €</div>
+          <div class="hero-sub">✓ Payé le 03/04</div>
+        </div>
+        <div class="hero-blk">
+          <div class="hero-label">Évolution 6 mois</div>
+          <div class="spark" style="margin-top:8px;height:50px">
+            <div class="spark-bar" style="height:60%"></div>
+            <div class="spark-bar" style="height:62%"></div>
+            <div class="spark-bar" style="height:65%"></div>
+            <div class="spark-bar" style="height:60%"></div>
+            <div class="spark-bar" style="height:68%"></div>
+            <div class="spark-bar this" style="height:100%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- À traiter mini -->
+      <div class="card drillable" style="grid-column:9/13;grid-row:2;min-height:135px">
+        <div class="card-h">
+          <div class="card-t">⚠ À traiter <span style="color:var(--warn);font-weight:800;font-size:13px;margin-left:3px">1</span></div>
+          <div class="drill-ind">↗</div>
+        </div>
+        <div class="todo-list">
+          <div class="todo-item">
+            <div class="todo-dot ora"></div>
+            <div>
+              <div class="todo-text">Quittance avril à envoyer</div>
+              <div class="todo-sub">F-Étudiant · J+2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini états -->
+      <div class="card" style="grid-column:1/9;grid-row:3;padding:14px">
+        <div class="card-t" style="margin-bottom:10px">📋 Mon bien</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:80px;height:80px;background:linear-gradient(135deg,var(--bg3),var(--bor));border-radius:10px;display:grid;place-items:center;font-size:32px">🏠</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:15px">Studio Étudiant — Lyon 7e</div>
+            <div style="color:var(--t2);font-size:12px;margin-top:4px">28 m² · 1 pièce · Bail 09/2024 — 08/2027 · Locataire : Lucas M.</div>
+            <div style="display:flex;gap:14px;margin-top:8px;font-size:11.5px">
+              <span><strong style="color:var(--pos)">DPE C</strong> · pas de gel loyer</span>
+              <span style="color:var(--t3)">·</span>
+              <span>Loyer <strong>650 €</strong> + charges 30 €</span>
+            </div>
+          </div>
+          <button class="upsell-cta" style="background:var(--acc);color:#fff;font-size:12px;padding:8px 14px">Voir détail →</button>
+        </div>
+      </div>
+
+      <div class="card drillable" style="grid-column:9/13;grid-row:3">
+        <div class="card-h">
+          <div class="card-t">📅 Prochaines échéances</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--t2)">
+          <div style="padding:5px 0;border-bottom:1px solid var(--bor)">
+            <div style="font-weight:600;color:var(--t)">15 mai · Loyer mai</div>
+            <div style="font-size:10.5px;color:var(--t3)">Dans 22 j</div>
+          </div>
+          <div style="padding:5px 0">
+            <div style="font-weight:600;color:var(--t)">15 sept · Échéance bail</div>
+            <div style="font-size:10.5px;color:var(--t3)">Dans 5 mois — pensez à proposer renouvellement</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- VUE 2 : SOLO PREMIUM (mode finance + gestion) -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="stage" id="view-premium" style="display:none">
+  <aside class="sb">
+    <div class="sb-brand">
+      <div class="sb-brand-logo">I</div>
+      <div>
+        <div class="sb-brand-name">ImmoTrack</div>
+        <div class="sb-brand-sub">Premium · mode finance</div>
+      </div>
+    </div>
+    <div class="sb-section">Vue d'ensemble</div>
+    <div class="sb-item active"><span class="sb-item-icon">📊</span> Tableau de bord</div>
+    <div class="sb-item"><span class="sb-item-icon">💶</span> Loyers</div>
+    <div class="sb-item"><span class="sb-item-icon">🧾</span> Quittances <span class="badge">2</span></div>
+    <div class="sb-section">Patrimoine</div>
+    <div class="sb-item"><span class="sb-item-icon">🏠</span> Mes biens</div>
+    <div class="sb-item"><span class="sb-item-icon">📋</span> Mes locataires</div>
+    <div class="sb-section">Plus</div>
+    <div class="sb-item"><span class="sb-item-icon">📅</span> Agenda</div>
+    <div class="sb-item"><span class="sb-item-icon">📈</span> Révision annuelle</div>
+    <div class="sb-item"><span class="sb-item-icon">🛡</span> Assurances</div>
+    <div class="sb-item"><span class="sb-item-icon">⚙️</span> Paramètres</div>
+  </aside>
+  <div class="main">
+    <header class="tb">
+      <div class="tb-title">Tableau de bord</div>
+      <div class="tb-filters">
+        <span class="pill active">2026</span>
+        <span class="pill">Avril ▾</span>
+        <span class="pill">Toutes entités ▾</span>
+      </div>
+      <div class="tb-spacer"></div>
+      <div class="tb-mode-toggle">
+        <button class="tb-mode-btn active">💰 Finance</button>
+        <button class="tb-mode-btn" onclick="switchTo('gestion')">🛠 Gestion</button>
+      </div>
+      <div class="tb-user"><div class="tb-avatar">DK</div><div class="tb-user-name">Didier</div></div>
+    </header>
+    <div class="content">
+
+      <div class="card ctx-bar pr-ctx">
+        <div class="ctx-greet">
+          <div class="ctx-greet-icon">👋</div>
+          <div>
+            <div class="ctx-greet-title">Bonjour Didier — avril 2026</div>
+            <div class="ctx-greet-sub">11 logements · 10 occupés · 1 vacant 18 j</div>
+          </div>
+        </div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Encaissé ce mois</div><div class="ctx-metric-v pos">8 945 €</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Cash-flow YTD</div><div class="ctx-metric-v pos">+ 28 410 €</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Rendement brut</div><div class="ctx-metric-v">5,4 %</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Occupation</div><div class="ctx-metric-v pos">91 %</div></div>
+      </div>
+
+      <div class="card drillable pr-hero" onclick="alert('Drill : Cash-flow détaillé')">
+        <div class="hero-blk">
+          <div class="hero-label">À recevoir avril</div>
+          <div class="hero-value">9 280 €</div>
+          <div class="hero-sub">11 loyers attendus</div>
+          <div class="spark"><div class="spark-bar" style="height:60%"></div><div class="spark-bar" style="height:65%"></div><div class="spark-bar" style="height:72%"></div><div class="spark-bar" style="height:68%"></div><div class="spark-bar" style="height:75%"></div><div class="spark-bar this" style="height:100%"></div></div>
+        </div>
+        <div class="hero-blk">
+          <div class="hero-label">Encaissé</div>
+          <div class="hero-value pos">8 945 €</div>
+          <div class="hero-sub">96 % du dû · 10/11 logements</div>
+          <div class="hero-impaye-pill" onclick="event.stopPropagation();alert('Drill : Loyers impayés')">⚠ 335 € en attente (F-007 prorata)</div>
+        </div>
+        <div class="hero-blk">
+          <div class="hero-label">Solde net</div>
+          <div class="hero-value pos">+ 7 120 €</div>
+          <div class="hero-sub">après charges 1 825 €</div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <div style="flex:1"><div class="ctx-metric-l" style="font-size:9.5px">Recettes</div><div class="ctx-metric-v pos" style="font-size:12.5px">8 945</div></div>
+            <div style="flex:1"><div class="ctx-metric-l" style="font-size:9.5px">Dépenses</div><div class="ctx-metric-v neg" style="font-size:12.5px">1 825</div></div>
+          </div>
+        </div>
+        <div class="drill-ind" style="position:absolute;top:10px;right:12px">↗</div>
+      </div>
+
+      <div class="card drillable pr-todo" onclick="alert('Drill : À traiter complet')">
+        <div class="card-h">
+          <div class="card-t">⚠ À traiter <span style="color:var(--neg);font-weight:800;font-size:13px;margin-left:3px">5</span></div>
+          <div class="drill-ind">↗</div>
+        </div>
+        <div class="todo-list">
+          <div class="todo-item"><div class="todo-dot red"></div><div><div class="todo-text">F-007 loyer partiel</div><div class="todo-sub">reste 335 €</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">F-003 révision juillet</div><div class="todo-sub">+ 22 € IRL T1</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">PNO F-002 échéance</div><div class="todo-sub">18 j</div></div></div>
+          <div class="todo-item"><div class="todo-dot info"></div><div><div class="todo-text">Bail F-005 fin août</div><div class="todo-sub">renouvellement</div></div></div>
+          <div class="todo-item"><div class="todo-dot info"></div><div><div class="todo-text">DPE F-009 expire</div><div class="todo-sub">9 mois</div></div></div>
+        </div>
+      </div>
+
+      <div class="card drillable pr-flux" onclick="alert('Drill : Revenus vs Charges')">
+        <div class="card-h"><div class="card-t">💸 Revenus vs Charges</div><div class="drill-ind">↗</div></div>
+        <div class="w-flux-body">
+          <div class="flux-month"><div class="flux-bars"><div class="flux-bar recette" style="height:75%"></div><div class="flux-bar depense" style="height:18%"></div></div><div class="flux-lbl">Jan</div></div>
+          <div class="flux-month"><div class="flux-bars"><div class="flux-bar recette" style="height:78%"></div><div class="flux-bar depense" style="height:22%"></div></div><div class="flux-lbl">Fév</div></div>
+          <div class="flux-month"><div class="flux-bars"><div class="flux-bar recette" style="height:82%"></div><div class="flux-bar depense" style="height:35%"></div></div><div class="flux-lbl">Mar</div></div>
+          <div class="flux-month"><div class="flux-bars"><div class="flux-bar recette" style="height:88%"></div><div class="flux-bar depense" style="height:22%"></div></div><div class="flux-lbl"><strong style="color:var(--t)">Avr</strong></div></div>
+          <div class="flux-month" style="opacity:0.4"><div class="flux-bars"></div><div class="flux-lbl">Mai</div></div>
+          <div class="flux-month" style="opacity:0.4"><div class="flux-bars"></div><div class="flux-lbl">Jun</div></div>
+        </div>
+        <div class="flux-totals">
+          <div class="flux-totals-i"><div class="flux-totals-l">Recettes YTD</div><div class="flux-totals-v pos">34 870 €</div></div>
+          <div class="flux-totals-i"><div class="flux-totals-l">Dépenses YTD</div><div class="flux-totals-v neg">- 6 460 €</div></div>
+          <div class="flux-totals-i"><div class="flux-totals-l">Net YTD</div><div class="flux-totals-v pos">+ 28 410 €</div></div>
+        </div>
+      </div>
+
+      <div class="kpi-grid-2x2 pr-kpi">
+        <div class="card kpi drillable" onclick="alert('Drill: Occupation')"><div class="ico">🏠</div><div class="card-t">Occupation</div><div class="v pos">91 %</div><div class="sub">10/11 occupés</div></div>
+        <div class="card kpi drillable" onclick="alert('Drill: Rendement')"><div class="ico">📈</div><div class="card-t">Rendement brut</div><div class="v">5,4 %</div><div class="sub">107 220 €/an · 1,98 M€</div></div>
+        <div class="card kpi drillable" onclick="alert('Drill: Charges')"><div class="card-t">Charges par catégorie</div><div class="donut-card-body"><div class="donut-mini"></div><div class="donut-leg"><span class="l1">Copro 42%</span><span class="l2">Travaux 28%</span><span class="l3">Assu 18%</span><span class="l4">Autre 12%</span></div></div></div>
+        <div class="card kpi drillable" onclick="alert('Drill: DG')"><div class="ico">🔒</div><div class="card-t">Dépôts de garantie</div><div class="v">9 800 €</div><div class="sub">11 baux · 100% collectés</div></div>
+      </div>
+
+      <div class="card drillable pr-prog" onclick="alert('Drill: Progression annuelle')">
+        <div class="card-h"><div class="card-t">📈 Progression annuelle</div><div class="drill-ind">↗</div></div>
+        <div class="prog-stats">
+          <div><div class="prog-stat-l">Attendu YTD</div><div class="prog-stat-v">35 200 €</div></div>
+          <div><div class="prog-stat-l">Réalisé YTD</div><div class="prog-stat-v pos">34 870 €</div></div>
+          <div><div class="prog-stat-l">Écart</div><div class="prog-stat-v neg">- 330 €</div></div>
+        </div>
+        <div class="prog-chart">
+          <div class="prog-line-attendu"></div>
+          <div class="prog-line-realise"></div>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:5px;font-size:10px;color:var(--t3)"><span>━ Attendu</span><span style="color:var(--pos)">━ Réalisé</span></div>
+      </div>
+
+      <div class="card drillable pr-solde" onclick="alert('Drill: Solde provisions')">
+        <div class="card-h"><div class="card-t">⚖️ Solde provisions par immeuble</div><div class="drill-ind">↗</div></div>
+        <div class="solde-list">
+          <div class="solde-row"><div style="flex:1"><div class="solde-imm">Immeuble Paris 17e</div><div class="solde-imm-sub">F-001 à F-003 · 3 logements</div></div><div class="solde-bar-wrap"><div class="solde-bar pos" style="width:75%"></div></div><div class="solde-v pos">+ 1 240 €</div></div>
+          <div class="solde-row"><div style="flex:1"><div class="solde-imm">Immeuble Lyon Préfecture</div><div class="solde-imm-sub">F-004 à F-007 · 4 logements</div></div><div class="solde-bar-wrap"><div class="solde-bar pos" style="width:60%"></div></div><div class="solde-v pos">+ 890 €</div></div>
+          <div class="solde-row"><div style="flex:1"><div class="solde-imm">Imm. Marseille Castellane</div><div class="solde-imm-sub">F-008 à F-010 · 3 logements</div></div><div class="solde-bar-wrap"><div class="solde-bar pos" style="width:35%"></div></div><div class="solde-v pos">+ 320 €</div></div>
+          <div class="solde-row"><div style="flex:1"><div class="solde-imm">Garage Paris</div><div class="solde-imm-sub">F-011 · saisonnier</div></div><div class="solde-bar-wrap"><div class="solde-bar neg" style="width:20%"></div></div><div class="solde-v neg">- 45 €</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- VUE 3 : GESTIONNAIRE (gestion only, ZÉRO financier perso) -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="stage" id="view-gestion" style="display:none">
+  <aside class="sb">
+    <div class="sb-brand">
+      <div class="sb-brand-logo">I</div>
+      <div>
+        <div class="sb-brand-name">ImmoTrack</div>
+        <div class="sb-brand-sub">Premium · mode gestion</div>
+      </div>
+    </div>
+    <div class="sb-section">Opérationnel</div>
+    <div class="sb-item active"><span class="sb-item-icon">📊</span> Tableau de bord</div>
+    <div class="sb-item"><span class="sb-item-icon">🎛</span> Pilotage <span class="badge">3</span></div>
+    <div class="sb-item"><span class="sb-item-icon">📅</span> Agenda</div>
+    <div class="sb-section">Biens</div>
+    <div class="sb-item"><span class="sb-item-icon">🏠</span> Mes biens</div>
+    <div class="sb-item"><span class="sb-item-icon">📋</span> Baux</div>
+    <div class="sb-item"><span class="sb-item-icon">🔧</span> Équipements</div>
+    <div class="sb-item"><span class="sb-item-icon">🔍</span> États des lieux</div>
+    <div class="sb-section">Conformité</div>
+    <div class="sb-item"><span class="sb-item-icon">📈</span> Révisions</div>
+    <div class="sb-item"><span class="sb-item-icon">🛡</span> Assurances</div>
+    <div class="sb-item"><span class="sb-item-icon">⚙️</span> Paramètres</div>
+  </aside>
+  <div class="main">
+    <header class="tb">
+      <div class="tb-title">Tableau de bord</div>
+      <div class="tb-filters">
+        <span class="pill active">2026</span>
+        <span class="pill">Avril ▾</span>
+        <span class="pill">Toutes entités ▾</span>
+      </div>
+      <div class="tb-spacer"></div>
+      <div class="tb-mode-toggle">
+        <button class="tb-mode-btn" onclick="switchTo('premium')">💰 Finance</button>
+        <button class="tb-mode-btn active">🛠 Gestion</button>
+      </div>
+      <div class="tb-user"><div class="tb-avatar">DK</div><div class="tb-user-name">Didier</div></div>
+    </header>
+    <div class="content">
+
+      <div class="card ctx-bar gs-ctx">
+        <div class="ctx-greet">
+          <div class="ctx-greet-icon">🛠</div>
+          <div>
+            <div class="ctx-greet-title">Vue gestion — avril 2026</div>
+            <div class="ctx-greet-sub">11 logements · 10 occupés · 1 vacant 18 j</div>
+          </div>
+        </div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Occupation</div><div class="ctx-metric-v pos">91 %</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Vacance 30j</div><div class="ctx-metric-v warn">1</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Échéances 30j</div><div class="ctx-metric-v">7</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Conformité</div><div class="ctx-metric-v pos">98 %</div></div>
+      </div>
+
+      <div class="card drillable gs-todo" onclick="alert('Drill: À traiter complet')">
+        <div class="card-h"><div class="card-t">⚠ À traiter <span style="color:var(--neg);font-weight:800;font-size:13px;margin-left:3px">8</span></div><div class="drill-ind">↗</div></div>
+        <div class="todo-list">
+          <div class="todo-item"><div class="todo-dot red"></div><div><div class="todo-text">F-005 vacant 18 j</div><div class="todo-sub">Re-louer prioritaire</div></div></div>
+          <div class="todo-item"><div class="todo-dot red"></div><div><div class="todo-text">DPE F-009 expiré</div><div class="todo-sub">À refaire avant juin</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">Chaudière F-003 contrôle</div><div class="todo-sub">Annuel obligatoire J+15</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">PNO F-002 échéance</div><div class="todo-sub">Renouvellement 18 j</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">Révision F-003 juillet</div><div class="todo-sub">IRL T1 +1,8 %</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">Bail F-005 fin août</div><div class="todo-sub">Préavis ou renouv.</div></div></div>
+          <div class="todo-item"><div class="todo-dot info"></div><div><div class="todo-text">EDL entrée F-005 à faire</div><div class="todo-sub">Avant nouvelle loc.</div></div></div>
+          <div class="todo-item"><div class="todo-dot info"></div><div><div class="todo-text">Détecteur fumée F-007</div><div class="todo-sub">Vérif annuelle</div></div></div>
+        </div>
+      </div>
+
+      <div class="card drillable gs-pilot" onclick="alert('Drill: Pilotage matriciel')">
+        <div class="card-h"><div class="card-t">🎛 Pilotage matriciel — vue rapide</div><div class="drill-ind">↗</div></div>
+        <table class="pilot-table">
+          <thead><tr><th>Logement</th><th>Bail</th><th>Quittance</th><th>IRL</th><th>Assu</th><th>Diags</th></tr></thead>
+          <tbody>
+            <tr><td>Paris 17e · F-001</td><td><span class="pilot-status ok">✓ Actif</span></td><td><span class="pilot-status ok">Envoyée</span></td><td><span class="pilot-status ok">à jour</span></td><td><span class="pilot-status ok">PNO ok</span></td><td><span class="pilot-status ok">complet</span></td></tr>
+            <tr><td>Paris 17e · F-002</td><td><span class="pilot-status ok">✓ Actif</span></td><td><span class="pilot-status warn">à envoyer</span></td><td><span class="pilot-status ok">à jour</span></td><td><span class="pilot-status warn">PNO 18j</span></td><td><span class="pilot-status ok">complet</span></td></tr>
+            <tr><td>Lyon · F-003</td><td><span class="pilot-status ok">✓ Actif</span></td><td><span class="pilot-status ok">Envoyée</span></td><td><span class="pilot-status warn">Juillet</span></td><td><span class="pilot-status ok">PNO ok</span></td><td><span class="pilot-status warn">Chaudière 15j</span></td></tr>
+            <tr><td>Lyon · F-005</td><td><span class="pilot-status danger">VACANT</span></td><td><span class="pilot-status danger">—</span></td><td><span class="pilot-status danger">—</span></td><td><span class="pilot-status warn">PNO bailleur</span></td><td><span class="pilot-status ok">complet</span></td></tr>
+            <tr><td>Marseille · F-009</td><td><span class="pilot-status ok">✓ Actif</span></td><td><span class="pilot-status ok">Envoyée</span></td><td><span class="pilot-status ok">à jour</span></td><td><span class="pilot-status ok">PNO ok</span></td><td><span class="pilot-status danger">DPE expiré</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card drillable gs-agenda" onclick="alert('Drill: Agenda 30 jours')">
+        <div class="card-h"><div class="card-t">📅 Agenda — 15 prochains jours</div><div class="drill-ind">↗</div></div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;font-size:10.5px">
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">SAM 26/04</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">DIM 27</div></div>
+          <div style="text-align:center;padding:6px 0;background:rgba(255,176,32,0.18);border:1px solid rgba(255,176,32,0.4);border-radius:5px"><div style="color:var(--warn);font-size:9px;font-weight:700">LUN 28</div><div style="color:var(--t);font-size:10px;margin-top:2px">Chaudière F-003</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">MAR 29</div></div>
+          <div style="text-align:center;padding:6px 0;background:rgba(0,204,188,0.15);border:1px solid rgba(0,204,188,0.35);border-radius:5px"><div style="color:var(--pos);font-size:9px;font-weight:700">MER 30</div><div style="color:var(--t);font-size:10px;margin-top:2px">EDL F-005</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">JEU 01/05</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">VEN 02</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">SAM 03</div></div>
+          <div style="text-align:center;padding:6px 0;background:rgba(255,77,124,0.15);border:1px solid rgba(255,77,124,0.4);border-radius:5px"><div style="color:var(--neg);font-size:9px;font-weight:700">DIM 04</div><div style="color:var(--t);font-size:10px;margin-top:2px">PNO F-002</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">LUN 05</div></div>
+          <div style="text-align:center;padding:6px 0;background:rgba(124,143,255,0.15);border:1px solid rgba(124,143,255,0.4);border-radius:5px"><div style="color:var(--info);font-size:9px;font-weight:700">MAR 06</div><div style="color:var(--t);font-size:10px;margin-top:2px">Visite candidat</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">MER 07</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">JEU 08</div></div>
+          <div style="text-align:center;padding:6px 0;background:var(--bg3);border-radius:5px"><div style="color:var(--t3);font-size:9px">VEN 09</div></div>
+        </div>
+      </div>
+
+      <div class="card drillable gs-vacance" onclick="alert('Drill: Logements vacants')">
+        <div class="card-h"><div class="card-t">🏚 Logement vacant</div><div class="drill-ind">↗</div></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:44px;height:44px;background:var(--bg3);border-radius:8px;display:grid;place-items:center;font-size:20px">🏠</div>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600">Lyon Préfecture · F-005</div>
+            <div style="font-size:10.5px;color:var(--t3)">Vacant depuis 18 j · 2 candidatures</div>
+          </div>
+          <div style="text-align:right">
+            <div style="color:var(--neg);font-size:14px;font-weight:800">- 480 €</div>
+            <div style="color:var(--t3);font-size:9.5px">Manque à louer</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card drillable gs-irl" onclick="alert('Drill: Révisions IRL à venir')">
+        <div class="card-h"><div class="card-t">📈 Révisions à venir</div><div class="drill-ind">↗</div></div>
+        <div style="font-size:11.5px">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bor)"><span>F-003 Lyon · juillet</span><span style="color:var(--pos);font-weight:700">+22 €</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bor)"><span>F-001 Paris · septembre</span><span style="color:var(--pos);font-weight:700">+14 €</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span>F-007 Marseille · novembre</span><span style="color:var(--pos);font-weight:700">+18 €</span></div>
+        </div>
+      </div>
+
+      <div class="card drillable gs-mrh" onclick="alert('Drill: Assurances à renouveler')">
+        <div class="card-h"><div class="card-t">🛡 Conformité 30 j</div><div class="drill-ind">↗</div></div>
+        <div style="font-size:11.5px">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bor)"><span>PNO F-002 (18 j)</span><span style="color:var(--warn);font-weight:700">À renouveler</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bor)"><span>Chaudière F-003 (15 j)</span><span style="color:var(--warn);font-weight:700">Contrôle</span></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0"><span>DPE F-009 (expiré)</span><span style="color:var(--neg);font-weight:700">URGENT</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- VUE 4 : AGENCE multi-bailleurs -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="stage" id="view-agence" style="display:none">
+  <aside class="sb">
+    <div class="sb-brand">
+      <div class="sb-brand-logo" style="background:linear-gradient(135deg,var(--ag),var(--info))">A</div>
+      <div>
+        <div class="sb-brand-name">ImmoTrack</div>
+        <div class="sb-brand-sub">Agence Keller & Associés</div>
+      </div>
+    </div>
+    <div class="sb-section">Vue agence</div>
+    <div class="sb-item active"><span class="sb-item-icon">📊</span> Tableau de bord</div>
+    <div class="sb-item"><span class="sb-item-icon">👥</span> Mes bailleurs <span class="badge" style="background:var(--ag)">5</span></div>
+    <div class="sb-item"><span class="sb-item-icon">💼</span> Commissions</div>
+    <div class="sb-section">Opérationnel</div>
+    <div class="sb-item"><span class="sb-item-icon">🎛</span> Pilotage</div>
+    <div class="sb-item"><span class="sb-item-icon">🏠</span> Patrimoine</div>
+    <div class="sb-item"><span class="sb-item-icon">📋</span> Baux</div>
+    <div class="sb-item"><span class="sb-item-icon">📅</span> Agenda</div>
+    <div class="sb-item"><span class="sb-item-icon">🧾</span> Quittances + CRG</div>
+    <div class="sb-section">Confiance</div>
+    <div class="sb-item" style="color:var(--info)" onclick="showCompta()"><span class="sb-item-icon">📊</span> Mon comptable</div>
+    <div class="sb-item"><span class="sb-item-icon">⚙️</span> Paramètres</div>
+  </aside>
+  <div class="main">
+    <header class="tb">
+      <div class="tb-title">Tableau de bord agence</div>
+      <div class="tb-filters">
+        <span class="pill active">2026</span>
+        <span class="pill">Avril ▾</span>
+      </div>
+      <div class="tb-spacer"></div>
+      <div class="tb-user"><div class="tb-avatar" style="background:linear-gradient(135deg,var(--ag),var(--info))">DK</div><div class="tb-user-name">Didier · Agence</div></div>
+    </header>
+    <div class="content">
+
+      <div class="ag-portfolio-switcher">
+        <span style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-right:4px">Portfolio :</span>
+        <span class="ag-bailleur-pill all">★ Tous (5 bailleurs · 47 lots)</span>
+        <span class="ag-bailleur-pill">M. Dupont (12)</span>
+        <span class="ag-bailleur-pill">SCI Lefèvre (10)</span>
+        <span class="ag-bailleur-pill">Mme Bernard (8)</span>
+        <span class="ag-bailleur-pill">SCI Patrimoine 17 (11)</span>
+        <span class="ag-bailleur-pill">M. Martin (6)</span>
+        <button class="ag-invite-btn">+ Inviter bailleur</button>
+      </div>
+
+      <div class="ag-stats">
+        <div class="ag-stat-card" onclick="alert('Drill: Commissions Hoguet')">
+          <div class="ag-stat-l">💼 Commissions Hoguet ce mois</div>
+          <div class="ag-stat-v ag">2 840 €</div>
+          <div class="ag-stat-sub">8 % × 35 500 € loyers gérés</div>
+        </div>
+        <div class="ag-stat-card" onclick="alert('Drill: Taux recouvrement')">
+          <div class="ag-stat-l">Taux recouvrement</div>
+          <div class="ag-stat-v pos">96,3 %</div>
+          <div class="ag-stat-sub">45/47 loyers à jour</div>
+        </div>
+        <div class="ag-stat-card" onclick="alert('Drill: Occupation globale')">
+          <div class="ag-stat-l">Occupation</div>
+          <div class="ag-stat-v pos">94 %</div>
+          <div class="ag-stat-sub">44/47 lots loués</div>
+        </div>
+        <div class="ag-stat-card" onclick="alert('Drill: Actions critiques')">
+          <div class="ag-stat-l">Actions critiques</div>
+          <div class="ag-stat-v" style="color:var(--neg)">12</div>
+          <div class="ag-stat-sub">5 urgentes · 7 sous 30 j</div>
+        </div>
+      </div>
+
+      <div class="card drillable ag-top-bail" onclick="alert('Drill: Top bailleurs par CA')">
+        <div class="card-h"><div class="card-t">🏆 Top bailleurs — commissions YTD</div><div class="drill-ind">↗</div></div>
+        <div class="top-bail-row"><div class="top-bail-rank">1</div><div style="flex:1"><div class="top-bail-name">SCI Patrimoine 17</div><div class="top-bail-sub">11 lots · Paris 17e</div></div><div class="top-bail-val">3 480 €</div></div>
+        <div class="top-bail-row"><div class="top-bail-rank">2</div><div style="flex:1"><div class="top-bail-name">M. Dupont</div><div class="top-bail-sub">12 lots · Lyon</div></div><div class="top-bail-val">3 120 €</div></div>
+        <div class="top-bail-row"><div class="top-bail-rank">3</div><div style="flex:1"><div class="top-bail-name">SCI Lefèvre</div><div class="top-bail-sub">10 lots · Marseille</div></div><div class="top-bail-val">2 670 €</div></div>
+        <div class="top-bail-row"><div class="top-bail-rank">4</div><div style="flex:1"><div class="top-bail-name">Mme Bernard</div><div class="top-bail-sub">8 lots · Bordeaux</div></div><div class="top-bail-val">1 980 €</div></div>
+        <div class="top-bail-row"><div class="top-bail-rank">5</div><div style="flex:1"><div class="top-bail-name">M. Martin</div><div class="top-bail-sub">6 lots · Toulouse</div></div><div class="top-bail-val">1 215 €</div></div>
+      </div>
+
+      <div class="card drillable ag-pilot" onclick="alert('Drill: Pilotage agence')">
+        <div class="card-h"><div class="card-t">🎛 Actions critiques — tous bailleurs</div><div class="drill-ind">↗</div></div>
+        <div class="todo-list">
+          <div class="todo-item"><div class="todo-dot red"></div><div><div class="todo-text">DPE expiré · F-009 Marseille</div><div class="todo-sub">Bailleur SCI Lefèvre · URGENT</div></div></div>
+          <div class="todo-item"><div class="todo-dot red"></div><div><div class="todo-text">Loyer impayé · F-027 Bordeaux</div><div class="todo-sub">Bailleur Mme Bernard · 45 j retard</div></div></div>
+          <div class="todo-item"><div class="todo-dot red"></div><div><div class="todo-text">Vacance > 30 j · 2 lots</div><div class="todo-sub">F-005 Lyon · F-038 Toulouse</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">CRG avril à envoyer · 5 bailleurs</div><div class="todo-sub">Échéance fin de mois</div></div></div>
+          <div class="todo-item"><div class="todo-dot ora"></div><div><div class="todo-text">3 PNO à renouveler 30j</div><div class="todo-sub">F-002, F-018, F-031</div></div></div>
+          <div class="todo-item"><div class="todo-dot info"></div><div><div class="todo-text">4 baux fin août</div><div class="todo-sub">Préavis ou renouvellement</div></div></div>
+        </div>
+      </div>
+
+      <div class="card drillable ag-agenda" onclick="alert('Drill: Agenda complet')">
+        <div class="card-h"><div class="card-t">📅 Agenda — 30 prochains jours</div><div class="drill-ind">↗</div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11.5px">
+          <div style="padding:7px 9px;background:rgba(255,77,124,0.10);border:1px solid rgba(255,77,124,0.3);border-radius:6px"><div style="color:var(--neg);font-weight:700;font-size:10px">⚠ 5 URGENT</div><div style="margin-top:3px;color:var(--t)">DPE · contrôles · impayés</div></div>
+          <div style="padding:7px 9px;background:rgba(255,176,32,0.10);border:1px solid rgba(255,176,32,0.3);border-radius:6px"><div style="color:var(--warn);font-weight:700;font-size:10px">📅 12 ÉCHÉANCES</div><div style="margin-top:3px;color:var(--t)">PNO, IRL, baux fin</div></div>
+          <div style="padding:7px 9px;background:rgba(124,143,255,0.10);border:1px solid rgba(124,143,255,0.3);border-radius:6px"><div style="color:var(--info);font-weight:700;font-size:10px">📋 8 RDV</div><div style="margin-top:3px;color:var(--t)">Visites, EDL, signatures</div></div>
+        </div>
+      </div>
+
+      <div class="card drillable ag-commiss" onclick="alert('Drill: Détail commissions')">
+        <div class="card-h"><div class="card-t">💼 Évolution commissions</div><div class="drill-ind">↗</div></div>
+        <div style="display:flex;align-items:flex-end;gap:5px;height:80px;padding:6px 0">
+          <div style="flex:1;background:var(--ag);opacity:0.4;height:65%;border-radius:3px 3px 0 0"></div>
+          <div style="flex:1;background:var(--ag);opacity:0.5;height:70%;border-radius:3px 3px 0 0"></div>
+          <div style="flex:1;background:var(--ag);opacity:0.6;height:78%;border-radius:3px 3px 0 0"></div>
+          <div style="flex:1;background:var(--ag);height:90%;border-radius:3px 3px 0 0"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:4px"><span>Jan</span><span>Fév</span><span>Mar</span><span style="color:var(--ag);font-weight:700">Avr</span></div>
+        <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:6px;border-top:1px solid var(--bor);font-size:11px">
+          <div><div style="color:var(--t3);font-size:10px">YTD</div><div style="font-weight:700;color:var(--ag);font-size:13px">10 320 €</div></div>
+          <div><div style="color:var(--t3);font-size:10px">Cible 2026</div><div style="font-weight:700;font-size:13px">38 000 €</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ─── VUE COMPTABLE INVITÉE (overlay accessible depuis Agence) ─── -->
+<div class="compta-overlay" id="compta-overlay">
+  <div class="compta-modal">
+    <div class="compta-bar">
+      <div class="compta-bar-icon">📊</div>
+      <div>
+        <div class="compta-bar-title">Vue comptable invitée</div>
+        <div class="compta-bar-sub">Marie Durand · Cabinet Durand Expertise · Accès accordé par Agence Keller</div>
+      </div>
+      <div class="compta-bar-readonly">🔒 LECTURE SEULE</div>
+      <button class="compta-bar-close" onclick="hideCompta()">✕</button>
+    </div>
+    <div class="compta-content">
+      <div class="compta-ctx">
+        <div>
+          <div style="font-size:13px;font-weight:700">📋 Agence Keller & Associés · exercice 2026</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px">Comptabilité bailleurs sous mandat · 47 lots · 5 bailleurs · données figées à fin avril</div>
+        </div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Recettes YTD</div><div class="ctx-metric-v pos">142 350 €</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Charges YTD</div><div class="ctx-metric-v neg">- 28 980 €</div></div>
+        <div class="ctx-metric"><div class="ctx-metric-l">Conformité 2044</div><div class="ctx-metric-v pos">100 %</div></div>
+      </div>
+
+      <div class="card compta-export-list">
+        <div class="card-t" style="margin-bottom:9px">📤 Exports rapides</div>
+        <div class="export-btn"><div><div style="font-weight:600">FEC 2026</div><div style="color:var(--t3);font-size:10px">Format DGFiP officiel</div></div><div class="export-btn-icon">⬇️</div></div>
+        <div class="export-btn"><div><div style="font-weight:600">Déclaration 2044</div><div style="color:var(--t3);font-size:10px">Pré-rempli par bailleur</div></div><div class="export-btn-icon">⬇️</div></div>
+        <div class="export-btn"><div><div style="font-weight:600">Bilan annuel</div><div style="color:var(--t3);font-size:10px">PDF + Excel</div></div><div class="export-btn-icon">⬇️</div></div>
+        <div class="export-btn"><div><div style="font-weight:600">Journal des écritures</div><div style="color:var(--t3);font-size:10px">CSV chronologique</div></div><div class="export-btn-icon">⬇️</div></div>
+        <div class="export-btn"><div><div style="font-weight:600">Grand livre</div><div style="color:var(--t3);font-size:10px">Par compte 2044</div></div><div class="export-btn-icon">⬇️</div></div>
+        <div class="export-btn"><div><div style="font-weight:600">Balance comptes</div><div style="color:var(--t3);font-size:10px">Tous bailleurs</div></div><div class="export-btn-icon">⬇️</div></div>
+      </div>
+
+      <div class="card compta-recettes">
+        <div class="card-t" style="margin-bottom:7px">💰 Recettes ventilées 2044</div>
+        <div class="ventil-row"><span>211 · Loyers encaissés</span><span style="font-weight:700">135 240 €</span></div>
+        <div class="ventil-row"><span>213 · Arriérés / GLI</span><span style="font-weight:700">4 850 €</span></div>
+        <div class="ventil-row"><span>219 · Autres recettes</span><span style="font-weight:700">2 260 €</span></div>
+        <div class="ventil-row"><span><strong>TOTAL ligne 211 à 219</strong></span><span style="font-weight:800;color:var(--pos)">142 350 €</span></div>
+      </div>
+
+      <div class="card compta-charges">
+        <div class="card-t" style="margin-bottom:7px">💸 Charges déductibles 2044</div>
+        <div class="ventil-row"><span>222 · Frais admin</span><span style="font-weight:700">8 540 €</span></div>
+        <div class="ventil-row"><span>223 · Primes assurance</span><span style="font-weight:700">3 280 €</span></div>
+        <div class="ventil-row"><span>224 · Travaux</span><span style="font-weight:700">11 950 €</span></div>
+        <div class="ventil-row"><span>229 · Provisions copro</span><span style="font-weight:700">5 210 €</span></div>
+        <div class="ventil-row"><span><strong>TOTAL ligne 222-230</strong></span><span style="font-weight:800;color:var(--neg)">- 28 980 €</span></div>
+      </div>
+
+      <div class="card compta-cf">
+        <div class="card-t" style="margin-bottom:8px">📈 Cash-flow YTD + projection fin d'année (5 bailleurs agrégés)</div>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:90px;padding:6px 0">
+          <div style="flex:1;background:var(--pos);opacity:0.85;height:70%;border-radius:3px 3px 0 0;position:relative"><div style="position:absolute;top:-15px;left:0;right:0;text-align:center;font-size:9px;color:var(--pos);font-weight:700">35,1k</div></div>
+          <div style="flex:1;background:var(--pos);opacity:0.85;height:72%;border-radius:3px 3px 0 0"></div>
+          <div style="flex:1;background:var(--pos);opacity:0.85;height:78%;border-radius:3px 3px 0 0"></div>
+          <div style="flex:1;background:var(--pos);height:90%;border-radius:3px 3px 0 0"></div>
+          <div style="flex:1;background:var(--pos);opacity:0.5;height:90%;border-radius:3px 3px 0 0;background:repeating-linear-gradient(45deg,var(--pos),var(--pos) 4px,rgba(0,204,188,0.4) 4px,rgba(0,204,188,0.4) 8px)"></div>
+          <div style="flex:1;background:var(--pos);opacity:0.5;height:90%;border-radius:3px 3px 0 0;background:repeating-linear-gradient(45deg,var(--pos),var(--pos) 4px,rgba(0,204,188,0.4) 4px,rgba(0,204,188,0.4) 8px)"></div>
+          <div style="flex:1;background:var(--pos);opacity:0.5;height:90%;border-radius:3px 3px 0 0;background:repeating-linear-gradient(45deg,var(--pos),var(--pos) 4px,rgba(0,204,188,0.4) 4px,rgba(0,204,188,0.4) 8px)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:4px"><span>Jan</span><span>Fév</span><span>Mar</span><span style="color:var(--pos);font-weight:700">Avr</span><span style="color:var(--t3)">Mai (proj)</span><span style="color:var(--t3)">Jun (proj)</span><span style="color:var(--t3)">Juil (proj)</span></div>
+        <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:6px;border-top:1px solid var(--bor);font-size:11.5px">
+          <div><div style="color:var(--t3);font-size:10px">Net YTD réel</div><div style="font-weight:700;color:var(--pos);font-size:14px">+ 113 370 €</div></div>
+          <div><div style="color:var(--t3);font-size:10px">Projection annuelle</div><div style="font-weight:700;font-size:14px">+ 340 000 €</div></div>
+          <div><div style="color:var(--t3);font-size:10px">Estimation IR/IS 2026</div><div style="font-weight:700;font-size:14px;color:var(--warn)">~ 102 000 €</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Switcher de vues
+  const views = ['solo', 'premium', 'gestion', 'agence', 'compta'];
+  document.querySelectorAll('.view-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTo(btn.dataset.view));
+  });
+  function switchTo(view) {
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    document.querySelectorAll('.stage').forEach(s => s.style.display = 'none');
+    if (view === 'compta') {
+      document.getElementById('view-agence').style.display = 'grid';
+      showCompta();
+    } else {
+      document.getElementById('view-' + view).style.display = 'grid';
+      hideCompta();
+    }
+  }
+  function showCompta() {
+    document.getElementById('compta-overlay').classList.add('show');
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === 'compta'));
+  }
+  function hideCompta() {
+    document.getElementById('compta-overlay').classList.remove('show');
+  }
+  // Raccourcis clavier
+  document.addEventListener('keydown', e => {
+    const idx = ['1','2','3','4','5'].indexOf(e.key);
+    if (idx >= 0) switchTo(views[idx]);
+    if (e.key === 'Escape') hideCompta();
+  });
+</script>
+
+</body>
+</html>
