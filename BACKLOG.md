@@ -335,6 +335,18 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### DASH-REFONTE-GLOBALE-V4 CP1 — Fondations (sandbox v15.36) — session 2026-05-15 (~2h)
+> CP1 / 4 livré sandbox `index-test.html` (master, sandbox-first) :
+> - **Thème dark forcé par défaut** quand `DB.params.dashRenderV === 'v2'` et aucune préf user explicite (`_applyStoredPrefs`). Cohérence sidebar/main. Préf user respectée si déjà set.
+> - **Sidebar V4** : sections collapsibles individuellement (chevron + click titre, état persisté `immotrack_sb_sections_collapsed`) · entités épinglées top 3 par revenus annuels (clic = filtre dashboard sur entité) · footer DK (avatar initiales + nom + lien Paramètres). No-op si `dashRenderV !== 'v2'` (sidebar v1 préservée).
+> - **Bandeau Priorisation dédupliqué** par `type` dans `_renderTopBandeauPrio` (ex. 3× "MRH manquante" → "Assurances × 3"). CSS responsive corrigé : `-webkit-line-clamp: 2` sur title + sub, `white-space: nowrap` retiré.
+> - **Widget "À TRAITER" retiré du grid v2 par défaut** : `DASH_DEFAULT_LAYOUT.todo-unified.visible = false` + ajout dans `hide` Sets des presets `proprio` + `gestion`. Widget `_todoV2` toujours rendable si réactivé en Custom. Drill `_DD['todo-unified']` préservé (bandeau CTA "DÉMARRER →"). Hero passe `col: 12` (pleine largeur — prépare CP2 cockpit narrative).
+> - **Bump v15.36** (title HTML + sidebar logo).
+>
+> Helpers métier intacts (`_computeUnifiedTodo`, `_TODO_TYPE_META`, `_buildHeroDrill`, `_mkSparkline`, 23 drill-downs).
+>
+> **À valider** : capture user pour passer à CP2 (cockpit Stripe narrative). **Sujet** : [DASH-REFONTE-GLOBALE-V4.md](docs/subjects/DASH-REFONTE-GLOBALE-V4.md).
+
 ### v15.21 quick win UX — retrait bouton « Mettre à jour les loyers » Pilotage — session 2026-05-15 (~5 min)
 > User : *« Mettre à jour les loyers ? quel est l'utilité ? »*. Bouton retiré du Pilotage (révision IRL reste accessible via l'onglet Révision IRL + cas par cas par bail). Fonction `_pilOpenBulkMajIrl()` conservée @deprecated.
 

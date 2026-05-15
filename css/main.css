@@ -361,9 +361,94 @@ a{color:var(--blu);text-decoration:none}
   text-transform:uppercase;letter-spacing:1.4px;
   padding:12px 20px 5px;
   white-space:nowrap;overflow:hidden;
-  transition:opacity 180ms;
+  transition:opacity 180ms,color .15s;
+  /* v15.36 DASH-REFONTE-GLOBALE-V4 CP1 : titres cliquables (plier/déplier) */
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;user-select:none;
 }
-.sb-nav.sb-collapsed .sb-section-title{opacity:0;padding-left:0;padding-right:0}
+.sb-section-title:hover{color:rgba(255,255,255,.6)}
+.sb-section-title:focus-visible{outline:2px solid rgba(126,177,255,.6);outline-offset:-2px;border-radius:4px}
+.sb-chev{
+  font-size:9px;opacity:.55;transition:transform .2s;
+  flex-shrink:0;margin-left:6px;
+}
+.sb-section.sb-section-collapsed .sb-chev{transform:rotate(-90deg)}
+.sb-section.sb-section-collapsed .ni{
+  max-height:0;overflow:hidden;padding-top:0;padding-bottom:0;opacity:0;
+  pointer-events:none;
+}
+.sb-nav.sb-collapsed .sb-section-title{opacity:0;padding-left:0;padding-right:0;cursor:default}
+.sb-nav.sb-collapsed .sb-chev{display:none}
+
+/* v15.36 DASH-REFONTE-GLOBALE-V4 CP1 — Entités épinglées top 3 par revenus (mode v2) */
+.sb-pinned{
+  padding:4px 0 8px;
+  border-top:1px solid rgba(255,255,255,.07);
+  margin-top:4px;
+}
+.sb-pinned:empty{display:none}
+.sb-pinned .sb-pinned-title{
+  font-size:11px;font-weight:700;color:rgba(255,255,255,.35);
+  text-transform:uppercase;letter-spacing:1.4px;
+  padding:12px 20px 5px;
+  cursor:default;
+}
+.sb-pinned-ent{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 18px;margin:1px 8px;border-radius:7px;
+  color:rgba(255,255,255,.7);font-size:12.5px;font-weight:500;
+  cursor:pointer;transition:background var(--t-fast),color var(--t-fast);
+  white-space:nowrap;overflow:hidden;
+}
+.sb-pinned-ent:hover{background:rgba(255,255,255,.06);color:#fff}
+.sb-pinned-ent:focus-visible{outline:2px solid rgba(126,177,255,.6);outline-offset:-2px}
+.sb-pinned-ic{font-size:14px;flex-shrink:0;line-height:1;opacity:.85}
+.sb-pinned-name{flex:1;overflow:hidden;text-overflow:ellipsis}
+.sb-pinned-rev{
+  font-family:'JetBrains Mono','SF Mono',monospace;
+  font-size:11px;font-weight:600;color:rgba(126,177,255,.85);
+  flex-shrink:0;letter-spacing:.02em;
+}
+.sb-nav.sb-collapsed .sb-pinned{padding:4px 0}
+.sb-nav.sb-collapsed .sb-pinned-title{display:none}
+.sb-nav.sb-collapsed .sb-pinned-name,
+.sb-nav.sb-collapsed .sb-pinned-rev{opacity:0;width:0;overflow:hidden}
+.sb-nav.sb-collapsed .sb-pinned-ent{justify-content:center;padding:7px 0;margin:1px 4px}
+
+/* v15.36 DASH-REFONTE-GLOBALE-V4 CP1 — Footer utilisateur sidebar (avatar + nom + lien Paramètres) */
+.sb-user-footer{
+  margin-top:auto;padding:12px 14px;
+  border-top:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;gap:10px;
+  flex-shrink:0;overflow:hidden;
+}
+.sb-user-footer:empty{display:none}
+.sb-user-avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,#0E73F6,#00CCBC);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Manrope',sans-serif;font-weight:700;font-size:12px;
+  color:#fff;flex-shrink:0;letter-spacing:.02em;
+}
+.sb-user-info{
+  display:flex;flex-direction:column;gap:1px;
+  overflow:hidden;flex:1;min-width:0;
+  transition:opacity 180ms,width 180ms;
+}
+.sb-user-name{
+  font-size:13px;color:rgba(255,255,255,.92);font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sb-user-link{
+  background:transparent;border:none;cursor:pointer;
+  color:rgba(255,255,255,.5);font-size:11px;font-weight:500;
+  text-align:left;padding:0;font-family:inherit;
+  transition:color .15s;
+}
+.sb-user-link:hover{color:rgba(126,177,255,1)}
+.sb-user-link:focus-visible{outline:2px solid rgba(126,177,255,.6);outline-offset:2px;border-radius:3px}
+.sb-nav.sb-collapsed .sb-user-info{opacity:0;width:0}
+.sb-nav.sb-collapsed .sb-user-footer{justify-content:center;padding:12px 0}
 
 /* Nav items (v2 Phase 7 polish : typo plus large + hover plus doux) */
 .ni{
@@ -4261,14 +4346,22 @@ textarea.field-modified-since-sig{
   color: var(--t1);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  /* v15.36 CP1 — retiré white-space:nowrap : titre peut faire 2 lignes en tablette/mobile sans tronquage agressif */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
 }
 .dash-prio-card-sub {
   font-size: 11px;
   color: var(--t3);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  /* v15.36 CP1 — line-clamp 2 lignes max (au lieu de nowrap qui tronquait dès 1 mot) */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
 }
 .dash-prio-card-arrow {
   flex-shrink: 0;
