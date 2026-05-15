@@ -1,0 +1,2589 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440,initial-scale=1">
+<title>ImmoTrack — Dashboard v2 « wahoo » (mockup 2026-05-15)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════════════════
+   MOCKUP DASHBOARD v2 « WAHOO » — 2026-05-15
+   3 profils (Solo · Gestionnaire · Pro) × 3 thèmes (Sobre · Coloré · Dark) = 9
+   Inspirations : Boursorama (couleurs, sobriété chiffrée) + Deliveroo (gros CTA, action-oriented)
+   Contrainte dure : 1 écran 1440×900 (et 1920×1080) sans scroll dans chaque mockup
+   Zéro jargon : pas de DDT / IRL / MRH / EDL / CREP dans les libellés UI
+   ════════════════════════════════════════════════════════════════════════ */
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:#e8eaf0;
+  font-family:'Inter','system-ui',-apple-system,'Segoe UI',Roboto,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  color:#0d1420;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;padding:0}
+a{color:inherit;text-decoration:none}
+
+/* ════════════════════════════════════════════════════════════════════════
+   CONTROLLEUR EN HAUT DU DOC — Choix profil + thème
+   ════════════════════════════════════════════════════════════════════════ */
+.doc-header{
+  position:sticky;top:0;z-index:50;
+  background:linear-gradient(180deg,#1A1F36 0%,#252b48 100%);
+  color:#fff;
+  padding:20px 28px;
+  box-shadow:0 4px 24px rgba(13,20,32,.18);
+}
+.doc-header h1{margin:0 0 4px;font-size:18px;font-weight:800;letter-spacing:-.01em}
+.doc-header .sub{font-size:12.5px;color:#a0a8c3;margin-bottom:14px}
+.doc-tabs{display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+.doc-tab-group{display:flex;align-items:center;gap:10px}
+.doc-tab-label{
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;
+  color:#a0a8c3;font-weight:700
+}
+.doc-tab-row{display:inline-flex;background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.10);border-radius:10px;padding:3px;gap:2px}
+.doc-tab-row button{
+  padding:7px 14px;font-size:12.5px;font-weight:600;
+  color:#cfd5e8;border-radius:7px;transition:all .18s ease;
+  display:inline-flex;align-items:center;gap:6px
+}
+.doc-tab-row button:hover{color:#fff;background:rgba(255,255,255,.06)}
+.doc-tab-row button.act{background:#00CCBC;color:#0d1420;font-weight:700;box-shadow:0 2px 8px rgba(0,204,188,.34)}
+.doc-tab-row button.act.theme-sobre{background:#fff;color:#0d1420}
+.doc-tab-row button.act.theme-color{background:linear-gradient(135deg,#FF4D7C,#FFB200);color:#fff}
+.doc-tab-row button.act.theme-dark{background:#0E73F6;color:#fff}
+.doc-legend{font-size:11.5px;color:#9098b0;margin-left:auto;align-self:center}
+.doc-legend kbd{
+  display:inline-block;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.15);
+  padding:1px 6px;border-radius:4px;font-size:10.5px;
+  font-family:ui-monospace,'SFMono-Regular',monospace
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   STAGE — viewport unique 1440×900 affichant un seul mockup à la fois
+   ════════════════════════════════════════════════════════════════════════ */
+.stage{
+  width:1440px;
+  height:900px;
+  margin:24px auto;
+  position:relative;
+  overflow:hidden;
+  border-radius:14px;
+  box-shadow:0 20px 60px rgba(13,20,32,.22),0 6px 18px rgba(13,20,32,.10);
+  background:#fff;
+}
+.mockup{
+  position:absolute;inset:0;
+  display:none;
+  flex-direction:column;
+  overflow:hidden;
+}
+.mockup.show{display:flex;animation:fadeIn .3s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.mockup-label{
+  position:absolute;top:10px;right:14px;z-index:30;
+  background:rgba(13,20,32,.78);color:#fff;
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 10px;border-radius:6px;
+  backdrop-filter:blur(8px);
+  pointer-events:none
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   TOKENS COMMUNS PAR MOCKUP (override via .mockup data-theme)
+   ════════════════════════════════════════════════════════════════════════ */
+.mockup{
+  /* sobre defaults */
+  --bg:#f4f6fa;
+  --sur:#fff;
+  --sur2:#f9fafc;
+  --sur3:#eef2f7;
+  --bor:#e5e9f1;
+  --bor2:#eef1f6;
+  --t1:#0d1420;
+  --t2:#475569;
+  --t3:#94a3b8;
+  --acc:#0d1420;
+  --acc2:#1a233a;
+  --acc-soft:#eef1f6;
+  --cta:#0d1420;
+  --cta-h:#1f2538;
+  --cta-text:#fff;
+  --pos:#16a34a;
+  --pos-soft:#dcfce7;
+  --neg:#dc2626;
+  --neg-soft:#fee2e2;
+  --warn:#ea580c;
+  --warn-soft:#fff1e8;
+  --info:#0e73f6;
+  --info-soft:#e6efff;
+  --shadow-s:0 1px 2px rgba(13,20,32,.05);
+  --shadow-m:0 4px 14px rgba(13,20,32,.07);
+  --shadow-lg:0 12px 32px rgba(13,20,32,.10);
+  --r:10px;
+  --rl:14px;
+  --rxl:18px;
+  background:var(--bg);
+  color:var(--t1);
+}
+
+/* ── THÈME COLORÉ (palette riche Deliveroo-like) ── */
+.mockup[data-theme="color"]{
+  --bg:#fff8f2;
+  --sur:#fff;
+  --sur2:#fffaf4;
+  --sur3:#fff1e3;
+  --bor:#ffd9b8;
+  --bor2:#ffe8d2;
+  --t1:#1a0f04;
+  --t2:#6b4a2a;
+  --t3:#b59575;
+  --acc:#FF4D7C;
+  --acc2:#FF8DA1;
+  --acc-soft:#ffe1ea;
+  --cta:#00CCBC;
+  --cta-h:#00b3a6;
+  --cta-text:#0d1420;
+  --pos:#00A878;
+  --pos-soft:#d1f4e6;
+  --neg:#E0234E;
+  --neg-soft:#ffd9e2;
+  --warn:#FF8400;
+  --warn-soft:#ffe6cc;
+  --info:#7B5BFF;
+  --info-soft:#e8e0ff;
+  --shadow-s:0 1px 2px rgba(255,77,124,.06);
+  --shadow-m:0 6px 22px rgba(255,77,124,.12);
+  --shadow-lg:0 16px 40px rgba(255,77,124,.18);
+}
+
+/* ── THÈME DARK BOURSORAMA (bleu nuit) ── */
+.mockup[data-theme="dark"]{
+  --bg:#0A0E27;
+  --sur:#141936;
+  --sur2:#1A1F36;
+  --sur3:#252b48;
+  --bor:rgba(255,255,255,.08);
+  --bor2:rgba(255,255,255,.05);
+  --t1:#F3F5FA;
+  --t2:#A0A8C3;
+  --t3:#6B7395;
+  --acc:#0E73F6;
+  --acc2:#3A8EFB;
+  --acc-soft:rgba(14,115,246,.14);
+  --cta:#00CCBC;
+  --cta-h:#1adbcb;
+  --cta-text:#0A0E27;
+  --pos:#34D399;
+  --pos-soft:rgba(52,211,153,.14);
+  --neg:#F87171;
+  --neg-soft:rgba(248,113,113,.14);
+  --warn:#FBB040;
+  --warn-soft:rgba(251,176,64,.14);
+  --info:#5C8AFF;
+  --info-soft:rgba(92,138,255,.14);
+  --shadow-s:0 1px 2px rgba(0,0,0,.35);
+  --shadow-m:0 4px 18px rgba(0,0,0,.45);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.55);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   LAYOUT DE BASE — sidebar + main, dans le mockup
+   ════════════════════════════════════════════════════════════════════════ */
+.mk-app{display:grid;grid-template-columns:200px 1fr;height:100%;width:100%}
+
+/* ── SIDEBAR ── */
+.mk-side{
+  background:var(--sur2);
+  border-right:1px solid var(--bor);
+  padding:18px 12px;
+  display:flex;flex-direction:column;gap:2px
+}
+.mk-brand{
+  display:flex;align-items:center;gap:10px;
+  padding:4px 8px 18px;
+  font-weight:800;font-size:15.5px;letter-spacing:-.02em;
+  color:var(--t1)
+}
+.mk-brand-logo{
+  width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  display:grid;place-items:center;color:#fff;font-size:14px;font-weight:900;
+  box-shadow:var(--shadow-s)
+}
+.mockup[data-theme="sobre"] .mk-brand-logo{background:#0d1420;color:#fff}
+.mk-nav{display:flex;flex-direction:column;gap:1px}
+.mk-nav-i{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 10px;border-radius:8px;
+  font-size:13px;font-weight:500;color:var(--t2);
+  cursor:pointer;transition:all .14s ease
+}
+.mk-nav-i:hover{background:var(--sur3);color:var(--t1)}
+.mk-nav-i.act{background:var(--acc-soft);color:var(--acc);font-weight:700}
+.mockup[data-theme="sobre"] .mk-nav-i.act{background:#0d1420;color:#fff}
+.mk-nav-ic{width:16px;font-size:14px;opacity:.9;text-align:center}
+.mk-nav-sep{height:1px;background:var(--bor);margin:10px 6px}
+.mk-side-foot{
+  margin-top:auto;font-size:11px;color:var(--t3);padding:8px 8px 0;
+  border-top:1px solid var(--bor2)
+}
+
+/* ── MAIN ── */
+.mk-main{
+  display:flex;flex-direction:column;
+  padding:14px 20px 14px;
+  min-width:0;height:100%;overflow:hidden
+}
+
+/* TOPBAR */
+.mk-top{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;gap:14px;flex-shrink:0
+}
+.mk-greet h2{margin:0;font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--t1)}
+.mk-greet p{margin:2px 0 0;font-size:12px;color:var(--t2)}
+.mk-actions-top{display:flex;align-items:center;gap:8px}
+.mk-search{
+  display:flex;align-items:center;gap:6px;
+  background:var(--sur);border:1px solid var(--bor);
+  padding:6px 10px;border-radius:9px;
+  font-size:12px;color:var(--t3);
+  min-width:200px;box-shadow:var(--shadow-s)
+}
+.mk-search kbd{
+  background:var(--sur3);border:1px solid var(--bor2);
+  padding:1px 5px;border-radius:4px;font-size:10px;font-family:ui-monospace,monospace;
+  color:var(--t2);margin-left:auto
+}
+.mk-avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;
+  box-shadow:var(--shadow-s);cursor:pointer
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   GRID & CARDS COMMUNS
+   ════════════════════════════════════════════════════════════════════════ */
+.mk-grid{
+  display:grid;grid-template-columns:repeat(12,1fr);
+  gap:11px;flex:1;min-height:0
+}
+.mk-card{
+  background:var(--sur);border:1px solid var(--bor);
+  border-radius:var(--rl);padding:14px 16px;
+  box-shadow:var(--shadow-s);
+  display:flex;flex-direction:column;gap:10px;
+  min-height:0;overflow:hidden;
+  position:relative
+}
+.mockup[data-theme="color"] .mk-card{border:1px solid var(--bor);box-shadow:0 1px 0 rgba(255,77,124,.04),0 4px 14px rgba(255,77,124,.06)}
+.mk-card-h{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0
+}
+.mk-card-t{
+  font-size:10.5px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--t3)
+}
+.mk-card-x{
+  font-size:11.5px;color:var(--t2);font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:3px
+}
+.mk-card-x:hover{color:var(--acc)}
+
+/* CTA Deliveroo-style */
+.mk-cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:11px 16px;border-radius:10px;
+  background:var(--cta);color:var(--cta-text);
+  font-size:13.5px;font-weight:700;letter-spacing:-.005em;
+  cursor:pointer;transition:all .18s ease;
+  box-shadow:0 2px 0 rgba(13,20,32,.08);
+  white-space:nowrap
+}
+.mk-cta:hover{background:var(--cta-h);transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,204,188,.32)}
+.mk-cta.lg{padding:14px 20px;font-size:15px;border-radius:12px}
+.mk-cta.sm{padding:7px 12px;font-size:12px;border-radius:8px}
+.mk-cta.ghost{
+  background:var(--sur);color:var(--t1);border:1px solid var(--bor);
+  box-shadow:none
+}
+.mk-cta.ghost:hover{background:var(--sur3);box-shadow:var(--shadow-s)}
+.mk-cta.danger{background:var(--neg);color:#fff}
+.mk-cta.danger:hover{background:#b91c1c}
+
+/* Chip */
+.mk-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700
+}
+.mk-chip.pos{background:var(--pos-soft);color:var(--pos)}
+.mk-chip.neg{background:var(--neg-soft);color:var(--neg)}
+.mk-chip.warn{background:var(--warn-soft);color:var(--warn)}
+.mk-chip.info{background:var(--info-soft);color:var(--info)}
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOCKUPS SOLO
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* HERO Solo : 1 question + 1 réponse + 1 CTA gros */
+.solo-hero{grid-column:span 8;grid-row:span 6;
+  display:flex;flex-direction:column;gap:12px;
+  background:linear-gradient(135deg,var(--sur) 0%,var(--sur2) 100%);
+  position:relative;overflow:hidden
+}
+.solo-hero::before{
+  content:"";position:absolute;top:-40px;right:-30px;
+  width:240px;height:240px;border-radius:50%;
+  background:radial-gradient(circle,var(--acc-soft) 0%,transparent 70%);
+  pointer-events:none
+}
+.solo-hero-q{
+  font-size:14px;color:var(--t2);font-weight:500;
+  display:flex;align-items:center;gap:8px
+}
+.solo-hero-q strong{color:var(--t1);font-weight:700}
+.solo-answer{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap
+}
+.solo-answer-big{
+  font-size:60px;font-weight:900;letter-spacing:-.04em;line-height:.95;
+  color:var(--pos);font-feature-settings:"tnum"
+}
+.mockup[data-theme="dark"] .solo-answer-big{
+  background:linear-gradient(135deg,#34D399 0%,#5EEAD4 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+.mockup[data-theme="color"] .solo-answer-big{
+  background:linear-gradient(135deg,#00A878,#FF4D7C);
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+.solo-answer-yes{
+  font-size:13px;font-weight:700;
+  background:var(--pos-soft);color:var(--pos);
+  padding:5px 10px;border-radius:999px
+}
+.solo-money-detail{
+  display:flex;gap:20px;flex-wrap:wrap;font-size:12.5px;color:var(--t2)
+}
+.solo-money-detail strong{color:var(--t1);font-feature-settings:"tnum";font-weight:700}
+.solo-progress{
+  height:10px;background:var(--sur3);border-radius:6px;overflow:hidden;
+  position:relative;margin-top:4px
+}
+.solo-progress-fill{
+  height:100%;background:linear-gradient(90deg,var(--pos),var(--cta));
+  border-radius:6px
+}
+.mockup[data-theme="color"] .solo-progress-fill{background:linear-gradient(90deg,#00A878,#00CCBC,#FF8400)}
+.solo-progress-l{display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-top:2px}
+
+/* Carrousel logements Solo */
+.solo-bien{
+  display:flex;gap:10px;padding:10px 12px;
+  border:1px solid var(--bor);border-radius:12px;
+  background:var(--sur);align-items:center;
+  cursor:pointer;transition:all .16s ease
+}
+.solo-bien:hover{border-color:var(--acc);transform:translateY(-1px);box-shadow:var(--shadow-m)}
+.solo-bien-img{
+  width:46px;height:46px;border-radius:10px;
+  background:linear-gradient(135deg,#e0e7ff,#c7d2fe);
+  flex-shrink:0;font-size:22px;display:grid;place-items:center
+}
+.solo-bien-img.b2{background:linear-gradient(135deg,#fce7f3,#fbcfe8)}
+.solo-bien-img.b3{background:linear-gradient(135deg,#dbeafe,#bfdbfe)}
+.solo-bien-body{flex:1;min-width:0}
+.solo-bien-t{font-size:13.5px;font-weight:700;color:var(--t1);margin-bottom:1px}
+.solo-bien-s{font-size:11.5px;color:var(--t2)}
+.solo-bien-r{font-size:14px;font-weight:800;color:var(--t1);font-feature-settings:"tnum"}
+
+/* À FAIRE Solo - liste verticale */
+.solo-todo{grid-column:span 4;grid-row:span 6;display:flex;flex-direction:column;gap:8px}
+.solo-todo-list{display:flex;flex-direction:column;gap:8px;flex:1;overflow:hidden}
+.solo-todo-i{
+  display:flex;gap:10px;padding:11px;
+  border:1px solid var(--bor);border-radius:11px;
+  background:var(--sur);
+  align-items:center;cursor:pointer;transition:all .14s
+}
+.solo-todo-i:hover{border-color:var(--acc);transform:translateX(2px);box-shadow:var(--shadow-s)}
+.solo-todo-ic{
+  width:36px;height:36px;border-radius:10px;
+  display:grid;place-items:center;font-size:16px;flex-shrink:0
+}
+.solo-todo-ic.neg{background:var(--neg-soft);color:var(--neg)}
+.solo-todo-ic.warn{background:var(--warn-soft);color:var(--warn)}
+.solo-todo-ic.info{background:var(--info-soft);color:var(--info)}
+.solo-todo-body{flex:1;min-width:0}
+.solo-todo-t{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:1px}
+.solo-todo-s{font-size:11.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.solo-todo-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:6px;color:var(--t3);font-size:12.5px;
+  padding:20px
+}
+
+/* AGENDA — sous-titre + petits items */
+.solo-agenda{grid-column:span 8;grid-row:span 3;
+  display:flex;flex-direction:column;gap:8px}
+.solo-agenda-row{display:flex;gap:10px;flex:1;align-items:stretch}
+.solo-agenda-day{
+  flex:1;padding:8px 10px;border-radius:10px;
+  background:var(--sur2);border:1px solid var(--bor2);
+  display:flex;flex-direction:column;gap:3px;min-width:0
+}
+.solo-agenda-day.alert{background:var(--neg-soft);border-color:var(--neg)}
+.solo-agenda-day.warn{background:var(--warn-soft);border-color:var(--warn)}
+.solo-agenda-day.pos{background:var(--pos-soft);border-color:var(--pos)}
+.solo-agenda-d{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.solo-agenda-day.alert .solo-agenda-d{color:var(--neg)}
+.solo-agenda-day.warn .solo-agenda-d{color:var(--warn)}
+.solo-agenda-day.pos .solo-agenda-d{color:var(--pos)}
+.solo-agenda-t{font-size:12px;color:var(--t1);font-weight:600;line-height:1.3}
+.solo-agenda-s{font-size:10.5px;color:var(--t2);margin-top:auto}
+
+/* QUITTANCES Solo */
+.solo-quittances{grid-column:span 4;grid-row:span 3;display:flex;flex-direction:column;gap:8px}
+.solo-quit-list{display:flex;flex-direction:column;gap:5px;flex:1;overflow:hidden}
+.solo-quit-i{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 10px;background:var(--sur2);border:1px solid var(--bor2);
+  border-radius:8px;font-size:12px
+}
+.solo-quit-i strong{font-weight:700;color:var(--t1)}
+.solo-quit-st{
+  font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px
+}
+.solo-quit-st.ok{background:var(--pos-soft);color:var(--pos)}
+.solo-quit-st.todo{background:var(--warn-soft);color:var(--warn)}
+.solo-quit-st.na{background:var(--sur3);color:var(--t3)}
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOCKUPS GESTIONNAIRE — densité, table, action en masse
+   ════════════════════════════════════════════════════════════════════════ */
+
+.ges-kpi-row{grid-column:span 12;grid-row:span 2;display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.ges-kpi{
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  padding:12px 14px;display:flex;flex-direction:column;gap:3px;
+  position:relative;overflow:hidden;cursor:pointer;
+  transition:all .14s
+}
+.ges-kpi:hover{border-color:var(--acc);transform:translateY(-1px);box-shadow:var(--shadow-m)}
+.ges-kpi-l{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:var(--t3)}
+.ges-kpi-v{font-size:24px;font-weight:900;letter-spacing:-.02em;line-height:1.05;color:var(--t1);font-feature-settings:"tnum"}
+.ges-kpi-v small{font-size:13px;font-weight:700;color:var(--t2)}
+.ges-kpi-d{font-size:11px;color:var(--t2);margin-top:1px}
+.ges-kpi-bar{height:4px;background:var(--sur3);border-radius:2px;margin-top:5px;overflow:hidden}
+.ges-kpi-bar i{display:block;height:100%;border-radius:2px;background:var(--pos)}
+.ges-kpi-bar i.warn{background:var(--warn)}
+.ges-kpi-bar i.neg{background:var(--neg)}
+.ges-kpi-bar i.info{background:var(--info)}
+.ges-kpi-spark{position:absolute;right:8px;top:8px;width:60px;height:20px;opacity:.7}
+
+/* Table portfolio */
+.ges-portfolio{grid-column:span 8;grid-row:span 6;display:flex;flex-direction:column}
+.ges-table{
+  flex:1;overflow:hidden;
+  display:flex;flex-direction:column;font-size:12.5px
+}
+.ges-table-h,.ges-table-r{
+  display:grid;
+  grid-template-columns:90px 1.4fr 90px 80px 80px 70px 80px;
+  gap:6px;padding:7px 6px;align-items:center
+}
+.ges-table-h{
+  font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;
+  font-weight:800;border-bottom:1px solid var(--bor);padding-bottom:8px
+}
+.ges-table-r{
+  border-bottom:1px solid var(--bor2);transition:background .14s;cursor:pointer
+}
+.ges-table-r:hover{background:var(--sur2)}
+.ges-table-r:last-child{border-bottom:0}
+.ges-t-id{font-weight:800;color:var(--t1);font-size:12.5px}
+.ges-t-tn{display:flex;flex-direction:column;min-width:0}
+.ges-t-tn-n{font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+.ges-t-tn-s{font-size:11px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ges-t-r{font-weight:700;color:var(--t1);font-feature-settings:"tnum"}
+.ges-t-st{
+  font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:5px;text-align:center;
+  text-transform:uppercase;letter-spacing:.04em
+}
+.ges-t-st.ok{background:var(--pos-soft);color:var(--pos)}
+.ges-t-st.vac{background:var(--warn-soft);color:var(--warn)}
+.ges-t-st.imp{background:var(--neg-soft);color:var(--neg)}
+.ges-t-st.gar{background:var(--info-soft);color:var(--info)}
+.ges-t-pay{font-size:11px;color:var(--t2)}
+.ges-t-pay.ok{color:var(--pos);font-weight:700}
+.ges-t-pay.late{color:var(--neg);font-weight:700}
+.ges-t-act{display:flex;gap:4px;justify-content:flex-end}
+.ges-t-iconbtn{
+  width:26px;height:26px;border-radius:7px;
+  display:grid;place-items:center;
+  background:var(--sur3);color:var(--t2);font-size:13px;
+  cursor:pointer;transition:all .14s
+}
+.ges-t-iconbtn:hover{background:var(--acc);color:#fff}
+
+/* Bulk actions Gestionnaire */
+.ges-bulk{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:9px 12px;background:var(--info-soft);
+  border:1px solid var(--info);border-radius:10px;
+  font-size:12px;font-weight:600;color:var(--info);
+  flex-shrink:0
+}
+.ges-bulk-actions{display:flex;gap:6px}
+
+/* Cash-flow gestionnaire (carte right) */
+.ges-cash{grid-column:span 4;grid-row:span 4;display:flex;flex-direction:column;gap:10px}
+.ges-cash-v{
+  font-size:36px;font-weight:900;letter-spacing:-.03em;line-height:1;color:var(--pos);font-feature-settings:"tnum"
+}
+.mockup[data-theme="dark"] .ges-cash-v{
+  background:linear-gradient(135deg,#34D399,#5EEAD4);
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+.ges-cash-d{font-size:12px;color:var(--t2)}
+.ges-cash-d strong{color:var(--t1);font-feature-settings:"tnum"}
+.ges-cash-spl{height:62px;width:100%}
+.ges-cash-bd{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px}
+.ges-cash-cell{
+  padding:8px 10px;background:var(--sur2);border:1px solid var(--bor2);
+  border-radius:8px
+}
+.ges-cash-cell-l{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);font-weight:800}
+.ges-cash-cell-v{font-size:15px;font-weight:800;color:var(--t1);margin-top:1px;font-feature-settings:"tnum"}
+.ges-cash-cell-v.neg{color:var(--neg)}
+
+/* Action queue (right column) */
+.ges-queue{grid-column:span 4;grid-row:span 2;display:flex;flex-direction:column;gap:8px}
+.ges-queue-list{display:flex;flex-direction:column;gap:6px;flex:1;overflow:hidden}
+.ges-queue-i{
+  display:flex;align-items:center;gap:9px;
+  padding:7px 9px;border-radius:9px;
+  background:var(--sur2);border:1px solid var(--bor2);cursor:pointer;
+  transition:all .14s;font-size:11.5px
+}
+.ges-queue-i:hover{background:var(--sur3);border-color:var(--acc)}
+.ges-queue-ic{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:12px;flex-shrink:0}
+.ges-queue-ic.neg{background:var(--neg-soft);color:var(--neg)}
+.ges-queue-ic.warn{background:var(--warn-soft);color:var(--warn)}
+.ges-queue-ic.info{background:var(--info-soft);color:var(--info)}
+.ges-queue-t{flex:1;min-width:0;color:var(--t1);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ges-queue-n{font-size:11px;font-weight:800;color:var(--t2);background:var(--sur3);padding:2px 6px;border-radius:6px}
+
+/* ════════════════════════════════════════════════════════════════════════
+   MOCKUPS PRO — vue exécutive multi-bailleurs
+   ════════════════════════════════════════════════════════════════════════ */
+
+.pro-exec{grid-column:span 12;grid-row:span 3;display:grid;grid-template-columns:1.8fr repeat(4,1fr);gap:11px}
+.pro-cf-card{
+  background:linear-gradient(135deg,var(--sur) 0%,var(--sur2) 100%);
+  border:1px solid var(--bor);border-radius:var(--rl);
+  padding:16px 18px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  position:relative;overflow:hidden
+}
+.mockup[data-theme="dark"] .pro-cf-card{
+  background:linear-gradient(135deg,#1A1F36 0%,#252b48 100%);
+  border-color:rgba(255,255,255,.08)
+}
+.pro-cf-card::before{
+  content:"";position:absolute;top:-30px;right:-50px;
+  width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle,var(--cta)/30 0%,transparent 70%);
+  opacity:.18;pointer-events:none
+}
+.pro-cf-l{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--t3)}
+.pro-cf-v{
+  font-size:44px;font-weight:900;letter-spacing:-.03em;line-height:1;
+  color:var(--pos);font-feature-settings:"tnum";margin-top:6px
+}
+.mockup[data-theme="dark"] .pro-cf-v{
+  background:linear-gradient(135deg,#34D399,#5EEAD4);
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+.mockup[data-theme="color"] .pro-cf-v{
+  background:linear-gradient(135deg,#FF4D7C,#FFB200);
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+.pro-cf-sub{display:flex;gap:14px;font-size:12px;color:var(--t2);margin-top:6px;flex-wrap:wrap}
+.pro-cf-sub strong{color:var(--t1);font-feature-settings:"tnum"}
+
+.pro-kpi{
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  padding:12px 14px;display:flex;flex-direction:column;gap:4px;
+  cursor:pointer;transition:all .14s;position:relative;overflow:hidden
+}
+.pro-kpi:hover{transform:translateY(-1px);border-color:var(--acc);box-shadow:var(--shadow-m)}
+.pro-kpi-l{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:var(--t3)}
+.pro-kpi-v{font-size:22px;font-weight:900;letter-spacing:-.02em;line-height:1.05;color:var(--t1);font-feature-settings:"tnum"}
+.pro-kpi-v small{font-size:12px;color:var(--t2);font-weight:700}
+.pro-kpi-d{font-size:11px;color:var(--t2)}
+
+/* Tableau bailleurs */
+.pro-clients{grid-column:span 7;grid-row:span 5;display:flex;flex-direction:column;gap:10px}
+.pro-clients-table{flex:1;display:flex;flex-direction:column;font-size:12px}
+.pro-cl-h,.pro-cl-r{
+  display:grid;grid-template-columns:1.5fr 70px 90px 100px 80px 70px;
+  gap:6px;padding:8px 6px;align-items:center
+}
+.pro-cl-h{font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:800;border-bottom:1px solid var(--bor)}
+.pro-cl-r{border-bottom:1px solid var(--bor2);cursor:pointer;transition:background .14s}
+.pro-cl-r:hover{background:var(--sur2)}
+.pro-cl-r:last-child{border-bottom:0}
+.pro-cl-name{display:flex;align-items:center;gap:9px;min-width:0}
+.pro-cl-av{width:30px;height:30px;border-radius:9px;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0}
+.pro-cl-ntn{font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pro-cl-nts{font-size:10.5px;color:var(--t2)}
+.pro-cl-lots{font-weight:700;color:var(--t1);font-feature-settings:"tnum"}
+.pro-cl-cf{font-weight:800;color:var(--pos);font-feature-settings:"tnum"}
+.pro-cl-cf.neg{color:var(--neg)}
+.pro-cl-trend{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t2)}
+.pro-cl-occ{
+  position:relative;height:22px;background:var(--sur3);border-radius:5px;overflow:hidden;
+  font-size:10.5px;font-weight:800
+}
+.pro-cl-occ i{position:absolute;left:0;top:0;bottom:0;background:var(--pos)}
+.pro-cl-occ i.warn{background:var(--warn)}
+.pro-cl-occ i.neg{background:var(--neg)}
+.pro-cl-occ span{position:relative;padding:0 6px;line-height:22px;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.15)}
+
+/* Alerts grandes Pro */
+.pro-alerts{grid-column:span 5;grid-row:span 5;display:flex;flex-direction:column;gap:10px}
+.pro-alert-i{
+  display:flex;gap:11px;padding:11px 12px;
+  border:1px solid var(--bor);border-radius:11px;
+  background:var(--sur);align-items:center;cursor:pointer;
+  transition:all .14s
+}
+.pro-alert-i:hover{border-color:var(--acc);transform:translateX(2px);box-shadow:var(--shadow-s)}
+.pro-alert-i.crit{border-color:var(--neg);background:linear-gradient(90deg,var(--neg-soft) 0%,var(--sur) 60%)}
+.mockup[data-theme="dark"] .pro-alert-i.crit{background:linear-gradient(90deg,rgba(248,113,113,.14) 0%,var(--sur) 60%)}
+.pro-alert-ic{
+  width:36px;height:36px;border-radius:10px;
+  display:grid;place-items:center;font-size:18px;flex-shrink:0
+}
+.pro-alert-ic.neg{background:var(--neg-soft);color:var(--neg)}
+.pro-alert-ic.warn{background:var(--warn-soft);color:var(--warn)}
+.pro-alert-ic.info{background:var(--info-soft);color:var(--info)}
+.pro-alert-body{flex:1;min-width:0}
+.pro-alert-t{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:1px}
+.pro-alert-s{font-size:11.5px;color:var(--t2)}
+
+/* ════════════════════════════════════════════════════════════════════════
+   PIED de page commun
+   ════════════════════════════════════════════════════════════════════════ */
+.mk-foot{
+  font-size:10.5px;color:var(--t3);
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:8px;padding-top:8px;border-top:1px solid var(--bor2);
+  flex-shrink:0
+}
+.mk-foot kbd{
+  background:var(--sur2);border:1px solid var(--bor);
+  padding:1px 5px;border-radius:4px;font-size:10px;font-family:ui-monospace,monospace
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     CONTROLLEUR DOC
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="doc-header">
+  <h1>ImmoTrack — Dashboard v2 « wahoo »</h1>
+  <p class="sub">Mockup 2026-05-15 · 3 profils × 3 thèmes = 9 vues · 1 écran 1440×900 · inspirations Boursorama (couleurs) + Deliveroo (action)</p>
+  <div class="doc-tabs">
+    <div class="doc-tab-group">
+      <span class="doc-tab-label">Profil</span>
+      <div class="doc-tab-row" data-group="profile">
+        <button class="act" data-profile="solo">Solo</button>
+        <button data-profile="ges">Gestionnaire</button>
+        <button data-profile="pro">Pro</button>
+      </div>
+    </div>
+    <div class="doc-tab-group">
+      <span class="doc-tab-label">Thème</span>
+      <div class="doc-tab-row" data-group="theme">
+        <button class="act theme-sobre" data-theme="sobre">Sobre</button>
+        <button data-theme="color">Coloré</button>
+        <button data-theme="dark">Dark Boursorama</button>
+      </div>
+    </div>
+    <div class="doc-legend">
+      <kbd>P</kbd> profil · <kbd>T</kbd> thème · Cliquer un widget = comportement réel attendu
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     STAGE — 9 mockups, un seul visible
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div class="stage">
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  SOLO × SOBRE                                                   ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup show" data-profile="solo" data-theme="sobre">
+    <div class="mockup-label">Solo · Sobre</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Accueil</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏠</span>Mes biens</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👤</span>Locataires</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">💶</span>Loyers</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📄</span>Documents</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Calendrier</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Bilan annuel</div>
+        </nav>
+        <div class="mk-side-foot">Didier Keller · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Bonjour Didier 👋</h2>
+            <p>Voici votre situation au vendredi 15 mai 2026</p>
+          </div>
+          <div class="mk-actions-top">
+            <div class="mk-search">🔍 Rechercher... <kbd>⌘K</kbd></div>
+            <div class="mk-avatar">DK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(9,1fr)">
+
+          <!-- HERO : 1 question, 1 réponse, 1 CTA -->
+          <article class="mk-card solo-hero">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Ma question du mois</span>
+              <a class="mk-card-x">Voir le détail →</a>
+            </div>
+            <div class="solo-hero-q">Avez-vous bien été payé en <strong>avril 2026</strong> ?</div>
+            <div class="solo-answer">
+              <span class="solo-answer-big">1 900 €</span>
+              <span class="solo-answer-yes">✓ Oui — 2 loyers sur 3 reçus</span>
+            </div>
+            <div class="solo-money-detail">
+              <span>Loué cette année : <strong>+ 7 580 €</strong></span>
+              <span>Reste à payer : <strong style="color:var(--neg)">800 € (F-001)</strong></span>
+              <span>Charges déjà sorties : <strong>− 1 240 €</strong></span>
+            </div>
+            <div>
+              <div class="solo-progress"><div class="solo-progress-fill" style="width:70%"></div></div>
+              <div class="solo-progress-l"><span>1 900 € reçus sur 2 700 € attendus</span><span>70 %</span></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:auto">
+              <div class="solo-bien">
+                <div class="solo-bien-img">🏠</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Paris 17e</div>
+                  <div class="solo-bien-s" style="color:var(--neg)">⚠ Loyer en retard</div>
+                </div>
+                <div class="solo-bien-r">800 €</div>
+              </div>
+              <div class="solo-bien">
+                <div class="solo-bien-img b2">🏢</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Lyon Part-Dieu</div>
+                  <div class="solo-bien-s" style="color:var(--pos)">✓ Payé le 5 avril</div>
+                </div>
+                <div class="solo-bien-r">1 100 €</div>
+              </div>
+              <div class="solo-bien">
+                <div class="solo-bien-img b3">🚗</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Garage Paris</div>
+                  <div class="solo-bien-s" style="color:var(--pos)">✓ Payé le 3 avril</div>
+                </div>
+                <div class="solo-bien-r">80 €</div>
+              </div>
+            </div>
+          </article>
+
+          <!-- A FAIRE -->
+          <article class="mk-card solo-todo">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Cette semaine</span>
+              <span class="mk-chip neg">3 urgences</span>
+            </div>
+            <div class="solo-todo-list">
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic neg">€</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Relancer Paris 17e</div>
+                  <div class="solo-todo-s">Loyer d'avril 800 € · 35 jours de retard</div>
+                </div>
+              </div>
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic warn">📈</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Augmenter Lyon en juillet</div>
+                  <div class="solo-todo-s">Révision annuelle prévue · + 9 €/mois possible</div>
+                </div>
+              </div>
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic info">🛡️</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Demander l'assurance habitation</div>
+                  <div class="solo-todo-s">Paris 17e · pas encore reçue depuis 2 mois</div>
+                </div>
+              </div>
+              <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+                <button class="mk-cta lg" style="width:100%">Relancer Paris 17e maintenant</button>
+                <button class="mk-cta ghost sm" style="width:100%">Voir tout le calendrier →</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- AGENDA 7j -->
+          <article class="mk-card solo-agenda">
+            <div class="mk-card-h">
+              <span class="mk-card-t">7 prochains jours</span>
+              <a class="mk-card-x">Calendrier complet →</a>
+            </div>
+            <div class="solo-agenda-row">
+              <div class="solo-agenda-day pos">
+                <div class="solo-agenda-d">Lun 18 mai</div>
+                <div class="solo-agenda-t">2 loyers attendus</div>
+                <div class="solo-agenda-s">Lyon + Garage</div>
+              </div>
+              <div class="solo-agenda-day">
+                <div class="solo-agenda-d">Mar 19</div>
+                <div class="solo-agenda-t">Rien de prévu</div>
+              </div>
+              <div class="solo-agenda-day warn">
+                <div class="solo-agenda-d">Mer 20</div>
+                <div class="solo-agenda-t">Quittance à envoyer</div>
+                <div class="solo-agenda-s">Lyon — par mail</div>
+              </div>
+              <div class="solo-agenda-day">
+                <div class="solo-agenda-d">Jeu 21</div>
+                <div class="solo-agenda-t">Rien de prévu</div>
+              </div>
+              <div class="solo-agenda-day alert">
+                <div class="solo-agenda-d">Ven 22</div>
+                <div class="solo-agenda-t">Lettre recommandée</div>
+                <div class="solo-agenda-s">Paris 17e — impayé</div>
+              </div>
+            </div>
+          </article>
+
+          <!-- QUITTANCES -->
+          <article class="mk-card solo-quittances">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Quittances d'avril</span>
+              <a class="mk-card-x">Tout →</a>
+            </div>
+            <div class="solo-quit-list">
+              <div class="solo-quit-i">
+                <span><strong>Paris 17e</strong> · 800 €</span>
+                <span class="solo-quit-st todo">Bloquée</span>
+              </div>
+              <div class="solo-quit-i">
+                <span><strong>Lyon</strong> · 1 100 €</span>
+                <span class="solo-quit-st ok">Générée</span>
+              </div>
+              <div class="solo-quit-i">
+                <span><strong>Garage</strong> · 80 €</span>
+                <span class="solo-quit-st ok">Générée</span>
+              </div>
+            </div>
+            <button class="mk-cta sm" style="width:100%;margin-top:auto">Envoyer les 2 quittances →</button>
+          </article>
+
+        </div>
+
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  SOLO × COLORÉ                                                  ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="solo" data-theme="color">
+    <div class="mockup-label">Solo · Coloré</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Accueil</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏠</span>Mes biens</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👤</span>Locataires</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">💶</span>Loyers</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📄</span>Documents</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Calendrier</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Bilan annuel</div>
+        </nav>
+        <div class="mk-side-foot">Didier Keller · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Bonjour Didier 👋</h2>
+            <p>Voici votre situation au vendredi 15 mai 2026</p>
+          </div>
+          <div class="mk-actions-top">
+            <div class="mk-search">🔍 Rechercher... <kbd>⌘K</kbd></div>
+            <div class="mk-avatar">DK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(9,1fr)">
+
+          <article class="mk-card solo-hero">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Ma question du mois</span>
+              <a class="mk-card-x">Voir le détail →</a>
+            </div>
+            <div class="solo-hero-q">Avez-vous bien été payé en <strong>avril 2026</strong> ?</div>
+            <div class="solo-answer">
+              <span class="solo-answer-big">1 900 €</span>
+              <span class="solo-answer-yes">✓ Oui — 2 loyers sur 3 reçus</span>
+            </div>
+            <div class="solo-money-detail">
+              <span>Loué cette année : <strong>+ 7 580 €</strong></span>
+              <span>Reste à payer : <strong style="color:var(--neg)">800 € (Paris 17e)</strong></span>
+              <span>Charges sorties : <strong>− 1 240 €</strong></span>
+            </div>
+            <div>
+              <div class="solo-progress"><div class="solo-progress-fill" style="width:70%"></div></div>
+              <div class="solo-progress-l"><span>1 900 € reçus sur 2 700 € attendus</span><span>70 %</span></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:auto">
+              <div class="solo-bien">
+                <div class="solo-bien-img" style="background:linear-gradient(135deg,#ffd9e2,#ffb1c5)">🏠</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Paris 17e</div>
+                  <div class="solo-bien-s" style="color:var(--neg)">⚠ Loyer en retard</div>
+                </div>
+                <div class="solo-bien-r">800 €</div>
+              </div>
+              <div class="solo-bien">
+                <div class="solo-bien-img" style="background:linear-gradient(135deg,#d1f4e6,#86e6c0)">🏢</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Lyon Part-Dieu</div>
+                  <div class="solo-bien-s" style="color:var(--pos)">✓ Payé le 5 avril</div>
+                </div>
+                <div class="solo-bien-r">1 100 €</div>
+              </div>
+              <div class="solo-bien">
+                <div class="solo-bien-img" style="background:linear-gradient(135deg,#fff1d6,#ffd699)">🚗</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Garage Paris</div>
+                  <div class="solo-bien-s" style="color:var(--pos)">✓ Payé le 3 avril</div>
+                </div>
+                <div class="solo-bien-r">80 €</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card solo-todo">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Cette semaine</span>
+              <span class="mk-chip neg">3 urgences</span>
+            </div>
+            <div class="solo-todo-list">
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic neg">€</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Relancer Paris 17e</div>
+                  <div class="solo-todo-s">Loyer d'avril 800 € · 35 jours retard</div>
+                </div>
+              </div>
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic warn">📈</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Augmenter Lyon en juillet</div>
+                  <div class="solo-todo-s">Révision annuelle · + 9 €/mois possible</div>
+                </div>
+              </div>
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic info">🛡️</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Demander assurance habitation</div>
+                  <div class="solo-todo-s">Paris 17e · jamais reçue</div>
+                </div>
+              </div>
+              <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+                <button class="mk-cta lg" style="width:100%">Relancer Paris 17e maintenant</button>
+                <button class="mk-cta ghost sm" style="width:100%">Voir tout le calendrier →</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card solo-agenda">
+            <div class="mk-card-h">
+              <span class="mk-card-t">7 prochains jours</span>
+              <a class="mk-card-x">Calendrier complet →</a>
+            </div>
+            <div class="solo-agenda-row">
+              <div class="solo-agenda-day pos">
+                <div class="solo-agenda-d">Lun 18 mai</div>
+                <div class="solo-agenda-t">2 loyers attendus</div>
+                <div class="solo-agenda-s">Lyon + Garage</div>
+              </div>
+              <div class="solo-agenda-day">
+                <div class="solo-agenda-d">Mar 19</div>
+                <div class="solo-agenda-t">Rien de prévu</div>
+              </div>
+              <div class="solo-agenda-day warn">
+                <div class="solo-agenda-d">Mer 20</div>
+                <div class="solo-agenda-t">Quittance à envoyer</div>
+                <div class="solo-agenda-s">Lyon — par mail</div>
+              </div>
+              <div class="solo-agenda-day">
+                <div class="solo-agenda-d">Jeu 21</div>
+                <div class="solo-agenda-t">Rien de prévu</div>
+              </div>
+              <div class="solo-agenda-day alert">
+                <div class="solo-agenda-d">Ven 22</div>
+                <div class="solo-agenda-t">Lettre recommandée</div>
+                <div class="solo-agenda-s">Paris 17e — impayé</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card solo-quittances">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Quittances d'avril</span>
+              <a class="mk-card-x">Tout →</a>
+            </div>
+            <div class="solo-quit-list">
+              <div class="solo-quit-i">
+                <span><strong>Paris 17e</strong> · 800 €</span>
+                <span class="solo-quit-st todo">Bloquée</span>
+              </div>
+              <div class="solo-quit-i">
+                <span><strong>Lyon</strong> · 1 100 €</span>
+                <span class="solo-quit-st ok">Générée</span>
+              </div>
+              <div class="solo-quit-i">
+                <span><strong>Garage</strong> · 80 €</span>
+                <span class="solo-quit-st ok">Générée</span>
+              </div>
+            </div>
+            <button class="mk-cta sm" style="width:100%;margin-top:auto">Envoyer les 2 quittances →</button>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  SOLO × DARK BOURSORAMA                                         ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="solo" data-theme="dark">
+    <div class="mockup-label">Solo · Dark Boursorama</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Accueil</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏠</span>Mes biens</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👤</span>Locataires</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">💶</span>Loyers</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📄</span>Documents</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Calendrier</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Bilan annuel</div>
+        </nav>
+        <div class="mk-side-foot">Didier Keller · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Bonjour Didier 👋</h2>
+            <p>Voici votre situation au vendredi 15 mai 2026</p>
+          </div>
+          <div class="mk-actions-top">
+            <div class="mk-search">🔍 Rechercher... <kbd>⌘K</kbd></div>
+            <div class="mk-avatar">DK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(9,1fr)">
+
+          <article class="mk-card solo-hero">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Ma question du mois</span>
+              <a class="mk-card-x">Voir le détail →</a>
+            </div>
+            <div class="solo-hero-q">Avez-vous bien été payé en <strong>avril 2026</strong> ?</div>
+            <div class="solo-answer">
+              <span class="solo-answer-big">1 900 €</span>
+              <span class="solo-answer-yes">✓ Oui — 2 loyers sur 3 reçus</span>
+            </div>
+            <div class="solo-money-detail">
+              <span>Loué cette année : <strong>+ 7 580 €</strong></span>
+              <span>Reste à payer : <strong style="color:var(--neg)">800 € (Paris 17e)</strong></span>
+              <span>Charges sorties : <strong>− 1 240 €</strong></span>
+            </div>
+            <div>
+              <div class="solo-progress"><div class="solo-progress-fill" style="width:70%"></div></div>
+              <div class="solo-progress-l"><span>1 900 € reçus sur 2 700 € attendus</span><span>70 %</span></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:auto">
+              <div class="solo-bien">
+                <div class="solo-bien-img" style="background:linear-gradient(135deg,rgba(248,113,113,.20),rgba(248,113,113,.40))">🏠</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Paris 17e</div>
+                  <div class="solo-bien-s" style="color:var(--neg)">⚠ Loyer en retard</div>
+                </div>
+                <div class="solo-bien-r">800 €</div>
+              </div>
+              <div class="solo-bien">
+                <div class="solo-bien-img" style="background:linear-gradient(135deg,rgba(52,211,153,.20),rgba(52,211,153,.40))">🏢</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Lyon Part-Dieu</div>
+                  <div class="solo-bien-s" style="color:var(--pos)">✓ Payé le 5 avril</div>
+                </div>
+                <div class="solo-bien-r">1 100 €</div>
+              </div>
+              <div class="solo-bien">
+                <div class="solo-bien-img" style="background:linear-gradient(135deg,rgba(92,138,255,.20),rgba(92,138,255,.40))">🚗</div>
+                <div class="solo-bien-body">
+                  <div class="solo-bien-t">Garage Paris</div>
+                  <div class="solo-bien-s" style="color:var(--pos)">✓ Payé le 3 avril</div>
+                </div>
+                <div class="solo-bien-r">80 €</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card solo-todo">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Cette semaine</span>
+              <span class="mk-chip neg">3 urgences</span>
+            </div>
+            <div class="solo-todo-list">
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic neg">€</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Relancer Paris 17e</div>
+                  <div class="solo-todo-s">Loyer d'avril 800 € · 35 j retard</div>
+                </div>
+              </div>
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic warn">📈</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Augmenter Lyon en juillet</div>
+                  <div class="solo-todo-s">Révision annuelle · + 9 €/mois</div>
+                </div>
+              </div>
+              <div class="solo-todo-i">
+                <div class="solo-todo-ic info">🛡️</div>
+                <div class="solo-todo-body">
+                  <div class="solo-todo-t">Demander assurance habitation</div>
+                  <div class="solo-todo-s">Paris 17e · jamais reçue</div>
+                </div>
+              </div>
+              <div style="margin-top:auto;display:flex;flex-direction:column;gap:7px">
+                <button class="mk-cta lg" style="width:100%">Relancer Paris 17e maintenant</button>
+                <button class="mk-cta ghost sm" style="width:100%">Voir tout le calendrier →</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card solo-agenda">
+            <div class="mk-card-h">
+              <span class="mk-card-t">7 prochains jours</span>
+              <a class="mk-card-x">Calendrier complet →</a>
+            </div>
+            <div class="solo-agenda-row">
+              <div class="solo-agenda-day pos">
+                <div class="solo-agenda-d">Lun 18 mai</div>
+                <div class="solo-agenda-t">2 loyers attendus</div>
+                <div class="solo-agenda-s">Lyon + Garage</div>
+              </div>
+              <div class="solo-agenda-day">
+                <div class="solo-agenda-d">Mar 19</div>
+                <div class="solo-agenda-t">Rien de prévu</div>
+              </div>
+              <div class="solo-agenda-day warn">
+                <div class="solo-agenda-d">Mer 20</div>
+                <div class="solo-agenda-t">Quittance à envoyer</div>
+                <div class="solo-agenda-s">Lyon — par mail</div>
+              </div>
+              <div class="solo-agenda-day">
+                <div class="solo-agenda-d">Jeu 21</div>
+                <div class="solo-agenda-t">Rien de prévu</div>
+              </div>
+              <div class="solo-agenda-day alert">
+                <div class="solo-agenda-d">Ven 22</div>
+                <div class="solo-agenda-t">Lettre recommandée</div>
+                <div class="solo-agenda-s">Paris 17e — impayé</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card solo-quittances">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Quittances d'avril</span>
+              <a class="mk-card-x">Tout →</a>
+            </div>
+            <div class="solo-quit-list">
+              <div class="solo-quit-i">
+                <span><strong>Paris 17e</strong> · 800 €</span>
+                <span class="solo-quit-st todo">Bloquée</span>
+              </div>
+              <div class="solo-quit-i">
+                <span><strong>Lyon</strong> · 1 100 €</span>
+                <span class="solo-quit-st ok">Générée</span>
+              </div>
+              <div class="solo-quit-i">
+                <span><strong>Garage</strong> · 80 €</span>
+                <span class="solo-quit-st ok">Générée</span>
+              </div>
+            </div>
+            <button class="mk-cta sm" style="width:100%;margin-top:auto">Envoyer les 2 quittances →</button>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  GESTIONNAIRE × SOBRE                                           ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="ges" data-theme="sobre">
+    <div class="mockup-label">Gestionnaire · Sobre</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Pilotage</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏢</span>Portefeuille</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👥</span>Locataires</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">€</span>Loyers</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📄</span>Documents</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Agenda</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Reporting</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">⚙</span>Réglages</div>
+        </nav>
+        <div class="mk-side-foot">M. Keller-Hoguet · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Pilotage — vendredi 15 mai 2026</h2>
+            <p>32 lots gérés · 28 occupés · 4 vacants · à scanner ce matin</p>
+          </div>
+          <div class="mk-actions-top">
+            <div class="mk-search">🔍 Filtrer (locataire, lot, ville)... <kbd>⌘K</kbd></div>
+            <button class="mk-cta sm">+ Nouveau lot</button>
+            <div class="mk-avatar">MK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(8,1fr)">
+
+          <!-- KPI ROW -->
+          <div class="ges-kpi-row">
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Taux d'occupation</span>
+              <span class="ges-kpi-v">87,5<small>%</small></span>
+              <span class="ges-kpi-d">28 / 32 lots</span>
+              <div class="ges-kpi-bar"><i style="width:87.5%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Recouvrement avril</span>
+              <span class="ges-kpi-v">94,2<small>%</small></span>
+              <span class="ges-kpi-d" style="color:var(--pos)">▲ +2,1 pts vs mars</span>
+              <div class="ges-kpi-bar"><i style="width:94%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Impayés actifs</span>
+              <span class="ges-kpi-v" style="color:var(--neg)">3</span>
+              <span class="ges-kpi-d">1 750 € à recouvrer</span>
+              <div class="ges-kpi-bar"><i class="neg" style="width:35%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">À faire cette semaine</span>
+              <span class="ges-kpi-v" style="color:var(--warn)">12</span>
+              <span class="ges-kpi-d">7 quittances · 3 relances · 2 visites</span>
+              <div class="ges-kpi-bar"><i class="warn" style="width:60%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Charges récupérables YTD</span>
+              <span class="ges-kpi-v">4 680<small> €</small></span>
+              <span class="ges-kpi-d">À régulariser fin d'année</span>
+              <div class="ges-kpi-bar"><i class="info" style="width:55%"></i></div>
+            </div>
+          </div>
+
+          <!-- TABLE PORTFOLIO -->
+          <article class="mk-card ges-portfolio">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Portefeuille — 32 lots</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="mk-chip warn">3 alertes</span>
+                <a class="mk-card-x">Trier par ville · Statut · Loyer</a>
+              </div>
+            </div>
+            <div class="ges-bulk">
+              <span>⊕ 7 quittances d'avril prêtes à envoyer (Paris 17e bloquée)</span>
+              <div class="ges-bulk-actions">
+                <button class="mk-cta sm">Envoyer les 7</button>
+                <button class="mk-cta sm ghost">Plus tard</button>
+              </div>
+            </div>
+            <div class="ges-table">
+              <div class="ges-table-h">
+                <span>Lot</span><span>Locataire</span><span>Loyer/mois</span>
+                <span>Statut</span><span>Avril</span><span>Quittance</span><span>Actions</span>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-17</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Bertrand · F-001</span><span class="ges-t-tn-s">Entré le 10/03/26</span></div>
+                <span class="ges-t-r">800 €</span>
+                <span class="ges-t-st imp">Impayé</span>
+                <span class="ges-t-pay late">−35 j</span>
+                <span class="ges-t-pay" style="color:var(--warn)">Bloquée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn" title="Relancer">📧</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">LYON-PD</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">Mme Dubois · F-002</span><span class="ges-t-tn-s">Bail 2024</span></div>
+                <span class="ges-t-r">1 100 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 05/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-GAR</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Lopez · F-003</span><span class="ges-t-tn-s">Garage box</span></div>
+                <span class="ges-t-r">80 €</span>
+                <span class="ges-t-st gar">Garage</span>
+                <span class="ges-t-pay ok">✓ 03/04</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">LYON-VAI</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">— Vacant —</span><span class="ges-t-tn-s">Libre depuis 12 j</span></div>
+                <span class="ges-t-r">920 €</span>
+                <span class="ges-t-st vac">Vacant</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">📢</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-11</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">Mme Roche · F-004</span><span class="ges-t-tn-s">Bail meublé</span></div>
+                <span class="ges-t-r">1 250 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 02/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">METZ-01</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Schmitt · F-005</span><span class="ges-t-tn-s">Bail 2023</span></div>
+                <span class="ges-t-r">680 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 06/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">METZ-02</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Martins · F-006</span><span class="ges-t-tn-s">Bail 2025</span></div>
+                <span class="ges-t-r">720 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay" style="color:var(--warn)">Partiel</span>
+                <span class="ges-t-pay" style="color:var(--warn)">En attente</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">📧</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r" style="opacity:.7">
+                <span class="ges-t-id">+ 25</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">autres lots</span><span class="ges-t-tn-s">Voir tout</span></div>
+                <span class="ges-t-r" style="color:var(--t3)">~ 27 k€/mois</span>
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+          </article>
+
+          <!-- CASH-FLOW PORTEFEUILLE -->
+          <article class="mk-card ges-cash">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Cash-flow portefeuille — mai</span>
+              <a class="mk-card-x">12 mois →</a>
+            </div>
+            <div class="ges-cash-v">+ 12 480 €</div>
+            <div class="ges-cash-d">vs avril <strong>+11 320 €</strong> <span class="mk-chip pos">▲ 10,2 %</span></div>
+            <svg class="ges-cash-spl" viewBox="0 0 220 60" preserveAspectRatio="none">
+              <defs><linearGradient id="g-ges-sobre" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#16a34a" stop-opacity=".4"/>
+                <stop offset="100%" stop-color="#16a34a" stop-opacity="0"/>
+              </linearGradient></defs>
+              <path d="M0,40 L22,42 L44,38 L66,36 L88,32 L110,30 L132,28 L154,22 L176,18 L198,14 L220,10 L220,60 L0,60 Z" fill="url(#g-ges-sobre)"/>
+              <path d="M0,40 L22,42 L44,38 L66,36 L88,32 L110,30 L132,28 L154,22 L176,18 L198,14 L220,10" fill="none" stroke="#16a34a" stroke-width="2"/>
+            </svg>
+            <div class="ges-cash-bd">
+              <div class="ges-cash-cell">
+                <div class="ges-cash-cell-l">Encaissé</div>
+                <div class="ges-cash-cell-v">+ 27 840 €</div>
+              </div>
+              <div class="ges-cash-cell">
+                <div class="ges-cash-cell-l">Sorties</div>
+                <div class="ges-cash-cell-v neg">− 15 360 €</div>
+              </div>
+            </div>
+          </article>
+
+          <!-- FILE D'ATTENTE -->
+          <article class="mk-card ges-queue">
+            <div class="mk-card-h">
+              <span class="mk-card-t">File d'attente</span>
+              <span class="mk-chip neg">12</span>
+            </div>
+            <div class="ges-queue-list">
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic neg">€</div>
+                <span class="ges-queue-t">Relancer 3 impayés (LRAR)</span>
+                <span class="ges-queue-n">3</span>
+              </div>
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic warn">📄</div>
+                <span class="ges-queue-t">Envoyer 7 quittances avril</span>
+                <span class="ges-queue-n">7</span>
+              </div>
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic info">🔑</div>
+                <span class="ges-queue-t">Visites Lyon vacant</span>
+                <span class="ges-queue-n">2</span>
+              </div>
+            </div>
+            <button class="mk-cta sm" style="margin-top:auto">Traiter en masse →</button>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  GESTIONNAIRE × COLORÉ                                          ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="ges" data-theme="color">
+    <div class="mockup-label">Gestionnaire · Coloré</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Pilotage</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏢</span>Portefeuille</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👥</span>Locataires</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">€</span>Loyers</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📄</span>Documents</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Agenda</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Reporting</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">⚙</span>Réglages</div>
+        </nav>
+        <div class="mk-side-foot">M. Keller-Hoguet · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Pilotage — vendredi 15 mai 2026</h2>
+            <p>32 lots gérés · 28 occupés · 4 vacants · à scanner ce matin</p>
+          </div>
+          <div class="mk-actions-top">
+            <div class="mk-search">🔍 Filtrer (locataire, lot, ville)... <kbd>⌘K</kbd></div>
+            <button class="mk-cta sm">+ Nouveau lot</button>
+            <div class="mk-avatar">MK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(8,1fr)">
+
+          <div class="ges-kpi-row">
+            <div class="ges-kpi" style="background:linear-gradient(135deg,#fff,#fff7e6);border-color:#ffe0a8">
+              <span class="ges-kpi-l">Taux d'occupation</span>
+              <span class="ges-kpi-v">87,5<small>%</small></span>
+              <span class="ges-kpi-d">28 / 32 lots</span>
+              <div class="ges-kpi-bar"><i style="width:87.5%;background:#FF8400"></i></div>
+            </div>
+            <div class="ges-kpi" style="background:linear-gradient(135deg,#fff,#d1f4e6);border-color:#86e6c0">
+              <span class="ges-kpi-l">Recouvrement avril</span>
+              <span class="ges-kpi-v">94,2<small>%</small></span>
+              <span class="ges-kpi-d" style="color:var(--pos)">▲ +2,1 pts</span>
+              <div class="ges-kpi-bar"><i style="width:94%"></i></div>
+            </div>
+            <div class="ges-kpi" style="background:linear-gradient(135deg,#fff,#ffd9e2);border-color:#ffb1c5">
+              <span class="ges-kpi-l">Impayés actifs</span>
+              <span class="ges-kpi-v" style="color:var(--neg)">3</span>
+              <span class="ges-kpi-d">1 750 € à recouvrer</span>
+              <div class="ges-kpi-bar"><i class="neg" style="width:35%"></i></div>
+            </div>
+            <div class="ges-kpi" style="background:linear-gradient(135deg,#fff,#fff1d6);border-color:#ffd699">
+              <span class="ges-kpi-l">À faire semaine</span>
+              <span class="ges-kpi-v" style="color:var(--warn)">12</span>
+              <span class="ges-kpi-d">7 quittances · 3 relances · 2 visites</span>
+              <div class="ges-kpi-bar"><i class="warn" style="width:60%"></i></div>
+            </div>
+            <div class="ges-kpi" style="background:linear-gradient(135deg,#fff,#e8e0ff);border-color:#c8b8ff">
+              <span class="ges-kpi-l">Charges récupérables</span>
+              <span class="ges-kpi-v">4 680<small> €</small></span>
+              <span class="ges-kpi-d">À régulariser fin d'année</span>
+              <div class="ges-kpi-bar"><i class="info" style="width:55%"></i></div>
+            </div>
+          </div>
+
+          <article class="mk-card ges-portfolio">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Portefeuille — 32 lots</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="mk-chip warn">3 alertes</span>
+                <a class="mk-card-x">Trier par ville · Statut · Loyer</a>
+              </div>
+            </div>
+            <div class="ges-bulk">
+              <span>⊕ 7 quittances d'avril prêtes à envoyer (Paris 17e bloquée)</span>
+              <div class="ges-bulk-actions">
+                <button class="mk-cta sm">Envoyer les 7</button>
+                <button class="mk-cta sm ghost">Plus tard</button>
+              </div>
+            </div>
+            <div class="ges-table">
+              <div class="ges-table-h">
+                <span>Lot</span><span>Locataire</span><span>Loyer/mois</span>
+                <span>Statut</span><span>Avril</span><span>Quittance</span><span>Actions</span>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-17</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Bertrand · F-001</span><span class="ges-t-tn-s">Entré le 10/03/26</span></div>
+                <span class="ges-t-r">800 €</span>
+                <span class="ges-t-st imp">Impayé</span>
+                <span class="ges-t-pay late">−35 j</span>
+                <span class="ges-t-pay" style="color:var(--warn)">Bloquée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn" title="Relancer">📧</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">LYON-PD</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">Mme Dubois · F-002</span><span class="ges-t-tn-s">Bail 2024</span></div>
+                <span class="ges-t-r">1 100 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 05/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-GAR</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Lopez · F-003</span><span class="ges-t-tn-s">Garage box</span></div>
+                <span class="ges-t-r">80 €</span>
+                <span class="ges-t-st gar">Garage</span>
+                <span class="ges-t-pay ok">✓ 03/04</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">LYON-VAI</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">— Vacant —</span><span class="ges-t-tn-s">Libre depuis 12 j</span></div>
+                <span class="ges-t-r">920 €</span>
+                <span class="ges-t-st vac">Vacant</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">📢</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-11</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">Mme Roche · F-004</span><span class="ges-t-tn-s">Bail meublé</span></div>
+                <span class="ges-t-r">1 250 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 02/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">METZ-01</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Schmitt · F-005</span><span class="ges-t-tn-s">Bail 2023</span></div>
+                <span class="ges-t-r">680 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 06/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">METZ-02</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Martins · F-006</span><span class="ges-t-tn-s">Bail 2025</span></div>
+                <span class="ges-t-r">720 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay" style="color:var(--warn)">Partiel</span>
+                <span class="ges-t-pay" style="color:var(--warn)">En attente</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">📧</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r" style="opacity:.7">
+                <span class="ges-t-id">+ 25</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">autres lots</span><span class="ges-t-tn-s">Voir tout</span></div>
+                <span class="ges-t-r" style="color:var(--t3)">~ 27 k€/mois</span>
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card ges-cash">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Cash-flow portefeuille — mai</span>
+              <a class="mk-card-x">12 mois →</a>
+            </div>
+            <div class="ges-cash-v">+ 12 480 €</div>
+            <div class="ges-cash-d">vs avril <strong>+11 320 €</strong> <span class="mk-chip pos">▲ 10,2 %</span></div>
+            <svg class="ges-cash-spl" viewBox="0 0 220 60" preserveAspectRatio="none">
+              <defs><linearGradient id="g-ges-col" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#FF4D7C" stop-opacity=".45"/>
+                <stop offset="100%" stop-color="#FF8400" stop-opacity="0"/>
+              </linearGradient></defs>
+              <path d="M0,40 L22,42 L44,38 L66,36 L88,32 L110,30 L132,28 L154,22 L176,18 L198,14 L220,10 L220,60 L0,60 Z" fill="url(#g-ges-col)"/>
+              <path d="M0,40 L22,42 L44,38 L66,36 L88,32 L110,30 L132,28 L154,22 L176,18 L198,14 L220,10" fill="none" stroke="#FF4D7C" stroke-width="2"/>
+            </svg>
+            <div class="ges-cash-bd">
+              <div class="ges-cash-cell">
+                <div class="ges-cash-cell-l">Encaissé</div>
+                <div class="ges-cash-cell-v">+ 27 840 €</div>
+              </div>
+              <div class="ges-cash-cell">
+                <div class="ges-cash-cell-l">Sorties</div>
+                <div class="ges-cash-cell-v neg">− 15 360 €</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card ges-queue">
+            <div class="mk-card-h">
+              <span class="mk-card-t">File d'attente</span>
+              <span class="mk-chip neg">12</span>
+            </div>
+            <div class="ges-queue-list">
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic neg">€</div>
+                <span class="ges-queue-t">Relancer 3 impayés</span>
+                <span class="ges-queue-n">3</span>
+              </div>
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic warn">📄</div>
+                <span class="ges-queue-t">Envoyer 7 quittances</span>
+                <span class="ges-queue-n">7</span>
+              </div>
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic info">🔑</div>
+                <span class="ges-queue-t">Visites Lyon vacant</span>
+                <span class="ges-queue-n">2</span>
+              </div>
+            </div>
+            <button class="mk-cta sm" style="margin-top:auto">Traiter en masse →</button>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  GESTIONNAIRE × DARK BOURSORAMA                                 ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="ges" data-theme="dark">
+    <div class="mockup-label">Gestionnaire · Dark Boursorama</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Pilotage</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏢</span>Portefeuille</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👥</span>Locataires</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">€</span>Loyers</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📄</span>Documents</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Agenda</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Reporting</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">⚙</span>Réglages</div>
+        </nav>
+        <div class="mk-side-foot">M. Keller-Hoguet · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Pilotage — vendredi 15 mai 2026</h2>
+            <p>32 lots gérés · 28 occupés · 4 vacants · à scanner ce matin</p>
+          </div>
+          <div class="mk-actions-top">
+            <div class="mk-search">🔍 Filtrer (locataire, lot, ville)... <kbd>⌘K</kbd></div>
+            <button class="mk-cta sm">+ Nouveau lot</button>
+            <div class="mk-avatar">MK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(8,1fr)">
+
+          <div class="ges-kpi-row">
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Taux d'occupation</span>
+              <span class="ges-kpi-v">87,5<small>%</small></span>
+              <span class="ges-kpi-d">28 / 32 lots</span>
+              <div class="ges-kpi-bar"><i style="width:87.5%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Recouvrement avril</span>
+              <span class="ges-kpi-v">94,2<small>%</small></span>
+              <span class="ges-kpi-d" style="color:var(--pos)">▲ +2,1 pts</span>
+              <div class="ges-kpi-bar"><i style="width:94%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Impayés actifs</span>
+              <span class="ges-kpi-v" style="color:var(--neg)">3</span>
+              <span class="ges-kpi-d">1 750 € à recouvrer</span>
+              <div class="ges-kpi-bar"><i class="neg" style="width:35%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">À faire semaine</span>
+              <span class="ges-kpi-v" style="color:var(--warn)">12</span>
+              <span class="ges-kpi-d">7 quittances · 3 relances · 2 visites</span>
+              <div class="ges-kpi-bar"><i class="warn" style="width:60%"></i></div>
+            </div>
+            <div class="ges-kpi">
+              <span class="ges-kpi-l">Charges récupérables</span>
+              <span class="ges-kpi-v">4 680<small> €</small></span>
+              <span class="ges-kpi-d">À régulariser fin d'année</span>
+              <div class="ges-kpi-bar"><i class="info" style="width:55%"></i></div>
+            </div>
+          </div>
+
+          <article class="mk-card ges-portfolio">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Portefeuille — 32 lots</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="mk-chip warn">3 alertes</span>
+                <a class="mk-card-x">Trier par ville · Statut · Loyer</a>
+              </div>
+            </div>
+            <div class="ges-bulk">
+              <span>⊕ 7 quittances d'avril prêtes à envoyer (Paris 17e bloquée)</span>
+              <div class="ges-bulk-actions">
+                <button class="mk-cta sm">Envoyer les 7</button>
+                <button class="mk-cta sm ghost">Plus tard</button>
+              </div>
+            </div>
+            <div class="ges-table">
+              <div class="ges-table-h">
+                <span>Lot</span><span>Locataire</span><span>Loyer/mois</span>
+                <span>Statut</span><span>Avril</span><span>Quittance</span><span>Actions</span>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-17</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Bertrand · F-001</span><span class="ges-t-tn-s">Entré le 10/03/26</span></div>
+                <span class="ges-t-r">800 €</span>
+                <span class="ges-t-st imp">Impayé</span>
+                <span class="ges-t-pay late">−35 j</span>
+                <span class="ges-t-pay" style="color:var(--warn)">Bloquée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">📧</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">LYON-PD</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">Mme Dubois · F-002</span><span class="ges-t-tn-s">Bail 2024</span></div>
+                <span class="ges-t-r">1 100 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 05/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-GAR</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Lopez · F-003</span><span class="ges-t-tn-s">Garage box</span></div>
+                <span class="ges-t-r">80 €</span>
+                <span class="ges-t-st gar">Garage</span>
+                <span class="ges-t-pay ok">✓ 03/04</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">LYON-VAI</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">— Vacant —</span><span class="ges-t-tn-s">Libre depuis 12 j</span></div>
+                <span class="ges-t-r">920 €</span>
+                <span class="ges-t-st vac">Vacant</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <span class="ges-t-pay" style="color:var(--t3)">—</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">📢</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">PARIS-11</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">Mme Roche · F-004</span><span class="ges-t-tn-s">Bail meublé</span></div>
+                <span class="ges-t-r">1 250 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 02/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">METZ-01</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Schmitt · F-005</span><span class="ges-t-tn-s">Bail 2023</span></div>
+                <span class="ges-t-r">680 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay ok">✓ 06/04</span>
+                <span class="ges-t-pay" style="color:var(--pos)">Générée</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">👁</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r">
+                <span class="ges-t-id">METZ-02</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">M. Martins · F-006</span><span class="ges-t-tn-s">Bail 2025</span></div>
+                <span class="ges-t-r">720 €</span>
+                <span class="ges-t-st ok">Loué</span>
+                <span class="ges-t-pay" style="color:var(--warn)">Partiel</span>
+                <span class="ges-t-pay" style="color:var(--warn)">En attente</span>
+                <div class="ges-t-act"><button class="ges-t-iconbtn">📧</button><button class="ges-t-iconbtn">⋯</button></div>
+              </div>
+              <div class="ges-table-r" style="opacity:.7">
+                <span class="ges-t-id">+ 25</span>
+                <div class="ges-t-tn"><span class="ges-t-tn-n">autres lots</span><span class="ges-t-tn-s">Voir tout</span></div>
+                <span class="ges-t-r" style="color:var(--t3)">~ 27 k€/mois</span>
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card ges-cash">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Cash-flow portefeuille — mai</span>
+              <a class="mk-card-x">12 mois →</a>
+            </div>
+            <div class="ges-cash-v">+ 12 480 €</div>
+            <div class="ges-cash-d">vs avril <strong>+11 320 €</strong> <span class="mk-chip pos">▲ 10,2 %</span></div>
+            <svg class="ges-cash-spl" viewBox="0 0 220 60" preserveAspectRatio="none">
+              <defs><linearGradient id="g-ges-dk" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#34D399" stop-opacity=".45"/>
+                <stop offset="100%" stop-color="#34D399" stop-opacity="0"/>
+              </linearGradient></defs>
+              <path d="M0,40 L22,42 L44,38 L66,36 L88,32 L110,30 L132,28 L154,22 L176,18 L198,14 L220,10 L220,60 L0,60 Z" fill="url(#g-ges-dk)"/>
+              <path d="M0,40 L22,42 L44,38 L66,36 L88,32 L110,30 L132,28 L154,22 L176,18 L198,14 L220,10" fill="none" stroke="#34D399" stroke-width="2"/>
+            </svg>
+            <div class="ges-cash-bd">
+              <div class="ges-cash-cell">
+                <div class="ges-cash-cell-l">Encaissé</div>
+                <div class="ges-cash-cell-v">+ 27 840 €</div>
+              </div>
+              <div class="ges-cash-cell">
+                <div class="ges-cash-cell-l">Sorties</div>
+                <div class="ges-cash-cell-v neg">− 15 360 €</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card ges-queue">
+            <div class="mk-card-h">
+              <span class="mk-card-t">File d'attente</span>
+              <span class="mk-chip neg">12</span>
+            </div>
+            <div class="ges-queue-list">
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic neg">€</div>
+                <span class="ges-queue-t">Relancer 3 impayés</span>
+                <span class="ges-queue-n">3</span>
+              </div>
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic warn">📄</div>
+                <span class="ges-queue-t">Envoyer 7 quittances</span>
+                <span class="ges-queue-n">7</span>
+              </div>
+              <div class="ges-queue-i">
+                <div class="ges-queue-ic info">🔑</div>
+                <span class="ges-queue-t">Visites Lyon vacant</span>
+                <span class="ges-queue-n">2</span>
+              </div>
+            </div>
+            <button class="mk-cta sm" style="margin-top:auto">Traiter en masse →</button>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  PRO × SOBRE                                                    ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="pro" data-theme="sobre">
+    <div class="mockup-label">Pro · Sobre</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Vue exécutive</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👔</span>Mes bailleurs</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏢</span>Portefeuille</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">€</span>Loyers & commissions</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Reporting</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Agenda équipe</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">⚙</span>Réglages agence</div>
+        </nav>
+        <div class="mk-side-foot">Agence Keller · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Vue exécutive — vendredi 15 mai 2026</h2>
+            <p>12 bailleurs · 148 lots · 132 occupés · 5 alertes critiques</p>
+          </div>
+          <div class="mk-actions-top">
+            <select style="padding:7px 10px;border:1px solid var(--bor);border-radius:8px;font-size:12px;background:var(--sur);color:var(--t1);font-weight:600">
+              <option>Tous bailleurs</option><option>Île-de-France</option><option>Grand-Est</option>
+            </select>
+            <div class="mk-search">🔍 Rechercher... <kbd>⌘K</kbd></div>
+            <div class="mk-avatar">AK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(8,1fr)">
+
+          <!-- VUE EXEC : 1 hero + 4 KPIs -->
+          <div class="pro-exec">
+            <div class="pro-cf-card">
+              <div>
+                <div class="pro-cf-l">Revenus consolidés · avril 2026</div>
+                <div class="pro-cf-v">+ 142 380 €</div>
+              </div>
+              <div class="pro-cf-sub">
+                <span>vs mars <strong>+128 940 €</strong></span>
+                <span class="mk-chip pos">▲ 10,4 %</span>
+                <span>Commission agence <strong>11 390 €</strong></span>
+              </div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Occupation globale</span>
+              <span class="pro-kpi-v">89,2<small>%</small></span>
+              <span class="pro-kpi-d">132 / 148 lots</span>
+              <div class="ges-kpi-bar"><i style="width:89%"></i></div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Impayés actifs</span>
+              <span class="pro-kpi-v" style="color:var(--neg)">8</span>
+              <span class="pro-kpi-d">5 240 € à recouvrer</span>
+              <div class="ges-kpi-bar"><i class="neg" style="width:25%"></i></div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Alertes critiques</span>
+              <span class="pro-kpi-v" style="color:var(--warn)">5</span>
+              <span class="pro-kpi-d">2 baux · 3 sinistres</span>
+              <div class="ges-kpi-bar"><i class="warn" style="width:50%"></i></div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Nouveaux mandats</span>
+              <span class="pro-kpi-v" style="color:var(--pos)">+3</span>
+              <span class="pro-kpi-d">7 lots · ce trimestre</span>
+              <div class="ges-kpi-bar"><i style="width:75%"></i></div>
+            </div>
+          </div>
+
+          <!-- TABLE BAILLEURS -->
+          <article class="mk-card pro-clients">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Mes bailleurs — 12 clients</span>
+              <a class="mk-card-x">Tri par cash-flow ▾</a>
+            </div>
+            <div class="pro-clients-table">
+              <div class="pro-cl-h">
+                <span>Bailleur</span><span>Lots</span><span>Cash-flow</span>
+                <span>Occupation</span><span>Alertes</span><span>Action</span>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av">DK</div>
+                  <div><div class="pro-cl-ntn">Didier Keller</div><div class="pro-cl-nts">Solo · Paris/Lyon</div></div></div>
+                <span class="pro-cl-lots">3</span>
+                <span class="pro-cl-cf">+ 1 900 €</span>
+                <div class="pro-cl-occ"><i style="width:67%" class="warn"></i><span>67 %</span></div>
+                <span><span class="mk-chip neg">1 impayé</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#fde68a,#f59e0b)">SD</div>
+                  <div><div class="pro-cl-ntn">SCI Dumont</div><div class="pro-cl-nts">Familiale · Île-de-France</div></div></div>
+                <span class="pro-cl-lots">22</span>
+                <span class="pro-cl-cf">+ 24 320 €</span>
+                <div class="pro-cl-occ"><i style="width:91%"></i><span>91 %</span></div>
+                <span><span class="mk-chip warn">2 alertes</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#bbf7d0,#16a34a)">PB</div>
+                  <div><div class="pro-cl-ntn">Patrick Brun</div><div class="pro-cl-nts">SARL · Grand-Est</div></div></div>
+                <span class="pro-cl-lots">14</span>
+                <span class="pro-cl-cf">+ 16 580 €</span>
+                <div class="pro-cl-occ"><i style="width:100%"></i><span>100 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#fecaca,#dc2626)">MR</div>
+                  <div><div class="pro-cl-ntn">SCI Rocher</div><div class="pro-cl-nts">Patrimoniale · Nice</div></div></div>
+                <span class="pro-cl-lots">8</span>
+                <span class="pro-cl-cf neg">− 1 240 €</span>
+                <div class="pro-cl-occ"><i style="width:62%" class="neg"></i><span>62 %</span></div>
+                <span><span class="mk-chip neg">3 alertes</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#ddd6fe,#7c3aed)">FL</div>
+                  <div><div class="pro-cl-ntn">Famille Leroy</div><div class="pro-cl-nts">Indivision · Bordeaux</div></div></div>
+                <span class="pro-cl-lots">11</span>
+                <span class="pro-cl-cf">+ 12 890 €</span>
+                <div class="pro-cl-occ"><i style="width:91%"></i><span>91 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#bae6fd,#0284c7)">CG</div>
+                  <div><div class="pro-cl-ntn">Cabinet Guérin</div><div class="pro-cl-nts">SCPI · Multi-régions</div></div></div>
+                <span class="pro-cl-lots">46</span>
+                <span class="pro-cl-cf">+ 48 120 €</span>
+                <div class="pro-cl-occ"><i style="width:93%"></i><span>93 %</span></div>
+                <span><span class="mk-chip warn">1 alerte</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r" style="opacity:.65">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:#cbd5e1;color:#475569">+6</div>
+                  <div><div class="pro-cl-ntn">6 autres bailleurs</div><div class="pro-cl-nts">44 lots · voir tout →</div></div></div>
+                <span class="pro-cl-lots">44</span>
+                <span class="pro-cl-cf">+ 39 810 €</span>
+                <div class="pro-cl-occ"><i style="width:88%"></i><span>88 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <span></span>
+              </div>
+            </div>
+          </article>
+
+          <!-- ALERTES CRITIQUES -->
+          <article class="mk-card pro-alerts">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Alertes critiques</span>
+              <span class="mk-chip neg">5</span>
+            </div>
+            <div class="pro-alert-i crit">
+              <div class="pro-alert-ic neg">⚠</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Sinistre dégât des eaux · SCI Rocher</div>
+                <div class="pro-alert-s">Nice F-08 · déclaré il y a 3 j · assurance contactée</div>
+              </div>
+              <button class="mk-cta sm danger">Traiter</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic neg">€</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Impayé 35 j · Didier Keller</div>
+                <div class="pro-alert-s">Paris 17e · 800 € · lettre recommandée à envoyer</div>
+              </div>
+              <button class="mk-cta sm">Relancer</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic warn">📄</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">2 baux arrivent à échéance — juin</div>
+                <div class="pro-alert-s">SCI Dumont F-12 et F-14 · renouveler ou faire partir</div>
+              </div>
+              <button class="mk-cta sm">Voir</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic warn">📈</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Révision annuelle juillet · D. Keller Lyon</div>
+                <div class="pro-alert-s">+ 9 €/mois possible · commission +0,30 €</div>
+              </div>
+              <button class="mk-cta sm">Appliquer</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic info">🛡️</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">3 assurances habitation manquantes</div>
+                <div class="pro-alert-s">SCI Dumont · à demander aux locataires</div>
+              </div>
+              <button class="mk-cta sm">Mailer</button>
+            </div>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  PRO × COLORÉ                                                   ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="pro" data-theme="color">
+    <div class="mockup-label">Pro · Coloré</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Vue exécutive</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👔</span>Mes bailleurs</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏢</span>Portefeuille</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">€</span>Loyers & commissions</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Reporting</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Agenda équipe</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">⚙</span>Réglages agence</div>
+        </nav>
+        <div class="mk-side-foot">Agence Keller · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Vue exécutive — vendredi 15 mai 2026</h2>
+            <p>12 bailleurs · 148 lots · 132 occupés · 5 alertes critiques</p>
+          </div>
+          <div class="mk-actions-top">
+            <select style="padding:7px 10px;border:1px solid var(--bor);border-radius:8px;font-size:12px;background:var(--sur);color:var(--t1);font-weight:600">
+              <option>Tous bailleurs</option><option>Île-de-France</option>
+            </select>
+            <div class="mk-search">🔍 Rechercher... <kbd>⌘K</kbd></div>
+            <div class="mk-avatar">AK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(8,1fr)">
+
+          <div class="pro-exec">
+            <div class="pro-cf-card" style="background:linear-gradient(135deg,#fff 0%,#ffe1ea 60%,#ffd9b8 100%);border-color:#ffb1c5">
+              <div>
+                <div class="pro-cf-l">Revenus consolidés · avril 2026</div>
+                <div class="pro-cf-v">+ 142 380 €</div>
+              </div>
+              <div class="pro-cf-sub">
+                <span>vs mars <strong>+128 940 €</strong></span>
+                <span class="mk-chip pos">▲ 10,4 %</span>
+                <span>Commission agence <strong>11 390 €</strong></span>
+              </div>
+            </div>
+            <div class="pro-kpi" style="background:linear-gradient(135deg,#fff,#d1f4e6);border-color:#86e6c0">
+              <span class="pro-kpi-l">Occupation globale</span>
+              <span class="pro-kpi-v">89,2<small>%</small></span>
+              <span class="pro-kpi-d">132 / 148 lots</span>
+              <div class="ges-kpi-bar"><i style="width:89%"></i></div>
+            </div>
+            <div class="pro-kpi" style="background:linear-gradient(135deg,#fff,#ffd9e2);border-color:#ffb1c5">
+              <span class="pro-kpi-l">Impayés actifs</span>
+              <span class="pro-kpi-v" style="color:var(--neg)">8</span>
+              <span class="pro-kpi-d">5 240 € à recouvrer</span>
+              <div class="ges-kpi-bar"><i class="neg" style="width:25%"></i></div>
+            </div>
+            <div class="pro-kpi" style="background:linear-gradient(135deg,#fff,#fff1d6);border-color:#ffd699">
+              <span class="pro-kpi-l">Alertes critiques</span>
+              <span class="pro-kpi-v" style="color:var(--warn)">5</span>
+              <span class="pro-kpi-d">2 baux · 3 sinistres</span>
+              <div class="ges-kpi-bar"><i class="warn" style="width:50%"></i></div>
+            </div>
+            <div class="pro-kpi" style="background:linear-gradient(135deg,#fff,#e8e0ff);border-color:#c8b8ff">
+              <span class="pro-kpi-l">Nouveaux mandats</span>
+              <span class="pro-kpi-v" style="color:var(--pos)">+3</span>
+              <span class="pro-kpi-d">7 lots · ce trimestre</span>
+              <div class="ges-kpi-bar"><i style="width:75%"></i></div>
+            </div>
+          </div>
+
+          <article class="mk-card pro-clients">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Mes bailleurs — 12 clients</span>
+              <a class="mk-card-x">Tri par cash-flow ▾</a>
+            </div>
+            <div class="pro-clients-table">
+              <div class="pro-cl-h">
+                <span>Bailleur</span><span>Lots</span><span>Cash-flow</span>
+                <span>Occupation</span><span>Alertes</span><span>Action</span>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av">DK</div>
+                  <div><div class="pro-cl-ntn">Didier Keller</div><div class="pro-cl-nts">Solo · Paris/Lyon</div></div></div>
+                <span class="pro-cl-lots">3</span>
+                <span class="pro-cl-cf">+ 1 900 €</span>
+                <div class="pro-cl-occ"><i style="width:67%" class="warn"></i><span>67 %</span></div>
+                <span><span class="mk-chip neg">1 impayé</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#ffb1c5,#FF4D7C)">SD</div>
+                  <div><div class="pro-cl-ntn">SCI Dumont</div><div class="pro-cl-nts">Familiale · Île-de-France</div></div></div>
+                <span class="pro-cl-lots">22</span>
+                <span class="pro-cl-cf">+ 24 320 €</span>
+                <div class="pro-cl-occ"><i style="width:91%"></i><span>91 %</span></div>
+                <span><span class="mk-chip warn">2 alertes</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#86e6c0,#00A878)">PB</div>
+                  <div><div class="pro-cl-ntn">Patrick Brun</div><div class="pro-cl-nts">SARL · Grand-Est</div></div></div>
+                <span class="pro-cl-lots">14</span>
+                <span class="pro-cl-cf">+ 16 580 €</span>
+                <div class="pro-cl-occ"><i style="width:100%"></i><span>100 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#ffd699,#FF8400)">MR</div>
+                  <div><div class="pro-cl-ntn">SCI Rocher</div><div class="pro-cl-nts">Patrimoniale · Nice</div></div></div>
+                <span class="pro-cl-lots">8</span>
+                <span class="pro-cl-cf neg">− 1 240 €</span>
+                <div class="pro-cl-occ"><i style="width:62%" class="neg"></i><span>62 %</span></div>
+                <span><span class="mk-chip neg">3 alertes</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#c8b8ff,#7B5BFF)">FL</div>
+                  <div><div class="pro-cl-ntn">Famille Leroy</div><div class="pro-cl-nts">Indivision · Bordeaux</div></div></div>
+                <span class="pro-cl-lots">11</span>
+                <span class="pro-cl-cf">+ 12 890 €</span>
+                <div class="pro-cl-occ"><i style="width:91%"></i><span>91 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#a8e6f0,#0E73F6)">CG</div>
+                  <div><div class="pro-cl-ntn">Cabinet Guérin</div><div class="pro-cl-nts">SCPI · Multi-régions</div></div></div>
+                <span class="pro-cl-lots">46</span>
+                <span class="pro-cl-cf">+ 48 120 €</span>
+                <div class="pro-cl-occ"><i style="width:93%"></i><span>93 %</span></div>
+                <span><span class="mk-chip warn">1 alerte</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r" style="opacity:.65">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:#fff1e3;color:#6b4a2a">+6</div>
+                  <div><div class="pro-cl-ntn">6 autres bailleurs</div><div class="pro-cl-nts">44 lots · voir tout →</div></div></div>
+                <span class="pro-cl-lots">44</span>
+                <span class="pro-cl-cf">+ 39 810 €</span>
+                <div class="pro-cl-occ"><i style="width:88%"></i><span>88 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card pro-alerts">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Alertes critiques</span>
+              <span class="mk-chip neg">5</span>
+            </div>
+            <div class="pro-alert-i crit">
+              <div class="pro-alert-ic neg">⚠</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Sinistre dégât des eaux · SCI Rocher</div>
+                <div class="pro-alert-s">Nice F-08 · déclaré il y a 3 j · assurance contactée</div>
+              </div>
+              <button class="mk-cta sm danger">Traiter</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic neg">€</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Impayé 35 j · Didier Keller</div>
+                <div class="pro-alert-s">Paris 17e · 800 € · lettre recommandée à envoyer</div>
+              </div>
+              <button class="mk-cta sm">Relancer</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic warn">📄</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">2 baux arrivent à échéance — juin</div>
+                <div class="pro-alert-s">SCI Dumont F-12 et F-14 · à reconduire</div>
+              </div>
+              <button class="mk-cta sm">Voir</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic warn">📈</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Révision annuelle juillet · D. Keller Lyon</div>
+                <div class="pro-alert-s">+ 9 €/mois · commission +0,30 €</div>
+              </div>
+              <button class="mk-cta sm">Appliquer</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic info">🛡️</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">3 assurances habitation manquantes</div>
+                <div class="pro-alert-s">SCI Dumont · à demander aux locataires</div>
+              </div>
+              <button class="mk-cta sm">Mailer</button>
+            </div>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════════════════════════════════════╗
+       ║  PRO × DARK BOURSORAMA                                          ║
+       ╚══════════════════════════════════════════════════════════════════╝ -->
+  <section class="mockup" data-profile="pro" data-theme="dark">
+    <div class="mockup-label">Pro · Dark Boursorama</div>
+    <div class="mk-app">
+      <aside class="mk-side">
+        <div class="mk-brand"><div class="mk-brand-logo">I</div>ImmoTrack</div>
+        <nav class="mk-nav">
+          <div class="mk-nav-i act"><span class="mk-nav-ic">▣</span>Vue exécutive</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">👔</span>Mes bailleurs</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">🏢</span>Portefeuille</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">€</span>Loyers & commissions</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📊</span>Reporting</div>
+          <div class="mk-nav-sep"></div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">📅</span>Agenda équipe</div>
+          <div class="mk-nav-i"><span class="mk-nav-ic">⚙</span>Réglages agence</div>
+        </nav>
+        <div class="mk-side-foot">Agence Keller · v15.20</div>
+      </aside>
+      <main class="mk-main">
+        <header class="mk-top">
+          <div class="mk-greet">
+            <h2>Vue exécutive — vendredi 15 mai 2026</h2>
+            <p>12 bailleurs · 148 lots · 132 occupés · 5 alertes critiques</p>
+          </div>
+          <div class="mk-actions-top">
+            <select style="padding:7px 10px;border:1px solid var(--bor);border-radius:8px;font-size:12px;background:var(--sur);color:var(--t1);font-weight:600">
+              <option>Tous bailleurs</option><option>Île-de-France</option>
+            </select>
+            <div class="mk-search">🔍 Rechercher... <kbd>⌘K</kbd></div>
+            <div class="mk-avatar">AK</div>
+          </div>
+        </header>
+        <div class="mk-grid" style="grid-template-rows:repeat(8,1fr)">
+
+          <div class="pro-exec">
+            <div class="pro-cf-card">
+              <div>
+                <div class="pro-cf-l">Revenus consolidés · avril 2026</div>
+                <div class="pro-cf-v">+ 142 380 €</div>
+              </div>
+              <div class="pro-cf-sub">
+                <span>vs mars <strong>+128 940 €</strong></span>
+                <span class="mk-chip pos">▲ 10,4 %</span>
+                <span>Commission agence <strong>11 390 €</strong></span>
+              </div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Occupation globale</span>
+              <span class="pro-kpi-v">89,2<small>%</small></span>
+              <span class="pro-kpi-d">132 / 148 lots</span>
+              <div class="ges-kpi-bar"><i style="width:89%"></i></div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Impayés actifs</span>
+              <span class="pro-kpi-v" style="color:var(--neg)">8</span>
+              <span class="pro-kpi-d">5 240 € à recouvrer</span>
+              <div class="ges-kpi-bar"><i class="neg" style="width:25%"></i></div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Alertes critiques</span>
+              <span class="pro-kpi-v" style="color:var(--warn)">5</span>
+              <span class="pro-kpi-d">2 baux · 3 sinistres</span>
+              <div class="ges-kpi-bar"><i class="warn" style="width:50%"></i></div>
+            </div>
+            <div class="pro-kpi">
+              <span class="pro-kpi-l">Nouveaux mandats</span>
+              <span class="pro-kpi-v" style="color:var(--pos)">+3</span>
+              <span class="pro-kpi-d">7 lots · ce trimestre</span>
+              <div class="ges-kpi-bar"><i style="width:75%"></i></div>
+            </div>
+          </div>
+
+          <article class="mk-card pro-clients">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Mes bailleurs — 12 clients</span>
+              <a class="mk-card-x">Tri par cash-flow ▾</a>
+            </div>
+            <div class="pro-clients-table">
+              <div class="pro-cl-h">
+                <span>Bailleur</span><span>Lots</span><span>Cash-flow</span>
+                <span>Occupation</span><span>Alertes</span><span>Action</span>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av">DK</div>
+                  <div><div class="pro-cl-ntn">Didier Keller</div><div class="pro-cl-nts">Solo · Paris/Lyon</div></div></div>
+                <span class="pro-cl-lots">3</span>
+                <span class="pro-cl-cf">+ 1 900 €</span>
+                <div class="pro-cl-occ"><i style="width:67%" class="warn"></i><span>67 %</span></div>
+                <span><span class="mk-chip neg">1 impayé</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#fbbf24,#d97706)">SD</div>
+                  <div><div class="pro-cl-ntn">SCI Dumont</div><div class="pro-cl-nts">Familiale · Île-de-France</div></div></div>
+                <span class="pro-cl-lots">22</span>
+                <span class="pro-cl-cf">+ 24 320 €</span>
+                <div class="pro-cl-occ"><i style="width:91%"></i><span>91 %</span></div>
+                <span><span class="mk-chip warn">2 alertes</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#34D399,#10b981)">PB</div>
+                  <div><div class="pro-cl-ntn">Patrick Brun</div><div class="pro-cl-nts">SARL · Grand-Est</div></div></div>
+                <span class="pro-cl-lots">14</span>
+                <span class="pro-cl-cf">+ 16 580 €</span>
+                <div class="pro-cl-occ"><i style="width:100%"></i><span>100 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#F87171,#dc2626)">MR</div>
+                  <div><div class="pro-cl-ntn">SCI Rocher</div><div class="pro-cl-nts">Patrimoniale · Nice</div></div></div>
+                <span class="pro-cl-lots">8</span>
+                <span class="pro-cl-cf neg">− 1 240 €</span>
+                <div class="pro-cl-occ"><i style="width:62%" class="neg"></i><span>62 %</span></div>
+                <span><span class="mk-chip neg">3 alertes</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">FL</div>
+                  <div><div class="pro-cl-ntn">Famille Leroy</div><div class="pro-cl-nts">Indivision · Bordeaux</div></div></div>
+                <span class="pro-cl-lots">11</span>
+                <span class="pro-cl-cf">+ 12 890 €</span>
+                <div class="pro-cl-occ"><i style="width:91%"></i><span>91 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:linear-gradient(135deg,#5C8AFF,#0E73F6)">CG</div>
+                  <div><div class="pro-cl-ntn">Cabinet Guérin</div><div class="pro-cl-nts">SCPI · Multi-régions</div></div></div>
+                <span class="pro-cl-lots">46</span>
+                <span class="pro-cl-cf">+ 48 120 €</span>
+                <div class="pro-cl-occ"><i style="width:93%"></i><span>93 %</span></div>
+                <span><span class="mk-chip warn">1 alerte</span></span>
+                <button class="mk-cta sm">Voir →</button>
+              </div>
+              <div class="pro-cl-r" style="opacity:.65">
+                <div class="pro-cl-name"><div class="pro-cl-av" style="background:#252b48;color:#a0a8c3">+6</div>
+                  <div><div class="pro-cl-ntn">6 autres bailleurs</div><div class="pro-cl-nts">44 lots · voir tout →</div></div></div>
+                <span class="pro-cl-lots">44</span>
+                <span class="pro-cl-cf">+ 39 810 €</span>
+                <div class="pro-cl-occ"><i style="width:88%"></i><span>88 %</span></div>
+                <span style="color:var(--t3);font-size:11px">—</span>
+                <span></span>
+              </div>
+            </div>
+          </article>
+
+          <article class="mk-card pro-alerts">
+            <div class="mk-card-h">
+              <span class="mk-card-t">Alertes critiques</span>
+              <span class="mk-chip neg">5</span>
+            </div>
+            <div class="pro-alert-i crit">
+              <div class="pro-alert-ic neg">⚠</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Sinistre dégât des eaux · SCI Rocher</div>
+                <div class="pro-alert-s">Nice F-08 · déclaré il y a 3 j · assurance contactée</div>
+              </div>
+              <button class="mk-cta sm danger">Traiter</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic neg">€</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Impayé 35 j · Didier Keller</div>
+                <div class="pro-alert-s">Paris 17e · 800 € · lettre recommandée à envoyer</div>
+              </div>
+              <button class="mk-cta sm">Relancer</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic warn">📄</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">2 baux arrivent à échéance — juin</div>
+                <div class="pro-alert-s">SCI Dumont F-12 et F-14 · à reconduire</div>
+              </div>
+              <button class="mk-cta sm">Voir</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic warn">📈</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">Révision annuelle juillet · D. Keller Lyon</div>
+                <div class="pro-alert-s">+ 9 €/mois · commission +0,30 €</div>
+              </div>
+              <button class="mk-cta sm">Appliquer</button>
+            </div>
+            <div class="pro-alert-i">
+              <div class="pro-alert-ic info">🛡️</div>
+              <div class="pro-alert-body">
+                <div class="pro-alert-t">3 assurances habitation manquantes</div>
+                <div class="pro-alert-s">SCI Dumont · à demander aux locataires</div>
+              </div>
+              <button class="mk-cta sm">Mailer</button>
+            </div>
+          </article>
+
+        </div>
+      </main>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const profileBtns=document.querySelectorAll('[data-profile]');
+const themeBtns=document.querySelectorAll('[data-theme]');
+const mockups=document.querySelectorAll('.mockup');
+
+let state={profile:'solo',theme:'sobre'};
+
+function render(){
+  // tabs UI
+  document.querySelectorAll('[data-group="profile"] button').forEach(b=>{
+    b.classList.toggle('act',b.dataset.profile===state.profile);
+  });
+  document.querySelectorAll('[data-group="theme"] button').forEach(b=>{
+    b.classList.remove('act','theme-sobre','theme-color','theme-dark');
+    if(b.dataset.theme===state.theme){
+      b.classList.add('act','theme-'+state.theme.slice(0,5));
+    }
+  });
+  // mockups
+  mockups.forEach(m=>{
+    const match=m.dataset.profile===state.profile && m.dataset.theme===state.theme;
+    m.classList.toggle('show',match);
+  });
+}
+
+document.querySelectorAll('[data-group="profile"] button').forEach(b=>{
+  b.addEventListener('click',()=>{state.profile=b.dataset.profile;render();});
+});
+document.querySelectorAll('[data-group="theme"] button').forEach(b=>{
+  b.addEventListener('click',()=>{state.theme=b.dataset.theme;render();});
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input,textarea,select'))return;
+  if(e.key==='p'||e.key==='P'){
+    const order=['solo','ges','pro'];
+    state.profile=order[(order.indexOf(state.profile)+1)%3];
+    render();
+  }
+  if(e.key==='t'||e.key==='T'){
+    const order=['sobre','color','dark'];
+    state.theme=order[(order.indexOf(state.theme)+1)%3];
+    render();
+  }
+});
+
+// click feedback
+document.querySelectorAll('.mk-cta,.solo-bien,.solo-todo-i,.ges-table-r,.pro-cl-r,.pro-alert-i,.ges-queue-i,.mk-card-x').forEach(el=>{
+  el.addEventListener('click',e=>{
+    el.animate([{transform:'scale(1)'},{transform:'scale(.97)'},{transform:'scale(1)'}],{duration:160,easing:'ease-out'});
+  });
+});
+</script>
+</body>
+</html>
