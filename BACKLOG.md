@@ -314,6 +314,13 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### Phase A2 — BUG-POPUP-QUITTANCE (régression v15.10) — session 2026-05-15 (~30 min, v15.20)
+> User : *« J'ai enregistré un mouvement... Je n'ai pas eu le pop up (v14.63) »*. En réalité régression v15.10 Sprint 11 : auto-gen boot + matching auto silencieux faisaient que la quittance existait DÉJÀ au moment du saveMv → l'ancien code passait dans la branche `_exists = true` → toast inutile au lieu du popup.
+>
+> **Fix** : si toggle bail `quittAutoGen` actif → TOUJOURS proposer popup (créer OU ouvrir). Message différencié. Filtre `_deleted` ajouté (tombstone-safe).
+>
+> **Doc sujet** : [BUG-POPUP-QUITTANCE.md](docs/subjects/BUG-POPUP-QUITTANCE.md). Validation manuelle requise.
+
 ### Phase A1 — BUG-PRORATA-DASH (fix calculs loyer intra-mois) — session 2026-05-15 (~3h, v15.19)
 > **Bug bloquant pour monétisation V1**. Locataire entré mi-mois (1-15) marqué « impayé » dans dashboard alors qu'il avait payé son prorata. Cause : `_getActiveBailHcCh` testait au 15 du mois et retournait le loyer plein → cassait `_computeImpayes`, `_computeExpectedRent`, `_buildProgDrill`.
 >
