@@ -40,104 +40,149 @@
   --t-normal:200ms cubic-bezier(.4,0,.2,1);
   --t-slow:350ms cubic-bezier(.4,0,.2,1);
 }
-/* ── Thème SOBRE (v15.29 — refonte plus marquée vs Coloré)
-   Vraiment minimaliste : aucune couleur, juste shades de gris/noir.
-   Aucun accent vert/rouge — même les statuts sont en noir/gris.
-   Pour utilisateurs qui veulent un dashboard ascetique professionnel. */
+/* ────────────────────────────────────────────────────────────────────────
+   v15.30 — 3 thèmes alignés exactement sur le mockup
+   docs/strategie/dashboard-mockups/v2-refonte-2026-05-15.html
+   (palettes Sobre / Coloré / Dark Boursorama validées par l'utilisateur)
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* ── Thème SOBRE (mockup defaults) ── */
 [data-theme="sobre"] {
-  --bg:#fafafa;
+  --bg:#f4f6fa;
   --sur:#ffffff;
-  --sur2:#f4f4f5;
-  --sur3:#e4e4e7;
-  --bor:rgba(0,0,0,.08);
-  --bor2:rgba(0,0,0,.04);
-  --t1:#09090b;        /* noir profond */
-  --t2:#52525b;
-  --t3:#a1a1aa;
-  --blu:#27272a;
-  --grn:#27272a;       /* PAS de vert : juste noir profond */
-  --red:#18181b;       /* PAS de rouge : juste noir/charbon */
-  --ora:#52525b;       /* PAS d'orange : juste gris foncé */
-  --pur:#3f3f46;
-  --acc:#09090b;       /* accent = noir pur (sobriété maximale) */
-  --shadow:0 1px 2px rgba(0,0,0,.04),0 1px 8px rgba(0,0,0,.03);
-  --shadow-lg:0 4px 20px rgba(0,0,0,.06);
-  --shadow-hover:0 2px 12px rgba(0,0,0,.08);
-  --bg-success:rgba(9,9,11,.05);
-  --bg-danger:rgba(9,9,11,.07);
-  --bg-warning:rgba(9,9,11,.04);
-  --bg-info:rgba(9,9,11,.04);
-  --fg-success:#27272a;
-  --fg-danger:#18181b;
-  --fg-warning:#52525b;
-  --fg-info:#09090b;
-  --shadow-card:0 1px 2px rgba(0,0,0,.03);
-  --shadow-card-hover:0 2px 10px rgba(0,0,0,.08);
-}
-
-/* ── Thème COLORÉ (v15.29 — Deliveroo plein gaz)
-   Fond chaud beige clair + accents teal + rose Deliveroo PARTOUT.
-   Cards avec ombre teal/rose subtile. Tous les éléments interactifs vivants. */
-[data-theme="colore"] {
-  --bg:#fff7ed;        /* beige chaud Deliveroo (orange très pâle) */
-  --sur:#ffffff;
-  --sur2:#ffe9d1;      /* peach très clair pour surfaces secondaires */
-  --sur3:#ffd4a3;
-  --bor:rgba(255,77,124,.14);  /* bordure rose Deliveroo subtile */
-  --bor2:rgba(255,176,32,.10);
-  --t1:#0f0a26;        /* indigo très foncé Deliveroo */
-  --t2:#5b4a8c;
-  --t3:#a08fc7;        /* lavande pour t3 (pas gris) */
-  --blu:#0E73F6;
-  --grn:#00ccbc;       /* teal Deliveroo vif */
-  --red:#ff4d7c;       /* rose Deliveroo vif */
-  --ora:#ffb020;       /* orange Deliveroo vif */
+  --sur2:#f9fafc;
+  --sur3:#eef2f7;
+  --bor:#e5e9f1;
+  --bor2:#eef1f6;
+  --t1:#0d1420;
+  --t2:#475569;
+  --t3:#94a3b8;
+  --acc:#0d1420;
+  --acc2:#1a233a;
+  --acc-soft:#eef1f6;
+  --cta:#0d1420;
+  --cta-h:#1f2538;
+  --cta-text:#ffffff;
+  --pos:#16a34a;
+  --pos-soft:#dcfce7;
+  --neg:#dc2626;
+  --neg-soft:#fee2e2;
+  --warn:#ea580c;
+  --warn-soft:#fff1e8;
+  --info:#0e73f6;
+  --info-soft:#e6efff;
+  /* Compat variables historiques de l'app */
+  --blu:#0e73f6;
+  --grn:#16a34a;
+  --red:#dc2626;
+  --ora:#ea580c;
   --pur:#7c3aed;
-  --acc:#ff4d7c;       /* accent principal = rose Deliveroo (très visible) */
-  --shadow:0 2px 8px rgba(255,77,124,.10),0 8px 24px rgba(0,204,188,.08);
-  --shadow-lg:0 12px 40px rgba(255,77,124,.18);
-  --shadow-hover:0 8px 28px rgba(255,77,124,.25);
-  --bg-success:rgba(0,204,188,.16);
-  --bg-danger:rgba(255,77,124,.14);
-  --bg-warning:rgba(255,176,32,.18);
-  --bg-info:rgba(14,115,246,.12);
-  --fg-success:#00a094;
-  --fg-danger:#e63c6a;
-  --fg-warning:#d97706;
-  --fg-info:#0E73F6;
-  --shadow-card:0 2px 6px rgba(255,77,124,.10),0 1px 3px rgba(0,0,0,.04);
-  --shadow-card-hover:0 8px 28px rgba(255,77,124,.20),0 2px 6px rgba(0,204,188,.10);
+  --bg-success:#dcfce7;
+  --bg-danger:#fee2e2;
+  --bg-warning:#fff1e8;
+  --bg-info:#e6efff;
+  --fg-success:#16a34a;
+  --fg-danger:#dc2626;
+  --fg-warning:#ea580c;
+  --fg-info:#0e73f6;
+  --shadow:0 1px 2px rgba(13,20,32,.05);
+  --shadow-lg:0 12px 32px rgba(13,20,32,.10);
+  --shadow-hover:0 4px 14px rgba(13,20,32,.07);
+  --shadow-card:0 1px 2px rgba(13,20,32,.05);
+  --shadow-card-hover:0 4px 14px rgba(13,20,32,.07);
 }
 
+/* ── Thème COLORÉ (Deliveroo-like — accents rose + teal CTA + fond chaud) ── */
+[data-theme="colore"] {
+  --bg:#fff8f2;
+  --sur:#ffffff;
+  --sur2:#fffaf4;
+  --sur3:#fff1e3;
+  --bor:#ffd9b8;
+  --bor2:#ffe8d2;
+  --t1:#1a0f04;
+  --t2:#6b4a2a;
+  --t3:#b59575;
+  --acc:#FF4D7C;
+  --acc2:#FF8DA1;
+  --acc-soft:#ffe1ea;
+  --cta:#00CCBC;
+  --cta-h:#00b3a6;
+  --cta-text:#0d1420;
+  --pos:#00A878;
+  --pos-soft:#d1f4e6;
+  --neg:#E0234E;
+  --neg-soft:#ffd9e2;
+  --warn:#FF8400;
+  --warn-soft:#ffe6cc;
+  --info:#7B5BFF;
+  --info-soft:#e8e0ff;
+  /* Compat variables historiques de l'app */
+  --blu:#7B5BFF;
+  --grn:#00A878;
+  --red:#E0234E;
+  --ora:#FF8400;
+  --pur:#7B5BFF;
+  --bg-success:#d1f4e6;
+  --bg-danger:#ffd9e2;
+  --bg-warning:#ffe6cc;
+  --bg-info:#e8e0ff;
+  --fg-success:#00A878;
+  --fg-danger:#E0234E;
+  --fg-warning:#FF8400;
+  --fg-info:#7B5BFF;
+  --shadow:0 1px 2px rgba(255,77,124,.06);
+  --shadow-lg:0 16px 40px rgba(255,77,124,.18);
+  --shadow-hover:0 6px 22px rgba(255,77,124,.12);
+  --shadow-card:0 1px 2px rgba(255,77,124,.06);
+  --shadow-card-hover:0 6px 22px rgba(255,77,124,.12);
+}
+
+/* ── Thème DARK BOURSORAMA (bleu nuit profond — accents bleu primaire + CTA teal) ── */
 [data-theme="dark"] {
-  color-scheme:dark;   /* v2 audit : force les contrôles natifs (scrollbars, <option>) en dark */
-  --bg:#0d1520;
-  /* v2 audit dark mode : --sur bumpé de .055 à .13 — les cartes se détachent
-     franchement du fond de l'app (avant : quasi invisibles).
-     --sur2 bumpé de .03 à .08 pour garder la hiérarchie carte > sous-surface. */
-  --sur:rgba(255,255,255,.13);
-  --sur2:rgba(255,255,255,.08);
-  --sur3:rgba(255,255,255,.04);
-  --bor:rgba(255,255,255,.14);
-  --bor2:rgba(255,255,255,.07);
-  --t1:#e4ecf5;
-  --t2:#9badc4;   /* v2 audit : était #7a8fa8, bumpé pour contraste AA body */
-  --t3:#7d93ae;   /* v2 audit : était #3e5068 (contraste ~2:1, échec AA). Passe à ~4.5:1 */
-  --shadow:0 1px 3px rgba(0,0,0,.4),0 4px 18px rgba(0,0,0,.3);
-  --shadow-lg:0 8px 40px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.4);
-  --shadow-hover:0 4px 20px rgba(59,126,246,.3),0 1px 4px rgba(0,0,0,.4);
-  /* ── v2 Dashboard — semantic colors (dark, opacity bumped to .18 per cahier §4.1) ── */
-  --bg-success:rgba(22,163,74,.18);
-  --bg-danger:rgba(220,38,38,.18);
-  --bg-warning:rgba(234,88,12,.20);
-  --bg-info:rgba(59,126,246,.18);
-  --fg-success:#4ade80;
-  --fg-danger:#f87171;
-  --fg-warning:#fb923c;
-  --fg-info:#60a5fa;
-  /* ── v2 Dashboard — card shadows (dark) ── */
-  --shadow-card:0 1px 2px rgba(0,0,0,.25);
-  --shadow-card-hover:0 4px 16px rgba(59,126,246,.22),0 1px 3px rgba(0,0,0,.35);
+  color-scheme:dark;
+  --bg:#0A0E27;
+  --sur:#141936;
+  --sur2:#1A1F36;
+  --sur3:#252b48;
+  --bor:rgba(255,255,255,.08);
+  --bor2:rgba(255,255,255,.05);
+  --t1:#F3F5FA;
+  --t2:#A0A8C3;
+  --t3:#6B7395;
+  --acc:#0E73F6;
+  --acc2:#3A8EFB;
+  --acc-soft:rgba(14,115,246,.14);
+  --cta:#00CCBC;
+  --cta-h:#1adbcb;
+  --cta-text:#0A0E27;
+  --pos:#34D399;
+  --pos-soft:rgba(52,211,153,.14);
+  --neg:#F87171;
+  --neg-soft:rgba(248,113,113,.14);
+  --warn:#FBB040;
+  --warn-soft:rgba(251,176,64,.14);
+  --info:#5C8AFF;
+  --info-soft:rgba(92,138,255,.14);
+  /* Compat variables historiques de l'app */
+  --blu:#5C8AFF;
+  --grn:#34D399;
+  --red:#F87171;
+  --ora:#FBB040;
+  --pur:#7B5BFF;
+  --bg-success:rgba(52,211,153,.14);
+  --bg-danger:rgba(248,113,113,.14);
+  --bg-warning:rgba(251,176,64,.14);
+  --bg-info:rgba(92,138,255,.14);
+  --fg-success:#34D399;
+  --fg-danger:#F87171;
+  --fg-warning:#FBB040;
+  --fg-info:#5C8AFF;
+  --shadow:0 1px 2px rgba(0,0,0,.35);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.55);
+  --shadow-hover:0 4px 18px rgba(0,0,0,.45);
+  --shadow-card:0 1px 2px rgba(0,0,0,.35);
+  --shadow-card-hover:0 4px 18px rgba(0,0,0,.45);
 }
 
 /* ── v2 audit dark mode : fix <select>/<option> illisibles (bug pré-existant)
