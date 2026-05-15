@@ -312,6 +312,24 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ---
 
+## 🔄 En cours
+
+### Phase B — Refonte UX dashboard wahoo (agent design v2 en background)
+> Mockup v1 noté 6/10 par user (sobre ≈ coloré, solo ≈ pro, scroll non respecté, pas de Gestionnaire). Agent design v2 lancé avec brief enrichi : Boursorama (couleurs) + Deliveroo (UX action-oriented), 3 profils × 3 thèmes = 9 mockups, contrainte dure 1 écran 1440×900 sans scroll, info en 1-2 clics max.
+>
+> **Output attendu** : `docs/strategie/dashboard-mockups/v2-refonte-2026-05-15.html` + plan markdown. Cible note ≥ 9/10.
+>
+> Implémentation Phase B code en attente validation visuelle des mockups.
+
+### Phase C — Audit navigation + onglets par profil (audit livré, implé en attente)
+> Audit complet livré : [NAV-AUDIT-PROFILS.md](docs/subjects/NAV-AUDIT-PROFILS.md). Verdict par onglet (Garder/Reclassifier/Refondre/Sortir-top-nav) + sidebar cible Solo (5) / Gestionnaire (10) / Pro (10+ multi-portfolio).
+>
+> 6 sous-sprints C1-C6 identifiés (22-40h total) : nav adaptative profils · scinder Import patrimoine/comptable · sortir EDL/IRL/Régul du top-nav · refonte Agenda · décision Assurances · fusion Paramètres+Export.
+>
+> Pré-requis avant code : validation mockup Phase B + brief user clarifié pour Agenda (C4) et Assurances (C5).
+
+---
+
 ## ✅ Livré récemment
 
 ### Phase A3 — BUG-DRIVE-PARTAGE-TIERS (workaround V1 documenté) — session 2026-05-15 (~15 min, doc only)
