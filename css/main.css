@@ -281,6 +281,12 @@ a{color:var(--blu);text-decoration:none}
   min-height:64px;
   flex-shrink:0;
 }
+/* v15.26 — Boutons utilitaires (thème + font size) en haut sidebar à côté du logo */
+.sb-logo-utils{
+  display:flex;gap:5px;margin-left:auto;flex-shrink:0;
+  transition:opacity 180ms;
+}
+.sb.sb-collapsed .sb-logo-utils{opacity:0;pointer-events:none;width:0;overflow:hidden}
 .sb-logo-icon{font-size:22px;flex-shrink:0;line-height:1}
 .sb-logo-text{display:flex;flex-direction:column;gap:1px;overflow:hidden;white-space:nowrap;transition:opacity 180ms,width 180ms}
 .sb-logo-text strong{font-family:'Manrope',sans-serif;font-weight:700;font-size:16px;color:#fff;letter-spacing:-.2px}
