@@ -5146,8 +5146,11 @@ html[data-theme="colore"] body[data-dash-v4="on"] {
   --t3: #8b6940;
 }
 
-/* Hide elements legacy en mode V4 (mais on garde les filtres mois/année/entité) */
+/* v15.37 — Hide tous les éléments legacy du dashboard en mode V4.
+   Les filtres période sont DÉPLACÉS dans la topbar #tb-actions par _v4SyncTopbarFilters.
+   Le filtre entité est SUPPRIMÉ (les 4 carrés sidebar V4 suffisent). */
 body[data-dash-v4="on"] #p-dashboard > .tabs[role="tablist"],
+body[data-dash-v4="on"] #p-dashboard > .flex-b.mb14,
 body[data-dash-v4="on"] #p-dashboard #dash-panel,
 body[data-dash-v4="on"] #p-dashboard #dash-edit-bar,
 body[data-dash-v4="on"] #p-dashboard #dash-top-bandeau,
@@ -5157,35 +5160,32 @@ body[data-dash-v4="on"] #p-dashboard #dash-ent-cards,
 body[data-dash-v4="on"] #p-dashboard #dash-alerts {
   display: none !important;
 }
-/* Filtres période/entité visibles en V4 : on cache juste les boutons redondants */
-body[data-dash-v4="on"] #p-dashboard #dash-btn-panel,
-body[data-dash-v4="on"] #p-dashboard #dash-btn-edit,
-body[data-dash-v4="on"] #p-dashboard #dash-alert-pill {
-  display: none !important;
+
+/* v15.37 — Filtres période dans la topbar (à droite de "Tableau de bord") */
+body[data-dash-v4="on"] .v4s-tb-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-/* Style V4 du wrapper filtres */
-body[data-dash-v4="on"] #p-dashboard > .flex-b.mb14 {
-  background: var(--sur);
-  border: 1px solid var(--bor);
-  border-radius: 12px;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-  gap: 9px;
+body[data-dash-v4="on"] .v4s-tb-filters .v4s-tb-label {
+  font: 600 11px/1.2 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--t3);
+  margin-right: 2px;
 }
-body[data-dash-v4="on"] #p-dashboard > .flex-b.mb14 .inp {
+body[data-dash-v4="on"] .v4s-tb-filters select {
   background: var(--sur2);
   border: 1px solid var(--bor);
   color: var(--t1);
-  font: 500 13px/1 'Inter', sans-serif;
-  padding: 7px 10px;
+  font: 600 13px/1 'Inter', sans-serif;
+  padding: 6px 9px;
   border-radius: 7px;
+  cursor: pointer;
   transition: border-color .15s;
 }
-body[data-dash-v4="on"] #p-dashboard > .flex-b.mb14 .inp:hover {
-  border-color: var(--cta);
-}
-body[data-dash-v4="on"] #p-dashboard > .flex-b.mb14 .inp:focus {
+body[data-dash-v4="on"] .v4s-tb-filters select:hover { border-color: var(--cta); }
+body[data-dash-v4="on"] .v4s-tb-filters select:focus {
   outline: 2px solid var(--cta);
   outline-offset: 1px;
   border-color: var(--cta);
@@ -5702,8 +5702,21 @@ body[data-dash-v4="on"] .pc { padding: 18px 22px; }
 .v4s-entview-lot.vac .v4s-am { color: var(--neg); }
 
 /* ─── SIDEBAR V4 (mode dashRenderV='v2') ─── */
+/* v15.37 fix : override le gradient bleu nuit hardcoded de .sb-nav legacy pour
+   utiliser var(--sur) qui s'adapte au thème (dark/sobre/coloré).
+   Sinon, en sobre/coloré le texte foncé sur fond bleu nuit est illisible. */
 body[data-dash-v4="on"] .sb-nav {
   font-family: 'Inter', sans-serif;
+  background: var(--sur) !important;
+  border-right: 1px solid var(--bor) !important;
+  box-shadow: 1px 0 0 var(--bor2);
+}
+/* En sobre/coloré : sidebar légèrement teintée pour différencier du main */
+html[data-theme="sobre"] body[data-dash-v4="on"] .sb-nav {
+  background: #fbfcfe !important;
+}
+html[data-theme="colore"] body[data-dash-v4="on"] .sb-nav {
+  background: #fffaf5 !important;
 }
 body[data-dash-v4="on"] .v4s-sb-logo {
   font-family: 'Manrope', sans-serif;
