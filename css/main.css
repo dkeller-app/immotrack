@@ -5167,18 +5167,32 @@ body[data-dash-v4="on"] #p-dashboard #dash-alerts {
 /* v15.37 — Topbar : réserve juste la place pour drive-fab (chip DK déplacée dans topbar) */
 body[data-dash-v4="on"] .tb {
   padding-right: 100px !important;
+  /* Hauteur auto pour permettre wrap des contrôles si étroit */
+  min-height: 54px;
+  height: auto !important;
 }
 body[data-dash-v4="on"] .tb-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
 }
 
-/* v15.37 — Contrôles topbar regroupés (mode + filtres + thèmes) */
+/* v15.37 — Contrôles topbar regroupés (mode + filtres + thèmes + chip DK) */
 body[data-dash-v4="on"] .v4s-tb-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+  /* Empêche les éléments de se superposer (chip DK ne doit pas chevaucher sobre) */
+  row-gap: 6px;
+}
+/* z-index : chip DK doit être SOUS les boutons thème pour ne pas les cacher */
+body[data-dash-v4="on"] .v4s-tb-controls > * {
+  position: relative;
+  z-index: 1;
+}
+body[data-dash-v4="on"] .v4s-user-chip {
+  z-index: 0;
 }
 body[data-dash-v4="on"] .v4s-tb-sep {
   width: 1px;
@@ -5649,6 +5663,20 @@ body[data-dash-v4="on"] .v4s-conf-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: all .15s;
+}
+body[data-dash-v4="on"] button.v4s-conf-card:hover {
+  border-color: var(--cta);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+}
+body[data-dash-v4="on"] button.v4s-conf-card:focus-visible {
+  outline: 2px solid var(--cta);
+  outline-offset: 1px;
 }
 body[data-dash-v4="on"] .v4s-conf-top {
   display: flex;
