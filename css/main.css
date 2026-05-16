@@ -6719,13 +6719,12 @@ body[data-dash-v4="on"] .sb-nav > .sb-collapse-btn,
 body[data-dash-v4="on"] .sb-nav .sb-footer {
   display: none !important;
 }
-/* v15.38 — Fix layout : .layout (parent sidebar) doit prendre la hauteur du
-   body INTERNE (qui a padding-top: 36px à cause du bandeau sandbox MODE TEST).
-   Avant : .layout height:100vh débordait sous le viewport (footer DK invisible). */
+/* v15.38 — Fix layout : .layout (parent sidebar) doit respecter les bannières
+   top (readonly-banner en prod 50px, sandbox-banner en test 36px, etc.).
+   --top-banners-h calculée en JS via _v4SyncBannersHeight() (cf index-test.html). */
 body[data-dash-v4="on"] .layout {
-  height: 100% !important;
+  height: calc(100vh - var(--top-banners-h, 0px)) !important;
 }
-/* Sidebar : prend la hauteur du parent .layout (pas 100vh qui déborde) */
 body[data-dash-v4="on"] .sb-nav {
   padding: 14px 0 0;
   display: flex;
