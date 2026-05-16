@@ -15,6 +15,27 @@
 
 ---
 
+## 🔥 Sprint 19 actif — Refonte onglets V2 (10 remarques 2026-05-16)
+
+> **9 lots indépendants · 14-21h total · prompts détaillés clé en main** :
+> [docs/strategie/SPRINT-19-REFONTE-ONGLETS-V2-PROMPTS.md](docs/strategie/SPRINT-19-REFONTE-ONGLETS-V2-PROMPTS.md)
+>
+> **Ordre recommandé** : 19A → 19B → 19C → 19D → 19E → 19F → 19G → 19H → 19I (3 bugs P1 d'abord, puis refontes UI)
+>
+> | Lot | Sujet | Prio | Taille | Statut |
+> |---|---|---|---|---|
+> | 19A | BUG-IRL-APERCU-LETTRE-V15 | P1 | S | ⬜ À faire |
+> | 19B | EMAIL-ONGLET-PERMANENT | P1 | S | ⬜ À faire |
+> | 19C | BUG-EQUIP-INTERV-FEEDBACK | P1 | S | ⬜ À faire |
+> | 19D | V3-REFONTE-NAV-ONGLETS (Loyers→Mouvements + décisions) | P1 | M | ⬜ À faire |
+> | 19E | V3-REFONTE-IMPORTS-UI (3 sous-tabs) | P1 | M | ⬜ À faire |
+> | 19F | IRL-RAPPEL-MAJ-INSEE | P2 | S | ⬜ À faire |
+> | 19G | V3-REFONTE-ASSURANCES (cards) | P2 | M | ⬜ À faire |
+> | 19H | V3-REFONTE-EDL-CARDS | P2 | M | ⬜ À faire |
+> | 19I | V3-REFONTE-PARAMS-AUDIT (input user requis) | P2 | S | ⬜ À faire |
+
+---
+
 ## 📑 Vue par onglet (pour travailler onglet par onglet)
 
 > Permet de regrouper tous les sujets d'un même onglet pour les traiter en une session.
@@ -22,7 +43,7 @@
 
 | Onglet | Codes (prio) |
 |---|---|
-| 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · DASH-KPI-HC (P2) — *DASH-REFONTE-GLOBALE-V4 ✅ Livré sandbox v15.36 (CP1-4, attente validation user pour propagation prod) · DASH-V2 ✅ fusionné dans DASH-REFONTE-GLOBALE-V4* |
+| 📊 **Dashboard** | DASH-PROFILES ⏳ (P1, Phase 1 v2 livrée — 4 onglets, attente validation finale) · BUG-DASH-001 (P1) · **BUG-DASH-SPARK-COLOR (P2, régression V4)** · DASH-KPI-HC (P2) — *DASH-REFONTE-GLOBALE-V4 ✅ Livré sandbox v15.36 (CP1-4, attente validation user pour propagation prod) · DASH-V2 ✅ fusionné dans DASH-REFONTE-GLOBALE-V4* |
 | 📜 **Bail** | BAIL-CHARGES-DETAIL (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | LOG-CANDIDATS (P1, pipeline lien partagé) · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · LOG-ANNONCE ✨ (P2, enrichi 2026-05-15 mode "qui fait rêver" type Leboncoin) · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅ · BAILLEUR-DIAGNOSTICS-DDT ✅ Livré v15.05+v15.06 (Sprint 7+7B) · EQUIP-CONTROLES-PERIODIQUES ✅ Livré v15.08 (Sprint 9, 6 phases)* |
 | 🏛️ **Entité / Immeuble** | PARAM-BAILLEUR-AUTOMATISATIONS (P1) · IMM-FICHE-SOUS-ONGLETS (P2) · BAILLEUR-FORM-RICHE (P2) · ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅* |
@@ -147,6 +168,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | DASH-REFONTE-GLOBALE-V4 | **🔥 Refonte visuelle globale dashboard + sidebar + audit dark 14 onglets** (V4 Stripe narrative) | P1 | XL | 🔄 En cours (session dédiée) | [docs/subjects/DASH-REFONTE-GLOBALE-V4.md](docs/subjects/DASH-REFONTE-GLOBALE-V4.md) · décision user 2026-05-15 d'abandonner le sprint-par-sprint pour refonte en bloc · 4 checkpoints visuels (CP1 fondations+sidebar+dédupli bandeau · CP2 cockpit Hero V4 · CP3 cash-flow Bloomberg + 5 KPIs sparklines · CP4 dash-ent-cards + audit dark 14 onglets + responsive 3 formats) · sandbox v15.36 · fusionne Phase B Étape A (v15.33) + Sprint 1 bandeau (v15.35) qui étaient des livraisons hybrides moches |
 | BUG-IRL-001 | Lettre IRL : "date anniversaire du bail" est faux, c'est le mois | P0 | XS | ✅ Livré v13.30 | commit 661d0e7 · "date anniversaire, soit le 15 juin 2026" → "mois anniversaire (juin 2026)" + helper _dfm |
 | BUG-CHARGE-001 | Régularisation des charges ne fonctionne pas | P1 | M | ✅ Livré v14.82 + résiduel v15.04 (Sprint 6) | **Cause racine** : `computeRegul` filtrait `m.cat==='Loyers'`/`'Charges'` strict (legacy v14.59). Avec v14.78 LEGAL-2044, l'utilisateur tagge `'Loyers encaissés'`, `'Provisions pour charges de copropriété'` → plus aucun match → provisions = 0, charges = 0, solde faux. **Fix v14.82** : helpers `_isLoyerCategory` / `_isChargeRecupCategory` qui matchent legacy + LEGAL-2044 (211 recettes + 229/230 charges récup). 12 sites supplémentaires mis à jour (dashboard widgets, KPI, quittances, alertes). **Tests Vitest** : 19 nouveaux dans `__tests__/helpers/charges.test.js` (compat legacy + modern + mix). **Résiduel v15.04** : 6 sites supplémentaires détectés par audit Explore (`_buildRevDrill` l.5627, `_getLogementStartIso` l.5771, `_buildProgDrill` l.5892, `_buildRdtDrill` l.6542, KPI Immeuble l.7281, sparkline rendement l.7343) → grep final = 0 occurrence résiduelle. |
+| BUG-DASH-SPARK-COLOR | **Régression V4** : sparklines/aires du dashboard restent vertes même quand valeurs négatives (Cash-flow 12 mois YTD net=-14876 € affiché en vert area gradient). Avant V4 : couleur dynamique vert si positif / rouge si négatif (signe ou pente). À restaurer sur tous les widgets V4 concernés (cash-flow area, sparklines KPI, mini-bars Charges/Loyers). | P2 | S | ⬜ À faire | constaté 2026-05-16 sur prod v15.38 après propagation. Cible : helper `_mkSparkline` + `_heroCashflowSeries` — passer un flag `signColor:true` qui choisit `--pos/--neg` par signe (ou par delta vs 0). Test visuel : mois avec net négatif doit afficher area + ligne en rouge. |
 | BUG-DASH-001 | Dashboard : prendre les baux en vigueur dans le mois choisi | P1 | M | ✅ Phase 1+2 v14.83 + résiduel v15.04 (Sprint 6) | **Helpers temporels** `_bailEstActifAt`, `_loyerHCAtDate`, `_chargesAtDate` ajoutés dans index-test.html (ligne 5985) — adaptés au schéma réel `DB.irlHistorique` (pas `bail.revisions[]`). **Test Vitest** `dashboard-temporel.test.js` : 19 tests (5 scénarios complets dont le cas user "mai 2024 vs fév 2025"). **Application** dashboard : refonte `_getActiveBailHcCh` qui consultait `bail.hc` brut (montant courant post-révisions IRL) → utilise désormais `_loyerHCAtDate` pour bail courant + monthIso passé. Dimension 1 (baux par période) déjà gérée via `_getAllBailsForLog`. **Résiduel v15.04** : fix de `_buildProgDrill` (l.5892) qui faisait encore `m.cat !== 'Loyers'` → couvert par la conversion `_isLoyerCategory` du Sprint 6. **Phase 3 optionnelle** : refacto complet rDash/buildDashWidget reportée à Sprint 2A (refacto fns monstres 892 lignes). |
 | BUG-BAIL-002 | Bail : seule la 1re signature garant apparaît si 2 garants | P1 | S | ✅ Obsolète 2026-04-29 | [docs/subjects/BUG-BAIL-002.md](docs/subjects/BUG-BAIL-002.md) · vérifié par utilisateur : 2 actes cautionnement bien générés (1 par garant) avec page-break + sig dédiée. Bug résolu par refonte UI dynamique garants. |
 | BUG-BAIL-003 | Bail multi-bailleurs : 2e signature bailleur capturée mais absente du PDF | P1 | XS | ✅ Livré v13.19 | [docs/subjects/BUG-BAIL-003.md](docs/subjects/BUG-BAIL-003.md) · commit eca0faa · ✅ testé OK 2026-04-29 (bail Ferrette ARSLAN/HARNIST 2 sigs visibles) |
