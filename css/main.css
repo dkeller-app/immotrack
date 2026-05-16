@@ -6719,18 +6719,64 @@ body[data-dash-v4="on"] .sb-nav > .sb-collapse-btn,
 body[data-dash-v4="on"] .sb-nav .sb-footer {
   display: none !important;
 }
-/* v15.37 — Sidebar V4 compacte pour tenir sur 1 écran (footer DK déplacé en topbar) */
-body[data-dash-v4="on"] .sb-nav { padding: 14px 0 0; }
-body[data-dash-v4="on"] .v4s-sb-logo { padding: 4px 18px 12px; min-height: auto; }
-body[data-dash-v4="on"] .v4s-sb-ent { margin-bottom: 8px; padding-bottom: 8px; }
-body[data-dash-v4="on"] .v4s-sb-nav { padding-bottom: 4px; }
-body[data-dash-v4="on"] .v4s-sb-nav .v4s-a { padding: 7px 18px; }
-body[data-dash-v4="on"] .v4s-sb-nav h6 { padding: 10px 18px 4px; }
+/* v15.38 — Sidebar V4 ULTRA compacte pour tenir sur 1 écran (~720px) */
+body[data-dash-v4="on"] .sb-nav { padding: 10px 0 0; }
+body[data-dash-v4="on"] .v4s-sb-logo {
+  padding: 2px 16px 4px;
+  min-height: auto;
+}
+body[data-dash-v4="on"] .v4s-sb-logo strong { font-size: 13px; }
+body[data-dash-v4="on"] .v4s-sb-version {
+  font: 600 9px/1 'JetBrains Mono', monospace;
+  padding: 0 18px 6px;
+  letter-spacing: .1em;
+}
+body[data-dash-v4="on"] .v4s-sb-ent {
+  padding: 0 6px 8px;
+  margin-bottom: 4px;
+  gap: 4px;
+}
+/* Entités : hauteur fixe (au lieu de aspect-ratio:1 qui les rend gros) */
+body[data-dash-v4="on"] .v4s-sb-ent .v4s-e {
+  aspect-ratio: auto;
+  height: 42px;
+}
+body[data-dash-v4="on"] .v4s-sb-ent .v4s-e b { font-size: 9px; }
+body[data-dash-v4="on"] .v4s-sb-ent .v4s-e s { font-size: 7.5px; }
+body[data-dash-v4="on"] .v4s-sb-nav {
+  padding-bottom: 2px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+body[data-dash-v4="on"] .v4s-sb-nav .v4s-a {
+  padding: 4px 16px;
+  font-size: 12px;
+  gap: 8px;
+}
+body[data-dash-v4="on"] .v4s-sb-nav .v4s-a .v4s-ic svg { width: 14px; height: 14px; }
+body[data-dash-v4="on"] .v4s-sb-nav .v4s-a .v4s-bd {
+  font-size: 9px;
+  padding: 1px 5px;
+}
+body[data-dash-v4="on"] .v4s-sb-nav h6 {
+  padding: 6px 16px 2px;
+  font-size: 8.5px;
+}
 body[data-dash-v4="on"] .v4s-theme-row {
   margin-top: auto;
   border-top: 1px solid var(--bor);
-  padding: 10px 14px 12px;
+  padding: 8px 12px 10px;
 }
+body[data-dash-v4="on"] .v4s-sb-userfoot {
+  padding: 7px 14px;
+}
+body[data-dash-v4="on"] .v4s-sb-userfoot-av {
+  width: 28px; height: 28px;
+  font-size: 10.5px;
+}
+body[data-dash-v4="on"] .v4s-sb-userfoot-name { font-size: 12px; }
+body[data-dash-v4="on"] .v4s-sb-userfoot-role { font-size: 10px; }
 
 /* ─── Responsive V4 Stripe ─── */
 @media (max-width: 1280px) {
