@@ -5302,11 +5302,14 @@ body[data-dash-v4="on"] .v4s-mode-btn {
 body[data-dash-v4="on"] .v4s-mode-btn .v4s-mode-ic { font-size: 14px; }
 body[data-dash-v4="on"] .v4s-mode-btn:hover { color: var(--t1); }
 body[data-dash-v4="on"] .v4s-mode-btn.act {
-  background: var(--cta);
-  color: var(--bg);
-  box-shadow: 0 1px 4px rgba(0,204,188,.25);
+  /* v15.38 : fond opaque léger + texte cta + border (au lieu de fond plein cyan
+     qui paraissait comme "un carré vert" vide en topbar) */
+  background: var(--sur);
+  color: var(--t1);
+  box-shadow: inset 0 0 0 1.5px var(--cta);
+  font-weight: 700;
 }
-body[data-dash-v4="on"] .v4s-mode-btn.act .v4s-mode-ic { filter: brightness(1.1); }
+body[data-dash-v4="on"] .v4s-mode-btn.act .v4s-mode-ic { filter: none; }
 
 /* 3 boutons thèmes dans la topbar — version compacte */
 body[data-dash-v4="on"] .v4s-theme-tb-row {
@@ -5333,8 +5336,10 @@ body[data-dash-v4="on"] .v4s-theme-tb-row .v4s-theme-btn {
 }
 body[data-dash-v4="on"] .v4s-theme-tb-row .v4s-theme-btn:hover { color: var(--t1); }
 body[data-dash-v4="on"] .v4s-theme-tb-row .v4s-theme-btn.act {
-  background: var(--cta);
-  box-shadow: 0 1px 4px rgba(0,204,188,.25);
+  /* v15.38 : outline (inset border) au lieu de fond plein cyan ("carré vert") */
+  background: var(--sur);
+  color: var(--t1);
+  box-shadow: inset 0 0 0 1.5px var(--cta);
 }
 
 /* ─── MODE SOLO ─── */
@@ -6694,10 +6699,11 @@ body[data-dash-v4="on"] .v4s-theme-btn:hover {
   transform: translateY(-1px);
 }
 body[data-dash-v4="on"] .v4s-theme-btn.act {
-  background: linear-gradient(135deg, rgba(0,204,188,.20), rgba(14,115,246,.14));
+  /* v15.38 : outline subtle + couleur cta (au lieu de fond gradient "vert plein") */
+  background: var(--sur);
   border-color: var(--cta);
-  color: var(--cta);
-  box-shadow: 0 0 0 2px rgba(0,204,188,.18) inset;
+  color: var(--t1);
+  box-shadow: inset 0 0 0 1.5px var(--cta);
 }
 body[data-dash-v4="on"] .v4s-theme-btn:focus-visible {
   outline: 2px solid var(--cta);
