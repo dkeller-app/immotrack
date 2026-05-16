@@ -6207,6 +6207,26 @@ body[data-dash-v4="on"] .pc { padding: 18px 22px; }
   margin-top: 4px;
 }
 
+/* v15.37 — Widget Projection annuelle : background gradient subtil */
+body[data-dash-v4="on"] .v4s-k-projection {
+  background: linear-gradient(135deg, var(--sur) 0%, var(--sur2) 100%);
+  position: relative;
+  overflow: hidden;
+}
+body[data-dash-v4="on"] .v4s-k-projection::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 60%; height: 60%;
+  background: radial-gradient(circle at top right, rgba(52,211,153,.12), transparent 70%);
+  pointer-events: none;
+  border-radius: var(--v4-rad);
+}
+body[data-dash-v4="on"] .v4s-k-projection > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* ─── ENTVIEW (SCI / immeubles / lots colorés) ─── */
 .v4s-entview {
   background: var(--sur);
