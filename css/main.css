@@ -6719,14 +6719,19 @@ body[data-dash-v4="on"] .sb-nav > .sb-collapse-btn,
 body[data-dash-v4="on"] .sb-nav .sb-footer {
   display: none !important;
 }
-/* v15.38 — Sidebar V4 : layout flex avec NAV scrollable interne pour que
-   le footer DK reste TOUJOURS visible en bas du viewport. */
+/* v15.38 — Fix layout : .layout (parent sidebar) doit prendre la hauteur du
+   body INTERNE (qui a padding-top: 36px à cause du bandeau sandbox MODE TEST).
+   Avant : .layout height:100vh débordait sous le viewport (footer DK invisible). */
+body[data-dash-v4="on"] .layout {
+  height: 100% !important;
+}
+/* Sidebar : prend la hauteur du parent .layout (pas 100vh qui déborde) */
 body[data-dash-v4="on"] .sb-nav {
   padding: 14px 0 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  max-height: 100vh;
+  height: 100%;
+  max-height: 100%;
 }
 body[data-dash-v4="on"] .v4s-sb-logo { padding: 4px 18px 8px; min-height: auto; flex-shrink: 0; }
 body[data-dash-v4="on"] .v4s-sb-version { flex-shrink: 0; }
