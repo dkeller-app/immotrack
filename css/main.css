@@ -46,96 +46,98 @@
    (palettes Sobre / Coloré / Dark Boursorama validées par l'utilisateur)
    ──────────────────────────────────────────────────────────────────────── */
 
-/* ── Thème SOBRE (mockup defaults) ── */
+/* ── Thème SOBRE (mockup galerie-finale-sans-surcharge.html) ──
+   v15.37 — Aligné EXACTEMENT sur le mockup référence (couleurs vives sobres) */
 [data-theme="sobre"] {
-  --bg:#f4f6fa;
-  --sur:#ffffff;
-  --sur2:#f9fafc;
-  --sur3:#eef2f7;
-  --bor:#e5e9f1;
-  --bor2:#eef1f6;
-  --t1:#0d1420;
-  --t2:#475569;
-  --t3:#94a3b8;
-  --acc:#0d1420;
-  --acc2:#1a233a;
-  --acc-soft:#eef1f6;
-  --cta:#0d1420;
-  --cta-h:#1f2538;
-  --cta-text:#ffffff;
-  --pos:#16a34a;
-  --pos-soft:#dcfce7;
-  --neg:#dc2626;
-  --neg-soft:#fee2e2;
-  --warn:#ea580c;
-  --warn-soft:#fff1e8;
-  --info:#0e73f6;
-  --info-soft:#e6efff;
+  --bg:#F4F6FB;
+  --sur:#FFFFFF;
+  --sur2:#FAFBFD;
+  --sur3:#F0F3F8;
+  --bor:rgba(20,25,54,.08);
+  --bor2:rgba(20,25,54,.04);
+  --t1:#141936;
+  --t2:#525B7A;
+  --t3:#8A94B0;
+  --acc:#0E73F6;
+  --acc2:#3A8EFB;
+  --acc-soft:rgba(14,115,246,.10);
+  --cta:#00B5A6;
+  --cta-h:#00CCBC;
+  --cta-text:#FFFFFF;
+  --pos:#10B981;
+  --pos-soft:rgba(16,185,129,.14);
+  --neg:#EF4444;
+  --neg-soft:rgba(239,68,68,.14);
+  --warn:#F59E0B;
+  --warn-soft:rgba(245,158,11,.14);
+  --info:#0E73F6;
+  --info-soft:rgba(14,115,246,.14);
   /* Compat variables historiques de l'app */
-  --blu:#0e73f6;
-  --grn:#16a34a;
-  --red:#dc2626;
-  --ora:#ea580c;
-  --pur:#7c3aed;
-  --bg-success:#dcfce7;
-  --bg-danger:#fee2e2;
-  --bg-warning:#fff1e8;
-  --bg-info:#e6efff;
-  --fg-success:#16a34a;
-  --fg-danger:#dc2626;
-  --fg-warning:#ea580c;
-  --fg-info:#0e73f6;
-  --shadow:0 1px 2px rgba(13,20,32,.05);
-  --shadow-lg:0 12px 32px rgba(13,20,32,.10);
-  --shadow-hover:0 4px 14px rgba(13,20,32,.07);
-  --shadow-card:0 1px 2px rgba(13,20,32,.05);
-  --shadow-card-hover:0 4px 14px rgba(13,20,32,.07);
+  --blu:#0E73F6;
+  --grn:#10B981;
+  --red:#EF4444;
+  --ora:#F59E0B;
+  --pur:#7C3AED;
+  --bg-success:rgba(16,185,129,.14);
+  --bg-danger:rgba(239,68,68,.14);
+  --bg-warning:rgba(245,158,11,.14);
+  --bg-info:rgba(14,115,246,.14);
+  --fg-success:#10B981;
+  --fg-danger:#EF4444;
+  --fg-warning:#F59E0B;
+  --fg-info:#0E73F6;
+  --shadow:0 4px 20px rgba(20,25,54,.06);
+  --shadow-lg:0 12px 40px rgba(20,25,54,.12);
+  --shadow-hover:0 4px 18px rgba(20,25,54,.10);
+  --shadow-card:0 1px 3px rgba(20,25,54,.05);
+  --shadow-card-hover:0 4px 18px rgba(20,25,54,.10);
 }
 
-/* ── Thème COLORÉ (Deliveroo-like — accents rose + teal CTA + fond chaud) ── */
+/* ── Thème COLORÉ (mockup galerie-finale-sans-surcharge.html — Deliveroo) ──
+   v15.37 — Aligné EXACTEMENT sur le mockup référence */
 [data-theme="colore"] {
-  --bg:#fff8f2;
-  --sur:#ffffff;
-  --sur2:#fffaf4;
-  --sur3:#fff1e3;
-  --bor:#ffd9b8;
-  --bor2:#ffe8d2;
-  --t1:#1a0f04;
-  --t2:#6b4a2a;
-  --t3:#b59575;
-  --acc:#FF4D7C;
-  --acc2:#FF8DA1;
-  --acc-soft:#ffe1ea;
-  --cta:#00CCBC;
-  --cta-h:#00b3a6;
-  --cta-text:#0d1420;
-  --pos:#00A878;
-  --pos-soft:#d1f4e6;
-  --neg:#E0234E;
-  --neg-soft:#ffd9e2;
-  --warn:#FF8400;
-  --warn-soft:#ffe6cc;
-  --info:#7B5BFF;
-  --info-soft:#e8e0ff;
+  --bg:#FFF7F2;
+  --sur:#FFFFFF;
+  --sur2:#FFF1E8;
+  --sur3:#FFE7D7;
+  --bor:rgba(0,38,38,.10);
+  --bor2:rgba(0,38,38,.04);
+  --t1:#002626;
+  --t2:#3D5151;
+  --t3:#7A8C8C;
+  --acc:#00CCBC;
+  --acc2:#1adbcb;
+  --acc-soft:rgba(0,204,188,.14);
+  --cta:#FF8000;
+  --cta-h:#FF9D38;
+  --cta-text:#002626;
+  --pos:#00B884;
+  --pos-soft:rgba(0,184,132,.14);
+  --neg:#E63946;
+  --neg-soft:rgba(230,57,70,.14);
+  --warn:#FFA940;
+  --warn-soft:rgba(255,169,64,.14);
+  --info:#00CCBC;
+  --info-soft:rgba(0,204,188,.14);
   /* Compat variables historiques de l'app */
-  --blu:#7B5BFF;
-  --grn:#00A878;
-  --red:#E0234E;
-  --ora:#FF8400;
+  --blu:#00CCBC;
+  --grn:#00B884;
+  --red:#E63946;
+  --ora:#FF8000;
   --pur:#7B5BFF;
-  --bg-success:#d1f4e6;
-  --bg-danger:#ffd9e2;
-  --bg-warning:#ffe6cc;
-  --bg-info:#e8e0ff;
-  --fg-success:#00A878;
-  --fg-danger:#E0234E;
-  --fg-warning:#FF8400;
-  --fg-info:#7B5BFF;
-  --shadow:0 1px 2px rgba(255,77,124,.06);
-  --shadow-lg:0 16px 40px rgba(255,77,124,.18);
-  --shadow-hover:0 6px 22px rgba(255,77,124,.12);
-  --shadow-card:0 1px 2px rgba(255,77,124,.06);
-  --shadow-card-hover:0 6px 22px rgba(255,77,124,.12);
+  --bg-success:rgba(0,184,132,.14);
+  --bg-danger:rgba(230,57,70,.14);
+  --bg-warning:rgba(255,169,64,.14);
+  --bg-info:rgba(0,204,188,.14);
+  --fg-success:#00B884;
+  --fg-danger:#E63946;
+  --fg-warning:#FFA940;
+  --fg-info:#00CCBC;
+  --shadow:0 6px 24px rgba(0,38,38,.08);
+  --shadow-lg:0 16px 40px rgba(0,38,38,.15);
+  --shadow-hover:0 6px 22px rgba(255,128,0,.18);
+  --shadow-card:0 1px 3px rgba(0,38,38,.06);
+  --shadow-card-hover:0 6px 22px rgba(255,128,0,.18);
 }
 
 /* ── Thème DARK BOURSORAMA (bleu nuit profond — accents bleu primaire + CTA teal) ── */
@@ -6009,21 +6011,17 @@ body[data-dash-v4="on"] .pc { padding: 18px 22px; }
   animation: v4sPulse 2s infinite;
 }
 
-/* v15.37 — Bouton cliquable sur l'alerte impayés (drill-down) */
-body[data-dash-v4="on"] .v4s-hero-alert-btn {
+/* v15.37 — Alerte impayés cliquable (drill-down) — sans width:100% qui cassait le grid */
+body[data-dash-v4="on"] .v4s-hero-alert-clickable {
   cursor: pointer;
-  text-align: left;
-  font: inherit;
-  color: var(--neg);
-  width: 100%;
-  transition: all .15s;
+  transition: background .15s, border-color .15s, transform .15s;
 }
-body[data-dash-v4="on"] .v4s-hero-alert-btn:hover {
+body[data-dash-v4="on"] .v4s-hero-alert-clickable:hover {
   background: rgba(248,113,113,.18);
   border-color: rgba(248,113,113,.50);
   transform: translateY(-1px);
 }
-body[data-dash-v4="on"] .v4s-hero-alert-btn:focus-visible {
+body[data-dash-v4="on"] .v4s-hero-alert-clickable:focus-visible {
   outline: 2px solid var(--neg);
   outline-offset: 1px;
 }
@@ -6409,6 +6407,13 @@ body[data-dash-v4="on"] .v4s-sb-logo .v4s-prem {
   padding: 3px 6px;
   border-radius: 4px;
   margin-left: auto;
+}
+body[data-dash-v4="on"] .v4s-sb-version {
+  font: 600 10px/1 'JetBrains Mono', monospace;
+  color: var(--t3);
+  letter-spacing: .12em;
+  padding: 0 22px 12px;
+  text-transform: uppercase;
 }
 body[data-dash-v4="on"] .v4s-sb-ent {
   display: grid;
