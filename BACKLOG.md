@@ -335,7 +335,54 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
-### DASH-REFONTE-GLOBALE-V4 ✅ — Refonte globale dashboard + sidebar (sandbox v15.36) — session 2026-05-15 (~4h)
+### DASH-REFONTE-GLOBALE-V4 ✅ — Refonte V4 Stripe complète (sandbox v15.37) — session 2026-05-15/16 (~7h cumulées)
+> **Refonte visuelle COMPLÈTE** alignée sur mockup `docs/strategie/dashboard-mockups/galerie-finale-sans-surcharge.html` (variant V4 Stripe, l.947-1136).
+>
+> Suite à retour user (capture CP1-4 jugée hybride) : abandon des patches incrémentaux → réécriture complète du dashboard + sidebar V4 Stripe.
+>
+> **Fonts** : ajout Inter (400-800) + JetBrains Mono (400-600) en plus de Manrope existant.
+>
+> **CSS** : ~480 lignes ajoutées dans `main.css` scopées `body[data-dash-v4="on"]` (préfixe classes `.v4s-*`). Activé uniquement quand `DB.params.dashRenderV === 'v2'`.
+>
+> **Sidebar V4** (`_renderSidebarV4`) : logo "ImmoTrack" + badge PREMIUM · 4 carrés entités top 3 + bouton "+" · nav compacte avec 16 items (icones SVG Feather-style) + badges count (Logements / Locataires / Loyers) · sections "Comptabilité" et "Réglages" · footer avatar DK + nom + sous-titre.
+>
+> **Dashboard V4** (`_renderDashV4`) — 5 sections :
+> 1. **Coach IA** : eyebrow + h2 "Priorisation {Mois Année}" + 3 cards horizontales (todos dédupliqués par type via `_TODO_TYPE_META`) + CTA "DÉMARRER →".
+> 2. **Narrate** : phrase narrative discrète avec deltas dynamiques (montant + delta vs mois-1 + % collecté réel + restant).
+> 3. **Row1** : Hero jauge demi-cercle SVG (pctCollecte) + Cash-flow 12 mois (sparkline area gradient + 3 mini-KPIs YTD) + Sujets à traiter (top 3 priorisés).
+> 4. **Row2** : 5 KPIs Bloomberg row (Occupation·MAG / Rendement / DG / Charges·Loyers / vs mois-1).
+> 5. **Entview** : par entité, header + KPIs + immeubles avec lots colorés (ok/warn/vac).
+>
+> **Helpers métier intacts** : `_computeUnifiedTodo`, `_TODO_TYPE_META`, `_heroCashflowSeries`, `_mkSparkline`, `_buildHeroDrill`, `_buildFluxDrill`, `_isLoyerCategory`, `_computeImpayes`, `_isAlive`. 23 drill-downs `_DD[*]` préservés (hero, flux, occ, rdt, donut, dg, todo-unified accessibles).
+>
+> **Bugs fixés en cours de session** :
+> - `objMens × 12` quand "Toute l'année" (avant : "8 250 € sur 1 706 €" — bug annuel vs mensuel).
+> - Narrate "100 % collecté" en dur remplacé par `pctCollecte` réel + restant.
+> - Delta % cash-flow et "vs mois-1" : clamp si `prevCf` < 10% du courant (évite "+5213 %" aberrant) → bascule sur delta absolu €.
+> - Label "vs N-1" → "vs Mars 2026" (label dynamique partout).
+>
+> **Comportement** :
+> - V4 Stripe activé automatiquement quand `dashRenderV='v2'` + thème dark (force thème dark via `_applyStoredPrefs`).
+> - Sidebar legacy (sections collapsibles + entités épinglées CP1) masquée via CSS quand v2 actif.
+> - Pages autres que dashboard intactes (navigation `go(page)` préservée).
+>
+> **Vérification visuelle** (preview_eval sur http-server local) :
+> - data-dash-v4="on" ✓ · thème dark ✓ · v15.37 ✓
+> - Sidebar : logo + carrés entités + 16 nav items + footer ✓
+> - Dashboard : coach (2 cards) + narrate (40% collecté + restant) + row1 (hero/cash/sjt) + row2 (5 KPIs) + entview (4 lots colorés) ✓
+> - Fonts Inter + JetBrains Mono chargées ✓
+> - Console : aucune erreur runtime ✓
+>
+> **Sujet à jour** : règle "Pas de jauge SVG géante" du `DASH-REFONTE-GLOBALE-V4.md` **abandonnée** au profit du mockup (jauge demi-cercle conservée). Sujet à mettre à jour en V3-VISUEL.
+>
+> **À valider** : capture user pour propagation prod `index.html`. **Sujet** : [DASH-REFONTE-GLOBALE-V4.md](docs/subjects/DASH-REFONTE-GLOBALE-V4.md).
+>
+> **Reports V3-VISUEL** : suppression `.cockpit-v2/.cockpit-v4` orphelins (anciennes versions CP2-3), nettoyage code mort `top/maxV/rows` dans widget `donut` v1 (10 lignes harmless), nettoyage widgets v1 legacy (`occ`, `rdt`, `donut`, `dg`, `flux`) qui ne sont plus appelés en mode V4 (utilisés seulement si dashRenderV revient à 'v1'), audit dark des 3 backgrounds `#fff` résiduels (modales/print).
+>
+> ──────────────────────────────────────────────────────────────────────
+> **Historique** (workflow CP fractionné abandonné mi-session) :
+
+### DASH-REFONTE-GLOBALE-V4 ✅ historique CP1-4 — Refonte globale dashboard + sidebar (sandbox v15.36) — session 2026-05-15 (~4h)
 > **CP1 + CP2 + CP3 + CP4 livrés en bloc sandbox** `index-test.html` (master, sandbox-first). Décision user (mi-session) : abandon des checkpoints intermédiaires invalidables → enchaînement complet.
 >
 > **CP1 — Fondations** :
