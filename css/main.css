@@ -6008,6 +6008,30 @@ body[data-dash-v4="on"] .pc { padding: 18px 22px; }
   border-radius: 50%;
   animation: v4sPulse 2s infinite;
 }
+
+/* v15.37 — Bouton cliquable sur l'alerte impayés (drill-down) */
+body[data-dash-v4="on"] .v4s-hero-alert-btn {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--neg);
+  width: 100%;
+  transition: all .15s;
+}
+body[data-dash-v4="on"] .v4s-hero-alert-btn:hover {
+  background: rgba(248,113,113,.18);
+  border-color: rgba(248,113,113,.50);
+  transform: translateY(-1px);
+}
+body[data-dash-v4="on"] .v4s-hero-alert-btn:focus-visible {
+  outline: 2px solid var(--neg);
+  outline-offset: 1px;
+}
+body[data-dash-v4="on"] .v4s-hero-alert-arr {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 700;
+}
 @keyframes v4sPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
 /* Cash-flow */
