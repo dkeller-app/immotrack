@@ -5162,9 +5162,9 @@ body[data-dash-v4="on"] #p-dashboard #dash-alerts {
   display: none !important;
 }
 
-/* v15.37 — Topbar : réserve la place à droite pour chip DK + drive-fab (position:fixed) */
+/* v15.37 — Topbar : réserve juste la place pour drive-fab (chip DK déplacée dans topbar) */
 body[data-dash-v4="on"] .tb {
-  padding-right: 220px !important;
+  padding-right: 100px !important;
 }
 body[data-dash-v4="on"] .tb-actions {
   flex-wrap: wrap;
@@ -5399,17 +5399,18 @@ body[data-dash-v4="on"] .v4s-solo-gen-btn {
   width: 100%;
   margin-top: 16px;
   padding: 11px 16px;
-  background: var(--t1);
-  color: var(--bg);
+  background: linear-gradient(135deg, var(--cta), var(--acc));
+  color: #fff;
   border: 0;
   border-radius: 10px;
   font: 700 13px/1 'Inter', sans-serif;
   cursor: pointer;
   transition: all .15s;
+  box-shadow: 0 4px 12px rgba(0,204,188,.25);
 }
 body[data-dash-v4="on"] .v4s-solo-gen-btn:hover {
-  background: var(--cta);
   transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,204,188,.35);
 }
 body[data-dash-v4="on"] .v4s-solo-todo h3 {
   font: 700 15px/1.2 'Manrope', sans-serif;
@@ -5442,12 +5443,13 @@ body[data-dash-v4="on"] .v4s-solo-todo-item {
 }
 body[data-dash-v4="on"] .v4s-solo-todo-item:hover { border-color: var(--cta); }
 body[data-dash-v4="on"] .v4s-solo-todo-item .ico {
-  width: 36px; height: 36px;
+  width: 38px; height: 38px;
   border-radius: 10px;
-  background: rgba(0,204,188,.18);
+  background: linear-gradient(135deg, var(--cta), var(--acc));
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 19px;
   flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(0,204,188,.20);
 }
 body[data-dash-v4="on"] .v4s-solo-todo-item .txt {
   flex: 1;
@@ -5693,9 +5695,10 @@ body[data-dash-v4="on"] .v4s-gest-ev {
 body[data-dash-v4="on"] .v4s-gest-ev:hover { border-color: var(--cta); }
 body[data-dash-v4="on"] .v4s-gest-ev .ico {
   font-size: 18px;
-  width: 32px; height: 32px;
+  width: 34px; height: 34px;
   border-radius: 8px;
-  background: var(--sur);
+  background: linear-gradient(135deg, rgba(0,204,188,.30), rgba(14,115,246,.20));
+  border: 1px solid rgba(0,204,188,.30);
   display: flex;
   align-items: center;
   justify-content: center;
