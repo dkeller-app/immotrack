@@ -1,6 +1,6 @@
 # UX-GROUP-BY-IMMEUBLE — Tri visuel par immeuble avec séparateurs (règle transverse tous onglets)
 
-**Status** : 🔄 IRL livré v15.76 · 9 onglets restants · **Prio** : P2 · **Taille** : M (~3-5h transverse) ou S (~30 min IRL seul)
+**Status** : 🔄 IRL livré v15.76 + drill-downs v15.77 · 9 onglets restants · **Prio** : P2 · **Taille** : M (~3-5h transverse) ou S (~30 min IRL seul)
 **Détecté** : 2026-05-17 (user, session pilotage)
 **Lié à** : V3-VISUEL P2, design system, NAV-AUDIT-PROFILS, LOG-LISTE-CARDS ✅ v14.2 (qui groupe déjà par bailleur)
 
@@ -90,3 +90,13 @@ Appliquer dans les 10 onglets identifiés. Ordre par ROI :
   - Vitest 772 → 790 (zéro régression). Commit à pousser.
   - Vérif preview : 3 groupes rendus, KPI corrects (3 lots / 1 950 € HC / 2 ⚠ pour Ferrette), collapse via clic, persistance localStorage validée après re-render.
 - Reste : propagation aux 9 autres onglets (Loyers, Quittances, EDL, Assurances, Équipements, Régul, Travaux, Baux, PJ) — au fil de la roadmap V3-REFONTE-* onglet par onglet.
+- 2026-05-17 **v15.77 ✅ drill-downs IRL** : 3 drill-downs candidats validés par user (commit `4b05514`).
+  - Module pur `js/core/irl-drill.js` (4 helpers, 21 tests Vitest) : `_irlDeltaImm`, `_irlListAlertes`, `_irlProjectionAnnuelle`, `_irlListLotsForDrill`.
+  - KPI du header rendus cliquables (`.kpi.drillable` + `onclick` avec `event.stopPropagation`).
+  - Modale unifiée `#ov-irl-drill` avec 3 vues (lots/alerts/compta) sélectionnables via pastilles d'onglets.
+  - Vue **lots** : synthèse imm + liste lots avec statut IRL + HC actuel → nouveau.
+  - Vue **alerts** : lots en alerte typés (gel DPE F/G, DPE manquant, index IRL manquant).
+  - Vue **loyer** : loyer HC mensuel total, projection annuelle, Δ post-révisions.
+  - Vitest 790 → 811, zéro régression.
+  - Mockups responsive validés : `docs/strategie/mockups/group-by-immeuble/` (galerie 4 variantes + responsive media queries natives).
+  - Dette technique mockup toggle device → `docs/subjects/TOOLING-MOCKUP-DEVICE-TOGGLE.md`.
