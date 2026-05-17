@@ -5238,6 +5238,14 @@ body[data-dash-v4="on"] .v4s-tb-controls {
   flex-wrap: wrap;
   /* Empêche les éléments de se superposer (chip DK ne doit pas chevaucher sobre) */
   row-gap: 6px;
+  /* v15.41 : pousser TOUT le wrap COMPLÈTEMENT à droite, avec réserve
+     de 160px pour le bouton Drive FAB (position:fixed top:10 right:16). */
+  margin-left: auto;
+}
+/* v15.41 : assurer que .tb-actions s'étend jusqu'au bord droit + réserve FAB */
+body[data-dash-v4="on"] .tb-actions {
+  margin-left: auto;
+  margin-right: 160px;
 }
 /* z-index : chip DK doit être SOUS les boutons thème pour ne pas les cacher */
 body[data-dash-v4="on"] .v4s-tb-controls > * {
