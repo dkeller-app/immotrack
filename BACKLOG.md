@@ -283,6 +283,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | BUG-EMAIL-PROPOSAL-IRL | Modale "Proposition de mail" IRL : boutons inactifs + salutation incorrecte (adresse au lieu du locataire) + date "Invalid Date" | P2 | S | ⏳ En attente sprint mail | [docs/subjects/BUG-EMAIL-PROPOSAL-IRL.md](docs/subjects/BUG-EMAIL-PROPOSAL-IRL.md) · détecté 2026-05-17 user · à traiter dans Sprint 19B EMAIL-ONGLET-PERMANENT |
 | **UX transverse** | | | | | |
 | UX-GROUP-BY-IMMEUBLE | Tri visuel par immeuble avec séparateurs / headers — règle transverse tous onglets listant logements (IRL, Loyers, Quittances, EDL, Assurances, Équipements, Régul, Travaux…) | P2 | M (~3-5h) ou S (IRL seul) | 🔄 IRL livré v15.76 (variante D+KPI B) · 9 onglets restants | [docs/subjects/UX-GROUP-BY-IMMEUBLE.md](docs/subjects/UX-GROUP-BY-IMMEUBLE.md) · IRL : groupage par immeuble + headers collapsibles + KPI condensés (nb lots / loyer HC tot / nb alertes) + persistance localStorage · propagation onglet par onglet au fil V3-REFONTE-* |
+| TOOLING-MOCKUP-DEVICE-TOGGLE | Toggle device fiable dans les mockups responsive (5 tentatives échouées 2026-05-17 → solution actuelle = DevTools F12) | P2 | S | ⏳ Dette technique | [docs/subjects/TOOLING-MOCKUP-DEVICE-TOGGLE.md](docs/subjects/TOOLING-MOCKUP-DEVICE-TOGGLE.md) · à reprendre en session dédiée tooling |
 | **Associés** | | | | | |
 | ASSO-PARTAGE | Refonte du fonctionnement du partage entre associés | P2 | L | ⬜ À faire | [docs/subjects/ASSO-PARTAGE.md](docs/subjects/ASSO-PARTAGE.md) · CDC requis |
 
