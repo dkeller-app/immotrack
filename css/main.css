@@ -7170,3 +7170,61 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   body[data-dash-v4="on"] .v4h-qa-ic { width: 36px; height: 36px; font-size: 17px; }
   body[data-dash-v4="on"] .v4h-todo-grid { grid-template-columns: 1fr 1fr; max-height: none; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v15.53 — BOTTOM NAV MOBILE (Strategy B validée user)
+   Visible UNIQUEMENT en mode V4 + viewport ≤767px.
+   Sur desktop/tablette : la sidebar reste utilisée (display:none ici).
+   ════════════════════════════════════════════════════════════════════════ */
+
+.v4-bnav {
+  display: none; /* caché par défaut, affiché par media query mobile uniquement */
+}
+
+@media (max-width: 767px) {
+  /* Affiche bottom nav SI mode V4 actif */
+  body[data-dash-v4="on"] .v4-bnav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--sur);
+    border-top: 1px solid var(--bor);
+    padding: 6px 0 calc(env(safe-area-inset-bottom, 8px) + 6px) 0;
+    box-shadow: 0 -2px 8px rgba(20,25,54,.05);
+    z-index: 999;
+  }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn {
+    flex: 1; background: transparent; border: 0; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 4px;
+    color: var(--t3);
+    font: 600 10px/1 'Inter', sans-serif;
+    transition: color .15s;
+  }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn .ic {
+    font-size: 20px; line-height: 1; filter: grayscale(.5);
+    transition: filter .15s;
+  }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn.act { color: var(--cta); }
+  body[data-dash-v4="on"] .v4-bnav .v4-bn.act .ic { filter: grayscale(0); }
+
+  /* Body : reserve space pour le bottom nav fixe (≈64px) */
+  body[data-dash-v4="on"] .pc { padding-bottom: 80px !important; }
+
+  /* TOPBAR mobile : retirer mode (Solo/Premium/Gestionnaire) — accessible via Plus → Paramètres */
+  body[data-dash-v4="on"] .v4s-mode-row { display: none !important; }
+  /* Garder thèmes (préférence rapide) mais plus compacts */
+  body[data-dash-v4="on"] .v4s-theme-tb-row .v4s-theme-btn {
+    width: 24px; height: 22px; font-size: 11px;
+  }
+  /* Cacher le label "Année" pour gagner de la place */
+  body[data-dash-v4="on"] .v4s-tb-controls .v4s-tb-label { display: none; }
+  /* Selects compacts */
+  body[data-dash-v4="on"] .v4s-tb-controls select {
+    padding: 5px 7px; font-size: 12px;
+  }
+  /* Séparateurs plus discrets */
+  body[data-dash-v4="on"] .v4s-tb-sep { display: none; }
+
+  /* Sidebar legacy (hors V4) : reste accessible via hamburger (overlay déjà géré) */
+}
