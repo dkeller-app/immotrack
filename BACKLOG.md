@@ -26,7 +26,7 @@
 >
 > | Lot | Sujet | Prio | Taille | Statut |
 > |---|---|---|---|---|
-> | 19A | BUG-IRL-APERCU-LETTRE-V15 | P1 | S | ⬜ À faire |
+> | 19A | BUG-IRL-APERCU-LETTRE-V15 | P1 | S | ✅ Livré v15.74 |
 > | 19B | EMAIL-ONGLET-PERMANENT | P1 | S | ⬜ À faire |
 > | 19C | BUG-EQUIP-INTERV-FEEDBACK | P1 | S | ⬜ À faire |
 > | 19D | V3-REFONTE-NAV-ONGLETS (Loyers→Mouvements + décisions) | P1 | M | ⬜ À faire |
