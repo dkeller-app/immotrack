@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImmoTrack — Mockup Mobile v2 (bottom tabs)</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --acc:#0E73F6; --cta:#00B5A6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B;
+  --shad: 0 1px 3px rgba(20,25,54,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font:14px/1.4 'Inter',-apple-system,system-ui,sans-serif;
+  background:#1a1a24;
+  color:var(--t1);
+  min-height:100vh;
+  padding:20px 12px 40px;
+}
+
+/* ─── Doc header ─── */
+.doc-h{color:#fff;text-align:center;margin-bottom:30px;max-width:900px;margin-left:auto;margin-right:auto}
+.doc-h h1{font:700 22px/1.2 'Manrope',sans-serif;margin-bottom:6px}
+.doc-h p{color:#aab;font-size:13px}
+.doc-h .legend{margin-top:14px;display:inline-flex;gap:16px;font-size:11px;color:#aab;flex-wrap:wrap;justify-content:center;background:rgba(255,255,255,.05);padding:10px 16px;border-radius:10px}
+.doc-h .legend b{color:#fff}
+
+/* ─── iPhone frame ─── */
+.phones{display:flex;gap:24px;justify-content:center;align-items:flex-start;flex-wrap:wrap;max-width:1700px;margin:0 auto}
+.iphone{
+  width:390px;
+  height:844px;
+  background:var(--bg);
+  border:10px solid #0a0a14;
+  border-radius:48px;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px #222 inset;
+}
+.iphone-label{
+  position:absolute;top:-26px;left:0;right:0;text-align:center;
+  font:600 12px/1 'Inter',sans-serif;color:#aab;letter-spacing:.05em;text-transform:uppercase
+}
+.iphone .notch{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  width:120px;height:28px;background:#0a0a14;border-radius:0 0 16px 16px;z-index:99
+}
+.iphone .status{
+  position:absolute;top:0;left:0;right:0;height:46px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px 0;font:600 13px/1 -apple-system,sans-serif;color:var(--t1);z-index:50;
+  background:var(--bg)
+}
+.iphone .status-r{display:flex;gap:5px;align-items:center;font-size:11px}
+
+/* ─── Screen (sous notch) ─── */
+.screen{
+  position:absolute;top:46px;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;overflow:hidden
+}
+
+/* ─── Topbar (1 ligne, 52px) ─── */
+.tb{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;
+  background:var(--sur);
+  border-bottom:1px solid var(--bor);
+  flex-shrink:0;
+  height:52px;
+}
+.tb .ham{
+  width:32px;height:32px;border-radius:8px;border:0;background:transparent;
+  font-size:18px;cursor:pointer;color:var(--t1)
+}
+.tb .ham:active{background:var(--sur2)}
+.tb .period{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:7px 12px;background:var(--sur2);border:1px solid var(--bor);
+  border-radius:10px;font:600 13px/1 'Inter',sans-serif;color:var(--t1);
+  cursor:pointer
+}
+.tb .period s{color:var(--t3);font-size:10px;text-decoration:none;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-right:4px}
+.tb .period .chev{color:var(--t3);font-size:10px}
+.tb .drive{
+  width:34px;height:34px;border-radius:50%;border:1px solid var(--bor);
+  background:var(--sur);font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--pos)
+}
+
+/* ─── Tab content (scrollable) ─── */
+.body{flex:1;overflow-y:auto;padding:12px 14px 16px;background:var(--bg)}
+
+/* ─── Bottom nav (1 ligne fixe, 60px) ─── */
+.bnav{
+  flex-shrink:0;display:flex;
+  background:var(--sur);border-top:1px solid var(--bor);
+  padding:6px 0 18px 0;
+  box-shadow:0 -1px 4px rgba(20,25,54,.03)
+}
+.bnav button{
+  flex:1;background:transparent;border:0;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 4px;color:var(--t3);
+  font:600 10px/1 'Inter',sans-serif;
+  transition:color .15s
+}
+.bnav button .ic{font-size:20px;line-height:1;filter:grayscale(.5);transition:filter .15s}
+.bnav button.act{color:var(--cta)}
+.bnav button.act .ic{filter:grayscale(0)}
+
+/* ─── Cards génériques ─── */
+.card{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;
+  padding:14px;box-shadow:var(--shad);margin-bottom:12px
+}
+.card .ey{
+  font:600 10px/1.2 'JetBrains Mono',monospace;color:var(--t3);
+  letter-spacing:.10em;text-transform:uppercase;margin-bottom:5px
+}
+.card h3{font:700 16px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:4px}
+
+/* ─── HERO (Synthèse) ─── */
+.hero{
+  background:linear-gradient(135deg, var(--sur) 0%, var(--sur2) 100%);
+  border:1px solid var(--bor);border-radius:16px;padding:14px;
+  margin-bottom:12px
+}
+.hero-ey{color:var(--warn);font:700 10px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.hero h2{font:800 19px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:10px}
+.hero-list{display:flex;flex-direction:column;gap:8px}
+.hero-it{
+  display:flex;align-items:center;gap:10px;padding:9px 11px;
+  background:var(--sur);border:1px solid var(--bor);border-radius:10px;cursor:pointer
+}
+.hero-it .num{
+  width:22px;height:22px;border-radius:50%;background:var(--warn);color:#fff;
+  font:700 11px/22px sans-serif;text-align:center;flex-shrink:0
+}
+.hero-it .txt{flex:1;min-width:0}
+.hero-it .txt b{font:700 13px/1.3 'Inter',sans-serif;color:var(--t1);display:block}
+.hero-it .txt s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero .cta{
+  width:100%;margin-top:10px;padding:11px;
+  background:linear-gradient(135deg, var(--warn) 0%, #FF8000 100%);color:#fff;
+  border:0;border-radius:10px;font:700 13px/1 'Inter',sans-serif;cursor:pointer;
+  letter-spacing:.04em
+}
+
+/* ─── Encaiss gauge ─── */
+.enc{padding:18px 14px;text-align:center}
+.enc svg{display:block;margin:0 auto 8px}
+.enc .v{font:800 38px/1 'Manrope',sans-serif;color:var(--cta);letter-spacing:-.02em;margin-bottom:2px}
+.enc .v sup{font-size:18px;color:var(--t2);font-weight:600}
+.enc .a{font:700 22px/1.1 'Manrope',sans-serif;color:var(--t1);margin-bottom:4px}
+.enc .s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);margin-bottom:10px}
+.enc .impay{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:8px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);
+  border-radius:10px;color:var(--neg);font:600 12px/1.2 'Inter',sans-serif;cursor:pointer
+}
+
+/* ─── 4 mini KPIs (2x2 grid) ─── */
+.kpis-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kpi-mini{
+  background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:12px 10px
+}
+.kpi-mini .ey{font:600 9px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;margin-bottom:5px}
+.kpi-mini .v{font:800 19px/1.1 'Manrope',sans-serif;color:var(--t1);margin-bottom:2px}
+.kpi-mini .v.pos{color:var(--pos)}
+.kpi-mini .v.neg{color:var(--neg)}
+.kpi-mini .s{font:500 10px/1.2 'Inter',sans-serif;color:var(--t2)}
+
+/* ─── Projection annuelle ─── */
+.proj{padding:14px;background:var(--sur);border:1px solid var(--bor);border-radius:12px}
+.proj .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.proj .head .ey{font:600 10px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.08em;text-transform:uppercase}
+.proj .head .pill{
+  background:rgba(16,185,129,.12);color:var(--pos);font:700 10px/1 'Inter',sans-serif;
+  padding:3px 8px;border-radius:10px;letter-spacing:.04em
+}
+.proj .v{font:800 24px/1.1 'Manrope',sans-serif;color:var(--pos);margin-bottom:3px}
+.proj .s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t2)}
+.proj .bar{margin-top:8px;height:4px;background:var(--sur2);border-radius:3px;overflow:hidden}
+.proj .bar i{display:block;height:100%;width:48%;background:linear-gradient(90deg,var(--cta),var(--pos));border-radius:3px}
+
+/* ─── CASH onglet ─── */
+.cash-hd{padding:14px}
+.cash-hd .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.cash-hd h3{font:700 17px/1.2 'Manrope',sans-serif;color:var(--t1)}
+.cash-hd .pill{background:rgba(239,68,68,.10);color:var(--neg);font:700 11px/1 'Inter',sans-serif;padding:4px 9px;border-radius:10px}
+.cash-hd .chart{height:160px;margin:10px -4px 0;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:11px}
+.cash-kpis-vert{display:flex;flex-direction:column;gap:8px;padding:0 14px 14px}
+.cash-kpi-v{
+  background:var(--sur2);border:1px solid var(--bor2);border-radius:10px;
+  padding:10px 12px;display:flex;align-items:center;justify-content:space-between
+}
+.cash-kpi-v s{font:600 11px/1 'JetBrains Mono',monospace;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;text-decoration:none}
+.cash-kpi-v b{font:800 17px/1 'Manrope',sans-serif}
+.cash-kpi-v.pos b{color:var(--pos)}
+.cash-kpi-v.neg b{color:var(--neg)}
+
+/* ─── SUJETS onglet ─── */
+.sjt-it{
+  background:var(--sur);border:1px solid var(--bor);border-radius:12px;
+  padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:11px;cursor:pointer
+}
+.sjt-it .ic{
+  width:36px;height:36px;border-radius:10px;background:var(--sur2);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0
+}
+.sjt-it .txt{flex:1;min-width:0}
+.sjt-it b{font:700 13px/1.2 'Inter',sans-serif;color:var(--t1);display:block}
+.sjt-it s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sjt-it .chev{color:var(--t3);font-size:14px}
+.sjt-it.urg .ic{background:rgba(245,158,11,.12)}
+.sjt-it.urg b{color:var(--warn)}
+
+/* ─── ENTITÉS onglet ─── */
+.ent{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;
+  padding:14px;margin-bottom:12px
+}
+.ent-h{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.ent-h .av{
+  width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--cta),var(--acc));
+  color:#fff;font:700 12px/1 'Inter',sans-serif;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+.ent-h h4{font:700 14px/1.2 'Manrope',sans-serif;color:var(--t1)}
+.ent-h s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;margin-top:1px}
+.ent-kpi3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px 0;border-bottom:1px solid var(--bor2);margin-bottom:10px}
+.ent-kpi{text-align:center}
+.ent-kpi s{font:600 9px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:3px;text-decoration:none}
+.ent-kpi b{font:800 13px/1 'Manrope',sans-serif;color:var(--t1)}
+.ent-kpi.pos b{color:var(--pos)}
+.ent-kpi.neg b{color:var(--neg)}
+.ent-imm{margin-bottom:8px}
+.ent-imm:last-child{margin-bottom:0}
+.ent-imm-name{font:600 11px/1.2 'Inter',sans-serif;color:var(--t1);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.ent-lots{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.ent-lot{
+  display:flex;align-items:center;gap:5px;padding:6px 8px;
+  background:var(--sur2);border:1px solid var(--bor);border-radius:8px;
+  font:600 11px/1.2 'Inter',sans-serif;color:var(--t1);overflow:hidden;cursor:pointer
+}
+.ent-lot .st{width:6px;height:6px;border-radius:50%;background:var(--pos);flex-shrink:0}
+.ent-lot.vac .st{background:var(--neg)}
+.ent-lot .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.ent-lot .val{font-size:10px;color:var(--t3);flex-shrink:0}
+
+/* ─── Notes / annotations ─── */
+.notes{
+  max-width:900px;margin:30px auto 0;padding:20px 24px;
+  background:rgba(255,255,255,.06);border-radius:14px;color:#cbd;font-size:13px;line-height:1.6
+}
+.notes h2{color:#fff;font:700 16px/1.2 'Manrope',sans-serif;margin-bottom:12px;letter-spacing:-.01em}
+.notes h3{color:#fff;font:600 13px/1 'Inter',sans-serif;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.notes ul{padding-left:18px;margin-bottom:6px}
+.notes li{margin-bottom:3px}
+.notes code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:12px;color:#fcd}
+</style>
+</head>
+<body>
+
+<div class="doc-h">
+  <h1>📱 Mockup mobile v2 — ImmoTrack (iPhone, ≤414px)</h1>
+  <p>4 onglets bottom tabs · contrôles Mode/Thème cachés (accessibles via Paramètres)</p>
+  <div class="legend">
+    <span>Mode : <b>Sobre</b> (par défaut)</span>
+    <span>Frame : <b>iPhone 14 Pro (390×844)</b></span>
+    <span>Stratégie validée : <b>B — bottom tabs</b></span>
+  </div>
+</div>
+
+<div class="phones">
+
+<!-- ═══════════════════════════════ ONGLET 1 : SYNTHÈSE ═══════════════════════════════ -->
+<div class="iphone">
+  <div class="iphone-label">1. 📊 Synthèse</div>
+  <div class="notch"></div>
+  <div class="status">
+    <span>10:34</span>
+    <div class="status-r"><span>•••</span><span>📶</span><span>🔋 95</span></div>
+  </div>
+  <div class="screen">
+    <div class="tb">
+      <button class="ham">☰</button>
+      <button class="period"><s>Période</s>Mai 2026 <span class="chev">▾</span></button>
+      <button class="drive" title="Drive sync OK">☁</button>
+    </div>
+    <div class="body">
+
+      <!-- HERO actions -->
+      <div class="hero">
+        <div class="hero-ey">● BONSOIR DIDIER</div>
+        <h2>9 actions pour finir le mois</h2>
+        <div class="hero-list">
+          <div class="hero-it">
+            <div class="num">1</div>
+            <div class="txt"><b>Assurances · 7 à traiter</b><s>F-Local — M. REGIS MANGIN + 6 autres</s></div>
+          </div>
+          <div class="hero-it">
+            <div class="num">2</div>
+            <div class="txt"><b>Révisions IRL · 2 à traiter</b><s>F-101 — 440 € → 443,42 € + 1 autre</s></div>
+          </div>
+        </div>
+        <button class="cta">DÉMARRER →</button>
+      </div>
+
+      <!-- Encaissement (1 carte large) -->
+      <div class="card enc">
+        <div class="ey" style="text-align:left;margin-bottom:0">● ENCAISSEMENT · MAI 2026</div>
+        <!-- Demi-cercle SVG simplifié -->
+        <svg width="180" height="100" viewBox="0 0 200 110">
+          <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#EEF1F6" stroke-width="14" stroke-linecap="round"/>
+          <path d="M20,100 A80,80 0 0,1 158,55" fill="none" stroke="url(#g1)" stroke-width="14" stroke-linecap="round"/>
+          <defs><linearGradient id="g1" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF8000"/><stop offset=".5" stop-color="#F59E0B"/><stop offset="1" stop-color="#00B5A6"/></linearGradient></defs>
+          <circle cx="20" cy="100" r="5" fill="#FF8000"/>
+          <circle cx="158" cy="55" r="6" fill="#00B5A6"/>
+        </svg>
+        <div class="v">63<sup>%</sup></div>
+        <div class="a">6 582,94 €</div>
+        <div class="s">sur 10 521,99 € théoriques · 21 lots payés / 22</div>
+        <div class="impay"><span>● 4 impayés · 1 404 € en attente</span><span>→</span></div>
+      </div>
+
+      <!-- 4 mini KPIs (2x2) -->
+      <div class="kpis-grid">
+        <div class="kpi-mini">
+          <div class="ey">● OCCUPATION</div>
+          <div class="v pos">95 %</div>
+          <div class="s">21/22 · 1 vacant</div>
+        </div>
+        <div class="kpi-mini">
+          <div class="ey">● RENDEMENT</div>
+          <div class="v">8,6 %</div>
+          <div class="s">sur 1 431 000 €</div>
+        </div>
+        <div class="kpi-mini">
+          <div class="ey">● DG</div>
+          <div class="v">9 000 €</div>
+          <div class="s">18 contrats</div>
+        </div>
+        <div class="kpi-mini">
+          <div class="ey">● CHARGES/LOYERS</div>
+          <div class="v neg">146 %</div>
+          <div class="s">8 419 / 5 770</div>
+        </div>
+      </div>
+
+      <!-- Projection annuelle -->
+      <div class="proj">
+        <div class="head">
+          <span class="ey">● PROJECTION 2026</span>
+          <span class="pill">✓ EN AVANCE</span>
+        </div>
+        <div class="v">73 730 €</div>
+        <div class="s">100 % de l'objectif 73 730 €</div>
+        <div class="bar"><i></i></div>
+      </div>
+
+    </div>
+    <div class="bnav">
+      <button class="act"><span class="ic">📊</span><span>Synthèse</span></button>
+      <button><span class="ic">💰</span><span>Cash</span></button>
+      <button><span class="ic">🎯</span><span>Sujets</span></button>
+      <button><span class="ic">🏠</span><span>Entités</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ ONGLET 2 : CASH ═══════════════════════════════ -->
+<div class="iphone">
+  <div class="iphone-label">2. 💰 Cash</div>
+  <div class="notch"></div>
+  <div class="status">
+    <span>10:34</span>
+    <div class="status-r"><span>•••</span><span>📶</span><span>🔋 95</span></div>
+  </div>
+  <div class="screen">
+    <div class="tb">
+      <button class="ham">☰</button>
+      <button class="period"><s>Période</s>Mai 2026 <span class="chev">▾</span></button>
+      <button class="drive">☁</button>
+    </div>
+    <div class="body">
+
+      <div class="card">
+        <div class="cash-hd" style="padding:0">
+          <div class="row">
+            <div>
+              <div class="ey">● CASH-FLOW · 12 MOIS</div>
+              <h3>YTD vs Avril</h3>
+            </div>
+            <span class="pill">-143 % vs Avril</span>
+          </div>
+          <!-- Sparkline area négatif ROUGE (fix BUG-DASH-SPARK-COLOR) -->
+          <div class="chart">
+            <svg width="100%" height="150" viewBox="0 0 320 150" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="neg-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#EF4444" stop-opacity=".4"/>
+                  <stop offset="1" stop-color="#EF4444" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path d="M0,40 L26,55 L52,45 L78,60 L104,52 L130,68 L156,80 L182,90 L208,75 L234,95 L260,130 L286,110 L320,85 L320,150 L0,150 Z" fill="url(#neg-grad)"/>
+              <path d="M0,40 L26,55 L52,45 L78,60 L104,52 L130,68 L156,80 L182,90 L208,75 L234,95 L260,130 L286,110 L320,85" fill="none" stroke="#EF4444" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 KPIs YTD empilés (au lieu de 3 cols qui débordent) -->
+      <div class="card" style="padding:0">
+        <div class="cash-kpis-vert" style="padding:14px">
+          <div class="cash-kpi-v pos">
+            <s>Loyers YTD</s><b>42 725,49 €</b>
+          </div>
+          <div class="cash-kpi-v neg">
+            <s>Net YTD</s><b>-14 831,21 €</b>
+          </div>
+          <div class="cash-kpi-v neg">
+            <s>Charges YTD</s><b>−57 556,70 €</b>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="bnav">
+      <button><span class="ic">📊</span><span>Synthèse</span></button>
+      <button class="act"><span class="ic">💰</span><span>Cash</span></button>
+      <button><span class="ic">🎯</span><span>Sujets</span></button>
+      <button><span class="ic">🏠</span><span>Entités</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ ONGLET 3 : SUJETS ═══════════════════════════════ -->
+<div class="iphone">
+  <div class="iphone-label">3. 🎯 Sujets à traiter</div>
+  <div class="notch"></div>
+  <div class="status">
+    <span>10:34</span>
+    <div class="status-r"><span>•••</span><span>📶</span><span>🔋 95</span></div>
+  </div>
+  <div class="screen">
+    <div class="tb">
+      <button class="ham">☰</button>
+      <button class="period"><s>Période</s>Mai 2026 <span class="chev">▾</span></button>
+      <button class="drive">☁</button>
+    </div>
+    <div class="body">
+
+      <div style="padding:4px 4px 12px">
+        <div style="font:600 10px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;margin-bottom:6px">● 9 SUJETS · ACTIONS PRIORISÉES</div>
+        <h3 style="font:700 19px/1.2 'Manrope',sans-serif;color:var(--t1)">À traiter ce mois</h3>
+      </div>
+
+      <div class="sjt-it urg">
+        <div class="ic">🛡️</div>
+        <div class="txt"><b>Assurances × 7</b><s>F-Local — M. REGIS MANGIN + 6 autres</s></div>
+        <span class="chev">→</span>
+      </div>
+      <div class="sjt-it urg">
+        <div class="ic">📊</div>
+        <div class="txt"><b>Révisions IRL × 2</b><s>F-101 — 440 € → 443,42 €</s></div>
+        <span class="chev">→</span>
+      </div>
+      <div class="sjt-it">
+        <div class="ic">💰</div>
+        <div class="txt"><b>Impayés × 4</b><s>1 404 € en attente · 4 locataires</s></div>
+        <span class="chev">→</span>
+      </div>
+      <div class="sjt-it">
+        <div class="ic">📅</div>
+        <div class="txt"><b>Régul charges × 2</b><s>Année 2025 à clôturer</s></div>
+        <span class="chev">→</span>
+      </div>
+      <div class="sjt-it">
+        <div class="ic">📝</div>
+        <div class="txt"><b>EDL × 1</b><s>F-102 — Sortie locataire au 31/05</s></div>
+        <span class="chev">→</span>
+      </div>
+
+    </div>
+    <div class="bnav">
+      <button><span class="ic">📊</span><span>Synthèse</span></button>
+      <button><span class="ic">💰</span><span>Cash</span></button>
+      <button class="act"><span class="ic">🎯</span><span>Sujets</span></button>
+      <button><span class="ic">🏠</span><span>Entités</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ ONGLET 4 : ENTITÉS ═══════════════════════════════ -->
+<div class="iphone">
+  <div class="iphone-label">4. 🏠 Entités</div>
+  <div class="notch"></div>
+  <div class="status">
+    <span>10:34</span>
+    <div class="status-r"><span>•••</span><span>📶</span><span>🔋 95</span></div>
+  </div>
+  <div class="screen">
+    <div class="tb">
+      <button class="ham">☰</button>
+      <button class="period"><s>Période</s>Mai 2026 <span class="chev">▾</span></button>
+      <button class="drive">☁</button>
+    </div>
+    <div class="body">
+
+      <!-- Entité 1 -->
+      <div class="ent">
+        <div class="ent-h">
+          <div class="av">SD</div>
+          <div>
+            <h4>SCI DD2AMELEVIERES</h4>
+            <s>16 lots gérés · 1 vacant</s>
+          </div>
+        </div>
+        <div class="ent-kpi3">
+          <div class="ent-kpi pos"><s>Recettes</s><b>2 632,94 €</b></div>
+          <div class="ent-kpi neg"><s>Dépenses</s><b>-5 319,20 €</b></div>
+          <div class="ent-kpi neg"><s>Résultat</s><b>-2 686 €</b></div>
+        </div>
+        <div class="ent-imm">
+          <div class="ent-imm-name">FREYMING</div>
+          <div class="ent-lots">
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-001</span><span class="val">670€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-002</span><span class="val">410€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-101</span><span class="val">460€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-102</span><span class="val">660€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-201</span><span class="val">430€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-Loc</span><span class="val">250€</span></div>
+          </div>
+        </div>
+        <div class="ent-imm">
+          <div class="ent-imm-name">DAMELEVIÈRES</div>
+          <div class="ent-lots">
+            <div class="ent-lot"><span class="st"></span><span class="lbl">D-001</span><span class="val">626€</span></div>
+            <div class="ent-lot vac"><span class="st"></span><span class="lbl">D-002</span><span class="val">vac.</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">D-003</span><span class="val">484€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">D-104</span><span class="val">600€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">D-105</span><span class="val">597€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">D-106</span><span class="val">460€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">D-207</span><span class="val">544€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">Gar1</span><span class="val">55€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">Gar2</span><span class="val">55€</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entité 2 -->
+      <div class="ent">
+        <div class="ent-h">
+          <div class="av">SS</div>
+          <div>
+            <h4>SCI SMARTOSAURUS</h4>
+            <s>6 lots gérés</s>
+          </div>
+        </div>
+        <div class="ent-kpi3">
+          <div class="ent-kpi pos"><s>Recettes</s><b>3 950,00 €</b></div>
+          <div class="ent-kpi neg"><s>Dépenses</s><b>-3 100,34 €</b></div>
+          <div class="ent-kpi pos"><s>Résultat</s><b>+849,66 €</b></div>
+        </div>
+        <div class="ent-imm">
+          <div class="ent-imm-name">FERRETTE</div>
+          <div class="ent-lots">
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-001</span><span class="val">650€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-101</span><span class="val">700€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-102</span><span class="val">680€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-103</span><span class="val">650€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-104</span><span class="val">620€</span></div>
+            <div class="ent-lot"><span class="st"></span><span class="lbl">F-Bar</span><span class="val">650€</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entité 3 (vide) -->
+      <div class="ent">
+        <div class="ent-h">
+          <div class="av" style="background:linear-gradient(135deg,#5A6478,#8B95AB)">DK</div>
+          <div>
+            <h4>Didier Keller</h4>
+            <s>0 lot géré</s>
+          </div>
+        </div>
+        <div class="ent-kpi3">
+          <div class="ent-kpi"><s>Recettes</s><b>0 €</b></div>
+          <div class="ent-kpi"><s>Dépenses</s><b>0 €</b></div>
+          <div class="ent-kpi"><s>Résultat</s><b>0 €</b></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="bnav">
+      <button><span class="ic">📊</span><span>Synthèse</span></button>
+      <button><span class="ic">💰</span><span>Cash</span></button>
+      <button><span class="ic">🎯</span><span>Sujets</span></button>
+      <button class="act"><span class="ic">🏠</span><span>Entités</span></button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ─── Notes design ─── -->
+<div class="notes">
+  <h2>📐 Décisions design — points à valider</h2>
+
+  <h3>Topbar (52px de hauteur, 1 ligne)</h3>
+  <ul>
+    <li><code>☰</code> hamburger (ouvre sidebar overlay pour navigation onglets globaux)</li>
+    <li><code>Mai 2026 ▾</code> pill cliquable (ouvre bottom-sheet pour choisir année+mois en 2 colonnes)</li>
+    <li><code>☁</code> Drive sync (vert = OK, orange = en cours, rouge = expiré)</li>
+    <li><b>Cachés :</b> Mode Solo/Premium/Gestionnaire + Thème ☀🎨🌙 → accessibles via Paramètres uniquement (changement rare)</li>
+  </ul>
+
+  <h3>Bottom nav (60px, fixe, padding-bottom: 18px pour safe-area iOS)</h3>
+  <ul>
+    <li>4 onglets <b>cloisonnés</b> (one-screen-mobile principle, équivalent au "one-screen-PC")</li>
+    <li>📊 <b>Synthèse</b> : hero actions + encaissement + 4 KPIs + projection (≈ 1 écran)</li>
+    <li>💰 <b>Cash</b> : graphique 12 mois plein + 3 KPIs YTD empilés</li>
+    <li>🎯 <b>Sujets</b> : liste verticale tous sujets (jusqu'à 20 items, scrollable)</li>
+    <li>🏠 <b>Entités</b> : 1 card par entité avec ses immeubles + lots responsive 3 cols</li>
+  </ul>
+
+  <h3>Spécificités mobile vs desktop</h3>
+  <ul>
+    <li>Cash-flow KPIs : <b>3 lignes empilées</b> au lieu de 3 colonnes (évite overflow des valeurs)</li>
+    <li>Sparkline cash-flow : <b>rouge si net négatif</b> (fix BUG-DASH-SPARK-COLOR backlog)</li>
+    <li>Entity lots : grid 3 colonnes fixe (au lieu de flex-wrap qui débordait)</li>
+    <li>Hero actions : max 2 visibles + bouton "DÉMARRER" pour drill-down complet</li>
+    <li>Sidebar entités épinglées : retirée du mobile (accessible via ☰)</li>
+  </ul>
+
+  <h3>Si tu valides → impact code</h3>
+  <ul>
+    <li>Nouvelle fonction <code>_renderDashV4Mobile(ctx)</code> activée si <code>window.innerWidth ≤ 767px</code></li>
+    <li>Nouveaux composants : <code>.v4m-bnav</code>, <code>.v4m-tab</code>, <code>.v4m-topbar</code>, <code>.v4m-ent-lots</code></li>
+    <li>CSS isolé sous <code>body[data-dash-v4="on"][data-mobile="on"]</code> pour ne rien casser desktop</li>
+    <li>Estimation : 1 session dédiée (~3-4h) — sandbox <code>index-test.html</code> d'abord</li>
+  </ul>
+</div>
+
+</body>
+</html>
