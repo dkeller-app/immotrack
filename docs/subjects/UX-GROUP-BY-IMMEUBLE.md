@@ -1,6 +1,6 @@
 # UX-GROUP-BY-IMMEUBLE — Tri visuel par immeuble avec séparateurs (règle transverse tous onglets)
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : M (~3-5h transverse) ou S (~30 min IRL seul)
+**Status** : 🔄 IRL livré v15.76 · 9 onglets restants · **Prio** : P2 · **Taille** : M (~3-5h transverse) ou S (~30 min IRL seul)
 **Détecté** : 2026-05-17 (user, session pilotage)
 **Lié à** : V3-VISUEL P2, design system, NAV-AUDIT-PROFILS, LOG-LISTE-CARDS ✅ v14.2 (qui groupe déjà par bailleur)
 
@@ -79,3 +79,14 @@ Appliquer dans les 10 onglets identifiés. Ordre par ROI :
 ## Journal
 
 - 2026-05-17 : sujet créé en session pilotage suite remontée user. Statut ⬜ À faire, scope transverse défini, 5 décisions à arbitrer avant d'attaquer.
+- 2026-05-17 : **mockups 4 variantes** livrés (`docs/strategie/mockups/group-by-immeuble/index.html`, commit `29d0d93`) appliquant la nouvelle règle gravée `feedback_mockup_first.md` (captée dans la même session).
+- 2026-05-17 : **décision user** = variante D (sections collapsibles) + KPI condensés de la variante B (nb lots / loyer HC tot / nb alertes ⚠).
+- 2026-05-17 **v15.76 ✅ IRL implé** :
+  - Module pur `js/core/group-by-imm.js` (2 exports : `_groupLogementsByImm` + `_computeIRLGroupKPIs`, 18 tests Vitest).
+  - Helpers inline `index.html` (pattern shadow, duplication couverte par les tests) : `_groupLogementsByImm`, `_computeIRLGroupKPIs`, `_irlGrpCollapsedSet`, `_irlGrpToggleCollapse`, `_irlBuildGroups`, `_irlRenderGroupHeader`.
+  - `rIRL()` mode cards : refonte pour render groups au lieu de flat list.
+  - CSS `.irl-grp` + `.irl-grp-head` + `.irl-grp-body` (cohérent design system, responsive 1/2/3/4 cols selon viewport, dark mode OK).
+  - Persistance collapse `localStorage.irl_grp_collapsed` (array de keys).
+  - Vitest 772 → 790 (zéro régression). Commit à pousser.
+  - Vérif preview : 3 groupes rendus, KPI corrects (3 lots / 1 950 € HC / 2 ⚠ pour Ferrette), collapse via clic, persistance localStorage validée après re-render.
+- Reste : propagation aux 9 autres onglets (Loyers, Quittances, EDL, Assurances, Équipements, Régul, Travaux, Baux, PJ) — au fil de la roadmap V3-REFONTE-* onglet par onglet.
