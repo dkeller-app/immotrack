@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImmoTrack — Mockup Tablette v2 (portrait + landscape)</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --acc:#0E73F6; --cta:#00B5A6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B; --warn2:#FF8000;
+  --shad: 0 1px 3px rgba(20,25,54,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font:14px/1.4 'Inter',-apple-system,system-ui,sans-serif;
+  background:#1a1a24;color:var(--t1);min-height:100vh;padding:20px 12px 40px
+}
+
+/* ─── Doc header ─── */
+.doc-h{color:#fff;text-align:center;margin:0 auto 30px;max-width:1500px}
+.doc-h h1{font:700 24px/1.2 'Manrope',sans-serif;margin-bottom:6px}
+.doc-h p{color:#aab;font-size:13px;max-width:760px;margin:0 auto}
+.doc-h .legend{margin-top:16px;display:inline-flex;gap:14px;font-size:11px;color:#aab;flex-wrap:wrap;justify-content:center;background:rgba(255,255,255,.05);padding:10px 18px;border-radius:10px}
+.doc-h .legend b{color:#fff}
+
+/* ─── Tablet frames ─── */
+.tabs{display:flex;gap:30px;justify-content:center;align-items:flex-start;flex-wrap:wrap;max-width:2400px;margin:0 auto}
+
+/* iPad Pro 11" portrait : 834×1194 */
+.ipad-p{
+  width:834px;height:1194px;
+  background:var(--bg);border:14px solid #0a0a14;border-radius:42px;
+  position:relative;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px #222 inset;
+  transform:scale(.62);transform-origin:top center;margin-bottom:-450px
+}
+/* iPad Pro 11" landscape : 1194×834 */
+.ipad-l{
+  width:1194px;height:834px;
+  background:var(--bg);border:14px solid #0a0a14;border-radius:42px;
+  position:relative;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,.5), 0 0 0 1px #222 inset;
+  transform:scale(.62);transform-origin:top center;margin-bottom:-320px
+}
+
+.ipad-label{position:absolute;top:-26px;left:0;right:0;text-align:center;font:600 12px/1 'Inter',sans-serif;color:#aab;letter-spacing:.05em;text-transform:uppercase}
+
+/* Status bar iPad (haut) */
+.ipad-status{
+  position:absolute;top:0;left:0;right:0;height:32px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 24px;font:600 12px/1 -apple-system,sans-serif;color:var(--t1);z-index:50;
+  background:var(--bg)
+}
+.ipad-status-r{display:flex;gap:8px;align-items:center;font-size:11px}
+
+/* ─── Screen iPad (sous status bar) ─── */
+.screen{position:absolute;top:32px;left:0;right:0;bottom:0;display:flex;overflow:hidden}
+
+/* ─── Sidebar tablet ─── */
+.sb{
+  width:60px;background:var(--sur);border-right:1px solid var(--bor);
+  display:flex;flex-direction:column;padding:14px 0;flex-shrink:0;
+  transition:width .2s
+}
+.sb.full{width:220px}
+.sb-logo{
+  display:flex;align-items:center;gap:10px;padding:0 18px 12px;
+  border-bottom:1px solid var(--bor2);margin-bottom:12px
+}
+.sb-logo .icon{
+  width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#00CCBC,#0E73F6);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px
+}
+.sb-logo .txt{flex:1;min-width:0;display:none}
+.sb.full .sb-logo .txt{display:block}
+.sb-logo .txt strong{font:700 14px/1 'Manrope',sans-serif;color:var(--t1);display:block}
+.sb-logo .txt em{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--cta);letter-spacing:.06em;text-transform:uppercase;font-style:normal;margin-top:3px;display:inline-block}
+.sb-section-title{
+  font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;
+  text-transform:uppercase;padding:10px 18px 6px;display:none
+}
+.sb.full .sb-section-title{display:block}
+.sb-nav{flex:1;overflow-y:auto}
+.sb-it{
+  display:flex;align-items:center;gap:12px;padding:9px 18px;cursor:pointer;
+  color:var(--t2);font:600 12.5px/1 'Inter',sans-serif;
+  border-left:3px solid transparent;transition:.15s
+}
+.sb-it .ic{font-size:18px;width:24px;text-align:center;flex-shrink:0}
+.sb-it .lbl{display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb.full .sb-it .lbl{display:block}
+.sb-it:hover{background:var(--sur2);color:var(--t1)}
+.sb-it.act{background:rgba(0,181,166,.08);color:var(--cta);border-left-color:var(--cta)}
+.sb-foot{
+  border-top:1px solid var(--bor2);padding:12px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0
+}
+.sb-foot .av{
+  width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0E73F6,#00CCBC);
+  color:#fff;font:700 11px/1 'Inter',sans-serif;display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+.sb-foot .info{flex:1;min-width:0;display:none}
+.sb.full .sb-foot .info{display:block}
+.sb-foot .info b{font:600 12px/1.2 'Inter',sans-serif;color:var(--t1);display:block}
+.sb-foot .info s{font:500 10px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;margin-top:1px}
+
+/* ─── Main area ─── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ─── Topbar tablet ─── */
+.tb{
+  display:flex;align-items:center;gap:10px;padding:8px 18px;
+  background:var(--sur);border-bottom:1px solid var(--bor);flex-shrink:0;height:52px
+}
+.tb-title{font:700 15px/1 'Manrope',sans-serif;color:var(--t1);margin-right:6px}
+.tb-modes{
+  display:flex;background:var(--sur2);border:1px solid var(--bor);
+  border-radius:8px;padding:2px;gap:1px
+}
+.tb-modes button{
+  background:transparent;border:0;padding:5px 10px;border-radius:6px;
+  color:var(--t2);font:600 11px/1 'Inter',sans-serif;cursor:pointer;
+  display:inline-flex;align-items:center;gap:4px
+}
+.tb-modes button .ic{font-size:13px}
+.tb-modes button.act{background:var(--sur);color:var(--t1);box-shadow:inset 0 0 0 1.5px var(--cta);font-weight:700}
+.tb-themes{
+  display:flex;gap:2px;background:var(--sur2);border:1px solid var(--bor);
+  border-radius:8px;padding:2px
+}
+.tb-themes button{
+  width:26px;height:22px;border-radius:5px;border:0;background:transparent;
+  cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center
+}
+.tb-themes button.act{background:var(--sur);box-shadow:inset 0 0 0 1.5px var(--cta)}
+.tb-sep{width:1px;height:22px;background:var(--bor);margin:0 2px}
+.tb-yr,.tb-mo{
+  background:var(--sur2);border:1px solid var(--bor);color:var(--t1);
+  font:600 12px/1 'Inter',sans-serif;padding:6px 9px;border-radius:7px;cursor:pointer
+}
+.tb-r{margin-left:auto;display:flex;gap:8px}
+.tb-r .drv{
+  display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:16px;
+  background:var(--sur2);border:1px solid var(--bor);color:var(--pos);
+  font:600 11px/1 'Inter',sans-serif
+}
+
+/* ─── Content area (scrollable) ─── */
+.pc{flex:1;overflow-y:auto;padding:16px 18px;background:var(--bg)}
+
+/* ─── Hero coach (bandeau haut) ─── */
+.coach{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;
+  padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:14px;box-shadow:var(--shad)
+}
+.coach-l{display:flex;align-items:center;gap:14px;flex:1}
+.coach-l .ic{font-size:36px;line-height:1}
+.coach-l h2{font:800 18px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:2px}
+.coach-l .sub{font:500 12px/1.3 'Inter',sans-serif;color:var(--t2)}
+.coach-pts{display:flex;gap:8px}
+.coach-pt{
+  display:flex;align-items:center;gap:9px;padding:8px 12px;
+  background:var(--sur2);border:1px solid var(--bor);border-radius:10px;cursor:pointer;min-width:160px
+}
+.coach-pt .n{width:20px;height:20px;border-radius:50%;background:var(--warn);color:#fff;font:700 10px/20px sans-serif;text-align:center;flex-shrink:0}
+.coach-pt b{font:700 12px/1.2 'Inter',sans-serif;color:var(--t1);display:block}
+.coach-pt s{font:500 10.5px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coach-cta{
+  padding:10px 18px;background:linear-gradient(135deg,#F59E0B,#FF8000);color:#fff;
+  border:0;border-radius:10px;font:700 12px/1 'Inter',sans-serif;cursor:pointer;letter-spacing:.04em;flex-shrink:0
+}
+
+/* ─── Row1 (Hero + Cash + Sujets) ─── */
+.row1{display:grid;grid-template-columns:1fr 1.4fr;gap:14px;margin-bottom:14px}
+.row1.portrait{grid-template-columns:1fr 1fr}
+.row1 .sjt-c{grid-column:1 / -1}
+
+.enc{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:18px 14px;text-align:center;box-shadow:var(--shad);display:flex;flex-direction:column;align-items:center}
+.enc .ey{font:600 10px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;margin-bottom:8px;align-self:flex-start}
+.enc svg{display:block;margin:0 auto 6px}
+.enc .v{font:800 36px/1 'Manrope',sans-serif;color:var(--cta);letter-spacing:-.02em;margin-bottom:2px}
+.enc .v sup{font-size:16px;color:var(--t2);font-weight:600}
+.enc .a{font:700 22px/1.1 'Manrope',sans-serif;color:var(--t1);margin-bottom:3px}
+.enc .s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);margin-bottom:10px}
+.enc .impay{
+  display:flex;align-items:center;justify-content:space-between;width:100%;
+  padding:8px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);
+  border-radius:10px;color:var(--neg);font:600 12px/1.2 'Inter',sans-serif;cursor:pointer
+}
+
+.cash{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:14px 16px;box-shadow:var(--shad);display:flex;flex-direction:column}
+.cash-h{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}
+.cash-h .ey{font:600 10px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase}
+.cash-h h3{font:700 16px/1.2 'Manrope',sans-serif;color:var(--t1);margin-top:4px}
+.cash-h .pill{background:rgba(239,68,68,.10);color:var(--neg);font:700 10px/1 'Inter',sans-serif;padding:4px 8px;border-radius:9px}
+.cash-kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0}
+.cash-kpi{background:var(--sur2);border:1px solid var(--bor2);border-radius:9px;padding:8px 10px}
+.cash-kpi s{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;text-decoration:none}
+.cash-kpi b{font:800 16px/1.1 'Manrope',sans-serif;display:block;margin-top:3px}
+.cash-kpi.pos b{color:var(--pos)}
+.cash-kpi.neg b{color:var(--neg)}
+.cash-chart{margin-top:auto;height:80px}
+.cash-chart svg{width:100%;height:100%}
+
+.sjt-c{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:14px 16px;box-shadow:var(--shad)}
+.sjt-c h3{font:700 14px/1 'Manrope',sans-serif;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sjt-c h3 .pill{background:rgba(0,181,166,.12);color:var(--cta);font:600 10px/1 'Inter',sans-serif;padding:3px 8px;border-radius:8px}
+.sjt-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.sjt-grid.portrait{grid-template-columns:1fr 1fr}
+.sjt-it{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;cursor:pointer}
+.sjt-it .ic{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#0E73F6,#00B5A6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.sjt-it .ic.b2{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.sjt-it .ic.b3{background:linear-gradient(135deg,#EF4444,#FF8000)}
+.sjt-it b{font:700 12px/1.2 'Inter',sans-serif;color:var(--t1);display:block}
+.sjt-it s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ─── Row2 (KPIs) ─── */
+.row2{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.row2.portrait{grid-template-columns:repeat(3,1fr)}
+.kp{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:12px 14px;box-shadow:var(--shad)}
+.kp .ey{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;margin-bottom:5px}
+.kp .v{font:800 19px/1.1 'Manrope',sans-serif;color:var(--t1);margin-bottom:2px}
+.kp .v.pos{color:var(--pos)}
+.kp .v.neg{color:var(--neg)}
+.kp .s{font:500 10.5px/1.2 'Inter',sans-serif;color:var(--t2)}
+.kp .pill{background:rgba(245,158,11,.12);color:var(--warn);font:700 9.5px/1 'Inter',sans-serif;padding:3px 7px;border-radius:8px;float:right}
+.kp .pill.ok{background:rgba(16,185,129,.12);color:var(--pos)}
+
+/* ─── Entités ─── */
+.ent{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shad)}
+.ent-h{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.ent-h .av{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#00CCBC,#0E73F6);color:#fff;font:700 11px/1 'Inter',sans-serif;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ent-h h4{font:700 14px/1.2 'Manrope',sans-serif;color:var(--t1)}
+.ent-h s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none}
+.ent-h .kpis{margin-left:auto;display:flex;gap:18px}
+.ent-h .kp{padding:0;border:0;box-shadow:none;background:transparent;text-align:right}
+.ent-h .kp s{font:600 9px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;display:block}
+.ent-h .kp b{font:800 13px/1 'Manrope',sans-serif;color:var(--t1);display:block;margin-top:3px}
+.ent-h .kp b.pos{color:var(--pos)}
+.ent-h .kp b.neg{color:var(--neg)}
+
+.ent-imm{display:flex;align-items:center;gap:10px;margin-top:5px;padding-top:8px;border-top:1px solid var(--bor2)}
+.ent-imm-name{font:600 11px/1.2 'Inter',sans-serif;color:var(--t1);text-transform:uppercase;letter-spacing:.04em;width:130px;flex-shrink:0}
+.ent-imm-lots{flex:1;display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+.ent-imm-lots.portrait{grid-template-columns:repeat(6,1fr)}
+.ent-lot{display:flex;align-items:center;gap:4px;padding:6px 8px;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;font:600 11px/1 'Inter',sans-serif;color:var(--t1);overflow:hidden;cursor:pointer;min-width:0}
+.ent-lot .st{width:6px;height:6px;border-radius:50%;background:var(--pos);flex-shrink:0}
+.ent-lot.vac .st{background:var(--neg)}
+.ent-lot .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+
+/* ─── Notes ─── */
+.notes{max-width:1500px;margin:60px auto 0;padding:24px 28px;background:rgba(255,255,255,.06);border-radius:14px;color:#cbd;font-size:13px;line-height:1.6}
+.notes h2{color:#fff;font:700 18px/1.2 'Manrope',sans-serif;margin-bottom:14px}
+.notes h3{color:#fff;font:600 13px/1 'Inter',sans-serif;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.notes table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+.notes th,.notes td{padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08)}
+.notes th{color:#fff;font-weight:600;background:rgba(255,255,255,.04)}
+.notes code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:12px;color:#fcd}
+.notes ul{padding-left:18px}
+.notes li{margin-bottom:3px}
+</style>
+</head>
+<body>
+
+<div class="doc-h">
+  <h1>📲 Mockup tablette v2 — iPad (portrait + landscape)</h1>
+  <p>Approche différente du mobile : <b>sidebar comme desktop</b> (plus naturel sur tablette qu'un bottom tabs). Sidebar collapsée en portrait, étendue en landscape.</p>
+  <div class="legend">
+    <span>Cible : <b>iPad 11" (834×1194)</b> + <b>iPad landscape (1194×834)</b></span>
+    <span>Mode visuel : <b>V4 Sobre</b></span>
+    <span>Stratégie : <b>Sidebar adaptative + grid responsive</b></span>
+  </div>
+</div>
+
+<div class="tabs">
+
+<!-- ════════════════════════ iPad PORTRAIT 834×1194 ════════════════════════ -->
+<div class="ipad-p">
+  <div class="ipad-label">iPad 11" portrait — 834 × 1194 (sidebar collapsée, icônes seules)</div>
+  <div class="ipad-status">
+    <span>10:34</span>
+    <div class="ipad-status-r"><span>•••</span><span>📶</span><span>🔋 95</span></div>
+  </div>
+  <div class="screen">
+
+    <!-- Sidebar collapsed -->
+    <div class="sb">
+      <div class="sb-logo">
+        <div class="icon">🏠</div>
+      </div>
+      <div class="sb-nav">
+        <div class="sb-it act"><span class="ic">📊</span><span class="lbl">Dashboard</span></div>
+        <div class="sb-it"><span class="ic">🏘</span><span class="lbl">Logements</span></div>
+        <div class="sb-it"><span class="ic">👥</span><span class="lbl">Locataires</span></div>
+        <div class="sb-it"><span class="ic">💰</span><span class="lbl">Loyers</span></div>
+        <div class="sb-it"><span class="ic">📋</span><span class="lbl">Baux</span></div>
+        <div class="sb-it"><span class="ic">📅</span><span class="lbl">Agenda</span></div>
+        <div class="sb-it"><span class="ic">🛠</span><span class="lbl">Équipements</span></div>
+        <div class="sb-it"><span class="ic">📊</span><span class="lbl">IRL</span></div>
+        <div class="sb-it"><span class="ic">📑</span><span class="lbl">Quittances</span></div>
+        <div class="sb-it"><span class="ic">🛡</span><span class="lbl">Assurances</span></div>
+        <div class="sb-it"><span class="ic">⚙</span><span class="lbl">Paramètres</span></div>
+      </div>
+      <div class="sb-foot">
+        <div class="av">DK</div>
+      </div>
+    </div>
+
+    <!-- Main area -->
+    <div class="main">
+      <div class="tb">
+        <span class="tb-title">Tableau de bord</span>
+        <div class="tb-themes">
+          <button class="act">☀</button><button>🎨</button><button>🌙</button>
+        </div>
+        <span class="tb-sep"></span>
+        <div class="tb-modes">
+          <button><span class="ic">🪴</span>Solo</button>
+          <button class="act"><span class="ic">🏠</span>Premium</button>
+          <button><span class="ic">🛠</span>Gestion.</button>
+        </div>
+        <span class="tb-sep"></span>
+        <button class="tb-yr">2026 ▾</button>
+        <button class="tb-mo">Mai ▾</button>
+        <div class="tb-r">
+          <span class="drv">✓ Drive</span>
+        </div>
+      </div>
+
+      <div class="pc">
+
+        <!-- Coach (bandeau haut) -->
+        <div class="coach">
+          <div class="coach-l">
+            <div class="ic">⛅</div>
+            <div>
+              <h2>Bonjour Didier</h2>
+              <div class="sub">9 actions pour finir le mois</div>
+            </div>
+          </div>
+          <div class="coach-pts">
+            <div class="coach-pt">
+              <div class="n">1</div>
+              <div><b>Assurances · 7</b><s>F-Local + 6 autres</s></div>
+            </div>
+            <div class="coach-pt">
+              <div class="n">2</div>
+              <div><b>Révisions IRL · 2</b><s>F-101 → 443 €</s></div>
+            </div>
+          </div>
+          <button class="coach-cta">DÉMARRER →</button>
+        </div>
+
+        <!-- Row 1 : 2 colonnes en portrait (Enc + Cash) -->
+        <div class="row1 portrait">
+          <div class="enc">
+            <div class="ey">● ENCAISSEMENT · MAI 2026</div>
+            <svg width="180" height="100" viewBox="0 0 200 110">
+              <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#EEF1F6" stroke-width="14" stroke-linecap="round"/>
+              <path d="M20,100 A80,80 0 0,1 158,55" fill="none" stroke="url(#g)" stroke-width="14" stroke-linecap="round"/>
+              <defs><linearGradient id="g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF8000"/><stop offset=".5" stop-color="#F59E0B"/><stop offset="1" stop-color="#00B5A6"/></linearGradient></defs>
+              <circle cx="20" cy="100" r="5" fill="#FF8000"/>
+              <circle cx="158" cy="55" r="6" fill="#00B5A6"/>
+            </svg>
+            <div class="v">63<sup>%</sup></div>
+            <div class="a">6 582,94 €</div>
+            <div class="s">sur 10 521,99 € · 21/22 lots</div>
+            <div class="impay"><span>● 4 impayés · 1 404 €</span><span>→</span></div>
+          </div>
+
+          <div class="cash">
+            <div class="cash-h">
+              <div>
+                <div class="ey">● CASH-FLOW · 12 MOIS</div>
+                <h3>YTD vs Avril</h3>
+              </div>
+              <span class="pill">-143 %</span>
+            </div>
+            <div class="cash-kpis">
+              <div class="cash-kpi pos"><s>Loyers</s><b>42 725</b></div>
+              <div class="cash-kpi neg"><s>Net</s><b>-14 831</b></div>
+              <div class="cash-kpi neg"><s>Charges</s><b>-57 556</b></div>
+            </div>
+            <div class="cash-chart">
+              <svg viewBox="0 0 320 80" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cg-p" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#EF4444" stop-opacity=".4"/>
+                    <stop offset="1" stop-color="#EF4444" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0,20 L26,30 L52,24 L78,32 L104,28 L130,38 L156,44 L182,50 L208,42 L234,52 L260,68 L286,58 L320,46 L320,80 L0,80 Z" fill="url(#cg-p)"/>
+                <path d="M0,20 L26,30 L52,24 L78,32 L104,28 L130,38 L156,44 L182,50 L208,42 L234,52 L260,68 L286,58 L320,46" fill="none" stroke="#EF4444" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Sujets pleine largeur (en portrait) -->
+          <div class="sjt-c">
+            <h3>● 9 Sujets à traiter <span class="pill">PRIORISÉS</span></h3>
+            <div class="sjt-grid portrait">
+              <div class="sjt-it"><div class="ic">🛡</div><div><b>Assurances × 7</b><s>F-Local + 6 autres</s></div></div>
+              <div class="sjt-it"><div class="ic b2">📊</div><div><b>Révisions IRL × 2</b><s>F-101 → 443 €</s></div></div>
+              <div class="sjt-it"><div class="ic b3">💰</div><div><b>Impayés × 4</b><s>1 404 € · 4 loc.</s></div></div>
+              <div class="sjt-it"><div class="ic b2">📅</div><div><b>Régul charges × 2</b><s>2025 à clôturer</s></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2 : KPIs (3 cols en portrait) -->
+        <div class="row2 portrait">
+          <div class="kp">
+            <span class="pill ok">1 VAC.</span>
+            <div class="ey">● OCCUPATION</div>
+            <div class="v pos">95 %</div>
+            <div class="s">21/22 · MAG</div>
+          </div>
+          <div class="kp">
+            <span class="pill ok">8,6 %</span>
+            <div class="ey">● RENDEMENT</div>
+            <div class="v">8,6 %</div>
+            <div class="s">1 431 000 €</div>
+          </div>
+          <div class="kp">
+            <div class="ey">● DG</div>
+            <div class="v">9 000 €</div>
+            <div class="s">18 contrats</div>
+          </div>
+          <div class="kp">
+            <span class="pill">146 %</span>
+            <div class="ey">● CHARGES/LOYERS</div>
+            <div class="v neg">146 %</div>
+            <div class="s">8 419 / 5 770</div>
+          </div>
+          <div class="kp">
+            <span class="pill ok">EN AVANCE</span>
+            <div class="ey">● PROJECTION 2026</div>
+            <div class="v pos">73 730 €</div>
+            <div class="s">100 % objectif</div>
+          </div>
+          <div class="kp" style="background:linear-gradient(135deg,#F0FAF8,#FFF7F2)">
+            <div class="ey">● TOTAL ANNÉE</div>
+            <div class="v">2 632 €</div>
+            <div class="s">recettes mai</div>
+          </div>
+        </div>
+
+        <!-- Entités -->
+        <div class="ent">
+          <div class="ent-h">
+            <div class="av">SD</div>
+            <div>
+              <h4>SCI DD2AMELEVIERES</h4>
+              <s>16 lots · 1 vacant</s>
+            </div>
+            <div class="kpis">
+              <div class="kp"><s>Recettes</s><b class="pos">2 633 €</b></div>
+              <div class="kp"><s>Dépenses</s><b class="neg">-5 319 €</b></div>
+              <div class="kp"><s>Résultat</s><b class="neg">-2 686 €</b></div>
+            </div>
+          </div>
+          <div class="ent-imm">
+            <div class="ent-imm-name">FREYMING</div>
+            <div class="ent-imm-lots portrait">
+              <div class="ent-lot"><span class="st"></span><span class="lbl">F-001</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">F-002</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">F-101</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">F-102</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">F-201</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">F-Loc</span></div>
+            </div>
+          </div>
+          <div class="ent-imm">
+            <div class="ent-imm-name">DAMELEVIÈRES</div>
+            <div class="ent-imm-lots portrait">
+              <div class="ent-lot"><span class="st"></span><span class="lbl">D-001</span></div>
+              <div class="ent-lot vac"><span class="st"></span><span class="lbl">D-002</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">D-003</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">D-104</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">D-105</span></div>
+              <div class="ent-lot"><span class="st"></span><span class="lbl">D-106</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════ iPad LANDSCAPE 1194×834 ════════════════════════ -->
+<div class="ipad-l">
+  <div class="ipad-label">iPad 11" landscape — 1194 × 834 (sidebar étendue avec labels)</div>
+  <div class="ipad-status">
+    <span>10:34</span>
+    <div class="ipad-status-r"><span>•••</span><span>📶</span><span>🔋 95</span></div>
+  </div>
+  <div class="screen">
+
+    <!-- Sidebar FULL -->
+    <div class="sb full">
+      <div class="sb-logo">
+        <div class="icon">🏠</div>
+        <div class="txt">
+          <strong>ImmoTrack</strong>
+          <em>v15.42</em>
+        </div>
+      </div>
+      <div class="sb-section-title">Pilotage</div>
+      <div class="sb-nav">
+        <div class="sb-it act"><span class="ic">📊</span><span class="lbl">Dashboard</span></div>
+        <div class="sb-it"><span class="ic">📅</span><span class="lbl">Agenda</span></div>
+        <div class="sb-it"><span class="ic">🛠</span><span class="lbl">Équipements</span></div>
+        <div class="sb-section-title">Biens & personnes</div>
+        <div class="sb-it"><span class="ic">🏘</span><span class="lbl">Logements</span></div>
+        <div class="sb-it"><span class="ic">👥</span><span class="lbl">Locataires</span></div>
+        <div class="sb-it"><span class="ic">📋</span><span class="lbl">Baux</span></div>
+        <div class="sb-section-title">Comptabilité</div>
+        <div class="sb-it"><span class="ic">💰</span><span class="lbl">Loyers</span></div>
+        <div class="sb-it"><span class="ic">📊</span><span class="lbl">Révision IRL</span></div>
+        <div class="sb-it"><span class="ic">📑</span><span class="lbl">Quittances</span></div>
+        <div class="sb-it"><span class="ic">🛡</span><span class="lbl">Assurances</span></div>
+      </div>
+      <div class="sb-foot">
+        <div class="av">DK</div>
+        <div class="info">
+          <b>Didier K.</b>
+          <s>Bailleur</s>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main area -->
+    <div class="main">
+      <div class="tb">
+        <span class="tb-title">Tableau de bord</span>
+        <div class="tb-themes">
+          <button class="act">☀</button><button>🎨</button><button>🌙</button>
+        </div>
+        <span class="tb-sep"></span>
+        <div class="tb-modes">
+          <button><span class="ic">🪴</span>Solo</button>
+          <button class="act"><span class="ic">🏠</span>Premium</button>
+          <button><span class="ic">🛠</span>Gestionnaire</button>
+        </div>
+        <span class="tb-sep"></span>
+        <button class="tb-yr">2026 ▾</button>
+        <button class="tb-mo">Mai ▾</button>
+        <div class="tb-r">
+          <span class="drv">✓ Drive · à l'instant</span>
+        </div>
+      </div>
+
+      <div class="pc">
+
+        <!-- Coach -->
+        <div class="coach">
+          <div class="coach-l">
+            <div class="ic">⛅</div>
+            <div>
+              <h2>Bonjour Didier</h2>
+              <div class="sub">9 actions pour finir le mois</div>
+            </div>
+          </div>
+          <div class="coach-pts">
+            <div class="coach-pt">
+              <div class="n">1</div>
+              <div><b>Assurances · 7 à traiter</b><s>F-Local — M. REGIS MANGIN + 6</s></div>
+            </div>
+            <div class="coach-pt">
+              <div class="n">2</div>
+              <div><b>Révisions IRL · 2</b><s>F-101 — 440 € → 443 €</s></div>
+            </div>
+          </div>
+          <button class="coach-cta">DÉMARRER →</button>
+        </div>
+
+        <!-- Row1 : 2 cols Enc + Cash, Sujets en bas pleine largeur -->
+        <div class="row1">
+          <div class="enc">
+            <div class="ey">● ENCAISSEMENT · MAI 2026</div>
+            <svg width="180" height="100" viewBox="0 0 200 110">
+              <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#EEF1F6" stroke-width="14" stroke-linecap="round"/>
+              <path d="M20,100 A80,80 0 0,1 158,55" fill="none" stroke="url(#g2)" stroke-width="14" stroke-linecap="round"/>
+              <defs><linearGradient id="g2" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF8000"/><stop offset=".5" stop-color="#F59E0B"/><stop offset="1" stop-color="#00B5A6"/></linearGradient></defs>
+              <circle cx="20" cy="100" r="5" fill="#FF8000"/>
+              <circle cx="158" cy="55" r="6" fill="#00B5A6"/>
+            </svg>
+            <div class="v">63<sup>%</sup></div>
+            <div class="a">6 582,94 €</div>
+            <div class="s">sur 10 521,99 € · 21 lots payés / 22</div>
+            <div class="impay"><span>● 4 impayés · 1 404 € en attente</span><span>→</span></div>
+          </div>
+
+          <div class="cash">
+            <div class="cash-h">
+              <div>
+                <div class="ey">● CASH-FLOW · 12 MOIS</div>
+                <h3>YTD vs Avril</h3>
+              </div>
+              <span class="pill">-143 % vs Avril</span>
+            </div>
+            <div class="cash-kpis">
+              <div class="cash-kpi pos"><s>Loyers YTD</s><b>42 725 €</b></div>
+              <div class="cash-kpi neg"><s>Net YTD</s><b>-14 831 €</b></div>
+              <div class="cash-kpi neg"><s>Charges YTD</s><b>-57 556 €</b></div>
+            </div>
+            <div class="cash-chart">
+              <svg viewBox="0 0 400 80" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cg-l" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#EF4444" stop-opacity=".4"/>
+                    <stop offset="1" stop-color="#EF4444" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0,20 L33,30 L66,24 L100,32 L133,28 L166,38 L200,44 L233,50 L266,42 L300,52 L333,68 L366,58 L400,46 L400,80 L0,80 Z" fill="url(#cg-l)"/>
+                <path d="M0,20 L33,30 L66,24 L100,32 L133,28 L166,38 L200,44 L233,50 L266,42 L300,52 L333,68 L366,58 L400,46" fill="none" stroke="#EF4444" stroke-width="2"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="sjt-c">
+            <h3>● 9 Sujets à traiter <span class="pill">PRIORISÉS</span></h3>
+            <div class="sjt-grid">
+              <div class="sjt-it"><div class="ic">🛡</div><div><b>Assurances × 7</b><s>F-Local — M. REGIS MANGIN</s></div></div>
+              <div class="sjt-it"><div class="ic b2">📊</div><div><b>Révisions IRL × 2</b><s>F-101 — 440 € → 443 €</s></div></div>
+              <div class="sjt-it"><div class="ic b3">💰</div><div><b>Impayés × 4</b><s>1 404 € · 4 locataires</s></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2 : 5 KPIs en ligne (comme desktop) -->
+        <div class="row2">
+          <div class="kp">
+            <span class="pill ok">1 VAC.</span>
+            <div class="ey">● OCCUPATION</div>
+            <div class="v pos">95 %</div>
+            <div class="s">21/22 lots</div>
+          </div>
+          <div class="kp">
+            <span class="pill ok">+0,3 pts</span>
+            <div class="ey">● RENDEMENT</div>
+            <div class="v">8,6 %</div>
+            <div class="s">sur 1 431 000 €</div>
+          </div>
+          <div class="kp">
+            <div class="ey">● DG · 18 CONTRATS</div>
+            <div class="v">9 000 €</div>
+            <div class="s">moy. 500 € / loc</div>
+          </div>
+          <div class="kp">
+            <span class="pill">146 %</span>
+            <div class="ey">● CHARGES / LOYERS</div>
+            <div class="v neg">146 %</div>
+            <div class="s">8 419 € / 5 770 €</div>
+          </div>
+          <div class="kp">
+            <span class="pill ok">EN AVANCE</span>
+            <div class="ey">● PROJECTION 2026</div>
+            <div class="v pos">73 730 €</div>
+            <div class="s">100 % objectif</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<!-- ─── Notes ─── -->
+<div class="notes">
+  <h2>📐 Décisions design tablette</h2>
+
+  <h3>Pourquoi sidebar et pas bottom tabs ?</h3>
+  <ul>
+    <li>Sur tablette (≥768px), la sidebar est <b>plus naturelle</b> (cf. iPad apps : Notion, Apple Mail, Files, Numbers)</li>
+    <li>Bottom tabs = pattern mobile, déplacé sur tablette → ça fait "petit"</li>
+    <li>Sidebar adaptative : <b>collapsée en portrait</b> (60px icons-only), <b>étendue en landscape</b> (220px avec labels)</li>
+    <li>User peut basculer manuellement avec ☰ si besoin</li>
+  </ul>
+
+  <h3>Grids responsive</h3>
+  <table>
+    <thead>
+      <tr><th>Section</th><th>Portrait (834px)</th><th>Landscape (1194px)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Row 1 (Enc + Cash + Sujets)</td><td>2 cols + sujets pleine largeur</td><td>1fr 1.4fr + sujets full</td></tr>
+      <tr><td>Row 2 (KPIs)</td><td>3 cols + 1 bonus = 6 cards 3×2</td><td>5 cols en ligne (= desktop)</td></tr>
+      <tr><td>Entity lots</td><td>6 cols grid</td><td>8 cols grid</td></tr>
+      <tr><td>Coach bandeau</td><td>icône + texte + 2 points + CTA</td><td>idem (la place permet)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Topbar : tout reste visible</h3>
+  <ul>
+    <li>"Tableau de bord" titre · Thèmes · Mode (Solo/Premium/Gestion.) · Année/Mois</li>
+    <li>Plus de place que mobile → pas besoin de cacher mode/thème (ils reviennent en topbar)</li>
+    <li>"Sauvegarde Drive" reste flush right</li>
+  </ul>
+
+  <h3>Différences clés vs mobile (rappel)</h3>
+  <table>
+    <thead><tr><th></th><th>Mobile (≤767px)</th><th>Tablette (768-1279px)</th><th>Desktop (≥1280px)</th></tr></thead>
+    <tbody>
+      <tr><td>Nav</td><td>Bottom tabs (4 onglets)</td><td>Sidebar adaptative</td><td>Sidebar full</td></tr>
+      <tr><td>Topbar</td><td>☰ + Mai 2026 + ☁</td><td>Tout visible (thèmes, mode, période)</td><td>Tout visible</td></tr>
+      <tr><td>Row1 hero</td><td>Stack vertical</td><td>2 cols + sujets full</td><td>1fr 1.4fr 1fr</td></tr>
+      <tr><td>Row2 KPIs</td><td>2×2 grid + 1 bonus</td><td>3 cols (portrait) / 5 cols (landscape)</td><td>5 cols</td></tr>
+      <tr><td>Entity lots</td><td>3 cols grid</td><td>6 / 8 cols</td><td>flex-wrap</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Si tu valides → impact code</h3>
+  <ul>
+    <li>Ajouter <code>@media (min-width:768px) and (max-width:1279px)</code> dans css/main.css</li>
+    <li>Détection orientation via <code>@media (orientation:portrait)</code></li>
+    <li>Sidebar : ajouter classe <code>.sb.collapsed</code> avec toggle via JS sur ☰ tablette</li>
+    <li>Pas de nouveau composant JS — uniquement responsive CSS sur les composants V4 existants</li>
+    <li>Estimation : <b>même session que mobile</b> (~3-4h pour les 2 formats)</li>
+  </ul>
+</div>
+
+</body>
+</html>
