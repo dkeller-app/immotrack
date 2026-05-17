@@ -1,6 +1,6 @@
 # BUG-IRL-APERCU-LETTRE-V15 — Bouton "Aperçu lettre" IRL ne s'ouvre plus
 
-**Status** : 🔄 En cours · **Prio** : P1 · **Taille** : S (1-2h)
+**Status** : ✅ Livré v15.74 + v15.75 · **Prio** : P1 · **Taille** : S (1-2h)
 **Détecté** : 2026-05-16 (user, Sprint 19A marathon V1 propre)
 **Lié à** : IRL-VALIDATION ✅ v13.33, IRL-REVISION-UX-FIX ✅ v15.10, Sprint 19+20 marathon V1 propre
 
@@ -50,3 +50,9 @@ Sur l'onglet IRL (page `#p-irl`), le panneau **"Aperçu lettre"** (`#irl-letter-
 
 - 2026-05-16 : sujet annoncé dans le prompt marathon Sprint 19+20 (statut "⏸️ en pause, helpers/tests créés"), mais en réalité **aucun fichier n'a été créé** (vérification 2026-05-17 : `js/core/irl-preview.js` absent, tests absents, doc sujet absent, BACKLOG resté ⬜).
 - 2026-05-17 : reprise from-scratch dans session pilotage. Direct prod (décision marathon).
+- 2026-05-17 **v15.74** ✅ : module pur `js/core/irl-preview.js` (3 helpers, 28 tests Vitest) + UI selector + helpers inline + auto-load 1ʳᵉ lettre au toggle. Commit `6ddf85c`. Suite 744 → 772 tests, zéro régression.
+- 2026-05-17 **v15.75** ✅ : 2 bugs UX dérivés remontés par user après test v15.74 :
+  - **Bug 1** : clic `👁 Aperçu` sur card injectait dans panneau latéral étroit (lisibilité médiocre desktop). User voulait modale plein écran.
+  - **Bug 2** : clic `👁 Aperçu lettre` dans modale "Valider envoi" → `previewIRLLetter` injectait dans `#pdf-irl-content` masqué par la modale active → impression bouton mort.
+  - **Fix** : `previewIRLLetter(ref)` ouvre TOUJOURS la modale `#ov-irl-lettre` (suppression check `window.matchMedia` mobile-only). Nouvelle fn `_irlPreviewInPane(ref)` réservée au panneau latéral (header toggle + selector change) — injecte sans modale parasite. `_irlPreviewWithPane` (cards) bascule sur modale plein écran. `_irlToggleLetterPane` auto-load utilise `_irlPreviewInPane`.
+  - **Vérif preview** : modale Valider + clic Aperçu → 2 modales empilées OK, panneau latéral toggle → pas de modale parasite. Vitest 772/772.
