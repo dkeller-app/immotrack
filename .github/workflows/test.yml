@@ -18,10 +18,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          # cache: 'npm'  ← retiré 2026-05-17 (50 runs fail consécutifs sur cette
-          # ligne, cause probable : clé cache invalide). Sans cache, npm ci prend
-          # ~10s de plus mais le workflow passe enfin.
+          # v15.X 2026-05-17 — Node 24 (aligné avec env dev local npm 11).
+          # Node 20 + npm 10 faisait fail npm ci car le lockfile a été généré
+          # avec npm 11. De plus, Node 20 = déprécié dès le 2 juin 2026.
+          node-version: '24'
+          # cache: 'npm'  ← retiré 2026-05-17 (50 runs fail consécutifs).
 
       - name: Install dependencies
         run: npm ci
