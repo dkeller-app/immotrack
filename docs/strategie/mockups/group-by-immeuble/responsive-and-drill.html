@@ -58,7 +58,6 @@
   .page-irl-head .ctrl button { background: var(--sur); border: 1px solid var(--bor); color: var(--tx);
     font-size: 11px; padding: 3px 8px; border-radius: var(--rs); cursor: pointer; }
 
-  /* group header (variante D + KPI B condensé, identique au code livré v15.76) */
   .grp { margin-bottom: 12px; }
   .grp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px;
     background: var(--sur); border: 1px solid var(--bor); border-radius: var(--rl);
@@ -81,7 +80,6 @@
   .device-frame[data-d="tablet"]  .grp-body { grid-template-columns: repeat(2, 1fr); }
   .device-frame[data-d="mobile"]  .grp-body { grid-template-columns: 1fr; }
 
-  /* responsive specifics */
   .device-frame[data-d="mobile"] .grp-head .ad { display: none; }
   .device-frame[data-d="mobile"] .grp-head .kpis { gap: 6px; margin-left: 0; width: 100%; padding-top: 4px; border-top: 1px dashed var(--bor); }
   .device-frame[data-d="mobile"] .grp-head .kpi { font-size: 10.5px; }
@@ -104,19 +102,62 @@
   .card .act-row { display: flex; gap: 4px; }
   .card .act-row button { background: var(--sur-3); border: 1px solid var(--bor); color: var(--tx); font-size: 10.5px; padding: 3px 7px; border-radius: var(--rs); cursor: pointer; }
 
-  /* ============ DRILL-DOWN PANEL (overlay sliding) ============ */
+  /* ============ DRILL-DOWN PANEL ============
+     - Desktop : slide-right, max-width 480px
+     - Tablette : slide-right, 70% width (max 540px)
+     - Mobile : bottom-sheet (slide-up), 92% height, handle visuel, touch targets 44-48px
+  */
   .drill-panel {
-    position: absolute; top: 0; right: 0; height: 100%; width: 60%; max-width: 480px;
-    background: var(--sur-2); border-left: 1px solid var(--bor); box-shadow: -12px 0 24px rgba(0,0,0,0.4);
-    z-index: 10; transform: translateX(100%); transition: transform 0.3s ease;
+    position: absolute; background: var(--sur-2); z-index: 10;
     display: flex; flex-direction: column;
+    transition: transform 0.3s ease;
   }
-  .device-frame[data-d="mobile"] .drill-panel { width: 100%; max-width: none; }
-  .drill-panel.open { transform: translateX(0); }
-  .drill-panel .drill-head { padding: 14px 16px; border-bottom: 1px solid var(--bor); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  /* Desktop + Tablette : slide-right */
+  .device-frame[data-d="desktop"] .drill-panel,
+  .device-frame[data-d="tablet"]  .drill-panel {
+    top: 0; right: 0; height: 100%;
+    border-left: 1px solid var(--bor);
+    box-shadow: -12px 0 24px rgba(0,0,0,0.4);
+    transform: translateX(100%);
+  }
+  .device-frame[data-d="desktop"] .drill-panel { width: 480px; max-width: 60%; }
+  .device-frame[data-d="tablet"]  .drill-panel { width: 70%; max-width: 540px; }
+  .device-frame[data-d="desktop"] .drill-panel.open,
+  .device-frame[data-d="tablet"]  .drill-panel.open { transform: translateX(0); }
+
+  /* Mobile : bottom-sheet */
+  .device-frame[data-d="mobile"] .drill-panel {
+    left: 0; right: 0; bottom: 0; width: 100%; height: 92%;
+    border-top: 1px solid var(--bor);
+    border-top-left-radius: 16px; border-top-right-radius: 16px;
+    box-shadow: 0 -12px 24px rgba(0,0,0,0.4);
+    transform: translateY(100%);
+  }
+  .device-frame[data-d="mobile"] .drill-panel.open { transform: translateY(0); }
+  .device-frame[data-d="mobile"] .drill-panel::before {
+    content: ''; display: block; width: 36px; height: 4px;
+    background: var(--bor); border-radius: 2px;
+    margin: 8px auto 0; flex-shrink: 0;
+  }
+
+  .drill-panel .drill-head {
+    padding: 14px 16px; border-bottom: 1px solid var(--bor);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    position: sticky; top: 0; background: var(--sur-2); z-index: 1;
+  }
   .drill-panel .drill-head h3 { margin: 0; font-size: 14px; font-weight: 700; }
-  .drill-panel .drill-head .close { margin-left: auto; background: var(--sur); border: 1px solid var(--bor); color: var(--tx); font-size: 12px; padding: 4px 9px; border-radius: 4px; cursor: pointer; }
-  .drill-panel .drill-body { padding: 16px; overflow-y: auto; flex: 1; }
+  .drill-panel .drill-head .close {
+    margin-left: auto; background: var(--sur); border: 1px solid var(--bor); color: var(--tx);
+    font-size: 14px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    min-height: 32px; min-width: 32px;
+  }
+  .device-frame[data-d="mobile"] .drill-panel .drill-head .close {
+    min-height: 44px; min-width: 44px; font-size: 16px;
+  }
+  .drill-panel .drill-body { padding: 16px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+  .device-frame[data-d="mobile"] .drill-panel .drill-body { padding: 14px; padding-bottom: 24px; }
+
   .drill-section { margin-bottom: 18px; }
   .drill-section h4 { margin: 0 0 8px; font-size: 11px; font-weight: 600; color: var(--tx-mu); text-transform: uppercase; letter-spacing: 0.06em; }
   .drill-stat { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--rl); padding: 10px 12px; margin-bottom: 6px; }
@@ -125,9 +166,30 @@
   .drill-stat.alert { border-left: 3px solid var(--warn); }
   .drill-stat.alert .v { color: var(--warn); }
 
+  .device-frame[data-d="mobile"] .drill-stat { padding: 12px 14px; }
+  .device-frame[data-d="mobile"] .drill-stat .v { font-size: 18px; }
+  .device-frame[data-d="mobile"] .drill-section { margin-bottom: 20px; }
+
+  /* Footer sticky bottom — actions principales toujours accessibles au pouce */
+  .drill-panel .drill-footer {
+    position: sticky; bottom: 0;
+    background: var(--sur-2); border-top: 1px solid var(--bor);
+    padding: 12px 16px; display: flex; gap: 8px;
+    z-index: 1;
+  }
+  .device-frame[data-d="mobile"] .drill-panel .drill-footer { padding: 14px; padding-bottom: 18px; }
+  .drill-panel .drill-footer .btn-primary {
+    flex: 1; background: var(--acc); border: none; color: #fff;
+    padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+    min-height: 40px;
+  }
+  .device-frame[data-d="mobile"] .drill-panel .drill-footer .btn-primary {
+    min-height: 48px; font-size: 14px;
+  }
+
   .stage-wrap { position: relative; }
 
-  /* ============ Footer ============ */
+  /* ============ Footer page ============ */
   .ft { max-width: 1400px; margin: 28px auto 0; padding-top: 18px; border-top: 1px solid var(--bor); color: var(--tx-mu); font-size: 11.5px; text-align: center; }
   .ft a { color: var(--acc); }
 </style>
@@ -136,15 +198,17 @@
 
 <div class="hd">
   <h1>📐 UX-GROUP-BY-IMMEUBLE — responsive 3 formats + drill-downs</h1>
-  <div class="sub">Variante D (validée) · application rétroactive règle <i>mockup-first</i> étendue 2026-05-17</div>
+  <div class="sub">Variante D (validée) · application règle <i>mockup-first</i> étendue 2026-05-17 (3 formats + drill-downs obligatoires)</div>
   <div class="ctx">
     <b>Décisions à valider</b> :<br>
-    1️⃣ <b>3 formats</b> : PC (1280px) / Tablette (768px) / Mobile (390px) — switch via boutons ci-dessous, observe le rendu réel.<br>
-    2️⃣ <b>3 drill-downs candidats</b> sur les compteurs du header de groupe — clique chaque KPI pour voir le panneau correspondant :<br>
-    &nbsp;&nbsp;&nbsp;• <b>Clic « N lots »</b> → ouvre la fiche immeuble (vue 360° lots)<br>
-    &nbsp;&nbsp;&nbsp;• <b>Clic « N ⚠ »</b> → filtre la vue IRL sur les lots en alerte uniquement<br>
-    &nbsp;&nbsp;&nbsp;• <b>Clic « X € HC »</b> → ouvre la fiche immeuble onglet Comptabilité<br>
-    Tu dis Go / écarter pour chaque drill-down, je code en v15.77 ou j'oublie ceux refusés.
+    1️⃣ <b>3 formats</b> : PC (1280px) / Tablette (768px) / Mobile (390px). Pattern adaptatif :<br>
+    &nbsp;&nbsp;&nbsp;• PC + Tablette : drill-down = panneau slide-right (~60% / 70% largeur)<br>
+    &nbsp;&nbsp;&nbsp;• Mobile : drill-down = <b>bottom-sheet</b> (slide-up depuis le bas, 92% hauteur, handle visuel, touch targets 44-48px)<br>
+    2️⃣ <b>3 drill-downs candidats</b> sur les compteurs du header de groupe — clique chaque KPI :<br>
+    &nbsp;&nbsp;&nbsp;• <b>« N lots »</b> → ouvre la fiche immeuble (vue 360° lots)<br>
+    &nbsp;&nbsp;&nbsp;• <b>« N ⚠ »</b> → filtre la vue IRL sur les lots en alerte uniquement<br>
+    &nbsp;&nbsp;&nbsp;• <b>« X € HC »</b> → ouvre la fiche compta immeuble<br>
+    Tu dis Go / écarter pour chaque drill, je code en v15.77 ou j'oublie ceux refusés.
   </div>
 </div>
 
@@ -167,7 +231,7 @@
 <div class="stage">
   <div class="stage-wrap">
     <div class="device-frame" data-d="desktop">
-      <div class="device-label">🖥️ PC · 1280 px (responsive)</div>
+      <div class="device-label">🖥️ PC · 1280 px (responsive — drill = panneau slide-right)</div>
 
       <div class="page-irl">
         <div class="page-irl-head">
@@ -254,11 +318,11 @@
         </div>
       </div>
 
-      <!-- ============ DRILL PANELS (3 candidats) ============ -->
+      <!-- ============ DRILL PANELS — bottom-sheet sur mobile, slide-right sinon ============ -->
       <div class="drill-panel" id="drill-lots">
         <div class="drill-head">
           <span style="font-size:18px">🏛</span>
-          <h3>1 rue de la Première Armée · Fiche 360°</h3>
+          <h3>Ferrette · Fiche 360°</h3>
           <button class="close" onclick="closeDrill()">✕</button>
         </div>
         <div class="drill-body">
@@ -274,17 +338,16 @@
             <div class="card" style="margin-bottom:6px"><div class="row"><div><div class="ref">A102 · Martin</div></div><span class="badge badge-wait">⏳ Bail&lt;1an</span></div></div>
             <div class="card"><div class="row"><div><div class="ref">A103 · Garcia</div></div><span class="badge badge-frozen">🔒 Gelé DPE F</span></div></div>
           </div>
-          <div class="drill-section">
-            <h4>Navigation</h4>
-            <button style="background:var(--acc);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;width:100%">📂 Ouvrir la fiche immeuble complète</button>
-          </div>
+        </div>
+        <div class="drill-footer">
+          <button class="btn-primary">📂 Ouvrir la fiche immeuble complète</button>
         </div>
       </div>
 
       <div class="drill-panel" id="drill-alerts">
         <div class="drill-head">
           <span style="font-size:18px;color:var(--warn)">⚠</span>
-          <h3>Lots en alerte (immeuble Ferrette)</h3>
+          <h3>Lots en alerte · Ferrette</h3>
           <button class="close" onclick="closeDrill()">✕</button>
         </div>
         <div class="drill-body">
@@ -296,17 +359,16 @@
               <p style="font-size:11px;color:var(--tx-mu);margin:6px 0 0">Loyer non révisable tant que DPE ≥ E. Considérer travaux de rénovation énergétique.</p>
             </div>
           </div>
-          <div class="drill-section">
-            <h4>Actions groupées</h4>
-            <button style="background:var(--sur);border:1px solid var(--bor);color:var(--tx);padding:7px 12px;border-radius:6px;cursor:pointer;font-size:12px;width:100%;text-align:left">📋 Voir les travaux planifiés (TRAV-SUIVI)</button>
-          </div>
+        </div>
+        <div class="drill-footer">
+          <button class="btn-primary">📋 Voir les travaux planifiés (TRAV-SUIVI)</button>
         </div>
       </div>
 
       <div class="drill-panel" id="drill-loyer">
         <div class="drill-head">
           <span style="font-size:18px">💰</span>
-          <h3>Compta immeuble · Ferrette</h3>
+          <h3>Compta · Ferrette</h3>
           <button class="close" onclick="closeDrill()">✕</button>
         </div>
         <div class="drill-body">
@@ -320,10 +382,9 @@
             <h4>Comparaison N-1</h4>
             <div class="drill-stat"><div class="v">+154 €</div><div class="l">vs mai 2025 (variation annuelle IRL)</div></div>
           </div>
-          <div class="drill-section">
-            <h4>Navigation</h4>
-            <button style="background:var(--acc);border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;width:100%">📊 Ouvrir la fiche compta immeuble</button>
-          </div>
+        </div>
+        <div class="drill-footer">
+          <button class="btn-primary">📊 Ouvrir la fiche compta immeuble</button>
         </div>
       </div>
 
@@ -332,13 +393,17 @@
 </div>
 
 <div class="ft">
-  Sujet <a href="../../subjects/UX-GROUP-BY-IMMEUBLE.md">UX-GROUP-BY-IMMEUBLE</a> · galerie variantes <a href="index.html">index.html</a> · règle <a href="../../subjects/V3-VISUEL.md">design</a>
+  Sujet <a href="../../subjects/UX-GROUP-BY-IMMEUBLE.md">UX-GROUP-BY-IMMEUBLE</a> · galerie variantes <a href="index.html">index.html</a>
 </div>
 
 <script>
   // Toggle device
   const stage = document.querySelector('.device-frame');
-  const labels = { desktop: '🖥️ PC · 1280 px (responsive)', tablet: '📱 Tablette · 768 px (responsive)', mobile: '📱 Mobile · 390 px (responsive)' };
+  const labels = {
+    desktop: '🖥️ PC · 1280 px (responsive — drill = panneau slide-right)',
+    tablet:  '📱 Tablette · 768 px (responsive — drill = panneau slide-right)',
+    mobile:  '📱 Mobile · 390 px (responsive — drill = bottom-sheet 92%)',
+  };
   document.querySelectorAll('[data-device]').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('[data-device]').forEach(x => x.classList.remove('act'));
     b.classList.add('act');
@@ -346,7 +411,7 @@
     stage.querySelector('.device-label').textContent = labels[b.dataset.device];
   }));
 
-  // Toggle drill-down + clic sur KPI
+  // Toggle drill-down + clic KPI
   function openDrill(k) {
     document.querySelectorAll('.drill-panel').forEach(p => p.classList.remove('open'));
     const p = document.getElementById('drill-' + k); if (p) p.classList.add('open');
