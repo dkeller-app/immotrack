@@ -29,14 +29,17 @@
   .controls button:hover { background: var(--sur-2); border-color: #3a3a3a; }
   .controls button.act { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 600; }
 
-  .stage { max-width: 1400px; margin: 0 auto; display: flex; justify-content: center; }
+  .stage { max-width: 1400px; margin: 0 auto; }
   .device-frame {
+    /* margin auto pour centrer en block (pas flex, qui force min-width:auto = min-content) */
+    margin: 0 auto;
     background: var(--bg);
     border: 1px solid var(--bor);
     border-radius: 14px;
     box-shadow: 0 0 40px rgba(0,0,0,0.3);
     overflow: hidden;
     display: flex; flex-direction: column;
+    min-width: 0;  /* override min-content sur flex parent — laisse rétrécir librement */
     transition: width 0.3s ease, height 0.3s ease;
   }
   .device-label { text-align: center; color: var(--tx-mu); font-size: 11px; padding: 8px 12px;
