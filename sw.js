@@ -1,7 +1,7 @@
 // ImmoTrack Service Worker — Network-First pour index.html
 // Bumper CACHE_VER à chaque déploiement pour invalider les anciens caches
 
-const CACHE_VER = 'immotrack-v30';
+const CACHE_VER = 'immotrack-v31';
 
 // ── Install : skipWaiting immédiat + pré-cache offline fallback ──────────────
 self.addEventListener('install', e => {
@@ -35,11 +35,13 @@ self.addEventListener('fetch', e => {
 
   if (request.mode === 'navigate') {
     // Navigation (index.html) → NETWORK-FIRST, cache: 'no-cache' bypass HTTP cache CDN
+    // v31 fix : clone() IMMÉDIATEMENT avant tout await/then, sinon le body est consommé
+    // par le retour à la page → "Failed to execute 'clone' on Response" récurrent.
     e.respondWith(
       fetch(request, { cache: 'no-cache' })
         .then(res => {
-          // Met à jour le cache offline avec la réponse fraîche
-          caches.open(CACHE_VER).then(c => c.put(request, res.clone()));
+          const resClone = res.clone(); // clone tout de suite, pas dans le .then async
+          caches.open(CACHE_VER).then(c => c.put(request, resClone)).catch(() => {});
           return res;
         })
         .catch(() => caches.match(request)) // Offline → sert la version cachée
