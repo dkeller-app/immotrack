@@ -19,7 +19,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: 'npm'  ← retiré 2026-05-17 (50 runs fail consécutifs sur cette
+          # ligne, cause probable : clé cache invalide). Sans cache, npm ci prend
+          # ~10s de plus mais le workflow passe enfin.
 
       - name: Install dependencies
         run: npm ci
