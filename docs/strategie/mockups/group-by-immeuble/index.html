@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockups · Tri visuel par immeuble — onglet IRL</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --sur: #141414;
+    --sur-2: #1a1a1a;
+    --sur-3: #232323;
+    --bor: #2a2a2a;
+    --bor-soft: #1f1f1f;
+    --tx: #e8e8e8;
+    --tx-mu: #888;
+    --tx-mu-2: #555;
+    --acc: #3b7ef6;
+    --ok: #16a34a;
+    --warn: #f59e0b;
+    --err: #dc2626;
+    --wait: #6366f1;
+    --frozen: #64748b;
+    --rl: 8px;
+    --rs: 4px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px;
+    background: var(--bg);
+    color: var(--tx);
+    font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .hd { max-width: 1280px; margin: 0 auto 32px; }
+  .hd h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .hd .sub { color: var(--tx-mu); font-size: 13px; }
+  .hd .ctx { background: var(--sur); border: 1px solid var(--bor); border-left: 3px solid var(--acc); padding: 12px 16px; border-radius: var(--rl); margin-top: 16px; font-size: 12.5px; color: var(--tx-mu); }
+  .hd .ctx b { color: var(--tx); }
+
+  .nav { max-width: 1280px; margin: 0 auto 28px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav button {
+    background: var(--sur);
+    border: 1px solid var(--bor);
+    color: var(--tx);
+    padding: 9px 14px;
+    border-radius: var(--rl);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .nav button:hover { background: var(--sur-2); border-color: #3a3a3a; }
+  .nav button.act { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 600; }
+
+  .variants { max-width: 1280px; margin: 0 auto; }
+  .variant { display: none; }
+  .variant.act { display: block; }
+  .variant-head { margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--bor); }
+  .variant-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+  .variant-head .desc { color: var(--tx-mu); font-size: 12.5px; }
+  .variant-head .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; font-size: 12px; }
+  .variant-head .pros, .variant-head .cons { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--rs); padding: 8px 12px; }
+  .variant-head .pros { border-left: 2px solid var(--ok); }
+  .variant-head .cons { border-left: 2px solid var(--err); }
+  .variant-head .pros b { color: var(--ok); }
+  .variant-head .cons b { color: var(--err); }
+
+  /* ============ MOCKUP COMMON ============ */
+  .page-irl { background: var(--bg); border: 1px solid var(--bor); border-radius: var(--rl); padding: 18px; }
+  .page-irl-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--bor); }
+  .page-irl-head .ti { font-size: 15px; font-weight: 700; }
+  .page-irl-head .ti .b { color: var(--tx-mu); font-weight: 400; margin-left: 6px; }
+  .page-irl-head .ctrl { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--tx-mu); }
+  .page-irl-head .ctrl select { background: var(--sur); border: 1px solid var(--bor); color: var(--tx); padding: 4px 6px; border-radius: var(--rs); font-size: 11px; }
+  .page-irl-head .ctrl .vt { display: flex; gap: 3px; }
+  .page-irl-head .ctrl .vt button { background: var(--sur); border: 1px solid var(--bor); color: var(--tx-mu); font-size: 11px; padding: 3px 8px; border-radius: var(--rs); cursor: pointer; }
+  .page-irl-head .ctrl .vt button.act { background: var(--sur-3); color: var(--tx); }
+  .page-irl-head .ctrl .lt { background: var(--sur); border: 1px solid var(--bor); color: var(--tx); font-size: 11px; padding: 3px 8px; border-radius: var(--rs); cursor: pointer; }
+
+  /* card IRL — pattern partagé entre les 4 variantes */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .card {
+    border: 1px solid var(--bor);
+    border-radius: var(--rl);
+    padding: 12px;
+    background: var(--sur);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.15s;
+  }
+  .card:hover { border-color: #3a3a3a; }
+  .card .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .card .ref { font-weight: 700; font-size: 13px; }
+  .card .loc { color: var(--tx-mu); font-size: 11px; }
+  .card .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 11px; white-space: nowrap; border: 1px solid; }
+  .badge-ok { color: #16a34a; background: rgba(22,163,74,0.10); border-color: rgba(22,163,74,0.30); }
+  .badge-applied { color: #6366f1; background: rgba(99,102,241,0.10); border-color: rgba(99,102,241,0.30); }
+  .badge-wait { color: #3b7ef6; background: rgba(59,126,246,0.10); border-color: rgba(59,126,246,0.30); }
+  .badge-frozen { color: #64748b; background: rgba(100,116,139,0.10); border-color: rgba(100,116,139,0.30); }
+  .badge-warn { color: #f59e0b; background: rgba(245,158,11,0.10); border-color: rgba(245,158,11,0.30); }
+  .card .ks { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 4px; font-size: 11.5px; }
+  .card .k { color: var(--tx-mu); }
+  .card .v { color: var(--tx); font-weight: 600; }
+  .card .act-row { display: flex; gap: 4px; margin-top: 6px; }
+  .card .act-row button { background: var(--sur-3); border: 1px solid var(--bor); color: var(--tx); font-size: 11px; padding: 3px 8px; border-radius: var(--rs); cursor: pointer; }
+
+  /* ============ VARIANTE A — lignes sobres ============ */
+  .va-grp-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 10px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--bor-soft);
+    font-size: 12px;
+  }
+  .va-grp-head:first-child { margin-top: 0; }
+  .va-grp-head .ic { color: var(--tx-mu); }
+  .va-grp-head .nm { font-weight: 600; color: var(--tx); }
+  .va-grp-head .ct { color: var(--tx-mu); font-size: 11px; }
+  .va-grp-head .ad { color: var(--tx-mu-2); font-size: 11px; font-style: italic; margin-left: auto; }
+
+  /* ============ VARIANTE B — cards riches ============ */
+  .vb-grp-head {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto auto;
+    align-items: center;
+    gap: 14px;
+    margin: 18px 0 12px;
+    padding: 12px 16px;
+    background: linear-gradient(180deg, var(--sur-2) 0%, var(--sur) 100%);
+    border: 1px solid var(--bor);
+    border-radius: var(--rl);
+  }
+  .vb-grp-head:first-child { margin-top: 0; }
+  .vb-grp-head .ic {
+    width: 36px; height: 36px;
+    background: var(--sur-3);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .vb-grp-head .info .nm { font-weight: 700; font-size: 14px; }
+  .vb-grp-head .info .ad { color: var(--tx-mu); font-size: 11px; margin-top: 1px; }
+  .vb-grp-head .kpi {
+    text-align: right;
+    padding: 0 8px;
+    border-left: 1px solid var(--bor);
+  }
+  .vb-grp-head .kpi .v { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .vb-grp-head .kpi .k { font-size: 10px; color: var(--tx-mu); text-transform: uppercase; letter-spacing: 0.04em; }
+  .vb-grp-head .kpi.delta-pos .v { color: var(--ok); }
+  .vb-grp-head .kpi.alerts .v { color: var(--warn); }
+
+  /* ============ VARIANTE C — bandeau sticky ============ */
+  .vc-page {
+    position: relative;
+    max-height: 520px;
+    overflow-y: auto;
+    border: 1px solid var(--bor);
+    border-radius: var(--rl);
+    background: var(--bg);
+  }
+  .vc-grp { position: relative; }
+  .vc-grp-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--sur);
+    border-top: 1px solid var(--bor);
+    border-bottom: 1px solid var(--bor);
+    padding: 9px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    backdrop-filter: blur(8px);
+  }
+  .vc-grp:first-child .vc-grp-head { border-top: none; }
+  .vc-grp-head .ic { color: var(--acc); }
+  .vc-grp-head .nm { font-weight: 700; }
+  .vc-grp-head .ct { color: var(--tx-mu); font-size: 11px; }
+  .vc-grp-head .ad { color: var(--tx-mu-2); font-size: 11px; margin-left: auto; }
+  .vc-grp-body { padding: 14px 16px; }
+
+  /* ============ VARIANTE D — sections collapsibles ============ */
+  .vd-grp { margin-bottom: 12px; }
+  .vd-grp-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--sur);
+    border: 1px solid var(--bor);
+    border-radius: var(--rl);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .vd-grp-head:hover { background: var(--sur-2); }
+  .vd-grp-head .chev { color: var(--tx-mu); font-size: 11px; transition: transform 0.2s; }
+  .vd-grp.collapsed .chev { transform: rotate(-90deg); }
+  .vd-grp-head .ic { font-size: 14px; }
+  .vd-grp-head .nm { font-weight: 700; font-size: 13px; }
+  .vd-grp-head .ct { color: var(--tx-mu); font-size: 11px; margin-left: auto; }
+  .vd-grp-head .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); margin-right: 4px; }
+  .vd-grp-body { padding: 12px 0 4px; transition: opacity 0.2s; }
+  .vd-grp.collapsed .vd-grp-body { display: none; }
+
+  /* ─── Footer ─── */
+  .ft { max-width: 1280px; margin: 28px auto 0; padding-top: 18px; border-top: 1px solid var(--bor); color: var(--tx-mu); font-size: 11.5px; text-align: center; }
+  .ft a { color: var(--acc); text-decoration: none; }
+
+  @media (max-width: 720px) {
+    body { padding: 14px; font-size: 12px; }
+    .grid { grid-template-columns: 1fr; }
+    .vb-grp-head { grid-template-columns: auto 1fr; gap: 10px; }
+    .vb-grp-head .kpi { display: none; }
+    .vb-grp-head .kpi.lots-count { display: block; grid-column: 2; text-align: left; border-left: none; padding: 0; }
+    .nav button { padding: 7px 11px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <h1>🏛 Tri visuel par immeuble — onglet IRL</h1>
+  <div class="sub">Mockups de 4 variantes UX · sujet <b>UX-GROUP-BY-IMMEUBLE</b> · 2026-05-17</div>
+  <div class="ctx">
+    <b>Demande user</b> : « pour l'onglet IRL, tous les biens sont mélangés. On peut faire un tri visuel par immeuble avec des séparateurs ? règles pour tous les onglets »<br>
+    <b>Décisions captées</b> : groupement par immeuble seul · headers statiques (pas de sticky) · compteur = nb lots · groupe « (Sans immeuble) » en dernier.<br>
+    <b>Choix à faire</b> : variante A / B / C / D (ou hybride). La variante validée sera codée en v15.76 sur l'onglet IRL réel, puis propagée onglet par onglet au fil de la roadmap V3.
+  </div>
+</div>
+
+<div class="nav" role="tablist">
+  <button class="act" data-tg="a">A · Lignes sobres</button>
+  <button data-tg="b">B · Cards riches (KPI)</button>
+  <button data-tg="c">C · Bandeau sticky</button>
+  <button data-tg="d">D · Sections collapsibles</button>
+</div>
+
+<div class="variants">
+
+  <!-- ─────────── VARIANTE A — Lignes sobres ─────────── -->
+  <section class="variant act" id="va">
+    <div class="variant-head">
+      <h2>Variante A — Lignes sobres</h2>
+      <div class="desc">Séparateur fin avec nom immeuble + compteur. Minimaliste, KISS, zéro distraction visuelle. Le bien reste la star.</div>
+      <div class="pros-cons">
+        <div class="pros"><b>+ Pour</b> : densité élevée, ultra rapide à lire, dark mode élégant, responsive trivial, peu de CSS. Mobile OK.</div>
+        <div class="cons"><b>− Contre</b> : pas de KPI immeuble (loyer total, occupation), pas d'action sur le groupe entier, peut se perdre si beaucoup de lots par immeuble.</div>
+      </div>
+    </div>
+
+    <div class="page-irl">
+      <div class="page-irl-head">
+        <div class="ti">Révision IRL <span class="b">· Mai 2026</span></div>
+        <div class="ctrl">
+          <select><option>Toutes entités</option></select>
+          <div class="vt"><button class="act">📇 Cartes</button><button>📊 Tableau</button></div>
+          <button class="lt">✉ Aperçu lettre</button>
+        </div>
+      </div>
+
+      <div class="va-grp-head">
+        <span class="ic">🏛</span>
+        <span class="nm">1 rue de la Première Armée</span>
+        <span class="ct">· 3 lots</span>
+        <span class="ad">68480 FERRETTE</span>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="row"><div><div class="ref">A101</div><div class="loc">Dupont</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">650 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">655,05 €</span><span class="k">Variation</span><span class="v">+0,78 %</span><span class="k">Anniversaire</span><span class="v">16 mars</span></div>
+          <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><div><div class="ref">A102</div><div class="loc">Martin</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">720 €</span><span class="k">Bail</span><span class="v">Sept. 2025</span></div>
+          <div class="act-row"><button>👁 Aperçu (anticipé)</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><div><div class="ref">A103</div><div class="loc">Garcia</div></div><span class="badge badge-frozen">🔒 Gelé DPE F</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">580 €</span><span class="k">DPE</span><span class="v" style="color:var(--err)">F</span></div>
+        </div>
+      </div>
+
+      <div class="va-grp-head">
+        <span class="ic">🏛</span>
+        <span class="nm">10 B Sentier de la Luss</span>
+        <span class="ct">· 2 lots</span>
+        <span class="ad">68000 COLMAR</span>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="row"><div><div class="ref">B201</div><div class="loc">Schmidt</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">890 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">896,92 €</span><span class="k">Variation</span><span class="v">+0,78 %</span><span class="k">Anniversaire</span><span class="v">1 juin</span></div>
+          <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><div><div class="ref">B202</div><div class="loc">Müller</div></div><span class="badge badge-applied">✅ Appliquée</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">740 €</span><span class="k">Validée le</span><span class="v">12 mai 2026</span></div>
+          <div class="act-row"><button>👁 Voir lettre</button></div>
+        </div>
+      </div>
+
+      <div class="va-grp-head">
+        <span class="ic">⊘</span>
+        <span class="nm" style="font-style:italic;color:var(--tx-mu)">Sans immeuble</span>
+        <span class="ct">· 1 lot</span>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="row"><div><div class="ref">X001</div><div class="loc">Weber</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">620 €</span></div>
+          <div class="act-row"><button>👁 Aperçu</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── VARIANTE B — Cards riches (KPI) ─────────── -->
+  <section class="variant" id="vb">
+    <div class="variant-head">
+      <h2>Variante B — Cards riches (KPI immeuble)</h2>
+      <div class="desc">Header en bloc card avec icône, adresse, compteur lots + KPI immédiats : loyer total, alertes (DPE F/G, IRL manquants).</div>
+      <div class="pros-cons">
+        <div class="pros"><b>+ Pour</b> : contexte immeuble immédiat (loyer total, alertes), différenciant vs Rentila/BailFacile, donne envie de cliquer sur l'immeuble.</div>
+        <div class="cons"><b>− Contre</b> : densité réduite, KPI à calculer (perf si N gros), responsive plus délicat, écrase l'œil sur petits écrans.</div>
+      </div>
+    </div>
+
+    <div class="page-irl">
+      <div class="page-irl-head">
+        <div class="ti">Révision IRL <span class="b">· Mai 2026</span></div>
+        <div class="ctrl">
+          <select><option>Toutes entités</option></select>
+          <div class="vt"><button class="act">📇 Cartes</button><button>📊 Tableau</button></div>
+          <button class="lt">✉ Aperçu lettre</button>
+        </div>
+      </div>
+
+      <div class="vb-grp-head">
+        <div class="ic">🏛</div>
+        <div class="info"><div class="nm">1 rue de la Première Armée</div><div class="ad">68480 FERRETTE · SCI Smartosaurus</div></div>
+        <div class="kpi lots-count"><div class="v">3</div><div class="k">lots</div></div>
+        <div class="kpi"><div class="v">1 950 €</div><div class="k">Loyer HC tot</div></div>
+        <div class="kpi alerts"><div class="v">1 ⚠</div><div class="k">Gelé DPE F</div></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="row"><div><div class="ref">A101</div><div class="loc">Dupont</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">650 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">655,05 €</span><span class="k">Variation</span><span class="v">+0,78 %</span><span class="k">Anniversaire</span><span class="v">16 mars</span></div>
+          <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><div><div class="ref">A102</div><div class="loc">Martin</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">720 €</span><span class="k">Bail</span><span class="v">Sept. 2025</span></div>
+          <div class="act-row"><button>👁 Aperçu (anticipé)</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><div><div class="ref">A103</div><div class="loc">Garcia</div></div><span class="badge badge-frozen">🔒 Gelé DPE F</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">580 €</span><span class="k">DPE</span><span class="v" style="color:var(--err)">F</span></div>
+        </div>
+      </div>
+
+      <div class="vb-grp-head">
+        <div class="ic">🏛</div>
+        <div class="info"><div class="nm">10 B Sentier de la Luss</div><div class="ad">68000 COLMAR · SCI DD</div></div>
+        <div class="kpi lots-count"><div class="v">2</div><div class="k">lots</div></div>
+        <div class="kpi"><div class="v">1 630 €</div><div class="k">Loyer HC tot</div></div>
+        <div class="kpi delta-pos"><div class="v">+12,82 €</div><div class="k">Δ revis.</div></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="row"><div><div class="ref">B201</div><div class="loc">Schmidt</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">890 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">896,92 €</span><span class="k">Variation</span><span class="v">+0,78 %</span><span class="k">Anniversaire</span><span class="v">1 juin</span></div>
+          <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
+        </div>
+        <div class="card">
+          <div class="row"><div><div class="ref">B202</div><div class="loc">Müller</div></div><span class="badge badge-applied">✅ Appliquée</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">740 €</span><span class="k">Validée le</span><span class="v">12 mai 2026</span></div>
+          <div class="act-row"><button>👁 Voir lettre</button></div>
+        </div>
+      </div>
+
+      <div class="vb-grp-head" style="opacity:0.7">
+        <div class="ic">⊘</div>
+        <div class="info"><div class="nm" style="font-style:italic">Sans immeuble</div><div class="ad">Lots à rattacher</div></div>
+        <div class="kpi lots-count"><div class="v">1</div><div class="k">lot</div></div>
+        <div class="kpi"><div class="v">620 €</div><div class="k">Loyer HC</div></div>
+        <div class="kpi"><div class="v" style="color:var(--warn);font-size:11px">⚠ rattacher</div><div class="k">Action</div></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="row"><div><div class="ref">X001</div><div class="loc">Weber</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+          <div class="ks"><span class="k">Loyer HC</span><span class="v">620 €</span></div>
+          <div class="act-row"><button>👁 Aperçu</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── VARIANTE C — Bandeau sticky ─────────── -->
+  <section class="variant" id="vc">
+    <div class="variant-head">
+      <h2>Variante C — Bandeau sticky (suit le scroll)</h2>
+      <div class="desc">Header qui colle en haut quand on scroll dans son groupe : on sait toujours dans quel immeuble on est. Compteur affiché en permanence.</div>
+      <div class="pros-cons">
+        <div class="pros"><b>+ Pour</b> : repérage permanent en scroll long (utile gros patrimoine), pattern moderne (Stripe, Linear), élégant sur desktop.</div>
+        <div class="cons"><b>− Contre</b> : pénible en responsive mobile (header bouffe l'écran), z-index conflicts possibles avec topbar, backdrop-filter coût perf, complexifie le CSS de l'onglet.</div>
+      </div>
+    </div>
+    <div style="color:var(--tx-mu);font-size:11px;margin-bottom:8px"><i>↓ Scrolle dans la zone ci-dessous pour voir les headers coller en haut ↓</i></div>
+
+    <div class="vc-page">
+      <div class="vc-grp">
+        <div class="vc-grp-head">
+          <span class="ic">🏛</span>
+          <span class="nm">1 rue de la Première Armée</span>
+          <span class="ct">· 3 lots</span>
+          <span class="ad">68480 FERRETTE</span>
+        </div>
+        <div class="vc-grp-body">
+          <div class="grid">
+            <div class="card">
+              <div class="row"><div><div class="ref">A101</div><div class="loc">Dupont</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">650 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">655,05 €</span><span class="k">Variation</span><span class="v">+0,78 %</span><span class="k">Anniversaire</span><span class="v">16 mars</span></div>
+              <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
+            </div>
+            <div class="card">
+              <div class="row"><div><div class="ref">A102</div><div class="loc">Martin</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">720 €</span></div>
+              <div class="act-row"><button>👁 Aperçu (anticipé)</button></div>
+            </div>
+            <div class="card">
+              <div class="row"><div><div class="ref">A103</div><div class="loc">Garcia</div></div><span class="badge badge-frozen">🔒 Gelé DPE F</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">580 €</span><span class="k">DPE</span><span class="v" style="color:var(--err)">F</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vc-grp">
+        <div class="vc-grp-head">
+          <span class="ic">🏛</span>
+          <span class="nm">10 B Sentier de la Luss</span>
+          <span class="ct">· 2 lots</span>
+          <span class="ad">68000 COLMAR</span>
+        </div>
+        <div class="vc-grp-body">
+          <div class="grid">
+            <div class="card">
+              <div class="row"><div><div class="ref">B201</div><div class="loc">Schmidt</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">890 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">896,92 €</span><span class="k">Variation</span><span class="v">+0,78 %</span></div>
+              <div class="act-row"><button>👁 Aperçu</button></div>
+            </div>
+            <div class="card">
+              <div class="row"><div><div class="ref">B202</div><div class="loc">Müller</div></div><span class="badge badge-applied">✅ Appliquée</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">740 €</span><span class="k">Validée le</span><span class="v">12 mai 2026</span></div>
+              <div class="act-row"><button>👁 Voir lettre</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vc-grp">
+        <div class="vc-grp-head">
+          <span class="ic">⊘</span>
+          <span class="nm" style="font-style:italic;color:var(--tx-mu)">Sans immeuble</span>
+          <span class="ct">· 1 lot</span>
+        </div>
+        <div class="vc-grp-body">
+          <div class="grid">
+            <div class="card">
+              <div class="row"><div><div class="ref">X001</div><div class="loc">Weber</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">620 €</span></div>
+              <div class="act-row"><button>👁 Aperçu</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────── VARIANTE D — Sections collapsibles ─────────── -->
+  <section class="variant" id="vd">
+    <div class="variant-head">
+      <h2>Variante D — Sections collapsibles (accordéon)</h2>
+      <div class="desc">Chaque immeuble est un bloc qu'on peut replier/déplier. Compteur visible, badge d'alerte si pending. Idéal pour focaliser sur un immeuble à la fois.</div>
+      <div class="pros-cons">
+        <div class="pros"><b>+ Pour</b> : très lisible avec 5-10+ immeubles, l'utilisateur replie ce qu'il a déjà traité, état persistable (localStorage), bonne UX mobile.</div>
+        <div class="cons"><b>− Contre</b> : 1 clic supplémentaire pour voir le contenu, pas adapté si l'utilisateur veut tout voir d'un coup (impression), animation collapse à gérer.</div>
+      </div>
+    </div>
+
+    <div class="page-irl">
+      <div class="page-irl-head">
+        <div class="ti">Révision IRL <span class="b">· Mai 2026</span></div>
+        <div class="ctrl">
+          <select><option>Toutes entités</option></select>
+          <div class="vt"><button class="act">📇 Cartes</button><button>📊 Tableau</button></div>
+          <button class="lt">✉ Aperçu lettre</button>
+        </div>
+      </div>
+
+      <div class="vd-grp">
+        <div class="vd-grp-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span class="chev">▼</span>
+          <span class="ic">🏛</span>
+          <span class="nm">1 rue de la Première Armée</span>
+          <span class="ad" style="color:var(--tx-mu-2);font-size:11px">68480 FERRETTE</span>
+          <span class="ct"><span class="pulse" title="1 alerte DPE F"></span>3 lots · 1 alerte</span>
+        </div>
+        <div class="vd-grp-body">
+          <div class="grid">
+            <div class="card">
+              <div class="row"><div><div class="ref">A101</div><div class="loc">Dupont</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">650 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">655,05 €</span><span class="k">Variation</span><span class="v">+0,78 %</span><span class="k">Anniversaire</span><span class="v">16 mars</span></div>
+              <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
+            </div>
+            <div class="card">
+              <div class="row"><div><div class="ref">A102</div><div class="loc">Martin</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">720 €</span></div>
+              <div class="act-row"><button>👁 Aperçu (anticipé)</button></div>
+            </div>
+            <div class="card">
+              <div class="row"><div><div class="ref">A103</div><div class="loc">Garcia</div></div><span class="badge badge-frozen">🔒 Gelé DPE F</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">580 €</span><span class="k">DPE</span><span class="v" style="color:var(--err)">F</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vd-grp">
+        <div class="vd-grp-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span class="chev">▼</span>
+          <span class="ic">🏛</span>
+          <span class="nm">10 B Sentier de la Luss</span>
+          <span class="ad" style="color:var(--tx-mu-2);font-size:11px">68000 COLMAR</span>
+          <span class="ct">2 lots</span>
+        </div>
+        <div class="vd-grp-body">
+          <div class="grid">
+            <div class="card">
+              <div class="row"><div><div class="ref">B201</div><div class="loc">Schmidt</div></div><span class="badge badge-ok">✓ Applicable</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">890 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">896,92 €</span></div>
+              <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
+            </div>
+            <div class="card">
+              <div class="row"><div><div class="ref">B202</div><div class="loc">Müller</div></div><span class="badge badge-applied">✅ Appliquée</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">740 €</span><span class="k">Validée le</span><span class="v">12 mai 2026</span></div>
+              <div class="act-row"><button>👁 Voir lettre</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vd-grp collapsed">
+        <div class="vd-grp-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span class="chev">▼</span>
+          <span class="ic">⊘</span>
+          <span class="nm" style="font-style:italic;color:var(--tx-mu)">Sans immeuble</span>
+          <span class="ct" style="margin-left:auto">1 lot</span>
+        </div>
+        <div class="vd-grp-body">
+          <div class="grid">
+            <div class="card">
+              <div class="row"><div><div class="ref">X001</div><div class="loc">Weber</div></div><span class="badge badge-wait">⏳ Bail &lt; 1 an</span></div>
+              <div class="ks"><span class="k">Loyer HC</span><span class="v">620 €</span></div>
+              <div class="act-row"><button>👁 Aperçu</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="color:var(--tx-mu);font-size:11px;margin-top:10px"><i>↑ Clique sur un header pour replier/déplier · « Sans immeuble » par défaut replié (lots à rattacher).</i></div>
+  </section>
+
+</div>
+
+<div class="ft">
+  Mockups statiques · ImmoTrack <a href="https://github.com/dkeller-app/immotrack">dkeller-app/immotrack</a> · sujet <a href="../../subjects/UX-GROUP-BY-IMMEUBLE.md">UX-GROUP-BY-IMMEUBLE</a>
+</div>
+
+<script>
+  const btns = document.querySelectorAll('.nav button');
+  const sections = document.querySelectorAll('.variant');
+  btns.forEach(b => b.addEventListener('click', () => {
+    btns.forEach(x => x.classList.remove('act'));
+    sections.forEach(s => s.classList.remove('act'));
+    b.classList.add('act');
+    document.getElementById('v' + b.dataset.tg).classList.add('act');
+  }));
+</script>
+
+</body>
+</html>
