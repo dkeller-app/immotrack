@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImmoTrack — Page d'accueil v2 (4 QA + carrés + impayés cliquable)</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --acc:#0E73F6; --cta:#00B5A6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B; --warn2:#FF8000;
+  --shad: 0 1px 3px rgba(20,25,54,.04);
+  --shad-lift: 0 4px 14px rgba(20,25,54,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font:14px/1.4 'Inter',-apple-system,system-ui,sans-serif;
+  background:#1a1a24;color:var(--t1);min-height:100vh;padding:20px 16px 40px
+}
+
+.doc-h{color:#fff;text-align:center;margin:0 auto 30px;max-width:1100px}
+.doc-h h1{font:700 24px/1.2 'Manrope',sans-serif;margin-bottom:6px}
+.doc-h p{color:#aab;font-size:13px}
+.doc-h .legend{margin-top:14px;display:inline-flex;gap:12px;font-size:11px;color:#9be3a3;flex-wrap:wrap;justify-content:center;background:rgba(60,180,80,.08);padding:10px 18px;border-radius:10px;border:1px solid rgba(60,180,80,.18)}
+.doc-h .legend b{color:#fff}
+
+.frame-wrap{max-width:1100px;margin:0 auto 30px}
+.frame-label{
+  color:#fff;font:700 14px/1.2 'Manrope',sans-serif;
+  margin-bottom:14px;padding:12px 18px;
+  background:linear-gradient(135deg,#1e7e5f,#10B981);
+  border-radius:10px;display:flex;align-items:center;justify-content:space-between
+}
+.frame-label .tag{
+  font:600 11px/1 'Inter',sans-serif;color:#fff;padding:5px 11px;border-radius:8px;
+  background:rgba(0,0,0,.25);letter-spacing:.04em;text-transform:uppercase
+}
+.frame{
+  background:var(--bg);border-radius:14px;padding:24px;
+  box-shadow:0 10px 40px rgba(0,0,0,.4)
+}
+
+/* Hero météo */
+.hero{
+  background:var(--sur);border:1px solid var(--bor);border-radius:16px;
+  padding:18px 22px;display:flex;align-items:center;gap:18px;margin-bottom:14px;box-shadow:var(--shad)
+}
+.hero .ic{flex-shrink:0;font-size:62px;line-height:1}
+.hero .info{flex:1;min-width:0}
+.hero h2{font:800 22px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:3px}
+.hero .sub{font:500 13px/1.4 'Inter',sans-serif;color:var(--t2);margin-bottom:10px}
+.hero .kpis{display:flex;gap:24px;flex-wrap:wrap}
+.hero .kpi b{font:800 16px/1 'Manrope',sans-serif;color:var(--t1)}
+.hero .kpi b.neg{color:var(--neg)}
+.hero .kpi s{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;text-decoration:none;display:block;margin-top:4px}
+
+/* Row 1 : 4 QA + Donut */
+.row1{display:grid;grid-template-columns:1fr 1.2fr;gap:14px;margin-bottom:14px}
+
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qa-tile{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;
+  padding:16px;cursor:pointer;display:flex;flex-direction:column;gap:10px;
+  transition:transform .15s, box-shadow .15s, border-color .15s;
+  text-decoration:none;color:inherit
+}
+.qa-tile:hover{transform:translateY(-2px);box-shadow:var(--shad-lift);border-color:var(--cta)}
+.qa-tile .ic-bg{
+  width:44px;height:44px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;color:#fff
+}
+.qa-tile.t1 .ic-bg{background:linear-gradient(135deg,#0E73F6,#00CCBC)}
+.qa-tile.t2 .ic-bg{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.qa-tile.t3 .ic-bg{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.qa-tile.t4 .ic-bg{background:linear-gradient(135deg,#8B5CF6,#0E73F6)}
+.qa-tile b{font:700 14px/1.2 'Manrope',sans-serif;color:var(--t1);display:block}
+.qa-tile s{font:500 11.5px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none}
+
+/* Donut */
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:16px;box-shadow:var(--shad)}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-h h3{font:700 15px/1.2 'Manrope',sans-serif;color:var(--t1)}
+.card-h .small{font:500 11px/1 'Inter',sans-serif;color:var(--t3)}
+.card-h .pill{
+  background:rgba(0,181,166,.12);color:var(--cta);
+  font:600 11px/1 'Inter',sans-serif;padding:4px 9px;border-radius:8px
+}
+
+.donut-wrap{display:flex;align-items:center;gap:18px}
+.donut-wrap svg{flex-shrink:0}
+.donut-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.donut-info .vl{font:800 26px/1 'Manrope',sans-serif;color:var(--pos);margin-bottom:4px}
+.donut-row{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;
+  border-radius:9px;font:500 12.5px/1.3 'Inter',sans-serif;color:var(--t2);
+  transition:background .15s
+}
+.donut-row .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.donut-row b{color:var(--t1);font-weight:700;margin-right:3px}
+.donut-row .am{margin-left:auto;font-weight:700;color:var(--t1)}
+.donut-row.pos .dot{background:var(--pos)}
+.donut-row.neg{
+  /* ▼ Cliquable direct (drill impayés) */
+  background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.18);cursor:pointer
+}
+.donut-row.neg:hover{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.35)}
+.donut-row.neg .dot{background:var(--neg)}
+.donut-row.neg .am{color:var(--neg)}
+.donut-row.neg .chev{color:var(--neg);font-weight:700;font-size:14px;margin-left:6px}
+.donut-row.vac .dot{background:#8B95AB}
+.donut-row.vac{color:var(--t3)}
+.donut-row.vac .am{color:var(--t3)}
+
+/* À traiter — grid de carrés */
+.todo-card{padding:16px}
+.todo-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+  max-height:280px;overflow-y:auto;padding-right:4px
+}
+.todo-grid::-webkit-scrollbar{width:6px}
+.todo-grid::-webkit-scrollbar-thumb{background:var(--bor);border-radius:3px}
+
+.todo-sq{
+  background:var(--sur2);border:1px solid var(--bor);border-radius:11px;
+  padding:11px;cursor:pointer;display:flex;flex-direction:column;gap:6px;
+  transition:.15s;min-height:108px;position:relative
+}
+.todo-sq:hover{border-color:var(--cta);background:var(--sur);transform:translateY(-1px);box-shadow:var(--shad)}
+.todo-sq .ic{
+  width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#0E73F6,#00B5A6);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0
+}
+.todo-sq .ic.b2{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.todo-sq .ic.b3{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.todo-sq .ic.b4{background:linear-gradient(135deg,#EF4444,#FF8000)}
+.todo-sq .ic.b5{background:linear-gradient(135deg,#8B5CF6,#0E73F6)}
+.todo-sq b{
+  font:700 12px/1.25 'Inter',sans-serif;color:var(--t1);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+}
+.todo-sq s{
+  font:500 10.5px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:auto
+}
+.todo-sq .urgent{
+  position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--neg)
+}
+
+/* Notes */
+.notes{
+  max-width:1100px;margin:30px auto 0;padding:24px 28px;
+  background:rgba(255,255,255,.06);border-radius:14px;color:#cbd;font-size:13px;line-height:1.6
+}
+.notes h2{color:#fff;font:700 18px/1.2 'Manrope',sans-serif;margin-bottom:14px}
+.notes h3{color:#fff;font:600 13px/1 'Inter',sans-serif;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.notes table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.notes th,.notes td{padding:9px 11px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+.notes th{color:#fff;font-weight:600;background:rgba(255,255,255,.04)}
+.notes code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:12px;color:#fcd}
+.notes ul{padding-left:18px;margin-bottom:6px}
+.notes li{margin-bottom:4px}
+.notes .ok{color:#9be3a3;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="doc-h">
+  <h1>✅ Page d'accueil v2 — 4 QA + actions en carrés + impayés cliquable</h1>
+  <p>Retour à la version A de base (4 tiles QA), À traiter en grid de carrés (compact) + ligne impayés du donut cliquable direct.</p>
+  <div class="legend">
+    <span>✓ <b>4 QA</b> (Tableau de bord · Logements · Loyers · Agenda)</span>
+    <span>✓ <b>À traiter en carrés</b> (4 cols × N rows scrollable)</span>
+    <span>✓ <b>Loyers impayés</b> = ligne cliquable direct dans donut</span>
+  </div>
+</div>
+
+<div class="frame-wrap">
+  <div class="frame-label">
+    <span>🏠 Page d'accueil — desktop ≥1280px</span>
+    <span class="tag">v2 FINAL</span>
+  </div>
+  <div class="frame">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="ic">⛅</div>
+      <div class="info">
+        <h2>Didier, 9 actions en attente</h2>
+        <div class="sub">9 points à traiter ce mois-ci.</div>
+        <div class="kpis">
+          <div class="kpi"><b>2 632,94 €</b><s>REÇU MAI</s></div>
+          <div class="kpi"><b>93 %</b><s>OCCUPATION</s></div>
+          <div class="kpi"><b class="neg">-5 080,66 €</b><s>NET YTD</s></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 1 : 4 QA (2×2) + Donut -->
+    <div class="row1">
+
+      <div class="qa-grid">
+        <a class="qa-tile t1">
+          <div class="ic-bg">📊</div>
+          <b>Tableau de bord</b>
+          <s>Vue complète Premium</s>
+        </a>
+        <a class="qa-tile t2">
+          <div class="ic-bg">🏘</div>
+          <b>Logements</b>
+          <s>16 lots gérés</s>
+        </a>
+        <a class="qa-tile t3">
+          <div class="ic-bg">💰</div>
+          <b>Loyers</b>
+          <s>21/22 payés ce mois</s>
+        </a>
+        <a class="qa-tile t4">
+          <div class="ic-bg">📅</div>
+          <b>Agenda</b>
+          <s>3 échéances cette semaine</s>
+        </a>
+      </div>
+
+      <!-- Donut avec ligne impayés cliquable -->
+      <div class="card">
+        <div class="card-h"><h3>Loyers · Mai</h3><span class="small">21 / 22 lots</span></div>
+        <div class="donut-wrap">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="56" fill="none" stroke="#EEF1F6" stroke-width="16"/>
+            <circle cx="70" cy="70" r="56" fill="none" stroke="#10B981" stroke-width="16"
+              stroke-dasharray="335.4 351.9" stroke-dashoffset="-8" transform="rotate(-90 70 70)" stroke-linecap="butt"/>
+            <text x="70" y="65" text-anchor="middle" font-family="Manrope" font-size="26" font-weight="800" fill="#141936">95</text>
+            <text x="70" y="86" text-anchor="middle" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#5A6478" letter-spacing="2">% PAYÉ</text>
+          </svg>
+          <div class="donut-info">
+            <div class="vl">6 582,94 €</div>
+            <div class="donut-row pos"><span class="dot"></span><span><b>21</b> payés</span><span class="am">+6 582 €</span></div>
+            <!-- ▼ Ligne IMPAYÉS cliquable direct (drill modal ou redirect Loyers filtré) -->
+            <div class="donut-row neg" title="Cliquer pour voir le détail des 4 impayés">
+              <span class="dot"></span>
+              <span><b>4</b> impayés</span>
+              <span class="am">−1 404 €</span>
+              <span class="chev">→</span>
+            </div>
+            <div class="donut-row vac"><span class="dot"></span><span><b>1</b> vacant</span><span class="am">—</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ROW 2 : À traiter en carrés -->
+    <div class="card todo-card">
+      <div class="card-h">
+        <h3>À traiter</h3>
+        <span class="pill">9 actions</span>
+      </div>
+      <div class="todo-grid">
+
+        <div class="todo-sq">
+          <span class="urgent"></span>
+          <div class="ic b3">💰</div>
+          <b>Impayé Mai · 460 €</b>
+          <s>F-101 — M. BERNARD Luc</s>
+        </div>
+
+        <div class="todo-sq">
+          <span class="urgent"></span>
+          <div class="ic b3">💰</div>
+          <b>Impayé Mai · 250 €</b>
+          <s>F-Local — M. REGIS MANGIN</s>
+        </div>
+
+        <div class="todo-sq">
+          <span class="urgent"></span>
+          <div class="ic b3">💰</div>
+          <b>Impayé Mai · 350 €</b>
+          <s>D-104 — Mme MORIN Julie</s>
+        </div>
+
+        <div class="todo-sq">
+          <span class="urgent"></span>
+          <div class="ic b3">💰</div>
+          <b>Impayé Mai · 344 €</b>
+          <s>D-207 — M. ZIDANE Kamal</s>
+        </div>
+
+        <div class="todo-sq">
+          <div class="ic">🛡</div>
+          <b>MRH manquante</b>
+          <s>F-Local — M. REGIS MANGIN</s>
+        </div>
+
+        <div class="todo-sq">
+          <div class="ic b2">📊</div>
+          <b>Révision IRL dans 15 j</b>
+          <s>F-101 — 440 € → 443,42 €</s>
+        </div>
+
+        <div class="todo-sq">
+          <div class="ic b2">📊</div>
+          <b>Révision IRL dans 22 j</b>
+          <s>D-105 — 597 € → 600,17 €</s>
+        </div>
+
+        <div class="todo-sq">
+          <div class="ic b4">📅</div>
+          <b>Régul charges 2025</b>
+          <s>DAMELEVIÈRES — avant 30/06</s>
+        </div>
+
+        <div class="todo-sq">
+          <div class="ic b5">📋</div>
+          <b>EDL sortie locataire</b>
+          <s>F-102 — au 31/05</s>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── Notes ─── -->
+<div class="notes">
+  <h2>📋 Récap modifs v2</h2>
+
+  <table>
+    <thead><tr><th>Élément</th><th>Avant (v1)</th><th>Après (v2)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Quick Access</td>
+        <td>6 tiles en grid 3×2</td>
+        <td class="ok"><b>4 tiles en grid 2×2</b> (retour à la base)</td>
+      </tr>
+      <tr>
+        <td>À traiter</td>
+        <td>Liste verticale (lignes pleine largeur)</td>
+        <td class="ok"><b>Grid 4 carrés par ligne</b> (compact, scrollable vertical)</td>
+      </tr>
+      <tr>
+        <td>Impayés (dans donut)</td>
+        <td>Texte simple</td>
+        <td class="ok"><b>Ligne cliquable</b> (bordure rouge claire + chevron) → drill ou Loyers filtré</td>
+      </tr>
+      <tr>
+        <td>Vacant (dans donut)</td>
+        <td>Texte gris</td>
+        <td>Idem (pas d'action requise)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Comportement de la ligne "Impayés" cliquable</h3>
+  <ul>
+    <li>État normal : fond rouge très clair (5%), bordure rouge claire (18%), texte gris</li>
+    <li>Hover : fond rouge plus marqué (10%), bordure plus visible, cursor:pointer</li>
+    <li>Click : ouvre un drill (modal) <b>OU</b> redirige vers onglet "Loyers" avec filtre <code>statut=impayé</code> appliqué</li>
+    <li><b>Question à trancher</b> : drill modal in-place ou redirect Loyers filtré ? Ma reco : <b>drill modal</b> (rester sur la page d'accueil pour ne pas perdre le contexte)</li>
+  </ul>
+
+  <h3>Densité des carrés "À traiter"</h3>
+  <ul>
+    <li>4 carrés par ligne sur desktop ≥1280px (chaque ~240×108px)</li>
+    <li>Hauteur min 108px → 2 lignes visibles avant scroll (= 8 actions sans scroll)</li>
+    <li>Tri auto : <b>Impayés en premier</b> (urgents, badge rouge), puis MRH / IRL / Régul / EDL</li>
+    <li>Indicateur urgent : petit point rouge ●  en haut à droite du carré si action P0 (impayé)</li>
+    <li>Subtitle limité à 2 lignes max (avec ellipsis si trop long)</li>
+  </ul>
+
+  <h3>Responsive carrés (à confirmer dans le code)</h3>
+  <ul>
+    <li>Desktop ≥1280px : 4 cols</li>
+    <li>Tablette 768-1279px : 3 cols</li>
+    <li>Mobile ≤767px : 2 cols</li>
+  </ul>
+
+  <h3>Plan de code (mise à jour)</h3>
+  <ul>
+    <li><b>HTML</b> : <code>&lt;section id="p-accueil"&gt;</code> avec hero + 4 QA + donut + grid carrés</li>
+    <li><b>JS</b> : <code>_renderAccueil(ctx)</code> qui peuple les 4 QA stats live + populates les carrés depuis <code>_computeUnifiedTodo()</code></li>
+    <li><b>JS</b> : helper <code>_openImpayesDrill()</code> appelé sur click ligne impayés (réutilise <code>_DD['impayes']</code> existant si présent)</li>
+    <li><b>CSS</b> : nouvelle section <code>body[data-dash-v4="on"] #p-accueil</code> dans css/main.css</li>
+    <li><b>Routing</b> : <code>go('accueil')</code> par défaut au boot. Sidebar : ajouter "🏠 Accueil" en 1er + cacher dashboard si Solo</li>
+    <li><b>Estimation</b> : 1 session ~3-4h sandbox + responsive en suivant (mobile/tablette)</li>
+  </ul>
+</div>
+
+</body>
+</html>
