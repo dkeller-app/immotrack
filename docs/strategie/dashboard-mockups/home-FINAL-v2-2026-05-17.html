@@ -113,39 +113,43 @@ body{
 .donut-row.vac{color:var(--t3)}
 .donut-row.vac .am{color:var(--t3)}
 
-/* À traiter — grid de carrés */
-.todo-card{padding:16px}
+/* À traiter — grid de carrés COMPACTS (v2.1) */
+.todo-card{padding:14px 16px}
 .todo-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
-  max-height:280px;overflow-y:auto;padding-right:4px
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  max-height:220px;overflow-y:auto;padding-right:4px
 }
 .todo-grid::-webkit-scrollbar{width:6px}
 .todo-grid::-webkit-scrollbar-thumb{background:var(--bor);border-radius:3px}
 
 .todo-sq{
-  background:var(--sur2);border:1px solid var(--bor);border-radius:11px;
-  padding:11px;cursor:pointer;display:flex;flex-direction:column;gap:6px;
-  transition:.15s;min-height:108px;position:relative
+  background:var(--sur2);border:1px solid var(--bor);border-radius:9px;
+  padding:8px 10px;cursor:pointer;
+  display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;
+  transition:.15s;position:relative;min-height:0
 }
 .todo-sq:hover{border-color:var(--cta);background:var(--sur);transform:translateY(-1px);box-shadow:var(--shad)}
 .todo-sq .ic{
-  width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#0E73F6,#00B5A6);
-  color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0
+  width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#0E73F6,#00B5A6);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0
 }
 .todo-sq .ic.b2{background:linear-gradient(135deg,#10B981,#00B5A6)}
 .todo-sq .ic.b3{background:linear-gradient(135deg,#F59E0B,#FF8000)}
 .todo-sq .ic.b4{background:linear-gradient(135deg,#EF4444,#FF8000)}
 .todo-sq .ic.b5{background:linear-gradient(135deg,#8B5CF6,#0E73F6)}
+.todo-sq .info{min-width:0;display:flex;flex-direction:column;gap:1px}
 .todo-sq b{
-  font:700 12px/1.25 'Inter',sans-serif;color:var(--t1);
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+  font:700 11.5px/1.25 'Inter',sans-serif;color:var(--t1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
 .todo-sq s{
-  font:500 10.5px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:auto
+  font:500 10px/1.25 'Inter',sans-serif;color:var(--t3);text-decoration:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
+.todo-sq.urg{background:rgba(239,68,68,.04);border-color:rgba(239,68,68,.15)}
+.todo-sq.urg:hover{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.35)}
 .todo-sq .urgent{
-  position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--neg)
+  position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--neg)
 }
 
 /* Notes */
@@ -259,62 +263,53 @@ body{
       </div>
       <div class="todo-grid">
 
-        <div class="todo-sq">
+        <div class="todo-sq urg">
           <span class="urgent"></span>
           <div class="ic b3">💰</div>
-          <b>Impayé Mai · 460 €</b>
-          <s>F-101 — M. BERNARD Luc</s>
+          <div class="info"><b>Impayé · 460 €</b><s>F-101 — BERNARD</s></div>
         </div>
 
-        <div class="todo-sq">
+        <div class="todo-sq urg">
           <span class="urgent"></span>
           <div class="ic b3">💰</div>
-          <b>Impayé Mai · 250 €</b>
-          <s>F-Local — M. REGIS MANGIN</s>
+          <div class="info"><b>Impayé · 250 €</b><s>F-Local — REGIS</s></div>
         </div>
 
-        <div class="todo-sq">
+        <div class="todo-sq urg">
           <span class="urgent"></span>
           <div class="ic b3">💰</div>
-          <b>Impayé Mai · 350 €</b>
-          <s>D-104 — Mme MORIN Julie</s>
+          <div class="info"><b>Impayé · 350 €</b><s>D-104 — MORIN</s></div>
         </div>
 
-        <div class="todo-sq">
+        <div class="todo-sq urg">
           <span class="urgent"></span>
           <div class="ic b3">💰</div>
-          <b>Impayé Mai · 344 €</b>
-          <s>D-207 — M. ZIDANE Kamal</s>
+          <div class="info"><b>Impayé · 344 €</b><s>D-207 — ZIDANE</s></div>
         </div>
 
         <div class="todo-sq">
           <div class="ic">🛡</div>
-          <b>MRH manquante</b>
-          <s>F-Local — M. REGIS MANGIN</s>
+          <div class="info"><b>MRH manquante</b><s>F-Local — REGIS MANGIN</s></div>
         </div>
 
         <div class="todo-sq">
           <div class="ic b2">📊</div>
-          <b>Révision IRL dans 15 j</b>
-          <s>F-101 — 440 € → 443,42 €</s>
+          <div class="info"><b>IRL dans 15 j</b><s>F-101 · 440 → 443 €</s></div>
         </div>
 
         <div class="todo-sq">
           <div class="ic b2">📊</div>
-          <b>Révision IRL dans 22 j</b>
-          <s>D-105 — 597 € → 600,17 €</s>
+          <div class="info"><b>IRL dans 22 j</b><s>D-105 · 597 → 600 €</s></div>
         </div>
 
         <div class="todo-sq">
           <div class="ic b4">📅</div>
-          <b>Régul charges 2025</b>
-          <s>DAMELEVIÈRES — avant 30/06</s>
+          <div class="info"><b>Régul charges 2025</b><s>DAMELEVIÈRES · 30/06</s></div>
         </div>
 
         <div class="todo-sq">
           <div class="ic b5">📋</div>
-          <b>EDL sortie locataire</b>
-          <s>F-102 — au 31/05</s>
+          <div class="info"><b>EDL sortie</b><s>F-102 · 31/05 PETIT Anne</s></div>
         </div>
 
       </div>
