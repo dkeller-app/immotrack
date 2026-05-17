@@ -6790,4 +6790,39 @@ body[data-dash-v4="on"] .v4s-sb-userfoot { flex-shrink: 0; }
     margin-top: 6px;
   }
   body[data-dash-v4="on"] .v4s-entview-imname { width: 100%; }
+
+  /* v15.40 — Mobile : fixes overflow / compaction topbar */
+
+  /* Topbar : compact + 1 ligne autant que possible */
+  body[data-dash-v4="on"] .v4s-tb-controls {
+    gap: 6px;
+    row-gap: 4px;
+  }
+  body[data-dash-v4="on"] .v4s-tb-controls .v4s-tb-label { display: none; }
+  body[data-dash-v4="on"] .v4s-tb-controls select {
+    padding: 5px 7px;
+    font-size: 12px;
+  }
+  body[data-dash-v4="on"] .v4s-tb-sep { margin: 0; }
+  body[data-dash-v4="on"] .v4s-mode-btn { padding: 4px 8px; font-size: 11px; }
+  body[data-dash-v4="on"] .v4s-mode-btn .v4s-mode-lbl { display: none; }
+  body[data-dash-v4="on"] .v4s-mode-btn.act .v4s-mode-lbl { display: inline; }
+  body[data-dash-v4="on"] .v4s-theme-tb-row .v4s-theme-btn { width: 28px; height: 24px; }
+
+  /* Cash-flow KPIs : empile en 1 colonne (sinon overflow valeurs) */
+  body[data-dash-v4="on"] .v4s-cash-kpis { grid-template-columns: 1fr; gap: 6px; }
+  body[data-dash-v4="on"] .v4s-cash-kpi { padding: 7px 9px; }
+  body[data-dash-v4="on"] .v4s-cash-kpi b { font-size: 18px; }
+
+  /* Entité view : nom immeuble au-dessus des lots (au lieu de côte à côte) */
+  body[data-dash-v4="on"] .v4s-entview-imrow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  body[data-dash-v4="on"] .v4s-entview-imname {
+    width: 100%;
+    margin-bottom: 2px;
+  }
+  body[data-dash-v4="on"] .v4s-entview-lot { max-width: none; }
 }
