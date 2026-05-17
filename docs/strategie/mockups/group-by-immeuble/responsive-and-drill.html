@@ -7,13 +7,12 @@
 <style>
   :root {
     --bg: #0a0a0a; --sur: #141414; --sur-2: #1a1a1a; --sur-3: #232323;
-    --bor: #2a2a2a; --bor-soft: #1f1f1f; --tx: #e8e8e8; --tx-mu: #888; --tx-mu-2: #555;
-    --acc: #3b7ef6; --ok: #16a34a; --warn: #f59e0b; --err: #dc2626;
-    --wait: #6366f1; --frozen: #64748b; --rl: 8px; --rs: 4px;
+    --bor: #2a2a2a; --tx: #e8e8e8; --tx-mu: #888;
+    --acc: #3b7ef6; --rl: 8px; --rs: 4px;
   }
   * { box-sizing: border-box; }
   body { margin: 0; padding: 24px; background: var(--bg); color: var(--tx);
-    font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif; font-size: 13px; line-height: 1.5; min-height: 100vh; }
+    font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif; font-size: 13px; line-height: 1.5; }
   .hd { max-width: 1400px; margin: 0 auto 24px; }
   .hd h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
   .hd .sub { color: var(--tx-mu); font-size: 13px; }
@@ -30,169 +29,23 @@
   .controls button:hover { background: var(--sur-2); border-color: #3a3a3a; }
   .controls button.act { background: var(--acc); border-color: var(--acc); color: #fff; font-weight: 600; }
 
-  .stage { max-width: 1400px; margin: 0 auto; }
+  .stage { max-width: 1400px; margin: 0 auto; display: flex; justify-content: center; }
   .device-frame {
-    margin: 0 auto;
     background: var(--bg);
     border: 1px solid var(--bor);
     border-radius: 14px;
-    transition: width 0.3s ease, max-width 0.3s ease;
     box-shadow: 0 0 40px rgba(0,0,0,0.3);
     overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: width 0.3s ease, height 0.3s ease;
   }
-  .device-frame.is-desktop { width: 100% !important; max-width: 1280px !important; }
-  .device-frame.is-tablet { width: 100% !important; max-width: 768px !important; }
-  .device-frame.is-mobile { width: 100% !important; max-width: 390px !important; }
   .device-label { text-align: center; color: var(--tx-mu); font-size: 11px; padding: 8px 12px;
     border-bottom: 1px solid var(--bor); background: var(--sur-2); }
-
-  /* ============ MOCKUP IRL avec groupage ============ */
-  .page-irl { padding: 14px; }
-  .page-irl-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;
-    margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--bor); }
-  .page-irl-head .ti { font-size: 14px; font-weight: 700; }
-  .page-irl-head .ti .b { color: var(--tx-mu); font-weight: 400; margin-left: 4px; font-size: 12px; }
-  .page-irl-head .ctrl { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--tx-mu); flex-wrap: wrap; }
-  .page-irl-head .ctrl select { background: var(--sur); border: 1px solid var(--bor); color: var(--tx);
-    padding: 4px 6px; border-radius: var(--rs); font-size: 11px; }
-  .page-irl-head .ctrl button { background: var(--sur); border: 1px solid var(--bor); color: var(--tx);
-    font-size: 11px; padding: 3px 8px; border-radius: var(--rs); cursor: pointer; }
-
-  .grp { margin-bottom: 12px; }
-  .grp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px;
-    background: var(--sur); border: 1px solid var(--bor); border-radius: var(--rl);
-    cursor: pointer; user-select: none; transition: background 0.15s ease; font-size: 12.5px; }
-  .grp-head:hover { background: var(--sur-2); }
-  .grp-head .chev { color: var(--tx-mu); font-size: 11px; transition: transform 0.2s ease; width: 10px; }
-  .grp.collapsed .chev { transform: rotate(-90deg); }
-  .grp-head .ic { font-size: 14px; flex-shrink: 0; }
-  .grp-head .nm { font-weight: 700; }
-  .grp-head .ad { color: var(--tx-mu-2); font-size: 10.5px; font-style: italic; }
-  .grp-head .kpis { display: flex; gap: 12px; align-items: center; margin-left: auto; flex-wrap: wrap; }
-  .grp-head .kpi { font-size: 11px; color: var(--tx-mu); white-space: nowrap; padding: 2px 6px; border-radius: 4px; transition: background 0.15s; }
-  .grp-head .kpi b { color: var(--tx); font-weight: 700; font-variant-numeric: tabular-nums; }
-  .grp-head .kpi.alert { color: #d97706; } .grp-head .kpi.alert b { color: #d97706; }
-  .grp-head .kpi.drillable { cursor: pointer; }
-  .grp-head .kpi.drillable:hover { background: var(--sur-3); color: var(--tx); }
-  .grp-body { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 10px 0 2px; }
-  .grp.collapsed .grp-body { display: none; }
-  .device-frame.is-desktop .grp-body { grid-template-columns: repeat(3, 1fr); }
-  .device-frame.is-tablet .grp-body { grid-template-columns: repeat(2, 1fr); }
-  .device-frame.is-mobile .grp-body { grid-template-columns: 1fr; }
-
-  .device-frame.is-mobile .grp-head .ad { display: none; }
-  .device-frame.is-mobile .grp-head .kpis { gap: 6px; margin-left: 0; width: 100%; padding-top: 4px; border-top: 1px dashed var(--bor); }
-  .device-frame.is-mobile .grp-head .kpi { font-size: 10.5px; }
-  .device-frame.is-mobile .page-irl-head { gap: 8px; }
-  .device-frame.is-mobile .page-irl-head .ctrl { width: 100%; }
-
-  .card { border: 1.5px solid var(--bor); border-radius: var(--rl); padding: 9px 11px; background: var(--sur);
-    display: flex; flex-direction: column; gap: 5px; }
-  .card .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
-  .card .ref { font-weight: 700; font-size: 12.5px; }
-  .card .loc { color: var(--tx-mu); font-size: 10.5px; }
-  .card .badge { font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 11px; white-space: nowrap; border: 1px solid; }
-  .badge-ok { color: #16a34a; background: rgba(22,163,74,0.10); border-color: rgba(22,163,74,0.30); }
-  .badge-applied { color: #6366f1; background: rgba(99,102,241,0.10); border-color: rgba(99,102,241,0.30); }
-  .badge-wait { color: #3b7ef6; background: rgba(59,126,246,0.10); border-color: rgba(59,126,246,0.30); }
-  .badge-frozen { color: #64748b; background: rgba(100,116,139,0.10); border-color: rgba(100,116,139,0.30); }
-  .card .ks { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; font-size: 11px; padding: 4px 6px; background: var(--sur-3); border-radius: 4px; }
-  .card .k { color: var(--tx-mu); font-size: 10px; }
-  .card .v { color: var(--tx); font-weight: 600; text-align: right; }
-  .card .act-row { display: flex; gap: 4px; }
-  .card .act-row button { background: var(--sur-3); border: 1px solid var(--bor); color: var(--tx); font-size: 10.5px; padding: 3px 7px; border-radius: var(--rs); cursor: pointer; }
-
-  /* ============ DRILL-DOWN PANEL ============
-     - Desktop : slide-right, max-width 480px
-     - Tablette : slide-right, 70% width (max 540px)
-     - Mobile : bottom-sheet (slide-up), 92% height, handle visuel, touch targets 44-48px
-  */
-  .drill-panel {
-    position: absolute; background: var(--sur-2); z-index: 10;
-    display: flex; flex-direction: column;
-    transition: transform 0.3s ease;
+  .device-iframe {
+    border: none; background: var(--bg);
+    width: 100%; flex: 1;
   }
 
-  /* Desktop + Tablette : slide-right */
-  .device-frame.is-desktop .drill-panel,
-  .device-frame.is-tablet .drill-panel {
-    top: 0 !important; right: 0; height: 100% !important;
-    left: auto;
-    border-left: 1px solid var(--bor);
-    box-shadow: -12px 0 24px rgba(0,0,0,0.4);
-    transform: translateX(100%) !important;
-    border-top-left-radius: 0; border-top-right-radius: 0;
-  }
-  .device-frame.is-desktop .drill-panel { width: 480px; max-width: 60%; }
-  .device-frame.is-tablet .drill-panel { width: 70%; max-width: 540px; }
-  .device-frame.is-desktop .drill-panel.open,
-  .device-frame.is-tablet .drill-panel.open { transform: translateX(0) !important; }
-
-  /* Mobile : bottom-sheet */
-  .device-frame.is-mobile .drill-panel {
-    left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important;
-    width: 100% !important; max-width: none !important; height: 92% !important;
-    border-top: 1px solid var(--bor); border-left: none;
-    border-top-left-radius: 16px !important; border-top-right-radius: 16px !important;
-    box-shadow: 0 -12px 24px rgba(0,0,0,0.4);
-    transform: translateY(100%) !important;
-  }
-  .device-frame.is-mobile .drill-panel.open { transform: translateY(0) !important; }
-  .device-frame.is-mobile .drill-panel::before {
-    content: ''; display: block; width: 36px; height: 4px;
-    background: var(--bor); border-radius: 2px;
-    margin: 8px auto 0; flex-shrink: 0;
-  }
-
-  .drill-panel .drill-head {
-    padding: 14px 16px; border-bottom: 1px solid var(--bor);
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    position: sticky; top: 0; background: var(--sur-2); z-index: 1;
-  }
-  .drill-panel .drill-head h3 { margin: 0; font-size: 14px; font-weight: 700; }
-  .drill-panel .drill-head .close {
-    margin-left: auto; background: var(--sur); border: 1px solid var(--bor); color: var(--tx);
-    font-size: 14px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
-    min-height: 32px; min-width: 32px;
-  }
-  .device-frame.is-mobile .drill-panel .drill-head .close {
-    min-height: 44px; min-width: 44px; font-size: 16px;
-  }
-  .drill-panel .drill-body { padding: 16px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
-  .device-frame.is-mobile .drill-panel .drill-body { padding: 14px; padding-bottom: 24px; }
-
-  .drill-section { margin-bottom: 18px; }
-  .drill-section h4 { margin: 0 0 8px; font-size: 11px; font-weight: 600; color: var(--tx-mu); text-transform: uppercase; letter-spacing: 0.06em; }
-  .drill-stat { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--rl); padding: 10px 12px; margin-bottom: 6px; }
-  .drill-stat .v { font-size: 16px; font-weight: 700; }
-  .drill-stat .l { font-size: 11px; color: var(--tx-mu); }
-  .drill-stat.alert { border-left: 3px solid var(--warn); }
-  .drill-stat.alert .v { color: var(--warn); }
-
-  .device-frame.is-mobile .drill-stat { padding: 12px 14px; }
-  .device-frame.is-mobile .drill-stat .v { font-size: 18px; }
-  .device-frame.is-mobile .drill-section { margin-bottom: 20px; }
-
-  /* Footer sticky bottom — actions principales toujours accessibles au pouce */
-  .drill-panel .drill-footer {
-    position: sticky; bottom: 0;
-    background: var(--sur-2); border-top: 1px solid var(--bor);
-    padding: 12px 16px; display: flex; gap: 8px;
-    z-index: 1;
-  }
-  .device-frame.is-mobile .drill-panel .drill-footer { padding: 14px; padding-bottom: 18px; }
-  .drill-panel .drill-footer .btn-primary {
-    flex: 1; background: var(--acc); border: none; color: #fff;
-    padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
-    min-height: 40px;
-  }
-  .device-frame.is-mobile .drill-panel .drill-footer .btn-primary {
-    min-height: 48px; font-size: 14px;
-  }
-
-  .stage-wrap { position: relative; }
-
-  /* ============ Footer page ============ */
   .ft { max-width: 1400px; margin: 28px auto 0; padding-top: 18px; border-top: 1px solid var(--bor); color: var(--tx-mu); font-size: 11.5px; text-align: center; }
   .ft a { color: var(--acc); }
 </style>
@@ -201,26 +54,24 @@
 
 <div class="hd">
   <h1>📐 UX-GROUP-BY-IMMEUBLE — responsive 3 formats + drill-downs</h1>
-  <div class="sub">Variante D (validée) · application règle <i>mockup-first</i> étendue 2026-05-17 (3 formats + drill-downs obligatoires)</div>
+  <div class="sub">Variante D · application règle <i>mockup-first</i> étendue (3 formats + drill-downs obligatoires) · <b>v3 iframe natif</b></div>
   <div class="ctx">
     <b>Décisions à valider</b> :<br>
-    1️⃣ <b>3 formats</b> : PC (1280px) / Tablette (768px) / Mobile (390px). Pattern adaptatif :<br>
-    &nbsp;&nbsp;&nbsp;• PC + Tablette : drill-down = panneau slide-right (~60% / 70% largeur)<br>
-    &nbsp;&nbsp;&nbsp;• Mobile : drill-down = <b>bottom-sheet</b> (slide-up depuis le bas, 92% hauteur, handle visuel, touch targets 44-48px)<br>
-    2️⃣ <b>3 drill-downs candidats</b> sur les compteurs du header de groupe — clique chaque KPI :<br>
+    1️⃣ <b>3 formats</b> : PC (1280px) / Tablette (768px) / Mobile (390px). L'iframe ci-dessous est un vrai sous-document avec son propre viewport — les media queries CSS internes s'adaptent réellement quand tu cliques sur les boutons de format (pas de simulation JS, comportement identique à un vrai navigateur).<br>
+    2️⃣ <b>3 drill-downs candidats</b> sur les compteurs du header de groupe :<br>
     &nbsp;&nbsp;&nbsp;• <b>« N lots »</b> → ouvre la fiche immeuble (vue 360° lots)<br>
-    &nbsp;&nbsp;&nbsp;• <b>« N ⚠ »</b> → filtre la vue IRL sur les lots en alerte uniquement<br>
+    &nbsp;&nbsp;&nbsp;• <b>« N ⚠ »</b> → filtre la vue IRL sur les lots en alerte<br>
     &nbsp;&nbsp;&nbsp;• <b>« X € HC »</b> → ouvre la fiche compta immeuble<br>
-    Tu dis Go / écarter pour chaque drill, je code en v15.77 ou j'oublie ceux refusés.
+    Tu peux cliquer directement dans l'iframe sur les chiffres du header (3 lots, 1 950 € HC, 1 ⚠) OU utiliser les boutons de la barre Drill-down ci-dessous.
   </div>
 </div>
 
 <div class="controls">
   <div class="grp">
     <span class="lbl">Format</span>
-    <button class="act" data-device="desktop">🖥️ PC · 1280</button>
-    <button data-device="tablet">📱 Tablette · 768</button>
-    <button data-device="mobile">📱 Mobile · 390</button>
+    <button class="act" data-w="1280" data-h="780">🖥️ PC · 1280</button>
+    <button data-w="768" data-h="780">📱 Tablette · 768</button>
+    <button data-w="390" data-h="780">📱 Mobile · 390</button>
   </div>
   <div class="grp">
     <span class="lbl">Drill-down</span>
@@ -232,166 +83,9 @@
 </div>
 
 <div class="stage">
-  <div class="stage-wrap">
-    <div class="device-frame is-desktop">
-      <div class="device-label">🖥️ PC · 1280 px (responsive — drill = panneau slide-right)</div>
-
-      <div class="page-irl">
-        <div class="page-irl-head">
-          <div class="ti">Révision IRL <span class="b">· Mai 2026</span></div>
-          <div class="ctrl">
-            <select><option>Toutes entités</option></select>
-            <button>📇 Cartes</button>
-            <button>📊 Tableau</button>
-            <button>✉ Aperçu lettre</button>
-          </div>
-        </div>
-
-        <div class="grp">
-          <div class="grp-head">
-            <span class="chev">▼</span>
-            <span class="ic">🏛</span>
-            <span class="nm">1 rue de la Première Armée</span>
-            <span class="ad">68480 FERRETTE</span>
-            <span class="kpis">
-              <span class="kpi drillable" data-k="lots"><b>3</b> lots</span>
-              <span class="kpi drillable" data-k="loyer"><b>1 950 €</b> HC</span>
-              <span class="kpi alert drillable" data-k="alerts"><b>1</b> ⚠</span>
-            </span>
-          </div>
-          <div class="grp-body">
-            <div class="card">
-              <div class="row"><div><div class="ref">A101</div><div class="loc">Dupont</div></div><span class="badge badge-ok">✓ Applicable</span></div>
-              <div class="ks"><span class="k">Loyer HC</span><span class="v">650 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">655,05 €</span><span class="k">Variation</span><span class="v">+0,78 %</span><span class="k">Anniv.</span><span class="v">16 mars</span></div>
-              <div class="act-row"><button>👁 Aperçu</button><button>✉ Envoyer</button></div>
-            </div>
-            <div class="card">
-              <div class="row"><div><div class="ref">A102</div><div class="loc">Martin</div></div><span class="badge badge-wait">⏳ Bail&lt;1an</span></div>
-              <div class="ks"><span class="k">Loyer HC</span><span class="v">720 €</span></div>
-              <div class="act-row"><button>👁 Aperçu</button></div>
-            </div>
-            <div class="card">
-              <div class="row"><div><div class="ref">A103</div><div class="loc">Garcia</div></div><span class="badge badge-frozen">🔒 Gelé F</span></div>
-              <div class="ks"><span class="k">Loyer HC</span><span class="v">580 €</span><span class="k">DPE</span><span class="v" style="color:var(--err)">F</span></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="grp">
-          <div class="grp-head">
-            <span class="chev">▼</span>
-            <span class="ic">🏛</span>
-            <span class="nm">10 B Sentier de la Luss</span>
-            <span class="ad">68000 COLMAR</span>
-            <span class="kpis">
-              <span class="kpi drillable" data-k="lots"><b>2</b> lots</span>
-              <span class="kpi drillable" data-k="loyer"><b>1 630 €</b> HC</span>
-            </span>
-          </div>
-          <div class="grp-body">
-            <div class="card">
-              <div class="row"><div><div class="ref">B201</div><div class="loc">Schmidt</div></div><span class="badge badge-ok">✓ Applicable</span></div>
-              <div class="ks"><span class="k">Loyer HC</span><span class="v">890 €</span><span class="k">Nouveau</span><span class="v" style="color:var(--ok)">896,92 €</span></div>
-              <div class="act-row"><button>👁 Aperçu</button></div>
-            </div>
-            <div class="card">
-              <div class="row"><div><div class="ref">B202</div><div class="loc">Müller</div></div><span class="badge badge-applied">✅ Appliquée</span></div>
-              <div class="ks"><span class="k">Loyer HC</span><span class="v">740 €</span><span class="k">Validée</span><span class="v">12 mai 2026</span></div>
-              <div class="act-row"><button>👁 Voir</button></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="grp collapsed">
-          <div class="grp-head">
-            <span class="chev">▼</span>
-            <span class="ic">⊘</span>
-            <span class="nm" style="font-style:italic;color:var(--tx-mu)">Sans immeuble</span>
-            <span class="kpis">
-              <span class="kpi"><b>1</b> lot</span>
-              <span class="kpi"><b>620 €</b> HC</span>
-            </span>
-          </div>
-          <div class="grp-body">
-            <div class="card">
-              <div class="row"><div><div class="ref">X001</div><div class="loc">Weber</div></div><span class="badge badge-wait">⏳ Bail&lt;1an</span></div>
-              <div class="ks"><span class="k">Loyer HC</span><span class="v">620 €</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ============ DRILL PANELS — bottom-sheet sur mobile, slide-right sinon ============ -->
-      <div class="drill-panel" id="drill-lots">
-        <div class="drill-head">
-          <span style="font-size:18px">🏛</span>
-          <h3>Ferrette · Fiche 360°</h3>
-          <button class="close" onclick="closeDrill()">✕</button>
-        </div>
-        <div class="drill-body">
-          <div class="drill-section">
-            <h4>Synthèse immeuble</h4>
-            <div class="drill-stat"><div class="v">3</div><div class="l">lots gérés</div></div>
-            <div class="drill-stat"><div class="v">1 950 €</div><div class="l">loyer HC mensuel total</div></div>
-            <div class="drill-stat alert"><div class="v">1</div><div class="l">lot gelé (DPE F — loi Climat 2021)</div></div>
-          </div>
-          <div class="drill-section">
-            <h4>Lots de l'immeuble</h4>
-            <div class="card" style="margin-bottom:6px"><div class="row"><div><div class="ref">A101 · Dupont</div></div><span class="badge badge-ok">✓ Applicable</span></div></div>
-            <div class="card" style="margin-bottom:6px"><div class="row"><div><div class="ref">A102 · Martin</div></div><span class="badge badge-wait">⏳ Bail&lt;1an</span></div></div>
-            <div class="card"><div class="row"><div><div class="ref">A103 · Garcia</div></div><span class="badge badge-frozen">🔒 Gelé DPE F</span></div></div>
-          </div>
-        </div>
-        <div class="drill-footer">
-          <button class="btn-primary">📂 Ouvrir la fiche immeuble complète</button>
-        </div>
-      </div>
-
-      <div class="drill-panel" id="drill-alerts">
-        <div class="drill-head">
-          <span style="font-size:18px;color:var(--warn)">⚠</span>
-          <h3>Lots en alerte · Ferrette</h3>
-          <button class="close" onclick="closeDrill()">✕</button>
-        </div>
-        <div class="drill-body">
-          <div class="drill-section">
-            <h4>1 lot nécessite une action</h4>
-            <div class="card" style="border-left:3px solid var(--frozen)">
-              <div class="row"><div><div class="ref">A103 · Garcia</div></div><span class="badge badge-frozen">🔒 Gelé DPE F</span></div>
-              <div class="ks"><span class="k">DPE</span><span class="v" style="color:var(--err)">F</span><span class="k">Loi</span><span class="v" style="font-size:10px">Climat 2021 art. 23</span></div>
-              <p style="font-size:11px;color:var(--tx-mu);margin:6px 0 0">Loyer non révisable tant que DPE ≥ E. Considérer travaux de rénovation énergétique.</p>
-            </div>
-          </div>
-        </div>
-        <div class="drill-footer">
-          <button class="btn-primary">📋 Voir les travaux planifiés (TRAV-SUIVI)</button>
-        </div>
-      </div>
-
-      <div class="drill-panel" id="drill-loyer">
-        <div class="drill-head">
-          <span style="font-size:18px">💰</span>
-          <h3>Compta · Ferrette</h3>
-          <button class="close" onclick="closeDrill()">✕</button>
-        </div>
-        <div class="drill-body">
-          <div class="drill-section">
-            <h4>Revenus actuels</h4>
-            <div class="drill-stat"><div class="v">1 950 €</div><div class="l">loyer HC mensuel</div></div>
-            <div class="drill-stat"><div class="v">+12,82 €</div><div class="l">Δ post-révisions IRL (mai 2026)</div></div>
-            <div class="drill-stat"><div class="v">23 400 €</div><div class="l">projection annuelle HC</div></div>
-          </div>
-          <div class="drill-section">
-            <h4>Comparaison N-1</h4>
-            <div class="drill-stat"><div class="v">+154 €</div><div class="l">vs mai 2025 (variation annuelle IRL)</div></div>
-          </div>
-        </div>
-        <div class="drill-footer">
-          <button class="btn-primary">📊 Ouvrir la fiche compta immeuble</button>
-        </div>
-      </div>
-
-    </div>
+  <div class="device-frame" id="frame" style="width:1280px;height:840px">
+    <div class="device-label" id="dlabel">🖥️ PC · 1280 px (responsive — drill = panneau slide-right)</div>
+    <iframe class="device-iframe" id="device-iframe" src="_inner.html"></iframe>
   </div>
 </div>
 
@@ -400,96 +94,37 @@
 </div>
 
 <script>
-  // Toggle device
-  const stage = document.querySelector('.device-frame');
-  const labels = {
-    desktop: '🖥️ PC · 1280 px (responsive — drill = panneau slide-right)',
-    tablet:  '📱 Tablette · 768 px (responsive — drill = panneau slide-right)',
-    mobile:  '📱 Mobile · 390 px (responsive — drill = bottom-sheet 92%)',
+  const frame = document.getElementById('frame');
+  const iframe = document.getElementById('device-iframe');
+  const label = document.getElementById('dlabel');
+  const LABELS = {
+    1280: '🖥️ PC · 1280 px (responsive — drill = panneau slide-right)',
+    768:  '📱 Tablette · 768 px (responsive — drill = panneau slide-right)',
+    390:  '📱 Mobile · 390 px (responsive — drill = bottom-sheet 92%)',
   };
-  // Largeurs cibles par device — appliquées en JS inline (bypass cascade CSS)
-  const DEVICE_W = { desktop: 1280, tablet: 768, mobile: 390 };
 
-  document.querySelectorAll('[data-device]').forEach(b => b.addEventListener('click', () => {
-    document.querySelectorAll('[data-device]').forEach(x => x.classList.remove('act'));
+  document.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-w]').forEach(x => x.classList.remove('act'));
     b.classList.add('act');
-    const d = b.dataset.device;
-    stage.classList.remove('is-desktop', 'is-tablet', 'is-mobile');
-    stage.classList.add('is-' + d);
-    stage.querySelector('.device-label').textContent = labels[d];
-    // Force width + max-width inline pour redimensionner réellement le frame.
-    // L'iframe preview ignore parfois max-width sur attribute selectors → on force.
-    const px = DEVICE_W[d] + 'px';
-    stage.style.width = px;
-    stage.style.maxWidth = px;
-    // Marge auto recalculée pour centrer
-    stage.style.marginLeft = 'auto';
-    stage.style.marginRight = 'auto';
-    if (typeof _refreshAllPanelsStyle === 'function') _refreshAllPanelsStyle();
+    frame.style.width  = b.dataset.w + 'px';
+    frame.style.height = b.dataset.h + 'px';
+    label.textContent = LABELS[b.dataset.w];
   }));
 
-  // Au boot, appliquer la largeur cible desktop par défaut
-  stage.style.width = DEVICE_W.desktop + 'px';
-  stage.style.maxWidth = DEVICE_W.desktop + 'px';
-
-  // JS-driven transform (bypass CSS cascade quirks in iframe previews)
-  function _applyDrillStyle(panel, open) {
-    const mobile = stage.classList.contains('is-mobile');
-    if (mobile) {
-      panel.style.transform = open ? 'translateY(0)' : 'translateY(100%)';
-      panel.style.inset = 'auto 0 0 0';
-      panel.style.width = '100%';
-      panel.style.maxWidth = 'none';
-      panel.style.height = '92%';
-      panel.style.borderTopLeftRadius = '16px';
-      panel.style.borderTopRightRadius = '16px';
-      panel.style.borderLeft = 'none';
-      panel.style.borderTop = '1px solid var(--bor)';
-      panel.style.boxShadow = '0 -12px 24px rgba(0,0,0,0.4)';
-    } else {
-      panel.style.transform = open ? 'translateX(0)' : 'translateX(100%)';
-      panel.style.top = '0';
-      panel.style.right = '0';
-      panel.style.bottom = '';
-      panel.style.left = 'auto';
-      panel.style.height = '100%';
-      const isTablet = stage.classList.contains('is-tablet');
-      panel.style.width = isTablet ? '70%' : '480px';
-      panel.style.maxWidth = isTablet ? '540px' : '60%';
-      panel.style.borderTopLeftRadius = '0';
-      panel.style.borderTopRightRadius = '0';
-      panel.style.borderLeft = '1px solid var(--bor)';
-      panel.style.borderTop = '';
-      panel.style.boxShadow = '-12px 0 24px rgba(0,0,0,0.4)';
-    }
-  }
-  function _refreshAllPanelsStyle() {
-    document.querySelectorAll('.drill-panel').forEach(p => _applyDrillStyle(p, p.classList.contains('open')));
-  }
-  function openDrill(k) {
-    document.querySelectorAll('.drill-panel').forEach(p => { p.classList.remove('open'); _applyDrillStyle(p, false); });
-    const p = document.getElementById('drill-' + k);
-    if (p) { p.classList.add('open'); _applyDrillStyle(p, true); }
-    document.querySelectorAll('[data-drill]').forEach(x => x.classList.toggle('act', x.dataset.drill === k));
-  }
-  function closeDrill() {
-    document.querySelectorAll('.drill-panel').forEach(p => { p.classList.remove('open'); _applyDrillStyle(p, false); });
-    document.querySelectorAll('[data-drill]').forEach(x => x.classList.toggle('act', x.dataset.drill === 'none'));
-  }
-  // Re-apply on device switch
-  _refreshAllPanelsStyle();
+  // Drill toggle via barre du parent → message au iframe
   document.querySelectorAll('[data-drill]').forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.drill === 'none') closeDrill(); else openDrill(b.dataset.drill);
-  }));
-  document.querySelectorAll('.kpi.drillable').forEach(k => k.addEventListener('click', e => {
-    e.stopPropagation();
-    openDrill(k.dataset.k);
+    document.querySelectorAll('[data-drill]').forEach(x => x.classList.remove('act'));
+    b.classList.add('act');
+    iframe.contentWindow.postMessage({ type: 'drill-cmd', k: b.dataset.drill }, '*');
   }));
 
-  // Toggle groupe collapse
-  document.querySelectorAll('.grp-head').forEach(h => h.addEventListener('click', () => {
-    h.parentElement.classList.toggle('collapsed');
-  }));
+  // Réception des clics KPI faits depuis l'iframe → sync de la barre
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'drill') return;
+    document.querySelectorAll('[data-drill]').forEach(x =>
+      x.classList.toggle('act', x.dataset.drill === e.data.k)
+    );
+  });
 </script>
 
 </body>
