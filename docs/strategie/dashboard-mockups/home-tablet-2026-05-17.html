@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImmoTrack — Page d'accueil tablette</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --acc:#0E73F6; --cta:#00B5A6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{font:14px/1.4 'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);height:100%;overflow:hidden}
+
+.banner{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(135deg,#1e7e5f,#10B981);color:#fff;padding:10px 16px;font:600 13px/1.3 Inter,sans-serif;text-align:center}
+.banner a{color:#fff;text-decoration:underline;margin:0 8px}
+.banner button{background:rgba(0,0,0,.2);border:0;color:#fff;padding:3px 10px;border-radius:6px;cursor:pointer;margin-left:8px;font:600 12px/1 Inter,sans-serif}
+
+/* App layout */
+.app{display:flex;height:100%;padding-top:38px}
+
+/* Sidebar */
+.sb{width:60px;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;padding:14px 0;flex-shrink:0;transition:width .2s}
+.sb.full{width:220px}
+.sb .logo{display:flex;align-items:center;gap:10px;padding:0 16px 12px;border-bottom:1px solid var(--bor2);margin-bottom:12px}
+.sb .logo .ic{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#00CCBC,#0E73F6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+.sb .logo .txt{display:none}
+.sb.full .logo .txt{display:block}
+.sb .logo strong{font:700 14px/1 Manrope,sans-serif;color:var(--t1);display:block}
+.sb .logo em{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--cta);text-transform:uppercase;margin-top:3px;display:inline-block;font-style:normal}
+.sb .nav{flex:1;overflow-y:auto}
+.sb .it{display:flex;align-items:center;gap:12px;padding:9px 18px;cursor:pointer;color:var(--t2);font:600 12.5px/1 Inter,sans-serif;border-left:3px solid transparent}
+.sb .it .ic{font-size:18px;width:24px;text-align:center;flex-shrink:0}
+.sb .it .lbl{display:none}
+.sb.full .it .lbl{display:block}
+.sb .it.act{background:rgba(0,181,166,.08);color:var(--cta);border-left-color:var(--cta)}
+.sb .foot{border-top:1px solid var(--bor2);padding:12px 16px;display:flex;align-items:center;gap:10px}
+.sb .foot .av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#0E73F6,#00CCBC);color:#fff;font:700 11px/1 Inter,sans-serif;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb .foot .info{display:none}
+.sb.full .foot .info{display:block}
+.sb .foot .info b{font:600 12px/1.2 Inter,sans-serif;color:var(--t1);display:block}
+.sb .foot .info s{font:500 10px/1.3 Inter,sans-serif;color:var(--t3);text-decoration:none;display:block;margin-top:1px}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.tb{display:flex;align-items:center;gap:10px;padding:8px 18px;background:var(--sur);border-bottom:1px solid var(--bor);flex-shrink:0;height:52px}
+.tb .title{font:700 15px/1 Manrope,sans-serif;color:var(--t1)}
+.tb .themes{display:flex;gap:2px;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:2px}
+.tb .themes button{width:26px;height:22px;border-radius:5px;border:0;background:transparent;font-size:13px;cursor:pointer}
+.tb .themes button.act{background:var(--sur);box-shadow:inset 0 0 0 1.5px var(--cta)}
+.tb .modes{display:flex;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:2px}
+.tb .modes button{background:transparent;border:0;padding:5px 10px;border-radius:6px;color:var(--t2);font:600 11px/1 Inter,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.tb .modes button.act{background:var(--sur);color:var(--t1);box-shadow:inset 0 0 0 1.5px var(--cta);font-weight:700}
+.tb .sep{width:1px;height:22px;background:var(--bor);margin:0 2px}
+.tb .sel{background:var(--sur2);border:1px solid var(--bor);color:var(--t1);font:600 12px/1 Inter,sans-serif;padding:6px 9px;border-radius:7px;cursor:pointer}
+.tb .r{margin-left:auto;display:flex;gap:8px}
+.tb .drv{display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:16px;background:var(--sur2);border:1px solid var(--bor);color:var(--pos);font:600 11px/1 Inter,sans-serif}
+
+.body{flex:1;overflow-y:auto;padding:16px 18px;background:var(--bg)}
+
+/* Hero */
+.hero{background:var(--sur);border:1px solid var(--bor);border-radius:16px;padding:18px 22px;display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.hero .ic{flex-shrink:0;font-size:56px}
+.hero .info{flex:1;min-width:0}
+.hero h2{font:800 20px/1.2 Manrope,sans-serif;color:var(--t1);margin-bottom:3px}
+.hero .sub{font:500 12.5px/1.4 Inter,sans-serif;color:var(--t2);margin-bottom:10px}
+.hero .kpis{display:flex;gap:22px;flex-wrap:wrap}
+.kpi b{font:800 17px/1 Manrope,sans-serif;color:var(--t1)}
+.kpi b.neg{color:var(--neg)}
+.kpi s{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;text-decoration:none;display:block;margin-top:4px}
+
+/* Row1 */
+.row1{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media (orientation:landscape){.row1{grid-template-columns:1.1fr 1fr}}
+
+/* QA */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qa{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:16px;cursor:pointer;display:flex;flex-direction:column;gap:10px;min-height:108px;text-decoration:none;color:inherit}
+.qa .ic-bg{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff}
+.qa.t1 .ic-bg{background:linear-gradient(135deg,#0E73F6,#00CCBC)}
+.qa.t2 .ic-bg{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.qa.t3 .ic-bg{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.qa.t4 .ic-bg{background:linear-gradient(135deg,#8B5CF6,#0E73F6)}
+.qa b{font:700 14px/1.2 Manrope,sans-serif;color:var(--t1);display:block}
+.qa s{font:500 11.5px/1.3 Inter,sans-serif;color:var(--t3);text-decoration:none}
+
+/* Donut card */
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-h h3{font:700 14px/1.2 Manrope,sans-serif;color:var(--t1)}
+.card-h .small{font:500 11px/1 Inter,sans-serif;color:var(--t3)}
+.card-h .pill{background:rgba(0,181,166,.12);color:var(--cta);font:600 11px/1 Inter,sans-serif;padding:4px 9px;border-radius:8px}
+.donut-wrap{display:flex;align-items:center;gap:16px}
+.donut-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.donut-info .vl{font:800 24px/1 Manrope,sans-serif;color:var(--pos);margin-bottom:4px}
+.donut-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;font:500 12.5px/1.3 Inter,sans-serif;color:var(--t2);border:1px solid transparent}
+.donut-row .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.donut-row b{color:var(--t1);font-weight:700;margin-right:3px}
+.donut-row .am{margin-left:auto;font-weight:700;color:var(--t1)}
+.donut-row.pos .dot{background:var(--pos)}
+.donut-row.neg{background:rgba(239,68,68,.04);border-color:rgba(239,68,68,.18)}
+.donut-row.neg .dot{background:var(--neg)}
+.donut-row.neg .am{color:var(--neg)}
+.donut-row.neg .chev{color:var(--neg);font-weight:700;font-size:14px;margin-left:6px}
+.donut-row.vac .dot{background:#8B95AB}
+.donut-row.vac{color:var(--t3)}
+.donut-row.vac .am{color:var(--t3)}
+
+/* À traiter */
+.todo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+@media (orientation:landscape){.todo-grid{grid-template-columns:repeat(4,1fr)}}
+.sq{background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:8px 10px;cursor:pointer;display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;position:relative}
+.sq .ic{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#0E73F6,#00B5A6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.sq .ic.b-imp{background:linear-gradient(135deg,#EF4444,#FF8000)}
+.sq .ic.b-irl{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.sq .ic.b-regul{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.sq .info{min-width:0;display:flex;flex-direction:column}
+.sq b{font:700 11.5px/1.25 Inter,sans-serif;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sq s{font:500 10px/1.25 Inter,sans-serif;color:var(--t3);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sq.urg{background:rgba(239,68,68,.04);border-color:rgba(239,68,68,.15)}
+.sq .urgent{position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--neg)}
+</style>
+</head>
+<body>
+
+<div class="banner">
+  📲 Mockup tablette (ouvre sur iPad ou F12 mode tablet) ·
+  <button onclick="toggleSb()">Sidebar full ↔ collapsed</button>
+  <a href="home-mobile-2026-05-17.html">← Mobile</a>
+</div>
+
+<div class="app">
+
+  <div class="sb" id="sb">
+    <div class="logo">
+      <div class="ic">🏠</div>
+      <div class="txt"><strong>ImmoTrack</strong><em>v15.52</em></div>
+    </div>
+    <div class="nav">
+      <div class="it act"><span class="ic">🏠</span><span class="lbl">Accueil</span></div>
+      <div class="it"><span class="ic">📊</span><span class="lbl">Tableau de bord</span></div>
+      <div class="it"><span class="ic">🏘</span><span class="lbl">Logements</span></div>
+      <div class="it"><span class="ic">👥</span><span class="lbl">Locataires</span></div>
+      <div class="it"><span class="ic">💰</span><span class="lbl">Loyers</span></div>
+      <div class="it"><span class="ic">📋</span><span class="lbl">Baux</span></div>
+      <div class="it"><span class="ic">📅</span><span class="lbl">Agenda</span></div>
+      <div class="it"><span class="ic">🛠</span><span class="lbl">Équipements</span></div>
+      <div class="it"><span class="ic">📑</span><span class="lbl">Quittances</span></div>
+      <div class="it"><span class="ic">🛡</span><span class="lbl">Assurances</span></div>
+      <div class="it"><span class="ic">⚙</span><span class="lbl">Paramètres</span></div>
+    </div>
+    <div class="foot">
+      <div class="av">DK</div>
+      <div class="info"><b>Didier K.</b><s>Bailleur</s></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="tb">
+      <span class="title">Accueil</span>
+      <div class="themes"><button class="act">☀</button><button>🎨</button><button>🌙</button></div>
+      <span class="sep"></span>
+      <div class="modes">
+        <button><span>🪴</span>Solo</button>
+        <button class="act"><span>🏠</span>Premium</button>
+        <button><span>🛠</span>Gestion.</button>
+      </div>
+      <span class="sep"></span>
+      <button class="sel">2026 ▾</button>
+      <button class="sel">Mai ▾</button>
+      <div class="r"><span class="drv">✓ Drive</span></div>
+    </div>
+
+    <div class="body">
+
+      <div class="hero">
+        <div class="ic">⛅</div>
+        <div class="info">
+          <h2>Bonjour Didier, 9 actions en attente</h2>
+          <div class="sub">9 points à traiter ce mois-ci.</div>
+          <div class="kpis">
+            <div class="kpi"><b>2 632,94 €</b><s>REÇU MAI</s></div>
+            <div class="kpi"><b>93 %</b><s>OCCUPATION</s></div>
+            <div class="kpi"><b class="neg">-5 080,66 €</b><s>NET YTD</s></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row1">
+        <div class="qa-grid">
+          <a class="qa t1"><div class="ic-bg">📊</div><b>Tableau de bord</b><s>Vue complète Premium</s></a>
+          <a class="qa t2"><div class="ic-bg">🏘</div><b>Logements</b><s>16 lots · 1 vacant</s></a>
+          <a class="qa t3"><div class="ic-bg">💰</div><b>Loyers</b><s>21/22 payés ce mois</s></a>
+          <a class="qa t4"><div class="ic-bg">📅</div><b>Agenda</b><s>3 échéances cette sem.</s></a>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>Loyers · Mai</h3><span class="small">21 / 22 lots</span></div>
+          <div class="donut-wrap">
+            <svg width="130" height="130" viewBox="0 0 130 130">
+              <circle cx="65" cy="65" r="52" fill="none" stroke="#EEF1F6" stroke-width="14"/>
+              <circle cx="65" cy="65" r="52" fill="none" stroke="#10B981" stroke-width="14" stroke-dasharray="311 327" stroke-dashoffset="-7" transform="rotate(-90 65 65)"/>
+              <text x="65" y="62" text-anchor="middle" font-family="Manrope" font-size="24" font-weight="800" fill="#141936">95</text>
+              <text x="65" y="80" text-anchor="middle" font-family="JetBrains Mono" font-size="9" font-weight="600" fill="#5A6478">% PAYÉ</text>
+            </svg>
+            <div class="donut-info">
+              <div class="vl">6 582,94 €</div>
+              <div class="donut-row pos"><span class="dot"></span><span><b>21</b> payés</span><span class="am">+6 582 €</span></div>
+              <div class="donut-row neg"><span class="dot"></span><span><b>4</b> impayés</span><span class="am">-1 404 €</span><span class="chev">→</span></div>
+              <div class="donut-row vac"><span class="dot"></span><span><b>1</b> vacant</span><span class="am">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>À traiter</h3><span class="pill">9 actions</span></div>
+        <div class="todo-grid">
+          <div class="sq urg"><span class="urgent"></span><div class="ic b-imp">💰</div><div class="info"><b>Impayé · 460€</b><s>F-101 BERNARD</s></div></div>
+          <div class="sq urg"><span class="urgent"></span><div class="ic b-imp">💰</div><div class="info"><b>Impayé · 250€</b><s>F-Local REGIS</s></div></div>
+          <div class="sq urg"><span class="urgent"></span><div class="ic b-imp">💰</div><div class="info"><b>Impayé · 350€</b><s>D-104 MORIN</s></div></div>
+          <div class="sq urg"><span class="urgent"></span><div class="ic b-imp">💰</div><div class="info"><b>Impayé · 344€</b><s>D-207 ZIDANE</s></div></div>
+          <div class="sq"><div class="ic">🛡</div><div class="info"><b>MRH manquante</b><s>F-Local REGIS</s></div></div>
+          <div class="sq"><div class="ic b-irl">📊</div><div class="info"><b>IRL 15 j</b><s>F-101 → 443€</s></div></div>
+          <div class="sq"><div class="ic b-irl">📊</div><div class="info"><b>IRL 22 j</b><s>D-105 → 600€</s></div></div>
+          <div class="sq"><div class="ic b-regul">📅</div><div class="info"><b>Régul 2025</b><s>DAMELEVIÈRES</s></div></div>
+          <div class="sq"><div class="ic">📋</div><div class="info"><b>EDL sortie</b><s>F-102 31/05</s></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleSb(){
+  const sb = document.getElementById('sb');
+  sb.classList.toggle('full');
+}
+// Auto : full en landscape
+if (window.innerWidth > window.innerHeight && window.innerWidth >= 1024) {
+  document.getElementById('sb').classList.add('full');
+}
+</script>
+
+</body>
+</html>

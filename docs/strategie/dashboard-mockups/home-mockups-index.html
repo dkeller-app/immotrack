@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImmoTrack — Mockups page d'accueil (mobile + tablette + desktop)</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.5 'Inter',-apple-system,system-ui,sans-serif;background:#0f1320;color:#e6e8ee;padding:40px 20px;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font:700 26px/1.2 'Manrope',sans-serif;margin-bottom:8px;color:#fff}
+.sub{color:#aab;font-size:14px;margin-bottom:30px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:30px}
+.card{background:#1e2438;border:1px solid #303554;border-radius:14px;padding:22px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:8px;transition:.15s}
+.card:hover{border-color:#10B981;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.card h2{font:700 18px/1.2 'Manrope',sans-serif;color:#fff;display:flex;align-items:center;gap:10px}
+.card h2 .ic{font-size:24px}
+.card p{color:#aab;font-size:13px;flex:1}
+.card .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.card .tag{background:rgba(16,185,129,.15);color:#10B981;font:600 10.5px/1 Inter;padding:4px 9px;border-radius:6px}
+.notes{background:rgba(255,255,255,.04);border-radius:12px;padding:20px 24px;color:#cbd;line-height:1.7;font-size:13.5px}
+.notes h3{color:#fff;font:700 15px/1.2 Manrope;margin:14px 0 8px}
+.notes ul{padding-left:20px;margin:6px 0}
+.notes li{margin-bottom:4px}
+.notes code{background:rgba(0,0,0,.4);padding:1px 6px;border-radius:4px;color:#fcd;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📐 Mockups page d'accueil — 3 formats</h1>
+  <p class="sub">Page accueil ImmoTrack v15.52 déclinée pour mobile, tablette et desktop. Ouvre chaque mockup dans le bon format (iPhone, iPad, navigateur desktop) pour avoir le rendu réel.</p>
+
+  <div class="cards">
+
+    <a class="card" href="home-mobile-2026-05-17.html">
+      <h2><span class="ic">📱</span> Mobile</h2>
+      <p>Hero compact · 4 QA tiles 2×2 · Donut compact · À traiter en grid 2 cols · <b>Bottom nav 4 onglets</b></p>
+      <div class="meta">
+        <span class="tag">iPhone 14 Pro</span>
+        <span class="tag">≤767px</span>
+      </div>
+    </a>
+
+    <a class="card" href="home-tablet-2026-05-17.html">
+      <h2><span class="ic">📲</span> Tablette</h2>
+      <p>Sidebar adaptative (toggle full/collapsed) · Topbar avec tous contrôles · Row1 QA+Donut côte à côte · À traiter grid 3-4 cols</p>
+      <div class="meta">
+        <span class="tag">iPad 11"</span>
+        <span class="tag">768-1279px</span>
+      </div>
+    </a>
+
+    <a class="card" href="home-FINAL-v2-2026-05-17.html">
+      <h2><span class="ic">🖥</span> Desktop (validé)</h2>
+      <p>Container max 1600px · Hero XL · 4 QA tiles XL · Donut 180×180 · À traiter grid 5 cols compact</p>
+      <div class="meta">
+        <span class="tag">≥1280px</span>
+        <span class="tag">v15.52 prod</span>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="notes">
+    <h3>Comment tester ?</h3>
+    <ul>
+      <li><b>Mobile</b> : ouvrir le lien sur ton iPhone. Ou Chrome DevTools (F12) → mode mobile → iPhone 14 Pro</li>
+      <li><b>Tablette</b> : ouvrir sur ton iPad. Ou DevTools mode tablet → iPad. Bouton "Sidebar full ↔ collapsed" en haut pour tester les 2 états</li>
+      <li><b>Desktop</b> : ouvrir directement, plein écran</li>
+    </ul>
+
+    <h3>Comparatif des 3 formats</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin:12px 0">
+      <thead><tr style="background:rgba(255,255,255,.04)"><th style="padding:8px 10px;text-align:left;color:#fff">Élément</th><th style="padding:8px 10px;text-align:left;color:#fff">Mobile</th><th style="padding:8px 10px;text-align:left;color:#fff">Tablette</th><th style="padding:8px 10px;text-align:left;color:#fff">Desktop</th></tr></thead>
+      <tbody>
+        <tr style="border-top:1px solid rgba(255,255,255,.08)"><td style="padding:8px 10px">Nav</td><td style="padding:8px 10px">Bottom tabs (4)</td><td style="padding:8px 10px">Sidebar adaptative</td><td style="padding:8px 10px">Sidebar full</td></tr>
+        <tr style="border-top:1px solid rgba(255,255,255,.08)"><td style="padding:8px 10px">Hero icon</td><td style="padding:8px 10px">42px</td><td style="padding:8px 10px">56px</td><td style="padding:8px 10px">84px</td></tr>
+        <tr style="border-top:1px solid rgba(255,255,255,.08)"><td style="padding:8px 10px">QA tiles</td><td style="padding:8px 10px">2×2 (h:96px)</td><td style="padding:8px 10px">2×2 (h:108px)</td><td style="padding:8px 10px">2×2 (h:130px)</td></tr>
+        <tr style="border-top:1px solid rgba(255,255,255,.08)"><td style="padding:8px 10px">Donut</td><td style="padding:8px 10px">100×100</td><td style="padding:8px 10px">130×130</td><td style="padding:8px 10px">180×180</td></tr>
+        <tr style="border-top:1px solid rgba(255,255,255,.08)"><td style="padding:8px 10px">À traiter</td><td style="padding:8px 10px">2 cols</td><td style="padding:8px 10px">3-4 cols</td><td style="padding:8px 10px">5 cols</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Si tu valides → impact code</h3>
+    <ul>
+      <li>Nouveau <code>.v4h-bnav</code> (bottom nav mobile) — composant HTML + CSS</li>
+      <li>3 media queries dans <code>main.css</code> : <code>≤767px</code>, <code>768-1023px</code>, <code>1024-1279px</code></li>
+      <li>Toggle JS sidebar collapsed/full pour tablette</li>
+      <li>Pas de nouvelle logique métier — uniquement responsive</li>
+      <li>Estimation : <b>2-3h</b> session sandbox</li>
+    </ul>
+
+    <h3>Questions à trancher</h3>
+    <ul>
+      <li>4e onglet mobile : <b>"Plus"</b> (menu) ou <b>"Agenda"</b> direct ?</li>
+      <li>Thèmes ☀🎨🌙 visibles sur topbar mobile : OK ou trop chargé ?</li>
+      <li>Tablette portrait : sidebar <b>collapsed</b> par défaut (gain 160px contenu) ?</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>
