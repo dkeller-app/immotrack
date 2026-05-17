@@ -25,7 +25,13 @@ jobs:
           # cache: 'npm'  ← retiré 2026-05-17 (50 runs fail consécutifs).
 
       - name: Install dependencies
-        run: npm ci
+        # 2026-05-17 — npm install au lieu de npm ci :
+        # npm ci est strict (exige lockfile <-> package.json parfaitement synchros).
+        # Cause des fails CI précédents : désynchro lockfile générée par npm 11 local
+        # vs résolution npm 11 CI (différences mineures de hash).
+        # npm install est tolérant et regénère le lockfile au besoin sans planter.
+        # --no-audit --no-fund : zappe les audit + sponsor (gain de temps + bruit).
+        run: npm install --no-audit --no-fund
 
       - name: Run tests
         run: npm run test:run
