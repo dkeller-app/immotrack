@@ -6418,59 +6418,72 @@ body[data-dash-v4="on"] .v4s-k-projection > * {
   transition: color .15s;
 }
 .v4s-entview-imname:hover { color: var(--cta); }
+/* v15.71 — Option 1 condensé : grid responsive + border-left coloré + icône carrée */
 .v4s-entview-lots {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 5px;
   flex: 1;
-  flex-wrap: wrap;
 }
 .v4s-entview-lot {
   background: var(--sur2);
   border: 1px solid var(--bor);
+  border-left: 3px solid var(--bor);
   border-radius: 8px;
-  padding: 6px 9px;
-  display: flex;
+  padding: 5px 8px;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 6px;
   align-items: center;
-  gap: 7px;
-  flex: 1;
   min-width: 0;
-  max-width: 200px;
   cursor: pointer;
   transition: .15s;
 }
 .v4s-entview-lot:hover {
-  border-color: rgba(255,255,255,.18);
   transform: translateY(-1px);
+  box-shadow: 0 1px 4px rgba(20,25,54,.06);
 }
 .v4s-entview-lot .v4s-st {
-  width: 8px; height: 8px;
-  border-radius: 50%;
+  width: 18px; height: 18px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 11px/1 'Inter', sans-serif;
+  color: #fff;
   flex-shrink: 0;
 }
+.v4s-entview-lot.ok { border-left-color: var(--pos); }
 .v4s-entview-lot.ok .v4s-st { background: var(--pos); }
+.v4s-entview-lot.warn { border-left-color: var(--warn); background: rgba(245,158,11,.04); }
 .v4s-entview-lot.warn .v4s-st { background: var(--warn); }
-.v4s-entview-lot.vac .v4s-st { background: var(--neg); }
-/* v15.44 — IMPAYÉ (occupied + non payé) : dot rouge + fond rouge clair */
+.v4s-entview-lot.warn .v4s-am { color: var(--warn); font-weight: 700; }
+.v4s-entview-lot.imp { border-left-color: var(--neg); background: rgba(239,68,68,.05); }
 .v4s-entview-lot.imp .v4s-st { background: var(--neg); }
-.v4s-entview-lot.imp {
-  background: rgba(239,68,68,.06);
-  border-color: rgba(239,68,68,.22);
-}
 .v4s-entview-lot.imp .v4s-am { color: var(--neg); font-weight: 700; }
-.v4s-entview-lot.imp:hover {
-  background: rgba(239,68,68,.10);
-  border-color: rgba(239,68,68,.42);
-}
+.v4s-entview-lot.imp:hover { background: rgba(239,68,68,.10); }
+.v4s-entview-lot.vac { border-left-color: var(--t3); background: repeating-linear-gradient(45deg, var(--sur2) 0 5px, var(--bor2) 5px 10px); }
+.v4s-entview-lot.vac .v4s-st { background: var(--t3); }
+.v4s-entview-lot.vac .v4s-am { color: var(--t3); }
 .v4s-entview-lot .v4s-nm {
-  font: 700 12.5px/1.2 'Manrope', sans-serif;
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 0;
+}
+.v4s-entview-lot .v4s-nm b {
+  font: 700 11.5px/1.15 'Inter', sans-serif;
   color: var(--t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v4s-entview-lot .v4s-nm s {
+  font: 500 9.5px/1.2 'Inter', sans-serif;
+  color: var(--t3);
+  text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .v4s-entview-lot .v4s-am {
-  margin-left: auto;
-  font: 600 12px/1.2 'JetBrains Mono', monospace;
-  color: var(--t2);
+  font: 700 11px/1 'JetBrains Mono', monospace;
+  color: var(--t1);
+  white-space: nowrap;
+  text-align: right;
 }
-.v4s-entview-lot.vac .v4s-am { color: var(--neg); }
 
 /* ─── SIDEBAR V4 (mode dashRenderV='v2') ─── */
 /* v15.37 fix : override le gradient bleu nuit hardcoded de .sb-nav legacy pour
