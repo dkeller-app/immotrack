@@ -280,6 +280,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | TRAV-SUIVI | Suivi entretien / travaux avec calendrier | P2 | L | ⬜ À faire | [docs/subjects/TRAV-SUIVI.md](docs/subjects/TRAV-SUIVI.md) · CDC requis |
 | **Courriers / Templates** | | | | | |
 | DOC-CIVILITE | Reprendre civilité du locataire dans formules de politesse | P2 | XS | ✅ Livré v13.23 | commit 529e261 · helpers _civSalut/_civConge incluent maintenant les noms ("Madame ARSLAN, Monsieur HARNIST,") |
+| BUG-EMAIL-PROPOSAL-IRL | Modale "Proposition de mail" IRL : boutons inactifs + salutation incorrecte (adresse au lieu du locataire) + date "Invalid Date" | P2 | S | ⏳ En attente sprint mail | [docs/subjects/BUG-EMAIL-PROPOSAL-IRL.md](docs/subjects/BUG-EMAIL-PROPOSAL-IRL.md) · détecté 2026-05-17 user · à traiter dans Sprint 19B EMAIL-ONGLET-PERMANENT |
 | **Associés** | | | | | |
 | ASSO-PARTAGE | Refonte du fonctionnement du partage entre associés | P2 | L | ⬜ À faire | [docs/subjects/ASSO-PARTAGE.md](docs/subjects/ASSO-PARTAGE.md) · CDC requis |
 
