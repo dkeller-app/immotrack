@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImmoTrack — Page d'accueil FINALE (validée user)</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --acc:#0E73F6; --cta:#00B5A6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B; --warn2:#FF8000;
+  --shad: 0 1px 3px rgba(20,25,54,.04);
+  --shad-lift: 0 4px 14px rgba(20,25,54,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font:14px/1.4 'Inter',-apple-system,system-ui,sans-serif;
+  background:#1a1a24;color:var(--t1);min-height:100vh;padding:20px 16px 40px
+}
+
+.doc-h{color:#fff;text-align:center;margin:0 auto 30px;max-width:1100px}
+.doc-h h1{font:700 24px/1.2 'Manrope',sans-serif;margin-bottom:6px}
+.doc-h p{color:#aab;font-size:13px}
+.doc-h .legend{margin-top:14px;display:inline-flex;gap:12px;font-size:11px;color:#9be3a3;flex-wrap:wrap;justify-content:center;background:rgba(60,180,80,.08);padding:10px 18px;border-radius:10px;border:1px solid rgba(60,180,80,.18)}
+.doc-h .legend b{color:#fff}
+
+/* Frame */
+.frame-wrap{max-width:1100px;margin:0 auto 30px}
+.frame-label{
+  color:#fff;font:700 14px/1.2 'Manrope',sans-serif;
+  margin-bottom:14px;padding:12px 18px;
+  background:linear-gradient(135deg,#1e7e5f,#10B981);
+  border-radius:10px;display:flex;align-items:center;justify-content:space-between
+}
+.frame-label .tag{
+  font:600 11px/1 'Inter',sans-serif;color:#fff;padding:5px 11px;border-radius:8px;
+  background:rgba(0,0,0,.25);letter-spacing:.04em;text-transform:uppercase
+}
+.frame{
+  background:var(--bg);border-radius:14px;padding:24px;
+  box-shadow:0 10px 40px rgba(0,0,0,.4)
+}
+
+/* Hero météo */
+.hero{
+  background:var(--sur);border:1px solid var(--bor);border-radius:16px;
+  padding:18px 22px;display:flex;align-items:center;gap:18px;margin-bottom:16px;box-shadow:var(--shad)
+}
+.hero .ic{flex-shrink:0;font-size:62px;line-height:1}
+.hero .info{flex:1;min-width:0}
+.hero h2{font:800 22px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:3px}
+.hero .sub{font:500 13px/1.4 'Inter',sans-serif;color:var(--t2);margin-bottom:10px}
+.hero .kpis{display:flex;gap:24px;flex-wrap:wrap}
+.hero .kpi b{font:800 16px/1 'Manrope',sans-serif;color:var(--t1)}
+.hero .kpi b.pos{color:var(--pos)}
+.hero .kpi b.neg{color:var(--neg)}
+.hero .kpi s{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;text-decoration:none;display:block;margin-top:4px}
+
+/* 6 Quick Access — 3 cols × 2 rows */
+.qa-grid{
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px
+}
+.qa-tile{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;
+  padding:16px;cursor:pointer;display:flex;align-items:center;gap:14px;
+  transition:transform .15s, box-shadow .15s, border-color .15s;
+  text-align:left;text-decoration:none;color:inherit;border:1px solid var(--bor)
+}
+.qa-tile:hover{transform:translateY(-2px);box-shadow:var(--shad-lift);border-color:var(--cta)}
+.qa-tile .ic-bg{
+  width:46px;height:46px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:22px;color:#fff;flex-shrink:0
+}
+.qa-tile.t1 .ic-bg{background:linear-gradient(135deg,#0E73F6,#00CCBC)}
+.qa-tile.t2 .ic-bg{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.qa-tile.t3 .ic-bg{background:linear-gradient(135deg,#8B5CF6,#0E73F6)}
+.qa-tile.t4 .ic-bg{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.qa-tile.t5 .ic-bg{background:linear-gradient(135deg,#EC4899,#F59E0B)}
+.qa-tile.t6 .ic-bg{background:linear-gradient(135deg,#14B8A6,#0E73F6)}
+.qa-tile .info{flex:1;min-width:0}
+.qa-tile b{font:700 14px/1.2 'Manrope',sans-serif;color:var(--t1);display:block;margin-bottom:3px}
+.qa-tile s{font:500 11.5px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none}
+.qa-tile .badge{
+  background:var(--neg);color:#fff;font:700 10px/1 'Inter',sans-serif;
+  padding:3px 7px;border-radius:8px;margin-left:auto;flex-shrink:0
+}
+.qa-tile .badge.warn{background:var(--warn)}
+.qa-tile .badge.ok{background:var(--pos)}
+
+/* Row 2 : Donut + À traiter */
+.row2{display:grid;grid-template-columns:1fr 1.4fr;gap:14px}
+
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:16px;box-shadow:var(--shad)}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-h h3{font:700 15px/1.2 'Manrope',sans-serif;color:var(--t1)}
+.card-h .small{font:500 11px/1 'Inter',sans-serif;color:var(--t3)}
+.card-h .pill{
+  background:rgba(0,181,166,.12);color:var(--cta);
+  font:600 11px/1 'Inter',sans-serif;padding:4px 9px;border-radius:8px
+}
+
+/* Donut payés/impayés */
+.donut-wrap{display:flex;align-items:center;gap:18px}
+.donut-wrap svg{flex-shrink:0}
+.donut-info{flex:1;min-width:0}
+.donut-info .vl{font:800 26px/1 'Manrope',sans-serif;color:var(--pos);margin-bottom:6px}
+.donut-info .l{display:flex;align-items:center;gap:8px;font:500 12.5px/1.4 'Inter',sans-serif;color:var(--t2);margin-bottom:5px}
+.donut-info .l .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.donut-info .l.pos .dot{background:var(--pos)}
+.donut-info .l.neg .dot{background:var(--neg)}
+.donut-info .l b{color:var(--t1);font-weight:700}
+.donut-info .l .am{margin-left:auto;font-weight:700;color:var(--t1)}
+.donut-info .l.neg .am{color:var(--neg)}
+
+/* À traiter — scrollable */
+.todo-list{display:flex;flex-direction:column;gap:7px;max-height:340px;overflow-y:auto;padding-right:4px}
+.todo-list::-webkit-scrollbar{width:6px}
+.todo-list::-webkit-scrollbar-thumb{background:var(--bor);border-radius:3px}
+.todo-it{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;
+  background:var(--sur2);border:1px solid var(--bor);border-radius:10px;cursor:pointer;
+  transition:.15s
+}
+.todo-it:hover{border-color:var(--cta);background:var(--sur)}
+.todo-it .ic{
+  width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#0E73F6,#00B5A6);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0
+}
+.todo-it .ic.b2{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.todo-it .ic.b3{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.todo-it .ic.b4{background:linear-gradient(135deg,#EF4444,#FF8000)}
+.todo-it .ic.b5{background:linear-gradient(135deg,#8B5CF6,#0E73F6)}
+.todo-it .txt{flex:1;min-width:0}
+.todo-it b{font:700 13px/1.3 'Inter',sans-serif;color:var(--t1);display:block}
+.todo-it s{font:500 12px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todo-it .chev{color:var(--t3);font-size:16px}
+
+/* Notes */
+.notes{
+  max-width:1100px;margin:30px auto 0;padding:24px 28px;
+  background:rgba(255,255,255,.06);border-radius:14px;color:#cbd;font-size:13px;line-height:1.6
+}
+.notes h2{color:#fff;font:700 18px/1.2 'Manrope',sans-serif;margin-bottom:14px}
+.notes h3{color:#fff;font:600 13px/1 'Inter',sans-serif;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.notes table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12.5px}
+.notes th,.notes td{padding:9px 11px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+.notes th{color:#fff;font-weight:600;background:rgba(255,255,255,.04)}
+.notes code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:12px;color:#fcd}
+.notes ul{padding-left:18px;margin-bottom:6px}
+.notes li{margin-bottom:4px}
+.notes .ok{color:#9be3a3;font-weight:600}
+.notes .open{color:#FFD580;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="doc-h">
+  <h1>✅ Page d'accueil ImmoTrack — version FINALE (décisions user validées)</h1>
+  <p>Variante A "Cosy" · 6 Quick Access · À traiter scrollable (tous les sujets) · Sans cash-flow</p>
+  <div class="legend">
+    <span>✓ Page d'accueil pour <b>TOUS</b> les modes (remplace dashboard en Solo)</span>
+    <span>✓ <b>6 QA</b> en grid 3×2</span>
+    <span>✓ À traiter <b>scrollable</b></span>
+    <span>✓ <b>3 KPIs</b> dans hero (pas de 4e)</span>
+    <span>✗ <b>Pas</b> de cash-flow (reste sur dashboard)</span>
+  </div>
+</div>
+
+<div class="frame-wrap">
+  <div class="frame-label">
+    <span>🏠 Page d'accueil — desktop ≥1280px (responsive mobile/tablette à dériver)</span>
+    <span class="tag">FINAL</span>
+  </div>
+  <div class="frame">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="ic">⛅</div>
+      <div class="info">
+        <h2>Didier, 9 actions en attente</h2>
+        <div class="sub">9 points à traiter ce mois-ci.</div>
+        <div class="kpis">
+          <div class="kpi"><b>2 632,94 €</b><s>REÇU MAI</s></div>
+          <div class="kpi"><b>93 %</b><s>OCCUPATION</s></div>
+          <div class="kpi"><b class="neg">-5 080,66 €</b><s>NET YTD</s></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 QUICK ACCESS (3×2) -->
+    <div class="qa-grid">
+      <a class="qa-tile t1">
+        <div class="ic-bg">📊</div>
+        <div class="info"><b>Tableau de bord</b><s>Vue complète Premium</s></div>
+      </a>
+      <a class="qa-tile t2">
+        <div class="ic-bg">🏘</div>
+        <div class="info"><b>Logements</b><s>16 lots · 1 vacant</s></div>
+        <span class="badge warn">1</span>
+      </a>
+      <a class="qa-tile t3">
+        <div class="ic-bg">👥</div>
+        <div class="info"><b>Locataires</b><s>18 contrats actifs</s></div>
+      </a>
+      <a class="qa-tile t4">
+        <div class="ic-bg">💰</div>
+        <div class="info"><b>Loyers</b><s>21/22 payés ce mois</s></div>
+        <span class="badge">4</span>
+      </a>
+      <a class="qa-tile t5">
+        <div class="ic-bg">📑</div>
+        <div class="info"><b>Quittances</b><s>3 à générer</s></div>
+        <span class="badge warn">3</span>
+      </a>
+      <a class="qa-tile t6">
+        <div class="ic-bg">📅</div>
+        <div class="info"><b>Agenda</b><s>3 échéances cette semaine</s></div>
+      </a>
+    </div>
+
+    <!-- ROW 2 : Donut + À traiter -->
+    <div class="row2">
+
+      <div class="card">
+        <div class="card-h"><h3>Loyers · Mai</h3><span class="small">21 / 22 lots</span></div>
+        <div class="donut-wrap">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r="56" fill="none" stroke="#EEF1F6" stroke-width="16"/>
+            <circle cx="70" cy="70" r="56" fill="none" stroke="#10B981" stroke-width="16"
+              stroke-dasharray="335.4 351.9" stroke-dashoffset="-8" transform="rotate(-90 70 70)" stroke-linecap="butt"/>
+            <text x="70" y="65" text-anchor="middle" font-family="Manrope" font-size="26" font-weight="800" fill="#141936">95</text>
+            <text x="70" y="86" text-anchor="middle" font-family="JetBrains Mono" font-size="10" font-weight="600" fill="#5A6478" letter-spacing="2">% PAYÉ</text>
+          </svg>
+          <div class="donut-info">
+            <div class="vl">6 582,94 €</div>
+            <div class="l pos"><span class="dot"></span><span><b>21</b> payés</span><span class="am">+6 582 €</span></div>
+            <div class="l neg"><span class="dot"></span><span><b>4</b> impayés</span><span class="am">−1 404 €</span></div>
+            <div class="l"><span class="dot" style="background:#8B95AB"></span><span><b>1</b> vacant</span><span class="am" style="color:var(--t3)">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>À traiter</h3><span class="pill">9 actions</span></div>
+        <div class="todo-list">
+          <div class="todo-it">
+            <div class="ic">🛡</div>
+            <div class="txt"><b>MRH manquante</b><s>F-Local — M. REGIS MANGIN</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic b2">📊</div>
+            <div class="txt"><b>Révision IRL dans 15 j</b><s>F-101 — 440,00 € → 443,42 €</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic">🛡</div>
+            <div class="txt"><b>MRH manquante</b><s>F-001 — Mme MARTIN Sophie</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic b3">💰</div>
+            <div class="txt"><b>Impayé Mai · 460 €</b><s>F-101 — M. BERNARD Luc</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic b3">💰</div>
+            <div class="txt"><b>Impayé Mai · 250 €</b><s>F-Local — M. REGIS MANGIN</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic b2">📊</div>
+            <div class="txt"><b>Révision IRL dans 22 j</b><s>D-105 — 597,00 € → 600,17 €</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic b4">📅</div>
+            <div class="txt"><b>Régul charges 2025</b><s>DAMELEVIÈRES — à clôturer avant 30/06</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic b5">📋</div>
+            <div class="txt"><b>EDL sortie locataire</b><s>F-102 — Mme PETIT Anne au 31/05</s></div>
+            <span class="chev">→</span>
+          </div>
+          <div class="todo-it">
+            <div class="ic">🛡</div>
+            <div class="txt"><b>MRH manquante</b><s>D-002 — vacant à signaler</s></div>
+            <span class="chev">→</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── Notes ─── -->
+<div class="notes">
+  <h2>📋 Récap décisions validées + détails 6 QA</h2>
+
+  <table>
+    <thead><tr><th>Question</th><th>Décision</th><th>Implémentation</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Page accueil remplace ou s'ajoute ?</td>
+        <td class="ok">REMPLACE</td>
+        <td>Page d'accueil = nouvelle page <code>#p-accueil</code> + entrée par défaut au boot pour TOUS. Dashboard accessible via tile QA (caché en mode Solo).</td>
+      </tr>
+      <tr>
+        <td>Max actions "À traiter"</td>
+        <td class="ok">TOUS</td>
+        <td>Liste scrollable verticalement (max-height: 340px desktop, overflow:auto). Tri par priorité (impayés → IRL → MRH → autres).</td>
+      </tr>
+      <tr>
+        <td>4e KPI dans hero ?</td>
+        <td class="ok">NON</td>
+        <td>3 KPIs : Reçu mois · Occupation · Net YTD. Stop.</td>
+      </tr>
+      <tr>
+        <td>Combien de QA ?</td>
+        <td class="ok">6</td>
+        <td>Grid 3×2 desktop, 2×3 tablette, 1 col mobile (ou 2 cols selon validation mobile).</td>
+      </tr>
+      <tr>
+        <td>Cash-flow 12 mois ?</td>
+        <td class="ok">PAS ICI</td>
+        <td>Reste UNIQUEMENT dans le Tableau de bord (Premium/Gestionnaire). Page accueil = sans graphique cash.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Mon raisonnement sur les 6 Quick Access</h3>
+  <p>Le but : <b>2 clics max</b> pour accéder aux 6 actions les plus fréquentes d'un bailleur. Chaque tile a un <b>mini-stat live</b> (ex: "21/22 payés") pour pousser à cliquer + un <b>badge rouge/orange</b> si action requise.</p>
+
+  <table>
+    <thead><tr><th>#</th><th>Tile</th><th>Mini-stat</th><th>Pourquoi prioritaire ?</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>📊 Tableau de bord</b></td><td>Vue complète Premium</td><td>Vue détaillée toutes données (cash-flow, KPIs étendus). <b>Caché en Solo</b> (mode allégé). En Premium/Gestionnaire = porte d'entrée vers le détail.</td></tr>
+      <tr><td>2</td><td><b>🏘 Logements</b></td><td>16 lots · 1 vacant</td><td>Centre névralgique : ajout/modif lot, équipements, diagnostics. Badge "1" = vacant à relouer.</td></tr>
+      <tr><td>3</td><td><b>👥 Locataires</b></td><td>18 contrats actifs</td><td>Coordonnées + historique paiements + lien vers les baux. Action courante : "qui paie quoi ?"</td></tr>
+      <tr><td>4</td><td><b>💰 Loyers</b></td><td>21/22 payés ce mois</td><td>Saisie quotidienne des encaissements. Badge "4" = impayés à relancer.</td></tr>
+      <tr><td>5</td><td><b>📑 Quittances</b></td><td>3 à générer</td><td>Obligation légale mensuelle. Badge "3" = quittances en retard à émettre.</td></tr>
+      <tr><td>6</td><td><b>📅 Agenda</b></td><td>3 échéances cette semaine</td><td>Échéances baux, EDL, renouvellements, RDV. Vue prospective.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Alternatives écartées (pour info)</h3>
+  <ul>
+    <li><b>🛡 Assurances</b> : utile mais ~3-4 actions par an seulement, pas dans le top 6 quotidien</li>
+    <li><b>📊 Révision IRL</b> : ~1 fois par an par lot, mieux à côté de "Loyers"</li>
+    <li><b>📋 Baux</b> : consultation moins fréquente que Logements/Locataires</li>
+    <li><b>📊 Export / 2044</b> : 1 fois par an, à mettre dans Paramètres</li>
+    <li><b>🛠 Équipements</b> : consultation rare, accessible via fiche Logement</li>
+  </ul>
+
+  <h3>Variante mode Solo (sans dashboard)</h3>
+  <p>En mode Solo, la tile "Tableau de bord" disparaît → reste 5 tiles. Pour garder un grid esthétique, on peut :</p>
+  <ul>
+    <li><b>Option 1 (recommandée)</b> : grid 3×2 → 5 tiles + 1 case vide (pas grave, ou y mettre une CTA "💎 Passer en Premium")</li>
+    <li><b>Option 2</b> : grid 3+2 (3 cards en haut, 2 plus larges en bas)</li>
+    <li><b>Option 3</b> : grid 5 cols × 1 row (tiles plus petites)</li>
+  </ul>
+
+  <h3>Et après ? Plan de code</h3>
+  <ul>
+    <li>Créer <code>#p-accueil</code> dans index.html (HTML structure)</li>
+    <li>Fonction <code>_renderAccueil(ctx)</code> qui rend hero + 6 QA + donut + à traiter</li>
+    <li>CSS sous <code>body[data-dash-v4="on"] #p-accueil</code></li>
+    <li>Boot : <code>go('accueil')</code> au lieu de <code>go('dashboard')</code></li>
+    <li>Sidebar : ajouter "🏠 Accueil" en 1er + cacher "Tableau de bord" si mode Solo</li>
+    <li>Responsive : appliquer la stratégie mobile (bottom tabs) + tablette (sidebar adaptative) une fois validées</li>
+    <li><b>Estimation : 1 session ~3-4h en sandbox <code>index-test.html</code></b></li>
+  </ul>
+</div>
+
+</body>
+</html>
