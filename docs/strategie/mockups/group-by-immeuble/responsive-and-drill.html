@@ -413,18 +413,59 @@
     stage.classList.remove('is-desktop', 'is-tablet', 'is-mobile');
     stage.classList.add('is-' + b.dataset.device);
     stage.querySelector('.device-label').textContent = labels[b.dataset.device];
+    // Force max-width inline (bypass iframe quirks)
+    const maxW = { desktop: '1280px', tablet: '768px', mobile: '390px' }[b.dataset.device];
+    stage.style.maxWidth = maxW;
+    // Re-apply transforms aux panels (changement de mode bottom-sheet ↔ slide-right)
+    if (typeof _refreshAllPanelsStyle === 'function') _refreshAllPanelsStyle();
   }));
 
-  // Toggle drill-down + clic KPI
+  // JS-driven transform (bypass CSS cascade quirks in iframe previews)
+  function _applyDrillStyle(panel, open) {
+    const mobile = stage.classList.contains('is-mobile');
+    if (mobile) {
+      panel.style.transform = open ? 'translateY(0)' : 'translateY(100%)';
+      panel.style.inset = 'auto 0 0 0';
+      panel.style.width = '100%';
+      panel.style.maxWidth = 'none';
+      panel.style.height = '92%';
+      panel.style.borderTopLeftRadius = '16px';
+      panel.style.borderTopRightRadius = '16px';
+      panel.style.borderLeft = 'none';
+      panel.style.borderTop = '1px solid var(--bor)';
+      panel.style.boxShadow = '0 -12px 24px rgba(0,0,0,0.4)';
+    } else {
+      panel.style.transform = open ? 'translateX(0)' : 'translateX(100%)';
+      panel.style.top = '0';
+      panel.style.right = '0';
+      panel.style.bottom = '';
+      panel.style.left = 'auto';
+      panel.style.height = '100%';
+      const isTablet = stage.classList.contains('is-tablet');
+      panel.style.width = isTablet ? '70%' : '480px';
+      panel.style.maxWidth = isTablet ? '540px' : '60%';
+      panel.style.borderTopLeftRadius = '0';
+      panel.style.borderTopRightRadius = '0';
+      panel.style.borderLeft = '1px solid var(--bor)';
+      panel.style.borderTop = '';
+      panel.style.boxShadow = '-12px 0 24px rgba(0,0,0,0.4)';
+    }
+  }
+  function _refreshAllPanelsStyle() {
+    document.querySelectorAll('.drill-panel').forEach(p => _applyDrillStyle(p, p.classList.contains('open')));
+  }
   function openDrill(k) {
-    document.querySelectorAll('.drill-panel').forEach(p => p.classList.remove('open'));
-    const p = document.getElementById('drill-' + k); if (p) p.classList.add('open');
+    document.querySelectorAll('.drill-panel').forEach(p => { p.classList.remove('open'); _applyDrillStyle(p, false); });
+    const p = document.getElementById('drill-' + k);
+    if (p) { p.classList.add('open'); _applyDrillStyle(p, true); }
     document.querySelectorAll('[data-drill]').forEach(x => x.classList.toggle('act', x.dataset.drill === k));
   }
   function closeDrill() {
-    document.querySelectorAll('.drill-panel').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.drill-panel').forEach(p => { p.classList.remove('open'); _applyDrillStyle(p, false); });
     document.querySelectorAll('[data-drill]').forEach(x => x.classList.toggle('act', x.dataset.drill === 'none'));
   }
+  // Re-apply on device switch
+  _refreshAllPanelsStyle();
   document.querySelectorAll('[data-drill]').forEach(b => b.addEventListener('click', () => {
     if (b.dataset.drill === 'none') closeDrill(); else openDrill(b.dataset.drill);
   }));
