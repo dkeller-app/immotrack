@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImmoTrack — Mockup Page d'accueil Solo (3 variantes)</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --acc:#0E73F6; --cta:#00B5A6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B; --warn2:#FF8000;
+  --shad: 0 1px 3px rgba(20,25,54,.04);
+  --shad-lift: 0 4px 14px rgba(20,25,54,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font:14px/1.4 'Inter',-apple-system,system-ui,sans-serif;
+  background:#1a1a24;color:var(--t1);
+  min-height:100vh;padding:20px 16px 40px
+}
+
+/* ─── Doc header ─── */
+.doc-h{color:#fff;text-align:center;margin:0 auto 30px;max-width:1100px}
+.doc-h h1{font:700 24px/1.2 'Manrope',sans-serif;margin-bottom:6px}
+.doc-h p{color:#aab;font-size:13px;max-width:680px;margin:0 auto}
+.doc-h .legend{margin-top:16px;display:inline-flex;gap:14px;font-size:11px;color:#aab;flex-wrap:wrap;justify-content:center;background:rgba(255,255,255,.05);padding:10px 18px;border-radius:10px}
+.doc-h .legend b{color:#fff}
+
+/* ─── Variant container ─── */
+.variants{display:flex;flex-direction:column;gap:50px;align-items:center;max-width:1100px;margin:0 auto}
+.variant{width:100%;max-width:1000px}
+.variant-label{
+  color:#fff;font:700 14px/1.2 'Manrope',sans-serif;
+  margin-bottom:14px;padding:10px 18px;
+  background:linear-gradient(135deg,#3b3b50,#2a2a3a);
+  border-radius:10px;display:flex;align-items:center;justify-content:space-between
+}
+.variant-label .tag{
+  font:600 11px/1 'Inter',sans-serif;color:#fff;padding:4px 9px;border-radius:8px;
+  background:rgba(255,255,255,.15);letter-spacing:.04em;text-transform:uppercase
+}
+.frame{
+  background:var(--bg);border-radius:14px;padding:22px;
+  box-shadow:0 10px 40px rgba(0,0,0,.4)
+}
+
+/* ─── Common: Hero météo ─── */
+.hero{
+  background:var(--sur);border:1px solid var(--bor);border-radius:16px;
+  padding:18px 22px;display:flex;align-items:center;gap:18px;margin-bottom:16px;
+  box-shadow:var(--shad)
+}
+.hero .ic{flex-shrink:0;font-size:62px;line-height:1}
+.hero .info{flex:1;min-width:0}
+.hero h2{font:800 22px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:3px}
+.hero .sub{font:500 13px/1.4 'Inter',sans-serif;color:var(--t2);margin-bottom:10px}
+.hero .kpis{display:flex;gap:24px;flex-wrap:wrap}
+.hero .kpi b{font:800 16px/1 'Manrope',sans-serif;color:var(--t1)}
+.hero .kpi b.pos{color:var(--pos)}
+.hero .kpi b.neg{color:var(--neg)}
+.hero .kpi s{font:600 9.5px/1 'JetBrains Mono',monospace;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;text-decoration:none;display:block;margin-top:4px}
+
+/* ─── Common: À traiter ─── */
+.todo{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:16px;box-shadow:var(--shad)}
+.todo h3{font:700 15px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.todo h3 .pill{
+  background:rgba(0,181,166,.12);color:var(--cta);
+  font:600 11px/1 'Inter',sans-serif;padding:4px 9px;border-radius:8px
+}
+.todo-it{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;
+  background:var(--sur2);border:1px solid var(--bor);border-radius:10px;margin-bottom:8px;cursor:pointer
+}
+.todo-it:last-child{margin-bottom:0}
+.todo-it .ic{
+  width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0E73F6,#00B5A6);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0
+}
+.todo-it .ic.b2{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.todo-it .ic.b3{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.todo-it .txt{flex:1;min-width:0}
+.todo-it b{font:700 13px/1.3 'Inter',sans-serif;color:var(--t1);display:block}
+.todo-it s{font:500 12px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todo-it .chev{color:var(--t3);font-size:16px}
+
+/* ─── Common: card ─── */
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:16px;box-shadow:var(--shad)}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-h h3{font:700 15px/1.2 'Manrope',sans-serif;color:var(--t1)}
+.card-h .small{font:500 11px/1 'Inter',sans-serif;color:var(--t3)}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* VARIANT A — "Tuiles colorées + Donut payés/impayés"          */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.va-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.va-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.va-tile{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;
+  padding:18px 14px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:8px;
+  transition:transform .15s, box-shadow .15s
+}
+.va-tile:hover{transform:translateY(-2px);box-shadow:var(--shad-lift)}
+.va-tile .va-tile-ic{
+  width:42px;height:42px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;color:#fff
+}
+.va-tile.t1 .va-tile-ic{background:linear-gradient(135deg,#0E73F6,#00CCBC)}
+.va-tile.t2 .va-tile-ic{background:linear-gradient(135deg,#10B981,#00B5A6)}
+.va-tile.t3 .va-tile-ic{background:linear-gradient(135deg,#F59E0B,#FF8000)}
+.va-tile.t4 .va-tile-ic{background:linear-gradient(135deg,#8B5CF6,#0E73F6)}
+.va-tile b{font:700 14px/1.2 'Manrope',sans-serif;color:var(--t1)}
+.va-tile s{font:500 11px/1.3 'Inter',sans-serif;color:var(--t3);text-decoration:none}
+
+.va-donut{display:flex;align-items:center;gap:16px}
+.va-donut svg{flex-shrink:0}
+.va-donut-info{flex:1;min-width:0}
+.va-donut-info .vl{font:800 26px/1 'Manrope',sans-serif;color:var(--pos);margin-bottom:6px}
+.va-donut-info .l{display:flex;align-items:center;gap:6px;font:500 12px/1.4 'Inter',sans-serif;color:var(--t2);margin-bottom:3px}
+.va-donut-info .l .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.va-donut-info .l.pos .dot{background:var(--pos)}
+.va-donut-info .l.neg .dot{background:var(--neg)}
+.va-donut-info .l b{color:var(--t1);font-weight:700}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* VARIANT B — "Quick actions horizontaux + Bar chart 12 mois"   */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.vb-qa{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:6px;
+  display:flex;gap:4px;margin-bottom:16px;box-shadow:var(--shad)
+}
+.vb-qa-it{
+  flex:1;padding:14px 10px;background:transparent;border:0;border-radius:10px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;
+  transition:background .15s;color:var(--t1)
+}
+.vb-qa-it:hover{background:var(--sur2)}
+.vb-qa-it .ic{font-size:22px;line-height:1}
+.vb-qa-it b{font:600 11.5px/1 'Inter',sans-serif;color:var(--t2)}
+.vb-qa-it .badge{
+  position:absolute;background:var(--neg);color:#fff;font:700 9px/14px sans-serif;
+  width:16px;height:16px;border-radius:50%;text-align:center;margin-left:18px;margin-top:-22px
+}
+
+.vb-row{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+
+.vb-bars{padding:18px}
+.vb-bars .b-grid{display:flex;align-items:flex-end;gap:8px;height:140px;margin:14px 0 6px;padding:0 4px}
+.vb-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer}
+.vb-bar .stack{display:flex;flex-direction:column;border-radius:6px 6px 0 0;overflow:hidden;transition:transform .15s}
+.vb-bar:hover .stack{transform:scaleY(1.04);transform-origin:bottom}
+.vb-bar .impay{background:var(--neg)}
+.vb-bar .pay{background:var(--pos)}
+.vb-bar .lbl{
+  text-align:center;font:600 9px/1.2 'JetBrains Mono',monospace;color:var(--t3);
+  margin-top:6px;text-transform:uppercase;letter-spacing:.06em
+}
+.vb-bar.cur .lbl{color:var(--cta);font-weight:800}
+.vb-legend{display:flex;gap:18px;font:500 11px/1 'Inter',sans-serif;color:var(--t2);justify-content:center;margin-top:6px}
+.vb-legend .item{display:flex;align-items:center;gap:5px}
+.vb-legend .dot{width:9px;height:9px;border-radius:50%}
+.vb-legend .dot.p{background:var(--pos)}
+.vb-legend .dot.i{background:var(--neg)}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* VARIANT C — "Hero étendu + Cards Stories + Liste loyers"      */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.vc-hero{
+  background:linear-gradient(135deg,#FFF7F2 0%,#F0FAF8 100%);
+  border:1px solid var(--bor);border-radius:18px;padding:22px;margin-bottom:16px;position:relative;overflow:hidden
+}
+.vc-hero::after{
+  content:"☀️";position:absolute;top:-10px;right:-10px;font-size:90px;opacity:.4;pointer-events:none
+}
+.vc-hero .greeting{font:600 12px/1 'JetBrains Mono',monospace;color:var(--warn2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.vc-hero h2{font:800 26px/1.2 'Manrope',sans-serif;color:var(--t1);margin-bottom:6px;max-width:80%}
+.vc-hero .sub{font:500 14px/1.4 'Inter',sans-serif;color:var(--t2);margin-bottom:18px;max-width:80%}
+.vc-hero-qa{display:flex;gap:10px;flex-wrap:wrap}
+.vc-hero-qa a{
+  text-decoration:none;background:var(--sur);border:1px solid var(--bor);
+  padding:10px 14px;border-radius:10px;font:600 12px/1 'Inter',sans-serif;color:var(--t1);
+  display:flex;align-items:center;gap:8px;transition:.15s;cursor:pointer;box-shadow:var(--shad)
+}
+.vc-hero-qa a:hover{transform:translateY(-2px);box-shadow:var(--shad-lift);border-color:var(--cta)}
+.vc-hero-qa a .ic{font-size:16px}
+
+.vc-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.vc-mini-kpi{
+  background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:18px;
+  box-shadow:var(--shad);display:flex;align-items:center;gap:14px
+}
+.vc-mini-kpi .ic-bg{
+  width:50px;height:50px;border-radius:14px;display:flex;align-items:center;
+  justify-content:center;font-size:24px;flex-shrink:0
+}
+.vc-mini-kpi.pos .ic-bg{background:rgba(16,185,129,.12);color:var(--pos)}
+.vc-mini-kpi.neg .ic-bg{background:rgba(239,68,68,.12);color:var(--neg)}
+.vc-mini-kpi .info{flex:1}
+.vc-mini-kpi .v{font:800 22px/1 'Manrope',sans-serif;color:var(--t1);margin-bottom:4px}
+.vc-mini-kpi .v.pos{color:var(--pos)}
+.vc-mini-kpi .v.neg{color:var(--neg)}
+.vc-mini-kpi .s{font:500 11px/1.2 'Inter',sans-serif;color:var(--t2)}
+
+.vc-loyers-list{display:flex;flex-direction:column;gap:6px}
+.vc-loyer-row{
+  display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;
+  padding:9px 12px;background:var(--sur2);border:1px solid var(--bor);border-radius:9px
+}
+.vc-loyer-row.imp{background:rgba(239,68,68,.04);border-color:rgba(239,68,68,.15)}
+.vc-loyer-row .st{width:8px;height:8px;border-radius:50%;background:var(--pos)}
+.vc-loyer-row.imp .st{background:var(--neg)}
+.vc-loyer-row .ref{font:700 12px/1 'Inter',sans-serif;color:var(--t1)}
+.vc-loyer-row .name{font:500 11.5px/1 'Inter',sans-serif;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.vc-loyer-row .am{font:700 13px/1 'Manrope',sans-serif;color:var(--t1)}
+.vc-loyer-row.imp .am{color:var(--neg)}
+.vc-loyer-row .tag{font:600 10px/1 'Inter',sans-serif;padding:3px 7px;border-radius:6px;background:rgba(16,185,129,.12);color:var(--pos)}
+.vc-loyer-row.imp .tag{background:rgba(239,68,68,.10);color:var(--neg)}
+
+/* ─── Notes ─── */
+.notes{
+  max-width:1100px;margin:30px auto 0;padding:24px 28px;
+  background:rgba(255,255,255,.06);border-radius:14px;color:#cbd;font-size:13px;line-height:1.6
+}
+.notes h2{color:#fff;font:700 18px/1.2 'Manrope',sans-serif;margin-bottom:14px}
+.notes h3{color:#fff;font:600 13px/1 'Inter',sans-serif;margin:16px 0 6px;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.notes table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+.notes th,.notes td{padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08)}
+.notes th{color:#fff;font-weight:600;background:rgba(255,255,255,.04)}
+.notes code{background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;font-size:12px;color:#fcd}
+.notes .pro{color:#9be3a3}
+.notes .con{color:#f08b8b}
+</style>
+</head>
+<body>
+
+<div class="doc-h">
+  <h1>🏠 Page d'accueil Solo — 3 variantes</h1>
+  <p>Hero "météo" + "À traiter" du screenshot user, complétés par Quick Access (Dashboard / Logements / Loyers) et visu loyers payés/impayés. 3 styles à comparer.</p>
+  <div class="legend">
+    <span>Persona : <b>Solo (1-5 logements)</b></span>
+    <span>Mode visuel : <b>V4 Sobre</b></span>
+    <span>Viewport : <b>desktop 1280px</b> (responsive après validation)</span>
+  </div>
+</div>
+
+<div class="variants">
+
+<!-- ════════════════════════ VARIANT A ════════════════════════ -->
+<div class="variant">
+  <div class="variant-label">
+    <span>VARIANT A — Tuiles colorées 2×2 + Donut payés/impayés</span>
+    <span class="tag">Cosy</span>
+  </div>
+  <div class="frame">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="ic">⛅</div>
+      <div class="info">
+        <h2>Didier, 2 actions en attente</h2>
+        <div class="sub">2 points à traiter ce mois-ci.</div>
+        <div class="kpis">
+          <div class="kpi"><b>2 632,94 €</b><s>REÇU MAI</s></div>
+          <div class="kpi"><b>93 %</b><s>OCCUPATION</s></div>
+          <div class="kpi"><b class="neg">-5 080,66 €</b><s>NET YTD</s></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QA tuiles 2x2 + Donut côte à côte -->
+    <div class="va-row">
+      <div>
+        <div class="va-tiles">
+          <button class="va-tile t1">
+            <div class="va-tile-ic">📊</div>
+            <b>Tableau de bord</b>
+            <s>Vue complète Premium</s>
+          </button>
+          <button class="va-tile t2">
+            <div class="va-tile-ic">🏠</div>
+            <b>Logements</b>
+            <s>16 lots gérés</s>
+          </button>
+          <button class="va-tile t3">
+            <div class="va-tile-ic">💰</div>
+            <b>Loyers</b>
+            <s>21/22 payés ce mois</s>
+          </button>
+          <button class="va-tile t4">
+            <div class="va-tile-ic">📅</div>
+            <b>Agenda</b>
+            <s>3 échéances cette semaine</s>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Loyers · Mai</h3><span class="small">21 / 22 lots</span></div>
+        <div class="va-donut">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="48" fill="none" stroke="#EEF1F6" stroke-width="14"/>
+            <!-- 95.4% en pos vert -->
+            <circle cx="60" cy="60" r="48" fill="none" stroke="#10B981" stroke-width="14"
+              stroke-dasharray="287.6 301.6" stroke-dashoffset="-7" transform="rotate(-90 60 60)" stroke-linecap="butt"/>
+            <text x="60" y="56" text-anchor="middle" font="800 22px Manrope" fill="#141936">95</text>
+            <text x="60" y="76" text-anchor="middle" font="600 10px JetBrains Mono" fill="#5A6478" letter-spacing="2">%</text>
+          </svg>
+          <div class="va-donut-info">
+            <div class="vl">6 582 €</div>
+            <div class="l pos"><span class="dot"></span><span><b>21</b> payés · 6 582 €</span></div>
+            <div class="l neg"><span class="dot"></span><span><b>4</b> impayés · 1 404 €</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- À traiter en pleine largeur -->
+    <div class="todo">
+      <h3>À traiter <span class="pill">2 actions</span></h3>
+      <div class="todo-it">
+        <div class="ic">🛡️</div>
+        <div class="txt"><b>MRH manquante</b><s>F-Local — M. REGIS MANGIN</s></div>
+        <span class="chev">→</span>
+      </div>
+      <div class="todo-it">
+        <div class="ic b2">📊</div>
+        <div class="txt"><b>Révision IRL dans 15 j</b><s>F-101 — 440,00 € → 443,42 €</s></div>
+        <span class="chev">→</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════ VARIANT B ════════════════════════ -->
+<div class="variant">
+  <div class="variant-label">
+    <span>VARIANT B — Quick actions barre + Bar chart 12 mois (stacked payés/impayés)</span>
+    <span class="tag">Data-dense</span>
+  </div>
+  <div class="frame">
+
+    <!-- HERO -->
+    <div class="hero">
+      <div class="ic">⛅</div>
+      <div class="info">
+        <h2>Didier, 2 actions en attente</h2>
+        <div class="sub">2 points à traiter ce mois-ci.</div>
+        <div class="kpis">
+          <div class="kpi"><b>2 632,94 €</b><s>REÇU MAI</s></div>
+          <div class="kpi"><b>93 %</b><s>OCCUPATION</s></div>
+          <div class="kpi"><b class="neg">-5 080,66 €</b><s>NET YTD</s></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QA barre horizontale -->
+    <div class="vb-qa">
+      <button class="vb-qa-it"><span class="ic">📊</span><b>Tableau de bord</b></button>
+      <button class="vb-qa-it"><span class="ic">🏠</span><b>Logements</b></button>
+      <button class="vb-qa-it"><span class="ic">💰</span><b>Loyers</b></button>
+      <button class="vb-qa-it"><span class="ic">📅</span><b>Agenda</b></button>
+      <button class="vb-qa-it"><span class="ic">🛡️</span><b>Assurances</b></button>
+      <button class="vb-qa-it"><span class="ic">📋</span><b>Quittances</b></button>
+    </div>
+
+    <!-- Bar chart + à traiter -->
+    <div class="vb-row">
+
+      <div class="card vb-bars">
+        <div class="card-h">
+          <h3>Loyers payés / impayés · 12 mois</h3>
+          <span class="small">Mai 2025 → Mai 2026</span>
+        </div>
+        <div class="b-grid">
+          <!-- Bars stacked : impay (rouge) en haut, pay (vert) en bas -->
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:6px"></div><div class="pay" style="height:110px"></div></div><div class="lbl">M</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:4px"></div><div class="pay" style="height:115px"></div></div><div class="lbl">J</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:14px"></div><div class="pay" style="height:105px"></div></div><div class="lbl">J</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:10px"></div><div class="pay" style="height:108px"></div></div><div class="lbl">A</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:5px"></div><div class="pay" style="height:117px"></div></div><div class="lbl">S</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:8px"></div><div class="pay" style="height:112px"></div></div><div class="lbl">O</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:9px"></div><div class="pay" style="height:110px"></div></div><div class="lbl">N</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:7px"></div><div class="pay" style="height:113px"></div></div><div class="lbl">D</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:11px"></div><div class="pay" style="height:108px"></div></div><div class="lbl">J</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:12px"></div><div class="pay" style="height:106px"></div></div><div class="lbl">F</div></div>
+          <div class="vb-bar"><div class="stack"><div class="impay" style="height:6px"></div><div class="pay" style="height:114px"></div></div><div class="lbl">A</div></div>
+          <div class="vb-bar cur"><div class="stack"><div class="impay" style="height:22px"></div><div class="pay" style="height:96px"></div></div><div class="lbl">M*</div></div>
+        </div>
+        <div class="vb-legend">
+          <span class="item"><span class="dot p"></span>Payés</span>
+          <span class="item"><span class="dot i"></span>Impayés</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--t3)">* mois en cours</span>
+        </div>
+      </div>
+
+      <div class="todo">
+        <h3>À traiter <span class="pill">2 actions</span></h3>
+        <div class="todo-it">
+          <div class="ic">🛡️</div>
+          <div class="txt"><b>MRH manquante</b><s>F-Local — M. REGIS MANGIN</s></div>
+          <span class="chev">→</span>
+        </div>
+        <div class="todo-it">
+          <div class="ic b2">📊</div>
+          <div class="txt"><b>Révision IRL dans 15 j</b><s>F-101 — 440 € → 443,42 €</s></div>
+          <span class="chev">→</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ VARIANT C ════════════════════════ -->
+<div class="variant">
+  <div class="variant-label">
+    <span>VARIANT C — Hero étendu (QA intégrés) + 2 mini-KPIs + Liste loyers</span>
+    <span class="tag">Storytelling</span>
+  </div>
+  <div class="frame">
+
+    <!-- HERO étendu avec QA intégrés -->
+    <div class="vc-hero">
+      <div class="greeting">● BONSOIR DIDIER</div>
+      <h2>2 actions à traiter ce mois pour rester serein.</h2>
+      <div class="sub">93 % d'occupation, 2 632,94 € encaissés en mai, projection annuelle conforme.</div>
+      <div class="vc-hero-qa">
+        <a><span class="ic">📊</span> Tableau de bord</a>
+        <a><span class="ic">🏠</span> Mes logements</a>
+        <a><span class="ic">💰</span> Loyers</a>
+        <a><span class="ic">📅</span> Agenda</a>
+      </div>
+    </div>
+
+    <!-- 2 mini KPIs gauche + À traiter droite -->
+    <div class="vc-row">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="vc-mini-kpi pos">
+          <div class="ic-bg">✓</div>
+          <div class="info">
+            <div class="v pos">21 / 22</div>
+            <div class="s">Loyers payés ce mois (6 582,94 €)</div>
+          </div>
+        </div>
+        <div class="vc-mini-kpi neg">
+          <div class="ic-bg">!</div>
+          <div class="info">
+            <div class="v neg">4 impayés</div>
+            <div class="s">1 404,00 € en attente · 4 locataires</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="todo">
+        <h3>À traiter <span class="pill">2 actions</span></h3>
+        <div class="todo-it">
+          <div class="ic">🛡️</div>
+          <div class="txt"><b>MRH manquante</b><s>F-Local — M. REGIS MANGIN</s></div>
+          <span class="chev">→</span>
+        </div>
+        <div class="todo-it">
+          <div class="ic b2">📊</div>
+          <div class="txt"><b>Révision IRL dans 15 j</b><s>F-101 — 440 € → 443,42 €</s></div>
+          <span class="chev">→</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste loyers détail -->
+    <div class="card">
+      <div class="card-h">
+        <h3>Loyers Mai 2026 — détail par lot</h3>
+        <span class="small">21 payés · 4 impayés · 1 vacant</span>
+      </div>
+      <div class="vc-loyers-list">
+        <div class="vc-loyer-row"><span class="st"></span><span class="ref">F-001</span><span class="name">M. DUPONT Jean</span><span class="am">670,00 €</span><span class="tag">✓ Payé</span></div>
+        <div class="vc-loyer-row"><span class="st"></span><span class="ref">F-002</span><span class="name">Mme MARTIN Sophie</span><span class="am">410,00 €</span><span class="tag">✓ Payé</span></div>
+        <div class="vc-loyer-row imp"><span class="st"></span><span class="ref">F-101</span><span class="name">M. BERNARD Luc</span><span class="am">460,00 €</span><span class="tag">⚠ Impayé</span></div>
+        <div class="vc-loyer-row"><span class="st"></span><span class="ref">F-102</span><span class="name">Mme PETIT Anne</span><span class="am">660,00 €</span><span class="tag">✓ Payé</span></div>
+        <div class="vc-loyer-row imp"><span class="st"></span><span class="ref">F-Local</span><span class="name">M. REGIS MANGIN</span><span class="am">250,00 €</span><span class="tag">⚠ Impayé</span></div>
+        <div class="vc-loyer-row"><span class="st"></span><span class="ref">D-001</span><span class="name">M. NGUYEN Tho</span><span class="am">626,24 €</span><span class="tag">✓ Payé</span></div>
+      </div>
+      <div style="text-align:center;margin-top:10px"><a style="color:var(--cta);font:600 12px/1 'Inter';text-decoration:none;cursor:pointer">Voir les 22 lots →</a></div>
+    </div>
+
+  </div>
+</div>
+
+</div>
+
+<!-- ─── Notes comparatives ─── -->
+<div class="notes">
+  <h2>📊 Comparatif des 3 variantes</h2>
+
+  <table>
+    <thead>
+      <tr><th>Critère</th><th>A — Tuiles + Donut</th><th>B — Barre + Bar chart</th><th>C — Hero étendu + Liste</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Quick Access</td>
+        <td>4 tuiles colorées 2×2 (visuelles, accueillantes)</td>
+        <td>6 boutons compacts en barre horizontale</td>
+        <td>4 chips dans le hero (intégrés)</td>
+      </tr>
+      <tr>
+        <td>Visu loyers</td>
+        <td>Donut % payés + total + breakdown</td>
+        <td>Bar chart stacked 12 mois (tendance visible)</td>
+        <td>Liste détaillée par lot (action directe)</td>
+      </tr>
+      <tr>
+        <td>Densité info</td>
+        <td>Moyenne</td>
+        <td>Haute (12 mois visibles)</td>
+        <td>Très haute (lots un par un)</td>
+      </tr>
+      <tr>
+        <td>Cible idéale</td>
+        <td>Solo aimant le visuel</td>
+        <td>Solo "data-driven" (suit la tendance)</td>
+        <td>Solo qui veut tout voir d'un coup d'œil</td>
+      </tr>
+      <tr>
+        <td>Hauteur écran</td>
+        <td>~580 px (tient bien)</td>
+        <td>~620 px</td>
+        <td>~780 px (scroll possible)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Mon avis (à confirmer/contredire)</h3>
+  <ul>
+    <li><b>Variant A</b> : <span class="pro">le plus accueillant pour un nouveau user</span>. Tuiles colorées = explore. Donut = comprehension immédiate. <span class="con">Mais moins riche en info historique.</span></li>
+    <li><b>Variant B</b> : <span class="pro">le plus actionable pour un solo qui suit ses loyers tous les mois</span>. Bar chart = "ai-je un mois bizarre ?". <span class="con">Mais la barre QA en haut peut paraître chargée.</span></li>
+    <li><b>Variant C</b> : <span class="pro">le plus dense, idéal solo avec 2-5 lots</span>. Liste détaillée = action directe (1 clic = quittance). <span class="con">Mais cher en hauteur, scroll nécessaire si plus de 5 lots.</span></li>
+  </ul>
+
+  <h3>Questions à trancher pour la suite</h3>
+  <ul>
+    <li>Cette page d'accueil <b>remplace</b> le dashboard pour Solo, ou s'y <b>ajoute</b> (= 2 pages distinctes "Accueil" + "Dashboard") ?</li>
+    <li>Sur les screenshots tu montres <b>2 actions</b> dans À traiter, mais combien max afficher en réalité (3, 5, "tous") ?</li>
+    <li>Veux-tu un <b>4e KPI</b> dans le hero (ex: projection annuelle) ou les 3 actuels suffisent ?</li>
+    <li>Quick Access : <b>seulement 3</b> (Dashboard / Logements / Loyers comme demandé) ou élargir à 4-6 ?</li>
+    <li>Si on choisit A ou C, on garde aussi le <b>cash-flow 12 mois</b> quelque part (graphique en bas) ou pas du tout ?</li>
+  </ul>
+</div>
+
+</body>
+</html>
