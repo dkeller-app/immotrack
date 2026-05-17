@@ -6450,6 +6450,17 @@ body[data-dash-v4="on"] .v4s-k-projection > * {
 .v4s-entview-lot.ok .v4s-st { background: var(--pos); }
 .v4s-entview-lot.warn .v4s-st { background: var(--warn); }
 .v4s-entview-lot.vac .v4s-st { background: var(--neg); }
+/* v15.44 — IMPAYÉ (occupied + non payé) : dot rouge + fond rouge clair */
+.v4s-entview-lot.imp .v4s-st { background: var(--neg); }
+.v4s-entview-lot.imp {
+  background: rgba(239,68,68,.06);
+  border-color: rgba(239,68,68,.22);
+}
+.v4s-entview-lot.imp .v4s-am { color: var(--neg); font-weight: 700; }
+.v4s-entview-lot.imp:hover {
+  background: rgba(239,68,68,.10);
+  border-color: rgba(239,68,68,.42);
+}
 .v4s-entview-lot .v4s-nm {
   font: 700 12.5px/1.2 'Manrope', sans-serif;
   color: var(--t1);
@@ -6556,6 +6567,17 @@ body[data-dash-v4="on"] .v4s-sb-ent .v4s-e.add {
   color: var(--t3);
   font-size: 18px;
   line-height: 1;
+}
+/* v15.44 — Chip "Toutes" (reset filtre entité). Look distinct : étoile + couleur cta. */
+body[data-dash-v4="on"] .v4s-sb-ent .v4s-e-all {
+  background: linear-gradient(135deg, rgba(0,181,166,.06), rgba(14,115,246,.04));
+}
+body[data-dash-v4="on"] .v4s-sb-ent .v4s-e-all b {
+  color: var(--cta);
+  font-size: 15px;
+}
+body[data-dash-v4="on"] .v4s-sb-ent .v4s-e-all.act {
+  background: linear-gradient(135deg, rgba(0,181,166,.12), rgba(14,115,246,.08));
 }
 body[data-dash-v4="on"] .v4s-sb-nav { flex: 1; overflow: auto; padding: 2px 0; }
 body[data-dash-v4="on"] .v4s-sb-nav h6 {
