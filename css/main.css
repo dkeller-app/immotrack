@@ -7293,5 +7293,11 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   /* Séparateurs plus discrets */
   body[data-dash-v4="on"] .v4s-tb-sep { display: none; }
 
-  /* Sidebar legacy (hors V4) : reste accessible via hamburger (overlay déjà géré) */
+  /* v15.55 — Drive FAB caché sur mobile (couvre le topbar 390px).
+     Accessible via Plus → sidebar overlay → Paramètres → bouton Drive. */
+  body[data-dash-v4="on"] #drive-fab,
+  body[data-dash-v4="on"] #drive-user-badge { display: none !important; }
+
+  /* v15.55 — Sidebar overlay mobile : au-dessus du bottom nav quand ouverte */
+  body[data-dash-v4="on"] .sb-nav { z-index: 1500 !important; box-shadow: 4px 0 24px rgba(0,0,0,.4); }
 }
