@@ -407,18 +407,30 @@
     tablet:  '📱 Tablette · 768 px (responsive — drill = panneau slide-right)',
     mobile:  '📱 Mobile · 390 px (responsive — drill = bottom-sheet 92%)',
   };
+  // Largeurs cibles par device — appliquées en JS inline (bypass cascade CSS)
+  const DEVICE_W = { desktop: 1280, tablet: 768, mobile: 390 };
+
   document.querySelectorAll('[data-device]').forEach(b => b.addEventListener('click', () => {
     document.querySelectorAll('[data-device]').forEach(x => x.classList.remove('act'));
     b.classList.add('act');
+    const d = b.dataset.device;
     stage.classList.remove('is-desktop', 'is-tablet', 'is-mobile');
-    stage.classList.add('is-' + b.dataset.device);
-    stage.querySelector('.device-label').textContent = labels[b.dataset.device];
-    // Force max-width inline (bypass iframe quirks)
-    const maxW = { desktop: '1280px', tablet: '768px', mobile: '390px' }[b.dataset.device];
-    stage.style.maxWidth = maxW;
-    // Re-apply transforms aux panels (changement de mode bottom-sheet ↔ slide-right)
+    stage.classList.add('is-' + d);
+    stage.querySelector('.device-label').textContent = labels[d];
+    // Force width + max-width inline pour redimensionner réellement le frame.
+    // L'iframe preview ignore parfois max-width sur attribute selectors → on force.
+    const px = DEVICE_W[d] + 'px';
+    stage.style.width = px;
+    stage.style.maxWidth = px;
+    // Marge auto recalculée pour centrer
+    stage.style.marginLeft = 'auto';
+    stage.style.marginRight = 'auto';
     if (typeof _refreshAllPanelsStyle === 'function') _refreshAllPanelsStyle();
   }));
+
+  // Au boot, appliquer la largeur cible desktop par défaut
+  stage.style.width = DEVICE_W.desktop + 'px';
+  stage.style.maxWidth = DEVICE_W.desktop + 'px';
 
   // JS-driven transform (bypass CSS cascade quirks in iframe previews)
   function _applyDrillStyle(panel, open) {
