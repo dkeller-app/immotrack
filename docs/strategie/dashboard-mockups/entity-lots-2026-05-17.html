@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup — Visu lots entité (refonte)</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B; --cta:#00B5A6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.5 'Inter',sans-serif;background:#1a1a24;color:#fff;padding:24px}
+h1{text-align:center;margin-bottom:6px;font:700 22px Manrope}
+.sub{text-align:center;color:#aab;margin-bottom:30px;font-size:13px}
+.opts{display:flex;flex-direction:column;gap:24px;max-width:1200px;margin:0 auto}
+.opt{background:var(--bg);color:var(--t1);border-radius:12px;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.opt-label{background:linear-gradient(135deg,#1e7e5f,#10B981);color:#fff;padding:10px 16px;border-radius:8px;font:700 14px/1 Manrope;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.opt-label .tag{font:600 10px/1 Inter;padding:3px 7px;border-radius:5px;background:rgba(0,0,0,.25);text-transform:uppercase;letter-spacing:.06em}
+.opt-label .ko{background:rgba(239,68,68,.4)}
+.pros{margin-top:10px;padding:10px 12px;background:rgba(16,185,129,.06);border-left:3px solid var(--pos);border-radius:0 6px 6px 0;font-size:12.5px;color:var(--t2)}
+.pros strong{color:var(--pos)}
+.cons{margin-top:6px;padding:10px 12px;background:rgba(239,68,68,.06);border-left:3px solid var(--neg);border-radius:0 6px 6px 0;font-size:12.5px;color:var(--t2)}
+.cons strong{color:var(--neg)}
+
+/* Card entité commune */
+.ent-card{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:18px;margin-bottom:12px}
+.ent-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.ent-av{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#00CCBC,#0E73F6);color:#fff;display:flex;align-items:center;justify-content:center;font:700 12px Inter}
+.ent-name{font:700 15px Manrope;color:var(--t1)}
+.ent-sub{font-size:11.5px;color:var(--t3)}
+.ent-kpis{margin-left:auto;display:flex;gap:18px}
+.ent-kp{text-align:right}
+.ent-kp s{font:600 9px/1 'JetBrains Mono';color:var(--t3);text-transform:uppercase;display:block;margin-bottom:3px;text-decoration:none}
+.ent-kp b{font:800 13px Manrope}
+.ent-kp.pos b{color:var(--pos)}
+.ent-kp.neg b{color:var(--neg)}
+
+/* ════ ACTUEL (KO) — ce qui est cassé ════ */
+.cur-lots{display:flex;gap:6px;flex-wrap:wrap}
+.cur-lot{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;font:600 12px Inter;min-width:120px}
+.cur-lot .dot{width:8px;height:8px;border-radius:50%;background:var(--pos);flex-shrink:0}
+.cur-lot .dot.vac{background:var(--neg)}
+.cur-lot .am{margin-left:auto;font-size:11px;color:var(--t2)}
+
+/* ════ Option 1 : Statut clair par lot ════ */
+.o1-lots{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.o1-lot{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:9px 11px;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;cursor:pointer}
+.o1-lot.ok{border-left:3px solid var(--pos)}
+.o1-lot.imp{border-left:3px solid var(--neg);background:rgba(239,68,68,.04)}
+.o1-lot.vac{border-left:3px solid var(--t3);background:repeating-linear-gradient(45deg,var(--sur2) 0 5px,var(--bor2) 5px 10px)}
+.o1-lot.warn{border-left:3px solid var(--warn);background:rgba(245,158,11,.04)}
+.o1-lot .ic{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.o1-lot.ok .ic{background:rgba(16,185,129,.12);color:var(--pos)}
+.o1-lot.imp .ic{background:rgba(239,68,68,.12);color:var(--neg)}
+.o1-lot.vac .ic{background:rgba(139,149,171,.15);color:var(--t3)}
+.o1-lot.warn .ic{background:rgba(245,158,11,.12);color:var(--warn)}
+.o1-lot .info b{font:700 12.5px Inter;color:var(--t1);display:block;line-height:1.2}
+.o1-lot .info s{font:500 10.5px Inter;color:var(--t3);text-decoration:none}
+.o1-lot .am{font:700 11.5px Inter;color:var(--t1);text-align:right;white-space:nowrap}
+.o1-lot.imp .am{color:var(--neg)}
+.o1-lot.vac .am{color:var(--t3)}
+
+/* ════ Option 2 : Vue tabulaire compacte ════ */
+.o2-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.o2-table th{font:600 10px/1 'JetBrains Mono';color:var(--t3);text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:8px 10px;border-bottom:1px solid var(--bor);background:var(--sur2)}
+.o2-table td{padding:8px 10px;border-bottom:1px solid var(--bor2)}
+.o2-table tr:last-child td{border-bottom:0}
+.o2-table tr.imp{background:rgba(239,68,68,.03)}
+.o2-table tr.vac{background:repeating-linear-gradient(45deg,#fff 0 5px,var(--bor2) 5px 10px)}
+.o2-table tr:hover{background:var(--sur2)}
+.o2-imm-row td{background:var(--sur2);font:700 10.5px/1 'JetBrains Mono';color:var(--t1);text-transform:uppercase;letter-spacing:.06em;padding:10px}
+.o2-num{text-align:right;font:700 12px 'JetBrains Mono';color:var(--t1)}
+.o2-pill{font:600 10px Inter;padding:3px 7px;border-radius:5px;display:inline-block}
+.o2-pill.ok{background:rgba(16,185,129,.12);color:var(--pos)}
+.o2-pill.imp{background:rgba(239,68,68,.12);color:var(--neg)}
+.o2-pill.vac{background:rgba(139,149,171,.15);color:var(--t3)}
+.o2-pill.warn{background:rgba(245,158,11,.12);color:var(--warn)}
+
+/* ════ Option 3 : Bulles compactes type "boutons" ════ */
+.o3-section{margin-bottom:10px}
+.o3-imm{font:700 10.5px/1 'JetBrains Mono';color:var(--t1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;padding-left:4px}
+.o3-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:5px}
+.o3-pill{display:flex;flex-direction:column;align-items:center;padding:7px 6px;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;cursor:pointer;text-align:center;position:relative;transition:.15s}
+.o3-pill:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.05)}
+.o3-pill.ok{border-top:3px solid var(--pos)}
+.o3-pill.imp{border-top:3px solid var(--neg);background:rgba(239,68,68,.04)}
+.o3-pill.vac{border-top:3px solid var(--t3);background:repeating-linear-gradient(45deg,var(--sur2) 0 4px,var(--bor2) 4px 8px)}
+.o3-pill.warn{border-top:3px solid var(--warn)}
+.o3-pill b{font:700 11.5px Inter;color:var(--t1);line-height:1.2}
+.o3-pill s{font:600 10px Inter;color:var(--t2);text-decoration:none;margin-top:2px}
+.o3-pill.imp s{color:var(--neg)}
+.o3-pill.vac s{color:var(--t3);font-style:italic}
+.o3-pill .badge{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:var(--neg);color:#fff;font:700 8px/14px Inter;text-align:center}
+</style>
+</head>
+<body>
+
+<h1>🏠 Visu lots entité — refonte</h1>
+<p class="sub">User : "c'est n'importe quoi pour les visu des biens !" → Voici 3 propositions de refonte</p>
+
+<div class="opts">
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- ACTUEL : le bug -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="opt">
+  <div class="opt-label" style="background:linear-gradient(135deg,#7f1d1d,#dc2626)">
+    <span>❌ ACTUEL — ce qui ne va pas</span>
+    <span class="tag ko">KO</span>
+  </div>
+
+  <div class="ent-card">
+    <div class="ent-head">
+      <div class="ent-av">SD</div>
+      <div>
+        <div class="ent-name">SCI DD2AMELEVIERES</div>
+        <div class="ent-sub">15 lots gérés · 1 vacant</div>
+      </div>
+      <div class="ent-kpis">
+        <div class="ent-kp"><s>Recettes</s><b class="pos" style="color:var(--pos)">28 145,50 €</b></div>
+        <div class="ent-kp"><s>Dépenses</s><b class="neg" style="color:var(--neg)">-33 226,16 €</b></div>
+        <div class="ent-kp"><s>Résultat</s><b class="neg" style="color:var(--neg)">-5 080,66 €</b></div>
+      </div>
+    </div>
+    <div style="font:700 10px/1 'JetBrains Mono';color:var(--t1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">FREYMING</div>
+    <div class="cur-lots">
+      <div class="cur-lot"><span class="dot"></span><span>F-001</span><span class="am">6 419,03 €</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>F-002</span><span class="am">4 920,00 €</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>F-101</span><span class="am">5 520,00 €</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>F-102</span><span class="am">7 920,00 €</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>F-201</span><span class="am">5 160,00 €</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>F-Local</span><span class="am">3 000,00 €</span></div>
+    </div>
+    <div style="font:700 10px/1 'JetBrains Mono';color:var(--t1);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">DAMELEVIÈRES</div>
+    <div class="cur-lots">
+      <div class="cur-lot"><span class="dot"></span><span>D-001</span><span class="am">+626,24 €</span></div>
+      <div class="cur-lot"><span class="dot vac"></span><span>D-002 vacant</span><span class="am">490 € théo</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>D-003</span><span class="am">+585,81 €</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>D-104</span><span class="am">+616,56 €</span></div>
+      <div class="cur-lot"><span class="dot"></span><span>D-105 vacant</span><span class="am">—</span></div>
+    </div>
+  </div>
+
+  <div class="cons">
+    <strong>Problèmes :</strong><br>
+    • Tous les lots affichés avec un <b>dot vert</b> sans distinction (5 520€, 7 920€, 6 419€) → impossible de voir d'un coup d'œil qui est payé / impayé / partiel<br>
+    • Formats incohérents : F-001 "6 419,03 €" vs D-001 "+626,24 €" (avec préfixe +)<br>
+    • D-002 "vacant 490€ théo" vs D-105 "vacant —" (incohérence vacants)<br>
+    • Montants étranges : F-001 6 419€ pour un loyer mensuel de ~670€ = ?<br>
+    • Aucun statut visuel clair (payé/partiel/impayé/vacant)
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- OPTION 1 : Cards avec border-left coloré + icône ====-->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="opt">
+  <div class="opt-label">
+    <span>🅰️ OPTION 1 — Cards avec border-left coloré + icône statut</span>
+    <span class="tag">Visuel clair</span>
+  </div>
+
+  <div class="ent-card">
+    <div class="ent-head">
+      <div class="ent-av">SD</div>
+      <div>
+        <div class="ent-name">SCI DD2AMELEVIERES</div>
+        <div class="ent-sub">15 lots · 1 vacant · 1 impayé</div>
+      </div>
+      <div class="ent-kpis">
+        <div class="ent-kp"><s>Reçu / Att.</s><b>28 146 / 32 590 €</b></div>
+        <div class="ent-kp pos"><s>Résultat</s><b>-5 081 €</b></div>
+      </div>
+    </div>
+    <div style="font:700 10px/1 'JetBrains Mono';color:var(--t1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">FREYMING</div>
+    <div class="o1-lots">
+      <a class="o1-lot ok"><div class="ic">✓</div><div class="info"><b>F-001</b><s>DUPONT Jean</s></div><div class="am">670 €</div></a>
+      <a class="o1-lot ok"><div class="ic">✓</div><div class="info"><b>F-002</b><s>MARTIN Sophie</s></div><div class="am">410 €</div></a>
+      <a class="o1-lot warn"><div class="ic">~</div><div class="info"><b>F-101</b><s>ARSLAN / HARNIST · 94 %</s></div><div class="am">730 / 780 €</div></a>
+      <a class="o1-lot ok"><div class="ic">✓</div><div class="info"><b>F-102</b><s>PETIT Anne</s></div><div class="am">660 €</div></a>
+      <a class="o1-lot ok"><div class="ic">✓</div><div class="info"><b>F-201</b><s>BERNARD Luc</s></div><div class="am">430 €</div></a>
+      <a class="o1-lot imp"><div class="ic">!</div><div class="info"><b>F-Local</b><s>REGIS MANGIN · 0 / 250 €</s></div><div class="am">−250 €</div></a>
+    </div>
+    <div style="font:700 10px/1 'JetBrains Mono';color:var(--t1);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px">DAMELEVIÈRES</div>
+    <div class="o1-lots">
+      <a class="o1-lot ok"><div class="ic">✓</div><div class="info"><b>D-001</b><s>NGUYEN Tho</s></div><div class="am">626 €</div></a>
+      <a class="o1-lot vac"><div class="ic">○</div><div class="info"><b>D-002</b><s>Vacant · 490 € théo</s></div><div class="am">—</div></a>
+      <a class="o1-lot ok"><div class="ic">✓</div><div class="info"><b>D-003</b><s>LACOMBE Eve</s></div><div class="am">585 €</div></a>
+      <a class="o1-lot imp"><div class="ic">!</div><div class="info"><b>D-104</b><s>MORIN Julie · 0 / 600 €</s></div><div class="am">−600 €</div></a>
+      <a class="o1-lot vac"><div class="ic">○</div><div class="info"><b>D-105</b><s>Vacant · 597 € théo</s></div><div class="am">—</div></a>
+    </div>
+  </div>
+
+  <div class="pros">
+    <strong>Pour :</strong><br>
+    • 4 couleurs claires : vert (payé) / orange (partiel) / rouge (impayé) / gris hachuré (vacant)<br>
+    • Border-left + icône → statut visible en 0.5 sec<br>
+    • Montant cohérent : pour le mois sélectionné = 1 valeur<br>
+    • Affiche nom locataire (utile pour relancer impayés)
+  </div>
+  <div class="cons">
+    <strong>Contre :</strong> prend un peu plus de place verticale.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- OPTION 2 : Tableau dense -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="opt">
+  <div class="opt-label">
+    <span>🅱️ OPTION 2 — Tableau dense (style comptable)</span>
+    <span class="tag">Pro</span>
+  </div>
+
+  <div class="ent-card">
+    <div class="ent-head">
+      <div class="ent-av">SD</div>
+      <div>
+        <div class="ent-name">SCI DD2AMELEVIERES</div>
+        <div class="ent-sub">15 lots · 1 vacant · 1 impayé</div>
+      </div>
+      <div class="ent-kpis">
+        <div class="ent-kp pos"><s>Reçu Mai</s><b>2 633 €</b></div>
+        <div class="ent-kp neg"><s>Manque</s><b>-850 €</b></div>
+      </div>
+    </div>
+    <table class="o2-table">
+      <thead><tr><th>Lot</th><th>Locataire</th><th style="text-align:right">Attendu</th><th style="text-align:right">Reçu</th><th>Statut</th></tr></thead>
+      <tbody>
+        <tr class="o2-imm-row"><td colspan="5">FREYMING</td></tr>
+        <tr><td><b>F-001</b></td><td>DUPONT Jean</td><td class="o2-num">670 €</td><td class="o2-num" style="color:var(--pos)">670 €</td><td><span class="o2-pill ok">✓ Payé</span></td></tr>
+        <tr><td><b>F-002</b></td><td>MARTIN Sophie</td><td class="o2-num">410 €</td><td class="o2-num" style="color:var(--pos)">410 €</td><td><span class="o2-pill ok">✓ Payé</span></td></tr>
+        <tr><td><b>F-101</b></td><td>ARSLAN / HARNIST</td><td class="o2-num">780 €</td><td class="o2-num" style="color:var(--warn)">730 €</td><td><span class="o2-pill warn">~ 94 %</span></td></tr>
+        <tr><td><b>F-102</b></td><td>PETIT Anne</td><td class="o2-num">660 €</td><td class="o2-num" style="color:var(--pos)">660 €</td><td><span class="o2-pill ok">✓ Payé</span></td></tr>
+        <tr><td><b>F-201</b></td><td>BERNARD Luc</td><td class="o2-num">430 €</td><td class="o2-num" style="color:var(--pos)">430 €</td><td><span class="o2-pill ok">✓ Payé</span></td></tr>
+        <tr class="imp"><td><b>F-Local</b></td><td>REGIS MANGIN</td><td class="o2-num">250 €</td><td class="o2-num" style="color:var(--neg)">0 €</td><td><span class="o2-pill imp">⚠ Impayé</span></td></tr>
+        <tr class="o2-imm-row"><td colspan="5">DAMELEVIÈRES</td></tr>
+        <tr><td><b>D-001</b></td><td>NGUYEN Tho</td><td class="o2-num">626 €</td><td class="o2-num" style="color:var(--pos)">626 €</td><td><span class="o2-pill ok">✓ Payé</span></td></tr>
+        <tr class="vac"><td><b>D-002</b></td><td>—</td><td class="o2-num">490 € <span style="color:var(--t3);font-size:10px">théo</span></td><td class="o2-num">—</td><td><span class="o2-pill vac">○ Vacant</span></td></tr>
+        <tr><td><b>D-003</b></td><td>LACOMBE Eve</td><td class="o2-num">585 €</td><td class="o2-num" style="color:var(--pos)">585 €</td><td><span class="o2-pill ok">✓ Payé</span></td></tr>
+        <tr class="imp"><td><b>D-104</b></td><td>MORIN Julie</td><td class="o2-num">600 €</td><td class="o2-num" style="color:var(--neg)">0 €</td><td><span class="o2-pill imp">⚠ Impayé</span></td></tr>
+        <tr class="vac"><td><b>D-105</b></td><td>—</td><td class="o2-num">597 € <span style="color:var(--t3);font-size:10px">théo</span></td><td class="o2-num">—</td><td><span class="o2-pill vac">○ Vacant</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pros">
+    <strong>Pour :</strong> max d'info en un seul coup d'œil (lot / locataire / attendu / reçu / statut). Très "compta".
+  </div>
+  <div class="cons">
+    <strong>Contre :</strong> moins visuel/sexy. Sur mobile, le tableau scroll horizontal nécessaire.
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- OPTION 3 : Bulles compactes -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="opt">
+  <div class="opt-label">
+    <span>🅲 OPTION 3 — Bulles compactes (style chips)</span>
+    <span class="tag">Compact</span>
+  </div>
+
+  <div class="ent-card">
+    <div class="ent-head">
+      <div class="ent-av">SD</div>
+      <div>
+        <div class="ent-name">SCI DD2AMELEVIERES</div>
+        <div class="ent-sub">15 lots · 1 vacant · 1 impayé</div>
+      </div>
+      <div class="ent-kpis">
+        <div class="ent-kp pos"><s>Reçu Mai</s><b>2 633 €</b></div>
+      </div>
+    </div>
+    <div class="o3-section">
+      <div class="o3-imm">FREYMING</div>
+      <div class="o3-grid">
+        <a class="o3-pill ok"><b>F-001</b><s>670 €</s></a>
+        <a class="o3-pill ok"><b>F-002</b><s>410 €</s></a>
+        <a class="o3-pill warn"><b>F-101</b><s>730 / 780</s></a>
+        <a class="o3-pill ok"><b>F-102</b><s>660 €</s></a>
+        <a class="o3-pill ok"><b>F-201</b><s>430 €</s></a>
+        <a class="o3-pill imp"><span class="badge">!</span><b>F-Local</b><s>−250 €</s></a>
+      </div>
+    </div>
+    <div class="o3-section">
+      <div class="o3-imm">DAMELEVIÈRES</div>
+      <div class="o3-grid">
+        <a class="o3-pill ok"><b>D-001</b><s>626 €</s></a>
+        <a class="o3-pill vac"><b>D-002</b><s>vacant</s></a>
+        <a class="o3-pill ok"><b>D-003</b><s>585 €</s></a>
+        <a class="o3-pill imp"><span class="badge">!</span><b>D-104</b><s>−600 €</s></a>
+        <a class="o3-pill vac"><b>D-105</b><s>vacant</s></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros">
+    <strong>Pour :</strong> compact, beaucoup de lots par ligne. Border-top coloré + badge "!" rouge pour impayés. Pattern hachuré pour vacants.
+  </div>
+  <div class="cons">
+    <strong>Contre :</strong> on perd le nom du locataire (à voir via tooltip ou clic).
+  </div>
+</div>
+
+</div>
+
+<p style="text-align:center;color:#aab;margin-top:30px;font-size:13px">
+  → Réponds-moi <strong>1</strong>, <strong>2</strong> ou <strong>3</strong>
+</p>
+
+</body>
+</html>

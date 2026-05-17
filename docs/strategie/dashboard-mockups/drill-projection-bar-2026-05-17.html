@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup — Barre projection (3 options)</title>
+<style>
+:root {
+  --bg:#F4F6FB; --sur:#FFFFFF; --sur2:#F8FAFD;
+  --t1:#141936; --t2:#5A6478; --t3:#8B95AB;
+  --bor:#E4E8F0; --bor2:#EEF1F6;
+  --pos:#10B981; --neg:#EF4444; --warn:#F59E0B; --cta:#00B5A6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.5 'Inter',sans-serif;background:#1a1a24;color:#fff;padding:24px}
+h1{text-align:center;margin-bottom:6px;font:700 22px Manrope}
+.sub{text-align:center;color:#aab;margin-bottom:30px;font-size:13px}
+.opts{display:flex;flex-direction:column;gap:24px;max-width:900px;margin:0 auto}
+.opt{background:var(--bg);color:var(--t1);border-radius:12px;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.opt-label{background:linear-gradient(135deg,#1e7e5f,#10B981);color:#fff;padding:10px 16px;border-radius:8px;font:700 14px/1 Manrope;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.opt-label .tag{font:600 10px/1 Inter;padding:3px 7px;border-radius:5px;background:rgba(0,0,0,.25);text-transform:uppercase;letter-spacing:.06em}
+.pros{margin-top:10px;padding:10px 12px;background:rgba(16,185,129,.06);border-left:3px solid var(--pos);border-radius:0 6px 6px 0;font-size:12.5px;color:var(--t2)}
+.pros strong{color:var(--pos)}
+.cons{margin-top:6px;padding:10px 12px;background:rgba(239,68,68,.06);border-left:3px solid var(--neg);border-radius:0 6px 6px 0;font-size:12.5px;color:var(--t2)}
+.cons strong{color:var(--neg)}
+
+/* ─── Option A — Inline labels ─── */
+.a-bar{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:18px}
+.a-head{display:flex;justify-content:space-between;margin-bottom:10px;font-size:12px;color:var(--t2)}
+.a-head strong{color:var(--t1);font-size:14px}
+.a-bar-wrap{position:relative;height:32px;background:var(--bor2);border-radius:8px;overflow:hidden;margin-bottom:8px}
+.a-bar-realise{position:absolute;left:0;top:0;height:100%;width:43%;background:var(--pos);border-radius:8px 0 0 8px;display:flex;align-items:center;justify-content:center;color:#fff;font:700 11px Inter}
+.a-bar-proj{position:absolute;left:43%;top:0;height:100%;width:53%;background:repeating-linear-gradient(45deg,rgba(16,185,129,.45) 0 6px,rgba(16,185,129,.20) 6px 12px);display:flex;align-items:center;justify-content:center;color:var(--t1);font:700 11px Inter}
+.a-bar-line{position:absolute;left:100%;top:-4px;width:3px;height:40px;background:var(--t1);transform:translateX(-1px)}
+.a-legend{display:flex;gap:14px;font-size:11px;color:var(--t2);margin-top:6px;flex-wrap:wrap}
+.a-legend .dot{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+/* ─── Option B — Jauge unique ─── */
+.b-card{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:18px}
+.b-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.b-pct{font:900 28px/1 Manrope;color:var(--warn)}
+.b-pct.ok{color:var(--pos)}
+.b-pct.bad{color:var(--neg)}
+.b-bar{position:relative;height:14px;background:var(--bor2);border-radius:7px;overflow:hidden}
+.b-bar-fill{position:absolute;left:0;top:0;height:100%;width:93%;background:var(--warn);border-radius:7px}
+.b-bar-fill.ok{background:var(--pos)}
+.b-bar-fill.bad{background:var(--neg)}
+.b-footer{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+.b-footer .it{padding:8px 10px;background:var(--sur2);border-radius:8px}
+.b-footer .it s{font:600 9.5px/1 'JetBrains Mono';color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:3px;text-decoration:none}
+.b-footer .it b{font:800 14px/1 Manrope;color:var(--t1)}
+
+/* ─── Option C — Pas de barre, cards seules ─── */
+.c-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.c-card{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:18px;text-align:center}
+.c-card s{font:600 10px/1 'JetBrains Mono';color:var(--t3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;text-decoration:none}
+.c-card .v{font:900 28px/1.1 Manrope;color:var(--t1)}
+.c-card .v.warn{color:var(--warn)}
+.c-card .v.neg{color:var(--neg)}
+.c-card .ctx{font-size:11px;color:var(--t2);margin-top:5px}
+.c-pill{display:inline-block;margin-top:10px;background:rgba(245,158,11,.12);color:var(--warn);font:700 11px Inter;padding:5px 12px;border-radius:14px}
+</style>
+</head>
+<body>
+
+<h1>📊 Barre projection — 3 options</h1>
+<p class="sub">Drill "Projection annuelle" — choisir le visuel de la barre globale du haut.</p>
+
+<div class="opts">
+
+<!-- ════ OPTION A : Labels INLINE dans la barre ════ -->
+<div class="opt">
+  <div class="opt-label">
+    <span>OPTION A — Barre actuelle mais avec labels INLINE</span>
+    <span class="tag">Améliore l'existant</span>
+  </div>
+
+  <div class="a-bar">
+    <div class="a-head">
+      <span>Année 2026 · projection vs objectif</span>
+      <span><strong>96 %</strong> de l'objectif</span>
+    </div>
+    <div class="a-bar-wrap">
+      <div class="a-bar-realise">Réalisé 36 364 €</div>
+      <div class="a-bar-proj">Projection reste 41 352 €</div>
+      <div class="a-bar-line"></div>
+    </div>
+    <div class="a-legend">
+      <span><span class="dot" style="background:var(--pos)"></span>Réalisé</span>
+      <span><span class="dot" style="background:repeating-linear-gradient(45deg,rgba(16,185,129,.45) 0 3px,rgba(16,185,129,.2) 3px 6px)"></span>Projection (reste)</span>
+      <span><span class="dot" style="background:var(--t1);width:3px"></span>Objectif 83 125 €</span>
+    </div>
+  </div>
+
+  <div class="pros"><strong>Pour :</strong> tu vois TOUT en un coup d'œil (réalisé + projection + objectif). Labels € directement dans la barre = plus de doute.</div>
+  <div class="cons"><strong>Contre :</strong> reste un peu chargé. Sur mobile, les labels inline peuvent déborder.</div>
+</div>
+
+<!-- ════ OPTION B : Jauge simple ════ -->
+<div class="opt">
+  <div class="opt-label">
+    <span>OPTION B — Jauge unique colorée selon ratio</span>
+    <span class="tag">Simple</span>
+  </div>
+
+  <div class="b-card">
+    <div class="b-head">
+      <div>
+        <div style="font-size:12px;color:var(--t2)">Année 2026 · avancement annuel</div>
+        <div style="color:var(--t3);font-size:11px;margin-top:3px">vert ≥100% · orange ≥85% · rouge &lt;85%</div>
+      </div>
+      <div class="b-pct">93 %</div>
+    </div>
+    <div class="b-bar">
+      <div class="b-bar-fill"></div>
+    </div>
+    <div class="b-footer">
+      <div class="it"><s>Réalisé YTD</s><b>36 364 €</b></div>
+      <div class="it"><s>Projection</s><b>77 716 €</b></div>
+      <div class="it"><s>Objectif</s><b>83 125 €</b></div>
+    </div>
+  </div>
+
+  <div class="pros"><strong>Pour :</strong> ultra clair. % en gros à droite, couleur immédiate. Les 3 chiffres en dessous suffisent pour les détails.</div>
+  <div class="cons"><strong>Contre :</strong> on perd la distinction visuelle réalisé vs projection.</div>
+</div>
+
+<!-- ════ OPTION C : Pas de barre, juste cards ════ -->
+<div class="opt">
+  <div class="opt-label">
+    <span>OPTION C — Pas de barre, juste 3 cards centrées</span>
+    <span class="tag">Minimal</span>
+  </div>
+
+  <div class="c-cards">
+    <div class="c-card">
+      <s>Projection</s>
+      <div class="v warn">77 716 €</div>
+      <div class="ctx">93 % de l'objectif</div>
+      <span class="c-pill">⚠ Dans la cible</span>
+    </div>
+    <div class="c-card">
+      <s>Objectif</s>
+      <div class="v">83 125 €</div>
+      <div class="ctx">22 lots × 12 mois théorique</div>
+    </div>
+    <div class="c-card">
+      <s>Écart</s>
+      <div class="v warn">-5 409 €</div>
+      <div class="ctx">Manque pour atteindre l'objectif</div>
+    </div>
+  </div>
+
+  <div class="pros"><strong>Pour :</strong> minimaliste, lisible immédiatement, les 3 cards en haut du drill SUFFISENT déjà.</div>
+  <div class="cons"><strong>Contre :</strong> aucune progression visuelle. On perd la barre.</div>
+</div>
+
+</div>
+
+<p style="text-align:center;color:#aab;margin-top:30px;font-size:13px">
+  → Réponds-moi <strong>A</strong>, <strong>B</strong> ou <strong>C</strong> (ou combinaison)
+</p>
+
+</body>
+</html>
