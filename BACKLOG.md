@@ -15,12 +15,14 @@
 
 ---
 
-## 🔥 Sprint 19 actif — Refonte onglets V2 (10 remarques 2026-05-16)
+## 🔥 Marathon V1 propre — Sprint 19 + 20 (décision 2026-05-16 : Drive avant partage)
 
-> **9 lots indépendants · 14-21h total · prompts détaillés clé en main** :
-> [docs/strategie/SPRINT-19-REFONTE-ONGLETS-V2-PROMPTS.md](docs/strategie/SPRINT-19-REFONTE-ONGLETS-V2-PROMPTS.md)
+> **12 lots indépendants · 24-35h total · prompts détaillés clé en main** :
+> **[docs/strategie/SPRINT-19-20-MARATHON-V1-PROPRE-PROMPTS.md](docs/strategie/SPRINT-19-20-MARATHON-V1-PROPRE-PROMPTS.md)** 👈 fichier maître
 >
-> **Ordre recommandé** : 19A → 19B → 19C → 19D → 19E → 19F → 19G → 19H → 19I (3 bugs P1 d'abord, puis refontes UI)
+> **Décision user 2026-05-16** : finir bugs UX visibles (Sprint 19) PUIS fondations Drive solides (Sprint 20) AVANT le partage granulaire V1. Pas de patch vite fait sur fondations bancales.
+>
+> **Ordre strict** : 19A → 19I (UI bugs) → 20A → 20C (Drive solide) → Sprint 21 PARTAGE-GRANULAIRE V1 (~6-8h, à spec'er ensuite)
 >
 > | Lot | Sujet | Prio | Taille | Statut |
 > |---|---|---|---|---|
