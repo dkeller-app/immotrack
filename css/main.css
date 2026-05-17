@@ -6782,8 +6782,10 @@ body[data-dash-v4="on"] .v4s-theme-row {
 }
 body[data-dash-v4="on"] .v4s-sb-userfoot { flex-shrink: 0; }
 
-/* ─── Responsive V4 Stripe ─── */
-@media (max-width: 1280px) {
+/* ─── Responsive V4 Stripe DASHBOARD (v15.56 audit complet) ─── */
+
+/* TABLET LANDSCAPE (1024-1279px) : layout proche desktop mais plus serré */
+@media (min-width: 1024px) and (max-width: 1279px) {
   body[data-dash-v4="on"] .v4s-row1 {
     grid-template-columns: 1fr 1.4fr;
     grid-template-rows: auto auto;
@@ -6792,14 +6794,29 @@ body[data-dash-v4="on"] .v4s-sb-userfoot { flex-shrink: 0; }
     grid-column: 1 / 3;
     grid-row: 2;
   }
-  body[data-dash-v4="on"] .v4s-row2 {
-    grid-template-columns: repeat(3, 1fr);
-    grid-auto-rows: auto;
-  }
-  body[data-dash-v4="on"] .v4s-coach-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  body[data-dash-v4="on"] .v4s-row2 { grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  body[data-dash-v4="on"] .v4s-coach-cards { grid-template-columns: repeat(2, 1fr); }
   body[data-dash-v4="on"] .v4s-coach-c:nth-child(3) { display: none; }
+}
+
+/* TABLET PORTRAIT (768-1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  body[data-dash-v4="on"] .v4s-row1 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+  body[data-dash-v4="on"] .v4s-row1 .v4s-sjt {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+  body[data-dash-v4="on"] .v4s-row2 { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  body[data-dash-v4="on"] .v4s-row2 .v4s-k:nth-child(4) { grid-column: 1 / 3; }
+  body[data-dash-v4="on"] .v4s-row2 .v4s-k:nth-child(5) { grid-column: 3 / 4; }
+  body[data-dash-v4="on"] .v4s-coach-cards { grid-template-columns: repeat(2, 1fr); }
+  body[data-dash-v4="on"] .v4s-coach-c:nth-child(3) { display: none; }
+  /* Entity view : grid lots plus serré */
+  body[data-dash-v4="on"] .v4s-entview-imname { width: 130px; }
+  body[data-dash-v4="on"] .v4s-entview-lot { max-width: 160px; }
 }
 @media (max-width: 767px) {
   body[data-dash-v4="on"] .v4s-coach {
@@ -6845,6 +6862,42 @@ body[data-dash-v4="on"] .v4s-sb-userfoot { flex-shrink: 0; }
   body[data-dash-v4="on"] .v4s-cash-kpis { grid-template-columns: 1fr; gap: 6px; }
   body[data-dash-v4="on"] .v4s-cash-kpi { padding: 7px 9px; }
   body[data-dash-v4="on"] .v4s-cash-kpi b { font-size: 18px; }
+
+  /* Hero V4 dashboard : padding réduit + gauge SVG plus petit */
+  body[data-dash-v4="on"] .v4s-hero { padding: 14px 16px; }
+  body[data-dash-v4="on"] .v4s-hero-gauge svg { max-width: 160px; height: auto; }
+  body[data-dash-v4="on"] .v4s-hero-gv b { font-size: 36px; }
+  body[data-dash-v4="on"] .v4s-hero-mt { font-size: 22px; }
+  body[data-dash-v4="on"] .v4s-hero-sub { font-size: 11px; }
+
+  /* Cash-flow : sparkline plus courte */
+  body[data-dash-v4="on"] .v4s-cash-chart { height: 70px; }
+  body[data-dash-v4="on"] .v4s-cash h3 { font-size: 14px; }
+
+  /* Sujets à traiter (sjt) : compact */
+  body[data-dash-v4="on"] .v4s-sjt h3 { font-size: 14px; }
+  body[data-dash-v4="on"] .v4s-sjt-it { padding: 8px 10px; }
+
+  /* KPI tiles (row2) : titre + valeur plus petits */
+  body[data-dash-v4="on"] .v4s-k { padding: 10px 12px; }
+  body[data-dash-v4="on"] .v4s-k-v { font-size: 18px !important; }
+  body[data-dash-v4="on"] .v4s-k-ey { font-size: 9px; }
+  body[data-dash-v4="on"] .v4s-k-s { font-size: 10px; }
+
+  /* Entité card : header compact */
+  body[data-dash-v4="on"] .v4s-entview { padding: 12px 14px; }
+  body[data-dash-v4="on"] .v4s-entview-head h3 { font-size: 14px; }
+  body[data-dash-v4="on"] .v4s-entview-head .v4s-kp b { font-size: 12px; }
+
+  /* Entity lots : passe de flex-wrap à grid 3 cols (évite overflow refs longs) */
+  body[data-dash-v4="on"] .v4s-entview-lots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+  body[data-dash-v4="on"] .v4s-entview-lot { max-width: none; padding: 5px 7px; }
+  body[data-dash-v4="on"] .v4s-entview-lot .v4s-nm { font-size: 11px; }
+  body[data-dash-v4="on"] .v4s-entview-lot .v4s-am { font-size: 10px; }
 
   /* Entité view : nom immeuble au-dessus des lots (au lieu de côte à côte) */
   body[data-dash-v4="on"] .v4s-entview-imrow {
