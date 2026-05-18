@@ -15,6 +15,25 @@
 
 ---
 
+## 🔥 Sprint email UX & cache PWA (insert 2026-05-18, P0 dans le marathon)
+
+> **Découvert pendant test v15.84** : la modale email envoie bien via Gmail API MAIS :
+> 1. **PDF non attaché auto** (PJ « à joindre manuellement » dans la modale)
+> 2. **UX modale dégueu** (overflow mobile, hiérarchie boutons cassée, pas d'aff. FROM)
+> 3. **Service Worker cache les modules JS** sans invalidation → user voit ancien `email-modal.js`
+> 4. **Templates non personnalisables** + civilité non reprise du bail
+>
+> **Décision user 2026-05-18** : « on enregistre tout ça pour un sprint ». Sprint à insérer **avant 19C** car cache SW = bloquant pour livraison de toutes les futures fixes.
+>
+> | Lot | Sujet | Prio | Taille | Statut |
+> |---|---|---|---|---|
+> | EM-1 | [BUG-SW-CACHE-JS](docs/subjects/BUG-SW-CACHE-JS.md) — fix cache SW (bumper CACHE_VER + network-first pour JS) | **P0** | XS | ⬜ À faire (avant tout) |
+> | EM-2 | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — refonte 3 formats + PJ PDF auto | P1 | L | ⬜ Mockups d'abord (Phase 0 obligatoire) |
+> | EM-3 | [DOC-CIVILITE](docs/subjects/DOC-CIVILITE.md) — civilité dynamique dans templates (M./Mme du bail) | P2 | XS | ⬜ À faire |
+> | EM-4 | [TEMPLATES-EMAILS-PARAMS](docs/subjects/TEMPLATES-EMAILS-PARAMS.md) — éditeur templates dans Paramètres | P2 | M-L | ⬜ À faire (post EM-2) |
+
+---
+
 ## 🔥 Marathon V1 propre — Sprint 19 + 20 (décision 2026-05-16 : Drive avant partage)
 
 > **12 lots indépendants · 24-35h total · prompts détaillés clé en main** :

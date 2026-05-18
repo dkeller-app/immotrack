@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mockups Email Modal — PC (1280px)</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --t1: #e2e8f0; --t2: #94a3b8;
+    --acc: #3b82f6; --acc2: #06b6d4; --ok: #10b981; --ora: #f59e0b; --red: #ef4444;
+    --border: #334155; --border-soft: #1e293b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--t1); font-family: -apple-system, system-ui, sans-serif; padding: 24px; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  .sub { color: var(--t2); font-size: 13px; margin: 0 0 24px; }
+  .container { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; max-width: 1400px; }
+  .col h2 { font-size: 15px; margin: 0 0 12px; color: var(--acc); display: flex; align-items: center; gap: 8px; }
+  .badge { background: var(--acc); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  /* === Modale =========================================================== */
+  .modal { background: var(--panel); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); width: 100%; max-width: 640px; overflow: hidden; }
+  .m-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(6,182,212,.04)); }
+  .m-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .m-close { background: transparent; border: 0; color: var(--t2); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  .m-close:hover { background: rgba(255,255,255,.05); color: var(--t1); }
+  .from-bar { display: flex; align-items: center; gap: 8px; padding: 8px 20px; background: rgba(16,185,129,.08); border-bottom: 1px solid rgba(16,185,129,.2); font-size: 12px; }
+  .from-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .from-bar .lbl { color: var(--t2); }
+  .from-bar .em { color: var(--t1); font-weight: 500; }
+  .m-body { padding: 16px 20px; max-height: 60vh; overflow-y: auto; }
+  .fg { margin-bottom: 12px; }
+  .fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .fg label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--t2); margin-bottom: 4px; font-weight: 600; }
+  .inp { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--t1); font-size: 13px; font-family: inherit; }
+  .inp:focus { border-color: var(--acc); outline: none; }
+  textarea.inp { resize: vertical; min-height: 140px; font-size: 13px; line-height: 1.5; }
+  /* === PJ Card ========================================================== */
+  .att-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 12px; }
+  .att-card h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--t2); display: flex; align-items: center; gap: 6px; }
+  .att-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--panel); border-radius: 6px; margin-bottom: 6px; }
+  .att-item:last-child { margin-bottom: 0; }
+  .att-icon { width: 32px; height: 32px; background: rgba(59,130,246,.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .att-info { flex: 1; min-width: 0; }
+  .att-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .att-meta { font-size: 11px; color: var(--t2); }
+  .att-status { font-size: 11px; padding: 3px 8px; border-radius: 999px; font-weight: 500; }
+  .att-status.ok { background: rgba(16,185,129,.15); color: var(--ok); }
+  .att-status.pending { background: rgba(245,158,11,.15); color: var(--ora); }
+  .att-action { background: transparent; border: 1px solid var(--border); color: var(--t1); padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+  .att-action:hover { background: var(--acc); border-color: var(--acc); }
+  /* === Note légale collapsible ========================================== */
+  details.legal { margin-top: 12px; background: rgba(245,158,11,.08); border-left: 3px solid var(--ora); border-radius: 6px; padding: 8px 12px; font-size: 12px; }
+  details.legal summary { cursor: pointer; color: var(--ora); font-weight: 500; outline: none; }
+  details.legal[open] summary { margin-bottom: 6px; }
+  details.legal .content { color: var(--t1); line-height: 1.5; }
+  /* === Footer =========================================================== */
+  .m-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border); background: rgba(0,0,0,.15); }
+  .btn-group { display: flex; gap: 6px; }
+  .btn { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--t1); font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 500; }
+  .btn:hover { background: var(--bg); }
+  .btn.primary { background: var(--acc); border-color: var(--acc); color: white; }
+  .btn.primary:hover { background: #2563eb; }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--t2); }
+  .btn.ghost:hover { color: var(--t1); }
+  /* === Variant B : tabbed ============================================== */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab { padding: 10px 16px; cursor: pointer; font-size: 13px; color: var(--t2); border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--acc); border-color: var(--acc); }
+  /* === Legend =========================================================== */
+  .legend { margin-top: 24px; padding: 16px; background: var(--panel); border-radius: 8px; font-size: 12px; color: var(--t2); }
+  .legend ul { margin: 8px 0 0; padding-left: 20px; }
+  .legend li { margin: 4px 0; }
+  .legend code { background: var(--bg); padding: 1px 4px; border-radius: 3px; color: var(--acc); }
+</style>
+</head>
+<body>
+  <h1>Mockups Email Modal — Format PC (1280px+)</h1>
+  <p class="sub">2 variantes side-by-side · Action primaire = « 📤 Envoyer maintenant » via Gmail API · PDF attaché automatiquement</p>
+
+  <div class="container">
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- VARIANT A — COMPACT (préservation de la structure actuelle)     -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <div class="col">
+      <h2><span class="badge">A</span> Compact — patch minimal sur l'existant</h2>
+      <div class="modal">
+        <div class="m-head">
+          <h3>📧 Proposition de mail · Quittance mai 2026</h3>
+          <button class="m-close">✕</button>
+        </div>
+        <!-- FROM bar : nouveauté, visible avant envoi -->
+        <div class="from-bar">
+          <span class="dot"></span>
+          <span class="lbl">Envoi depuis</span>
+          <span class="em">didier.keller@gmail.com</span>
+          <span class="lbl" style="margin-left:auto">(Gmail connecté)</span>
+        </div>
+        <div class="m-body">
+          <div class="fg2">
+            <div class="fg">
+              <label>Destinataire</label>
+              <input class="inp" value="pierre.demo@example.fr">
+            </div>
+            <div class="fg">
+              <label>CC (optionnel)</label>
+              <input class="inp" placeholder="copie@example.com">
+            </div>
+          </div>
+          <div class="fg">
+            <label>Sujet</label>
+            <input class="inp" value="Quittance de loyer mai 2026 — 12 rue Voltaire, Paris">
+          </div>
+          <div class="fg">
+            <label>Corps du message</label>
+            <textarea class="inp" rows="7">Bonjour Monsieur Demo,
+
+Vous trouverez ci-joint la quittance de loyer pour le mois de mai 2026 relatif au logement situé 12 rue Voltaire, Paris.
+
+Détail :
+- Loyer hors charges : 850 €
+- Provisions sur charges : 80 €
+- Total perçu : 930 €
+
+Cordialement,
+Didier Keller</textarea>
+          </div>
+          <!-- PJ Card — refonte forte : statut + action explicite -->
+          <div class="att-card">
+            <h4>📎 Pièce jointe (auto-générée)</h4>
+            <div class="att-item">
+              <div class="att-icon">📄</div>
+              <div class="att-info">
+                <div class="att-name">Quittance-2026-05-LOG-001.pdf</div>
+                <div class="att-meta">142 Ko · généré à partir du template quittance</div>
+              </div>
+              <span class="att-status ok">✓ Prête</span>
+              <button class="att-action">Voir</button>
+            </div>
+          </div>
+          <details class="legal">
+            <summary>⚠️ Note légale (cliquer pour développer)</summary>
+            <div class="content">Conserver une copie + accusé de réception. La quittance est délivrée gratuitement (loi du 6 juillet 1989).</div>
+          </details>
+        </div>
+        <div class="m-foot">
+          <div class="btn-group">
+            <button class="btn ghost">Annuler</button>
+          </div>
+          <div class="btn-group">
+            <button class="btn">📋 Copier</button>
+            <button class="btn">📧 Client externe</button>
+            <button class="btn primary">📤 Envoyer maintenant</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <!-- VARIANT B — TABBED + APERÇU HTML                                  -->
+    <!-- ════════════════════════════════════════════════════════════════ -->
+    <div class="col">
+      <h2><span class="badge">B</span> Tabbed — Brouillon / Aperçu rendu</h2>
+      <div class="modal">
+        <div class="m-head">
+          <h3>📧 Envoyer un mail · Quittance mai 2026</h3>
+          <button class="m-close">✕</button>
+        </div>
+        <div class="from-bar">
+          <span class="dot"></span>
+          <span class="lbl">De</span>
+          <span class="em">didier.keller@gmail.com</span>
+          <span style="margin-left:auto; color: var(--t2);">→ <strong style="color:var(--t1)">pierre.demo@example.fr</strong></span>
+        </div>
+        <div class="m-body">
+          <div class="tabs">
+            <div class="tab active">📝 Brouillon</div>
+            <div class="tab">👁 Aperçu rendu</div>
+            <div class="tab">📎 PJ (1)</div>
+          </div>
+          <div class="fg2">
+            <div class="fg">
+              <label>À</label>
+              <input class="inp" value="pierre.demo@example.fr">
+            </div>
+            <div class="fg">
+              <label>CC</label>
+              <input class="inp" placeholder="—">
+            </div>
+          </div>
+          <div class="fg">
+            <label>Sujet</label>
+            <input class="inp" value="Quittance de loyer mai 2026 — 12 rue Voltaire">
+          </div>
+          <div class="fg">
+            <label>Message</label>
+            <textarea class="inp" rows="8">Bonjour Monsieur Demo,
+
+Vous trouverez ci-joint la quittance de loyer pour le mois de mai 2026 relatif au logement situé 12 rue Voltaire, Paris.
+
+Détail :
+- Loyer hors charges : 850 €
+- Provisions sur charges : 80 €
+- Total perçu : 930 €
+
+Cordialement,
+Didier Keller</textarea>
+          </div>
+          <div class="att-card">
+            <h4>📎 1 pièce jointe</h4>
+            <div class="att-item">
+              <div class="att-icon">📄</div>
+              <div class="att-info">
+                <div class="att-name">Quittance-2026-05-LOG-001.pdf</div>
+                <div class="att-meta">142 Ko</div>
+              </div>
+              <span class="att-status ok">✓ Auto-jointe</span>
+            </div>
+          </div>
+        </div>
+        <div class="m-foot">
+          <button class="btn ghost">Annuler</button>
+          <div class="btn-group">
+            <button class="btn">📋 Copier</button>
+            <button class="btn primary">📤 Envoyer maintenant</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <strong>Nouveautés communes A et B</strong>
+    <ul>
+      <li><strong>FROM bar</strong> : adresse expéditeur Gmail visible avant envoi (corrige bug v15.84 où FROM invisible)</li>
+      <li><strong>PJ auto-générée</strong> avec statut <code>✓ Prête / ⏳ En cours / ❌ Erreur</code> (corrige bug PDF non attaché)</li>
+      <li><strong>Note légale repliable</strong> (corrige problème UX : prenait toute la largeur)</li>
+      <li><strong>Hiérarchie boutons</strong> : <code>Annuler</code> (ghost) ← <code>Copier / Client externe</code> (secondary) ← <code>Envoyer maintenant</code> (primary)</li>
+      <li><strong>Sticky footer</strong> + body scrollable si contenu long</li>
+    </ul>
+    <strong style="margin-top:12px; display:block;">Différenciateurs</strong>
+    <ul>
+      <li><strong>A Compact</strong> : structure linéaire (corps + PJ + légale ensemble) — proche de l'existant, modif minimale</li>
+      <li><strong>B Tabbed</strong> : onglets pour séparer Brouillon / Aperçu HTML rendu / PJ — meilleure ergonomie sur emails longs avec PJ multiples (avenants, EDL)</li>
+    </ul>
+  </div>
+</body>
+</html>

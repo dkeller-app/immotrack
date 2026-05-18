@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=768">
+<title>Mockups Email Modal — Tablette (768px)</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --t1: #e2e8f0; --t2: #94a3b8;
+    --acc: #3b82f6; --acc2: #06b6d4; --ok: #10b981; --ora: #f59e0b; --red: #ef4444;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--t1); font-family: -apple-system, system-ui, sans-serif; padding: 16px; max-width: 768px; }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  .sub { color: var(--t2); font-size: 12px; margin: 0 0 16px; }
+  .col h2 { font-size: 14px; margin: 24px 0 10px; color: var(--acc); display: flex; align-items: center; gap: 8px; }
+  .badge { background: var(--acc); color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  .modal { background: var(--panel); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.4); width: 100%; max-width: 620px; margin: 0 auto; overflow: hidden; }
+  .m-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(6,182,212,.04)); }
+  .m-head h3 { margin: 0; font-size: 14px; font-weight: 600; }
+  .m-close { background: transparent; border: 0; color: var(--t2); font-size: 18px; cursor: pointer; padding: 4px 8px; }
+  .from-bar { display: flex; align-items: center; gap: 6px; padding: 7px 18px; background: rgba(16,185,129,.08); border-bottom: 1px solid rgba(16,185,129,.2); font-size: 12px; flex-wrap: wrap; }
+  .from-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .from-bar .lbl { color: var(--t2); }
+  .from-bar .em { color: var(--t1); font-weight: 500; }
+  .m-body { padding: 14px 18px; max-height: 55vh; overflow-y: auto; }
+  .fg { margin-bottom: 12px; }
+  .fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .fg label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--t2); margin-bottom: 4px; font-weight: 600; }
+  .inp { width: 100%; padding: 9px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--t1); font-size: 14px; font-family: inherit; }
+  textarea.inp { resize: vertical; min-height: 130px; line-height: 1.45; }
+  .att-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-top: 12px; }
+  .att-card h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--t2); }
+  .att-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--panel); border-radius: 6px; }
+  .att-icon { width: 32px; height: 32px; background: rgba(59,130,246,.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .att-info { flex: 1; min-width: 0; }
+  .att-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .att-meta { font-size: 11px; color: var(--t2); }
+  .att-status { font-size: 11px; padding: 3px 8px; border-radius: 999px; font-weight: 500; }
+  .att-status.ok { background: rgba(16,185,129,.15); color: var(--ok); }
+  details.legal { margin-top: 12px; background: rgba(245,158,11,.08); border-left: 3px solid var(--ora); border-radius: 6px; padding: 8px 12px; font-size: 12px; }
+  details.legal summary { cursor: pointer; color: var(--ora); font-weight: 500; outline: none; }
+  details.legal[open] summary { margin-bottom: 6px; }
+  .m-foot { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); background: rgba(0,0,0,.15); flex-wrap: wrap; }
+  .m-foot .left { display: flex; gap: 6px; flex: 0 0 auto; }
+  .m-foot .right { display: flex; gap: 6px; flex: 1; justify-content: flex-end; flex-wrap: wrap; }
+  .btn { padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--t1); font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 500; min-height: 40px; }
+  .btn.primary { background: var(--acc); border-color: var(--acc); color: white; }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--t2); }
+  .legend { margin-top: 24px; padding: 14px; background: var(--panel); border-radius: 8px; font-size: 12px; color: var(--t2); }
+  .legend code { background: var(--bg); padding: 1px 4px; border-radius: 3px; color: var(--acc); }
+</style>
+</head>
+<body>
+  <h1>Mockup Email Modal — Tablette (768px)</h1>
+  <p class="sub">Variante A — adaptation tablette · zone tactile ≥ 40px · footer wrappant si > 4 boutons</p>
+
+  <div class="col">
+    <h2><span class="badge">A</span> Compact — tablette portrait</h2>
+    <div class="modal">
+      <div class="m-head">
+        <h3>📧 Proposition de mail · Quittance mai 2026</h3>
+        <button class="m-close">✕</button>
+      </div>
+      <div class="from-bar">
+        <span class="dot"></span>
+        <span class="lbl">Envoi depuis</span>
+        <span class="em">didier.keller@gmail.com</span>
+      </div>
+      <div class="m-body">
+        <div class="fg2">
+          <div class="fg">
+            <label>Destinataire</label>
+            <input class="inp" value="pierre.demo@example.fr">
+          </div>
+          <div class="fg">
+            <label>CC</label>
+            <input class="inp" placeholder="—">
+          </div>
+        </div>
+        <div class="fg">
+          <label>Sujet</label>
+          <input class="inp" value="Quittance loyer mai 2026 — 12 rue Voltaire">
+        </div>
+        <div class="fg">
+          <label>Corps du message</label>
+          <textarea class="inp" rows="6">Bonjour Monsieur Demo,
+
+Vous trouverez ci-joint la quittance de loyer pour le mois de mai 2026 relatif au logement situé 12 rue Voltaire, Paris.
+
+Détail :
+- Loyer HC : 850 €
+- Charges : 80 €
+- Total perçu : 930 €
+
+Cordialement,
+Didier Keller</textarea>
+        </div>
+        <div class="att-card">
+          <h4>📎 Pièce jointe (auto-générée)</h4>
+          <div class="att-item">
+            <div class="att-icon">📄</div>
+            <div class="att-info">
+              <div class="att-name">Quittance-2026-05-LOG-001.pdf</div>
+              <div class="att-meta">142 Ko · template quittance</div>
+            </div>
+            <span class="att-status ok">✓ Prête</span>
+          </div>
+        </div>
+        <details class="legal">
+          <summary>⚠️ Note légale</summary>
+          <div>Conserver une copie + accusé de réception. La quittance est délivrée gratuitement (loi du 6 juillet 1989).</div>
+        </details>
+      </div>
+      <div class="m-foot">
+        <div class="left">
+          <button class="btn ghost">Annuler</button>
+        </div>
+        <div class="right">
+          <button class="btn">📋 Copier</button>
+          <button class="btn">📧 Client</button>
+          <button class="btn primary">📤 Envoyer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <strong>Tablette portrait (768px)</strong>
+    <ul style="margin: 6px 0; padding-left: 18px;">
+      <li>Modale centrée max-width 620px (occupe ~80% largeur)</li>
+      <li>Inputs <code>min-height: 40px</code> + <code>font-size: 14px</code> = zone tactile confortable</li>
+      <li>Footer flex-wrap : si le sujet « Envoyer maintenant » force overflow, le bouton secondaire passe ligne suivante</li>
+      <li>Pas de tabs en tablette → adaptation directe de la version A PC</li>
+    </ul>
+  </div>
+</body>
+</html>
