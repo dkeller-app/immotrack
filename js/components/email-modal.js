@@ -108,30 +108,47 @@ function _ensureModalDom() {
     </div>
   `;
 
-  // Click-outside ferme la modale
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeM(MODAL_ID);
-  });
-
-  // Délégation des actions (close + buttons)
-  modal.addEventListener('click', (e) => {
-    const t = e.target;
-    if (!t || !t.getAttribute) return;
-    if (t.hasAttribute('data-em-close')) {
-      closeM(MODAL_ID);
-      return;
-    }
-    const action = t.getAttribute('data-em-action');
-    if (!action) return;
-    const ctx = modal._emailCtx || {};
-    if (action === 'mailto') _onMailto(ctx);
-    else if (action === 'copy') _onCopy(ctx);
-    else if (action === 'share') _onShare(ctx);
-    else if (action === 'sendnow') _onSendNow(ctx);
-  });
-
   document.body.appendChild(modal);
+
+  // v15.82 BUG-EMAIL-MODAL-LISTENERS — délégation document-level (résiste aux
+  // recréations DOM). Les listeners attachés sur `modal` survivent normalement,
+  // mais on a constaté en prod que les clics ne déclenchaient rien — possiblement
+  // car une mutation DOM ailleurs détache silencieusement le listener.
+  // Solution : 1 seul listener au niveau document, scopé via .closest('#ov-email-compose').
+  _ensureEmailModalDelegation();
+
   return modal;
+}
+
+// v15.82 — Délégation document-level (singleton, attaché 1 seule fois)
+function _ensureEmailModalDelegation() {
+  if (typeof document === 'undefined') return;
+  if (document._emModalDelegationAttached) return;
+  document._emModalDelegationAttached = true;
+
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    // Scope : on agit uniquement si le clic vient de la modale email
+    const modal = t.closest('#' + MODAL_ID);
+    if (!modal) return;
+
+    // Click-outside (sur le backdrop .ov mais pas .modal lui-même)
+    if (t === modal) { closeM(MODAL_ID); return; }
+
+    const closeBtn = t.closest('[data-em-close]');
+    if (closeBtn && modal.contains(closeBtn)) { closeM(MODAL_ID); return; }
+
+    const actionBtn = t.closest('[data-em-action]');
+    if (actionBtn && modal.contains(actionBtn)) {
+      const action = actionBtn.getAttribute('data-em-action');
+      const ctx = modal._emailCtx || {};
+      if (action === 'mailto') _onMailto(ctx);
+      else if (action === 'copy') _onCopy(ctx);
+      else if (action === 'share') _onShare(ctx);
+      else if (action === 'sendnow') _onSendNow(ctx);
+    }
+  });
 }
 
 // ────────────────────────────────────────────────────────────────────────────
