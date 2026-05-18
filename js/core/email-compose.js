@@ -27,7 +27,7 @@ const TEMPLATES = {
   // ─── Quittance mensuelle ────────────────────────────────────────────────
   quittance: {
     subject: 'Quittance de loyer {{quittance.mois}} — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Vous trouverez ci-joint la quittance de loyer pour le mois de {{quittance.mois}} relatif au logement situé {{bail.adrBien}}.
 
@@ -50,7 +50,7 @@ Cordialement,
   // ─── Avis d'échéance (J-5 avant paiement) ──────────────────────────────
   'avis-echeance': {
     subject: 'Avis d\'échéance — Loyer {{periode}} — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous vous rappelons que votre loyer pour la période {{periode}} sera prélevé / à régler le {{dateEcheance}}.
 
@@ -75,7 +75,7 @@ Cordialement,
   // ─── Rappel impayé n°1 (amical, J+5) ───────────────────────────────────
   'rappel-impaye-1': {
     subject: 'Rappel — Loyer {{periode}} non perçu',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Sauf erreur ou règlement en cours de validation, nous n'avons pas réceptionné votre loyer pour la période {{periode}} (montant dû : {{montant}} €).
 
@@ -96,7 +96,7 @@ Cordialement,
   // ─── Rappel impayé n°2 (ferme, J+15) ───────────────────────────────────
   'rappel-impaye-2': {
     subject: 'Relance — Loyer impayé {{periode}} — {{bail.adrBien}}',
-    body: `{{locataire.nom}},
+    body: `{{locataire.civNom}},
 
 Malgré notre précédent rappel, votre loyer pour la période {{periode}} (montant : {{montant}} €) demeure impayé à ce jour.
 
@@ -119,12 +119,12 @@ Cordialement,
     body: `Lettre recommandée avec accusé de réception
 (et copie par email)
 
-{{locataire.nom}}
+{{locataire.civNom}}
 {{bail.adrBien}}
 
 Objet : Mise en demeure de payer — Loyer {{periode}}
 
-{{locataire.nom}},
+{{locataire.civNom}},
 
 Malgré nos relances des {{rappel1Date}} et {{rappel2Date}}, nous constatons que votre loyer de la période {{periode}} d'un montant de {{montant}} € reste à ce jour impayé.
 
@@ -136,7 +136,7 @@ Par la présente, nous vous mettons en demeure de procéder au règlement intég
 
 Nous restons disposés à étudier toute proposition de règlement amiable ou de plan d'apurement de la dette.
 
-Veuillez agréer, {{locataire.nom}}, l'expression de nos salutations distinguées.
+Veuillez agréer, {{locataire.civNom}}, l'expression de nos salutations distinguées.
 
 Fait à {{entite.siege}}, le {{dateLettre}}.
 
@@ -149,7 +149,7 @@ Fait à {{entite.siege}}, le {{dateLettre}}.
   // ─── Révision IRL (annuelle) ───────────────────────────────────────────
   'irl-revision': {
     subject: 'Révision annuelle du loyer (IRL) — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Conformément à l'article 17-1 de la loi n° 89-462 du 6 juillet 1989 et à la clause de révision figurant à votre bail, nous vous informons de la révision annuelle du loyer de votre logement situé {{bail.adrBien}}.
 
@@ -174,7 +174,7 @@ Cordialement,
   // ─── Renouvellement MRH ────────────────────────────────────────────────
   'mrh-renouvellement': {
     subject: 'Renouvellement assurance habitation (MRH) — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 L'attestation d'assurance habitation actuellement en notre possession pour le logement {{bail.adrBien}} arrive à échéance le {{dateFinMRH}}.
 
@@ -193,7 +193,7 @@ Cordialement,
   // ─── Bail signé (envoi copie finale) ───────────────────────────────────
   'bail-signe-final': {
     subject: 'Bail signé — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous vous remercions pour la signature de votre bail concernant le logement situé {{bail.adrBien}}.
 
@@ -225,7 +225,7 @@ Cordialement,
   // ─── Convocation EDL sortie ────────────────────────────────────────────
   'convocation-edl-sortie': {
     subject: 'Convocation — État des lieux de sortie — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Suite à votre préavis de départ du logement situé {{bail.adrBien}}, nous vous proposons de procéder à l'état des lieux de sortie le :
 
@@ -259,7 +259,7 @@ Cordialement,
 
   'bail-pret-a-signer': {
     subject: 'Votre bail est prêt à être signé — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Le projet de bail concernant le logement situé {{bail.adrBien}} est prêt à être signé.
 
@@ -291,9 +291,9 @@ Cordialement,
 
   'cautionnement-signe': {
     subject: 'Acte de cautionnement bien reçu — {{bail.adrBien}}',
-    body: `Bonjour {{garant.nom}},
+    body: `Bonjour {{garant.civNom}},
 
-Nous accusons réception de l'acte de cautionnement signé par vos soins en garantie des obligations locatives de {{locataire.nom}} pour le logement situé {{bail.adrBien}}.
+Nous accusons réception de l'acte de cautionnement signé par vos soins en garantie des obligations locatives de {{locataire.civNom}} pour le logement situé {{bail.adrBien}}.
 
 Cet acte engage votre solidarité au paiement des loyers, charges, et éventuelles indemnités d'occupation, dans les limites définies par le document signé.
 
@@ -314,7 +314,7 @@ Cordialement,
 
   'bail-avenant': {
     subject: 'Avenant à votre bail — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous vous transmettons en pièce jointe un avenant à votre bail concernant le logement {{bail.adrBien}}.
 
@@ -344,7 +344,7 @@ Cordialement,
 
   'edl-convocation-entree': {
     subject: 'Convocation — État des lieux d\'entrée — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous vous donnons rendez-vous pour l'état des lieux d'entrée du logement situé {{bail.adrBien}} :
 
@@ -371,7 +371,7 @@ Cordialement,
 
   'edl-entree-signe': {
     subject: 'État des lieux d\'entrée signé — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Vous trouverez en pièce jointe l'état des lieux d'entrée signé conjointement le {{dateEDL}} pour le logement situé {{bail.adrBien}}.
 
@@ -398,7 +398,7 @@ Cordialement,
 
   'bienvenue-infos-pratiques': {
     subject: 'Bienvenue ! Informations pratiques — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Bienvenue dans votre nouveau logement {{bail.adrBien}}.
 
@@ -443,7 +443,7 @@ Cordialement,
 
   'dg-recu': {
     subject: 'Confirmation réception dépôt de garantie — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous accusons bonne réception du dépôt de garantie d'un montant de {{bail.dg}} € versé le {{dateVersement}} pour le logement {{bail.adrBien}}.
 
@@ -464,7 +464,7 @@ Cordialement,
 
   'demande-attest-entretien-chauffage': {
     subject: 'Demande d\'attestation d\'entretien chauffage {{annee}} — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Conformément à l'article R224-31 du Code de l'environnement et au décret n° 2009-649 du 9 juin 2009, l'entretien annuel de la chaudière du logement {{bail.adrBien}} est à votre charge.
 
@@ -483,7 +483,7 @@ Cordialement,
 
   'demande-attest-mrh': {
     subject: 'Renouvellement attestation d\'assurance habitation — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 L'attestation d'assurance habitation actuellement en notre possession arrive à échéance le {{dateFinMRH}}.
 
@@ -502,7 +502,7 @@ Cordialement,
 
   'notification-travaux-a-venir': {
     subject: 'Notification de travaux à venir — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous vous informons que des travaux vont être réalisés dans / sur le logement situé {{bail.adrBien}} :
 
@@ -528,7 +528,7 @@ Cordialement,
 
   'notification-visite': {
     subject: 'Demande de créneau pour visite — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous aurions besoin d'accéder au logement {{bail.adrBien}} pour : {{motifVisite}}
 
@@ -554,7 +554,7 @@ Cordialement,
 
   'bail-renouvellement-3ans': {
     subject: 'Renouvellement de votre bail — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Votre bail concernant le logement {{bail.adrBien}} arrive à son terme initial le {{dateFin}}.
 
@@ -578,12 +578,12 @@ Cordialement,
     body: `Lettre recommandée avec accusé de réception
 (et copie par email)
 
-{{locataire.nom}}
+{{locataire.civNom}}
 {{bail.adrBien}}
 
 Objet : Congé pour {{motifConge}} — Bail du {{bail.debut}}
 
-{{locataire.nom}},
+{{locataire.civNom}},
 
 Conformément aux articles 15-I et 15-II de la loi n° 89-462 du 6 juillet 1989, je vous donne par la présente congé du logement {{bail.adrBien}} que je vous loue depuis le {{bail.debut}}, pour le motif suivant :
 
@@ -597,7 +597,7 @@ Vous trouverez ci-joint, le cas échéant, les pièces justifiant le motif allé
 
 Conformément à l'article 15-II, vous bénéficiez d'un droit de préemption en cas de congé pour vente. Le présent congé vaut offre de vente aux conditions précisées en annexe.
 
-Veuillez agréer, {{locataire.nom}}, l'expression de mes salutations distinguées.
+Veuillez agréer, {{locataire.civNom}}, l'expression de mes salutations distinguées.
 
 Fait à {{entite.siege}}, le {{dateLettre}}.
 
@@ -609,7 +609,7 @@ Fait à {{entite.siege}}, le {{dateLettre}}.
 
   'bail-preavis-recu': {
     subject: 'Accusé de réception de votre préavis — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Nous accusons bonne réception de votre préavis de départ du logement situé {{bail.adrBien}}, daté du {{datePreavis}}.
 
@@ -644,7 +644,7 @@ Cordialement,
 
   'edl-sortie-signe': {
     subject: 'État des lieux de sortie signé — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Vous trouverez en pièce jointe l'état des lieux de sortie signé conjointement le {{dateEDL}} pour le logement situé {{bail.adrBien}}.
 
@@ -667,7 +667,7 @@ Cordialement,
 
   'dg-restitution-integrale': {
     subject: 'Restitution intégrale de votre dépôt de garantie — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Suite à l'état des lieux de sortie du {{dateEDLSortie}} qui n'a fait apparaître aucune dégradation par rapport à l'entrée, nous vous restituons l'intégralité de votre dépôt de garantie.
 
@@ -689,7 +689,7 @@ Cordialement,
 
   'dg-restitution-partielle': {
     subject: 'Restitution partielle de votre dépôt de garantie — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Suite à l'état des lieux de sortie du {{dateEDLSortie}}, certaines dégradations ont été constatées et nécessitent une retenue sur votre dépôt de garantie.
 
@@ -719,7 +719,7 @@ Cordialement,
 
   'solde-tout-compte': {
     subject: 'Solde de tout compte final — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 À la suite de la sortie du logement {{bail.adrBien}}, nous établissons ci-dessous le solde de tout compte final :
 
@@ -753,7 +753,7 @@ Cordialement,
 
 Je soussigné(e), {{entite.gerant}}, agissant en qualité de bailleur (ou son mandataire) pour le compte de {{entite.nom}}, atteste par la présente que :
 
-{{locataire.nom}}, locataire du logement situé {{bail.adrBien}}, a effectivement libéré ledit logement en date du {{dateLiberation}}.
+{{locataire.civNom}}, locataire du logement situé {{bail.adrBien}}, a effectivement libéré ledit logement en date du {{dateLiberation}}.
 
 L'état des lieux contradictoire de sortie a été établi le {{dateEDLSortie}}. Les clés ont été remises {{modaliteRemiseClef}}.
 
@@ -770,7 +770,7 @@ Fait à {{entite.siege}}, le {{dateAttestation}}.
   // ─── Décompte régularisation annuelle ──────────────────────────────────
   'decompte-regul-annuel': {
     subject: 'Décompte de régularisation des charges {{annee}} — {{bail.adrBien}}',
-    body: `Bonjour {{locataire.nom}},
+    body: `Bonjour {{locataire.civNom}},
 
 Conformément à l'article 23 de la loi n° 89-462 du 6 juillet 1989, nous vous adressons le décompte de régularisation des charges pour l'année {{annee}} concernant le logement {{bail.adrBien}}.
 
@@ -851,6 +851,39 @@ export function _emailTypesSupportes() {
 }
 
 /**
+ * v15.90 EM-3 DOC-CIVILITE — Enrichit ctx.locataire (et ctx.garant) avec des champs
+ * dérivés civilité : civNom, civSalut, civilitePolitesse. Idempotent (no-op si déjà set).
+ *
+ * Mapping civilité court → long :
+ *   'M.'  → 'Monsieur'
+ *   'Mme' → 'Madame'
+ *   ''    → '' (fallback : civNom = nom seul, civSalut = "Madame, Monsieur,")
+ *
+ * @param {object} ctx
+ * @returns {object} ctx enrichi (nouvel objet, ne mute pas l'original)
+ */
+function _enrichContextCivilite(ctx) {
+  if (!ctx || typeof ctx !== 'object') return ctx;
+  const enriched = Object.assign({}, ctx);
+  for (const key of ['locataire', 'garant']) {
+    const p = ctx[key];
+    if (!p || typeof p !== 'object') continue;
+    const civ = String(p.civilite || '').trim();
+    const civLong = civ === 'M.' ? 'Monsieur' : (civ === 'Mme' ? 'Madame' : '');
+    const nom = String(p.nom || '').trim();
+    enriched[key] = Object.assign({}, p, {
+      // civNom : préfixe civilité (long) au nom. Si pas de civilité → juste le nom.
+      civNom: p.civNom != null ? p.civNom : ((civLong ? civLong + ' ' : '') + nom).trim() || nom,
+      // civSalut : formule d'appel ('Madame,' / 'Monsieur,' / 'Madame, Monsieur,' si genre inconnu)
+      civSalut: p.civSalut != null ? p.civSalut : (civLong ? civLong + ',' : 'Madame, Monsieur,'),
+      // civilitePolitesse : forme longue seule ('Monsieur' / 'Madame' / '' fallback)
+      civilitePolitesse: p.civilitePolitesse != null ? p.civilitePolitesse : civLong
+    });
+  }
+  return enriched;
+}
+
+/**
  * Génère un brouillon de mail pour un type donné + contexte.
  *
  * @param {string} type - Type d'email parmi _emailTypesSupportes()
@@ -873,7 +906,8 @@ export function _emailCompose(type, context = {}, opts = {}) {
     };
   }
 
-  const ctx = context || {};
+  // v15.90 EM-3 — enrichit locataire + garant avec civNom, civSalut, civilitePolitesse
+  const ctx = _enrichContextCivilite(context || {});
   const to = (ctx.locataire && ctx.locataire.email) || ctx.to || '';
   const cc = ctx.cc || '';
 

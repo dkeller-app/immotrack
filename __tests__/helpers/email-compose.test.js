@@ -278,6 +278,74 @@ describe('_emailCompose — 10 types V1', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
+// v15.90 EM-3 DOC-CIVILITE — civilité dynamique dans templates
+// ────────────────────────────────────────────────────────────────────────────
+describe('_emailCompose — civilité dynamique (EM-3 v15.90)', () => {
+  const baseCtx = {
+    locataire: { nom: 'Dupont', email: 'd@test.fr' },
+    bail: { adrBien: '10 rue X' },
+    logement: { ref: 'L-001' },
+    entite: { gerant: 'M. Y', nom: 'SCI X' },
+    quittance: { mois: 'mai 2026', hc: 500, ch: 50, total: 550 }
+  };
+
+  it('civilite "M." → body contient "Bonjour Monsieur Dupont"', () => {
+    const ctx = { ...baseCtx, locataire: { ...baseCtx.locataire, civilite: 'M.' } };
+    const out = _emailCompose('quittance', ctx);
+    expect(out.body).toContain('Bonjour Monsieur Dupont');
+    expect(out.body).not.toContain('Bonjour Dupont,');
+  });
+
+  it('civilite "Mme" → body contient "Bonjour Madame Dupont"', () => {
+    const ctx = { ...baseCtx, locataire: { ...baseCtx.locataire, civilite: 'Mme', nom: 'Martin' } };
+    const out = _emailCompose('quittance', ctx);
+    expect(out.body).toContain('Bonjour Madame Martin');
+  });
+
+  it('civilite absente → fallback "Bonjour Dupont" (juste le nom)', () => {
+    const out = _emailCompose('quittance', baseCtx);
+    expect(out.body).toContain('Bonjour Dupont');
+    expect(out.body).not.toContain('Monsieur');
+    expect(out.body).not.toContain('Madame');
+  });
+
+  it('rappel-impaye-3 (formel) : "Veuillez agréer, Monsieur Dupont,"', () => {
+    const ctx = {
+      ...baseCtx,
+      locataire: { ...baseCtx.locataire, civilite: 'M.' },
+      periode: 'mai 2026', montant: 550,
+      rappel1Date: '5 juin', rappel2Date: '20 juin', dateLettre: '5 juillet'
+    };
+    const out = _emailCompose('rappel-impaye-3', ctx);
+    expect(out.body).toContain('Veuillez agréer, Monsieur Dupont, l\'expression');
+  });
+
+  it('garant : cautionnement utilise civNom du garant', () => {
+    const ctx = {
+      ...baseCtx,
+      garant: { civilite: 'Mme', nom: 'Garant' }
+    };
+    const out = _emailCompose('cautionnement-signe', ctx);
+    expect(out.body).toContain('Bonjour Madame Garant');
+  });
+
+  it('civNom déjà fourni (ne fait pas double mapping)', () => {
+    const ctx = {
+      ...baseCtx,
+      locataire: { ...baseCtx.locataire, civilite: 'M.', civNom: 'Pré-calculé Custom' }
+    };
+    const out = _emailCompose('quittance', ctx);
+    expect(out.body).toContain('Pré-calculé Custom');
+    // Le mapping civilité ne doit pas écraser le civNom déjà fourni
+    expect(out.body).not.toContain('Monsieur Dupont');
+  });
+
+  it('context.locataire absent → pas de crash', () => {
+    expect(() => _emailCompose('quittance', { bail: {}, entite: {} })).not.toThrow();
+  });
+});
+
 describe('_emailCompose — sécurité', () => {
   it('escape HTML si opts.escapeHtml=true (nom locataire contient <script>)', () => {
     const ctx = ctxAlpha();
