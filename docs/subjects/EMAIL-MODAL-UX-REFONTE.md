@@ -1,6 +1,6 @@
 # EMAIL-MODAL-UX-REFONTE — Refonte UX modale email (PC + Tablette + Mobile + PJ PDF auto)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (~6-8h)
+**Status** : 🔄 EM-2a ✅ Livré v15.86 · EM-2b ⬜ à faire · **Prio** : P1 · **Taille** : L (~6-8h, scindé en a/b)
 **Détecté** : 2026-05-18 (user : « l'ux est dégueu (pire encore sur téléphone) »)
 **Lié à** : EMAIL-SMTP-CONNECT Phase 3 (PJ auto), DOC-CIVILITE, TEMPLATES-EMAILS-PARAMS, BUG-SW-CACHE-JS
 
@@ -88,3 +88,14 @@ Une modale qui :
 ## Journal
 
 - 2026-05-18 : créé · P1 · 5 phases · mockups OBLIGATOIRES Phase 0
+- 2026-05-18 : mockups livrés `mockups/email-modal-v2/` (PC + Tablette + Mobile)
+- 2026-05-18 : ✅ **EM-2a Livré v15.86** — Refonte HTML modale variant A validé user :
+  - Variant **A Compact** retenu pour PC + Mobile (avec adaptation 2-rangs mobile)
+  - **FROM bar verte** : adresse Gmail connectée visible avant envoi (lit `window._getDriveUserEmail()`)
+  - **PJ card** structure prête : titre dynamique (singulier/pluriel), icône 📄, nom + meta + statut Prête/⏳ À générer/❌ Erreur (statut "À générer" = placeholder EM-2b)
+  - **Note légale `<details>` repliable** au lieu de bloc orange permanent
+  - **Footer responsive** : PC = `[Annuler] ... [Copier] [Client externe] [Envoyer]` · Mobile (≤640px) = primary fullwidth ligne 1, secondaires + Annuler ligne 2
+  - **Hiérarchie boutons** : ghost / secondary / primary
+  - Vérif preview JS : modale s'ouvre, structure DOM conforme, version 15.86 OK, `<details>` confirmé tag DETAILS
+  - Tests Vitest 886/886 verts (18 email-modal + 25 email-send préservés)
+- ⬜ **EM-2b à faire** : PJ PDF auto pour 6 types (quittance + IRL + régul + bail + EDL + cautionnement)

@@ -28,7 +28,8 @@
 > | Lot | Sujet | Prio | Taille | Statut |
 > |---|---|---|---|---|
 > | EM-1 | [BUG-SW-CACHE-JS](docs/subjects/BUG-SW-CACHE-JS.md) — fix cache SW (bumper CACHE_VER + network-first pour JS) | **P0** | XS | ✅ Livré v15.85 |
-> | EM-2 | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — refonte 3 formats + PJ PDF auto | P1 | L | ⬜ Mockups d'abord (Phase 0 obligatoire) |
+> | EM-2a | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — refonte HTML modale variant A (FROM bar + PJ card + note légale repliable + footer 2 rangs mobile) | P1 | M | ✅ Livré v15.86 |
+> | EM-2b | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — PJ PDF auto-générée (6 types) | P1 | M | ⬜ À faire (suite EM-2a) |
 > | EM-3 | [DOC-CIVILITE](docs/subjects/DOC-CIVILITE.md) — civilité dynamique dans templates (M./Mme du bail) | P2 | XS | ⬜ À faire |
 > | EM-4 | [TEMPLATES-EMAILS-PARAMS](docs/subjects/TEMPLATES-EMAILS-PARAMS.md) — éditeur templates dans Paramètres | P2 | M-L | ⬜ À faire (post EM-2) |
 

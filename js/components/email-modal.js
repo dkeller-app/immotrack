@@ -74,11 +74,60 @@ function _ensureModalDom() {
   // listener JS (sur modal puis sur document) ont toutes échoué silencieusement
   // en prod — pattern HTML attribute garanti fonctionner.
   modal.setAttribute('onclick', "closeBg(event,'" + MODAL_ID + "')");
+  // v15.86 EM-2a — Refonte UX modale email variant A :
+  //  - FROM bar verte (adresse Gmail visible avant envoi)
+  //  - PJ card avec statut Prête/En cours/Erreur (slot prêt pour PJ auto v15.87)
+  //  - Note légale repliable <details> (au lieu de bloc orange permanent)
+  //  - Footer : Annuler (ghost) / Copier+Client (secondary) / Envoyer (primary)
+  //  - Mobile (≤640px) : footer 2 rangs (primary fullwidth + secondaires)
   modal.innerHTML = `
+    <style id="em-modal-styles">
+      #${MODAL_ID} .em-from-bar { display: flex; align-items: center; gap: 8px; padding: 8px 20px; background: rgba(16,185,129,.10); border-bottom: 1px solid rgba(16,185,129,.25); font-size: 12px; }
+      #${MODAL_ID} .em-from-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex: 0 0 8px; }
+      #${MODAL_ID} .em-from-lbl { color: var(--mu, #94a3b8); }
+      #${MODAL_ID} .em-from-email { color: var(--t1, inherit); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
+      #${MODAL_ID} .em-from-meta { color: var(--mu, #94a3b8); font-size: 11px; flex: 0 0 auto; }
+      #${MODAL_ID} .em-att-card { background: rgba(0,0,0,.04); border: 1px solid var(--bd, #e2e8f0); border-radius: 8px; padding: 10px; margin-top: 12px; }
+      [data-theme="dark"] #${MODAL_ID} .em-att-card { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.10); }
+      #${MODAL_ID} .em-att-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--mu, #94a3b8); font-weight: 600; margin-bottom: 6px; }
+      #${MODAL_ID} .em-att-item { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--bg, #fff); border-radius: 6px; margin-bottom: 6px; }
+      [data-theme="dark"] #${MODAL_ID} .em-att-item { background: rgba(0,0,0,.20); }
+      #${MODAL_ID} .em-att-item:last-child { margin-bottom: 0; }
+      #${MODAL_ID} .em-att-icon { width: 32px; height: 32px; background: rgba(59,130,246,.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex: 0 0 32px; }
+      #${MODAL_ID} .em-att-info { flex: 1; min-width: 0; }
+      #${MODAL_ID} .em-att-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #${MODAL_ID} .em-att-meta { font-size: 11px; color: var(--mu, #94a3b8); }
+      #${MODAL_ID} .em-att-status { font-size: 11px; padding: 3px 8px; border-radius: 999px; font-weight: 500; flex: 0 0 auto; }
+      #${MODAL_ID} .em-att-status.ok { background: rgba(16,185,129,.15); color: #059669; }
+      #${MODAL_ID} .em-att-status.pending { background: rgba(245,158,11,.15); color: #d97706; }
+      #${MODAL_ID} .em-att-status.err { background: rgba(220,38,38,.15); color: #dc2626; }
+      #${MODAL_ID} .em-legal { margin-top: 12px; background: rgba(245,158,11,.08); border-left: 3px solid var(--ora, #f59e0b); border-radius: 6px; padding: 8px 12px; font-size: 12.5px; }
+      #${MODAL_ID} .em-legal summary { cursor: pointer; color: #d97706; font-weight: 500; outline: none; list-style: none; }
+      #${MODAL_ID} .em-legal summary::-webkit-details-marker { display: none; }
+      #${MODAL_ID} .em-legal[open] summary { margin-bottom: 6px; }
+      #${MODAL_ID} .em-legal-content { color: var(--t1, inherit); line-height: 1.5; }
+      #${MODAL_ID} .m-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      #${MODAL_ID} .em-foot-secondary { display: flex; gap: 6px; margin-left: auto; }
+      #${MODAL_ID} .em-foot-primary { flex: 0 0 auto; }
+      @media (max-width: 640px) {
+        #${MODAL_ID} .m-foot { flex-direction: column-reverse !important; align-items: stretch !important; }
+        #${MODAL_ID} .em-foot-primary { width: 100%; min-height: 44px; font-size: 15px; }
+        #${MODAL_ID} .em-foot-secondary { margin-left: 0 !important; display: flex !important; gap: 6px; flex-wrap: wrap; width: 100%; }
+        #${MODAL_ID} .em-foot-secondary .btn { flex: 1 1 0; min-width: 0; min-height: 40px; }
+        #${MODAL_ID} .m-foot > .btn.bs { min-height: 40px; align-self: flex-end; }
+      }
+    </style>
     <div class="modal lg" onclick="event.stopPropagation()">
       <div class="m-head">
         <h3 id="em-title">📧 Proposition de mail</h3>
         <button class="m-close" type="button" onclick="closeM('${MODAL_ID}')" aria-label="Fermer">✕</button>
+      </div>
+      <!-- v15.86 EM-2a : FROM bar — adresse Gmail connectée visible avant envoi -->
+      <div class="em-from-bar" id="em-from-bar" style="display:none">
+        <span class="em-from-dot"></span>
+        <span class="em-from-lbl">Envoi depuis</span>
+        <span class="em-from-email" id="em-from-email">—</span>
+        <span class="em-from-meta" id="em-from-meta"></span>
       </div>
       <div class="m-body">
         <div class="fg2">
@@ -97,18 +146,28 @@ function _ensureModalDom() {
         </div>
         <div class="fg mt8">
           <label for="em-body">Corps du message</label>
-          <textarea class="inp" id="em-body" rows="14" style="font-family:'SF Mono',Consolas,monospace;font-size:13px;line-height:1.5"></textarea>
+          <textarea class="inp" id="em-body" rows="12" style="font-family:'SF Mono',Consolas,monospace;font-size:13px;line-height:1.5"></textarea>
         </div>
-        <div id="em-attachments-section" class="mt12"></div>
-        <div id="em-legal-note" class="mt12"></div>
+        <!-- v15.86 EM-2a : PJ card (slot prêt pour PJ auto-générée v15.87) -->
+        <div id="em-attachments-section" class="em-att-card" style="display:none">
+          <div class="em-att-title" id="em-att-title">📎 Pièce jointe</div>
+          <div id="em-att-list"></div>
+        </div>
+        <!-- v15.86 EM-2a : Note légale repliable (au lieu de bloc orange permanent) -->
+        <details class="em-legal" id="em-legal-note" style="display:none">
+          <summary>⚠️ Note légale</summary>
+          <div class="em-legal-content" id="em-legal-content"></div>
+        </details>
         <div id="em-mailto-warn" class="mt12" style="display:none"></div>
       </div>
       <div class="m-foot">
         <button class="btn bs" type="button" onclick="closeM('${MODAL_ID}')">Annuler</button>
-        <button class="btn" type="button" onclick="window._emHandleAction('share')" id="em-share-btn" style="display:none">📱 Partager</button>
-        <button class="btn" type="button" onclick="window._emHandleAction('copy')">📋 Copier sujet + corps</button>
-        <button class="btn" type="button" onclick="window._emHandleAction('mailto')">📧 Ouvrir dans mon client mail</button>
-        <button class="btn bp" type="button" onclick="window._emHandleAction('sendnow')" id="em-sendnow-btn" style="display:none" title="Envoyer directement via votre compte Gmail (nécessite connexion Google)">📤 Envoyer maintenant</button>
+        <div class="em-foot-secondary">
+          <button class="btn" type="button" onclick="window._emHandleAction('share')" id="em-share-btn" style="display:none">📱 Partager</button>
+          <button class="btn" type="button" onclick="window._emHandleAction('copy')">📋 Copier</button>
+          <button class="btn" type="button" onclick="window._emHandleAction('mailto')">📧 Client externe</button>
+        </div>
+        <button class="btn bp em-foot-primary" type="button" onclick="window._emHandleAction('sendnow')" id="em-sendnow-btn" style="display:none" title="Envoyer directement via votre compte Gmail (nécessite connexion Google)">📤 Envoyer maintenant</button>
       </div>
     </div>
   `;
@@ -159,28 +218,60 @@ function _fillModal(draft, type, opts) {
   if (subject) subject.value = draft.subject || '';
   if (body) body.value = draft.body || '';
 
-  // Pièces jointes
-  const att = document.getElementById('em-attachments-section');
-  if (att) {
-    if (draft.attachments && draft.attachments.length) {
-      const lis = draft.attachments
-        .map(a => `<li style="padding:4px 0">📎 <b>${escHtml(a.name)}</b> <span class="mu sm">(${escHtml(a.type || 'fichier')})</span></li>`)
-        .join('');
-      att.innerHTML = `
-        <div class="mu sm" style="margin-bottom:4px">Pièces jointes recommandées (à générer + joindre manuellement dans votre client mail) :</div>
-        <ul style="margin:0;padding-left:20px;list-style:none">${lis}</ul>
-      `;
+  // v15.86 EM-2a — FROM bar : adresse Gmail connectée visible avant envoi
+  const fromBar = document.getElementById('em-from-bar');
+  const fromEmail = document.getElementById('em-from-email');
+  const fromMeta = document.getElementById('em-from-meta');
+  if (fromBar && fromEmail) {
+    const userEmail = (typeof window !== 'undefined' && typeof window._getDriveUserEmail === 'function')
+      ? window._getDriveUserEmail() : '';
+    if (userEmail) {
+      fromEmail.textContent = userEmail;
+      if (fromMeta) fromMeta.textContent = '(Gmail connecté)';
+      fromBar.style.display = '';
     } else {
-      att.innerHTML = '';
+      fromBar.style.display = 'none';
     }
   }
 
-  // Note légale
-  const ln = document.getElementById('em-legal-note');
-  if (ln) {
-    ln.innerHTML = draft.legalNote
-      ? `<div style="background:rgba(234,88,12,.10);border-left:3px solid var(--ora);padding:8px 12px;border-radius:4px;font-size:12.5px;color:var(--t1)">⚠️ <b>Note légale :</b> ${escHtml(draft.legalNote)}</div>`
-      : '';
+  // v15.86 EM-2a — Pièces jointes : nouvelle card avec statut Prête/En cours/Erreur
+  // V1a (EM-2a) : affiche les PJ déclarées par le template avec statut "pending" (génération PJ auto = EM-2b v15.87).
+  const attSection = document.getElementById('em-attachments-section');
+  const attList = document.getElementById('em-att-list');
+  const attTitle = document.getElementById('em-att-title');
+  if (attSection && attList) {
+    if (draft.attachments && draft.attachments.length) {
+      attSection.style.display = '';
+      if (attTitle) attTitle.textContent = draft.attachments.length > 1
+        ? '📎 ' + draft.attachments.length + ' pièces jointes'
+        : '📎 Pièce jointe';
+      attList.innerHTML = draft.attachments.map(a => `
+        <div class="em-att-item">
+          <div class="em-att-icon">📄</div>
+          <div class="em-att-info">
+            <div class="em-att-name">${escHtml(a.name)}</div>
+            <div class="em-att-meta">À générer · type ${escHtml(a.type || 'pdf')}</div>
+          </div>
+          <span class="em-att-status pending" title="PJ auto-générée disponible v15.87">⏳ À générer</span>
+        </div>
+      `).join('');
+    } else {
+      attSection.style.display = 'none';
+      attList.innerHTML = '';
+    }
+  }
+
+  // v15.86 EM-2a — Note légale repliable (au lieu de bloc orange permanent)
+  const legalNote = document.getElementById('em-legal-note');
+  const legalContent = document.getElementById('em-legal-content');
+  if (legalNote && legalContent) {
+    if (draft.legalNote) {
+      legalNote.style.display = '';
+      legalContent.textContent = draft.legalNote;
+    } else {
+      legalNote.style.display = 'none';
+      legalContent.textContent = '';
+    }
   }
 
   // Warning si type inconnu
