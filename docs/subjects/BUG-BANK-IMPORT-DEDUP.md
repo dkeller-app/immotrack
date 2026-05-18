@@ -1,6 +1,6 @@
 # BUG-BANK-IMPORT-DEDUP — Déduplication imports bancaires par empreinte stable
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : S (~2h)
+**Status** : ✅ Livré v15.78 · **Prio** : P1 · **Taille** : S (~2h)
 **Détecté** : 2026-05-17 (user : « si je ne trie pas les lignes (supprimer les lignes déjà importées), j'ai des doublons »)
 **Lié à** : BANK-INTEGRATION V1 ✅ livré v15.07 · `js/core/bank-import.js` · `__tests__/helpers/bank-import.test.js`
 
@@ -203,3 +203,15 @@ Les mouvements importés AVANT ce fix n'ont pas de `_fingerprint`. 2 stratégies
 ## Journal
 
 - 2026-05-17 : créé · solution fingerprinting stable (algo standard YNAB/Banktivity) · 5 phases ~2h dev · 10 tests Vitest · migration auto mouvements existants
+- 2026-05-18 **v15.78 ✅ livré** (commit `5cb8e3a`) :
+  - Module pur `js/core/bank-import.js` : 4 nouveaux exports (`_bankHashStable`, `_bankFingerprintCSV`, `_bankFingerprintOFX`, `_bankMigrateFingerprints`).
+  - `_bankHashStable` = FNV-1a + DJB2 concat synchrone (16 chars hex, ~10^19 valeurs, pas de `crypto.subtle` async).
+  - `_bankParseCSV` étendu : retourne `rawLines` pour le fingerprinting.
+  - `_bankNormalizeCSV` ajoute `_fingerprint` + `_importSource:'csv'`.
+  - `_bankParseOFX` ajoute `_fingerprint` (priorité FITID + fallback hash) + `_importSource:'ofx'`.
+  - `_bankDedup` refactor : stratégie 1 fingerprint (priorité, robuste post-modification), stratégie 2 fallback legacy (date+montant+fitid) UNIQUEMENT contre mouvements sans `_fingerprint`.
+  - `_bankMigrateFingerprints` : migration OFX legacy idempotente.
+  - Migration paresseuse intégrée à `_bankImportOpen()` (ouverture modale = migration auto).
+  - Tests Vitest : 811 → 837 (+26 nouveaux). Couvre le **test CRITIQUE** « user modifie date+libelle+montant après import → SKIP correct » ✓.
+  - **UI modale d'import existante (v15.07) déjà OK visuellement** : compteur "X parsées · Y doublons · Z à importer" + gris barré + badge "DOUBLON #ID". Pas de refonte UI nécessaire pour ce sprint. La Phase 5 spec (toggle "Forcer re-import" + couleurs vert/gris) est reportée à un sujet UX-IMPORT-MODALE-POLISH ⏳ V1.1 si besoin user émerge.
+  - Différenciant marché renforcé : seul ImmoTrack offre dédup CSV/OFX robuste post-modification (Rentila/BailFacile/Qalimo = pas d'import bancaire).
