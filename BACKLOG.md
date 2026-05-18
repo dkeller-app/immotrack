@@ -32,6 +32,7 @@
 > | EM-2b | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — PJ PDF auto-générée (quittance + IRL V1.0) | P1 | M | ✅ Livré v15.87 + fix lazy load jsPDF v15.88 |
 > | EM-2c | PJ auto types restants (régul + bail + EDL ent/sort + cautionnement) | P2 | M | ✅ Livré v15.89 (5 nouveaux types) |
 > | EM-2d | Refonte PJ quittance avec rendu officiel (html2canvas du `_buildQuittanceHtml`) | P1 | M | ✅ Livré v15.91 (quittance seule, autres types V1.1) |
+> | BUG-QUITTANCE-PRORATA | Quittance entrée/sortie mi-mois marquée "Reçu partiel" alors que paiement prorata correct (loi 89-462) | P1 | XS | ✅ Livré v15.94 + fix robustesse v15.95 |
 > | EM-2e | Quittance redesign visuel (3 mockups A/B/C à valider) | P1 | S | 🔄 Mockups en cours |
 > | EM-5 | [EMAIL-FROM-PAR-ENTITE](docs/subjects/EMAIL-FROM-PAR-ENTITE.md) — envoyer depuis l'adresse de l'entité (send-as Gmail aliases) | P1 | S | ✅ Livré v15.92 + fix popup + auto-CC v15.93 |
 > | EM-3 | [DOC-CIVILITE](docs/subjects/DOC-CIVILITE.md) — civilité dynamique dans templates (M./Mme du bail) | P2 | XS | ✅ Livré v15.90 |
