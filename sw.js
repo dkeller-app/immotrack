@@ -1,7 +1,20 @@
-// ImmoTrack Service Worker — Network-First pour index.html
-// Bumper CACHE_VER à chaque déploiement pour invalider les anciens caches
+// ImmoTrack Service Worker — Network-First pour index.html ET tous les modules JS/CSS
+//
+// v15.85 BUG-SW-CACHE-JS (EM-1) : avant cette refonte, les modules JS étaient en cache-first,
+// donc les fixes restaient invisibles pour l'user tant que CACHE_VER était inchangé (problème
+// récurrent : CACHE_VER figé v31 de v15.64 → v15.84 = 21 versions de retard, user voyait
+// l'ancien email-modal.js depuis cache et donc pas la confirmation popup v15.84).
+//
+// Stratégie post-refonte :
+//   - Navigation HTML (index.html) → network-first (déjà OK avant)
+//   - Modules JS/CSS same-origin → network-first (nouveau)
+//   - Autres assets (icons, manifest, images) → cache-first (offline-friendly)
+//
+// CACHE_VER est désormais synchronisée avec IMMOTRACK_VERSION (à bumper ensemble).
+// Si oubli de bump : le SW continuera à servir l'ancienne version cache. Mais grâce
+// au network-first sur les JS, les nouveaux JS seront quand même fetched dès qu'online.
 
-const CACHE_VER = 'immotrack-v31';
+const CACHE_VER = 'immotrack-v15.85';
 
 // ── Install : skipWaiting immédiat + pré-cache offline fallback ──────────────
 self.addEventListener('install', e => {
@@ -33,24 +46,38 @@ self.addEventListener('fetch', e => {
   // Passe-through : requêtes non-GET et cross-origin (Drive, IRL API, CDN SheetJS...)
   if (request.method !== 'GET' || url.origin !== location.origin) return;
 
+  // 1) Navigation (index.html) → NETWORK-FIRST
   if (request.mode === 'navigate') {
-    // Navigation (index.html) → NETWORK-FIRST, cache: 'no-cache' bypass HTTP cache CDN
-    // v31 fix : clone() IMMÉDIATEMENT avant tout await/then, sinon le body est consommé
-    // par le retour à la page → "Failed to execute 'clone' on Response" récurrent.
-    e.respondWith(
-      fetch(request, { cache: 'no-cache' })
-        .then(res => {
-          const resClone = res.clone(); // clone tout de suite, pas dans le .then async
-          caches.open(CACHE_VER).then(c => c.put(request, resClone)).catch(() => {});
-          return res;
-        })
-        .catch(() => caches.match(request)) // Offline → sert la version cachée
-    );
+    e.respondWith(_networkFirst(request));
     return;
   }
 
-  // Autres assets same-origin (icons, manifest) → cache-first
+  // 2) v15.85 EM-1 : Modules JS/CSS same-origin → NETWORK-FIRST
+  //    Évite que les fixes soient invisibles tant que CACHE_VER n'est pas bumpé.
+  //    Cache reste alimenté pour offline (fallback transparent).
+  const path = url.pathname.toLowerCase();
+  if (path.endsWith('.js') || path.endsWith('.mjs') || path.endsWith('.css')) {
+    e.respondWith(_networkFirst(request));
+    return;
+  }
+
+  // 3) Autres assets same-origin (icons, manifest, images, fonts) → cache-first
+  //    Garde l'expérience PWA offline-friendly pour les assets statiques.
   e.respondWith(
     caches.match(request).then(cached => cached || fetch(request))
   );
 });
+
+/**
+ * Network-first avec fallback cache. Clone IMMÉDIATEMENT la response avant tout
+ * await/then (sinon le body est consommé par le retour → "Failed to execute 'clone'").
+ */
+function _networkFirst(request) {
+  return fetch(request, { cache: 'no-cache' })
+    .then(res => {
+      const resClone = res.clone();
+      caches.open(CACHE_VER).then(c => c.put(request, resClone)).catch(() => {});
+      return res;
+    })
+    .catch(() => caches.match(request));
+}

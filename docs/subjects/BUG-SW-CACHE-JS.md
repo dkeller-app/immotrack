@@ -1,7 +1,8 @@
 # BUG-SW-CACHE-JS — Service Worker cache les modules JS sans invalidation
 
-**Status** : ⬜ À faire · **Prio** : **P0** (bloquant pour livraison) · **Taille** : XS (~30 min)
+**Status** : ✅ **Livré v15.85** · **Prio** : **P0** (bloquant pour livraison) · **Taille** : XS (~30 min)
 **Détecté** : 2026-05-18 (user : « tu cherches pourquoi tes modifs ne sont pas la »)
+**Livré** : 2026-05-18 (commit à venir, sprint EM-1)
 **Lié à** : EMAIL-MODAL-UX-REFONTE, CODE-CLEANUP-AUDIT, marathon entier
 
 ## Symptôme
@@ -59,3 +60,8 @@ Passer **tous les fichiers same-origin** en `network-first` (ou stale-while-reva
 ## Journal
 
 - 2026-05-18 : créé · P0 (bloque livraison) · cause root identifiée (`CACHE_VER` figé v31 depuis v15.64)
+- 2026-05-18 : ✅ **Livré v15.85** :
+  - **Phase 1** : bump `IMMOTRACK_VERSION` 15.84 → 15.85 + bump `CACHE_VER` 'immotrack-v31' → 'immotrack-v15.85' (désormais synchronisée avec version app)
+  - **Phase 2** : refonte `sw.js` fetch handler — **network-first** pour navigation HTML + modules JS/CSS same-origin (`.js`, `.mjs`, `.css`). Cache-first reste pour icons / manifest / images / fonts (offline-friendly). Helper `_networkFirst()` mutualisé.
+  - **Phase 3 bonus** : `_onSendNow` dans [js/components/email-modal.js](js/components/email-modal.js) — ajout `.finally(_resetUi)` + try/catch autour de `closeM()` et `_logEmailSent()` pour éviter UI figée sur « Envoi en cours… » si `.then` plante après envoi réussi (bug observé par user 2026-05-18 : mail reçu mais bouton bloqué).
+- **Effet** : à compter de v15.85 toute modif JS/CSS sera vue par l'user après simple reload (pas de hard refresh nécessaire). Plus jamais de désync version app ↔ cache JS.

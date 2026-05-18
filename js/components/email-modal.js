@@ -321,17 +321,28 @@ function _onSendNow(ctx) {
     return;
   }
 
+  // v15.85 EM-1 : helper reset UI mutualisé (utilisé par .catch ET .finally defensive).
+  // Sans ce reset dans .finally, si .then plante (closeM exception, _logEmailSent error)
+  // l'UI reste figée sur "Envoi en cours…" et l'user croit que rien n'a marché.
+  const _resetUi = () => {
+    allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    if (sendBtn) sendBtn.textContent = '📤 Envoyer maintenant';
+  };
+
   _emailSendViaGmail(token, mime)
     .then(result => {
       showToast('Email envoyé ✓ depuis votre Gmail', 'ok', 3000);
-      closeM(MODAL_ID);
+      // closeM dans try/catch pour ne pas bloquer le reset UI si la modale a un état corrompu
+      try { closeM(MODAL_ID); } catch (_) { /* swallow */ }
       // Log avec status='sent' + externalId pour traçabilité (RGPD : métadonnées seules)
       if (typeof window !== 'undefined' && typeof window._logEmailSent === 'function') {
-        window._logEmailSent(ctx.entityType, ctx.entityId, {
-          type: ctx.type, to: v.to, cc: v.cc, subject: v.subject,
-          status: 'sent', externalId: result && result.id ? result.id : '',
-          sendChannel: 'gmail-api',
-        });
+        try {
+          window._logEmailSent(ctx.entityType, ctx.entityId, {
+            type: ctx.type, to: v.to, cc: v.cc, subject: v.subject,
+            status: 'sent', externalId: result && result.id ? result.id : '',
+            sendChannel: 'gmail-api',
+          });
+        } catch (_) { /* log err ne doit jamais bloquer l'UI */ }
       }
     })
     .catch(err => {
@@ -345,8 +356,10 @@ function _onSendNow(ctx) {
         msg = 'Quota Gmail dépassé temporairement. Réessaie dans quelques minutes ou utilise « Ouvrir client mail ».';
       }
       showToast(msg, 'err', 6000);
-      allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
-      if (sendBtn) sendBtn.textContent = '📤 Envoyer maintenant';
+    })
+    .finally(() => {
+      // v15.85 EM-1 : reset UI garanti dans tous les cas (succès, erreur, exception .then).
+      _resetUi();
     });
 }
 
