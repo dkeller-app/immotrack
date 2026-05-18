@@ -224,6 +224,19 @@ function _fillModal(draft, type, opts, context) {
   const body = document.getElementById('em-body');
   if (to) to.value = draft.to || '';
   if (cc) cc.value = draft.cc || '';
+
+  // v15.93 EM-5b — auto-CC de l'alias d'envoi (traçabilité dans boîte SCI).
+  // Quand un mail part via send-as alias Gmail, le message est stocké dans la
+  // boîte "Envoyés" du compte maître Gmail (didierkeller@gmail.com), PAS dans
+  // celle de l'alias (gestion@sci-xxx.fr). C'est un comportement Google par design.
+  // Pour que l'user ait une trace dans la boîte de l'alias, on auto-CC l'alias.
+  // L'user voit le CC pré-rempli et peut le retirer s'il ne veut pas.
+  if (cc && _fromEntite && !cc.value) {
+    cc.value = _fromEntite;
+    cc.title = 'Pré-rempli automatiquement avec l\'adresse d\'envoi de l\'entité, pour archiver une copie dans la boîte de cette adresse (les mails envoyés via alias Gmail send-as ne sont sinon stockés que dans la boîte du compte Gmail maître). Vous pouvez retirer le CC si non souhaité.';
+  } else if (cc) {
+    cc.title = '';
+  }
   if (subject) subject.value = draft.subject || '';
   if (body) body.value = draft.body || '';
 
@@ -400,16 +413,21 @@ function _onSendNow(ctx) {
   }
 
   // v15.84 — Confirmation user avant envoi (anti-erreur destinataire/sujet).
-  // confirm() natif suffit (pas de nouvelle UI à mockuper).
+  // v15.93 EM-5b fix — afficher fromEntite (alias) si configuré au lieu de Gmail maître.
+  const modalElCheck = document.getElementById(MODAL_ID);
+  const fromEntiteCheck = (modalElCheck && modalElCheck._emailCtx && modalElCheck._emailCtx.fromEntite) || '';
   const userEmail = (typeof window !== 'undefined' && typeof window._getDriveUserEmail === 'function')
     ? (window._getDriveUserEmail() || '(votre Gmail)')
     : '(votre Gmail)';
+  const fromDisplay = fromEntiteCheck
+    ? fromEntiteCheck + ' (via ' + userEmail + ')'
+    : userEmail;
   const subjectShort = (v.subject || '(sans sujet)').slice(0, 80);
   const msg = 'Envoyer cet email ?\n\n'
     + 'Destinataire : ' + v.to + '\n'
     + (v.cc ? 'CC           : ' + v.cc + '\n' : '')
     + 'Sujet        : ' + subjectShort + (v.subject && v.subject.length > 80 ? '…' : '') + '\n'
-    + 'Depuis       : ' + userEmail;
+    + 'Depuis       : ' + fromDisplay;
   if (typeof window !== 'undefined' && !window.confirm(msg)) return;
 
   // Lock UI : disable boutons pendant l'envoi

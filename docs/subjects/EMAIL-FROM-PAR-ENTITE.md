@@ -93,5 +93,12 @@ SMTP propre à chaque entité (compte mail pro IONOS / OVH / O2switch...).
     - `fromEntite_stored: "gestion@sci-test.fr"` (stockage modal._emailCtx OK)
     - Avec alias → `"gestion@sci-test.fr"` + `"(via didierkeller@gmail.com)"` ✅
     - Sans alias → `"didierkeller@gmail.com"` + `"(Gmail connecté)"` ✅
+- 2026-05-18 : ✅ **Fix v15.93 EM-5b** (user a testé v15.92 et flag 2 points) :
+  - **Bug 1** : popup confirm() avant envoi affichait `Depuis: didierkeller@gmail.com` (Gmail maître) au lieu de l'alias `gestion@sci-xxx.fr`. Fix : `_onSendNow` lit désormais `modal._emailCtx.fromEntite` et affiche `Depuis: gestion@sci-xxx.fr (via didierkeller@gmail.com)` quand alias actif.
+  - **Demande user** : « Si envoi par une autre adresse que l'adresse maître on met en copie l'adresse mail ? » → OUI implémenté. Pourquoi : par design Google, les mails envoyés via send-as alias sont **stockés uniquement dans la boîte "Envoyés" du compte Gmail maître**, PAS dans celle du compte de l'alias. Donc l'user n'avait aucune trace côté boîte SCI.
+  - Solution : auto-CC l'alias dans le champ CC de la modale quand `emailEnvoi` configuré sur l'entité. Résultat : Gmail délivre le mail au destinataire + une copie arrive dans l'inbox de l'alias → trace dans la boîte SCI.
+  - UX : pré-remplissage non intrusif (l'user voit le CC + peut le retirer) + tooltip `title=` au survol expliquant le pourquoi de l'auto-CC
+  - Si user avait déjà saisi un CC manuel via template → pas écrasé (conditional `!cc.value`)
+  - Verif preview JS v15.93 : avec alias → `cc:"gestion@sci-test.fr"` + tooltip OK · sans alias → `cc:""` + tooltip vide OK
 - ⏸️ **V1.1 reporté** (si besoin) : détection auto aliases via `users.settings.sendAs.list` (demande scope `gmail.settings.basic` supplémentaire + re-validation OAuth Google ~2-6 sem). Selectbox au lieu d'input texte. Pour V1 le champ texte avec procédure inline suffit.
 - ⏸️ **Multi-utilisateurs SaaS V2** (D3) : à arbitrer quand on aborde MULTI-USER (rôles + permissions). Each user pourrait avoir son propre alias par entité.
