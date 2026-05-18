@@ -196,9 +196,15 @@ export function _emHandleAction(action) {
 // Pré-remplissage
 // ────────────────────────────────────────────────────────────────────────────
 
-function _fillModal(draft, type, opts) {
+function _fillModal(draft, type, opts, context) {
   const modal = document.getElementById(MODAL_ID);
   if (!modal) return;
+
+  // v15.92 EM-5 — récupère l'alias d'envoi de l'entité (si configuré)
+  // context contient locataire/bail/logement/entite/quittance/... transmis par openEmailModal()
+  const _entite = (context && context.entite) || null;
+  const _fromEntite = _entite && typeof _entite.emailEnvoi === 'string' && _entite.emailEnvoi.trim()
+    ? _entite.emailEnvoi.trim() : '';
 
   // Stocker le contexte pour les boutons (lus par les handlers)
   modal._emailCtx = {
@@ -206,7 +212,8 @@ function _fillModal(draft, type, opts) {
     entityType: opts.entityType || '',
     entityId: opts.entityId || '',
     legalNote: draft.legalNote || '',
-    error: draft.error || ''
+    error: draft.error || '',
+    fromEntite: _fromEntite  // v15.92 EM-5 EMAIL-FROM-PAR-ENTITE
   };
 
   // Cas type inconnu → afficher le message d'erreur explicite mais permettre
@@ -221,13 +228,20 @@ function _fillModal(draft, type, opts) {
   if (body) body.value = draft.body || '';
 
   // v15.86 EM-2a — FROM bar : adresse Gmail connectée visible avant envoi
+  // v15.92 EM-5 — si entite.emailEnvoi configuré → affiche l'alias en gras + Gmail principal en discret
   const fromBar = document.getElementById('em-from-bar');
   const fromEmail = document.getElementById('em-from-email');
   const fromMeta = document.getElementById('em-from-meta');
   if (fromBar && fromEmail) {
     const userEmail = (typeof window !== 'undefined' && typeof window._getDriveUserEmail === 'function')
       ? window._getDriveUserEmail() : '';
-    if (userEmail) {
+    if (_fromEntite && userEmail) {
+      // EM-5 : alias entité actif → "Envoi depuis [alias] (via Gmail [perso])"
+      fromEmail.textContent = _fromEntite;
+      if (fromMeta) fromMeta.textContent = '(via ' + userEmail + ')';
+      fromBar.style.display = '';
+    } else if (userEmail) {
+      // Cas standard : Gmail perso direct
       fromEmail.textContent = userEmail;
       if (fromMeta) fromMeta.textContent = '(Gmail connecté)';
       fromBar.style.display = '';
@@ -410,10 +424,16 @@ function _onSendNow(ctx) {
   const pjAttachments = (modalEl && modalEl._emailCtx && Array.isArray(modalEl._emailCtx.pjAttachments))
     ? modalEl._emailCtx.pjAttachments : [];
 
+  // v15.92 EM-5 EMAIL-FROM-PAR-ENTITE — si entité.emailEnvoi configuré (alias Gmail send-as),
+  // utiliser cette adresse comme From au lieu du Gmail principal. Sinon : Gmail principal
+  // (Gmail déduit du token, pas besoin de header From).
+  const fromEntite = (modalEl && modalEl._emailCtx && modalEl._emailCtx.fromEntite) || '';
+
   let mime;
   try {
     mime = _emailToMimeBase64Url({
       to: v.to, cc: v.cc, subject: v.subject, body: v.body,
+      from: fromEntite || undefined,
       attachments: pjAttachments
     });
   } catch (e) {
@@ -451,7 +471,19 @@ function _onSendNow(ctx) {
       const status = err && err.status;
       let msg = err && err.message ? err.message : String(err);
       if (status === 403) {
-        msg = 'Permission insuffisante (scope gmail.send manquant). Reconnecte Drive pour autoriser l\'envoi d\'emails.';
+        // v15.92 EM-5 EMAIL-FROM-PAR-ENTITE — détection alias non configuré
+        // Gmail répond 403 si on essaie de send-as une adresse non listée dans
+        // users.settings.sendAs OR scope gmail.send manquant.
+        const errBody = err && err.message ? err.message : '';
+        const looksLikeSendAsRejected = /not\s*allowed|invalidsender|delegate|sendas|from.*address/i.test(errBody);
+        if (fromEntite && looksLikeSendAsRejected) {
+          msg = 'Adresse d\'envoi « ' + fromEntite + ' » non autorisée par Gmail.\n\n'
+              + 'Cause probable : l\'alias n\'est pas configuré dans votre Gmail.\n\n'
+              + 'À faire : Gmail → ⚙ Paramètres → Comptes et importation → « Envoyer des e-mails en tant que » → ajouter cette adresse + validation par code.\n\n'
+              + 'En attendant, retirez l\'adresse du champ "Email d\'envoi" de l\'entité pour utiliser votre Gmail principal.';
+        } else {
+          msg = 'Permission insuffisante (scope gmail.send manquant). Reconnecte Drive pour autoriser l\'envoi d\'emails.';
+        }
       } else if (status === 401) {
         msg = 'Token expiré. Reconnecte Drive et réessaie.';
       } else if (status === 429 || status === 503) {
@@ -503,7 +535,7 @@ function _onShare(ctx) {
 export function openEmailModal(type, context, opts = {}) {
   const draft = _emailCompose(type, context || {});
   _ensureModalDom();
-  _fillModal(draft, type, opts || {});
+  _fillModal(draft, type, opts || {}, context || {}); // v15.92 EM-5 : passe le contexte pour lire entite.emailEnvoi
   openM(MODAL_ID);
   // v15.87 EM-2b — Lance la génération PJ PDF auto en arrière-plan
   // (les types supportés V1.0 : quittance + irl-revision ; les autres reportés V1.1).

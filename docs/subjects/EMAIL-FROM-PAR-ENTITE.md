@@ -1,6 +1,6 @@
 # EMAIL-FROM-PAR-ENTITE — Envoyer depuis l'adresse de l'entité (pas Gmail perso)
 
-**Status** : ⬜ À faire · **Prio** : P1 (V1 commercial) · **Taille** : S (~2-3h)
+**Status** : ✅ **Livré v15.92** (Option A send-as alias) · **Prio** : P1 (V1 commercial) · **Taille** : S (~2-3h)
 **Détecté** : 2026-05-18 (user : « est-il possible de choisir l'email d'envoie en fonction de l'entité ? »)
 **Lié à** : EMAIL-SMTP-CONNECT, EMAIL-MODAL-UX-REFONTE, SAAS-MULTIUSERS
 
@@ -77,3 +77,21 @@ SMTP propre à chaque entité (compte mail pro IONOS / OVH / O2switch...).
 ## Journal
 
 - 2026-05-18 : créé · P1 (bloquant V1 commercial) · S (~2-3h) · Option A (send-as aliases Gmail) retenue
+- 2026-05-18 : ✅ **Livré v15.92** — Option A retenue (champ texte simple, pas de détection auto via Gmail API en V1)
+  - Phase 1 ✅ : champ `ent-email-envoi` ajouté dans `#ov-ent` (modale bailleur, après IBAN/BIC) + tooltip explicatif + procédure inline (Gmail → ⚙ → Comptes → Send-as)
+  - `openNewEnt(id)` charge `ent.emailEnvoi` au load (compat existing entités sans le champ)
+  - `saveEnt()` enregistre `emailEnvoi: (v('ent-email-envoi')||'').trim().toLowerCase()` (cohérence + idempotent)
+  - Phase 2 ✅ : `_emailToMimeBase64Url` accepte déjà `from` (préexistant ligne 94) — pas besoin de modifier. `_onSendNow` dans `email-modal.js` récupère `modal._emailCtx.fromEntite` et passe au MIME `from: fromEntite || undefined`
+  - `_fillModal` étendu pour recevoir `context` en 4ème arg + extraire `_fromEntite` = `context.entite.emailEnvoi` trim
+  - Phase 3 ✅ : FROM bar dynamique
+    - Si entité.emailEnvoi configuré + Gmail connecté → `Envoi depuis [alias] (via [Gmail perso])`
+    - Si juste Gmail perso → `Envoi depuis [Gmail perso] (Gmail connecté)`
+    - Si rien → bar masquée
+  - Erreur claire 403 Gmail : détection regex `not allowed|invalidsender|delegate|sendas|from address` → message explicit avec procédure de fix (Gmail → ⚙ → Send-as) au lieu du message générique "scope manquant"
+  - Phase 4 ✅ : 915/915 tests verts (pas d'impact). Verif preview JS v15.92 :
+    - `field_exists: true`, `field_type: "email"` (HTML correct)
+    - `fromEntite_stored: "gestion@sci-test.fr"` (stockage modal._emailCtx OK)
+    - Avec alias → `"gestion@sci-test.fr"` + `"(via didierkeller@gmail.com)"` ✅
+    - Sans alias → `"didierkeller@gmail.com"` + `"(Gmail connecté)"` ✅
+- ⏸️ **V1.1 reporté** (si besoin) : détection auto aliases via `users.settings.sendAs.list` (demande scope `gmail.settings.basic` supplémentaire + re-validation OAuth Google ~2-6 sem). Selectbox au lieu d'input texte. Pour V1 le champ texte avec procédure inline suffit.
+- ⏸️ **Multi-utilisateurs SaaS V2** (D3) : à arbitrer quand on aborde MULTI-USER (rôles + permissions). Each user pourrait avoir son propre alias par entité.
