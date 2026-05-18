@@ -67,6 +67,53 @@ function _getJsPdfClass() {
 }
 
 /**
+ * v15.88 EM-2b fix — Charge la lib jsPDF si pas déjà disponible globalement.
+ * Pattern ImmoTrack : la lib est inlinée en base64 dans `window._BAIL_PDF_LIBS.jspdf`
+ * mais décodée + injectée comme <script src=blob:> UNIQUEMENT dans la fenêtre de
+ * preview Bail (pas dans la fenêtre principale). Pour envoyer un mail avec PJ depuis
+ * la fenêtre principale, on doit décoder + injecter la lib ici à la volée.
+ *
+ * Idempotent : si jsPDF est déjà chargé (cas où user a déjà ouvert un bail), retourne
+ * true immédiatement. Premier appel charge la lib (~50ms), suivants instantanés.
+ *
+ * @returns {Promise<boolean>} true si jsPDF est disponible après l'appel
+ */
+function _ensureJsPdfLoaded() {
+  // Déjà chargé
+  if (_getJsPdfClass()) return Promise.resolve(true);
+  // Pas de DOM/window (Vitest node sans jsdom) — impossible de charger
+  if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
+  if (typeof document.createElement !== 'function') return Promise.resolve(false);
+  // Pas de _BAIL_PDF_LIBS inliné → rien à décoder
+  if (!window._BAIL_PDF_LIBS || !window._BAIL_PDF_LIBS.jspdf) return Promise.resolve(false);
+
+  return new Promise(resolve => {
+    try {
+      const b64 = window._BAIL_PDF_LIBS.jspdf;
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = () => {
+        // jsPDF s'expose comme window.jspdf après chargement
+        resolve(!!_getJsPdfClass());
+      };
+      script.onerror = (e) => {
+        console.error('[email-pdf-attachment] jsPDF script load failed', e);
+        resolve(false);
+      };
+      document.head.appendChild(script);
+    } catch (e) {
+      console.error('[email-pdf-attachment] _ensureJsPdfLoaded threw', e);
+      resolve(false);
+    }
+  });
+}
+
+/**
  * Helper format monétaire FR ('€' avec 2 décimales si non entier).
  */
 function _fmt(n) {
@@ -311,13 +358,22 @@ async function _genPdfIrlRevision(ctx) {
  */
 export async function _emailGenPdfAttachment(type, ctx) {
   const supportedV1 = ['quittance', 'irl-revision'];
+  // Dispatch types non supportés AVANT chargement jsPDF (pas la peine de charger pour rien)
+  if (type !== 'quittance' && type !== 'irl-revision') {
+    return {
+      error: 'type-not-supported-v1',
+      supportedV1,
+      message: 'PJ auto pour le type "' + type + '" reportée V1.1 (' + supportedV1.join(', ') + ' supportés V1.0). En attendant : joindre manuellement dans le client mail.'
+    };
+  }
+  // v15.88 EM-2b fix — assure que jsPDF est chargé dans la fenêtre principale.
+  // Idempotent : noop si déjà chargé.
+  const loaded = await _ensureJsPdfLoaded();
+  if (!loaded) {
+    return { error: 'jspdf-not-loaded', message: 'Lib jsPDF non chargée — rafraîchis la page (Ctrl+Shift+R) ou ouvre/ferme un bail une fois pour initialiser.' };
+  }
   if (type === 'quittance') return _genPdfQuittance(ctx);
   if (type === 'irl-revision') return _genPdfIrlRevision(ctx);
-  return {
-    error: 'type-not-supported-v1',
-    supportedV1,
-    message: 'PJ auto pour le type "' + type + '" reportée V1.1 (' + supportedV1.join(', ') + ' supportés V1.0). En attendant : joindre manuellement dans le client mail.'
-  };
 }
 
 /**

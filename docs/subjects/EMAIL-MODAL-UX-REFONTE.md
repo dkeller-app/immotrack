@@ -109,4 +109,8 @@ Une modale qui :
   - **15 tests Vitest** dans `__tests__/helpers/email-pdf-attachment.test.js` (FakeJsPdf mock, dispatch, civilité, erreurs)
   - Tests email-modal mis à jour pour nouvelle structure DOM (em-att-list, em-legal-content, tagName DETAILS)
   - **Total : 901/901 tests verts** (886 + 15 nouveaux)
+- 2026-05-18 : ✅ **Fix v15.88 — lazy load jsPDF dans fenêtre principale** :
+  - **Bug** : user voyait statut « ⚠️ Joindre manuellement » au lieu de « ✓ Prête » car `window.jspdf` n'existait pas dans la fenêtre principale (la lib est inlinée en base64 dans `window._BAIL_PDF_LIBS.jspdf` mais décodée + injectée UNIQUEMENT dans la fenêtre de preview Bail).
+  - **Fix** : nouveau helper `_ensureJsPdfLoaded()` async dans `email-pdf-attachment.js` qui décode le base64 + injecte `<script src=blob:>` à la volée si jsPDF pas déjà dispo. Idempotent : premier appel ~50ms, suivants instantanés. Tolérant : si `_BAIL_PDF_LIBS` absent, fail-safe avec message clair.
+  - Verif preview : `jspdfBefore: undefined` → `jspdfAfter: object` → PDF généré 7340 chars base64 avec magic header `%PDF-1.3` ✅
 - ⬜ **EM-2c (V1.1) à faire** : PJ auto pour 4 types restants (`decompte-regul-annuel`, `bail-signe-final`, `edl-entree-signe`, `edl-sortie-signe`, `cautionnement-signe`). Pattern identique à V1.0 — étendre le dispatch dans `_emailGenPdfAttachment` + ajouter les générateurs jsPDF par type.
