@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Mockups Quittance Redesign — 3 variantes</title>
+<title>Mockups Quittance Redesign v2 — 3 variantes sobres</title>
 <style>
   body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
   header { padding: 24px 32px; border-bottom: 1px solid #334155; }
@@ -11,10 +11,7 @@
   .cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 24px 32px; }
   .card { background: #1e293b; border-radius: 10px; padding: 20px; }
   .card h2 { margin: 0 0 6px; font-size: 16px; }
-  .card .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
-  .A .badge { background: #1d4ed8; color: #fff; }
-  .B .badge { background: #0e7490; color: #fff; }
-  .C .badge { background: #ca8a04; color: #fff; }
+  .card .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-bottom: 8px; background: #475569; color: #fff; }
   .card .desc { font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 14px; }
   .card a {
     display: inline-block; padding: 8px 14px; border-radius: 6px;
@@ -22,38 +19,47 @@
     transition: background .15s;
   }
   .card a:hover { background: #475569; }
+  .v2-note {
+    margin: 0 32px 16px; padding: 14px 18px;
+    background: #1e3a5f; border-left: 3px solid #60a5fa;
+    border-radius: 4px; font-size: 12px; color: #93c5fd; line-height: 1.55;
+  }
   .footnote { padding: 16px 32px; color: #94a3b8; font-size: 12px; border-top: 1px solid #334155; }
 </style>
 </head>
 <body>
   <header>
-    <h1>Mockups quittance redesign — 3 directions à arbitrer</h1>
-    <div class="sub">Cliquer un mockup pour le voir au format A4. Tous légalement conformes (Bailleur/Locataire, mention loi 89-462, déclaration "Je soussigné").</div>
+    <h1>Mockups quittance redesign v2 — 3 directions sobres</h1>
+    <div class="sub">Document officiel + footer commercial ImmoTrack. Cliquer un mockup pour le voir au format A4.</div>
   </header>
 
+  <div class="v2-note">
+    <strong>Feedback user v1 :</strong> les variantes précédentes (bandeau coloré, salutation perso, signature manuscrite stylisée) étaient trop fancy pour un document officiel. Cette v2 corrige : <strong>zéro élément décoratif</strong>, structure légale stricte conservée, juste un travail typographique pour aérer vs la version Times New Roman papier carbone actuelle. <strong>Footer "Document généré par ImmoTrack" ajouté</strong> (en prévision commercialisation).
+  </div>
+
   <div class="cards">
-    <div class="card A">
+    <div class="card">
       <span class="badge">A</span>
-      <h2>Moderne Stripe-like</h2>
-      <div class="desc">Sans-serif, blanc + accent bleu navy, <strong>total dans card gradient</strong>, structure très aérée. Sobre, contemporain, "facture SaaS" pro.</div>
-      <a href="A-moderne.html" target="_blank">Ouvrir le mockup A →</a>
+      <h2>Sobre Notion-like</h2>
+      <div class="desc">Sans-serif system, niveaux de gris uniquement (<strong>zéro couleur</strong>), structure officielle stricte. H2 sections majuscules letter-spacing + filet horizontal fin. Total en table avec border-top 2px noir. Intemporel, neutre.</div>
+      <a href="A-moderne.html" target="_blank">Ouvrir A →</a>
     </div>
-    <div class="card B">
+    <div class="card">
       <span class="badge">B</span>
-      <h2>Branded SCI premium</h2>
-      <div class="desc">Bandeau coloré navy→teal avec logo, cards séparées Bailleur/Locataire, <strong>total noir contrasté</strong> + mini-cards détail, déclaration ambrée. Identité forte multi-bailleur SaaS scalable.</div>
-      <a href="B-branded.html" target="_blank">Ouvrir le mockup B →</a>
+      <h2>Officiel modernisé serif</h2>
+      <div class="desc">Garde le caractère officiel (<strong>serif Georgia</strong>, plus moderne que Times) mais beaucoup plus aéré. Titre centré + période italique. Total dans encadré sobre noir/blanc. Métadonnées (ref/date) en sans-serif. Document notarial sans le côté carbone vintage.</div>
+      <a href="B-branded.html" target="_blank">Ouvrir B →</a>
     </div>
-    <div class="card C">
+    <div class="card">
       <span class="badge">C</span>
-      <h2>Chaleureux humain</h2>
-      <div class="desc">Tons crème/ambre, salutation perso "Bonjour [nom]", <strong>receipt-box arrondie</strong>, signature manuscrite stylisée, "Merci de votre confiance". Style hospitalité, fait plaisir à recevoir.</div>
-      <a href="C-chaleureux.html" target="_blank">Ouvrir le mockup C →</a>
+      <h2>Hybride pro</h2>
+      <div class="desc">Sans-serif body (Inter) + serif Georgia uniquement sur h1. Layout <strong>2 colonnes Bailleur/Locataire</strong> (plus dense). Total dans bloc noir contrasté + détail à droite (style "facture pro"). Badge "Quittance". Officiel mais contemporain.</div>
+      <a href="C-chaleureux.html" target="_blank">Ouvrir C →</a>
     </div>
   </div>
 
   <div class="footnote">
-    💡 Une fois ton choix fait, j'applique la variante dans <code>_buildQuittanceHtml</code> (changement du rendu officiel) — aperçu app + PDF email seront cohérents. Les 6 autres types (IRL, régul, bail, EDL...) suivront le même style en EM-2d V1.1.
+    💡 Une fois ton choix fait, j'applique la variante dans <code>_buildQuittanceHtml</code> (rendu officiel + email PJ cohérents) + intègre le footer "Document généré par ImmoTrack" (timestamp dynamique). Les 6 autres types (IRL, régul, bail, EDL...) suivront le même style en EM-2d V1.1.
   </div>
 </body>
 </html>
