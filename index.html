@@ -20160,9 +20160,16 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   let joursMois = null;
   if (moisIdx >= 0 && typeof window !== 'undefined' && typeof window._loyerProrataMois === 'function') {
     try {
-      const baux = (typeof DB !== 'undefined' && Array.isArray(DB.baux_historique))
-        ? [...(DB.baux ? [DB.baux[q.logement]].filter(Boolean) : []), ...DB.baux_historique.filter(b => b && b.logement === q.logement)]
-        : (typeof DB !== 'undefined' && DB.baux && DB.baux[q.logement] ? [DB.baux[q.logement]] : []);
+      // Liste des baux pertinents pour le logement : bail courant (param) + historiques DB.
+      // Utiliser le param `bail` en priorité (fiable, vient de l'appelant) + completer avec
+      // DB.baux_historique pour gérer transitions de baux mi-mois.
+      const baux = [];
+      if (bail) baux.push(bail);
+      if (typeof DB !== 'undefined' && Array.isArray(DB.baux_historique)) {
+        for (const h of DB.baux_historique) {
+          if (h && !h._deleted && h.logement === q.logement && h !== bail) baux.push(h);
+        }
+      }
       const prorataTotal = window._loyerProrataMois(log, anneeQ, moisIdx, baux);
       if (typeof prorataTotal === 'number' && prorataTotal > 0) {
         // Détection prorata : prorata diffère du loyer plein de plus de 1 € (tolérance arrondis)
