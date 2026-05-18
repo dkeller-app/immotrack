@@ -1,5 +1,6 @@
 /**
  * core/bank-import.js — BANK-INTEGRATION V1 v15.07 Sprint 8 V1.1
+ * v15.78 BUG-BANK-IMPORT-DEDUP : fingerprinting stable pour dédup robuste.
  *
  * Import CSV/OFX manuel de mouvements bancaires + matching auto par
  * heuristiques vers les catégories ImmoTrack (Loyers, Charges, Travaux, etc.).
@@ -12,25 +13,79 @@
  *   - Persistance dans DB.mouvements existant (pas de nouveau schéma)
  *
  * V2 SaaS (post-commercialisation) : intégration Saltedge AISP via backend.
- * Cf docs/subjects/BANK-INTEGRATION.md pour étude détaillée.
+ * Cf docs/subjects/BANK-INTEGRATION.md + docs/subjects/BUG-BANK-IMPORT-DEDUP.md.
  *
  * Tests Vitest miroir : __tests__/helpers/bank-import.test.js
  */
+
+// ────────────────────────────────────────────────────────────────────────────
+// v15.78 — Hash stable synchrone (FNV-1a + DJB2 concat) — 16 chars hex
+// Pas de besoin cryptographique (just dedup), donc pas de crypto.subtle async.
+// 64 bits ≈ 1.8×10^19 valeurs → collision négligeable sur < 10k mouvements.
+// ────────────────────────────────────────────────────────────────────────────
+
+export function _bankHashStable(str) {
+  const s = String(str || '');
+  let h1 = 0x811c9dc5;   // FNV-1a 32-bit offset
+  let h2 = 5381;          // DJB2 init
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 ^= c; h1 = Math.imul(h1, 0x01000193) >>> 0;
+    h2 = ((h2 * 33) + c) >>> 0;
+  }
+  return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+}
+
+/**
+ * Empreinte stable pour une ligne CSV brute (string source).
+ * Normalise espaces multiples, accents, casse → robuste aux variations cosmétiques
+ * que la banque pourrait introduire entre 2 exports du même mois.
+ * @param {string} rawLine — la ligne CSV originale (avant split)
+ * @returns {string} 16 chars hex
+ */
+export function _bankFingerprintCSV(rawLine) {
+  const normalized = String(rawLine || '')
+    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ').trim()
+    .toLowerCase();
+  return _bankHashStable(normalized);
+}
+
+/**
+ * Empreinte stable pour une transaction OFX (body STMTTRN entier).
+ * Priorité 1 : FITID (identifiant unique fourni par la banque, retourné préfixé "fitid:").
+ * Priorité 2 : hash sur (DTPOSTED|TRNAMT|NAME|MEMO) joints.
+ * @param {string} stmttrnBody — contenu entre <STMTTRN> et </STMTTRN>
+ * @returns {string} 'fitid:XXX' si FITID présent, sinon 16 chars hex
+ */
+export function _bankFingerprintOFX(stmttrnBody) {
+  const body = String(stmttrnBody || '');
+  const fitidMatch = body.match(/<FITID>([^<\r\n]*)/i);
+  if (fitidMatch && fitidMatch[1].trim()) return 'fitid:' + fitidMatch[1].trim();
+  const fields = ['DTPOSTED', 'TRNAMT', 'NAME', 'MEMO']
+    .map(t => {
+      const m = body.match(new RegExp(`<${t}>([^<\\r\\n]*)`, 'i'));
+      return m ? m[1].trim() : '';
+    })
+    .join('|');
+  return _bankHashStable(fields);
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Parser CSV — supporte virgule + point-virgule + tabulation comme délimiteurs
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Parse un texte CSV → { headers, rows, delimiter }.
+ * Parse un texte CSV → { headers, rows, delimiter, rawLines }.
+ * v15.78 BUG-BANK-IMPORT-DEDUP : ajoute rawLines (strings brutes) pour le fingerprinting.
  * Détecte automatiquement le délimiteur (','/';'/'\t').
  * Gère les champs entre guillemets avec virgules internes.
  */
 export function _bankParseCSV(text) {
-  if (!text || typeof text !== 'string') return { headers:[], rows:[], delimiter:',' };
+  if (!text || typeof text !== 'string') return { headers:[], rows:[], delimiter:',', rawLines:[] };
   // Détecte délimiteur sur première ligne non vide
   const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim().length > 0);
-  if (!lines.length) return { headers:[], rows:[], delimiter:',' };
+  if (!lines.length) return { headers:[], rows:[], delimiter:',', rawLines:[] };
   const first = lines[0];
   const counts = { ';': (first.match(/;/g)||[]).length, ',': (first.match(/,/g)||[]).length, '\t': (first.match(/\t/g)||[]).length };
   const delimiter = counts[';'] >= counts[','] && counts[';'] >= counts['\t'] ? ';'
@@ -51,8 +106,9 @@ export function _bankParseCSV(text) {
   };
 
   const headers = parseRow(lines[0]);
-  const rows = lines.slice(1).map(parseRow);
-  return { headers, rows, delimiter };
+  const dataLines = lines.slice(1);
+  const rows = dataLines.map(parseRow);
+  return { headers, rows, delimiter, rawLines: dataLines };
 }
 
 /**
@@ -119,8 +175,9 @@ export function _bankParseDate(s) {
  */
 export function _bankNormalizeCSV(parsed, cols) {
   const out = [];
-  const { rows } = parsed;
-  for (const r of (rows||[])) {
+  const { rows, rawLines } = parsed;
+  for (let i = 0; i < (rows || []).length; i++) {
+    const r = rows[i];
     const date = cols.date >= 0 ? _bankParseDate(r[cols.date]) : '';
     if (!date) continue; // ligne sans date = skip
     const libelle = cols.libelle >= 0 ? String(r[cols.libelle]||'').trim() : '';
@@ -129,19 +186,22 @@ export function _bankNormalizeCSV(parsed, cols) {
       debit  = cols.debit  >= 0 ? Math.abs(_bankParseAmount(r[cols.debit]))  : 0;
       credit = cols.credit >= 0 ? Math.abs(_bankParseAmount(r[cols.credit])) : 0;
     } else if (cols.montant >= 0) {
-      // Colonne unique signée : positif = crédit, négatif = débit
       const v = _bankParseAmount(r[cols.montant]);
       if (v >= 0) credit = v;
       else        debit  = -v;
     }
     if (debit === 0 && credit === 0) continue;
+    // v15.78 : empreinte stable calculée sur la rawLine brute
+    const rawLine = (rawLines && rawLines[i]) ? rawLines[i] : r.join('|');
     out.push({
       date,
       libelle,
       debit,
       credit,
       signedAmount: credit - debit,
-      raw: r
+      raw: r,
+      _fingerprint: _bankFingerprintCSV(rawLine),
+      _importSource: 'csv',
     });
   }
   return out;
@@ -185,7 +245,9 @@ export function _bankParseOFX(text) {
       credit: val > 0 ?  val : 0,
       signedAmount: val,
       fitid, // identifiant unique OFX (utile pour dédup)
-      raw: body.slice(0, 200)
+      raw: body.slice(0, 200),
+      _fingerprint: _bankFingerprintOFX(body),
+      _importSource: 'ofx',
     });
   }
   return out;
@@ -286,37 +348,101 @@ export function _bankMatchHeuristic(line, ctx = {}) {
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Pour chaque nouvelle ligne, indique si elle existe déjà dans `mouvementsExistants`.
- * Critère : même date ±3 jours + même montant ±1€ + libellé ressemblant.
- * @returns {Array<{...line, isDuplicate: bool, duplicateOf: string}>}
+ * Détecte les doublons d'import bancaire.
+ * v15.78 BUG-BANK-IMPORT-DEDUP : 2 stratégies en cascade :
+ *   1. Match par `_fingerprint` (priorité, robuste post-modification user)
+ *   2. Match legacy date±3j + montant±1€ + fitid (uniquement contre mouvements
+ *      existants SANS _fingerprint — compat v15.07)
+ *
+ * @returns {Array<{...line, isDuplicate, duplicateOf, duplicateReason}>}
  */
 export function _bankDedup(newLines, mouvementsExistants, options = {}) {
   const toleranceDays = options.toleranceDays ?? 3;
   const toleranceAmount = options.toleranceAmount ?? 1;
+  const legacyFallback = options.legacyFallback !== false;
+
+  // Index des fingerprints existants en DB (lookup O(1))
+  const fpIndex = new Map();
+  for (const m of (mouvementsExistants || [])) {
+    if (!m || m._deleted || !m._fingerprint) continue;
+    if (!fpIndex.has(m._fingerprint)) fpIndex.set(m._fingerprint, m);
+  }
+
   const out = [];
-  for (const line of (newLines||[])) {
+  for (const line of (newLines || [])) {
     let isDuplicate = false;
     let duplicateOf = '';
-    const lineMontant = line.credit > 0 ? line.credit : -line.debit;
-    const lineDate = new Date(line.date + 'T00:00:00').getTime();
-    for (const m of (mouvementsExistants||[])) {
-      if (!m || m._deleted) continue;
-      // 1. Bonus : fitid OFX exact = match certain peu importe la date
-      if (line.fitid && m.fitid && line.fitid === m.fitid) {
-        isDuplicate = true; duplicateOf = String(m.id); break;
-      }
-      if (!m.date) continue;
-      const mMontant = (m.cr||0) > 0 ? (m.cr||0) : -(m.db||0);
-      if (Math.abs(mMontant - lineMontant) > toleranceAmount) continue;
-      const mDate = new Date(m.date + 'T00:00:00').getTime();
-      const dayDiff = Math.abs((mDate - lineDate) / 86400000);
-      if (dayDiff > toleranceDays) continue;
-      // Match date + montant
+    let duplicateReason = '';
+
+    // Stratégie 1 — fingerprint (priorité)
+    if (line._fingerprint && fpIndex.has(line._fingerprint)) {
+      const m = fpIndex.get(line._fingerprint);
       isDuplicate = true;
       duplicateOf = String(m.id || '?');
-      break;
+      duplicateReason = 'Empreinte CSV/OFX identique déjà importée';
     }
-    out.push({ ...line, isDuplicate, duplicateOf });
+
+    // Stratégie 2 — fallback legacy (date+montant+fitid) UNIQUEMENT contre
+    // mouvements existants SANS _fingerprint (compat v15.07).
+    if (!isDuplicate && legacyFallback) {
+      const lineMontant = line.credit > 0 ? line.credit : -line.debit;
+      const lineDate = line.date ? new Date(line.date + 'T00:00:00').getTime() : NaN;
+      for (const m of (mouvementsExistants || [])) {
+        if (!m || m._deleted) continue;
+        if (m._fingerprint) continue; // déjà couvert par stratégie 1
+        // Bonus fitid OFX
+        if (line.fitid && m.fitid && line.fitid === m.fitid) {
+          isDuplicate = true;
+          duplicateOf = String(m.id || '?');
+          duplicateReason = 'FITID OFX identique (legacy)';
+          break;
+        }
+        if (!m.date || !isFinite(lineDate)) continue;
+        const mMontant = (m.cr || 0) > 0 ? (m.cr || 0) : -(m.db || 0);
+        if (Math.abs(mMontant - lineMontant) > toleranceAmount) continue;
+        const mDate = new Date(m.date + 'T00:00:00').getTime();
+        const dayDiff = Math.abs((mDate - lineDate) / 86400000);
+        if (dayDiff > toleranceDays) continue;
+        isDuplicate = true;
+        duplicateOf = String(m.id || '?');
+        duplicateReason = `Date ±${toleranceDays}j + montant ±${toleranceAmount}€ (legacy)`;
+        break;
+      }
+    }
+
+    out.push({ ...line, isDuplicate, duplicateOf, duplicateReason });
   }
   return out;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// v15.78 — Migration rétroactive des fingerprints sur mouvements existants
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calcule et stocke `_fingerprint` sur les mouvements existants ÉLIGIBLES,
+ * sans rawLine d'origine. Stratégie :
+ *   - Mouvements avec `fitid` (OFX legacy v15.07) → fingerprint = 'fitid:' + fitid
+ *   - Autres mouvements (CSV legacy ou saisis manuellement) → laissés intacts,
+ *     leur dédup passera par le fallback legacy au prochain import (1 fois).
+ *
+ * Idempotent : ne recalcule pas si `_fingerprint` déjà présent.
+ *
+ * @param {object[]} mouvements — DB.mouvements (modifié en place pour les éligibles)
+ * @returns {{ migrated:number, skipped:number }}
+ */
+export function _bankMigrateFingerprints(mouvements) {
+  let migrated = 0, skipped = 0;
+  if (!Array.isArray(mouvements)) return { migrated, skipped };
+  for (const m of mouvements) {
+    if (!m || m._deleted) { skipped++; continue; }
+    if (m._fingerprint) { skipped++; continue; } // déjà migré
+    if (m.fitid && String(m.fitid).trim()) {
+      m._fingerprint = 'fitid:' + String(m.fitid).trim();
+      migrated++;
+    } else {
+      skipped++; // CSV legacy ou saisi manuel : pas de migration possible
+    }
+  }
+  return { migrated, skipped };
 }

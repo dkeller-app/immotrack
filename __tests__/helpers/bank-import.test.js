@@ -5,7 +5,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
-  _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup
+  _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup,
+  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints
 } from '../../js/core/bank-import.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -421,3 +422,175 @@ describe('_bankDedup', () => {
     expect(_bankDedup(newLines, existing, { toleranceDays:10 })[0].isDuplicate).toBe(true);
   });
 });
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  v15.78 BUG-BANK-IMPORT-DEDUP — fingerprinting stable
+// ═══════════════════════════════════════════════════════════════════
+
+describe("_bankHashStable", () => {
+  it("hash deterministe : meme input → meme output", () => {
+    expect(_bankHashStable("hello world")).toBe(_bankHashStable("hello world"));
+  });
+  it("16 chars hex", () => {
+    expect(_bankHashStable("test").length).toBe(16);
+    expect(_bankHashStable("test")).toMatch(/^[0-9a-f]{16}$/);
+  });
+  it("inputs differents → outputs differents", () => {
+    expect(_bankHashStable("a")).not.toBe(_bankHashStable("b"));
+  });
+  it("empty + null safe", () => {
+    expect(_bankHashStable("")).toBe(_bankHashStable(""));
+    expect(_bankHashStable(null)).toBe(_bankHashStable(""));
+  });
+});
+
+describe("_bankFingerprintCSV — normalisation", () => {
+  it("meme empreinte pour casse differente", () => {
+    expect(_bankFingerprintCSV("VIR ALICE MARTIN 650"))
+      .toBe(_bankFingerprintCSV("vir alice martin 650"));
+  });
+  it("meme empreinte pour espaces multiples", () => {
+    expect(_bankFingerprintCSV("VIR ALICE  MARTIN   650"))
+      .toBe(_bankFingerprintCSV("VIR ALICE MARTIN 650"));
+  });
+  it("meme empreinte pour accents (NFKD)", () => {
+    expect(_bankFingerprintCSV("VIR MULLER 650"))
+      .toBe(_bankFingerprintCSV("VIR MÜLLER 650"));
+  });
+  it("empreintes differentes pour 2 lignes distinctes", () => {
+    expect(_bankFingerprintCSV("01/01/2026;VIR ALICE;650"))
+      .not.toBe(_bankFingerprintCSV("01/01/2026;VIR BOB;650"));
+  });
+  it("trim leading/trailing", () => {
+    expect(_bankFingerprintCSV("  test  ")).toBe(_bankFingerprintCSV("test"));
+  });
+});
+
+describe("_bankFingerprintOFX — priorite FITID", () => {
+  it("utilise FITID si present (prefix fitid:)", () => {
+    const body = "<TRNTYPE>CREDIT<DTPOSTED>20260315<TRNAMT>650<FITID>ABC123<NAME>VIR ALICE";
+    expect(_bankFingerprintOFX(body)).toBe("fitid:ABC123");
+  });
+  it("fallback hash si FITID absent", () => {
+    const body = "<TRNTYPE>CREDIT<DTPOSTED>20260315<TRNAMT>650<NAME>VIR ALICE<MEMO>loyer";
+    const fp = _bankFingerprintOFX(body);
+    expect(fp).not.toMatch(/^fitid:/);
+    expect(fp).toMatch(/^[0-9a-f]{16}$/);
+  });
+  it("FITID vide → fallback hash", () => {
+    const body = "<TRNTYPE>CREDIT<DTPOSTED>20260315<TRNAMT>650<FITID>   <NAME>VIR ALICE";
+    expect(_bankFingerprintOFX(body)).toMatch(/^[0-9a-f]{16}$/);
+  });
+  it("body vide/null safe", () => {
+    expect(_bankFingerprintOFX("")).toMatch(/^[0-9a-f]{16}$/);
+    expect(_bankFingerprintOFX(null)).toMatch(/^[0-9a-f]{16}$/);
+  });
+});
+
+describe("_bankNormalizeCSV — ajout _fingerprint sur chaque ligne", () => {
+  it("chaque ligne normalisee a _fingerprint + _importSource csv", () => {
+    const parsed = _bankParseCSV("Date;Libelle;Montant\n01/01/2026;VIR ALICE;650\n02/01/2026;VIR BOB;-100");
+    const cols = _bankAutoDetectColumns(parsed.headers);
+    const out = _bankNormalizeCSV(parsed, cols);
+    expect(out.length).toBe(2);
+    expect(out[0]._fingerprint).toMatch(/^[0-9a-f]{16}$/);
+    expect(out[1]._fingerprint).toMatch(/^[0-9a-f]{16}$/);
+    expect(out[0]._fingerprint).not.toBe(out[1]._fingerprint);
+    expect(out[0]._importSource).toBe("csv");
+  });
+});
+
+describe("_bankParseOFX — ajout _fingerprint", () => {
+  it("transaction avec FITID → _fingerprint = fitid:XXX", () => {
+    const ofx = "<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260315<TRNAMT>650<FITID>UNIQ-001<NAME>VIR ALICE</STMTTRN>";
+    const out = _bankParseOFX(ofx);
+    expect(out.length).toBe(1);
+    expect(out[0]._fingerprint).toBe("fitid:UNIQ-001");
+    expect(out[0]._importSource).toBe("ofx");
+  });
+});
+
+describe("_bankDedup — strategie 1 fingerprint", () => {
+  it("SKIP si fingerprint deja present en DB", () => {
+    const newLines = [{ date:"2026-01-15", credit:650, debit:0, _fingerprint:"abc123" }];
+    const existing = [{ id:1, date:"2026-01-15", cr:650, _fingerprint:"abc123" }];
+    const out = _bankDedup(newLines, existing);
+    expect(out[0].isDuplicate).toBe(true);
+    expect(out[0].duplicateReason).toMatch(/empreinte/i);
+  });
+  it("CRITIQUE : user modifie date+libelle+montant apres import → SKIP correct", () => {
+    const newLines = [{ date:"2026-01-15", libelle:"VIR ALICE 650", credit:650, debit:0, _fingerprint:"stable-fp-1" }];
+    // En DB : meme fingerprint mais date/libelle/montant tous DIFFERENTS (user a edite)
+    const existing = [{ id:99, date:"2026-02-28", libelle:"Renomme par user", cr:999, _fingerprint:"stable-fp-1" }];
+    const out = _bankDedup(newLines, existing);
+    expect(out[0].isDuplicate).toBe(true); // toujours detecte malgre les modifs !
+    expect(out[0].duplicateOf).toBe("99");
+  });
+  it("pas duplicate si fingerprint different", () => {
+    const newLines = [{ date:"2026-01-15", credit:650, debit:0, _fingerprint:"new-fp" }];
+    const existing = [{ id:1, date:"2026-01-15", cr:650, _fingerprint:"other-fp" }];
+    expect(_bankDedup(newLines, existing)[0].isDuplicate).toBe(false);
+  });
+});
+
+describe("_bankDedup — fallback legacy (mouvements sans fingerprint)", () => {
+  it("mouvement legacy sans _fingerprint → fallback date+montant", () => {
+    const newLines = [{ date:"2026-01-15", credit:650, debit:0, _fingerprint:"new-fp" }];
+    const existing = [{ id:1, date:"2026-01-15", cr:650 }]; // pas de _fingerprint
+    const out = _bankDedup(newLines, existing);
+    expect(out[0].isDuplicate).toBe(true);
+    expect(out[0].duplicateReason).toMatch(/legacy/i);
+  });
+  it("mix legacy + modern dans meme DB → match les 2 strategies", () => {
+    const newLines = [
+      { date:"2026-01-15", credit:650, debit:0, _fingerprint:"fp1" },   // matche modern
+      { date:"2026-02-15", credit:700, debit:0, _fingerprint:"fp-X" },  // matche legacy via date+montant
+    ];
+    const existing = [
+      { id:1, date:"2026-01-15", cr:650, _fingerprint:"fp1" },   // modern
+      { id:2, date:"2026-02-15", cr:700 },                        // legacy (pas de fp)
+    ];
+    const out = _bankDedup(newLines, existing);
+    expect(out[0].isDuplicate).toBe(true);
+    expect(out[1].isDuplicate).toBe(true);
+  });
+  it("disable legacy fallback → seul fp marche", () => {
+    const newLines = [{ date:"2026-01-15", credit:650, debit:0, _fingerprint:"new-fp" }];
+    const existing = [{ id:1, date:"2026-01-15", cr:650 }]; // legacy
+    const out = _bankDedup(newLines, existing, { legacyFallback:false });
+    expect(out[0].isDuplicate).toBe(false);
+  });
+});
+
+describe("_bankMigrateFingerprints", () => {
+  it("migre fitid OFX legacy vers _fingerprint", () => {
+    const movs = [{ id:1, fitid:"OFX-ABC" }, { id:2, fitid:"OFX-DEF" }];
+    const r = _bankMigrateFingerprints(movs);
+    expect(r.migrated).toBe(2);
+    expect(movs[0]._fingerprint).toBe("fitid:OFX-ABC");
+    expect(movs[1]._fingerprint).toBe("fitid:OFX-DEF");
+  });
+  it("idempotent : 2e appel ne re-migre pas", () => {
+    const movs = [{ id:1, fitid:"OFX-ABC" }];
+    _bankMigrateFingerprints(movs);
+    const r2 = _bankMigrateFingerprints(movs);
+    expect(r2.migrated).toBe(0);
+    expect(r2.skipped).toBe(1);
+  });
+  it("skip mouvements sans fitid (CSV legacy / saisis manuel)", () => {
+    const movs = [{ id:1, date:"2026-01-15", cr:650, libelle:"Saisi manuel" }];
+    const r = _bankMigrateFingerprints(movs);
+    expect(r.migrated).toBe(0);
+    expect(movs[0]._fingerprint).toBeUndefined();
+  });
+  it("skip mouvements _deleted", () => {
+    const movs = [{ id:1, fitid:"X", _deleted:true }];
+    const r = _bankMigrateFingerprints(movs);
+    expect(r.migrated).toBe(0);
+  });
+  it("non-array → { migrated:0, skipped:0 }", () => {
+    expect(_bankMigrateFingerprints(null)).toEqual({ migrated:0, skipped:0 });
+  });
+});
+

@@ -94,9 +94,11 @@ import {
 } from './core/attachments.js';
 
 // v15.07 BANK-INTEGRATION V1 - import CSV/OFX + matching auto
+// v15.78 BUG-BANK-IMPORT-DEDUP - fingerprinting stable + migration legacy
 import {
   _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
-  _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup
+  _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup,
+  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints
 } from './core/bank-import.js';
 
 // v15.10 QUITTANCES-ACTIVES - statut dynamique + matching + escalade + génération auto
@@ -223,6 +225,7 @@ window.ATTACHMENT_CATEGORIES = ATTACHMENT_CATEGORIES;
 window.ATTACHMENT_DEFAULT_MAX_SIZE = ATTACHMENT_DEFAULT_MAX_SIZE;
 
 // BANK-INTEGRATION V1 (v15.07 Sprint 8) - import CSV/OFX manuel
+// + v15.78 BUG-BANK-IMPORT-DEDUP fingerprinting stable
 window._bankParseCSV = _bankParseCSV;
 window._bankAutoDetectColumns = _bankAutoDetectColumns;
 window._bankParseAmount = _bankParseAmount;
@@ -231,6 +234,10 @@ window._bankNormalizeCSV = _bankNormalizeCSV;
 window._bankParseOFX = _bankParseOFX;
 window._bankMatchHeuristic = _bankMatchHeuristic;
 window._bankDedup = _bankDedup;
+window._bankHashStable = _bankHashStable;
+window._bankFingerprintCSV = _bankFingerprintCSV;
+window._bankFingerprintOFX = _bankFingerprintOFX;
+window._bankMigrateFingerprints = _bankMigrateFingerprints;
 
 // QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
 window._statutQuittance = _statutQuittance;
