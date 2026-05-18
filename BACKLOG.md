@@ -119,6 +119,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 | # | Code | Sujet | Coût | Prio | Bloqueur |
 |---|---|---|---|---|---|
+| 0 | **EMAIL-SMTP-CONNECT** | Envoi direct d'emails depuis l'app via Gmail API OAuth (leverage OAuth Drive existant). Fallback `mailto:` pour non-Google. Phase 2 Microsoft Graph V1.2 | ~6-8h | **P1** | OAuth Drive existant (v13.41), vérification Google Console scope `gmail.send` (~2-6 sem) · [docs/subjects/EMAIL-SMTP-CONNECT.md](docs/subjects/EMAIL-SMTP-CONNECT.md) · différenciant marché (envoi depuis adresse du bailleur, pas `noreply@`) |
 | 1 | **AUDIT-TRAIL** | Journal modifications (qui/quand/quoi) | ✅ Livré v14.89 (Sprint 3A) | 🔥 P0 | `js/core/audit-trail.js` (5820 B, 5 exports + tests Vitest 30 tests). Hook dans `saveDB` via `_auditFlushPending()`. Entries auto sur `saveBail/delBail/saveEnt/delEnt/saveParamLog/delLog/saveMv`. `DB.auditTrail` array avec cap soft 10k entrées (prune oldest 5000). Sync Drive auto via payload standard. UI Paramètres "Journal d'activité" reportée Sprint 4 polish (données déjà exportables programmatiquement via `_auditToCsv`). |
 | 2 | **GESTION-MANDAT** | Mandat de gestion + honoraires + reversement bailleur | 5h | 🔥 P0 | Hoguet (carte T) — **Reporté V1.1** (UX complexe : signature mandat + revoiur honoraires + interaction CRG mensuel) |
 | 3 | **GESTION-CRG** | Compte Rendu de Gestion automatisé (PDF + Drive) | 6h | 🔥 P0 | Réglementaire mandataire — **Reporté V1.1** (le Bilan annuel v14.92 fournit déjà le récap annuel) |
