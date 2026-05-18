@@ -69,15 +69,16 @@ function _ensureModalDom() {
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-labelledby', 'em-title');
-  // v15.82 — onclick="event.stopPropagation()" RETIRÉ du div.modal : il bloquait
-  // le bubble des clicks vers document, empêchant la délégation document-level.
-  // Le click-outside est géré par la condition `t === modal` dans le listener
-  // (target = .ov backdrop uniquement quand on clique le bord, pas le contenu).
+  // v15.82bis — Pattern onclick inline (cohérent avec les autres modales ImmoTrack,
+  // cf #ov-bail, #ov-mv, etc. qui utilisent closeBg(event,'ov-X')). Les approches
+  // listener JS (sur modal puis sur document) ont toutes échoué silencieusement
+  // en prod — pattern HTML attribute garanti fonctionner.
+  modal.setAttribute('onclick', "closeBg(event,'" + MODAL_ID + "')");
   modal.innerHTML = `
-    <div class="modal lg">
+    <div class="modal lg" onclick="event.stopPropagation()">
       <div class="m-head">
         <h3 id="em-title">📧 Proposition de mail</h3>
-        <button class="m-close" type="button" data-em-close aria-label="Fermer">✕</button>
+        <button class="m-close" type="button" onclick="closeM('${MODAL_ID}')" aria-label="Fermer">✕</button>
       </div>
       <div class="m-body">
         <div class="fg2">
@@ -103,57 +104,31 @@ function _ensureModalDom() {
         <div id="em-mailto-warn" class="mt12" style="display:none"></div>
       </div>
       <div class="m-foot">
-        <button class="btn bs" type="button" data-em-close>Annuler</button>
-        <button class="btn" type="button" data-em-action="share" id="em-share-btn" style="display:none">📱 Partager</button>
-        <button class="btn" type="button" data-em-action="copy">📋 Copier sujet + corps</button>
-        <button class="btn" type="button" data-em-action="mailto">📧 Ouvrir dans mon client mail</button>
-        <button class="btn bp" type="button" data-em-action="sendnow" id="em-sendnow-btn" style="display:none" title="Envoyer directement via votre compte Gmail (nécessite connexion Google)">📤 Envoyer maintenant</button>
+        <button class="btn bs" type="button" onclick="closeM('${MODAL_ID}')">Annuler</button>
+        <button class="btn" type="button" onclick="window._emHandleAction('share')" id="em-share-btn" style="display:none">📱 Partager</button>
+        <button class="btn" type="button" onclick="window._emHandleAction('copy')">📋 Copier sujet + corps</button>
+        <button class="btn" type="button" onclick="window._emHandleAction('mailto')">📧 Ouvrir dans mon client mail</button>
+        <button class="btn bp" type="button" onclick="window._emHandleAction('sendnow')" id="em-sendnow-btn" style="display:none" title="Envoyer directement via votre compte Gmail (nécessite connexion Google)">📤 Envoyer maintenant</button>
       </div>
     </div>
   `;
 
   document.body.appendChild(modal);
-
-  // v15.82 BUG-EMAIL-MODAL-LISTENERS — délégation document-level (résiste aux
-  // recréations DOM). Les listeners attachés sur `modal` survivent normalement,
-  // mais on a constaté en prod que les clics ne déclenchaient rien — possiblement
-  // car une mutation DOM ailleurs détache silencieusement le listener.
-  // Solution : 1 seul listener au niveau document, scopé via .closest('#ov-email-compose').
-  _ensureEmailModalDelegation();
-
   return modal;
 }
 
-// v15.82 — Délégation document-level (singleton, attaché 1 seule fois)
-function _ensureEmailModalDelegation() {
-  if (typeof document === 'undefined') return;
-  if (typeof document.addEventListener !== 'function') return; // jsdom mock partiel safe
-  if (document._emModalDelegationAttached) return;
-  document._emModalDelegationAttached = true;
-
-  document.addEventListener('click', (e) => {
-    const t = e.target;
-    if (!t || !t.closest) return;
-    // Scope : on agit uniquement si le clic vient de la modale email
-    const modal = t.closest('#' + MODAL_ID);
-    if (!modal) return;
-
-    // Click-outside (sur le backdrop .ov mais pas .modal lui-même)
-    if (t === modal) { closeM(MODAL_ID); return; }
-
-    const closeBtn = t.closest('[data-em-close]');
-    if (closeBtn && modal.contains(closeBtn)) { closeM(MODAL_ID); return; }
-
-    const actionBtn = t.closest('[data-em-action]');
-    if (actionBtn && modal.contains(actionBtn)) {
-      const action = actionBtn.getAttribute('data-em-action');
-      const ctx = modal._emailCtx || {};
-      if (action === 'mailto') _onMailto(ctx);
-      else if (action === 'copy') _onCopy(ctx);
-      else if (action === 'share') _onShare(ctx);
-      else if (action === 'sendnow') _onSendNow(ctx);
-    }
-  });
+/**
+ * v15.82bis — Handler global exposé sur window. Appelé depuis les onclick inline
+ * des boutons de la modale. Lit le contexte stocké sur la modale + dispatch.
+ */
+export function _emHandleAction(action) {
+  const modal = document.getElementById(MODAL_ID);
+  if (!modal) return;
+  const ctx = modal._emailCtx || {};
+  if (action === 'mailto') _onMailto(ctx);
+  else if (action === 'copy') _onCopy(ctx);
+  else if (action === 'share') _onShare(ctx);
+  else if (action === 'sendnow') _onSendNow(ctx);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

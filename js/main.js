@@ -83,7 +83,7 @@ import {
   _logEmailSent, _getEmailHistory
 } from './core/email-compose.js';
 
-import { openEmailModal, _buildMailtoUrl } from './components/email-modal.js';
+import { openEmailModal, _buildMailtoUrl, _emHandleAction } from './components/email-modal.js';
 
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
@@ -215,6 +215,7 @@ window._interpolateEmail = _interpolateEmail;
 window._openEmailModal = openEmailModal;
 window.openEmailModal = openEmailModal;
 window._buildMailtoUrl = _buildMailtoUrl;
+window._emHandleAction = _emHandleAction; // v15.82bis — onclick inline buttons
 window._logEmailSent = _logEmailSent;
 window._getEmailHistory = _getEmailHistory;
 
