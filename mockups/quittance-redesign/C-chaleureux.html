@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Quittance — Variante C Chaleureux humain</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: #faf5ef;
+    font-family: 'Inter', 'Lato', -apple-system, sans-serif;
+    color: #3a2c20;
+  }
+  .page {
+    background: #fffdf8;
+    max-width: 800px; margin: 0 auto;
+    padding: 48px 56px;
+    box-shadow: 0 2px 12px rgba(58,44,32,.08);
+    border-radius: 6px;
+    border: 1px solid #f0e6d6;
+  }
+
+  /* HEADER LIGHT */
+  .top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px dashed #d4c4a8; }
+  .brand-name { font-size: 16px; font-weight: 600; color: #3a2c20; letter-spacing: -.01em; }
+  .brand-sub { font-size: 11px; color: #8a7355; line-height: 1.5; margin-top: 3px; }
+  .doc-info { text-align: right; font-size: 11px; color: #8a7355; }
+  .doc-ref-c { font-weight: 600; color: #5a4a35; font-size: 12px; }
+
+  /* GREETING WARM */
+  .greeting { margin-bottom: 28px; }
+  .greeting .hello { font-size: 13px; color: #8a7355; margin-bottom: 4px; }
+  .greeting .name { font-size: 22px; font-weight: 600; color: #3a2c20; letter-spacing: -.015em; line-height: 1.2; }
+  .greeting .msg { font-size: 14px; color: #5a4a35; line-height: 1.6; margin-top: 12px; max-width: 580px; }
+  .greeting .msg strong { color: #3a2c20; font-weight: 600; }
+
+  /* RECEIPT BOX */
+  .receipt-box {
+    background: linear-gradient(180deg, #fef9f0 0%, #fef3e2 100%);
+    border: 1px solid #e8d8b8;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .receipt-box::before {
+    content: '';
+    position: absolute; top: 0; right: 0;
+    width: 80px; height: 80px;
+    background: radial-gradient(circle at top right, rgba(202,138,4,.15), transparent 70%);
+  }
+  .receipt-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: #ca8a04; margin-bottom: 4px; }
+  .receipt-period { font-size: 13px; color: #6b5a40; margin-bottom: 20px; }
+  .receipt-amount {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px dashed #d4c4a8;
+  }
+  .receipt-amount .big { font-size: 38px; font-weight: 700; color: #3a2c20; letter-spacing: -.02em; line-height: 1; }
+  .receipt-amount .lettres { font-size: 12px; color: #8a7355; font-style: italic; }
+  .receipt-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; font-size: 13px; }
+  .receipt-detail .row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .receipt-detail .row .lbl { color: #6b5a40; }
+  .receipt-detail .row .val { font-weight: 600; color: #3a2c20; }
+
+  /* PARTIES (2 cols simple) */
+  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 28px; padding: 20px 0; border-top: 1px dashed #d4c4a8; border-bottom: 1px dashed #d4c4a8; }
+  .party h3 { margin: 0 0 6px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #8a7355; }
+  .party .name { font-size: 13.5px; font-weight: 600; color: #3a2c20; }
+  .party .meta { font-size: 12px; color: #6b5a40; line-height: 1.5; margin-top: 3px; }
+
+  /* LEGAL FOOTER */
+  .legal-foot { font-size: 11px; color: #8a7355; line-height: 1.55; padding: 14px 16px; background: #faf5ec; border-radius: 8px; margin-bottom: 24px; }
+  .legal-foot strong { color: #5a4a35; font-weight: 600; }
+
+  /* SIGNATURE */
+  .sign-warm {
+    text-align: right; padding-top: 12px;
+  }
+  .sign-warm .salut { font-size: 13px; color: #5a4a35; margin-bottom: 12px; }
+  .sign-warm .handwriting { font-family: 'Brush Script MT', 'Lucida Handwriting', cursive; font-size: 32px; color: #ca8a04; line-height: 1; margin-bottom: 4px; }
+  .sign-warm .real-name { font-size: 13px; font-weight: 600; color: #3a2c20; }
+  .sign-warm .real-role { font-size: 11px; color: #8a7355; }
+
+  /* THX FOOTER */
+  .thx {
+    text-align: center;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px dashed #d4c4a8;
+    font-size: 11px;
+    color: #8a7355;
+  }
+  .thx-heart { font-size: 14px; }
+
+  /* LEGEND */
+  .legend {
+    max-width: 800px; margin: 24px auto 0;
+    padding: 14px 20px;
+    background: rgba(58,44,32,.05); border-radius: 6px;
+    font-size: 12px; color: #5a4a35; line-height: 1.5;
+  }
+  .legend strong { color: #3a2c20; }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- TOP -->
+    <div class="top">
+      <div>
+        <div class="brand-name">SCI DD2AMELEVIERES</div>
+        <div class="brand-sub">15 rue du château · 67190 MUTZIG<br>SIREN 928 516 392 · RCS MUTZIG · Gérant Didier Keller</div>
+      </div>
+      <div class="doc-info">
+        <div class="doc-ref-c">Quittance Q-2026-05-F001</div>
+        <div>émise le 14 mai 2026</div>
+      </div>
+    </div>
+
+    <!-- GREETING -->
+    <div class="greeting">
+      <div class="hello">Bonjour,</div>
+      <div class="name">Mme AUDRIN Faustine</div>
+      <div class="msg">
+        Nous avons bien reçu votre règlement de loyer pour le mois de <strong>mai 2026</strong>. Voici votre quittance pour vos archives. Encore merci pour votre confiance et votre régularité.
+      </div>
+    </div>
+
+    <!-- RECEIPT BOX -->
+    <div class="receipt-box">
+      <div class="receipt-title">Quittance · mai 2026</div>
+      <div class="receipt-period">14 avenue Emile Huchet, 57800 FREYMING MERLEBACH · du 01/05 au 31/05/2026 · reçu le 05/05/2026</div>
+      <div class="receipt-amount">
+        <div class="big">670,00 €</div>
+        <div class="lettres">six-cent-soixante-dix euros</div>
+      </div>
+      <div class="receipt-detail">
+        <div class="row"><span class="lbl">Loyer hors charges</span><span class="val">650,00 €</span></div>
+        <div class="row"><span class="lbl">Provisions sur charges</span><span class="val">20,00 €</span></div>
+      </div>
+    </div>
+
+    <!-- PARTIES -->
+    <div class="parties">
+      <div class="party">
+        <h3>Bailleur</h3>
+        <div class="name">SCI DD2AMELEVIERES</div>
+        <div class="meta">15 rue du château<br>67190 MUTZIG<br>Représenté par Didier Keller</div>
+      </div>
+      <div class="party">
+        <h3>Locataire</h3>
+        <div class="name">Mme AUDRIN Faustine, BIRRINNI</div>
+        <div class="meta">14 avenue Emile Huchet<br>57800 FREYMING MERLEBACH</div>
+      </div>
+    </div>
+
+    <!-- LEGAL FOOTER discrete -->
+    <div class="legal-foot">
+      <strong>Mention légale.</strong> Cette quittance est délivrée conformément à l'article 21 de la loi n° 89-462 du 6 juillet 1989, sous réserve du bon encaissement de la somme. Elle annule tout reçu précédemment émis en cas de paiement partiel du présent terme.
+    </div>
+
+    <!-- SIGNATURE warm -->
+    <div class="sign-warm">
+      <div class="salut">Bien à vous,</div>
+      <div class="handwriting">Didier Keller</div>
+      <div class="real-name">Didier Keller</div>
+      <div class="real-role">Gérant — SCI DD2AMELEVIERES</div>
+    </div>
+
+    <!-- MERCI -->
+    <div class="thx">
+      <span class="thx-heart">✦</span> Merci de votre confiance <span class="thx-heart">✦</span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <strong>Variante C — Chaleureux humain</strong> · Tons crème/ambre/brun, salutation perso ("Bonjour [nom]"), receipt-box arrondie avec dégradé doux, signature manuscrite stylisée, "Merci de votre confiance" en footer. Reste légalement intégral (Bailleur/Locataire, mention loi 89-462, déclaration de réception) mais le doc fait plaisir à recevoir. Style hospitalité / Airbnb-confirmation.
+  </div>
+</body>
+</html>

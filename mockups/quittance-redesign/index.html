@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mockups Quittance Redesign — 3 variantes</title>
+<style>
+  body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+  header { padding: 24px 32px; border-bottom: 1px solid #334155; }
+  h1 { margin: 0; font-size: 20px; }
+  .sub { color: #94a3b8; margin-top: 4px; font-size: 13px; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 24px 32px; }
+  .card { background: #1e293b; border-radius: 10px; padding: 20px; }
+  .card h2 { margin: 0 0 6px; font-size: 16px; }
+  .card .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+  .A .badge { background: #1d4ed8; color: #fff; }
+  .B .badge { background: #0e7490; color: #fff; }
+  .C .badge { background: #ca8a04; color: #fff; }
+  .card .desc { font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 14px; }
+  .card a {
+    display: inline-block; padding: 8px 14px; border-radius: 6px;
+    background: #334155; color: #e2e8f0; text-decoration: none; font-size: 12px; font-weight: 500;
+    transition: background .15s;
+  }
+  .card a:hover { background: #475569; }
+  .footnote { padding: 16px 32px; color: #94a3b8; font-size: 12px; border-top: 1px solid #334155; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Mockups quittance redesign — 3 directions à arbitrer</h1>
+    <div class="sub">Cliquer un mockup pour le voir au format A4. Tous légalement conformes (Bailleur/Locataire, mention loi 89-462, déclaration "Je soussigné").</div>
+  </header>
+
+  <div class="cards">
+    <div class="card A">
+      <span class="badge">A</span>
+      <h2>Moderne Stripe-like</h2>
+      <div class="desc">Sans-serif, blanc + accent bleu navy, <strong>total dans card gradient</strong>, structure très aérée. Sobre, contemporain, "facture SaaS" pro.</div>
+      <a href="A-moderne.html" target="_blank">Ouvrir le mockup A →</a>
+    </div>
+    <div class="card B">
+      <span class="badge">B</span>
+      <h2>Branded SCI premium</h2>
+      <div class="desc">Bandeau coloré navy→teal avec logo, cards séparées Bailleur/Locataire, <strong>total noir contrasté</strong> + mini-cards détail, déclaration ambrée. Identité forte multi-bailleur SaaS scalable.</div>
+      <a href="B-branded.html" target="_blank">Ouvrir le mockup B →</a>
+    </div>
+    <div class="card C">
+      <span class="badge">C</span>
+      <h2>Chaleureux humain</h2>
+      <div class="desc">Tons crème/ambre, salutation perso "Bonjour [nom]", <strong>receipt-box arrondie</strong>, signature manuscrite stylisée, "Merci de votre confiance". Style hospitalité, fait plaisir à recevoir.</div>
+      <a href="C-chaleureux.html" target="_blank">Ouvrir le mockup C →</a>
+    </div>
+  </div>
+
+  <div class="footnote">
+    💡 Une fois ton choix fait, j'applique la variante dans <code>_buildQuittanceHtml</code> (changement du rendu officiel) — aperçu app + PDF email seront cohérents. Les 6 autres types (IRL, régul, bail, EDL...) suivront le même style en EM-2d V1.1.
+  </div>
+</body>
+</html>

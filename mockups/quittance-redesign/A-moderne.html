@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Quittance — Variante A Moderne (Stripe-like)</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    color: #0f172a;
+  }
+  .page {
+    background: #fff;
+    max-width: 800px; margin: 0 auto;
+    padding: 56px 64px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    border-radius: 4px;
+  }
+
+  /* HEADER */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 32px; border-bottom: 1px solid #e2e8f0; margin-bottom: 32px; }
+  .brand h1 { margin: 0 0 8px; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand .subtitle { color: #64748b; font-size: 13px; line-height: 1.5; }
+  .header-meta { text-align: right; }
+  .doc-badge {
+    display: inline-block;
+    background: #eff6ff; color: #1d4ed8;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    margin-bottom: 8px;
+  }
+  .doc-ref { color: #475569; font-size: 12px; }
+  .doc-date { color: #0f172a; font-size: 13px; font-weight: 500; margin-top: 4px; }
+
+  /* TITLE */
+  .title-block { margin-bottom: 40px; }
+  .title-block h2 { margin: 0 0 4px; font-size: 28px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
+  .title-block .period { color: #64748b; font-size: 14px; }
+
+  /* TWO COLUMNS */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 32px; }
+  .col-block h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+  .col-block .name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .col-block .addr, .col-block .meta { font-size: 13px; color: #475569; line-height: 1.5; }
+
+  /* AMOUNT CARD */
+  .amount-card {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+    color: #fff; border-radius: 12px;
+    padding: 32px; margin-bottom: 32px;
+  }
+  .amount-card .label { font-size: 12px; opacity: .8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+  .amount-card .big { font-size: 42px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin-bottom: 12px; }
+  .amount-card .lettres { font-size: 13px; opacity: .85; font-style: italic; }
+
+  /* DETAIL TABLE */
+  .detail { margin-bottom: 32px; }
+  .detail h3 { margin: 0 0 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+  .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  .detail-row.total { border-top: 2px solid #0f172a; border-bottom: none; padding-top: 14px; font-weight: 700; font-size: 16px; margin-top: 4px; }
+
+  /* RECEIPT TEXT */
+  .receipt-text {
+    background: #f8fafc;
+    padding: 20px 24px;
+    border-radius: 8px;
+    border-left: 3px solid #1d4ed8;
+    font-size: 13px; line-height: 1.6;
+    color: #334155;
+    margin-bottom: 32px;
+  }
+  .receipt-text strong { color: #0f172a; }
+
+  /* LEGAL */
+  .legal-block { padding-top: 24px; border-top: 1px solid #e2e8f0; }
+  .legal-block h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+  .legal-block p { margin: 0 0 6px; font-size: 11.5px; color: #64748b; line-height: 1.5; }
+
+  /* SIGNATURE */
+  .sign-area { display: flex; justify-content: flex-end; margin-top: 48px; }
+  .sign-box { text-align: center; min-width: 220px; }
+  .sign-line { height: 1px; background: #cbd5e1; margin-bottom: 8px; }
+  .sign-name { font-size: 13px; font-weight: 600; }
+  .sign-role { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+  /* LEGEND */
+  .legend {
+    max-width: 800px; margin: 24px auto 0;
+    padding: 14px 20px;
+    background: rgba(15,23,42,.04); border-radius: 6px;
+    font-size: 12px; color: #475569; line-height: 1.5;
+  }
+  .legend strong { color: #0f172a; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="brand">
+        <h1>SCI DD2AMELEVIERES</h1>
+        <div class="subtitle">15 rue du château · 67190 MUTZIG<br>SIREN 928 516 392 · RCS MUTZIG<br>Gérant : Didier Keller</div>
+      </div>
+      <div class="header-meta">
+        <span class="doc-badge">Quittance</span>
+        <div class="doc-ref">Réf. Q-2026-05-F001</div>
+        <div class="doc-date">Émise le 14 mai 2026</div>
+      </div>
+    </div>
+
+    <!-- TITRE -->
+    <div class="title-block">
+      <h2>Quittance de loyer</h2>
+      <div class="period">Période du 1<sup>er</sup> au 31 mai 2026 · 14 avenue Emile Huchet 57800 FREYMING MERLEBACH</div>
+    </div>
+
+    <!-- 2 COLONNES BAILLEUR / LOCATAIRE -->
+    <div class="cols">
+      <div class="col-block">
+        <h3>Le Bailleur</h3>
+        <div class="name">SCI DD2AMELEVIERES</div>
+        <div class="addr">15 rue du château<br>67190 MUTZIG</div>
+        <div class="meta" style="margin-top:8px">Représenté par Didier Keller</div>
+      </div>
+      <div class="col-block">
+        <h3>Le Locataire</h3>
+        <div class="name">Mme AUDRIN Faustine, BIRRINNI</div>
+        <div class="addr">14 avenue Emile Huchet<br>57800 FREYMING MERLEBACH</div>
+      </div>
+    </div>
+
+    <!-- CARD MONTANT -->
+    <div class="amount-card">
+      <div class="label">Total perçu</div>
+      <div class="big">670,00 €</div>
+      <div class="lettres">Six-cent-soixante-dix euros</div>
+    </div>
+
+    <!-- DÉTAIL -->
+    <div class="detail">
+      <h3>Détail</h3>
+      <div class="detail-row">
+        <span>Loyer hors charges</span>
+        <span>650,00 €</span>
+      </div>
+      <div class="detail-row">
+        <span>Provisions sur charges</span>
+        <span>20,00 €</span>
+      </div>
+      <div class="detail-row total">
+        <span>Total perçu</span>
+        <span>670,00 €</span>
+      </div>
+    </div>
+
+    <!-- TEXTE QUITTANCE -->
+    <div class="receipt-text">
+      Je soussigné Didier Keller, Gérant de la <strong>SCI DD2AMELEVIERES</strong>, déclare avoir reçu le <strong>5 mai 2026</strong> de <strong>Mme AUDRIN Faustine</strong>, locataire du logement sis 14 avenue Emile Huchet 57800 FREYMING MERLEBACH, la somme de <strong>670,00 €</strong> au titre du loyer et des charges de la période du 1<sup>er</sup> au 31 mai 2026. J'en donne quittance sous réserve du bon encaissement.
+    </div>
+
+    <!-- MENTION LÉGALE -->
+    <div class="legal-block">
+      <h3>Mentions légales</h3>
+      <p>Cette quittance est délivrée conformément à l'article 21 de la loi n° 89-462 du 6 juillet 1989.</p>
+      <p>Elle annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme.</p>
+    </div>
+
+    <!-- SIGNATURE -->
+    <div class="sign-area">
+      <div class="sign-box">
+        <div style="height:32px"></div>
+        <div class="sign-line"></div>
+        <div class="sign-name">Didier Keller</div>
+        <div class="sign-role">Gérant — SCI DD2AMELEVIERES</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <strong>Variante A — Moderne Stripe-like</strong> · Sans-serif, blanc + accent bleu, total mis en valeur en card gradient, structure aérée. Contenu légalement intégral (Bailleur/Locataire, "Je soussigné", mention loi 89-462). Sobre, professionnel, contemporain.
+  </div>
+</body>
+</html>
