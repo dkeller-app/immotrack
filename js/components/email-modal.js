@@ -123,6 +123,7 @@ function _ensureModalDom() {
 // v15.82 — Délégation document-level (singleton, attaché 1 seule fois)
 function _ensureEmailModalDelegation() {
   if (typeof document === 'undefined') return;
+  if (typeof document.addEventListener !== 'function') return; // jsdom mock partiel safe
   if (document._emModalDelegationAttached) return;
   document._emModalDelegationAttached = true;
 
