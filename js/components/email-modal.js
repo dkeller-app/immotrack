@@ -292,6 +292,19 @@ function _onSendNow(ctx) {
     return;
   }
 
+  // v15.84 — Confirmation user avant envoi (anti-erreur destinataire/sujet).
+  // confirm() natif suffit (pas de nouvelle UI à mockuper).
+  const userEmail = (typeof window !== 'undefined' && typeof window._getDriveUserEmail === 'function')
+    ? (window._getDriveUserEmail() || '(votre Gmail)')
+    : '(votre Gmail)';
+  const subjectShort = (v.subject || '(sans sujet)').slice(0, 80);
+  const msg = 'Envoyer cet email ?\n\n'
+    + 'Destinataire : ' + v.to + '\n'
+    + (v.cc ? 'CC           : ' + v.cc + '\n' : '')
+    + 'Sujet        : ' + subjectShort + (v.subject && v.subject.length > 80 ? '…' : '') + '\n'
+    + 'Depuis       : ' + userEmail;
+  if (typeof window !== 'undefined' && !window.confirm(msg)) return;
+
   // Lock UI : disable boutons pendant l'envoi
   const sendBtn = document.getElementById('em-sendnow-btn');
   const allBtns = document.querySelectorAll('#' + MODAL_ID + ' .m-foot .btn');
