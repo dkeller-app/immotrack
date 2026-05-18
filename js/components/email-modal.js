@@ -24,6 +24,8 @@ import { showToast } from './toast.js';
 import { openM, closeM } from './modal.js';
 import { _emailCompose } from '../core/email-compose.js';
 import { escHtml } from '../core/utils.js';
+// v15.80 EMAIL-SMTP-CONNECT — envoi direct via Gmail API
+import { _emailToMimeBase64Url, _emailSendViaGmail } from '../core/email-send.js';
 
 export const MODAL_ID = 'ov-email-compose';
 
@@ -100,7 +102,8 @@ function _ensureModalDom() {
         <button class="btn bs" type="button" data-em-close>Annuler</button>
         <button class="btn" type="button" data-em-action="share" id="em-share-btn" style="display:none">📱 Partager</button>
         <button class="btn" type="button" data-em-action="copy">📋 Copier sujet + corps</button>
-        <button class="btn bp" type="button" data-em-action="mailto">📧 Ouvrir dans mon client mail</button>
+        <button class="btn" type="button" data-em-action="mailto">📧 Ouvrir dans mon client mail</button>
+        <button class="btn bp" type="button" data-em-action="sendnow" id="em-sendnow-btn" style="display:none" title="Envoyer directement via votre compte Gmail (nécessite connexion Google)">📤 Envoyer maintenant</button>
       </div>
     </div>
   `;
@@ -124,6 +127,7 @@ function _ensureModalDom() {
     if (action === 'mailto') _onMailto(ctx);
     else if (action === 'copy') _onCopy(ctx);
     else if (action === 'share') _onShare(ctx);
+    else if (action === 'sendnow') _onSendNow(ctx);
   });
 
   document.body.appendChild(modal);
@@ -200,6 +204,18 @@ function _fillModal(draft, type, opts) {
     const hasShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
     shareBtn.style.display = hasShare ? '' : 'none';
   }
+
+  // v15.80 EMAIL-SMTP-CONNECT — bouton "Envoyer maintenant" visible si OAuth Gmail OK.
+  // Détection : window._driveTokenValid() retourne true → token Drive actif (inclut le
+  // scope gmail.send après mise à jour OAuth consent v15.80). Si l'envoi échoue 403
+  // (scope insuffisant), on guidera l'user vers la reconnexion.
+  const sendBtn = document.getElementById('em-sendnow-btn');
+  if (sendBtn) {
+    const hasGmail = typeof window !== 'undefined'
+      && typeof window._driveTokenValid === 'function'
+      && window._driveTokenValid();
+    sendBtn.style.display = hasGmail ? '' : 'none';
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -258,6 +274,67 @@ function _onCopy(ctx) {
   }).catch((err) => {
     showToast('Erreur copie : ' + (err && err.message ? err.message : 'inconnue'), 'err');
   });
+}
+
+/**
+ * v15.80 EMAIL-SMTP-CONNECT — envoie l'email directement via Gmail API.
+ * Pré-requis : token OAuth Drive avec scope gmail.send (cf index.html DRIVE_SCOPE).
+ * Si erreur 403 (scope manquant) → guide l'user vers reconnexion.
+ */
+function _onSendNow(ctx) {
+  const v = _readModalValues();
+  if (!v.to) { showToast('Destinataire vide', 'err'); return; }
+
+  // Récupère le token Drive (existe car bouton conditionnellement affiché)
+  const token = (typeof window !== 'undefined') ? window._driveToken : null;
+  if (!token) {
+    showToast('Connexion Google requise — cliquez sur ☁ Drive dans la sidebar', 'err', 5000);
+    return;
+  }
+
+  // Lock UI : disable boutons pendant l'envoi
+  const sendBtn = document.getElementById('em-sendnow-btn');
+  const allBtns = document.querySelectorAll('#' + MODAL_ID + ' .m-foot .btn');
+  allBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
+  if (sendBtn) sendBtn.textContent = '📤 Envoi en cours…';
+
+  let mime;
+  try {
+    mime = _emailToMimeBase64Url({ to: v.to, cc: v.cc, subject: v.subject, body: v.body });
+  } catch (e) {
+    showToast('Erreur de construction du message : ' + (e.message || e), 'err');
+    allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    if (sendBtn) sendBtn.textContent = '📤 Envoyer maintenant';
+    return;
+  }
+
+  _emailSendViaGmail(token, mime)
+    .then(result => {
+      showToast('Email envoyé ✓ depuis votre Gmail', 'ok', 3000);
+      closeM(MODAL_ID);
+      // Log avec status='sent' + externalId pour traçabilité (RGPD : métadonnées seules)
+      if (typeof window !== 'undefined' && typeof window._logEmailSent === 'function') {
+        window._logEmailSent(ctx.entityType, ctx.entityId, {
+          type: ctx.type, to: v.to, cc: v.cc, subject: v.subject,
+          status: 'sent', externalId: result && result.id ? result.id : '',
+          sendChannel: 'gmail-api',
+        });
+      }
+    })
+    .catch(err => {
+      const status = err && err.status;
+      let msg = err && err.message ? err.message : String(err);
+      if (status === 403) {
+        msg = 'Permission insuffisante (scope gmail.send manquant). Reconnecte Drive pour autoriser l\'envoi d\'emails.';
+      } else if (status === 401) {
+        msg = 'Token expiré. Reconnecte Drive et réessaie.';
+      } else if (status === 429 || status === 503) {
+        msg = 'Quota Gmail dépassé temporairement. Réessaie dans quelques minutes ou utilise « Ouvrir client mail ».';
+      }
+      showToast(msg, 'err', 6000);
+      allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
+      if (sendBtn) sendBtn.textContent = '📤 Envoyer maintenant';
+    });
 }
 
 function _onShare(ctx) {

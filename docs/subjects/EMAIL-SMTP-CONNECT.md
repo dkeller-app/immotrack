@@ -1,6 +1,6 @@
 # EMAIL-SMTP-CONNECT — Envoi direct d'emails depuis l'app (Gmail API OAuth + fallback)
 
-**Status** : ⬜ À faire · **Prio** : P1 (V1.1) · **Taille** : M (~6-8h)
+**Status** : 🔄 Phase 1+2 livrée v15.80 · Phase 3 (PJ Drive) + Phase 4 (Microsoft Graph) restantes · **Prio** : P1 (V1.1) · **Taille** : M (~6-8h)
 **Détecté** : 2026-05-18 (user)
 **Lié à** : EMAIL-AUTO ✅ v15.09, EMAIL-ONGLET-PERMANENT ✅ v15.79, BUG-EMAIL-PROPOSAL-IRL ⏳, OAuth Drive existant (DRIVE-* livré v13.41)
 
@@ -142,3 +142,26 @@ Nouveau champ dans entry `DB.emailsSent` :
 ## Journal
 
 - 2026-05-18 : créé en P1 V1.1 · 4 phases identifiées (~6-8h Phase 1+2+3, +3h Phase 4 Microsoft V1.2) · décision D1-D5 à arbitrer en session dédiée · solution recommandée Gmail API OAuth en leverage de l'OAuth Drive existant
+- 2026-05-18 **v15.80 ✅ Phase 1+2 livrée** :
+  - **D1** : Code en dev mode + soumission Google Console en parallèle (user fait la modif scope dans Console).
+  - **D2** : "Proposition de mail" GARDÉE en fallback + bouton "📤 Envoyer maintenant" ajouté (primaire, conditionnel sur OAuth Gmail).
+  - **D3** : Auto-attach PJ reporté Phase 3.
+  - **D4** : Statu quo métadonnées (RGPD compliant) + ajout `sendChannel: 'gmail-api'` et `externalId` (Gmail message.id) dans entry `DB.emailsSent`.
+  - **D5** : Maintenant (pause marathon 19C-I).
+  - **Module pur** `js/core/email-send.js` (5 exports, 25 tests Vitest) :
+    - `_base64UrlEncode(str)` : encode UTF-8 → base64url compatible Gmail API (compatible Buffer Node + btoa navigateur)
+    - `_emailEncodeMimeHeader(value)` : RFC 2047 (`=?UTF-8?B?...?=`) si non-ASCII, sinon pass-through
+    - `_emailMakeBoundary()` : génère boundary multipart unique
+    - `_emailToMimeBase64Url({to, cc, bcc, from, subject, body, html, attachments[]})` : construit RFC 5322 MIME complet (text/plain seul OU multipart/alternative HTML OU multipart/mixed avec PJ base64)
+    - `_emailSendViaGmail(token, mime, opts)` : POST `gmail.googleapis.com/.../send`, retourne `{id, threadId}` ou throw avec `err.status` + message Gmail
+  - **Composant** `js/components/email-modal.js` :
+    - Import `_emailToMimeBase64Url` + `_emailSendViaGmail`
+    - Bouton "📤 Envoyer maintenant" (`data-em-action="sendnow"`, primaire bleu) ajouté au footer, visible uniquement si `window._driveTokenValid()` retourne true
+    - Handler `_onSendNow(ctx)` : lock UI (boutons disabled + "Envoi en cours…") → construit MIME → POST Gmail → toast succès + log `status='sent' externalId=msg.id` ou erreur typée (403 scope, 401 token expiré, 429/503 quota)
+  - **OAuth** `index.html` : `DRIVE_SCOPE` étendu avec `https://www.googleapis.com/auth/gmail.send` (4 scopes maintenant). Commenté avec note "nécessite vérification Google Console".
+  - **Exposition window** `js/main.js` : 5 helpers email-send sur window.
+  - **Tests Vitest** : 861 → 886 (+25 nouveaux), zéro régression. Couvre encodage MIME, RFC 2047, multipart/alternative, multipart/mixed avec PJ, headers non-ASCII, fetch mocké (200/403/503), validation entrées.
+  - **Vérification Google Console** : à effectuer par user en parallèle (scope `gmail.send` à ajouter dans OAuth consent screen + soumission vérification ~2-6 sem).
+- Phases restantes :
+  - **Phase 3** PJ Drive (~2h) : sélecteur lettre IRL PDF / quittance PDF depuis arborescence Drive → encodage base64 → multipart/mixed.
+  - **Phase 4** Microsoft Graph (~3h, V1.2) : sujet séparé EMAIL-SMTP-MICROSOFT, OAuth Microsoft + scope `Mail.Send`.

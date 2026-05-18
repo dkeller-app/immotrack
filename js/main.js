@@ -85,6 +85,12 @@ import {
 
 import { openEmailModal, _buildMailtoUrl } from './components/email-modal.js';
 
+// v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
+import {
+  _base64UrlEncode, _emailEncodeMimeHeader, _emailMakeBoundary,
+  _emailToMimeBase64Url, _emailSendViaGmail
+} from './core/email-send.js';
+
 // v14.99 BUG-PJ-LOCALSTORAGE - helpers attachements (PJ unifiées Drive + IDB)
 import {
   _attachmentBuildDoc, _attachmentValidateFile, _attachmentMatch,
@@ -211,6 +217,13 @@ window.openEmailModal = openEmailModal;
 window._buildMailtoUrl = _buildMailtoUrl;
 window._logEmailSent = _logEmailSent;
 window._getEmailHistory = _getEmailHistory;
+
+// v15.80 EMAIL-SMTP-CONNECT - envoi direct Gmail API
+window._base64UrlEncode = _base64UrlEncode;
+window._emailEncodeMimeHeader = _emailEncodeMimeHeader;
+window._emailMakeBoundary = _emailMakeBoundary;
+window._emailToMimeBase64Url = _emailToMimeBase64Url;
+window._emailSendViaGmail = _emailSendViaGmail;
 
 // ATTACHMENTS (v14.99 BUG-PJ-LOCALSTORAGE) - système unifié de PJ Drive + IDB
 window._attachmentBuildDoc = _attachmentBuildDoc;
