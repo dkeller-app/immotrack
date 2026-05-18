@@ -1,21 +1,26 @@
 /**
- * core/email-pdf-attachment.js — EMAIL-MODAL-UX-REFONTE EM-2b v15.87
+ * core/email-pdf-attachment.js — EMAIL-MODAL-UX-REFONTE EM-2b/c v15.87→v15.89
  *
  * Génère un PDF base64 prêt à attacher au MIME multipart pour `_emailToMimeBase64Url`.
- * Approche V1.0 : jsPDF natif text-based (rapide, fiable, pas de dépendance html2canvas
+ * Approche V1 : jsPDF natif text-based (rapide, fiable, pas de dépendance html2canvas
  * pour rendre HTML existant — celui-ci est éclaté dans `previewQuit` / `genIRLLetter` etc.
  * et serait long à factoriser). Le PDF généré est minimaliste mais contient toutes les
  * infos clés du template d'email associé.
  *
- * Une refonte V1.1 pourra utiliser html2canvas sur le rendu officiel (aperçu) si l'user
+ * Une refonte V1.2 pourra utiliser html2canvas sur le rendu officiel (aperçu) si l'user
  * juge le PDF text-based insuffisant esthétiquement.
  *
  * API :
  *   _emailGenPdfAttachment(type, ctx) → Promise<{filename, base64, mimeType} | {error}>
  *
- * Types supportés V1.0 : 'quittance', 'irl-revision'.
- * Types reportés V1.1 : decompte-regul-annuel, bail-signe-final, edl-entree-signe,
- *                       edl-sortie-signe, cautionnement-signe.
+ * Types supportés (v15.89) :
+ *   - quittance, irl-revision (EM-2b v15.87)
+ *   - decompte-regul-annuel, bail-signe-final, edl-entree-signe, edl-sortie-signe,
+ *     cautionnement-signe (EM-2c v15.89)
+ *
+ * Reste reporté V1.2 : autres types EMAIL-AUTO (avis-echeance, rappels impayés,
+ * bail-pret-a-signer, bail-avenant, dg-recu, dg-restitution-*, attestation-logement-libere,
+ * solde-tout-compte, etc.) — la plupart sont des courriers sans PDF à joindre.
  */
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -243,6 +248,311 @@ async function _genPdfQuittance(ctx) {
 }
 
 /**
+ * v15.89 EM-2c — Helper commun : en-tête bailleur + destinataire + date.
+ * Réutilisé par tous les types pour éviter la duplication.
+ *
+ * @param {object} pdf jsPDF instance
+ * @param {object} ctx — { entite, locataire, bail }
+ * @param {number} yStart
+ * @returns {number} y final après en-tête
+ */
+function _drawHeaderBlock(pdf, ctx, yStart) {
+  const MARGIN = 20;
+  const PAGE_W = 210;
+  const ent = ctx.entite || {};
+  const loc = ctx.locataire || {};
+  const bail = ctx.bail || {};
+  let y = yStart;
+
+  // En-tête bailleur
+  pdf.setFont('helvetica', 'bold').setFontSize(11);
+  pdf.text(ent.nom || '—', MARGIN, y); y += 5;
+  pdf.setFont('helvetica', 'normal').setFontSize(10);
+  if (ent.siege) { pdf.text(ent.siege, MARGIN, y); y += 5; }
+  if (ent.gerant) { pdf.text(ent.gerant, MARGIN, y); y += 5; }
+  y += 6;
+
+  // Destinataire
+  pdf.setFont('helvetica', 'bold').setFontSize(10);
+  pdf.text(_civNom(loc) || (loc.nom || '—'), MARGIN, y); y += 5;
+  pdf.setFont('helvetica', 'normal').setFontSize(10);
+  if (bail.adrBien) { pdf.text(bail.adrBien, MARGIN, y); y += 5; }
+  y += 4;
+
+  // Date
+  const dateLettre = (new Date()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  pdf.text('Fait le ' + dateLettre, PAGE_W - MARGIN, y, { align: 'right' });
+  y += 10;
+  return y;
+}
+
+/**
+ * Génère un décompte de régularisation des charges (art. 23 loi 1989).
+ *
+ * @param {object} ctx — { locataire, bail, logement, entite, annee, provisions, chargesReelles, solde, soldeSens }
+ * @returns {Promise<{filename, base64, mimeType}|{error}>}
+ */
+async function _genPdfDecompteRegul(ctx) {
+  const Cls = _getJsPdfClass();
+  if (!Cls) return { error: 'jspdf-not-loaded' };
+  const c = ctx || {};
+  const log = c.logement || {};
+  const annee = c.annee || '—';
+  const provisions = Number(c.provisions) || 0;
+  const chargesReelles = Number(c.chargesReelles) || 0;
+  const solde = Number(c.solde) || (chargesReelles - provisions);
+  const soldeSens = c.soldeSens || (solde > 0 ? 'à régler par le locataire' : (solde < 0 ? 'à rembourser au locataire' : 'équilibré'));
+
+  const pdf = new Cls({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const MARGIN = 20;
+  const PAGE_W = 210;
+  let y = _drawHeaderBlock(pdf, c, MARGIN);
+
+  pdf.setFont('helvetica', 'bold').setFontSize(12);
+  pdf.text("Décompte de régularisation des charges — " + annee, MARGIN, y); y += 8;
+
+  pdf.setFont('helvetica', 'normal').setFontSize(10.5);
+  pdf.text("Conformément à l'article 23 de la loi n° 89-462 du 6 juillet 1989, vous trouverez ci-dessous le décompte " +
+           "de régularisation des charges récupérables pour l'année " + annee + ".",
+           MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  y += 14;
+
+  // Table
+  pdf.setFont('helvetica', 'bold').setFontSize(10);
+  pdf.text('Synthèse', MARGIN, y); y += 6;
+  pdf.setFont('helvetica', 'normal').setFontSize(10);
+  pdf.text("Provisions sur charges versées sur l'année", MARGIN + 5, y);
+  pdf.text(_fmt(provisions), PAGE_W - MARGIN, y, { align: 'right' });
+  y += 5;
+  pdf.text("Charges récupérables réelles (quote-part locataire)", MARGIN + 5, y);
+  pdf.text(_fmt(chargesReelles), PAGE_W - MARGIN, y, { align: 'right' });
+  y += 5;
+  pdf.setLineWidth(0.5).line(MARGIN, y, PAGE_W - MARGIN, y);
+  y += 5;
+  pdf.setFont('helvetica', 'bold').setFontSize(11);
+  pdf.text("Solde " + soldeSens, MARGIN + 5, y);
+  pdf.text(_fmt(Math.abs(solde)), PAGE_W - MARGIN, y, { align: 'right' });
+  y += 10;
+
+  // Détails (cf PJ détaillée si dispo)
+  pdf.setFont('helvetica', 'normal').setFontSize(10);
+  pdf.text("Le détail par nature de charge (eau, ordures ménagères, chauffage collectif, entretien parties communes…) " +
+           "est tenu à votre disposition. Vous disposez d'un délai d'un mois pour consulter les justificatifs (art. 23 loi 1989).",
+           MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  y += 16;
+
+  // Signature
+  pdf.text('Le Bailleur,', PAGE_W - MARGIN - 60, y); y += 14;
+  const ent = c.entite || {};
+  pdf.text(ent.gerant || ent.nom || '—', PAGE_W - MARGIN - 60, y);
+
+  const blob = pdf.output('blob');
+  const base64 = await _blobToBase64(blob);
+  const filename = 'Decompte-charges-' + annee + '-' + (log.ref || 'logement') + '.pdf';
+  return { filename, base64, mimeType: 'application/pdf' };
+}
+
+/**
+ * Génère un récap du bail signé (annexe — le PDF officiel du bail reste dans Drive).
+ *
+ * @param {object} ctx — { locataire, bail, logement, entite }
+ * @returns {Promise<{filename, base64, mimeType}|{error}>}
+ */
+async function _genPdfBailSigne(ctx) {
+  const Cls = _getJsPdfClass();
+  if (!Cls) return { error: 'jspdf-not-loaded' };
+  const c = ctx || {};
+  const bail = c.bail || {};
+  const log = c.logement || {};
+  const hc = Number(bail.hc) || 0;
+  const ch = Number(bail.ch) || 0;
+  const dg = Number(bail.dg) || 0;
+  const total = hc + ch;
+
+  const pdf = new Cls({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const MARGIN = 20;
+  const PAGE_W = 210;
+  let y = _drawHeaderBlock(pdf, c, MARGIN);
+
+  pdf.setFont('helvetica', 'bold').setFontSize(13).setTextColor(0, 51, 153);
+  pdf.text("Récapitulatif du bail signé", PAGE_W / 2, y, { align: 'center' });
+  pdf.setTextColor(0, 0, 0);
+  y += 10;
+
+  pdf.setFont('helvetica', 'italic').setFontSize(9.5).setTextColor(110, 110, 110);
+  pdf.text("(Annexe au mail — le contrat de bail complet signé est joint séparément en PDF dans Drive)",
+           PAGE_W / 2, y, { align: 'center' });
+  pdf.setTextColor(0, 0, 0);
+  y += 10;
+
+  // Récap conditions
+  pdf.setFont('helvetica', 'bold').setFontSize(11);
+  pdf.text('Conditions essentielles', MARGIN, y); y += 6;
+  pdf.setFont('helvetica', 'normal').setFontSize(10.5);
+  const lines = [
+    ['Logement', bail.adrBien || log.adr || '—'],
+    ['Date de prise d\'effet', bail.debut || '—'],
+    ['Loyer hors charges', _fmt(hc) + ' / mois'],
+    ['Provisions sur charges', _fmt(ch) + ' / mois'],
+    ['Total mensuel', _fmt(total) + ' / mois'],
+    ['Jour de paiement', 'le ' + (bail.jpay || '—') + ' de chaque mois'],
+    ['Dépôt de garantie', _fmt(dg) + ' (reçu)']
+  ];
+  for (const [lbl, val] of lines) {
+    pdf.text(lbl, MARGIN + 5, y);
+    pdf.setFont('helvetica', 'bold').text(val, MARGIN + 80, y);
+    pdf.setFont('helvetica', 'normal');
+    y += 5;
+  }
+  y += 6;
+
+  pdf.text("Vous trouverez le contrat de bail complet (signé) et l'état des lieux d'entrée (s'il a été réalisé) " +
+           "en pièce jointe séparée. N'oubliez pas de souscrire votre assurance habitation (obligation légale art. 7g loi 1989).",
+           MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  y += 14;
+
+  pdf.text('Le Bailleur,', PAGE_W - MARGIN - 60, y); y += 14;
+  const ent = c.entite || {};
+  pdf.text(ent.gerant || ent.nom || '—', PAGE_W - MARGIN - 60, y);
+
+  const blob = pdf.output('blob');
+  const base64 = await _blobToBase64(blob);
+  const filename = 'Recap-bail-' + (log.ref || 'logement') + '.pdf';
+  return { filename, base64, mimeType: 'application/pdf' };
+}
+
+/**
+ * Génère un récap d'état des lieux (entrée ou sortie).
+ * @param {string} sens 'entree' | 'sortie'
+ */
+async function _genPdfEdlSigne(ctx, sens) {
+  const Cls = _getJsPdfClass();
+  if (!Cls) return { error: 'jspdf-not-loaded' };
+  const c = ctx || {};
+  const log = c.logement || {};
+
+  const pdf = new Cls({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const MARGIN = 20;
+  const PAGE_W = 210;
+  let y = _drawHeaderBlock(pdf, c, MARGIN);
+
+  pdf.setFont('helvetica', 'bold').setFontSize(13).setTextColor(0, 51, 153);
+  pdf.text("État des lieux " + (sens === 'sortie' ? 'de sortie' : "d'entrée") + " — Récapitulatif", PAGE_W / 2, y, { align: 'center' });
+  pdf.setTextColor(0, 0, 0);
+  y += 10;
+
+  pdf.setFont('helvetica', 'italic').setFontSize(9.5).setTextColor(110, 110, 110);
+  pdf.text("(Annexe au mail — l'EDL complet signé est joint séparément)", PAGE_W / 2, y, { align: 'center' });
+  pdf.setTextColor(0, 0, 0);
+  y += 10;
+
+  pdf.setFont('helvetica', 'normal').setFontSize(10.5);
+  pdf.text("EDL " + (sens === 'sortie' ? 'de sortie' : "d'entrée") + " signé le " + (c.dateEDL || '—') + ".", MARGIN, y); y += 7;
+
+  // Compteurs (entrée) ou comparatif (sortie)
+  if (sens === 'entree') {
+    pdf.setFont('helvetica', 'bold').setFontSize(11);
+    pdf.text('Relevé des compteurs à votre entrée', MARGIN, y); y += 6;
+    pdf.setFont('helvetica', 'normal').setFontSize(10);
+    [
+      ['Électricité', c.compteurElec],
+      ['Gaz', c.compteurGaz],
+      ['Eau froide', c.compteurEauF],
+      ['Eau chaude', c.compteurEauC]
+    ].forEach(([lbl, val]) => {
+      pdf.text(lbl, MARGIN + 5, y);
+      pdf.text(String(val || '—'), MARGIN + 80, y);
+      y += 5;
+    });
+    y += 6;
+    pdf.text("Conservez ce document : il sera comparé à l'EDL de sortie pour évaluer d'éventuelles réparations. " +
+             "Vous disposez de 10 jours pour demander une modification (art. 3-2 al. 5 loi 1989).",
+             MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  } else {
+    pdf.setFont('helvetica', 'bold').setFontSize(11);
+    pdf.text('Synthèse', MARGIN, y); y += 6;
+    pdf.setFont('helvetica', 'normal').setFontSize(10);
+    pdf.text('Comparatif compteurs entrée / sortie : ' + (c.comparatifCompteurs || '—'), MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN }); y += 7;
+    pdf.text('Dégradations constatées : ' + (c.degradationsBilan || '—'), MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN }); y += 7;
+    if (c.conclusionEDL) {
+      pdf.text('Conclusion : ' + c.conclusionEDL, MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN }); y += 7;
+    }
+    y += 4;
+    pdf.text("Le solde du dépôt de garantie sera traité dans les délais légaux (1 mois sans dégradation, 2 mois si retenues — art. 22 loi 1989).",
+             MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  }
+  y += 14;
+
+  pdf.text('Le Bailleur,', PAGE_W - MARGIN - 60, y); y += 14;
+  const ent = c.entite || {};
+  pdf.text(ent.gerant || ent.nom || '—', PAGE_W - MARGIN - 60, y);
+
+  const blob = pdf.output('blob');
+  const base64 = await _blobToBase64(blob);
+  const filename = 'EDL-' + (sens === 'sortie' ? 'sortie' : 'entree') + '-' + (log.ref || 'logement') + '.pdf';
+  return { filename, base64, mimeType: 'application/pdf' };
+}
+
+/**
+ * Génère un accusé de réception d'acte de cautionnement.
+ */
+async function _genPdfCautionnement(ctx) {
+  const Cls = _getJsPdfClass();
+  if (!Cls) return { error: 'jspdf-not-loaded' };
+  const c = ctx || {};
+  const log = c.logement || {};
+  const garant = c.garant || {};
+  const loc = c.locataire || {};
+
+  // Helper local : remplace destinataire par garant pour l'en-tête
+  const ctxForHeader = Object.assign({}, c, { locataire: garant });
+
+  const pdf = new Cls({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const MARGIN = 20;
+  const PAGE_W = 210;
+  let y = _drawHeaderBlock(pdf, ctxForHeader, MARGIN);
+
+  pdf.setFont('helvetica', 'bold').setFontSize(12).setTextColor(0, 51, 153);
+  pdf.text("Accusé de réception — Acte de cautionnement", PAGE_W / 2, y, { align: 'center' });
+  pdf.setTextColor(0, 0, 0);
+  y += 10;
+
+  pdf.setFont('helvetica', 'normal').setFontSize(10.5);
+  const civGarant = _civNom(garant) || garant.nom || '—';
+  pdf.text("Nous accusons réception de l'acte de cautionnement signé par vos soins (" + civGarant + ") " +
+           "en garantie des obligations locatives de " + (loc.nom || '—') + ", pour le logement situé " +
+           (c.bail && c.bail.adrBien ? c.bail.adrBien : '—') + ".",
+           MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  y += 14;
+
+  pdf.text("Cet acte engage votre solidarité au paiement des loyers, charges et éventuelles indemnités d'occupation, " +
+           "dans les limites définies par le document signé.",
+           MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  y += 12;
+
+  pdf.setFont('helvetica', 'bold').setFontSize(10);
+  pdf.text("Vos droits", MARGIN, y); y += 6;
+  pdf.setFont('helvetica', 'normal').setFontSize(10);
+  pdf.text("• Demander à tout moment un point sur la situation locative (état des règlements)", MARGIN + 5, y); y += 5;
+  pdf.text("• Mettre fin au cautionnement à durée indéterminée par lettre recommandée (préavis prévu à l'acte)", MARGIN + 5, y); y += 10;
+
+  pdf.setFont('helvetica', 'italic').setFontSize(9.5).setTextColor(110, 110, 110);
+  pdf.text("Conservation de l'acte original 5 ans après la fin du bail (prescription civile).", MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
+  pdf.setTextColor(0, 0, 0);
+  y += 14;
+
+  pdf.setFont('helvetica', 'normal').setFontSize(10);
+  pdf.text('Le Bailleur,', PAGE_W - MARGIN - 60, y); y += 14;
+  const ent = c.entite || {};
+  pdf.text(ent.gerant || ent.nom || '—', PAGE_W - MARGIN - 60, y);
+
+  const blob = pdf.output('blob');
+  const base64 = await _blobToBase64(blob);
+  const filename = 'Cautionnement-' + (log.ref || 'logement') + '.pdf';
+  return { filename, base64, mimeType: 'application/pdf' };
+}
+
+/**
  * Génère une lettre de révision IRL PDF.
  *  - En-tête bailleur
  *  - Bloc locataire
@@ -357,13 +667,19 @@ async function _genPdfIrlRevision(ctx) {
  * @returns {Promise<{filename, base64, mimeType} | {error: string, supportedV1: string[]}>}
  */
 export async function _emailGenPdfAttachment(type, ctx) {
-  const supportedV1 = ['quittance', 'irl-revision'];
+  const supportedV1 = [
+    'quittance', 'irl-revision',
+    'decompte-regul-annuel',
+    'bail-signe-final',
+    'edl-entree-signe', 'edl-sortie-signe',
+    'cautionnement-signe'
+  ];
   // Dispatch types non supportés AVANT chargement jsPDF (pas la peine de charger pour rien)
-  if (type !== 'quittance' && type !== 'irl-revision') {
+  if (supportedV1.indexOf(type) === -1) {
     return {
       error: 'type-not-supported-v1',
       supportedV1,
-      message: 'PJ auto pour le type "' + type + '" reportée V1.1 (' + supportedV1.join(', ') + ' supportés V1.0). En attendant : joindre manuellement dans le client mail.'
+      message: 'PJ auto pour le type "' + type + '" non encore supportée. Types V1 : ' + supportedV1.join(', ') + '. En attendant : joindre manuellement dans le client mail.'
     };
   }
   // v15.88 EM-2b fix — assure que jsPDF est chargé dans la fenêtre principale.
@@ -374,11 +690,22 @@ export async function _emailGenPdfAttachment(type, ctx) {
   }
   if (type === 'quittance') return _genPdfQuittance(ctx);
   if (type === 'irl-revision') return _genPdfIrlRevision(ctx);
+  if (type === 'decompte-regul-annuel') return _genPdfDecompteRegul(ctx);
+  if (type === 'bail-signe-final') return _genPdfBailSigne(ctx);
+  if (type === 'edl-entree-signe') return _genPdfEdlSigne(ctx, 'entree');
+  if (type === 'edl-sortie-signe') return _genPdfEdlSigne(ctx, 'sortie');
+  if (type === 'cautionnement-signe') return _genPdfCautionnement(ctx);
 }
 
 /**
- * Helper test : list des types supportés V1.0.
+ * Helper test : liste des types supportés (V1.0 + V1.1 EM-2c v15.89).
  */
 export function _emailPdfTypesSupportedV1() {
-  return ['quittance', 'irl-revision'];
+  return [
+    'quittance', 'irl-revision',
+    'decompte-regul-annuel',
+    'bail-signe-final',
+    'edl-entree-signe', 'edl-sortie-signe',
+    'cautionnement-signe'
+  ];
 }

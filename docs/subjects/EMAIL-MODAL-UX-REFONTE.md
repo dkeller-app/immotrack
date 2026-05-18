@@ -1,6 +1,7 @@
 # EMAIL-MODAL-UX-REFONTE — Refonte UX modale email (PC + Tablette + Mobile + PJ PDF auto)
 
-**Status** : 🔄 EM-2a ✅ v15.86 · EM-2b ✅ v15.87 (2/6 types) · EM-2c ⬜ V1.1 (4 types restants) · **Prio** : P1 · **Taille** : L (~6-8h, scindé en a/b/c)
+**Status** : ✅ **Livré complet** — EM-2a v15.86 + EM-2b v15.87/88 + EM-2c v15.89 (7 types PJ auto)
+· **Prio** : P1 · **Taille** : L (~6-8h, scindé en a/b/c)
 **Détecté** : 2026-05-18 (user : « l'ux est dégueu (pire encore sur téléphone) »)
 **Lié à** : EMAIL-SMTP-CONNECT Phase 3 (PJ auto), DOC-CIVILITE, TEMPLATES-EMAILS-PARAMS, BUG-SW-CACHE-JS
 
@@ -113,4 +114,18 @@ Une modale qui :
   - **Bug** : user voyait statut « ⚠️ Joindre manuellement » au lieu de « ✓ Prête » car `window.jspdf` n'existait pas dans la fenêtre principale (la lib est inlinée en base64 dans `window._BAIL_PDF_LIBS.jspdf` mais décodée + injectée UNIQUEMENT dans la fenêtre de preview Bail).
   - **Fix** : nouveau helper `_ensureJsPdfLoaded()` async dans `email-pdf-attachment.js` qui décode le base64 + injecte `<script src=blob:>` à la volée si jsPDF pas déjà dispo. Idempotent : premier appel ~50ms, suivants instantanés. Tolérant : si `_BAIL_PDF_LIBS` absent, fail-safe avec message clair.
   - Verif preview : `jspdfBefore: undefined` → `jspdfAfter: object` → PDF généré 7340 chars base64 avec magic header `%PDF-1.3` ✅
-- ⬜ **EM-2c (V1.1) à faire** : PJ auto pour 4 types restants (`decompte-regul-annuel`, `bail-signe-final`, `edl-entree-signe`, `edl-sortie-signe`, `cautionnement-signe`). Pattern identique à V1.0 — étendre le dispatch dans `_emailGenPdfAttachment` + ajouter les générateurs jsPDF par type.
+- 2026-05-18 : ✅ **EM-2c Livré v15.89** — PJ PDF auto pour 5 types supplémentaires :
+  - `decompte-regul-annuel` : récap charges annuelles (provisions, charges réelles, solde, sens du solde, mention art. 23 loi 1989)
+  - `bail-signe-final` : récap conditions essentielles (logement, date début, loyer/charges/total, jour paiement, DG, mention assurance habitation obligatoire art. 7g)
+  - `edl-entree-signe` : récap EDL entrée + relevé compteurs (Élec/Gaz/Eau F/Eau C) + droit modification 10 jours art. 3-2 al. 5
+  - `edl-sortie-signe` : récap EDL sortie + comparatif compteurs + dégradations bilan + conclusion + mention délais restitution DG art. 22
+  - `cautionnement-signe` : accusé réception acte cautionnement + mention obligations garant + droits (point situation, fin cautionnement LRAR)
+  - Helper commun `_drawHeaderBlock(pdf, ctx, y)` factorisé pour en-tête bailleur + destinataire + date
+  - Tests Vitest : 22/22 verts (7 types × cas standard + civilité M./Mme/absente + jsPDF absent + ctx vide)
+  - Verif preview v15.89 sur 7 types : tous génèrent magic header `%PDF-1.3`, tailles base64 6-8 KB, filenames cohérents (`Decompte-charges-{annee}`, `Recap-bail-{ref}`, `EDL-{entree/sortie}-{ref}`, `Cautionnement-{ref}`)
+- ✅ **EMAIL-MODAL-UX-REFONTE complet** — 3 livraisons (a/b/c) sur la même journée. Total 908/908 tests verts.
+
+## Reste à faire (futures sessions)
+- EM-3 [DOC-CIVILITE](docs/subjects/DOC-CIVILITE.md) : civilité dynamique dans les **templates de mail** (corps texte), en plus du PDF (déjà fait dans les PJ via `_civNom`). P2 XS.
+- EM-4 [TEMPLATES-EMAILS-PARAMS](docs/subjects/TEMPLATES-EMAILS-PARAMS.md) : éditeur templates dans Paramètres. P2 M-L.
+- Improvement V1.2 (si jugé insuffisant esthétiquement) : refonte PJ via html2canvas sur le rendu officiel (preview HTML) au lieu du jsPDF text natif. Demande factorisation des helpers `previewQuit`/`genIRLLetter` etc.

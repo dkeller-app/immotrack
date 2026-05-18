@@ -79,9 +79,15 @@ describe('_blobToBase64', () => {
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('_emailPdfTypesSupportedV1', () => {
-  it('liste exactement quittance et irl-revision en V1.0', () => {
+  it('liste les 7 types supportés (v15.89 EM-2b+c)', () => {
     const types = _emailPdfTypesSupportedV1();
-    expect(types).toEqual(['quittance', 'irl-revision']);
+    expect(types).toEqual([
+      'quittance', 'irl-revision',
+      'decompte-regul-annuel',
+      'bail-signe-final',
+      'edl-entree-signe', 'edl-sortie-signe',
+      'cautionnement-signe'
+    ]);
   });
 
   it('retourne un nouveau tableau (pas une ref interne mutable)', () => {
@@ -129,17 +135,19 @@ describe('_emailGenPdfAttachment — dispatch types', () => {
     expect(typeof out.base64).toBe('string');
   });
 
-  it('type non supporté V1 → renvoie {error, supportedV1, message}', async () => {
-    const out = await _emailGenPdfAttachment('bail-signe-final', ctxQuittance);
+  it('type inconnu → renvoie {error, supportedV1, message}', async () => {
+    const out = await _emailGenPdfAttachment('blabla-inexistant', ctxQuittance);
     expect(out.error).toBe('type-not-supported-v1');
-    expect(out.supportedV1).toEqual(['quittance', 'irl-revision']);
-    expect(out.message).toContain('bail-signe-final');
-    expect(out.message).toContain('V1.1');
+    expect(out.supportedV1).toContain('quittance');
+    expect(out.supportedV1).toContain('bail-signe-final');
+    expect(out.message).toContain('blabla-inexistant');
   });
 
-  it('type inconnu → renvoie {error}', async () => {
-    const out = await _emailGenPdfAttachment('blabla', {});
-    expect(out.error).toBe('type-not-supported-v1');
+  it('bail-signe-final → maintenant supporté (V1.1 EM-2c)', async () => {
+    const out = await _emailGenPdfAttachment('bail-signe-final', ctxQuittance);
+    expect(out.error).toBeUndefined();
+    expect(out.filename).toMatch(/Recap-bail-LOG-001\.pdf/);
+    expect(out.mimeType).toBe('application/pdf');
   });
 
   it('jsPDF non chargé → renvoie {error: jspdf-not-loaded}', async () => {
@@ -157,6 +165,89 @@ describe('_emailGenPdfAttachment — dispatch types', () => {
 
   it('ctx null → ne throw pas (defensive)', async () => {
     await expect(_emailGenPdfAttachment('quittance', null)).resolves.toBeDefined();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// EM-2c v15.89 — 5 nouveaux types
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('_emailGenPdfAttachment — EM-2c v15.89 types étendus', () => {
+  const baseCtx = {
+    locataire: { civilite: 'M.', nom: 'Demo' },
+    bail: { adrBien: '12 rue Test', hc: 850, ch: 80, dg: 850, debut: '2024-01-01', jpay: '5' },
+    logement: { ref: 'LOG-001' },
+    entite: { nom: 'SCI Test', siege: '1 av Foo 75001 Paris', gerant: 'Didier K' }
+  };
+
+  it('decompte-regul-annuel → filename Decompte-charges-{annee}', async () => {
+    const out = await _emailGenPdfAttachment('decompte-regul-annuel', {
+      ...baseCtx,
+      annee: 2025,
+      provisions: 960, chargesReelles: 1100, solde: 140, soldeSens: 'à régler par le locataire'
+    });
+    expect(out.error).toBeUndefined();
+    expect(out.filename).toBe('Decompte-charges-2025-LOG-001.pdf');
+    expect(out.mimeType).toBe('application/pdf');
+  });
+
+  it('decompte-regul-annuel : solde négatif (remboursement)', async () => {
+    const out = await _emailGenPdfAttachment('decompte-regul-annuel', {
+      ...baseCtx, annee: 2025, provisions: 1200, chargesReelles: 800
+    });
+    expect(out.error).toBeUndefined();
+    // solde implicite -400 → soldeSens auto "à rembourser au locataire"
+  });
+
+  it('bail-signe-final → filename Recap-bail', async () => {
+    const out = await _emailGenPdfAttachment('bail-signe-final', baseCtx);
+    expect(out.error).toBeUndefined();
+    expect(out.filename).toBe('Recap-bail-LOG-001.pdf');
+  });
+
+  it('edl-entree-signe → filename EDL-entree + compteurs', async () => {
+    const out = await _emailGenPdfAttachment('edl-entree-signe', {
+      ...baseCtx,
+      dateEDL: '2026-01-15',
+      compteurElec: '12345', compteurGaz: '6789', compteurEauF: '111', compteurEauC: '222'
+    });
+    expect(out.error).toBeUndefined();
+    expect(out.filename).toBe('EDL-entree-LOG-001.pdf');
+  });
+
+  it('edl-sortie-signe → filename EDL-sortie', async () => {
+    const out = await _emailGenPdfAttachment('edl-sortie-signe', {
+      ...baseCtx,
+      dateEDL: '2026-05-01',
+      comparatifCompteurs: 'Conforme', degradationsBilan: 'Aucune', conclusionEDL: 'Restitution intégrale'
+    });
+    expect(out.error).toBeUndefined();
+    expect(out.filename).toBe('EDL-sortie-LOG-001.pdf');
+  });
+
+  it('cautionnement-signe → filename Cautionnement, mentionne garant', async () => {
+    const out = await _emailGenPdfAttachment('cautionnement-signe', {
+      ...baseCtx,
+      garant: { civilite: 'M.', nom: 'Garant Pierre' }
+    });
+    expect(out.error).toBeUndefined();
+    expect(out.filename).toBe('Cautionnement-LOG-001.pdf');
+  });
+
+  it('tous les 7 types listés génèrent un PDF sans erreur', async () => {
+    const types = _emailPdfTypesSupportedV1();
+    for (const t of types) {
+      const out = await _emailGenPdfAttachment(t, {
+        ...baseCtx,
+        annee: 2025, provisions: 100, chargesReelles: 100,
+        dateEDL: '2026-01-01',
+        garant: { civilite: 'M.', nom: 'G' },
+        quittance: { mois: 'mai 2026', hc: 500, ch: 50, total: 550 }
+      });
+      expect(out.error, `type ${t} ne doit pas erreur`).toBeUndefined();
+      expect(out.filename, `type ${t} a un filename`).toBeDefined();
+      expect(out.mimeType).toBe('application/pdf');
+    }
   });
 });
 
