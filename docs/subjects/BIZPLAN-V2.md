@@ -118,7 +118,7 @@ Périmètre = 11 livrables (cf docs/subjects/BIZPLAN-V2.md §Livrables) :
 5. MODELE_FINANCIER.xlsx (skill xlsx — curseurs scénarios)
 6. CDC_TECHNIQUE.md + .docx (backend V1.5 + V2 EU)
 7. BRIEFS_CREA.md + .docx (identité + landing + onboarding + 30 SEO + 10 tutos)
-8. SWOT_CONCURRENTS.md (× 8 concurrents)
+8. SWOT_CONCURRENTS.md (× 9 concurrents — Rentila, BailFacile, Smartloc, Qalimo, Gererseul, ImmobilierLoyer, Smovin, Septeo/Crypto, **+ LocataireCloud (audit 2026-05-18)**)
 9. TAM_SAM_SOM.md (chiffrage rigoureux)
 10. PLAN_ACTIONS_v2.md (révision avec accélération + Capacitor + WebDAV + CGP)
 11. PROJECTIONS_v2.md (révision avec ARPU bonifié Cloud EU + impact CGP)
@@ -142,12 +142,64 @@ Workflow suggéré (3 sessions) :
 En sortie de chaque session : commit `BIZPLAN-V2 : session N livree (X livrables)` + résumé final 5 bullets max + liens vers livrables.
 ```
 
+## Concurrent #9 — LocataireCloud (locataire.live) — ajouté 2026-05-18
+
+Audit complet : cf [docs/subjects/WATCH-LOCATAIRELIVE.md](WATCH-LOCATAIRELIVE.md).
+
+**Identité** : SaaS français, sortie bêta avril 2026, fondateur solo (40+ lots gérés, 15 ans), pricing lifetime 347 € × 50 places + futur SaaS 9,90-49,90 €/mois, cible bailleurs + agences.
+
+**Velocity inquiétante** : 26 features roadmap publique T2 2026 → T1 2027 (6 livrées + 3 en cours + 17 prévues). IA conversationnelle T2 2026, app mobile native T4 2026, mandats agence T3 2026 (= attaque cible CGP **2 trimestres avant** ImmoTrack V2 Q1-Q3 2027).
+
+**Avantages ImmoTrack vs LocataireCloud** :
+- Posture souveraine (Drive perso, vs cloud SaaS centralisé)
+- Bail PDF natif + snapshot signé highlight diff
+- EDL conforme décret 2016-382 + photos compteurs 7 colonnes
+- EDL délégué offline export/import ⭐
+- IRL DPE F/G blocking (loi Climat) déjà livré v13.30-33
+- Pas de DSP2 = différenciant "souverain" (vs DSP2 chez eux)
+
+**Manques ImmoTrack vs LocataireCloud** :
+- Espace locataire (eux livré, nous V2)
+- IA conversationnelle (eux T2 2026)
+- Colocation native (eux livré, nous en cours BAIL-TYPES)
+- Place de marché annonces (eux livré, nous pas prévu)
+- 16 outils SEO gratuits (eux en place, nous rien)
+- Multi-utilisateurs + mandats agence (eux T3 2026, nous V2 Q1-Q3 2027)
+
+## 6 implications stratégiques (intégrées au scope v2)
+
+### 1. Founder Edition lifetime (FOUNDER-EDITION P1 créé)
+Bootstrap acquisition early adopters : 249 € × 100 places, vente juillet-oct 2026, +24 900 € cash up-front + 100 évangélistes. Cf [FOUNDER-EDITION.md](FOUNDER-EDITION.md).
+**Impact PITCH_COMMERCIAL.pptx** : slide "Founder Edition" early access.
+
+### 2. Outils SEO gratuits (OUTILS-SEO-GRATUITS P2 créé)
+Page /outils avec 15 calculateurs dont 4 ⭐ différenciants (2044 preview / cession LMP-LMNP / loyer marché CLAMEUR / DPE plan rénov). 8-10 j-h Q3 2026 avant launch. Cf [OUTILS-SEO-GRATUITS.md](OUTILS-SEO-GRATUITS.md).
+**Impact PLAN_COMMERCIAL_V2.md** : section "acquisition SEO" enrichie avec roadmap calculateurs.
+
+### 3. Module IA souveraine V1.5 (IA-COPILOTE P2 créé)
+4 modules : recherche sémantique Ctrl+K + copilote dashboard + catégorisation mouvements + suggestions clauses bail. Posture "100 % browser, 0 data envoyée à OpenAI". 9-15 j-h V1.5 Q1 2027. Cf [IA-COPILOTE.md](IA-COPILOTE.md).
+**Impact PRESENTATION_INTERNE.pptx + PITCH_COMMERCIAL.pptx** : slide "IA souveraine" (différenciant vs LocataireCloud).
+
+### 4. Monitoring permanent (WATCH-LOCATAIRELIVE P2 créé)
+Cadence trimestrielle fetch /roadmap + diff + alerte si livraison majeure. Cf [WATCH-LOCATAIRELIVE.md](WATCH-LOCATAIRELIVE.md).
+**Impact PLAN_ACTIONS_v2.md** : ajout slot trimestriel "veille concurrence".
+
+### 5. Accélération PORTAIL-LOC (intégrer dans PLAN_ACTIONS_v2)
+LocataireCloud a livré "Espace locataire complet" mars 2026. ImmoTrack a PORTAIL-LOC en V2 Q1 2027 → **basculer en V1.5 déc 2026** pour parité commerciale.
+**Impact PLAN_ACTIONS_v2.md** : remonter PORTAIL-LOC de V2 → V1.5.
+
+### 6. Colocation native (intégrer dans BAIL-TYPES)
+LocataireCloud claim "aucun outil FR ne le fait à ce niveau" sur colocation. ImmoTrack BAIL-TYPES doit explicitement inclure le cas "bail commun colocation + quittances ventilées".
+**Impact CDC_TECHNIQUE.md** : préciser spec colocation dans la phase BAIL-TYPES.
+
 ## Notes utilisateur
 
 > 💬 2026-04-30 : "je vois que c'est un bon début de BP. Par contre cela ne suffit pas pour vendre le projet ou savoir où attaquer en premier pour la partie commerciale. Tu fais un v2 plus poussée ?"
 > 💬 2026-05-01 : "il faut que la V2 arrive vite. Je pense que c'est le moyen le plus efficace de se développer. (...) il faut attaquer les CGP ou vendeur pour faire connaître la solution. (...) Un pitch commercial. Il faudra aussi un CDC pour continuer à développer. Je veux un pitch aussi de présentation (ppt ?) avec timeline."
 > 💬 2026-05-01 : "on démarre avec google et on fera évoluer" (validation stratégie 3 niveaux souveraineté)
+> 💬 2026-05-18 : "https://www.locataire.live comme concurrent sérieux. tu fais un audit ?" → audit livré + 4 sujets réactionnels créés (FOUNDER-EDITION P1, WATCH-LOCATAIRELIVE P2, OUTILS-SEO-GRATUITS P2, IA-COPILOTE P2)
 
 ## Journal
 
 - 2026-05-01 : créé · scope figé · 4 décisions architecturales validées (Capacitor, PWA installable, 3 niveaux souveraineté, soft-block) · 3 décisions scope validées (2 pitches, CDC backend, plan beta from scratch) · prompt de démarrage prêt-à-coller
+- 2026-05-18 : ajout concurrent #9 LocataireCloud (audit complet livré) · 4 sujets réactionnels créés (FOUNDER-EDITION P1, WATCH-LOCATAIRELIVE P2, OUTILS-SEO-GRATUITS P2, IA-COPILOTE P2) · 6 implications stratégiques intégrées au scope v2 (Founder Edition, outils SEO, IA souveraine, monitoring, accélération PORTAIL-LOC, colocation native)
