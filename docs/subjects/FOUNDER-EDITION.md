@@ -1,6 +1,6 @@
 # FOUNDER-EDITION — Décision pricing lifetime acquisition early adopters
 
-**Status** : ⬜ À faire (décision urgente avant lancement pré-V1) · **Prio** : P1 · **Taille** : S (~2-3h décision + setup)
+**Status** : 🔄 **Décision prise 2026-05-18 : option (b) 249 € × 100 places** — setup à faire avant juillet 2026 · **Prio** : P1 · **Taille** : S (~2-3h décision + setup)
 **Détecté** : 2026-05-18 (réaction audit LocataireCloud qui utilise lifetime 347 € pour 50 places)
 **Lié à** : BIZPLAN-V2 (PROJECTIONS_v2 impact) · WATCH-LOCATAIRELIVE
 
@@ -82,13 +82,14 @@ ImmoTrack peut faire mieux ou pareil pour **bootstrapper son lancement V1**.
 
 ## Décisions à prendre
 
-- [ ] Option (a/b/c/d) — recommandation : (b) 249 € × 100 places
-- [ ] Plan inclus à vie : Investisseur OU SCI/Patrimoine ?
-- [ ] Cloud EU V2 inclus à vie ou add-on ?
-- [ ] Bonus fondateurs (badge + vote roadmap) : oui/non ?
-- [ ] Calendrier annonce : juillet 2026 ?
-- [ ] Stripe vs autre plateforme ?
+- [x] **Option (b) 249 € × 100 places validée par utilisateur 2026-05-18**
+- [ ] Plan inclus à vie : Investisseur OU SCI/Patrimoine ? — défaut Investisseur (9,90 € équivalent)
+- [ ] Cloud EU V2 inclus à vie ou add-on ? — recommandé : add-on payant séparé
+- [ ] Bonus fondateurs (badge + vote roadmap) : oui/non ? — recommandé : oui (différenciation narrative)
+- [ ] Calendrier annonce : juillet 2026 ? — confirmé en cible
+- [ ] Stripe vs autre plateforme ? — recommandé : Stripe one-shot (pas Paddle car pas mensuel)
 
 ## Journal
 
 - 2026-05-18 : créé · réaction audit LocataireCloud · option (b) 249 € × 100 places recommandée
+- 2026-05-18 : **décision (b) validée par utilisateur** ("ok pour 1 et 2") · setup technique à programmer avant juillet 2026 (Phase 3 plan BIZPLAN-V2)

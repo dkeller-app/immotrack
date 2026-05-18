@@ -74,5 +74,41 @@ Recommandation : **Option A** (vue d'ensemble d'abord pour repérer les patterns
 ## Notes utilisateur
 > 💬 2026-05-01 : "visuel : s'assurer onglet / onglet que tout s'affiche bien sur une page sur le téléphone. L'expérience utilisateur doit être irréprochable sur téléphone."
 
+## Phase 5 polish — diagnostic 2026-05-18 (audit visuel comparatif LocataireCloud)
+
+Audit mené 2026-05-18 sur 10 captures mobile v15.73 (Accueil Premium + Tableau de bord Gestionnaire + Biens + Baux + IRL + EDL + Régul + Loyers + Wizard Bail paraphes + Wizard Bail signatures finales). Comparaison avec LocataireCloud sur 4 breakpoints (320/390/428 px).
+
+### Résultats — 7 écrans OK sur 10, 4 points sensibles + 2 BUGS P0
+
+| Catégorie | Sujet | Sévérité | Effort fix |
+|---|---|---|---|
+| 🔴 **BUG fonctionnel** | Menu "Plus" bottom nav ne s'ouvre pas → 12 fonctions sur 16 inaccessibles mobile | Critique | cf [BUG-MOBILE-MENU-PLUS](BUG-MOBILE-MENU-PLUS.md) (1-2 h) |
+| 🔴 **BUG fonctionnel** | Sélecteur profil dashboard (Solo/Premium/Gestionnaire) inaccessible mobile | Critique | cf [BUG-MOBILE-DASH-PROFILES](BUG-MOBILE-DASH-PROFILES.md) (30 min - 1 h) |
+| 🔴 **Layout critique** | Table Pilotage parc 7 col tronquée mobile (colonne ÉTAT "MR…manq…") | Critique | 2-3 h (cards mobile au lieu de table) |
+| 🟠 **Layout important** | Table Loyers libellés bancaires tronqués sans ellipsis | Important | 1 h (cards mobile ou wrap multi-lignes) |
+| 🟠 **Layout moyen** | Tabs tronqués : "Histo…" Révision IRL + "3…" Régul | Moyen | 30 min (scroll horizontal gradient ou shorter labels) |
+| 🟠 **Layout moyen** | Hero Dashboard Gestionnaire titre 3 lignes + KPI "9 À TRAITE" tronqué | Moyen | 30 min (font-size adaptative + KPIs 2×2) |
+| 🟢 OK | Accueil Premium · Biens · Baux · EDL · Régul · IRL · Wizard Bail (paraphes + signatures finales) | – | – |
+
+### Effort total Phase 5 polish
+
+**5-7 j-h dev** :
+- 2 BUGS P0 (1,5 - 3 h cumulés) — à traiter en priorité (cf sujets dédiés)
+- Layout critique Pilotage parc cards mobile : 2-3 h
+- Layout important Loyers libellés : 1 h
+- Layouts moyens tabs + Hero : 1 h
+- Tests + validation 320/390/428/768 px : 0,5 j-h
+
+### Bonne nouvelle confirmée
+
+Le **Wizard Bail mobile** (étape paraphes page-par-page + étape finale signatures) fonctionne **parfaitement** à 390 px : PDF lisible sans zoom, canvas paraphe utilisable au doigt, pédagogie §18 visible, CTAs Précédent/Suivant en sticky bottom plein-largeur. Aucun concurrent ne fait ça à ce niveau (à mettre dans pitch CGP).
+
+### Sources audit
+
+- Captures LocataireCloud mobile : `docs/strategie/audit-visuel-locataire-live/mobile/` (5 PNG)
+- Captures ImmoTrack v15.73 mobile : partagées par utilisateur dans chat 2026-05-18 (non sauvegardées repo)
+- Comparaison contexte : `docs/strategie/audit-visuel-locataire-live/README.md`
+
 ## Journal
 - 2026-05-01 : créé · P1 car critique pour V1 commerciale (mobile = audience massive)
+- 2026-05-18 : Phase 5 polish identifiée via audit visuel comparatif LocataireCloud · 7/10 écrans OK + 2 BUGS P0 + 4 layouts à fix · effort 5-7 j-h · sujets dépendants : BUG-MOBILE-MENU-PLUS + BUG-MOBILE-DASH-PROFILES

@@ -192,6 +192,44 @@ LocataireCloud a livré "Espace locataire complet" mars 2026. ImmoTrack a PORTAI
 LocataireCloud claim "aucun outil FR ne le fait à ce niveau" sur colocation. ImmoTrack BAIL-TYPES doit explicitement inclure le cas "bail commun colocation + quittances ventilées".
 **Impact CDC_TECHNIQUE.md** : préciser spec colocation dans la phase BAIL-TYPES.
 
+## Audit visuel comparatif — 2026-05-18 (LocataireCloud vs ImmoTrack v15.73)
+
+Audit complet réalisé 2026-05-18 sur 19 captures (11 LocataireCloud desktop+mobile + 8 ImmoTrack v15.73 partagées par utilisateur). Sauvegarde captures : `docs/strategie/audit-visuel-locataire-live/`.
+
+### Stack technique LocataireCloud identifié
+Next.js 14+ App Router + Vercel + Tailwind + shadcn/ui + fonts Montserrat / Instrument Sans / Fraunces (serif display). Light mode forcé.
+
+### Verdict produit applicatif
+
+| Dimension | Verdict |
+|---|---|
+| Produit applicatif (Dashboard 3 profils / Wizard Bail paraphes / Cycle IRL 6 états / EDL conforme) | 🟢 **ImmoTrack v15.73 devant LocataireCloud** |
+| Identité visuelle | 🟢 Équivalente (light + verts + pastels) |
+| Site vitrine externe | 🔴 LocataireCloud devant (ImmoTrack en a aucun) |
+| Calculateurs SEO gratuits | 🔴 LocataireCloud devant (16 outils) → couvert par OUTILS-SEO-GRATUITS |
+| Roadmap publique | 🔴 LocataireCloud devant |
+| Pricing visible | 🔴 LocataireCloud devant → couvert par FOUNDER-EDITION |
+
+### 3 différenciants visuels à PUSHER dans le pitch CGP
+
+1. **Wizard bail paraphes page-par-page + pédagogie §18 + "Lu et approuvé"** → aucun concurrent n'a ça
+2. **Cockpit conformité "Climat pluvieux"** profil Gestionnaire → vue 5-secondes du parc, unique
+3. **Cycle IRL 6 états avec CTAs contextuels** → gestion fine des cas réels (bail trop récent, indice INSEE absent, révision imminente, à valider et envoyer)
+
+### Audit mobile v15.73 (10 captures)
+
+- 🟢 **7 écrans OK** : Accueil Premium, Biens, Baux, EDL, Régul, IRL, Wizard Bail (paraphes + signatures finales)
+- 🔴 **2 BUGS P0 fonctionnels** : menu "Plus" mobile inopérant + sélecteur profil dashboard inaccessible mobile → sujets dédiés `BUG-MOBILE-MENU-PLUS` + `BUG-MOBILE-DASH-PROFILES`
+- 🔴 **1 layout critique** : table Pilotage parc 7 colonnes tronquée mobile
+- 🟠 **3 layouts moyens** : table Loyers libellés tronqués, tabs tronqués, Hero Gestionnaire titre 3 lignes
+- **Effort total Phase 5 polish mobile** : **5-7 j-h** → géré dans `MOBILE-AUDIT-ONGLETS` Phase 5
+
+### Décisions confirmées 2026-05-18
+
+- [x] **FOUNDER-EDITION option (b) validée** : 249 € × 100 places, annonce juillet 2026, +24,9 K€ cash up-front + 100 évangélistes
+- [x] **Commit findings audit visuel + audit mobile** : 11 captures LocataireCloud + 2 BUGS P0 mobile + Phase 5 polish identifiée
+- [x] **Priorité** : utilisateur finit ses sprints en cours avant lancement session BIZPLAN-V2 dédiée
+
 ## Notes utilisateur
 
 > 💬 2026-04-30 : "je vois que c'est un bon début de BP. Par contre cela ne suffit pas pour vendre le projet ou savoir où attaquer en premier pour la partie commerciale. Tu fais un v2 plus poussée ?"
@@ -203,3 +241,4 @@ LocataireCloud claim "aucun outil FR ne le fait à ce niveau" sur colocation. Im
 
 - 2026-05-01 : créé · scope figé · 4 décisions architecturales validées (Capacitor, PWA installable, 3 niveaux souveraineté, soft-block) · 3 décisions scope validées (2 pitches, CDC backend, plan beta from scratch) · prompt de démarrage prêt-à-coller
 - 2026-05-18 : ajout concurrent #9 LocataireCloud (audit complet livré) · 4 sujets réactionnels créés (FOUNDER-EDITION P1, WATCH-LOCATAIRELIVE P2, OUTILS-SEO-GRATUITS P2, IA-COPILOTE P2) · 6 implications stratégiques intégrées au scope v2 (Founder Edition, outils SEO, IA souveraine, monitoring, accélération PORTAIL-LOC, colocation native)
+- 2026-05-18 (suite) : **audit visuel comparatif livré** sur 19 captures (11 LocataireCloud + 8 ImmoTrack v15.73 partagées par utilisateur) · stack LocataireCloud identifié (Next.js + Vercel + shadcn/ui + Fraunces) · 3 différenciants visuels ImmoTrack identifiés pour pitch CGP (wizard bail · cockpit conformité · cycle IRL 6 états) · **audit mobile** révèle 7/10 écrans OK + 2 BUGS P0 (`BUG-MOBILE-MENU-PLUS` + `BUG-MOBILE-DASH-PROFILES`) + 4 layouts (Phase 5 polish 5-7 j-h dans `MOBILE-AUDIT-ONGLETS`) · **FOUNDER-EDITION option (b) validée** par utilisateur 249 € × 100 places · session BIZPLAN-V2 dédiée reportée après finition sprints utilisateur en cours
