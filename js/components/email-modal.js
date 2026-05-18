@@ -282,8 +282,11 @@ function _onSendNow(ctx) {
   const v = _readModalValues();
   if (!v.to) { showToast('Destinataire vide', 'err'); return; }
 
-  // Récupère le token Drive (existe car bouton conditionnellement affiché)
-  const token = (typeof window !== 'undefined') ? window._driveToken : null;
+  // v15.83 — _driveToken est en `let` (scope <script>), invisible depuis ES modules.
+  // On utilise le getter window._getDriveToken() exposé par index.html.
+  const token = (typeof window !== 'undefined' && typeof window._getDriveToken === 'function')
+    ? window._getDriveToken()
+    : null;
   if (!token) {
     showToast('Connexion Google requise — cliquez sur ☁ Drive dans la sidebar', 'err', 5000);
     return;
