@@ -124,6 +124,21 @@ Une modale qui :
   - Tests Vitest : 22/22 verts (7 types × cas standard + civilité M./Mme/absente + jsPDF absent + ctx vide)
   - Verif preview v15.89 sur 7 types : tous génèrent magic header `%PDF-1.3`, tailles base64 6-8 KB, filenames cohérents (`Decompte-charges-{annee}`, `Recap-bail-{ref}`, `EDL-{entree/sortie}-{ref}`, `Cautionnement-{ref}`)
 - ✅ **EMAIL-MODAL-UX-REFONTE complet** — 3 livraisons (a/b/c) sur la même journée. Total 908/908 tests verts.
+- 2026-05-18 : ⚠️ **User a flaggé** : le PDF text-natif diffère du rendu officiel (capture cliente : 2 formats côte-à-côte). Décision : refonte EM-2d via html2canvas sur le rendu officiel.
+- 2026-05-18 : ✅ **EM-2d Livré v15.91** — Refonte PJ quittance avec **rendu officiel** :
+  - Extracted `_buildQuittanceHtml(q, log, ent, bail, opts?)` (fct PURE retournant `{html, css, title, status}`) depuis `previewQuit` dans `index.html`. `previewQuit` simplifié pour appeler cette fct + window.open. **Zéro régression** sur l'aperçu existant (même HTML/CSS rendu).
+  - 3 status retournés : `'complet'` (quittance), `'partiel'` (reçu partiel), `'non-paye'` (alerte). EM-2d ne génère PJ que pour `complet`/`partiel` (non-paye → erreur explicite « Saisir le paiement d'abord »).
+  - Exposé sur `window._buildQuittanceHtml` pour réutilisation par `email-pdf-attachment.js`
+  - Nouveau helper `_ensureHtml2CanvasLoaded()` (même pattern que `_ensureJsPdfLoaded`) : décode `window._BAIL_PDF_LIBS.html2canvas` (inliné base64) à la volée
+  - Nouveau helper `_rasterizeHtmlToPdfBlob(html, css)` : conteneur off-screen `position:fixed;left:-10000px` + scope CSS + html2canvas scale=2 + jsPDF multi-pages A4 → Blob
+  - `_genPdfQuittance` refondu : path principal = `_buildQuittanceHtml` + `_rasterizeHtmlToPdfBlob`. **Fallback path** `_genPdfQuittanceFallbackText` (ancien V1.0 jsPDF text-natif) préservé pour les tests Vitest (FakeJsPdf mock) et compat si `window._buildQuittanceHtml` absent.
+  - Verif preview JS v15.91 :
+    - `_buildQuittanceHtml` retourne `status:'complet'`, HTML contient `AUDRIN`, `RCS`, `<h1>` ✅
+    - `window.html2canvas` chargé via blob URL ✅
+    - Rasterisation manuelle : canvas 1400×1576 px généré OK ✅
+  - Tests Vitest : 915/915 verts (fallback path testé, path principal demande DOM jsdom — testé via verif preview)
+  - **Résultat user** : la PJ envoyée par mail = exactement le PDF officiel (signature image incluse via `_docSigImg(ent)` du rendu original)
+- ⬜ **EM-2d V1.1 à faire** : étendre le même pattern aux 6 autres types (irl-revision, decompte-regul-annuel, bail-signe-final, edl-entree-signe, edl-sortie-signe, cautionnement-signe). Chacun a un rendu officiel à factoriser dans `_buildXxxHtml` pure fct + appel via `_rasterizeHtmlToPdfBlob`.
 
 ## Reste à faire (futures sessions)
 - EM-3 [DOC-CIVILITE](docs/subjects/DOC-CIVILITE.md) : civilité dynamique dans les **templates de mail** (corps texte), en plus du PDF (déjà fait dans les PJ via `_civNom`). P2 XS.

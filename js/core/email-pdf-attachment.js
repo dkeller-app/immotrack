@@ -72,6 +72,85 @@ function _getJsPdfClass() {
 }
 
 /**
+ * v15.91 EM-2d — Charge html2canvas si pas déjà disponible globalement.
+ * Même pattern que _ensureJsPdfLoaded — décode window._BAIL_PDF_LIBS.html2canvas
+ * (inliné en base64) → Blob URL → <script src=blob:>. Idempotent.
+ *
+ * @returns {Promise<boolean>} true si window.html2canvas disponible après l'appel
+ */
+function _ensureHtml2CanvasLoaded() {
+  if (typeof window !== 'undefined' && typeof window.html2canvas === 'function') return Promise.resolve(true);
+  if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
+  if (typeof document.createElement !== 'function') return Promise.resolve(false);
+  if (!window._BAIL_PDF_LIBS || !window._BAIL_PDF_LIBS.html2canvas) return Promise.resolve(false);
+
+  return new Promise(resolve => {
+    try {
+      const b64 = window._BAIL_PDF_LIBS.html2canvas;
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      const script = document.createElement('script');
+      script.src = url;
+      script.onload = () => resolve(typeof window.html2canvas === 'function');
+      script.onerror = (e) => { console.error('[email-pdf-attachment] html2canvas script load failed', e); resolve(false); };
+      document.head.appendChild(script);
+    } catch (e) {
+      console.error('[email-pdf-attachment] _ensureHtml2CanvasLoaded threw', e);
+      resolve(false);
+    }
+  });
+}
+
+/**
+ * v15.91 EM-2d — Rasterise un HTML/CSS donné en un PDF jsPDF (multi-pages A4)
+ * via html2canvas. Retourne un Blob PDF.
+ *
+ * @param {string} html — body HTML à rendre
+ * @param {string} css — CSS à inclure (scope auto via wrapper)
+ * @returns {Promise<Blob>}
+ */
+async function _rasterizeHtmlToPdfBlob(html, css) {
+  const Cls = _getJsPdfClass();
+  if (!Cls) throw new Error('jspdf-not-loaded');
+  if (typeof window === 'undefined' || typeof window.html2canvas !== 'function') {
+    throw new Error('html2canvas-not-loaded');
+  }
+  // Conteneur off-screen (visuellement caché mais rendable par html2canvas).
+  // Dimensions calées sur ~A4 700px wide (matches body max-width:700px du CSS quittance).
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:760px;background:#fff;color:#111;z-index:-1';
+  // Inline CSS via <style> scope sur le container pour ne pas polluer la page principale
+  container.innerHTML = '<style>' + css + '</style><div class="em-pdf-render-root" style="background:#fff;padding:30px 30px;max-width:700px;margin:0 auto;font-family:\'Times New Roman\',serif;font-size:11.5pt;color:#111;line-height:1.45">' + html + '</div>';
+  document.body.appendChild(container);
+  try {
+    const target = container.querySelector('.em-pdf-render-root');
+    const canvas = await window.html2canvas(target, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = pageW - 16; // 8mm margin chaque côté
+    const imgH = (canvas.height * imgW) / canvas.width;
+    let position = 8;
+    let heightLeft = imgH;
+    pdf.addImage(imgData, 'PNG', 8, position, imgW, imgH);
+    heightLeft -= (pageH - 16);
+    while (heightLeft > 0) {
+      position = -heightLeft + 8;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 8, position, imgW, imgH);
+      heightLeft -= (pageH - 16);
+    }
+    return pdf.output('blob');
+  } finally {
+    if (container.parentNode) container.parentNode.removeChild(container);
+  }
+}
+
+/**
  * v15.88 EM-2b fix — Charge la lib jsPDF si pas déjà disponible globalement.
  * Pattern ImmoTrack : la lib est inlinée en base64 dans `window._BAIL_PDF_LIBS.jspdf`
  * mais décodée + injectée comme <script src=blob:> UNIQUEMENT dans la fenêtre de
@@ -143,20 +222,60 @@ function _civNom(loc) {
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Génère une quittance PDF texte minimaliste.
- *  - En-tête bailleur (entité)
- *  - Bloc locataire
- *  - Détail loyer + charges + total
- *  - Mention de quittance loi 1989
- *  - Date + signature
+ * v15.91 EM-2d — Génère une quittance PDF en utilisant le RENDU OFFICIEL
+ * (`window._buildQuittanceHtml` exposé par index.html, extrait de `previewQuit`).
+ * Approche : html2canvas + jsPDF multi-pages. Le PDF reçu par mail correspond
+ * exactement à ce que l'user voit en cliquant 👁 Aperçu sur une quittance.
  *
- * @param {object} ctx — { locataire, bail, logement, entite, quittance }
+ * Si rendu officiel pas disponible → fallback minimaliste (compat tests Vitest).
+ *
+ * @param {object} ctx — { locataire, bail, logement, entite, quittance, quittanceId? }
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
 async function _genPdfQuittance(ctx) {
+  const c = ctx || {};
+  const q = c.quittance || {};
+  const log = c.logement || {};
+  const ent = c.entite || {};
+  const bail = c.bail || {};
+
+  // Path principal : rendu officiel via window._buildQuittanceHtml (v15.91)
+  if (typeof window !== 'undefined' && typeof window._buildQuittanceHtml === 'function') {
+    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
+    if (html2canvasLoaded) {
+      try {
+        const built = window._buildQuittanceHtml(q, log, ent, bail);
+        if (built.status === 'non-paye') {
+          return {
+            error: 'no-payment',
+            message: 'Aucun paiement enregistré pour ce mois — impossible de générer la quittance. Saisir le paiement dans les mouvements d\'abord.'
+          };
+        }
+        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
+        const base64 = await _blobToBase64(blob);
+        const filename = 'Quittance-' + (q.mois || 'mois').replace(/\s+/g, '-') + '-' + (log.ref || 'logement') + '.pdf';
+        return { filename, base64, mimeType: 'application/pdf' };
+      } catch (e) {
+        console.warn('[email-pdf] rendu officiel quittance KO, fallback text-natif :', e && e.message);
+        // tombe sur fallback ci-dessous
+      }
+    }
+  }
+
+  // Fallback path : jsPDF text-natif (cas où window._buildQuittanceHtml absent ou
+  // html2canvas pas chargeable — utilisé par les tests Vitest qui mockent FakeJsPdf).
+  return _genPdfQuittanceFallbackText(c);
+}
+
+/**
+ * v15.91 EM-2d — Fallback text-natif (ancien V1.0 EM-2b avant rendu officiel).
+ * Préservé pour les tests Vitest (FakeJsPdf mock) et pour la compatibilité.
+ *
+ * @param {object} c — ctx complet
+ */
+async function _genPdfQuittanceFallbackText(c) {
   const Cls = _getJsPdfClass();
   if (!Cls) return { error: 'jspdf-not-loaded' };
-  const c = ctx || {};
   const q = c.quittance || {};
   const bail = c.bail || {};
   const log = c.logement || {};
@@ -168,7 +287,6 @@ async function _genPdfQuittance(ctx) {
   const PAGE_W = 210;
   let y = MARGIN;
 
-  // En-tête bailleur
   pdf.setFont('helvetica', 'bold').setFontSize(11);
   pdf.text(ent.nom || '—', MARGIN, y); y += 5;
   pdf.setFont('helvetica', 'normal').setFontSize(10);
@@ -176,13 +294,11 @@ async function _genPdfQuittance(ctx) {
   if (ent.gerant) { pdf.text('Représenté(e) par : ' + ent.gerant, MARGIN, y); y += 5; }
   y += 4;
 
-  // Date émission
   const dateEmission = (q.date || (new Date()).toISOString().slice(0, 10));
   pdf.setFont('helvetica', 'normal').setFontSize(10);
   pdf.text('Fait le ' + dateEmission, PAGE_W - MARGIN, y, { align: 'right' });
   y += 10;
 
-  // Titre
   pdf.setFont('helvetica', 'bold').setFontSize(16).setTextColor(0, 51, 153);
   pdf.text('Quittance de loyer', PAGE_W / 2, y, { align: 'center' });
   pdf.setTextColor(0, 0, 0);
@@ -191,7 +307,6 @@ async function _genPdfQuittance(ctx) {
   pdf.text((q.mois || '—') + ' · ' + (bail.adrBien || log.adr || '—'), PAGE_W / 2, y, { align: 'center' });
   y += 12;
 
-  // Bloc Locataire
   pdf.setFont('helvetica', 'bold').setFontSize(11);
   pdf.text('Locataire', MARGIN, y); y += 5;
   pdf.setFont('helvetica', 'normal').setFontSize(10);
@@ -199,7 +314,6 @@ async function _genPdfQuittance(ctx) {
   if (bail.adrBien) { pdf.text(bail.adrBien, MARGIN, y); y += 5; }
   y += 6;
 
-  // Détail des sommes
   const hc = Number(q.hc) || 0;
   const ch = Number(q.ch) || 0;
   const total = Number(q.total) || (hc + ch);
@@ -210,7 +324,6 @@ async function _genPdfQuittance(ctx) {
   pdf.text("déclare avoir reçu du Locataire la somme de " + _fmt(total) + ", se décomposant comme suit :", MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
   y += 8;
 
-  // Table compacte
   pdf.setFont('helvetica', 'normal').setFontSize(10);
   pdf.text('Loyer hors charges', MARGIN + 5, y);
   pdf.text(_fmt(hc), PAGE_W - MARGIN, y, { align: 'right' });
@@ -226,7 +339,6 @@ async function _genPdfQuittance(ctx) {
   pdf.text(_fmt(total), PAGE_W - MARGIN, y, { align: 'right' });
   y += 10;
 
-  // Mention loi 1989
   pdf.setFont('helvetica', 'italic').setFontSize(9.5).setTextColor(60, 60, 60);
   pdf.text("Cette quittance correspond au règlement du loyer et des charges pour la période de location indiquée. " +
            "Elle est délivrée sous réserve du bon encaissement de cette somme et conformément à l'article 21 de la loi n° 89-462 du 6 juillet 1989. " +
@@ -234,16 +346,14 @@ async function _genPdfQuittance(ctx) {
            MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
   y += 18;
 
-  // Signature
   pdf.setFont('helvetica', 'normal').setFontSize(10).setTextColor(0, 0, 0);
-  pdf.text('Le Bailleur,', PAGE_W - MARGIN - 60, y, { align: 'left' });
+  pdf.text('Le Bailleur,', PAGE_W - MARGIN - 60, y);
   y += 14;
-  pdf.text(ent.gerant || ent.nom || '—', PAGE_W - MARGIN - 60, y, { align: 'left' });
+  pdf.text(ent.gerant || ent.nom || '—', PAGE_W - MARGIN - 60, y);
 
   const blob = pdf.output('blob');
   const base64 = await _blobToBase64(blob);
   const filename = 'Quittance-' + (q.mois || 'mois').replace(/\s+/g, '-') + '-' + (log.ref || 'logement') + '.pdf';
-
   return { filename, base64, mimeType: 'application/pdf' };
 }
 
