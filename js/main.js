@@ -91,6 +91,11 @@ import {
   _emailToMimeBase64Url, _emailSendViaGmail
 } from './core/email-send.js';
 
+// v15.87 EM-2b - PJ PDF auto-générée (quittance + IRL en V1.0)
+import {
+  _emailGenPdfAttachment, _emailPdfTypesSupportedV1, _blobToBase64
+} from './core/email-pdf-attachment.js';
+
 // v14.99 BUG-PJ-LOCALSTORAGE - helpers attachements (PJ unifiées Drive + IDB)
 import {
   _attachmentBuildDoc, _attachmentValidateFile, _attachmentMatch,
@@ -225,6 +230,11 @@ window._emailEncodeMimeHeader = _emailEncodeMimeHeader;
 window._emailMakeBoundary = _emailMakeBoundary;
 window._emailToMimeBase64Url = _emailToMimeBase64Url;
 window._emailSendViaGmail = _emailSendViaGmail;
+
+// v15.87 EM-2b - PJ PDF auto-générée
+window._emailGenPdfAttachment = _emailGenPdfAttachment;
+window._emailPdfTypesSupportedV1 = _emailPdfTypesSupportedV1;
+window._blobToBase64 = _blobToBase64;
 
 // ATTACHMENTS (v14.99 BUG-PJ-LOCALSTORAGE) - système unifié de PJ Drive + IDB
 window._attachmentBuildDoc = _attachmentBuildDoc;

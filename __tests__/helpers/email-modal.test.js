@@ -69,11 +69,20 @@ beforeEach(() => {
       appendChild(child) {
         // Quand on append la modale, on enregistre ses sous-éléments
         if (child.id === 'ov-email-compose') {
+          // v15.86 : la modale racine doit aussi avoir querySelectorAll pour _autoGenAttachmentInBackground
+          if (!child.querySelectorAll) child.querySelectorAll = () => [];
           document._els['ov-email-compose'] = child;
+          // v15.86 — nouveaux IDs : em-from-bar, em-from-email, em-from-meta,
+          //                          em-att-title, em-att-list, em-legal-content, em-sendnow-btn
           ['em-to', 'em-cc', 'em-subject', 'em-body',
-           'em-attachments-section', 'em-legal-note', 'em-mailto-warn',
-           'em-share-btn', 'em-title'].forEach(id => {
-            document._els[id] = mockEl(id);
+           'em-attachments-section', 'em-att-title', 'em-att-list',
+           'em-legal-note', 'em-legal-content', 'em-mailto-warn',
+           'em-from-bar', 'em-from-email', 'em-from-meta',
+           'em-share-btn', 'em-sendnow-btn', 'em-title'].forEach(id => {
+            const el = mockEl(id);
+            // v15.86 : em-legal-note est un <details> dans la nouvelle structure
+            if (id === 'em-legal-note') el.tagName = 'DETAILS';
+            document._els[id] = el;
           });
         }
       }
@@ -145,14 +154,17 @@ describe('openEmailModal — pré-remplissage', () => {
     expect(document.getElementById('em-body').value).toContain('Jean LOC');
   });
 
-  it('affiche les pièces jointes en HTML escapé', () => {
+  it('affiche les pièces jointes en HTML escapé (v15.86 nouvelle structure card)', () => {
     openEmailModal('quittance', baseCtx);
-    const att = document.getElementById('em-attachments-section').innerHTML;
-    expect(att).toContain('Quittance-janvier 2026-L-001.pdf');
-    expect(att).toContain('📎');
+    // v15.86 : section visible + nom dans .em-att-list (pas dans toute la section)
+    const section = document.getElementById('em-attachments-section');
+    expect(section.style.display).not.toBe('none'); // section visible si PJ déclarées
+    const list = document.getElementById('em-att-list').innerHTML;
+    expect(list).toContain('Quittance-janvier 2026-L-001.pdf');
+    expect(list).toContain('em-att-item');
   });
 
-  it('affiche la note légale pour rappel-impaye-3', () => {
+  it('affiche la note légale pour rappel-impaye-3 (v15.86 details repliable)', () => {
     openEmailModal('rappel-impaye-3', {
       ...baseCtx,
       periode: 'janvier 2026',
@@ -161,14 +173,20 @@ describe('openEmailModal — pré-remplissage', () => {
       rappel2Date: '20 fév 2026',
       dateLettre: '5 mars 2026'
     });
-    const ln = document.getElementById('em-legal-note').innerHTML;
-    expect(ln).toContain('LRAR');
-    expect(ln).toContain('Note légale');
+    // v15.86 : <details> wrapper avec contenu texte (pas innerHTML)
+    const ln = document.getElementById('em-legal-note');
+    expect(ln.style.display).not.toBe('none');
+    expect(ln.tagName).toBe('DETAILS');
+    const content = document.getElementById('em-legal-content').textContent;
+    expect(content).toContain('LRAR');
   });
 
-  it('pas de section legalNote pour quittance (vide)', () => {
+  it('pas de section legalNote pour quittance (display:none, v15.86)', () => {
     openEmailModal('quittance', baseCtx);
-    expect(document.getElementById('em-legal-note').innerHTML).toBe('');
+    const ln = document.getElementById('em-legal-note');
+    // v15.86 : details masquée plutôt que vide. textContent vide aussi.
+    expect(ln.style.display).toBe('none');
+    expect(document.getElementById('em-legal-content').textContent || '').toBe('');
   });
 
   it('type inconnu → warning erreur affiché', () => {
@@ -219,11 +237,12 @@ describe('openEmailModal — pré-remplissage', () => {
     expect(document.getElementById('em-subject').value).toContain('Avis');
   });
 
-  it('escape HTML dans pièce jointe (sécurité)', () => {
+  it('escape HTML dans pièce jointe (sécurité, v15.86 .em-att-list)', () => {
     const ctx = { ...baseCtx, logement: { ref: '<script>alert(1)</script>' } };
     openEmailModal('quittance', ctx);
-    const att = document.getElementById('em-attachments-section').innerHTML;
-    expect(att).not.toContain('<script>alert');
-    expect(att).toContain('&lt;script&gt;');
+    // v15.86 : le nom de PJ est dans .em-att-list (innerHTML), escape via escHtml
+    const list = document.getElementById('em-att-list').innerHTML;
+    expect(list).not.toContain('<script>alert');
+    expect(list).toContain('&lt;script&gt;');
   });
 });

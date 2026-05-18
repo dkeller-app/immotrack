@@ -1,6 +1,6 @@
 # EMAIL-MODAL-UX-REFONTE — Refonte UX modale email (PC + Tablette + Mobile + PJ PDF auto)
 
-**Status** : 🔄 EM-2a ✅ Livré v15.86 · EM-2b ⬜ à faire · **Prio** : P1 · **Taille** : L (~6-8h, scindé en a/b)
+**Status** : 🔄 EM-2a ✅ v15.86 · EM-2b ✅ v15.87 (2/6 types) · EM-2c ⬜ V1.1 (4 types restants) · **Prio** : P1 · **Taille** : L (~6-8h, scindé en a/b/c)
 **Détecté** : 2026-05-18 (user : « l'ux est dégueu (pire encore sur téléphone) »)
 **Lié à** : EMAIL-SMTP-CONNECT Phase 3 (PJ auto), DOC-CIVILITE, TEMPLATES-EMAILS-PARAMS, BUG-SW-CACHE-JS
 
@@ -98,4 +98,15 @@ Une modale qui :
   - **Hiérarchie boutons** : ghost / secondary / primary
   - Vérif preview JS : modale s'ouvre, structure DOM conforme, version 15.86 OK, `<details>` confirmé tag DETAILS
   - Tests Vitest 886/886 verts (18 email-modal + 25 email-send préservés)
-- ⬜ **EM-2b à faire** : PJ PDF auto pour 6 types (quittance + IRL + régul + bail + EDL + cautionnement)
+- 2026-05-18 : ✅ **EM-2b Livré v15.87** — PJ PDF auto-générée pour `quittance` + `irl-revision` (V1.0) :
+  - Nouveau module [js/core/email-pdf-attachment.js](js/core/email-pdf-attachment.js) (5 exports)
+  - `_emailGenPdfAttachment(type, ctx)` Promise<{filename, base64, mimeType}|{error}>
+  - `_blobToBase64` cross-env (FileReader browser / Buffer Node)
+  - Approche V1.0 : **jsPDF text natif** (rapide, fiable, sans dépendance html2canvas sur HTML legacy). PDF minimaliste mais complet (en-tête bailleur, locataire avec civilité Monsieur/Madame, détail loyer/IRL, mention loi 1989, signature)
+  - `openEmailModal` lance `_autoGenAttachmentInBackground(type, ctx)` après affichage → met à jour le statut PJ (⏳ Génération… → ✓ Prête / ❌ Erreur / ⚠️ Joindre manuellement si type non supporté V1)
+  - `_onSendNow` lit `modal._emailCtx.pjAttachments` et passe au MIME multipart de `_emailToMimeBase64Url`
+  - Exposé sur window (main.js) : `_emailGenPdfAttachment`, `_emailPdfTypesSupportedV1`, `_blobToBase64`
+  - **15 tests Vitest** dans `__tests__/helpers/email-pdf-attachment.test.js` (FakeJsPdf mock, dispatch, civilité, erreurs)
+  - Tests email-modal mis à jour pour nouvelle structure DOM (em-att-list, em-legal-content, tagName DETAILS)
+  - **Total : 901/901 tests verts** (886 + 15 nouveaux)
+- ⬜ **EM-2c (V1.1) à faire** : PJ auto pour 4 types restants (`decompte-regul-annuel`, `bail-signe-final`, `edl-entree-signe`, `edl-sortie-signe`, `cautionnement-signe`). Pattern identique à V1.0 — étendre le dispatch dans `_emailGenPdfAttachment` + ajouter les générateurs jsPDF par type.

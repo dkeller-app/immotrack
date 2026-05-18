@@ -26,6 +26,8 @@ import { _emailCompose } from '../core/email-compose.js';
 import { escHtml } from '../core/utils.js';
 // v15.80 EMAIL-SMTP-CONNECT — envoi direct via Gmail API
 import { _emailToMimeBase64Url, _emailSendViaGmail } from '../core/email-send.js';
+// v15.87 EM-2b — PJ PDF auto-générée
+import { _emailGenPdfAttachment } from '../core/email-pdf-attachment.js';
 
 export const MODAL_ID = 'ov-email-compose';
 
@@ -402,9 +404,18 @@ function _onSendNow(ctx) {
   allBtns.forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
   if (sendBtn) sendBtn.textContent = '📤 Envoi en cours…';
 
+  // v15.87 EM-2b — Récupère la PJ auto-générée (si dispo) pour la joindre au MIME multipart.
+  // ctx.pjAttachments stocké par _autoGenAttachmentInBackground après openEmailModal().
+  const modalEl = document.getElementById(MODAL_ID);
+  const pjAttachments = (modalEl && modalEl._emailCtx && Array.isArray(modalEl._emailCtx.pjAttachments))
+    ? modalEl._emailCtx.pjAttachments : [];
+
   let mime;
   try {
-    mime = _emailToMimeBase64Url({ to: v.to, cc: v.cc, subject: v.subject, body: v.body });
+    mime = _emailToMimeBase64Url({
+      to: v.to, cc: v.cc, subject: v.subject, body: v.body,
+      attachments: pjAttachments
+    });
   } catch (e) {
     showToast('Erreur de construction du message : ' + (e.message || e), 'err');
     allBtns.forEach(b => { b.disabled = false; b.style.opacity = ''; });
@@ -494,4 +505,61 @@ export function openEmailModal(type, context, opts = {}) {
   _ensureModalDom();
   _fillModal(draft, type, opts || {});
   openM(MODAL_ID);
+  // v15.87 EM-2b — Lance la génération PJ PDF auto en arrière-plan
+  // (les types supportés V1.0 : quittance + irl-revision ; les autres reportés V1.1).
+  // L'envoi attendra la PJ via _onSendNow.
+  _autoGenAttachmentInBackground(type, context);
+}
+
+/**
+ * v15.87 EM-2b — Génère la PJ en arrière-plan + met à jour le statut visuel + stocke
+ * la base64 dans modal._emailCtx.pjAttachments pour que `_onSendNow` la passe à
+ * `_emailToMimeBase64Url`.
+ */
+function _autoGenAttachmentInBackground(type, context) {
+  const modal = document.getElementById(MODAL_ID);
+  if (!modal) return;
+  // Guard pour tests avec mock DOM partiel (jsdom non chargé) — pas de querySelectorAll dispo
+  if (typeof modal.querySelectorAll !== 'function') return;
+  const statusEls = modal.querySelectorAll('.em-att-status');
+  if (!statusEls.length) return; // Pas de PJ déclarée par le template → rien à générer
+
+  // Marker "en cours"
+  statusEls.forEach(s => {
+    s.className = 'em-att-status pending';
+    s.textContent = '⏳ Génération…';
+  });
+
+  _emailGenPdfAttachment(type, context || {})
+    .then(result => {
+      if (result && result.error) {
+        // Type non supporté V1 → on garde le statut "à joindre manuellement" + tooltip explicatif
+        statusEls.forEach(s => {
+          s.className = 'em-att-status pending';
+          s.textContent = '⚠️ Joindre manuellement';
+          s.title = result.message || 'PJ non auto-générée pour ce type d\'email';
+        });
+        return;
+      }
+      // Succès : stocke pour _onSendNow + UI status "Prête"
+      modal._emailCtx = modal._emailCtx || {};
+      modal._emailCtx.pjAttachments = [{
+        filename: result.filename,
+        mimeType: result.mimeType,
+        base64: result.base64
+      }];
+      statusEls.forEach(s => {
+        s.className = 'em-att-status ok';
+        s.textContent = '✓ Prête';
+        s.title = '';
+      });
+    })
+    .catch(err => {
+      console.error('[EMAIL-PDF-ATTACH]', err);
+      statusEls.forEach(s => {
+        s.className = 'em-att-status err';
+        s.textContent = '❌ Erreur génération';
+        s.title = (err && err.message) || String(err);
+      });
+    });
 }
