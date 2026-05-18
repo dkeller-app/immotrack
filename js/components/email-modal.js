@@ -69,8 +69,12 @@ function _ensureModalDom() {
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-labelledby', 'em-title');
+  // v15.82 — onclick="event.stopPropagation()" RETIRÉ du div.modal : il bloquait
+  // le bubble des clicks vers document, empêchant la délégation document-level.
+  // Le click-outside est géré par la condition `t === modal` dans le listener
+  // (target = .ov backdrop uniquement quand on clique le bord, pas le contenu).
   modal.innerHTML = `
-    <div class="modal lg" onclick="event.stopPropagation()">
+    <div class="modal lg">
       <div class="m-head">
         <h3 id="em-title">📧 Proposition de mail</h3>
         <button class="m-close" type="button" data-em-close aria-label="Fermer">✕</button>
