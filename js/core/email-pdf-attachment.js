@@ -397,45 +397,15 @@ function _drawHeaderBlock(pdf, ctx, yStart) {
 }
 
 /**
- * v15.100 EM-2d V1.1 — Décompte régul PDF avec rendu officiel
- * (`window._buildDecompteHtml`). Path principal html2canvas + jsPDF.
- * Fallback : text-natif (compat tests Vitest).
+ * Génère un décompte de régularisation des charges (art. 23 loi 1989).
  *
- * @param {object} ctx — { locataire, bail, logement, entite, annee, provisions, chargesReelles, solde, regulEntry?, from?, to? }
+ * @param {object} ctx — { locataire, bail, logement, entite, annee, provisions, chargesReelles, solde, soldeSens }
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
 async function _genPdfDecompteRegul(ctx) {
-  const c = ctx || {};
-  const log = c.logement || {};
-  const annee = c.annee || '—';
-
-  // Path principal : rendu officiel via window._buildDecompteHtml
-  if (typeof window !== 'undefined' && typeof window._buildDecompteHtml === 'function' && c.regulEntry) {
-    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-    if (html2canvasLoaded) {
-      try {
-        const built = window._buildDecompteHtml(c.regulEntry, c.from || '', c.to || '');
-        if (built.error) {
-          return { error: built.error, message: 'Décompte non émissible' };
-        }
-        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
-        const base64 = await _blobToBase64(blob);
-        const filename = 'Decompte-charges-' + annee + '-' + (log.ref || 'logement') + '.pdf';
-        return { filename, base64, mimeType: 'application/pdf' };
-      } catch (e) {
-        console.warn('[email-pdf] rendu officiel décompte KO, fallback text-natif :', e && e.message);
-      }
-    }
-  }
-
-  // Fallback path : jsPDF text-natif (compat tests Vitest)
-  return _genPdfDecompteRegulFallbackText(c);
-}
-
-async function _genPdfDecompteRegulFallbackText(c) {
   const Cls = _getJsPdfClass();
   if (!Cls) return { error: 'jspdf-not-loaded' };
-  c = c || {};
+  const c = ctx || {};
   const log = c.logement || {};
   const annee = c.annee || '—';
   const provisions = Number(c.provisions) || 0;
@@ -492,230 +462,18 @@ async function _genPdfDecompteRegulFallbackText(c) {
   return { filename, base64, mimeType: 'application/pdf' };
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// v15.101 EM-2d V1.1 — Helper CSS partagé Qonto + builders HTML pour bail/EDL/cautionnement
-// (les 3 derniers types qui n'ont pas d'aperçu modal user — PDF email uniquement)
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * CSS Qonto-style partagé pour les recaps simples (bail/EDL/cautionnement).
- * Réplique le namespace .q-page de _buildQuittanceHtml / _buildIRLLetterHtml /
- * _buildDecompteHtml pour cohérence visuelle entre tous les types.
- */
-function _qontoCommonCss() {
-  return `
-@page{size:A4;margin:0}
-*{box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;font-size:11pt;color:#18181b;line-height:1.5;margin:0;padding:0;background:#fff}
-.q-page{max-width:780px;margin:0 auto;padding:48px 56px 28px;min-height:1050px;display:flex;flex-direction:column}
-.q-header{display:grid;grid-template-columns:1fr auto;gap:24px;margin-bottom:28px}
-.q-header h1{margin:0 0 20px;font-size:30pt;font-weight:800;letter-spacing:-0.025em;color:#18181b;line-height:1}
-.q-meta{display:grid;grid-template-columns:140px 1fr;font-size:10.5pt;gap:6px 0}
-.q-meta .lbl{font-weight:700;color:#18181b}
-.q-meta .val{color:#3f3f46}
-.q-logo{text-align:right;align-self:flex-start}
-.q-logo img{max-width:140px;max-height:80px;object-fit:contain}
-.q-parties{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:24px}
-.q-party .name{font-size:10.5pt;font-weight:700;color:#2563eb;margin-bottom:6px}
-.q-party .line{font-size:10pt;color:#3f3f46;line-height:1.6}
-.q-objet{margin:0 0 16px;padding:12px 16px;background:#f4f4f5;border-left:3px solid #18181b;border-radius:3px;font-size:11pt}
-.q-objet b{color:#18181b}
-.q-decl{font-size:10.5pt;line-height:1.65;color:#3f3f46;margin-bottom:14px}
-.q-decl p{margin:6px 0}
-.q-decl b{color:#18181b}
-.q-table{width:100%;border-collapse:collapse;margin-bottom:16px}
-.q-table thead th{background:#18181b;color:#fff;text-align:left;padding:9px 12px;font-size:9.5pt;font-weight:600}
-.q-table thead th.num{text-align:right}
-.q-table tbody td{padding:10px 12px;font-size:10.5pt;color:#18181b;border-bottom:1px solid #e4e4e7}
-.q-table tbody td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
-.q-table tbody td.lbl{color:#52525b}
-.q-legal{margin-top:12px;font-size:9.5pt;color:#71717a;line-height:1.55;font-style:italic;border-left:2px solid #d4d4d8;padding-left:12px}
-.q-legal p{margin:4px 0}
-.q-sign{text-align:right;margin-top:28px;margin-bottom:24px}
-.q-sign .lieu-date{font-size:10pt;color:#3f3f46;margin-bottom:12px}
-.q-sign-img{display:inline-block;min-width:200px;min-height:60px;border-bottom:1px solid #71717a;margin-bottom:4px;text-align:center;padding:6px 0}
-.q-sign-img img{max-width:200px;max-height:60px;object-fit:contain;display:inline-block}
-.q-sign .nom{font-size:10pt;font-weight:600;color:#18181b;display:block}
-.q-sign .role{font-size:9.5pt;color:#71717a}
-.q-footer{margin-top:auto;padding-top:14px;display:flex;justify-content:space-between;font-size:8.5pt;color:#a1a1aa;border-top:1px solid #f4f4f5}
-.q-footer b{color:#71717a;font-weight:600}
-@media print{.q-page{padding:24px 32px}}`;
-}
-
-/**
- * Helper HTML : bloc Bailleur Qonto (nom bleu + lignes adresse/siren/gerant).
- */
-function _qontoBailleurBloc(ent) {
-  if (!ent) return '<div class="name">—</div>';
-  const escape = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const lignes = [];
-  lignes.push(escape(ent.nom || '—'));
-  if (ent.type && ent.siege) lignes.push(escape(ent.type) + ' · ' + escape(String(ent.siege).replace(/\s+/g, ' ')));
-  else if (ent.siege) lignes.push(escape(String(ent.siege).replace(/\s+/g, ' ')));
-  if (ent.siren) lignes.push('SIREN ' + escape(ent.siren));
-  if (ent.gerant) lignes.push('Représentée par ' + escape(ent.gerant) + ', Gérant');
-  return `<div class="name">${lignes[0]}</div><div class="line">${lignes.slice(1).join('<br>')}</div>`;
-}
-
-/**
- * Helper HTML : bloc Locataire (ou destinataire) Qonto.
- */
-function _qontoPersonneBloc(personne, adresse) {
-  if (!personne) return '<div class="name">—</div>';
-  const escape = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const civNom = _civNom(personne);
-  const adr = escape(adresse || '');
-  return `<div class="name">${escape(civNom)}</div><div class="line">${adr}</div>`;
-}
-
-/**
- * Helper HTML : footer ImmoTrack + ref doc + timestamp.
- */
-function _qontoFooter(ent, docRef) {
-  const escape = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const nowFr = new Date().toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-  const sirenPart = ent && ent.siren ? '· SIREN ' + escape(ent.siren) + ' ' : '';
-  return `<div class="q-footer">
-    <span>${escape(ent && ent.nom || '')} ${sirenPart}· Document généré par <b>ImmoTrack</b> · ${escape(nowFr)}</span>
-    <span>${escape(docRef || '')}</span>
-  </div>`;
-}
-
-/**
- * Helper HTML : zone signature Bailleur (image si ent.signature, sinon ligne vide).
- */
-function _qontoSigBlock(ent, lieuTitre, dateEmission) {
-  const escape = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const sigImg = ent && ent.signature
-    ? `<span class="q-sign-img"><img src="${ent.signature}" alt="Signature"></span>`
-    : `<span class="q-sign-img"></span>`;
-  return `<div class="q-sign">
-    <div class="lieu-date">Fait à ${escape(lieuTitre || '—')}, le ${escape(dateEmission || '—')}</div>
-    ${sigImg}
-    <span class="nom">${escape(ent && ent.gerant || ent && ent.nom || '')}</span>
-    ${ent && ent.nom ? `<span class="role">${escape(ent.nom)}</span>` : ''}
-  </div>`;
-}
-
-/**
- * Extrait ville titre + date émission depuis ent.siege + today.
- */
-function _qontoLieuDate(ent) {
-  const siegeStr = ent && ent.siege || '';
-  const villeMatch = siegeStr.match(/\d{5}\s+(.+)/);
-  const ville = villeMatch ? villeMatch[1].split(',')[0].trim() : '';
-  const villeTitre = ville ? ville.charAt(0).toUpperCase() + ville.slice(1).toLowerCase() : '';
-  const dateEmission = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
-  return { villeTitre, dateEmission };
-}
-
-/**
- * Helper HTML : logo entité (image si ent.logo, sinon vide).
- */
-function _qontoLogoHtml(ent) {
-  if (!ent || !ent.logo) return '';
-  const escape = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return `<img src="${ent.logo}" alt="Logo ${escape(ent.nom || '')}">`;
-}
-
 /**
  * Génère un récap du bail signé (annexe — le PDF officiel du bail reste dans Drive).
  *
  * @param {object} ctx — { locataire, bail, logement, entite }
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
-/**
- * v15.101 EM-2d V1.1 — Récap du bail signé, design Qonto-like (html2canvas).
- * Le bail officiel signé reste dans Drive — ce récap est une annexe au mail.
- */
 async function _genPdfBailSigne(ctx) {
+  const Cls = _getJsPdfClass();
+  if (!Cls) return { error: 'jspdf-not-loaded' };
   const c = ctx || {};
   const bail = c.bail || {};
   const log = c.logement || {};
-  const ent = c.entite || {};
-  const loc = c.locataire || {};
-  const hc = Number(bail.hc) || 0;
-  const ch = Number(bail.ch) || 0;
-  const dg = Number(bail.dg) || 0;
-  const total = hc + ch;
-  const adrBien = bail.adrBien || log.adr || '—';
-
-  // Path principal : html2canvas + jsPDF via _rasterizeHtmlToPdfBlob
-  const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-  const Cls = _getJsPdfClass();
-  if (!Cls) return { error: 'jspdf-not-loaded' };
-  if (!html2canvasLoaded) return _genPdfBailSigneFallback(c);
-
-  try {
-    const { villeTitre, dateEmission } = _qontoLieuDate(ent);
-    const docRef = 'BAIL-' + (log.ref || 'XXX') + '-RECAP';
-    const escape = s => String(s || '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
-
-    const html = `
-<div class="q-page">
-  <div class="q-header">
-    <div>
-      <h1>Bail signé</h1>
-      <div class="q-meta">
-        <div class="lbl">Référence</div><div class="val">${escape(docRef)}</div>
-        <div class="lbl">Date d'émission</div><div class="val">${escape(dateEmission)}</div>
-        <div class="lbl">Logement</div><div class="val">${escape(log.ref || '—')}</div>
-        <div class="lbl">Date d'effet</div><div class="val">${escape(bail.debut || '—')}</div>
-      </div>
-    </div>
-    <div class="q-logo">${_qontoLogoHtml(ent)}</div>
-  </div>
-  <div class="q-parties">
-    <div class="q-party">${_qontoBailleurBloc(ent)}</div>
-    <div class="q-party">${_qontoPersonneBloc(loc, adrBien)}</div>
-  </div>
-  <div class="q-objet">
-    <b>Objet : Récapitulatif du bail signé</b><br>
-    Logement situé ${escape(adrBien)}
-  </div>
-  <div class="q-decl">
-    <p>Nous vous remercions pour la signature de votre bail. Vous trouverez ci-dessous le récapitulatif des conditions essentielles.</p>
-    <p><em>Le contrat de bail complet signé et l'état des lieux d'entrée (si réalisé) sont joints séparément dans Drive.</em></p>
-  </div>
-  <table class="q-table">
-    <thead><tr><th>Élément</th><th class="num">Valeur</th></tr></thead>
-    <tbody>
-      <tr><td class="lbl">Logement</td><td class="num">${escape(adrBien)}</td></tr>
-      <tr><td class="lbl">Date de prise d'effet</td><td class="num">${escape(bail.debut || '—')}</td></tr>
-      <tr><td class="lbl">Loyer hors charges</td><td class="num">${_fmt(hc)} / mois</td></tr>
-      <tr><td class="lbl">Provisions sur charges</td><td class="num">${_fmt(ch)} / mois</td></tr>
-      <tr><td class="lbl">Total mensuel</td><td class="num">${_fmt(total)} / mois</td></tr>
-      <tr><td class="lbl">Jour de paiement</td><td class="num">le ${escape(bail.jpay || '—')} de chaque mois</td></tr>
-      <tr><td class="lbl">Dépôt de garantie</td><td class="num">${_fmt(dg)} (reçu)</td></tr>
-    </tbody>
-  </table>
-  <div class="q-legal">
-    <p>N'oubliez pas de souscrire votre assurance habitation (obligation légale art. 7g loi n° 89-462 du 6 juillet 1989).</p>
-    <p>Bienvenue dans votre nouveau logement.</p>
-  </div>
-  ${_qontoSigBlock(ent, villeTitre, dateEmission)}
-  ${_qontoFooter(ent, docRef)}
-</div>`;
-    const css = _qontoCommonCss();
-    const blob = await _rasterizeHtmlToPdfBlob(html, css);
-    const base64 = await _blobToBase64(blob);
-    const filename = 'Recap-bail-' + (log.ref || 'logement') + '.pdf';
-    return { filename, base64, mimeType: 'application/pdf' };
-  } catch (e) {
-    console.warn('[email-pdf] rendu Qonto bail-signe-final KO, fallback text-natif :', e && e.message);
-    return _genPdfBailSigneFallback(c);
-  }
-}
-
-/**
- * Fallback text-natif (compat tests Vitest avec FakeJsPdf mock).
- */
-async function _genPdfBailSigneFallback(c) {
-  const Cls = _getJsPdfClass();
-  if (!Cls) return { error: 'jspdf-not-loaded' };
-  const bail = c.bail || {};
-  const log = c.logement || {};
-  const ent = c.entite || {};
   const hc = Number(bail.hc) || 0;
   const ch = Number(bail.ch) || 0;
   const dg = Number(bail.dg) || 0;
@@ -730,12 +488,14 @@ async function _genPdfBailSigneFallback(c) {
   pdf.text("Récapitulatif du bail signé", PAGE_W / 2, y, { align: 'center' });
   pdf.setTextColor(0, 0, 0);
   y += 10;
+
   pdf.setFont('helvetica', 'italic').setFontSize(9.5).setTextColor(110, 110, 110);
   pdf.text("(Annexe au mail — le contrat de bail complet signé est joint séparément en PDF dans Drive)",
            PAGE_W / 2, y, { align: 'center' });
   pdf.setTextColor(0, 0, 0);
   y += 10;
 
+  // Récap conditions
   pdf.setFont('helvetica', 'bold').setFontSize(11);
   pdf.text('Conditions essentielles', MARGIN, y); y += 6;
   pdf.setFont('helvetica', 'normal').setFontSize(10.5);
@@ -755,118 +515,30 @@ async function _genPdfBailSigneFallback(c) {
     y += 5;
   }
   y += 6;
-  pdf.text("Vous trouverez le contrat de bail complet (signé) et l'état des lieux d'entrée en pièce jointe séparée. " +
-           "N'oubliez pas de souscrire votre assurance habitation (obligation légale art. 7g loi 1989).",
+
+  pdf.text("Vous trouverez le contrat de bail complet (signé) et l'état des lieux d'entrée (s'il a été réalisé) " +
+           "en pièce jointe séparée. N'oubliez pas de souscrire votre assurance habitation (obligation légale art. 7g loi 1989).",
            MARGIN, y, { maxWidth: PAGE_W - 2 * MARGIN });
   y += 14;
+
   pdf.text('Le Bailleur,', PAGE_W - MARGIN - 60, y); y += 14;
+  const ent = c.entite || {};
   pdf.text(ent.gerant || ent.nom || '—', PAGE_W - MARGIN - 60, y);
 
   const blob = pdf.output('blob');
   const base64 = await _blobToBase64(blob);
-  return { filename: 'Recap-bail-' + (log.ref || 'logement') + '.pdf', base64, mimeType: 'application/pdf' };
+  const filename = 'Recap-bail-' + (log.ref || 'logement') + '.pdf';
+  return { filename, base64, mimeType: 'application/pdf' };
 }
 
 /**
- * v15.101 EM-2d V1.1 — Récap EDL (entrée ou sortie), design Qonto.
+ * Génère un récap d'état des lieux (entrée ou sortie).
  * @param {string} sens 'entree' | 'sortie'
  */
 async function _genPdfEdlSigne(ctx, sens) {
-  const c = ctx || {};
-  const log = c.logement || {};
-  const ent = c.entite || {};
-  const bail = c.bail || {};
-  const loc = c.locataire || {};
-  const adrBien = bail.adrBien || log.adr || '—';
-  const isSortie = sens === 'sortie';
-
-  // Path principal : Qonto html2canvas
-  const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-  const ClsCheck = _getJsPdfClass();
-  if (!ClsCheck) return { error: 'jspdf-not-loaded' };
-  if (!html2canvasLoaded) return _genPdfEdlSigneFallback(c, sens);
-
-  try {
-    const { villeTitre, dateEmission } = _qontoLieuDate(ent);
-    const docRef = 'EDL-' + (isSortie ? 'SORTIE' : 'ENTREE') + '-' + (log.ref || 'XXX');
-    const escape = s => String(s || '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
-
-    let coreTable = '';
-    let mentionLegale = '';
-    if (!isSortie) {
-      // EDL entrée : relevé compteurs
-      coreTable = `
-<table class="q-table">
-  <thead><tr><th>Compteur</th><th class="num">Relevé à l'entrée</th></tr></thead>
-  <tbody>
-    <tr><td class="lbl">Électricité</td><td class="num">${escape(c.compteurElec || '—')}</td></tr>
-    <tr><td class="lbl">Gaz</td><td class="num">${escape(c.compteurGaz || '—')}</td></tr>
-    <tr><td class="lbl">Eau froide</td><td class="num">${escape(c.compteurEauF || '—')}</td></tr>
-    <tr><td class="lbl">Eau chaude</td><td class="num">${escape(c.compteurEauC || '—')}</td></tr>
-  </tbody>
-</table>`;
-      mentionLegale = `<p>Conservez ce document : il sera comparé à l'EDL de sortie pour évaluer d'éventuelles réparations. Vous disposez de <b>10 jours</b> après votre entrée pour demander une modification (art. 3-2 al. 5 loi 89-462).</p>`;
-    } else {
-      // EDL sortie : bilan
-      coreTable = `
-<table class="q-table">
-  <thead><tr><th>Élément</th><th class="num">Constatation</th></tr></thead>
-  <tbody>
-    <tr><td class="lbl">Comparatif compteurs entrée/sortie</td><td class="num">${escape(c.comparatifCompteurs || '—')}</td></tr>
-    <tr><td class="lbl">Dégradations constatées</td><td class="num">${escape(c.degradationsBilan || '—')}</td></tr>
-    ${c.conclusionEDL ? `<tr><td class="lbl">Conclusion</td><td class="num">${escape(c.conclusionEDL)}</td></tr>` : ''}
-  </tbody>
-</table>`;
-      mentionLegale = `<p>Le solde du dépôt de garantie sera traité dans les délais légaux (<b>1 mois</b> sans dégradation, <b>2 mois</b> si retenues — art. 22 loi 89-462).</p>`;
-    }
-
-    const html = `
-<div class="q-page">
-  <div class="q-header">
-    <div>
-      <h1>État des lieux ${isSortie ? 'de sortie' : "d'entrée"}</h1>
-      <div class="q-meta">
-        <div class="lbl">Référence</div><div class="val">${escape(docRef)}</div>
-        <div class="lbl">Date d'émission</div><div class="val">${escape(dateEmission)}</div>
-        <div class="lbl">Logement</div><div class="val">${escape(log.ref || '—')}</div>
-        <div class="lbl">EDL signé le</div><div class="val">${escape(c.dateEDL || '—')}</div>
-      </div>
-    </div>
-    <div class="q-logo">${_qontoLogoHtml(ent)}</div>
-  </div>
-  <div class="q-parties">
-    <div class="q-party">${_qontoBailleurBloc(ent)}</div>
-    <div class="q-party">${_qontoPersonneBloc(loc, adrBien)}</div>
-  </div>
-  <div class="q-objet">
-    <b>Objet : Récapitulatif EDL ${isSortie ? 'de sortie' : "d'entrée"}</b><br>
-    Logement situé ${escape(adrBien)}
-  </div>
-  <div class="q-decl">
-    <p>L'état des lieux ${isSortie ? 'de sortie' : "d'entrée"} signé contradictoirement le <b>${escape(c.dateEDL || '—')}</b> est annexé à votre bail. Le document complet (avec photos et descriptions pièce par pièce) est joint séparément en PDF.</p>
-  </div>
-  ${coreTable}
-  <div class="q-legal">${mentionLegale}</div>
-  ${_qontoSigBlock(ent, villeTitre, dateEmission)}
-  ${_qontoFooter(ent, docRef)}
-</div>`;
-    const css = _qontoCommonCss();
-    const blob = await _rasterizeHtmlToPdfBlob(html, css);
-    const base64 = await _blobToBase64(blob);
-    const filename = 'EDL-' + (isSortie ? 'sortie' : 'entree') + '-' + (log.ref || 'logement') + '.pdf';
-    return { filename, base64, mimeType: 'application/pdf' };
-  } catch (e) {
-    console.warn('[email-pdf] rendu Qonto EDL KO, fallback text-natif :', e && e.message);
-    return _genPdfEdlSigneFallback(c, sens);
-  }
-}
-
-/**
- * Fallback text-natif EDL (préservé pour tests Vitest).
- */
-async function _genPdfEdlSigneFallback(c, sens) {
   const Cls = _getJsPdfClass();
   if (!Cls) return { error: 'jspdf-not-loaded' };
+  const c = ctx || {};
   const log = c.logement || {};
 
   const pdf = new Cls({ unit: 'mm', format: 'a4', orientation: 'portrait' });
@@ -932,86 +604,12 @@ async function _genPdfEdlSigneFallback(c, sens) {
 }
 
 /**
- * v15.101 EM-2d V1.1 — Accusé de réception d'acte de cautionnement, design Qonto.
+ * Génère un accusé de réception d'acte de cautionnement.
  */
 async function _genPdfCautionnement(ctx) {
-  const c = ctx || {};
-  const log = c.logement || {};
-  const garant = c.garant || {};
-  const loc = c.locataire || {};
-  const ent = c.entite || {};
-  const bail = c.bail || {};
-  const adrBien = bail.adrBien || log.adr || '—';
-
-  const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-  const ClsCheck = _getJsPdfClass();
-  if (!ClsCheck) return { error: 'jspdf-not-loaded' };
-  if (!html2canvasLoaded) return _genPdfCautionnementFallback(c);
-
-  try {
-    const { villeTitre, dateEmission } = _qontoLieuDate(ent);
-    const docRef = 'CAUT-' + (log.ref || 'XXX');
-    const escape = s => String(s || '').replace(/[&<>"']/g, x => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
-    const civGarant = _civNom(garant) || (garant.nom || '—');
-    const civLoc = _civNom(loc) || (loc.nom || '—');
-
-    const html = `
-<div class="q-page">
-  <div class="q-header">
-    <div>
-      <h1>Cautionnement reçu</h1>
-      <div class="q-meta">
-        <div class="lbl">Référence</div><div class="val">${escape(docRef)}</div>
-        <div class="lbl">Date d'émission</div><div class="val">${escape(dateEmission)}</div>
-        <div class="lbl">Logement</div><div class="val">${escape(log.ref || '—')}</div>
-        <div class="lbl">Locataire couvert</div><div class="val">${escape(civLoc)}</div>
-      </div>
-    </div>
-    <div class="q-logo">${_qontoLogoHtml(ent)}</div>
-  </div>
-  <div class="q-parties">
-    <div class="q-party">${_qontoBailleurBloc(ent)}</div>
-    <div class="q-party"><div class="name">${escape(civGarant)}</div><div class="line">Garant — acte de cautionnement</div></div>
-  </div>
-  <div class="q-objet">
-    <b>Objet : Accusé de réception de l'acte de cautionnement</b><br>
-    Logement situé ${escape(adrBien)}
-  </div>
-  <div class="q-decl">
-    <p>Nous accusons réception de l'acte de cautionnement signé par <b>${escape(civGarant)}</b> en garantie des obligations locatives de <b>${escape(civLoc)}</b>, pour le logement situé ${escape(adrBien)}.</p>
-    <p>Cet acte engage votre solidarité au paiement des loyers, charges et éventuelles indemnités d'occupation, dans les limites définies par le document signé.</p>
-  </div>
-  <table class="q-table">
-    <thead><tr><th>Vos droits en tant que garant</th></tr></thead>
-    <tbody>
-      <tr><td>Demander à tout moment un point sur la situation locative (état des règlements)</td></tr>
-      <tr><td>Mettre fin au cautionnement à durée indéterminée par lettre recommandée (préavis prévu à l'acte)</td></tr>
-      <tr><td>Être informé de tout impayé du locataire dans les conditions prévues à l'acte</td></tr>
-    </tbody>
-  </table>
-  <div class="q-legal">
-    <p>Conservation de l'acte original 5 ans après la fin du bail (prescription civile).</p>
-  </div>
-  ${_qontoSigBlock(ent, villeTitre, dateEmission)}
-  ${_qontoFooter(ent, docRef)}
-</div>`;
-    const css = _qontoCommonCss();
-    const blob = await _rasterizeHtmlToPdfBlob(html, css);
-    const base64 = await _blobToBase64(blob);
-    const filename = 'Cautionnement-' + (log.ref || 'logement') + '.pdf';
-    return { filename, base64, mimeType: 'application/pdf' };
-  } catch (e) {
-    console.warn('[email-pdf] rendu Qonto cautionnement KO, fallback text-natif :', e && e.message);
-    return _genPdfCautionnementFallback(c);
-  }
-}
-
-/**
- * Fallback text-natif cautionnement (préservé pour tests Vitest).
- */
-async function _genPdfCautionnementFallback(c) {
   const Cls = _getJsPdfClass();
   if (!Cls) return { error: 'jspdf-not-loaded' };
+  const c = ctx || {};
   const log = c.logement || {};
   const garant = c.garant || {};
   const loc = c.locataire || {};
@@ -1065,58 +663,20 @@ async function _genPdfCautionnementFallback(c) {
 }
 
 /**
- * v15.99 EM-2d V1.1 — Génère lettre IRL PDF avec rendu officiel
- * (`window._buildIRLLetterHtml` exposé par index.html). Path principal :
- * html2canvas + jsPDF multi-pages. Le PDF email correspond exactement à
- * ce que l'user voit en cliquant 👁 Voir lettre sur une révision IRL.
+ * Génère une lettre de révision IRL PDF.
+ *  - En-tête bailleur
+ *  - Bloc locataire
+ *  - Objet, formule politesse, détail variation IRL, table avant/après
+ *  - Mention art 17-1 loi 1989
+ *  - Signature
  *
- * Si rendu officiel pas disponible → fallback text-natif (compat tests Vitest).
- *
- * @param {object} ctx — { locataire, bail, logement, entite, rev?, ancienHC, nouveauHC, moisApplication }
+ * @param {object} ctx — { locataire, bail, logement, entite, ancienHC, nouveauHC, moisApplication }
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
 async function _genPdfIrlRevision(ctx) {
-  const c = ctx || {};
-  const log = c.logement || {};
-  const bail = c.bail || {};
-  const ent = c.entite || {};
-
-  // Path principal : rendu officiel via window._buildIRLLetterHtml (v15.99)
-  if (typeof window !== 'undefined' && typeof window._buildIRLLetterHtml === 'function') {
-    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
-    if (html2canvasLoaded) {
-      try {
-        // rev est attendu (computeIRLRevision result). Si pas dans ctx, on tente de le calculer.
-        let rev = c.rev;
-        if (!rev && typeof window.computeIRLRevision === 'function' && log.ref) {
-          rev = window.computeIRLRevision(log);
-        }
-        const built = window._buildIRLLetterHtml(log, bail, ent, rev);
-        if (built.error) {
-          return { error: built.error, message: 'Lettre IRL non émissible : ' + built.error };
-        }
-        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
-        const base64 = await _blobToBase64(blob);
-        const filename = 'Lettre-revision-IRL-' + (log.ref || 'logement') + '.pdf';
-        return { filename, base64, mimeType: 'application/pdf' };
-      } catch (e) {
-        console.warn('[email-pdf] rendu officiel IRL KO, fallback text-natif :', e && e.message);
-      }
-    }
-  }
-
-  // Fallback path : jsPDF text-natif (préservé pour tests Vitest)
-  return _genPdfIrlRevisionFallbackText(c);
-}
-
-/**
- * v15.99 EM-2d V1.1 — Fallback text-natif IRL (ancien V1.0 EM-2b).
- * Préservé pour tests Vitest avec FakeJsPdf mock.
- */
-async function _genPdfIrlRevisionFallbackText(c) {
   const Cls = _getJsPdfClass();
   if (!Cls) return { error: 'jspdf-not-loaded' };
-  c = c || {};
+  const c = ctx || {};
   const bail = c.bail || {};
   const log = c.logement || {};
   const ent = c.entite || {};
