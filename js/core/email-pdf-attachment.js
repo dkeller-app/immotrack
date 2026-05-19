@@ -138,16 +138,21 @@ async function _rasterizeHtmlToPdfBlob(html, css) {
     const pageH = pdf.internal.pageSize.getHeight();
     const imgW = pageW - 16; // 8mm margin chaque côté
     const imgH = (canvas.height * imgW) / canvas.width;
-    let position = 8;
-    let heightLeft = imgH;
-    // 'MEDIUM' : compression jsPDF équilibrée (vs 'FAST' qui dégrade plus)
-    pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'MEDIUM');
-    heightLeft -= (pageH - 16);
-    while (heightLeft > 0) {
-      position = -heightLeft + 8;
+    // v15.110 — Fix pagination multi-page (bug pré-existant depuis v15.91).
+    // Avant : position page 2 = -heightLeft + 8 → overlap massif (la majorité
+    // du contenu se répétait sur les 2 pages, signature visible 2× etc.).
+    // Maintenant : page N affiche pixels [n*pageContentH, (n+1)*pageContentH]
+    // de l'image en plaçant l'image à y = 8 - n*pageContentH (sliding propre).
+    const pageContentH = pageH - 16; // hauteur utile entre marges 8mm haut/bas (281mm pour A4)
+    let renderedMm = 0;
+    // Page 1
+    pdf.addImage(imgData, 'JPEG', 8, 8 - renderedMm, imgW, imgH, undefined, 'MEDIUM');
+    renderedMm += pageContentH;
+    // Pages suivantes (si imgH > pageContentH)
+    while (renderedMm < imgH) {
       pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'MEDIUM');
-      heightLeft -= (pageH - 16);
+      pdf.addImage(imgData, 'JPEG', 8, 8 - renderedMm, imgW, imgH, undefined, 'MEDIUM');
+      renderedMm += pageContentH;
     }
     return pdf.output('blob');
   } finally {
