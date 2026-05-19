@@ -118,47 +118,29 @@ async function _rasterizeHtmlToPdfBlob(html, css) {
   if (typeof window === 'undefined' || typeof window.html2canvas !== 'function') {
     throw new Error('html2canvas-not-loaded');
   }
-  // v15.108 — Isolation TOTALE via iframe srcdoc.
-  // Avant : <style>${css}</style> injecté dans le body principal → pollution
-  // temporaire pendant la rasterisation (body{font-family:Times} affectait la page).
-  // Maintenant : iframe srcdoc charge le HTML+CSS dans son propre document isolé.
-  // html2canvas capture iframe.contentDocument.body — aucune pollution.
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:780px;height:1400px;border:0;visibility:hidden';
-  document.body.appendChild(iframe);
+  // Conteneur off-screen (visuellement caché mais rendable par html2canvas).
+  // Dimensions calées sur ~A4 700px wide (matches body max-width:700px du CSS quittance).
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:760px;background:#fff;color:#111;z-index:-1';
+  // Inline CSS via <style> scope sur le container pour ne pas polluer la page principale
+  container.innerHTML = '<style>' + css + '</style><div class="em-pdf-render-root" style="background:#fff;padding:30px 30px;max-width:700px;margin:0 auto;font-family:\'Times New Roman\',serif;font-size:11.5pt;color:#111;line-height:1.45">' + html + '</div>';
+  document.body.appendChild(container);
   try {
-    const docHtml = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>'
-      + css
-      + '</style></head><body style="margin:0;padding:30px;background:#fff">'
-      + html
-      + '</body></html>';
-    iframe.srcdoc = docHtml;
-    // Attendre que l'iframe ait fini de parser + layouter
-    await new Promise((resolve) => {
-      let done = false;
-      const fin = () => { if (!done) { done = true; resolve(); } };
-      iframe.onload = fin;
-      setTimeout(fin, 1500); // safety timeout
-    });
-    await new Promise(r => setTimeout(r, 100)); // layout final + images
-
-    const idoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
-    if (!idoc || !idoc.body) throw new Error('iframe-body-not-ready');
-    const target = idoc.body;
-
-    // scale 2 + JPEG 0.95 (Option A user) : fidélité maximale, ~500-800 KB
-    const canvas = await window.html2canvas(target, {
-      scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
-      windowWidth: 780, windowHeight: 1400
-    });
+    const target = container.querySelector('.em-pdf-render-root');
+    // v15.107 : scale 2 + JPEG quality 0.95 (Option A user) → fidélité visuelle
+    // maximale au rendu officiel _buildQuittanceHtml, taille raisonnable ~500-800 KB.
+    // PNG aurait été pixel-perfect mais 3-5 Mo. JPEG 0.95 dégrade imperceptiblement
+    // sur du texte noir/blanc + une signature image, taille divisée par ~6.
+    const canvas = await window.html2canvas(target, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
-    const imgW = pageW - 16;
+    const imgW = pageW - 16; // 8mm margin chaque côté
     const imgH = (canvas.height * imgW) / canvas.width;
     let position = 8;
     let heightLeft = imgH;
+    // 'MEDIUM' : compression jsPDF équilibrée (vs 'FAST' qui dégrade plus)
     pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'MEDIUM');
     heightLeft -= (pageH - 16);
     while (heightLeft > 0) {
@@ -169,7 +151,7 @@ async function _rasterizeHtmlToPdfBlob(html, css) {
     }
     return pdf.output('blob');
   } finally {
-    if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    if (container.parentNode) container.parentNode.removeChild(container);
   }
 }
 
