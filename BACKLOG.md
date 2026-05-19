@@ -31,9 +31,12 @@
 > | EM-2a | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — refonte HTML modale variant A (FROM bar + PJ card + note légale repliable + footer 2 rangs mobile) | P1 | M | ✅ Livré v15.86 |
 > | EM-2b | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — PJ PDF auto-générée (quittance + IRL V1.0) | P1 | M | ✅ Livré v15.87 + fix lazy load jsPDF v15.88 |
 > | EM-2c | PJ auto types restants (régul + bail + EDL ent/sort + cautionnement) | P2 | M | ✅ Livré v15.89 (5 nouveaux types) |
-> | EM-2d | Refonte PJ quittance avec rendu officiel (html2canvas du `_buildQuittanceHtml`) | P1 | M | ✅ Livré v15.91 (quittance seule, autres types V1.1) |
+> | EM-2d | Refonte PJ quittance avec rendu officiel (html2canvas du `_buildQuittanceHtml`) | P1 | M | ✅ Livré v15.91 → étendu IRL v15.111 + décompte v15.113. **Bail signé / EDL ent-sort / Cautionnement** restent en text-natif jsPDF sobre (à embellir V1.x si besoin user) |
 > | BUG-QUITTANCE-PRORATA | Quittance entrée/sortie mi-mois marquée "Reçu partiel" alors que paiement prorata correct (loi 89-462) | P1 | XS | ✅ Livré v15.94 + fix robustesse v15.95 |
-> | EM-2e | Quittance redesign visuel (3 mockups A/B/C à valider) | P1 | S | 🔄 Mockups en cours |
+> | EM-2e | Quittance redesign visuel (3 mockups A/B/C v3 dont C-Qonto) | P1 | S | 🚫 **Abandonné** — user a rejeté toutes variantes Qonto (« tu modifies les documents »). Rendu officiel Times NR restauré v15.102. Mockups conservés dans `mockups/quittance-redesign/` pour historique. |
+> | EM-2f | Bug pagination multi-page PJ PDF (overlap massif quittance/IRL/décompte sur 2 pages) | P1 | XS | ✅ Livré v15.110 (algo position page N corrigé) |
+> | EM-2g | Embellir PJ bail signé / EDL ent-sort / Cautionnement (passer en HTML + html2canvas si user le souhaite) | P3 | S | ⬜ Reporté V1.x — user 2026-05-19 « on a perdu trop de temps, on fera plus tard ». Text-natif jsPDF acceptable en V1. |
+> | BUG-IRL-INVALID-DATE | Corps de mail IRL affichait « Application : à compter du mois de Invalid Date » (rev.dateRevision déjà Date object) | P1 | XS | ✅ Livré v15.112 |
 > | EM-5 | [EMAIL-FROM-PAR-ENTITE](docs/subjects/EMAIL-FROM-PAR-ENTITE.md) — envoyer depuis l'adresse de l'entité (send-as Gmail aliases) | P1 | S | ✅ Livré v15.92 + fix popup + auto-CC v15.93 |
 > | EM-3 | [DOC-CIVILITE](docs/subjects/DOC-CIVILITE.md) — civilité dynamique dans templates (M./Mme du bail) | P2 | XS | ✅ Livré v15.90 |
 > | EM-4 | [TEMPLATES-EMAILS-PARAMS](docs/subjects/TEMPLATES-EMAILS-PARAMS.md) — éditeur templates dans Paramètres | P2 | M-L | ⬜ À faire (post EM-2) |
