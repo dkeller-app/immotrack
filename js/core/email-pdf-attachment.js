@@ -685,12 +685,40 @@ async function _genPdfCautionnement(ctx) {
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
 async function _genPdfIrlRevision(ctx) {
-  const Cls = _getJsPdfClass();
-  if (!Cls) return { error: 'jspdf-not-loaded' };
   const c = ctx || {};
   const bail = c.bail || {};
   const log = c.logement || {};
   const ent = c.entite || {};
+
+  // v15.111 — Path principal Option A : rendu officiel via window._buildIRLLetterHtml
+  // (single source of truth = aperçu modale). html2canvas + JPEG 0.95 + scale 2.
+  if (typeof window !== 'undefined' && typeof window._buildIRLLetterHtml === 'function') {
+    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
+    if (html2canvasLoaded) {
+      try {
+        // rev : si pas fourni dans ctx, calculer via window.computeIRLRevision
+        let rev = c.rev;
+        if (!rev && typeof window.computeIRLRevision === 'function' && log.ref) {
+          rev = window.computeIRLRevision(log);
+        }
+        const built = window._buildIRLLetterHtml(log, bail, ent, rev);
+        if (built.error) {
+          return { error: built.error, message: built.alertMsg || 'Lettre IRL non émissible' };
+        }
+        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
+        const base64 = await _blobToBase64(blob);
+        const filename = 'Lettre-revision-IRL-' + (log.ref || 'logement') + '.pdf';
+        return { filename, base64, mimeType: 'application/pdf' };
+      } catch (e) {
+        console.warn('[email-pdf] rendu officiel IRL KO, fallback text-natif :', e && e.message);
+      }
+    }
+  }
+
+  // Fallback text-natif (cas extrême : helper absent ou html2canvas pas chargeable).
+  // Préservé pour tests Vitest avec FakeJsPdf mock.
+  const Cls = _getJsPdfClass();
+  if (!Cls) return { error: 'jspdf-not-loaded' };
   const loc = c.locataire || {};
   const ancienHC = Number(c.ancienHC) || Number(bail.hc) || 0;
   const nouveauHC = Number(c.nouveauHC) || ancienHC;
