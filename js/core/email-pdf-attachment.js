@@ -397,15 +397,45 @@ function _drawHeaderBlock(pdf, ctx, yStart) {
 }
 
 /**
- * Génère un décompte de régularisation des charges (art. 23 loi 1989).
+ * v15.100 EM-2d V1.1 — Décompte régul PDF avec rendu officiel
+ * (`window._buildDecompteHtml`). Path principal html2canvas + jsPDF.
+ * Fallback : text-natif (compat tests Vitest).
  *
- * @param {object} ctx — { locataire, bail, logement, entite, annee, provisions, chargesReelles, solde, soldeSens }
+ * @param {object} ctx — { locataire, bail, logement, entite, annee, provisions, chargesReelles, solde, regulEntry?, from?, to? }
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
 async function _genPdfDecompteRegul(ctx) {
+  const c = ctx || {};
+  const log = c.logement || {};
+  const annee = c.annee || '—';
+
+  // Path principal : rendu officiel via window._buildDecompteHtml
+  if (typeof window !== 'undefined' && typeof window._buildDecompteHtml === 'function' && c.regulEntry) {
+    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
+    if (html2canvasLoaded) {
+      try {
+        const built = window._buildDecompteHtml(c.regulEntry, c.from || '', c.to || '');
+        if (built.error) {
+          return { error: built.error, message: 'Décompte non émissible' };
+        }
+        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
+        const base64 = await _blobToBase64(blob);
+        const filename = 'Decompte-charges-' + annee + '-' + (log.ref || 'logement') + '.pdf';
+        return { filename, base64, mimeType: 'application/pdf' };
+      } catch (e) {
+        console.warn('[email-pdf] rendu officiel décompte KO, fallback text-natif :', e && e.message);
+      }
+    }
+  }
+
+  // Fallback path : jsPDF text-natif (compat tests Vitest)
+  return _genPdfDecompteRegulFallbackText(c);
+}
+
+async function _genPdfDecompteRegulFallbackText(c) {
   const Cls = _getJsPdfClass();
   if (!Cls) return { error: 'jspdf-not-loaded' };
-  const c = ctx || {};
+  c = c || {};
   const log = c.logement || {};
   const annee = c.annee || '—';
   const provisions = Number(c.provisions) || 0;
