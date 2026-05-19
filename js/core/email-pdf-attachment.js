@@ -414,11 +414,34 @@ function _drawHeaderBlock(pdf, ctx, yStart) {
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
 async function _genPdfDecompteRegul(ctx) {
-  const Cls = _getJsPdfClass();
-  if (!Cls) return { error: 'jspdf-not-loaded' };
   const c = ctx || {};
   const log = c.logement || {};
   const annee = c.annee || '—';
+
+  // v15.113 — Path principal Option A : rendu officiel via window._buildDecompteHtml
+  // (single source of truth = aperçu modale). html2canvas + JPEG 0.95 + scale 2.
+  if (typeof window !== 'undefined' && typeof window._buildDecompteHtml === 'function' && c.entryKey && c.from && c.to) {
+    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
+    if (html2canvasLoaded) {
+      try {
+        const built = window._buildDecompteHtml(c.entryKey, c.from, c.to);
+        if (built.error) {
+          return { error: built.error, message: 'Décompte non émissible : ' + built.error };
+        }
+        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
+        const base64 = await _blobToBase64(blob);
+        const filename = 'Decompte-charges-' + annee + '-' + (log.ref || c.entryKey || 'logement') + '.pdf';
+        return { filename, base64, mimeType: 'application/pdf' };
+      } catch (e) {
+        console.warn('[email-pdf] rendu officiel décompte KO, fallback text-natif :', e && e.message);
+      }
+    }
+  }
+
+  // Fallback text-natif (cas extrême : helper absent ou html2canvas pas chargeable).
+  // Préservé pour tests Vitest avec FakeJsPdf mock.
+  const Cls = _getJsPdfClass();
+  if (!Cls) return { error: 'jspdf-not-loaded' };
   const provisions = Number(c.provisions) || 0;
   const chargesReelles = Number(c.chargesReelles) || 0;
   const solde = Number(c.solde) || (chargesReelles - provisions);
