@@ -127,11 +127,12 @@ async function _rasterizeHtmlToPdfBlob(html, css) {
   document.body.appendChild(container);
   try {
     const target = container.querySelector('.em-pdf-render-root');
-    // v15.105 : scale réduite (1.5 au lieu de 2) + JPEG quality 0.85 au lieu de PNG
-    // → PDF ~5-10× plus léger (de ~10 MB à ~500-1000 KB pour une quittance A4)
-    const canvas = await window.html2canvas(target, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false });
-    const imgData = canvas.toDataURL('image/jpeg', 0.85);
-    // compress: true active la compression interne jsPDF
+    // v15.107 : scale 2 + JPEG quality 0.95 (Option A user) → fidélité visuelle
+    // maximale au rendu officiel _buildQuittanceHtml, taille raisonnable ~500-800 KB.
+    // PNG aurait été pixel-perfect mais 3-5 Mo. JPEG 0.95 dégrade imperceptiblement
+    // sur du texte noir/blanc + une signature image, taille divisée par ~6.
+    const canvas = await window.html2canvas(target, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
@@ -139,13 +140,13 @@ async function _rasterizeHtmlToPdfBlob(html, css) {
     const imgH = (canvas.height * imgW) / canvas.width;
     let position = 8;
     let heightLeft = imgH;
-    // FAST : compression jsPDF native sur l'image (réduit encore la taille)
-    pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'FAST');
+    // 'MEDIUM' : compression jsPDF équilibrée (vs 'FAST' qui dégrade plus)
+    pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'MEDIUM');
     heightLeft -= (pageH - 16);
     while (heightLeft > 0) {
       position = -heightLeft + 8;
       pdf.addPage();
-      pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'FAST');
+      pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'MEDIUM');
       heightLeft -= (pageH - 16);
     }
     return pdf.output('blob');
@@ -243,278 +244,35 @@ async function _genPdfQuittance(ctx) {
   const ent = c.entite || {};
   const bail = c.bail || {};
 
-  // v15.106 — Vérif paiement réel (même check que window._buildQuittanceHtml)
-  // pour bloquer la PJ si "non-payé". Lecture DB.mouvements pour récupérer mvsPay.
+  // v15.107 (Option A user) — Single source of truth = window._buildQuittanceHtml.
+  // La PJ email = rasterisation html2canvas + JPEG 0.95 + scale 2 de l'aperçu
+  // officiel. Garantit la fidélité visuelle stricte (pas de divergence aperçu/PJ).
   if (typeof window !== 'undefined' && typeof window._buildQuittanceHtml === 'function') {
-    try {
-      const built = window._buildQuittanceHtml(q, log, ent, bail);
-      if (built && built.status === 'non-paye') {
-        return {
-          error: 'no-payment',
-          message: 'Aucun paiement enregistré pour ce mois — impossible de générer la quittance. Saisir le paiement dans les mouvements d\'abord.'
-        };
+    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
+    if (html2canvasLoaded) {
+      try {
+        const built = window._buildQuittanceHtml(q, log, ent, bail);
+        if (built.status === 'non-paye') {
+          return {
+            error: 'no-payment',
+            message: 'Aucun paiement enregistré pour ce mois — impossible de générer la quittance. Saisir le paiement dans les mouvements d\'abord.'
+          };
+        }
+        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
+        const base64 = await _blobToBase64(blob);
+        const filename = 'Quittance-' + (q.mois || 'mois').replace(/\s+/g, '-') + '-' + (log.ref || 'logement') + '.pdf';
+        return { filename, base64, mimeType: 'application/pdf' };
+      } catch (e) {
+        console.warn('[email-pdf] rendu officiel quittance KO, fallback :', e && e.message);
       }
-    } catch (_) { /* fallback */ }
-  }
-
-  // v15.106 — PDF text-natif Times qui reproduit visuellement le rendu officiel
-  // (h1 bleu souligné, sections 1./2. soulignées, dotted lines, signature image).
-  // Plus de html2canvas (qui produisait 10 Mo de PDF). Résultat : ~50 KB net,
-  // texte sélectionnable, signature image conservée.
-  return _genPdfQuittanceTextNatif(c);
-}
-
-/**
- * v15.106 EM-2d V1.2 — Quittance PDF text-natif Times NR (reproduit visuellement
- * le rendu officiel _buildQuittanceHtml). Texte sélectionnable, ~50 KB, sans flou.
- *
- * @param {object} c — ctx { locataire, bail, logement, entite, quittance }
- * @returns {Promise<{filename, base64, mimeType}|{error}>}
- */
-async function _genPdfQuittanceTextNatif(c) {
-  const Cls = _getJsPdfClass();
-  if (!Cls) return { error: 'jspdf-not-loaded' };
-  c = c || {};
-  const q = c.quittance || {};
-  const bail = c.bail || {};
-  const log = c.logement || {};
-  const ent = c.entite || {};
-
-  const hc = Number(q.hc) || 0;
-  const ch = Number(q.ch) || 0;
-  const total = Number(q.total) || (hc + ch);
-  const adrBien = bail.adrBien || log.adr || '—';
-
-  // Ville titre (extraite du siège pour "Fait à X")
-  const siegeStr = ent.siege || '';
-  const villeMatch = siegeStr.match(/\d{5}\s+(.+)/);
-  const ville = villeMatch ? villeMatch[1].split(',')[0].trim() : '';
-  const villeTitre = ville ? ville.charAt(0).toUpperCase() + ville.slice(1).toLowerCase() : '—';
-
-  // SIREN/RCS pour en-tête bailleur
-  const siren = ent.siren ? ent.siren + (ent.rcs ? ' RCS ' + ent.rcs : '') : '';
-
-  // Mois période (pour "période de location du X au Y")
-  const moisLabel = q.mois || '—';
-  const dateEmission = q.date ? _formatDateFr(q.date) : _formatDateFr(new Date().toISOString().slice(0, 10));
-  const datePay = q.datePaiement ? _formatDateFr(q.datePaiement) : dateEmission;
-
-  // Locataires (string composite avec civilité + nom + DDN si dispo)
-  const locsData = bail.locataires || (bail.nom ? [{ nom: bail.nom, ddn: bail.ddn, lieuNaiss: bail.lieuNaiss, civilite: bail.civilite }] : null);
-  let locataireLignes = [];
-  if (locsData && locsData.length) {
-    for (const l of locsData) {
-      const civ = l.civilite ? l.civilite + ' ' : '';
-      let line = civ + (l.nom || '—');
-      if (l.ddn) line += ', né' + (l.civilite === 'Mme' ? 'e' : '') + ' le ' + _formatDateFr(l.ddn);
-      if (l.lieuNaiss) line += ' à ' + l.lieuNaiss;
-      line += ', demeurant ' + adrBien + ' ;';
-      locataireLignes.push(line);
     }
-  } else {
-    locataireLignes.push((q.locataire || '—') + ', demeurant ' + adrBien + ' ;');
   }
 
-  // Montant en lettres (helper window.numToWords si dispo, sinon fallback texte)
-  const totalLettres = (typeof window !== 'undefined' && typeof window.numToWords === 'function')
-    ? window.numToWords(total) : '';
-
-  // ─── Construction PDF ────────────────────────────────────────────────────
-  const pdf = new Cls({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-  const MARGIN_L = 25, MARGIN_R = 25, PAGE_W = 210, PAGE_H = 297;
-  const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R;
-  let y = 28;
-
-  pdf.setFont('times', 'normal');
-
-  // En-tête bailleur (top right, bold)
-  pdf.setFont('times', 'bold').setFontSize(11);
-  pdf.text(ent.nom || '—', PAGE_W - MARGIN_R, y, { align: 'right' });
-  y += 5;
-  pdf.setFont('times', 'normal').setFontSize(10);
-  if (ent.type) {
-    pdf.text(ent.type, PAGE_W - MARGIN_R, y, { align: 'right' }); y += 5;
-  }
-  if (siegeStr) {
-    pdf.text(siegeStr, PAGE_W - MARGIN_R, y, { align: 'right' }); y += 5;
-  }
-  if (siren) {
-    pdf.text(siren, PAGE_W - MARGIN_R, y, { align: 'right' }); y += 5;
-  }
-  if (ent.gerant) {
-    pdf.text('Représentée par ' + ent.gerant, PAGE_W - MARGIN_R, y, { align: 'right' }); y += 5;
-  }
-  y += 8;
-
-  // Titre h1 centré bleu souligné
-  pdf.setFont('times', 'bold').setFontSize(16).setTextColor(0, 51, 153);
-  const titre = 'Quittance de loyer';
-  pdf.text(titre, PAGE_W / 2, y, { align: 'center' });
-  const titreW = pdf.getTextWidth(titre);
-  pdf.setDrawColor(0, 51, 153).setLineWidth(0.4);
-  pdf.line(PAGE_W / 2 - titreW / 2, y + 1.2, PAGE_W / 2 + titreW / 2, y + 1.2);
-  pdf.setTextColor(0, 0, 0).setDrawColor(0, 0, 0);
-  y += 12;
-
-  // ─── 1. Le(s) Bailleur(s) (h2 souligné) ──────────────────────────────────
-  pdf.setFont('times', 'bold').setFontSize(11);
-  const h2_1 = '1. Le(s) Bailleur(s)';
-  pdf.text(h2_1, MARGIN_L, y);
-  const h2_1W = pdf.getTextWidth(h2_1);
-  pdf.setLineWidth(0.3);
-  pdf.line(MARGIN_L, y + 1, MARGIN_L + h2_1W, y + 1);
-  y += 6;
-  pdf.setFont('times', 'normal').setFontSize(10.5);
-  const bailleurText = (ent.nom || '—')
-    + (ent.type ? ', ' + ent.type : '')
-    + (siegeStr ? ', dont le siège social est situé ' + siegeStr : '')
-    + (siren ? ', immatriculée au RCS sous le n° ' + siren : '')
-    + (ent.gerant ? ', représentée par ' + ent.gerant + ' en sa qualité de Gérant, dûment habilité' : '')
-    + ' ;';
-  y = _writeWrappedText(pdf, bailleurText, MARGIN_L, y, CONTENT_W, 4.5);
-  y += 2;
-  y = _writeWrappedText(pdf, 'Désigné(s) ci-après, le « Bailleur » ;', MARGIN_L, y, CONTENT_W, 4.5);
-  y = _writeWrappedText(pdf, "Et, d'autre part,", MARGIN_L, y, CONTENT_W, 4.5);
-  y += 5;
-
-  // ─── 2. Le(s) Locataire(s) (h2 souligné) ─────────────────────────────────
-  pdf.setFont('times', 'bold').setFontSize(11);
-  const h2_2 = '2. Le(s) Locataire(s)';
-  pdf.text(h2_2, MARGIN_L, y);
-  const h2_2W = pdf.getTextWidth(h2_2);
-  pdf.line(MARGIN_L, y + 1, MARGIN_L + h2_2W, y + 1);
-  y += 6;
-  pdf.setFont('times', 'normal').setFontSize(10.5);
-  for (const ll of locataireLignes) {
-    y = _writeWrappedText(pdf, ll, MARGIN_L, y, CONTENT_W, 4.5);
-  }
-  y = _writeWrappedText(pdf, 'désigné(s) ci-après le « Locataire ».', MARGIN_L, y, CONTENT_W, 4.5);
-  y += 6;
-
-  // ─── Déclaration "Je soussigné..." ───────────────────────────────────────
-  pdf.setFont('times', 'normal').setFontSize(10.5);
-  let decl = 'Je soussigné(e) le Bailleur du logement sis ' + adrBien
-    + ', déclare avoir reçu le ' + datePay + ' du locataire, la somme de '
-    + _fmtMontant(total) + (totalLettres ? ' – ' + totalLettres : '')
-    + ' se décomposant comme suit :';
-  y = _writeWrappedText(pdf, decl, MARGIN_L, y, CONTENT_W, 4.8);
-  y += 4;
-
-  // ─── Tableau Loyer / Charges / Total (dotted lines) ──────────────────────
-  pdf.setFont('times', 'normal').setFontSize(10.5);
-  const LBL_X = MARGIN_L;
-  const VAL_X = PAGE_W - MARGIN_R;
-  // Loyer
-  pdf.text('Loyer', LBL_X, y);
-  pdf.text(_fmtMontant(hc), VAL_X, y, { align: 'right' });
-  // Dotted entre label et valeur
-  pdf.setLineDashPattern([0.6, 0.6], 0).setLineWidth(0.2);
-  pdf.line(LBL_X + pdf.getTextWidth('Loyer') + 2, y - 0.5, VAL_X - pdf.getTextWidth(_fmtMontant(hc)) - 2, y - 0.5);
-  pdf.setLineDashPattern([], 0);
-  y += 5;
-  // Charges
-  pdf.text('Charges', LBL_X, y);
-  pdf.text(_fmtMontant(ch), VAL_X, y, { align: 'right' });
-  pdf.setLineDashPattern([0.6, 0.6], 0).setLineWidth(0.2);
-  pdf.line(LBL_X + pdf.getTextWidth('Charges') + 2, y - 0.5, VAL_X - pdf.getTextWidth(_fmtMontant(ch)) - 2, y - 0.5);
-  pdf.setLineDashPattern([], 0);
-  y += 3;
-  // Ligne séparation top total
-  pdf.setLineWidth(0.6).setDrawColor(0, 0, 0);
-  pdf.line(LBL_X, y, VAL_X, y);
-  y += 5;
-  // Total (bold, fontSize 12)
-  pdf.setFont('times', 'bold').setFontSize(12);
-  pdf.text('Total des sommes payées', LBL_X, y);
-  pdf.text(_fmtMontant(total), VAL_X, y, { align: 'right' });
-  y += 10;
-
-  // ─── Phrase "Cette somme correspond..." ──────────────────────────────────
-  pdf.setFont('times', 'normal').setFontSize(10.5);
-  const periodeStr = _moisToPeriodeFr(moisLabel);
-  const closure = 'Cette somme correspond au règlement du loyer et des charges pour la période de location '
-    + periodeStr + ". J'en donne quittance sous réserve du bon encaissement de cette somme.";
-  y = _writeWrappedText(pdf, closure, MARGIN_L, y, CONTENT_W, 4.8);
-  y += 6;
-
-  // ─── "Fait à X, le Y" ────────────────────────────────────────────────────
-  pdf.text('Fait à ' + villeTitre + ',', MARGIN_L, y); y += 5;
-  pdf.text('Le ' + dateEmission, MARGIN_L, y); y += 12;
-
-  // ─── Signature (à droite) ────────────────────────────────────────────────
-  // Bloc signature de 80mm de largeur, aligné à droite
-  const SIG_W = 70;
-  const SIG_X = PAGE_W - MARGIN_R - SIG_W;
-  if (ent.signature) {
-    try {
-      // image format AUTO (jsPDF détecte PNG/JPEG depuis dataURL)
-      pdf.addImage(ent.signature, SIG_X + 10, y, SIG_W - 20, 18);
-      y += 20;
-    } catch (e) {
-      // si image échoue, laisse espace pour signature manuelle
-      y += 18;
-    }
-  } else {
-    y += 18; // espace pour signature manuelle à l'impression
-  }
-  // Ligne sous la signature
-  pdf.setLineWidth(0.3).setDrawColor(80, 80, 80);
-  pdf.line(SIG_X, y, SIG_X + SIG_W, y);
-  y += 4;
-  pdf.setFont('times', 'normal').setFontSize(10);
-  pdf.text('Le(s) Bailleur(s)', SIG_X + SIG_W / 2, y, { align: 'center' });
-  y += 10;
-
-  // ─── Mention "Cette quittance annule..." (italique gris) ─────────────────
-  pdf.setFont('times', 'italic').setFontSize(9.5).setTextColor(85, 85, 85);
-  // Ligne séparation grise au-dessus de la mention
-  pdf.setLineWidth(0.2).setDrawColor(180, 180, 180);
-  pdf.line(MARGIN_L, y, PAGE_W - MARGIN_R, y);
-  y += 4;
-  const mention = "Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire. Délivrée conformément à l'article 21 de la loi n° 89-462 du 6 juillet 1989.";
-  y = _writeWrappedText(pdf, mention, MARGIN_L, y, CONTENT_W, 4.2);
-  pdf.setTextColor(0, 0, 0);
-
-  // ─── Sortie ──────────────────────────────────────────────────────────────
-  const blob = pdf.output('blob');
-  const base64 = await _blobToBase64(blob);
-  const filename = 'Quittance-' + (q.mois || 'mois').replace(/\s+/g, '-') + '-' + (log.ref || 'logement') + '.pdf';
-  return { filename, base64, mimeType: 'application/pdf' };
+  // Fallback ultime (cas extreme : window._buildQuittanceHtml absent OU html2canvas
+  // pas chargeable). Fallback simple text-natif jsPDF (sans reproduire le rendu
+  // officiel — c'est juste pour ne pas crasher). Utilisé en tests Vitest aussi.
+  return _genPdfQuittanceFallbackText(c);
 }
-
-// Helpers internes v15.106
-function _formatDateFr(iso) {
-  if (!iso) return '—';
-  const s = String(iso).slice(0, 10);
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return iso;
-  return m[3] + '/' + m[2] + '/' + m[1];
-}
-function _fmtMontant(n) {
-  const v = Number(n) || 0;
-  return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-}
-function _writeWrappedText(pdf, txt, x, y, maxWidth, lineHeight) {
-  const lines = pdf.splitTextToSize(txt, maxWidth);
-  for (const line of lines) {
-    pdf.text(line, x, y);
-    y += lineHeight;
-  }
-  return y;
-}
-function _moisToPeriodeFr(moisLabel) {
-  // "mai 2026" → "du 01/05/2026 au 31/05/2026"
-  if (!moisLabel) return '—';
-  const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-  const parts = String(moisLabel).toLowerCase().split(' ');
-  const mIdx = MOIS.indexOf(parts[0]);
-  const annee = parseInt(parts[1]) || new Date().getFullYear();
-  if (mIdx < 0) return moisLabel;
-  const debut = new Date(annee, mIdx, 1);
-  const fin = new Date(annee, mIdx + 1, 0);
-  return 'du ' + debut.toLocaleDateString('fr-FR') + ' au ' + fin.toLocaleDateString('fr-FR');
-}
-
 /**
  * v15.91 EM-2d — Fallback text-natif (ancien V1.0 EM-2b avant rendu officiel).
  * Préservé pour les tests Vitest (FakeJsPdf mock) et pour la compatibilité.
