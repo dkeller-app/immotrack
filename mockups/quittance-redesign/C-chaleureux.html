@@ -46,19 +46,21 @@
     text-align: right;
     align-self: flex-start;
   }
-  .logo-placeholder {
-    font-family: 'Times New Roman', serif;
-    font-size: 18pt; font-weight: 300;
-    letter-spacing: .08em;
-    color: #a16207;
-    margin-top: 4px;
+  .logo-img-placeholder {
+    width: 130px; height: 70px;
+    background:
+      repeating-linear-gradient(135deg, #f4f4f5 0 8px, #fafafa 8px 16px);
+    border: 1px dashed #d4d4d8;
+    border-radius: 4px;
+    display: inline-block;
   }
   .logo-sub {
     font-size: 7.5pt;
     color: #a1a1aa;
     letter-spacing: .14em;
     text-transform: uppercase;
-    margin-top: 2px;
+    margin-top: 6px;
+    font-style: italic;
   }
 
   /* ====== PARTIES : 2 colonnes Bailleur/Locataire ====== */
@@ -149,12 +151,21 @@
     margin-top: 36px;
     margin-bottom: 24px;
   }
-  .sign .lieu-date { font-size: 10pt; color: #3f3f46; margin-bottom: 36px; }
-  .sign .ligne {
+  .sign .lieu-date { font-size: 10pt; color: #3f3f46; margin-bottom: 12px; }
+  .sign-img-placeholder {
     display: inline-block;
-    width: 200px;
+    width: 200px; height: 60px;
+    background:
+      radial-gradient(ellipse 60px 12px at 50% 35%, rgba(30,64,175,.18) 0%, transparent 70%),
+      repeating-linear-gradient(135deg, transparent 0 6px, rgba(30,64,175,.06) 6px 12px);
     border-bottom: 1px solid #71717a;
     margin-bottom: 4px;
+    font-family: 'Lucida Handwriting', 'Brush Script MT', cursive;
+    font-size: 24pt;
+    color: #1e3a8a;
+    line-height: 60px;
+    overflow: hidden;
+    text-align: center;
   }
   .sign .nom-bailleur { font-size: 10pt; font-weight: 600; color: #18181b; display: block; }
   .sign .role { font-size: 9.5pt; color: #71717a; }
@@ -195,8 +206,9 @@
         </div>
       </div>
       <div class="logo-area">
-        <div class="logo-placeholder">DD2A</div>
-        <div class="logo-sub">— SCI MELEVIERES —</div>
+        <!-- Logo entité : remplace par <img src="ent.logo" ...> en prod (champ déjà existant fiche bailleur) -->
+        <div class="logo-img-placeholder" title="ent.logo configuré dans fiche bailleur"></div>
+        <div class="logo-sub">votre logo</div>
       </div>
     </div>
 
@@ -276,7 +288,8 @@
     <!-- SIGNATURE -->
     <div class="sign">
       <div class="lieu-date">Fait à Mutzig, le 14 mai 2026</div>
-      <span class="ligne"></span>
+      <!-- Signature image : remplace par <img src="ent.signature" ...> en prod (champ déjà existant fiche bailleur) -->
+      <div class="sign-img-placeholder" title="ent.signature configurée dans fiche bailleur">Didier Keller</div>
       <span class="nom-bailleur">Didier Keller</span>
       <span class="role">Gérant — SCI DD2AMELEVIERES</span>
     </div>
@@ -290,7 +303,7 @@
   </div>
 
   <div class="legend">
-    <strong>Variante C — Qonto-like design (sens métier quittance respecté)</strong> · Garde la <strong>structure visuelle Qonto</strong> (titre gros bold + meta 3-col + logo droite, 2 colonnes parties, table sobre header noir, totaux en lignes simples à droite, footer "Document généré par ImmoTrack"). <strong>Retiré (vs ma v1 erronée)</strong> : bloc "Détails du paiement" avec IBAN/BIC — ce sont des éléments de FACTURE (paiement attendu), pas de QUITTANCE (paiement reçu = acquitté). Aucun bloc coloré. Sens métier strict : Bailleur + Locataire + déclaration "Je soussigné" + total perçu + mention loi 89-462 + signature.
+    <strong>Variante C — Qonto-like design (sens métier quittance respecté)</strong> · Garde la <strong>structure visuelle Qonto</strong> (titre gros bold + meta 3-col + logo droite, 2 colonnes parties, table sobre header noir, totaux en lignes simples à droite, footer "Document généré par ImmoTrack"). <strong>Retiré (vs ma v1 erronée)</strong> : bloc "Détails du paiement" avec IBAN/BIC — ce sont des éléments de FACTURE (paiement attendu), pas de QUITTANCE (paiement reçu = acquitté). Aucun bloc coloré. Sens métier strict : Bailleur + Locataire + déclaration "Je soussigné" + total perçu + mention loi 89-462 + signature image. <strong>Logo entité</strong> en haut à droite (champ <code>ent.logo</code> déjà existant fiche bailleur — placeholder hachuré dans le mockup, image réelle en prod). <strong>Signature manuscrite</strong> au-dessus du nom (champ <code>ent.signature</code> déjà existant — placeholder script italique cursive, image PNG en prod).
   </div>
 </body>
 </html>
