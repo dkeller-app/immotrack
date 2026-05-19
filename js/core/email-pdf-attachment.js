@@ -127,21 +127,25 @@ async function _rasterizeHtmlToPdfBlob(html, css) {
   document.body.appendChild(container);
   try {
     const target = container.querySelector('.em-pdf-render-root');
-    const canvas = await window.html2canvas(target, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    // v15.105 : scale réduite (1.5 au lieu de 2) + JPEG quality 0.85 au lieu de PNG
+    // → PDF ~5-10× plus léger (de ~10 MB à ~500-1000 KB pour une quittance A4)
+    const canvas = await window.html2canvas(target, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    // compress: true active la compression interne jsPDF
+    const pdf = new Cls({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
     const imgW = pageW - 16; // 8mm margin chaque côté
     const imgH = (canvas.height * imgW) / canvas.width;
     let position = 8;
     let heightLeft = imgH;
-    pdf.addImage(imgData, 'PNG', 8, position, imgW, imgH);
+    // FAST : compression jsPDF native sur l'image (réduit encore la taille)
+    pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'FAST');
     heightLeft -= (pageH - 16);
     while (heightLeft > 0) {
       position = -heightLeft + 8;
       pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 8, position, imgW, imgH);
+      pdf.addImage(imgData, 'JPEG', 8, position, imgW, imgH, undefined, 'FAST');
       heightLeft -= (pageH - 16);
     }
     return pdf.output('blob');
