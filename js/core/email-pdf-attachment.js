@@ -663,20 +663,58 @@ async function _genPdfCautionnement(ctx) {
 }
 
 /**
- * Génère une lettre de révision IRL PDF.
- *  - En-tête bailleur
- *  - Bloc locataire
- *  - Objet, formule politesse, détail variation IRL, table avant/après
- *  - Mention art 17-1 loi 1989
- *  - Signature
+ * v15.99 EM-2d V1.1 — Génère lettre IRL PDF avec rendu officiel
+ * (`window._buildIRLLetterHtml` exposé par index.html). Path principal :
+ * html2canvas + jsPDF multi-pages. Le PDF email correspond exactement à
+ * ce que l'user voit en cliquant 👁 Voir lettre sur une révision IRL.
  *
- * @param {object} ctx — { locataire, bail, logement, entite, ancienHC, nouveauHC, moisApplication }
+ * Si rendu officiel pas disponible → fallback text-natif (compat tests Vitest).
+ *
+ * @param {object} ctx — { locataire, bail, logement, entite, rev?, ancienHC, nouveauHC, moisApplication }
  * @returns {Promise<{filename, base64, mimeType}|{error}>}
  */
 async function _genPdfIrlRevision(ctx) {
+  const c = ctx || {};
+  const log = c.logement || {};
+  const bail = c.bail || {};
+  const ent = c.entite || {};
+
+  // Path principal : rendu officiel via window._buildIRLLetterHtml (v15.99)
+  if (typeof window !== 'undefined' && typeof window._buildIRLLetterHtml === 'function') {
+    const html2canvasLoaded = await _ensureHtml2CanvasLoaded();
+    if (html2canvasLoaded) {
+      try {
+        // rev est attendu (computeIRLRevision result). Si pas dans ctx, on tente de le calculer.
+        let rev = c.rev;
+        if (!rev && typeof window.computeIRLRevision === 'function' && log.ref) {
+          rev = window.computeIRLRevision(log);
+        }
+        const built = window._buildIRLLetterHtml(log, bail, ent, rev);
+        if (built.error) {
+          return { error: built.error, message: 'Lettre IRL non émissible : ' + built.error };
+        }
+        const blob = await _rasterizeHtmlToPdfBlob(built.html, built.css);
+        const base64 = await _blobToBase64(blob);
+        const filename = 'Lettre-revision-IRL-' + (log.ref || 'logement') + '.pdf';
+        return { filename, base64, mimeType: 'application/pdf' };
+      } catch (e) {
+        console.warn('[email-pdf] rendu officiel IRL KO, fallback text-natif :', e && e.message);
+      }
+    }
+  }
+
+  // Fallback path : jsPDF text-natif (préservé pour tests Vitest)
+  return _genPdfIrlRevisionFallbackText(c);
+}
+
+/**
+ * v15.99 EM-2d V1.1 — Fallback text-natif IRL (ancien V1.0 EM-2b).
+ * Préservé pour tests Vitest avec FakeJsPdf mock.
+ */
+async function _genPdfIrlRevisionFallbackText(c) {
   const Cls = _getJsPdfClass();
   if (!Cls) return { error: 'jspdf-not-loaded' };
-  const c = ctx || {};
+  c = c || {};
   const bail = c.bail || {};
   const log = c.logement || {};
   const ent = c.entite || {};
