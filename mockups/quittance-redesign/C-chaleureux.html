@@ -2,271 +2,295 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Quittance — Variante C Hybride pro</title>
+<title>Quittance — Variante C Qonto-like (design only)</title>
 <style>
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   body {
     margin: 0; padding: 24px;
     background: #e5e7eb;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
-    color: #0f172a; font-size: 11.5pt;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    color: #18181b; font-size: 11pt;
   }
   .page {
     background: #fff;
     max-width: 800px; margin: 0 auto;
-    padding: 48px 56px 32px;
+    padding: 56px 56px 32px;
     border-radius: 2px;
     min-height: 1050px;
     display: flex; flex-direction: column;
   }
 
-  /* HEADER */
-  .top {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #cbd5e1;
+  /* ====== HEADER : titre énorme + metadata + logo ====== */
+  .header-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+  h1 {
+    margin: 0 0 24px;
+    font-size: 36pt; font-weight: 800;
+    letter-spacing: -0.025em;
+    color: #18181b;
+    line-height: 1;
+  }
+  .meta-row {
+    display: grid; grid-template-columns: 130px 1fr;
+    font-size: 10.5pt;
+    gap: 6px 0;
+  }
+  .meta-row .lbl { font-weight: 700; color: #18181b; }
+  .meta-row .val { color: #3f3f46; }
+  .logo-area {
+    text-align: right;
+    align-self: flex-start;
+  }
+  .logo-placeholder {
+    font-family: 'Times New Roman', serif;
+    font-size: 18pt; font-weight: 300;
+    letter-spacing: .08em;
+    color: #a16207;
+    margin-top: 4px;
+  }
+  .logo-sub {
+    font-size: 7.5pt;
+    color: #a1a1aa;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ====== PARTIES : 2 colonnes Bailleur/Locataire ====== */
+  .parties {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin-bottom: 36px;
+  }
+  .party .name {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #2563eb;
+    margin-bottom: 6px;
+  }
+  .party .line {
+    font-size: 10pt;
+    color: #3f3f46;
+    line-height: 1.6;
+  }
+
+  /* ====== TABLE ====== */
+  table.tbl {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 18px;
+  }
+  table.tbl thead th {
+    background: #18181b;
+    color: #fff;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 9.5pt;
+    font-weight: 600;
+  }
+  table.tbl thead th.num { text-align: right; }
+  table.tbl tbody td {
+    padding: 12px 14px;
+    font-size: 10.5pt;
+    color: #18181b;
+    border-bottom: 1px solid #e4e4e7;
+  }
+  table.tbl tbody td.num { text-align: right; }
+  table.tbl tbody td.qte { text-align: center; color: #71717a; }
+
+  /* ====== TOTAUX (à droite, lignes simples — pas de bloc coloré) ====== */
+  .totaux {
+    margin-left: auto;
+    width: 50%;
     margin-bottom: 28px;
   }
-  .bailleur-block .name { font-size: 13.5px; font-weight: 600; color: #0f172a; letter-spacing: -.005em; margin-bottom: 3px; }
-  .bailleur-block .sub { font-size: 11px; line-height: 1.5; color: #475569; }
-  .doc-meta { text-align: right; }
-  .doc-meta .badge {
+  .tot-row {
+    display: flex; justify-content: space-between;
+    padding: 8px 14px;
+    font-size: 10.5pt;
+    border-bottom: 1px solid #e4e4e7;
+  }
+  .tot-row .l { color: #3f3f46; font-weight: 500; }
+  .tot-row .v { color: #18181b; font-weight: 600; }
+  .tot-row.grand {
+    background: #f4f4f5;
+    border-bottom: none;
+    padding: 12px 14px;
+    font-size: 11.5pt;
+  }
+  .tot-row.grand .l, .tot-row.grand .v { font-weight: 700; color: #18181b; }
+
+  /* ====== DECLARATION ====== */
+  .declaration {
+    font-size: 10pt; line-height: 1.65;
+    color: #3f3f46;
+    margin-bottom: 14px;
+  }
+  .declaration p { margin: 5px 0; }
+  .declaration b { color: #18181b; }
+  .declaration em { color: #52525b; }
+
+  /* ====== MENTIONS LEGALES ====== */
+  .legal-block {
+    margin-top: 12px;
+    font-size: 9.5pt; color: #71717a;
+    line-height: 1.55;
+  }
+  .legal-block p { margin: 4px 0; }
+
+  /* ====== SIGNATURE - inline droite ====== */
+  .sign {
+    text-align: right;
+    margin-top: 36px;
+    margin-bottom: 24px;
+  }
+  .sign .lieu-date { font-size: 10pt; color: #3f3f46; margin-bottom: 36px; }
+  .sign .ligne {
     display: inline-block;
-    padding: 3px 8px;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    font-weight: 600;
-    border-radius: 3px;
+    width: 200px;
+    border-bottom: 1px solid #71717a;
     margin-bottom: 4px;
   }
-  .doc-meta .ref { font-size: 11px; color: #64748b; }
-  .doc-meta .date { font-size: 11.5px; color: #0f172a; font-weight: 500; margin-top: 2px; }
+  .sign .nom-bailleur { font-size: 10pt; font-weight: 600; color: #18181b; display: block; }
+  .sign .role { font-size: 9.5pt; color: #71717a; }
 
-  /* TITRE */
-  h1 {
-    font-family: Georgia, 'Source Serif Pro', serif;
-    font-size: 28px; font-weight: 500;
-    margin: 0 0 4px;
-    color: #0f172a;
-    letter-spacing: -.015em;
-  }
-  .periode {
-    font-size: 12px; color: #64748b;
-    margin-bottom: 32px;
-  }
-
-  /* 2 COLONNES BAILLEUR/LOCATAIRE */
-  .parties-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    padding: 18px 0;
-    border-top: 1px solid #e2e8f0;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 24px;
-  }
-  .party-block .lbl {
-    font-size: 10px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .08em;
-    color: #64748b; margin-bottom: 8px;
-  }
-  .party-block p {
-    margin: 3px 0; font-size: 11px; line-height: 1.55; color: #1e293b;
-  }
-  .party-block p b { color: #0f172a; font-weight: 600; }
-
-  /* DECLARATION */
-  .declaration {
-    margin: 24px 0 20px;
-    font-size: 11.5px; line-height: 1.65;
-    color: #1e293b;
-  }
-  .declaration b { color: #0f172a; font-weight: 600; }
-  .declaration em { color: #475569; }
-
-  /* MONTANT */
-  .montant-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 24px;
-  }
-  .montant-left {
-    background: #0f172a; color: #fff;
-    border-radius: 4px;
-    padding: 20px 22px;
-    display: flex; flex-direction: column; justify-content: center;
-  }
-  .montant-left .lbl {
-    font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
-    opacity: .7; margin-bottom: 4px;
-  }
-  .montant-left .val {
-    font-size: 28px; font-weight: 700;
-    letter-spacing: -.015em; line-height: 1;
-  }
-  .montant-left .lettres {
-    font-size: 10.5px;
-    opacity: .65;
-    margin-top: 6px;
-    font-family: Georgia, serif;
-    font-style: italic;
-  }
-  .montant-right {
-    display: flex; flex-direction: column; justify-content: center;
-    gap: 6px;
-  }
-  .montant-row {
-    display: flex; justify-content: space-between;
-    font-size: 11.5px;
-    padding: 5px 0;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  .montant-row:last-child { border-bottom: none; }
-  .montant-row .l { color: #64748b; }
-  .montant-row .v { font-weight: 600; color: #0f172a; }
-
-  /* CLOTURE */
-  .closure { font-size: 11px; line-height: 1.6; color: #475569; margin-bottom: 26px; }
-  .closure b { color: #0f172a; }
-
-  /* SIGNATURE */
-  .sign-row {
-    display: flex; justify-content: space-between; align-items: flex-end;
-    margin-bottom: 24px;
-  }
-  .sign-row .location { font-size: 11px; color: #475569; line-height: 1.5; }
-  .sign-row .signature { text-align: right; }
-  .sign-row .signature .lbl { font-size: 11px; color: #64748b; margin-bottom: 32px; }
-  .sign-row .signature .line { width: 180px; margin-left: auto; border-top: 1px solid #475569; padding-top: 3px; }
-  .sign-row .signature .name { font-size: 11px; font-weight: 600; color: #0f172a; }
-
-  /* MENTION */
-  .mention {
-    font-size: 9pt; line-height: 1.5;
-    color: #64748b;
-    padding-top: 10px;
-    border-top: 1px solid #e2e8f0;
-    margin-bottom: 12px;
-  }
-
-  /* FOOTER IMMOTRACK */
-  .immotrack-footer {
+  /* ====== FOOTER ====== */
+  .footer-page {
     margin-top: auto;
-    text-align: center;
-    font-size: 8.5pt;
-    color: #94a3b8;
     padding-top: 14px;
-    border-top: 1px dashed #e2e8f0;
-    letter-spacing: .02em;
+    display: flex; justify-content: space-between;
+    font-size: 8.5pt;
+    color: #a1a1aa;
+    border-top: 1px solid #f4f4f5;
   }
-  .immotrack-footer b { color: #64748b; font-weight: 600; }
+  .footer-page b { color: #71717a; font-weight: 600; }
 
-  /* LEGEND */
+  /* ====== LEGEND ====== */
   .legend {
     max-width: 800px; margin: 20px auto 0;
     padding: 12px 18px;
     background: #fff; border-radius: 4px;
-    font-size: 11.5px; color: #475569; line-height: 1.5;
+    font-size: 11pt; color: #4b5563; line-height: 1.5;
   }
-  .legend strong { color: #0f172a; }
+  .legend strong { color: #18181b; }
 </style>
 </head>
 <body>
   <div class="page">
 
     <!-- HEADER -->
-    <div class="top">
-      <div class="bailleur-block">
-        <div class="name">SCI DD2AMELEVIERES</div>
-        <div class="sub">15 rue du château · 67190 MUTZIG<br>SCI IS · SIREN 928 516 392 · RCS MUTZIG</div>
+    <div class="header-grid">
+      <div>
+        <h1>Quittance</h1>
+        <div class="meta-row">
+          <div class="lbl">Référence</div><div class="val">Q-2026-05-F001</div>
+          <div class="lbl">Date d'émission</div><div class="val">14/05/2026</div>
+          <div class="lbl">Période</div><div class="val">01/05 → 31/05/2026</div>
+          <div class="lbl">Reçu le</div><div class="val">05/05/2026</div>
+        </div>
       </div>
-      <div class="doc-meta">
-        <div class="badge">Quittance</div>
-        <div class="ref">Q-2026-05-F001</div>
-        <div class="date">14 mai 2026</div>
+      <div class="logo-area">
+        <div class="logo-placeholder">DD2A</div>
+        <div class="logo-sub">— SCI MELEVIERES —</div>
       </div>
     </div>
 
-    <!-- TITRE -->
-    <h1>Quittance de loyer</h1>
-    <div class="periode">Mai 2026 · 14 avenue Emile Huchet, 57800 FREYMING MERLEBACH</div>
-
-    <!-- 2 COLONNES PARTIES -->
-    <div class="parties-grid">
-      <div class="party-block">
-        <div class="lbl">1. Le(s) Bailleur(s)</div>
-        <p><b>SCI DD2AMELEVIERES</b></p>
-        <p>SCI IS · SIREN 928 516 392 RCS MUTZIG</p>
-        <p>Siège : 15 rue du château, 67190 MUTZIG</p>
-        <p>Représentée par Didier Keller, Gérant.</p>
+    <!-- PARTIES -->
+    <div class="parties">
+      <div class="party">
+        <div class="name">SCI DD2AMELEVIERES</div>
+        <div class="line">
+          15 rue du château<br>
+          67190 MUTZIG, FR<br>
+          SCI IS · SIREN 928 516 392<br>
+          RCS MUTZIG<br>
+          Représentée par Didier Keller, Gérant
+        </div>
       </div>
-      <div class="party-block">
-        <div class="lbl">2. Le(s) Locataire(s)</div>
-        <p><b>Mme AUDRIN Faustine</b>, née le 12 mars 1985, demeurant 14 avenue Emile Huchet 57800 FREYMING MERLEBACH ;</p>
-        <p><b>M. BIRRINNI</b>, demeurant 14 avenue Emile Huchet 57800 FREYMING MERLEBACH.</p>
+      <div class="party">
+        <div class="name">Mme AUDRIN Faustine, BIRRINNI</div>
+        <div class="line">
+          14 avenue Emile Huchet<br>
+          57800 FREYMING MERLEBACH, FR<br>
+          Née le 12/03/1985<br>
+          Locataire au titre du bail signé le 10/03/2024
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th class="num">Qté</th>
+          <th class="num">Prix unitaire</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Loyer hors charges — Logement 14 avenue Emile Huchet 57800 FREYMING MERLEBACH</td>
+          <td class="qte">1</td>
+          <td class="num">650,00 €</td>
+          <td class="num">650,00 €</td>
+        </tr>
+        <tr>
+          <td>Provisions sur charges récupérables</td>
+          <td class="qte">1</td>
+          <td class="num">20,00 €</td>
+          <td class="num">20,00 €</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- TOTAUX (lignes simples sans bloc coloré) -->
+    <div class="totaux">
+      <div class="tot-row">
+        <span class="l">Sous-total</span>
+        <span class="v">670,00 €</span>
+      </div>
+      <div class="tot-row grand">
+        <span class="l">Total perçu</span>
+        <span class="v">670,00 €</span>
       </div>
     </div>
 
     <!-- DECLARATION -->
     <div class="declaration">
-      Je soussigné, Didier Keller, Gérant de la <b>SCI DD2AMELEVIERES</b>, déclare avoir reçu le <b>5 mai 2026</b> du Locataire, pour le logement sis 14 avenue Emile Huchet 57800 FREYMING MERLEBACH, la somme indiquée ci-dessous, au titre du loyer et des charges du mois de mai 2026.
+      <p>Je soussigné, <b>Didier Keller</b>, Gérant de la <b>SCI DD2AMELEVIERES</b>, déclare avoir reçu le <b>5 mai 2026</b> de <b>Mme AUDRIN Faustine</b> la somme de <b>670,00 €</b> — <em>six-cent-soixante-dix euros</em>, au titre du loyer et des charges du logement situé 14 avenue Emile Huchet 57800 FREYMING MERLEBACH, pour la période du 1<sup>er</sup> au 31 mai 2026.</p>
+      <p>J'en donne quittance sous réserve du bon encaissement de cette somme.</p>
     </div>
 
-    <!-- MONTANT GRID -->
-    <div class="montant-grid">
-      <div class="montant-left">
-        <div class="lbl">Total perçu</div>
-        <div class="val">670,00 €</div>
-        <div class="lettres">six-cent-soixante-dix euros</div>
-      </div>
-      <div class="montant-right">
-        <div class="montant-row">
-          <span class="l">Loyer hors charges</span>
-          <span class="v">650,00 €</span>
-        </div>
-        <div class="montant-row">
-          <span class="l">Provisions sur charges</span>
-          <span class="v">20,00 €</span>
-        </div>
-        <div class="montant-row">
-          <span class="l">Période</span>
-          <span class="v">01/05 — 31/05/2026</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- CLOTURE -->
-    <div class="closure">
-      J'en donne quittance sous réserve du bon encaissement de cette somme.
+    <!-- MENTIONS LEGALES -->
+    <div class="legal-block">
+      <p>Quittance délivrée conformément à l'article 21 de la loi n° 89-462 du 6 juillet 1989.</p>
+      <p>Elle annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du présent terme. À conserver par le locataire.</p>
     </div>
 
     <!-- SIGNATURE -->
-    <div class="sign-row">
-      <div class="location">Fait à Mutzig,<br>le 14 mai 2026</div>
-      <div class="signature">
-        <div class="lbl">Le Bailleur,</div>
-        <div class="line"></div>
-        <div class="name">Didier Keller</div>
-      </div>
+    <div class="sign">
+      <div class="lieu-date">Fait à Mutzig, le 14 mai 2026</div>
+      <span class="ligne"></span>
+      <span class="nom-bailleur">Didier Keller</span>
+      <span class="role">Gérant — SCI DD2AMELEVIERES</span>
     </div>
 
-    <!-- MENTION -->
-    <div class="mention">
-      Quittance délivrée conformément à l'article 21 de la loi n° 89-462 du 6 juillet 1989. Elle annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. À conserver par le locataire.
-    </div>
-
-    <!-- FOOTER IMMOTRACK -->
-    <div class="immotrack-footer">
-      Document généré par <b>ImmoTrack</b> · immotrack.app · le 14/05/2026 à 14h32
+    <!-- FOOTER PAGE -->
+    <div class="footer-page">
+      <span>SCI DD2AMELEVIERES · SIREN 928 516 392 · Document généré par <b>ImmoTrack</b> · immotrack.app</span>
+      <span>Q-2026-05-F001 · 1/1</span>
     </div>
 
   </div>
 
   <div class="legend">
-    <strong>Variante C — Hybride pro</strong> · Sans-serif body (Inter) + serif Georgia uniquement sur h1 (élégance subtile). Layout 2 colonnes pour Bailleur/Locataire (plus dense, moins de scroll). Total dans bloc noir contrasté + détail à droite (style "facture pro"). Badge "Quittance" en métadonnée. Mention légale minimaliste. Zéro élément décoratif, juste typographie travaillée. Officiel mais contemporain.
+    <strong>Variante C — Qonto-like design (sens métier quittance respecté)</strong> · Garde la <strong>structure visuelle Qonto</strong> (titre gros bold + meta 3-col + logo droite, 2 colonnes parties, table sobre header noir, totaux en lignes simples à droite, footer "Document généré par ImmoTrack"). <strong>Retiré (vs ma v1 erronée)</strong> : bloc "Détails du paiement" avec IBAN/BIC — ce sont des éléments de FACTURE (paiement attendu), pas de QUITTANCE (paiement reçu = acquitté). Aucun bloc coloré. Sens métier strict : Bailleur + Locataire + déclaration "Je soussigné" + total perçu + mention loi 89-462 + signature.
   </div>
 </body>
 </html>
