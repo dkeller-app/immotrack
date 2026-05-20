@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion — Variante C (Hero + carte)</title>
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#ffffff; --sur2:#f5f8fc; --bor:rgba(20,25,54,.10);
+    --t1:#1a2332; --t2:#4b5870; --t3:#8a96ab;
+    --acc:#3b7ef6; --grn:#16a34a; --ora:#ea580c; --red:#dc2626;
+    --r:8px; --rl:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; min-height:100vh; background:
+      radial-gradient(1100px 480px at 50% -8%, rgba(59,126,246,.16), transparent 60%),
+      var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif; color:var(--t1);
+    display:flex; flex-direction:column}
+  .top{display:flex; align-items:center; gap:10px; padding:20px 28px}
+  .top .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#3b7ef6,#6ea4ff);display:flex;align-items:center;justify-content:center;font-size:19px}
+  .top .name{font-weight:800; font-size:17px; letter-spacing:-.01em}
+  .top .badge{margin-left:6px;font-size:10px;font-weight:700;color:#fff;background:#3b7ef6;padding:2px 7px;border-radius:20px;letter-spacing:.04em}
+  .hero{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px 24px 40px}
+  .pill{display:inline-block;font-size:12px;font-weight:600;color:var(--acc);background:rgba(59,126,246,.10);border:1px solid rgba(59,126,246,.22);padding:5px 12px;border-radius:20px;margin-bottom:18px}
+  h1{font-size:34px; font-weight:800; letter-spacing:-.025em; margin:0 0 12px; line-height:1.1; max-width:640px}
+  .lead{font-size:16px; color:var(--t2); max-width:520px; line-height:1.6; margin:0 0 30px}
+  .card{background:var(--sur); width:100%; max-width:400px; border:1px solid var(--bor); border-radius:var(--rl); box-shadow:0 18px 50px rgba(20,25,54,.13); padding:30px 30px}
+  .gbtn{width:100%; display:flex; align-items:center; justify-content:center; gap:12px; padding:13px 16px; border-radius:var(--r); border:1px solid var(--bor); background:#fff; color:#1f2937; font-size:15px; font-weight:600; cursor:pointer; transition:.15s; box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .gbtn:hover{background:#fafbfd; border-color:#c9d3e3; box-shadow:0 3px 10px rgba(0,0,0,.08)}
+  .gbtn.loading{background:var(--acc);color:#fff;border-color:var(--acc);cursor:default}
+  .gicon{width:20px;height:20px;flex:none}
+  .spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .7s linear infinite}
+  @keyframes r{to{transform:rotate(360deg)}}
+  .offline{margin-top:12px; width:100%; padding:11px; border:none; background:none; color:var(--t2); font-size:13.5px; cursor:pointer; border-radius:var(--r)}
+  .offline:hover{background:var(--sur2); color:var(--t1)}
+  .reassure{margin-top:14px; font-size:11.5px; color:var(--t3); line-height:1.5}
+  .err{display:none; margin-top:13px; background:rgba(220,38,38,.08); border:1px solid rgba(220,38,38,.25); color:var(--red); font-size:12.5px; padding:10px 12px; border-radius:var(--r); text-align:left; line-height:1.5}
+  .ok-off{display:none; margin-top:13px; background:rgba(234,88,12,.08); border:1px solid rgba(234,88,12,.25); color:var(--ora); font-size:12.5px; padding:10px 12px; border-radius:var(--r); text-align:left; line-height:1.5}
+  .feats{display:flex; gap:26px; margin-top:34px; flex-wrap:wrap; justify-content:center}
+  .feat{display:flex; gap:9px; align-items:center; font-size:13px; color:var(--t2)}
+  .feat .ic{width:28px;height:28px;border-radius:8px;background:#fff;border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .legal{padding:18px; text-align:center; font-size:11px; color:var(--t3)}
+  .legal a{color:var(--acc); text-decoration:none}
+  .demo{background:#18181b;color:#e4e4e7;padding:10px 16px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .demo b{color:#fbbf24}
+  .demo button{background:#27272a;color:#e4e4e7;border:1px solid #3f3f46;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px}
+  .demo button:hover{background:#3f3f46}
+  @media (max-width:600px){ h1{font-size:26px} .lead{font-size:14.5px} .feats{gap:14px} .card{padding:26px 22px} }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="logo">🏠</div>
+    <span class="name">ImmoTrack</span><span class="badge">PREMIUM</span>
+  </div>
+
+  <div class="hero">
+    <span class="pill">Gestion locative nouvelle génération</span>
+    <h1>Tous vos biens, baux et documents au même endroit.</h1>
+    <div class="lead">Connectez votre Google Drive pour sauvegarder et synchroniser automatiquement — sans serveur tiers, vos données restent chez vous.</div>
+
+    <div class="card">
+      <button class="gbtn" id="gbtn" onclick="setState('loading')">
+        <svg class="gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.3 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.2 5.5-4.7 7.2l7.3 5.7c4.3-3.9 6.9-9.7 6.9-17.4z"/><path fill="#FBBC05" d="M10.5 28.4c-.5-1.4-.8-2.9-.8-4.4s.3-3 .8-4.4l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.6 10.6l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.3 0-11.6-3.8-13.5-9.1l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>
+        <span class="lbl">Se connecter avec Google</span>
+        <span class="spin" style="display:none"></span>
+      </button>
+      <div class="err" id="err">⚠ Connexion impossible. VPN / cookies tiers bloqués (Opera, Brave…) ? Autorise <b>accounts.google.com</b>. <a href="#" onclick="setState('default');return false" style="color:var(--red);font-weight:600">Réessayer</a></div>
+      <div class="ok-off" id="okoff">📴 Hors-ligne activé — données sauvées sur cet appareil, sync à la connexion.</div>
+      <button class="offline" onclick="setState('offline')">📴 Continuer hors-ligne</button>
+      <div class="reassure">🔒 Aucune donnée stockée sur nos serveurs · RGPD</div>
+    </div>
+
+    <div class="feats">
+      <div class="feat"><span class="ic">📜</span> Baux & cautions</div>
+      <div class="feat"><span class="ic">📋</span> États des lieux</div>
+      <div class="feat"><span class="ic">🧾</span> Quittances auto</div>
+      <div class="feat"><span class="ic">📈</span> Révisions IRL</div>
+    </div>
+  </div>
+
+  <div class="legal">© 2026 ImmoTrack · <a href="#">CGU</a> · <a href="#">Confidentialité</a> · v15.128</div>
+
+  <div class="demo">
+    <b>Aperçu états (mockup) :</b>
+    <button onclick="setState('default')">Par défaut</button>
+    <button onclick="setState('loading')">Connexion…</button>
+    <button onclick="setState('error')">Erreur</button>
+    <button onclick="setState('offline')">Hors-ligne OK</button>
+    <span style="opacity:.6">· Redimensionne pour mobile (&lt;600px)</span>
+  </div>
+
+<script>
+function setState(s){
+  const btn=document.getElementById('gbtn'), spin=btn.querySelector('.spin'), lbl=btn.querySelector('.lbl'), gic=btn.querySelector('.gicon');
+  document.getElementById('err').style.display = s==='error'?'block':'none';
+  document.getElementById('okoff').style.display = s==='offline'?'block':'none';
+  if(s==='loading'){ btn.classList.add('loading'); spin.style.display='inline-block'; gic.style.display='none'; lbl.textContent='Connexion à Google…'; }
+  else { btn.classList.remove('loading'); spin.style.display='none'; gic.style.display='inline-block'; lbl.textContent='Se connecter avec Google'; }
+}
+</script>
+</body>
+</html>

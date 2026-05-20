@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockups — Page de connexion ImmoTrack</title>
+<style>
+  body{margin:0;padding:32px;background:#eef2f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;color:#1a2332}
+  h1{font-size:24px;margin:0 0 6px}
+  .sub{color:#4b5870;margin:0 0 26px;font-size:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;max-width:1100px}
+  .card{background:#fff;border:1px solid rgba(20,25,54,.10);border-radius:14px;padding:22px;box-shadow:0 6px 20px rgba(20,25,54,.07)}
+  .card h2{font-size:17px;margin:0 0 8px}
+  .card p{font-size:13px;color:#4b5870;line-height:1.6;margin:0 0 16px;min-height:84px}
+  .card a{display:inline-block;background:#3b7ef6;color:#fff;text-decoration:none;padding:9px 16px;border-radius:8px;font-weight:600;font-size:14px}
+  .card a:hover{background:#2b5fd0}
+  .tag{display:inline-block;font-size:11px;font-weight:700;color:#3b7ef6;background:rgba(59,126,246,.10);padding:3px 9px;border-radius:20px;margin-bottom:10px}
+  .note{max-width:1100px;margin-top:26px;background:#fff;border-radius:14px;padding:18px 22px;font-size:13px;color:#4b5870;line-height:1.7;border:1px solid rgba(20,25,54,.08)}
+  .note b{color:#1a2332}
+  kbd{background:#f0f3f8;border:1px solid #d4dbe8;border-radius:4px;padding:1px 6px;font-size:12px}
+</style>
+</head>
+<body>
+  <h1>🔐 Page de connexion ImmoTrack — 3 variantes</h1>
+  <p class="sub">Mockups statiques pour la future page de connexion (commercialisation SaaS). Ouvre chaque variante, teste les <b>états post-clic</b> via la barre noire en bas, et <b>redimensionne la fenêtre</b> pour voir le responsive (PC / tablette / mobile).</p>
+
+  <div class="grid">
+    <div class="card">
+      <span class="tag">Variante A</span>
+      <h2>Minimal centré</h2>
+      <p>Carte unique centrée, sobre (style Linear/Stripe). Logo + bouton Google + arguments en liste + lien hors-ligne. Le plus épuré, rapide à charger, parfait mobile.</p>
+      <a href="A-minimal.html" target="_blank">Ouvrir la variante A →</a>
+    </div>
+    <div class="card">
+      <span class="tag">Variante B</span>
+      <h2>Split écran (brand / connexion)</h2>
+      <p>Écran coupé en deux : à gauche bandeau de marque + arguments de valeur (dégradé bleu), à droite la carte de connexion. Classique SaaS, rassurant. Sur mobile, le bandeau se masque.</p>
+      <a href="B-split.html" target="_blank">Ouvrir la variante B →</a>
+    </div>
+    <div class="card">
+      <span class="tag">Variante C</span>
+      <h2>Hero marketing + carte</h2>
+      <p>Grand titre d'accroche, sous-titre, carte de connexion compacte, puis bandeau de fonctionnalités (baux, EDL, quittances, IRL). Plus « landing page », bon pour convertir un nouveau visiteur.</p>
+      <a href="C-hero.html" target="_blank">Ouvrir la variante C →</a>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Ce qui est commun aux 3 :</b> design system ImmoTrack (accent <kbd>#3b7ef6</kbd>, police système/Inter, radius 8/14px) · vrai logo Google sur le bouton · bouton <b>« Se connecter avec Google »</b> (= l'auth Drive actuelle, en pleine page) · lien <b>« Continuer hors-ligne »</b> (offline-first) · mentions CGU/RGPD · 4 états : <b>défaut · connexion… (spinner) · erreur (VPN/cookies tiers) · hors-ligne confirmé</b>.<br><br>
+    <b>Pas encore inclus (V1.1+ commercialisation) :</b> email/mot de passe, choix d'offre (gating SAAS-PRICING-TIERS), récupération de mot de passe — à ajouter quand l'auth multi-comptes sera spec'ée (FOUNDER-EDITION).<br><br>
+    <b>Prochaine étape :</b> tu choisis une variante (ou un mix), je l'intègre en prod en remplacement de la modale de démarrage actuelle.
+  </div>
+</body>
+</html>
