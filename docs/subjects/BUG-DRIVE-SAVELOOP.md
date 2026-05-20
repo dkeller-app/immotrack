@@ -79,3 +79,6 @@ Logs diagnostic ajoutés : `[drive] push → début (N entité(s))` + `[drive] p
 
 ## Journal
 - 2026-05-20 : détecté (2 onglets ne se synchronisent pas + FAB figé). Cause = saveDB() dans le finally de _driveAutoSaveNow → boucle infinie + auto-pull jamais exécuté. Fix v15.118 (persist localStorage direct sans markDirty). Bug latent depuis v14.0.
+- 2026-05-20 : v15.119 — watchdog 40s (FAB ne peut plus figer) + cross-tab instantané (event storage adopte l'état complet si onglet au repos) + logs par étape.
+- 2026-05-20 : console v15.119 révèle une **2e boucle** dans le chemin PULL : `_driveLoadEntityFiles` appelait `saveDB()` après chaque pull → `_markDriveDirty()` → push → pull → … Aggravée par 4 entités test tombstonées (`trsr`, `test test`, `Test SCI`, `TEst SCI`) qui re-déclenchent `_drvMark` à chaque pull, + `ERR_CONNECTION_CLOSED` (rate-limit Google sous le martèlement). ✅ Fix v15.120 : le pull persiste en localStorage SANS re-marquer dirty ; ne re-pousse QUE si `totalConflicts>0` (local-wins à propager). + `rBaux()` ajouté au re-render post-pull (« bail modifié mais affichage pas à jour »).
+- TODO user : supprimer les 4 entités test fantômes (trsr / test test / Test SCI / TEst SCI) pour alléger le push (7→3 entités, ~16s→~7s).
