@@ -1,6 +1,6 @@
 # DRIVE-CONFIANCE-UX — Réduire la friction Drive (popups Google + messages restauration)
 
-**Status** : 🔄 En cours — Étape B ✅ Livré v15.114 · Étape A ⬜ · Étape C ⬜ optionnel · **Prio** : P1 · **Taille** : M (B+A ≈ 5-7h, C en plus ≈ +4h)
+**Status** : 🔄 En cours — Étape B ✅ v15.114 · Étape A0 (offline-first) ✅ v15.116 · A1/A4/A5 ⬜ · Étape C ⬜ optionnel · **Prio** : P1 · **Taille** : M (B+A ≈ 5-7h, C en plus ≈ +4h)
 **Détecté** : 2026-05-19 (plainte user récurrente)
 **Lié à** : BUG-DRIVE-DISCONNECT (✅ v13.41, 5 leviers anti-expiration jugés insuffisants) · BUG-DRIVE-RESURRECTION (✅ v14.30-32) · DRIVE-2H/2F/2G (multi-users, hors scope ici)
 
@@ -113,12 +113,34 @@ Panneau « État Drive » permanent :
 **Conservés intacts** (vrais incidents / actions volontaires) : R3 (base corrompue), R4 (stockage plein), R6 (EDL non sauvé), R7 (restoreDriveBackup double-confirm), R8 (reloadAllFromDrive confirm).
 **Validation** : 915 tests Vitest OK. Non testable en sandbox (Drive désactivé en mode test) → **test sur Drive réel requis côté user**.
 
-## Reste à faire — Étape A (popups OAuth, ~3-4h)
-- A1 : Boot — ne plus ouvrir `_showDriveConnectModal` automatiquement (P1). Lecture seule silencieuse, modale seulement à la 1re écriture.
-- A2 : Différer P7 (retour onglet sans token).
-- A3 : Conserver `_driveModalDismiss` 24h.
-- A4 : Reformuler wording modale `#ov-drive-connect`.
-- A5 : Diagnostic Opera cookies tiers (cause silent re-grant qui échoue).
+## Étape A — Décision : OFFLINE-FIRST (validée user 2026-05-20)
+Abandon du modèle « lecture seule stricte » (v14.1) qui refusait toute écriture hors-ligne
+→ **perte de données silencieuse** (bug réel : email locataire modifié au démarrage Opera,
+token pas encore reconnecté, modif jetée). Découverte clé : **aucune CSS `.app-readonly`** ne
+grisait l'UI — le blocage était UNIQUEMENT le `return false` de `saveDB`. Donc l'user pouvait
+taper mais la sauvegarde était jetée.
+
+### A0 — Livré v15.116 (cœur sécurité data, offline-first)
+8 changements, le local devient le filet de sécurité, Drive = sync de fond rattrapée à la reconnexion :
+1. `saveDB` : supprime le blocage read-only → **persiste TOUJOURS en localStorage** + `_markDriveDirty`.
+2. `saveEDL` : supprime le blocage (l'EDL est sauvé local, sync différée).
+3. `_undoUndo` : supprime le blocage (undo fonctionne hors-ligne).
+4. Callback GIS (reconnexion) : si `_driveUnsaved`, **pull (merge horodaté) + push** → rien de fait hors-ligne n'est perdu.
+5. FAB état #3 : `📖 Lecture seule` → `🔌 Hors-ligne` (ou `⏳ Sync en attente` si modifs locales), couleur orange, non bloquant.
+6. Bannière top : wording « Hors-ligne — modifs sauvées en local, sync à la reconnexion ».
+7. `_showReadOnlyAlert` : message info non alarmant (modifs sauvées local).
+8. `_continueReadOnly` : toast reformulé (ne ment plus « aucune modif ne sera enregistrée »).
+
+**Garde-fou divergence** : merge horodaté `_drvWins`/`_modifiedAt` (Phase 2B) déjà en place. Les modifs
+locales ont un `_modifiedAt` frais → gagnent au merge. **915 tests OK.** Test Drive réel côté user requis
+(non simulable en sandbox : Drive désactivé en mode test).
+
+### Reste à faire — A1/A4/A5 (~2-3h)
+- A1 : Boot — ne plus forcer la modale `#ov-drive-connect` (P1). Démarrage direct, l'user travaille,
+  reconnexion proposée discrètement (le mode hors-ligne est désormais sûr).
+- A2 : Différer P7 (retour onglet sans token) — non bloquant maintenant.
+- A4 : Reformuler wording modale `#ov-drive-connect` (« quand tu veux » au lieu de « requise »).
+- A5 : Diagnostic Opera cookies tiers (cause du silent re-grant qui échoue → force le hors-ligne au boot).
 
 ## Notes utilisateur
 > 💬 2026-05-19 : audit demandé (« audit plus recommandation du plan d'attaque »). Aucun code modifié à ce stade.
@@ -126,3 +148,5 @@ Panneau « État Drive » permanent :
 ## Journal
 - 2026-05-20 : créé · audit complet des 8 sources de popups OAuth + 10 messages restauration/sync · plan d'attaque B→A→(C) recommandé · validation user requise avant tout code
 - 2026-05-20 : ✅ Étape B livrée v15.114 — nettoyage des 5 messages anxiogènes (R9 spam supprimé, R1 lien Restaurer supprimé, R2 reformulé positif, R5 supprimé, + toast discret pull externe). 915 tests OK. Test Drive réel à faire côté user.
+- 2026-05-20 : test user a révélé que l'app tombait en lecture seule au boot (Opera, silent re-grant échoué) → saves bloqués → perte de la modif email. Décision OFFLINE-FIRST validée.
+- 2026-05-20 : ✅ Étape A0 livrée v15.116 — offline-first : saveDB/saveEDL/undo persistent toujours en local, flush push à la reconnexion, FAB/bannière/wording « hors-ligne sync en attente » non bloquants. Découverte : aucune CSS grisait l'UI, seul saveDB bloquait. 915 tests OK. Reste A1/A4/A5 (boot modal + Opera).
