@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Connexion (chaleureux)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --accent:#f08c4b;        /* terracotta chaleureux */
+    --accent-deep:#e0743a;
+    --accent-soft:#fbe9dc;
+    --blue:#3b7ef6;
+    --ink:#2a2018;
+    --ink-mid:#6b5d4f;
+    --ink-soft:#9c8e7e;
+    --cream:#fbf6ef;
+    --surface:#ffffff;
+    --green:#16a34a;
+    --orange:#ea580c;
+    --red:#dc2626;
+    --r-btn:12px;
+    --r-card:24px;
+    --shadow:0 20px 60px -18px rgba(120,70,30,.28);
+    --shadow-soft:0 8px 24px -12px rgba(120,70,30,.22);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    color:var(--ink);
+    background:var(--cream);
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* warm organic blobs background */
+  body::before,body::after{
+    content:"";position:fixed;border-radius:50%;filter:blur(70px);z-index:0;opacity:.55;
+  }
+  body::before{width:520px;height:520px;background:radial-gradient(circle,#ffd9b8,#fbe9dc 70%);top:-180px;left:-160px}
+  body::after{width:460px;height:460px;background:radial-gradient(circle,#ffe7c2,#fff3e0 70%);bottom:-200px;right:-140px}
+
+  .wrap{
+    position:relative;z-index:1;
+    min-height:100vh;
+    display:grid;
+    grid-template-columns:1.05fr .95fr;
+    gap:0;
+  }
+
+  /* ---------- LEFT : marketing / warm ---------- */
+  .left{
+    padding:64px 72px;
+    display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-logo{
+    width:54px;height:54px;border-radius:18px;
+    background:linear-gradient(145deg,#ffd9b8,#f08c4b);
+    display:grid;place-items:center;font-size:28px;
+    box-shadow:var(--shadow-soft);
+    transform:rotate(-4deg);
+  }
+  .brand-text{display:flex;flex-direction:column;line-height:1.1}
+  .brand-name{font-family:'Fraunces',serif;font-weight:700;font-size:26px;letter-spacing:-.5px}
+  .brand-tag{
+    margin-top:5px;font-size:12.5px;font-weight:600;color:var(--accent-deep);
+    background:var(--accent-soft);padding:4px 11px;border-radius:999px;
+    width:fit-content;letter-spacing:.2px;
+  }
+
+  .hero{margin:auto 0;max-width:560px}
+  .hero h1{
+    font-family:'Fraunces',serif;font-weight:600;
+    font-size:clamp(34px,4.4vw,54px);line-height:1.04;letter-spacing:-1px;
+    margin-bottom:18px;
+  }
+  .hero h1 em{font-style:italic;color:var(--accent-deep)}
+  .hero .sub{
+    font-size:18px;line-height:1.55;color:var(--ink-mid);max-width:460px;
+  }
+
+  .features{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:38px;max-width:560px;
+  }
+  .feat{
+    background:var(--surface);border-radius:16px;padding:14px 14px 15px;
+    box-shadow:0 2px 10px -6px rgba(120,70,30,.25);
+    border:1px solid #f3e7d8;
+    transition:transform .25s ease,box-shadow .25s ease;
+  }
+  .feat:hover{transform:translateY(-3px);box-shadow:var(--shadow-soft)}
+  .feat .ic{font-size:21px;display:block;margin-bottom:7px}
+  .feat .lbl{font-size:13px;font-weight:600;line-height:1.25;color:var(--ink)}
+
+  .legal{margin-top:34px;font-size:12.5px;color:var(--ink-soft)}
+  .legal a{color:var(--ink-mid);text-decoration:none;border-bottom:1px dotted var(--ink-soft)}
+  .legal a:hover{color:var(--accent-deep)}
+
+  /* ---------- RIGHT : login card ---------- */
+  .right{
+    padding:48px;display:flex;align-items:center;justify-content:center;
+  }
+  .card{
+    background:var(--surface);
+    border-radius:var(--r-card);
+    box-shadow:var(--shadow);
+    border:1px solid #f3e7d8;
+    width:100%;max-width:420px;
+    padding:40px 38px 32px;
+    position:relative;
+  }
+  .card-emoji{
+    position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+    width:56px;height:56px;border-radius:50%;background:#fff;
+    display:grid;place-items:center;font-size:26px;
+    box-shadow:var(--shadow-soft);border:1px solid #f3e7d8;
+  }
+  .card h2{
+    font-family:'Fraunces',serif;font-weight:600;font-size:24px;text-align:center;margin-top:14px;
+  }
+  .card .welcome{text-align:center;color:var(--ink-mid);font-size:14.5px;margin-top:7px;margin-bottom:26px}
+
+  .btn{
+    width:100%;border:none;cursor:pointer;font-family:inherit;font-size:15px;font-weight:600;
+    border-radius:var(--r-btn);padding:14px 18px;display:flex;align-items:center;justify-content:center;gap:11px;
+    transition:transform .15s ease,box-shadow .2s ease,background .2s ease;
+  }
+  .btn-google{
+    background:var(--surface);color:var(--ink);border:1.5px solid #e7dccc;
+    box-shadow:0 2px 8px -4px rgba(120,70,30,.2);
+  }
+  .btn-google:hover{transform:translateY(-2px);box-shadow:var(--shadow-soft);border-color:#dccbb4}
+  .btn-google.is-loading{
+    background:var(--blue);color:#fff;border-color:var(--blue);pointer-events:none;
+  }
+  .btn-google.is-loading svg{display:none}
+  .spinner{
+    width:18px;height:18px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;
+    border-radius:50%;animation:spin .7s linear infinite;display:none;
+  }
+  .btn-google.is-loading .spinner{display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--ink-soft);font-size:12.5px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:#efe3d3}
+
+  .btn-offline{
+    background:transparent;color:var(--ink-mid);border:1.5px dashed #e0d2bf;
+  }
+  .btn-offline:hover{background:var(--cream);color:var(--ink);transform:translateY(-1px)}
+
+  /* trust points */
+  .trust{margin-top:24px;display:flex;flex-direction:column;gap:11px}
+  .trust li{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--ink-mid);line-height:1.4;list-style:none}
+  .trust .tic{flex:0 0 auto;font-size:15px;margin-top:1px}
+
+  /* state encarts */
+  .encart{border-radius:14px;padding:13px 15px;font-size:13.5px;line-height:1.5;margin-bottom:20px;display:none}
+  .encart.show{display:block;animation:pop .3s ease}
+  @keyframes pop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .encart-error{background:#fdeceb;border:1px solid #f6c9c4;color:#a51f17}
+  .encart-error a{color:#a51f17;font-weight:700}
+  .encart-offline{background:#fff3e6;border:1px solid #fcd8aa;color:#9a4a05}
+
+  /* ---------- demo bar ---------- */
+  .demo{
+    position:fixed;z-index:50;left:50%;bottom:18px;transform:translateX(-50%);
+    background:#241a12;color:#f5e9da;border-radius:14px;padding:9px 12px;
+    display:flex;gap:6px;align-items:center;box-shadow:0 14px 40px -10px rgba(0,0,0,.5);
+    flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px);
+  }
+  .demo span{font-size:11px;opacity:.65;margin-right:4px;font-weight:600;letter-spacing:.4px}
+  .demo button{
+    background:#3a2c1f;color:#f5e9da;border:none;border-radius:8px;padding:7px 12px;
+    font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;
+  }
+  .demo button:hover{background:#4d3a28}
+  .demo button.active{background:var(--accent);color:#241a12}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:880px){
+    .wrap{grid-template-columns:1fr}
+    .left{padding:44px 44px 24px;text-align:left}
+    .hero{margin:28px 0}
+    .hero h1{font-size:clamp(30px,6vw,42px)}
+    .right{padding:8px 44px 96px}
+    .features{max-width:none}
+  }
+  @media (max-width:520px){
+    .left{padding:30px 22px 12px}
+    .right{padding:6px 22px 110px}
+    .hero{margin:18px 0}
+    .hero h1{font-size:30px}
+    .hero .sub{font-size:15.5px}
+    .features{grid-template-columns:repeat(2,1fr);gap:10px;margin-top:24px}
+    .card{padding:36px 24px 28px}
+    .brand-logo{width:46px;height:46px;font-size:24px}
+    .brand-name{font-size:22px}
+    .legal{margin-top:22px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- LEFT -->
+    <section class="left">
+      <div class="brand">
+        <div class="brand-logo">🏠</div>
+        <div class="brand-text">
+          <span class="brand-name">ImmoTrack</span>
+          <span class="brand-tag">Gestion locative nouvelle génération</span>
+        </div>
+      </div>
+
+      <div class="hero">
+        <h1>Gérez vos locations <em>sans prise de tête.</em></h1>
+        <p class="sub">Tous vos biens, baux, finances et documents au même endroit.</p>
+
+        <div class="features">
+          <div class="feat"><span class="ic">📜</span><span class="lbl">Baux &amp; cautions</span></div>
+          <div class="feat"><span class="ic">📋</span><span class="lbl">États des lieux</span></div>
+          <div class="feat"><span class="ic">🧾</span><span class="lbl">Quittances auto</span></div>
+          <div class="feat"><span class="ic">📈</span><span class="lbl">Révisions IRL</span></div>
+          <div class="feat"><span class="ic">💰</span><span class="lbl">Loyers, charges &amp; finances</span></div>
+          <div class="feat"><span class="ic">📊</span><span class="lbl">Suivi &amp; tableau de bord</span></div>
+        </div>
+      </div>
+
+      <p class="legal">
+        En continuant, vous acceptez nos <a href="#">CGU</a> et notre <a href="#">politique de confidentialité (RGPD)</a>. · v15.128
+      </p>
+    </section>
+
+    <!-- RIGHT -->
+    <section class="right">
+      <div class="card">
+        <div class="card-emoji">👋</div>
+        <h2>Bon retour parmi nous</h2>
+        <p class="welcome">Connectez-vous pour retrouver vos biens et vos locataires.</p>
+
+        <div id="encart-error" class="encart encart-error">
+          ⚠ Connexion impossible. Si tu utilises un VPN ou un navigateur qui bloque les cookies tiers (Opera, Brave…), autorise accounts.google.com puis réessaie. <a href="#" onclick="setState('loading');return false;">Réessayer</a>
+        </div>
+        <div id="encart-offline" class="encart encart-offline">
+          📴 Mode hors-ligne activé. Tes données sont enregistrées sur cet appareil et seront synchronisées dès que tu connecteras Drive.
+        </div>
+
+        <button id="btn-google" class="btn btn-google" onclick="setState('loading')">
+          <span class="spinner"></span>
+          <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.3 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.2 5.5-4.7 7.2l7.3 5.7c4.3-3.9 6.9-9.7 6.9-17.4z"/><path fill="#FBBC05" d="M10.5 28.4c-.5-1.4-.8-2.9-.8-4.4s.3-3 .8-4.4l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.6 10.6l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.3 0-11.6-3.8-13.5-9.1l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>
+          <span id="btn-google-label">Se connecter avec Google</span>
+        </button>
+
+        <div class="divider">ou</div>
+
+        <button class="btn btn-offline" onclick="setState('offline')">Continuer hors-ligne</button>
+
+        <ul class="trust">
+          <li><span class="tic">🔒</span><span>Sauvegardé sur <strong>VOTRE</strong> Google Drive, jamais sur nos serveurs</span></li>
+          <li><span class="tic">🔄</span><span>Synchronisé entre tous vos appareils</span></li>
+          <li><span class="tic">🔐</span><span>Conforme RGPD — vous gardez le contrôle</span></li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- DEMO BAR -->
+  <div class="demo">
+    <span>ÉTAT</span>
+    <button data-s="default" class="active" onclick="setState('default')">Par défaut</button>
+    <button data-s="loading" onclick="setState('loading')">Connexion…</button>
+    <button data-s="error" onclick="setState('error')">Erreur</button>
+    <button data-s="offline" onclick="setState('offline')">Hors-ligne</button>
+  </div>
+
+<script>
+  function setState(state){
+    var btn=document.getElementById('btn-google');
+    var label=document.getElementById('btn-google-label');
+    var err=document.getElementById('encart-error');
+    var off=document.getElementById('encart-offline');
+    btn.classList.remove('is-loading');
+    err.classList.remove('show');
+    off.classList.remove('show');
+    label.textContent='Se connecter avec Google';
+
+    if(state==='loading'){
+      btn.classList.add('is-loading');
+      label.textContent='Connexion à Google…';
+    }else if(state==='error'){
+      err.classList.add('show');
+    }else if(state==='offline'){
+      off.classList.add('show');
+    }
+    document.querySelectorAll('.demo button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.s===state);
+    });
+  }
+</script>
+</body>
+</html>

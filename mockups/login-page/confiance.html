@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Connexion (confiance)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0f2545;          /* institutionnel profond */
+    --navy-2:#16315a;
+    --accent:#2f6fe0;        /* bleu maîtrisé, sobre */
+    --accent-deep:#2257bd;
+    --ink:#1a2332;
+    --ink-mid:#4b5870;
+    --ink-soft:#8a96ab;
+    --line:#e3e9f1;
+    --bg:#eef2f7;
+    --surface:#ffffff;
+    --green:#16a34a;
+    --orange:#ea580c;
+    --red:#dc2626;
+    --r-btn:8px;
+    --r-card:14px;
+    --shadow:0 24px 60px -24px rgba(15,37,69,.35);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:'Libre Franklin',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    color:var(--ink);background:var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{min-height:100vh;display:grid;grid-template-columns:480px 1fr}
+
+  /* ---------- LEFT : login panel (surface) ---------- */
+  .left{
+    background:var(--surface);
+    border-right:1px solid var(--line);
+    padding:54px 56px;
+    display:flex;flex-direction:column;
+  }
+  .brand{display:flex;align-items:center;gap:13px;margin-bottom:8px}
+  .brand-logo{
+    width:46px;height:46px;border-radius:10px;background:var(--navy);
+    display:grid;place-items:center;font-size:23px;
+  }
+  .brand-name{font-family:'IBM Plex Serif',serif;font-weight:600;font-size:22px;letter-spacing:-.3px;color:var(--navy)}
+  .brand-tag{
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:8px;font-size:11.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--accent-deep);border:1px solid #cfdcf3;background:#f2f6fd;
+    padding:5px 11px;border-radius:6px;width:fit-content;
+  }
+  .brand-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.18)}
+
+  .login-area{margin-top:auto;margin-bottom:auto}
+  .login-area h2{font-size:24px;font-weight:700;letter-spacing:-.4px;margin-bottom:6px}
+  .login-area .lead{color:var(--ink-mid);font-size:14.5px;line-height:1.5;margin-bottom:26px}
+
+  .encart{border-radius:10px;padding:13px 15px;font-size:13.5px;line-height:1.5;margin-bottom:20px;display:none}
+  .encart.show{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .encart-error{background:#fdecec;border:1px solid #f3c4c4;color:#9d1c1c}
+  .encart-error a{color:#9d1c1c;font-weight:700}
+  .encart-offline{background:#fff4ea;border:1px solid #fbd6ad;color:#9a4a05}
+
+  .btn{
+    width:100%;border:none;cursor:pointer;font-family:inherit;font-size:15px;font-weight:600;
+    border-radius:var(--r-btn);padding:14px 18px;display:flex;align-items:center;justify-content:center;gap:11px;
+    transition:background .18s,box-shadow .18s,border-color .18s;
+  }
+  .btn-google{background:var(--surface);color:var(--ink);border:1.5px solid #d4ddea}
+  .btn-google:hover{border-color:var(--accent);box-shadow:0 4px 14px -8px rgba(47,111,224,.5)}
+  .btn-google.is-loading{background:var(--accent);color:#fff;border-color:var(--accent);pointer-events:none}
+  .btn-google.is-loading svg{display:none}
+  .spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  .btn-google.is-loading .spinner{display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .btn-offline{background:var(--surface);color:var(--ink-mid);border:1.5px solid var(--line)}
+  .btn-offline:hover{background:#f6f9fc;color:var(--ink);border-color:#cdd8e6}
+
+  .trust{margin-top:26px;border-top:1px solid var(--line);padding-top:22px;display:flex;flex-direction:column;gap:13px}
+  .trust li{display:flex;gap:11px;align-items:flex-start;font-size:13px;color:var(--ink-mid);line-height:1.4;list-style:none}
+  .trust .tic{flex:0 0 auto;font-size:15px;margin-top:1px}
+
+  .legal{margin-top:auto;padding-top:30px;font-size:12px;color:var(--ink-soft);line-height:1.6}
+  .legal a{color:var(--ink-mid);text-decoration:none}
+  .legal a:hover{color:var(--accent-deep);text-decoration:underline}
+
+  /* ---------- RIGHT : institutional panel ---------- */
+  .right{
+    background:
+      radial-gradient(1100px 700px at 80% -10%,rgba(47,111,224,.20),transparent 60%),
+      linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 100%);
+    color:#dbe6f7;position:relative;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:64px 72px;
+  }
+  /* fine grid texture */
+  .right::before{
+    content:"";position:absolute;inset:0;opacity:.5;
+    background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+    background-size:46px 46px;mask-image:radial-gradient(700px 500px at 70% 30%,#000,transparent 80%);
+  }
+  .right>*{position:relative;z-index:1}
+
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;
+    color:#9fc0f5;border:1px solid rgba(159,192,245,.3);background:rgba(47,111,224,.12);
+    padding:7px 13px;border-radius:999px;width:fit-content;margin-bottom:26px;
+  }
+  .right h1{
+    font-family:'IBM Plex Serif',serif;font-weight:600;font-size:clamp(32px,3.6vw,46px);
+    line-height:1.1;letter-spacing:-.6px;color:#fff;max-width:640px;
+  }
+  .right .sub{font-size:18px;line-height:1.55;color:#aec3e3;max-width:540px;margin-top:18px}
+
+  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:42px;max-width:660px}
+  .feat{
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+    border-radius:12px;padding:16px;backdrop-filter:blur(4px);
+    transition:background .2s,border-color .2s;
+  }
+  .feat:hover{background:rgba(255,255,255,.09);border-color:rgba(159,192,245,.35)}
+  .feat .ic{font-size:22px;display:block;margin-bottom:9px}
+  .feat .lbl{font-size:13.5px;font-weight:600;color:#e6eefb;line-height:1.3}
+
+  .seal{margin-top:42px;display:flex;align-items:center;gap:18px;color:#8ba6cf;font-size:12.5px;flex-wrap:wrap}
+  .seal span{display:inline-flex;align-items:center;gap:7px;font-weight:600;letter-spacing:.3px}
+
+  /* ---------- demo bar ---------- */
+  .demo{
+    position:fixed;z-index:50;left:50%;bottom:18px;transform:translateX(-50%);
+    background:#0a182e;color:#cfddf2;border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;padding:9px 12px;display:flex;gap:6px;align-items:center;
+    box-shadow:0 16px 44px -12px rgba(0,0,0,.6);flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px);
+  }
+  .demo span{font-size:11px;opacity:.6;margin-right:4px;font-weight:600;letter-spacing:.5px}
+  .demo button{background:#15294a;color:#cfddf2;border:none;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+  .demo button:hover{background:#1d3863}
+  .demo button.active{background:var(--accent);color:#fff}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:880px){
+    .wrap{grid-template-columns:1fr;grid-template-rows:auto auto}
+    .left{order:2;border-right:none;border-top:1px solid var(--line);padding:44px 44px 100px}
+    .right{order:1;padding:48px 44px}
+    .login-area{margin:24px 0}
+    .features{max-width:none}
+    .legal{padding-top:24px}
+  }
+  @media (max-width:520px){
+    .left{padding:30px 22px 110px}
+    .right{padding:34px 22px}
+    .right h1{font-size:30px}
+    .right .sub{font-size:15.5px}
+    .features{grid-template-columns:repeat(2,1fr);gap:11px;margin-top:30px}
+    .login-area h2{font-size:21px}
+    .seal{font-size:11.5px;gap:12px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- LEFT : login -->
+    <section class="left">
+      <div>
+        <div class="brand">
+          <div class="brand-logo">🏠</div>
+          <div class="brand-name">ImmoTrack</div>
+        </div>
+        <div class="brand-tag">Gestion locative nouvelle génération</div>
+      </div>
+
+      <div class="login-area">
+        <h2>Accédez à votre espace</h2>
+        <p class="lead">Authentification sécurisée par votre compte Google. Aucun mot de passe à créer ni à mémoriser.</p>
+
+        <div id="encart-error" class="encart encart-error">
+          ⚠ Connexion impossible. Si tu utilises un VPN ou un navigateur qui bloque les cookies tiers (Opera, Brave…), autorise accounts.google.com puis réessaie. <a href="#" onclick="setState('loading');return false;">Réessayer</a>
+        </div>
+        <div id="encart-offline" class="encart encart-offline">
+          📴 Mode hors-ligne activé. Tes données sont enregistrées sur cet appareil et seront synchronisées dès que tu connecteras Drive.
+        </div>
+
+        <button id="btn-google" class="btn btn-google" onclick="setState('loading')">
+          <span class="spinner"></span>
+          <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.3 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.2 5.5-4.7 7.2l7.3 5.7c4.3-3.9 6.9-9.7 6.9-17.4z"/><path fill="#FBBC05" d="M10.5 28.4c-.5-1.4-.8-2.9-.8-4.4s.3-3 .8-4.4l-7.9-6.2C1 16.6 0 20.2 0 24s1 7.4 2.6 10.6l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.4 0 11.9-2.1 15.9-5.8l-7.3-5.7c-2 1.4-4.7 2.3-8.6 2.3-6.3 0-11.6-3.8-13.5-9.1l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>
+          <span id="btn-google-label">Se connecter avec Google</span>
+        </button>
+
+        <div class="divider">ou</div>
+
+        <button class="btn btn-offline" onclick="setState('offline')">Continuer hors-ligne</button>
+
+        <ul class="trust">
+          <li><span class="tic">🔒</span><span>Sauvegardé sur <strong>VOTRE</strong> Google Drive, jamais sur nos serveurs</span></li>
+          <li><span class="tic">🔄</span><span>Synchronisé entre tous vos appareils</span></li>
+          <li><span class="tic">🔐</span><span>Conforme RGPD — vous gardez le contrôle</span></li>
+        </ul>
+      </div>
+
+      <p class="legal">
+        <a href="#">Conditions générales d'utilisation</a> · <a href="#">Politique de confidentialité (RGPD)</a><br>
+        ImmoTrack v15.128
+      </p>
+    </section>
+
+    <!-- RIGHT : institutional -->
+    <section class="right">
+      <span class="badge">Vos données vous appartiennent</span>
+      <h1>Gérez vos locations sans prise de tête.</h1>
+      <p class="sub">Tous vos biens, baux, finances et documents au même endroit.</p>
+
+      <div class="features">
+        <div class="feat"><span class="ic">📜</span><span class="lbl">Baux &amp; cautions</span></div>
+        <div class="feat"><span class="ic">📋</span><span class="lbl">États des lieux</span></div>
+        <div class="feat"><span class="ic">🧾</span><span class="lbl">Quittances auto</span></div>
+        <div class="feat"><span class="ic">📈</span><span class="lbl">Révisions IRL</span></div>
+        <div class="feat"><span class="ic">💰</span><span class="lbl">Loyers, charges &amp; finances</span></div>
+        <div class="feat"><span class="ic">📊</span><span class="lbl">Suivi &amp; tableau de bord</span></div>
+      </div>
+
+      <div class="seal">
+        <span>🔐 Chiffrement Google</span>
+        <span>🇪🇺 Hébergement RGPD</span>
+        <span>🛡️ Zéro serveur tiers</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- DEMO BAR -->
+  <div class="demo">
+    <span>ÉTAT</span>
+    <button data-s="default" class="active" onclick="setState('default')">Par défaut</button>
+    <button data-s="loading" onclick="setState('loading')">Connexion…</button>
+    <button data-s="error" onclick="setState('error')">Erreur</button>
+    <button data-s="offline" onclick="setState('offline')">Hors-ligne</button>
+  </div>
+
+<script>
+  function setState(state){
+    var btn=document.getElementById('btn-google');
+    var label=document.getElementById('btn-google-label');
+    var err=document.getElementById('encart-error');
+    var off=document.getElementById('encart-offline');
+    btn.classList.remove('is-loading');
+    err.classList.remove('show');
+    off.classList.remove('show');
+    label.textContent='Se connecter avec Google';
+
+    if(state==='loading'){
+      btn.classList.add('is-loading');
+      label.textContent='Connexion à Google…';
+    }else if(state==='error'){
+      err.classList.add('show');
+    }else if(state==='offline'){
+      off.classList.add('show');
+    }
+    document.querySelectorAll('.demo button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.s===state);
+    });
+  }
+</script>
+</body>
+</html>
