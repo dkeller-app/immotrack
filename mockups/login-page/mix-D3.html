@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connexion — Mix D3 (slogan B + texte C, sans redondance)</title>
+<title>Connexion — Mix D3 (layout fluide, chips équilibrées)</title>
 <style>
   :root{
     --bg:#eef2f7; --sur:#ffffff; --sur2:#f5f8fc; --bor:rgba(20,25,54,.10);
@@ -13,29 +13,31 @@
   }
   *{box-sizing:border-box}
   body{margin:0; min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif; color:var(--t1); display:flex; flex-direction:column}
-  .split{flex:1; display:grid; grid-template-columns:1.1fr 1fr; min-height:0}
+  .split{flex:1; display:grid; grid-template-columns:1.05fr 1fr; min-height:0}
+
+  /* ===== LEFT — panneau marque : contenu ANCRÉ EN HAUT, chips ANCRÉES EN BAS ===== */
   .brand{
     background:linear-gradient(150deg,#2b5fd0 0%,#3b7ef6 55%,#5b95ff 100%);
-    color:#fff; padding:46px 56px; display:flex; flex-direction:column; justify-content:center;
-    position:relative; overflow:hidden;
+    color:#fff; padding:44px 56px; position:relative; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:space-between; gap:32px;
   }
-  .brand::after{content:''; position:absolute; right:-90px; bottom:-90px; width:340px; height:340px; border-radius:50%; background:rgba(255,255,255,.08)}
-  .brand-head{display:flex; align-items:center; gap:10px; margin-bottom:24px; position:relative; z-index:1}
-  .brand-head .logo{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px}
-  .brand-head .name{font-weight:800;font-size:18px;letter-spacing:-.01em}
-  .brand-head .badge{font-size:10px;font-weight:700;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:20px;letter-spacing:.04em}
-  .pill{display:inline-block;align-self:flex-start;font-size:12px;font-weight:600;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.30);padding:5px 12px;border-radius:20px;margin-bottom:16px;position:relative;z-index:1}
-  /* Titre = SLOGAN B (le hook émotionnel, restauré) */
-  .brand h2{font-size:31px; font-weight:800; letter-spacing:-.025em; margin:0 0 12px; line-height:1.12; position:relative; z-index:1; max-width:460px}
-  /* Sous-titre = phrase C élargie aux finances (le "quoi", PAS de Drive/sync ici → pas de redite avec les bullets) */
-  .brand p{font-size:15px; color:rgba(255,255,255,.90); line-height:1.5; margin:0 0 26px; max-width:440px; position:relative; z-index:1}
-  /* Bullets = UNIQUEMENT la confiance (Drive / sync / RGPD) → rôle distinct du sous-titre et des chips */
-  .blist{display:flex; flex-direction:column; gap:12px; position:relative; z-index:1; margin-bottom:24px}
+  .brand::after{content:''; position:absolute; right:-100px; bottom:-100px; width:360px; height:360px; border-radius:50%; background:rgba(255,255,255,.07)}
+  .brand-main{position:relative; z-index:1}
+  .brand-top{display:flex; align-items:center; gap:10px; margin-bottom:30px}
+  .brand-top .logo{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px}
+  .brand-top .name{font-weight:800;font-size:18px;letter-spacing:-.01em}
+  .brand-top .badge{font-size:10px;font-weight:700;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:20px;letter-spacing:.04em}
+  .pill{display:inline-block;font-size:12px;font-weight:600;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.30);padding:5px 12px;border-radius:20px;margin-bottom:16px}
+  .brand h2{font-size:31px; font-weight:800; letter-spacing:-.025em; margin:0 0 12px; line-height:1.12; max-width:440px}
+  .brand .lead{font-size:15px; color:rgba(255,255,255,.90); line-height:1.5; margin:0 0 28px; max-width:440px}
+  .blist{display:flex; flex-direction:column; gap:13px}
   .bitem{display:flex; gap:12px; align-items:flex-start; font-size:13.5px; color:rgba(255,255,255,.95)}
   .bitem .ic{width:25px;height:25px;border-radius:8px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex:none;font-size:13px}
-  /* Chips = les FONCTIONNALITÉS (le détail), dont finances + suivi */
-  .chips{display:flex; flex-wrap:wrap; gap:8px; position:relative; z-index:1; padding-top:20px; border-top:1px solid rgba(255,255,255,.18)}
-  .chip{display:flex;align-items:center;gap:6px;font-size:12.5px;color:rgba(255,255,255,.92);background:rgba(255,255,255,.12);padding:6px 11px;border-radius:20px}
+  /* chips en GRILLE 2 colonnes → toujours équilibré (3 lignes × 2), aucune orpheline */
+  .chips{position:relative; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:9px; padding-top:24px; border-top:1px solid rgba(255,255,255,.18)}
+  .chip{display:flex;align-items:center;gap:7px;font-size:12.5px;color:rgba(255,255,255,.94);background:rgba(255,255,255,.12);padding:7px 12px;border-radius:10px}
+
+  /* ===== RIGHT — connexion ===== */
   .login{background:var(--bg); display:flex; align-items:center; justify-content:center; padding:40px 32px}
   .card{background:var(--sur); width:100%; max-width:400px; border:1px solid var(--bor); border-radius:var(--rl); box-shadow:0 12px 40px rgba(20,25,54,.10); padding:38px 34px}
   .card h1{margin:0 0 4px; font-size:21px; font-weight:800}
@@ -58,36 +60,42 @@
   .demo b{color:#fbbf24}
   .demo button{background:#27272a;color:#e4e4e7;border:1px solid #3f3f46;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:12px}
   .demo button:hover{background:#3f3f46}
+
+  /* Tablette : le panneau marque se réduit (header + accroche), bullets/chips masqués */
   @media (max-width:880px){
     .split{grid-template-columns:1fr}
-    .brand{padding:34px 32px}
-    .brand h2{font-size:25px}
-    .brand .blist, .brand .chips{display:none}
-    .brand p{margin-bottom:0}
+    .brand{padding:32px 32px; gap:0; justify-content:flex-start}
+    .brand h2{font-size:24px}
+    .brand .lead{margin-bottom:0}
+    .blist, .chips{display:none}
+    .brand-top{margin-bottom:20px}
   }
+  /* Mobile : panneau marque masqué, focus connexion */
   @media (max-width:520px){ .brand{display:none} .login{padding:28px 18px} .card{padding:30px 22px} }
 </style>
 </head>
 <body>
   <div class="split">
     <div class="brand">
-      <div class="brand-head">
-        <div class="logo">🏠</div><span class="name">ImmoTrack</span><span class="badge">PREMIUM</span>
-      </div>
-      <span class="pill">Gestion locative nouvelle génération</span>
-      <h2>Gérez vos locations sans prise de tête.</h2>
-      <p>Tous vos biens, baux, finances et documents au même endroit.</p>
-      <div class="blist">
-        <div class="bitem"><span class="ic">🔒</span><div>Sauvegardé sur <b>VOTRE Google Drive</b>, jamais sur nos serveurs</div></div>
-        <div class="bitem"><span class="ic">🔄</span><div>Synchronisé entre <b>tous vos appareils</b></div></div>
-        <div class="bitem"><span class="ic">🔐</span><div>Conforme <b>RGPD</b> — vous gardez le contrôle total</div></div>
+      <div class="brand-main">
+        <div class="brand-top">
+          <div class="logo">🏠</div><span class="name">ImmoTrack</span><span class="badge">PREMIUM</span>
+        </div>
+        <span class="pill">Gestion locative nouvelle génération</span>
+        <h2>Gérez vos locations sans prise de tête.</h2>
+        <div class="lead">Tous vos biens, baux, finances et documents au même endroit.</div>
+        <div class="blist">
+          <div class="bitem"><span class="ic">🔒</span><div>Sauvegardé sur <b>VOTRE Google Drive</b>, jamais sur nos serveurs</div></div>
+          <div class="bitem"><span class="ic">🔄</span><div>Synchronisé entre <b>tous vos appareils</b></div></div>
+          <div class="bitem"><span class="ic">🔐</span><div>Conforme <b>RGPD</b> — vous gardez le contrôle total</div></div>
+        </div>
       </div>
       <div class="chips">
         <span class="chip">📜 Baux & cautions</span>
         <span class="chip">📋 États des lieux</span>
         <span class="chip">🧾 Quittances auto</span>
         <span class="chip">📈 Révisions IRL</span>
-        <span class="chip">💰 Loyers, charges & finances</span>
+        <span class="chip">💰 Loyers & finances</span>
         <span class="chip">📊 Suivi & tableau de bord</span>
       </div>
     </div>
@@ -111,7 +119,7 @@
   </div>
 
   <div class="demo">
-    <b>Mix D3 — slogan B + texte C, sans redite · États :</b>
+    <b>Mix D3 (layout fluide) · États :</b>
     <button onclick="setState('default')">Par défaut</button>
     <button onclick="setState('loading')">Connexion…</button>
     <button onclick="setState('error')">Erreur</button>
