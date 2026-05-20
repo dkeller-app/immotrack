@@ -1,6 +1,6 @@
 # DRIVE-CONFIANCE-UX — Réduire la friction Drive (popups Google + messages restauration)
 
-**Status** : ⬜ À faire (audit fait, plan à valider) · **Prio** : P1 · **Taille** : M (B+A ≈ 5-7h, C en plus ≈ +4h)
+**Status** : 🔄 En cours — Étape B ✅ Livré v15.114 · Étape A ⬜ · Étape C ⬜ optionnel · **Prio** : P1 · **Taille** : M (B+A ≈ 5-7h, C en plus ≈ +4h)
 **Détecté** : 2026-05-19 (plainte user récurrente)
 **Lié à** : BUG-DRIVE-DISCONNECT (✅ v13.41, 5 leviers anti-expiration jugés insuffisants) · BUG-DRIVE-RESURRECTION (✅ v14.30-32) · DRIVE-2H/2F/2G (multi-users, hors scope ici)
 
@@ -97,13 +97,32 @@ Panneau « État Drive » permanent :
 
 ---
 
-## Décision attendue de l'utilisateur
-- [ ] Valider l'ordre **B → A** (puis C si besoin) ?
-- [ ] Quel navigateur utilises-tu (pour le diagnostic A5) ?
-- [ ] Sur R1/R9 : tu préfères **zéro toast** en usage normal, ou un **petit indicateur discret** (genre « synchro ✓ » qui s'efface seul) ?
+## Décisions utilisateur (2026-05-20)
+- ✅ Ordre validé : **B → A** (C si besoin)
+- ✅ Navigateur : **Opera** (→ A5 : Opera bloque les cookies tiers dans certaines configs / mode "ne pas suivre" → cause probable des échecs de silent re-grant. À diagnostiquer en A.)
+- ✅ Préférence affichage : **indicateur discret** (le FAB Drive état #4 `✓ Drive · à l'instant` sert d'indicateur permanent ; toasts réservés aux events utiles)
+
+## Étape B — Livré v15.114 (détail technique)
+5 changements `index.html` + `sw.js` CACHE_VER, **messages uniquement (zéro mutation de données)** :
+1. **R9** — `Drive ✓ chargé` ne s'affiche plus à chaque auto-pull (60s). Uniquement au 1er load de session (`window._driveFirstLoadDone`) OU sur reload manuel (`_driveLoadEntityFiles({manual:true})`). Le FAB assure le visuel discret permanent.
+2. **R1** — toast `↑ N modif(s) à pousser` + lien « ↺ Restaurer backup » → **supprimé** (remplacé par `console.log`). C'était du fonctionnement normal (push auto debounce 800ms).
+3. **R2** — toast signatures protégées : `warn` 12s + lien Restaurer → **`ok` 5s sans lien**, wording positif « 🔒 N signature(s) bail conservée(s) lors de la synchro ».
+4. **Nouveau** — pull arrière-plan qui change réellement des données (`_pullDidChange`) → toast discret `↻ Données mises à jour depuis un autre appareil` (2,5s).
+5. **R5** — toast `↻ Synchro Drive — historique d'annulation effacé` → supprimé (doublon + jargon), remplacé par `console.log`.
+
+**Conservés intacts** (vrais incidents / actions volontaires) : R3 (base corrompue), R4 (stockage plein), R6 (EDL non sauvé), R7 (restoreDriveBackup double-confirm), R8 (reloadAllFromDrive confirm).
+**Validation** : 915 tests Vitest OK. Non testable en sandbox (Drive désactivé en mode test) → **test sur Drive réel requis côté user**.
+
+## Reste à faire — Étape A (popups OAuth, ~3-4h)
+- A1 : Boot — ne plus ouvrir `_showDriveConnectModal` automatiquement (P1). Lecture seule silencieuse, modale seulement à la 1re écriture.
+- A2 : Différer P7 (retour onglet sans token).
+- A3 : Conserver `_driveModalDismiss` 24h.
+- A4 : Reformuler wording modale `#ov-drive-connect`.
+- A5 : Diagnostic Opera cookies tiers (cause silent re-grant qui échoue).
 
 ## Notes utilisateur
 > 💬 2026-05-19 : audit demandé (« audit plus recommandation du plan d'attaque »). Aucun code modifié à ce stade.
 
 ## Journal
 - 2026-05-20 : créé · audit complet des 8 sources de popups OAuth + 10 messages restauration/sync · plan d'attaque B→A→(C) recommandé · validation user requise avant tout code
+- 2026-05-20 : ✅ Étape B livrée v15.114 — nettoyage des 5 messages anxiogènes (R9 spam supprimé, R1 lien Restaurer supprimé, R2 reformulé positif, R5 supprimé, + toast discret pull externe). 915 tests OK. Test Drive réel à faire côté user.

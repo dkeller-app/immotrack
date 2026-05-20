@@ -86,7 +86,7 @@
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
 | ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) · PILOTAGE-MATRICIEL ✅ Livré v15.07 (Sprint 8) · BANK-INTEGRATION V1 ✅ Livré v15.07* |
-| 💾 **Drive sync** | **DRIVE-CONFIANCE-UX 🔥 (P1, audit fait — réduit popups Google + messages restauration anxiogènes, plan B→A→C à valider)** · DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
+| 💾 **Drive sync** | **DRIVE-CONFIANCE-UX 🔄 (P1, Étape B ✅ Livré v15.114 — nettoyage messages anxiogènes ; reste Étape A popups OAuth + C panneau état)** · DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) — *LEGAL-DPE-INTERDICTION-LOCATION ✅ Livré v15.05 (Sprint 7) : blocage strict bail si DPE interdit loi Climat 2021* |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) · **SAAS-PRICING-TIERS (P2, ~3-5h)** — *gating modules par abonnement, build sur l'infra USER-PROFILE-FILTERS livrée v15.04* |
