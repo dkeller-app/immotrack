@@ -9,12 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* v2 : palette alignée sur l'app ImmoTrack (accent #3b7ef6 sur fond #eef2f7).
-       Le panneau sombre est un BLEU PROFOND de la même famille que l'accent (pas un navy à part). */
-    --navy:#163b78;          /* bleu ImmoTrack profond (institutionnel) */
-    --navy-2:#1f4e9c;
-    --accent:#3b7ef6;        /* accent EXACT de l'app */
-    --accent-deep:#2b5fd0;
+    --navy:#0f2545;          /* institutionnel profond */
+    --navy-2:#16315a;
+    --accent:#2f6fe0;        /* bleu maîtrisé, sobre */
+    --accent-deep:#2257bd;
     --ink:#1a2332;
     --ink-mid:#4b5870;
     --ink-soft:#8a96ab;
@@ -26,7 +24,7 @@
     --red:#dc2626;
     --r-btn:8px;
     --r-card:14px;
-    --shadow:0 24px 60px -24px rgba(22,59,120,.35);
+    --shadow:0 24px 60px -24px rgba(15,37,69,.35);
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%}
@@ -75,7 +73,7 @@
     transition:background .18s,box-shadow .18s,border-color .18s;
   }
   .btn-google{background:var(--surface);color:var(--ink);border:1.5px solid #d4ddea}
-  .btn-google:hover{border-color:var(--accent);box-shadow:0 4px 14px -8px rgba(59,126,246,.5)}
+  .btn-google:hover{border-color:var(--accent);box-shadow:0 4px 14px -8px rgba(47,111,224,.5)}
   .btn-google.is-loading{background:var(--accent);color:#fff;border-color:var(--accent);pointer-events:none}
   .btn-google.is-loading svg{display:none}
   .spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
@@ -99,7 +97,7 @@
   /* ---------- RIGHT : institutional panel ---------- */
   .right{
     background:
-      radial-gradient(1100px 700px at 80% -10%,rgba(59,126,246,.28),transparent 60%),
+      radial-gradient(1100px 700px at 80% -10%,rgba(47,111,224,.20),transparent 60%),
       linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 100%);
     color:#dbe6f7;position:relative;overflow:hidden;
     display:flex;flex-direction:column;justify-content:center;
@@ -115,7 +113,7 @@
 
   .badge{
     display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;
-    color:#a9caff;border:1px solid rgba(169,202,255,.32);background:rgba(59,126,246,.16);
+    color:#9fc0f5;border:1px solid rgba(159,192,245,.3);background:rgba(47,111,224,.12);
     padding:7px 13px;border-radius:999px;width:fit-content;margin-bottom:26px;
   }
   .right h1{
