@@ -15,20 +15,21 @@
   body{margin:0; min-height:100vh; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif; color:var(--t1); display:flex; flex-direction:column}
   .split{flex:1; display:grid; grid-template-columns:1.05fr 1fr; min-height:0}
 
-  /* ===== LEFT — panneau marque : contenu ANCRÉ EN HAUT, chips ANCRÉES EN BAS ===== */
+  /* ===== LEFT — panneau marque : header EN HAUT, accroche CENTRÉE, chips EN BAS ===== */
   .brand{
     background:linear-gradient(150deg,#2b5fd0 0%,#3b7ef6 55%,#5b95ff 100%);
-    color:#fff; padding:44px 56px; position:relative; overflow:hidden;
-    display:flex; flex-direction:column; justify-content:space-between; gap:32px;
+    color:#fff; padding:40px 56px; position:relative; overflow:hidden;
+    display:flex; flex-direction:column;
   }
   .brand::after{content:''; position:absolute; right:-100px; bottom:-100px; width:360px; height:360px; border-radius:50%; background:rgba(255,255,255,.07)}
-  .brand-main{position:relative; z-index:1}
-  .brand-top{display:flex; align-items:center; gap:10px; margin-bottom:30px}
-  .brand-top .logo{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px}
-  .brand-top .name{font-weight:800;font-size:18px;letter-spacing:-.01em}
-  .brand-top .badge{font-size:10px;font-weight:700;background:rgba(255,255,255,.22);padding:3px 8px;border-radius:20px;letter-spacing:.04em}
-  .pill{display:inline-block;font-size:12px;font-weight:600;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.30);padding:5px 12px;border-radius:20px;margin-bottom:16px}
-  .brand h2{font-size:31px; font-weight:800; letter-spacing:-.025em; margin:0 0 12px; line-height:1.12; max-width:440px}
+  /* header : logo + ImmoTrack + pastille tagline, côte à côte, police plus grosse */
+  .brand-top{display:flex; align-items:center; gap:14px; flex-wrap:wrap; position:relative; z-index:1}
+  .brand-top .logo{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:25px}
+  .brand-top .name{font-weight:800;font-size:24px;letter-spacing:-.02em}
+  .pill{display:inline-block;font-size:13.5px;font-weight:600;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);padding:7px 14px;border-radius:22px}
+  /* accroche centrée verticalement dans l'espace du milieu */
+  .brand-pitch{flex:1; display:flex; flex-direction:column; justify-content:center; padding:28px 0; position:relative; z-index:1}
+  .brand h2{font-size:32px; font-weight:800; letter-spacing:-.025em; margin:0 0 12px; line-height:1.12; max-width:440px}
   .brand .lead{font-size:15px; color:rgba(255,255,255,.90); line-height:1.5; margin:0 0 28px; max-width:440px}
   .blist{display:flex; flex-direction:column; gap:13px}
   .bitem{display:flex; gap:12px; align-items:flex-start; font-size:13.5px; color:rgba(255,255,255,.95)}
@@ -64,11 +65,12 @@
   /* Tablette : le panneau marque se réduit (header + accroche), bullets/chips masqués */
   @media (max-width:880px){
     .split{grid-template-columns:1fr}
-    .brand{padding:32px 32px; gap:0; justify-content:flex-start}
-    .brand h2{font-size:24px}
+    .brand{padding:30px 32px}
+    .brand h2{font-size:23px}
+    .brand-pitch{flex:none; padding:18px 0 0}
     .brand .lead{margin-bottom:0}
     .blist, .chips{display:none}
-    .brand-top{margin-bottom:20px}
+    .brand-top .name{font-size:21px}
   }
   /* Mobile : panneau marque masqué, focus connexion */
   @media (max-width:520px){ .brand{display:none} .login{padding:28px 18px} .card{padding:30px 22px} }
@@ -77,11 +79,12 @@
 <body>
   <div class="split">
     <div class="brand">
-      <div class="brand-main">
-        <div class="brand-top">
-          <div class="logo">🏠</div><span class="name">ImmoTrack</span><span class="badge">PREMIUM</span>
-        </div>
+      <div class="brand-top">
+        <div class="logo">🏠</div>
+        <span class="name">ImmoTrack</span>
         <span class="pill">Gestion locative nouvelle génération</span>
+      </div>
+      <div class="brand-pitch">
         <h2>Gérez vos locations sans prise de tête.</h2>
         <div class="lead">Tous vos biens, baux, finances et documents au même endroit.</div>
         <div class="blist">
