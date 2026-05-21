@@ -1,6 +1,7 @@
 # DRIVE-PARTAGE-PICKER — Partage avec un tiers via Google Picker (Option E)
 
-**Status** : 🔄 Code livré v15.135 (gaté, additif) · ⚠️ **Prérequis user + test 2 comptes requis** · **Prio** : P1
+**Status** : ⏸️ **EN ATTENTE retest Marion v15.142** (confirmer le code/raison d'erreur exact via le toast rouge enrichi) · Plan archi « 1 fichier/user » validé par user, prêt à coder dès confirmation · **Prio** : P1
+**Reprise** : quand Marion a reteste en v15.142 → lire la raison du 403 → lancer la phase 1 du plan (cf section « PLAN RETENU »).
 **Remplace** : le workaround « Drive partagé » de BUG-DRIVE-PARTAGE-TIERS (qui NE marchait PAS — Marion restait en lecture seule).
 
 ## Problème (constaté réel)
