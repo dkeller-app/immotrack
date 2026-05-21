@@ -81,6 +81,42 @@ accès Éditeur) pour confirmer le 403/raison exacte au prochain test.
 - **(P2) Scope `drive` complet** : simple côté code mais coût vérif Google CASA + argument sécurité commercial perdu.
 - **(V2) Backend** : la vraie solution multi-tenant (PostgreSQL), hors scope court terme.
 
+## PLAN RETENU (2026-05-21, décision user) — Archi « 1 jeu de fichiers par utilisateur »
+Chaque app instance écrit UNIQUEMENT ses propres fichiers, ne modifie JAMAIS ceux d'un autre compte.
+Le merge actuel est DÉJÀ compatible (LWW par sous-objet, par id/ref) → l'essentiel du travail est côté SAVE.
+
+**Insight clé (simplifie tout)** : pas besoin de détecter qui possède un fichier. Stratégie SAVE =
+« PATCH le fichier connu ; si 403 → ce n'est pas le mien → je crée MON propre fichier tagué et j'écris
+dedans désormais ». Didier (propriétaire) continue à patcher ses fichiers untagged existants (PATCH 200,
+zéro migration). Marion (associée) reçoit 403 sur les fichiers de Didier → bascule sur ses propres fichiers.
+
+### Phases
+1. **userTag stable** : `_drvUserTag()` = hash court (~6 hex) de `_userEmail` (déjà capté par `_fetchUserInfo`).
+   Fallback = id d'install localStorage si email absent. Stable cross-device pour un même compte (les 2
+   devices de Marion partagent SON fichier).
+2. **Save entité** (`_driveSaveOneEntity`) :
+   - Tracking `_myEntityFileIds = {entityId: fileId}` en localStorage (NON contaminé par le merge,
+     contrairement à `ent.driveFileId`).
+   - id = `_myEntityFileIds[entityId] || ent.driveFileId`. Si id → PATCH. Si PATCH 200 → mémorise id comme mien.
+     Si 403 (pas le mien) ou 404 (supprimé) → POST `immotrack-entity-{entityId}__{tag}.json` → mémorise nouvel id.
+   - Ne JAMAIS écrire via `ent.driveFileId` en aveugle.
+3. **Save global** (`_driveSaveGlobal`) : même logique, `immotrack-global__{tag}.json`, tracking `_myGlobalFileId`
+   (avec fallback PATCH legacy `_driveGlobalFileId` → si 403, créer le mien).
+4. **Load** : déjà OK pour entités (`name contains 'immotrack-entity-'` capte les tagués). Pour le global :
+   passer la recherche de `name='immotrack-global.json'` à `name contains 'immotrack-global'` + merger TOUS
+   les globaux trouvés (union templates/params/categories ; LWW si conflit).
+5. **Merge** : ne plus contaminer `ent.driveFileId` (le laisser informatif read-only ; le save n'en dépend plus).
+   Vérifier convergence tombstones cross-user (suppression Marion → tombstone dans SON fichier → merge LWW
+   propage à Didier au pull ; au save suivant de Didier son fichier contient aussi le tombstone → converge).
+6. **Tests** : Vitest sur (a) la logique de choix de fichier au save (PATCH connu vs création tagué sur 403),
+   (b) merge multi-fichiers même entité (Didier édite logA, Marion édite logB → les 2 survivent), (c) tombstone
+   cross-user. Sandbox-first ; Drive désactivé en test → tester les fonctions pures de merge/选fichier.
+
+### Risques
+- **Données Drive = zone à risque** (cf marathon loops/perte de données). Refacto phase par phase, diff+commit,
+  test à chaque étape, sandbox d'abord. Ne PAS toucher index.html prod avant validation.
+- Doublons transitoires (untagged orphelin) si un compte change d'email : acceptable (merge LWW dédoublonne par id/ref).
+
 ## Journal
 - 2026-05-20 : créé. Cause = scope drive.file. Option E (Picker) retenue. Code v15.135 livré (gaté, additif). Prérequis clé API + test 2 comptes côté user.
 - 2026-05-21 : **test 2 comptes KO** (cf section ci-dessus) — pull OK mais save 403 (drive.file ne peut pas modifier les fichiers de Didier). Option E insuffisante en l'état. Diagnostic enrichi v15.142. Décision archi requise (piste P1 « 1 jeu de fichiers par user » recommandée).
