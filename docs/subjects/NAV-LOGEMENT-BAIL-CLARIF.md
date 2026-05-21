@@ -56,12 +56,26 @@ Supprimer "Baux & Locataires" de la sidebar. Tout via **Biens** : chaque logemen
 
 → **Reco** : Option B. Le doublon ressenti vient du **nom**, pas de la fonction. Une vue transversale échéances + candidats ne fait pas doublon avec la gestion par bien.
 
+## Vision user précisée (2026-05-17)
+
+> 💬 « je ferais un onglet bien où on a la visu de tous les logements »
+
+→ L'utilisateur veut un **onglet "Bien" dont la vue par défaut = tous les logements** (la liste/grid des appartements, pas le toggle 3 modes Bailleurs/Immeubles/Logements actuel qui démarre sur "Immeubles").
+
+Concrètement :
+- Le hub **Biens** existe déjà (PATRIMOINE-NAV-UNIFY v14.3) mais démarre sur l'onglet **Immeubles** → l'utilisateur veut que **Logements** soit la vue par défaut (ou l'entrée mise en avant).
+- Combiné avec UX-GROUP-BY-IMMEUBLE : la vue Logements affiche les appartements **groupés par immeuble** (intercalaires) → on retrouve la hiérarchie sans perdre le focus "logements".
+- L'onglet "Baux & Locataires" → recentré (Option B) sur échéances + candidats + locataires.
+
+→ Cela renforce **Option B** : l'onglet Bien = point d'entrée patrimoine centré logements (groupés par immeuble), et Baux/Locataires = vue transversale distincte.
+
 ## Décisions à arbitrer
 
-- [ ] **D1** : Option A (fusion) ou B (clarification + renommage) ?
-- [ ] **D2** : si B, nouveau nom ? ("Locataires" / "Suivi baux" / "Échéances & locataires")
+- [ ] **D1** : Option A (fusion) ou B (clarification + renommage) ? → user penche pour **B** (onglet Bien centré logements)
+- [ ] **D2** : si B, nouveau nom pour "Baux & Locataires" ? ("Locataires" / "Suivi baux" / "Échéances & locataires")
 - [ ] **D3** : où placer le pipeline candidats (LOG-CANDIDATS) — dans cet onglet recentré ?
 - [ ] **D4** : coordonner avec ARCHI-DB-DOUBLONS (P1) pour ne pas faire 2× la refonte du modèle
+- [ ] **D5** : vue par défaut du hub Biens = **Logements** (au lieu d'Immeubles) ? + logements groupés par immeuble (cf UX-GROUP-BY-IMMEUBLE)
 
 ## Coordination
 
@@ -73,7 +87,9 @@ Supprimer "Baux & Locataires" de la sidebar. Tout via **Biens** : chaque logemen
 > (Réponse pilotage : "Biens" existe déjà dans la sidebar via le hub PATRIMOINE-NAV-UNIFY v14.3 — toggle Bailleurs/Immeubles/Logements. Problème = découvrabilité.)
 > 💬 2026-05-17 : « dans la sidebar, logements = baux »
 > 💬 2026-05-17 : « on fera en sprint toutes les modifications »
+> 💬 2026-05-17 : « je ferais un onglet bien où on a la visu de tous les logements »
 
 ## Journal
 
 - 2026-05-17 : créé · redondance perçue Logements/Baux · nuance log≠bail (vacant + historique) · Option B (renommage) recommandée · à intégrer dans Sprint 19D V3-REFONTE-NAV-ONGLETS · décisions D1-D4 reportées
+- 2026-05-17 : **vision user précisée** — onglet "Bien" avec vue par défaut = tous les logements (groupés par immeuble cf UX-GROUP-BY-IMMEUBLE). Renforce Option B. Ajout décision D5 (vue par défaut hub Biens = Logements au lieu d'Immeubles).
