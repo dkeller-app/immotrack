@@ -2573,6 +2573,40 @@ textarea.field-modified-since-sig{
   #tp-pno .tbl tr td[colspan],#tp-mrh .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
 }
 
+/* v15.149 MOBILE-AUDIT — Quittances : table 9 col → cartes (Total en montant, HC/Charges/Statut/Date en méta) */
+@media (max-width:768px){
+  /* Barre de filtres : selects fluides (au lieu de width:170px fixe) */
+  #p-quittances .flex-c .inp{width:auto !important;flex:1 1 44%;min-width:130px}
+  #p-quittances .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #p-quittances .tbl thead{display:none}
+  #p-quittances .tbl,#p-quittances .tbl tbody{display:block;width:auto}
+  #p-quittances .tbl tr{position:relative;display:block;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);border-left:3px solid var(--blu)}
+  #p-quittances .tbl tr:hover,#p-quittances .tbl tr:hover td{background:transparent}
+  #p-quittances .tbl td{display:block;border:none !important;padding:0 !important;white-space:normal;text-align:left !important}
+  /* Logement (1) titre ; Locataire (2) sous-titre */
+  #p-quittances .tbl td:nth-child(1){font-size:14.5px;font-weight:700;color:var(--t1);padding-right:88px !important}
+  #p-quittances .tbl td:nth-child(2){font-size:12.5px;color:var(--t2);margin-bottom:5px}
+  /* Mois (3) · HC (4) · Charges (5) · Statut (7) : ligne méta inline */
+  #p-quittances .tbl td:nth-child(3){display:inline !important;font-size:12px;color:var(--t2);text-transform:capitalize}
+  #p-quittances .tbl td:nth-child(3)::after{content:"  ·  ";color:var(--t3)}
+  #p-quittances .tbl td:nth-child(4),#p-quittances .tbl td:nth-child(5){display:inline !important;font-size:12px;color:var(--t2)}
+  #p-quittances .tbl td:nth-child(4)::before{content:"HC "}
+  #p-quittances .tbl td:nth-child(4)::after{content:"  ·  ";color:var(--t3)}
+  #p-quittances .tbl td:nth-child(5)::before{content:"Charges "}
+  #p-quittances .tbl td:nth-child(5)::after{content:"  ·  ";color:var(--t3)}
+  #p-quittances .tbl td:nth-child(7){display:inline-block !important;vertical-align:middle}
+  /* Date émission (8) : ligne discrète */
+  #p-quittances .tbl td:nth-child(8){display:block !important;font-size:11px;color:var(--t3);margin-top:4px}
+  #p-quittances .tbl td:nth-child(8)::before{content:"Émise le "}
+  /* Total (6) : montant en haut à droite */
+  #p-quittances .tbl td:nth-child(6){position:absolute;top:10px;right:12px;font-size:15px;font-weight:700;text-align:right !important}
+  /* Actions (9) */
+  #p-quittances .tbl td.act-cell{display:flex !important;justify-content:flex-end;gap:6px;margin-top:8px}
+  #p-quittances .tbl td.act-cell .btn{margin:0 !important;min-width:42px;min-height:34px;font-size:13px}
+  /* État vide */
+  #p-quittances .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
+}
+
 /* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────── */
 @media (max-width:600px){
   /* Modal plein écran (override des inline styles max-width:980px;width:96vw) */
