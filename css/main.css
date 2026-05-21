@@ -2433,36 +2433,40 @@ textarea.field-modified-since-sig{
    ════════════════════════════════════════════════════════════════════════ */
 @media (max-width:768px){
   #p-loyers .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
-  #p-loyers .tbl{font-size:13px}
   #p-loyers .tbl thead{display:none}
   #p-loyers .tbl,#p-loyers .tbl tbody{display:block;width:auto}
   #p-loyers .tbl tr{
-    position:relative;display:flex;flex-direction:column;width:auto;
+    position:relative;display:block;width:auto;
     background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
-    padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow);border-left:3px solid var(--blu);
+    padding:9px 12px;margin-bottom:7px;box-shadow:var(--shadow);border-left:3px solid var(--blu);
   }
   #p-loyers .tbl tr:hover,#p-loyers .tbl tr:hover td{background:transparent}
   #p-loyers .tbl td{display:block;border:none !important;padding:0 !important;white-space:normal}
-  /* Ordre dans la carte : badge cat → libellé → qui → immeuble → date → facture → actions */
-  #p-loyers .tbl td:nth-child(4){order:1;margin-bottom:6px}                                   /* Catégorie (badge) */
-  #p-loyers .tbl td:nth-child(2){order:2;font-size:15px;font-weight:700;color:var(--t1);line-height:1.3;padding-right:96px !important;margin-bottom:3px} /* Libellé (titre) */
-  #p-loyers .tbl td:nth-child(5){order:3;font-size:13px;color:var(--t2)}                       /* Qui (logement + locataire) */
-  #p-loyers .tbl td:nth-child(3){order:4;font-size:12px;color:var(--t3);margin-bottom:6px}     /* Immeuble */
-  #p-loyers .tbl td:nth-child(1){order:5;font-size:12px;color:var(--t2)}                        /* Date */
-  #p-loyers .tbl td:nth-child(8){order:6;font-size:11.5px;color:var(--t3)}                      /* Facture */
-  /* Montant : seule la cellule avec valeur (.pos/.neg) est affichée, en haut à droite */
+  /* Date (col1) : petite, en haut à gauche */
+  #p-loyers .tbl td:nth-child(1){font-size:11.5px;color:var(--t3)}
+  /* Libellé (col2) : titre 1 ligne ellipsis, place réservée pour le montant à droite */
+  #p-loyers .tbl td:nth-child(2){font-size:14.5px;font-weight:700;color:var(--t1);line-height:1.25;padding-right:88px !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Immeuble (3) · Catégorie (4) · Qui (5) : une seule ligne méta inline */
+  #p-loyers .tbl td:nth-child(3),#p-loyers .tbl td:nth-child(4),#p-loyers .tbl td:nth-child(5){
+    display:inline !important;font-size:12px;color:var(--t2);line-height:1.5;
+  }
+  #p-loyers .tbl td:nth-child(3){margin-top:2px}
+  #p-loyers .tbl td:nth-child(3)::after{content:" · ";color:var(--t3)}
+  #p-loyers .tbl td:nth-child(4)::after{content:" "}
+  /* Montant : seule la cellule avec valeur (.pos/.neg) s'affiche, en haut à droite */
   #p-loyers .tbl td.num:not(.pos):not(.neg){display:none}
   #p-loyers .tbl td.num.pos,#p-loyers .tbl td.num.neg{
-    position:absolute;top:12px;right:14px;font-size:16px;font-weight:700;text-align:right;
+    position:absolute;top:9px;right:12px;font-size:15px;font-weight:700;text-align:right;
   }
-  /* Actions : grille 3 colonnes en bas de carte */
+  /* Facture (col8) : masquée en vue compacte (souvent vide, accessible sur fiche/desktop) */
+  #p-loyers .tbl td:nth-child(8){display:none}
+  /* Actions (col9) : rangée serrée alignée à droite */
   #p-loyers .tbl td.act-cell{
-    order:7;display:grid !important;grid-template-columns:repeat(3,1fr);gap:6px;
-    margin-top:10px;padding-top:10px !important;border-top:1px solid var(--bor2) !important;
+    display:flex !important;justify-content:flex-end;gap:6px;margin-top:6px;
   }
-  #p-loyers .tbl td.act-cell .btn{margin:0 !important;width:100%;justify-content:center;min-height:38px;font-size:13px}
+  #p-loyers .tbl td.act-cell .btn{margin:0 !important;min-width:42px;min-height:34px;font-size:13px}
   /* État vide (colspan) */
-  #p-loyers .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important;padding-right:20px !important}
+  #p-loyers .tbl tr td[colspan]{display:block !important;text-align:center;padding:18px !important}
 }
 
 /* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────── */
