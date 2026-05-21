@@ -2,10 +2,12 @@
 
 **Status** : ⬜ À faire — RE-PRIORISÉ P3 2026-05-13 · **Prio** : P3 · **Taille** : M (4-6h)
 
-## ⚠️ Verdict honnête 2026-05-13
-Filtre 4 critères : 1/4 (pour bailleur particulier 1-10 logements, le carnet téléphone perso suffit). Vraie valeur seulement pour pro multi-baux. Re-prio P3 — à activer si pivot pro/mandataire.
+## ⚠️ Verdict honnête 2026-05-13 (révisé 2026-05-17)
+Filtre 4 critères au 2026-05-13 : 1/4 (pour bailleur particulier 1-10 logements, le carnet téléphone perso suffit). Vraie valeur seulement pour pro multi-baux. Re-prio P3.
+
+**🔄 Révision 2026-05-17 → re-priorisé P2** : le contexte a changé. L'onglet **Communication est livré** (EMAIL-ONGLET-PERMANENT v15.79) + l'envoi depuis Communication est en cours (EMAIL-ENVOI-DEPUIS-COMMUNICATION). Pouvoir écrire un mail à un **artisan / syndic / comptable / diagnostiqueur** directement depuis l'app devient un vrai usage (et pas juste « le tél perso suffit »). Le carnet alimente l'autocomplete destinataire de Communication.
 **Détecté** : 2026-05-13 (validé important user — capture Qalimo V2)
-**Lié à** : EMAIL-AUTO (livré v14.97) · ENT-FICHE-360 · LOG-FICHE-360 · BAILLEUR-FORM-RICHE
+**Lié à** : EMAIL-AUTO (livré v14.97) · **EMAIL-ONGLET-PERMANENT ✅ v15.79** · **EMAIL-ENVOI-DEPUIS-COMMUNICATION** · ENT-FICHE-360 · LOG-FICHE-360 · BAILLEUR-FORM-RICHE
 
 ## Contexte
 Demande utilisateur 2026-05-13 :
@@ -100,6 +102,8 @@ Aujourd'hui les contacts ImmoTrack sont **éclatés** dans plusieurs entités :
 
 ## Notes utilisateur
 > 💬 2026-05-13 : « carnet d'adresse peut etre intéressant »
+> 💬 2026-05-17 : « si on a une onglet communication, on ajoute aussi un carnet d'adresse (artisan ou autre) pour écrire des mails directement de l'app ? »
 
 ## Journal
 - 2026-05-13 : créé · 14 types de contacts prédéfinis + tags + auto-création depuis baux/entités + liens bidirectionnels
+- 2026-05-17 : **re-priorisé P3 → P2** — couplage avec l'onglet Communication (livré v15.79) + envoi depuis Communication. Le carnet alimente l'autocomplete destinataire + permet d'écrire aux artisans/syndics/comptables depuis l'app. L'usage justifie désormais l'effort (≠ verdict initial « tél perso suffit »).
