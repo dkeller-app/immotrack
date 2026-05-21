@@ -81,6 +81,30 @@ Sidebar cible (esquisse) :
 - 📋 **EDL** (conservé, refonte cards)
 - … (autres onglets inchangés)
 
+## Répartition Logements vs Locataires (anti-redite) — 2026-05-17
+
+> 💬 User : « il faut retravailler les onglets logements et locataires … il faut quelque chose d'intuitif (pas une redite de la même chose) »
+
+**Principe** : 2 angles différents sur le même réel, sans duplication de fonction.
+
+| | 🏠 **Bien** (Logements) | 👥 **Locataires** |
+|---|---|---|
+| Question | « Qu'est-ce que je possède et dans quel état ? » | « Qui occupe, jusqu'à quand, où en est la relation ? » |
+| Centré sur | Le bien physique (actif patrimonial) | Les personnes + contrats (relation locative) |
+| Vue | Logements groupés par immeuble | Locataires actuels + pipeline candidats |
+| Contenu | État (loué/vacant), surface, DPE, loyer, diagnostics, photos, équipements, PNO | Baux actifs, échéances/renouvellements, candidats, communications, GLI/MRH |
+| Le bail y apparaît comme… | info **contextuelle en lecture** (« loué à X jusqu'à Y ») | objet de **gestion active** (« à renouveler le… », « relancer ») |
+
+**Règle mnémotechnique** :
+- **Bien** = je gère le **mur** (l'immobilier)
+- **Locataires** = je gère la **personne** (l'humain + le contrat)
+
+**Anti-redite** : le bail existe dans les 2 onglets mais sous angles opposés — lecture passive côté Bien, gestion active côté Locataires.
+
+**Cas logement vacant** : visible dans **Bien** (CTA « créer une annonce » cf LOG-ANNONCE / « ajouter un candidat » cf LOG-CANDIDATS), absent de **Locataires** (personne n'occupe).
+
+⚠️ **Mockup-first obligatoire** (`feedback_mockup_first`) : avant tout code, produire les mockups A/B/C × 3 formats (PC/tablette/tél) × états post-clic (fiche bien, fiche locataire, vacant, candidat). Validation user explicite.
+
 ## Décisions à arbitrer
 
 - [ ] **D1** : Option A (fusion) ou B (clarification + renommage) ? → user penche pour **B** (onglet Bien centré logements)
@@ -106,3 +130,4 @@ Sidebar cible (esquisse) :
 - 2026-05-17 : créé · redondance perçue Logements/Baux · nuance log≠bail (vacant + historique) · Option B (renommage) recommandée · à intégrer dans Sprint 19D V3-REFONTE-NAV-ONGLETS · décisions D1-D4 reportées
 - 2026-05-17 : **vision user précisée** — onglet "Bien" avec vue par défaut = tous les logements (groupés par immeuble cf UX-GROUP-BY-IMMEUBLE). Renforce Option B. Ajout décision D5 (vue par défaut hub Biens = Logements au lieu d'Immeubles).
 - 2026-05-17 : **contrainte** — onglet **EDL conservé** comme entrée dédiée (pas fusionné). Esquisse sidebar cible : Bien / Locataires-Suivi baux / EDL / …
+- 2026-05-17 : **répartition anti-redite définie** — Bien = "je gère le mur" (patrimoine, lecture du bail) / Locataires = "je gère la personne" (relation, gestion active du bail + candidats). Mockup-first obligatoire avant code.
