@@ -1,6 +1,6 @@
 # BUG-MOBILE-DASH-PROFILES — Sélecteur profil dashboard inaccessible mobile
 
-**Status** : ⬜ À faire · **Prio** : P0 · **Taille** : XS (~30 min - 1 h fix)
+**Status** : ✅ Livré v15.140 (commit 68b5fa9) · **Prio** : P0 · **Taille** : XS (~30 min - 1 h fix)
 **Détecté** : 2026-05-18 par utilisateur lors audit mobile v15.73
 **Lié à** : DASH-PROFILES · MOBILE-AUDIT-ONGLETS Phase 5 polish · BIZPLAN-V2 audit mobile · BUG-MOBILE-MENU-PLUS (potentiellement combiné)
 
@@ -70,3 +70,8 @@ A pour usage rapide (header), B pour découverte du concept (menu Plus avec desc
 ## Journal
 
 - 2026-05-18 : créé · détecté lors audit mobile v15.73 par utilisateur · fix P0 prioritaire pour Sprint 5 polish mobile
+- 2026-05-21 : 1re tentative v15.139 (pills compactes icônes-only visibles mobile) → a introduit une régression : les pills apparaissaient AUSSI sur la page Accueil (or ce sont des contrôles du Tableau de bord). Feedback user.
+- 2026-05-21 : **livré v15.140** (commit 68b5fa9). Décisions tranchées avec l'utilisateur :
+  - **Mode "Solo" supprimé** : redondant avec la nouvelle page Accueil (qui EST devenue la vue solo). Migration one-shot `DB.params.dashV4Mode === 'solo' → 'premium'`. Reste 2 pills : Premium / Gestionnaire.
+  - **Pills mode = Tableau de bord UNIQUEMENT** (plus sur l'Accueil) : split de `showContextual` en `showMode` (dashboard only) et `showPeriod` (dashboard + accueil, inchangé) dans `_v4SyncTopbarFilters`.
+  - **Effet de bord positif** : l'onglet "Tableau de bord" qui était caché de la sidebar en mode Solo (`_showDash`) réapparaît (toujours visible désormais), ce qui résout aussi le point user « je n'ai pas d'onglet tableau de bord dans la sidebar ».

@@ -1,6 +1,6 @@
 # BUG-MOBILE-MENU-PLUS — Menu "Plus" bottom nav mobile ne fonctionne pas
 
-**Status** : ⬜ À faire · **Prio** : P0 · **Taille** : S (~1-2h fix + investigation)
+**Status** : ✅ Livré v15.140 (commit 68b5fa9) · **Prio** : P0 · **Taille** : S (~1-2h fix + investigation)
 **Détecté** : 2026-05-18 par utilisateur lors audit mobile v15.73
 **Lié à** : MOBILE-AUDIT-ONGLETS Phase 5 polish · BIZPLAN-V2 audit mobile
 
@@ -81,3 +81,4 @@ Sur la version mobile (≤768 px), la bottom nav présente 5 onglets : Accueil /
 ## Journal
 
 - 2026-05-18 : créé · détecté lors audit mobile v15.73 par utilisateur · fix P0 prioritaire pour Sprint 5 polish mobile
+- 2026-05-21 : **livré v15.140** (commit 68b5fa9). Approche retenue = réutilisation de la sidebar existante en overlay slide-up (option « réutilisation sidebar », plus propre qu'un drawer dédié). Le bouton "Plus" (`onclick="toggleSb()"`) appelait déjà `toggleSb` mais sans backdrop l'overlay semblait « ne rien faire ». Fix : nouvelles fonctions `_openMobileMenu()` / `_closeMobileMenu()` (toggleSb délègue) qui ajoutent un backdrop `#sb-backdrop` semi-transparent (tap = ferme), garantissent le rendu de la sidebar V4 (`_renderSidebarV4` si vide), et activent le bouton "Plus". `go()` ferme aussi le backdrop sur mobile. CSS : `#sb-backdrop` z-index 1400 (entre bottom nav 999 et sidebar 1500). ⚠️ Test device réel utilisateur à confirmer.
