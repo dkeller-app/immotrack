@@ -1,6 +1,6 @@
 # MOBILE-AUDIT-ONGLETS — Audit + correctifs UX mobile onglet par onglet
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (1-3 jours, 1 commit par onglet)
+**Status** : ✅ Livré v15.140→148 (audit programmatique + cartes mobile sur toutes les tables denses) · **Prio** : P1 · **Taille** : L (1-3 jours, 1 commit par onglet)
 **Détecté** : 2026-05-01
 **Lié à** : MOBILE-PWA-OFFLINE · feedback_responsive · feedback_design_consistency · V3-VISUEL
 
@@ -140,4 +140,10 @@ Pilotage/Loyers, variable résolue par thème). Reste optionnel : version cartes
 - 2026-05-21 : 2 BUGS P0 livrés (MENU-PLUS + DASH-PROFILES v15.140-142). Audit programmatique 375px → état mobile excellent (0 overflow horizontal, inputs OK, tables scrollables). Seul défaut réel = touch targets boutons action Agenda/Pilotage → **fix v15.143** (≥40px). Affordance scroll tables → **v15.144** (ombres theme-aware).
 - 2026-05-21 : tables denses → cartes mobile (feedback user « pas visuel sur mobile ») :
   - **Loyers/Mouvements** (table 9 col) → cartes ≤768px, **v15.145** puis condensées 221→125px **v15.146** (date+montant haut, libellé titre, méta inline immeuble·cat·qui, actions serrées, facture masquée, montant unique via .pos/.neg). Filtres colonne th non dispo en vue cartes (suivi).
-  - **Pilotage / Comptabilité** (matrice lot×4 mois) → cartes **v15.147** avec chips mensuels étiquetés (data-mo + ::before) pour garder le contexte du mois. Onglets Pilotage **Documents** + **Automatisations** (autres matrices) restent en scroll horizontal + ombre → à carder de même si besoin user.
+  - **Pilotage / Comptabilité** (matrice lot×4 mois) → cartes **v15.147** avec chips mensuels étiquetés (data-mo + ::before) pour garder le contexte du mois.
+  - **Pilotage Documents** (matrice conformité) + **Automatisations** (matrice cases) → cartes **v15.148** : chips étiquetés data-doc (Bail/EDL/MRH/Chauffage/Caution/Diagnostics) et toggles étiquetés data-autom (Quittance/Avis échéance/…) avec checkbox conservée.
+  - **Assurances PNO + MRH** (tables liste) → cartes **v15.148**, champs labellisés (Contrat/Prime/Échéance).
+  - Tables IRL/Quittances/Baux : auditées, pas de table large (déjà responsive / autre layout).
+  - Filtres colonne (th dropdowns) non dispo en vue cartes → **non bloquant** : la barre de recherche texte (🔍) reste accessible sur mobile et couvre les mêmes champs (date/libellé/immeuble/catégorie/qui/montant).
+
+**→ AUDIT MOBILE CLÔTURÉ v15.148.** État : 0 scroll horizontal sur les 16 onglets, inputs ≥16px, touch targets ≥40px, toutes les tables denses en cartes lisibles. Optionnel V1.x : restaurer un filtre multi-colonnes dédié mobile si demande user.
