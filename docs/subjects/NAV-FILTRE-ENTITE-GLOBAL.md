@@ -1,8 +1,8 @@
-# NAV-FILTRE-ENTITE-GLOBAL — Bulles entités comme filtre global persistant (tous onglets)
+# NAV-FILTRE-ENTITE-GLOBAL — Barre de contexte globale persistante (entité + période) sur tous les onglets
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M (~4-6h)
-**Détecté** : 2026-05-17 (user : « visuellement on a les entités en haut à gauche qui fonctionne avec dashboard. pourquoi ne pas utiliser ça sur tous les onglets plutôt que la liste déroulante ? »)
-**Lié à** : USER-PROFILE-FILTERS ✅ v15.04 (workspace présets) · dashboard V4 (`_v4FilterEnt`) · UX-GROUP-BY-IMMEUBLE · NAV-LOGEMENT-BAIL-CLARIF
+**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M (~5-7h)
+**Détecté** : 2026-05-17 (user : « pourquoi ne pas utiliser [les bulles entités] sur tous les onglets plutôt que la liste déroulante ? » + « idem pour mois et année, toujours au même endroit en haut » + « quand on a validé une entité, ne plus afficher tous les logements, juste ceux de l'entité »)
+**Lié à** : USER-PROFILE-FILTERS ✅ v15.04 (workspace présets) · dashboard V4 (`_v4FilterEnt`) · UX-GROUP-BY-IMMEUBLE · NAV-LOGEMENT-BAIL-CLARIF · dashboard-temporel (sélecteur mois/année)
 
 ## Justification (4 critères pré-vol)
 
@@ -69,6 +69,34 @@ Les dropdowns locaux : soit supprimés, soit synchronisés sur _activeEntityFilt
 - Group-by-immeuble = niveau **immeuble** (intercalaires dans la liste)
 - Les deux se combinent : « SCI DD » filtré + logements groupés par immeuble dedans → hiérarchie claire Entité > Immeuble > Lot
 
+## Extension : barre de contexte = ENTITÉ + PÉRIODE (mois/année)
+
+> 💬 User 2026-05-17 : « idem pour mois et année, il faudrait laisser toujours au même endroit en haut. sinon utilisateur se perd »
+
+Le sélecteur **mois/année** doit suivre la même logique que le filtre entité : **persistant, toujours au même endroit en haut**, sur tous les onglets concernés (dashboard, mouvements, quittances, régul…).
+
+→ La topbar de contexte porte **2 filtres globaux** :
+```
+┌──────────────────────────────────────────────────────────┐
+│  [★ Toutes] [SD] [SS] [DK]  +     │   ◀ Mai 2026 ▶  / An  │
+│  ── filtre ENTITÉ ──               ── filtre PÉRIODE ──    │
+└──────────────────────────────────────────────────────────┘
+```
+- **Position fixe** = repère stable, l'utilisateur ne se perd plus
+- Période persistée (localStorage) comme l'entité
+- Les onglets temporels (dashboard, mouvements, quittances) lisent la période globale ; les onglets non-temporels (Biens, EDL) l'ignorent
+
+## Cascade de filtrage RÉELLE (entité/immeuble → logements)
+
+> 💬 User 2026-05-17 : « quand on a validé une entité ou immeuble, il ne faut plus afficher tous les logements. Juste les logements de l'entité »
+
+**Exigence** : le filtre global ne doit pas être cosmétique — il **cascade réellement** sur les listes :
+- Filtre **entité = SCI DD** → tous les onglets n'affichent QUE les logements/baux/mouvements de SCI DD (pas tous, puis re-filtrés visuellement : vraiment filtrés à la source)
+- Filtre **immeuble** (niveau plus fin) → idem, uniquement les logements de cet immeuble
+- Le compteur, les KPIs, les totaux se recalculent sur le périmètre filtré
+
+→ Chaque `render` d'onglet applique le filtre **avant** de construire la liste (pas un masquage CSS après coup).
+
 ## Scope (proposé)
 
 ### Phase 1 — État global + helper (~45min)
@@ -76,13 +104,16 @@ Les dropdowns locaux : soit supprimés, soit synchronisés sur _activeEntityFilt
 - `_setGlobalEntityFilter(name)` : set + persist + re-render onglet courant
 - Module pur testable `js/core/entity-filter.js` (filtre une liste par entité)
 
-### Phase 2 — Topbar persistante (~60min)
+### Phase 2 — Topbar persistante (entité + période) (~90min)
 - Déplacer/rendre le composant bulles `.v4s-sb-ent` en topbar visible sur tous les onglets
+- Ajouter le sélecteur **mois/année** persistant à droite (position fixe)
+- `_activePeriod` (mois+année) en runtime + localStorage
 - Responsive (scroll horizontal des bulles sur mobile, ou menu condensé)
 - État actif synchronisé
 
-### Phase 3 — Brancher chaque onglet (~2-3h)
-- `rDash`, `rIRL`, `rBaux`, `rMv`, `rAss`, `rQuit`, `rEDL`, `rEquip`, `rPilotage`… lisent `_activeEntityFilter`
+### Phase 3 — Brancher chaque onglet + cascade réelle (~2-3h)
+- `rDash`, `rIRL`, `rBaux`, `rMv`, `rAss`, `rQuit`, `rEDL`, `rEquip`, `rPilotage`… lisent `_activeEntityFilter` (+ `_activePeriod` pour les temporels)
+- **Cascade RÉELLE** : le filtre s'applique à la source de chaque liste (pas masquage CSS) → entité/immeuble sélectionné = seuls ses logements affichés + KPIs/totaux recalculés
 - Supprimer/synchroniser les dropdowns locaux
 - `_v4FilterEnt` ne fait plus `go('dashboard')` → re-render courant
 
@@ -113,7 +144,10 @@ Les dropdowns locaux : soit supprimés, soit synchronisés sur _activeEntityFilt
 
 > 💬 2026-05-17 : « visuellement on a les entités en haut à gauche qui fonctionne avec dashboard. pourquoi ne pas utiliser ça sur tous les onglets plutôt que la liste déroulante (dans une logique de continuité) »
 > 💬 2026-05-17 : « De plus, en cliquant sur ces bulles on revient à dashboard » (à découpler)
+> 💬 2026-05-17 : « idem pour mois et année, il faudrait laisser toujours au même endroit en haut. sinon utilisateur se perd »
+> 💬 2026-05-17 : « quand on a validé une entité ou immeuble, il ne faut plus afficher tous les logements. Juste les logements de l'entité »
 
 ## Journal
 
 - 2026-05-17 : créé · bulles entités → filtre global persistant sur tous les onglets · découpler du `go('dashboard')` forcé · remplace les dropdowns locaux · combine avec UX-GROUP-BY-IMMEUBLE (entité > immeuble) · sensation workspace SaaS · P1/M
+- 2026-05-17 : **étendu** — la topbar de contexte porte 2 filtres globaux : ENTITÉ + PÉRIODE (mois/année), tous deux persistants et à position fixe (« l'utilisateur ne se perd plus »). + exigence **cascade réelle** : filtre entité/immeuble → seuls les logements concernés affichés (filtré à la source, pas masquage CSS) + KPIs/totaux recalculés. Effort revu ~5-7h.
