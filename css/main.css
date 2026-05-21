@@ -2225,6 +2225,14 @@ textarea.field-modified-since-sig{
 /* ── TABS ─────────────────────────────────────────────────── */
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--bor);margin-bottom:18px}
 .tab{padding:9px 18px;cursor:pointer;color:var(--t2);font-size:13.5px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-weight:500}
+/* v15.150 MOBILE-AUDIT — Barres d'onglets : sur mobile/tablette elles débordaient et étaient
+   coupées (IRL/Pilotage/Paramètres). Passage en défilement horizontal swipeable (les onglets
+   restent sur 1 ligne, accessibles au doigt), scrollbar masquée, libellés non coupés. */
+@media (max-width:1024px){
+  .tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs .tab{white-space:nowrap;flex-shrink:0}
+}
 .tab:hover{color:var(--t1)}
 .tab.act{color:var(--blu);border-bottom-color:var(--blu);font-weight:600}
 .tab-panel{display:none}
@@ -3803,8 +3811,12 @@ textarea.field-modified-since-sig{
       var(--sur);
     background-attachment: local, local, scroll, scroll, local;
   }
-  .g2,.g3,.g4{grid-template-columns:1fr}
-  .fg2,.fg3{grid-template-columns:1fr}
+  /* v15.150 MOBILE-AUDIT — minmax(0,1fr) au lieu de 1fr : évite le « grid blowout » (1fr =
+     minmax(auto,1fr) → un enfant non sécable, ex. bouton à long libellé, élargit la colonne
+     au-delà du conteneur et la carte dépasse de l'écran). minmax(0,…) force la colonne à la
+     largeur du conteneur, le contenu s'adapte/s'enroule à l'intérieur. */
+  .g2,.g3,.g4{grid-template-columns:minmax(0,1fr)}
+  .fg2,.fg3{grid-template-columns:minmax(0,1fr)}
   .pc{padding:14px 10px}
   .ov{padding:16px 8px}
   .modal,.modal.lg,.modal.xl{max-width:100%;width:100%}
