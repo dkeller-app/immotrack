@@ -2508,6 +2508,71 @@ textarea.field-modified-since-sig{
   #pil-compta-tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
 }
 
+/* v15.148 MOBILE-AUDIT — Pilotage Documents (conformité) : matrice → cartes, chips data-doc */
+@media (max-width:768px){
+  #tp-pil-documents .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #pil-docs-tbl thead{display:none}
+  #pil-docs-tbl,#pil-docs-tbl tbody{display:block;width:auto}
+  #pil-docs-tbl tr{position:relative;display:block;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);border-left:3px solid var(--blu)}
+  #pil-docs-tbl tr:hover,#pil-docs-tbl tr:hover td{background:transparent}
+  #pil-docs-tbl td{display:block;border:none !important;padding:0 !important;white-space:normal;text-align:left !important}
+  #pil-docs-tbl td:first-child{font-size:14px;padding-right:46px !important}
+  #pil-docs-tbl td[data-doc]{display:inline-flex !important;align-items:center;gap:5px;margin:7px 8px 0 0;background:transparent !important;font-size:11px;text-align:left !important}
+  #pil-docs-tbl td[data-doc]::before{content:attr(data-doc)" :";color:var(--t2);font-weight:600}
+  #pil-docs-tbl td:last-child{position:absolute;top:8px;right:10px}
+  #pil-docs-tbl td:last-child .btn{min-width:40px;min-height:34px}
+  #pil-docs-tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
+}
+
+/* v15.148 MOBILE-AUDIT — Pilotage Automatisations : matrice de cases → cartes, toggles data-autom */
+@media (max-width:768px){
+  #tp-pil-automatisations .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #pil-autom-tbl thead{display:none}
+  #pil-autom-tbl,#pil-autom-tbl tbody{display:block;width:auto}
+  #pil-autom-tbl tr{position:relative;display:block;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);border-left:3px solid var(--blu)}
+  #pil-autom-tbl tr:hover,#pil-autom-tbl tr:hover td{background:transparent}
+  #pil-autom-tbl td{display:block;border:none !important;padding:0 !important;white-space:normal;text-align:left !important}
+  #pil-autom-tbl td:first-child{font-size:14px;padding-right:64px !important}
+  #pil-autom-tbl td[data-autom]{display:inline-flex !important;align-items:center;gap:5px;margin:9px 14px 0 0;font-size:12px;color:var(--t2);text-align:left !important}
+  #pil-autom-tbl td[data-autom]::after{content:attr(data-autom)}
+  #pil-autom-tbl td[data-autom] input{width:20px;height:20px;margin:0}
+  #pil-autom-tbl td:last-child{position:absolute;top:8px;right:10px}
+  #pil-autom-tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
+}
+
+/* v15.148 MOBILE-AUDIT — Assurances PNO + MRH : tables → cartes (champs labellisés car en-tête masqué) */
+@media (max-width:768px){
+  #tp-pno .tbl-wrap,#tp-mrh .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #tp-pno .tbl thead,#tp-mrh .tbl thead{display:none}
+  #tp-pno .tbl,#tp-pno .tbl tbody,#tp-mrh .tbl,#tp-mrh .tbl tbody{display:block;width:auto}
+  #tp-pno .tbl tr,#tp-mrh .tbl tr{position:relative;display:block;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);border-left:3px solid var(--blu)}
+  #tp-pno .tbl tr:hover,#tp-pno .tbl tr:hover td,#tp-mrh .tbl tr:hover,#tp-mrh .tbl tr:hover td{background:transparent}
+  #tp-pno .tbl td,#tp-mrh .tbl td{display:block;border:none !important;padding:0 !important;white-space:normal;text-align:left !important}
+  #tp-pno .tbl td:nth-child(1),#tp-mrh .tbl td:nth-child(1){font-size:14px;font-weight:700;color:var(--t1);padding-right:80px !important}
+  /* PNO : Type(2) · Compagnie(3) ; Contrat(4) / Prime(5) / Échéance(6) labellisés ; Notes(7) ; actions(8) */
+  #tp-pno .tbl td:nth-child(2),#tp-pno .tbl td:nth-child(3){display:inline !important;font-size:12.5px;color:var(--t2)}
+  #tp-pno .tbl td:nth-child(2){margin-top:4px}
+  #tp-pno .tbl td:nth-child(2)::after{content:"  ·  ";color:var(--t3)}
+  #tp-pno .tbl td:nth-child(4),#tp-pno .tbl td:nth-child(5),#tp-pno .tbl td:nth-child(6){font-size:12px;color:var(--t2);margin-top:3px}
+  #tp-pno .tbl td:nth-child(4)::before{content:"Contrat : ";color:var(--t3)}
+  #tp-pno .tbl td:nth-child(5)::before{content:"Prime : ";color:var(--t3)}
+  #tp-pno .tbl td:nth-child(6)::before{content:"Échéance : ";color:var(--t3)}
+  #tp-pno .tbl td:nth-child(7){font-size:11.5px;color:var(--t3);margin-top:4px}
+  #tp-pno .tbl td:nth-child(8){position:absolute;top:8px;right:10px}
+  #tp-pno .tbl td:nth-child(8) .btn{min-width:36px;min-height:34px}
+  /* MRH : Locataire(2) ; Compagnie(3)/Contrat(4)/Prime(5)/Échéance(6) labellisés ; actions(7) */
+  #tp-mrh .tbl td:nth-child(2){font-size:13px;color:var(--t2);margin-top:3px}
+  #tp-mrh .tbl td:nth-child(3),#tp-mrh .tbl td:nth-child(4),#tp-mrh .tbl td:nth-child(5),#tp-mrh .tbl td:nth-child(6){font-size:12px;color:var(--t2);margin-top:3px}
+  #tp-mrh .tbl td:nth-child(3)::before{content:"Compagnie : ";color:var(--t3)}
+  #tp-mrh .tbl td:nth-child(4)::before{content:"Contrat : ";color:var(--t3)}
+  #tp-mrh .tbl td:nth-child(5)::before{content:"Prime : ";color:var(--t3)}
+  #tp-mrh .tbl td:nth-child(6)::before{content:"Échéance : ";color:var(--t3)}
+  #tp-mrh .tbl td:nth-child(7){position:absolute;top:8px;right:10px}
+  #tp-mrh .tbl td:nth-child(7) .btn{min-width:36px;min-height:34px}
+  /* État vide */
+  #tp-pno .tbl tr td[colspan],#tp-mrh .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
+}
+
 /* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────── */
 @media (max-width:600px){
   /* Modal plein écran (override des inline styles max-width:980px;width:96vw) */
