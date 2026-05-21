@@ -81,14 +81,33 @@ Le système de thèmes actuel (`THEME_DEFAULTS` / `THEME_LABELS`, Paramètres > 
 - [ ] **D3** : effets activés par défaut ou opt-in (certains users préfèrent sobre) ?
 - [ ] **D4** : "fancy" jusqu'où ? (équilibre waouh vs sérieux — c'est un outil de gestion, pas un jeu)
 
+## Décisions user 2026-05-17 (après 1er mockup 4 directions)
+
+> 💬 « on vient déjà de faire une refonte complète du visuel. Je veux bien refaire mais je veux des agents au top du design marketing and co avec des mockups de haut niveau »
+> 💬 « j'aime bien cette barre en haut par exemple » (capture : barre de contexte Émeraude — bulles entités + sélecteur période)
+> 💬 « par contre attention, les graphiques il faut garder les règles and co (couleur, données…) à chaque fois je passe bcp de temps à remettre en ordre »
+
+**Décisions** :
+1. **Refonte visuelle assumée** (Option B), MAIS exige des **mockups de haut niveau** produits avec le meilleur du design (agents/skills design : frontend-design, theme-factory, canvas-design ; éventuellement dispatch d'agents spécialisés pour explorer des directions marketing premium).
+2. ✅ **Barre de contexte validée** : la topbar Émeraude (bulles entités + sélecteur période) plaît → la garder comme acquis dans la direction visuelle (et c'est le sujet NAV-FILTRE-ENTITE-GLOBAL).
+3. 🛑 **CONTRAINTE GRAPHIQUES NON NÉGOCIABLE** : toute refonte DOIT préserver les conventions graphiques (couleur dynamique vert=positif/rouge=négatif selon le signe, données réelles + axes/baseline, couleurs métier). Le user perd du temps à remettre en ordre à chaque refonte → c'est gravé dans `feedback_sparkline_context`. Un thème change le FOND/surfaces/accents UI, PAS la sémantique couleur des données.
+
 ## Garde-fou
 
 ⚠️ ImmoTrack reste un **outil de gestion sérieux** (légal, fiscal, argent). Le "fancy" doit rehausser la perception de qualité **sans** nuire à la lisibilité ni faire gadget. Cohérence design system maintenue. Un preset sobre/pro reste disponible.
 
+⚠️ **Refonte récente déjà faite** (dashboard V4) → ne pas refaire une refonte de plus sans un cap design clairement supérieur, validé sur mockups de haut niveau AVANT tout code. Pas de énième itération moyenne.
+
+⚠️ **Graphiques** : cf `feedback_sparkline_context` (règle renforcée 2026-05-17). Tester explicitement les cas négatifs (cash-flow rouge) après tout restylage.
+
 ## Notes utilisateur
 
 > 💬 2026-05-17 : « dernier point, il faudrait une mode de couleur vraiment fancy fancy ! marion me dit que ce n'est pas assez fancy »
+> 💬 2026-05-17 : « on vient déjà de faire une refonte complète du visuel. Je veux bien refaire mais je veux des agents au top du design marketing and co avec des mockups de haut niveau »
+> 💬 2026-05-17 : « j'aime bien cette barre en haut par exemple » (barre de contexte Émeraude)
+> 💬 2026-05-17 : « attention, les graphiques il faut garder les règles and co (couleur, données…) à chaque fois je passe bcp de temps à remettre en ordre »
 
 ## Journal
 
 - 2026-05-17 : créé · retour testeuse Marion « pas assez fancy » · système thèmes actuel = 10 color pickers basiques, pas de presets ni effets · mockup-first obligatoire (4 directions A/B/C/D : glassmorphism / gradient mesh / dark néon / pastel élégant) · presets nommés + couche d'effets CSS · garde-fou : rester un outil sérieux lisible, preset sobre conservé
+- 2026-05-17 : **1er mockup livré** (`mockups/theme-fancy/index.html`, 4 directions Émeraude/Nuit/Aurore/Ardoise). User : refonte assumée MAIS veut des mockups de **haut niveau** (agents design top). **Barre de contexte validée** (acquis). **Contrainte graphiques** gravée (couleur signe + données préservées, cf `feedback_sparkline_context`). Refonte V4 déjà faite récemment → exiger un cap design supérieur avant code.
