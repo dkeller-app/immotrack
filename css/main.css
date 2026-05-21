@@ -2226,12 +2226,16 @@ textarea.field-modified-since-sig{
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--bor);margin-bottom:18px}
 .tab{padding:9px 18px;cursor:pointer;color:var(--t2);font-size:13.5px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-weight:500}
 /* v15.150 MOBILE-AUDIT — Barres d'onglets : sur mobile/tablette elles débordaient et étaient
-   coupées (IRL/Pilotage/Paramètres). Passage en défilement horizontal swipeable (les onglets
-   restent sur 1 ligne, accessibles au doigt), scrollbar masquée, libellés non coupés. */
+   coupées (IRL/Pilotage/Paramètres).
+   v15.153 : retour à la ligne (flex-wrap) plutôt que défilement horizontal — un onglet coupé
+   ressemblait à un bug (« Histori… »). Avec wrap, TOUS les onglets restent visibles (sur 2 lignes
+   si besoin). Padding réduit sur mobile pour limiter le nombre de retours à la ligne. */
 @media (max-width:1024px){
-  .tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .tabs::-webkit-scrollbar{display:none}
-  .tabs .tab{white-space:nowrap;flex-shrink:0}
+  .tabs{flex-wrap:wrap;row-gap:2px}
+  .tabs .tab{white-space:nowrap}
+}
+@media (max-width:560px){
+  .tabs .tab{padding:8px 12px;font-size:13px}
 }
 .tab:hover{color:var(--t1)}
 .tab.act{color:var(--blu);border-bottom-color:var(--blu);font-weight:600}
@@ -2354,17 +2358,17 @@ textarea.field-modified-since-sig{
   #p-baux > .flex-b.mb16 > .flex-c{width:100%;flex-wrap:wrap;gap:6px}
   #p-baux > .flex-b.mb16 > .flex-c > .inp{flex:1 1 calc(50% - 3px);min-width:0;width:auto !important}
   #p-baux > .flex-b.mb16 > .btn{width:100%;justify-content:center;height:42px}
-  /* IRL : tabs en row 1 (compactes pour tenir sans scroll), select full width row 2 */
+  /* IRL : tabs compactes qui reviennent à la ligne (tous visibles, aucun coupé), select full width */
+  /* v15.153 : flex-wrap (était overflow-x:auto/nowrap → « Histori… » coupé, ressemblait à un bug) */
   #p-irl > .flex-b.mb12{flex-direction:column;align-items:stretch;gap:10px}
   #p-irl > .flex-b.mb12 > .tabs{
-    overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;
+    flex-wrap:wrap;row-gap:2px;
     margin-bottom:0;border-bottom:none;
   }
   #p-irl > .flex-b.mb12 > .tabs > .tab{
-    flex-shrink:0;
     white-space:nowrap;
-    padding:9px 11px;          /* était 9px 18px → gain de 14px par tab */
-    font-size:12.5px;          /* était 13.5px */
+    padding:8px 11px;          /* compact pour limiter les retours à la ligne */
+    font-size:12.5px;
   }
   #p-irl > .flex-b.mb12 > .inp{width:100% !important}
 }
