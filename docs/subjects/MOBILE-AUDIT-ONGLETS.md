@@ -146,4 +146,16 @@ Pilotage/Loyers, variable résolue par thème). Reste optionnel : version cartes
   - Tables IRL/Quittances/Baux : auditées, pas de table large (déjà responsive / autre layout).
   - Filtres colonne (th dropdowns) non dispo en vue cartes → **non bloquant** : la barre de recherche texte (🔍) reste accessible sur mobile et couvre les mêmes champs (date/libellé/immeuble/catégorie/qui/montant).
 
-**→ AUDIT MOBILE CLÔTURÉ v15.148.** État : 0 scroll horizontal sur les 16 onglets, inputs ≥16px, touch targets ≥40px, toutes les tables denses en cartes lisibles. Optionnel V1.x : restaurer un filtre multi-colonnes dédié mobile si demande user.
+### Débordements horizontaux clippés (feedback user capture Quittances, 2026-05-21)
+L'audit `scrollWidth-clientWidth` du document ne détectait PAS ces cas (overflow clippé par un
+parent, pas de scroll doc). Nouvelle détection : éléments dont le bord droit dépasse le viewport
+hors zones scrollables. 3 patterns trouvés + corrigés transversalement (mobile + tablette ≤1024px) :
+- **Barres d'outils** (`.flex-b`/`.flex-c` boutons/selects) en `nowrap` → débordaient (ex. Quittances
+  « Vue · Cartes · Tableau · Générer · + Mouvement »). Fix **v15.150** : `flex-wrap:wrap`.
+- **Barres d'onglets** (`.tabs`) → coupées (IRL/Pilotage/Paramètres). Fix **v15.151** : défilement
+  horizontal swipeable (`overflow-x:auto`, scrollbar masquée, libellés `nowrap`).
+- **Grilles de cartes** (`.g2/.g3/.g4/.fg2/.fg3`) : grid blowout (`1fr`=`minmax(auto,1fr)`, un bouton
+  à long libellé élargissait la colonne). Fix **v15.151** : `minmax(0,1fr)` (Export/Paramètres).
+Vérifié 375 + 768 + 1024px : **0 débordement réel** sur les 16 onglets.
+
+**→ AUDIT MOBILE CLÔTURÉ v15.148→151.** État : 0 scroll horizontal sur les 16 onglets, inputs ≥16px, touch targets ≥40px, toutes les tables denses en cartes lisibles. Optionnel V1.x : restaurer un filtre multi-colonnes dédié mobile si demande user.
