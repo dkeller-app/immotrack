@@ -2243,6 +2243,13 @@ textarea.field-modified-since-sig{
 .hidden{display:none!important}
 .flex-b{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .flex-c{display:flex;align-items:center;gap:8px}
+/* v15.150 MOBILE-AUDIT — Barres d'outils (groupes de boutons/selects en .flex-b/.flex-c) :
+   autoriser le retour à la ligne sur mobile ET tablette. Sinon les boutons dépassent du
+   conteneur et sont coupés (ex : Quittances « Vue · Cartes · Tableau · Générer · + Mouvement »).
+   flex-wrap:wrap ne se déclenche QUE si le contenu déborde → aucun effet quand ça tient déjà. */
+@media (max-width:1024px){
+  .flex-b,.flex-c{flex-wrap:wrap}
+}
 .sm{font-size:12.5px}
 .mu{color:var(--t2)}
 .mb8{margin-bottom:8px}.mb9{margin-bottom:9px}.mb12{margin-bottom:12px}.mb14{margin-bottom:14px}.mb16{margin-bottom:16px}.mb18{margin-bottom:18px}.mb20{margin-bottom:20px}
