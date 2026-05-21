@@ -69,6 +69,18 @@ Concrètement :
 
 → Cela renforce **Option B** : l'onglet Bien = point d'entrée patrimoine centré logements (groupés par immeuble), et Baux/Locataires = vue transversale distincte.
 
+### Contrainte : onglet EDL conservé
+
+> 💬 2026-05-17 : « mais on garde un onglet EDL »
+
+L'**onglet EDL reste une entrée dédiée** dans la sidebar (PAS fusionné dans Bien ni dans Baux). L'EDL a une logique propre (entrée/sortie, comparaison, signature, délégation) qui justifie son onglet transversal. Il sera refondu en cards (cf V3-REFONTE-EDL-CARDS, Sprint 19H) mais reste accessible directement.
+
+Sidebar cible (esquisse) :
+- 🏠 **Bien** (vue par défaut = logements groupés par immeuble)
+- 👥 **Locataires / Suivi baux** (échéances + candidats + locataires) ← ex "Baux & Locataires" recentré
+- 📋 **EDL** (conservé, refonte cards)
+- … (autres onglets inchangés)
+
 ## Décisions à arbitrer
 
 - [ ] **D1** : Option A (fusion) ou B (clarification + renommage) ? → user penche pour **B** (onglet Bien centré logements)
@@ -93,3 +105,4 @@ Concrètement :
 
 - 2026-05-17 : créé · redondance perçue Logements/Baux · nuance log≠bail (vacant + historique) · Option B (renommage) recommandée · à intégrer dans Sprint 19D V3-REFONTE-NAV-ONGLETS · décisions D1-D4 reportées
 - 2026-05-17 : **vision user précisée** — onglet "Bien" avec vue par défaut = tous les logements (groupés par immeuble cf UX-GROUP-BY-IMMEUBLE). Renforce Option B. Ajout décision D5 (vue par défaut hub Biens = Logements au lieu d'Immeubles).
+- 2026-05-17 : **contrainte** — onglet **EDL conservé** comme entrée dédiée (pas fusionné). Esquisse sidebar cible : Bien / Locataires-Suivi baux / EDL / …
