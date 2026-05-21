@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Démo Onboarding + Données démo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f6f9; --sur:#fff; --sur2:#f0f3f7;
+  --bor:rgba(30,50,80,.1); --bor2:rgba(30,50,80,.18);
+  --t1:#0f1f33; --t2:#5a6b80; --t3:#94a3b8;
+  --acc:#0ea5e9; --acc2:#14b8a6; --teal:#0d9488;
+  --grn:#059669; --red:#dc2626; --ora:#d97706; --vio:#7c3aed;
+  --grad:linear-gradient(120deg,#0ea5e9,#14b8a6);
+  --grad-hero:linear-gradient(135deg,#e6f4fb 0%,#e0f5f1 100%);
+  --r:14px; --r-lg:20px;
+  --sh:0 14px 40px -16px rgba(20,40,70,.22),0 2px 8px rgba(20,40,70,.06);
+  --font-d:'Fraunces',Georgia,serif; --font:'Manrope',sans-serif; --mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* Top control bar (hors app, pour la démo) */
+.demo-ctl{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:200;display:flex;gap:8px;padding:9px;border-radius:999px;background:var(--t1);box-shadow:var(--sh)}
+.demo-ctl button{font-family:var(--font);font-weight:700;font-size:12.5px;padding:9px 16px;border:none;border-radius:999px;cursor:pointer;background:transparent;color:#cdd6e0;transition:.25s}
+.demo-ctl button:hover{color:#fff}
+.demo-ctl button.p{background:var(--grad);color:#fff}
+
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+/* Sidebar */
+.sb{background:var(--sur);border-right:1px solid var(--bor);padding:22px 14px;display:flex;flex-direction:column;gap:3px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px}
+.brand-logo{width:36px;height:36px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-size:18px}
+.brand b{font-family:var(--font-d);font-weight:600;font-size:18px}
+.brand small{display:block;font-family:var(--mono);font-size:9px;color:var(--t3)}
+.ni{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--t2);font-weight:600;font-size:13px;cursor:pointer;transition:.2s}
+.ni .ic{font-size:15px;width:18px;text-align:center}
+.ni:hover{background:var(--sur2)}
+.ni.act{background:var(--sur2);color:var(--t1)}
+.ni.act .ic{filter:none}
+.nlbl{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--t3);padding:16px 12px 7px}
+
+.main{padding:24px 30px 90px;overflow:hidden}
+.h1{font-family:var(--font-d);font-weight:600;font-size:26px;letter-spacing:-.02em;margin-bottom:3px}
+.h1 em{font-style:italic;color:var(--teal)}
+.sub{color:var(--t2);font-size:13px;margin-bottom:22px}
+
+/* Barre contexte */
+.ctx{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 14px;border-radius:var(--r-lg);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);margin-bottom:22px}
+.pills{display:flex;gap:7px;flex-wrap:wrap}
+.pill{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;height:46px;padding:0 13px;border-radius:12px;cursor:pointer;background:var(--sur2);border:1px solid var(--bor);color:var(--t2);transition:.25s}
+.pill b{font-weight:800;font-size:13px}.pill s{text-decoration:none;font-size:9px;color:var(--t3);font-weight:600}
+.pill.act{background:var(--grad);border-color:transparent;color:#fff}.pill.act s{color:rgba(255,255,255,.85)}
+.period{display:flex;align-items:center;gap:3px;background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:4px 5px}
+.period button{width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:var(--t2);cursor:pointer;font-size:14px}
+.period .l{font-weight:700;font-size:12.5px;padding:0 8px;text-align:center}
+.period .l small{display:block;font-size:8.5px;color:var(--t3);letter-spacing:.07em}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.kpi{padding:17px;border-radius:var(--r-lg);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);position:relative;overflow:hidden}
+.kpi-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:16px;margin-bottom:11px;background:var(--sur2)}
+.kpi-l{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:5px}
+.kpi-v{font-family:var(--font-d);font-weight:600;font-size:26px;letter-spacing:-.02em}
+.kpi-v .c{font-size:15px;color:var(--t2)}
+.kpi-s{margin-top:7px;font-size:11px;font-weight:700;font-family:var(--mono)}
+.up{color:var(--grn)}.dn{color:var(--red)}
+.spark{position:absolute;right:0;bottom:0;width:78px;height:38px;opacity:.45}
+
+.sec{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 14px}
+.sec h2{font-family:var(--font-d);font-weight:600;font-size:20px}
+.sec span{font-size:12px;color:var(--t2);font-weight:600}
+
+.grp{margin-bottom:18px}
+.grp-h{display:flex;align-items:center;gap:11px;padding:12px 16px;border-radius:var(--r);background:var(--grad-hero);border:1px solid var(--bor);margin-bottom:11px}
+.grp-h .ic{width:31px;height:31px;border-radius:9px;background:var(--sur);display:grid;place-items:center;font-size:15px;box-shadow:var(--sh)}
+.grp-h h3{font-family:var(--font-d);font-weight:600;font-size:16px;flex:1}
+.grp-st{display:flex;gap:16px;font-size:11.5px}
+.grp-st div{text-align:right}.grp-st b{display:block;font-family:var(--mono);font-size:13px}
+.grp-st span{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+.warn{color:var(--ora)}
+.lots{display:grid;grid-template-columns:repeat(auto-fill,minmax(208px,1fr));gap:11px}
+.lot{padding:14px 15px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);cursor:pointer;transition:.25s;position:relative;overflow:hidden}
+.lot::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--acc))}
+.lot:hover{transform:translateY(-2px)}
+.lot-t{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.lot-r{font-weight:800;font-size:14px}.lot-loc{font-size:11px;color:var(--t2);margin-top:1px}
+.bdg{font-size:9px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.b-ok{background:rgba(5,150,105,.13);color:var(--grn)}.b-w{background:rgba(217,119,6,.14);color:var(--ora)}
+.b-l{background:rgba(14,165,233,.14);color:var(--acc)}.b-v{background:rgba(124,58,237,.13);color:var(--vio)}
+.lot-f{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:9px;border-top:1px solid var(--bor)}
+.lot-rt{font-family:var(--mono);font-weight:600;font-size:14px}.lot-rt .c{font-size:10px;color:var(--t3)}
+.lot-m{font-size:10px;color:var(--t3);font-weight:600}
+.vac{border-style:dashed;background:repeating-linear-gradient(45deg,var(--sur),var(--sur) 9px,var(--sur2) 9px,var(--sur2) 18px)}
+
+/* ===== ONBOARDING ===== */
+#ob-overlay{position:fixed;inset:0;z-index:300;display:none}
+#ob-overlay.on{display:block}
+/* spotlight : 4 panneaux assombris autour de la cible */
+.ob-mask{position:fixed;background:rgba:15,30,50;background:rgba(10,22,40,.62);z-index:301;transition:all .4s var(--ease)}
+.ob-ring{position:fixed;z-index:302;border-radius:16px;box-shadow:0 0 0 3px var(--acc),0 0 0 9999px transparent;pointer-events:none;transition:all .4s var(--ease)}
+.ob-tip{position:fixed;z-index:303;max-width:320px;background:var(--sur);border-radius:16px;box-shadow:0 24px 60px -16px rgba(10,22,40,.5);padding:20px;transition:all .4s var(--ease)}
+.ob-step{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);letter-spacing:.05em}
+.ob-tip h4{font-family:var(--font-d);font-weight:600;font-size:18px;margin:6px 0 8px;letter-spacing:-.01em}
+.ob-tip p{font-size:13px;color:var(--t2);line-height:1.55}
+.ob-bar{height:4px;border-radius:99px;background:var(--sur2);margin:14px 0 13px;overflow:hidden}
+.ob-bar i{display:block;height:100%;background:var(--grad);border-radius:99px;transition:width .4s var(--ease)}
+.ob-act{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ob-act .skip{background:none;border:none;color:var(--t3);font-weight:600;font-size:12.5px;cursor:pointer;font-family:var(--font)}
+.ob-act .skip:hover{color:var(--t2)}
+.ob-nav{display:flex;gap:8px}
+.ob-btn{font-family:var(--font);font-weight:700;font-size:13px;padding:9px 18px;border-radius:10px;border:none;cursor:pointer;transition:.2s}
+.ob-prev{background:var(--sur2);color:var(--t2)}.ob-prev:hover{background:var(--bor)}
+.ob-next{background:var(--grad);color:#fff}.ob-next:hover{filter:brightness(1.05)}
+
+/* Welcome / video modals */
+.modal{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;background:rgba(10,22,40,.6);backdrop-filter:blur(6px);padding:20px}
+.modal.on{display:flex}
+.card{background:var(--sur);border-radius:24px;box-shadow:0 30px 80px -20px rgba(10,22,40,.55);max-width:520px;width:100%;padding:38px;text-align:center;animation:pop .45s var(--ease)}
+@keyframes pop{from{opacity:0;transform:scale(.92) translateY(14px)}to{opacity:1;transform:none}}
+.card .wlogo{width:64px;height:64px;border-radius:18px;background:var(--grad);display:grid;place-items:center;font-size:31px;margin:0 auto 18px;box-shadow:0 12px 30px -8px rgba(14,165,233,.5)}
+.card h2{font-family:var(--font-d);font-weight:600;font-size:27px;letter-spacing:-.02em;margin-bottom:8px}
+.card .lead{color:var(--t2);font-size:14px;line-height:1.55;margin-bottom:26px}
+.choices{display:grid;gap:11px}
+.choice{display:flex;align-items:center;gap:14px;padding:15px 17px;border-radius:14px;border:1px solid var(--bor);background:var(--sur);cursor:pointer;text-align:left;transition:.22s;font-family:var(--font)}
+.choice:hover{border-color:var(--acc);background:var(--sur2);transform:translateY(-2px)}
+.choice .ce{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:20px;background:var(--sur2);flex-shrink:0}
+.choice b{display:block;font-size:14.5px;font-weight:700}
+.choice s{text-decoration:none;font-size:12px;color:var(--t2)}
+.choice.prim{background:var(--grad);border-color:transparent;color:#fff}
+.choice.prim .ce{background:rgba(255,255,255,.2)}.choice.prim s{color:rgba(255,255,255,.85)}
+.skip-w{margin-top:18px;background:none;border:none;color:var(--t3);font-weight:600;font-size:12.5px;cursor:pointer;font-family:var(--font)}
+
+.video-box{aspect-ratio:16/9;border-radius:16px;background:linear-gradient(135deg,#0f1f33,#1a3050);display:grid;place-items:center;margin-bottom:18px;position:relative;overflow:hidden}
+.video-box::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(14,165,233,.3),transparent 60%)}
+.play{width:74px;height:74px;border-radius:50%;background:rgba(255,255,255,.95);display:grid;place-items:center;font-size:28px;color:var(--acc);cursor:pointer;z-index:1;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:.25s}
+.play:hover{transform:scale(1.08)}
+.vclose{position:absolute;top:14px;right:16px;background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px;z-index:2}
+
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);z-index:500;background:var(--t1);color:#fff;padding:13px 22px;border-radius:12px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.35s var(--ease);box-shadow:var(--sh)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:1024px){.app{grid-template-columns:1fr}.sb{display:none}.kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.kpis{grid-template-columns:1fr}.main{padding:18px 14px 90px}.ob-tip{max-width:calc(100vw - 32px);left:16px!important;right:16px}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sb">
+    <div class="brand"><div class="brand-logo">🏠</div><div><b>ImmoTrack</b><small>démo · v15.153</small></div></div>
+    <div class="nlbl">Patrimoine</div>
+    <div class="ni act"><span class="ic">🏠</span> Bien</div>
+    <div class="ni"><span class="ic">👥</span> Locataires</div>
+    <div class="ni"><span class="ic">📋</span> EDL</div>
+    <div class="nlbl">Finance</div>
+    <div class="ni"><span class="ic">💰</span> Mouvements</div>
+    <div class="ni"><span class="ic">📈</span> Révision IRL</div>
+    <div class="nlbl">Relation</div>
+    <div class="ni"><span class="ic">📧</span> Communication</div>
+    <div class="ni"><span class="ic">📊</span> Tableau de bord</div>
+  </aside>
+
+  <main class="main">
+    <div class="h1">Mes <em>biens</em></div>
+    <div class="sub">15 lots · 3 immeubles · données de démonstration</div>
+
+    <div class="ctx" id="t-ctx">
+      <div class="pills">
+        <div class="pill act"><b>★</b><s>Toutes</s></div>
+        <div class="pill"><b>SD</b><s>SCI DD</s></div>
+        <div class="pill"><b>SS</b><s>SCI SM</s></div>
+        <div class="pill"><b>DK</b><s>Didier</s></div>
+      </div>
+      <div class="period"><button>‹</button><div class="l">Mai 2026<small>PÉRIODE</small></div><button>›</button></div>
+    </div>
+
+    <div class="kpis" id="t-kpi">
+      <div class="kpi"><div class="kpi-ic">💶</div><div class="kpi-l">Loyers perçus</div><div class="kpi-v">7 471<span class="c"> €</span></div><div class="kpi-s up">▲ 100% encaissé</div><svg class="spark" viewBox="0 0 78 38"><path d="M0 32 L13 26 L26 28 L39 17 L52 20 L65 9 L78 6" fill="none" stroke="var(--grn)" stroke-width="2.4"/></svg></div>
+      <div class="kpi"><div class="kpi-ic">🏘️</div><div class="kpi-l">Occupation</div><div class="kpi-v">93<span class="c"> %</span></div><div class="kpi-s up">▲ 14/15 lots</div><svg class="spark" viewBox="0 0 78 38"><path d="M0 26 L13 24 L26 20 L39 21 L52 14 L65 12 L78 10" fill="none" stroke="var(--acc)" stroke-width="2.4"/></svg></div>
+      <div class="kpi"><div class="kpi-ic">📊</div><div class="kpi-l">Cash-flow YTD</div><div class="kpi-v">31 280<span class="c"> €</span></div><div class="kpi-s up">▲ +8,2%</div><svg class="spark" viewBox="0 0 78 38"><path d="M0 32 L13 30 L26 23 L39 25 L52 16 L65 14 L78 7" fill="none" stroke="var(--acc2)" stroke-width="2.4"/></svg></div>
+      <div class="kpi"><div class="kpi-ic">🔔</div><div class="kpi-l">À traiter</div><div class="kpi-v">3</div><div class="kpi-s dn">2 IRL · 1 DPE</div></div>
+    </div>
+
+    <div class="sec"><h2>Damelevières & Ferrette</h2><span>3 302 € + 3 670 € HC / mois</span></div>
+
+    <div class="grp" id="t-grp">
+      <div class="grp-h"><div class="ic">🏛</div><h3>Damelevières</h3><div class="grp-st"><div><b>8</b><span>lots</span></div><div><b>3 302 €</b><span>HC/mois</span></div><div><b class="warn">2 ⚠</b><span>alertes</span></div></div></div>
+      <div class="lots">
+        <div class="lot" id="t-lot" style="--c:var(--grn)"><div class="lot-t"><div><div class="lot-r">D-001</div><div class="lot-loc">DIAS RODRIGUES Dylan</div></div><span class="bdg b-ok">Loué</span></div><div class="lot-f"><span class="lot-rt">412 <span class="c">€</span></span><span class="lot-m">T2 · 44 m²</span></div></div>
+        <div class="lot" style="--c:var(--acc)"><div class="lot-t"><div><div class="lot-r">D-003</div><div class="lot-loc">RADELET Dominique</div></div><span class="bdg b-l">Bail &lt; 1 an</span></div><div class="lot-f"><span class="lot-rt">468 <span class="c">€</span></span><span class="lot-m">T2 · 47 m²</span></div></div>
+        <div class="lot" style="--c:var(--ora)"><div class="lot-t"><div><div class="lot-r">D-104</div><div class="lot-loc">TANGUY Maxence</div></div><span class="bdg b-w">DPE ?</span></div><div class="lot-f"><span class="lot-rt">395 <span class="c">€</span></span><span class="lot-m">T1 · 31 m²</span></div></div>
+        <div class="lot vac" style="--c:var(--vio)"><div class="lot-t"><div><div class="lot-r">D-106</div><div class="lot-loc">— vacant —</div></div><span class="bdg b-v">Vacant</span></div><div class="lot-f"><span class="lot-rt">420 <span class="c">€</span></span><span class="lot-m">T2 · 45 m²</span></div></div>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="grp-h"><div class="ic">🏛</div><h3>Ferrette</h3><div class="grp-st"><div><b>6</b><span>lots</span></div><div><b>3 670 €</b><span>HC/mois</span></div><div><b class="warn">2 ⚠</b><span>alertes</span></div></div></div>
+      <div class="lots">
+        <div class="lot" style="--c:var(--ora)"><div class="lot-t"><div><div class="lot-r">F-001</div><div class="lot-loc">Joseph Misslin</div></div><span class="bdg b-w">Indice ?</span></div><div class="lot-f"><span class="lot-rt">615 <span class="c">€</span></span><span class="lot-m">T3 · 62 m²</span></div></div>
+        <div class="lot" style="--c:var(--grn)"><div class="lot-t"><div><div class="lot-r">F-102</div><div class="lot-loc">Natalia Sultan</div></div><span class="bdg b-ok">Loué</span></div><div class="lot-f"><span class="lot-rt">640 <span class="c">€</span></span><span class="lot-m">T3 · 65 m²</span></div></div>
+        <div class="lot" style="--c:var(--acc)"><div class="lot-t"><div><div class="lot-r">F-103</div><div class="lot-loc">Weigel Lisa</div></div><span class="bdg b-l">Bail &lt; 1 an</span></div><div class="lot-f"><span class="lot-rt">695 <span class="c">€</span></span><span class="lot-m">T3 · 68 m²</span></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Welcome modal -->
+<div class="modal on" id="welcome">
+  <div class="card">
+    <div class="wlogo">🏠</div>
+    <h2>Bienvenue dans ImmoTrack 👋</h2>
+    <p class="lead">Gérez tous vos biens, baux, loyers et obligations légales au même endroit. Découvrez l'application en 30 secondes :</p>
+    <div class="choices">
+      <button class="choice prim" onclick="startTour()"><span class="ce">▶</span><span><b>Tour guidé interactif</b><s>On vous montre chaque onglet, étape par étape</s></span></button>
+      <button class="choice" onclick="openVideo()"><span class="ce">🎬</span><span><b>Regarder la vidéo</b><s>Présentation complète en 2 min</s></span></button>
+      <button class="choice" onclick="loadDemo()"><span class="ce">🧪</span><span><b>Explorer les données de démo</b><s>Un patrimoine fictif déjà rempli pour tester</s></span></button>
+    </div>
+    <button class="skip-w" onclick="closeAll()">Passer, je connais déjà</button>
+  </div>
+</div>
+
+<!-- Video modal -->
+<div class="modal" id="video">
+  <div class="card" style="max-width:680px;padding:24px">
+    <div class="video-box"><button class="vclose" onclick="closeAll()">✕</button><div class="play">▶</div></div>
+    <h2 style="font-size:20px">Présentation d'ImmoTrack</h2>
+    <p class="lead" style="margin-bottom:0">Vidéo de démonstration (placeholder). En vrai : une vidéo de 2 min hébergée + des tutos courts par fonction, accessibles aussi depuis le centre d'aide « ? ».</p>
+  </div>
+</div>
+
+<!-- Onboarding spotlight -->
+<div id="ob-overlay">
+  <div class="ob-mask" id="m-top"></div><div class="ob-mask" id="m-bot"></div>
+  <div class="ob-mask" id="m-left"></div><div class="ob-mask" id="m-right"></div>
+  <div class="ob-ring" id="ob-ring"></div>
+  <div class="ob-tip" id="ob-tip">
+    <div class="ob-step" id="ob-step">ÉTAPE 1 / 5</div>
+    <h4 id="ob-title"></h4>
+    <p id="ob-text"></p>
+    <div class="ob-bar"><i id="ob-prog"></i></div>
+    <div class="ob-act">
+      <button class="skip" onclick="closeAll()">Passer le tour</button>
+      <div class="ob-nav">
+        <button class="ob-btn ob-prev" id="ob-prev" onclick="obPrev()">Précédent</button>
+        <button class="ob-btn ob-next" id="ob-next" onclick="obNext()">Suivant →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="demo-ctl">
+  <button class="p" onclick="location.reload()">↻ Rejouer l'accueil</button>
+  <button onclick="startTour()">▶ Tour guidé</button>
+  <button onclick="openVideo()">🎬 Vidéo</button>
+</div>
+
+<script>
+const STEPS=[
+  {sel:'#t-ctx',title:'Filtrez toute l\'app',text:'Choisissez une SCI (ou « Toutes ») et un mois. Ce filtre s\'applique partout : vos chiffres et vos listes se recalculent instantanément. La barre reste toujours en haut.'},
+  {sel:'#t-kpi',title:'Vos chiffres clés',text:'En un coup d\'œil : loyers perçus, taux d\'occupation, cash-flow de l\'année et ce qu\'il reste à traiter. Les courbes passent au rouge si une valeur devient négative.'},
+  {sel:'#t-grp',title:'Vos biens groupés par immeuble',text:'Chaque immeuble forme une section avec son total de loyers et ses alertes. Plus besoin de chercher : tout est rangé et lisible, même avec 50 lots.'},
+  {sel:'#t-lot',title:'Une fiche par logement',text:'Statut (loué / vacant), locataire, loyer, surface, alertes (DPE manquant, indice IRL…). Cliquez pour ouvrir la fiche 360° complète du bien.'},
+  {sel:'.sb',title:'Naviguez par grands thèmes',text:'Bien (le mur), Locataires (les personnes), Finance, Communication. Chaque onglet a un rôle clair. Vous pourrez rejouer ce tour à tout moment depuis « ? Aide ».'}
+];
+let cur=0;
+function startTour(){closeModals();cur=0;document.getElementById('ob-overlay').classList.add('on');render();}
+function obNext(){if(cur<STEPS.length-1){cur++;render();}else{closeAll();toast('🎉 Vous êtes prêt ! Bonne gestion.');}}
+function obPrev(){if(cur>0){cur--;render();}}
+function render(){
+  const s=STEPS[cur];const el=document.querySelector(s.sel);if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>{
+    const r=el.getBoundingClientRect();const pad=8;
+    const x=r.left-pad,y=r.top-pad,w=r.width+pad*2,h=r.height+pad*2;
+    const ring=document.getElementById('ob-ring');
+    ring.style.left=x+'px';ring.style.top=y+'px';ring.style.width=w+'px';ring.style.height=h+'px';
+    // masks
+    document.getElementById('m-top').style.cssText=`left:0;top:0;width:100vw;height:${Math.max(0,y)}px`;
+    document.getElementById('m-bot').style.cssText=`left:0;top:${y+h}px;width:100vw;height:${Math.max(0,window.innerHeight-(y+h))}px`;
+    document.getElementById('m-left').style.cssText=`left:0;top:${y}px;width:${Math.max(0,x)}px;height:${h}px`;
+    document.getElementById('m-right').style.cssText=`left:${x+w}px;top:${y}px;width:${Math.max(0,window.innerWidth-(x+w))}px;height:${h}px`;
+    // tip position : sous la cible si place, sinon au dessus
+    const tip=document.getElementById('ob-tip');
+    const below=y+h+16;const tipH=tip.offsetHeight||220;
+    let ty=(below+tipH<window.innerHeight)?below:Math.max(16,y-tipH-16);
+    let tx=Math.min(Math.max(16,x),window.innerWidth-340);
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+    document.getElementById('ob-step').textContent=`ÉTAPE ${cur+1} / ${STEPS.length}`;
+    document.getElementById('ob-title').textContent=s.title;
+    document.getElementById('ob-text').textContent=s.text;
+    document.getElementById('ob-prog').style.width=((cur+1)/STEPS.length*100)+'%';
+    document.getElementById('ob-prev').style.visibility=cur===0?'hidden':'visible';
+    document.getElementById('ob-next').textContent=cur===STEPS.length-1?'Terminer ✓':'Suivant →';
+  },300);
+}
+function openVideo(){closeModals();document.getElementById('video').classList.add('on');}
+function loadDemo(){closeAll();toast('🧪 Données de démonstration chargées (15 lots, 3 immeubles)');}
+function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));}
+function closeAll(){closeModals();document.getElementById('ob-overlay').classList.remove('on');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),3200);}
+window.addEventListener('resize',()=>{if(document.getElementById('ob-overlay').classList.contains('on'))render();});
+</script>
+</body>
+</html>
