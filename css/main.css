@@ -2469,6 +2469,45 @@ textarea.field-modified-since-sig{
   #p-loyers .tbl tr td[colspan]{display:block !important;text-align:center;padding:18px !important}
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   v15.147 MOBILE-AUDIT — Pilotage (onglet Comptabilité) : matrice lot×mois → cartes.
+   Matrice = on garde les statuts mensuels en CHIPS étiquetés (data-mo) pour ne pas perdre
+   le contexte du mois (l'en-tête est masqué). 4 mois fixes (M-3..M) → positions stables.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width:768px){
+  #tp-pil-compta .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #pil-compta-tbl thead{display:none}
+  #pil-compta-tbl,#pil-compta-tbl tbody{display:block;width:auto}
+  #pil-compta-tbl tr{
+    position:relative;display:block;width:auto;
+    background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+    padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);border-left:3px solid var(--blu);
+  }
+  #pil-compta-tbl tr:hover,#pil-compta-tbl tr:hover td{background:transparent}
+  #pil-compta-tbl td{display:block;border:none !important;padding:0 !important;white-space:normal;text-align:left !important}
+  /* Checkbox (col1) + Locataire·Bien (col2) sur la 1re ligne */
+  #pil-compta-tbl td:nth-child(1){display:inline-block !important;margin-right:8px;vertical-align:top}
+  #pil-compta-tbl td:nth-child(2){display:inline-block !important;font-size:14px;padding-right:46px !important;vertical-align:top}
+  /* DG (col3) + Solde (col4) : ligne méta inline avec libellés */
+  #pil-compta-tbl td:nth-child(3),#pil-compta-tbl td:nth-child(4){display:inline !important;font-size:12px;color:var(--t2);text-align:left !important}
+  #pil-compta-tbl td:nth-child(3){margin-top:6px}
+  #pil-compta-tbl td:nth-child(3)::before{content:"DG "}
+  #pil-compta-tbl td:nth-child(3)::after{content:"   ·   ";color:var(--t3)}
+  #pil-compta-tbl td:nth-child(4)::before{content:"Solde "}
+  /* Mois (cells [data-mo]) : chips étiquetés, wrap. Fond pastel inline conservé (heatmap). */
+  #pil-compta-tbl td[data-mo]{
+    display:inline-block !important;margin:7px 6px 0 0;padding:3px 9px !important;
+    border-radius:8px;font-size:11.5px;color:#1a2332;text-align:left !important;
+  }
+  #pil-compta-tbl td[data-mo]::before{content:attr(data-mo)" ";font-weight:700;opacity:.65}
+  #pil-compta-tbl td[data-mo] span{font-weight:600}
+  /* Action ↗ (dernière colonne) : en haut à droite */
+  #pil-compta-tbl td:last-child{position:absolute;top:8px;right:10px}
+  #pil-compta-tbl td:last-child .btn{min-width:40px;min-height:34px}
+  /* État vide (colspan) */
+  #pil-compta-tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
+}
+
 /* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────── */
 @media (max-width:600px){
   /* Modal plein écran (override des inline styles max-width:980px;width:96vw) */
