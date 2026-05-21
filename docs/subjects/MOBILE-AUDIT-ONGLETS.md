@@ -128,8 +128,11 @@ présentes (1 entité, 4 logements, 14 mouvements, 2 baux).
 - Vérifié en preview : Agenda 0 small target, Pilotage 2 restants = liens texte de noms (« Marie Demo »)
   inline dans la table, acceptables (pas des cibles primaires ; les agrandir gonflerait la table).
 
-**Reste en polish P2 (non bloquant)** : affordance visuelle de scroll (ombre/dégradé bord droit) sur les
-tables larges Pilotage/Loyers + version cartes mobile (nice-to-have, les tables scrollent déjà).
+**Polish P2 affordance scroll — ✅ livré v15.144** : ombres de scroll horizontal sur les tables larges
+(`.tbl-wrap` ≤768px, technique pure CSS background-attachment local+scroll) qui apparaissent/disparaissent
+selon la position. Couleur theme-aware via `--tbl-edge` (rgba(0,0,0,.16) clair / .55 sombre → visible sur
+`--sur` foncé). EDL/IRL exclus (règles `.tbl-wrap` plus spécifiques). Vérifié en preview (4 gradients sur
+Pilotage/Loyers, variable résolue par thème). Reste optionnel : version cartes mobile (non nécessaire, scroll OK).
 
 ## Journal
 - 2026-05-01 : créé · P1 car critique pour V1 commerciale (mobile = audience massive)

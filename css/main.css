@@ -7,6 +7,7 @@
   --sur3:rgba(230,236,245,.8);
   --bor:rgba(0,0,0,.09);
   --bor2:rgba(0,0,0,.05);
+  --tbl-edge:rgba(0,0,0,.16); /* v15.144 ombre de scroll tables (clair) */
   --t1:#1a2332;
   --t2:#5a6e87;
   --t3:#9aabbf;
@@ -149,6 +150,7 @@
   --sur3:#252b48;
   --bor:rgba(255,255,255,.08);
   --bor2:rgba(255,255,255,.05);
+  --tbl-edge:rgba(0,0,0,.55); /* v15.144 ombre de scroll tables (sombre, visible sur --sur foncé) */
   --t1:#F3F5FA;
   --t2:#A0A8C3;
   --t3:#6B7395;
@@ -3599,6 +3601,19 @@ textarea.field-modified-since-sig{
   /* v15.140 BUG-MOBILE-MENU-PLUS — Backdrop derrière la sidebar overlay (entre bottom nav 999 et sidebar 2000) */
   #sb-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1900;animation:sbbd-in .2s ease}
   @keyframes sbbd-in{from{opacity:0}to{opacity:1}}
+  /* v15.144 MOBILE-AUDIT — Affordance de scroll horizontal sur les tables larges (Pilotage,
+     Loyers…). Ombres aux bords G/D qui apparaissent/disparaissent selon la position de scroll
+     (technique pure CSS background-attachment local+scroll). Signale qu'on peut faire défiler.
+     EDL/IRL exclus automatiquement (leurs règles .tbl-wrap, + spécifiques, remettent background). */
+  .tbl-wrap{
+    background:
+      linear-gradient(to right, var(--sur), rgba(0,0,0,0)) left center / 28px 100% no-repeat,
+      linear-gradient(to left, var(--sur), rgba(0,0,0,0)) right center / 28px 100% no-repeat,
+      radial-gradient(farthest-side at 0 50%, var(--tbl-edge), rgba(0,0,0,0)) left center / 14px 100% no-repeat,
+      radial-gradient(farthest-side at 100% 50%, var(--tbl-edge), rgba(0,0,0,0)) right center / 14px 100% no-repeat,
+      var(--sur);
+    background-attachment: local, local, scroll, scroll, local;
+  }
   .g2,.g3,.g4{grid-template-columns:1fr}
   .fg2,.fg3{grid-template-columns:1fr}
   .pc{padding:14px 10px}
