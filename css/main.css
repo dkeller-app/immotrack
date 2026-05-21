@@ -2622,6 +2622,49 @@ textarea.field-modified-since-sig{
   #p-quittances .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
 }
 
+/* v15.152 MOBILE-AUDIT — Révision IRL : vue Tableau (le défaut est déjà en cartes groupées) +
+   Historique (table large sans alternative cartes) → cartes. Champs labellisés (en-tête masqué).
+   La « Table IRL INSEE » (4 colonnes) reste une table : elle tient déjà à l'écran. */
+@media (max-width:768px){
+  /* — Révision, vue Tableau (#irl-table) : 9 col — */
+  #irl-table .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #irl-table .tbl thead{display:none}
+  #irl-table .tbl,#irl-table .tbl tbody{display:block;width:auto}
+  #irl-table .tbl tr{position:relative;display:block;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);border-left:3px solid var(--blu)}
+  #irl-table .tbl tr:hover,#irl-table .tbl tr:hover td{background:transparent}
+  #irl-table .tbl td{display:block;border:none !important;padding:0 !important;white-space:normal;text-align:left !important}
+  #irl-table .tbl td:nth-child(1){font-size:14px;font-weight:700;color:var(--t1);padding-right:96px !important}
+  #irl-table .tbl td:nth-child(2){font-size:12.5px;color:var(--t2);margin-bottom:4px}
+  #irl-table .tbl td:nth-child(3),#irl-table .tbl td:nth-child(4),#irl-table .tbl td:nth-child(5),#irl-table .tbl td:nth-child(6){font-size:12px;color:var(--t2);margin-top:2px}
+  #irl-table .tbl td:nth-child(3)::before{content:"IRL contrat : ";color:var(--t3)}
+  #irl-table .tbl td:nth-child(4)::before{content:"IRL vigueur : ";color:var(--t3)}
+  #irl-table .tbl td:nth-child(5)::before{content:"Anniversaire : ";color:var(--t3)}
+  #irl-table .tbl td:nth-child(6)::before{content:"Loyer actuel : ";color:var(--t3)}
+  #irl-table .tbl td:nth-child(7){position:absolute;top:10px;right:12px;font-size:15px;font-weight:700;text-align:right !important;color:var(--grn)}
+  #irl-table .tbl td:nth-child(8){position:absolute;top:31px;right:12px;font-size:11.5px;text-align:right !important}
+  #irl-table .tbl td.act-cell{display:flex !important;justify-content:flex-end;gap:6px;margin-top:8px}
+  #irl-table .tbl td.act-cell .btn{margin:0 !important;min-width:40px;min-height:34px}
+  #irl-table .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
+  /* — Historique (#tp-irl-histo) : 8 col — */
+  #tp-irl-histo .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #tp-irl-histo .tbl thead{display:none}
+  #tp-irl-histo .tbl,#tp-irl-histo .tbl tbody{display:block;width:auto}
+  #tp-irl-histo .tbl tr{position:relative;display:block;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);border-left:3px solid var(--blu)}
+  #tp-irl-histo .tbl tr:hover,#tp-irl-histo .tbl tr:hover td{background:transparent}
+  #tp-irl-histo .tbl td{display:block;border:none !important;padding:0 !important;white-space:normal;text-align:left !important}
+  #tp-irl-histo .tbl td:nth-child(2){font-size:14px;font-weight:700;color:var(--t1);padding-right:84px !important}
+  #tp-irl-histo .tbl td:nth-child(3){font-size:12.5px;color:var(--t2)}
+  #tp-irl-histo .tbl td:nth-child(1){font-size:11.5px;color:var(--t3);margin-top:2px}
+  #tp-irl-histo .tbl td:nth-child(1)::before{content:"Appliqué le ";color:var(--t3)}
+  #tp-irl-histo .tbl td:nth-child(4),#tp-irl-histo .tbl td:nth-child(5),#tp-irl-histo .tbl td:nth-child(6),#tp-irl-histo .tbl td:nth-child(7){font-size:12px;color:var(--t2);margin-top:2px}
+  #tp-irl-histo .tbl td:nth-child(4)::before{content:"IRL réf : ";color:var(--t3)}
+  #tp-irl-histo .tbl td:nth-child(5)::before{content:"IRL vigueur : ";color:var(--t3)}
+  #tp-irl-histo .tbl td:nth-child(6)::before{content:"Ancien loyer : ";color:var(--t3)}
+  #tp-irl-histo .tbl td:nth-child(7)::before{content:"Nouveau loyer : ";color:var(--t3)}
+  #tp-irl-histo .tbl td:nth-child(8){position:absolute;top:10px;right:12px;font-size:15px;font-weight:700;text-align:right !important}
+  #tp-irl-histo .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
+}
+
 /* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────── */
 @media (max-width:600px){
   /* Modal plein écran (override des inline styles max-width:980px;width:96vw) */
