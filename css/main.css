@@ -3589,12 +3589,15 @@ textarea.field-modified-since-sig{
 
 /* Phone ≤ 768 : tout en pleine largeur (1 colonne) */
 @media(max-width:768px){
-  .sb-nav{position:fixed;top:0;left:0;height:100%;transform:translateX(-100%);width:var(--sb)!important;transition:transform .25s;z-index:1500}
-  .sb-nav.open{transform:translateX(0)}
+  .sb-nav{position:fixed;top:0;left:0;height:100%;transform:translateX(-100%);width:var(--sb)!important;transition:transform .25s;z-index:2000}
+  /* v15.141 — !important + z-index élevé pour défaire toute règle/CSS cache concurrente
+     (sidebar restait masquée derrière le backdrop sur certains devices). translate3d pour
+     forcer une couche de compositing (évite les bugs de paint iOS Safari). */
+  .sb-nav.open{transform:translate3d(0,0,0)!important;z-index:2000!important}
   .sb-collapse-btn{display:none}
   .tb-menu{display:block}
-  /* v15.140 BUG-MOBILE-MENU-PLUS — Backdrop derrière la sidebar overlay (entre bottom nav 999 et sidebar 1500) */
-  #sb-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1400;animation:sbbd-in .2s ease}
+  /* v15.140 BUG-MOBILE-MENU-PLUS — Backdrop derrière la sidebar overlay (entre bottom nav 999 et sidebar 2000) */
+  #sb-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1900;animation:sbbd-in .2s ease}
   @keyframes sbbd-in{from{opacity:0}to{opacity:1}}
   .g2,.g3,.g4{grid-template-columns:1fr}
   .fg2,.fg3{grid-template-columns:1fr}
@@ -7376,5 +7379,8 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   body[data-dash-v4="on"] #drive-user-badge { display: none !important; }
 
   /* v15.55 — Sidebar overlay mobile : au-dessus du bottom nav quand ouverte */
-  body[data-dash-v4="on"] .sb-nav { z-index: 1500 !important; box-shadow: 4px 0 24px rgba(0,0,0,.4); }
+  /* v15.141 — z-index 2000 (au-dessus du backdrop 1900). Cette règle a une spécificité
+     supérieure à .sb-nav.open : c'est ELLE qui fixe le z-index réel de la sidebar en mode V4.
+     Doit donc rester > backdrop sinon la sidebar passe DERRIÈRE l'ombrage gris. */
+  body[data-dash-v4="on"] .sb-nav { z-index: 2000 !important; box-shadow: 4px 0 24px rgba(0,0,0,.4); }
 }
