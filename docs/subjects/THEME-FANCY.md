@@ -1,6 +1,6 @@
 # THEME-FANCY — Thèmes "fancy" premium (presets visuels au-delà des couleurs)
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : M (~4-6h + itérations mockups)
+**Status** : ⬜ À faire — **EN DERNIER dans la roadmap** (décision user 2026-05-17 : « on fera ça en dernier ») · **Prio** : P2 (timing : après les fondations + refontes fonctionnelles) · **Taille** : L (refonte visuelle haut niveau + itérations mockups)
 **Détecté** : 2026-05-17 (user, retour de Marion : « il faudrait un mode de couleur vraiment fancy fancy ! marion me dit que ce n'est pas assez fancy »)
 **Lié à** : système thèmes existant (Paramètres > Thème, 10 vars CSS) · feedback_design_consistency · feedback_mockup_first · dashboard V4 (déjà fonts Inter + JetBrains Mono)
 
@@ -99,6 +99,19 @@ Le système de thèmes actuel (`THEME_DEFAULTS` / `THEME_LABELS`, Paramètres > 
 ⚠️ **Refonte récente déjà faite** (dashboard V4) → ne pas refaire une refonte de plus sans un cap design clairement supérieur, validé sur mockups de haut niveau AVANT tout code. Pas de énième itération moyenne.
 
 ⚠️ **Graphiques** : cf `feedback_sparkline_context` (règle renforcée 2026-05-17). Tester explicitement les cas négatifs (cash-flow rouge) après tout restylage.
+
+⚠️ **Responsive NON NÉGOCIABLE** (user 2026-05-17 : « il ne faut pas casser les visu téléphone et tablette non plus ») : toute refonte/thème doit être validée sur **3 formats (PC / tablette / téléphone)**, pas desktop-only. Les mockups de haut niveau doivent montrer les 3 formats. Les effets fancy (glassmorphism, gradients) ne doivent pas dégrader le mobile (perf + lisibilité). cf mémoire `feedback_responsive`.
+
+## Approche d'exécution (décision user 2026-05-17 : « on fera ça en dernier »)
+
+**Timing** : ce chantier est le **DERNIER** de la roadmap — après les fondations (NAV-FILTRE-ENTITE-GLOBAL), la zone admin (Params/Sauvegarde/Import), les refontes fonctionnelles (Bien/Locataires, group-by-immeuble). On ne restyle que quand le fond est stable.
+
+**Méthode "agents design top niveau"** (user veut du haut de gamme) :
+- **Dispatch de plusieurs agents design en parallèle**, chacun explorant une direction premium distincte (ex : « fintech dark premium », « éditorial luxe clair », « néo-brutalisme raffiné », « organique/soft »)
+- Chaque agent produit un **mockup complet de haut niveau × 3 formats** (PC/tablette/téléphone)
+- Skills mobilisables : `frontend-design`, `theme-factory`, `canvas-design`
+- Comparaison → **Marion + user tranchent** → on décline la direction gagnante dans l'app
+- Contraintes imposées à chaque agent : préserver les conventions graphiques (couleur signe + données) + responsive 3 formats + garder la barre de contexte validée
 
 ## Notes utilisateur
 
