@@ -3589,10 +3589,13 @@ textarea.field-modified-since-sig{
 
 /* Phone ≤ 768 : tout en pleine largeur (1 colonne) */
 @media(max-width:768px){
-  .sb-nav{position:fixed;top:0;left:0;height:100%;transform:translateX(-100%);width:var(--sb)!important;transition:transform .25s}
+  .sb-nav{position:fixed;top:0;left:0;height:100%;transform:translateX(-100%);width:var(--sb)!important;transition:transform .25s;z-index:1500}
   .sb-nav.open{transform:translateX(0)}
   .sb-collapse-btn{display:none}
   .tb-menu{display:block}
+  /* v15.140 BUG-MOBILE-MENU-PLUS — Backdrop derrière la sidebar overlay (entre bottom nav 999 et sidebar 1500) */
+  #sb-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1400;animation:sbbd-in .2s ease}
+  @keyframes sbbd-in{from{opacity:0}to{opacity:1}}
   .g2,.g3,.g4{grid-template-columns:1fr}
   .fg2,.fg3{grid-template-columns:1fr}
   .pc{padding:14px 10px}
@@ -7313,6 +7316,9 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .v4-bnav {
   display: none; /* caché par défaut, affiché par media query mobile uniquement */
 }
+
+/* v15.140 BUG-MOBILE-MENU-PLUS — Backdrop caché par défaut (desktop), affiché en mobile via .open */
+#sb-backdrop { display: none; }
 
 @media (max-width: 767px) {
   /* Affiche bottom nav SI mode V4 actif */
