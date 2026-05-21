@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="emeraude">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Mockup THEME-FANCY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   THEME-FANCY — 4 directions premium pour ImmoTrack
+   Mockup statique (données fictives) — 2026-05-17
+   ============================================================ */
+
+:root{
+  --r-sm:10px; --r-md:16px; --r-lg:22px; --r-xl:28px;
+  --font-display:'Fraunces',Georgia,serif;
+  --font-body:'Manrope',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+
+/* ---------- THÈME 1 : ÉMERAUDE (dark premium, glow teal) ---------- */
+[data-theme="emeraude"]{
+  --bg:#0a0f0d; --bg2:#0d1512;
+  --mesh1:#0e3b2e; --mesh2:#062d3d; --mesh3:#08201a;
+  --sur:rgba(20,32,28,.72); --sur-solid:#121d19;
+  --sur2:rgba(16,26,23,.5);
+  --bor:rgba(82,200,160,.14); --bor-strong:rgba(82,200,160,.3);
+  --t1:#eafff6; --t2:#8fb8aa; --t3:#5d8377;
+  --acc:#34d399; --acc2:#22d3ee; --acc-glow:rgba(52,211,153,.45);
+  --grn:#34d399; --red:#fb7185; --ora:#fbbf24;
+  --grad-hero:linear-gradient(135deg,#0e3b2e 0%,#062d3d 100%);
+  --grad-acc:linear-gradient(120deg,#34d399 0%,#22d3ee 100%);
+  --shadow:0 18px 50px -12px rgba(0,0,0,.7),0 2px 8px rgba(0,0,0,.4);
+  --glow:0 0 0 1px var(--bor-strong),0 8px 40px -8px var(--acc-glow);
+  --glass-blur:20px;
+}
+/* ---------- THÈME 2 : NUIT AMÉTHYSTE (dark néon, le + fancy) ---------- */
+[data-theme="nuit"]{
+  --bg:#0b0a14; --bg2:#0f0d1c;
+  --mesh1:#2a1a52; --mesh2:#3d1d56; --mesh3:#10183d;
+  --sur:rgba(26,22,46,.7); --sur-solid:#16132a;
+  --sur2:rgba(22,18,40,.5);
+  --bor:rgba(167,139,250,.16); --bor-strong:rgba(167,139,250,.34);
+  --t1:#f3eeff; --t2:#a99ccf; --t3:#776b9e;
+  --acc:#a78bfa; --acc2:#f0abfc; --acc-glow:rgba(167,139,250,.5);
+  --grn:#4ade80; --red:#fb7185; --ora:#fbbf24;
+  --grad-hero:linear-gradient(135deg,#2a1a52 0%,#3d1d56 60%,#10183d 100%);
+  --grad-acc:linear-gradient(120deg,#a78bfa 0%,#f0abfc 100%);
+  --shadow:0 18px 50px -12px rgba(0,0,0,.75),0 2px 8px rgba(0,0,0,.5);
+  --glow:0 0 0 1px var(--bor-strong),0 8px 44px -6px var(--acc-glow);
+  --glass-blur:22px;
+}
+/* ---------- THÈME 3 : AURORE (clair élégant, gradient mesh doux) ---------- */
+[data-theme="aurore"]{
+  --bg:#fbf7f4; --bg2:#fff;
+  --mesh1:#ffe3d3; --mesh2:#e7dcff; --mesh3:#d3f0ff;
+  --sur:rgba(255,255,255,.78); --sur-solid:#fff;
+  --sur2:rgba(255,255,255,.55);
+  --bor:rgba(120,90,160,.13); --bor-strong:rgba(120,90,160,.26);
+  --t1:#2a1f33; --t2:#6f6480; --t3:#9a90a8;
+  --acc:#b45cd6; --acc2:#f97316; --acc-glow:rgba(180,92,214,.32);
+  --grn:#16a34a; --red:#e11d48; --ora:#ea580c;
+  --grad-hero:linear-gradient(135deg,#ffe3d3 0%,#e7dcff 55%,#d3f0ff 100%);
+  --grad-acc:linear-gradient(120deg,#b45cd6 0%,#f97316 100%);
+  --shadow:0 18px 44px -14px rgba(120,90,160,.28),0 2px 8px rgba(120,90,160,.1);
+  --glow:0 0 0 1px var(--bor-strong),0 10px 36px -10px var(--acc-glow);
+  --glass-blur:18px;
+}
+/* ---------- THÈME 4 : ARDOISE (clair sobre premium) ---------- */
+[data-theme="ardoise"]{
+  --bg:#f4f6f8; --bg2:#fff;
+  --mesh1:#e2e8f0; --mesh2:#dbeafe; --mesh3:#eef2f6;
+  --sur:rgba(255,255,255,.82); --sur-solid:#fff;
+  --sur2:rgba(248,250,252,.6);
+  --bor:rgba(30,58,95,.1); --bor-strong:rgba(30,58,95,.2);
+  --t1:#0f1f33; --t2:#5b6b80; --t3:#94a3b8;
+  --acc:#0ea5e9; --acc2:#14b8a6; --acc-glow:rgba(14,165,233,.28);
+  --grn:#059669; --red:#dc2626; --ora:#d97706;
+  --grad-hero:linear-gradient(135deg,#e2e8f0 0%,#dbeafe 100%);
+  --grad-acc:linear-gradient(120deg,#0ea5e9 0%,#14b8a6 100%);
+  --shadow:0 16px 40px -16px rgba(30,58,95,.22),0 2px 6px rgba(30,58,95,.08);
+  --glow:0 0 0 1px var(--bor-strong),0 8px 30px -10px var(--acc-glow);
+  --glass-blur:16px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--t1);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  transition:background .5s var(--ease),color .5s var(--ease);
+  overflow-x:hidden;
+}
+/* fond mesh gradient atmosphérique */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(50% 60% at 12% 8%,var(--mesh1) 0%,transparent 60%),
+    radial-gradient(46% 56% at 92% 16%,var(--mesh2) 0%,transparent 58%),
+    radial-gradient(60% 70% at 70% 100%,var(--mesh3) 0%,transparent 60%);
+  opacity:.85;transition:opacity .5s var(--ease);
+}
+/* grain subtil */
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ===== Theme switcher (hors app) ===== */
+.switcher{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:100;
+  display:flex;gap:6px;padding:7px;border-radius:999px;
+  background:var(--sur);backdrop-filter:blur(var(--glass-blur));
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--bor);box-shadow:var(--shadow);
+}
+.sw-btn{
+  font-family:var(--font-body);font-weight:600;font-size:12.5px;
+  padding:8px 16px;border:none;border-radius:999px;cursor:pointer;
+  background:transparent;color:var(--t2);transition:all .3s var(--ease);
+  letter-spacing:.01em;
+}
+.sw-btn:hover{color:var(--t1)}
+.sw-btn.act{background:var(--grad-acc);color:#fff;box-shadow:0 4px 16px -4px var(--acc-glow)}
+
+/* ===== Layout app ===== */
+.app{position:relative;z-index:1;display:grid;grid-template-columns:248px 1fr;min-height:100vh;padding-top:72px}
+
+/* --- Sidebar --- */
+.sb{
+  padding:26px 16px;border-right:1px solid var(--bor);
+  display:flex;flex-direction:column;gap:4px;
+}
+.brand{display:flex;align-items:center;gap:11px;padding:0 8px 26px}
+.brand-logo{
+  width:38px;height:38px;border-radius:11px;background:var(--grad-acc);
+  display:grid;place-items:center;font-size:19px;box-shadow:var(--glow);
+  animation:float 6s var(--ease) infinite;
+}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.brand-name{font-family:var(--font-display);font-weight:600;font-size:19px;letter-spacing:-.02em}
+.brand-name b{background:var(--grad-acc);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.brand-ver{font-family:var(--font-mono);font-size:9.5px;color:var(--t3);display:block;margin-top:1px}
+
+.nav-lbl{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);padding:18px 12px 8px}
+.ni{
+  display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:var(--r-sm);
+  color:var(--t2);font-weight:600;font-size:13.5px;cursor:pointer;
+  transition:all .25s var(--ease);position:relative;
+}
+.ni .ic{font-size:16px;width:20px;text-align:center}
+.ni:hover{background:var(--sur2);color:var(--t1)}
+.ni.act{background:var(--sur);color:var(--t1);box-shadow:var(--glow)}
+.ni.act::before{content:'';position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:3px;height:22px;border-radius:0 3px 3px 0;background:var(--grad-acc)}
+
+/* --- Main --- */
+.main{padding:26px 34px 60px;overflow:hidden}
+
+/* Barre de contexte globale (NAV-FILTRE-ENTITE-GLOBAL) */
+.ctx-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:13px 16px;border-radius:var(--r-lg);margin-bottom:26px;
+  background:var(--sur);backdrop-filter:blur(var(--glass-blur));
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--bor);box-shadow:var(--shadow);
+  animation:rise .6s var(--ease) both;
+}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  min-width:54px;height:50px;padding:0 14px;border-radius:14px;cursor:pointer;
+  background:var(--sur2);border:1px solid var(--bor);color:var(--t2);
+  transition:all .28s var(--ease);
+}
+.pill b{font-weight:800;font-size:14px;line-height:1}
+.pill s{text-decoration:none;font-size:9.5px;color:var(--t3);font-weight:600}
+.pill:hover{transform:translateY(-2px);color:var(--t1);border-color:var(--bor-strong)}
+.pill.act{background:var(--grad-acc);border-color:transparent;color:#fff;box-shadow:0 8px 24px -6px var(--acc-glow)}
+.pill.act s{color:rgba(255,255,255,.85)}
+.pill.star b{font-size:16px}
+
+.period{display:flex;align-items:center;gap:4px;background:var(--sur2);border:1px solid var(--bor);border-radius:14px;padding:5px 6px}
+.period button{width:30px;height:30px;border:none;border-radius:9px;background:transparent;color:var(--t2);cursor:pointer;font-size:15px;transition:all .2s}
+.period button:hover{background:var(--sur);color:var(--acc)}
+.period .lbl{font-weight:700;font-size:13px;padding:0 8px;min-width:96px;text-align:center}
+.period .lbl small{display:block;font-size:9px;color:var(--t3);font-weight:600;letter-spacing:.08em}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:26px}
+.kpi{
+  position:relative;padding:20px;border-radius:var(--r-lg);overflow:hidden;
+  background:var(--sur);backdrop-filter:blur(var(--glass-blur));
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--bor);box-shadow:var(--shadow);
+  animation:rise .6s var(--ease) both;transition:transform .35s var(--ease),box-shadow .35s var(--ease);
+}
+.kpi:hover{transform:translateY(-4px);box-shadow:var(--glow)}
+.kpi:nth-child(1){animation-delay:.05s}.kpi:nth-child(2){animation-delay:.12s}
+.kpi:nth-child(3){animation-delay:.19s}.kpi:nth-child(4){animation-delay:.26s}
+.kpi-ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:18px;margin-bottom:14px;background:var(--sur2);border:1px solid var(--bor)}
+.kpi-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.kpi-val{font-family:var(--font-display);font-weight:600;font-size:30px;letter-spacing:-.02em;line-height:1}
+.kpi-val .cur{font-size:17px;color:var(--t2);font-weight:500}
+.kpi-sub{display:inline-flex;align-items:center;gap:4px;margin-top:9px;font-size:11.5px;font-weight:700;font-family:var(--font-mono)}
+.up{color:var(--grn)}.down{color:var(--red)}
+.kpi-spark{position:absolute;right:0;bottom:0;width:90px;height:46px;opacity:.5}
+
+/* Section logements groupés par immeuble (UX-GROUP-BY-IMMEUBLE) */
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;margin:6px 2px 16px}
+.sec-title{font-family:var(--font-display);font-weight:600;font-size:23px;letter-spacing:-.02em}
+.sec-title em{font-style:italic;color:var(--acc)}
+.sec-meta{font-size:12px;color:var(--t2);font-weight:600}
+
+.grp{margin-bottom:22px;animation:rise .6s var(--ease) both;animation-delay:.3s}
+.grp-head{
+  display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:var(--r-md);
+  background:var(--grad-hero);border:1px solid var(--bor);margin-bottom:12px;
+  position:relative;overflow:hidden;
+}
+.grp-head .ic{width:34px;height:34px;border-radius:10px;background:var(--sur);display:grid;place-items:center;font-size:16px;box-shadow:var(--glow)}
+.grp-head h3{font-family:var(--font-display);font-weight:600;font-size:17px;flex:1}
+.grp-stat{display:flex;gap:18px;font-size:12px}
+.grp-stat div{text-align:right}
+.grp-stat b{display:block;font-family:var(--font-mono);font-weight:600;font-size:14px}
+.grp-stat span{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em}
+.warn{color:var(--ora)}
+
+.lots{display:grid;grid-template-columns:repeat(auto-fill,minmax(214px,1fr));gap:12px}
+.lot{
+  padding:15px 16px;border-radius:var(--r-md);cursor:pointer;
+  background:var(--sur);backdrop-filter:blur(var(--glass-blur));
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--bor);box-shadow:var(--shadow);
+  transition:all .3s var(--ease);position:relative;overflow:hidden;
+}
+.lot::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--lotc,var(--acc));opacity:.85}
+.lot:hover{transform:translateY(-3px);box-shadow:var(--glow)}
+.lot-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.lot-ref{font-weight:800;font-size:15px;letter-spacing:-.01em}
+.lot-loc{font-size:11.5px;color:var(--t2);margin-top:2px;font-weight:500}
+.badge{font-size:9.5px;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap;letter-spacing:.02em}
+.b-ok{background:color-mix(in srgb,var(--grn) 18%,transparent);color:var(--grn);--lotc:var(--grn)}
+.b-warn{background:color-mix(in srgb,var(--ora) 18%,transparent);color:var(--ora)}
+.b-loc{background:color-mix(in srgb,var(--acc2) 20%,transparent);color:var(--acc2)}
+.lot-foot{display:flex;align-items:baseline;justify-content:space-between;margin-top:12px;padding-top:11px;border-top:1px solid var(--bor)}
+.lot-rent{font-family:var(--font-mono);font-weight:600;font-size:15px}
+.lot-rent .c{font-size:11px;color:var(--t3)}
+.lot-meta{font-size:10.5px;color:var(--t3);font-weight:600}
+
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+.note{position:relative;z-index:1;text-align:center;padding:30px 20px 50px;color:var(--t3);font-size:12.5px;max-width:680px;margin:0 auto}
+.note b{color:var(--t2)}
+
+/* Responsive */
+@media(max-width:1080px){.kpis{grid-template-columns:repeat(2,1fr)}.app{grid-template-columns:1fr}.sb{display:none}}
+@media(max-width:560px){.kpis{grid-template-columns:1fr}.main{padding:18px 16px 50px}.sec-title{font-size:20px}.ctx-bar{padding:11px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <button class="sw-btn act" onclick="setTheme('emeraude',this)">Émeraude</button>
+  <button class="sw-btn" onclick="setTheme('nuit',this)">Nuit</button>
+  <button class="sw-btn" onclick="setTheme('aurore',this)">Aurore</button>
+  <button class="sw-btn" onclick="setTheme('ardoise',this)">Ardoise</button>
+</div>
+
+<div class="app">
+  <!-- Sidebar (nav cible) -->
+  <aside class="sb">
+    <div class="brand">
+      <div class="brand-logo">🏠</div>
+      <div>
+        <span class="brand-name">Immo<b>Track</b></span>
+        <span class="brand-ver">v15.139 · premium</span>
+      </div>
+    </div>
+    <div class="nav-lbl">Patrimoine</div>
+    <div class="ni act"><span class="ic">🏠</span> Bien</div>
+    <div class="ni"><span class="ic">👥</span> Locataires</div>
+    <div class="ni"><span class="ic">📋</span> EDL</div>
+    <div class="nav-lbl">Finance</div>
+    <div class="ni"><span class="ic">💰</span> Mouvements</div>
+    <div class="ni"><span class="ic">📈</span> Révision IRL</div>
+    <div class="ni"><span class="ic">🧾</span> Quittances</div>
+    <div class="nav-lbl">Relation</div>
+    <div class="ni"><span class="ic">📧</span> Communication</div>
+    <div class="ni"><span class="ic">📇</span> Carnet d'adresses</div>
+    <div class="nav-lbl">Système</div>
+    <div class="ni"><span class="ic">📥</span> Import</div>
+    <div class="ni"><span class="ic">⚙️</span> Configuration</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <!-- Barre de contexte globale : entité + période -->
+    <div class="ctx-bar">
+      <div class="pills">
+        <div class="pill star act"><b>★</b><s>Toutes</s></div>
+        <div class="pill"><b>SD</b><s>SCI DD</s></div>
+        <div class="pill"><b>SS</b><s>SCI SM</s></div>
+        <div class="pill"><b>DK</b><s>Didier</s></div>
+        <div class="pill" style="opacity:.5"><b>+</b><s>Ajouter</s></div>
+      </div>
+      <div class="period">
+        <button>‹</button>
+        <div class="lbl">Mai 2026<small>PÉRIODE</small></div>
+        <button>›</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpis">
+      <div class="kpi">
+        <div class="kpi-ic">💶</div>
+        <div class="kpi-lbl">Loyers perçus</div>
+        <div class="kpi-val">7 471<span class="cur"> €</span></div>
+        <div class="kpi-sub up">▲ 100% encaissé</div>
+        <svg class="kpi-spark" viewBox="0 0 90 46"><path d="M0 40 L15 32 L30 34 L45 22 L60 26 L75 12 L90 8" fill="none" stroke="var(--grn)" stroke-width="2.5"/></svg>
+      </div>
+      <div class="kpi">
+        <div class="kpi-ic">🏘️</div>
+        <div class="kpi-lbl">Occupation</div>
+        <div class="kpi-val">93<span class="cur"> %</span></div>
+        <div class="kpi-sub up">▲ 14/15 lots</div>
+        <svg class="kpi-spark" viewBox="0 0 90 46"><path d="M0 30 L15 28 L30 24 L45 25 L60 18 L75 16 L90 14" fill="none" stroke="var(--acc)" stroke-width="2.5"/></svg>
+      </div>
+      <div class="kpi">
+        <div class="kpi-ic">📊</div>
+        <div class="kpi-lbl">Cash-flow YTD</div>
+        <div class="kpi-val">31 280<span class="cur"> €</span></div>
+        <div class="kpi-sub up">▲ +8,2% vs 2025</div>
+        <svg class="kpi-spark" viewBox="0 0 90 46"><path d="M0 38 L15 36 L30 28 L45 30 L60 20 L75 18 L90 10" fill="none" stroke="var(--acc2)" stroke-width="2.5"/></svg>
+      </div>
+      <div class="kpi">
+        <div class="kpi-ic">🔔</div>
+        <div class="kpi-lbl">À traiter</div>
+        <div class="kpi-val">3</div>
+        <div class="kpi-sub down">2 indices IRL · 1 DPE</div>
+      </div>
+    </div>
+
+    <!-- Logements groupés par immeuble -->
+    <div class="sec-head">
+      <div class="sec-title">Mes <em>biens</em></div>
+      <div class="sec-meta">15 lots · 3 immeubles · 7 471 € HC / mois</div>
+    </div>
+
+    <!-- Damelevières -->
+    <div class="grp">
+      <div class="grp-head">
+        <div class="ic">🏛</div>
+        <h3>Damelevières</h3>
+        <div class="grp-stat">
+          <div><b>8</b><span>lots</span></div>
+          <div><b>3 302 €</b><span>HC / mois</span></div>
+          <div><b class="warn">2 ⚠</b><span>alertes</span></div>
+        </div>
+      </div>
+      <div class="lots">
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">D-001</div><div class="lot-loc">DIAS RODRIGUES Dylan</div></div><span class="badge b-ok">Loué</span></div>
+          <div class="lot-foot"><span class="lot-rent">412 <span class="c">€</span></span><span class="lot-meta">T2 · 44 m²</span></div>
+        </div>
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">D-003</div><div class="lot-loc">RADELET Dominique</div></div><span class="badge b-loc">Bail &lt; 1 an</span></div>
+          <div class="lot-foot"><span class="lot-rent">468 <span class="c">€</span></span><span class="lot-meta">T2 · 47 m²</span></div>
+        </div>
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">D-104</div><div class="lot-loc">TANGUY Maxence</div></div><span class="badge b-warn">DPE ?</span></div>
+          <div class="lot-foot"><span class="lot-rent">395 <span class="c">€</span></span><span class="lot-meta">T1 · 31 m²</span></div>
+        </div>
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">Garage 1</div><div class="lot-loc">PIERRON Florence</div></div><span class="badge b-ok">Loué</span></div>
+          <div class="lot-foot"><span class="lot-rent">75 <span class="c">€</span></span><span class="lot-meta">Garage</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ferrette -->
+    <div class="grp">
+      <div class="grp-head">
+        <div class="ic">🏛</div>
+        <h3>Ferrette</h3>
+        <div class="grp-stat">
+          <div><b>6</b><span>lots</span></div>
+          <div><b>3 670 €</b><span>HC / mois</span></div>
+          <div><b class="warn">2 ⚠</b><span>alertes</span></div>
+        </div>
+      </div>
+      <div class="lots">
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">F-001</div><div class="lot-loc">Joseph Misslin</div></div><span class="badge b-warn">Indice ?</span></div>
+          <div class="lot-foot"><span class="lot-rent">615 <span class="c">€</span></span><span class="lot-meta">T3 · 62 m²</span></div>
+        </div>
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">F-101</div><div class="lot-loc">ARSLAN · HARNIST</div></div><span class="badge b-loc">Bail &lt; 1 an</span></div>
+          <div class="lot-foot"><span class="lot-rent">720 <span class="c">€</span></span><span class="lot-meta">T4 · 78 m²</span></div>
+        </div>
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">F-102</div><div class="lot-loc">Natalia Sultan</div></div><span class="badge b-ok">Loué</span></div>
+          <div class="lot-foot"><span class="lot-rent">640 <span class="c">€</span></span><span class="lot-meta">T3 · 65 m²</span></div>
+        </div>
+        <div class="lot">
+          <div class="lot-top"><div><div class="lot-ref">F-103</div><div class="lot-loc">Weigel Lisa</div></div><span class="badge b-loc">Bail &lt; 1 an</span></div>
+          <div class="lot-foot"><span class="lot-rent">695 <span class="c">€</span></span><span class="lot-meta">T3 · 68 m²</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Mockup THEME-FANCY</b> — 4 directions premium (Émeraude · Nuit · Aurore · Ardoise) sur une maquette ImmoTrack. Illustre aussi la <b>barre de contexte globale</b> (entité + période persistants) et les <b>intercalaires par immeuble</b>. Données fictives. Bascule de thème en haut ↑
+    </div>
+  </main>
+</div>
+
+<script>
+function setTheme(t,btn){
+  document.documentElement.setAttribute('data-theme',t);
+  document.querySelectorAll('.sw-btn').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+}
+</script>
+</body>
+</html>
