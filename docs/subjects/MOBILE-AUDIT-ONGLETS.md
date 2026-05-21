@@ -109,6 +109,29 @@ Le **Wizard Bail mobile** (étape paraphes page-par-page + étape finale signatu
 - Captures ImmoTrack v15.73 mobile : partagées par utilisateur dans chat 2026-05-18 (non sauvegardées repo)
 - Comparaison contexte : `docs/strategie/audit-visuel-locataire-live/README.md`
 
+## Audit programmatique 2026-05-21 (navigateur réel 375px, mesures DOM)
+Audit rigoureux mené dans un navigateur Chromium à 375px sur les 16 onglets, via mesures DOM
+(scrollWidth/clientWidth, getBoundingClientRect) plutôt que captures (plus fiable). Données démo
+présentes (1 entité, 4 logements, 14 mouvements, 2 baux).
+
+**Résultats — état mobile globalement EXCELLENT** (la plupart des points v15.73 déjà résorbés depuis) :
+- ✅ **Zéro scroll horizontal involontaire** sur les 16 onglets (critère n°1 « irréprochable » : parfait).
+- ✅ **62 inputs visibles, tous ≥16px** → pas de zoom auto iOS au focus.
+- ✅ Tables larges (Pilotage 751px / Loyers 850px) en `overflow-x:auto` (`.tbl-wrap`) → **scrollables**,
+  pas tronquées (le « tronqué » de v15.73 était l'absence de scroll perçu, pas un clip réel).
+- ✅ Aucun KPI tronqué détecté, tabs IRL non clippés.
+- 🟠 **Touch targets < 44px** : Agenda 16 (boutons ✓/✕ des cartes = 24px de large), Pilotage 4 (↗ = 26px).
+
+**Fix livré v15.143** : élargissement des boutons d'action à ≥40px (touch target conforme HIG) :
+- Agenda cartes : boutons ✓ (`agendaMarkDone`) et ✕ (`deleteAgendaEvt`) → 40×36 (étaient 24×44).
+- Pilotage table : boutons ↗ (`openLogFiche`) → 40×36 (étaient 26×36).
+- Vérifié en preview : Agenda 0 small target, Pilotage 2 restants = liens texte de noms (« Marie Demo »)
+  inline dans la table, acceptables (pas des cibles primaires ; les agrandir gonflerait la table).
+
+**Reste en polish P2 (non bloquant)** : affordance visuelle de scroll (ombre/dégradé bord droit) sur les
+tables larges Pilotage/Loyers + version cartes mobile (nice-to-have, les tables scrollent déjà).
+
 ## Journal
 - 2026-05-01 : créé · P1 car critique pour V1 commerciale (mobile = audience massive)
 - 2026-05-18 : Phase 5 polish identifiée via audit visuel comparatif LocataireCloud · 7/10 écrans OK + 2 BUGS P0 + 4 layouts à fix · effort 5-7 j-h · sujets dépendants : BUG-MOBILE-MENU-PLUS + BUG-MOBILE-DASH-PROFILES
+- 2026-05-21 : 2 BUGS P0 livrés (MENU-PLUS + DASH-PROFILES v15.140-142). Audit programmatique 375px → état mobile excellent (0 overflow horizontal, inputs OK, tables scrollables). Seul défaut réel = touch targets boutons action Agenda/Pilotage → **fix v15.143** (≥40px). Reste polish P2 (affordance scroll tables).
