@@ -247,13 +247,17 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ---
 
-## 🔴 Drive sync — bloquant V1 commercial multi-users
+## 🔴 Drive sync — multi-utilisateurs / partage
+
+> **🧪 TEST EN ATTENTE (à rappeler à l'user)** : valider **DRIVE-PARTAGE-PICKER** avec un 2e compte (Marion) — Didier partage son dossier ImmoTrack (Éditeur), Marion ouvre l'app, Paramètres → Partage → « Sélectionner un dossier partagé » → choisit le dossier → doit pouvoir **enregistrer**. Tant que non validé : ne pas construire DRIVE-2F (prématuré).
 
 | Code | Sujet | Prio | Taille | Statut | Note |
 |---|---|---|---|---|---|
-| DRIVE-2H | Re-architecture fichiers Drive (par-user vs partagé vs référentiel) | P1 | M | ⬜ À faire | À faire EN PREMIER (base de 2F/2G) · [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
-| DRIVE-2F | Optimistic Concurrency Control (OCC) au file level | P1 | M | ⬜ À faire | Après 2H · [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · **REMINDER** : v14.0 push immédiat = "last writer wins" trivial → 2 devices simultanés = écrasement silencieux. OCC via `If-Match: etag` Drive header empêcherait l'écrasement → toast conflit + merge manuel. CRITIQUE pour multi-user (cf user feedback 2026-05-01) |
-| DRIVE-2G | Awareness UI (qui édite quoi) | P1 | S | ⬜ À faire | Couche UX · [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
+| **DRIVE-PARTAGE-PICKER** | Partage tiers via Google Picker (l'associé écrit dans le dossier partagé, scope drive.file gardé) | **P1** | M | ✅ **Code livré v15.135-137** · 🧪 **test 2 comptes en attente** | [docs/subjects/DRIVE-PARTAGE-PICKER.md](docs/subjects/DRIVE-PARTAGE-PICKER.md) · clé API Picker en place · UI dans Paramètres → Partage · **résout le vrai problème** (Marion ne pouvait pas écrire — workaround "Drive partagé" du doc était faux). |
+| DRIVE-2F | Optimistic Concurrency Control (OCC) — anti-écrasement 2 writers simultanés | P1 | M | ⬜ **Après validation PARTAGE-PICKER** | [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · filet de sécurité une fois que 2 personnes (Didier+Marion) écrivent les mêmes fichiers. ⚠ touche le chemin de save critique (fraîchement stabilisé) → à faire avec prudence + test 2 comptes. Prématuré tant que le partage n'est pas validé. |
+| DRIVE-2H | Re-architecture fichiers par-user vs partagé | P1→**V2** | M | 🔵 **Reclassé V2 multi-tenant** | Le split per-user n'est utile qu'en multi-tenant (V2 PostgreSQL Q4 2027). Pour 2-3 users co-gestion, le partage Picker suffit (ils partagent tout, c'est voulu). [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
+| DRIVE-2G | Awareness UI (qui édite quoi) | P1→**V2** | S | 🔵 **Reclassé V2** | Présence temps-réel = confort multi-user, redondant avec le backend V2. [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
+| DRIVE-2I / 2J | Audit log Drive · merge field-level | P2/P3→**V2** | — | 🔵 **Reclassés V2** | Nice-to-have, couverts/refaits par le multi-tenant V2. |
 | DRIVE-ARBORESCENCE | Arborescence Drive Entité/Immeuble/Logement/[9 sous-dossiers métier] + sync bidirectionnel | P1 | L | ✅ Phases A + B + C + D livrées | Phase A v14.20 (arborescence), Phase B v14.35 (`_drvUploadDoc` + `DB.documents`), Phase D v14.36 (UI Stockage Drive), **Phase C v15.02 Sprint 5D : lazy scan Drive→app**. Helpers `_drvListFolderFiles` (files.list API), `_drvScanLogementFolders(logRef, [categories])` (multi-catégories), `_drvMergeScanResults(scan, logRef)` (ajoute nouveaux fichiers + tombstone ceux supprimés côté Drive web), `_drvLazyScanLogement(logRef)` (orchestration + throttle 30s + toast + audit-trail). Trigger : à l'entrée des sous-onglets `documents` ou `photos` de LOG-FICHE-360 (setTimeout 200ms). **13 tests Vitest** dédiés (`drive-scan.test.js`) couvrant additions/tombstones/multi-cat/edge-cases. Englobe DRIVE-2K. |
 
 ---
