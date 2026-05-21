@@ -7344,8 +7344,13 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   /* Body : reserve space pour le bottom nav fixe (≈64px) */
   body[data-dash-v4="on"] .pc { padding-bottom: 80px !important; }
 
-  /* TOPBAR mobile : retirer mode (Solo/Premium/Gestionnaire) — accessible via Plus → Paramètres */
-  body[data-dash-v4="on"] .v4s-mode-row { display: none !important; }
+  /* v15.139 BUG-MOBILE-DASH-PROFILES : on GARDE le sélecteur de mode dashboard
+     (Solo/Premium/Gestionnaire) sur mobile (parité desktop) mais en COMPACT : icônes
+     seules (labels masqués) pour tenir dans le topbar. Avant : display:none → l'utilisateur
+     mobile restait bloqué sur le mode par défaut. */
+  body[data-dash-v4="on"] .v4s-mode-row { padding: 1px; gap: 0; }
+  body[data-dash-v4="on"] .v4s-mode-btn { padding: 6px 9px; }
+  body[data-dash-v4="on"] .v4s-mode-lbl { display: none; }
   /* Garder thèmes (préférence rapide) mais plus compacts */
   body[data-dash-v4="on"] .v4s-theme-tb-row .v4s-theme-btn {
     width: 24px; height: 22px; font-size: 11px;
