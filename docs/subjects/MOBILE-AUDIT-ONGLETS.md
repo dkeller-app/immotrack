@@ -137,4 +137,7 @@ Pilotage/Loyers, variable résolue par thème). Reste optionnel : version cartes
 ## Journal
 - 2026-05-01 : créé · P1 car critique pour V1 commerciale (mobile = audience massive)
 - 2026-05-18 : Phase 5 polish identifiée via audit visuel comparatif LocataireCloud · 7/10 écrans OK + 2 BUGS P0 + 4 layouts à fix · effort 5-7 j-h · sujets dépendants : BUG-MOBILE-MENU-PLUS + BUG-MOBILE-DASH-PROFILES
-- 2026-05-21 : 2 BUGS P0 livrés (MENU-PLUS + DASH-PROFILES v15.140-142). Audit programmatique 375px → état mobile excellent (0 overflow horizontal, inputs OK, tables scrollables). Seul défaut réel = touch targets boutons action Agenda/Pilotage → **fix v15.143** (≥40px). Reste polish P2 (affordance scroll tables).
+- 2026-05-21 : 2 BUGS P0 livrés (MENU-PLUS + DASH-PROFILES v15.140-142). Audit programmatique 375px → état mobile excellent (0 overflow horizontal, inputs OK, tables scrollables). Seul défaut réel = touch targets boutons action Agenda/Pilotage → **fix v15.143** (≥40px). Affordance scroll tables → **v15.144** (ombres theme-aware).
+- 2026-05-21 : tables denses → cartes mobile (feedback user « pas visuel sur mobile ») :
+  - **Loyers/Mouvements** (table 9 col) → cartes ≤768px, **v15.145** puis condensées 221→125px **v15.146** (date+montant haut, libellé titre, méta inline immeuble·cat·qui, actions serrées, facture masquée, montant unique via .pos/.neg). Filtres colonne th non dispo en vue cartes (suivi).
+  - **Pilotage / Comptabilité** (matrice lot×4 mois) → cartes **v15.147** avec chips mensuels étiquetés (data-mo + ::before) pour garder le contexte du mois. Onglets Pilotage **Documents** + **Automatisations** (autres matrices) restent en scroll horizontal + ombre → à carder de même si besoin user.
