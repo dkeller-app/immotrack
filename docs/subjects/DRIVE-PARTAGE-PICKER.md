@@ -56,5 +56,31 @@ dossier (`localStorage._drvSharedRootId`) qui devient la **racine Drive** de l'a
 - Drive partagé / Team Drive : le `supportsAllDrives` est posé, mais non testé — à valider.
 - Conflits d'écriture simultanée 2 personnes : voir DRIVE-2F (OCC) si besoin de durcir.
 
+## ⚠️ RÉSULTAT TEST 2 COMPTES (2026-05-21) — Option E semble INSUFFISANTE
+Test réel Didier + Marion (clé API Picker fournie `AIza…njA4`, v15.141) :
+- Marion se connecte avec son compte Google ✓ (OAuth OK).
+- Elle voit les données de Didier (« Bonjour Didier ») → donc le **pull a fonctionné** (lecture du dossier partagé OK).
+- Mais la **sauvegarde échoue** : bulles de retry ×3 puis échec.
+
+**Diagnostic** : ses entités locales portent les `driveFileId` créés par l'app de **Didier**. Au save,
+`_driveSaveOneEntity` fait un `PATCH` sur CES fichiers → refusé. Le scope `drive.file` n'autorise pas
+l'écriture sur des fichiers créés par une AUTRE instance d'app, **même** quand le dossier parent a été
+sélectionné via le Picker (le Picker octroie l'accès au dossier — lister/créer dedans — mais pas le
+droit de modifier les fichiers pré-existants d'un autre compte). **= la limitation `drive.file` persiste
+malgré le Picker.** L'hypothèse « le Picker octroie l'écriture sur tout le contenu » (ligne 23-25) est donc
+fausse pour les fichiers créés par un tiers.
+
+**Action v15.142** : message d'erreur Drive enrichi (`_drvErrMsg`, code HTTP + raison Google + indice
+accès Éditeur) pour confirmer le 403/raison exacte au prochain test.
+
+**Pistes de vrai fix (décision à prendre, pas un quick fix)** :
+- **(P1) Architecture « 1 jeu de fichiers par utilisateur »** : Marion ne PATCH jamais les fichiers de Didier ;
+  son app écrit SES propres fichiers entité (`immotrack-entity-{id}__{userHash}.json`) dans le dossier partagé,
+  et le merge lit TOUS les fichiers du dossier (union multi-fichiers + LWW par `_modifiedAt`). Reste en `drive.file`.
+  Refacto moyenne (save = create-own + jamais patch-foreign ; load = agréger N fichiers par entité).
+- **(P2) Scope `drive` complet** : simple côté code mais coût vérif Google CASA + argument sécurité commercial perdu.
+- **(V2) Backend** : la vraie solution multi-tenant (PostgreSQL), hors scope court terme.
+
 ## Journal
 - 2026-05-20 : créé. Cause = scope drive.file. Option E (Picker) retenue. Code v15.135 livré (gaté, additif). Prérequis clé API + test 2 comptes côté user.
+- 2026-05-21 : **test 2 comptes KO** (cf section ci-dessus) — pull OK mais save 403 (drive.file ne peut pas modifier les fichiers de Didier). Option E insuffisante en l'état. Diagnostic enrichi v15.142. Décision archi requise (piste P1 « 1 jeu de fichiers par user » recommandée).
