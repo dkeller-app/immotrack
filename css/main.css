@@ -2425,6 +2425,46 @@ textarea.field-modified-since-sig{
   #p-edl .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   v15.145 MOBILE-AUDIT — Loyers / Mouvements : table 9 colonnes → cartes empilées
+   (la table dense scrollait horizontalement = mauvaise UX mobile). Pur CSS, repositionne
+   chaque colonne par nth-child (aucun changement de rendu). Montant : on n'affiche que la
+   cellule qui a une valeur (.pos crédit / .neg débit) et on masque le « – » de l'autre.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width:768px){
+  #p-loyers .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
+  #p-loyers .tbl{font-size:13px}
+  #p-loyers .tbl thead{display:none}
+  #p-loyers .tbl,#p-loyers .tbl tbody{display:block;width:auto}
+  #p-loyers .tbl tr{
+    position:relative;display:flex;flex-direction:column;width:auto;
+    background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+    padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow);border-left:3px solid var(--blu);
+  }
+  #p-loyers .tbl tr:hover,#p-loyers .tbl tr:hover td{background:transparent}
+  #p-loyers .tbl td{display:block;border:none !important;padding:0 !important;white-space:normal}
+  /* Ordre dans la carte : badge cat → libellé → qui → immeuble → date → facture → actions */
+  #p-loyers .tbl td:nth-child(4){order:1;margin-bottom:6px}                                   /* Catégorie (badge) */
+  #p-loyers .tbl td:nth-child(2){order:2;font-size:15px;font-weight:700;color:var(--t1);line-height:1.3;padding-right:96px !important;margin-bottom:3px} /* Libellé (titre) */
+  #p-loyers .tbl td:nth-child(5){order:3;font-size:13px;color:var(--t2)}                       /* Qui (logement + locataire) */
+  #p-loyers .tbl td:nth-child(3){order:4;font-size:12px;color:var(--t3);margin-bottom:6px}     /* Immeuble */
+  #p-loyers .tbl td:nth-child(1){order:5;font-size:12px;color:var(--t2)}                        /* Date */
+  #p-loyers .tbl td:nth-child(8){order:6;font-size:11.5px;color:var(--t3)}                      /* Facture */
+  /* Montant : seule la cellule avec valeur (.pos/.neg) est affichée, en haut à droite */
+  #p-loyers .tbl td.num:not(.pos):not(.neg){display:none}
+  #p-loyers .tbl td.num.pos,#p-loyers .tbl td.num.neg{
+    position:absolute;top:12px;right:14px;font-size:16px;font-weight:700;text-align:right;
+  }
+  /* Actions : grille 3 colonnes en bas de carte */
+  #p-loyers .tbl td.act-cell{
+    order:7;display:grid !important;grid-template-columns:repeat(3,1fr);gap:6px;
+    margin-top:10px;padding-top:10px !important;border-top:1px solid var(--bor2) !important;
+  }
+  #p-loyers .tbl td.act-cell .btn{margin:0 !important;width:100%;justify-content:center;min-height:38px;font-size:13px}
+  /* État vide (colspan) */
+  #p-loyers .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important;padding-right:20px !important}
+}
+
 /* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────── */
 @media (max-width:600px){
   /* Modal plein écran (override des inline styles max-width:980px;width:96vw) */
