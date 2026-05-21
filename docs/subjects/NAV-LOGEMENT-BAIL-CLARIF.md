@@ -92,7 +92,7 @@ Sidebar cible (esquisse) :
 | Question | « Qu'est-ce que je possède et dans quel état ? » | « Qui occupe, jusqu'à quand, où en est la relation ? » |
 | Centré sur | Le bien physique (actif patrimonial) | Les personnes + contrats (relation locative) |
 | Vue | Logements groupés par immeuble | Locataires actuels + pipeline candidats |
-| Contenu | État (loué/vacant), surface, DPE, loyer, diagnostics, photos, équipements, PNO | Baux actifs, échéances/renouvellements, candidats, communications, GLI/MRH |
+| Contenu | État (loué/vacant), surface, DPE, loyer, diagnostics, photos, équipements, PNO | Baux actifs, échéances/renouvellements, candidats, **contact (mail/tél) + bouton ✉ Écrire**, GLI/MRH |
 | Le bail y apparaît comme… | info **contextuelle en lecture** (« loué à X jusqu'à Y ») | objet de **gestion active** (« à renouveler le… », « relancer ») |
 
 **Règle mnémotechnique** :
@@ -102,6 +102,18 @@ Sidebar cible (esquisse) :
 **Anti-redite** : le bail existe dans les 2 onglets mais sous angles opposés — lecture passive côté Bien, gestion active côté Locataires.
 
 **Cas logement vacant** : visible dans **Bien** (CTA « créer une annonce » cf LOG-ANNONCE / « ajouter un candidat » cf LOG-CANDIDATS), absent de **Locataires** (personne n'occupe).
+
+### Contact + communication dans Locataires (2026-05-17)
+
+> 💬 User : « dans locataires, il faudrait afficher les données de contact (mail et téléphone aussi) et on peut ajouter un bouton mail pour envoyer un mail depuis l'app non ? ou on fait un onglet communication carrément ? »
+
+**Décision : les deux (complémentaires, pas redondants)** :
+- **Dans Locataires** : afficher **mail + téléphone** de chaque locataire + bouton **✉ Écrire** qui ouvre la modale EMAIL-AUTO (livré v15.09) pré-remplie pour ce locataire → action ciblée depuis la fiche.
+- **Onglet Communication** : vue transversale (historique envoyés + queue à envoyer + modèles) = sujet **EMAIL-ONGLET-PERMANENT** (Sprint 19B, déjà au backlog).
+
+→ Le bouton ✉ et l'onglet Communication pointent vers le **même moteur EMAIL-AUTO** = zéro duplication de code.
+
+**Équilibre onglets** : on retire 2 onglets (Assurances + Diagnostics) → marge pour ajouter Communication, dont l'usage est fréquent (quittances, relances, IRL, EDL = communication régulière → ≠ paillette).
 
 ⚠️ **Mockup-first obligatoire** (`feedback_mockup_first`) : avant tout code, produire les mockups A/B/C × 3 formats (PC/tablette/tél) × états post-clic (fiche bien, fiche locataire, vacant, candidat). Validation user explicite.
 
