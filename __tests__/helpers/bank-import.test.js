@@ -7,7 +7,8 @@ import {
   _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
   _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup,
   _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints,
-  _bankExtractOFXAccount, _bankCsvHeaderHash
+  _bankExtractOFXAccount, _bankCsvHeaderHash,
+  _bankSliceAfterFingerprint, _bankComputeLastImport
 } from '../../js/core/bank-import.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -670,6 +671,105 @@ describe('_bankCsvHeaderHash', () => {
   it("Pas d'en-têtes → null", () => {
     expect(_bankCsvHeaderHash({ headers:[] })).toBeNull();
     expect(_bankCsvHeaderHash(null)).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  BANK-IMPORT-V2 Phase D — Pointeur de progression
+// ═══════════════════════════════════════════════════════════════════
+
+describe('_bankSliceAfterFingerprint', () => {
+  const L = (i) => ({ date: '2026-01-' + String(i).padStart(2,'0'), _fingerprint: 'fp_' + i });
+
+  it('Fingerprint trouvé en milieu → slice après', () => {
+    const lines = [L(1), L(2), L(3), L(4), L(5)];
+    const r = _bankSliceAfterFingerprint(lines, 'fp_2');
+    expect(r.found).toBe(true);
+    expect(r.idx).toBe(1);
+    expect(r.after.length).toBe(3);
+    expect(r.after[0]._fingerprint).toBe('fp_3');
+  });
+
+  it('Fingerprint = dernière ligne → after vide (tout déjà importé)', () => {
+    const lines = [L(1), L(2), L(3)];
+    const r = _bankSliceAfterFingerprint(lines, 'fp_3');
+    expect(r.found).toBe(true);
+    expect(r.after).toEqual([]);
+  });
+
+  it('Fingerprint = première ligne → after = toutes sauf la 1re', () => {
+    const lines = [L(1), L(2), L(3)];
+    const r = _bankSliceAfterFingerprint(lines, 'fp_1');
+    expect(r.after.length).toBe(2);
+    expect(r.after[0]._fingerprint).toBe('fp_2');
+  });
+
+  it('Fingerprint introuvable → found:false, after = toutes (fallback heuristique)', () => {
+    const lines = [L(1), L(2), L(3)];
+    const r = _bankSliceAfterFingerprint(lines, 'fp_inexistant');
+    expect(r.found).toBe(false);
+    expect(r.idx).toBe(-1);
+    expect(r.after).toBe(lines); // same ref, full lines
+  });
+
+  it('Fingerprint vide/null/undefined → found:false, after = lines', () => {
+    const lines = [L(1)];
+    expect(_bankSliceAfterFingerprint(lines, null).found).toBe(false);
+    expect(_bankSliceAfterFingerprint(lines, '').found).toBe(false);
+    expect(_bankSliceAfterFingerprint(lines, undefined).found).toBe(false);
+  });
+
+  it('Lines null/undefined → after:[] propre, pas de throw', () => {
+    expect(_bankSliceAfterFingerprint(null, 'fp_1').after).toEqual([]);
+    expect(_bankSliceAfterFingerprint(undefined, 'fp_1').after).toEqual([]);
+  });
+
+  it("Ignore les lignes sans _fingerprint (n'arrête pas la recherche)", () => {
+    const lines = [L(1), { date:'2026-01-02' /* pas de fp */ }, L(3)];
+    const r = _bankSliceAfterFingerprint(lines, 'fp_3');
+    expect(r.found).toBe(true);
+    expect(r.idx).toBe(2);
+  });
+});
+
+describe('_bankComputeLastImport', () => {
+  it("Calcule pointeur depuis le lot accepté (dernière date)", () => {
+    const lines = [
+      { date:'2026-01-15', _fingerprint:'fpA' },
+      { date:'2026-01-31', _fingerprint:'fpZ' }, // la plus récente
+      { date:'2026-01-20', _fingerprint:'fpB' }
+    ];
+    const r = _bankComputeLastImport(lines, 0);
+    expect(r.date).toBe('2026-01-31');
+    expect(r.fingerprint).toBe('fpZ');
+    expect(r.count).toBe(3);
+    expect(r.at).toMatch(/^\d{4}-\d{2}-\d{2}T/); // ISO
+  });
+
+  it("Cumule previousCount", () => {
+    const lines = [{ date:'2026-02-01', _fingerprint:'fpX' }];
+    const r = _bankComputeLastImport(lines, 42);
+    expect(r.count).toBe(43);
+  });
+
+  it("Liste vide → null (pas d'erreur)", () => {
+    expect(_bankComputeLastImport([], 0)).toBeNull();
+    expect(_bankComputeLastImport(null, 0)).toBeNull();
+  });
+
+  it("Ligne sans _fingerprint → fingerprint:null mais pointeur quand même utile (date)", () => {
+    const lines = [{ date:'2026-03-15' /* pas de fingerprint */ }];
+    const r = _bankComputeLastImport(lines, 0);
+    expect(r.date).toBe('2026-03-15');
+    expect(r.fingerprint).toBeNull();
+    expect(r.count).toBe(1);
+  });
+
+  it("previousCount non-numérique → coercé à 0", () => {
+    const lines = [{ date:'2026-01-01', _fingerprint:'fp' }];
+    expect(_bankComputeLastImport(lines, undefined).count).toBe(1);
+    expect(_bankComputeLastImport(lines, null).count).toBe(1);
+    expect(_bankComputeLastImport(lines, 'abc').count).toBe(1);
   });
 });
 

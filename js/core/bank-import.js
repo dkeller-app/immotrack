@@ -495,3 +495,45 @@ export function _bankCsvHeaderHash(parsed) {
     .join('|');
   return 'csv:' + _bankHashStable(norm + '|' + (parsed.delimiter || ','));
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// BANK-IMPORT-V2 (v15.162 Phase D) — Pointeur de progression par compte
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Coupe une liste de lignes parsées à la position d'un fingerprint pointeur.
+ * Sert au mode « imports suivants » : on récupère seulement ce qui est APRÈS la
+ * dernière ligne déjà importée pour ce compte (identifiée par son `_fingerprint`).
+ * @param {object[]} lines — lignes parsées (chaque ligne a un `_fingerprint`)
+ * @param {string} fingerprint — fingerprint de la dernière ligne déjà importée
+ * @returns {{after:object[], found:boolean, idx:number}}
+ *   - found:true  → idx = position du pointeur ; after = lines après cette position (peut être vide si tout est déjà importé)
+ *   - found:false → idx = -1 ; after = lines (toutes — le caller doit appliquer un fallback : dédup heuristique)
+ */
+export function _bankSliceAfterFingerprint(lines, fingerprint) {
+  if (!fingerprint || !Array.isArray(lines)) return { after: Array.isArray(lines) ? lines : [], found: false, idx: -1 };
+  const idx = lines.findIndex(l => l && l._fingerprint === fingerprint);
+  if (idx < 0) return { after: lines, found: false, idx: -1 };
+  return { after: lines.slice(idx + 1), found: true, idx };
+}
+
+/**
+ * Calcule le nouveau pointeur `lastImport` à partir d'un lot de lignes qu'on vient d'importer.
+ * La « dernière ligne » est celle dont la `date` est la plus grande (pas l'ordre dans le fichier,
+ * qui peut être DESC chez certaines banques).
+ * @param {object[]} acceptedLines — lignes effectivement importées (chacune avec date + _fingerprint)
+ * @param {number} previousCount — compteur cumulé existant (avant cet import)
+ * @returns {{date:string, fingerprint:string|null, count:number, at:string} | null}
+ *   null si la liste est vide.
+ */
+export function _bankComputeLastImport(acceptedLines, previousCount) {
+  if (!Array.isArray(acceptedLines) || !acceptedLines.length) return null;
+  const sorted = acceptedLines.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const last = sorted[sorted.length - 1];
+  return {
+    date: last.date || '',
+    fingerprint: last._fingerprint || null,
+    count: (Number(previousCount) || 0) + acceptedLines.length,
+    at: new Date().toISOString()
+  };
+}

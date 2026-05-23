@@ -1,6 +1,6 @@
 # BANK-IMPORT-V2 — Import bancaire avec pointeur de progression par compte
 
-**Status** : 🔄 En cours · **Prio** : P1 (workflow réel cassé + bloquant commercialisation) · **Taille** : M (~3-5h)
+**Status** : ✅ Livré v15.160→163 (Phases A-F complètes) — à valider en prod · **Prio** : P1 · **Taille** : M (~3-5h)
 **Détecté** : 2026-05-23 par user
 **Lié à** : BANK-IMPORT-XLSX (v1, session parallèle), DRIVE-CONFIANCE-UX
 
@@ -82,3 +82,9 @@ Liste des comptes + actions :
 
 ## Journal
 - 2026-05-23 : créé · feedback user critique des cas réels qui cassent le dédup v1 · plan validé · démarrage Phase A.
+- 2026-05-23 : **livré Phases A-F (v15.160→163)** en 4 commits :
+  - **v15.160** Phase A : helpers `_bankExtractOFXAccount` + `_bankCsvHeaderHash` + 9 tests.
+  - **v15.161** Phase B : détection auto compte + modal sélection/création + tag `_bankAccountId`.
+  - **v15.162** Phases C+D : modal 1er import 3 choix + dispatcher pointeur incrémental (slice-after-fingerprint + fallback).
+  - **v15.163** Phases E+F + review : modale gestion comptes (renommer/reset/supprimer), 2 helpers purs extraits + testés (`_bankSliceAfterFingerprint` + `_bankComputeLastImport`), refactor prod pour utiliser ces helpers (single source of truth), 12 tests supplémentaires (936 total). Code review pre-release : fix bug grammaire « y estsont » → « y sont », refacto fragile `details.open` → 4e radio « + Nouveau compte », safety check `_currentBankAccount` null.
+  - **À valider en prod** : flux réel avec un vrai fichier bancaire (OFX/CSV) sur les 3 cas (1er import, import incrémental, re-import = « tout déjà importé »).
