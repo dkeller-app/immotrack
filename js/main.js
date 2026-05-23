@@ -109,7 +109,8 @@ import {
 import {
   _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
   _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup,
-  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints
+  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints,
+  _bankExtractOFXAccount, _bankCsvHeaderHash
 } from './core/bank-import.js';
 
 // v15.10 QUITTANCES-ACTIVES - statut dynamique + matching + escalade + génération auto
@@ -262,6 +263,9 @@ window._bankHashStable = _bankHashStable;
 window._bankFingerprintCSV = _bankFingerprintCSV;
 window._bankFingerprintOFX = _bankFingerprintOFX;
 window._bankMigrateFingerprints = _bankMigrateFingerprints;
+// v15.160 BANK-IMPORT-V2 Phase A : identification du compte source
+window._bankExtractOFXAccount = _bankExtractOFXAccount;
+window._bankCsvHeaderHash = _bankCsvHeaderHash;
 
 // QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
 window._statutQuittance = _statutQuittance;

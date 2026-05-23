@@ -446,3 +446,52 @@ export function _bankMigrateFingerprints(mouvements) {
   }
   return { migrated, skipped };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// BANK-IMPORT-V2 (v15.160 Phase A) — Identification du compte source d'un fichier
+// pour permettre un pointeur de progression par compte (au lieu du dédup heuristique
+// par contenu qui casse dès que l'user modifie les lignes après import).
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extrait l'identifiant de compte d'un fichier OFX/QFX.
+ * Cherche dans les blocs `<BANKACCTFROM>` (compte bancaire) ou `<CCACCTFROM>` (carte crédit).
+ * @param {string} text — contenu OFX brut
+ * @returns {{bankId:string, acctId:string, acctType:string, identifier:string} | null}
+ *   `identifier` est préfixé 'acct:' pour distinguer des hashes CSV.
+ */
+export function _bankExtractOFXAccount(text) {
+  if (!text || typeof text !== 'string') return null;
+  // Cherche le 1er bloc BANKACCTFROM ou CCACCTFROM (peut être SGML ou XML).
+  // On limite la recherche jusqu'à la prochaine balise majeure pour éviter de capturer trop.
+  const blockMatch = text.match(/<(BANKACCTFROM|CCACCTFROM)>([\s\S]*?)(?:<\/\1>|<STMTTRN|<BANKTRANLIST|<LEDGERBAL)/i);
+  const body = blockMatch ? blockMatch[2] : '';
+  const get = (tag) => {
+    const m = body.match(new RegExp(`<${tag}>([^<\\r\\n]*)`, 'i'));
+    return m ? m[1].trim() : '';
+  };
+  const bankId   = get('BANKID');
+  const acctId   = get('ACCTID');
+  const acctType = get('ACCTTYPE');
+  if (!acctId) return null;
+  return {
+    bankId, acctId, acctType,
+    identifier: 'acct:' + (bankId ? bankId + ':' : '') + acctId
+  };
+}
+
+/**
+ * Hash stable des en-têtes d'un CSV → identifiant de SCHÉMA (pas du contenu).
+ * Permet de reconnaître automatiquement un fichier CSV provenant de la même banque
+ * (même structure de colonnes) entre 2 imports. L'user le mappera la 1re fois à un
+ * compte (label) ; les fois suivantes la reconnaissance est auto.
+ * @param {{headers:string[], delimiter?:string}} parsed — sortie de _bankParseCSV
+ * @returns {string|null} 'csv:XXXX' ou null si pas d'en-têtes.
+ */
+export function _bankCsvHeaderHash(parsed) {
+  if (!parsed || !Array.isArray(parsed.headers) || !parsed.headers.length) return null;
+  const norm = parsed.headers
+    .map(h => String(h || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().trim())
+    .join('|');
+  return 'csv:' + _bankHashStable(norm + '|' + (parsed.delimiter || ','));
+}

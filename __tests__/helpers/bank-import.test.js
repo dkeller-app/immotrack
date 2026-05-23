@@ -6,7 +6,8 @@ import { describe, it, expect } from 'vitest';
 import {
   _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
   _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup,
-  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints
+  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints,
+  _bankExtractOFXAccount, _bankCsvHeaderHash
 } from '../../js/core/bank-import.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -591,6 +592,84 @@ describe("_bankMigrateFingerprints", () => {
   });
   it("non-array → { migrated:0, skipped:0 }", () => {
     expect(_bankMigrateFingerprints(null)).toEqual({ migrated:0, skipped:0 });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  BANK-IMPORT-V2 Phase A — Identification du compte source
+// ═══════════════════════════════════════════════════════════════════
+
+describe('_bankExtractOFXAccount', () => {
+  it('Extrait ACCTID + BANKID depuis BANKACCTFROM (SGML)', () => {
+    const ofx = `<OFX>
+<BANKMSGSRSV1><STMTTRNRS><STMTRS>
+<BANKACCTFROM>
+<BANKID>30002
+<ACCTID>00000012345
+<ACCTTYPE>CHECKING
+</BANKACCTFROM>
+<STMTTRN><DTPOSTED>20260101<TRNAMT>100.00<FITID>X1</STMTTRN>
+</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`;
+    const acc = _bankExtractOFXAccount(ofx);
+    expect(acc).toBeTruthy();
+    expect(acc.bankId).toBe('30002');
+    expect(acc.acctId).toBe('00000012345');
+    expect(acc.acctType).toBe('CHECKING');
+    expect(acc.identifier).toBe('acct:30002:00000012345');
+  });
+
+  it('Extrait ACCTID depuis CCACCTFROM (carte crédit)', () => {
+    const ofx = `<OFX><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS>
+<CCACCTFROM><ACCTID>4444555566667777</CCACCTFROM>
+<STMTTRN><DTPOSTED>20260101<TRNAMT>50</STMTTRN>
+</CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>`;
+    const acc = _bankExtractOFXAccount(ofx);
+    expect(acc).toBeTruthy();
+    expect(acc.acctId).toBe('4444555566667777');
+    expect(acc.identifier).toBe('acct:4444555566667777');  // pas de BANKID pour les cartes
+  });
+
+  it('Texte vide ou non-OFX → null', () => {
+    expect(_bankExtractOFXAccount('')).toBeNull();
+    expect(_bankExtractOFXAccount('pas du tout un OFX')).toBeNull();
+    expect(_bankExtractOFXAccount(null)).toBeNull();
+  });
+
+  it('OFX sans ACCTID → null (compte non identifiable)', () => {
+    const ofx = `<OFX><BANKACCTFROM><BANKID>30002</BANKACCTFROM></OFX>`;
+    expect(_bankExtractOFXAccount(ofx)).toBeNull();
+  });
+});
+
+describe('_bankCsvHeaderHash', () => {
+  it('Même schéma de colonnes → même hash (stable)', () => {
+    const a = _bankCsvHeaderHash({ headers:['Date','Libelle','Debit','Credit'], delimiter:';' });
+    const b = _bankCsvHeaderHash({ headers:['Date','Libelle','Debit','Credit'], delimiter:';' });
+    expect(a).toBe(b);
+    expect(a).toMatch(/^csv:[a-f0-9]{16}$/);
+  });
+
+  it('Insensible à la casse + accents (variantes cosmétiques)', () => {
+    const a = _bankCsvHeaderHash({ headers:['Date','Libellé','Débit','Crédit'], delimiter:';' });
+    const b = _bankCsvHeaderHash({ headers:['DATE','LIBELLE','DEBIT','CREDIT'], delimiter:';' });
+    expect(a).toBe(b);
+  });
+
+  it('Schémas différents → hashes différents', () => {
+    const a = _bankCsvHeaderHash({ headers:['Date','Libelle','Montant'], delimiter:';' });
+    const b = _bankCsvHeaderHash({ headers:['Date','Libelle','Debit','Credit'], delimiter:';' });
+    expect(a).not.toBe(b);
+  });
+
+  it('Délimiteur différent → hash différent (banques distinctes peuvent partager les noms)', () => {
+    const a = _bankCsvHeaderHash({ headers:['Date','Lib','Montant'], delimiter:';' });
+    const b = _bankCsvHeaderHash({ headers:['Date','Lib','Montant'], delimiter:',' });
+    expect(a).not.toBe(b);
+  });
+
+  it("Pas d'en-têtes → null", () => {
+    expect(_bankCsvHeaderHash({ headers:[] })).toBeNull();
+    expect(_bankCsvHeaderHash(null)).toBeNull();
   });
 });
 
