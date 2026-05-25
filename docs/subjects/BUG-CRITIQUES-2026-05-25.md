@@ -37,56 +37,69 @@
 
 ---
 
-## 🚨 BUG 2 — Impossibilité de supprimer (P1)
+## 🚨 BUG 2 — Impossibilité de supprimer (P1) — PRÉCISÉ 2026-05-25
 
-> 💬 « Impossibilité de supprimer »
+> 💬 « 1 : les démos et j'ai essayé sur le mac et le téléphone »
 
-**À préciser** : supprimer quoi exactement ?
-- Les données démo génériques (SCI Dupont / Pierre Demo / Marie Demo) ?
-- Un logement / immeuble / bail / mouvement réel ?
-- Tout ?
+**Précisé** : c'est l'**impossibilité de supprimer les démos auto-injectées** (SCI Dupont / DEMO-F2 / Pierre/Marie Demo). Le user a confirmé que le BUG 1 (injection démos) touche **TOUS ses devices** (PC + Mac + téléphone). Pas de bug séparé de suppression sur ses VRAIES données.
 
-**Pistes** :
-- Si données démo : peut-être protégées par flag (`_demo: true`) ou ID spécifique
-- Si données réelles : régression dans `_softDeleteEntity` / cascade tombstones
-- Vérifier l'audit-trail + cascade tombstones (BUG-DRIVE-RESURRECTION v14.30-32 livré → mais possible régression depuis)
+**Conséquence** : BUG 2 se résout en même temps que BUG 1 — si on retire l'injection auto, plus de démos polluantes. + un cleanup au prochain boot pour purger les démos déjà injectées sur tous ses devices.
 
-**Prio** : **P1**. À préciser par l'user (cas exact + capture d'écran si possible).
+**Action** : couplé au fix BUG 1 (Task #2).
 
 ---
 
-## 🚨 BUG 3 — Import de logement plus existant (P1)
+## 🚨 BUG 3 — Bouton "Créer bail" mal câblé + dispatch infos bien/bail à revoir (P1) — PRÉCISÉ 2026-05-25
 
-> 💬 « Import de logement plus existant »
+> 💬 « dans logement le bouton créé bail dirige vers le bien. en plus on a bcp d'infos dans biens qui sont liés au locataire. avoir le loyer théorique me choque pas mais le reste on a un gros boulot pour dispatcher les bonnes infos au bon endroit. En plus quand on créé un immeuble ou bien, il faudrait avoir une suite logique (immeuble -> biens -> baux) pour que l'utilisateur puisse avoir une vraie expérience et utilisation »
 
-**À préciser** :
-- Quel import : référentiel xlsx (onglet Import) ou autre ?
-- « Plus existant » = bouton disparu de l'UI ? Fonction qui plante ? Régression récente ?
+**3 problèmes en un** :
 
-**Pistes** :
-- IMPORT-EXCEL-LOG était livré (template xlsx avec onglet Logements)
-- Vérifier `handleImportRef` (l. ~36435+) et `imp-ref-file` (l. 265)
-- Régression possible suite à une refonte Import récente ?
+### 3.A — Bouton "Créer bail" dirige vers le bien (régression UX)
+- Sur la fiche bien (logement), le bouton « Créer un bail » ne lance pas le wizard bail → revient sur le bien (boucle)
+- Capture user montre fiche 360° onglet Bail avec « + Créer / saisir un bail » → mais le clic ne mène pas au wizard attendu
+- **À investiguer** : `openNewBailChoix` / wizard bail, pré-remplissage avec `logement.ref`
 
-**Prio** : **P1**. À préciser (chemin UI exact où le bouton/fonction manque).
+### 3.B — Dispatch des infos bien vs bail/locataire à revoir
+Sur le screenshot « Modifier RDC gauche » : la modale Identité contient une section **« BAIL COURANT (LEGACY — À MIGRER PHASE 4) »** avec :
+- Loyer HC, Charges → ✅ user OK pour rester côté bien (loyer **théorique** acceptable)
+- **Locataires, Tél, Mail** → ❌ user veut que ça parte côté locataire/bail (« on a bcp d'infos dans biens qui sont liés au locataire »)
+
+→ Croise directement **ARCHI-DB-DOUBLONS** (séparation log/bail) et **NAV-LOGEMENT-BAIL-CLARIF** (« le mur » vs « la personne »).
+
+### 3.C — Suite logique de création manquante : Immeuble → Bien → Bail
+> « quand on créé un immeuble ou bien, il faudrait avoir une suite logique (immeuble → biens → baux) »
+
+Aujourd'hui chaque création est isolée (créer immeuble seul, puis devoir aller créer un bien, puis aller créer un bail). User veut un **flow guidé séquentiel** après création d'immeuble/bien → propose de créer le suivant.
+
+→ **Nouveau sujet créé** : `WIZARD-CREATION-SEQUENTIEL.md`.
+
+**Action** : 3.A en correction de bug (immédiat) + 3.B en refonte (couvert par ARCHI-IMM-LOG-DEDUP + NAV-LOGEMENT-BAIL-CLARIF) + 3.C en nouveau sujet wizard.
 
 ---
 
-## 🚨 BUG 4 — Impossible de créer un bail depuis un logement (P1)
+## 🚨 BUG 4 — Infos redondantes entre Immeuble et Bien (P1) — PRÉCISÉ 2026-05-25
 
-> 💬 « Gros boulot niveau immeuble et appartement et bail : impossible de créer un nouveau bail depuis logement par exemple »
+> 💬 « 2 : il y a bcp d'infos redondantes entre immeuble et bien (adresse, année de construction, régime juridique...) »
 
-**Diagnostic** :
-- Le flow attendu = depuis la fiche logement → bouton « + Nouveau bail » → wizard bail pré-rempli avec le logement
-- Ce bouton existe-t-il ? Est-il branché correctement ?
-- Croise **ARCHI-DB-DOUBLONS** (P1 — refonte structurelle log/bail) qui justement traite la séparation log/bail
+**Précisé** : duplication de saisie entre la fiche **Immeuble** et la fiche **Bien** :
+- Adresse
+- Année de construction
+- Régime juridique
+- Probablement d'autres (à inventorier)
 
-**Pistes** :
-- Vérifier la fiche logement 360° : présence du bouton « + Nouveau bail »
-- Vérifier `openNewBailChoix()` / `openBail()` et le passage de paramètre logement
-- Sur l'onglet Baux il y a `+ Nouveau bail` (l. 343) mais sans pré-remplissage du logement
+Sur le screenshot « Modifier RDC gauche » : l'**adresse** « 15 rue des pèlerins - 68790 MORSCHWILLER LE BAS » est saisie côté **bien** alors qu'elle vient logiquement de l'**immeuble** parent (Morschwiller-le-bas) — c'est exactement la redondance pointée.
 
-**Prio** : **P1**. À résoudre dans le cadre de **NAV-LOGEMENT-BAIL-CLARIF** + **ARCHI-DB-DOUBLONS** (refonte des flows de création).
+**Conséquences** :
+- Double saisie pénible
+- Risque d'incohérence (adresse modifiée d'un côté, pas de l'autre)
+- Schéma de données impropre
+
+**Fix structurel** : les infos communes vivent côté **immeuble**, le **bien hérite** par référence. Le bien ne porte que ce qui lui est propre (étage, surface, type, exposition…).
+
+→ **Nouveau sujet créé** : `ARCHI-IMM-LOG-DEDUP.md`.
+
+**Action** : refonte schéma, dans le cadre de la même refonte que ARCHI-DB-DOUBLONS (log/bail) et NAV-LOGEMENT-BAIL-CLARIF. À planifier conjointement.
 
 ---
 
