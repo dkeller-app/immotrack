@@ -1,8 +1,8 @@
 # DEMO-DATA-JSON — Jeu de données de démonstration étoffé
 
 **Status** : ⬜ À faire · **Prio** : P1 (bloquant démo commerciale) · **Taille** : M (~3-5h)
-**Détecté** : 2026-05-17 (user : « il faudra faire une version json de démonstration assez étoffé »)
-**Lié à** : ONBOARDING-PREMIERE-CONNEXION (s'appuie dessus) · TEST-E2E-PLAYWRIGHT (seed-db) · USER-PROFILE-FILTERS · commercialisation V1
+**Détecté** : 2026-05-17 (user : « il faudra faire une version json de démonstration assez étoffé ») · **Renforcé 2026-05-25** : éradication des démos auto-injectées + base démo séparée
+**Lié à** : ONBOARDING-PREMIERE-CONNEXION (s'appuie dessus) · **APP-DEMO-SEPAREE** (URL/mode dédié) · **BUG-CRITIQUES-2026-05-25** (BUG 1, éradication des génériques) · TEST-E2E-PLAYWRIGHT (seed-db) · commercialisation V1
 
 ## Justification (4 critères pré-vol)
 
@@ -88,3 +88,4 @@ Un fichier `demo-data.json` **étoffé et réaliste** chargeable en 1 clic, qui 
 ## Journal
 
 - 2026-05-17 : créé · jeu de données démo étoffé couvrant toutes les features (entités variées + 15-25 lots + DPE F/G + impayés + IRL à réviser + diagnostics expirés + EDL) · dates relatives · bouton de chargement · réutilisable comme fixture E2E · support ONBOARDING
+- 2026-05-25 : **renforcé** suite décision user éradication des génériques (« supprimer toutes les infos génériques de l'app et créer une base générique »). Le `demo-data.json` devient la **SEULE** source de données démo de l'app, chargée UNIQUEMENT sur action explicite. Plus aucune injection auto dans `initDB()`. Couplé à APP-DEMO-SEPAREE pour mode/URL démo dédié.

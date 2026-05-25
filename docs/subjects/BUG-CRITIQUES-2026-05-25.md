@@ -35,6 +35,18 @@
 
 **Prio** : **P0** (bloquant V1 + risque pollution Drive).
 
+### 🎯 Décision user 2026-05-25 : éradication totale des génériques + base démo séparée
+
+> 💬 « je pense qu'il faut supprimer toutes les infos génériques de l'app et créer une base générique (ou même une app générique) avec des données de démonstration »
+
+→ **Approche radicale retenue** :
+1. **Supprimer TOUTES les références aux données génériques** du code de l'app (initDB injection, SCI Dupont id=1001, DEMO-F2, Pierre/Marie Demo, mvts 9000001-9000003, et tout ce qui traîne). Audit code complet requis (pas juste `initDB`).
+2. La **base démo vit dans un fichier séparé** (`demo-data.json`), chargée UNIQUEMENT sur action explicite (bouton "Charger démo" dans onboarding/paramètres). Cf DEMO-DATA-JSON.
+3. **Cleanup migration** : au boot v15.X+, si on détecte des entités/logements/baux portant les IDs/noms des anciennes démos auto-injectées → purge silencieuse (tombstones propres).
+4. **App démo séparée** (optionnel) : URL distincte ou mode `?demo=1` pour communication commerciale, captures, prospects → cf nouveau sujet **APP-DEMO-SEPAREE**.
+
+Cette décision **résout aussi le BUG 2** (impossibilité supprimer démos) puisque plus aucune démo n'est injectée en prod.
+
 ---
 
 ## 🚨 BUG 2 — Impossibilité de supprimer (P1) — PRÉCISÉ 2026-05-25
