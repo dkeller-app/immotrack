@@ -253,7 +253,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 | Code | Sujet | Prio | Taille | Statut | Note |
 |---|---|---|---|---|---|
-| **DRIVE-PARTAGE-PICKER** | Partage tiers via Google Picker (l'associé écrit dans le dossier partagé, scope drive.file gardé) | **P1** | M | ✅ **Code livré v15.135-137** · 🧪 **test 2 comptes en attente** | [docs/subjects/DRIVE-PARTAGE-PICKER.md](docs/subjects/DRIVE-PARTAGE-PICKER.md) · clé API Picker en place · UI dans Paramètres → Partage · **résout le vrai problème** (Marion ne pouvait pas écrire — workaround "Drive partagé" du doc était faux). |
+| **DRIVE-PARTAGE-PICKER** | Partage tiers via Google Picker + permissions.create auto + « 1 fichier par user » | **P1** | M | ✅ **Phase 1-5 livrées v15.168** · 🧪 **test Marion lecture/écriture cross-user en attente** | [docs/subjects/DRIVE-PARTAGE-PICKER.md](docs/subjects/DRIVE-PARTAGE-PICKER.md) · POC v15.167 validé empiriquement (Marion accède aux PJ binaires après permissions.create). v15.168 industrialise : UI Co-gestionnaires + auto-share à chaque upload + backfill bouton + pattern « 1 fichier par user » pour résoudre 403 écriture (saveEntity/saveGlobal taggés `__{userHash}`) + 21 tests Vitest (957 total). |
 | DRIVE-2F | Optimistic Concurrency Control (OCC) — anti-écrasement 2 writers simultanés | P1 | M | ⬜ **Après validation PARTAGE-PICKER** | [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · filet de sécurité une fois que 2 personnes (Didier+Marion) écrivent les mêmes fichiers. ⚠ touche le chemin de save critique (fraîchement stabilisé) → à faire avec prudence + test 2 comptes. Prématuré tant que le partage n'est pas validé. |
 | DRIVE-2H | Re-architecture fichiers par-user vs partagé | P1→**V2** | M | 🔵 **Reclassé V2 multi-tenant** | Le split per-user n'est utile qu'en multi-tenant (V2 PostgreSQL Q4 2027). Pour 2-3 users co-gestion, le partage Picker suffit (ils partagent tout, c'est voulu). [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
 | DRIVE-2G | Awareness UI (qui édite quoi) | P1→**V2** | S | 🔵 **Reclassé V2** | Présence temps-réel = confort multi-user, redondant avec le backend V2. [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
@@ -405,6 +405,22 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 ---
 
 ## ✅ Livré récemment
+
+### DRIVE-PARTAGE-PICKER ✅ — Phase 1-5 industrialisation co-gestion 2-users (v15.167+v15.168, 2026-05-25)
+> **POC v15.167** : bouton de test `permissions.create` sur chaque fichier du dossier ImmoTrack → Marion (co-gestionnaire) débloquée immédiatement sur la **lecture des PJ binaires** (photos EDL, PDF bail…). Confirme empiriquement que le scope `drive.file` exige une autorisation **individuelle par fichier** (le partage du dossier parent ne propage que la lecture des JSON entité).
+>
+> **v15.168 — industrialisation 5 phases** :
+> - **Phase 1 UI Co-gestionnaires** : card propre dans Paramètres → Partage. Liste emails + label + bouton ajouter/retirer. `DB.params.coGestionnaires` initialisé dans initDB, partagé dans le JSON DB (propagation cross-device).
+> - **Phase 2 Auto permissions.create** : hook fire-and-forget dans 4 fonctions (`_drvUploadAttachmentNow`, `_drvUploadDoc`, `_driveSaveOneEntity POST`, `_driveSaveGlobal POST`). Chaque nouveau fichier est partagé automatiquement avec tous les co-gestionnaires.
+> - **Phase 3 Backfill** : `_drvBackfillSharePermissions(emails?)` recyclé du POC, proposé automatiquement à l'ajout d'un nouveau co-gestionnaire + bouton manuel « 🔄 Rattraper les anciens fichiers ».
+> - **Phase 4 « 1 fichier par user »** (pour l'écriture cross-user) : helpers `_drvUserTag()` (hash FNV-1a 6 hex de _userEmail, stable cross-device) + `_drvMyEntityFiles()` (tracking localStorage non-contaminé par les merges Drive). `_driveSaveOneEntity` refacto : PATCH known → succès → mémo, 403/404 → POST nouveau fichier tagué `immotrack-entity-{eid}__{userHash}.json`. Idem `_driveSaveGlobal`. `_driveLoadGlobal` élargi à `name contains 'immotrack-global'` + filter regex strict. `_driveLoadEntityFiles` déjà compatible (`name contains 'immotrack-entity-'`). Merge LWW (`_drvWins`) tranche entre versions untagged/tagged.
+> - **Phase 5 Tests Vitest** : 21 nouveaux (`drive-multiuser.test.js`) couvrant `_drvUserTag` stabilité + naming convention + filter global files + simulation des 4 scénarios save. **957 total, zéro régression**.
+>
+> **Pour Marion** : après hard reload, plus de 403 à la sauvegarde (ses modifs vont dans `immotrack-entity-{eid}__{son-tag}.json`, fichiers SIEN). Plus de « binaire introuvable » sur les PJ uploadées par toi (permissions explicites partagées). Et inversement : tu vois ses modifs/uploads (LWW merge + permissions auto).
+>
+> **Limites résiduelles connues** : non testé en prod cross-user IRL (test Marion à faire). Drive Picker option B (sélection dossier) reste fonctionnelle pour onboarding. **Coût zéro Google Workspace** (toujours en `drive.file` minimal).
+>
+> **Commits** : `5ee7f52` (POC v15.167) + `a851213` (v15.168 Phase 1-5). +1021 / -241 lignes.
 
 ### BUG-DEMO-INJECTION ✅ — Suppression injection auto démos + bouton purge buggé (v15.166, 2026-05-25)
 > **2 bugs liés résolus en 1 commit** (couvre BUG 1 P0 de BUG-CRITIQUES-2026-05-25) :
