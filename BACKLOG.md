@@ -253,7 +253,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 | Code | Sujet | Prio | Taille | Statut | Note |
 |---|---|---|---|---|---|
-| **DRIVE-PARTAGE-PICKER** | Partage tiers via Google Picker + permissions.create auto + « 1 fichier par user » | **P1** | M | ✅ **Phase 1-5 livrées v15.168** · 🧪 **test Marion lecture/écriture cross-user en attente** | [docs/subjects/DRIVE-PARTAGE-PICKER.md](docs/subjects/DRIVE-PARTAGE-PICKER.md) · POC v15.167 validé empiriquement (Marion accède aux PJ binaires après permissions.create). v15.168 industrialise : UI Co-gestionnaires + auto-share à chaque upload + backfill bouton + pattern « 1 fichier par user » pour résoudre 403 écriture (saveEntity/saveGlobal taggés `__{userHash}`) + 21 tests Vitest (957 total). |
+| **DRIVE-PARTAGE-PICKER** | Co-gestion 2-users Drive (POC + industrialisation 5 phases + fixes binaires + REORG arbo par entité) | **P1** | L (~6h livrés, ~3h restantes Phases B/C/D/E) | 🔄 **v15.167→171 livrées** (Phase A REORG faite) · 🧪 **test 2 comptes en cours** | [docs/subjects/DRIVE-PARTAGE-PICKER.md](docs/subjects/DRIVE-PARTAGE-PICKER.md) · POC v15.167 + UI co-gest + auto-share + plan "1 fichier par user" v15.168 + fix folders writer v15.169 + fix `_drvSAD()` 5 endpoints v15.170 + Phase A REORG docs cloisonnés par entité v15.171. **Phases restantes** : B (sauvegarde JSON dans `[entité]/`), C (auto-détection cross-user zero-friction), D (migration anciens docs), E (refonte UI). À reprendre en session dédiée. |
 | DRIVE-2F | Optimistic Concurrency Control (OCC) — anti-écrasement 2 writers simultanés | P1 | M | ⬜ **Après validation PARTAGE-PICKER** | [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · filet de sécurité une fois que 2 personnes (Didier+Marion) écrivent les mêmes fichiers. ⚠ touche le chemin de save critique (fraîchement stabilisé) → à faire avec prudence + test 2 comptes. Prématuré tant que le partage n'est pas validé. |
 | DRIVE-2H | Re-architecture fichiers par-user vs partagé | P1→**V2** | M | 🔵 **Reclassé V2 multi-tenant** | Le split per-user n'est utile qu'en multi-tenant (V2 PostgreSQL Q4 2027). Pour 2-3 users co-gestion, le partage Picker suffit (ils partagent tout, c'est voulu). [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
 | DRIVE-2G | Awareness UI (qui édite quoi) | P1→**V2** | S | 🔵 **Reclassé V2** | Présence temps-réel = confort multi-user, redondant avec le backend V2. [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
@@ -405,6 +405,17 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 ---
 
 ## ✅ Livré récemment
+
+### DRIVE-REORG Phase A ✅ — Docs entité/immeuble cloisonnés par entité (v15.171, 2026-05-25)
+> **Feedback user** : « les docs entité et immeuble sont dans un dossier Documents (hors logement) commun à toutes les entités, c'est mal cloisonné. Il faut faire un dossier par entité qui comprend tout ».
+>
+> **Fix Phase A** : nouveaux helpers `_drvEnsureEntityDocsFolder(entityNom)` + `_drvResolveDocEntity(doc)` qui détermine l'entité parente d'un document. Refacto `_drvAttachmentFolderId` : pour les docs SANS logRef (entité/immeuble), route vers `[entité]/Documents/` au lieu du dossier mutualisé. Cas couverts : logement, entite directe, immeuble (recherche dans DB.entites[*].immeubles[*]), mouvement avec qui="SCI:nom", bail avec parentRef=log.ref.
+>
+> **Phases B/C/D/E reportées** : sauvegarde JSON dans `[entité]/`, auto-détection cross-user zero-friction, migration anciens docs, refonte UI. Capturées dans `docs/subjects/DRIVE-PARTAGE-PICKER.md` pour reprise en session dédiée (~3h restantes).
+>
+> **À l'usage** : les NOUVEAUX docs entité/immeuble uploadés dès v15.171 vont au bon endroit. Les ANCIENS restent dans `Documents (hors logement)/` tant que la Phase D migration n'est pas faite (à venir).
+>
+> **Commit** `c2542f5`. 957 tests Vitest OK.
 
 ### DRIVE-PARTAGE-PICKER ✅ — Phase 1-5 industrialisation co-gestion 2-users (v15.167+v15.168, 2026-05-25)
 > **POC v15.167** : bouton de test `permissions.create` sur chaque fichier du dossier ImmoTrack → Marion (co-gestionnaire) débloquée immédiatement sur la **lecture des PJ binaires** (photos EDL, PDF bail…). Confirme empiriquement que le scope `drive.file` exige une autorisation **individuelle par fichier** (le partage du dossier parent ne propage que la lecture des JSON entité).

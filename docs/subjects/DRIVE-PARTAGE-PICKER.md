@@ -122,3 +122,36 @@ zéro migration). Marion (associée) reçoit 403 sur les fichiers de Didier → 
 - 2026-05-20 : créé. Cause = scope drive.file. Option E (Picker) retenue. Code v15.135 livré (gaté, additif). Prérequis clé API + test 2 comptes côté user.
 - 2026-05-21 : **test 2 comptes KO** (cf section ci-dessus) — pull OK mais save 403 (drive.file ne peut pas modifier les fichiers de Didier). Option E insuffisante en l'état. Diagnostic enrichi v15.142. Décision archi requise (piste P1 « 1 jeu de fichiers par user » recommandée).
 - 2026-05-23 : **Marion reteste en v15.142+ → 403 confirmé avec le détail exact** : `HTTP 403 [appNotAuthorizedToFile] — The user has not granted the app 580411013113 write access to the file 1czWmB4a0seBUqp1p2_jb6QiKMaSAn9ai (modif. fichier "SCI SMARTOSAURUS")`. Diagnostic v15.142 a parfaitement remonté la cause. **Nouvelle finding** : Marion voit aussi « Binaire introuvable (IDB ni Drive) » sur des PJ uploadées par Didier — même cause profonde côté LECTURE (`drive.file` refuse aussi le `GET ?alt=media` sur un fichier non créé par son instance d'app). **Implication pour le plan « 1 fichier par user »** : résout l'écriture des fichiers DB.entites, mais la **lecture cross-user des binaires d'attachement reste limitée**. Chaque user ne verra que les PJ qu'il a uploadées lui-même, sauf à re-picker chaque fichier individuellement (intenable). Trade-off à expliciter avant d'implémenter. Décision user : **finir BANK-IMPORT-V2 avant de revenir sur ce sujet** (plus de réflexion design requise + zone sensible).
+- 2026-05-25 : **POC v15.167 validé empiriquement** (Marion accède aux binaires PJ via permissions.create). **v15.168 Phase 1-5 industrialisation** : UI Co-gestionnaires + auto-share + plan « 1 fichier par user » + 21 tests Vitest. **v15.169 fix folders=writer** (Marion peut uploader). **v15.170 fix `_drvSAD()` manquant** sur 5 endpoints binaires (vrai bug racine du « Binaire introuvable »). **v15.171 DRIVE-REORG Phase A** : docs entité/immeuble cloisonnés par entité (`[entité]/Documents/` au lieu de `Documents (hors logement)/` mutualisé). 4 phases restantes encore à faire (cf section ci-dessous).
+
+## 🚧 Phases restantes (à faire en releases dédiées — DRIVE-REORG complet)
+
+Capturé 2026-05-25 suite au feedback user : « il faut faire un dossier par entité qui comprend tout ainsi que la sauvegarde » + « il faut vraiment que ce soit simple et évident pour les utilisateurs. On partage dans l'app et le cogestionnaire a les accès. on ne peut pas demander plein d'actions hors logiciel ».
+
+### Phase B — Sauvegarde JSON entité dans `[entité]/` (~1-2h)
+- Modifier `_driveSaveOneEntity` POST pour utiliser `[entité]/sauvegarde.json` (ou garder `immotrack-entity-*.json`) au lieu de la racine ImmoTrack.
+- Modifier `_driveLoadEntityFiles` query : retirer `'X' in parents` OU utiliser une recherche récursive via `_drvListAllFilesRec` + filter par nom. **CRITIQUE** : sinon les anciens fichiers ne sont plus trouvés au pull → perte de données potentielle.
+- Tests Vitest sur la nouvelle logique de query.
+
+### Phase C — Auto-détection cross-user au boot (~1h) — ZERO-FRICTION
+- Au boot, scan `files.list?q=sharedWithMe=true and mimeType='application/vnd.google-apps.folder' and trashed=false` + filter sur nom `ImmoTrack`.
+- Si dossier ImmoTrack partagé détecté ET `_drvSharedRootId` pas encore set → modale auto :
+  > « 🤝 [nom propriétaire] t'a partagé son dossier ImmoTrack. Confirmer l'accès ? »
+  → 1 clic → set `_drvSharedRootId` automatiquement.
+- Plus besoin du Picker manuel pour les cas standards. **Critique** pour la cible commerciale (zero friction côté co-gest).
+
+### Phase D — Migration des anciens docs (~1h)
+- Bouton « 🗂 Réorganiser mon Drive » dans Paramètres → Stockage.
+- List les fichiers dans `Documents (hors logement)/` → pour chaque, retrouve le doc DB.documents associé → résout l'entité parent via `_drvResolveDocEntity` → PATCH `addParents=[nouveau]&removeParents=[ancien]`.
+- Supprime le dossier `Documents (hors logement)/` quand vide.
+- **À l'usage** : pas indispensable (les nouveaux docs vont déjà au bon endroit grâce à Phase A v15.171), mais utile pour la propreté Drive du user existant.
+
+### Phase E — Refonte UI Paramètres → Partage (~30 min)
+- Retirer le bouton « Sélectionner un dossier partagé » (devenu obsolète avec Phase C auto-détection).
+- Card co-gestionnaires simplifiée : « ajoute un email → tout est automatique côté l'autre user ».
+- Info claire : « les co-gestionnaires accèdent à TOUT ton dossier ImmoTrack (toutes entités). Pour cloisonner par entité, voir DRIVE-COGEST-PAR-ENTITE (future) ».
+
+### Phase F (V2) — Co-gestionnaires scope par entité
+- Refacto `DB.params.coGestionnaires = [{email, label, entites: [eid1, eid2]}]` (au lieu de scope global).
+- L'auto-share filtre par entités où le co-gest a accès.
+- Sujet séparé : `DRIVE-COGEST-PAR-ENTITE.md` (à créer).
