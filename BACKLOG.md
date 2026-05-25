@@ -253,7 +253,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 | Code | Sujet | Prio | Taille | Statut | Note |
 |---|---|---|---|---|---|
-| **DRIVE-PARTAGE-PICKER** | Co-gestion 2-users Drive (POC + industrialisation 5 phases + fixes binaires + REORG arbo par entité) | **P1** | L (~6h livrés, ~3h restantes Phases B/C/D/E) | 🔄 **v15.167→171 livrées** (Phase A REORG faite) · 🧪 **test 2 comptes en cours** | [docs/subjects/DRIVE-PARTAGE-PICKER.md](docs/subjects/DRIVE-PARTAGE-PICKER.md) · POC v15.167 + UI co-gest + auto-share + plan "1 fichier par user" v15.168 + fix folders writer v15.169 + fix `_drvSAD()` 5 endpoints v15.170 + Phase A REORG docs cloisonnés par entité v15.171. **Phases restantes** : B (sauvegarde JSON dans `[entité]/`), C (auto-détection cross-user zero-friction), D (migration anciens docs), E (refonte UI). À reprendre en session dédiée. |
+| **DRIVE-PARTAGE-PICKER** | Co-gestion 2-users Drive (POC + 5 phases industrialisation + REORG arbo complète + auto-détection + migration) | **P1** | L (~9h livrés sur la session 2026-05-25) | ✅ **v15.167→172 livrés (toutes phases A-E)** · 🧪 **test 2 comptes en cours** | [docs/subjects/DRIVE-PARTAGE-PICKER.md](docs/subjects/DRIVE-PARTAGE-PICKER.md) · 8 commits empilés : POC v15.167, industrialisation 1-5 v15.168, fix folders writer v15.169, fix `_drvSAD()` 5 endpoints v15.170, REORG Phase A docs cloisonnés v15.171, REORG Phases B+C+D+E v15.172. **ZONE SENSIBLE** : à tester en prod soigneusement avant manipulation données réelles. |
 | DRIVE-2F | Optimistic Concurrency Control (OCC) — anti-écrasement 2 writers simultanés | P1 | M | ⬜ **Après validation PARTAGE-PICKER** | [docs/subjects/DRIVE-2F.md](docs/subjects/DRIVE-2F.md) · filet de sécurité une fois que 2 personnes (Didier+Marion) écrivent les mêmes fichiers. ⚠ touche le chemin de save critique (fraîchement stabilisé) → à faire avec prudence + test 2 comptes. Prématuré tant que le partage n'est pas validé. |
 | DRIVE-2H | Re-architecture fichiers par-user vs partagé | P1→**V2** | M | 🔵 **Reclassé V2 multi-tenant** | Le split per-user n'est utile qu'en multi-tenant (V2 PostgreSQL Q4 2027). Pour 2-3 users co-gestion, le partage Picker suffit (ils partagent tout, c'est voulu). [docs/subjects/DRIVE-2H.md](docs/subjects/DRIVE-2H.md) |
 | DRIVE-2G | Awareness UI (qui édite quoi) | P1→**V2** | S | 🔵 **Reclassé V2** | Présence temps-réel = confort multi-user, redondant avec le backend V2. [docs/subjects/DRIVE-2G.md](docs/subjects/DRIVE-2G.md) |
@@ -405,6 +405,19 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 ---
 
 ## ✅ Livré récemment
+
+### DRIVE-REORG Phases B+C+D+E ✅ — Sauvegarde cloisonnée + auto-détection + migration + UI (v15.172, 2026-05-25)
+> **Termine la refacto Drive** demandée par user : « un dossier par entité qui comprend tout, sauvegarde incluse » + « zero friction côté co-gestionnaire ».
+>
+> **Phase B** : `_driveSaveOneEntity` POST dans `[entité]/` au lieu de root. `_driveLoadEntityFiles` adapté avec scan récursif via `_drvListAllFilesRec` + filter (rétro-compat fichiers anciens à la racine, dédoublonnage par fileId).
+>
+> **Phase C** : auto-détection cross-user au login. `_drvAutoDetectSharedFolder` scan `sharedWithMe=true` + nom `ImmoTrack`. Si trouvé → modale 1 clic → set `_drvSharedRootId`. Plus jamais besoin de Pickerisé manuellement pour les cas standards. `_drvAutoDetectDismissed` mémorisé si l'user dit non (reset au clic « Revenir à mon Drive perso »).
+>
+> **Phase D** : bouton « 🗂 Réorganiser mon Drive » dans Paramètres → Partage. `_drvMigrateDocsToEntityFolders` déplace les anciens fichiers de `Documents (hors logement)/` vers `[entité]/Documents/` (PATCH addParents+removeParents). Idempotent. Récap détaillé.
+>
+> **Phase E** : UI Paramètres → Partage refondue. Message clair « détection automatique à l'ouverture », bouton Picker en secondaire. Card migration ajoutée.
+>
+> **Commit** `7030468`. 957 tests Vitest OK.
 
 ### DRIVE-REORG Phase A ✅ — Docs entité/immeuble cloisonnés par entité (v15.171, 2026-05-25)
 > **Feedback user** : « les docs entité et immeuble sont dans un dossier Documents (hors logement) commun à toutes les entités, c'est mal cloisonné. Il faut faire un dossier par entité qui comprend tout ».
