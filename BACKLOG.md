@@ -406,6 +406,15 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### BUG-CSV-ENCODING ✅ — Auto-détection UTF-8 vs Windows-1252 import bancaire (v15.165, 2026-05-25)
+> **Bug user** : import CSV CIC/Crédit Mutuel (`00021317403.csv`) → « Aucune transaction trouvée » alors que le fichier était valide. OFX OK sur plusieurs tests.
+>
+> **Cause** : `FileReader.readAsText(f, 'utf-8')` (l.35495 dans `_bankImportFileLoaded` ET l.36374 dans `handleImport` legacy). Or les exports CIC/Crédit Mutuel/BP/SG sont en Windows-1252 → en-têtes `Débit;Crédit;Libellé` mangled en `D�bit;Cr�dit;Libell�` → `_bankAutoDetectColumns` ne reconnaît plus debit/credit/libelle → 0 ligne extraite.
+>
+> **Fix** : `readAsArrayBuffer` + `TextDecoder('utf-8', { fatal:true })` first (throw si séquence invalide) → fallback `TextDecoder('windows-1252')` qui couvre 99% des banques FR/EU legacy. UTF-8 (BNP/Boursorama/N26) inchangé. Audit grep a remonté 2 sites, les 2 corrigés.
+>
+> **Commits** `e17ae51` (V2 importer) + `250064b` (legacy importer). Bump v15.165.
+
 ### 19C BUG-EQUIP-INTERV-FEEDBACK ✅ — Reset filtres + scroll/highlight après save intervention (v15.164, 2026-05-25)
 > **Bug** : après save d'une intervention équipement, si un filtre immeuble/logement actif ne matchait pas le logement de la nouvelle intervention → user voyait « Aucun logement trouvé » → impression que le save avait échoué.
 >
