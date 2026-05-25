@@ -56,7 +56,7 @@
 > |---|---|---|---|---|
 > | 19A | BUG-IRL-APERCU-LETTRE-V15 | P1 | S | ✅ Livré v15.74 + v15.75 |
 > | 19B | EMAIL-ONGLET-PERMANENT | P1 | S | ✅ Livré v15.79 |
-> | 19C | BUG-EQUIP-INTERV-FEEDBACK | P1 | S | ⬜ À faire |
+> | 19C | BUG-EQUIP-INTERV-FEEDBACK | P1 | S | ✅ Livré v15.164 |
 > | 19D | V3-REFONTE-NAV-ONGLETS (Loyers→Mouvements + décisions) | P1 | M | ⬜ À faire |
 > | 19E | V3-REFONTE-IMPORTS-UI (3 sous-tabs) | P1 | M | ⬜ À faire |
 > | 19F | IRL-RAPPEL-MAJ-INSEE | P2 | S | ⬜ À faire |
@@ -405,6 +405,16 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 ---
 
 ## ✅ Livré récemment
+
+### 19C BUG-EQUIP-INTERV-FEEDBACK ✅ — Reset filtres + scroll/highlight après save intervention (v15.164, 2026-05-25)
+> **Bug** : après save d'une intervention équipement, si un filtre immeuble/logement actif ne matchait pas le logement de la nouvelle intervention → user voyait « Aucun logement trouvé » → impression que le save avait échoué.
+>
+> **Fix** (`saveEquipIntervention` l.34227 + `rEquipements` l.33959) :
+> - Reset `equip-f-imm` + `equip-f-log` AVANT le re-render → garantit que la ligne fraîchement saisie est dans le scope
+> - Toast étendu : mention « (filtres réinitialisés) » uniquement si filtres étaient actifs
+> - Scroll + highlight vert 2s de la ligne via `tr[data-equip-key="${ref}__${key}"]` (attribut composite ajouté au template), `CSS.escape()` pour refs avec caractères spéciaux
+>
+> **Commit** `a0744f2`. Bump v15.164 (5 places + sw.js).
 
 ### DASH-REFONTE-GLOBALE-V4 ✅ — Refonte V4 Stripe complète (sandbox v15.37) — session 2026-05-15/16 (~7h cumulées)
 > **Refonte visuelle COMPLÈTE** alignée sur mockup `docs/strategie/dashboard-mockups/galerie-finale-sans-surcharge.html` (variant V4 Stripe, l.947-1136).
