@@ -85,7 +85,7 @@
 | 🛡️ **MRH** | MRH-AUTO-LOC (P2) |
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
-| ⚙️ **Architecture / V3 / Sécu** | AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) · PILOTAGE-MATRICIEL ✅ Livré v15.07 (Sprint 8) · BANK-INTEGRATION V1 ✅ Livré v15.07* |
+| ⚙️ **Architecture / V3 / Sécu** | **BUG-DELETE-BRUT-NO-TOMBSTONE (P1, S)** · AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) · PILOTAGE-MATRICIEL ✅ Livré v15.07 (Sprint 8) · BANK-INTEGRATION V1 ✅ Livré v15.07* |
 | 💾 **Drive sync** | **DRIVE-CONFIANCE-UX ✅ Résolu v15.114→134 (P0)** : 9 bugs boucle/perte (B v114 · offline-first A0 v116 · timeout v117 · boucle save v118 · boucle pull v120-121 · re-stamp signature v122 · ping-pong onglets v123 · boucle pull→push v124 · spam toast v125 · migration idempotente v127) **+ page de connexion plein écran** (design confiance v129 · polices app v130 · affichée avant dashboard v131 · pas de flash pendant connexion v132 · **boot gate anti-flash accueil v133** · **A5 aide diagnostic VPN/Opera v134**). *Panneau "État Drive" (C) ✅ couvert par l'existant (FAB statut live + Paramètres Stockage Drive + Export restaurer) — non reconstruit. Thème sombre page connexion écarté (choix A).* · DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) — *LEGAL-DPE-INTERDICTION-LOCATION ✅ Livré v15.05 (Sprint 7) : blocage strict bail si DPE interdit loi Climat 2021* |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
@@ -405,6 +405,17 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 ---
 
 ## ✅ Livré récemment
+
+### BUG-DEMO-INJECTION ✅ — Suppression injection auto démos + bouton purge buggé (v15.166, 2026-05-25)
+> **2 bugs liés résolus en 1 commit** (couvre BUG 1 P0 de BUG-CRITIQUES-2026-05-25) :
+>
+> **Bug A — Bouton « Supprimer SCI Dupont locale » sans effet** (constaté par user) : `cleanupDupontLocal()` faisait `DB.entites = filter(...)` brut sans créer de tombstone → suppression locale propre, mais push Drive itère uniquement les entités alive → tombstone jamais propagé → pull suivant ramenait la version live → SCI Dupont réapparaissait. Le commentaire l'avouait : « ⚠️ locale uniquement ». **Fix** : bouton + fonction retirés. L'user passe par delEnt(id) sur la fiche entité → cascade tombstone propre (pattern v14.30 BUG-DRIVE-RESURRECTION) → propagation Drive OK.
+>
+> **Bug B — Injection auto des démos sur tout nouveau device** : initDB injectait SCI Dupont/DEMO-F2/mvts 9000001-3 sous condition `!driveUsed`. `driveUsed` étant local (`localStorage._driveLastSync`), il était vide sur tout PC/Mac/téléphone vierge → démos injectées AVANT que l'user connecte Drive. Risque concret : mode offline-first v15.116 autorisait les écritures → modifs sur démos prenaient _modifiedAt=NOW → push Drive → `_drvWins` favorisait les démos tombstone vs vraies données plus anciennes → **pollution Drive irréversible possible**. **Fix** : retrait complet de l'injection auto + `_firstLaunch` + `_demoWelcome` + toast bienvenue démo. Pour charger un dataset démo, futur bouton opt-in via `_loadDemoDataset` (déjà utilisé en sandbox).
+>
+> **Pour l'user** : tombstones déjà propagés via delEnt cascade sur PC → Mac et téléphone seront nettoyés au prochain pull Drive. Plus jamais de réinjection au boot d'un nouveau device.
+>
+> **Commit** `156e0bb`. Bump v15.166. -233 lignes / +75 lignes (net cleanup).
 
 ### BUG-CSV-ENCODING ✅ — Auto-détection UTF-8 vs Windows-1252 import bancaire (v15.165, 2026-05-25)
 > **Bug user** : import CSV CIC/Crédit Mutuel (`00021317403.csv`) → « Aucune transaction trouvée » alors que le fichier était valide. OFX OK sur plusieurs tests.
