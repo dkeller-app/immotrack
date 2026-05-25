@@ -406,6 +406,11 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### DRIVE-REORG fix Baux+EDL ✅ — Routing nouveau + migration legacy (v15.173+v15.174, 2026-05-25)
+> **v15.173** : étend la migration Phase D aux fichiers `immotrack-entity-*.json` à la racine (déplacement vers `[entité]/`). Cohérence totale avec « 1 dossier par entité contenant tout ».
+>
+> **v15.174** : user signale « baux et EDL en dehors du bon fichier ». Diagnostic : `uploadBailPDFToDrive` + `uploadEDLPDFToDrive` utilisent un dossier Drive HARDCODÉ (`DB.params.edlDriveFolderId` fallback `1nodzkJIr6a07Cm7WVYu12Jgz5IyNlUum`) → créent `Baux/[ref]_[loc]/` et `EDL/[logement]/[type_date]/` HORS de la nouvelle arbo par entité (code legacy avant DRIVE-ARBORESCENCE v14.20). Fix : routing nouveau (utilise `log.driveFolders.baux` et `log.driveFolders.edl`) + migration legacy intégrée au bouton « Réorganiser mon Drive » (scan 2 racines possibles, déplacement PATCH addParents/removeParents). Récap alert() en 4 sections.
+
 ### DRIVE-REORG Phases B+C+D+E ✅ — Sauvegarde cloisonnée + auto-détection + migration + UI (v15.172, 2026-05-25)
 > **Termine la refacto Drive** demandée par user : « un dossier par entité qui comprend tout, sauvegarde incluse » + « zero friction côté co-gestionnaire ».
 >
