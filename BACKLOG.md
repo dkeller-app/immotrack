@@ -406,7 +406,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
-### BAIL-TYPES Phase B Étapes 1+2+3+4 🔄 — Infra + Wizard + Clauses + Annexe mobilier (v15.191→v15.194, 2026-05-26)
+### BAIL-TYPES Phase B ✅ — Bail meublé complet (v15.191→v15.195, 2026-05-26)
 > **Sujet** : `BAIL-TYPES.md` — ajout 6 types de bail (nu/meublé/étudiant/mobilité/garage/autre) avec rétrocompat totale.
 >
 > **v15.191 — Étape 1 Infrastructure** : champ `bail.type` (default `'nu'`), sélecteur dans wizard étape 2 « Conditions », handler `onBailTypeChange()` qui pré-remplit DG selon type (1×HC nu, 2×HC meublé/étudiant, 0 € mobilité verrouillé), recalcule date de fin via `autoFinBail()`, badges type sur cartes bail (📚 🎓 🚀 🚗 📋, silencieux pour nu).
@@ -417,7 +417,9 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 >
 > **v15.194 — Étape 4 Annexe inventaire mobilier** : nouvelle page dédiée du PDF (visible meublé/étudiant/mobilité) titrée « Annexe 11 — Inventaire détaillé du mobilier ». Tableau 7 colonnes (N° / Catégorie / Fourni / Quantité-désignation / État entrée / État sortie / Observations) sur les 11 catégories décret 2015-981. Codification État N/B/U/HS. Zone observations libres + signatures contradictoires entrée/sortie (BAILLEUR + LOCATAIRE). Mention 1731 C. civ. + 25-6 loi 89-462 sur retenue DG.
 >
-> **957 tests Vitest OK** à chaque commit. Reste Phase B : Étape 5 (tests Vitest dédiés sur `buildBailStructure` type-aware + validation utilisateur finale).
+> **v15.195 — Étape 5 Tests Vitest dédiés** : nouveau module `__tests__/helpers/bail-types.js` (helpers purs + source de vérité documentée pour les 6 types) + test suite `bail-types.test.js` (63 tests). Couvre `BAIL_TYPES`, `MOB_CATEGORIES_DECRET_2015_981` (11 catégories figées), `isBailFurnished`, `getBailDureeMonths`, `getBailDgMonthsMax`, `getBailLegalRefs`, `getBailPreavisMonths`, `isTaciteReconductionAllowed`, `getMobilierCompletion`, `isMobilierLegallyComplete`. Asserts sur les articles de loi cités (89-462 art. 10/22/25-3/25-7/25-12/25-18, décret 2015-981, ELAN art. 107, CC art. 1709).
+>
+> **1020/1020 tests Vitest OK** (957 historiques + 63 nouveaux). Phase B complète — reste à attaquer Phase C (Bail garage simplifié) + Phase D (Bail mobilité avec motif) + Phase E (Bail étudiant 9 mois) — l'infrastructure type-aware est déjà en place, ces phases sont essentiellement du polish + champs spécifiques (motif mobilité).
 
 ### BUG 3.A ✅ — Bouton « Créer bail » fiche logement (v15.190, 2026-05-26)
 > **Bug user** (BUG-CRITIQUES-2026-05-25) : « dans logement le bouton créé bail dirige vers le bien » — boucle UX dans le flow quotidien.

@@ -1,6 +1,6 @@
 # BAIL-TYPES — Ajout 5 types de bail (meublé/garage/mobilité/étudiant + Autre)
 
-**Status** : 🔄 En cours (Phase B Étapes 1+2+3+4 livrées v15.191→v15.194) · **Prio** : P2 · **Taille** : L (5 phases A-E, ~7-10h cumulés)
+**Status** : 🔄 En cours (Phase A+B ✅ livrées v15.191→v15.195 — reste Phase C/D/E polish) · **Prio** : P2 · **Taille** : L (5 phases A-E, ~7-10h cumulés)
 **Lié à** : `project_bail_types.md` (mémoire détaillée), BAIL-PDF-NATIF (à faire avant), BAIL-PRINT-POLISH
 **Prérequis** : BAIL-PDF-NATIF (refonte PDF) terminé pour avoir une base saine de génération
 
@@ -38,7 +38,7 @@ Aujourd'hui, le bail est mono-type "nu" implicite. Il faut ajouter 5 types pour 
 - [x] **Étape 2 v15.192** Section "Mobilier" en étape 3 (les 11 catégories décret 2015-981 — checkboxes + textarea détails + compteur live)
 - [x] **Étape 3 v15.193** Clauses spécifiques meublé (titre, sous-titre, durée 1 an, préavis 3 mois bailleur, tacite reconduction 1 an, DG 2 mois, §1 bis inventaire mobilier, §17 annexe 11) — HTML/PDF, 6 variantes type-aware
 - [x] **Étape 4 v15.194** Annexe 11 inventaire mobilier (page dédiée PDF, tableau 7 colonnes contradictoire entrée/sortie + signatures)
-- [ ] **Étape 5** Tests Vitest finaux + validation utilisateur
+- [x] **Étape 5 v15.195** Module testable `__tests__/helpers/bail-types.js` (source de vérité documentée 6 types + 11 catégories décret 2015-981) + 63 tests Vitest dédiés. Total suite : 1020/1020 OK.
 
 ### Phase C — Bail garage (~1-2h)
 - [ ] Form simplifié quand `type=garage` : masquer chauffage, ECS, diagnostics, encadrement
@@ -111,3 +111,4 @@ Estimation Phase A : 2-3h. Phase B : 2-3h. Phase C : 1-2h. Phase D : 1-2h. Phase
 - 2026-05-26 : **Étape 2 v15.192** — inventaire mobilier décret 2015-981 livré (11 checkboxes + textarea détails + compteur live X/11 + bouton tout cocher + warning <11). Section visible si type ∈ {meublé, étudiant, mobilité}. `bail.mobilier = { literie, occultation, cuisson, four, frigo, vaisselle, ustensiles, table, etageres, luminaires, entretien, details }`. 957 tests OK.
 - 2026-05-26 : **Étape 3 v15.193** — `buildBailStructure(bail)` type-aware sur 6 variantes (nu, meublé, étudiant, mobilité, garage, autre). Adaptations : titre + sous-titre + articles de loi cités, mention DG header, durée + phrase justificative selon type, congé/préavis BAILLEUR (3 mois meublé / 6 mois nu / 1 mois mobilité), tacite reconduction (1 an meublé / non reconductible étudiant+mobilité / 3-6 ans nu), §7 DG (1 mois nu / 2 mois meublé+étudiant / 0 mobilité avec callout VISALE / libre garage), nouveau §1 bis « Inventaire du mobilier » avec table récap 11 catégories + alerte si incomplet, §17 annexes ajoute ligne 11 « Inventaire détaillé du mobilier ». 957 tests OK.
 - 2026-05-26 : **Étape 4 v15.194** — Annexe 11 inventaire mobilier sur page dédiée du PDF (visible meublé/étudiant/mobilité). Tableau 7 colonnes (N° / Catégorie / Fourni / Quantité-désignation / État entrée / État sortie / Observations) sur les 11 catégories obligatoires. Codification N/B/U/HS. Bloc précisions complémentaires (bail.mobilier.details). Zone observations contradictoires + signatures entrée/sortie BAILLEUR + LOCATAIRE. Mentions légales 1731 C. civ. + 25-6 loi 89-462. 957 tests OK.
+- 2026-05-26 : **Étape 5 v15.195** — Module `__tests__/helpers/bail-types.js` (helpers purs documentés : `BAIL_TYPES`, `MOB_CATEGORIES_DECRET_2015_981` figé, `isBailFurnished`, `getBailDureeMonths`, `getBailDgMonthsMax`, `getBailLegalRefs`, `getBailPreavisMonths`, `isTaciteReconductionAllowed`, `getMobilierCompletion`, `isMobilierLegallyComplete`). 63 tests Vitest dédiés couvrant les 6 types + les 11 catégories + cohérence inter-helpers (smoke tests `it.each`). **Suite globale : 1020/1020 OK** (957 historiques + 63 nouveaux). Phase A + Phase B complètes.
