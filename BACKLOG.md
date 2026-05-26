@@ -406,6 +406,15 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### BAIL-TYPES Phase B Étapes 1+2 🔄 — Infrastructure + Inventaire mobilier (v15.191+v15.192, 2026-05-26)
+> **Sujet** : `BAIL-TYPES.md` — ajout 6 types de bail (nu/meublé/étudiant/mobilité/garage/autre) avec rétrocompat totale.
+>
+> **v15.191 — Étape 1 Infrastructure** : champ `bail.type` (default `'nu'`), sélecteur dans wizard étape 2 « Conditions », handler `onBailTypeChange()` qui pré-remplit DG selon type (1×HC nu, 2×HC meublé/étudiant, 0 € mobilité verrouillé), recalcule date de fin via `autoFinBail()`, badges type sur cartes bail (📚 🎓 🚀 🚗 📋, silencieux pour nu).
+>
+> **v15.192 — Étape 2 Inventaire mobilier** (décret 2015-981 art. 2) : section visible si type ∈ {meublé, étudiant, mobilité}. 11 checkboxes obligatoires (literie, occultation, plaques, four, frigo, vaisselle, ustensiles, table, étagères, luminaires, entretien) + textarea détails libres. Compteur live `X/11` avec code couleur (vert 11, ambre 8-10, rouge <8). Bouton « Tout cocher » / « Tout décocher ». Warning si <11 cochées (juridiquement = bail nu si incomplet). Champs `data-bail-editable="1"` pour échapper au verrou readonly du tab « Le bien » (Phase 4 archi).
+>
+> **957 tests Vitest OK** à chaque commit. Reste Phase B : Étape 3 (clauses HTML/PDF meublé) + Étape 4 (annexe inventaire PDF page dédiée) + Étape 5 (tests finaux).
+
 ### BUG 3.A ✅ — Bouton « Créer bail » fiche logement (v15.190, 2026-05-26)
 > **Bug user** (BUG-CRITIQUES-2026-05-25) : « dans logement le bouton créé bail dirige vers le bien » — boucle UX dans le flow quotidien.
 >

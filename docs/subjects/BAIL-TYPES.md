@@ -1,6 +1,6 @@
 # BAIL-TYPES — Ajout 5 types de bail (meublé/garage/mobilité/étudiant + Autre)
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : L (5 phases A-E, ~7-10h cumulés)
+**Status** : 🔄 En cours (Phase B Étapes 1+2 livrées v15.191+v15.192) · **Prio** : P2 · **Taille** : L (5 phases A-E, ~7-10h cumulés)
 **Lié à** : `project_bail_types.md` (mémoire détaillée), BAIL-PDF-NATIF (à faire avant), BAIL-PRINT-POLISH
 **Prérequis** : BAIL-PDF-NATIF (refonte PDF) terminé pour avoir une base saine de génération
 
@@ -23,21 +23,22 @@ Aujourd'hui, le bail est mono-type "nu" implicite. Il faut ajouter 5 types pour 
 
 ## Scope — 5 phases A-E
 
-### Phase A — Infrastructure types (~2-3h)
-- [ ] Champ `bail.type` (default 'nu', rétrocompat)
-- [ ] Sélecteur en étape 2 du wizard ("Type de bail")
-- [ ] Adaptation DG default selon type (cf. Q4 ci-dessous)
-- [ ] Adaptation durée default selon type
-- [ ] Badge type sur la carte de bail :
+### Phase A — Infrastructure types (~2-3h) ✅ **Livré v15.191** (Étape 1)
+- [x] Champ `bail.type` (default 'nu', rétrocompat)
+- [x] Sélecteur en étape 2 du wizard ("Type de bail")
+- [x] Adaptation DG default selon type (cf. Q4 ci-dessous)
+- [x] Adaptation durée default selon type
+- [x] Badge type sur la carte de bail :
   - 📚 meublé · 🚗 garage · 🚀 mobilité · 🎓 étudiant · 📋 autre
   - Défaut nu = pas de badge
-- [ ] Pour cette phase, tous les types utilisent le template "nu" existant (pas encore de templates dédiés)
-- [ ] Disclaimer popup pour type "Autre"
+- [x] Pour cette phase, tous les types utilisent le template "nu" existant (pas encore de templates dédiés)
+- [x] Disclaimer popup pour type "Autre"
 
-### Phase B — Bail meublé complet (~2-3h)
-- [ ] Section "Mobilier" en étape 3 (les 11 catégories décret 2015 — checkboxes ou liste libre)
-- [ ] Clauses spécifiques meublé (durée 1 an, tacite reconduction, conditions de sortie)
-- [ ] Template Word/HTML meublé (basé sur nu, modifications ciblées)
+### Phase B — Bail meublé complet (~2-3h) — partiellement livré
+- [x] **Étape 2 v15.192** Section "Mobilier" en étape 3 (les 11 catégories décret 2015-981 — checkboxes + textarea détails + compteur live)
+- [ ] **Étape 3** Clauses spécifiques meublé (durée 1 an, tacite reconduction, conditions de sortie) — HTML/PDF
+- [ ] **Étape 4** Annexe inventaire mobilier en page dédiée du PDF
+- [ ] **Étape 5** Tests Vitest finaux + validation utilisateur
 
 ### Phase C — Bail garage (~1-2h)
 - [ ] Form simplifié quand `type=garage` : masquer chauffage, ECS, diagnostics, encadrement
@@ -106,3 +107,5 @@ Estimation Phase A : 2-3h. Phase B : 2-3h. Phase C : 1-2h. Phase D : 1-2h. Phase
 
 - 2026-04-25 : périmètre validé Q1-Q4 dans session bail wizard (mémoire `project_bail_types.md`)
 - 2026-04-28 : créé doc subject pilotage suite vérification mémoires (j'avais réduit à BAIL-MEUBLE dans le BACKLOG initial)
+- 2026-05-26 : **Étape 1 v15.191** — infrastructure 6 types livrée (sélecteur wizard + handler `onBailTypeChange()` + badges cartes bail + adaptation DG/durée selon type). Commit `8dff5c8`. 957 tests OK.
+- 2026-05-26 : **Étape 2 v15.192** — inventaire mobilier décret 2015-981 livré (11 checkboxes + textarea détails + compteur live X/11 + bouton tout cocher + warning <11). Section visible si type ∈ {meublé, étudiant, mobilité}. `bail.mobilier = { literie, occultation, cuisson, four, frigo, vaisselle, ustensiles, table, etageres, luminaires, entretien, details }`. 957 tests OK.
