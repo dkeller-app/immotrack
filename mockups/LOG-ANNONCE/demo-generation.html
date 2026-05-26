@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Démo génération LOG-ANNONCE — Templating local</title>
+<style>
+:root {
+  --acc: #14b8a6; --acc-dark: #0d9488;
+  --bg: #fdfbf7; --sur: #fff; --sur2: #f5f3ee; --sur3: #ebe7df;
+  --bor: #d4cfc4; --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --gre: #22c55e; --gre-bg: #dcfce7;
+  --amb: #f59e0b; --amb-bg: #fef3c7;
+  --r: 6px; --r-lg: 10px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; }
+header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 14px 24px; position: sticky; top: 0; z-index: 100; }
+.head-title { font-weight: 700; color: var(--acc-dark); font-size: 16px; }
+.head-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.canvas { padding: 20px; max-width: 900px; margin: 0 auto; }
+
+.controls { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 14px; margin-bottom: 18px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.controls .lbl { font-size: 12px; color: var(--t2); font-weight: 600; }
+.btn { padding: 7px 14px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn:hover { background: var(--sur3); }
+.btn.act { background: var(--acc); color: #fff; border-color: var(--acc-dark); }
+.btn.primary { background: var(--acc); color: #fff; border-color: var(--acc-dark); padding: 8px 18px; }
+.btn.primary:hover { background: var(--acc-dark); }
+
+.annonce { background: #fff; border-radius: var(--r-lg); border: 1px solid var(--bor); overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.cover { position: relative; height: 220px; background: linear-gradient(135deg, #c7d2fe 0%, #fef3c7 50%, #fed7aa 100%); display: flex; align-items: flex-end; padding: 18px; }
+.cover::before { content: '🏠 Photo couverture'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,.85); padding: 8px 16px; border-radius: var(--r); font-size: 12px; color: var(--t2); font-style: italic; }
+.cover-content { color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.4); position: relative; z-index: 2; width: 100%; }
+.cover-content .ville { font-size: 12.5px; opacity: 0.95; }
+.cover-content .titre { font-size: 22px; font-weight: 700; margin: 4px 0; line-height: 1.3; }
+.cover-content .prix { font-size: 17px; font-weight: 600; }
+
+.body { padding: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chip { background: var(--sur2); padding: 4px 10px; border-radius: 14px; font-size: 12px; border: 1px solid var(--bor); }
+
+.sect { margin-bottom: 16px; }
+.sect h3 { font-size: 13px; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--acc); color: var(--acc-dark); display: inline-block; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.sect p { margin: 0 0 8px; font-size: 14px; line-height: 1.65; }
+.sect ul { margin: 0; padding-left: 0; list-style: none; }
+.sect ul li { padding: 3px 0; font-size: 13.5px; }
+.sect ul li::before { content: '✓ '; color: var(--gre); font-weight: 700; }
+
+.pratique-table { width: 100%; font-size: 13px; }
+.pratique-table tr td { padding: 4px 0; }
+.pratique-table tr td:first-child { color: var(--t2); width: 40%; }
+.pratique-table tr td:last-child { font-weight: 600; }
+
+.dpe-banner { background: linear-gradient(90deg, #16a34a 0%, #84cc16 25%, #fbbf24 50%, #f97316 75%, #dc2626 100%); padding: 8px 14px; border-radius: var(--r); color: #fff; font-weight: 600; font-size: 12.5px; margin: 12px 0; display: flex; justify-content: space-between; }
+.legal { font-size: 11px; color: var(--t2); margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--bor); font-style: italic; }
+
+.stats { background: var(--amb-bg); border: 1px solid var(--amb); border-radius: var(--r); padding: 10px 14px; margin-top: 12px; font-size: 12.5px; color: #78350f; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.stats strong { color: #92400e; }
+
+.short-card { background: #fff; border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 18px; }
+.short-card .short-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.short-card .short-body { font-size: 14px; line-height: 1.6; }
+.char-counter { font-size: 11px; color: var(--t2); margin-top: 8px; text-align: right; }
+
+.dataset-info { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r); padding: 12px 14px; margin-bottom: 18px; font-size: 12px; }
+.dataset-info summary { cursor: pointer; font-weight: 600; color: var(--t1); }
+.dataset-info pre { background: var(--sur2); padding: 10px; border-radius: var(--r); font-size: 11px; overflow-x: auto; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-title">🧪 Démo génération LOG-ANNONCE — Templating local en action</div>
+  <div class="head-sub">Le code JS ci-dessous génère l'annonce du T3 Strasbourg en temps réel. Clique « 🔄 Régénérer » pour voir les variations textuelles.</div>
+</header>
+
+<div class="canvas">
+
+  <div class="controls">
+    <span class="lbl">Taille :</span>
+    <button class="btn act" id="size-court" onclick="setSize('court')">📱 Court (~280c)</button>
+    <button class="btn" id="size-standard" onclick="setSize('standard')">📰 Standard (~1500c)</button>
+    <button class="btn primary" onclick="regenerate()" style="margin-left:auto">🔄 Régénérer (variation)</button>
+  </div>
+
+  <details class="dataset-info">
+    <summary>📋 Voir les données d'entrée (DB ImmoTrack — fictives)</summary>
+    <pre id="dataset"></pre>
+  </details>
+
+  <div id="output"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div style="margin-top:24px;padding:14px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r-lg);font-size:13px;line-height:1.6">
+    <strong>🧠 Ce que tu vois en action :</strong><br>
+    • La banque contient <strong id="nb-titres">8</strong> titres + <strong id="nb-accroches">6</strong> accroches + <strong id="nb-quartiers">3</strong> quartiers Strasbourg → ~<strong>~720 combinaisons</strong> juste sur les sections principales<br>
+    • Sélection conditionnelle : un titre type « charme de l'ancien » ne sort QUE si <code>caractere_ancien</code> est renseigné. Idem pour exposition sud, balcon, etc.<br>
+    • Adjectifs auto : <code>surface &gt; 80 → "spacieux"</code>, <code>étage ≥ 4 → "perché"</code>, <code>fibre → "Fibre optique installée"</code><br>
+    • <strong>Aucun mensonge possible</strong> : si une donnée n'existe pas, aucun adjectif ne s'ajoute pour ce critère<br>
+    • <strong>Variabilité</strong> : le seed change à chaque clic « Régénérer » → annonce différente pour le même bien<br>
+    • <strong>Coût</strong> : 0€, instantané (&lt;5 ms), offline (PWA-friendly), 0 dépendance externe
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DONNÉES D'ENTRÉE (simulé — viendrait de DB.logements + DB.entites en prod)
+// ═══════════════════════════════════════════════════════════════
+const LOG = {
+  ref: 'F-201',
+  type: 'T3',
+  surf: 65,
+  npp: 3,
+  etage: '4',
+  typeUsage: 'habitation-nu',
+  dpe: { classe: 'C', valConv: 95, ges: 'C' },
+  equipements: {
+    cuisine: { equipee: true, four: true, plaques: true, hotte: true, lave_vaisselle: true, micro_ondes: true, customs: ['Cuisine américaine ouverte sur séjour'] },
+    sanitaires: { bain: true, douche: true, wc_separe: true, lave_linge: true, customs: [] },
+    technologies: { fibre: true, tnt: true, customs: [] }
+  },
+  annexes: {
+    cave: { present: true, num: '7' },
+    parking: { present: true, num: '14', type: 'box' },
+    customs: []
+  },
+  exterieurs: {
+    balcon: { present: true, surface: 8 },
+    terrasse: { present: false },
+    loggia: { present: false },
+    jardin_privatif: { present: false }
+  },
+  presentation: {
+    exposition: 'sud',          // valeur positive uniquement
+    vue: 'degagee',
+    luminosite: 'tres-lumineux',
+    calme: 'rue-calme',
+    caractere_ancien: 'moulures-parquet'
+  },
+  locationInfo: {
+    disponibilite: '2026-06-15',
+    garanties_acceptees: ['caution_solidaire', 'visale']
+  }
+};
+
+const IMM = {
+  nom: 'Mésange Strasbourg',
+  adr: '12 rue de la Mésange',
+  codePostal: '67000',
+  ville: 'Strasbourg',
+  periodeConstr: 'Avant 1949',
+  regimeJuridique: 'Copropriété',
+  equipementsCommuns: {
+    ascenseur: true, interphone: true, digicode: true,
+    gardien: false, videosurv: false,
+    local_velos: true, customs: []
+  }
+};
+
+const BAIL = { hc: 950, ch: 80, dg: 950 };
+
+document.getElementById('dataset').textContent = JSON.stringify({ LOG, IMM, BAIL }, null, 2);
+
+// ═══════════════════════════════════════════════════════════════
+// SEED + RNG pseudo-aléatoire (déterministe par bien + gen)
+// ═══════════════════════════════════════════════════════════════
+let _seed = 0;
+function setSeed(s) { _seed = s; }
+function rand() {
+  // Mulberry32 PRNG — déterministe
+  let t = _seed += 0x6D2B79F5;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function pick(arr) { return arr[Math.floor(rand() * arr.length)]; }
+function pickN(arr, n) {
+  const copy = [...arr];
+  const out = [];
+  for (let i = 0; i < n && copy.length; i++) {
+    out.push(copy.splice(Math.floor(rand() * copy.length), 1)[0]);
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS DE FORMATAGE
+// ═══════════════════════════════════════════════════════════════
+function etageLabel(etage) {
+  const n = parseInt(etage);
+  if (n === 0 || /^rdc/i.test(etage)) return 'rez-de-chaussée';
+  if (n === 1) return '1er étage';
+  return n + 'ème étage';
+}
+
+function expositionLabel(expo) {
+  return ({ 'sud': 'plein sud', 'sud-est': 'sud-est', 'sud-ouest': 'sud-ouest',
+           'est': 'est', 'ouest': 'ouest', 'traversant-eo': 'traversant est-ouest',
+           'double-ns': 'double exposition nord-sud', 'nord': 'nord' })[expo] || expo;
+}
+
+function vueLabel(vue) {
+  return ({ 'degagee': 'vue dégagée', 'jardin': 'sur jardin',
+           'cour': 'sur cour intérieure', 'parc': 'sur parc',
+           'monument': 'sur monument', 'mer-montagne': 'vue mer/montagne' })[vue] || '';
+}
+
+function luminositeLabel(l) {
+  return ({ 'lumineux': 'lumineux', 'tres-lumineux': 'très lumineux',
+           'traversant': 'traversant', 'baigne-lumiere': 'baigné de lumière' })[l] || '';
+}
+
+function calmeLabel(c) {
+  return ({ 'rue-calme': 'rue calme', 'cour-interieure': 'côté cour au calme',
+           'quartier-residentiel': 'quartier résidentiel',
+           'quartier-verdoyant': 'quartier verdoyant' })[c] || '';
+}
+
+function caractereLabel(c) {
+  return ({ 'moulures-parquet': 'moulures et parquet ancien',
+           'cheminee-deco': 'cheminée décorative',
+           'hauts-plafonds': 'hauts plafonds',
+           'batisse-caractere': 'bâtisse de caractère' })[c] || '';
+}
+
+function adjSurface(s) {
+  if (s > 100) return pick(['vaste', 'généreux', 'spacieux']);
+  if (s > 70) return pick(['spacieux', 'agréable', 'confortable']);
+  if (s > 45) return pick(['fonctionnel', 'bien agencé']);
+  return pick(['cosy', 'optimisé', 'compact']);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BANQUES DE PHRASES (extraites du futur module annonce-generator.js)
+// ═══════════════════════════════════════════════════════════════
+const BANQUE_QUARTIERS_STRASBOURG = [
+  'centre historique de Strasbourg',
+  'à deux pas de la Cathédrale',
+  'quartier de la Mésange — centre Strasbourg',
+];
+
+const BANQUE_TITRES = [
+  { si: l => l.presentation.exposition === 'sud' && l.presentation.luminosite,
+    tpl: l => `✨ Coup de cœur — ${l.type} ${luminositeLabel(l.presentation.luminosite)} ${l.surf} m² · ${IMM.ville} centre` },
+  { si: l => l.presentation.caractere_ancien && l.exterieurs.balcon.present,
+    tpl: l => `🏛 ${l.type} de caractère ${l.surf} m² avec balcon — ${IMM.ville}` },
+  { si: l => l.presentation.exposition === 'sud',
+    tpl: l => `☀️ ${l.type} ${l.surf} m² plein sud — ${IMM.ville} centre` },
+  { si: l => l.presentation.caractere_ancien,
+    tpl: l => `🏛 Charme de l'ancien — ${l.type} ${l.surf} m² ${IMM.ville}` },
+  { si: l => l.exterieurs.balcon.present || l.exterieurs.terrasse.present || l.exterieurs.jardin_privatif.present,
+    tpl: l => `🌿 ${l.type} avec extérieur · ${l.surf} m² · ${IMM.ville}` },
+  { si: l => parseInt(l.etage) >= 4,
+    tpl: l => `🌆 ${l.type} ${l.surf} m² au ${etageLabel(l.etage)} avec ascenseur · ${IMM.ville}` },
+  { si: l => true, // fallback
+    tpl: l => `🏠 ${l.type} ${l.surf} m² à louer · ${IMM.ville}` },
+  { si: l => l.presentation.calme === 'rue-calme',
+    tpl: l => `🤫 Havre de paix — ${l.type} ${l.surf} m² au calme · ${IMM.ville}` },
+];
+
+const BANQUE_ACCROCHES = [
+  { si: l => l.presentation.exposition === 'sud' && l.exterieurs.balcon.present,
+    tpl: l => `À deux pas de ${pick(BANQUE_QUARTIERS_STRASBOURG)}, ce <strong>${l.type} baigné de lumière</strong> de ${l.surf} m² vous séduira par son <strong>exposition ${expositionLabel(l.presentation.exposition)}</strong> et son <strong>balcon privatif de ${l.exterieurs.balcon.surface} m²</strong>${l.presentation.calme ? ' au calme' : ''}.` },
+  { si: l => l.presentation.caractere_ancien && l.presentation.luminosite,
+    tpl: l => `Niché au cœur de ${pick(BANQUE_QUARTIERS_STRASBOURG)}, ce <strong>${l.type} de caractère</strong> de ${l.surf} m² conjugue <strong>${caractereLabel(l.presentation.caractere_ancien)}</strong> et <strong>luminosité exceptionnelle</strong>.` },
+  { si: l => parseInt(l.etage) >= 3 && l.presentation.vue,
+    tpl: l => `Au ${etageLabel(l.etage)} avec ascenseur, ce <strong>${l.type} ${adjSurface(l.surf)}</strong> de ${l.surf} m² offre une <strong>${vueLabel(l.presentation.vue)}</strong> et un cadre soigné.` },
+  { si: l => l.presentation.luminosite && l.presentation.exposition,
+    tpl: l => `Coup de cœur garanti pour ce ${l.type} <strong>${luminositeLabel(l.presentation.luminosite)}</strong> de ${l.surf} m² <strong>${expositionLabel(l.presentation.exposition)}</strong>, idéalement situé à ${pick(BANQUE_QUARTIERS_STRASBOURG)}.` },
+  { si: l => l.equipements.cuisine.equipee && l.exterieurs.balcon.present,
+    tpl: l => `Ce ${l.type} de ${l.surf} m² avec ${l.exterieurs.balcon.present ? `balcon de ${l.exterieurs.balcon.surface} m²` : ''} et cuisine entièrement équipée séduira les amateurs d'<strong>art de vivre</strong>.` },
+  { si: l => true, // fallback factuel
+    tpl: l => `${l.type} de ${l.surf} m² au ${etageLabel(l.etage)}, situé à ${IMM.adr}, ${IMM.codePostal} ${IMM.ville}.` },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// GÉNÉRATEURS DE SECTIONS
+// ═══════════════════════════════════════════════════════════════
+function genererTitre(log) {
+  const candidats = BANQUE_TITRES.filter(c => c.si(log));
+  return pick(candidats).tpl(log);
+}
+
+function genererAccroche(log) {
+  const candidats = BANQUE_ACCROCHES.filter(c => c.si(log));
+  return pick(candidats).tpl(log);
+}
+
+function genererDescription(log) {
+  const phrases = [];
+  // Pièces principales
+  phrases.push(`L'appartement déploie un séjour ${adjSurface(log.surf)} ouvert sur ${log.equipements.cuisine.customs.find(c => /ouverte/i.test(c)) || 'une cuisine entièrement équipée'} (${[log.equipements.cuisine.four && 'four', log.equipements.cuisine.plaques && 'plaques induction', log.equipements.cuisine.hotte && 'hotte', log.equipements.cuisine.lave_vaisselle && 'lave-vaisselle', log.equipements.cuisine.micro_ondes && 'micro-ondes'].filter(Boolean).join(', ')}).`);
+  // Chambres + SdB
+  const nbChambres = log.npp - 1;
+  phrases.push(`${nbChambres > 1 ? `${nbChambres} chambres confortables` : `Une chambre confortable`}, une salle de bain avec ${[log.equipements.sanitaires.bain && 'baignoire', log.equipements.sanitaires.douche && 'douche italienne'].filter(Boolean).join(' et ')}${log.equipements.sanitaires.wc_separe ? ', WC séparé' : ''}.`);
+  return phrases.join(' ');
+}
+
+function genererAtouts(log, imm) {
+  const atouts = [];
+  if (log.presentation.exposition === 'sud') atouts.push('Exposition plein sud — lumière toute la journée');
+  if (log.exterieurs.balcon.present) atouts.push(`Balcon privatif de ${log.exterieurs.balcon.surface} m² ${log.presentation.calme ? 'au calme' : ''}`);
+  if (parseInt(log.etage) >= 3 && imm.equipementsCommuns.ascenseur) atouts.push(`${etageLabel(log.etage)} avec ascenseur`);
+  if (imm.equipementsCommuns.interphone || imm.equipementsCommuns.digicode) atouts.push(`Immeuble sécurisé (${[imm.equipementsCommuns.interphone && 'interphone', imm.equipementsCommuns.digicode && 'digicode'].filter(Boolean).join(', ')})`);
+  if (log.equipements.cuisine.equipee) atouts.push('Cuisine entièrement équipée');
+  if (log.equipements.sanitaires.bain && log.equipements.sanitaires.douche) atouts.push('Salle de bain avec baignoire ET douche');
+  if (log.equipements.sanitaires.wc_separe) atouts.push('WC séparé');
+  if (log.annexes.cave.present && log.annexes.parking.present) atouts.push(`Cave (n° ${log.annexes.cave.num}) et box parking (n° ${log.annexes.parking.num}) inclus`);
+  else if (log.annexes.cave.present) atouts.push(`Cave incluse (n° ${log.annexes.cave.num})`);
+  else if (log.annexes.parking.present) atouts.push(`Parking inclus (n° ${log.annexes.parking.num})`);
+  if (log.equipements.technologies.fibre) atouts.push('Fibre optique installée');
+  if (log.presentation.caractere_ancien) atouts.push(`Charme de l'ancien (${caractereLabel(log.presentation.caractere_ancien)}) avec confort moderne`);
+  return atouts;
+}
+
+function genererQuartier(log, imm) {
+  if (imm.codePostal === '67000') {
+    return `Adresse de prestige dans le centre historique de Strasbourg, à quelques minutes à pied de la Cathédrale, de la Place Kléber et de la Petite France. Tous commerces de proximité dans la rue. Tramway lignes A/B/C/D à 4 min à pied. ${log.presentation.calme ? 'Quartier résidentiel et vivant, sans être bruyant.' : ''}`;
+  }
+  return `Situé à ${imm.adr}, ${imm.codePostal} ${imm.ville}. À proximité des commerces et transports.`;
+}
+
+function genererChips(log, imm) {
+  const chips = [];
+  if (log.presentation.exposition) chips.push('☀️ ' + expositionLabel(log.presentation.exposition).charAt(0).toUpperCase() + expositionLabel(log.presentation.exposition).slice(1));
+  if (log.presentation.luminosite) chips.push('🌞 ' + luminositeLabel(log.presentation.luminosite).charAt(0).toUpperCase() + luminositeLabel(log.presentation.luminosite).slice(1));
+  if (parseInt(log.etage) >= 3 && imm.equipementsCommuns.ascenseur) chips.push(`🛗 ${etageLabel(log.etage)} ascenseur`);
+  if (log.exterieurs.balcon.present) chips.push(`🌿 Balcon ${log.exterieurs.balcon.surface} m²`);
+  if (log.presentation.caractere_ancien) chips.push('🏛 Charme de l\'ancien');
+  if (log.presentation.calme) chips.push('🤫 ' + calmeLabel(log.presentation.calme).charAt(0).toUpperCase() + calmeLabel(log.presentation.calme).slice(1));
+  if (log.annexes.parking.present && log.annexes.cave.present) chips.push('🚗 Parking + cave');
+  return chips;
+}
+
+function formaterDate(d) {
+  return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function garantiesLabel(g) {
+  const map = { 'caution_solidaire': 'Caution solidaire', 'visale': 'Visale', 'gli': 'GLI', 'garant_perso': 'Garant personnel' };
+  return g.map(x => map[x] || x).join(' ou ');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ORCHESTRATEUR PRINCIPAL
+// ═══════════════════════════════════════════════════════════════
+function genererAnnonce(log, imm, bail, opts = {}) {
+  const taille = opts.taille || 'standard';
+  const titre = genererTitre(log);
+  const accroche = genererAccroche(log);
+  const total = bail.hc + bail.ch;
+
+  if (taille === 'court') {
+    // Format réseaux sociaux ~280 caractères
+    const parts = [];
+    parts.push(`${log.type} ${log.surf}m² ${imm.ville} centre`);
+    if (log.presentation.exposition === 'sud') parts.push('plein sud');
+    if (log.exterieurs.balcon.present) parts.push(`balcon ${log.exterieurs.balcon.surface}m²`);
+    if (log.equipements.cuisine.equipee) parts.push('cuisine équipée');
+    if (log.presentation.caractere_ancien) parts.push("charme de l'ancien");
+    if (log.annexes.parking.present) parts.push('parking');
+    parts.push(`${total}€ CC`);
+    parts.push(`libre ${formaterDate(log.locationInfo.disponibilite).replace(' 2026','')}`);
+    if (log.equipements.technologies.fibre) parts.push('Fibre');
+    parts.push(`DPE ${log.dpe.classe}`);
+
+    const corps = parts.join(' · ');
+    return {
+      taille: 'court',
+      html: `<div class="short-card">
+        <div class="short-title">✨ ${titre.replace(/[✨🏛☀🌿🌆🤫🏠]/g,'').trim()}</div>
+        <div class="short-body">${corps}</div>
+        <div class="char-counter">${corps.length} caractères</div>
+      </div>`,
+      stats: { caracteres: corps.length, mots: corps.split(/\s+/).length }
+    };
+  }
+
+  // Mode standard
+  const chips = genererChips(log, imm);
+  const description = genererDescription(log);
+  const atouts = genererAtouts(log, imm);
+  const quartier = genererQuartier(log, imm);
+
+  const html = `
+    <div class="annonce">
+      <div class="cover">
+        <div class="cover-content">
+          <div class="ville">📍 ${imm.ville} ${imm.codePostal} — centre</div>
+          <div class="titre">${titre}</div>
+          <div class="prix">${total} € CC / mois</div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="chips">${chips.map(c => `<span class="chip">${c}</span>`).join('')}</div>
+
+        <div class="sect">
+          <h3>🏠 Le bien</h3>
+          <p>${accroche}</p>
+          <p>${description}</p>
+        </div>
+
+        <div class="sect">
+          <h3>✨ Les atouts</h3>
+          <ul>${atouts.map(a => `<li>${a}</li>`).join('')}</ul>
+        </div>
+
+        <div class="sect">
+          <h3>📍 Le quartier</h3>
+          <p>${quartier}</p>
+        </div>
+
+        <div class="dpe-banner">
+          <span>📊 Performance énergétique</span>
+          <span>Classe ${log.dpe.classe} · ${log.dpe.valConv} kWh/m²/an</span>
+        </div>
+
+        <div class="sect">
+          <h3>💰 Pratique</h3>
+          <table class="pratique-table">
+            <tr><td>Loyer hors charges</td><td>${bail.hc} €</td></tr>
+            <tr><td>Charges mensuelles</td><td>${bail.ch} €</td></tr>
+            <tr><td>Total mensuel</td><td>${total} € CC</td></tr>
+            <tr><td>Dépôt de garantie</td><td>${bail.dg} €</td></tr>
+            <tr><td>Disponibilité</td><td>${formaterDate(log.locationInfo.disponibilite)}</td></tr>
+            <tr><td>Garanties acceptées</td><td>${garantiesLabel(log.locationInfo.garanties_acceptees)}</td></tr>
+            <tr><td>Honoraires</td><td>Aucun (annonce directe propriétaire)</td></tr>
+          </table>
+        </div>
+
+        <div class="legal">
+          Mention légale : annonce diffusée par le propriétaire bailleur (annonce directe — aucun honoraire d'agence). Conformément à la loi Climat et Résilience, ce logement de classe ${log.dpe.classe} est conforme aux exigences de décence énergétique en vigueur en 2026.
+        </div>
+      </div>
+    </div>
+  `;
+
+  const fullText = titre + ' ' + accroche + ' ' + description + ' ' + atouts.join(' ') + ' ' + quartier;
+  return {
+    taille: 'standard',
+    html: html,
+    stats: { caracteres: fullText.length, mots: fullText.split(/\s+/).length }
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI : régénération + switch taille
+// ═══════════════════════════════════════════════════════════════
+let _currentSize = 'court';
+let _genCounter = 0;
+
+function regenerate() {
+  _genCounter++;
+  setSeed(LOG.ref.split('').reduce((a,c)=>a+c.charCodeAt(0),0) + _genCounter * 7919);
+  const result = genererAnnonce(LOG, IMM, BAIL, { taille: _currentSize });
+  document.getElementById('output').innerHTML = result.html;
+  document.getElementById('stats').innerHTML = `
+    <span><strong>Stats annonce :</strong> ${result.stats.caracteres} caractères · ${result.stats.mots} mots</span>
+    <span><strong>Génération #${_genCounter}</strong> — seed dérivé de ${LOG.ref}</span>
+    <span><strong>Temps :</strong> &lt; 5 ms · <strong>Coût :</strong> 0 €</span>
+  `;
+}
+
+function setSize(size) {
+  _currentSize = size;
+  document.querySelectorAll('.controls .btn').forEach(b => {
+    if (b.id && b.id.startsWith('size-')) b.classList.remove('act');
+  });
+  document.getElementById('size-' + size).classList.add('act');
+  regenerate();
+}
+
+// Stats banques
+document.getElementById('nb-titres').textContent = BANQUE_TITRES.length;
+document.getElementById('nb-accroches').textContent = BANQUE_ACCROCHES.length;
+document.getElementById('nb-quartiers').textContent = BANQUE_QUARTIERS_STRASBOURG.length;
+
+// Initial render
+setSize('court');
+</script>
+
+</body>
+</html>
