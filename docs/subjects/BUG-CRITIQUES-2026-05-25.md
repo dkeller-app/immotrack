@@ -67,10 +67,10 @@ Cette décision **résout aussi le BUG 2** (impossibilité supprimer démos) pui
 
 **3 problèmes en un** :
 
-### 3.A — Bouton "Créer bail" dirige vers le bien (régression UX)
+### 3.A — Bouton "Créer bail" dirige vers le bien (régression UX) ✅ FIXÉ v15.190
 - Sur la fiche bien (logement), le bouton « Créer un bail » ne lance pas le wizard bail → revient sur le bien (boucle)
-- Capture user montre fiche 360° onglet Bail avec « + Créer / saisir un bail » → mais le clic ne mène pas au wizard attendu
-- **À investiguer** : `openNewBailChoix` / wizard bail, pré-remplissage avec `logement.ref`
+- **Cause exacte** : l.31450, bouton appelait `openNewLog(ref)` (éditeur logement) au lieu de `openBail(ref)` (formulaire bail)
+- **Fix v15.190** (commit `afb924c`) : `openBail(ref)` — le formulaire bail s'ouvre pré-rempli avec le logement et dropdown verrouillé.
 
 ### 3.B — Dispatch des infos bien vs bail/locataire à revoir
 Sur le screenshot « Modifier RDC gauche » : la modale Identité contient une section **« BAIL COURANT (LEGACY — À MIGRER PHASE 4) »** avec :

@@ -406,6 +406,15 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### BUG 3.A ✅ — Bouton « Créer bail » fiche logement (v15.190, 2026-05-26)
+> **Bug user** (BUG-CRITIQUES-2026-05-25) : « dans logement le bouton créé bail dirige vers le bien » — boucle UX dans le flow quotidien.
+>
+> **Cause** : ligne 31450 (`logf-panel` Bail en cours, quand aucun bail actif), bouton appelait `openNewLog(refSafe)` (= éditeur du **bien**) au lieu de `openBail(refSafe)` (= formulaire **bail**).
+>
+> **Fix** : 1 ligne. `openBail(ref)` pré-remplit le formulaire avec le logement et verrouille le dropdown — comportement parfait pour cette UX.
+>
+> **Commit** `afb924c`. 957 tests OK.
+
 ### CLEANUP-MASSIF-DRIVE ✅ — 9 commits cleanup + fix bug racine OAuth (v15.181→v15.189, 2026-05-25/26)
 > **Session marathon cleanup** demandée par user après 20 commits Drive accumulés en 1 jour. Audit indépendant via 4 agents code-reviewer en cycle.
 >
