@@ -85,7 +85,7 @@
 | 🛡️ **MRH** | MRH-AUTO-LOC (P2) |
 | 🔧 **Travaux / Entretien / PJ** | DOC-PJ (P2) · TRAV-SUIVI (P2) |
 | 🤝 **Associés** | ASSO-PARTAGE (P2) |
-| ⚙️ **Architecture / V3 / Sécu** | **BUG-DELETE-BRUT-NO-TOMBSTONE (P1, S)** · AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) · PILOTAGE-MATRICIEL ✅ Livré v15.07 (Sprint 8) · BANK-INTEGRATION V1 ✅ Livré v15.07* |
+| ⚙️ **Architecture / V3 / Sécu** | **BUG-DELETE-BRUT-NO-TOMBSTONE (P1, S)** · **BUG-DELIMM-CASCADE (P2, S)** · **EMAIL-OAUTH-INCREMENTAL (P2, S)** · AUDIT-GLOBAL 🔄 (P1, élargi audit+nettoyage+modularité) · ARCHI-MODULAR (P1, en attente AUDIT) · SECU-INNERHTML (P1) · ARCHI-DB-DOUBLONS (P1) ⏳ · V3-VISUEL (P2) · BUG-UI-DARK-MODAL (P2) · V3-REFONTE-PARAMS (P2) — *USER-PROFILE-FILTERS ✅ Livré v15.04 (Sprint 6 V1.1) · PILOTAGE-MATRICIEL ✅ Livré v15.07 (Sprint 8) · BANK-INTEGRATION V1 ✅ Livré v15.07* |
 | 💾 **Drive sync** | **DRIVE-CONFIANCE-UX ✅ Résolu v15.114→134 (P0)** : 9 bugs boucle/perte (B v114 · offline-first A0 v116 · timeout v117 · boucle save v118 · boucle pull v120-121 · re-stamp signature v122 · ping-pong onglets v123 · boucle pull→push v124 · spam toast v125 · migration idempotente v127) **+ page de connexion plein écran** (design confiance v129 · polices app v130 · affichée avant dashboard v131 · pas de flash pendant connexion v132 · **boot gate anti-flash accueil v133** · **A5 aide diagnostic VPN/Opera v134**). *Panneau "État Drive" (C) ✅ couvert par l'existant (FAB statut live + Paramètres Stockage Drive + Export restaurer) — non reconstruit. Thème sombre page connexion écarté (choix A).* · DRIVE-ARBORESCENCE 🔄 (P1) · DRIVE-2H (P1) · DRIVE-2F (P1) · DRIVE-2G (P1) · DRIVE-2K ⚠️ englobé (P2) · DRIVE-2I (P2) · DRIVE-2J (P3) |
 | 🏛️ **Légal / Fiscal** | LEGAL-2044 (P1) · LEGAL-BILAN-ANNUEL (P1) · LEGAL-2072 (P3) — *LEGAL-DPE-INTERDICTION-LOCATION ✅ Livré v15.05 (Sprint 7) : blocage strict bail si DPE interdit loi Climat 2021* |
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
@@ -405,6 +405,22 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 ---
 
 ## ✅ Livré récemment
+
+### CLEANUP-MASSIF-DRIVE ✅ — 9 commits cleanup + fix bug racine OAuth (v15.181→v15.189, 2026-05-25/26)
+> **Session marathon cleanup** demandée par user après 20 commits Drive accumulés en 1 jour. Audit indépendant via 4 agents code-reviewer en cycle.
+>
+> **9 commits livrés** :
+> - **v15.181 Phase D** : ~50 lignes de commentaires obsolètes condensés
+> - **v15.182 Phase C** : 5 fonctions zombies supprimées (~110 lignes : `_attemptStartupReconnect`, `_drvPocShareWithAssociate`, `_dismissDriveModal`, `driveInviteMember/Revoke`, `_checkDashMigrationV2/Accept/Dismiss`)
+> - **v15.183 Phase F** : ID Drive hardcodé `1nodzkJIr6a07Cm7WVYu12Jgz5IyNlUum` extrait en constante `LEGACY_OWNER_EDL_ROOT_ID` (8 occurrences → 1 déclaration)
+> - **v15.184 Phase A** : 4 bugs critiques fixés (TDZ `_inDrivePull`, 2 tombstones manquants IRL+importRules, cascade `delEnt` documents étendue, `_drvSAD()` 4 endpoints)
+> - **v15.185 Phase B** : helper `_tombstoneObj()` centralisé + 3 sites refactorisés
+> - **v15.186 Phase E** : fusion `_drvImmoTrackRoot` ↔ `_getImmoRootFolder` (hiérarchie 4 caches)
+> - **v15.187** : fix audit #1 — cascade 4/7→8/8 parentTypes + branche immeuble dans `_buildEntityPayload` + `_drvOpenImmoTrackFolder` shared root
+> - **v15.188** : fix audit #2 — `delEnt` préserve `immeubles: [{id, nom}, ...]` dans tombstone (sinon docs immeuble jamais propagés cross-device)
+> - **v15.189 FIX BUG RACINE** : retrait `gmail.send` du scope OAuth par défaut → résout enfin « 2 popups Google » qui persistait depuis v15.80. Granular consent multi-cases. Solution incremental authorization à venir (cf `EMAIL-OAUTH-INCREMENTAL`).
+>
+> **957/957 tests Vitest OK** à chaque commit. Filet de sécurité `index.html.BACKUP-v15.180-20260525-pre-audit` + tag git `audit-baseline-v15.180`. Dettes techniques : `EMAIL-OAUTH-INCREMENTAL` + `BUG-DELIMM-CASCADE`.
 
 ### DRIVE-REORG fix Baux+EDL ✅ — Routing nouveau + migration legacy (v15.173+v15.174, 2026-05-25)
 > **v15.173** : étend la migration Phase D aux fichiers `immotrack-entity-*.json` à la racine (déplacement vers `[entité]/`). Cohérence totale avec « 1 dossier par entité contenant tout ».
