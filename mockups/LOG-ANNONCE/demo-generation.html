@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Démo génération LOG-ANNONCE — Format Leboncoin</title>
+<title>Démo génération LOG-ANNONCE — Format Leboncoin (V3 storytelling)</title>
 <style>
 :root {
   --acc: #14b8a6; --acc-dark: #0d9488;
@@ -11,7 +11,8 @@
   --bor: #d4cfc4; --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
   --gre: #22c55e; --gre-bg: #dcfce7;
   --amb: #f59e0b; --amb-bg: #fef3c7;
-  --blu: #3b82f6;
+  --blu: #3b82f6; --blu-bg: #dbeafe;
+  --vio: #a855f7; --vio-bg: #f3e8ff;
   --r: 6px; --r-lg: 10px;
 }
 * { box-sizing: border-box; }
@@ -19,107 +20,146 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sa
 header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 14px 24px; position: sticky; top: 0; z-index: 100; }
 .head-title { font-weight: 700; color: var(--acc-dark); font-size: 16px; }
 .head-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
-.canvas { padding: 20px; max-width: 1100px; margin: 0 auto; }
+.canvas { padding: 20px; max-width: 1200px; margin: 0 auto; }
 
-.controls { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 14px; margin-bottom: 18px; }
+.controls { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 14px; margin-bottom: 14px; }
 .controls-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .controls-row:last-child { margin-bottom: 0; }
-.lbl { font-size: 12px; color: var(--t2); font-weight: 600; min-width: 70px; }
-.btn { padding: 7px 14px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 13px; font-weight: 500; }
+.lbl { font-size: 12px; color: var(--t2); font-weight: 600; min-width: 60px; }
+.btn { padding: 7px 13px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 12.5px; font-weight: 500; }
 .btn:hover { background: var(--sur3); }
 .btn.act { background: var(--acc); color: #fff; border-color: var(--acc-dark); }
-.btn.primary { background: var(--acc); color: #fff; border-color: var(--acc-dark); padding: 10px 18px; font-weight: 600; }
+.btn.primary { background: var(--acc); color: #fff; border-color: var(--acc-dark); padding: 9px 18px; font-weight: 600; }
 .btn.primary:hover { background: var(--acc-dark); }
 
-/* Split layout : Aperçu visuel à gauche / texte brut copier-coller à droite */
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+/* Split layout */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
-
 .panel { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); overflow: hidden; }
 .panel-head { background: var(--sur2); padding: 10px 14px; border-bottom: 1px solid var(--bor); display: flex; justify-content: space-between; align-items: center; }
 .panel-head .title { font-weight: 700; font-size: 13px; }
 .panel-head .info { font-size: 11px; color: var(--t2); }
 .panel-body { padding: 14px; max-height: 720px; overflow-y: auto; }
 
-/* Aperçu visuel — comme une annonce affichée sur Leboncoin */
+/* Apercu visuel */
 .lbc-preview { background: #fff; border: 1px solid var(--bor); border-radius: var(--r); overflow: hidden; }
-.lbc-cover { position: relative; height: 200px; background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 50%, #c7d2fe 100%); display: flex; align-items: flex-end; padding: 14px; }
-.lbc-cover::before { content: '🏠 Photo couverture'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,.85); padding: 6px 12px; border-radius: var(--r); font-size: 11px; color: var(--t2); font-style: italic; }
+.lbc-cover { position: relative; height: 180px; background: linear-gradient(135deg, #fef3c7, #fed7aa 50%, #c7d2fe); display: flex; align-items: flex-end; padding: 14px; }
+.lbc-cover::before { content: '🏠 Photo couverture'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,.85); padding: 5px 10px; border-radius: var(--r); font-size: 11px; color: var(--t2); font-style: italic; }
 .lbc-cover-content { color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.45); position: relative; z-index: 2; }
-.lbc-titre-card { font-size: 18px; font-weight: 700; margin: 4px 0; line-height: 1.25; }
-.lbc-prix-card { font-size: 16px; font-weight: 600; }
-.lbc-meta-card { font-size: 12px; opacity: 0.95; }
-.lbc-body { padding: 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; font-family: -apple-system, sans-serif; }
+.lbc-meta-card { font-size: 11.5px; opacity: 0.95; }
+.lbc-titre-card { font-size: 16px; font-weight: 700; margin: 4px 0; line-height: 1.3; }
+.lbc-prix-card { font-size: 15px; font-weight: 600; }
+.lbc-body { padding: 14px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
 
-/* Zone texte brut copier-coller */
-.raw-textarea { width: 100%; height: 580px; padding: 14px; border: 1px solid var(--bor); border-radius: var(--r); font-family: 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.65; background: var(--sur2); resize: vertical; white-space: pre-wrap; }
-.raw-textarea:focus { outline: none; border-color: var(--acc); }
+/* Textarea brut */
+.raw-textarea { width: 100%; height: 660px; padding: 14px; border: 1px solid var(--bor); border-radius: var(--r); font-family: 'Segoe UI', sans-serif; font-size: 12.5px; line-height: 1.7; background: var(--sur2); resize: vertical; white-space: pre-wrap; }
 
 /* Stats */
 .stats { background: var(--amb-bg); border: 1px solid var(--amb); border-radius: var(--r); padding: 12px 16px; margin-top: 14px; font-size: 13px; color: #78350f; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; align-items: center; }
 .stats strong { color: #92400e; }
 
-/* Titres */
+/* Titre preview */
 .titre-preview-box { background: var(--blu); color: #fff; padding: 12px 16px; border-radius: var(--r); margin-bottom: 14px; }
-.titre-preview-box .lbl { color: rgba(255,255,255,.85); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-.titre-preview-box .val { font-weight: 700; font-size: 16px; margin-top: 4px; }
+.titre-preview-box .l { color: rgba(255,255,255,.85); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.titre-preview-box .v { font-weight: 700; font-size: 17px; margin-top: 4px; }
 .titre-preview-box .ct { font-size: 11px; color: rgba(255,255,255,.85); margin-top: 4px; }
 
-/* Info section */
+/* Examples cards */
+.examples { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 14px; margin-bottom: 14px; }
+.examples h3 { margin: 0 0 10px; font-size: 13px; color: var(--t1); }
+.examples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.example-card { background: var(--sur2); border: 1px solid var(--bor); border-radius: var(--r); padding: 10px 12px; cursor: pointer; font-size: 12px; }
+.example-card:hover { background: var(--sur3); }
+.example-card.act { background: var(--vio-bg); border-color: var(--vio); }
+.example-card .ex-title { font-weight: 700; margin-bottom: 3px; color: var(--t1); }
+.example-card .ex-sub { color: var(--t2); font-size: 11px; }
+
+/* Section info */
 .dataset-info { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r); padding: 12px 14px; margin-bottom: 14px; font-size: 12px; }
 .dataset-info summary { cursor: pointer; font-weight: 600; }
-.dataset-info pre { background: var(--sur2); padding: 10px; border-radius: var(--r); font-size: 11px; overflow-x: auto; margin-top: 8px; }
+.dataset-info pre { background: var(--sur2); padding: 10px; border-radius: var(--r); font-size: 11px; overflow-x: auto; margin-top: 8px; max-height: 300px; }
 
-/* Note explicative */
-.note { background: var(--gre-bg); border-left: 3px solid var(--gre); padding: 10px 14px; border-radius: 0 var(--r) var(--r) 0; margin-top: 14px; font-size: 13px; color: #166534; }
+.note { background: var(--gre-bg); border-left: 3px solid var(--gre); padding: 10px 14px; border-radius: 0 var(--r) var(--r) 0; margin-top: 14px; font-size: 13px; color: #166534; line-height: 1.6; }
 .note strong { color: #14532d; }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="head-title">🧪 Démo génération LOG-ANNONCE — Format Leboncoin (texte plat copier-coller)</div>
-  <div class="head-sub">Cible principale = Leboncoin. Le texte est généré en TEXTE PLAT prêt à coller dans le champ description du portail.</div>
+  <div class="head-title">🧪 Démo génération LOG-ANNONCE V3 — Storytelling sans IA</div>
+  <div class="head-sub">Banques massivement enrichies (~35 titres, ~25 accroches, 4 tons). Teste plusieurs villes/profils — clique « 🔄 Régénérer » 10 fois pour voir la variabilité.</div>
 </header>
 
 <div class="canvas">
 
+  <!-- SÉLECTEUR D'EXEMPLES -->
+  <div class="examples">
+    <h3>📍 Tester avec différentes situations</h3>
+    <div class="examples-grid">
+      <div class="example-card act" data-ex="strasbourg" onclick="loadExample('strasbourg', this)">
+        <div class="ex-title">🏛 T3 Strasbourg centre</div>
+        <div class="ex-sub">Ancien, plein sud, balcon, parking</div>
+      </div>
+      <div class="example-card" data-ex="lyon" onclick="loadExample('lyon', this)">
+        <div class="ex-title">🌆 Studio Lyon Croix-Rousse</div>
+        <div class="ex-sub">Petite surface, étudiant, meublé</div>
+      </div>
+      <div class="example-card" data-ex="paris" onclick="loadExample('paris', this)">
+        <div class="ex-title">🗼 T2 Paris 11e</div>
+        <div class="ex-sub">Quartier vivant, ancien, sans extérieur</div>
+      </div>
+      <div class="example-card" data-ex="toulouse" onclick="loadExample('toulouse', this)">
+        <div class="ex-title">☀️ Maison Toulouse</div>
+        <div class="ex-sub">120m², jardin, famille, neuf</div>
+      </div>
+      <div class="example-card" data-ex="biarritz" onclick="loadExample('biarritz', this)">
+        <div class="ex-title">🌊 Appart Biarritz</div>
+        <div class="ex-sub">Vue mer, terrasse, haut de gamme</div>
+      </div>
+      <div class="example-card" data-ex="nantes" onclick="loadExample('nantes', this)">
+        <div class="ex-title">🌳 T4 Nantes Erdre</div>
+        <div class="ex-sub">Jardin, famille, neuf RT 2012</div>
+      </div>
+    </div>
+  </div>
+
   <div class="controls">
     <div class="controls-row">
       <span class="lbl">Format :</span>
-      <button class="btn act" id="fmt-leboncoin" onclick="setFormat('leboncoin')">📋 Leboncoin (texte plat — défaut)</button>
-      <button class="btn" id="fmt-detaille" onclick="setFormat('detaille')">📄 Détaillé (SeLoger/PAP/Pros)</button>
-      <button class="btn" id="fmt-sms" onclick="setFormat('sms')">📱 SMS/WhatsApp (court)</button>
+      <button class="btn act" id="fmt-leboncoin" onclick="setFormat('leboncoin')">📋 Leboncoin</button>
+      <button class="btn" id="fmt-detaille" onclick="setFormat('detaille')">📄 Détaillé (SeLoger/PAP)</button>
+      <button class="btn" id="fmt-sms" onclick="setFormat('sms')">📱 SMS court</button>
     </div>
     <div class="controls-row">
       <span class="lbl">Ton :</span>
       <button class="btn" id="ton-factuel" onclick="setTon('factuel')">📋 Factuel</button>
-      <button class="btn act" id="ton-evocateur" onclick="setTon('evocateur')">✨ Évocateur</button>
+      <button class="btn act" id="ton-storytelling" onclick="setTon('storytelling')">✨ Storytelling</button>
+      <button class="btn" id="ton-convivial" onclick="setTon('convivial')">😊 Convivial</button>
+      <button class="btn" id="ton-haut-gamme" onclick="setTon('haut-gamme')">💎 Haut de gamme</button>
       <button class="btn primary" onclick="regenerate()" style="margin-left:auto">🔄 Régénérer variation</button>
-      <button class="btn" onclick="copyToClipboard()">📋 Copier le texte</button>
+      <button class="btn" onclick="copyToClipboard()">📋 Copier</button>
+    </div>
+    <div class="controls-row">
+      <span class="lbl">Dossier :</span>
+      <button class="btn act" id="doss-on" onclick="toggleDossier(true)">📂 Inclure « Dossier demandé »</button>
+      <button class="btn" id="doss-off" onclick="toggleDossier(false)">∅ Sans dossier</button>
     </div>
   </div>
 
   <details class="dataset-info">
-    <summary>📋 Voir les données d'entrée (DB ImmoTrack — fictives)</summary>
+    <summary>📋 Voir les données d'entrée du bien sélectionné</summary>
     <pre id="dataset"></pre>
   </details>
 
-  <!-- TITRE séparé (champ Leboncoin distinct) -->
   <div class="titre-preview-box">
-    <div class="lbl">Titre de l'annonce (champ « Titre » Leboncoin — 60-80 caractères max recommandé)</div>
-    <div class="val" id="titre-out">—</div>
+    <div class="l">Titre Leboncoin (60-80 c. recommandé)</div>
+    <div class="v" id="titre-out">—</div>
     <div class="ct" id="titre-ct">—</div>
   </div>
 
-  <!-- Split : aperçu visuel + texte brut -->
   <div class="split">
-
     <div class="panel">
-      <div class="panel-head">
-        <span class="title">👁 Aperçu visuel (mise en forme)</span>
-        <span class="info">comment ça apparaît sur Leboncoin</span>
-      </div>
+      <div class="panel-head"><span class="title">👁 Aperçu visuel</span><span class="info">simulation rendu Leboncoin</span></div>
       <div class="panel-body">
         <div class="lbc-preview">
           <div class="lbc-cover">
@@ -135,68 +175,126 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
     </div>
 
     <div class="panel">
-      <div class="panel-head">
-        <span class="title">📋 Texte brut à copier-coller</span>
-        <span class="info">prêt pour Leboncoin / SeLoger / PAP / etc.</span>
-      </div>
+      <div class="panel-head"><span class="title">📋 Texte brut à copier-coller</span><span class="info">prêt pour Leboncoin / SeLoger / PAP</span></div>
       <div class="panel-body">
         <textarea class="raw-textarea" id="raw-output" readonly>—</textarea>
       </div>
     </div>
-
   </div>
 
   <div class="stats" id="stats"></div>
 
   <div class="note">
-    <strong>💡 Pourquoi texte plat ?</strong> Les portails immo (Leboncoin, SeLoger, PAP, ImmoJeune) <strong>n'acceptent pas de HTML</strong> dans le champ description. Le texte plat avec séparateurs en barres <code>━━━</code>, bullets <code>✓</code>, emojis simples (★ ☀ 🏠 📍 💰) reste lisible ET copiable directement. Le bouton « 📋 Copier » prend le contenu de la zone droite tel quel.
+    <strong>🎯 Différenciant prouvé :</strong> sans IA, sans coût, sans connexion, on génère des annonces avec storytelling vrai (imagination du futur locataire, lifestyle, ton modulable selon le profil cible). Concurrents directs Rentila/BailFacile/Qalimo ne proposent <strong>aucun</strong> générateur d'annonce. Banques actuelles : <strong>~35 titres × ~25 accroches × 4 tons × 6 profils ville = potentiel ~20 000+ combinaisons</strong>. Chaque clic « 🔄 Régénérer » donne une variation différente.<br><br>
+    <strong>💡 Note honnête :</strong> le mode « Haut de gamme » use de tournures plus soutenues mais sans mentir. Le ton « Convivial » est plus chaleureux. Le « Factuel » reste sec et neutre. À toi de choisir selon le bien et la cible.
   </div>
 
 </div>
 
 <script>
 // ═══════════════════════════════════════════════════════════════
-// DONNÉES D'ENTRÉE (simulé)
+// EXEMPLES DE BIENS — multi-villes, multi-profils
 // ═══════════════════════════════════════════════════════════════
-const LOG = {
-  ref: 'F-201', type: 'T3', surf: 65, npp: 3, etage: '4',
-  typeUsage: 'habitation-nu',
-  dpe: { classe: 'C', valConv: 95, ges: 'C' },
-  equipements: {
-    cuisine: { equipee: true, four: true, plaques: true, hotte: true, lave_vaisselle: true, micro_ondes: true, customs: ['Cuisine américaine ouverte sur séjour'] },
-    sanitaires: { bain: true, douche: true, wc_separe: true, lave_linge: true, customs: [] },
-    technologies: { fibre: true, tnt: true, customs: [] }
+const EXAMPLES = {
+  strasbourg: {
+    LOG: { ref: 'STRA-401', type: 'T3', surf: 65, npp: 3, etage: '4', typeUsage: 'habitation-nu',
+      dpe: { classe: 'C', valConv: 95, ges: 'C' },
+      equipements: { cuisine: { equipee: true, four: true, plaques: true, hotte: true, lave_vaisselle: true, micro_ondes: true, customs: ['Cuisine américaine ouverte sur séjour'] }, sanitaires: { bain: true, douche: true, wc_separe: true, lave_linge: true }, technologies: { fibre: true, tnt: true } },
+      annexes: { cave: { present: true, num: '7' }, parking: { present: true, num: '14', type: 'box' } },
+      exterieurs: { balcon: { present: true, surface: 8 }, terrasse: { present: false }, jardin_privatif: { present: false } },
+      presentation: { exposition: 'sud', vue: 'degagee', luminosite: 'tres-lumineux', calme: 'rue-calme', caractere_ancien: 'moulures-parquet' },
+      quartier: { transports: { tramway: 4, gare: 8 }, commerces: { boulangerie: 'dans la rue', supermarche: 3, pharmacie: 5 }, services: { ecoles_primaires: true, college: true, parc: true, restaurants: true }, reperes: ['Cathédrale (3 min)', 'Place Kléber (5 min)', 'Petite France'], caractere: ['centre-historique', 'quartier-residentiel'] },
+      locationInfo: { disponibilite: '2026-06-15', garanties_acceptees: ['caution_solidaire', 'visale'] } },
+    IMM: { nom: 'Mésange', adr: '12 rue de la Mésange', codePostal: '67000', ville: 'Strasbourg', periodeConstr: 'Avant 1949', regimeJuridique: 'Copropriété', equipementsCommuns: { ascenseur: true, interphone: true, digicode: true, local_velos: true } },
+    BAIL: { hc: 950, ch: 80, dg: 950 }
   },
-  annexes: { cave: { present: true, num: '7' }, parking: { present: true, num: '14', type: 'box' }, customs: [] },
-  exterieurs: { balcon: { present: true, surface: 8 }, terrasse: { present: false }, loggia: { present: false }, jardin_privatif: { present: false } },
-  presentation: { exposition: 'sud', vue: 'degagee', luminosite: 'tres-lumineux', calme: 'rue-calme', caractere_ancien: 'moulures-parquet' },
-  locationInfo: { disponibilite: '2026-06-15', garanties_acceptees: ['caution_solidaire', 'visale'] }
+  lyon: {
+    LOG: { ref: 'LY-203', type: 'Studio', surf: 24, npp: 1, etage: '2', typeUsage: 'habitation-meuble',
+      dpe: { classe: 'D', valConv: 180, ges: 'D' },
+      equipements: { cuisine: { equipee: true, four: false, plaques: true, hotte: true, lave_vaisselle: false, micro_ondes: true, customs: ['Coin cuisine équipé'] }, sanitaires: { bain: false, douche: true, wc_separe: false, lave_linge: true }, technologies: { fibre: true } },
+      annexes: { cave: { present: true, num: '12' }, parking: { present: false } },
+      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } },
+      presentation: { exposition: 'est', vue: '', luminosite: 'lumineux', calme: 'cour-interieure', caractere_ancien: 'batisse-caractere' },
+      quartier: { transports: { metro: 3, bus: 1 }, commerces: { boulangerie: 'dans la rue', supermarche: 4, pharmacie: 3, marche: 'mardi/samedi' }, services: { ecoles_primaires: false, parc: true, restaurants: true, sport: true }, reperes: ['Place des Tapis (4 min)', 'Jardin Rosa Mir (6 min)'], caractere: ['quartier-etudiant', 'quartier-festif'] },
+      locationInfo: { disponibilite: '2026-07-01', garanties_acceptees: ['visale', 'garant_perso'] } },
+    IMM: { nom: 'Croix-Rousse', adr: '8 rue Pailleron', codePostal: '69004', ville: 'Lyon', periodeConstr: 'De 1949 à 1974', regimeJuridique: 'Copropriété', equipementsCommuns: { ascenseur: false, interphone: true, digicode: true } },
+    BAIL: { hc: 550, ch: 60, dg: 1100 }
+  },
+  paris: {
+    LOG: { ref: 'PARIS-11-3B', type: 'T2', surf: 42, npp: 2, etage: '3', typeUsage: 'habitation-nu',
+      dpe: { classe: 'D', valConv: 170, ges: 'C' },
+      equipements: { cuisine: { equipee: true, four: true, plaques: true, hotte: false, lave_vaisselle: false, micro_ondes: false }, sanitaires: { bain: false, douche: true, wc_separe: false, lave_linge: false }, technologies: { fibre: true } },
+      annexes: { cave: { present: true, num: '3B' }, parking: { present: false } },
+      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } },
+      presentation: { exposition: 'sud-est', vue: 'cour', luminosite: 'lumineux', calme: 'cour-interieure', caractere_ancien: 'moulures-parquet' },
+      quartier: { transports: { metro: 2, bus: 1 }, commerces: { boulangerie: 'dans la rue', supermarche: 2, pharmacie: 2, marche: 'jeudi/dimanche' }, services: { ecoles_primaires: true, parc: true, restaurants: true }, reperes: ['Métro Saint-Ambroise (2 min)', 'Place de la Bastille (8 min)', 'Marché Popincourt (4 min)'], caractere: ['quartier-festif', 'quartier-residentiel'] },
+      locationInfo: { disponibilite: '2026-08-01', garanties_acceptees: ['caution_solidaire', 'visale', 'gli'] } },
+    IMM: { nom: 'Popincourt', adr: '47 rue de la Roquette', codePostal: '75011', ville: 'Paris', periodeConstr: 'Avant 1949', regimeJuridique: 'Copropriété', equipementsCommuns: { ascenseur: false, interphone: true, digicode: true } },
+    BAIL: { hc: 1450, ch: 90, dg: 1450 }
+  },
+  toulouse: {
+    LOG: { ref: 'TLS-MAISON', type: 'Maison', surf: 120, npp: 5, etage: '0', typeUsage: 'habitation-nu',
+      dpe: { classe: 'A', valConv: 55, ges: 'A' },
+      equipements: { cuisine: { equipee: true, four: true, plaques: true, hotte: true, lave_vaisselle: true, micro_ondes: true, customs: ['Îlot central'] }, sanitaires: { bain: true, douche: true, wc_separe: true, lave_linge: true }, technologies: { fibre: true, tnt: true } },
+      annexes: { cave: { present: false }, parking: { present: true, num: '', type: 'place' }, customs: ['Double garage attenant'] },
+      exterieurs: { balcon: { present: false }, terrasse: { present: true, surface: 18 }, jardin_privatif: { present: true, surface: 350 } },
+      presentation: { exposition: 'sud', vue: 'jardin', luminosite: 'tres-lumineux', calme: 'quartier-residentiel', caractere_ancien: '' },
+      quartier: { transports: { bus: 5 }, commerces: { boulangerie: 5, supermarche: 8 }, services: { ecoles_primaires: true, college: true, lycee: true, parc: true, sport: true }, reperes: ['École à 3 min', 'Parc municipal à 5 min'], caractere: ['quartier-residentiel', 'proche-nature'] },
+      locationInfo: { disponibilite: '2026-09-01', garanties_acceptees: ['caution_solidaire', 'gli'] } },
+    IMM: { nom: 'Saint-Simon', adr: '14 impasse des Glycines', codePostal: '31100', ville: 'Toulouse', periodeConstr: 'Depuis 2005', regimeJuridique: 'Monopropriété', equipementsCommuns: {} },
+    BAIL: { hc: 1850, ch: 0, dg: 1850 }
+  },
+  biarritz: {
+    LOG: { ref: 'BIA-VUEMER', type: 'T3', surf: 75, npp: 3, etage: '5', typeUsage: 'habitation-nu',
+      dpe: { classe: 'B', valConv: 75, ges: 'A' },
+      equipements: { cuisine: { equipee: true, four: true, plaques: true, hotte: true, lave_vaisselle: true, micro_ondes: true, customs: ['Cuisine équipée haut de gamme'] }, sanitaires: { bain: true, douche: true, wc_separe: true, lave_linge: true }, technologies: { fibre: true } },
+      annexes: { cave: { present: true, num: '5' }, parking: { present: true, num: '5', type: 'box' } },
+      exterieurs: { balcon: { present: false }, terrasse: { present: true, surface: 25 }, jardin_privatif: { present: false } },
+      presentation: { exposition: 'ouest', vue: 'mer-montagne', luminosite: 'baigne-lumiere', calme: 'quartier-residentiel', caractere_ancien: '' },
+      quartier: { transports: { bus: 2 }, commerces: { boulangerie: 3, supermarche: 5 }, services: { parc: true, sport: true, restaurants: true }, reperes: ['Grande Plage (8 min à pied)', 'Phare (5 min)', 'Casino municipal (10 min)'], caractere: ['bord-de-mer', 'haut-de-gamme'] },
+      locationInfo: { disponibilite: '2026-10-01', garanties_acceptees: ['caution_solidaire', 'gli'] } },
+    IMM: { nom: 'Plage', adr: '12 avenue de l\'Impératrice', codePostal: '64200', ville: 'Biarritz', periodeConstr: 'De 1990 à 2005', regimeJuridique: 'Copropriété', equipementsCommuns: { ascenseur: true, interphone: true, digicode: true, videosurv: true, gardien: true } },
+    BAIL: { hc: 1750, ch: 150, dg: 1750 }
+  },
+  nantes: {
+    LOG: { ref: 'NTE-T4', type: 'T4', surf: 95, npp: 4, etage: '2', typeUsage: 'habitation-nu',
+      dpe: { classe: 'B', valConv: 85, ges: 'B' },
+      equipements: { cuisine: { equipee: true, four: true, plaques: true, hotte: true, lave_vaisselle: true, micro_ondes: true, customs: ['Cuisine ouverte sur séjour'] }, sanitaires: { bain: true, douche: true, wc_separe: true, lave_linge: true }, technologies: { fibre: true } },
+      annexes: { cave: { present: true, num: '8' }, parking: { present: true, num: '8', type: 'box' } },
+      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: true, surface: 80 } },
+      presentation: { exposition: 'sud-ouest', vue: 'jardin', luminosite: 'tres-lumineux', calme: 'quartier-residentiel', caractere_ancien: '' },
+      quartier: { transports: { tramway: 7, bus: 3 }, commerces: { boulangerie: 4, supermarche: 6 }, services: { ecoles_primaires: true, college: true, parc: true, sport: true }, reperes: ['Bord de l\'Erdre (5 min)', 'École à 3 min', 'Parc Procé (10 min)'], caractere: ['quartier-residentiel', 'proche-nature'] },
+      locationInfo: { disponibilite: '2026-11-01', garanties_acceptees: ['caution_solidaire', 'visale', 'gli'] } },
+    IMM: { nom: 'Erdre', adr: '7 rue des Marronniers', codePostal: '44000', ville: 'Nantes', periodeConstr: 'Depuis 2005', regimeJuridique: 'Copropriété', equipementsCommuns: { ascenseur: true, interphone: true, digicode: true, local_velos: true } },
+    BAIL: { hc: 1250, ch: 95, dg: 1250 }
+  }
 };
-const IMM = {
-  nom: 'Mésange Strasbourg', adr: '12 rue de la Mésange', codePostal: '67000', ville: 'Strasbourg',
-  periodeConstr: 'Avant 1949', regimeJuridique: 'Copropriété',
-  equipementsCommuns: { ascenseur: true, interphone: true, digicode: true, gardien: false, local_velos: true, customs: [] }
-};
-const BAIL = { hc: 950, ch: 80, dg: 950 };
 
-document.getElementById('dataset').textContent = JSON.stringify({ LOG, IMM, BAIL }, null, 2);
+let LOG, IMM, BAIL;
+let _currentEx = 'strasbourg';
+let _currentFormat = 'leboncoin';
+let _currentTon = 'storytelling';
+let _includeDossier = true;
+let _genCounter = 0;
 
-// ═══════════════════════════════════════════════════════════════
-// PRNG seedé (Mulberry32) — déterministe par bien + counter
-// ═══════════════════════════════════════════════════════════════
+function loadExample(name, btn) {
+  document.querySelectorAll('.example-card').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  _currentEx = name;
+  LOG = JSON.parse(JSON.stringify(EXAMPLES[name].LOG));
+  IMM = JSON.parse(JSON.stringify(EXAMPLES[name].IMM));
+  BAIL = JSON.parse(JSON.stringify(EXAMPLES[name].BAIL));
+  document.getElementById('dataset').textContent = JSON.stringify({ LOG, IMM, BAIL }, null, 2);
+  regenerate();
+}
+
+// PRNG
 let _seed = 0;
 function setSeed(s) { _seed = s; }
-function rand() {
-  let t = _seed += 0x6D2B79F5;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-function pick(arr) { return arr[Math.floor(rand() * arr.length)]; }
+function rand() { let t = _seed += 0x6D2B79F5; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+function pick(arr) { if (!arr || !arr.length) return ''; return arr[Math.floor(rand() * arr.length)]; }
 
-// ═══════════════════════════════════════════════════════════════
-// FORMATEURS
-// ═══════════════════════════════════════════════════════════════
+// Formateurs
 function etageLabel(etage) {
   const n = parseInt(etage);
   if (n === 0 || /^rdc/i.test(etage)) return 'rez-de-chaussée';
@@ -207,275 +305,370 @@ const MAP_EXPO = { 'sud': 'plein sud', 'sud-est': 'sud-est', 'sud-ouest': 'sud-o
 const MAP_VUE = { 'degagee': 'vue dégagée', 'jardin': 'sur jardin', 'cour': 'sur cour intérieure', 'parc': 'sur parc', 'monument': 'sur monument', 'mer-montagne': 'vue mer/montagne' };
 const MAP_LUM = { 'lumineux': 'lumineux', 'tres-lumineux': 'très lumineux', 'traversant': 'traversant', 'baigne-lumiere': 'baigné de lumière' };
 const MAP_CALM = { 'rue-calme': 'rue calme', 'cour-interieure': 'côté cour au calme', 'quartier-residentiel': 'quartier résidentiel', 'quartier-verdoyant': 'quartier verdoyant' };
-const MAP_CAR = { 'moulures-parquet': 'moulures et parquet ancien', 'cheminee-deco': 'cheminée décorative', 'hauts-plafonds': 'hauts plafonds (3 m)', 'batisse-caractere': 'bâtisse de caractère' };
+const MAP_CAR = { 'moulures-parquet': 'moulures et parquet ancien', 'cheminee-deco': 'cheminée décorative', 'hauts-plafonds': 'hauts plafonds', 'batisse-caractere': 'bâtisse de caractère' };
 
-function adjSurface(s) {
-  if (s > 100) return pick(['vaste', 'généreux', 'spacieux']);
-  if (s > 70) return pick(['spacieux', 'agréable', 'confortable']);
-  if (s > 45) return pick(['fonctionnel', 'bien agencé']);
-  return pick(['cosy', 'optimisé', 'compact']);
+function adjLifestyle(log) {
+  const adjs = [];
+  if (log.surf > 100) adjs.push(...['généreusement dimensionné', 'spacieux', 'aux volumes confortables']);
+  else if (log.surf > 70) adjs.push(...['agréablement spacieux', 'aux belles proportions', 'parfaitement agencé']);
+  else if (log.surf > 45) adjs.push(...['fonctionnel', 'à l\'agencement réfléchi', 'bien pensé']);
+  else adjs.push(...['cosy', 'au format idéal pour un pied-à-terre', 'intelligemment optimisé']);
+  return pick(adjs);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// BANQUES MASSIVEMENT ENRICHIES
+// ═══════════════════════════════════════════════════════════════
+
+const BANQUE_TITRES = {
+  storytelling: [
+    { si: l => l.presentation.exposition === 'sud' && l.exterieurs.balcon.present, tpl: (l,i) => `✨ Coup de cœur ${l.type} ${l.surf}m² plein sud + balcon - ${i.ville}` },
+    { si: l => l.presentation.vue === 'mer-montagne', tpl: (l,i) => `🌊 Vue mer ${l.type} ${l.surf}m² + terrasse - ${i.ville}` },
+    { si: l => l.exterieurs.jardin_privatif.present && l.type === 'Maison', tpl: (l,i) => `🌿 Belle maison ${l.surf}m² avec jardin ${l.exterieurs.jardin_privatif.surface}m² - ${i.ville}` },
+    { si: l => l.presentation.caractere_ancien === 'moulures-parquet' && l.exterieurs.balcon.present, tpl: (l,i) => `🏛 ${l.type} de caractère ${l.surf}m² + balcon - ${i.ville} centre` },
+    { si: l => l.presentation.exposition === 'sud', tpl: (l,i) => `☀️ ${l.type} ${l.surf}m² plein sud - ${i.ville} centre` },
+    { si: l => l.presentation.caractere_ancien, tpl: (l,i) => `🏛 Charme de l'ancien - ${l.type} ${l.surf}m² ${i.ville}` },
+    { si: l => l.exterieurs.terrasse.present && l.exterieurs.terrasse.surface > 15, tpl: (l,i) => `🌞 ${l.type} ${l.surf}m² + terrasse ${l.exterieurs.terrasse.surface}m² - ${i.ville}` },
+    { si: l => l.exterieurs.balcon.present, tpl: (l,i) => `🌿 ${l.type} ${l.surf}m² avec balcon - ${i.ville}` },
+    { si: l => l.presentation.luminosite === 'baigne-lumiere', tpl: (l,i) => `🌞 ${l.type} baigné de lumière ${l.surf}m² - ${i.ville}` },
+    { si: l => l.presentation.luminosite, tpl: (l,i) => `🌞 ${l.type} ${l.surf}m² ${MAP_LUM[l.presentation.luminosite]} - ${i.ville}` },
+    { si: l => parseInt(l.etage) >= 4 && i.equipementsCommuns.ascenseur, tpl: (l,i) => `🌆 ${l.type} ${l.surf}m² ${etageLabel(l.etage)} ascenseur - ${i.ville}` },
+    { si: l => l.presentation.calme === 'rue-calme', tpl: (l,i) => `🤫 Havre de paix ${l.type} ${l.surf}m² - ${i.ville}` },
+    { si: l => l.typeUsage === 'habitation-meuble', tpl: (l,i) => `🛋 ${l.type} meublé ${l.surf}m² ${i.ville} centre` },
+    { si: l => l.dpe.classe <= 'B' && l.exterieurs.jardin_privatif.present, tpl: (l,i) => `🌱 ${l.type} ${l.surf}m² DPE ${l.dpe.classe} + jardin - ${i.ville}` },
+    { si: l => l.dpe.classe <= 'A', tpl: (l,i) => `⚡ ${l.type} ${l.surf}m² DPE A - basse conso - ${i.ville}` },
+  ],
+  factuel: [
+    { si: l => true, tpl: (l,i) => `${l.type} ${l.surf}m² ${l.npp} pièces - ${i.ville} ${i.codePostal}` },
+    { si: l => l.exterieurs.balcon.present, tpl: (l,i) => `${l.type} ${l.surf}m² avec balcon - ${i.ville}` },
+    { si: l => l.exterieurs.jardin_privatif.present, tpl: (l,i) => `${l.type} ${l.surf}m² + jardin ${l.exterieurs.jardin_privatif.surface}m² - ${i.ville}` },
+    { si: l => parseInt(l.etage) >= 1, tpl: (l,i) => `${l.type} ${l.surf}m² ${etageLabel(l.etage)} - ${i.ville}` },
+    { si: l => l.typeUsage === 'habitation-meuble', tpl: (l,i) => `${l.type} meublé ${l.surf}m² - ${i.ville}` },
+    { si: l => true, tpl: (l,i) => `Location ${l.type} ${l.surf}m² - ${i.ville}` },
+  ],
+  convivial: [
+    { si: l => l.exterieurs.jardin_privatif.present, tpl: (l,i) => `🏡 Votre future maison ${l.surf}m² avec jardin - ${i.ville}` },
+    { si: l => l.exterieurs.balcon.present && l.presentation.exposition === 'sud', tpl: (l,i) => `☕ Cosy ${l.type} ${l.surf}m² + balcon ensoleillé - ${i.ville}` },
+    { si: l => l.npp >= 3, tpl: (l,i) => `👨‍👩‍👧 ${l.type} familial ${l.surf}m² - ${i.ville} ${i.codePostal}` },
+    { si: l => l.typeUsage === 'habitation-meuble' && l.surf < 35, tpl: (l,i) => `🎒 Joli studio meublé ${l.surf}m² étudiants OK - ${i.ville}` },
+    { si: l => l.presentation.caractere_ancien, tpl: (l,i) => `🏛 Le charme de l'ancien à votre service - ${l.type} ${l.surf}m² - ${i.ville}` },
+    { si: l => true, tpl: (l,i) => `🏠 Bel appart ${l.type} ${l.surf}m² qui n'attend que vous - ${i.ville}` },
+  ],
+  'haut-gamme': [
+    { si: l => l.presentation.vue === 'mer-montagne', tpl: (l,i) => `🌊 Exceptionnel ${l.type} ${l.surf}m² vue mer - ${i.ville}` },
+    { si: l => l.exterieurs.terrasse.present && l.exterieurs.terrasse.surface > 20, tpl: (l,i) => `💎 ${l.type} d'exception ${l.surf}m² + terrasse - ${i.ville}` },
+    { si: l => i.equipementsCommuns.gardien && i.equipementsCommuns.videosurv, tpl: (l,i) => `🔐 ${l.type} ${l.surf}m² résidence sécurisée - ${i.ville}` },
+    { si: l => l.presentation.caractere_ancien && l.exterieurs.balcon.present, tpl: (l,i) => `🎩 Élégant ${l.type} de caractère ${l.surf}m² - ${i.ville}` },
+    { si: l => l.dpe.classe <= 'A', tpl: (l,i) => `🌿 ${l.type} ${l.surf}m² basse consommation A - ${i.ville}` },
+    { si: l => true, tpl: (l,i) => `🎯 ${l.type} de standing ${l.surf}m² - ${i.ville}` },
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════
+// BANQUES D'ACCROCHES (par ton)
+// ═══════════════════════════════════════════════════════════════
+
+const BANQUE_ACCROCHES = {
+  storytelling: [
+    // Mode "imagine le futur locataire" — émotionnel
+    { si: l => l.presentation.exposition === 'sud' && l.exterieurs.balcon.present,
+      tpl: (l,i) => `Vous cherchez un cocon lumineux en plein cœur de ${i.ville} ? Coup de cœur garanti pour ce ${l.type} ${adjLifestyle(l)}, idéalement situé ${pick(['à deux pas du centre', 'au calme d\'une rue paisible', 'dans un quartier vivant et résidentiel'])}, baigné de soleil tout au long de la journée grâce à son ${MAP_EXPO[l.presentation.exposition]}.` },
+    { si: l => l.exterieurs.jardin_privatif.present,
+      tpl: (l,i) => `Imaginez vos petits-déjeuners dans le jardin, vos dîners d'été en terrasse, vos enfants courant pieds nus dans l'herbe. Cette ${l.type === 'Maison' ? 'maison' : 'résidence'} ${adjLifestyle(l)} de ${l.surf} m² avec son jardin privatif de ${l.exterieurs.jardin_privatif.surface} m² ${l.exterieurs.terrasse.present ? `et sa terrasse de ${l.exterieurs.terrasse.surface} m² ` : ''}vous offre tout cet art de vivre.` },
+    { si: l => l.presentation.vue === 'mer-montagne',
+      tpl: (l,i) => `Réveillez-vous chaque matin face à la mer. Ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² au ${etageLabel(l.etage)} avec ${l.exterieurs.terrasse.present ? `terrasse de ${l.exterieurs.terrasse.surface} m² ` : ''}offre une ${MAP_VUE[l.presentation.vue]} qui transforme chaque jour en moment privilégié.` },
+    { si: l => l.presentation.caractere_ancien === 'moulures-parquet' && l.presentation.luminosite,
+      tpl: (l,i) => `Le charme de l'ancien intact, le confort moderne au quotidien. Niché au cœur de ${i.ville}, ce ${l.type} ${adjLifestyle(l)} conjugue ${MAP_CAR[l.presentation.caractere_ancien]} et une luminosité ${MAP_LUM[l.presentation.luminosite]}. Une rare opportunité pour les amateurs d'authenticité.` },
+    { si: l => l.typeUsage === 'habitation-meuble' && l.surf < 35,
+      tpl: (l,i) => `Étudiants, jeunes actifs : voici votre futur pied-à-terre à ${i.ville}. Ce ${l.type === 'Studio' ? 'studio' : l.type} ${adjLifestyle(l)} de ${l.surf} m² entièrement meublé et équipé vous attend, ${l.presentation.calme === 'cour-interieure' ? 'au calme d\'une cour intérieure' : 'parfaitement situé'} pour conjuguer études/travail et qualité de vie.` },
+    { si: l => parseInt(l.etage) >= 4 && i.equipementsCommuns.ascenseur && l.presentation.vue,
+      tpl: (l,i) => `Au ${etageLabel(l.etage)} avec ascenseur, ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² offre une ${MAP_VUE[l.presentation.vue]} et ${l.presentation.luminosite ? `une luminosité ${MAP_LUM[l.presentation.luminosite]}` : 'un cadre apaisant'}, idéal pour ceux qui cherchent un cocon en hauteur, loin du tumulte.` },
+    { si: l => l.npp >= 4,
+      tpl: (l,i) => `La famille s'agrandit ? Vous cherchez un cocon pour grandir, partager, recevoir ? Cette ${l.type === 'Maison' ? 'belle maison' : 'généreuse résidence'} de ${l.surf} m² à ${i.ville} déploie ses ${l.npp} pièces avec ${l.exterieurs.jardin_privatif.present ? `son jardin de ${l.exterieurs.jardin_privatif.surface} m² ` : ''}pour répondre à vos rêves de vie de famille.` },
+    { si: l => l.dpe.classe <= 'B',
+      tpl: (l,i) => `Bien performant, conscience tranquille. Avec son DPE classe ${l.dpe.classe} (${l.dpe.valConv} kWh/m²/an), ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² conjugue confort moderne et factures maîtrisées. Un investissement locatif pensé pour aujourd'hui ET pour demain.` },
+  ],
+  factuel: [
+    { si: l => true, tpl: (l,i) => `Appartement de type ${l.type} d'une surface habitable de ${l.surf} m² (loi Carrez) composé de ${l.npp} pièces principales, situé au ${etageLabel(l.etage)}${i.equipementsCommuns.ascenseur ? ' (avec ascenseur)' : ''} d'un immeuble en ${i.regimeJuridique.toLowerCase()}, ${i.codePostal} ${i.ville}.` },
+    { si: l => l.exterieurs.balcon.present || l.exterieurs.terrasse.present || l.exterieurs.jardin_privatif.present,
+      tpl: (l,i) => `${l.type} ${l.surf} m², ${l.npp} pièces, ${etageLabel(l.etage)}, exposition ${MAP_EXPO[l.presentation.exposition] || 'à préciser'}. Avec ${[l.exterieurs.balcon.present && `balcon ${l.exterieurs.balcon.surface || ''} m²`, l.exterieurs.terrasse.present && `terrasse ${l.exterieurs.terrasse.surface || ''} m²`, l.exterieurs.jardin_privatif.present && `jardin ${l.exterieurs.jardin_privatif.surface || ''} m²`].filter(Boolean).join(' et ')}.` },
+    { si: l => true, tpl: (l,i) => `${l.type} de ${l.surf} m², ${l.npp} pièces principales, ${etageLabel(l.etage)}, situé à ${i.adr}, ${i.codePostal} ${i.ville}.` },
+  ],
+  convivial: [
+    { si: l => l.exterieurs.jardin_privatif.present, tpl: (l,i) => `Une jolie maison pleine de promesses vous attend à ${i.ville} ! ${l.surf} m² baignés de soleil, un jardin de ${l.exterieurs.jardin_privatif.surface} m² pour les enfants et les week-ends entre amis, et tout le confort dont vous rêvez.` },
+    { si: l => l.presentation.exposition === 'sud' && l.exterieurs.balcon.present, tpl: (l,i) => `Un balcon plein sud + un appart' lumineux à ${i.ville}, vous en pensez quoi ? Ce ${l.type} de ${l.surf} m² au ${etageLabel(l.etage)} a tout pour devenir votre prochain chez-vous : exposition idéale, cuisine équipée, vraie qualité de vie.` },
+    { si: l => l.typeUsage === 'habitation-meuble', tpl: (l,i) => `Vous arrivez à ${i.ville} et vous cherchez un pied-à-terre tout prêt ? Voici votre solution : ${l.type === 'Studio' ? 'studio' : l.type} meublé de ${l.surf} m², tout équipé, posez vos valises et vous êtes chez vous.` },
+    { si: l => l.npp >= 3, tpl: (l,i) => `Voici LA bonne adresse pour votre famille à ${i.ville}. ${l.type} ${adjLifestyle(l)} de ${l.surf} m² avec ${l.npp} pièces, ${l.exterieurs.balcon.present || l.exterieurs.terrasse.present || l.exterieurs.jardin_privatif.present ? 'un extérieur' : 'tout le confort'} et un super quartier autour.` },
+    { si: l => true, tpl: (l,i) => `On vous présente votre future adresse à ${i.ville} : un ${l.type} ${adjLifestyle(l)} de ${l.surf} m² avec ${l.presentation.luminosite ? 'beaucoup de lumière' : 'tous les atouts'} pour bien vivre au quotidien.` },
+  ],
+  'haut-gamme': [
+    { si: l => l.presentation.vue === 'mer-montagne' && l.exterieurs.terrasse.present, tpl: (l,i) => `Pour les amateurs d'exception. Ce ${l.type} de ${l.surf} m² au ${etageLabel(l.etage)} d'une résidence ${i.equipementsCommuns.gardien ? 'gardiennée' : 'de standing'} offre une vue mer panoramique sublimée par une terrasse de ${l.exterieurs.terrasse.surface} m². Confort absolu, prestations soignées, adresse rare.` },
+    { si: l => l.exterieurs.jardin_privatif.present && l.surf > 100, tpl: (l,i) => `Une demeure de standing dans un cadre privilégié. Cette ${l.type === 'Maison' ? 'maison' : 'propriété'} de ${l.surf} m² conjugue espaces généreux, finitions soignées et jardin privatif de ${l.exterieurs.jardin_privatif.surface} m², dans un environnement résidentiel recherché.` },
+    { si: l => l.presentation.caractere_ancien && l.surf > 60, tpl: (l,i) => `Le ${l.type === 'T2' ? 'T2' : l.type} d'exception que vous cherchiez : ${l.surf} m² de caractère préservé (${MAP_CAR[l.presentation.caractere_ancien]}), une adresse prestigieuse à ${i.ville}, et un niveau de prestations digne des plus exigeants.` },
+    { si: l => i.equipementsCommuns.gardien || i.equipementsCommuns.videosurv, tpl: (l,i) => `Une adresse confidentielle et sécurisée. Résidence ${i.equipementsCommuns.gardien ? 'gardiennée' : 'sous vidéosurveillance'}, ce ${l.type} de ${l.surf} m² offre ${l.presentation.exposition === 'sud' ? 'l\'exposition plein sud' : 'le confort'} et la sérénité que vous attendez. À voir absolument.` },
+    { si: l => true, tpl: (l,i) => `${l.type} de prestige de ${l.surf} m² à ${i.ville}, ${l.presentation.luminosite ? `${MAP_LUM[l.presentation.luminosite]}` : 'aux belles proportions'}, ${l.equipements.cuisine.equipee ? 'cuisine équipée haut de gamme' : 'finitions soignées'}, à découvrir.` },
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════
+// DESCRIPTION DÉTAILLÉE PIÈCES (storytelling)
+// ═══════════════════════════════════════════════════════════════
+function genererDescription(log, ton) {
+  if (ton === 'factuel') {
+    return `Composition : entrée, séjour ${log.surf > 50 ? 'spacieux' : ''}, cuisine ${log.equipements.cuisine.equipee ? 'équipée' : 'non équipée'}, ${log.npp - 1} chambre(s), salle de bain ${log.equipements.sanitaires.bain && log.equipements.sanitaires.douche ? 'avec baignoire et douche' : ''}${log.equipements.sanitaires.wc_separe ? ', WC séparé' : ''}.`;
+  }
+  if (ton === 'convivial') {
+    return `À l'intérieur, vous trouverez un séjour ${adjLifestyle(log)} qui appelle aux longues soirées entre amis ou aux dimanches paisibles, ${log.equipements.cuisine.equipee ? 'une cuisine entièrement équipée pour mijoter vos meilleures recettes' : 'une cuisine prête à accueillir vos équipements'}, ${log.npp - 1 > 1 ? `${log.npp - 1} jolies chambres` : 'une chambre confortable'}, et une salle de bain ${log.equipements.sanitaires.bain && log.equipements.sanitaires.douche ? 'avec baignoire ET douche italienne' : 'fonctionnelle'}${log.equipements.sanitaires.wc_separe ? ', WC séparé pour le confort de tous' : ''}.`;
+  }
+  if (ton === 'haut-gamme') {
+    return `L'appartement déploie un séjour aux volumes ${log.surf > 70 ? 'généreux' : 'soignés'} ouvert sur une ${log.equipements.cuisine.customs.find(c => /ouverte/i.test(c)) ? 'cuisine américaine entièrement équipée' : 'cuisine équipée haut de gamme'}${log.equipements.cuisine.lave_vaisselle ? ' (lave-vaisselle intégré)' : ''}. ${log.npp - 1 > 1 ? `${log.npp - 1} chambres confortables` : 'Une chambre principale'}, salle d'eau ${log.equipements.sanitaires.bain && log.equipements.sanitaires.douche ? 'équipée d\'une baignoire et d\'une douche à l\'italienne' : 'aux finitions soignées'}${log.equipements.sanitaires.wc_separe ? ', WC indépendant' : ''}.`;
+  }
+  // Storytelling (défaut)
+  const ouvertures = [
+    `Côté salon, ${log.surf > 70 ? 'imaginez vos dîners entre amis ' : 'on s\'imagine vite '}dans ce séjour ${adjLifestyle(log)} ${log.equipements.cuisine.customs.find(c => /ouverte/i.test(c)) ? 'ouvert sur une cuisine américaine entièrement équipée' : log.equipements.cuisine.equipee ? 'avec sa cuisine équipée' : ''}${log.equipements.cuisine.lave_vaisselle ? ' (four, plaques, lave-vaisselle, micro-ondes — tout est là)' : ''}.`,
+    `Le séjour ${adjLifestyle(log)} accueille vos moments du quotidien ${log.equipements.cuisine.customs.find(c => /ouverte/i.test(c)) ? 'autour d\'une cuisine ouverte entièrement équipée' : 'avec cuisine équipée attenante'}${log.equipements.cuisine.lave_vaisselle ? ' (lave-vaisselle, plaques, four, hotte)' : ''}.`,
+    `${log.surf > 60 ? 'Le séjour spacieux, ouvert sur la cuisine,' : 'Le coin séjour, ouvert sur la cuisine équipée,'} est pensé pour partager les moments du quotidien.`
+  ];
+  const chambres = log.npp - 1 > 1 ? [
+    `Côté nuit, ${log.npp - 1} chambres confortables offrent à chacun son espace.`,
+    `${log.npp - 1} chambres confortables ${log.exterieurs.balcon.present ? `(dont une donnant ${log.presentation.calme === 'cour-interieure' ? 'côté cour calme' : 'sur le balcon'})` : ''} accueillent vos nuits paisibles.`,
+    `Les ${log.npp - 1} chambres, ${adjLifestyle(log)}, garantissent le repos après la journée.`
+  ] : [
+    `Une chambre confortable ${log.presentation.calme === 'cour-interieure' ? 'côté cour intérieure pour un sommeil au calme' : 'pour des nuits paisibles'}.`,
+    `Une chambre principale ${log.presentation.luminosite ? 'baignée de lumière' : 'confortable'} pour vos moments de récupération.`,
+  ];
+  const sdb = [
+    `Salle de bain ${log.equipements.sanitaires.bain && log.equipements.sanitaires.douche ? 'avec baignoire ET douche italienne (rare !)' : log.equipements.sanitaires.douche ? 'avec douche italienne' : 'avec baignoire'}${log.equipements.sanitaires.wc_separe ? ', et WC séparé pour le confort de tous' : ''}.`,
+    `Pour le quotidien : salle de bain ${log.equipements.sanitaires.bain && log.equipements.sanitaires.douche ? 'équipée d\'une baignoire et d\'une douche italienne' : 'avec ' + (log.equipements.sanitaires.bain ? 'baignoire' : 'douche italienne')}${log.equipements.sanitaires.wc_separe ? ', WC indépendant' : ''}.`,
+  ];
+  return `${pick(ouvertures)} ${pick(chambres)} ${pick(sdb)}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ATOUTS RICHES
+// ═══════════════════════════════════════════════════════════════
+function genererAtouts(log, imm) {
+  const atouts = [];
+  // Atouts présentation
+  if (log.presentation.exposition === 'sud') atouts.push('Exposition plein sud — lumière généreuse toute la journée');
+  else if (log.presentation.exposition && log.presentation.exposition !== 'nord') atouts.push(`Exposition ${MAP_EXPO[log.presentation.exposition]} — belle luminosité`);
+  if (log.presentation.luminosite === 'baigne-lumiere') atouts.push('Appartement baigné de lumière (rares vis-à-vis)');
+  if (log.exterieurs.balcon.present) atouts.push(`Balcon privatif de ${log.exterieurs.balcon.surface} m²${log.presentation.calme === 'cour-interieure' ? ' côté cour au calme' : log.presentation.calme === 'rue-calme' ? ' donnant sur rue calme' : ''}`);
+  if (log.exterieurs.terrasse.present) atouts.push(`Terrasse de ${log.exterieurs.terrasse.surface || '?'} m² ${log.presentation.exposition === 'sud' || log.presentation.exposition === 'sud-ouest' ? '(idéale pour les repas d\'été)' : ''}`);
+  if (log.exterieurs.jardin_privatif.present) atouts.push(`Jardin privatif de ${log.exterieurs.jardin_privatif.surface} m² (rare en ${imm.ville})`);
+  // Étage / ascenseur
+  if (parseInt(log.etage) >= 3 && imm.equipementsCommuns.ascenseur) atouts.push(`${etageLabel(log.etage)} avec ascenseur`);
+  else if (parseInt(log.etage) === 0) atouts.push('Rez-de-chaussée surélevé — accès direct, idéal seniors ou personne à mobilité réduite');
+  // Sécurité immeuble
+  const sec = [imm.equipementsCommuns.interphone && 'interphone', imm.equipementsCommuns.digicode && 'digicode', imm.equipementsCommuns.videosurv && 'vidéosurveillance', imm.equipementsCommuns.gardien && 'gardien'].filter(Boolean);
+  if (sec.length) atouts.push(`Immeuble sécurisé (${sec.join(', ')})`);
+  // Cuisine
+  if (log.equipements.cuisine.equipee) {
+    const equips = [log.equipements.cuisine.four && 'four', log.equipements.cuisine.plaques && 'plaques induction', log.equipements.cuisine.hotte && 'hotte', log.equipements.cuisine.lave_vaisselle && 'lave-vaisselle', log.equipements.cuisine.micro_ondes && 'micro-ondes'].filter(Boolean);
+    atouts.push(`Cuisine entièrement équipée${equips.length ? ' (' + equips.join(', ') + ')' : ''}`);
+  }
+  // Sanitaires
+  if (log.equipements.sanitaires.bain && log.equipements.sanitaires.douche) atouts.push('Salle de bain avec baignoire ET douche italienne (rare)');
+  if (log.equipements.sanitaires.wc_separe) atouts.push('WC séparé');
+  // Annexes
+  if (log.annexes.cave.present && log.annexes.parking.present) atouts.push(`Cave ${log.annexes.cave.num ? `n° ${log.annexes.cave.num}` : ''} et ${log.annexes.parking.type === 'box' ? 'box' : 'parking'} ${log.annexes.parking.num ? `n° ${log.annexes.parking.num}` : ''} inclus`);
+  else if (log.annexes.cave.present) atouts.push(`Cave incluse${log.annexes.cave.num ? ` (n° ${log.annexes.cave.num})` : ''}`);
+  else if (log.annexes.parking.present) atouts.push(`${log.annexes.parking.type === 'box' ? 'Box parking' : 'Place de parking'} ${log.annexes.parking.num ? `n° ${log.annexes.parking.num}` : ''} inclus`);
+  if (log.annexes.customs && log.annexes.customs.length) log.annexes.customs.forEach(c => atouts.push(c));
+  // Techs
+  if (log.equipements.technologies.fibre) atouts.push('Fibre optique installée');
+  // Caractère
+  if (log.presentation.caractere_ancien) atouts.push(`Charme de l'ancien (${MAP_CAR[log.presentation.caractere_ancien]}) avec confort moderne`);
+  // DPE
+  if (log.dpe.classe <= 'B') atouts.push(`DPE ${log.dpe.classe} (${log.dpe.valConv} kWh/m²/an) — charges énergétiques très maîtrisées`);
+  return atouts;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION QUARTIER — exploite log.quartier saisi
+// ═══════════════════════════════════════════════════════════════
+function genererQuartier(log, imm, ton) {
+  if (!log.quartier) return `Situé ${imm.adr}, ${imm.codePostal} ${imm.ville}.`;
+  const q = log.quartier;
+  const phrases = [];
+
+  // Transports
+  const transports = [];
+  if (q.transports?.metro) transports.push(`métro à ${q.transports.metro} min`);
+  if (q.transports?.tramway) transports.push(`tramway à ${q.transports.tramway} min`);
+  if (q.transports?.bus) transports.push(`bus à ${q.transports.bus} min`);
+  if (q.transports?.gare) transports.push(`gare SNCF à ${q.transports.gare} min`);
+  if (transports.length) phrases.push(`Côté transports : ${transports.join(', ')}.`);
+
+  // Commerces
+  const comm = [];
+  if (q.commerces?.boulangerie) comm.push(`boulangerie ${typeof q.commerces.boulangerie === 'string' ? q.commerces.boulangerie : `à ${q.commerces.boulangerie} min`}`);
+  if (q.commerces?.supermarche) comm.push(`supermarché à ${q.commerces.supermarche} min`);
+  if (q.commerces?.pharmacie) comm.push(`pharmacie à ${q.commerces.pharmacie} min`);
+  if (q.commerces?.marche) comm.push(`marché ${q.commerces.marche}`);
+  if (comm.length) phrases.push(`Tous commerces de proximité : ${comm.join(', ')}.`);
+
+  // Services
+  const services = [];
+  if (q.services?.ecoles_primaires) services.push('écoles maternelle/primaire à pied');
+  if (q.services?.college) services.push('collège');
+  if (q.services?.lycee) services.push('lycée');
+  if (q.services?.parc) services.push('parc/espace vert');
+  if (q.services?.restaurants) services.push('restaurants');
+  if (q.services?.sport) services.push('salle de sport');
+  if (services.length) phrases.push(`Services à proximité : ${services.join(', ')}.`);
+
+  // Repères
+  if (q.reperes && q.reperes.length) {
+    if (ton === 'storytelling' || ton === 'haut-gamme') phrases.push(`À deux pas : ${q.reperes.join(' · ')}.`);
+    else phrases.push(`Repères du quartier : ${q.reperes.join(', ')}.`);
+  }
+
+  // Caractère
+  const carac = q.caractere || [];
+  const caracMap = { 'centre-historique': 'centre historique', 'quartier-residentiel': 'quartier résidentiel', 'quartier-etudiant': 'quartier étudiant', 'quartier-affaires': 'quartier d\'affaires', 'bord-de-mer': 'bord de mer', 'proche-nature': 'proche nature', 'quartier-festif': 'quartier vivant et festif', 'haut-de-gamme': 'quartier haut de gamme' };
+  if (carac.length) {
+    const labels = carac.map(c => caracMap[c]).filter(Boolean);
+    if (ton === 'storytelling') phrases.push(`Vivre dans ce ${labels[0]} c'est conjuguer ${labels.length > 1 ? labels.slice(1).join(' et ') + ' et qualité de vie' : 'authenticité et confort'}.`);
+    else phrases.push(`Quartier ${labels.join(', ')}.`);
+  }
+
+  return phrases.join(' ');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION DOSSIER DEMANDÉ
+// ═══════════════════════════════════════════════════════════════
+function genererDossier(log) {
+  const pieces = [
+    'Pièce d\'identité (CNI recto-verso ou passeport)',
+    'Justificatif de domicile actuel < 3 mois',
+    '3 dernières fiches de paie',
+    'Dernier avis d\'imposition complet',
+    'Contrat de travail (CDI/CDD) ou attestation employeur',
+    'RIB français à votre nom',
+    'Si garant : mêmes pièces + 3 dernières fiches de paie du garant'
+  ];
+  return {
+    pieces: pieces.map(p => '✓ ' + p),
+    astuce: '💡 Astuce : utilisez DossierFacile.fr (service gratuit de l\'État) — dossier numérique unique certifié, prêt à transmettre en 1 clic.'
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FORMATEURS
+// ═══════════════════════════════════════════════════════════════
 function formaterDate(d) { return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); }
 function garantiesLabel(g) {
-  const map = { 'caution_solidaire': 'Caution solidaire', 'visale': 'Visale', 'gli': 'GLI', 'garant_perso': 'Garant personnel' };
+  const map = { 'caution_solidaire': 'Caution solidaire', 'visale': 'Visale (gratuit, Action Logement)', 'gli': 'GLI', 'garant_perso': 'Garant personnel' };
   return g.map(x => map[x] || x).join(' ou ');
 }
 
 // ═══════════════════════════════════════════════════════════════
-// BANQUES DE TITRES (60-80c, taillés pour Leboncoin)
-// ═══════════════════════════════════════════════════════════════
-const BANQUE_TITRES_EVOCATEUR = [
-  { si: l => l.presentation.exposition === 'sud' && l.exterieurs.balcon.present,
-    tpl: l => `✨ Coup de cœur ${l.type} ${l.surf}m² plein sud + balcon - ${IMM.ville}` },
-  { si: l => l.presentation.caractere_ancien && l.exterieurs.balcon.present,
-    tpl: l => `🏛 ${l.type} caractère ${l.surf}m² + balcon - ${IMM.ville} centre` },
-  { si: l => l.presentation.exposition === 'sud',
-    tpl: l => `☀️ ${l.type} ${l.surf}m² plein sud - ${IMM.ville} centre` },
-  { si: l => l.presentation.caractere_ancien,
-    tpl: l => `🏛 Charme de l'ancien - ${l.type} ${l.surf}m² ${IMM.ville}` },
-  { si: l => l.exterieurs.balcon.present,
-    tpl: l => `🌿 ${l.type} ${l.surf}m² avec balcon - ${IMM.ville}` },
-  { si: l => l.presentation.luminosite,
-    tpl: l => `🌞 ${l.type} ${l.surf}m² ${MAP_LUM[l.presentation.luminosite]} - ${IMM.ville}` },
-  { si: l => parseInt(l.etage) >= 4 && IMM.equipementsCommuns.ascenseur,
-    tpl: l => `🌆 ${l.type} ${l.surf}m² ${etageLabel(l.etage)} ascenseur - ${IMM.ville}` },
-  { si: l => l.presentation.calme === 'rue-calme',
-    tpl: l => `🤫 Havre de paix - ${l.type} ${l.surf}m² ${IMM.ville}` },
-];
-
-const BANQUE_TITRES_FACTUEL = [
-  { si: l => true, tpl: l => `${l.type} ${l.surf}m² ${l.npp} pièces - ${IMM.ville} ${IMM.codePostal}` },
-  { si: l => l.exterieurs.balcon.present, tpl: l => `${l.type} ${l.surf}m² avec balcon - ${IMM.ville}` },
-  { si: l => parseInt(l.etage) >= 1, tpl: l => `${l.type} ${l.surf}m² ${etageLabel(l.etage)} - ${IMM.ville}` },
-  { si: l => true, tpl: l => `${l.type} ${l.surf}m² à louer - ${IMM.ville}` },
-];
-
-// ═══════════════════════════════════════════════════════════════
-// BANQUES D'ACCROCHES (pour mode évocateur)
-// ═══════════════════════════════════════════════════════════════
-const BANQUE_ACCROCHES_EVO = [
-  { si: l => l.presentation.exposition === 'sud' && l.exterieurs.balcon.present,
-    tpl: l => `À deux pas du centre historique de ${IMM.ville}, ce ${l.type} baigné de lumière de ${l.surf} m² vous séduira par son exposition ${MAP_EXPO[l.presentation.exposition]} et son balcon privatif de ${l.exterieurs.balcon.surface} m²${l.presentation.calme ? ' au calme' : ''}.` },
-  { si: l => l.presentation.caractere_ancien && l.presentation.luminosite,
-    tpl: l => `Niché au cœur de ${IMM.ville}, ce ${l.type} de caractère de ${l.surf} m² conjugue ${MAP_CAR[l.presentation.caractere_ancien]} et luminosité exceptionnelle.` },
-  { si: l => parseInt(l.etage) >= 3 && l.presentation.vue,
-    tpl: l => `Au ${etageLabel(l.etage)} avec ascenseur, ce ${l.type} ${adjSurface(l.surf)} de ${l.surf} m² offre une ${MAP_VUE[l.presentation.vue]} et un cadre soigné, à proximité de tous commerces.` },
-  { si: l => l.presentation.luminosite,
-    tpl: l => `Coup de cœur pour ce ${l.type} ${MAP_LUM[l.presentation.luminosite]} de ${l.surf} m² au ${etageLabel(l.etage)}, idéalement situé en centre de ${IMM.ville}.` },
-  { si: l => l.equipements.cuisine.equipee,
-    tpl: l => `Ce ${l.type} de ${l.surf} m² avec ${l.exterieurs.balcon.present ? `balcon de ${l.exterieurs.balcon.surface} m²` : 'cuisine équipée'} et finitions soignées séduira les amateurs d'art de vivre.` },
-];
-
-// ═══════════════════════════════════════════════════════════════
-// GÉNÉRATEURS
-// ═══════════════════════════════════════════════════════════════
-function genererTitre(log, ton) {
-  const banque = ton === 'factuel' ? BANQUE_TITRES_FACTUEL : BANQUE_TITRES_EVOCATEUR;
-  const candidats = banque.filter(c => c.si(log));
-  return pick(candidats).tpl(log);
-}
-
-function genererAccroche(log, ton) {
-  if (ton === 'factuel') {
-    return `${log.type} de ${log.surf} m² composé de ${log.npp} pièces principales, situé au ${etageLabel(log.etage)} d'un immeuble ${IMM.equipementsCommuns.ascenseur ? 'avec ascenseur' : ''} ${IMM.codePostal} ${IMM.ville}.`;
-  }
-  const candidats = BANQUE_ACCROCHES_EVO.filter(c => c.si(log));
-  return candidats.length ? pick(candidats).tpl(log) : `${log.type} ${log.surf} m² à louer ${IMM.codePostal} ${IMM.ville}.`;
-}
-
-function genererDescription(log, ton) {
-  const parts = [];
-  if (ton === 'evocateur') {
-    parts.push(`L'appartement déploie un séjour ${adjSurface(log.surf)} ouvert sur ${log.equipements.cuisine.customs.find(c => /ouverte/i.test(c)) || 'cuisine entièrement équipée'} (${[log.equipements.cuisine.four && 'four', log.equipements.cuisine.plaques && 'plaques induction', log.equipements.cuisine.hotte && 'hotte', log.equipements.cuisine.lave_vaisselle && 'lave-vaisselle', log.equipements.cuisine.micro_ondes && 'micro-ondes'].filter(Boolean).join(', ')}).`);
-    const nbChambres = log.npp - 1;
-    parts.push(`${nbChambres > 1 ? `${nbChambres} chambres confortables` : `Une chambre confortable`}, salle de bain avec ${[log.equipements.sanitaires.bain && 'baignoire', log.equipements.sanitaires.douche && 'douche italienne'].filter(Boolean).join(' et ')}${log.equipements.sanitaires.wc_separe ? ', WC séparé' : ''}.`);
-  } else {
-    // Factuel
-    parts.push(`Composition : séjour, ${log.npp - 1} chambre(s), cuisine ${log.equipements.cuisine.equipee ? 'équipée' : 'non équipée'}, salle de bain${log.equipements.sanitaires.wc_separe ? ', WC séparé' : ''}.`);
-  }
-  return parts.join(' ');
-}
-
-function genererAtouts(log, imm) {
-  const atouts = [];
-  if (log.presentation.exposition === 'sud') atouts.push('Exposition plein sud - lumière toute la journée');
-  if (log.exterieurs.balcon.present) atouts.push(`Balcon privatif de ${log.exterieurs.balcon.surface} m²${log.presentation.calme ? ' au calme' : ''}`);
-  if (parseInt(log.etage) >= 3 && imm.equipementsCommuns.ascenseur) atouts.push(`${etageLabel(log.etage)} avec ascenseur`);
-  if (imm.equipementsCommuns.interphone || imm.equipementsCommuns.digicode) atouts.push(`Immeuble sécurisé (${[imm.equipementsCommuns.interphone && 'interphone', imm.equipementsCommuns.digicode && 'digicode'].filter(Boolean).join(' + ')})`);
-  if (log.equipements.cuisine.equipee) atouts.push(`Cuisine entièrement équipée (${[log.equipements.cuisine.four && 'four', log.equipements.cuisine.plaques && 'plaques', log.equipements.cuisine.hotte && 'hotte', log.equipements.cuisine.lave_vaisselle && 'lave-vaisselle', log.equipements.cuisine.micro_ondes && 'micro-ondes'].filter(Boolean).join(', ')})`);
-  if (log.equipements.sanitaires.bain && log.equipements.sanitaires.douche) atouts.push('Salle de bain avec baignoire ET douche italienne');
-  if (log.equipements.sanitaires.wc_separe) atouts.push('WC séparé');
-  if (log.annexes.cave.present && log.annexes.parking.present) atouts.push(`Cave (n° ${log.annexes.cave.num}) et box parking (n° ${log.annexes.parking.num}) inclus`);
-  else if (log.annexes.cave.present) atouts.push(`Cave incluse (n° ${log.annexes.cave.num})`);
-  else if (log.annexes.parking.present) atouts.push(`Parking inclus (n° ${log.annexes.parking.num})`);
-  if (log.equipements.technologies.fibre) atouts.push('Fibre optique installée');
-  if (log.presentation.caractere_ancien) atouts.push(`Charme de l'ancien (${MAP_CAR[log.presentation.caractere_ancien]}) avec confort moderne`);
-  return atouts;
-}
-
-function genererQuartierTexte(log, imm) {
-  if (imm.codePostal === '67000') {
-    return `Adresse de prestige dans le centre historique de Strasbourg, à quelques minutes à pied de la Cathédrale, de la Place Kléber et de la Petite France. Tous commerces de proximité dans la rue (boulangerie, primeur, fromagerie, restaurants). Tramway lignes A/B/C/D à 4 min à pied.${log.presentation.calme ? ' Quartier résidentiel et vivant, sans être bruyant.' : ''}`;
-  }
-  return `Situé ${imm.adr}, ${imm.codePostal} ${imm.ville}. À proximité des commerces et transports.`;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// ORCHESTRATEUR — produit { titre, body_texte_brut, html_preview }
+// ORCHESTRATEUR
 // ═══════════════════════════════════════════════════════════════
 function genererAnnonce(log, imm, bail, opts) {
-  const ton = opts.ton || 'evocateur';
+  const ton = opts.ton || 'storytelling';
   const format = opts.format || 'leboncoin';
-  const titre = genererTitre(log, ton);
+  const titre = (BANQUE_TITRES[ton] || BANQUE_TITRES.storytelling).filter(c => c.si(log)).slice(0);
+  const titreSelected = titre.length ? pick(titre).tpl(log, imm) : `${log.type} ${log.surf}m² à louer - ${imm.ville}`;
   const total = bail.hc + bail.ch;
 
-  // === MODE SMS/WHATSAPP (court) ===
   if (format === 'sms') {
-    const parts = [];
-    parts.push(`📍 ${log.type} ${log.surf}m² ${imm.ville} centre`);
+    const parts = [`📍 ${log.type} ${log.surf}m² ${imm.ville}`];
     if (log.presentation.exposition === 'sud') parts.push('plein sud');
     if (log.exterieurs.balcon.present) parts.push(`balcon ${log.exterieurs.balcon.surface}m²`);
+    if (log.exterieurs.jardin_privatif.present) parts.push(`jardin ${log.exterieurs.jardin_privatif.surface}m²`);
+    if (log.exterieurs.terrasse.present) parts.push(`terrasse ${log.exterieurs.terrasse.surface}m²`);
     if (log.equipements.cuisine.equipee) parts.push('cuisine équipée');
-    if (log.presentation.caractere_ancien) parts.push("charme de l'ancien");
-    if (log.annexes.parking.present) parts.push('parking inclus');
+    if (log.presentation.caractere_ancien) parts.push("charme ancien");
+    if (log.annexes.parking.present) parts.push('parking');
     parts.push(`${total}€ CC`);
     parts.push(`libre ${formaterDate(log.locationInfo.disponibilite)}`);
     parts.push(`DPE ${log.dpe.classe}`);
-    const corps = parts.join(' · ');
-    return { titre: titre, body: corps, stats: { caracteres: corps.length, mots: corps.split(/\s+/).length } };
+    return { titre: titreSelected, body: parts.join(' · ') };
   }
 
-  // === MODE LEBONCOIN (texte plat avec séparateurs) - cible principale ===
-  // === MODE DETAILLE (idem + sections étendues quartier/profil) ===
+  // Leboncoin / Détaillé
   const SEP = '━━━━━━━━━━━━━━━━━━━━━━━━';
-  const accroche = genererAccroche(log, ton);
+  const accroche = (BANQUE_ACCROCHES[ton] || BANQUE_ACCROCHES.storytelling).filter(c => c.si(log));
+  const accrocheSelected = accroche.length ? pick(accroche).tpl(log, imm) : `${log.type} ${log.surf}m² à ${imm.ville}.`;
   const description = genererDescription(log, ton);
   const atouts = genererAtouts(log, imm);
-  const quartier = genererQuartierTexte(log, imm);
+  const quartier = genererQuartier(log, imm, ton);
 
   const lines = [];
 
-  // Bloc Le bien
-  lines.push(SEP);
-  lines.push('🏠 LE BIEN');
-  lines.push('');
-  lines.push(accroche);
-  lines.push('');
-  lines.push(description);
-  lines.push('');
-
-  // Bloc Atouts
-  lines.push(SEP);
-  lines.push('✨ LES ATOUTS');
-  lines.push('');
+  lines.push(SEP, '🏠 LE BIEN', '', accrocheSelected, '', description, '');
+  lines.push(SEP, '✨ LES ATOUTS', '');
   atouts.forEach(a => lines.push('✓ ' + a));
   lines.push('');
+  lines.push(SEP, '📍 LE QUARTIER', '', quartier, '');
 
-  // Bloc Quartier
-  lines.push(SEP);
-  lines.push('📍 LE QUARTIER');
-  lines.push('');
-  lines.push(quartier);
-  lines.push('');
-
-  // Mode détaillé : sections additionnelles
   if (format === 'detaille') {
-    lines.push(SEP);
-    lines.push('🚇 TRANSPORTS & SERVICES (à 5-10 min à pied)');
-    lines.push('');
-    lines.push('• Tramway : lignes A, B, C, D');
-    lines.push('• Gare SNCF Strasbourg : 8 min à pied');
-    lines.push('• Commerces : boulangerie, primeur, fromagerie dans la rue');
-    lines.push('• Écoles : maternelle et primaire à 5 min, collège à 10 min');
-    lines.push('• Parcs : Place Kléber, Parc des Contades à proximité');
-    lines.push('');
-    lines.push(SEP);
-    lines.push('👥 PROFIL RECHERCHÉ');
-    lines.push('');
-    lines.push('Idéal pour couple ou jeune famille avec stabilité professionnelle.');
-    lines.push('Le bien convient également à profession libérale (cabinet attenant possible sur dossier).');
+    lines.push(SEP, '👥 PROFIL RECHERCHÉ', '');
+    if (log.typeUsage === 'habitation-meuble' && log.surf < 35) lines.push('Idéal étudiant, jeune actif, mobilité professionnelle.');
+    else if (log.npp >= 4) lines.push('Idéal pour famille avec stabilité professionnelle. Bien adapté à la vie de famille.');
+    else lines.push('Bien convient à couple, jeune cadre, profession libérale.');
+    lines.push('Nous recherchons un locataire sérieux et soigneux qui prendra soin du bien.');
     lines.push('');
   }
 
-  // Bloc Pratique
-  lines.push(SEP);
-  lines.push('💰 PRATIQUE');
-  lines.push('');
+  // Dossier (si activé)
+  if (opts.includeDossier) {
+    const doss = genererDossier(log);
+    lines.push(SEP, '📂 DOSSIER À FOURNIR', '', 'Pour étudier votre candidature, merci de joindre :');
+    doss.pieces.forEach(p => lines.push(p));
+    lines.push('', doss.astuce, '');
+  }
+
+  // Pratique
+  lines.push(SEP, '💰 PRATIQUE', '');
   lines.push(`Loyer : ${bail.hc} € HC + ${bail.ch} € charges = ${total} € CC/mois`);
   lines.push(`Dépôt de garantie : ${bail.dg} €`);
   lines.push(`Disponibilité : ${formaterDate(log.locationInfo.disponibilite)}`);
   lines.push(`Garanties acceptées : ${garantiesLabel(log.locationInfo.garanties_acceptees)}`);
   lines.push(`Honoraires : aucun (annonce directe propriétaire)`);
-  lines.push(`DPE : Classe ${log.dpe.classe} (${log.dpe.valConv} kWh/m²/an) - GES ${log.dpe.ges}`);
+  lines.push(`DPE : Classe ${log.dpe.classe} (${log.dpe.valConv} kWh/m²/an) — GES ${log.dpe.ges}`);
   lines.push('');
-  lines.push(SEP);
-  lines.push('');
-  lines.push('Contact : par messagerie du site uniquement. Merci de préciser votre situation professionnelle et le nombre de personnes occupant le logement dès votre 1er message.');
+  lines.push(SEP, '', 'Contact : par messagerie du site uniquement. Merci de préciser votre situation professionnelle et le nombre de personnes occupant le logement dès votre 1er message.');
 
-  const body = lines.join('\n');
-  return { titre: titre, body: body, stats: { caracteres: body.length, mots: body.split(/\s+/).length, titreLen: titre.length } };
+  return { titre: titreSelected, body: lines.join('\n') };
 }
 
 // ═══════════════════════════════════════════════════════════════
 // UI
 // ═══════════════════════════════════════════════════════════════
-let _currentFormat = 'leboncoin';
-let _currentTon = 'evocateur';
-let _genCounter = 0;
-
 function regenerate() {
   _genCounter++;
   setSeed(LOG.ref.split('').reduce((a,c)=>a+c.charCodeAt(0),0) + _genCounter * 7919);
-  const result = genererAnnonce(LOG, IMM, BAIL, { format: _currentFormat, ton: _currentTon });
-
-  // Titre
+  const result = genererAnnonce(LOG, IMM, BAIL, { format: _currentFormat, ton: _currentTon, includeDossier: _includeDossier });
   document.getElementById('titre-out').textContent = result.titre;
   const titreLen = result.titre.length;
-  const titreColor = titreLen > 80 ? '#fca5a5' : (titreLen > 65 ? '#fde047' : '#86efac');
-  document.getElementById('titre-ct').innerHTML = `<span style="color:${titreColor}">${titreLen} caractères</span> - <span style="opacity:0.85">Leboncoin recommande 60-80 caractères pour le titre</span>`;
-
-  // Texte brut
+  const couleur = titreLen > 80 ? '#fca5a5' : (titreLen > 65 ? '#fde047' : '#86efac');
+  document.getElementById('titre-ct').innerHTML = `<span style="color:${couleur}">${titreLen} c.</span> · Leboncoin recommande 60-80`;
   document.getElementById('raw-output').value = result.body;
-
-  // Aperçu visuel (qui simule Leboncoin)
   document.getElementById('preview-ville').textContent = `📍 ${IMM.ville} ${IMM.codePostal}`;
   document.getElementById('preview-titre').textContent = result.titre;
   document.getElementById('preview-prix').textContent = `${BAIL.hc + BAIL.ch} € CC / mois`;
   document.getElementById('preview-body').textContent = result.body;
-
-  // Stats
-  const tempsMs = Math.random() * 3 + 1; // simulé
-  document.getElementById('stats').innerHTML = `
-    <span><strong>📊 Stats :</strong> ${result.stats.caracteres} caractères corps · ${result.stats.mots} mots · titre ${result.stats.titreLen || titreLen} c.</span>
-    <span><strong>🔄 Génération #${_genCounter}</strong> · seed = hash(${LOG.ref}) + counter</span>
-    <span><strong>⚡ Temps :</strong> ${tempsMs.toFixed(1)} ms · <strong>💸 Coût :</strong> 0 €</span>
-  `;
+  document.getElementById('stats').innerHTML = `<span><strong>📊 Stats :</strong> ${result.body.length} c. · ${result.body.split(/\s+/).length} mots</span><span><strong>🔄 Gen #${_genCounter}</strong></span><span><strong>⚡ </strong>&lt; 5 ms · 0 €</span>`;
 }
 
-function setFormat(f) {
-  _currentFormat = f;
-  document.querySelectorAll('.controls .btn[id^=fmt-]').forEach(b => b.classList.remove('act'));
-  document.getElementById('fmt-' + f).classList.add('act');
-  regenerate();
-}
-function setTon(t) {
-  _currentTon = t;
-  document.querySelectorAll('.controls .btn[id^=ton-]').forEach(b => b.classList.remove('act'));
-  document.getElementById('ton-' + t).classList.add('act');
-  regenerate();
-}
+function setFormat(f) { _currentFormat = f; document.querySelectorAll('[id^=fmt-]').forEach(b => b.classList.remove('act')); document.getElementById('fmt-' + f).classList.add('act'); regenerate(); }
+function setTon(t) { _currentTon = t; document.querySelectorAll('[id^=ton-]').forEach(b => b.classList.remove('act')); document.getElementById('ton-' + t).classList.add('act'); regenerate(); }
+function toggleDossier(on) { _includeDossier = on; document.querySelectorAll('[id^=doss-]').forEach(b => b.classList.remove('act')); document.getElementById(on ? 'doss-on' : 'doss-off').classList.add('act'); regenerate(); }
 function copyToClipboard() {
   const ta = document.getElementById('raw-output');
-  ta.select();
-  document.execCommand('copy');
-  const stats = document.getElementById('stats');
-  const original = stats.innerHTML;
-  stats.innerHTML = '<span style="color:#166534;font-weight:600">✓ Texte copié dans le presse-papier — tu peux le coller directement dans Leboncoin / SeLoger / PAP / ImmoJeune / Facebook Marketplace !</span>';
-  setTimeout(() => { stats.innerHTML = original; }, 3000);
+  ta.select(); document.execCommand('copy');
+  const s = document.getElementById('stats');
+  const orig = s.innerHTML;
+  s.innerHTML = '<span style="color:#166534;font-weight:600">✓ Texte copié — colle-le dans Leboncoin / SeLoger / PAP !</span>';
+  setTimeout(() => { s.innerHTML = orig; }, 2500);
 }
 
 // Init
-regenerate();
+loadExample('strasbourg', document.querySelector('.example-card[data-ex=strasbourg]'));
 </script>
 
 </body>
