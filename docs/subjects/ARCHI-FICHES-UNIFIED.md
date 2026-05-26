@@ -280,6 +280,14 @@ Décision : **garder le legacy garant tel quel** (peu de doublon réel, code sta
 - [ ] **C2** : modale « Modifier bien » avec **encart « 🏛 Hérité de l'immeuble » en lecture seule** + lien « Modifier dans l'immeuble » ? → **recommandé : OUI**
 - [ ] **C3** : wizard bail tab « Le bien » déjà en read-only (Phase 4a v14.17) → **conserver** ?
 - [ ] **C4** : suppression de l'encart legacy « Bail courant » dans modale logement Phase 3a (`bail.hc/ch/dg/locataire`) maintenant que `getCurrentXxx` existe ? → **recommandé : OUI**
+- [ ] **C5** : page Locataires — tris disponibles + affichage **groupé par immeuble** (défaut, comme page Bien) ou **liste plate** (alphabétique) ? → **proposé : groupé par défaut, toggle Affichage « Groupé / Liste plate »**, persisté localStorage. Tris : Immeuble (défaut) / Alphabétique A→Z / Échéance bail / Montant loyer. Retour user 2026-05-26.
+
+### Bloc D — Règle UX transverse (1 décision)
+
+- [ ] **D1** : **« choix prédéfini + ajout libre toujours »** — partout où on propose des choix (checkboxes, dropdowns, équipements, catégories…), il DOIT y avoir une zone d'ajout manuel libre en complément. Retour user 2026-05-26 : « quand tu mets des choix (type équipements communs) il faut toujours pouvoir ajouter manuellement ».
+  - **Sites concernés** (audit à faire) : équipements communs immeuble, chauffage bien/bail, ECS, types de chauffage EDL, motifs fin de bail, catégories mouvements, technologies (fibre/ADSL), équipements sanitaires, etc.
+  - **Pattern UI standardisé** : bloc checkboxes/options + sous le bloc → input texte « + Autre (préciser) » + bouton « + Ajouter » → l'ajout devient un badge cliquable (✕ pour supprimer) accumulé en dessous.
+  - **Persistance** : chaque entité stocke une clé `customXxx[]` parallèle aux flags booléens (ex : `imm.equipementsCommuns.customs = ['Toit-terrasse', 'Local poussettes']`).
 
 ---
 
@@ -396,3 +404,8 @@ Décision : **garder le legacy garant tel quel** (peu de doublon réel, code sta
 ## 10. Journal
 
 - 2026-05-26 : **Audit complet livré** (4 entités × 130+ champs catalogués). Inventaire exhaustif des doublons : 3 Immeuble↔Bien + ~35 Bien↔Bail + 9 Bien↔Bail-courant + quelques garant. Schéma cible défini. Plan 4 sessions / ~15-20h. CDC user requis (12 décisions A1-A3 / B1-B3 / C1-C4). Englobe 3 sujets antérieurs : ARCHI-IMM-LOG-DEDUP + ARCHI-DB-DOUBLONS Phase 4b + NAV-LOGEMENT-BAIL-CLARIF.
+- 2026-05-26 : **Mockup HTML interactif livré** (`mockups/ARCHI-FICHES-UNIFIED/mockup.html`) — 6 vues switchables (schéma général, sidebar refondue, modale Immeuble enrichie, modale Bien allégée, page Bien groupée par immeuble, page Locataires). Standalone, responsive, design system ImmoTrack.
+- 2026-05-26 : **2 retours user sur le mockup** :
+  - **Règle UX transverse D1** : « quand tu mets des choix (type équipements communs) il faut toujours pouvoir ajouter manuellement » → ajout de la décision D1 (« choix prédéfini + ajout libre toujours »). Pattern standardisé documenté. Sites concernés à auditer.
+  - **Décision C5** : page Locataires doit pouvoir trier par immeuble (et avoir un mode groupé) OU alphabétique. Vue groupée par immeuble proposée comme défaut (cohérence avec page Bien). Tris : Immeuble / Alphabétique / Échéance / Loyer. Affichage Groupé / Liste plate. Persistance localStorage.
+  - Mockup mis à jour : équipements communs avec ajout libre + badges, chauffage avec ajout libre, page Locataires avec barre de tri + affichage groupé par défaut.

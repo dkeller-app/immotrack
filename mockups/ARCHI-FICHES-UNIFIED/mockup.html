@@ -255,6 +255,14 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
       <strong>💡 Logique « se protéger »</strong> : chaque entité ne contient QUE ce qui la définit. Pas de double saisie, pas d'auto-incrimination par champ manquant (cf règle v14.8). Le bail (document signé) renvoie au logement et à l'EDL pour les détails contradictoires. L'inventaire mobilier vit dans l'EDL (v15.205), pas dans le bail.
     </div>
 
+    <!-- Règle UX transverse (retour user 2026-05-26) -->
+    <div class="annotation" style="background:linear-gradient(135deg,rgba(20,184,166,.10),rgba(20,184,166,.02));border-color:var(--acc);color:var(--t1)">
+      <strong style="color:var(--acc-dark)">🎨 Règle UX transverse — « choix prédéfini + ajout libre toujours »</strong><br>
+      Partout dans l'app où on propose des choix (checkboxes, listes, équipements, catégories…) : <b>il DOIT y avoir une zone d'ajout manuel libre</b> en complément. Le choix prédéfini est un kit de démarrage, pas une cage.<br><br>
+      <b>Exemples</b> : équipements communs de l'immeuble (vue 3), chauffage (vue 4), 11 catégories décret 2015-981 dans l'EDL meublé (déjà livré v15.205), types de bail, motifs de fin de bail, catégories de mouvements bancaires…<br><br>
+      <b>Pattern UI</b> : checkboxes/options + sous le bloc → input texte « + Autre (préciser) » + bouton « + Ajouter » → l'ajout devient un badge cliquable (✕ pour supprimer) accumulé en dessous.
+    </div>
+
     <div class="card">
       <div class="card-title">📊 Champs supprimés / déplacés (récap)</div>
       <div class="schema-grid">
@@ -448,7 +456,7 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
           </div>
 
           <div class="added-block">
-            <div class="ad-label">+ NOUVEAU : équipements communs</div>
+            <div class="ad-label">+ NOUVEAU : équipements communs (choix + ajout libre)</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;font-size:12.5px">
               <label><input type="checkbox" checked> Ascenseur</label>
               <label><input type="checkbox"> Gardien / concierge</label>
@@ -458,6 +466,17 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
               <label><input type="checkbox"> Parking commun</label>
               <label><input type="checkbox"> Local vélos</label>
               <label><input type="checkbox"> Jardin commun</label>
+              <label><input type="checkbox" checked> Local poussettes</label>
+              <label><input type="checkbox"> Cour intérieure</label>
+            </div>
+            <!-- Règle UX transverse : "choix prédéfini + ajout libre toujours" -->
+            <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(20,184,166,.3)">
+              <input type="text" placeholder="+ Autre équipement (ex: piscine, sauna, terrasse partagée...)" style="flex:1;padding:6px 10px;border:1px solid var(--bor);border-radius:var(--r);font-size:12px">
+              <button class="btn sm" style="background:var(--acc);color:#fff;border-color:var(--acc-dark)">+ Ajouter</button>
+            </div>
+            <!-- Liste des équipements custom ajoutés -->
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">
+              <span class="badge gre" style="display:inline-flex;gap:4px;align-items:center;padding:3px 8px 3px 10px">🌿 Toit-terrasse commun <span style="cursor:pointer;color:#666">✕</span></span>
             </div>
           </div>
 
@@ -617,13 +636,20 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
           </div>
 
           <div class="card-title">🔥 Chauffage & ECS</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;font-size:12.5px;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;font-size:12.5px;margin-bottom:6px">
             <label><input type="checkbox" checked> Électrique</label>
             <label><input type="checkbox"> Gaz</label>
             <label><input type="checkbox"> Bois / granulés</label>
             <label><input type="checkbox"> Collectif</label>
             <label><input type="checkbox"> Clim / PAC</label>
             <label><input type="checkbox"> Pompe à chaleur</label>
+            <label><input type="checkbox"> Fioul</label>
+            <label><input type="checkbox"> Poêle à bois</label>
+          </div>
+          <!-- Règle UX transverse : "+ ajout libre toujours" -->
+          <div style="display:flex;gap:6px;margin-bottom:12px">
+            <input type="text" placeholder="+ Autre type de chauffage (ex: géothermie, solaire thermique...)" style="flex:1;padding:6px 10px;border:1px solid var(--bor);border-radius:var(--r);font-size:12px">
+            <button class="btn sm">+ Ajouter</button>
           </div>
 
           <div class="added-block">
@@ -802,7 +828,175 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
       <div class="loc-tab">🗂 Archives</div>
     </div>
 
-    <div class="loc-grid">
+    <!-- Barre de tri (retour user 2026-05-26) -->
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:8px 12px;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--t2);font-weight:600">Trier par :</span>
+        <button class="btn sm" style="background:var(--acc);color:#fff;border-color:var(--acc-dark)" onclick="setLocSort('imm', this)">🏢 Immeuble</button>
+        <button class="btn sm" onclick="setLocSort('alpha', this)">🔤 Alphabétique (A→Z)</button>
+        <button class="btn sm" onclick="setLocSort('echeance', this)">⏳ Échéance bail</button>
+        <button class="btn sm" onclick="setLocSort('loyer', this)">💰 Montant loyer</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--t2)">Affichage :</span>
+        <button class="btn sm" style="background:var(--acc);color:#fff;border-color:var(--acc-dark)">📑 Groupé</button>
+        <button class="btn sm">📋 Liste plate</button>
+      </div>
+    </div>
+
+    <!-- VUE PAR DÉFAUT : groupé par immeuble (style page Bien) -->
+    <div id="loc-by-imm">
+
+      <!-- Groupe Morschwiller-le-bas -->
+      <div class="imm-group">
+        <div class="imm-header">
+          <div>
+            <div class="imm-name">🏢 Morschwiller-le-bas</div>
+            <div class="imm-addr">15 rue des pèlerins, 68790 Morschwiller-le-Bas</div>
+          </div>
+          <div class="imm-meta">4 locataires actifs</div>
+        </div>
+        <div class="log-grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+          <!-- Locataire 1 -->
+          <div class="loc-card" style="margin:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="loc-name">DUBOIS Marc</div>
+                <div class="loc-bien">F-101 · T3 · 52 m²</div>
+              </div>
+              <span class="badge amb">Échéance 3 mois</span>
+            </div>
+            <div class="loc-row-detail"><span class="k">📞</span><span class="v">06 98 76 54 32</span></div>
+            <div class="loc-row-detail"><span class="k">✉️</span><span class="v">marc.dubois@email.fr</span></div>
+            <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">03/09/2023 → 03/09/2026</span></div>
+            <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">720 € + 90 €</span></div>
+            <div class="loc-actions">
+              <button class="btn sm primary">✉ Renouvellement</button>
+              <button class="btn sm">📄 Bail</button>
+              <button class="btn sm ghost">⋯</button>
+            </div>
+          </div>
+          <!-- Locataire 2 -->
+          <div class="loc-card" style="margin:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="loc-name">LEROY Famille</div>
+                <div class="loc-bien">F-201 · T3 · 54 m²</div>
+              </div>
+              <span class="badge gre">Bail actif</span>
+            </div>
+            <div class="loc-row-detail"><span class="k">📞</span><span class="v">06 11 22 33 44</span></div>
+            <div class="loc-row-detail"><span class="k">✉️</span><span class="v">leroy.famille@email.fr</span></div>
+            <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">15/11/2023 → 15/11/2026</span></div>
+            <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">750 € + 100 €</span></div>
+            <div class="loc-actions">
+              <button class="btn sm primary">✉ Écrire</button>
+              <button class="btn sm">📄 Bail</button>
+            </div>
+          </div>
+          <!-- Locataire 3 -->
+          <div class="loc-card" style="margin:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="loc-name">MARTIN Sophie</div>
+                <div class="loc-bien">F-002 · T2 · 38 m²</div>
+              </div>
+              <span class="badge gre">Bail actif</span>
+            </div>
+            <div class="loc-row-detail"><span class="k">📞</span><span class="v">07 89 12 34 56</span></div>
+            <div class="loc-row-detail"><span class="k">✉️</span><span class="v">s.martin@email.fr</span></div>
+            <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">12/06/2024 → 12/06/2027</span></div>
+            <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">520 € + 70 €</span></div>
+            <div class="loc-actions">
+              <button class="btn sm primary">✉ Écrire</button>
+              <button class="btn sm">📄 Bail</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Groupe 6ème avenue Delle -->
+      <div class="imm-group">
+        <div class="imm-header">
+          <div>
+            <div class="imm-name">🏢 6ème avenue</div>
+            <div class="imm-addr">14 rue Saint Nicolas, 90100 Delle</div>
+          </div>
+          <div class="imm-meta">2 locataires actifs · 1 lot vacant</div>
+        </div>
+        <div class="log-grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+          <div class="loc-card" style="margin:0;border-color:var(--amb)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="loc-name">BOULEY Eloi <span class="badge amb">📚 Meublé</span></div>
+                <div class="loc-bien">D-RDC · T2 meublé · 35 m²</div>
+              </div>
+              <span class="badge gre">Bail actif</span>
+            </div>
+            <div class="loc-row-detail"><span class="k">📞</span><span class="v">06 12 34 56 78</span></div>
+            <div class="loc-row-detail"><span class="k">✉️</span><span class="v">eloi.bouley@email.fr</span></div>
+            <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">26/01/2026 → 25/01/2027</span></div>
+            <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">500 € + 30 €</span></div>
+            <div class="loc-actions">
+              <button class="btn sm primary">✉ Écrire</button>
+              <button class="btn sm">📞 Appeler</button>
+              <button class="btn sm">📄 Bail</button>
+            </div>
+          </div>
+          <div class="loc-card" style="margin:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="loc-name">LAURENT Anne</div>
+                <div class="loc-bien">D-02 · T3 · 48 m²</div>
+              </div>
+              <span class="badge gre">Bail actif</span>
+            </div>
+            <div class="loc-row-detail"><span class="k">📞</span><span class="v">06 78 90 12 34</span></div>
+            <div class="loc-row-detail"><span class="k">✉️</span><span class="v">anne.laurent@email.fr</span></div>
+            <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">30/04/2024 → 30/04/2027</span></div>
+            <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">680 € + 80 €</span></div>
+            <div class="loc-actions">
+              <button class="btn sm primary">✉ Écrire</button>
+              <button class="btn sm">📄 Bail</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Groupe Ferrette -->
+      <div class="imm-group">
+        <div class="imm-header">
+          <div>
+            <div class="imm-name">🏢 Maison Ferrette</div>
+            <div class="imm-addr">3 chemin du Château, 68480 Ferrette</div>
+          </div>
+          <div class="imm-meta">1 locataire actif</div>
+        </div>
+        <div class="log-grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
+          <div class="loc-card" style="margin:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="loc-name">SCHMITT Famille</div>
+                <div class="loc-bien">Maison · 120 m²</div>
+              </div>
+              <span class="badge gre">Bail actif</span>
+            </div>
+            <div class="loc-row-detail"><span class="k">📞</span><span class="v">03 89 40 12 34</span></div>
+            <div class="loc-row-detail"><span class="k">✉️</span><span class="v">famille.schmitt@email.fr</span></div>
+            <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">09/02/2026 → 09/02/2029</span></div>
+            <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">1 250 € + 0 €</span></div>
+            <div class="loc-actions">
+              <button class="btn sm primary">✉ Écrire</button>
+              <button class="btn sm">📄 Bail</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Mode "liste plate" caché par défaut, montré si l'utilisateur clique "Alphabétique" ou autre tri non-immeuble -->
+    <div class="loc-grid" style="display:none">
       <!-- Locataire 1 -->
       <div class="loc-card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -869,11 +1063,15 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
     </div>
 
     <div class="annotation" style="margin-top:16px">
-      <strong>💡 Anti-redite avec la page Bien</strong><br>
-      → Le bail apparaît dans les 2 onglets mais sous angles opposés.<br>
+      <strong>💡 Tri & affichage (retour user 2026-05-26)</strong><br>
+      → <b>Tri par défaut</b> : par immeuble (cohérent avec la page Bien)<br>
+      → <b>Autres tris</b> : alphabétique (A→Z sur le nom), par échéance bail (urgent en premier), par montant loyer<br>
+      → <b>Affichage</b> : « 📑 Groupé » (cards par immeuble, comme ci-dessus) ou « 📋 Liste plate » (un seul flux sans groupement, utile pour le tri alphabétique)<br>
+      → Le tri persiste dans localStorage (mémoire utilisateur)<br><br>
+      <strong>Anti-redite avec la page Bien</strong><br>
       → Côté <b>Bien</b> : info lecture passive (« loué à X »)<br>
       → Côté <b>Locataires</b> : objet de gestion active (relance, renouvellement, candidats, communication)<br>
-      → Le bouton <b>✉ Écrire</b> ouvre la modale EMAIL-AUTO pré-remplie pour ce locataire (zéro duplication avec l'onglet Communication transverse)
+      → Bouton <b>✉ Écrire</b> = modale EMAIL-AUTO pré-remplie pour ce locataire
     </div>
   </div>
 
