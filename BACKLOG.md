@@ -406,7 +406,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
-### BAIL-TYPES Phase B Étapes 1+2+3 🔄 — Infrastructure + Mobilier + Clauses meublé (v15.191→v15.193, 2026-05-26)
+### BAIL-TYPES Phase B Étapes 1+2+3+4 🔄 — Infra + Wizard + Clauses + Annexe mobilier (v15.191→v15.194, 2026-05-26)
 > **Sujet** : `BAIL-TYPES.md` — ajout 6 types de bail (nu/meublé/étudiant/mobilité/garage/autre) avec rétrocompat totale.
 >
 > **v15.191 — Étape 1 Infrastructure** : champ `bail.type` (default `'nu'`), sélecteur dans wizard étape 2 « Conditions », handler `onBailTypeChange()` qui pré-remplit DG selon type (1×HC nu, 2×HC meublé/étudiant, 0 € mobilité verrouillé), recalcule date de fin via `autoFinBail()`, badges type sur cartes bail (📚 🎓 🚀 🚗 📋, silencieux pour nu).
@@ -415,7 +415,9 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 >
 > **v15.193 — Étape 3 Clauses HTML/PDF meublé** : `buildBailStructure(bail)` désormais type-aware. Titre, sous-titre, articles de loi cités, mention DG header, durée + phrase justificative, congé/préavis BAILLEUR (3 mois meublé vs 6 mois nu), tacite reconduction (1 an meublé / non reconductible étudiant / interdite mobilité), §7 DG (1 mois nu / 2 mois meublé / 0 mobilité avec callout VISALE / libre garage), §1 bis nouveau « Inventaire du mobilier » avec table récap 11 catégories + alerte si incomplet, §17 annexes obligatoires ajoute ligne 11 « Inventaire détaillé du mobilier ». 6 variantes gérées : nu / meublé / étudiant / mobilité / garage / autre.
 >
-> **957 tests Vitest OK** à chaque commit. Reste Phase B : Étape 4 (annexe inventaire PDF page dédiée) + Étape 5 (tests finaux).
+> **v15.194 — Étape 4 Annexe inventaire mobilier** : nouvelle page dédiée du PDF (visible meublé/étudiant/mobilité) titrée « Annexe 11 — Inventaire détaillé du mobilier ». Tableau 7 colonnes (N° / Catégorie / Fourni / Quantité-désignation / État entrée / État sortie / Observations) sur les 11 catégories décret 2015-981. Codification État N/B/U/HS. Zone observations libres + signatures contradictoires entrée/sortie (BAILLEUR + LOCATAIRE). Mention 1731 C. civ. + 25-6 loi 89-462 sur retenue DG.
+>
+> **957 tests Vitest OK** à chaque commit. Reste Phase B : Étape 5 (tests Vitest dédiés sur `buildBailStructure` type-aware + validation utilisateur finale).
 
 ### BUG 3.A ✅ — Bouton « Créer bail » fiche logement (v15.190, 2026-05-26)
 > **Bug user** (BUG-CRITIQUES-2026-05-25) : « dans logement le bouton créé bail dirige vers le bien » — boucle UX dans le flow quotidien.
