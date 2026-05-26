@@ -406,6 +406,28 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
+### ARCHI-FICHES-UNIFIED 📋 — Audit complet + proposition de split (2026-05-26)
+> **Sujet** : `ARCHI-FICHES-UNIFIED.md` — consolide ARCHI-IMM-LOG-DEDUP + ARCHI-DB-DOUBLONS (Phase 4b) + NAV-LOGEMENT-BAIL-CLARIF en 1 chantier transverse.
+>
+> **Audit livré** : inventaire exhaustif des 4 entités (130+ champs catalogués) — Immeuble 8-11 / Bien 52 / Bail 68 / Locataire 8-9.
+>
+> **Doublons identifiés** :
+> - **3 doublons Immeuble↔Bien** (adresse, périodeConstr, régimeJuridique — cf BUG-CRITIQUES BUG 4)
+> - **~30 doublons Bien↔Bail** (legacy v13, palliatif `_syncLogToBail` v14.16 — ARCHI-DB-DOUBLONS Phase 4b restante)
+> - **9 doublons Bien↔Bail courant** (locataire/tel/mail/dates/loyer/DG/IRL — helpers `getCurrentXxx` opérationnels v14.14)
+>
+> **Schéma cible défini** : Immeuble = bâtiment (adresse, période, régime jur., équipements communs) · Bien = lot (étage, surface, DPE/risques, équipements internes) · Bail = contrat (parties, conditions financières, signatures, snapshot) · Locataire = personne (identité + contact).
+>
+> **Plan 4 sessions (~15-20h)** :
+> - **Session 1** (~1h) CDC user — 12 décisions A1-A3/B1-B3/C1-C4
+> - **Session 2** (~4-6h) Refonte Immeuble↔Bien (helpers _logResolveXxx + migration adresse)
+> - **Session 3** (~6-8h) Cleanup ARCHI-DB-DOUBLONS Phase 4b (149 sites de lecture migrés + 39 champs supprimés)
+> - **Session 4** (~3-4h) UX sidebar Option B (Bien/Locataires/EDL) + mockup-first
+>
+> **Gain attendu** : ~40 champs doublons supprimés (~10-15% payload Drive en moins), saisie unique, 0 désync, UX claire « mur / personne / contrat ».
+>
+> **Prochaine étape** : ⏸️ STOP user pour valider les 12 décisions du CDC.
+
 ### BAIL-TYPES Phase B ✅ — Bail meublé complet (v15.191→v15.195, 2026-05-26)
 > **Sujet** : `BAIL-TYPES.md` — ajout 6 types de bail (nu/meublé/étudiant/mobilité/garage/autre) avec rétrocompat totale.
 >
