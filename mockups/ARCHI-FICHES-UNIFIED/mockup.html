@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup ARCHI-FICHES-UNIFIED — ImmoTrack</title>
+<style>
+:root {
+  --acc: #14b8a6;
+  --acc-dark: #0d9488;
+  --bg: #fdfbf7;
+  --sur: #ffffff;
+  --sur2: #f5f3ee;
+  --sur3: #ebe7df;
+  --bor: #d4cfc4;
+  --bor-strong: #b8b1a3;
+  --t1: #1f2937;
+  --t2: #6b7280;
+  --t3: #9ca3af;
+  --blu: #3b82f6;
+  --blu-bg: #dbeafe;
+  --gre: #22c55e;
+  --gre-bg: #dcfce7;
+  --red: #ef4444;
+  --red-bg: #fee2e2;
+  --amb: #f59e0b;
+  --amb-bg: #fef3c7;
+  --vio: #a855f7;
+  --vio-bg: #f3e8ff;
+  --r: 6px;
+  --r-lg: 10px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; }
+header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+.head-title { font-weight: 700; color: var(--acc-dark); font-size: 16px; }
+.head-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.tabs { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+.tab { padding: 8px 14px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 12.5px; color: var(--t1); user-select: none; }
+.tab:hover { background: var(--sur3); }
+.tab.act { background: var(--acc); color: #fff; border-color: var(--acc-dark); font-weight: 600; }
+.canvas { padding: 24px; max-width: 1280px; margin: 0 auto; }
+
+/* Communs */
+.card { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 16px; margin-bottom: 12px; }
+.card-title { font-weight: 700; color: var(--t1); font-size: 15px; margin-bottom: 8px; }
+.muted { color: var(--t2); font-size: 12px; }
+.row { display: flex; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur); color: var(--t1); cursor: pointer; font-size: 12.5px; font-weight: 500; }
+.btn:hover { background: var(--sur2); }
+.btn.primary { background: var(--acc); color: #fff; border-color: var(--acc-dark); }
+.btn.primary:hover { background: var(--acc-dark); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--t2); }
+.btn.ghost:hover { color: var(--t1); background: var(--sur2); }
+.btn.danger { background: #fff; color: var(--red); border-color: var(--red); }
+.btn.sm { padding: 4px 8px; font-size: 11px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge.gre { background: var(--gre-bg); color: #166534; }
+.badge.red { background: var(--red-bg); color: #991b1b; }
+.badge.amb { background: var(--amb-bg); color: #92400e; }
+.badge.blu { background: var(--blu-bg); color: #1e40af; }
+.badge.vio { background: var(--vio-bg); color: #7c3aed; }
+.badge.gris { background: var(--sur3); color: var(--t2); }
+
+/* Sidebar mockup */
+.app-layout { display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: start; }
+.sidebar { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 12px; position: sticky; top: 100px; }
+.sb-logo { display: flex; align-items: center; gap: 8px; padding: 8px 4px 12px; border-bottom: 1px solid var(--bor); margin-bottom: 8px; }
+.sb-logo-icon { font-size: 24px; }
+.sb-logo-text strong { display: block; font-size: 15px; font-weight: 700; }
+.sb-logo-text em { font-size: 10px; color: var(--t2); font-style: normal; }
+.sb-section { margin-bottom: 4px; }
+.sb-section-title { font-size: 11px; color: var(--t3); text-transform: uppercase; padding: 8px 4px 4px; font-weight: 600; }
+.sb-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--r); cursor: pointer; font-size: 13px; color: var(--t1); }
+.sb-item:hover { background: var(--sur2); }
+.sb-item.act { background: rgba(20,184,166,0.12); color: var(--acc-dark); font-weight: 600; }
+.sb-item .ico { font-size: 16px; }
+.sb-new { background: linear-gradient(135deg, rgba(20,184,166,.18), rgba(20,184,166,.04)); border: 1px dashed var(--acc); }
+
+/* Modal mockup */
+.modal-overlay { background: rgba(0,0,0,.04); border-radius: var(--r-lg); padding: 16px; }
+.modal { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); box-shadow: 0 6px 20px rgba(0,0,0,.08); max-width: 800px; margin: 0 auto; overflow: hidden; }
+.modal-head { background: var(--sur2); padding: 14px 18px; border-bottom: 1px solid var(--bor); display: flex; justify-content: space-between; align-items: center; }
+.modal-head h3 { margin: 0; font-size: 16px; }
+.modal-body { padding: 18px; }
+.modal-foot { background: var(--sur2); padding: 12px 18px; border-top: 1px solid var(--bor); display: flex; justify-content: flex-end; gap: 8px; }
+.fg { margin-bottom: 12px; }
+.fg label { display: block; font-size: 11.5px; color: var(--t2); margin-bottom: 3px; font-weight: 500; }
+.fg input, .fg select, .fg textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--bor); border-radius: var(--r); font-size: 13px; font-family: inherit; background: var(--sur); }
+.fg input:focus, .fg select:focus, .fg textarea:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 2px rgba(20,184,166,.15); }
+.fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.fg2 .fg { margin-bottom: 0; }
+.fg3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.fg3 .fg { margin-bottom: 0; }
+
+/* Inherited box */
+.inherited-box { background: linear-gradient(135deg, rgba(59,130,246,.06), rgba(168,85,247,.04)); border: 1px solid rgba(59,130,246,.3); border-radius: var(--r); padding: 12px; margin-bottom: 14px; position: relative; }
+.inherited-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.inherited-label { font-size: 12px; font-weight: 700; color: #1e40af; }
+.inherited-link { font-size: 11px; color: var(--blu); text-decoration: none; cursor: pointer; }
+.inherited-link:hover { text-decoration: underline; }
+.inherited-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 12px; }
+.inherited-grid .k { color: var(--t2); font-size: 11px; }
+.inherited-grid .v { color: var(--t1); font-weight: 500; }
+
+/* Page Bien mockup */
+.page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.page-title { font-size: 22px; font-weight: 700; color: var(--t1); margin: 0; }
+.page-subtitle { font-size: 13px; color: var(--t2); margin-top: 2px; }
+.imm-group { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); margin-bottom: 14px; overflow: hidden; }
+.imm-header { background: linear-gradient(135deg, var(--sur2), var(--sur3)); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--bor); }
+.imm-name { font-weight: 700; color: var(--t1); display: flex; align-items: center; gap: 6px; }
+.imm-addr { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.imm-meta { font-size: 11px; color: var(--t2); }
+.log-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 10px; padding: 12px; }
+.log-card { background: var(--sur2); border: 1px solid var(--bor); border-radius: var(--r); padding: 10px; cursor: pointer; }
+.log-card:hover { border-color: var(--acc); background: var(--sur); }
+.log-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.log-ref { font-weight: 700; font-size: 13px; }
+.log-info { font-size: 11.5px; color: var(--t2); margin-top: 4px; }
+.log-loc { font-size: 12px; margin-top: 4px; color: var(--t1); }
+
+/* Page Locataires mockup */
+.loc-tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 2px solid var(--bor); }
+.loc-tab { padding: 8px 16px; cursor: pointer; font-size: 13px; color: var(--t2); border-bottom: 2px solid transparent; margin-bottom: -2px; }
+.loc-tab.act { color: var(--acc-dark); border-bottom-color: var(--acc); font-weight: 600; }
+.loc-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap: 12px; }
+.loc-card { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 14px; }
+.loc-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.loc-bien { font-size: 12px; color: var(--t2); margin-bottom: 8px; }
+.loc-row-detail { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-top: 1px dashed var(--sur3); }
+.loc-row-detail .k { color: var(--t2); }
+.loc-row-detail .v { color: var(--t1); font-weight: 500; }
+.loc-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+
+/* Hidden by default */
+.view { display: none; }
+.view.act { display: block; animation: fade .2s; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Annotations */
+.annotation { background: var(--amb-bg); border-left: 3px solid var(--amb); padding: 10px 12px; border-radius: 0 var(--r) var(--r) 0; margin-bottom: 14px; font-size: 12.5px; color: #78350f; }
+.annotation strong { color: #92400e; }
+.removed-block { background: var(--red-bg); border: 1px dashed var(--red); border-radius: var(--r); padding: 10px; margin-bottom: 10px; opacity: 0.7; }
+.removed-block .rm-label { font-size: 11px; color: var(--red); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
+.removed-block .rm-content { font-size: 12px; color: var(--t2); text-decoration: line-through; }
+.added-block { background: var(--gre-bg); border: 1px solid var(--gre); border-radius: var(--r); padding: 10px; margin-bottom: 10px; }
+.added-block .ad-label { font-size: 11px; color: #166534; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
+
+/* Schema box */
+.schema { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 20px; }
+.schema-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.schema-box { background: var(--sur2); border: 2px solid var(--bor); border-radius: var(--r); padding: 14px; }
+.schema-box.imm { border-color: var(--blu); background: var(--blu-bg); }
+.schema-box.log { border-color: var(--gre); background: var(--gre-bg); }
+.schema-box.bail { border-color: var(--vio); background: var(--vio-bg); }
+.schema-box.loc { border-color: var(--amb); background: var(--amb-bg); }
+.schema-box h4 { margin: 0 0 8px; font-size: 13px; font-weight: 700; }
+.schema-box ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.7; }
+.schema-arrow { text-align: center; font-size: 24px; color: var(--t3); margin: 8px 0; }
+
+@media (max-width: 768px) {
+  .app-layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; }
+  .fg2, .fg3 { grid-template-columns: 1fr; }
+  .schema-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-title">📋 Mockup ARCHI-FICHES-UNIFIED — ImmoTrack</div>
+  <div class="head-sub">Proposition de split : Immeuble (bâtiment) · Bien (lot) · Bail (contrat) · Locataire (personne). Cliquez sur les onglets pour explorer les 5 vues.</div>
+  <div class="tabs">
+    <div class="tab act" onclick="setView('schema', this)">🗺 Schéma général</div>
+    <div class="tab" onclick="setView('sidebar', this)">📌 Sidebar refondue</div>
+    <div class="tab" onclick="setView('imm', this)">🏢 Modale Immeuble (enrichie)</div>
+    <div class="tab" onclick="setView('log', this)">🏠 Modale Bien (allégée)</div>
+    <div class="tab" onclick="setView('pageBien', this)">🏠 Page Bien</div>
+    <div class="tab" onclick="setView('pageLoc', this)">👥 Page Locataires</div>
+  </div>
+</header>
+
+<div class="canvas">
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- VUE 1 : SCHEMA GENERAL                                   -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="view act" id="view-schema">
+    <h2 class="page-title">🗺 Schéma général — Source unique de vérité par champ</h2>
+    <p class="page-subtitle">Chaque champ vit à UN SEUL endroit. Les autres entités lisent par référence via des helpers.</p>
+
+    <div class="schema">
+      <div class="schema-grid">
+        <div class="schema-box imm">
+          <h4>🏢 IMMEUBLE — le bâtiment (8-11 champs)</h4>
+          <ul>
+            <li><b>Adresse</b> (rue, CP, ville)</li>
+            <li><b>Année construction</b></li>
+            <li><b>Période de construction</b></li>
+            <li><b>Régime juridique</b> (copro / mono)</li>
+            <li><b>Syndic</b> (si copro)</li>
+            <li><b>Équipements communs</b> (ascenseur, gardien, interphone, digicode)</li>
+            <li>Valeur estimée, travaux, notes</li>
+          </ul>
+        </div>
+        <div class="schema-box log">
+          <h4>🏠 BIEN (lot) — appartement / studio / garage (35-40 champs)</h4>
+          <ul>
+            <li><b>Réf, étage, n° apt</b></li>
+            <li><b>Type</b> (T2, T3, garage…) + <b>typeUsage</b></li>
+            <li><b>Surface</b>, nb pièces, description</li>
+            <li><b>DPE</b> {classe, GES, date, valeurs}</li>
+            <li><b>État des risques</b> {ERP, plomb, amiante…}</li>
+            <li><b>Chauffage</b> + <b>ECS</b> (internes au lot)</li>
+            <li><b>Équipements internes</b> (cuisine, sanitaires, fibre/ADSL)</li>
+            <li><b>Mobilier</b> (si meublé)</li>
+            <li>Lot copro, tantièmes, num fiscal</li>
+            <li>📷 Photos, annonce</li>
+            <li style="color:var(--blu);font-weight:600">⬆ Hérite de l'immeuble : adresse, période, régime juridique</li>
+          </ul>
+        </div>
+      </div>
+      <div class="schema-arrow">↓ a 0..N baux dans le temps</div>
+      <div class="schema-grid">
+        <div class="schema-box bail">
+          <h4>📜 BAIL — le contrat juridique (30 champs)</h4>
+          <ul>
+            <li><b>Type</b> (nu, meublé, étudiant, mobilité, garage, autre)</li>
+            <li><b>Locataires[]</b> (parties)</li>
+            <li><b>Dates</b> début / fin / IRL</li>
+            <li><b>Conditions</b> : loyer HC, charges, DG, jpay</li>
+            <li><b>Zone tendue</b>, encadrement, premiereLoc</li>
+            <li><b>Garant</b>, plafond caution</li>
+            <li><b>Signatures</b> + <b>bailSnapshot</b> (figé légalement)</li>
+            <li><b>Clôture</b> {finEffective, motif, DG restitué}</li>
+            <li style="color:var(--gre);font-weight:600">⬆ Lit le bien via _readLogForBail(bail, log)</li>
+          </ul>
+        </div>
+        <div class="schema-box loc">
+          <h4>👥 LOCATAIRE — la personne (8 champs)</h4>
+          <ul>
+            <li><b>Civilité</b> + nom (+ prénom)</li>
+            <li><b>Naissance</b> (date + lieu)</li>
+            <li><b>Contact</b> : tél + email</li>
+            <li><b>Adresse précédente</b></li>
+            <li>Futur : profession, employeur, revenus (dossier locataire)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation" style="margin-top: 20px">
+      <strong>💡 Logique « se protéger »</strong> : chaque entité ne contient QUE ce qui la définit. Pas de double saisie, pas d'auto-incrimination par champ manquant (cf règle v14.8). Le bail (document signé) renvoie au logement et à l'EDL pour les détails contradictoires. L'inventaire mobilier vit dans l'EDL (v15.205), pas dans le bail.
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Champs supprimés / déplacés (récap)</div>
+      <div class="schema-grid">
+        <div>
+          <div class="badge red" style="margin-bottom:6px">❌ SUPPRIMÉS du log</div>
+          <ul style="font-size:12px;color:var(--t2)">
+            <li>hc, ch, dg, irl (loyer du bail courant)</li>
+            <li>debut, fin (dates du bail courant)</li>
+            <li>locataire, tel, mail (du bail courant)</li>
+            <li>adr (hérité de l'immeuble)</li>
+            <li>periodeConstr, regimeJuridique (idem)</li>
+          </ul>
+          <div class="badge gris" style="margin-top:8px">→ Remplacés par <code>getCurrentXxx(ref)</code> + <code>_logResolveAddress(log)</code></div>
+        </div>
+        <div>
+          <div class="badge red" style="margin-bottom:6px">❌ SUPPRIMÉS du bail</div>
+          <ul style="font-size:12px;color:var(--t2)">
+            <li>adrBien, ftype, etage, surf, npp…</li>
+            <li>11 booléens chauffXxx + chauff</li>
+            <li>3 booléens ecsXxx + ecs</li>
+            <li>dpe, ges, dpeDate, erp, plomb, amiante…</li>
+            <li>equipCuisine, equipSanitaires, techInfo, depensesEnergie</li>
+          </ul>
+          <div class="badge gris" style="margin-top:8px">→ Remplacés par <code>_readLogForBail(bail, log)</code></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- VUE 2 : SIDEBAR REFONDUE                                 -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="view" id="view-sidebar">
+    <h2 class="page-title">📌 Sidebar refondue — Option B (Bien / Locataires / EDL)</h2>
+    <p class="page-subtitle">L'utilisateur a validé Option B le 2026-05-17 : « je gère le mur » (Bien) vs « je gère la personne » (Locataires) vs « le document » (EDL).</p>
+
+    <div class="app-layout">
+      <nav class="sidebar">
+        <div class="sb-logo">
+          <span class="sb-logo-icon">🏠</span>
+          <div class="sb-logo-text">
+            <strong>ImmoTrack</strong>
+            <em>v15.206</em>
+          </div>
+        </div>
+        <div class="sb-section">
+          <div class="sb-section-title">Vue d'ensemble</div>
+          <div class="sb-item"><span class="ico">🏠</span> Accueil</div>
+          <div class="sb-item"><span class="ico">📊</span> Tableau de bord</div>
+        </div>
+        <div class="sb-section">
+          <div class="sb-section-title">Patrimoine</div>
+          <div class="sb-item act sb-new"><span class="ico">🏢</span> <b>Bien</b> <span class="badge gre" style="margin-left:auto">NOUVEAU</span></div>
+          <div class="muted" style="font-size: 10.5px; padding: 2px 10px 6px 32px">vue par défaut = tous les logements groupés par immeuble</div>
+        </div>
+        <div class="sb-section">
+          <div class="sb-section-title">Relations</div>
+          <div class="sb-item sb-new"><span class="ico">👥</span> <b>Locataires</b> <span class="badge gre" style="margin-left:auto">RENOMMÉ</span></div>
+          <div class="muted" style="font-size: 10.5px; padding: 2px 10px 6px 32px">ex « Baux & Locataires » → recentré sur la relation</div>
+          <div class="sb-item"><span class="ico">✉️</span> Communication</div>
+        </div>
+        <div class="sb-section">
+          <div class="sb-section-title">Suivi</div>
+          <div class="sb-item"><span class="ico">📋</span> EDL <span class="badge gris" style="margin-left:auto">conservé</span></div>
+          <div class="sb-item"><span class="ico">💰</span> Mouvements</div>
+          <div class="sb-item"><span class="ico">🧾</span> Quittances</div>
+          <div class="sb-item"><span class="ico">📈</span> IRL</div>
+        </div>
+        <div class="sb-section">
+          <div class="sb-section-title">Outils</div>
+          <div class="sb-item"><span class="ico">🏗️</span> Travaux</div>
+          <div class="sb-item"><span class="ico">🛡️</span> Assurances</div>
+          <div class="sb-item"><span class="ico">📁</span> Documents</div>
+          <div class="sb-item"><span class="ico">⚙️</span> Paramètres</div>
+        </div>
+      </nav>
+
+      <div>
+        <div class="annotation">
+          <strong>Avant / Après</strong><br>
+          <b>Avant</b> : 🏠 Biens (hub Bailleurs/Immeubles/Logements toggle 3 vues) + 📋 Baux & Locataires (cards baux + table historique)<br>
+          <b>Après</b> : 🏢 Bien (vue logements groupés par immeuble) + 👥 Locataires (échéances + candidats + comm) + 📋 EDL (conservé)<br><br>
+          <b>Anti-redite</b> : le bail apparaît dans les 2 onglets mais sous angles opposés.<br>
+          → Côté <b>Bien</b> = info contextuelle en lecture (« loué à X jusqu'à Y »)<br>
+          → Côté <b>Locataires</b> = objet de gestion active (« à renouveler le… »)
+        </div>
+
+        <div class="card">
+          <div class="card-title">🎯 Logique de répartition</div>
+          <table style="width:100%;font-size:13px;border-collapse:collapse">
+            <thead style="background:var(--sur2)">
+              <tr><th style="padding:8px;text-align:left;border:1px solid var(--bor)">Question</th><th style="padding:8px;text-align:left;border:1px solid var(--bor)">🏢 Bien</th><th style="padding:8px;text-align:left;border:1px solid var(--bor)">👥 Locataires</th></tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:8px;border:1px solid var(--bor)">Centré sur…</td><td style="padding:8px;border:1px solid var(--bor)">Le bien physique (actif)</td><td style="padding:8px;border:1px solid var(--bor)">Les personnes (relation)</td></tr>
+              <tr><td style="padding:8px;border:1px solid var(--bor)">Vue principale</td><td style="padding:8px;border:1px solid var(--bor)">Logements groupés par immeuble</td><td style="padding:8px;border:1px solid var(--bor)">Locataires actuels + candidats</td></tr>
+              <tr><td style="padding:8px;border:1px solid var(--bor)">Le bail s'y voit comme…</td><td style="padding:8px;border:1px solid var(--bor)">Info lecture (« loué à X jusqu'à… »)</td><td style="padding:8px;border:1px solid var(--bor)">Gestion (« à renouveler »)</td></tr>
+              <tr><td style="padding:8px;border:1px solid var(--bor)">Logement vacant</td><td style="padding:8px;border:1px solid var(--bor)">Visible (CTA « créer annonce »)</td><td style="padding:8px;border:1px solid var(--bor)">Absent</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- VUE 3 : MODALE IMMEUBLE ENRICHIE                         -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="view" id="view-imm">
+    <h2 class="page-title">🏢 Modale Immeuble — enrichie (source de vérité)</h2>
+    <p class="page-subtitle">Devient la source unique pour adresse, période, régime juridique, syndic, équipements communs.</p>
+
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>🏢 Modifier l'immeuble — Morschwiller-le-bas</h3>
+          <span style="cursor:pointer;font-size:20px;color:var(--t3)">✕</span>
+        </div>
+        <div class="modal-body">
+
+          <div class="card-title" style="margin-top:0">📍 Identification & adresse</div>
+          <div class="fg">
+            <label>Nom *</label>
+            <input type="text" value="Morschwiller-le-bas">
+          </div>
+          <div class="added-block">
+            <div class="ad-label">+ NOUVEAU : adresse séparée</div>
+            <div class="fg">
+              <label>Adresse (rue) *</label>
+              <input type="text" value="15 rue des pèlerins">
+            </div>
+            <div class="fg2">
+              <div class="fg">
+                <label>Code postal *</label>
+                <input type="text" value="68790">
+              </div>
+              <div class="fg">
+                <label>Ville *</label>
+                <input type="text" value="Morschwiller-le-Bas">
+              </div>
+            </div>
+          </div>
+
+          <div class="card-title">🏛 Caractéristiques juridiques</div>
+          <div class="fg2">
+            <div class="fg">
+              <label>Année de construction</label>
+              <input type="number" value="1965">
+            </div>
+            <div class="fg">
+              <label>Période de construction</label>
+              <select>
+                <option>Avant 1949</option>
+                <option selected>De 1949 à 1974</option>
+                <option>De 1975 à 1989</option>
+                <option>De 1990 à 2005</option>
+                <option>Depuis 2005</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg2">
+            <div class="fg">
+              <label>Régime juridique</label>
+              <select>
+                <option selected>Copropriété</option>
+                <option>Monopropriété</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Type d'habitat</label>
+              <select>
+                <option selected>Immeuble collectif</option>
+                <option>Maison individuelle</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="added-block">
+            <div class="ad-label">+ NOUVEAU : syndic (si copropriété)</div>
+            <div class="fg2">
+              <div class="fg">
+                <label>Syndic</label>
+                <input type="text" placeholder="Cabinet Foncia, ...">
+              </div>
+              <div class="fg">
+                <label>Nb de lots</label>
+                <input type="number" placeholder="Ex: 12">
+              </div>
+            </div>
+          </div>
+
+          <div class="added-block">
+            <div class="ad-label">+ NOUVEAU : équipements communs</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;font-size:12.5px">
+              <label><input type="checkbox" checked> Ascenseur</label>
+              <label><input type="checkbox"> Gardien / concierge</label>
+              <label><input type="checkbox" checked> Interphone</label>
+              <label><input type="checkbox" checked> Digicode</label>
+              <label><input type="checkbox"> Vidéosurveillance</label>
+              <label><input type="checkbox"> Parking commun</label>
+              <label><input type="checkbox"> Local vélos</label>
+              <label><input type="checkbox"> Jardin commun</label>
+            </div>
+          </div>
+
+          <div class="card-title">💰 Valorisation & travaux</div>
+          <div class="fg2">
+            <div class="fg">
+              <label>Valeur estimée (€)</label>
+              <input type="number" placeholder="850000">
+            </div>
+            <div class="fg">
+              <label>Montant travaux réalisés (€)</label>
+              <input type="number">
+            </div>
+          </div>
+          <div class="fg">
+            <label>Travaux réalisés</label>
+            <textarea rows="2" placeholder="Ex : ravalement façade 2023, ascenseur changé 2024..."></textarea>
+          </div>
+          <div class="fg">
+            <label>Notes</label>
+            <textarea rows="2"></textarea>
+          </div>
+
+          <div class="annotation" style="margin-top:16px">
+            <strong>⬇ Propagation automatique</strong> : toute modif sur l'immeuble se reflète immédiatement sur tous les biens (4 logements) qui en héritent. Pas besoin de re-saisir.
+          </div>
+
+        </div>
+        <div class="modal-foot">
+          <button class="btn">Annuler</button>
+          <button class="btn primary">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- VUE 4 : MODALE BIEN ALLEGEE                              -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="view" id="view-log">
+    <h2 class="page-title">🏠 Modale Bien — allégée (hérite de l'immeuble)</h2>
+    <p class="page-subtitle">Les champs communs ne sont plus saisis ici, juste affichés en lecture seule dans l'encart bleu.</p>
+
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>🏠 Modifier le bien — RDC gauche (réf F-001)</h3>
+          <span style="cursor:pointer;font-size:20px;color:var(--t3)">✕</span>
+        </div>
+        <div class="modal-body">
+
+          <!-- ENCART HÉRITÉ -->
+          <div class="inherited-box">
+            <div class="inherited-head">
+              <span class="inherited-label">🏛 Hérité de l'immeuble — Morschwiller-le-bas</span>
+              <a class="inherited-link">✏ Modifier dans l'immeuble →</a>
+            </div>
+            <div class="inherited-grid">
+              <div>
+                <div class="k">Adresse</div>
+                <div class="v">15 rue des pèlerins, 68790 Morschwiller-le-Bas</div>
+              </div>
+              <div>
+                <div class="k">Période construction</div>
+                <div class="v">De 1949 à 1974</div>
+              </div>
+              <div>
+                <div class="k">Régime juridique</div>
+                <div class="v">Copropriété</div>
+              </div>
+              <div>
+                <div class="k">Type d'habitat</div>
+                <div class="v">Immeuble collectif</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- IDENTITÉ DU LOT -->
+          <div class="card-title" style="margin-top:0">🏠 Identité du lot</div>
+          <div class="fg3">
+            <div class="fg">
+              <label>Référence *</label>
+              <input type="text" value="F-001">
+            </div>
+            <div class="fg">
+              <label>Étage</label>
+              <input type="text" value="RDC">
+            </div>
+            <div class="fg">
+              <label>N° appartement</label>
+              <input type="text" placeholder="Ex: gauche, 3B, A...">
+            </div>
+          </div>
+          <div class="fg2">
+            <div class="fg">
+              <label>Type</label>
+              <select>
+                <option>T1</option>
+                <option selected>T2</option>
+                <option>T3</option>
+                <option>T4</option>
+                <option>Studio</option>
+                <option>Maison</option>
+                <option>Garage / parking</option>
+                <option>Local commercial</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>Usage</label>
+              <select>
+                <option selected>Habitation nue</option>
+                <option>Habitation meublée</option>
+                <option>Mobilité</option>
+                <option>Étudiant</option>
+                <option>Garage</option>
+                <option>Local professionnel</option>
+                <option>Autre</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg2">
+            <div class="fg">
+              <label>Surface (m²)</label>
+              <input type="number" value="35">
+            </div>
+            <div class="fg">
+              <label>Nb pièces principales</label>
+              <input type="number" value="2">
+            </div>
+          </div>
+
+          <!-- ZONE SUPPRIMÉE LEGACY -->
+          <div class="removed-block">
+            <div class="rm-label">❌ Bloc « Bail courant » SUPPRIMÉ (cf décision C4)</div>
+            <div class="rm-content">
+              Loyer HC · Charges · Dépôt de garantie · IRL · Locataire · Tél · Mail · Date début · Date fin
+              <br>→ ces infos sont maintenant lues uniquement via <code>getCurrentXxx(ref)</code>. La fiche 360° du logement les affiche déjà.
+            </div>
+          </div>
+
+          <!-- DPE, RISQUES, ÉQUIPEMENTS (inchangé) -->
+          <div class="card-title">📊 DPE et performance énergétique</div>
+          <div class="fg2">
+            <div class="fg"><label>Classe DPE</label><select><option>A</option><option>B</option><option>C</option><option selected>D</option><option>E</option><option>F</option><option>G</option></select></div>
+            <div class="fg"><label>Classe GES</label><select><option>A</option><option>B</option><option>C</option><option selected>D</option><option>E</option><option>F</option><option>G</option></select></div>
+          </div>
+          <div class="fg2">
+            <div class="fg"><label>Date DPE</label><input type="date" value="2024-03-15"></div>
+            <div class="fg"><label>Société diagnostic</label><input type="text"></div>
+          </div>
+
+          <div class="card-title">⚠ État des risques</div>
+          <div class="fg3">
+            <div class="fg"><label>ERP</label><input type="text" placeholder="RAS"></div>
+            <div class="fg"><label>Plomb (CREP)</label><input type="text" placeholder="Absence"></div>
+            <div class="fg"><label>Amiante</label><input type="text" placeholder="Absence"></div>
+          </div>
+
+          <div class="card-title">🔥 Chauffage & ECS</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;font-size:12.5px;margin-bottom:12px">
+            <label><input type="checkbox" checked> Électrique</label>
+            <label><input type="checkbox"> Gaz</label>
+            <label><input type="checkbox"> Bois / granulés</label>
+            <label><input type="checkbox"> Collectif</label>
+            <label><input type="checkbox"> Clim / PAC</label>
+            <label><input type="checkbox"> Pompe à chaleur</label>
+          </div>
+
+          <div class="added-block">
+            <div class="ad-label">+ NOUVEAU : équipements internes (déplacés depuis bail)</div>
+            <div class="fg2">
+              <div class="fg"><label>Équipements cuisine</label><input type="text" placeholder="Cuisine équipée (four, plaques...)"></div>
+              <div class="fg"><label>Équipements sanitaires</label><input type="text" placeholder="SdB, WC séparé"></div>
+            </div>
+            <div class="fg">
+              <label>Technologies (fibre, ADSL, TV)</label>
+              <input type="text" placeholder="Fibre Orange, TV antenne collective">
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-foot">
+          <button class="btn">Annuler</button>
+          <button class="btn primary">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation" style="margin-top:16px">
+      <strong>📐 Comparaison avant/après</strong><br>
+      <b>Avant</b> : 52 champs sur le bien dont ~20 dupliqués (locataire courant, adresse complète, période construction, régime juridique...)<br>
+      <b>Après</b> : ~35 champs sur le bien, focus sur les caractéristiques propres au lot. L'adresse / période / régime sont en lecture seule en haut (héritage immeuble).
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- VUE 5 : PAGE BIEN                                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="view" id="view-pageBien">
+    <div class="page-head">
+      <div>
+        <h2 class="page-title">🏠 Bien</h2>
+        <div class="page-subtitle">8 logements répartis sur 3 immeubles</div>
+      </div>
+      <div class="row">
+        <button class="btn">🔍 Filtrer</button>
+        <button class="btn primary">+ Nouveau bien</button>
+      </div>
+    </div>
+
+    <!-- Immeuble 1 -->
+    <div class="imm-group">
+      <div class="imm-header">
+        <div>
+          <div class="imm-name">🏢 Morschwiller-le-bas <span class="badge gris">Copropriété</span></div>
+          <div class="imm-addr">15 rue des pèlerins, 68790 Morschwiller-le-Bas</div>
+        </div>
+        <div class="imm-meta">4 lots · 0 vacant</div>
+      </div>
+      <div class="log-grid">
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">F-001 · RDC gauche</span>
+            <span class="badge gre">Loué</span>
+          </div>
+          <div class="log-info">T2 · 35 m² · DPE D</div>
+          <div class="log-loc">👤 BOULEY Eloi · jusqu'au 25/01/2027</div>
+        </div>
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">F-002 · RDC droit</span>
+            <span class="badge gre">Loué</span>
+          </div>
+          <div class="log-info">T2 · 38 m² · DPE C</div>
+          <div class="log-loc">👤 MARTIN Sophie · jusqu'au 12/06/2027</div>
+        </div>
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">F-101 · 1er étage</span>
+            <span class="badge gre">Loué</span>
+          </div>
+          <div class="log-info">T3 · 52 m² · DPE C</div>
+          <div class="log-loc">👤 DUBOIS Marc · jusqu'au 03/09/2026</div>
+        </div>
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">F-201 · 2e étage</span>
+            <span class="badge gre">Loué</span>
+          </div>
+          <div class="log-info">T3 · 54 m² · DPE C</div>
+          <div class="log-loc">👤 LEROY Famille · jusqu'au 15/11/2026</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Immeuble 2 -->
+    <div class="imm-group">
+      <div class="imm-header">
+        <div>
+          <div class="imm-name">🏢 6ème avenue <span class="badge gris">Monopropriété</span></div>
+          <div class="imm-addr">14 rue Saint Nicolas, 90100 Delle</div>
+        </div>
+        <div class="imm-meta">3 lots · 1 vacant</div>
+      </div>
+      <div class="log-grid">
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">D-RDC · RDC</span>
+            <span class="badge amb">Meublé · Loué</span>
+          </div>
+          <div class="log-info">T2 meublé · 35 m² · DPE D</div>
+          <div class="log-loc">👤 BOULEY Eloi · jusqu'au 25/01/2027</div>
+        </div>
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">D-01 · 1er</span>
+            <span class="badge red">Vacant</span>
+          </div>
+          <div class="log-info">T2 · 36 m² · DPE D</div>
+          <div class="log-loc" style="color:var(--t2);font-style:italic">📢 Créer une annonce →</div>
+        </div>
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">D-02 · 2e</span>
+            <span class="badge gre">Loué</span>
+          </div>
+          <div class="log-info">T3 · 48 m² · DPE C</div>
+          <div class="log-loc">👤 LAURENT Anne · jusqu'au 30/04/2027</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Immeuble 3 -->
+    <div class="imm-group">
+      <div class="imm-header">
+        <div>
+          <div class="imm-name">🏢 Maison Ferrette <span class="badge gris">Maison individuelle</span></div>
+          <div class="imm-addr">3 chemin du Château, 68480 Ferrette</div>
+        </div>
+        <div class="imm-meta">1 lot · 0 vacant</div>
+      </div>
+      <div class="log-grid">
+        <div class="log-card">
+          <div class="log-card-head">
+            <span class="log-ref">FERRETTE-01</span>
+            <span class="badge gre">Loué</span>
+          </div>
+          <div class="log-info">Maison · 120 m² · DPE B</div>
+          <div class="log-loc">👤 SCHMITT Famille · jusqu'au 09/02/2029</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation" style="margin-top:16px">
+      <strong>💡 Différence avec l'ancienne page</strong> :<br>
+      → Vue par défaut = <b>tous les logements groupés par immeuble</b> (au lieu de l'ancien toggle 3 vues Bailleurs/Immeubles/Logements qui démarrait sur Immeubles)<br>
+      → Chaque card logement montre <b>l'info contextuelle bail</b> en lecture (« loué à X jusqu'à Y ») via <code>getCurrentTenant(ref)</code><br>
+      → Logements vacants visibles avec CTA d'action (créer annonce, ajouter candidat)
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- VUE 6 : PAGE LOCATAIRES                                  -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="view" id="view-pageLoc">
+    <div class="page-head">
+      <div>
+        <h2 class="page-title">👥 Locataires</h2>
+        <div class="page-subtitle">Gestion des personnes et de la relation locative</div>
+      </div>
+      <div class="row">
+        <button class="btn">🔍 Filtrer</button>
+        <button class="btn primary">+ Nouveau bail</button>
+      </div>
+    </div>
+
+    <div class="loc-tabs">
+      <div class="loc-tab act">📋 Locataires actuels <span class="badge gris">7</span></div>
+      <div class="loc-tab">⏳ Échéances <span class="badge amb">2</span></div>
+      <div class="loc-tab">🔄 À renouveler <span class="badge red">1</span></div>
+      <div class="loc-tab">📥 Candidats <span class="badge blu">3</span></div>
+      <div class="loc-tab">🗂 Archives</div>
+    </div>
+
+    <div class="loc-grid">
+      <!-- Locataire 1 -->
+      <div class="loc-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="loc-name">BOULEY Eloi <span class="badge amb">Meublé</span></div>
+            <div class="loc-bien">🏢 6ème avenue · D-RDC · T2 meublé</div>
+          </div>
+          <span class="badge gre">Bail actif</span>
+        </div>
+        <div class="loc-row-detail"><span class="k">📞 Téléphone</span><span class="v">06 12 34 56 78</span></div>
+        <div class="loc-row-detail"><span class="k">✉️ Email</span><span class="v">eloi.bouley@email.fr</span></div>
+        <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">26/01/2026 → 25/01/2027</span></div>
+        <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">500 € + 30 € charges</span></div>
+        <div class="loc-row-detail"><span class="k">⏳ Reste</span><span class="v" style="color:var(--gre)">8 mois</span></div>
+        <div class="loc-actions">
+          <button class="btn sm primary">✉ Écrire</button>
+          <button class="btn sm">📞 Appeler</button>
+          <button class="btn sm">📄 Voir bail</button>
+          <button class="btn sm ghost">⋯</button>
+        </div>
+      </div>
+
+      <!-- Locataire 2 - échéance proche -->
+      <div class="loc-card" style="border-color:var(--amb)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="loc-name">DUBOIS Marc</div>
+            <div class="loc-bien">🏢 Morschwiller · F-101 · T3</div>
+          </div>
+          <span class="badge amb">Échéance proche</span>
+        </div>
+        <div class="loc-row-detail"><span class="k">📞 Téléphone</span><span class="v">06 98 76 54 32</span></div>
+        <div class="loc-row-detail"><span class="k">✉️ Email</span><span class="v">marc.dubois@email.fr</span></div>
+        <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">03/09/2023 → 03/09/2026</span></div>
+        <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">720 € + 90 € charges</span></div>
+        <div class="loc-row-detail"><span class="k">⏳ Reste</span><span class="v" style="color:var(--amb)">3 mois</span></div>
+        <div class="loc-actions">
+          <button class="btn sm primary">✉ Proposer renouvellement</button>
+          <button class="btn sm">📄 Voir bail</button>
+          <button class="btn sm ghost">⋯</button>
+        </div>
+      </div>
+
+      <!-- Locataire 3 -->
+      <div class="loc-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="loc-name">SCHMITT Famille</div>
+            <div class="loc-bien">🏢 Maison Ferrette · 120 m²</div>
+          </div>
+          <span class="badge gre">Bail actif</span>
+        </div>
+        <div class="loc-row-detail"><span class="k">📞 Téléphone</span><span class="v">03 89 40 12 34</span></div>
+        <div class="loc-row-detail"><span class="k">✉️ Email</span><span class="v">famille.schmitt@email.fr</span></div>
+        <div class="loc-row-detail"><span class="k">📅 Bail</span><span class="v">09/02/2026 → 09/02/2029</span></div>
+        <div class="loc-row-detail"><span class="k">💰 Loyer</span><span class="v">1 250 € + 0 € charges</span></div>
+        <div class="loc-row-detail"><span class="k">⏳ Reste</span><span class="v" style="color:var(--gre)">2 ans 8 mois</span></div>
+        <div class="loc-actions">
+          <button class="btn sm primary">✉ Écrire</button>
+          <button class="btn sm">📄 Voir bail</button>
+          <button class="btn sm ghost">⋯</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation" style="margin-top:16px">
+      <strong>💡 Anti-redite avec la page Bien</strong><br>
+      → Le bail apparaît dans les 2 onglets mais sous angles opposés.<br>
+      → Côté <b>Bien</b> : info lecture passive (« loué à X »)<br>
+      → Côté <b>Locataires</b> : objet de gestion active (relance, renouvellement, candidats, communication)<br>
+      → Le bouton <b>✉ Écrire</b> ouvre la modale EMAIL-AUTO pré-remplie pour ce locataire (zéro duplication avec l'onglet Communication transverse)
+    </div>
+  </div>
+
+</div>
+
+<script>
+function setView(name, tabEl) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('act'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('act'));
+  document.getElementById('view-' + name).classList.add('act');
+  if (tabEl) tabEl.classList.add('act');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+
+</body>
+</html>
