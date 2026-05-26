@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup LOG-ANNONCE — ImmoTrack</title>
+<style>
+:root {
+  --acc: #14b8a6; --acc-dark: #0d9488;
+  --bg: #fdfbf7; --sur: #fff; --sur2: #f5f3ee; --sur3: #ebe7df;
+  --bor: #d4cfc4; --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --blu: #3b82f6; --blu-bg: #dbeafe;
+  --gre: #22c55e; --gre-bg: #dcfce7;
+  --red: #ef4444; --red-bg: #fee2e2;
+  --amb: #f59e0b; --amb-bg: #fef3c7;
+  --r: 6px; --r-lg: 10px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; }
+header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+.head-title { font-weight: 700; color: var(--acc-dark); font-size: 16px; }
+.head-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.canvas { padding: 16px; max-width: 1500px; margin: 0 auto; }
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur); cursor: pointer; font-size: 13px; font-weight: 500; }
+.btn:hover { background: var(--sur2); }
+.btn.primary { background: var(--acc); color: #fff; border-color: var(--acc-dark); }
+.btn.primary:hover { background: var(--acc-dark); }
+.btn.sm { padding: 4px 9px; font-size: 11.5px; }
+.btn.bg { padding: 10px 18px; font-size: 14px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge.gre { background: var(--gre-bg); color: #166534; }
+.badge.amb { background: var(--amb-bg); color: #92400e; }
+.badge.blu { background: var(--blu-bg); color: #1e40af; }
+.badge.gris { background: var(--sur3); color: var(--t2); }
+
+/* Modal mockup */
+.modal { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); box-shadow: 0 6px 20px rgba(0,0,0,.08); overflow: hidden; }
+.modal-head { background: var(--sur2); padding: 14px 18px; border-bottom: 1px solid var(--bor); display: flex; justify-content: space-between; align-items: center; }
+.modal-head h3 { margin: 0; font-size: 17px; }
+.modal-body { padding: 0; }
+.modal-foot { background: var(--sur2); padding: 12px 18px; border-top: 1px solid var(--bor); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Split layout : form left / preview right */
+.split { display: grid; grid-template-columns: 380px 1fr; min-height: 700px; }
+.form-pane { background: var(--sur2); padding: 16px; border-right: 1px solid var(--bor); overflow-y: auto; max-height: 75vh; }
+.preview-pane { background: var(--bg); padding: 20px; overflow-y: auto; max-height: 75vh; }
+
+.section-title { font-weight: 700; font-size: 13px; color: var(--t1); margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--bor); display: flex; justify-content: space-between; align-items: center; }
+.section-title:first-child { margin-top: 0; }
+.section-title .auto { font-size: 10px; color: var(--gre); font-weight: 500; background: var(--gre-bg); padding: 2px 6px; border-radius: 3px; }
+.section-title .manual { font-size: 10px; color: var(--amb); font-weight: 500; background: var(--amb-bg); padding: 2px 6px; border-radius: 3px; }
+
+.fg { margin-bottom: 10px; }
+.fg label { display: block; font-size: 11px; color: var(--t2); margin-bottom: 2px; font-weight: 500; }
+.fg .val { background: var(--sur); padding: 6px 10px; border: 1px solid var(--bor); border-radius: var(--r); font-size: 12.5px; color: var(--t1); }
+.fg .val.auto-filled { background: linear-gradient(135deg, var(--gre-bg), #f0fdf4); border-color: var(--gre); }
+.fg input, .fg select { width: 100%; padding: 6px 10px; border: 1px solid var(--bor); border-radius: var(--r); font-size: 12.5px; background: var(--sur); }
+.fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.fg2 .fg { margin-bottom: 0; }
+.equip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; font-size: 12px; }
+.equip-grid label { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 3px 0; }
+.equip-grid input[type=checkbox] { margin: 0; }
+.custom-add { display: flex; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--bor); }
+.custom-add input { flex: 1; padding: 5px 8px; border: 1px solid var(--bor); border-radius: var(--r); font-size: 11.5px; }
+.custom-add .btn { padding: 3px 9px; font-size: 11px; }
+.custom-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.custom-tag { background: var(--gre-bg); color: #166534; padding: 2px 8px; border-radius: 10px; font-size: 11px; display: inline-flex; gap: 4px; align-items: center; }
+.custom-tag .x { cursor: pointer; opacity: 0.6; }
+
+/* TONE + SIZE switcher */
+.switcher { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r); padding: 10px; margin-bottom: 16px; }
+.switcher-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.switcher-row:last-child { margin-bottom: 0; }
+.switcher-label { font-size: 11.5px; color: var(--t2); font-weight: 600; width: 60px; flex-shrink: 0; }
+.switcher-btn { padding: 5px 10px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 11.5px; }
+.switcher-btn.act { background: var(--acc); color: #fff; border-color: var(--acc-dark); font-weight: 600; }
+.switcher-btn:hover:not(.act) { background: var(--sur3); }
+
+/* Preview annonce */
+.annonce { background: #fff; border-radius: var(--r-lg); border: 1px solid var(--bor); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+.cover-photo { position: relative; height: 240px; background: linear-gradient(135deg, #c7d2fe 0%, #fef3c7 50%, #fed7aa 100%); display: flex; align-items: flex-end; padding: 16px; }
+.cover-photo::before { content: '🏠 Photo couverture (séjour lumineux plein sud)'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,.85); padding: 8px 16px; border-radius: var(--r); font-size: 12px; color: var(--t2); font-style: italic; }
+.cover-meta { color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.4); position: relative; z-index: 2; }
+.cover-meta .ville { font-size: 13px; opacity: 0.95; }
+.cover-meta .titre { font-size: 22px; font-weight: 700; margin: 4px 0; line-height: 1.25; }
+.cover-meta .prix { font-size: 18px; font-weight: 600; opacity: 0.95; }
+
+.annonce-body { padding: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.chip { background: var(--sur2); padding: 4px 10px; border-radius: 14px; font-size: 12px; color: var(--t1); border: 1px solid var(--bor); }
+.annonce-sect { margin-bottom: 16px; }
+.annonce-sect h3 { font-size: 13px; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--acc); color: var(--acc-dark); display: inline-block; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.annonce-sect p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.6; color: var(--t1); }
+.annonce-sect ul { margin: 0; padding-left: 0; list-style: none; }
+.annonce-sect ul li { padding: 3px 0; font-size: 13px; color: var(--t1); }
+.annonce-sect ul li::before { content: '✓ '; color: var(--gre); font-weight: 700; }
+
+.pratique-table { width: 100%; font-size: 13px; }
+.pratique-table tr td { padding: 4px 0; }
+.pratique-table tr td:first-child { color: var(--t2); width: 40%; }
+.pratique-table tr td:last-child { font-weight: 600; }
+
+.photo-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
+.photo-thumb { aspect-ratio: 4/3; background: var(--sur3); border-radius: var(--r); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--t2); font-style: italic; padding: 8px; text-align: center; }
+.photo-thumb.p1 { background: linear-gradient(135deg, #c7d2fe, #fef3c7); }
+.photo-thumb.p2 { background: linear-gradient(135deg, #fed7aa, #fde68a); }
+.photo-thumb.p3 { background: linear-gradient(135deg, #d9f99d, #bbf7d0); }
+.photo-thumb.p4 { background: linear-gradient(135deg, #f5d0fe, #e9d5ff); }
+.photo-thumb.p5 { background: linear-gradient(135deg, #fecaca, #fef3c7); }
+.photo-thumb.p6 { background: linear-gradient(135deg, #ddd6fe, #e0e7ff); }
+
+.dpe-banner { background: linear-gradient(90deg, #16a34a 0%, #84cc16 25%, #fbbf24 50%, #f97316 75%, #dc2626 100%); padding: 8px 14px; border-radius: var(--r); color: #fff; font-weight: 600; font-size: 12.5px; margin: 12px 0; display: flex; justify-content: space-between; align-items: center; }
+.dpe-banner-warn { background: linear-gradient(90deg, #fef3c7, #fee2e2); color: #991b1b; border: 1px solid var(--red); font-weight: 700; }
+
+.legal-disclosure { font-size: 11px; color: var(--t2); margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--bor); line-height: 1.55; font-style: italic; }
+
+/* Tab indicators */
+.preview-meta { font-size: 11px; color: var(--t2); margin-bottom: 10px; display: flex; justify-content: space-between; }
+
+/* Short mode */
+.short-card { background: #fff; border: 1px solid var(--bor); border-radius: var(--r-lg); padding: 18px; max-width: 480px; margin: 0 auto; }
+.short-card .short-title { font-size: 16px; font-weight: 700; color: var(--t1); margin-bottom: 8px; }
+.short-card .short-body { font-size: 13.5px; line-height: 1.6; color: var(--t1); }
+.char-counter { font-size: 11px; color: var(--t2); margin-top: 8px; text-align: right; }
+
+/* Mode hidden */
+.preview-mode { display: none; }
+.preview-mode.act { display: block; animation: fade .3s; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Bottom checklist */
+.checklist { background: var(--amb-bg); border: 1px solid var(--amb); border-radius: var(--r); padding: 10px 12px; margin-top: 14px; font-size: 12.5px; }
+.checklist label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.checklist input { margin-top: 2px; }
+
+/* Annotations */
+.annotation { background: var(--blu-bg); border-left: 3px solid var(--blu); padding: 10px 12px; border-radius: 0 var(--r) var(--r) 0; margin: 14px 0; font-size: 12.5px; color: #1e3a8a; }
+.annotation strong { color: #1e40af; }
+
+@media (max-width: 1000px) {
+  .split { grid-template-columns: 1fr; }
+  .form-pane { max-height: none; border-right: none; border-bottom: 1px solid var(--bor); }
+  .preview-pane { max-height: none; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-title">📢 Mockup LOG-ANNONCE — Génération d'annonce de location</div>
+  <div class="head-sub">Exemple : T3 lumineux 65 m², Strasbourg centre, vacant. Données auto-remplies depuis ImmoTrack + champs optionnels valorisables.</div>
+</header>
+
+<div class="canvas">
+
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3>📢 Créer une annonce — F-201 · T3 Strasbourg</h3>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">Vacant depuis le 15/04/2026 · Logement meublé : non</div>
+      </div>
+      <span style="cursor:pointer;font-size:22px;color:var(--t3)">✕</span>
+    </div>
+
+    <div class="modal-body">
+      <div class="split">
+
+        <!-- ═══ LEFT : FORM PANE ═══ -->
+        <div class="form-pane">
+
+          <!-- SECTION 1 : Auto-rempli depuis DB -->
+          <div class="section-title">📋 Caractéristiques du bien <span class="auto">AUTO depuis ImmoTrack</span></div>
+          <div class="fg2">
+            <div class="fg"><label>Type</label><div class="val auto-filled">T3</div></div>
+            <div class="fg"><label>Surface</label><div class="val auto-filled">65 m²</div></div>
+          </div>
+          <div class="fg2">
+            <div class="fg"><label>Pièces principales</label><div class="val auto-filled">3</div></div>
+            <div class="fg"><label>Étage</label><div class="val auto-filled">4ème</div></div>
+          </div>
+          <div class="fg"><label>Adresse (immeuble)</label><div class="val auto-filled">12 rue de la Mésange, 67000 Strasbourg</div></div>
+          <div class="fg2">
+            <div class="fg"><label>Période construction</label><div class="val auto-filled">Avant 1949</div></div>
+            <div class="fg"><label>Régime</label><div class="val auto-filled">Copropriété</div></div>
+          </div>
+
+          <!-- SECTION 2 : Équipements communs (immeuble) -->
+          <div class="section-title">🏢 Équipements de l'immeuble <span class="auto">AUTO + ajout libre</span></div>
+          <div class="equip-grid">
+            <label><input type="checkbox" checked> 🛗 Ascenseur</label>
+            <label><input type="checkbox" checked> 🔔 Interphone</label>
+            <label><input type="checkbox" checked> 🔢 Digicode</label>
+            <label><input type="checkbox"> 👮 Gardien</label>
+            <label><input type="checkbox"> 🎥 Vidéosurv.</label>
+            <label><input type="checkbox" checked> 🚲 Local vélos</label>
+          </div>
+          <div class="custom-add">
+            <input type="text" placeholder="+ Autre équipement commun">
+            <button class="btn sm">+ Ajouter</button>
+          </div>
+
+          <!-- SECTION 3 : Équipements internes -->
+          <div class="section-title">🍳 Équipements du bien <span class="auto">AUTO + ajout libre</span></div>
+          <div style="font-size:11.5px;color:var(--t2);margin-bottom:6px;font-weight:600">Cuisine</div>
+          <div class="equip-grid">
+            <label><input type="checkbox" checked> Four</label>
+            <label><input type="checkbox" checked> Plaques (induction)</label>
+            <label><input type="checkbox" checked> Hotte aspirante</label>
+            <label><input type="checkbox" checked> Lave-vaisselle</label>
+            <label><input type="checkbox"> Frigo + congélateur</label>
+            <label><input type="checkbox" checked> Micro-ondes</label>
+          </div>
+          <div class="custom-tags">
+            <span class="custom-tag">✨ Cuisine américaine ouverte sur séjour <span class="x">✕</span></span>
+          </div>
+          <div style="font-size:11.5px;color:var(--t2);margin:10px 0 6px;font-weight:600">Salle de bain & WC</div>
+          <div class="equip-grid">
+            <label><input type="checkbox" checked> Baignoire</label>
+            <label><input type="checkbox" checked> Douche italienne</label>
+            <label><input type="checkbox" checked> WC séparé</label>
+            <label><input type="checkbox" checked> Lave-linge</label>
+          </div>
+          <div style="font-size:11.5px;color:var(--t2);margin:10px 0 6px;font-weight:600">Technologies</div>
+          <div class="equip-grid">
+            <label><input type="checkbox" checked> Fibre optique</label>
+            <label><input type="checkbox"> ADSL</label>
+            <label><input type="checkbox" checked> TNT antenne col.</label>
+            <label><input type="checkbox"> Câble</label>
+          </div>
+
+          <!-- SECTION 4 : Annexes -->
+          <div class="section-title">🗝 Annexes privatives <span class="auto">AUTO + ajout libre</span></div>
+          <div class="equip-grid">
+            <label><input type="checkbox" checked> Cave (n° 7)</label>
+            <label><input type="checkbox" checked> Box parking (n° 14)</label>
+            <label><input type="checkbox"> Garage</label>
+            <label><input type="checkbox"> Place extérieure</label>
+          </div>
+
+          <!-- SECTION 5 : Extérieurs -->
+          <div class="section-title">🌿 Extérieurs <span class="auto">AUTO</span></div>
+          <div class="fg2">
+            <div class="fg">
+              <label>Balcon</label>
+              <select><option>Non</option><option selected>Oui — 8 m²</option></select>
+            </div>
+            <div class="fg">
+              <label>Terrasse</label>
+              <select><option selected>Non</option><option>Oui</option></select>
+            </div>
+          </div>
+          <div class="fg2">
+            <div class="fg">
+              <label>Loggia</label>
+              <select><option selected>Non</option><option>Oui</option></select>
+            </div>
+            <div class="fg">
+              <label>Jardin privatif</label>
+              <select><option selected>Non</option><option>Oui</option></select>
+            </div>
+          </div>
+
+          <!-- SECTION 6 : Présentation (valeurs positives uniquement) -->
+          <div class="section-title">✨ Mise en valeur <span class="manual">À COMPLÉTER (laisser vide si non valorisable)</span></div>
+          <div class="fg">
+            <label>Exposition</label>
+            <select>
+              <option value="">— Non renseigné —</option>
+              <option selected>☀️ Plein sud</option>
+              <option>🌅 Sud-est</option>
+              <option>🌄 Sud-ouest</option>
+              <option>🌇 Est</option>
+              <option>🌉 Ouest</option>
+              <option>🔄 Traversant Est-Ouest</option>
+              <option>↕ Double exposition Nord-Sud</option>
+              <option>🌆 Nord (loft, atelier)</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Vue</label>
+            <select>
+              <option value="">— Non renseigné —</option>
+              <option selected>🏞 Vue dégagée</option>
+              <option>🌳 Sur jardin</option>
+              <option>🏛 Sur cour intérieure</option>
+              <option>🌷 Sur parc</option>
+              <option>⛪ Sur monument</option>
+              <option>🌊 Vue mer / montagne</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Luminosité</label>
+            <select>
+              <option value="">— Non renseigné —</option>
+              <option>💡 Lumineux</option>
+              <option selected>🌞 Très lumineux</option>
+              <option>🌅 Traversant</option>
+              <option>☀️ Baigné de lumière</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Cadre</label>
+            <select>
+              <option value="">— Non renseigné —</option>
+              <option selected>🤫 Rue calme</option>
+              <option>🌿 Cour intérieure (au calme)</option>
+              <option>🏘 Quartier résidentiel</option>
+              <option>🌳 Quartier verdoyant</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label>Caractère ancien</label>
+            <select>
+              <option value="">— Non renseigné —</option>
+              <option selected>🏛 Moulures + parquet ancien</option>
+              <option>🔥 Cheminée décorative</option>
+              <option>🪟 Hauts plafonds (3 m)</option>
+              <option>🏰 Bâtisse de caractère</option>
+            </select>
+          </div>
+
+          <!-- SECTION 7 : Conditions location -->
+          <div class="section-title">💰 Conditions de location <span class="auto">AUTO + à compléter</span></div>
+          <div class="fg2">
+            <div class="fg"><label>Loyer HC</label><div class="val auto-filled">950 € / mois</div></div>
+            <div class="fg"><label>Charges</label><div class="val auto-filled">80 € / mois</div></div>
+          </div>
+          <div class="fg2">
+            <div class="fg"><label>Dépôt garantie</label><div class="val auto-filled">950 €</div></div>
+            <div class="fg"><label>Disponibilité</label><input type="date" value="2026-06-15"></div>
+          </div>
+          <div class="fg">
+            <label>Garanties acceptées</label>
+            <div class="equip-grid" style="grid-template-columns:1fr 1fr 1fr">
+              <label><input type="checkbox" checked> Caution solidaire</label>
+              <label><input type="checkbox" checked> Visale (Action Log.)</label>
+              <label><input type="checkbox"> GLI</label>
+              <label><input type="checkbox"> Garant personnel</label>
+            </div>
+          </div>
+
+          <!-- SECTION 8 : DPE -->
+          <div class="section-title">📊 Performance énergétique <span class="auto">AUTO</span></div>
+          <div class="fg2">
+            <div class="fg"><label>Classe DPE</label><div class="val auto-filled">C (95 kWh/m²/an)</div></div>
+            <div class="fg"><label>Classe GES</label><div class="val auto-filled">C (12 kg CO₂)</div></div>
+          </div>
+
+          <!-- Annotation -->
+          <div class="annotation">
+            <strong>💡 Bonne pratique :</strong> ne renseignez les champs « Mise en valeur » que s'ils sont vraiment valorisables. Laissez vide ce qui est neutre/négatif — l'annonce n'inventera rien.
+          </div>
+
+        </div>
+
+        <!-- ═══ RIGHT : PREVIEW PANE ═══ -->
+        <div class="preview-pane">
+
+          <!-- Switcher : Mode + Taille -->
+          <div class="switcher">
+            <div class="switcher-row">
+              <span class="switcher-label">Mode</span>
+              <button class="switcher-btn" onclick="setMode('factuel', this)">📋 Factuel</button>
+              <button class="switcher-btn act" onclick="setMode('evocateur', this)">✨ Évocateur</button>
+            </div>
+            <div class="switcher-row">
+              <span class="switcher-label">Taille</span>
+              <button class="switcher-btn" onclick="setSize('court', this)">📱 Court (~280c · Réseaux soc.)</button>
+              <button class="switcher-btn act" onclick="setSize('standard', this)">📰 Standard (~1500c · Sites annonces)</button>
+              <button class="switcher-btn" onclick="setSize('detaille', this)">📄 Détaillé (~3000c · Sites pros)</button>
+            </div>
+          </div>
+
+          <div class="preview-meta">
+            <span>👁 Aperçu en mode <strong>✨ Évocateur · Standard</strong></span>
+            <span>1 423 caractères · 247 mots · ≈ 12 sec de lecture</span>
+          </div>
+
+          <!-- MODE STANDARD ÉVOCATEUR (par défaut) -->
+          <div class="preview-mode act" id="mode-standard">
+            <div class="annonce">
+
+              <!-- Couverture -->
+              <div class="cover-photo">
+                <div class="cover-meta">
+                  <div class="ville">📍 Strasbourg 67000 — Centre / quartier Mésange</div>
+                  <div class="titre">✨ Coup de cœur — T3 lumineux 65 m² · Strasbourg centre</div>
+                  <div class="prix">1 030 € CC / mois</div>
+                </div>
+              </div>
+
+              <div class="annonce-body">
+
+                <!-- Bandeau mots-clés -->
+                <div class="chips">
+                  <span class="chip">☀️ Plein sud</span>
+                  <span class="chip">🌞 Très lumineux</span>
+                  <span class="chip">🛗 4ème avec ascenseur</span>
+                  <span class="chip">🌿 Balcon 8 m²</span>
+                  <span class="chip">🏛 Charme de l'ancien</span>
+                  <span class="chip">🤫 Rue calme</span>
+                  <span class="chip">🚗 Parking + cave</span>
+                </div>
+
+                <!-- LE BIEN -->
+                <div class="annonce-sect">
+                  <h3>🏠 Le bien</h3>
+                  <p>À deux pas de la Cathédrale de Strasbourg, ce <strong>T3 baigné de lumière</strong> de 65 m² vous séduira par son <strong>exposition plein sud</strong> et son <strong>balcon privatif de 8 m²</strong> au calme.</p>
+                  <p>Niché au 4ème étage avec ascenseur d'un immeuble de caractère (moulures et parquet ancien préservés), l'appartement déploie un séjour spacieux ouvert sur une cuisine américaine entièrement équipée (four, plaques induction, hotte, lave-vaisselle, micro-ondes). Deux chambres confortables, une salle de bain avec baignoire et douche italienne, WC séparé.</p>
+                </div>
+
+                <!-- LES ATOUTS -->
+                <div class="annonce-sect">
+                  <h3>✨ Les atouts</h3>
+                  <ul>
+                    <li>Exposition plein sud — lumière toute la journée</li>
+                    <li>Balcon privatif de 8 m² au calme</li>
+                    <li>4ème étage avec ascenseur, immeuble sécurisé (interphone, digicode)</li>
+                    <li>Cuisine américaine entièrement équipée (lave-vaisselle, hotte, micro-ondes)</li>
+                    <li>Salle de bain avec baignoire ET douche italienne, WC séparé</li>
+                    <li>Cave (n° 7) et box parking (n° 14) inclus</li>
+                    <li>Fibre optique installée</li>
+                    <li>Charme de l'ancien (moulures + parquet) avec confort moderne</li>
+                  </ul>
+                </div>
+
+                <!-- LE QUARTIER -->
+                <div class="annonce-sect">
+                  <h3>📍 Le quartier</h3>
+                  <p>Adresse de prestige dans le centre historique de Strasbourg, à quelques minutes à pied de la Cathédrale, de la Place Kléber et de la Petite France. Tous commerces de proximité dans la rue (boulangerie, primeur, fromagerie, restaurants). Tramway lignes A/B/C/D à 4 min à pied. Quartier résidentiel et vivant, sans être bruyant.</p>
+                </div>
+
+                <!-- DPE -->
+                <div class="dpe-banner">
+                  <span>📊 Diagnostic de Performance Énergétique</span>
+                  <span>Classe C · 95 kWh/m²/an</span>
+                </div>
+
+                <!-- PRATIQUE -->
+                <div class="annonce-sect">
+                  <h3>💰 Pratique</h3>
+                  <table class="pratique-table">
+                    <tr><td>Loyer hors charges</td><td>950 €</td></tr>
+                    <tr><td>Charges mensuelles</td><td>80 €</td></tr>
+                    <tr><td>Total mensuel</td><td>1 030 € CC</td></tr>
+                    <tr><td>Dépôt de garantie</td><td>950 €</td></tr>
+                    <tr><td>Disponibilité</td><td>15 juin 2026</td></tr>
+                    <tr><td>Garanties acceptées</td><td>Caution solidaire ou Visale</td></tr>
+                    <tr><td>Honoraires</td><td>Aucun (annonce directe propriétaire)</td></tr>
+                  </table>
+                </div>
+
+                <!-- Photos -->
+                <div class="annonce-sect">
+                  <h3>📷 Photos</h3>
+                  <div class="photo-gallery">
+                    <div class="photo-thumb p1">Séjour lumineux</div>
+                    <div class="photo-thumb p2">Cuisine équipée</div>
+                    <div class="photo-thumb p3">Balcon sud</div>
+                    <div class="photo-thumb p4">Chambre 1</div>
+                    <div class="photo-thumb p5">Salle de bain</div>
+                    <div class="photo-thumb p6">Vue extérieure</div>
+                  </div>
+                </div>
+
+                <!-- Disclosure légale -->
+                <div class="legal-disclosure">
+                  Mention légale : annonce diffusée par le propriétaire bailleur (annonce directe — aucun honoraire d'agence). Conformément à la loi Climat et Résilience, ce logement de classe C est conforme aux exigences de décence énergétique en vigueur en 2026.
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- MODE COURT (réseaux sociaux) -->
+          <div class="preview-mode" id="mode-court">
+            <div class="short-card">
+              <div class="short-title">✨ T3 65m² Strasbourg centre · Plein sud · Balcon</div>
+              <div class="short-body">
+                Coup de cœur garanti pour ce T3 de 65 m² au 4ème avec ascenseur, plein sud avec balcon 8 m², cuisine équipée, charme de l'ancien (moulures + parquet). Cave + parking inclus. 1 030 € CC. Libre le 15/06. Fibre. DPE C.
+              </div>
+              <div class="char-counter">274 / 280 caractères</div>
+              <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">
+                <span class="badge gris">Twitter/X</span>
+                <span class="badge gris">Facebook Marketplace</span>
+                <span class="badge gris">WhatsApp / SMS</span>
+                <span class="badge gris">LinkedIn</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MODE DETAILLE -->
+          <div class="preview-mode" id="mode-detaille">
+            <div class="annonce">
+              <div class="cover-photo">
+                <div class="cover-meta">
+                  <div class="ville">📍 Strasbourg 67000 — Centre / quartier Mésange</div>
+                  <div class="titre">✨ Appartement T3 de caractère · 65 m² · plein sud · centre Strasbourg</div>
+                  <div class="prix">1 030 € CC / mois</div>
+                </div>
+              </div>
+              <div class="annonce-body">
+                <div style="font-style:italic;font-size:12px;color:var(--t2);padding:8px;background:var(--sur2);border-radius:var(--r);margin-bottom:14px">
+                  💡 Mode <strong>détaillé</strong> (3 000 c.) : description pièce par pièce, contexte quartier enrichi, points d'intérêt, transports, écoles. Optimal pour SeLoger, PAP, Logic-Immo, Studapart.
+                </div>
+                <p style="font-size:13px;color:var(--t2)">[Annonce identique au mode Standard + sections étendues : description pièce par pièce avec dimensions, liste exhaustive des écoles/commerces/transports à 5/10/15 min à pied, historique de l'immeuble, profil locataire idéal, contact propriétaire détaillé...]</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- CHECKLIST anti-mensonge -->
+          <div class="checklist">
+            <label>
+              <input type="checkbox">
+              <span><strong>Je certifie l'exactitude</strong> des informations renseignées ci-dessus. Je m'engage à ne pas exagérer ni omettre de défaut majeur connu (loi Hoguet n° 70-9 du 2 janv. 1970 + art. L. 121-1 Code de la consommation sur les pratiques commerciales trompeuses). Une annonce mensongère peut entraîner litige et invalidation du bail.</span>
+            </label>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <div style="font-size:12px;color:var(--t2)">
+        💾 Champs saisis enregistrés sur le bien — réutilisables pour vos futures annonces du même logement
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn">📋 Copier le texte</button>
+        <button class="btn">📷 Copier avec photos</button>
+        <button class="btn">📄 Télécharger PDF</button>
+        <button class="btn">📘 Exporter Word</button>
+        <button class="btn primary bg">✉ Envoyer par email</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="annotation" style="margin-top: 20px">
+    <strong>📌 Notes sur cet exemple :</strong><br>
+    • <strong>Sections vertes</strong> = données déjà en DB ImmoTrack (auto-remplies, l'utilisateur ne tape rien).<br>
+    • <strong>Section orange « Mise en valeur »</strong> = nouveaux champs optionnels (exposition, vue, luminosité, cadre, caractère ancien). L'utilisateur ne renseigne QUE ce qui est valorisable. Les défauts (sombre, rue passante, vis-à-vis) ne sont jamais dans les énumérations → impossible de les exposer.<br>
+    • <strong>Le mode Évocateur</strong> n'invente rien : il sélectionne dans une banque de phrases prête en fonction des données présentes. Si un champ est vide, aucun adjectif n'est utilisé pour ce critère.<br>
+    • <strong>Le DPE</strong> est honnêtement affiché dans un bandeau coloré (vert→rouge selon classe). Si F ou G, mention obligatoire « interdiction de location au 1er janvier 2028 ».<br>
+    • <strong>La case anti-mensonge</strong> en bas est obligatoire avant tout export (protection juridique loi Hoguet + L. 121-1 Code conso).
+  </div>
+
+</div>
+
+<script>
+function setMode(mode, btn) {
+  const row = btn.parentElement;
+  row.querySelectorAll('.switcher-btn').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+}
+function setSize(size, btn) {
+  const row = btn.parentElement;
+  row.querySelectorAll('.switcher-btn').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  document.querySelectorAll('.preview-mode').forEach(m => m.classList.remove('act'));
+  document.getElementById('mode-' + size).classList.add('act');
+}
+</script>
+
+</body>
+</html>
