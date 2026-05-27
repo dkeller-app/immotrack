@@ -1,6 +1,6 @@
 # ARCHI-FICHES-UNIFIED — Audit + split définitif des fiches Immeuble / Bien / Bail / Locataire
 
-**Status** : ⬜ Audit livré 2026-05-26 · décisions à arbitrer · **Prio** : P1 · **Taille** : XL (~15-20h cumulés sur 3-4 sessions dédiées)
+**Status** : 🔄 **Session 1 CDC livrée 2026-05-27** · 12 décisions arbitrées (toutes recos validées) · Session 2 prête à démarrer · **Prio** : P1 · **Taille** : XL (~15-20h cumulés sur 3-4 sessions dédiées)
 **Détecté** : 2026-05-25 (BUG-CRITIQUES BUG 4 — « bcp d'infos redondantes entre immeuble et bien »)
 **Remplace / consolide** : `ARCHI-IMM-LOG-DEDUP.md` · `ARCHI-DB-DOUBLONS.md` (Phase 4b restante) · `NAV-LOGEMENT-BAIL-CLARIF.md`
 
@@ -264,27 +264,27 @@ Décision : **garder le legacy garant tel quel** (peu de doublon réel, code sta
 
 ### Bloc A — Immeuble ↔ Bien (3 décisions)
 
-- [ ] **A1** : `imm.adr` complète (rue + CP + ville) **OU** `imm.adr` rue + `imm.codePostal` + `imm.ville` séparés ? → **recommandé : séparés** (parsing PDF/lettres + autoCompletion adresses)
-- [ ] **A2** : maintenir `log.adr` comme override (cas rare bâtiment avec entrées multiples) ou suppression brute ? → **recommandé : suppression**, le bien porte juste `etage` + `numApt` éventuel
-- [ ] **A3** : où vivent les **équipements communs** (ascenseur, gardien, interphone, digicode) ? → **immeuble** (logique : ils servent tous les lots)
+- [x] **A1** ✅ **VERROUILLÉ 2026-05-27** : 3 champs séparés `imm.adr` (rue) + `imm.codePostal` + `imm.ville`. Migration auto au boot split l'adresse existante.
+- [x] **A2** ✅ **VERROUILLÉ 2026-05-27** : Suppression brute. Le bien porte uniquement `etage` + `numApt` éventuel. Pas d'override.
+- [x] **A3** ✅ **VERROUILLÉ 2026-05-27** : Sur l'immeuble (`imm.equipementsCommuns{}`).
 
 ### Bloc B — Bien ↔ Bail (3 décisions)
 
-- [ ] **B1** : confirmer suppression définitive Phase 4 des **9 champs legacy log → bail courant** (`log.locataire/tel/mail/debut/fin/hc/ch/dg/irl`) ? → **recommandé : OUI**, helpers `getCurrentXxx` opérationnels depuis v14.14
-- [ ] **B2** : confirmer suppression définitive Phase 4 des **~30 champs legacy bail → bien** (`bail.adrBien/ftype/etage/surf/dpe/ges/erp/…`) ? → **recommandé : OUI**, `_readLogForBail` opérationnel depuis v14.17.2 (palliatif `_syncLogToBail` à retirer)
-- [ ] **B3** : déplacer les **4 équipements bail-only** (`equipCuisine/equipSanitaires/techInfo/depensesEnergie`) vers `log.equipements{}` ? → **recommandé : OUI**
+- [x] **B1** ✅ **VERROUILLÉ 2026-05-27** : OUI suppression définitive des 9 champs legacy log → bail courant.
+- [x] **B2** ✅ **VERROUILLÉ 2026-05-27** : OUI suppression définitive des ~30 champs legacy bail → bien.
+- [x] **B3** ✅ **VERROUILLÉ 2026-05-27** : OUI déplacement des 4 équipements bail-only vers `log.equipements{}`.
 
 ### Bloc C — UX navigation (4 décisions, cf NAV-LOGEMENT-BAIL-CLARIF)
 
-- [ ] **C1** : sidebar = **Bien** (vue par défaut = logements groupés par immeuble) + **Locataires** (vue transversale échéances + candidats + comm) + **EDL** (conservé) ? → **Option B validée par user 2026-05-17**
-- [ ] **C2** : modale « Modifier bien » avec **encart « 🏛 Hérité de l'immeuble » en lecture seule** + lien « Modifier dans l'immeuble » ? → **recommandé : OUI**
-- [ ] **C3** : wizard bail tab « Le bien » déjà en read-only (Phase 4a v14.17) → **conserver** ?
-- [ ] **C4** : suppression de l'encart legacy « Bail courant » dans modale logement Phase 3a (`bail.hc/ch/dg/locataire`) maintenant que `getCurrentXxx` existe ? → **recommandé : OUI**
-- [ ] **C5** : page Locataires — tris disponibles + affichage **groupé par immeuble** (défaut, comme page Bien) ou **liste plate** (alphabétique) ? → **proposé : groupé par défaut, toggle Affichage « Groupé / Liste plate »**, persisté localStorage. Tris : Immeuble (défaut) / Alphabétique A→Z / Échéance bail / Montant loyer. Retour user 2026-05-26.
+- [x] **C1** ✅ **VERROUILLÉ 2026-05-27** : OUI Option B (déjà validée 2026-05-17).
+- [x] **C2** ✅ **VERROUILLÉ 2026-05-27** : OUI encart « 🏛 Hérité de l'immeuble » lecture seule + lien Modifier.
+- [x] **C3** ✅ **VERROUILLÉ 2026-05-27** : OUI conserver tab « Le bien » wizard bail en lecture seule.
+- [x] **C4** ✅ **VERROUILLÉ 2026-05-27** : OUI supprimer encart legacy « Bail courant » dans modale logement.
+- [x] **C5** ✅ **VERROUILLÉ 2026-05-27** : Groupé par immeuble par défaut + toggle. Tris : Immeuble / Alphabétique / Échéance / Loyer. Persistance localStorage.
 
 ### Bloc D — Règle UX transverse (1 décision)
 
-- [ ] **D1** : **« choix prédéfini + ajout libre toujours »** — partout où on propose des choix (checkboxes, dropdowns, équipements, catégories…), il DOIT y avoir une zone d'ajout manuel libre en complément. Retour user 2026-05-26 : « quand tu mets des choix (type équipements communs) il faut toujours pouvoir ajouter manuellement ».
+- [x] **D1** ✅ **VERROUILLÉ 2026-05-27** (déjà validé 2026-05-26) : OUI « choix prédéfini + ajout libre toujours » appliqué systématiquement. Persistance via `customs[]`.
   - **Sites concernés** (audit à faire) : équipements communs immeuble, chauffage bien/bail, ECS, types de chauffage EDL, motifs fin de bail, catégories mouvements, technologies (fibre/ADSL), équipements sanitaires, etc.
   - **Pattern UI standardisé** : bloc checkboxes/options + sous le bloc → input texte « + Autre (préciser) » + bouton « + Ajouter » → l'ajout devient un badge cliquable (✕ pour supprimer) accumulé en dessous.
   - **Persistance** : chaque entité stocke une clé `customXxx[]` parallèle aux flags booléens (ex : `imm.equipementsCommuns.customs = ['Toit-terrasse', 'Local poussettes']`).
@@ -402,6 +402,31 @@ Décision : **garder le legacy garant tel quel** (peu de doublon réel, code sta
 ---
 
 ## 10. Journal
+
+### 2026-05-27 — Session 1 CDC verrouillée (12 décisions, toutes recos validées)
+
+L'utilisateur a répondu « on fait dans l'ordre indiqué » → AskUserQuestion en 4 lots (A / B / C / D+C5). **Toutes les recommandations validées en bloc.**
+
+| Bloc | Décision | Choix verrouillé |
+|---|---|---|
+| **A1** | Adresse immeuble : 1 champ unique vs 3 séparés | **3 champs séparés** (rue / CP / ville). Migration auto : split de `imm.adr` existant au boot. |
+| **A2** | Bien peut-il override l'adresse de l'immeuble ? | **Suppression brute**. Le bien porte uniquement `etage` + `numApt` éventuel. Cas exceptionnel des bâtiments à 2 entrées → créer 2 immeubles distincts. |
+| **A3** | Où vivent ascenseur, gardien, interphone, digicode, vidéosurveillance ? | **Sur l'immeuble** (`imm.equipementsCommuns{}`). Déjà fait pour LOG-ANNONCE v15.211 → cohérent. |
+| **B1** | Supprimer les 9 champs legacy log → bail courant ? | **OUI** : `log.locataire/tel/mail/debut/fin/hc/ch/dg/irl` supprimés. Helpers `getCurrentTenant(ref)` / `getCurrentRent(ref)` / `getCurrentBailFor(ref)` opérationnels depuis v14.14. ~79 sites de lecture à migrer. |
+| **B2** | Supprimer les ~30 champs legacy bail → bien ? | **OUI** : `bail.adrBien/etage/surf/npp/dpe/ges/erp/chauffXxx/ecsXxx/equipXxx` supprimés. Helper `_readLogForBail(bail, log)` opérationnel depuis v14.17.2. `bailSnapshot` fige les bails signés (immutabilité légale). |
+| **B3** | Déplacer les 4 équipements `equipCuisine/equipSanitaires/techInfo/depensesEnergie` du bail vers le bien ? | **OUI** : créer `log.equipements{cuisine, sanitaires, techInfo, depensesAn}`. Le bail les lit via `_readLogForBail`. Partiellement déjà fait pour LOG-ANNONCE Étape 2 (`log.equipements.cuisine/sanitaires/technologies`). |
+| **C1** | Sidebar : Bien (groupés par immeuble) + Locataires + EDL ? | **OUI Option B** (déjà validée 2026-05-17). Sidebar finale = Biens / Locataires / EDL / Comptabilité / Documents. |
+| **C2** | Modale Bien : encart « 🏛 Hérité de l'immeuble » lecture seule + lien « Modifier l'immeuble » ? | **OUI**. Section visuelle grisée en haut : adresse, année, copro/mono, équipements communs. Saisie unique respectée. |
+| **C3** | Wizard bail : conserver tab « Le bien » en lecture seule ? | **OUI** (déjà comme ça depuis Phase 4a v14.17). |
+| **C4** | Supprimer l'encart legacy « Bail courant » dans la modale logement ? | **OUI**. Les helpers `getCurrentXxx` font le travail dans tous les rendus. |
+| **C5** | Page Locataires : affichage par défaut et tris ? | **Groupé par immeuble par défaut + toggle** « Groupé / Liste plate » persisté localStorage. Tris : Immeuble (défaut) / Alphabétique A→Z / Échéance bail / Montant loyer. |
+| **D1** | Règle UX « choix prédéfini + ajout libre toujours » appliquée systématiquement ? | **OUI**. Sites concernés ici : équipements communs immeuble (A3), chauffage, ECS, technologies, motifs fin de bail, catégories mouvements. Persistance via `customs[]` parallèle aux flags booléens. |
+
+**Cohérence avec livraisons récentes** : LOG-ANNONCE v15.207-211 a déjà créé `log.equipements{cuisine,sanitaires,technologies,customs:[]}` + `imm.equipementsCommuns{customs:[]}` (B3 + A3 + D1 déjà partiellement appliqués). Session 2 va capitaliser dessus.
+
+**Prochaine étape** : Session 2 Refonte Immeuble ↔ Bien (~4-6h, 2 commits). Schéma immeuble enrichi (`codePostal`, `ville`, `syndic`, `nbLots`) + helpers `_logResolveAddress` / `_logResolvePeriodeConstr` / `_logResolveRegimeJuridique` + migration adresse auto + refonte modale Bien (encart hérité).
+
+### 2026-05-26 — Audit initial + mockup
 
 - 2026-05-26 : **Audit complet livré** (4 entités × 130+ champs catalogués). Inventaire exhaustif des doublons : 3 Immeuble↔Bien + ~35 Bien↔Bail + 9 Bien↔Bail-courant + quelques garant. Schéma cible défini. Plan 4 sessions / ~15-20h. CDC user requis (12 décisions A1-A3 / B1-B3 / C1-C4). Englobe 3 sujets antérieurs : ARCHI-IMM-LOG-DEDUP + ARCHI-DB-DOUBLONS Phase 4b + NAV-LOGEMENT-BAIL-CLARIF.
 - 2026-05-26 : **Mockup HTML interactif livré** (`mockups/ARCHI-FICHES-UNIFIED/mockup.html`) — 6 vues switchables (schéma général, sidebar refondue, modale Immeuble enrichie, modale Bien allégée, page Bien groupée par immeuble, page Locataires). Standalone, responsive, design system ImmoTrack.

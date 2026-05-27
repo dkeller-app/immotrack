@@ -429,27 +429,28 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 >
 > **Différenciant marché** : storytelling local templating (sans IA = aucun coût, aucun risque RGPD), banques de phrases conditionnelles seedées par PRNG Mulberry32, anti-mensonge strict (énumérations de valeurs positives uniquement). BYOK Pro Connect (Claude/Mistral) reporté V2 sujet IA-V2.
 
-### ARCHI-FICHES-UNIFIED 📋 — Audit complet + proposition de split (2026-05-26)
+### ARCHI-FICHES-UNIFIED 📋 — Session 1 CDC verrouillée (2026-05-27)
 > **Sujet** : `ARCHI-FICHES-UNIFIED.md` — consolide ARCHI-IMM-LOG-DEDUP + ARCHI-DB-DOUBLONS (Phase 4b) + NAV-LOGEMENT-BAIL-CLARIF en 1 chantier transverse.
 >
-> **Audit livré** : inventaire exhaustif des 4 entités (130+ champs catalogués) — Immeuble 8-11 / Bien 52 / Bail 68 / Locataire 8-9.
+> **Session 1 livrée 2026-05-27** : **12 décisions verrouillées en bloc** (toutes recos validées) :
+> - **Bloc A** (Immeuble↔Bien) : A1=3 champs séparés rue/CP/ville · A2=suppression brute log.adr · A3=équipements communs sur immeuble
+> - **Bloc B** (Bien↔Bail) : B1=OUI suppression 9 champs legacy log · B2=OUI suppression ~30 champs legacy bail · B3=OUI déplacer 4 équipements bail→bien
+> - **Bloc C** (UX) : C1=OUI Option B sidebar (Biens/Locataires/EDL) · C2=OUI encart « 🏛 Hérité » modale Bien · C3=OUI conserver wizard bail read-only · C4=OUI supprimer encart legacy « Bail courant » · C5=groupé par immeuble + toggle + 4 tris
+> - **Bloc D** (UX transverse) : D1=OUI « choix prédéfini + ajout libre toujours » systématique (déjà validé 2026-05-26)
 >
-> **Doublons identifiés** :
-> - **3 doublons Immeuble↔Bien** (adresse, périodeConstr, régimeJuridique — cf BUG-CRITIQUES BUG 4)
-> - **~30 doublons Bien↔Bail** (legacy v13, palliatif `_syncLogToBail` v14.16 — ARCHI-DB-DOUBLONS Phase 4b restante)
-> - **9 doublons Bien↔Bail courant** (locataire/tel/mail/dates/loyer/DG/IRL — helpers `getCurrentXxx` opérationnels v14.14)
+> **Cohérence livraisons récentes** : LOG-ANNONCE v15.207-211 a déjà créé `log.equipements{cuisine,sanitaires,technologies,customs:[]}` + `imm.equipementsCommuns{customs:[]}` → A3 + B3 + D1 partiellement appliqués déjà.
 >
-> **Schéma cible défini** : Immeuble = bâtiment (adresse, période, régime jur., équipements communs) · Bien = lot (étage, surface, DPE/risques, équipements internes) · Bail = contrat (parties, conditions financières, signatures, snapshot) · Locataire = personne (identité + contact).
+> **Audit initial 2026-05-26** : inventaire exhaustif des 4 entités (130+ champs catalogués) — Immeuble 8-11 / Bien 52 / Bail 68 / Locataire 8-9. **Doublons** : 3 Immeuble↔Bien + ~30 Bien↔Bail + 9 Bien↔Bail-courant.
 >
 > **Plan 4 sessions (~15-20h)** :
-> - **Session 1** (~1h) CDC user — 12 décisions A1-A3/B1-B3/C1-C4
-> - **Session 2** (~4-6h) Refonte Immeuble↔Bien (helpers _logResolveXxx + migration adresse)
-> - **Session 3** (~6-8h) Cleanup ARCHI-DB-DOUBLONS Phase 4b (149 sites de lecture migrés + 39 champs supprimés)
-> - **Session 4** (~3-4h) UX sidebar Option B (Bien/Locataires/EDL) + mockup-first
+> - ✅ **Session 1** (~1h) CDC user — 12 décisions verrouillées
+> - 🔜 **Session 2** (~4-6h) Refonte Immeuble↔Bien (schéma enrichi + helpers _logResolveXxx + migration adresse + modale Bien encart hérité)
+> - ⬜ **Session 3** (~6-8h) Cleanup ARCHI-DB-DOUBLONS Phase 4b (149 sites de lecture migrés + 39 champs supprimés)
+> - ⬜ **Session 4** (~3-4h) UX sidebar Option B + mockup-first pages Bien/Locataires
 >
 > **Gain attendu** : ~40 champs doublons supprimés (~10-15% payload Drive en moins), saisie unique, 0 désync, UX claire « mur / personne / contrat ».
 >
-> **Prochaine étape** : ⏸️ STOP user pour valider les 12 décisions du CDC.
+> **Prochaine étape** : 🔜 **Session 2** prête à démarrer.
 
 ### BAIL-TYPES Phase B ✅ — Bail meublé complet (v15.191→v15.195, 2026-05-26)
 > **Sujet** : `BAIL-TYPES.md` — ajout 6 types de bail (nu/meublé/étudiant/mobilité/garage/autre) avec rétrocompat totale.
