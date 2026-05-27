@@ -721,3 +721,93 @@ describe('Cas multi-villes (couverture diversifiée)', () => {
     expect(r.titre.toLowerCase()).toMatch(/studio|24m²|meublé/);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// v15.211 — Post-audit code-reviewer (F2/F3/F4)
+// ═══════════════════════════════════════════════════════════════
+describe('Audit v15.211 — F2 format SMS sans "balcon m²"', () => {
+  it('SMS avec balcon SANS surface → "balcon" sans "m²" résiduel', () => {
+    const log = makeLog({
+      exterieurs: { balcon: { present: true }, terrasse: { present: false }, jardin_privatif: { present: false } }
+    });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
+    expect(r.body).toContain('balcon');
+    expect(r.body).not.toMatch(/balcon\s+m²/);
+  });
+
+  it('SMS avec jardin SANS surface → "jardin" sans "m²" résiduel', () => {
+    const log = makeLog({
+      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: true } }
+    });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
+    expect(r.body).toContain('jardin');
+    expect(r.body).not.toMatch(/jardin\s+m²/);
+  });
+
+  it('SMS avec terrasse SANS surface → "terrasse" sans "m²" résiduel', () => {
+    const log = makeLog({
+      exterieurs: { balcon: { present: false }, terrasse: { present: true }, jardin_privatif: { present: false } }
+    });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
+    expect(r.body).toContain('terrasse');
+    expect(r.body).not.toMatch(/terrasse\s+m²/);
+  });
+
+  it('SMS avec balcon AVEC surface → "balcon 8 m²" propre', () => {
+    const log = makeLog({
+      exterieurs: { balcon: { present: true, surface: 8 }, terrasse: { present: false }, jardin_privatif: { present: false } }
+    });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
+    expect(r.body).toMatch(/balcon\s+8\s+m²/);
+  });
+
+  it('SMS sans aucun extérieur → ne mentionne ni balcon ni terrasse ni jardin', () => {
+    const log = makeLog({
+      exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: false } }
+    });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { format: 'sms' });
+    expect(r.body).not.toMatch(/balcon|terrasse|jardin/i);
+  });
+});
+
+describe('Audit v15.211 — F3 retrait "loi Carrez" pour location', () => {
+  it('factuel/detaille ne mentionne JAMAIS "loi Carrez" (Carrez = vente copro)', () => {
+    const log = makeLog({ typeUsage: 'habitation-nue' });
+    // On force ton=factuel + plusieurs seeds pour couvrir les 3 templates factuel
+    for (let s = 0; s < 30; s++) {
+      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
+      expect(r.body).not.toMatch(/loi\s+Carrez/i);
+    }
+  });
+
+  it('factuel meublé peut mentionner "loi Boutin" (art. 78 loi 2009-323)', () => {
+    const log = makeLog({ typeUsage: 'habitation-meuble' });
+    let trouve = false;
+    for (let s = 0; s < 30 && !trouve; s++) {
+      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
+      if (/loi\s+Boutin/i.test(r.body)) trouve = true;
+    }
+    expect(trouve).toBe(true);
+  });
+
+  it('factuel mentionne "surface habitable" sans qualifier juridique trompeur', () => {
+    const log = makeLog({ typeUsage: 'habitation-nue' });
+    let trouve = false;
+    for (let s = 0; s < 30 && !trouve; s++) {
+      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
+      if (/surface\s+habitable/i.test(r.body)) trouve = true;
+    }
+    expect(trouve).toBe(true);
+  });
+});
+
+describe('Audit v15.211 — F4 étage absent ne produit pas "situé au  d\'un immeuble"', () => {
+  it('factuel sans étage → pas de "situé au  d\'un" (double espace) ni "situé au ,"', () => {
+    const log = makeLog({ etage: '' });
+    for (let s = 0; s < 30; s++) {
+      const r = genererAnnonce(log, makeImm(), makeBail(), { ton: 'factuel', format: 'detaille', seed: s });
+      expect(r.body).not.toMatch(/situé au\s+d'un/i);
+      expect(r.body).not.toMatch(/situé au\s+,/i);
+    }
+  });
+});

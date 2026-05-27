@@ -219,10 +219,32 @@ export const BANQUE_ACCROCHES = Object.freeze({
       tpl: (l, i) => `Bien performant, conscience tranquille. Avec son DPE classe ${dpeClasse(l)}${l.dpe?.valConv ? ` (${l.dpe.valConv} kWh/m²/an)` : ''}, ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² conjugue confort moderne et factures maîtrisées. Un choix pensé pour aujourd'hui ET pour demain.` },
   ],
   factuel: [
-    { si: () => true, tpl: (l, i) => `Appartement de type ${l.type} d'une surface habitable de ${l.surf} m² (loi Carrez) composé de ${l.npp} pièces principales, situé au ${etageLabel(l.etage)}${i.equipementsCommuns?.ascenseur ? ' (avec ascenseur)' : ''} d'un immeuble en ${(i.regimeJuridique || 'monopropriété').toLowerCase()}, ${i.codePostal} ${i.ville}.` },
+    // v15.211 F3+F4 : "loi Carrez" supprimée (Carrez = vente copro, pas location)
+    // — pour location nue → surface habitable (R.156-1 CCH), meublé → loi Boutin
+    // (art. 78 loi 2009-323) ; F4 : `situé au ${etageLabel(l.etage)}` ne génère
+    // plus "situé au  d'un immeuble" si étage absent.
+    { si: () => true, tpl: (l, i) => {
+        const etL = etageLabel(l.etage);
+        const meuble = l.typeUsage === 'habitation-meuble';
+        const etTxt = etL ? `, situé au ${etL}${i.equipementsCommuns?.ascenseur ? ' (avec ascenseur)' : ''}` : (i.equipementsCommuns?.ascenseur ? ' (immeuble avec ascenseur)' : '');
+        return `${meuble ? 'Logement meublé' : 'Appartement'} de type ${l.type} d'une surface habitable de ${l.surf} m²${meuble ? ' (loi Boutin)' : ''} composé de ${l.npp} pièces principales${etTxt}, dans un immeuble en ${(i.regimeJuridique || 'monopropriété').toLowerCase()}, ${i.codePostal || ''} ${i.ville || ''}.`.replace(/\s+/g, ' ').trim();
+      } },
     { si: (l) => l.exterieurs?.balcon?.present || l.exterieurs?.terrasse?.present || l.exterieurs?.jardin_privatif?.present,
-      tpl: (l, i) => `${l.type} ${l.surf} m², ${l.npp} pièces, ${etageLabel(l.etage)}, exposition ${MAP_EXPO[l.presentation?.exposition] || 'à préciser'}. Avec ${[l.exterieurs.balcon?.present && `balcon ${l.exterieurs.balcon.surface || ''} m²`, l.exterieurs.terrasse?.present && `terrasse ${l.exterieurs.terrasse.surface || ''} m²`, l.exterieurs.jardin_privatif?.present && `jardin ${l.exterieurs.jardin_privatif.surface || ''} m²`].filter(Boolean).join(' et ')}.` },
-    { si: () => true, tpl: (l, i) => `${l.type} de ${l.surf} m², ${l.npp} pièces principales, ${etageLabel(l.etage)}, situé à ${i.adr}, ${i.codePostal} ${i.ville}.` },
+      tpl: (l, i) => {
+        const etL = etageLabel(l.etage);
+        // v15.211 F2/F4 : utilise surfTxt() pour éviter "balcon  m²" si surface vide
+        const exts = [
+          l.exterieurs.balcon?.present && `balcon${surfTxt(l.exterieurs.balcon)}`,
+          l.exterieurs.terrasse?.present && `terrasse${surfTxt(l.exterieurs.terrasse)}`,
+          l.exterieurs.jardin_privatif?.present && `jardin${surfTxt(l.exterieurs.jardin_privatif)}`,
+        ].filter(Boolean).join(' et ');
+        const expo = MAP_EXPO[l.presentation?.exposition];
+        return `${l.type} ${l.surf} m², ${l.npp} pièces${etL ? ', ' + etL : ''}${expo ? `, exposition ${expo}` : ''}. Avec ${exts}.`;
+      } },
+    { si: () => true, tpl: (l, i) => {
+        const etL = etageLabel(l.etage);
+        return `${l.type} de ${l.surf} m², ${l.npp} pièces principales${etL ? ', ' + etL : ''}, situé à ${i.adr || ''}, ${i.codePostal || ''} ${i.ville || ''}.`.replace(/\s+/g, ' ').trim();
+      } },
   ],
   convivial: [
     { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `Une jolie maison pleine de promesses vous attend à ${i.ville} ! ${l.surf} m² baignés de soleil, un jardin${surfTxt(l.exterieurs.jardin_privatif)} pour les enfants et les week-ends entre amis, et tout le confort dont vous rêvez.` },
@@ -445,20 +467,32 @@ export function genererAnnonce(log, imm, bail, opts = {}) {
 
   // === MODE SMS court (~280c) ===
   if (format === 'sms') {
-    const parts = [`📍 ${log.type || 'Bien'} ${log.surf || ''}m² ${imm.ville || ''}`];
+    // v15.211 F2 : `balcon ${surface || ''}m²` produisait "balcon m²" si surface absente.
+    // → utilise surfTxt() qui retourne "" ou " XX m²" (defensive).
+    const parts = [`📍 ${log.type || 'Bien'} ${log.surf || ''}m² ${imm.ville || ''}`.replace(/\s+/g, ' ').trim()];
     if (log.presentation?.exposition === 'sud') parts.push('plein sud');
-    if (log.exterieurs?.balcon?.present) parts.push(`balcon ${log.exterieurs.balcon.surface || ''}m²`);
-    if (log.exterieurs?.jardin_privatif?.present) parts.push(`jardin ${log.exterieurs.jardin_privatif.surface || ''}m²`);
-    if (log.exterieurs?.terrasse?.present) parts.push(`terrasse ${log.exterieurs.terrasse.surface || ''}m²`);
+    if (log.exterieurs?.balcon?.present) {
+      const s = surfTxt(log.exterieurs.balcon, false);
+      parts.push(s ? `balcon ${s}` : 'balcon');
+    }
+    if (log.exterieurs?.jardin_privatif?.present) {
+      const s = surfTxt(log.exterieurs.jardin_privatif, false);
+      parts.push(s ? `jardin ${s}` : 'jardin');
+    }
+    if (log.exterieurs?.terrasse?.present) {
+      const s = surfTxt(log.exterieurs.terrasse, false);
+      parts.push(s ? `terrasse ${s}` : 'terrasse');
+    }
     if (log.equipements?.cuisine?.equipee) parts.push('cuisine équipée');
     if (log.presentation?.caractere_ancien) parts.push("charme ancien");
     if (log.annexes?.parking?.present) parts.push('parking');
     parts.push(`${total}€ CC`);
     if (log.locationInfo?.disponibilite) parts.push(`libre ${formaterDateFr(log.locationInfo.disponibilite)}`);
     if (log.dpe?.classe) parts.push(`DPE ${log.dpe.classe}`);
+    const body = parts.join(' · ');
     return {
-      titre, body: parts.join(' · '),
-      stats: { caracteres: parts.join(' · ').length, mots: parts.join(' · ').split(/\s+/).length, titreLen: titre.length },
+      titre, body,
+      stats: { caracteres: body.length, mots: body.split(/\s+/).length, titreLen: titre.length },
       format: 'sms', ton
     };
   }
