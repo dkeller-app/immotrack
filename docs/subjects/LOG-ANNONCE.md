@@ -1,10 +1,38 @@
 # LOG-ANNONCE — Bouton "Générer annonce" pour logements vacants (mode "qui fait rêver")
 
-**Status** : ✅ **Livré v15.207-210 (2026-05-27)** · **Prio** : P2 · **Taille réelle** : ~6h (5 étapes en une session)
+**Status** : ✅ **Livré v15.207-211 (2026-05-27)** post-audit · **Prio** : P2 · **Taille réelle** : ~8h (5 étapes + audit + 6 fixes)
 **Détecté** : 2026-05-01 · **Enrichi** : 2026-05-15 (mode Leboncoin évocateur) · **Livré** : 2026-05-27
 **Lié à** : LOG-PHOTOS · BIZPLAN (différenciant pour propriétaires solo) · LEGAL-DPE-INTERDICTION-LOCATION (mention DPE F/G calendrier) · IA-V2 (BYOK Pro Connect reporté V2)
 
 ## Journal d'avancement
+
+### 2026-05-27 — Post-audit code-reviewer + 6 fixes P0/P1 (v15.211)
+
+Audit code-reviewer indépendant lancé immédiatement après v15.210. Verdict initial : **« OK avec réserves majeures »** — 6 findings P0/P1 et 11 P2/P3. Traitement intégral des P0/P1 dans v15.211.
+
+| # | Sévérité | Avant | Après |
+|---|---|---|---|
+| **F1** | P0 | Mirror IIFE copié-collé manuellement : 8 variantes d'accroches manquantes + description haut-gamme amputée d'une phrase entière (segment « salle d'eau »). Les 103 tests verts couvraient l'ES, pas l'IIFE servie au navigateur. | Nouveau script `tools/sync-annonce-global-mirror.mjs` qui régénère mécaniquement le mirror depuis l'ES. Sanity check intégré (33 titres + 21 accroches sync à l'identique). Commentaire `⚠️ NE PAS ÉDITER À LA MAIN` en tête. |
+| **F2** | P0 | Format SMS produisait `"balcon m²"` / `"jardin m²"` / `"terrasse m²"` si surface absente (concat `${surface || ''}m²`). | Utilise `surfTxt()` defensive helper. +5 tests SMS pathologiques (balcon sans surface, avec surface, aucun extérieur, etc.). |
+| **F3** | P1 | `factuel[0]` mentionnait « surface habitable de X m² (loi Carrez) ». Carrez = vente copro (art. 46 loi 65-557), erroné pour location. | Pour nue : « surface habitable » seul (R.156-1 CCH). Pour meublé : « surface habitable (loi Boutin) » (art. 78 loi 2009-323). +3 tests. |
+| **F4** | P1 | `situé au ${etageLabel(l.etage)} d'un immeuble` produisait « situé au  d'un immeuble » (double espace + phrase cassée) si étage absent. Affectait factuel[0], [1] et [2]. | Trois templates calculent `etageLabel` d'abord, omettent le segment si vide, `replace(/\s+/g, ' ').trim()` en garde-fou. +1 test. |
+| **F5** | P1 | Aucun avertissement DPE F/G/E. Loi Climat 2021-1104 : G interdit depuis 01/01/2025, F dès 01/01/2028, E dès 01/01/2034. Contradiction avec la promesse anti-mensonge. | Nouveau bandeau `#an-dpe-warn` dans modale + fonction `_annonceShowDpeWarn()` appelée à chaque `_annonceRegen()`. Rouge G interdit / orange F 2028 / bleu E 2034 avec citations légales. |
+| **F6** | P1 | Bouton « 📢 Créer une annonce » visible aussi sur logements avec bail actif (`!isArchived` seul). | Condition : `!isArchived && !_bienActiveBail(ref)`. Tooltip mis à jour. |
+
+**Findings P2/P3 reportés** (à traiter au prochain pass / V1.x) :
+- F7 ordre lexicographique DPE (`<= 'B'`) → utiliser whitelist
+- F8 `setSeed(0)` retombe sur 1 (cohérent ES⇄IIFE mais piège)
+- F9 200l inline `_logp*`/`_annonce*` non testées → extraire en helpers ES
+- F10 modale `ov-annonce` sans focus trap / Escape
+- F11 `saveDB()` inconditionnel au boot même si `_initAnnonceSchemaIfNeeded` n'a rien touché
+- F12 counter incrémenté à chaque change format/ton (perd déterminisme)
+- F13 wording IIFE convivial après troncature (résolu par F1)
+- F14 PDF emojis encodage → tester en browser réel
+- F15 mailto: body long tronqué par certains clients
+- F16 try/catch silencieux dans `_filterCandidates`
+- F17 PWA cache asset `annonce-generator.global.js` à vérifier
+
+**Tests Vitest** : 1123 → **1132 OK** (+9 nouveaux tests audit).
 
 ### 2026-05-27 — Sprint complet 5 étapes en une session (v15.207-210)
 

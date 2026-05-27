@@ -309,7 +309,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | MRH-AUTO-LOC | MRH : récupérer auto le locataire selon logement | P2 | S | ⬜ À faire | [docs/subjects/MRH-AUTO-LOC.md](docs/subjects/MRH-AUTO-LOC.md) |
 | **Logement** | | | | | |
 | LOG-PHOTOS | Photos illustratives sur la fiche logement (galerie permanente) | P2 | M | ✅ Livré v15.01 (Sprint 5C) | Sous-onglet **📷 Photos** dans LOG-FICHE-360. Grid 3 cols responsive (auto-fill 180px). Thumbnails IDB lazy-load (lazy="lazy" + setTimeout post-render). **Upload multiple** (input file `multiple` accept image/*) avec compression auto > 2 Mo. **Lightbox plein écran** : nav Prev/Next + Escape + clic outside. **Photo de couverture** : toggle ⭐/☆ marque `doc.isCover=true`, démarque les autres du logement. Stockage `DB.documents` { parentType:'logement', category:'photos' } + IDB + Drive `🖼️ Photos/`. Réutilise `_attachmentSaveForEntity` v15.00 + `_attachmentLoadBinary`. **Couverture dans cards Biens** : reportée V1.1 (nécessite chargement async des thumbnails dans render synchrone). |
-| LOG-ANNONCE | Bouton "Générer annonce de location" pour logements vacants — **enrichi 2026-05-15 mode "qui fait rêver" type Leboncoin** | P2 | M (4-6h) + L si LLM | ✅ **Livré v15.207-210 (2026-05-27)** | [docs/subjects/LOG-ANNONCE.md](docs/subjects/LOG-ANNONCE.md) · **5 étapes livrées** : (1) module ES `__tests__/helpers/annonce-generator.js` + 103 tests Vitest (dont 6 anti-mensonge + 3 multi-villes) · (2) schéma DB enrichi + migration `_initAnnonceSchemaIfNeeded()` au boot (idempotent) · (3) onglet « 📢 Présentation » dans modale Logement avec pattern customs[] partout (règle UX D1) · (4) modale `ov-annonce` + bouton « 📢 Créer une annonce » sur logements vacants + switcher 3 formats (Leboncoin/Détaillé/SMS) × 4 tons (Factuel/Storytelling/Convivial/Haut-gamme) × dossier on/off · (5) export PDF natif jsPDF + Copier presse-papier + mailto: email + case anti-mensonge obligatoire (loi Hoguet 70-9 + L.121-1 conso) qui débloque actions · différenciant marché vs Rentila/BailFacile (storytelling local sans IA, BYOK Pro Connect reporté V2) |
+| LOG-ANNONCE | Bouton "Générer annonce de location" pour logements vacants — **enrichi 2026-05-15 mode "qui fait rêver" type Leboncoin** | P2 | M (4-6h) + L si LLM | ✅ **Livré v15.207-211 (2026-05-27)** post-audit | [docs/subjects/LOG-ANNONCE.md](docs/subjects/LOG-ANNONCE.md) · **5 étapes livrées + audit code-reviewer + 6 fixes P0/P1** : v15.207-210 = module ES 103 tests + schéma DB + onglet Présentation + modale + PDF/Copier/Email · **v15.211 post-audit** = (F1) script `tools/sync-annonce-global-mirror.mjs` qui régénère le mirror IIFE depuis l'ES (avant : 8 variantes d'accroches manquaient en prod !) · (F2) fix SMS « balcon m² » résiduel · (F3) retrait mention « loi Carrez » trompeuse pour location, ajout loi Boutin pour meublé · (F4) fix étage absent → plus de « situé au  d'un immeuble » · (F5) avertissement DPE F/G/E avec citations loi Climat 2021-1104 + décret 2021-19 · (F6) bouton visible UNIQUEMENT sur logements vacants (`!_bienActiveBail(ref)`) · **1132 tests Vitest OK** (+9 audit) · différenciant marché vs Rentila/BailFacile |
 | **Travaux / PJ** | | | | | |
 | DOC-PJ | Pouvoir ajouter des PJ (factures, CR entretien, photos) | P2 | M | 🔄 **Phase 1 quasi-livrée v15.155-158** | [docs/subjects/DOC-PJ.md](docs/subjects/DOC-PJ.md) · **Drive v15.155** : tout DB.documents → Drive (dossier général hors-logement + rattrapage reconnexion). **PJ manuelle ajoutée** sur fiches Logement(déjà) + Entité + Immeuble + modales Assurance/MRH + Équipement (v15.156-158). Charges = couvert (Immeuble docs + mvt). **Reste** : Bail (modale wizard, reporté) + **Phase 2 : archivage AUTO des PDF générés** (quittance/IRL/régul/EDL/bail). 🔗 Phase C scan Drive→app toujours future. |
 | TRAV-SUIVI | Suivi entretien / travaux avec calendrier | P2 | L | ⬜ À faire | [docs/subjects/TRAV-SUIVI.md](docs/subjects/TRAV-SUIVI.md) · CDC requis |
@@ -406,7 +406,18 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## ✅ Livré récemment
 
-### LOG-ANNONCE 📢 — Générateur d'annonces vacant sans IA (2026-05-27, v15.207-210)
+### LOG-ANNONCE 📢 — Générateur d'annonces vacant sans IA (2026-05-27, v15.207-211)
+> **Post-audit v15.211** (code-reviewer indépendant) : 6 findings P0/P1 traités le même jour :
+> - **F1 (P0)** : nouveau script `tools/sync-annonce-global-mirror.mjs` qui régénère le mirror IIFE depuis l'ES (testée). Avant : 8 variantes d'accroches manquaient en navigateur + description haut-gamme amputée. Maintenant : 33 titres + 21 accroches sync à l'identique, sanity check au build.
+> - **F2 (P0)** : SMS ne produit plus « balcon m² » si surface absente (utilise `surfTxt()`). +5 tests pathologiques.
+> - **F3 (P1)** : mention « loi Carrez » retirée (Carrez = vente copro, faux pour location). Surface habitable pour nue + « loi Boutin » (art. 78 loi 2009-323) pour meublé. +3 tests.
+> - **F4 (P1)** : étage absent ne génère plus « situé au  d'un immeuble » (double espace). +1 test.
+> - **F5 (P1)** : avertissement DPE F/G/E (loi Climat 2021-1104 + décret 2021-19) dans la modale → rouge G interdit 2025 / orange F 2028 / bleu E 2034.
+> - **F6 (P1)** : bouton « 📢 Créer une annonce » visible UNIQUEMENT sur logements vacants (`!_bienActiveBail(ref)`).
+> 
+> **Vitest** : 1132/1132 OK (+9 tests audit). **Audit code-reviewer** : verdict initial « OK avec réserves majeures » → fixé en intégralité.
+
+
 > **Sujet** : `docs/subjects/LOG-ANNONCE.md` — bouton « 📢 Créer une annonce » sur les fiches logement vacantes pour générer des annonces de location (Leboncoin / SeLoger / PAP) **sans IA**, prêtes à coller, avec garde-fou anti-mensonge légal.
 >
 > **5 étapes livrées en une session** :
