@@ -582,6 +582,106 @@ describe('genererAnnonce — orchestrateur', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// Cas pathologiques (post-audit v15.207 — bugs 1/2/3)
+// ═══════════════════════════════════════════════════════════════
+describe('Cas pathologiques (post-audit)', () => {
+  it('balcon présent SANS surface saisie → pas de "undefined m²"', () => {
+    const log = makeLog({ exterieurs: { balcon: { present: true /* surface manque */ }, terrasse: { present: false }, jardin_privatif: { present: false } } });
+    for (let seed = 1; seed <= 30; seed++) {
+      const r = genererAnnonce(log, makeImm(), makeBail(), { seed });
+      expect(r.titre).not.toMatch(/undefined/i);
+      expect(r.body).not.toMatch(/undefined/i);
+      expect(r.titre).not.toMatch(/NaN/);
+      expect(r.body).not.toMatch(/NaN/);
+    }
+  });
+
+  it('jardin présent SANS surface saisie → pas de "undefined m²"', () => {
+    const log = makeLog({ type: 'Maison', npp: 5, exterieurs: { balcon: { present: false }, terrasse: { present: false }, jardin_privatif: { present: true /* surface manque */ } } });
+    for (let seed = 1; seed <= 30; seed++) {
+      const r = genererAnnonce(log, makeImm(), makeBail(), { seed });
+      expect(r.titre).not.toMatch(/undefined/i);
+      expect(r.body).not.toMatch(/undefined/i);
+    }
+  });
+
+  it('terrasse présente surface = 0 → pas de "0 m²"', () => {
+    const log = makeLog({ exterieurs: { balcon: { present: false }, terrasse: { present: true, surface: 0 }, jardin_privatif: { present: false } } });
+    for (let seed = 1; seed <= 30; seed++) {
+      const r = genererAnnonce(log, makeImm(), makeBail(), { seed });
+      expect(r.titre).not.toMatch(/\b0 m²/);
+    }
+  });
+
+  it('dpe entier manquant (log.dpe = null) → ne plante pas', () => {
+    const log = makeLog({ dpe: null });
+    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
+    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
+    expect(r.body).not.toMatch(/undefined/i);
+  });
+
+  it('dpe = {} vide → ne plante pas + aucune mention DPE', () => {
+    const log = makeLog({ dpe: {} });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1, includeDossier: false });
+    expect(r.body).not.toMatch(/undefined/i);
+    expect(r.body).not.toMatch(/Classe \./);  // "Classe ." (vide) ne doit pas apparaître
+  });
+
+  it('presentation = null → ne plante pas + pas d\'invention', () => {
+    const log = makeLog({ presentation: null });
+    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
+    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
+    expect(r.body).not.toMatch(/plein sud|baigné de lumière|moulures/i);
+  });
+
+  it('equipements = null → ne plante pas', () => {
+    const log = makeLog({ equipements: null });
+    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
+  });
+
+  it('exterieurs = null → ne plante pas', () => {
+    const log = makeLog({ exterieurs: null });
+    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
+  });
+
+  it('annexes = null → ne plante pas', () => {
+    const log = makeLog({ annexes: null });
+    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
+  });
+
+  it('ville avec accents/apostrophes (Saint-Étienne, l\'Île-Rousse)', () => {
+    const r1 = genererAnnonce(makeLog(), makeImm({ ville: 'Saint-Étienne', codePostal: '42000' }), makeBail(), { seed: 1 });
+    expect(r1.titre).toContain('Saint-Étienne');
+    const r2 = genererAnnonce(makeLog(), makeImm({ ville: "l'Île-Rousse", codePostal: '20220' }), makeBail(), { seed: 1 });
+    expect(r2.body).toContain("l'Île-Rousse");
+  });
+
+  it('T1 (npp=1) → 0 chambre, pas d\'erreur sur "Math.max(0, npp-1)"', () => {
+    const log = makeLog({ type: 'T1', surf: 25, npp: 1 });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
+    expect(r.body).not.toMatch(/-1 chambres/);
+    expect(r.body).not.toMatch(/0 chambres? confortables?/);
+  });
+
+  it('npp = 0 (Studio) → ne génère pas "0 chambre" disgracieux', () => {
+    const log = makeLog({ type: 'Studio', surf: 22, npp: 0 });
+    const r = genererAnnonce(log, makeImm(), makeBail(), { seed: 1 });
+    expect(r.body).not.toMatch(/-1 chambres/);
+  });
+
+  it('surf = 0 → adj lifestyle "cosy" (pas crash)', () => {
+    const log = makeLog({ surf: 0 });
+    expect(() => genererAnnonce(log, makeImm(), makeBail())).not.toThrow();
+  });
+
+  it('loyer hc=0 et ch=0 → annonce sans total bizarre', () => {
+    const r = genererAnnonce(makeLog(), makeImm(), { hc: 0, ch: 0, dg: 0 }, { seed: 1 });
+    expect(r.body).toMatch(/0 €/);
+    expect(r.body).not.toMatch(/undefined/i);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
 // Cas multi-villes (différenciation prouvée)
 // ═══════════════════════════════════════════════════════════════
 describe('Cas multi-villes (couverture diversifiée)', () => {

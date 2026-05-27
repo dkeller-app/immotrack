@@ -89,11 +89,31 @@ export function etageLabel(etage) {
 }
 
 export function adjLifestyle(log) {
-  const s = log.surf || 0;
+  const s = (log && log.surf) || 0;
   if (s > 100) return pick(['généreusement dimensionné', 'spacieux', 'aux volumes confortables']);
   if (s > 70)  return pick(['agréablement spacieux', 'aux belles proportions', 'parfaitement agencé']);
   if (s > 45)  return pick(['fonctionnel', 'à l\'agencement réfléchi', 'bien pensé']);
   return pick(['cosy', 'au format idéal pour un pied-à-terre', 'intelligemment optimisé']);
+}
+
+/**
+ * Formatte une surface d'extérieur (balcon/terrasse/jardin) défensivement.
+ * Si surface absente ou 0 → retourne chaîne vide (au lieu de "undefined m²" ou "0 m²").
+ * Cf audit v15.207 (bug 1).
+ */
+export function surfTxt(ext, withSpace = true) {
+  if (!ext || typeof ext !== 'object') return '';
+  const s = +ext.surface;
+  if (!s || s <= 0) return '';
+  return (withSpace ? ' ' : '') + s + ' m²';
+}
+
+/**
+ * Retourne la classe DPE en safe access (fallback chaîne vide).
+ * Cf audit v15.207 (bug 2).
+ */
+export function dpeClasse(log) {
+  return (log && log.dpe && log.dpe.classe) || '';
 }
 
 export function formaterDateFr(d) {
@@ -124,20 +144,20 @@ export const BANQUE_TITRES = Object.freeze({
     { si: (l) => l.presentation?.vue === 'mer-montagne',
       tpl: (l, i) => `🌊 Vue mer ${l.type} ${l.surf}m² + terrasse - ${i.ville}` },
     { si: (l) => l.exterieurs?.jardin_privatif?.present && l.type === 'Maison',
-      tpl: (l, i) => `🌿 Belle maison ${l.surf}m² avec jardin ${l.exterieurs.jardin_privatif.surface}m² - ${i.ville}` },
+      tpl: (l, i) => `🌿 Belle maison ${l.surf}m² avec jardin${surfTxt(l.exterieurs.jardin_privatif)} - ${i.ville}` },
     { si: (l) => l.presentation?.caractere_ancien === 'moulures-parquet' && l.exterieurs?.balcon?.present,
       tpl: (l, i) => `🏛 ${l.type} de caractère ${l.surf}m² + balcon - ${i.ville} centre` },
     { si: (l) => l.presentation?.exposition === 'sud',
       tpl: (l, i) => `☀️ ${l.type} ${l.surf}m² plein sud - ${i.ville} centre` },
     { si: (l) => l.presentation?.caractere_ancien,
       tpl: (l, i) => `🏛 Charme de l'ancien - ${l.type} ${l.surf}m² ${i.ville}` },
-    { si: (l) => l.exterieurs?.terrasse?.present && l.exterieurs.terrasse.surface > 15,
-      tpl: (l, i) => `🌞 ${l.type} ${l.surf}m² + terrasse ${l.exterieurs.terrasse.surface}m² - ${i.ville}` },
+    { si: (l) => l.exterieurs?.terrasse?.present && (+l.exterieurs.terrasse.surface > 15),
+      tpl: (l, i) => `🌞 ${l.type} ${l.surf}m² + terrasse${surfTxt(l.exterieurs.terrasse)} - ${i.ville}` },
     { si: (l) => l.exterieurs?.balcon?.present,
       tpl: (l, i) => `🌿 ${l.type} ${l.surf}m² avec balcon - ${i.ville}` },
     { si: (l) => l.presentation?.luminosite === 'baigne-lumiere',
       tpl: (l, i) => `🌞 ${l.type} baigné de lumière ${l.surf}m² - ${i.ville}` },
-    { si: (l) => l.presentation?.luminosite,
+    { si: (l) => l.presentation?.luminosite && MAP_LUM[l.presentation.luminosite],
       tpl: (l, i) => `🌞 ${l.type} ${l.surf}m² ${MAP_LUM[l.presentation.luminosite]} - ${i.ville}` },
     { si: (l, i) => parseInt(l.etage, 10) >= 4 && i.equipementsCommuns?.ascenseur,
       tpl: (l, i) => `🌆 ${l.type} ${l.surf}m² ${etageLabel(l.etage)} ascenseur - ${i.ville}` },
@@ -145,15 +165,15 @@ export const BANQUE_TITRES = Object.freeze({
       tpl: (l, i) => `🤫 Havre de paix ${l.type} ${l.surf}m² - ${i.ville}` },
     { si: (l) => l.typeUsage === 'habitation-meuble',
       tpl: (l, i) => `🛋 ${l.type} meublé ${l.surf}m² ${i.ville}` },
-    { si: (l) => l.dpe?.classe <= 'B' && l.exterieurs?.jardin_privatif?.present,
-      tpl: (l, i) => `🌱 ${l.type} ${l.surf}m² DPE ${l.dpe.classe} + jardin - ${i.ville}` },
-    { si: (l) => l.dpe?.classe <= 'A',
+    { si: (l) => dpeClasse(l) && dpeClasse(l) <= 'B' && l.exterieurs?.jardin_privatif?.present,
+      tpl: (l, i) => `🌱 ${l.type} ${l.surf}m² DPE ${dpeClasse(l)} + jardin - ${i.ville}` },
+    { si: (l) => dpeClasse(l) === 'A',
       tpl: (l, i) => `⚡ ${l.type} ${l.surf}m² DPE A - basse conso - ${i.ville}` },
   ],
   factuel: [
     { si: () => true, tpl: (l, i) => `${l.type} ${l.surf}m² ${l.npp} pièces - ${i.ville} ${i.codePostal}` },
     { si: (l) => l.exterieurs?.balcon?.present, tpl: (l, i) => `${l.type} ${l.surf}m² avec balcon - ${i.ville}` },
-    { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `${l.type} ${l.surf}m² + jardin ${l.exterieurs.jardin_privatif.surface}m² - ${i.ville}` },
+    { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `${l.type} ${l.surf}m² + jardin${surfTxt(l.exterieurs.jardin_privatif)} - ${i.ville}` },
     { si: (l) => parseInt(l.etage, 10) >= 1, tpl: (l, i) => `${l.type} ${l.surf}m² ${etageLabel(l.etage)} - ${i.ville}` },
     { si: (l) => l.typeUsage === 'habitation-meuble', tpl: (l, i) => `${l.type} meublé ${l.surf}m² - ${i.ville}` },
     { si: () => true, tpl: (l, i) => `Location ${l.type} ${l.surf}m² - ${i.ville}` },
@@ -168,10 +188,10 @@ export const BANQUE_TITRES = Object.freeze({
   ],
   'haut-gamme': [
     { si: (l) => l.presentation?.vue === 'mer-montagne', tpl: (l, i) => `🌊 Exceptionnel ${l.type} ${l.surf}m² vue mer - ${i.ville}` },
-    { si: (l) => l.exterieurs?.terrasse?.present && l.exterieurs.terrasse.surface > 20, tpl: (l, i) => `💎 ${l.type} d'exception ${l.surf}m² + terrasse - ${i.ville}` },
+    { si: (l) => l.exterieurs?.terrasse?.present && (+l.exterieurs.terrasse.surface > 20), tpl: (l, i) => `💎 ${l.type} d'exception ${l.surf}m² + terrasse - ${i.ville}` },
     { si: (l, i) => i.equipementsCommuns?.gardien && i.equipementsCommuns?.videosurv, tpl: (l, i) => `🔐 ${l.type} ${l.surf}m² résidence sécurisée - ${i.ville}` },
     { si: (l) => l.presentation?.caractere_ancien && l.exterieurs?.balcon?.present, tpl: (l, i) => `🎩 Élégant ${l.type} de caractère ${l.surf}m² - ${i.ville}` },
-    { si: (l) => l.dpe?.classe <= 'A', tpl: (l, i) => `🌿 ${l.type} ${l.surf}m² basse conso A - ${i.ville}` },
+    { si: (l) => dpeClasse(l) === 'A', tpl: (l, i) => `🌿 ${l.type} ${l.surf}m² basse conso A - ${i.ville}` },
     { si: () => true, tpl: (l, i) => `🎯 ${l.type} de standing ${l.surf}m² - ${i.ville}` },
   ]
 });
@@ -182,21 +202,21 @@ export const BANQUE_TITRES = Object.freeze({
 export const BANQUE_ACCROCHES = Object.freeze({
   storytelling: [
     { si: (l) => l.presentation?.exposition === 'sud' && l.exterieurs?.balcon?.present,
-      tpl: (l, i) => `Vous cherchez un cocon lumineux en plein cœur de ${i.ville} ? Coup de cœur garanti pour ce ${l.type} ${adjLifestyle(l)}, idéalement situé ${pick(['à deux pas du centre', 'au calme d\'une rue paisible', 'dans un quartier vivant et résidentiel'])}, baigné de soleil tout au long de la journée grâce à son ${MAP_EXPO[l.presentation.exposition]}.` },
+      tpl: (l, i) => `Vous cherchez un cocon lumineux en plein cœur de ${i.ville} ? Coup de cœur garanti pour ce ${l.type} ${adjLifestyle(l)}, idéalement situé ${pick(['à deux pas du centre', 'au calme d\'une rue paisible', 'dans un quartier vivant et résidentiel'])}, baigné de soleil tout au long de la journée grâce à son ${MAP_EXPO[l.presentation.exposition] || 'exposition idéale'}.` },
     { si: (l) => l.exterieurs?.jardin_privatif?.present,
-      tpl: (l, i) => `Imaginez vos petits-déjeuners dans le jardin, vos dîners d'été en terrasse, vos enfants courant pieds nus dans l'herbe. Cette ${l.type === 'Maison' ? 'maison' : 'résidence'} ${adjLifestyle(l)} de ${l.surf} m² avec son jardin privatif de ${l.exterieurs.jardin_privatif.surface} m² ${l.exterieurs.terrasse?.present ? `et sa terrasse de ${l.exterieurs.terrasse.surface} m² ` : ''}vous offre tout cet art de vivre.` },
+      tpl: (l, i) => `Imaginez vos petits-déjeuners dans le jardin, vos dîners d'été en terrasse, vos enfants courant pieds nus dans l'herbe. Cette ${l.type === 'Maison' ? 'maison' : 'résidence'} ${adjLifestyle(l)} de ${l.surf} m² avec son jardin privatif${surfTxt(l.exterieurs.jardin_privatif)} ${l.exterieurs.terrasse?.present ? `et sa terrasse${surfTxt(l.exterieurs.terrasse)} ` : ''}vous offre tout cet art de vivre.` },
     { si: (l) => l.presentation?.vue === 'mer-montagne',
-      tpl: (l, i) => `Réveillez-vous chaque matin face à la mer. Ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² au ${etageLabel(l.etage)} avec ${l.exterieurs?.terrasse?.present ? `terrasse de ${l.exterieurs.terrasse.surface} m² ` : ''}offre une ${MAP_VUE[l.presentation.vue]} qui transforme chaque jour en moment privilégié.` },
+      tpl: (l, i) => `Réveillez-vous chaque matin face à la mer. Ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² au ${etageLabel(l.etage)} ${l.exterieurs?.terrasse?.present ? `avec terrasse${surfTxt(l.exterieurs.terrasse)} ` : ''}offre une ${MAP_VUE[l.presentation.vue] || 'belle vue'} qui transforme chaque jour en moment privilégié.` },
     { si: (l) => l.presentation?.caractere_ancien === 'moulures-parquet' && l.presentation?.luminosite,
-      tpl: (l, i) => `Le charme de l'ancien intact, le confort moderne au quotidien. Niché au cœur de ${i.ville}, ce ${l.type} ${adjLifestyle(l)} conjugue ${MAP_CAR[l.presentation.caractere_ancien]} et une luminosité ${MAP_LUM[l.presentation.luminosite]}. Une rare opportunité pour les amateurs d'authenticité.` },
+      tpl: (l, i) => `Le charme de l'ancien intact, le confort moderne au quotidien. Niché au cœur de ${i.ville}, ce ${l.type} ${adjLifestyle(l)} conjugue ${MAP_CAR[l.presentation.caractere_ancien] || 'caractère préservé'} et une luminosité ${MAP_LUM[l.presentation.luminosite] || 'remarquable'}. Une rare opportunité pour les amateurs d'authenticité.` },
     { si: (l) => l.typeUsage === 'habitation-meuble' && l.surf < 35,
       tpl: (l, i) => `Étudiants, jeunes actifs : voici votre futur pied-à-terre à ${i.ville}. Ce ${l.type === 'Studio' ? 'studio' : l.type} ${adjLifestyle(l)} de ${l.surf} m² entièrement meublé et équipé vous attend, ${l.presentation?.calme === 'cour-interieure' ? 'au calme d\'une cour intérieure' : 'parfaitement situé'} pour conjuguer études/travail et qualité de vie.` },
     { si: (l, i) => parseInt(l.etage, 10) >= 4 && i.equipementsCommuns?.ascenseur && l.presentation?.vue,
       tpl: (l, i) => `Au ${etageLabel(l.etage)} avec ascenseur, ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² offre une ${MAP_VUE[l.presentation.vue]} et ${l.presentation?.luminosite ? `une luminosité ${MAP_LUM[l.presentation.luminosite]}` : 'un cadre apaisant'}, idéal pour ceux qui cherchent un cocon en hauteur.` },
     { si: (l) => l.npp >= 4,
-      tpl: (l, i) => `La famille s'agrandit ? Vous cherchez un cocon pour grandir, partager, recevoir ? Cette ${l.type === 'Maison' ? 'belle maison' : 'généreuse résidence'} de ${l.surf} m² à ${i.ville} déploie ses ${l.npp} pièces ${l.exterieurs?.jardin_privatif?.present ? `avec son jardin de ${l.exterieurs.jardin_privatif.surface} m² ` : ''}pour répondre à vos rêves de vie de famille.` },
-    { si: (l) => l.dpe?.classe <= 'B',
-      tpl: (l, i) => `Bien performant, conscience tranquille. Avec son DPE classe ${l.dpe.classe} (${l.dpe.valConv} kWh/m²/an), ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² conjugue confort moderne et factures maîtrisées. Un choix pensé pour aujourd'hui ET pour demain.` },
+      tpl: (l, i) => `La famille s'agrandit ? Vous cherchez un cocon pour grandir, partager, recevoir ? Cette ${l.type === 'Maison' ? 'belle maison' : 'généreuse résidence'} de ${l.surf} m² à ${i.ville} déploie ses ${l.npp} pièces ${l.exterieurs?.jardin_privatif?.present ? `avec son jardin${surfTxt(l.exterieurs.jardin_privatif)} ` : ''}pour répondre à vos rêves de vie de famille.` },
+    { si: (l) => dpeClasse(l) && dpeClasse(l) <= 'B',
+      tpl: (l, i) => `Bien performant, conscience tranquille. Avec son DPE classe ${dpeClasse(l)}${l.dpe?.valConv ? ` (${l.dpe.valConv} kWh/m²/an)` : ''}, ce ${l.type} ${adjLifestyle(l)} de ${l.surf} m² conjugue confort moderne et factures maîtrisées. Un choix pensé pour aujourd'hui ET pour demain.` },
   ],
   factuel: [
     { si: () => true, tpl: (l, i) => `Appartement de type ${l.type} d'une surface habitable de ${l.surf} m² (loi Carrez) composé de ${l.npp} pièces principales, situé au ${etageLabel(l.etage)}${i.equipementsCommuns?.ascenseur ? ' (avec ascenseur)' : ''} d'un immeuble en ${(i.regimeJuridique || 'monopropriété').toLowerCase()}, ${i.codePostal} ${i.ville}.` },
@@ -205,15 +225,15 @@ export const BANQUE_ACCROCHES = Object.freeze({
     { si: () => true, tpl: (l, i) => `${l.type} de ${l.surf} m², ${l.npp} pièces principales, ${etageLabel(l.etage)}, situé à ${i.adr}, ${i.codePostal} ${i.ville}.` },
   ],
   convivial: [
-    { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `Une jolie maison pleine de promesses vous attend à ${i.ville} ! ${l.surf} m² baignés de soleil, un jardin de ${l.exterieurs.jardin_privatif.surface} m² pour les enfants et les week-ends entre amis, et tout le confort dont vous rêvez.` },
+    { si: (l) => l.exterieurs?.jardin_privatif?.present, tpl: (l, i) => `Une jolie maison pleine de promesses vous attend à ${i.ville} ! ${l.surf} m² baignés de soleil, un jardin${surfTxt(l.exterieurs.jardin_privatif)} pour les enfants et les week-ends entre amis, et tout le confort dont vous rêvez.` },
     { si: (l) => l.presentation?.exposition === 'sud' && l.exterieurs?.balcon?.present, tpl: (l, i) => `Un balcon plein sud + un appart' lumineux à ${i.ville}, vous en pensez quoi ? Ce ${l.type} de ${l.surf} m² au ${etageLabel(l.etage)} a tout pour devenir votre prochain chez-vous : exposition idéale, cuisine équipée, vraie qualité de vie.` },
     { si: (l) => l.typeUsage === 'habitation-meuble', tpl: (l, i) => `Vous arrivez à ${i.ville} et vous cherchez un pied-à-terre tout prêt ? Voici votre solution : ${l.type === 'Studio' ? 'studio' : l.type} meublé de ${l.surf} m², tout équipé, posez vos valises et vous êtes chez vous.` },
     { si: (l) => l.npp >= 3, tpl: (l, i) => `Voici LA bonne adresse pour votre famille à ${i.ville}. ${l.type} ${adjLifestyle(l)} de ${l.surf} m² avec ${l.npp} pièces, ${l.exterieurs?.balcon?.present || l.exterieurs?.terrasse?.present || l.exterieurs?.jardin_privatif?.present ? 'un extérieur' : 'tout le confort'} et un super quartier autour.` },
     { si: () => true, tpl: (l, i) => `On vous présente votre future adresse à ${i.ville} : un ${l.type} ${adjLifestyle(l)} de ${l.surf} m² avec ${l.presentation?.luminosite ? 'beaucoup de lumière' : 'tous les atouts'} pour bien vivre au quotidien.` },
   ],
   'haut-gamme': [
-    { si: (l) => l.presentation?.vue === 'mer-montagne' && l.exterieurs?.terrasse?.present, tpl: (l, i) => `Pour les amateurs d'exception. Ce ${l.type} de ${l.surf} m² au ${etageLabel(l.etage)} d'une résidence ${i.equipementsCommuns?.gardien ? 'gardiennée' : 'de standing'} offre une vue mer panoramique sublimée par une terrasse de ${l.exterieurs.terrasse.surface} m². Confort absolu, prestations soignées, adresse rare.` },
-    { si: (l) => l.exterieurs?.jardin_privatif?.present && l.surf > 100, tpl: (l, i) => `Une demeure de standing dans un cadre privilégié. Cette ${l.type === 'Maison' ? 'maison' : 'propriété'} de ${l.surf} m² conjugue espaces généreux, finitions soignées et jardin privatif de ${l.exterieurs.jardin_privatif.surface} m².` },
+    { si: (l) => l.presentation?.vue === 'mer-montagne' && l.exterieurs?.terrasse?.present, tpl: (l, i) => `Pour les amateurs d'exception. Ce ${l.type} de ${l.surf} m² au ${etageLabel(l.etage)} d'une résidence ${i.equipementsCommuns?.gardien ? 'gardiennée' : 'de standing'} offre une vue mer panoramique sublimée par une terrasse${surfTxt(l.exterieurs.terrasse)}. Confort absolu, prestations soignées, adresse rare.` },
+    { si: (l) => l.exterieurs?.jardin_privatif?.present && l.surf > 100, tpl: (l, i) => `Une demeure de standing dans un cadre privilégié. Cette ${l.type === 'Maison' ? 'maison' : 'propriété'} de ${l.surf} m² conjugue espaces généreux, finitions soignées et jardin privatif${surfTxt(l.exterieurs.jardin_privatif)}.` },
     { si: (l) => l.presentation?.caractere_ancien && l.surf > 60, tpl: (l, i) => `Le ${l.type} d'exception que vous cherchiez : ${l.surf} m² de caractère préservé (${MAP_CAR[l.presentation.caractere_ancien]}), une adresse prestigieuse à ${i.ville}, et un niveau de prestations digne des plus exigeants.` },
     { si: (l, i) => i.equipementsCommuns?.gardien || i.equipementsCommuns?.videosurv, tpl: (l, i) => `Une adresse confidentielle et sécurisée. Résidence ${i.equipementsCommuns.gardien ? 'gardiennée' : 'sous vidéosurveillance'}, ce ${l.type} de ${l.surf} m² offre ${l.presentation?.exposition === 'sud' ? 'l\'exposition plein sud' : 'le confort'} et la sérénité que vous attendez.` },
     { si: () => true, tpl: (l, i) => `${l.type} de prestige de ${l.surf} m² à ${i.ville}, ${l.presentation?.luminosite ? `${MAP_LUM[l.presentation.luminosite]}` : 'aux belles proportions'}, ${l.equipements?.cuisine?.equipee ? 'cuisine équipée haut de gamme' : 'finitions soignées'}, à découvrir.` },
