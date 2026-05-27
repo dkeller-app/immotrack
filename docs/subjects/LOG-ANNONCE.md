@@ -1,8 +1,46 @@
 # LOG-ANNONCE — Bouton "Générer annonce" pour logements vacants (mode "qui fait rêver")
 
-**Status** : ⬜ À faire · **Prio** : P2 · **Taille** : M (4-6h) + L (8-10h) si LLM
-**Détecté** : 2026-05-01 · **Enrichi** : 2026-05-15 (mode Leboncoin évocateur)
-**Lié à** : LOG-PHOTOS · BIZPLAN (différenciant pour propriétaires solo) · LEGAL-DPE-INTERDICTION-LOCATION (mention DPE F/G calendrier)
+**Status** : ✅ **Livré v15.207-210 (2026-05-27)** · **Prio** : P2 · **Taille réelle** : ~6h (5 étapes en une session)
+**Détecté** : 2026-05-01 · **Enrichi** : 2026-05-15 (mode Leboncoin évocateur) · **Livré** : 2026-05-27
+**Lié à** : LOG-PHOTOS · BIZPLAN (différenciant pour propriétaires solo) · LEGAL-DPE-INTERDICTION-LOCATION (mention DPE F/G calendrier) · IA-V2 (BYOK Pro Connect reporté V2)
+
+## Journal d'avancement
+
+### 2026-05-27 — Sprint complet 5 étapes en une session (v15.207-210)
+
+| Étape | Version | Livrables |
+|---|---|---|
+| 1 — Module + tests | v15.207 / v15.208 | `__tests__/helpers/annonce-generator.js` (~514 l), 103 tests Vitest (1123/1123 OK) dont 6 anti-mensonge + 3 multi-villes. PRNG Mulberry32 seedé, 5 MAPS figées (EXPO/VUE/LUM/CALM/CAR), 4 tons × 3 formats. Banques `BANQUE_TITRES` (33 entrées) + `BANQUE_ACCROCHES` (21 entrées). 7 générateurs. |
+| 2 — Schéma DB | v15.209 | `_initAnnonceSchemaIfNeeded()` appelé dans `initDB`. Crée sur log `{equipements,exterieurs,annexes,presentation,quartier,locationInfo}` et sur imm `{equipementsCommuns}`. Idempotent, pattern `customs[]` partout (règle UX D1). |
+| 3 — Onglet Présentation | v15.209 | Tab `'presentation'` ajouté. ~200 lignes HTML (équipements communs / cuisine / sanitaires / technos / extérieurs avec surface conditionnelle / annexes / mise en valeur 5 dropdowns / quartier / conditions location). ~200 l JS (`_logpFillFromLog`, `_logpReadFromForm`, `_logpAddCustom/Remove/Render`). `saveParamLog` étendu. |
+| 4 — Modale annonce | v15.210 | Mirror IIFE `js/helpers/annonce-generator.global.js` (18 fonctions miroir). Modale `ov-annonce` : switcher format/ton/dossier + split preview/textarea + case anti-mensonge + 4 boutons. Bouton « 📢 Créer une annonce » dans `logf-actions` (conditionnel `!isArchived`). 9 helpers `_annonce*` (~120 l). |
+| 5 — Export | v15.210 | `_annoncePDF()` jsPDF natif (multi-pages, footer pagination). `_annonceCopy()` clipboard. `_annonceEmail()` mailto:. Case anti-mensonge obligatoire (loi Hoguet 70-9 + L.121-1 conso) qui débloque les 3 actions. |
+
+**Audits propres effectués** (code-reviewer agent indisponible API 529) :
+- Vitest 1123/1123 OK
+- Inline JS syntax check : 4/4 vrais scripts OK
+- Node syntax check sur global wrapper + sw.js : OK
+- Diff helpers ES vs global : 18/18 fonctions identiques
+- Sync `index-test.html` ↔ `index.html`
+- Bump 5 endroits : title, em footer, ImmoTrack v, `IMMOTRACK_VERSION='15.210'`, `sw.js CACHE_VER='immotrack-v15.210'`
+
+**Décisions captées** :
+- « Sans IA » → templating local intelligent (banques de phrases conditionnelles + PRNG seedé)
+- « Proche commerce ? » → Option 5 = checkboxes POI + distances + texte libre saisis par user
+- « ChatGPT gratuit ? » → Non. BYOK V2 sujet `IA-V2` (Pro Connect payant)
+- « Dossier complet locataire » → section « 📂 DOSSIER À FOURNIR » + push DossierFacile.fr
+- « C'est pour faire une annonce toute pourrie autant pas faire la feature ! » → storytelling 4 tons + multi-formats + anti-mensonge légalement protégé
+
+**Reste à tester par user (validation visuelle)** :
+- Ouvrir une fiche logement vacant → bouton « 📢 Créer une annonce »
+- Tester les 3 formats × 4 tons = 12 combinaisons
+- Vérifier le toggle dossier (avec / sans section dossier locataire)
+- Tester PDF, Copier, Email
+- Vérifier la case anti-mensonge (boutons grisés tant que non cochée)
+
+---
+
+## Spécification d'origine (conservée pour historique)
 
 ## Justification (4 critères pré-vol)
 
