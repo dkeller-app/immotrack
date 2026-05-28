@@ -1,13 +1,12 @@
 /**
  * annonce-generator.global.js — Wrapper browser (window.AnnonceGenerator)
- * (LOG-ANNONCE, généré automatiquement v15.211)
+ * (GÉNÉRÉ AUTOMATIQUEMENT par tools/sync-helpers-global-mirrors.mjs)
  *
- * ⚠️ NE PAS ÉDITER À LA MAIN. Ce fichier est régénéré depuis
- *    __tests__/helpers/annonce-generator.js par
- *    tools/sync-annonce-global-mirror.mjs
+ * ⚠️ NE PAS ÉDITER À LA MAIN. Ce fichier est régénéré depuis :
+ *    __tests__/helpers/annonce-generator.js
  *
  * Si tu modifies la logique, fais-le côté module ES, exécute :
- *   node tools/sync-annonce-global-mirror.mjs
+ *   node tools/sync-helpers-global-mirrors.mjs
  * et commite les deux fichiers ensemble.
  */
 (function(global) {
@@ -560,7 +559,6 @@
       format, ton
     };
   }
-
 
   // ─── EXPORT GLOBAL ───────────────────────────────────────────────
   global.AnnonceGenerator = {
