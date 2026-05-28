@@ -445,7 +445,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 > **Plan 4 sessions (~15-20h)** :
 > - ✅ **Session 1** (~1h) CDC user — 12 décisions verrouillées
 > - ✅ **Session 2** (~4-6h) Refonte Immeuble↔Bien — v15.212 (Commit 1 schéma imm) + v15.213 (Commit 2 bien hérite) + v15.214 (post-audit 4 fixes P1/P2)
-> - 🔄 **Session 3** partiellement démarrée — v15.215 (Phase 3a + 3b adresse) + F7 sync auto ES⇄IIFE. **Phase 3c cleanup brutal reporté** (149 sites + 39 champs = risque trop élevé pour 1 commit, besoin tests PDF pixel-near)
+> - 🔄 **Session 3** partiellement démarrée — v15.215 (Phase 3a + 3b adresse) + F7 sync auto ES⇄IIFE + **v15.216 hotfix audit** (3 P0/P1 : immutabilité bail signé + trampoline défensif + imm partiel). **Phase 3c cleanup brutal reporté** (149 sites + 39 champs = risque trop élevé pour 1 commit, besoin tests PDF pixel-near). 4 findings P3 reportés Session 4 (G1 test fenêtre temporelle · G2 `_captureBailSnapshot` enrichi · G3 commentaire · G4 perf)
 > - ⬜ **Session 4** (~3-4h) UX sidebar Option B + mockup-first pages Bien/Locataires
 >
 > **Gain attendu** : ~40 champs doublons supprimés (~10-15% payload Drive en moins), saisie unique, 0 désync, UX claire « mur / personne / contrat ».
