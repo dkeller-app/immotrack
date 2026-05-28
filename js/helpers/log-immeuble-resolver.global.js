@@ -13,7 +13,14 @@
   'use strict';
 
   // ─── DÉPENDANCES IMPORTÉES depuis ./adresse-parser.js (résolues via global) ───
-  function formatAdresse(){ return global.AdresseParser.formatAdresse.apply(null, arguments); }
+  function formatAdresse(){
+    if (!global.AdresseParser || typeof global.AdresseParser.formatAdresse !== 'function') {
+      console.warn('[mirror log-immeuble-resolver] dep manquante: global.AdresseParser.formatAdresse');
+      // Fallback minimal pour formatAdresse-like (objet imm → string vide ou rue)
+      return (arguments[0] && typeof arguments[0] === 'object' && arguments[0].adr) ? arguments[0].adr : '';
+    }
+    return global.AdresseParser.formatAdresse.apply(null, arguments);
+  }
 
   /**
    * Module log-immeuble-resolver — le bien hérite de son immeuble parent

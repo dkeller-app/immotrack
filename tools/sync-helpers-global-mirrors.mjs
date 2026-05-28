@@ -56,7 +56,11 @@ const PAIRS = [
     dst: 'js/helpers/adresse-parser.global.js',
     globalName: 'AdresseParser',
     exports: ['parseAdresse', 'formatAdresse', 'needsAddressSplit'],
-    sanity: []
+    // v15.216 F6 — sanity : compte les `function ` en source vs sortie.
+    // Tolère le préfixe `export ` en source (strippé en sortie).
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
   },
   {
     name: 'log-immeuble-resolver',
@@ -69,7 +73,17 @@ const PAIRS = [
       'resolveEquipementsCommunsForLog', 'resolveInheritedForLog',
       'formatLogLocation'
     ],
-    sanity: []
+    // Sanity custom : vérifier que le trampoline formatAdresse défensif EST présent
+    // (régression F2 audit v15.215 : trampoline non défensif crashait silencieusement)
+    sanity: [
+      {
+        name: 'trampoline formatAdresse défensif',
+        pattern: /[\s\S]*/,
+        marker: /typeof\s+global\.AdresseParser\.formatAdresse/g,
+        mode: 'out-min',
+        minOut: 1
+      }
+    ]
   }
 ];
 
@@ -98,24 +112,45 @@ for (const p of PAIRS) {
     .replace(/^export\s+/gm, '')
     .replace(/^import\s+\{[^}]+\}\s+from\s+['"][^'"]+['"];?\s*$/gm, '');
 
-  // 2) Détecter quelles fonctions importées doivent être disponibles dans l'IIFE
-  //    (heuristique : si la source importait depuis ./adresse-parser.js,
-  //     le mirror dépend du global AdresseParser).
-  const importMatch = srcContent.match(/import\s+\{([^}]+)\}\s+from\s+['"]\.\/([^'"]+)['"]/);
+  // 2) Détecter quelles fonctions importées doivent être disponibles dans l'IIFE.
+  //    v15.216 F2 (P0 audit) — utilise matchAll (flag g) pour gérer N imports.
+  //    Détecte aussi `import default` et `import * as` (rejet explicite).
+  //    Génère un trampoline DÉFENSIF qui ne crash pas si la dep est absente —
+  //    fallback gracieux retournant arguments[0]?.adr ou string vide pour préserver
+  //    la robustesse perdue par la régénération auto (cf v15.215 régression F2).
+  if (/^import\s+\w+\s+from/m.test(srcContent) || /^import\s+\*\s+as/m.test(srcContent)) {
+    console.error(`[${p.name}] ❌ Import default ou namespace détecté — non supporté par le script de sync.`);
+    totalErrors++;
+    continue;
+  }
+  const importRegex = /import\s+\{([^}]+)\}\s+from\s+['"]\.\/([^'"]+)['"]/g;
+  const importMatches = [...srcContent.matchAll(importRegex)];
   let deps = '';
-  if (importMatch) {
-    const names = importMatch[1].split(',').map(s => s.trim()).filter(Boolean);
-    const depModule = importMatch[2].replace(/\.js$/, '');
-    deps = `\n  // ─── DÉPENDANCES IMPORTÉES depuis ./${depModule}.js (résolues via global) ───\n` +
-      names.map(n => {
-        // Pour ces deps, on assume que le module dépendant est chargé AVANT
-        // celui-ci dans index.html (cf ordre des <script>). On délègue.
-        const moduleGlobal = depModule === 'adresse-parser' ? 'AdresseParser' :
-                              depModule === 'annonce-generator' ? 'AnnonceGenerator' :
-                              null;
-        if (!moduleGlobal) throw new Error(`[${p.name}] Dépendance inconnue : ./${depModule}.js`);
-        return `  function ${n}(){ return global.${moduleGlobal}.${n}.apply(null, arguments); }`;
-      }).join('\n') + '\n';
+  if (importMatches.length > 0) {
+    const depBlocks = [];
+    for (const m of importMatches) {
+      const names = m[1].split(',').map(s => s.trim()).filter(Boolean);
+      const depModule = m[2].replace(/\.js$/, '');
+      const moduleGlobal = depModule === 'adresse-parser' ? 'AdresseParser' :
+                            depModule === 'annonce-generator' ? 'AnnonceGenerator' :
+                            depModule === 'log-immeuble-resolver' ? 'LogImmResolver' :
+                            null;
+      if (!moduleGlobal) throw new Error(`[${p.name}] Dépendance inconnue : ./${depModule}.js`);
+      depBlocks.push(`  // ─── DÉPENDANCES IMPORTÉES depuis ./${depModule}.js (résolues via global) ───\n` +
+        names.map(n => {
+          // Trampoline défensif : ne crash pas si AdresseParser/etc. pas chargé,
+          // retourne un fallback raisonnable (regression-safe).
+          return `  function ${n}(){
+    if (!global.${moduleGlobal} || typeof global.${moduleGlobal}.${n} !== 'function') {
+      console.warn('[mirror ${p.name}] dep manquante: global.${moduleGlobal}.${n}');
+      // Fallback minimal pour formatAdresse-like (objet imm → string vide ou rue)
+      return (arguments[0] && typeof arguments[0] === 'object' && arguments[0].adr) ? arguments[0].adr : '';
+    }
+    return global.${moduleGlobal}.${n}.apply(null, arguments);
+  }`;
+        }).join('\n'));
+    }
+    deps = '\n' + depBlocks.join('\n\n') + '\n';
   }
 
   // 3) Header IIFE
@@ -153,18 +188,33 @@ ${deps}
   fs.writeFileSync(dstAbs, out, 'utf8');
 
   // 6) Sanity checks paire
+  // mode: 'equal' (défaut) → compare src vs out (les 2 doivent matcher)
+  // mode: 'out-min' → out doit avoir >= minOut occurrences (src ignorée)
   let okSanity = true;
   for (const s of (p.sanity || [])) {
-    const srcMatch = srcContent.match(s.pattern);
-    const outMatch = out.match(s.pattern);
-    const srcN = srcMatch ? (srcMatch[0].match(s.marker) || []).length : -1;
-    const outN = outMatch ? (outMatch[0].match(s.marker) || []).length : -1;
-    if (srcN !== outN) {
-      console.error(`[${p.name}] ❌ Désync ${s.name} : source=${srcN}, sortie=${outN}`);
-      okSanity = false;
-      totalErrors++;
+    if (s.mode === 'out-min') {
+      const outMatch = out.match(s.pattern);
+      const outN = outMatch ? (outMatch[0].match(s.marker) || []).length : 0;
+      if (outN < (s.minOut || 1)) {
+        console.error(`[${p.name}] ❌ ${s.name} : sortie=${outN} < ${s.minOut || 1}`);
+        okSanity = false;
+        totalErrors++;
+      } else {
+        console.log(`[${p.name}] ✓ ${s.name}: ${outN}`);
+      }
     } else {
-      console.log(`[${p.name}] ✓ ${s.name}: ${srcN}`);
+      // mode 'equal'
+      const srcMatch = srcContent.match(s.pattern);
+      const outMatch = out.match(s.pattern);
+      const srcN = srcMatch ? (srcMatch[0].match(s.marker) || []).length : -1;
+      const outN = outMatch ? (outMatch[0].match(s.marker) || []).length : -1;
+      if (srcN !== outN) {
+        console.error(`[${p.name}] ❌ Désync ${s.name} : source=${srcN}, sortie=${outN}`);
+        okSanity = false;
+        totalErrors++;
+      } else {
+        console.log(`[${p.name}] ✓ ${s.name}: ${srcN}`);
+      }
     }
   }
 
