@@ -444,13 +444,13 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 >
 > **Plan 4 sessions (~15-20h)** :
 > - ✅ **Session 1** (~1h) CDC user — 12 décisions verrouillées
-> - ✅ **Session 2** (~4-6h) Refonte Immeuble↔Bien — v15.212 (Commit 1 schéma imm) + v15.213 (Commit 2 bien hérite)
-> - 🔜 **Session 3** (~6-8h) Cleanup ARCHI-DB-DOUBLONS Phase 4b (149 sites de lecture migrés + 39 champs supprimés)
+> - ✅ **Session 2** (~4-6h) Refonte Immeuble↔Bien — v15.212 (Commit 1 schéma imm) + v15.213 (Commit 2 bien hérite) + v15.214 (post-audit 4 fixes P1/P2)
+> - 🔄 **Session 3** partiellement démarrée — v15.215 (Phase 3a + 3b adresse) + F7 sync auto ES⇄IIFE. **Phase 3c cleanup brutal reporté** (149 sites + 39 champs = risque trop élevé pour 1 commit, besoin tests PDF pixel-near)
 > - ⬜ **Session 4** (~3-4h) UX sidebar Option B + mockup-first pages Bien/Locataires
 >
 > **Gain attendu** : ~40 champs doublons supprimés (~10-15% payload Drive en moins), saisie unique, 0 désync, UX claire « mur / personne / contrat ».
 >
-> **Prochaine étape** : 🔜 **Session 3** prête à démarrer après validation visuelle user de Session 2.
+> **Prochaine étape** : 🔜 **Validation visuelle user de Session 2+3a/b**, puis Session 3c cleanup (session dédiée future) OU Session 4 UX sidebar (mockup-first).
 
 ### BAIL-TYPES Phase B ✅ — Bail meublé complet (v15.191→v15.195, 2026-05-26)
 > **Sujet** : `BAIL-TYPES.md` — ajout 6 types de bail (nu/meublé/étudiant/mobilité/garage/autre) avec rétrocompat totale.
