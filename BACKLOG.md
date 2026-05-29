@@ -404,6 +404,24 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ---
 
+## ⚠️ Limitations connues (documentation produit)
+
+### I3 — Baux signés AVANT v15.218 : immutabilité partielle
+**Sujet** : ARCHI-FICHES-UNIFIED Session 3 / immutabilité bail signé.
+**Découvert** : audit code-reviewer v15.218 (2026-05-29).
+
+Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a modifié l'immeuble parent (adresse, CP, ville, période, régime, syndic, équipementsCommuns) **entre la signature et le premier boot post-upgrade vers v15.218**, le `bailSnapshot.imm` capturé par `_migrateArchiV1IfNeeded` fige l'imm POST-modification, pas l'imm au moment EXACT de la signature.
+
+**Impact** : le PDF re-rendu d'un tel bail signé peut afficher une adresse différente de celle qui figurait sur le PDF original signé.
+
+**Mitigation** :
+1. Pour les nouveaux baux signés en v15.218+ : faille FIXÉE (capture immédiate via `_wizV2PersistSignatures` H1).
+2. Pour les baux historiques affectés : vérifier manuellement le PDF figé (« Voir bail signé ») et comparer à la version PDF originale archivée Drive. Si divergence détectée → contacter le bailleur.
+
+**Pourquoi pas fixable techniquement** : impossible de reconstruire un historique d'imm qui n'a jamais été capturé. Limite par nature, pas un bug.
+
+---
+
 ## ✅ Livré récemment
 
 ### LOG-ANNONCE 📢 — Générateur d'annonces vacant sans IA (2026-05-27, v15.207-211)
