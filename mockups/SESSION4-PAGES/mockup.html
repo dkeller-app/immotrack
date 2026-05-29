@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup Session 4 — Pages Biens & Locataires (ARCHI-FICHES-UNIFIED)</title>
+<style>
+:root {
+  --acc: #2563eb; --acc-dark: #1d4ed8;
+  --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --sur: #ffffff; --sur2: #f3f4f6; --sur3: #f9fafb;
+  --bor: #e5e7eb; --bor-strong: #d1d5db;
+  --ok: #10b981; --warn: #f59e0b; --err: #ef4444;
+  --vio: #8b5cf6;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: -apple-system, system-ui, sans-serif; color: var(--t1);
+  background: var(--sur2); font-size: 13px; line-height: 1.5;
+}
+.app-header {
+  background: var(--acc); color: white; padding: 12px 20px;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.app-header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+.app-header .lead { font-size: 11.5px; opacity: 0.85; font-style: italic; }
+
+.controls {
+  background: var(--sur); padding: 12px 20px; border-bottom: 1px solid var(--bor);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.controls label { font-size: 11px; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: 0.4px; }
+.btn-group { display: inline-flex; border: 1px solid var(--bor); border-radius: 6px; overflow: hidden; }
+.btn-group button {
+  background: var(--sur); border: none; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  border-right: 1px solid var(--bor); color: var(--t1);
+}
+.btn-group button:last-child { border-right: none; }
+.btn-group button.act { background: var(--acc); color: white; }
+
+.viewport {
+  margin: 16px auto; transition: max-width 0.3s ease;
+  background: var(--sur); border: 1px solid var(--bor); border-radius: 8px;
+  overflow: hidden;
+}
+.viewport.pc { max-width: 1300px; }
+.viewport.tab { max-width: 900px; }
+.viewport.tel { max-width: 380px; }
+
+.mockup-frame {
+  display: flex; height: 70vh; min-height: 600px;
+  background: var(--sur);
+}
+
+/* Sidebar simulée */
+.fake-sidebar {
+  width: 220px; background: var(--sur3); border-right: 1px solid var(--bor);
+  padding: 12px 8px; flex-shrink: 0;
+}
+.fake-sidebar .section-title { font-size: 10.5px; font-weight: 700; color: var(--t2); padding: 8px 12px 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.fake-sidebar .item {
+  padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12.5px;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 2px;
+}
+.fake-sidebar .item:hover { background: var(--bor); }
+.fake-sidebar .item.act { background: var(--acc); color: white; font-weight: 600; }
+.fake-sidebar .item.new { background: linear-gradient(90deg, transparent, #fef3c7); border-left: 3px solid var(--warn); }
+
+.main-pane { flex: 1; overflow: auto; padding: 16px 20px; background: var(--sur); }
+.viewport.tel .fake-sidebar { display: none; }
+.viewport.tel .mockup-frame { height: auto; min-height: 500px; }
+
+.variant-tabs {
+  display: flex; gap: 4px; margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--bor);
+}
+.variant-tabs button {
+  background: var(--sur2); border: 1px solid var(--bor); padding: 6px 14px; cursor: pointer;
+  border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 600; color: var(--t2);
+}
+.variant-tabs button.act { background: var(--acc); color: white; border-color: var(--acc); }
+.variant-pane { display: none; }
+.variant-pane.act { display: block; }
+
+.page-title { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: var(--t1); }
+.page-sub { font-size: 12px; color: var(--t2); margin-bottom: 16px; }
+
+/* KPI strip top */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+.kpi {
+  background: var(--sur3); border: 1px solid var(--bor); border-radius: 6px;
+  padding: 10px 12px;
+}
+.kpi-label { font-size: 10.5px; color: var(--t2); text-transform: uppercase; letter-spacing: 0.3px; }
+.kpi-value { font-size: 18px; font-weight: 700; margin-top: 2px; color: var(--t1); }
+.kpi-value.ok { color: var(--ok); }
+.kpi-value.warn { color: var(--warn); }
+
+/* Sub-controls */
+.sub-controls {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+  background: var(--sur3); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bor);
+}
+.sub-controls input.search { padding: 5px 10px; border: 1px solid var(--bor); border-radius: 4px; font-size: 12px; min-width: 160px; }
+.sub-controls .chip {
+  background: var(--sur); border: 1px solid var(--bor); border-radius: 12px;
+  padding: 3px 10px; font-size: 11.5px; cursor: pointer;
+}
+.sub-controls .chip.act { background: var(--acc); color: white; border-color: var(--acc); }
+.sub-controls .sep { width: 1px; background: var(--bor); align-self: stretch; }
+.sub-controls .toggle { display: inline-flex; border: 1px solid var(--bor); border-radius: 4px; overflow: hidden; }
+.sub-controls .toggle button { background: var(--sur); border: none; padding: 4px 10px; font-size: 11.5px; cursor: pointer; }
+.sub-controls .toggle button.act { background: var(--acc); color: white; }
+
+/* ============ VARIANTE A — Biens groupé par immeuble ============ */
+.imm-block {
+  background: var(--sur); border: 1px solid var(--bor); border-radius: 8px;
+  margin-bottom: 12px; overflow: hidden;
+}
+.imm-header {
+  background: linear-gradient(90deg, #eff6ff, var(--sur)); padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  border-bottom: 1px solid var(--bor);
+}
+.imm-header .imm-icon { font-size: 24px; }
+.imm-header .imm-name { font-weight: 700; font-size: 15px; color: var(--t1); }
+.imm-header .imm-adr { font-size: 11.5px; color: var(--t2); margin-top: 1px; }
+.imm-header .imm-stats {
+  margin-left: auto; display: flex; gap: 12px; font-size: 11px; color: var(--t2);
+}
+.imm-header .imm-stats b { display: block; font-size: 14px; color: var(--t1); margin-top: 2px; }
+.imm-header .chevron { font-size: 16px; color: var(--t2); margin-left: 8px; }
+
+.log-list { padding: 6px 12px 10px; }
+.log-row {
+  display: grid; grid-template-columns: auto 1fr auto auto auto auto;
+  gap: 12px; align-items: center;
+  padding: 8px 12px; border-radius: 6px; cursor: pointer;
+  border-bottom: 1px solid var(--sur2);
+}
+.log-row:hover { background: var(--sur3); }
+.log-row:last-child { border-bottom: none; }
+.log-ref { font-weight: 700; font-size: 12.5px; color: var(--acc); min-width: 70px; }
+.log-type { background: var(--sur2); border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.log-details { font-size: 12px; color: var(--t1); }
+.log-loc { font-size: 11.5px; color: var(--t2); display: flex; align-items: center; gap: 4px; }
+.log-loc .dot.green { background: var(--ok); width: 8px; height: 8px; border-radius: 50%; }
+.log-loc .dot.red { background: var(--err); width: 8px; height: 8px; border-radius: 50%; }
+.log-loc .dot.orange { background: var(--warn); width: 8px; height: 8px; border-radius: 50%; }
+.log-loyer { font-weight: 700; font-size: 13px; color: var(--t1); text-align: right; min-width: 80px; }
+.log-loyer small { font-weight: 400; color: var(--t2); }
+.log-action { padding: 4px 8px; background: var(--sur); border: 1px solid var(--bor); border-radius: 4px; font-size: 11px; cursor: pointer; color: var(--t1); }
+.log-action:hover { background: var(--acc); color: white; border-color: var(--acc); }
+
+/* ============ VARIANTE B — Cards 2 colonnes ============ */
+.bien-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+.bien-card {
+  background: var(--sur); border: 1px solid var(--bor); border-radius: 8px;
+  padding: 14px 16px; cursor: pointer; transition: all 0.15s;
+}
+.bien-card:hover { border-color: var(--acc); box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1); }
+.bien-card .header { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.bien-card .icon { font-size: 22px; }
+.bien-card .nom { font-weight: 700; font-size: 14px; }
+.bien-card .adr { font-size: 11.5px; color: var(--t2); margin-bottom: 10px; }
+.bien-card .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.bien-card .chips .chip-log {
+  background: var(--sur2); border: 1px solid var(--bor); border-radius: 12px;
+  padding: 3px 8px; font-size: 10.5px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.bien-card .chips .chip-log.occ { background: #d1fae5; border-color: var(--ok); color: #065f46; }
+.bien-card .chips .chip-log.vac { background: #fee2e2; border-color: var(--err); color: #991b1b; }
+.bien-card .footer-row { display: flex; gap: 10px; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--bor); font-size: 11.5px; color: var(--t2); }
+.bien-card .footer-row b { color: var(--t1); }
+
+/* ============ VARIANTE C — Sidebar arbo ============ */
+.tree-layout { display: grid; grid-template-columns: 280px 1fr; gap: 12px; height: 600px; }
+.tree-pane { background: var(--sur3); border: 1px solid var(--bor); border-radius: 8px; padding: 10px; overflow-y: auto; }
+.tree-node { padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12.5px; }
+.tree-node.imm { font-weight: 600; }
+.tree-node.imm:before { content: '▾'; margin-right: 4px; color: var(--t2); }
+.tree-node.log { padding-left: 28px; font-size: 12px; color: var(--t1); }
+.tree-node.log:before { content: '🏠'; margin-right: 6px; font-size: 11px; }
+.tree-node:hover { background: var(--bor); }
+.tree-node.act { background: var(--acc); color: white; }
+.tree-node.act.log:before { filter: brightness(2); }
+.tree-detail-pane {
+  background: var(--sur); border: 1px solid var(--bor); border-radius: 8px;
+  padding: 16px; overflow-y: auto;
+}
+.tree-detail-pane .empty { color: var(--t3); font-style: italic; text-align: center; padding: 40px; }
+
+/* ============ LOCATAIRES — variantes ============ */
+/* L-A : Tableau */
+.loc-table { width: 100%; border-collapse: collapse; background: var(--sur); border-radius: 8px; overflow: hidden; border: 1px solid var(--bor); }
+.loc-table th { background: var(--sur3); padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid var(--bor); cursor: pointer; user-select: none; }
+.loc-table th:hover { background: var(--bor); }
+.loc-table th .sort { color: var(--acc); font-size: 9px; margin-left: 4px; }
+.loc-table td { padding: 10px 12px; border-bottom: 1px solid var(--sur2); font-size: 12.5px; }
+.loc-table tr:hover { background: var(--sur3); }
+.loc-table td.nom { font-weight: 600; }
+.loc-table td.echeance { font-size: 11.5px; }
+.loc-table .badge-ech.ok { color: var(--ok); }
+.loc-table .badge-ech.warn { color: var(--warn); font-weight: 600; }
+.loc-table .badge-ech.err { color: var(--err); font-weight: 700; }
+.loc-table .actions { display: flex; gap: 4px; }
+.loc-table .act-btn { padding: 3px 8px; background: var(--sur2); border: 1px solid var(--bor); border-radius: 4px; font-size: 10.5px; cursor: pointer; }
+.loc-table .act-btn:hover { background: var(--acc); color: white; }
+
+/* L-B : Cards groupé immeuble */
+.locimm-block {
+  background: var(--sur); border: 1px solid var(--bor); border-radius: 8px;
+  margin-bottom: 10px; overflow: hidden;
+}
+.locimm-header { background: var(--sur3); padding: 8px 12px; font-weight: 700; font-size: 13px; border-bottom: 1px solid var(--bor); display: flex; align-items: center; gap: 8px; }
+.locimm-header .imm-name { flex: 1; }
+.locimm-header .count { background: var(--sur); border: 1px solid var(--bor); border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 500; color: var(--t2); }
+.locimm-body { padding: 8px 0; }
+.loc-card-row {
+  display: grid; grid-template-columns: 36px 1fr auto auto auto auto;
+  gap: 10px; align-items: center;
+  padding: 10px 12px; border-bottom: 1px solid var(--sur2);
+}
+.loc-card-row:last-child { border-bottom: none; }
+.loc-card-row:hover { background: var(--sur3); }
+.loc-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--acc); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+.loc-info .nom { font-weight: 600; font-size: 13px; }
+.loc-info .meta { font-size: 11px; color: var(--t2); }
+
+/* L-C : Pipeline candidats + actifs */
+.pipeline-layout { display: grid; grid-template-columns: 320px 1fr; gap: 12px; }
+.pipeline-pane { background: var(--sur); border: 1px solid var(--vio); border-radius: 8px; padding: 12px; }
+.pipeline-pane h3 { margin: 0 0 10px; font-size: 13px; color: var(--vio); display: flex; align-items: center; gap: 6px; }
+.pipeline-stage { background: var(--sur3); border-radius: 6px; padding: 8px; margin-bottom: 8px; }
+.pipeline-stage h4 { margin: 0 0 6px; font-size: 11.5px; font-weight: 700; color: var(--t2); text-transform: uppercase; letter-spacing: 0.3px; }
+.pipeline-card {
+  background: var(--sur); border: 1px solid var(--bor); border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 4px; cursor: pointer; font-size: 12px;
+}
+.pipeline-card:hover { border-color: var(--vio); }
+.pipeline-card .who { font-weight: 600; }
+.pipeline-card .where { color: var(--t2); font-size: 11px; }
+
+@media (max-width: 768px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .log-row { grid-template-columns: 1fr; gap: 6px; }
+  .bien-grid { grid-template-columns: 1fr; }
+  .tree-layout, .pipeline-layout { grid-template-columns: 1fr; }
+  .loc-table th:nth-child(n+4), .loc-table td:nth-child(n+4) { display: none; }
+}
+
+/* Annotation overlay */
+.annotation {
+  background: #fff3cd; border-left: 4px solid var(--warn); padding: 10px 14px;
+  margin: 14px 0; font-size: 12.5px; border-radius: 0 6px 6px 0;
+}
+.annotation b { color: #78350f; }
+.annotation ul { margin: 6px 0 0 18px; padding: 0; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <span style="font-size: 22px">🏗</span>
+  <div>
+    <h1>Mockups Session 4 — ARCHI-FICHES-UNIFIED</h1>
+    <div class="lead">Pages Biens (groupée par immeuble) + Locataires (vue transversale) · 3 variantes A/B/C × 3 formats</div>
+  </div>
+</div>
+
+<div class="controls">
+  <label>Page :</label>
+  <div class="btn-group">
+    <button onclick="setPage('biens', this)" class="act">🏢 Biens (groupée immeuble)</button>
+    <button onclick="setPage('locataires', this)">👥 Locataires (transversale)</button>
+  </div>
+  <span class="sep" style="background: var(--bor); width: 1px; height: 24px;"></span>
+  <label>Format :</label>
+  <div class="btn-group">
+    <button onclick="setVP('pc', this)" class="act">💻 PC</button>
+    <button onclick="setVP('tab', this)">📱 Tablette</button>
+    <button onclick="setVP('tel', this)">📞 Téléphone</button>
+  </div>
+  <span style="margin-left: auto; font-size: 11px; color: var(--t2);">v15.220 · Décisions C1+C2+C5 verrouillées Session 1</span>
+</div>
+
+<div class="viewport pc" id="vp">
+<div class="mockup-frame">
+
+<!-- ========== FAKE SIDEBAR pour contexte ========== -->
+<div class="fake-sidebar">
+  <div class="section-title">Locataires</div>
+  <div class="item">📅 Agenda</div>
+  <div class="item">🔧 Équipements</div>
+  <div class="item act new">📋 Locataires <small style="opacity:0.7;font-size:9px">(renommé v15.220)</small></div>
+  <div class="item">🛡 Assurances</div>
+  <div class="item">🧾 Quittances</div>
+  <div class="item">📧 Communications</div>
+  <div class="item">🔍 États des lieux</div>
+  <div class="section-title" style="margin-top: 14px;">Biens</div>
+  <div class="item">🏢 Bailleurs</div>
+  <div class="item">🏠 Biens</div>
+</div>
+
+<!-- ========== MAIN ========== -->
+<div class="main-pane">
+
+<!-- ============ PAGE BIENS ============ -->
+<div id="page-biens" class="page">
+  <h2 class="page-title">🏠 Biens</h2>
+  <p class="page-sub">Vue logements groupés par immeuble (décision C5 verrouillée Session 1) · 3 variantes proposées</p>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Immeubles</div><div class="kpi-value">7</div></div>
+    <div class="kpi"><div class="kpi-label">Logements</div><div class="kpi-value">23</div></div>
+    <div class="kpi"><div class="kpi-label">Occupés</div><div class="kpi-value ok">19 (83%)</div></div>
+    <div class="kpi"><div class="kpi-label">Vacants</div><div class="kpi-value warn">4</div></div>
+  </div>
+
+  <div class="sub-controls">
+    <input type="text" class="search" placeholder="🔍 Rechercher logement / locataire / adresse...">
+    <span class="chip act">Tous (23)</span>
+    <span class="chip">Occupés (19)</span>
+    <span class="chip">Vacants (4)</span>
+    <span class="chip">Archivés (2)</span>
+    <span class="sep"></span>
+    <label style="font-size: 11px;">Tri :</label>
+    <select style="padding: 4px 8px; font-size: 11.5px; border: 1px solid var(--bor); border-radius: 4px;">
+      <option>Par immeuble (défaut)</option>
+      <option>Alphabétique</option>
+      <option>Loyer ↓</option>
+      <option>Surface ↓</option>
+    </select>
+    <span class="sep"></span>
+    <label style="font-size: 11px;">Affichage :</label>
+    <div class="toggle">
+      <button class="act">Groupé</button>
+      <button>Liste plate</button>
+    </div>
+  </div>
+
+  <div class="variant-tabs">
+    <button onclick="setVar('biens', 'A', this)" class="act">Variante A — Blocs immeubles repliables (Recommandé)</button>
+    <button onclick="setVar('biens', 'B', this)">Variante B — Cards 2 cols</button>
+    <button onclick="setVar('biens', 'C', this)">Variante C — Arborescence + détail</button>
+  </div>
+
+  <!-- VARIANTE A : Blocs immeubles -->
+  <div class="variant-pane biens act" id="biens-A">
+    <div class="imm-block">
+      <div class="imm-header">
+        <span class="imm-icon">🏛</span>
+        <div>
+          <div class="imm-name">Résidence Les Tilleuls</div>
+          <div class="imm-adr">15 rue de la République, 69001 Lyon · Copropriété · 8 lots</div>
+        </div>
+        <div class="imm-stats">
+          <div>Logements<b>4 / 6</b></div>
+          <div>Loyer total<b>2 850 € HC</b></div>
+        </div>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="log-list">
+        <div class="log-row">
+          <span class="log-ref">LOG-101</span>
+          <span class="log-type">T3</span>
+          <div class="log-details">65 m² · 3e étage · Apt 12</div>
+          <div class="log-loc"><span class="dot green"></span> DUPONT Marie</div>
+          <div class="log-loyer">750 €<small>+90€ ch</small></div>
+          <button class="log-action">Ouvrir →</button>
+        </div>
+        <div class="log-row">
+          <span class="log-ref">LOG-102</span>
+          <span class="log-type">T2</span>
+          <div class="log-details">42 m² · 1er étage · Apt 5</div>
+          <div class="log-loc"><span class="dot orange"></span> Fin bail dans 45j</div>
+          <div class="log-loyer">580 €<small>+60€ ch</small></div>
+          <button class="log-action">Ouvrir →</button>
+        </div>
+        <div class="log-row" style="background: #fef3c7;">
+          <span class="log-ref">LOG-103</span>
+          <span class="log-type">T1</span>
+          <div class="log-details">28 m² · 4e étage · Apt 18</div>
+          <div class="log-loc"><span class="dot red"></span> VACANT</div>
+          <div class="log-loyer">— €</div>
+          <button class="log-action" style="background:#fef3c7;color:#92400e;border-color:#f59e0b">📢 Annonce</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="imm-block">
+      <div class="imm-header">
+        <span class="imm-icon">🏛</span>
+        <div>
+          <div class="imm-name">Maison Voltaire</div>
+          <div class="imm-adr">47 rue Voltaire, 75011 Paris · Monopropriété</div>
+        </div>
+        <div class="imm-stats">
+          <div>Logements<b>1 / 1</b></div>
+          <div>Loyer total<b>1 450 € HC</b></div>
+        </div>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="log-list">
+        <div class="log-row">
+          <span class="log-ref">LOG-201</span>
+          <span class="log-type">T4</span>
+          <div class="log-details">95 m² · Maison entière</div>
+          <div class="log-loc"><span class="dot green"></span> MARTIN Jean</div>
+          <div class="log-loyer">1 450 €<small>+0€ ch</small></div>
+          <button class="log-action">Ouvrir →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="imm-block">
+      <div class="imm-header">
+        <span class="imm-icon">🏛</span>
+        <div>
+          <div class="imm-name">Résidence Strasbourg-Centre</div>
+          <div class="imm-adr">5 impasse des Lilas, 67100 Strasbourg · Copropriété · 12 lots</div>
+        </div>
+        <div class="imm-stats">
+          <div>Logements<b>3 / 4</b></div>
+          <div>Loyer total<b>1 980 € HC</b></div>
+        </div>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="log-list" style="opacity:0.6">
+        <div style="text-align:center;padding:14px;color:var(--t3);font-style:italic">[Replié — clic header pour développer]</div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>💡 Pourquoi A :</b>
+      <ul>
+        <li>Vue dense + groupage clair (cohérent UX-GROUP-BY-IMMEUBLE)</li>
+        <li>Stats immeuble en header (occup, loyer total)</li>
+        <li>Action rapide « 📢 Annonce » direct sur vacant (workflow LOG-ANNONCE intégré)</li>
+        <li>Toggle « Groupé / Liste plate » en haut (décision C5)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- VARIANTE B : Cards 2 cols -->
+  <div class="variant-pane biens" id="biens-B">
+    <div class="bien-grid">
+      <div class="bien-card">
+        <div class="header">
+          <span class="icon">🏛</span>
+          <div>
+            <div class="nom">Résidence Les Tilleuls</div>
+            <div class="adr">15 rue de la République, 69001 Lyon</div>
+          </div>
+        </div>
+        <div class="chips">
+          <span class="chip-log occ">🏠 LOG-101 T3 DUPONT</span>
+          <span class="chip-log occ">🏠 LOG-102 T2 +45j</span>
+          <span class="chip-log vac">🏠 LOG-103 T1 VACANT</span>
+          <span class="chip-log occ">🏠 LOG-104 T2 BERNARD</span>
+        </div>
+        <div class="footer-row">
+          <span>📊 <b>4/6</b> logements</span>
+          <span>💰 <b>2 850 €</b> HC</span>
+          <span>🛠 8 lots · Copro</span>
+        </div>
+      </div>
+
+      <div class="bien-card">
+        <div class="header">
+          <span class="icon">🏛</span>
+          <div>
+            <div class="nom">Maison Voltaire</div>
+            <div class="adr">47 rue Voltaire, 75011 Paris</div>
+          </div>
+        </div>
+        <div class="chips">
+          <span class="chip-log occ">🏠 LOG-201 T4 MARTIN</span>
+        </div>
+        <div class="footer-row">
+          <span>📊 <b>1/1</b> logements</span>
+          <span>💰 <b>1 450 €</b> HC</span>
+          <span>🛠 Monopro</span>
+        </div>
+      </div>
+
+      <div class="bien-card">
+        <div class="header">
+          <span class="icon">🏛</span>
+          <div>
+            <div class="nom">Résidence Strasbourg-Centre</div>
+            <div class="adr">5 impasse des Lilas, 67100 Strasbourg</div>
+          </div>
+        </div>
+        <div class="chips">
+          <span class="chip-log occ">🏠 LOG-301 T3</span>
+          <span class="chip-log occ">🏠 LOG-302 T2</span>
+          <span class="chip-log occ">🏠 LOG-303 Studio</span>
+          <span class="chip-log vac">🏠 LOG-304 VACANT</span>
+        </div>
+        <div class="footer-row">
+          <span>📊 <b>3/4</b> logements</span>
+          <span>💰 <b>1 980 €</b> HC</span>
+          <span>🛠 12 lots · Copro</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>💡 Pourquoi B :</b>
+      <ul>
+        <li>Vue compacte parfaite pour propriétaires &gt; 10 immeubles</li>
+        <li>Chips logements colorées = scan visuel ultra-rapide</li>
+        <li>Drill-down : clic card → ouvre la fiche immeuble 360°</li>
+        <li>⚠ Moins de détail visible (étage, surface) que A — clic obligatoire pour creuser</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- VARIANTE C : Arbo + détail -->
+  <div class="variant-pane biens" id="biens-C">
+    <div class="tree-layout">
+      <div class="tree-pane">
+        <div class="tree-node imm">🏛 Les Tilleuls (4/6)</div>
+        <div class="tree-node log">LOG-101 T3 DUPONT</div>
+        <div class="tree-node log act">LOG-102 T2 (fin bail 45j)</div>
+        <div class="tree-node log" style="background:#fef3c7">LOG-103 T1 VACANT</div>
+        <div class="tree-node log">LOG-104 T2 BERNARD</div>
+        <div class="tree-node imm">🏛 Maison Voltaire (1/1)</div>
+        <div class="tree-node log">LOG-201 T4 MARTIN</div>
+        <div class="tree-node imm">🏛 Strasbourg-Centre (3/4)</div>
+        <div class="tree-node log">LOG-301 T3</div>
+        <div class="tree-node log">LOG-302 T2</div>
+        <div class="tree-node log">LOG-303 Studio</div>
+        <div class="tree-node log" style="background:#fef3c7">LOG-304 VACANT</div>
+        <div class="tree-node imm">🏛 Freyming (2/2)</div>
+        <div class="tree-node imm">🏛 ... (3 immeubles)</div>
+      </div>
+      <div class="tree-detail-pane">
+        <h3 style="margin: 0 0 8px; font-size: 15px;">LOG-102 · T2 42 m²</h3>
+        <div style="background: #fff3cd; border-left: 3px solid var(--warn); padding: 8px 12px; font-size: 11.5px; margin-bottom: 12px;">
+          ⚠ <b>Fin de bail dans 45 jours</b> — Mme HENRI (mardi 5 mai 2026)
+        </div>
+        <div style="font-size: 11.5px; color: var(--t2); margin-bottom: 8px;"><b>🏛 Hérité immeuble :</b> 15 rue de la République, 69001 Lyon · Copropriété · Avant 1949</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+          <div style="background: var(--sur3); padding: 8px; border-radius: 4px;"><b>Loyer :</b><br>580 € HC + 60 € ch</div>
+          <div style="background: var(--sur3); padding: 8px; border-radius: 4px;"><b>DG :</b><br>580 €</div>
+          <div style="background: var(--sur3); padding: 8px; border-radius: 4px;"><b>DPE :</b><br>D (180 kWh/m²)</div>
+          <div style="background: var(--sur3); padding: 8px; border-radius: 4px;"><b>IRL :</b><br>T3 2025</div>
+        </div>
+        <button style="background: var(--acc); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">Ouvrir fiche 360° →</button>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>💡 Pourquoi C :</b>
+      <ul>
+        <li>Power-user friendly (workflow Type Outlook/explorer Windows)</li>
+        <li>Survol arbo = aperçu instantané fiche à droite</li>
+        <li>⚠ Plus lourd visuellement, courbe d'apprentissage</li>
+        <li>⚠ Mobile cassé (2 colonnes obligatoires)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE LOCATAIRES ============ -->
+<div id="page-locataires" class="page" style="display:none">
+  <h2 class="page-title">👥 Locataires</h2>
+  <p class="page-sub">Vue transversale par personne · échéances + pipeline candidats + communications (décisions C1+C5 verrouillées Session 1)</p>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">Locataires actifs</div><div class="kpi-value">22</div></div>
+    <div class="kpi"><div class="kpi-label">Fin bail &lt; 3 mois</div><div class="kpi-value warn">3</div></div>
+    <div class="kpi"><div class="kpi-label">Loyers impayés</div><div class="kpi-value">0 / 22</div></div>
+    <div class="kpi"><div class="kpi-label">Pipeline candidats</div><div class="kpi-value">5</div></div>
+  </div>
+
+  <div class="sub-controls">
+    <input type="text" class="search" placeholder="🔍 Rechercher locataire / immeuble / téléphone...">
+    <span class="chip act">Actifs (22)</span>
+    <span class="chip">Fin proche (3)</span>
+    <span class="chip">Candidats (5)</span>
+    <span class="chip">Archivés</span>
+    <span class="sep"></span>
+    <label style="font-size: 11px;">Tri :</label>
+    <select style="padding: 4px 8px; font-size: 11.5px; border: 1px solid var(--bor); border-radius: 4px;">
+      <option>Par immeuble (défaut)</option>
+      <option>Alphabétique A→Z</option>
+      <option>Échéance bail ↑</option>
+      <option>Loyer ↓</option>
+    </select>
+    <span class="sep"></span>
+    <label style="font-size: 11px;">Affichage :</label>
+    <div class="toggle">
+      <button class="act">Groupé</button>
+      <button>Liste plate</button>
+    </div>
+  </div>
+
+  <div class="variant-tabs">
+    <button onclick="setVar('locataires', 'A', this)" class="act">L-A — Tableau triable</button>
+    <button onclick="setVar('locataires', 'B', this)">L-B — Cards groupé par immeuble (Recommandé cohérence)</button>
+    <button onclick="setVar('locataires', 'C', this)">L-C — Pipeline candidats + actifs</button>
+  </div>
+
+  <!-- L-A : Tableau -->
+  <div class="variant-pane locataires act" id="locataires-A">
+    <table class="loc-table">
+      <thead>
+        <tr>
+          <th>Nom<span class="sort">▲</span></th>
+          <th>Immeuble / Logement</th>
+          <th>Loyer</th>
+          <th>Échéance bail</th>
+          <th>Tel / Email</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="nom">BERNARD Camille</td><td>Tilleuls · LOG-104</td><td>620 € CC</td><td class="echeance"><span class="badge-ech ok">déc. 2027</span></td><td>06 12 34 56 78</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📞</button><button class="act-btn">📜</button></td></tr>
+        <tr><td class="nom">DUPONT Marie</td><td>Tilleuls · LOG-101</td><td>840 € CC</td><td class="echeance"><span class="badge-ech ok">mars 2028</span></td><td>06 98 76 54 32</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📞</button><button class="act-btn">📜</button></td></tr>
+        <tr style="background:#fef3c7"><td class="nom">HENRI Pascale</td><td>Tilleuls · LOG-102</td><td>640 € CC</td><td class="echeance"><span class="badge-ech warn">5 mai 2026 (45j)</span></td><td>06 22 33 44 55</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">✉ Préavis</button><button class="act-btn">📜</button></td></tr>
+        <tr><td class="nom">MARTIN Jean</td><td>Voltaire · LOG-201</td><td>1 450 € CC</td><td class="echeance"><span class="badge-ech ok">juin 2029</span></td><td>06 78 90 12 34</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📞</button><button class="act-btn">📜</button></td></tr>
+        <tr><td class="nom">ARSLAN Yusuf</td><td>Strasbourg-C. · LOG-301</td><td>720 € CC</td><td class="echeance"><span class="badge-ech ok">sept 2028</span></td><td>06 45 67 89 01</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📞</button><button class="act-btn">📜</button></td></tr>
+        <tr><td class="nom">HARNIST Sophie</td><td>Strasbourg-C. · LOG-302</td><td>580 € CC</td><td class="echeance"><span class="badge-ech ok">févr 2027</span></td><td>06 11 22 33 44</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📞</button><button class="act-btn">📜</button></td></tr>
+      </tbody>
+    </table>
+
+    <div class="annotation">
+      <b>💡 Pourquoi L-A :</b>
+      <ul>
+        <li>Vue type Excel — tri rapide multi-colonnes</li>
+        <li>Power-user friendly, dense, scan visuel rapide</li>
+        <li>⚠ Mobile : colonnes 4+ cachées (téléphone/actions) → moins UX</li>
+        <li>⚠ Pas de pipeline candidats visible (onglet séparé)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- L-B : Cards groupé immeuble (cohérence avec Biens) -->
+  <div class="variant-pane locataires" id="locataires-B">
+    <div class="locimm-block">
+      <div class="locimm-header">
+        <span style="font-size: 18px;">🏛</span>
+        <span class="imm-name">Résidence Les Tilleuls — Lyon</span>
+        <span class="count">4 locataires</span>
+      </div>
+      <div class="locimm-body">
+        <div class="loc-card-row">
+          <div class="loc-avatar">DM</div>
+          <div class="loc-info"><div class="nom">DUPONT Marie</div><div class="meta">LOG-101 T3 · 06 98 76 54 32</div></div>
+          <div style="font-weight: 600;">840 € CC</div>
+          <div style="color: var(--ok); font-size: 11.5px;">📅 mars 2028</div>
+          <div style="font-size: 11px; color: var(--t2);">Bail 36 mois</div>
+          <div style="display: flex; gap: 4px;"><button class="log-action">📧</button><button class="log-action">📜</button></div>
+        </div>
+        <div class="loc-card-row" style="background: #fef3c7;">
+          <div class="loc-avatar" style="background: var(--warn);">HP</div>
+          <div class="loc-info"><div class="nom">HENRI Pascale</div><div class="meta">LOG-102 T2 · 06 22 33 44 55</div></div>
+          <div style="font-weight: 600;">640 € CC</div>
+          <div style="color: var(--warn); font-size: 11.5px; font-weight: 600;">⚠ 5 mai 2026 (45j)</div>
+          <div style="font-size: 11px; color: var(--t2);">Préavis reçu</div>
+          <div style="display: flex; gap: 4px;"><button class="log-action">✉ Préavis</button><button class="log-action">📜</button></div>
+        </div>
+        <div class="loc-card-row">
+          <div class="loc-avatar">BC</div>
+          <div class="loc-info"><div class="nom">BERNARD Camille</div><div class="meta">LOG-104 T2 · 06 12 34 56 78</div></div>
+          <div style="font-weight: 600;">620 € CC</div>
+          <div style="color: var(--ok); font-size: 11.5px;">📅 déc 2027</div>
+          <div style="font-size: 11px; color: var(--t2);">Bail 36 mois</div>
+          <div style="display: flex; gap: 4px;"><button class="log-action">📧</button><button class="log-action">📜</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="locimm-block">
+      <div class="locimm-header">
+        <span style="font-size: 18px;">🏛</span>
+        <span class="imm-name">Maison Voltaire — Paris</span>
+        <span class="count">1 locataire</span>
+      </div>
+      <div class="locimm-body">
+        <div class="loc-card-row">
+          <div class="loc-avatar" style="background: var(--vio);">MJ</div>
+          <div class="loc-info"><div class="nom">MARTIN Jean</div><div class="meta">LOG-201 T4 · 06 78 90 12 34</div></div>
+          <div style="font-weight: 600;">1 450 € CC</div>
+          <div style="color: var(--ok); font-size: 11.5px;">📅 juin 2029</div>
+          <div style="font-size: 11px; color: var(--t2);">Bail 36 mois</div>
+          <div style="display: flex; gap: 4px;"><button class="log-action">📧</button><button class="log-action">📜</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="locimm-block">
+      <div class="locimm-header">
+        <span style="font-size: 18px;">🏛</span>
+        <span class="imm-name">Résidence Strasbourg-Centre</span>
+        <span class="count">3 locataires</span>
+      </div>
+      <div class="locimm-body" style="opacity: 0.6;">
+        <div style="text-align:center;padding:10px;color:var(--t3);font-style:italic">[Replié — clic header pour développer]</div>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>💡 Pourquoi L-B (Recommandé pour cohérence) :</b>
+      <ul>
+        <li>Même métaphore que page Biens (groupage par immeuble) → courbe d'apprentissage zéro</li>
+        <li>Avatar lettres = scan visuel rapide</li>
+        <li>Échéances colorées (vert/orange/rouge) en évidence</li>
+        <li>Mobile-friendly (cards empilées)</li>
+        <li>Toggle « Groupé / Liste plate » en haut (décision C5)</li>
+        <li>Pipeline candidats : onglet séparé en haut (chip « Candidats (5) »)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- L-C : Pipeline + actifs -->
+  <div class="variant-pane locataires" id="locataires-C">
+    <div class="pipeline-layout">
+      <div class="pipeline-pane">
+        <h3>🎯 Pipeline candidats</h3>
+        <div class="pipeline-stage">
+          <h4>📩 Contactés (2)</h4>
+          <div class="pipeline-card">
+            <div class="who">Mme DURAND Élise</div>
+            <div class="where">→ LOG-103 Tilleuls T1 · vue le 28/03</div>
+          </div>
+          <div class="pipeline-card">
+            <div class="who">M. PETIT Lucas</div>
+            <div class="where">→ LOG-304 Strasbourg-C. · email envoyé</div>
+          </div>
+        </div>
+        <div class="pipeline-stage">
+          <h4>📋 Dossier reçu (2)</h4>
+          <div class="pipeline-card">
+            <div class="who">Mme MARTIN Sophie</div>
+            <div class="where">→ LOG-103 Tilleuls T1 · DossierFacile ✓</div>
+          </div>
+          <div class="pipeline-card">
+            <div class="who">M. ROUSSEAU Pierre</div>
+            <div class="where">→ LOG-304 Strasbourg-C. · pièces partielles</div>
+          </div>
+        </div>
+        <div class="pipeline-stage">
+          <h4>✅ Bail signé (1)</h4>
+          <div class="pipeline-card">
+            <div class="who">M. NGUYEN Quan</div>
+            <div class="where">→ LOG-105 Tilleuls T3 · entrée 15/06</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <table class="loc-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Logement</th>
+              <th>Loyer</th>
+              <th>Fin bail</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="nom">BERNARD C.</td><td>Tilleuls · LOG-104</td><td>620 €</td><td>déc 2027</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📜</button></td></tr>
+            <tr><td class="nom">DUPONT M.</td><td>Tilleuls · LOG-101</td><td>840 €</td><td>mars 2028</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📜</button></td></tr>
+            <tr style="background:#fef3c7"><td class="nom">HENRI P.</td><td>Tilleuls · LOG-102</td><td>640 €</td><td class="echeance"><span class="badge-ech warn">5 mai (45j)</span></td><td class="actions"><button class="act-btn">✉</button><button class="act-btn">📜</button></td></tr>
+            <tr><td class="nom">MARTIN J.</td><td>Voltaire · LOG-201</td><td>1 450 €</td><td>juin 2029</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📜</button></td></tr>
+            <tr><td class="nom">ARSLAN Y.</td><td>Stras. · LOG-301</td><td>720 €</td><td>sept 2028</td><td class="actions"><button class="act-btn">📧</button><button class="act-btn">📜</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="annotation">
+      <b>💡 Pourquoi L-C :</b>
+      <ul>
+        <li>Vue commercial / agent immobilier : pipeline candidats EN PREMIER PLAN</li>
+        <li>Kanban-style pour gérer le funnel de re-location</li>
+        <li>⚠ Bien adapté pour SaaS B2B agence, peut-être overkill bailleur solo</li>
+        <li>⚠ Mobile : grille 2 cols casse → empilement</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div> <!-- main-pane -->
+</div> <!-- mockup-frame -->
+</div> <!-- viewport -->
+
+<div style="background: white; max-width: 1300px; margin: 20px auto; padding: 16px 24px; border: 1px solid var(--bor); border-radius: 8px;">
+  <h3 style="margin: 0 0 10px; font-size: 14px; color: var(--t1);">📝 Quel choix me dire ?</h3>
+  <ul style="font-size: 12.5px; color: var(--t1); padding-left: 18px; margin: 0;">
+    <li><b>Page Biens</b> : A (Recommandé) / B (cards compactes) / C (arbo power-user)</li>
+    <li><b>Page Locataires</b> : L-A (tableau Excel) / L-B (Recommandé cohérence) / L-C (pipeline)</li>
+  </ul>
+  <p style="font-size: 12px; color: var(--t2); margin-top: 8px; font-style: italic;">Tu peux dire « Biens=A + Locataires=B » par exemple, ou un mix avec twist (« Biens=A mais avec les chips de B en footer », etc.)</p>
+</div>
+
+<script>
+function setPage(page, btn) {
+  document.querySelectorAll('.controls .btn-group')[0].querySelectorAll('button').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+  document.getElementById('page-' + page).style.display = '';
+}
+function setVP(vp, btn) {
+  document.querySelectorAll('.controls .btn-group')[1].querySelectorAll('button').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  const v = document.getElementById('vp');
+  v.classList.remove('pc', 'tab', 'tel');
+  v.classList.add(vp);
+}
+function setVar(page, variant, btn) {
+  const tabs = btn.parentNode.querySelectorAll('button');
+  tabs.forEach(t => t.classList.remove('act'));
+  btn.classList.add('act');
+  document.querySelectorAll('.variant-pane.' + page).forEach(p => p.classList.remove('act'));
+  document.getElementById(page + '-' + variant).classList.add('act');
+}
+</script>
+</body>
+</html>
