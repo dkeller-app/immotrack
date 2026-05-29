@@ -404,6 +404,46 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ---
 
+## 🔧 Dette technique ARCHI-FICHES-UNIFIED (post-clôture cycle v15.224)
+
+> **Cycle audit clos 2026-05-29** après 8 audits code-reviewer agent successifs (F→G→H→I→K→N) sur 12 commits v15.212-224. Verdict final agent : « OK avec réserves mineures — le cycle peut être clos. »
+>
+> Les findings ci-dessous sont des **améliorations qualité non-bloquantes**. Aucune ne touche à la sécurité ni à l'immutabilité légale.
+
+### Session 3 Phase 3c — Cleanup brutal lectures (REPORTÉ session dédiée, ~14h)
+**Périmètre** : ~149 sites de lecture `bail.X` (champs bien) + ~79 sites `log.X` (bail courant) → migrer vers `_readLogForBail(bail, log).X` / `getCurrentXxx(ref).X`. Puis suppression définitive ~30 champs bail legacy + 9 champs log legacy + retrait du palliatif `_syncLogToBail` v14.16.
+
+**Plan d'attaque révisé (agent audit v15.224)** — 14h sur 3 sessions :
+- **3c-a (~2h)** : catalogue les 228 sites en 3 buckets via grep automatisé
+  - Bucket A *safe-to-rename* : lectures dashboard/listings/UI (~120 sites)
+  - Bucket B *PDF/legal-critical* : `_buildBailHtml`, `_buildBailPdf`, `acteCautionnement`, `genQuittance`, snapshots (~50 sites) → **tests pixel-near obligatoires**
+  - Bucket C *ambigus* : Drive sync, exports comptables, migrations (~58 sites)
+- **3c-b (~3h)** : Bucket A — sed/grep brutal, un sous-onglet à la fois, commit par sous-onglet
+- **3c-c (~4h)** : Bucket B — refonte ciblée, screenshot before/after par PDF, dérive retirée du chantier
+- **3c-d (~3h)** : Bucket C — cas par cas (Drive particulièrement sensible)
+- **3c-e (~2h)** : audit agent obligatoire + sync sandbox + bump version
+
+**Alternative** : conserver en dette permanente jusqu'à bug réel sur les lectures, puis traiter ad-hoc. Cohérent avec règle « pas de solution passable ».
+
+### Findings P3 mineurs (à traiter à l'occasion, ~30 min cumulé)
+| ID | Description | Trivialité |
+|---|---|---|
+| **N5** | Vraie suppression du corps `_rBauxLegacyCards_DEPRECATED_v15_224` (~95 lignes mortes, signature renommée v15.224 mais corps toujours présent) | 5 min |
+| **K3** | Mobile : 5-6 boutons `.loc-actions-b` flex tassés en téléphone — validation visuelle user requise | UX |
+| **K4** | Classe `bien-card-menu` manquante sur certains boutons ⋮ (handler global L34331 exempte cette classe pour défensif) | 2 min |
+| **K5+K6** | Pré-existants v15.220 : escaping `data-attr` HTML vs CSS selector, duplication logique daysLeft (résolu N1 mais autres sites) | 10 min |
+| **P2-K** | Toggle UI pour `_biensFilters.layout` (`blocks-a` / `cards-b`) — utilité douteuse si user ne switch jamais | À supprimer ? |
+| **P2-L** | Sticky `z-index: 5` sur `.imm-block-a-header` vs topbar — validation visuelle requise | UX |
+| **P2-M** | `:before` labels FR hardcodés (`💰 Loyer`, `📅 Échéance`) — i18n V2 commercialisation | V2 |
+| **P2-N** | `parseInt(etage)` → "RDC" = 0 et "Sous-sol" = 0 collision tri (rare) | 3 min |
+
+### Findings P2 réserves agent v15.224
+- **N1/N2 résolus v15.225** : pastille A double parenthèse + perte date `(échu)` — fix utilise `ech.text` intégral
+- **N3 résolu v15.225** : commentaire inline → pointer vers `__tests__/helpers/loc-display.js` anti-désync
+- **N4 cosmétique** : taille indiquée commit msg (5 281 040) ≠ taille réelle (5 303 885). Sans impact.
+
+---
+
 ## ⚠️ Limitations connues (documentation produit)
 
 ### I3 — Baux signés AVANT v15.218 : immutabilité partielle
