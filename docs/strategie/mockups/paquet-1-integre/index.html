@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Modifications utiles intégrées</title>
+<style>
+:root{
+  --bg:#FFF7F2; --sur:#FFFFFF; --sur2:#FFEEDC;
+  --bor:rgba(20,25,54,.08); --bor2:rgba(20,25,54,.14);
+  --t1:#141936; --t2:#525B7A; --t3:#8c95ad;
+  --acc:#0E73F6; --teal:#06b6d4; --teal2:#0e9ba8;
+  --grn:#10B981; --red:#EF4444; --ora:#F59E0B; --vio:#a855f7; --pin:#ec4899;
+  --r:10px; --rb:16px;
+  --sh:0 2px 8px rgba(20,25,54,.06),0 8px 24px -10px rgba(20,25,54,.12);
+  --shL:0 14px 40px -10px rgba(20,25,54,.2);
+  --f:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--f);background:var(--bg);color:var(--t1);font-size:14px;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* Top guide bar */
+.guide{position:sticky;top:0;z-index:200;background:#0f172a;padding:11px 22px;display:flex;align-items:center;justify-content:space-between;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.guide h1{font-size:14px;font-weight:600}
+.guide h1 span{color:var(--teal);font-weight:700}
+.gnav{display:flex;gap:5px;background:rgba(255,255,255,.07);padding:4px;border-radius:99px}
+.gnav button{font-family:var(--f);font-weight:600;font-size:11.5px;padding:7px 13px;border-radius:99px;border:none;background:transparent;color:#a8b3c7;cursor:pointer;transition:.18s}
+.gnav button:hover{color:#fff}
+.gnav button.act{background:var(--teal);color:#fff}
+
+/* Scene */
+.scene{padding:24px 22px 100px;max-width:1280px;margin:0 auto}
+.scene-h{font-size:21px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px;color:var(--t1)}
+.scene-s{color:var(--t2);font-size:13px;margin-bottom:18px;max-width:760px;line-height:1.55}
+
+/* Label info */
+.tip{padding:11px 14px;border-radius:10px;background:#fef9c3;border-left:3px solid #ca8a04;margin-bottom:18px;display:flex;gap:9px;font-size:13px;color:#713f12;line-height:1.5}
+.tip b{display:inline-block;margin-right:4px}
+
+/* === Conteneur fake app === */
+.app{background:var(--sur);border-radius:14px;box-shadow:var(--sh);overflow:hidden;border:1px solid var(--bor);position:relative;display:grid;grid-template-rows:auto auto 1fr;min-height:540px}
+
+/* Topbar de l'app (existante - rappel branding) */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;background:var(--sur);border-bottom:1px solid var(--bor);font-size:12.5px}
+.topbar .br{display:flex;align-items:center;gap:9px}
+.tlogo{width:24px;height:24px;border-radius:7px;background:var(--teal);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:700}
+.topbar b{font-size:13.5px;font-weight:700}
+.topbar small{color:var(--t3);font-size:10px;font-family:monospace}
+.topbar .pr{padding:2px 9px;background:linear-gradient(120deg,#fde68a,#f59e0b);color:#7c2d12;border-radius:99px;font-size:9.5px;font-weight:800;letter-spacing:.04em}
+.topbar .usr{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--t2)}
+.topbar .av{width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+
+/* CHANTIER A — Barre de contexte globale */
+.ctx{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;background:linear-gradient(180deg,var(--sur),#fef7ef);border-bottom:1px solid var(--bor);position:relative}
+.ctx.hl{box-shadow:0 0 0 3px var(--ora) inset;animation:hl 1.5s ease}
+@keyframes hl{0%{box-shadow:0 0 0 0 rgba(245,158,11,0) inset}30%{box-shadow:0 0 0 4px rgba(245,158,11,.55) inset}100%{box-shadow:0 0 0 3px var(--ora) inset}}
+.pills{display:flex;gap:6px}
+.pill{display:flex;flex-direction:column;align-items:center;min-width:44px;height:40px;padding:0 11px;border-radius:10px;cursor:pointer;background:var(--sur2);border:1px solid var(--bor);color:var(--t2);transition:.18s}
+.pill b{font-weight:800;font-size:11.5px}.pill s{text-decoration:none;font-size:8.5px;color:var(--t3);font-weight:600;margin-top:1px}
+.pill.act{background:var(--teal);border-color:transparent;color:#fff}.pill.act s{color:rgba(255,255,255,.85)}
+.pill:hover:not(.act){border-color:var(--bor2)}
+.period{display:flex;align-items:center;gap:3px;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:3px 4px}
+.period button{width:24px;height:24px;border:none;border-radius:7px;background:transparent;color:var(--t2);cursor:pointer;font-size:13px}
+.period .l{font-weight:700;font-size:11.5px;padding:0 8px;text-align:center;line-height:1.1}
+.period .l small{display:block;font-size:8px;color:var(--t3);letter-spacing:.06em;text-transform:uppercase;margin-top:1px}
+
+/* Body : sidebar + main */
+.body{display:grid;grid-template-columns:188px 1fr;min-height:480px}
+.sb{padding:14px 10px;background:#fefaf4;border-right:1px solid var(--bor);display:flex;flex-direction:column;gap:1px}
+.nlbl{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:11px 11px 5px}
+.nlbl.hlb{color:var(--ora);background:#fef3c7;border-radius:6px}
+.ni{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:8px;color:var(--t2);font-weight:600;font-size:12.5px;cursor:pointer;transition:.16s}
+.ni .ic{font-size:13px;width:16px;text-align:center}
+.ni:hover{background:var(--sur2)}
+.ni.act{background:var(--sur2);color:var(--t1)}
+.ni.del{color:#a0a8bd;font-style:italic;text-decoration:line-through;font-size:11.5px;padding:6px 11px}
+.ni.del:after{content:' (supprimé)';font-size:9.5px;color:var(--red);text-decoration:none;font-style:normal;margin-left:auto;font-weight:600}
+
+.main{padding:20px 24px;overflow:hidden}
+.crumbs{font-size:11px;color:var(--t3);margin-bottom:3px;font-weight:600}
+.h2{font-size:20px;font-weight:700;letter-spacing:-.01em;margin-bottom:14px}
+.h2 .ent{color:var(--teal);font-weight:700}
+
+/* KPIs */
+.k4{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:16px}
+.k{padding:12px 13px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor)}
+.k-i{font-size:14px;margin-bottom:4px}
+.k-l{font-size:9.5px;font-weight:700;letter-spacing:.04em;color:var(--t3);text-transform:uppercase;margin-bottom:3px}
+.k-v{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.k-v .c{font-size:11px;color:var(--t2);font-weight:500}
+
+/* Bouton + */
+.bp{font-family:var(--f);font-weight:700;font-size:12px;padding:8px 14px;border-radius:9px;border:none;background:var(--teal);color:#fff;cursor:pointer;transition:.18s}
+.bp:hover{background:var(--teal2)}
+.bs{font-family:var(--f);font-weight:600;font-size:11.5px;padding:7px 11px;border-radius:8px;border:1px solid var(--bor);background:var(--sur);color:var(--t2);cursor:pointer;transition:.18s}
+.bs:hover{background:var(--sur2)}
+
+/* Groupe immeuble */
+.grp{margin-bottom:13px}
+.grp-h{display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:9px;background:linear-gradient(135deg,#fef3c7,#fed7aa);border:1px solid var(--bor);margin-bottom:8px}
+.grp-h .ic{width:26px;height:26px;border-radius:7px;background:#fff;display:grid;place-items:center;font-size:13px;box-shadow:var(--sh)}
+.grp-h h3{font-size:14px;font-weight:700;flex:1}
+.grp-st{display:flex;gap:13px;font-size:10px}
+.grp-st div{text-align:right}.grp-st b{display:block;font-size:11.5px;font-weight:700}
+.grp-st span{font-size:8px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
+.lots{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.lot{padding:10px 11px;border-radius:9px;background:var(--sur);border:1px solid var(--bor);cursor:pointer;position:relative;overflow:hidden;transition:.16s}
+.lot::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--acc))}
+.lot:hover{transform:translateY(-1px);box-shadow:var(--sh)}
+.lot-t{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
+.lot-r{font-weight:800;font-size:11.5px}.lot-loc{font-size:10px;color:var(--t2);margin-top:1px}
+.bdg{font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:99px;white-space:nowrap}
+.b-ok{background:#dcfce7;color:#15803d}.b-w{background:#fef3c7;color:#92400e}
+.b-l{background:#dbeafe;color:#1e40af}.b-v{background:#f3e8ff;color:#7c3aed}
+.lot-f{display:flex;justify-content:space-between;align-items:baseline;margin-top:7px;padding-top:6px;border-top:1px solid var(--bor)}
+.lot-rt{font-weight:700;font-size:11.5px}.lot-rt .c{font-size:9px;color:var(--t3)}
+.lot-m{font-size:9px;color:var(--t3);font-weight:600}
+.vac{border-style:dashed}
+
+/* === Vue Locataires === */
+.loc-tabs{display:flex;gap:3px;border-bottom:1px solid var(--bor);margin-bottom:14px}
+.loc-tab{padding:8px 12px;font-size:12px;font-weight:700;color:var(--t3);cursor:pointer;border-bottom:2.5px solid transparent;transition:.16s}
+.loc-tab.act{color:var(--t1);border-color:var(--teal)}
+.loc-tab:hover:not(.act){color:var(--t2)}
+.lst{display:flex;flex-direction:column;gap:8px}
+.lr{display:grid;grid-template-columns:34px 1fr auto auto;gap:11px;align-items:center;padding:11px 13px;border-radius:9px;background:var(--sur);border:1px solid var(--bor);transition:.16s}
+.lr:hover{border-color:var(--bor2);box-shadow:var(--sh)}
+.lav{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff;background:var(--teal)}
+.li b{display:block;font-size:12.5px;font-weight:700}
+.li s{text-decoration:none;font-size:10.5px;color:var(--t2)}
+.lct{font-size:10px;color:var(--t3);display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.lct .e{font-family:monospace;color:var(--t2);font-size:10px}
+.lact{display:flex;gap:5px}
+
+.cand{border-style:dashed;background:linear-gradient(180deg,#fef9c3 0%,#fff 100%)}
+.cand .lav{background:var(--ora)}
+
+/* === Composer Gmail === */
+.cmp{position:fixed;bottom:20px;right:20px;width:430px;background:var(--sur);border-radius:12px 12px 0 0;box-shadow:0 -10px 40px rgba(20,25,54,.25);z-index:400;display:none;flex-direction:column;border:1px solid var(--bor);max-height:560px;animation:slideUp .25s ease}
+.cmp.on{display:flex}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+.cmp-h{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:#0f172a;color:#fff;border-radius:12px 12px 0 0;font-size:12.5px}
+.cmp-h b{font-weight:600}
+.cmp-c{display:flex;gap:4px}
+.cmp-c button{width:22px;height:22px;border:none;border-radius:5px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-size:13px;display:grid;place-items:center}
+.cmp-c button:hover{background:rgba(255,255,255,.2)}
+.cmp-b{padding:0;display:flex;flex-direction:column;flex:1;min-height:0}
+.cmp-fld{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--bor);font-size:12.5px}
+.cmp-fld label{color:var(--t3);font-size:11px;font-weight:600;min-width:32px}
+.cmp-fld input{border:none;flex:1;background:none;outline:none;font-family:var(--f);font-size:12.5px;color:var(--t1)}
+.cmp-fld input::placeholder{color:var(--t3)}
+.cmp-fld .add{color:var(--acc);font-size:10.5px;cursor:pointer;font-weight:600;border:none;background:none;padding:0}
+.cmp-tb{display:flex;gap:5px;padding:7px 12px;border-bottom:1px solid var(--bor);background:#fef9f4}
+.cmp-tb button{width:26px;height:26px;border:none;border-radius:5px;background:transparent;color:var(--t2);cursor:pointer;font-weight:700;font-size:12px}
+.cmp-tb button:hover{background:var(--sur2)}
+.cmp-tb i{width:1px;background:var(--bor);margin:3px 2px}
+.cmp-body{flex:1;padding:13px 14px;font-size:13px;line-height:1.5;color:var(--t1);min-height:140px;outline:none}
+.cmp-body[contenteditable]:empty::before{content:attr(data-ph);color:var(--t3);pointer-events:none}
+.cmp-sig{padding:9px 14px;border-top:1px solid var(--bor);font-size:11px;color:var(--t2);background:#fef9f4;font-style:italic}
+.cmp-f{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--bor)}
+.cmp-f .send{background:var(--teal);color:#fff;border:none;font-family:var(--f);font-weight:700;font-size:12.5px;padding:8px 18px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:5px}
+.cmp-f .send:hover{background:var(--teal2)}
+.cmp-f .tools{display:flex;gap:4px}
+.cmp-f .tools button{width:30px;height:30px;border:none;border-radius:6px;background:transparent;color:var(--t2);cursor:pointer;font-size:14px}
+.cmp-f .tools button:hover{background:var(--sur2)}
+
+/* === Wizard bottom-sheet === */
+.wz-bd{position:fixed;inset:0;z-index:500;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.45);padding:0}
+.wz-bd.on{display:flex}
+.wz{background:var(--sur);border-radius:18px 18px 0 0;width:100%;max-width:520px;padding:24px 26px 22px;box-shadow:0 -16px 50px rgba(15,23,42,.35);animation:upWiz .35s ease}
+@keyframes upWiz{from{transform:translateY(100%)}to{transform:none}}
+.wz-s{font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px}
+.wz h3{font-size:18px;font-weight:700;margin-bottom:6px;letter-spacing:-.01em}
+.wz p{font-size:13px;color:var(--t2);margin-bottom:16px;line-height:1.5}
+.wz-bar{height:4px;border-radius:99px;background:var(--sur2);margin-bottom:18px;overflow:hidden}
+.wz-bar i{display:block;height:100%;background:var(--teal);border-radius:99px;transition:width .4s ease}
+.wz-act{display:flex;gap:7px;justify-content:flex-end}
+.wz-skp{background:none;border:none;color:var(--t3);font-weight:600;font-size:12px;cursor:pointer;font-family:var(--f);padding:8px 11px}
+.wz-skp:hover{color:var(--t2)}
+.wz-go{background:var(--teal);color:#fff;font-family:var(--f);font-weight:700;font-size:13px;padding:10px 20px;border:none;border-radius:9px;cursor:pointer}
+
+@media(max-width:880px){.body{grid-template-columns:1fr}.sb{display:none}.k4{grid-template-columns:repeat(2,1fr)}.cmp{width:calc(100% - 24px);right:12px;left:12px;bottom:12px}}
+
+/* Annotation */
+.an{padding:9px 13px;border-radius:8px;background:#fffbeb;border-left:3px solid var(--ora);margin:14px 0;font-size:12px;color:#78350f;display:flex;gap:8px;align-items:flex-start;line-height:1.5}
+.an b{color:var(--ora)}
+</style>
+</head>
+<body>
+
+<header class="guide">
+  <h1>ImmoTrack — <span>modifications utiles intégrées</span> (style actuel conservé)</h1>
+  <nav class="gnav">
+    <button class="act" data-v="bien" onclick="sv('bien')">Bien (intercalaires)</button>
+    <button data-v="loc" onclick="sv('loc')">Locataires (+ ✉)</button>
+    <button data-v="wz" onclick="sv('wz')">Wizard création</button>
+    <button data-v="cmp" onclick="sv('cmp')">Composer Gmail</button>
+  </nav>
+</header>
+
+<section class="scene">
+  <div class="scene-h" id="sh">Vue actuelle : <span style="color:var(--teal)">l'onglet Bien</span></div>
+  <div class="scene-s" id="ss">L'app reste comme elle est. On ajoute juste ce qui est utile : la barre de contexte en haut, les groupes thématiques dans la sidebar, et l'onglet Assurances disparaît (déplacé dans les fiches).</div>
+
+  <div class="tip"><b>👀 Comment lire ce mockup :</b> les boutons en haut basculent entre les 4 scénarios. Les annotations oranges signalent les <b>nouveautés</b> ajoutées par rapport à l'app actuelle. Le style visuel (fonts, couleurs, fond rose pastel, accents turquoise) est <b>identique à l'app actuelle</b>.</div>
+
+  <div class="app" id="app">
+
+    <!-- Topbar existante (rappel) -->
+    <div class="topbar">
+      <div class="br">
+        <div class="tlogo">🏠</div>
+        <div><b>ImmoTrack</b> <span class="pr">PREMIUM</span><br><small>v15.232</small></div>
+      </div>
+      <div class="usr">didierkeller@gmail.com <div class="av">D</div></div>
+    </div>
+
+    <!-- NOUVEAUTÉ : Barre de contexte globale -->
+    <div class="ctx hl">
+      <div class="pills">
+        <div class="pill"><b>★</b><s>Toutes</s></div>
+        <div class="pill act"><b>SD</b><s>SCI DD</s></div>
+        <div class="pill"><b>SS</b><s>SCI SM</s></div>
+        <div class="pill"><b>DK</b><s>Didier</s></div>
+      </div>
+      <div class="period"><button>‹</button><div class="l">Mai 2026<small>période</small></div><button>›</button></div>
+    </div>
+
+    <div class="body">
+      <!-- Sidebar (modifs : groupes thématiques + Assurances supprimée) -->
+      <aside class="sb">
+        <div class="ni"><span class="ic">🏠</span> Accueil</div>
+        <div class="ni"><span class="ic">📊</span> Tableau de bord</div>
+
+        <div class="nlbl hlb">Patrimoine ⭐</div>
+        <div class="ni act"><span class="ic">🏠</span> Bien</div>
+        <div class="ni"><span class="ic">👥</span> Locataires</div>
+        <div class="ni"><span class="ic">📋</span> EDL</div>
+
+        <div class="nlbl hlb">Finance ⭐</div>
+        <div class="ni"><span class="ic">💰</span> Mouvements</div>
+        <div class="ni"><span class="ic">📈</span> IRL</div>
+        <div class="ni"><span class="ic">⚖</span> Régul</div>
+        <div class="ni"><span class="ic">🧾</span> Quittances</div>
+
+        <div class="nlbl hlb">Relation ⭐</div>
+        <div class="ni"><span class="ic">📧</span> Communications</div>
+        <div class="ni"><span class="ic">📅</span> Agenda</div>
+
+        <div class="nlbl hlb">Admin ⭐</div>
+        <div class="ni"><span class="ic">📥</span> Import</div>
+        <div class="ni"><span class="ic">🛠</span> Paramètres</div>
+        <div class="ni"><span class="ic">💾</span> Sauvegarde</div>
+
+        <div class="ni del"><span class="ic">🛡</span> Assurances</div>
+      </aside>
+
+      <!-- Main : vues qui changent -->
+      <div class="main" id="main">
+
+        <!-- === VUE BIEN === -->
+        <div data-v="bien">
+          <div class="crumbs">Patrimoine · Mes biens</div>
+          <div class="h2">Mes biens — <span class="ent">SCI DD</span></div>
+          <div class="k4">
+            <div class="k"><div class="k-i">💶</div><div class="k-l">Loyers mai</div><div class="k-v">2 045<span class="c"> €</span></div></div>
+            <div class="k"><div class="k-i">🏘️</div><div class="k-l">Occupation</div><div class="k-v">75<span class="c"> %</span></div></div>
+            <div class="k"><div class="k-i">📊</div><div class="k-l">Cash-flow YTD</div><div class="k-v">12 380<span class="c"> €</span></div></div>
+            <div class="k"><div class="k-i">🔔</div><div class="k-l">À traiter</div><div class="k-v">2</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:11px">
+            <div style="font-size:12px;color:var(--t2);font-weight:600">4 lots · 1 immeuble</div>
+            <button class="bp" onclick="openWiz()">+ Ajouter (avec wizard)</button>
+          </div>
+          <div class="grp">
+            <div class="grp-h"><div class="ic">🏛</div><h3>Damelevières</h3><div class="grp-st"><div><b>4</b><span>lots</span></div><div><b>2 045 €</b><span>HC/mois</span></div></div></div>
+            <div class="lots">
+              <div class="lot" style="--c:var(--grn)"><div class="lot-t"><div><div class="lot-r">D-101</div><div class="lot-loc">Pierre D.</div></div><span class="bdg b-ok">Loué</span></div><div class="lot-f"><span class="lot-rt">600 <span class="c">€</span></span><span class="lot-m">T2 · 44 m²</span></div></div>
+              <div class="lot" style="--c:var(--acc)"><div class="lot-t"><div><div class="lot-r">D-102</div><div class="lot-loc">Marie D.</div></div><span class="bdg b-l">Bail OK</span></div><div class="lot-f"><span class="lot-rt">850 <span class="c">€</span></span><span class="lot-m">T3 · 65 m²</span></div></div>
+              <div class="lot vac" style="--c:var(--vio)"><div class="lot-t"><div><div class="lot-r">D-103</div><div class="lot-loc">— vacant —</div></div><span class="bdg b-v">Vacant</span></div><div class="lot-f"><span class="lot-rt">700 <span class="c">€</span></span><span class="lot-m">T2 · 50 m²</span></div></div>
+              <div class="lot" style="--c:var(--grn)"><div class="lot-t"><div><div class="lot-r">D-Garage</div><div class="lot-loc">Pierre D.</div></div><span class="bdg b-ok">Loué</span></div><div class="lot-f"><span class="lot-rt">50 <span class="c">€</span></span><span class="lot-m">Garage</span></div></div>
+            </div>
+          </div>
+          <div class="an"><b>🆕 Ajouts ici :</b> 1) la barre de contexte SCI DD + Mai 2026 fixée en haut · 2) sidebar avec sous-titres en groupes (« Patrimoine », « Finance », etc.) · 3) Assurances barré en bas — sera déplacé dans les fiches Bien et Bail · 4) bouton « Ajouter (avec wizard) » qui lance le flow Immeuble→Bien→Bail. Le reste reste exactement comme dans l'app actuelle.</div>
+        </div>
+
+        <!-- === VUE LOCATAIRES === -->
+        <div data-v="loc" style="display:none">
+          <div class="crumbs">Relation · Locataires & candidats</div>
+          <div class="h2">Locataires — <span class="ent">SCI DD</span></div>
+          <div class="loc-tabs">
+            <div class="loc-tab act">👥 Locataires (2)</div>
+            <div class="loc-tab">🧑‍💼 Candidats (1)</div>
+            <div class="loc-tab">📜 Baux à terme (0)</div>
+          </div>
+          <div class="lst">
+            <div class="lr">
+              <div class="lav">PD</div>
+              <div class="li"><b>Pierre Demo</b><s>D-101 · bail jusqu'au 31/08/2026</s></div>
+              <div class="lct"><span class="e">06 00 00 00 01</span><span class="e">pierre@demo.fr</span></div>
+              <div class="lact"><button class="bp" onclick="openCmp('Pierre Demo','pierre@demo.fr')">✉ Écrire</button></div>
+            </div>
+            <div class="lr">
+              <div class="lav">MD</div>
+              <div class="li"><b>Marie Demo</b><s>D-102 · bail jusqu'au 28/02/2027</s></div>
+              <div class="lct"><span class="e">06 00 00 00 02</span><span class="e">marie@demo.fr</span></div>
+              <div class="lact"><button class="bp" onclick="openCmp('Marie Demo','marie@demo.fr')">✉ Écrire</button></div>
+            </div>
+            <div class="lr cand">
+              <div class="lav">JM</div>
+              <div class="li"><b style="color:var(--ora)">Julie Martin</b><s>📋 Candidate · postule sur D-103 (vacant)</s></div>
+              <div class="lct"><span class="e">06 12 34 56 78</span></div>
+              <div class="lact"><button class="bs">Voir dossier</button><button class="bp" onclick="openCmp('Julie Martin','julie.martin@email.fr')">✉</button></div>
+            </div>
+          </div>
+          <div class="an"><b>🆕 Ajouts ici :</b> 1) sous-onglet « Candidats » dans la même liste (LOG-CANDIDATS intégré) · 2) téléphone + mail directement affichés dans chaque ligne · 3) bouton « ✉ Écrire » qui ouvre le composer Gmail flottant pré-rempli pour ce locataire. Le bail apparaît ici en gestion (date d'échéance) — la fiche du logement, elle, le montre juste en consultation.</div>
+        </div>
+
+        <!-- === VUE WIZARD === -->
+        <div data-v="wz" style="display:none">
+          <div class="crumbs">Démo · Wizard de création</div>
+          <div class="h2">Ajouter un nouveau patrimoine</div>
+          <p style="color:var(--t2);font-size:13px;margin-bottom:18px;line-height:1.55">Clique sur « Démarrer le wizard » pour voir le flow guidé. Au lieu d'aller dans 3 onglets différents (immeuble, bien, bail), l'app te propose la suite à chaque étape, avec pré-remplissage automatique des liaisons.</p>
+          <button class="bp" style="font-size:13px;padding:10px 16px" onclick="openWiz()">▶ Démarrer le wizard de création</button>
+          <div class="an" style="margin-top:18px"><b>🆕 Le principe :</b> tu enregistres un immeuble → popup "Voulez-vous ajouter un bien ?" → tu enregistres le bien → popup "Voulez-vous créer un bail ?" → terminé. À chaque étape tu peux dire « Plus tard ». Zéro friction.</div>
+        </div>
+
+        <!-- === VUE COMPOSER === -->
+        <div data-v="cmp" style="display:none">
+          <div class="crumbs">Démo · Composer email type Gmail</div>
+          <div class="h2">Écrire un mail directement depuis l'app</div>
+          <p style="color:var(--t2);font-size:13px;margin-bottom:18px;line-height:1.55">Aujourd'hui : un clic sur ✉ ouvre soit une modale de template figé, soit Outlook à l'extérieur. Demain : un composer riche flottant en bas à droite, type Gmail, où tu écris librement sans sortir de l'app.</p>
+          <button class="bp" style="font-size:13px;padding:10px 16px" onclick="openCmp('Pierre Demo','pierre@demo.fr')">✉ Ouvrir le composer (à Pierre Demo)</button>
+          <div class="an" style="margin-top:18px"><b>🆕 Caractéristiques :</b> À/CC/CCI avec autocomplete (locataires + carnet d'adresses futur) · sujet · corps en rich text léger (gras/italique/listes/liens) · pièces jointes par drag&drop · brouillons sauvegardés auto · insertion de modèles existants (quittance, IRL...) · pop-up flottante qu'on peut réduire pendant qu'on navigue dans l'app.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== COMPOSER GMAIL ===== -->
+<div class="cmp" id="cmp">
+  <div class="cmp-h">
+    <b>Nouveau message</b>
+    <div class="cmp-c"><button title="Réduire">−</button><button title="Agrandir">⤢</button><button title="Fermer" onclick="closeCmp()">✕</button></div>
+  </div>
+  <div class="cmp-b">
+    <div class="cmp-fld"><label>De</label><input value="Didier (SCI DD) <didier@sci-dd.fr>" readonly></div>
+    <div class="cmp-fld"><label>À</label><input id="cmp-to" placeholder="destinataire@…"><button class="add">Cc / Cci</button></div>
+    <div class="cmp-fld"><input id="cmp-sj" placeholder="Sujet" style="font-weight:600"></div>
+    <div class="cmp-tb">
+      <button title="Gras"><b>B</b></button>
+      <button title="Italique"><i>I</i></button>
+      <button title="Souligné"><u>U</u></button>
+      <i></i>
+      <button title="Liste">•</button>
+      <button title="Numéroté">1.</button>
+      <i></i>
+      <button title="Lien">🔗</button>
+      <button title="Modèle" style="margin-left:auto;color:var(--teal);font-size:11px;font-weight:600;padding:0 9px;width:auto" onclick="insertTmpl()">📋 Modèle</button>
+    </div>
+    <div class="cmp-body" contenteditable="true" data-ph="Écrivez votre message…" id="cmp-body"></div>
+    <div class="cmp-sig">Cordialement,<br>Didier Keller — Bailleur SCI DD<br>didier@sci-dd.fr</div>
+  </div>
+  <div class="cmp-f">
+    <button class="send" onclick="alert('📧 Envoi (mockup)'); closeCmp();">Envoyer ▸</button>
+    <div class="tools">
+      <button title="Pièce jointe">📎</button>
+      <button title="Brouillon">💾</button>
+      <button title="Plus">⋮</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WIZARD ===== -->
+<div class="wz-bd" id="wzbd">
+  <div class="wz">
+    <div class="wz-s" id="wzs">ÉTAPE 1 / 3</div>
+    <h3 id="wzt">Voulez-vous ajouter un bien dans cet immeuble ?</h3>
+    <p id="wzp">L'immeuble "Damelevières" vient d'être créé. On peut directement y ajouter un bien : l'immeuble sera pré-rempli.</p>
+    <div class="wz-bar"><i id="wzpr" style="width:33%"></i></div>
+    <div class="wz-act">
+      <button class="wz-skp" onclick="closeWiz()">Plus tard</button>
+      <button class="wz-go" id="wzbtn" onclick="nextWiz()">+ Ajouter un bien →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const VIEWS={
+  bien:{t:'l\'onglet Bien',s:'L\'app reste comme elle est. On ajoute juste ce qui est utile : la barre de contexte en haut, les groupes thématiques dans la sidebar, et l\'onglet Assurances disparaît (déplacé dans les fiches).'},
+  loc:{t:'l\'onglet Locataires',s:'Bien vs Locataires est déjà livré (v15.220). On ajoute : contact mail/tél affiché, bouton « ✉ Écrire » direct, et un sous-onglet « Candidats » pour le pipeline (LOG-CANDIDATS).'},
+  wz:{t:'le wizard de création',s:'Au lieu d\'aller dans 3 onglets séparés pour créer immeuble + bien + bail, l\'app te propose la suite à chaque étape. Pré-remplissage automatique des liaisons.'},
+  cmp:{t:'le composer email type Gmail',s:'Le bouton ✉ ouvre une vraie pop-up flottante en bas à droite, comme Gmail. Tu écris librement (rich text, pièces jointes, brouillons) sans sortir de l\'app.'}
+};
+function sv(v){
+  document.querySelectorAll('[data-v]').forEach(e=>{e.style.display=(e.dataset.v===v)?'':'none';});
+  document.querySelectorAll('.gnav button').forEach(b=>b.classList.toggle('act',b.dataset.v===v));
+  document.getElementById('sh').innerHTML='Vue actuelle : <span style="color:var(--teal)">'+VIEWS[v].t+'</span>';
+  document.getElementById('ss').textContent=VIEWS[v].s;
+  // toggles main views aussi
+  document.querySelectorAll('#main > [data-v]').forEach(e=>{e.style.display=(e.dataset.v===v)?'':'none';});
+  // si vue cmp -> ouvrir composer auto
+  if(v==='cmp')openCmp('Pierre Demo','pierre@demo.fr');
+  else closeCmp();
+}
+// Composer
+function openCmp(name,email){
+  document.getElementById('cmp').classList.add('on');
+  document.getElementById('cmp-to').value=name+' <'+email+'>';
+  document.getElementById('cmp-sj').value='';
+  document.getElementById('cmp-body').innerHTML='';
+}
+function closeCmp(){document.getElementById('cmp').classList.remove('on');}
+function insertTmpl(){
+  document.getElementById('cmp-sj').value='Quittance de loyer — Mai 2026';
+  document.getElementById('cmp-body').innerHTML='Bonjour Pierre,<br><br>Veuillez trouver ci-joint votre quittance de loyer pour le mois de <b>mai 2026</b>.<br><br>Montant : <b>680 €</b> (loyer 600 € + charges 80 €).<br><br>Bien cordialement,';
+}
+// Wizard
+const WZ=[
+  {t:'Voulez-vous ajouter un bien dans cet immeuble ?',d:'L\'immeuble "Damelevières" vient d\'être créé. On peut directement y ajouter un bien : l\'immeuble sera pré-rempli.',b:'+ Ajouter un bien →',p:33},
+  {t:'Voulez-vous créer un bail sur ce bien ?',d:'Le bien "D-101" vient d\'être créé. On peut directement y associer un bail : le bien et l\'immeuble parent seront pré-remplis.',b:'+ Créer un bail →',p:66},
+  {t:'🎉 Patrimoine enregistré',d:'Bail créé. Damelevières, D-101 et son bail sont en place avec les bonnes liaisons.',b:'Terminer ✓',p:100}
+];
+let wi=0;
+function openWiz(){wi=0;renderWiz();document.getElementById('wzbd').classList.add('on');}
+function nextWiz(){if(wi<WZ.length-1){wi++;renderWiz();}else{closeWiz();}}
+function closeWiz(){document.getElementById('wzbd').classList.remove('on');}
+function renderWiz(){
+  const s=WZ[wi];
+  document.getElementById('wzs').textContent='ÉTAPE '+(wi+1)+' / '+WZ.length;
+  document.getElementById('wzt').textContent=s.t;
+  document.getElementById('wzp').textContent=s.d;
+  document.getElementById('wzbtn').textContent=s.b;
+  document.getElementById('wzpr').style.width=s.p+'%';
+}
+document.getElementById('wzbd').addEventListener('click',e=>{if(e.target.id==='wzbd')closeWiz();});
+</script>
+</body>
+</html>
