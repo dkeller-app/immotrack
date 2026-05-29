@@ -7686,3 +7686,232 @@ body[data-dash-v4="on"] .v4h-todo-empty {
      Doit donc rester > backdrop sinon la sidebar passe DERRIÈRE l'ombrage gris. */
   body[data-dash-v4="on"] .sb-nav { z-index: 2000 !important; box-shadow: 4px 0 24px rgba(0,0,0,.4); }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v15.230 ARCHI-FICHES-UNIFIED Session 4 — CSS RAPATRIÉE DEPUIS index.html
+   AUDIT 2026-05-29 a identifié que ces ~225 lignes étaient placées DANS le
+   template literal `BAIL_TEMPLATE_DEFAULT` (string JS qui sert à générer le
+   PDF du bail). Le browser ne les voyait JAMAIS car elles étaient dans une
+   string JavaScript, pas dans une stylesheet active. Bug A user 2026-05-29 :
+   cards Locataires empilées verticalement → CAUSE RACINE.
+   Fix : déplacement ici dans la VRAIE stylesheet externe chargée par
+   <link rel="stylesheet" href="css/main.css?v=15.230">.
+
+   Page Biens — Variante A (blocs immeubles repliables + log-rows détaillés)
+   Page Locataires — Variante L-B (cards groupé par immeuble + avatars)
+   Mockup-spec validé user 2026-05-29 (cf mockups/SESSION4-PAGES/mockup.html)
+   Mobile-spec : sticky headers, cards empilées, touch min 44px, font 14px
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* === Bloc immeuble (variante A) === */
+.imm-block-a {
+  background: var(--sur, #fff); border: 1px solid var(--bor, #e5e7eb); border-radius: 8px;
+  margin-bottom: 12px; overflow: hidden;
+}
+.imm-block-a.is-archived { opacity: 0.65; }
+.imm-block-a-header {
+  background: linear-gradient(90deg, #eff6ff, var(--sur, #fff));
+  padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+  cursor: pointer; border-bottom: 1px solid var(--bor, #e5e7eb);
+  user-select: none;
+}
+.imm-block-a-header:hover { background: linear-gradient(90deg, #dbeafe, var(--sur2, #f3f4f6)); }
+.imm-block-a-header .imm-icon { font-size: 24px; flex-shrink: 0; }
+.imm-block-a-header .imm-info { flex: 1; min-width: 0; }
+.imm-block-a-header .imm-name { font-weight: 700; font-size: 15px; color: var(--t1, #1f2937); }
+.imm-block-a-header .imm-adr { font-size: 11.5px; color: var(--t2, #6b7280); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
+.imm-block-a-header .imm-stats { display: flex; gap: 16px; font-size: 10.5px; color: var(--t2, #6b7280); flex-shrink: 0; }
+.imm-block-a-header .imm-stats b { display: block; font-size: 14px; color: var(--t1, #1f2937); margin-top: 2px; text-align: right; }
+.imm-block-a-header .chevron-a { font-size: 18px; color: var(--t2, #6b7280); flex-shrink: 0; transition: transform 0.2s; }
+.imm-block-a.collapsed .chevron-a { transform: rotate(-90deg); }
+.imm-block-a.collapsed .imm-log-list-a { display: none; }
+.imm-block-a-bailleur {
+  font-size: 10.5px; color: var(--t3, #9ca3af); text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 0 16px; padding-top: 8px; padding-bottom: 0;
+  background: var(--sur2, #f3f4f6);
+  border-bottom: 1px solid var(--bor, #e5e7eb);
+}
+
+/* === Log-list & log-row variante A === */
+.imm-log-list-a { padding: 6px 12px 10px; }
+.log-row-a {
+  display: grid; grid-template-columns: 80px auto 1fr auto auto auto auto;
+  gap: 12px; align-items: center;
+  padding: 9px 12px; border-radius: 6px; cursor: pointer;
+  border-bottom: 1px solid var(--sur2, #f3f4f6);
+  transition: background 0.12s;
+}
+.log-row-a:hover { background: var(--sur3, #f9fafb); }
+.log-row-a:last-child { border-bottom: none; }
+.log-row-a.is-vacant { background: linear-gradient(90deg, #fef3c7, var(--sur, #fff)); }
+.log-row-a.is-vacant:hover { background: linear-gradient(90deg, #fde68a, var(--sur2, #f3f4f6)); }
+.log-row-a-ref { font-weight: 700; font-size: 12.5px; color: var(--acc, #2563eb); }
+.log-row-a-type {
+  background: var(--sur2, #f3f4f6); border-radius: 12px; padding: 2px 9px;
+  font-size: 11px; font-weight: 600; color: var(--t1, #1f2937);
+  text-align: center; min-width: 36px;
+}
+.log-row-a-details { font-size: 12px; color: var(--t1, #1f2937); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-row-a-loc { font-size: 11.5px; color: var(--t2, #6b7280); display: flex; align-items: center; gap: 6px; min-width: 0; }
+.log-row-a-loc .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.log-row-a-loc .dot.green { background: var(--ok, #10b981); }
+.log-row-a-loc .dot.red { background: var(--err, #ef4444); }
+.log-row-a-loc .dot.orange { background: var(--warn, #f59e0b); }
+.log-row-a-loc .loc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-row-a-loyer { font-weight: 700; font-size: 13px; color: var(--t1, #1f2937); text-align: right; min-width: 80px; white-space: nowrap; }
+.log-row-a-loyer small { font-weight: 400; color: var(--t2, #6b7280); font-size: 10.5px; display: block; margin-top: 1px; }
+.log-row-a-action, .log-row-a-action-annonce {
+  padding: 6px 10px; border: 1px solid var(--bor, #e5e7eb); border-radius: 4px;
+  font-size: 11px; cursor: pointer; background: var(--sur, #fff); color: var(--t1, #1f2937);
+  white-space: nowrap;
+}
+.log-row-a-action:hover { background: var(--acc, #2563eb); color: #fff; border-color: var(--acc, #2563eb); }
+.log-row-a-action-annonce { background: #fef3c7; color: #92400e; border-color: #f59e0b; font-weight: 600; }
+.log-row-a-action-annonce:hover { background: #fde68a; }
+
+/* === Page Locataires variante L-B (cards groupé par immeuble) === */
+.locimm-block-b {
+  background: var(--sur, #fff); border: 1px solid var(--bor, #e5e7eb); border-radius: 8px;
+  margin-bottom: 10px; overflow: hidden;
+}
+.locimm-block-b-header {
+  background: var(--sur3, #f9fafb); padding: 10px 14px;
+  font-weight: 700; font-size: 13px; border-bottom: 1px solid var(--bor, #e5e7eb);
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  user-select: none;
+}
+.locimm-block-b-header:hover { background: var(--sur2, #f3f4f6); }
+.locimm-block-b-header .imm-icon-b { font-size: 18px; }
+.locimm-block-b-header .imm-name-b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.locimm-block-b-header .count-b {
+  background: var(--sur, #fff); border: 1px solid var(--bor, #e5e7eb); border-radius: 12px;
+  padding: 2px 10px; font-size: 11px; font-weight: 500; color: var(--t2, #6b7280);
+}
+.locimm-block-b.collapsed .locimm-body-b { display: none; }
+.locimm-block-b-header .chevron-b { font-size: 14px; color: var(--t2, #6b7280); transition: transform 0.2s; }
+.locimm-block-b.collapsed .chevron-b { transform: rotate(-90deg); }
+.locimm-body-b { padding: 6px 0; }
+
+.loc-card-row-b {
+  display: grid; grid-template-columns: 36px 1fr auto auto auto auto;
+  gap: 12px; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--sur2, #f3f4f6);
+  cursor: pointer; transition: background 0.12s;
+}
+.loc-card-row-b:hover { background: var(--sur3, #f9fafb); }
+.loc-card-row-b:last-child { border-bottom: none; }
+.loc-card-row-b.warn-soon { background: #fef3c7; }
+.loc-card-row-b.warn-soon:hover { background: #fde68a; }
+
+.loc-avatar-b {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--acc, #2563eb); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 12px;
+}
+.loc-card-row-b.warn-soon .loc-avatar-b { background: var(--warn, #f59e0b); }
+.loc-info-b { min-width: 0; }
+.loc-info-b .nom-b { font-weight: 600; font-size: 13px; color: var(--t1, #1f2937); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loc-info-b .meta-b { font-size: 11px; color: var(--t2, #6b7280); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loc-loyer-b { font-weight: 600; font-size: 13px; color: var(--t1, #1f2937); white-space: nowrap; }
+.loc-ech-b { font-size: 11.5px; white-space: nowrap; }
+.loc-ech-b.ok { color: var(--ok, #10b981); }
+.loc-ech-b.warn { color: var(--warn, #f59e0b); font-weight: 600; }
+.loc-ech-b.err { color: var(--err, #ef4444); font-weight: 700; }
+.loc-meta-bail-b { font-size: 11px; color: var(--t2, #6b7280); white-space: nowrap; }
+.loc-actions-b { display: flex; gap: 4px; }
+.loc-actions-b button {
+  padding: 5px 9px; background: var(--sur, #fff); border: 1px solid var(--bor, #e5e7eb);
+  border-radius: 4px; font-size: 11px; cursor: pointer; color: var(--t1, #1f2937);
+  white-space: nowrap;
+}
+.loc-actions-b button:hover { background: var(--acc, #2563eb); color: #fff; border-color: var(--acc, #2563eb); }
+
+/* Breakpoint tablette intermédiaire (481-1024px) */
+@media (max-width: 1024px) and (min-width: 481px) {
+  .log-row-a {
+    grid-template-columns: 70px auto 1fr auto auto auto auto;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  .log-row-a .log-row-a-action-annonce, .log-row-a .log-row-a-action { font-size: 10.5px; padding: 5px 7px; white-space: nowrap; }
+  .log-row-a-ref { font-size: 11.5px; }
+  .log-row-a-type { font-size: 10.5px; min-width: 32px; padding: 2px 6px; }
+  .log-row-a-details { font-size: 11px; }
+  .log-row-a-loc { font-size: 10.5px; }
+  .log-row-a-loyer { font-size: 12px; min-width: 65px; }
+  .log-row-a-loyer small { font-size: 9.5px; }
+  .imm-block-a-header { padding: 10px 12px; }
+  .imm-block-a-header .imm-stats { gap: 10px; font-size: 10px; }
+  .imm-block-a-header .imm-stats b { font-size: 12.5px; }
+  .imm-block-a-header .imm-adr { font-size: 11px; }
+  .imm-block-a-header .imm-name { font-size: 14px; }
+  .loc-card-row-b {
+    grid-template-columns: 32px 1fr auto auto auto;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .loc-card-row-b .loc-meta-bail-b { display: none; }
+  .loc-actions-b button { padding: 4px 7px; font-size: 10.5px; }
+}
+
+/* === MOBILE SPEC ≤ 480px : cards empilées + sticky + touch 44px === */
+@media (max-width: 480px) {
+  .imm-block-a-header {
+    flex-wrap: wrap; padding: 10px 12px;
+    position: sticky; top: 0; z-index: 5;
+    background: linear-gradient(180deg, #dbeafe, #eff6ff);
+  }
+  .imm-block-a-header .imm-info { flex: 1 1 60%; min-width: 0; }
+  .imm-block-a-header .imm-name { font-size: 14px; }
+  .imm-block-a-header .imm-adr { font-size: 10.5px; }
+  .imm-block-a-header .imm-stats {
+    width: 100%; margin-top: 6px; padding-top: 6px;
+    border-top: 1px dashed rgba(0,0,0,0.12);
+    gap: 14px; font-size: 10px;
+  }
+  .imm-block-a-header .imm-stats b { font-size: 12.5px; }
+  .imm-block-a-header .chevron-a { margin-left: auto; align-self: flex-start; }
+  .imm-log-list-a { padding: 6px 10px 10px; }
+  .log-row-a {
+    display: block; padding: 12px 14px;
+    border: 1px solid var(--bor, #e5e7eb); border-radius: 8px;
+    margin-bottom: 8px; background: var(--sur, #fff);
+  }
+  .log-row-a > * { display: block; margin: 0; }
+  .log-row-a-ref { display: inline-block !important; margin-right: 8px; font-size: 13px; }
+  .log-row-a-type { display: inline-block !important; margin-right: 0; }
+  .log-row-a-details { font-size: 12px; color: var(--t2, #6b7280); margin-top: 6px; white-space: normal; overflow: visible; }
+  .log-row-a-loc { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--sur2, #f3f4f6); font-size: 12px; }
+  .log-row-a-loyer { margin-top: 6px; font-size: 15px; text-align: left !important; min-width: 0; }
+  .log-row-a-loyer small { display: inline; margin-left: 4px; }
+  .log-row-a-action, .log-row-a-action-annonce {
+    margin-top: 10px; width: 100%; padding: 12px; font-size: 13px; font-weight: 600;
+    min-height: 44px;
+  }
+  .locimm-block-b-header {
+    position: sticky; top: 0; z-index: 5;
+    padding: 10px 12px; font-size: 12.5px;
+  }
+  .loc-card-row-b {
+    display: block; padding: 12px 14px;
+    border: 1px solid var(--bor, #e5e7eb); border-radius: 8px;
+    margin: 8px 10px; background: var(--sur, #fff);
+  }
+  .loc-avatar-b { float: left; margin: 0 10px 6px 0; width: 36px; height: 36px; font-size: 13px; }
+  .loc-info-b { overflow: hidden; }
+  .loc-info-b .nom-b { font-size: 14px; white-space: normal; }
+  .loc-info-b .meta-b { font-size: 11.5px; white-space: normal; }
+  .loc-loyer-b, .loc-ech-b, .loc-meta-bail-b {
+    clear: left; display: flex; justify-content: space-between;
+    margin-top: 8px; padding: 4px 0; border-bottom: 1px solid var(--sur2, #f3f4f6);
+    font-size: 12.5px;
+  }
+  .loc-loyer-b:before { content: '💰 Loyer'; font-weight: 500; color: var(--t2, #6b7280); }
+  .loc-ech-b:before { content: '📅 Échéance'; font-weight: 500; color: var(--t2, #6b7280); }
+  .loc-meta-bail-b:before { content: 'ℹ Bail'; font-weight: 500; color: var(--t2, #6b7280); }
+  .loc-actions-b { display: flex; gap: 8px; margin-top: 10px; }
+  .loc-actions-b button {
+    flex: 1; min-height: 44px; padding: 12px; font-size: 13px; font-weight: 600;
+  }
+}
