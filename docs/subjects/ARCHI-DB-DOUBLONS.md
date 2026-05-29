@@ -1,6 +1,6 @@
 # ARCHI-DB-DOUBLONS — Refonte architecture DB : séparer log (bien physique) et bail (contrat juridique)
 
-**Status** : 🔄 Phases 1+2+3a+3b+4a+**4b fondation** ✅ livrées v14.17.2 · Phase 4b refacto code ⬜ session dédiée future · **Prio** : P1 · **Taille** : XL (~12-15h, ~3-4h restantes session dédiée)
+**Status** : ✅ **TERMINÉ — Phase 4b COMPLÈTE livrée v15.232 (2026-05-29)** · décision B3 appliquée (logement = source unique du bien) · Phases 1+2+3a+3b+4a+4b toutes livrées · **Prio** : P1 · **Taille** : XL
 **Détecté** : 2026-04-23 (initial) · enrichi 2026-05-02 (audit bidirectionnel + CDC)
 **Lié à** : LOG-FICHE-360 Phase 2 · FICHES-PARITE-360 (prérequis) · BAIL-NAMESPACE-MIGRATION · BAIL-TYPES (lien fort via log.typeUsage) · V3-VISUEL · LOG-PHOTOS · EDL-TEMPLATE-PER-LOG (parallèle, hors scope ARCHI)
 
@@ -320,6 +320,14 @@ bail (DB.baux[ref]) — CONTRAT JURIDIQUE LIÉ AU BIEN
 
 ## Journal
 
+- 2026-05-29 : **🎉 Phase 4b COMPLÈTE livrée v15.232 — SUJET TERMINÉ** (mandat user « en finir d'un coup propre »). Décision B3 : le **LOGEMENT est la source unique du bien physique**, le bail lit via `_readLogForBail(bail, log)`.
+  - **Suppression duplication** : `getBailDataFromForm` + `copyBailFrom` n'émettent plus les champs bien · bloc « bien » de `_syncLogToBail` retiré (garde identité adrBien/ftype/etage/surf + financiers/locataire). Le pivot Phase 3b (`_syncLogToBail` propageait 24 champs comme cache) est donc **résorbé** : plus de cache, vraie source unique.
+  - **3 bugs d'affichage corrigés** : annexes `[object Object]` · equipCuisine/Sanitaires/techInfo toujours `–` · chauffage label-only. Sérialiseurs `_lbSerialize*` (`_LB_*_LABELS`, `_lbSerializeEquipSection`, `_lbSerializeFlags`, `_lbSerializeAnnexes`) convertissent les sous-objets structurés `log.equipements{}`/`annexes{}`/`chauffage{}`/`ecs{}` en texte.
+  - **Schéma chauffage/ECS enrichi** (mockup validé user, `mockups/BAIL-CHAUFFAGE-LOG/`) : modale Logement 3→11 flags chauffage (+PAC/fioul/bois/poêles/insert/cheminée/clim) + ECS (thermo/solaire/fioul/autre). `EQUIP_RULES` condFns repointées sur `log.chauffage.*`.
+  - **Migration boot `_migrateArchiV4bIfNeeded`** (idempotente, backup auto via `_backupBeforeMigration('archi-v4b')`, marqueur localStorage `_lsKey`) : Étape A migre le texte libre équipements → `log.equipements.*.customs[]` AVANT suppression (lossless) ; Étape B purge `_ARCHI_V4B_DESC_FIELDS` des baux **non signés uniquement** · signés JAMAIS touchés · **baux orphelins** (sans logement vivant) préservés intacts (bail.X = unique source, re-nettoyés à un boot futur si un logement apparaît).
+  - **Immutabilité bail signé** : rendu BAIL-FIRST `bail.X || _lbFill.X` partout (`_lbFill = _readLogForBail`, bail signé → issu de `bailSnapshot.log` figé + marqueur `_bailSignedSnapshot`). Annexes bail-first + string-guard (free-text signé byte-identique, pas de `[object Object]`). Clauses entretien chauffage gatées `!_bailSignedSnapshot`. `saveBail` re-préserve les champs plats gelés d'un bail signé re-sauvé (anti-dérive de l'Aperçu vivant).
+  - **Audit `superpowers:code-reviewer` 2 passes** : 5 findings → **C1** (critique, ordre lecture annexes) · **I1** (clauses chauffage) · **I2** (perte texte bail orphelin) · **S3** (backup namespace sandbox) · **dérive re-save bail signé** → **tous RESOLVED**, aucune régression, snapshot légal jamais impacté.
+  - Propagé index-test → **index.html byte-identique** + bump 4 emplacements in-file (title/footer/landing/`IMMOTRACK_VERSION`) + `sw.js` CACHE_VER v15.232. Syntaxe 0 erreur (prod + sandbox).
 - 2026-04-23 : créé (initial, dans BACKLOG.md uniquement)
 - 2026-05-02 (matin) : enrichi avec audit bidirectionnel détaillé (champs bien sur bail + champs bail sur log) + plan de migration 4 phases + tests post-implémentation. Doc séparé créé.
 - 2026-05-02 (soir) : **Phase 1 (CDC) livrée** — décisions Q1-Q8 arbitrées en dialogue avec utilisateur. Audit code complété (165 sites + 5 fonctions PDF). Champs à créer/retirer documentés. Plan détaillé Phases 2-4 prêt à coder. **Q4bis ajouté** : `log.typeUsage` (7 valeurs) + lien fort BAIL-TYPES (mobilier annexe). **Q2bis ajouté** : tab Mobilier dans formulaire logement (visible si meublé/étudiant/mobilité).

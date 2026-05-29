@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup — Chauffage étendu (modale Logement) · ImmoTrack</title>
+<style>
+:root {
+  --acc: #14b8a6; --acc-dark: #0d9488;
+  --bg: #eef2f7; --sur: #fff; --sur2: #f5f3ee; --sur3: #ebe7df;
+  --bor: #d4cfc4; --bor2:#e5e1d8; --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --blu: #3b82f6; --blu-bg: #dbeafe;
+  --gre: #22c55e; --gre-bg: #dcfce7;
+  --red: #ef4444; --red-bg: #fee2e2;
+  --amb: #f59e0b; --amb-bg: #fef3c7;
+  --r: 6px; --r-lg: 10px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; }
+header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+.head-title { font-weight: 700; color: var(--acc-dark); font-size: 16px; }
+.head-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.canvas { padding: 16px; max-width: 1100px; margin: 0 auto; }
+
+/* Switcher */
+.switcher { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r); padding: 10px 12px; margin-bottom: 18px; display:flex; flex-wrap:wrap; gap:18px; align-items:center; }
+.switcher-row { display: flex; gap: 6px; align-items: center; }
+.switcher-label { font-size: 11.5px; color: var(--t2); font-weight: 700; text-transform:uppercase; letter-spacing:.5px; }
+.switcher-btn { padding: 5px 12px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 12px; }
+.switcher-btn.act { background: var(--acc); color: #fff; border-color: var(--acc-dark); font-weight: 600; }
+.switcher-btn:hover:not(.act) { background: var(--sur3); }
+
+/* Device frame */
+.stage { display:flex; justify-content:center; }
+.device { width: 860px; transition: width .25s ease; max-width:100%; }
+.device-meta { text-align:center; font-size:11px; color:var(--t3); margin-bottom:6px; }
+
+/* Modal (mimics #ov-log) */
+.modal { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); box-shadow: 0 6px 20px rgba(0,0,0,.08); overflow: hidden; }
+.modal-head { background: var(--sur2); padding: 14px 18px; border-bottom: 1px solid var(--bor); }
+.modal-head h3 { margin: 0; font-size: 16px; }
+.modal-tabs { display:flex; gap:4px; padding:8px 12px 0; background:var(--sur2); overflow-x:auto; }
+.modal-tab { padding:7px 13px; font-size:12.5px; border:1px solid transparent; border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer; color:var(--t2); white-space:nowrap; }
+.modal-tab.act { background:var(--sur); color:var(--t1); border-color:var(--bor); font-weight:600; }
+.modal-body { padding: 18px 20px 24px; }
+
+/* logmod faithful */
+.logmod-section-title { font-size:11px; font-weight:700; color:var(--t3); text-transform:uppercase; letter-spacing:.6px; margin:18px 0 10px; padding-top:14px; border-top:1px solid var(--bor2); }
+.logmod-section-title:first-child { margin-top:0; padding-top:0; border-top:none; }
+.logmod-checkbox-group { display:flex; flex-wrap:wrap; gap:8px 18px; }
+.logmod-checkbox-group label { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; padding:5px 0; }
+.fg { margin-bottom:0; }
+.fg label { display:block; font-size:11px; color:var(--t2); margin-bottom:3px; font-weight:500; }
+.fg input { width:100%; padding:7px 10px; border:1px solid var(--bor); border-radius:var(--r); font-size:12.5px; background:var(--sur); }
+.fg2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px; }
+
+/* Grouped variant sub-labels */
+.subgroup { margin-bottom:8px; }
+.subgroup-lbl { font-size:10.5px; font-weight:700; color:var(--acc-dark); text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+
+/* badges & annotations */
+.badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:10px; font-weight:600; vertical-align:middle; }
+.badge.new { background:var(--gre-bg); color:#166534; }
+.badge.clause { background:var(--blu-bg); color:#1e40af; }
+.annotation { background: var(--blu-bg); border-left: 3px solid var(--blu); padding: 11px 13px; border-radius: 0 var(--r) var(--r) 0; margin: 18px 0 0; font-size: 12px; color: #1e3a8a; line-height:1.55; }
+.annotation strong { color:#1e40af; }
+.clause-preview { background:var(--sur2); border:1px solid var(--bor); border-radius:var(--r); padding:11px 13px; margin-top:10px; font-size:12px; }
+.clause-preview .ttl { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--t3); margin-bottom:6px; }
+.clause-preview ul { margin:0; padding-left:18px; }
+.clause-preview li { margin:3px 0; }
+
+.variant-pane { display:none; }
+.variant-pane.act { display:block; }
+
+@media (max-width:560px){ .fg2{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-title">🔥 Mockup — Chauffage étendu dans la modale Logement</div>
+  <div class="head-sub">Onglet « Équipements ». Les 7 types riches (fioul, bois, poêle, insert, cheminée, clim) descendent du bail vers le bien (log). Le bail lit le bien — source unique. Les flags alimentent les clauses d'entretien locataire.</div>
+</header>
+
+<div class="canvas">
+
+  <div class="switcher">
+    <div class="switcher-row">
+      <span class="switcher-label">Variante</span>
+      <button class="switcher-btn act" data-variant="A" onclick="setVariant('A')">A — Grille plate</button>
+      <button class="switcher-btn" data-variant="B" onclick="setVariant('B')">B — Groupé énergie / appareil</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Format</span>
+      <button class="switcher-btn act" data-dev="860" onclick="setDev(860,'PC')">PC</button>
+      <button class="switcher-btn" data-dev="620" onclick="setDev(620,'Tablette')">Tablette</button>
+      <button class="switcher-btn" data-dev="380" onclick="setDev(380,'Téléphone')">Téléphone</button>
+    </div>
+  </div>
+
+  <div class="device-meta" id="devMeta">Format : PC — 860px</div>
+  <div class="stage">
+    <div class="device" id="device">
+      <div class="modal">
+        <div class="modal-head"><h3>🏠 Logement F-201 · T3 Strasbourg</h3></div>
+        <div class="modal-tabs">
+          <div class="modal-tab">Identité</div>
+          <div class="modal-tab">Description</div>
+          <div class="modal-tab">DPE</div>
+          <div class="modal-tab">Risques</div>
+          <div class="modal-tab act">Équipements</div>
+        </div>
+        <div class="modal-body">
+
+          <!-- ===== VARIANT A : flat grid ===== -->
+          <div class="variant-pane act" id="paneA">
+            <div class="logmod-section-title">🔥 Chauffage</div>
+            <div class="logmod-checkbox-group">
+              <label><input type="checkbox" checked> Électrique</label>
+              <label><input type="checkbox"> Gaz</label>
+              <label><input type="checkbox"> Collectif</label>
+              <label><input type="checkbox"> Pompe à chaleur (PAC) <span class="badge new">nouveau</span></label>
+              <label><input type="checkbox"> Fioul <span class="badge new">nouveau</span></label>
+              <label><input type="checkbox"> Bois / granulés <span class="badge new">nouveau</span></label>
+              <label><input type="checkbox"> Poêle à bois <span class="badge new">nouveau</span></label>
+              <label><input type="checkbox"> Poêle à granulés <span class="badge new">nouveau</span></label>
+              <label><input type="checkbox"> Insert <span class="badge new">nouveau</span></label>
+              <label><input type="checkbox"> Cheminée <span class="badge new">nouveau</span></label>
+              <label><input type="checkbox"> Climatisation <span class="badge new">nouveau</span></label>
+            </div>
+            <div class="fg2">
+              <div class="fg"><label>Autre / précision</label><input placeholder="PAC air-eau, géothermie…"></div>
+              <div class="fg"><label>Description complète</label><input placeholder="ex : Chauffage électrique individuel par convecteurs"></div>
+            </div>
+          </div>
+
+          <!-- ===== VARIANT B : grouped ===== -->
+          <div class="variant-pane" id="paneB">
+            <div class="logmod-section-title">🔥 Chauffage</div>
+            <div class="subgroup">
+              <div class="subgroup-lbl">Source d'énergie</div>
+              <div class="logmod-checkbox-group">
+                <label><input type="checkbox" checked> Électrique</label>
+                <label><input type="checkbox"> Gaz</label>
+                <label><input type="checkbox"> Fioul <span class="badge new">nouveau</span></label>
+                <label><input type="checkbox"> Bois / granulés <span class="badge new">nouveau</span></label>
+                <label><input type="checkbox"> Pompe à chaleur (PAC) <span class="badge new">nouveau</span></label>
+                <label><input type="checkbox"> Collectif</label>
+              </div>
+            </div>
+            <div class="subgroup">
+              <div class="subgroup-lbl">Type d'appareil / émetteur</div>
+              <div class="logmod-checkbox-group">
+                <label><input type="checkbox"> Poêle à bois <span class="badge new">nouveau</span></label>
+                <label><input type="checkbox"> Poêle à granulés <span class="badge new">nouveau</span></label>
+                <label><input type="checkbox"> Insert <span class="badge new">nouveau</span></label>
+                <label><input type="checkbox"> Cheminée <span class="badge new">nouveau</span></label>
+                <label><input type="checkbox"> Climatisation <span class="badge new">nouveau</span></label>
+              </div>
+            </div>
+            <div class="fg2">
+              <div class="fg"><label>Autre / précision</label><input placeholder="PAC air-eau, géothermie…"></div>
+              <div class="fg"><label>Description complète</label><input placeholder="ex : Chauffage électrique individuel par convecteurs"></div>
+            </div>
+          </div>
+
+          <div class="clause-preview">
+            <div class="ttl">🔗 Ce que ça génère dans le bail (clauses d'entretien locataire)</div>
+            <ul>
+              <li>Fioul / Bois / Insert / Poêle / Cheminée coché <span class="badge clause">→ clause</span> ramonage 2×/an + entretien annuel à la charge du locataire</li>
+              <li>Gaz coché <span class="badge clause">→ clause</span> entretien annuel chaudière gaz par le locataire</li>
+              <li>Climatisation cochée <span class="badge clause">→ clause</span> entretien filtres / unité par le locataire</li>
+            </ul>
+          </div>
+
+          <div class="logmod-section-title">💧 Eau chaude sanitaire</div>
+          <div class="logmod-checkbox-group">
+            <label><input type="checkbox" checked> Chauffe-eau électrique</label>
+            <label><input type="checkbox"> Chaudière gaz</label>
+            <label><input type="checkbox"> Thermodynamique (PAC) <span class="badge new">nouveau</span></label>
+            <label><input type="checkbox"> Solaire <span class="badge new">nouveau</span></label>
+            <label><input type="checkbox"> Fioul <span class="badge new">nouveau</span></label>
+            <label><input type="checkbox"> Collective</label>
+          </div>
+          <div class="fg2">
+            <div class="fg"><label>Autre / précision <span class="badge new">nouveau</span></label><input placeholder="ex : ballon 200L, instantané gaz…"></div>
+            <div class="fg"><label>Description ECS</label><input placeholder="ex : Chauffe-eau électrique 200L individuel"></div>
+          </div>
+
+          <div class="annotation">
+            <strong>Modèle de données :</strong> ces cases vivent désormais sur <code>log.chauffage</code> (le bien), pas sur le bail. Le bail les <em>lit</em> via <code>_readLogForBail()</code> → source unique. Le wizard bail « Le bien » reste en lecture seule (déjà le cas). Les anciens champs <code>bail.chauffFioul/Bois/…</code> sont supprimés ; la migration au boot recopie les valeurs existantes des baux vers le bien.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function setVariant(v){
+  document.querySelectorAll('[data-variant]').forEach(b=>b.classList.toggle('act', b.dataset.variant===v));
+  document.getElementById('paneA').classList.toggle('act', v==='A');
+  document.getElementById('paneB').classList.toggle('act', v==='B');
+}
+function setDev(px,label){
+  document.querySelectorAll('[data-dev]').forEach(b=>b.classList.toggle('act', +b.dataset.dev===px));
+  document.getElementById('device').style.width = px+'px';
+  document.getElementById('devMeta').textContent = 'Format : '+label+' — '+px+'px';
+}
+</script>
+</body>
+</html>
