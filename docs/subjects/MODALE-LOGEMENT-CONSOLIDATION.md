@@ -74,6 +74,8 @@ Mockup validé : `mockups/MODALE-LOGEMENT-CONSOLIDATION/mockup.html` (3 vues × 
 
 Modale Logement = **5 onglets** : 📋 Identité / 📐 Description / 🔧 Équipements / 🏷 Diagnostics / 📢 Présentation.
 
+**Plan d'implémentation phasé** : [docs/superpowers/plans/2026-05-29-modale-logement-consolidation-phaseB.md](../superpowers/plans/2026-05-29-modale-logement-consolidation-phaseB.md) (8 phases B1→B8, sandbox-first + audit par phase). Ce plan **supersède** la « Plan d'attaque (5 phases) » ci-dessous, partiellement périmée (Phase 3 disait diagnostics sur fiche 360°, contredit par D-B2).
+
 | ID | Décision | Détail technique |
 |---|---|---|
 | **D-B1** | **Bâti → immeuble** | `type d'habitat` / `période de construction` / `régime juridique` deviennent des propriétés de l'IMMEUBLE, hérités (lecture seule) dans la modale logement. `imm-periodeConstr` (idx.html:2692) et `imm-regimeJuridique` (:2704) existent ; **`imm-typeHabitat` à AJOUTER** (absent). Retirer `log-typeHabitat`/`log-regimeJuridique`/`log-periodeConstr` (:1938-1956) de la saisie. **Cas « pas d'immeuble lié »** (`log.imm` vide, maison autonome) → ces 3 champs redeviennent éditables sur le logement (fallback). |
