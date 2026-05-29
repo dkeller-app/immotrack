@@ -181,7 +181,13 @@ body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: var(
 
 <div class="app-header">
   <h1>📝 Mockup BAIL-SIGNATURE-DISTANCE — Wizard signature par lien</h1>
-  <div class="lead">8 vues — préparateur → email → destinataire wizard 4 étapes → retour préparateur · 3 formats responsive · v15.225</div>
+  <div class="lead">V1 = locataire only · 8 vues · 3 formats responsive · v15.225</div>
+</div>
+
+<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-left:4px solid var(--warn);padding:12px 18px;max-width:1200px;margin:12px auto 0;font-size:12.5px;color:#78350f">
+  <b>⚡ V1 = LOCATAIRE UNIQUEMENT (décision 2026-05-29).</b> Le bailleur signe en direct dans ImmoTrack via le wizard existant. Cette feature concerne uniquement l'envoi du bail au locataire pour signature à distance.
+  <br><b>V1.x différée</b> : bailleur à distance (3 options techniques étudiées : A Drive temporaire / B 2 PDF distincts / C signatures texte structurées). À arbitrer quand besoin user confirmé.
+  <br><i>Dans les vues 1-2, les éléments « bailleur » sont marqués <code style="background:white;padding:1px 4px;border-radius:3px;font-size:10.5px;color:#78350f">[V1.x]</code> pour clarifier.</i>
 </div>
 
 <div class="controls">
@@ -240,14 +246,17 @@ body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: var(
         <button class="btn">📋 Acte cautionnement</button>
         <button class="btn-primary">✍ Signer en direct</button>
         <button class="btn btn-sig-distance" onclick="setScene('destinataires', document.querySelectorAll('.controls .btn-group button')[1])">
-          ✉ Envoyer pour signature à distance
+          ✉ Envoyer au locataire pour signature
         </button>
       </div>
     </div>
   </div>
 
   <div class="annot">
-    <b>💡 UX :</b> le nouveau bouton « Envoyer pour signature à distance » est en violet (différent du bouton bleu « Signer en direct » existant). Visible uniquement si le bail n'est pas encore signé bilatéralement. En cas gestion (mandataire connecté), le bouton est plus visible (mis en avant).
+    <b>💡 UX V1 :</b> le bouton violet « Envoyer au locataire pour signature » est distinct du bouton bleu « Signer en direct » (wizard ImmoTrack pour le bailleur). Visible uniquement si le bail n'est pas encore clôturé. Le bailleur peut envoyer au locataire AVANT ou APRÈS avoir signé lui-même en direct.
+  </div>
+  <div class="annot" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);border-left-color:var(--vio);color:#4c1d95">
+    <b>🔮 V1.x :</b> ajouter un bouton « Envoyer au bailleur (cas gestion) » visible uniquement si le bail a un mandataire configuré. 3 options techniques étudiées à arbitrer.
   </div>
 </div>
 
@@ -258,13 +267,13 @@ body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: var(
 
   <div class="dest-modal">
     <div class="bail-modal-head">
-      <h3>✉ Envoyer le bail LOG-101 pour signature à distance</h3>
+      <h3>✉ Envoyer le bail LOG-101 au locataire pour signature</h3>
       <span style="font-size:18px;cursor:pointer">✕</span>
     </div>
     <div class="dest-modal-body">
 
       <div class="dest-section">
-        <h4>👤 Locataires <span class="badge">1 sélectionné</span></h4>
+        <h4>👤 Locataires destinataires <span class="badge">1 sélectionné</span></h4>
         <div class="dest-row">
           <input type="checkbox" checked>
           <div>
@@ -273,56 +282,50 @@ body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: var(
           </div>
           <span class="who-role">Locataire principal</span>
         </div>
-      </div>
-
-      <div class="dest-section">
-        <h4>🏛 Bailleur <span class="badge" style="background:var(--t3)">cas gestion</span></h4>
-        <div class="dest-row">
-          <input type="checkbox" checked>
-          <div>
-            <div class="who-name">M. DUPONT Jean (gérant SCI Dupont)</div>
-            <div class="who-email">📧 contact@sci-dupont.fr</div>
-          </div>
-          <span class="who-role">Bailleur</span>
-        </div>
-        <div style="font-size:11px;color:var(--t2);font-style:italic;margin-top:4px">
-          Visible car SCI Dupont a un mandataire (vous : gestion@cabinet-x.fr) configuré dans Paramètres.
+        <div style="font-size:11px;color:var(--t2);font-style:italic;margin-top:6px">
+          💡 En cas de co-locataires : chacun reçoit son propre lien et signe individuellement (clause solidarité).
         </div>
       </div>
 
-      <div class="dest-section">
-        <h4>🎯 Mode d'envoi</h4>
-        <div class="modes-grid">
-          <div class="mode-card act">
-            <h5>📤 Séquentiel (recommandé gestion)</h5>
-            <div class="meta">Bailleur signe d'abord, puis locataire. État suivi étape par étape.</div>
-          </div>
-          <div class="mode-card">
-            <h5>⚡ Parallèle</h5>
-            <div class="meta">Tous reçoivent en même temps. Plus rapide mais désynchronisation possible.</div>
-          </div>
+      <div class="dest-section" style="background:linear-gradient(135deg,#ede9fe,#f5f3ff);border-color:var(--vio)">
+        <h4 style="color:#4c1d95">🏛 Bailleur <code style="background:white;padding:2px 7px;border-radius:10px;font-size:10px;color:var(--vio);font-weight:600">V1.x</code></h4>
+        <div style="font-size:12px;color:#4c1d95">
+          <b>Pour le moment V1 :</b> le bailleur signe en direct dans ImmoTrack (bouton bleu « ✍ Signer en direct » dans la modale Bail).<br>
+          <b>V1.x à venir :</b> envoi du bail au bailleur à distance également (cas gestion mandataire). 3 options techniques étudiées (Drive temporaire / 2 PDF distincts / signatures texte), arbitrage user reporté.
         </div>
       </div>
 
       <div class="dest-section">
         <h4>🔒 Sécurité</h4>
         <div style="font-size:12px;color:var(--t2)">
-          ✓ Lien valide 7 jours · ✓ Vérification email destinataire à l'ouverture<br>
-          ✓ Wizard complet : paraphe par page + signature finale (preuve légale art. 1366 Code civil)
+          ✓ Lien valide 7 jours (expiration auto)<br>
+          ✓ Vérification email locataire à l'ouverture (token SHA256)<br>
+          ✓ Wizard complet : paraphe par page + signature finale (art. 1366 Code civil)<br>
+          ✓ Aucune donnée envoyée serveur (URL fragment côté navigateur uniquement)
+        </div>
+      </div>
+
+      <div class="dest-section">
+        <h4>📊 État actuel du bail</h4>
+        <div style="font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:8px 14px">
+          <span style="color:var(--t2)">Bailleur (SCI Dupont) :</span>
+          <span><span style="color:var(--ok)">✓ signé en direct le 28/05/2026</span> (PDF figé via wizard ImmoTrack)</span>
+          <span style="color:var(--t2)">Locataire (Mme HENRI) :</span>
+          <span style="color:var(--warn);font-weight:600">⏳ en attente d'envoi pour signature à distance</span>
         </div>
       </div>
 
       <div class="action-bar">
         <button class="btn">↩ Annuler</button>
         <button class="btn-primary" onclick="setScene('email', document.querySelectorAll('.controls .btn-group button')[2])">
-          ✉ Envoyer (2 emails Gmail API)
+          ✉ Envoyer au locataire (1 email Gmail API)
         </button>
       </div>
     </div>
   </div>
 
   <div class="annot ok">
-    <b>💡 Cas gestion (B2B) :</b> si tu es mandataire pour SCI Dupont, ImmoTrack détecte automatiquement et propose d'envoyer aussi au bailleur. En mode séquentiel, tu reçois automatiquement une notification quand chaque partie a signé.
+    <b>💡 V1 simplifié :</b> seul le locataire est envoyé par lien. Le bailleur a signé avant en direct dans ImmoTrack (ou peut le faire après). La signature bailleur est déjà figée dans le PDF qui sera envoyé au locataire → le locataire signera <b>par-dessus le PDF déjà signé bailleur</b> et renverra un PDF bilatéralement signé.
   </div>
 </div>
 
