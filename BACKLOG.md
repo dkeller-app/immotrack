@@ -443,6 +443,10 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 - **N3 résolu v15.225** : commentaire inline → pointer vers `__tests__/helpers/loc-display.js` anti-désync
 - **N4 cosmétique** : taille indiquée commit msg (5 281 040) ≠ taille réelle (5 303 885). Sans impact.
 
+### Follow-ups P2 audit v15.231 (Phase A hotfix bail)
+- **P2-A** — `openBailHist` (lecture bail archivé, ~L13424/L13450) n'applique PAS le fallback bien `_lbFill` (volontaire : un bail archivé/signé doit rester figé). MAIS si un bail archivé **non signé** a des champs bien vides, ils le restent. À évaluer : backfill depuis snapshot pour les archivés non signés. Non-bloquant.
+- **P2-B** — diff-highlight aperçu bail (~L17235) peut produire un faux-positif « modifié » sur les champs bien désormais backfillés depuis le log (la valeur affichée diffère de `bail.X` brut stocké). Cosmétique. À vérifier visuellement à l'occasion.
+
 ---
 
 ## ⚠️ Limitations connues (documentation produit)
@@ -464,6 +468,14 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 ---
 
 ## ✅ Livré récemment
+
+### MODALE-LOGEMENT-CONSOLIDATION — Phase A hotfix bail cassé (2026-05-29, v15.231)
+> **Régression** : après la consolidation de la modale Logement (ARCHI-FICHES-UNIFIED, retrait des inputs legacy « Bail courant »), le user n'arrivait plus à générer un bail complet. Diagnostic 2 causes confirmées par investigation code + 2 captures écran.
+> - **CAUSE A** — `_syncLogToBail` écrasait *inconditionnellement* hc/ch/dg/debut/fin/entity du bail avec des `log.X` désormais souvent `undefined` (inputs retirés, décision C4) → financiers/dates resetés à vide. **Fix** : garde `if(log.X) bail.X = log.X`.
+> - **CAUSE B** — wizard + 3 générateurs PDF (genPDFNative / previewBailData / genBailHTML) lisaient `bail.X` pour les champs **bien** sans fallback → champs bien vides dans le PDF. **Fix** : `bail.X || _lbFill.X` (`_lbFill = _readLogForBail` sauf bail signé → `{}` = immutabilité légale préservée, doc re-rendu byte-identique).
+> - **Audit** agent `superpowers:code-reviewer` : **SHIP** (0 P0/P1), immutabilité bail signé confirmée. Propagé index.html + index-test.html (vérif counts identiques). Bump 5 emplacements + sw.js.
+> - **Phase B** (refonte mockup-first complète modales Logement/Bail/Immeuble) = scope principal du sujet, reste à faire. Voir [docs/subjects/MODALE-LOGEMENT-CONSOLIDATION.md](docs/subjects/MODALE-LOGEMENT-CONSOLIDATION.md).
+> - **Follow-ups P2** (reportés, cf section Dette technique) : P2-A backfill baux archivés · P2-B faux-positif diff-highlight.
 
 ### LOG-ANNONCE 📢 — Générateur d'annonces vacant sans IA (2026-05-27, v15.207-211)
 > **Post-audit v15.211** (code-reviewer indépendant) : 6 findings P0/P1 traités le même jour :
