@@ -45,7 +45,7 @@ Le filtre doit **vraiment filtrer** (ex : si tu choisis SCI DD, les autres logem
 
 ---
 
-### 🟢 Chantier B — Séparation claire Bien ↔ Locataires
+### ✅ Chantier B — Séparation claire Bien ↔ Locataires (LIVRÉ v15.220+)
 
 #### Le problème actuel
 Aujourd'hui dans la fiche d'un bien (logement), tu trouves :
