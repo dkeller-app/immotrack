@@ -484,7 +484,7 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 > - **CAUSE A** — `_syncLogToBail` écrasait *inconditionnellement* hc/ch/dg/debut/fin/entity du bail avec des `log.X` désormais souvent `undefined` (inputs retirés, décision C4) → financiers/dates resetés à vide. **Fix** : garde `if(log.X) bail.X = log.X`.
 > - **CAUSE B** — wizard + 3 générateurs PDF (genPDFNative / previewBailData / genBailHTML) lisaient `bail.X` pour les champs **bien** sans fallback → champs bien vides dans le PDF. **Fix** : `bail.X || _lbFill.X` (`_lbFill = _readLogForBail` sauf bail signé → `{}` = immutabilité légale préservée, doc re-rendu byte-identique).
 > - **Audit** agent `superpowers:code-reviewer` : **SHIP** (0 P0/P1), immutabilité bail signé confirmée. Propagé index.html + index-test.html (vérif counts identiques). Bump 5 emplacements + sw.js.
-> - **Phase B** (refonte mockup-first complète modales Logement/Bail/Immeuble) = scope principal du sujet, reste à faire. Voir [docs/subjects/MODALE-LOGEMENT-CONSOLIDATION.md](docs/subjects/MODALE-LOGEMENT-CONSOLIDATION.md).
+> - **Phase B** (refonte mockup-first complète modales Logement/Bail/Immeuble) = scope principal du sujet. **🔄 En cours** : mockup validé 2026-05-29, 13 décisions D-B1→D-B13 captées, plan d'implémentation phasé à venir. Voir [docs/subjects/MODALE-LOGEMENT-CONSOLIDATION.md](docs/subjects/MODALE-LOGEMENT-CONSOLIDATION.md).
 > - **Follow-ups P2** (reportés, cf section Dette technique) : P2-A backfill baux archivés · P2-B faux-positif diff-highlight.
 
 ### LOG-ANNONCE 📢 — Générateur d'annonces vacant sans IA (2026-05-27, v15.207-211)

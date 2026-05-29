@@ -1,6 +1,6 @@
 # MODALE-LOGEMENT-CONSOLIDATION — Refonte modale Logement + Wizard Bail + cohérence bail↔logement
 
-**Status** : ⬜ À démarrer dans nouvelle session · **Prio** : P0 (UX cassée, retours user multiples) · **Taille** : XL (~9-10 h sur 5 phases)
+**Status** : 🔄 En cours (Phase B — mockup validé 2026-05-29, implémentation à démarrer) · **Prio** : P0 (UX cassée, retours user multiples) · **Taille** : XL (~9-10 h sur 5 phases)
 **Détecté** : 2026-05-29 · **Sujet créé** : 2026-05-29 (transition de session)
 **Lié à** : ARCHI-FICHES-UNIFIED Session 1 (décisions B2 + C4 verrouillées mais partiellement implémentées) · ARCHI-DB-DOUBLONS Phase 4b (149 sites lecture migrer) · LOG-ANNONCE (onglet Présentation) · BAIL-TYPES (champ log.typeUsage existant)
 
@@ -67,6 +67,30 @@ Le user demande à reprendre proprement dans une **nouvelle session** avec règl
 | **M-2** | `feedback_modify_verify.md` — modifications + vérification (grep symboles + scope HTML/JS/CSS + sites collatéraux) avant de croire qu'une modif est appliquée | Violée → Bug A racine pendant 8 commits (CSS dans string JS au lieu de stylesheet). |
 | **M-3** | `feedback_mockup_first.md` — mockup-first × 3 formats × tous artefacts post-clic AVANT toute ligne de code | À respecter strictement pour la refonte à venir. |
 | **M-4** | Sweeping rename markers historiques (v15.229 → v15.230) | Anti-pattern (casse git blame). À ne plus reproduire. Audit agent l'a noté. |
+
+## ✅ Décisions Phase B validées (mockup 2026-05-29) — source de vérité
+
+Mockup validé : `mockups/MODALE-LOGEMENT-CONSOLIDATION/mockup.html` (3 vues × 3 formats). Le user a dit « ok on peut modifier… tu modifies ce qu'on vient de valider » → **scope = exactement ce mockup**, pas plus.
+
+Modale Logement = **5 onglets** : 📋 Identité / 📐 Description / 🔧 Équipements / 🏷 Diagnostics / 📢 Présentation.
+
+| ID | Décision | Détail technique |
+|---|---|---|
+| **D-B1** | **Bâti → immeuble** | `type d'habitat` / `période de construction` / `régime juridique` deviennent des propriétés de l'IMMEUBLE, hérités (lecture seule) dans la modale logement. `imm-periodeConstr` (idx.html:2692) et `imm-regimeJuridique` (:2704) existent ; **`imm-typeHabitat` à AJOUTER** (absent). Retirer `log-typeHabitat`/`log-regimeJuridique`/`log-periodeConstr` (:1938-1956) de la saisie. **Cas « pas d'immeuble lié »** (`log.imm` vide, maison autonome) → ces 3 champs redeviennent éditables sur le logement (fallback). |
+| **D-B2** ⚠️ | **Diagnostics : édition DANS la modale, drop DDT 360° par-logement** | **REVIREMENT vs ML-4.** ML-4 disait « supprimer onglets DPE+Risques de la modale, rester sur fiche 360° ». Le user a changé d'avis : « il faut cliquer 10 fois… on le fait une fois et hop » → on fait l'INVERSE : 1 onglet « Diagnostics » groupé dans la MODALE (fill once), on **drop l'écran DDT 360° par-logement**. On GARDE le moteur (`_diagStatut`/`_diagDateExpiration`/`_ddtComplet`) + la **génération du récap DDT imprimable joint au bail** (loi 89-462 art. 3-3, sous peine de nullité). |
+| **D-B3** | **Source unique `log.diagnostics`** | Collision active à résorber : `log.dpe` est **string** côté DDT (`_diagSave` idx:31913, `_diagGet` :31613-14, affichage :33807) MAIS **objet** `{classe,ges,date,…}` côté modale saveLog (:35267-70). Idem `log.etatRisques` (:35275). → tout fusionner dans `log.diagnostics[key]` + migration boot + retrocompat lecture. Migration L26966-26980 (backfill depuis bail) à réviser. |
+| **D-B4** | **Conso énergie €/an avec le DPE** | Nouveau `log.dpe.depensesEnergie` (ou `log.diagnostics.dpe.depensesEnergie`). Migration depuis `bail.depensesEnergie` (idx:1646, BAIL-only aujourd'hui). Affiché dans onglet Diagnostics > Détail DPE. |
+| **D-B5** | **Régime fiscal retiré du bail** | `b-fiscal` (idx:1473) = texte libre mort : lu seulement en affichage (:33858), aucun doc/clause/calcul (moteur fiscal réel = `legal-2044.js`, indépendant). Juridiquement non obligatoire. → supprimer champ + lectures/écritures (:13347, :14075, :15275) + mappings (:13976, :14273). |
+| **D-B6** | **Jour de paiement par défaut = 5** | (au lieu de 1). `b-jpay`. |
+| **D-B7** | **Équipements consolidés** | Onglet 🔧 Équipements regroupe chauffage + ECS + **cuisine/sanitaires/technologies/extérieurs** (aujourd'hui noyés dans Présentation). Clés conservées (`log.equipements.*`, `log.exterieurs`) → l'annonce continue de lire. Checkboxes + **zone d'ajout libre `customs[]`** (règle D1 gravée). |
+| **D-B8** | **Annexes : 1 seul bloc structuré + checkboxes** | Fin du doublon « Locaux accessoires » + « Annexes privatives » (ML-3). Checkboxes (Cave/Grenier/Parking/Garage/Box/Buanderie/Cellier/Local vélos/Atelier) + champ n° d'identification + ajout libre `customs[]`. (Auto-report EDL = Phase 5, **HORS scope mockup validé**.) |
+| **D-B9** | **Loyer/charges théoriques restaurés** | Onglet 📢 Présentation > section Conditions : `log.loyerHcRef` / `log.chargesRef` / `log.dgRef` + IRL réf + date dispo (réponse ML-1 « cas vacant à la création »). Repris comme défaut à la création du bail. |
+| **D-B10** | **Mise en valeur = champs structurés (sans IA)** | Présentation : exposition/vue/luminosité/calme/caractère + proximité (min) + services → alimentent le générateur d'annonce (banques de phrases + PRNG seedé, règle anti-mensonge). |
+| **D-B11** | **Suivi expiration → Agenda** | Nouvelle source `cat:'DIAG'` dans `agendaAutoSync()` (idx:4926), rappels `[90,30,7]`, expiration calculée via `_diagDateExpiration()`. Bouton « ✓ Fait ». |
+| **D-B12** | **Rappels dashboard → actions prioritaires EXISTANTES** | Diagnostics expirés = nouvel item `type:'diag'` (rouge) dans `_computeUnifiedTodo()` (idx:9844). **PAS de nouvelle carte** (consigne user « tu touches pas au dashboard »). Respecter principe anti-doublon Agenda↔À-traiter (:9895) : À-traiter = expirés (action requise) ; Agenda = à-venir. + rappel au login (pattern `_checkIRLRappelsAuLogin()`). |
+| **D-B13** | **Wizard Bail 4→3 étapes** | Personnes (locataires **+ garants + tél/email**) / Conditions (DG auto, date fin auto, IRL auto, type bail hérité de `log.typeUsage`, jpay 5) / Récapitulatif (bien + diagnostics hérités, **lecture seule** via `_readLogForBail`/`_lbFill`). |
+
+**HORS scope du mockup validé** (ne pas implémenter dans cette passe) : Phase 5 auto-report EDL · Bug B-A (immeuble hérité wrong) · Bug B-B (1ère connexion OAuth) · tout redesign du design system / autres pages.
 
 ## 🗺️ Plan d'attaque (5 phases, ~9-10 h)
 
@@ -180,3 +204,4 @@ Investigation OAuth GIS + token init + race condition SW. Fix + audit agent.
   - **Audit** : agent `superpowers:code-reviewer` → verdict SHIP (0 P0/P1), a confirmé l'immutabilité du bail signé préservée. 2 follow-ups P2 reportés (backfill baux archivés · faux-positif diff-highlight).
   - **Phase B** (refonte mockup-first complète des modales Logement/Bail/Immeuble) reste à faire — c'est le scope principal de ce sujet.
 - **2026-05-29 — suite : ARCHI-DB-DOUBLONS Phase 4b COMPLÈTE livrée v15.232** (sujet voisin, cf [ARCHI-DB-DOUBLONS.md](ARCHI-DB-DOUBLONS.md)) : la **cause racine** des régressions Phase A (duplication bail↔bien + cache `_syncLogToBail`) est désormais **résorbée à la source**. Le logement est la source unique du bien ; le bloc « bien » de `_syncLogToBail` est supprimé (le hotfix CAUSE A reste pertinent pour les financiers/dates qui, eux, restent propagés avec garde). Les fallbacks CAUSE B `bail.X || _lbFill.X` sont conservés et complétés (annexes/equip/chauffage enrichis, 3 bugs d'affichage corrigés, immutabilité bail signé re-auditée). Ceci ne ferme PAS la Phase B (refonte UX mockup-first), qui reste le scope principal de ce sujet.
+- **2026-05-29 — Phase B mockup VALIDÉ + décisions captées** : mockup `mockups/MODALE-LOGEMENT-CONSOLIDATION/mockup.html` itéré (modale 5 onglets, wizard 3 étapes, vue Agenda DIAG) puis validé par le user (« ok on peut modifier… tu modifies ce qu'on vient de valider »). 13 décisions D-B1→D-B13 figées (cf section « ✅ Décisions Phase B validées »). **Revirement notable D-B2** : contrairement à ML-4 (diagnostics sur fiche 360°), le user veut désormais les éditer DANS la modale (fill once) et drop l'écran DDT 360° par-logement — on garde le moteur de calcul + le récap imprimable joint au bail. Vue « dashboard » du mockup retirée sur consigne « tu touches pas au dashboard » : les diagnostics expirés alimentent les **actions prioritaires existantes** (`_computeUnifiedTodo`). Prochaine étape : plan d'implémentation phasé (writing-plans) puis exécution sandbox-first + audit code-reviewer par phase.

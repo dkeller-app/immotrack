@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup FIDÈLE — Modale Logement + Agenda Diagnostics + Wizard Bail · ImmoTrack</title>
+<style>
+:root {
+  --acc: #14b8a6; --acc-dark: #0d9488;
+  --bg: #eef2f7; --sur: #fff; --sur2: #f5f3ee; --sur3: #ebe7df;
+  --bor: #d4cfc4; --bor2:#e5e1d8; --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --blu: #3b82f6; --blu-bg: #dbeafe;
+  --gre: #22c55e; --gre-bg: #dcfce7;
+  --red: #ef4444; --red-bg: #fee2e2;
+  --amb: #f59e0b; --amb-bg: #fef3c7;
+  --vio: #8b5cf6; --vio-bg:#ede9fe;
+  --r: 6px; --r-lg: 10px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; }
+header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+.head-title { font-weight: 700; color: var(--acc-dark); font-size: 16px; }
+.head-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.canvas { padding: 16px; max-width: 1160px; margin: 0 auto; }
+
+.decisions { background:var(--gre-bg); border:1px solid #86efac; border-radius:var(--r); padding:10px 14px; margin-bottom:16px; font-size:12px; color:#166534; }
+.decisions b { color:#14532d; }
+.decisions ul { margin:6px 0 0; padding-left:18px; } .decisions li { margin:2px 0; }
+
+.switcher { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r); padding: 10px 12px; margin-bottom: 18px; display:flex; flex-wrap:wrap; gap:22px; align-items:center; }
+.switcher-row { display: flex; gap: 6px; align-items: center; flex-wrap:wrap;}
+.switcher-label { font-size: 11.5px; color: var(--t2); font-weight: 700; text-transform:uppercase; letter-spacing:.5px; }
+.switcher-btn { padding: 5px 12px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 12px; }
+.switcher-btn.act { background: var(--acc); color: #fff; border-color: var(--acc-dark); font-weight: 600; }
+.switcher-btn:hover:not(.act) { background: var(--sur3); }
+
+.stage { display:flex; justify-content:center; }
+.device { width: 1000px; transition: width .25s ease; max-width:100%; }
+.device[data-fmt="tablet"] { width: 768px; }
+.device[data-fmt="phone"]  { width: 390px; }
+.device-meta { text-align:center; font-size:11px; color:var(--t3); margin-bottom:6px; }
+
+.modal { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); box-shadow: 0 6px 20px rgba(0,0,0,.08); overflow: hidden; }
+.modal-head { background: var(--sur2); padding: 14px 18px; border-bottom: 1px solid var(--bor); display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.modal-head h3 { margin: 0; font-size: 15.5px; }
+.modal-head .mu { font-size:11.5px; color:var(--t2); margin-top:2px; }
+.m-close { border:none; background:transparent; font-size:18px; color:var(--t3); cursor:pointer; }
+.modal-tabs { display:flex; gap:4px; padding:8px 12px 0; background:var(--sur2); overflow-x:auto; }
+.modal-tab { padding:7px 13px; font-size:12.5px; border:1px solid transparent; border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer; color:var(--t2); white-space:nowrap; }
+.modal-tab.act { background:var(--sur); color:var(--t1); border-color:var(--bor); font-weight:600; }
+.tab-removed { padding:7px 11px; font-size:12px; color:var(--t3); text-decoration:line-through; opacity:.5; white-space:nowrap; }
+.modal-body { padding: 16px 20px 22px; max-height: 60vh; overflow-y:auto; }
+.m-foot { padding:12px 18px; border-top:1px solid var(--bor); background:var(--sur2); display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;}
+
+.sec-title { font-size:11px; font-weight:700; color:var(--t3); text-transform:uppercase; letter-spacing:.6px; margin:20px 0 10px; padding-top:14px; border-top:1px solid var(--bor2); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.sec-title:first-child { margin-top:0; padding-top:0; border-top:none; }
+.sec-title .mu { font-size:10.5px; font-weight:500; color:var(--t3); text-transform:none; letter-spacing:0; }
+.cbgrp { display:grid; grid-template-columns:repeat(auto-fill,minmax(175px,1fr)); gap:6px 14px; }
+.cbgrp label { display:flex; align-items:center; gap:6px; font-size:12.5px; cursor:pointer; padding:3px 0; }
+.fg { margin-bottom:0; }
+.fg > label { display:block; font-size:11px; color:var(--t2); margin-bottom:3px; font-weight:500; }
+.fg input, .fg select, .fg textarea { width:100%; padding:7px 10px; border:1px solid var(--bor); border-radius:var(--r); font-size:12.5px; background:var(--sur); font-family:inherit; }
+.fg input[disabled]{ background:var(--sur3); color:var(--t2); }
+.fg2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px; }
+.fg3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:10px; }
+.input-aug { display:flex; gap:6px; } .input-aug input,.input-aug select{ flex:1; }
+.device[data-fmt="tablet"] .fg3 { grid-template-columns:1fr 1fr; }
+.device[data-fmt="phone"] .fg2, .device[data-fmt="phone"] .fg3 { grid-template-columns:1fr; }
+.device[data-fmt="phone"] .cbgrp { grid-template-columns:1fr; }
+.device[data-fmt="phone"] .modal-tab { font-size:11px; padding:6px 8px; }
+
+.chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+.chip { background:var(--acc); color:#fff; border-radius:12px; padding:2px 9px; font-size:11px; display:inline-flex; align-items:center; gap:5px; }
+.chip .x { cursor:pointer; opacity:.8; font-weight:700; }
+.addrow { display:flex; gap:6px; margin-top:6px; } .addrow input { flex:1; }
+.btn { padding:6px 12px; border-radius:var(--r); border:1px solid var(--bor); background:var(--sur2); cursor:pointer; font-size:12px; }
+.btn.bp { background:var(--acc); color:#fff; border-color:var(--acc-dark); font-weight:600; }
+.btn.bs { font-size:11.5px; padding:5px 9px; }
+.btn.auto { background:var(--amb-bg); border-color:#fcd34d; color:#92400e; font-weight:600; white-space:nowrap; }
+
+.card { border:1px solid var(--bor); border-radius:var(--r); padding:12px; margin-top:10px; background:var(--sur); }
+.card .card-h { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.card .card-h b { font-size:13px; }
+
+.annotation { background: var(--blu-bg); border-left: 3px solid var(--blu); padding: 10px 13px; border-radius: 0 var(--r) var(--r) 0; margin: 14px 0 0; font-size: 12px; color: #1e3a8a; line-height:1.55; }
+.annotation.warn { background:var(--amb-bg); border-left-color:var(--amb); color:#92400e; }
+.annotation.removed { background:var(--red-bg); border-left-color:var(--red); color:#991b1b; }
+.annotation.herit { background:var(--vio-bg); border-left-color:var(--vio); color:#5b21b6; }
+.annotation strong { font-weight:700; }
+.badge { display:inline-block; padding:2px 7px; border-radius:10px; font-size:10px; font-weight:600; vertical-align:middle; }
+.badge.new { background:var(--gre-bg); color:#166534; }
+.badge.moved { background:var(--blu-bg); color:#1e40af; }
+.badge.auto { background:var(--amb-bg); color:#92400e; }
+.badge.herit { background:var(--vio-bg); color:#5b21b6; }
+
+.note { font-size:11px; color:var(--t3); margin-top:4px; }
+.note.auto { color:#92400e; }
+
+.stepper { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.step { display:flex; align-items:center; gap:6px; font-size:12.5px; padding:6px 12px; border-radius:20px; background:var(--sur); border:1px solid var(--bor); color:var(--t2); cursor:pointer; }
+.step.done { color:#166534; border-color:#86efac; background:var(--gre-bg); }
+.step.act { background:var(--acc); color:#fff; border-color:var(--acc-dark); font-weight:600; }
+.step-arrow { color:var(--t3); }
+.device[data-fmt="phone"] .step { font-size:11px; padding:5px 8px; } .device[data-fmt="phone"] .step-arrow{display:none;}
+
+.recap { border:1px solid var(--bor); border-radius:var(--r); margin-top:12px; overflow:hidden; }
+.recap-head { background:var(--vio-bg); color:#5b21b6; padding:9px 13px; font-size:12px; font-weight:600; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; }
+.recap-head a { color:#6d28d9; font-size:11.5px; text-decoration:underline; cursor:pointer; }
+.recap-body { padding:12px 14px; background:var(--sur2); }
+.kv { display:grid; grid-template-columns:180px 1fr; gap:4px 12px; font-size:12.5px; }
+.device[data-fmt="phone"] .kv { grid-template-columns:1fr; gap:1px 0; }
+.kv dt { color:var(--t2); } .kv dd { margin:0; color:var(--t1); font-weight:500; }
+.device[data-fmt="phone"] .kv dt { margin-top:6px; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; }
+
+/* DDT diag tiles (fiche 360°) */
+.diag-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; margin-top:10px; }
+.diag-tile { border:1px solid var(--bor); border-radius:var(--r); padding:10px 12px; background:var(--sur); }
+.diag-tile .dt-h { display:flex; justify-content:space-between; align-items:center; font-weight:600; font-size:12.5px; }
+.diag-tile .dt-meta { font-size:11px; color:var(--t2); margin-top:5px; }
+.pill { font-size:10px; font-weight:700; padding:1px 7px; border-radius:9px; }
+.pill.ok { background:var(--gre-bg); color:#166534; } .pill.na { background:var(--sur3); color:var(--t2);} .pill.warn{background:var(--amb-bg);color:#92400e;}
+.dpe-letter { display:inline-flex; width:22px; height:22px; align-items:center; justify-content:center; border-radius:4px; font-weight:700; color:#fff; font-size:12px; }
+
+/* Diagnostics grouped table (modale) */
+.diag-tbl { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+.diag-tbl th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--t3); font-weight:700; padding:6px 8px; border-bottom:1px solid var(--bor); }
+.diag-tbl td { padding:7px 8px; border-bottom:1px solid var(--bor2); vertical-align:middle; }
+.diag-tbl input, .diag-tbl select { width:100%; padding:4px 6px; font-size:12px; border:1px solid var(--bor); border-radius:5px; background:var(--sur); }
+.diag-tbl tr.diag-warn { background:#fff7ed; }
+.device[data-fmt="phone"] .diag-tbl, .device[data-fmt="phone"] .diag-tbl thead, .device[data-fmt="phone"] .diag-tbl tbody, .device[data-fmt="phone"] .diag-tbl tr, .device[data-fmt="phone"] .diag-tbl td { display:block; }
+.device[data-fmt="phone"] .diag-tbl thead { display:none; }
+.device[data-fmt="phone"] .diag-tbl tr { border:1px solid var(--bor); border-radius:var(--r); margin-bottom:8px; padding:6px 8px; }
+.device[data-fmt="phone"] .diag-tbl td { border:none; padding:3px 0; }
+
+/* Agenda */
+.ag-sec { font-size:11px; font-weight:700; color:var(--t2); text-transform:uppercase; letter-spacing:.4px; margin:16px 0 8px; }
+.ag-evt { display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--bor); border-radius:var(--r); background:var(--sur); margin-bottom:6px; }
+.ag-evt.diag { border-left:3px solid var(--amb); }
+.ag-cat { font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:9px; letter-spacing:.5px; flex:none; }
+.ag-body { flex:1; font-size:12.5px; }
+
+.pane { display:none; } .pane.act { display:block; }
+.subblk { border:1px dashed var(--bor); border-radius:var(--r); padding:10px 12px; margin-top:10px; position:relative; }
+.subblk .rm { position:absolute; top:6px; right:8px; cursor:pointer; color:var(--t3); font-size:13px; }
+.legend { font-size:11px; color:var(--t2); margin:14px 0 0; display:flex; gap:14px; flex-wrap:wrap; }
+.legend span { display:inline-flex; align-items:center; gap:5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-title">🏠 Mockup FIDÈLE — refonte modale Logement + Agenda diagnostics + wizard Bail</div>
+  <div class="head-sub">Reconstruit sur les champs RÉELS de l'app (garants, tél/email, DG auto, date fin auto, IRL auto, annonce structurée non-IA). v2.</div>
+</header>
+
+<div class="canvas">
+
+  <div class="decisions">
+    <b>✅ Décisions validées + corrections du 3e passage :</b>
+    <ul>
+      <li><b>Wizard Bail</b> 4→3 étapes : Personnes (locataires <em>+ garants + tél/email</em>) / Conditions (<em>DG auto, date fin auto, IRL auto</em> conservés) / Récapitulatif (bien + diagnostics hérités, lecture seule).</li>
+      <li><b>Bâti niveau immeuble</b> : type d'habitat / période / régime juridique <b>déplacés vers l'immeuble</b> (hérités par le logement). Cas « pas d'immeuble lié » → éditables sur le logement (fallback).</li>
+      <li><b>Diagnostics</b> : DPE + Risques fusionnés en <b>1 onglet « Diagnostics »</b> dans la modale (saisie groupée, fill once, source unique <code>log.diagnostics</code>). Le <b>suivi d'expiration</b> → <b>Agenda</b> (cat. DIAG, rappels 90/30/7 j) + remonte dans les <b>actions prioritaires existantes</b> du tableau de bord (<code>_computeUnifiedTodo</code>, item rouge si expiré) — <b>pas de nouvelle carte</b>, pas de saisie par logement. Conso énergie €/an rattachée au DPE.</li>
+      <li><b>Régime fiscal retiré</b> du bail : vérifié inutilisé (texte libre, aucun doc/calcul). <b>Jour de paiement</b> par défaut = <b>5</b>.</li>
+      <li><b>Mise en valeur</b> = champs <b>structurés</b> (sans IA) ; <b>loyer théorique</b> dans Présentation › Conditions ; <b>annexes</b> dédoublonnées.</li>
+    </ul>
+  </div>
+
+  <div class="switcher">
+    <div class="switcher-row">
+      <span class="switcher-label">Vue</span>
+      <button class="switcher-btn act" data-vue="modale" onclick="setVue('modale')">🏠 Modale Logement</button>
+      <button class="switcher-btn" data-vue="agenda" onclick="setVue('agenda')">📅 Agenda (échéances)</button>
+      <button class="switcher-btn" data-vue="wizard" onclick="setVue('wizard')">📄 Wizard Bail</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Format</span>
+      <button class="switcher-btn act" data-fmt="pc" onclick="setFmt('pc')">🖥 PC</button>
+      <button class="switcher-btn" data-fmt="tablet" onclick="setFmt('tablet')">📲 Tablette</button>
+      <button class="switcher-btn" data-fmt="phone" onclick="setFmt('phone')">📱 Téléphone</button>
+    </div>
+  </div>
+
+  <div class="stage"><div>
+    <div class="device-meta" id="deviceMeta">🖥 PC — 1000 px</div>
+    <div class="device" id="device" data-fmt="pc">
+
+      <!-- ============ VUE MODALE LOGEMENT ============ -->
+      <div class="pane act" id="vue-modale">
+        <div class="modal">
+          <div class="modal-head">
+            <div><h3>🏠 Modifier le logement — Appt 3 · 12 rue des Tilleuls</h3>
+              <div class="mu">Le bien physique vit ici · le bail le lit (source unique)</div></div>
+            <button class="m-close">✕</button>
+          </div>
+          <div class="modal-tabs">
+            <div class="modal-tab act" data-tab="ident" onclick="setTab('ident')">📋 Identité</div>
+            <div class="modal-tab" data-tab="desc" onclick="setTab('desc')">📐 Description</div>
+            <div class="modal-tab" data-tab="equip" onclick="setTab('equip')">🔧 Équipements</div>
+            <div class="modal-tab" data-tab="diag" onclick="setTab('diag')">🏷 Diagnostics</div>
+            <div class="modal-tab" data-tab="prez" onclick="setTab('prez')">📢 Présentation</div>
+          </div>
+          <div class="modal-body">
+
+            <!-- IDENTITÉ -->
+            <div class="pane act" id="tab-ident">
+              <div class="annotation"><strong>DPE + Risques fusionnés en 1 onglet « Diagnostics »</strong> (avant : 2 onglets séparés). Saisie groupée, on remplit une fois. Le <strong>suivi d'expiration</strong> (DPE 10 ans, ERP 6 mois…) ne se fait plus par logement : il remonte dans l'<strong>Agenda</strong> (cat. DIAG) et dans les <strong>actions prioritaires existantes</strong> du tableau de bord (pas de nouvelle carte). Source unique <code>log.diagnostics</code> → fin du doublon qui se corrompait.</div>
+              <div class="sec-title">🏷 Identité</div>
+              <div class="fg2">
+                <div class="fg"><label>Référence</label><input value="APP-2024-003" disabled></div>
+                <div class="fg"><label>Type d'usage</label><select id="logUsage"><option>Habitation — nu</option><option selected>Habitation — meublé</option><option>Étudiant</option><option>Mobilité</option><option>Garage / parking</option><option>Local professionnel</option></select></div>
+              </div>
+              <div class="fg2">
+                <div class="fg"><label>Immeuble parent</label><select><option selected>Morschwiller-le-bas — 4 rue Principale</option><option>Delle — 16 rue Saint-Nicolas</option></select></div>
+                <div class="fg"><label>Étage / Lot</label><input value="2e étage — Lot 7"></div>
+              </div>
+              <div class="annotation"><strong>Type d'usage</strong> → repris automatiquement comme « Type de bail » dans le wizard + déclenche l'inventaire mobilier si meublé.</div>
+            </div>
+
+            <!-- DESCRIPTION -->
+            <div class="pane" id="tab-desc">
+              <div class="sec-title">📐 Le bâti <span class="mu">(propre au logement)</span></div>
+              <div class="fg2">
+                <div class="fg"><label>Surface habitable (m²)</label><input value="48"></div>
+                <div class="fg"><label>Nb pièces principales</label><input value="2"></div>
+              </div>
+              <div class="fg"><label>Description des pièces</label><textarea rows="2">Séjour 22 m², cuisine équipée ouverte, 1 chambre 12 m², salle d'eau + WC séparé.</textarea></div>
+              <div class="fg"><label>Parties communes <span class="mu">(partagées dans l'immeuble)</span></label><textarea rows="2">Hall, cage d'escalier, local poubelles, cour commune.</textarea></div>
+
+              <div class="sec-title">🏛 Caractéristiques de l'immeuble <span class="badge moved">déplacé vers l'immeuble</span></div>
+              <div class="annotation" style="margin-top:0">Type d'habitat, période de construction et régime juridique sont des propriétés de <strong>l'immeuble</strong>, pas du logement. Saisis une seule fois sur la fiche immeuble, puis hérités par tous les logements + le bail.</div>
+              <!-- Cas A : logement lié à un immeuble → hérité lecture seule -->
+              <div class="fg3" style="opacity:.72">
+                <div class="fg"><label>Type d'habitat <span class="mu">(immeuble)</span></label><input value="Immeuble collectif" disabled></div>
+                <div class="fg"><label>Période de construction <span class="mu">(immeuble)</span></label><input value="De 1949 à 1974" disabled></div>
+                <div class="fg"><label>Régime juridique <span class="mu">(immeuble)</span></label><input value="Copropriété" disabled></div>
+              </div>
+              <div class="note">Logement lié à <strong>« Résidence Les Tilleuls »</strong> → ces 3 champs sont en lecture seule. <a href="#" onclick="return false">Modifier sur la fiche immeuble →</a></div>
+              <div class="annotation" style="background:var(--amb-bg);border-color:#fcd34d;color:#92400e">⚠️ <strong>Cas « pas d'immeuble lié »</strong> (maison individuelle autonome, <code>log.imm</code> vide) : ces 3 champs redeviennent <strong>éditables sur le logement</strong> (fallback). À trancher : ajouter « type d'habitat » au form immeuble (absent aujourd'hui).</div>
+
+              <div class="annotation">Hérité par le bail en lecture seule (étape Récapitulatif). Plus jamais re-saisi côté bail.</div>
+            </div>
+
+            <!-- ÉQUIPEMENTS (consolidé) -->
+            <div class="pane" id="tab-equip">
+              <div class="annotation"><strong>Tout l'équipement physique regroupé ici</strong> : avant, cuisine / sanitaires / technologies / extérieurs étaient noyés dans « Présentation ». Réponse à « je ne peux pas remplir les équipements dans le bien ». Les données gardent leurs clés (<code>log.equipements.*</code>, <code>log.exterieurs</code>, <code>log.annexes</code>) → l'annonce continue de les lire.</div>
+
+              <div class="sec-title">🔥 Chauffage</div>
+              <div class="cbgrp">
+                <label><input type="checkbox" checked> Individuel élec.</label><label><input type="checkbox"> Gaz</label>
+                <label><input type="checkbox"> Fioul</label><label><input type="checkbox"> Bois (bûches)</label>
+                <label><input type="checkbox"> Poêle à bois</label><label><input type="checkbox"> Poêle à granulés</label>
+                <label><input type="checkbox"> Insert / cheminée</label><label><input type="checkbox"> PAC / réversible</label>
+                <label><input type="checkbox"> Collectif</label>
+              </div>
+
+              <div class="sec-title">💧 Eau chaude sanitaire</div>
+              <div class="cbgrp">
+                <label><input type="checkbox" checked> Chauffe-eau élec.</label><label><input type="checkbox"> Chaudière gaz</label><label><input type="checkbox"> Collective</label>
+              </div>
+
+              <div class="sec-title">🍳 Cuisine <span class="badge moved">regroupé depuis Présentation</span></div>
+              <div class="cbgrp">
+                <label><input type="checkbox" checked> Cuisine équipée</label><label><input type="checkbox" checked> Plaques</label>
+                <label><input type="checkbox" checked> Four</label><label><input type="checkbox"> Hotte</label>
+                <label><input type="checkbox" checked> Réfrigérateur</label><label><input type="checkbox"> Lave-vaisselle</label>
+                <label><input type="checkbox"> Micro-ondes</label>
+              </div>
+              <div class="chips" id="chips-cuisine"><span class="chip">Évier 2 bacs inox <span class="x" onclick="rmChip(this)">✕</span></span></div>
+              <div class="addrow"><input id="in-cuisine" placeholder="Ajouter (ajout libre → customs[])…"><button class="btn bs" onclick="addChip('chips-cuisine','in-cuisine')">+ Ajouter</button></div>
+
+              <div class="sec-title">🚿 Sanitaires <span class="badge moved">regroupé depuis Présentation</span></div>
+              <div class="cbgrp">
+                <label><input type="checkbox"> Baignoire</label><label><input type="checkbox" checked> Douche</label>
+                <label><input type="checkbox" checked> WC séparé</label><label><input type="checkbox"> Lave-linge (emplacement)</label>
+                <label><input type="checkbox"> Sèche-linge</label>
+              </div>
+
+              <div class="sec-title">📡 Technologies <span class="badge moved">regroupé depuis Présentation</span></div>
+              <div class="cbgrp">
+                <label><input type="checkbox" checked> Fibre</label><label><input type="checkbox"> ADSL</label>
+                <label><input type="checkbox"> Câble</label><label><input type="checkbox" checked> TNT / antenne</label>
+              </div>
+
+              <div class="sec-title">🌿 Extérieurs <span class="badge moved">regroupé depuis Présentation</span></div>
+              <div class="fg3">
+                <div class="fg"><label>Balcon</label><div class="input-aug"><select><option selected>Oui</option><option>Non</option></select><input placeholder="m²" value="6"></div></div>
+                <div class="fg"><label>Terrasse</label><div class="input-aug"><select><option>Oui</option><option selected>Non</option></select><input placeholder="m²"></div></div>
+                <div class="fg"><label>Jardin privatif</label><div class="input-aug"><select><option>Oui</option><option selected>Non</option></select><input placeholder="m²"></div></div>
+              </div>
+
+              <div class="sec-title">🗝 Annexes privatives <span class="badge new">1 seul bloc</span></div>
+              <div class="annotation warn"><strong>« Annexe on se répète » corrigé.</strong> Avant : « Locaux accessoires » <em>+</em> « Annexes privatives » = doublon. Désormais 1 bloc structuré (cave/parking/garage + n° comme aujourd'hui, étendu) → futur auto-report sur l'EDL.</div>
+              <div class="cbgrp" style="margin-top:10px">
+                <label><input type="checkbox" checked> Cave</label><label><input type="checkbox"> Grenier</label>
+                <label><input type="checkbox" checked> Place de parking</label><label><input type="checkbox" checked> Garage / box</label>
+                <label><input type="checkbox"> Buanderie</label><label><input type="checkbox"> Cellier</label>
+                <label><input type="checkbox"> Local vélos</label><label><input type="checkbox"> Atelier</label>
+              </div>
+              <div class="fg" style="margin-top:8px"><label>N° d'identification (comme aujourd'hui : cave/parking/garage)</label><input value="Cave n°12 · Parking n°4 · Garage B"></div>
+              <div class="chips" id="chips-annexe"></div>
+              <div class="addrow"><input id="in-annexe" placeholder="Autre annexe (ajout libre)…"><button class="btn bs" onclick="addChip('chips-annexe','in-annexe')">+ Ajouter</button></div>
+
+              <div class="sec-title">🛋 Inventaire mobilier <span class="mu" id="invHintLog">(affiché car type d'usage = meublé)</span></div>
+              <div class="annotation warn" id="invBoxLog">11 catégories décret 2015-981 + détails. Visible seulement si meublé/étudiant/mobilité. Repris automatiquement dans le wizard Bail (pré-cochage proposé depuis la cuisine du bien).</div>
+
+              <div class="legend">
+                <span><span class="badge new">vert</span> nouveau</span>
+                <span><span class="badge moved">bleu</span> regroupé</span>
+              </div>
+            </div>
+
+            <!-- DIAGNOSTICS (unifié : ex-DPE + ex-Risques, source unique log.diagnostics) -->
+            <div class="pane" id="tab-diag">
+              <div class="annotation"><strong>Saisie groupée — on remplit une fois.</strong> Seuls les diagnostics <em>applicables</em> sont affichés (auto-détectés depuis l'année de construction de l'immeuble + zones). Les durées de validité sont connues → l'app calcule l'expiration, pousse les rappels dans l'Agenda (cat. DIAG) et fait remonter les diagnostics expirés dans les <strong>actions prioritaires existantes</strong> (<code>_computeUnifiedTodo</code>). <em>Pas de re-saisie ailleurs, pas de clic-par-diagnostic.</em></div>
+
+              <div class="sec-title">🏷 Dossier de diagnostic technique (DDT) <span class="mu">— à joindre au bail à la signature (loi 89-462 art. 3-3, sous peine de nullité)</span></div>
+              <table class="diag-tbl">
+                <thead><tr><th>Diagnostic</th><th>Date réalisée</th><th>Résultat</th><th>Diagnostiqueur</th><th>Expire le</th><th>Statut</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><strong>🌡 DPE</strong></td>
+                    <td><input type="date" value="2025-04-14"></td>
+                    <td><div class="input-aug"><select style="max-width:70px"><option>A</option><option>B</option><option selected>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select><span class="mu sm">classe</span></div></td>
+                    <td><input value="Bureau Veritas"></td>
+                    <td>14/04/2035 <span class="mu sm">(10 ans)</span></td>
+                    <td><span class="pill ok">Valide</span></td>
+                  </tr>
+                  <tr>
+                    <td><strong>⚡ Électricité</strong></td>
+                    <td><input type="date" value="2025-04-14"></td>
+                    <td><select><option selected>Conforme</option><option>Anomalies</option></select></td>
+                    <td><input value="Bureau Veritas"></td>
+                    <td>14/04/2031 <span class="mu sm">(6 ans)</span></td>
+                    <td><span class="pill ok">Valide</span></td>
+                  </tr>
+                  <tr class="diag-warn">
+                    <td><strong>⚠ ERP / Risques</strong></td>
+                    <td><input type="date" value="2025-09-01"></td>
+                    <td><select><option selected>Établi</option><option>N/A</option></select></td>
+                    <td><input value="(auto Géorisques)"></td>
+                    <td><strong style="color:var(--red)">01/03/2026</strong> <span class="mu sm">(6 mois)</span></td>
+                    <td><span class="pill warn">Expiré</span></td>
+                  </tr>
+                  <tr>
+                    <td><strong>🔥 Gaz</strong> <span class="mu sm">(install. &gt; 15 ans)</span></td>
+                    <td><input type="date" value=""></td>
+                    <td><select><option selected>— non applicable —</option><option>Conforme</option><option>Anomalies</option></select></td>
+                    <td><input value=""></td>
+                    <td>—</td>
+                    <td><span class="pill na">N/A bailleur</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="note">🔍 Plomb (CREP) et Amiante <strong>non affichés</strong> : logement construit après 1949/1997 → non requis. <span class="mu">L'app masque automatiquement les diagnostics non applicables.</span></div>
+
+              <div class="sec-title">🌡 Détail DPE</div>
+              <div class="fg3">
+                <div class="fg"><label>Classe GES</label><select><option selected>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option></select></div>
+                <div class="fg"><label>Conso énergie (kWh/m²/an)</label><input value="145"></div>
+                <div class="fg"><label>💶 Dépenses estimées (€/an) <span class="badge moved">avec le DPE</span></label><input value="900 à 1 200 €"></div>
+              </div>
+              <div class="annotation warn"><strong>Point data :</strong> aujourd'hui ces sous-champs DPE (GES, valeur finale) vivent dans <code>log.dpe</code>, et le suivi d'expiration dans <code>log.diagnostics</code> — deux structures qui se corrompent. La consolidation fusionne tout dans <code>log.diagnostics.dpe</code>. La conso €/an (aujourd'hui <code>bail.depensesEnergie</code>, propre au bail) y est rattachée + migrée depuis les baux existants.</div>
+
+              <div class="sec-title">📋 Contexte (auto-détection)</div>
+              <div class="fg3">
+                <div class="fg"><label>Année construction <span class="mu">(immeuble)</span></label><input value="1962" disabled></div>
+                <div class="fg"><label>Année install. gaz</label><input placeholder="ex 2005"></div>
+                <div class="fg"><label>Année install. électrique</label><input value="1995"></div>
+              </div>
+              <div class="note">Détermine quels diagnostics sont obligatoires (CREP &lt;1949, amiante &lt;1997, gaz/élec si install. &gt;15 ans, ERP si zone à risques). L'année de construction vient de l'immeuble lié.</div>
+            </div>
+
+            <!-- PRÉSENTATION (structuré, non-IA) + CONDITIONS -->
+            <div class="pane" id="tab-prez">
+              <div class="sec-title">💰 Conditions de location <span class="badge new">loyer théorique</span></div>
+              <div class="annotation"><strong>Loyer/charges théorique ajouté ici</strong> (réponse à « calcul si vacant »). Permet de chiffrer le manque à gagner d'un logement vacant <em>avant</em> tout bail. Repris comme défaut à la création du bail.</div>
+              <div class="fg3" style="margin-top:12px">
+                <div class="fg"><label>Loyer HC théorique (€)</label><input value="640"></div>
+                <div class="fg"><label>Charges théoriques (€)</label><input value="60"></div>
+                <div class="fg"><label>DG théorique (€)</label><input value="1280"></div>
+              </div>
+              <div class="fg2">
+                <div class="fg"><label>Indice IRL de référence</label><select><option selected>T4 2025</option><option>T3 2025</option><option>T2 2025</option><option>T1 2025</option></select></div>
+                <div class="fg"><label>Date de disponibilité</label><input type="date" value="2026-07-01"></div>
+              </div>
+              <div class="fg"><label>Garanties acceptées</label>
+                <div class="cbgrp" style="margin-top:4px">
+                  <label><input type="checkbox" checked> Caution solidaire</label><label><input type="checkbox" checked> Visale</label>
+                  <label><input type="checkbox"> GLI</label><label><input type="checkbox"> Garant perso</label>
+                </div>
+              </div>
+
+              <div class="sec-title">✨ Mise en valeur <span class="badge moved">structuré (pas de texte libre)</span></div>
+              <div class="annotation herit"><strong>Aucune IA.</strong> Ces choix figés alimentent le générateur d'annonce (banques de phrases + PRNG seedé) avec une <strong>règle anti-mensonge</strong> : un atout n'est écrit que si la donnée existe. C'est pour ça que c'est des listes, pas un champ libre — sinon impossible d'assembler un texte fiable sans IA.</div>
+              <div class="fg3" style="margin-top:12px">
+                <div class="fg"><label>Exposition</label><select><option value="">—</option><option selected>Sud</option><option>Sud-Est</option><option>Est</option><option>Sud-Ouest</option><option>Ouest</option><option>Nord</option></select></div>
+                <div class="fg"><label>Vue</label><select><option value="">—</option><option selected>Dégagée</option><option>Sur jardin</option><option>Sur cour</option><option>Sur parc</option><option>Mer / montagne</option></select></div>
+                <div class="fg"><label>Luminosité</label><select><option value="">—</option><option>Lumineux</option><option selected>Traversant</option><option>Très lumineux</option><option>Baigné de lumière</option></select></div>
+              </div>
+              <div class="fg2">
+                <div class="fg"><label>Calme</label><select><option value="">—</option><option selected>Rue calme</option><option>Cour intérieure</option><option>Quartier résidentiel</option><option>Quartier verdoyant</option></select></div>
+                <div class="fg"><label>Caractère ancien</label><select><option value="">—</option><option>Moulures & parquet</option><option>Cheminée déco</option><option selected>Hauts plafonds</option><option>Bâtisse de caractère</option></select></div>
+              </div>
+
+              <div class="sec-title">📍 À proximité <span class="mu">(en minutes — alimente l'annonce)</span></div>
+              <div class="fg3" style="margin-top:12px">
+                <div class="fg"><label>Tram (min)</label><input value="3"></div>
+                <div class="fg"><label>Bus (min)</label><input value="2"></div>
+                <div class="fg"><label>Gare (min)</label><input value="8"></div>
+              </div>
+              <div class="fg"><label>Services à proximité</label>
+                <div class="cbgrp" style="margin-top:4px">
+                  <label><input type="checkbox" checked> Écoles primaires</label><label><input type="checkbox"> Collège</label>
+                  <label><input type="checkbox" checked> Parc</label><label><input type="checkbox" checked> Restaurants</label>
+                  <label><input type="checkbox"> Hôpital</label><label><input type="checkbox"> Sport</label>
+                </div>
+              </div>
+              <div class="fg"><label>Repères / points d'intérêt (1 par ligne)</label><textarea rows="2">Place du marché à 4 min&#10;Berges de la rivière à 6 min</textarea></div>
+
+              <div class="card" style="margin-top:14px">
+                <div class="card-h"><b>📢 Aperçu annonce (généré sans IA)</b><button class="btn bs">🔄 Régénérer</button></div>
+                <div class="note">« <em>Appartement meublé traversant, hauts plafonds, balcon plein sud — vue dégagée. Au calme. Tram à 3 min, écoles & parc à proximité…</em> » → assemblé à partir des choix ci-dessus uniquement.</div>
+              </div>
+            </div>
+
+          </div>
+          <div class="m-foot"><button class="btn">Annuler</button><button class="btn bp">Enregistrer</button></div>
+        </div>
+      </div>
+
+      <!-- ============ VUE AGENDA (échéances diagnostics + existant) ============ -->
+      <div class="pane" id="vue-agenda">
+        <div class="modal">
+          <div class="modal-head">
+            <div><h3>📅 Agenda — échéances</h3>
+              <div class="mu">Les expirations de diagnostics (cat. <code>DIAG</code>) viennent s'ajouter aux IRL / fins de bail / préavis déjà auto-générés. Vue globale du parc.</div></div>
+            <button class="m-close">✕</button>
+          </div>
+          <div class="modal-tabs">
+            <div class="modal-tab act" data-tab="x">📋 Liste</div>
+            <div class="modal-tab" data-tab="x">🗓 Calendrier</div>
+          </div>
+          <div class="modal-body">
+            <div class="annotation"><strong>On ne construit pas d'agenda.</strong> <code>agendaAutoSync()</code> génère déjà les échéances IRL/bail/préavis avec un tableau <code>rappels:[...]</code>. On ajoute juste une source <code>cat:'DIAG'</code> (rappels <code>[90,30,7]</code>) calculée via <code>_diagDateExpiration()</code> qui existe déjà.</div>
+
+            <div class="ag-sec">🔴 En retard (2)</div>
+            <div class="ag-evt diag"><span class="ag-cat" style="background:#fee2e2;color:#991b1b">DIAG</span>
+              <div class="ag-body"><strong>⚠ ERP à refaire — Appt 3</strong><div class="mu sm">Expiré le 01/03/2026 · validité 6 mois · bail attaquable si non joint</div></div>
+              <button class="btn bs">✓ Fait</button></div>
+            <div class="ag-evt diag"><span class="ag-cat" style="background:#fee2e2;color:#991b1b">DIAG</span>
+              <div class="ag-body"><strong>⚠ DPE expiré — Studio 1B (Delle)</strong><div class="mu sm">Expiré le 12/01/2026 · validité 10 ans</div></div>
+              <button class="btn bs">✓ Fait</button></div>
+
+            <div class="ag-sec">🟠 À venir (90 jours)</div>
+            <div class="ag-evt"><span class="ag-cat" style="background:#dbeafe;color:#1e40af">IRL</span>
+              <div class="ag-body"><strong>Préparer révision IRL — Appt 3</strong><div class="mu sm">éch. 01/07/2026 · rappel J-7</div></div>
+              <button class="btn bs">✓ Fait</button></div>
+            <div class="ag-evt diag"><span class="ag-cat" style="background:#fef3c7;color:#92400e">DIAG</span>
+              <div class="ag-body"><strong>🔥 Diagnostic gaz à renouveler — Maison Morschwiller</strong><div class="mu sm">Expire le 15/08/2026 · rappels J-90 / J-30 / J-7</div></div>
+              <button class="btn bs">✓ Fait</button></div>
+            <div class="ag-evt"><span class="ag-cat" style="background:#ede9fe;color:#5b21b6">BAIL</span>
+              <div class="ag-body"><strong>Fin de bail — Studio 1B</strong><div class="mu sm">éch. 31/08/2026 · rappels J-180 / J-90 / J-30 / J-7</div></div>
+              <button class="btn bs">✓ Fait</button></div>
+            <div class="note">Les lignes <span class="ag-cat" style="background:#fef3c7;color:#92400e">DIAG</span> sont les nouvelles. Tout le reste existe déjà. Les <strong>DIAG expirés</strong> (section rouge) remontent aussi dans les <strong>actions prioritaires</strong> du tableau de bord via <code>_computeUnifiedTodo</code> — aucune nouvelle carte.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ VUE WIZARD BAIL ============ -->
+      <div class="pane" id="vue-wizard">
+        <div class="modal">
+          <div class="modal-head">
+            <div>
+              <div class="stepper">
+                <div class="step done" onclick="setStep(1)">✓① Personnes</div><span class="step-arrow">—</span>
+                <div class="step act" onclick="setStep(2)">② Conditions</div><span class="step-arrow">—</span>
+                <div class="step" onclick="setStep(3)">③ Récapitulatif</div>
+              </div>
+              <div class="mu" style="margin-top:8px">Bail meublé · Appt 3 — 3 étapes au lieu de 4. Tous les champs réels conservés (garants, tél/email, DG auto, date fin auto, IRL auto). Seuls « Le bien » + « Finaliser » fusionnent en un Récap hérité.</div>
+            </div>
+            <button class="m-close">✕</button>
+          </div>
+          <div class="modal-body">
+
+            <!-- STEP 1 PERSONNES -->
+            <div class="pane act" id="step-1">
+              <div class="sec-title">🏠 Logement</div>
+              <div class="fg"><label>Logement *</label><select><option selected>APP-2024-003 — Appt 3 · 12 rue des Tilleuls</option></select></div>
+              <div class="note">🏛 Sélectionner le logement pré-remplit : type de bail, loyer/charges/DG théoriques, IRL, et tout le bloc « bien » (étape 3).</div>
+
+              <div class="sec-title">👤 Locataires</div>
+              <div class="subblk">
+                <span class="rm" title="Retirer">✕</span>
+                <div class="fg2">
+                  <div class="fg"><label>Civilité & nom complet *</label><div class="input-aug"><select style="max-width:70px"><option>—</option><option selected>Mme</option><option>M.</option></select><input value="Marie Dupont"></div></div>
+                  <div class="fg"><label>Date de naissance</label><input type="date" value="1992-05-14"></div>
+                </div>
+                <div class="fg2">
+                  <div class="fg"><label>Lieu de naissance</label><input value="Mulhouse"></div>
+                  <div class="fg"><label>Téléphone</label><input type="tel" value="06 12 34 56 78"></div>
+                </div>
+                <div class="fg2">
+                  <div class="fg"><label>Email</label><input type="email" value="marie.dupont@email.fr"></div>
+                  <div class="fg"><label>Adresse précédente</label><input value="8 rue des Lilas, 68100 Mulhouse"></div>
+                </div>
+              </div>
+              <button class="btn bs" style="margin-top:8px" onclick="addLoc()">+ Ajouter un locataire</button>
+              <div id="locExtra"></div>
+
+              <div class="sec-title">🛡️ Garants <span class="mu">(facultatif — exclusif avec une GLI · max 2)</span></div>
+              <div class="annotation warn"><strong>Ne pas oublier le garant !</strong> (c'était absent du 1er mockup). Bloc dynamique réel : nom, adresse, date & lieu de naissance. Sert à générer l'<em>acte de cautionnement</em>.</div>
+              <div class="subblk" style="margin-top:10px">
+                <span class="rm" title="Retirer">✕</span>
+                <div class="fg2">
+                  <div class="fg"><label>Nom complet du garant</label><input value="Jean Dupont"></div>
+                  <div class="fg"><label>Adresse</label><input value="8 rue des Lilas, 68100 Mulhouse"></div>
+                </div>
+                <div class="fg2">
+                  <div class="fg"><label>Date de naissance</label><input type="date" value="1965-03-02"></div>
+                  <div class="fg"><label>Lieu de naissance</label><input value="Colmar"></div>
+                </div>
+              </div>
+              <button class="btn bs" style="margin-top:8px">+ Ajouter un garant</button>
+              <div class="fg" style="margin-top:10px"><label>Plafond d'engagement de la caution (€) <span class="badge auto">auto</span></label><div class="input-aug"><input value="25 200"><button class="btn auto">⚡ Auto</button></div><div class="note auto">Auto = durée (ans) × 12 × (loyer + charges). Recalculé depuis les dates.</div></div>
+
+              <div class="fg" style="margin-top:12px"><label class="flex-c" style="display:flex;gap:6px;align-items:center"><input type="checkbox"> Bailleur représenté par un mandataire (loi Hoguet)</label></div>
+            </div>
+
+            <!-- STEP 2 CONDITIONS -->
+            <div class="pane" id="step-2">
+              <div class="sec-title">🏛 Entité & type</div>
+              <div class="fg2">
+                <div class="fg"><label>Entité propriétaire *</label><select id="bEntity"><option selected>SCI des Tilleuls</option><option>Didier Keller (perso)</option></select></div>
+                <div class="fg"><label>Type de bail * <span class="badge herit">hérité du bien</span></label><select id="bType" onchange="syncAuto()"><option>Nu</option><option selected>Meublé</option><option>Étudiant</option><option>Mobilité</option><option>Garage / parking</option><option>Autre</option></select></div>
+              </div>
+              <div class="fg2">
+                <div class="fg"><label>Type de contrat</label><select><option selected>Contrat initial</option><option>Renouvellement</option></select></div>
+                <div class="fg"><label>Modalité de paiement</label><select><option selected>À échoir (d'avance)</option><option>À terme échu</option></select></div>
+              </div>
+
+              <div class="sec-title">💰 Loyer & dépôt</div>
+              <div class="fg3">
+                <div class="fg"><label>Loyer HC (€) * <span class="badge herit">hérité théo</span></label><input id="bHc" value="640" onchange="syncAuto()"></div>
+                <div class="fg"><label>Charges (€)</label><input id="bCh" value="60"></div>
+                <div class="fg"><label>Dépôt de garantie (€) <span class="badge auto">auto</span></label><input id="bDg" value="1280"></div>
+              </div>
+              <div class="note auto" id="dgNote">DG auto = 2 × loyer HC (meublé, art. 25-6). Nu → 1×. Mobilité → 0 € (interdit, champ verrouillé). Recalculé quand tu changes le loyer ou le type.</div>
+              <div class="annotation" style="background:var(--red-bg);border-color:#fca5a5;color:#991b1b;margin-top:10px"><strong>« Régime fiscal » retiré.</strong> Vérifié dans le code : champ texte libre (<code>bail.fiscal</code>), lu nulle part sauf affichage sur la fiche bail. Absent de tous les docs/clauses/calculs. Le vrai moteur fiscal = <code>legal-2044.js</code> (indépendant). → supprimé du wizard.</div>
+
+              <div class="sec-title">📅 Dates & révision</div>
+              <div class="fg3">
+                <div class="fg"><label>Date de début *</label><input type="date" id="bDebut" value="2026-07-01" onchange="syncAuto()"></div>
+                <div class="fg"><label>Date de fin <span class="badge auto">auto</span></label><div class="input-aug"><input type="date" id="bFin" value="2027-06-30"><button class="btn auto" onclick="syncAuto()">⚡</button></div></div>
+                <div class="fg"><label>Jour de paiement <span class="badge auto">défaut 5</span></label><input value="5"></div>
+              </div>
+              <div class="note auto" id="finNote">Date fin auto : meublé +1 an · étudiant +9 mois · nu +3 ans (perso) / +6 ans (SCI) · mobilité/garage → manuel. (fin = veille de l'anniversaire)</div>
+              <div class="fg2">
+                <div class="fg"><label>Trimestre IRL de référence <span class="badge auto">auto</span></label><div class="input-aug"><select id="bIrl"><option selected>T4 2025</option><option>T3 2025</option><option>T2 2025</option></select><button class="btn auto">⚡</button></div></div>
+                <div class="fg"><label class="flex-c" style="display:flex;gap:6px;align-items:center;margin-top:22px"><input type="checkbox" checked> 📄 Proposer la quittance automatiquement</label></div>
+              </div>
+
+              <div class="sec-title">🔒 Encadrement (zone tendue)</div>
+              <div class="cbgrp" style="margin-top:4px">
+                <label><input type="checkbox"> 📍 Zone tendue (art. 17)</label>
+                <label><input type="checkbox"> 🔒 Encadrement des loyers (ELAN)</label>
+              </div>
+              <div class="fg2">
+                <div class="fg"><label>Situation lors de la mise en location</label><select><option selected>1re mise en location</option><option>Relocation < 18 mois</option><option>Relocation > 18 mois</option><option>Renouvellement</option></select></div>
+                <div class="fg"><label>Dernier loyer HC du précédent locataire (€)</label><input placeholder="si relocation"></div>
+              </div>
+
+              <div class="sec-title">🛋 Inventaire mobilier <span class="mu" id="invHintBail">(requis — bail meublé)</span></div>
+              <div class="annotation warn" id="invBoxBail">11 catégories décret 2015-981 + compteur + détails. <strong>Disparaît entièrement si bail nu.</strong> Pré-cochage proposé depuis les équipements cuisine du bien. <em>(Bascule le type sur « Nu » pour voir.)</em></div>
+
+              <div class="fg" style="margin-top:12px"><label>Notes / conditions particulières</label><textarea rows="2" placeholder="Clauses spécifiques…"></textarea></div>
+            </div>
+
+            <!-- STEP 3 RÉCAPITULATIF -->
+            <div class="pane" id="step-3">
+              <div class="sec-title">📄 Récapitulatif — bien & diagnostics (lecture seule)</div>
+              <div class="annotation herit"><strong>Plus de re-saisie.</strong> Tout est <strong>hérité du logement</strong>. Pour corriger → on modifie la fiche du bien. Bail signé → valeurs figées (immutabilité légale, déjà en place).</div>
+
+              <div class="recap">
+                <div class="recap-head"><span>🏛 Le bien — hérité du logement</span><a>✏ Modifier sur la fiche du bien</a></div>
+                <div class="recap-body"><dl class="kv">
+                  <dt>Adresse</dt><dd>Appt 3 · 12 rue des Tilleuls, 68000</dd>
+                  <dt>Surface / pièces</dt><dd>48 m² · 2 pièces principales</dd>
+                  <dt>Habitat / régime</dt><dd>Immeuble collectif · Copropriété · 1949–1974</dd>
+                  <dt>Description pièces</dt><dd>Séjour 22 m², cuisine équipée, 1 chambre 12 m², salle d'eau + WC séparé</dd>
+                  <dt>Chauffage / ECS</dt><dd>Individuel électrique · Chauffe-eau électrique</dd>
+                  <dt>Cuisine</dt><dd>Équipée, plaques, four, réfrigérateur, évier 2 bacs inox</dd>
+                  <dt>Sanitaires</dt><dd>Douche, WC séparé</dd>
+                  <dt>Technologies</dt><dd>Fibre, TNT</dd>
+                  <dt>Extérieurs</dt><dd>Balcon 6 m² (plein sud)</dd>
+                  <dt>Annexes</dt><dd>Cave n°12, parking n°4, garage B</dd>
+                </dl></div>
+              </div>
+
+              <div class="recap">
+                <div class="recap-head"><span>🏛 Diagnostics — hérités (onglet Diagnostics du logement)</span><a>✏ Modifier sur la fiche du bien</a></div>
+                <div class="recap-body"><dl class="kv">
+                  <dt>DPE / GES</dt><dd>C / A — réalisé le 14/04/2025</dd>
+                  <dt>Dépenses énergétiques</dt><dd>900 à 1 200 €/an <span class="badge moved">regroupé avec le DPE</span></dd>
+                  <dt>Plomb / Amiante</dt><dd>Absence / Absence</dd>
+                  <dt>Électricité / Gaz</dt><dd>Conforme / N/A</dd>
+                  <dt>Bruit / ERP</dt><dd>Non soumis / à refaire ⚠</dd>
+                </dl>
+                <div class="note">« Dépenses énergétiques » remonte ici, avec le DPE (avant : perdu dans l'onglet « Le bien »).</div></div>
+              </div>
+
+              <div class="sec-title">📄 Documents</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn">👁 Aperçu HTML</button><button class="btn">📄 PDF du bail</button>
+                <button class="btn">📋 Acte de cautionnement (garant)</button><button class="btn">📋 Notice d'information</button>
+                <button class="btn bp">💾 Enregistrer le bail</button>
+              </div>
+            </div>
+
+          </div>
+          <div class="m-foot"><button class="btn" onclick="prevStep()">← Précédent</button><button class="btn bp" onclick="nextStep()">Suivant →</button></div>
+        </div>
+      </div>
+
+    </div><!-- /device -->
+  </div></div>
+
+</div>
+
+<script>
+function setVue(v){
+  document.querySelectorAll('[data-vue]').forEach(b=>b.classList.toggle('act', b.dataset.vue===v));
+  ['modale','agenda','wizard'].forEach(x=>document.getElementById('vue-'+x).classList.toggle('act', x===v));
+}
+const FMT={pc:'🖥 PC — 1000 px',tablet:'📲 Tablette — 768 px',phone:'📱 Téléphone — 390 px'};
+function setFmt(f){
+  document.querySelectorAll('button[data-fmt]').forEach(b=>b.classList.toggle('act', b.dataset.fmt===f));
+  document.getElementById('device').dataset.fmt=f; document.getElementById('deviceMeta').textContent=FMT[f];
+}
+function setTab(t){
+  document.querySelectorAll('#vue-modale .modal-tab').forEach(b=>b.classList.toggle('act', b.dataset.tab===t));
+  ['ident','desc','equip','diag','prez'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('act', x===t));
+  document.querySelector('#vue-modale .modal-body').scrollTop=0;
+}
+let _step=2;
+function setStep(s){ _step=s;
+  document.querySelectorAll('#vue-wizard .step').forEach((el,i)=>{const n=i+1; el.classList.toggle('act',n===s); el.classList.toggle('done',n<s);});
+  [1,2,3].forEach(n=>document.getElementById('step-'+n).classList.toggle('act',n===s));
+  document.querySelector('#vue-wizard .modal-body').scrollTop=0;
+}
+function nextStep(){ if(_step<3) setStep(_step+1); } function prevStep(){ if(_step>1) setStep(_step-1); }
+function addChip(c,i){ const e=document.getElementById(i),v=e.value.trim(); if(!v)return;
+  const s=document.createElement('span'); s.className='chip'; s.innerHTML=v.replace(/</g,'&lt;')+' <span class="x" onclick="rmChip(this)">✕</span>';
+  document.getElementById(c).appendChild(s); e.value=''; e.focus(); }
+function rmChip(x){ x.parentNode.remove(); }
+function addLoc(){
+  const w=document.getElementById('locExtra'); const d=document.createElement('div'); d.className='subblk'; d.style.marginTop='10px';
+  d.innerHTML='<span class="rm" title="Retirer" onclick="this.parentNode.remove()">✕</span>'
+   +'<div class="fg2"><div class="fg"><label>Civilité & nom complet *</label><div class="input-aug"><select style="max-width:70px"><option>—</option><option>Mme</option><option>M.</option></select><input placeholder="Nom Prénom"></div></div>'
+   +'<div class="fg"><label>Date de naissance</label><input type="date"></div></div>'
+   +'<div class="fg2"><div class="fg"><label>Lieu de naissance</label><input></div><div class="fg"><label>Téléphone</label><input type="tel" placeholder="06…"></div></div>'
+   +'<div class="fg2"><div class="fg"><label>Email</label><input type="email"></div><div class="fg"><label class="flex-c" style="display:flex;gap:6px;align-items:center;margin-top:18px"><input type="checkbox"> Même adresse précédente que locataire 1</label></div></div>';
+  w.appendChild(d);
+}
+// DG + date fin auto demo (mirrors real onBailLoyerChange / autoFinBail)
+function syncAuto(){
+  const type=document.getElementById('bType').value, hc=parseFloat(document.getElementById('bHc').value)||0;
+  const mul = /Meubl|Étudiant/i.test(type)?2 : /Nu/i.test(type)?1 : 0;
+  const dg=document.getElementById('bDg'), dgNote=document.getElementById('dgNote');
+  if(/Mobilit/i.test(type)){ dg.value='0'; dg.disabled=true; dgNote.textContent='Mobilité : DG interdit (0 €, ELAN art.107) — champ verrouillé.'; }
+  else { dg.disabled=false; if(hc>0 && mul) dg.value=hc*mul; dgNote.textContent='DG auto = '+mul+' × loyer HC ('+type+'). Recalculé au changement de loyer/type.'; }
+  // date fin
+  const deb=document.getElementById('bDebut').value, fin=document.getElementById('bFin');
+  if(deb){ const d=new Date(deb); let ok=true;
+    if(/Meubl/i.test(type)) d.setFullYear(d.getFullYear()+1);
+    else if(/Étudiant/i.test(type)) d.setMonth(d.getMonth()+9);
+    else if(/Nu/i.test(type)){ const sci=/SCI|morale/i.test(document.getElementById('bEntity').value); d.setFullYear(d.getFullYear()+(sci?6:3)); }
+    else ok=false;
+    if(ok){ d.setDate(d.getDate()-1); fin.value=d.toISOString().slice(0,10); }
+  }
+  // inventaire gating
+  const meuble=/Meubl|Étudiant|Mobilit/i.test(type);
+  document.getElementById('invBoxBail').style.display=meuble?'':'none';
+  document.getElementById('invHintBail').textContent=meuble?'(requis — bail meublé)':'(masqué — bail nu)';
+}
+// log usage gating for inventaire (modale)
+document.getElementById('logUsage').addEventListener('change',e=>{
+  const meuble=/meubl|Étudiant|Mobilit/i.test(e.target.value);
+  document.getElementById('invBoxLog').style.display=meuble?'':'none';
+  document.getElementById('invHintLog').textContent=meuble?'(affiché car type d\'usage = meublé)':'(masqué — usage non meublé)';
+});
+</script>
+</body>
+</html>
