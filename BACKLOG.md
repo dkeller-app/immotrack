@@ -190,7 +190,8 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 
 ## 🔥 Priorité immédiate — bugs critiques
 
-> **🚨 2 chantiers de fond bloquants pour V1 commerciale (à attaquer en sessions dédiées)** :
+> **🚨 Sujets de fond bloquants V1 commerciale (sessions dédiées)** :
+> - **BAIL-SIGNATURE-DISTANCE** 🔄 (P1, ~6-8h) — envoi de bail par lien pour signature à distance (wizard standalone sign.html) + import retour. **Session 1 brainstorming + mockups livrée 2026-05-29**. Session 2 implémentation attend validation user du mockup. [docs/subjects/BAIL-SIGNATURE-DISTANCE.md](docs/subjects/BAIL-SIGNATURE-DISTANCE.md) · [mockup interactif](mockups/BAIL-SIGNATURE-DISTANCE/mockup.html)
 > - **ARCHI-DB-DOUBLONS** (P1, ~12-15h) — refonte structurelle séparation log (bien) / bail (contrat). [docs/subjects/ARCHI-DB-DOUBLONS.md](docs/subjects/ARCHI-DB-DOUBLONS.md). Phase 1 CDC à attaquer en premier (~2h, dialogue décisions UX).
 > - **FICHES-PARITE-360** (P1, ~27h) — parité totale onglets ↔ fiches 360° (logement, immeuble, bailleur). [docs/subjects/FICHES-PARITE-360.md](docs/subjects/FICHES-PARITE-360.md). 8 sessions phasées par ROI.
 >

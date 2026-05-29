@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup BAIL-SIGNATURE-DISTANCE — Wizard signature par lien</title>
+<style>
+:root {
+  --acc: #2563eb; --acc-dark: #1d4ed8; --acc-soft: #dbeafe;
+  --vio: #8b5cf6; --vio-soft: #ede9fe;
+  --ok: #10b981; --warn: #f59e0b; --err: #ef4444;
+  --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --sur: #ffffff; --sur2: #f3f4f6; --sur3: #f9fafb;
+  --bor: #e5e7eb;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: var(--t1); background: var(--sur2); font-size: 13px; line-height: 1.5; }
+
+.app-header { background: linear-gradient(90deg, var(--acc), var(--vio)); color: white; padding: 14px 22px; }
+.app-header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+.app-header .lead { font-size: 12px; opacity: 0.92; font-style: italic; margin-top: 3px; }
+
+.controls { background: var(--sur); padding: 12px 20px; border-bottom: 1px solid var(--bor); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.controls label { font-size: 11px; font-weight: 600; color: var(--t2); text-transform: uppercase; letter-spacing: 0.4px; }
+.btn-group { display: inline-flex; border: 1px solid var(--bor); border-radius: 6px; overflow: hidden; flex-wrap: wrap; }
+.btn-group button { background: var(--sur); border: none; padding: 7px 13px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--bor); color: var(--t1); white-space: nowrap; }
+.btn-group button:last-child { border-right: none; }
+.btn-group button.act { background: var(--acc); color: white; }
+
+.viewport { margin: 16px auto; transition: max-width 0.3s ease; background: var(--sur); border: 1px solid var(--bor); border-radius: 8px; overflow: hidden; }
+.viewport.pc { max-width: 1200px; }
+.viewport.tab { max-width: 820px; }
+.viewport.tel { max-width: 390px; }
+
+.scene { display: none; padding: 20px; min-height: 70vh; }
+.scene.act { display: block; }
+
+.scene-title { font-size: 16px; font-weight: 700; color: var(--t1); margin: 0 0 4px; }
+.scene-sub { font-size: 12px; color: var(--t2); margin-bottom: 16px; }
+
+.annot { background: linear-gradient(135deg, #fff3cd, #fef3c7); border-left: 4px solid var(--warn); padding: 10px 14px; margin: 14px 0; font-size: 12px; border-radius: 0 6px 6px 0; color: #78350f; }
+.annot b { color: #92400e; }
+.annot.ok { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-left-color: var(--ok); color: #065f46; }
+.annot.ok b { color: #064e3b; }
+
+/* ───────── Vue 1 : Préparateur ─────────────────────────────────── */
+.bail-modal { background: var(--sur); border: 1px solid var(--bor); border-radius: 8px; max-width: 700px; margin: 0 auto; }
+.bail-modal-head { background: linear-gradient(90deg, var(--acc-soft), var(--sur)); padding: 14px 18px; border-bottom: 1px solid var(--bor); display: flex; justify-content: space-between; align-items: center; }
+.bail-modal-head h3 { margin: 0; font-size: 15px; }
+.bail-modal-head .ref { font-size: 11px; color: var(--t2); }
+.bail-modal-body { padding: 16px 18px; }
+.bail-info-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px 10px; border: 1px solid var(--bor); border-radius: 6px; margin-bottom: 6px; background: var(--sur3); font-size: 12px; }
+.bail-info-row b { color: var(--t1); }
+
+.action-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--bor); }
+.btn { padding: 8px 14px; border: 1px solid var(--bor); border-radius: 6px; background: var(--sur); cursor: pointer; font-size: 12.5px; font-weight: 500; color: var(--t1); display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--acc); }
+.btn-primary { background: var(--acc); color: white; border-color: var(--acc); }
+.btn-primary:hover { background: var(--acc-dark); border-color: var(--acc-dark); }
+.btn-sig-distance { background: linear-gradient(90deg, var(--vio), var(--vio)); color: white; border-color: var(--vio); font-weight: 600; }
+
+/* ───────── Vue 2 : Modale destinataires ───────────────────────── */
+.dest-modal { background: var(--sur); border: 1px solid var(--bor); border-radius: 8px; max-width: 560px; margin: 0 auto; }
+.dest-modal-body { padding: 16px 18px; }
+.dest-section { background: var(--sur3); border: 1px solid var(--bor); border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+.dest-section h4 { margin: 0 0 8px; font-size: 12.5px; color: var(--t1); display: flex; justify-content: space-between; align-items: center; }
+.dest-section .badge { background: var(--vio); color: white; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.dest-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bor); }
+.dest-row:last-child { border-bottom: none; }
+.dest-row input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; }
+.dest-row .who-name { font-weight: 600; font-size: 12.5px; }
+.dest-row .who-email { font-size: 11px; color: var(--t2); }
+.dest-row .who-role { background: var(--sur2); padding: 2px 8px; border-radius: 10px; font-size: 10.5px; color: var(--t2); }
+
+.modes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.mode-card { padding: 10px 12px; border: 2px solid var(--bor); border-radius: 6px; cursor: pointer; background: var(--sur); }
+.mode-card.act { border-color: var(--acc); background: var(--acc-soft); }
+.mode-card h5 { margin: 0 0 4px; font-size: 12.5px; color: var(--t1); }
+.mode-card .meta { font-size: 11px; color: var(--t2); }
+
+/* ───────── Vue 3 : Email reçu ──────────────────────────────────── */
+.email-view { background: var(--sur); border: 1px solid var(--bor); border-radius: 8px; max-width: 620px; margin: 0 auto; }
+.email-head { background: var(--sur3); padding: 12px 16px; border-bottom: 1px solid var(--bor); font-size: 12px; }
+.email-head .ef { display: grid; grid-template-columns: 60px 1fr; gap: 8px; padding: 2px 0; }
+.email-head .ef b { color: var(--t2); }
+.email-body { padding: 16px 20px; }
+.email-cta { display: block; background: linear-gradient(90deg, var(--acc), var(--vio)); color: white; padding: 14px 18px; border-radius: 8px; text-align: center; text-decoration: none; font-weight: 600; font-size: 14px; margin: 16px 0; }
+.email-meta { font-size: 11px; color: var(--t2); background: var(--sur3); padding: 8px 12px; border-radius: 6px; }
+
+/* ───────── Vue 4-7 : sign.html ─────────────────────────────────── */
+.sign-app { max-width: 720px; margin: 0 auto; background: var(--sur); border: 1px solid var(--bor); border-radius: 8px; overflow: hidden; }
+.sign-header { background: linear-gradient(90deg, var(--acc), var(--vio)); color: white; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+.sign-header .logo { font-size: 22px; }
+.sign-header h2 { margin: 0; font-size: 16px; }
+.sign-header .sub { font-size: 11px; opacity: 0.9; }
+
+.steps-bar { display: flex; background: var(--sur3); border-bottom: 1px solid var(--bor); }
+.step-item { flex: 1; padding: 10px 8px; text-align: center; font-size: 11.5px; color: var(--t2); border-right: 1px solid var(--bor); position: relative; }
+.step-item:last-child { border-right: none; }
+.step-item.act { background: var(--acc-soft); color: var(--acc-dark); font-weight: 700; }
+.step-item.done { color: var(--ok); }
+.step-item .num { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--bor); color: var(--t2); font-weight: 700; line-height: 22px; margin-right: 4px; font-size: 11px; }
+.step-item.act .num { background: var(--acc); color: white; }
+.step-item.done .num { background: var(--ok); color: white; }
+
+.sign-body { padding: 22px 24px; }
+
+.sign-step-1 input[type=email] { width: 100%; padding: 12px 14px; font-size: 14px; border: 1px solid var(--bor); border-radius: 6px; margin-top: 6px; }
+.sign-step-1 label { font-weight: 600; font-size: 13px; }
+
+.pdf-preview { background: var(--sur3); border: 1px solid var(--bor); border-radius: 6px; padding: 14px 16px; max-height: 220px; overflow-y: auto; font-size: 11px; color: var(--t2); line-height: 1.65; margin: 12px 0; font-family: Georgia, serif; }
+.pdf-preview h3 { font-size: 13px; color: var(--t1); margin: 0 0 8px; }
+
+.paraph-zone { background: linear-gradient(90deg, #f3f4f6, var(--sur)); border: 2px dashed var(--bor); border-radius: 6px; padding: 16px; margin: 10px 0; text-align: center; }
+.paraph-canvas { background: var(--sur); border: 1px solid var(--bor); border-radius: 4px; height: 70px; max-width: 200px; margin: 8px auto; display: flex; align-items: center; justify-content: center; color: var(--t3); font-style: italic; font-size: 11px; cursor: crosshair; }
+
+.signature-canvas { background: var(--sur); border: 2px solid var(--acc); border-radius: 6px; height: 140px; margin: 12px 0; display: flex; align-items: center; justify-content: center; color: var(--t3); font-style: italic; cursor: crosshair; }
+
+.lu-approuve { background: var(--sur3); border: 1px solid var(--bor); border-radius: 6px; padding: 12px; margin: 12px 0; font-size: 12.5px; display: flex; gap: 8px; align-items: flex-start; }
+.lu-approuve input { margin-top: 3px; width: 18px; height: 18px; cursor: pointer; }
+
+.download-card { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid var(--ok); border-radius: 8px; padding: 18px 20px; text-align: center; margin: 16px 0; }
+.download-card .ico { font-size: 40px; }
+.download-card h3 { margin: 8px 0 4px; color: #064e3b; font-size: 16px; }
+.download-card .desc { font-size: 12px; color: #065f46; margin-bottom: 12px; }
+.download-card .btn-dl { background: var(--ok); color: white; padding: 12px 20px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; }
+
+.return-instructions { background: #fef9e7; border: 1px solid var(--warn); border-radius: 6px; padding: 12px 14px; margin-top: 12px; font-size: 12.5px; color: #78350f; }
+.return-instructions h4 { margin: 0 0 6px; color: #92400e; }
+.return-instructions ol { margin: 4px 0 0 18px; padding: 0; }
+.return-instructions li { margin-bottom: 4px; }
+
+.btn-mailto { background: var(--vio); color: white; padding: 12px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; }
+
+.sign-nav { display: flex; justify-content: space-between; padding: 14px 24px; background: var(--sur3); border-top: 1px solid var(--bor); }
+.sign-nav .btn { font-size: 12.5px; }
+
+/* ───────── Vue 8 : Import retour préparateur ───────────────────── */
+.import-modal { background: var(--sur); border: 1px solid var(--bor); border-radius: 8px; max-width: 620px; margin: 0 auto; }
+.import-step { padding: 14px 18px; border-bottom: 1px solid var(--bor); }
+.import-step:last-child { border-bottom: none; }
+.import-step h4 { margin: 0 0 8px; font-size: 13px; }
+.import-drop { background: var(--sur3); border: 2px dashed var(--bor); border-radius: 6px; padding: 30px 18px; text-align: center; color: var(--t2); margin: 8px 0; cursor: pointer; }
+.import-drop:hover { border-color: var(--acc); background: var(--acc-soft); }
+.import-drop .ico { font-size: 32px; display: block; margin-bottom: 6px; }
+
+.bail-select { background: var(--sur3); border: 1px solid var(--bor); border-radius: 6px; padding: 10px 12px; margin: 8px 0; }
+.bail-select select { width: 100%; padding: 8px; font-size: 12.5px; border: 1px solid var(--bor); border-radius: 4px; }
+
+.import-success { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid var(--ok); border-radius: 6px; padding: 14px 16px; text-align: center; color: #064e3b; font-weight: 600; margin-top: 12px; }
+
+/* ───────── Mobile spec ≤ 480px ─────────────────────────────────── */
+@media (max-width: 480px) {
+  .app-header { padding: 12px 14px; }
+  .app-header h1 { font-size: 14.5px; }
+  .controls { padding: 10px 12px; flex-direction: column; align-items: stretch; }
+  .btn-group { width: 100%; }
+  .btn-group button { flex: 1; padding: 9px 6px; font-size: 11px; }
+  .scene { padding: 12px; }
+  .bail-info-row { grid-template-columns: 1fr; gap: 4px; }
+  .modes-grid { grid-template-columns: 1fr; }
+  .steps-bar { overflow-x: auto; }
+  .step-item { min-width: 28%; font-size: 10.5px; padding: 8px 4px; }
+  .sign-body { padding: 14px 16px; }
+  .signature-canvas { height: 110px; }
+  .paraph-canvas { max-width: 100%; }
+  .action-bar { flex-direction: column; }
+  .action-bar .btn { width: 100%; justify-content: center; min-height: 44px; }
+  .btn-sig-distance, .btn-mailto, .download-card .btn-dl { min-height: 44px; width: 100%; }
+}
+.viewport.tel .action-bar { flex-direction: column; }
+.viewport.tel .action-bar .btn { width: 100%; justify-content: center; min-height: 44px; }
+.viewport.tel .modes-grid { grid-template-columns: 1fr; }
+.viewport.tel .bail-info-row { grid-template-columns: 1fr; }
+.viewport.tel .scene { padding: 12px; }
+.viewport.tel .steps-bar { overflow-x: auto; }
+.viewport.tel .step-item { min-width: 30%; font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>📝 Mockup BAIL-SIGNATURE-DISTANCE — Wizard signature par lien</h1>
+  <div class="lead">8 vues — préparateur → email → destinataire wizard 4 étapes → retour préparateur · 3 formats responsive · v15.225</div>
+</div>
+
+<div class="controls">
+  <label>Vue :</label>
+  <div class="btn-group">
+    <button onclick="setScene('preparateur', this)" class="act">1️⃣ Bouton envoi</button>
+    <button onclick="setScene('destinataires', this)">2️⃣ Destinataires</button>
+    <button onclick="setScene('email', this)">3️⃣ Email reçu</button>
+    <button onclick="setScene('sign1', this)">4️⃣ Vérif email</button>
+    <button onclick="setScene('sign2', this)">5️⃣ Paraphes</button>
+    <button onclick="setScene('sign3', this)">6️⃣ Signature</button>
+    <button onclick="setScene('sign4', this)">7️⃣ DL + retour</button>
+    <button onclick="setScene('import', this)">8️⃣ Import préparateur</button>
+  </div>
+  <span style="width:1px;height:24px;background:var(--bor)"></span>
+  <label>Format :</label>
+  <div class="btn-group">
+    <button onclick="setVP('pc', this)" class="act">💻 PC</button>
+    <button onclick="setVP('tab', this)">📱 Tablette</button>
+    <button onclick="setVP('tel', this)">📞 Téléphone</button>
+  </div>
+</div>
+
+<div class="viewport pc" id="vp">
+
+<!-- ═════ VUE 1 : Préparateur — bouton envoi dans modale Bail ═════ -->
+<div class="scene act" id="scene-preparateur">
+  <h2 class="scene-title">1️⃣ Préparateur ImmoTrack — Modale Bail avec bouton « Envoyer pour signature »</h2>
+  <div class="scene-sub">Contexte : le bailleur (ou mandataire) a préparé le bail. Il veut le faire signer à distance.</div>
+
+  <div class="bail-modal">
+    <div class="bail-modal-head">
+      <div>
+        <h3>📜 Bail — LOG-101</h3>
+        <span class="ref">SCI Dupont · T3 65 m² · Mme HENRI</span>
+      </div>
+      <span style="font-size:11px;color:var(--warn);font-weight:600">⚠ NON SIGNÉ</span>
+    </div>
+    <div class="bail-modal-body">
+      <div class="bail-info-row">
+        <div><b>Bailleur :</b> SCI Dupont</div>
+        <div><b>Locataire :</b> Mme HENRI Pascale</div>
+      </div>
+      <div class="bail-info-row">
+        <div><b>Adresse :</b> 15 rue X, 69001 Lyon</div>
+        <div><b>Loyer :</b> 750 € HC + 90 € ch</div>
+      </div>
+      <div class="bail-info-row">
+        <div><b>Début :</b> 1er juin 2026</div>
+        <div><b>Type :</b> Habitation nue</div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn">📝 Modifier</button>
+        <button class="btn">👁 Aperçu PDF</button>
+        <button class="btn">📋 Acte cautionnement</button>
+        <button class="btn-primary">✍ Signer en direct</button>
+        <button class="btn btn-sig-distance" onclick="setScene('destinataires', document.querySelectorAll('.controls .btn-group button')[1])">
+          ✉ Envoyer pour signature à distance
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <b>💡 UX :</b> le nouveau bouton « Envoyer pour signature à distance » est en violet (différent du bouton bleu « Signer en direct » existant). Visible uniquement si le bail n'est pas encore signé bilatéralement. En cas gestion (mandataire connecté), le bouton est plus visible (mis en avant).
+  </div>
+</div>
+
+<!-- ═════ VUE 2 : Modale destinataires ═════ -->
+<div class="scene" id="scene-destinataires">
+  <h2 class="scene-title">2️⃣ Sélection destinataires</h2>
+  <div class="scene-sub">Le préparateur choisit qui doit signer + le mode (séquentiel ou parallèle pour multi-locataires).</div>
+
+  <div class="dest-modal">
+    <div class="bail-modal-head">
+      <h3>✉ Envoyer le bail LOG-101 pour signature à distance</h3>
+      <span style="font-size:18px;cursor:pointer">✕</span>
+    </div>
+    <div class="dest-modal-body">
+
+      <div class="dest-section">
+        <h4>👤 Locataires <span class="badge">1 sélectionné</span></h4>
+        <div class="dest-row">
+          <input type="checkbox" checked>
+          <div>
+            <div class="who-name">Mme HENRI Pascale</div>
+            <div class="who-email">📧 henri.pascale@example.com · 📞 06 22 33 44 55</div>
+          </div>
+          <span class="who-role">Locataire principal</span>
+        </div>
+      </div>
+
+      <div class="dest-section">
+        <h4>🏛 Bailleur <span class="badge" style="background:var(--t3)">cas gestion</span></h4>
+        <div class="dest-row">
+          <input type="checkbox" checked>
+          <div>
+            <div class="who-name">M. DUPONT Jean (gérant SCI Dupont)</div>
+            <div class="who-email">📧 contact@sci-dupont.fr</div>
+          </div>
+          <span class="who-role">Bailleur</span>
+        </div>
+        <div style="font-size:11px;color:var(--t2);font-style:italic;margin-top:4px">
+          Visible car SCI Dupont a un mandataire (vous : gestion@cabinet-x.fr) configuré dans Paramètres.
+        </div>
+      </div>
+
+      <div class="dest-section">
+        <h4>🎯 Mode d'envoi</h4>
+        <div class="modes-grid">
+          <div class="mode-card act">
+            <h5>📤 Séquentiel (recommandé gestion)</h5>
+            <div class="meta">Bailleur signe d'abord, puis locataire. État suivi étape par étape.</div>
+          </div>
+          <div class="mode-card">
+            <h5>⚡ Parallèle</h5>
+            <div class="meta">Tous reçoivent en même temps. Plus rapide mais désynchronisation possible.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dest-section">
+        <h4>🔒 Sécurité</h4>
+        <div style="font-size:12px;color:var(--t2)">
+          ✓ Lien valide 7 jours · ✓ Vérification email destinataire à l'ouverture<br>
+          ✓ Wizard complet : paraphe par page + signature finale (preuve légale art. 1366 Code civil)
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn">↩ Annuler</button>
+        <button class="btn-primary" onclick="setScene('email', document.querySelectorAll('.controls .btn-group button')[2])">
+          ✉ Envoyer (2 emails Gmail API)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot ok">
+    <b>💡 Cas gestion (B2B) :</b> si tu es mandataire pour SCI Dupont, ImmoTrack détecte automatiquement et propose d'envoyer aussi au bailleur. En mode séquentiel, tu reçois automatiquement une notification quand chaque partie a signé.
+  </div>
+</div>
+
+<!-- ═════ VUE 3 : Email reçu par destinataire ═════ -->
+<div class="scene" id="scene-email">
+  <h2 class="scene-title">3️⃣ Email reçu par le destinataire</h2>
+  <div class="scene-sub">Envoi via Gmail API (alias send-as configuré dans Paramètres). Le destinataire reçoit dans sa boîte mail standard.</div>
+
+  <div class="email-view">
+    <div class="email-head">
+      <div class="ef"><b>De :</b> <span>gestion@cabinet-x.fr (Cabinet Gestion X)</span></div>
+      <div class="ef"><b>À :</b> <span>henri.pascale@example.com</span></div>
+      <div class="ef"><b>Objet :</b> <span>📝 Bail à signer — Appartement T3, 15 rue X, 69001 Lyon</span></div>
+    </div>
+    <div class="email-body">
+      <p>Bonjour Mme HENRI Pascale,</p>
+      <p>
+        Vous trouverez ci-dessous le lien sécurisé pour signer le bail de location de votre futur logement :
+      </p>
+      <p style="background:var(--sur3);padding:10px 14px;border-radius:6px;border-left:3px solid var(--acc);font-size:12.5px">
+        🏠 <b>Appartement T3 — 65 m²</b><br>
+        📍 15 rue X, 69001 Lyon<br>
+        📅 Début : 1er juin 2026<br>
+        💰 Loyer : 750 € HC + 90 € de charges
+      </p>
+
+      <a href="#" class="email-cta" onclick="setScene('sign1', document.querySelectorAll('.controls .btn-group button')[3]);return false;">
+        🔐 Signer le bail (lien sécurisé)
+      </a>
+
+      <p style="font-size:12px;color:var(--t2)">
+        Le lien est valable <b>7 jours</b>. À l'ouverture, vous devrez confirmer votre adresse email pour accéder au document.
+      </p>
+
+      <p style="font-size:12px">
+        <b>Comment ça marche :</b>
+      </p>
+      <ol style="font-size:12px;color:var(--t1);padding-left:18px">
+        <li>Cliquez sur le bouton ci-dessus</li>
+        <li>Confirmez votre adresse email</li>
+        <li>Lisez le bail page par page et paraphez chaque page</li>
+        <li>Signez en bas avec votre souris (PC) ou votre doigt (mobile)</li>
+        <li>Téléchargez le PDF signé et renvoyez-le par email à cette adresse</li>
+      </ol>
+
+      <p style="font-size:12px;color:var(--t2);margin-top:20px;border-top:1px solid var(--bor);padding-top:10px">
+        En cas de problème, répondez à cet email ou appelez-nous au 04 XX XX XX XX.<br>
+        — Cabinet Gestion X (mandataire SCI Dupont)
+      </p>
+
+      <div class="email-meta">
+        🔒 <b>Sécurité :</b> Ce lien est généré et signé localement par ImmoTrack. Aucune donnée du bail n'est stockée sur un serveur tiers. La signature est apposée sur votre appareil et envoyée par email standard.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════ VUE 4 : sign.html étape 1 — Vérification email ═════ -->
+<div class="scene" id="scene-sign1">
+  <h2 class="scene-title">4️⃣ sign.html — Étape 1 : Vérification email</h2>
+  <div class="scene-sub">Le destinataire ouvre le lien. Page autonome ~60 KB tout inclus (HTML+CSS+JS+jsPDF) hébergée sur immotrack.app/sign.html.</div>
+
+  <div class="sign-app">
+    <div class="sign-header">
+      <span class="logo">📝</span>
+      <div>
+        <h2>Signature de bail</h2>
+        <div class="sub">Sécurisé par ImmoTrack · lien valide jusqu'au 5 juin 2026</div>
+      </div>
+    </div>
+
+    <div class="steps-bar">
+      <div class="step-item act"><span class="num">1</span> Vérif email</div>
+      <div class="step-item"><span class="num">2</span> Paraphes</div>
+      <div class="step-item"><span class="num">3</span> Signature</div>
+      <div class="step-item"><span class="num">4</span> Télécharger</div>
+    </div>
+
+    <div class="sign-body sign-step-1">
+      <h3 style="margin:0 0 10px;font-size:15px">🔐 Pour votre sécurité, confirmez votre adresse email</h3>
+      <p style="font-size:12.5px;color:var(--t2);margin-bottom:16px">
+        Cette vérification s'assure que vous êtes bien la personne destinataire du bail.
+      </p>
+
+      <label>Votre adresse email</label>
+      <input type="email" placeholder="exemple : henri.pascale@example.com" value="">
+
+      <div class="annot" style="margin-top:14px;font-size:11.5px">
+        <b>🔒 Aucune donnée transmise.</b> L'email est comparé localement au hash sécurisé inclus dans le lien (SHA-256 tronqué). Si la vérification échoue, l'accès au bail est refusé.
+      </div>
+
+      <div class="action-bar" style="justify-content:flex-end">
+        <button class="btn-primary" onclick="setScene('sign2', document.querySelectorAll('.controls .btn-group button')[4])">
+          ✓ Vérifier et continuer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot ok">
+    <b>UX mobile :</b> input type="email" déclenche le clavier email iOS. font-size 14px évite le zoom automatique. Bouton vérifier min-height 44px tactile.
+  </div>
+</div>
+
+<!-- ═════ VUE 5 : sign.html étape 2 — Paraphes ═════ -->
+<div class="scene" id="scene-sign2">
+  <h2 class="scene-title">5️⃣ sign.html — Étape 2 : Paraphes par page</h2>
+  <div class="scene-sub">Le destinataire lit chaque page du bail et paraphe en bas (canvas signature). Wizard complet pour preuve légale.</div>
+
+  <div class="sign-app">
+    <div class="sign-header">
+      <span class="logo">📝</span>
+      <div>
+        <h2>Signature de bail</h2>
+        <div class="sub">Page 3 sur 8</div>
+      </div>
+    </div>
+
+    <div class="steps-bar">
+      <div class="step-item done"><span class="num">✓</span> Vérif email</div>
+      <div class="step-item act"><span class="num">2</span> Paraphes</div>
+      <div class="step-item"><span class="num">3</span> Signature</div>
+      <div class="step-item"><span class="num">4</span> Télécharger</div>
+    </div>
+
+    <div class="sign-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-weight:600;font-size:13px">Page 3 / 8 — Article 3 : Loyer et charges</span>
+        <span style="font-size:11px;color:var(--t2)">Progression : 2/8 paraphes</span>
+      </div>
+
+      <div class="pdf-preview">
+        <h3>Article 3 — Conditions financières</h3>
+        <p>Le présent bail est consenti et accepté moyennant un loyer mensuel principal hors charges de <b>750,00 €</b> (sept cent cinquante euros), payable d'avance le 1er de chaque mois.</p>
+        <p>Les charges récupérables au sens du décret 87-713 sont fixées à un montant forfaitaire de <b>90,00 €</b> mensuel, soumis à régularisation annuelle dans les conditions prévues à l'article 23 de la loi du 6 juillet 1989.</p>
+        <p>La révision du loyer s'effectuera annuellement à la date anniversaire du présent bail, en fonction de l'évolution de l'Indice de Référence des Loyers (IRL) publié par l'INSEE...</p>
+      </div>
+
+      <div class="paraph-zone">
+        <p style="margin:0 0 6px;font-weight:600;font-size:12.5px">✍ Veuillez paraphraser cette page</p>
+        <div class="paraph-canvas">Cliquez ici pour paraphraser (initiales)</div>
+        <button class="btn" style="font-size:11px;margin-top:4px">🗑 Effacer</button>
+      </div>
+    </div>
+
+    <div class="sign-nav">
+      <button class="btn">← Page précédente</button>
+      <span style="font-size:11.5px;color:var(--t2);align-self:center">Page 3 / 8</span>
+      <button class="btn-primary" onclick="setScene('sign3', document.querySelectorAll('.controls .btn-group button')[5])">
+        Page suivante →
+      </button>
+    </div>
+  </div>
+
+  <div class="annot">
+    <b>UX :</b> chaque page du bail est scrollable indépendamment. Le paraphe se fait en bas. Bouton « Page suivante » désactivé tant que le paraphe n'est pas dessiné. Sur mobile, le canvas paraphe est plus grand (touch-friendly).
+  </div>
+</div>
+
+<!-- ═════ VUE 6 : sign.html étape 3 — Signature finale ═════ -->
+<div class="scene" id="scene-sign3">
+  <h2 class="scene-title">6️⃣ sign.html — Étape 3 : Signature finale</h2>
+  <div class="scene-sub">Toutes les pages paraphées. Le destinataire signe en bas + coche « Lu et approuvé ».</div>
+
+  <div class="sign-app">
+    <div class="sign-header">
+      <span class="logo">📝</span>
+      <div>
+        <h2>Signature de bail</h2>
+        <div class="sub">Étape finale</div>
+      </div>
+    </div>
+
+    <div class="steps-bar">
+      <div class="step-item done"><span class="num">✓</span> Vérif email</div>
+      <div class="step-item done"><span class="num">✓</span> Paraphes</div>
+      <div class="step-item act"><span class="num">3</span> Signature</div>
+      <div class="step-item"><span class="num">4</span> Télécharger</div>
+    </div>
+
+    <div class="sign-body">
+      <h3 style="margin:0 0 8px;font-size:15px">✍ Signature finale du bail</h3>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:14px">
+        8 pages paraphées avec succès ✓ · Tout est prêt pour la signature finale.
+      </div>
+
+      <div style="background:var(--acc-soft);border:1px solid var(--acc);border-radius:6px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--acc-dark)">
+        <b>📋 Récapitulatif :</b><br>
+        Bail de location nue · 15 rue X, 69001 Lyon · 65 m² · 750 € HC + 90 € ch · Début 1er juin 2026 · Mme HENRI Pascale (locataire)
+      </div>
+
+      <label style="font-weight:600;font-size:13px">Votre signature</label>
+      <div class="signature-canvas">Signez ici avec votre souris ou votre doigt</div>
+      <button class="btn" style="font-size:11px">🗑 Effacer la signature</button>
+
+      <div class="lu-approuve">
+        <input type="checkbox" id="lu-app">
+        <label for="lu-app">
+          <b>✓ Lu et approuvé.</b> Je reconnais avoir lu et compris l'intégralité du bail (8 pages), paraphé chacune d'elles, et m'engage en signant ci-dessus à respecter toutes les obligations qui y sont stipulées. Conformément à l'article 1366 du Code civil, ma signature électronique manuscrite a la même valeur que ma signature manuscrite.
+        </label>
+      </div>
+
+      <div class="action-bar" style="justify-content:space-between">
+        <button class="btn">← Pages précédentes</button>
+        <button class="btn-primary" onclick="setScene('sign4', document.querySelectorAll('.controls .btn-group button')[6])">
+          ✓ Valider et générer le PDF signé
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annot">
+    <b>Légal :</b> mention explicite « Lu et approuvé » + référence Code civil art. 1366 = signature simple visuelle valant accord contractuel. Pas eIDAS (nécessiterait un tiers certifié payant).
+  </div>
+</div>
+
+<!-- ═════ VUE 7 : sign.html étape 4 — Téléchargement + retour ═════ -->
+<div class="scene" id="scene-sign4">
+  <h2 class="scene-title">7️⃣ sign.html — Étape 4 : Téléchargement PDF + instructions retour</h2>
+  <div class="scene-sub">PDF généré localement via jsPDF avec paraphes et signature insérés aux bons emplacements.</div>
+
+  <div class="sign-app">
+    <div class="sign-header">
+      <span class="logo">📝</span>
+      <div>
+        <h2>Signature de bail</h2>
+        <div class="sub">Terminé ✓</div>
+      </div>
+    </div>
+
+    <div class="steps-bar">
+      <div class="step-item done"><span class="num">✓</span> Vérif email</div>
+      <div class="step-item done"><span class="num">✓</span> Paraphes</div>
+      <div class="step-item done"><span class="num">✓</span> Signature</div>
+      <div class="step-item act"><span class="num">4</span> Télécharger</div>
+    </div>
+
+    <div class="sign-body">
+      <div class="download-card">
+        <span class="ico">📄</span>
+        <h3>PDF signé prêt !</h3>
+        <div class="desc">
+          Votre bail avec paraphes et signature est intégré au PDF.<br>
+          Téléchargez-le pour le conserver.
+        </div>
+        <button class="btn-dl">⬇ Télécharger Bail_LOG-101_signé_Henri.pdf (215 Ko)</button>
+      </div>
+
+      <div class="return-instructions">
+        <h4>📤 Dernière étape — Renvoyer le PDF signé</h4>
+        <ol>
+          <li>Téléchargez le PDF (bouton ci-dessus)</li>
+          <li>Cliquez sur le bouton « Envoyer par email » ci-dessous</li>
+          <li>Joignez le PDF téléchargé à l'email pré-rempli</li>
+          <li>Envoyez à <b>gestion@cabinet-x.fr</b></li>
+        </ol>
+      </div>
+
+      <button class="btn-mailto">
+        ✉ Envoyer par email à gestion@cabinet-x.fr
+      </button>
+
+      <p style="font-size:11.5px;color:var(--t2);margin-top:16px;font-style:italic">
+        💡 Vous pouvez aussi conserver le PDF pour vos archives. Une copie sera systématiquement renvoyée au préparateur après réception.
+      </p>
+    </div>
+  </div>
+
+  <div class="annot ok">
+    <b>UX retour :</b> mailto: pré-rempli avec sujet + corps explicatif. Le destinataire doit juste attacher le PDF téléchargé. Plus simple qu'un upload Drive (pas d'OAuth). Sur mobile, le mailto: ouvre l'app mail native.
+  </div>
+</div>
+
+<!-- ═════ VUE 8 : Import retour préparateur ═════ -->
+<div class="scene" id="scene-import">
+  <h2 class="scene-title">8️⃣ Préparateur ImmoTrack — Import du PDF signé reçu</h2>
+  <div class="scene-sub">Le préparateur reçoit le PDF signé par email. Il l'importe dans ImmoTrack qui met à jour le bail.</div>
+
+  <div class="import-modal">
+    <div class="bail-modal-head">
+      <h3>📥 Importer un PDF signé</h3>
+      <span style="font-size:18px;cursor:pointer">✕</span>
+    </div>
+
+    <div class="import-step">
+      <h4>Étape 1 — PDF signé reçu</h4>
+      <div class="import-drop">
+        <span class="ico">📄</span>
+        Glissez le PDF ici<br>
+        <span style="font-size:11px">ou <a href="#" style="color:var(--acc)">cliquez pour parcourir</a></span>
+      </div>
+      <div style="background:var(--sur3);padding:8px 10px;border-radius:4px;font-size:11.5px;color:var(--t2);margin-top:8px">
+        ✓ Bail_LOG-101_signé_Henri.pdf (215 Ko) chargé
+      </div>
+    </div>
+
+    <div class="import-step">
+      <h4>Étape 2 — Bail à mettre à jour</h4>
+      <div class="bail-select">
+        <select>
+          <option>LOG-101 · Mme HENRI Pascale · 15 rue X Lyon · Bail non signé (détecté ✓)</option>
+          <option>LOG-201 · M. MARTIN Jean · Paris</option>
+          <option>...</option>
+        </select>
+      </div>
+      <p style="font-size:11.5px;color:var(--t2);margin:6px 0 0">
+        ImmoTrack détecte automatiquement la référence du bail dans le PDF (LOG-101) et propose la mise à jour.
+      </p>
+    </div>
+
+    <div class="import-step">
+      <h4>Étape 3 — Validation</h4>
+      <div style="font-size:12.5px">
+        ✓ <b>Signataire détecté :</b> Mme HENRI Pascale<br>
+        ✓ <b>Date signature :</b> 29 mai 2026 à 14h32<br>
+        ✓ <b>Mode :</b> Wizard à distance (paraphes 8 pages + signature finale + lu/approuvé)<br>
+        ✓ <b>Token validé</b>
+      </div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--ok)">
+        ℹ Statut après import : <b>« Bailleur signé · locataire signé à distance le 29/05 »</b> → bilatéralement signé
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn">↩ Annuler</button>
+      <button class="btn-primary">📥 Importer et valider la signature</button>
+    </div>
+
+    <div class="import-success" style="margin:16px 18px">
+      ✓ Signature importée avec succès !<br>
+      <span style="font-weight:400;font-size:11.5px">Le bail est maintenant bilatéralement signé. PDF archivé dans Documents (DOC-PJ).</span>
+    </div>
+  </div>
+
+  <div class="annot ok">
+    <b>💡 Workflow gestion :</b> en cas mandataire, le préparateur reçoit aussi automatiquement une notification pour rappeler que le bail attend la signature de l'autre partie (bailleur en attente, locataire signé / inversement).
+  </div>
+</div>
+
+</div> <!-- viewport -->
+
+<div style="background:white;max-width:1200px;margin:20px auto;padding:16px 24px;border:1px solid var(--bor);border-radius:8px">
+  <h3 style="margin:0 0 10px;font-size:14px">📝 Validation user</h3>
+  <p style="font-size:12.5px;color:var(--t1);margin:0">
+    Teste les 8 vues × 3 formats (PC / Tablette / Téléphone). Indique-moi :
+  </p>
+  <ul style="font-size:12.5px;color:var(--t1);padding-left:18px;margin:8px 0">
+    <li><b>OK</b> → j'attaque l'implémentation Session 2 (page sign.html standalone + intégration ImmoTrack)</li>
+    <li><b>Bug X</b> → j'itère le mockup</li>
+    <li><b>Change Y</b> → tu précises (ex « pas de canvas paraphes, juste signature finale », « ajouter étape preview PDF avant signature »…)</li>
+  </ul>
+</div>
+
+<script>
+function setScene(name, btn) {
+  document.querySelectorAll('.controls .btn-group')[0].querySelectorAll('button').forEach(b => b.classList.remove('act'));
+  if (btn) btn.classList.add('act');
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('act'));
+  document.getElementById('scene-' + name).classList.add('act');
+}
+function setVP(vp, btn) {
+  document.querySelectorAll('.controls .btn-group')[1].querySelectorAll('button').forEach(b => b.classList.remove('act'));
+  btn.classList.add('act');
+  const v = document.getElementById('vp');
+  v.classList.remove('pc', 'tab', 'tel');
+  v.classList.add(vp);
+}
+</script>
+</body>
+</html>
