@@ -86,14 +86,32 @@ Contexte auto-détection conservé tel quel : `log.anneeConstruction`, `log.inst
 //    si log.dpe est un OBJET (legacy modale), fusionner ses champs dans log.diagnostics.dpe (sans écraser une valeur déjà présente dans log.diagnostics).
 // 2) Risques : fusionner log.etatRisques{erp,plomb,amiante,elec,gaz,bruit} dans log.diagnostics[key] correspondants (classe/conforme/presence) sans écraser.
 // 3) depensesEnergie : si log.diagnostics.dpe.depensesEnergie absent ET un bail du logement a bail.depensesEnergie → copier (bail le plus récent NON signé prioritaire ; ne jamais lire dans un bailSnapshot signé pour muter log).
-// 4) loyerHcRef etc. : si absent → laisser vide (PAS de copie auto depuis log.hc) — DÉCISION OUVERTE ci-dessous.
+// 4) loyerHcRef etc. : si absent → laisser vide (PAS de copie auto depuis log.hc). Alimenté ENSUITE par le bail (push, cf B1-a).
 // 5) annexes : si log.annexes est une string → parser en {…, customs:[<string>]} best-effort.
 // Idempotent : la migration ne réécrit pas si log.diagnostics[key] déjà peuplé.
 ```
 
-**🟠 DÉCISION OUVERTE B1-a** : faut-il initialiser `log.loyerHcRef` depuis `log.hc` (valeur live actuelle) à la migration, ou laisser vide ? → **à trancher avec le user** (le subject doc Q6 le flag « à confirmer »). Défaut proposé : **laisser vide** (le théorique est une valeur de planning saisie volontairement ; copier le live risque d'induire en erreur sur un logement loué). Ne pas coder la migration loyerHcRef tant que non tranché.
+**✅ DÉCISION B1-a (re-tranchée 2026-05-29)** : le théorique est **alimenté par le bail (push)**, jamais lu en fallback depuis `log.hc` (**pull interdit**).
+- **Migration** : `log.loyerHcRef`/`chargesRef`/`dgRef`/`irlRef` laissés **vides** (aucun seed aveugle depuis `log.hc`).
+- **Lecture** (UI Présentation B5 + prefill bail) : lire `log.loyerHcRef` **brut**. Vide = affiché vide. **PAS** de `|| log.hc`.
+- **Écriture — propagation bail → théorique** (nouvelle sous-tâche, data-layer, rattachée à B1) :
+  - **Q1 = a** : à **chaque enregistrement de bail** (brouillon compris), pousser loyer HC / charges / DG / IRL → `log.loyerHcRef` / `chargesRef` / `dgRef` / `irlRef`.
+  - **Q2 = b** : une **révision IRL** (qui mute `log.hc` à ≈ L20169) met **aussi** à jour `log.loyerHcRef` (le théorique suit la dernière valeur connue).
+  - **Q3 = a** : le bail **fait foi** et **écrase** une valeur théorique saisie manuellement.
+  - **Garde** : ne pousser qu'une valeur **non vide** (truthy) — un champ bail laissé blanc ne doit JAMAIS effacer un théorique existant.
+  - **Sites** : là où `log.hc/ch/dg` sont déjà écrits depuis le bail (≈ L15148) + révision IRL (≈ L20169). Écritures parallèles aux mêmes endroits.
+  - **Bail signé** : la propagation lit la valeur du bail enregistré (non figé côté `log`) ; ne JAMAIS muter un `bail.signatures.bailSnapshot` (immutabilité légale).
 
-**Retrocompat lecture** : ne PAS supprimer les lectures `log.dpe`(string) ailleurs encore. Ajouter un helper `_logDiag(log, key)` qui renvoie la forme canonique en lisant `log.diagnostics[key]` avec fallback `log.dpe`/`log.etatRisques`. Repointer les lectures au fil des phases suivantes (B2 surtout).
+**Retrocompat lecture** : ne PAS supprimer les lectures `log.dpe` ailleurs encore. `_diagGet` (L31608) est DÉJÀ le lecteur canonique (lit `log.diagnostics[key]` d'abord) → **on n'ajoute pas de `_logDiag` parallèle** (éviter deux lecteurs). On rend juste le fallback DPE de `_diagGet` robuste à `log.dpe` objet. Repointer les autres lectures au fil de B2.
+
+**⚙️ Ajustements d'implémentation B1 (arrêtés 2026-05-29, après lecture du code) :**
+- **Migration risques (`log.etatRisques`) → DÉPLACÉE en B2.** Les valeurs legacy sont du texte libre non structuré (ex. « Conforme / Date diag ») : les parser en `{date, conforme, presence}` dans une migration *sensible* serait fragile. Aucun risque de corruption de type (etatRisques est toujours un objet de strings) et le moteur ne les lit pas aujourd'hui → 0 régression à les laisser en B1. B2 (rebuild modale) gère leur reprise avec l'UI structurée.
+- **Migration annexes (string → objet) → DÉPLACÉE en B4.** Convertir le schéma sans toucher le read/write modale (fait en B4) laisserait un état mi-migré qui casse le champ annexes courant. Migration atomique avec l'UI en B4.
+- **B1 ne migre donc QUE la collision DPE** (string vs objet = corruption active, le vrai bug) + `depensesEnergie` (bail → `log.diagnostics.dpe`) + **backfill loyer théo depuis le bail existant** (décision migration : « backfill depuis le bail existant »).
+- **Garde anti-churn** : aucun init aveugle de `loyerHcRef`/`imm.typeHabitat` (les lecteurs utilisent `|| ''`). On ne mute un `log` que s'il a une vraie donnée legacy à consolider (la détection de changement L26993 ne stampe que les logs réellement modifiés).
+- **Fraîcheur canonique** : `saveLog` (L35267) reçoit (a) un guard de type `log.dpe = (objet) ? : {}` (anti-corruption immédiate) + (b) un mirror `log.dpe` → `log.diagnostics.dpe` (Object.assign des 6 champs, préserve `depensesEnergie`/`na`/…) pour que le canonique reste frais après édition modale, avant le rebuild B2.
+- **`imm.typeHabitat`** : pas de migration boot ; introduit en B3 où le form le lit/écrit (`|| ''`).
+- **Propagation forward** : helper `_pushLoyerTheoFromLive(log)` (garde non-vide) appelé aux **6** sites de mutation live trouvés au grep : `saveBail` L15148 · IRL immédiat L20169 · IRL auto-anniversaire L20215 · IRL undo L20303 · IRL bulk L37949 · import L40281.
 
 **Vérif** :
 - grep `log.dpe` / `log.etatRisques` → recenser TOUS les sites lecteurs ; vérifier que la migration ne casse aucun (affichage fiche L33807 lit `log.dpe` string → garder retrocompat tant que B2 ne l'a pas repointé).
@@ -290,4 +308,4 @@ Contexte auto-détection conservé tel quel : `log.anneeConstruction`, `log.inst
 - D-B12 (actions prioritaires diag, pas de carte) → B8. ✅
 - D-B13 (wizard 3 étapes) → B7. ✅
 
-**Décision ouverte à trancher avant/pendant B1** : B1-a (initialiser `log.loyerHcRef` depuis `log.hc` ou laisser vide).
+**Décision B1-a — TRANCHÉE** : théorique poussé par le bail (push, Q1=a / Q2=b / Q3=a), jamais lu en fallback `log.hc` (pull interdit). Garde non-vide. Cf § Phase B1 détaillé.
