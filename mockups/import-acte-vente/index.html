@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Import acte de vente → bailleur · immeuble · logements — ImmoTrack</title>
+<style>
+:root {
+  --acc:#14b8a6; --acc-dark:#0d9488;
+  --bg:#eef2f7; --sur:#fff; --sur2:#f5f3ee; --sur3:#ebe7df;
+  --bor:#d4cfc4; --bor2:#e5e1d8; --t1:#1f2937; --t2:#6b7280; --t3:#9ca3af;
+  --blu:#3b82f6; --blu-bg:#dbeafe;
+  --gre:#22c55e; --gre-bg:#dcfce7;
+  --red:#ef4444; --red-bg:#fee2e2;
+  --amb:#f59e0b; --amb-bg:#fef3c7;
+  --vio:#7c3aed; --vio-bg:#ede9fe;
+  --r:6px; --r-lg:10px;
+}
+* { box-sizing:border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--t1); font-size:14px; line-height:1.5; }
+header { background:var(--sur); border-bottom:1px solid var(--bor); padding:12px 24px; position:sticky; top:0; z-index:100; }
+.head-title { font-weight:700; color:var(--acc-dark); font-size:16px; }
+.head-sub { font-size:12px; color:var(--t2); margin-top:2px; max-width:980px; }
+.canvas { padding:16px; max-width:1180px; margin:0 auto; }
+
+.decisions { background:var(--gre-bg); border:1px solid #86efac; border-radius:var(--r); padding:10px 14px; margin-bottom:16px; font-size:12px; color:#166534; }
+.decisions b { color:#14532d; }
+.decisions ul { margin:6px 0 0; padding-left:18px; } .decisions li { margin:3px 0; }
+
+.switcher { background:var(--sur); border:1px solid var(--bor); border-radius:var(--r); padding:10px 12px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:18px 22px; align-items:center; }
+.switcher-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.switcher-label { font-size:11.5px; color:var(--t2); font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+.switcher-btn { padding:5px 12px; border-radius:var(--r); border:1px solid var(--bor); background:var(--sur2); cursor:pointer; font-size:12px; }
+.switcher-btn.act { background:var(--acc); color:#fff; border-color:var(--acc-dark); font-weight:600; }
+.switcher-btn:hover:not(.act) { background:var(--sur3); }
+.switcher-btn.ghost { background:#fff; }
+
+.stage { display:flex; justify-content:center; }
+.device { width:1000px; transition:width .25s ease; max-width:100%; position:relative; }
+.device[data-fmt="tablet"] { width:768px; }
+.device[data-fmt="phone"]  { width:390px; }
+.device-meta { text-align:center; font-size:11px; color:var(--t3); margin-bottom:6px; }
+
+/* wizard shell */
+.wiz { background:var(--sur); border:1px solid var(--bor); border-radius:var(--r-lg); box-shadow:0 6px 20px rgba(0,0,0,.08); overflow:hidden; }
+.wiz-head { background:var(--sur2); padding:14px 18px; border-bottom:1px solid var(--bor); display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.wiz-head h3 { margin:0; font-size:15.5px; }
+.wiz-head .sub { font-size:12px; color:var(--t2); margin-top:2px; }
+.m-close { border:none; background:transparent; font-size:18px; color:var(--t3); cursor:pointer; }
+
+/* stepper */
+.stepper { display:flex; gap:6px; padding:12px 18px; background:var(--sur2); border-bottom:1px solid var(--bor); overflow-x:auto; }
+.stp { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--t3); font-weight:600; white-space:nowrap; }
+.stp .n { width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; background:var(--sur3); color:var(--t2); border:1px solid var(--bor); }
+.stp.act { color:var(--acc-dark); }
+.stp.act .n { background:var(--acc); color:#fff; border-color:var(--acc-dark); }
+.stp.done { color:#166534; }
+.stp.done .n { background:var(--gre); color:#fff; border-color:#16a34a; }
+.stp-sep { color:var(--t3); align-self:center; }
+
+.wiz-body { padding:18px 20px 22px; max-height:70vh; overflow-y:auto; }
+.wiz-foot { padding:12px 18px; border-top:1px solid var(--bor); background:var(--sur2); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:center; }
+.wiz-foot .hint { font-size:11px; color:#92400e; }
+
+.btn { padding:7px 13px; border-radius:var(--r); border:1px solid var(--bor); background:var(--sur2); cursor:pointer; font-size:12.5px; }
+.btn.bp { background:var(--acc); color:#fff; border-color:var(--acc-dark); font-weight:600; }
+.btn.bs { font-size:11px; padding:4px 8px; }
+.btn:hover { filter:brightness(.97); }
+
+.inp { width:100%; padding:6px 8px; border:1px solid var(--bor); border-radius:var(--r); font-size:12.5px; background:var(--sur); font-family:inherit; }
+.inp.sg { background:#fffdf3; border-color:#fcd34d; }
+select.inp { padding:6px; }
+
+/* badges */
+.sg-badge { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; color:#92400e; background:var(--amb-bg); border:1px solid #fcd34d; border-radius:10px; padding:0 6px; vertical-align:middle; white-space:nowrap; }
+
+/* steps */
+.step-block { display:none; }
+.step-block.act { display:block; }
+
+/* ── DÉPÔT ── */
+.dropzone { border:2px dashed var(--bor); border-radius:var(--r-lg); padding:42px 20px; text-align:center; background:var(--sur2); cursor:pointer; transition:.2s; }
+.dropzone:hover { border-color:var(--acc); background:#f0fdfa; }
+.dropzone .ic { font-size:42px; }
+.dropzone h4 { margin:10px 0 4px; font-size:15px; }
+.dropzone p { margin:0; font-size:12px; color:var(--t2); }
+.rgpd { margin-top:14px; background:#eef6ff; border-left:3px solid var(--blu); border-radius:0 var(--r) var(--r) 0; padding:9px 13px; font-size:11.5px; color:#1e40af; line-height:1.5; }
+.dropzone-foot { margin-top:12px; font-size:11px; color:var(--t3); text-align:center; }
+
+/* ── EXTRACTION (loading) ── */
+.loading { text-align:center; padding:40px 20px; }
+.spin { width:44px; height:44px; border:4px solid var(--sur3); border-top-color:var(--acc); border-radius:50%; margin:0 auto 16px; animation:sp 1s linear infinite; }
+@keyframes sp { to { transform:rotate(360deg); } }
+.loading h4 { margin:0 0 4px; font-size:15px; }
+.loading p { margin:0; font-size:12px; color:var(--t2); }
+.loading .file { margin-top:14px; display:inline-flex; align-items:center; gap:8px; background:var(--sur2); border:1px solid var(--bor); border-radius:var(--r); padding:7px 12px; font-size:12px; }
+
+/* ── sections de validation ── */
+.sec { border:1px solid var(--bor); border-radius:var(--r-lg); margin-bottom:16px; overflow:hidden; }
+.sec-h { background:var(--sur2); padding:10px 14px; border-bottom:1px solid var(--bor); display:flex; align-items:center; gap:9px; }
+.sec-h .ic { width:26px; height:26px; border-radius:7px; background:var(--sur); border:1px solid var(--bor); display:grid; place-items:center; font-size:14px; }
+.sec-h b { font-size:13.5px; }
+.sec-h .count { margin-left:auto; font-size:11px; color:var(--t2); font-weight:600; }
+.sec-body { padding:14px; }
+
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.fg { display:flex; flex-direction:column; gap:4px; }
+.fg label { font-size:11px; font-weight:700; color:var(--t2); text-transform:uppercase; letter-spacing:.4px; display:flex; align-items:center; gap:6px; }
+.fg .val-wrap { position:relative; display:flex; align-items:center; gap:6px; }
+
+/* source line */
+.sg-src { font-size:10.5px; color:#92400e; background:#fffbeb; border:1px dashed #fcd34d; border-radius:5px; padding:3px 7px; line-height:1.4; display:none; margin-top:4px; }
+.sg-src.show { display:block; }
+.sg-src b { color:#78350f; }
+.sg-src .pg { color:var(--t3); font-style:italic; }
+.sg-link { font-size:10.5px; color:#1e40af; text-decoration:underline; cursor:pointer; background:none; border:none; padding:0; margin-top:3px; align-self:flex-start; }
+
+/* anti-doublon banner */
+.dup { background:#fffbeb; border:1px solid #fcd34d; border-left:4px solid var(--amb); border-radius:var(--r); padding:11px 13px; font-size:12.5px; color:#92400e; margin-bottom:12px; }
+.dup-h { font-weight:700; color:#78350f; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.dup p { margin:6px 0 0; line-height:1.5; }
+.dup .why { font-size:11px; color:#9a3412; margin-top:5px; }
+.dup-actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+/* empty/absent note */
+.absent-note { font-size:10.5px; color:#9a3412; background:#fff7ed; border:1px solid #fdba74; border-radius:5px; padding:4px 8px; line-height:1.4; margin-top:4px; }
+
+/* logement card (interpreted) */
+.lgmt { border:1px solid #fcd34d; border-radius:var(--r); padding:11px 13px; margin-bottom:8px; background:#fffdf3; }
+.lgmt-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.lgmt-desc { font-size:13.5px; flex:1; min-width:120px; }
+.lgmt-meta { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.lgmt-meta .mini { flex:1; min-width:90px; }
+.lgmt-meta .mini label { font-size:9.5px; }
+.lgmt-actions { display:flex; gap:6px; }
+.icon-btn { border:1px solid var(--bor); background:var(--sur); border-radius:var(--r); width:28px; height:28px; cursor:pointer; font-size:13px; color:var(--t2); display:grid; place-items:center; }
+.icon-btn:hover { background:var(--sur2); }
+.icon-btn.danger:hover { background:var(--red-bg); color:#991b1b; border-color:#fca5a5; }
+
+.interp-note { font-size:11px; color:#166534; background:var(--gre-bg); border:1px solid #86efac; border-radius:5px; padding:6px 9px; margin-top:8px; line-height:1.45; }
+.add-row { width:100%; border:1px dashed var(--bor); background:var(--sur2); border-radius:var(--r); padding:9px; cursor:pointer; font-size:12px; color:var(--t2); font-weight:600; }
+.add-row:hover { border-color:var(--acc); color:var(--acc-dark); }
+
+.lgmt-group-h { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--t2); margin:14px 0 8px; display:flex; align-items:center; gap:8px; }
+.lgmt-group-h .tag { background:var(--sur2); border:1px solid var(--bor); border-radius:10px; padding:1px 8px; font-size:10px; }
+
+/* ── ANNEXES : rattacher OU bien à louer ── */
+.ann { border:1px solid var(--bor); border-radius:var(--r); padding:10px 12px; margin-bottom:8px; background:var(--sur); }
+.ann-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ann-lot { font-size:10.5px; font-weight:700; color:var(--t2); background:var(--sur2); border:1px solid var(--bor2); border-radius:4px; padding:1px 6px; }
+.ann-desc { font-size:12.5px; flex:1; min-width:100px; }
+.seg { display:inline-flex; border:1px solid var(--bor); border-radius:var(--r); overflow:hidden; margin-top:9px; flex-wrap:wrap; }
+.seg button { padding:5px 10px; font-size:11px; border:none; background:var(--sur); cursor:pointer; border-right:1px solid var(--bor); color:var(--t2); }
+.seg button:last-child { border-right:none; }
+.seg button.act { background:var(--acc); color:#fff; font-weight:600; }
+.seg button.act.rent { background:var(--vio); }
+.seg button.act.ignore { background:var(--t3); }
+.ann-detail { margin-top:9px; font-size:11.5px; }
+.ann-detail .fg label { font-size:9.5px; }
+.ann-detail.rent { background:var(--vio-bg); border:1px solid #c4b5fd; border-radius:5px; padding:8px 10px; color:#5b21b6; }
+.ann-detail.ignore { color:var(--t3); font-style:italic; }
+
+/* recap */
+.recap-card { border:1px solid var(--bor); border-radius:var(--r-lg); overflow:hidden; }
+.recap-line { display:flex; align-items:center; gap:11px; padding:12px 14px; border-bottom:1px solid var(--bor2); }
+.recap-line:last-child { border-bottom:none; }
+.recap-line .ic { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; font-size:15px; flex:none; }
+.recap-line .ic.new { background:var(--gre-bg); }
+.recap-line .ic.link { background:var(--blu-bg); }
+.recap-line .ic.rent { background:var(--vio-bg); }
+.recap-line .txt b { font-size:13px; } .recap-line .txt div { font-size:11.5px; color:var(--t2); }
+.recap-line .tag { margin-left:auto; font-size:10.5px; font-weight:700; border-radius:10px; padding:2px 9px; white-space:nowrap; }
+.recap-line .tag.new { background:var(--gre-bg); color:#166534; border:1px solid #86efac; }
+.recap-line .tag.link { background:var(--blu-bg); color:#1e40af; border:1px solid #93c5fd; }
+.recap-line .tag.rent { background:var(--vio-bg); color:#5b21b6; border:1px solid #c4b5fd; }
+.recap-sub { padding:8px 14px 8px 52px; font-size:11.5px; color:var(--t2); border-bottom:1px solid var(--bor2); background:var(--sur2); }
+
+/* success */
+.success { text-align:center; padding:36px 20px; }
+.success .big { font-size:48px; }
+.success h4 { margin:10px 0 4px; font-size:18px; }
+.success p { margin:0 auto; font-size:13px; color:var(--t2); max-width:400px; }
+.success-actions { margin-top:18px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+/* ── OVERLAYS ── */
+.ov-scrim { display:none; position:fixed; inset:0; background:rgba(15,31,51,.45); z-index:200; align-items:center; justify-content:center; padding:20px; }
+.ov-scrim.act { display:flex; }
+.ov { background:var(--sur); border-radius:var(--r-lg); width:480px; max-width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 18px 50px rgba(0,0,0,.3); }
+.ov-h { background:var(--sur2); padding:13px 16px; border-bottom:1px solid var(--bor); display:flex; justify-content:space-between; align-items:center; }
+.ov-h b { font-size:14px; }
+.ov-body { padding:16px; overflow-y:auto; }
+.ov-foot { padding:11px 16px; border-top:1px solid var(--bor); background:var(--sur2); display:flex; justify-content:flex-end; gap:8px; }
+
+/* entity pick list */
+.ent-opt { display:flex; align-items:center; gap:10px; border:1px solid var(--bor); border-radius:var(--r); padding:10px 12px; margin-bottom:8px; cursor:pointer; }
+.ent-opt:hover { border-color:var(--acc); background:#f0fdfa; }
+.ent-opt.sel { border-color:var(--acc-dark); background:#f0fdfa; box-shadow:0 0 0 1px var(--acc-dark) inset; }
+.ent-opt .radio { width:16px; height:16px; border-radius:50%; border:2px solid var(--bor); flex:none; }
+.ent-opt.sel .radio { border-color:var(--acc-dark); background:radial-gradient(circle, var(--acc-dark) 0 5px, #fff 6px); }
+.ent-opt .ename { font-size:13px; font-weight:600; } .ent-opt .emeta { font-size:11px; color:var(--t2); }
+.ent-opt .match { margin-left:auto; font-size:10px; font-weight:700; background:var(--gre-bg); color:#166534; border:1px solid #86efac; border-radius:10px; padding:1px 7px; }
+
+.fail-ic { font-size:40px; text-align:center; }
+
+/* phone bottom-sheet */
+.device[data-fmt="phone"] .ov-scrim { position:absolute; align-items:flex-end; padding:0; }
+.device[data-fmt="phone"] .ov { align-self:flex-end; border-radius:var(--r-lg) var(--r-lg) 0 0; width:100%; }
+.device[data-fmt="phone"] .grid2 { grid-template-columns:1fr; }
+.device[data-fmt="phone"] .wiz-body { max-height:none; }
+.device[data-fmt="phone"] .stepper .stp .lbl { display:none; }
+.device[data-fmt="phone"] .lgmt-meta { flex-direction:column; }
+.device[data-fmt="tablet"] .lgmt-meta .mini { min-width:120px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-title">📜 Import « acte de vente » → bailleur · immeuble · logements</div>
+  <div class="head-sub">Style B2 v2-c2 : tout « ✨ suggéré · à vérifier », jamais écrit sans confirmation. <b>Logements = interprété</b> (l'app regroupe les lots en logements, avec mentions de vérif — tu sais ce que tu as acheté). <b>Annexes</b> (cave, parking…) : au choix <b>rattachées à un logement</b> ou créées comme <b>bien louable indépendant</b>. Teste dans ton vrai navigateur (PC / tablette / téléphone) et tous les post-clics.</div>
+</header>
+
+<div class="canvas">
+  <div class="decisions">
+    <b>Principes (non négociables, hérités de B2 v2-c2) :</b>
+    <ul>
+      <li>Acte lu <b>100 % en local</b> (pdf.js), il ne quitte jamais le navigateur — RGPD-clean.</li>
+      <li>Tout champ extrait est <b>suggéré ✨</b> (ambre), modifiable, avec sa <b>phrase source</b>.</li>
+      <li><b>Entité</b> : match SIREN puis nom → on <b>propose toujours</b> rattacher vs créer (jamais auto).</li>
+      <li><b>Logements</b> : interprétés (regroupement des lots) avec note « vérifie ce regroupement ».</li>
+      <li><b>Annexes</b> : par défaut rattachées à un logement ; bascule en 1 clic vers « bien à louer ».</li>
+      <li><b>Année construction</b> : absente des actes → vide + note (viendra du DPE). Rien créé avant le récap.</li>
+    </ul>
+  </div>
+
+  <div class="switcher">
+    <div class="switcher-row">
+      <span class="switcher-label">Étape</span>
+      <button class="switcher-btn act" data-step="depot"      onclick="setStep('depot')">1 · Dépôt</button>
+      <button class="switcher-btn"     data-step="extraction" onclick="setStep('extraction')">2 · Extraction</button>
+      <button class="switcher-btn"     data-step="validation" onclick="setStep('validation')">3 · Validation</button>
+      <button class="switcher-btn"     data-step="recap"      onclick="setStep('recap')">4 · Récap</button>
+      <button class="switcher-btn"     data-step="succes"     onclick="setStep('succes')">5 · Succès</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Format</span>
+      <button class="switcher-btn act" data-fmt="pc"     onclick="setFmt('pc')">🖥 PC</button>
+      <button class="switcher-btn"     data-fmt="tablet" onclick="setFmt('tablet')">📱 Tablette</button>
+      <button class="switcher-btn"     data-fmt="phone"  onclick="setFmt('phone')">📲 Téléphone</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Voir aussi</span>
+      <button class="switcher-btn ghost" id="srcToggle" onclick="toggleSrc()">📄 Phrases source</button>
+      <button class="switcher-btn ghost" onclick="openOv('ovDup')">🔗 Rattachement entité</button>
+      <button class="switcher-btn ghost" onclick="openOv('ovEdit')">✏️ Éditer logement</button>
+      <button class="switcher-btn ghost" onclick="openOv('ovFail')">⚠️ PDF scanné</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="device" data-fmt="pc">
+      <div class="device-meta">Wizard « Importer un acte de vente » — accessible depuis Bailleurs / Immeubles + onboarding (DB vide)</div>
+      <div class="wiz">
+        <div class="wiz-head">
+          <div>
+            <h3>📜 Importer un acte de vente</h3>
+            <div class="sub">Crée bailleur, immeuble et logements à partir de l'acte notarié.</div>
+          </div>
+          <button class="m-close">✕</button>
+        </div>
+
+        <div class="stepper" id="stepper">
+          <div class="stp" data-s="depot"><span class="n">1</span><span class="lbl">Dépôt de l'acte</span></div>
+          <span class="stp-sep">›</span>
+          <div class="stp" data-s="validation"><span class="n">2</span><span class="lbl">Vérification</span></div>
+          <span class="stp-sep">›</span>
+          <div class="stp" data-s="recap"><span class="n">3</span><span class="lbl">Création</span></div>
+        </div>
+
+        <div class="wiz-body">
+
+          <!-- ══════════ ÉTAPE 1 — DÉPÔT ══════════ -->
+          <div class="step-block act" data-step="depot">
+            <div class="dropzone" onclick="setStep('extraction')">
+              <div class="ic">📄⤵</div>
+              <h4>Dépose l'acte de vente ici</h4>
+              <p>ou clique pour choisir un fichier — PDF uniquement</p>
+            </div>
+            <div class="rgpd">🔒 <b>L'acte reste sur ton appareil.</b> La lecture se fait dans le navigateur (pdf.js), aucun envoi vers un serveur. Idéal pour un document notarié.</div>
+            <div class="dropzone-foot">Astuce : la copie notariale PDF « texte » donne les meilleurs résultats. Un PDF scanné (image) ne pourra pas être lu → saisie manuelle.</div>
+          </div>
+
+          <!-- ══════════ ÉTAPE 2 — EXTRACTION ══════════ -->
+          <div class="step-block" data-step="extraction">
+            <div class="loading">
+              <div class="spin"></div>
+              <h4>Lecture de l'acte…</h4>
+              <p>Repérage de l'acquéreur, de l'adresse du bien et de la désignation des lots.</p>
+              <div class="file">📄 Acte_vente_Strasbourg_Tonneliers.pdf <span style="color:var(--t3)">· 14 pages · 132 Ko</span></div>
+            </div>
+            <div style="text-align:center;margin-top:8px"><button class="btn bp" onclick="setStep('validation')">▶ Voir l'écran de vérification (simulé)</button></div>
+          </div>
+
+          <!-- ══════════ ÉTAPE 3 — VALIDATION ══════════ -->
+          <div class="step-block" data-step="validation">
+
+            <!-- BAILLEUR -->
+            <div class="sec">
+              <div class="sec-h"><span class="ic">👤</span><b>Bailleur (entité)</b><span class="count">acquéreur de l'acte</span></div>
+              <div class="sec-body">
+                <div class="dup">
+                  <div class="dup-h">🔗 Entité existante trouvée — <b>SCI DK PATRIMOINE</b></div>
+                  <p>Une entité avec le <b>même SIREN</b> existe déjà. Veux-tu <b>rattacher</b> ce nouvel immeuble à cette entité, ou <b>créer une nouvelle</b> entité ?</p>
+                  <div class="why">Correspondance : SIREN 994 086 379 (identique). « À grouper si déjà existant ».</div>
+                  <div class="dup-actions">
+                    <button class="btn bp" onclick="openOv('ovDup')">🔗 Choisir / rattacher…</button>
+                    <button class="btn">➕ Créer une nouvelle entité</button>
+                  </div>
+                </div>
+                <div class="grid2">
+                  <div class="fg">
+                    <label>Nom / dénomination <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><input class="inp sg" value="SCI DK PATRIMOINE"></div>
+                    <button class="sg-link" onclick="toggleSrc()">📄 d'où ça vient ?</button>
+                    <div class="sg-src"><b>📄 Acte :</b> « La société dénommée "SCI DK PATRIMOINE", société civile immobilière au capital de 1 000 € » <span class="pg">— Identification des parties, 2) Acquéreur</span></div>
+                  </div>
+                  <div class="fg">
+                    <label>SIREN <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><input class="inp sg" value="994 086 379"></div>
+                    <div class="sg-src"><b>📄 Acte :</b> « numéro unique d'identification 994 086 379 » <span class="pg">— Identification des parties</span></div>
+                  </div>
+                  <div class="fg">
+                    <label>Forme juridique <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><input class="inp sg" value="SCI"></div>
+                  </div>
+                  <div class="fg">
+                    <label>Siège social <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><input class="inp sg" value="8 rue du Dôme, 67000 Strasbourg"></div>
+                    <div class="sg-src"><b>📄 Acte :</b> « dont le siège social est à STRASBOURG (67000), 8 rue du Dôme » <span class="pg">— Identification des parties</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- IMMEUBLE -->
+            <div class="sec">
+              <div class="sec-h"><span class="ic">🏢</span><b>Immeuble</b><span class="count">désignation des biens</span></div>
+              <div class="sec-body">
+                <div class="grid2">
+                  <div class="fg">
+                    <label>Adresse (rue) <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><input class="inp sg" value="12 rue des Tonneliers"></div>
+                    <button class="sg-link" onclick="toggleSrc()">📄 d'où ça vient ?</button>
+                    <div class="sg-src"><b>📄 Acte :</b> « Un immeuble situé à STRASBOURG (67000), 12 rue des Tonneliers » <span class="pg">— Désignation des biens</span></div>
+                  </div>
+                  <div class="fg">
+                    <label>Nom de l'immeuble</label>
+                    <div class="val-wrap"><input class="inp" placeholder="ex : Le Tonnelier (optionnel)"></div>
+                  </div>
+                  <div class="fg">
+                    <label>Code postal <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><input class="inp sg" value="67000" style="max-width:120px"></div>
+                  </div>
+                  <div class="fg">
+                    <label>Ville <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><input class="inp sg" value="Strasbourg"></div>
+                  </div>
+                  <div class="fg">
+                    <label>Année de construction</label>
+                    <div class="val-wrap"><input class="inp" placeholder="ex : 1962"></div>
+                    <div class="absent-note">ℹ️ Non mentionnée dans l'acte (formule vague « achevé depuis plus de 10 ans »). À compléter — ou récupérée plus tard via le DPE.</div>
+                  </div>
+                  <div class="fg">
+                    <label>Régime <span class="sg-badge">✨ suggéré</span></label>
+                    <div class="val-wrap"><select class="inp sg"><option>Copropriété</option><option>Mono-propriété</option></select></div>
+                    <div class="sg-src"><b>📄 Acte :</b> « état descriptif de division… règlement de copropriété » <span class="pg">— Désignation</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LOGEMENTS (interprété) + ANNEXES -->
+            <div class="sec">
+              <div class="sec-h"><span class="ic">🏠</span><b>Logements &amp; annexes</b><span class="count">1 logement · 2 annexes</span></div>
+              <div class="sec-body">
+
+                <div class="lgmt-group-h" style="margin-top:0">🏠 Logements <span class="tag">1</span></div>
+                <div class="lgmt">
+                  <div class="lgmt-top">
+                    <span class="lgmt-desc"><b>Appartement F2</b> <span class="sg-badge">✨ suggéré</span></span>
+                    <div class="lgmt-actions"><button class="icon-btn" onclick="openOv('ovEdit')">✏️</button><button class="icon-btn danger">🗑</button></div>
+                  </div>
+                  <div class="lgmt-meta">
+                    <div class="mini fg"><label>Type</label><select class="inp sg"><option>Appartement</option><option>Studio</option><option>Maison</option></select></div>
+                    <div class="mini fg"><label>Étage</label><input class="inp sg" value="2"></div>
+                    <div class="mini fg"><label>Surface (m²)</label><input class="inp sg" value="34,79"></div>
+                    <div class="mini fg"><label>Pièces</label><input class="inp sg" value="2"></div>
+                  </div>
+                  <button class="sg-link" onclick="toggleSrc()">📄 d'où ça vient ?</button>
+                  <div class="sg-src"><b>📄 Acte :</b> Lots 5 + 6 réunis (« Réunion de lots ») · surface Carrez 34,79 m² · « un appartement de type F2 comprenant hall, kitchenette, séjour… » <span class="pg">— Désignation des biens</span></div>
+                  <div class="interp-note">🤖 L'app a <b>regroupé les lots 5 + 6</b> en un seul logement. Vérifie ce regroupement — tu sais ce que tu as acheté. <button class="sg-link" style="margin-top:0" onclick="openOv('ovEdit')">✏️ modifier le regroupement</button></div>
+                </div>
+                <button class="add-row" onclick="openOv('ovEdit')">➕ Ajouter un logement manuellement</button>
+
+                <div class="lgmt-group-h">📦 Annexes détectées <span class="tag">cave · parking</span></div>
+                <div style="font-size:11.5px;color:var(--t2);margin-bottom:8px">Pour chaque annexe : <b>rattache-la à un logement</b> (elle « suit » l'appartement, ex : cave) <b>ou</b> fais-en un <b>bien louable indépendant</b> (ex : garage / place loué seul).</div>
+
+                <!-- ANNEXE 1 : cave → rattachée -->
+                <div class="ann" data-ann="cave">
+                  <div class="ann-top">
+                    <span class="ann-lot">Lot 12</span>
+                    <span class="ann-desc">« une cave » <span class="sg-badge">✨ suggéré</span></span>
+                  </div>
+                  <div class="seg">
+                    <button class="act" onclick="setAnn('cave','attach')">🔗 Rattacher à un logement</button>
+                    <button onclick="setAnn('cave','rent')">🏷 Bien à louer</button>
+                    <button onclick="setAnn('cave','ignore')">✕ Ignorer</button>
+                  </div>
+                  <div class="ann-detail attach">
+                    <div class="fg"><label>Rattachée à</label><select class="inp"><option>Appartement F2 (lots 5, 6)</option></select></div>
+                  </div>
+                  <div class="ann-detail rent" style="display:none">🏷 Deviendra un <b>bien louable indépendant</b> (type Cave) — il apparaîtra dans tes biens et pourra recevoir son propre bail.</div>
+                  <div class="ann-detail ignore" style="display:none">Non créé. (L'info reste dans l'acte joint.)</div>
+                </div>
+
+                <!-- ANNEXE 2 : parking → bien à louer -->
+                <div class="ann" data-ann="park">
+                  <div class="ann-top">
+                    <span class="ann-lot">Lot 24</span>
+                    <span class="ann-desc">« un emplacement de stationnement » <span class="sg-badge">✨ suggéré</span></span>
+                  </div>
+                  <div class="seg">
+                    <button onclick="setAnn('park','attach')">🔗 Rattacher à un logement</button>
+                    <button class="act rent" onclick="setAnn('park','rent')">🏷 Bien à louer</button>
+                    <button onclick="setAnn('park','ignore')">✕ Ignorer</button>
+                  </div>
+                  <div class="ann-detail attach" style="display:none">
+                    <div class="fg"><label>Rattaché à</label><select class="inp"><option>Appartement F2 (lots 5, 6)</option></select></div>
+                  </div>
+                  <div class="ann-detail rent">🏷 Deviendra un <b>bien louable indépendant</b> (type Parking) — il apparaîtra dans tes biens et pourra recevoir son propre bail (ex : place louée 60 €/mois).</div>
+                  <div class="ann-detail ignore" style="display:none">Non créé. (L'info reste dans l'acte joint.)</div>
+                </div>
+
+                <button class="add-row" onclick="openOv('ovEdit')">➕ Ajouter une annexe manuellement</button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ══════════ ÉTAPE 4 — RÉCAP ══════════ -->
+          <div class="step-block" data-step="recap">
+            <p style="margin:0 0 14px;font-size:13px;color:var(--t2)">Vérifie ce qui va être créé. <b>Rien n'est enregistré avant ce clic.</b></p>
+            <div class="recap-card">
+              <div class="recap-line">
+                <span class="ic link">👤</span>
+                <div class="txt"><b>SCI DK PATRIMOINE</b><div>SIREN 994 086 379 — entité existante</div></div>
+                <span class="tag link">🔗 Rattaché</span>
+              </div>
+              <div class="recap-line">
+                <span class="ic new">🏢</span>
+                <div class="txt"><b>12 rue des Tonneliers, 67000 Strasbourg</b><div>Copropriété — année de construction à compléter</div></div>
+                <span class="tag new">✚ Nouveau</span>
+              </div>
+              <div class="recap-line">
+                <span class="ic new">🏠</span>
+                <div class="txt"><b>Appartement F2</b><div>34,79 m² — étage 2 — 2 pièces</div></div>
+                <span class="tag new">✚ Logement</span>
+              </div>
+              <div class="recap-sub">↳ 🔗 1 cave (lot 12) rattachée à cet appartement</div>
+              <div class="recap-line">
+                <span class="ic rent">🅿️</span>
+                <div class="txt"><b>Emplacement de stationnement</b><div>Lot 24 — bien louable indépendant</div></div>
+                <span class="tag rent">🏷 Bien à louer</span>
+              </div>
+            </div>
+            <div class="rgpd" style="margin-top:14px">✨ Les valeurs créées restent marquées <b>« à vérifier »</b> sur les fiches tant que tu ne les confirmes pas — comme pour les diagnostics.</div>
+          </div>
+
+          <!-- ══════════ ÉTAPE 5 — SUCCÈS ══════════ -->
+          <div class="step-block" data-step="succes">
+            <div class="success">
+              <div class="big">🎉</div>
+              <h4>Patrimoine importé</h4>
+              <p>Immeuble + 1 logement (avec sa cave) + 1 emplacement louable rattachés à <b>SCI DK PATRIMOINE</b>. Pense à compléter l'année de construction et à vérifier les surfaces.</p>
+              <div class="success-actions">
+                <button class="btn bp">Voir la fiche immeuble</button>
+                <button class="btn">📜 Importer un autre acte</button>
+                <button class="btn">Terminé</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="wiz-foot" id="wizFoot">
+          <span class="hint" id="footHint">✨ champs suggérés — vérifie-les avant de créer.</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btnBack" onclick="prevStep()">‹ Retour</button>
+            <button class="btn bp" id="btnNext" onclick="nextStep()">Continuer ›</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ░░░░░ OVERLAYS ░░░░░ -->
+
+      <!-- rattachement entité -->
+      <div class="ov-scrim" id="ovDup">
+        <div class="ov">
+          <div class="ov-h"><b>🔗 Bailleur : rattacher ou créer</b><button class="m-close" onclick="closeOv('ovDup')">✕</button></div>
+          <div class="ov-body">
+            <p style="margin:0 0 12px;font-size:12.5px;color:var(--t2)">L'acquéreur de l'acte semble déjà exister. Choisis l'entité à laquelle rattacher l'immeuble, ou crée une nouvelle entité.</p>
+            <div class="ent-opt sel">
+              <span class="radio"></span>
+              <div><div class="ename">SCI DK PATRIMOINE</div><div class="emeta">SIREN 994 086 379 · 3 immeubles</div></div>
+              <span class="match">SIREN identique</span>
+            </div>
+            <div class="ent-opt">
+              <span class="radio"></span>
+              <div><div class="ename">SCI DK IMMOBILIER</div><div class="emeta">SIREN 812 445 991 · 1 immeuble</div></div>
+              <span class="match" style="background:var(--amb-bg);color:#92400e;border-color:#fcd34d">nom proche</span>
+            </div>
+            <div class="ent-opt">
+              <span class="radio"></span>
+              <div><div class="ename">➕ Créer une nouvelle entité</div><div class="emeta">« SCI DK PATRIMOINE » — depuis les données de l'acte</div></div>
+            </div>
+          </div>
+          <div class="ov-foot"><button class="btn" onclick="closeOv('ovDup')">Annuler</button><button class="btn bp" onclick="closeOv('ovDup')">Rattacher</button></div>
+        </div>
+      </div>
+
+      <!-- éditer / ajouter / regrouper logement -->
+      <div class="ov-scrim" id="ovEdit">
+        <div class="ov">
+          <div class="ov-h"><b>✏️ Logement — regroupement de lots</b><button class="m-close" onclick="closeOv('ovEdit')">✕</button></div>
+          <div class="ov-body">
+            <div class="grid2" style="grid-template-columns:1fr 1fr">
+              <div class="fg"><label>Type</label><select class="inp"><option>Appartement</option><option>Studio</option><option>Maison</option><option>Cave</option><option>Parking</option><option>Local commercial</option></select></div>
+              <div class="fg"><label>Désignation</label><input class="inp" value="Appartement F2"></div>
+              <div class="fg"><label>Étage</label><input class="inp" value="2"></div>
+              <div class="fg"><label>Surface (m²)</label><input class="inp" value="34,79"></div>
+              <div class="fg"><label>Lots réunis</label><input class="inp" value="5, 6"></div>
+              <div class="fg"><label>Nb pièces</label><input class="inp" value="2"></div>
+            </div>
+            <div class="rgpd" style="margin-top:12px">C'est ici que se gère le piège « lots ≠ logement » : un F2 peut réunir plusieurs lots (« 5, 6 »). Corrige si l'app s'est trompée.</div>
+          </div>
+          <div class="ov-foot"><button class="btn" onclick="closeOv('ovEdit')">Annuler</button><button class="btn bp" onclick="closeOv('ovEdit')">Enregistrer</button></div>
+        </div>
+      </div>
+
+      <!-- PDF scanné -->
+      <div class="ov-scrim" id="ovFail">
+        <div class="ov">
+          <div class="ov-h"><b>⚠️ Acte illisible</b><button class="m-close" onclick="closeOv('ovFail')">✕</button></div>
+          <div class="ov-body">
+            <div class="fail-ic">🖼️🚫</div>
+            <p style="text-align:center;font-size:13px;margin:10px 0 0"><b>Cet acte est un PDF scanné</b> (image), son texte ne peut pas être lu automatiquement.</p>
+            <p style="text-align:center;font-size:12px;color:var(--t2);margin:6px 0 0">Aucune donnée n'a pu être extraite. Tu peux créer le bailleur / l'immeuble / les logements manuellement — l'acte reste joignable en pièce jointe.</p>
+          </div>
+          <div class="ov-foot"><button class="btn" onclick="closeOv('ovFail')">Fermer</button><button class="btn bp" onclick="closeOv('ovFail')">Saisir manuellement</button></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+var STEPS = ['depot','extraction','validation','recap','succes'];
+function setStep(s){
+  document.querySelectorAll('.step-block').forEach(b=>b.classList.toggle('act', b.getAttribute('data-step')===s));
+  document.querySelectorAll('[data-step].switcher-btn').forEach(b=>b.classList.toggle('act', b.getAttribute('data-step')===s));
+  var map = {depot:'depot', extraction:'depot', validation:'validation', recap:'recap', succes:'recap'};
+  var order = ['depot','validation','recap'];
+  var cur = map[s];
+  document.querySelectorAll('#stepper .stp').forEach(function(st){
+    var key = st.getAttribute('data-s');
+    st.classList.remove('act','done');
+    if(key===cur) st.classList.add('act');
+    else if(order.indexOf(key) < order.indexOf(cur)) st.classList.add('done');
+  });
+  var foot = document.getElementById('wizFoot');
+  var hint = document.getElementById('footHint');
+  var next = document.getElementById('btnNext');
+  foot.style.display='flex';
+  if(s==='depot'){ hint.textContent='Dépose ou choisis l’acte PDF.'; next.textContent='Continuer ›'; }
+  else if(s==='extraction'){ hint.textContent='Lecture en cours…'; next.textContent='Continuer ›'; }
+  else if(s==='validation'){ hint.textContent='✨ champs suggérés — vérifie-les avant de créer.'; next.textContent='Vérifier le récap ›'; }
+  else if(s==='recap'){ hint.textContent='Rien n’est créé avant ce clic.'; next.textContent='✓ Créer le patrimoine'; }
+  else if(s==='succes'){ foot.style.display='none'; }
+}
+function nextStep(){ var i=STEPS.indexOf(curStep()); if(i<STEPS.length-1) setStep(STEPS[i+1]); }
+function prevStep(){ var i=STEPS.indexOf(curStep()); if(i>0) setStep(STEPS[i-1]); }
+function curStep(){ var a=document.querySelector('.step-block.act'); return a?a.getAttribute('data-step'):'depot'; }
+
+function setFmt(f){
+  document.querySelector('.device').setAttribute('data-fmt', f);
+  document.querySelectorAll('[data-fmt].switcher-btn').forEach(b=>b.classList.toggle('act', b.getAttribute('data-fmt')===f));
+}
+function setAnn(id, mode){
+  var row = document.querySelector('.ann[data-ann="'+id+'"]');
+  if(!row) return;
+  var btns = row.querySelectorAll('.seg button');
+  btns.forEach(function(b){ b.classList.remove('act','rent','ignore'); });
+  // active button = the one whose onclick targets this mode (by index: attach/rent/ignore)
+  var order = ['attach','rent','ignore'];
+  var idx = order.indexOf(mode);
+  if(btns[idx]){ btns[idx].classList.add('act'); if(mode==='rent') btns[idx].classList.add('rent'); if(mode==='ignore') btns[idx].classList.add('ignore'); }
+  ['attach','rent','ignore'].forEach(function(m){
+    var d = row.querySelector('.ann-detail.'+m);
+    if(d) d.style.display = (m===mode) ? 'block' : 'none';
+  });
+}
+var srcOn=false;
+function toggleSrc(){
+  srcOn=!srcOn;
+  document.querySelectorAll('.sg-src').forEach(e=>e.classList.toggle('show', srcOn));
+  var b=document.getElementById('srcToggle');
+  b.classList.toggle('act', srcOn);
+  b.textContent = srcOn ? '📄 Masquer les sources' : '📄 Phrases source';
+}
+function openOv(id){ document.getElementById(id).classList.add('act'); }
+function closeOv(id){ document.getElementById(id).classList.remove('act'); }
+
+setStep('depot');
+</script>
+</body>
+</html>
