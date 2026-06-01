@@ -64,6 +64,13 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
 
 /* suggested badge */
 .sg-badge { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; color:#92400e; background:var(--amb-bg); border:1px solid #fcd34d; border-radius:10px; padding:0 6px; margin-left:6px; vertical-align:middle; }
+.ad-badge { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; color:#166534; background:var(--gre-bg); border:1px solid #86efac; border-radius:10px; padding:0 6px; margin-left:6px; vertical-align:middle; }
+.inp.ad { background:#f0fdf6; border-color:#86efac; }
+.inp.loading { color:var(--t2); font-style:italic; background:#f5f9ff; border-color:var(--blu); }
+.ad-link { font-size:11px; color:#1e40af; text-decoration:underline; cursor:pointer; background:none; border:none; padding:0; }
+.ad-auto-line { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px; padding-top:10px; border-top:1px dashed var(--bor2); font-size:11.5px; }
+.ad-auto-line.ok { color:#166534; }
+.ad-auto-line.load { color:#1e40af; }
 
 /* Info banner */
 .diag-banner { background:#eef6ff; border-left:3px solid var(--blu); border-radius:0 var(--r) var(--r) 0; padding:9px 13px; font-size:12px; color:#1e40af; line-height:1.5; margin:14px 0; }
@@ -238,8 +245,9 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
     </div>
     <div class="switcher-row">
       <span class="switcher-label">ADEME (DPE)</span>
-      <button class="switcher-btn act" data-ad="hidden" onclick="setAd('hidden')">Masqué</button>
-      <button class="switcher-btn" data-ad="panel" onclick="setAd('panel')">Recherche</button>
+      <button class="switcher-btn act" data-ad="auto" onclick="setAd('auto')">Auto ✓ (n° détecté)</button>
+      <button class="switcher-btn" data-ad="loading" onclick="setAd('loading')">Recherche…</button>
+      <button class="switcher-btn" data-ad="manual" onclick="setAd('manual')">Sans n° (manuel)</button>
       <button class="switcher-btn" data-ad="addr" onclick="setAd('addr')">Adresse ≠</button>
       <button class="switcher-btn" data-ad="data" onclick="setAd('data')">Données ≠</button>
     </div>
@@ -339,9 +347,12 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
     seul l'<b>ADEME</b> les fournit de façon fiable. D'où le bouton « Récupérer depuis l'ADEME » sur la ligne DPE.
   </div>
 
-  <div class="gallery-title">🔄 DPE via ADEME — flux & pop-ups (switch « ADEME (DPE) » en haut)</div>
+  <div class="gallery-title">🔄 DPE via ADEME — auto + filet de sécurité (switch « ADEME (DPE) » en haut)</div>
+  <div class="annotation good">
+    <strong>Auto ✓ (par défaut)</strong> : dès qu'un n° est détecté dans le PDF déposé, la recherche ADEME part <b>automatiquement</b> en arrière-plan (CORS ouvert, pas de backend). La <b>classe</b> et la conso se remplissent seules (badge <span class="ad-badge">✓ ADEME</span>). Un lien discret « 🔄 réinterroger » permet de relancer (si re-correction). <b>Plus besoin de bouton à cliquer</b> dans le cas courant.
+  </div>
   <div class="annotation">
-    <strong>Recherche</strong> : bouton « Récupérer depuis l'ADEME » sous la ligne DPE → panneau 2 modes : par <b>n° DPE</b> (pré-rempli avec le n° détecté dans le PDF) ou par <b>adresse</b>. Données officielles, gratuit, appel direct navigateur (CORS ouvert), mention « source ADEME ». « Rechercher » déclenche ici le pop-up « Données ≠ » pour la démo.
+    <strong>Recherche…</strong> : état transitoire pendant le fetch (spinner sur la ligne DPE). · <strong>Sans n° (manuel)</strong> : si le PDF est un scan (n° illisible), on retombe sur un <b>bouton</b> + panneau de recherche par n° tapé ou par adresse. C'est le seul cas où le bouton réapparaît.
   </div>
   <div class="annotation warn">
     <strong>Pop-up « Adresse ≠ »</strong> : si l'adresse du DPE trouvé diffère de celle du logement → on prévient avant d'écraser. Annuler / utiliser quand même.
@@ -411,8 +422,10 @@ const DIAGS = [
     tip:"Diagnostic de Performance Énergétique — classe énergie A→G. Validité 10 ans.",
     help:'Classe énergie A→G · validité 10 ans',
     vierge:{date:'',res:'',diagn:'',exp:'',status:'manquant', dpe:{classe:'',ges:'',conso:'',dep:''}},
-    auto:  {date:'2025-04-01',res:'D',diagn:'SL Diag-Conseils',exp:'14/04/2035',status:'valide', sugg:true,
-            num:'2568E1285086E', dpe:{classe:'D',ges:'A',conso:'187',dep:'940 à 1 320 €'}} },
+    // la CLASSE n'est PAS lisible dans le texte du PDF (image) → vide après dépôt, remplie par l'ADEME
+    auto:  {date:'2025-04-01',res:'',diagn:'SL Diag-Conseils',exp:'14/04/2035',status:'valide', sugg:true,
+            num:'2568E1285086E', dpe:{classe:'',ges:'',conso:'',dep:'940 à 1 320 €'},
+            ademe:{classe:'C',ges:'A',conso:'155',dep:'880 à 1 230 €'}} },
   { key:'crep', ico:'⚠️', label:'Plomb', tech:'CREP', kind:'presence',
     tip:"Constat de Risque d'Exposition au Plomb — obligatoire si le logement a été construit avant le 1ᵉʳ janvier 1949.",
     help:'Obligatoire si construit avant 1949',
@@ -446,12 +459,23 @@ function escAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
 function eff(d){ return (_scn==='vierge') ? d.vierge : d.auto; }
 function sgTag(on){ return on ? '<span class="sg-badge">✨ suggéré</span>' : ''; }
 function sgCls(on){ return on ? ' sg' : ''; }
+// statut effectif (DPE = dynamique selon l'état ADEME, défini plus bas)
+function statusOf(d){ return d.key==='dpe' ? dpeStatus() : eff(d).status; }
+
+// classe DPE effective : vide après dépôt (image illisible), remplie 'C' une fois l'ADEME récupéré
+function dpeClasse(){ return (_scn!=='vierge' && _ad==='auto') ? 'C' : ''; }
+function dpeFetched(){ return _scn!=='vierge' && _ad==='auto'; }
+function dpeLoading(){ return _scn!=='vierge' && _ad==='loading'; }
+function dpeStatus(){ return dpeFetched() ? 'valide' : 'manquant'; }
 
 function resultControl(d){
   const e = eff(d); const sg = !!e.sugg; const k = d.kind;
   if(k==='classe'){
-    const opts = ['','A','B','C','D','E','F','G'].map(c=>`<option ${e.res===c?'selected':''}>${c||'— classe —'}</option>`).join('');
-    return `<select class="inp${sgCls(sg)}">${opts}</select>`;
+    const cls = dpeClasse(); const fetched = dpeFetched();
+    if(dpeLoading()) return `<div class="inp loading">🔄 ADEME…</div>`;
+    const xtra = fetched ? ' ad' : '';
+    const opts = ['','A','B','C','D','E','F','G'].map(c=>`<option ${cls===c?'selected':''}>${c||'— classe —'}</option>`).join('');
+    return `<select class="inp${xtra}">${opts}</select>${fetched?'<span class="ad-badge">✓ ADEME</span>':''}`;
   }
   if(k==='etabli'){
     return `<select class="inp${sgCls(sg)}"><option ${!e.res?'selected':''}>— à faire —</option><option ${e.res==='oui'?'selected':''}>Établi</option><option>Non applicable</option></select>`;
@@ -468,29 +492,51 @@ function labelBlock(d){
     + `<div class="diag-help">${d.help}</div>`;
 }
 function dpeExtra(d){
-  const e = eff(d); const sg = !!e.sugg; const x = e.dpe||{classe:'',ges:'',conso:'',dep:''};
+  const e = eff(d); const sg = !!e.sugg;
+  if(dpeLoading()){
+    return `
+      <div class="fg"><label>Classe GES</label><div class="inp loading">🔄 ADEME…</div></div>
+      <div class="fg"><label>Conso énergie (kWh/m²/an)</label><div class="inp loading">🔄 ADEME…</div></div>
+      <div class="fg"><label>💶 Dépenses estimées (€/an)</label><input class="inp sg" value="${escAttr((e.dpe||{}).dep||'')}" placeholder="ex 900 à 1 200 €"></div>`;
+  }
+  const fetched = dpeFetched();
+  const x = fetched ? (d.auto.ademe) : (e.dpe||{classe:'',ges:'',conso:'',dep:''});
+  const cls = fetched ? ' ad' : sgCls(sg);
+  const tag = fetched ? '<span class="ad-badge">✓ ADEME</span>' : sgTag(sg);
   return `
-    <div class="fg"><label>Classe GES ${sgTag(sg)}</label><select class="inp${sgCls(sg)}">${['','A','B','C','D','E','F','G'].map(c=>`<option ${x.ges===c?'selected':''}>${c||'—'}</option>`).join('')}</select></div>
-    <div class="fg"><label>Conso énergie (kWh/m²/an) ${sgTag(sg)}</label><input class="inp${sgCls(sg)}" value="${x.conso||''}" placeholder="ex 145"></div>
-    <div class="fg"><label>💶 Dépenses estimées (€/an) ${sgTag(sg)}</label><input class="inp${sgCls(sg)}" value="${escAttr(x.dep||'')}" placeholder="ex 900 à 1 200 €"></div>`;
+    <div class="fg"><label>Classe GES ${tag}</label><select class="inp${cls}">${['','A','B','C','D','E','F','G'].map(c=>`<option ${x.ges===c?'selected':''}>${c||'—'}</option>`).join('')}</select></div>
+    <div class="fg"><label>Conso énergie (kWh/m²/an) ${tag}</label><input class="inp${cls}" value="${x.conso||''}" placeholder="ex 145"></div>
+    <div class="fg"><label>💶 Dépenses estimées (€/an) ${fetched?tag:sgTag(sg)}</label><input class="inp${cls}" value="${escAttr(x.dep||'')}" placeholder="ex 900 à 1 200 €"></div>`;
 }
+// Bloc ADEME — auto par défaut quand un n° est détecté ; bouton seulement si pas de n° (scan/manuel)
 function dpeAdemeBlock(){
-  const e = eff(DIAGS[0]); const num = e.num || '';
-  const numChip = num ? `<span class="num-detect">n° détecté : ${num}</span>` : '';
-  return `
-    <div class="ademe-trigger">
-      <button class="btn bs ${_ad==='hidden'?'':'bp'}" onclick="setAd('${_ad==='hidden'?'panel':'hidden'}')">🔄 Récupérer depuis l'ADEME</button>
-      ${numChip}
-      <span class="note">La classe (A-G) n'est pas dans le texte du PDF → l'ADEME la fournit + données corrigées (gratuit, font foi).</span>
-    </div>
-    ${_ad==='hidden' ? '' : ademePanelHTML()}`;
-}
-function ademePanelHTML(){
   const num = (eff(DIAGS[0]).num) || '';
-  const byNum = !!num;
+  if(_scn==='vierge'){
+    // pas de PDF déposé → invite à chercher par adresse, ou laisser le dépôt remplir
+    return `<div class="ad-auto-line"><span class="note" style="color:var(--t2)">💡 Dépose le DPE en haut, ou</span>
+      <button class="ad-link" onclick="setAd('manual')">recherche l'ADEME par adresse</button></div>
+      ${_ad==='manual' ? ademePanelHTML(false) : ''}`;
+  }
+  if(_ad==='loading'){
+    return `<div class="ad-auto-line load">🔄 Recherche automatique sur la base ADEME (n° ${num})…</div>`;
+  }
+  if(_ad==='manual'){
+    // cas PDF scanné : n° non lisible → bouton + panneau
+    return `<div class="ad-auto-line"><span style="color:#92400e">⚠️ N° DPE non lisible dans le PDF (scan ?).</span>
+      <button class="btn bs bp" onclick="setAd('addr')">🔄 Rechercher sur l'ADEME</button></div>
+      ${ademePanelHTML(false)}`;
+  }
+  // _ad === 'auto' (ou addr/data en overlay au-dessus) : récupéré automatiquement
+  return `<div class="ad-auto-line ok">
+      ✓ <b>Classe récupérée automatiquement</b> depuis l'ADEME (n° ${num}, source officielle).
+      <button class="ad-link" onclick="setAd('loading')">🔄 réinterroger</button>
+    </div>`;
+}
+function ademePanelHTML(byNum){
+  const num = (eff(DIAGS[0]).num) || '2568E1285086E';
   return `
     <div class="ademe-panel">
-      <div class="ademe-panel-h">🔄 Récupérer le DPE depuis la base ADEME <span class="note">officiel · gratuit</span></div>
+      <div class="ademe-panel-h">🔄 Rechercher le DPE dans la base ADEME <span class="note">officiel · gratuit</span></div>
       <div class="ademe-modes">
         <label><input type="radio" name="adm" ${byNum?'checked':''}> Par n° DPE</label>
         <label><input type="radio" name="adm" ${byNum?'':'checked'}> Par adresse du logement</label>
@@ -499,19 +545,17 @@ function ademePanelHTML(){
         <input class="inp" value="${byNum ? num : '15 rue des Pèlerins, 68790 Morschwiller-le-Bas'}">
         <button class="btn bp" onclick="setAd('data')">Rechercher</button>
       </div>
-      <div class="ademe-note">${byNum
-        ? '🔎 N° lu sur le PDF déposé. Recherche exacte dans la base ADEME (source officielle qui fait foi).'
-        : '🔎 L\'adresse du logement sert de filtre. Bascule sur « Par n° DPE » pour une recherche exacte (n° à 13 caractères).'} Source : base ADEME (mention obligatoire).</div>
+      <div class="ademe-note">🔎 Cas de secours (PDF scanné, ou saisie manuelle). Tape le n° à 13 caractères ou l'adresse. Source : base ADEME (mention obligatoire).</div>
     </div>`;
 }
 
 // ── Variante A : cartes ──
 function renderA(){
-  return DIAGS.map(d=>{ const e = eff(d); const sg = !!e.sugg; return `
-    <div class="dcard s-${e.status}">
+  return DIAGS.map(d=>{ const e = eff(d); const sg = !!e.sugg; const stt = statusOf(d); return `
+    <div class="dcard s-${stt}">
       <div class="dcard-h">
         <div>${labelBlock(d)}</div>
-        <span class="st ${e.status}">${ST_LABEL[e.status]}</span>
+        <span class="st ${stt}">${ST_LABEL[stt]}</span>
       </div>
       <div class="dcard-fields">
         <div class="fg"><label>Date réalisée ${sgTag(sg)}</label><input class="inp${sgCls(sg)}" type="date" value="${e.date}"></div>
@@ -524,15 +568,15 @@ function renderA(){
 
 // ── Variante B : tableau ──
 function renderB(){
-  const rows = DIAGS.map(d=>{ const e = eff(d); const sg = !!e.sugg;
+  const rows = DIAGS.map(d=>{ const e = eff(d); const sg = !!e.sugg; const stt = statusOf(d);
     let r = `
-      <tr class="s-${e.status}">
+      <tr class="s-${stt}">
         <td data-lbl="Diagnostic">${labelBlock(d)}</td>
         <td data-lbl="Date">${sgTag(sg)}<input class="inp${sgCls(sg)}" type="date" value="${e.date}"></td>
         <td data-lbl="Résultat">${resultControl(d)}</td>
         <td data-lbl="Diagnostiqueur"><input class="inp${sgCls(sg)}" placeholder="Cabinet…" value="${escAttr(e.diagn)}"></td>
         <td data-lbl="Expire le">${e.exp||'—'}</td>
-        <td data-lbl="Statut"><span class="st ${e.status}">${ST_LABEL[e.status]}</span></td>
+        <td data-lbl="Statut"><span class="st ${stt}">${ST_LABEL[stt]}</span></td>
       </tr>`;
     if(d.key==='dpe'){
       r += `<tr class="dpe-detail"><td data-lbl="Détail DPE" colspan="6">
@@ -548,13 +592,13 @@ function renderB(){
 
 // ── Variante C : accordéon ──
 function renderC(){
-  return DIAGS.map((d,i)=>{ const e = eff(d); const sg = !!e.sugg; return `
+  return DIAGS.map((d,i)=>{ const e = eff(d); const sg = !!e.sugg; const stt = statusOf(d); return `
     <div class="dacc ${i===0?'open':''}" id="acc-${d.key}">
       <div class="dacc-h" onclick="document.getElementById('acc-${d.key}').classList.toggle('open')">
         <span class="dacc-caret">▶</span>
         <span class="diag-label-main">${d.ico} ${d.label}</span><span class="diag-tech">${d.tech}</span>
         <span class="help-q" data-tip="${escAttr(d.tip)}" onclick="event.stopPropagation()">?</span>
-        <span class="dacc-strip">${sg?'<span class="sg-badge">✨ suggéré</span>':''}<span class="st ${e.status}">${ST_LABEL[e.status]}</span></span>
+        <span class="dacc-strip">${sg?'<span class="sg-badge">✨ suggéré</span>':''}<span class="st ${stt}">${ST_LABEL[stt]}</span></span>
       </div>
       <div class="dacc-body">
         <div class="diag-help" style="margin-bottom:10px">${d.help}</div>
@@ -613,7 +657,7 @@ function renderUpload(){
 }
 
 // ── State ──
-let _var='A', _fmt='pc', _scn='auto', _ad='hidden';
+let _var='A', _fmt='pc', _scn='auto', _ad='auto';
 function render(){
   document.getElementById('upload-zone').innerHTML = renderUpload();
   document.getElementById('diag-list').innerHTML = _var==='A'?renderA():_var==='B'?renderB():renderC();
