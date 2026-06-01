@@ -97,6 +97,27 @@ Le sélecteur **mois/année** doit suivre la même logique que le filtre entité
 
 → Chaque `render` d'onglet applique le filtre **avant** de construire la liste (pas un masquage CSS après coup).
 
+## 🎨 Mockup-first OBLIGATOIRE (règle non négociable, user 2026-05-25)
+
+> 💬 « pour tout visuel on fait des mockups c'est non négociable »
+
+**Mockup livré** : `docs/strategie/mockups/chantier-A-barre-contexte/index.html` — **fidèle au design réel** (charge le vrai `css/main.css` + vraies classes `.tb` `.ni` `.v4s-e`). Montre 2 variantes :
+- **Variante A** : barre dédiée sous la topbar (plus visible, +36px hauteur)
+- **Variante B** : intégrée dans la topbar existante `.tb-actions` (compact, zéro hauteur ajoutée)
+- **Cas période grisée** : sur onglet sans notion de date (Biens, EDL)
+
+→ **Aucun code tant que le user n'a pas tranché la variante sur le mockup.**
+
+## 💡 Infrastructure existante (découverte audit 2026-05-25)
+
+Une grande partie existe déjà :
+- `tb-actions` (zone topbar) + `.v4s-tb-controls` + `#v4s-tb-year`/`#v4s-tb-mois` (sélecteurs période en topbar, **mais limités à Dashboard + Accueil** : `showPeriod = onDashboard || onAccueil`)
+- `.v4s-sb-ent` + `_renderSidebarV4()` (bulles entités)
+- `_v4FilterEnt(name)` ligne ~6222 (force `go('dashboard')` → à retirer)
+- `_v4SyncTopbarFilters()` ligne ~5909
+
+→ Le Chantier A = surtout **étendre** `showPeriod` à tous les onglets + **généraliser** le filtre entité, pas créer de zéro. Effort revu à la baisse possible.
+
 ## Scope (proposé)
 
 ### Phase 1 — État global + helper (~45min)
