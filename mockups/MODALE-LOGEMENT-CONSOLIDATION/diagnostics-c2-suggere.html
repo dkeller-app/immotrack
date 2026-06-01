@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B2 v2-c2 — pré-remplissage « suggéré · à vérifier » — ImmoTrack</title>
+<style>
+:root {
+  --acc:#14b8a6; --acc-dark:#0d9488;
+  --bg:#eef2f7; --sur:#fff; --sur2:#f5f3ee; --sur3:#ebe7df;
+  --bor:#d4cfc4; --bor2:#e5e1d8; --t1:#1f2937; --t2:#6b7280; --t3:#9ca3af;
+  --blu:#3b82f6; --blu-bg:#dbeafe;
+  --gre:#22c55e; --gre-bg:#dcfce7;
+  --red:#ef4444; --red-bg:#fee2e2;
+  --amb:#f59e0b; --amb-bg:#fef3c7;
+  --r:6px; --r-lg:10px;
+}
+* { box-sizing:border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--t1); font-size:14px; line-height:1.5; }
+header { background:var(--sur); border-bottom:1px solid var(--bor); padding:12px 24px; position:sticky; top:0; z-index:100; }
+.head-title { font-weight:700; color:var(--acc-dark); font-size:16px; }
+.head-sub { font-size:12px; color:var(--t2); margin-top:2px; max-width:920px; }
+.canvas { padding:16px; max-width:1160px; margin:0 auto; }
+
+.decisions { background:var(--gre-bg); border:1px solid #86efac; border-radius:var(--r); padding:10px 14px; margin-bottom:16px; font-size:12px; color:#166534; }
+.decisions b { color:#14532d; }
+.decisions ul { margin:6px 0 0; padding-left:18px; } .decisions li { margin:3px 0; }
+
+.switcher { background:var(--sur); border:1px solid var(--bor); border-radius:var(--r); padding:10px 12px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:22px; align-items:center; }
+.switcher-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.switcher-label { font-size:11.5px; color:var(--t2); font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+.switcher-btn { padding:5px 12px; border-radius:var(--r); border:1px solid var(--bor); background:var(--sur2); cursor:pointer; font-size:12px; }
+.switcher-btn.act { background:var(--acc); color:#fff; border-color:var(--acc-dark); font-weight:600; }
+.switcher-btn:hover:not(.act) { background:var(--sur3); }
+
+.stage { display:flex; justify-content:center; }
+.device { width:1000px; transition:width .25s ease; max-width:100%; }
+.device[data-fmt="tablet"] { width:768px; }
+.device[data-fmt="phone"]  { width:390px; }
+.device-meta { text-align:center; font-size:11px; color:var(--t3); margin-bottom:6px; }
+
+.modal { background:var(--sur); border:1px solid var(--bor); border-radius:var(--r-lg); box-shadow:0 6px 20px rgba(0,0,0,.08); overflow:hidden; }
+.modal-head { background:var(--sur2); padding:14px 18px; border-bottom:1px solid var(--bor); display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.modal-head h3 { margin:0; font-size:15.5px; }
+.m-close { border:none; background:transparent; font-size:18px; color:var(--t3); cursor:pointer; }
+.modal-tabs { display:flex; gap:4px; padding:8px 12px 0; background:var(--sur2); overflow-x:auto; }
+.modal-tab { padding:7px 13px; font-size:12.5px; border:1px solid transparent; border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer; color:var(--t2); white-space:nowrap; }
+.modal-tab.act { background:var(--sur); color:var(--t1); border-color:var(--bor); font-weight:600; }
+.modal-body { padding:16px 20px 22px; max-height:66vh; overflow-y:auto; }
+.m-foot { padding:12px 18px; border-top:1px solid var(--bor); background:var(--sur2); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:center; }
+.m-foot .save-hint { font-size:11px; color:#92400e; }
+
+.btn { padding:6px 12px; border-radius:var(--r); border:1px solid var(--bor); background:var(--sur2); cursor:pointer; font-size:12px; }
+.btn.bp { background:var(--acc); color:#fff; border-color:var(--acc-dark); font-weight:600; }
+.btn.bs { font-size:11px; padding:4px 8px; }
+
+.inp { width:100%; padding:4px 6px; border:1px solid var(--bor); border-radius:var(--r); font-size:12px; background:var(--sur); font-family:inherit; }
+.inp.sg { background:#fffdf3; border-color:#fcd34d; }
+.inp.ad { background:#f0fdf6; border-color:#86efac; }
+
+/* badges */
+.sg-badge { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; color:#92400e; background:var(--amb-bg); border:1px solid #fcd34d; border-radius:10px; padding:0 6px; vertical-align:middle; white-space:nowrap; }
+.ad-badge { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:700; color:#166534; background:var(--gre-bg); border:1px solid #86efac; border-radius:10px; padding:0 6px; vertical-align:middle; white-space:nowrap; }
+
+/* detection banner (c1, existant) */
+.detect { margin-top:12px; background:var(--gre-bg); border:1px solid #86efac; border-radius:var(--r); padding:10px 12px; font-size:12px; color:#166534; }
+.detect b { color:#14532d; }
+.detect .chips { margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; }
+.detect .chip { background:#fff; border:1px solid #86efac; border-radius:10px; padding:1px 8px; font-size:11px; font-weight:600; color:#166534; }
+
+/* c2 review banner (NOUVEAU) */
+.review { margin-top:12px; background:#fffbeb; border:1px solid #fcd34d; border-left:4px solid var(--amb); border-radius:var(--r); padding:11px 13px; font-size:12.5px; color:#92400e; }
+.review-h { font-weight:700; color:#78350f; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.review p { margin:6px 0 0; line-height:1.5; }
+.review-actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+.review .btn.bp { background:var(--amb); border-color:#d97706; }
+
+/* info banner */
+.diag-banner { background:#eef6ff; border-left:3px solid var(--blu); border-radius:0 var(--r) var(--r) 0; padding:9px 13px; font-size:12px; color:#1e40af; line-height:1.5; margin:14px 0; }
+
+/* status badge */
+.st { display:inline-block; padding:2px 9px; border-radius:12px; font-size:10.5px; font-weight:700; white-space:nowrap; }
+.st.valide { background:var(--gre-bg); color:#166534; border:1px solid #86efac; }
+.st.manquant { background:var(--amb-bg); color:#92400e; border:1px solid #fcd34d; }
+
+.diag-label-main { font-weight:600; font-size:12.5px; }
+.diag-tech { font-size:10px; color:var(--t3); font-weight:600; background:var(--sur2); border:1px solid var(--bor2); border-radius:4px; padding:1px 5px; margin-left:5px; }
+
+/* table */
+.diag-tbl { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+.diag-tbl th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--t3); font-weight:700; padding:6px 8px; border-bottom:2px solid var(--bor); }
+.diag-tbl td { padding:8px 8px; border-bottom:1px solid var(--bor2); vertical-align:top; }
+.diag-tbl tr.sg-row td { background:#fffdf3; }
+.diag-tbl .dpe-detail td { background:var(--sur2); }
+
+/* suggéré cell : valeur + ligne source + actions */
+.sg-cell { display:flex; flex-direction:column; gap:4px; }
+.sg-val { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.sg-src { font-size:10.5px; color:#92400e; background:#fffbeb; border:1px dashed #fcd34d; border-radius:5px; padding:3px 7px; line-height:1.4; display:none; }
+.sg-src.show { display:block; }
+.sg-src b { color:#78350f; }
+.sg-src .pg { color:var(--t3); font-style:italic; }
+.sg-actions { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+.sg-link { font-size:10.5px; color:#1e40af; text-decoration:underline; cursor:pointer; background:none; border:none; padding:0; }
+.chk { display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:700; border-radius:10px; padding:1px 7px; cursor:pointer; border:1px solid; }
+.chk.ok { color:#166534; background:#fff; border-color:#86efac; }
+.chk.ok:hover { background:var(--gre-bg); }
+.chk.no { color:#991b1b; background:#fff; border-color:#fca5a5; }
+.chk.no:hover { background:var(--red-bg); }
+
+/* empty/ambiguous result note */
+.amb-note { font-size:10.5px; color:#9a3412; background:#fff7ed; border:1px solid #fdba74; border-radius:5px; padding:3px 7px; line-height:1.4; }
+
+/* select look */
+select.inp { padding:4px 6px; }
+
+.annotation { background:var(--blu-bg); border-left:3px solid var(--blu); padding:10px 13px; border-radius:0 var(--r) var(--r) 0; margin:14px 0 0; font-size:12px; color:#1e3a8a; line-height:1.55; }
+.annotation.warn { background:var(--amb-bg); border-left-color:var(--amb); color:#92400e; }
+.annotation.good { background:var(--gre-bg); border-left-color:var(--gre); color:#166534; }
+.annotation strong { font-weight:700; }
+
+.flow-only { display:none; }
+.flow-only.act { display:table-row; }
+.flow-block { display:none; }
+.flow-block.act { display:block; }
+
+/* phone : cartes */
+.device[data-fmt="phone"] .diag-tbl, .device[data-fmt="phone"] .diag-tbl thead,
+.device[data-fmt="phone"] .diag-tbl tbody, .device[data-fmt="phone"] .diag-tbl tr,
+.device[data-fmt="phone"] .diag-tbl td { display:block; width:100%; }
+.device[data-fmt="phone"] .diag-tbl thead { display:none; }
+.device[data-fmt="phone"] .diag-tbl tr { border:1px solid var(--bor); border-radius:var(--r); margin-bottom:8px; padding:6px; }
+.device[data-fmt="phone"] .diag-tbl tr.sg-row { border-color:#fcd34d; }
+.device[data-fmt="phone"] .diag-tbl td { border:none; padding:4px 4px; }
+.device[data-fmt="phone"] .diag-tbl td::before { content:attr(data-lbl); display:block; font-size:10px; text-transform:uppercase; color:var(--t3); font-weight:700; margin-bottom:2px; }
+.device[data-fmt="phone"] .diag-tbl td:empty { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-title">🏷 B2 v2-c2 — pré-remplissage « ✨ suggéré · à vérifier »</div>
+  <div class="head-sub">Scope <b>prudent</b> retenu. Données réelles du DDT « SL Diag-Conseils » que tu as testé. À valider : aspect d'un champ suggéré, phrase source, validation/correction, cas « résultat illisible → laissé vide », comportement à l'Enregistrement. Teste dans ton vrai navigateur (PC / tablette / téléphone).</div>
+</header>
+
+<div class="canvas">
+  <div class="decisions">
+    <b>Principe c2 prudent (non négociable) :</b>
+    <ul>
+      <li>Tout champ lu dans le PDF est <b>suggéré ✨</b> : valeur pré-remplie en ambre, jamais imposée, modifiable.</li>
+      <li><b>La phrase source du PDF est affichée</b> (lien « 📄 d'où ça vient ? ») → tu vérifies en 1 coup d'œil.</li>
+      <li><b>Résultat (présence/absence, conforme/anomalies)</b> rempli UNIQUEMENT depuis une formulation non ambiguë (page de synthèse). Si formulaire à cases / doute → <b>laissé vide</b> + note. Jamais de résultat deviné.</li>
+      <li><b>DPE</b> = vert ✅ (récupéré ADEME, autoritaire) — pas « suggéré », c'est fiable.</li>
+      <li>À l'Enregistrement : les suggestions sont enregistrées mais restent <b>marquées ✨ « à vérifier »</b> tant que tu ne les as pas validées (badge persiste dans le tableau).</li>
+    </ul>
+  </div>
+
+  <div class="switcher">
+    <div class="switcher-row">
+      <span class="switcher-label">Flux de validation</span>
+      <button class="switcher-btn act" data-flow="A" onclick="setFlow('A')">A · par champ (✓/✗ inline)</button>
+      <button class="switcher-btn" data-flow="B" onclick="setFlow('B')">B · bandeau « tout valider »</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Format</span>
+      <button class="switcher-btn act" data-fmt="pc" onclick="setFmt('pc')">🖥 PC</button>
+      <button class="switcher-btn" data-fmt="tablet" onclick="setFmt('tablet')">📱 Tablette</button>
+      <button class="switcher-btn" data-fmt="phone" onclick="setFmt('phone')">📲 Téléphone</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Source</span>
+      <button class="switcher-btn" id="srcToggle" onclick="toggleSrc()">📄 Afficher les phrases source</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="device" data-fmt="pc">
+      <div class="device-meta">Aperçu — onglet Diagnostics après dépôt du DDT combiné (4 diagnostics)</div>
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Modifier : D-101</h3>
+          <button class="m-close">✕</button>
+        </div>
+        <div class="modal-tabs">
+          <div class="modal-tab">📄 Identité</div>
+          <div class="modal-tab">📐 Description</div>
+          <div class="modal-tab act">📘 Diagnostics</div>
+          <div class="modal-tab">🔧 Équipements</div>
+          <div class="modal-tab">🎀 Présentation</div>
+        </div>
+        <div class="modal-body">
+
+          <!-- bandeau détection c1 (existant) -->
+          <div class="detect">
+            <b>🤖 Détection automatique</b> <span style="font-weight:400">(1 document lu · indicatif, à vérifier)</span>
+            <div>🔎 N° DPE détecté : <b>2568E1285086E</b> → classe énergie/GES, conso et date récupérées via l'ADEME.</div>
+            <div class="chips"><span class="chip">DPE</span><span class="chip">Plomb (CREP)</span><span class="chip">Amiante</span><span class="chip">Électricité</span></div>
+          </div>
+
+          <!-- bandeau revue c2 (flux B) -->
+          <div class="review flow-block" data-flow="B" id="reviewB">
+            <div class="review-h">📄 4 champs pré-remplis depuis « Diagnostics - plomb + amiante + électricité + DPE - étage 2.pdf »</div>
+            <p>L'app a lu le PDF et proposé des valeurs (dates, résultats, cabinet). <b>Vérifie-les</b> — elles restent marquées « ✨ à vérifier » tant que tu ne les valides pas. En cas de doute (résultat illisible), le champ est laissé vide.</p>
+            <div class="review-actions">
+              <button class="btn bp">✓ Tout valider</button>
+              <button class="btn">✗ Tout effacer</button>
+              <button class="btn bs" onclick="toggleSrc()">📄 Voir les phrases source</button>
+            </div>
+          </div>
+
+          <div class="diag-banner">
+            <b>🏷 Dossier de diagnostic technique (DDT).</b> Saisie groupée — on remplit une fois. À joindre au bail à la signature (loi 89-462 art. 3-3, sous peine de nullité).
+          </div>
+
+          <table class="diag-tbl">
+            <thead>
+              <tr><th>Diagnostic</th><th>Date réalisée</th><th>Résultat</th><th>Diagnostiqueur</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+
+              <!-- DPE : ADEME, vert, pas suggéré -->
+              <tr>
+                <td data-lbl="Diagnostic"><span class="diag-label-main">🌡 Performance énergétique</span><span class="diag-tech">DPE</span></td>
+                <td data-lbl="Date"><div class="sg-cell"><div class="sg-val"><input class="inp ad" value="15/04/2025" style="max-width:120px"><span class="ad-badge">✅ ADEME</span></div></div></td>
+                <td data-lbl="Résultat"><select class="inp ad" style="max-width:110px"><option>C — classe</option></select></td>
+                <td data-lbl="Diagnostiqueur"><input class="inp" placeholder="Cabinet…" style="max-width:150px"></td>
+                <td data-lbl="Statut"><span class="st valide">✅ Valide</span></td>
+              </tr>
+
+              <!-- Plomb : suggéré absence -->
+              <tr class="sg-row">
+                <td data-lbl="Diagnostic"><span class="diag-label-main">⚠️ Plomb</span><span class="diag-tech">CREP</span></td>
+                <td data-lbl="Date">
+                  <div class="sg-cell">
+                    <div class="sg-val"><input class="inp sg" value="01/04/2025" style="max-width:120px"><span class="sg-badge">✨ suggéré</span></div>
+                  </div>
+                </td>
+                <td data-lbl="Résultat">
+                  <div class="sg-cell">
+                    <div class="sg-val"><select class="inp sg" style="max-width:130px"><option>Absence</option><option>Présence</option><option>—</option></select><span class="sg-badge">✨ suggéré</span></div>
+                    <div class="sg-src"><b>📄 PDF :</b> « il n'a pas été repéré de revêtements contenant du plomb au-delà des seuils en vigueur » <span class="pg">— page de synthèse</span></div>
+                    <div class="sg-actions">
+                      <button class="sg-link" onclick="toggleSrc()">📄 d'où ça vient ?</button>
+                      <span class="flow-only-inline" data-flow="A"><span class="chk ok">✓ valider</span> <span class="chk no">✗ effacer</span></span>
+                    </div>
+                  </div>
+                </td>
+                <td data-lbl="Diagnostiqueur"><div class="sg-cell"><div class="sg-val"><input class="inp sg" value="SL Diag-Conseils" style="max-width:150px"><span class="sg-badge">✨</span></div></div></td>
+                <td data-lbl="Statut"><span class="st valide">✅ Valide</span></td>
+              </tr>
+
+              <!-- Amiante : suggéré absence -->
+              <tr class="sg-row">
+                <td data-lbl="Diagnostic"><span class="diag-label-main">🟢 Amiante</span><span class="diag-tech">DAAP</span></td>
+                <td data-lbl="Date"><div class="sg-cell"><div class="sg-val"><input class="inp sg" value="01/04/2025" style="max-width:120px"><span class="sg-badge">✨ suggéré</span></div></div></td>
+                <td data-lbl="Résultat">
+                  <div class="sg-cell">
+                    <div class="sg-val"><select class="inp sg" style="max-width:130px"><option>Absence</option><option>Présence</option><option>—</option></select><span class="sg-badge">✨ suggéré</span></div>
+                    <div class="sg-src"><b>📄 PDF :</b> « il n'a pas été repéré de matériaux et produits susceptibles de contenir de l'amiante » <span class="pg">— page de synthèse</span></div>
+                    <div class="sg-actions">
+                      <button class="sg-link" onclick="toggleSrc()">📄 d'où ça vient ?</button>
+                      <span class="flow-only-inline" data-flow="A"><span class="chk ok">✓ valider</span> <span class="chk no">✗ effacer</span></span>
+                    </div>
+                  </div>
+                </td>
+                <td data-lbl="Diagnostiqueur"><div class="sg-cell"><div class="sg-val"><input class="inp sg" value="SL Diag-Conseils" style="max-width:150px"><span class="sg-badge">✨</span></div></div></td>
+                <td data-lbl="Statut"><span class="st valide">✅ Valide</span></td>
+              </tr>
+
+              <!-- Électricité : suggéré conforme -->
+              <tr class="sg-row">
+                <td data-lbl="Diagnostic"><span class="diag-label-main">⚡ Installation électrique</span><span class="diag-tech">État élec</span></td>
+                <td data-lbl="Date"><div class="sg-cell"><div class="sg-val"><input class="inp sg" value="01/04/2025" style="max-width:120px"><span class="sg-badge">✨ suggéré</span></div></div></td>
+                <td data-lbl="Résultat">
+                  <div class="sg-cell">
+                    <div class="sg-val"><select class="inp sg" style="max-width:130px"><option>Conforme</option><option>Anomalies</option><option>—</option></select><span class="sg-badge">✨ suggéré</span></div>
+                    <div class="sg-src"><b>📄 PDF :</b> « L'installation intérieure d'électricité ne comporte aucune anomalie » <span class="pg">— page de synthèse</span></div>
+                    <div class="sg-actions">
+                      <button class="sg-link" onclick="toggleSrc()">📄 d'où ça vient ?</button>
+                      <span class="flow-only-inline" data-flow="A"><span class="chk ok">✓ valider</span> <span class="chk no">✗ effacer</span></span>
+                    </div>
+                  </div>
+                </td>
+                <td data-lbl="Diagnostiqueur"><div class="sg-cell"><div class="sg-val"><input class="inp sg" value="SL Diag-Conseils" style="max-width:150px"><span class="sg-badge">✨</span></div></div></td>
+                <td data-lbl="Statut"><span class="st valide">✅ Valide</span></td>
+              </tr>
+
+              <!-- Gaz : cas illustratif "résultat illisible (formulaire à cases) → laissé vide" -->
+              <tr>
+                <td data-lbl="Diagnostic"><span class="diag-label-main">🔥 Installation gaz</span><span class="diag-tech">État gaz</span></td>
+                <td data-lbl="Date"><div class="sg-cell"><div class="sg-val"><input class="inp sg" value="01/04/2025" style="max-width:120px"><span class="sg-badge">✨ suggéré</span></div></div></td>
+                <td data-lbl="Résultat">
+                  <div class="sg-cell">
+                    <div class="sg-val"><select class="inp" style="max-width:130px"><option>—</option><option>Conforme</option><option>Anomalies</option></select></div>
+                    <div class="amb-note">⚠️ Résultat non lu : le rapport n'a qu'un formulaire à cases (les 2 réponses coexistent dans le texte). <b>À saisir à la main.</b></div>
+                  </div>
+                </td>
+                <td data-lbl="Diagnostiqueur"><div class="sg-cell"><div class="sg-val"><input class="inp sg" value="SL Diag-Conseils" style="max-width:150px"><span class="sg-badge">✨</span></div></div></td>
+                <td data-lbl="Statut"><span class="st manquant">⚠ À renseigner</span></td>
+              </tr>
+
+            </tbody>
+          </table>
+
+          <div class="annotation good"><strong>Pourquoi c'est sûr :</strong> on ne remplit un résultat que sur une phrase de conclusion <strong>unique et explicite</strong>. Quand le PDF n'a qu'un formulaire à cases (les deux réponses présentes dans le texte, coche perdue par le lecteur PDF), on laisse le champ <strong>vide</strong> plutôt que de risquer un résultat faux dans un document légal.</div>
+          <div class="annotation warn"><strong>Flux A (par champ) :</strong> chaque suggestion a ses boutons ✓/✗ → tu valides/corriges au fil de l'eau. <strong>Flux B (bandeau) :</strong> un bandeau en haut récapitule + « ✓ Tout valider » / « ✗ Tout effacer » en un clic, puis ajustements manuels.</div>
+
+        </div>
+        <div class="m-foot">
+          <span class="save-hint">✨ 4 suggestions non encore validées — elles seront enregistrées mais resteront marquées « à vérifier ».</span>
+          <div style="display:flex; gap:8px"><button class="btn">Annuler</button><button class="btn bp">Enregistrer</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function setFmt(f){
+  document.querySelector('.device').setAttribute('data-fmt', f);
+  document.querySelectorAll('[data-fmt].switcher-btn').forEach(b=>b.classList.toggle('act', b.getAttribute('data-fmt')===f));
+}
+function setFlow(fl){
+  document.querySelectorAll('[data-flow].switcher-btn').forEach(b=>b.classList.toggle('act', b.getAttribute('data-flow')===fl));
+  // blocks (bandeau B)
+  document.querySelectorAll('.flow-block').forEach(b=>b.classList.toggle('act', b.getAttribute('data-flow')===fl));
+  // inline ✓/✗ (flux A)
+  document.querySelectorAll('.flow-only-inline').forEach(s=>{ s.style.display = (s.getAttribute('data-flow')===fl) ? 'inline' : 'none'; });
+}
+let srcOn=false;
+function toggleSrc(){
+  srcOn=!srcOn;
+  document.querySelectorAll('.sg-src').forEach(e=>e.classList.toggle('show', srcOn));
+  document.getElementById('srcToggle').classList.toggle('act', srcOn);
+  document.getElementById('srcToggle').textContent = srcOn ? '📄 Masquer les phrases source' : '📄 Afficher les phrases source';
+}
+// init : flux A par défaut
+setFlow('A');
+</script>
+</body>
+</html>
