@@ -1,8 +1,8 @@
 # IMPORT-ACTE-VENTE — Création bailleur / immeuble / logements depuis l'acte de vente
 
-**Statut** : ⬜ Idée à scoper — **EN ATTENTE d'exemples d'actes réels** (2-3) pour trancher l'architecture.
+**Statut** : 🔎 **Analysé empiriquement (4 actes réels, 2026-06-01)** — **VERDICT : voie A (heuristique locale) viable** pour entité+immeuble (haute fiabilité) + logements en liste « suggérée » éditable (fiabilité moyenne, validation user). Prêt à brainstormer le wizard. ⬜ Pas encore codé.
 **Prio** : P2 (onboarding / accélérateur d'acquisition SaaS)
-**Taille** : XL (session dédiée, découpage par phases obligatoire)
+**Taille** : L (révisée depuis XL après analyse — voie A sans backend ; session dédiée, découpage par phases)
 **Créé** : 2026-06-01 (demande user, fil MODALE-LOGEMENT-CONSOLIDATION après livraison B2 v2-c1)
 
 ---
@@ -85,6 +85,40 @@ du terrain LLM (B) → cohérent avec roadmap IA (cf IA-COPILOTE, OCR-FACTURE V3
 2. Claude analyse la régularité → **verdict A vs B** honnête + estimation d'effort.
 3. Si on attaque → brainstorming dédié (design wizard + mockups) puis plan phasé.
 
+## Analyse empirique des 4 actes (2026-06-01)
+
+**Corpus** : 4 actes de vente réels (`C:\Users\Did_K\Desktop\Immo\actes\`, non commités, dans `.gitignore`), 2 études notariales différentes (Me PICHELIN/Delle + concours Me OCHS/Strasbourg ; Me BRAUN-LEYENBERGER/Saverne). **Tous des PDF texte** (pas scannés), 98 k–175 k caractères, extraits via pdf.js (vérif au `pdftotext -enc UTF-8`).
+
+**Constat clé : forte régularité car les notaires utilisent un MODÈLE D'ACTE NORMALISÉ** (logiciels type GenApi/iNot/Fiducial). Les ancres structurelles sont quasi identiques d'une étude à l'autre.
+
+| Donnée | Ancre observée | Régularité | Extraction A (heuristique) |
+|---|---|---|---|
+| **Acquéreur (identité)** | `IDENTIFICATION DES PARTIES` → `2) Acquéreur`/`2) ACQUEREUR` … bloc clos par `Ci-après dénommé(e) "L'ACQUEREUR"` | **forte** | ✅ Fiable. Personne : `Monsieur/Madame [Prénoms] [NOM], … demeurant à [VILLE] ([CP]), [adresse]`. Société : `La société dénommée "[NOM]", [forme] au capital de … siège social à [VILLE] ([CP]), [adresse]`. Détection personne↔société via `Monsieur/Madame` vs `La société dénommée`. |
+| **SIREN (si société)** | `numéro unique d'identification 994 086 379` | **forte** | ✅ Très fiable : `numéro unique d'identification (\d{3} \d{3} \d{3})` → **clé d'anti-doublon entité idéale** (« à grouper si déjà existant »). |
+| **Adresse immeuble** | `DESIGNATION DES BIENS` → `situé/Situé à [VILLE] ([CP]), [adresse]` | **forte** | ✅ Fiable : `situ[ée] à ([A-ZÉÈ…\- ]+) \((\d{5})\), ([^.]+)`. |
+| **Année de construction** | — | **ABSENTE** | ❌ **N'existe dans AUCUN des 4 actes.** Seulement des formules vagues (`achevé depuis plus de dix ans`, `permis de construire délivré avant le 1er juillet 1997` pour l'amiante). → ne PAS tenter de l'extraire de l'acte ; vient du DPE (cf B2 v2-b ADEME). |
+| **Constitution / logements** | `DESIGNATION DES BIENS` (lots OU prose) | **moyenne — 2 familles** | ⚠️ Brouillon « suggéré » seulement (voir ci-dessous). |
+
+**Le point dur = la constitution de l'immeuble (2 structures distinctes + lots ≠ logements) :**
+- **Copropriété** (actes 1 & 2) : `Lot numéro cinq (5) - Une chambre Et les 10/1.000 èmes…` (n° lot + désignation + tantièmes). **Pièges** : (a) lots ≠ logements — ex. lots 5+6 (« Une chambre » chacun) **réunis** en un seul appartement F2 (`Réunion de lots`) ; (b) lots non-habitation mêlés (caves, garages) ; (c) la VRAIE désignation du logement est en prose ailleurs (`un appartement de type F2, à droite, comprenant : hall, kitchenette, séjour…`) ; (d) surface Carrez par lot (`Lot numéro 5 et 6 : 34,79 m²`).
+- **Immeuble entier** (actes 3 & 4) : énumération propre en prose : `comprenant un local à usage commercial et CINQ (5) logements` + `• Au rez-de-chaussée : un appartement • Au 1er étage à droite : un appartement • Au 2ème étage : un appartement…`. Surface **totale** seulement (`surface habitable totale 433,18 m²`), pas par logement.
+
+## VERDICT A vs B (tranché)
+
+**→ Voie A (heuristique locale) RETENUE**, contre la crainte initiale du doc. Justification empirique :
+- La normalisation des actes notariaux rend **entité (nom + SIREN + adresse siège) et immeuble (adresse/CP/ville) hautement fiables** en regex/ancres — pas besoin de LLM.
+- Les **logements** sont le maillon imparfait, mais la discipline de l'app l'absorbe : on présente une **liste de logements « ✨ suggéré · à vérifier » entièrement éditable** (count + étage + type + surface si dispo), l'utilisateur corrige/fusionne/supprime/ajoute (« choix prédéfini + ajout libre »). Aucune écriture aveugle. Un brouillon imparfait + validation > saisie 100 % manuelle.
+- **Cohérent app** : 100 % statique, **pas de backend**, gratuit, **RGPD-clean** (l'acte ne quitte jamais le navigateur), réutilise l'infra B2 v2-c1 (`_ensurePdfjsLoaded`, `_logDiagExtractPdfText`, attachments) + matching entité existant.
+- **B (LLM)** reste un upgrade « premium SaaS » futur SI le retour onboarding montre que le brouillon logements est trop grossier — pas nécessaire pour livrer une V1 utile.
+
+**Garde-fous obligatoires pour A** (sinon « solution passable ») :
+1. Échantillon = 4 actes / 2 études **utilisant le même type de logiciel** → petit. D'autres notaires / actes anciens peuvent différer. A doit être **défensif** : ancre introuvable → champ vide, jamais de crash, jamais de blocage, l'user complète à la main.
+2. Acte scanné (PDF image) → pas de texte → échec gracieux (toast « saisie manuelle », comme c1). Les 4 ici sont des PDF texte (cas courant des copies notariales modernes).
+3. Tout reste « suggéré · à vérifier » jusqu'à validation explicite ; matching entité par **SIREN d'abord**, puis nom (fuzzy) en secours.
+
+**Estimation effort (voie A)** : **L** — mappers d'extraction (entité/SIREN/adresse + brouillon logements 2 structures) = M ; wizard import + écran de validation champ-par-champ + création/rattachement séquentiel = L. 1 session dédiée, phasée, mockup-first + audit code-reviewer (création multi-entités + anti-doublon = sensible).
+
 ## Journal
 
-- **2026-06-01** — Sujet créé suite demande user dans le fil MODALE-LOGEMENT-CONSOLIDATION (après livraison B2 v2-c1). Feasibilité confirmée *sur le principe* (même famille que B2 v2-c1), mais bloqué sur arbitrage A/B faute d'exemples. En attente des actes pour vérification empirique.
+- **2026-06-01** — Sujet créé suite demande user dans le fil MODALE-LOGEMENT-CONSOLIDATION (après livraison B2 v2-c1). Feasibilité confirmée *sur le principe* (même famille que B2 v2-c1), mais bloqué sur arbitrage A/B faute d'exemples.
+- **2026-06-01** — User a fourni **4 actes réels** (2 études). Analyse empirique faite (extraction texte + relevé d'ancres). **Verdict : voie A (heuristique locale) viable** — entité+immeuble fiables, logements en brouillon « suggéré » éditable ; année de construction absente des actes (→ DPE). Effort révisé XL→L. Prochaine étape : brainstorming dédié (design wizard + mockups) quand l'user veut attaquer.

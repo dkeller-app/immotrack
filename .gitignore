@@ -74,3 +74,4 @@ apply_new_row.bat
 
 # Diagrammes audit (Mermaid sources + PNG rendus, pas de données perso)
 !docs/audit/diagrams/**
+actes/
