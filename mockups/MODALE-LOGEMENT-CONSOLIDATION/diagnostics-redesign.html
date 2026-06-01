@@ -155,12 +155,36 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
 .cf-box p { margin:0 0 16px; font-size:13px; }
 .cf-actions { display:flex; justify-content:flex-end; gap:8px; }
 .gallery-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--t3); margin:26px 0 8px; border-top:1px solid var(--bor); padding-top:16px; }
+
+/* ADEME lookup */
+.ademe-trigger { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; padding-top:10px; border-top:1px dashed var(--bor2); }
+.ademe-trigger .note { font-size:11px; color:var(--t2); }
+.ademe-panel { margin-top:10px; border:1px solid var(--blu); background:#f5f9ff; border-radius:var(--r); padding:12px 13px; }
+.ademe-panel-h { font-weight:700; font-size:12.5px; color:#1e40af; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.ademe-panel-h .note { font-weight:400; color:var(--t2); font-size:10.5px; }
+.ademe-modes { display:flex; gap:16px; margin:10px 0; font-size:12px; flex-wrap:wrap; }
+.ademe-modes label { display:flex; align-items:center; gap:5px; cursor:pointer; }
+.ademe-row { display:flex; gap:8px; }
+.ademe-row .inp { flex:1; }
+.device[data-fmt="phone"] .ademe-row { flex-direction:column; }
+.ademe-note { font-size:10.5px; color:var(--t2); margin-top:8px; line-height:1.5; }
+.cmp-tbl { width:100%; border-collapse:collapse; font-size:12px; margin:10px 0; }
+.cmp-tbl th, .cmp-tbl td { padding:5px 8px; border:1px solid var(--bor2); text-align:left; }
+.cmp-tbl th { background:var(--sur2); font-size:10.5px; text-transform:uppercase; color:var(--t3); }
+.cmp-tbl .diff { color:#991b1b; font-weight:700; background:#fff5f5; }
+.cf-box.wide { max-width:460px; }
+.cf-box h4 { margin:0 0 10px; font-size:14px; }
+.link-dl { display:inline-flex; align-items:center; gap:6px; color:#1e40af; text-decoration:underline; font-size:12.5px; font-weight:600; }
+.addr-cmp { font-size:12.5px; margin:6px 0 14px; }
+.addr-cmp div { padding:6px 10px; border-radius:5px; margin-top:5px; }
+.addr-cmp .app { background:var(--gre-bg); }
+.addr-cmp .ademe { background:var(--amb-bg); }
 </style>
 </head>
 <body>
 <header>
   <div class="head-title">🏷 Redesign onglet « Diagnostics » — B2 v2</div>
-  <div class="head-sub">Mockup-first · 3 variantes de layout · PC / Tablette / Téléphone · états upload post-clic. Teste dans ton vrai navigateur.</div>
+  <div class="head-sub">Mockup-first · 3 variantes · PC / Tablette / Téléphone · upload + récupération DPE via ADEME (pop-ups adresse / données). Teste dans ton vrai navigateur.</div>
 </header>
 
 <div class="canvas">
@@ -170,6 +194,7 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
       <li>Jargon clarifié : libellés en clair (« Plomb », « Installation gaz »…) + le sigle technique (CREP, DAPP…) en secondaire + bulle d'aide « ? » au survol.</li>
       <li>Zone d'upload <b>globale partagée</b> « 📎 Documents de diagnostic » (réutilise le composant PJ existant → Drive). Pour envoyer les vrais PDF au locataire avec le bail.</li>
       <li>Bouton « Aperçu récap DDT » <b>retiré</b> (la synthèse est déjà dans le bail, page « Annexes obligatoires »).</li>
+      <li><b>DPE auto-rempli via l'API ADEME</b> (faisable sans backend — CORS confirmé ouvert). Recherche par n° DPE ou par adresse. Pop-up si l'<b>adresse</b> du DPE diffère du logement, et pop-up « télécharger le dernier DPE (n° XXX) » + lien si les <b>données ADEME diffèrent</b> du document.</li>
     </ul>
   </div>
 
@@ -191,6 +216,13 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
       <button class="switcher-btn" data-up="empty" onclick="setUp('empty')">Vide</button>
       <button class="switcher-btn act" data-up="filled" onclick="setUp('filled')">2 fichiers</button>
       <button class="switcher-btn" data-up="del" onclick="setUp('del')">Suppression</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">ADEME (DPE)</span>
+      <button class="switcher-btn act" data-ad="hidden" onclick="setAd('hidden')">Masqué</button>
+      <button class="switcher-btn" data-ad="panel" onclick="setAd('panel')">Recherche</button>
+      <button class="switcher-btn" data-ad="addr" onclick="setAd('addr')">Adresse ≠</button>
+      <button class="switcher-btn" data-ad="data" onclick="setAd('data')">Données ≠</button>
     </div>
   </div>
 
@@ -282,6 +314,20 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
     <strong>Retiré :</strong> le bouton « 📎 Aperçu récap DDT » qui était sous le tableau — la synthèse part déjà dans le bail (page Annexes obligatoires).
   </div>
 
+  <div class="gallery-title">🔄 DPE via ADEME — flux & pop-ups (switch « ADEME (DPE) » en haut)</div>
+  <div class="annotation">
+    <strong>Recherche</strong> : bouton « Récupérer depuis l'ADEME » sous la ligne DPE → panneau avec 2 modes : par <b>adresse du logement</b> (pré-remplie, sert de filtre) ou par <b>n° DPE</b> exact. Données officielles, gratuit, appel direct navigateur (CORS ouvert), mention « source ADEME ». Dans le mockup, « Rechercher » déclenche le pop-up « Données ≠ » pour la démo.
+  </div>
+  <div class="annotation warn">
+    <strong>Pop-up « Adresse ≠ »</strong> : si l'adresse du DPE trouvé diffère de celle du logement dans l'app → on prévient (mauvais DPE ? erreur de n° ?) avant d'écraser quoi que ce soit. Choix : annuler / utiliser quand même.
+  </div>
+  <div class="annotation warn">
+    <strong>Pop-up « Données ≠ »</strong> : si les données ADEME diffèrent du document (classe / conso…), tableau de comparaison + lien <b>« Télécharger le dernier DPE (n° XXX) »</b> vers l'Observatoire ADEME. Choix : garder mes valeurs / utiliser l'ADEME.
+  </div>
+  <div class="annotation">
+    <strong>À confirmer (implémentation) :</strong> pour comparer « ADEME vs document », il faut connaître les valeurs du document — soit l'utilisateur les a saisies, soit on lit le PDF. Si on ne lit que le n° sur le PDF, la comparaison « Données ≠ » se base sur les valeurs déjà saisies dans le formulaire (sinon pas de comparaison : on remplit directement). À trancher quand on codera.
+  </div>
+
   <div class="gallery-title">📎 Zone Documents — états post-clic (bouton « Documents » en haut)</div>
   <div class="annotation warn">
     <strong>Vide</strong> → invite à déposer · <strong>2 fichiers</strong> → liste (👁 aperçu · 📂 Drive · 🗑 supprimer, badges ☁️ synchro / 💾 local) ·
@@ -296,6 +342,43 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
     <div class="cf-actions">
       <button class="btn" onclick="setUp('filled')">Annuler</button>
       <button class="btn br" onclick="setUp('empty')">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADEME : adresse différente -->
+<div class="cf-overlay" id="ov-addr">
+  <div class="cf-box wide">
+    <h4>⚠️ Les adresses ne correspondent pas</h4>
+    <p>Le DPE trouvé dans la base ADEME concerne une adresse <b>différente</b> de ce logement :</p>
+    <div class="addr-cmp">
+      <div class="app">🏠 Logement (app) : <b>3 rue des Lilas, 75011 Paris</b></div>
+      <div class="ademe">📄 DPE ADEME : <b>5 rue des Lilas, 75011 Paris</b></div>
+    </div>
+    <p style="font-size:12px;color:var(--t2)">Es-tu sûr que c'est le bon DPE pour ce logement ?</p>
+    <div class="cf-actions">
+      <button class="btn" onclick="setAd('panel')">Annuler</button>
+      <button class="btn bp" onclick="setAd('hidden')">Utiliser quand même</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADEME : données différentes / version plus récente -->
+<div class="cf-overlay" id="ov-data">
+  <div class="cf-box wide">
+    <h4>📄 Une version différente existe dans l'ADEME</h4>
+    <p>Les données officielles diffèrent de ton document. Une version <b>corrigée ou plus récente</b> existe peut-être (correction 2024 des petites surfaces, DPE remplacé…).</p>
+    <table class="cmp-tbl">
+      <tr><th>Champ</th><th>Ton document</th><th>Base ADEME</th></tr>
+      <tr><td>Classe énergie</td><td class="diff">E</td><td class="diff">D</td></tr>
+      <tr><td>Conso (kWh/m²/an)</td><td class="diff">210</td><td class="diff">185</td></tr>
+      <tr><td>GES</td><td>C</td><td>C</td></tr>
+      <tr><td>N° DPE</td><td colspan="2">2611E0031228S</td></tr>
+    </table>
+    <p><a class="link-dl" href="https://observatoire-dpe-audit.ademe.fr/" target="_blank">⬇️ Télécharger le dernier DPE (n° 2611E0031228S) ↗</a></p>
+    <div class="cf-actions">
+      <button class="btn" onclick="setAd('hidden')">Garder mes valeurs</button>
+      <button class="btn bp" onclick="setAd('hidden')">Utiliser les données ADEME</button>
     </div>
   </div>
 </div>
@@ -347,6 +430,29 @@ function dpeExtra(d){
     <div class="fg"><label>Conso énergie (kWh/m²/an)</label><input class="inp" value="${d.dpe.conso||''}" placeholder="ex 145"></div>
     <div class="fg"><label>💶 Dépenses estimées (€/an)</label><input class="inp" value="${escAttr(d.dpe.dep||'')}" placeholder="ex 900 à 1 200 €"></div>`;
 }
+function dpeAdemeBlock(){
+  return `
+    <div class="ademe-trigger">
+      <button class="btn bs ${_ad==='hidden'?'':'bp'}" onclick="setAd('${_ad==='hidden'?'panel':'hidden'}')">🔄 Récupérer depuis l'ADEME</button>
+      <span class="note">Pré-remplit classe, GES, conso, dépenses et dates depuis la base officielle (gratuit, données qui font foi).</span>
+    </div>
+    ${_ad==='hidden' ? '' : ademePanelHTML()}`;
+}
+function ademePanelHTML(){
+  return `
+    <div class="ademe-panel">
+      <div class="ademe-panel-h">🔄 Récupérer le DPE depuis la base ADEME <span class="note">officiel · gratuit</span></div>
+      <div class="ademe-modes">
+        <label><input type="radio" name="adm"> Par n° DPE</label>
+        <label><input type="radio" name="adm" checked> Par adresse du logement</label>
+      </div>
+      <div class="ademe-row">
+        <input class="inp" value="3 rue des Lilas, 75011 Paris">
+        <button class="btn bp" onclick="setAd('data')">Rechercher</button>
+      </div>
+      <div class="ademe-note">🔎 L'adresse du logement sert de filtre. Bascule sur « Par n° DPE » pour une recherche exacte (n° à 13 caractères imprimé sur le DPE, ou lu sur le PDF). Source : base ADEME (mention obligatoire).</div>
+    </div>`;
+}
 
 // ── Variante A : cartes ──
 function renderA(){
@@ -361,7 +467,7 @@ function renderA(){
         <div class="fg"><label>Résultat</label>${resultControl(d)}</div>
         <div class="fg"><label>Diagnostiqueur ${d.exp?`· expire le ${d.exp}`:''}</label><input class="inp" placeholder="Cabinet…" value="${escAttr(d.diagn)}"></div>
       </div>
-      ${d.key==='dpe'?`<div class="dcard-dpe-extra">${dpeExtra(d)}</div>`:''}
+      ${d.key==='dpe'?`<div class="dcard-dpe-extra">${dpeExtra(d)}</div>${dpeAdemeBlock()}`:''}
     </div>`).join('');
 }
 
@@ -380,7 +486,7 @@ function renderB(){
     if(d.key==='dpe'){
       r += `<tr class="dpe-detail"><td data-lbl="Détail DPE" colspan="6">
         <div style="font-size:11px;color:var(--t2);margin-bottom:6px">🌡 Détail DPE</div>
-        <div class="fg3" style="margin-top:0">${dpeExtra(d)}</div></td></tr>`;
+        <div class="fg3" style="margin-top:0">${dpeExtra(d)}</div>${dpeAdemeBlock()}</td></tr>`;
     }
     return r;
   }).join('');
@@ -406,7 +512,7 @@ function renderC(){
           <div class="fg"><label>Résultat</label>${resultControl(d)}</div>
           <div class="fg"><label>Diagnostiqueur ${d.exp?`· expire le ${d.exp}`:''}</label><input class="inp" placeholder="Cabinet…" value="${escAttr(d.diagn)}"></div>
         </div>
-        ${d.key==='dpe'?`<div class="dcard-dpe-extra">${dpeExtra(d)}</div>`:''}
+        ${d.key==='dpe'?`<div class="dcard-dpe-extra">${dpeExtra(d)}</div>${dpeAdemeBlock()}`:''}
       </div>
     </div>`).join('');
 }
@@ -435,11 +541,13 @@ function renderUpload(state){
 }
 
 // ── State ──
-let _var='A', _fmt='pc', _up='filled';
+let _var='A', _fmt='pc', _up='filled', _ad='hidden';
 function render(){
   document.getElementById('diag-list').innerHTML = _var==='A'?renderA():_var==='B'?renderB():renderC();
   document.getElementById('upload-zone').innerHTML = renderUpload(_up==='del'?'filled':_up);
   document.getElementById('cf').classList.toggle('show', _up==='del');
+  document.getElementById('ov-addr').classList.toggle('show', _ad==='addr');
+  document.getElementById('ov-data').classList.toggle('show', _ad==='data');
 }
 function setVar(v){ _var=v;
   document.querySelectorAll('[data-var]').forEach(b=>b.classList.toggle('act', b.dataset.var===v));
@@ -453,6 +561,10 @@ function setFmt(f){ _fmt=f;
 }
 function setUp(s){ _up=s;
   document.querySelectorAll('[data-up]').forEach(b=>b.classList.toggle('act', b.dataset.up===s));
+  render();
+}
+function setAd(s){ _ad=s;
+  document.querySelectorAll('[data-ad]').forEach(b=>b.classList.toggle('act', b.dataset.ad===s));
   render();
 }
 render();
