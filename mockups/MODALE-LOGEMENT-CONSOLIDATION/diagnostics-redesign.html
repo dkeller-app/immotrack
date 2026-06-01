@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Redesign onglet Diagnostics (B2 v2) — ImmoTrack</title>
+<style>
+:root {
+  --acc: #14b8a6; --acc-dark: #0d9488;
+  --bg: #eef2f7; --sur: #fff; --sur2: #f5f3ee; --sur3: #ebe7df;
+  --bor: #d4cfc4; --bor2:#e5e1d8; --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --blu: #3b82f6; --blu-bg: #dbeafe;
+  --gre: #22c55e; --gre-bg: #dcfce7;
+  --red: #ef4444; --red-bg: #fee2e2;
+  --amb: #f59e0b; --amb-bg: #fef3c7;
+  --vio: #8b5cf6; --vio-bg:#ede9fe;
+  --r: 6px; --r-lg: 10px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--t1); font-size: 14px; line-height: 1.5; }
+header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 12px 24px; position: sticky; top: 0; z-index: 100; }
+.head-title { font-weight: 700; color: var(--acc-dark); font-size: 16px; }
+.head-sub { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.canvas { padding: 16px; max-width: 1160px; margin: 0 auto; }
+
+.decisions { background:var(--gre-bg); border:1px solid #86efac; border-radius:var(--r); padding:10px 14px; margin-bottom:16px; font-size:12px; color:#166534; }
+.decisions b { color:#14532d; }
+.decisions ul { margin:6px 0 0; padding-left:18px; } .decisions li { margin:2px 0; }
+
+.switcher { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r); padding: 10px 12px; margin-bottom: 18px; display:flex; flex-wrap:wrap; gap:22px; align-items:center; }
+.switcher-row { display: flex; gap: 6px; align-items: center; flex-wrap:wrap;}
+.switcher-label { font-size: 11.5px; color: var(--t2); font-weight: 700; text-transform:uppercase; letter-spacing:.5px; }
+.switcher-btn { padding: 5px 12px; border-radius: var(--r); border: 1px solid var(--bor); background: var(--sur2); cursor: pointer; font-size: 12px; }
+.switcher-btn.act { background: var(--acc); color: #fff; border-color: var(--acc-dark); font-weight: 600; }
+.switcher-btn:hover:not(.act) { background: var(--sur3); }
+
+.stage { display:flex; justify-content:center; }
+.device { width: 1000px; transition: width .25s ease; max-width:100%; }
+.device[data-fmt="tablet"] { width: 768px; }
+.device[data-fmt="phone"]  { width: 390px; }
+.device-meta { text-align:center; font-size:11px; color:var(--t3); margin-bottom:6px; }
+
+.modal { background: var(--sur); border: 1px solid var(--bor); border-radius: var(--r-lg); box-shadow: 0 6px 20px rgba(0,0,0,.08); overflow: hidden; }
+.modal-head { background: var(--sur2); padding: 14px 18px; border-bottom: 1px solid var(--bor); display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.modal-head h3 { margin: 0; font-size: 15.5px; }
+.m-close { border:none; background:transparent; font-size:18px; color:var(--t3); cursor:pointer; }
+.modal-tabs { display:flex; gap:4px; padding:8px 12px 0; background:var(--sur2); overflow-x:auto; }
+.modal-tab { padding:7px 13px; font-size:12.5px; border:1px solid transparent; border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer; color:var(--t2); white-space:nowrap; }
+.modal-tab.act { background:var(--sur); color:var(--t1); border-color:var(--bor); font-weight:600; }
+.modal-body { padding: 16px 20px 22px; max-height: 64vh; overflow-y:auto; }
+.m-foot { padding:12px 18px; border-top:1px solid var(--bor); background:var(--sur2); display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;}
+
+.btn { padding:6px 12px; border-radius:var(--r); border:1px solid var(--bor); background:var(--sur2); cursor:pointer; font-size:12px; }
+.btn.bp { background:var(--acc); color:#fff; border-color:var(--acc-dark); font-weight:600; }
+.btn.bs { font-size:11.5px; padding:5px 9px; }
+.btn.br { color:#991b1b; border-color:#fca5a5; background:#fff; }
+
+.fg > label { display:block; font-size:11px; color:var(--t2); margin-bottom:3px; font-weight:500; }
+.inp { width:100%; padding:6px 9px; border:1px solid var(--bor); border-radius:var(--r); font-size:12.5px; background:var(--sur); font-family:inherit; }
+.fg3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:10px; }
+.device[data-fmt="tablet"] .fg3 { grid-template-columns:1fr 1fr; }
+.device[data-fmt="phone"] .fg3 { grid-template-columns:1fr; }
+
+/* Info banner reworked */
+.diag-banner { background:#eef6ff; border-left:3px solid var(--blu); border-radius:0 var(--r) var(--r) 0; padding:10px 13px; font-size:12px; color:#1e40af; line-height:1.5; margin-bottom:14px; }
+.diag-banner b { color:#1e3a8a; }
+
+/* Status badge */
+.st { display:inline-block; padding:2px 9px; border-radius:12px; font-size:10.5px; font-weight:700; white-space:nowrap; }
+.st.valide   { background:var(--gre-bg); color:#166534; border:1px solid #86efac; }
+.st.manquant { background:var(--amb-bg); color:#92400e; border:1px solid #fcd34d; }
+.st.expire   { background:var(--red-bg); color:#991b1b; border:1px solid #fca5a5; }
+.st.bientot  { background:#ffedd5; color:#9a3412; border:1px solid #fdba74; }
+.st.na       { background:var(--sur3); color:var(--t2); border:1px solid var(--bor); }
+
+/* "?" help tooltip */
+.help-q { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%; background:var(--sur3); color:var(--t2); font-size:10px; font-weight:700; cursor:help; margin-left:4px; position:relative; }
+.help-q:hover::after { content:attr(data-tip); position:absolute; left:50%; bottom:130%; transform:translateX(-50%); background:#1f2937; color:#fff; font-size:11px; font-weight:400; line-height:1.4; padding:7px 10px; border-radius:6px; width:230px; z-index:50; box-shadow:0 4px 12px rgba(0,0,0,.2); }
+.help-q:hover::before { content:''; position:absolute; left:50%; bottom:118%; transform:translateX(-50%); border:5px solid transparent; border-top-color:#1f2937; z-index:50; }
+
+.diag-label-main { font-weight:600; font-size:13px; }
+.diag-tech { font-size:10px; color:var(--t3); font-weight:600; background:var(--sur2); border:1px solid var(--bor2); border-radius:4px; padding:1px 5px; margin-left:5px; }
+.diag-help { font-size:11px; color:var(--t2); margin-top:2px; }
+
+/* ---- Variant A : cards ---- */
+.dcard { border:1px solid var(--bor); border-left-width:3px; border-radius:var(--r); padding:11px 13px; margin-bottom:10px; background:var(--sur); }
+.dcard.s-valide   { border-left-color:var(--gre); }
+.dcard.s-manquant { border-left-color:var(--amb); }
+.dcard.s-expire   { border-left-color:var(--red); }
+.dcard.s-na       { border-left-color:var(--bor); }
+.dcard-h { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.dcard-fields { display:grid; grid-template-columns:150px 1fr 1.2fr; gap:10px; margin-top:10px; }
+.device[data-fmt="phone"] .dcard-fields { grid-template-columns:1fr; }
+.dcard-dpe-extra { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--bor2); }
+.device[data-fmt="phone"] .dcard-dpe-extra { grid-template-columns:1fr 1fr; }
+
+/* ---- Variant B : table ---- */
+.diag-tbl { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+.diag-tbl th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--t3); font-weight:700; padding:6px 8px; border-bottom:2px solid var(--bor); }
+.diag-tbl td { padding:8px 8px; border-bottom:1px solid var(--bor2); vertical-align:middle; }
+.diag-tbl tr.s-manquant td { background:#fffdf5; }
+.diag-tbl tr.s-expire td { background:#fff5f5; }
+.diag-tbl .inp { padding:4px 6px; font-size:12px; }
+.diag-tbl .dpe-detail td { background:var(--sur2); }
+.device[data-fmt="phone"] .diag-tbl, .device[data-fmt="phone"] .diag-tbl thead, .device[data-fmt="phone"] .diag-tbl tbody, .device[data-fmt="phone"] .diag-tbl tr, .device[data-fmt="phone"] .diag-tbl td { display:block; width:100%; }
+.device[data-fmt="phone"] .diag-tbl thead { display:none; }
+.device[data-fmt="phone"] .diag-tbl tr { border:1px solid var(--bor); border-radius:var(--r); margin-bottom:8px; padding:6px; }
+.device[data-fmt="phone"] .diag-tbl td { border:none; padding:4px 4px; }
+.device[data-fmt="phone"] .diag-tbl td::before { content:attr(data-lbl); display:block; font-size:10px; text-transform:uppercase; color:var(--t3); font-weight:700; margin-bottom:2px; }
+
+/* ---- Variant C : accordion ---- */
+.dacc { border:1px solid var(--bor); border-radius:var(--r); margin-bottom:7px; overflow:hidden; }
+.dacc-h { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; background:var(--sur); }
+.dacc-h:hover { background:var(--sur2); }
+.dacc.open .dacc-h { border-bottom:1px solid var(--bor2); background:var(--sur2); }
+.dacc-caret { color:var(--t3); transition:transform .2s; font-size:12px; }
+.dacc.open .dacc-caret { transform:rotate(90deg); }
+.dacc-body { display:none; padding:12px; background:var(--sur); }
+.dacc.open .dacc-body { display:block; }
+.dacc-fields { display:grid; grid-template-columns:150px 1fr 1.2fr; gap:10px; }
+.device[data-fmt="phone"] .dacc-fields { grid-template-columns:1fr; }
+.dacc-strip { display:flex; align-items:center; gap:5px; margin-left:auto; }
+
+/* ---- Shared : upload zone (mirrors _renderAttachmentSection) ---- */
+.att-section { margin-top:18px; padding-top:16px; border-top:1px solid var(--bor2); }
+.att-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; flex-wrap:wrap; }
+.att-head h4 { margin:0; font-size:14px; }
+.att-sub { font-size:11px; color:var(--t2); margin:-2px 0 8px; }
+.att-list { display:flex; flex-direction:column; gap:6px; }
+.att-item { display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--sur2); border:1px solid var(--bor); border-radius:6px; }
+.att-item .ai-ico { font-size:18px; }
+.att-item .ai-name { font-weight:500; }
+.att-item .ai-meta { font-size:11px; color:var(--t2); }
+.att-empty { padding:14px; text-align:center; color:var(--t2); background:var(--sur2); border:1px dashed var(--bor); border-radius:6px; font-size:12px; }
+
+/* Context block */
+.ctx-block { margin-top:18px; padding:12px 13px; background:var(--sur2); border:1px solid var(--bor2); border-radius:var(--r); }
+.ctx-title { font-weight:700; font-size:12.5px; display:flex; align-items:center; gap:6px; }
+.ctx-chips { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:10px; font-size:12px; }
+.ctx-chips label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+
+.hidden-note { font-size:11px; color:var(--t2); margin-top:10px; line-height:1.5; background:#fafafa; border:1px dashed var(--bor2); border-radius:var(--r); padding:8px 10px; }
+
+.annotation { background: var(--blu-bg); border-left: 3px solid var(--blu); padding: 10px 13px; border-radius: 0 var(--r) var(--r) 0; margin: 16px 0 0; font-size: 12px; color: #1e3a8a; line-height:1.55; }
+.annotation.warn { background:var(--amb-bg); border-left-color:var(--amb); color:#92400e; }
+.annotation.removed { background:var(--red-bg); border-left-color:var(--red); color:#991b1b; }
+.annotation strong { font-weight:700; }
+.variant-only { display:none; }
+.variant-only.act { display:block; }
+
+/* confirm overlay (delete) */
+.cf-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:200; }
+.cf-overlay.show { display:flex; }
+.cf-box { background:#fff; border-radius:var(--r-lg); padding:20px 22px; max-width:340px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+.cf-box p { margin:0 0 16px; font-size:13px; }
+.cf-actions { display:flex; justify-content:flex-end; gap:8px; }
+.gallery-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--t3); margin:26px 0 8px; border-top:1px solid var(--bor); padding-top:16px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-title">🏷 Redesign onglet « Diagnostics » — B2 v2</div>
+  <div class="head-sub">Mockup-first · 3 variantes de layout · PC / Tablette / Téléphone · états upload post-clic. Teste dans ton vrai navigateur.</div>
+</header>
+
+<div class="canvas">
+  <div class="decisions">
+    <b>Décisions captées (à valider visuellement) :</b>
+    <ul>
+      <li>Jargon clarifié : libellés en clair (« Plomb », « Installation gaz »…) + le sigle technique (CREP, DAPP…) en secondaire + bulle d'aide « ? » au survol.</li>
+      <li>Zone d'upload <b>globale partagée</b> « 📎 Documents de diagnostic » (réutilise le composant PJ existant → Drive). Pour envoyer les vrais PDF au locataire avec le bail.</li>
+      <li>Bouton « Aperçu récap DDT » <b>retiré</b> (la synthèse est déjà dans le bail, page « Annexes obligatoires »).</li>
+    </ul>
+  </div>
+
+  <div class="switcher">
+    <div class="switcher-row">
+      <span class="switcher-label">Variante</span>
+      <button class="switcher-btn act" data-var="A" onclick="setVar('A')">A · Cartes</button>
+      <button class="switcher-btn" data-var="B" onclick="setVar('B')">B · Tableau clarifié</button>
+      <button class="switcher-btn" data-var="C" onclick="setVar('C')">C · Accordéon</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Format</span>
+      <button class="switcher-btn act" data-fmt="pc" onclick="setFmt('pc')">🖥 PC</button>
+      <button class="switcher-btn" data-fmt="tablet" onclick="setFmt('tablet')">📱 Tablette</button>
+      <button class="switcher-btn" data-fmt="phone" onclick="setFmt('phone')">📲 Téléphone</button>
+    </div>
+    <div class="switcher-row">
+      <span class="switcher-label">Documents</span>
+      <button class="switcher-btn" data-up="empty" onclick="setUp('empty')">Vide</button>
+      <button class="switcher-btn act" data-up="filled" onclick="setUp('filled')">2 fichiers</button>
+      <button class="switcher-btn" data-up="del" onclick="setUp('del')">Suppression</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="device" data-fmt="pc" id="device">
+      <div class="device-meta" id="device-meta">🖥 PC — 1000px</div>
+      <div class="modal">
+        <div class="modal-head">
+          <div>
+            <h3>Modifier : D-101</h3>
+            <div class="head-sub">3 rue des Lilas · T2 · 2e étage</div>
+          </div>
+          <button class="m-close">×</button>
+        </div>
+        <div class="modal-tabs">
+          <div class="modal-tab">🪪 Identité</div>
+          <div class="modal-tab">📝 Description</div>
+          <div class="modal-tab act">🏷 Diagnostics</div>
+          <div class="modal-tab">🔧 Équipements</div>
+          <div class="modal-tab">📊 Présentation</div>
+        </div>
+        <div class="modal-body">
+
+          <div class="diag-banner">
+            <b>🏷 Dossier de Diagnostic Technique (DDT).</b> Remplis une fois — l'app calcule l'expiration,
+            prévient dans l'Agenda et signale les diagnostics expirés dans les actions prioritaires.
+            Seuls les diagnostics <b>applicables à ce logement</b> sont affichés (selon le contexte ci-dessous).
+            <b>À joindre au bail</b> à la signature (loi 89-462 art. 3-3, sous peine de nullité).
+          </div>
+
+          <!-- Variant content injected here -->
+          <div id="diag-list"></div>
+
+          <!-- Hidden / non applicable -->
+          <div class="hidden-note">
+            🔍 Non affichés (non applicables à ce logement) : <b>Termites</b>, <b>Mérule</b>, <b>Bruit aérien (PEB)</b>.
+            Coche la zone correspondante dans le contexte ci-dessous pour les activer.
+          </div>
+
+          <!-- Shared upload zone -->
+          <div id="upload-zone"></div>
+
+          <!-- Context -->
+          <div class="ctx-block">
+            <div class="ctx-title">⚙️ Contexte <span style="font-weight:400;color:var(--t2);font-size:11px">— détermine quels diagnostics sont obligatoires</span></div>
+            <div class="fg3">
+              <div class="fg"><label>Année de construction</label><input class="inp" type="number" placeholder="ex 1985" value="1978"></div>
+              <div class="fg"><label>Année install. gaz</label><input class="inp" type="number" placeholder="ex 2005" value="2002"></div>
+              <div class="fg"><label>Année install. électrique</label><input class="inp" type="number" placeholder="ex 1995" value="1995"></div>
+            </div>
+            <div class="ctx-chips">
+              <label><input type="checkbox" checked> Zone à risques (ERP)</label>
+              <label><input type="checkbox"> Arrêté termites</label>
+              <label><input type="checkbox"> Zone mérule</label>
+              <label><input type="checkbox"> Zone PEB (bruit)</label>
+            </div>
+            <div style="font-size:10.5px;color:var(--t3);margin-top:8px;line-height:1.5">
+              Plomb si &lt; 1949 · Amiante si &lt; 1997 · Gaz/Élec si installation &gt; 15 ans · ERP/termites/mérule/bruit selon zones.
+              <em>L'année de construction sera héritée de l'immeuble (phase B3).</em>
+            </div>
+          </div>
+
+        </div>
+        <div class="m-foot">
+          <button class="btn">Annuler</button>
+          <button class="btn bp">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotations per variant -->
+  <div class="annotation variant-only act" id="anno-A">
+    <strong>Variante A — Cartes.</strong> Une carte par diagnostic, barre de couleur à gauche selon le statut.
+    Le plus aéré et lisible, idéal mobile. Coût : plus haut verticalement (scroll) sur PC quand il y a 6+ diagnostics.
+  </div>
+  <div class="annotation variant-only" id="anno-B">
+    <strong>Variante B — Tableau clarifié.</strong> On garde le tableau (compact, vue d'ensemble immédiate sur PC) mais
+    on clarifie : libellés en clair + sigle + bulle « ? », lignes colorées par statut, détail DPE en sous-ligne.
+    Sur téléphone le tableau se transforme en cartes empilées. Coût : reste dense, moins respirant que A.
+  </div>
+  <div class="annotation variant-only" id="anno-C">
+    <strong>Variante C — Accordéon.</strong> Tout est replié par défaut : on ne voit que le libellé + le statut.
+    On déplie un diagnostic pour le remplir. Réduit au maximum la sensation de « trop de champs d'un coup » (« fill once » guidé).
+    Coût : un clic de plus pour voir/éditer chaque diagnostic.
+  </div>
+
+  <div class="annotation removed">
+    <strong>Retiré :</strong> le bouton « 📎 Aperçu récap DDT » qui était sous le tableau — la synthèse part déjà dans le bail (page Annexes obligatoires).
+  </div>
+
+  <div class="gallery-title">📎 Zone Documents — états post-clic (bouton « Documents » en haut)</div>
+  <div class="annotation warn">
+    <strong>Vide</strong> → invite à déposer · <strong>2 fichiers</strong> → liste (👁 aperçu · 📂 Drive · 🗑 supprimer, badges ☁️ synchro / 💾 local) ·
+    <strong>Suppression</strong> → confirmation avant retrait (tombstone + corbeille Drive 30j). Upload réel : 10 Mo max, compression auto des images, push Drive en arrière-plan dans le dossier « Documents » du logement.
+  </div>
+</div>
+
+<!-- Delete confirm overlay -->
+<div class="cf-overlay" id="cf">
+  <div class="cf-box">
+    <p>Supprimer la PJ « <b>DPE_D-101_2021.pdf</b> » ?<br><span style="color:var(--t2);font-size:12px">(Tombstone DB + purge IndexedDB + corbeille Drive 30j)</span></p>
+    <div class="cf-actions">
+      <button class="btn" onclick="setUp('filled')">Annuler</button>
+      <button class="btn br" onclick="setUp('empty')">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Données de démo (statuts mixtes pour réalisme) ──
+const DIAGS = [
+  { key:'dpe',  ico:'🌡', label:'Performance énergétique', tech:'DPE',  tip:"Diagnostic de Performance Énergétique — classe énergie A→G. Validité 10 ans.",
+    help:'Classe énergie A→G · validité 10 ans', kind:'classe', date:'2021-06-15', res:'D', diagn:'DPE Expertise SARL', exp:'15/06/2031', status:'valide',
+    dpe:{classe:'D', ges:'C', conso:'185', dep:'1 100 à 1 490 €'} },
+  { key:'erp',  ico:'🌍', label:'État des risques', tech:'ERP', tip:"État des Risques et Pollutions — risques naturels, miniers, technologiques, sismicité, radon. Validité 6 mois.",
+    help:'Risques naturels & technologiques · validité 6 mois', kind:'etabli', date:'2026-04-02', res:'oui', diagn:'Service public ERRIAL', exp:'02/10/2026', status:'bientot' },
+  { key:'crep', ico:'⚠️', label:'Plomb', tech:'CREP', tip:"Constat de Risque d'Exposition au Plomb — obligatoire si le logement a été construit avant le 1ᵉʳ janvier 1949.",
+    help:'Obligatoire si construit avant 1949', kind:'conforme', date:'', res:'', diagn:'', exp:'', status:'manquant' },
+  { key:'amiante', ico:'🧪', label:'Amiante', tech:'DAPP', tip:"Dossier Amiante Parties Privatives — obligatoire si le permis de construire est antérieur au 1ᵉʳ juillet 1997.",
+    help:'Obligatoire si permis avant juil. 1997', kind:'presence', date:'', res:'', diagn:'', exp:'', status:'manquant' },
+  { key:'gaz',  ico:'🔥', label:'Installation gaz', tech:'État gaz', tip:"État de l'installation intérieure de gaz — obligatoire si l'installation a plus de 15 ans. Validité 6 ans.",
+    help:'Si installation de plus de 15 ans · validité 6 ans', kind:'conforme', date:'', res:'', diagn:'', exp:'', status:'manquant' },
+  { key:'elec', ico:'⚡', label:'Installation électrique', tech:'État élec', tip:"État de l'installation intérieure d'électricité — obligatoire si l'installation a plus de 15 ans. Validité 6 ans.",
+    help:'Si installation de plus de 15 ans · validité 6 ans', kind:'conforme', date:'', res:'', diagn:'', exp:'', status:'manquant' },
+];
+const ST_LABEL = { valide:'✓ Valide', manquant:'? À renseigner', expire:'⚠ Expiré', bientot:'⏳ Expire bientôt', na:'— Non applicable' };
+
+function escAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
+
+// Résultat control selon le type de diagnostic
+function resultControl(d){
+  if(d.kind==='classe'){
+    const opts = ['','A','B','C','D','E','F','G'].map(c=>`<option ${d.res===c?'selected':''}>${c||'— classe —'}</option>`).join('');
+    return `<select class="inp">${opts}</select>`;
+  }
+  if(d.kind==='etabli'){
+    return `<select class="inp"><option ${!d.res?'selected':''}>— à faire —</option><option ${d.res==='oui'?'selected':''}>Établi</option><option>Non applicable</option></select>`;
+  }
+  if(d.kind==='conforme'){
+    return `<select class="inp"><option ${!d.res?'selected':''}>— résultat —</option><option ${d.res==='ok'?'selected':''}>Conforme</option><option ${d.res==='ko'?'selected':''}>Anomalies</option><option ${d.res==='abs'?'selected':''}>Absence d'installation</option><option>Non applicable</option></select>`;
+  }
+  // presence (amiante…)
+  return `<select class="inp"><option ${!d.res?'selected':''}>— résultat —</option><option ${d.res==='neg'?'selected':''}>Absence</option><option ${d.res==='pos'?'selected':''}>Présence</option><option>Non applicable</option></select>`;
+}
+function labelBlock(d){
+  return `<span class="diag-label-main">${d.ico} ${d.label}</span><span class="diag-tech">${d.tech}</span>`
+    + `<span class="help-q" data-tip="${escAttr(d.tip)}">?</span>`
+    + `<div class="diag-help">${d.help}</div>`;
+}
+function dpeExtra(d){
+  return `
+    <div class="fg"><label>Classe GES</label><select class="inp">${['','A','B','C','D','E','F','G'].map(c=>`<option ${d.dpe.ges===c?'selected':''}>${c||'—'}</option>`).join('')}</select></div>
+    <div class="fg"><label>Conso énergie (kWh/m²/an)</label><input class="inp" value="${d.dpe.conso||''}" placeholder="ex 145"></div>
+    <div class="fg"><label>💶 Dépenses estimées (€/an)</label><input class="inp" value="${escAttr(d.dpe.dep||'')}" placeholder="ex 900 à 1 200 €"></div>`;
+}
+
+// ── Variante A : cartes ──
+function renderA(){
+  return DIAGS.map(d=>`
+    <div class="dcard s-${d.status}">
+      <div class="dcard-h">
+        <div>${labelBlock(d)}</div>
+        <span class="st ${d.status}">${ST_LABEL[d.status]}</span>
+      </div>
+      <div class="dcard-fields">
+        <div class="fg"><label>Date réalisée</label><input class="inp" type="date" value="${d.date}"></div>
+        <div class="fg"><label>Résultat</label>${resultControl(d)}</div>
+        <div class="fg"><label>Diagnostiqueur ${d.exp?`· expire le ${d.exp}`:''}</label><input class="inp" placeholder="Cabinet…" value="${escAttr(d.diagn)}"></div>
+      </div>
+      ${d.key==='dpe'?`<div class="dcard-dpe-extra">${dpeExtra(d)}</div>`:''}
+    </div>`).join('');
+}
+
+// ── Variante B : tableau ──
+function renderB(){
+  const rows = DIAGS.map(d=>{
+    let r = `
+      <tr class="s-${d.status}">
+        <td data-lbl="Diagnostic">${labelBlock(d)}</td>
+        <td data-lbl="Date"><input class="inp" type="date" value="${d.date}"></td>
+        <td data-lbl="Résultat">${resultControl(d)}</td>
+        <td data-lbl="Diagnostiqueur"><input class="inp" placeholder="Cabinet…" value="${escAttr(d.diagn)}"></td>
+        <td data-lbl="Expire le">${d.exp||'—'}</td>
+        <td data-lbl="Statut"><span class="st ${d.status}">${ST_LABEL[d.status]}</span></td>
+      </tr>`;
+    if(d.key==='dpe'){
+      r += `<tr class="dpe-detail"><td data-lbl="Détail DPE" colspan="6">
+        <div style="font-size:11px;color:var(--t2);margin-bottom:6px">🌡 Détail DPE</div>
+        <div class="fg3" style="margin-top:0">${dpeExtra(d)}</div></td></tr>`;
+    }
+    return r;
+  }).join('');
+  return `<table class="diag-tbl">
+    <thead><tr><th>Diagnostic</th><th>Date réalisée</th><th>Résultat</th><th>Diagnostiqueur</th><th>Expire le</th><th>Statut</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+// ── Variante C : accordéon ──
+function renderC(){
+  return DIAGS.map((d,i)=>`
+    <div class="dacc ${i===0?'open':''}" id="acc-${d.key}">
+      <div class="dacc-h" onclick="document.getElementById('acc-${d.key}').classList.toggle('open')">
+        <span class="dacc-caret">▶</span>
+        <span class="diag-label-main">${d.ico} ${d.label}</span><span class="diag-tech">${d.tech}</span>
+        <span class="help-q" data-tip="${escAttr(d.tip)}" onclick="event.stopPropagation()">?</span>
+        <span class="dacc-strip"><span class="st ${d.status}">${ST_LABEL[d.status]}</span></span>
+      </div>
+      <div class="dacc-body">
+        <div class="diag-help" style="margin-bottom:10px">${d.help}</div>
+        <div class="dacc-fields">
+          <div class="fg"><label>Date réalisée</label><input class="inp" type="date" value="${d.date}"></div>
+          <div class="fg"><label>Résultat</label>${resultControl(d)}</div>
+          <div class="fg"><label>Diagnostiqueur ${d.exp?`· expire le ${d.exp}`:''}</label><input class="inp" placeholder="Cabinet…" value="${escAttr(d.diagn)}"></div>
+        </div>
+        ${d.key==='dpe'?`<div class="dcard-dpe-extra">${dpeExtra(d)}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+
+// ── Upload zone (mirrors _renderAttachmentSection) ──
+function renderUpload(state){
+  const head = `<div class="att-head">
+      <h4>📎 Documents de diagnostic ${state==='empty'?'':'<span style="font-weight:400;color:var(--t2);font-size:12px">(2)</span>'}</h4>
+      <label class="btn bs">+ Ajouter</label>
+    </div>
+    <div class="att-sub">Dépose ici les vrais PDF (DPE, CREP, ERP…). Ils seront proposés à l'envoi <b>avec le bail</b> au locataire.</div>`;
+  if(state==='empty'){
+    return `<div class="att-section">${head}
+      <div class="att-empty">Aucun document. Clique « + Ajouter » pour téléverser le DPE, le CREP, l'ERP…<br>(PDF ou image, 10 Mo max — poussé sur Drive automatiquement.)</div></div>`;
+  }
+  const items = [
+    {ico:'📄', name:'DPE_D-101_2021.pdf', meta:'412 KB · 15/06/2021 · ☁️ · 💾'},
+    {ico:'📄', name:'ERP_D-101_avril2026.pdf', meta:'288 KB · 02/04/2026 · ☁️ · 💾'},
+  ].map(f=>`<div class="att-item">
+      <span class="ai-ico">${f.ico}</span>
+      <div style="flex:1;min-width:0"><div class="ai-name">${f.name}</div><div class="ai-meta">${f.meta}</div></div>
+      <button class="btn bs">👁</button><button class="btn bs">📂</button>
+      <button class="btn bs br" onclick="setUp('del')">🗑</button>
+    </div>`).join('');
+  return `<div class="att-section">${head}<div class="att-list">${items}</div></div>`;
+}
+
+// ── State ──
+let _var='A', _fmt='pc', _up='filled';
+function render(){
+  document.getElementById('diag-list').innerHTML = _var==='A'?renderA():_var==='B'?renderB():renderC();
+  document.getElementById('upload-zone').innerHTML = renderUpload(_up==='del'?'filled':_up);
+  document.getElementById('cf').classList.toggle('show', _up==='del');
+}
+function setVar(v){ _var=v;
+  document.querySelectorAll('[data-var]').forEach(b=>b.classList.toggle('act', b.dataset.var===v));
+  document.querySelectorAll('.variant-only').forEach(a=>a.classList.toggle('act', a.id==='anno-'+v));
+  render();
+}
+function setFmt(f){ _fmt=f;
+  const dev=document.getElementById('device'); dev.dataset.fmt=f;
+  document.querySelectorAll('[data-fmt]').forEach(b=>{ if(b.tagName==='BUTTON') b.classList.toggle('act', b.dataset.fmt===f); });
+  document.getElementById('device-meta').textContent = f==='pc'?'🖥 PC — 1000px':f==='tablet'?'📱 Tablette — 768px':'📲 Téléphone — 390px';
+}
+function setUp(s){ _up=s;
+  document.querySelectorAll('[data-up]').forEach(b=>b.classList.toggle('act', b.dataset.up===s));
+  render();
+}
+render();
+</script>
+</body>
+</html>
