@@ -7,18 +7,30 @@
   <link rel="stylesheet" href="/sign.css" />
 </head>
 <body>
-  <main id="app" aria-live="polite">
-    <h1>Harnais dev — pad</h1>
-    <canvas id="pad" width="500" height="160" style="border:1px solid #ccc;touch-action:none"></canvas>
-    <div><button id="clr">Effacer</button> <button id="dump">Voir dataURL</button></div>
-    <img id="preview" alt="" style="border:1px solid #eee;max-width:250px">
+  <main id="app">
+    <h1>Harnais dev — viewer (page par page)</h1>
+    <button id="gen">Générer un PDF 2 pages</button>
+    <div id="pdf-page"></div>
+    <button id="prev">◀ Précédente</button> <button id="next">Suivante ▶</button>
   </main>
+  <script src="/vendor/pdf-lib.min.js"></script>
   <script type="module">
-    import { initPad } from '/sign/pad.js';
-    const pad = initPad(document.getElementById('pad'), { clearBtn: document.getElementById('clr') });
-    document.getElementById('dump').onclick = () => {
-      document.getElementById('preview').src = pad.isEmpty() ? '' : pad.toDataURL();
+    import { loadDocument, renderPageInto } from '/sign/viewer.js';
+    let pdf, cur = 1;
+    const cont = document.getElementById('pdf-page');
+    document.getElementById('gen').onclick = async () => {
+      const doc = await PDFLib.PDFDocument.create();
+      const f = await doc.embedFont('Helvetica');
+      for (const t of ['Page 1 — bail', 'Page 2 — bail']) {
+        const p = doc.addPage([595.28, 841.89]);
+        p.drawText(t, { x: 60, y: 760, size: 24, font: f });
+      }
+      const bytes = await doc.save(); // Uint8Array
+      pdf = await loadDocument(bytes.slice()); // copie : PDF.js détache
+      cur = 1; await renderPageInto(pdf, cur, cont);
     };
+    document.getElementById('next').onclick = async () => { if (pdf && cur < pdf.numPages) { cur++; await renderPageInto(pdf, cur, cont); } };
+    document.getElementById('prev').onclick = async () => { if (pdf && cur > 1) { cur--; await renderPageInto(pdf, cur, cont); } };
   </script>
 </body>
 </html>
