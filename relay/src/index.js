@@ -100,4 +100,23 @@ app.get('/api/sessions/:id/pdf', async (c) => {
   return new Response(obj.body, { headers: { 'content-type': 'application/pdf' } });
 });
 
+app.post('/api/sessions/:id/signed', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireSigner(c, sessionId);
+  if (guard.error) return guard.error;
+
+  const contentType = c.req.header('content-type') || '';
+  const bytes = new Uint8Array(await c.req.arrayBuffer());
+  const v = validatePdfUpload(bytes, contentType);
+  if (!v.ok) return c.json({ error: v.reason }, 400);
+
+  const proof = {
+    ip: c.req.header('CF-Connecting-IP') || '',
+    userAgent: c.req.header('User-Agent') || '',
+    signedAt: new Date().toISOString()
+  };
+  const session = await recordSignature(c.env, sessionId, { signedBytes: bytes, proof });
+  return c.json({ status: session.status, currentIndex: session.currentIndex });
+});
+
 export default app;

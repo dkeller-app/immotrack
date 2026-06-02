@@ -112,3 +112,35 @@ describe('GET /api/sessions/:id/pdf', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('POST /api/sessions/:id/signed', () => {
+  async function signTokenOf(sessionId) {
+    const res = await SELF.fetch(`https://relay.test/s/${sessionId}`);
+    return (await res.text()).match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
+  }
+  const signedPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 8, 8, 8]);
+
+  it('rejette un upload non-PDF (400)', async () => {
+    const { sessionId } = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST',
+      headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
+      body: new Uint8Array([1, 2, 3, 4])
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('accepte le PDF signé, complète la session mono-signataire', async () => {
+    const { sessionId } = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST',
+      headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf', 'CF-Connecting-IP': '9.9.9.9' },
+      body: signedPdf
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('completed');
+  });
+});
