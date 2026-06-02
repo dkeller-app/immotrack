@@ -127,6 +127,12 @@ import {
   DG_STATUS, PROCEDURE_ETAT
 } from './core/gestion-dg-impayes.js';
 
+// LOG-CANDIDATS (Phase 2) - helpers purs candidature locataire
+import {
+  _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
+  _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses
+} from './core/candidature.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -287,6 +293,14 @@ window._procedureJudiciaireEtat = _procedureJudiciaireEtat;
 window._listerImpayesActifs = _listerImpayesActifs;
 window.DG_STATUS = DG_STATUS;
 window.PROCEDURE_ETAT = PROCEDURE_ETAT;
+
+// LOG-CANDIDATS (Phase 2) - helpers purs candidature locataire
+window._calculConfiance = _calculConfiance;
+window._candidatVersLocataire = _candidatVersLocataire;
+window._candidatVersGarant = _candidatVersGarant;
+window._nouveauCandidat = _nouveauCandidat;
+window._migrerDocsCandidatVersBail = _migrerDocsCandidatVersBail;
+window._purgeCandidatsRefuses = _purgeCandidatsRefuses;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
