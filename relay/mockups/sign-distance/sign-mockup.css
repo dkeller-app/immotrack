@@ -354,14 +354,97 @@ h2 { font-size: 17px; margin: 0 0 10px; }
   position: sticky;
   bottom: 0;
   left: 0; right: 0;
-  background: rgba(255,255,255,.96);
+  background: rgba(255,255,255,.97);
   backdrop-filter: blur(6px);
   border-top: 1px solid var(--line);
   box-shadow: 0 -4px 18px rgba(20,20,60,.07);
   padding: 12px var(--pad);
+  /* respecte l'encoche / barre d'accueil iOS-Android */
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   margin: 0 calc(-1 * var(--pad)) calc(-1 * var(--pad));
 }
-.sticky-bar .ctx { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 8px; }
+.sticky-bar .ctx {
+  font-size: 12.5px; color: var(--ink-faint); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+.sticky-bar .ctx .spacer { flex: 1; }
+
+/* Indicateur de progression « Page N / total » dans la barre */
+.page-progress {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--accent);
+  margin-bottom: 8px;
+}
+.page-progress .bar {
+  flex: 1; height: 5px; background: var(--line);
+  border-radius: 3px; overflow: hidden;
+}
+.page-progress .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.page-progress .pg { white-space: nowrap; color: var(--ink-soft); font-weight: 700; }
+
+/* --- Pad de PARAPHE (petit, dans la barre basse, 1 par page) ------------- */
+/* Distinct du pad de signature : plus petit + libellé « paraphe ». */
+.parapad-wrap { margin-bottom: 10px; }
+.parapad-wrap .parapad-label {
+  font-size: 12px; font-weight: 700; color: var(--accent);
+  margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+}
+.parapad {
+  width: 100%;
+  height: 88px;                      /* PETIT : c'est un paraphe, pas la signature */
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background:
+    repeating-linear-gradient(transparent, transparent 28px, #eef0fb 28px, #eef0fb 29px),
+    #fff;
+  touch-action: none;
+  position: relative;
+  display: grid; place-items: center;
+  overflow: hidden;
+}
+.parapad .ghost { color: #b8b8cf; font-size: 12.5px; pointer-events: none; }
+.parapad .baseline {
+  position: absolute; left: 12px; right: 12px; bottom: 18px;
+  border-bottom: 1px solid #c9c9dd;
+}
+/* Le PARAPHE = initiales : petit gribouillis « J.D. », penché à gauche. */
+.scribble-paraphe {
+  font-family: "Segoe Script", "Bradley Hand", "Brush Script MT", cursive;
+  font-size: 30px; color: #14143a; transform: rotate(-7deg) skewX(-6deg);
+  letter-spacing: 1px; pointer-events: none;
+}
+.para-tools { display: flex; gap: 8px; align-items: center; }
+.para-tools .btn { width: auto; padding: 8px 14px; min-height: 40px; }
+.para-tools .pen-note { margin-left: auto; font-size: 11.5px; color: var(--ink-faint); }
+
+/* La SIGNATURE finale = gribouillis large et différent : cursive nom complet,
+   penché à droite, tracé plus ample. Jamais la même image que le paraphe. */
+.sigpad .scribble-signature {
+  font-family: "Segoe Script", "Bradley Hand", cursive;
+  font-size: 46px; color: #14143a; transform: rotate(3deg);
+  pointer-events: none;
+}
+
+/* Badge « lecture seule » pour les pages annexes (pas de paraphe) */
+.readonly-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--ink-faint);
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 12px; margin-bottom: 8px;
+}
+.readonly-badge .ico { color: var(--ink-faint); }
+
+/* Vignette « paraphe déjà apposé » sur les pages validées (mini aperçu) */
+.para-done {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--ok); font-weight: 700;
+  border: 1px solid var(--ok); background: var(--ok-soft);
+  border-radius: 4px; padding: 2px 7px; margin-top: 8px;
+}
+.para-done .mini {
+  font-family: "Segoe Script", "Bradley Hand", cursive;
+  font-size: 15px; transform: rotate(-7deg) skewX(-6deg); color: #14143a;
+}
 
 /* --- Accordéon (variante C) ---------------------------------------------- */
 .acc { display: flex; flex-direction: column; gap: 10px; }
