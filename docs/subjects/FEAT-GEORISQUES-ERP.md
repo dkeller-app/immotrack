@@ -1,6 +1,6 @@
 # FEAT-GEORISQUES-ERP — Détection automatique ERP / IAL depuis l'adresse (Géorisques + BAN)
 
-**Status** : ✅ Phase 1 (détection adresse) CODÉE + 🛡 AUDITÉE ×2 + TEST VISUEL OK (2026-06-02) · 🆕 Phase 2 (câblage doc ERRIAL ↔ ligne ERP + suivi validité 6 mois) À FAIRE · Sync PROD différée (dépend B2) · **Prio** : P2 · **Taille** : M (Phase 1) + M (Phase 2)
+**Status** : ✅ Phase 1 (détection adresse) CODÉE + 🛡 AUDITÉE ×2 + TEST VISUEL OK (2026-06-02) · ✅ Phase 2 (câblage doc ERRIAL ↔ ligne ERP + suivi validité 6 mois) **CODÉE sandbox v15.254 + 🛡 revue spec ✅ + audit code-reviewer ✅ SHIP** (2026-06-02), à tester visuel · Sync PROD différée (dépend B2) · **Prio** : P2 · **Taille** : M (Phase 1) + M (Phase 2)
 **Détecté / décidé** : 2026-06-02 · **Sujet créé** : 2026-06-02
 **Lié à** : MODALE-LOGEMENT-CONSOLIDATION B2 (onglet Diagnostics unifié — c'est là que vit l'UI) · BAILLEUR-DIAGNOSTICS-DDT (annexe État des Risques au bail).
 
@@ -85,9 +85,19 @@ compat d'API (args ignorés). Tests mis à jour (toujours 44, le test d'URL asse
 - ✅ **TEST VISUEL FAIT (2026-06-02)** : sur Logt 1 (Morschwiller-le-Bas 68218), le panneau détecte « ERP/IAL obligatoire · sismicité zone 3 » **depuis l'adresse via l'API, avant tout upload de document** ; case « Zone à risques (ERP) » cochée auto. Cohérence confirmée par l'ERRIAL officiel (SISMICITÉ 3/5). Lien « Vérifiez sur georisques.gouv.fr » → corrigé en ERRIAL (v15.253).
 - **Sync PROD** (`index.html` + `sw.js` CACHE_VER) APRÈS « OK » explicite user — différée avec le reste de Phase B (dépend de B2 : les `_logDiag*` n'existent pas encore en PROD).
 
-## Phase 2 — câblage doc ERRIAL ↔ diagnostic ERP + suivi validité (À FAIRE, prio à fixer)
+## Phase 2 — câblage doc ERRIAL ↔ diagnostic ERP + suivi validité (✅ CODÉE sandbox v15.254, 2026-06-02)
 
-**Problème constaté au test visuel 2026-06-02** : **3 signaux ERP déconnectés** sur le même écran Diagnostics —
+> **✅ LIVRÉ sandbox (index-test.html), à tester visuel.** Mockup `mockups/georisques-erp/alerte-validite-erp.html` validé · spec `docs/superpowers/specs/2026-06-02-georisques-erp-phase2-design.md` · plan `docs/superpowers/plans/2026-06-02-georisques-erp-phase2.md`.
+> **3 décisions implémentées** : (1) **ERP binaire** — `_diagStatut('erp',…)` ne renvoie jamais « expirebientot » (garde `if (diagKey==='erp') return 'valide';` placée APRÈS le retour `expire`, donc un ERP périmé reste bien `expire`) → corrige par suppression le bug seuil (validité totale 6 mois = seuil « bientôt »). (2) **Bandeau rouge** au-dessus du tableau (`_logDiagRenderTab`, classe `.logdiag-erp-banner`) SI ERP expiré : affiche date d'établissement + « valable jusqu'au … » + CTA `↻ Régénérer sur ERRIAL (gratuit)` → `https://errial.georisques.gouv.fr/`. (3) **Encart rouge ERP→ERRIAL** dans la modale bloquante existante `_ddtShowIncompletModal` si ERP manquant/expiré (pas de nouvelle porte ; boutons `_ddtForceOverride`/`_ddtGoFix` inchangés).
+> **Extraction date** : « Établi le JJ/MM/AAAA » extraite **séparément** (`erpDate`/`erpDateRaw`/`erpDateSrc` dans `_logDiagExtractSuggestions`, ancre `/[ée]tabli\s+le\s+…/i` + validation calendaire Date.UTC) et appliquée **à la clé `erp` uniquement** dans `_logDiagApplySuggestions` (`key==='erp' && sug.erpDate ? sug.erpDate : sug.date`) → suggérée « ✨ à vérifier » (jamais d'écriture aveugle), zéro pollution DPE/plomb/gaz/autres. DPE jamais suggéré.
+> **Décisions user (AskUserQuestion)** : seuil ERP = binaire (« soit valide soit non », pas d'« expire bientôt ») · à la génération du bail, ERP « bientôt » = ne rien afficher (soit valide = silence, soit expiré = bloquant).
+> **Vérif** : check-inline-js **4/0** · **1408/1408 Vitest** · 🛡 revue conformité spec ✅ · audit `superpowers:code-reviewer` ✅ **SHIP** (0 Critical / 0 Important — cross-contamination structurellement impossible, gate génération inchangé `_ddtComplet`, immutabilité bail OK, pas de XSS ; 3 Minor cosmétiques dont wording date d'expiration corrigé « valable jusqu'au » au lieu de « périmé depuis le », off-by-one légal).
+> **PROD `index.html`+`sw.js` PAS touchés** (sync différée avec B2 — `_logDiag*` = 0 en PROD).
+> **À TESTER VISUEL (vrai navigateur, sandbox)** : 1/ dépôt PDF ERRIAL → date « Établi le » suggérée ✨ sur ligne ERP · 2/ date <6 mois = chip ✅ valide, **aucun** bandeau · 3/ date >6 mois = chip 🔴 expiré + **bandeau rouge** + CTA · 4/ génération bail avec ERP expiré/manquant = modale bloquante `ov-ddt-incomplet` + **encart ERP→ERRIAL**.
+
+---
+
+**Problème initial constaté au test visuel 2026-06-02** : **3 signaux ERP déconnectés** sur le même écran Diagnostics —
 1. Panneau adresse v15.252 : « obligatoire · sismicité zone 3 » + case ☑ « Zone à risques » → ✅ marche (API).
 2. Scan PDF (B2) : puce indicative « État des risques (ERP) » reconnue dans l'ERRIAL joint → ✅ s'affiche.
 3. Ligne DDT « État des risques » : reste **« ❓ À renseigner »** (date vide, résultat « — »).
