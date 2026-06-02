@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup V2 — BAIL-SIGNATURE-DISTANCE — Aller-retour automatique (relais)</title>
+<style>
+:root {
+  --acc: #2563eb; --acc-dark: #1d4ed8; --acc-soft: #dbeafe;
+  --vio: #8b5cf6; --vio-soft: #ede9fe;
+  --ok: #10b981; --ok-soft:#d1fae5; --warn: #f59e0b; --err: #ef4444;
+  --cf:#f6821f; --cf-soft:#ffedd5;
+  --t1: #1f2937; --t2: #6b7280; --t3: #9ca3af;
+  --sur: #ffffff; --sur2: #f3f4f6; --sur3: #f9fafb;
+  --bor: #e5e7eb;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: var(--t1); background: var(--sur2); font-size: 13px; line-height: 1.5; }
+
+.app-header { background: linear-gradient(90deg, var(--acc), var(--vio)); color: white; padding: 14px 22px; }
+.app-header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+.app-header .lead { font-size: 12px; opacity: 0.92; font-style: italic; margin-top: 3px; }
+
+.controls { background: var(--sur); padding: 12px 20px; border-bottom: 1px solid var(--bor); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; position: sticky; top:0; z-index:20; }
+.controls .lab { font-size: 11px; font-weight: 700; color: var(--t2); text-transform: uppercase; letter-spacing: 0.4px; }
+.btn-group { display: inline-flex; border: 1px solid var(--bor); border-radius: 6px; overflow: hidden; }
+.btn-group button { background: var(--sur); border: none; padding: 7px 13px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--bor); color: var(--t1); white-space: nowrap; }
+.btn-group button:last-child { border-right: none; }
+.btn-group button.act { background: var(--acc); color: white; }
+.nav-btn { padding: 7px 14px; border: 1px solid var(--bor); border-radius: 6px; background: var(--sur); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--t1); }
+.nav-btn:hover { border-color: var(--acc); }
+.nav-btn.primary { background: var(--acc); color:#fff; border-color: var(--acc); }
+.nav-btn.primary:hover { background: var(--acc-dark); }
+.nav-btn:disabled { opacity: .4; cursor: not-allowed; }
+.step-counter { font-size: 12px; font-weight:700; color: var(--t1); background: var(--sur2); padding:6px 12px; border-radius: 20px; }
+
+.wrap { max-width: 1280px; margin: 18px auto; padding: 0 16px; }
+
+/* ───────── Stage 3 acteurs ───────── */
+.stage { display: grid; grid-template-columns: 1fr 96px 1fr 96px 1fr; gap: 0; align-items: stretch; }
+
+.col { background: var(--sur); border: 2px solid var(--bor); border-radius: 10px; overflow: hidden; display:flex; flex-direction:column; transition: border-color .25s, box-shadow .25s, transform .25s; }
+.col.active { border-color: var(--acc); box-shadow: 0 8px 24px rgba(37,99,235,.18); transform: translateY(-2px); }
+.col-head { padding: 10px 12px; font-weight: 700; font-size: 12.5px; display:flex; align-items:center; gap:8px; border-bottom: 1px solid var(--bor); }
+.col-bail .col-head { background: var(--acc-soft); color: var(--acc-dark); }
+.col-relay .col-head { background: var(--cf-soft); color: #9a3412; }
+.col-sign .col-head { background: var(--vio-soft); color: #5b21b6; }
+.col-head .ico { font-size: 16px; }
+.col-head .tag { margin-left:auto; font-size: 9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:2px 7px; border-radius: 10px; background: rgba(0,0,0,.06); }
+.col-body { padding: 12px; flex:1; min-height: 330px; }
+
+/* gaps + flèches */
+.gap { display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 0 4px; position: relative; }
+.flow { width:100%; height: 2px; background: var(--bor); position: relative; border-radius:2px; }
+.flow.on { background: var(--acc); }
+.flow.on.rev { background: var(--vio); }
+.arrow-head { position:absolute; top:50%; transform: translateY(-50%); font-size: 18px; line-height:1; color: var(--acc); display:none; }
+.flow.on .arrow-head { display:block; }
+.flow.on.rev .arrow-head { color: var(--vio); }
+.arrow-head.right { right:-3px; }
+.arrow-head.left { left:-3px; }
+.dot { position:absolute; top:50%; width:9px; height:9px; border-radius:50%; background: var(--acc); transform: translateY(-50%); box-shadow:0 0 0 4px rgba(37,99,235,.18); display:none; }
+.flow.on .dot { display:block; animation: travelR 1.2s linear infinite; }
+.flow.on.rev .dot { background: var(--vio); box-shadow:0 0 0 4px rgba(139,92,246,.18); animation: travelL 1.2s linear infinite; }
+@keyframes travelR { 0%{left:0%}100%{left:100%} }
+@keyframes travelL { 0%{left:100%}100%{left:0%} }
+.flow-label { font-size: 9.5px; font-weight:700; color: var(--t2); text-align:center; margin-top:8px; min-height: 26px; line-height:1.25; }
+.flow-label.on { color: var(--acc-dark); }
+.flow-label.on.rev { color: #6d28d9; }
+.gap .pdf-chip { font-size: 16px; margin-bottom:6px; opacity:0; transition: opacity .2s; }
+.gap .pdf-chip.on { opacity: 1; }
+
+/* ───────── Mini-écrans ───────── */
+.scr { font-size: 11.5px; }
+.scr h4 { margin: 0 0 8px; font-size: 12.5px; }
+.scr .ref { font-size: 10.5px; color: var(--t2); }
+.row { display:grid; grid-template-columns: 1fr 1fr; gap:6px; padding:6px 8px; border:1px solid var(--bor); border-radius:5px; margin-bottom:5px; background: var(--sur3); }
+.row b { color: var(--t1); }
+.btn { padding: 7px 11px; border:1px solid var(--bor); border-radius:6px; background:var(--sur); cursor:pointer; font-size:11.5px; font-weight:600; color:var(--t1); display:inline-flex; align-items:center; gap:5px; }
+.btn.sig { background: linear-gradient(90deg, var(--vio), var(--acc)); color:#fff; border:none; width:100%; justify-content:center; padding:9px; font-size:12.5px; }
+.btn.primary{ background:var(--acc); color:#fff; border-color:var(--acc); }
+.btn.ghost{ width:100%; justify-content:center; }
+
+.dest { border:1px solid var(--bor); border-radius:6px; padding:8px 10px; margin:6px 0; background:var(--sur3); display:flex; align-items:center; gap:8px; }
+.dest .ord { width:20px; height:20px; border-radius:50%; background:var(--vio); color:#fff; font-weight:700; font-size:11px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+.dest .who { font-weight:700; }
+.dest .mail { color:var(--t2); font-size:10.5px; }
+.dest .st { margin-left:auto; font-size:10px; font-weight:700; padding:2px 7px; border-radius:10px; }
+.st-pend { background:#fef3c7; color:#92400e; }
+.st-cur  { background:var(--acc-soft); color:var(--acc-dark); }
+.st-done { background:var(--ok-soft); color:#065f46; }
+
+.statebox { border:1px dashed var(--bor); border-radius:6px; padding:10px; margin:6px 0; background:var(--sur3); font-family: ui-monospace, monospace; font-size:10.5px; color:var(--t2); }
+.statebox .k { color:var(--cf); font-weight:700; }
+.kv { display:flex; gap:6px; align-items:center; padding:4px 8px; border-radius:5px; margin:4px 0; font-size:11px; }
+.kv .badge { font-size:9px; font-weight:700; padding:1px 6px; border-radius:8px; }
+.r2 { background:#fff7ed; border:1px solid #fed7aa; }
+.r2 .badge{ background:var(--cf); color:#fff; }
+.kvb { background:#eff6ff; border:1px solid #bfdbfe; }
+.kvb .badge{ background:var(--acc); color:#fff; }
+
+.statusline { padding:8px 10px; border-radius:6px; font-weight:700; font-size:12px; margin:8px 0; display:flex; align-items:center; gap:7px; }
+.sl-wait { background:#fef3c7; color:#92400e; }
+.sl-ok { background:var(--ok-soft); color:#065f46; }
+.sl-idle{ background:var(--sur2); color:var(--t2); }
+
+.mailbox { border:1px solid var(--bor); border-radius:6px; overflow:hidden; }
+.mailbox .mh { background:var(--sur3); padding:7px 10px; font-size:10.5px; border-bottom:1px solid var(--bor); }
+.mailbox .mh b{ color:var(--t2); }
+.mailbox .mb { padding:10px; }
+.mail-cta { display:block; background:linear-gradient(90deg,var(--acc),var(--vio)); color:#fff; text-align:center; text-decoration:none; padding:9px; border-radius:6px; font-weight:700; font-size:12px; margin:8px 0; }
+
+.steps-mini { display:flex; gap:3px; margin-bottom:8px; }
+.steps-mini .sm { flex:1; text-align:center; font-size:9.5px; padding:4px 2px; border-radius:5px; background:var(--sur2); color:var(--t3); font-weight:700; }
+.steps-mini .sm.act { background:var(--acc); color:#fff; }
+.steps-mini .sm.done { background:var(--ok); color:#fff; }
+.pdfmini { background:var(--sur3); border:1px solid var(--bor); border-radius:5px; padding:8px 10px; font-family:Georgia,serif; font-size:10px; color:var(--t2); max-height:96px; overflow:hidden; margin:6px 0; }
+.pdfmini h5{ margin:0 0 4px; font-size:11px; color:var(--t1); }
+.canvas { border:2px solid var(--acc); border-radius:6px; height:64px; display:flex; align-items:center; justify-content:center; margin:6px 0; background:var(--sur); font-family:'Segoe Script','Brush Script MT',cursive; font-size:22px; color:var(--acc-dark); }
+.canvas.small{ height:42px; font-size:16px; border-style:dashed; border-color:var(--bor); color:var(--t3); }
+.consent { display:flex; gap:7px; align-items:flex-start; font-size:10.5px; background:var(--sur3); border:1px solid var(--bor); border-radius:5px; padding:7px; margin:6px 0; }
+.consent input{ margin-top:2px; }
+.otp-off { font-size:10px; color:var(--t3); border:1px dashed var(--bor); border-radius:5px; padding:5px 7px; margin:6px 0; font-style:italic; }
+.done-big { text-align:center; padding:18px 8px; }
+.done-big .ck { font-size:36px; }
+.toast { background:#064e3b; color:#fff; border-radius:8px; padding:9px 12px; font-weight:700; font-size:12px; display:flex; gap:8px; align-items:center; margin:8px 0; box-shadow:0 6px 18px rgba(0,0,0,.2); }
+.driveline { display:flex; align-items:center; gap:7px; border:1px solid var(--bor); border-radius:6px; padding:7px 9px; background:var(--sur3); font-size:11px; margin-top:6px; }
+.proof { background:#f5f3ff; border:1px solid #ddd6fe; border-radius:6px; padding:8px 10px; font-size:10px; color:#5b21b6; margin-top:6px; }
+.proof b{ display:block; margin-bottom:3px; font-size:10.5px; }
+.proof ul{ margin:0; padding-left:15px; }
+
+/* ───────── Narration ───────── */
+.narration { background:var(--sur); border:1px solid var(--bor); border-radius:10px; padding:14px 16px; margin-top:16px; display:flex; gap:14px; align-items:flex-start; }
+.narration .nstep { flex:0 0 auto; width:34px; height:34px; border-radius:50%; background:var(--acc); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:15px; }
+.narration .ntext { flex:1; font-size:13px; line-height:1.55; }
+.narration .ntext em{ color:var(--acc-dark); font-style:normal; font-weight:700; }
+.guar { flex:0 0 auto; align-self:center; font-size:11px; font-weight:700; padding:7px 12px; border-radius:20px; white-space:nowrap; }
+.guar-infra{ background:var(--cf-soft); color:#9a3412; }
+.guar-secu{ background:#fee2e2; color:#991b1b; }
+.guar-legal{ background:#ecfccb; color:#3f6212; }
+.guar-star{ background:linear-gradient(90deg,var(--vio),var(--acc)); color:#fff; }
+
+.legend { margin-top:14px; font-size:11px; color:var(--t2); background:var(--sur); border:1px solid var(--bor); border-radius:8px; padding:10px 14px; }
+.legend b{ color:var(--t1); }
+.legend .pill{ display:inline-block; padding:1px 7px; border-radius:10px; font-weight:700; font-size:10px; margin:0 2px; }
+
+@media (max-width: 900px) {
+  .stage { grid-template-columns: 1fr; }
+  .gap { flex-direction:row; padding:10px 0; }
+  .gap .flow { width: 60%; height:2px; }
+  .col-body{ min-height:0; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1>BAIL-SIGNATURE-DISTANCE — Aller-retour automatique</h1>
+  <div class="lead">Mockup V2 (relais maison) · le bail part, revient signé tout seul, atterrit dans le Drive du bailleur — zéro action manuelle</div>
+</div>
+
+<div class="controls">
+  <span class="lab">Scénario</span>
+  <div class="btn-group" id="scenSel">
+    <button data-s="solo" class="act">Locataire seul</button>
+    <button data-s="gestion">Bailleur + Locataire (gestion)</button>
+  </div>
+  <span style="flex:1"></span>
+  <button class="nav-btn" id="prevBtn">◀ Précédent</button>
+  <span class="step-counter" id="counter">1 / 1</span>
+  <button class="nav-btn primary" id="nextBtn">Étape suivante ▶</button>
+  <button class="nav-btn" id="playBtn">▶ Lecture auto</button>
+  <button class="nav-btn" id="resetBtn">↻</button>
+</div>
+
+<div class="wrap">
+  <div class="stage">
+    <!-- Bailleur -->
+    <div class="col col-bail" id="colB">
+      <div class="col-head"><span class="ico">📱</span> Bailleur — ImmoTrack <span class="tag">app</span></div>
+      <div class="col-body" id="bodyB"></div>
+    </div>
+    <!-- gap 1 -->
+    <div class="gap" id="gap1">
+      <div class="pdf-chip" id="chip1">📄</div>
+      <div class="flow" id="flow1"><span class="dot"></span><span class="arrow-head right">▶</span><span class="arrow-head left">◀</span></div>
+      <div class="flow-label" id="label1"></div>
+    </div>
+    <!-- Relais -->
+    <div class="col col-relay" id="colR">
+      <div class="col-head"><span class="ico">☁️</span> Relais — Cloudflare <span class="tag">Worker + R2 + KV</span></div>
+      <div class="col-body" id="bodyR"></div>
+    </div>
+    <!-- gap 2 -->
+    <div class="gap" id="gap2">
+      <div class="pdf-chip" id="chip2">📄</div>
+      <div class="flow" id="flow2"><span class="dot"></span><span class="arrow-head right">▶</span><span class="arrow-head left">◀</span></div>
+      <div class="flow-label" id="label2"></div>
+    </div>
+    <!-- Signataire -->
+    <div class="col col-sign" id="colS">
+      <div class="col-head"><span class="ico">👤</span> <span id="headS">Locataire — navigateur</span> <span class="tag">sign.html</span></div>
+      <div class="col-body" id="bodyS"></div>
+    </div>
+  </div>
+
+  <div class="narration">
+    <div class="nstep" id="nStep">1</div>
+    <div class="ntext" id="nText"></div>
+    <div class="guar" id="nGuar"></div>
+  </div>
+
+  <div class="legend">
+    <b>Lecture :</b> la <span class="pill" style="background:var(--acc-soft);color:var(--acc-dark)">flèche bleue</span> = données ImmoTrack ⇄ relais · la <span class="pill" style="background:var(--vio-soft);color:#5b21b6">flèche violette</span> = relais ⇄ locataire. Le <b>📄</b> qui circule = le PDF du bail. Garanties : <span class="pill guar-infra">infra</span> serverless · <span class="pill guar-secu">sécu</span> token/chiffrement · <span class="pill guar-legal">juridique</span> preuve eIDAS simple · <span class="pill guar-star">★</span> le différenciant vs l'ancien design.
+  </div>
+</div>
+
+<script>
+/* ════════ Écrans (templates) ════════ */
+const B = {
+  fiche: (g)=>`<div class="scr">
+    <h4>Fiche bail <span class="ref">— 14 av. Emile Huchet</span></h4>
+    <div class="row"><span>Locataire</span><b>${g?'AUDRIN + bailleur (gestion)':'AUDRIN Camille'}</b></div>
+    <div class="row"><span>Loyer CC</span><b>720 €</b></div>
+    <div class="statusline sl-ok">✍️ Signé par le bailleur (in-app) — paraphes + signature OK</div>
+    <button class="btn sig">📤 Envoyer pour signature à distance</button>
+  </div>`,
+  modale: ()=>`<div class="scr">
+    <h4>Envoyer pour signature</h4>
+    <div class="ref">Destinataires pré-remplis depuis le bail</div>
+    <div class="dest"><span class="ord">1</span><div><div class="who">AUDRIN Camille</div><div class="mail">camille.audrin@gmail.com</div></div><span class="st st-pend">à signer</span></div>
+    <div class="otp-off">☐ OTP SMS (renforce la preuve) — prévu, désactivé en V1</div>
+    <button class="btn primary ghost">Envoyer le lien de signature ▶</button>
+  </div>`,
+  modaleG: ()=>`<div class="scr">
+    <h4>Envoyer pour signature <span class="ref">(gestion — 2 signataires ordonnés)</span></h4>
+    <div class="dest"><span class="ord">1</span><div><div class="who">SCI PATRIMOINE (bailleur)</div><div class="mail">gerant@sci-patrimoine.fr</div></div><span class="st st-pend">signe en 1er</span></div>
+    <div class="dest"><span class="ord">2</span><div><div class="who">AUDRIN Camille (locataire)</div><div class="mail">camille.audrin@gmail.com</div></div><span class="st st-pend">signe en 2nd</span></div>
+    <button class="btn primary ghost">Envoyer ▶</button>
+  </div>`,
+  attente: (verif)=>`<div class="scr">
+    <h4>Fiche bail <span class="ref">— 14 av. Emile Huchet</span></h4>
+    <div class="statusline sl-wait">⏳ En attente de signature du locataire</div>
+    <div class="ref">Lien envoyé · expire dans 14 j · le retour est automatique</div>
+    ${verif?`<button class="btn ghost" style="margin-top:8px">🔄 Vérifier maintenant (sinon auto au boot)</button>`:''}
+  </div>`,
+  recu: (g)=>`<div class="scr">
+    <h4>Fiche bail <span class="ref">— 14 av. Emile Huchet</span></h4>
+    <div class="toast">✓ Bail signé électroniquement ${g?'(bailleur + locataire)':'par AUDRIN Camille'}</div>
+    <div class="statusline sl-ok">✍️ Signé — ${g?'bilatéral':'bailleur + locataire'}</div>
+    <div class="driveline">📁 Drive ▸ baux ▸ <b>Bail-signe-${g?'bilateral':'locataire'}.pdf</b></div>
+    <div class="ref" style="margin-top:6px">bail.signatures mis à jour · horodaté · journalisé (audit trail)</div>
+  </div>`
+};
+
+const R = {
+  idle: ()=>`<div class="scr"><div class="statusline sl-idle">💤 En veille — aucune session</div>
+    <div class="ref">Worker stateless · ne stocke rien tant qu'aucun bail n'est envoyé</div></div>`,
+  session: (signers,note)=>`<div class="scr">
+    <div class="statebox"><span class="k">session</span>:&lt;id 256 bits&gt;<br>provider: native (art.1366)<br>expiresAt: +14j</div>
+    <div class="kv r2"><span class="badge">R2</span> original/&lt;id&gt;.pdf <span style="margin-left:auto">🔒 chiffré</span></div>
+    <div class="kv kvb"><span class="badge">KV</span> session:&lt;id&gt; (méta)</div>
+    ${signers||''}
+    ${note?`<div class="ref" style="margin-top:6px">${note}</div>`:''}
+  </div>`,
+  signed: (g)=>`<div class="scr">
+    <div class="statusline sl-ok">✅ statut : completed</div>
+    <div class="kv r2"><span class="badge">R2</span> signed/&lt;id&gt;.pdf ${g?'(bilatéral)':''}</div>
+    <div class="proof"><b>🔐 Dossier de preuve figé</b><ul>
+      <li>hash SHA-256 du PDF</li><li>horodatage chaque étape</li>
+      <li>IP + user-agent</li><li>email vérifié + consentement</li></ul></div>
+  </div>`,
+  purge: ()=>`<div class="scr"><div class="statusline sl-idle">🧹 TTL atteint → purge auto</div>
+    <div class="ref">KV expiré + R2 lifecycle (15j). Le relais ne garde rien.<br>L'original signé vit dans le Drive du bailleur.</div></div>`
+};
+function signerList(arr){ // arr: [{n,role,st}]
+  return arr.map((s,i)=>`<div class="dest"><span class="ord">${i+1}</span><div><div class="who" style="font-size:11px">${s.n}</div><div class="mail">${s.role}</div></div><span class="st st-${s.st}">${s.st==='cur'?'en cours':s.st==='done'?'signé':'en attente'}</span></div>`).join('');
+}
+
+const S = {
+  empty: ()=>`<div class="scr"><div class="statusline sl-idle">— en attente du lien —</div></div>`,
+  mail: (who)=>`<div class="scr"><div class="mailbox">
+    <div class="mh"><b>De</b> ${who||'bailleur'} (via Gmail) · <b>Objet</b> Signature de votre bail</div>
+    <div class="mb"><div style="font-size:11px">Bonjour, merci de signer votre bail en ligne :</div>
+      <a class="mail-cta">✍️ Signer mon bail</a>
+      <div class="ref">Lien sécurisé · sans création de compte</div></div>
+  </div></div>`,
+  s1: ()=>`<div class="scr">
+    <div class="steps-mini"><div class="sm act">1·Identité</div><div class="sm">2·Lecture</div><div class="sm">3·Signature</div></div>
+    <h4>Confirmez votre email</h4>
+    <div class="row" style="grid-template-columns:1fr"><b>camille.audrin@gmail.com</b></div>
+    <div class="ref">Doit correspondre au destinataire (anti-transfert du lien)</div>
+    <div class="otp-off">☐ Code SMS — étape prévue, désactivée en V1</div>
+    <button class="btn primary ghost" style="margin-top:8px">Continuer ▶</button>
+  </div>`,
+  s2: ()=>`<div class="scr">
+    <div class="steps-mini"><div class="sm done">1</div><div class="sm act">2·Lecture</div><div class="sm">3·Signature</div></div>
+    <h4>Lisez le bail & paraphez</h4>
+    <div class="pdfmini"><h5>CONTRAT DE LOCATION</h5>Entre le bailleur… et AUDRIN Camille… Loyer 720 € CC… Durée 3 ans…</div>
+    <div class="canvas small">paraphe page 1/4 ✍</div>
+    <div class="ref">PDF récupéré du relais · wizard Phase 2 existant porté ici</div>
+  </div>`,
+  s3: ()=>`<div class="scr">
+    <div class="steps-mini"><div class="sm done">1</div><div class="sm done">2</div><div class="sm act">3·Signature</div></div>
+    <h4>Signez</h4>
+    <div class="canvas">Camille Audrin</div>
+    <div class="consent"><input type="checkbox" checked> <span>« Lu et approuvé » — je reconnais signer le bail du 14 av. Emile Huchet</span></div>
+    <button class="btn sig">✓ Valider ma signature</button>
+  </div>`,
+  signQuick: (name)=>`<div class="scr">
+    <h4>Signature du bailleur</h4>
+    <div class="canvas">${name||'SCI Patrimoine'}</div>
+    <div class="consent"><input type="checkbox" checked> <span>« Lu et approuvé »</span></div>
+    <button class="btn sig">✓ Valider</button>
+  </div>`,
+  done: ()=>`<div class="scr done-big"><div class="ck">✅</div>
+    <div style="font-weight:700;margin-top:6px">Merci, c'est signé !</div>
+    <div class="ref">Une copie signée vous est envoyée par email.</div></div>`
+};
+
+/* ════════ Scénarios ════════ */
+const SCEN = {
+  solo: {
+    head: 'Locataire — navigateur',
+    steps: [
+      { b:B.fiche(), r:R.idle(), s:S.empty(), act:['b'],
+        narr:`Le bailleur a <em>déjà signé</em> le bail dans ImmoTrack (paraphes + signature). Il veut le faire signer par le locataire, <em>à distance</em>.`, guar:['infra','contexte'] },
+
+      { b:B.modale(), r:R.idle(), s:S.empty(), act:['b'],
+        narr:`Clic « Envoyer pour signature ». La modale pré-remplit le(s) destinataire(s) depuis le bail. Le bailleur confirme et envoie.`, guar:['infra','ImmoTrack'] },
+
+      { b:B.attente(), r:R.session(''), s:S.empty(), act:['b','g1'], g1:{dir:'→',t:'POST /sessions + PDF'}, chip1:true,
+        narr:`ImmoTrack génère le PDF (<em>genPDFNative</em>) et crée une <em>session</em> sur le relais : le PDF original part en R2 (chiffré au repos), les métadonnées en KV.`, guar:['secu','PDF jamais dans l\'URL'] },
+
+      { b:B.attente(), r:R.session(''), s:S.empty(), act:['g1'], g1:{dir:'←',t:'{ sessionId, signUrl }'},
+        narr:`Le relais renvoie un <em>lien de signature unique</em> (token HMAC, jamais visible dans l'URL). La fiche bail passe en « ⏳ En attente ».`, guar:['secu','token HMAC'] },
+
+      { b:B.attente(), r:R.session(''), s:S.mail(), act:['s'],
+        narr:`ImmoTrack envoie l'email au locataire via <em>Gmail API</em> (depuis l'adresse du bailleur). L'email contient le lien vers sign.html.`, guar:['infra','Gmail API'] },
+
+      { b:B.attente(), r:R.session(''), s:S.s1(), act:['g2','s'], g2:{dir:'→',t:'GET /s/:id → sign.html'},
+        narr:`Le locataire clique. Le relais sert <em>sign.html</em> (même origine, token injecté côté serveur). Étape 1 : il confirme son email — <em>anti-transfert</em>.`, guar:['secu','vérif email'] },
+
+      { b:B.attente(), r:R.session(''), s:S.s2(), act:['g2','s'], g2:{dir:'→',t:'GET /pdf'}, chip2:true,
+        narr:`Étape 2 : sign.html récupère le PDF et l'affiche. Le locataire lit et paraphe chaque page. <em>C'est le wizard Phase 2 déjà existant</em>, porté en page autonome.`, guar:['infra','wizard réutilisé'] },
+
+      { b:B.attente(), r:R.session(''), s:S.s3(), act:['s'],
+        narr:`Étape 3 : signature manuscrite (canvas) + « lu et approuvé » + consentement explicite. sign.html <em>compose le PDF signé</em> dans le navigateur (jsPDF inliné).`, guar:['legal','acte de volonté'] },
+
+      { b:B.attente(), r:R.signed(), s:S.done(), act:['g2','r'], g2:{dir:'←',t:'POST /signed + PDF'}, chip2:true,
+        narr:`Le PDF signé remonte au relais, qui le stocke en R2, passe la session en <em>completed</em> et <em>fige le dossier de preuve</em> (horodatages, IP, hash SHA-256).`, guar:['legal','preuve scellée'] },
+
+      { b:B.attente(true), r:R.signed(), s:S.done(), act:['g1','b'], g1:{dir:'→',t:'GET /sessions/:id (poll)'},
+        narr:`Côté bailleur, ImmoTrack interroge le relais (au boot / à l'ouverture de la fiche, greffé sur le scan Drive). Statut = <em>completed</em>.`, guar:['infra','poll auto'] },
+
+      { b:B.recu(), r:R.signed(), s:S.done(), act:['g1','b'], g1:{dir:'←',t:'GET /result → PDF signé'}, chip1:true,
+        narr:`ImmoTrack récupère le PDF signé, l'<em>upload dans le Drive</em> du bailleur, met à jour bail.signatures, horodate, journalise → toast « ✓ Bail signé ». <em>Aucune action manuelle.</em>`, guar:['star','le cœur du design'] },
+
+      { b:B.recu(), r:R.purge(), s:S.done(), act:['r'],
+        narr:`À expiration (TTL 14 j), le relais <em>purge automatiquement</em> session + PDF (R2 lifecycle). Le bailleur garde l'original signé dans son Drive.`, guar:['secu','rétention minimale'] }
+    ]
+  },
+  gestion: {
+    head: 'Signataire courant',
+    steps: [
+      { b:B.fiche(true), r:R.idle(), s:S.empty(), act:['b'], head:'Signataires (ordonnés)',
+        narr:`Cas <em>gestion</em> : le bailleur ET le locataire doivent signer à distance. On crée une session à <em>signataires ordonnés</em> : bailleur (1) puis locataire (2).`, guar:['infra','contexte B2B'] },
+
+      { b:B.modaleG(), r:R.idle(), s:S.empty(), act:['b'], head:'Signataires (ordonnés)',
+        narr:`La modale liste <em>2 signataires ordonnés</em>. Le bailleur envoie.`, guar:['infra','ImmoTrack'] },
+
+      { b:B.attente(), r:R.session(signerList([{n:'SCI Patrimoine',role:'bailleur',st:'cur'},{n:'AUDRIN Camille',role:'locataire',st:'pend'}]),'currentIndex = bailleur (1)'), s:S.empty(), act:['b','g1'], g1:{dir:'→',t:'POST /sessions'}, chip1:true, head:'Signataire courant',
+        narr:`Session créée avec <em>signers = [bailleur#1, locataire#2]</em>, tous deux « pending ». Le PDF part en R2.`, guar:['secu','session ordonnée'] },
+
+      { b:B.attente(), r:R.session(signerList([{n:'SCI Patrimoine',role:'bailleur',st:'cur'},{n:'AUDRIN Camille',role:'locataire',st:'pend'}])), s:S.mail('relais'), act:['g2','s'], g2:{dir:'→',t:'lien → signataire 1'}, head:'Bailleur (signataire 1)',
+        narr:`Le relais envoie le lien au <em>1er signataire : le bailleur</em>.`, guar:['infra','email auto #1'] },
+
+      { b:B.attente(), r:R.session(signerList([{n:'SCI Patrimoine',role:'bailleur',st:'cur'},{n:'AUDRIN Camille',role:'locataire',st:'pend'}])), s:S.signQuick(), act:['g2','r'], g2:{dir:'←',t:'POST /signed (1)'}, chip2:true, head:'Bailleur (signataire 1)',
+        narr:`Le bailleur signe via son lien. Le relais enregistre et <em>incrémente currentIndex → locataire</em>.`, guar:['legal','signature 1/2'] },
+
+      { b:B.attente(), r:R.session(signerList([{n:'SCI Patrimoine',role:'bailleur',st:'done'},{n:'AUDRIN Camille',role:'locataire',st:'cur'}])), s:S.mail('relais'), act:['g2','s','r'], g2:{dir:'→',t:'lien → signataire 2 (AUTO)'}, head:'Locataire (signataire 2)',
+        narr:`★ <em>Automatiquement</em>, le relais envoie le lien au 2e signataire (le locataire) — <em>sans aucune action du bailleur</em>. C'est ce que l'ancien design ne savait pas faire.`, guar:['star','enchaînement auto'] },
+
+      { b:B.attente(), r:R.session(signerList([{n:'SCI Patrimoine',role:'bailleur',st:'done'},{n:'AUDRIN Camille',role:'locataire',st:'cur'}])), s:S.s3(), act:['s'], head:'Locataire (signataire 2)',
+        narr:`Le locataire signe <em>par-dessus le même PDF</em>. Résultat : <em>UN SEUL PDF bilatéral final</em>, bailleur + locataire.`, guar:['legal','1 PDF bilatéral'] },
+
+      { b:B.attente(true), r:R.signed(true), s:S.done(), act:['g2','r'], g2:{dir:'←',t:'POST /signed (2)'}, chip2:true, head:'Locataire (signataire 2)',
+        narr:`Le PDF bilatéral remonte au relais → <em>completed</em> + dossier de preuve figé (pour les deux signataires).`, guar:['legal','preuve scellée'] },
+
+      { b:B.recu(true), r:R.signed(true), s:S.done(), act:['g1','b'], g1:{dir:'←',t:'GET /result → PDF bilatéral'}, chip1:true, head:'Signataire courant',
+        narr:`ImmoTrack récupère le PDF bilatéral, l'upload dans le Drive, met à jour bail.signatures (<em>bailleur ET locataire</em>) → toast. Aucune action manuelle.`, guar:['star','le cœur du design'] }
+    ]
+  }
+};
+
+/* ════════ Moteur ════════ */
+let scen='solo', idx=0, playing=false, timer=null;
+const $=id=>document.getElementById(id);
+
+function applyFlow(gapNum, cfg, chip){
+  const flow=$('flow'+gapNum), label=$('label'+gapNum), chipEl=$('chip'+gapNum);
+  flow.classList.remove('on','rev'); label.classList.remove('on','rev'); label.textContent='';
+  chipEl.classList.toggle('on', !!chip);
+  if(cfg){
+    flow.classList.add('on'); label.classList.add('on');
+    const rev = cfg.dir==='←';
+    if(rev){ flow.classList.add('rev'); label.classList.add('rev'); }
+    label.textContent=cfg.t;
+  }
+}
+function render(){
+  const list=SCEN[scen].steps, st=list[idx];
+  $('bodyB').innerHTML=st.b; $('bodyR').innerHTML=st.r; $('bodyS').innerHTML=st.s;
+  $('headS').textContent= st.head || SCEN[scen].head;
+  // active glow
+  ['B','R','S'].forEach(c=>$('col'+c).classList.remove('active'));
+  if(st.act.includes('b'))$('colB').classList.add('active');
+  if(st.act.includes('r'))$('colR').classList.add('active');
+  if(st.act.includes('s'))$('colS').classList.add('active');
+  // flows
+  applyFlow(1, st.g1, st.chip1); applyFlow(2, st.g2, st.chip2);
+  if(st.act.includes('g1'))$('colR').classList.add('active');
+  // narration
+  $('nStep').textContent=idx+1;
+  $('nText').innerHTML=st.narr;
+  const g=$('nGuar'), gt=st.guar; const map={infra:'guar-infra',secu:'guar-secu',legal:'guar-legal',star:'guar-star',contexte:'guar-infra',ImmoTrack:'guar-infra'};
+  g.className='guar '+(map[gt[0]]||'guar-infra');
+  g.textContent=(gt[0]==='star'?'★ ':'')+gt[1];
+  // counter + buttons
+  $('counter').textContent=(idx+1)+' / '+list.length;
+  $('prevBtn').disabled=idx===0;
+  $('nextBtn').disabled=idx===list.length-1;
+}
+function go(d){ const max=SCEN[scen].steps.length-1; idx=Math.max(0,Math.min(max,idx+d)); render(); if(idx===max)stopPlay(); }
+function reset(){ idx=0; render(); stopPlay(); }
+function setScen(s){ scen=s; idx=0; document.querySelectorAll('#scenSel button').forEach(b=>b.classList.toggle('act',b.dataset.s===s)); render(); stopPlay(); }
+function stopPlay(){ playing=false; clearInterval(timer); $('playBtn').textContent='▶ Lecture auto'; }
+function togglePlay(){
+  if(playing){ stopPlay(); return; }
+  playing=true; $('playBtn').textContent='⏸ Pause';
+  if(idx===SCEN[scen].steps.length-1)idx=0;
+  render();
+  timer=setInterval(()=>{ if(idx>=SCEN[scen].steps.length-1){ stopPlay(); return; } idx++; render(); }, 2600);
+}
+
+$('nextBtn').onclick=()=>go(1);
+$('prevBtn').onclick=()=>go(-1);
+$('resetBtn').onclick=reset;
+$('playBtn').onclick=togglePlay;
+document.querySelectorAll('#scenSel button').forEach(b=>b.onclick=()=>setScen(b.dataset.s));
+document.addEventListener('keydown',e=>{ if(e.key==='ArrowRight')go(1); if(e.key==='ArrowLeft')go(-1); });
+render();
+</script>
+</body>
+</html>
