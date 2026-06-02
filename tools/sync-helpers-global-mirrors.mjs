@@ -84,6 +84,23 @@ const PAIRS = [
         minOut: 1
       }
     ]
+  },
+  {
+    name: 'georisques-erp-detector',
+    src: '__tests__/helpers/georisques-erp-detector.js',
+    dst: 'js/helpers/georisques-erp-detector.global.js',
+    globalName: 'GeorisquesErpDetector',
+    exports: [
+      'GEORISQUES_API', 'BAN_API', 'ERP_INDETERMINE',
+      'parentInsee',
+      'banUrl', 'seismicUrl', 'radonUrl', 'pprnUrl', 'pprtUrl', 'pprmUrl', 'georisquesReportUrl',
+      'parseBan', 'parseSeismic', 'parseRadon', 'parsePpr',
+      'decideErp',
+    ],
+    // Sanity : compte les déclarations `function ` source vs sortie (tolère `export `).
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
   }
 ];
 
