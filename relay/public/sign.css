@@ -1,0 +1,5 @@
+:root { --pad: 16px; --accent: #1a1a8c; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #1a1a1a; }
+#app { max-width: 860px; margin: 0 auto; padding: var(--pad); }
+button { min-height: 44px; min-width: 44px; }

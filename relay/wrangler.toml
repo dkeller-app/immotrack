@@ -11,3 +11,7 @@ kv_namespaces = [
 binding = "PDF_BUCKET"
 bucket_name = "bail-sign-pdfs"
 preview_bucket_name = "bail-sign-pdfs-preview"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
