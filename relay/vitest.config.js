@@ -6,6 +6,7 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: { configPath: './wrangler.toml' },
+        singleWorker: true,
         isolatedStorage: false,
         miniflare: {
           bindings: {
