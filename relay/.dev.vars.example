@@ -1,0 +1,2 @@
+SIGNING_SECRET=dev-only-change-me-64-chars-minimum-aaaaaaaaaaaaaaaaaaaaaaaaaaaa
+APP_KEY=dev-only-app-key-change-me

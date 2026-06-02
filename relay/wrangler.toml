@@ -1,0 +1,13 @@
+name = "bail-sign-relay"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+kv_namespaces = [
+  { binding = "SESSIONS_KV", id = "REMPLIR_PROD_ID", preview_id = "REMPLIR_PREVIEW_ID" }
+]
+
+[[r2_buckets]]
+binding = "PDF_BUCKET"
+bucket_name = "bail-sign-pdfs"
+preview_bucket_name = "bail-sign-pdfs-preview"
