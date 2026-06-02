@@ -1,8 +1,9 @@
 # LOG-CANDIDATS — Pipeline candidats locataires avec lien partagé + conversion bail
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (5-8h)
+**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L
 **Détecté** : 2026-05-13 (validé important par utilisateur — capture Qalimo V2)
-**Lié à** : LOG-FICHE-360 · LOG-ANNONCE · BAIL-CLAUSES-PERSO · EMAIL-AUTO · SAAS-MULTIUSERS (V2)
+**Design refondu** : 2026-06-02 → **`docs/superpowers/specs/2026-06-02-candidature-locataire-design.md`** (lien partagé désormais V1 via le relais Cloudflare ; abandon du report « V2 SaaS » + fallback PDF de mai)
+**Lié à** : LOG-FICHE-360 · LOG-ANNONCE · BAIL (wizard + `copyBailFrom`) · **BAIL-SIGNATURE-DISTANCE** (relais Cloudflare mutualisé = fondation) · EMAIL-AUTO · PORTAIL-LOCATAIRE (projet suivant, même serveur) · IA-V2 (OCR justifs)
 
 ## Contexte
 Demande utilisateur 2026-05-13 (avec capture Qalimo V2 onglet Candidats) :
@@ -34,7 +35,10 @@ Tabs : Actifs / Archivés
 Bouton primaire "+ Ajouter un candidat"
 Bouton secondaire "Inviter un candidat" (génère lien partagé)
 
-## Scope
+## ⚠️ Note 2026-06-02 — design refondu
+Le scope ci-dessous (rédigé en mai) reportait le lien partagé en V2 SaaS faute de backend. **Ce n'est plus le cas** : le relais Cloudflare de BAIL-SIGNATURE-DISTANCE (en cours de build, branche `relay-bail-sign`) fournit la couche publique pour utilisateurs sans compte. La candidature **réutilise** ce relais (modèle dossier + routes + page `dossier.html`), elle ne reconstruit rien. **Le lien partagé est donc V1.** Voir le design consolidé : `docs/superpowers/specs/2026-06-02-candidature-locataire-design.md`. Le scope d'origine ci-dessous est conservé pour mémoire mais la spec fait foi.
+
+## Scope (schéma original mai — voir spec 2026-06-02 pour la version à jour)
 
 ### Phase 1 — Modèle de données + onglet Candidats (~1.5h)
 - Nouvelle entité `DB.candidats[]` : `{id, ref, logRef, dateCreation, sourceInvitation: 'manuel'|'lien'|'annonce', nom, prenom, civilite, dateNaissance, tel, email, revenus, employeur, contrat: 'CDI'|'CDD'|'Freelance'|'Etudiant'|'Retraite', garant: {nom, type, lien}, ribUploaded: bool, statut: 'recu'|'enCours'|'valide'|'refuse', notes, confianceScore: 0-100, _stamp, _modifiedAt, _archived}`
@@ -104,3 +108,4 @@ Tooltip explicite (transparence) : « Score basé sur revenus, contrat, garant e
 
 ## Journal
 - 2026-05-13 : créé · sujet promu de sous-sujet LOG-FICHE-360 vers sujet propre P1 suite validation user et capture Qalimo V2
+- 2026-06-02 : **design refondu** (session brainstorming). Décision structurante : le lien partagé devient **V1** en mutualisant le relais Cloudflare de BAIL-SIGNATURE-DISTANCE (plus de report V2 SaaS, plus de fallback PDF). Identité candidat alignée 1:1 sur `bail.locataires[]` (zéro double saisie). Spec consolidée : `docs/superpowers/specs/2026-06-02-candidature-locataire-design.md`. En attente validation user du spec avant plan d'implémentation.
