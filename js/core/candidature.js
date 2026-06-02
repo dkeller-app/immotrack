@@ -64,6 +64,7 @@ export function _nouveauCandidat(partial = {}) {
     ddn: partial.ddn || '', lieuNaiss: partial.lieuNaiss || '',
     tel: partial.tel || '', email: partial.email || '',
     adressePrecedente: partial.adressePrecedente || '',
+    dateDebutSouhaitee: partial.dateDebutSouhaitee || '',
     revenus: Number(partial.revenus) || 0,
     employeur: partial.employeur || '',
     contrat: partial.contrat || '',

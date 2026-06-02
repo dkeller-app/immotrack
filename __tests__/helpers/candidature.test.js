@@ -82,13 +82,15 @@ describe('_nouveauCandidat', () => {
     expect(c.id.length).toBeGreaterThan(0);
     expect(c.confianceScore).toBe(0);
     expect(c.garant).toBeNull();
+    expect(c.dateDebutSouhaitee).toBe('');
   });
   it('les champs fournis écrasent les défauts', () => {
-    const c = _nouveauCandidat({ nom: 'X', logRef: 'F-001', source: 'lien', statut: 'enCours' });
+    const c = _nouveauCandidat({ nom: 'X', logRef: 'F-001', source: 'lien', statut: 'enCours', dateDebutSouhaitee: '2026-09-01' });
     expect(c.nom).toBe('X');
     expect(c.logRef).toBe('F-001');
     expect(c.source).toBe('lien');
     expect(c.statut).toBe('enCours');
+    expect(c.dateDebutSouhaitee).toBe('2026-09-01');
   });
   it('deux appels donnent des id différents', () => {
     expect(_nouveauCandidat().id).not.toBe(_nouveauCandidat().id);
