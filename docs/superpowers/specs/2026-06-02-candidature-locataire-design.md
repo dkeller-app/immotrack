@@ -71,7 +71,9 @@ Le sujet de mai reportait le lien partagé en « V2 SaaS » faute de backend. **
 | **D8** | **Score « déclaratif » tant que les pièces ne sont pas vérifiées.** Bascule manuelle « pièces vérifiées » par le bailleur ; OCR de vérification reporté en IA-V2. | On ne peut pas garantir l'honnêteté du candidat à la saisie ; on garantit la **complétude** (champs/formats/pièces obligatoires) et on **étiquette** clairement ce qui est déclaratif. |
 | **D9** | **Onglet Candidats transversal** (frère de Locataires) **+ section Candidats sur la fiche d'un logement vacant** (LOG-FICHE-360). | Parité Qalimo + cohérence avec la fiche 360. Le bailleur voit les candidats globalement et par bien. |
 | **D10** | **Refus = email de courtoisie optionnel** (template `candidat-refus` dans EMAIL-AUTO), jamais automatique. | Politesse marché, mais le bailleur garde la main. |
-| **D11** | **RGPD** : lien à token inguessable, fichiers chiffrés au repos (R2), **rétention limitée** (purge des dossiers refusés après délai), relais = **sous-traitant RGPD** → registre des traitements à mettre à jour. | Données personnelles sensibles (revenus, pièces d'identité) de tiers non-clients. Obligation légale. |
+| **D11** | **RGPD** : lien à token inguessable, fichiers chiffrés au repos (R2), **purge des dossiers refusés après 30 jours**, relais = **sous-traitant RGPD** → registre des traitements à mettre à jour. | Données personnelles sensibles (revenus, pièces d'identité) de tiers non-clients. Obligation légale. Délai de 30 j tranché par user (2026-06-02). |
+| **D12** | **Le lien candidat est générable depuis 3 points d'entrée** : (a) l'**annonce** (LOG-ANNONCE), (b) l'**onglet Candidats** (« Inviter un candidat »), (c) la **fiche d'un logement vacant**. Le lien ne dépend **pas** d'une annonce ImmoTrack. | User : « l'utilisateur ne va pas forcément créer une annonce ImmoTrack. » Depuis (a) et (c) le `logRef` (+ loyer pour le ratio) est connu → pré-rempli ; depuis (b) le bailleur choisit le bien dans la modale d'invitation. |
+| **D13** | **Demande de complément de dossier supportée** : sur un candidat « En cours », le bailleur peut **rouvrir le lien** pour réclamer une pièce/info manquante → re-notification du candidat, qui complète sans tout ressaisir (le token et le dossier existant sont conservés). | User : « oui possibilité de demander des compléments. » Évite de refuser un bon dossier juste incomplet. |
 
 ---
 
@@ -132,13 +134,15 @@ Formulaire candidat autonome, **sans compte**, accessible par le lien à token. 
 
 ```
 Reçu ──► En cours ──► Validé ──► Converti (bail créé)
-                  └──► Refusé (email courtoisie optionnel)
+            │  ▲
+            │  └── complément réclamé (D13) ──► candidat re-notifié ──► complète ──► retour « En cours »
+            └──► Refusé (email courtoisie optionnel)
 ```
 
 - **Reçu** : dossier soumis via le lien, notification bailleur.
-- **En cours** : bailleur examine / demande un complément.
+- **En cours** : bailleur examine ; peut **demander un complément** (D13) → réouverture du lien + re-notification du candidat, qui complète sans ressaisir ; le dossier revient « En cours ».
 - **Validé** : dossier retenu → bouton de conversion actif.
-- **Refusé** : sort du pipeline actif ; email `candidat-refus` proposé (D10) ; purge RGPD programmée (D11).
+- **Refusé** : sort du pipeline actif ; email `candidat-refus` proposé (D10) ; **purge RGPD à 30 jours** (D11).
 - **Converti** : bail créé, candidat archivé, `bailRef` renseigné.
 
 ---
@@ -185,10 +189,13 @@ Tant que `piecesVerifiees === false` : badge « déclaratif » à côté du scor
 
 ---
 
-## 10. Placement UI
+## 10. Placement UI & points d'entrée du lien (D12)
 
-- **Onglet Candidats** (transversal, frère de Locataires — D9) : tableau type Qalimo (Nom · Bien · Date de début souhaitée · Statut · Revenus déclarés · Garant · Confiance), tabs Actifs / Archivés, bouton primaire « + Ajouter un candidat » (saisie manuelle), bouton secondaire « Inviter un candidat » (génère le lien relais).
-- **Fiche logement vacant** (LOG-FICHE-360) : section « Candidats » listant les candidatures reçues pour ce bien, avec accès rapide à la conversion.
+- **Onglet Candidats** (transversal, frère de Locataires — D9), **positionné entre Locataires et Mouvements** (validé user) : tableau type Qalimo (Nom · Bien · Date de début souhaitée · Statut · Revenus déclarés · Garant · Confiance), tabs Actifs / Archivés, bouton primaire « + Ajouter un candidat » (saisie manuelle), bouton secondaire **« Inviter un candidat »** → modale d'invitation où le bailleur **choisit le bien** puis génère le lien relais.
+- **Fiche logement vacant** (LOG-FICHE-360) : section « Candidats » listant les candidatures reçues pour ce bien + bouton **« Inviter un candidat »** (le bien est déjà connu → `logRef` + loyer pré-remplis), accès rapide à la conversion.
+- **Annonce** (LOG-ANNONCE) : génération du lien candidat directement depuis l'annonce du bien.
+
+> Les **3 points d'entrée produisent le même lien relais** (même modèle de dossier). Différence : depuis la fiche bien et l'annonce, le `logRef` (et le loyer pour le ratio de scoring) est déjà connu et embarqué ; depuis l'onglet Candidats, le bailleur sélectionne le bien dans la modale. **Le lien ne dépend jamais de l'existence d'une annonce ImmoTrack.**
 
 ---
 
@@ -196,7 +203,7 @@ Tant que `piecesVerifiees === false` : badge « déclaratif » à côté du scor
 
 - Lien candidat = token **inguessable** (relais), jamais d'identifiant devinable dans l'URL.
 - Pièces (identité, ressources) **chiffrées au repos** (R2).
-- **Rétention limitée** : purge automatique des dossiers **refusés** après un délai à définir ; dossiers convertis migrés vers le bien (cycle de vie du bail).
+- **Rétention limitée** : purge automatique des dossiers **refusés après 30 jours** (D11) ; dossiers convertis migrés vers le bien (cycle de vie du bail).
 - Le relais traite des données personnelles de **tiers non-clients** → c'est un **sous-traitant RGPD** : mise à jour du **registre des traitements** + mention d'information sur `dossier.html` (finalité, durée, droits).
 
 ---
@@ -233,9 +240,9 @@ Tant que `piecesVerifiees === false` : badge « déclaratif » à côté du scor
 
 ---
 
-## 14. Questions ouvertes (à trancher avant le plan d'implémentation)
+## 14. Questions tranchées (2026-06-02)
 
-- [ ] **Délai de purge RGPD** des dossiers refusés (30 / 60 / 90 jours ?).
-- [ ] **Position exacte de l'onglet Candidats** dans la sidebar (entre Locataires et Mouvements ?).
-- [ ] **Complément de dossier** : le bailleur peut-il rouvrir le lien pour demander une pièce manquante (re-notification candidat) ? — probable V1, à confirmer.
-- [ ] **Pré-remplissage depuis l'annonce** (LOG-ANNONCE) : le lien candidat porte-t-il déjà le logRef + le loyer pour calculer le ratio côté `dossier.html` ? — souhaitable, dépend de l'avancement LOG-ANNONCE.
+- [x] **Délai de purge RGPD** des dossiers refusés → **30 jours** (D11).
+- [x] **Position de l'onglet Candidats** → **entre Locataires et Mouvements** (D9, validé).
+- [x] **Complément de dossier** → **oui** : réouverture du lien + re-notification du candidat, complète sans ressaisir (D13).
+- [x] **Points d'entrée du lien** → **3 entrées** : annonce, onglet Candidats, fiche bien vacant. Le lien ne dépend pas d'une annonce ImmoTrack. Depuis l'annonce et la fiche bien, `logRef` + loyer pré-remplis ; depuis l'onglet, le bailleur choisit le bien (D12).
