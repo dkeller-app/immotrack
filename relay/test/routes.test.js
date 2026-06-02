@@ -76,3 +76,39 @@ describe('GET /s/:id', () => {
     expect(ver.payload.sid).toBe(sessionId);
   });
 });
+
+describe('GET /api/sessions/:id/pdf', () => {
+  async function signTokenOf(sessionId) {
+    const res = await SELF.fetch(`https://relay.test/s/${sessionId}`);
+    const html = await res.text();
+    return html.match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
+  }
+
+  it('401 sans token', async () => {
+    const { sessionId } = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/pdf`);
+    expect(res.status).toBe(401);
+  });
+
+  it('renvoie le PDF original avec un signToken valide', async () => {
+    const { sessionId } = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const token = await signTokenOf(sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/pdf`, {
+      headers: { 'X-Sign-Token': token }
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/pdf');
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect(bytes[0]).toBe(0x25); // %
+  });
+
+  it('401 si le token cible une session différente', async () => {
+    const a = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const b = await createTestSession([{ role: 'locataire', email: 'c@d.fr', tel: '', ordre: 1 }]);
+    const tokenA = await signTokenOf(a.sessionId);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${b.sessionId}/pdf`, {
+      headers: { 'X-Sign-Token': tokenA }
+    });
+    expect(res.status).toBe(401);
+  });
+});

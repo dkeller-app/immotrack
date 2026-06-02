@@ -51,6 +51,22 @@ app.post('/sessions', async (c) => {
   return c.json({ sessionId, signUrl, ownerToken }, 201);
 });
 
+async function requireSigner(c, sessionId) {
+  const token = c.req.header('X-Sign-Token') || '';
+  if (!token) return { error: c.json({ error: 'missing token' }, 401) };
+  const ver = await verifyToken(token, c.env.SIGNING_SECRET);
+  if (!ver.valid || ver.payload.role !== 'signer' || ver.payload.sid !== sessionId) {
+    return { error: c.json({ error: 'unauthorized' }, 401) };
+  }
+  const session = await loadSession(c.env, sessionId);
+  if (!session) return { error: c.json({ error: 'not found' }, 404) };
+  if (session.status === 'completed') return { error: c.json({ error: 'already completed' }, 410) };
+  if (ver.payload.idx !== session.currentIndex) {
+    return { error: c.json({ error: 'not your turn' }, 403) };
+  }
+  return { session, payload: ver.payload };
+}
+
 async function mintSignToken(env, sessionId, idx) {
   const exp = expEpoch();
   return createToken(
@@ -73,6 +89,15 @@ app.get('/s/:sessionId', async (c) => {
 <script>window.__SIGN_TOKEN__ = "${signToken}"; window.__SESSION_ID__ = "${sessionId}";</script>
 </body></html>`;
   return c.html(html);
+});
+
+app.get('/api/sessions/:id/pdf', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireSigner(c, sessionId);
+  if (guard.error) return guard.error;
+  const obj = await getOriginalPdf(c.env, sessionId);
+  if (!obj) return c.json({ error: 'pdf missing' }, 404);
+  return new Response(obj.body, { headers: { 'content-type': 'application/pdf' } });
 });
 
 export default app;
