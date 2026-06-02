@@ -39,9 +39,13 @@ La spec §4 décrit la stratégie **A** (« le PDF est réinjecté dans `genPDFN
 
 5. **Preuve d'acte de volonté embarquée dans le PDF (contrat relais gelé).** La spec §5 liste 8 items de preuve. Le relais (composant 1, gelé) capture déjà côté serveur `ip` + `userAgent` + `signedAt` + `pdfSha256` (et le token porte `jti`/`role`/`exp` = contrôle email + piste d'audit). Les items restants (identité affirmée, « Lu et approuvé », consentement au procédé électronique) sont **tamponnés visiblement dans le PDF** par `sign.html` (mention légale à côté de la signature) — donc immuables et opposables, sans étendre le contrat POST du relais (qui n'accepte que `application/pdf`). Un POST de preuve structuré reste un item de durcissement Phase 4.
 
-6. **Modèle de paraphe V1 = capture unique répliquée.** Le signataire dessine **une** signature. La même image sert de signature finale (ancre `signature`) **et** de paraphe (ancres `paraphe` sur chaque page non exclue). Évite une double capture au doigt sur mobile ; conforme à l'usage des outils e-sign. À valider au mockup (Task 0).
+6. **Paraphe ≠ signature — DEUX tracés distincts (validé utilisateur).** ⚠️ Ne **jamais** confondre les deux (exigence juridique, correction explicite de l'utilisateur). Modèle retenu, fidèle au wizard in-app :
+   - **Paraphe** = initiales, tracées **page par page** (un pad par page « à parapher »). Le signataire paraphe chaque page individuellement (attestation de lecture active) ; les pages d'annexes/notice (`noParaphe`) sont sautées avec un message. → `sign.js` collecte une **map `paraphesByPage` {page → dataURL}** (une image distincte par page).
+   - **Signature** = signature complète, tracée **une seule fois** à la fin, apposée au bloc de signature final (ancre `signature`).
+   - `stamp.js` reçoit donc **deux entrées séparées** : `signaturePngDataUrl` (→ ancres `kind:'signature'`) et `paraphesByPage` (→ ancres `kind:'paraphe'`, l'image de la page correspondante). Jamais la même image pour les deux.
+   - Les pages nécessitant un paraphe = pages portant une ancre `paraphe` pour ce `sigId` dans le manifeste (repli : toutes les pages). `sign.js` lit le manifeste via pdf-lib pour piloter le parcours page par page.
 
-7. **Coque autonome → gate mockup-first obligatoire (Task 0).** `sign.html` est un nouvel artefact visuel destiné à des tiers (locataires) sur mobile. Règle gravée mockup-first : mockups A/B/C × PC/Tablette/Téléphone × **tous** les états post-clic AVANT de coder. Validation explicite de l'utilisateur avant Task 1.
+7. **Coque autonome → variante B validée (Task 0).** `sign.html` est un nouvel artefact visuel destiné à des tiers (locataires) sur mobile. Règle gravée mockup-first respectée : mockups A/B/C × PC/Tablette/Téléphone × états produits et **variante B retenue** (lecture + **barre d'action collée en bas**, pad dans la sticky bar, façon app native). Le mockup B définitif (reflétant le paraphe page par page + signature finale distincte) est revalidé avant Task 1.
 
 8. **Audit code-reviewer obligatoire avant le commit final (Task 13).** Règle gravée : tout livrable sensible (PDF de bail, preuve juridique) est audité par un agent `superpowers:code-reviewer` AVANT d'annoncer « prêt à tester ». Mes audits propres (Vitest + grep) ne suffisent jamais ici.
 
@@ -104,13 +108,13 @@ Règle gravée mockup-first : produire des mockups **statiques HTML** (pas de lo
 
 - **3 variantes** A/B/C de la coque (ex. A = pleine page mono-colonne ; B = lecture en haut + barre signature collée en bas ; C = étapes en accordéon).
 - **3 formats** : PC (≥1024px), Tablette (~768px), Téléphone (~375px).
-- **Tous les états post-clic** : (1) atterrissage + consentement (identité affirmée, case « je reconnais signer », consentement procédé électronique) ; (2) lecture du document + zone paraphe ; (3) signature finale (pad) ; (4) confirmation/aperçu avant envoi ; (5) succès (« document signé et renvoyé ») ; (6) erreurs : lien expiré, déjà signé, pas votre tour (`currentIndex` ≠ vous), échec réseau (retry).
+- **Tous les états post-clic** : (1) atterrissage + consentement (identité affirmée, case « je reconnais signer », consentement procédé électronique) ; (2) lecture **page par page** avec, pour chaque page « à parapher », un **pad de paraphe dans la barre d'action collée en bas** (image distincte par page) + indicateur « Page N / total » ; page sans paraphe (annexe/notice) = lecture seule + « Page suivante » ; (3) **signature finale** (pad, une seule fois, distincte du paraphe) ; (4) confirmation/aperçu avant envoi ; (5) succès (« document signé et renvoyé ») ; (6) erreurs : lien expiré, déjà signé, pas votre tour (`currentIndex` ≠ vous), échec réseau (retry).
 
 - [ ] **Step 1 : Construire les mockups statiques** (HTML/CSS inline, données factices, zéro JS de logique). Inclure une note en haut de chaque fichier rappelant le format ciblé.
 
 - [ ] **Step 2 : Tester dans un vrai navigateur** (pas la zone preview Claude). Ouvrir `relay/mockups/sign-distance/index.html`.
 
-- [ ] **Step 3 : Validation explicite de l'utilisateur.** Présenter A/B/C × 3 formats × états. **Attendre le choix** (variante retenue + ajustements) AVANT toute autre tâche. Le modèle de paraphe (décision #6 : capture unique répliquée) est confirmé ici.
+- [ ] **Step 3 : Validation explicite de l'utilisateur.** Présenter A/B/C × 3 formats × états. **Attendre le choix** (variante retenue + ajustements) AVANT toute autre tâche. ✅ **Déjà tranché** : variante **B** (lecture + barre d'action collée en bas) + paraphe **page par page** (un pad par page « à parapher », image distincte par page) + signature finale **une seule fois** (décision #6/#7). Le mockup B définitif doit refléter ce flux (paraphe page par page distinct de la signature) et être revalidé ici avant Task 1.
 
 - [ ] **Step 4 : Commit** (mockups uniquement)
 
@@ -675,7 +679,7 @@ cd relay && git add public/sign/proof.js test/proof.test.js && git commit -m "fe
 - Create: `relay/public/sign/stamp.js`
 - Test: `relay/test/stamp.test.js`
 
-Seul module touchant pdf-lib, mais **reçoit le `PDFDocument` + `deps.rgb` en paramètre** (aucun import pdf-lib). Il tamponne, pour un `sigId` donné, l'image de signature dans toutes les ancres `signature` + `paraphe`, plus la mention légale à côté de la signature. Ne redessine PAS les cadres (déjà dessinés par `genPDFNative`). Police standard `Helvetica` (pas de fontkit). Si pas de manifeste → ancres de repli déterministes.
+Seul module touchant pdf-lib, mais **reçoit le `PDFDocument` + `deps.rgb` en paramètre** (aucun import pdf-lib). ⚠️ **Paraphe ≠ signature (décision #6)** : il reçoit **deux entrées distinctes** — `signaturePngDataUrl` (tracé unique, apposé sur les ancres `kind:'signature'`) et `paraphesByPage` (map `{page → dataURL}`, un tracé distinct par page, apposé sur l'ancre `kind:'paraphe'` de la page correspondante). Jamais la même image pour les deux. Une ancre `paraphe` sans image de page correspondante est **sautée** (page non paraphée). Plus la mention légale à côté de la signature uniquement. Ne redessine PAS les cadres (déjà dessinés par `genPDFNative`). Police standard `Helvetica` (pas de fontkit). Si pas de manifeste → ancres de repli déterministes. Exporte aussi `paraphePagesFor(pdfDoc, {sigId, side})` (liste des pages à parapher, lue par `sign.js` pour piloter le parcours page par page).
 
 - [ ] **Step 1 : Écrire le test qui échoue** `relay/test/stamp.test.js`
 
@@ -683,7 +687,7 @@ Seul module touchant pdf-lib, mais **reçoit le `PDFDocument` + `deps.rgb` en pa
 import { describe, it, expect } from 'vitest';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { embedInDoc } from '../public/sign/manifest.js';
-import { dataUrlToBytes, stampSignature } from '../public/sign/stamp.js';
+import { dataUrlToBytes, stampSignature, paraphePagesFor } from '../public/sign/stamp.js';
 
 // 1×1 PNG transparent valide.
 const PNG_1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -705,8 +709,29 @@ describe('dataUrlToBytes', () => {
   });
 });
 
-describe('stampSignature (avec manifeste)', () => {
-  it('tamponne chaque ancre du sigId et ajoute du contenu', async () => {
+describe('paraphePagesFor', () => {
+  it('liste les pages à parapher du sigId (manifeste, dédupliquées + triées)', async () => {
+    const doc = await makeDoc(2);
+    embedInDoc(doc, {
+      v: 1, totalPages: 2,
+      anchors: [
+        { sigId: 'loc-0', kind: 'signature', page: 2, x: 120, y: 210, w: 90, h: 30 },
+        { sigId: 'loc-0', kind: 'paraphe', page: 2, x: 125, y: 279.5, w: 70, h: 14 },
+        { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+        { sigId: 'bailleur-0', kind: 'paraphe', page: 1, x: 15, y: 279.5, w: 70, h: 14 }
+      ]
+    });
+    expect(paraphePagesFor(doc, { sigId: 'loc-0' })).toEqual([1, 2]);
+    expect(paraphePagesFor(doc, { sigId: 'bailleur-0' })).toEqual([1]);
+  });
+  it('repli : toutes les pages quand pas de manifeste', async () => {
+    const doc = await makeDoc(3);
+    expect(paraphePagesFor(doc, { sigId: 'loc-0', side: 'locataire' })).toEqual([1, 2, 3]);
+  });
+});
+
+describe('stampSignature (manifeste, deux tracés distincts)', () => {
+  it('appose la signature une fois + un paraphe distinct par page', async () => {
     const doc = await makeDoc(2);
     embedInDoc(doc, {
       v: 1, totalPages: 2,
@@ -719,12 +744,32 @@ describe('stampSignature (avec manifeste)', () => {
     });
     const before = (await doc.save()).length;
     const res = await stampSignature(doc, {
-      sigId: 'loc-0', pngDataUrl: PNG_1x1,
+      sigId: 'loc-0',
+      signaturePngDataUrl: PNG_1x1,
+      paraphesByPage: { 1: PNG_1x1, 2: PNG_1x1 },
       mentionLines: ['Signé électroniquement', 'par Jean Dupont (locataire)']
     }, { rgb });
     expect(res.stamped).toBe(3); // 1 signature + 2 paraphes (pas l'ancre bailleur-0)
     const after = (await doc.save()).length;
     expect(after).toBeGreaterThan(before);
+  });
+
+  it('saute une ancre paraphe sans image de page correspondante', async () => {
+    const doc = await makeDoc(2);
+    embedInDoc(doc, {
+      v: 1, totalPages: 2,
+      anchors: [
+        { sigId: 'loc-0', kind: 'paraphe', page: 1, x: 125, y: 279.5, w: 70, h: 14 },
+        { sigId: 'loc-0', kind: 'paraphe', page: 2, x: 125, y: 279.5, w: 70, h: 14 },
+        { sigId: 'loc-0', kind: 'signature', page: 2, x: 120, y: 210, w: 90, h: 30 }
+      ]
+    });
+    const res = await stampSignature(doc, {
+      sigId: 'loc-0', signaturePngDataUrl: PNG_1x1,
+      paraphesByPage: { 1: PNG_1x1 }, mentionLines: [] // page 2 non paraphée
+    }, { rgb });
+    expect(res.stamped).toBe(2); // paraphe p1 + signature p2
+    expect(res.skipped).toBe(1); // paraphe p2 sans image
   });
 
   it('ignore une ancre dont la page dépasse le document', async () => {
@@ -733,17 +778,22 @@ describe('stampSignature (avec manifeste)', () => {
       v: 1, totalPages: 1,
       anchors: [{ sigId: 'loc-0', kind: 'paraphe', page: 9, x: 125, y: 279.5, w: 70, h: 14 }]
     });
-    const res = await stampSignature(doc, { sigId: 'loc-0', pngDataUrl: PNG_1x1, mentionLines: [] }, { rgb });
+    const res = await stampSignature(doc, {
+      sigId: 'loc-0', signaturePngDataUrl: PNG_1x1, paraphesByPage: { 9: PNG_1x1 }, mentionLines: []
+    }, { rgb });
     expect(res.stamped).toBe(0);
     expect(res.skipped).toBe(1);
   });
 });
 
 describe('stampSignature (repli sans manifeste)', () => {
-  it('tamponne totalPages paraphes + 1 signature', async () => {
+  it('tamponne totalPages paraphes (un par page) + 1 signature', async () => {
     const doc = await makeDoc(3);
     const res = await stampSignature(doc, {
-      sigId: 'loc-0', side: 'locataire', pngDataUrl: PNG_1x1, mentionLines: ['x']
+      sigId: 'loc-0', side: 'locataire',
+      signaturePngDataUrl: PNG_1x1,
+      paraphesByPage: { 1: PNG_1x1, 2: PNG_1x1, 3: PNG_1x1 },
+      mentionLines: ['x']
     }, { rgb });
     expect(res.stamped).toBe(4); // 3 paraphes + 1 signature
     expect(res.usedFallback).toBe(true);
@@ -760,6 +810,7 @@ Expected : FAIL (module introuvable).
 
 ```js
 // Cœur de tamponnage. Reçoit le PDFDocument pdf-lib + deps.rgb en paramètre (aucun import pdf-lib).
+// Paraphe ≠ signature : deux entrées distinctes (signaturePngDataUrl + paraphesByPage{page→dataURL}).
 import { rectFromJsPdf, mmToPt, fallbackAnchors } from './coords.js';
 import { readFromDoc } from './manifest.js';
 
@@ -782,24 +833,46 @@ function resolveAnchors(pdfDoc, { sigId, side }) {
   return { anchors: fallbackAnchors({ sigId, side: side || 'locataire', totalPages }), usedFallback: true };
 }
 
-export async function stampSignature(pdfDoc, { sigId, pngDataUrl, mentionLines = [], side }, deps) {
+// Pages (1-based) à parapher pour ce sigId — pilote le parcours page par page de sign.js.
+// Dédupliquées + triées. Repli : toutes les pages quand pas de manifeste.
+export function paraphePagesFor(pdfDoc, { sigId, side }) {
+  const { anchors } = resolveAnchors(pdfDoc, { sigId, side });
+  const pages = anchors.filter((a) => a.kind === 'paraphe').map((a) => a.page);
+  return [...new Set(pages)].sort((a, b) => a - b);
+}
+
+export async function stampSignature(
+  pdfDoc,
+  { sigId, signaturePngDataUrl, paraphesByPage = {}, mentionLines = [], side },
+  deps
+) {
   const { rgb } = deps;
   const { anchors, usedFallback } = resolveAnchors(pdfDoc, { sigId, side });
-  const png = await pdfDoc.embedPng(dataUrlToBytes(pngDataUrl));
   const font = await pdfDoc.embedFont('Helvetica');
   const pad = mmToPt(1);
   const pageCount = pdfDoc.getPageCount();
-  let stamped = 0, skipped = 0;
 
+  // Une image de signature (tracé unique) + N images de paraphe distinctes (1 par page), embarquées à la demande.
+  const sigPng = signaturePngDataUrl ? await pdfDoc.embedPng(dataUrlToBytes(signaturePngDataUrl)) : null;
+  const paraCache = new Map();
+  async function paraPngFor(page) {
+    if (!paraphesByPage[page]) return null;
+    if (!paraCache.has(page)) paraCache.set(page, await pdfDoc.embedPng(dataUrlToBytes(paraphesByPage[page])));
+    return paraCache.get(page);
+  }
+
+  let stamped = 0, skipped = 0;
   for (const a of anchors) {
     if (a.page < 1 || a.page > pageCount) { skipped++; continue; }
+    const img = a.kind === 'signature' ? sigPng : await paraPngFor(a.page);
+    if (!img) { skipped++; continue; } // pas d'image pour cette ancre (page non paraphée / pas de signature)
     const page = pdfDoc.getPage(a.page - 1);
     const r = rectFromJsPdf(a, page.getHeight());
-    page.drawImage(png, {
+    page.drawImage(img, {
       x: r.x + pad, y: r.y + pad,
       width: Math.max(0, r.width - 2 * pad), height: Math.max(0, r.height - 2 * pad)
     });
-    // Mention légale sous le bloc signature (pas sous les paraphes).
+    // Mention légale sous le bloc signature uniquement (jamais sous un paraphe).
     if (a.kind === 'signature' && mentionLines.length) {
       const size = 7;
       let ty = r.y - mmToPt(2); // juste sous la boîte (origine bas-gauche)
@@ -817,12 +890,12 @@ export async function stampSignature(pdfDoc, { sigId, pngDataUrl, mentionLines =
 - [ ] **Step 4 : Lancer le test, vérifier le succès**
 
 Run: `cd relay && npx vitest run test/stamp.test.js`
-Expected : PASS (4 tests). Si `embedPng`/`embedFont` échoue dans workerd, c'est un signal bloquant → remonter (BLOCKED) avant de continuer.
+Expected : PASS (7 tests). Si `embedPng`/`embedFont` échoue dans workerd, c'est un signal bloquant → remonter (BLOCKED) avant de continuer.
 
 - [ ] **Step 5 : Lancer toute la suite (non-régression modules purs)**
 
 Run: `cd relay && npm test`
-Expected : 46 (relais) + 4 + 4 + 5 + 4 + 4 = **67 tests** PASS.
+Expected : 46 (relais) + 4 + 4 + 5 + 4 + 7 = **70 tests** PASS.
 
 - [ ] **Step 6 : Commit**
 
@@ -988,7 +1061,7 @@ Expected : PASS (toutes les assertions `routes.test.js` existantes + 3 nouvelles
 - [ ] **Step 6 : Suite complète**
 
 Run: `cd relay && npm test`
-Expected : 67 + 3 = **70 tests** PASS.
+Expected : 70 + 3 = **73 tests** PASS.
 
 - [ ] **Step 7 : Commit**
 
@@ -1087,12 +1160,14 @@ cd relay && git add public/sign/pad.js public/sign.html && git commit -m "feat(s
 - Create: `relay/public/sign/viewer.js`
 - Modify: `relay/public/sign.html` (harnais : génère un PDF pdf-lib en mémoire et l'affiche)
 
-⚠️ **Gotcha critique** : `pdfjsLib.getDocument({data})` **détache** (transfère) le buffer passé. Or `sign.js` a besoin des octets originaux **intacts** pour tamponner ensuite (pdf-lib). → toujours passer une **copie** des octets à `renderPdf`, jamais le buffer original. Documenté ici et appliqué en Task 10.
+⚠️ **Gotcha critique** : `pdfjsLib.getDocument({data})` **détache** (transfère) le buffer passé. Or `sign.js` a besoin des octets originaux **intacts** pour tamponner ensuite (pdf-lib). → toujours passer une **copie** des octets à `loadDocument`, jamais le buffer original. Documenté ici et appliqué en Task 10.
+
+Le flux variante B est **page par page** (paraphe par page) : `viewer.js` expose donc une API à deux temps — `loadDocument(bytes)` (charge une fois, renvoie le doc PDF.js) puis `renderPageInto(pdf, pageNum, container)` (rend **une** page à la demande). Pas de rendu « toutes les pages d'un coup ».
 
 - [ ] **Step 1 : Implémenter** `relay/public/sign/viewer.js`
 
 ```js
-// Rendu lecture du PDF (PDF.js). Navigateur uniquement. Non testé unitairement.
+// Rendu lecture du PDF (PDF.js), page par page. Navigateur uniquement. Non testé unitairement.
 let pdfjsLib;
 async function ensureLib() {
   if (!pdfjsLib) {
@@ -1102,22 +1177,24 @@ async function ensureLib() {
   return pdfjsLib;
 }
 
-// bytes : Uint8Array (DOIT être une copie — PDF.js détache le buffer). Rend toutes les pages.
-export async function renderPdf(bytes, container, { scale = 1.3 } = {}) {
+// bytes : Uint8Array (DOIT être une copie — PDF.js détache le buffer). Charge une fois.
+export async function loadDocument(bytes) {
   const lib = await ensureLib();
-  const pdf = await lib.getDocument({ data: bytes }).promise;
+  return lib.getDocument({ data: bytes }).promise; // → pdf (numPages, getPage)
+}
+
+// Rend UNE page (1-based) dans container (vidé au préalable). Retourne le canvas.
+export async function renderPageInto(pdf, pageNum, container, { scale = 1.3 } = {}) {
+  const page = await pdf.getPage(pageNum);
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  canvas.className = 'pdf-page';
   container.innerHTML = '';
-  for (let n = 1; n <= pdf.numPages; n++) {
-    const page = await pdf.getPage(n);
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    canvas.className = 'pdf-page';
-    container.appendChild(canvas);
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-  }
-  return pdf.numPages;
+  container.appendChild(canvas);
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  return canvas;
 }
 ```
 
@@ -1125,13 +1202,16 @@ export async function renderPdf(bytes, container, { scale = 1.3 } = {}) {
 
 ```html
   <main id="app">
-    <h1>Harnais dev — viewer</h1>
-    <button id="gen">Générer + afficher un PDF 2 pages</button>
-    <div id="pdf-pages"></div>
+    <h1>Harnais dev — viewer (page par page)</h1>
+    <button id="gen">Générer un PDF 2 pages</button>
+    <div id="pdf-page"></div>
+    <button id="prev">◀ Précédente</button> <button id="next">Suivante ▶</button>
   </main>
   <script src="/vendor/pdf-lib.min.js"></script>
   <script type="module">
-    import { renderPdf } from '/sign/viewer.js';
+    import { loadDocument, renderPageInto } from '/sign/viewer.js';
+    let pdf, cur = 1;
+    const cont = document.getElementById('pdf-page');
     document.getElementById('gen').onclick = async () => {
       const doc = await PDFLib.PDFDocument.create();
       const f = await doc.embedFont('Helvetica');
@@ -1140,21 +1220,23 @@ export async function renderPdf(bytes, container, { scale = 1.3 } = {}) {
         p.drawText(t, { x: 60, y: 760, size: 24, font: f });
       }
       const bytes = await doc.save(); // Uint8Array
-      const n = await renderPdf(bytes.slice(), document.getElementById('pdf-pages'));
-      console.log('pages rendues', n);
+      pdf = await loadDocument(bytes.slice()); // copie : PDF.js détache
+      cur = 1; await renderPageInto(pdf, cur, cont);
     };
+    document.getElementById('next').onclick = async () => { if (pdf && cur < pdf.numPages) { cur++; await renderPageInto(pdf, cur, cont); } };
+    document.getElementById('prev').onclick = async () => { if (pdf && cur > 1) { cur--; await renderPageInto(pdf, cur, cont); } };
   </script>
 ```
 
 - [ ] **Step 3 : Vérification manuelle**
 
 Run: `cd relay && npx wrangler dev` (ouvrir `http://localhost:8787/sign.html`).
-Vérifier : le clic génère et affiche **2 canvases** lisibles (« Page 1 — bail », « Page 2 — bail ») ; aucune erreur console (worker PDF.js chargé depuis `/vendor/pdf.worker.min.mjs`).
+Vérifier : le clic « Générer » affiche **la page 1** ; « Suivante »/« Précédente » naviguent (une seule page rendue à la fois, container vidé entre deux) ; aucune erreur console (worker PDF.js chargé depuis `/vendor/pdf.worker.min.mjs`).
 
 - [ ] **Step 4 : Commit**
 
 ```bash
-cd relay && git add public/sign/viewer.js public/sign.html && git commit -m "feat(sign): viewer.js — rendu lecture PDF.js (copie des octets, worker vendoré)"
+cd relay && git add public/sign/viewer.js public/sign.html && git commit -m "feat(sign): viewer.js — rendu lecture PDF.js page par page (copie des octets, worker vendoré)"
 ```
 
 ---
@@ -1164,14 +1246,14 @@ cd relay && git add public/sign/viewer.js public/sign.html && git commit -m "fea
 **Files:**
 - Create: `relay/public/sign.js`
 
-Colle tout : lit `window.__SIGN__`/`__SIGN_TOKEN__`/`__SESSION_ID__`, construit les étapes (consentement → lecture → signature → confirmation → succès/erreur), récupère le PDF original, le rend (copie des octets), capture la signature, **tamponne** via `stampSignature` (pdf-lib global), renvoie les octets. Le nom saisi à l'étape consentement = item de preuve « identité affirmée ».
+Colle tout : lit `window.__SIGN__`/`__SIGN_TOKEN__`/`__SESSION_ID__`, construit les étapes (consentement → **lecture page par page avec paraphe par page** → signature finale → confirmation → succès/erreur), récupère le PDF original, charge le doc PDF.js (copie des octets), lit le manifeste via pdf-lib (`paraphePagesFor`) pour connaître les pages à parapher de ce `sigId`, fait défiler **page par page** (un pad de paraphe dans la barre du bas pour chaque page « à parapher », image distincte stockée dans `paraphesByPage[page]` ; page non paraphée = lecture seule), capture la **signature finale une seule fois**, **tamponne** via `stampSignature(doc, {sigId, signaturePngDataUrl, paraphesByPage, mentionLines, side}, {rgb})` (pdf-lib global), renvoie les octets. Le nom saisi à l'étape consentement = item de preuve « identité affirmée ». Parcours **avant uniquement** (pas de retour arrière : un paraphe validé est figé).
 
 - [ ] **Step 1 : Implémenter** `relay/public/sign.js`
 
 ```js
 import { initPad } from '/sign/pad.js';
-import { renderPdf } from '/sign/viewer.js';
-import { stampSignature } from '/sign/stamp.js';
+import { loadDocument, renderPageInto } from '/sign/viewer.js';
+import { stampSignature, paraphePagesFor } from '/sign/stamp.js';
 import { buildMentionLines } from '/sign/proof.js';
 
 const S = window.__SIGN__ || {};
@@ -1183,42 +1265,55 @@ const h = (html) => { const t = document.createElement('template'); t.innerHTML 
 function show(id) { for (const s of app.querySelectorAll('.step')) s.hidden = s.id !== id; window.scrollTo(0, 0); }
 function fail(msg) { app.innerHTML = ''; app.appendChild(h(`<div class="state-card"><h1>${msg}</h1></div>`)); }
 
-let master;       // Uint8Array intacts (jamais passés à PDF.js)
-let pad;
+let master;                 // Uint8Array intacts (jamais passés à PDF.js)
+let pdf;                    // doc PDF.js (lecture)
+let paraphePages = [];      // pages 1-based à parapher pour ce sigId
+let curPage = 1;            // page courante en lecture
+let signerName = '';
+const paraphesByPage = {};  // {page → dataURL} — une image distincte par page paraphée
+let signaturePad = null;    // pad de la signature finale (distinct des paraphes)
 
 function buildUI() {
   app.innerHTML = '';
   app.appendChild(h(`
-    <div>
+    <div class="wrap">
       <header class="sign-head"><strong>Signature du bail ${S.bailRef ? '· ' + S.bailRef : ''}</strong>
         <span class="rank">Signataire ${S.rank}/${S.total}</span></header>
 
       <section id="step-consent" class="step">
-        <h1>Avant de signer</h1>
-        <label>Vos nom et prénom<br><input id="name" type="text" autocomplete="name" placeholder="Jean Dupont"></label>
-        <label class="chk"><input id="c1" type="checkbox"> Je reconnais signer ce bail (${S.role}).</label>
-        <label class="chk"><input id="c2" type="checkbox"> Je consens à signer par procédé électronique.</label>
-        <button id="toRead" class="primary" disabled>Lire le document</button>
+        <div class="scroll">
+          <h1>Avant de signer</h1>
+          <label>Vos nom et prénom<br><input id="name" type="text" autocomplete="name" placeholder="Jean Dupont"></label>
+          <label class="chk"><input id="c1" type="checkbox"> Je reconnais signer ce bail (${S.role}).</label>
+          <label class="chk"><input id="c2" type="checkbox"> Je consens à signer par procédé électronique.</label>
+        </div>
+        <div class="actionbar"><button id="toRead" class="primary" disabled>Lire et parapher</button></div>
       </section>
 
       <section id="step-read" class="step" hidden>
-        <h1>Lisez le document</h1>
-        <div id="pdf-pages" class="pdf-scroll">Chargement du document…</div>
-        <button id="toSign" class="primary">J'ai lu, passer à la signature</button>
+        <div class="scroll"><div id="pdf-page">Chargement du document…</div></div>
+        <div class="actionbar" id="read-bar"></div>
       </section>
 
       <section id="step-sign" class="step" hidden>
-        <h1>Signez</h1>
-        <div class="pad-wrap"><canvas id="pad" width="600" height="200"></canvas></div>
-        <div class="pad-actions"><button id="clr" class="ghost">Effacer</button></div>
-        <button id="toConfirm" class="primary">Valider ma signature</button>
+        <div class="scroll">
+          <h1>Votre signature</h1>
+          <p>Tracez votre <strong>signature complète</strong> ci-dessous (distincte de vos paraphes).</p>
+          <div class="pad-wrap"><canvas id="sig-pad" width="600" height="200"></canvas></div>
+        </div>
+        <div class="actionbar"><div class="bar-btns">
+          <button id="sig-clr" class="ghost">Effacer</button>
+          <button id="toConfirm" class="primary">Valider ma signature</button>
+        </div></div>
       </section>
 
       <section id="step-confirm" class="step" hidden>
-        <h1>Confirmer l'envoi</h1>
-        <p>Votre signature va être apposée sur le document, qui sera renvoyé automatiquement.</p>
-        <button id="submit" class="primary">Signer et envoyer</button>
-        <p id="busy" hidden>Traitement…</p>
+        <div class="scroll">
+          <h1>Confirmer l'envoi</h1>
+          <p>Vos paraphes (chaque page) et votre signature vont être apposés sur le document, qui sera renvoyé automatiquement.</p>
+          <p id="busy" hidden>Traitement…</p>
+        </div>
+        <div class="actionbar"><button id="submit" class="primary">Signer et envoyer</button></div>
       </section>
 
       <section id="step-done" class="step" hidden>
@@ -1231,36 +1326,76 @@ function buildUI() {
   const gate = () => { toRead.disabled = !(name.value.trim() && c1.checked && c2.checked); };
   [name, c1, c2].forEach((el) => el.addEventListener('input', gate));
 
-  toRead.onclick = async () => { show('step-read'); await loadAndRender(); };
-  app.querySelector('#toSign').onclick = () => { show('step-sign'); ensurePad(); };
+  toRead.onclick = async () => { signerName = name.value.trim(); show('step-read'); await startReading(); };
+  app.querySelector('#sig-clr').onclick = () => signaturePad && signaturePad.clear();
   app.querySelector('#toConfirm').onclick = () => {
-    if (pad.isEmpty()) { alert('Veuillez signer avant de continuer.'); return; }
+    if (!signaturePad || signaturePad.isEmpty()) { alert('Veuillez signer avant de continuer.'); return; }
     show('step-confirm');
   };
-  app.querySelector('#submit').onclick = () => doSubmit(name.value.trim());
+  app.querySelector('#submit').onclick = doSubmit;
 }
 
-async function loadAndRender() {
-  if (master) return;
-  const r = await fetch(`/api/sessions/${SID}/pdf`, { headers: { 'X-Sign-Token': TOKEN } });
-  if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
-  if (r.status === 410) return fail('Ce document est déjà signé.');
-  if (!r.ok) return fail('Impossible de charger le document. Réessayez plus tard.');
-  master = new Uint8Array(await r.arrayBuffer());
-  await renderPdf(master.slice(), app.querySelector('#pdf-pages')); // copie : PDF.js détache
+async function startReading() {
+  if (!master) {
+    const r = await fetch(`/api/sessions/${SID}/pdf`, { headers: { 'X-Sign-Token': TOKEN } });
+    if (r.status === 403) return fail('Ce n\'est pas (ou plus) votre tour de signer.');
+    if (r.status === 410) return fail('Ce document est déjà signé.');
+    if (!r.ok) return fail('Impossible de charger le document. Réessayez plus tard.');
+    master = new Uint8Array(await r.arrayBuffer());
+    pdf = await loadDocument(master.slice()); // copie : PDF.js détache le buffer
+    const probe = await PDFLib.PDFDocument.load(master); // master intact pour le tamponnage final
+    paraphePages = paraphePagesFor(probe, { sigId: S.sigId, side: S.side });
+    curPage = 1;
+  }
+  await renderReadStep();
 }
 
-function ensurePad() {
-  if (!pad) pad = initPad(app.querySelector('#pad'), { clearBtn: app.querySelector('#clr') });
+async function renderReadStep() {
+  await renderPageInto(pdf, curPage, app.querySelector('#pdf-page'));
+  const total = pdf.numPages;
+  const needsParaphe = paraphePages.includes(curPage);
+  const isLast = curPage >= total;
+  const nextLabel = isLast ? 'Terminer la lecture' : 'Page suivante';
+  const bar = app.querySelector('#read-bar');
+  bar.innerHTML = '';
+  bar.appendChild(h(`<div class="progress">Page ${curPage} / ${total}${needsParaphe ? ' · à parapher' : ' · lecture seule'}</div>`));
+
+  if (needsParaphe) {
+    bar.appendChild(h(`<div class="pad-wrap small"><canvas id="par-pad" width="320" height="90"></canvas></div>`));
+    bar.appendChild(h(`<div class="bar-btns"><button id="par-clr" class="ghost">Effacer</button><button id="par-next" class="primary">${nextLabel}</button></div>`));
+    const parPad = initPad(app.querySelector('#par-pad'), { clearBtn: app.querySelector('#par-clr') });
+    app.querySelector('#par-next').onclick = () => {
+      if (parPad.isEmpty()) { alert('Veuillez parapher cette page avant de continuer.'); return; }
+      paraphesByPage[curPage] = parPad.toDataURL();
+      advancePage(isLast);
+    };
+  } else {
+    bar.appendChild(h(`<div class="bar-btns"><button id="par-next" class="primary">${nextLabel}</button></div>`));
+    app.querySelector('#par-next').onclick = () => advancePage(isLast);
+  }
 }
 
-async function doSubmit(signerName) {
+function advancePage(isLast) {
+  if (isLast) { show('step-sign'); ensureSignaturePad(); return; }
+  curPage++;
+  renderReadStep();
+}
+
+function ensureSignaturePad() {
+  if (!signaturePad) signaturePad = initPad(app.querySelector('#sig-pad'), { clearBtn: app.querySelector('#sig-clr') });
+}
+
+async function doSubmit() {
   const busy = app.querySelector('#busy'); const btn = app.querySelector('#submit');
   busy.hidden = false; btn.disabled = true;
   try {
     const doc = await PDFLib.PDFDocument.load(master);
     const mentionLines = buildMentionLines({ signerName, role: S.role, dateISO: new Date().toISOString() });
-    await stampSignature(doc, { sigId: S.sigId, side: S.side, pngDataUrl: pad.toDataURL(), mentionLines }, { rgb: PDFLib.rgb });
+    await stampSignature(doc, {
+      sigId: S.sigId, side: S.side,
+      signaturePngDataUrl: signaturePad.toDataURL(),
+      paraphesByPage, mentionLines
+    }, { rgb: PDFLib.rgb });
     const signed = await doc.save();
     const r = await fetch(`/api/sessions/${SID}/signed`, {
       method: 'POST', headers: { 'X-Sign-Token': TOKEN, 'content-type': 'application/pdf' }, body: signed
@@ -1298,18 +1433,35 @@ cd relay && git add public/sign.js && git commit -m "feat(sign): sign.js — orc
 **Files:**
 - Modify: `relay/public/sign.css` (remplace le placeholder de Task 1)
 
-Applique la variante validée en Task 0. Mobile-first ; cibles tactiles ≥44px ; `touch-action:none` sur le pad (sinon le scroll vole le tracé) ; pages PDF en largeur 100% ; carte d'état centrée pour succès/erreurs.
+Applique la **variante B validée** (Task 0) : pleine hauteur, contenu défilant + **barre d'action collée en bas** (`position: sticky`) qui porte la progression, le pad de paraphe et le bouton primaire. Mobile-first ; cibles tactiles ≥44px ; `touch-action:none` sur les pads (sinon le scroll vole le tracé) ; page PDF en largeur 100% ; `env(safe-area-inset-bottom)` pour les encoches ; carte d'état centrée pour succès/erreurs.
 
 - [ ] **Step 1 : Écrire** `relay/public/sign.css`
 
 ```css
 :root { --pad: 16px; --accent: #1a1a8c; --ok: #1c7c3c; --err: #b00020; --line: #d9d9e3; }
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 body { margin: 0; font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1a1a1a; background: #f5f5f8; }
-#app { max-width: 820px; margin: 0 auto; padding: var(--pad); }
-.sign-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 0 12px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+#app { max-width: 820px; margin: 0 auto; height: 100%; }
+.wrap, .step { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.sign-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px var(--pad); border-bottom: 1px solid var(--line); background: #fff; flex: none; }
 .sign-head .rank { color: #555; font-size: 14px; white-space: nowrap; }
 h1 { font-size: 1.3rem; margin: 0 0 12px; }
+
+/* zone défilante (consentement / lecture / signature / confirmation) */
+.scroll { flex: 1; overflow: auto; padding: var(--pad); min-height: 0; }
+
+/* barre d'action collée en bas — cœur de la variante B */
+.actionbar {
+  position: sticky; bottom: 0; flex: none;
+  background: #fff; border-top: 1px solid var(--line);
+  padding: 10px var(--pad) calc(10px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,.06);
+}
+.actionbar .progress { font-size: 13px; color: #555; text-align: center; }
+.actionbar .bar-btns { display: flex; gap: 8px; }
+.actionbar .bar-btns .primary { flex: 1; }
 
 label { display: block; margin: 12px 0; }
 label.chk { display: flex; gap: 10px; align-items: flex-start; }
@@ -1317,27 +1469,30 @@ input[type=text] { width: 100%; padding: 12px; font-size: 16px; border: 1px soli
 input[type=checkbox] { width: 22px; height: 22px; margin-top: 2px; flex: none; }
 
 button { min-height: 44px; min-width: 44px; padding: 12px 18px; font-size: 16px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); width: 100%; margin-top: 16px; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); width: 100%; }
 button.primary:disabled { opacity: .5; cursor: not-allowed; }
 button.ghost { background: #fff; }
 
-.pdf-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; }
-.pdf-page { display: block; width: 100%; height: auto; margin: 0 auto 10px; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+#pdf-page { text-align: center; }
+.pdf-page { display: block; width: 100%; height: auto; margin: 0 auto; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
 
 .pad-wrap { border: 2px dashed var(--accent); border-radius: 10px; background: #fff; }
-#pad { display: block; width: 100%; height: auto; touch-action: none; }
-.pad-actions { margin-top: 8px; }
+.pad-wrap.small { /* pad de paraphe compact dans la barre */ }
+#sig-pad, #par-pad { display: block; width: 100%; height: auto; touch-action: none; }
 
-.state-card { text-align: center; padding: 40px 16px; }
+.state-card { text-align: center; padding: 40px 16px; margin: auto; }
 .state-card h1 { font-size: 1.4rem; }
 
-@media (min-width: 768px) { #pad { max-width: 600px; margin: 0 auto; } }
+@media (min-width: 768px) {
+  #sig-pad { max-width: 600px; margin: 0 auto; }
+  .pad-wrap.small { max-width: 360px; margin: 0 auto; }
+}
 ```
 
 - [ ] **Step 2 : Vérification manuelle 3 formats**
 
 Run: `cd relay && npx wrangler dev` puis, dans un vrai navigateur, ouvrir une page `/s/:id` réelle (créée à l'étape Task 12) ou stuber `window.__SIGN__` dans `sign.html`.
-Vérifier en **PC / Tablette / Téléphone** (DevTools responsive) : étapes lisibles, boutons ≥44px, pad pleine largeur sans voler le scroll, pages PDF en largeur 100%, carte d'état centrée. Conforme à la variante validée Task 0.
+Vérifier en **PC / Tablette / Téléphone** (DevTools responsive) : la barre d'action reste **collée en bas** à chaque étape, le contenu (lecture) défile au-dessus sans la masquer ; boutons ≥44px ; pads (paraphe dans la barre, signature dans le contenu) pleine largeur sans voler le scroll ; page PDF en largeur 100% ; progression « Page N / total » lisible ; carte d'état centrée. Conforme à la variante B validée Task 0.
 
 - [ ] **Step 3 : Commit**
 
@@ -1404,18 +1559,18 @@ Expected : JSON `{ sessionId, signUrl, ownerToken }` (noter les 3).
 
 - [ ] **Step 4 : Signer #1 (bailleur) dans un vrai navigateur**
 
-Ouvrir `signUrl`. Vérifier l'ordre : consentement (saisir nom + 2 cases) → lecture (3 pages affichées) → signature (tracer) → confirmer → « ✓ Document signé ».
+Ouvrir `signUrl`. Vérifier l'ordre : consentement (saisir nom + 2 cases) → lecture **page par page** : sur chaque page « à parapher », tracer un **paraphe distinct** dans la barre du bas puis « Page suivante » (vérifier le blocage si pad vide) → après la dernière page, étape **signature finale** (tracer une signature, distincte des paraphes) → confirmer → « ✓ Document signé ».
 
 - [ ] **Step 5 : Signer #2 (locataire)**
 
-Rouvrir la **même** `signUrl` (le relais a avancé `currentIndex` → mint un token locataire, `sigId=loc-0`). Refaire le flux. Vérifier le succès.
+Rouvrir la **même** `signUrl` (le relais a avancé `currentIndex` → mint un token locataire, `sigId=loc-0`). Refaire le flux (paraphes page par page + signature finale). Vérifier le succès.
 
 - [ ] **Step 6 : Récupérer le PDF final signé (propriétaire) + vérifier visuellement**
 
 ```bash
 curl -s http://localhost:8787/api/sessions/<sessionId>/result -H "X-Owner-Token: <ownerToken>" -o signed.pdf
 ```
-Ouvrir `signed.pdf` et **vérifier** : (a) les 3 pages d'origine **intactes** (immutabilité — aucun re-rendu) ; (b) paraphe bailleur (col. gauche) ET locataire (col. droite) sur chaque page ; (c) les **deux** signatures finales en dernière page (chaînage « par-dessus » OK) ; (d) la mention « Signé électroniquement … Lu et approuvé … » sous chaque signature.
+Ouvrir `signed.pdf` et **vérifier** : (a) les 3 pages d'origine **intactes** (immutabilité — aucun re-rendu) ; (b) un paraphe bailleur (col. gauche) ET un paraphe locataire (col. droite) sur **chaque** page — chaque paraphe étant le **tracé propre de sa page** (images distinctes, pas un clone de la signature) ; (c) les **deux** signatures finales en dernière page, **graphiquement différentes des paraphes** (chaînage « par-dessus » OK) ; (d) la mention « Signé électroniquement … Lu et approuvé … » sous chaque signature (jamais sous un paraphe).
 
 - [ ] **Step 7 : Smoke mono-signataire + repli sans manifeste**
 
@@ -1424,7 +1579,7 @@ Refaire Steps 3-6 avec **un seul** signataire `locataire`. Puis régénérer un 
 - [ ] **Step 8 : Suite de tests complète (non-régression finale)**
 
 Run: `cd relay && npm test`
-Expected : **70 tests** PASS.
+Expected : **73 tests** PASS.
 
 - [ ] **Step 9 : Commit**
 
@@ -1442,6 +1597,7 @@ cd relay && git add scripts/make-sample-bail.mjs && git commit -m "test(sign): g
 
 - [ ] **Step 1 : Dispatcher l'agent `superpowers:code-reviewer`** sur l'implémentation `sign.html` complète, avec ce périmètre explicite :
   - **Immutabilité juridique** : `stamp.js` n'ajoute QUE du contenu (images/texte) sur les octets originaux, ne re-rend jamais, ne supprime/réécrit aucune page. Le document signé est byte-fidèle (hors ajouts de signature) au document présenté.
+  - **Paraphe ≠ signature (exigence juridique, correction explicite utilisateur)** : vérifier que le paraphe et la signature sont **deux tracés distincts** — `stamp.js` reçoit `signaturePngDataUrl` ET `paraphesByPage` séparés, n'utilise jamais l'image de signature pour un paraphe (ni l'inverse) ; `sign.js` capture un paraphe propre par page et une signature unique à la fin ; aucune image partagée/répliquée entre les deux types d'ancre.
   - **Sécurité** : token jamais dans l'URL ni loggé ; injection `renderSignPage` correctement échappée (`</script>`, attributs) ; `content-type`/taille validés au write-back (déjà côté relais) ; pas de fuite de secret dans le bundle servi.
   - **Dossier de preuve (spec §5)** : 8 items couverts ? Vérifier que mention embarquée (identité affirmée via nom saisi, « Lu et approuvé », consentement électronique) + capture serveur (ip/UA/horodatage/hash SHA-256) + token (contrôle email/jti/audit) couvrent l'ensemble ; signaler tout trou.
   - **Robustesse pdf-lib/PDF.js** : gotcha du buffer détaché respecté (copie pour PDF.js) ; `embedPng`/`embedFont` ne lèvent pas ; ancres hors-page ignorées proprement ; repli sans manifeste fonctionnel.
@@ -1453,7 +1609,7 @@ cd relay && git add scripts/make-sample-bail.mjs && git commit -m "test(sign): g
 - [ ] **Step 3 : Vérifier la suite après corrections**
 
 Run: `cd relay && npm test`
-Expected : tous les tests PASS (≥ 70).
+Expected : tous les tests PASS (≥ 73).
 
 - [ ] **Step 4 : Mettre à jour le statut backlog (règle temps réel)** dans `C:\Users\Did_K\Desktop\Immo\BACKLOG.md` (composant 2/3 livré + version + commit) et le journal de `docs/subjects/BAIL-SIGNATURE-DISTANCE.md`.
 
@@ -1469,8 +1625,10 @@ cd relay && git add -A && git commit -m "feat(sign): sign.html composant 2/3 —
 
 - **Couverture spec** : §3 routes/flux → Tasks 7, 10, 12 ; §4 wizard (porté) → Tasks 8-11 (delta : tamponnage B au lieu de re-rendu A, justifié §Décisions) ; §5 dossier de preuve → Task 5 (mention) + relais existant (ip/UA/hash) + Task 13 (vérif. couverture) ; §6 sécurité/RGPD → Tasks 7, 13. ✅
 - **Placeholders** : chaque étape de code contient le code complet ; les seuls « à valider » sont la variante mockup (Task 0, gate utilisateur) et la couverture preuve (Task 13, audit) — délibérés, pas des trous. ✅
-- **Cohérence des types** : `sigId` (`sigid.js`) consommé par `renderSignPage`, le manifeste (`manifest.js`/`coords.js`), `stamp.js`, `sign.js` — même format `loc-N`/`bailleur-N`. `anchors[].{sigId,kind,page,x,y,w,h}` identique partout (mm/jsPDF). `stampSignature(doc, opts, {rgb})` signature unique. ✅
-- **Dépendance composant 3** : le delta #2 (manifeste écrit par `genPDFNative` en jsPDF) est explicitement signalé comme exigence ajoutée au composant 3 ; le repli défensif évite tout blocage entre-temps. ✅
+- **Cohérence des types** : `sigId` (`sigid.js`) consommé par `renderSignPage`, le manifeste (`manifest.js`/`coords.js`), `stamp.js`, `sign.js` — même format `loc-N`/`bailleur-N`. `anchors[].{sigId,kind,page,x,y,w,h}` identique partout (mm/jsPDF). `stampSignature(doc, {sigId, signaturePngDataUrl, paraphesByPage, mentionLines, side}, {rgb})` : signature unique de fonction, **deux entrées image distinctes** (signature vs paraphes par page) — cohérent entre `stamp.js` (consommateur) et `sign.js` (producteur) ; `paraphePagesFor` exporté par `stamp.js` et consommé par `sign.js` pour piloter le parcours. ✅
+- **Paraphe ≠ signature** : modèle à deux tracés propagé partout (décision #6, Task 0 mockup, Task 6 `stamp.js` + tests, Task 10 `sign.js`, Task 12 vérif. visuelle, Task 13 audit). Jamais d'image partagée. ✅
+- **Cohérence du nombre de tests** : sigid 4 + coords 4 + manifest 5 + proof 4 + stamp 7 = 24 nouveaux modules purs ; +46 relais = 70 (Task 6) ; +3 route = 73 (Tasks 7/12/13). ✅
+- **Dépendance composant 3** : le delta #2 (manifeste écrit par `genPDFNative` en jsPDF, avec ancres `paraphe` par page + `signature`) est explicitement signalé comme exigence ajoutée au composant 3 ; le repli défensif évite tout blocage entre-temps. ✅
 
 ---
 
