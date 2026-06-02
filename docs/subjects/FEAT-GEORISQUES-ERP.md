@@ -1,6 +1,6 @@
 # FEAT-GEORISQUES-ERP — Détection automatique ERP / IAL depuis l'adresse (Géorisques + BAN)
 
-**Status** : 🔄 CODÉ SANDBOX + 🛡 AUDITÉ ×2 (SHIP), EN ATTENTE TEST VISUEL · **Prio** : P2 · **Taille** : M
+**Status** : ✅ Phase 1 (détection adresse) CODÉE + 🛡 AUDITÉE ×2 + TEST VISUEL OK (2026-06-02) · 🆕 Phase 2 (câblage doc ERRIAL ↔ ligne ERP + suivi validité 6 mois) À FAIRE · Sync PROD différée (dépend B2) · **Prio** : P2 · **Taille** : M (Phase 1) + M (Phase 2)
 **Détecté / décidé** : 2026-06-02 · **Sujet créé** : 2026-06-02
 **Lié à** : MODALE-LOGEMENT-CONSOLIDATION B2 (onglet Diagnostics unifié — c'est là que vit l'UI) · BAILLEUR-DIAGNOSTICS-DDT (annexe État des Risques au bail).
 
@@ -82,10 +82,32 @@ compat d'API (args ignorés). Tests mis à jour (toujours 44, le test d'URL asse
 
 ## Reste à faire
 
-- **TEST VISUEL** (sandbox `index-test.html`, navigateur réel) : ouvrir un logement avec adresse renseignée → onglet Diagnostics → vérifier auto-détection + panneau + non-clobber après toggle manuel.
-- **Sync PROD** (`index.html` + `sw.js` CACHE_VER) APRÈS « OK » explicite user — différée avec le reste de Phase B.
+- ✅ **TEST VISUEL FAIT (2026-06-02)** : sur Logt 1 (Morschwiller-le-Bas 68218), le panneau détecte « ERP/IAL obligatoire · sismicité zone 3 » **depuis l'adresse via l'API, avant tout upload de document** ; case « Zone à risques (ERP) » cochée auto. Cohérence confirmée par l'ERRIAL officiel (SISMICITÉ 3/5). Lien « Vérifiez sur georisques.gouv.fr » → corrigé en ERRIAL (v15.253).
+- **Sync PROD** (`index.html` + `sw.js` CACHE_VER) APRÈS « OK » explicite user — différée avec le reste de Phase B (dépend de B2 : les `_logDiag*` n'existent pas encore en PROD).
+
+## Phase 2 — câblage doc ERRIAL ↔ diagnostic ERP + suivi validité (À FAIRE, prio à fixer)
+
+**Problème constaté au test visuel 2026-06-02** : **3 signaux ERP déconnectés** sur le même écran Diagnostics —
+1. Panneau adresse v15.252 : « obligatoire · sismicité zone 3 » + case ☑ « Zone à risques » → ✅ marche (API).
+2. Scan PDF (B2) : puce indicative « État des risques (ERP) » reconnue dans l'ERRIAL joint → ✅ s'affiche.
+3. Ligne DDT « État des risques » : reste **« ❓ À renseigner »** (date vide, résultat « — »).
+
+L'utilisateur a le document officiel ERRIAL natif (établi le 02/06/2026) mais **rien ne le relie** au diagnostic ERP ni n'en suit la validité. Cause : la couverture détectée est « indicative, jamais écrite dans les résultats » (par design conservateur, index-test.html ~35356).
+
+**Scope à câbler :**
+1. **Extraction de la date « Établi le … » de l'ERRIAL** → suggérer la « Date réalisée » de la ligne ERP en « ✨ à vérifier » (ajouter l'ancre `établi le` au moteur de suggestion de date, qui ne connaît aujourd'hui que repérage/réalisation/visite/exécution). Validité ERP = **6 mois** → expiration auto = établi + 6 mois.
+2. **Lier le PDF ERRIAL au diagnostic ERP** comme justificatif ; proposer « Établi » sur la ligne quand un ERRIAL est joint (toujours en « à vérifier », jamais d'écriture auto silencieuse).
+3. **Suivi validité + message de renouvellement** (le besoin neuf exprimé par l'user) : croiser `établi + 6 mois` avec aujourd'hui →
+   - **doc joint mais périmé/proche** : message « Ton État des Risques date du JJ/MM/AAAA (> 6 mois) → re-télécharge un état des risques à jour sur ERRIAL » + lien `errial.georisques.gouv.fr`.
+   - **pas de doc joint mais API dit obligatoire** : message « ERP obligatoire ici → télécharge ton État des Risques sur ERRIAL et joins-le au bail ».
+   - réutiliser le **moteur d'expiration existant** (Agenda + actions prioritaires) ; l'ERP a une validité **courte (6 mois)** vs les autres diagnostics.
+4. **Particularité légale à exploiter** : contrairement aux autres diagnostics (diagnostiqueur pro requis), l'ERP/ERRIAL se régénère **gratuitement par le bailleur lui-même** sur le site → le message pousse vers l'auto-téléchargement (pas vers un pro).
+
+**Contraintes** : mockup-first (3 formats + tout post-clic) → validation user AVANT code · audit `superpowers:code-reviewer` (livrable lié au bail = sensible) · immutabilité bail signé · cohérent avec le non-clobber v15.252 (ne jamais écraser une saisie manuelle).
+
+**À décider avant d'attaquer** : prio ? les 6 mois sont-ils en dur ou configurables ? le message va dans le panneau ERP, la ligne DDT, ou les deux ?
 
 ## Idées V2 (hors scope)
 
-- Récupérer aussi SIS (pollution des sols), recul du trait de côte, retrait-gonflement argiles (RGA) pour un détail plus complet du Cerfa ERP.
+- Récupérer aussi SIS (pollution des sols), recul du trait de côte, retrait-gonflement argiles (RGA) pour un détail plus complet du Cerfa ERP. *(NB : l'ERRIAL officiel les liste déjà en annexe — argile, pollution sols/ICPE, CAT-NAT.)*
 - Bouton « Annexer l'ERP au bail » qui génère un récap PDF horodaté lié au rapport Géorisques.
