@@ -8,9 +8,17 @@
 </head>
 <body>
   <main id="app" aria-live="polite">
-    <p id="boot">Chargement…</p>
+    <h1>Harnais dev — pad</h1>
+    <canvas id="pad" width="500" height="160" style="border:1px solid #ccc;touch-action:none"></canvas>
+    <div><button id="clr">Effacer</button> <button id="dump">Voir dataURL</button></div>
+    <img id="preview" alt="" style="border:1px solid #eee;max-width:250px">
   </main>
-  <script src="/vendor/pdf-lib.min.js"></script>
-  <script type="module" src="/sign.js"></script>
+  <script type="module">
+    import { initPad } from '/sign/pad.js';
+    const pad = initPad(document.getElementById('pad'), { clearBtn: document.getElementById('clr') });
+    document.getElementById('dump').onclick = () => {
+      document.getElementById('preview').src = pad.isEmpty() ? '' : pad.toDataURL();
+    };
+  </script>
 </body>
 </html>
