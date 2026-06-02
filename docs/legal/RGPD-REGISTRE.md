@@ -24,8 +24,11 @@
 | Sous-traitant | Service | Localisation données | DPA signé | Référence |
 |---|---|---|---|---|
 | **Google Ireland Limited** | Stockage Drive (sync optionnelle) | UE + US (transferts encadrés clauses contractuelles types) | Oui — voir [DPA-GOOGLE-DRIVE.md](DPA-GOOGLE-DRIVE.md) | [Google Cloud DPA](https://cloud.google.com/terms/data-processing-addendum) |
+| **Cloudflare, Inc.** | Relais de signature à distance (Worker + R2 + KV) — `bail-sign-relay`, transit temporaire du bail le temps de la signature | R2/KV mondial par défaut (KV répliqué multi-régions) ; restreindre via *Jurisdictional Restrictions* (R2 hint `eu`) recommandé | DPA standard Cloudflare (SCC) — à accepter dans le dashboard Cloudflare | [Cloudflare DPA](https://www.cloudflare.com/cloudflare-customer-dpa/) |
 
 **Important** : si vous activez la sync Drive, vous transférez vos données à Google. Si vos locataires ont saisi des données personnelles (nom, IBAN, email), informez-les via un avenant au bail ou un courrier ad hoc avant l'activation.
+
+**Relais de signature** : lorsqu'un bail est envoyé en signature à distance, le PDF du bail (riche en données personnelles : noms, adresse, montants) et les preuves de signature (hash SHA-256 de l'email, téléphone, IP, user-agent, horodatages) transitent par Cloudflare. Données purgées automatiquement après **14 jours** (TTL KV) / **15 jours** (cycle de vie R2). KV étant répliqué mondialement par défaut, configurer la restriction de juridiction UE si la localisation des données dans l'UE est requise.
 
 ---
 
@@ -74,6 +77,21 @@
 | **Durée de conservation** | Bail + 3 ans (preuve en cas de litige restitution DG) |
 | **Stockage** | IndexedDB navigateur (`immotrack_photos`) + Google Drive si sync (dossier dédié `📋 EDL/` par logement) |
 
+### 5. Signature électronique à distance du bail (BAIL-SIGNATURE-DISTANCE)
+
+| Champ | Détail |
+|---|---|
+| **Finalité** | Recueil de la signature électronique du bail à distance (loi ELAN ; niveau eIDAS « simple ») + constitution du dossier de preuve |
+| **Catégories de personnes** | Signataires du bail : bailleur(s) et locataire(s) |
+| **Catégories de données** | PDF du bail (identité, adresse, loyer, DG…), hash SHA-256 de l'email du signataire, téléphone, et preuves : hash SHA-256 du PDF signé, adresse IP, user-agent, horodatages ISO 8601 |
+| **Données sensibles** | Aucune |
+| **Base légale** | Exécution du contrat (art. 6.1.b RGPD) + intérêt légitime à la valeur probante (art. 6.1.f) |
+| **Durée de conservation** | **Côté relais Cloudflare** : éphémère — 14 j (TTL KV) / 15 j (cycle de vie R2), le temps de la signature uniquement. **Côté ImmoTrack** : bail signé + dossier de preuve conservés avec le bail (durée du bail + 3 ans, cf. traitement n°1) |
+| **Destinataires** | Responsable de traitement ; Cloudflare (sous-traitant, transit temporaire) |
+| **Transferts hors UE** | Possible via Cloudflare (KV répliqué mondialement) — encadré par les SCC du DPA Cloudflare ; restriction de juridiction UE recommandée |
+| **Mesures techniques** | sessionId 256 bits non devinable ; jetons HMAC-SHA256 (jamais dans l'URL) ; comparaison à temps constant des secrets ; HTTPS/TLS ; chiffrement R2 au repos ; purge automatique (TTL) ; signature ordonnée (machine à états anti-rejeu) |
+| **Anti-transfert (V1)** | Le lien de signature est livré uniquement à l'email du signataire ; la vérification d'email à l'ouverture (OTP) est prévue en Phase 2 |
+
 ---
 
 ## Droits des personnes concernées (art. 15-22 RGPD)
@@ -117,5 +135,5 @@ En cas de fuite de données (vol device + Drive non chiffré local, compromissio
 - Nouveau type de traitement (multi-user, portail locataire, etc.)
 - Changement de durée de conservation
 
-**Dernière mise à jour** : 2026-05-11
+**Dernière mise à jour** : 2026-06-02 (ajout sous-traitant Cloudflare + traitement n°5 signature à distance)
 **Mainteneur** : responsable de traitement ImmoTrack

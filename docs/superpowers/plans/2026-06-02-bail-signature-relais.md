@@ -1543,6 +1543,26 @@ git commit -m "docs(relay): URL workers.dev déployée + rétention R2"
 
 ---
 
+## Résultat de l'audit (Task 14 — effectué le 2026-06-02)
+
+Agent `superpowers:code-reviewer` lancé deux fois sur l'ensemble de `relay/`.
+
+**1er passage — CHANGES REQUESTED** (aucun bloquant). Contrat de base conforme (6 routes, modèle de session §3, machine d'état ordonnée testée E2E, capture de preuve correcte). 3 findings importants :
+- **I-1 — `GET /s/:id` ne vérifie pas l'email à l'ouverture** (anti-transfert §6 sans point d'application dans le relais). → **DÉCISION : reporté Phase 2.** Contrôle V1 = `sessionId` 256 bits non devinable, livré uniquement à l'email cible (facteur « accès à l'email » au niveau eIDAS *simple*, qui n'emporte de toute façon aucune présomption légale). La vraie vérification (OTP email / clic de confirmation) exige une infra d'envoi d'email → Phase 2 (sign.html + endpoint `verify`), avec l'OTP SMS déjà reporté. **Pas de champ `proof.emailConfirmed` spéculatif** (YAGNI : enregistrer un booléen jamais appliqué serait pire que rien). Validé par le 2e passage de l'audit.
+- **I-2 — `POST /sessions` ne validait pas les champs par signataire** (email manquant → `emailHash("undefined")` ; `ordre` manquant/dupliqué → tri NaN corrompant silencieusement l'ordre). → **CORRIGÉ** : `validateSigners()` dans `validate.js` (array non vide ; `email` string non vide ; `role` string non vide ; `ordre` entier via `Number.isInteger` ; pas de doublon d'`ordre`), appelé avant `emailHash`/tri, renvoie 400.
+- **I-3 — comparaison `APP_KEY` non temps-constant.** → **CORRIGÉ** : `timingSafeEqualStr()` dans `crypto-utils.js` (XOR-accumulation, le early-return sur longueur ne fuite que la longueur d'un secret opérateur fixe — acceptable).
+
+Mineurs notés (non bloquants) : **M-2 / Phase 2** — le placeholder HTML de `GET /s/:id` (index.js ~l.85-89) interpole `signToken`/`sessionId` (charsets hex/JWT sûrs aujourd'hui, donc pas de XSS vivant) ; **quand le vrai `sign.html` ajoutera des champs dynamiques, ce point d'injection devra être échappé/protégé par CSP** → à mettre sur la checklist sécurité Phase 2. `jti` décoratif (anti-rejeu déjà couvert par les gardes `idx`/`status`) — laissé tel quel (crochet de révocation futur).
+
+**2e passage — APPROVED** : I-2 résolu (vecteur de corruption fermé, aucune entrée malformée n'atteint `emailHash`/tri), I-3 résolu (protège le secret octet par octet), report I-1 défendable, **aucune régression**. Tests : 46/46 verts (+10 : 6 `validateSigners`, 1 `timingSafeEqualStr`, 3 routes — 400 signataire / 410 session complétée / 401 sans token).
+
+### Notes toolchain Windows (à reporter dans les plans aval)
+- `wrangler.toml` : `compatibility_flags = ["nodejs_compat"]` requis par `@cloudflare/vitest-pool-workers` (et utile en prod de toute façon).
+- `vitest.config.js` : `singleWorker: true` + `isolatedStorage: false` — contourne les bugs miniflare Windows (verrou EBUSY sur les `.sqlite` + crash workerd `kj/table.c++` sur lignes dupliquées). Les tests utilisent des `sid` distincts → stockage partagé sans interférence.
+- À la fin des tests : `EBUSY unlink ...sqlite` / `close timed out` = artefact **cosmétique** Windows de teardown **après** que tout est vert. Juger sur la ligne « Tests N passed ».
+
+---
+
 ## Self-Review (effectué)
 
 **Couverture spec (§ du spec → tâche) :**
