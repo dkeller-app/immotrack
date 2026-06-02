@@ -1,6 +1,6 @@
 # FEAT-GEORISQUES-ERP — Détection automatique ERP / IAL depuis l'adresse (Géorisques + BAN)
 
-**Status** : ✅ Phase 1 (détection adresse) CODÉE + 🛡 AUDITÉE ×2 + TEST VISUEL OK (2026-06-02) · ✅ Phase 2 (câblage doc ERRIAL ↔ ligne ERP + suivi validité 6 mois) **CODÉE sandbox v15.254 + 🛡 revue spec ✅ + audit code-reviewer ✅ SHIP** (2026-06-02), à tester visuel · Sync PROD différée (dépend B2) · **Prio** : P2 · **Taille** : M (Phase 1) + M (Phase 2)
+**Status** : ✅ Phase 1 (détection adresse) CODÉE + 🛡 AUDITÉE ×2 + TEST VISUEL OK (2026-06-02) · ✅ Phase 2 (câblage doc ERRIAL ↔ ligne ERP + suivi validité 6 mois) **CODÉE sandbox v15.254 + 🛡 revue spec ✅ + audit code-reviewer ✅ ×2 + TEST VISUEL OK** (2026-06-02 — date ERRIAL réelle suggérée sur ligne ERP) · Sync PROD différée (dépend B2) · **Prio** : P2 · **Taille** : M (Phase 1) + M (Phase 2)
 **Détecté / décidé** : 2026-06-02 · **Sujet créé** : 2026-06-02
 **Lié à** : MODALE-LOGEMENT-CONSOLIDATION B2 (onglet Diagnostics unifié — c'est là que vit l'UI) · BAILLEUR-DIAGNOSTICS-DDT (annexe État des Risques au bail).
 
