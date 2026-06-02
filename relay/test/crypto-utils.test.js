@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sha256hex, randomHex, emailHash } from '../src/crypto-utils.js';
+import { sha256hex, randomHex, emailHash, timingSafeEqualStr } from '../src/crypto-utils.js';
 
 describe('crypto-utils', () => {
   it('sha256hex retourne un hex 64 chars stable', async () => {
@@ -17,5 +17,12 @@ describe('crypto-utils', () => {
     const a = await emailHash('  Camille.Audrin@Gmail.com ');
     const b = await emailHash('camille.audrin@gmail.com');
     expect(a).toBe(b);
+  });
+
+  it('timingSafeEqualStr vrai pour chaînes identiques, faux sinon', () => {
+    expect(timingSafeEqualStr('Bearer abc123', 'Bearer abc123')).toBe(true);
+    expect(timingSafeEqualStr('Bearer abc123', 'Bearer abc124')).toBe(false);
+    expect(timingSafeEqualStr('court', 'chaine-plus-longue')).toBe(false);
+    expect(timingSafeEqualStr('', '')).toBe(true);
   });
 });

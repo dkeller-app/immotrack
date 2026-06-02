@@ -15,3 +15,27 @@ export function validatePdfUpload(bytes, contentType) {
   }
   return { ok: true };
 }
+
+export function validateSigners(signers) {
+  if (!Array.isArray(signers) || signers.length === 0) {
+    return { ok: false, reason: 'no-signers' };
+  }
+  const seenOrdre = new Set();
+  for (const s of signers) {
+    if (!s || typeof s !== 'object') return { ok: false, reason: 'bad-signer' };
+    if (typeof s.email !== 'string' || s.email.trim() === '') {
+      return { ok: false, reason: 'bad-signer-email' };
+    }
+    if (typeof s.role !== 'string' || s.role.trim() === '') {
+      return { ok: false, reason: 'bad-signer-role' };
+    }
+    if (!Number.isInteger(s.ordre)) {
+      return { ok: false, reason: 'bad-signer-ordre' };
+    }
+    if (seenOrdre.has(s.ordre)) {
+      return { ok: false, reason: 'duplicate-ordre' };
+    }
+    seenOrdre.add(s.ordre);
+  }
+  return { ok: true };
+}

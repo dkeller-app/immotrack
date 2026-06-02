@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { createSession, loadSession, recordSignature } from './sessions.js';
-import { emailHash, randomHex } from './crypto-utils.js';
+import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf } from './storage.js';
-import { validatePdfUpload } from './validate.js';
+import { validatePdfUpload, validateSigners } from './validate.js';
 
 const app = new Hono();
 
@@ -15,7 +15,7 @@ function expEpoch() {
 
 app.post('/sessions', async (c) => {
   const auth = c.req.header('Authorization') || '';
-  if (auth !== `Bearer ${c.env.APP_KEY}`) {
+  if (!timingSafeEqualStr(auth, `Bearer ${c.env.APP_KEY}`)) {
     return c.json({ error: 'unauthorized' }, 401);
   }
   const form = await c.req.formData();
@@ -25,9 +25,8 @@ app.post('/sessions', async (c) => {
 
   let meta;
   try { meta = JSON.parse(metaRaw); } catch { return c.json({ error: 'bad meta json' }, 400); }
-  if (!Array.isArray(meta.signers) || meta.signers.length === 0) {
-    return c.json({ error: 'no signers' }, 400);
-  }
+  const sv = validateSigners(meta.signers);
+  if (!sv.ok) return c.json({ error: sv.reason }, 400);
 
   const pdfBytes = new Uint8Array(await pdfFile.arrayBuffer());
   const signers = [];

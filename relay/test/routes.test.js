@@ -43,6 +43,16 @@ describe('POST /sessions', () => {
     expect(ver.payload.role).toBe('owner');
     expect(ver.payload.sid).toBe(body.sessionId);
   });
+
+  it('rejette 400 un signataire sans email (anti emailHash("undefined"))', async () => {
+    const res = await SELF.fetch('https://relay.test/sessions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.APP_KEY}` },
+      body: pdfForm({ bailRef: 'BAIL-X', signers: [{ role: 'locataire', tel: '', ordre: 1 }] })
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('bad-signer-email');
+  });
 });
 
 async function createTestSession(signers) {
@@ -74,6 +84,19 @@ describe('GET /s/:id', () => {
     expect(ver.payload.role).toBe('signer');
     expect(ver.payload.idx).toBe(0);
     expect(ver.payload.sid).toBe(sessionId);
+  });
+
+  it('410 quand la session est déjà complétée', async () => {
+    const { sessionId } = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const open = await SELF.fetch(`https://relay.test/s/${sessionId}`);
+    const token = (await open.text()).match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
+    await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST',
+      headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
+      body: new Uint8Array([0x25, 0x50, 0x44, 0x46, 7])
+    });
+    const res = await SELF.fetch(`https://relay.test/s/${sessionId}`);
+    expect(res.status).toBe(410);
   });
 });
 
@@ -119,6 +142,16 @@ describe('POST /api/sessions/:id/signed', () => {
     return (await res.text()).match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
   }
   const signedPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 8, 8, 8]);
+
+  it('401 sans token de signature', async () => {
+    const { sessionId } = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const res = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/pdf' },
+      body: signedPdf
+    });
+    expect(res.status).toBe(401);
+  });
 
   it('rejette un upload non-PDF (400)', async () => {
     const { sessionId } = await createTestSession([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
