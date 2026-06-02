@@ -4,6 +4,7 @@ import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf } from './storage.js';
 import { validatePdfUpload, validateSigners } from './validate.js';
+import { renderSignPage, renderErrorPage } from './sign-page.js';
 
 const app = new Hono();
 
@@ -77,17 +78,10 @@ async function mintSignToken(env, sessionId, idx) {
 app.get('/s/:sessionId', async (c) => {
   const sessionId = c.req.param('sessionId');
   const session = await loadSession(c.env, sessionId);
-  if (!session) return c.text('Lien invalide ou expiré.', 404);
-  if (session.status === 'completed') return c.text('Ce document est déjà signé.', 410);
-
+  if (!session) return c.html(renderErrorPage('Lien invalide ou expiré.'), 404);
+  if (session.status === 'completed') return c.html(renderErrorPage('Ce document est déjà signé.'), 410);
   const signToken = await mintSignToken(c.env, sessionId, session.currentIndex);
-  // Phase 2 : remplacer ce placeholder par le vrai sign.html (wizard porté).
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Signature du bail</title></head><body>
-<p>Placeholder de signature (Phase 2 : wizard).</p>
-<script>window.__SIGN_TOKEN__ = "${signToken}"; window.__SESSION_ID__ = "${sessionId}";</script>
-</body></html>`;
-  return c.html(html);
+  return c.html(renderSignPage({ session, signToken }));
 });
 
 app.get('/api/sessions/:id/pdf', async (c) => {
