@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galerie — sign.html · signature de bail à distance (A/B/C × 3 formats)</title>
+<style>
+  :root {
+    --accent: #1a1a8c;
+    --bg: #ececf2;
+    --surface: #fff;
+    --line: #d7d7e2;
+    --ink: #1a1a1a;
+    --ink-soft: #555;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header.gallery-head {
+    background: #11114d; color: #fff; padding: 22px 24px;
+  }
+  header.gallery-head h1 { margin: 0 0 4px; font-size: 21px; }
+  header.gallery-head p { margin: 0; opacity: .85; font-size: 14px; max-width: 900px; }
+
+  .legend {
+    display: grid; gap: 12px; padding: 18px 24px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+  .legend .v {
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    background: #fafaff;
+  }
+  .legend .v b { color: var(--accent); }
+  .legend .v small { color: var(--ink-soft); display: block; margin-top: 3px; }
+  .legend .note {
+    grid-column: 1 / -1; font-size: 13px; color: var(--ink-soft);
+    background: #fff7e6; border: 1px solid #f0dca8; border-radius: 8px; padding: 10px 12px;
+  }
+
+  .variant { padding: 22px 24px 8px; }
+  .variant > h2 {
+    font-size: 18px; margin: 0 0 4px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .variant > h2 .tag {
+    background: var(--accent); color: #fff; border-radius: 6px;
+    font-size: 13px; padding: 2px 9px; font-weight: 700;
+  }
+  .variant > .desc { margin: 0 0 16px; color: var(--ink-soft); font-size: 14px; max-width: 820px; }
+
+  .frames {
+    display: flex; gap: 22px; align-items: flex-start;
+    overflow-x: auto; padding-bottom: 14px;
+  }
+  .frame { flex: none; }
+  .frame .cap {
+    font-size: 13px; font-weight: 600; margin: 0 0 7px;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .frame .cap span { color: var(--ink-soft); font-weight: 400; }
+  .frame iframe {
+    border: 1px solid var(--line); border-radius: 12px; background: #fff;
+    box-shadow: 0 6px 22px rgba(20,20,60,.10);
+    height: 760px;
+  }
+  .frame.phone  iframe { width: 375px; }
+  .frame.tablet iframe { width: 768px; }
+  .frame.pc     iframe { width: 1024px; }
+
+  .open-link { font-size: 13px; }
+  .open-link a { color: var(--accent); }
+
+  footer { padding: 20px 24px 40px; color: var(--ink-soft); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header class="gallery-head">
+  <h1>sign.html — Wizard de signature de bail à distance</h1>
+  <p>Mockups statiques (zéro JS de logique). Chaque variante couvre tout le flux :
+     consentement → lecture → signature → confirmation → succès, plus les 4 états d'erreur
+     (lien expiré · déjà signé · pas votre tour · échec réseau). Comparez les 3 layouts
+     aux 3 formats côte à côte. Page tierce, mobile-first (locataire sur téléphone).</p>
+</header>
+
+<div class="legend">
+  <div class="v"><b>A — Pleine page mono-colonne</b><small>Étapes linéaires, scroll vertical, une étape après l'autre. Simple, classique, lisible.</small></div>
+  <div class="v"><b>B — Lecture haut + barre collée bas</b><small>Action primaire et pad de signature dans une barre sticky en bas, façon app mobile. Pouce toujours servi.</small></div>
+  <div class="v"><b>C — Accordéon</b><small>4 panneaux dépliables, un seul ouvert à la fois. Vue d'ensemble du parcours + progression visible.</small></div>
+  <div class="note">ℹ️ Dans chaque fichier, tous les états sont empilés dans des <code>&lt;section&gt;</code> avec un bandeau « État : … ». Dans la variante C, l'accordéon du premier écran est réellement cliquable (CSS <code>:target</code>, sans JS). Données factices en dur.</div>
+</div>
+
+<!-- ============ VARIANTE A ============ -->
+<div class="variant">
+  <h2><span class="tag">A</span> Pleine page mono-colonne <span class="open-link">— <a href="A.html" target="_blank">ouvrir en plein écran ↗</a></span></h2>
+  <p class="desc">Tous les états s'enchaînent verticalement. Le plus direct à lire ; idéal si on veut un parcours guidé sans surprise.</p>
+  <div class="frames">
+    <div class="frame phone"><p class="cap">📱 Téléphone <span>375 px</span></p><iframe src="A.html" title="A téléphone" loading="lazy"></iframe></div>
+    <div class="frame tablet"><p class="cap">📲 Tablette <span>768 px</span></p><iframe src="A.html" title="A tablette" loading="lazy"></iframe></div>
+    <div class="frame pc"><p class="cap">🖥️ PC <span>1024 px</span></p><iframe src="A.html" title="A PC" loading="lazy"></iframe></div>
+  </div>
+</div>
+
+<!-- ============ VARIANTE B ============ -->
+<div class="variant">
+  <h2><span class="tag">B</span> Lecture haut + barre d'action collée bas <span class="open-link">— <a href="B.html" target="_blank">ouvrir en plein écran ↗</a></span></h2>
+  <p class="desc">Le bouton primaire (et le pad à l'étape signature) restent collés en bas, toujours à portée de pouce. Sensation d'app native sur mobile.</p>
+  <div class="frames">
+    <div class="frame phone"><p class="cap">📱 Téléphone <span>375 px</span></p><iframe src="B.html" title="B téléphone" loading="lazy"></iframe></div>
+    <div class="frame tablet"><p class="cap">📲 Tablette <span>768 px</span></p><iframe src="B.html" title="B tablette" loading="lazy"></iframe></div>
+    <div class="frame pc"><p class="cap">🖥️ PC <span>1024 px</span></p><iframe src="B.html" title="B PC" loading="lazy"></iframe></div>
+  </div>
+</div>
+
+<!-- ============ VARIANTE C ============ -->
+<div class="variant">
+  <h2><span class="tag">C</span> Accordéon (1 panneau ouvert à la fois) <span class="open-link">— <a href="C.html" target="_blank">ouvrir en plein écran ↗</a></span></h2>
+  <p class="desc">Les 4 étapes sont des panneaux dépliables. Donne une vue d'ensemble et la progression d'un coup d'œil. Le 1er écran est cliquable (CSS pur).</p>
+  <div class="frames">
+    <div class="frame phone"><p class="cap">📱 Téléphone <span>375 px</span></p><iframe src="C.html" title="C téléphone" loading="lazy"></iframe></div>
+    <div class="frame tablet"><p class="cap">📲 Tablette <span>768 px</span></p><iframe src="C.html" title="C tablette" loading="lazy"></iframe></div>
+    <div class="frame pc"><p class="cap">🖥️ PC <span>1024 px</span></p><iframe src="C.html" title="C PC" loading="lazy"></iframe></div>
+  </div>
+</div>
+
+<footer>
+  Mockup-first · ImmoTrack · BAIL-SIGNATURE-DISTANCE — Task 0. Astuce : faites défiler chaque iframe pour voir tous les états empilés.
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mockup C — sign.html · accordéon (1 panneau ouvert à la fois)</title>
+<link rel="stylesheet" href="sign-mockup.css">
+<!--
+  VARIANTE C — étapes en accordéon : 4 panneaux (Consentement / Lecture / Signature
+  / Envoi), un seul ouvert à la fois. Démo statique du comportement "1 ouvert" via
+  l'ancre CSS :target (cliquer un en-tête ouvre son panneau, sans JS de logique).
+  Sous la démo accordéon : les états post-clic (succès + 4 erreurs) en cartes.
+  Format : 375 / 768 / 1024 px.
+-->
+<style>
+  /* Accordéon piloté par :target — ZÉRO JS. Par défaut le panneau 1 est ouvert. */
+  .accx .acc-body { display: none; }
+  .accx .acc-item:first-child .acc-body { display: block; }   /* défaut : étape 1 ouverte */
+  .accx .acc-item:first-child .acc-head { background: var(--accent); color:#fff; }
+  .accx .acc-item:first-child .acc-head .num { background: rgba(255,255,255,.25); color:#fff; }
+  .accx .acc-item:target .acc-body { display: block; }
+  /* quand une cible est active, on referme le panneau 1 par défaut */
+  .accx:has(.acc-item:target) .acc-item:first-child .acc-body { display: none; }
+  .accx:has(.acc-item:target) .acc-item:first-child .acc-head { background:#fff; color:var(--ink); }
+  .accx:has(.acc-item:target) .acc-item:first-child .acc-head .num { background: var(--accent-soft); color: var(--accent); }
+  .accx .acc-item:target .acc-head { background: var(--accent); color:#fff; }
+  .accx .acc-item:target .acc-head .num { background: rgba(255,255,255,.25); color:#fff; }
+  .accx .acc-head { text-decoration: none; color: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- ====================== ACCORDÉON (états 1→4 dans un seul écran) ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>États 1→4 : accordéon (cliquez les en-têtes)<small>Variante C</small></div>
+  <main class="app">
+    <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 1/2 · BAIL-2026-001</div></div>
+    <h1 style="font-size:20px;margin-bottom:14px;">Signature de votre bail</h1>
+
+    <div class="acc accx">
+
+      <!-- 1 · Consentement -->
+      <div class="acc-item" id="c-consent">
+        <a class="acc-head" href="#c-consent"><span class="num">1</span> Consentement <span class="chev">⌄</span></a>
+        <div class="acc-body">
+          <p class="muted" style="margin-top:0;">12 rue des Lilas, 69003 Lyon — vous signez en qualité de <b>locataire</b>.</p>
+          <div class="field"><label for="nomC">Nom et prénom</label><input id="nomC" type="text" placeholder="Ex. Jean Dupont"></div>
+          <label class="check"><input type="checkbox"><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+          <label class="check"><input type="checkbox"><span class="ck-text">Je consens à signer par <b>procédé électronique</b>.</span></label>
+          <a class="btn btn-primary" href="#c-read">Valider et lire le document →</a>
+        </div>
+      </div>
+
+      <!-- 2 · Lecture -->
+      <div class="acc-item" id="c-read">
+        <a class="acc-head" href="#c-read"><span class="num">2</span> Lecture du document <span class="chev">⌄</span></a>
+        <div class="acc-body">
+          <div class="reader" style="max-height:42vh;">
+            <div class="page">
+              <h3>CONTRAT DE LOCATION — RÉSIDENCE PRINCIPALE</h3>
+              <div class="ln w90"></div><div class="ln w80"></div><div class="ln w60"></div>
+              <p style="font-size:11px;margin:12px 0 4px;"><b>Article 1 — Désignation des parties</b></p>
+              <div class="ln w80"></div><div class="ln w40"></div>
+              <span class="para-mark">✎ Paraphe ici</span><div class="pg-no">Page 1 / 3</div>
+            </div>
+            <div class="page">
+              <h3>Article 2 — Objet du contrat</h3>
+              <div class="ln"></div><div class="ln w90"></div><div class="ln w60"></div>
+              <span class="para-mark">✎ Paraphe ici</span><div class="pg-no">Page 2 / 3</div>
+            </div>
+            <div class="page">
+              <h3>Article 9 — Loyer · Signatures</h3>
+              <div class="ln w90"></div><div class="ln w60"></div>
+              <span class="para-mark">✎ Signature</span><div class="pg-no">Page 3 / 3</div>
+            </div>
+          </div>
+          <a class="btn btn-primary" href="#c-sign" style="margin-top:12px;">J'ai lu, passer à la signature →</a>
+        </div>
+      </div>
+
+      <!-- 3 · Signature -->
+      <div class="acc-item" id="c-sign">
+        <a class="acc-head" href="#c-sign"><span class="num">3</span> Signature <span class="chev">⌄</span></a>
+        <div class="acc-body">
+          <p class="muted" style="margin-top:0;">Tracez au doigt ou à la souris (sert aussi de paraphe sur chaque page).</p>
+          <div class="sigpad-wrap">
+            <div class="sigpad" style="height:170px;"><div class="baseline"></div><span class="scribble">Jean&nbsp;Dupont</span></div>
+            <div class="sig-tools"><button class="btn btn-ghost">Effacer</button><span class="pen-note">✎ Tracé capturé</span></div>
+          </div>
+          <div class="mention"><b>Mention :</b> « Lu et approuvé » — Jean Dupont (locataire), signé électroniquement le 02/06/2026.</div>
+          <a class="btn btn-primary" href="#c-send" style="margin-top:14px;">Valider ma signature →</a>
+        </div>
+      </div>
+
+      <!-- 4 · Envoi -->
+      <div class="acc-item" id="c-send">
+        <a class="acc-head" href="#c-send"><span class="num">4</span> Confirmation &amp; envoi <span class="chev">⌄</span></a>
+        <div class="acc-body">
+          <p class="lead">Votre signature sera apposée et le bail renvoyé <b>automatiquement</b>.</p>
+          <ul class="recap">
+            <li><span class="tick">✓</span><span class="k">Signataire</span><span class="v">Jean Dupont (locataire)</span></li>
+            <li><span class="tick">✓</span><span class="k">Document</span><span class="v">BAIL-2026-001 · 3 pages</span></li>
+            <li><span class="tick">✓</span><span class="k">Signature + paraphes</span><span class="v">capturés</span></li>
+          </ul>
+          <button class="btn btn-primary">Signer et envoyer</button>
+        </div>
+      </div>
+
+    </div>
+    <p class="legal-foot"><span class="lock">🔒</span> Lien personnel sécurisé — ne pas transférer. Signature simple horodatée.</p>
+  </main>
+</section>
+
+<!-- panneaux fermés (aperçu collapsed, étape 2 en cours) -->
+<section>
+  <div class="state-banner"><span class="dot"></span>Accordéon : étapes 1 cochée, 2 active, 3-4 verrouillées<small>Variante C</small></div>
+  <main class="app">
+    <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 1/2 · BAIL-2026-001</div></div>
+    <div class="acc">
+      <div class="acc-item is-done">
+        <div class="acc-head"><span class="num">1</span> Consentement <span class="badge-done">✓ fait</span></div>
+      </div>
+      <div class="acc-item is-open">
+        <div class="acc-head"><span class="num">2</span> Lecture du document <span class="chev">⌄</span></div>
+        <div class="acc-body">
+          <p class="muted" style="margin:0 0 10px;">Faites défiler jusqu'en bas, puis validez.</p>
+          <div class="reader" style="max-height:38vh;">
+            <div class="page"><h3>CONTRAT DE LOCATION</h3><div class="ln w90"></div><div class="ln w70"></div><div class="ln w40"></div><div class="pg-no">Page 1 / 3</div></div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:12px;">J'ai lu, passer à la signature →</button>
+        </div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head"><span class="num">3</span> Signature <span class="chev" style="opacity:.4;">🔒</span></div>
+      </div>
+      <div class="acc-item">
+        <div class="acc-head"><span class="num">4</span> Confirmation &amp; envoi <span class="chev" style="opacity:.4;">🔒</span></div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- traitement -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Traitement…<small>Variante C</small></div>
+  <main class="app">
+    <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 1/2 · BAIL-2026-001</div></div>
+    <div class="acc">
+      <div class="acc-item is-done"><div class="acc-head"><span class="num">1</span> Consentement <span class="badge-done">✓</span></div></div>
+      <div class="acc-item is-done"><div class="acc-head"><span class="num">2</span> Lecture <span class="badge-done">✓</span></div></div>
+      <div class="acc-item is-done"><div class="acc-head"><span class="num">3</span> Signature <span class="badge-done">✓</span></div></div>
+      <div class="acc-item is-open">
+        <div class="acc-head"><span class="num">4</span> Envoi <span class="chev">⌄</span></div>
+        <div class="acc-body" style="text-align:center;">
+          <p class="lead">Apposition de votre signature… ne fermez pas la page.</p>
+          <button class="btn btn-primary is-disabled" disabled><span class="spin"></span> Traitement…</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- ====================== ÉTAT 5 — SUCCÈS ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Succès<small>Variante C</small></div>
+  <div class="state-screen">
+    <div class="state-card ok"><div class="emoji">✓</div><h1>Document signé</h1><p>Votre bail signé a été renvoyé automatiquement. Vous pouvez fermer cette page.</p><p class="ref">BAIL-2026-001 · signé le 02/06/2026 à 14:32</p></div>
+  </div>
+</section>
+
+<!-- ====================== ÉTATS 6 — ERREURS ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (a) lien expiré / invalide<small>Variante C</small></div>
+  <div class="state-screen"><div class="state-card err"><div class="emoji">⛔</div><h1>Lien invalide ou expiré</h1><p>Ce lien n'est plus valable. Demandez un nouveau lien à l'expéditeur.</p></div></div>
+</section>
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (b) déjà signé<small>Variante C</small></div>
+  <div class="state-screen"><div class="state-card ok"><div class="emoji">✓</div><h1>Document déjà signé</h1><p>Ce bail a déjà été signé depuis ce lien. Rien d'autre à faire.</p></div></div>
+</section>
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (c) pas votre tour<small>Variante C</small></div>
+  <div class="state-screen"><div class="state-card warn"><div class="emoji">⏳</div><h1>Ce n'est pas encore votre tour</h1><p>Un autre signataire doit signer avant vous. Vous recevrez un e-mail le moment venu.</p></div></div>
+</section>
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (d) échec réseau + réessayer<small>Variante C</small></div>
+  <div class="state-screen"><div class="state-card err"><div class="emoji">⚠️</div><h1>Échec de l'envoi</h1><p>Connexion interrompue. Votre tracé est conservé, réessayez.</p><div class="actions"><button class="btn btn-primary">Réessayer</button></div></div></div>
+</section>
+
+</body>
+</html>

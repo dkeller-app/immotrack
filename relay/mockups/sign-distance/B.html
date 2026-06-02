@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mockup B — sign.html · lecture + barre d'action collée en bas</title>
+<link rel="stylesheet" href="sign-mockup.css">
+<!--
+  VARIANTE B — contenu en haut + barre d'action sticky en bas (façon app mobile).
+  Le bouton primaire et le pad de signature vivent dans la barre du bas, toujours
+  accessibles au pouce. Mockup statique, états empilés. Format : 375 / 768 / 1024 px.
+-->
+<style>
+  /* En variante B chaque état est une "fenêtre" plein écran avec barre basse */
+  .screen-b { min-height: 88vh; display: flex; flex-direction: column; }
+  .screen-b .app { flex: 1; padding-bottom: 8px; }
+  .screen-b .sticky-bar { position: sticky; }
+</style>
+</head>
+<body>
+
+<!-- ====================== ÉTAT 1 — CONSENTEMENT ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Consentement<small>Variante B</small></div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">1/2 · BAIL-2026-001</div></div>
+      <h1>Signature de votre bail</h1>
+      <p class="lead">12 rue des Lilas, 69003 Lyon — vous signez en qualité de <b>locataire</b>.</p>
+
+      <div class="field">
+        <label for="nomB">Nom et prénom</label>
+        <input id="nomB" type="text" placeholder="Ex. Jean Dupont" autocomplete="name">
+        <div class="hint">Tel qu'il figure sur le bail.</div>
+      </div>
+      <label class="check"><input type="checkbox"><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+      <label class="check"><input type="checkbox"><span class="ck-text">Je consens à signer par <b>procédé électronique</b> (art. 1366 C. civ.).</span></label>
+      <p class="legal-foot" style="text-align:left;"><span class="lock">🔒</span> Lien personnel sécurisé — ne pas transférer.</p>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 1 / 4 · Consentement</div>
+      <button class="btn btn-primary is-disabled" disabled>Lire le document</button>
+    </div>
+  </div>
+</section>
+
+<!-- consentement prêt -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Consentement — prêt<small>Variante B</small></div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">1/2 · BAIL-2026-001</div></div>
+      <div class="field"><label for="nomB2">Nom et prénom</label><input id="nomB2" type="text" value="Jean Dupont"></div>
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je consens à signer par <b>procédé électronique</b>.</span></label>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 1 / 4 · prêt à lire</div>
+      <button class="btn btn-primary">Lire le document →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== ÉTAT 2 — LECTURE ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Lecture<small>Variante B</small></div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">Bail · 3 pages</div><div class="sub">1/2 · BAIL-2026-001</div></div>
+      <div class="reader" style="max-height:62vh;">
+        <div class="page">
+          <h3>CONTRAT DE LOCATION — RÉSIDENCE PRINCIPALE</h3>
+          <div class="ln w90"></div><div class="ln w80"></div><div class="ln"></div>
+          <div class="ln w70"></div><div class="ln w60"></div>
+          <p style="font-size:11px;margin:12px 0 4px;"><b>Article 1 — Désignation des parties</b></p>
+          <div class="ln w80"></div><div class="ln w40"></div>
+          <span class="para-mark">✎ Paraphe ici</span>
+          <div class="pg-no">Page 1 / 3</div>
+        </div>
+        <div class="page">
+          <h3>Article 2 — Objet du contrat</h3>
+          <div class="ln"></div><div class="ln w90"></div><div class="ln w70"></div>
+          <div class="ln w80"></div><div class="ln w60"></div>
+          <span class="para-mark">✎ Paraphe ici</span>
+          <div class="pg-no">Page 2 / 3</div>
+        </div>
+        <div class="page">
+          <h3>Article 9 — Loyer et charges · Signatures</h3>
+          <div class="ln w90"></div><div class="ln"></div><div class="ln w60"></div>
+          <span class="para-mark">✎ Signature en dernière page</span>
+          <div class="pg-no">Page 3 / 3</div>
+        </div>
+      </div>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 2 / 4 · vous avez atteint la fin du document</div>
+      <button class="btn btn-primary">J'ai lu, passer à la signature →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== ÉTAT 3 — SIGNATURE ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Signature (pad dans la barre basse)<small>Variante B</small></div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">Signature</div><div class="sub">1/2 · BAIL-2026-001</div></div>
+      <h2>Signez ci-dessous</h2>
+      <p class="muted">Au doigt ou à la souris. Cette signature sert aussi de paraphe sur chaque page.</p>
+      <div class="mention" style="margin-top:14px;">
+        <b>Mention apposée :</b> « Lu et approuvé » — Jean Dupont (locataire), signé électroniquement le 02/06/2026.
+      </div>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 3 / 4 · tracez puis validez</div>
+      <div class="sigpad-wrap" style="margin-bottom:10px;">
+        <div class="sigpad" style="height:160px;"><div class="baseline"></div><span class="scribble">Jean&nbsp;Dupont</span></div>
+        <div class="sig-tools"><button class="btn btn-ghost">Effacer</button><span class="pen-note">✎ Tracé capturé</span></div>
+      </div>
+      <button class="btn btn-primary">Valider ma signature →</button>
+    </div>
+  </div>
+</section>
+
+<!-- signature pad vide -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Signature — pad vide<small>Variante B</small></div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">Signature</div><div class="sub">1/2 · BAIL-2026-001</div></div>
+      <h2>Signez ci-dessous</h2>
+      <p class="muted">Le bouton « Valider » s'active dès que vous avez tracé quelque chose.</p>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 3 / 4</div>
+      <div class="sigpad-wrap" style="margin-bottom:10px;">
+        <div class="sigpad" style="height:160px;"><div class="baseline"></div><span class="ghost">✍️ Signez ici avec votre doigt</span></div>
+        <div class="sig-tools"><button class="btn btn-ghost is-disabled" disabled>Effacer</button><span class="pen-note">En attente du tracé…</span></div>
+      </div>
+      <button class="btn btn-primary is-disabled" disabled>Valider ma signature</button>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== ÉTAT 4 — CONFIRMATION ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Confirmation avant envoi<small>Variante B</small></div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">Vérification</div><div class="sub">1/2 · BAIL-2026-001</div></div>
+      <h2>Dernière vérification</h2>
+      <p class="lead">Votre signature sera apposée et le bail renvoyé <b>automatiquement</b>.</p>
+      <ul class="recap">
+        <li><span class="tick">✓</span><span class="k">Signataire</span><span class="v">Jean Dupont (locataire)</span></li>
+        <li><span class="tick">✓</span><span class="k">Document</span><span class="v">BAIL-2026-001 · 3 pages</span></li>
+        <li><span class="tick">✓</span><span class="k">Signature + paraphes</span><span class="v">capturés</span></li>
+      </ul>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 4 / 4 · envoi automatique après validation</div>
+      <button class="btn btn-primary">Signer et envoyer</button>
+    </div>
+  </div>
+</section>
+
+<!-- traitement -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Traitement…<small>Variante B</small></div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">Envoi</div><div class="sub">1/2 · BAIL-2026-001</div></div>
+      <h2>Apposition de votre signature…</h2>
+      <p class="lead">Ne fermez pas cette page.</p>
+    </main>
+    <div class="sticky-bar">
+      <button class="btn btn-primary is-disabled" disabled><span class="spin"></span> Traitement…</button>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== ÉTAT 5 — SUCCÈS ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Succès<small>Variante B</small></div>
+  <div class="state-screen">
+    <div class="state-card ok">
+      <div class="emoji">✓</div>
+      <h1>Document signé</h1>
+      <p>Votre bail signé a été renvoyé automatiquement. Vous pouvez fermer cette page.</p>
+      <p class="ref">BAIL-2026-001 · signé le 02/06/2026 à 14:32</p>
+    </div>
+  </div>
+</section>
+
+<!-- ====================== ÉTATS 6 — ERREURS ====================== -->
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (a) lien expiré / invalide<small>Variante B</small></div>
+  <div class="state-screen">
+    <div class="state-card err"><div class="emoji">⛔</div><h1>Lien invalide ou expiré</h1><p>Ce lien n'est plus valable. Demandez à l'expéditeur un nouveau lien.</p></div>
+  </div>
+</section>
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (b) déjà signé<small>Variante B</small></div>
+  <div class="state-screen">
+    <div class="state-card ok"><div class="emoji">✓</div><h1>Document déjà signé</h1><p>Ce bail a déjà été signé depuis ce lien. Rien d'autre à faire.</p></div>
+  </div>
+</section>
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (c) pas votre tour<small>Variante B</small></div>
+  <div class="state-screen">
+    <div class="state-card warn"><div class="emoji">⏳</div><h1>Ce n'est pas encore votre tour</h1><p>Un autre signataire doit signer avant vous. Vous recevrez un e-mail le moment venu.</p></div>
+  </div>
+</section>
+<section>
+  <div class="state-banner"><span class="dot"></span>État : Erreur (d) échec réseau + réessayer<small>Variante B</small></div>
+  <div class="state-screen">
+    <div class="state-card err"><div class="emoji">⚠️</div><h1>Échec de l'envoi</h1><p>Connexion interrompue. Votre tracé est conservé, réessayez.</p><div class="actions"><button class="btn btn-primary">Réessayer</button></div></div>
+  </div>
+</section>
+
+</body>
+</html>
