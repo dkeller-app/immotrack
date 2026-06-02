@@ -78,12 +78,19 @@ export function pprmUrl(insee) {
   return GEORISQUES_API + '/gaspar/pprm?codeInsee=' + encodeURIComponent(String(insee == null ? '' : insee));
 }
 
-/** Lien public vers le rapport officiel Géorisques (mention « vérifiez sur… »). */
-export function georisquesReportUrl(insee, lonlat) {
-  let u = 'https://www.georisques.gouv.fr/mes-risques/connaitre-les-risques-pres-de-chez-moi/rapport2?codeInsee='
-    + encodeURIComponent(String(insee == null ? '' : insee));
-  if (lonlat && lonlat.length === 2) u += '&lon=' + lonlat[0] + '&lat=' + lonlat[1];
-  return u;
+/**
+ * Lien public vers ERRIAL — service officiel de l'État des Risques réglementé
+ * (à annexer au bail), sur le domaine georisques.gouv.fr.
+ *
+ * NB : ERRIAL est une SPA sans paramètre de pré-remplissage documenté, et les
+ * anciennes routes profondes (…/connaitre-les-risques-pres-de-chez-moi/rapport2?codeInsee=…)
+ * renvoient 404 / page vide en navigation directe (vérifié live 2026-06-02).
+ * On renvoie donc la racine stable ; l'utilisateur y saisit l'adresse, déjà
+ * affichée dans le panneau ERP. Les arguments sont conservés pour compatibilité
+ * d'API mais ignorés (aucun deep-link fiable côté Géorisques).
+ */
+export function georisquesReportUrl(insee, lonlat) { // eslint-disable-line no-unused-vars
+  return 'https://errial.georisques.gouv.fr/';
 }
 
 // ─── Parsers (réponses JSON → objets normalisés, ou null si indisponible) ───

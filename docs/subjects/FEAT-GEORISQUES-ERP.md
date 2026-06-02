@@ -39,6 +39,18 @@ ERP obligatoire **si** : PPR (naturel **OU** technologique **OU** minier, `count
 
 > **Note audit** : la version initiale ne récupérait que `pprn` → un faux « non requis » possible pour une commune Seveso (PPRT seul) ou bassin minier (PPRM seul). Corrigé : les 5 signaux sont récupérés et requis pour un verdict `false`.
 
+### Correctif v15.253 — lien officiel = ERRIAL (pas le deep-link Géorisques)
+
+Le lien « Vérifiez sur georisques.gouv.fr » pointait vers
+`…/connaitre-les-risques-pres-de-chez-moi/rapport2?codeInsee=…` → **404 / page vide**
+en navigation directe (Géorisques est une SPA Angular, les routes profondes ne sont pas
+servies de façon fiable ; vérifié live 2026-06-02). `georisquesReportUrl()` renvoie
+désormais la racine **ERRIAL** (`https://errial.georisques.gouv.fr/`), service officiel
+de l'**État des Risques réglementé à annexer au bail**. ERRIAL n'accepte aucun paramètre
+de pré-remplissage documenté → on ne deep-linke pas (pas de param inventé qui re-casserait) ;
+l'utilisateur saisit l'adresse, déjà affichée dans le panneau ERP. Signature conservée pour
+compat d'API (args ignorés). Tests mis à jour (toujours 44, le test d'URL assert ERRIAL + `not.toContain('rapport2')`).
+
 ## Implémentation (v15.252)
 
 ### Logique PURE testée

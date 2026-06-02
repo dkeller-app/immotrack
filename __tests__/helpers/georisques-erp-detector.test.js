@@ -48,11 +48,10 @@ describe('URL builders — gotcha snake_case vs camelCase', () => {
     expect(pprtUrl('06088')).toContain('gaspar/pprt?codeInsee=06088');
     expect(pprmUrl('06088')).toContain('gaspar/pprm?codeInsee=06088');
   });
-  it('georisquesReportUrl inclut codeInsee + lon/lat si fournis', () => {
-    expect(georisquesReportUrl('06088', [7.26579, 43.695081]))
-      .toBe('https://www.georisques.gouv.fr/mes-risques/connaitre-les-risques-pres-de-chez-moi/rapport2?codeInsee=06088&lon=7.26579&lat=43.695081');
-    expect(georisquesReportUrl('06088', null))
-      .toBe('https://www.georisques.gouv.fr/mes-risques/connaitre-les-risques-pres-de-chez-moi/rapport2?codeInsee=06088');
+  it('georisquesReportUrl renvoie ERRIAL (tool officiel État des Risques ; routes /rapport2 mortes)', () => {
+    expect(georisquesReportUrl('06088', [7.26579, 43.695081])).toBe('https://errial.georisques.gouv.fr/');
+    expect(georisquesReportUrl('06088', null)).toBe('https://errial.georisques.gouv.fr/');
+    expect(georisquesReportUrl('06088', [7.26579, 43.695081])).not.toContain('rapport2');
   });
 });
 
