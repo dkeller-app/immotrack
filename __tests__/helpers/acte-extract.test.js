@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { acteExtract, norm } from './acte-extract.js';
+import { acteExtract, acteRegroup, norm, motNombre, _normEtage } from './acte-extract.js';
 
 // ── Template 1 : société entre guillemets + « numéro unique d'identification »
 //    + immeuble format X (« à VILLE (CP), adresse »). Contient un VENDEUR avec
@@ -268,5 +268,222 @@ describe('norm — normalisation des espaces (contrainte pdf.js)', () => {
   it('null/undefined → chaîne vide', () => {
     expect(norm(null)).toBe('');
     expect(norm(undefined)).toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ENRICHISSEMENT (surfaces, lots, tantièmes, étages, annexes, cadastre, RCS)
+//  + REGROUPEMENT (acteRegroup) — fixtures SYNTHÉTIQUES reproduisant la
+//  STRUCTURE des 4 actes réels calibrés en local (jamais leur contenu réel).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Copropriété : lots 5+6 « Une chambre » + Carrez groupé « 5 et 6 : 34,79 m² »
+//    → DOIT se regrouper en UN seul logement (cas ENGEL réel).
+const ACTE_COPRO_CARREZ = `
+ACTE DE VENTE
+
+2) ACQUÉREUR
+La société dénommée «IMMO TEST», Société Civile Immobilière,
+dont le siège social est à STRASBOURG (67000), 10 rue de la Paix,
+identifiée au numéro unique d'identification 123 456 789,
+immatriculée au Registre du commerce et des sociétés de STRASBOURG sous le numéro D 123,
+au capital de 1500 euros,
+dénommée "L'ACQUEREUR".
+
+DÉSIGNATION DES BIENS
+Un immeuble situé à MULHOUSE (68100), 25 avenue du Test.
+Contenance totale 12 a 21 ca.
+Lot numéro cinq (5) - Une chambre Et les 10 / 1.000 èmes.
+Lot numéro six (6) - Une chambre Et les 11 / 1.000 èmes.
+Superficie des parties privatives - Lot numéro 5 et 6 : 34,79 m².
+`;
+
+// ── Copropriété : 2 lots avec Carrez INDIVIDUELS → 2 logements distincts (pas de fusion).
+const ACTE_COPRO_INDIV = `
+ACQUÉREUR
+La société dénommée «DEUX TEST», SCI,
+dont le siège social est à LYON (69001), 3 rue du Lot,
+identifiée au numéro unique d'identification 222 333 444.
+
+DÉSIGNATION DES BIENS
+Un ensemble situé à LYON (69002), 7 rue Centrale.
+Lot numéro trois (3) - Un studio Et les 8 / 1.000 èmes.
+Lot numéro quatre (4) - Un studio Et les 9 / 1.000 èmes.
+Lot numéro 3 : 20,00 m².
+Lot numéro 4 : 15,50 m².
+`;
+
+// ── Immeuble entier énuméré par étage + surface totale + annexes (cas ALTA réel).
+const ACTE_IMMEUBLE_ETAGES = `
+ACQUÉREUR
+La société dénommée «BATI TEST», SCI,
+dont le siège social est à COLMAR (68000), 5 place du Marché,
+identifiée au numéro unique d'identification 987 654 321,
+immatriculée au RCS de COLMAR et identifiée au répertoire SIRENE.
+
+DÉSIGNATION DES BIENS
+Un immeuble situé à COLMAR (68000), 14 rue Haute, comprenant cinq appartements.
+Contenance totale 03 a 06 ca.
+Ledit immeuble comprenant :
+• Au rez-de-chaussée : un appartement
+• Au 1 er étage à droite : un appartement
+• Au 1 er étage à gauche : un appartement
+• Au 2 ème étage : un appartement
+• Au 2 ème étage et 3 ème étage : un appartement
+La surface habitable « totale » est de 433,18 m².
+Avec trois garages ainsi que l'ensemble des parkings.
+`;
+
+// ── Personne physique + surface habitable individuelle.
+const ACTE_PERSONNE_SURF = `
+ACQUÉREUR
+Monsieur Jean TEST, demeurant à MULHOUSE (68100), 8 rue des Fleurs.
+
+DÉSIGNATION DES BIENS
+Un appartement situé à COLMAR (68000), 14 rue Haute,
+Objet du prêt : achat d'un appartement d'une surface habitable de 36m² comprenant 2 pièces.
+`;
+
+describe('acteExtract — enrichissement entité (RCS + capital, bloc acquéreur)', () => {
+  it('extrait le RCS (ville en majuscules, s\'arrête au 1er mot minuscule)', () => {
+    expect(acteExtract(ACTE_COPRO_CARREZ).entite.rcs).toBe('STRASBOURG');
+  });
+
+  it('ne capture PAS « et identifiée » dans le RCS (anti sur-capture)', () => {
+    const r = acteExtract(ACTE_IMMEUBLE_ETAGES);
+    expect(r.entite.rcs).toBe('COLMAR');
+  });
+
+  it('extrait le capital numérique uniquement', () => {
+    expect(acteExtract(ACTE_COPRO_CARREZ).entite.capital).toBe('1500');
+  });
+
+  it('n\'invente pas de RCS pour une personne physique', () => {
+    expect(acteExtract(ACTE_PERSONNE_SURF).entite.rcs).toBeUndefined();
+  });
+});
+
+describe('acteExtract — enrichissement immeuble (cadastre + surfaces)', () => {
+  it('extrait la contenance cadastrale', () => {
+    expect(acteExtract(ACTE_COPRO_CARREZ).immeuble.contenance).toBe('12 a 21 ca');
+  });
+
+  it('extrait la surface totale en m² (≠ contenance)', () => {
+    expect(acteExtract(ACTE_IMMEUBLE_ETAGES).immeuble.surfaceTotale).toBe('433,18');
+  });
+
+  it('extrait la surface habitable individuelle (« de 36m² »)', () => {
+    expect(acteExtract(ACTE_PERSONNE_SURF).surfaceHabitable).toBe('36');
+  });
+});
+
+describe('acteExtract — lots de copropriété (désignation + tantièmes + Carrez)', () => {
+  const r = acteExtract(ACTE_COPRO_CARREZ);
+
+  it('extrait chaque lot avec sa désignation', () => {
+    expect(r.lots).toHaveLength(2);
+    expect(r.lots[0]).toMatchObject({ num: 5, designation: 'Une chambre' });
+    expect(r.lots[1]).toMatchObject({ num: 6, designation: 'Une chambre' });
+  });
+
+  it('extrait les tantièmes normalisés (10/1000)', () => {
+    expect(r.lots[0].tantiemes).toBe('10/1000');
+    expect(r.lots[1].tantiemes).toBe('11/1000');
+  });
+
+  it('extrait le groupe Carrez « 5 et 6 : 34,79 m² »', () => {
+    expect(r.carrez).toHaveLength(1);
+    expect(r.carrez[0].lots).toEqual([5, 6]);
+    expect(r.carrez[0].surf).toBe('34,79');
+  });
+
+  it('extrait les Carrez individuels quand ils sont séparés', () => {
+    const c = acteExtract(ACTE_COPRO_INDIV).carrez;
+    expect(c).toEqual(
+      expect.arrayContaining([
+        { lots: [3], surf: '20,00' },
+        { lots: [4], surf: '15,50' }
+      ])
+    );
+  });
+});
+
+describe('acteExtract — immeuble entier (étages + types + annexes)', () => {
+  const r = acteExtract(ACTE_IMMEUBLE_ETAGES);
+
+  it('énumère les étages (5 logements) avec libellés normalisés', () => {
+    expect(r.etages).toHaveLength(5);
+    expect(r.etages.map(e => e.etage)).toEqual([
+      'rez-de-chaussée', '1er étage', '1er étage', '2ème étage', '2ème étage et 3ème étage'
+    ]);
+  });
+
+  it('capte la position (à droite / à gauche)', () => {
+    expect(r.etages[1].position).toBe('à droite');
+    expect(r.etages[2].position).toBe('à gauche');
+  });
+
+  it('détecte les annexes en prose (garages + parkings)', () => {
+    const natures = r.annexesRaw.map(a => a.nature);
+    expect(natures).toContain('garage');
+    expect(natures).toContain('parking');
+  });
+});
+
+describe('acteRegroup — fusion des lots en logements (D4)', () => {
+  it('regroupe les lots 5+6 (Carrez commun) en UN logement', () => {
+    const g = acteRegroup(acteExtract(ACTE_COPRO_CARREZ));
+    expect(g.logements).toHaveLength(1);
+    expect(g.logements[0]).toMatchObject({
+      surf: '34,79', numApt: '5+6', tantiemes: '21/1000', _lots: [5, 6]
+    });
+  });
+
+  it('émet une note de vérification lisible pour le regroupement', () => {
+    const g = acteRegroup(acteExtract(ACTE_COPRO_CARREZ));
+    expect(g.notes.join(' ')).toMatch(/regroup.*5.*6/i);
+  });
+
+  it('NE fusionne PAS deux lots aux Carrez individuels (conservateur)', () => {
+    const g = acteRegroup(acteExtract(ACTE_COPRO_INDIV));
+    expect(g.logements).toHaveLength(2);
+    expect(g.logements.map(l => l.surf).sort()).toEqual(['15,50', '20,00']);
+  });
+
+  it('produit un logement par étage pour un immeuble entier', () => {
+    const g = acteRegroup(acteExtract(ACTE_IMMEUBLE_ETAGES));
+    expect(g.logements).toHaveLength(5);
+    expect(g.logements[1]).toMatchObject({ etage: '1er étage', position: 'à droite' });
+  });
+
+  it('range les annexes (garage/parking) dans le bucket annexes, pas dans logements', () => {
+    const g = acteRegroup(acteExtract(ACTE_IMMEUBLE_ETAGES));
+    const natures = g.annexes.map(a => a.nature);
+    expect(natures).toContain('garage');
+    expect(natures).toContain('parking');
+    expect(g.logements.every(l => !/garage|parking/i.test(l.type))).toBe(true);
+  });
+
+  it('défensif : entrée vide → logements/annexes/notes vides, ne lève pas', () => {
+    const g = acteRegroup({});
+    expect(g.logements).toEqual([]);
+    expect(g.annexes).toEqual([]);
+    expect(g.notes).toEqual([]);
+  });
+});
+
+describe('helpers motNombre / _normEtage', () => {
+  it('motNombre : mots FR → entiers, sinon null', () => {
+    expect(motNombre('cinq')).toBe(5);
+    expect(motNombre('SIX')).toBe(6);
+    expect(motNombre('12')).toBe(12);
+    expect(motNombre('bonjour')).toBeNull();
+    expect(motNombre(null)).toBeNull();
+  });
+
+  it('_normEtage : nettoie les artefacts pdf.js', () => {
+    expect(_normEtage('1 er étage')).toBe('1er étage');
+    expect(_normEtage('2 ème étage')).toBe('2ème étage');
+    expect(_normEtage('rez - de - chaussée')).toBe('rez-de-chaussée');
   });
 });

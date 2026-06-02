@@ -124,5 +124,237 @@ export function acteExtract(rawText) {
   const lots = (desBlock.match(/Lot\s+(?:num[ée]ro|n[°o])/gi) || []).length;
   if (lots >= 1) out.logementsHint.lots = lots;
 
+  // ── 4. ENRICHISSEMENT ENTITÉ — RCS + capital, DANS LE BLOC acquéreur uniquement
+  //    (un acte contient plusieurs immatriculations : copropriété, syndic, notaire,
+  //    vendeur). On reste conservateur : ancre absente → champ vide.
+  if (isSoc) {
+    // ville RCS = suite de tokens MAJUSCULES uniquement (s'arrête au 1er mot minuscule « et », « sous »…)
+    const rcs = block.match(/(?:R\.?C\.?S\.?|[Rr]egistre\s+du\s+[Cc]ommerce\s+et\s+des\s+[Ss]oci[ée]t[ée]s)\s+(?:[Dd]e\s+|d['’])\s*([A-ZÀ-Ÿ][A-ZÀ-Ÿ'’\-]+(?:\s+[A-ZÀ-Ÿ'’\-]{2,})*)/);
+    if (rcs) { out.entite.rcs = norm(rcs[1]); out._src.rcs = norm(rcs[0]); }
+    // capital uniquement s'il est numérique (souvent écrit en lettres → on ne devine pas)
+    const cap = block.match(/au\s+capital\s+(?:social\s+)?de\s+([0-9][\d .  ]{2,13}[0-9])\s*(?:€|euros?)/i);
+    if (cap) { out.entite.capital = cap[1].replace(/[^\d]/g, ''); out._src.capital = norm(cap[0]); }
+  }
+
+  // ── 5. ENRICHISSEMENT IMMEUBLE — contenance cadastrale + surface totale.
+  //    Fenêtre élargie : Carrez/contenance peuvent être hors des 1600 premiers car.
+  const desBlock2 = desIdx >= 0 ? N.slice(desIdx, desIdx + 4000) : N;
+  // Contenance cadastrale : « Contenance totale 12 a 21 ca » (ha/a/ca, certains absents).
+  const conten = N.match(/Contenance\s+totale\s+((?:\d+\s*ha\s*)?(?:\d+\s*a\s*)?\d+\s*ca)/i);
+  if (conten) { out.immeuble.contenance = norm(conten[1]); out._src.contenance = norm(conten[0]); }
+  // Surface totale en m² : « surface … totale … est de 433,18m² » (m² désambiguïse de la contenance).
+  const surfTot = N.match(/totale\s*[»"”]?\s*(?:est\s+de\s+)?(\d{2,4}[.,]\d{1,2})\s*m²/i)
+              || N.match(/surface\s+(?:habitable\s+)?totale[^.]{0,25}?(\d{2,4}[.,]\d{1,2})\s*m²/i);
+  if (surfTot) { out.immeuble.surfaceTotale = surfTot[1].replace('.', ','); out._src.surfaceTotale = norm(surfTot[0]); }
+
+  // ── 6. SURFACES — Carrez par lot(s) + surface habitable individuelle.
+  out.carrez = [];
+  const carrezRe = /Lot\s+num[ée]ro\s+(\d+(?:\s*(?:et|à|&|,)\s*\d+)*)\s*:\s*(\d{1,3}[.,]\d{1,2})\s*m²/gi;
+  let cz;
+  while ((cz = carrezRe.exec(N)) !== null) {
+    const nums = (cz[1].match(/\d+/g) || []).map(Number);
+    if (nums.length) out.carrez.push({ lots: nums, surf: cz[2].replace('.', ',') });
+  }
+  // surface habitable explicite « surface habitable de 36m² » (sans "totale" — déjà capté ci-dessus)
+  const surfHab = N.match(/surface\s+habitable\s+(?:de\s+)?(\d{1,4}[.,]?\d{0,2})\s*m²/i);
+  if (surfHab && !/totale/i.test(surfHab[0])) { out.surfaceHabitable = surfHab[1].replace('.', ','); out._src.surfaceHabitable = norm(surfHab[0]); }
+
+  // ── 7. LOTS DE COPROPRIÉTÉ — désignation + tantièmes (2 passes fusionnées par n°).
+  out.lots = [];
+  const lotDesRe = /Lot\s+num[ée]ro\s+[a-zà-ÿ]+(?:[\s-][a-zà-ÿ]+)*\s*\((\d+)\)\s*[-–—]\s*([^.•]{1,50}?)(?=\s+Et\s+les\b|\s+Lot\s+num|[.•]|$)/gi;
+  let ld;
+  while ((ld = lotDesRe.exec(N)) !== null) {
+    const num = parseInt(ld[1], 10);
+    if (out.lots.some(l => l.num === num)) continue;
+    out.lots.push({ num, designation: norm(ld[2]) });
+  }
+  const lotTanRe = /Lot\s+num[ée]ro\s+[a-zà-ÿ\- ]*?\((\d+)\)[^/]{0,60}?Et\s+les\s+([\d][\d.\s]*?)\s*\/\s*([\d.\s]*?\d)\s*[èe]mes/gi;
+  let lt;
+  while ((lt = lotTanRe.exec(N)) !== null) {
+    const num = parseInt(lt[1], 10);
+    const lot = out.lots.find(l => l.num === num);
+    const tantiemes = lt[2].replace(/\D/g, '') + '/' + lt[3].replace(/\D/g, '');
+    if (lot) lot.tantiemes = tantiemes;
+    else out.lots.push({ num, tantiemes });
+  }
+  out.lots.sort((a, b) => a.num - b.num);
+
+  // ── 8. ÉTAGES (immeuble entier énuméré) + types FN.
+  out.etages = [];
+  const etRe = /(?:^|[•·\-*:]|\bAu\s)\s*(?:Au\s+)?((?:rez[\s-]*de[\s-]*chauss[ée]e|sous[\s-]?sol|combles?|\d+\s*(?:er|ère|ème|nd|e)?\s*[ée]tage)(?:\s+et\s+\d+\s*(?:er|ème|e)?\s*[ée]tage)?)\s*((?:à\s+(?:droite|gauche)|au\s+milieu)?)\s*:?\s*(un\s+appartement|un\s+logement)\b/gi;
+  let et;
+  while ((et = etRe.exec(desBlock2)) !== null) {
+    out.etages.push({ etage: _normEtage(et[1]), position: norm(et[2]) });
+  }
+  out.types = [...new Set((N.match(/\btype\s+(F[1-6])\b/gi) || []).map(t => t.replace(/.*\b(F[1-6])\b.*/i, '$1').toUpperCase()))];
+
+  // ── 9. ANNEXES (cave / garage / parking / grenier) — best-effort, conservateur.
+  out.annexesRaw = [];
+  const annRe = /\b(une?|deux|trois|quatre|cinq|six|\d{1,2}|les|l['’]ensemble\s+des)\s+(caves?|garages?|box(?:es)?|parkings?|emplacements?\s+de\s+stationnement|greniers?)\b/gi;
+  let an;
+  const annSeen = new Set();
+  while ((an = annRe.exec(N)) !== null) {
+    let nature = an[2].toLowerCase().replace(/s$/, '').replace(/^emplacement.*/, 'parking').replace(/^box.*/, 'garage');
+    if (annSeen.has(nature)) continue;
+    annSeen.add(nature);
+    out.annexesRaw.push({ nature, count: norm(an[1]), _src: norm(an[0]) });
+  }
+
   return out;
+}
+
+/** Normalise un libellé d'étage malmené par pdf.js (« 1 er étage » → « 1er étage »). */
+export function _normEtage(s) {
+  return norm(s)
+    .replace(/rez\s*-?\s*de\s*-?\s*chauss[ée]e/i, 'rez-de-chaussée')
+    .replace(/(\d+)\s*(ers?|ères?|èmes?|nds?|es?)\b/gi, '$1$2')
+    .replace(/sous\s*-?\s*sol/i, 'sous-sol')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Mots-nombres FR → entier (réutilisé pour tantièmes / regroupement). */
+const _MOTS_NOMBRES = {
+  un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7,
+  huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14,
+  quinze: 15, seize: 16
+};
+export function motNombre(w) {
+  if (w == null) return null;
+  const k = String(w).toLowerCase().trim();
+  if (/^\d+$/.test(k)) return parseInt(k, 10);
+  return _MOTS_NOMBRES[k] ?? null;
+}
+
+/**
+ * Regroupe les lots/étages bruts en LOGEMENTS interprétés (D4 du design).
+ * Ne fusionne jamais en aveugle : chaque regroupement produit une NOTE de
+ * vérification destinée à l'UI (« 🤖 L'app a regroupé les lots 5+6… vérifie »).
+ *
+ * Stratégie, par ordre de priorité du signal :
+ *   1. Lots de copropriété + groupes Carrez (« Lot 5 et 6 : 34,79 m² » → 1 logement).
+ *   2. Énumération par étage (immeuble entier) → 1 logement par étage.
+ *   3. Comptage en prose (« comprenant cinq appartements ») → N logements génériques.
+ *
+ * @param {ReturnType<typeof acteExtract>} ext
+ * @returns {{ logements: Array, annexes: Array, notes: string[] }}
+ */
+export function acteRegroup(ext) {
+  const e = ext || {};
+  const out = { logements: [], annexes: [], notes: [] };
+  const NAT_ANNEXE = /(cave|garage|parking|box|grenier|stationnement|emplacement|local\s+(?:commercial|technique)|combles?\b)/i;
+  const isAnnexeNature = (s) => NAT_ANNEXE.test(String(s || ''));
+
+  const lots = Array.isArray(e.lots) ? e.lots.slice() : [];
+  const carrez = Array.isArray(e.carrez) ? e.carrez : [];
+
+  // ── 1. Famille COPROPRIÉTÉ : on a des lots numérotés.
+  if (lots.length) {
+    // Séparer lots-annexes (cave/garage…) des lots-logements d'après leur désignation.
+    const lotAnnexes = lots.filter(l => isAnnexeNature(l.designation));
+    const lotLogts = lots.filter(l => !isAnnexeNature(l.designation));
+
+    const used = new Set();
+    // 1a. Groupes Carrez explicites (« 5 et 6 ») → 1 logement par groupe ≥ 2 lots.
+    for (const cz of carrez) {
+      const grp = (cz.lots || []).filter(n => lotLogts.some(l => l.num === n));
+      if (grp.length >= 2) {
+        const members = grp.map(n => lotLogts.find(l => l.num === n)).filter(Boolean);
+        members.forEach(m => used.add(m.num));
+        out.logements.push(_mkLogement(members, cz.surf));
+        out.notes.push(`L'app a regroupé les lots ${grp.join(' + ')} en un seul logement (Carrez ${cz.surf} m²). Vérifie ce regroupement.`);
+      }
+    }
+    // 1b. Lots-logements restants → 1 logement chacun (surface Carrez individuelle si dispo).
+    for (const l of lotLogts) {
+      if (used.has(l.num)) continue;
+      const czSolo = carrez.find(c => (c.lots || []).length === 1 && c.lots[0] === l.num);
+      out.logements.push(_mkLogement([l], czSolo ? czSolo.surf : undefined));
+    }
+    // 1c. Lots-annexes → bucket annexes (triple mode en Phase C).
+    for (const a of lotAnnexes) {
+      out.annexes.push({ nature: _natureAnnexe(a.designation), lot: a.num, designation: a.designation, mode: 'rattacher' });
+    }
+    return out;
+  }
+
+  // ── 2. Famille IMMEUBLE ENTIER énuméré par étage.
+  if (Array.isArray(e.etages) && e.etages.length) {
+    e.etages.forEach((et, i) => {
+      out.logements.push({
+        type: 'Appartement',
+        etage: et.etage || '',
+        position: et.position || '',
+        surf: '',
+        numApt: '',
+        tantiemes: '',
+        _lots: []
+      });
+    });
+    if (out.logements.length && e.immeuble && e.immeuble.surfaceTotale) {
+      out.notes.push(`Surface totale ${e.immeuble.surfaceTotale} m² (non répartie par logement dans l'acte). À ventiler.`);
+    }
+  }
+
+  // ── 3. Fallback : comptage en prose (« comprenant cinq appartements ») ou, à défaut,
+  //    structure par étage détectée (« Au 1er étage… ») → on amorce N logements vides que
+  //    l'utilisateur complète dans le déroulé manuel (mieux que 0 logement bloquant).
+  if (!out.logements.length && e.logementsHint) {
+    const n = motNombre(e.logementsHint.count) || e.logementsHint.parEtage || 0;
+    const unit = /logement/i.test(e.logementsHint.unit || '') ? 'Logement' : 'Appartement';
+    for (let i = 0; i < Math.min(n, 30); i++) {
+      out.logements.push({ type: unit, etage: '', position: '', surf: '', numApt: '', tantiemes: '', _lots: [] });
+    }
+    if (n && !e.logementsHint.count) {
+      out.notes.push(`L'app a estimé ${n} logement(s) d'après la structure par étage. Vérifie et complète.`);
+    }
+  }
+
+  // Annexes détectées en prose (hors lots) — ajoutées si pas déjà couvertes par un lot-annexe.
+  if (Array.isArray(e.annexesRaw)) {
+    for (const a of e.annexesRaw) {
+      if (out.annexes.some(x => x.nature === a.nature)) continue;
+      out.annexes.push({ nature: a.nature, count: a.count, designation: a._src || '', mode: 'rattacher' });
+    }
+  }
+
+  return out;
+}
+
+/** Construit un logement à partir d'un ou plusieurs lots membres. */
+function _mkLogement(members, surf) {
+  const nums = members.map(m => m.num);
+  // tantièmes : somme si plusieurs lots partagent le même dénominateur
+  let tantiemes = '';
+  const parts = members.map(m => m.tantiemes).filter(Boolean);
+  if (parts.length) {
+    const den = parts[0].split('/')[1];
+    if (parts.every(p => p.split('/')[1] === den)) {
+      const sum = parts.reduce((s, p) => s + (parseInt(p.split('/')[0], 10) || 0), 0);
+      tantiemes = sum + '/' + den;
+    } else {
+      tantiemes = parts.join(' + ');
+    }
+  }
+  const desig = members.map(m => m.designation).filter(Boolean).join(' + ');
+  return {
+    type: 'Appartement',
+    etage: '',
+    position: '',
+    surf: surf || '',
+    numApt: nums.join('+'),
+    tantiemes,
+    designation: desig,
+    _lots: nums
+  };
+}
+
+/** Normalise une nature d'annexe depuis une désignation libre. */
+function _natureAnnexe(designation) {
+  const s = String(designation || '').toLowerCase();
+  if (/garage|box/.test(s)) return 'garage';
+  if (/parking|stationnement|emplacement/.test(s)) return 'parking';
+  if (/cave/.test(s)) return 'cave';
+  if (/grenier|comble/.test(s)) return 'grenier';
+  return 'annexe';
 }
