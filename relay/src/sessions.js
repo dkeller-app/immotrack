@@ -35,7 +35,35 @@ export async function loadSession(env, sessionId) {
   return getMeta(env, sessionId);
 }
 
-export async function recordSignature(env, sessionId, { signedBytes, proof }) {
+// Marque la vérification d'email côté serveur (autorité : §5 #2 anti-transfert).
+// Horodatage posé par le relais, jamais par le client → preuve fiable du clic sur le lien unique.
+export async function recordEmailVerified(env, sessionId) {
+  const session = await getMeta(env, sessionId);
+  if (!session) throw new Error('session-not-found');
+  const signer = session.signers[session.currentIndex];
+  if (!signer) throw new Error('signer-not-found');
+  if (!signer.emailVerifiedAt) {
+    signer.emailVerifiedAt = new Date().toISOString();
+    await putMeta(env, sessionId, session);
+  }
+  return session;
+}
+
+// N'accepte que les champs attendus de la preuve client (acte de volonté + horodatages).
+// Tout le reste est ignoré ; les chaînes sont bornées pour éviter l'enflure du KV.
+function sanitizeClientProof(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : null);
+  return {
+    signerName: str(raw.signerName, 200),
+    consentElectronic: raw.consentElectronic === true,
+    luApprouve: raw.luApprouve === true,
+    openedAt: str(raw.openedAt, 40),
+    readCompletedAt: str(raw.readCompletedAt, 40)
+  };
+}
+
+export async function recordSignature(env, sessionId, { signedBytes, proof, clientProof }) {
   const session = await getMeta(env, sessionId);
   if (!session) throw new Error('session-not-found');
   if (session.status === 'completed') throw new Error('session already completed');
@@ -43,11 +71,20 @@ export async function recordSignature(env, sessionId, { signedBytes, proof }) {
   const idx = session.currentIndex;
   const signer = session.signers[idx];
   signer.statut = 'done';
+  const client = sanitizeClientProof(clientProof);
   signer.proof = {
     ip: proof.ip,
     userAgent: proof.userAgent,
     signedAt: proof.signedAt,
-    pdfSha256: await sha256hex(signedBytes)
+    pdfSha256: await sha256hex(signedBytes),
+    // Autorité serveur (posé par recordEmailVerified) — pas de confiance au client.
+    emailVerifiedAt: signer.emailVerifiedAt || null,
+    // Acte de volonté + horodatages d'étape capturés côté client (null si absent).
+    signerName: client ? client.signerName : null,
+    consentElectronic: client ? client.consentElectronic : null,
+    luApprouve: client ? client.luApprouve : null,
+    openedAt: client ? client.openedAt : null,
+    readCompletedAt: client ? client.readCompletedAt : null
   };
 
   // Le PDF signé écrase l'original pour le prochain signataire (signature par-dessus)

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createSession, loadSession, recordSignature } from './sessions.js';
+import { createSession, loadSession, recordSignature, recordEmailVerified } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf } from './storage.js';
@@ -12,6 +12,20 @@ app.get('/health', (c) => c.json({ ok: true, service: 'bail-sign-relay' }));
 
 function expEpoch() {
   return Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+}
+
+// Décode l'en-tête X-Sign-Proof : base64url(JSON UTF-8) → objet. Borné et défensif :
+// renvoie null sur en-tête absent, trop gros ou malformé (jamais une exception bloquante).
+function decodeProofHeader(header) {
+  if (!header || typeof header !== 'string' || header.length > 4096) return null;
+  try {
+    const b64 = header.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
 }
 
 app.post('/sessions', async (c) => {
@@ -93,6 +107,25 @@ app.get('/api/sessions/:id/pdf', async (c) => {
   return new Response(obj.body, { headers: { 'content-type': 'application/pdf' } });
 });
 
+// Anti-transfert (§5 #2) : le signataire confirme son email. La comparaison se fait
+// sur le hash (constant-time), jamais sur l'email en clair. Un match marque emailVerifiedAt
+// côté serveur (autorité). Pas de blocage dur de /signed : le relais enregistre la preuve.
+app.post('/api/sessions/:id/verify-email', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireSigner(c, sessionId);
+  if (guard.error) return guard.error;
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
+  const email = body && typeof body.email === 'string' ? body.email : '';
+  const signer = guard.session.signers[guard.session.currentIndex];
+  const match = timingSafeEqualStr(await emailHash(email), signer.emailHash);
+  if (!match) return c.json({ ok: false });
+
+  await recordEmailVerified(c.env, sessionId);
+  return c.json({ ok: true });
+});
+
 async function requireOwner(c, sessionId) {
   const token = c.req.header('X-Owner-Token') || '';
   if (!token) return { error: c.json({ error: 'missing token' }, 401) };
@@ -120,7 +153,10 @@ app.post('/api/sessions/:id/signed', async (c) => {
     userAgent: c.req.header('User-Agent') || '',
     signedAt: new Date().toISOString()
   };
-  const session = await recordSignature(c.env, sessionId, { signedBytes: bytes, proof });
+  // Preuve client optionnelle (acte de volonté + horodatages d'étape), base64url(JSON UTF-8).
+  // Décodage défensif : un en-tête malformé est ignoré, jamais bloquant.
+  const clientProof = decodeProofHeader(c.req.header('X-Sign-Proof'));
+  const session = await recordSignature(c.env, sessionId, { signedBytes: bytes, proof, clientProof });
   return c.json({ status: session.status, currentIndex: session.currentIndex });
 });
 
@@ -147,7 +183,20 @@ app.get('/api/sessions/:id', async (c) => {
     expiresAt: s.expiresAt,
     signers: s.signers.map((sg) => ({
       role: sg.role, ordre: sg.ordre, statut: sg.statut,
-      proof: sg.proof ? { signedAt: sg.proof.signedAt, pdfSha256: sg.proof.pdfSha256 } : null
+      emailVerifiedAt: sg.emailVerifiedAt || null,
+      // Dossier de preuve complet exposé au propriétaire (§5 #1/#3/#6/#8).
+      proof: sg.proof ? {
+        signedAt: sg.proof.signedAt,
+        pdfSha256: sg.proof.pdfSha256,
+        emailVerifiedAt: sg.proof.emailVerifiedAt || null,
+        signerName: sg.proof.signerName || null,
+        consentElectronic: sg.proof.consentElectronic ?? null,
+        luApprouve: sg.proof.luApprouve ?? null,
+        openedAt: sg.proof.openedAt || null,
+        readCompletedAt: sg.proof.readCompletedAt || null,
+        ip: sg.proof.ip || null,
+        userAgent: sg.proof.userAgent || null
+      } : null
     }))
   });
 });
