@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERP — Alerte de validité (6 mois) + régénération ERRIAL · design retenu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+[data-theme="light"]{
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.96); --sur2:rgba(242,246,251,.97); --sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.12); --bor2:rgba(0,0,0,.05);
+  --t1:#1a2332; --t2:#5a6e87; --t3:#9aabbf;
+  --grn:#16a34a; --red:#dc2626; --ora:#ea580c; --acc:#2563eb; --blu:#2563eb;
+  --r:8px; --rl:14px;
+}
+[data-theme="dark"]{
+  --bg:#0A0E27;
+  --sur:#141a35; --sur2:#1b2244; --sur3:#232b52;
+  --bor:rgba(255,255,255,.14); --bor2:rgba(255,255,255,.06);
+  --t1:#e8ecf6; --t2:#9aa6c4; --t3:#6b779a;
+  --grn:#10B981; --red:#EF4444; --ora:#F59E0B; --acc:#0E73F6; --blu:#0E73F6;
+  --r:8px; --rl:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif}
+
+/* ── barre de contrôle mockup ── */
+.mk-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  padding:11px 18px;background:#0f172a;color:#e2e8f0;border-bottom:1px solid #1e293b}
+.mk-bar h1{font-family:'Manrope',sans-serif;font-size:13.5px;margin:0;font-weight:800;letter-spacing:-.2px}
+.mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:10px;padding:3px}
+.mk-grp button{border:none;background:transparent;color:#94a3b8;font:inherit;font-size:12px;font-weight:600;
+  padding:6px 11px;border-radius:7px;cursor:pointer;transition:.15s}
+.mk-grp button.on{background:var(--acc);color:#fff}
+.mk-grp button:not(.on):hover{color:#e2e8f0}
+.mk-lbl{font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.mk-note{font-size:11px;color:#94a3b8;margin-left:auto;max-width:340px;line-height:1.4}
+.mk-stage{padding:24px 16px 80px;display:flex;justify-content:center}
+.mk-frame{width:820px;max-width:100%;transition:width .25s ease;container-type:inline-size;container-name:frame}
+.mk-frame.tab{width:680px} .mk-frame.phone{width:390px}
+.mk-cap{font-size:11.5px;color:var(--t2);text-align:center;margin:0 0 12px;line-height:1.5}
+.mk-cap b{color:var(--t1)}
+
+/* ── coquille modale (rappel du contexte : onglet Diagnostics) ── */
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.22)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:15px;font-weight:700;font-family:'Manrope',sans-serif;margin:0}
+.m-head .mu{font-size:11px;color:var(--t2);margin-top:2px}
+.m-tabs{display:flex;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--bor);background:var(--sur2)}
+.m-tab{font-size:12px;font-weight:600;color:var(--t2);padding:8px 13px;border-radius:8px 8px 0 0;cursor:pointer;border:1px solid transparent;border-bottom:none}
+.m-tab.on{background:var(--sur);color:var(--t1);border-color:var(--bor)}
+.m-body{padding:18px 20px 24px}
+
+/* ── bandeau info DDT (repris de l'app) ── */
+.logmod-info-banner{font-size:11.5px;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);
+  border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;padding:9px 12px;line-height:1.5;margin-bottom:14px}
+.logmod-info-banner b{color:var(--t1)}
+
+/* ════════ CSS REPRIS VERBATIM de _logDiagEnsureCSS (index-test.html) ════════ */
+.logdiag-tbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+.logdiag-tbl th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;padding:6px 8px;border-bottom:2px solid var(--bor)}
+.logdiag-tbl td{padding:8px;border-bottom:1px solid var(--bor);vertical-align:middle}
+.logdiag-tbl tr.s-manquant>td{background:rgba(202,138,4,.07)}
+.logdiag-tbl tr.s-expire>td{background:rgba(220,38,38,.07)}
+.logdiag-tbl tr.s-expirebientot>td{background:rgba(217,119,6,.07)}
+.logdiag-lblmain{font-weight:600;font-size:13px}
+.logdiag-tech{display:inline-block;font-size:10px;color:var(--t3);font-weight:600;background:var(--sur2);border:1px solid var(--bor);border-radius:4px;padding:1px 5px;margin-left:5px;white-space:nowrap}
+.logdiag-help{font-size:11px;color:var(--t2);margin-top:2px}
+.inp{width:100%;background:var(--sur);border:1px solid var(--bor);color:var(--t1);border-radius:6px;padding:6px 8px;font:inherit;font-size:12px}
+.inp.logdiag-sg{background:#fffdf3;border-color:#fcd34d;color:#1a2332}
+.logdiag-tbl tr.logdiag-sg-row>td{background:#fffdf3}
+.logdiag-sg-cell{display:flex;flex-direction:column;gap:4px}
+.logdiag-sg-val{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.logdiag-sg-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:0 6px;white-space:nowrap}
+.logdiag-sg-src{font-size:10.5px;color:#92400e;background:#fffbeb;border:1px dashed #fcd34d;border-radius:5px;padding:3px 7px;line-height:1.4;margin-top:2px}
+.logdiag-sg-src b{color:#78350f}
+.chip{border-radius:12px;padding:2px 8px;font-size:10.5px;font-weight:700;white-space:nowrap;border:1px solid;display:inline-block}
+.chip.valide{background:#dcfce7;color:#14532d;border-color:#16a34a}
+.chip.bientot{background:#fef3c7;color:#78350f;border-color:#d97706}
+.chip.expire{background:#fee2e2;color:#7f1d1d;border-color:#dc2626}
+.chip.manquant{background:#fef9c3;color:#713f12;border-color:#ca8a04}
+@container frame (max-width:560px){
+  .logdiag-tbl,.logdiag-tbl thead,.logdiag-tbl tbody,.logdiag-tbl tr,.logdiag-tbl td{display:block;width:100%}
+  .logdiag-tbl thead{display:none}
+  .logdiag-tbl tr{border:1px solid var(--bor);border-radius:8px;margin-bottom:8px;padding:6px}
+  .logdiag-tbl tr.logdiag-sg-row{border-color:#fcd34d}
+  .logdiag-tbl tr.s-manquant>td,.logdiag-tbl tr.s-expire>td,.logdiag-tbl tr.s-expirebientot>td{background:transparent}
+  .logdiag-tbl td{border:none;padding:4px}
+  .logdiag-tbl td::before{content:attr(data-lbl);display:block;font-size:10px;text-transform:uppercase;color:var(--t3);font-weight:700;margin-bottom:2px}
+  .logdiag-tbl .inp{max-width:none !important;width:100%}
+}
+
+/* ── boutons (repris de l'app) ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:var(--r);border:1px solid var(--bor);
+  cursor:pointer;font-size:12.5px;font-weight:600;font-family:inherit;transition:.15s;white-space:nowrap;background:var(--sur2);color:var(--t1)}
+.btn.bp{background:var(--blu);color:#fff;border-color:transparent}
+.btn.bb{font-size:11px;padding:5px 11px}
+
+/* ── ERP : panneau de détection existant (repris) ── */
+.erp-panel{margin-top:14px;padding:10px 12px;border:1px solid var(--bor);border-radius:10px;background:var(--sur2)}
+.erp-panel .head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.erp-panel .head b{font-weight:700;font-size:12px}
+.erp-detail{margin-top:8px;padding:9px 11px;border-radius:8px}
+.erp-detail.req{background:#fdecea;color:#b71c1c;border:1px solid #f5c6c2}
+.erp-detail.no{background:#e8f5e9;color:#1b5e20;border:1px solid #c2e3c6}
+.erp-detail ul{margin:5px 0 0;padding-left:18px;font-size:11px;line-height:1.5}
+.erp-detail .meta{font-size:10.5px;margin-top:3px;opacity:.85}
+.erp-detail a{color:inherit;text-decoration:underline}
+
+/* ════════ PROPOSITION B retenue — bandeau d'alerte au-dessus du tableau ════════ */
+.erp-banner{display:flex;gap:12px;align-items:flex-start;border-radius:10px;padding:12px 14px;margin-bottom:14px;line-height:1.5}
+.erp-banner.expire{background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;color:#7f1d1d}
+.erp-banner .big{font-size:26px;line-height:1;flex:none}
+.erp-banner .body{flex:1;min-width:0}
+.erp-banner .body h4{margin:0 0 3px;font-size:13.5px;font-weight:800;font-family:'Manrope',sans-serif}
+.erp-banner .body p{margin:0;font-size:12px}
+.erp-banner .body p b{font-weight:700}
+.erp-banner .acts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.erp-banner .renew{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:8px;
+  padding:7px 14px;cursor:pointer;border:1px solid;text-decoration:none}
+.erp-banner.expire .renew{background:#dc2626;color:#fff;border-color:#b91c1c}
+.erp-banner.expire .renew:hover{background:#b91c1c}
+.erp-banner .later{font-size:11.5px;text-decoration:underline;cursor:pointer;opacity:.8}
+
+/* ════════ VUE « Génération du bail » — modale de blocage DDT (existante, enrichie) ════════ */
+.m-foot{padding:14px 20px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:8px;
+  background:var(--sur2);align-items:center;flex-wrap:wrap}
+.ddt-box{display:flex;align-items:flex-start;gap:14px;padding:12px;background:#fef3c7;border:2px solid #d97706;border-radius:var(--rl);color:#78350f}
+[data-theme="dark"] .ddt-box{background:rgba(217,119,6,.16)}
+.ddt-box .big{font-size:28px;line-height:1;flex:none}
+.ddt-box h4{font-weight:700;font-size:15px;margin:0 0 4px}
+.ddt-box p{font-size:13px;margin:0;line-height:1.55}
+.ddt-lists{margin-top:14px;font-size:12.5px;line-height:1.6}
+.ddt-lists .ttl{margin-bottom:6px;font-weight:600;color:#7f1d1d}
+[data-theme="dark"] .ddt-lists .ttl{color:#fca5a5}
+.ddt-lists ul{margin:0 0 12px 22px;padding:0}
+/* encart ERP→ERRIAL ajouté DANS la modale existante (rouge si expiré) */
+.ddt-erp{margin-top:14px;display:flex;gap:12px;align-items:flex-start;border-radius:10px;padding:12px 14px;
+  background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;color:#7f1d1d}
+[data-theme="dark"] .ddt-erp{background:rgba(220,38,38,.14);color:#fca5a5}
+.ddt-erp .big{font-size:24px;line-height:1;flex:none}
+.ddt-erp h4{margin:0 0 3px;font-size:13.5px;font-weight:800;font-family:'Manrope',sans-serif}
+.ddt-erp p{margin:0;font-size:12px;line-height:1.5}
+.ddt-erp .renew{display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-size:12px;font-weight:700;
+  border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid #b91c1c;background:#dc2626;color:#fff;text-decoration:none}
+.ddt-erp .renew:hover{background:#b91c1c}
+.ddt-trace{margin-top:14px;padding:8px 12px;background:var(--sur2);border-radius:var(--r);font-size:11.5px;line-height:1.5;color:var(--t2)}
+.ddt-ok{display:flex;align-items:flex-start;gap:14px;padding:14px;background:#dcfce7;border:2px solid #16a34a;border-radius:var(--rl);color:#14532d}
+[data-theme="dark"] .ddt-ok{background:rgba(22,163,74,.16);color:#86efac}
+.ddt-ok .big{font-size:28px;flex:none}
+.ddt-ok h4{margin:0 0 4px;font-size:15px;font-weight:700}
+.ddt-ok p{margin:0;font-size:12.5px;line-height:1.5}
+
+/* ── popover post-clic « Régénérer » ── */
+.erp-pop{margin-top:10px;border:1px dashed var(--bor);border-radius:8px;background:var(--sur);padding:10px 12px;font-size:11.5px;line-height:1.55;color:var(--t2)}
+.erp-pop b{color:var(--t1)}
+.erp-pop ol{margin:6px 0 0;padding-left:20px}
+.erp-pop li{margin-bottom:3px}
+
+/* ── notes de conception ── */
+.notes{max-width:820px;margin:0 auto;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:16px 20px}
+.notes h2{font-family:'Manrope',sans-serif;font-size:14px;margin:0 0 10px}
+.notes h3{font-size:12.5px;margin:14px 0 4px;color:var(--acc)}
+.notes p,.notes li{font-size:12px;color:var(--t2);line-height:1.6}
+.notes b{color:var(--t1)}
+.notes .warn{background:#fffbeb;border:1px solid #fcd34d;border-left:3px solid #f59e0b;border-radius:0 6px 6px 0;padding:8px 12px;color:#78350f;margin-top:6px}
+[data-theme="dark"] .notes .warn{background:rgba(245,158,11,.12);color:#fcd34d}
+</style>
+</head>
+<body>
+
+<div class="mk-bar">
+  <h1>🗺️ ERP · alerte validité 6 mois + régénération ERRIAL</h1>
+  <span class="mk-lbl">Vue</span>
+  <div class="mk-grp" id="grp-view">
+    <button data-view="diag" class="on">🏷 Onglet Diagnostics</button>
+    <button data-view="bail">📄 Génération du bail</button>
+  </div>
+  <span class="mk-lbl">État ERP</span>
+  <div class="mk-grp" id="grp-state">
+    <button data-st="detect">PDF détecté</button>
+    <button data-st="valide">Valide</button>
+    <button data-st="expire" class="on">Expiré</button>
+  </div>
+  <span class="mk-lbl">Format</span>
+  <div class="mk-grp" id="grp-fmt">
+    <button data-fmt="pc" class="on">PC</button>
+    <button data-fmt="tab">Tablette</button>
+    <button data-fmt="phone">Téléphone</button>
+  </div>
+  <span class="mk-lbl">Thème</span>
+  <div class="mk-grp" id="grp-theme">
+    <button data-th="light" class="on">Clair</button>
+    <button data-th="dark">Sombre</button>
+  </div>
+  <p class="mk-note"><b>Proposition B retenue</b> (bandeau dédié). ERP <b>binaire</b> : valide ou expiré (pas d'« expire bientôt »). Vue « Génération du bail » = modale de blocage <b>existante</b> (<code>ov-ddt-incomplet</code>) enrichie d'un encart ERP→ERRIAL.</p>
+</div>
+
+<div class="mk-stage">
+  <div class="mk-frame" id="frame">
+    <p class="mk-cap" id="cap"></p>
+    <div class="modal" id="modal"></div>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>📐 Notes de conception — à valider avant de coder</h2>
+  <h3>Ce qui existe déjà (rien à recréer)</h3>
+  <p>La ligne « État des risques [ERP] » du tableau DDT calcule <b>déjà</b> son statut (✅ Valide / ⚠️ Expire bientôt / 🔴 Expiré / ❓ À renseigner) dès qu'elle a une <b>date</b> : validité ERP = <b>0,5 an = 6 mois</b> est codée dans le catalogue (<code>validityYears:0.5</code>), l'expiration et les couleurs aussi. Le panneau « 🗺️ État des Risques (ERP / IAL) » détecte déjà les risques via l'adresse (API Géorisques) et affiche le lien ERRIAL.</p>
+  <h3>Le seul manque (= Phase 2)</h3>
+  <p>1. La ligne ERP ne reçoit <b>jamais de date</b> → reste « ❓ À renseigner » même après dépôt du PDF ERRIAL. Il faut <b>extraire la date « Établi le »</b> du PDF (déjà lu par le scanner) et la proposer en <b>« ✨ suggéré · à vérifier »</b> (même mécanique que DPE/plomb).<br>
+  2. Aucun <b>message de renouvellement</b> spécifique ERRIAL quand l'ERP est périmé.</p>
+  <h3>✅ Décision 1 — ERP <b>binaire</b> : valide ou expiré</h3>
+  <p>Pas d'état « ⚠️ Expire bientôt » pour l'ERP. Le seuil générique « expire bientôt » des diagnostics non-DPE = 6 mois, or la validité totale de l'ERP <em>est</em> 6 mois → un ERP serait « expire bientôt » dès le 1ᵉʳ jour. <b>Solution :</b> <code>_diagStatut()</code> ne renvoie jamais <code>expirebientot</code> pour la clé <code>erp</code> — uniquement <code>valide</code> tant que la date d'expiration n'est pas dépassée, puis <code>expire</code>. Ça corrige le bug de seuil par suppression, pas par réglage.</p>
+  <h3>✅ Décision 2 — Proposition B (bandeau dédié)</h3>
+  <p>Dans l'onglet Diagnostics, un bandeau rouge apparaît <b>au-dessus du tableau</b> uniquement si l'ERP est périmé, avec gros CTA « ↻ Régénérer sur ERRIAL ». Impossible à rater, cohérent avec le bandeau de revue « ✨ N champs pré-remplis ». La ligne ERP garde juste son chip de statut. (Aucun bandeau si l'ERP est valide.)</p>
+  <h3>✅ Décision 3 — Alerte à la génération du bail</h3>
+  <p><b>La porte existe déjà</b> : <code>saveBail()</code> appelle <code>_ddtComplet()</code> et, si un diagnostic est <b>manquant ou expiré</b>, ouvre la modale <code>ov-ddt-incomplet</code> qui <b>bloque</b> la génération (override « Continuer quand même » tracé en audit). Un ERP expiré <b>bloque donc déjà</b> — mais le message est générique. Phase 2 = <b>ajouter l'encart ERP→ERRIAL</b> (rouge, montré dans la vue) à cette modale, avec le CTA de régénération gratuite. On n'invente pas de nouvelle porte. Comme l'ERP est binaire, il n'y a <b>aucun avertissement « expire bientôt »</b> à la génération : soit valide (rien), soit expiré (bloquant).</p>
+  <h3>Note légale affichée</h3>
+  <p>« Régénérez-le <b>gratuitement, vous-même, sans diagnostiqueur</b> sur ERRIAL » — c'est la particularité de l'ERP : contrairement au DPE/plomb/amiante, le propriétaire le refait seul et gratuitement sur le site de l'État (Art. L.125-5 C. env.).</p>
+</div>
+
+<script>
+const S = { view:'diag', state:'expire', fmt:'pc' };
+
+/* dates fabriquées pour illustrer chaque chip (aujourd'hui ≈ 02/06/2026) */
+const DATA = {
+  detect:  { date:'',           exp:'',           chip:'manquant', chipTxt:'❓ À renseigner',  etabli:'02/06/2026', expPreview:'02/12/2026' },
+  valide:  { date:'2026-05-20', exp:'20/11/2026', chip:'valide',   chipTxt:'✅ Valide',         etabli:'20/05/2026' },
+  expire:  { date:'2025-11-01', exp:'01/05/2026', chip:'expire',   chipTxt:'🔴 Expiré',         etabli:'01/11/2025' },
+};
+
+const CAPS = {
+  diag: {
+    detect:  "Onglet Diagnostics — PDF ERRIAL déposé → date « Établi le 02/06/2026 » extraite et proposée en <b>✨ suggéré · à vérifier</b>. Le chip reste ❓ tant que non validée. Pas de bandeau (rien n'est encore expiré).",
+    valide:  "Onglet Diagnostics — ERP daté du 20/05/2026 → <b>valide</b> jusqu'au 20/11/2026. <b>Aucun bandeau</b> (l'ERP est binaire : valide ou expiré).",
+    expire:  "Onglet Diagnostics — ERP périmé depuis le 01/05/2026 → <b>bandeau rouge</b> + CTA régénération ERRIAL.",
+  },
+  bail: {
+    detect:  "Génération du bail — ERP sans date = <b>manquant</b> → la modale de blocage existante s'ouvre (le bail ne se génère pas). Encart ERP→ERRIAL ajouté.",
+    valide:  "Génération du bail — DDT complet → <b>aucun blocage</b>, le bail se génère. (Écran de succès illustratif.)",
+    expire:  "Génération du bail — ERP <b>expiré</b> → modale de blocage existante + encart ERP→ERRIAL avec CTA. « Continuer quand même » reste possible (tracé audit).",
+  },
+};
+
+/* ── panneau ERP de détection (toujours affiché, repris de l'app) ── */
+function erpPanel(){
+  return `
+  <div class="erp-panel">
+    <div class="head">
+      <b>🗺️ État des Risques (ERP / IAL)</b>
+      <button class="btn bp bb">🔎 Détecter via l'adresse</button>
+    </div>
+    <div class="erp-detail req">
+      <div style="font-weight:700;font-size:12px">🛑 ERP / IAL obligatoire</div>
+      <div class="meta" style="opacity:.95">Morschwiller-le-Bas (68218) · sismicité zone 3 · radon cat. 1</div>
+      <ul><li>Sismicité zone 3 (3 - MODÉRÉE)</li><li>PPR naturel : Inondation Doller</li></ul>
+      <div class="meta"><a href="https://errial.georisques.gouv.fr/" target="_blank" rel="noopener">🔗 Vérifiez / régénérez sur georisques.gouv.fr (ERRIAL)</a> · détecté le 02/06/2026</div>
+    </div>
+  </div>`;
+}
+
+/* ── popover post-clic « Régénérer » (commun A/B) ── */
+function renewPop(){
+  return `
+  <div class="erp-pop">
+    <b>↗ ERRIAL s'ouvre dans un nouvel onglet.</b>
+    <ol>
+      <li>Saisissez l'adresse <b>12 rue des Tilleuls, 68218</b> (déjà affichée ci-dessus).</li>
+      <li>Téléchargez le nouvel « État des Risques » (PDF) — <b>gratuit, sans diagnostiqueur</b>.</li>
+      <li>Redéposez-le dans « 📎 Documents de diagnostic » : la date se mettra à jour automatiquement.</li>
+    </ol>
+  </div>`;
+}
+
+/* ── ligne ERP du tableau (Proposition B : l'alerte vit dans le bandeau, pas la ligne) ── */
+function erpRow(){
+  const d = DATA[S.state];
+  let rowCls = '', dateCell;
+
+  if(S.state === 'detect'){
+    rowCls = 's-manquant logdiag-sg-row';
+    dateCell = `<div class="logdiag-sg-cell">
+        <div class="logdiag-sg-val"><input class="inp logdiag-sg" type="date" value="" style="max-width:150px"><span class="logdiag-sg-badge">✨ suggéré</span></div>
+        <div class="logdiag-sg-src">📄 depuis le PDF ERRIAL — « <b>Établi le ${d.etabli}</b> ». Valide 6 mois → expirerait le <b>${d.expPreview}</b>. <span style="text-decoration:underline;cursor:pointer">✓ Valider</span> · <span style="text-decoration:underline;cursor:pointer">✗ Ignorer</span></div>
+      </div>`;
+  } else {
+    if(S.state==='expire') rowCls='s-expire';
+    dateCell = `<input class="inp" type="date" value="${d.date}" style="max-width:150px">`;
+  }
+
+  const exp = S.state==='detect' ? `<span class="mu" style="color:var(--t3)">— <span style="font-size:10px">(6 mois)</span></span>`
+            : `${d.exp} <span style="font-size:10px;color:var(--t3)">(6 mois)</span>`;
+
+  return `<tr class="${rowCls}">
+    <td data-lbl="Diagnostic"><div><span class="logdiag-lblmain">🌊 État des risques</span><span class="logdiag-tech">ERP</span></div><div class="logdiag-help">Risques naturels &amp; technologiques · validité 6 mois</div></td>
+    <td data-lbl="Date réalisée">${dateCell}</td>
+    <td data-lbl="Résultat"><input class="inp" value="${S.state==='detect'?'':'Sismicité 3 · PPRi'}" placeholder="Résultat…" style="max-width:160px"></td>
+    <td data-lbl="Diagnostiqueur"><input class="inp" value="${S.state==='detect'?'':'ERRIAL (auto)'}" placeholder="Cabinet…" style="max-width:150px"></td>
+    <td data-lbl="Expire le" style="white-space:nowrap">${exp}</td>
+    <td data-lbl="Statut" style="white-space:nowrap"><span class="chip ${d.chip}">${d.chipTxt}</span></td>
+  </tr>`;
+}
+
+/* ── ligne DPE (contexte, toujours verte) ── */
+function dpeRow(){
+  return `<tr>
+    <td data-lbl="Diagnostic"><div><span class="logdiag-lblmain">🌡 Performance énergétique</span><span class="logdiag-tech">DPE</span></div><div class="logdiag-help">Classe énergie A→G · validité 10 ans</div></td>
+    <td data-lbl="Date réalisée"><input class="inp" type="date" value="2024-09-12" style="max-width:150px"></td>
+    <td data-lbl="Résultat"><input class="inp" value="Classe D" style="max-width:160px"></td>
+    <td data-lbl="Diagnostiqueur"><input class="inp" value="Cabinet Untel" style="max-width:150px"></td>
+    <td data-lbl="Expire le" style="white-space:nowrap">12/09/2034 <span style="font-size:10px;color:var(--t3)">(10 ans)</span></td>
+    <td data-lbl="Statut"><span class="chip valide">✅ Valide</span></td>
+  </tr>`;
+}
+
+/* ── bandeau B (au-dessus du tableau) — ERP binaire : seul l'expiré déclenche ── */
+function banner(){
+  const d = DATA[S.state];
+  if(S.state==='expire'){
+    return `<div class="erp-banner expire">
+      <span class="big">🛑</span>
+      <div class="body">
+        <h4>État des Risques expiré</h4>
+        <p>Votre ERP a été <b>établi le ${d.etabli}</b> → validité 6 mois <b>dépassée le ${d.exp}</b>. Le bail doit être accompagné d'un document à jour (Art. L.125-5 C. env.).</p>
+        <div class="acts">
+          <a class="renew" href="https://errial.georisques.gouv.fr/" target="_blank" rel="noopener" onclick="togglePop(event)">↻ Régénérer sur ERRIAL (gratuit)</a>
+          <span class="later">Plus tard</span>
+        </div>
+        <span class="pop-slot"></span>
+      </div>
+    </div>`;
+  }
+  return '';
+}
+
+/* ════════ VUE 1 — onglet Diagnostics (Proposition B) ════════ */
+function diagView(){
+  const reviewBanner = S.state==='detect'
+    ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:11px 13px;margin-bottom:14px;font-size:12px;color:#92400e;line-height:1.5"><b>✨ 1 champ pré-rempli depuis ton PDF — à vérifier.</b> L'app a lu le PDF ERRIAL et propose la date « Établi le ». Vérifie-la : elle reste « ✨ à vérifier » tant que tu ne la valides pas.</div>`
+    : '';
+  return `
+    <div class="m-head">
+      <div><h3>Logement L-014 — 12 rue des Tilleuls</h3><div class="mu">68218 Morschwiller-le-Bas · Studio 28 m²</div></div>
+    </div>
+    <div class="m-tabs"><div class="m-tab">🏠 Le bien</div><div class="m-tab on">🏷 Diagnostics</div><div class="m-tab">📄 Bail</div></div>
+    <div class="m-body">
+      ${banner()}
+      ${reviewBanner}
+      <div class="logmod-info-banner"><b>🏷 Dossier de diagnostic technique (DDT).</b> Saisie groupée. L'app calcule l'expiration, pousse les rappels dans l'Agenda et fait remonter les diagnostics expirés dans les actions prioritaires. À joindre au bail (loi 89-462 art. 3-3).</div>
+      <div style="overflow-x:auto">
+        <table class="logdiag-tbl">
+          <thead><tr><th>Diagnostic</th><th>Date réalisée</th><th>Résultat</th><th>Diagnostiqueur</th><th>Expire le</th><th>Statut</th></tr></thead>
+          <tbody>${dpeRow()}${erpRow()}</tbody>
+        </table>
+      </div>
+      ${erpPanel()}
+    </div>`;
+}
+
+/* ════════ VUE 2 — génération du bail (modale ov-ddt-incomplet enrichie) ════════ */
+function bailView(){
+  const d = DATA[S.state];
+  // valide → pas de blocage : écran succès
+  if(S.state==='valide'){
+    return `
+    <div class="m-head"><div><h3>📄 Génération du bail — L-014</h3><div class="mu">Vérification du dossier de diagnostic technique</div></div></div>
+    <div class="m-body">
+      <div class="ddt-ok"><span class="big">✓</span><div><h4>Diagnostics complets</h4><p>Tous les diagnostics applicables sont valides (ERP valide jusqu'au 20/11/2026). Le bail peut être généré et le DDT y sera annexé.</p></div></div>
+    </div>
+    <div class="m-foot"><span class="hint" style="font-size:11.5px;color:var(--t2)">Aucune alerte ERP.</span><button class="btn bp">📄 Générer le bail</button></div>`;
+  }
+  // expiré OU manquant (detect) → modale de blocage existante + encart ERP→ERRIAL
+  const erpExpired = S.state==='expire';
+  const liErp = erpExpired
+    ? `<div class="ttl">⏰ Diagnostics expirés :</div><ul><li>🌊 <b>ERP — Risques (PPR/sismicité/radon)</b> — diagnostic expiré, à renouveler</li></ul>`
+    : `<div class="ttl">📋 Diagnostics manquants :</div><ul><li>🌊 <b>ERP — Risques (PPR/sismicité/radon)</b> — aucune date enregistrée</li></ul>`;
+  const nb = 1;
+  return `
+    <div class="m-head"><div><h3>📄 Génération du bail — L-014</h3><div class="mu">Le dossier de diagnostic technique n'est pas complet</div></div></div>
+    <div class="m-body">
+      <div class="ddt-box"><span class="big">⚠</span><div><h4>Diagnostics incomplets — ${nb} à régulariser</h4><p>Le Dossier de diagnostic technique doit être annexé au bail à la signature (loi 89-462 art. 3-3). En cas d'absence ou de péremption, le bail peut être déclaré nul en cas de litige locataire.</p></div></div>
+      <div class="ddt-lists">${liErp}</div>
+      <div class="ddt-erp"><span class="big">🛑</span><div>
+        <h4>État des Risques ${erpExpired?'expiré':'manquant'} — régénération gratuite</h4>
+        <p>${erpExpired ? `Votre ERP a été établi le ${d.etabli} → validité 6 mois <b>dépassée le ${d.exp}</b>.` : `Aucun État des Risques daté n'est enregistré pour ce logement.`} Contrairement aux autres diagnostics, vous le <b>régénérez vous-même, gratuitement, sans diagnostiqueur</b> sur ERRIAL (Art. L.125-5 C. env.).</p>
+        <a class="renew" href="https://errial.georisques.gouv.fr/" target="_blank" rel="noopener" onclick="togglePop(event)">↻ Régénérer sur ERRIAL (gratuit)</a>
+        <span class="pop-slot"></span>
+      </div></div>
+      <div class="ddt-trace">💡 Vous pouvez <b>continuer la sauvegarde</b> du bail mais cette action sera tracée dans l'audit-trail (RGPD-compliant). En cas de contrôle, l'engagement reste à votre charge.</div>
+    </div>
+    <div class="m-foot">
+      <button class="btn">⚠ Continuer quand même</button>
+      <button class="btn bp">↩ Mettre à jour les diagnostics</button>
+    </div>`;
+}
+
+function render(){
+  document.getElementById('cap').innerHTML = CAPS[S.view][S.state];
+  document.getElementById('modal').innerHTML = S.view==='bail' ? bailView() : diagView();
+}
+
+function togglePop(e){
+  e.preventDefault();
+  const host = e.target.closest('.txt, .body, .ddt-erp');
+  const slot = host && host.querySelector('.pop-slot');
+  if(!slot) return;
+  slot.innerHTML = slot.innerHTML ? '' : renewPop();
+}
+
+/* ── contrôles ── */
+document.querySelectorAll('#grp-view button').forEach(b=>b.onclick=()=>{
+  S.view=b.dataset.view; document.querySelectorAll('#grp-view button').forEach(x=>x.classList.toggle('on',x===b)); render();
+});
+document.querySelectorAll('#grp-state button').forEach(b=>b.onclick=()=>{
+  S.state=b.dataset.st; document.querySelectorAll('#grp-state button').forEach(x=>x.classList.toggle('on',x===b)); render();
+});
+document.querySelectorAll('#grp-fmt button').forEach(b=>b.onclick=()=>{
+  S.fmt=b.dataset.fmt; document.querySelectorAll('#grp-fmt button').forEach(x=>x.classList.toggle('on',x===b));
+  const f=document.getElementById('frame'); f.className='mk-frame'+(S.fmt==='tab'?' tab':S.fmt==='phone'?' phone':'');
+});
+document.querySelectorAll('#grp-theme button').forEach(b=>b.onclick=()=>{
+  document.documentElement.dataset.theme=b.dataset.th;
+  document.querySelectorAll('#grp-theme button').forEach(x=>x.classList.toggle('on',x===b));
+});
+render();
+</script>
+</body>
+</html>
