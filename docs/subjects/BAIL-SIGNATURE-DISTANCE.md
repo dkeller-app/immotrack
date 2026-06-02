@@ -1,216 +1,250 @@
-# BAIL-SIGNATURE-DISTANCE — Envoi de bail à signer par lien (wizard à distance)
+# BAIL-SIGNATURE-DISTANCE — Signature de bail à distance (relais maison + crochet eIDAS)
 
-**Status** : 🔄 Session 1 brainstorming + cadrage V1 livré 2026-05-29 · Mockup à raffiner · **Prio** : P1 · **Taille V1** : L (~4-6h) · **Taille V1.x** : XL si bailleur à distance ajouté
-**Détecté** : 2026-05-29 (user : « je voudrais faire l'envoie de signture du bail au locataire et bailleur (dans le cas de la gestion) »)
-**Lié à** : EMAIL-MODAL-UX-REFONTE (réutilise `_openEmailModal` + Gmail API) · DOC-PJ (import PDF signé reçu) · TEMPLATES-EMAILS-PARAMS (template email envoi)
+**Status** : 🔄 Design consolidé V2 livré 2026-06-02 · attend validation user du spec avant implémentation
+**Prio** : P1 · **Taille V1** : L (~10-14h, dont relais Cloudflare neuf)
+**Détecté** : 2026-05-29 · **Refonte du design** : 2026-06-02 (abandon de l'approche URL + retour manuel)
+**Consolide** : ce sujet **fusionne et remplace** [SIGN-BAIL-LIEN](SIGN-BAIL-LIEN.md) (approche Yousign, 2026-05-18). Les deux sujets visaient la même feature et n'avaient jamais été réconciliés.
+**Lié à** : EMAIL-MODAL-UX-REFONTE (Gmail API) · DOC-PJ (dépôt Drive) · RGPD-COMPLIANCE (`docs/legal/RGPD-REGISTRE.md`) · graine du backend V2 multi-utilisateurs
 
-## ⚡ Périmètre V1 (réduit après cadrage technique 2026-05-29)
+---
 
-> **DÉCISION USER** : « on fait que locataire pour le moment mais il va falloir trouver une idée pour pouvoir faire signer les 2 correctement »
+## 1. Décision d'architecture (2026-06-02)
 
-**V1 = locataire uniquement via lien**. Le bailleur :
-- Soit a déjà signé en direct dans ImmoTrack (wizard existant `_wizV2PersistSignatures`)
-- Soit n'a pas encore signé (cas locataire signe d'abord, bailleur signera en direct après)
+### Ce qui a été rejeté
 
-**V1.x différée** : envoi bailleur à distance — 3 options techniques étudiées (A Drive temporaire / B 2 PDF distincts / C signatures texte structurées) sans choix verrouillé. Cas d'usage gestion B2B à approfondir avant V1.x.
+Le design Session 1 (2026-05-29) proposait : bail compressé dans l'URL (fragment `#`) + retour par **re-téléchargement du PDF signé + email manuel + import DOC-PJ**.
 
-### Pourquoi V1 réduit ?
+> **Refus user 2026-06-02** : « je veux une vraie solution, pas juste on envoie un PDF et débrouille toi. Ça je peux déjà faire aujourd'hui sans optimisation. »
 
-| Argument | Détail |
-|---|---|
-| **Cas user principal** | Bailleur solo veut faire signer un locataire à distance. Le bailleur lui-même signe en direct (chez lui devant son PC). 80% des cas. |
-| **Complexité workflow gestion** | Le mandataire qui orchestre les 2 signatures à distance demande un workflow séquentiel (bailleur d'abord → préparateur reçoit → envoi au locataire avec PDF bailleur). 3 options techniques aucune parfaite. |
-| **Risque taille URL** | Inclure les signatures bailleur dans le lien locataire (option C) frôle la limite navigateur sur mobile. |
-| **Réutilisation existant** | Le wizard bailleur en direct fonctionne déjà parfaitement (`_wizV2PersistSignatures`). Pas besoin de le dupliquer dans sign.html pour V1. |
-| **Validation incrémentale** | Livrer locataire-only en V1, observer usage réel, voir si bailleur à distance est vraiment demandé avant d'investir. |
+Le retour manuel est exactement la « solution passable » qu'on s'interdit ([[feedback_no_compromise]]). La valeur réelle = wizard en ligne **+ aller-retour 100 % automatique**.
 
-## Justification (4 critères pré-vol)
+### La contrainte incontournable
 
-1. **Cible** : 3 scénarios à supporter dès V1 (décision validée 2026-05-29) :
-   - Bailleur solo → locataire à distance (déménagement, autre ville)
-   - Mandataire/gestionnaire → bailleur + locataire (cas gestion B2B)
-   - Workflow complet 2 sens à distance (personne ensemble physiquement)
-2. **Règles** : refonte propre, pas de patch. Réutilise briques existantes (Gmail API, wizard signature, jsPDF natif, DOC-PJ).
-3. **Justifications** :
-   - 🧑 Cas user 2026-05-29 explicite : « envoi de signature du bail au locataire et bailleur (dans le cas de la gestion) »
-   - 💻 Code existant : `_openEmailModal` (Gmail API OAuth), `_wizV2PersistSignatures` (wizard ImmoTrack), `genBailHTML` + `pdf.text/pdf.rect` natif jsPDF, DOC-PJ pour import PDFs
-   - 📋 Backlog : SIGNATURE-MODES déjà mentionné dans V3 roadmap mais sans implémentation
-   - 💰 Business : feature critique pour SaaS gestion (concurrents Rentila/BailFacile l'ont, Qalimo aussi) — élément différenciant manquant
-4. **5 vues 360°** : UX (page autonome mobile-friendly) · technique (compression URL fragment, pas de backend) · juridique (signature simple visuelle art. 1366 Code civil — pas eIDAS) · sécurité (token + vérification email) · cycle de vie (envoi → signature → retour → import → archivage)
+Une boucle vraiment automatique (le bail part, revient signé tout seul, atterrit dans le Drive du bailleur) **impose un composant serveur** : le navigateur du locataire n'a aucun droit d'écriture sur le Drive du bailleur, il ne peut donc rien renvoyer seul. Il n'existe pas de magie « zéro-backend » pour le retour. On assume donc un **mini-relais serverless** — qui est aussi la graine du backend V2 multi-utilisateurs.
 
-## Décisions verrouillées Session 1 (2026-05-29)
+### Approche retenue (sur 3 étudiées)
+
+| # | Approche | Verdict |
+|---|---|---|
+| 1 | Relais maison (DIY, on le possède) | socle V1 |
+| 2 | Prestataire eIDAS (Yousign…) porte le backend | trop cher en multi-tenant (free tier par compte) → premium |
+| **3** | **Hybride : relais maison + crochet prestataire eIDAS** | ✅ **retenu** |
+
+On construit le **relais maison natif** (tier gratuit illimité = le différenciant), avec une abstraction `SignatureProvider` propre pour brancher un prestataire **eIDAS qualifié** en option premium plus tard, sans refonte.
+
+---
+
+## 2. Décisions verrouillées
 
 | Décision | Choix | Justification |
 |---|---|---|
-| **Scénarios V1** | **Locataire uniquement via lien** (révision 2026-05-29) | Bailleur signe en direct dans ImmoTrack (wizard existant). Cas user principal (bailleur solo). V1.x ajoutera bailleur à distance. |
-| **Niveau légal** | Signature simple visuelle (art. 1366 Code civil) | Vaut accord contractuel. PAS eIDAS (nécessiterait prestataire payant DocuSign/Yousign). |
-| **Mode retour** | Re-téléchargement PDF signé + email manuel | Le locataire signe via wizard, télécharge le PDF avec signatures insérées, envoie par email simple. Le bailleur importe via DOC-PJ existant. **Fiabilité maximale, pas de magie URL fragile.** |
-| **Token sécurité** | Token SHA256 + vérification email à l'ouverture | Couche identification : le locataire saisit son email à l'ouverture sign.html → vérification `token === SHA256(bail_data + email + timestamp).slice(0, 16)`. Protège contre transmission accidentelle du lien. |
-| **Wizard** | Complet : paraphe par page + signature finale | Légalement plus solide (preuve que le bail a été lu intégralement). Réutilise structure wizard ImmoTrack existant. |
-| **Envoi multi-locataires V1** | 1 email par locataire | Chaque locataire reçoit son propre lien + signe son propre PDF. Le bailleur reçoit N PDFs (un par locataire). Cas typique : clause solidarité + chacun signe individuellement. |
+| **Posture** | Hybride : DIY natif maintenant + crochet eIDAS premium | Cible commerciale + free tier prestataire non-scalable en multi-tenant |
+| **Hébergement relais** | **Cloudflare Worker + R2 + KV** | Free tier large (~500 baux/j), egress R2 gratuit, chiffrement au repos natif, maintenance ~nulle |
+| **Domaine** | `*.workers.dev` pour l'instant | Pas encore de domaine custom. À migrer sur `sign.<domaine>` **avant commercialisation** |
+| **Ordre de build** | Relais natif d'abord (crochet eIDAS stubé) | Livrer le socle gratuit/illimité = le différenciant, eIDAS premium ensuite |
+| **Niveau juridique V1** | Signature simple visuelle (art. 1366 C. civ.) + faisceau de preuves | eIDAS « simple » n'apporte **aucune présomption** légale de plus (décret 2017-1416 : présomption réservée au **qualifié**). Même régime probatoire que le tracé maison |
+| **OTP SMS** | **En option (cadré, non branché en V1)** | Champ téléphone + étape prévus dans le flow ; activation rapide ensuite. Le juriste le pose comme levier probatoire n°1, mais ajoute dépendance SMS + coût |
+| **Crochet premium** | eIDAS **qualifié** (Yousign/Universign QTSP), pas « simple » | Seul niveau qui apporte la présomption de fiabilité (la vraie valeur ajoutée juridique) |
+| **`sign.html`** | **Servi par le Worker** (pas GitHub Pages) | Même origine → zéro CORS, token injecté côté serveur (jamais dans l'URL) |
+| **Multi-locataires** | Signataires **ordonnés** dans la session | Gère nativement bailleur→locataire(s) séquentiel, 1 PDF final unique |
 
-## Architecture technique
+---
 
-### Flux complet
+## 3. Architecture technique
 
-```
-PRÉPARATEUR (ImmoTrack)         EMAIL                DESTINATAIRE (browser)              RETOUR
-┌─────────────────────────┐                          ┌─────────────────────────────┐    ┌─────────────────────────┐
-│ Modale Bail              │                          │ /sign.html?fragment         │    │ Préparateur (ImmoTrack) │
-│ ──────────────────────── │                          │ ────────────────────────    │    │ ──────────────────────  │
-│ Bouton ✉ Envoyer pour    │                          │ ÉTAPE 1 : Vérif email       │    │ Reçoit email +          │
-│   signature à distance   │                          │ (saisie + token SHA256 OK)  │    │ PDF signé en PJ         │
-│                          │                          │ ↓                            │    │ ↓                       │
-│ Modale destinataires :   │                          │ ÉTAPE 2 : Wizard paraphes   │    │ Clic « Importer         │
-│ - locataire(s) — 1/N     │                          │ (canvas par page)            │    │  signature reçue »     │
-│ - bailleur (si mandat)   │                          │ ↓                            │    │ ↓                       │
-│ - mandataire             │                          │ ÉTAPE 3 : Signature finale  │    │ Sélection bail cible    │
-│                          │                          │ (canvas + case lu/approuvé) │    │ ↓                       │
-│ Bouton ENVOYER →         │  Gmail API OAuth         │ ↓                            │    │ Import PDF dans         │
-│  - Compresse bail        ├──────────────────────────│ ÉTAPE 4 : Génère PDF        │    │ DB.documents +          │
-│    (LZ-string)           │  Email à destinataire    │ avec signature insérée      │    │ MAJ bail.signatures     │
-│  - Calcule token         │  avec lien sign.html#X   │ via jsPDF natif             │    │ ↓                       │
-│    SHA256(data+email)    │                          │ ↓                            │    │ Bail status :           │
-│  - Lien sign.html#       │                          │ TÉLÉCHARGE PDF              │    │ « Signé par X à         │
-│    bail=X&t=Y&            │                          │ ↓                            │    │  distance le {date} »   │
-│    signer=Z&exp=W         │                          │ Instructions :              │    │                         │
-│  - Email via Gmail API   │                          │ « Envoyer par email à       │    │                         │
-│    avec lien clickable   │                          │  préparateur@x.fr »         │    │                         │
-└─────────────────────────┘                          │ + bouton mailto:            │    └─────────────────────────┘
-                                                      │  pré-rempli avec PJ         │
-                                                      └─────────────────────────────┘
-                                                                       │
-                                                                       │ Email manuel
-                                                                       │ destinataire → préparateur
-                                                                       │ avec PDF signé en PJ
-                                                                       ↓
-                                                                  [PRÉPARATEUR REÇOIT]
-```
+### 3 composants
 
-### Composants techniques
-
-| Composant | Détail | Réutilise existant |
+| Composant | Rôle | Statut |
 |---|---|---|
-| **Page `sign.html`** standalone | ~50-80 KB tout inclus (HTML+CSS+JS+jsPDF inliné). Hébergée sur même domaine GitHub Pages. Aucune dépendance ImmoTrack. | jsPDF déjà inliné (cf v12.68 _BAIL_PDF_LIBS) |
-| **Compression bail** | LZ-string ou base64 custom. Bail JSON 10-50 KB → ~5-25 KB compressé → ~7-35 KB en base64 URL-safe. | À ajouter (~10 KB lib LZ-string) |
-| **Token SHA256** | `SHA256(bail_data + email_destinataire + timestamp).slice(0, 16)`. Vérifié à l'ouverture (canvas SubtleCrypto.digest). | Web Crypto API natif |
-| **Wizard signature** | Réutilise structure wizard ImmoTrack (paraphes canvas + sig finale). Extrait en HTML autonome. | Code wizard `_wizV2*` à porter dans sign.html |
-| **Génération PDF signé** | jsPDF natif. Insère paraphes + signature aux emplacements prévus dans le bail. | Code `genPDFNative` à porter |
-| **Envoi email** | `_openEmailModal('bail-signature-distance', ctx)` réutilise Gmail API + alias send-as. | Module email v15.85+ existant |
-| **Import PDF signé reçu** | Module DOC-PJ existant. Bail.signatures enrichi avec ref documentImporte. | DOC-PJ v15.155+ |
+| **ImmoTrack** (l'app) | Crée la session, suit l'état, récupère le PDF signé dans le Drive | existant, à étendre |
+| **Relais** Cloudflare | Worker (+ Hono) sans état : stocke la session + relaie le PDF signé. R2 = blobs PDF, KV = métadonnées | **à créer** |
+| **`sign.html`** | Wizard de signature autonome, servi par le Worker, ouvert par lien sans compte | **à créer** (= Phase 2 existante extraite) |
 
-### URL fragment structure
+### La « session de signature »
+
+Au clic **« Envoyer pour signature »**, ImmoTrack génère le PDF (`genPDFNative`) et POST une session au relais :
+
+```js
+session = {
+  sessionId,            // 256 bits aléatoires (crypto.getRandomValues), inguessable
+  bailRef,              // ré-appariement au retour
+  // PDF original stocké en R2 : original/<sessionId>.pdf (chiffré au repos AES-256 par défaut)
+  signers: [            // ORDONNÉS → cas bailleur+locataire séquentiel
+    { role:'bailleur',  emailHash, tel?:'', ordre:1, statut:'done' },   // si déjà signé in-app
+    { role:'locataire', emailHash, tel?:'', ordre:2, statut:'pending' }
+  ],
+  currentIndex,         // signataire courant
+  provider: 'native',   // 'native' (art.1366) | 'yousign-qualifie' | …  ← LE CROCHET
+  expiresAt             // TTL 14j (KV expirationTtl) ; R2 lifecycle 15j
+}
+// + ownerToken (HMAC) pour le bailleur, signToken (HMAC) par signataire — jamais dans l'URL
+```
+
+### Routes du relais (Worker unique, routé par pathname)
 
 ```
-https://immotrack.app/sign.html#
-  &v=1                           ← version protocole
-  &bail=LZ_COMPRESSED_BASE64URL  ← bail JSON compressé
-  &t=TOKEN_16CHAR                ← SHA256 tronqué
-  &signer=locataire|bailleur     ← qui doit signer
-  &email_hash=SHA256_8CHAR       ← hash de l'email destinataire (vérif à l'ouverture)
-  &exp=ISO_DATE                  ← date expiration (7j par défaut)
-  &back=preparateur@x.fr         ← email retour (pour mailto: à la fin)
+POST /sessions                  (bailleur, auth APP_KEY)  → {sessionId, signUrl}
+GET  /s/:sessionId              (locataire)               → sert sign.html (signToken injecté server-side)
+GET  /api/sessions/:id/pdf      (locataire, signToken)    → PDF original à signer
+POST /api/sessions/:id/signed   (locataire, signToken)    → write-back du PDF signé
+GET  /api/sessions/:id          (bailleur, ownerToken)    → poll statut
+GET  /api/sessions/:id/result   (bailleur, ownerToken)    → PDF signé final
 ```
 
-**Sécurité** : le fragment `#...` n'est JAMAIS envoyé au serveur (côté navigateur uniquement). Pas de fuite.
+- **R2** = blobs (`original/<id>.pdf`, `signed/<id>.pdf`). **KV** = métadonnée `session:<id>` (JSON léger).
+- **Chiffrement** : R2 SSE AES-256-GCM par défaut (rien à coder). Pas de crypto applicative (risque de perte de clé > bénéfice).
+- **Tokens HMAC** : `base64url({sid, role, idx, jti, exp}) + "." + HMAC-SHA256(payload, SIGNING_SECRET)`. Vérif temps-constant, `idx == currentIndex`, `jti` anti-rejeu. Secret via `wrangler secret put`.
+- **Validation write-back** : Content-Type PDF, taille max (ex. 20 Mo), magic bytes `%PDF`.
 
-## V1.x — Bailleur à distance (différé, 3 options à arbitrer)
+### Flow automatique — cas locataire
 
-> Le mandataire/gestionnaire qui orchestre la signature des 2 parties à distance.
-> Aucune option n'est parfaite. À approfondir quand le besoin user réel est confirmé.
+```
+BAILLEUR (ImmoTrack)          RELAIS (CF)          LOCATAIRE (navigateur)         RETOUR (auto)
+1. "Envoyer"                                       
+   genPDFNative()      ──POST /sessions──▶  R2+KV
+   email Gmail API     ◀──{signUrl}──
+        └─email lien───────────────────────▶ 2. GET /s/:id (sign.html)
+                                                  Étape 1 : confirme email (=emailHash)
+                                                  [Étape OTP SMS — cadrée, off en V1]
+                                                  Étape 2 : lit le bail + paraphe/page
+                                                  Étape 3 : signature + "lu et approuvé"
+                                                  compose le PDF signé (jsPDF inliné)
+                                            ◀─POST /signed (+signToken)─┘
+                                  marque OK, currentIndex++
+                                  (si signataire suivant → email auto)
+3. poll au boot / ouverture ─GET /api/sessions/:id─▶ "completed"
+   GET /result          ◀──PDF signé──
+   uploadBailPDFToDrive() → Drive "baux"
+   bail.signatures MAJ + _stamp + audit + toast + badge
+   (relais purge à TTL)
+```
 
-### Option A — 1 seul PDF bilatéral via Drive temporaire
+### Cas bailleur + locataire (gestion B2B) — résolu nativement
 
-1. Bailleur signe via sign.html → renvoie PDF signé bailleur
-2. Préparateur importe → ImmoTrack upload PDF sur Drive (dossier temporaire avec lien public + expiration 7j)
-3. Préparateur clique « Envoyer au locataire »
-4. ImmoTrack envoie lien `sign.html?pdf_url=DRIVE_TEMP&signer=locataire`
-5. Locataire ouvre → sign.html télécharge PDF signé bailleur depuis Drive + affiche dans le wizard
-6. Locataire signe par-dessus → génère **PDF final avec LES 2 SIGNATURES**
-7. Locataire renvoie → préparateur archive PDF bilatéral
+Signataires **ordonnés** : `[bailleur(1), locataire(2)]`. Le bailleur signe via son lien → le relais déclenche **automatiquement** l'email au locataire → le locataire signe **par-dessus le même PDF** → **1 seul PDF bilatéral final**. C'est ce que les 2 anciens docs ne savaient pas faire sans backend.
 
-✅ Document final unique bilatéral (légalement le mieux)
-❌ Nécessite Drive du préparateur (OAuth déjà OK), lien public temporaire (faille sécurité à mitiger : token signé Drive + expiration courte + révocation après usage)
+---
 
-### Option B — 2 PDF distincts (un par exemplaire)
+## 4. `sign.html` = la Phase 2 existante, extraite
 
-1. Bailleur signe via sign.html → renvoie PDF signé bailleur
-2. Préparateur importe
-3. Préparateur clique « Envoyer au locataire » → email avec :
-   - PDF signé bailleur **en pièce jointe** (consultation)
-   - Lien sign.html avec **bail vierge**
-4. Locataire signe son exemplaire vierge → renvoie PDF locataire signé
-5. Préparateur a 2 PDF distincts : exemplaire bailleur + exemplaire locataire
+Découverte clé de l'audit code (2026-06-02) : **le wizard 2-phases bailleur→locataire existe déjà in-app**. `sign.html` n'invente rien, il **porte la Phase 2** en page autonome alimentée par le relais.
 
-✅ Pas de Drive nécessaire, implémentation simple (réutilise V1 locataire-only)
-❌ 2 PDF circulent (légalement acceptable « autant d'exemplaires que de parties » mais pas idéal « 1 document signé par tous »)
+| Brique in-app | Emplacement | Réutilisation dans `sign.html` |
+|---|---|---|
+| Wizard relance locataire | `_wizV2Phase2=true`, `previewBailLocataireRef()` [index.html:15248](../../index.html) | Le wizard qu'on extrait : paraphes bailleur en lecture seule + signature locataire |
+| Capture canvas | `_wizV2RenderFinal` (17741), `_wizV2CaptureCurrent` (17799), `_wizV2PersistSignatures` (17901) | Logique de capture paraphes/signature à porter |
+| Modèle signatures | `_wizV2Paraphes[page][role]`, `_wizV2FinalSignatures[role]`, `_wizV2LuApprouveBy[role]`, `_wizV2Pages[]` | Format identique → réinjecté dans `genPDFNative` |
+| Génération PDF | `genPDFNative()` [index.html:18434](../../index.html), drive sur `_BAIL_STRUCTURE` | Portée dans sign.html (compose le PDF signé côté navigateur) |
+| jsPDF inliné | `_BAIL_PDF_LIBS` base64 [index.html:8](../../index.html) | Ré-inliné dans sign.html (autonome) |
+| Structure `bail.signatures` | construction [index.html:18005-18016](../../index.html) : `paraphes/finales/luApprouveBy/mode/signedBailleurAt/signedLocataireAt/totalPages/bailSnapshot` | Le retour relais remplit la branche `locataire` de cette structure |
 
-### Option C — Signatures bailleur transmises en texte structuré
+Conséquence : on **porte** un wizard éprouvé, on n'en conçoit pas un nouveau → build dé-risqué.
 
-1. Bailleur signe via sign.html → télécharge PDF + COPIE clipboard `{paraphes_base64[], signature_base64, date, lu_approuvé:true}`
-2. Bailleur renvoie : PDF en PJ + bloc texte dans corps email
-3. Préparateur clique « Importer signature bailleur » → colle le bloc → ImmoTrack stocke `bail.signatures.bailleurCanvas`
-4. Préparateur clique « Envoyer au locataire » → ImmoTrack génère lien `sign.html#bail=X&bailleurSigs=Y&signer=locataire`
-5. Locataire ouvre → sign.html dessine les signatures bailleur sur les pages + zones vides locataire
-6. Locataire signe → génère PDF final bilatéral
+---
 
-✅ Document final unique bilatéral, pas de Drive
-❌ 2 imports manuels du préparateur (PDF + bloc texte), risque taille URL (~80 KB en base64 sur mobile)
+## 5. Cadre juridique (analyse 2026-06-02)
 
-### À arbitrer V1.x quand besoin user confirmé
+- **Le bail d'habitation (loi 89-462, art. 3) doit être écrit, pas manuscrit** → signature électronique admise (loi ELAN 2018).
+- **Art. 1366 + 1367 C. civ.** : l'écrit électronique a la même force probante que le papier *si* la personne est dûment identifiée et l'intégrité garantie. La fiabilité n'est **présumée** que pour l'eIDAS **qualifié** (décret 2017-1416).
+- **Point central** : eIDAS « simple » (et même « avancé ») = **même régime probatoire** que le tracé canvas maison. La seule différence est la **qualité du dossier de preuve**. → le DIY est pleinement défendable ; le crochet premium doit viser le **qualifié** (la seule vraie valeur ajoutée).
+- **Jurisprudence** : CA Chambéry 2018 (simple validée *grâce à* un bon fichier de preuve) ; CA Amiens 2025 (simple rejetée faute de preuves). Risque faible **si le dossier de preuve est solide**.
+- **Concurrents** : Rentila (payant via Oodrive), BailFacile (illimité inclus), Qalimo (DocuSign/Yousign) — tous au niveau « simple ».
 
-Décision reportée. Mes recommandations en l'état :
-- **Si le mandataire B2B est un cas user fort** → Option A (Drive temporaire, document unique)
-- **Si juste « parfois bailleur veut aussi à distance »** → Option B (2 PDF distincts, simple)
+### Dossier de preuve à capturer (immuable, scellé)
 
-## Plan d'exécution proposé
+À journaliser et figer dans un **certificat de preuve** (PDF horodaté, joint au bail signé) :
+1. Identité affirmée (nom, email ; n° pièce d'identité optionnel).
+2. Preuve du contrôle de l'email : lien unique + clic horodaté. *(OTP SMS = upgrade « avancé » de fait — cadré, off en V1.)*
+3. Horodatage de chaque étape (ouverture, lecture, tracé, validation).
+4. IP + user-agent à chaque action.
+5. **Hash SHA-256 du PDF figé** au moment de la signature.
+6. Acte de volonté explicite : case « je reconnais signer le bail [adresse] ».
+7. Audit trail exporté, archivé (réutilise `js/core/audit-trail.js` via `_auditEntry`).
+8. Consentement préalable au procédé électronique.
 
-### Session 1 — Brainstorming + Mockups + Cadrage (~2h) ✅ LIVRÉ 2026-05-29
-- [x] Brainstorm architecture
-- [x] Sujet doc créé
-- [x] 6 décisions Session 1 verrouillées
-- [x] Mockup standalone 8 vues × 3 formats créé
-- [x] Cadrage V1 = locataire only (décision user technique 2026-05-29)
-- [x] V1.x différée avec 3 options techniques cataloguées
+### À documenter produit
+Mention honnête CGU/UI : signature simple, valeur probante reposant sur le faisceau de preuves, **sans présomption légale**. Option premium eIDAS qualifié pour les bailleurs averses au risque.
 
-### Session 2 — Implémentation V1 LOCATAIRE ONLY (~4-6h)
-- [ ] Page `sign.html` standalone (~50-80 KB)
-- [ ] Helper compression bail (`__tests__/helpers/bail-link-codec.js` + tests Vitest)
-- [ ] Helper token SHA256 + vérification email (Web Crypto API)
-- [ ] Bouton « ✉ Envoyer au locataire pour signature » dans modale Bail (visible si bail non clôturé)
-- [ ] Intégration `_openEmailModal` avec template `bail-signature-locataire`
-- [ ] Template email dédié (TEMPLATES-EMAILS)
-- [ ] Flow import retour : modale « Importer signature locataire reçue » + parse PDF + MAJ `bail.signatures.signedLocataireAt` + ref documentImporté DOC-PJ
-- [ ] Mise à jour mockup pour clarifier V1 = locataire only
-- [ ] Tests Vitest (codec round-trip, token vérification, expiration, multi-locataires)
-- [ ] Audit code-reviewer agent obligatoire (sensible légal)
-- [ ] Sync sandbox + bump versions
+---
 
-### Session 3 (V1.x) — Bailleur à distance (différé)
-- [ ] Arbitrage 3 options techniques (A/B/C) avec user
-- [ ] Mockup-first pour l'option choisie
-- [ ] Implémentation
-- [ ] Audit + tests
+## 6. Sécurité & RGPD
 
-## Risques et mitigations
+- `sessionId` inguessable (256 bits) + **vérif email** à l'ouverture (anti-transfert).
+- Tokens HMAC (jamais dans l'URL, injectés server-side), vérif temps-constant, anti-rejeu.
+- PDF chiffré au repos (R2 SSE), **TTL court + purge auto**.
+- Le relais devient **sous-traitant RGPD** → MAJ `docs/legal/RGPD-REGISTRE.md` + note DPA (le bail contient noms/adresses).
+- CORS : sign.html same-origin (servi par Worker) → idéalement aucun CORS. Si cross-origin un jour : origine exacte en liste blanche, jamais `*`, pas de credentials.
+- **Audit obligatoire par agent `superpowers:code-reviewer` avant livraison** (sujet sensible légal — [[feedback_audits_par_agents]]).
+
+---
+
+## 7. Crochet eIDAS qualifié (premium, différé)
+
+Champ `provider` + adaptateur côté relais :
+- `'native'` → relais sert sign.html, signature canvas, art. 1366 (gratuit illimité).
+- `'yousign-qualifie'` (ou Universign/Docaposte QTSP) → relais appelle l'API prestataire, renvoie le lien du prestataire, normalise le retour dans la **même** forme de session.
+
+ImmoTrack reste agnostique (mêmes appels créer/poll/récupérer). Les users premium passent en provider qualifié. Free tier prestataire = **par compte** → inadapté multi-tenant → modèle facturé à l'acte ou inclus au tier premium.
+
+---
+
+## 8. Plan d'exécution
+
+### Phase 0 — Spec + validation user (~en cours)
+- [x] Audit 3 agents (code / archi Cloudflare / juridique)
+- [x] Design consolidé V2
+- [ ] Validation user du spec
+
+### Phase 1 — Relais Cloudflare natif (~4-5h)
+- [ ] Worker + Hono, 6 routes, bindings R2 + KV (`wrangler`)
+- [ ] Modèle session + tokens HMAC (Web Crypto) + TTL + lifecycle R2
+- [ ] Validation write-back (magic bytes, taille, Content-Type)
+- [ ] Tests : génération/vérif token, machine d'état signataires ordonnés, expiration
+
+### Phase 2 — `sign.html` autonome (~3-4h)
+- [ ] Extraire le wizard Phase 2 (`_wizV2*`) en page autonome + jsPDF inliné
+- [ ] Étape 1 vérif email ; étape OTP **cadrée mais désactivée** ; étapes paraphes + signature finale
+- [ ] Compose le PDF signé (`genPDFNative` portée) + POST /signed
+- [ ] Capture du dossier de preuve (horodatage, IP/UA, hash SHA-256, acte de volonté)
+- [ ] Responsive 3 formats + canvas tactile (touch targets ≥ 44px)
+
+### Phase 3 — Intégration ImmoTrack (~3-4h)
+- [ ] Bouton « Envoyer pour signature » dans la fiche bail → POST /sessions + `genPDFNative`
+- [ ] Modale destinataires (locataire(s) ordonnés ; bailleur si gestion)
+- [ ] Email via `_openCommsHub` / `EMAIL_HUB_CATALOG` (nouveau template `bail-signature-distance`) + `_emailSendViaGmail`
+- [ ] Poll au boot / ouverture fiche (greffé sur `_drvLazyScanLogement`) → GET statut → GET result → `uploadBailPDFToDrive` → `bail.signatures.locataire` + `_stamp` + `_auditEntry` + toast/badge
+- [ ] Certificat de preuve joint, archivé Drive
+- [ ] MAJ `RGPD-REGISTRE.md`
+- [ ] **Audit agent code-reviewer** + bump versions + sync sandbox→prod après OK user
+
+### Phase 4 (différé) — OTP SMS + crochet eIDAS qualifié premium
+- [ ] Brancher fournisseur SMS sur l'étape OTP cadrée
+- [ ] Adaptateur `SignatureProvider` qualifié (Yousign/Universign)
+
+---
+
+## 9. Risques & mitigations
 
 | Risque | Niveau | Mitigation |
 |---|---|---|
-| **Limite URL navigateur** (~32 KB Chrome, 8 KB mobile parfois) | **Élevé** | Bail compressé LZ-string + supprimer champs inutiles (mobilier verbeux, etc.). Si dépassement → erreur explicite + fallback PDF par email. Tests sur 3 bails de référence. |
-| **Sécurité token sans backend** | Moyen | Token SHA256 + vérification email = double check. Acceptable pour signature simple visuelle (pas eIDAS). Documenter explicitement la limite. |
-| **Compatibilité PDF signé** (jsPDF dans sign.html standalone) | Moyen | jsPDF déjà inliné dans ImmoTrack (`_BAIL_PDF_LIBS`). Porter le décodage base64 dans sign.html aussi. |
-| **Mobile UX** (canvas signature au doigt) | Moyen | Tests sur 3 formats. Canvas avec `touch-events`. Boutons min 44px (règle ARCHI-FICHES Session 4 K1). |
-| **Email destinataire incorrect** | Faible | Token verifie email à l'ouverture → si email saisi ne match pas le hash → refus accès. Le destinataire doit savoir son email. |
-| **Lien transmis à un tiers** | Faible | La vérification email à l'ouverture protège partiellement. Pour signature simple visuelle = risque acceptable V1. eIDAS si besoin V2. |
+| Introduction d'un backend (app 100% sans serveur jusqu'ici) | Moyen | Worker stateless + R2/KV managés, maintenance ~nulle ; assumé comme graine backend V2 |
+| Contestation juridique signature simple | Moyen | Dossier de preuve solide (§5) + mention honnête + premium qualifié dispo ; OTP activable |
+| RGPD (données perso transitent le relais) | Moyen | Chiffrement repos + TTL court + purge auto + registre RGPD + DPA |
+| Free tier dépassé (>500 baux/j) | Faible | Plan Workers Paid 5 $/mois ; non bloquant à l'échelle actuelle |
+| Wizard tactile mobile | Moyen | Réutilise wizard éprouvé + tests 3 formats |
+| Sécurité tokens/relais | Élevé si bâclé | HMAC temps-constant, sessionId 256 bits, token hors URL, validation upload, **audit agent obligatoire** |
 
-## Notes utilisateur
+---
 
-> 💬 2026-05-29 (création) : « je voudrais faire l'envoie de signture du bail au locataire et bailleur (dans le cas de la gestion) »
->
-> 💬 2026-05-29 (cadrage) : « on peut pas envoyer un lien pour signer les wizard ? »
+## 10. Notes utilisateur
 
-## Journal
+> 💬 2026-05-29 : « je voudrais faire l'envoie de signture du bail au locataire et bailleur (dans le cas de la gestion) »
+> 💬 2026-06-02 : « on n'est pas capable de donner accès au wizard de signature à distance au locataire ? » → oui, c'est `sign.html`.
+> 💬 2026-06-02 : « je veux une vraie solution pas juste on envoie un pdf et débrouille toi. Ça je peux déjà faire aujourd'hui sans optimisation. » → bascule vers la boucle automatique via relais.
 
-- **2026-05-29 (matin)** : Sujet créé. Session 1 brainstorming livrée : 5 décisions verrouillées (scénarios / légal / retour / token / wizard) + architecture technique cadrée. Mockup 8 vues × 3 formats livré.
-- **2026-05-29 (cadrage)** : Cadrage technique avec user. Question soulevée : « comment ça fonctionne si on envoie d'abord au bailleur puis locataire ? tu récupères un pdf et après tu donnes quoi au locataire ? » → 3 options techniques étudiées (A Drive temporaire / B 2 PDF distincts / C signatures texte structurées). Aucune parfaite.
-- **2026-05-29 (décision V1)** : **Périmètre V1 réduit à locataire uniquement**. Décision user : « on fait que locataire pour le moment mais il va falloir trouver une idée pour pouvoir faire signer les 2 correctement ». V1.x bailleur à distance différée avec 3 options cataloguées pour arbitrage ultérieur. Le bailleur signe en direct dans ImmoTrack (wizard existant `_wizV2PersistSignatures` opérationnel).
+---
+
+## 11. Journal
+
+- **2026-05-29** : Sujet créé. Session 1 : design URL-fragment + retour manuel + mockup 8 vues. V1 = locataire only.
+- **2026-06-02** : **Refonte du design**. Rejet du retour manuel. Nouvelle architecture relais Cloudflare (Worker + R2 + KV) + `sign.html` servi par le Worker + boucle 100% automatique. 3 agents de recherche (carto code / archi Cloudflare / juridique). Découvertes : (1) le wizard Phase 2 existe déjà → build dé-risqué ; (2) eIDAS « simple » n'apporte aucune présomption → DIY validé, crochet premium = qualifié ; (3) OTP SMS = levier probatoire (cadré, off V1). Consolide et remplace SIGN-BAIL-LIEN. 4 décisions verrouillées (hébergement / domaine / ordre de build / OTP). Spec V2 en attente de validation user.

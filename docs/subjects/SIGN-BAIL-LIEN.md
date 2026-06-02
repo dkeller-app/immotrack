@@ -1,6 +1,9 @@
 # SIGN-BAIL-LIEN — Signature électronique du bail aller-retour locataire (Yousign / lien magique)
 
-**Status** : ⬜ À faire · **Prio** : P1 (V1.1) · **Taille** : L (~12-15h)
+> ⚠️ **FUSIONNÉ — sujet remplacé le 2026-06-02 par [BAIL-SIGNATURE-DISTANCE](BAIL-SIGNATURE-DISTANCE.md).**
+> Les deux sujets visaient la même feature. Le design consolidé retient une **architecture relais maison (Cloudflare Worker + R2/KV) + crochet eIDAS qualifié en premium**, et non Yousign comme socle. Raison clé : le free tier prestataire est **par compte** → non-scalable en multi-tenant. L'approche Yousign survit uniquement comme **option premium eIDAS qualifié** dans le sujet consolidé. Ce fichier est conservé pour l'historique de l'analyse (comparatif prestataires, flow Yousign).
+
+**Status** : 🚫 Fusionné dans BAIL-SIGNATURE-DISTANCE (2026-06-02) · **Prio** : P1 (V1.1)
 **Détecté** : 2026-05-18 (user : « il faut pouvoir envoyer un lien pour signature du bail au locataire »)
 **Lié à** : EMAIL-SMTP-CONNECT 🔄 v15.80, SIGN-EIDAS P3 V3 (existant), BAIL-PDF-NATIF ✅ v13.24
 
