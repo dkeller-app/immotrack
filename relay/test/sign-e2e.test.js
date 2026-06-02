@@ -6,8 +6,17 @@ import { describe, it, expect } from 'vitest';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { embedInDoc, readFromDoc } from '../public/sign/manifest.js';
 import { stampSignature } from '../public/sign/stamp.js';
+import { buildProofObject } from '../public/sign/proof.js';
 
 const APP_KEY = 'test-app-key';
+
+// Symétrique du décodage relais (X-Sign-Proof) — comme sign.js.
+function b64urlJson(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 // 1×1 PNG transparent valide (sert de faux paraphe / fausse signature).
 const PNG_1x1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
@@ -41,12 +50,23 @@ async function createSession(signers, pdfBytes, bailRef = 'BAIL-E2E-001') {
   return res.json();
 }
 
-// Reproduit ce que fait sign.js (sans DOM) : lit la page de signature, récupère le PDF,
-// tamponne paraphes (1 par page) + signature finale via stamp.js, renvoie les octets signés.
-async function signCurrentSigner(sessionId) {
+// Reproduit ce que fait sign.js (sans DOM) : lit la page de signature, confirme l'email
+// (anti-transfert §5 #2), récupère le PDF, tamponne paraphes (1 par page) + signature
+// finale via stamp.js, renvoie les octets signés AVEC le dossier de preuve (X-Sign-Proof).
+async function signCurrentSigner(sessionId, email) {
   const html = await (await SELF.fetch(`https://relay.test/s/${sessionId}`)).text();
   const token = html.match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
   const sign = JSON.parse(html.match(/window\.__SIGN__\s*=\s*(\{.*?\});/s)[1]);
+
+  // Étape consentement : confirmation email → emailVerifiedAt côté serveur.
+  const verifyRes = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/verify-email`, {
+    method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+  expect(verifyRes.status).toBe(200);
+  expect((await verifyRes.json()).ok).toBe(true);
+
+  const openedAt = new Date().toISOString();
 
   const pdfRes = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/pdf`, {
     headers: { 'X-Sign-Token': token }
@@ -66,9 +86,14 @@ async function signCurrentSigner(sessionId) {
   }, { rgb });
   const signedBytes = await doc.save();
 
+  const proof = buildProofObject({
+    signerName: 'Signataire Test', role: sign.role, sigId: sign.sigId,
+    dateISO: new Date().toISOString(), consentElectronic: true, luApprouve: true,
+    openedAt, readCompletedAt: new Date().toISOString()
+  });
   const postRes = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
     method: 'POST',
-    headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
+    headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf', 'X-Sign-Proof': b64urlJson(proof) },
     body: signedBytes
   });
   expect(postRes.status).toBe(200);
@@ -84,17 +109,30 @@ describe('sign e2e — round-trip réel + chaînage 2 signataires', () => {
     ], original);
 
     // Signataire 1 : bailleur (sigId bailleur-0) — 3 paraphes + 1 signature = 4 tampons.
-    const s1 = await signCurrentSigner(sessionId);
+    const s1 = await signCurrentSigner(sessionId, 'b@x.fr');
     expect(s1.sign.sigId).toBe('bailleur-0');
     expect(s1.stampResult.stamped).toBe(4);
     expect(s1.stampResult.usedFallback).toBe(false);
     expect(s1.status).toBe('pending'); // il reste le locataire
 
     // Signataire 2 : locataire (sigId loc-0) — récupère le PDF déjà tamponné par le bailleur (chaînage).
-    const s2 = await signCurrentSigner(sessionId);
+    const s2 = await signCurrentSigner(sessionId, 'l@x.fr');
     expect(s2.sign.sigId).toBe('loc-0');
     expect(s2.stampResult.stamped).toBe(4);
     expect(s2.status).toBe('completed');
+
+    // Dossier de preuve complet exposé au propriétaire pour les 2 signataires (§5).
+    const det = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, {
+      headers: { 'X-Owner-Token': ownerToken }
+    });
+    const dossier = await det.json();
+    for (const sg of dossier.signers) {
+      expect(sg.proof.emailVerifiedAt).toMatch(/^20\d\d-/);
+      expect(sg.proof.consentElectronic).toBe(true);
+      expect(sg.proof.luApprouve).toBe(true);
+      expect(sg.proof.signerName).toBe('Signataire Test');
+      expect(sg.proof.pdfSha256).toMatch(/^[0-9a-f]{64}$/);
+    }
 
     // Récupération propriétaire du PDF final.
     const resultRes = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`, {
@@ -119,7 +157,7 @@ describe('sign e2e — round-trip réel + chaînage 2 signataires', () => {
       [{ role: 'locataire', email: 'l@x.fr', ordre: 0 }],
       original
     );
-    const s = await signCurrentSigner(sessionId);
+    const s = await signCurrentSigner(sessionId, 'l@x.fr');
     expect(s.sign.sigId).toBe('loc-0');
     expect(s.stampResult.stamped).toBe(3); // 2 paraphes + 1 signature
     expect(s.status).toBe('completed');
