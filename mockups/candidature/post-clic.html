@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup CANDIDATS — Artefacts post-clic — ImmoTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* TOKENS + COMPOSANTS COPIÉS VERBATIM DE css/main.css (thème clair) */
+:root{
+  --bg:#eef2f7;--sur:rgba(255,255,255,.93);--sur2:rgba(242,246,251,.97);--sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09);--bor2:rgba(0,0,0,.05);--t1:#1a2332;--t2:#5a6e87;--t3:#9aabbf;
+  --blu:#3b7ef6;--grn:#16a34a;--red:#dc2626;--ora:#ea580c;--pur:#7c3aed;--acc:#3b7ef6;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(59,126,246,.18),0 1px 4px rgba(0,0,0,.07);
+  --r:8px;--rl:14px;--font-base:17px;--lh:1.56;
+  --bg-info:rgba(59,126,246,.10);--fg-info:#3b7ef6;
+  --shadow-card:0 1px 2px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#dfe5ee;color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;font-size:var(--font-base);line-height:var(--lh)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13.5px;font-weight:500;transition:all .15s;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bp:hover:not(:disabled){background:#2d6de0;box-shadow:0 4px 14px rgba(59,126,246,.4)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bs:hover:not(:disabled){background:var(--sur3);border-color:var(--blu)}
+.br{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.2)}
+.br:hover:not(:disabled){background:rgba(220,38,38,.18)}
+.bg{background:rgba(22,163,74,.1);color:var(--grn);border:1px solid rgba(22,163,74,.2)}
+.bb{padding:5px 11px;font-size:12px}
+.inp{width:100%;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);padding:9px 12px;font-size:13.5px;font-family:'IBM Plex Sans',sans-serif;transition:border .15s,box-shadow .15s}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.12)}
+.inp::placeholder{color:var(--t3)}
+select.inp{cursor:pointer}
+textarea.inp{resize:vertical;min-height:70px}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
+.badge.grn{background:rgba(22,163,74,.12);color:var(--grn)}
+.badge.pur{background:rgba(124,58,237,.12);color:var(--pur)}
+.badge.gry{background:rgba(90,110,135,.12);color:var(--t2)}
+.flex-b{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.flex-c{display:flex;align-items:center;gap:8px}
+.sm{font-size:12.5px}.mu{color:var(--t2)}
+.alert{padding:11px 16px;border-radius:var(--r);font-size:13.5px;margin-bottom:9px;border-width:1px;border-style:solid}
+.alert.info{background:rgba(59,126,246,.08);border-color:rgba(59,126,246,.2);color:var(--blu)}
+.alert.warn{background:rgba(234,88,12,.08);border-color:rgba(234,88,12,.2);color:var(--ora)}
+
+/* MODALE — verbatim de .ov/.modal/.m-head/.m-body/.m-foot/.m-close */
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);width:100%;max-width:640px;box-shadow:var(--shadow-lg)}
+.modal.lg{max-width:820px}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:16px;font-weight:700;font-family:'Manrope',sans-serif}
+.m-close{background:none;border:none;color:var(--t2);cursor:pointer;font-size:19px;padding:4px;border-radius:6px;transition:all .15s}
+.m-close:hover{color:var(--t1);background:var(--sur3)}
+.m-body{padding:22px}
+.m-foot{padding:14px 22px;border-top:1px solid var(--bor);display:flex;justify-content:flex-end;gap:8px;background:var(--sur2);border-radius:0 0 var(--rl) var(--rl)}
+
+/* Champs de formulaire (calqué sur .fg des modales existantes) */
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:11.5px;color:var(--t2);margin-bottom:4px;font-weight:600}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.fg2 .fg{margin-bottom:0}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px}
+.fg3 .fg{margin-bottom:0}
+.sub-block{border:1px solid var(--bor);border-radius:var(--r);padding:14px;background:var(--sur2);margin-bottom:14px}
+.sub-block .sb-title{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+.upload{border:2px dashed var(--bor);border-radius:var(--r);padding:18px;text-align:center;color:var(--t3);font-size:13px;background:var(--sur2)}
+.coming-soon{opacity:.55;pointer-events:none;filter:grayscale(.3)}
+.cs-badge{background:rgba(124,58,237,.12);color:var(--pur);font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;letter-spacing:.2px}
+
+/* Tooltip popover (transparence) */
+.tip-pop{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:14px 16px;font-size:13px;color:var(--t2);line-height:1.55;max-width:320px;position:relative}
+.tip-pop::before{content:'';position:absolute;top:-7px;left:24px;width:12px;height:12px;background:var(--sur);border-left:1px solid var(--bor);border-top:1px solid var(--bor);transform:rotate(45deg)}
+.tip-pop b{color:var(--t1)}
+
+/* Toast (verbatim #toast, rendu inline pour la démo) */
+.toast{display:inline-flex;align-items:center;gap:8px;background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:12px 18px;font-size:13.5px;box-shadow:var(--shadow-lg)}
+.toast.ok{color:var(--grn)}.toast.info{color:var(--t1)}.toast.err{color:var(--red)}.toast.warn{color:var(--ora)}
+
+.chk{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:13px;cursor:pointer}
+.chk input{width:16px;height:16px;accent-color:var(--blu)}
+.add-libre{display:flex;gap:8px;margin-top:8px}
+.add-libre .inp{flex:1}
+
+/* CHROME MOCKUP — sections empilées étiquetées */
+.mock-bar{position:sticky;top:0;z-index:500;background:#11182b;color:#fff;padding:12px 18px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.mock-bar h1{font-size:14px;font-weight:700}
+.mock-bar p{font-size:11.5px;color:rgba(255,255,255,.6);margin-top:3px}
+.wrap{max-width:880px;margin:0 auto;padding:24px 16px 80px}
+.artifact{margin-bottom:34px}
+.artifact-lbl{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#11182b;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:8px;padding:5px 12px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.artifact-lbl .n{background:#3b7ef6;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+.stage{background:rgba(0,0,0,.04);border:1px solid rgba(0,0,0,.07);border-radius:var(--rl);padding:24px;display:flex;justify-content:center}
+.stage.dialog-stage .modal{max-width:480px}
+.toast-row{display:flex;flex-wrap:wrap;gap:14px}
+
+/* Responsive : sous 560px les grilles de formulaire passent en 1 colonne
+   (calqué sur le comportement mobile des modales de l'app). */
+@media (max-width:560px){
+  .fg2,.fg3{grid-template-columns:1fr}
+  .m-foot{flex-direction:column-reverse}
+  .m-foot .btn{width:100%;justify-content:center}
+  .wrap{padding:16px 10px 60px}
+  .stage{padding:14px}
+}
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <h1>🪟 CANDIDATS — Tous les artefacts post-clic</h1>
+  <p>Chaque panneau ci-dessous correspond à un écran qui s'ouvre après une action. Présentés à plat pour validation (pas d'interactivité réelle).</p>
+</div>
+
+<div class="wrap">
+
+  <!-- 1. Ajouter un candidat -->
+  <div class="artifact">
+    <div class="artifact-lbl"><span class="n">1</span> Modale « Ajouter un candidat » (saisie manuelle)</div>
+    <div class="stage">
+      <div class="modal lg">
+        <div class="m-head"><h3>Ajouter un candidat</h3><button class="m-close">✕</button></div>
+        <div class="m-body">
+          <div class="sub-block">
+            <div class="sb-title">Identité</div>
+            <div class="fg3">
+              <div class="fg"><label>Civilité</label><select class="inp"><option>Madame</option><option>Monsieur</option></select></div>
+              <div class="fg"><label>Nom</label><input class="inp" placeholder="Moreau"></div>
+              <div class="fg"><label>Prénom</label><input class="inp" placeholder="Camille"></div>
+            </div>
+            <div class="fg3">
+              <div class="fg"><label>Date de naissance</label><input class="inp" type="date"></div>
+              <div class="fg"><label>Lieu de naissance</label><input class="inp" placeholder="Lyon (69)"></div>
+              <div class="fg"><label>Téléphone</label><input class="inp" placeholder="06 12 34 56 78"></div>
+            </div>
+            <div class="fg2">
+              <div class="fg"><label>Email</label><input class="inp" type="email" placeholder="camille.moreau@email.fr"></div>
+              <div class="fg"><label>Adresse précédente</label><input class="inp" placeholder="8 rue Victor Hugo, 69003 Lyon"></div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <div class="sb-title">Situation professionnelle</div>
+            <div class="fg3">
+              <div class="fg"><label>Revenus mensuels (€)</label><input class="inp" type="number" placeholder="3200"></div>
+              <div class="fg"><label>Employeur</label><input class="inp" placeholder="Agence Novapub SAS"></div>
+              <div class="fg"><label>Type de contrat</label>
+                <select class="inp" id="sel-contrat" onchange="document.getElementById('contrat-autre').style.display=this.value==='Autre'?'block':'none'">
+                  <option>CDI</option><option>CDD</option><option>Freelance</option>
+                  <option>Étudiant</option><option>Retraité</option><option value="Autre">Autre…</option>
+                </select>
+              </div>
+            </div>
+            <!-- Zone d'ajout libre obligatoire (règle « choix prédéfini + ajout libre ») -->
+            <div class="fg" id="contrat-autre" style="display:none">
+              <label>Préciser le contrat (« Autre »)</label>
+              <input class="inp" placeholder="Ex : intermittent du spectacle, apprentissage…">
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <div class="sb-title">Garant</div>
+            <div class="fg2">
+              <div class="fg"><label>Nom du garant</label><input class="inp" placeholder="Patrick Moreau"></div>
+              <div class="fg"><label>Adresse du garant</label><input class="inp" placeholder="12 av. République, Villeurbanne"></div>
+            </div>
+            <div class="fg2">
+              <div class="fg"><label>Date de naissance</label><input class="inp" type="date"></div>
+              <div class="fg"><label>Lieu de naissance</label><input class="inp" placeholder="Grenoble (38)"></div>
+            </div>
+          </div>
+
+          <div class="sub-block" style="margin-bottom:0">
+            <div class="sb-title">Pièces justificatives</div>
+            <div class="upload">📎 Glisser-déposer les documents (CNI, bulletins, avis d'imposition, RIB…) ou <u>parcourir</u></div>
+            <div class="flex-c" style="gap:16px;margin-top:12px">
+              <label class="chk"><input type="checkbox"> Pièces complètes</label>
+              <label class="chk"><input type="checkbox"> RIB fourni</label>
+            </div>
+          </div>
+        </div>
+        <div class="m-foot"><button class="btn bs">Annuler</button><button class="btn bp">Enregistrer le candidat</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Inviter un candidat -->
+  <div class="artifact">
+    <div class="artifact-lbl"><span class="n">2</span> Modale « Inviter un candidat » (lien en ligne — phase suivante)</div>
+    <div class="stage">
+      <div class="modal">
+        <div class="m-head"><h3>Inviter un candidat <span class="cs-badge">phase suivante</span></h3><button class="m-close">✕</button></div>
+        <div class="m-body">
+          <div class="alert info">ℹ Cette action génèrera un <b>lien en ligne</b> à envoyer au candidat. Il remplira lui-même son dossier, qui apparaîtra ensuite dans la liste avec la source « lien ». Fonctionnalité prévue dans une <b>phase ultérieure</b>.</div>
+          <div class="fg">
+            <label>Pour quel bien (logement vacant) ?</label>
+            <select class="inp">
+              <option>Apt B12 — 14 rue des Lilas (vacant depuis 01/06/2026)</option>
+              <option>Studio 3 — 8 av. Foch (vacant depuis 15/05/2026)</option>
+              <option>T3 — 22 rue Pasteur (préavis en cours, libre 01/08/2026)</option>
+            </select>
+          </div>
+          <div class="coming-soon">
+            <div class="fg">
+              <label>Lien d'invitation (généré automatiquement)</label>
+              <div class="flex-c" style="gap:8px">
+                <input class="inp" value="https://immotrack.app/c/——————" disabled>
+                <button class="btn bs" disabled>Copier</button>
+              </div>
+            </div>
+            <div class="flex-c" style="gap:8px">
+              <button class="btn bp" disabled>📧 Envoyer par email</button>
+              <button class="btn bs" disabled>📱 Envoyer par SMS</button>
+            </div>
+          </div>
+        </div>
+        <div class="m-foot"><button class="btn bs">Fermer</button><button class="btn bp" disabled>Générer le lien (bientôt)</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Tooltip scoring -->
+  <div class="artifact">
+    <div class="artifact-lbl"><span class="n">3</span> Popover de transparence du score</div>
+    <div class="stage" style="padding:40px 24px">
+      <div class="tip-pop">
+        <b>Comment est calculé le score de confiance ?</b><br><br>
+        Score basé sur revenus, contrat, garant et complétude du dossier. À utiliser comme aide à la décision, pas comme verdict.
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Demander un complément -->
+  <div class="artifact">
+    <div class="artifact-lbl"><span class="n">4</span> Dialogue « Demander un complément »</div>
+    <div class="stage">
+      <div class="modal">
+        <div class="m-head"><h3>Demander un complément à Camille Moreau</h3><button class="m-close">✕</button></div>
+        <div class="m-body">
+          <div class="alert info">Le candidat recevra une notification et son lien en ligne sera rouvert pour compléter les éléments cochés.</div>
+          <div class="fg" style="margin-bottom:6px"><label>Éléments manquants à demander</label></div>
+          <label class="chk"><input type="checkbox" checked> Justificatif de domicile du garant</label>
+          <label class="chk"><input type="checkbox"> Dernier avis d'imposition</label>
+          <label class="chk"><input type="checkbox"> 3 derniers bulletins de salaire</label>
+          <label class="chk"><input type="checkbox"> RIB</label>
+          <!-- zone d'ajout libre -->
+          <div class="add-libre">
+            <input class="inp" placeholder="Autre pièce à demander…">
+            <button class="btn bs">+ Ajouter</button>
+          </div>
+          <div class="fg" style="margin-top:14px"><label>Message (optionnel)</label><textarea class="inp" placeholder="Bonjour, merci de compléter votre dossier avec…"></textarea></div>
+        </div>
+        <div class="m-foot"><button class="btn bs">Annuler</button><button class="btn bp">📩 Envoyer la demande</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Refus -->
+  <div class="artifact">
+    <div class="artifact-lbl"><span class="n">5</span> Confirmation de refus (+ email de courtoisie)</div>
+    <div class="stage dialog-stage">
+      <div class="modal">
+        <div class="m-head"><h3>Refuser cette candidature ?</h3><button class="m-close">✕</button></div>
+        <div class="m-body">
+          <p class="sm" style="margin-bottom:14px">Le candidat <b>M. Thomas Petit</b> passera au statut <span class="badge gry">Refusé</span>. Vous pourrez toujours le retrouver dans l'onglet « Archivés ».</p>
+          <label class="chk" onclick="var t=document.getElementById('courtesy');t.style.display=t.style.display==='none'?'block':'none'"><input type="checkbox"> Envoyer un email de courtoisie</label>
+          <div id="courtesy" style="display:none;margin-top:10px">
+            <div class="fg" style="margin-bottom:0"><label>Modèle (modifiable)</label>
+              <textarea class="inp" rows="4">Bonjour, nous vous remercions pour votre candidature concernant le logement. Après étude des dossiers reçus, nous ne pourrons malheureusement pas y donner suite. Nous vous souhaitons une bonne continuation dans vos recherches.</textarea>
+            </div>
+          </div>
+        </div>
+        <div class="m-foot"><button class="btn bs">Annuler</button><button class="btn br">Confirmer le refus</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Conversion -->
+  <div class="artifact">
+    <div class="artifact-lbl"><span class="n">6</span> Confirmation de conversion candidat → bail</div>
+    <div class="stage dialog-stage">
+      <div class="modal">
+        <div class="m-head"><h3>Créer le bail à partir de ce candidat ?</h3><button class="m-close">✕</button></div>
+        <div class="m-body">
+          <p class="sm" style="margin-bottom:12px">À la confirmation :</p>
+          <ul style="font-size:13px;color:var(--t2);line-height:1.8;padding-left:18px;margin-bottom:12px">
+            <li><b>Mme Camille Moreau</b> sera archivée avec le statut <span class="badge pur">Converti</span>.</li>
+            <li>L'<b>assistant de création de bail</b> s'ouvrira <b>pré-rempli</b> (identité, bien Apt B12, date de début, garant).</li>
+            <li>Le dossier candidat restera consultable dans les archives.</li>
+          </ul>
+          <div class="alert warn" style="margin-bottom:0">⚠ Vérifiez les informations dans l'assistant : elles deviendront contractuelles une fois le bail signé.</div>
+        </div>
+        <div class="m-foot"><button class="btn bs">Annuler</button><button class="btn bp">Créer le bail →</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Toasts -->
+  <div class="artifact">
+    <div class="artifact-lbl"><span class="n">7</span> Toasts (succès / info / erreur)</div>
+    <div class="stage">
+      <div class="toast-row">
+        <div class="toast ok">✓ Candidat enregistré</div>
+        <div class="toast ok">✓ Candidat validé — bail prêt à créer</div>
+        <div class="toast info">📩 Demande de complément envoyée</div>
+        <div class="toast warn">⚠ Lien en ligne disponible dans une prochaine version</div>
+        <div class="toast err">✕ Échec de l'envoi — réessayez</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

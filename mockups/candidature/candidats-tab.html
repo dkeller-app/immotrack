@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup CANDIDATS — Liste (A/B/C) — ImmoTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   TOKENS + COMPOSANTS COPIÉS VERBATIM DE css/main.css (thème clair par défaut)
+   Aucune couleur / police / radius inventés. Seuls ajouts : .voyant, .conf-*,
+   les chrome du mockup (frames responsive + sélecteur de variante).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.93);
+  --sur2:rgba(242,246,251,.97);
+  --sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09);
+  --bor2:rgba(0,0,0,.05);
+  --tbl-edge:rgba(0,0,0,.16);
+  --t1:#1a2332;
+  --t2:#5a6e87;
+  --t3:#9aabbf;
+  --blu:#3b7ef6;
+  --grn:#16a34a;
+  --red:#dc2626;
+  --ora:#ea580c;
+  --pur:#7c3aed;
+  --acc:#3b7ef6;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(59,126,246,.18),0 1px 4px rgba(0,0,0,.07);
+  --r:8px;--rl:14px;
+  --font-base:17px;
+  --lh:1.56;
+  --bg-success:rgba(22,163,74,.10);
+  --bg-danger:rgba(220,38,38,.10);
+  --bg-warning:rgba(234,88,12,.12);
+  --bg-info:rgba(59,126,246,.10);
+  --fg-success:#16a34a;
+  --fg-danger:#dc2626;
+  --fg-warning:#ea580c;
+  --fg-info:#3b7ef6;
+  --shadow-card:0 1px 2px rgba(0,0,0,.04);
+  --shadow-card-hover:0 4px 16px rgba(59,126,246,.10),0 1px 3px rgba(0,0,0,.05);
+  --t-fast:120ms cubic-bezier(.4,0,.2,1);
+  --t-normal:200ms cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#dfe5ee;color:var(--t1);
+  font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  font-size:var(--font-base);line-height:var(--lh)}
+
+/* ── Composants app (verbatim) ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13.5px;font-weight:500;transition:all .15s;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bp:hover:not(:disabled){background:#2d6de0;box-shadow:0 4px 14px rgba(59,126,246,.4)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bs:hover:not(:disabled){background:var(--sur3);border-color:var(--blu)}
+.bb{padding:5px 11px;font-size:12px}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:20px;box-shadow:var(--shadow)}
+.ct{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;margin-top:24px}
+.ct:first-child{margin-top:0}
+.inp{width:100%;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);padding:9px 12px;font-size:13.5px;font-family:'IBM Plex Sans',sans-serif;transition:border .15s,box-shadow .15s}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.12)}
+.inp::placeholder{color:var(--t3)}
+select.inp{cursor:pointer}
+.tbl-wrap{overflow-x:auto;border-radius:var(--rl);border:1px solid var(--bor);box-shadow:var(--shadow);background:var(--sur)}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{background:var(--sur2);color:var(--t2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--bor);white-space:nowrap}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--bor2);color:var(--t1);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(59,126,246,.04)}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums;font-family:'Manrope',sans-serif}
+.tbl .act-cell{text-align:right;white-space:nowrap}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bor);margin-bottom:18px}
+.tab{padding:9px 18px;cursor:pointer;color:var(--t2);font-size:13.5px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-weight:500;user-select:none}
+.tab:hover{color:var(--t1)}
+.tab.act{color:var(--blu);border-bottom-color:var(--blu);font-weight:600}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
+.badge.grn{background:rgba(22,163,74,.12);color:var(--grn)}
+.badge.red{background:rgba(220,38,38,.12);color:var(--red)}
+.badge.ora{background:rgba(234,88,12,.12);color:var(--ora)}
+.badge.blu{background:rgba(59,126,246,.12);color:var(--blu)}
+.badge.pur{background:rgba(124,58,237,.12);color:var(--pur)}
+.badge.gry{background:rgba(90,110,135,.12);color:var(--t2)}
+.hidden{display:none!important}
+.flex-b{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.flex-c{display:flex;align-items:center;gap:8px}
+.sm{font-size:12.5px}
+.mu{color:var(--t2)}
+.mb8{margin-bottom:8px}.mb14{margin-bottom:14px}.mb16{margin-bottom:16px}.mb18{margin-bottom:18px}
+.filters{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:18px;align-items:center}
+.filters .inp{width:auto;min-width:130px}
+.page-title{font-size:22px;font-weight:700;color:var(--t1);margin:0;font-family:'Manrope',sans-serif}
+.page-subtitle{font-size:13px;color:var(--t2);margin-top:2px}
+
+/* ── Voyant Confiance + score (réutilise les couleurs --grn/--ora/--red) ── */
+.voyant{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.voyant.grn{background:var(--grn);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+.voyant.ora{background:var(--ora);box-shadow:0 0 0 3px rgba(234,88,12,.15)}
+.voyant.red{background:var(--red);box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+.conf-cell{display:inline-flex;align-items:center;gap:8px}
+.conf-num{font-family:'Manrope',sans-serif;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.conf-num.grn{color:var(--grn)}.conf-num.ora{color:var(--ora)}.conf-num.red{color:var(--red)}
+.conf-decl{background:rgba(90,110,135,.12);color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:8px;cursor:help}
+.note-lien{display:inline-flex;align-items:center;background:rgba(124,58,237,.12);color:var(--pur);font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;letter-spacing:.2px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0E73F6,#00CCBC);display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-weight:700;font-size:12px;color:#fff;flex-shrink:0;letter-spacing:.02em}
+
+/* ══ CHROME DU MOCKUP (hors design system) ══ */
+.mock-bar{position:sticky;top:0;z-index:500;background:#11182b;color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:'IBM Plex Sans',sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.mock-bar h1{font-size:14px;font-weight:700;margin-right:auto}
+.mock-bar .seg{display:inline-flex;background:rgba(255,255,255,.1);border-radius:8px;padding:3px;gap:2px}
+.mock-bar .seg button{background:transparent;border:none;color:rgba(255,255,255,.65);font-size:12px;font-weight:600;padding:6px 13px;border-radius:6px;cursor:pointer;font-family:inherit}
+.mock-bar .seg button.act{background:#3b7ef6;color:#fff}
+.mock-bar .lab{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.6px}
+.frame-host{padding:24px 12px 60px;display:flex;justify-content:center}
+.frame{background:var(--bg);border-radius:var(--rl);box-shadow:0 12px 50px rgba(0,0,0,.22);overflow:hidden;transition:width .25s;border:1px solid rgba(0,0,0,.12)}
+.frame .tb{background:var(--sur);border-bottom:1px solid var(--bor);padding:0 24px;height:54px;display:flex;align-items:center;gap:14px}
+.frame .tb strong{font-weight:600;color:var(--t1);font-size:14.5px}
+.frame .pc{padding:24px;overflow-y:auto}
+/* largeurs simulées */
+.frame.pc-w{width:1280px}
+.frame.tb-w{width:800px}
+.frame.ph-w{width:380px}
+.frame.ph-w .pc{padding:14px}
+
+/* ── Responsive table → cards (calqué sur le pattern #irl-table de main.css) ── */
+.frame.ph-w .cand-tbl thead{display:none}
+.frame.ph-w .cand-tbl, .frame.ph-w .cand-tbl tbody, .frame.ph-w .cand-tbl tr{display:block;width:100%}
+.frame.ph-w .cand-tbl .tbl-wrap{border:none;box-shadow:none;background:transparent}
+.frame.ph-w .cand-tbl tr{background:var(--sur);margin-bottom:10px;border-radius:10px;border:1px solid var(--bor);border-left:4px solid var(--t3);padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.frame.ph-w .cand-tbl td{display:grid;grid-template-columns:120px 1fr;gap:8px;border:none;padding:5px 0;text-align:left!important;font-size:13px;align-items:center}
+.frame.ph-w .cand-tbl td::before{content:attr(data-label);font-size:10.5px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
+.frame.ph-w .cand-tbl td:first-child{display:block;font-size:15px;font-weight:700;border-bottom:1px solid var(--bor);padding-bottom:6px;margin-bottom:4px}
+.frame.ph-w .cand-tbl td:first-child::before{display:none}
+.frame.ph-w .cand-tbl td.act-cell{display:block;border-top:1px solid var(--bor);padding-top:8px;margin-top:4px}
+.frame.ph-w .cand-tbl td.act-cell::before{display:none}
+.frame.ph-w .cand-tbl tr:hover td{background:transparent}
+
+/* Variante B — lignes aérées + avatars + sous-ligne */
+.cand-b-name{display:flex;align-items:center;gap:10px}
+.cand-b-name .nm{font-weight:600;font-size:14px}
+.cand-b-name .sub{font-size:11.5px;color:var(--t3)}
+.frame.ph-w .candB .tbl td{grid-template-columns:120px 1fr}
+
+/* Variante C — kanban par statut */
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start}
+.kan-col{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:10px;min-height:120px}
+.kan-col-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t2);margin-bottom:10px;padding:0 2px}
+.kan-col-head .cnt{background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:1px 8px;font-size:11px}
+.kan-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:11px;margin-bottom:9px;box-shadow:var(--shadow-card);cursor:pointer;transition:box-shadow .15s,transform .15s}
+.kan-card:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-1px)}
+.kan-card .kc-name{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:7px}
+.kan-card .kc-bien{font-size:11.5px;color:var(--t2);margin-top:3px}
+.kan-card .kc-foot{display:flex;align-items:center;justify-content:space-between;margin-top:9px;gap:6px}
+.kan-card .kc-rev{font-family:'Manrope',sans-serif;font-weight:600;font-size:12px;color:var(--t1)}
+@media (max-width:1100px){.frame.pc-w{width:96vw}}
+.frame.tb-w .kanban{grid-template-columns:repeat(2,1fr)}
+.frame.ph-w .kanban{grid-template-columns:1fr}
+.variant-pane{display:none}
+.variant-pane.act{display:block}
+.var-switch{display:inline-flex;gap:6px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <h1>🧩 CANDIDATS — Liste (variantes A / B / C)</h1>
+  <span class="lab">Largeur</span>
+  <div class="seg" id="seg-w">
+    <button data-w="pc-w" class="act" onclick="setW('pc-w',this)">PC 1280</button>
+    <button data-w="tb-w" onclick="setW('tb-w',this)">Tablette 800</button>
+    <button data-w="ph-w" onclick="setW('ph-w',this)">Téléphone 380</button>
+  </div>
+  <span class="lab">Variante</span>
+  <div class="seg" id="seg-v">
+    <button data-v="A" class="act" onclick="setV('A',this)">A · Table dense</button>
+    <button data-v="B" onclick="setV('B',this)">B · Aérée + avatars</button>
+    <button data-v="C" onclick="setV('C',this)">C · Kanban statut</button>
+  </div>
+</div>
+
+<div class="frame-host">
+  <div class="frame pc-w" id="frame">
+    <div class="tb"><strong>👥 Candidats</strong></div>
+    <div class="pc">
+
+      <!-- Entête de page (identique aux autres pages : titre + actions) -->
+      <div class="flex-b mb16" style="flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 class="page-title">Candidats</h2>
+          <div class="page-subtitle">Pré-sélection des locataires — triez les dossiers avant de créer un bail</div>
+        </div>
+        <div class="flex-c" style="gap:8px;flex-wrap:wrap">
+          <button class="btn bs" title="Générer un lien d'invitation en ligne (à venir)">Inviter un candidat<span class="note-lien">lien en ligne — phase suivante</span></button>
+          <button class="btn bp">+ Ajouter un candidat</button>
+        </div>
+      </div>
+
+      <!-- Onglets Actifs / Archivés -->
+      <div class="tabs">
+        <div class="tab act">Actifs <span class="badge gry" style="margin-left:6px">5</span></div>
+        <div class="tab">Archivés <span class="badge gry" style="margin-left:6px">3</span></div>
+      </div>
+
+      <!-- Filtres (même barre que les autres listes) -->
+      <div class="filters">
+        <input class="inp" placeholder="🔍 Rechercher un candidat…" style="width:200px">
+        <select class="inp"><option>Tous les biens</option><option>Apt B12 — 14 rue des Lilas</option><option>Studio 3 — 8 av. Foch</option><option>T3 — 22 rue Pasteur</option></select>
+        <select class="inp"><option>Tous les statuts</option><option>Reçu</option><option>En cours</option><option>Validé</option><option>Refusé</option></select>
+      </div>
+
+      <!-- ════ VARIANTE A — table dense classique ════ -->
+      <div class="variant-pane act" data-pane="A">
+        <div class="cand-tbl">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr>
+                <th>Nom</th><th>Bien</th><th>Date début souhaitée</th><th>Statut</th>
+                <th class="num">Revenus déclarés</th><th>Garant</th><th>Confiance</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td data-label="Nom"><b>Mme Camille Moreau</b></td>
+                  <td data-label="Bien">Apt B12 — rue des Lilas</td>
+                  <td data-label="Début">01/09/2026</td>
+                  <td data-label="Statut"><span class="badge grn">Validé</span></td>
+                  <td class="num" data-label="Revenus">3 200 €</td>
+                  <td data-label="Garant">Oui</td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant grn"></span><span class="conf-num grn">87</span><span class="conf-decl" title="Données auto-déclarées, non encore vérifiées">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Nom"><b>M. Yanis Benali</b></td>
+                  <td data-label="Bien">Studio 3 — av. Foch</td>
+                  <td data-label="Début">15/07/2026</td>
+                  <td data-label="Statut"><span class="badge blu">En cours</span></td>
+                  <td class="num" data-label="Revenus">1 850 €</td>
+                  <td data-label="Garant">Oui</td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant ora"></span><span class="conf-num ora">61</span><span class="conf-decl" title="Données auto-déclarées, non encore vérifiées">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Nom"><b>Mme Léa Dubois</b></td>
+                  <td data-label="Bien">T3 — rue Pasteur</td>
+                  <td data-label="Début">01/08/2026</td>
+                  <td data-label="Statut"><span class="badge gry">Reçu</span></td>
+                  <td class="num" data-label="Revenus">2 400 €</td>
+                  <td data-label="Garant">Non</td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant ora"></span><span class="conf-num ora">54</span><span class="conf-decl" title="Données auto-déclarées, non encore vérifiées">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Nom"><b>M. Thomas Petit</b></td>
+                  <td data-label="Bien">Apt B12 — rue des Lilas</td>
+                  <td data-label="Début">01/09/2026</td>
+                  <td data-label="Statut"><span class="badge red">Refusé</span></td>
+                  <td class="num" data-label="Revenus">1 320 €</td>
+                  <td data-label="Garant">Non</td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant red"></span><span class="conf-num red">28</span><span class="conf-decl" title="Données auto-déclarées, non encore vérifiées">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Nom"><b>Mme Inès Garcia</b></td>
+                  <td data-label="Bien">Studio 3 — av. Foch</td>
+                  <td data-label="Début">01/10/2026</td>
+                  <td data-label="Statut"><span class="badge pur">Converti</span></td>
+                  <td class="num" data-label="Revenus">2 950 €</td>
+                  <td data-label="Garant">Oui</td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant grn"></span><span class="conf-num grn">92</span><span class="conf-decl" title="Données auto-déclarées, non encore vérifiées">déclaratif</span></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ VARIANTE B — aérée, avatar + sous-ligne (contrat) ════ -->
+      <div class="variant-pane candB" data-pane="B">
+        <div class="cand-tbl">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr>
+                <th>Candidat</th><th>Bien</th><th>Date début</th><th>Statut</th>
+                <th class="num">Revenus</th><th>Garant</th><th>Confiance</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td data-label="Candidat"><div class="cand-b-name"><div class="avatar">CM</div><div><div class="nm">Mme Camille Moreau</div><div class="sub">CDI · Cadre marketing</div></div></div></td>
+                  <td data-label="Bien">Apt B12 — rue des Lilas</td>
+                  <td data-label="Début">01/09/2026</td>
+                  <td data-label="Statut"><span class="badge grn">Validé</span></td>
+                  <td class="num" data-label="Revenus">3 200 €</td>
+                  <td data-label="Garant"><span class="badge grn">Oui</span></td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant grn"></span><span class="conf-num grn">87</span><span class="conf-decl">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Candidat"><div class="cand-b-name"><div class="avatar">YB</div><div><div class="nm">M. Yanis Benali</div><div class="sub">CDD · Technicien</div></div></div></td>
+                  <td data-label="Bien">Studio 3 — av. Foch</td>
+                  <td data-label="Début">15/07/2026</td>
+                  <td data-label="Statut"><span class="badge blu">En cours</span></td>
+                  <td class="num" data-label="Revenus">1 850 €</td>
+                  <td data-label="Garant"><span class="badge grn">Oui</span></td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant ora"></span><span class="conf-num ora">61</span><span class="conf-decl">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Candidat"><div class="cand-b-name"><div class="avatar">LD</div><div><div class="nm">Mme Léa Dubois</div><div class="sub">Freelance · Graphiste</div></div></div></td>
+                  <td data-label="Bien">T3 — rue Pasteur</td>
+                  <td data-label="Début">01/08/2026</td>
+                  <td data-label="Statut"><span class="badge gry">Reçu</span></td>
+                  <td class="num" data-label="Revenus">2 400 €</td>
+                  <td data-label="Garant"><span class="badge ora">Non</span></td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant ora"></span><span class="conf-num ora">54</span><span class="conf-decl">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Candidat"><div class="cand-b-name"><div class="avatar">TP</div><div><div class="nm">M. Thomas Petit</div><div class="sub">Étudiant</div></div></div></td>
+                  <td data-label="Bien">Apt B12 — rue des Lilas</td>
+                  <td data-label="Début">01/09/2026</td>
+                  <td data-label="Statut"><span class="badge red">Refusé</span></td>
+                  <td class="num" data-label="Revenus">1 320 €</td>
+                  <td data-label="Garant"><span class="badge ora">Non</span></td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant red"></span><span class="conf-num red">28</span><span class="conf-decl">déclaratif</span></span></td>
+                </tr>
+                <tr>
+                  <td data-label="Candidat"><div class="cand-b-name"><div class="avatar">IG</div><div><div class="nm">Mme Inès Garcia</div><div class="sub">CDI · Infirmière</div></div></div></td>
+                  <td data-label="Bien">Studio 3 — av. Foch</td>
+                  <td data-label="Début">01/10/2026</td>
+                  <td data-label="Statut"><span class="badge pur">Converti</span></td>
+                  <td class="num" data-label="Revenus">2 950 €</td>
+                  <td data-label="Garant"><span class="badge grn">Oui</span></td>
+                  <td data-label="Confiance"><span class="conf-cell"><span class="voyant grn"></span><span class="conf-num grn">92</span><span class="conf-decl">déclaratif</span></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ VARIANTE C — kanban par statut ════ -->
+      <div class="variant-pane" data-pane="C">
+        <div class="kanban">
+          <div class="kan-col">
+            <div class="kan-col-head"><span>Reçu</span><span class="cnt">1</span></div>
+            <div class="kan-card">
+              <div class="kc-name"><span class="voyant ora"></span>Mme Léa Dubois</div>
+              <div class="kc-bien">T3 — rue Pasteur · début 01/08/2026</div>
+              <div class="kc-foot"><span class="kc-rev">2 400 €</span><span class="conf-num ora">54</span></div>
+            </div>
+          </div>
+          <div class="kan-col">
+            <div class="kan-col-head"><span>En cours</span><span class="cnt">1</span></div>
+            <div class="kan-card">
+              <div class="kc-name"><span class="voyant ora"></span>M. Yanis Benali</div>
+              <div class="kc-bien">Studio 3 — av. Foch · début 15/07/2026</div>
+              <div class="kc-foot"><span class="kc-rev">1 850 €</span><span class="conf-num ora">61</span></div>
+            </div>
+          </div>
+          <div class="kan-col">
+            <div class="kan-col-head"><span>Validé</span><span class="cnt">1</span></div>
+            <div class="kan-card">
+              <div class="kc-name"><span class="voyant grn"></span>Mme Camille Moreau</div>
+              <div class="kc-bien">Apt B12 — rue des Lilas · début 01/09/2026</div>
+              <div class="kc-foot"><span class="kc-rev">3 200 €</span><span class="conf-num grn">87</span></div>
+            </div>
+          </div>
+          <div class="kan-col">
+            <div class="kan-col-head"><span>Refusé</span><span class="cnt">1</span></div>
+            <div class="kan-card">
+              <div class="kc-name"><span class="voyant red"></span>M. Thomas Petit</div>
+              <div class="kc-bien">Apt B12 — rue des Lilas · début 01/09/2026</div>
+              <div class="kc-foot"><span class="kc-rev">1 320 €</span><span class="conf-num red">28</span></div>
+            </div>
+          </div>
+          <div class="kan-col">
+            <div class="kan-col-head"><span>Converti</span><span class="cnt">1</span></div>
+            <div class="kan-card">
+              <div class="kc-name"><span class="voyant grn"></span>Mme Inès Garcia</div>
+              <div class="kc-bien">Studio 3 — av. Foch · début 01/10/2026</div>
+              <div class="kc-foot"><span class="kc-rev">2 950 €</span><span class="conf-num grn">92</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="mu sm" style="margin-top:14px">Colonne = statut du pipeline. Glisser-déposer une carte ferait évoluer le statut (maquette statique).</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function setW(w, btn){
+  var f=document.getElementById('frame');
+  f.classList.remove('pc-w','tb-w','ph-w');
+  f.classList.add(w);
+  document.querySelectorAll('#seg-w button').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+}
+function setV(v, btn){
+  document.querySelectorAll('.variant-pane').forEach(p=>p.classList.toggle('act', p.dataset.pane===v));
+  document.querySelectorAll('#seg-v button').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+}
+</script>
+</body>
+</html>

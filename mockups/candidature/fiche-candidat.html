@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup CANDIDAT — Fiche détail — ImmoTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* TOKENS + COMPOSANTS COPIÉS VERBATIM DE css/main.css (thème clair) */
+:root{
+  --bg:#eef2f7;--sur:rgba(255,255,255,.93);--sur2:rgba(242,246,251,.97);--sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09);--bor2:rgba(0,0,0,.05);--t1:#1a2332;--t2:#5a6e87;--t3:#9aabbf;
+  --blu:#3b7ef6;--grn:#16a34a;--red:#dc2626;--ora:#ea580c;--pur:#7c3aed;--acc:#3b7ef6;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(59,126,246,.18),0 1px 4px rgba(0,0,0,.07);
+  --r:8px;--rl:14px;--font-base:17px;--lh:1.56;
+  --bg-success:rgba(22,163,74,.10);--bg-danger:rgba(220,38,38,.10);--bg-warning:rgba(234,88,12,.12);--bg-info:rgba(59,126,246,.10);
+  --fg-success:#16a34a;--fg-danger:#dc2626;--fg-warning:#ea580c;--fg-info:#3b7ef6;
+  --shadow-card:0 1px 2px rgba(0,0,0,.04);--shadow-card-hover:0 4px 16px rgba(59,126,246,.10),0 1px 3px rgba(0,0,0,.05);
+  --t-fast:120ms cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#dfe5ee;color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;font-size:var(--font-base);line-height:var(--lh)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13.5px;font-weight:500;transition:all .15s;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bp:hover:not(:disabled){background:#2d6de0;box-shadow:0 4px 14px rgba(59,126,246,.4)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bs:hover:not(:disabled){background:var(--sur3);border-color:var(--blu)}
+.br{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.2)}
+.br:hover:not(:disabled){background:rgba(220,38,38,.18)}
+.bg{background:rgba(22,163,74,.1);color:var(--grn);border:1px solid rgba(22,163,74,.2)}
+.bg:hover:not(:disabled){background:rgba(22,163,74,.18)}
+.bb{padding:5px 11px;font-size:12px}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:20px;box-shadow:var(--shadow)}
+.ct{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;margin-top:24px}
+.ct:first-child{margin-top:0}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
+.badge.grn{background:rgba(22,163,74,.12);color:var(--grn)}
+.badge.red{background:rgba(220,38,38,.12);color:var(--red)}
+.badge.ora{background:rgba(234,88,12,.12);color:var(--ora)}
+.badge.blu{background:rgba(59,126,246,.12);color:var(--blu)}
+.badge.pur{background:rgba(124,58,237,.12);color:var(--pur)}
+.badge.gry{background:rgba(90,110,135,.12);color:var(--t2)}
+.flex-b{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.flex-c{display:flex;align-items:center;gap:8px}
+.sm{font-size:12.5px}.mu{color:var(--t2)}
+.mb8{margin-bottom:8px}.mb14{margin-bottom:14px}.mb16{margin-bottom:16px}.mb18{margin-bottom:18px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.page-title{font-size:22px;font-weight:700;color:var(--t1);margin:0;font-family:'Manrope',sans-serif}
+.page-subtitle{font-size:13px;color:var(--t2);margin-top:2px}
+.prog-bar{background:var(--bor);border-radius:4px;height:7px;overflow:hidden;margin-top:5px}
+.prog-fill{height:100%;border-radius:4px;background:var(--blu);transition:width .4s cubic-bezier(.4,0,.2,1)}
+.alert{padding:11px 16px;border-radius:var(--r);font-size:13.5px;margin-bottom:9px;border-width:1px;border-style:solid}
+.alert.info{background:rgba(59,126,246,.08);border-color:rgba(59,126,246,.2);color:var(--blu)}
+.avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#0E73F6,#00CCBC);display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-weight:700;font-size:17px;color:#fff;flex-shrink:0}
+
+/* Voyant + confiance (réutilise --grn/--ora/--red) */
+.voyant{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.voyant.grn{background:var(--grn);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+.voyant.ora{background:var(--ora);box-shadow:0 0 0 3px rgba(234,88,12,.15)}
+.voyant.red{background:var(--red);box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+.conf-decl{background:rgba(90,110,135,.12);color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:8px}
+
+/* Bloc clé-valeur (calqué sur .inherited-grid des fiches existantes) */
+.kv-grid{display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:13.5px;align-items:baseline}
+.kv-grid .k{color:var(--t2);font-size:12px;white-space:nowrap}
+.kv-grid .v{color:var(--t1);font-weight:500}
+
+/* Stepper pipeline */
+.stepper{display:flex;align-items:flex-start;gap:0;flex-wrap:wrap}
+.step{display:flex;flex-direction:column;align-items:center;flex:1;min-width:90px;position:relative;text-align:center}
+.step:not(:last-child)::after{content:'';position:absolute;top:15px;left:50%;width:100%;height:2px;background:var(--bor);z-index:0}
+.step.done:not(:last-child)::after{background:var(--grn)}
+.step .dot{width:32px;height:32px;border-radius:50%;background:var(--sur2);border:2px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t3);z-index:1;position:relative;font-family:'Manrope',sans-serif}
+.step.done .dot{background:var(--grn);border-color:var(--grn);color:#fff}
+.step.current .dot{background:var(--blu);border-color:var(--blu);color:#fff;box-shadow:0 0 0 4px rgba(59,126,246,.18)}
+.step.refused .dot{background:var(--red);border-color:var(--red);color:#fff}
+.step .lbl{font-size:11.5px;margin-top:7px;color:var(--t2);font-weight:600}
+.step.current .lbl{color:var(--blu)}
+.step.done .lbl{color:var(--grn)}
+
+/* Liste de pièces */
+.piece{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur2);margin-bottom:7px;font-size:13px}
+.piece .pname{flex:1}
+.piece .pchk{font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:5px}
+.piece .pchk.ok{color:var(--grn)}
+.piece .pchk.no{color:var(--ora)}
+
+/* Scoring breakdown */
+.score-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.score-ring{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;flex-shrink:0;
+  background:conic-gradient(var(--grn) 0% 87%, var(--bor) 87% 100%);}
+.score-ring .inner{width:74px;height:74px;border-radius:50%;background:var(--sur);display:flex;align-items:center;justify-content:center;flex-direction:column}
+.score-ring .sv{font-family:'Manrope',sans-serif;font-weight:800;font-size:26px;color:var(--grn);line-height:1}
+.score-ring .sl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:2px}
+.crit{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bor2)}
+.crit:last-child{border-bottom:none}
+.crit .cname{flex:1;font-size:13px}
+.crit .cbar{width:120px;height:6px;background:var(--bor);border-radius:3px;overflow:hidden;flex-shrink:0}
+.crit .cbar i{display:block;height:100%;background:var(--blu);border-radius:3px}
+.crit .cpts{font-family:'Manrope',sans-serif;font-weight:700;font-size:13px;width:54px;text-align:right;flex-shrink:0}
+
+/* Tooltip transparence */
+.tip-wrap{position:relative;display:inline-flex}
+.tip-ic{width:18px;height:18px;border-radius:50%;background:var(--sur3);color:var(--t2);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;cursor:help;border:1px solid var(--bor)}
+.tip-pop{position:absolute;top:24px;left:0;width:280px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);box-shadow:var(--shadow-lg);padding:12px 14px;font-size:12px;color:var(--t2);line-height:1.5;z-index:30;display:none}
+.tip-wrap:hover .tip-pop, .tip-wrap.show .tip-pop{display:block}
+
+/* Toggle (réutilise le look des switches de l'app) */
+.toggle{display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.toggle .track{width:42px;height:24px;border-radius:12px;background:var(--bor);position:relative;transition:background .2s;flex-shrink:0}
+.toggle .track::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
+.toggle.on .track{background:var(--grn)}
+.toggle.on .track::after{transform:translateX(18px)}
+
+/* CHROME MOCKUP */
+.mock-bar{position:sticky;top:0;z-index:500;background:#11182b;color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.mock-bar h1{font-size:14px;font-weight:700;margin-right:auto}
+.mock-bar .seg{display:inline-flex;background:rgba(255,255,255,.1);border-radius:8px;padding:3px;gap:2px}
+.mock-bar .seg button{background:transparent;border:none;color:rgba(255,255,255,.65);font-size:12px;font-weight:600;padding:6px 13px;border-radius:6px;cursor:pointer;font-family:inherit}
+.mock-bar .seg button.act{background:#3b7ef6;color:#fff}
+.mock-bar .lab{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.6px}
+.frame-host{padding:24px 12px 60px;display:flex;justify-content:center}
+.frame{background:var(--bg);border-radius:var(--rl);box-shadow:0 12px 50px rgba(0,0,0,.22);overflow:hidden;transition:width .25s;border:1px solid rgba(0,0,0,.12)}
+.frame .tb{background:var(--sur);border-bottom:1px solid var(--bor);padding:0 24px;height:54px;display:flex;align-items:center;gap:14px}
+.frame .tb strong{font-weight:600;color:var(--t1);font-size:14.5px}
+.frame .pc{padding:24px;overflow-y:auto}
+.frame.pc-w{width:1180px}
+.frame.tb-w{width:800px}
+.frame.ph-w{width:380px}
+.frame.ph-w .pc{padding:14px}
+.frame.ph-w .g2{grid-template-columns:1fr}
+.frame.ph-w .score-hero{flex-direction:column;align-items:flex-start}
+.frame.ph-w .crit .cbar{width:80px}
+.frame.tb-w .g2{grid-template-columns:1fr}
+@media (max-width:1100px){.frame.pc-w{width:96vw}}
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <h1>👤 FICHE CANDIDAT — détail (statut « Validé »)</h1>
+  <span class="lab">Largeur</span>
+  <div class="seg" id="seg-w">
+    <button data-w="pc-w" class="act" onclick="setW('pc-w',this)">PC 1180</button>
+    <button data-w="tb-w" onclick="setW('tb-w',this)">Tablette 800</button>
+    <button data-w="ph-w" onclick="setW('ph-w',this)">Téléphone 380</button>
+  </div>
+</div>
+
+<div class="frame-host">
+  <div class="frame pc-w" id="frame">
+    <div class="tb"><strong>👥 Candidats › Camille Moreau</strong></div>
+    <div class="pc">
+
+      <!-- En-tête fiche -->
+      <div class="flex-b mb18" style="flex-wrap:wrap;gap:12px">
+        <div class="flex-c" style="gap:14px">
+          <div class="avatar">CM</div>
+          <div>
+            <h2 class="page-title">Mme Camille Moreau <span class="badge grn" style="vertical-align:middle">Validé</span></h2>
+            <div class="page-subtitle">Candidate pour <b>Apt B12 — 14 rue des Lilas</b> · Date début souhaitée 01/09/2026 · Source : lien en ligne</div>
+          </div>
+        </div>
+        <button class="btn bs bb">‹ Retour à la liste</button>
+      </div>
+
+      <!-- Stepper pipeline -->
+      <div class="card mb18">
+        <div class="ct" style="margin-top:0">Pipeline de candidature</div>
+        <div class="stepper">
+          <div class="step done"><div class="dot">✓</div><div class="lbl">Reçu</div></div>
+          <div class="step done"><div class="dot">✓</div><div class="lbl">En cours</div></div>
+          <div class="step current"><div class="dot">3</div><div class="lbl">Validé</div></div>
+          <div class="step"><div class="dot">4</div><div class="lbl">Converti</div></div>
+        </div>
+        <div class="flex-c" style="gap:8px;flex-wrap:wrap;margin-top:18px">
+          <button class="btn bs bb">↩ Repasser en cours</button>
+          <button class="btn bg bb">✓ Valider</button>
+          <button class="btn br bb">✕ Refuser</button>
+          <button class="btn bs bb">📩 Demander un complément</button>
+        </div>
+      </div>
+
+      <!-- Identité + Situation -->
+      <div class="g2 mb18">
+        <div class="card">
+          <div class="ct" style="margin-top:0">Identité</div>
+          <div class="kv-grid">
+            <div class="k">Civilité</div><div class="v">Madame</div>
+            <div class="k">Nom · Prénom</div><div class="v">Moreau · Camille</div>
+            <div class="k">Date de naissance</div><div class="v">14/03/1991 (35 ans)</div>
+            <div class="k">Lieu de naissance</div><div class="v">Lyon (69)</div>
+            <div class="k">Téléphone</div><div class="v">06 12 34 56 78</div>
+            <div class="k">Email</div><div class="v">camille.moreau@email.fr</div>
+            <div class="k">Adresse précédente</div><div class="v">8 rue Victor Hugo, 69003 Lyon</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ct" style="margin-top:0">Situation</div>
+          <div class="kv-grid">
+            <div class="k">Revenus mensuels</div><div class="v"><b>3 200 €</b> <span class="conf-decl">déclaratif</span></div>
+            <div class="k">Employeur</div><div class="v">Agence Novapub SAS</div>
+            <div class="k">Type de contrat</div><div class="v"><span class="badge blu">CDI</span> Cadre marketing</div>
+            <div class="k">Ratio revenus / loyer</div><div class="v">3 200 € / 820 € = <b>3,9×</b></div>
+            <div class="k">RIB fourni</div><div class="v"><span class="badge grn">Oui</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Garant + Pièces -->
+      <div class="g2 mb18">
+        <div class="card">
+          <div class="ct" style="margin-top:0">Garant</div>
+          <div class="kv-grid">
+            <div class="k">Nom</div><div class="v">M. Patrick Moreau</div>
+            <div class="k">Adresse</div><div class="v">12 av. de la République, 69100 Villeurbanne</div>
+            <div class="k">Date de naissance</div><div class="v">02/06/1962</div>
+            <div class="k">Lieu de naissance</div><div class="v">Grenoble (38)</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="flex-b" style="margin-bottom:12px">
+            <div class="ct" style="margin:0">Pièces du dossier</div>
+            <label class="toggle on" id="tg-verif" onclick="this.classList.toggle('on')">
+              <span class="track"></span>
+              <span class="sm" style="font-weight:600">Pièces vérifiées</span>
+            </label>
+          </div>
+          <div class="piece"><span class="pname">Pièce d'identité (CNI)</span><span class="pchk ok">✓ Vérifié</span></div>
+          <div class="piece"><span class="pname">3 derniers bulletins de salaire</span><span class="pchk ok">✓ Vérifié</span></div>
+          <div class="piece"><span class="pname">Contrat de travail (CDI)</span><span class="pchk ok">✓ Vérifié</span></div>
+          <div class="piece"><span class="pname">Avis d'imposition</span><span class="pchk ok">✓ Vérifié</span></div>
+          <div class="piece"><span class="pname">Justificatif domicile garant</span><span class="pchk no">⏳ En attente</span></div>
+          <div class="piece"><span class="pname">RIB</span><span class="pchk ok">✓ Vérifié</span></div>
+        </div>
+      </div>
+
+      <!-- Scoring -->
+      <div class="card mb18">
+        <div class="flex-c" style="gap:8px;margin-bottom:16px">
+          <div class="ct" style="margin:0">Score de confiance</div>
+          <div class="tip-wrap" id="tip1" onclick="this.classList.toggle('show')">
+            <span class="tip-ic">?</span>
+            <div class="tip-pop">Score basé sur revenus, contrat, garant et complétude du dossier. À utiliser comme aide à la décision, pas comme verdict.</div>
+          </div>
+        </div>
+        <div class="score-hero">
+          <div class="score-ring">
+            <div class="inner"><span class="sv">87</span><span class="sl">/ 100</span></div>
+          </div>
+          <div style="flex:1;min-width:240px">
+            <div class="crit"><span class="cname">Ratio revenus / loyer (3,9×)</span><span class="cbar"><i style="width:95%"></i></span><span class="cpts">38 / 40</span></div>
+            <div class="crit"><span class="cname">Type de contrat (CDI)</span><span class="cbar"><i style="width:100%"></i></span><span class="cpts">20 / 20</span></div>
+            <div class="crit"><span class="cname">Garant présent</span><span class="cbar"><i style="width:100%"></i></span><span class="cpts">20 / 20</span></div>
+            <div class="crit"><span class="cname">RIB fourni</span><span class="cbar"><i style="width:100%"></i></span><span class="cpts">5 / 5</span></div>
+            <div class="crit"><span class="cname">Pièces complètes</span><span class="cbar"><i style="width:27%"></i></span><span class="cpts">4 / 15</span></div>
+          </div>
+        </div>
+        <div class="alert info" style="margin-top:16px;margin-bottom:0">
+          ⚖ <b>Aide à la solvabilité, pas un verdict.</b> Score basé sur revenus, contrat, garant et complétude du dossier.
+          À utiliser comme aide à la décision, pas comme verdict. La sélection ne doit jamais reposer sur un critère discriminatoire (loi du 6 juillet 1989, art. 1).
+        </div>
+      </div>
+
+      <!-- CTA conversion (visible car Validé) -->
+      <div class="card" style="border:1.5px solid rgba(22,163,74,.35);background:rgba(22,163,74,.05)">
+        <div class="flex-b" style="flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-weight:700;font-size:15px;font-family:'Manrope',sans-serif">Candidate validée — prête pour le bail</div>
+            <div class="mu sm" style="margin-top:3px">La création du bail reprend automatiquement l'identité, le bien et les conditions saisies.</div>
+          </div>
+          <button class="btn bp">Créer le bail à partir de ce candidat →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function setW(w, btn){
+  var f=document.getElementById('frame');
+  f.classList.remove('pc-w','tb-w','ph-w'); f.classList.add(w);
+  document.querySelectorAll('#seg-w button').forEach(b=>b.classList.remove('act'));
+  btn.classList.add('act');
+}
+</script>
+</body>
+</html>
