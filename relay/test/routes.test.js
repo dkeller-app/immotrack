@@ -195,3 +195,50 @@ describe('routes bailleur (ownerToken)', () => {
     expect(done.headers.get('content-type')).toContain('application/pdf');
   });
 });
+
+describe('aller-retour complet — gestion (bailleur + locataire ordonnés)', () => {
+  async function currentSignToken(sessionId) {
+    const res = await SELF.fetch(`https://relay.test/s/${sessionId}`);
+    return (await res.text()).match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
+  }
+  async function postSigned(sessionId, token, marker) {
+    return SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
+      body: new Uint8Array([0x25, 0x50, 0x44, 0x46, marker])
+    });
+  }
+
+  it('enchaîne les 2 signataires et produit 1 PDF final', async () => {
+    const form = new FormData();
+    form.set('pdf', new Blob([new Uint8Array([0x25,0x50,0x44,0x46,0])], { type: 'application/pdf' }), 'b.pdf');
+    form.set('meta', JSON.stringify({ bailRef: 'BAIL-G', signers: [
+      { role: 'bailleur', email: 'g@sci.fr', tel: '', ordre: 1 },
+      { role: 'locataire', email: 'loc@x.fr', tel: '', ordre: 2 }
+    ]}));
+    const create = await SELF.fetch('https://relay.test/sessions', {
+      method: 'POST', headers: { Authorization: `Bearer ${env.APP_KEY}` }, body: form
+    });
+    const { sessionId, ownerToken } = await create.json();
+
+    // Signataire 1 : bailleur
+    const t1 = await currentSignToken(sessionId);
+    const r1 = await postSigned(sessionId, t1, 1);
+    expect((await r1.json())).toMatchObject({ status: 'pending', currentIndex: 1 });
+
+    // currentSignToken pointe maintenant le signataire 2 (locataire)
+    const t2 = await currentSignToken(sessionId);
+    const { verifyToken } = await import('../src/tokens.js');
+    expect((await verifyToken(t2, env.SIGNING_SECRET)).payload.idx).toBe(1);
+
+    // L'ancien token (idx 0) doit être refusé (pas son tour)
+    const stale = await postSigned(sessionId, t1, 9);
+    expect(stale.status).toBe(403);
+
+    // Signataire 2 : locataire
+    const r2 = await postSigned(sessionId, t2, 2);
+    expect((await r2.json()).status).toBe('completed');
+
+    const result = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`, { headers: { 'X-Owner-Token': ownerToken } });
+    expect(result.status).toBe(200);
+  });
+});
