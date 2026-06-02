@@ -16,13 +16,18 @@ export function buildMentionLines({ signerName, role, dateISO }) {
   ];
 }
 
-export function buildProofObject({ signerName, role, sigId, dateISO, consentElectronic, luApprouve }) {
+export function buildProofObject({
+  signerName, role, sigId, dateISO, consentElectronic, luApprouve, openedAt, readCompletedAt
+}) {
   return {
     sigId,
     signerName,
     role,
     signedAt: dateISO,
     consentElectronic: !!consentElectronic,
-    luApprouve: !!luApprouve
+    luApprouve: !!luApprouve,
+    // Horodatage par étape (§5 #3 du dossier de preuve) : ouverture du lien + fin de lecture.
+    openedAt: openedAt || null,
+    readCompletedAt: readCompletedAt || null
   };
 }

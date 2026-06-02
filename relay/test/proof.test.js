@@ -35,4 +35,25 @@ describe('buildProofObject', () => {
       consentElectronic: true, luApprouve: true, signedAt: '2026-06-02T14:30:00.000Z'
     });
   });
+
+  it('capture l\'horodatage par étape (§5 #3) : ouverture + fin de lecture', () => {
+    const p = buildProofObject({
+      signerName: 'Jean Dupont', role: 'locataire', sigId: 'loc-0',
+      dateISO: '2026-06-02T14:30:00.000Z', consentElectronic: true, luApprouve: true,
+      openedAt: '2026-06-02T14:20:00.000Z', readCompletedAt: '2026-06-02T14:28:00.000Z'
+    });
+    expect(p).toMatchObject({
+      openedAt: '2026-06-02T14:20:00.000Z',
+      readCompletedAt: '2026-06-02T14:28:00.000Z'
+    });
+  });
+
+  it('met les horodatages d\'étape à null quand absents', () => {
+    const p = buildProofObject({
+      signerName: 'X', role: 'bailleur', sigId: 'bailleur-0',
+      dateISO: '2026-06-02T14:30:00.000Z'
+    });
+    expect(p.openedAt).toBeNull();
+    expect(p.readCompletedAt).toBeNull();
+  });
 });
