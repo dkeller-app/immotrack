@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import acte — Occupation (bail en cours) + Guide post-import</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   TOKENS — copiés depuis css/main.css (light + dark) pour fidélité au design system
+───────────────────────────────────────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.93); --sur2:rgba(242,246,251,.97); --sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09); --bor2:rgba(0,0,0,.05);
+  --t1:#1a2332; --t2:#5a6e87; --t3:#9aabbf;
+  --grn:#16a34a; --red:#dc2626; --ora:#ea580c; --acc:#3b7ef6; --blu:#3b7ef6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(22,163,74,.10); --bg-danger:rgba(220,38,38,.10);
+  --bg-warning:rgba(234,88,12,.12); --bg-info:rgba(59,126,246,.10);
+}
+[data-theme="dark"]{
+  --bg:#0A0E27;
+  --sur:#141a35; --sur2:#1b2244; --sur3:#232b52;
+  --bor:rgba(255,255,255,.10); --bor2:rgba(255,255,255,.05);
+  --t1:#e8ecf6; --t2:#9aa6c4; --t3:#6b779a;
+  --grn:#10B981; --red:#EF4444; --ora:#F59E0B; --acc:#0E73F6; --blu:#0E73F6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(16,185,129,.14); --bg-danger:rgba(239,68,68,.14);
+  --bg-warning:rgba(245,158,11,.14); --bg-info:rgba(14,115,246,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif}
+
+/* ── barre de contrôle du mockup (hors design app) ── */
+.mk-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  padding:12px 18px;background:#0f172a;color:#e2e8f0;border-bottom:1px solid #1e293b}
+.mk-bar h1{font-family:'Manrope',sans-serif;font-size:14px;margin:0;font-weight:800;letter-spacing:-.2px}
+.mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:10px;padding:3px}
+.mk-grp button{border:none;background:transparent;color:#94a3b8;font:inherit;font-size:12.5px;font-weight:600;
+  padding:6px 12px;border-radius:7px;cursor:pointer;transition:.15s}
+.mk-grp button.on{background:var(--acc);color:#fff}
+.mk-grp button:not(.on):hover{color:#e2e8f0}
+.mk-lbl{font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.mk-note{font-size:11.5px;color:#94a3b8;margin-left:auto;max-width:360px;line-height:1.4}
+
+.mk-stage{padding:26px 16px 60px;display:flex;justify-content:center}
+.mk-frame{width:980px;max-width:100%;transition:width .25s ease}
+.mk-frame.tab{width:760px} .mk-frame.phone{width:390px}
+.mk-cap{font-size:11.5px;color:var(--t2);text-align:center;margin:0 0 8px}
+.mk-cap b{color:var(--t1)}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   COMPOSANTS APP — modal, stepper, .acte-*, .inp, .btn (copiés/condensés)
+───────────────────────────────────────────────────────────────────────── */
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.22);backdrop-filter:blur(8px)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:16px;font-weight:700;font-family:'Manrope',sans-serif;margin:0}
+.m-head .mu{font-size:11.5px;color:var(--t2);margin-top:2px}
+.m-close{background:none;border:none;color:var(--t2);cursor:pointer;font-size:19px;padding:4px;border-radius:6px}
+.m-body{padding:22px;max-height:64vh;overflow-y:auto}
+.m-foot{padding:14px 22px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:8px;
+  background:var(--sur2);align-items:center;flex-wrap:wrap}
+
+.inp{width:100%;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);
+  padding:9px 12px;font-size:13.5px;font-family:inherit}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.12)}
+select.inp{cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;
+  cursor:pointer;font-size:13.5px;font-weight:500;font-family:inherit;transition:.15s;white-space:nowrap}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.btn.sm{padding:6px 12px;font-size:12.5px}
+
+.acte-stepper{display:flex;gap:6px;align-items:center;padding:12px 22px;background:var(--sur2);border-bottom:1px solid var(--bor);overflow-x:auto}
+.acte-stp{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t3);font-weight:600;white-space:nowrap}
+.acte-stp .n{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+.acte-stp.act{color:var(--acc)} .acte-stp.act .n{background:var(--acc);color:#fff;border-color:var(--acc)}
+.acte-stp.done{color:var(--grn)} .acte-stp.done .n{background:var(--grn);color:#fff;border-color:var(--grn)}
+.acte-stp-sep{color:var(--t3)}
+
+.acte-sec{border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:16px;overflow:hidden}
+.acte-sec-h{background:var(--sur2);padding:10px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:9px}
+.acte-sec-h .ic{width:26px;height:26px;border-radius:7px;background:var(--sur);border:1px solid var(--bor);display:grid;place-items:center;font-size:14px}
+.acte-sec-h b{font-size:13.5px} .acte-sec-h .count{margin-left:auto;font-size:11px;color:var(--t2);font-weight:600}
+.acte-sec-body{padding:14px}
+.acte-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.acte-fg{display:flex;flex-direction:column;gap:4px}
+.acte-fg label{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
+.acte-sgtag{font-size:9.5px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:8px;padding:1px 7px;text-transform:none;letter-spacing:0}
+[data-theme="dark"] .acte-sgtag{background:rgba(251,191,36,.18);color:#fcd34d}
+.acte-src-link{font-size:10.5px;color:var(--acc);cursor:pointer;user-select:none;display:inline-block;margin-top:3px}
+.acte-src{display:none;font-size:11px;color:var(--t2);font-style:italic;background:var(--sur2);border-left:2px solid var(--bor2);padding:5px 9px;margin-top:4px;border-radius:0 5px 5px 0;line-height:1.45}
+.acte-src.show{display:block}
+.acte-sg{background:#fffdf3;border-color:#fcd34d}
+[data-theme="dark"] .acte-sg{background:rgba(251,191,36,.12)}
+.acte-interp{font-size:11px;color:var(--grn);background:var(--bg-success);border:1px solid #86efac;border-radius:5px;padding:6px 9px;margin-bottom:8px;line-height:1.45}
+.acte-lgmt{border:1px solid #fcd34d;border-radius:var(--r);padding:11px 13px;margin-bottom:8px;background:#fffdf3}
+[data-theme="dark"] .acte-lgmt{background:rgba(251,191,36,.08)}
+.acte-icon-btn{border:1px solid var(--bor);background:var(--sur);border-radius:var(--r);width:28px;height:28px;cursor:pointer;font-size:13px;color:var(--t2)}
+.acte-hint{font-size:11.5px;color:var(--ora)}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   NOUVEAU — bloc « Occupation (bail en cours) » dans la fiche logement
+───────────────────────────────────────────────────────────────────────── */
+.occ{margin-top:10px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur2);overflow:hidden}
+.occ-h{display:flex;align-items:center;gap:10px;padding:8px 11px}
+.occ-h .tt{font-size:12px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:7px}
+.occ-seg{margin-left:auto;display:flex;gap:3px;background:var(--sur3);border-radius:8px;padding:3px}
+.occ-seg button{border:none;background:transparent;color:var(--t2);font:inherit;font-size:11.5px;font-weight:700;
+  padding:4px 11px;border-radius:6px;cursor:pointer;transition:.15s;white-space:nowrap}
+.occ-seg button.on[data-occ="loue"]{background:var(--acc);color:#fff}
+.occ-seg button.on[data-occ="vacant"]{background:var(--t2);color:#fff}
+.occ-body{padding:0 11px 11px;border-top:1px solid var(--bor)}
+.occ-body.collapsed{display:none}
+.occ-vacant{padding:9px 11px;border-top:1px solid var(--bor);font-size:11.5px;color:var(--t2);display:flex;align-items:center;gap:7px}
+.occ-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:11px}
+.occ .acte-fg label{text-transform:none;letter-spacing:0;font-size:10.5px}
+.occ-src-link{font-size:10.5px;color:var(--acc);cursor:pointer;user-select:none;display:inline-block;margin-top:9px}
+.occ-src{display:none;font-size:11px;color:var(--t2);font-style:italic;background:var(--sur);border-left:2px solid var(--acc);padding:6px 10px;margin-top:6px;border-radius:0 5px 5px 0;line-height:1.5}
+.occ-src.show{display:block}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   NOUVEAU — Guide post-import (checklist · relais vers écrans existants)
+───────────────────────────────────────────────────────────────────────── */
+.guide-hero{display:flex;align-items:center;gap:14px;padding:16px 18px;border:1px solid #86efac;background:var(--bg-success);
+  border-radius:var(--rl);margin-bottom:18px}
+.guide-hero .big{width:48px;height:48px;border-radius:14px;background:var(--grn);color:#fff;display:grid;place-items:center;font-size:25px;flex:none}
+.guide-hero h4{margin:0;font-size:17px;font-family:'Manrope',sans-serif}
+.guide-hero .sub{font-size:12.5px;color:var(--t2);margin-top:3px;line-height:1.45}
+.guide-intro{font-size:12px;color:var(--t2);background:var(--bg-info);border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;
+  padding:9px 13px;margin-bottom:16px;line-height:1.55}
+
+.guide-card{border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:14px;overflow:hidden}
+.guide-card-h{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--sur2);border-bottom:1px solid var(--bor)}
+.guide-card-h .ic{width:28px;height:28px;border-radius:8px;background:var(--sur);border:1px solid var(--bor);display:grid;place-items:center;font-size:14px;flex:none}
+.guide-card-h b{font-size:13.5px}
+.guide-card-h .meta{font-size:11px;color:var(--t2);margin-top:1px}
+.guide-card-h .badge{margin-left:auto;font-size:10px;font-weight:700;border-radius:10px;padding:3px 10px;white-space:nowrap}
+.badge-loue{background:var(--bg-info);color:var(--acc);border:1px solid #93c5fd}
+.badge-vacant{background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+
+.guide-task{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--bor2)}
+.guide-task:last-child{border-bottom:none}
+.guide-task .st{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;flex:none;font-weight:700}
+.st-done{background:var(--bg-success);color:var(--grn);border:1px solid #86efac}
+.st-todo{background:var(--sur3);color:var(--t3);border:1px solid var(--bor)}
+.st-warn{background:var(--bg-warning);color:var(--ora);border:1px solid #fcd34d}
+.guide-task .txt{flex:1;min-width:0}
+.guide-task .txt b{font-size:13px;display:block}
+.guide-task .txt span{font-size:11.5px;color:var(--t2);line-height:1.4}
+.guide-task .go{flex:none}
+
+/* responsive émulé via classes conteneur */
+.mk-frame.phone .acte-grid2{grid-template-columns:1fr}
+.mk-frame.phone .occ-grid{grid-template-columns:1fr 1fr}
+.mk-frame.phone .acte-stp .lbl{display:none}
+.mk-frame.phone .lgmt-row2{flex-direction:column !important}
+.mk-frame.phone .m-foot{flex-direction:column-reverse;align-items:stretch}
+.mk-frame.phone .m-foot .foot-btns{display:flex;gap:8px}
+.mk-frame.phone .m-foot .foot-btns .btn{flex:1;justify-content:center}
+.mk-frame.phone .occ-h{flex-wrap:wrap}
+.mk-frame.phone .occ-seg{margin-left:0;width:100%}
+.mk-frame.phone .occ-seg button{flex:1;text-align:center}
+.mk-frame.phone .guide-task{flex-wrap:wrap}
+.mk-frame.phone .guide-task .go{width:100%;margin-left:35px}
+.mk-frame.phone .guide-task .go .btn{width:100%;justify-content:center}
+.mk-frame.tab .occ-grid{grid-template-columns:1fr 1fr}
+.mk-frame.tab .acte-grid2{gap:10px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="mk-bar">
+  <h1>📜 Import acte — Bail repris + DPE</h1>
+  <span class="mk-lbl">Vue</span>
+  <div class="mk-grp" id="grp-view">
+    <button data-view="occ" class="on">① Occupation (vérif)</button>
+    <button data-view="guide">② Guide post-import</button>
+  </div>
+  <span class="mk-lbl">Format</span>
+  <div class="mk-grp" id="grp-fmt">
+    <button data-fmt="pc" class="on">💻 PC</button>
+    <button data-fmt="tab">📱 Tablette</button>
+    <button data-fmt="phone">📱 Téléphone</button>
+  </div>
+  <div class="mk-grp" id="grp-theme">
+    <button data-theme-btn="light" class="on">☀️</button>
+    <button data-theme-btn="dark">🌙</button>
+  </div>
+  <p class="mk-note" id="mk-note"></p>
+</div>
+
+<div class="mk-stage">
+  <div class="mk-frame" id="frame">
+    <p class="mk-cap" id="cap"></p>
+
+    <!-- ════════════════ VUE ① — OCCUPATION (BAIL EN COURS) dans l'étape vérif ════════════════ -->
+    <div class="modal" id="view-occ">
+      <div class="m-head">
+        <div>
+          <h3>📜 Importer un acte de vente</h3>
+          <div class="mu">Étape 2 — vérification · l'acte mentionne des baux en cours.</div>
+        </div>
+        <button class="m-close">✕</button>
+      </div>
+      <div class="acte-stepper">
+        <div class="acte-stp done"><span class="n">✓</span><span class="lbl">Dépôt de l'acte</span></div>
+        <span class="acte-stp-sep">›</span>
+        <div class="acte-stp act"><span class="n">2</span><span class="lbl">Vérification</span></div>
+        <span class="acte-stp-sep">›</span>
+        <div class="acte-stp"><span class="n">3</span><span class="lbl">Création</span></div>
+      </div>
+      <div class="m-body">
+        <div class="acte-sec">
+          <div class="acte-sec-h"><span class="ic">🚪</span><b>Logements</b><span class="count">3 logement(s)</span></div>
+          <div class="acte-sec-body">
+            <div class="acte-interp">🔑 L'acte indique que 2 des 3 logements sont déjà loués. Pour ceux-là, l'app prépare un <b>bail repris</b> (à compléter ensuite). Vérifie le locataire, le loyer et la date d'effet.</div>
+
+            <!-- LOGEMENT 1 — loué -->
+            <div class="acte-lgmt">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.2"><label>Référence</label><input class="inp" value="Lot 5+6"></div>
+                <div class="acte-fg" style="flex:1.4"><label>Type</label><input class="inp" value="Appartement"></div>
+                <div class="acte-fg" style="flex:1"><label>Étage</label><input class="inp" value="RDC"></div>
+                <button class="acte-icon-btn">🗑</button>
+              </div>
+              <div class="lgmt-row2" style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+                <div class="acte-fg" style="flex:1"><label>Surface (m²)</label><input class="inp" value="34,79"></div>
+                <div class="acte-fg" style="flex:1"><label>N° de lot</label><input class="inp" value="5+6"></div>
+                <div class="acte-fg" style="flex:1.2"><label>Tantièmes</label><input class="inp" value="21/1000"></div>
+              </div>
+              <!-- bloc occupation -->
+              <div class="occ" data-occ-card>
+                <div class="occ-h">
+                  <span class="tt">🔑 Occupation (bail en cours) <span class="acte-sgtag">✨ à vérifier</span></span>
+                  <div class="occ-seg">
+                    <button data-occ="loue" class="on">🔑 Loué</button>
+                    <button data-occ="vacant">🏠 Vacant</button>
+                  </div>
+                </div>
+                <div class="occ-body">
+                  <div class="occ-grid">
+                    <div class="acte-fg"><label>Locataire</label><input class="inp acte-sg" value="M. Martin"></div>
+                    <div class="acte-fg"><label>Loyer HC (€/mois)</label><input class="inp acte-sg" value="650"></div>
+                    <div class="acte-fg"><label>Charges (€/mois)</label><input class="inp acte-sg" value="80"></div>
+                    <div class="acte-fg"><label>Date d'effet</label><input class="inp acte-sg" value="01/09/2022"></div>
+                    <div class="acte-fg"><label>Dépôt garantie (€)</label><input class="inp acte-sg" value="650"></div>
+                  </div>
+                  <span class="occ-src-link" onclick="this.nextElementSibling.classList.toggle('show')">ⓘ d'après l'acte</span>
+                  <div class="occ-src">« Le BIEN est actuellement loué à Monsieur Martin suivant bail du 1er septembre 2022, moyennant un loyer mensuel de 650 € hors charges, outre une provision pour charges de 80 € et un dépôt de garantie de 650 €. »</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LOGEMENT 2 — vacant -->
+            <div class="acte-lgmt">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.2"><label>Référence</label><input class="inp" value="Lot 7"></div>
+                <div class="acte-fg" style="flex:1.4"><label>Type</label><input class="inp" value="Appartement"></div>
+                <div class="acte-fg" style="flex:1"><label>Étage</label><input class="inp" value="1er"></div>
+                <button class="acte-icon-btn">🗑</button>
+              </div>
+              <div class="lgmt-row2" style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+                <div class="acte-fg" style="flex:1"><label>Surface (m²)</label><input class="inp" value="28,10"></div>
+                <div class="acte-fg" style="flex:1"><label>N° de lot</label><input class="inp" value="7"></div>
+                <div class="acte-fg" style="flex:1.2"><label>Tantièmes</label><input class="inp" value="15/1000"></div>
+              </div>
+              <!-- bloc occupation — vacant : champs masqués -->
+              <div class="occ" data-occ-card>
+                <div class="occ-h">
+                  <span class="tt">🏠 Occupation</span>
+                  <div class="occ-seg">
+                    <button data-occ="loue">🔑 Loué</button>
+                    <button data-occ="vacant" class="on">🏠 Vacant</button>
+                  </div>
+                </div>
+                <div class="occ-body collapsed">
+                  <div class="occ-grid">
+                    <div class="acte-fg"><label>Locataire</label><input class="inp acte-sg" value=""></div>
+                    <div class="acte-fg"><label>Loyer HC (€/mois)</label><input class="inp acte-sg" value=""></div>
+                    <div class="acte-fg"><label>Charges (€/mois)</label><input class="inp acte-sg" value=""></div>
+                    <div class="acte-fg"><label>Date d'effet</label><input class="inp acte-sg" value=""></div>
+                    <div class="acte-fg"><label>Dépôt garantie (€)</label><input class="inp acte-sg" value=""></div>
+                  </div>
+                </div>
+                <div class="occ-vacant">🏠 Logement vacant — aucun bail ne sera créé.</div>
+              </div>
+            </div>
+
+            <!-- LOGEMENT 3 — loué -->
+            <div class="acte-lgmt">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.2"><label>Référence</label><input class="inp" value="Lot 8"></div>
+                <div class="acte-fg" style="flex:1.4"><label>Type</label><input class="inp" value="Studio"></div>
+                <div class="acte-fg" style="flex:1"><label>Étage</label><input class="inp" value="2e"></div>
+                <button class="acte-icon-btn">🗑</button>
+              </div>
+              <div class="lgmt-row2" style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+                <div class="acte-fg" style="flex:1"><label>Surface (m²)</label><input class="inp" value="15,60"></div>
+                <div class="acte-fg" style="flex:1"><label>N° de lot</label><input class="inp" value="8"></div>
+                <div class="acte-fg" style="flex:1.2"><label>Tantièmes</label><input class="inp" value="9/1000"></div>
+              </div>
+              <div class="occ" data-occ-card>
+                <div class="occ-h">
+                  <span class="tt">🔑 Occupation (bail en cours) <span class="acte-sgtag">✨ à vérifier</span></span>
+                  <div class="occ-seg">
+                    <button data-occ="loue" class="on">🔑 Loué</button>
+                    <button data-occ="vacant">🏠 Vacant</button>
+                  </div>
+                </div>
+                <div class="occ-body">
+                  <div class="occ-grid">
+                    <div class="acte-fg"><label>Locataire</label><input class="inp acte-sg" value="Mme Bernard"></div>
+                    <div class="acte-fg"><label>Loyer HC (€/mois)</label><input class="inp acte-sg" value="430"></div>
+                    <div class="acte-fg"><label>Charges (€/mois)</label><input class="inp acte-sg" value="45"></div>
+                    <div class="acte-fg"><label>Date d'effet</label><input class="inp acte-sg" value="15/03/2023"></div>
+                    <div class="acte-fg"><label>Dépôt garantie (€)</label><input class="inp acte-sg" value="430"></div>
+                  </div>
+                  <span class="occ-src-link" onclick="this.nextElementSibling.classList.toggle('show')">ⓘ d'après l'acte</span>
+                  <div class="occ-src">« …le studio (lot 8) est donné à bail à Madame Bernard depuis le 15 mars 2023 pour un loyer de 430 € hors charges, charges mensuelles 45 €. »</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="m-foot">
+        <span class="acte-hint">✨ Vérifie locataire, loyer et date avant de continuer.</span>
+        <div class="foot-btns" style="display:flex;gap:8px">
+          <button class="btn bs">‹ Retour</button>
+          <button class="btn bp">Continuer ›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ VUE ② — GUIDE POST-IMPORT ════════════════ -->
+    <div class="modal hidden" id="view-guide">
+      <div class="m-head">
+        <div>
+          <h3>✅ Import terminé</h3>
+          <div class="mu">Voici ce qu'il reste à compléter — chaque action ouvre l'écran habituel.</div>
+        </div>
+        <button class="m-close">✕</button>
+      </div>
+      <div class="m-body">
+        <div class="guide-hero">
+          <span class="big">✓</span>
+          <div>
+            <h4>1 bailleur · 1 immeuble · 3 logements créés</h4>
+            <div class="sub">SCI DEMO IMMO — 16 rue des Tilleuls, 68100 Mulhouse. 2 baux repris à compléter.</div>
+          </div>
+        </div>
+        <div class="guide-intro">💡 L'import a posé les <b>bases</b>. Pour chaque logement, complète le bail et ajoute le DPE quand tu l'as — exactement comme d'habitude, depuis la fiche du logement. Rien n'est bloquant, tu peux y revenir plus tard.</div>
+
+        <!-- LOGEMENT 1 -->
+        <div class="guide-card">
+          <div class="guide-card-h">
+            <span class="ic">🚪</span>
+            <div><b>Lot 5+6 — Appartement</b><div class="meta">RDC · 34,79 m²</div></div>
+            <span class="badge badge-loue">🔑 Loué · M. Martin</span>
+          </div>
+          <div class="guide-task">
+            <span class="st st-done">✓</span>
+            <div class="txt"><b>Logement créé</b><span>Référence, surface et tantièmes enregistrés.</span></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-warn">!</span>
+            <div class="txt"><b>Bail repris à compléter</b><span>Loyer 650 € + charges 80 € · bail du 01/09/2022. Manque : état civil locataire, clauses.</span></div>
+            <div class="go"><button class="btn bp sm">📋 Compléter le bail</button></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-todo">○</span>
+            <div class="txt"><b>DPE manquant</b><span>Dépose le PDF du DPE : lecture du n°, complétion surface + classe énergie/GES via ADEME.</span></div>
+            <div class="go"><button class="btn bs sm">📊 Ajouter le DPE</button></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-todo">○</span>
+            <div class="txt"><b>Risques (ERP)</b><span>État des risques par adresse — onglet Diagnostics.</span></div>
+            <div class="go"><button class="btn bs sm">⚠️ Renseigner</button></div>
+          </div>
+        </div>
+
+        <!-- LOGEMENT 2 -->
+        <div class="guide-card">
+          <div class="guide-card-h">
+            <span class="ic">🚪</span>
+            <div><b>Lot 7 — Appartement</b><div class="meta">1er · 28,10 m²</div></div>
+            <span class="badge badge-vacant">🏠 Vacant</span>
+          </div>
+          <div class="guide-task">
+            <span class="st st-done">✓</span>
+            <div class="txt"><b>Logement créé</b><span>Prêt à être mis en location.</span></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-todo">○</span>
+            <div class="txt"><b>DPE manquant</b><span>Dépose le PDF du DPE pour compléter surface + classe énergie/GES.</span></div>
+            <div class="go"><button class="btn bs sm">📊 Ajouter le DPE</button></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-todo">○</span>
+            <div class="txt"><b>Risques (ERP)</b><span>État des risques par adresse — onglet Diagnostics.</span></div>
+            <div class="go"><button class="btn bs sm">⚠️ Renseigner</button></div>
+          </div>
+        </div>
+
+        <!-- LOGEMENT 3 -->
+        <div class="guide-card">
+          <div class="guide-card-h">
+            <span class="ic">🚪</span>
+            <div><b>Lot 8 — Studio</b><div class="meta">2e · 15,60 m²</div></div>
+            <span class="badge badge-loue">🔑 Loué · Mme Bernard</span>
+          </div>
+          <div class="guide-task">
+            <span class="st st-done">✓</span>
+            <div class="txt"><b>Logement créé</b><span>Référence, surface et tantièmes enregistrés.</span></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-warn">!</span>
+            <div class="txt"><b>Bail repris à compléter</b><span>Loyer 430 € + charges 45 € · bail du 15/03/2023. Manque : état civil locataire, clauses.</span></div>
+            <div class="go"><button class="btn bp sm">📋 Compléter le bail</button></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-todo">○</span>
+            <div class="txt"><b>DPE manquant</b><span>Dépose le PDF du DPE pour compléter surface + classe énergie/GES.</span></div>
+            <div class="go"><button class="btn bs sm">📊 Ajouter le DPE</button></div>
+          </div>
+          <div class="guide-task">
+            <span class="st st-todo">○</span>
+            <div class="txt"><b>Risques (ERP)</b><span>État des risques par adresse — onglet Diagnostics.</span></div>
+            <div class="go"><button class="btn bs sm">⚠️ Renseigner</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="m-foot">
+        <span class="acte-hint" style="color:var(--t2)">Tu peux fermer et revenir à ces tâches depuis chaque fiche logement.</span>
+        <div class="foot-btns" style="display:flex;gap:8px">
+          <button class="btn bs">Plus tard</button>
+          <button class="btn bp">Aller aux biens ›</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── état du mockup ── */
+const S = { view:'occ', fmt:'pc' };
+
+const CAPS = {
+  occ:'<b>Vue ① — Occupation (bail en cours).</b> Sous chaque logement, un bloc « ✨ à vérifier » récupère locataire / loyer HC / date d\'effet / dépôt de garantie quand l\'acte signale une location. Le commutateur Loué/Vacant masque les champs. Lot 7 est vacant.',
+  guide:'<b>Vue ② — Guide post-import.</b> Après création, une checklist par logement relaie vers les écrans EXISTANTS : 📋 Compléter le bail (openBail), 📊 Ajouter le DPE et ⚠️ Risques (onglet Diagnostics). Rien n\'est réinventé.'
+};
+const NOTES = {
+  occ:'Teste le commutateur 🔑 Loué / 🏠 Vacant sur chaque logement, et le lien « ⓘ d\'après l\'acte ».',
+  guide:'Les boutons relaient vers les écrans existants (bail / diagnostics). La recherche risques par adresse se branchera dans l\'onglet Diagnostics.'
+};
+
+function applyView(){
+  document.getElementById('view-occ').classList.toggle('hidden', S.view!=='occ');
+  document.getElementById('view-guide').classList.toggle('hidden', S.view!=='guide');
+  document.getElementById('cap').innerHTML = CAPS[S.view];
+  document.getElementById('mk-note').innerHTML = NOTES[S.view];
+}
+document.querySelectorAll('#grp-view button').forEach(b=>b.onclick=()=>{
+  S.view=b.dataset.view; document.querySelectorAll('#grp-view button').forEach(x=>x.classList.toggle('on',x===b)); applyView();
+});
+document.querySelectorAll('#grp-fmt button').forEach(b=>b.onclick=()=>{
+  S.fmt=b.dataset.fmt; document.querySelectorAll('#grp-fmt button').forEach(x=>x.classList.toggle('on',x===b));
+  const f=document.getElementById('frame'); f.className='mk-frame'+(S.fmt==='pc'?'':' '+S.fmt);
+});
+document.querySelectorAll('#grp-theme button').forEach(b=>b.onclick=()=>{
+  document.documentElement.setAttribute('data-theme',b.dataset.themeBtn);
+  document.querySelectorAll('#grp-theme button').forEach(x=>x.classList.toggle('on',x===b));
+});
+
+/* ── commutateur Loué / Vacant : masque les champs occupation ── */
+document.querySelectorAll('[data-occ-card]').forEach(card=>{
+  const segBtns = card.querySelectorAll('.occ-seg button');
+  const body = card.querySelector('.occ-body');
+  const vacantMsg = card.querySelector('.occ-vacant');
+  const tt = card.querySelector('.occ-h .tt');
+  segBtns.forEach(btn=>btn.onclick=()=>{
+    const loue = btn.dataset.occ==='loue';
+    segBtns.forEach(x=>x.classList.toggle('on',x===btn));
+    body.classList.toggle('collapsed', !loue);
+    if(vacantMsg) vacantMsg.style.display = loue ? 'none' : 'flex';
+    else if(!loue){
+      // crée le message vacant si absent
+      const m=document.createElement('div'); m.className='occ-vacant'; m.textContent='🏠 Logement vacant — aucun bail ne sera créé.';
+      body.after(m);
+    }
+    tt.innerHTML = loue
+      ? '🔑 Occupation (bail en cours) <span class="acte-sgtag">✨ à vérifier</span>'
+      : '🏠 Occupation';
+  });
+});
+
+applyView();
+</script>
+</body>
+</html>

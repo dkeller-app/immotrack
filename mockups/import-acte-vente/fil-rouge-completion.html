@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import acte — Fil rouge de complétion (bailleur · immeuble · biens)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+[data-theme="light"]{
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.93); --sur2:rgba(242,246,251,.97); --sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09); --bor2:rgba(0,0,0,.05);
+  --t1:#1a2332; --t2:#5a6e87; --t3:#9aabbf;
+  --grn:#16a34a; --red:#dc2626; --ora:#ea580c; --acc:#3b7ef6; --blu:#3b7ef6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(22,163,74,.10); --bg-danger:rgba(220,38,38,.10);
+  --bg-warning:rgba(234,88,12,.12); --bg-info:rgba(59,126,246,.10);
+}
+[data-theme="dark"]{
+  --bg:#0A0E27;
+  --sur:#141a35; --sur2:#1b2244; --sur3:#232b52;
+  --bor:rgba(255,255,255,.10); --bor2:rgba(255,255,255,.05);
+  --t1:#e8ecf6; --t2:#9aa6c4; --t3:#6b779a;
+  --grn:#10B981; --red:#EF4444; --ora:#F59E0B; --acc:#0E73F6; --blu:#0E73F6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(16,185,129,.14); --bg-danger:rgba(239,68,68,.14);
+  --bg-warning:rgba(245,158,11,.14); --bg-info:rgba(14,115,246,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif}
+
+.mk-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  padding:12px 18px;background:#0f172a;color:#e2e8f0;border-bottom:1px solid #1e293b}
+.mk-bar h1{font-family:'Manrope',sans-serif;font-size:14px;margin:0;font-weight:800;letter-spacing:-.2px}
+.mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:10px;padding:3px}
+.mk-grp button{border:none;background:transparent;color:#94a3b8;font:inherit;font-size:12.5px;font-weight:600;
+  padding:6px 12px;border-radius:7px;cursor:pointer;transition:.15s}
+.mk-grp button.on{background:var(--acc);color:#fff}
+.mk-grp button:not(.on):hover{color:#e2e8f0}
+.mk-lbl{font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.mk-note{font-size:11.5px;color:#94a3b8;margin-left:auto;max-width:360px;line-height:1.4}
+.mk-stage{padding:26px 16px 60px;display:flex;justify-content:center}
+.mk-frame{width:760px;max-width:100%;transition:width .25s ease}
+.mk-frame.tab{width:680px} .mk-frame.phone{width:390px}
+.mk-cap{font-size:11.5px;color:var(--t2);text-align:center;margin:0 0 8px}
+.mk-cap b{color:var(--t1)}
+
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.22);backdrop-filter:blur(8px)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:16px;font-weight:700;font-family:'Manrope',sans-serif;margin:0}
+.m-head .mu{font-size:11.5px;color:var(--t2);margin-top:2px}
+.m-close{background:none;border:none;color:var(--t2);cursor:pointer;font-size:19px;padding:4px;border-radius:6px}
+.m-body{padding:22px;max-height:64vh;overflow-y:auto}
+.m-foot{padding:14px 22px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:8px;
+  background:var(--sur2);align-items:center;flex-wrap:wrap}
+.m-foot .hint{font-size:11.5px;color:var(--t2);line-height:1.4}
+.foot-btns{display:flex;gap:8px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;
+  cursor:pointer;font-size:13.5px;font-weight:500;font-family:inherit;transition:.15s;white-space:nowrap}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.btn.sm{padding:6px 12px;font-size:12.5px}
+
+/* ── hero progression globale ── */
+.fc-hero{padding:16px 18px;border:1px solid var(--bor);border-radius:var(--rl);background:var(--sur2);margin-bottom:18px}
+.fc-hero .top{display:flex;align-items:center;gap:13px}
+.fc-hero .big{width:46px;height:46px;border-radius:13px;background:var(--bg-info);color:var(--acc);display:grid;place-items:center;font-size:23px;border:1px solid #93c5fd;flex:none}
+.fc-hero h4{margin:0;font-size:16px;font-family:'Manrope',sans-serif}
+.fc-hero .sub{font-size:12px;color:var(--t2);margin-top:3px;line-height:1.45}
+.fc-hero .pct{margin-left:auto;font-family:'Manrope',sans-serif;font-weight:800;font-size:24px;color:var(--acc);flex:none}
+.fc-bar{height:7px;background:var(--sur3);border-radius:4px;overflow:hidden;margin-top:13px}
+.fc-bar>i{display:block;height:100%;background:var(--acc);border-radius:4px;transition:width .3s}
+.fc-later{font-size:11.5px;color:var(--t2);margin-top:10px;background:var(--bg-info);border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;padding:8px 12px;line-height:1.5}
+
+/* ── badge loué/vacant + jauge ── */
+.badge{font-size:10px;font-weight:700;border-radius:10px;padding:3px 9px;white-space:nowrap}
+.badge-loue{background:var(--bg-info);color:var(--acc);border:1px solid #93c5fd}
+.badge-vacant{background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+.fc-gauge{font-size:10.5px;font-weight:700;border-radius:10px;padding:3px 10px;white-space:nowrap;border:1px solid}
+.fc-gauge.full{background:var(--bg-success);color:var(--grn);border-color:#86efac}
+.fc-gauge.part{background:var(--bg-warning);color:var(--ora);border-color:#fcd34d}
+
+/* ── lignes de tâche (partagées) ── */
+.task{display:flex;align-items:center;gap:11px;padding:10px 14px;border-bottom:1px solid var(--bor2)}
+.task:last-child{border-bottom:none}
+.task .st{width:23px;height:23px;border-radius:50%;display:grid;place-items:center;font-size:12px;flex:none;font-weight:700}
+.st-done{background:var(--bg-success);color:var(--grn);border:1px solid #86efac}
+.st-todo{background:var(--sur3);color:var(--t3);border:1px solid var(--bor)}
+.st-warn{background:var(--bg-warning);color:var(--ora);border:1px solid #fcd34d}
+.task .txt{flex:1;min-width:0}
+.task .txt b{font-size:13px;display:block}
+.task .txt span{font-size:11.5px;color:var(--t2);line-height:1.4}
+.task .go{flex:none}
+
+/* ════ VARIANTE A — tableau de bord (checklist groupée) ════ */
+.fc-card{border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:14px;overflow:hidden}
+.fc-card-h{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--sur2);border-bottom:1px solid var(--bor)}
+.fc-card-h .ic{width:28px;height:28px;border-radius:8px;background:var(--sur);border:1px solid var(--bor);display:grid;place-items:center;font-size:14px;flex:none}
+.fc-card-h b{font-size:13.5px}
+.fc-card-h .meta{font-size:11px;color:var(--t2);margin-top:1px}
+.fc-card-h .sp{margin-left:auto;display:flex;align-items:center;gap:7px}
+.fc-card-foot{padding:10px 14px;display:flex;justify-content:flex-end;border-top:1px solid var(--bor2)}
+
+/* ════ VARIANTE B — fil rouge (timeline verticale connectée) ════ */
+.fr-wrap{position:relative;padding-left:36px}
+.fr-line{position:absolute;left:13px;top:6px;bottom:30px;width:3px;background:var(--sur3);border-radius:2px;overflow:hidden}
+.fr-line>i{position:absolute;left:0;top:0;width:100%;background:var(--acc);border-radius:2px;transition:height .3s}
+.fr-node{position:relative;margin-bottom:14px}
+.fr-dot{position:absolute;left:-36px;top:0;width:27px;height:27px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;border:2px solid var(--bor);background:var(--sur);color:var(--t2);z-index:1}
+.fr-dot.done{background:var(--grn);color:#fff;border-color:var(--grn)}
+.fr-dot.part{background:var(--ora);color:#fff;border-color:var(--ora)}
+.fr-dot.here{border-color:var(--acc);box-shadow:0 0 0 4px rgba(59,126,246,.22)}
+.fr-card{border:1px solid var(--bor);border-radius:var(--r);background:var(--sur2);padding:11px 13px}
+.fr-card.here{border-color:var(--acc)}
+.fr-card .h{display:flex;align-items:center;gap:9px}
+.fr-card .h b{font-size:13.5px}
+.fr-card .h .meta{font-size:11px;color:var(--t2)}
+.fr-card .h .sp{margin-left:auto;display:flex;align-items:center;gap:7px}
+.fr-here-tag{font-size:10px;font-weight:700;color:var(--acc);background:var(--bg-info);border:1px solid #93c5fd;border-radius:8px;padding:1px 8px}
+.fr-miss{font-size:11.5px;color:var(--t2);margin-top:7px;line-height:1.5}
+.fr-miss b{color:var(--ora);font-weight:700}
+/* liste de tâches détaillée à l'intérieur du nœud (design repris de A) */
+.fr-tasks{margin-top:10px;border-top:1px solid var(--bor2)}
+.fr-tasks .task{padding-left:2px;padding-right:0}
+.fr-act{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;justify-content:flex-end}
+.fr-end{position:relative;color:var(--t3);font-size:12.5px;font-weight:600;padding-top:3px}
+.fr-end .fr-dot{font-size:13px}
+
+/* ════ VARIANTE C — assistant pas-à-pas ════ */
+.as-rail{display:flex;gap:7px;justify-content:center;margin:2px 0 16px;flex-wrap:wrap}
+.as-rail .d{width:10px;height:10px;border-radius:50%;background:var(--sur3);cursor:pointer;transition:.15s}
+.as-rail .d.done{background:var(--grn)} .as-rail .d.act{background:var(--acc);box-shadow:0 0 0 3px rgba(59,126,246,.22)}
+.as-card{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;max-width:540px;margin:0 auto}
+.as-card .head{display:flex;align-items:center;gap:12px;padding:15px 16px;background:var(--sur2);border-bottom:1px solid var(--bor)}
+.as-card .head .big{width:46px;height:46px;border-radius:13px;background:var(--sur);border:1px solid var(--bor);display:grid;place-items:center;font-size:24px;flex:none}
+.as-card .head h4{margin:0;font-size:17px;font-family:'Manrope',sans-serif}
+.as-card .head .meta{font-size:12px;color:var(--t2);margin-top:2px}
+.as-card .head .sp{margin-left:auto;display:flex;align-items:center;gap:7px}
+.as-cta{padding:13px 16px;display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--bor2)}
+
+.mk-frame.phone .fc-hero .top{flex-wrap:wrap}
+.mk-frame.phone .fc-hero .pct{margin-left:0;width:100%}
+.mk-frame.phone .task{flex-wrap:wrap}
+.mk-frame.phone .task .go{width:auto;margin:3px 0 1px 34px}
+.mk-frame.phone .task .go .btn{width:auto}
+.mk-frame.phone .m-foot{flex-direction:column-reverse;align-items:stretch}
+.mk-frame.phone .m-foot .foot-btns{display:flex;gap:8px}
+.mk-frame.phone .m-foot .foot-btns .btn{flex:1;justify-content:center}
+.mk-frame.phone .fr-act .btn{flex:1;justify-content:center}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="mk-bar">
+  <h1>🧭 Fil rouge de complétion</h1>
+  <span class="mk-lbl">Approche</span>
+  <div class="mk-grp" id="grp-var">
+    <button data-var="B" class="on">B · Fil rouge + détail</button>
+    <button data-var="A">A · Tableau de bord</button>
+    <button data-var="C">C · Assistant pas-à-pas</button>
+  </div>
+  <span class="mk-lbl">Format</span>
+  <div class="mk-grp" id="grp-fmt">
+    <button data-fmt="pc" class="on">💻 PC</button>
+    <button data-fmt="tab">📱 Tablette</button>
+    <button data-fmt="phone">📱 Téléphone</button>
+  </div>
+  <div class="mk-grp" id="grp-theme">
+    <button data-theme-btn="light" class="on">☀️</button>
+    <button data-theme-btn="dark">🌙</button>
+  </div>
+  <p class="mk-note" id="mk-note"></p>
+</div>
+
+<div class="mk-stage">
+  <div class="mk-frame" id="frame">
+    <p class="mk-cap" id="cap"></p>
+    <div class="modal">
+      <div class="m-head">
+        <div>
+          <h3 id="m-title">✅ Import terminé — complétons les fiches</h3>
+          <div class="mu" id="m-sub">Chaque action ouvre l'écran d'édition habituel. Tu peux t'arrêter et reprendre quand tu veux.</div>
+        </div>
+        <button class="m-close">✕</button>
+      </div>
+      <div class="m-body" id="fc-body"></div>
+      <div class="m-foot" id="fc-foot"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = { variant:'B', fmt:'pc', cstep:0 };
+
+/* ── données : tout ce que l'import a posé + ce qu'il reste à compléter ── */
+const GROUPS = [
+  { kind:'bailleur', icon:'🏢', name:'SCI DEMO IMMO', sub:'Société bailleur', open:'openEnt',
+    tasks:[
+      {t:'Identité société', s:'done', d:'Nom, forme, SIREN, RCS, capital, siège'},
+      {t:'Gérant / représentant légal', s:'todo', d:'Nom du gérant'},
+      {t:'Coordonnées', s:'todo', d:'Email, téléphone'},
+      {t:'IBAN', s:'todo', d:'Nécessaire pour quittances & appels de loyer'},
+    ] },
+  { kind:'immeuble', icon:'🏠', name:'16 rue des Tilleuls', sub:'68100 Mulhouse', open:'openImm',
+    tasks:[
+      {t:'Adresse & cadastre', s:'done', d:'Adresse, contenance, surface totale'},
+      {t:'Prix d\'acquisition', s:'done', d:'285 000 € → valeur estimée'},
+      {t:'Copropriété', s:'done', d:'8 lots · syndic Foncia'},
+      {t:'Année de construction', s:'done', d:'1971'},
+      {t:'Équipements communs', s:'todo', d:'Ascenseur, interphone, local vélos…'},
+      {t:'DPE collectif', s:'todo'},
+    ] },
+  { kind:'bien', icon:'🚪', name:'Lot 5+6 — Appartement', sub:'RDC · 34,79 m²', badge:'loue', open:'openLog',
+    tasks:[
+      {t:'Caractéristiques', s:'done', d:'Surface, étage, tantièmes'},
+      {t:'N° fiscal du logement', s:'warn', d:'Obligatoire depuis 2024'},
+      {t:'Pièces & équipements', s:'todo'},
+      {t:'Bail repris', s:'warn', d:'Loyer 650 € + charges 80 € — état civil, clauses', a:'📋 Bail'},
+      {t:'DPE', s:'todo', d:'Dépôt PDF → n° → ADEME', a:'📊 DPE'},
+      {t:'Risques (ERP)', s:'todo', a:'⚠️ Risques'},
+    ] },
+  { kind:'bien', icon:'🚪', name:'Lot 7 — Appartement', sub:'1er · 28,10 m²', badge:'vacant', open:'openLog',
+    tasks:[
+      {t:'Caractéristiques', s:'done', d:'Surface, étage, tantièmes'},
+      {t:'N° fiscal du logement', s:'warn', d:'Obligatoire depuis 2024'},
+      {t:'Pièces & équipements', s:'todo'},
+      {t:'DPE', s:'todo', d:'Dépôt PDF → n° → ADEME', a:'📊 DPE'},
+      {t:'Risques (ERP)', s:'todo', a:'⚠️ Risques'},
+    ] },
+  { kind:'bien', icon:'🚪', name:'Lot 8 — Studio', sub:'2e · 15,60 m²', badge:'loue', open:'openLog',
+    tasks:[
+      {t:'Caractéristiques', s:'done', d:'Surface, étage, tantièmes'},
+      {t:'N° fiscal du logement', s:'warn', d:'Obligatoire depuis 2024'},
+      {t:'Pièces & équipements', s:'todo'},
+      {t:'Bail repris', s:'warn', d:'Loyer 430 € + charges 45 € — état civil, clauses', a:'📋 Bail'},
+      {t:'DPE', s:'todo', d:'Dépôt PDF → n° → ADEME', a:'📊 DPE'},
+      {t:'Risques (ERP)', s:'todo', a:'⚠️ Risques'},
+    ] },
+];
+
+/* ── helpers ── */
+const gauge = g => ({ done: g.tasks.filter(t=>t.s==='done').length, total: g.tasks.length });
+const isFull = g => gauge(g).done === gauge(g).total;
+const stIcon = s => s==='done' ? '<span class="st st-done">✓</span>'
+                  : s==='warn' ? '<span class="st st-warn">!</span>'
+                  : '<span class="st st-todo">○</span>';
+const badge = g => g.badge==='loue' ? '<span class="badge badge-loue">🔑 Loué</span>'
+                 : g.badge==='vacant' ? '<span class="badge badge-vacant">🏠 Vacant</span>' : '';
+const actionLabel = g => g.kind==='bailleur' ? 'Compléter le bailleur'
+                       : g.kind==='immeuble' ? "Compléter l'immeuble" : 'Compléter le logement';
+function globalPct(){
+  let d=0,t=0; GROUPS.forEach(g=>{ const x=gauge(g); d+=x.done; t+=x.total; });
+  return { done:d, total:t, pct: Math.round(d/t*100) };
+}
+function heroHtml(){
+  const G = globalPct();
+  return `<div class="fc-hero">
+    <div class="top">
+      <span class="big">🧭</span>
+      <div><h4>Configuration de ton patrimoine</h4>
+        <div class="sub">1 bailleur · 1 immeuble · 3 logements créés depuis l'acte. Il reste quelques infos à compléter.</div></div>
+      <span class="pct">${G.pct}%</span>
+    </div>
+    <div class="fc-bar"><i style="width:${G.pct}%"></i></div>
+    <div class="fc-later">💡 Rien d'obligatoire tout de suite : complète maintenant, ou reprends plus tard depuis chaque fiche (le fil rouge te ré-attend là où tu t'es arrêté).</div>
+  </div>`;
+}
+function taskRow(t){
+  return `<div class="task">${stIcon(t.s)}<div class="txt"><b>${t.t}</b>${t.d?`<span>${t.d}</span>`:''}</div>${t.a?`<div class="go"><button class="btn ${t.s==='warn'?'bp':'bs'} sm">${t.a}</button></div>`:''}</div>`;
+}
+
+/* ════ VARIANTE A — tableau de bord ════ */
+function renderA(){
+  let h = heroHtml();
+  GROUPS.forEach(g=>{
+    const x = gauge(g), full = x.done===x.total;
+    h += `<div class="fc-card">
+      <div class="fc-card-h"><span class="ic">${g.icon}</span>
+        <div><b>${g.name}</b><div class="meta">${g.sub}</div></div>
+        <div class="sp">${badge(g)}<span class="fc-gauge ${full?'full':'part'}">${x.done}/${x.total}</span></div>
+      </div>
+      ${g.tasks.map(taskRow).join('')}
+      <div class="fc-card-foot"><button class="btn bp sm">${actionLabel(g)} →</button></div>
+    </div>`;
+  });
+  document.getElementById('fc-body').innerHTML = h;
+  footStd();
+}
+
+/* ════ VARIANTE B — fil rouge (timeline) ════ */
+function renderB(){
+  const firstIncomplete = GROUPS.findIndex(g=>!isFull(g));
+  let nodes = '';
+  GROUPS.forEach((g,i)=>{
+    const x = gauge(g), full = x.done===x.total, here = i===firstIncomplete;
+    const dotCls = full ? 'done' : (here ? 'part here' : 'part');
+    const dotTxt = full ? '✓' : (i+1);
+    nodes += `<div class="fr-node">
+      <div class="fr-dot ${dotCls}">${dotTxt}</div>
+      <div class="fr-card ${here?'here':''}">
+        <div class="h"><span>${g.icon}</span><div><b>${g.name}</b><div class="meta">${g.sub}</div></div>
+          <div class="sp">${badge(g)}${here?'<span class="fr-here-tag">à compléter</span>':''}<span class="fc-gauge ${full?'full':'part'}">${x.done}/${x.total}</span></div></div>
+        ${full ? '' : `
+        <div class="fr-tasks">${g.tasks.map(taskRow).join('')}</div>
+        <div class="fr-act"><button class="btn bp sm">${actionLabel(g)} →</button></div>`}
+      </div>
+    </div>`;
+  });
+  nodes += `<div class="fr-node fr-end"><div class="fr-dot">🎉</div>Configuration terminée — tout est prêt pour la gestion locative.</div>`;
+  const G = globalPct();
+  document.getElementById('fc-body').innerHTML =
+    heroHtml() + `<div class="fr-wrap"><div class="fr-line"><i style="height:${G.pct}%"></i></div>${nodes}</div>`;
+  footStd();
+}
+
+/* ════ VARIANTE C — assistant pas-à-pas ════ */
+function renderC(){
+  const g = GROUPS[S.cstep], x = gauge(g), full = x.done===x.total;
+  const rail = GROUPS.map((gg,i)=>`<span class="d ${i<S.cstep?'done':''} ${i===S.cstep?'act':''}" onclick="goC(${i})"></span>`).join('');
+  const chips = g.tasks.filter(t=>t.a).map(t=>`<button class="btn ${t.s==='warn'?'bp':'bs'} sm">${t.a}</button>`).join('');
+  const G = globalPct();
+  document.getElementById('fc-body').innerHTML =
+    heroHtml().replace('fc-later">💡', 'fc-later" style="display:none">💡')
+    + `<div class="as-rail">${rail}</div>
+    <div class="as-card">
+      <div class="head"><span class="big">${g.icon}</span>
+        <div><h4>${g.name}</h4><div class="meta">${g.sub}</div></div>
+        <div class="sp">${badge(g)}<span class="fc-gauge ${full?'full':'part'}">${x.done}/${x.total}</span></div></div>
+      ${g.tasks.map(taskRow).join('')}
+      <div class="as-cta"><button class="btn bp">${actionLabel(g)} →</button>${chips}</div>
+    </div>`;
+  // pied de page spécifique assistant
+  const last = S.cstep===GROUPS.length-1;
+  document.getElementById('fc-foot').innerHTML =
+    `<span class="hint">Fiche ${S.cstep+1} / ${GROUPS.length} · ${G.pct}% complété</span>
+     <div class="foot-btns">
+       <button class="btn bs" ${S.cstep===0?'disabled style="opacity:.4"':''} onclick="goC(${S.cstep-1})">‹ Précédent</button>
+       <button class="btn ${last?'bp':'bs'}" onclick="${last?'':'goC('+(S.cstep+1)+')'}">${last?'Terminer ✓':'Passer ›'}</button>
+     </div>`;
+}
+function goC(i){ S.cstep = Math.max(0, Math.min(GROUPS.length-1, i)); renderC(); }
+
+/* pied de page standard (A & B) */
+function footStd(){
+  document.getElementById('fc-foot').innerHTML =
+    `<span class="hint">Tu peux fermer : chaque fiche reste accessible depuis la page Biens.</span>
+     <div class="foot-btns"><button class="btn bs">Plus tard</button><button class="btn bp">Aller aux biens ›</button></div>`;
+}
+
+/* ── contrôles ── */
+const CAPS = {
+  B:'<b>Approche B — Fil rouge + détail (fusion B×A).</b> La ligne verticale connecte les fiches dans l\'ordre (Bailleur → Immeuble → chaque Bien) et se remplit avec l\'avancement ; la pastille « à compléter » montre où reprendre. Mais chaque nœud ouvre la liste détaillée des tâches avec statut ✓ / ! / ○ (le design de A), pour voir précisément ce qui manque. Les fiches complètes restent repliées.',
+  A:'<b>Approche A — Tableau de bord.</b> Toutes les fiches empilées, chacune avec sa jauge (x/y) et ses tâches. Scannable d\'un coup d\'œil, rien de séquentiel — on attaque ce qu\'on veut.',
+  C:'<b>Approche C — Assistant pas-à-pas.</b> Une fiche à la fois, barre de progression + pastilles cliquables. « Passer › » pour avancer, « Plus tard » pour sortir. Plus directif.'
+};
+const NOTES = {
+  B:'Le nœud bleu = « tu es ici ». Les boutons ouvrent les écrans existants (openEnt / openImm / openLog · bail · diagnostics).',
+  A:'Chaque carte a un bouton « Compléter » + actions inline (bail / DPE / risques). Tout est ouvrable, dans n\'importe quel ordre.',
+  C:'Teste les pastilles et « Passer › / Précédent ». « Plus tard » sort sans rien perdre.'
+};
+function applyVar(){
+  document.getElementById('cap').innerHTML = CAPS[S.variant];
+  document.getElementById('mk-note').innerHTML = NOTES[S.variant];
+  if(S.variant==='A') renderA(); else if(S.variant==='B') renderB(); else renderC();
+}
+document.querySelectorAll('#grp-var button').forEach(b=>b.onclick=()=>{
+  S.variant=b.dataset.var; document.querySelectorAll('#grp-var button').forEach(x=>x.classList.toggle('on',x===b)); applyVar();
+});
+document.querySelectorAll('#grp-fmt button').forEach(b=>b.onclick=()=>{
+  S.fmt=b.dataset.fmt; document.querySelectorAll('#grp-fmt button').forEach(x=>x.classList.toggle('on',x===b));
+  const f=document.getElementById('frame'); f.className='mk-frame'+(S.fmt==='pc'?'':' '+S.fmt);
+});
+document.querySelectorAll('#grp-theme button').forEach(b=>b.onclick=()=>{
+  document.documentElement.setAttribute('data-theme',b.dataset.themeBtn);
+  document.querySelectorAll('#grp-theme button').forEach(x=>x.classList.toggle('on',x===b));
+});
+applyVar();
+</script>
+</body>
+</html>

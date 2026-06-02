@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import acte — Vérif à plat vs Déroulé guidé</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   TOKENS — copiés depuis css/main.css (light + dark) pour fidélité au design system
+───────────────────────────────────────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.93); --sur2:rgba(242,246,251,.97); --sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09); --bor2:rgba(0,0,0,.05);
+  --t1:#1a2332; --t2:#5a6e87; --t3:#9aabbf;
+  --grn:#16a34a; --red:#dc2626; --ora:#ea580c; --acc:#3b7ef6; --blu:#3b7ef6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(22,163,74,.10); --bg-danger:rgba(220,38,38,.10);
+  --bg-warning:rgba(234,88,12,.12); --bg-info:rgba(59,126,246,.10);
+}
+[data-theme="dark"]{
+  --bg:#0A0E27;
+  --sur:#141a35; --sur2:#1b2244; --sur3:#232b52;
+  --bor:rgba(255,255,255,.10); --bor2:rgba(255,255,255,.05);
+  --t1:#e8ecf6; --t2:#9aa6c4; --t3:#6b779a;
+  --grn:#10B981; --red:#EF4444; --ora:#F59E0B; --acc:#0E73F6; --blu:#0E73F6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(16,185,129,.14); --bg-danger:rgba(239,68,68,.14);
+  --bg-warning:rgba(245,158,11,.14); --bg-info:rgba(14,115,246,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif}
+
+/* ── barre de contrôle du mockup (hors design app) ── */
+.mk-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+  padding:12px 18px;background:#0f172a;color:#e2e8f0;border-bottom:1px solid #1e293b}
+.mk-bar h1{font-family:'Manrope',sans-serif;font-size:14px;margin:0;font-weight:800;letter-spacing:-.2px}
+.mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:10px;padding:3px}
+.mk-grp button{border:none;background:transparent;color:#94a3b8;font:inherit;font-size:12.5px;font-weight:600;
+  padding:6px 12px;border-radius:7px;cursor:pointer;transition:.15s}
+.mk-grp button.on{background:var(--acc);color:#fff}
+.mk-grp button:not(.on):hover{color:#e2e8f0}
+.mk-lbl{font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.mk-note{font-size:11.5px;color:#94a3b8;margin-left:auto;max-width:340px;line-height:1.4}
+
+.mk-stage{padding:26px 16px 60px;display:flex;justify-content:center}
+.mk-frame{width:980px;max-width:100%;transition:width .25s ease}
+.mk-frame.tab{width:760px} .mk-frame.phone{width:390px}
+.mk-cap{font-size:11.5px;color:var(--t2);text-align:center;margin:0 0 8px}
+.mk-cap b{color:var(--t1)}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   COMPOSANTS APP — modal, stepper, .acte-*, .inp, .btn (copiés/condensés)
+───────────────────────────────────────────────────────────────────────── */
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.22);backdrop-filter:blur(8px)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:16px;font-weight:700;font-family:'Manrope',sans-serif;margin:0}
+.m-head .mu{font-size:11.5px;color:var(--t2)}
+.m-close{background:none;border:none;color:var(--t2);cursor:pointer;font-size:19px;padding:4px;border-radius:6px}
+.m-body{padding:22px;max-height:60vh;overflow-y:auto}
+.m-foot{padding:14px 22px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:8px;
+  background:var(--sur2);align-items:center;flex-wrap:wrap}
+
+.inp{width:100%;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);
+  padding:9px 12px;font-size:13.5px;font-family:inherit}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.12)}
+select.inp{cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;
+  cursor:pointer;font-size:13.5px;font-weight:500;font-family:inherit;transition:.15s;white-space:nowrap}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+
+.acte-stepper{display:flex;gap:6px;align-items:center;padding:12px 22px;background:var(--sur2);border-bottom:1px solid var(--bor);overflow-x:auto}
+.acte-stp{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t3);font-weight:600;white-space:nowrap}
+.acte-stp .n{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+.acte-stp.act{color:var(--acc)} .acte-stp.act .n{background:var(--acc);color:#fff;border-color:var(--acc)}
+.acte-stp.done{color:var(--grn)} .acte-stp.done .n{background:var(--grn);color:#fff;border-color:var(--grn)}
+.acte-stp-sep{color:var(--t3)}
+
+.acte-sec{border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:16px;overflow:hidden}
+.acte-sec-h{background:var(--sur2);padding:10px 14px;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:9px}
+.acte-sec-h .ic{width:26px;height:26px;border-radius:7px;background:var(--sur);border:1px solid var(--bor);display:grid;place-items:center;font-size:14px}
+.acte-sec-h b{font-size:13.5px} .acte-sec-h .count{margin-left:auto;font-size:11px;color:var(--t2);font-weight:600}
+.acte-sec-body{padding:14px}
+.acte-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.acte-fg{display:flex;flex-direction:column;gap:4px}
+.acte-fg label{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
+.acte-sgtag{font-size:9.5px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:8px;padding:1px 7px;text-transform:none;letter-spacing:0}
+[data-theme="dark"] .acte-sgtag{background:rgba(251,191,36,.18);color:#fcd34d}
+.acte-src-link{font-size:10.5px;color:var(--acc);cursor:pointer;user-select:none;display:inline-block;margin-top:3px}
+.acte-src{display:none;font-size:11px;color:var(--t2);font-style:italic;background:var(--sur2);border-left:2px solid var(--bor2);padding:5px 9px;margin-top:4px;border-radius:0 5px 5px 0;line-height:1.45}
+.acte-src.show{display:block}
+.acte-sg{background:#fffdf3;border-color:#fcd34d}
+[data-theme="dark"] .acte-sg{background:rgba(251,191,36,.12)}
+.acte-dup{background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid var(--ora);border-radius:var(--r);padding:11px 13px;font-size:12.5px;color:#92400e;margin-bottom:12px}
+[data-theme="dark"] .acte-dup{background:rgba(251,191,36,.1);color:#fcd34d}
+.acte-interp{font-size:11px;color:var(--grn);background:var(--bg-success);border:1px solid #86efac;border-radius:5px;padding:6px 9px;margin-top:8px;line-height:1.45}
+.acte-lgmt{border:1px solid #fcd34d;border-radius:var(--r);padding:11px 13px;margin-bottom:8px;background:#fffdf3}
+[data-theme="dark"] .acte-lgmt{background:rgba(251,191,36,.08)}
+.acte-add-row{width:100%;border:1px dashed var(--bor);background:var(--sur2);border-radius:var(--r);padding:9px;cursor:pointer;font-size:12px;color:var(--t2);font-weight:600;margin-top:4px}
+.acte-icon-btn{border:1px solid var(--bor);background:var(--sur);border-radius:var(--r);width:28px;height:28px;cursor:pointer;font-size:13px;color:var(--t2)}
+.acte-hint{font-size:11.5px;color:var(--ora)}
+
+/* ── Variante B : rail de progression du déroulé + carte focus ── */
+.dr-rail{display:flex;gap:6px;align-items:center;padding:10px 22px;background:var(--sur);border-bottom:1px solid var(--bor);overflow-x:auto}
+.dr-chip{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--t3);
+  border:1px solid var(--bor);background:var(--sur2);border-radius:20px;padding:4px 11px;white-space:nowrap;cursor:pointer}
+.dr-chip .d{width:7px;height:7px;border-radius:50%;background:var(--t3)}
+.dr-chip.done{color:var(--grn);border-color:#86efac;background:var(--bg-success)} .dr-chip.done .d{background:var(--grn)}
+.dr-chip.act{color:#fff;background:var(--acc);border-color:var(--acc)} .dr-chip.act .d{background:#fff}
+.dr-count{font-size:11px;color:var(--t2);font-weight:700;margin-left:auto;white-space:nowrap}
+.dr-card{max-width:560px;margin:6px auto 0}
+.dr-card .head{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.dr-card .head .big{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:24px;background:var(--sur2);border:1px solid var(--bor)}
+.dr-card .head h4{margin:0;font-size:18px;font-family:'Manrope',sans-serif}
+.dr-card .head .sub{font-size:12px;color:var(--t2);margin-top:2px}
+.dr-help{font-size:12px;color:var(--t2);background:var(--bg-info);border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;padding:9px 12px;margin:12px 0 16px;line-height:1.5}
+.dr-card .acte-fg label{font-size:12px}
+.dr-card .inp{padding:11px 13px;font-size:14.5px}
+.dr-progress-line{height:4px;background:var(--sur3);border-radius:3px;overflow:hidden;margin:0 0 4px}
+.dr-progress-line>i{display:block;height:100%;background:var(--acc);border-radius:3px;transition:width .25s}
+
+/* récap (réutilisé pour la fin du déroulé) */
+.acte-recap-card{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden}
+.acte-recap-line{display:flex;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid var(--bor2)}
+.acte-recap-line:last-child{border-bottom:none}
+.acte-recap-line .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:15px;flex:none;background:var(--sur2)}
+.acte-recap-line .txt b{font-size:13px} .acte-recap-line .txt div{font-size:11.5px;color:var(--t2)}
+.acte-recap-line .tag{margin-left:auto;font-size:10.5px;font-weight:700;border-radius:10px;padding:2px 9px}
+.acte-tag-new{background:var(--bg-success);color:var(--grn);border:1px solid #86efac}
+.acte-tag-link{background:var(--bg-info);color:var(--acc);border:1px solid #93c5fd}
+.acte-rgpd{margin-top:14px;background:var(--bg-info);border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;padding:9px 13px;font-size:11.5px;color:var(--t1);line-height:1.5}
+
+/* responsive émulé via classes conteneur (le @media réel se base sur le viewport) */
+.mk-frame.phone .acte-grid2{grid-template-columns:1fr}
+.mk-frame.phone .acte-stp .lbl{display:none}
+.mk-frame.phone .lgmt-row2{flex-direction:column !important}
+.mk-frame.phone .m-foot{flex-direction:column-reverse;align-items:stretch}
+.mk-frame.phone .m-foot .foot-btns{display:flex;gap:8px}
+.mk-frame.phone .m-foot .foot-btns .btn{flex:1;justify-content:center}
+.mk-frame.phone .dr-card .head h4{font-size:16px}
+.mk-frame.tab .acte-grid2{gap:10px}
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="mk-bar">
+  <h1>📜 Import acte — comparatif</h1>
+  <span class="mk-lbl">Variante</span>
+  <div class="mk-grp" id="grp-var">
+    <button data-var="A" class="on">A · Vérif à plat <span style="opacity:.7">(actuel)</span></button>
+    <button data-var="B">B · Déroulé guidé</button>
+  </div>
+  <span class="mk-lbl">Format</span>
+  <div class="mk-grp" id="grp-fmt">
+    <button data-fmt="pc" class="on">💻 PC</button>
+    <button data-fmt="tab">📱 Tablette</button>
+    <button data-fmt="phone">📱 Téléphone</button>
+  </div>
+  <div class="mk-grp" id="grp-theme">
+    <button data-theme-btn="light" class="on">☀️</button>
+    <button data-theme-btn="dark">🌙</button>
+  </div>
+  <p class="mk-note" id="mk-note"></p>
+</div>
+
+<div class="mk-stage">
+  <div class="mk-frame" id="frame">
+    <p class="mk-cap" id="cap"></p>
+
+    <!-- ════════════════ VARIANTE A — VÉRIF À PLAT (état actuel) ════════════════ -->
+    <div class="modal" id="view-A">
+      <div class="m-head">
+        <div>
+          <h3>📜 Importer un acte de vente</h3>
+          <div class="mu">Crée bailleur, immeuble et logements — tout « ✨ à vérifier ».</div>
+        </div>
+        <button class="m-close">✕</button>
+      </div>
+      <div class="acte-stepper">
+        <div class="acte-stp done"><span class="n">✓</span><span class="lbl">Dépôt de l'acte</span></div>
+        <span class="acte-stp-sep">›</span>
+        <div class="acte-stp act"><span class="n">2</span><span class="lbl">Vérification</span></div>
+        <span class="acte-stp-sep">›</span>
+        <div class="acte-stp"><span class="n">3</span><span class="lbl">Création</span></div>
+      </div>
+      <div class="m-body">
+        <!-- BAILLEUR -->
+        <div class="acte-sec">
+          <div class="acte-sec-h"><span class="ic">🏢</span><b>Bailleur (société)</b><span class="count">nouvelle entité</span></div>
+          <div class="acte-sec-body">
+            <div class="acte-grid2">
+              <div class="acte-fg"><label>Dénomination <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="SCI DEMO IMMO"></div>
+              <div class="acte-fg"><label>Forme juridique <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="SCI"></div>
+            </div>
+            <div class="acte-grid2" style="margin-top:12px">
+              <div class="acte-fg"><label>SIREN <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="123 456 789">
+                <span class="acte-src-link" onclick="this.nextElementSibling.classList.toggle('show')">ⓘ d'après l'acte</span>
+                <div class="acte-src">« …immatriculée au RCS sous le numéro 123 456 789… »</div>
+              </div>
+              <div class="acte-fg"><label>RCS (ville) <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="Colmar"></div>
+            </div>
+            <div class="acte-fg" style="margin-top:12px"><label>Capital social (€) <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="1000"></div>
+            <div class="acte-grid2" style="margin-top:12px">
+              <div class="acte-fg"><label>Code postal du siège <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="68000"></div>
+              <div class="acte-fg"><label>Ville du siège <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="COLMAR"></div>
+            </div>
+            <div class="acte-fg" style="margin-top:12px"><label>Adresse du siège <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="10 rue de l'Exemple"></div>
+          </div>
+        </div>
+        <!-- IMMEUBLE -->
+        <div class="acte-sec">
+          <div class="acte-sec-h"><span class="ic">🏠</span><b>Immeuble</b><span class="count">nouveau bien</span></div>
+          <div class="acte-sec-body">
+            <div class="acte-fg"><label>Adresse <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="16 rue des Tilleuls"></div>
+            <div class="acte-grid2" style="margin-top:12px">
+              <div class="acte-fg"><label>Code postal <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="68100"></div>
+              <div class="acte-fg"><label>Ville <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="MULHOUSE"></div>
+            </div>
+            <div class="acte-grid2" style="margin-top:12px">
+              <div class="acte-fg"><label>Contenance cadastrale <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="2 a 15 ca"></div>
+              <div class="acte-fg"><label>Surface totale (m²) <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="78,40"></div>
+            </div>
+          </div>
+        </div>
+        <!-- LOGEMENTS -->
+        <div class="acte-sec">
+          <div class="acte-sec-h"><span class="ic">🚪</span><b>Logements</b><span class="count">3 logement(s)</span></div>
+          <div class="acte-sec-body">
+            <div class="acte-interp">🔎 L'acte décrit 4 lots de copropriété. Vérifie et ajuste — chaque ligne devient un logement.</div>
+            <div class="acte-interp" style="background:var(--bg-info);color:var(--acc);border-color:#93c5fd">🧩 L'app a regroupé les lots 5 + 6 en un seul logement (Carrez 34,79 m²). Vérifie ce regroupement.</div>
+            <div class="acte-lgmt">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.2"><label>Référence</label><input class="inp" value="Lot 5+6"></div>
+                <div class="acte-fg" style="flex:1.4"><label>Type</label><input class="inp" value="Appartement"></div>
+                <div class="acte-fg" style="flex:1"><label>Étage</label><input class="inp" value="RDC"></div>
+                <button class="acte-icon-btn">🗑</button>
+              </div>
+              <div class="lgmt-row2" style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+                <div class="acte-fg" style="flex:1"><label>Surface (m²)</label><input class="inp" value="34,79"></div>
+                <div class="acte-fg" style="flex:1"><label>N° de lot</label><input class="inp" value="5+6"></div>
+                <div class="acte-fg" style="flex:1.2"><label>Tantièmes</label><input class="inp" value="21/1000"></div>
+              </div>
+            </div>
+            <div class="acte-lgmt">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.2"><label>Référence</label><input class="inp" value="Lot 7"></div>
+                <div class="acte-fg" style="flex:1.4"><label>Type</label><input class="inp" value="Appartement"></div>
+                <div class="acte-fg" style="flex:1"><label>Étage</label><input class="inp" value="1er"></div>
+                <button class="acte-icon-btn">🗑</button>
+              </div>
+              <div class="lgmt-row2" style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+                <div class="acte-fg" style="flex:1"><label>Surface (m²)</label><input class="inp" value="28,10"></div>
+                <div class="acte-fg" style="flex:1"><label>N° de lot</label><input class="inp" value="7"></div>
+                <div class="acte-fg" style="flex:1.2"><label>Tantièmes</label><input class="inp" value="15/1000"></div>
+              </div>
+            </div>
+            <div class="acte-lgmt">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.2"><label>Référence</label><input class="inp" value="Lot 8"></div>
+                <div class="acte-fg" style="flex:1.4"><label>Type</label><input class="inp" value="Studio"></div>
+                <div class="acte-fg" style="flex:1"><label>Étage</label><input class="inp" value="2e"></div>
+                <button class="acte-icon-btn">🗑</button>
+              </div>
+              <div class="lgmt-row2" style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+                <div class="acte-fg" style="flex:1"><label>Surface (m²)</label><input class="inp" value="15,60"></div>
+                <div class="acte-fg" style="flex:1"><label>N° de lot</label><input class="inp" value="8"></div>
+                <div class="acte-fg" style="flex:1.2"><label>Tantièmes</label><input class="inp" value="9/1000"></div>
+              </div>
+            </div>
+            <button class="acte-add-row">＋ Ajouter un logement</button>
+          </div>
+        </div>
+        <!-- ANNEXES -->
+        <div class="acte-sec">
+          <div class="acte-sec-h"><span class="ic">📦</span><b>Annexes</b><span class="count">2 détectée(s)</span></div>
+          <div class="acte-sec-body">
+            <div class="acte-interp">🔎 L'acte mentionne des dépendances. Indique pour chacune ce qu'elle devient.</div>
+            <div class="acte-lgmt" style="margin-top:10px">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.4"><label>Annexe</label><div class="inp" style="background:var(--sur2);display:flex;align-items:center">🍷 Cave · lot 12</div></div>
+                <div class="acte-fg" style="flex:1.6"><label>Que devient-elle ?</label>
+                  <select class="inp"><option>🔗 Rattacher à un logement</option><option>🏷 Créer comme bien à louer</option><option>✕ Ignorer</option></select></div>
+              </div>
+            </div>
+            <div class="acte-lgmt">
+              <div style="display:flex;gap:8px;align-items:flex-end">
+                <div class="acte-fg" style="flex:1.4"><label>Annexe</label><div class="inp" style="background:var(--sur2);display:flex;align-items:center">🚗 Garage · 2</div></div>
+                <div class="acte-fg" style="flex:1.6"><label>Que devient-elle ?</label>
+                  <select class="inp"><option>🔗 Rattacher à un logement</option><option selected>🏷 Créer comme bien à louer</option><option>✕ Ignorer</option></select></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="m-foot">
+        <span class="acte-hint">✨ Vérifie chaque champ suggéré avant de continuer.</span>
+        <div class="foot-btns" style="display:flex;gap:8px">
+          <button class="btn bs">‹ Retour</button>
+          <button class="btn bp">Continuer ›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ VARIANTE B — DÉROULÉ GUIDÉ ════════════════ -->
+    <div class="modal hidden" id="view-B">
+      <div class="m-head">
+        <div>
+          <h3>📜 Importer un acte de vente</h3>
+          <div class="mu">On complète une fiche à la fois — tout « ✨ à vérifier ».</div>
+        </div>
+        <button class="m-close">✕</button>
+      </div>
+      <div class="acte-stepper">
+        <div class="acte-stp done"><span class="n">✓</span><span class="lbl">Dépôt de l'acte</span></div>
+        <span class="acte-stp-sep">›</span>
+        <div class="acte-stp act"><span class="n">2</span><span class="lbl">Déroulé guidé</span></div>
+        <span class="acte-stp-sep">›</span>
+        <div class="acte-stp"><span class="n">3</span><span class="lbl">Création</span></div>
+      </div>
+      <!-- rail des sous-étapes -->
+      <div class="dr-rail" id="dr-rail"></div>
+      <div class="m-body">
+        <div class="dr-progress-line"><i id="dr-bar" style="width:14%"></i></div>
+        <div class="dr-card" id="dr-card"><!-- injecté --></div>
+      </div>
+      <div class="m-foot">
+        <button class="btn bs" id="dr-prev">‹ Précédent</button>
+        <span class="acte-hint" id="dr-hint"></span>
+        <div class="foot-btns" style="display:flex;gap:8px">
+          <button class="btn bp" id="dr-next">Suivant ›</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── état du mockup ── */
+const S = { variant:'A', fmt:'pc', step:0 };
+
+/* sous-étapes de la variante B (déroulé guidé) */
+const STEPS = [
+  { key:'bailleur', icon:'🏢', label:'Bailleur', title:'SCI DEMO IMMO',
+    sub:'Société · acquéreur de l\'acte', help:"On commence par qui achète. Ces champs viennent de l'acte, vérifie-les puis passe à la suite.",
+    fields:[ ['Dénomination','SCI DEMO IMMO'],['Forme','SCI'],['SIREN','123 456 789'],['RCS (ville)','Colmar'],
+             ['Capital (€)','1000'],['Adresse du siège','10 rue de l\'Exemple'],['CP','68000'],['Ville','COLMAR'] ] },
+  { key:'immeuble', icon:'🏠', label:'Immeuble', title:'16 rue des Tilleuls',
+    sub:'Le bâtiment qui contient les logements', help:"L'adresse de l'immeuble + les surfaces cadastrales relevées dans l'acte.",
+    fields:[ ['Adresse','16 rue des Tilleuls'],['Code postal','68100'],['Ville','MULHOUSE'],
+             ['Contenance cadastrale','2 a 15 ca'],['Surface totale (m²)','78,40'] ] },
+  { key:'bien1', icon:'🚪', label:'Bien 1', title:'Lot 5+6 — Appartement',
+    sub:'Logement 1 sur 3', note:'🧩 Lots 5 + 6 regroupés en un seul logement (Carrez 34,79 m²). Vérifie ce regroupement.',
+    help:"Un seul logement à l'écran : tu vérifies sa surface, son étage et ses tantièmes sans te perdre.",
+    fields:[ ['Référence','Lot 5+6'],['Type','Appartement'],['Étage','RDC'],['Surface (m²)','34,79'],['N° de lot','5+6'],['Tantièmes','21/1000'] ] },
+  { key:'bien2', icon:'🚪', label:'Bien 2', title:'Lot 7 — Appartement',
+    sub:'Logement 2 sur 3', help:"Logement suivant. Même structure : tu avances pas à pas.",
+    fields:[ ['Référence','Lot 7'],['Type','Appartement'],['Étage','1er'],['Surface (m²)','28,10'],['N° de lot','7'],['Tantièmes','15/1000'] ] },
+  { key:'bien3', icon:'🚪', label:'Bien 3', title:'Lot 8 — Studio',
+    sub:'Logement 3 sur 3', help:"Dernier logement avant les annexes.",
+    fields:[ ['Référence','Lot 8'],['Type','Studio'],['Étage','2e'],['Surface (m²)','15,60'],['N° de lot','8'],['Tantièmes','9/1000'] ] },
+  { key:'annexes', icon:'📦', label:'Annexes', title:'2 dépendances',
+    sub:'Caves, garages, parkings', help:"Pour chaque annexe : la rattacher à un logement, la créer comme bien à louer, ou l'ignorer.",
+    annexes:[ ['🍷 Cave · lot 12','rattacher'],['🚗 Garage · 2','bien'] ] },
+  { key:'recap', icon:'✓', label:'Récap', title:'Tout est prêt',
+    sub:'Dernière vérification avant création', recap:true,
+    help:"Récapitulatif. En validant, l'app crée le bailleur, l'immeuble et les 3 logements." }
+];
+
+function renderRail(){
+  const rail = document.getElementById('dr-rail');
+  rail.innerHTML = STEPS.map((s,i)=>{
+    const cls = i<S.step ? 'done' : (i===S.step ? 'act' : '');
+    return `<div class="dr-chip ${cls}" onclick="goStep(${i})"><span class="d"></span>${s.icon} ${s.label}${i<S.step?' ✓':''}</div>`;
+  }).join('') + `<span class="dr-count">Étape ${S.step+1} / ${STEPS.length}</span>`;
+}
+function fld(label,val){
+  return `<div class="acte-fg" style="margin-bottom:12px"><label>${label} <span class="acte-sgtag">✨ à vérifier</span></label><input class="inp acte-sg" value="${val}"></div>`;
+}
+function renderCard(){
+  const s = STEPS[S.step];
+  let body = `<div class="head"><span class="big">${s.icon}</span><div><h4>${s.title}</h4><div class="sub">${s.sub||''}</div></div></div>`;
+  body += `<div class="dr-help">💡 ${s.help}</div>`;
+  if(s.note) body += `<div class="acte-interp" style="background:var(--bg-info);color:var(--acc);border-color:#93c5fd;margin-bottom:14px">${s.note}</div>`;
+  if(s.fields){
+    // 2 colonnes sur PC/tablette, 1 sur phone (géré par .acte-grid2)
+    body += `<div class="acte-grid2">` + s.fields.map(f=>fld(f[0],f[1])).join('') + `</div>`;
+  }
+  if(s.annexes){
+    body += s.annexes.map(a=>`
+      <div class="acte-lgmt" style="background:var(--sur2);border-color:var(--bor)">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div class="acte-fg" style="flex:1.3"><label>Annexe</label><div class="inp" style="display:flex;align-items:center">${a[0]}</div></div>
+          <div class="acte-fg" style="flex:1.7"><label>Que devient-elle ?</label>
+            <select class="inp">
+              <option ${a[1]==='rattacher'?'selected':''}>🔗 Rattacher à un logement</option>
+              <option ${a[1]==='bien'?'selected':''}>🏷 Créer comme bien à louer</option>
+              <option>✕ Ignorer</option>
+            </select></div>
+        </div>
+      </div>`).join('');
+  }
+  if(s.recap){
+    body += `<div class="acte-recap-card">
+      <div class="acte-recap-line"><span class="ic">🏢</span><div class="txt"><b>SCI DEMO IMMO</b><div>SCI · SIREN 123 456 789 · 68000 COLMAR</div></div><span class="tag acte-tag-new">nouveau</span></div>
+      <div class="acte-recap-line"><span class="ic">🏠</span><div class="txt"><b>16 rue des Tilleuls</b><div>68100 MULHOUSE · 78,40 m²</div></div><span class="tag acte-tag-new">nouveau</span></div>
+      <div class="acte-recap-line"><span class="ic">🚪</span><div class="txt"><b>3 logement(s)</b><div>Lot 5+6, Lot 7, Lot 8</div></div><span class="tag acte-tag-new">3 nouveaux</span></div>
+      <div class="acte-recap-line"><span class="ic">📦</span><div class="txt"><b>2 annexe(s)</b><div>Cave rattachée · 1 garage en bien</div></div><span class="tag acte-tag-link">mixte</span></div>
+    </div>
+    <div class="acte-rgpd">ℹ️ <b>Dernière étape.</b> En validant, l'app crée le bailleur, l'immeuble et les logements. Tout reste modifiable ensuite.</div>`;
+  }
+  document.getElementById('dr-card').innerHTML = body;
+  document.getElementById('dr-bar').style.width = Math.round((S.step+1)/STEPS.length*100)+'%';
+  // boutons
+  document.getElementById('dr-prev').style.visibility = S.step===0 ? 'hidden':'visible';
+  const next = document.getElementById('dr-next');
+  next.textContent = S.step===STEPS.length-1 ? "Valider l'import ✓" : 'Suivant ›';
+  next.className = 'btn bp';
+  const hint = document.getElementById('dr-hint');
+  hint.textContent = S.step===STEPS.length-1 ? '' : (s.fields?'Vérifie puis continue.':'');
+  renderRail();
+}
+function goStep(i){ S.step = Math.max(0,Math.min(STEPS.length-1,i)); renderCard(); }
+document.getElementById('dr-prev').onclick = ()=>goStep(S.step-1);
+document.getElementById('dr-next').onclick = ()=>{ if(S.step<STEPS.length-1) goStep(S.step+1); };
+
+/* ── contrôles ── */
+const CAPS = {
+  A:'<b>Variante A — Vérif à plat (actuel).</b> Tout sur un seul écran défilant : tu vois et corriges tout d\'un coup. Dense mais complet.',
+  B:'<b>Variante B — Déroulé guidé.</b> Une fiche à la fois (Bailleur → Immeuble → Bien 1..N → Annexes → Récap). Clique « Suivant » pour avancer.'
+};
+function applyVariant(){
+  document.getElementById('view-A').classList.toggle('hidden', S.variant!=='A');
+  document.getElementById('view-B').classList.toggle('hidden', S.variant!=='B');
+  document.getElementById('cap').innerHTML = CAPS[S.variant];
+  document.getElementById('mk-note').innerHTML = S.variant==='B'
+    ? 'Variante B : les boutons Précédent/Suivant et les pastilles du rail sont cliquables — teste le parcours.'
+    : 'Variante A : toggle « ⓘ d\'après l\'acte » cliquable. Compare la densité avec la variante B.';
+  if(S.variant==='B') renderCard();
+}
+document.querySelectorAll('#grp-var button').forEach(b=>b.onclick=()=>{
+  S.variant=b.dataset.var; document.querySelectorAll('#grp-var button').forEach(x=>x.classList.toggle('on',x===b)); applyVariant();
+});
+document.querySelectorAll('#grp-fmt button').forEach(b=>b.onclick=()=>{
+  S.fmt=b.dataset.fmt; document.querySelectorAll('#grp-fmt button').forEach(x=>x.classList.toggle('on',x===b));
+  const f=document.getElementById('frame'); f.className='mk-frame'+(S.fmt==='pc'?'':' '+S.fmt);
+});
+document.querySelectorAll('#grp-theme button').forEach(b=>b.onclick=()=>{
+  document.documentElement.setAttribute('data-theme',b.dataset.themeBtn);
+  document.querySelectorAll('#grp-theme button').forEach(x=>x.classList.toggle('on',x===b));
+});
+applyVariant();
+</script>
+</body>
+</html>
