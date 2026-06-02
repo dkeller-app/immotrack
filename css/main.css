@@ -7915,3 +7915,51 @@ body[data-dash-v4="on"] .v4h-todo-empty {
     flex: 1; min-height: 44px; padding: 12px; font-size: 13px; font-weight: 600;
   }
 }
+
+/* ════════════════════ LOG-CANDIDATS — Onglet Candidats (variante B) ════════════════════
+   Classes spécifiques au pipeline candidatures. Tokens/composants réutilisés depuis le
+   design system ci-dessus (--grn/--ora/--red, .badge, .tbl, .filters…). */
+.page-subtitle{font-size:13px;color:var(--t2);margin-top:2px}
+/* Voyant Confiance + score (aide à la décision, jamais un verdict) */
+.voyant{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.voyant.grn{background:var(--grn);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+.voyant.ora{background:var(--ora);box-shadow:0 0 0 3px rgba(234,88,12,.15)}
+.voyant.red{background:var(--red);box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+.conf-cell{display:inline-flex;align-items:center;gap:8px}
+.conf-num{font-family:'Manrope',sans-serif;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.conf-num.grn{color:var(--grn)}.conf-num.ora{color:var(--ora)}.conf-num.red{color:var(--red)}
+.conf-decl{background:rgba(90,110,135,.12);color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:1px 6px;border-radius:8px;cursor:help}
+.note-lien{display:inline-flex;align-items:center;background:rgba(124,58,237,.12);color:var(--pur);font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:8px;margin-left:6px;letter-spacing:.2px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0E73F6,#00CCBC);display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-weight:700;font-size:12px;color:#fff;flex-shrink:0;letter-spacing:.02em}
+.cand-b-name{display:flex;align-items:center;gap:10px}
+.cand-b-name .nm{font-weight:600;font-size:14px;display:flex;align-items:center}
+.cand-b-name .sub{font-size:11.5px;color:var(--t3)}
+
+/* Responsive : table → cards en mobile (calqué sur le pattern #irl-table) */
+@media (max-width:600px){
+  #cand-table thead{display:none}
+  #cand-table table,#cand-table tbody,#cand-table tr{display:block;width:100%}
+  #cand-table .tbl-wrap{border:none;box-shadow:none;background:transparent}
+  #cand-table tbody tr{
+    background:var(--sur);margin-bottom:10px;border-radius:10px;
+    border:1px solid var(--bor);border-left:4px solid var(--t3);
+    padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+  #cand-table tbody tr:hover td{background:transparent}
+  #cand-table td{
+    display:grid;grid-template-columns:115px 1fr;gap:8px;
+    border:none;padding:5px 0;text-align:left !important;font-size:13px;align-items:center;
+  }
+  #cand-table td::before{
+    content:attr(data-label);font-size:10.5px;font-weight:600;color:var(--t2);
+    text-transform:uppercase;letter-spacing:.04em;
+  }
+  #cand-table td:first-child{
+    display:block;font-size:15px;font-weight:700;
+    border-bottom:1px solid var(--bor);padding-bottom:6px;margin-bottom:4px;
+  }
+  #cand-table td:first-child::before{display:none}
+  #cand-table td.num{justify-content:flex-start;font-variant-numeric:tabular-nums}
+  #cand-table td[colspan]{display:block;grid-template-columns:none}
+  #cand-table td[colspan]::before{display:none}
+}
