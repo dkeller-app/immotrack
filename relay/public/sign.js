@@ -8,6 +8,8 @@ const TOKEN = window.__SIGN_TOKEN__;
 const SID = window.__SESSION_ID__;
 const app = document.getElementById('app');
 
+// Échappe toute donnée de session (bailRef, role…) avant interpolation dans innerHTML — anti DOM-XSS.
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 function show(id) { for (const s of app.querySelectorAll('.step')) s.hidden = s.id !== id; window.scrollTo(0, 0); }
 function fail(msg) { app.innerHTML = ''; app.appendChild(h(`<div class="state-card"><h1>${msg}</h1></div>`)); }
@@ -24,14 +26,14 @@ function buildUI() {
   app.innerHTML = '';
   app.appendChild(h(`
     <div class="wrap">
-      <header class="sign-head"><strong>Signature du bail ${S.bailRef ? '· ' + S.bailRef : ''}</strong>
+      <header class="sign-head"><strong>Signature du bail ${S.bailRef ? '· ' + esc(S.bailRef) : ''}</strong>
         <span class="rank">Signataire ${S.rank}/${S.total}</span></header>
 
       <section id="step-consent" class="step">
         <div class="scroll">
           <h1>Avant de signer</h1>
           <label>Vos nom et prénom<br><input id="name" type="text" autocomplete="name" placeholder="Jean Dupont"></label>
-          <label class="chk"><input id="c1" type="checkbox"> Je reconnais signer ce bail (${S.role}).</label>
+          <label class="chk"><input id="c1" type="checkbox"> Je reconnais signer ce bail (${esc(S.role)}).</label>
           <label class="chk"><input id="c2" type="checkbox"> Je consens à signer par procédé électronique.</label>
         </div>
         <div class="actionbar"><button id="toRead" class="primary" disabled>Lire et parapher</button></div>

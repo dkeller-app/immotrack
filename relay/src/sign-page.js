@@ -5,6 +5,13 @@ function jsonForScript(v) {
   return JSON.stringify(v).replace(/</g, '\\u003c');
 }
 
+// Échappe une chaîne avant insertion dans du HTML (défense en profondeur pour les sinks innerHTML).
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
 export function renderSignPage({ session, signToken }) {
   const idx = session.currentIndex;
   const signer = session.signers[idx];
@@ -41,7 +48,7 @@ export function renderErrorPage(message, title = 'Signature du bail') {
   return `<!doctype html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title><link rel="stylesheet" href="/sign.css"></head>
-<body><main id="app"><div class="state-card"><h1>${message}</h1></div></main></body>
+<title>${escHtml(title)}</title><link rel="stylesheet" href="/sign.css"></head>
+<body><main id="app"><div class="state-card"><h1>${escHtml(message)}</h1></div></main></body>
 </html>`;
 }
