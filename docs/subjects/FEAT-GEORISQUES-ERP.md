@@ -1,6 +1,6 @@
 # FEAT-GEORISQUES-ERP — Détection automatique ERP / IAL depuis l'adresse (Géorisques + BAN)
 
-**Status** : ✅ Phase 1 (détection adresse) CODÉE + 🛡 AUDITÉE ×2 + TEST VISUEL OK (2026-06-02) · ✅ Phase 2 (câblage doc ERRIAL ↔ ligne ERP + suivi validité 6 mois) **CODÉE sandbox v15.254 + 🛡 revue spec ✅ + audit code-reviewer ✅ ×2 + TEST VISUEL OK** (2026-06-02 — date ERRIAL réelle suggérée sur ligne ERP) · Sync PROD différée (dépend B2) · **Prio** : P2 · **Taille** : M (Phase 1) + M (Phase 2)
+**Status** : ✅ Phase 1 (détection adresse) CODÉE + 🛡 AUDITÉE ×2 + TEST VISUEL OK (2026-06-02) · ✅ Phase 2 (câblage doc ERRIAL ↔ ligne ERP + suivi validité 6 mois) **CODÉE sandbox v15.254 + 🛡 revue spec ✅ + audit code-reviewer ✅ ×2 + TEST VISUEL OK** (2026-06-02 — date ERRIAL réelle suggérée sur ligne ERP) · ✅ **LIVRÉ PROD v15.241** (2026-06-02, porté avec B2 via `git merge-file` + audit code-reviewer « Safe to ship ») · **Prio** : P2 · **Taille** : M (Phase 1) + M (Phase 2)
 **Détecté / décidé** : 2026-06-02 · **Sujet créé** : 2026-06-02
 **Lié à** : MODALE-LOGEMENT-CONSOLIDATION B2 (onglet Diagnostics unifié — c'est là que vit l'UI) · BAILLEUR-DIAGNOSTICS-DDT (annexe État des Risques au bail).
 
@@ -83,7 +83,7 @@ compat d'API (args ignorés). Tests mis à jour (toujours 44, le test d'URL asse
 ## Reste à faire
 
 - ✅ **TEST VISUEL FAIT (2026-06-02)** : sur Logt 1 (Morschwiller-le-Bas 68218), le panneau détecte « ERP/IAL obligatoire · sismicité zone 3 » **depuis l'adresse via l'API, avant tout upload de document** ; case « Zone à risques (ERP) » cochée auto. Cohérence confirmée par l'ERRIAL officiel (SISMICITÉ 3/5). Lien « Vérifiez sur georisques.gouv.fr » → corrigé en ERRIAL (v15.253).
-- **Sync PROD** (`index.html` + `sw.js` CACHE_VER) APRÈS « OK » explicite user — différée avec le reste de Phase B (dépend de B2 : les `_logDiag*` n'existent pas encore en PROD).
+- ✅ **SYNC PROD FAITE v15.241 (2026-06-02)** : Phase 1 + Phase 2 portées sur `index.html` **avec B2** (les `_logDiag*` arrivent en PROD dans le même lot) via fusion 3-voies `git merge-file` (base `9d0f2c5` → other `4784d75`). Dépendance `js/helpers/georisques-erp-detector.global.js` déjà trackée + chargée. Vérif check-inline-js 4/0 · 1408/1408 Vitest · 0 réf orpheline. 🛡 Audit `code-reviewer` → « Safe to ship to PROD as-is » (ERP validité 6 mois OK, bail signé immuable, XSS escapé, détecteur null-guardé). `sw.js` CACHE_VER 15.233→15.241.
 
 ## Phase 2 — câblage doc ERRIAL ↔ diagnostic ERP + suivi validité (✅ CODÉE sandbox v15.254, 2026-06-02)
 
