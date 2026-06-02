@@ -86,9 +86,14 @@ Le sujet de mai reportait le lien partagé en « V2 SaaS » faute de backend. **
   dateCreation, _stamp, _modifiedAt, _archived,
   source: 'manuel' | 'lien' | 'annonce',
 
-  // --- Identité : MÊMES champs que bail.locataires[] (D2) ---
+  // --- Identité (alignée sur bail.locataires[] — D2) ---
+  // Le bail ne stocke qu'UN champ `nom` (= nom complet) + `ddn` + `lieuNaiss`.
+  // Le candidat garde nom + prenom séparés (meilleure UX formulaire + colonne
+  // tableau) et les fusionne en `nom` complet via _candidatVersLocataire() à la
+  // conversion. Les autres champs portent les MÊMES clés que le bail (ddn,
+  // lieuNaiss, adressePrecedente) → mapping pass-through, zéro transformation.
   civilite, nom, prenom,
-  dateNaissance, lieuNaissance,
+  ddn, lieuNaiss,                // mêmes clés que bail.locataires[]
   tel, email,
   adressePrecedente,
 
@@ -97,15 +102,21 @@ Le sujet de mai reportait le lien partagé en « V2 SaaS » faute de backend. **
   employeur,
   contrat: 'CDI' | 'CDD' | 'Freelance' | 'Etudiant' | 'Retraite' | 'Autre',
 
-  // --- Garant (optionnel) ---
-  garant: { nom, adresse, dateNaissance, lieuNaissance },
+  // --- Garant (optionnel, mêmes clés que le garant du bail) ---
+  garant: { nom, adresse, ddn, lieu },
+
+  // --- Flags scoring (alimentent _calculConfiance — D7) ---
+  piecesCompletes: false,        // toutes les pièces requises présentes
+  ribFourni: false,              // justificatif de ressources / RIB fourni
 
   // --- Pipeline ---
   statut: 'recu' | 'enCours' | 'valide' | 'refuse' | 'converti',
   confianceScore,                // 0-100 (D7)
   piecesVerifiees: false,        // bascule manuelle (D8)
   notes,
-  bailRef                        // renseigné à la conversion (lien candidat ↔ bail)
+  bailRef,                       // renseigné à la conversion (lien candidat ↔ bail)
+  entity,                        // entité propriétaire (pour scoping Drive sync)
+  _modifiedAt, _archived         // _modifiedAt = horodatage merge Drive + base purge RGPD
 }
 ```
 
@@ -150,15 +161,17 @@ Reçu ──► En cours ──► Validé ──► Converti (bail créé)
 ## 8. Conversion candidat → bail (le cœur)
 
 1. Sur une fiche candidat **Validé** : bouton **« Créer le bail à partir de ce candidat »**.
-2. Ouvre le **wizard bail existant**, pré-rempli via `copyBailFrom` :
-   - `bail.locataires[0]` ← identité candidat (mapping 1:1, D2) ;
-   - garant ← `garant` candidat si fourni ;
-   - `logRef` pré-sélectionné.
-3. Le bailleur complète ce qui manque (clauses, loyer, dates…) et sauvegarde.
-4. **À la sauvegarde** :
-   - pièces du candidat **migrées** `parentType: 'candidat'` → bien/bail (D5) ;
+2. Ouvre le **wizard bail existant** (`openBail(null)`), pré-rempli avec la même
+   mécanique que `copyBailFrom` :
+   - `b-ref` (sélecteur logement) ← `logRef` du candidat ;
+   - `renderBailLocs([ _candidatVersLocataire(cand) ])` (mapping nom+prenom → `nom` complet, D2) ;
+   - `renderBailGarants([ _candidatVersGarant(cand) ])` si garant fourni ;
+   - on mémorise `_pendingCandidatConv = candId`.
+3. Le bailleur complète ce qui manque (clauses, loyer, dates…) et sauvegarde via `saveBail()`.
+4. **À la sauvegarde** (hook en fin de `saveBail()` si `_pendingCandidatConv`) :
+   - pièces du candidat **migrées** `parentType: 'candidat'` → `bail`/`logement` (D5) ;
    - candidat → archivé, `statut: 'converti'`, `bailRef` renseigné ;
-   - logement → « loué » via `syncBailToLog` ;
+   - le logement apparaît **« Loué »** automatiquement — `saveBail()` met déjà à jour les champs du logement (locataire, dates, loyer) et l'occupation est **dérivée de la présence d'un bail actif** (pas de flag stocké à poser) ;
    - lien candidat ↔ bail conservé (audit-trail).
 5. Enchaînement naturel possible vers **signature à distance** (BAIL-SIGNATURE-DISTANCE).
 
