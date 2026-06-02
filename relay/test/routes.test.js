@@ -144,3 +144,54 @@ describe('POST /api/sessions/:id/signed', () => {
     expect(body.status).toBe('completed');
   });
 });
+
+describe('routes bailleur (ownerToken)', () => {
+  async function createWithOwner(signers) {
+    const form = new FormData();
+    form.set('pdf', new Blob([new Uint8Array([0x25,0x50,0x44,0x46,1])], { type: 'application/pdf' }), 'b.pdf');
+    form.set('meta', JSON.stringify({ bailRef: 'B', signers }));
+    const res = await SELF.fetch('https://relay.test/sessions', {
+      method: 'POST', headers: { Authorization: `Bearer ${env.APP_KEY}` }, body: form
+    });
+    return res.json(); // { sessionId, signUrl, ownerToken }
+  }
+  async function signTokenOf(sessionId) {
+    const res = await SELF.fetch(`https://relay.test/s/${sessionId}`);
+    return (await res.text()).match(/window\.__SIGN_TOKEN__\s*=\s*"([^"]+)"/)[1];
+  }
+
+  it('GET /api/sessions/:id renvoie le statut (401 sans owner token)', async () => {
+    const { sessionId } = await createWithOwner([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const no = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`);
+    expect(no.status).toBe(401);
+  });
+
+  it('GET /api/sessions/:id renvoie pending puis completed', async () => {
+    const { sessionId, ownerToken } = await createWithOwner([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const r1 = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } });
+    expect((await r1.json()).status).toBe('pending');
+
+    const token = await signTokenOf(sessionId);
+    await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
+      body: new Uint8Array([0x25,0x50,0x44,0x46,3,3])
+    });
+    const r2 = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, { headers: { 'X-Owner-Token': ownerToken } });
+    expect((await r2.json()).status).toBe('completed');
+  });
+
+  it('GET /result : 409 tant que pending, PDF quand completed', async () => {
+    const { sessionId, ownerToken } = await createWithOwner([{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }]);
+    const pending = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`, { headers: { 'X-Owner-Token': ownerToken } });
+    expect(pending.status).toBe(409);
+
+    const token = await signTokenOf(sessionId);
+    await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/signed`, {
+      method: 'POST', headers: { 'X-Sign-Token': token, 'content-type': 'application/pdf' },
+      body: new Uint8Array([0x25,0x50,0x44,0x46,4,4])
+    });
+    const done = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`, { headers: { 'X-Owner-Token': ownerToken } });
+    expect(done.status).toBe(200);
+    expect(done.headers.get('content-type')).toContain('application/pdf');
+  });
+});

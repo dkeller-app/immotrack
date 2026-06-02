@@ -100,6 +100,18 @@ app.get('/api/sessions/:id/pdf', async (c) => {
   return new Response(obj.body, { headers: { 'content-type': 'application/pdf' } });
 });
 
+async function requireOwner(c, sessionId) {
+  const token = c.req.header('X-Owner-Token') || '';
+  if (!token) return { error: c.json({ error: 'missing token' }, 401) };
+  const ver = await verifyToken(token, c.env.SIGNING_SECRET);
+  if (!ver.valid || ver.payload.role !== 'owner' || ver.payload.sid !== sessionId) {
+    return { error: c.json({ error: 'unauthorized' }, 401) };
+  }
+  const session = await loadSession(c.env, sessionId);
+  if (!session) return { error: c.json({ error: 'not found' }, 404) };
+  return { session };
+}
+
 app.post('/api/sessions/:id/signed', async (c) => {
   const sessionId = c.req.param('id');
   const guard = await requireSigner(c, sessionId);
@@ -117,6 +129,34 @@ app.post('/api/sessions/:id/signed', async (c) => {
   };
   const session = await recordSignature(c.env, sessionId, { signedBytes: bytes, proof });
   return c.json({ status: session.status, currentIndex: session.currentIndex });
+});
+
+app.get('/api/sessions/:id/result', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireOwner(c, sessionId);
+  if (guard.error) return guard.error;
+  if (guard.session.status !== 'completed') return c.json({ error: 'not completed' }, 409);
+  const obj = await getSignedPdf(c.env, sessionId);
+  if (!obj) return c.json({ error: 'signed pdf missing' }, 404);
+  return new Response(obj.body, { headers: { 'content-type': 'application/pdf' } });
+});
+
+app.get('/api/sessions/:id', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireOwner(c, sessionId);
+  if (guard.error) return guard.error;
+  const s = guard.session;
+  return c.json({
+    sessionId: s.sessionId,
+    bailRef: s.bailRef,
+    status: s.status,
+    currentIndex: s.currentIndex,
+    expiresAt: s.expiresAt,
+    signers: s.signers.map((sg) => ({
+      role: sg.role, ordre: sg.ordre, statut: sg.statut,
+      proof: sg.proof ? { signedAt: sg.proof.signedAt, pdfSha256: sg.proof.pdfSha256 } : null
+    }))
+  });
 });
 
 export default app;
