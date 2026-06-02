@@ -1,0 +1,140 @@
+// __tests__/helpers/candidature.test.js
+import { describe, it, expect } from 'vitest';
+import {
+  _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
+  _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses
+} from '../../js/core/candidature.js';
+
+describe('_calculConfiance', () => {
+  it('ratio >= 3 + CDI + garant + pièces complètes + RIB = 100', () => {
+    const c = { revenus: 3000, contrat: 'CDI', garant: { nom: 'Papa' }, piecesCompletes: true, ribFourni: true };
+    expect(_calculConfiance(c, 1000)).toBe(100);
+  });
+  it('ratio entre 2.5 et 3 = 20 pts de ratio', () => {
+    const c = { revenus: 2700, contrat: 'Autre', garant: null };
+    expect(_calculConfiance(c, 1000)).toBe(20);
+  });
+  it('ratio entre 2 et 2.5 = 10 pts', () => {
+    expect(_calculConfiance({ revenus: 2200 }, 1000)).toBe(10);
+  });
+  it('ratio < 2 = 0 pt de ratio', () => {
+    expect(_calculConfiance({ revenus: 1500 }, 1000)).toBe(0);
+  });
+  it('CDD = 10, CDI = 25', () => {
+    expect(_calculConfiance({ contrat: 'CDD' }, 0)).toBe(10);
+    expect(_calculConfiance({ contrat: 'CDI' }, 0)).toBe(25);
+  });
+  it('garant compte seulement si nom non vide', () => {
+    expect(_calculConfiance({ garant: { nom: '  ' } }, 0)).toBe(0);
+    expect(_calculConfiance({ garant: { nom: 'Tante' } }, 0)).toBe(20);
+  });
+  it('loyer 0 ou revenus 0 → pas de points de ratio, pas de crash', () => {
+    expect(_calculConfiance({ revenus: 0, contrat: 'CDI' }, 1000)).toBe(25);
+    expect(_calculConfiance({ revenus: 3000, contrat: 'CDI' }, 0)).toBe(25);
+  });
+  it('entrée nulle → 0', () => {
+    expect(_calculConfiance(null, 1000)).toBe(0);
+  });
+  it('plafonné à 100', () => {
+    const c = { revenus: 99999, contrat: 'CDI', garant: { nom: 'X' }, piecesCompletes: true, ribFourni: true };
+    expect(_calculConfiance(c, 1)).toBe(100);
+  });
+});
+
+describe('_candidatVersLocataire', () => {
+  it('fusionne nom + prenom en `nom` complet et passe les autres champs', () => {
+    const c = { civilite: 'Mme', nom: 'Durand', prenom: 'Alice', ddn: '1990-05-01',
+                lieuNaiss: 'Lyon', tel: '0600000000', email: 'a@b.fr', adressePrecedente: '1 rue X' };
+    expect(_candidatVersLocataire(c)).toEqual({
+      civilite: 'Mme', nom: 'Durand Alice', ddn: '1990-05-01', lieuNaiss: 'Lyon',
+      tel: '0600000000', email: 'a@b.fr', adressePrecedente: '1 rue X'
+    });
+  });
+  it('prenom manquant → nom seul, pas d\'espace en trop', () => {
+    expect(_candidatVersLocataire({ nom: 'Durand' }).nom).toBe('Durand');
+  });
+  it('entrée nulle → objet locataire vide bien formé', () => {
+    expect(_candidatVersLocataire(null)).toEqual({
+      civilite: '', nom: '', ddn: '', lieuNaiss: '', tel: '', email: '', adressePrecedente: ''
+    });
+  });
+});
+
+describe('_candidatVersGarant', () => {
+  it('garant avec nom → objet garant aligné bail {nom, adresse, ddn, lieu}', () => {
+    const c = { garant: { nom: 'Papa Durand', adresse: '2 rue Y', ddn: '1960-01-01', lieu: 'Paris' } };
+    expect(_candidatVersGarant(c)).toEqual({ nom: 'Papa Durand', adresse: '2 rue Y', ddn: '1960-01-01', lieu: 'Paris' });
+  });
+  it('pas de garant ou nom vide → null', () => {
+    expect(_candidatVersGarant({ garant: null })).toBeNull();
+    expect(_candidatVersGarant({ garant: { nom: '  ' } })).toBeNull();
+    expect(_candidatVersGarant({})).toBeNull();
+  });
+});
+
+describe('_nouveauCandidat', () => {
+  it('applique les valeurs par défaut et un id', () => {
+    const c = _nouveauCandidat();
+    expect(c.statut).toBe('recu');
+    expect(c.source).toBe('manuel');
+    expect(c._archived).toBe(false);
+    expect(typeof c.id).toBe('string');
+    expect(c.id.length).toBeGreaterThan(0);
+    expect(c.confianceScore).toBe(0);
+    expect(c.garant).toBeNull();
+  });
+  it('les champs fournis écrasent les défauts', () => {
+    const c = _nouveauCandidat({ nom: 'X', logRef: 'F-001', source: 'lien', statut: 'enCours' });
+    expect(c.nom).toBe('X');
+    expect(c.logRef).toBe('F-001');
+    expect(c.source).toBe('lien');
+    expect(c.statut).toBe('enCours');
+  });
+  it('deux appels donnent des id différents', () => {
+    expect(_nouveauCandidat().id).not.toBe(_nouveauCandidat().id);
+  });
+});
+
+describe('_migrerDocsCandidatVersBail', () => {
+  const docs = [
+    { id: 1, parentType: 'candidat', parentId: 'cand_A', name: 'cni.pdf', logRef: null },
+    { id: 2, parentType: 'candidat', parentId: 'cand_B', name: 'autre.pdf', logRef: null },
+    { id: 3, parentType: 'bail', parentRef: 'F-009', name: 'bail.pdf', logRef: 'F-009' }
+  ];
+  it('re-pointe seulement les docs du candidat ciblé vers le bail', () => {
+    const out = _migrerDocsCandidatVersBail(docs, 'cand_A', 'F-001', 'F-001');
+    const a = out.find(d => d.id === 1);
+    expect(a.parentType).toBe('bail');
+    expect(a.parentRef).toBe('F-001');
+    expect(a.logRef).toBe('F-001');
+    expect(out.find(d => d.id === 2).parentType).toBe('candidat'); // intact
+    expect(out.find(d => d.id === 3).parentRef).toBe('F-009');     // intact
+  });
+  it('comparaison d\'id tolérante au type (string vs number)', () => {
+    const d = [{ id: 9, parentType: 'candidat', parentId: 42 }];
+    expect(_migrerDocsCandidatVersBail(d, '42', 'F-1', 'F-1')[0].parentType).toBe('bail');
+  });
+  it('entrée non-array → []', () => {
+    expect(_migrerDocsCandidatVersBail(null, 'x', 'y', 'z')).toEqual([]);
+  });
+});
+
+describe('_purgeCandidatsRefuses', () => {
+  const now = Date.parse('2026-06-02T00:00:00Z');
+  const day = 24 * 60 * 60 * 1000;
+  it('supprime un refusé plus vieux que 30 j, garde un refusé récent', () => {
+    const cands = [
+      { id: 'old', statut: 'refuse', _modifiedAt: new Date(now - 31 * day).toISOString() },
+      { id: 'new', statut: 'refuse', _modifiedAt: new Date(now - 10 * day).toISOString() }
+    ];
+    const kept = _purgeCandidatsRefuses(cands, now, 30).map(c => c.id);
+    expect(kept).toEqual(['new']);
+  });
+  it('ne touche jamais les non-refusés même très anciens', () => {
+    const cands = [{ id: 'v', statut: 'valide', _modifiedAt: new Date(now - 999 * day).toISOString() }];
+    expect(_purgeCandidatsRefuses(cands, now, 30)).toHaveLength(1);
+  });
+  it('entrée non-array → []', () => {
+    expect(_purgeCandidatsRefuses(null, now)).toEqual([]);
+  });
+});
