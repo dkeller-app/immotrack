@@ -150,7 +150,7 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
 
 <header>
   <div class="head-title">🏠 Mockup FIDÈLE — refonte modale Logement + Agenda diagnostics + wizard Bail</div>
-  <div class="head-sub">Reconstruit sur les champs RÉELS de l'app (garants, tél/email, DG auto, date fin auto, IRL auto, annonce structurée non-IA). v2.</div>
+  <div class="head-sub">Reconstruit sur les champs RÉELS de l'app (garants, tél/email, DG auto, date fin auto, IRL auto, annonce structurée non-IA). v3 — corrige le bloc « caractéristiques » du bail : récap hérité lecture seule + ville de signature & précédent locataire déplacés en Conditions.</div>
 </header>
 
 <div class="canvas">
@@ -163,6 +163,7 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
       <li><b>Diagnostics</b> : DPE + Risques fusionnés en <b>1 onglet « Diagnostics »</b> dans la modale (saisie groupée, fill once, source unique <code>log.diagnostics</code>). Le <b>suivi d'expiration</b> → <b>Agenda</b> (cat. DIAG, rappels 90/30/7 j) + remonte dans les <b>actions prioritaires existantes</b> du tableau de bord (<code>_computeUnifiedTodo</code>, item rouge si expiré) — <b>pas de nouvelle carte</b>, pas de saisie par logement. Conso énergie €/an rattachée au DPE.</li>
       <li><b>Régime fiscal retiré</b> du bail : vérifié inutilisé (texte libre, aucun doc/calcul). <b>Jour de paiement</b> par défaut = <b>5</b>.</li>
       <li><b>Mise en valeur</b> = champs <b>structurés</b> (sans IA) ; <b>loyer théorique</b> dans Présentation › Conditions ; <b>annexes</b> dédoublonnées.</li>
+      <li><b>Corrections capture (bail) — 4e passage :</b> ① le bloc « caractéristiques » du bail devient un <b>récap hérité en lecture seule</b> — chaque donnée a <b>un seul endroit éditable</b>, dans le bien ; ② <b>Ville de signature</b> = donnée du <b>bail</b> (où l'on signe), plus dans le bloc « bien » → déplacée en <b>Conditions</b>, <b>pré-remplie depuis la ville du logement</b> et <b>modifiable</b> ; ③ <b>« Précédent locataire parti depuis »</b> rejoint la section <b>Encadrement</b> (sert au calcul des 18 mois) ; ④ <b>Régime fiscal</b> bien retiré du wizard.</li>
     </ul>
   </div>
 
@@ -560,15 +561,24 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
                 <div class="fg"><label class="flex-c" style="display:flex;gap:6px;align-items:center;margin-top:22px"><input type="checkbox" checked> 📄 Proposer la quittance automatiquement</label></div>
               </div>
 
+              <div class="sec-title">✍️ Lieu de signature <span class="badge moved">déplacé du bloc « bien »</span></div>
+              <div class="annotation"><strong>Réponse à « la ville de signature = la ville du logement, mauvais onglet ».</strong> C'est une donnée propre au <strong>bail</strong> (l'endroit où l'on signe), pas une caractéristique du bien. Pré-remplie depuis la ville du logement, <strong>modifiable</strong> si la signature a lieu ailleurs.</div>
+              <div class="fg2">
+                <div class="fg"><label>Ville de signature <span class="badge auto">auto depuis le logement</span></label><div class="input-aug"><input value="Mulhouse"><button class="btn auto" title="Re-remplir depuis la ville du logement">⚡</button></div><div class="note auto">Pré-rempli depuis la ville du logement (68000 Mulhouse) · modifiable.</div></div>
+                <div class="fg"></div>
+              </div>
+
               <div class="sec-title">🔒 Encadrement (zone tendue)</div>
               <div class="cbgrp" style="margin-top:4px">
                 <label><input type="checkbox"> 📍 Zone tendue (art. 17)</label>
                 <label><input type="checkbox"> 🔒 Encadrement des loyers (ELAN)</label>
               </div>
-              <div class="fg2">
+              <div class="fg3">
                 <div class="fg"><label>Situation lors de la mise en location</label><select><option selected>1re mise en location</option><option>Relocation < 18 mois</option><option>Relocation > 18 mois</option><option>Renouvellement</option></select></div>
                 <div class="fg"><label>Dernier loyer HC du précédent locataire (€)</label><input placeholder="si relocation"></div>
+                <div class="fg"><label>Précédent locataire parti depuis <span class="badge moved">déplacé du bloc « bien »</span></label><input type="date"></div>
               </div>
+              <div class="note">« Parti depuis » sert au calcul de la <strong>règle des 18 mois</strong> : en relocation, si le précédent locataire est parti depuis moins de 18 mois, le nouveau loyer ne peut dépasser l'ancien révisé IRL.</div>
 
               <div class="sec-title">🛋 Inventaire mobilier <span class="mu" id="invHintBail">(requis — bail meublé)</span></div>
               <div class="annotation warn" id="invBoxBail">11 catégories décret 2015-981 + compteur + détails. <strong>Disparaît entièrement si bail nu.</strong> Pré-cochage proposé depuis les équipements cuisine du bien. <em>(Bascule le type sur « Nu » pour voir.)</em></div>
@@ -608,6 +618,8 @@ header { background: var(--sur); border-bottom: 1px solid var(--bor); padding: 1
                 </dl>
                 <div class="note">« Dépenses énergétiques » remonte ici, avec le DPE (avant : perdu dans l'onglet « Le bien »).</div></div>
               </div>
+
+              <div class="annotation"><strong>Ce récap ne contient plus que des données héritées du bien.</strong> La <strong>ville de signature</strong> et <strong>« précédent locataire parti depuis »</strong> — qui traînaient dans l'ancien bloc « bien » du bail alors qu'elles sont propres au bail — sont remontées à l'étape <strong>Conditions</strong>. Plus aucun champ saisissable orphelin ici.</div>
 
               <div class="sec-title">📄 Documents</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
