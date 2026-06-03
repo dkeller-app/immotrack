@@ -76,3 +76,48 @@ describe('validateSigners', () => {
     expect(res.reason).toBe('duplicate-ordre');
   });
 });
+
+import { validatePieceUpload, validateDossier, validateCandidatureMeta, MAX_PIECE_BYTES } from '../src/validate.js';
+
+const JPEG_MAGIC = new Uint8Array([0xFF, 0xD8, 0xFF]);
+const PNG_MAGIC  = new Uint8Array([0x89, 0x50, 0x4E, 0x47]);
+const PDFM       = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+function mk(magic, size) { const b = new Uint8Array(size); b.set(magic, 0); return b; }
+
+describe('validatePieceUpload', () => {
+  it('accepte un JPEG', () => expect(validatePieceUpload(mk(JPEG_MAGIC, 500), 'image/jpeg').ok).toBe(true));
+  it('accepte un PNG', () => expect(validatePieceUpload(mk(PNG_MAGIC, 500), 'image/png').ok).toBe(true));
+  it('accepte un PDF', () => expect(validatePieceUpload(mk(PDFM, 500), 'application/pdf').ok).toBe(true));
+  it('rejette un type inconnu (magic invalide)', () => {
+    const r = validatePieceUpload(mk(new Uint8Array([0,1,2,3]), 500), 'image/png');
+    expect(r.ok).toBe(false); expect(r.reason).toBe('bad-format');
+  });
+  it('rejette un content-type non autorisé', () => {
+    const r = validatePieceUpload(mk(JPEG_MAGIC, 500), 'image/gif');
+    expect(r.ok).toBe(false); expect(r.reason).toBe('bad-content-type');
+  });
+  it('rejette si trop volumineux (> 20 Mo)', () => {
+    const r = validatePieceUpload(mk(PDFM, MAX_PIECE_BYTES + 1), 'application/pdf');
+    expect(r.ok).toBe(false); expect(r.reason).toBe('too-large');
+  });
+});
+
+describe('validateDossier', () => {
+  const ok = { identite: { civilite:'Mme', nom:'Moreau', prenom:'Camille', ddn:'1990-01-01', lieuNaiss:'Lyon', tel:'0600000000', email:'c@x.fr', adressePrecedente:'1 rue X' } };
+  it('accepte un dossier identité complet', () => expect(validateDossier(ok).ok).toBe(true));
+  it('rejette si identite absente', () => expect(validateDossier({}).reason).toBe('identite-missing'));
+  it('rejette un email invalide', () => {
+    const bad = { identite: { ...ok.identite, email:'pasunemail' } };
+    expect(validateDossier(bad).reason).toBe('bad-email');
+  });
+  it('rejette un nom vide', () => {
+    const bad = { identite: { ...ok.identite, nom:'  ' } };
+    expect(validateDossier(bad).reason).toBe('nom-missing');
+  });
+});
+
+describe('validateCandidatureMeta', () => {
+  it('accepte une meta valide', () => expect(validateCandidatureMeta({ logRef:'L1', expDays:14 }).ok).toBe(true));
+  it('rejette un logRef vide', () => expect(validateCandidatureMeta({ logRef:'', expDays:14 }).reason).toBe('bad-logref'));
+  it('rejette un expDays hors {7,14,30}', () => expect(validateCandidatureMeta({ logRef:'L1', expDays:99 }).reason).toBe('bad-expdays'));
+});
