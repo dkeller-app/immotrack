@@ -92,6 +92,22 @@
 | **Mesures techniques** | sessionId 256 bits non devinable ; jetons HMAC-SHA256 (jamais dans l'URL) ; comparaison à temps constant des secrets ; HTTPS/TLS ; chiffrement R2 au repos ; purge automatique (TTL) ; signature ordonnée (machine à états anti-rejeu) |
 | **Anti-transfert (V1)** | Le lien de signature est livré uniquement à l'email du signataire ; la vérification d'email à l'ouverture (OTP) est prévue en Phase 2 |
 
+### 6. Candidatures locataires (sélection du locataire)
+
+| Champ | Détail |
+|---|---|
+| **Finalité** | Examen des dossiers de candidature en vue de sélectionner un locataire pour un logement vacant (mesures précontractuelles prises à la demande de la personne) |
+| **Catégories de personnes** | Candidats locataires + leurs garants |
+| **Catégories de données** | Identité (nom, prénom, civilité, DDN), contact (téléphone, email), situation (revenus mensuels, type de contrat CDI/CDD/autre), garant (nom, situation), pièces justificatives **limitées à la liste autorisée** par le décret n° 2015-1437 du 5 novembre 2015 (justificatif d'identité, de domicile, d'activité professionnelle, de ressources) |
+| **Données INTERDITES** | Conformément à l'art. 22-2 de la loi n° 89-462 du 6 juillet 1989, ne sont jamais demandées : photo (hors pièce d'identité), copie de carte vitale, relevés de compte, attestation d'absence de crédit, etc. **Le RIB/IBAN n'est PAS collecté au stade candidature** — il l'est uniquement à la signature du bail (cf. traitement n°1) |
+| **Données sensibles** | Aucune |
+| **Base légale** | Mesures précontractuelles prises à la demande de la personne concernée (art. 6.1.b RGPD) |
+| **Profilage / décision automatisée** | Un « score de confiance » est calculé comme **aide à la décision**, fondé exclusivement sur des critères de solvabilité licites (ratio revenus/loyer, nature du contrat, présence d'un garant, complétude du dossier). **Pas de décision entièrement automatisée** au sens de l'art. 22 RGPD : la sélection finale est humaine. Aucun critère discriminatoire (art. 225-1 Code pénal) n'entre dans le score |
+| **Durée de conservation** | **Candidat refusé** : 30 jours après le refus, puis effacement automatique au démarrage de l'application (tombstone propagé à la sync Drive). **Candidat retenu** : converti en locataire → bascule sous le traitement n°1 (durée du bail + délais légaux) |
+| **Destinataires** | Responsable de traitement uniquement ; Google (si sync Drive) |
+| **Transferts hors UE** | Si Drive : oui, vers les USA, encadrés par les clauses contractuelles types (SCC) Google |
+| **Mesures techniques** | Score non-discriminant transparent (barème affiché) ; purge automatique des refusés à 30 j ; isolation des données de test (`_test_immotrack_v4`) ; chiffrement transport (HTTPS/TLS) et stockage au repos |
+
 ---
 
 ## Droits des personnes concernées (art. 15-22 RGPD)
@@ -135,5 +151,5 @@ En cas de fuite de données (vol device + Drive non chiffré local, compromissio
 - Nouveau type de traitement (multi-user, portail locataire, etc.)
 - Changement de durée de conservation
 
-**Dernière mise à jour** : 2026-06-02 (ajout sous-traitant Cloudflare + traitement n°5 signature à distance)
+**Dernière mise à jour** : 2026-06-03 (ajout traitement n°6 candidatures locataires — purge RGPD refusés 30 j, score non-discriminant, RIB exclu au stade candidature)
 **Mainteneur** : responsable de traitement ImmoTrack
