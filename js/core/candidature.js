@@ -5,7 +5,12 @@
 /**
  * Score "Confiance" 0-100, transparent, critères de solvabilité légaux uniquement
  * (jamais discriminatoire). Voir spec §9.
- * @param {object} cand - candidat (revenus, contrat, garant, piecesCompletes, ribFourni)
+ * Barème : ratio revenus/loyer ≥3×→35 / ≥2.5×→20 / ≥2×→10 · contrat CDI→25 / CDD→10
+ *          · garant présent→20 · pièces complètes→20. Plafonné à 100.
+ * Le RIB n'entre PAS dans le score : ce n'est ni un indicateur de solvabilité ni une
+ * pièce de sélection autorisée (décret 2015-1437 ; art. 22-2 loi du 6 juillet 1989 —
+ * l'autorisation de prélèvement ne peut être exigée). Il est collecté à la signature du bail.
+ * @param {object} cand - candidat (revenus, contrat, garant, piecesCompletes)
  * @param {number} loyerHC - loyer hors charges du logement visé (pour le ratio)
  * @returns {number} score entier 0-100
  */
@@ -16,15 +21,14 @@ export function _calculConfiance(cand, loyerHC = 0) {
   const loyer = Number(loyerHC) || 0;
   if (loyer > 0 && revenus > 0) {
     const ratio = revenus / loyer;
-    if (ratio >= 3) score += 30;
+    if (ratio >= 3) score += 35;
     else if (ratio >= 2.5) score += 20;
     else if (ratio >= 2) score += 10;
   }
   if (cand.contrat === 'CDI') score += 25;
   else if (cand.contrat === 'CDD') score += 10;
   if (cand.garant && String(cand.garant.nom || '').trim()) score += 20;
-  if (cand.piecesCompletes) score += 15;
-  if (cand.ribFourni) score += 10;
+  if (cand.piecesCompletes) score += 20;
   return Math.min(100, score);
 }
 
@@ -70,7 +74,6 @@ export function _nouveauCandidat(partial = {}) {
     contrat: partial.contrat || '',
     garant: partial.garant || null,
     piecesCompletes: partial.piecesCompletes || false,
-    ribFourni: partial.ribFourni || false,
     statut: partial.statut || 'recu',
     confianceScore: Number(partial.confianceScore) || 0,
     piecesVerifiees: partial.piecesVerifiees || false,

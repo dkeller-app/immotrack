@@ -6,9 +6,12 @@ import {
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
-  it('ratio >= 3 + CDI + garant + pièces complètes + RIB = 100', () => {
-    const c = { revenus: 3000, contrat: 'CDI', garant: { nom: 'Papa' }, piecesCompletes: true, ribFourni: true };
-    expect(_calculConfiance(c, 1000)).toBe(100);
+  it('ratio >= 3 + CDI + garant + pièces complètes = 100', () => {
+    const c = { revenus: 3000, contrat: 'CDI', garant: { nom: 'Papa' }, piecesCompletes: true };
+    expect(_calculConfiance(c, 1000)).toBe(100); // 35 + 25 + 20 + 20
+  });
+  it('ratio >= 3 seul = 35 pts (barème renforcé sur la solvabilité)', () => {
+    expect(_calculConfiance({ revenus: 3000 }, 1000)).toBe(35);
   });
   it('ratio entre 2.5 et 3 = 20 pts de ratio', () => {
     const c = { revenus: 2700, contrat: 'Autre', garant: null };
@@ -28,6 +31,15 @@ describe('_calculConfiance', () => {
     expect(_calculConfiance({ garant: { nom: '  ' } }, 0)).toBe(0);
     expect(_calculConfiance({ garant: { nom: 'Tante' } }, 0)).toBe(20);
   });
+  it('pièces complètes = 20 pts', () => {
+    expect(_calculConfiance({ piecesCompletes: true }, 0)).toBe(20);
+  });
+  it('le RIB n\'entre PAS dans le score (décret 2015-1437 / art. 22-2 loi 1989)', () => {
+    expect(_calculConfiance({ ribFourni: true }, 0)).toBe(0);
+    // ribFourni n'ajoute rien même combiné à un dossier par ailleurs identique
+    expect(_calculConfiance({ contrat: 'CDI', ribFourni: true }, 0))
+      .toBe(_calculConfiance({ contrat: 'CDI' }, 0));
+  });
   it('loyer 0 ou revenus 0 → pas de points de ratio, pas de crash', () => {
     expect(_calculConfiance({ revenus: 0, contrat: 'CDI' }, 1000)).toBe(25);
     expect(_calculConfiance({ revenus: 3000, contrat: 'CDI' }, 0)).toBe(25);
@@ -36,7 +48,7 @@ describe('_calculConfiance', () => {
     expect(_calculConfiance(null, 1000)).toBe(0);
   });
   it('plafonné à 100', () => {
-    const c = { revenus: 99999, contrat: 'CDI', garant: { nom: 'X' }, piecesCompletes: true, ribFourni: true };
+    const c = { revenus: 99999, contrat: 'CDI', garant: { nom: 'X' }, piecesCompletes: true };
     expect(_calculConfiance(c, 1)).toBe(100);
   });
 });
