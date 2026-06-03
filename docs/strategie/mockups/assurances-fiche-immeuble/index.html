@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Assurances : PNO en fiche immeuble (cible)</title>
+<!-- On linke la VRAIE feuille de style de l'app → rendu 100% natif, aucune reconstruction. -->
+<link rel="stylesheet" href="../../../../css/main.css">
+<style>
+/* ── Échafaudage du mockup UNIQUEMENT (bandeaux explicatifs, cadre). Ce n'est PAS du CSS d'app. ── */
+body{background:var(--bg);margin:0;padding:24px;font-family:Inter,system-ui,sans-serif}
+.mk-wrap{max-width:1080px;margin:0 auto}
+.mk-h1{font-size:20px;font-weight:800;color:var(--t1);margin:0 0 4px}
+.mk-sub{font-size:13px;color:var(--t2);margin:0 0 20px;line-height:1.5;max-width:820px}
+.mk-note{font-size:12.5px;background:var(--bg-info);border-left:3px solid var(--fg-info);color:var(--t1);padding:10px 14px;border-radius:8px;line-height:1.5;margin:0 0 18px}
+.mk-screen{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:18px 20px;margin:0 0 26px;box-shadow:var(--shadow-card)}
+.mk-screen-title{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--t1);margin:0 0 14px}
+.mk-tag{font-size:10.5px;font-weight:800;letter-spacing:.04em;padding:3px 9px;border-radius:99px;text-transform:uppercase}
+.mk-tag-new{background:var(--bg-success);color:var(--fg-success)}
+.mk-tag-simp{background:var(--bg-warning);color:var(--fg-warning)}
+.mk-anno{font-size:12px;color:var(--t2);margin:10px 0 0;padding:8px 12px;background:var(--sur2);border-radius:8px;line-height:1.5}
+.mk-anno b{color:var(--fg-success)}
+.mk-del{font-size:12px;color:var(--t2);margin:10px 0 0;padding:8px 12px;background:var(--bg-danger);border-radius:8px;line-height:1.5}
+.mk-del b{color:var(--fg-danger)}
+.mk-ovw{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.mk-ovw-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;padding:7px 12px;background:var(--sur2);border:1px solid var(--bor2);border-radius:8px}
+.mk-ovw-ok{color:var(--fg-success);font-weight:600;font-size:11.5px}
+.mk-ovw-ko{color:var(--fg-danger);font-weight:600;font-size:11.5px}
+.mk-legend{font-size:12px;color:var(--t2);line-height:1.7;background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:14px 16px}
+.mk-legend b{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="mk-wrap">
+
+  <h1 class="mk-h1">Assurances — la PNO se gère dans la fiche immeuble</h1>
+  <p class="mk-sub">Cible validée : la PNO / multirisque (qui couvre TOUT l'immeuble) vit dans la <b>fiche immeuble</b>, comme les charges communes. La fiche logement ne garde que la <b>MRH du locataire</b> — plus aucun affichage de PNO héritée (zéro valeur ajoutée). Ce mockup réutilise le vrai <code>css/main.css</code> : le rendu est identique à l'app. Redimensionne la fenêtre pour voir le comportement PC / tablette / téléphone.</p>
+
+  <div class="mk-note">⚙️ <b>Mécanisme :</b> rien de neuf graphiquement — on réutilise les sous-onglets de la fiche immeuble (déjà là : Logements, Charges communes…) et les cartes d'assurance (déjà là dans la fiche logement). On ne fait que <b>déplacer</b> la gestion PNO au bon niveau.</div>
+
+  <!-- ═══════════════ ÉCRAN 1 : FICHE IMMEUBLE — nouveau sous-onglet Assurances ═══════════════ -->
+  <div class="mk-screen">
+    <div class="mk-screen-title"><span class="mk-tag mk-tag-new">Nouveau</span> Fiche immeuble → sous-onglet « 🛡 Assurances »</div>
+
+    <button class="logf-back">← SCI DD</button>
+    <div class="logf-breadcrumb">
+      <a>Biens</a><span class="sep">›</span><a>SCI DD</a><span class="sep">›</span><span>Damelevières</span>
+    </div>
+
+    <div class="logf-hero entf-hero-compact">
+      <div class="logf-photos entf-photos-mini" aria-hidden="true">🏢</div>
+      <div class="logf-info">
+        <h1 class="logf-title">Damelevières</h1>
+        <div class="mu sm">📍 8 rue de la Gare, 54360 Damelevières</div>
+        <div class="logf-badges">
+          <span class="logf-badge">🏛 SCI DD</span>
+          <span class="logf-badge b-mute">Copropriété</span>
+        </div>
+        <div class="logf-hero-stats logf-hero-stats-4">
+          <div class="logf-stat"><div class="logf-stat-v k-num">5</div><div class="logf-stat-l">Logements</div></div>
+          <div class="logf-stat"><div class="logf-stat-v k-num">4<small>/5</small></div><div class="logf-stat-l">Loués</div></div>
+          <div class="logf-stat"><div class="logf-stat-v k-num">20%</div><div class="logf-stat-l">Vacance</div></div>
+          <div class="logf-stat"><div class="logf-stat-v k-money">3 720 €</div><div class="logf-stat-l">Loyer HC /mois</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="logf-subtabs" role="tablist">
+      <button class="logf-subtab">🏠 Logements (5)</button>
+      <button class="logf-subtab">📅 Plan d'occupation</button>
+      <button class="logf-subtab">⚡ Charges communes</button>
+      <button class="logf-subtab">📁 Documents communs</button>
+      <button class="logf-subtab act">🛡 Assurances</button>
+      <button class="logf-subtab disabled" disabled>🔧 Travaux <span class="soon">À venir</span></button>
+    </div>
+
+    <!-- Panel Assurances de l'immeuble -->
+    <div class="flex-b" style="margin:16px 0 10px">
+      <span class="mu sm">Contrats au niveau de l'immeuble (couvrent tous les logements)</span>
+      <button class="btn bp bb">+ Assurance immeuble</button>
+    </div>
+
+    <div class="logf-equip-grid">
+      <div class="logf-equip-card logf-equip-ok">
+        <div class="logf-equip-head">
+          <span class="logf-equip-icon">🏢</span>
+          <div class="logf-equip-title">
+            <div class="logf-equip-name">PNO / Multirisque immeuble</div>
+            <div class="logf-equip-base">Groupama · n° PNO-2024-00821</div>
+          </div>
+          <span class="logf-equip-badge logf-equip-ok">✓ Valide (236j restants)</span>
+        </div>
+        <div class="logf-equip-body">
+          <div class="logf-equip-row"><span class="logf-equip-l">Échéance</span><span class="logf-equip-v">25/01/2027</span></div>
+          <div class="logf-equip-row"><span class="logf-equip-l">Prime annuelle</span><span class="logf-equip-v">1 240 €</span></div>
+          <div class="logf-equip-row"><span class="logf-equip-l">Couvre</span><span class="logf-equip-v">les 5 logements</span></div>
+        </div>
+        <div class="logf-equip-actions" style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 4px">
+          <button class="btn bs bb" style="font-size:11px;padding:3px 9px">✏️ Modifier</button>
+          <button class="btn br bb" style="font-size:11px;padding:3px 9px">🗑</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="mk-anno">✅ La PNO se <b>crée et se modifie ici</b>, une seule fois, au niveau où le contrat existe vraiment. Le bouton « + Assurance immeuble » remplace l'ancien « + PNO immeuble » qui était mal placé dans la fiche d'un logement. <b>Minimal</b> : ce sous-onglet ne montre QUE la/les PNO de l'immeuble — pas de suivi MRH ici.</p>
+  </div>
+
+  <!-- ═══════════════ ÉCRAN 2 : FICHE LOGEMENT — section simplifiée ═══════════════ -->
+  <div class="mk-screen">
+    <div class="mk-screen-title"><span class="mk-tag mk-tag-simp">Simplifié</span> Fiche logement → Conformité → Assurances obligatoires</div>
+
+    <div style="font-size:14px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:8px;margin:0 0 12px">
+      <span>🛡</span> Assurances obligatoires
+    </div>
+
+    <div class="logf-equip-grid">
+      <div class="logf-equip-card logf-equip-ok">
+        <div class="logf-equip-head">
+          <span class="logf-equip-icon">🛡</span>
+          <div class="logf-equip-title">
+            <div class="logf-equip-name">MRH locataire</div>
+            <div class="logf-equip-base">MAIF · n° H-77120934</div>
+          </div>
+          <span class="logf-equip-badge logf-equip-ok">✓ Valide (236j restants)</span>
+        </div>
+        <div class="logf-equip-body">
+          <div class="logf-equip-row"><span class="logf-equip-l">Échéance</span><span class="logf-equip-v">25/01/2027</span></div>
+        </div>
+        <div class="logf-equip-actions" style="display:flex;gap:6px;justify-content:flex-end;padding:8px 12px 4px">
+          <button class="btn bs bb" style="font-size:11px;padding:3px 9px">✏️ Modifier</button>
+          <button class="btn br bb" style="font-size:11px;padding:3px 9px">🗑</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn bs bb" style="font-size:12px">+ MRH locataire</button>
+    </div>
+
+    <p class="mk-del">❌ <b>Supprimé de la fiche logement :</b> le bouton « + PNO immeuble » (mal placé) ET la carte « PNO héritée de l'immeuble » (zéro valeur ajoutée). La PNO ne s'affiche plus du tout ici.</p>
+    <p class="mk-anno">✅ <b>Reste :</b> uniquement la MRH du locataire — c'est la seule assurance propre à CE logement. (Cas rare copro : on pourra ajouter une assurance « du lot » ici, mais ce n'est pas le défaut.)</p>
+  </div>
+
+  <!-- ═══════════════ RÉCAP ═══════════════ -->
+  <div class="mk-legend">
+    <b>En résumé — 1 contrat = 1 niveau = 1 endroit :</b><br>
+    • 🏢 <b>PNO / multirisque immeuble</b> → fiche <b>immeuble</b>, sous-onglet Assurances (couvre tous les logements).<br>
+    • 🛡 <b>MRH locataire</b> → fiche <b>logement</b> (liée au locataire / bail).<br>
+    • Plus aucune PNO affichée dans la fiche logement → fini le « pourquoi ce bouton ici ? ».
+  </div>
+
+</div>
+</body>
+</html>
