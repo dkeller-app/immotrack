@@ -1215,7 +1215,7 @@ git commit -m "Candidature : RGPD — entrée registre traitement candidatures"
 
 ### Task 8.1: Run the full test suite
 
-- [ ] **Step 1: Run all tests**
+- [x] **Step 1: Run all tests**
 
 Run: `npm run test:run`
 Expected: all green, including the new `candidature.test.js` (the prior total was ~1385; expect that plus the new candidature tests).
@@ -1225,19 +1225,19 @@ Expected: all green, including the new `candidature.test.js` (the prior total wa
 **Files:**
 - Modify: `index.html` — apply the identical edits from Phases 3-7 (initDB collection, sidebar item, page + routing, `rCandidats`, modals, fiche, conversion + `saveBail` hook, purge call)
 
-- [ ] **Step 1: Apply each sandbox edit to prod**
+- [x] **Step 1: Apply each sandbox edit to prod**
 
 Mirror every `index-test.html` change into `index.html` at the corresponding location. Verify the prod line anchors (the agents found prod-specific lines: initDB ~4554, sidebar ~87, `go` maps ~5601/5625, `saveBail` ~15074, `_buildEntityPayload` ~41048, `_cascadeDeleteEntity` ~41143). Apply carefully — these line numbers drift.
 
-- [ ] **Step 2: Bump the version**
+- [x] **Step 2: Bump the version**
 
 In `index.html`, increment the version (title `<title>` and footer) from the current `v15.X` to the next `v15.(X+1)`. (Memory: bump version on every delivered feature.)
 
-- [ ] **Step 3: Smoke-test prod (real data namespace)**
+- [x] **Step 3: Smoke-test prod (real data namespace)**
 
 Open `index.html`, confirm: Candidats tab renders, an existing entity's data still loads, no console error, Drive sync still builds payload (`_buildEntityPayload` returns `candidats`).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add index.html
@@ -1249,11 +1249,11 @@ git commit -m "v15.X : Candidature locataire (app-side) — pipeline candidats +
 **Files:**
 - Modify: `BACKLOG.md`, `docs/subjects/LOG-CANDIDATS.md`
 
-- [ ] **Step 1: Update statuses**
+- [x] **Step 1: Update statuses**
 
 In `BACKLOG.md`, mark LOG-CANDIDATS app-side as livré v15.X (note the online link remains pending the relay foundation). In `docs/subjects/LOG-CANDIDATS.md`, add a journal entry (app-side delivered, helpers + onglet + fiche + conversion + scoring + RGPD purge; online link = separate plan).
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add BACKLOG.md docs/subjects/LOG-CANDIDATS.md
