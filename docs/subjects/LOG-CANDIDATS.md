@@ -1,9 +1,22 @@
 # LOG-CANDIDATS — Pipeline candidats locataires avec lien partagé + conversion bail
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L
+**Status** : ✅ Pipeline candidature livré PROD v15.249 (2026-06-03) · lien partagé en ligne reporté à un plan dédié · **Prio** : P1 · **Taille** : L
 **Détecté** : 2026-05-13 (validé important par utilisateur — capture Qalimo V2)
 **Design refondu** : 2026-06-02 → **`docs/superpowers/specs/2026-06-02-candidature-locataire-design.md`** (lien partagé désormais V1 via le relais Cloudflare ; abandon du report « V2 SaaS » + fallback PDF de mai)
+**Plan d'exécution** : `docs/superpowers/plans/2026-06-02-candidature-app.md` (8 phases)
 **Lié à** : LOG-FICHE-360 · LOG-ANNONCE · BAIL (wizard + `copyBailFrom`) · **BAIL-SIGNATURE-DISTANCE** (relais Cloudflare mutualisé = fondation) · EMAIL-AUTO · PORTAIL-LOCATAIRE (projet suivant, même serveur) · IA-V2 (OCR justifs)
+
+## ✅ Livré PROD v15.249 (2026-06-03)
+Pipeline candidature complet déployé en production (`index.html`), périmètre du plan `2026-06-02-candidature-app.md` :
+- **Phase 2** — Helpers purs `js/core/candidature.js` (scoring « Confiance » non-discriminatoire + validation dossier), couverts par tests Vitest.
+- **Phase 3** — Modèle `DB.candidats[]` + collecte du dossier (identité / revenus / garant / pièces) + sync Drive (toggle registre `candidats`), audité par agent.
+- **Phase 4** — Onglet **Candidats** (`#p-candidats`, `rCandidats`) : tableau Actifs/Archivés + colonne **Confiance**.
+- **Phase 5** — Fiche candidat : pipeline statuts (reçu / en cours / validé / refusé) + détail scoring transparent (décret 2015-1437, art. 22-2 loi 6 juillet 1989 — critères de solvabilité légaux uniquement, **pas de RIB dans le score**).
+- **Phase 6** — Conversion **candidat → bail sans ressaisie** (`convertCandidatToBail`, flag `_pendingCandidatConv` consommé par `saveBail`), audité par agent.
+- **Phase 7** — Purge RGPD : tombstone des candidats refusés > 30 j (`_purgeCandidatsRefusesProd`), appelée au boot (idempotente, mesure précontractuelle).
+- **Phase 8** — Propagation PROD + bump v15.249 + sync Drive registre.
+
+**Hors périmètre (reporté à un plan dédié)** : le **lien partagé en ligne** (relais Cloudflare mutualisé, page publique dossier sans compte). La saisie du dossier candidat se fait pour l'instant côté bailleur. Voir spec design pour l'architecture cible.
 
 ## Contexte
 Demande utilisateur 2026-05-13 (avec capture Qalimo V2 onglet Candidats) :
