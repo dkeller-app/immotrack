@@ -15,22 +15,28 @@ export async function getMeta(env, sid) {
   return raw ? JSON.parse(raw) : null;
 }
 
+// Les PDF (original + signé) sont stockés dans la même boîte KV que les métadonnées,
+// PAS dans R2 : l'activation de R2 chez Cloudflare exige une carte bancaire, qu'on refuse
+// pour rester 100 % gratuit. Une valeur KV peut faire jusqu'à 25 Mio ; on plafonne l'upload
+// à 20 Mo (validate.js), donc ça tient largement (un bail = quelques centaines de Ko).
+// Même TTL de 14 j que les métadonnées → purge automatique cohérente.
+// Les getters renvoient directement un ArrayBuffer (ou null si absent/expiré).
 export async function putOriginalPdf(env, sid, bytes) {
-  await env.PDF_BUCKET.put(originalKey(sid), bytes, {
-    httpMetadata: { contentType: 'application/pdf' }
+  await env.SESSIONS_KV.put(originalKey(sid), bytes, {
+    expirationTtl: SESSION_TTL_SECONDS
   });
 }
 
 export async function getOriginalPdf(env, sid) {
-  return env.PDF_BUCKET.get(originalKey(sid));
+  return env.SESSIONS_KV.get(originalKey(sid), { type: 'arrayBuffer' });
 }
 
 export async function putSignedPdf(env, sid, bytes) {
-  await env.PDF_BUCKET.put(signedKey(sid), bytes, {
-    httpMetadata: { contentType: 'application/pdf' }
+  await env.SESSIONS_KV.put(signedKey(sid), bytes, {
+    expirationTtl: SESSION_TTL_SECONDS
   });
 }
 
 export async function getSignedPdf(env, sid) {
-  return env.PDF_BUCKET.get(signedKey(sid));
+  return env.SESSIONS_KV.get(signedKey(sid), { type: 'arrayBuffer' });
 }

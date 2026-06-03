@@ -102,9 +102,9 @@ app.get('/api/sessions/:id/pdf', async (c) => {
   const sessionId = c.req.param('id');
   const guard = await requireSigner(c, sessionId);
   if (guard.error) return guard.error;
-  const obj = await getOriginalPdf(c.env, sessionId);
-  if (!obj) return c.json({ error: 'pdf missing' }, 404);
-  return new Response(obj.body, { headers: { 'content-type': 'application/pdf' } });
+  const bytes = await getOriginalPdf(c.env, sessionId);
+  if (!bytes) return c.json({ error: 'pdf missing' }, 404);
+  return new Response(bytes, { headers: { 'content-type': 'application/pdf' } });
 });
 
 // Anti-transfert (§5 #2) : le signataire confirme son email. La comparaison se fait
@@ -165,9 +165,9 @@ app.get('/api/sessions/:id/result', async (c) => {
   const guard = await requireOwner(c, sessionId);
   if (guard.error) return guard.error;
   if (guard.session.status !== 'completed') return c.json({ error: 'not completed' }, 409);
-  const obj = await getSignedPdf(c.env, sessionId);
-  if (!obj) return c.json({ error: 'signed pdf missing' }, 404);
-  return new Response(obj.body, { headers: { 'content-type': 'application/pdf' } });
+  const bytes = await getSignedPdf(c.env, sessionId);
+  if (!bytes) return c.json({ error: 'signed pdf missing' }, 404);
+  return new Response(bytes, { headers: { 'content-type': 'application/pdf' } });
 });
 
 app.get('/api/sessions/:id', async (c) => {

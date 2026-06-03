@@ -17,25 +17,25 @@ describe('storage KV', () => {
   });
 });
 
-describe('storage R2', () => {
+describe('storage PDF (KV)', () => {
   it('putOriginalPdf puis getOriginalPdf restitue les octets', async () => {
     const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3]);
     await putOriginalPdf(env, 'sid-2', bytes);
-    const obj = await getOriginalPdf(env, 'sid-2');
-    const out = new Uint8Array(await obj.arrayBuffer());
+    const buf = await getOriginalPdf(env, 'sid-2');
+    const out = new Uint8Array(buf);
     expect(out).toEqual(bytes);
   });
 
   it('putSignedPdf puis getSignedPdf restitue les octets', async () => {
     const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 9, 9]);
     await putSignedPdf(env, 'sid-3', bytes);
-    const obj = await getSignedPdf(env, 'sid-3');
-    const out = new Uint8Array(await obj.arrayBuffer());
+    const buf = await getSignedPdf(env, 'sid-3');
+    const out = new Uint8Array(buf);
     expect(out).toEqual(bytes);
   });
 
   it('getSignedPdf retourne null si absent', async () => {
-    const obj = await getSignedPdf(env, 'sid-inexistant');
-    expect(obj).toBeNull();
+    const buf = await getSignedPdf(env, 'sid-inexistant');
+    expect(buf).toBeNull();
   });
 });

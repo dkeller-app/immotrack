@@ -1,5 +1,5 @@
 // Smoke end-to-end : round-trip réel (relais + tamponnage pdf-lib réel + chaînage 2 signataires).
-// Exerce toute la pile fonctionnelle (routes, tokens, KV/R2 miniflare, stamp.js + manifest.js +
+// Exerce toute la pile fonctionnelle (routes, tokens, stockage KV miniflare, stamp.js + manifest.js +
 // pdf-lib) SAUF le DOM (sign.js orchestrateur, vérifié manuellement en navigateur).
 import { SELF } from 'cloudflare:test';
 import { describe, it, expect } from 'vitest';

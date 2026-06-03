@@ -4,13 +4,11 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 kv_namespaces = [
-  { binding = "SESSIONS_KV", id = "REMPLIR_PROD_ID", preview_id = "REMPLIR_PREVIEW_ID" }
+  { binding = "SESSIONS_KV", id = "2aa3714428be4566a54d46d8ebe4740c" }
 ]
 
-[[r2_buckets]]
-binding = "PDF_BUCKET"
-bucket_name = "bail-sign-pdfs"
-preview_bucket_name = "bail-sign-pdfs-preview"
+# Pas de R2 : les PDF sont stockés dans KV (voir src/storage.js). R2 exige une carte
+# bancaire à l'activation, qu'on refuse pour rester 100 % gratuit.
 
 [assets]
 directory = "./public"
