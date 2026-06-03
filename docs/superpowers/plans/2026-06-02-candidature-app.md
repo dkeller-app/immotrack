@@ -1157,7 +1157,7 @@ Brief it: review `convertCandidatToBail`, the `saveBail` hook, and `_finalizeCan
 **Files:**
 - Modify: `index-test.html` — a startup/maintenance point (after `initDB`, where other periodic cleanups run; search for existing purge/maintenance calls)
 
-- [ ] **Step 1: Implement the prod wrapper that tombstones purged refusés**
+- [x] **Step 1: Implement the prod wrapper that tombstones purged refusés**
 
 ```javascript
 function _purgeCandidatsRefusesProd(){
@@ -1180,11 +1180,11 @@ function _purgeCandidatsRefusesProd(){
 
 Call `_purgeCandidatsRefusesProd();` once at startup (after DB is loaded), guarded so it runs only in non-sandbox prod sync context if appropriate (sandbox has Drive disabled — tombstoning is harmless there, so an unconditional call is acceptable). Confirm `_tombstoneObj` is the correct global name by grepping.
 
-- [ ] **Step 2: Verify**
+- [x] **Step 2: Verify**
 
 In the sandbox console, create a `refuse` candidate with `_modifiedAt` 31 days ago, run `_purgeCandidatsRefusesProd()`, confirm it becomes a tombstone and disappears from the Archivés list.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add index-test.html
@@ -1196,11 +1196,11 @@ git commit -m "Candidature : purge RGPD 30j des refusés au démarrage (tombston
 **Files:**
 - Modify: `docs/legal/RGPD-REGISTRE.md` (if present — confirm path)
 
-- [ ] **Step 1: Add a treatment entry**
+- [x] **Step 1: Add a treatment entry**
 
 Add a "Candidatures locataires" treatment line: finalité (sélection locataire), données (identité, revenus, garant, pièces décret 2015-1437), base légale (mesures précontractuelles), durée (refusés purgés à 30 j ; retenus → cycle de vie du bail), destinataires (bailleur ; relais = sous-traitant pour le lien en ligne — à compléter au plan online).
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add docs/legal/RGPD-REGISTRE.md
