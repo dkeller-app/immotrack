@@ -1,0 +1,378 @@
+<!doctype html>
+<html data-theme="light" lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup C3 — Envoi bail pour signature à distance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== Tokens réels ImmoTrack v15.249 (extrait de css/main.css) ===== */
+:root{
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.93); --sur2:rgba(242,246,251,.97); --sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09); --bor2:rgba(0,0,0,.05);
+  --t1:#1a2332; --t2:#5a6e87; --t3:#9aabbf;
+  --blu:#3b7ef6; --grn:#16a34a; --red:#dc2626; --ora:#ea580c; --pur:#7c3aed; --acc:#3b7ef6;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(59,126,246,.18),0 1px 4px rgba(0,0,0,.07);
+  --r:8px; --rl:14px; --font-base:17px; --lh:1.56;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:var(--font-base);line-height:var(--lh)}
+h1,h2,h3,.mono-title{font-family:'Manrope',sans-serif}
+a{color:var(--blu);text-decoration:none}
+
+/* ===== Composants réels ===== */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13.5px;font-weight:500;transition:all .15s;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bp:hover:not(:disabled){background:#2d6de0}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bs:hover:not(:disabled){background:var(--sur3);border-color:var(--blu)}
+.br{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.2)}
+.bg{background:rgba(22,163,74,.1);color:var(--grn);border:1px solid rgba(22,163,74,.2)}
+.bb{padding:5px 11px;font-size:12px}
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:12px;color:var(--t2);margin-bottom:5px;font-weight:600;letter-spacing:.2px}
+.inp{width:100%;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);padding:9px 12px;font-size:13.5px;font-family:'IBM Plex Sans',sans-serif;transition:border .15s,box-shadow .15s}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.12)}
+.inp::placeholder{color:var(--t3)}
+.inp.err{border-color:var(--red);box-shadow:0 0 0 3px rgba(220,38,38,.10)}
+
+/* Modale */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.ov.hidden{display:none}
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);width:100%;max-width:640px;box-shadow:var(--shadow-lg)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:16px;font-weight:700}
+.m-close{background:none;border:none;color:var(--t2);cursor:pointer;font-size:19px;padding:4px;border-radius:6px}
+.m-close:hover{color:var(--t1);background:var(--sur3)}
+.m-body{padding:22px;max-height:70vh;overflow-y:auto}
+.m-foot{padding:14px 22px;border-top:1px solid var(--bor);display:flex;justify-content:flex-end;gap:8px;background:var(--sur2);border-radius:0 0 var(--rl) var(--rl)}
+
+/* Toast */
+#toast{position:fixed;bottom:28px;right:28px;background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:12px 18px;font-size:13.5px;z-index:999;display:none;align-items:center;gap:6px;box-shadow:var(--shadow-lg)}
+
+/* Ligne locataire réelle */
+.loc-card-row-b{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--sur2);cursor:pointer;background:var(--sur);transition:background .12s}
+.loc-card-row-b:hover{background:var(--sur3)}
+.loc-avatar-b{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.loc-info-b .nom-b{font-weight:600;font-size:13px;color:var(--t1);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.loc-info-b .meta-b{font-size:11px;color:var(--t2);margin-top:1px}
+.row-actions{display:flex;gap:4px;align-items:center}
+.act{background:var(--sur2);border:1px solid var(--bor);border-radius:7px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all .12s}
+.act:hover{background:var(--sur3);border-color:var(--blu)}
+.act.send{background:rgba(59,126,246,.1);border-color:rgba(59,126,246,.25)}
+
+/* Pastilles statut (helper badge() réel) */
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap}
+.pill-wait{background:#fef3c7;color:#92400e;border:1px solid #f59e0b}
+.pill-sent{background:rgba(59,126,246,.10);color:#1d4ed8;border:1px solid rgba(59,126,246,.30)}
+.pill-done{background:#dcfce7;color:#166534;border:1px solid #16a34a}
+.pill-err{background:#fee2e2;color:#991b1b;border:1px solid #ef4444}
+
+/* Bandeau signé pleine largeur */
+.bail-signed-badge{background:#dcfce7;border:1.5px solid #16a34a;border-radius:6px;padding:8px 12px;margin:8px 0;font-size:12px;color:#166534;font-weight:bold;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* Listing signataires dans la modale */
+.signer-row{display:grid;grid-template-columns:26px 32px 1fr;gap:10px;align-items:start;padding:12px;border:1px solid var(--bor);border-radius:var(--r);margin-bottom:10px;background:var(--sur2)}
+.signer-row.off{opacity:.5}
+.signer-row .ord{width:24px;height:24px;border-radius:50%;background:var(--blu);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.signer-row .ord.local{background:var(--grn)}
+.signer-row .av{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.signer-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.signer-meta .role{font-size:12px;font-weight:700;color:var(--t1)}
+.signer-meta .sub{font-size:10.5px;color:var(--t2)}
+.toggle{position:relative;width:38px;height:22px;flex:none}
+.toggle input{display:none}
+.toggle span{position:absolute;inset:0;background:var(--sur3);border:1px solid var(--bor);border-radius:11px;transition:.15s}
+.toggle span::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.toggle input:checked + span{background:var(--blu);border-color:var(--blu)}
+.toggle input:checked + span::after{left:18px}
+.banner{border-radius:var(--r);padding:10px 12px;font-size:12px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+.banner-warn{background:#fef3c7;border:1px solid #f59e0b;color:#92400e}
+.banner-info{background:rgba(59,126,246,.08);border:1px solid rgba(59,126,246,.25);color:#1d4ed8}
+.email-preview{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:14px;font-size:12.5px;color:var(--t1);line-height:1.5}
+.email-preview .ep-meta{font-size:11px;color:var(--t2);border-bottom:1px dashed var(--bor);padding-bottom:8px;margin-bottom:8px}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:sp .7s linear infinite;vertical-align:middle}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ===== Habillage mockup (hors app) ===== */
+.mock-bar{position:sticky;top:0;z-index:50;background:#0f172a;color:#e2e8f0;padding:10px 18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.mock-bar b{font-family:'Manrope',sans-serif}
+.mock-bar .fmt{margin-left:auto;font-size:12px;background:#1e293b;padding:5px 12px;border-radius:20px}
+.mock-bar .fmt b{color:#7dd3fc}
+.mock-bar button{font-size:12px;padding:5px 10px;border-radius:7px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;cursor:pointer}
+.mock-bar button:hover{background:#334155}
+.wrap{max-width:980px;margin:0 auto;padding:24px 16px 80px}
+.sec{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:20px;margin-bottom:22px;box-shadow:var(--shadow)}
+.sec > h2{font-size:15px;margin-bottom:4px}
+.sec > .hint{font-size:12px;color:var(--t2);margin-bottom:16px}
+.demo-card{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;margin-bottom:12px}
+.state-label{font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
+
+/* Indicateur de format via breakpoints réels */
+.fmt::after{content:'PC (≥1024px)'}
+@media(max-width:1023px){.fmt::after{content:'Tablette (768–1023px)'}}
+@media(max-width:767px){.fmt::after{content:'Tablette portrait (600–767px)'}}
+@media(max-width:599px){.fmt::after{content:'Téléphone (<600px)'}}
+@media(max-width:599px){
+  .signer-row{grid-template-columns:24px 1fr}
+  .signer-row .av{display:none}
+  .loc-card-row-b{grid-template-columns:36px 1fr;gap:8px}
+  .row-actions{grid-column:1 / -1;justify-content:flex-end;margin-top:6px}
+}
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <b>🧪 Mockup C3</b> — Envoi bail pour signature à distance
+  <button onclick="demoToast('📨 Bail envoyé à locataire@exemple.fr','ok')">Toast succès</button>
+  <button onclick="demoToast('❌ Relais injoignable — réessaie plus tard','err')">Toast erreur</button>
+  <button onclick="demoToast('✅ Bail signé revenu sur Drive','ok',4000)">Toast retour signé</button>
+  <span class="fmt">Format : <b></b></span>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ SECTION 1 : contexte fiche logement ============ -->
+  <div class="sec">
+    <h2>1 · Dans la liste des baux (fiche logement)</h2>
+    <div class="hint">Le bouton <b>📨</b> s'ajoute aux actions de la ligne. Une pastille de statut apparaît près du nom. 3 états :</div>
+
+    <div class="state-label">État A — pas encore envoyé</div>
+    <div class="demo-card">
+      <div class="loc-card-row-b">
+        <div class="loc-avatar-b">JD</div>
+        <div class="loc-info-b">
+          <div class="nom-b">Jean Dupont</div>
+          <div class="meta-b">F-012 · Bail nu · 06 12 34 56 78</div>
+        </div>
+        <div class="row-actions">
+          <div class="act" title="Modifier">📝</div>
+          <div class="act" title="Voir">👁</div>
+          <div class="act" title="Le locataire signe (présentiel)">✍</div>
+          <div class="act send" title="Envoyer pour signature à distance" onclick="openM('ov-send-a')">📨</div>
+          <div class="act" title="Plus">⋮</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-label">État B — envoyé, en attente de signature</div>
+    <div class="demo-card">
+      <div class="loc-card-row-b">
+        <div class="loc-avatar-b">JD</div>
+        <div class="loc-info-b">
+          <div class="nom-b">Jean Dupont <span class="pill pill-sent" title="Lien envoyé le 03/06 — en attente">📨 En attente</span></div>
+          <div class="meta-b">F-012 · Envoyé le 03/06 à 14:21 · locataire@exemple.fr</div>
+        </div>
+        <div class="row-actions">
+          <div class="act" title="Relancer le signataire en cours" onclick="demoToast('📨 Relance envoyée à locataire@exemple.fr','ok')">🔔</div>
+          <div class="act" title="Voir le suivi" onclick="demoToast('Suivi : 0/1 signé · ouvert le 03/06 15:02','',3500)">👁</div>
+          <div class="act" title="Plus">⋮</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-label">État B′ — chaînage (2 signataires) : 1er signé, relance auto du 2e</div>
+    <div class="demo-card">
+      <div class="loc-card-row-b">
+        <div class="loc-avatar-b">JD</div>
+        <div class="loc-info-b">
+          <div class="nom-b">Jean &amp; Marie Dupont <span class="pill pill-sent" title="Marie a signé, en attente de Jean">📨 1/2 signé</span></div>
+          <div class="meta-b">F-012 · Marie ✓ (03/06 15:40) · Jean : lien envoyé</div>
+        </div>
+        <div class="row-actions">
+          <div class="act" title="Relancer Jean" onclick="demoToast('📨 Relance envoyée à jean@exemple.fr','ok')">🔔</div>
+          <div class="act" title="Plus">⋮</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-label">État C — signé, revenu sur Drive</div>
+    <div class="demo-card">
+      <div class="loc-card-row-b">
+        <div class="loc-avatar-b">JD</div>
+        <div class="loc-info-b">
+          <div class="nom-b">Jean Dupont <span title="Bail signé bilatéralement" style="color:#16a34a;font-size:14px">🔒</span></div>
+          <div class="meta-b">F-012 · Signé le 03/06 16:10</div>
+        </div>
+        <div class="row-actions">
+          <div class="act" title="Voir le bail signé">📜</div>
+          <div class="act" title="PDF sur Drive">📂</div>
+          <div class="act" title="Plus">⋮</div>
+        </div>
+      </div>
+      <div style="padding:0 14px 12px">
+        <div class="bail-signed-badge">🔒 Bail signé bilatéralement le 03/06/2026
+          <a href="#" onclick="return false">📂 Bail signé</a> ·
+          <a href="#" onclick="return false">📑 Certificat de preuve</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION 2 : modale d'envoi ============ -->
+  <div class="sec">
+    <h2>2 · La modale d'envoi — 2 variantes à comparer</h2>
+    <div class="hint">Variante A = tout sur un écran (rapide). Variante B = récap + confirmation avec aperçu de l'email (plus rassurant pour un acte juridique).</div>
+    <button class="btn bp" onclick="openM('ov-send-a')">Ouvrir variante A — liste compacte</button>
+    <button class="btn bs" onclick="openM('ov-send-b');stepB(1)">Ouvrir variante B — récap + confirmation</button>
+    <div style="margin-top:14px">
+      <div class="state-label">Variante avec config manquante (1er usage)</div>
+      <button class="btn bs" onclick="openM('ov-send-cfg')">Ouvrir (relais non configuré)</button>
+    </div>
+  </div>
+
+  <!-- ============ SECTION 3 : réglages + repli ============ -->
+  <div class="sec">
+    <h2>3 · Réglages (une fois) — connexion au relais</h2>
+    <div class="hint">Le secret ne va pas en dur (le code est public). Saisi ici, stocké en local sur ton appareil (<code>DB.params</code>).</div>
+    <div class="fg"><label>URL du relais de signature</label>
+      <input class="inp" value="https://bail-sign-relay.didierkeller.workers.dev" placeholder="https://…workers.dev"></div>
+    <div class="fg"><label>Clé d'application (APP_KEY)</label>
+      <input class="inp" type="password" value="••••••••••••••••••••" placeholder="collée depuis le relais"></div>
+    <button class="btn bp" onclick="demoToast('✅ Connexion au relais enregistrée','ok')">Enregistrer</button>
+    <button class="btn bs" onclick="demoToast('✅ Relais joignable (health OK)','ok')">Tester la connexion</button>
+  </div>
+
+</div>
+
+<!-- ============ MODALE A — liste compacte ============ -->
+<div class="ov hidden" id="ov-send-a" onclick="closeBg(event,'ov-send-a')">
+  <div class="modal">
+    <div class="m-head"><h3>📨 Envoyer le bail pour signature à distance</h3><button class="m-close" onclick="closeM('ov-send-a')">✕</button></div>
+    <div class="m-body">
+      <div class="banner banner-info">📄 <div><b>Bail F-012</b> — Logement 12 rue des Lilas · Bail nu.<br>Chaque signataire reçoit un lien par email, <b>à son tour</b> (le suivant est relancé automatiquement une fois le précédent signé).</div></div>
+
+      <div class="state-label">Signataires</div>
+
+      <!-- bailleur : occupant → déjà signé in-app -->
+      <div class="signer-row off">
+        <div class="ord local">✓</div>
+        <div class="av">SC</div>
+        <div>
+          <div class="signer-meta"><span class="role">Bailleur · SCI Keller</span><span class="sub">signé dans l'app</span></div>
+          <div class="sub" style="font-size:11px;color:var(--grn)">✅ Signature bailleur déjà apposée — pas d'envoi</div>
+        </div>
+      </div>
+
+      <!-- locataire 1 : remote, ordre 1 -->
+      <div class="signer-row">
+        <div class="ord">1</div>
+        <div class="av">MD</div>
+        <div>
+          <div class="signer-meta"><span class="role">Locataire · Marie Dupont</span>
+            <label class="toggle"><input type="checkbox" checked><span></span></label></div>
+          <input class="inp" value="marie@exemple.fr" placeholder="email du signataire">
+        </div>
+      </div>
+
+      <!-- locataire 2 : remote, ordre 2, email manquant -->
+      <div class="signer-row">
+        <div class="ord">2</div>
+        <div class="av">JD</div>
+        <div>
+          <div class="signer-meta"><span class="role">Locataire · Jean Dupont</span>
+            <label class="toggle"><input type="checkbox" checked><span></span></label></div>
+          <input class="inp err" value="" placeholder="⚠ email manquant — à renseigner">
+        </div>
+      </div>
+
+      <div class="banner banner-warn" style="margin-top:4px">⚠ <div>Un email est manquant. Renseigne-le ou désactive ce signataire pour continuer.</div></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs" onclick="closeM('ov-send-a')">Annuler</button>
+      <button class="btn bp" id="btn-send-a" onclick="simulateSend('ov-send-a','btn-send-a')">📨 Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODALE B — récap + confirmation ============ -->
+<div class="ov hidden" id="ov-send-b" onclick="closeBg(event,'ov-send-b')">
+  <div class="modal">
+    <div class="m-head"><h3 id="b-title">📨 Envoyer pour signature · étape 1/2</h3><button class="m-close" onclick="closeM('ov-send-b')">✕</button></div>
+    <div class="m-body">
+      <!-- étape 1 -->
+      <div id="b-step1">
+        <div class="banner banner-info">📄 <div><b>Bail F-012</b> — vérifie l'ordre et les emails avant l'envoi.</div></div>
+        <div class="signer-row off"><div class="ord local">✓</div><div class="av">SC</div>
+          <div><div class="signer-meta"><span class="role">Bailleur · SCI Keller</span><span class="sub">signé dans l'app</span></div></div></div>
+        <div class="signer-row"><div class="ord">1</div><div class="av">MD</div>
+          <div><div class="signer-meta"><span class="role">Locataire · Marie Dupont</span></div>
+          <input class="inp" value="marie@exemple.fr"></div></div>
+        <div class="signer-row"><div class="ord">2</div><div class="av">JD</div>
+          <div><div class="signer-meta"><span class="role">Locataire · Jean Dupont</span></div>
+          <input class="inp" value="jean@exemple.fr"></div></div>
+      </div>
+      <!-- étape 2 -->
+      <div id="b-step2" style="display:none">
+        <div class="banner banner-info">✉ <div>Un email va partir <b>maintenant</b> à <b>Marie Dupont</b> (1ᵉ signataire). Jean sera relancé automatiquement une fois Marie signée.</div></div>
+        <div class="email-preview">
+          <div class="ep-meta"><b>À :</b> marie@exemple.fr · <b>Objet :</b> Signature de votre bail — Logement F-012</div>
+          Bonjour,<br><br>Votre bail de location pour le logement <b>12 rue des Lilas</b> est prêt à être signé électroniquement.<br><br>
+          👉 <a href="#" onclick="return false">Lire et signer mon bail</a><br><br>
+          Le lien est personnel. Vous confirmerez votre email avant de signer.<br><br>— SCI Keller
+        </div>
+      </div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs" id="b-back" onclick="stepB(1)" style="display:none">← Retour</button>
+      <button class="btn bs" onclick="closeM('ov-send-b')">Annuler</button>
+      <button class="btn bp" id="b-next" onclick="stepB(2)">Continuer →</button>
+      <button class="btn bp" id="b-confirm" style="display:none" onclick="simulateSend('ov-send-b','b-confirm')">📨 Confirmer l'envoi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODALE config manquante ============ -->
+<div class="ov hidden" id="ov-send-cfg" onclick="closeBg(event,'ov-send-cfg')">
+  <div class="modal" style="max-width:520px">
+    <div class="m-head"><h3>📨 Envoyer pour signature</h3><button class="m-close" onclick="closeM('ov-send-cfg')">✕</button></div>
+    <div class="m-body">
+      <div class="banner banner-warn">⚙ <div><b>Relais non configuré.</b> Avant le premier envoi, renseigne l'URL du relais et ta clé d'application dans les réglages.</div></div>
+      <p style="font-size:13px;color:var(--t2)">C'est une opération unique. Ensuite, l'envoi se fait en un clic depuis n'importe quelle fiche.</p>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs" onclick="closeM('ov-send-cfg')">Plus tard</button>
+      <button class="btn bp" onclick="closeM('ov-send-cfg');demoToast('Ouverture des réglages…','',1800)">Ouvrir les réglages →</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function openM(id){document.getElementById(id).classList.remove('hidden')}
+function closeM(id){document.getElementById(id).classList.add('hidden')}
+function closeBg(e,id){if(e.target.id===id)closeM(id)}
+function demoToast(msg,type,dur){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='flex';
+  t.style.color = type==='err'?'var(--red)':type==='ok'?'var(--grn)':type==='warn'?'var(--ora)':'var(--t1)';
+  clearTimeout(window._tt); window._tt=setTimeout(function(){t.style.display='none'}, dur||2800);
+}
+function stepB(n){
+  document.getElementById('b-step1').style.display = n===1?'block':'none';
+  document.getElementById('b-step2').style.display = n===2?'block':'none';
+  document.getElementById('b-next').style.display   = n===1?'inline-flex':'none';
+  document.getElementById('b-back').style.display   = n===2?'inline-flex':'none';
+  document.getElementById('b-confirm').style.display= n===2?'inline-flex':'none';
+  document.getElementById('b-title').textContent = '📨 Envoyer pour signature · étape '+n+'/2';
+}
+function simulateSend(modalId,btnId){
+  var b=document.getElementById(btnId); var old=b.innerHTML;
+  b.disabled=true; b.innerHTML='<span class="spin"></span> Envoi…';
+  setTimeout(function(){
+    b.disabled=false; b.innerHTML=old;
+    closeM(modalId);
+    demoToast('📨 Bail envoyé à marie@exemple.fr','ok');
+  }, 1100);
+}
+</script>
+</body>
+</html>
