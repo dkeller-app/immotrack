@@ -32,4 +32,11 @@ describe('CORS', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(o);
     }
   });
+
+  it('ne reflète pas une origine non autorisée', async () => {
+    const res = await app.request('/health', {
+      headers: { Origin: 'https://evil.example.com' }
+    }, env);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
 });

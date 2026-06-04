@@ -20,12 +20,12 @@ app.use('*', cors({
   origin: (origin) => {
     if (!origin) return undefined;
     if (ALLOWED_ORIGINS.includes(origin)) return origin;
-    if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return origin;   // dev local
+    if (/^http:\/\/localhost(:[1-9]\d{0,4})?$/.test(origin)) return origin;   // dev local
     return undefined; // origine non autorisée → pas d'en-tête
   },
   allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Authorization', 'X-Owner-Token', 'X-Sign-Token', 'X-Sign-Proof', 'Content-Type'],
-  maxAge: 86400
+  maxAge: 86400 // 86400 s = 24 h (plafond Firefox)
 }));
 
 app.get('/health', (c) => c.json({ ok: true, service: 'bail-sign-relay' }));
