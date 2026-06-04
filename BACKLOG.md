@@ -470,6 +470,13 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 
 ## ✅ Livré récemment
 
+### BUG-BAIL-ANNEXES-DUP — annexes affichées en double dans le bail (2026-06-04, v15.251)
+> **Signalé par capture user** : le bail (contrat-type légal décret 2015-587) affichait cave/parking/garage **deux fois** — ligne légale « Locaux et équipements accessoires à usage privatif du locataire » (`bail.locauxPrivatifs`, texte libre legacy) **ET** ligne « Annexes privatives » (`log.annexes` structuré sérialisé). Follow-up de la consolidation annexes (Phase B4).
+> - **Décision user** : fusion sur la **seule ligne légale** (annexes structurées = source de vérité, `locauxPrivatifs` = fallback, ligne « Annexes privatives » supprimée) **uniquement pour les baux NON signés**. **Baux signés inchangés** (immutabilité stricte byte-identique : 2 lignes conservées).
+> - **3 rendus + template** alignés via gating `_bailSigned()` : PDF natif (`buildBailStructure`), aperçu HTML (`previewBailData`), template éditable (`genBailHTML` via placeholder conditionnel `{{ANNEXES_ROW}}` ; `{{ANNEXES}}` conservé pour templates custom legacy). Helpers `_bailSigned`/`_bailAnnexesVal`/`_bailLocauxFused`.
+> - **MAJOR-1 corrigé** (effet de bord trouvé par audit) : le diff aperçu d'un bail signé comparait live (branche signée, N+1 lignes) vs snapshot (`signatures` supprimé → branche non-signée, N lignes) → faux « changement structurel » sur **chaque** bail signé. Fix : `snapStruct` forcé en branche signée via `Object.assign({}, snapBail, {signatures: bail.signatures})` (idiome déjà éprouvé ligne 16422). N'affecte QUE le bandeau de diff, jamais le document rendu/exporté.
+> - **Audit `superpowers:code-reviewer` (2 passes)** : full audit → SAFE TO SHIP + MAJOR-1 ; re-audit ciblé du fix MAJOR-1 → **SAFE, aucune correction requise**, byte-identité bail signé confirmée intacte. check-inline-js 4/0 · Vitest 1422/1422. Commit direct PROD (override sandbox-first à la demande user) `bcb9811` + bump 5 emplacements + sw.js CACHE_VER v15.251.
+
 ### ARCHI-DB-DOUBLONS — Phase 4b COMPLÈTE (décision B3 : logement = source unique du bien) (2026-05-29, v15.232)
 > **Mandat user** : « en finir avec ce sujet, tout faire d'un coup propre ». Fin de la duplication bail↔bien : le **LOGEMENT** (`DB.logements[]`, clé `.ref`) est désormais la **source unique** des champs « bien physique ». Le bail les lit via `_readLogForBail(bail, log)`.
 > - **Écritures legacy supprimées** : `getBailDataFromForm` + `copyBailFrom` n'émettent plus les champs bien · bloc « bien » de `_syncLogToBail` retiré (garde identité adrBien/ftype/etage/surf + financiers/locataire conservée).
