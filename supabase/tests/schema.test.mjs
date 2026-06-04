@@ -51,3 +51,7 @@ describe('RLS forcée + policies', () => {
   it('espaces : RLS forcée + ≥4 policies',        async () => { expect(await rlsForced('espaces')).toBe(true) })
   it('espace_members : RLS forcée + ≥4 policies', async () => { expect(await rlsForced('espace_members')).toBe(true) })
 })
+
+describe('RPC create_espace', () => {
+  it('create_espace existe', async () => { expect(await funcExists('create_espace')).toBe(true) })
+})
