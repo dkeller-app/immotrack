@@ -41,10 +41,13 @@ export async function getSignedPdf(env, sid) {
   return env.SESSIONS_KV.get(signedKey(sid), { type: 'arrayBuffer' });
 }
 
-// Purge complète d'une session (D12 : relais éphémère). 3 clés KV partagent le namespace.
+// Purge complète d'une session (D12 : relais éphémère).
+// On supprime la meta EN PREMIER : la session devient immédiatement introuvable
+// (requireOwner gate sur la meta) même si une suppression PDF échoue ensuite.
+// Échec partiel = acceptable : le TTL 14 j nettoie les clés orphelines (purge best-effort côté app).
 export async function deleteSession(env, sid) {
+  await env.SESSIONS_KV.delete(metaKey(sid));
   await Promise.all([
-    env.SESSIONS_KV.delete(metaKey(sid)),
     env.SESSIONS_KV.delete(originalKey(sid)),
     env.SESSIONS_KV.delete(signedKey(sid))
   ]);

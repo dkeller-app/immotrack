@@ -31,10 +31,19 @@ describe('DELETE /api/sessions/:id', () => {
     expect(del.status).toBe(401);
   });
 
-  it('idempotent : re-DELETE → 204 ou 404', async () => {
+  it('idempotent : re-DELETE → 404 (meta déjà purgée)', async () => {
     const { sessionId, ownerToken } = await createSession();
     await app.request(`/api/sessions/${sessionId}`, { method: 'DELETE', headers: { 'X-Owner-Token': ownerToken } }, env);
     const again = await app.request(`/api/sessions/${sessionId}`, { method: 'DELETE', headers: { 'X-Owner-Token': ownerToken } }, env);
-    expect([204, 404]).toContain(again.status);
+    expect(again.status).toBe(404);
+  });
+
+  it('refuse un token d\'une autre session → 401', async () => {
+    const { ownerToken } = await createSession();
+    const { sessionId: otherId } = await createSession();
+    const del = await app.request(`/api/sessions/${otherId}`, {
+      method: 'DELETE', headers: { 'X-Owner-Token': ownerToken }
+    }, env);
+    expect(del.status).toBe(401);
   });
 });
