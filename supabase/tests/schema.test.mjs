@@ -55,3 +55,19 @@ describe('RLS forcée + policies', () => {
 describe('RPC create_espace', () => {
   it('create_espace existe', async () => { expect(await funcExists('create_espace')).toBe(true) })
 })
+
+async function triggerExists(name) {
+  const c = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+  await c.connect()
+  try {
+    const r = await c.query(`select 1 from pg_trigger where tgname=$1 and not tgisinternal`, [name])
+    return r.rowCount >= 1
+  } finally { await c.end() }
+}
+
+describe('invariants triggers', () => {
+  it('trigger dernier-owner sur espace_members', async () =>
+    { expect(await triggerExists('trg_protect_last_owner')).toBe(true) })
+  it('trigger version/updated_at sur espaces', async () =>
+    { expect(await triggerExists('trg_touch_espaces')).toBe(true) })
+})
