@@ -133,6 +133,13 @@ import {
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses
 } from './core/candidature.js';
 
+// LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
+import {
+  normalizeBase, buildCandidatUrl, relayConfigured, buildInvitationPayload,
+  _relayDossierVersCandidat, relayCreateInvitation, relayFetchResult,
+  relayFetchPiece, relayReopen, relayRevoke, relayPurge, relayPing
+} from './core/relay-client.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -301,6 +308,20 @@ window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;
 window._migrerDocsCandidatVersBail = _migrerDocsCandidatVersBail;
 window._purgeCandidatsRefuses = _purgeCandidatsRefuses;
+
+// LOG-CANDIDATS (lien en ligne) — client relais
+window._relayNormalizeBase = normalizeBase;
+window._buildCandidatUrl = buildCandidatUrl;
+window._relayConfigured = relayConfigured;
+window._buildInvitationPayload = buildInvitationPayload;
+window._relayDossierVersCandidat = _relayDossierVersCandidat;
+window._relayCreateInvitation = relayCreateInvitation;
+window._relayFetchResult = relayFetchResult;
+window._relayFetchPiece = relayFetchPiece;
+window._relayReopen = relayReopen;
+window._relayRevoke = relayRevoke;
+window._relayPurge = relayPurge;
+window._relayPing = relayPing;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
