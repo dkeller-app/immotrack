@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validatePdfUpload, validateSigners, MAX_PDF_BYTES } from '../src/validate.js';
+import { validatePdfUpload, validateSigners, MAX_PDF_BYTES, validatePieceUpload, validateDossier, validateCandidatureMeta, MAX_PIECE_BYTES } from '../src/validate.js';
 
 const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
 
@@ -77,28 +77,29 @@ describe('validateSigners', () => {
   });
 });
 
-import { validatePieceUpload, validateDossier, validateCandidatureMeta, MAX_PIECE_BYTES } from '../src/validate.js';
-
 const JPEG_MAGIC = new Uint8Array([0xFF, 0xD8, 0xFF]);
 const PNG_MAGIC  = new Uint8Array([0x89, 0x50, 0x4E, 0x47]);
 const PDFM       = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
-function mk(magic, size) { const b = new Uint8Array(size); b.set(magic, 0); return b; }
 
 describe('validatePieceUpload', () => {
-  it('accepte un JPEG', () => expect(validatePieceUpload(mk(JPEG_MAGIC, 500), 'image/jpeg').ok).toBe(true));
-  it('accepte un PNG', () => expect(validatePieceUpload(mk(PNG_MAGIC, 500), 'image/png').ok).toBe(true));
-  it('accepte un PDF', () => expect(validatePieceUpload(mk(PDFM, 500), 'application/pdf').ok).toBe(true));
+  it('accepte un JPEG', () => expect(validatePieceUpload(makeBytes(JPEG_MAGIC, 500), 'image/jpeg').ok).toBe(true));
+  it('accepte un PNG', () => expect(validatePieceUpload(makeBytes(PNG_MAGIC, 500), 'image/png').ok).toBe(true));
+  it('accepte un PDF', () => expect(validatePieceUpload(makeBytes(PDFM, 500), 'application/pdf').ok).toBe(true));
   it('rejette un type inconnu (magic invalide)', () => {
-    const r = validatePieceUpload(mk(new Uint8Array([0,1,2,3]), 500), 'image/png');
+    const r = validatePieceUpload(makeBytes(new Uint8Array([0,1,2,3]), 500), 'image/png');
     expect(r.ok).toBe(false); expect(r.reason).toBe('bad-format');
   });
   it('rejette un content-type non autorisé', () => {
-    const r = validatePieceUpload(mk(JPEG_MAGIC, 500), 'image/gif');
+    const r = validatePieceUpload(makeBytes(JPEG_MAGIC, 500), 'image/gif');
     expect(r.ok).toBe(false); expect(r.reason).toBe('bad-content-type');
   });
   it('rejette si trop volumineux (> 20 Mo)', () => {
-    const r = validatePieceUpload(mk(PDFM, MAX_PIECE_BYTES + 1), 'application/pdf');
+    const r = validatePieceUpload(makeBytes(PDFM, MAX_PIECE_BYTES + 1), 'application/pdf');
     expect(r.ok).toBe(false); expect(r.reason).toBe('too-large');
+  });
+  it('rejette un content-type mensonger (PNG déclaré image/jpeg)', () => {
+    const r = validatePieceUpload(makeBytes(PNG_MAGIC, 500), 'image/jpeg');
+    expect(r.ok).toBe(false); expect(r.reason).toBe('content-type-mismatch');
   });
 });
 
@@ -119,5 +120,6 @@ describe('validateDossier', () => {
 describe('validateCandidatureMeta', () => {
   it('accepte une meta valide', () => expect(validateCandidatureMeta({ logRef:'L1', expDays:14 }).ok).toBe(true));
   it('rejette un logRef vide', () => expect(validateCandidatureMeta({ logRef:'', expDays:14 }).reason).toBe('bad-logref'));
+  it('rejette un logRef trop long', () => expect(validateCandidatureMeta({ logRef:'x'.repeat(201), expDays:14 }).reason).toBe('bad-logref'));
   it('rejette un expDays hors {7,14,30}', () => expect(validateCandidatureMeta({ logRef:'L1', expDays:99 }).reason).toBe('bad-expdays'));
 });

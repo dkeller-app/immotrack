@@ -46,9 +46,9 @@ const ALLOWED_PIECE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 // Magic bytes : %PDF / JPEG (FF D8 FF) / PNG (89 50 4E 47).
 function detectKind(bytes) {
-  if (bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return 'pdf';
-  if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpeg';
-  if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png';
+  if (bytes.byteLength >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return 'pdf';
+  if (bytes.byteLength >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'jpeg';
+  if (bytes.byteLength >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png';
   return null;
 }
 
@@ -88,7 +88,7 @@ export function validateDossier(dossier) {
 
 export function validateCandidatureMeta(meta) {
   if (!meta || typeof meta !== 'object') return { ok: false, reason: 'bad-meta' };
-  if (typeof meta.logRef !== 'string' || meta.logRef.trim() === '') return { ok: false, reason: 'bad-logref' };
+  if (typeof meta.logRef !== 'string' || meta.logRef.trim() === '' || meta.logRef.trim().length > 200) return { ok: false, reason: 'bad-logref' };
   if (![7, 14, 30].includes(meta.expDays)) return { ok: false, reason: 'bad-expdays' };
   return { ok: true };
 }
