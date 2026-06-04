@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { createSession, loadSession, recordSignature, recordEmailVerified } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
@@ -12,6 +13,20 @@ import {
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
 
 const app = new Hono();
+
+// CORS — l'app ImmoTrack appelle le relais en cross-origin avec en-têtes custom.
+const ALLOWED_ORIGINS = ['https://didierkeller.github.io', 'null'];
+app.use('*', cors({
+  origin: (origin) => {
+    if (!origin) return undefined;
+    if (ALLOWED_ORIGINS.includes(origin)) return origin;
+    if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return origin;   // dev local
+    return undefined; // origine non autorisée → pas d'en-tête
+  },
+  allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Authorization', 'X-Owner-Token', 'X-Sign-Token', 'X-Sign-Proof', 'Content-Type'],
+  maxAge: 86400
+}));
 
 app.get('/health', (c) => c.json({ ok: true, service: 'bail-sign-relay' }));
 
