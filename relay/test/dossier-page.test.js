@@ -16,8 +16,20 @@ describe('renderDossierPage', () => {
     expect(html.toLowerCase()).not.toContain('score');
   });
   it('neutralise </script> dans les données injectées (anti-injection)', () => {
-    expect(html).not.toContain('<script>'.replace('s', 's') + 'T2'); // le label brut ne doit pas casser le <script>
-    expect(html).toContain('\\u003c'); // < échappé dans le JSON injecté
+    // bienLabel (bailleur) : le < est échappé dans le JSON injecté
+    expect(html).toContain('\\u003c');
+  });
+
+  it('neutralise une tentative de breakout via un nom de fichier candidat (donnée non fiable)', () => {
+    const evil = {
+      ...cand,
+      pieces: [{ pieceId: 'p1', categorie: 'identite', filename: 'a</script><img src=x onerror=alert(1)>.pdf' }]
+    };
+    const h = renderDossierPage({ candidature: evil, candidatToken: 'T' });
+    // Aucun </script> littéral issu de la donnée ne doit apparaître (pas de breakout)
+    expect(h).not.toContain('</script><img');
+    // La forme neutralisée doit être présente
+    expect(h).toContain('\\u003c/script>\\u003cimg');
   });
   it('charge /dossier.css et /dossier.js', () => {
     expect(html).toContain('/dossier.css');
