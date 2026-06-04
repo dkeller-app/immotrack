@@ -470,6 +470,13 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 
 ## ✅ Livré récemment
 
+### BUG-SIGN-REFRESH-FICHE — Fiche 360 figée après signature bailleur-seul (2026-06-04, v15.256)
+> **Bug user** : après avoir signé un bail « juste bailleur » (mode `bailleur-seul`) **depuis l'onglet « 📜 Bail » de la fiche logement 360**, aucun bouton n'apparaissait (« ✍️ Le locataire signe », annuler, envoyer par mail) — ils ne revenaient qu'après fermeture/réouverture de la fiche. « je ne peux plus rien faire ».
+> - **Cause racine** : la signature se persiste dans une **popup** qui écrit directement `DB.baux[ref].signatures` (sans passer par `saveBail()`), puis ne rafraîchissait l'UI opener que via `window.opener.rBaux()` (page *liste* des Baux). La fiche 360 ouverte (`#log-fiche-content`) n'était jamais re-rendue → `_renderLogFichePanelBail` gardait son ancien rendu (bail non signé → boutons absents) jusqu'à fermeture/réouverture.
+> - **Fix** : ajout de `window.opener._refreshAfterMutation()` dans le bloc de sauvegarde de la popup, juste après `rBaux()`. Réutilise le helper canonique **REFRESH-LIVE** (v14.28, déjà câblé dans 19 sites dont `saveBail`) — **même bug et même correctif que `resetBailSignatures` (v15.203)**. Aucun helper custom ajouté (DRY).
+> - **Audit `superpowers:code-reviewer`** (2 passes : ébauche helper custom écartée, puis approche canonique retenue) → 0 finding ; ordre write-avant-refresh confirmé, no-op propre depuis la liste Baux, parité prod/sandbox byte-identique.
+> - Développé sur branche dédiée (base v15.250), **rebasé sur prod v15.255** → livré **v15.256**. Propagé sandbox → prod (`index.html`) + bump 4 emplacements + `sw.js` CACHE_VER v15.256 (rattrape aussi le CACHE_VER laissé à v15.250 par la livraison précédente). [docs/subjects/BUG-SIGN-REFRESH-FICHE.md](docs/subjects/BUG-SIGN-REFRESH-FICHE.md)
+
 ### BUG-BAIL-ANNEXES-DUP — annexes affichées en double dans le bail (2026-06-04, v15.251)
 > **Signalé par capture user** : le bail (contrat-type légal décret 2015-587) affichait cave/parking/garage **deux fois** — ligne légale « Locaux et équipements accessoires à usage privatif du locataire » (`bail.locauxPrivatifs`, texte libre legacy) **ET** ligne « Annexes privatives » (`log.annexes` structuré sérialisé). Follow-up de la consolidation annexes (Phase B4).
 > - **Décision user** : fusion sur la **seule ligne légale** (annexes structurées = source de vérité, `locauxPrivatifs` = fallback, ligne « Annexes privatives » supprimée) **uniquement pour les baux NON signés**. **Baux signés inchangés** (immutabilité stricte byte-identique : 2 lignes conservées).
