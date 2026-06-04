@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SELF, env } from 'cloudflare:test';
 import { verifyToken } from '../src/tokens.js';
+import { putCand, getCand } from '../src/storage.js';
 
 const PDF = () => new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3]);
 const DOSSIER = { identite: { civilite:'Mme', nom:'Moreau', prenom:'Camille', ddn:'1990-01-01', lieuNaiss:'Lyon', tel:'0600000000', email:'c@x.fr', adressePrecedente:'1 rue X' }, situation:{ contrat:'CDI', employeur:'ACME', revenus:3200 }, garant:null };
@@ -122,5 +123,77 @@ describe('flux candidat complet', () => {
     const tok = await candTokenOf(invite.linkId);
     const p = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece`, { method:'POST', headers:{ 'X-Cand-Token': tok, 'content-type':'application/pdf' }, body: new Uint8Array([1,2,3,4]) });
     expect(p.status).toBe(400);
+  });
+});
+
+describe('frontières d\'authz candidature', () => {
+  it('token croisé (lien A sur lien B) → 401', async () => {
+    const inviteA = await (await createInvite()).json();
+    const inviteB = await (await createInvite()).json();
+    const tokA = await candTokenOf(inviteA.linkId);
+    const res = await SELF.fetch(`https://relay.test/api/candidatures/${inviteB.linkId}`, {
+      headers: { 'X-Cand-Token': tokA }
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('mauvais rôle : token cand-owner utilisé comme X-Cand-Token → 401', async () => {
+    const invite = await (await createInvite()).json();
+    const res = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}`, {
+      headers: { 'X-Cand-Token': invite.ownerToken }
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('mauvais rôle : token candidat utilisé comme X-Owner-Token → 401', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    const res = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/result`, {
+      headers: { 'X-Owner-Token': tok }
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('token candidat absent → 401', async () => {
+    const invite = await (await createInvite()).json();
+    const res = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('token owner absent → 401', async () => {
+    const invite = await (await createInvite()).json();
+    const res = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/result`);
+    expect(res.status).toBe(401);
+  });
+
+  it('lien expiré → 410 (branche candidature-expirée, pas token-expiré)', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    const c = await getCand(env, invite.linkId);
+    c.expiresAt = new Date(Date.now() - 1000).toISOString();
+    await putCand(env, invite.linkId, c, 60);
+    const res = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}`, {
+      headers: { 'X-Cand-Token': tok }
+    });
+    expect(res.status).toBe(410);
+    expect((await res.json()).error).toBe('expired');
+  });
+
+  it('écriture sur dossier soumis → 409 not-open', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/dossier`, {
+      method: 'POST', headers: { 'X-Cand-Token': tok, 'content-type': 'application/json' }, body: JSON.stringify(DOSSIER)
+    });
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/submit`, {
+      method: 'POST', headers: { 'X-Cand-Token': tok }
+    });
+    const res = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece`, {
+      method: 'POST',
+      headers: { 'X-Cand-Token': tok, 'content-type': 'application/pdf', 'X-Piece-Categorie': 'situation', 'X-Piece-Filename': 'tard.pdf' },
+      body: PDF()
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('not-open');
   });
 });
