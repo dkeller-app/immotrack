@@ -40,3 +40,35 @@ export async function putSignedPdf(env, sid, bytes) {
 export async function getSignedPdf(env, sid) {
   return env.SESSIONS_KV.get(signedKey(sid), { type: 'arrayBuffer' });
 }
+
+// ── Candidature (dossier locataire en ligne) ──
+// Même boîte KV que la signature. Métadonnées + dossier dans une valeur ;
+// chaque pièce dans sa propre valeur (1 pièce = 1 valeur, ≤ 20 Mo, cf. validate.js).
+// TTL = durée de validité choisie + grâce de 7 j (backstop si l'app ne purge jamais).
+export const CANDIDATURE_GRACE_SECONDS = 7 * 24 * 60 * 60;
+export function candidatureTtl(expDays) {
+  return expDays * 24 * 60 * 60 + CANDIDATURE_GRACE_SECONDS;
+}
+
+const candKey = (lid) => `cand:${lid}`;
+const candPieceKey = (lid, pid) => `cand-piece/${lid}/${pid}`;
+
+export async function putCand(env, lid, obj, ttlSeconds) {
+  await env.SESSIONS_KV.put(candKey(lid), JSON.stringify(obj), { expirationTtl: ttlSeconds });
+}
+export async function getCand(env, lid) {
+  const raw = await env.SESSIONS_KV.get(candKey(lid));
+  return raw ? JSON.parse(raw) : null;
+}
+export async function delCand(env, lid) {
+  await env.SESSIONS_KV.delete(candKey(lid));
+}
+export async function putPiece(env, lid, pid, bytes, ttlSeconds) {
+  await env.SESSIONS_KV.put(candPieceKey(lid, pid), bytes, { expirationTtl: ttlSeconds });
+}
+export async function getPiece(env, lid, pid) {
+  return env.SESSIONS_KV.get(candPieceKey(lid, pid), { type: 'arrayBuffer' });
+}
+export async function delPiece(env, lid, pid) {
+  await env.SESSIONS_KV.delete(candPieceKey(lid, pid));
+}
