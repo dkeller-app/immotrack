@@ -32,3 +32,22 @@ describe('helpers d\'appartenance', () => {
   it('is_member existe', async () => { expect(await funcExists('is_member')).toBe(true) })
   it('has_role existe',  async () => { expect(await funcExists('has_role')).toBe(true) })
 })
+
+async function rlsForced(name) {
+  const c = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+  await c.connect()
+  try {
+    const r = await c.query(
+      `select relrowsecurity, relforcerowsecurity,
+              (select count(*) from pg_policy p where p.polrelid=c.oid) as npol
+       from pg_class c join pg_namespace n on n.oid=c.relnamespace
+       where n.nspname='public' and c.relname=$1`, [name])
+    const row = r.rows[0]
+    return row && row.relrowsecurity && row.relforcerowsecurity && Number(row.npol) >= 4
+  } finally { await c.end() }
+}
+
+describe('RLS forcée + policies', () => {
+  it('espaces : RLS forcée + ≥4 policies',        async () => { expect(await rlsForced('espaces')).toBe(true) })
+  it('espace_members : RLS forcée + ≥4 policies', async () => { expect(await rlsForced('espace_members')).toBe(true) })
+})
