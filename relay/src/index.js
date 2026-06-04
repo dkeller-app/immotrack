@@ -2,9 +2,14 @@ import { Hono } from 'hono';
 import { createSession, loadSession, recordSignature, recordEmailVerified } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
-import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf } from './storage.js';
-import { validatePdfUpload, validateSigners } from './validate.js';
+import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl } from './storage.js';
+import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateCandidatureMeta } from './validate.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
+import {
+  createCandidature, loadCandidature, saveDossier, addPiece, removePiece,
+  markOpened, submitCandidature, reopenForComplement, revokeCandidature, purgeCandidature
+} from './candidatures.js';
+import { renderDossierPage, renderDossierError } from './dossier-page.js';
 
 const app = new Hono();
 
@@ -199,6 +204,211 @@ app.get('/api/sessions/:id', async (c) => {
       } : null
     }))
   });
+});
+
+// ════════════════ CANDIDATURE (dossier locataire en ligne) ════════════════
+
+async function requireCandidat(c, linkId) {
+  const token = c.req.header('X-Cand-Token') || '';
+  if (!token) return { error: c.json({ error: 'missing token' }, 401) };
+  const ver = await verifyToken(token, c.env.SIGNING_SECRET);
+  if (!ver.valid || ver.payload.role !== 'candidat' || ver.payload.lid !== linkId) {
+    return { error: c.json({ error: 'unauthorized' }, 401) };
+  }
+  const cand = await loadCandidature(c.env, linkId);
+  if (!cand) return { error: c.json({ error: 'not found' }, 404) };
+  if (cand.status === 'revoked') return { error: c.json({ error: 'revoked' }, 410) };
+  if (new Date(cand.expiresAt).getTime() < Date.now()) return { error: c.json({ error: 'expired' }, 410) };
+  return { cand };
+}
+
+async function requireCandOwner(c, linkId) {
+  const token = c.req.header('X-Owner-Token') || '';
+  if (!token) return { error: c.json({ error: 'missing token' }, 401) };
+  const ver = await verifyToken(token, c.env.SIGNING_SECRET);
+  if (!ver.valid || ver.payload.role !== 'cand-owner' || ver.payload.lid !== linkId) {
+    return { error: c.json({ error: 'unauthorized' }, 401) };
+  }
+  const cand = await loadCandidature(c.env, linkId);
+  if (!cand) return { error: c.json({ error: 'not found' }, 404) };
+  return { cand };
+}
+
+// Le bailleur (app) crée une invitation. Auth = Bearer APP_KEY (comme POST /sessions).
+app.post('/candidatures', async (c) => {
+  const auth = c.req.header('Authorization') || '';
+  if (!timingSafeEqualStr(auth, `Bearer ${c.env.APP_KEY}`)) {
+    return c.json({ error: 'unauthorized' }, 401);
+  }
+  let meta;
+  try { meta = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
+  const v = validateCandidatureMeta(meta);
+  if (!v.ok) return c.json({ error: v.reason }, 400);
+
+  const { linkId, candidature } = await createCandidature(c.env, {
+    logRef: meta.logRef, bienLabel: meta.bienLabel, loyer: meta.loyer,
+    message: meta.message, expDays: meta.expDays
+  });
+  const exp = Math.floor(Date.now() / 1000) + candidatureTtl(meta.expDays);
+  const ownerToken = await createToken(
+    { lid: linkId, role: 'cand-owner', jti: randomHex(8), exp },
+    c.env.SIGNING_SECRET
+  );
+  const candidatUrl = new URL(`/d/${linkId}`, c.req.url).toString();
+  return c.json({ linkId, candidatUrl, ownerToken, expiresAt: candidature.expiresAt }, 201);
+});
+
+// Ping santé authentifié — alimente le bouton « Tester la connexion » des Réglages
+// côté app. Vérifie d'un seul coup que la base répond ET que l'APP_KEY est acceptée,
+// sans écrire dans KV (zéro pollution). Auth = Bearer APP_KEY.
+app.get('/api/ping', (c) => {
+  const auth = c.req.header('Authorization') || '';
+  if (!timingSafeEqualStr(auth, `Bearer ${c.env.APP_KEY}`)) {
+    return c.json({ error: 'unauthorized' }, 401);
+  }
+  return c.json({ ok: true, ts: Date.now() });
+});
+
+// Page publique candidat (sans compte). Token candidat injecté server-side.
+app.get('/d/:linkId', async (c) => {
+  const linkId = c.req.param('linkId');
+  const cand = await loadCandidature(c.env, linkId);
+  if (!cand) return c.html(renderDossierError('Lien invalide ou expiré.'), 404);
+  if (cand.status === 'revoked') return c.html(renderDossierError('Ce lien a été désactivé par le propriétaire.'), 410);
+  if (new Date(cand.expiresAt).getTime() < Date.now()) return c.html(renderDossierError('Ce lien a expiré.'), 410);
+  const opened = await markOpened(c.env, linkId);
+  const exp = Math.floor(new Date(opened.expiresAt).getTime() / 1000);
+  const candidatToken = await createToken(
+    { lid: linkId, role: 'candidat', jti: randomHex(8), exp },
+    c.env.SIGNING_SECRET
+  );
+  return c.html(renderDossierPage({ candidature: opened, candidatToken }));
+});
+
+// Candidat : relit l'état de son dossier (reprise D13).
+app.get('/api/candidatures/:linkId', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandidat(c, linkId);
+  if (guard.error) return guard.error;
+  const cand = guard.cand;
+  return c.json({
+    status: cand.status, bienLabel: cand.bienLabel, message: cand.message,
+    complementNote: cand.complementNote,
+    dossier: cand.dossier,
+    pieces: cand.pieces.map((p) => ({ pieceId: p.pieceId, categorie: p.categorie, filename: p.filename }))
+  });
+});
+
+// Candidat : enregistre/complète son dossier (champs identité/situation/garant).
+app.post('/api/candidatures/:linkId/dossier', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandidat(c, linkId);
+  if (guard.error) return guard.error;
+  if (guard.cand.status !== 'open') return c.json({ error: 'not-open' }, 409);
+  let dossier;
+  try { dossier = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
+  const v = validateDossier(dossier);
+  if (!v.ok) return c.json({ error: v.reason }, 400);
+  await saveDossier(c.env, linkId, dossier);
+  return c.json({ ok: true });
+});
+
+// Candidat : upload d'UNE pièce (octets bruts + en-têtes catégorie/nom).
+app.post('/api/candidatures/:linkId/piece', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandidat(c, linkId);
+  if (guard.error) return guard.error;
+  if (guard.cand.status !== 'open') return c.json({ error: 'not-open' }, 409);
+  const contentType = c.req.header('content-type') || '';
+  const bytes = new Uint8Array(await c.req.arrayBuffer());
+  const v = validatePieceUpload(bytes, contentType);
+  if (!v.ok) return c.json({ error: v.reason }, 400);
+  let filename = 'piece';
+  try { filename = decodeURIComponent(c.req.header('X-Piece-Filename') || '') || 'piece'; } catch { filename = c.req.header('X-Piece-Filename') || 'piece'; }
+  const { pieceId } = await addPiece(c.env, linkId, {
+    categorie: c.req.header('X-Piece-Categorie') || 'autre',
+    filename,
+    contentType, bytes
+  });
+  return c.json({ pieceId }, 201);
+});
+
+// Candidat : supprime une de ses pièces (remplacement avant envoi).
+app.delete('/api/candidatures/:linkId/piece/:pieceId', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandidat(c, linkId);
+  if (guard.error) return guard.error;
+  if (guard.cand.status !== 'open') return c.json({ error: 'not-open' }, 409);
+  await removePiece(c.env, linkId, c.req.param('pieceId'));
+  return c.json({ ok: true });
+});
+
+// Candidat : finalise l'envoi (open → submitted).
+app.post('/api/candidatures/:linkId/submit', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandidat(c, linkId);
+  if (guard.error) return guard.error;
+  if (guard.cand.status !== 'open') return c.json({ error: 'not-open' }, 409);
+  const v = validateDossier(guard.cand.dossier || {});
+  if (!v.ok) return c.json({ error: v.reason }, 400);
+  const cand = await submitCandidature(c.env, linkId);
+  return c.json({ status: cand.status, submittedAt: cand.submittedAt });
+});
+
+// Bailleur : récupère le dossier soumis (méta + dossier). Pièces via route dédiée.
+app.get('/api/candidatures/:linkId/result', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandOwner(c, linkId);
+  if (guard.error) return guard.error;
+  if (guard.cand.status !== 'submitted') return c.json({ error: 'not-submitted', status: guard.cand.status }, 409);
+  const cand = guard.cand;
+  return c.json({
+    linkId: cand.linkId, logRef: cand.logRef, bienLabel: cand.bienLabel, loyer: cand.loyer,
+    status: cand.status, submittedAt: cand.submittedAt,
+    dossier: cand.dossier,
+    pieces: cand.pieces.map((p) => ({ pieceId: p.pieceId, categorie: p.categorie, filename: p.filename, contentType: p.contentType, size: p.size }))
+  });
+});
+
+// Bailleur : télécharge UNE pièce (pour rapatriement dans la GED de l'app).
+app.get('/api/candidatures/:linkId/piece/:pieceId', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandOwner(c, linkId);
+  if (guard.error) return guard.error;
+  const meta = guard.cand.pieces.find((p) => p.pieceId === c.req.param('pieceId'));
+  if (!meta) return c.json({ error: 'piece not found' }, 404);
+  const bytes = await getPiece(c.env, linkId, meta.pieceId);
+  if (!bytes) return c.json({ error: 'piece missing' }, 404);
+  return new Response(bytes, { headers: { 'content-type': meta.contentType || 'application/octet-stream' } });
+});
+
+// Bailleur : demande de complément (D13) — submitted → open + note.
+app.post('/api/candidatures/:linkId/reopen', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandOwner(c, linkId);
+  if (guard.error) return guard.error;
+  let body = {};
+  try { body = await c.req.json(); } catch {}
+  const cand = await reopenForComplement(c.env, linkId, body && body.note);
+  return c.json({ status: cand.status });
+});
+
+// Bailleur : révoque le lien (le rend inutilisable immédiatement).
+app.post('/api/candidatures/:linkId/revoke', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandOwner(c, linkId);
+  if (guard.error) return guard.error;
+  const cand = await revokeCandidature(c.env, linkId);
+  return c.json({ status: cand.status });
+});
+
+// Bailleur : purge (accusé de réception après rapatriement dans l'app).
+app.delete('/api/candidatures/:linkId', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandOwner(c, linkId);
+  if (guard.error) return guard.error;
+  await purgeCandidature(c.env, linkId);
+  return c.json({ ok: true });
 });
 
 export default app;
