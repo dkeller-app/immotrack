@@ -41,6 +41,15 @@ export async function getSignedPdf(env, sid) {
   return env.SESSIONS_KV.get(signedKey(sid), { type: 'arrayBuffer' });
 }
 
+// Purge complète d'une session (D12 : relais éphémère). 3 clés KV partagent le namespace.
+export async function deleteSession(env, sid) {
+  await Promise.all([
+    env.SESSIONS_KV.delete(metaKey(sid)),
+    env.SESSIONS_KV.delete(originalKey(sid)),
+    env.SESSIONS_KV.delete(signedKey(sid))
+  ]);
+}
+
 // ── Candidature (dossier locataire en ligne) ──
 // Même boîte KV que la signature. Métadonnées + dossier dans une valeur ;
 // chaque pièce dans sa propre valeur (1 pièce = 1 valeur, ≤ 20 Mo, cf. validate.js).

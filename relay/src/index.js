@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { createSession, loadSession, recordSignature, recordEmailVerified } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
-import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl } from './storage.js';
+import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession } from './storage.js';
 import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateCandidatureMeta } from './validate.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
 import {
@@ -219,6 +219,14 @@ app.get('/api/sessions/:id', async (c) => {
       } : null
     }))
   });
+});
+
+app.delete('/api/sessions/:id', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireOwner(c, sessionId);   // 401 si token absent/invalide, 404 si déjà absente
+  if (guard.error) return guard.error;
+  await deleteSession(c.env, sessionId);
+  return c.body(null, 204);
 });
 
 // ════════════════ CANDIDATURE (dossier locataire en ligne) ════════════════
