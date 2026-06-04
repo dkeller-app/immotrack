@@ -75,4 +75,8 @@ describe('candidatures', () => {
     expect(await loadCandidature(env, linkId)).toBeNull();
     expect(await getPiece(env, linkId, pieceId)).toBeNull();
   });
+
+  it('saveDossier rejette un linkId inconnu (contrat not-found)', async () => {
+    await expect(saveDossier(env, 'lid-inexistant', dossier)).rejects.toThrow('candidature-not-found');
+  });
 });
