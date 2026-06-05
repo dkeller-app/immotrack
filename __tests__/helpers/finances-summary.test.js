@@ -56,3 +56,18 @@ describe('_computeFinancesSummary — ratios', () => {
     expect(r.ratios.poidsCharges).toBe(0);
   });
 });
+
+describe('_computeFinancesSummary — argent à récupérer', () => {
+  it('total = somme des 4 postes (valeur absolue)', () => {
+    const r = _computeFinancesSummary(baseInput);
+    expect(r.aRecuperer.total).toBe(13190); // 7660+1480+1850+2200
+    expect(r.aRecuperer.vacance).toBe(7660);
+    expect(r.aRecuperer.impaye).toBe(1480);
+    expect(r.aRecuperer.irl).toBe(1850);
+    expect(r.aRecuperer.regul).toBe(2200);
+  });
+  it('postes manquants comptés comme 0', () => {
+    const r = _computeFinancesSummary({ recuperer: { impaye: 500 } });
+    expect(r.aRecuperer.total).toBe(500);
+  });
+});
