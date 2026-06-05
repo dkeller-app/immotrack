@@ -116,6 +116,13 @@ const PAIRS = [
     globalName: 'BailSignManifest',
     exports: ['SENTINEL', 'encode', 'decode', 'readFromDoc', 'embedInDoc'],
   },
+  {
+    name: 'build-sign-manifest',
+    src: '__tests__/helpers/build-sign-manifest.js',
+    dst: 'js/helpers/build-sign-manifest.global.js',
+    globalName: 'BuildSignManifest',
+    exports: ['buildSignManifest'],
+  },
 ];
 
 let totalErrors = 0;
@@ -165,6 +172,7 @@ for (const p of PAIRS) {
       const moduleGlobal = depModule === 'adresse-parser' ? 'AdresseParser' :
                             depModule === 'annonce-generator' ? 'AnnonceGenerator' :
                             depModule === 'log-immeuble-resolver' ? 'LogImmResolver' :
+                            depModule === 'bail-sign-coords' ? 'BailSignCoords' :
                             null;
       if (!moduleGlobal) throw new Error(`[${p.name}] Dépendance inconnue : ./${depModule}.js`);
       depBlocks.push(`  // ─── DÉPENDANCES IMPORTÉES depuis ./${depModule}.js (résolues via global) ───\n` +
