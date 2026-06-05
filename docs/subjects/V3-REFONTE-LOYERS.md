@@ -78,10 +78,40 @@ Plus aucune liste à plat. Réutilise tout l'existant (catégories, compteurs co
 - **Charges immeuble déductibles = un seul mouvement au niveau immeuble** (pas de ventilation par logement) : le 2044 veut un total par ligne. La ventilation par logement reste possible via le module CC si besoin futur (compte de résultat par logement), hors scope 2044.
 - Réutiliser sans réécrire : `_compute2044`, module compteurs collectifs, pastilles entité.
 
-## Les 3 corrections à livrer
-1. **Affectation** : remplacer `fillMvQui` (liste à plat) par le sélecteur piloté-catégorie (1 question ciblée selon recette logement / charge immeuble déductible / charge récupérable→CC / frais SCI).
-2. **Trou 2044** : `_compute2044` doit compter les charges rattachées au niveau immeuble (aujourd'hui ignorées car le filtre ne lit que `m.qui`). **Bug le plus grave** (taxe foncière absente du 2044). → audit agent obligatoire (modif sensible fiscale).
-3. **Import** : garder le wizard ; brancher le nouveau sélecteur d'affectation sur l'étape Aperçu.
+## ⚠️ Découverte audit 2026-06-05 : le 2044 existe en DOUBLE (collision de noms)
+
+Deux fonctions `_compute2044` distinctes, même nom, logiques différentes :
+
+| | **Wizard inline** (`index.html:29643`, `openWizard2044`) | **Module** (`js/core/legal-2044.js`, `openLegal2044` sur `#p-export`) |
+|---|---|---|
+| Signature | `_compute2044(ent, year, activeLogs)` | `_compute2044(mouvements, stdCategories, opts)` |
+| Lit `m.imm` (charges immeuble) | ✅ oui (l.29655) | ❌ non (filtre l.39-50, `m.qui` seul) |
+| Part bailleur ligne 225 (via `computeRegul`) | ✅ oui (l.29698) | ❌ non |
+| Forfait légal 222 (20 €/local) | ✅ oui (l.29685) | ❌ non |
+| Testé (Vitest) / récent | ❌ non, v14.78-79 | ✅ 180 tests, v14.90 (Sprint 3B/3C) |
+
+**Collision** : `js/main.js:195` fait `window._compute2044 = <module>`. main.js est un module ES6 chargé en différé (`index.html:47645`), donc il **écrase** la fonction inline globale (non-IIFE, cf onclick globaux). Conséquences :
+- L'écran **« Aide déclaration 2044 »** (#p-export, le seul branché sur le module) **oublie** charges immeuble + part bailleur + forfait → 2044 faux.
+- Le bouton **« 📋 Wizard 2044 »** (fiche entité, `index.html:29435`) appelle `_compute2044(ent, year, activeLogs)` → reçoit le module (mauvaise signature) → `ent.filter is not a function` → **plante** (à confirmer d'un clic, mais le code le dit).
+- `legal-bilan.js` consomme aussi le module → le **bilan annuel** oublie également les charges immeuble.
+
+## Décision (user 2026-06-05 : « je n'ai jamais utilisé le 2044, tu es libre de faire ton choix et de nettoyer »)
+
+**Un seul moteur 2044 = le module testé**, étendu pour porter les 3 comportements corrects du wizard :
+1. lire `m.imm` (charges immeuble déductibles) dans le filtre de scope → via `opts.imms[]` passé par l'UI ;
+2. injecter la part bailleur ligne 225 → via `opts.partBailleur225` (segments précalculés par l'UI qui appelle `computeRegul`, le helper reste pur) ;
+3. forfait 222 → via `opts.nbLocaux`.
+**+ tests** pour ces 3 cas. Puis **suppression de la fonction inline en double** (kill la collision) et rebranchement d'une porte d'entrée UI unique (garder la meilleure UI — éditeur de correspondance pour catégories custom — rebranchée sur le moteur unique). **Audit agent `code-reviewer` obligatoire** (modif fiscale sensible).
+
+## Les 3 corrections à livrer (proposition pro 2026-06-05, validation user en attente)
+
+**Principe** : toute la chaîne sert le 2044. On ne réécrit aucune brique qui marche (compréhension relevé `_bankMatchHeuristic`, répartition CC, régul `computeRegul`, FEC). On répare les 3 jointures cassées + on unifie le 2044.
+
+- **🅰 Chantier A — 2044 unifié & juste** (backend pur, testable, sans maquette) : cf décision ci-dessus. Bug le plus grave + le plus rapide.
+- **🅱 Chantier B — Affectation pilotée par la catégorie** (la racine) : remplacer `fillMvQui` (liste à plat) par 1 question ciblée selon la destination (logement / immeuble déductible / récupérable→CC / SCI). Réutilise catégories + compteurs + pastilles entité. **Mockups d'abord.**
+- **🅲 Chantier C — Import → liste → compléter en ligne** (ergonomie réelle) : garder le wizard d'import ; à la sortie, liste (pas modale/ligne), pré-remplie quand reconnu, complétée **en place** via le sélecteur B ; split intégré (CAF multi-locataires + « séparer loyer/charges depuis le bail » via `bail.hc`/`bail.ch`) ; validation groupée des lignes « prêtes ». **Mockups d'abord.**
+
+**Ordre proposé** : A → B → C (B est réutilisé par C). Fork ouvert au user : démarrer par A (code immédiat) ou par les maquettes B+C.
 
 ## Questions ouvertes (résolues / restantes)
 - ~~Q1 formats banque~~ → tranché : OFX + modèle CSV par banque si besoin.
@@ -89,4 +119,5 @@ Plus aucune liste à plat. Réutilise tout l'existant (catégories, compteurs co
 - **Q3 — Normalisation niveau immeuble** dans le modèle (`imm` + `qui=""` vs un `qui="IMM:<nom>"` explicite ?) à figer avant implé, en lien avec le fix #2.
 
 ## Journal
+- **2026-06-05** : audit exhaustif de l'existant (4 agents : import, écran Mouvements, charges/CC/régul, compta/2044/exports/pilotage) + lectures ciblées. **Découverte majeure** : le 2044 existe en double avec collision de noms (le bon — wizard inline, charges immeuble + part bailleur + forfait — est écrasé par le module testé qui, lui, oublie ces 3 choses ; l'écran Export utilise le module → 2044 faux ; le bouton Wizard 2044 plante). Carte complète présentée au user. User : « je n'ai jamais utilisé le 2044, tu es libre de faire ton choix et de nettoyer ». Décision dédup prise (moteur = module testé étendu + suppression de l'inline). Proposition pro en 3 chantiers A(2044)→B(affectation)→C(import-liste-inline). En attente : fork ordre de démarrage (A code direct, ou maquettes B+C d'abord).
 - **2026-06-04** : session design. 2 mockups produits (`loyer-refonte.html` rejeté = réinventait l'existant ; `import-wizard.html` partiellement rejeté). Découverte : **le 2044 existe déjà** (`legal-2044.js`), et le bug central = charges immeuble déductibles ignorées par `_compute2044`. User a recadré (« vraie analyse et proposition, je veux que ça fonctionne », allergique aux questions-quiz). Modèle « catégorie pilote l'affectation » + 2 espèces de charges immeuble (récupérable→CC / déductible→2044) captés. Prochain pas : maquette de l'écran d'affectation (3 formats). Statut ⬜→🔄.
