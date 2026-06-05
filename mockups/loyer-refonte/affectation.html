@@ -156,6 +156,16 @@
     padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px}
   .combo-opt:hover{background:var(--pri-bg);color:var(--pri)}
   .combo-empty,.combo-more{font-size:11.5px;color:var(--t3);padding:6px 9px}
+  /* bandeau « limité au compte » dans le picker */
+  .combo-scope{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+    background:var(--pri-bg);border:1px solid var(--pri);border-radius:8px;padding:6px 10px;margin-bottom:7px;
+    font-size:11.5px;color:var(--pri);font-weight:600}
+  .combo-scope button{border:0;background:transparent;color:var(--pri);text-decoration:underline;cursor:pointer;
+    font-size:11.5px;font-weight:700;padding:0}
+  /* puce périmètre du compte dans le bandeau source */
+  .scope-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;
+    border-radius:7px;background:var(--ok-bg);color:var(--ok)}
+  .scope-chip.none{background:var(--bg);color:var(--t3);border:1px solid var(--bd2)}
 
   /* ---- Autres options (repliable) ---- */
   .opts{margin-top:16px;border-top:1px solid var(--bd);padding-top:6px}
@@ -207,6 +217,13 @@
     <button data-s="caf">✂️ CAF 3 locataires</button>
     <button data-s="gerance">✂️ Relevé gérance</button>
   </div>
+  <span class="lbl">Compte (périmètre)</span>
+  <div class="mk-grp" id="g-acct">
+    <button data-a="cic">CIC→Freyming</button>
+    <button data-a="ca">Crédit Agricole→Tilleuls</button>
+    <button data-a="bp">Banque Pop→SCI Keller</button>
+    <button data-a="none">Non rattaché</button>
+  </div>
 </div>
 
 <div class="mk-stage">
@@ -217,7 +234,7 @@
     <div class="m-head">
       <div>
         <h3 id="m-title">Renseigner ce mouvement</h3>
-        <div class="sub"><span class="src-pill" id="m-src">🏦 Import banque</span> <span id="m-srcdet">Relevé CIC · 14/05/2026</span></div>
+        <div class="sub"><span class="src-pill" id="m-src">🏦 Import banque</span> <span class="scope-chip" id="m-scope">🏢 Freyming</span> <span id="m-srcdet">Relevé CIC · 14/05/2026</span></div>
       </div>
       <button class="m-close">✕</button>
     </div>
@@ -349,12 +366,54 @@ let cur  = { niv:null, ent:'SCI Keller', imm:'Freyming', log:'F-RDC', recup:fals
 let spRows = [];             // lignes du split
 let spMethod = 'manuel';     // 'bail' | 'caf' | 'manuel'
 
+// ---------- Comptes bancaires ↔ périmètre (réglé une fois, reconnu par l'IBAN à l'import) ----------
+// Ce n'est PAS une règle d'affectation : c'est une propriété du compte. Elle pré-filtre les choix,
+// avec une échappatoire « voir tout le patrimoine » pour le mouvement exceptionnel.
+const COMPTES = {
+  cic:  { label:'CIC ···4021',             scope:{niv:'imm', cible:'Freyming'} },
+  ca:   { label:'Crédit Agricole ···7788', scope:{niv:'imm', cible:'Les Tilleuls (parc géré)'} },
+  bp:   { label:'Banque Pop ···3300',      scope:{niv:'sci', cible:'SCI Keller'} },
+  none: { label:'Compte non rattaché',     scope:null },
+};
+let acctId  = 'cic';
+let comboAll = false;                       // true = échappatoire « tout le patrimoine » dans le picker
+const acctScope = () => COMPTES[acctId] && COMPTES[acctId].scope;
+
 const $ = id => document.getElementById(id);
 const meta = () => CATMETA[$('cat').value] || {l:'',t:'charge',niv:'log'};
 const total = () => (parseFloat($('db').value)||0) || (parseFloat($('cr').value)||0);
 const sens  = () => (parseFloat($('db').value)||0) > 0 ? 'db' : 'cr';
 const findImm = nom => { for(const e of ENT){ const i=e.imms.find(x=>x.nom===nom); if(i)return i; } return null; };
 const allLogs = () => ENT.flatMap(e=>e.imms.flatMap(i=>i.logs.map(l=>({...l,imm:i.nom,ent:e.nom}))));
+const allImms = () => ENT.flatMap(e=>e.imms.map(i=>({nom:i.nom,ent:e.nom})));
+// Périmètre du compte : restreint logements/immeubles aux données rattachées (sauf échappatoire comboAll)
+function scopeLogs(){
+  const sc=acctScope(); let logs=allLogs();
+  if(sc && !comboAll){
+    if(sc.niv==='imm')      logs=logs.filter(l=>l.imm===sc.cible);
+    else if(sc.niv==='sci') logs=logs.filter(l=>l.ent===sc.cible);
+    else if(sc.niv==='log') logs=logs.filter(l=>l.ref===sc.cible);
+  }
+  return logs;
+}
+function scopeImms(){
+  const sc=acctScope(); let imms=allImms();
+  if(sc && !comboAll){
+    if(sc.niv==='imm')      imms=imms.filter(i=>i.nom===sc.cible);
+    else if(sc.niv==='sci') imms=imms.filter(i=>i.ent===sc.cible);
+    else if(sc.niv==='log'){ const l=allLogs().find(x=>x.ref===sc.cible); if(l) imms=imms.filter(i=>i.nom===l.imm); }
+  }
+  return imms;
+}
+function scopeEnts(){
+  const sc=acctScope();
+  if(sc && !comboAll){
+    if(sc.niv==='sci') return ENT.filter(e=>e.nom===sc.cible);
+    if(sc.niv==='imm'){ const i=allImms().find(x=>x.nom===sc.cible); if(i) return ENT.filter(e=>e.nom===i.ent); }
+    if(sc.niv==='log'){ const l=allLogs().find(x=>x.ref===sc.cible); if(l) return ENT.filter(e=>e.nom===l.ent); }
+  }
+  return ENT;
+}
 const fmt = n => (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 
 function onCat(){ cur._catLock=null; setMode(mode); }
@@ -382,8 +441,8 @@ function renderAff(){
     h += `<button class="${on}${sg}" onclick="cur.niv='${k}';renderAff()"><span class="e">${NIV_LBL[k].e}</span>${NIV_LBL[k].l}</button>`;
   });
   h += `</div>`;
-  if(niv==='sci') h += `<select class="inp" onchange="cur.ent=this.value;renderAff()">`+ENT.map(e=>`<option${e.nom===cur.ent?' selected':''}>${e.nom}</option>`).join('')+`</select>`;
-  if(niv==='imm') h += `<select class="inp" onchange="cur.imm=this.value;renderAff()">`+ENT.flatMap(e=>e.imms).map(i=>`<option${i.nom===cur.imm?' selected':''}>${i.nom}</option>`).join('')+`</select>`;
+  if(niv==='sci') h += `<select class="inp" onchange="cur.ent=this.value;renderAff()">`+scopeEnts().map(e=>`<option${e.nom===cur.ent?' selected':''}>${e.nom}</option>`).join('')+`</select>`+scopeNote();
+  if(niv==='imm') h += `<select class="inp" onchange="cur.imm=this.value;renderAff()">`+scopeImms().map(i=>`<option${i.nom===cur.imm?' selected':''}>${i.nom}</option>`).join('')+`</select>`+scopeNote();
   if(niv==='log') h += `<div class="combo">`+comboBtn('aff', cur.log)+(combo&&combo.key==='aff'?comboPanel():'')+`</div>`;
   if(niv==='imm' && m.t==='charge'){
     const im=findImm(cur.imm);
@@ -430,9 +489,9 @@ function nivMini(j){
 }
 function cibleSelect(j){
   const r=spRows[j];
-  const opts = r.niv==='sci' ? ENT.map(e=>[e.nom,e.nom])
-    : r.niv==='imm' ? ENT.flatMap(e=>e.imms).map(i=>[i.nom,i.nom])
-    : allLogs().map(l=>[l.ref, l.ref+' · '+l.loc]);
+  const opts = r.niv==='sci' ? scopeEnts().map(e=>[e.nom,e.nom])
+    : r.niv==='imm' ? scopeImms().map(i=>[i.nom,i.nom])
+    : scopeLogs().map(l=>[l.ref, l.ref+' · '+l.loc]);
   return `<select class="inp" onchange="spRows[${j}].cible=this.value;renderSplit()">`+
     opts.map(([v,t])=>`<option value="${v}" ${v===r.cible?'selected':''}>${t}</option>`).join('')+`</select>`;
 }
@@ -469,10 +528,18 @@ function fillComboList(){
   if(!combo) return;
   const q = (combo.q||'').toLowerCase().trim();
   const scope = cur.imm;                                   // immeuble du mouvement = contexte par défaut
-  const filt = allLogs().filter(l => (`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes(q));
+  const sc = acctScope();
+  const filt = scopeLogs().filter(l => (`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes(q));
   const byImm = {}; filt.forEach(l => { (byImm[l.imm] = byImm[l.imm]||[]).push(l); });
   const imms = Object.keys(byImm).sort((a,b) => a===scope?-1 : b===scope?1 : a.localeCompare(b));
-  let h = `<div class="combo-count">${filt.length} logement(s)${q?` pour « ${combo.q} »`:` · l'immeuble du mouvement est proposé en premier`}</div>`;
+  let h = '';
+  // Bandeau périmètre : montre que la liste est limitée au compte, avec l'échappatoire
+  if(sc){
+    h += comboAll
+      ? `<div class="combo-scope"><span>🌐 Tout le patrimoine</span><button type="button" onclick="toggleComboAll()">Revenir au compte</button></div>`
+      : `<div class="combo-scope"><span>📍 Limité au compte&nbsp;: ${scopeChipLabel(sc)}</span><button type="button" onclick="toggleComboAll()">Voir tout le patrimoine</button></div>`;
+  }
+  h += `<div class="combo-count">${filt.length} logement(s)${q?` pour « ${combo.q} »`:` · l'immeuble du mouvement est proposé en premier`}</div>`;
   if(!filt.length) h += `<div class="combo-empty">Aucun résultat — vérifie la réf. ou le nom</div>`;
   imms.forEach(im => {
     h += `<div class="combo-grp">${im===scope?'📍 ':''}${im} <span class="mu">(${byImm[im].length})</span></div>`;
@@ -483,9 +550,27 @@ function fillComboList(){
 }
 function chooseLog(ref){
   if(!combo) return;
-  const key = combo.key; combo = null;
+  const key = combo.key; combo = null; comboAll = false;   // retour au périmètre du compte pour le prochain picker
   if(key==='aff'){ cur.log = ref; render(); }
   else { const j = +key.split(':')[1]; if(spRows[j]) spRows[j].cible = ref; renderSplit(); }
+}
+// Échappatoire « voir tout le patrimoine » / « revenir au compte »
+function toggleComboAll(){
+  comboAll = !comboAll;
+  if(combo) fillComboList();                 // picker ouvert : re-filtre la liste en place
+  else if(mode==='aff') render(); else renderSplit();   // select sci/imm : re-rend la zone
+}
+// Libellé court du périmètre d'un compte (pour le bandeau et la puce d'en-tête)
+function scopeChipLabel(sc){
+  if(!sc) return '🏦 Compte non rattaché';
+  return sc.niv==='sci' ? `🏛️ ${sc.cible}` : sc.niv==='imm' ? `🏢 ${sc.cible}` : `🚪 ${sc.cible}`;
+}
+// Petit bandeau sous un select sci/imm filtré par le compte, avec l'échappatoire
+function scopeNote(){
+  const sc=acctScope(); if(!sc) return '';
+  return comboAll
+    ? `<div class="combo-scope" style="margin-top:6px"><span>🌐 Tout le patrimoine</span><button type="button" onclick="toggleComboAll()">Revenir au compte</button></div>`
+    : `<div class="combo-scope" style="margin-top:6px"><span>📍 Limité au compte&nbsp;: ${scopeChipLabel(sc)}</span><button type="button" onclick="toggleComboAll()">Voir tout le patrimoine</button></div>`;
 }
 
 function seedSplit(method){
@@ -590,7 +675,33 @@ function render(){
   }
 }
 
+/* ---------- compte bancaire = périmètre ---------- */
+// Met à jour la puce de périmètre dans l'en-tête du mouvement
+function renderSrcPill(){
+  const sc = acctScope(); const chip = $('m-scope'); if(!chip) return;
+  if(sc){ chip.textContent = scopeChipLabel(sc); chip.classList.remove('none'); }
+  else  { chip.textContent = '🏦 Compte non rattaché'; chip.classList.add('none'); }
+}
+// Sélection manuelle d'un compte (mk-bar) : recentre le contexte sur le périmètre du compte
+function applyAccount(id){
+  if(!COMPTES[id]) return;
+  acctId = id; comboAll = false; combo = null;
+  const sc = acctScope(); const c = COMPTES[id];
+  if(sc){
+    if(sc.niv==='imm'){ cur.imm=sc.cible; const im=findImm(sc.cible); if(im&&im.logs[0]) cur.log=im.logs[0].ref;
+      const e=ENT.find(x=>x.imms.some(y=>y.nom===sc.cible)); if(e) cur.ent=e.nom; }
+    else if(sc.niv==='sci'){ cur.ent=sc.cible; const e=ENT.find(x=>x.nom===sc.cible);
+      if(e&&e.imms[0]){ cur.imm=e.imms[0].nom; if(e.imms[0].logs[0]) cur.log=e.imms[0].logs[0].ref; } }
+    else if(sc.niv==='log'){ const l=allLogs().find(x=>x.ref===sc.cible); if(l){ cur.log=l.ref; cur.imm=l.imm; cur.ent=l.ent; } }
+  }
+  document.querySelectorAll('#g-acct button').forEach(b=>b.classList.toggle('on',b.dataset.a===id));
+  $('m-srcdet').textContent = sc ? 'Relevé '+c.label : 'Saisie manuelle';
+  renderSrcPill();
+  render();
+}
+
 /* ---------- contrôles maquette ---------- */
+$('g-acct').onclick=e=>{const b=e.target.closest('button');if(!b)return; applyAccount(b.dataset.a);};
 $('g-device').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('#g-device button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
   document.querySelector('.mk-wrap').dataset.d=b.dataset.d;};
@@ -602,14 +713,14 @@ $('g-demo').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   applyScenario(b.dataset.s);};
 
 const SCEN = {
-  loyer:{cat:'Loyers encaissés',          lib:'VIR M. MARTIN LOYER', db:'', cr:'540', date:'2026-05-03', src:['🏦 Import banque','Relevé CIC · 03/05/2026'], log:'F-RDC', mode:'aff'},
-  taxe: {cat:'Taxe foncière (et taxes annexes)', lib:'PRLV TRESOR PUBLIC', db:'1240', cr:'', date:'2026-05-14', src:['🏦 Import banque','Relevé CIC · 14/05/2026'], imm:'Freyming', mode:'aff'},
-  eau:  {cat:'Eau froide générale (immeuble)', lib:'PRLV VEOLIA EAU', db:'318', cr:'', date:'2026-05-09', src:['🏦 Import banque','Relevé CIC · 09/05/2026'], imm:'Freyming', mode:'aff'},
-  sci:  {cat:'Frais de compte / comptable (SCI)', lib:'FRAIS TENUE COMPTE', db:'12', cr:'', date:'2026-05-31', src:['🏦 Import banque','Relevé CIC · 31/05/2026'], mode:'aff'},
-  bail: {cat:'Loyers encaissés', lib:'VIR LOYER CC FORBACH', db:'', cr:'700', date:'2026-05-05', src:['🏦 Import banque','Relevé CIC · 05/05/2026'], imm:'Forbach Centre', log:'FB-01', mode:'split', method:'bail'},
-  caf:  {cat:'Loyers encaissés', lib:'VIR CAF MOSELLE', db:'', cr:'390', date:'2026-05-06', src:['🏦 Import banque','Relevé CIC · 06/05/2026'], imm:'Freyming', mode:'split', method:'caf'},
+  loyer:{cat:'Loyers encaissés',          lib:'VIR M. MARTIN LOYER', db:'', cr:'540', date:'2026-05-03', src:['🏦 Import banque','Relevé CIC ···4021 · 03/05/2026'], log:'F-RDC', mode:'aff', acct:'cic'},
+  taxe: {cat:'Taxe foncière (et taxes annexes)', lib:'PRLV TRESOR PUBLIC', db:'1240', cr:'', date:'2026-05-14', src:['🏦 Import banque','Relevé CIC ···4021 · 14/05/2026'], imm:'Freyming', mode:'aff', acct:'cic'},
+  eau:  {cat:'Eau froide générale (immeuble)', lib:'PRLV VEOLIA EAU', db:'318', cr:'', date:'2026-05-09', src:['🏦 Import banque','Relevé CIC ···4021 · 09/05/2026'], imm:'Freyming', mode:'aff', acct:'cic'},
+  sci:  {cat:'Frais de compte / comptable (SCI)', lib:'FRAIS TENUE COMPTE', db:'12', cr:'', date:'2026-05-31', src:['🏦 Import banque','Relevé Banque Pop ···3300 · 31/05/2026'], mode:'aff', acct:'bp'},
+  bail: {cat:'Loyers encaissés', lib:'VIR LOYER CC FORBACH', db:'', cr:'700', date:'2026-05-05', src:['🏦 Import banque','Relevé Banque Pop ···3300 · 05/05/2026'], imm:'Forbach Centre', log:'FB-01', mode:'split', method:'bail', acct:'bp'},
+  caf:  {cat:'Loyers encaissés', lib:'VIR CAF MOSELLE', db:'', cr:'390', date:'2026-05-06', src:['🏦 Import banque','Relevé CIC ···4021 · 06/05/2026'], imm:'Freyming', mode:'split', method:'caf', acct:'cic'},
   // Freyming : loyers 480+560+520 = 1560 ; frais 7% = 109 ; GLI 30 → net viré 1421
-  gerance:{cat:'Loyers encaissés', lib:'VIR AGENCE GERANCE', db:'', cr:'1421', date:'2026-05-07', src:['🏦 Import banque','Relevé CIC · 07/05/2026'], imm:'Freyming', mode:'split', method:'gerance'},
+  gerance:{cat:'Loyers encaissés', lib:'VIR AGENCE GERANCE', db:'', cr:'1421', date:'2026-05-07', src:['🏦 Import banque','Relevé CIC ···4021 · 07/05/2026'], imm:'Freyming', mode:'split', method:'gerance', acct:'cic'},
 };
 function applyScenario(s){
   const sc=SCEN[s]; if(!sc)return;
@@ -617,8 +728,12 @@ function applyScenario(s){
   $('cat').value=sc.cat; $('lib').value=sc.lib; $('db').value=sc.db; $('cr').value=sc.cr;
   if(sc.date) $('date').value=sc.date;
   $('m-src').textContent=sc.src[0]; $('m-srcdet').textContent=sc.src[1];
+  // compte du relevé importé → définit le périmètre (sans recentrer cur : le scénario fixe déjà imm/log)
+  acctId = sc.acct || 'none'; comboAll = false; combo = null;
+  document.querySelectorAll('#g-acct button').forEach(b=>b.classList.toggle('on',b.dataset.a===acctId));
   if(sc.imm){ cur.imm=sc.imm; } if(sc.log){ cur.log=sc.log; }
   cur._catLock=null;
+  renderSrcPill();
   if(sc.mode==='split'){ setMode('split'); seedSplit(sc.method); }
   else { setMode('aff'); }
 }
