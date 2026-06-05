@@ -18,8 +18,9 @@
 4. **FK polymorphes normalisées.** `mouvements.qui` (`logement.ref` *xor* `'SCI:'+entité.nom`) → deux FK exclusives `logement_id` / `entite_id` + CHECK d'exclusivité. `documents.parent` (`'mouvement'|'immeuble'`) reste polymorphe (`parent_type` + `parent_id`, **pas** de FK dure — exception documentée ; cohérence `espace_id` garantie par RLS, validation d'existence repoussée à un trigger P0-C si besoin).
 5. **Politique de suppression.** `espace_id → espaces(id) ON DELETE CASCADE` sur **chaque** table (offboarding d'un tenant = purge atomique de l'espace). Toutes les FK parent **intra-espace** sont en `NO ACTION` (RESTRICT) : impossible de supprimer physiquement un parent qui a des enfants → zéro perte silencieuse de dossiers (comptabilité). L'usage normal = soft-delete (`deleted_at`).
 6. **`created_by uuid default auth.uid()`** nullable (référence `auth.users`). Sous client authentifié → l'appelant ; sous `service_role` (import P0-E) → `null` (renseigné explicitement à l'import).
+7. **`espace_id` immuable (durcissement post-audit qualité T1).** Sur **chaque** table métier, un trigger `before update` (`freeze_espace_id()`, migration 0009) interdit toute modification de `espace_id` — y compris sous `service_role` (les triggers ne sont **pas** contournés par `bypassrls`, contrairement à un simple `with check` RLS qu'un writer membre de deux espaces franchirait). Ferme la fuite « déplacement silencieux d'une ligne d'un tenant à l'autre » ; même classe que SEV-1 `members_freeze_identity` (0006). C'est l'invariant qui garantit la stabilité des FK composites `(id, espace_id)` de toutes les tables enfant.
 
-**EXCLU de P0-B (→ P0-C)** : immutabilité du bail/EDL signé (triggers sur `signed_at`), rétention/purge programmée, plans d'abonnement & gating. Les colonnes `signed_at` / `signed_*_at` sont **créées** dès P0-B (pour que P0-C n'ait qu'à brancher le trigger), mais aucune contrainte d'immutabilité n'est posée ici.
+**EXCLU de P0-B (→ P0-C)** : immutabilité **du contenu** du bail/EDL signé (triggers sur `signed_at` figeant les autres colonnes), rétention/purge programmée, plans d'abonnement & gating. Les colonnes `signed_at` / `signed_*_at` sont **créées** dès P0-B (pour que P0-C n'ait qu'à brancher le trigger), mais aucune contrainte d'immutabilité de contenu n'est posée ici. *(L'immutabilité de `espace_id` — décision 7 — est, elle, bien dans P0-B : c'est une garantie d'isolation, pas de signature.)*
 
 ---
 
@@ -28,10 +29,11 @@
 **Migrations** (append-only, ne JAMAIS modifier 0001-0007 déjà poussées) :
 
 - Create `supabase/migrations/0008_p0b_entites_immeubles.sql` — tables `entites` + `immeubles`, FK composite, RLS, index.
-- Create `supabase/migrations/0009_p0b_logements_documents.sql` — tables `logements` + `documents`.
-- Create `supabase/migrations/0010_p0b_mouvements_quittances.sql` — tables `mouvements` + `quittances`.
-- Create `supabase/migrations/0011_p0b_baux.sql` — tables `baux` + `baux_historique`.
-- Create `supabase/migrations/0012_p0b_edl.sql` — table `edl`.
+- Create `supabase/migrations/0009_freeze_espace_id.sql` — fonction `freeze_espace_id()` + trigger d'immutabilité `espace_id` (durcissement post-audit qualité T1 ; rattrape `entites`/`immeubles`, réutilisé par toutes les tables suivantes). **Ferme la fuite cross-tenant « déplacement silencieux d'une ligne entre espaces » (même classe que SEV-1 `members_freeze_identity`, 0006).**
+- Create `supabase/migrations/0010_p0b_logements_documents.sql` — tables `logements` + `documents`.
+- Create `supabase/migrations/0011_p0b_mouvements_quittances.sql` — tables `mouvements` + `quittances`.
+- Create `supabase/migrations/0012_p0b_baux.sql` — tables `baux` + `baux_historique`.
+- Create `supabase/migrations/0013_p0b_edl.sql` — table `edl`.
 
 **Tests** :
 
@@ -62,7 +64,7 @@ npx supabase db push --db-url "$DBURL" --yes
 - `pg.Client` : toujours `ssl: { rejectUnauthorized: false }`.
 - Emails de test **uniques par run** (suffixe `RUN`) — voir helper existant `supabase/tests/helpers/clients.mjs` et le pattern de `rls-isolation.test.mjs`.
 
-**Bloc RLS standard (réutilisé dans CHAQUE migration, adapté à la liste de tables de la migration).** Appliquer FORCE RLS + les 4 policies identiques par boucle DDL garantit l'uniformité (aucune table ne peut diverger ou être oubliée — l'audit cross-tenant l'exige) :
+**Bloc RLS standard (réutilisé dans CHAQUE migration, adapté à la liste de tables de la migration).** Appliquer FORCE RLS + les 4 policies identiques + le trigger d'immutabilité `espace_id` par boucle DDL garantit l'uniformité (aucune table ne peut diverger ou être oubliée — l'audit cross-tenant l'exige). Le trigger `trg_freeze_espace_id` appelle `public.freeze_espace_id()`, **fonction définie une seule fois en migration 0009** (les tables socle `entites`/`immeubles` y sont rattrapées ; toutes les migrations suivantes créent le trigger via cette boucle) :
 
 ```sql
 do $rls$
@@ -73,6 +75,8 @@ begin
   foreach t in array array[ /* tables de CETTE migration */ ] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('alter table public.%I force  row level security', t);
+    -- §17-4b : espace_id figé (anti-kidnapping cross-tenant) — fonction définie en 0009
+    execute format('create trigger trg_freeze_espace_id before update on public.%I for each row execute function public.freeze_espace_id()', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member(espace_id))',
                    t || '_select', t);
     execute format('create policy %I on public.%I for insert to authenticated with check (public.has_role(espace_id, %s))',
@@ -161,7 +165,7 @@ async function inspect(name) {
        join pg_namespace n on n.oid = c.relnamespace
        where n.nspname='public' and c.relname=$1 and con.contype='u'
          and (
-           select array_agg(att.attname order by att.attname)
+           select array_agg(att.attname::text order by att.attname::text)
            from unnest(con.conkey) as k
            join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k
          ) = array['espace_id','id']`, [name])
@@ -415,12 +419,162 @@ EOF
 )"
 ```
 
+### Task 1 — remédiation post-audit qualité : `espace_id` immuable (migration 0009)
+
+> **Contexte.** La revue qualité de la Tâche 1 a relevé un point **[Important]** : les write-policies (`has_role(espace_id, …)`) autorisent un writer membre de **deux** espaces à exécuter `update … set espace_id = <autre espace>` → déplacement **silencieux** d'une ligne d'un tenant à l'autre (et, sous `service_role`, la RLS est de toute façon contournée). C'est la même classe que SEV-1 `members_freeze_identity` (0006). On la ferme **maintenant** (avant de propager le motif à 0010-0013) par un trigger d'immutabilité réutilisable. Décision de modélisation 7.
+
+- [ ] **Step 11 : Ajouter la vérification du trigger freeze au test de schéma (échouera : trigger absent)**
+
+Modify `supabase/tests/p0b-schema.test.mjs` — dans `inspect()`, avant le `return`, ajouter la requête trigger ; puis ajouter la clé au retour et un `it()` dans la boucle `describe(table)` :
+
+```js
+    const trg = await c.query(
+      `select 1 from pg_trigger tg
+       join pg_class cl on cl.oid = tg.tgrelid
+       join pg_namespace n on n.oid = cl.relnamespace
+       where n.nspname='public' and cl.relname=$1
+         and tg.tgname='trg_freeze_espace_id' and not tg.tgisinternal`, [name])
+```
+
+```js
+    return {
+      exists: meta.rowCount === 1,
+      row: meta.rows[0],
+      cols: new Set(cols.rows.map(r => r.column_name)),
+      hasIdEspaceUnique: uniq.rowCount >= 1,
+      hasFreezeTrigger: trg.rowCount >= 1,
+    }
+```
+
+```js
+      it('trigger trg_freeze_espace_id (espace_id immuable)', async () => {
+        expect((await inspect(table)).hasFreezeTrigger).toBe(true)
+      })
+```
+
+- [ ] **Step 12 : Lancer le test de schéma, vérifier qu'il échoue**
+
+Run : `npm run test:rls -- p0b-schema`
+Expected : FAIL — `entites`/`immeubles` n'ont pas (encore) le trigger `trg_freeze_espace_id`.
+
+- [ ] **Step 13 : Écrire la migration 0009**
+
+Create `supabase/migrations/0009_freeze_espace_id.sql` :
+
+```sql
+-- P0-B — Durcissement post-audit qualité (Tâche 1) : immutabilité de espace_id.
+--
+-- FAILLE [Important] (revue code-quality de la Tâche 1) : les write-policies RLS
+-- (has_role sur espace_id) autorisent un writer membre de DEUX espaces (owner/gestionnaire
+-- de A ET de B) à exécuter `update ... set espace_id = <B>` → déplacement SILENCIEUX d'une
+-- ligne d'un tenant vers un autre. Même classe que SEV-1 fermée pour espace_members en 0006
+-- (members_freeze_identity). espace_id est LA clé d'isolation ET la cible des FK composites
+-- (id, espace_id) de toutes les tables enfant : le laisser mutable propagerait la faille à
+-- TOUTES les tables P0-B et casserait la stabilité des FK composites.
+--
+-- Solution robuste (pas un patch) = trigger d'immutabilité, comme 0006 :
+--   - s'applique MÊME au service_role (bypassrls ne contourne PAS les triggers, contrairement
+--     à un simple with check RLS) ;
+--   - fonction UNIQUE réutilisée par TOUTES les tables métier (boucle DDL, zéro divergence) ;
+--   - search_path='' homogène avec tout le projet (0007).
+-- Append-only : ne modifie pas 0008. Rattrape entites/immeubles (déjà créées en 0008) ;
+-- les migrations suivantes (0010+) créent le trigger dans leur boucle RLS.
+
+create or replace function public.freeze_espace_id()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.espace_id is distinct from old.espace_id then
+    raise exception 'ESPACE_ID_IMMUTABLE';
+  end if;
+  return new;
+end;
+$$;
+
+-- Rattrapage des tables déjà créées en 0008.
+do $freeze$
+declare t text;
+begin
+  foreach t in array array['entites','immeubles'] loop
+    execute format(
+      'create trigger trg_freeze_espace_id before update on public.%I
+         for each row execute function public.freeze_espace_id()', t);
+  end loop;
+end
+$freeze$;
+```
+
+- [ ] **Step 14 : Pousser la migration**
+
+Run :
+```bash
+DBURL=$(node -e "const fs=require('fs');const m=fs.readFileSync('.env','utf8').match(/^SUPABASE_DB_URL=(.*)$/m);process.stdout.write(m[1].trim())")
+npx supabase db push --db-url "$DBURL" --yes
+```
+Expected : `Applying migration 0009_freeze_espace_id.sql...` puis succès.
+
+- [ ] **Step 15 : Ajouter la preuve d'immutabilité au test d'isolation**
+
+Modify `supabase/tests/p0b-isolation.test.mjs` — ajouter à la fin du fichier (après le dernier `describe`) :
+
+```js
+describe('P0-B — immutabilité de espace_id (anti-kidnapping cross-tenant, SEV-1)', () => {
+  it('même en service-role, on ne peut PAS déplacer une ligne vers un autre espace', async () => {
+    // Le trigger freeze_espace_id (0009) s'applique même au service_role (bypassrls ne
+    // contourne pas les triggers). Pour chaque table semée, tenter de réécrire espace_id
+    // vers l'espace de Bob → doit lever ESPACE_ID_IMMUTABLE. Générique : couvre toutes les
+    // tables de BUSINESS_TABLES au fil de l'extension de seedChain (T2-T5).
+    const { adminClient } = await import('./helpers/clients.mjs')
+    const admin = adminClient()
+    for (const table of BUSINESS_TABLES) {
+      const { data: rows } = await admin.from(table).select('id').eq('espace_id', espaceA).limit(1)
+      if (!rows || rows.length === 0) continue   // table non encore semée à ce stade
+      const { error } = await admin.from(table)
+        .update({ espace_id: espaceB }).eq('id', rows[0].id)
+      expect(error, `${table} doit refuser le changement d'espace_id`).not.toBeNull()
+      expect(error.message, table).toMatch(/ESPACE_ID_IMMUTABLE/)
+    }
+  })
+})
+```
+
+- [ ] **Step 16 : Relancer schéma + isolation, vérifier qu'ils passent**
+
+Run : `npm run test:rls -- p0b`
+Expected : PASS — `entites`/`immeubles` ont le trigger ; le déplacement cross-espace est refusé (`ESPACE_ID_IMMUTABLE`) même en service-role.
+
+- [ ] **Step 17 : Garde CI**
+
+Run : `npm run check:rls`
+Expected : `✅ Couverture RLS OK`.
+
+- [ ] **Step 18 : Commit de la remédiation**
+
+```bash
+git add supabase/migrations/0009_freeze_espace_id.sql \
+        supabase/tests/p0b-schema.test.mjs \
+        supabase/tests/p0b-isolation.test.mjs
+git commit -m "$(cat <<'EOF'
+P0-B T1 (durcissement) : espace_id immuable (trigger freeze_espace_id, anti-kidnapping cross-tenant)
+
+Ferme le point [Important] de la revue qualité : un writer membre de deux espaces pouvait
+déplacer silencieusement une ligne entre tenants via UPDATE espace_id. Trigger réutilisable
+(comme members_freeze_identity 0006), actif même sous service_role. Rattrape entites/immeubles ;
+les migrations 0010+ créent le trigger dans leur boucle RLS.
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+EOF
+)"
+```
+
 ---
 
 ## Task 2 : Tables `logements` + `documents`
 
 **Files:**
-- Create: `supabase/migrations/0009_p0b_logements_documents.sql`
+- Create: `supabase/migrations/0010_p0b_logements_documents.sql`
 - Modify: `supabase/tests/helpers/p0b-fixtures.mjs`
 
 - [ ] **Step 1 : Étendre le harnais fixtures (le test de schéma échouera pour les nouvelles tables)**
@@ -454,9 +608,9 @@ Dans `seedChain`, après la ligne `ids.immeuble = ...`, ajouter :
 Run : `npm run test:rls -- p0b-schema`
 Expected : FAIL — `logements` et `documents` n'existent pas encore.
 
-- [ ] **Step 3 : Écrire la migration 0009**
+- [ ] **Step 3 : Écrire la migration 0010**
 
-Create `supabase/migrations/0009_p0b_logements_documents.sql` :
+Create `supabase/migrations/0010_p0b_logements_documents.sql` :
 
 ```sql
 -- P0-B — Tâche 2/6 : tables « logements » + « documents ».
@@ -552,6 +706,8 @@ begin
   foreach t in array array['logements','documents'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('alter table public.%I force  row level security', t);
+    -- §17-4b : espace_id figé (anti-kidnapping cross-tenant) — fonction définie en 0009
+    execute format('create trigger trg_freeze_espace_id before update on public.%I for each row execute function public.freeze_espace_id()', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member(espace_id))',
                    t || '_select', t);
     execute format('create policy %I on public.%I for insert to authenticated with check (public.has_role(espace_id, %s))',
@@ -572,7 +728,7 @@ Run :
 DBURL=$(node -e "const fs=require('fs');const m=fs.readFileSync('.env','utf8').match(/^SUPABASE_DB_URL=(.*)$/m);process.stdout.write(m[1].trim())")
 npx supabase db push --db-url "$DBURL" --yes
 ```
-Expected : `Applying migration 0009_p0b_logements_documents.sql...` puis succès.
+Expected : `Applying migration 0010_p0b_logements_documents.sql...` puis succès.
 
 - [ ] **Step 5 : Relancer schéma + isolation, vérifier qu'ils passent**
 
@@ -587,7 +743,7 @@ Expected : `✅ Couverture RLS OK` (inclut `logements`, `documents`).
 - [ ] **Step 7 : Commit**
 
 ```bash
-git add supabase/migrations/0009_p0b_logements_documents.sql supabase/tests/helpers/p0b-fixtures.mjs
+git add supabase/migrations/0010_p0b_logements_documents.sql supabase/tests/helpers/p0b-fixtures.mjs
 git commit -m "$(cat <<'EOF'
 P0-B T2 : tables logements + documents (FK composite entité/immeuble, RLS forcée)
 
@@ -601,7 +757,7 @@ EOF
 ## Task 3 : Tables `mouvements` + `quittances`
 
 **Files:**
-- Create: `supabase/migrations/0010_p0b_mouvements_quittances.sql`
+- Create: `supabase/migrations/0011_p0b_mouvements_quittances.sql`
 - Modify: `supabase/tests/helpers/p0b-fixtures.mjs`
 
 - [ ] **Step 1 : Étendre le harnais fixtures**
@@ -639,9 +795,9 @@ Dans `seedChain`, après `ids.document = ...`, ajouter :
 Run : `npm run test:rls -- p0b-schema`
 Expected : FAIL — `mouvements`/`quittances` absentes.
 
-- [ ] **Step 3 : Écrire la migration 0010**
+- [ ] **Step 3 : Écrire la migration 0011**
 
-Create `supabase/migrations/0010_p0b_mouvements_quittances.sql` :
+Create `supabase/migrations/0011_p0b_mouvements_quittances.sql` :
 
 ```sql
 -- P0-B — Tâche 3/6 : tables « mouvements » + « quittances ».
@@ -738,6 +894,8 @@ begin
   foreach t in array array['mouvements','quittances'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('alter table public.%I force  row level security', t);
+    -- §17-4b : espace_id figé (anti-kidnapping cross-tenant) — fonction définie en 0009
+    execute format('create trigger trg_freeze_espace_id before update on public.%I for each row execute function public.freeze_espace_id()', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member(espace_id))',
                    t || '_select', t);
     execute format('create policy %I on public.%I for insert to authenticated with check (public.has_role(espace_id, %s))',
@@ -758,7 +916,7 @@ Run :
 DBURL=$(node -e "const fs=require('fs');const m=fs.readFileSync('.env','utf8').match(/^SUPABASE_DB_URL=(.*)$/m);process.stdout.write(m[1].trim())")
 npx supabase db push --db-url "$DBURL" --yes
 ```
-Expected : `Applying migration 0010_p0b_mouvements_quittances.sql...` puis succès.
+Expected : `Applying migration 0011_p0b_mouvements_quittances.sql...` puis succès.
 
 - [ ] **Step 5 : Relancer schéma + isolation**
 
@@ -773,7 +931,7 @@ Expected : `✅ Couverture RLS OK`.
 - [ ] **Step 7 : Commit**
 
 ```bash
-git add supabase/migrations/0010_p0b_mouvements_quittances.sql supabase/tests/helpers/p0b-fixtures.mjs
+git add supabase/migrations/0011_p0b_mouvements_quittances.sql supabase/tests/helpers/p0b-fixtures.mjs
 git commit -m "$(cat <<'EOF'
 P0-B T3 : tables mouvements + quittances (qui polymorphe normalisé, FK PJ + paiement)
 
@@ -787,7 +945,7 @@ EOF
 ## Task 4 : Tables `baux` + `baux_historique`
 
 **Files:**
-- Create: `supabase/migrations/0011_p0b_baux.sql`
+- Create: `supabase/migrations/0012_p0b_baux.sql`
 - Modify: `supabase/tests/helpers/p0b-fixtures.mjs`
 
 - [ ] **Step 1 : Étendre le harnais fixtures**
@@ -826,9 +984,9 @@ Dans `seedChain`, après `ids.quittance = ...`, ajouter :
 Run : `npm run test:rls -- p0b-schema`
 Expected : FAIL — `baux`/`baux_historique` absentes.
 
-- [ ] **Step 3 : Écrire la migration 0011**
+- [ ] **Step 3 : Écrire la migration 0012**
 
-Create `supabase/migrations/0011_p0b_baux.sql` :
+Create `supabase/migrations/0012_p0b_baux.sql` :
 
 ```sql
 -- P0-B — Tâche 4/6 : tables « baux » (bail courant) + « baux_historique » (archives).
@@ -926,6 +1084,8 @@ begin
   foreach t in array array['baux','baux_historique'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('alter table public.%I force  row level security', t);
+    -- §17-4b : espace_id figé (anti-kidnapping cross-tenant) — fonction définie en 0009
+    execute format('create trigger trg_freeze_espace_id before update on public.%I for each row execute function public.freeze_espace_id()', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member(espace_id))',
                    t || '_select', t);
     execute format('create policy %I on public.%I for insert to authenticated with check (public.has_role(espace_id, %s))',
@@ -946,7 +1106,7 @@ Run :
 DBURL=$(node -e "const fs=require('fs');const m=fs.readFileSync('.env','utf8').match(/^SUPABASE_DB_URL=(.*)$/m);process.stdout.write(m[1].trim())")
 npx supabase db push --db-url "$DBURL" --yes
 ```
-Expected : `Applying migration 0011_p0b_baux.sql...` puis succès.
+Expected : `Applying migration 0012_p0b_baux.sql...` puis succès.
 
 - [ ] **Step 5 : Relancer schéma + isolation**
 
@@ -961,7 +1121,7 @@ Expected : `✅ Couverture RLS OK`.
 - [ ] **Step 7 : Commit**
 
 ```bash
-git add supabase/migrations/0011_p0b_baux.sql supabase/tests/helpers/p0b-fixtures.mjs
+git add supabase/migrations/0012_p0b_baux.sql supabase/tests/helpers/p0b-fixtures.mjs
 git commit -m "$(cat <<'EOF'
 P0-B T4 : tables baux + baux_historique (1 bail courant/logement, verrous signature en colonnes)
 
@@ -975,7 +1135,7 @@ EOF
 ## Task 5 : Table `edl`
 
 **Files:**
-- Create: `supabase/migrations/0012_p0b_edl.sql`
+- Create: `supabase/migrations/0013_p0b_edl.sql`
 - Modify: `supabase/tests/helpers/p0b-fixtures.mjs`
 
 - [ ] **Step 1 : Étendre le harnais fixtures**
@@ -1013,9 +1173,9 @@ Dans `seedChain`, après `ids.bailHist = ...`, ajouter (puis `return ids`) :
 Run : `npm run test:rls -- p0b-schema`
 Expected : FAIL — `edl` absente.
 
-- [ ] **Step 3 : Écrire la migration 0012**
+- [ ] **Step 3 : Écrire la migration 0013**
 
-Create `supabase/migrations/0012_p0b_edl.sql` :
+Create `supabase/migrations/0013_p0b_edl.sql` :
 
 ```sql
 -- P0-B — Tâche 5/6 : table « edl » (états des lieux entrée/sortie).
@@ -1069,6 +1229,8 @@ begin
   foreach t in array array['edl'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('alter table public.%I force  row level security', t);
+    -- §17-4b : espace_id figé (anti-kidnapping cross-tenant) — fonction définie en 0009
+    execute format('create trigger trg_freeze_espace_id before update on public.%I for each row execute function public.freeze_espace_id()', t);
     execute format('create policy %I on public.%I for select to authenticated using (public.is_member(espace_id))',
                    t || '_select', t);
     execute format('create policy %I on public.%I for insert to authenticated with check (public.has_role(espace_id, %s))',
@@ -1089,7 +1251,7 @@ Run :
 DBURL=$(node -e "const fs=require('fs');const m=fs.readFileSync('.env','utf8').match(/^SUPABASE_DB_URL=(.*)$/m);process.stdout.write(m[1].trim())")
 npx supabase db push --db-url "$DBURL" --yes
 ```
-Expected : `Applying migration 0012_p0b_edl.sql...` puis succès.
+Expected : `Applying migration 0013_p0b_edl.sql...` puis succès.
 
 - [ ] **Step 5 : Relancer schéma + isolation (les 9 tables)**
 
@@ -1104,7 +1266,7 @@ Expected : `✅ Couverture RLS OK`.
 - [ ] **Step 7 : Commit**
 
 ```bash
-git add supabase/migrations/0012_p0b_edl.sql supabase/tests/helpers/p0b-fixtures.mjs
+git add supabase/migrations/0013_p0b_edl.sql supabase/tests/helpers/p0b-fixtures.mjs
 git commit -m "$(cat <<'EOF'
 P0-B T5 : table edl (détail imbriqué jsonb, verrou signature en colonne)
 
@@ -1215,11 +1377,11 @@ EOF
 
 Dispatcher l'agent `superpowers:code-reviewer` sur l'ensemble P0-B. Prompt de l'agent (autonome, il n'a pas le contexte de cette session) :
 
-> Audite la livraison P0-B d'ImmoTrack : les migrations `supabase/migrations/0008`→`0012` (9 tables métier Postgres multi-tenant) et leurs tests `supabase/tests/p0b-*.{test.mjs}` + `helpers/p0b-fixtures.mjs`. Le socle P0-A (espaces, espace_members, is_member/has_role, FORCE RLS) est déjà audité PASSANT — lis `supabase/migrations/0001`→`0007` pour le contexte. Risque n°1 = **fuite cross-tenant** : vérifie que CHAQUE table métier a FORCE RLS + policies select=`is_member(espace_id)` / write=`has_role(espace_id, owner+gestionnaire)`, que `espace_id` est NOT NULL partout, que les FK parent/enfant sont **composites** `(parent_id, espace_id)` (cohérence d'espace garantie même sous service_role), et qu'aucun chemin (FK polymorphe `documents.parent`, `mouvements.qui`, jsonb) ne permet de référencer ou lire une ligne d'un autre espace. Vérifie aussi : soft-delete `deleted_at` cohérent, `version`/`touch_row` branchés, index composites `(espace_id, …)`, et que les colonnes `signed_at` existent sans contrainte d'immutabilité (celle-ci est explicitement repoussée à P0-C). Signale tout SEV-1/2/3 avec le correctif. Rends un verdict PASSANT / NON-PASSANT.
+> Audite la livraison P0-B d'ImmoTrack : les migrations `supabase/migrations/0008`→`0013` (9 tables métier Postgres multi-tenant + durcissement `espace_id` immuable en 0009) et leurs tests `supabase/tests/p0b-*.{test.mjs}` + `helpers/p0b-fixtures.mjs`. Le socle P0-A (espaces, espace_members, is_member/has_role, FORCE RLS) est déjà audité PASSANT — lis `supabase/migrations/0001`→`0007` pour le contexte. Risque n°1 = **fuite cross-tenant** : vérifie que CHAQUE table métier a FORCE RLS + policies select=`is_member(espace_id)` / write=`has_role(espace_id, owner+gestionnaire)`, que `espace_id` est NOT NULL partout, que les FK parent/enfant sont **composites** `(parent_id, espace_id)` (cohérence d'espace garantie même sous service_role), et qu'aucun chemin (FK polymorphe `documents.parent`, `mouvements.qui`, jsonb) ne permet de référencer ou lire une ligne d'un autre espace. Vérifie aussi : **`espace_id` immuable** (trigger `trg_freeze_espace_id` → `public.freeze_espace_id()` sur CHAQUE table, défini en 0009 ; un writer membre de deux espaces ne doit pas pouvoir déplacer une ligne vers un autre espace, **même en service_role**), soft-delete `deleted_at` cohérent, `version`/`touch_row` branchés, index composites `(espace_id, …)`, et que les colonnes `signed_at` existent sans contrainte d'immutabilité **de contenu** (figer les autres colonnes une fois signé — explicitement repoussée à P0-C ; à ne pas confondre avec l'immutabilité de `espace_id`, qui, elle, est bien dans P0-B). Signale tout SEV-1/2/3 avec le correctif. Rends un verdict PASSANT / NON-PASSANT.
 
 - [ ] **Step 6 : Traiter les findings d'audit (le cas échéant)**
 
-Pour chaque finding NON trivial : créer une **nouvelle** migration append-only (`0013_…`, jamais modifier 0008-0012 poussées) + un test de non-régression, pousser, re-tester, puis **re-auditer** jusqu'au verdict PASSANT. Tant que l'audit n'est pas PASSANT, **ne pas** annoncer « prêt à tester » au porteur.
+Pour chaque finding NON trivial : créer une **nouvelle** migration append-only (`0014_…`, jamais modifier 0008-0013 poussées) + un test de non-régression, pousser, re-tester, puis **re-auditer** jusqu'au verdict PASSANT. Tant que l'audit n'est pas PASSANT, **ne pas** annoncer « prêt à tester » au porteur.
 
 - [ ] **Step 7 : Mettre à jour le BACKLOG (temps réel — règle gravée)**
 
@@ -1237,12 +1399,12 @@ Annoncer au porteur : P0-B prêt à tester — 9 tables métier isolées, intég
 - **`auth.uid()` en DEFAULT.** Sous `service_role` (import P0-E) `auth.uid()` renvoie `null` → `created_by` nullable (OK). À l'import, renseigner `created_by` explicitement avec l'owner de l'espace.
 - **FK polymorphe `documents.parent`.** Pas de FK dure (parent peut être un mouvement OU un immeuble). La cohérence `espace_id` est garantie par la RLS ; une validation d'existence du parent (trigger) pourra être ajoutée en P0-C si l'audit l'exige.
 - **`mouvements.qui` neutre autorisé.** Le CHECK n'autorise PAS (logement ET entité) ensemble, mais autorise (aucun des deux) — mouvement au niveau espace (ex. frais généraux). Conforme au modèle JS.
-- **Ordre des migrations = ordre des dépendances FK.** 0008 (entités, immeubles) → 0009 (logements ⇒ entité+immeuble, documents) → 0010 (mouvements ⇒ logement/entité/document, quittances ⇒ logement/mouvement) → 0011 (baux) → 0012 (edl). Ne pas réordonner.
+- **Ordre des migrations = ordre des dépendances FK.** 0008 (entités, immeubles) → 0009 (durcissement : fonction `freeze_espace_id()` + rattrapage trigger sur entites/immeubles) → 0010 (logements ⇒ entité+immeuble, documents) → 0011 (mouvements ⇒ logement/entité/document, quittances ⇒ logement/mouvement) → 0012 (baux) → 0013 (edl). Ne pas réordonner.
 - **Pas de cycle FK au niveau base.** `mouvements.pj_document_id → documents` est une vraie FK ; `documents.parent_id → mouvements` est polymorphe sans FK → aucune dépendance circulaire à casser.
 
 ## Self-Review (effectuée à la rédaction)
 
-- **Couverture spec §17** : §17-3 (espace_id NOT NULL partout ✓), §17-4 (FK composite (id, espace_id) ✓), §17-5 (index composites (espace_id,…) ✓), §17-6 (FORCE RLS + 4 policies/table via boucle + garde CI ✓), §17-8 (version + touch_row ✓), §17-9 (deleted_at + soft-delete ✓). §17-10/11/21 (immutabilité), §17-12 (rétention), §17-13/22 (gating) **explicitement exclus → P0-C** (colonnes `signed_*` posées en prévision).
+- **Couverture spec §17** : §17-3 (espace_id NOT NULL partout ✓ ; **immuable** via trigger `freeze_espace_id` en 0009 — durcissement post-audit qualité T1 ✓), §17-4 (FK composite (id, espace_id) ✓), §17-5 (index composites (espace_id,…) ✓), §17-6 (FORCE RLS + 4 policies/table via boucle + garde CI ✓), §17-8 (version + touch_row ✓), §17-9 (deleted_at + soft-delete ✓). §17-10/11/21 (immutabilité), §17-12 (rétention), §17-13/22 (gating) **explicitement exclus → P0-C** (colonnes `signed_*` posées en prévision).
 - **Placeholders** : aucun « TBD/à compléter » ; tout le SQL et le code de test sont complets et exécutables.
 - **Cohérence des noms** : `BUSINESS_TABLES` / `seedChain` définis en T1, étendus de façon additive en T2-T5 ; noms de colonnes/contraintes constants entre migrations et tests (`*_id_espace_unique`, `*_fk`, `mouvements_qui_exclusif`, `baux_one_active_per_logement`, `quittances_logement_mois_unique`).
 - **Fidélité au modèle réel** : schémas dérivés de l'inventaire terrain (entites/logements/baux dict-par-ref/baux_historique/mouvements.qui polymorphe/quittances/edl imbriqué/documents) — pas d'invention de champs ; legacy conservé (`legacy_id`, `legacy_ref`, `legacy_bail`).
