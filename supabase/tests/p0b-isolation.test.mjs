@@ -86,3 +86,62 @@ describe('P0-B — immutabilité de espace_id (anti-kidnapping cross-tenant, SEV
     }
   })
 })
+
+describe('P0-B — intégrité référentielle forte (FK composite + CHECK)', () => {
+  it('FK composite : référence parent/enfant cohérente dans le même espace = autorisée', async () => {
+    // Garde de non-régression : le cas nominal (logement → entité du MÊME espace) doit passer.
+    // L'incohérence cross-espace est testée juste en dessous via service-role.
+    const { error } = await clientA.from('logements').insert({
+      espace_id: espaceA, ref: `X-${RUN}`, entite_id: idsA.entite, immeuble_id: idsA.immeuble,
+    }).select()
+    expect(error).toBeNull()
+  })
+
+  it('FK composite bloque l\'incohérence parent/enfant même en service-role (bypass RLS)', async () => {
+    // service_role contourne la RLS mais PAS les FK : on tente d'insérer un logement dont
+    // (entite_id, espace_id) ne correspond à aucune entité → violation de clé étrangère.
+    const { adminClient } = await import('./helpers/clients.mjs')
+    const admin = adminClient()
+    const { error } = await admin.from('logements').insert({
+      espace_id: espaceB,            // espace de Bob…
+      ref: `KIDNAP-${RUN}`,
+      entite_id: idsA.entite,        // … mais entité d'Alice → (entite_id, espace_id) introuvable
+    })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/violates foreign key|logements_entite_fk/i)
+  })
+
+  it('CHECK mouvements : « qui » ne peut pas viser un logement ET une entité', async () => {
+    const { error } = await clientA.from('mouvements').insert({
+      espace_id: espaceA, date_mouvement: '2026-02-01', libelle: 'Double cible',
+      logement_id: idsA.logement, entite_id: idsA.entite, debit: 10,
+    })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/mouvements_qui_exclusif|violates check/i)
+  })
+
+  it('unicité : un 2ᵉ bail courant actif sur le même logement est refusé', async () => {
+    const { error } = await clientA.from('baux').insert({
+      espace_id: espaceA, logement_id: idsA.logement, type_bail: 'nu', hc: 999,
+    })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/baux_one_active_per_logement|duplicate key/i)
+  })
+
+  it('unicité : une 2ᵉ quittance sur le même (logement, mois) est refusée', async () => {
+    const { error } = await clientA.from('quittances').insert({
+      espace_id: espaceA, logement_id: idsA.logement, mois: '2026-01', hc: 1, ch: 1,
+    })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/quittances_logement_mois_unique|duplicate key/i)
+  })
+
+  it('versioning : un UPDATE incrémente version et rafraîchit updated_at', async () => {
+    const before = await clientA.from('entites').select('version, updated_at').eq('id', idsA.entite).single()
+    await clientA.from('entites').update({ siren: '123456789' }).eq('id', idsA.entite)
+    const after = await clientA.from('entites').select('version, updated_at').eq('id', idsA.entite).single()
+    expect(Number(after.data.version)).toBe(Number(before.data.version) + 1)
+    expect(new Date(after.data.updated_at).getTime())
+      .toBeGreaterThanOrEqual(new Date(before.data.updated_at).getTime())
+  })
+})
