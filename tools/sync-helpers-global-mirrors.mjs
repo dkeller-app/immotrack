@@ -101,7 +101,21 @@ const PAIRS = [
     sanity: [
       { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
     ]
-  }
+  },
+  {
+    name: 'bail-sign-coords',
+    src: '__tests__/helpers/bail-sign-coords.js',
+    dst: 'js/helpers/bail-sign-coords.global.js',
+    globalName: 'BailSignCoords',
+    exports: ['PDF_NATIVE', 'mmToPt', 'rectFromJsPdf', 'fallbackAnchors'],
+  },
+  {
+    name: 'bail-sign-manifest',
+    src: '__tests__/helpers/bail-sign-manifest.js',
+    dst: 'js/helpers/bail-sign-manifest.global.js',
+    globalName: 'BailSignManifest',
+    exports: ['SENTINEL', 'encode', 'decode', 'readFromDoc', 'embedInDoc'],
+  },
 ];
 
 let totalErrors = 0;
