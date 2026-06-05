@@ -108,22 +108,37 @@
   .sp-help .e{font-size:14px}
   .sp-hint{font-size:11.5px;color:var(--t3);margin:-4px 0 12px;line-height:1.45}
 
-  .sp-row{display:grid;grid-template-columns:1fr 96px 150px 1fr 24px;gap:7px;align-items:center;margin-bottom:7px}
-  .sp-row .inp{padding:7px 9px;font-size:12.5px}
-  .sp-row .x{background:none;border:none;cursor:pointer;color:var(--red);font-size:15px;padding:0}
-  .sp-rowhead{display:grid;grid-template-columns:1fr 96px 150px 1fr 24px;gap:7px;font-size:10.5px;
-    text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:5px;padding:0 2px}
+  /* Chaque ligne du split = une mini-fiche : sens + libellé + montant, puis catégorie + niveau + cible */
+  .sp-card{border:1px solid var(--bd);border-radius:11px;padding:10px;margin-bottom:9px;background:var(--card)}
+  .sp-card-top{display:flex;gap:7px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .sp-card .inp{padding:7px 9px;font-size:12.5px}
+  .sp-card-top .lib{flex:1;min-width:90px}
+  .sp-card-top .mt{width:104px;text-align:right;flex:0 0 auto}
+  .sp-card-top .x{background:none;border:none;cursor:pointer;color:var(--red);font-size:15px;padding:0 2px}
+  .sens-tg{display:flex;border:1px solid var(--bd2);border-radius:8px;overflow:hidden;flex:0 0 auto}
+  .sens-tg button{border:0;background:var(--card);color:var(--t3);padding:7px 9px;cursor:pointer;
+    font-size:11px;font-weight:700;white-space:nowrap}
+  .sens-tg button.db.on{background:var(--red);color:#fff}
+  .sens-tg button.cr.on{background:var(--ok);color:#fff}
+  .sp-card-aff{display:grid;grid-template-columns:1fr auto 1fr;gap:7px;align-items:center}
+  .niv-mini{display:flex;gap:3px}
+  .niv-mini button{border:1px solid var(--bd2);background:var(--card);color:var(--t3);border-radius:7px;
+    padding:6px 9px;cursor:pointer;font-size:14px;line-height:1}
+  .niv-mini button.on{border-color:var(--pri);background:var(--pri-bg);color:var(--pri)}
+  .niv-mini button.sugg{box-shadow:inset 0 -2px 0 var(--ok)}
+  .sp-dest{text-align:right;margin-top:8px}
   .sp-add{border:1px dashed var(--bd2);background:transparent;color:var(--t2);border-radius:9px;width:100%;
     padding:8px;cursor:pointer;font-size:12.5px;font-weight:600;margin-top:3px}
-  .sp-bal{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:11px 14px;
-    border-radius:10px;background:var(--bg);border:1px solid var(--bd);font-size:13px}
+  .sp-bal{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;
+    padding:11px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--bd);font-size:13px}
   .sp-bal .ok{color:var(--ok);font-weight:700}
   .sp-bal .ko{color:var(--red);font-weight:700}
   .sp-bar{height:7px;border-radius:5px;background:var(--bd);overflow:hidden;margin-top:9px}
   .sp-bar > i{display:block;height:100%;background:var(--vio);width:0;transition:width .2s}
   .sp-bar.full > i{background:var(--ok)}
-  .rdest{font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap}
+  .rdest{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:6px;white-space:nowrap;display:inline-block}
   .rdest.t{background:var(--ok-bg);color:var(--ok)} .rdest.r{background:var(--vio-bg);color:var(--vio)}
+  .rdest.n{background:var(--bg);color:var(--t3);border:1px solid var(--bd2)}
 
   /* ---- Autres options (repliable) ---- */
   .opts{margin-top:16px;border-top:1px solid var(--bd);padding-top:6px}
@@ -145,9 +160,8 @@
 
   @media(max-width:520px){
     .fg2{grid-template-columns:1fr}
-    .sp-rowhead{display:none}
-    .sp-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
-    .sp-row .x{justify-self:end}
+    .sp-card-aff{grid-template-columns:1fr}
+    .niv-mini{justify-content:flex-start}
   }
 </style>
 </head>
@@ -174,6 +188,7 @@
     <button data-s="sci">Frais SCI</button>
     <button data-s="bail">✂️ Loyer tout compris</button>
     <button data-s="caf">✂️ CAF 3 locataires</button>
+    <button data-s="gerance">✂️ Relevé gérance</button>
   </div>
 </div>
 
@@ -324,7 +339,7 @@ function setMode(m){
   // explainer contextuel
   $('explain').innerHTML = m==='aff'
     ? `<b>Affecter :</b> on choisit d'abord <b>ce que c'est</b> (la catégorie). Selon elle, l'app sait où ça va et ne pose qu'<b>une</b> question ciblée — jamais la liste de tous les logements. Le bandeau du bas montre en direct <b>où la ligne atterrit</b> (ta 2044, ou la régularisation des locataires).`
-    : `<b>Découper :</b> un seul virement reçu peut concerner <b>plusieurs biens ou locataires</b> (loyer tout compris à séparer, versement CAF groupé…). On répartit le montant en lignes ; chaque ligne garde sa propre affectation. Deux aides pré-remplissent depuis le bail ou par locataire.`;
+    : `<b>Découper :</b> un seul virement peut mêler <b>plusieurs biens, plusieurs locataires et les deux sens</b> — typiquement un <b>relevé de gérance</b> : loyers encaissés en <b>crédit</b>, frais de gestion / GLI / PNO en <b>débit</b>. Chaque ligne porte sa catégorie <b>et son affectation</b> (SCI / immeuble / logement) ; l'équilibre se fait sur le <b>net</b> = crédits − débits.`;
   render();
 }
 
@@ -368,61 +383,117 @@ function destHtml(m){
 }
 
 /* ===================== MODE DÉCOUPER (split) ===================== */
+/* Chaque ligne du split est une affectation complète : sens + niveau + cible + catégorie.
+   « Affecter à un poste » n'est que le cas N=1 du même modèle. */
+function defCible(k){ return k==='sci' ? (cur.ent||ENT[0].nom)
+  : k==='imm' ? (cur.imm||ENT[0].imms[0].nom) : (cur.log||allLogs()[0].ref); }
+function setRowSens(j,s){ spRows[j].sens=s; renderSplit(); }
+function setRowNiv(j,k){ const r=spRows[j]; r.niv=k; r.cible=defCible(k); renderSplit(); }
+function setRowCat(j,v){
+  const r=spRows[j]; r.cat=v; const cm=CATMETA[v]||{};
+  if(cm.niv){ r.niv=cm.niv; r.cible=defCible(cm.niv); }
+  r.sens = (cm.t==='recette') ? 'cr' : 'db';   // recette→crédit ; charge/intérêt/récup→débit
+  renderSplit();
+}
+function nivMini(j){
+  const r=spRows[j]; const sug=(CATMETA[r.cat]||{}).niv;
+  return `<div class="niv-mini">`+['sci','imm','log'].map(k=>
+    `<button class="${k===r.niv?'on':''}${(k===sug&&k!==r.niv)?' sugg':''}" title="${NIV_LBL[k].l}" onclick="setRowNiv(${j},'${k}')">${NIV_LBL[k].e}</button>`
+  ).join('')+`</div>`;
+}
+function cibleSelect(j){
+  const r=spRows[j];
+  const opts = r.niv==='sci' ? ENT.map(e=>[e.nom,e.nom])
+    : r.niv==='imm' ? ENT.flatMap(e=>e.imms).map(i=>[i.nom,i.nom])
+    : allLogs().map(l=>[l.ref, l.ref+' · '+l.loc]);
+  return `<select class="inp" onchange="spRows[${j}].cible=this.value;renderSplit()">`+
+    opts.map(([v,t])=>`<option value="${v}" ${v===r.cible?'selected':''}>${t}</option>`).join('')+`</select>`;
+}
+function rowDest(r){
+  const cm = CATMETA[r.cat]||{l:'',t:'charge'};
+  const where = r.niv==='sci'?`🏛️ ${r.cible}`:r.niv==='imm'?`🏢 ${r.cible}`:`🚪 ${r.cible}`;
+  if(cm.t==='recup')  return `<span class="rdest r">→ compteur · ${where}</span>`;
+  if(cm.regul)        return `<span class="rdest r">→ régularisation · ${where}</span>`;
+  if(cm.l){ const s = cm.t==='recette'?'recette':cm.t==='interet'?'intérêts':'charge';
+            return `<span class="rdest t">→ 2044·${cm.l} · ${s} · ${where}</span>`; }
+  return `<span class="rdest n">→ hors 2044</span>`;
+}
 function seedSplit(method){
   spMethod = method;
   const im = findImm(cur.imm) || ENT[0].imms[0];
   if(method==='bail'){
-    // loyer tout compris reçu → sépare HC (211) + provision charges (vers régul)
+    // loyer tout compris reçu → sépare HC (211, crédit) + provision charges (vers régul, crédit)
     const l = im.logs.find(x=>x.ref===cur.log) || im.logs[0];
     spRows = [
-      {lib:'Loyer hors charges', montant:l.hc, cat:'Loyers encaissés', qui:l.ref},
-      {lib:'Provision de charges', montant:l.ch, cat:'Provision de charges (locataire)', qui:l.ref},
+      {sens:'cr', lib:'Loyer hors charges',  montant:l.hc, cat:'Loyers encaissés',                niv:'log', cible:l.ref},
+      {sens:'cr', lib:'Provision de charges', montant:l.ch, cat:'Provision de charges (locataire)', niv:'log', cible:l.ref},
     ];
   } else if(method==='caf'){
-    // un virement CAF groupé → 1 ligne par locataire bénéficiaire (APL)
-    spRows = im.logs.filter(l=>l.caf>0).map(l=>({lib:'APL '+l.loc, montant:l.caf, cat:'Loyers encaissés', qui:l.ref}));
-    if(!spRows.length) spRows=[{lib:'APL',montant:'',cat:'Loyers encaissés',qui:im.logs[0].ref}];
-  } else {
+    // un virement CAF groupé → 1 ligne crédit par locataire bénéficiaire (APL)
+    spRows = im.logs.filter(l=>l.caf>0).map(l=>({sens:'cr', lib:'APL '+l.loc, montant:l.caf, cat:'Loyers encaissés', niv:'log', cible:l.ref}));
+    if(!spRows.length) spRows=[{sens:'cr',lib:'APL',montant:'',cat:'Loyers encaissés',niv:'log',cible:im.logs[0].ref}];
+  } else if(method==='gerance'){
+    // relevé de gérance : loyers encaissés (crédit) − frais (débit), net = virement reçu
+    const loy = im.logs.map(l=>({sens:'cr', lib:'Loyer '+l.loc, montant:l.hc, cat:'Loyers encaissés', niv:'log', cible:l.ref}));
+    const brut = im.logs.reduce((s,l)=>s+l.hc,0);
     spRows = [
-      {lib:($('lib').value||'Ligne')+' (1)', montant:'', cat:$('cat').value, qui:cur.log},
-      {lib:($('lib').value||'Ligne')+' (2)', montant:'', cat:$('cat').value, qui:cur.log},
+      ...loy,
+      {sens:'db', lib:'Frais de gestion 7%', montant:Math.round(brut*0.07), cat:'Frais de gestion / honoraires', niv:'imm', cible:im.nom},
+      {sens:'db', lib:'Assurance GLI',       montant:30,                     cat:"Primes d'assurance PNO",        niv:'imm', cible:im.nom},
+    ];
+  } else {
+    const c=$('cat').value, cm=CATMETA[c]||{};
+    spRows = [
+      {sens:sens(), lib:($('lib').value||'Ligne')+' (1)', montant:'', cat:c, niv:cm.niv||'log', cible:cur.log},
+      {sens:sens(), lib:($('lib').value||'Ligne')+' (2)', montant:'', cat:c, niv:cm.niv||'log', cible:cur.log},
     ];
   }
   renderSplit();
 }
 function renderSplit(){
   document.querySelectorAll('#sp-help button').forEach(b=>b.classList.toggle('on',b.dataset.sp===spMethod));
-  const hint=$('sp-hint'); if(hint) hint.textContent = spMethod==='bail'
+  const hint=$('sp-hint'); if(hint) hint.innerHTML = spMethod==='bail'
     ? "Pré-rempli depuis le bail : loyer hors charges → 2044 (ligne 211), provision de charges → régularisation locataire."
     : spMethod==='caf' ? "Une ligne par locataire bénéficiaire de l'APL. Ajuste si la CAF a régularisé un mois."
-    : "Saisis tes lignes librement. La somme doit égaler le montant total du mouvement.";
-  const logs = allLogs();
+    : spMethod==='gerance' ? "Relevé de gérance : une ligne <b>crédit</b> par loyer encaissé + tes frais en <b>débit</b> (gestion, GLI, PNO…). Ajuste les montants depuis le relevé du gestionnaire."
+    : "Saisis tes lignes librement : chaque ligne a son <b>sens</b> (débit/crédit), sa catégorie et son affectation. L'équilibre se fait sur le <b>net</b>.";
   const cats = Object.keys(CATMETA);
-  $('sp-rows').innerHTML = spRows.map((r,j)=>{
-    const cm = CATMETA[r.cat]||{l:'',t:'charge'};
-    const rd = cm.regul ? `<span class="rdest r">→ régularisation</span>`
-             : cm.t==='recup' ? `<span class="rdest r">→ compteur</span>`
-             : cm.l ? `<span class="rdest t">→ 2044 · ${cm.l}</span>` : '';
-    return `<div class="sp-row">
-      <input class="inp" placeholder="Libellé" value="${r.lib}" oninput="spRows[${j}].lib=this.value">
-      <input class="inp" type="number" step="0.01" placeholder="Montant" value="${r.montant}" oninput="spRows[${j}].montant=this.value;balance()">
-      <select class="inp" onchange="spRows[${j}].cat=this.value;renderSplit()">${cats.map(c=>`<option ${c===r.cat?'selected':''}>${c}</option>`).join('')}</select>
-      <select class="inp" onchange="spRows[${j}].qui=this.value">${logs.map(l=>`<option value="${l.ref}" ${l.ref===r.qui?'selected':''}>${l.ref} · ${l.loc}</option>`).join('')}</select>
-      ${spRows.length>2?`<button class="x" onclick="spRows.splice(${j},1);renderSplit()" title="Supprimer">✕</button>`:'<span></span>'}
-      <div style="grid-column:1/-1;margin:-3px 0 4px;text-align:right">${rd}</div>
-    </div>`;
-  }).join('');
+  $('sp-rows').innerHTML = spRows.map((r,j)=>`
+    <div class="sp-card">
+      <div class="sp-card-top">
+        <div class="sens-tg">
+          <button class="db ${r.sens==='db'?'on':''}" onclick="setRowSens(${j},'db')">− Débit</button>
+          <button class="cr ${r.sens==='cr'?'on':''}" onclick="setRowSens(${j},'cr')">+ Crédit</button>
+        </div>
+        <input class="inp lib" placeholder="Libellé" value="${r.lib}" oninput="spRows[${j}].lib=this.value">
+        <input class="inp mt" type="number" step="0.01" placeholder="Montant" value="${r.montant}" oninput="spRows[${j}].montant=this.value;balance()">
+        ${spRows.length>1?`<button class="x" title="Supprimer cette ligne" onclick="spRows.splice(${j},1);renderSplit()">✕</button>`:''}
+      </div>
+      <div class="sp-card-aff">
+        <select class="inp" onchange="setRowCat(${j},this.value)">${cats.map(c=>`<option ${c===r.cat?'selected':''}>${c}</option>`).join('')}</select>
+        ${nivMini(j)}
+        ${cibleSelect(j)}
+      </div>
+      <div class="sp-dest">${rowDest(r)}</div>
+    </div>`).join('');
   balance();
 }
-function addRow(){ spRows.push({lib:($('lib').value||'Ligne')+' ('+(spRows.length+1)+')',montant:'',cat:$('cat').value,qui:cur.log}); renderSplit(); }
+function addRow(){
+  const c=$('cat').value, cm=CATMETA[c]||{};
+  spRows.push({sens:sens(), lib:($('lib').value||'Ligne')+' ('+(spRows.length+1)+')', montant:'', cat:c, niv:cm.niv||'log', cible:cur.log});
+  renderSplit();
+}
 function balance(){
-  const t = total(); const used = spRows.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
-  const reste = Math.round((t-used)*100)/100; const ok = Math.abs(reste)<0.005;
-  const pct = t>0 ? Math.min(100, Math.round(used/t*100)) : 0;
-  $('sp-bal').innerHTML = `<span>Reste à répartir : <span class="${ok?'ok':'ko'}">${ok?'✅ équilibré':fmt(reste)}</span></span><span>Total : <strong>${fmt(t)}</strong></span>`;
+  // net bancaire signé (crédit − débit du mouvement) vs net réparti (Σcrédits − Σdébits des lignes)
+  const bankNet = (parseFloat($('cr').value)||0) - (parseFloat($('db').value)||0);
+  const net = spRows.reduce((s,r)=>{ const v=parseFloat(r.montant)||0; return s + (r.sens==='cr'?v:-v); }, 0);
+  const reste = Math.round((bankNet-net)*100)/100; const ok = Math.abs(reste)<0.005;
+  const denom = Math.abs(bankNet)||1; const pct = Math.min(100, Math.round(Math.abs(net)/denom*100));
+  const nf = n => (n<0?'− ':'')+fmt(Math.abs(n));
+  $('sp-bal').innerHTML = `<span>Net réparti : <strong>${nf(net)}</strong> · reste <span class="${ok?'ok':'ko'}">${ok?'✅ équilibré':nf(reste)}</span></span><span>Net bancaire : <strong>${nf(bankNet)}</strong></span>`;
   const bar=$('sp-bar'); bar.classList.toggle('full',ok); bar.firstElementChild.style.width=pct+'%';
   $('save').disabled = !ok;
-  $('foot-info').textContent = ok ? `${spRows.length} lignes — le mouvement d'origine sera remplacé` : 'La somme des lignes doit égaler le total';
+  $('foot-info').textContent = ok ? `${spRows.length} ligne(s) — le mouvement d'origine sera remplacé` : 'Le net des lignes doit égaler le net bancaire';
 }
 
 /* ===================== rendu global ===================== */
@@ -434,12 +505,12 @@ function render(){
   } else {
     $('zone').innerHTML = `
       <div class="sp-help" id="sp-help">
-        <button data-sp="bail" onclick="seedSplit('bail')"><span class="e">📄</span>Séparer selon le bail</button>
-        <button data-sp="caf" onclick="seedSplit('caf')"><span class="e">👨‍👩‍👧</span>Répartir par locataire (CAF)</button>
+        <button data-sp="bail" onclick="seedSplit('bail')"><span class="e">📄</span>Selon le bail</button>
+        <button data-sp="caf" onclick="seedSplit('caf')"><span class="e">👨‍👩‍👧</span>Par locataire (CAF)</button>
+        <button data-sp="gerance" onclick="seedSplit('gerance')"><span class="e">🏦</span>Relevé de gérance</button>
         <button data-sp="manuel" onclick="seedSplit('manuel')"><span class="e">✏️</span>Manuel</button>
       </div>
       <div class="sp-hint" id="sp-hint"></div>
-      <div class="sp-rowhead"><span>Libellé</span><span>Montant</span><span>Catégorie</span><span>Logement</span><span></span></div>
       <div id="sp-rows"></div>
       <button class="sp-add" onclick="addRow()">+ Ajouter une ligne</button>
       <div class="sp-bal" id="sp-bal"></div>
@@ -466,6 +537,8 @@ const SCEN = {
   sci:  {cat:'Frais de compte / comptable (SCI)', lib:'FRAIS TENUE COMPTE', db:'12', cr:'', date:'2026-05-31', src:['🏦 Import banque','Relevé CIC · 31/05/2026'], mode:'aff'},
   bail: {cat:'Loyers encaissés', lib:'VIR LOYER CC FORBACH', db:'', cr:'700', date:'2026-05-05', src:['🏦 Import banque','Relevé CIC · 05/05/2026'], imm:'Forbach Centre', log:'FB-01', mode:'split', method:'bail'},
   caf:  {cat:'Loyers encaissés', lib:'VIR CAF MOSELLE', db:'', cr:'390', date:'2026-05-06', src:['🏦 Import banque','Relevé CIC · 06/05/2026'], imm:'Freyming', mode:'split', method:'caf'},
+  // Freyming : loyers 480+560+520 = 1560 ; frais 7% = 109 ; GLI 30 → net viré 1421
+  gerance:{cat:'Loyers encaissés', lib:'VIR AGENCE GERANCE', db:'', cr:'1421', date:'2026-05-07', src:['🏦 Import banque','Relevé CIC · 07/05/2026'], imm:'Freyming', mode:'split', method:'gerance'},
 };
 function applyScenario(s){
   const sc=SCEN[s]; if(!sc)return;
