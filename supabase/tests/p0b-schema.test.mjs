@@ -1,0 +1,62 @@
+import { describe, it, expect } from 'vitest'
+import pg from 'pg'
+import 'dotenv/config'
+import { BUSINESS_TABLES } from './helpers/p0b-fixtures.mjs'
+
+function db() {
+  return new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+}
+
+async function inspect(name) {
+  const c = db(); await c.connect()
+  try {
+    const meta = await c.query(
+      `select c.relrowsecurity as enabled, c.relforcerowsecurity as forced,
+              (select count(*) from pg_policy p where p.polrelid = c.oid) as npol
+       from pg_class c join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname='public' and c.relname=$1`, [name])
+    const cols = await c.query(
+      `select column_name from information_schema.columns
+       where table_schema='public' and table_name=$1`, [name])
+    const uniq = await c.query(
+      // ordre-indépendant : on mappe conkey → noms de colonnes, trié, et on compare
+      // au jeu {espace_id, id}. (conkey est dans l'ordre de déclaration, pas alphabétique.)
+      `select 1 from pg_constraint con
+       join pg_class c on c.oid = con.conrelid
+       join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname='public' and c.relname=$1 and con.contype='u'
+         and (
+           select array_agg(att.attname::text order by att.attname::text)
+           from unnest(con.conkey) as k
+           join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k
+         ) = array['espace_id','id']`, [name])
+    return {
+      exists: meta.rowCount === 1,
+      row: meta.rows[0],
+      cols: new Set(cols.rows.map(r => r.column_name)),
+      hasIdEspaceUnique: uniq.rowCount >= 1,
+    }
+  } finally { await c.end() }
+}
+
+describe('P0-B — schéma & RLS des tables métier', () => {
+  for (const table of BUSINESS_TABLES) {
+    describe(table, () => {
+      it('existe', async () => { expect((await inspect(table)).exists).toBe(true) })
+      it('RLS forcée + ≥4 policies', async () => {
+        const { row } = await inspect(table)
+        expect(row.enabled).toBe(true)
+        expect(row.forced).toBe(true)
+        expect(Number(row.npol)).toBeGreaterThanOrEqual(4)
+      })
+      it('colonnes socle (espace_id/version/created_at/updated_at/deleted_at)', async () => {
+        const { cols } = await inspect(table)
+        for (const col of ['espace_id', 'version', 'created_at', 'updated_at', 'deleted_at'])
+          expect(cols.has(col), `${table}.${col}`).toBe(true)
+      })
+      it('contrainte unique (id, espace_id) pour FK composite', async () => {
+        expect((await inspect(table)).hasIdEspaceUnique).toBe(true)
+      })
+    })
+  }
+})
