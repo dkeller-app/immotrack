@@ -140,7 +140,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | 2 | CHARGES-COMMUNES Phase 1.5 | Single source DB.mouvements + lien mv.compteurCcId | 1h | ✅ v14.60 |
 | 3 | CHARGES-COMMUNES Phase 2 | Modélisation 5 cas + part bailleur + scope/composition/fallback | 1h30 | 🔄 v14.61 |
 | 4 | CHARGES-COMMUNES Phase 3 | Régul enrichie + card part bailleur + PDF récap loi 1989 | 2h30 | ⬜ v14.62-63 |
-| 5 | REPORTING-BAILLEUR | Sous-onglet Compta globale + vue mensuelle + CSV | 3h | ⬜ v14.64 |
+| 5 | REPORTING-BAILLEUR | Onglet **Finances** (analyse) : résultat net + compte de résultat + 4 ratios + argent à récupérer (cliquable→opérationnel) + passerelles 2044/FEC/Bilan · + widget dashboard « Projection »→« Loyers attendu vs encaissé » · [spec](docs/subjects/REPORTING-BAILLEUR.md) | L | ⬜ Spec écrite 2026-06-05 |
 | 6 | LEGAL-2044 | Wizard 2044 + mapping catégories → lignes + PDF | 3-4h | ⬜ v14.65 |
 
 ### V1.1 — Gestion pro (~30h, ordre par dépendance)
