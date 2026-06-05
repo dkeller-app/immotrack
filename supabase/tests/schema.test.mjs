@@ -33,7 +33,7 @@ describe('helpers d\'appartenance', () => {
   it('has_role existe',  async () => { expect(await funcExists('has_role')).toBe(true) })
 })
 
-async function rlsForced(name) {
+async function rlsForced(name, minPolicies) {
   const c = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
   await c.connect()
   try {
@@ -43,13 +43,15 @@ async function rlsForced(name) {
        from pg_class c join pg_namespace n on n.oid=c.relnamespace
        where n.nspname='public' and c.relname=$1`, [name])
     const row = r.rows[0]
-    return row && row.relrowsecurity && row.relforcerowsecurity && Number(row.npol) >= 4
+    return row && row.relrowsecurity && row.relforcerowsecurity && Number(row.npol) >= minPolicies
   } finally { await c.end() }
 }
 
 describe('RLS forcée + policies', () => {
-  it('espaces : RLS forcée + ≥4 policies',        async () => { expect(await rlsForced('espaces')).toBe(true) })
-  it('espace_members : RLS forcée + ≥4 policies', async () => { expect(await rlsForced('espace_members')).toBe(true) })
+  // espaces : select/update/delete (insert retiré en 0006, bootstrap via create_espace RPC).
+  it('espaces : RLS forcée + ≥3 policies',        async () => { expect(await rlsForced('espaces', 3)).toBe(true) })
+  // espace_members : select/insert/update/delete.
+  it('espace_members : RLS forcée + ≥4 policies', async () => { expect(await rlsForced('espace_members', 4)).toBe(true) })
 })
 
 describe('RPC create_espace', () => {
@@ -70,4 +72,6 @@ describe('invariants triggers', () => {
     { expect(await triggerExists('trg_protect_last_owner')).toBe(true) })
   it('trigger version/updated_at sur espaces', async () =>
     { expect(await triggerExists('trg_touch_espaces')).toBe(true) })
+  it('trigger immutabilité identité sur espace_members (0006)', async () =>
+    { expect(await triggerExists('trg_members_freeze_identity')).toBe(true) })
 })
