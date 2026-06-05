@@ -145,3 +145,40 @@ describe('P0-B — intégrité référentielle forte (FK composite + CHECK)', ()
       .toBeGreaterThanOrEqual(new Date(before.data.updated_at).getTime())
   })
 })
+
+describe('P0-B — policies d\'écriture EFFECTIVES (preuve has_role, pas seulement isolation SELECT)', () => {
+  // Pourquoi ce bloc : les tests « écriture isolée » plus haut (Bob ne voit pas → 0 ligne touchée)
+  // passeraient MÊME si la policy UPDATE/DELETE était « using(true) », car le scan d'un UPDATE est
+  // borné par la policy SELECT (Bob ne voit déjà aucune ligne d'Alice). Ils prouvent l'isolation
+  // SELECT, pas le contrat d'écriture. Ici Carol est lecture_seule MAIS membre actif : elle VOIT
+  // les lignes d'Alice. Un échec d'écriture ne peut donc venir QUE de la policy d'écriture
+  // elle-même (with check / using = has_role['owner','gestionnaire']). C'est la preuve manquante.
+
+  it('Carol (lecture_seule) ne peut PAS INSERT dans son propre espace', async () => {
+    const { error } = await clientC.from('entites')
+      .insert({ espace_id: espaceA, nom: 'Carol interdite' })
+    expect(error).not.toBeNull()                          // with check has_role(espaceA,…) faux
+    expect(error.message).toMatch(/row-level security|violates/i)
+  })
+
+  it('Carol (lecture_seule) ne peut PAS UPDATE une entité VISIBLE de son espace', async () => {
+    const { data, error } = await clientC.from('entites')
+      .update({ siren: '000000000' }).eq('id', idsA.entite).select()
+    expect(error).toBeNull()                              // pas une erreur : 0 ligne éligible
+    expect(data).toEqual([])                              // using(has_role) faux → aucune ligne modifiée
+  })
+
+  it('Carol (lecture_seule) ne peut PAS DELETE une entité VISIBLE de son espace', async () => {
+    const { data, error } = await clientC.from('entites')
+      .delete().eq('id', idsA.entite).select()
+    expect(error).toBeNull()
+    expect(data).toEqual([])                              // using(has_role) faux → aucune ligne supprimée
+  })
+
+  it('Bob (writer de SON espace) ne peut PAS INSERT dans l\'espace d\'Alice', async () => {
+    const { error } = await clientB.from('entites')
+      .insert({ espace_id: espaceA, nom: 'injection cross-tenant' })
+    expect(error).not.toBeNull()                          // with check has_role(espaceA,…) faux pour Bob
+    expect(error.message).toMatch(/row-level security|violates/i)
+  })
+})
