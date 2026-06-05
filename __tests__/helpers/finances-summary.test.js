@@ -35,3 +35,24 @@ describe('_computeFinancesSummary — résultat net', () => {
     expect(r.loyersHCN1).toBe(83200);
   });
 });
+
+describe('_computeFinancesSummary — ratios', () => {
+  it('recouvrement = encaisseHC / attenduHC en %, 1 décimale', () => {
+    const r = _computeFinancesSummary(baseInput);
+    expect(r.ratios.recouvrement).toBeCloseTo(98.3, 1); // 86800/88280
+  });
+  it('occupation = nbOcc / nbTotal en % entier', () => {
+    const r = _computeFinancesSummary(baseInput);
+    expect(r.ratios.occupation).toBe(86); // 12/14
+  });
+  it('poids des charges = totalCharges / loyersHC en %, 1 décimale', () => {
+    const r = _computeFinancesSummary(baseInput);
+    expect(r.ratios.poidsCharges).toBeCloseTo(37.0, 1); // 32100/86800
+  });
+  it('ratios bornés et sans division par zéro', () => {
+    const r = _computeFinancesSummary({ nbTotal: 0, attenduHC: 0, loyersHC: 0 });
+    expect(r.ratios.recouvrement).toBe(0);
+    expect(r.ratios.occupation).toBe(0);
+    expect(r.ratios.poidsCharges).toBe(0);
+  });
+});
