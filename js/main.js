@@ -67,6 +67,10 @@ import {
 } from './core/legal-bilan.js';
 
 import {
+  _computeFinancesSummary
+} from './core/finances-summary.js';
+
+import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
 } from './core/export-comptable.js';
 
@@ -206,6 +210,9 @@ window._isEraseEligible = _isEraseEligible;
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
 
+// REPORTING-BAILLEUR — agrégat onglet Finances
+window._computeFinancesSummary = _computeFinancesSummary;
+
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;
 window._buildGrandLivre = _buildGrandLivre;
@@ -339,7 +346,8 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean',
     '_compute2044', '_format2044Recap', '_2044ToCsv',
     '_findPersonalDataForRef', '_generateGdprExport', '_planErasure', '_isEraseEligible',
-    '_computeBilanAnnuel', '_formatBilanTexte'
+    '_computeBilanAnnuel', '_formatBilanTexte',
+    '_computeFinancesSummary'
   ]
 };
 
