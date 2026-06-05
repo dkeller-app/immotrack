@@ -200,6 +200,45 @@ export function acteExtract(rawText) {
     out.annexesRaw.push({ nature, count: norm(an[1]), _src: norm(an[0]) });
   }
 
+  // ── 10. OCCUPATION / BAIL EN COURS — best-effort, conservateur (bail repris, Art. 1743).
+  out.occupations = [];
+  const _occNum = (s) => {
+    const n = parseFloat(String(s || '').replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'));
+    return isFinite(n) ? n : 0;
+  };
+  const _occISO = (s) => {
+    const m = String(s || '').match(/(\d{1,2})[\/.\s-](\d{1,2})[\/.\s-](\d{2,4})/);
+    if (!m) return '';
+    let y = m[3]; if (y.length === 2) y = (+y > 50 ? '19' : '20') + y;
+    return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  };
+  const _occLibre = /libre\s+de\s+toute\s+(?:location|occupation)|vendu\s+libre|libre\s+de\s+location|occup[ée]\s+par\s+(?:le|la)\s+vendeu/i.test(N);
+  const _occRe = /(?:actuellement\s+lou[ée]|donn[ée]s?\s+à\s+bail|aux\s+termes\s+d['']un\s+bail|[ée]tat\s+locatif|biens?\s+lou[ée]s?)[\s\S]{0,400}/gi;
+  let _om;
+  while ((_om = _occRe.exec(N)) !== null) {
+    const seg = _om[0];
+    const occ = { lots: [], _src: { occ: norm(seg.slice(0, 220)) } };
+    const loc = seg.match(/lou[ée]s?\s+à\s+((?:M\.|Mme|Monsieur|Madame|la\s+soci[ée]t[ée]\s+)?["«]?[A-ZÀ-Ÿ][A-Za-zÀ-ÿ''.\- ]{1,60}?)["»]?(?=\s*(?:,|moyennant|suivant|aux\s+termes|selon|en\s+date|\.))/i);
+    if (loc) occ.locataire = norm(loc[1]).replace(/["«»]/g, '');
+    const dt = seg.match(/bail\s+(?:en\s+date\s+)?du\s+(\d{1,2}[\/.\s-]\d{1,2}[\/.\s-]\d{2,4})/i);
+    if (dt) { occ.debut = _occISO(dt[1]); occ._src.debut = norm(dt[0]); }
+    const loy = seg.match(/loyer\s+(mensuel\s+|annuel\s+)?(?:de\s+)?([\d  .,]+)\s*(?:€|euros?)/i);
+    if (loy) {
+      let v = _occNum(loy[2]);
+      const annuel = /annuel/i.test(loy[1] || '') || /par\s+an\b/i.test(seg);
+      if (annuel && v > 0) { v = Math.round((v / 12) * 100) / 100; occ._loyerAnnuel = true; }
+      occ.hc = v; occ._src.hc = norm(loy[0]);
+    }
+    const ch = seg.match(/provision\s+(?:pour|de)\s+charges\s+(?:de\s+)?([\d  .,]+)\s*(?:€|euros?)/i);
+    if (ch) { occ.ch = _occNum(ch[1]); occ._src.ch = norm(ch[0]); }
+    const dg = seg.match(/d[ée]p[ôo]t\s+de\s+garantie\s+(?:de\s+)?([\d  .,]+)\s*(?:€|euros?)/i);
+    if (dg) { occ.dg = _occNum(dg[1]); occ._src.dg = norm(dg[0]); }
+    const lm = seg.match(/lots?\s+(?:num[ée]ros?\s+|n[°os]\s*)?(\d+(?:\s*(?:et|à|,|&)\s*\d+)*)/i);
+    if (lm) occ.lots = (lm[1].match(/\d+/g) || []).map(Number);
+    if (occ.locataire || occ.hc || occ.debut) out.occupations.push(occ);
+  }
+  if (_occLibre && !out.occupations.length) out.occupations = [];
+
   return out;
 }
 
@@ -275,6 +314,7 @@ export function acteRegroup(ext) {
     for (const a of lotAnnexes) {
       out.annexes.push({ nature: _natureAnnexe(a.designation), lot: a.num, designation: a.designation, mode: 'rattacher' });
     }
+    attachOccupations(out.logements, e.occupations, out.notes);
     return out;
   }
 
@@ -318,6 +358,7 @@ export function acteRegroup(ext) {
     }
   }
 
+  attachOccupations(out.logements, e.occupations, out.notes);
   return out;
 }
 
@@ -347,6 +388,30 @@ function _mkLogement(members, surf) {
     designation: desig,
     _lots: nums
   };
+}
+
+/** Rattache les occupations extraites aux logements par recoupement de lots.
+ *  Sans lot mais 1 seul logement → rattaché. Ambigu → note de vérification. */
+function attachOccupations(logements, occupations, notes) {
+  const occs = Array.isArray(occupations) ? occupations : [];
+  for (const occ of occs) {
+    const lots = Array.isArray(occ.lots) ? occ.lots : [];
+    let targets = [];
+    if (lots.length) {
+      targets = logements.filter(l => Array.isArray(l._lots) && l._lots.some(n => lots.includes(n)));
+    } else if (logements.length === 1) {
+      targets = [logements[0]];
+    }
+    if (targets.length) {
+      targets.forEach(l => { l.occupation = {
+        locataire: occ.locataire || '', hc: occ.hc || 0, ch: occ.ch || 0,
+        debut: occ.debut || '', dg: occ.dg || 0, _src: occ._src || {},
+        _matched: true, _loyerAnnuel: !!occ._loyerAnnuel,
+      }; });
+    } else if (notes) {
+      notes.push("L'acte mentionne un bail en cours mais sans lot identifiable — active et saisis l'occupation manuellement sur le bon logement.");
+    }
+  }
 }
 
 /** Normalise une nature d'annexe depuis une désignation libre. */
