@@ -9,6 +9,7 @@ export const BUSINESS_TABLES = [
   'quittances',
   'baux',
   'baux_historique',
+  'edl',
 ]
 
 // Sème une chaîne métier complète DANS un espace donné, via un client authentifié
@@ -51,6 +52,11 @@ export async function seedChain(client, espaceId) {
   ids.bailHist = await ins('baux_historique', {
     logement_id: ids.logement, entite_id: ids.entite, archived_auto: true,
     bail_snapshot: { ref: `F-${tag}`, type: 'nu', hc: 650 },
+  })
+  ids.edl = await ins('edl', {
+    type_edl: 'Entrée', date_edl: '2026-01-01', logement_id: ids.logement,
+    identite: { locataire: 'Jean Dupont', bailleur: 'SCI Test' },
+    pieces: [{ nom: 'Séjour', elements: [{ libelle: 'Murs', etatE: 'bon', obsE: '', photosE: [] }] }],
   })
   return ids
 }
