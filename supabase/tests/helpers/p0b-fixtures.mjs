@@ -5,6 +5,8 @@ export const BUSINESS_TABLES = [
   'immeubles',
   'logements',
   'documents',
+  'mouvements',
+  'quittances',
 ]
 
 // Sème une chaîne métier complète DANS un espace donné, via un client authentifié
@@ -28,6 +30,16 @@ export async function seedChain(client, espaceId) {
   ids.document = await ins('documents', {
     name: 'bail.pdf', mime: 'application/pdf', size: 12345,
     parent_type: 'immeuble', parent_id: ids.immeuble,
+  })
+  ids.mouvement = await ins('mouvements', {
+    date_mouvement: '2026-01-15', libelle: 'Loyer janvier',
+    logement_id: ids.logement, categorie: 'loyer', credit: 800,
+    pj_document_id: ids.document,
+  })
+  ids.quittance = await ins('quittances', {
+    logement_id: ids.logement, entite_id: ids.entite, mois: '2026-01',
+    hc: 700, ch: 100, date_paiement: '2026-01-05',
+    payment_matched_mvt_id: ids.mouvement,
   })
   return ids
 }
