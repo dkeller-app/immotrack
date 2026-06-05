@@ -77,7 +77,7 @@
 | 📜 **Bail** | BAIL-CHARGES-DETAIL (P1) · V3-REFONTE-BAIL 🔄 (P2) · BAIL-CLAUSES-PERSO (P2) · BAIL-TYPES (P2) · BAIL-PARAPHE-PLACEHOLDER (P3) · BAIL-NAMESPACE-MIGRATION (P3) |
 | 🏢 **Logement / Équipement** | **BUG-LOCATAIRE-CONCAT ✅ Code fixé v15.115 (P0, corruption nom multi-locataires stoppée — réparation données manuelle à faire user)** · LOG-CANDIDATS ✅ Pipeline candidature livré PROD v15.249 (onglet Candidats + saisie dossier + scoring « Confiance » non-discriminatoire décret 2015-1437 / loi 6 juill. 1989 + conversion candidat→bail sans ressaisie + purge RGPD 30j + sync Drive) — **lien partagé en ligne (relais Cloudflare) reporté à un plan dédié hors périmètre**, design `docs/superpowers/specs/2026-06-02-candidature-locataire-design.md` · **FICHES-PARITE-360 🔥 (P1, ~27h)** · LOG-FICHE-360 🔄 (P1, Phase 2) · BUG-LOG-001 (P2) · BUG-EQUIP-FILTER (P2) · BUG-HC-GARDE-FOU (P2) · V3-REFONTE-EQUIP (P2) · LOG-PHOTOS (P2) · ~~LOG-ANNONCE~~ ✅ Livré v15.207-210 · LOG-DG-LABEL (P3) — *NAV-RESTRUCTURE + LOG-LISTE-CARDS + LOG-ARCHIVE livrés v14.2 ✅ · LOG-FICHE-360 Bloc A livré v14.13 ✅ · BAILLEUR-DIAGNOSTICS-DDT ✅ Livré v15.05+v15.06 (Sprint 7+7B) · EQUIP-CONTROLES-PERIODIQUES ✅ Livré v15.08 (Sprint 9, 6 phases)* |
 | 🏛️ **Entité / Immeuble** | PARAM-BAILLEUR-AUTOMATISATIONS (P1) · IMM-FICHE-SOUS-ONGLETS (P2) · BAILLEUR-FORM-RICHE (P2) · ENT-SAVE-IMM (P2) — *BUG-ENT-RENAME-CASCADE livré v14.51 ✅ · BUG-ENT-ORPHANS-CLEANUP livré v14.52-53 ✅* |
-| 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · MVT-SCIND-LIMIT (P3) |
+| 💰 **Mouvements** | V3-REFONTE-LOYERS (P2) · MVT-SCIND-CAT (P2) · MVT-RECURRENT (P2) · FEAT-VIR-INTERNE (P2) · FEAT-PRET-ECHEANCIER (P2) · MVT-SCIND-LIMIT (P3) |
 | 🧾 **Quittances** | V3-REFONTE-QUIT (P2) · QUIT-EMAIL (P2) · AVIS-ECHEANCE (P2) · RAPPEL-IMPAYE (P2) — *EMAIL-AUTO ✅ Livré sandbox v14.97 (3 cas intégrés : quittance + IRL + régul)* |
 | ⚡ **Charges / Régul** | BUG-CHARGE-001 (P1) · V3-REFONTE-REGUL (P2) · CHARGE-REGLES (P2) |
 | 📈 **IRL** | V3-REFONTE-IRL (P2) — *BUG-IRL-001 + IRL-VALIDATION + IRL-DPE-FG livrés v13.30/31/33 ✅* |
@@ -302,6 +302,8 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | **Mouvements** | | | | | |
 | MVT-SCIND-CAT | Ajouter catégorie au scindage de ligne | P2 | S | ⬜ À faire | [docs/subjects/MVT-SCIND-CAT.md](docs/subjects/MVT-SCIND-CAT.md) |
 | MVT-RECURRENT | Mouvements récurrents (assurance, prêt) avec récurrence configurable | P2 | M | ⬜ À faire | [docs/subjects/MVT-RECURRENT.md](docs/subjects/MVT-RECURRENT.md) |
+| FEAT-VIR-INTERNE | Virements internes : auto-détection + rapprochement des 2 lignes jumelles | P2 | M | ⬜ À faire | Détaché de V3-REFONTE-LOYERS (audit 2026-06-05). La catégorie manuelle « à ignorer » est dans la refonte ; ici = auto. [docs/subjects/FEAT-VIR-INTERNE.md](docs/subjects/FEAT-VIR-INTERNE.md) |
+| FEAT-PRET-ECHEANCIER | Échéancier de prêt : mémorise l'amortissement, pré-remplit le découpage capital/intérêts/assurance | P2 | M | ⬜ À faire | Détaché de V3-REFONTE-LOYERS (audit 2026-06-05). Découpage manuel possible dès la refonte ; ici = auto. Lié MVT-RECURRENT. [docs/subjects/FEAT-PRET-ECHEANCIER.md](docs/subjects/FEAT-PRET-ECHEANCIER.md) |
 | **Charges** | | | | | |
 | CHARGE-REGLES | Règles répartition charges (chauffage 30/70, eau compteur) | P2 | M | ⬜ À faire | [docs/subjects/CHARGE-REGLES.md](docs/subjects/CHARGE-REGLES.md) |
 | **Entité** | | | | | |

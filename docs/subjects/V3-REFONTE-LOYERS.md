@@ -147,16 +147,17 @@ L'audit (fiscal / complétude des mouvements / cohérence app réelle) ne remet 
 - Niveaux : logement `qui=<ref>` · SCI `qui="SCI:<nom>"` · immeuble `qui=""` + `imm` (le fix A fait lire `m.imm`).
 - Compteurs : `cle` → `cleRepartition` (clés **machine sans accent** : `tantiemes`/`surface`/`forfait`/`proportionnel`/`sous-compteurs`), dans `ent.immeubles[i].compteursCollectifs[]`, lié par `mv.compteurCcId` (exclusif avec `qui`).
 
-### Sujets potentiellement à détacher (à arbitrer avec le user)
-Assez lourds pour mériter leur propre piste, pour ne pas gonfler la refonte loyers :
-- **Échéancier de prêt** (auto-ventilation capital/intérêts/assurance des échéances). À vérifier : un modèle de prêt existe-t-il déjà ?
-- **Rapprochement de virements internes** (lier les 2 mouvements jumeaux d'un transfert entre comptes pour les neutraliser) — mécanisme **net-neuf**, rien dans le code.
+### Q4 tranchée (user 2026-06-05 : plusieurs comptes + au moins un prêt) → simple ici / lourd détaché
+Les deux cas concernent le user. Découpe **simple-maintenant / lourd-plus-tard** :
+- **Virement interne** : 🟢 *dans la refonte* = catégorie **« Virement interne — à ignorer »** (`special`, hors résultat), posée à la main sur chaque ligne. 🔴 *détaché* = **auto-détection + rapprochement** des 2 lignes jumelles → sujet `FEAT-VIR-INTERNE`.
+- **Échéance de prêt** : 🟢 *dans la refonte* = catégories **capital remboursé (`special`) / intérêts (250) / assurance** + découpage **manuel** du prélèvement (montants saisis depuis le tableau d'amortissement). C'est all-débit donc OK même sans la refonte multi-sens. 🔴 *détaché* = **modèle d'échéancier de prêt** qui mémorise l'amortissement et **pré-remplit** le découpage chaque mois → sujet `FEAT-PRET-ECHEANCIER`.
+- **Pourquoi ce découpage** : le simple sert déjà l'étoile polaire (intérêts ligne 250 captés, comptes non pollués) sans gonfler la refonte ; l'auto (détection jumelles + amortissement) est du net-neuf qui mérite sa propre piste.
 
 ## Questions ouvertes (résolues / restantes)
 - ~~Q1 formats banque~~ → tranché : OFX + modèle CSV par banque si besoin.
 - ~~Q2 — Découpe multi-biens~~ → **tranché par l'audit** : le split réel est mono-sens ; il faut le **refondre en multi-sens signé** (Σcr−Σdb=net) pour couvrir relevé de gérance / prêt / restitution DG. Acté dans Chantier C.
 - ~~Q3 — Normalisation niveau immeuble~~ → **tranché** : on **garde** la convention existante `qui=""` + `imm` (pas de `qui="IMM:<nom>"`). Le Chantier A fait lire `m.imm` au module ; l'agent cohérence a confirmé que c'est la convention réelle.
-- **Q4 (nouvelle) — Prêt & virement interne** : dans le scope de cette refonte (seed split prêt + rapprochement) ou sujets backlog séparés ? *À arbitrer.*
+- ~~Q4 — Prêt & virement interne~~ → **tranché** (user a plusieurs comptes + un prêt) : **simple dans la refonte** (catégories + découpage manuel), **automatisations détachées** en 2 sujets `FEAT-VIR-INTERNE` + `FEAT-PRET-ECHEANCIER`.
 
 ## Journal
 - **2026-06-05 (suite 6 — audit pré-prod par 3 agents : ce qu'on a oublié)** : avant d'écrire le code prod, 3 agents lancés en parallèle (fiscal / complétude des mouvements / cohérence app réelle). Findings majeurs :
