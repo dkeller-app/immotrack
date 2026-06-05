@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refonte onglet Mouvements + Import banque — mockup analyste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   TOKENS — copiés depuis css/main.css (light + dark)
+───────────────────────────────────────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:#eef2f7;
+  --sur:rgba(255,255,255,.93); --sur2:rgba(242,246,251,.97); --sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09); --bor2:rgba(0,0,0,.05);
+  --t1:#1a2332; --t2:#5a6e87; --t3:#9aabbf;
+  --grn:#16a34a; --red:#dc2626; --ora:#ea580c; --acc:#3b7ef6; --blu:#3b7ef6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(22,163,74,.10); --bg-danger:rgba(220,38,38,.10);
+  --bg-warning:rgba(234,88,12,.12); --bg-info:rgba(59,126,246,.10);
+}
+[data-theme="dark"]{
+  --bg:#0A0E27;
+  --sur:#141a35; --sur2:#1b2244; --sur3:#232b52;
+  --bor:rgba(255,255,255,.10); --bor2:rgba(255,255,255,.05);
+  --t1:#e8ecf6; --t2:#9aa6c4; --t3:#6b779a;
+  --grn:#10B981; --red:#EF4444; --ora:#F59E0B; --acc:#0E73F6; --blu:#0E73F6;
+  --r:8px; --rl:14px;
+  --bg-success:rgba(16,185,129,.14); --bg-danger:rgba(239,68,68,.14);
+  --bg-warning:rgba(245,158,11,.14); --bg-info:rgba(14,115,246,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif}
+
+/* ── barre de contrôle du mockup (hors design app) ── */
+.mk-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+  padding:11px 18px;background:#0f172a;color:#e2e8f0;border-bottom:1px solid #1e293b}
+.mk-bar h1{font-family:'Manrope',sans-serif;font-size:13.5px;margin:0;font-weight:800;letter-spacing:-.2px}
+.mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:10px;padding:3px}
+.mk-grp button{border:none;background:transparent;color:#94a3b8;font:inherit;font-size:12px;font-weight:600;
+  padding:6px 11px;border-radius:7px;cursor:pointer;transition:.15s;white-space:nowrap}
+.mk-grp button.on{background:var(--acc);color:#fff}
+.mk-grp button:not(.on):hover{color:#e2e8f0}
+.mk-grp.dis{opacity:.4;pointer-events:none}
+.mk-lbl{font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.mk-note{font-size:11px;color:#94a3b8;margin-left:auto;max-width:320px;line-height:1.4}
+
+.mk-stage{padding:22px 16px 70px;display:flex;justify-content:center}
+.mk-frame{width:980px;max-width:100%;transition:width .25s ease}
+.mk-frame.tab{width:760px} .mk-frame.phone{width:390px}
+.mk-cap{font-size:11.5px;color:var(--t2);text-align:center;margin:0 0 14px;line-height:1.55}
+.mk-cap b{color:var(--t1)}
+
+/* ── chrome app : conteneur page ── */
+.page{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;
+  box-shadow:0 10px 40px rgba(0,0,0,.10)}
+.page-head{padding:16px 20px 0}
+.page-title{font-family:'Manrope',sans-serif;font-size:19px;font-weight:800;margin:0;display:flex;align-items:center;gap:9px}
+.page-sub{font-size:12px;color:var(--t2);margin:3px 0 0}
+
+/* ── sélecteur de périmètre (cœur de la refonte) ── */
+.perim{margin:14px 20px 0;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px}
+.perim-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.perim-lead{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px}
+.crumb{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.crumb-sep{color:var(--t3);font-size:13px}
+.psel{position:relative}
+.psel>button{display:inline-flex;align-items:center;gap:7px;background:var(--sur);border:1.5px solid var(--bor);
+  border-radius:10px;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:var(--t1)}
+.psel>button .ic{font-size:14px}
+.psel>button .car{color:var(--t3);font-size:10px;margin-left:1px}
+.psel>button.act{border-color:var(--acc);color:var(--acc);background:var(--bg-info)}
+.psel-menu{display:none;position:absolute;top:calc(100% + 5px);left:0;z-index:30;min-width:230px;
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:0 16px 44px rgba(0,0,0,.22);overflow:hidden}
+.psel.open .psel-menu{display:block}
+.psel-item{display:flex;align-items:center;gap:9px;padding:9px 13px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--bor2)}
+.psel-item:last-child{border-bottom:none}
+.psel-item:hover{background:var(--sur2)}
+.psel-item.sel{background:var(--bg-info);color:var(--acc);font-weight:700}
+.psel-item .mut{margin-left:auto;font-size:11px;color:var(--t3);font-weight:600}
+.perim-actions{margin-left:auto;display:flex;gap:8px}
+
+/* ── sous-onglets (structure A) ── */
+.subtabs{display:flex;gap:3px;margin:14px 20px 0;border-bottom:1px solid var(--bor)}
+.subtab{border:none;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--t2);
+  padding:10px 15px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:7px}
+.subtab.on{color:var(--acc);border-bottom-color:var(--acc)}
+.subtab .badge{font-size:10px;background:var(--sur3);color:var(--t2);border-radius:9px;padding:1px 7px;font-weight:700}
+.subtab.on .badge{background:var(--acc);color:#fff}
+
+.surface{padding:16px 20px 22px}
+.surface-h{display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap}
+.surface-h h3{font-family:'Manrope',sans-serif;font-size:15px;font-weight:800;margin:0}
+.surface-h .sp{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+
+.section-band{font-size:11px;font-weight:800;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;
+  margin:24px 20px 0;padding-top:18px;border-top:1px dashed var(--bor);display:flex;align-items:center;gap:8px}
+
+/* ── boutons / inputs ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:var(--r);border:none;
+  cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:.15s;white-space:nowrap}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bsm{padding:6px 11px;font-size:12px}
+.inp{background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);
+  padding:8px 11px;font-size:13px;font-family:inherit}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.12)}
+select.inp{cursor:pointer}
+
+/* ── bannière dernier import ── */
+.lastimp{display:flex;align-items:center;gap:11px;background:var(--bg-info);border:1px solid #bfdbfe;
+  border-left:3px solid var(--acc);border-radius:0 var(--r) var(--r) 0;padding:10px 14px;margin:0 0 14px;font-size:12.5px}
+[data-theme="dark"] .lastimp{border-color:rgba(14,115,246,.4)}
+.lastimp .ic{font-size:17px}
+.lastimp b{color:var(--t1)}
+.lastimp .mut{color:var(--t2)}
+.lastimp .lk{margin-left:auto;color:var(--acc);font-weight:700;cursor:pointer;white-space:nowrap;font-size:12px}
+.lastimp .lk:hover{text-decoration:underline}
+
+/* ── tableau mouvements ── */
+.mvt-wrap{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden}
+.mvt-monthhd{display:flex;align-items:center;gap:10px;background:var(--sur2);padding:9px 14px;border-bottom:1px solid var(--bor);font-size:12.5px;font-weight:700}
+.mvt-monthhd .tot{margin-left:auto;display:flex;gap:14px;font-size:12px;font-weight:700}
+.mvt-monthhd .pos{color:var(--grn)} .mvt-monthhd .neg{color:var(--red)}
+table.mvt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.mvt th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);
+  font-weight:700;padding:7px 12px;background:var(--sur2);border-bottom:1px solid var(--bor)}
+table.mvt td{padding:8px 12px;border-bottom:1px solid var(--bor2);vertical-align:middle}
+table.mvt tr:last-child td{border-bottom:none}
+table.mvt tr:hover td{background:var(--sur2)}
+.col-r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.amt-cr{color:var(--grn);font-weight:700}
+.amt-db{color:var(--red);font-weight:700}
+.src-pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;border-radius:9px;padding:2px 8px;white-space:nowrap}
+.src-bank{background:var(--bg-info);color:var(--acc);border:1px solid #bfdbfe}
+.src-man{background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+[data-theme="dark"] .src-bank{border-color:rgba(14,115,246,.4)}
+.bientag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px}
+.bientag .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.cat-chip{font-size:11px;font-weight:600;background:var(--sur3);color:var(--t2);border-radius:7px;padding:2px 8px;white-space:nowrap}
+.row-act{opacity:0;display:inline-flex;gap:4px;transition:.15s}
+table.mvt tr:hover .row-act{opacity:1}
+.ico-btn{border:1px solid var(--bor);background:var(--sur);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:12px;color:var(--t2)}
+.ico-btn:hover{border-color:var(--acc);color:var(--acc)}
+
+/* ── grille suivi des loyers ── */
+.suivi-wrap{border:1px solid var(--bor);border-radius:var(--rl);overflow:auto}
+table.suivi{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}
+table.suivi th{padding:8px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--t3);
+  font-weight:700;background:var(--sur2);border-bottom:1px solid var(--bor);text-align:center;white-space:nowrap}
+table.suivi th.loc{text-align:left;position:sticky;left:0;background:var(--sur2);z-index:2;min-width:190px}
+table.suivi td{padding:7px 10px;border-bottom:1px solid var(--bor2);text-align:center}
+table.suivi td.loc{text-align:left;position:sticky;left:0;background:var(--sur);z-index:1}
+table.suivi tr:hover td{background:var(--sur2)}
+table.suivi tr:hover td.loc{background:var(--sur2)}
+.loc-name{font-weight:700;font-size:12.5px}
+.loc-sub{font-size:10.5px;color:var(--t2);margin-top:1px}
+.pay{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;
+  font-size:13px;cursor:pointer;border:1px solid transparent}
+.pay-ok{background:var(--bg-success);color:var(--grn);border-color:#86efac}
+.pay-part{background:var(--bg-warning);color:var(--ora);border-color:#fcd34d}
+.pay-late{background:var(--bg-danger);color:var(--red);border-color:#fca5a5}
+.pay-soon{background:var(--sur2);color:var(--t3);border-color:var(--bor)}
+.pay:hover{transform:scale(1.12)}
+.suivi-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;font-size:11.5px;color:var(--t2)}
+.suivi-legend span{display:inline-flex;align-items:center;gap:6px}
+.lg-dot{width:13px;height:13px;border-radius:4px;display:inline-block}
+
+/* ── synthèse du mois ── */
+.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:13px 15px}
+.kpi .lbl{font-size:11px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.kpi .val{font-family:'Manrope',sans-serif;font-size:23px;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:11px;color:var(--t3);margin-top:2px}
+.kpi.pos .val{color:var(--grn)} .kpi.neg .val{color:var(--red)}
+.synth-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.synth-card{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden}
+.synth-card-h{background:var(--sur2);padding:9px 14px;border-bottom:1px solid var(--bor);font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.synth-card-h .t{margin-left:auto;font-variant-numeric:tabular-nums}
+.synth-line{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--bor2);font-size:12.5px}
+.synth-line:last-child{border-bottom:none}
+.synth-line .bar{flex:1;height:6px;border-radius:4px;background:var(--sur3);overflow:hidden;position:relative}
+.synth-line .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.synth-line .v{font-variant-numeric:tabular-nums;font-weight:700;min-width:74px;text-align:right}
+.synth-line .nm{min-width:120px}
+
+/* ── modal wizard import ── */
+.ovl{position:fixed;inset:0;background:rgba(8,12,30,.55);backdrop-filter:blur(3px);z-index:80;
+  display:none;align-items:flex-start;justify-content:center;padding:40px 16px}
+.ovl.show{display:flex}
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.32);width:720px;max-width:100%}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:15.5px;font-weight:700;font-family:'Manrope',sans-serif;margin:0}
+.m-head .mu{font-size:11.5px;color:var(--t2);margin-top:2px}
+.m-close{background:none;border:none;color:var(--t2);cursor:pointer;font-size:18px;padding:4px}
+.m-body{padding:18px 20px;max-height:60vh;overflow-y:auto}
+.m-foot{padding:13px 20px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:8px;
+  background:var(--sur2);align-items:center;flex-wrap:wrap}
+.wz-step{display:flex;gap:6px;align-items:center;padding:11px 20px;background:var(--sur2);border-bottom:1px solid var(--bor);overflow-x:auto}
+.wz-stp{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--t3);font-weight:600;white-space:nowrap}
+.wz-stp .n{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+.wz-stp.act{color:var(--acc)} .wz-stp.act .n{background:var(--acc);color:#fff;border-color:var(--acc)}
+.wz-stp.done{color:var(--grn)} .wz-stp.done .n{background:var(--grn);color:#fff;border-color:var(--grn)}
+.wz-sep{color:var(--t3)}
+
+.drop{border:2px dashed var(--bor);border-radius:var(--rl);padding:30px 20px;text-align:center;background:var(--sur2)}
+.drop .big{font-size:34px}
+.drop b{font-size:14px;display:block;margin:8px 0 3px}
+.drop .mut{font-size:12px;color:var(--t2)}
+.filechip{display:flex;align-items:center;gap:11px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:11px 14px;margin-top:12px}
+.filechip .ic{font-size:22px}
+.filechip b{font-size:13px} .filechip .mut{font-size:11.5px;color:var(--t2)}
+.detect{margin-left:auto;display:flex;flex-direction:column;gap:3px;align-items:flex-end;font-size:11px}
+.detect .ok{color:var(--grn);font-weight:700}
+.detect .warn{color:var(--ora);font-weight:700}
+
+.rescue-note{background:var(--bg-warning);border-left:3px solid var(--ora);border-radius:0 var(--r) var(--r) 0;
+  padding:9px 13px;font-size:12px;color:var(--t1);line-height:1.5;margin-bottom:14px}
+.rescue-note b{color:var(--ora)}
+.map-grid{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden}
+.map-row{display:grid;grid-template-columns:1fr 26px 1fr;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--bor2)}
+.map-row:last-child{border-bottom:none}
+.map-src{font-size:12.5px;font-weight:600}
+.map-src .ex{font-size:11px;color:var(--t3);margin-top:1px;font-family:'IBM Plex Sans'}
+.map-arr{color:var(--t3);text-align:center}
+.map-row select.inp{width:100%}
+.map-preview{margin-top:14px;border:1px solid var(--bor);border-radius:var(--r);overflow:auto}
+table.mini{width:100%;border-collapse:collapse;font-size:11.5px;min-width:520px}
+table.mini th{background:var(--sur2);color:var(--t3);font-size:10px;text-transform:uppercase;letter-spacing:.3px;
+  padding:6px 10px;text-align:left;border-bottom:1px solid var(--bor);white-space:nowrap}
+table.mini td{padding:6px 10px;border-bottom:1px solid var(--bor2);white-space:nowrap}
+
+/* aperçu transactions étape 3 */
+.tx{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden;margin-bottom:9px}
+.tx.dup{opacity:.62}
+.tx-top{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--sur2)}
+.tx-top .dt{font-size:11.5px;color:var(--t2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tx-top .lib{font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx-top .amt{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.tx-badge{font-size:10px;font-weight:700;border-radius:9px;padding:2px 9px;white-space:nowrap}
+.tx-new{background:var(--bg-success);color:var(--grn);border:1px solid #86efac}
+.tx-dup{background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+.tx-body{display:grid;grid-template-columns:1.3fr 1fr;gap:10px;padding:11px 13px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px}
+.cascade{display:flex;gap:6px;flex-wrap:wrap}
+.cascade select.inp{flex:1;min-width:120px;padding:6px 9px;font-size:12px}
+.tx-dupinfo{font-size:11px;color:var(--t2);padding:0 13px 11px;font-style:italic}
+
+/* confirmation étape 4 */
+.conf{text-align:center;padding:14px 0}
+.conf .big{font-size:46px}
+.conf h4{font-family:'Manrope',sans-serif;font-size:18px;margin:8px 0 4px}
+.conf .mut{font-size:12.5px;color:var(--t2)}
+.conf-stats{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:18px 0}
+.conf-stat{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:13px}
+.conf-stat .n{font-family:'Manrope',sans-serif;font-size:26px;font-weight:800}
+.conf-stat .l{font-size:11.5px;color:var(--t2);margin-top:2px}
+.conf-stat.new .n{color:var(--grn)} .conf-stat.dup .n{color:var(--t2)}
+.conf-acct{background:var(--bg-info);border:1px solid #bfdbfe;border-radius:var(--r);padding:11px 14px;font-size:12.5px;text-align:left;display:flex;align-items:center;gap:11px}
+[data-theme="dark"] .conf-acct{border-color:rgba(14,115,246,.4)}
+.conf-acct .ic{font-size:20px}
+
+.empty{text-align:center;padding:34px 18px;color:var(--t3)}
+.empty .big{font-size:38px}
+.empty b{display:block;color:var(--t2);font-size:14px;margin:8px 0 3px}
+
+/* responsive émulé via le conteneur */
+.mk-frame.phone .kpi-row{grid-template-columns:1fr}
+.mk-frame.phone .synth-grid{grid-template-columns:1fr}
+.mk-frame.phone .tx-body{grid-template-columns:1fr}
+.mk-frame.phone .conf-stats{grid-template-columns:1fr}
+.mk-frame.phone table.mvt .hide-ph{display:none}
+.mk-frame.phone .perim-actions{margin-left:0;width:100%}
+.mk-frame.tab .kpi-row{grid-template-columns:repeat(3,1fr)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="mk-bar">
+  <h1>💸 Refonte Mouvements + Import</h1>
+  <span class="mk-lbl">Structure</span>
+  <div class="mk-grp" id="grp-struct">
+    <button data-struct="A" class="on">A · Sous-onglets</button>
+    <button data-struct="B">B · Page unique</button>
+  </div>
+  <span class="mk-lbl">Écran</span>
+  <div class="mk-grp" id="grp-view">
+    <button data-view="mvt" class="on">Mouvements</button>
+    <button data-view="suivi">Suivi loyers</button>
+    <button data-view="synth">Synthèse mois</button>
+  </div>
+  <span class="mk-lbl">Import</span>
+  <div class="mk-grp" id="grp-wz">
+    <button data-wz="open">Ouvrir le wizard ▸</button>
+  </div>
+  <span class="mk-lbl">Format</span>
+  <div class="mk-grp" id="grp-fmt">
+    <button data-fmt="pc" class="on">💻 PC</button>
+    <button data-fmt="tab">📱 Tab</button>
+    <button data-fmt="phone">📱 Tél</button>
+  </div>
+  <div class="mk-grp" id="grp-theme">
+    <button data-theme-btn="light" class="on">☀️</button>
+    <button data-theme-btn="dark">🌙</button>
+  </div>
+  <p class="mk-note" id="mk-note"></p>
+</div>
+
+<div class="mk-stage">
+  <div class="mk-frame" id="frame">
+    <p class="mk-cap" id="cap"></p>
+    <div class="page" id="page"><!-- injecté --></div>
+  </div>
+</div>
+
+<!-- WIZARD IMPORT -->
+<div class="ovl" id="ovl">
+  <div class="modal" id="wz-modal">
+    <div class="m-head">
+      <div>
+        <h3>🏦 Importer un relevé bancaire</h3>
+        <div class="mu" id="wz-sub">Crédit Agricole · SCI du Parc</div>
+      </div>
+      <button class="m-close" id="wz-x">✕</button>
+    </div>
+    <div class="wz-step" id="wz-steps"></div>
+    <div class="m-body" id="wz-body"></div>
+    <div class="m-foot">
+      <span style="font-size:11.5px;color:var(--t2)" id="wz-hint"></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn bs" id="wz-back">‹ Retour</button>
+        <button class="btn bp" id="wz-next">Continuer ›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   DONNÉES DÉMO — 2 bailleurs, 3 immeubles, 6 logements
+════════════════════════════════════════════════════════════════════════ */
+const BAILLEURS = [
+  { id:'sci',  type:'SCI', nom:'SCI du Parc',  ic:'🏛️', banque:'Crédit Agricole' },
+  { id:'kel',  type:'Nom propre', nom:'M. Keller', ic:'👤', banque:'Boursorama' },
+];
+const IMMEUBLES = [
+  { id:'vh',  bail:'sci', nom:'12 rue Victor Hugo', ville:'Lyon 3e', ic:'🏢' },
+  { id:'til', bail:'sci', nom:'8 av. des Tilleuls', ville:'Lyon 6e', ic:'🏢' },
+  { id:'ced', bail:'kel', nom:'Résidence Les Cèdres', ville:'Villeurbanne', ic:'🏠' },
+];
+const LOGEMENTS = [
+  { id:'a101', imm:'vh',  ref:'A101', loc:'M. et Mme MARTIN', hc:680, ch:50 },
+  { id:'a102', imm:'vh',  ref:'A102', loc:'Mlle DUBOIS',      hc:540, ch:40 },
+  { id:'a103', imm:'vh',  ref:'A103', loc:'M. BERNARD',       hc:610, ch:45 },
+  { id:'b201', imm:'til', ref:'B201', loc:'M. PETIT',         hc:720, ch:60 },
+  { id:'b202', imm:'til', ref:'B202', loc:'M. ROUX',          hc:695, ch:55 },
+  { id:'c301', imm:'ced', ref:'C301', loc:'Mme LEROY (studio)', hc:480, ch:30 },
+];
+const COLOR = { vh:'#3b7ef6', til:'#8b5cf6', ced:'#16a34a' };
+
+/* mouvements (Avril → Juin 2026) */
+const MOIS = [
+  {k:'2026-06', lbl:'Juin 2026'},
+  {k:'2026-05', lbl:'Mai 2026'},
+  {k:'2026-04', lbl:'Avril 2026'},
+];
+function loyer(l){return l.hc+l.ch}
+const MVT = [];
+// loyers reçus par mois
+[['2026-06','06/06'],['2026-05','05/05'],['2026-04','04/04']].forEach(([mk,dt])=>{
+  LOGEMENTS.forEach(l=>{
+    // ROUX entré en mai → pas de loyer avril
+    if(l.id==='b202' && mk==='2026-04') return;
+    // BERNARD en retard juin (pas payé), DUBOIS partiel juin
+    let cr=loyer(l), partiel=false, manquant=false;
+    if(mk==='2026-06' && l.id==='a103'){ manquant=true; }
+    if(mk==='2026-06' && l.id==='a102'){ cr=300; partiel=true; }
+    if(manquant) return;
+    MVT.push({mois:mk, date:dt+'/26', lib:'Virement loyer '+l.loc.split(' ')[0], imm:l.imm, log:l.id,
+      cat:'Loyers encaissés', cr, db:0, src:'bank', acct:BAILLEURS.find(b=>b.id===IMMEUBLES.find(i=>i.id===l.imm).bail).banque, partiel});
+  });
+});
+// charges
+MVT.push({mois:'2026-06', date:'03/06/26', lib:'Prélèvement assurance PNO', imm:'vh', log:null, cat:'Assurances', cr:0, db:142, src:'bank', acct:'Crédit Agricole'});
+MVT.push({mois:'2026-06', date:'02/06/26', lib:'CECA gérance immeuble VH', imm:'vh', log:null, cat:'Frais de gestion', cr:0, db:88, src:'bank', acct:'Crédit Agricole'});
+MVT.push({mois:'2026-05', date:'18/05/26', lib:'Plombier — fuite A102', imm:'vh', log:'a102', cat:'Travaux & entretien', cr:0, db:240, src:'man', acct:null});
+MVT.push({mois:'2026-05', date:'12/05/26', lib:'Taxe foncière acompte', imm:'til', log:null, cat:'Taxe foncière', cr:0, db:410, src:'bank', acct:'Crédit Agricole'});
+MVT.push({mois:'2026-04', date:'22/04/26', lib:'Échéance prêt VH', imm:'vh', log:null, cat:'Intérêts d\'emprunt', cr:0, db:520, src:'bank', acct:'Crédit Agricole'});
+
+/* suivi des loyers : statut par locataire × mois (6 mois) */
+const SUIVI_MOIS = ['Janv','Févr','Mars','Avr','Mai','Juin'];
+const SUIVI = {
+  a101:['ok','ok','ok','ok','ok','ok'],
+  a102:['ok','ok','ok','ok','ok','part'],
+  a103:['ok','ok','ok','ok','ok','late'],
+  b201:['ok','ok','ok','ok','ok','ok'],
+  b202:['soon','soon','soon','soon','ok','ok'],
+  c301:['ok','ok','ok','ok','ok','ok'],
+};
+
+/* ════════════════════════════════════════════════════════════════════════
+   ÉTAT GLOBAL
+════════════════════════════════════════════════════════════════════════ */
+const S = {
+  struct:'A', view:'mvt', fmt:'pc', theme:'light',
+  perim:{ bail:null, imm:null, log:null }, // null = tous
+  wzStep:1,
+};
+
+/* ── helpers périmètre ── */
+function perimLogements(){
+  let ls = LOGEMENTS.slice();
+  if(S.perim.imm) ls = ls.filter(l=>l.imm===S.perim.imm);
+  else if(S.perim.bail) ls = ls.filter(l=>IMMEUBLES.find(i=>i.id===l.imm).bail===S.perim.bail);
+  if(S.perim.log) ls = ls.filter(l=>l.id===S.perim.log);
+  return ls;
+}
+function perimMvt(){
+  let m = MVT.slice();
+  if(S.perim.log) m = m.filter(x=>x.log===S.perim.log);
+  else if(S.perim.imm) m = m.filter(x=>x.imm===S.perim.imm);
+  else if(S.perim.bail) m = m.filter(x=>IMMEUBLES.find(i=>i.id===x.imm).bail===S.perim.bail);
+  return m;
+}
+function immById(id){return IMMEUBLES.find(i=>i.id===id)}
+function logById(id){return LOGEMENTS.find(l=>l.id===id)}
+function bailById(id){return BAILLEURS.find(b=>b.id===id)}
+function eur(n){return n.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' €'}
+
+/* ════════════════════════════════════════════════════════════════════════
+   RENDU PAGE
+════════════════════════════════════════════════════════════════════════ */
+function render(){
+  document.documentElement.setAttribute('data-theme', S.theme);
+  const f = document.getElementById('frame');
+  f.className = 'mk-frame' + (S.fmt==='tab'?' tab':S.fmt==='phone'?' phone':'');
+  // sync mk-bar groups
+  syncGrp('grp-struct','struct',S.struct);
+  syncGrp('grp-view','view',S.view);
+  syncGrp('grp-fmt','fmt',S.fmt);
+  syncGrp('grp-theme','theme-btn',S.theme);
+  document.getElementById('grp-view').classList.toggle('dis', S.struct==='B');
+
+  const cap = document.getElementById('cap');
+  const notes = {
+    mvt:'<b>Mouvements</b> — le tableau musclé : colonne <b>Source</b> (🏦 banque / ✍️ saisie), bandeau du dernier import, regroupement par mois. Filtré par le périmètre choisi.',
+    suivi:'<b>Suivi des loyers</b> — échéancier locataires × mois. 🟢 payé · 🟡 partiel · 🔴 retard · ⚪ à venir. Clic sur une case = détail.',
+    synth:'<b>Synthèse du mois</b> — le rapport que l\'analyste sort par entité ou immeuble : recettes / dépenses / solde, ventilé par catégorie et par immeuble.',
+  };
+  cap.innerHTML = S.struct==='B'
+    ? '<b>Structure B — page unique :</b> tout est empilé sous le sélecteur de périmètre (synthèse condensée → suivi → mouvements). Scroll vertical.'
+    : notes[S.view];
+  document.getElementById('mk-note').innerHTML = S.struct==='A'
+    ? 'Le <b>sélecteur de périmètre</b> est persistant et pilote les 3 écrans.'
+    : 'Comparez A (sous-onglets) vs B (tout sur une page).';
+
+  document.getElementById('page').innerHTML = S.struct==='A' ? renderStructA() : renderStructB();
+  bindPage();
+}
+function syncGrp(gid, attr, val){
+  document.querySelectorAll('#'+gid+' button').forEach(b=>{
+    b.classList.toggle('on', b.dataset[camel(attr)]===val);
+  });
+}
+function camel(s){return s.replace(/-([a-z])/g,(_,c)=>c.toUpperCase())}
+
+/* ── header + sélecteur de périmètre (partagé) ── */
+function renderHeader(){
+  return `
+  <div class="page-head">
+    <h2 class="page-title">💸 Mouvements <span style="font-size:12px;font-weight:600;color:var(--t3)">(ex-onglet « Loyers »)</span></h2>
+    <p class="page-sub">Recettes, dépenses et suivi des encaissements — tous vos biens au même endroit.</p>
+  </div>
+  ${renderPerim()}`;
+}
+function renderPerim(){
+  const b = S.perim.bail, im = S.perim.imm, lg = S.perim.log;
+  const bailLbl = b ? bailById(b).ic+' '+bailById(b).nom : '🌐 Tous les bailleurs';
+  const immLbl  = im ? immById(im).ic+' '+immById(im).nom : 'Tous les immeubles';
+  const logLbl  = lg ? '🚪 '+logById(lg).ref+' — '+logById(lg).loc : 'Tous les logements';
+  const immChoices = IMMEUBLES.filter(i=>!b||i.bail===b);
+  const logChoices = perimLogements();
+  return `
+  <div class="perim">
+    <div class="perim-row">
+      <span class="perim-lead">Périmètre</span>
+      <div class="crumb">
+        <div class="psel" data-psel="bail">
+          <button class="${b?'act':''}"><span class="ic">${b?bailById(b).ic:'🌐'}</span>${b?bailById(b).nom:'Tous les bailleurs'}<span class="car">▾</span></button>
+          <div class="psel-menu">
+            <div class="psel-item ${!b?'sel':''}" data-val=""><span>🌐</span>Tous les bailleurs<span class="mut">${LOGEMENTS.length} biens</span></div>
+            ${BAILLEURS.map(x=>`<div class="psel-item ${b===x.id?'sel':''}" data-val="${x.id}"><span>${x.ic}</span>${x.nom}<span class="mut">${x.type}</span></div>`).join('')}
+          </div>
+        </div>
+        <span class="crumb-sep">›</span>
+        <div class="psel" data-psel="imm">
+          <button class="${im?'act':''}"><span class="ic">${im?immById(im).ic:'🏢'}</span>${im?immById(im).nom:'Tous immeubles'}<span class="car">▾</span></button>
+          <div class="psel-menu">
+            <div class="psel-item ${!im?'sel':''}" data-val=""><span>🏢</span>Tous les immeubles</div>
+            ${immChoices.map(x=>`<div class="psel-item ${im===x.id?'sel':''}" data-val="${x.id}"><span>${x.ic}</span>${x.nom}<span class="mut">${x.ville}</span></div>`).join('')}
+          </div>
+        </div>
+        <span class="crumb-sep">›</span>
+        <div class="psel" data-psel="log">
+          <button class="${lg?'act':''}"><span class="ic">🚪</span>${lg?logById(lg).ref:'Tous logements'}<span class="car">▾</span></button>
+          <div class="psel-menu">
+            <div class="psel-item ${!lg?'sel':''}" data-val=""><span>🚪</span>Tous les logements</div>
+            ${logChoices.map(x=>`<div class="psel-item ${lg===x.id?'sel':''}" data-val="${x.id}"><span>🚪</span>${x.ref}<span class="mut">${x.loc.split(' ')[0]}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="perim-actions">
+        <button class="btn bp bsm" data-act="import">🏦 Importer un relevé</button>
+        <button class="btn bs bsm" data-act="add">＋ Saisir</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── Structure A : sous-onglets ── */
+function renderStructA(){
+  const m = perimMvt();
+  const nbLate = Object.values(scopedSuivi()).filter(arr=>arr[arr.length-1]==='late').length;
+  return renderHeader() + `
+  <div class="subtabs">
+    <button class="subtab ${S.view==='mvt'?'on':''}" data-sub="mvt">📋 Mouvements <span class="badge">${m.length}</span></button>
+    <button class="subtab ${S.view==='suivi'?'on':''}" data-sub="suivi">📅 Suivi des loyers ${nbLate?`<span class="badge" style="background:var(--red);color:#fff">${nbLate} retard</span>`:''}</button>
+    <button class="subtab ${S.view==='synth'?'on':''}" data-sub="synth">📊 Synthèse du mois</button>
+  </div>
+  <div class="surface">${S.view==='mvt'?renderMvt():S.view==='suivi'?renderSuivi():renderSynth()}</div>`;
+}
+
+/* ── Structure B : page unique ── */
+function renderStructB(){
+  return renderHeader() + `
+  <div class="section-band">📊 Synthèse — ${moisCourantLbl()}</div>
+  <div class="surface" style="padding-top:14px">${renderSynth(true)}</div>
+  <div class="section-band">📅 Suivi des loyers</div>
+  <div class="surface" style="padding-top:14px">${renderSuivi(true)}</div>
+  <div class="section-band">📋 Mouvements détaillés</div>
+  <div class="surface" style="padding-top:14px">${renderMvt()}</div>`;
+}
+
+/* ── VUE MOUVEMENTS ── */
+function renderMvt(){
+  const m = perimMvt();
+  if(!m.length) return emptyState('Aucun mouvement sur ce périmètre','Importez un relevé ou saisissez une écriture.');
+  let html = `
+  <div class="lastimp">
+    <span class="ic">🏦</span>
+    <div><b>Dernier import — Crédit Agricole (SCI du Parc)</b><br>
+      <span class="mut">le 06/06/2026 à 09:14 · 7 écritures ajoutées · 2 doublons ignorés</span></div>
+    <span class="lk">Revoir ce lot ›</span>
+  </div>`;
+  MOIS.forEach(mo=>{
+    const rows = m.filter(x=>x.mois===mo.k);
+    if(!rows.length) return;
+    const cr = rows.reduce((s,x)=>s+x.cr,0), db = rows.reduce((s,x)=>s+x.db,0);
+    html += `<div class="mvt-wrap" style="margin-bottom:14px">
+      <div class="mvt-monthhd">📆 ${mo.lbl}<span class="tot"><span class="pos">+${eur(cr)}</span><span class="neg">−${eur(db)}</span><span style="color:var(--t1)">= ${eur(cr-db)}</span></span></div>
+      <table class="mvt"><thead><tr>
+        <th>Date</th><th>Libellé</th><th class="hide-ph">Bien</th><th class="hide-ph">Catégorie</th><th>Source</th><th class="col-r">Débit</th><th class="col-r">Crédit</th><th></th>
+      </tr></thead><tbody>
+      ${rows.map(x=>{
+        const im=immById(x.imm);
+        const bienTxt = x.log ? logById(x.log).ref : (im?im.nom:'—');
+        return `<tr>
+          <td style="color:var(--t2);white-space:nowrap">${x.date}</td>
+          <td><b style="font-weight:600">${x.lib}</b>${x.partiel?' <span class="src-pill src-man" style="color:var(--ora);border-color:#fcd34d">partiel</span>':''}</td>
+          <td class="hide-ph"><span class="bientag"><span class="dot" style="background:${COLOR[x.imm]||'#999'}"></span>${bienTxt}</span></td>
+          <td class="hide-ph"><span class="cat-chip">${x.cat}</span></td>
+          <td>${x.src==='bank'?`<span class="src-pill src-bank" title="${x.acct}">🏦 ${x.acct.split(' ')[0]}</span>`:'<span class="src-pill src-man">✍️ Saisie</span>'}</td>
+          <td class="col-r">${x.db?`<span class="amt-db">${eur(x.db)}</span>`:''}</td>
+          <td class="col-r">${x.cr?`<span class="amt-cr">${eur(x.cr)}</span>`:''}</td>
+          <td><span class="row-act"><button class="ico-btn" title="Éditer">✎</button><button class="ico-btn" title="Justificatif">📎</button></span></td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>
+    </div>`;
+  });
+  return html;
+}
+
+/* ── VUE SUIVI DES LOYERS ── */
+function scopedSuivi(){
+  const ls = perimLogements();
+  const out = {};
+  ls.forEach(l=>{ if(SUIVI[l.id]) out[l.id]=SUIVI[l.id]; });
+  return out;
+}
+function renderSuivi(compact){
+  const sc = scopedSuivi();
+  const ids = Object.keys(sc);
+  if(!ids.length) return emptyState('Aucun locataire sur ce périmètre','');
+  const pay = (s)=>({ok:['pay-ok','✓','Payé'],part:['pay-part','½','Partiel'],late:['pay-late','!','Retard'],soon:['pay-soon','·','À venir']}[s]);
+  let html = `<div class="suivi-wrap"><table class="suivi"><thead><tr>
+    <th class="loc">Locataire</th>${SUIVI_MOIS.map(m=>`<th>${m}</th>`).join('')}</tr></thead><tbody>
+    ${ids.map(id=>{
+      const l=logById(id), im=immById(l.imm);
+      return `<tr>
+        <td class="loc"><div class="loc-name">${l.loc}</div><div class="loc-sub"><span class="bientag"><span class="dot" style="background:${COLOR[l.imm]}"></span>${im.nom} · ${l.ref} · ${eur(loyer(l))}/mois</span></div></td>
+        ${sc[id].map(s=>{const p=pay(s);return `<td><span class="pay ${p[0]}" title="${p[2]}">${p[1]}</span></td>`}).join('')}
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>
+  <div class="suivi-legend">
+    <span><i class="lg-dot" style="background:var(--bg-success);border:1px solid #86efac"></i> Payé</span>
+    <span><i class="lg-dot" style="background:var(--bg-warning);border:1px solid #fcd34d"></i> Partiel</span>
+    <span><i class="lg-dot" style="background:var(--bg-danger);border:1px solid #fca5a5"></i> Retard</span>
+    <span><i class="lg-dot" style="background:var(--sur2);border:1px solid var(--bor)"></i> À venir / hors bail</span>
+  </div>`;
+  return html;
+}
+
+/* ── VUE SYNTHÈSE DU MOIS ── */
+function moisCourantLbl(){return 'Juin 2026'}
+function renderSynth(compact){
+  const m = perimMvt().filter(x=>x.mois==='2026-06');
+  const cr = m.reduce((s,x)=>s+x.cr,0), db = m.reduce((s,x)=>s+x.db,0);
+  // par catégorie
+  const byCat = {};
+  m.forEach(x=>{ const k=x.cat; byCat[k]=byCat[k]||{cr:0,db:0}; byCat[k].cr+=x.cr; byCat[k].db+=x.db; });
+  // par immeuble
+  const byImm = {};
+  m.forEach(x=>{ byImm[x.imm]=byImm[x.imm]||{cr:0,db:0}; byImm[x.imm].cr+=x.cr; byImm[x.imm].db+=x.db; });
+  const maxCat = Math.max(1,...Object.values(byCat).map(v=>Math.max(v.cr,v.db)));
+  const maxImm = Math.max(1,...Object.values(byImm).map(v=>v.cr));
+
+  const head = compact?'':`<div class="surface-h"><h3>📊 Synthèse — ${moisCourantLbl()}</h3>
+    <div class="sp"><select class="inp bsm"><option>Juin 2026</option><option>Mai 2026</option><option>Avril 2026</option></select>
+    <button class="btn bs bsm">⬇️ Exporter PDF</button></div></div>`;
+
+  return head + `
+  <div class="kpi-row">
+    <div class="kpi pos"><div class="lbl">Recettes</div><div class="val">+${eur(cr)}</div><div class="sub">loyers + remboursements</div></div>
+    <div class="kpi neg"><div class="lbl">Dépenses</div><div class="val">−${eur(db)}</div><div class="sub">charges + travaux + prêt</div></div>
+    <div class="kpi ${cr-db>=0?'pos':'neg'}"><div class="lbl">Solde du mois</div><div class="val">${cr-db>=0?'+':'−'}${eur(Math.abs(cr-db))}</div><div class="sub">trésorerie nette</div></div>
+  </div>
+  <div class="synth-grid">
+    <div class="synth-card">
+      <div class="synth-card-h">🏷️ Par catégorie <span class="t">${m.length} écritures</span></div>
+      ${Object.entries(byCat).map(([k,v])=>{
+        const val = v.cr||v.db, isCr = v.cr>0;
+        return `<div class="synth-line"><span class="nm">${k}</span>
+          <span class="bar"><i style="width:${Math.round(val/maxCat*100)}%;background:${isCr?'var(--grn)':'var(--red)'}"></i></span>
+          <span class="v" style="color:${isCr?'var(--grn)':'var(--red)'}">${isCr?'+':'−'}${eur(val)}</span></div>`;
+      }).join('')}
+    </div>
+    <div class="synth-card">
+      <div class="synth-card-h">🏢 Par immeuble <span class="t">solde net</span></div>
+      ${Object.entries(byImm).map(([k,v])=>{
+        const net=v.cr-v.db, im=immById(k);
+        return `<div class="synth-line"><span class="nm"><span class="bientag"><span class="dot" style="background:${COLOR[k]}"></span>${im.nom}</span></span>
+          <span class="bar"><i style="width:${Math.round(v.cr/maxImm*100)}%;background:${COLOR[k]}"></i></span>
+          <span class="v" style="color:${net>=0?'var(--grn)':'var(--red)'}">${net>=0?'+':'−'}${eur(Math.abs(net))}</span></div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function emptyState(t,s){return `<div class="empty"><div class="big">🗂️</div><b>${t}</b><div>${s}</div></div>`}
+
+/* ════════════════════════════════════════════════════════════════════════
+   WIZARD IMPORT
+════════════════════════════════════════════════════════════════════════ */
+function openWz(){ S.wzStep=1; document.getElementById('ovl').classList.add('show'); renderWz(); }
+function closeWz(){ document.getElementById('ovl').classList.remove('show'); }
+function renderWz(){
+  const steps = [['Dépôt',1],['Colonnes',2],['Aperçu',3],['Confirmation',4]];
+  document.getElementById('wz-steps').innerHTML = steps.map(([lbl,n],i)=>{
+    const cls = S.wzStep>n?'done':S.wzStep===n?'act':'';
+    return `<div class="wz-stp ${cls}"><span class="n">${S.wzStep>n?'✓':n}</span>${lbl}</div>${i<3?'<span class="wz-sep">›</span>':''}`;
+  }).join('');
+  document.getElementById('wz-body').innerHTML = [wzStep1,wzStep2,wzStep3,wzStep4][S.wzStep-1]();
+  document.getElementById('wz-back').style.visibility = S.wzStep>1?'visible':'hidden';
+  const next = document.getElementById('wz-next');
+  next.textContent = S.wzStep===4?'Terminer ✓':S.wzStep===3?'Importer 7 écritures ›':'Continuer ›';
+  const hints = {1:'Formats acceptés : CSV, OFX, QFX, Excel (.xlsx) ou collage direct.',
+    2:'⚠️ Détection auto incertaine — vérifiez la correspondance des colonnes.',
+    3:'Affectez chaque opération à un bien. Les doublons sont pré-détectés.',
+    4:'La date de cet import sera mémorisée sur le compte.'};
+  document.getElementById('wz-hint').textContent = hints[S.wzStep];
+  bindWz();
+}
+function wzStep1(){
+  return `
+  <div class="drop"><div class="big">📥</div><b>Glissez votre relevé ici</b>
+    <div class="mut">ou cliquez pour parcourir — CSV, OFX, QFX, Excel</div>
+  </div>
+  <div style="text-align:center;margin:12px 0;font-size:11.5px;color:var(--t3)">— ou —</div>
+  <div class="fg"><label>Coller depuis Excel / le site de la banque</label>
+    <textarea class="inp" rows="2" placeholder="Collez les lignes copiées (Ctrl+V)…"></textarea></div>
+  <div class="filechip">
+    <span class="ic">📄</span>
+    <div><b>releve_ca_juin2026.csv</b><div class="mut">déposé · 18 lignes</div></div>
+    <div class="detect">
+      <span class="ok">✓ Format CSV · séparateur «;»</span>
+      <span class="warn">⚠️ Colonnes non reconnues automatiquement</span>
+    </div>
+  </div>
+  <div style="font-size:11.5px;color:var(--t2);margin-top:11px;line-height:1.5">
+    💡 <b>Nouveau :</b> même si l'app ne reconnaît pas les colonnes, vous ne tombez plus sur un écran vide — l'étape suivante vous laisse les associer à la main.</div>`;
+}
+function wzStep2(){
+  const champs = ['(ignorer)','Date','Libellé','Débit','Crédit','Montant signé'];
+  const cols = [
+    ['Date opération','06/06/2026','Date'],
+    ['Libellé','VIR LOYER MARTIN','Libellé'],
+    ['Débit euros','','Débit'],
+    ['Crédit euros','730,00','Crédit'],
+    ['Date valeur','06/06/2026','(ignorer)'],
+  ];
+  return `
+  <div class="rescue-note">⚠️ <b>Écran de secours mapping</b> — la détection automatique a échoué (en-têtes inhabituels, BOM, accents). Indiquez à quoi correspond chaque colonne ; votre choix sera mémorisé pour les prochains imports de <b>Crédit Agricole</b>.</div>
+  <div class="map-grid">
+    ${cols.map(([src,ex,sel])=>`<div class="map-row">
+      <div class="map-src">${src}<div class="ex">ex : ${ex||'—'}</div></div>
+      <div class="map-arr">→</div>
+      <select class="inp">${champs.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join('')}</select>
+    </div>`).join('')}
+  </div>
+  <div class="map-preview"><table class="mini">
+    <thead><tr><th>Date</th><th>Libellé</th><th>Débit</th><th>Crédit</th></tr></thead>
+    <tbody>
+      <tr><td>06/06/2026</td><td>VIR LOYER MARTIN</td><td>—</td><td style="color:var(--grn)">730,00</td></tr>
+      <tr><td>03/06/2026</td><td>PREL ASSURANCE PNO</td><td style="color:var(--red)">142,00</td><td>—</td></tr>
+      <tr><td>02/06/2026</td><td>CECA GERANCE VH</td><td style="color:var(--red)">88,00</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <div style="font-size:11.5px;color:var(--grn);margin-top:10px">✓ Aperçu cohérent : 7 lignes lisibles sur 18 (le reste = soldes / lignes vides ignorées).</div>`;
+}
+function wzStep3(){
+  const rows = [
+    {dt:'06/06/2026',lib:'VIR LOYER MARTIN',amt:'+730,00',cr:true,new:true, imm:'vh', log:'a101', cat:'Loyers encaissés'},
+    {dt:'06/06/2026',lib:'VIR LOYER DUBOIS',amt:'+300,00',cr:true,new:true, imm:'vh', log:'a102', cat:'Loyers encaissés', note:'Montant ≠ loyer attendu (580 €) → marqué partiel'},
+    {dt:'03/06/2026',lib:'PREL ASSURANCE PNO',amt:'−142,00',cr:false,new:true, imm:'vh', log:null, cat:'Assurances'},
+    {dt:'02/06/2026',lib:'CECA GERANCE VH',amt:'−88,00',cr:false,new:false, imm:'vh', log:null, cat:'Frais de gestion', dup:'Déjà importé le 02/06 (même montant, même libellé)'},
+  ];
+  return `
+  <div style="font-size:12px;color:var(--t2);margin-bottom:12px">7 écritures prêtes · <b style="color:var(--grn)">5 nouvelles</b> · <b style="color:var(--t2)">2 doublons</b> (décochés). Affectez chaque ligne à un bien.</div>
+  ${rows.map((r,i)=>`
+  <div class="tx ${r.new?'':'dup'}">
+    <div class="tx-top">
+      <input type="checkbox" ${r.new?'checked':''}>
+      <span class="dt">${r.dt}</span>
+      <span class="lib">${r.lib}</span>
+      <span class="amt" style="color:${r.cr?'var(--grn)':'var(--red)'}">${r.amt}</span>
+      <span class="tx-badge ${r.new?'tx-new':'tx-dup'}">${r.new?'Nouveau':'Doublon'}</span>
+    </div>
+    ${r.dup?`<div class="tx-dupinfo">↺ ${r.dup}</div>`:`
+    <div class="tx-body">
+      <div class="fg"><label>Affecter à</label>
+        <div class="cascade">
+          <select class="inp">${BAILLEURS.map(b=>`<option ${immById(r.imm).bail===b.id?'selected':''}>${b.nom}</option>`).join('')}</select>
+          <select class="inp">${IMMEUBLES.filter(im=>im.bail===immById(r.imm).bail).map(im=>`<option ${im.id===r.imm?'selected':''}>${im.nom}</option>`).join('')}</select>
+          <select class="inp"><option ${!r.log?'selected':''}>— Immeuble entier —</option>${LOGEMENTS.filter(l=>l.imm===r.imm).map(l=>`<option ${l.id===r.log?'selected':''}>${l.ref} · ${l.loc.split(' ')[0]}</option>`).join('')}</select>
+        </div>
+        ${r.note?`<div style="font-size:11px;color:var(--ora);margin-top:5px">⚠️ ${r.note}</div>`:''}
+      </div>
+      <div class="fg"><label>Catégorie</label>
+        <select class="inp"><option selected>${r.cat}</option><option>Loyers encaissés</option><option>Charges récupérables</option><option>Travaux & entretien</option><option>Taxe foncière</option><option>Assurances</option><option>Frais de gestion</option><option>Intérêts d'emprunt</option></select>
+      </div>
+    </div>`}
+  </div>`).join('')}
+  <div style="font-size:11.5px;color:var(--t2);margin-top:6px;line-height:1.5">💡 Le <b>sélecteur en cascade</b> (bailleur → immeuble → logement) évite la liste de tous les logements mélangés : vous ne voyez que les biens du bon immeuble.</div>`;
+}
+function wzStep4(){
+  return `
+  <div class="conf">
+    <div class="big">✅</div>
+    <h4>Import terminé</h4>
+    <div class="mut">Relevé Crédit Agricole · Juin 2026</div>
+    <div class="conf-stats">
+      <div class="conf-stat new"><div class="n">5</div><div class="l">écritures ajoutées</div></div>
+      <div class="conf-stat dup"><div class="n">2</div><div class="l">doublons ignorés</div></div>
+    </div>
+    <div class="conf-acct">
+      <span class="ic">🏦</span>
+      <div><b>Compte Crédit Agricole (SCI du Parc)</b><br>
+      <span style="color:var(--t2)">Dernier import mémorisé : <b>06/06/2026 à 09:14</b> — visible dans le bandeau de l'onglet Mouvements.</span></div>
+    </div>
+  </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ÉVÉNEMENTS
+════════════════════════════════════════════════════════════════════════ */
+function bindPage(){
+  // périmètre dropdowns
+  document.querySelectorAll('.psel>button').forEach(btn=>{
+    btn.onclick=(e)=>{
+      e.stopPropagation();
+      const ps=btn.closest('.psel'); const open=ps.classList.contains('open');
+      document.querySelectorAll('.psel').forEach(p=>p.classList.remove('open'));
+      if(!open) ps.classList.add('open');
+    };
+  });
+  document.querySelectorAll('.psel-item').forEach(it=>{
+    it.onclick=()=>{
+      const lvl=it.closest('.psel').dataset.psel;
+      const val=it.dataset.val||null;
+      if(lvl==='bail'){ S.perim.bail=val; S.perim.imm=null; S.perim.log=null; }
+      if(lvl==='imm'){ S.perim.imm=val; S.perim.log=null;
+        if(val) S.perim.bail=immById(val).bail; }
+      if(lvl==='log'){ S.perim.log=val;
+        if(val){ S.perim.imm=logById(val).imm; S.perim.bail=immById(S.perim.imm).bail; } }
+      render();
+    };
+  });
+  // sous-onglets
+  document.querySelectorAll('.subtab').forEach(t=>{ t.onclick=()=>{ S.view=t.dataset.sub; render(); }; });
+  // actions
+  document.querySelectorAll('[data-act="import"]').forEach(b=>b.onclick=openWz);
+}
+document.addEventListener('click',()=>document.querySelectorAll('.psel').forEach(p=>p.classList.remove('open')));
+
+function bindWz(){
+  document.getElementById('wz-x').onclick=closeWz;
+  document.getElementById('wz-back').onclick=()=>{ if(S.wzStep>1){S.wzStep--;renderWz();} };
+  document.getElementById('wz-next').onclick=()=>{ if(S.wzStep<4){S.wzStep++;renderWz();} else closeWz(); };
+}
+
+/* mk-bar */
+document.getElementById('grp-struct').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.struct=b.dataset.struct;if(S.struct==='B')S.view='mvt';render();};
+document.getElementById('grp-view').onclick=e=>{const b=e.target.closest('button');if(!b||S.struct==='B')return;S.view=b.dataset.view;render();};
+document.getElementById('grp-fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.fmt=b.dataset.fmt;render();};
+document.getElementById('grp-theme').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.theme=b.dataset.themeBtn;render();};
+document.getElementById('grp-wz').onclick=openWz;
+
+render();
+</script>
+</body>
+</html>

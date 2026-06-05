@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ImmoTrack — Maquette affectation pilotée par catégorie</title>
+<style>
+  :root[data-theme="light"]{
+    --bg:#f1f5f9; --card:#ffffff; --t1:#0f172a; --t2:#334155; --t3:#64748b;
+    --bd:#e2e8f0; --bd2:#cbd5e1; --inp:#ffffff; --pri:#2563eb; --pri-bg:#eff6ff;
+    --ok:#059669; --ok-bg:#ecfdf5; --ora:#d97706; --ora-bg:#fffbeb; --vio:#7c3aed; --vio-bg:#f5f3ff;
+    --shadow:0 10px 30px rgba(2,6,23,.18);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --card:#0f172a; --t1:#e2e8f0; --t2:#cbd5e1; --t3:#94a3b8;
+    --bd:#1e293b; --bd2:#334155; --inp:#0b1220; --pri:#3b82f6; --pri-bg:#172554;
+    --ok:#34d399; --ok-bg:#052e2b; --ora:#fbbf24; --ora-bg:#3a2c08; --vio:#a78bfa; --vio-bg:#2a1d52;
+    --shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans',-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--t1)}
+
+  /* ---- Barre de contrôle de la maquette (hors app) ---- */
+  .mk-bar{position:sticky;top:0;z-index:50;background:#0f172a;color:#e2e8f0;display:flex;
+    flex-wrap:wrap;gap:14px;align-items:center;padding:10px 16px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .mk-bar b{font-family:Manrope,sans-serif;font-weight:700;color:#fff;letter-spacing:.2px}
+  .mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:8px;padding:3px}
+  .mk-grp button{border:0;background:transparent;color:#94a3b8;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+  .mk-grp button.on{background:#3b82f6;color:#fff}
+  .mk-bar .lbl{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+
+  /* ---- Cadre device ---- */
+  .mk-stage{display:flex;justify-content:center;padding:26px 12px 70px}
+  .mk-frame{width:980px;max-width:100%;transition:width .25s}
+  .mk-frame[data-d="tab"]{width:760px}
+  .mk-frame[data-d="mob"]{width:390px}
+
+  /* ---- Modale type app ---- */
+  .modal{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .m-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd)}
+  .m-head h3{margin:0;font-family:Manrope,sans-serif;font-size:17px}
+  .m-head .sub{font-size:12px;color:var(--t3);margin-top:2px;font-weight:400}
+  .m-close{border:0;background:transparent;color:var(--t3);font-size:18px;cursor:pointer}
+  .m-body{padding:18px 20px;max-height:none}
+  .m-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--bd);background:var(--bg)}
+
+  .fg{margin-bottom:14px}
+  .fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--t2);margin-bottom:5px}
+  .inp{width:100%;padding:10px 12px;border:1px solid var(--bd2);border-radius:9px;background:var(--inp);
+    color:var(--t1);font-size:14px;font-family:inherit}
+  .inp:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-bg)}
+  select.inp{cursor:pointer}
+  .mu{color:var(--t3)} .sm{font-size:12px}
+
+  .btn{padding:10px 16px;border-radius:9px;border:1px solid var(--bd2);background:var(--card);color:var(--t1);
+    font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+  .bp{background:var(--pri);border-color:var(--pri);color:#fff}
+  .bs{background:transparent}
+
+  /* ---- Zone d'affectation adaptative ---- */
+  .aff-box{border:1px solid var(--bd);border-radius:12px;padding:14px;background:var(--bg);margin-top:4px}
+  .aff-empty{color:var(--t3);font-size:13px;text-align:center;padding:14px 8px}
+  .aff-q{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+  .aff-q .ic{font-size:16px}
+
+  /* niveau selector (segments) */
+  .lvl{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .lvl button{flex:1;min-width:90px;border:1px solid var(--bd2);background:var(--card);color:var(--t2);
+    border-radius:9px;padding:9px 8px;cursor:pointer;font-size:12.5px;font-weight:600;display:flex;
+    flex-direction:column;align-items:center;gap:3px;line-height:1.2}
+  .lvl button .e{font-size:17px}
+  .lvl button.on{border-color:var(--pri);background:var(--pri-bg);color:var(--pri)}
+  .lvl button.sugg::after{content:'suggéré';font-size:9px;font-weight:700;color:var(--ok);
+    background:var(--ok-bg);padding:1px 5px;border-radius:6px;margin-top:2px}
+
+  /* option récupérable */
+  .recup{margin-top:11px;border-top:1px dashed var(--bd2);padding-top:11px}
+  .recup label.row{display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:600;color:var(--t2);font-size:13px}
+  .recup input{margin-top:2px;width:16px;height:16px;accent-color:var(--vio)}
+  .recup .hint{font-size:11.5px;color:var(--t3);font-weight:400;margin-top:2px}
+  .cc-pick{margin-top:10px;display:none}
+  .cc-pick.show{display:block}
+
+  /* destination badge */
+  .dest{margin-top:14px;border-radius:11px;padding:12px 14px;display:flex;gap:11px;align-items:flex-start;
+    font-size:13px;border:1px solid transparent}
+  .dest .ic{font-size:20px;line-height:1}
+  .dest .ttl{font-weight:700;font-size:13.5px;margin-bottom:2px}
+  .dest .det{font-size:12px;opacity:.9}
+  .dest.tax{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+  .dest.recu{background:var(--vio-bg);border-color:var(--vio);color:var(--vio)}
+  .dest.none{background:var(--bg);border-color:var(--bd2);color:var(--t3)}
+  .dest .ttl,.dest .det{color:var(--t1)}
+  :root[data-theme="dark"] .dest .ttl,:root[data-theme="dark"] .dest .det{color:var(--t1)}
+
+  .note{font-size:11.5px;color:var(--t3);margin-top:9px;line-height:1.45}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:7px;background:var(--pri-bg);color:var(--pri)}
+
+  /* explainer above modal */
+  .explain{width:980px;max-width:100%;margin:0 auto 18px;font-size:13px;color:var(--t2);line-height:1.55;
+    background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px 18px}
+  .explain b{color:var(--t1)}
+  .mk-frame[data-d="tab"] ~ .explain{width:760px}
+
+  @media(max-width:520px){ .fg2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<div class="mk-bar">
+  <b>🧾 Affectation pilotée par catégorie</b>
+  <span class="lbl">Format</span>
+  <div class="mk-grp" id="g-device">
+    <button data-d="pc" class="on">💻 Ordi</button>
+    <button data-d="tab">📱 Tablette</button>
+    <button data-d="mob">📲 Tél</button>
+  </div>
+  <span class="lbl">Thème</span>
+  <div class="mk-grp" id="g-theme">
+    <button data-t="light" class="on">☀️ Clair</button>
+    <button data-t="dark">🌙 Sombre</button>
+  </div>
+  <span class="lbl">Scénario</span>
+  <div class="mk-grp" id="g-demo">
+    <button data-cat="Loyers encaissés" class="on">Loyer</button>
+    <button data-cat="Taxe foncière (et taxes annexes)">Taxe foncière</button>
+    <button data-cat="Eau froide générale (immeuble)">Eau immeuble</button>
+    <button data-cat="Frais de compte / comptable (SCI)">Frais SCI</button>
+  </div>
+</div>
+
+<div class="mk-stage">
+ <div>
+  <div class="explain">
+    <b>Le principe :</b> on choisit d'abord <b>ce que c'est</b> (la catégorie). Selon la catégorie, l'app sait
+    où ça doit aller et n'affiche qu'<b>une</b> question ciblée — jamais la liste de tous les logements.
+    Le bandeau du bas montre en direct <b>où la ligne atterrit</b> (ta déclaration 2044, ou la régularisation des locataires).
+    Les boutons « Scénario » en haut te font voir les 4 cas.
+  </div>
+
+  <div class="mk-frame" data-d="pc">
+   <div class="modal">
+    <div class="m-head">
+      <div>
+        <h3>Affecter ce mouvement</h3>
+        <div class="sub">Relevé CIC · 14/05/2026 · « PRLV TRESOR PUBLIC »</div>
+      </div>
+      <button class="m-close">✕</button>
+    </div>
+    <div class="m-body">
+      <div class="fg2">
+        <div class="fg"><label>Date</label><input class="inp" type="date" value="2026-05-14"></div>
+        <div class="fg">
+          <label>Catégorie — <span class="mu">qu'est-ce que c'est&nbsp;?</span></label>
+          <select class="inp" id="cat" onchange="render()">
+            <optgroup label="Recettes">
+              <option>Loyers encaissés</option>
+              <option>Recettes diverses (parking, antennes…)</option>
+            </optgroup>
+            <optgroup label="Charges déductibles (impôts)">
+              <option>Frais de gestion / honoraires</option>
+              <option>Frais de compte / comptable (SCI)</option>
+              <option>Primes d'assurance PNO</option>
+              <option>Travaux de réparation et d'entretien</option>
+              <option>Taxe foncière (et taxes annexes)</option>
+              <option>Provisions pour charges de copropriété</option>
+            </optgroup>
+            <optgroup label="Charges d'immeuble récupérables">
+              <option>Eau froide générale (immeuble)</option>
+              <option>Ascenseur (immeuble)</option>
+            </optgroup>
+            <optgroup label="Prêt">
+              <option>Prêt — Intérêts d'emprunt</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+      <div class="fg"><label>Libellé</label><input class="inp" id="lib" value="PRLV TRESOR PUBLIC"></div>
+      <div class="fg2">
+        <div class="fg"><label>Débit (charge) €</label><input class="inp" type="number" id="db" value="1240"></div>
+        <div class="fg"><label>Crédit (recette) €</label><input class="inp" type="number" id="cr" placeholder="0.00"></div>
+      </div>
+
+      <label>Affectation</label>
+      <div class="aff-box" id="aff"><!-- injecté --></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs">Annuler</button>
+      <button class="btn bp">Enregistrer</button>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<script>
+// ---------- Données démo (reflètent le modèle réel : entités>immeubles>logements + compteurs collectifs) ----------
+const ENT = [
+  { nom:'SCI Keller', type:'SCI', imms:[
+      { nom:'Freyming', logs:[
+          {ref:'F-RDC', loc:'Pierre Martin', tant:200},
+          {ref:'F-101', loc:'Marie Durand', tant:280},
+          {ref:'F-102', loc:'(vacant)',     tant:220},
+      ], ccs:[ {nom:'Eau froide générale', cle:'tantièmes'}, {nom:'Ascenseur', cle:'1/N parts égales'} ] },
+      { nom:'Forbach Centre', logs:[ {ref:'FB-01', loc:'Léa Bernard', tant:500} ], ccs:[] },
+  ]},
+  { nom:'SCI Patrimoine', type:'SCI', imms:[
+      { nom:'Metz Gare', logs:[ {ref:'MZ-3A', loc:'Karim Aziz', tant:1000} ], ccs:[] },
+  ]},
+];
+// Métadonnées catégorie : ligne 2044, type, niveau suggéré, récupérable possible
+const CATMETA = {
+  'Loyers encaissés':                         {l:'211', t:'recette', niv:'log'},
+  'Recettes diverses (parking, antennes…)':   {l:'213', t:'recette', niv:'imm'},
+  'Frais de gestion / honoraires':            {l:'221', t:'charge',  niv:'log'},
+  'Frais de compte / comptable (SCI)':        {l:'221', t:'charge',  niv:'sci'},
+  "Primes d'assurance PNO":                   {l:'223', t:'charge',  niv:'imm'},
+  "Travaux de réparation et d'entretien":     {l:'224', t:'charge',  niv:'log'},
+  'Taxe foncière (et taxes annexes)':         {l:'227', t:'charge',  niv:'imm'},
+  'Provisions pour charges de copropriété':   {l:'229', t:'charge',  niv:'imm'},
+  'Eau froide générale (immeuble)':           {l:'',    t:'recup',   niv:'imm', recup:true, ccName:'Eau froide générale'},
+  'Ascenseur (immeuble)':                     {l:'',    t:'recup',   niv:'imm', recup:true, ccName:'Ascenseur'},
+  "Prêt — Intérêts d'emprunt":                {l:'250', t:'interet', niv:'imm'},
+};
+const NIV_LBL = { sci:{e:'🏛️',l:'La SCI'}, imm:{e:'🏢',l:'Un immeuble'}, log:{e:'🚪',l:'Un logement'} };
+
+// état courant
+let cur = { niv:null, ent:'SCI Keller', imm:'Freyming', log:'F-RDC', recup:false };
+
+function meta(){ return CATMETA[document.getElementById('cat').value] || {l:'',t:'charge',niv:'log'}; }
+
+function render(){
+  const m = meta();
+  // niveau par défaut = suggéré par la catégorie (sauf si l'user a déjà cliqué un autre niveau ce tour)
+  if(cur._catLock !== document.getElementById('cat').value){
+    cur.niv = m.niv; cur.recup = !!m.recup; cur._catLock = document.getElementById('cat').value;
+  }
+  const box = document.getElementById('aff');
+  let h = '';
+
+  // Question adaptative
+  const niv = cur.niv;
+  h += `<div class="aff-q"><span class="ic">${NIV_LBL[niv].e}</span>`;
+  h += niv==='log' ? 'Quel logement&nbsp;?' : niv==='imm' ? 'Quel immeuble&nbsp;?' : 'Quelle entité / SCI&nbsp;?';
+  h += `</div>`;
+
+  // Sélecteur de niveau (segments) — pré-réglé sur le suggéré, modifiable
+  h += `<div class="lvl">`;
+  ['sci','imm','log'].forEach(k=>{
+    const on = k===niv ? ' on':'';
+    const sg = (k===m.niv && k!==niv) ? ' sugg':''; // marque le suggéré s'il n'est pas l'actif
+    h += `<button class="b-niv${on}${k===m.niv?' '+'':''}" data-niv="${k}" onclick="setNiv('${k}')">
+            <span class="e">${NIV_LBL[k].e}</span>${NIV_LBL[k].l}</button>`;
+  });
+  h += `</div>`;
+
+  // Picker selon niveau
+  if(niv==='sci'){
+    h += `<select class="inp" onchange="cur.ent=this.value;dest()">`+
+         ENT.map(e=>`<option${e.nom===cur.ent?' selected':''}>${e.nom}</option>`).join('')+`</select>`;
+  }
+  if(niv==='imm'){
+    const imms = ENT.flatMap(e=>e.imms.map(i=>({...i,ent:e.nom})));
+    h += `<select class="inp" onchange="pickImm(this.value)">`+
+         imms.map(i=>`<option${i.nom===cur.imm?' selected':''}>${i.nom}</option>`).join('')+`</select>`;
+  }
+  if(niv==='log'){
+    const logs = ENT.flatMap(e=>e.imms.flatMap(i=>i.logs.map(l=>({...l,imm:i.nom,ent:e.nom}))));
+    h += `<select class="inp" onchange="cur.log=this.value;dest()">`+
+         logs.map(l=>`<option value="${l.ref}"${l.ref===cur.log?' selected':''}>${l.ref} — ${l.loc} · ${l.imm}</option>`).join('')+`</select>`;
+  }
+
+  // Option « récupérable » seulement si charge d'immeuble ET l'immeuble a des compteurs
+  if(niv==='imm' && m.t==='charge'){
+    const im = findImm(cur.imm);
+    if(im && im.ccs.length){
+      h += `<div class="recup"><label class="row"><input type="checkbox" ${cur.recup?'checked':''} onchange="cur.recup=this.checked;render()">
+            <span>Cette charge se récupère sur les locataires
+            <span class="hint">→ je la répartis via un compteur collectif au lieu de la déduire aux impôts</span></span></label></div>`;
+    }
+  }
+  // Charge récupérable explicite (eau / ascenseur) → choix du compteur
+  if(m.t==='recup' || (cur.recup && niv==='imm')){
+    const im = findImm(cur.imm);
+    if(im && im.ccs.length){
+      h += `<div class="cc-pick show"><label>Compteur collectif</label><select class="inp" onchange="cur.cc=this.value;dest()">`+
+           im.ccs.map(c=>`<option>${c.nom} · clé ${c.cle}</option>`).join('')+`</select></div>`;
+    }
+  }
+
+  // Bandeau destination
+  h += destHtml(m);
+  box.innerHTML = h;
+}
+
+function destHtml(m){
+  const niv = cur.niv;
+  const recup = (m.t==='recup') || (cur.recup && niv==='imm');
+  if(recup){
+    const im = findImm(cur.imm);
+    const nLoc = im ? im.logs.filter(l=>!/vacant/i.test(l.loc)).length : 0;
+    const cc = (im&&im.ccs[0])?im.ccs[0]:{nom:'—',cle:'tantièmes'};
+    return `<div class="dest recu"><span class="ic">👥</span><div>
+      <div class="ttl">Réparti sur ${nLoc} locataire(s) de ${cur.imm}</div>
+      <div class="det">Compteur « ${cc.nom} » · clé ${cc.cle} → apparaît dans la régularisation des charges. <span class="mu">Pas sur ta déclaration d'impôts (ça se neutralise).</span></div>
+      </div></div>`;
+  }
+  if(!m.l){ // hors résultat
+    return `<div class="dest none"><span class="ic">📋</span><div>
+      <div class="ttl">Hors déclaration</div><div class="det">Ce type d'écriture n'entre pas dans le résultat foncier.</div></div></div>`;
+  }
+  // déductible / recette → 2044
+  const where = niv==='sci'? `🏛️ ${cur.ent}` : niv==='imm'? `🏢 ${cur.imm}` : `🚪 ${cur.log}`;
+  const ligneTxt = ({'211':'Loyers encaissés','213':'Recettes diverses','221':'Frais de gestion','223':'Assurances',
+    '224':'Travaux','227':'Taxe foncière','229':'Provisions copro','250':"Intérêts d'emprunt"})[m.l]||'';
+  const sens = m.t==='recette' ? 'Recette' : 'Charge déductible';
+  return `<div class="dest tax"><span class="ic">🧾</span><div>
+    <div class="ttl">Ta déclaration 2044 · ligne ${m.l} — ${ligneTxt}</div>
+    <div class="det">${sens} · rattaché à ${where}. ${niv==='imm'?'Comptée au total de l\'immeuble (le 2044 veut un total par ligne).':''}</div>
+    </div></div>`;
+}
+
+function setNiv(k){ cur.niv=k; dest(); render(); }
+function pickImm(v){ cur.imm=v; const im=findImm(v); if(im&&im.logs[0])cur.log=im.logs[0].ref; render(); }
+function dest(){ /* léger refresh du bandeau seul */ const m=meta(); const box=document.getElementById('aff');
+  // re-render complet pour rester simple
+  render();
+}
+function findImm(nom){ for(const e of ENT){ const i=e.imms.find(x=>x.nom===nom); if(i)return i; } return null; }
+
+// ---------- contrôles maquette ----------
+document.getElementById('g-device').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#g-device button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  document.querySelector('.mk-frame').dataset.d=b.dataset.d;};
+document.getElementById('g-theme').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#g-theme button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  document.documentElement.dataset.theme=b.dataset.t;};
+document.getElementById('g-demo').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#g-demo button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  const sel=document.getElementById('cat'); sel.value=b.dataset.cat; cur._catLock=null; render();
+  // ajuste montant/libellé pour le réalisme
+  const map={'Loyers encaissés':['VIR M. MARTIN LOYER','','620'],
+    'Taxe foncière (et taxes annexes)':['PRLV TRESOR PUBLIC','1240',''],
+    'Eau froide générale (immeuble)':['PRLV VEOLIA EAU','318',''],
+    'Frais de compte / comptable (SCI)':['FRAIS TENUE COMPTE','12',''] };
+  const mm=map[b.dataset.cat]; if(mm){document.getElementById('lib').value=mm[0];
+    document.getElementById('db').value=mm[1];document.getElementById('cr').value=mm[2];}
+};
+
+render();
+</script>
+</body>
+</html>
