@@ -366,7 +366,7 @@ let cur  = { niv:null, ent:'SCI Keller', imm:'Freyming', log:'F-RDC', recup:fals
 let spRows = [];             // lignes du split
 let spMethod = 'manuel';     // 'bail' | 'caf' | 'manuel'
 
-// ---------- Comptes bancaires ↔ périmètre (réglé une fois, reconnu par l'IBAN à l'import) ----------
+// ---------- Comptes bancaires ↔ périmètre (réglé une fois, reconnu par l'identifiant de compte à l'import : ACCTID OFX / schéma CSV — PAS l'IBAN) ----------
 // Ce n'est PAS une règle d'affectation : c'est une propriété du compte. Elle pré-filtre les choix,
 // avec une échappatoire « voir tout le patrimoine » pour le mouvement exceptionnel.
 const COMPTES = {
