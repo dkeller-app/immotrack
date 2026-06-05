@@ -113,10 +113,50 @@ Deux fonctions `_compute2044` distinctes, même nom, logiques différentes :
 
 **Ordre proposé** : A → B → C (B est réutilisé par C). Fork ouvert au user : démarrer par A (code immédiat) ou par les maquettes B+C.
 
+## 🔎 Audit pré-prod 2026-06-05 (3 agents) → ajustements du périmètre
+
+L'audit (fiscal / complétude des mouvements / cohérence app réelle) ne remet pas en cause la direction ; il la précise. Findings transformés en décisions de scope, par chantier. **Détail brut dans le journal (suite 6).**
+
+### Chantier A (2044 unifié) — confirmé + 1 ajout
+- **🔴 Porter le fix ligne 230** de `index-test.html:3898` (type `'deduction'`) vers `index.html:3969` (encore `'charge'`). Sans ça, en prod la régul de charges copro N-1 s'**ajoute** au lieu de se **retrancher** (`240 = 221..229 − 230`) → résultat foncier faux d'≈2× la régul. Fait partie du Chantier A.
+
+### Chantier B (affectation pilotée par la catégorie) — ajustements
+- **Brancher le sélecteur sur le vrai `STD_CATEGORIES` (~30 catégories, `index.html:3947`), pas une liste courte.** Le `CATMETA`(12) de la maquette n'est qu'une **démo** : la plupart des cas crus « manquants » (DG reçu/restitué/utilisé, capital de prêt, indemnités sinistre/GLI/ANAH, éviction, arriérés) **existent déjà** en données. Garde-fou « on ne réinvente pas la poudre ».
+- **Catégories à CRÉER (manquent des deux côtés)**, toutes idéalement type `special` (hors résultat foncier) :
+  - **Travaux de construction / agrandissement (non déductible)** — piège classique, absent même de `STD_CATEGORIES`.
+  - **Acquisition / cession de bien** (notaire, frais d'agence, prix de vente) — hors résultat foncier (plus-value = régime séparé).
+  - **CCA / distribution SCI** (apport, retrait, distribution de résultat) — niche mais l'app vise les SCI.
+  - **Virement interne (non déclarable)** — voir sous-chantier rapprochement ci-dessous.
+  - **Régularisation de solde locataire** (remboursement OU complément, **sens variable**) — distincte de la provision de charges, évite le double-compte avec le module régul.
+- **Niveau par défaut** : `Frais de gestion / honoraires` suggérer **immeuble** (mandat global), pas logement — surchargeable.
+
+### Chantier C (import → liste → split) — ajustements
+- **🔴 Refonte du split mono-sens → multi-sens.** Le réel `confirmSplitMvList` (l.13571) force **toutes les lignes au même sens** que le mouvement (`_spMvSens`), équilibre sur somme à plat ; l'objet mouvement n'a pas de champ `sens`. Le modèle maquette (N lignes **signées**, `Σcr − Σdb = net bancaire`) est la **bonne** cible mais c'est une **vraie refonte** de `_spMvRows`/`confirmSplitMvList`, pas un portage. **Prérequis du relevé de gérance.**
+- **Seed split « prêt »** (capital non déductible / intérêts 250 / assurance) alimenté par un **échéancier** — dépend d'un modèle d'échéancier de prêt. *À arbitrer : dans C ou sujet backlog séparé (cf. ci-dessous).*
+- **Seed split « restitution DG partielle »** (DG restitué hors résultat + retenue imposable/imputée travaux).
+
+### Nouveau — Compte bancaire = périmètre (s'insère dans l'import / Chantier C)
+- **Les comptes existent déjà** : `DB.params.bankAccounts[]`, objet `{id,label,type,identifiers[],createdAt,lastImport}` (`index.html:42818`). Socle réutilisable.
+- **À ajouter** : un champ `scope:{niv:'sci'|'imm'|'log', cible}` sur l'objet compte + une **UI de réglage** dans le manager `_bankAccountsRender` (l.42844, qui ne fait aujourd'hui que renommer/reset/supprimer).
+- **Reconnaissance par l'identifiant de compte** : `ACCTID`/`BANKID` (OFX, `bank-import.js:463`) ou hash d'en-têtes CSV (`_bankCsvHeaderHash`). **PAS l'IBAN** (l'IBAN n'existe que sur `ent.iban`, jamais sur un compte ni dans l'import). ⚠️ corrige une affirmation fausse antérieure.
+- Le scope **pré-filtre** les choix (logements/immeubles/entités) avec échappatoire « voir tout le patrimoine ». **Jamais une règle d'auto-catégorisation** — l'utilisateur confirme chaque mouvement.
+
+### Réconciliation modèle de données (pour porter la maquette en prod)
+- Maquette = arbre `ENT[{imms:[{logs}]}]`. Réel = `DB.entites[]` (immeubles **nichés** `ent.immeubles[]`) + `DB.logements[]` **plat**, rattaché par **chaînes de noms** (`l.imm` / `l.entity`, pas d'ID). `findImm`/`scopeLogs` doivent matcher sur les noms.
+- Champs : `loc` → `locataire` ; `hc`/`ch` OK ; **`caf` n'existe pas** (à dériver du bail/APL).
+- Niveaux : logement `qui=<ref>` · SCI `qui="SCI:<nom>"` · immeuble `qui=""` + `imm` (le fix A fait lire `m.imm`).
+- Compteurs : `cle` → `cleRepartition` (clés **machine sans accent** : `tantiemes`/`surface`/`forfait`/`proportionnel`/`sous-compteurs`), dans `ent.immeubles[i].compteursCollectifs[]`, lié par `mv.compteurCcId` (exclusif avec `qui`).
+
+### Sujets potentiellement à détacher (à arbitrer avec le user)
+Assez lourds pour mériter leur propre piste, pour ne pas gonfler la refonte loyers :
+- **Échéancier de prêt** (auto-ventilation capital/intérêts/assurance des échéances). À vérifier : un modèle de prêt existe-t-il déjà ?
+- **Rapprochement de virements internes** (lier les 2 mouvements jumeaux d'un transfert entre comptes pour les neutraliser) — mécanisme **net-neuf**, rien dans le code.
+
 ## Questions ouvertes (résolues / restantes)
 - ~~Q1 formats banque~~ → tranché : OFX + modèle CSV par banque si besoin.
-- **Q2 — Découpe multi-biens** : Split ✂️ existe — vérifier articulation avec le sélecteur piloté-catégorie.
-- **Q3 — Normalisation niveau immeuble** dans le modèle (`imm` + `qui=""` vs un `qui="IMM:<nom>"` explicite ?) à figer avant implé, en lien avec le fix #2.
+- ~~Q2 — Découpe multi-biens~~ → **tranché par l'audit** : le split réel est mono-sens ; il faut le **refondre en multi-sens signé** (Σcr−Σdb=net) pour couvrir relevé de gérance / prêt / restitution DG. Acté dans Chantier C.
+- ~~Q3 — Normalisation niveau immeuble~~ → **tranché** : on **garde** la convention existante `qui=""` + `imm` (pas de `qui="IMM:<nom>"`). Le Chantier A fait lire `m.imm` au module ; l'agent cohérence a confirmé que c'est la convention réelle.
+- **Q4 (nouvelle) — Prêt & virement interne** : dans le scope de cette refonte (seed split prêt + rapprochement) ou sujets backlog séparés ? *À arbitrer.*
 
 ## Journal
 - **2026-06-05 (suite 6 — audit pré-prod par 3 agents : ce qu'on a oublié)** : avant d'écrire le code prod, 3 agents lancés en parallèle (fiscal / complétude des mouvements / cohérence app réelle). Findings majeurs :
