@@ -140,6 +140,23 @@
   .rdest.t{background:var(--ok-bg);color:var(--ok)} .rdest.r{background:var(--vio-bg);color:var(--vio)}
   .rdest.n{background:var(--bg);color:var(--t3);border:1px solid var(--bd2)}
 
+  /* ---- Sélecteur de logement scopé + cherchable (tient 180 lots) ---- */
+  .combo{position:relative}
+  .combo-btn{display:flex;justify-content:space-between;align-items:center;gap:6px;text-align:left;cursor:pointer;width:100%}
+  .combo-btn .cv{color:var(--t3);flex:0 0 auto}
+  .combo-btn .lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .combo-pop{margin:8px 0 2px;background:var(--bg);border:1px solid var(--bd2);border-radius:10px;padding:8px;max-height:250px;overflow:auto}
+  .combo-search{width:100%;padding:8px 10px;border:1px solid var(--bd2);border-radius:8px;background:var(--inp);
+    color:var(--t1);font-size:13px;font-family:inherit}
+  .combo-search:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-bg)}
+  .combo-count{font-size:10.5px;color:var(--t3);font-weight:600;margin:7px 2px 2px}
+  .combo-grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--t2);font-weight:700;
+    margin:7px 2px 3px;border-top:1px solid var(--bd);padding-top:6px}
+  .combo-opt{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--t1);
+    padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px}
+  .combo-opt:hover{background:var(--pri-bg);color:var(--pri)}
+  .combo-empty,.combo-more{font-size:11.5px;color:var(--t3);padding:6px 9px}
+
   /* ---- Autres options (repliable) ---- */
   .opts{margin-top:16px;border-top:1px solid var(--bd);padding-top:6px}
   .opts > summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--t2);list-style:none;
@@ -296,6 +313,15 @@ const ENT = [
       { nom:'Metz Gare', logs:[ {ref:'MZ-3A', loc:'Jean Petit', hc:700, ch:90, caf:300} ], ccs:[] },
   ]},
 ];
+// Gros parc géré (≈180 lots) : prouve que le sélecteur de logement tient la charge
+// (scope sur l'immeuble du mouvement + recherche), jamais une liste à plat de tout le patrimoine.
+(function(){
+  const noms=['Martin','Bernard','Dubois','Petit','Durand','Moreau','Laurent','Simon','Garcia','Roux',
+    'Vincent','Fournier','Girard','Bonnet','Lambert','Rousseau','Blanc','Guérin','Muller','Henry'];
+  const big={nom:'Les Tilleuls (parc géré)', logs:[], ccs:[{nom:'Eau froide générale', cle:'tantièmes'}]};
+  for(let i=1;i<=180;i++) big.logs.push({ref:'T-'+String(i).padStart(3,'0'), loc:noms[i%noms.length], hc:380+(i%10)*15, ch:45, caf:0});
+  ENT[0].imms.push(big);
+})();
 // Métadonnées catégorie : ligne 2044, type, niveau suggéré, récupérable possible
 const CATMETA = {
   'Loyers encaissés':                         {l:'211', t:'recette', niv:'log'},
@@ -339,7 +365,7 @@ function setMode(m){
   // explainer contextuel
   $('explain').innerHTML = m==='aff'
     ? `<b>Affecter :</b> on choisit d'abord <b>ce que c'est</b> (la catégorie). Selon elle, l'app sait où ça va et ne pose qu'<b>une</b> question ciblée — jamais la liste de tous les logements. Le bandeau du bas montre en direct <b>où la ligne atterrit</b> (ta 2044, ou la régularisation des locataires).`
-    : `<b>Découper :</b> un seul virement peut mêler <b>plusieurs biens, plusieurs locataires et les deux sens</b> — typiquement un <b>relevé de gérance</b> : loyers encaissés en <b>crédit</b>, frais de gestion / GLI / PNO en <b>débit</b>. Chaque ligne porte sa catégorie <b>et son affectation</b> (SCI / immeuble / logement) ; l'équilibre se fait sur le <b>net</b> = crédits − débits.`;
+    : `<b>Découper :</b> un seul virement peut mêler <b>plusieurs biens, plusieurs locataires et les deux sens</b> — typiquement un <b>relevé de gérance</b> : loyers encaissés en <b>crédit</b>, frais de gestion / GLI / PNO en <b>débit</b>. Chaque ligne porte sa catégorie <b>et son affectation</b> (SCI / immeuble / logement) ; l'équilibre se fait sur le <b>net</b> = crédits − débits. Le choix du logement est <b>filtré sur l'immeuble du mouvement et cherchable</b> (réf. ou locataire) — il tient même un parc de 180 lots.`;
   render();
 }
 
@@ -358,7 +384,7 @@ function renderAff(){
   h += `</div>`;
   if(niv==='sci') h += `<select class="inp" onchange="cur.ent=this.value;renderAff()">`+ENT.map(e=>`<option${e.nom===cur.ent?' selected':''}>${e.nom}</option>`).join('')+`</select>`;
   if(niv==='imm') h += `<select class="inp" onchange="cur.imm=this.value;renderAff()">`+ENT.flatMap(e=>e.imms).map(i=>`<option${i.nom===cur.imm?' selected':''}>${i.nom}</option>`).join('')+`</select>`;
-  if(niv==='log') h += `<select class="inp" onchange="cur.log=this.value;renderAff()">`+allLogs().map(l=>`<option value="${l.ref}"${l.ref===cur.log?' selected':''}>${l.ref} — ${l.loc} · ${l.imm}</option>`).join('')+`</select>`;
+  if(niv==='log') h += `<div class="combo">`+comboBtn('aff', cur.log)+(combo&&combo.key==='aff'?comboPanel():'')+`</div>`;
   if(niv==='imm' && m.t==='charge'){
     const im=findImm(cur.imm);
     if(im && im.ccs.length) h += `<div class="recup"><label class="row"><input type="checkbox" ${cur.recup?'checked':''} onchange="cur.recup=this.checked;renderAff()"><span>Cette charge se récupère sur les locataires<span class="hint">→ je la répartis via un compteur collectif au lieu de la déduire aux impôts</span></span></label></div>`;
@@ -388,8 +414,9 @@ function destHtml(m){
 function defCible(k){ return k==='sci' ? (cur.ent||ENT[0].nom)
   : k==='imm' ? (cur.imm||ENT[0].imms[0].nom) : (cur.log||allLogs()[0].ref); }
 function setRowSens(j,s){ spRows[j].sens=s; renderSplit(); }
-function setRowNiv(j,k){ const r=spRows[j]; r.niv=k; r.cible=defCible(k); renderSplit(); }
+function setRowNiv(j,k){ combo=null; const r=spRows[j]; r.niv=k; r.cible=defCible(k); renderSplit(); }
 function setRowCat(j,v){
+  combo=null;
   const r=spRows[j]; r.cat=v; const cm=CATMETA[v]||{};
   if(cm.niv){ r.niv=cm.niv; r.cible=defCible(cm.niv); }
   r.sens = (cm.t==='recette') ? 'cr' : 'db';   // recette→crédit ; charge/intérêt/récup→débit
@@ -418,6 +445,49 @@ function rowDest(r){
             return `<span class="rdest t">→ 2044·${cm.l} · ${s} · ${where}</span>`; }
   return `<span class="rdest n">→ hors 2044</span>`;
 }
+
+/* ---- Sélecteur de logement scopé + cherchable (key = 'aff' ou 'sp:<j>') ----
+   Jamais une liste à plat : filtré par défaut sur l'immeuble du mouvement (cur.imm),
+   recherche par réf. OU locataire, groupé par immeuble. Tient 180 lots. */
+let combo = null; // { key, q } quand un picker est ouvert
+const logByRef = ref => allLogs().find(x=>x.ref===ref);
+function logLabel(ref){ const l=logByRef(ref); return l ? `${l.ref} — ${l.loc}` : (ref||'Choisir un logement…'); }
+function comboBtn(key, ref){
+  return `<button type="button" class="inp combo-btn" onclick="toggleCombo('${key}')"><span class="lab">${logLabel(ref)}</span><span class="cv">▾</span></button>`;
+}
+function comboPanel(){
+  return `<div class="combo-pop">
+    <input class="combo-search" id="combosearch" placeholder="🔍 Réf. (ex : T-150) ou nom du locataire…" oninput="combo.q=this.value;fillComboList()">
+    <div class="combo-list" id="combolist"></div></div>`;
+}
+function toggleCombo(key){
+  combo = (combo && combo.key===key) ? null : { key, q:'' };
+  if(mode==='aff') render(); else renderSplit();
+  if(combo) setTimeout(()=>{ const s=$('combosearch'); if(s) s.focus(); fillComboList(); }, 0);
+}
+function fillComboList(){
+  if(!combo) return;
+  const q = (combo.q||'').toLowerCase().trim();
+  const scope = cur.imm;                                   // immeuble du mouvement = contexte par défaut
+  const filt = allLogs().filter(l => (`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes(q));
+  const byImm = {}; filt.forEach(l => { (byImm[l.imm] = byImm[l.imm]||[]).push(l); });
+  const imms = Object.keys(byImm).sort((a,b) => a===scope?-1 : b===scope?1 : a.localeCompare(b));
+  let h = `<div class="combo-count">${filt.length} logement(s)${q?` pour « ${combo.q} »`:` · l'immeuble du mouvement est proposé en premier`}</div>`;
+  if(!filt.length) h += `<div class="combo-empty">Aucun résultat — vérifie la réf. ou le nom</div>`;
+  imms.forEach(im => {
+    h += `<div class="combo-grp">${im===scope?'📍 ':''}${im} <span class="mu">(${byImm[im].length})</span></div>`;
+    byImm[im].slice(0,30).forEach(l => { h += `<button type="button" class="combo-opt" onclick="chooseLog('${l.ref}')"><b>${l.ref}</b> — ${l.loc}</button>`; });
+    if(byImm[im].length>30) h += `<div class="combo-more">+ ${byImm[im].length-30} autres — précise ta recherche</div>`;
+  });
+  const el = $('combolist'); if(el) el.innerHTML = h;
+}
+function chooseLog(ref){
+  if(!combo) return;
+  const key = combo.key; combo = null;
+  if(key==='aff'){ cur.log = ref; render(); }
+  else { const j = +key.split(':')[1]; if(spRows[j]) spRows[j].cible = ref; renderSplit(); }
+}
+
 function seedSplit(method){
   spMethod = method;
   const im = findImm(cur.imm) || ENT[0].imms[0];
@@ -472,8 +542,9 @@ function renderSplit(){
       <div class="sp-card-aff">
         <select class="inp" onchange="setRowCat(${j},this.value)">${cats.map(c=>`<option ${c===r.cat?'selected':''}>${c}</option>`).join('')}</select>
         ${nivMini(j)}
-        ${cibleSelect(j)}
+        ${r.niv==='log' ? `<div class="combo">${comboBtn('sp:'+j, r.cible)}</div>` : cibleSelect(j)}
       </div>
+      ${(combo && combo.key==='sp:'+j) ? comboPanel() : ''}
       <div class="sp-dest">${rowDest(r)}</div>
     </div>`).join('');
   balance();
