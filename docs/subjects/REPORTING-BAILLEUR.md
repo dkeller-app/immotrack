@@ -1,9 +1,9 @@
 # REPORTING-BAILLEUR — Onglet Finances (analyse) + correctif widget Projection dashboard
 
-**Status** : ⬜ Spec écrite (à valider user) · **Prio** : P1 · **Taille** : L (1 session, sandbox)
+**Status** : ✅ Spec validée (mockup validé user 2026-06-05) — prête pour plan d'implémentation · **Prio** : P1 · **Taille** : L (1 session, sandbox)
 **Lié à** : DASH-REFONTE-GLOBALE-V4 (refonte visuelle, retire déjà la projection du bandeau KPI), LEGAL-2044, LEGAL-BILAN-ANNUEL, EXPORT-COMPTABLE, PILOTAGE-MATRICIEL, `project_dashboard_onescreen.md`
 **Sandbox-first** : `index-test.html` uniquement, prod (`index.html`) après OK explicite user
-**Référence mockup** : `mockups/finances/global.html` (vue Finances = direction validée ; partie « refonte dashboard » du mockup ABANDONNÉE — voir Genèse)
+**Référence mockup** : `mockups/finances/finances-tab.html` (mockup Finances ciblé, **validé user 2026-06-05**). Ancien `mockups/finances/global.html` = obsolète (contenait la refonte dashboard ABANDONNÉE — voir Genèse).
 
 ---
 
@@ -54,10 +54,8 @@ remplacé par **« Loyers : attendu vs encaissé »** :
 - Cumul sur l'année : **X € attendu / Y € encaissé**, écart affiché en clair (ex. −11 600 €).
 - **Aucun montant futur inventé** : on compare un objectif connu à ce qui rentre vraiment.
 - Réutilise les calculs déjà faits (`_loyerHCAtDate`, `_loyerProrataMois`, séries du hero `_heroCashflowSeries`). **Pas de nouvelle logique métier.**
-- **Clic → drill-down qui explique l'écart** (vacance / impayés / IRL non appliqués), avec un bouton **« Analyser dans Finances → »**. *(défaut retenu — reco ① ; corrigeable)*
+- **Clic → drill-down impayés/encaissements qui explique l'écart** (vacance / impayés / IRL non appliqués), avec un bouton **« Analyser dans Finances → »**. ✅ **Tranché 2026-06-05** : drill opérationnel + bouton Finances (option a). Respecte la règle d'or (le clic reste opérationnel, ne capte pas vers Finances).
 - Compatible avec DASH-REFONTE-GLOBALE-V4 qui prévoit déjà de retirer « Projection » du bandeau KPI (CP3 liste Vacance à la place).
-
-> **À confirmer ① — clic du widget** : (a) drill + bouton vers Finances *(reco)* · (b) va direct dans Finances · (c) drill seul.
 
 ### Partie 2 — Onglet Finances (= ta « vue A »)
 
@@ -67,9 +65,7 @@ Nouvelle page d'**analyse** qui **agrège des calculs existants** (valeur = cons
 2. **Compte de résultat** (tableau) : loyers HC − charges propriétaire détaillées (intérêts d'emprunt, taxe foncière, travaux, honoraires/copro, assurance PNO) = résultat net. **Charges récupérables neutres** (le locataire rembourse → exclues du calcul, honnêteté comptable).
 3. **Ratios de pilotage** (sans jargon, sans donnée nouvelle, pas de TRI/DSCR) : rendement net · taux d'occupation · taux de recouvrement · poids des charges.
 4. **Argent à récupérer** : vacance · impayés · IRL non appliqués · régul à faire — chiffré (ex. 11 530 € au total). **Chaque ligne cliquable → page opérationnelle** correspondante (impayé→suivi, IRL→révision, régul→régul, vacance→biens). **Jamais de surplace dans Finances** = applique la règle d'or.
-5. **Passerelles déclaratives** : 2044 / Bilan annuel / FEC. **Réutilise** `_compute2044`, `_computeBilanAnnuel`, `_buildEcritures`/`_toFEC` (déjà dans p-export). **Pas de recalcul.**
-
-> **À confirmer ② — exports** : (a) Finances affiche les boutons appelant les mêmes fonctions, Export reste en parallèle *(reco — pas de doublon de logique, pas de restructuration nav)* · (b) Finances pointe vers l'onglet Export · (c) Finances absorbe Export (gros chantier nav à part).
+5. **Passerelles déclaratives** : 2044 / Bilan annuel / FEC. **Réutilise** `_compute2044`, `_computeBilanAnnuel`, `_buildEcritures`/`_toFEC` (déjà dans p-export). **Pas de recalcul.** ✅ **Tranché 2026-06-05 (via mockup)** : Finances affiche les **boutons appelant les mêmes fonctions** (option a) ; la page Export reste en parallèle. Pas de doublon de logique, pas de restructuration nav. Note UI dans le mockup : « Ces exports réutilisent les calculs déjà présents dans la page Export — Finances ne fait que les rassembler ici (pas de recalcul). »
 
 ### Partie 3 — Place dans la navigation
 
@@ -107,8 +103,8 @@ Nouvelle page d'**analyse** qui **agrège des calculs existants** (valeur = cons
 ## Décisions captées
 
 - **Q (projection)** : remplacer « Projection 2026 » par quoi ? → **« Loyers : attendu vs encaissé »** (cumul année, pas d'extrapolation). ✅ tranché user.
-- **Q1 (clic widget)** : drill + bouton Finances / direct Finances / drill seul ? → **défaut : drill + bouton** (reco), à confirmer.
-- **Q2 (exports)** : boutons dans Finances / lien vers Export / absorption ? → **défaut : boutons dans Finances réutilisant les fonctions** (reco), à confirmer.
+- **Q1 (clic widget) ①** : drill + bouton Finances / direct Finances / drill seul ? → **drill opérationnel impayés/encaissements + bouton « Analyser dans Finances »**. ✅ tranché 2026-06-05.
+- **Q2 (exports) ②** : boutons dans Finances / lien vers Export / absorption ? → **boutons dans Finances réutilisant les fonctions existantes** ; page Export conservée en parallèle. ✅ tranché 2026-06-05 (via mockup validé).
 - **Q3 (Finances vs Pilotage)** : fusionner ? → **Non, distincts** (analyse vs opérationnel).
 
 ---
@@ -122,7 +118,9 @@ Nouvelle page d'**analyse** qui **agrège des calculs existants** (valeur = cons
 
 ## Journal
 
-- 2026-06-05 : spec écrite après recadrage user (abandon de la refonte dashboard du mockup global ; scope resserré à : 1 widget dashboard + onglet Finances analyse). Mockup vue Finances = `mockups/finances/global.html#view-fin`. Décision projection tranchée (attendu vs encaissé). Restent à confirmer : clic widget (①) et exports (②).
+- 2026-06-05 : spec écrite après recadrage user (abandon de la refonte dashboard du mockup global ; scope resserré à : 1 widget dashboard + onglet Finances analyse). Décision projection tranchée (attendu vs encaissé).
+- 2026-06-05 : mockup Finances ciblé `mockups/finances/finances-tab.html` **validé user** (« ton mockup est bien je valide »). ① (clic widget → drill opérationnel + bouton Finances) et ② (exports = boutons dans Finances réutilisant les fonctions) **tranchés**. Spec passée en ✅ validée, prête pour writing-plans.
+- 2026-06-05 : aparté CRG « mode gestionnaire » capturé séparément → `docs/subjects/GESTION-CRG.md` (P0 V1.1, distinct de ce sujet).
 
 ---
 
@@ -134,7 +132,7 @@ On attaque REPORTING-BAILLEUR — onglet Finances (analyse) + remplacement du wi
 LIRE EN PREMIER (dans cet ordre) :
 1. C:\Users\Did_K\Desktop\Immo\BACKLOG.md
 2. C:\Users\Did_K\Desktop\Immo\docs\subjects\REPORTING-BAILLEUR.md (ce sujet)
-3. C:\Users\Did_K\Desktop\Immo\mockups\finances\global.html (vue #view-fin = direction validée pour Finances)
+3. C:\Users\Did_K\Desktop\Immo\mockups\finances\finances-tab.html (mockup Finances VALIDÉ user)
 4. C:\Users\Did_K\Desktop\Immo\index-test.html sections :
    - widget projection : grep "_projectionLogement", "_openDD('projection')", "k5" (≈ lignes 7702-7930)
    - hero / séries : "_heroCashflowSeries", "_loyerHCAtDate", "_loyerProrataMois"
@@ -151,7 +149,7 @@ CONTEXTE / RÈGLES :
 - Réutiliser les helpers, ne rien réécrire
 - Responsive 3 formats après validation direction
 - Figures financières → audit code-reviewer avant « prêt à tester »
-- À confirmer avec user au démarrage : clic widget attendu/encaissé (①) + exports (②)
+- Décisions déjà tranchées : ① clic widget attendu/encaissé → drill opérationnel impayés/encaissements + bouton « Analyser dans Finances » · ② exports = boutons DANS Finances réutilisant `_compute2044`/`_computeBilanAnnuel`/`_buildEcritures`/`_toFEC` (page Export conservée en parallèle)
 
-Démarre par lire les fichiers/sections, fais un résumé 5 lignes (scope + plan), confirme ① et ②, puis attends mon GO avant de coder.
+Démarre par lire les fichiers/sections, fais un résumé 5 lignes (scope + plan), puis attends mon GO avant de coder.
 ```
