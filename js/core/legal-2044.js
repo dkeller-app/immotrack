@@ -91,6 +91,13 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
       const amt = (m.db || 0) - (m.cr || 0);
       lignes[ligne] += amt;
       totalInterets += amt;
+    } else if (std.type === 'deduction') {
+      // Régularisation N-1 des provisions de copropriété (ligne 230). Notice 2044 :
+      // ligne 240 = (221..229) − 230. La régul VIENT EN DÉDUCTION des charges. Le montant
+      // est saisi en débit (db) côté mouvement mais se SOUSTRAIT du total des charges.
+      const amt = (m.db || 0) - (m.cr || 0);
+      lignes[ligne] += amt;
+      totalCharges -= amt;
     }
     comptes[ligne]++;
   });
@@ -162,7 +169,7 @@ export function _format2044Recap(result, opts = {}) {
   if (result.lignes['226'] != null) lines.push('  Ligne 226 (Indemnités d\'éviction)                : ' + fmt(result.lignes['226']).padStart(15));
   if (result.lignes['227'] != null) lines.push('  Ligne 227 (Taxe foncière + taxes annexes)        : ' + fmt(result.lignes['227']).padStart(15));
   if (result.lignes['229'] != null) lines.push('  Ligne 229 (Provisions copropriété)               : ' + fmt(result.lignes['229']).padStart(15));
-  if (result.lignes['230'] != null) lines.push('  Ligne 230 (Régul N-1 provisions copro)           : ' + fmt(result.lignes['230']).padStart(15));
+  if (result.lignes['230'] != null) lines.push('  Ligne 230 (Régul N-1 provisions copro, à DÉDUIRE): − ' + fmt(result.lignes['230']).padStart(13));
   lines.push('  ─────────────────────────────────────────────────');
   lines.push('  Total charges déductibles                        : ' + fmt(result.totalCharges).padStart(15));
   lines.push('');
@@ -205,7 +212,7 @@ export function _2044ToCsv(result) {
     '226': 'Indemnités d\'éviction',
     '227': 'Taxe foncière + taxes annexes',
     '229': 'Provisions pour charges de copropriété',
-    '230': 'Régularisation provisions copro N-1',
+    '230': 'Régularisation provisions copro N-1 (à déduire des charges)',
     '250': 'Intérêts d\'emprunt + frais'
   };
   Object.keys(result.lignes).sort().forEach(ligne => {

@@ -11,6 +11,7 @@ const STD_CATEGORIES = [
   { nom: 'Charges récupérables non récupérées', ligne2044: '225', type: 'charge' },
   { nom: 'Taxe foncière (et taxes annexes)', ligne2044: '227', type: 'charge' },
   { nom: 'Provisions pour charges de copropriété', ligne2044: '229', type: 'charge' },
+  { nom: 'Régularisation provisions copro N-1', ligne2044: '230', type: 'deduction' },
   { nom: 'Prêt — Intérêts d\'emprunt', ligne2044: '250', type: 'interet' },
   { nom: 'Prêt — Capital remboursé', ligne2044: '', type: 'special' }
 ];
@@ -196,6 +197,37 @@ describe('_compute2044 — charges immeuble / forfait 222 / part bailleur 225', 
     expect(r.lignes['225']).toBe(90);
     expect(r.totalCharges).toBe(630);
     expect(r.resultatFoncier).toBe(1370);
+  });
+});
+
+describe('_compute2044 — ligne 230 (régularisation provisions copro N-1 = DÉDUCTION)', () => {
+  // Notice 2044 : ligne 240 = (221..229) − 230. La régularisation N-1 des provisions de
+  // copropriété VIENT EN DÉDUCTION des charges déductibles (elle reprend la part déjà
+  // déduite l'an passé qui s'est avérée couvrir des charges non déductibles / récupérables).
+  // Bug historique : 230 typée 'charge' → s'AJOUTAIT aux charges (~1000 € d'erreur sur le
+  // résultat foncier pour une régul de 500 €). Doit se SOUSTRAIRE.
+  it('réduit le total des charges (et non l\'augmente)', () => {
+    const mvts = [
+      { date: '2026-01-15', cat: 'Loyers encaissés', cr: 2000 },
+      { date: '2026-02-10', cat: 'Provisions pour charges de copropriété', db: 600 },
+      { date: '2026-03-10', cat: 'Régularisation provisions copro N-1', db: 500 }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES);
+    expect(r.lignes['229']).toBe(600);
+    expect(r.lignes['230']).toBe(500);
+    expect(r.totalCharges).toBe(100);      // 600 − 500
+    expect(r.resultatFoncier).toBe(1900);  // 2000 − 100
+  });
+
+  it('régul seule sans autre charge → charges négatives (cas réel : trop-perçu N-1)', () => {
+    const mvts = [
+      { date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 },
+      { date: '2026-03-10', cat: 'Régularisation provisions copro N-1', db: 300 }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES);
+    expect(r.lignes['230']).toBe(300);
+    expect(r.totalCharges).toBe(-300);
+    expect(r.resultatFoncier).toBe(1300);  // 1000 − (−300)
   });
 });
 
