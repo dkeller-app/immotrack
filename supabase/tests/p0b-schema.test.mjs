@@ -30,11 +30,18 @@ async function inspect(name) {
            from unnest(con.conkey) as k
            join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k
          ) = array['espace_id','id']`, [name])
+    const trg = await c.query(
+      `select 1 from pg_trigger tg
+       join pg_class cl on cl.oid = tg.tgrelid
+       join pg_namespace n on n.oid = cl.relnamespace
+       where n.nspname='public' and cl.relname=$1
+         and tg.tgname='trg_freeze_espace_id' and not tg.tgisinternal`, [name])
     return {
       exists: meta.rowCount === 1,
       row: meta.rows[0],
       cols: new Set(cols.rows.map(r => r.column_name)),
       hasIdEspaceUnique: uniq.rowCount >= 1,
+      hasFreezeTrigger: trg.rowCount >= 1,
     }
   } finally { await c.end() }
 }
@@ -56,6 +63,9 @@ describe('P0-B — schéma & RLS des tables métier', () => {
       })
       it('contrainte unique (id, espace_id) pour FK composite', async () => {
         expect((await inspect(table)).hasIdEspaceUnique).toBe(true)
+      })
+      it('trigger trg_freeze_espace_id (espace_id immuable)', async () => {
+        expect((await inspect(table)).hasFreezeTrigger).toBe(true)
       })
     })
   }

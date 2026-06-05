@@ -67,3 +67,22 @@ describe('P0-B — écriture isolée par table', () => {
     })
   }
 })
+
+describe('P0-B — immutabilité de espace_id (anti-kidnapping cross-tenant, SEV-1)', () => {
+  it('même en service-role, on ne peut PAS déplacer une ligne vers un autre espace', async () => {
+    // Le trigger freeze_espace_id (0009) s'applique même au service_role (bypassrls ne
+    // contourne pas les triggers). Pour chaque table semée, tenter de réécrire espace_id
+    // vers l'espace de Bob → doit lever ESPACE_ID_IMMUTABLE. Générique : couvre toutes les
+    // tables de BUSINESS_TABLES au fil de l'extension de seedChain (T2-T5).
+    const { adminClient } = await import('./helpers/clients.mjs')
+    const admin = adminClient()
+    for (const table of BUSINESS_TABLES) {
+      const { data: rows } = await admin.from(table).select('id').eq('espace_id', espaceA).limit(1)
+      if (!rows || rows.length === 0) continue   // table non encore semée à ce stade
+      const { error } = await admin.from(table)
+        .update({ espace_id: espaceB }).eq('id', rows[0].id)
+      expect(error, `${table} doit refuser le changement d'espace_id`).not.toBeNull()
+      expect(error.message, table).toMatch(/ESPACE_ID_IMMUTABLE/)
+    }
+  })
+})
