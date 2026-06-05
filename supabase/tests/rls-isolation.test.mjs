@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createUser, userClient, deleteUserByEmail } from './helpers/clients.mjs'
 
-const A = { email: 'p0a-alice@example.test', pass: 'Test-Passw0rd!A' }
-const B = { email: 'p0a-bob@example.test',   pass: 'Test-Passw0rd!B' }
+// Emails uniques par run : indépendance totale vis-à-vis d'un reliquat (crash d'un run
+// précédent) ou d'une session concurrente — l'Auth Supabase réserve un email quelques
+// instants après un delete (cohérence éventuelle), donc on ne réutilise jamais le même.
+const RUN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+const A = { email: `p0a-alice-${RUN}@example.test`, pass: 'Test-Passw0rd!A' }
+const B = { email: `p0a-bob-${RUN}@example.test`,   pass: 'Test-Passw0rd!B' }
 // Carol = propriétaire en gestion déléguée (rôle 'proprietaire', D13) dans l'espace d'Alice.
-const C = { email: 'p0a-carol@example.test', pass: 'Test-Passw0rd!C' }
+const C = { email: `p0a-carol-${RUN}@example.test`, pass: 'Test-Passw0rd!C' }
 
 let clientA, clientB, clientC
 let espaceA, espaceB        // ids
@@ -117,5 +121,54 @@ describe('anti auto-escalade & dernier owner', () => {
     const { error } = await admin.from('espace_members').delete().eq('id', memberA_id)
     expect(error).not.toBeNull()
     expect(error.message).toMatch(/LAST_OWNER_PROTECTED/)
+  })
+  it('on ne peut pas RÉTROGRADER le dernier owner (downgrade de rôle, service-role)', async () => {
+    // Voie d'évasion alternative à DELETE : passer le dernier owner en lecture_seule.
+    const { adminClient } = await import('./helpers/clients.mjs')
+    const admin = adminClient()
+    const { error } = await admin.from('espace_members')
+      .update({ role: 'lecture_seule' }).eq('id', memberA_id)
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/LAST_OWNER_PROTECTED/)
+  })
+  it('on ne peut pas DÉSACTIVER le dernier owner (invite_status=revoked, service-role)', async () => {
+    // Voie d'évasion : garder le rôle owner mais révoquer l'appartenance active.
+    const { adminClient } = await import('./helpers/clients.mjs')
+    const admin = adminClient()
+    const { error } = await admin.from('espace_members')
+      .update({ invite_status: 'revoked' }).eq('id', memberA_id)
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/LAST_OWNER_PROTECTED/)
+  })
+})
+
+describe('immutabilité identité ligne membre (SEV-1, anti-kidnapping)', () => {
+  it('un owner ne peut PAS déplacer un membre vers un autre espace (espace_id figé)', async () => {
+    // Carol est membre de l'espace d'Alice ; Alice (owner) tente de la « kidnapper » vers espaceB.
+    const { data: carolRow } = await clientA.from('espace_members')
+      .select('id').eq('espace_id', espaceA).eq('user_id', carolId).single()
+    const { error } = await clientA.from('espace_members')
+      .update({ espace_id: espaceB }).eq('id', carolRow.id)
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/ESPACE_ID_IMMUTABLE/)
+  })
+  it('un owner ne peut PAS réassigner une ligne membre à un autre user (user_id figé)', async () => {
+    const { data: carolRow } = await clientA.from('espace_members')
+      .select('id').eq('espace_id', espaceA).eq('user_id', carolId).single()
+    const { data: bob } = await clientB.auth.getUser()
+    const { error } = await clientA.from('espace_members')
+      .update({ user_id: bob.user.id }).eq('id', carolRow.id)
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/USER_ID_IMMUTABLE/)
+  })
+  it('même en service-role, on ne peut PAS NULLer le user_id du dernier owner', async () => {
+    // Contournement « dernier owner par user_id→NULL » explicitement pointé à l'audit :
+    // le freeze (alphabétiquement avant protect_last_owner) le bloque AVANT tout comptage.
+    const { adminClient } = await import('./helpers/clients.mjs')
+    const admin = adminClient()
+    const { error } = await admin.from('espace_members')
+      .update({ user_id: null }).eq('id', memberA_id)
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/USER_ID_IMMUTABLE/)
   })
 })
