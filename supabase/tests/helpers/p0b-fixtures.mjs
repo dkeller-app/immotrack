@@ -3,6 +3,8 @@
 export const BUSINESS_TABLES = [
   'entites',
   'immeubles',
+  'logements',
+  'documents',
 ]
 
 // Sème une chaîne métier complète DANS un espace donné, via un client authentifié
@@ -19,5 +21,13 @@ export async function seedChain(client, espaceId) {
   }
   ids.entite   = await ins('entites',   { nom: `Entité ${tag}` })
   ids.immeuble = await ins('immeubles', { entite_id: ids.entite, nom: `Imm ${tag}` })
+  ids.logement = await ins('logements', {
+    entite_id: ids.entite, immeuble_id: ids.immeuble, ref: `F-${tag}`,
+    type: 'appartement', surface: 42, loyer_hc_ref: 700, charges_ref: 100,
+  })
+  ids.document = await ins('documents', {
+    name: 'bail.pdf', mime: 'application/pdf', size: 12345,
+    parent_type: 'immeuble', parent_id: ids.immeuble,
+  })
   return ids
 }
