@@ -487,3 +487,94 @@ describe('helpers motNombre / _normEtage', () => {
     expect(_normEtage('rez - de - chaussée')).toBe('rez-de-chaussée');
   });
 });
+
+// ── OCCUPATION / BAIL REPRIS (2026-06-03) ──────────────────────────────────
+const ACTE_OCCUPE_2LOTS = `
+DÉSIGNATION DES BIENS
+Un immeuble situé à MULHOUSE (68100), 25 avenue du Test.
+ÉTAT LOCATIF
+Les lots numéros 5 et 6 sont actuellement loués à Monsieur LOCATAIRE TEST,
+suivant bail en date du 01/09/2021, moyennant un loyer mensuel de 680 euros,
+outre une provision pour charges de 50 euros et un dépôt de garantie de 680 euros.
+`;
+const ACTE_OCCUPE_PARTIEL = `
+ÉTAT LOCATIF
+Le bien est actuellement loué à Madame DUBOIS TEST suivant bail du 15/03/2023,
+moyennant un loyer de 520 euros.
+`;
+const ACTE_LIBRE = `
+DÉSIGNATION DES BIENS
+Un studio situé à COLMAR (68000), 5 rue Test.
+Le BIEN est vendu libre de toute location et occupation.
+`;
+const ACTE_LOYER_ANNUEL = `
+ÉTAT LOCATIF
+Bien loué à la société TEST suivant bail du 01/01/2020 moyennant un loyer annuel de 7200 euros.
+`;
+
+describe('acteExtract — occupation', () => {
+  it('2 lots loués → 1 occupation complète, lots [5,6]', () => {
+    const o = acteExtract(ACTE_OCCUPE_2LOTS).occupations;
+    expect(o.length).toBe(1);
+    expect(o[0].lots).toEqual([5, 6]);
+    expect(o[0].locataire).toContain('LOCATAIRE TEST');
+    expect(o[0].hc).toBe(680);
+    expect(o[0].ch).toBe(50);
+    expect(o[0].dg).toBe(680);
+    expect(o[0].debut).toBe('2021-09-01');
+  });
+  it('partiel (loyer sans charges)', () => {
+    const o = acteExtract(ACTE_OCCUPE_PARTIEL).occupations;
+    expect(o.length).toBe(1);
+    expect(o[0].hc).toBe(520);
+    expect(o[0].ch).toBeFalsy();
+    expect(o[0].debut).toBe('2023-03-15');
+    expect(o[0].lots).toEqual([]);
+  });
+  it('vendu libre → aucune occupation', () => {
+    expect(acteExtract(ACTE_LIBRE).occupations).toEqual([]);
+  });
+  it('loyer annuel → converti /12 + flag', () => {
+    const o = acteExtract(ACTE_LOYER_ANNUEL).occupations;
+    expect(o[0].hc).toBe(600);
+    expect(o[0]._loyerAnnuel).toBe(true);
+  });
+  it('texte vide → []', () => {
+    expect(acteExtract('').occupations).toEqual([]);
+  });
+});
+
+describe('acteRegroup — rattachement occupation', () => {
+  it('occupation lots [5,6] → rattachée au logement groupé 5+6', () => {
+    const ext = {
+      lots: [{ num: 5, designation: 'appartement' }, { num: 6, designation: 'appartement' }, { num: 7, designation: 'appartement' }],
+      carrez: [{ lots: [5, 6], surf: '60,00' }],
+      occupations: [{ lots: [5, 6], locataire: 'MARTIN TEST', hc: 680, ch: 50, debut: '2021-09-01' }],
+    };
+    const g = acteRegroup(ext);
+    const grouped = g.logements.find(l => l._lots.includes(5) && l._lots.includes(6));
+    expect(grouped.occupation).toBeTruthy();
+    expect(grouped.occupation.locataire).toBe('MARTIN TEST');
+    expect(grouped.occupation._matched).toBe(true);
+    const lot7 = g.logements.find(l => l._lots.length === 1 && l._lots[0] === 7);
+    expect(lot7.occupation).toBeFalsy();
+  });
+  it('occupation sans lot + 1 seul logement → rattachée à ce logement', () => {
+    const ext = {
+      logementsHint: { count: 'un', unit: 'logement' },
+      occupations: [{ lots: [], locataire: 'DUBOIS TEST', hc: 520, debut: '2023-03-15' }],
+    };
+    const g = acteRegroup(ext);
+    expect(g.logements.length).toBe(1);
+    expect(g.logements[0].occupation.locataire).toBe('DUBOIS TEST');
+  });
+  it('occupation sans lot + plusieurs logements → non rattachée + note', () => {
+    const ext = {
+      lots: [{ num: 1, designation: 'appartement' }, { num: 2, designation: 'appartement' }],
+      occupations: [{ lots: [], locataire: 'AMBIGU TEST', hc: 400 }],
+    };
+    const g = acteRegroup(ext);
+    expect(g.logements.every(l => !l.occupation)).toBe(true);
+    expect(g.notes.some(n => /sans lot identifiable/i.test(n))).toBe(true);
+  });
+});
