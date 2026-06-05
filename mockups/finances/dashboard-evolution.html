@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Évolution dashboard — projection &amp; teaser Finances — ImmoTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ImmoTrack — Mockups onglet Finances — CSS partagé (inliné) */
+:root{
+  --bg:#0A0E27;--sur:#141936;--sur2:#1B2147;--bor:rgba(255,255,255,.08);--bor2:rgba(255,255,255,.14);
+  --t1:#F3F5FA;--t2:#A0A8C3;--t3:#6B7395;--acc:#0E73F6;--acc-soft:rgba(14,115,246,.14);
+  --pos:#34D399;--pos-soft:rgba(52,211,153,.14);--neg:#F87171;--neg-soft:rgba(248,113,113,.14);
+  --warn:#FBB040;--warn-soft:rgba(251,176,64,.14);--r:14px;--r-sm:10px;--r-lg:20px;--sh:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--t1);font-family:'Inter','IBM Plex Sans',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;}
+.mono{font-family:'JetBrains Mono','SF Mono',monospace}
+.num{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+.app{display:flex;min-height:100vh}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--bor);background:var(--sur);position:sticky;top:0;z-index:5}
+.tb-bc{flex:1;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--t2)}
+.tb-bc strong{color:var(--t1);font-size:15px;font-weight:700}
+.tb-bc .sep{color:var(--t3)}
+.page{padding:22px;max-width:1320px;width:100%;margin:0 auto}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:18px}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.card-h h3{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.card-h .sub{font-size:11.5px;color:var(--t3);margin-left:auto;font-weight:500}
+.eyebrow{font:700 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.pill{display:inline-flex;align-items:center;gap:4px;font:700 11px/1 'Inter';padding:4px 8px;border-radius:20px}
+.pill.up{background:var(--pos-soft);color:var(--pos)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.info{background:var(--acc-soft);color:#5c8aff}
+.pill.mut{background:var(--sur2);color:var(--t2)}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--bor);stroke-width:1}
+.lbl-x{font:600 9px/1 'Inter';fill:var(--t3)}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--t2);margin-top:10px;flex-wrap:wrap}
+.legend .dot{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+.note{font-size:11.5px;color:var(--t3);margin-top:6px;line-height:1.5}
+.sec-title{font:700 11px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin:26px 0 12px;display:flex;align-items:center;gap:10px}
+.sec-title::after{content:"";flex:1;height:1px;background:var(--bor)}
+.mkb{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:50;background:rgba(20,25,54,.96);border:1px solid var(--bor2);border-radius:30px;padding:8px 18px;font-size:12px;color:var(--t2);box-shadow:var(--sh);display:flex;gap:14px;align-items:center}
+.mkb b{color:var(--t1)}
+.mkb a{color:#5c8aff;text-decoration:none;font-weight:600}
+</style>
+<style>
+  .page{max-width:1180px}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  .tag{display:inline-flex;align-items:center;gap:6px;font:800 11px/1 'Inter';padding:5px 10px;border-radius:7px;margin-bottom:12px}
+  .tag.bad{background:var(--neg-soft);color:var(--neg)}
+  .tag.good{background:var(--pos-soft);color:var(--pos)}
+  .crit{font-size:12px;color:var(--t2);line-height:1.6;margin-top:12px;padding-left:16px}
+  .crit li{margin-bottom:5px}
+  .crit.bad li::marker{content:"✕  ";color:var(--neg)}
+  .crit.good li::marker{content:"✓  ";color:var(--pos)}
+  .crit{list-style:none;padding-left:0}
+  .crit li{position:relative;padding-left:22px}
+  .crit.bad li::before{content:"✕";position:absolute;left:0;color:var(--neg);font-weight:800}
+  .crit.good li::before{content:"✓";position:absolute;left:0;color:var(--pos);font-weight:800}
+  /* widget projection AVANT (reproduit l'esprit de l'actuel) */
+  .oldproj .big{font:800 30px/1 'Manrope';color:var(--t1);margin:8px 0}
+  .oldproj .sub{font-size:12px;color:var(--t3)}
+  .ghostline{height:88px;margin:14px 0;position:relative}
+  .teaser{background:linear-gradient(135deg,var(--acc-soft),transparent);border:1px solid var(--bor2);border-radius:var(--r);padding:18px 20px;display:flex;align-items:center;gap:18px;margin-top:8px}
+  .teaser .ic{width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#0E73F6,#34D399);display:flex;align-items:center;justify-content:center;font-size:24px}
+  .teaser .tx h3{font-size:16px;font-weight:800;margin-bottom:3px}
+  .teaser .tx p{font-size:12.5px;color:var(--t2);line-height:1.5}
+  .teaser .stat{display:flex;gap:22px;margin-left:auto;text-align:right}
+  .teaser .stat .s b{display:block;font:800 20px/1 'Manrope'}
+  .teaser .stat .s s{font-size:10.5px;color:var(--t3);text-decoration:none}
+  .teaser .cta{background:var(--acc);color:#fff;border:none;border-radius:10px;padding:11px 18px;font:700 13px/1 'Inter';cursor:pointer;white-space:nowrap}
+  .arrow{display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--t3)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="main" style="margin:0 auto;max-width:1240px">
+    <div class="topbar"><div class="tb-bc"><strong>Évolution du tableau de bord</strong><span class="sep">›</span> widget « projection » + accès Finances</div></div>
+    <div class="page">
+
+      <div class="sec-title">1 · Le widget « projection » : avant / après</div>
+      <div class="ba">
+
+        <!-- AVANT -->
+        <div class="card oldproj">
+          <span class="tag bad">● ACTUEL — à remplacer</span>
+          <div class="card-h"><h3>Projection fin d'année</h3><span class="sub">estimation</span></div>
+          <div class="big num">≈ 98 400 €</div>
+          <div class="sub">projection basée sur le loyer théorique × 12</div>
+          <svg class="ghostline" viewBox="0 0 480 88" preserveAspectRatio="none" style="width:100%">
+            <polyline fill="none" stroke="var(--t3)" stroke-width="2" stroke-dasharray="4 4" points="6,70 80,60 160,66 240,40 320,46 400,20 474,8"/>
+            <polyline fill="none" stroke="var(--acc)" stroke-width="2" points="6,70 80,62 160,64 240,52"/>
+          </svg>
+          <ul class="crit bad">
+            <li>Extrapole un montant futur jamais encaissé — donne un faux sentiment de richesse</li>
+            <li>Ignore vacance, impayés, saisonnalité → chiffre systématiquement trop optimiste</li>
+            <li>« Projection » : mot abstrait, incompréhensible pour un novice</li>
+            <li>Aucune action possible : on subit un chiffre, on n'agit pas dessus</li>
+          </ul>
+        </div>
+
+        <!-- APRÈS -->
+        <div class="card">
+          <span class="tag good">● PROPOSÉ — budget réel</span>
+          <div class="card-h"><h3>Loyers : attendu vs encaissé</h3><span class="sub">cumulé sur l'année</span></div>
+          <svg class="chart" viewBox="0 0 480 130" preserveAspectRatio="xMidYMid meet" style="margin-top:6px">
+            <line class="grid" x1="20" y1="20" x2="470" y2="20"/>
+            <line class="grid" x1="20" y1="65" x2="470" y2="65"/>
+            <line class="grid" x1="20" y1="110" x2="470" y2="110"/>
+            <polygon points="20,102 95,92 170,80 245,66 320,52 395,38 470,22 470,34 395,48 320,62 245,76 170,90 95,100 20,102" fill="rgba(248,113,113,.12)"/>
+            <polyline fill="none" stroke="var(--t2)" stroke-width="2" stroke-dasharray="5 4" points="20,102 95,92 170,80 245,66 320,52 395,38 470,22"/>
+            <polyline fill="none" stroke="var(--acc)" stroke-width="2.5" points="20,102 95,100 170,90 245,76 320,62 395,48 470,34"/>
+            <circle cx="470" cy="22" r="3.5" fill="var(--t2)"/>
+            <circle cx="470" cy="34" r="3.5" fill="var(--acc)"/>
+          </svg>
+          <div class="legend">
+            <span><span class="dot" style="background:var(--t2)"></span>Attendu 98 400 €</span>
+            <span><span class="dot" style="background:var(--acc)"></span>Encaissé 86 800 €</span>
+          </div>
+          <ul class="crit good">
+            <li>Compare un objectif clair à ce qui rentre vraiment — pas d'invention</li>
+            <li>L'écart −11 600 € est visible et explicable (vacance, impayés, IRL)</li>
+            <li>Mots simples : « attendu » / « encaissé », pas de jargon</li>
+            <li>Cliquable → mène aux fuites à corriger dans l'onglet Finances</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="sec-title">2 · Nouvel accès « Finances » depuis le dashboard</div>
+      <p class="note" style="margin-bottom:14px">Une carte teaser en bas du tableau de bord résume la santé financière et ouvre le nouvel onglet d'analyse. Le dashboard garde ses tendances rapides ; l'analyse profonde vit dans Finances.</p>
+      <div class="teaser">
+        <div class="ic">💶</div>
+        <div class="tx">
+          <h3>Votre santé financière</h3>
+          <p>Compte de résultat, ratios de pilotage et 11 530 € à récupérer vous attendent.</p>
+        </div>
+        <div class="stat">
+          <div class="s"><b class="num pos" style="color:var(--pos)">+54 700 €</b><s>résultat net</s></div>
+          <div class="s"><b class="num">4,6 %</b><s>rendement net</s></div>
+          <div class="s"><b class="num" style="color:var(--warn)">11 530 €</b><s>à récupérer</s></div>
+        </div>
+        <button class="cta">Ouvrir Finances →</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="mkb"><b>Évolution dashboard</b> · projection → budget réel + teaser Finances · <a href="index.html">← galerie</a></div>
+</body>
+</html>

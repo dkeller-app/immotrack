@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockups onglet Finances — galerie — ImmoTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ImmoTrack — Mockups onglet Finances — CSS partagé (inliné) */
+:root{
+  --bg:#0A0E27;--sur:#141936;--sur2:#1B2147;--bor:rgba(255,255,255,.08);--bor2:rgba(255,255,255,.14);
+  --t1:#F3F5FA;--t2:#A0A8C3;--t3:#6B7395;--acc:#0E73F6;--acc-soft:rgba(14,115,246,.14);
+  --pos:#34D399;--pos-soft:rgba(52,211,153,.14);--neg:#F87171;--neg-soft:rgba(248,113,113,.14);
+  --warn:#FBB040;--warn-soft:rgba(251,176,64,.14);--r:14px;--r-sm:10px;--r-lg:20px;--sh:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--t1);font-family:'Inter','IBM Plex Sans',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;}
+.num{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+.eyebrow{font:700 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.pill{display:inline-flex;align-items:center;gap:4px;font:700 11px/1 'Inter';padding:4px 8px;border-radius:20px}
+.pill.up{background:var(--pos-soft);color:var(--pos)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.info{background:var(--acc-soft);color:#5c8aff}
+.pill.mut{background:var(--sur2);color:var(--t2)}
+.note{font-size:11.5px;color:var(--t3);margin-top:6px;line-height:1.5}
+</style>
+<style>
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 80px}
+  .head h1{font:800 30px/1.1 'Manrope';letter-spacing:-.02em;margin-bottom:10px}
+  .head p{font-size:14px;color:var(--t2);line-height:1.6;max-width:760px}
+  .head .meta{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:30px}
+  .vc{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r-lg);overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column;transition:border-color .15s,transform .15s}
+  .vc:hover{border-color:var(--acc);transform:translateY(-3px)}
+  .vc .thumb{height:150px;background:linear-gradient(135deg,var(--sur),var(--sur2));display:flex;align-items:center;justify-content:center;font-size:46px;border-bottom:1px solid var(--bor);position:relative}
+  .vc .badge{position:absolute;top:12px;left:12px;font:800 11px/1 'Inter';padding:5px 9px;border-radius:7px;background:var(--acc);color:#fff}
+  .vc .bd{padding:16px 18px 18px}
+  .vc h3{font-size:16px;font-weight:800;margin-bottom:6px}
+  .vc p{font-size:12.5px;color:var(--t2);line-height:1.55}
+  .vc .for{font-size:11px;color:var(--t3);margin-top:10px}
+  .wide{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .wc{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:18px 20px;text-decoration:none;color:inherit;display:flex;align-items:center;gap:16px;transition:border-color .15s}
+  .wc:hover{border-color:var(--acc)}
+  .wc .ic{width:46px;height:46px;border-radius:12px;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:22px}
+  .wc h3{font-size:14.5px;font-weight:700;margin-bottom:3px}
+  .wc p{font-size:12px;color:var(--t2)}
+  .panel{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:18px 20px;margin-top:30px}
+  .panel h2{font-size:14px;font-weight:700;margin-bottom:12px}
+  .panel ul{list-style:none;display:flex;flex-direction:column;gap:9px}
+  .panel li{font-size:12.5px;color:var(--t2);line-height:1.5;padding-left:24px;position:relative}
+  .panel li::before{content:"→";position:absolute;left:0;color:var(--acc);font-weight:800}
+  .panel li b{color:var(--t1)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <span class="eyebrow">ImmoTrack · mockups statiques</span>
+    <h1>Onglet « Finances » — 3 directions à comparer</h1>
+    <p>Un nouvel onglet qui regroupe ce qui est aujourd'hui éparpillé (data du dashboard, export 2044/FEC/bilan, IRL/régul) et ajoute la <b>vraie analyse</b> qui manque : compte de résultat, ratios de pilotage, et l'argent à récupérer. Dataset fictif cohérent : SCI DD2AMELEVIERES, 14 logements (12 loués), résultat net +54 700 €.</p>
+    <div class="meta">
+      <span class="pill info">Thème dark fidèle à l'app</span>
+      <span class="pill mut">Format desktop d'abord</span>
+      <span class="pill mut">Tablette &amp; mobile après choix</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <a class="vc" href="A-comptable.html">
+      <div class="thumb"><span class="badge">A</span>📋</div>
+      <div class="bd">
+        <h3>Compte de résultat d'abord</h3>
+        <p>Le tableau loyers − charges = résultat net est la pièce maîtresse, avec comparatif N-1 et % des loyers. Rigueur comptable.</p>
+        <div class="for">Pour qui aime lire ses comptes ligne à ligne.</div>
+      </div>
+    </a>
+    <a class="vc" href="B-actionnable.html">
+      <div class="thumb"><span class="badge">B</span>🎯</div>
+      <div class="bd">
+        <h3>Décisions d'abord</h3>
+        <p>4 grosses cartes d'action en haut (vacance, impayé, IRL, régul) avec montant + bouton. Le compte de résultat est replié dessous.</p>
+        <div class="for">Pour passer à l'action vite, sans fouiller.</div>
+      </div>
+    </a>
+    <a class="vc" href="C-cockpit.html">
+      <div class="thumb"><span class="badge">C</span>📊</div>
+      <div class="bd">
+        <h3>Cockpit visuel</h3>
+        <p>Équilibré : hero + résultat mensuel en barres, budget attendu/encaissé, donut des charges, puis les fuites en liste compacte.</p>
+        <div class="for">Pour scanner d'un coup d'œil, façon dashboard.</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="wide">
+    <a class="wc" href="dashboard-evolution.html">
+      <div class="ic">🔄</div>
+      <div><h3>Évolution du dashboard</h3><p>Le widget « projection » trompeur remplacé par un budget réel + carte teaser Finances.</p></div>
+    </a>
+    <div class="wc" style="cursor:default">
+      <div class="ic">📐</div>
+      <div><h3>Tablette &amp; mobile · post-clic</h3><p>Déclinés sur la variante que tu choisis (drill-downs, bottom-sheets…).</p></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Ce que les 3 variantes ont en commun</h2>
+    <ul>
+      <li><b>Résultat net = loyers HC − charges propriétaire.</b> Les charges récupérables sont neutres (le locataire rembourse) → calcul honnête.</li>
+      <li><b>4 ratios calculables sans nouvelle donnée :</b> rendement net, occupation, recouvrement, poids des charges. Pas de jargon (TRI, DSCR…), pas de « paillettes ».</li>
+      <li><b>L'argent à récupérer</b> (vacance, impayés, IRL, régul) chiffré et relié aux pages existantes — chaque chiffre est cliquable et actionnable.</li>
+      <li><b>Passerelles déclaratives</b> 2044 / Bilan / FEC regroupées ici plutôt qu'égarées dans Export.</li>
+    </ul>
+  </div>
+
+  <p class="note" style="margin-top:24px;text-align:center">Ouvre chaque variante dans ton navigateur, choisis la direction (ou un mix). Ensuite je décline la gagnante en tablette + mobile + écrans post-clic, puis on écrit la spec.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Onglet Finances (vue A) — mockup corrigé — ImmoTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0E27;--sur:#141936;--sur2:#1B2147;--bor:rgba(255,255,255,.08);--bor2:rgba(255,255,255,.14);
+  --t1:#F3F5FA;--t2:#A0A8C3;--t3:#6B7395;--acc:#0E73F6;--acc-soft:rgba(14,115,246,.14);
+  --pos:#34D399;--pos-soft:rgba(52,211,153,.14);--neg:#F87171;--neg-soft:rgba(248,113,113,.14);
+  --warn:#FBB040;--warn-soft:rgba(251,176,64,.14);--r:14px;--r-sm:10px;--r-lg:20px;--sh:0 10px 40px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--t1);font-family:'Inter','IBM Plex Sans',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+.num{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+button{font-family:inherit}
+
+.app{display:flex;min-height:100vh}
+.sb{width:248px;flex:0 0 248px;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;padding:14px 10px;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:40}
+.sb-logo{display:flex;align-items:center;gap:8px;padding:6px 8px 2px;font-weight:800;font-size:17px;letter-spacing:-.02em}
+.sb-prem{font:800 9px/1 'Inter';letter-spacing:.14em;color:#0A0E27;background:linear-gradient(135deg,#FBB040,#F59E0B);padding:3px 6px;border-radius:5px;margin-left:auto}
+.sb-ver{font:600 10px/1 'JetBrains Mono';color:var(--t3);padding:2px 8px 10px}
+.sb-ents{display:flex;gap:6px;padding:0 6px 12px;border-bottom:1px solid var(--bor);margin-bottom:8px}
+.sb-e{width:38px;height:40px;border-radius:9px;background:var(--sur2);border:1px solid var(--bor);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:1px}
+.sb-e b{font:800 11px/1 'Manrope';color:var(--t1)}
+.sb-e s{font:600 7.5px/1 'Inter';color:var(--t3);text-decoration:none}
+.sb-e.act{border-color:var(--acc);background:var(--acc-soft)}
+.sb-e.add{color:var(--t2);font-size:18px;font-weight:300}
+.sb-nav{display:flex;flex-direction:column;gap:1px;flex:1}
+.sb-nav h6{font:700 10px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3);padding:14px 10px 6px}
+.sb-a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--t2);cursor:pointer;font-size:13.5px;font-weight:500;transition:all .12s;border:none;background:none;width:100%;text-align:left}
+.sb-a:hover{background:var(--sur2);color:var(--t1)}
+.sb-a .ic{width:18px;text-align:center;font-size:15px}
+.sb-a .bd{margin-left:auto;font:700 10.5px/1 'Manrope';background:var(--sur2);color:var(--t2);padding:3px 7px;border-radius:20px}
+.sb-a.act{background:linear-gradient(90deg,var(--acc-soft),transparent);color:#fff}
+.sb-foot{display:flex;align-items:center;gap:9px;padding:9px;border-radius:10px;background:var(--sur2);cursor:pointer;margin-top:8px}
+.sb-foot .av{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#0E73F6,#7c5cff);display:flex;align-items:center;justify-content:center;font:800 12px/1 'Manrope';color:#fff}
+.sb-foot .nm{font-size:12.5px;font-weight:700;color:var(--t1)}
+.sb-foot .rl{font-size:10.5px;color:var(--t3)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 22px;border-bottom:1px solid var(--bor);background:var(--sur);position:sticky;top:0;z-index:30}
+.burger{display:none;background:var(--sur2);border:1px solid var(--bor);color:var(--t1);width:38px;height:38px;border-radius:9px;font-size:18px;cursor:pointer}
+.tb-bc{flex:1;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--t2);min-width:0}
+.tb-bc strong{color:var(--t1);font-size:15px;font-weight:700}
+.tb-bc .sep{color:var(--t3)}
+.seg{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:3px;gap:2px}
+.seg button{background:none;border:none;color:var(--t2);font:600 12px/1 'Inter';padding:7px 12px;border-radius:6px;cursor:pointer}
+.seg button.act{background:var(--acc);color:#fff}
+.tb-chip{display:inline-flex;align-items:center;gap:7px;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:6px 10px;font-size:12.5px;color:var(--t2);cursor:pointer}
+.tb-chip .av{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#0E73F6,#7c5cff);display:flex;align-items:center;justify-content:center;font:800 10px/1 'Manrope';color:#fff}
+
+.page{padding:22px;max-width:1320px;width:100%;margin:0 auto;flex:1}
+
+.eyebrow{font:700 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:18px}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.card-h h3{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.card-h .sub{font-size:11.5px;color:var(--t3);margin-left:auto;font-weight:500}
+.pill{display:inline-flex;align-items:center;gap:4px;font:700 11px/1 'Inter';padding:4px 8px;border-radius:20px}
+.pill.up{background:var(--pos-soft);color:var(--pos)}.pill.down{background:var(--neg-soft);color:var(--neg)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.info{background:var(--acc-soft);color:#5c8aff}.pill.mut{background:var(--sur2);color:var(--t2)}
+.sec-title{font:700 11px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin:24px 0 12px;display:flex;align-items:center;gap:10px}
+.sec-title::after{content:"";flex:1;height:1px;background:var(--bor)}
+.note{font-size:11.5px;color:var(--t3);margin-top:8px;line-height:1.5}
+.note .lnk,.lnk{color:#5c8aff;cursor:pointer;font-weight:600}
+
+.hero{background:linear-gradient(135deg,var(--sur),var(--sur2));border:1px solid var(--bor2);border-radius:var(--r-lg);padding:22px 24px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,.18),transparent 70%)}
+.hero .big{font:800 40px/1 'Manrope';letter-spacing:-.03em;margin:6px 0 4px}
+.hero .big.pos{color:var(--pos)}
+.hero .decomp{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;position:relative}
+.hero .decomp .it{display:flex;flex-direction:column;gap:3px}
+.hero .decomp .it .k{font:600 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.hero .decomp .it .v{font:800 17px/1 'Manrope';color:var(--t1)}
+.hero .decomp .it .v.neg{color:var(--neg)}
+
+.fin-top{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start}
+.sideStack{display:flex;flex-direction:column;gap:12px}
+.ratio{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:13px 14px}
+.ratio .rl{font:600 10px/1.2 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
+.ratio .rv{font:800 21px/1 'Manrope';margin:7px 0 4px}
+.ratio .meter{height:6px;border-radius:6px;background:var(--sur2);overflow:hidden;margin:7px 0 5px}
+.ratio .meter i{display:block;height:100%;border-radius:6px}
+.ratio .rt{font-size:11px;color:var(--t2)}
+.pl{width:100%;border-collapse:collapse;font-size:13px}
+.pl th{text-align:right;font:700 10px/1 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3);padding:8px 12px;border-bottom:1px solid var(--bor)}
+.pl th:first-child{text-align:left}
+.pl td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--bor);font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+.pl td:first-child{text-align:left;font-family:'Inter';color:var(--t2);font-weight:500}
+.pl tr.grp td{background:var(--sur2);font:700 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3);text-align:left;padding:7px 12px}
+.pl tr.tot td{font-weight:800;color:var(--t1);border-top:1px solid var(--bor2)}
+.pl tr.net td{font-weight:800;font-size:15px;background:var(--pos-soft)}
+.pl tr.net td:first-child{color:var(--t1)}
+.pl .neg{color:var(--neg)}.pl .pos{color:var(--pos)}.pl .pct{color:var(--t3);font-size:11.5px}
+.tbl-scroll{overflow-x:auto}
+
+/* argent à récupérer — lignes cliquables vers l'opérationnel */
+.leakrow{display:flex;align-items:center;gap:11px;padding:12px 10px;border-top:1px solid var(--bor);cursor:pointer;border-radius:10px;transition:background .12s}
+.leakrow:first-child{border-top:none}
+.leakrow:hover{background:var(--sur2)}
+.leakrow .ic{width:34px;height:34px;border-radius:9px;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
+.leakrow:hover .ic{background:var(--bg)}
+.leakrow .tx{min-width:0;flex:1}
+.leakrow .tx b{display:block;font-size:13px;font-weight:700}
+.leakrow .tx s{display:block;font-size:11px;color:var(--t3);text-decoration:none}
+.leakrow .dest{font-size:10.5px;color:#5c8aff;font-weight:600;margin-top:2px;opacity:0;transition:opacity .12s}
+.leakrow:hover .dest{opacity:1}
+.leakrow .am{font:800 16px/1 'Manrope';white-space:nowrap}
+.leakrow .am.neg{color:var(--neg)}.leakrow .am.warn{color:var(--warn)}.leakrow .am.pos{color:var(--pos)}
+.leakrow .go{color:var(--t3);font-size:16px;flex:0 0 auto}
+
+.bridge{display:flex;gap:10px;flex-wrap:wrap}
+.bridge a{flex:1;min-width:160px;display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:14px 16px;color:var(--t1);text-decoration:none;cursor:pointer}
+.bridge a:hover{border-color:var(--acc);background:var(--sur2)}
+.bridge a .ic{font-size:20px}
+.bridge a .tx b{display:block;font-size:13px;font-weight:700}
+.bridge a .tx s{display:block;font-size:11px;color:var(--t3);text-decoration:none;margin-top:2px}
+
+/* toast démonstration navigation */
+.toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%) translateY(20px);z-index:70;background:var(--acc);color:#fff;border-radius:12px;padding:13px 18px;font:700 13px/1.3 'Inter';box-shadow:var(--sh);opacity:0;pointer-events:none;transition:all .25s;max-width:92vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast s{display:block;font-weight:500;font-size:11px;opacity:.85;margin-top:3px;text-decoration:none}
+
+.botnav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--sur);border-top:1px solid var(--bor);z-index:35;padding:6px 4px env(safe-area-inset-bottom,6px)}
+.botnav .bn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--t3);font:600 9.5px/1.1 'Inter';padding:7px 2px;cursor:pointer}
+.botnav .bn .ic{font-size:18px}
+.botnav .bn.act{color:var(--acc)}
+.scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:38}
+
+.mkb{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:50;background:rgba(20,25,54,.96);border:1px solid var(--bor2);border-radius:30px;padding:8px 16px;font-size:11.5px;color:var(--t2);box-shadow:var(--sh);display:flex;gap:12px;align-items:center;max-width:94vw}
+.mkb b{color:var(--t1)}
+
+@media(max-width:1080px){
+  .fin-top{grid-template-columns:1fr}
+  .sideStack{flex-direction:row;flex-wrap:wrap}
+  .sideStack .ratio{flex:1;min-width:160px}
+}
+@media(max-width:760px){
+  .sb{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .22s;box-shadow:var(--sh)}
+  .sb.open{transform:translateX(0)}
+  .scrim.open{display:block}
+  .burger{display:block}
+  .page{padding:16px 14px 88px}
+  .topbar{padding:10px 14px}
+  .hero .big{font-size:32px}
+  .seg button{padding:6px 9px;font-size:11px}
+  .botnav{display:flex}
+  .mkb{display:none}
+}
+@media(max-width:420px){
+  .sideStack{flex-direction:column}
+  .tb-bc strong{font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="scrim" id="scrim" onclick="closeMenu()"></div>
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sb" id="sb">
+    <div class="sb-logo">ImmoTrack <span class="sb-prem">PREMIUM</span></div>
+    <div class="sb-ver">v15.260</div>
+    <div class="sb-ents">
+      <div class="sb-e act"><b>DD</b><s>SCI</s></div>
+      <div class="sb-e"><b>DK</b><s>Perso</s></div>
+      <div class="sb-e add">+</div>
+    </div>
+    <nav class="sb-nav">
+      <button class="sb-a"><span class="ic">🏠</span> Accueil</button>
+      <button class="sb-a" onclick="toast('Tableau de bord','aperçu visuel · 1 écran')"><span class="ic">📊</span> Tableau de bord</button>
+      <button class="sb-a act"><span class="ic">💶</span> Finances</button>
+      <button class="sb-a" onclick="toast('Logements','14 lots')"><span class="ic">🏢</span> Logements <span class="bd">14</span></button>
+      <button class="sb-a" onclick="toast('Locataires','12 actifs')"><span class="ic">👤</span> Locataires <span class="bd">12</span></button>
+      <button class="sb-a" onclick="toast('Suivi des loyers','encaissements & relances')"><span class="ic">🧾</span> Loyers</button>
+      <button class="sb-a"><span class="ic">📄</span> Baux</button>
+      <button class="sb-a"><span class="ic">📅</span> Agenda</button>
+      <h6>Comptabilité</h6>
+      <button class="sb-a" onclick="toast('Pilotage','qui me doit quoi · matrice')"><span class="ic">🧮</span> Pilotage</button>
+      <button class="sb-a" onclick="toast('Révision IRL','baux à indexer')"><span class="ic">📈</span> Révision IRL</button>
+      <button class="sb-a" onclick="toast('Régularisation','charges réelles vs provisions')"><span class="ic">⚖️</span> Régularisation</button>
+      <button class="sb-a"><span class="ic">🧾</span> Reçus &amp; Quittances</button>
+      <h6>Réglages</h6>
+      <button class="sb-a"><span class="ic">⚙️</span> Paramètres</button>
+      <button class="sb-a" onclick="toast('Export / Sauvegarde','2044 · FEC · bilan')"><span class="ic">💾</span> Export / Sauvegarde</button>
+    </nav>
+    <div class="sb-foot">
+      <div class="av">DK</div>
+      <div><div class="nm">Didier Keller</div><div class="rl">Bailleur</div></div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <div class="topbar">
+      <button class="burger" onclick="openMenu()">☰</button>
+      <div class="tb-bc"><strong>Finances</strong><span class="sep">›</span> analyse · comment va mon argent</div>
+      <div class="seg"><button>Mois</button><button class="act">Année 2025</button><button>3 ans</button></div>
+      <div class="tb-chip"><div class="av">DK</div> <span class="hide-xs">Didier</span></div>
+    </div>
+
+    <div class="page">
+
+      <!-- HERO résultat net + ratios -->
+      <div class="fin-top">
+        <div class="hero">
+          <div class="eyebrow">Résultat net · exercice 2025</div>
+          <div class="big num pos">+54 700 €</div>
+          <div><span class="pill up">▲ +6,2 %</span> <span style="color:var(--t2);font-size:12.5px">vs 2024 (51 500 €) · marge nette 63 %</span></div>
+          <div class="decomp">
+            <div class="it"><span class="k">Loyers encaissés (HC)</span><span class="v num">86 800 €</span></div>
+            <div class="it"><span class="k">− Charges propriétaire</span><span class="v num neg">32 100 €</span></div>
+            <div class="it"><span class="k">= Résultat net</span><span class="v num">54 700 €</span></div>
+          </div>
+        </div>
+        <div class="sideStack">
+          <div class="ratio"><div class="rl">Recouvrement</div><div class="rv num" style="color:var(--pos)">96,2 %</div><div class="meter"><i style="width:96%;background:var(--pos)"></i></div><div class="rt">1 impayé · 1 480 €</div></div>
+          <div class="ratio"><div class="rl">Occupation</div><div class="rv num">88 %</div><div class="meter"><i style="width:88%;background:var(--acc)"></i></div><div class="rt">12 / 14 loués</div></div>
+          <div class="ratio"><div class="rl">Poids des charges</div><div class="rv num" style="color:var(--warn)">37 %</div><div class="meter"><i style="width:37%;background:var(--warn)"></i></div><div class="rt">32 100 € / 86 800 €</div></div>
+        </div>
+      </div>
+
+      <!-- COMPTE DE RÉSULTAT -->
+      <div class="sec-title">Compte de résultat détaillé</div>
+      <div class="card">
+        <div class="card-h"><h3>Du 01/01/2025 au 31/12/2025</h3><span class="sub">montants réels · % = part des loyers</span></div>
+        <div class="tbl-scroll">
+        <table class="pl">
+          <thead><tr><th>Poste</th><th>2025</th><th>2024</th><th>Var.</th><th>% loyers</th></tr></thead>
+          <tbody>
+            <tr class="grp"><td colspan="5">Revenus locatifs</td></tr>
+            <tr><td>Loyers hors charges encaissés</td><td class="num">86 800</td><td class="num">83 200</td><td class="num pos">+4,3 %</td><td class="pct">100 %</td></tr>
+            <tr><td>Provisions sur charges encaissées</td><td class="num">14 200</td><td class="num">13 900</td><td class="num pos">+2,2 %</td><td class="pct">—</td></tr>
+            <tr class="tot"><td>Total encaissé</td><td class="num">101 000</td><td class="num">97 100</td><td class="num pos">+4,0 %</td><td class="pct">—</td></tr>
+            <tr class="grp"><td colspan="5">Charges propriétaire (non récupérables)</td></tr>
+            <tr><td>Intérêts d'emprunt</td><td class="num neg">11 200</td><td class="num">11 900</td><td class="num pos">−5,9 %</td><td class="pct">12,9 %</td></tr>
+            <tr><td>Taxe foncière</td><td class="num neg">9 800</td><td class="num">9 500</td><td class="num neg">+3,2 %</td><td class="pct">11,3 %</td></tr>
+            <tr><td>Travaux &amp; entretien</td><td class="num neg">6 400</td><td class="num">4 100</td><td class="num neg">+56 %</td><td class="pct">7,4 %</td></tr>
+            <tr><td>Honoraires &amp; copro non récup.</td><td class="num neg">3 100</td><td class="num">3 000</td><td class="num neg">+3,3 %</td><td class="pct">3,6 %</td></tr>
+            <tr><td>Assurance PNO</td><td class="num neg">1 600</td><td class="num">1 600</td><td class="num">—</td><td class="pct">1,8 %</td></tr>
+            <tr class="tot"><td>Total charges propriétaire</td><td class="num neg">32 100</td><td class="num">30 100</td><td class="num neg">+6,6 %</td><td class="pct">37,0 %</td></tr>
+            <tr class="net"><td>Résultat net</td><td class="num">+54 700</td><td class="num">+51 500</td><td class="num pos">+6,2 %</td><td class="pct">63,0 %</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="note">Les charges récupérables sont neutres (le locataire rembourse). Résultat net = loyers HC − vos charges. <span class="lnk" onclick="toast('Compte de résultat par logement','drill détaillé')">Voir par logement →</span></div>
+      </div>
+
+      <!-- ARGENT À RÉCUPÉRER — chaque ligne mène à l'OPÉRATIONNEL -->
+      <div class="sec-title">Argent à récupérer · 11 530 €</div>
+      <div class="card" style="padding:8px 8px">
+        <div class="leakrow" onclick="toast('→ Logements · Lot 4 &amp; Lot 11','publier les annonces / voir candidats')">
+          <span class="ic">⏳</span>
+          <span class="tx"><b>Vacance locative</b><s>Lot 4 (5 mois) · Lot 11 (3 mois)</s><span class="dest">→ va dans Logements pour relouer</span></span>
+          <span class="am neg num">−7 660 €</span><span class="go">→</span>
+        </div>
+        <div class="leakrow" onclick="toast('→ Suivi des loyers · M. Berthod','lancer la relance / mise en demeure')">
+          <span class="ic">🚩</span>
+          <span class="tx"><b>Loyer impayé</b><s>M. Berthod — Lot 9 · 2 mois</s><span class="dest">→ va dans Suivi des loyers pour relancer</span></span>
+          <span class="am neg num">1 480 €</span><span class="go">→</span>
+        </div>
+        <div class="leakrow" onclick="toast('→ Révision IRL','appliquer l’indexation sur 4 baux')">
+          <span class="ic">📈</span>
+          <span class="tx"><b>Loyers sous-indexés (IRL)</b><s>4 baux non révisés</s><span class="dest">→ va dans Révision IRL pour indexer</span></span>
+          <span class="am pos num">+1 850 €/an</span><span class="go">→</span>
+        </div>
+        <div class="leakrow" onclick="toast('→ Régularisation de charges','éditer la régul annuelle')">
+          <span class="ic">⚖️</span>
+          <span class="tx"><b>Régularisation de charges</b><s>provisions &lt; charges réelles 2025</s><span class="dest">→ va dans Régularisation pour éditer</span></span>
+          <span class="am warn num">+2 200 €</span><span class="go">→</span>
+        </div>
+      </div>
+      <div class="note">⚠️ Règle d'or : Finances <b>chiffre</b> l'argent à récupérer, mais chaque ligne t'envoie <b>agir sur la page opérationnelle</b> — jamais de cul-de-sac dans Finances. <em>(Survole / clique une ligne pour voir la destination.)</em></div>
+
+      <!-- EXPORTS -->
+      <div class="sec-title">Exports &amp; déclaratif</div>
+      <div class="bridge">
+        <a onclick="toast('Déclaration 2044','réutilise _compute2044 (existant)')"><span class="ic">🧾</span><span class="tx"><b>Déclaration 2044</b><s>Revenus fonciers pré-remplis</s></span></a>
+        <a onclick="toast('Bilan annuel','réutilise _computeBilanAnnuel (existant)')"><span class="ic">📚</span><span class="tx"><b>Bilan annuel</b><s>Synthèse comptable PDF</s></span></a>
+        <a onclick="toast('Export FEC','réutilise _buildEcritures / _toFEC (existant)')"><span class="ic">🗄️</span><span class="tx"><b>Export FEC</b><s>Écritures comptables</s></span></a>
+      </div>
+      <div class="note">Ces exports réutilisent les calculs déjà présents dans la page Export — Finances ne fait que les rassembler ici (pas de recalcul).</div>
+
+    </div>
+  </div>
+</div>
+
+<!-- toast démonstration -->
+<div class="toast" id="toast"><span id="toast-t"></span><s id="toast-s"></s></div>
+
+<!-- BOTTOM NAV mobile -->
+<nav class="botnav">
+  <button class="bn"><span class="ic">🏠</span>Accueil</button>
+  <button class="bn" onclick="toast('Tableau de bord','aperçu visuel · 1 écran')"><span class="ic">📊</span>Dashboard</button>
+  <button class="bn act"><span class="ic">💶</span>Finances</button>
+  <button class="bn" onclick="toast('Suivi des loyers','encaissements & relances')"><span class="ic">🧾</span>Loyers</button>
+  <button class="bn" onclick="openMenu()"><span class="ic">☰</span>Menu</button>
+</nav>
+
+<div class="mkb"><b>Onglet Finances (vue A)</b> · clique une ligne « argent à récupérer » → destination opérationnelle · <b>redimensionne</b> pour tablette/mobile</div>
+
+<script>
+let _tt;
+function toast(t,s){
+  const el=document.getElementById('toast');
+  document.getElementById('toast-t').textContent=t;
+  document.getElementById('toast-s').textContent=s||'';
+  el.classList.add('show');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2200);
+}
+function openMenu(){document.getElementById('sb').classList.add('open');document.getElementById('scrim').classList.add('open');}
+function closeMenu(){document.getElementById('sb').classList.remove('open');document.getElementById('scrim').classList.remove('open');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+</script>
+</body>
+</html>

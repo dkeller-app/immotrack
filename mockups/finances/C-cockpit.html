@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finances — Variante C « Cockpit visuel » — ImmoTrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ImmoTrack — Mockups onglet Finances — CSS partagé (inliné) */
+:root{
+  --bg:#0A0E27;--sur:#141936;--sur2:#1B2147;--bor:rgba(255,255,255,.08);--bor2:rgba(255,255,255,.14);
+  --t1:#F3F5FA;--t2:#A0A8C3;--t3:#6B7395;--acc:#0E73F6;--acc-soft:rgba(14,115,246,.14);
+  --pos:#34D399;--pos-soft:rgba(52,211,153,.14);--neg:#F87171;--neg-soft:rgba(248,113,113,.14);
+  --warn:#FBB040;--warn-soft:rgba(251,176,64,.14);--r:14px;--r-sm:10px;--r-lg:20px;--sh:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--t1);font-family:'Inter','IBM Plex Sans',system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased;}
+.mono{font-family:'JetBrains Mono','SF Mono',monospace}
+.num{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+.app{display:flex;min-height:100vh}
+.sb{width:248px;flex:0 0 248px;background:var(--sur);border-right:1px solid var(--bor);display:flex;flex-direction:column;padding:14px 10px;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sb-logo{display:flex;align-items:center;gap:8px;padding:6px 8px 2px;font-weight:800;font-size:17px;letter-spacing:-.02em}
+.sb-logo i{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,#0E73F6,#34D399);display:inline-block}
+.sb-prem{font:800 9px/1 'Inter';letter-spacing:.14em;color:#0A0E27;background:linear-gradient(135deg,#FBB040,#F59E0B);padding:3px 6px;border-radius:5px;margin-left:auto}
+.sb-ver{font:600 10px/1 'JetBrains Mono';color:var(--t3);padding:2px 8px 10px}
+.sb-ents{display:flex;gap:6px;padding:0 6px 12px;border-bottom:1px solid var(--bor);margin-bottom:8px}
+.sb-e{width:38px;height:40px;border-radius:9px;background:var(--sur2);border:1px solid var(--bor);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:1px}
+.sb-e b{font:800 11px/1 'Manrope';color:var(--t1)}
+.sb-e s{font:600 7.5px/1 'Inter';color:var(--t3);text-decoration:none}
+.sb-e.act{border-color:var(--acc);background:var(--acc-soft)}
+.sb-e.add{color:var(--t2);font-size:18px;font-weight:300}
+.sb-nav{display:flex;flex-direction:column;gap:1px;flex:1}
+.sb-nav h6{font:700 10px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3);padding:14px 10px 6px}
+.sb-a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--t2);cursor:pointer;font-size:13.5px;font-weight:500;transition:all .12s}
+.sb-a:hover{background:var(--sur2);color:var(--t1)}
+.sb-a .ic{width:18px;text-align:center;font-size:15px}
+.sb-a .bd{margin-left:auto;font:700 10.5px/1 'Manrope';background:var(--sur2);color:var(--t2);padding:3px 7px;border-radius:20px}
+.sb-a.act{background:var(--acc-soft);color:#fff}
+.sb-a.fin{position:relative}
+.sb-a.fin.act{background:linear-gradient(90deg,var(--acc-soft),transparent)}
+.sb-foot{display:flex;align-items:center;gap:9px;padding:9px;border-radius:10px;background:var(--sur2);cursor:pointer;margin-top:8px}
+.sb-foot .av{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#0E73F6,#7c5cff);display:flex;align-items:center;justify-content:center;font:800 12px/1 'Manrope';color:#fff}
+.sb-foot .nm{font-size:12.5px;font-weight:700;color:var(--t1)}
+.sb-foot .rl{font-size:10.5px;color:var(--t3)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--bor);background:var(--sur);position:sticky;top:0;z-index:5}
+.tb-bc{flex:1;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--t2)}
+.tb-bc strong{color:var(--t1);font-size:15px;font-weight:700}
+.tb-bc .sep{color:var(--t3)}
+.tb-ctrl{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:3px;gap:2px}
+.seg button{background:none;border:none;color:var(--t2);font:600 12px/1 'Inter';padding:7px 12px;border-radius:6px;cursor:pointer}
+.seg button.act{background:var(--acc);color:#fff}
+.tb-chip{display:inline-flex;align-items:center;gap:7px;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:6px 10px;font-size:12.5px;color:var(--t2);cursor:pointer}
+.tb-chip .av{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#0E73F6,#7c5cff);display:flex;align-items:center;justify-content:center;font:800 10px/1 'Manrope';color:#fff}
+.page{padding:22px;max-width:1320px;width:100%;margin:0 auto}
+.filters{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.filters .lab{font:700 10px/1 'Inter';text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-right:-4px}
+.sel{background:var(--sur);border:1px solid var(--bor2);color:var(--t1);border-radius:9px;padding:9px 12px;font:600 13px/1 'Inter';cursor:pointer}
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:18px}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.card-h h3{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.card-h .sub{font-size:11.5px;color:var(--t3);margin-left:auto;font-weight:500}
+.eyebrow{font:700 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+.pill{display:inline-flex;align-items:center;gap:4px;font:700 11px/1 'Inter';padding:4px 8px;border-radius:20px}
+.pill.up{background:var(--pos-soft);color:var(--pos)}
+.pill.down{background:var(--neg-soft);color:var(--neg)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.info{background:var(--acc-soft);color:#5c8aff}
+.pill.mut{background:var(--sur2);color:var(--t2)}
+.hero{background:linear-gradient(135deg,var(--sur),var(--sur2));border:1px solid var(--bor2);border-radius:var(--r-lg);padding:24px 26px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,.18),transparent 70%)}
+.hero .big{font:800 44px/1 'Manrope';letter-spacing:-.03em;margin:6px 0 4px}
+.hero .big.pos{color:var(--pos)}
+.hero .decomp{display:flex;gap:20px;flex-wrap:wrap;margin-top:18px;position:relative}
+.hero .decomp .it{display:flex;flex-direction:column;gap:3px}
+.hero .decomp .it .k{font:600 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.hero .decomp .it .v{font:800 17px/1 'Manrope';color:var(--t1)}
+.hero .decomp .it .v.neg{color:var(--neg)}
+.kpis{display:grid;gap:12px}
+.kpi{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:15px 16px}
+.kpi .kl{font:600 10.5px/1.2 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--t3);display:flex;align-items:center;gap:6px}
+.kpi .kv{font:800 26px/1 'Manrope';margin:9px 0 6px;letter-spacing:-.02em}
+.kpi .kt{font-size:11.5px;color:var(--t2)}
+.pl{width:100%;border-collapse:collapse;font-size:13px}
+.pl th{text-align:right;font:700 10px/1 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--t3);padding:8px 12px;border-bottom:1px solid var(--bor)}
+.pl th:first-child{text-align:left}
+.pl td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--bor);font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+.pl td:first-child{text-align:left;font-family:'Inter';color:var(--t2);font-weight:500}
+.pl tr.grp td{background:var(--sur2);font:700 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--t3);text-align:left;padding:7px 12px}
+.pl tr.tot td{font-weight:800;color:var(--t1);border-top:1px solid var(--bor2)}
+.pl tr.net td{font-weight:800;font-size:15px;background:var(--pos-soft)}
+.pl tr.net td:first-child{color:var(--t1)}
+.pl .neg{color:var(--neg)}
+.pl .pos{color:var(--pos)}
+.pl .pct{color:var(--t3);font-size:11.5px}
+.leak{display:flex;flex-direction:column;gap:10px;background:var(--sur);border:1px solid var(--bor);border-left:3px solid var(--warn);border-radius:var(--r);padding:15px 16px}
+.leak.danger{border-left-color:var(--neg)}
+.leak.ok{border-left-color:var(--pos)}
+.leak .top{display:flex;align-items:flex-start;gap:10px}
+.leak .ico{font-size:18px}
+.leak .ttl{font-size:13px;font-weight:700}
+.leak .amt{font:800 24px/1 'Manrope';margin-left:auto;text-align:right}
+.leak .amt.neg{color:var(--neg)}
+.leak .amt.warn{color:var(--warn)}
+.leak .desc{font-size:12px;color:var(--t2);line-height:1.5}
+.leak .cta{align-self:flex-start;background:var(--acc);color:#fff;border:none;border-radius:8px;padding:8px 14px;font:700 12px/1 'Inter';cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.leak .cta.ghost{background:var(--sur2);color:var(--t1);border:1px solid var(--bor2)}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--bor);stroke-width:1}
+.chart .base{stroke:var(--bor2);stroke-width:1;stroke-dasharray:3 3}
+.chart .avg{stroke:var(--warn);stroke-width:1;stroke-dasharray:5 4;opacity:.7}
+.bar-pos{fill:var(--pos)}
+.bar-neg{fill:var(--neg)}
+.lbl-x{font:600 9px/1 'Inter';fill:var(--t3)}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--t2);margin-top:10px;flex-wrap:wrap}
+.legend .dot{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+.ratio{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:14px 15px}
+.ratio .rl{font:600 10.5px/1.2 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
+.ratio .rv{font:800 22px/1 'Manrope';margin:8px 0 4px}
+.ratio .meter{height:6px;border-radius:6px;background:var(--sur2);overflow:hidden;margin:8px 0 6px}
+.ratio .meter i{display:block;height:100%;border-radius:6px}
+.ratio .rt{font-size:11px;color:var(--t2)}
+.bridge{display:flex;gap:10px;flex-wrap:wrap}
+.bridge a{flex:1;min-width:160px;display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:14px 16px;color:var(--t1);text-decoration:none;cursor:pointer}
+.bridge a:hover{border-color:var(--acc);background:var(--sur2)}
+.bridge a .ic{font-size:20px}
+.bridge a .tx b{display:block;font-size:13px;font-weight:700}
+.bridge a .tx s{display:block;font-size:11px;color:var(--t3);text-decoration:none;margin-top:2px}
+.note{font-size:11.5px;color:var(--t3);margin-top:6px;line-height:1.5}
+.sec-title{font:700 11px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin:26px 0 12px;display:flex;align-items:center;gap:10px}
+.sec-title::after{content:"";flex:1;height:1px;background:var(--bor)}
+.mkb{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:50;background:rgba(20,25,54,.96);border:1px solid var(--bor2);border-radius:30px;padding:8px 18px;font-size:12px;color:var(--t2);box-shadow:var(--sh);display:flex;gap:14px;align-items:center}
+.mkb b{color:var(--t1)}
+.mkb a{color:#5c8aff;text-decoration:none;font-weight:600}
+</style>
+<style>
+  .row1{display:grid;grid-template-columns:1.15fr 1fr;gap:16px;align-items:stretch}
+  .kpi4{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:16px}
+  .full{grid-column:1/-1}
+  .leakmini{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--bor)}
+  .leakmini:first-child{border-top:none}
+  .leakmini .ic{width:34px;height:34px;border-radius:9px;background:var(--sur2);display:flex;align-items:center;justify-content:center;font-size:16px}
+  .leakmini .tx b{display:block;font-size:13px;font-weight:700}
+  .leakmini .tx s{display:block;font-size:11px;color:var(--t3);text-decoration:none}
+  .leakmini .am{margin-left:auto;font:800 17px/1 'Manrope';text-align:right}
+  .leakmini .am.neg{color:var(--neg)}.leakmini .am.warn{color:var(--warn)}.leakmini .am.pos{color:var(--pos)}
+  .leakmini .go{color:#5c8aff;font-size:18px;margin-left:6px}
+  .donut-wrap{display:flex;align-items:center;gap:18px}
+  .leg2{display:flex;flex-direction:column;gap:7px;flex:1}
+  .leg2 .li{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2)}
+  .leg2 .li b{margin-left:auto;color:var(--t1);font-family:'Manrope';font-weight:700}
+  .leg2 .sw{width:10px;height:10px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sb">
+    <div class="sb-logo">ImmoTrack <span class="sb-prem">PREMIUM</span></div>
+    <div class="sb-ver">v15.260</div>
+    <div class="sb-ents">
+      <div class="sb-e act"><b>DD</b><s>SCI</s></div>
+      <div class="sb-e"><b>DK</b><s>Perso</s></div>
+      <div class="sb-e add">+</div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-a"><span class="ic">🏠</span> Accueil</div>
+      <div class="sb-a"><span class="ic">📊</span> Tableau de bord</div>
+      <div class="sb-a fin act"><span class="ic">💶</span> Finances</div>
+      <div class="sb-a"><span class="ic">🏢</span> Logements <span class="bd">14</span></div>
+      <div class="sb-a"><span class="ic">👤</span> Locataires <span class="bd">12</span></div>
+      <div class="sb-a"><span class="ic">🧾</span> Loyers</div>
+      <div class="sb-a"><span class="ic">📄</span> Baux</div>
+      <div class="sb-a"><span class="ic">📥</span> Candidats</div>
+      <div class="sb-a"><span class="ic">📅</span> Agenda</div>
+      <div class="sb-a"><span class="ic">🔧</span> Équipements</div>
+      <h6>Comptabilité</h6>
+      <div class="sb-a"><span class="ic">📈</span> Révision IRL</div>
+      <div class="sb-a"><span class="ic">⚖️</span> Régularisation</div>
+      <div class="sb-a"><span class="ic">🧮</span> Reçus &amp; Quittances</div>
+      <div class="sb-a"><span class="ic">📋</span> États des lieux</div>
+      <div class="sb-a"><span class="ic">🗂️</span> Import / Données</div>
+      <h6>Réglages</h6>
+      <div class="sb-a"><span class="ic">⚙️</span> Paramètres</div>
+      <div class="sb-a"><span class="ic">💾</span> Export / Sauvegarde</div>
+    </nav>
+    <div class="sb-foot">
+      <div class="av">DK</div>
+      <div><div class="nm">Didier Keller</div><div class="rl">Bailleur</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="tb-bc"><strong>Finances</strong></div>
+      <div class="tb-ctrl">
+        <div class="seg"><button>Mois</button><button class="act">Année</button><button>12 mois</button></div>
+        <div class="tb-chip"><div class="av">DK</div> Didier</div>
+      </div>
+    </div>
+
+    <div class="page">
+      <div class="filters">
+        <span class="lab">Vue</span>
+        <select class="sel"><option>SCI DD2AMELEVIERES — tout</option><option>Immeuble Lévrières</option><option>Par logement</option></select>
+        <select class="sel"><option>Exercice 2025</option><option>Exercice 2024</option></select>
+      </div>
+
+      <!-- ===== Row 1 : Hero+KPI / Résultat mensuel ===== -->
+      <div class="row1">
+        <div style="display:flex;flex-direction:column">
+          <div class="hero" style="flex:1">
+            <div class="eyebrow">Résultat net · exercice 2025</div>
+            <div class="big num pos">+54 700 €</div>
+            <div><span class="pill up">▲ +6,2 %</span> <span style="color:var(--t2);font-size:12.5px">vs 2024 · marge nette 63 %</span></div>
+            <div class="decomp">
+              <div class="it"><span class="k">Loyers HC</span><span class="v num">86 800 €</span></div>
+              <div class="it"><span class="k">− Charges</span><span class="v num neg">32 100 €</span></div>
+              <div class="it"><span class="k">Recouvré</span><span class="v num">96,2 %</span></div>
+            </div>
+          </div>
+          <div class="kpi4">
+            <div class="kpi"><div class="kl">🏢 Occupation</div><div class="kv num">88 %</div><div class="kt">12 / 14 loués</div></div>
+            <div class="kpi"><div class="kl">📊 Rendement net</div><div class="kv num">4,6 %</div><div class="kt">sur valeur estimée</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>Résultat net mensuel</h3><span class="sub">moyenne 4 558 €/mois</span></div>
+          <svg class="chart" viewBox="0 0 720 180" preserveAspectRatio="xMidYMid meet">
+            <line class="grid" x1="0" y1="150" x2="720" y2="150"/>
+            <line class="avg" x1="0" y1="37" x2="720" y2="37"/>
+            <text x="6" y="33" class="lbl-x" style="fill:var(--warn)">moy.</text>
+            <rect class="bar-pos" x="12"  y="44" width="40" height="106" rx="3"/>
+            <rect class="bar-pos" x="70"  y="41" width="40" height="109" rx="3"/>
+            <rect class="bar-pos" x="128" y="45" width="40" height="105" rx="3"/>
+            <rect class="bar-pos" x="186" y="36" width="40" height="114" rx="3"/>
+            <rect class="bar-pos" x="244" y="34" width="40" height="116" rx="3"/>
+            <rect class="bar-pos" x="302" y="39" width="40" height="111" rx="3"/>
+            <rect class="bar-pos" x="360" y="35" width="40" height="115" rx="3"/>
+            <rect class="bar-pos" x="418" y="31" width="40" height="119" rx="3"/>
+            <rect class="bar-pos" x="476" y="42" width="40" height="108" rx="3"/>
+            <rect class="bar-pos" x="534" y="34" width="40" height="116" rx="3"/>
+            <rect class="bar-pos" x="592" y="30" width="40" height="120" rx="3"/>
+            <rect class="bar-pos" x="650" y="36" width="40" height="114" rx="3"/>
+            <text x="32"  y="165" text-anchor="middle" class="lbl-x">J</text>
+            <text x="90"  y="165" text-anchor="middle" class="lbl-x">F</text>
+            <text x="148" y="165" text-anchor="middle" class="lbl-x">M</text>
+            <text x="206" y="165" text-anchor="middle" class="lbl-x">A</text>
+            <text x="264" y="165" text-anchor="middle" class="lbl-x">M</text>
+            <text x="322" y="165" text-anchor="middle" class="lbl-x">J</text>
+            <text x="380" y="165" text-anchor="middle" class="lbl-x">J</text>
+            <text x="438" y="165" text-anchor="middle" class="lbl-x">A</text>
+            <text x="496" y="165" text-anchor="middle" class="lbl-x">S</text>
+            <text x="554" y="165" text-anchor="middle" class="lbl-x">O</text>
+            <text x="612" y="165" text-anchor="middle" class="lbl-x">N</text>
+            <text x="670" y="165" text-anchor="middle" class="lbl-x">D</text>
+          </svg>
+          <div class="legend"><span><span class="dot" style="background:var(--pos)"></span>Résultat net encaissé</span><span><span class="dot" style="background:var(--warn)"></span>Moyenne mensuelle</span></div>
+        </div>
+      </div>
+
+      <!-- ===== Row 2 : Budget attendu/réalisé (remplace projection) + répartition charges ===== -->
+      <div class="row2">
+        <div class="card">
+          <div class="card-h"><h3>Loyers : attendu vs encaissé</h3><span class="sub">cumulé sur l'année</span></div>
+          <svg class="chart" viewBox="0 0 720 180" preserveAspectRatio="xMidYMid meet">
+            <line class="grid" x1="30" y1="30"  x2="690" y2="30"/>
+            <line class="grid" x1="30" y1="95"  x2="690" y2="95"/>
+            <line class="grid" x1="30" y1="160" x2="690" y2="160"/>
+            <!-- zone d'écart (la fuite) -->
+            <polygon points="30,149.2 90,138.3 150,127.5 210,116.7 270,105.8 330,95 390,84.2 450,73.3 510,62.5 570,51.7 630,40.8 690,30 690,45.3 630,54.3 570,63.5 510,72.7 450,81.6 390,90.8 330,99.9 270,109.1 210,118.5 150,128.2 90,138.5 30,149.2" fill="rgba(248,113,113,.12)"/>
+            <!-- attendu (théorique) -->
+            <polyline fill="none" stroke="var(--t2)" stroke-width="2" stroke-dasharray="5 4" points="30,149.2 90,138.3 150,127.5 210,116.7 270,105.8 330,95 390,84.2 450,73.3 510,62.5 570,51.7 630,40.8 690,30"/>
+            <!-- réalisé -->
+            <polyline fill="none" stroke="var(--acc)" stroke-width="2.5" points="30,149.2 90,138.5 150,128.2 210,118.5 270,109.1 330,99.9 390,90.8 450,81.6 510,72.7 570,63.5 630,54.3 690,45.3"/>
+            <circle cx="690" cy="30"   r="3.5" fill="var(--t2)"/>
+            <circle cx="690" cy="45.3" r="3.5" fill="var(--acc)"/>
+            <text x="30"  y="175" class="lbl-x">jan</text>
+            <text x="660" y="175" class="lbl-x">déc</text>
+          </svg>
+          <div class="legend">
+            <span><span class="dot" style="background:var(--t2)"></span>Attendu si 100 % loué — 98 400 €</span>
+            <span><span class="dot" style="background:var(--acc)"></span>Réellement encaissé — 86 800 €</span>
+          </div>
+          <div class="note" style="display:flex;align-items:center;gap:8px;margin-top:10px"><span class="pill warn">Écart −11 600 €</span> dû à la vacance, aux impayés et aux loyers sous-indexés. <span style="color:#5c8aff">Réduire l'écart →</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>Où part votre argent</h3><span class="sub">charges propriétaire · 32 100 €</span></div>
+          <div class="donut-wrap">
+            <svg width="148" height="148" viewBox="0 0 42 42">
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--sur2)" stroke-width="6"/>
+              <!-- segments (stroke-dasharray = part sur 100) intérêts 34.9 TF 30.5 trav 19.9 hono 9.7 pno 5 -->
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#0E73F6" stroke-width="6" stroke-dasharray="34.9 65.1" stroke-dashoffset="25"/>
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#7c5cff" stroke-width="6" stroke-dasharray="30.5 69.5" stroke-dashoffset="-9.9"/>
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#FBB040" stroke-width="6" stroke-dasharray="19.9 80.1" stroke-dashoffset="-40.4"/>
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#34D399" stroke-width="6" stroke-dasharray="9.7 90.3" stroke-dashoffset="-60.3"/>
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="#A0A8C3" stroke-width="6" stroke-dasharray="5 95" stroke-dashoffset="-70"/>
+              <text x="21" y="20" text-anchor="middle" style="font:800 6px Manrope;fill:var(--t1)">32,1k€</text>
+              <text x="21" y="26" text-anchor="middle" style="font:600 2.6px Inter;fill:var(--t3)">de charges</text>
+            </svg>
+            <div class="leg2">
+              <div class="li"><span class="sw" style="background:#0E73F6"></span>Intérêts d'emprunt <b>11 200 €</b></div>
+              <div class="li"><span class="sw" style="background:#7c5cff"></span>Taxe foncière <b>9 800 €</b></div>
+              <div class="li"><span class="sw" style="background:#FBB040"></span>Travaux &amp; entretien <b>6 400 €</b></div>
+              <div class="li"><span class="sw" style="background:#34D399"></span>Honoraires &amp; copro <b>3 100 €</b></div>
+              <div class="li"><span class="sw" style="background:#A0A8C3"></span>Assurance PNO <b>1 600 €</b></div>
+            </div>
+          </div>
+          <div class="note">Cliquez une part pour voir le détail des mouvements de la catégorie.</div>
+        </div>
+      </div>
+
+      <!-- ===== Row 3 : fuites compactes ===== -->
+      <div class="sec-title">Argent à récupérer · 11 530 €</div>
+      <div class="card">
+        <div class="leakmini"><span class="ic">⏳</span><span class="tx"><b>Vacance locative</b><s>Lot 4 (5 mois) · Lot 11 (3 mois)</s></span><span class="am neg num">−7 660 €</span><span class="go">→</span></div>
+        <div class="leakmini"><span class="ic">🚩</span><span class="tx"><b>Loyer impayé</b><s>M. Berthod — Lot 9 · 2 mois</s></span><span class="am neg num">1 480 €</span><span class="go">→</span></div>
+        <div class="leakmini"><span class="ic">⚖️</span><span class="tx"><b>Régularisation de charges</b><s>provisions &lt; charges réelles 2025</s></span><span class="am warn num">+2 200 €</span><span class="go">→</span></div>
+        <div class="leakmini"><span class="ic">📈</span><span class="tx"><b>Loyers sous-indexés (IRL)</b><s>4 baux non révisés</s></span><span class="am pos num">+1 850 €/an</span><span class="go">→</span></div>
+      </div>
+
+      <div class="sec-title">Exports &amp; déclaratif</div>
+      <div class="bridge">
+        <a><span class="ic">🧾</span><span class="tx"><b>Déclaration 2044</b><s>Revenus fonciers pré-remplis</s></span></a>
+        <a><span class="ic">📚</span><span class="tx"><b>Bilan annuel</b><s>Synthèse comptable PDF</s></span></a>
+        <a><span class="ic">🗄️</span><span class="tx"><b>Export FEC</b><s>Fichier des écritures comptables</s></span></a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="mkb"><b>Variante C — « Cockpit visuel »</b> · équilibré graphique · <a href="B-actionnable.html">← B</a> · <a href="index.html">galerie</a></div>
+</body>
+</html>
