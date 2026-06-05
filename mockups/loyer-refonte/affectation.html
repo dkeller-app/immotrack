@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ImmoTrack — Maquette affectation pilotée par catégorie</title>
+<title>ImmoTrack — Fenêtre « Renseigner un mouvement » (affectation + split + options)</title>
 <style>
   :root[data-theme="light"]{
     --bg:#f1f5f9; --card:#ffffff; --t1:#0f172a; --t2:#334155; --t3:#64748b;
     --bd:#e2e8f0; --bd2:#cbd5e1; --inp:#ffffff; --pri:#2563eb; --pri-bg:#eff6ff;
     --ok:#059669; --ok-bg:#ecfdf5; --ora:#d97706; --ora-bg:#fffbeb; --vio:#7c3aed; --vio-bg:#f5f3ff;
-    --shadow:0 10px 30px rgba(2,6,23,.18);
+    --red:#dc2626; --shadow:0 10px 30px rgba(2,6,23,.18);
   }
   :root[data-theme="dark"]{
     --bg:#0b1220; --card:#0f172a; --t1:#e2e8f0; --t2:#cbd5e1; --t3:#94a3b8;
     --bd:#1e293b; --bd2:#334155; --inp:#0b1220; --pri:#3b82f6; --pri-bg:#172554;
     --ok:#34d399; --ok-bg:#052e2b; --ora:#fbbf24; --ora-bg:#3a2c08; --vio:#a78bfa; --vio-bg:#2a1d52;
-    --shadow:0 10px 30px rgba(0,0,0,.5);
+    --red:#f87171; --shadow:0 10px 30px rgba(0,0,0,.5);
   }
   *{box-sizing:border-box}
   body{margin:0;font-family:'IBM Plex Sans',-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--t1)}
@@ -24,25 +24,27 @@
   .mk-bar{position:sticky;top:0;z-index:50;background:#0f172a;color:#e2e8f0;display:flex;
     flex-wrap:wrap;gap:14px;align-items:center;padding:10px 16px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3)}
   .mk-bar b{font-family:Manrope,sans-serif;font-weight:700;color:#fff;letter-spacing:.2px}
-  .mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:8px;padding:3px}
+  .mk-grp{display:flex;gap:4px;background:#1e293b;border-radius:8px;padding:3px;flex-wrap:wrap}
   .mk-grp button{border:0;background:transparent;color:#94a3b8;padding:5px 11px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
   .mk-grp button.on{background:#3b82f6;color:#fff}
   .mk-bar .lbl{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
 
   /* ---- Cadre device ---- */
   .mk-stage{display:flex;justify-content:center;padding:26px 12px 70px}
-  .mk-frame{width:980px;max-width:100%;transition:width .25s}
-  .mk-frame[data-d="tab"]{width:760px}
-  .mk-frame[data-d="mob"]{width:390px}
+  .mk-wrap{width:980px;max-width:100%;transition:width .25s}
+  .mk-wrap[data-d="tab"]{width:760px}
+  .mk-wrap[data-d="mob"]{width:390px}
 
   /* ---- Modale type app ---- */
   .modal{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
   .m-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd)}
   .m-head h3{margin:0;font-family:Manrope,sans-serif;font-size:17px}
-  .m-head .sub{font-size:12px;color:var(--t3);margin-top:2px;font-weight:400}
+  .m-head .sub{font-size:12px;color:var(--t3);margin-top:3px;font-weight:400;display:flex;align-items:center;gap:6px}
+  .src-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:7px;background:var(--pri-bg);color:var(--pri)}
   .m-close{border:0;background:transparent;color:var(--t3);font-size:18px;cursor:pointer}
   .m-body{padding:18px 20px;max-height:none}
-  .m-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--bd);background:var(--bg)}
+  .m-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--bd);background:var(--bg)}
+  .m-foot .right{display:flex;gap:10px}
 
   .fg{margin-bottom:14px}
   .fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -57,14 +59,22 @@
     font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
   .bp{background:var(--pri);border-color:var(--pri);color:#fff}
   .bs{background:transparent}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ---- Bascule de mode : Affecter vs Découper ---- */
+  .mode{display:flex;gap:8px;margin:2px 0 14px}
+  .mode button{flex:1;border:1px solid var(--bd2);background:var(--card);color:var(--t2);border-radius:10px;
+    padding:11px 10px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;
+    justify-content:center;gap:7px;line-height:1.2}
+  .mode button .e{font-size:16px}
+  .mode button small{display:block;font-weight:500;color:var(--t3);font-size:10.5px;margin-top:1px}
+  .mode button.on{border-color:var(--pri);background:var(--pri-bg);color:var(--pri)}
+  .mode button.on small{color:var(--pri)}
 
   /* ---- Zone d'affectation adaptative ---- */
   .aff-box{border:1px solid var(--bd);border-radius:12px;padding:14px;background:var(--bg);margin-top:4px}
-  .aff-empty{color:var(--t3);font-size:13px;text-align:center;padding:14px 8px}
   .aff-q{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:7px}
   .aff-q .ic{font-size:16px}
-
-  /* niveau selector (segments) */
   .lvl{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
   .lvl button{flex:1;min-width:90px;border:1px solid var(--bd2);background:var(--card);color:var(--t2);
     border-radius:9px;padding:9px 8px;cursor:pointer;font-size:12.5px;font-weight:600;display:flex;
@@ -73,14 +83,11 @@
   .lvl button.on{border-color:var(--pri);background:var(--pri-bg);color:var(--pri)}
   .lvl button.sugg::after{content:'suggéré';font-size:9px;font-weight:700;color:var(--ok);
     background:var(--ok-bg);padding:1px 5px;border-radius:6px;margin-top:2px}
-
-  /* option récupérable */
   .recup{margin-top:11px;border-top:1px dashed var(--bd2);padding-top:11px}
   .recup label.row{display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-weight:600;color:var(--t2);font-size:13px}
   .recup input{margin-top:2px;width:16px;height:16px;accent-color:var(--vio)}
   .recup .hint{font-size:11.5px;color:var(--t3);font-weight:400;margin-top:2px}
-  .cc-pick{margin-top:10px;display:none}
-  .cc-pick.show{display:block}
+  .cc-pick{margin-top:10px}
 
   /* destination badge */
   .dest{margin-top:14px;border-radius:11px;padding:12px 14px;display:flex;gap:11px;align-items:flex-start;
@@ -88,28 +95,66 @@
   .dest .ic{font-size:20px;line-height:1}
   .dest .ttl{font-weight:700;font-size:13.5px;margin-bottom:2px}
   .dest .det{font-size:12px;opacity:.9}
-  .dest.tax{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
-  .dest.recu{background:var(--vio-bg);border-color:var(--vio);color:var(--vio)}
-  .dest.none{background:var(--bg);border-color:var(--bd2);color:var(--t3)}
+  .dest.tax{background:var(--ok-bg);border-color:var(--ok)}
+  .dest.recu{background:var(--vio-bg);border-color:var(--vio)}
+  .dest.none{background:var(--bg);border-color:var(--bd2)}
   .dest .ttl,.dest .det{color:var(--t1)}
-  :root[data-theme="dark"] .dest .ttl,:root[data-theme="dark"] .dest .det{color:var(--t1)}
+
+  /* ---- Panneau Découper (split) ---- */
+  .sp-help{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+  .sp-help button{border:1px solid var(--bd2);background:var(--card);color:var(--t2);border-radius:20px;
+    padding:7px 13px;cursor:pointer;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .sp-help button.on{border-color:var(--vio);background:var(--vio-bg);color:var(--vio)}
+  .sp-help .e{font-size:14px}
+  .sp-hint{font-size:11.5px;color:var(--t3);margin:-4px 0 12px;line-height:1.45}
+
+  .sp-row{display:grid;grid-template-columns:1fr 96px 150px 1fr 24px;gap:7px;align-items:center;margin-bottom:7px}
+  .sp-row .inp{padding:7px 9px;font-size:12.5px}
+  .sp-row .x{background:none;border:none;cursor:pointer;color:var(--red);font-size:15px;padding:0}
+  .sp-rowhead{display:grid;grid-template-columns:1fr 96px 150px 1fr 24px;gap:7px;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.4px;color:var(--t3);font-weight:700;margin-bottom:5px;padding:0 2px}
+  .sp-add{border:1px dashed var(--bd2);background:transparent;color:var(--t2);border-radius:9px;width:100%;
+    padding:8px;cursor:pointer;font-size:12.5px;font-weight:600;margin-top:3px}
+  .sp-bal{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:11px 14px;
+    border-radius:10px;background:var(--bg);border:1px solid var(--bd);font-size:13px}
+  .sp-bal .ok{color:var(--ok);font-weight:700}
+  .sp-bal .ko{color:var(--red);font-weight:700}
+  .sp-bar{height:7px;border-radius:5px;background:var(--bd);overflow:hidden;margin-top:9px}
+  .sp-bar > i{display:block;height:100%;background:var(--vio);width:0;transition:width .2s}
+  .sp-bar.full > i{background:var(--ok)}
+  .rdest{font-size:10.5px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap}
+  .rdest.t{background:var(--ok-bg);color:var(--ok)} .rdest.r{background:var(--vio-bg);color:var(--vio)}
+
+  /* ---- Autres options (repliable) ---- */
+  .opts{margin-top:16px;border-top:1px solid var(--bd);padding-top:6px}
+  .opts > summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--t2);list-style:none;
+    display:flex;align-items:center;gap:7px;padding:8px 0}
+  .opts > summary::-webkit-details-marker{display:none}
+  .opts > summary .chev{transition:transform .2s;color:var(--t3)}
+  .opts[open] > summary .chev{transform:rotate(90deg)}
+  .opt-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .file-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bd2);background:var(--card);
+    border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer}
 
   .note{font-size:11.5px;color:var(--t3);margin-top:9px;line-height:1.45}
-  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:7px;background:var(--pri-bg);color:var(--pri)}
 
   /* explainer above modal */
-  .explain{width:980px;max-width:100%;margin:0 auto 18px;font-size:13px;color:var(--t2);line-height:1.55;
+  .explain{margin:0 0 18px;font-size:13px;color:var(--t2);line-height:1.55;
     background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px 18px}
   .explain b{color:var(--t1)}
-  .mk-frame[data-d="tab"] ~ .explain{width:760px}
 
-  @media(max-width:520px){ .fg2{grid-template-columns:1fr} }
+  @media(max-width:520px){
+    .fg2{grid-template-columns:1fr}
+    .sp-rowhead{display:none}
+    .sp-row{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
+    .sp-row .x{justify-self:end}
+  }
 </style>
 </head>
 <body>
 
 <div class="mk-bar">
-  <b>🧾 Affectation pilotée par catégorie</b>
+  <b>🧾 Renseigner un mouvement</b>
   <span class="lbl">Format</span>
   <div class="mk-grp" id="g-device">
     <button data-d="pc" class="on">💻 Ordi</button>
@@ -123,37 +168,33 @@
   </div>
   <span class="lbl">Scénario</span>
   <div class="mk-grp" id="g-demo">
-    <button data-cat="Loyers encaissés" class="on">Loyer</button>
-    <button data-cat="Taxe foncière (et taxes annexes)">Taxe foncière</button>
-    <button data-cat="Eau froide générale (immeuble)">Eau immeuble</button>
-    <button data-cat="Frais de compte / comptable (SCI)">Frais SCI</button>
+    <button data-s="loyer" class="on">Loyer</button>
+    <button data-s="taxe">Taxe foncière</button>
+    <button data-s="eau">Eau immeuble</button>
+    <button data-s="sci">Frais SCI</button>
+    <button data-s="bail">✂️ Loyer tout compris</button>
+    <button data-s="caf">✂️ CAF 3 locataires</button>
   </div>
 </div>
 
 <div class="mk-stage">
- <div>
-  <div class="explain">
-    <b>Le principe :</b> on choisit d'abord <b>ce que c'est</b> (la catégorie). Selon la catégorie, l'app sait
-    où ça doit aller et n'affiche qu'<b>une</b> question ciblée — jamais la liste de tous les logements.
-    Le bandeau du bas montre en direct <b>où la ligne atterrit</b> (ta déclaration 2044, ou la régularisation des locataires).
-    Les boutons « Scénario » en haut te font voir les 4 cas.
-  </div>
+ <div class="mk-wrap" data-d="pc">
+  <div class="explain" id="explain"><!-- injecté selon mode --></div>
 
-  <div class="mk-frame" data-d="pc">
-   <div class="modal">
+  <div class="modal">
     <div class="m-head">
       <div>
-        <h3>Affecter ce mouvement</h3>
-        <div class="sub">Relevé CIC · 14/05/2026 · « PRLV TRESOR PUBLIC »</div>
+        <h3 id="m-title">Renseigner ce mouvement</h3>
+        <div class="sub"><span class="src-pill" id="m-src">🏦 Import banque</span> <span id="m-srcdet">Relevé CIC · 14/05/2026</span></div>
       </div>
       <button class="m-close">✕</button>
     </div>
     <div class="m-body">
       <div class="fg2">
-        <div class="fg"><label>Date</label><input class="inp" type="date" value="2026-05-14"></div>
+        <div class="fg"><label>Date</label><input class="inp" type="date" id="date" value="2026-05-14"></div>
         <div class="fg">
           <label>Catégorie — <span class="mu">qu'est-ce que c'est&nbsp;?</span></label>
-          <select class="inp" id="cat" onchange="render()">
+          <select class="inp" id="cat" onchange="onCat()">
             <optgroup label="Recettes">
               <option>Loyers encaissés</option>
               <option>Recettes diverses (parking, antennes…)</option>
@@ -178,35 +219,66 @@
       </div>
       <div class="fg"><label>Libellé</label><input class="inp" id="lib" value="PRLV TRESOR PUBLIC"></div>
       <div class="fg2">
-        <div class="fg"><label>Débit (charge) €</label><input class="inp" type="number" id="db" value="1240"></div>
-        <div class="fg"><label>Crédit (recette) €</label><input class="inp" type="number" id="cr" placeholder="0.00"></div>
+        <div class="fg"><label>Débit (charge) €</label><input class="inp" type="number" id="db" value="1240" oninput="render()"></div>
+        <div class="fg"><label>Crédit (recette) €</label><input class="inp" type="number" id="cr" placeholder="0.00" oninput="render()"></div>
       </div>
 
-      <label>Affectation</label>
-      <div class="aff-box" id="aff"><!-- injecté --></div>
+      <!-- Bascule : 1 poste OU plusieurs lignes -->
+      <div class="mode" id="mode">
+        <button data-m="aff" class="on" onclick="setMode('aff')"><span class="e">🎯</span><span>Affecter à un poste<small>1 mouvement = 1 destination</small></span></button>
+        <button data-m="split" onclick="setMode('split')"><span class="e">✂️</span><span>Découper en lignes<small>plusieurs biens / locataires</small></span></button>
+      </div>
+
+      <div id="zone"><!-- injecté : affectation OU split --></div>
+
+      <!-- Autres options (champs réels de la modale mouvement) -->
+      <details class="opts">
+        <summary><span class="chev">▸</span>Autres options <span class="mu sm">— n° facture, justificatif, récurrence</span></summary>
+        <div class="opt-line">
+          <label style="margin:0;min-width:90px">N° Facture</label>
+          <input class="inp" placeholder="ex : 2026-042" style="flex:1;min-width:120px">
+          <button class="file-btn">🔢 Auto</button>
+        </div>
+        <div class="opt-line">
+          <label style="margin:0;min-width:90px">📎 Justificatif</label>
+          <span class="file-btn">📁 Choisir un fichier</span>
+          <span class="mu sm">Aucun document (facture PDF/image, max 2 Mo)</span>
+        </div>
+        <div class="opt-line">
+          <label style="margin:0;min-width:90px">🔁 Récurrence</label>
+          <select class="inp" style="flex:1;min-width:120px">
+            <option>Aucune (mouvement ponctuel)</option>
+            <option>Tous les mois (loyer, prêt…)</option>
+            <option>Tous les trimestres</option>
+            <option>Tous les ans (taxe foncière, assurance…)</option>
+          </select>
+        </div>
+      </details>
     </div>
     <div class="m-foot">
-      <button class="btn bs">Annuler</button>
-      <button class="btn bp">Enregistrer</button>
+      <span class="mu sm" id="foot-info"></span>
+      <div class="right">
+        <button class="btn bs">Annuler</button>
+        <button class="btn bp" id="save">Enregistrer</button>
+      </div>
     </div>
-   </div>
   </div>
  </div>
 </div>
 
 <script>
-// ---------- Données démo (reflètent le modèle réel : entités>immeubles>logements + compteurs collectifs) ----------
+// ---------- Données démo (modèle réel : entités>immeubles>logements + compteurs collectifs + bail) ----------
 const ENT = [
   { nom:'SCI Keller', type:'SCI', imms:[
       { nom:'Freyming', logs:[
-          {ref:'F-RDC', loc:'Pierre Martin', tant:200},
-          {ref:'F-101', loc:'Marie Durand', tant:280},
-          {ref:'F-102', loc:'(vacant)',     tant:220},
+          {ref:'F-RDC', loc:'Pierre Martin', hc:480, ch:60, caf:0},
+          {ref:'F-101', loc:'Marie Durand',  hc:560, ch:60, caf:210},
+          {ref:'F-102', loc:'Karim Aziz',    hc:520, ch:50, caf:180},
       ], ccs:[ {nom:'Eau froide générale', cle:'tantièmes'}, {nom:'Ascenseur', cle:'1/N parts égales'} ] },
-      { nom:'Forbach Centre', logs:[ {ref:'FB-01', loc:'Léa Bernard', tant:500} ], ccs:[] },
+      { nom:'Forbach Centre', logs:[ {ref:'FB-01', loc:'Léa Bernard', hc:620, ch:80, caf:0} ], ccs:[] },
   ]},
   { nom:'SCI Patrimoine', type:'SCI', imms:[
-      { nom:'Metz Gare', logs:[ {ref:'MZ-3A', loc:'Karim Aziz', tant:1000} ], ccs:[] },
+      { nom:'Metz Gare', logs:[ {ref:'MZ-3A', loc:'Jean Petit', hc:700, ch:90, caf:300} ], ccs:[] },
   ]},
 ];
 // Métadonnées catégorie : ligne 2044, type, niveau suggéré, récupérable possible
@@ -221,134 +293,193 @@ const CATMETA = {
   'Provisions pour charges de copropriété':   {l:'229', t:'charge',  niv:'imm'},
   'Eau froide générale (immeuble)':           {l:'',    t:'recup',   niv:'imm', recup:true, ccName:'Eau froide générale'},
   'Ascenseur (immeuble)':                     {l:'',    t:'recup',   niv:'imm', recup:true, ccName:'Ascenseur'},
+  // Provision de charges encaissée du locataire : recette suivie pour la régularisation
+  // annuelle (provisions vs charges réelles). PAS la ligne 229 (= provisions copro payées
+  // par le bailleur au syndic). Apparaît surtout via « séparer selon le bail ».
+  'Provision de charges (locataire)':         {l:'',    t:'recette', niv:'log', regul:true},
   "Prêt — Intérêts d'emprunt":                {l:'250', t:'interet', niv:'imm'},
 };
 const NIV_LBL = { sci:{e:'🏛️',l:'La SCI'}, imm:{e:'🏢',l:'Un immeuble'}, log:{e:'🚪',l:'Un logement'} };
+const LIG_LBL = {'211':'Loyers encaissés','213':'Recettes diverses','221':'Frais de gestion','223':'Assurances',
+  '224':'Travaux','227':'Taxe foncière','229':'Provisions copro','250':"Intérêts d'emprunt"};
 
-// état courant
-let cur = { niv:null, ent:'SCI Keller', imm:'Freyming', log:'F-RDC', recup:false };
+let mode = 'aff';            // 'aff' | 'split'
+let cur  = { niv:null, ent:'SCI Keller', imm:'Freyming', log:'F-RDC', recup:false, _catLock:null };
+let spRows = [];             // lignes du split
+let spMethod = 'manuel';     // 'bail' | 'caf' | 'manuel'
 
-function meta(){ return CATMETA[document.getElementById('cat').value] || {l:'',t:'charge',niv:'log'}; }
+const $ = id => document.getElementById(id);
+const meta = () => CATMETA[$('cat').value] || {l:'',t:'charge',niv:'log'};
+const total = () => (parseFloat($('db').value)||0) || (parseFloat($('cr').value)||0);
+const sens  = () => (parseFloat($('db').value)||0) > 0 ? 'db' : 'cr';
+const findImm = nom => { for(const e of ENT){ const i=e.imms.find(x=>x.nom===nom); if(i)return i; } return null; };
+const allLogs = () => ENT.flatMap(e=>e.imms.flatMap(i=>i.logs.map(l=>({...l,imm:i.nom,ent:e.nom}))));
+const fmt = n => (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 
-function render(){
-  const m = meta();
-  // niveau par défaut = suggéré par la catégorie (sauf si l'user a déjà cliqué un autre niveau ce tour)
-  if(cur._catLock !== document.getElementById('cat').value){
-    cur.niv = m.niv; cur.recup = !!m.recup; cur._catLock = document.getElementById('cat').value;
-  }
-  const box = document.getElementById('aff');
-  let h = '';
+function onCat(){ cur._catLock=null; setMode(mode); }
 
-  // Question adaptative
-  const niv = cur.niv;
-  h += `<div class="aff-q"><span class="ic">${NIV_LBL[niv].e}</span>`;
-  h += niv==='log' ? 'Quel logement&nbsp;?' : niv==='imm' ? 'Quel immeuble&nbsp;?' : 'Quelle entité / SCI&nbsp;?';
-  h += `</div>`;
-
-  // Sélecteur de niveau (segments) — pré-réglé sur le suggéré, modifiable
-  h += `<div class="lvl">`;
-  ['sci','imm','log'].forEach(k=>{
-    const on = k===niv ? ' on':'';
-    const sg = (k===m.niv && k!==niv) ? ' sugg':''; // marque le suggéré s'il n'est pas l'actif
-    h += `<button class="b-niv${on}${k===m.niv?' '+'':''}" data-niv="${k}" onclick="setNiv('${k}')">
-            <span class="e">${NIV_LBL[k].e}</span>${NIV_LBL[k].l}</button>`;
-  });
-  h += `</div>`;
-
-  // Picker selon niveau
-  if(niv==='sci'){
-    h += `<select class="inp" onchange="cur.ent=this.value;dest()">`+
-         ENT.map(e=>`<option${e.nom===cur.ent?' selected':''}>${e.nom}</option>`).join('')+`</select>`;
-  }
-  if(niv==='imm'){
-    const imms = ENT.flatMap(e=>e.imms.map(i=>({...i,ent:e.nom})));
-    h += `<select class="inp" onchange="pickImm(this.value)">`+
-         imms.map(i=>`<option${i.nom===cur.imm?' selected':''}>${i.nom}</option>`).join('')+`</select>`;
-  }
-  if(niv==='log'){
-    const logs = ENT.flatMap(e=>e.imms.flatMap(i=>i.logs.map(l=>({...l,imm:i.nom,ent:e.nom}))));
-    h += `<select class="inp" onchange="cur.log=this.value;dest()">`+
-         logs.map(l=>`<option value="${l.ref}"${l.ref===cur.log?' selected':''}>${l.ref} — ${l.loc} · ${l.imm}</option>`).join('')+`</select>`;
-  }
-
-  // Option « récupérable » seulement si charge d'immeuble ET l'immeuble a des compteurs
-  if(niv==='imm' && m.t==='charge'){
-    const im = findImm(cur.imm);
-    if(im && im.ccs.length){
-      h += `<div class="recup"><label class="row"><input type="checkbox" ${cur.recup?'checked':''} onchange="cur.recup=this.checked;render()">
-            <span>Cette charge se récupère sur les locataires
-            <span class="hint">→ je la répartis via un compteur collectif au lieu de la déduire aux impôts</span></span></label></div>`;
-    }
-  }
-  // Charge récupérable explicite (eau / ascenseur) → choix du compteur
-  if(m.t==='recup' || (cur.recup && niv==='imm')){
-    const im = findImm(cur.imm);
-    if(im && im.ccs.length){
-      h += `<div class="cc-pick show"><label>Compteur collectif</label><select class="inp" onchange="cur.cc=this.value;dest()">`+
-           im.ccs.map(c=>`<option>${c.nom} · clé ${c.cle}</option>`).join('')+`</select></div>`;
-    }
-  }
-
-  // Bandeau destination
-  h += destHtml(m);
-  box.innerHTML = h;
-}
-
-function destHtml(m){
-  const niv = cur.niv;
-  const recup = (m.t==='recup') || (cur.recup && niv==='imm');
-  if(recup){
-    const im = findImm(cur.imm);
-    const nLoc = im ? im.logs.filter(l=>!/vacant/i.test(l.loc)).length : 0;
-    const cc = (im&&im.ccs[0])?im.ccs[0]:{nom:'—',cle:'tantièmes'};
-    return `<div class="dest recu"><span class="ic">👥</span><div>
-      <div class="ttl">Réparti sur ${nLoc} locataire(s) de ${cur.imm}</div>
-      <div class="det">Compteur « ${cc.nom} » · clé ${cc.cle} → apparaît dans la régularisation des charges. <span class="mu">Pas sur ta déclaration d'impôts (ça se neutralise).</span></div>
-      </div></div>`;
-  }
-  if(!m.l){ // hors résultat
-    return `<div class="dest none"><span class="ic">📋</span><div>
-      <div class="ttl">Hors déclaration</div><div class="det">Ce type d'écriture n'entre pas dans le résultat foncier.</div></div></div>`;
-  }
-  // déductible / recette → 2044
-  const where = niv==='sci'? `🏛️ ${cur.ent}` : niv==='imm'? `🏢 ${cur.imm}` : `🚪 ${cur.log}`;
-  const ligneTxt = ({'211':'Loyers encaissés','213':'Recettes diverses','221':'Frais de gestion','223':'Assurances',
-    '224':'Travaux','227':'Taxe foncière','229':'Provisions copro','250':"Intérêts d'emprunt"})[m.l]||'';
-  const sens = m.t==='recette' ? 'Recette' : 'Charge déductible';
-  return `<div class="dest tax"><span class="ic">🧾</span><div>
-    <div class="ttl">Ta déclaration 2044 · ligne ${m.l} — ${ligneTxt}</div>
-    <div class="det">${sens} · rattaché à ${where}. ${niv==='imm'?'Comptée au total de l\'immeuble (le 2044 veut un total par ligne).':''}</div>
-    </div></div>`;
-}
-
-function setNiv(k){ cur.niv=k; dest(); render(); }
-function pickImm(v){ cur.imm=v; const im=findImm(v); if(im&&im.logs[0])cur.log=im.logs[0].ref; render(); }
-function dest(){ /* léger refresh du bandeau seul */ const m=meta(); const box=document.getElementById('aff');
-  // re-render complet pour rester simple
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  // explainer contextuel
+  $('explain').innerHTML = m==='aff'
+    ? `<b>Affecter :</b> on choisit d'abord <b>ce que c'est</b> (la catégorie). Selon elle, l'app sait où ça va et ne pose qu'<b>une</b> question ciblée — jamais la liste de tous les logements. Le bandeau du bas montre en direct <b>où la ligne atterrit</b> (ta 2044, ou la régularisation des locataires).`
+    : `<b>Découper :</b> un seul virement reçu peut concerner <b>plusieurs biens ou locataires</b> (loyer tout compris à séparer, versement CAF groupé…). On répartit le montant en lignes ; chaque ligne garde sa propre affectation. Deux aides pré-remplissent depuis le bail ou par locataire.`;
   render();
 }
-function findImm(nom){ for(const e of ENT){ const i=e.imms.find(x=>x.nom===nom); if(i)return i; } return null; }
 
-// ---------- contrôles maquette ----------
-document.getElementById('g-device').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+/* ===================== MODE AFFECTER ===================== */
+function renderAff(){
+  const m = meta();
+  if(cur._catLock !== $('cat').value){ cur.niv=m.niv; cur.recup=!!m.recup; cur._catLock=$('cat').value; }
+  const niv = cur.niv;
+  let h = `<div class="aff-box"><div class="aff-q"><span class="ic">${NIV_LBL[niv].e}</span>`;
+  h += niv==='log' ? 'Quel logement&nbsp;?' : niv==='imm' ? 'Quel immeuble&nbsp;?' : 'Quelle entité / SCI&nbsp;?';
+  h += `</div><div class="lvl">`;
+  ['sci','imm','log'].forEach(k=>{
+    const on = k===niv?' on':''; const sg=(k===m.niv && k!==niv)?' sugg':'';
+    h += `<button class="${on}${sg}" onclick="cur.niv='${k}';renderAff()"><span class="e">${NIV_LBL[k].e}</span>${NIV_LBL[k].l}</button>`;
+  });
+  h += `</div>`;
+  if(niv==='sci') h += `<select class="inp" onchange="cur.ent=this.value;renderAff()">`+ENT.map(e=>`<option${e.nom===cur.ent?' selected':''}>${e.nom}</option>`).join('')+`</select>`;
+  if(niv==='imm') h += `<select class="inp" onchange="cur.imm=this.value;renderAff()">`+ENT.flatMap(e=>e.imms).map(i=>`<option${i.nom===cur.imm?' selected':''}>${i.nom}</option>`).join('')+`</select>`;
+  if(niv==='log') h += `<select class="inp" onchange="cur.log=this.value;renderAff()">`+allLogs().map(l=>`<option value="${l.ref}"${l.ref===cur.log?' selected':''}>${l.ref} — ${l.loc} · ${l.imm}</option>`).join('')+`</select>`;
+  if(niv==='imm' && m.t==='charge'){
+    const im=findImm(cur.imm);
+    if(im && im.ccs.length) h += `<div class="recup"><label class="row"><input type="checkbox" ${cur.recup?'checked':''} onchange="cur.recup=this.checked;renderAff()"><span>Cette charge se récupère sur les locataires<span class="hint">→ je la répartis via un compteur collectif au lieu de la déduire aux impôts</span></span></label></div>`;
+  }
+  if(m.t==='recup' || (cur.recup && niv==='imm')){
+    const im=findImm(cur.imm);
+    if(im && im.ccs.length) h += `<div class="cc-pick"><label>Compteur collectif</label><select class="inp">`+im.ccs.map(c=>`<option>${c.nom} · clé ${c.cle}</option>`).join('')+`</select></div>`;
+  }
+  h += destHtml(m) + `</div>`;
+  return h;
+}
+function destHtml(m){
+  const niv=cur.niv, recup=(m.t==='recup')||(cur.recup&&niv==='imm');
+  if(recup){
+    const im=findImm(cur.imm); const nLoc=im?im.logs.length:0; const cc=(im&&im.ccs[0])||{nom:'—',cle:'tantièmes'};
+    return `<div class="dest recu"><span class="ic">👥</span><div><div class="ttl">Réparti sur ${nLoc} locataire(s) de ${cur.imm}</div><div class="det">Compteur « ${cc.nom} » · clé ${cc.cle} → apparaît dans la régularisation des charges. <span class="mu">Pas sur ta 2044 (ça se neutralise).</span></div></div></div>`;
+  }
+  if(!m.l) return `<div class="dest none"><span class="ic">📋</span><div><div class="ttl">Hors déclaration</div><div class="det">N'entre pas dans le résultat foncier.</div></div></div>`;
+  const where = niv==='sci'?`🏛️ ${cur.ent}`:niv==='imm'?`🏢 ${cur.imm}`:`🚪 ${cur.log}`;
+  const s = m.t==='recette'?'Recette':'Charge déductible';
+  return `<div class="dest tax"><span class="ic">🧾</span><div><div class="ttl">Ta déclaration 2044 · ligne ${m.l} — ${LIG_LBL[m.l]||''}</div><div class="det">${s} · rattaché à ${where}. ${niv==='imm'?'Comptée au total de l\'immeuble.':''}</div></div></div>`;
+}
+
+/* ===================== MODE DÉCOUPER (split) ===================== */
+function seedSplit(method){
+  spMethod = method;
+  const im = findImm(cur.imm) || ENT[0].imms[0];
+  if(method==='bail'){
+    // loyer tout compris reçu → sépare HC (211) + provision charges (vers régul)
+    const l = im.logs.find(x=>x.ref===cur.log) || im.logs[0];
+    spRows = [
+      {lib:'Loyer hors charges', montant:l.hc, cat:'Loyers encaissés', qui:l.ref},
+      {lib:'Provision de charges', montant:l.ch, cat:'Provision de charges (locataire)', qui:l.ref},
+    ];
+  } else if(method==='caf'){
+    // un virement CAF groupé → 1 ligne par locataire bénéficiaire (APL)
+    spRows = im.logs.filter(l=>l.caf>0).map(l=>({lib:'APL '+l.loc, montant:l.caf, cat:'Loyers encaissés', qui:l.ref}));
+    if(!spRows.length) spRows=[{lib:'APL',montant:'',cat:'Loyers encaissés',qui:im.logs[0].ref}];
+  } else {
+    spRows = [
+      {lib:($('lib').value||'Ligne')+' (1)', montant:'', cat:$('cat').value, qui:cur.log},
+      {lib:($('lib').value||'Ligne')+' (2)', montant:'', cat:$('cat').value, qui:cur.log},
+    ];
+  }
+  renderSplit();
+}
+function renderSplit(){
+  document.querySelectorAll('#sp-help button').forEach(b=>b.classList.toggle('on',b.dataset.sp===spMethod));
+  const hint=$('sp-hint'); if(hint) hint.textContent = spMethod==='bail'
+    ? "Pré-rempli depuis le bail : loyer hors charges → 2044 (ligne 211), provision de charges → régularisation locataire."
+    : spMethod==='caf' ? "Une ligne par locataire bénéficiaire de l'APL. Ajuste si la CAF a régularisé un mois."
+    : "Saisis tes lignes librement. La somme doit égaler le montant total du mouvement.";
+  const logs = allLogs();
+  const cats = Object.keys(CATMETA);
+  $('sp-rows').innerHTML = spRows.map((r,j)=>{
+    const cm = CATMETA[r.cat]||{l:'',t:'charge'};
+    const rd = cm.regul ? `<span class="rdest r">→ régularisation</span>`
+             : cm.t==='recup' ? `<span class="rdest r">→ compteur</span>`
+             : cm.l ? `<span class="rdest t">→ 2044 · ${cm.l}</span>` : '';
+    return `<div class="sp-row">
+      <input class="inp" placeholder="Libellé" value="${r.lib}" oninput="spRows[${j}].lib=this.value">
+      <input class="inp" type="number" step="0.01" placeholder="Montant" value="${r.montant}" oninput="spRows[${j}].montant=this.value;balance()">
+      <select class="inp" onchange="spRows[${j}].cat=this.value;renderSplit()">${cats.map(c=>`<option ${c===r.cat?'selected':''}>${c}</option>`).join('')}</select>
+      <select class="inp" onchange="spRows[${j}].qui=this.value">${logs.map(l=>`<option value="${l.ref}" ${l.ref===r.qui?'selected':''}>${l.ref} · ${l.loc}</option>`).join('')}</select>
+      ${spRows.length>2?`<button class="x" onclick="spRows.splice(${j},1);renderSplit()" title="Supprimer">✕</button>`:'<span></span>'}
+      <div style="grid-column:1/-1;margin:-3px 0 4px;text-align:right">${rd}</div>
+    </div>`;
+  }).join('');
+  balance();
+}
+function addRow(){ spRows.push({lib:($('lib').value||'Ligne')+' ('+(spRows.length+1)+')',montant:'',cat:$('cat').value,qui:cur.log}); renderSplit(); }
+function balance(){
+  const t = total(); const used = spRows.reduce((s,r)=>s+(parseFloat(r.montant)||0),0);
+  const reste = Math.round((t-used)*100)/100; const ok = Math.abs(reste)<0.005;
+  const pct = t>0 ? Math.min(100, Math.round(used/t*100)) : 0;
+  $('sp-bal').innerHTML = `<span>Reste à répartir : <span class="${ok?'ok':'ko'}">${ok?'✅ équilibré':fmt(reste)}</span></span><span>Total : <strong>${fmt(t)}</strong></span>`;
+  const bar=$('sp-bar'); bar.classList.toggle('full',ok); bar.firstElementChild.style.width=pct+'%';
+  $('save').disabled = !ok;
+  $('foot-info').textContent = ok ? `${spRows.length} lignes — le mouvement d'origine sera remplacé` : 'La somme des lignes doit égaler le total';
+}
+
+/* ===================== rendu global ===================== */
+function render(){
+  if(mode==='aff'){
+    $('zone').innerHTML = renderAff();
+    $('save').disabled = false;
+    $('foot-info').textContent = '';
+  } else {
+    $('zone').innerHTML = `
+      <div class="sp-help" id="sp-help">
+        <button data-sp="bail" onclick="seedSplit('bail')"><span class="e">📄</span>Séparer selon le bail</button>
+        <button data-sp="caf" onclick="seedSplit('caf')"><span class="e">👨‍👩‍👧</span>Répartir par locataire (CAF)</button>
+        <button data-sp="manuel" onclick="seedSplit('manuel')"><span class="e">✏️</span>Manuel</button>
+      </div>
+      <div class="sp-hint" id="sp-hint"></div>
+      <div class="sp-rowhead"><span>Libellé</span><span>Montant</span><span>Catégorie</span><span>Logement</span><span></span></div>
+      <div id="sp-rows"></div>
+      <button class="sp-add" onclick="addRow()">+ Ajouter une ligne</button>
+      <div class="sp-bal" id="sp-bal"></div>
+      <div class="sp-bar" id="sp-bar"><i></i></div>`;
+    renderSplit();
+  }
+}
+
+/* ---------- contrôles maquette ---------- */
+$('g-device').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('#g-device button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-  document.querySelector('.mk-frame').dataset.d=b.dataset.d;};
-document.getElementById('g-theme').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelector('.mk-wrap').dataset.d=b.dataset.d;};
+$('g-theme').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('#g-theme button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
   document.documentElement.dataset.theme=b.dataset.t;};
-document.getElementById('g-demo').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+$('g-demo').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('#g-demo button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-  const sel=document.getElementById('cat'); sel.value=b.dataset.cat; cur._catLock=null; render();
-  // ajuste montant/libellé pour le réalisme
-  const map={'Loyers encaissés':['VIR M. MARTIN LOYER','','620'],
-    'Taxe foncière (et taxes annexes)':['PRLV TRESOR PUBLIC','1240',''],
-    'Eau froide générale (immeuble)':['PRLV VEOLIA EAU','318',''],
-    'Frais de compte / comptable (SCI)':['FRAIS TENUE COMPTE','12',''] };
-  const mm=map[b.dataset.cat]; if(mm){document.getElementById('lib').value=mm[0];
-    document.getElementById('db').value=mm[1];document.getElementById('cr').value=mm[2];}
-};
+  applyScenario(b.dataset.s);};
 
-render();
+const SCEN = {
+  loyer:{cat:'Loyers encaissés',          lib:'VIR M. MARTIN LOYER', db:'', cr:'540', date:'2026-05-03', src:['🏦 Import banque','Relevé CIC · 03/05/2026'], log:'F-RDC', mode:'aff'},
+  taxe: {cat:'Taxe foncière (et taxes annexes)', lib:'PRLV TRESOR PUBLIC', db:'1240', cr:'', date:'2026-05-14', src:['🏦 Import banque','Relevé CIC · 14/05/2026'], imm:'Freyming', mode:'aff'},
+  eau:  {cat:'Eau froide générale (immeuble)', lib:'PRLV VEOLIA EAU', db:'318', cr:'', date:'2026-05-09', src:['🏦 Import banque','Relevé CIC · 09/05/2026'], imm:'Freyming', mode:'aff'},
+  sci:  {cat:'Frais de compte / comptable (SCI)', lib:'FRAIS TENUE COMPTE', db:'12', cr:'', date:'2026-05-31', src:['🏦 Import banque','Relevé CIC · 31/05/2026'], mode:'aff'},
+  bail: {cat:'Loyers encaissés', lib:'VIR LOYER CC FORBACH', db:'', cr:'700', date:'2026-05-05', src:['🏦 Import banque','Relevé CIC · 05/05/2026'], imm:'Forbach Centre', log:'FB-01', mode:'split', method:'bail'},
+  caf:  {cat:'Loyers encaissés', lib:'VIR CAF MOSELLE', db:'', cr:'390', date:'2026-05-06', src:['🏦 Import banque','Relevé CIC · 06/05/2026'], imm:'Freyming', mode:'split', method:'caf'},
+};
+function applyScenario(s){
+  const sc=SCEN[s]; if(!sc)return;
+  document.querySelectorAll('#g-demo button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
+  $('cat').value=sc.cat; $('lib').value=sc.lib; $('db').value=sc.db; $('cr').value=sc.cr;
+  if(sc.date) $('date').value=sc.date;
+  $('m-src').textContent=sc.src[0]; $('m-srcdet').textContent=sc.src[1];
+  if(sc.imm){ cur.imm=sc.imm; } if(sc.log){ cur.log=sc.log; }
+  cur._catLock=null;
+  if(sc.mode==='split'){ setMode('split'); seedSplit(sc.method); }
+  else { setMode('aff'); }
+}
+
+applyScenario('taxe');
 </script>
 </body>
 </html>
