@@ -35,7 +35,8 @@
  *             resultatFoncier, nonMappes: Array, comptes: Object }}
  */
 export function _compute2044(mouvements, stdCategories, opts = {}) {
-  const { from = '', to = '', entityNom = '', refs = [] } = opts;
+  const { from = '', to = '', entityNom = '', refs = [],
+          imms = [], nbLocaux = 0, partBailleur225 = 0 } = opts;
   const inScope = m => {
     if (!m || m._deleted) return false;
     if (from && m.date < from) return false;
@@ -44,7 +45,11 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
       // m.qui peut être un ref logement OU 'SCI:<nom>'
       const isGlobal = m.qui === 'SCI:' + entityNom;
       const isInScope = refs && refs.length ? refs.includes(m.qui) : false;
-      if (!isGlobal && !isInScope) return false;
+      // Charge posée au niveau immeuble : qui vide + imm rattaché à un immeuble du bailleur.
+      // (ex. taxe foncière, PNO, syndic part proprio). Sans ça → tombe dans le trou et
+      // disparaît du 2044. Cf V3-REFONTE-LOYERS chantier A.
+      const isImmScope = (!m.qui && m.imm && imms && imms.length) ? imms.includes(m.imm) : false;
+      if (!isGlobal && !isInScope && !isImmScope) return false;
     }
     return true;
   };
@@ -58,6 +63,11 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
   let totalRecettes = 0, totalCharges = 0, totalInterets = 0;
 
   (mouvements || []).filter(inScope).forEach(m => {
+    // Mouvements rattachés à un compteur collectif : ignorés ici. Leur part bailleur
+    // (charges récupérables non récupérées) est réinjectée sur la ligne 225 via
+    // opts.partBailleur225 (précalculé par computeRegul côté UI). Sans ce skip →
+    // double compte (facture brute en charge + part bailleur ajoutée). Cf V3-REFONTE-LOYERS.
+    if (m.compteurCcId) return;
     const std = catByName.get(m.cat);
     if (!std) {
       // Catégorie custom non mappée
@@ -84,6 +94,23 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
     }
     comptes[ligne]++;
   });
+
+  // Forfait légal ligne 222 (notice 2044 § 222) : 20 € par local, calculé automatiquement
+  // (« réputé couvrir les autres frais de gestion non déductibles pour leur montant réel »).
+  // nbLocaux fourni par l'appelant (nombre de logements actifs du bailleur).
+  if (nbLocaux > 0) {
+    lignes['222'] = (lignes['222'] || 0) + nbLocaux * 20;
+    comptes['222'] = (comptes['222'] || 0) + 1;
+    totalCharges += nbLocaux * 20;
+  }
+  // Part bailleur des charges récupérables non récupérées (ligne 225), précalculée par
+  // l'appelant via computeRegul (vacances + logements exclus du compteur collectif).
+  // Cumulée avec d'éventuels mouvements 225 saisis directement.
+  if (partBailleur225) {
+    lignes['225'] = (lignes['225'] || 0) + partBailleur225;
+    comptes['225'] = (comptes['225'] || 0) + 1;
+    totalCharges += partBailleur225;
+  }
 
   // Arrondi à 2 décimales pour chaque ligne
   Object.keys(lignes).forEach(k => { lignes[k] = Math.round(lignes[k] * 100) / 100; });
@@ -127,6 +154,7 @@ export function _format2044Recap(result, opts = {}) {
   lines.push('');
   lines.push('▶ CHARGES DÉDUCTIBLES (à reporter en partie II)');
   if (result.lignes['221'] != null) lines.push('  Ligne 221 (Frais de gestion / honoraires)        : ' + fmt(result.lignes['221']).padStart(15));
+  if (result.lignes['222'] != null) lines.push('  Ligne 222 (Forfait gestion 20 €/local)           : ' + fmt(result.lignes['222']).padStart(15));
   if (result.lignes['223'] != null) lines.push('  Ligne 223 (Primes d\'assurance)                   : ' + fmt(result.lignes['223']).padStart(15));
   if (result.lignes['224'] != null) lines.push('  Ligne 224 (Travaux de réparation / entretien)    : ' + fmt(result.lignes['224']).padStart(15));
   if (result.lignes['224bis'] != null) lines.push('  Ligne 224 bis (Travaux rénov énergétique)       : ' + fmt(result.lignes['224bis']).padStart(15));
@@ -169,6 +197,7 @@ export function _2044ToCsv(result) {
     '211': 'Loyers encaissés / arriérés',
     '213': 'Subventions / indemnités / recettes diverses',
     '221': 'Frais de gestion et procédure',
+    '222': 'Frais de gestion forfaitaires (20 €/local)',
     '223': 'Primes d\'assurance (PNO, GLI)',
     '224': 'Travaux de réparation et d\'entretien',
     '224bis': 'Travaux de rénovation énergétique',

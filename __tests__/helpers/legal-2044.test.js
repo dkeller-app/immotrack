@@ -118,6 +118,87 @@ describe('_compute2044', () => {
   });
 });
 
+describe('_compute2044 — charges immeuble / forfait 222 / part bailleur 225', () => {
+  it('compte les charges au niveau immeuble (qui vide + imm dans opts.imms)', () => {
+    const mvts = [
+      { date: '2026-05-10', cat: 'Taxe foncière (et taxes annexes)', db: 800, qui: '', imm: 'Le Dupont' },
+      { date: '2026-06-10', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], imms: ['Le Dupont'] });
+    expect(r.lignes['227']).toBe(800);
+    expect(r.lignes['211']).toBe(1000);
+    expect(r.totalCharges).toBe(800);
+    expect(r.resultatFoncier).toBe(200);
+  });
+
+  it('exclut une charge immeuble si imm hors périmètre de l\'entité', () => {
+    const mvts = [
+      { date: '2026-05-10', cat: 'Taxe foncière (et taxes annexes)', db: 800, qui: '', imm: 'Autre immeuble' }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], imms: ['Le Dupont'] });
+    expect(r.lignes['227']).toBeUndefined();
+    expect(r.totalCharges).toBe(0);
+  });
+
+  it('ignore les mouvements liés à un compteur collectif (part bailleur injectée à part)', () => {
+    const mvts = [
+      { date: '2026-05-10', cat: 'Charges récupérables non récupérées', db: 500, qui: '', imm: 'Le Dupont', compteurCcId: 'cc_1' }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: [], imms: ['Le Dupont'] });
+    expect(r.lignes['225']).toBeUndefined();
+    expect(r.totalCharges).toBe(0);
+  });
+
+  it('injecte le forfait légal ligne 222 (20 € par local) via opts.nbLocaux', () => {
+    const mvts = [
+      { date: '2026-05-10', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], nbLocaux: 3 });
+    expect(r.lignes['222']).toBe(60);
+    expect(r.totalCharges).toBe(60);
+    expect(r.resultatFoncier).toBe(940);
+  });
+
+  it('pas de forfait 222 si nbLocaux absent ou nul', () => {
+    const mvts = [{ date: '2026-05-10', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' }];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'] });
+    expect(r.lignes['222']).toBeUndefined();
+    expect(r.totalCharges).toBe(0);
+  });
+
+  it('injecte la part bailleur sur la ligne 225 via opts.partBailleur225', () => {
+    const mvts = [
+      { date: '2026-05-10', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], partBailleur225: 150 });
+    expect(r.lignes['225']).toBe(150);
+    expect(r.totalCharges).toBe(150);
+    expect(r.resultatFoncier).toBe(850);
+  });
+
+  it('cumule la part bailleur avec les mouvements 225 existants', () => {
+    const mvts = [
+      { date: '2026-05-10', cat: 'Charges récupérables non récupérées', db: 100, qui: 'F-001' }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], partBailleur225: 150 });
+    expect(r.lignes['225']).toBe(250);
+    expect(r.totalCharges).toBe(250);
+  });
+
+  it('forfait 222 + part bailleur 225 cumulés dans le total des charges', () => {
+    const mvts = [
+      { date: '2026-05-10', cat: 'Loyers encaissés', cr: 2000, qui: 'F-001' },
+      { date: '2026-05-12', cat: 'Taxe foncière (et taxes annexes)', db: 500, qui: '', imm: 'Le Dupont' }
+    ];
+    const r = _compute2044(mvts, STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], imms: ['Le Dupont'], nbLocaux: 2, partBailleur225: 90 });
+    expect(r.lignes['227']).toBe(500);
+    expect(r.lignes['222']).toBe(40);
+    expect(r.lignes['225']).toBe(90);
+    expect(r.totalCharges).toBe(630);
+    expect(r.resultatFoncier).toBe(1370);
+  });
+});
+
 describe('_format2044Recap', () => {
   it('produit un récap texte multiligne', () => {
     const r = _compute2044([
@@ -145,6 +226,13 @@ describe('_format2044Recap', () => {
     expect(txt).toContain('2 mouvement(s)');
     expect(txt).toContain('catégorie non mappée');
   });
+
+  it('affiche la ligne 222 (forfait) quand le forfait est présent', () => {
+    const r = _compute2044([{ date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' }],
+      STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], nbLocaux: 2 });
+    const txt = _format2044Recap(r, { yr: '2026' });
+    expect(txt).toContain('Ligne 222');
+  });
 });
 
 describe('_2044ToCsv', () => {
@@ -159,6 +247,14 @@ describe('_2044ToCsv', () => {
     expect(csv).toContain('Loyers encaissés / arriérés');
     expect(csv).toContain('TOTAL_RECETTES');
     expect(csv).toContain('RESULTAT_FONCIER');
+  });
+
+  it('inclut la ligne 222 (forfait) dans le CSV quand présente', () => {
+    const r = _compute2044([{ date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' }],
+      STD_CATEGORIES, { entityNom: 'Mon SCI', refs: ['F-001'], nbLocaux: 2 });
+    const csv = _2044ToCsv(r);
+    expect(csv).toContain('222');
+    expect(csv).toMatch(/forfait/i);
   });
 
   it('escape virgules dans description', () => {
