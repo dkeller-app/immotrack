@@ -110,6 +110,13 @@ const PAIRS = [
     exports: ['PDF_NATIVE', 'mmToPt', 'rectFromJsPdf', 'fallbackAnchors'],
   },
   {
+    name: 'bail-sign-sigid',
+    src: '__tests__/helpers/bail-sign-sigid.js',
+    dst: 'js/helpers/bail-sign-sigid.global.js',
+    globalName: 'BailSignSigid',
+    exports: ['buildRemoteSigIdMap', 'relayComputeSigId'],
+  },
+  {
     name: 'bail-sign-manifest',
     src: '__tests__/helpers/bail-sign-manifest.js',
     dst: 'js/helpers/bail-sign-manifest.global.js',
