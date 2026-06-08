@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { _compute2044, _format2044Recap, _2044ToCsv } from '../../js/core/legal-2044.js';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(__dir, '../..');
 
 const STD_CATEGORIES = [
   { nom: 'Loyers encaissés', ligne2044: '211', type: 'recette' },
@@ -299,4 +305,19 @@ describe('_2044ToCsv', () => {
     // qui contient des "/" mais pas de virgule, donc safe. Test du format CSV propre.
     expect(csv.split('\n').length).toBeGreaterThan(2); // header + at least 1 + totals
   });
+});
+
+describe('STD_CATEGORIES inline — ligne 230 typée deduction (anti-régression fiscale)', () => {
+  // La ligne 230 (régul provisions copro N-1) DOIT se soustraire des charges (notice 2044 :
+  // 240 = (221..229) − 230). Si elle est typée 'charge' elle s'AJOUTE → ~×2 d'erreur.
+  // Ce test lit les deux HTML pour empêcher une régression silencieuse côté données inline.
+  for (const file of ['index.html', 'index-test.html']) {
+    it(`${file} : la catégorie ligne 230 est type:'deduction'`, () => {
+      const html = readFileSync(resolve(repoRoot, file), 'utf8');
+      // Cible la ligne du tableau STD_CATEGORIES qui porte ligne2044:'230'
+      const m = html.match(/\{[^{}]*ligne2044:\s*'230'[^{}]*\}/);
+      expect(m, `entrée ligne2044:'230' introuvable dans ${file}`).toBeTruthy();
+      expect(m[0]).toMatch(/type:\s*'deduction'/);
+    });
+  }
 });
