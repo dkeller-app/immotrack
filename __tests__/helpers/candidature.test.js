@@ -3,7 +3,8 @@ import { describe, it, expect } from 'vitest';
 import {
   _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
-  buildComplementShareMessage, shouldAutoPull
+  buildComplementShareMessage, shouldAutoPull,
+  countUnreadCandidats, nouveauDossierToast
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
@@ -192,5 +193,43 @@ describe('shouldAutoPull', () => {
   });
   it('borne exacte (now-last === interval) → pull', () => {
     expect(shouldAutoPull(1_000_000, 1_000_000 + I, I, true)).toBe(true);
+  });
+});
+
+describe('countUnreadCandidats', () => {
+  it('compte uniquement vu === false, non supprimés, non archivés', () => {
+    const list = [
+      { id:'a', vu:false },
+      { id:'b', vu:true },
+      { id:'c' },
+      { id:'d', vu:false, _deleted:true },
+      { id:'e', vu:false, _archived:true },
+      { id:'f', vu:false }
+    ];
+    expect(countUnreadCandidats(list)).toBe(2);
+  });
+  it('liste vide / invalide → 0', () => {
+    expect(countUnreadCandidats([])).toBe(0);
+    expect(countUnreadCandidats(null)).toBe(0);
+  });
+});
+
+describe('nouveauDossierToast', () => {
+  it('aucun nom → message générique', () => {
+    expect(nouveauDossierToast([])).toMatch(/Nouveau dossier reçu/);
+  });
+  it('un nom', () => {
+    expect(nouveauDossierToast(['Marie Dupont'])).toContain('Marie Dupont');
+  });
+  it('deux noms → « et 1 autre »', () => {
+    const t = nouveauDossierToast(['Marie Dupont','Karim Benali']);
+    expect(t).toContain('Marie Dupont');
+    expect(t).toContain('1 autre');
+  });
+  it('trois noms → « et 2 autres »', () => {
+    expect(nouveauDossierToast(['A','B','C'])).toContain('2 autres');
+  });
+  it('ignore les noms vides', () => {
+    expect(nouveauDossierToast(['', null, 'Léa'])).toContain('Léa');
   });
 });
