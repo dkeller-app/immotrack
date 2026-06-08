@@ -31,7 +31,7 @@ describe('purge_espace — suppression dure d\'un tenant', () => {
   it('un client authentifié NON privilégié ne peut PAS appeler purge_espace', async () => {
     const { error } = await clientA.rpc('purge_espace', { p_espace_id: espaceA })
     expect(error).not.toBeNull()                    // EXECUTE révoqué pour authenticated
-    expect(error.message).toMatch(/permission denied|not.*exist|function/i)
+    expect(error.message).toMatch(/permission denied|does not exist/i)
   })
 
   it('service_role purge l\'espace : membres + données métier (dont signé) supprimés', async () => {
@@ -53,5 +53,22 @@ describe('purge_espace — suppression dure d\'un tenant', () => {
 
     // l'utilisateur devient supprimable (plus d'espace qui le référence via created_by).
     await expect(deleteUserByEmail(A.email)).resolves.not.toThrow()
+  })
+
+  it('garde-fou : les SEULES FK ON DELETE RESTRICT sont celles que purge_espace neutralise', async () => {
+    // Tripwire (audit code-reviewer #2) : purge_espace neutralise baux_evenements + amends_id
+    // avant la cascade car ce sont les deux seules FK RESTRICT. Si une future migration en
+    // ajoute une autre vers une table d'espace, ce test échoue → forcer la MAJ de purge_espace.
+    const c = db(); await c.connect()
+    try {
+      const { rows } = await c.query(`
+        select con.conname
+        from pg_constraint con
+        join pg_class cl on cl.oid = con.conrelid
+        join pg_namespace n on n.oid = cl.relnamespace
+        where n.nspname = 'public' and con.contype = 'f' and con.confdeltype = 'r'
+        order by con.conname`)
+      expect(rows.map(r => r.conname)).toEqual(['baux_amends_fk', 'baux_evenements_bail_fk'])
+    } finally { await c.end() }
   })
 })

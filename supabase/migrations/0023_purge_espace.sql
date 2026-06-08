@@ -54,6 +54,9 @@ begin
 
   -- Neutraliser les FK ON DELETE RESTRICT pointant vers baux AVANT la cascade
   -- (RESTRICT est vérifié immédiatement, pas déféré → casserait la cascade).
+  -- INVARIANT : ce sont les SEULES FK RESTRICT du schéma (baux_evenements_bail_fk + baux_amends_fk).
+  -- Toute nouvelle FK ON DELETE RESTRICT vers une table d'espace DEVRA être neutralisée ici ;
+  -- un garde-fou de test (purge-espace.test.mjs) échoue volontairement si une autre apparaît.
   delete from public.baux_evenements where espace_id = p_espace_id;
   update public.baux set amends_id = null where espace_id = p_espace_id and amends_id is not null;
 
