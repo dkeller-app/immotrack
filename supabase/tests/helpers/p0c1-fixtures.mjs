@@ -37,7 +37,12 @@ export async function purgeLockedArtefacts(espaceIds) {
   try {
     await c.query('begin')
     await c.query(`set local app.bypass_immutable = 'on'`)
-    await c.query(`delete from public.baux_evenements where espace_id = any($1::uuid[])`, [espaceIds])
+    // baux_evenements n'existe qu'à partir de la migration 0017 (Task 5) ; garde tolérante
+    // pour que afterAll soit propre dès Task 2.
+    const ev = await c.query(`select to_regclass('public.baux_evenements') as t`)
+    if (ev.rows[0].t) {
+      await c.query(`delete from public.baux_evenements where espace_id = any($1::uuid[])`, [espaceIds])
+    }
     await c.query(`update public.baux set amends_id = null where espace_id = any($1::uuid[])`, [espaceIds])
     await c.query(`delete from public.baux where espace_id = any($1::uuid[])`, [espaceIds])
     await c.query(`delete from public.edl  where espace_id = any($1::uuid[])`, [espaceIds])
