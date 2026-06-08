@@ -131,3 +131,45 @@ describe('P0-C1 — chaînage avenant (amends_id) : superseded dérivé, origina
     expect(error.message).toMatch(/violates foreign key|baux_amends_fk/i)
   })
 })
+
+describe('P0-C1 — résiliation via baux_evenements : le signé n\'est PAS muté', () => {
+  it('un événement « resiliation » se crée sans toucher la ligne signée verrouillée', async () => {
+    // idsA.bail est verrouillé (bloc baux). On capture son état AVANT, on crée l'événement,
+    // on relit APRÈS : version + updated_at + locked inchangés.
+    const before = await clientA.from('baux')
+      .select('version, updated_at, signed_at, locked').eq('id', idsA.bail).single()
+
+    const { error: evErr } = await clientA.from('baux_evenements').insert({
+      espace_id: espaceA, bail_id: idsA.bail, type_evenement: 'resiliation',
+      date_evenement: '2026-06-30', motif: 'Congé locataire',
+    })
+    expect(evErr).toBeNull()   // INSERT d'un enfant N'EST PAS bloqué par le trigger du signé
+
+    const after = await clientA.from('baux')
+      .select('version, updated_at, signed_at, locked').eq('id', idsA.bail).single()
+    expect(after.data.version).toBe(before.data.version)         // pas de bump → pas d'UPDATE
+    expect(after.data.updated_at).toBe(before.data.updated_at)
+    expect(after.data.locked).toBe(true)
+
+    // état « résilié » = dérivé de la présence d'un événement resiliation.
+    const { data: evs } = await clientA.from('baux_evenements')
+      .select('id').eq('bail_id', idsA.bail).eq('type_evenement', 'resiliation')
+    expect(evs.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('on ne peut PAS supprimer un bail qui porte des événements (ON DELETE RESTRICT)', async () => {
+    // Bail non verrouillé pour isoler la FK (le trigger lèverait sinon en premier).
+    const lg = await clientA.from('logements').insert({
+      espace_id: espaceA, ref: `LEV-${RUN}`, entite_id: idsA.entite, immeuble_id: idsA.immeuble,
+    }).select('id').single()
+    const b = await clientA.from('baux').insert({
+      espace_id: espaceA, logement_id: lg.data.id, type_bail: 'nu', hc: 700,
+    }).select('id').single()
+    await clientA.from('baux_evenements').insert({
+      espace_id: espaceA, bail_id: b.data.id, type_evenement: 'conge', date_evenement: '2026-07-01',
+    })
+    const { error } = await clientA.from('baux').delete().eq('id', b.data.id).select()
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/violates foreign key|baux_evenements_bail_fk/i)
+  })
+})
