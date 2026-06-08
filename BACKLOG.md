@@ -274,7 +274,7 @@ Fix v15.08 : tous les libellés DDT visibles user → « Diagnostics » / « Dos
 | Code | Sujet | Prio | Taille | Statut | Note |
 |---|---|---|---|---|---|
 | V3-REFONTE-BAIL | Refonte fonctionnelle Bail (en cours sur plusieurs sessions) | P2 | L | 🔄 En cours | Phase 3a-d, wizard, signature, snapshot livrés. Reste : polish + types + PDF natif (cf sujets dédiés) |
-| V3-REFONTE-LOYERS | Refonte fonctionnelle onglet Loyers/Mouvements | P2 | M-L | 🔄 En cours (design) | Modèle affectation 3 niveaux + import OFX-first · `docs/subjects/V3-REFONTE-LOYERS.md` |
+| V3-REFONTE-LOYERS | Refonte fonctionnelle onglet Loyers/Mouvements | P2 | M-L | 🔄 En cours (Chantier A) | Modèle affectation 3 niveaux + import OFX-first · **Chantier A Phase 1 ✅ PROD v15.259** (commit 49ba4ff : fix fiscal ligne 230 deduction + builder opts complet imms/222/225 + test garde-fou). Reste Phase 2 (moteur 2044 unifié : brancher wizard PDF sur le module + suppression inline) · plan `docs/superpowers/plans/2026-06-08-chantier-a-2044-unifie.md` · spec `docs/subjects/V3-REFONTE-LOYERS.md` |
 | V3-REFONTE-QUIT | Refonte fonctionnelle onglet Quittances | P2 | M | ⬜ À faire | 3e priorité |
 | V3-REFONTE-REGUL | Refonte fonctionnelle onglet Régularisation | P2 | M | ⬜ À faire | 4e priorité · couvre BUG-CHARGE-001 + CHARGE-REGLES |
 | V3-REFONTE-IRL | Refonte fonctionnelle onglet IRL | P2 | M | ⬜ À faire | 5e priorité · couvre IRL-VALIDATION |
