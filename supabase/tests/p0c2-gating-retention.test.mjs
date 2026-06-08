@@ -140,3 +140,44 @@ describe('P0-C2 — helper de résolution des droits (espace_plan / espace_has_f
     } finally { await c.end() }
   })
 })
+
+describe('P0-C2 — colonnes de rétention (hook RGPD, invariant 12)', () => {
+  const RETENTION_TABLES = ['baux', 'edl', 'quittances', 'baux_historique']
+
+  for (const t of RETENTION_TABLES) {
+    it(`${t} porte retention_class / legal_basis / retention_until avec défauts`, async () => {
+      const c = db(); await c.connect()
+      try {
+        const { rows } = await c.query(
+          `select column_name, column_default
+           from information_schema.columns
+           where table_schema='public' and table_name=$1
+             and column_name in ('retention_class','legal_basis','retention_until')`, [t])
+        const cols = Object.fromEntries(rows.map(r => [r.column_name, r.column_default]))
+        expect(Object.keys(cols).sort()).toEqual(['legal_basis', 'retention_class', 'retention_until'])
+        expect(cols.retention_class).toMatch(/bail_plus_3ans/)
+        expect(cols.legal_basis).toMatch(/obligation_legale/)
+      } finally { await c.end() }
+    })
+  }
+
+  it('le CHECK refuse une retention_class hors liste (insert réel rejeté, rien persisté)', async () => {
+    const c = db(); await c.connect()
+    try {
+      await expect(
+        c.query(`insert into public.baux_historique (espace_id, bail_snapshot, retention_class)
+                 values ($1, '{}'::jsonb, 'pour_toujours')`, [espaceA])
+      ).rejects.toThrow(/retention_class_chk|violates check/i)
+    } finally { await c.end() }
+  })
+
+  it('le CHECK refuse une legal_basis hors liste (insert réel rejeté, rien persisté)', async () => {
+    const c = db(); await c.connect()
+    try {
+      await expect(
+        c.query(`insert into public.baux_historique (espace_id, bail_snapshot, legal_basis)
+                 values ($1, '{}'::jsonb, 'parce_que')`, [espaceA])
+      ).rejects.toThrow(/legal_basis_chk|violates check/i)
+    } finally { await c.end() }
+  })
+})
