@@ -105,3 +105,38 @@ describe('P0-C2 — colonnes d\'abonnement sur espaces', () => {
     } finally { await c.end() }
   })
 })
+
+describe('P0-C2 — helper de résolution des droits (espace_plan / espace_has_feature)', () => {
+  it('espace_plan résout « free » par défaut (limite_biens = 1)', async () => {
+    const c = db(); await c.connect()
+    try {
+      const { rows } = await c.query(`select (public.espace_plan($1)).id as id,
+                                              (public.espace_plan($1)).limite_biens as biens`, [espaceA])
+      expect(rows[0].id).toBe('free')
+      expect(rows[0].biens).toBe(1)
+    } finally { await c.end() }
+  })
+
+  it('après bascule sur « beta », espace_plan résout illimité (limite_biens NULL)', async () => {
+    const c = db(); await c.connect()
+    try {
+      await c.query(`update public.espaces set plan_id = 'beta', subscription_source = 'comp' where id = $1`, [espaceA])
+      const { rows } = await c.query(`select (public.espace_plan($1)).id as id,
+                                              (public.espace_plan($1)).limite_biens as biens`, [espaceA])
+      expect(rows[0].id).toBe('beta')
+      expect(rows[0].biens).toBeNull()
+      const { rows: f } = await c.query(`select public.espace_has_feature($1, 'all') as all_feat`, [espaceA])
+      expect(f[0].all_feat).toBe(true)
+      // remettre free pour ne pas perturber d'autres assertions éventuelles
+      await c.query(`update public.espaces set plan_id = 'free', subscription_source = null where id = $1`, [espaceA])
+    } finally { await c.end() }
+  })
+
+  it('espace_has_feature renvoie false pour une feature absente', async () => {
+    const c = db(); await c.connect()
+    try {
+      const { rows } = await c.query(`select public.espace_has_feature($1, 'feature_bidon') as f`, [espaceA])
+      expect(rows[0].f).toBe(false)
+    } finally { await c.end() }
+  })
+})
