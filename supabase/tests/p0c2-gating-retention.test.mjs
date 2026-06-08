@@ -70,3 +70,38 @@ describe('P0-C2 — catalogue plans (global, data-driven)', () => {
     expect(wErr.message).toMatch(/row-level security|violates/i)
   })
 })
+
+describe('P0-C2 — colonnes d\'abonnement sur espaces', () => {
+  it('un espace nouvellement créé a plan_id = « free » par défaut', async () => {
+    const { data } = await clientA.from('espaces').select('plan_id, subscription_source').eq('id', espaceA).single()
+    expect(data.plan_id).toBe('free')
+    expect(data.subscription_source).toBeNull()
+  })
+
+  it('le CHECK refuse une subscription_source hors {stripe,trial,comp}', async () => {
+    const c = db(); await c.connect()
+    try {
+      await expect(
+        c.query(`update public.espaces set subscription_source = 'bitcoin' where id = $1`, [espaceA])
+      ).rejects.toThrow(/espaces_subscription_source_chk|violates check/i)
+    } finally { await c.end() }
+  })
+
+  it('le CHECK refuse un subscription_status inconnu de Stripe', async () => {
+    const c = db(); await c.connect()
+    try {
+      await expect(
+        c.query(`update public.espaces set subscription_status = 'invente' where id = $1`, [espaceA])
+      ).rejects.toThrow(/espaces_subscription_status_chk|violates check/i)
+    } finally { await c.end() }
+  })
+
+  it('plan_id référence une ligne plans réelle (FK)', async () => {
+    const c = db(); await c.connect()
+    try {
+      await expect(
+        c.query(`update public.espaces set plan_id = 'plan_inexistant' where id = $1`, [espaceA])
+      ).rejects.toThrow(/violates foreign key/i)
+    } finally { await c.end() }
+  })
+})
