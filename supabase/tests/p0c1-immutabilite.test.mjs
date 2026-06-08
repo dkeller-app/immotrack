@@ -56,3 +56,37 @@ describe('P0-C1 — verrou d\'immutabilité (baux)', () => {
     expect(error).toBeNull()
   })
 })
+
+describe('P0-C1 — verrou d\'immutabilité (edl)', () => {
+  it('verrouiller un EDL (locked false → true) est AUTORISÉ', async () => {
+    const row = await lockRow(clientA, 'edl', idsA.edl, { source: 'immotrack', hash: FAKE_HASH })
+    expect(row.locked).toBe(true)
+    expect(row.content_hash).toBe(FAKE_HASH)
+  })
+
+  it('UPDATE d\'un EDL verrouillé est REFUSÉ', async () => {
+    const { error } = await clientA.from('edl').update({ date_edl: '2030-01-01' }).eq('id', idsA.edl).select()
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/ROW_LOCKED_IMMUTABLE/)
+  })
+
+  it('DELETE d\'un EDL verrouillé est REFUSÉ', async () => {
+    const { error } = await clientA.from('edl').delete().eq('id', idsA.edl).select()
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/ROW_LOCKED_IMMUTABLE/)
+  })
+
+  it('un EDL signé "externe" peut être verrouillé SANS content_hash', async () => {
+    const lg = await clientA.from('logements').insert({
+      espace_id: espaceA, ref: `LE-${RUN}`, entite_id: idsA.entite, immeuble_id: idsA.immeuble,
+    }).select('id').single()
+    const e2 = await clientA.from('edl').insert({
+      espace_id: espaceA, type_edl: 'Entrée', logement_id: lg.data.id,
+    }).select('id').single()
+    const { data, error } = await clientA.from('edl')
+      .update({ locked: true, signature_source: 'externe' }).eq('id', e2.data.id).select().single()
+    expect(error).toBeNull()
+    expect(data.locked).toBe(true)
+    expect(data.content_hash).toBeNull()
+  })
+})
