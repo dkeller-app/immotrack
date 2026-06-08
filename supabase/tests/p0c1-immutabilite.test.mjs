@@ -173,3 +173,46 @@ describe('P0-C1 — résiliation via baux_evenements : le signé n\'est PAS mut�
     expect(error.message).toMatch(/violates foreign key|baux_evenements_bail_fk/i)
   })
 })
+
+describe('P0-C1 — invariants transverses (§9 l.180-184)', () => {
+  it('le trigger ne s\'applique QU\'à la ligne signée : INSERT de quittance/mouvement OK', async () => {
+    // idsA.logement porte idsA.bail (verrouillé). Créer un enfant qui le référence doit PASSER.
+    const { error: qErr } = await clientA.from('quittances').insert({
+      espace_id: espaceA, logement_id: idsA.logement, entite_id: idsA.entite,
+      mois: '2026-09', hc: 700, ch: 100,
+    })
+    expect(qErr).toBeNull()
+    const { error: mErr } = await clientA.from('mouvements').insert({
+      espace_id: espaceA, date_mouvement: '2026-09-05', libelle: 'Loyer sept',
+      logement_id: idsA.logement, categorie: 'loyer', credit: 800,
+    })
+    expect(mErr).toBeNull()
+  })
+
+  it('pas de hard-delete d\'un logement portant un bail signé (FK parent NO ACTION)', async () => {
+    // idsA.logement est référencé par idsA.bail (verrouillé) → suppression refusée.
+    const { error } = await clientA.from('logements').delete().eq('id', idsA.logement).select()
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/violates foreign key/i)
+  })
+
+  it('échappatoire admin : avec app.bypass_immutable=on, un UPDATE du signé passe (import P0-E)', async () => {
+    // Prouve (a) que le verrou est levable par une session DB privilégiée (idempotence import,
+    // §9 l.284) et (b) que SANS le GUC, même le service_role est bloqué (triggers non bypassés).
+    const admin = adminClient()
+    const { error: blocked } = await admin.from('baux').update({ notes: 'x' }).eq('id', idsA.bail).select()
+    expect(blocked).not.toBeNull()                         // service_role SANS GUC → bloqué
+    expect(blocked.message).toMatch(/ROW_LOCKED_IMMUTABLE/)
+
+    const pg = (await import('pg')).default
+    const c = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+    await c.connect()
+    try {
+      await c.query('begin')
+      await c.query(`set local app.bypass_immutable = 'on'`)
+      const r = await c.query(`update public.baux set notes = 'import-ok' where id = $1`, [idsA.bail])
+      expect(r.rowCount).toBe(1)                            // AVEC GUC → autorisé
+      await c.query('commit')
+    } finally { await c.end() }
+  })
+})
