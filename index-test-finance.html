@@ -3785,6 +3785,19 @@ function _loadDemoDataset() {
     entityId: 'eid_demo_001', members: [], driveFileId: null, driveFolderId: null
   };
 
+  // 2e entité — pour démontrer le filtre par SCI (clic pastille)
+  const entBis = {
+    id: 2, nom: 'SCI BIS', type: 'SCI', siren: '888000222',
+    siege: '2 rue Bis, 67000 Strasbourg', gerant: 'M. Bis',
+    iban: 'FR76...', bic: 'XXX',
+    immeubles: [{
+      id: 200, nom: 'Immeuble Bis', adr: '2 rue Bis, 67000 Strasbourg',
+      annee: 2000, regimeJuridique: 'Monopropriété', driveFolderId: null,
+      compteursCollectifs: []
+    }],
+    entityId: 'eid_demo_002', members: [], driveFileId: null, driveFolderId: null
+  };
+
   const logs = [
     { id: 1001, ref: 'D-101', imm: 'Immeuble Demo', entity: 'SCI DEMO', type: 'T2', surf: 45,
       etage: 'RDC', adr: '1 rue de la Demo · porte gauche', hc: 600, ch: 80, dg: 600,
@@ -3804,7 +3817,12 @@ function _loadDemoDataset() {
       etage: 'Sous-sol', adr: '1 rue de la Demo', hc: 50, ch: 0, dg: 0,
       tantiemes: 30, compteCharges: false /* exclu charges immeuble */, locataire: 'Pierre Demo',
       tel:'06.00.00.00.01', mail:'pierre@demo.fr', debut:Yn1+'-01-01', fin:'',
-      irl:'T1', notes:'Garage exclu de la répartition charges' }
+      irl:'T1', notes:'Garage exclu de la répartition charges' },
+    { id: 2001, ref: 'B-201', imm: 'Immeuble Bis', entity: 'SCI BIS', type: 'Studio', surf: 28,
+      etage: '2e', adr: '2 rue Bis', hc: 500, ch: 60, dg: 500,
+      tantiemes: 0, compteCharges: false, locataire: 'Paul Bis',
+      tel:'06.00.00.00.07', mail:'paul@bis.fr', debut:Yn1+'-01-01', fin:'',
+      irl:'T1', notes:'2e SCI — pour tester le filtre par entité' }
   ];
 
   const baux = {
@@ -3824,6 +3842,12 @@ function _loadDemoDataset() {
       ref:'D-Garage', debut:Yn1+'-01-01', fin:'', hc:50, ch:0, dg:0,
       typeContrat:'nu', entity:'SCI DEMO', irl:'T1 '+Yn1,
       locataires:[{civilite:'M.', nom:'Pierre Demo', tel:'06.00.00.00.01', email:'pierre@demo.fr'}],
+      jpay:5
+    },
+    'B-201': {
+      ref:'B-201', debut:Yn1+'-01-01', fin:'', hc:500, ch:60, dg:500,
+      typeContrat:'nu', entity:'SCI BIS', irl:'T1 '+Yn1,
+      locataires:[{civilite:'M.', nom:'Paul Bis', tel:'06.00.00.00.07', email:'paul@bis.fr'}],
       jpay:5
     }
   };
@@ -3849,14 +3873,14 @@ function _loadDemoDataset() {
   const mvts = [];
   let mid = 5000;
   // Loyer enregistré CHARGES COMPRISES (cr = hc + ch), convention de l'app
-  const pushLoyer = (ref, year, mStart, mEnd, montant) => {
+  const pushLoyer = (ref, year, mStart, mEnd, montant, imm) => {
     for (let m = mStart; m <= mEnd; m++) {
       mvts.push({ id: mid++, date: year + '-' + String(m).padStart(2,'0') + '-05',
-        lib:'Loyer + charges ' + ref, imm:'Immeuble Demo', cat:CAT.loyer, qui:ref, db:0, cr:montant, fac:'' });
+        lib:'Loyer + charges ' + ref, imm: imm || 'Immeuble Demo', cat:CAT.loyer, qui:ref, db:0, cr:montant, fac:'' });
     }
   };
-  const pushCharge = (date, cat, montant, lib, fac) =>
-    mvts.push({ id: mid++, date, lib, imm:'Immeuble Demo', cat, qui:'', db:montant, cr:0, fac: fac || '' });
+  const pushCharge = (date, cat, montant, lib, fac, imm) =>
+    mvts.push({ id: mid++, date, lib, imm: imm || 'Immeuble Demo', cat, qui:'', db:montant, cr:0, fac: fac || '' });
 
   // ── Loyers (HC+CH) sur N-1 (Yn1), exercice clos (Yex) et YTD année courante (Y) ──
   pushLoyer('D-101', Yn1, 1, 12, 680);
@@ -3885,8 +3909,17 @@ function _loadDemoDataset() {
     ['03','06','09','12'].forEach(mm => pushCharge(an + '-' + mm + '-15', CAT.prov, 350, 'Appel charges copro ' + an, ''));
   });
 
+  // ── SCI BIS : 1 studio payé plein (loyer HC 500), pour démontrer le filtre par entité ──
+  pushLoyer('B-201', Yn1, 1, 12, 560, 'Immeuble Bis');   // 500 HC + 60 CH
+  pushLoyer('B-201', Yex, 1, 12, 560, 'Immeuble Bis');
+  pushLoyer('B-201', Y,   1, moisYTD, 560, 'Immeuble Bis');
+  [Yn1, Yex].forEach(function(an) {
+    pushCharge(an + '-10-15', CAT.tf,  800, 'Taxe foncière Bis ' + an, 'TFB-' + an, 'Immeuble Bis');
+    pushCharge(an + '-01-20', CAT.pno, 200, 'Assurance PNO Bis ' + an, 'PNOB-' + an, 'Immeuble Bis');
+  });
+
   const demoDB = {
-    entites: [ent], logements: logs, baux,
+    entites: [ent, entBis], logements: logs, baux,
     mouvements: mvts, baux_historique: bauxHist, quittances: [], assurances: [], mrh: [],
     edl: [], categories: ['Loyers','Charges','Travaux','Assurance','Autre'],
     catConfig: { 'Loyers encaissés': { inclYTD: true } },
@@ -3894,7 +3927,7 @@ function _loadDemoDataset() {
   };
   try {
     localStorage.setItem(KEY, JSON.stringify(demoDB));
-    console.info('[SANDBOX] Dataset démo chargé : 1 SCI · 4 logements · ' + Object.keys(baux).length
+    console.info('[SANDBOX] Dataset démo chargé : 2 SCI · 5 logements · ' + Object.keys(baux).length
       + ' baux + ' + bauxHist.length + ' historique · ' + mvts.length + ' mvts (' + Yn1 + '→' + Y + ')');
   } catch(e) {
     console.error('[SANDBOX] Échec chargement dataset', e);
@@ -6627,16 +6660,25 @@ function _v4SetTheme(mode) {
 // Click sur un carré entité → filtre dashboard.
 // v15.73 — name === '' (chip "Toutes") → reset le filtre + re-render.
 function _v4FilterEnt(name) {
+  // Marque la pastille active (chip "Toutes" si name vide, sinon par titre)
+  const _markChips = () => document.querySelectorAll('.v4s-sb-ent .v4s-e').forEach(e => {
+    const isAll = e.classList.contains('v4s-e-all');
+    if (!name) e.classList.toggle('act', isAll);
+    else e.classList.toggle('act', !isAll && e.getAttribute('title') === name);
+  });
+  // Si on est sur Finances : filtrer SUR PLACE (ne pas rebondir vers le dashboard).
+  if (typeof currentPage !== 'undefined' && currentPage === 'finances') {
+    const es = (typeof el === 'function') ? el('dash-ent') : null;
+    if (es) es.value = name || '';
+    _markChips();
+    if (typeof rFinances === 'function') rFinances(); // lit la pastille active → recalcule
+    return;
+  }
   if (typeof go === 'function') go('dashboard');
   setTimeout(() => {
     const es = (typeof el === 'function') ? el('dash-ent') : null;
     if (es) { es.value = name || ''; if (typeof rDash === 'function') rDash(); }
-    // Marque le carré actif (chip "Toutes" si name vide, sinon par titre)
-    document.querySelectorAll('.v4s-sb-ent .v4s-e').forEach(e => {
-      const isAll = e.classList.contains('v4s-e-all');
-      if (!name) e.classList.toggle('act', isAll);
-      else e.classList.toggle('act', !isAll && e.getAttribute('title') === name);
-    });
+    _markChips();
   }, 30);
 }
 
@@ -42542,9 +42584,36 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 </style>`);
 
 // ---- C3: Data collector ----
-function _finCollect(year) {
+// ---- Périmètre Finances : entité active (pastille) + filtre de mouvements ----
+// Source de vérité = pastille active de la sidebar (.v4s-e.act), fallback select dash-ent.
+function _finActiveEnt() {
+  try {
+    const chip = document.querySelector('.v4s-sb-ent .v4s-e.act');
+    if (chip && !chip.classList.contains('v4s-e-all')) return chip.getAttribute('title') || '';
+  } catch(e){}
+  try { const es = (typeof el === 'function') ? el('dash-ent') : null; if (es && es.value) return es.value; } catch(e){}
+  return '';
+}
+// Périmètre mouvements d'une entité : refs logements + immeubles + 'SCI:nom'. null = tout.
+function _finEntScope(entNom) {
+  if (!entNom) return null;
+  const refs = [], imms = [];
+  (DB.logements || []).forEach(l => {
+    if (l && !l._deleted && l.entity === entNom) {
+      if (l.ref) refs.push(l.ref);
+      if (l.imm && imms.indexOf(l.imm) < 0) imms.push(l.imm);
+    }
+  });
+  return { ent: entNom, refs, imms };
+}
+function _finInScope(scope, m) {
+  if (!scope) return true;
+  return scope.refs.indexOf(m.qui) >= 0 || scope.imms.indexOf(m.imm) >= 0 || m.qui === 'SCI:' + scope.ent;
+}
+
+function _finCollect(year, entNom) {
   const yr = year || (new Date().getFullYear() - 1);
-  const ents = (DB.entites || []).filter(e => e && !e._deleted);
+  const ents = (DB.entites || []).filter(e => e && !e._deleted && (!entNom || e.nom === entNom));
   const bilans = [];
   if (typeof window._computeBilanAnnuel === 'function') {
     ents.forEach(e => {
@@ -42575,8 +42644,14 @@ function rFinances() {
       + '<p style="color:var(--t2);font-size:13px;margin-top:8px">Ouvre l\'application via le serveur local (http-server) pour activer les calculs financiers.</p></div>';
     return;
   }
-  const yr = new Date().getFullYear() - 1; // exercice clos par défaut (année précédente)
-  const { bilans } = _finCollect(yr);
+  // Année : sélecteur #fin-year si présent, sinon dernier exercice clos (année − 1).
+  const cy = new Date().getFullYear();
+  const yrSel = el('fin-year');
+  const yr = (yrSel && yrSel.value) ? parseInt(yrSel.value, 10) : (cy - 1);
+  // Entité : pastille active (filtre tout le périmètre sur la SCI choisie ; '' = toutes).
+  const entNom = _finActiveEnt();
+  const scope = _finEntScope(entNom);
+  const { bilans } = _finCollect(yr, entNom);
 
   // --- Agrégats portefeuille ---
   // ⚠ L'app enregistre le loyer CHARGES COMPRISES : ligne 211 = loyers BRUTS = loyer HC +
@@ -42585,7 +42660,7 @@ function rFinances() {
   // hc/(hc+ch) du bail du lot (_finLoyersHC). Ainsi le résultat net ne compte QUE le HC, et le
   // revenu « provisions » (part CH du 211) comme la charge récupérable copro (229, exclue des
   // buckets) sont neutres des deux côtés — spec « charges récupérables neutres », honnêteté compta.
-  const LHC = _finLoyersHC(yr);
+  const LHC = _finLoyersHC(yr, scope);
   const loyersHC = LHC.hc;
   const provisions = LHC.provisions;
   const nbTotal = bilans.reduce((s, b) => s + ((b.kpis && b.kpis.nbLogements) || 0), 0);
@@ -42599,19 +42674,20 @@ function rFinances() {
   const vacance = bilans.reduce((s, b) => s + ((b.kpis && b.kpis.totalManqueAGagner) || 0), 0);
 
   // N-1 — même répartition HC/charges par logement que l'exercice.
-  const loyersHCN1 = _finLoyersHC(yr - 1).hc;
+  const loyersHCN1 = _finLoyersHC(yr - 1, scope).hc;
 
   // Charge buckets (C4 helper — defined below)
-  const chargeBuckets = _finChargeBuckets(yr);
+  const chargeBuckets = _finChargeBuckets(yr, scope);
 
-  // Impayes
+  // Impayes (périmètre = logements de l'entité active)
+  const scopedLogs = (DB.logements || []).filter(l => l && (!entNom || l.entity === entNom));
   const impayes = (typeof _listerImpayesActifs === 'function')
-    ? _listerImpayesActifs(DB.logements || [], DB.baux || {}, DB.mouvements || [])
+    ? _listerImpayesActifs(scopedLogs, DB.baux || {}, DB.mouvements || [])
     : [];
   const impayeTotal = impayes.reduce((s, r) => s + (r.montantImpaye || 0), 0);
 
   // IRL + Régul (C5 helpers — defined below)
-  const irlTotal = _finIrlSousIndexation();
+  const irlTotal = _finIrlSousIndexation(entNom);
   const regulTotal = _finRegulAFaire(yr);
 
   // attenduHC = loyers HC THÉORIQUES dus sur l'exercice (loyer HC mensuel × mois occupés).
@@ -42628,7 +42704,7 @@ function rFinances() {
   // Résultat net N-1 — sur la MÊME base que l'exercice : charges propriétaire = buckets par
   // ligne2044 (récupérables 229/230 exclus, intérêts inclus). Ne PAS réutiliser kpis.totalCharges
   // (base fiscale : inclut 229, exclut les intérêts) → sinon variation N/N-1 incohérente.
-  const bucketsN1 = _finChargeBuckets(yr - 1);
+  const bucketsN1 = _finChargeBuckets(yr - 1, scope);
   const ownerChargesN1 = bucketsN1.interets + bucketsN1.taxeFonciere + bucketsN1.travaux + bucketsN1.honoraires + bucketsN1.assurance + bucketsN1.autres;
   const resultatNetN1 = loyersHCN1 - ownerChargesN1;
 
@@ -42648,9 +42724,21 @@ function rFinances() {
 
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
   const sign = S.varPct >= 0 ? '▲ +' : '▼ ';
+  const _esc = (typeof esc === 'function') ? esc : (x => x);
+
+  // Barre de périmètre : entité active + sélecteur d'exercice (4 années glissantes).
+  const yearOpts = [cy, cy - 1, cy - 2, cy - 3].map(y =>
+    '<option value="' + y + '"' + (y === yr ? ' selected' : '') + '>' + y + (y === cy ? ' (en cours)' : '') + '</option>').join('');
+  const entLabel = entNom ? _esc(entNom) : 'Toutes les entités';
 
   root.innerHTML =
-    '<div class="fin-top">'
+    '<div class="fin-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">'
+    + '<div style="font:700 13px Inter,sans-serif;color:var(--t2)">📂 ' + entLabel + (entNom ? '' : '') + '</div>'
+    + '<label style="font-size:12.5px;color:var(--t2);display:flex;align-items:center;gap:6px;white-space:nowrap">Exercice'
+    +   ' <select id="fin-year" class="inp" onchange="rFinances()" style="width:auto;display:inline-block">' + yearOpts + '</select></label>'
+    + '</div>'
+    + (yr === cy ? '<div class="note" style="margin-bottom:12px">⚠️ Exercice <b>en cours</b> (' + yr + ') : chiffres partiels — l\'analyse annuelle est plus juste sur un exercice clos.</div>' : '')
+    + '<div class="fin-top">'
     + '<div class="hero">'
     +   '<div class="eyebrow">Résultat net · exercice ' + yr + '</div>'
     +   '<div class="big num ' + (S.resultatNet >= 0 ? 'pos' : 'neg') + '">' + (S.resultatNet >= 0 ? '+' : '') + f(S.resultatNet) + '</div>'
@@ -42677,7 +42765,7 @@ function rFinances() {
     + '<div id="fin-leaks"></div>'
     + '<div id="fin-exports"></div>';
 
-  _finRenderPL(yr, S);
+  _finRenderPL(yr, S, scope);
   _finRenderLeaks(S, impayes);
   _finRenderExports();
 }
@@ -42686,7 +42774,7 @@ function rFinances() {
 // Répartit chaque loyer encaissé (recette ligne 211) entre HC et charges selon le ratio
 // hc/(hc+ch) du bail courant du lot (à défaut, du logement). Retourne {brut, hc, provisions}.
 // Réutilise STD_CATEGORIES + DB.baux/DB.logements — pas de nouvelle logique métier, simple split.
-function _finLoyersHC(year) {
+function _finLoyersHC(year, scope) {
   const yr = String(year);
   const catMap = {};
   (STD_CATEGORIES || []).forEach(c => { if (c && c.nom) catMap[c.nom] = c; });
@@ -42702,6 +42790,7 @@ function _finLoyersHC(year) {
   let brut = 0, hc = 0;
   (DB.mouvements || []).forEach(m => {
     if (!m || m._deleted || !m.date || !m.date.startsWith(yr)) return;
+    if (!_finInScope(scope, m)) return; // périmètre entité active
     const std = catMap[m.cat];
     if (!std || std.type !== 'recette' || std.ligne2044 !== '211') return; // loyers + arriérés (211)
     const amt = (Number(m.cr) || 0) - (Number(m.db) || 0); // cohérent _compute2044 (arriérés remboursés < 0)
@@ -42714,7 +42803,7 @@ function _finLoyersHC(year) {
 }
 
 // ---- C4: Charge buckets by ligne2044 (audit-proof, récupérables excluded) ----
-function _finChargeBuckets(year) {
+function _finChargeBuckets(year, scope) {
   const yr = String(year);
   const b = { interets: 0, taxeFonciere: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0 };
   // Build cat→ligne2044 lookup from STD_CATEGORIES
@@ -42722,6 +42811,7 @@ function _finChargeBuckets(year) {
   (STD_CATEGORIES || []).forEach(c => { if (c.nom) catMap[c.nom] = c; });
   (DB.mouvements || []).forEach(m => {
     if (!m || m._deleted || !m.date || !m.date.startsWith(yr) || !((m.db || 0) > 0)) return;
+    if (!_finInScope(scope, m)) return; // périmètre entité active
     const std = catMap[m.cat];
     if (!std || !std.ligne2044) return; // custom or special (no 2044 line) → skip
     const ligne = std.ligne2044;
@@ -42743,12 +42833,12 @@ function _finChargeBuckets(year) {
 }
 
 // ---- C4: P&L table render (N vs N-1) ----
-function _finRenderPL(yr, S) {
+function _finRenderPL(yr, S, scope) {
   const host = el('fin-pl');
   if (!host) return;
   const f = (typeof fmt === 'function') ? fmt : (x => x + '');
-  const cur = _finChargeBuckets(yr);
-  const prev = _finChargeBuckets(yr - 1);
+  const cur = _finChargeBuckets(yr, scope);
+  const prev = _finChargeBuckets(yr - 1, scope);
   const pctL = v => S.loyersHC > 0 ? (Math.round(v / S.loyersHC * 1000) / 10).toString().replace('.', ',') + ' %' : '—';
   const varPct = (a, b2) => b2 > 0 ? (a >= b2 ? '+' : '−') + Math.abs(Math.round((a - b2) / b2 * 1000) / 10).toString().replace('.', ',') + ' %' : '—';
   const row = (label, n, n1, neg) => '<tr><td>' + label + '</td>'
@@ -42790,7 +42880,7 @@ function _finRenderPL(yr, S) {
 
 // ---- C4: Drill « par logement » ----
 function _finOpenParLogement(yr) {
-  const { bilans } = _finCollect(yr);
+  const { bilans } = _finCollect(yr, _finActiveEnt());
   const rows = [];
   bilans.forEach(b => (b.parLogement || []).forEach(l => rows.push(l)));
   const f = (typeof fmt === 'function') ? fmt : (x => x + '');
@@ -42810,10 +42900,10 @@ function _finOpenParLogement(yr) {
 }
 
 // ---- C5: IRL sous-indexation ----
-function _finIrlSousIndexation() {
+function _finIrlSousIndexation(entNom) {
   if (typeof computeIRLRevision !== 'function') return 0;
   let total = 0;
-  (DB.logements || []).filter(l => l && !l._deleted && l.locataire).forEach(l => {
+  (DB.logements || []).filter(l => l && !l._deleted && l.locataire && (!entNom || l.entity === entNom)).forEach(l => {
     try {
       const rev = computeIRLRevision(l);
       if (rev && rev.isApplicable && !rev.dejaApplique && rev.diff > 0) total += rev.diff * 12; // gain annuel projeté
