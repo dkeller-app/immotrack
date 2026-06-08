@@ -311,7 +311,7 @@ describe('STD_CATEGORIES inline — ligne 230 typée deduction (anti-régression
   // La ligne 230 (régul provisions copro N-1) DOIT se soustraire des charges (notice 2044 :
   // 240 = (221..229) − 230). Si elle est typée 'charge' elle s'AJOUTE → ~×2 d'erreur.
   // Ce test lit les deux HTML pour empêcher une régression silencieuse côté données inline.
-  for (const file of ['index.html', 'index-test.html']) {
+  for (const file of ['index.html', 'index-test.html', 'index-test-loyer.html']) {
     it(`${file} : la catégorie ligne 230 est type:'deduction'`, () => {
       const html = readFileSync(resolve(repoRoot, file), 'utf8');
       // Cible la ligne du tableau STD_CATEGORIES qui porte ligne2044:'230'
