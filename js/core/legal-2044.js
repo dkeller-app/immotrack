@@ -36,7 +36,7 @@
  */
 export function _compute2044(mouvements, stdCategories, opts = {}) {
   const { from = '', to = '', entityNom = '', refs = [],
-          imms = [], nbLocaux = 0, partBailleur225 = 0 } = opts;
+          imms = [], nbLocaux = 0, partBailleur225 = 0, detail = false } = opts;
   const inScope = m => {
     if (!m || m._deleted) return false;
     if (from && m.date < from) return false;
@@ -60,6 +60,8 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
   const lignes = {};
   const comptes = {}; // ligne → nombre de mvts
   const nonMappes = [];
+  // Détail des mouvements par ligne (opt-in via opts.detail) — alimente le PDF du wizard.
+  const mvtsByLigne = detail ? {} : null;
   let totalRecettes = 0, totalCharges = 0, totalInterets = 0;
 
   (mouvements || []).filter(inScope).forEach(m => {
@@ -79,25 +81,18 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
     if (!std.ligne2044) return; // 'special' (capital prêt, DG) : hors résultat
     const ligne = std.ligne2044;
     if (!(ligne in lignes)) { lignes[ligne] = 0; comptes[ligne] = 0; }
-    if (std.type === 'recette') {
-      const amt = (m.cr || 0) - (m.db || 0); // arriérés peuvent être négatifs si remboursés
-      lignes[ligne] += amt;
-      totalRecettes += amt;
-    } else if (std.type === 'charge') {
-      const amt = (m.db || 0) - (m.cr || 0); // remboursements partiels possibles
-      lignes[ligne] += amt;
-      totalCharges += amt;
-    } else if (std.type === 'interet') {
-      const amt = (m.db || 0) - (m.cr || 0);
-      lignes[ligne] += amt;
-      totalInterets += amt;
-    } else if (std.type === 'deduction') {
-      // Régularisation N-1 des provisions de copropriété (ligne 230). Notice 2044 :
-      // ligne 240 = (221..229) − 230. La régul VIENT EN DÉDUCTION des charges. Le montant
-      // est saisi en débit (db) côté mouvement mais se SOUSTRAIT du total des charges.
-      const amt = (m.db || 0) - (m.cr || 0);
-      lignes[ligne] += amt;
-      totalCharges -= amt;
+    // Sémantique de signe (inchangée) : recette = cr − db (arriérés négatifs possibles) ;
+    // charge/intérêt = db − cr (remboursements partiels possibles) ; deduction (ligne 230,
+    // régul N-1 provisions copro) = db − cr mais SE SOUSTRAIT du total des charges (notice
+    // 2044 : ligne 240 = (221..229) − 230).
+    let amt = 0;
+    if (std.type === 'recette') { amt = (m.cr || 0) - (m.db || 0); totalRecettes += amt; }
+    else if (std.type === 'charge') { amt = (m.db || 0) - (m.cr || 0); totalCharges += amt; }
+    else if (std.type === 'interet') { amt = (m.db || 0) - (m.cr || 0); totalInterets += amt; }
+    else if (std.type === 'deduction') { amt = (m.db || 0) - (m.cr || 0); totalCharges -= amt; }
+    lignes[ligne] += amt;
+    if (detail) {
+      (mvtsByLigne[ligne] || (mvtsByLigne[ligne] = [])).push({ id: m.id, date: m.date, lib: m.lib, montant: amt });
     }
     comptes[ligne]++;
   });
@@ -134,6 +129,7 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
     totalInterets,
     resultatFoncier,
     nonMappes,
+    ...(detail ? { mvtsByLigne } : {}),
     period: { from, to },
     entityNom: entityNom || null
   };

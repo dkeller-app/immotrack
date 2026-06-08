@@ -321,3 +321,29 @@ describe('STD_CATEGORIES inline — ligne 230 typée deduction (anti-régression
     });
   }
 });
+
+describe('_compute2044 — opts.detail (détail mouvements par ligne pour le PDF)', () => {
+  const STD = STD_CATEGORIES;
+  it('sans detail : pas de mvtsByLigne', () => {
+    const r = _compute2044([{ date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 }], STD);
+    expect(r.mvtsByLigne).toBeUndefined();
+  });
+  it('detail:true → mvtsByLigne[ligne] liste {id,date,lib,montant} signé par type', () => {
+    const mvts = [
+      { id: 1, date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000, lib: 'Loyer janv', qui: 'F-001' },
+      { id: 2, date: '2026-02-10', cat: 'Frais de gestion / honoraires', db: 50, lib: 'Honoraires', qui: 'F-001' },
+      { id: 3, date: '2026-03-10', cat: 'Régularisation provisions copro N-1', db: 300, lib: 'Régul', qui: 'F-001' }
+    ];
+    const r = _compute2044(mvts, STD, { detail: true });
+    expect(r.mvtsByLigne['211']).toEqual([{ id: 1, date: '2026-01-15', lib: 'Loyer janv', montant: 1000 }]);
+    expect(r.mvtsByLigne['221']).toEqual([{ id: 2, date: '2026-02-10', lib: 'Honoraires', montant: 50 }]);
+    // 230 (deduction) : montant = db − cr = 300 (positif), la soustraction est gérée dans le total
+    expect(r.mvtsByLigne['230']).toEqual([{ id: 3, date: '2026-03-10', lib: 'Régul', montant: 300 }]);
+  });
+  it('detail:true n\'affecte pas les totaux', () => {
+    const mvts = [{ date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 }];
+    const a = _compute2044(mvts, STD).resultatFoncier;
+    const b = _compute2044(mvts, STD, { detail: true }).resultatFoncier;
+    expect(a).toBe(b);
+  });
+});
