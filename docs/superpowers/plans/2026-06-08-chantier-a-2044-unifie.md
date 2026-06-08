@@ -30,7 +30,7 @@
 |---|---|---|
 | `js/core/legal-2044.js` | Moteur unique 2044 (agrégation + recap + CSV) | **Additif** : `opts.detail` (détail mvts par ligne) + `opts.mapping` (catégories custom). Partagé prod+sandbox. Aucune rupture des appelants existants. |
 | `__tests__/helpers/legal-2044.test.js` | Tests Vitest du moteur | Ajout de tests (détail, mapping) + 1 test garde-fou « ligne 230 = deduction » lisant les 2 HTML. |
-| `index-test.html` (sandbox) | App de validation | Phase 2 : adaptateur `_legal2044WizardData` + opts wizard + rewire `openWizard2044`/`_print2044` + **suppression** inline `_compute2044`. (Phase 1 déjà présente.) |
+| `index-test-loyer.html` (sandbox dédié Chantier A) | App de validation | Phase 2 : adaptateur `_legal2044WizardData` + opts wizard + rewire `openWizard2044`/`_print2044` + **suppression** inline `_compute2044`. Copie de `index-test.html` (Phase 1 déjà présente), isolée du WIP candidature. Détection test mode patchée (clé `_test_immotrack_v4`). |
 | `index.html` (prod) | App réelle | Phase 1 : fix ligne 230 + port builder complet. Phase 2 : port adaptateur + rewire + suppression inline. **Après OK user.** Bump version. |
 
 ---
@@ -160,7 +160,7 @@ Et bump `index.html` l.6 `<title>ImmoTrack v15.259</title>` + l.57 `<em>v15.259<
 
 ## PHASE 2 — Moteur unifié : brancher le wizard PDF sur le module (sandbox-first → prod)
 
-> Toute la Phase 2 se construit et se valide d'abord dans **`index-test.html`**. Les changements du **module** (`js/core/legal-2044.js`, Tasks 2.1-2.2) sont **additifs** (opt-in) et partagés : ils n'altèrent aucun appelant existant. Le port prod (Task 2.8) se fait **après OK user**.
+> Toute la Phase 2 se construit et se valide d'abord dans **`index-test-loyer.html`** (sandbox dédié, créé 2026-06-08 pour isoler du WIP candidature de `index-test.html`). Les changements du **module** (`js/core/legal-2044.js`, Tasks 2.1-2.2) sont **additifs** (opt-in) et partagés : ils n'altèrent aucun appelant existant. Le port prod (Task 2.8) se fait **après OK user**. (Les n° de ligne `index-test-loyer.html` = ceux de `index-test.html` au moment de la copie.)
 
 ### Task 2.1 : Module — détail des mouvements par ligne (`opts.detail`)
 
