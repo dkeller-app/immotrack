@@ -139,6 +139,23 @@ describe('P0-C2 — helper de résolution des droits (espace_plan / espace_has_f
       expect(rows[0].f).toBe(false)
     } finally { await c.end() }
   })
+
+  it('espace_has_feature NE LÈVE PAS sur une valeur de feature non-booléenne (renvoie false)', async () => {
+    // durcissement post-audit (0022) : avant, ('{"x":"maybe"}' ->> 'x')::boolean levait.
+    const c = db(); await c.connect()
+    try {
+      await c.query(`insert into public.plans (id, nom, features)
+                     values ('p0c2_tmp_badfeat', 'tmp', '{"weird":"maybe"}'::jsonb)`)
+      await c.query(`update public.espaces set plan_id = 'p0c2_tmp_badfeat' where id = $1`, [espaceA])
+      const { rows } = await c.query(`select public.espace_has_feature($1, 'weird') as f`, [espaceA])
+      expect(rows[0].f).toBe(false)                 // ne lève pas → renvoie false
+    } finally {
+      // restaurer AVANT de supprimer le plan (FK), puis nettoyer la ligne temporaire.
+      await c.query(`update public.espaces set plan_id = 'free' where id = $1`, [espaceA])
+      await c.query(`delete from public.plans where id = 'p0c2_tmp_badfeat'`)
+      await c.end()
+    }
+  })
 })
 
 describe('P0-C2 — colonnes de rétention (hook RGPD, invariant 12)', () => {
