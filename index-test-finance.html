@@ -42608,7 +42608,11 @@ function _finEntScope(entNom) {
 }
 function _finInScope(scope, m) {
   if (!scope) return true;
-  return scope.refs.indexOf(m.qui) >= 0 || scope.imms.indexOf(m.imm) >= 0 || m.qui === 'SCI:' + scope.ent;
+  // Même règle que _compute2044 (legal-2044.js) : match immeuble UNIQUEMENT si qui vide
+  // (charge niveau immeuble). Évite de capter un mvt d'une autre entité partageant un immeuble.
+  return scope.refs.indexOf(m.qui) >= 0
+    || m.qui === 'SCI:' + scope.ent
+    || (!m.qui && scope.imms.indexOf(m.imm) >= 0);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -42668,7 +42672,7 @@ const _FIN_2044_OPTIONS = [
 ];
 // Ouvre l'éditeur de correspondance (modal drill réutilisé).
 function _finOpenCatMapping() {
-  const _e = (typeof esc === 'function') ? esc : (x => x);
+  const _e = (typeof escHtml === 'function') ? escHtml : (x => x); // escHtml échappe " → clé data-cat correcte au relire + pas d'injection
   const unmapped = _finUnmappedCats();
   if (!unmapped.length) { if (typeof showToast === 'function') showToast('Toutes tes catégories sont déjà reliées ✓', 'ok'); return; }
   const rows = unmapped.map((c, i) => {
@@ -42904,7 +42908,7 @@ function _finChargeBuckets(year, scope) {
     const r = _finCatLigne(m.cat); // STD + mapping user
     if (!r || !r.ligne2044) return; // non mappée / ignorée → skip
     const ligne = r.ligne2044;
-    const v = Number(m.db) || 0;
+    const v = (Number(m.db) || 0) - (Number(m.cr) || 0); // net (remboursements partiels), cohérent _compute2044
     if (ligne === '250') b.interets += v;
     else if (ligne === '227') b.taxeFonciere += v;
     else if (ligne === '224' || ligne === '224bis') b.travaux += v;
