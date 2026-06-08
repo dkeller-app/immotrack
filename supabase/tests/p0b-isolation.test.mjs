@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createUser, userClient, deleteUserByEmail } from './helpers/clients.mjs'
+import { teardownOwner } from './helpers/teardown.mjs'
 import { BUSINESS_TABLES, seedChain } from './helpers/p0b-fixtures.mjs'
 
 const RUN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -33,8 +34,10 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await deleteUserByEmail(A.email)   // cascade espace + lignes métier via espace_id ON DELETE CASCADE
-  await deleteUserByEmail(B.email)
+  // Démontage propre via purge_espace (Alice et Bob possèdent un espace ; Carol est seulement
+  // membre de celui d'Alice → purger espaceA retire son appartenance, puis on supprime Carol).
+  await teardownOwner(A.email, [espaceA])
+  await teardownOwner(B.email, [espaceB])
   await deleteUserByEmail(C.email)
 })
 

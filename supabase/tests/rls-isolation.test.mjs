@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createUser, userClient, deleteUserByEmail } from './helpers/clients.mjs'
+import { teardownOwner } from './helpers/teardown.mjs'
 
 // Emails uniques par run : indépendance totale vis-à-vis d'un reliquat (crash d'un run
 // précédent) ou d'une session concurrente — l'Auth Supabase réserve un email quelques
@@ -41,8 +42,10 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await deleteUserByEmail(A.email)  // cascade espaces/members via FK
-  await deleteUserByEmail(B.email)
+  // Démontage propre via purge_espace (Alice et Bob possèdent un espace ; Carol est seulement
+  // 'proprietaire' membre de celui d'Alice → purger espaceA retire son appartenance).
+  await teardownOwner(A.email, [espaceA])
+  await teardownOwner(B.email, [espaceB])
   await deleteUserByEmail(C.email)
 })
 

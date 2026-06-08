@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { createUser, userClient, deleteUserByEmail, adminClient } from './helpers/clients.mjs'
+import { createUser, userClient, adminClient } from './helpers/clients.mjs'
 import { seedChain } from './helpers/p0b-fixtures.mjs'
-import { lockRow, FAKE_HASH, purgeLockedArtefacts } from './helpers/p0c1-fixtures.mjs'
+import { lockRow, FAKE_HASH } from './helpers/p0c1-fixtures.mjs'
+import { teardownOwner } from './helpers/teardown.mjs'
 
 const RUN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 const A = { email: `p0c1-alice-${RUN}@example.test`, pass: 'Test-Passw0rd!A' }
@@ -18,10 +19,9 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // L'espace contient des lignes verrouillées → purger les artefacts signés (bypass GUC,
-  // session DB privilégiée) AVANT le cascade éprouvé de deleteUserByEmail.
-  await purgeLockedArtefacts([espaceA])
-  await deleteUserByEmail(A.email)
+  // Démontage propre via la primitive purge_espace (supprime l'espace + tout son contenu,
+  // y compris les baux/edl verrouillés) puis l'utilisateur. Plus aucun orphelin.
+  await teardownOwner(A.email, [espaceA])
 })
 
 describe('P0-C1 — verrou d\'immutabilité (baux)', () => {

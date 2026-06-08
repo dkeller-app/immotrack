@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import pg from 'pg'
 import 'dotenv/config'
-import { createUser, userClient, deleteUserByEmail } from './helpers/clients.mjs'
+import { createUser, userClient } from './helpers/clients.mjs'
+import { teardownOwner } from './helpers/teardown.mjs'
 
 const RUN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 const A = { email: `p0c2-alice-${RUN}@example.test`, pass: 'Test-Passw0rd!A' }
@@ -21,10 +22,8 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  // ⚠️ Fuite de tenant de test CONNUE (cf. P0-C1 audit) : deleteUserByEmail ne supprime pas
-  // l'espace (espaces.created_by NO ACTION + protect_last_owner). Le correctif robuste = la
-  // primitive de suppression d'espace, planifiée en tâche dédiée. 1 user/run, inoffensif ici.
-  await deleteUserByEmail(A.email)
+  // Démontage propre via la primitive purge_espace (plus de tenant orphelin).
+  await teardownOwner(A.email, [espaceA])
 })
 
 describe('P0-C2 — catalogue plans (global, data-driven)', () => {
