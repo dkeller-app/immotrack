@@ -90,3 +90,44 @@ describe('P0-C1 — verrou d\'immutabilité (edl)', () => {
     expect(data.content_hash).toBeNull()
   })
 })
+
+describe('P0-C1 — chaînage avenant (amends_id) : superseded dérivé, original protégé', () => {
+  it('un avenant = nouveau bail amends_id → original ; original « superseded » dérivé', async () => {
+    // idsA.bail est verrouillé (bloc baux). On isole la logique de chaînage sur un nouveau
+    // logement : original archivé + verrouillé, puis avenant courant pointant dessus.
+    const lg = await clientA.from('logements').insert({
+      espace_id: espaceA, ref: `LAV-${RUN}`, entite_id: idsA.entite, immeuble_id: idsA.immeuble,
+    }).select('id').single()
+    const orig = await clientA.from('baux').insert({
+      espace_id: espaceA, logement_id: lg.data.id, type_bail: 'nu', hc: 700, archived: true,
+    }).select('id').single()
+    await lockRow(clientA, 'baux', orig.data.id)   // original signé/verrouillé
+    const avenant = await clientA.from('baux').insert({
+      espace_id: espaceA, logement_id: lg.data.id, type_bail: 'nu', hc: 750,
+      amends_id: orig.data.id,
+    }).select('id, amends_id').single()
+    expect(avenant.error ?? null).toBeNull()
+    expect(avenant.data.amends_id).toBe(orig.data.id)
+
+    // « superseded » = dérivé : il existe un bail dont amends_id = original.
+    const { data: succ } = await clientA.from('baux')
+      .select('id').eq('amends_id', orig.data.id).is('deleted_at', null)
+    expect(succ.length).toBe(1)
+  })
+
+  it('on ne peut PAS supprimer un bail référencé par un avenant (ON DELETE RESTRICT)', async () => {
+    // Original NON verrouillé → le DELETE est bloqué par la FK, pas par le trigger.
+    const lg = await clientA.from('logements').insert({
+      espace_id: espaceA, ref: `LRES-${RUN}`, entite_id: idsA.entite, immeuble_id: idsA.immeuble,
+    }).select('id').single()
+    const orig = await clientA.from('baux').insert({
+      espace_id: espaceA, logement_id: lg.data.id, type_bail: 'nu', hc: 700, archived: true,
+    }).select('id').single()
+    await clientA.from('baux').insert({
+      espace_id: espaceA, logement_id: lg.data.id, type_bail: 'nu', hc: 750, amends_id: orig.data.id,
+    }).select('id').single()
+    const { error } = await clientA.from('baux').delete().eq('id', orig.data.id).select()
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/violates foreign key|baux_amends_fk/i)
+  })
+})
