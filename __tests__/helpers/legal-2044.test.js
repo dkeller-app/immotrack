@@ -347,3 +347,42 @@ describe('_compute2044 — opts.detail (détail mouvements par ligne pour le PDF
     expect(a).toBe(b);
   });
 });
+
+describe('_compute2044 — opts.mapping (catégories custom → ligne 2044)', () => {
+  const STD = STD_CATEGORIES;
+  it('une cat custom mappée via opts.mapping est agrégée (type déduit de la ligne)', () => {
+    const mvts = [
+      { date: '2026-01-15', cat: 'Honoraires comptable perso', db: 120, qui: 'F-001' }, // custom → 221 (charge)
+      { date: '2026-02-15', cat: 'Loyer Airbnb', cr: 800, qui: 'F-001' }                // custom → 211 (recette)
+    ];
+    const r = _compute2044(mvts, STD, { mapping: { 'Honoraires comptable perso': '221', 'Loyer Airbnb': '211' } });
+    expect(r.lignes['221']).toBe(120);
+    expect(r.lignes['211']).toBe(800);
+    expect(r.nonMappes).toHaveLength(0);
+  });
+  it('cat custom mappée sur 250 → comptée en intérêts', () => {
+    const r = _compute2044([{ date: '2026-03-01', cat: 'Intérêts prêt SCI', db: 300 }], STD,
+      { mapping: { 'Intérêts prêt SCI': '250' } });
+    expect(r.lignes['250']).toBe(300);
+    expect(r.totalInterets).toBe(300);
+  });
+  it('cat custom mappée sur 230 → soustraite des charges', () => {
+    const r = _compute2044([
+      { date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 },
+      { date: '2026-03-01', cat: 'Régul perso', db: 200 }
+    ], STD, { mapping: { 'Régul perso': '230' } });
+    expect(r.lignes['230']).toBe(200);
+    expect(r.totalCharges).toBe(-200);
+  });
+  it('cat custom NON présente dans mapping → toujours nonMappes', () => {
+    const r = _compute2044([{ id: 9, date: '2026-01-15', cat: 'Truc', db: 50 }], STD, { mapping: { 'Autre': '221' } });
+    expect(r.nonMappes).toHaveLength(1);
+  });
+  it('STD_CATEGORIES prime sur opts.mapping (mapping ne s\'applique qu\'aux non-STD)', () => {
+    // 'Loyers encaissés' est STD (211 recette) ; un mapping tordu ne doit pas la déplacer
+    const r = _compute2044([{ date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 }], STD,
+      { mapping: { 'Loyers encaissés': '221' } });
+    expect(r.lignes['211']).toBe(1000);
+    expect(r.lignes['221']).toBeUndefined();
+  });
+});

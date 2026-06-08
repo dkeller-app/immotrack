@@ -36,7 +36,7 @@
  */
 export function _compute2044(mouvements, stdCategories, opts = {}) {
   const { from = '', to = '', entityNom = '', refs = [],
-          imms = [], nbLocaux = 0, partBailleur225 = 0, detail = false } = opts;
+          imms = [], nbLocaux = 0, partBailleur225 = 0, detail = false, mapping = null } = opts;
   const inScope = m => {
     if (!m || m._deleted) return false;
     if (from && m.date < from) return false;
@@ -57,6 +57,16 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
   const catByName = new Map();
   (stdCategories || []).forEach(c => catByName.set(c.nom, c));
 
+  // Type 2044 déduit d'un n° de ligne (pour les catégories CUSTOM mappées via opts.mapping,
+  // qui ne portent qu'un numéro de ligne, pas de type). Les catégories STD gardent leur
+  // type figé via catByName (le mapping ne s'applique JAMAIS à une catégorie STD).
+  const _typeFromLigne = (ln) => {
+    if (ln === '211' || ln === '212' || ln === '213' || ln === '214') return 'recette';
+    if (ln === '250') return 'interet';
+    if (ln === '230') return 'deduction';
+    return 'charge'; // 221..229, 224bis, 228...
+  };
+
   const lignes = {};
   const comptes = {}; // ligne → nombre de mvts
   const nonMappes = [];
@@ -70,7 +80,12 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
     // opts.partBailleur225 (précalculé par computeRegul côté UI). Sans ce skip →
     // double compte (facture brute en charge + part bailleur ajoutée). Cf V3-REFONTE-LOYERS.
     if (m.compteurCcId) return;
-    const std = catByName.get(m.cat);
+    let std = catByName.get(m.cat);
+    // Catégorie non-STD : on tente le mapping custom fourni par l'appelant (opts.mapping).
+    if (!std && mapping && mapping[m.cat]) {
+      const ln = mapping[m.cat];
+      if (ln) std = { ligne2044: ln, type: _typeFromLigne(ln) };
+    }
     if (!std) {
       // Catégorie custom non mappée
       if ((m.cr || 0) > 0 || (m.db || 0) > 0) {
