@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup DEMANDE DE COMPLÉMENT — Relance candidat (A/B/C) — ImmoTrack</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   TOKENS + COMPOSANTS COPIÉS VERBATIM DE css/main.css + mockups/candidature/
+   inviter-candidat.html. Aucune couleur / police / radius inventés. Le panneau
+   de partage (canaux + QR + lien) est IDENTIQUE à l'invitation : c'est le même
+   moteur réutilisé (Composant A de la spec).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --bg:#eef2f7;--sur:rgba(255,255,255,.93);--sur2:rgba(242,246,251,.97);--sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09);--bor2:rgba(0,0,0,.05);--t1:#1a2332;--t2:#5a6e87;--t3:#9aabbf;
+  --blu:#3b7ef6;--grn:#16a34a;--red:#dc2626;--ora:#ea580c;--pur:#7c3aed;--acc:#3b7ef6;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --r:8px;--rl:14px;--font-base:17px;--lh:1.56;
+  --bg-info:rgba(59,126,246,.10);--bg-success:rgba(22,163,74,.10);--bg-warning:rgba(234,88,12,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#dfe5ee;color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;font-size:var(--font-base);line-height:var(--lh)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13.5px;font-weight:500;transition:all .15s;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bp:hover:not(:disabled){background:#2d6de0;box-shadow:0 4px 14px rgba(59,126,246,.4)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bs:hover:not(:disabled){background:var(--sur3);border-color:var(--blu)}
+.inp{width:100%;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);padding:9px 12px;font-size:13.5px;font-family:'IBM Plex Sans',sans-serif;transition:border .15s,box-shadow .15s}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.12)}
+.inp::placeholder{color:var(--t3)}
+.lbl{display:block;font-size:11.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
+.badge.grn{background:rgba(22,163,74,.12);color:var(--grn)}
+.badge.blu{background:rgba(59,126,246,.12);color:var(--blu)}
+.badge.ora{background:rgba(234,88,12,.12);color:var(--ora)}
+.flex-c{display:flex;align-items:center;gap:8px}
+.sm{font-size:12.5px}.mu{color:var(--t2)}.hidden{display:none!important}
+
+/* ── Modale ── */
+.ovl{position:absolute;inset:0;background:rgba(15,22,40,.55);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--shadow-lg);width:100%;max-width:540px;max-height:100%;display:flex;flex-direction:column;overflow:hidden;background-color:#fff}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 22px 14px;border-bottom:1px solid var(--bor)}
+.modal-head h3{font-family:'Manrope',sans-serif;font-size:18px;font-weight:700;color:var(--t1)}
+.modal-head .sub{font-size:12.5px;color:var(--t2);margin-top:3px}
+.modal-x{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:16px;flex-shrink:0}
+.modal-body{padding:18px 22px;overflow-y:auto}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--bor);display:flex;gap:10px;justify-content:flex-end;background:var(--sur2)}
+.field{margin-bottom:16px}
+
+/* ── Encart contexte candidat ── */
+.cand-ctx{display:flex;align-items:center;gap:12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:18px}
+.cand-ctx .av{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#3b7ef6);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.cand-ctx .nm{font-weight:700;font-size:14px;color:var(--t1)}
+.cand-ctx .meta{font-size:12px;color:var(--t2);margin-top:1px}
+
+/* ── Champ lien + copier ── */
+.linkbox{display:flex;gap:8px;align-items:stretch}
+.linkbox .url{flex:1;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
+.linkbox .url.ok{border-color:var(--grn);background:var(--bg-success)}
+
+/* ── Canaux de partage ── */
+.chans{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+.chan{display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 6px;border:1.5px solid var(--bor);border-radius:var(--rl);background:var(--sur2);cursor:pointer;transition:all .15s;text-align:center}
+.chan:hover{border-color:var(--blu);background:var(--bg-info);transform:translateY(-1px)}
+.chan .ci{font-size:22px;line-height:1}
+.chan .cl{font-size:11.5px;font-weight:600;color:var(--t1)}
+.chans.dis{opacity:.4;pointer-events:none;filter:grayscale(.6)}
+.dvd{display:flex;align-items:center;gap:10px;margin:20px 0 14px}
+.dvd span{flex:1;height:1px;background:var(--bor)}
+.dvd b{font-size:10.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.7px}
+
+/* ── QR ── */
+.qr-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px 0}
+.qr{width:180px;height:180px;border-radius:var(--rl);border:1px solid var(--bor);box-shadow:var(--shadow);background:conic-gradient(from 0deg,#111 90deg,#fff 90deg 180deg,#111 180deg 270deg,#fff 270deg);background-size:14px 14px;position:relative;overflow:hidden}
+.qr::before,.qr::after{content:"";position:absolute;width:44px;height:44px;border:8px solid #111;border-radius:6px;background:#fff}
+.qr::before{top:12px;left:12px;box-shadow:inset 0 0 0 6px #fff,inset 0 0 0 13px #111}
+.qr::after{top:12px;right:12px;box-shadow:inset 0 0 0 6px #fff,inset 0 0 0 13px #111}
+
+/* ── Blocs info ── */
+.info-box{background:var(--bg-info);border:1px solid rgba(59,126,246,.18);border-radius:var(--rl);padding:12px 14px;font-size:12.5px;color:var(--t2);line-height:1.5;margin-top:16px}
+.info-box b{color:var(--t1)}
+.keep-box{background:var(--bg-success);border:1px solid rgba(22,163,74,.22);border-radius:var(--rl);padding:11px 14px;font-size:12.5px;color:var(--t2);line-height:1.5;margin-bottom:16px;display:flex;gap:9px}
+.keep-box b{color:var(--grn)}
+.warn-box{background:var(--bg-warning);border:1px solid rgba(234,88,12,.25);border-radius:var(--rl);padding:11px 14px;font-size:12.5px;color:var(--t2);line-height:1.5;margin-top:16px;display:flex;gap:9px}
+.warn-box b{color:var(--ora)}
+
+/* ── Toast ── */
+.toast{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:#11182b;color:#fff;padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:8px;z-index:60;max-width:90%}
+
+/* ── Étapes (variante A) ── */
+.steps{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.steps .stp{flex:1;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--t3)}
+.steps .stp .n{width:24px;height:24px;border-radius:50%;background:var(--sur2);border:1.5px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.steps .stp.act{color:var(--blu)}
+.steps .stp.act .n{background:var(--blu);color:#fff;border-color:var(--blu)}
+.steps .stp.done .n{background:var(--grn);color:#fff;border-color:var(--grn)}
+.steps .bar{flex:0 0 24px;height:2px;background:var(--bor)}
+
+/* ── Panneau latéral (variante C) ── */
+.slidehost{position:relative;padding:0!important;min-height:560px;background:var(--bg)}
+.sideovl{position:absolute;inset:0;background:rgba(15,22,40,.45);z-index:40}
+.sidepanel{position:absolute;top:0;right:0;bottom:0;width:440px;max-width:92%;background:#fff;box-shadow:-8px 0 40px rgba(0,0,0,.2);display:flex;flex-direction:column;z-index:45;border-left:1px solid var(--bor)}
+.frame.ph-w .sidepanel{width:100%;max-width:100%}
+
+/* ══ CHROME DU MOCKUP ══ */
+.mock-bar{position:sticky;top:0;z-index:500;background:#11182b;color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-family:'IBM Plex Sans',sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.mock-bar h1{font-size:14px;font-weight:700;margin-right:auto}
+.mock-bar .seg{display:inline-flex;background:rgba(255,255,255,.1);border-radius:8px;padding:3px;gap:2px}
+.mock-bar .seg button{background:transparent;border:none;color:rgba(255,255,255,.65);font-size:12px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;font-family:inherit}
+.mock-bar .seg button.act{background:#3b7ef6;color:#fff}
+.mock-bar .lab{font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.6px}
+.frame-host{padding:24px 12px 60px;display:flex;justify-content:center}
+.frame{background:var(--bg);border-radius:var(--rl);box-shadow:0 12px 50px rgba(0,0,0,.22);overflow:hidden;transition:width .25s;border:1px solid rgba(0,0,0,.12)}
+.frame .tb{background:var(--sur);border-bottom:1px solid var(--bor);padding:0 24px;height:54px;display:flex;align-items:center;gap:14px}
+.frame .tb strong{font-weight:600;color:var(--t1);font-size:14.5px}
+.frame .pc{padding:24px;min-height:560px;position:relative}
+.frame.pc-w{width:1180px}
+.frame.tb-w{width:780px}
+.frame.ph-w{width:380px}
+.frame.ph-w .pc{padding:0;min-height:600px}
+.frame.ph-w .ovl{padding:0;align-items:stretch}
+.frame.ph-w .modal{max-width:100%;border-radius:0;height:100%;max-height:100%}
+@media (max-width:1240px){.frame.pc-w{width:96vw}}
+.frame.ph-w .chans{grid-template-columns:repeat(4,1fr);gap:6px}
+.frame.ph-w .chan{padding:10px 4px}
+.note{font-size:12px;color:var(--t2);padding:0 12px}
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <h1>📩 DEMANDER UN COMPLÉMENT — Relance candidat</h1>
+  <span class="lab">Largeur</span>
+  <div class="seg" id="seg-w">
+    <button data-w="pc-w" class="act" onclick="setW('pc-w',this)">PC</button>
+    <button data-w="tb-w" onclick="setW('tb-w',this)">Tablette</button>
+    <button data-w="ph-w" onclick="setW('ph-w',this)">Téléphone</button>
+  </div>
+  <span class="lab">Variante</span>
+  <div class="seg" id="seg-v">
+    <button data-v="A" class="act" onclick="setV('A',this)">A · 2 étapes</button>
+    <button data-v="B" onclick="setV('B',this)">B · 1 écran</button>
+    <button data-v="C" onclick="setV('C',this)">C · Panneau latéral</button>
+  </div>
+  <span class="lab">État</span>
+  <div class="seg" id="seg-s">
+    <button data-s="note" class="act" onclick="setS('note',this)">Note</button>
+    <button data-s="partage" onclick="setS('partage',this)">Réouvert · partage</button>
+    <button data-s="qr" onclick="setS('qr',this)">QR code</button>
+    <button data-s="manuel" onclick="setS('manuel',this)">Candidat manuel</button>
+  </div>
+</div>
+
+<div class="frame-host">
+  <div class="frame pc-w" id="frame">
+    <div class="tb"><strong>👤 Fiche candidat — Demander un complément</strong></div>
+    <div class="pc" id="stage"></div>
+  </div>
+</div>
+
+<p class="note" style="text-align:center;max-width:780px;margin:0 auto 40px">
+  <b>Composant A de la spec</b> — Le panneau de partage (Email / SMS / WhatsApp / QR / Copier) est le <b>même moteur que l'invitation</b>, réutilisé. Le candidat « lien en ligne » → on rouvre son dépôt (dossier conservé) et on lui renvoie le <b>lien existant</b>. Le candidat <b>saisi manuellement</b> → simple note interne, aucune relance en ligne. Remplace le <code>prompt()</code> natif livré en Task 13.
+</p>
+
+<script>
+var W='pc-w', V='A', S='note';
+var LINK='https://bail-sign-relay.didierkeller.workers.dev/d/k7p2x9';
+
+function candCtx(){
+  return '<div class="cand-ctx"><div class="av">MD</div><div>'+
+    '<div class="nm">Marie Dupont <span class="badge ora" style="margin-left:4px">En cours</span></div>'+
+    '<div class="meta">Candidate pour <b>Appartement T2 — rue des Lilas</b> · dossier déposé le 03/06 · source : lien en ligne</div>'+
+    '</div></div>';
+}
+function noteField(manuel){
+  var def = manuel
+    ? "Il manque le dernier avis d'imposition. (note interne)"
+    : "Bonjour,\n\nMerci de compléter votre dossier : il manque votre dernier avis d'imposition. Le reste de votre dossier est conservé, vous n'avez qu'à ajouter cette pièce.\n\nBien cordialement,";
+  return '<div class="field"><label class="lbl">'+(manuel?'Note interne (ce qui manque)':'Message au candidat (ce qui manque)')+'</label>'+
+    '<textarea class="inp" rows="'+(manuel?'3':'6')+'">'+def+'</textarea></div>';
+}
+function keepBox(){
+  return '<div class="keep-box">📂 <div><b>Le dossier déjà déposé est conservé.</b> Le candidat ouvre le même lien, voit votre message, et ajoute uniquement la pièce manquante. Rien à ressaisir.</div></div>';
+}
+function warnManuel(){
+  return '<div class="warn-box">⚠ <div><b>Candidat saisi manuellement</b> — aucune relance en ligne ne sera envoyée. La note est conservée en interne ; contactez le candidat vous-même (téléphone / email). Le statut repasse « En cours ».</div></div>';
+}
+function linkRow(){
+  return '<div class="linkbox"><div class="url ok">'+LINK+'</div><button class="btn bp">📋 Copier</button></div>';
+}
+function chans(){
+  return '<div class="field"><label class="lbl">Renvoyer le lien par</label><div class="chans">'+
+    '<div class="chan"><span class="ci">✉️</span><span class="cl">Email</span></div>'+
+    '<div class="chan"><span class="ci">💬</span><span class="cl">SMS</span></div>'+
+    '<div class="chan"><span class="ci">🟢</span><span class="cl">WhatsApp</span></div>'+
+    '<div class="chan" onclick="setS(\'qr\',q(\'qr\'))"><span class="ci">⬛</span><span class="cl">QR code</span></div>'+
+    '</div></div>';
+}
+function chansDis(){
+  return '<div class="field"><label class="lbl">Renvoyer le lien par</label><div class="chans dis">'+
+    '<div class="chan"><span class="ci">✉️</span><span class="cl">Email</span></div>'+
+    '<div class="chan"><span class="ci">💬</span><span class="cl">SMS</span></div>'+
+    '<div class="chan"><span class="ci">🟢</span><span class="cl">WhatsApp</span></div>'+
+    '<div class="chan"><span class="ci">⬛</span><span class="cl">QR code</span></div>'+
+    '</div></div>';
+}
+function reopenInfo(){
+  return '<div class="info-box">🔓 <b>Le lien a été rouvert.</b> Renvoyez-le au candidat par le canal de son choix. Dès qu\'il aura ajouté la pièce, le dossier sera actualisé automatiquement dans l\'onglet Candidats.</div>';
+}
+function divider(l){return '<div class="dvd"><span></span><b>'+l+'</b><span></span></div>';}
+function q(s){return document.querySelector('#seg-s [data-s='+s+']');}
+
+/* ── corps selon état ── */
+function bodyQr(){
+  return candCtx()+
+    '<div class="qr-wrap"><div class="qr"></div><div class="sm mu" style="text-align:center">Le candidat scanne pour rouvrir son dossier sur mobile.</div></div>'+
+    '<div class="field" style="margin-top:14px"><label class="lbl">…ou copier le lien</label>'+linkRow()+'</div>';
+}
+function bodyManuel(){
+  return candCtx()+noteField(true)+warnManuel();
+}
+/* Variante A : 2 étapes (note → partage) */
+function stepsBar(active){
+  function s(n,lab,st){return '<div class="stp '+st+'"><span class="n">'+(st==='done'?'✓':n)+'</span>'+lab+'</div>';}
+  return '<div class="steps">'+s(1,'Message',active>=2?'done':'act')+'<div class="bar"></div>'+s(2,'Renvoyer le lien',active>=2?'act':'')+'</div>';
+}
+function bodyStepA(){
+  if(S==='partage') return stepsBar(2)+candCtx()+
+    '<div class="field"><label class="lbl">Lien de dépôt (réouvert)</label>'+linkRow()+'</div>'+chans()+reopenInfo();
+  return stepsBar(1)+candCtx()+keepBox()+noteField(false);
+}
+/* Variante B : 1 écran (note + partage ensemble) */
+function bodyOneScreen(){
+  var sent = (S==='partage');
+  return candCtx()+keepBox()+noteField(false)+
+    divider('Renvoyer le lien')+
+    '<div class="field"><label class="lbl">Lien de dépôt'+(sent?' (réouvert)':'')+'</label>'+linkRow()+'</div>'+
+    (sent?chans():chansDis())+
+    (sent?reopenInfo():'<div class="info-box" style="background:var(--sur2);border-color:var(--bor)">Cliquez sur <b>« Rouvrir & partager »</b> ci-dessous : le dépôt du candidat est rouvert, puis vous choisissez le canal pour lui renvoyer le lien.</div>');
+}
+function innerBody(){
+  if(S==='qr') return bodyQr();
+  if(S==='manuel') return bodyManuel();
+  if(V==='B') return bodyOneScreen();
+  return bodyStepA();   // A & C
+}
+function modalTitle(){
+  if(S==='manuel') return ['Demander un complément','Candidat saisi manuellement — note interne'];
+  if(S==='qr') return ['Partager par QR code','Le candidat scanne pour rouvrir son dossier'];
+  if(S==='partage') return ['Complément demandé','Renvoyez le lien au candidat — son dossier est conservé'];
+  return ['Demander un complément','Le candidat complète en ligne — dossier conservé'];
+}
+function footer(){
+  if(S==='qr') return '<button class="btn bs" onclick="setS(\'partage\',q(\'partage\'))">← Retour</button><button class="btn bp">Terminé</button>';
+  if(S==='manuel') return '<button class="btn bs">Annuler</button><button class="btn bp">Enregistrer (En cours)</button>';
+  if(S==='partage') return '<button class="btn bs" onclick="setS(\'note\',q(\'note\'))">← Message</button><button class="btn bp">Terminé</button>';
+  // état note
+  if(V==='B') return '<button class="btn bs">Annuler</button><button class="btn bp" onclick="setS(\'partage\',q(\'partage\'))">🔓 Rouvrir &amp; partager →</button>';
+  return '<button class="btn bs">Annuler</button><button class="btn bp" onclick="setS(\'partage\',q(\'partage\'))">Continuer →</button>'; // A
+}
+function render(){
+  var t=modalTitle(), bodyHtml=innerBody();
+  var modalInner=
+    '<div class="modal-head"><div><h3>'+t[0]+'</h3><div class="sub">'+t[1]+'</div></div><div class="modal-x">✕</div></div>'+
+    '<div class="modal-body">'+bodyHtml+'</div>'+
+    '<div class="modal-foot">'+footer()+'</div>';
+  var toast = (S==='partage') ? '<div class="toast">✅ Lien copié — renvoyez-le au candidat</div>' : '';
+  var stage=document.getElementById('stage');
+  if(V==='C'){
+    stage.className='pc slidehost';
+    stage.innerHTML='<div class="sideovl"></div><div class="sidepanel">'+modalInner+'</div>'+toast;
+  } else {
+    stage.className='pc';
+    stage.innerHTML='<div class="ovl"><div class="modal">'+modalInner+'</div>'+toast+'</div>';
+  }
+}
+function setW(w,btn){var f=document.getElementById('frame');f.classList.remove('pc-w','tb-w','ph-w');f.classList.add(w);W=w;document.querySelectorAll('#seg-w button').forEach(b=>b.classList.remove('act'));btn.classList.add('act');render();}
+function setV(v,btn){V=v;document.querySelectorAll('#seg-v button').forEach(b=>b.classList.remove('act'));btn.classList.add('act');render();}
+function setS(s,btn){S=s;document.querySelectorAll('#seg-s button').forEach(b=>b.classList.remove('act'));if(btn)btn.classList.add('act');render();}
+render();
+</script>
+</body>
+</html>

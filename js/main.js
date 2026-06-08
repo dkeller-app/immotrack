@@ -67,6 +67,10 @@ import {
 } from './core/legal-bilan.js';
 
 import {
+  _computeFinancesSummary
+} from './core/finances-summary.js';
+
+import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
 } from './core/export-comptable.js';
 
@@ -133,6 +137,13 @@ import {
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses
 } from './core/candidature.js';
 
+// LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
+import {
+  normalizeBase, buildCandidatUrl, relayConfigured, buildInvitationPayload,
+  _relayDossierVersCandidat, relayCreateInvitation, relayFetchResult,
+  relayFetchPiece, relayReopen, relayRevoke, relayPurge, relayPing
+} from './core/relay-client.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -198,6 +209,9 @@ window._isEraseEligible = _isEraseEligible;
 // LEGAL-BILAN-ANNUEL (Sprint 3C) - bilan par entité
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
+
+// REPORTING-BAILLEUR — agrégat onglet Finances
+window._computeFinancesSummary = _computeFinancesSummary;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;
@@ -302,6 +316,20 @@ window._nouveauCandidat = _nouveauCandidat;
 window._migrerDocsCandidatVersBail = _migrerDocsCandidatVersBail;
 window._purgeCandidatsRefuses = _purgeCandidatsRefuses;
 
+// LOG-CANDIDATS (lien en ligne) — client relais
+window._relayNormalizeBase = normalizeBase;
+window._buildCandidatUrl = buildCandidatUrl;
+window._relayConfigured = relayConfigured;
+window._buildInvitationPayload = buildInvitationPayload;
+window._relayDossierVersCandidat = _relayDossierVersCandidat;
+window._relayCreateInvitation = relayCreateInvitation;
+window._relayFetchResult = relayFetchResult;
+window._relayFetchPiece = relayFetchPiece;
+window._relayReopen = relayReopen;
+window._relayRevoke = relayRevoke;
+window._relayPurge = relayPurge;
+window._relayPing = relayPing;
+
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
   phase: 5,
@@ -318,7 +346,8 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean',
     '_compute2044', '_format2044Recap', '_2044ToCsv',
     '_findPersonalDataForRef', '_generateGdprExport', '_planErasure', '_isEraseEligible',
-    '_computeBilanAnnuel', '_formatBilanTexte'
+    '_computeBilanAnnuel', '_formatBilanTexte',
+    '_computeFinancesSummary'
   ]
 };
 

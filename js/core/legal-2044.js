@@ -35,7 +35,8 @@
  *             resultatFoncier, nonMappes: Array, comptes: Object }}
  */
 export function _compute2044(mouvements, stdCategories, opts = {}) {
-  const { from = '', to = '', entityNom = '', refs = [] } = opts;
+  const { from = '', to = '', entityNom = '', refs = [],
+          imms = [], nbLocaux = 0, partBailleur225 = 0, detail = false, mapping = null } = opts;
   const inScope = m => {
     if (!m || m._deleted) return false;
     if (from && m.date < from) return false;
@@ -44,7 +45,11 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
       // m.qui peut être un ref logement OU 'SCI:<nom>'
       const isGlobal = m.qui === 'SCI:' + entityNom;
       const isInScope = refs && refs.length ? refs.includes(m.qui) : false;
-      if (!isGlobal && !isInScope) return false;
+      // Charge posée au niveau immeuble : qui vide + imm rattaché à un immeuble du bailleur.
+      // (ex. taxe foncière, PNO, syndic part proprio). Sans ça → tombe dans le trou et
+      // disparaît du 2044. Cf V3-REFONTE-LOYERS chantier A.
+      const isImmScope = (!m.qui && m.imm && imms && imms.length) ? imms.includes(m.imm) : false;
+      if (!isGlobal && !isInScope && !isImmScope) return false;
     }
     return true;
   };
@@ -52,13 +57,35 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
   const catByName = new Map();
   (stdCategories || []).forEach(c => catByName.set(c.nom, c));
 
+  // Type 2044 déduit d'un n° de ligne (pour les catégories CUSTOM mappées via opts.mapping,
+  // qui ne portent qu'un numéro de ligne, pas de type). Les catégories STD gardent leur
+  // type figé via catByName (le mapping ne s'applique JAMAIS à une catégorie STD).
+  const _typeFromLigne = (ln) => {
+    if (ln === '211' || ln === '212' || ln === '213' || ln === '214') return 'recette';
+    if (ln === '250') return 'interet';
+    if (ln === '230') return 'deduction';
+    return 'charge'; // 221..229, 224bis, 228...
+  };
+
   const lignes = {};
   const comptes = {}; // ligne → nombre de mvts
   const nonMappes = [];
+  // Détail des mouvements par ligne (opt-in via opts.detail) — alimente le PDF du wizard.
+  const mvtsByLigne = detail ? {} : null;
   let totalRecettes = 0, totalCharges = 0, totalInterets = 0;
 
   (mouvements || []).filter(inScope).forEach(m => {
-    const std = catByName.get(m.cat);
+    // Mouvements rattachés à un compteur collectif : ignorés ici. Leur part bailleur
+    // (charges récupérables non récupérées) est réinjectée sur la ligne 225 via
+    // opts.partBailleur225 (précalculé par computeRegul côté UI). Sans ce skip →
+    // double compte (facture brute en charge + part bailleur ajoutée). Cf V3-REFONTE-LOYERS.
+    if (m.compteurCcId) return;
+    let std = catByName.get(m.cat);
+    // Catégorie non-STD : on tente le mapping custom fourni par l'appelant (opts.mapping).
+    if (!std && mapping && mapping[m.cat]) {
+      const ln = mapping[m.cat];
+      if (ln) std = { ligne2044: ln, type: _typeFromLigne(ln) };
+    }
     if (!std) {
       // Catégorie custom non mappée
       if ((m.cr || 0) > 0 || (m.db || 0) > 0) {
@@ -69,21 +96,38 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
     if (!std.ligne2044) return; // 'special' (capital prêt, DG) : hors résultat
     const ligne = std.ligne2044;
     if (!(ligne in lignes)) { lignes[ligne] = 0; comptes[ligne] = 0; }
-    if (std.type === 'recette') {
-      const amt = (m.cr || 0) - (m.db || 0); // arriérés peuvent être négatifs si remboursés
-      lignes[ligne] += amt;
-      totalRecettes += amt;
-    } else if (std.type === 'charge') {
-      const amt = (m.db || 0) - (m.cr || 0); // remboursements partiels possibles
-      lignes[ligne] += amt;
-      totalCharges += amt;
-    } else if (std.type === 'interet') {
-      const amt = (m.db || 0) - (m.cr || 0);
-      lignes[ligne] += amt;
-      totalInterets += amt;
+    // Sémantique de signe (inchangée) : recette = cr − db (arriérés négatifs possibles) ;
+    // charge/intérêt = db − cr (remboursements partiels possibles) ; deduction (ligne 230,
+    // régul N-1 provisions copro) = db − cr mais SE SOUSTRAIT du total des charges (notice
+    // 2044 : ligne 240 = (221..229) − 230).
+    let amt = 0;
+    if (std.type === 'recette') { amt = (m.cr || 0) - (m.db || 0); totalRecettes += amt; }
+    else if (std.type === 'charge') { amt = (m.db || 0) - (m.cr || 0); totalCharges += amt; }
+    else if (std.type === 'interet') { amt = (m.db || 0) - (m.cr || 0); totalInterets += amt; }
+    else if (std.type === 'deduction') { amt = (m.db || 0) - (m.cr || 0); totalCharges -= amt; }
+    lignes[ligne] += amt;
+    if (detail) {
+      (mvtsByLigne[ligne] || (mvtsByLigne[ligne] = [])).push({ id: m.id, date: m.date, lib: m.lib, montant: amt });
     }
     comptes[ligne]++;
   });
+
+  // Forfait légal ligne 222 (notice 2044 § 222) : 20 € par local, calculé automatiquement
+  // (« réputé couvrir les autres frais de gestion non déductibles pour leur montant réel »).
+  // nbLocaux fourni par l'appelant (nombre de logements actifs du bailleur).
+  if (nbLocaux > 0) {
+    lignes['222'] = (lignes['222'] || 0) + nbLocaux * 20;
+    comptes['222'] = (comptes['222'] || 0) + 1;
+    totalCharges += nbLocaux * 20;
+  }
+  // Part bailleur des charges récupérables non récupérées (ligne 225), précalculée par
+  // l'appelant via computeRegul (vacances + logements exclus du compteur collectif).
+  // Cumulée avec d'éventuels mouvements 225 saisis directement.
+  if (partBailleur225) {
+    lignes['225'] = (lignes['225'] || 0) + partBailleur225;
+    comptes['225'] = (comptes['225'] || 0) + 1;
+    totalCharges += partBailleur225;
+  }
 
   // Arrondi à 2 décimales pour chaque ligne
   Object.keys(lignes).forEach(k => { lignes[k] = Math.round(lignes[k] * 100) / 100; });
@@ -100,6 +144,7 @@ export function _compute2044(mouvements, stdCategories, opts = {}) {
     totalInterets,
     resultatFoncier,
     nonMappes,
+    ...(detail ? { mvtsByLigne } : {}),
     period: { from, to },
     entityNom: entityNom || null
   };
@@ -127,6 +172,7 @@ export function _format2044Recap(result, opts = {}) {
   lines.push('');
   lines.push('▶ CHARGES DÉDUCTIBLES (à reporter en partie II)');
   if (result.lignes['221'] != null) lines.push('  Ligne 221 (Frais de gestion / honoraires)        : ' + fmt(result.lignes['221']).padStart(15));
+  if (result.lignes['222'] != null) lines.push('  Ligne 222 (Forfait gestion 20 €/local)           : ' + fmt(result.lignes['222']).padStart(15));
   if (result.lignes['223'] != null) lines.push('  Ligne 223 (Primes d\'assurance)                   : ' + fmt(result.lignes['223']).padStart(15));
   if (result.lignes['224'] != null) lines.push('  Ligne 224 (Travaux de réparation / entretien)    : ' + fmt(result.lignes['224']).padStart(15));
   if (result.lignes['224bis'] != null) lines.push('  Ligne 224 bis (Travaux rénov énergétique)       : ' + fmt(result.lignes['224bis']).padStart(15));
@@ -134,7 +180,7 @@ export function _format2044Recap(result, opts = {}) {
   if (result.lignes['226'] != null) lines.push('  Ligne 226 (Indemnités d\'éviction)                : ' + fmt(result.lignes['226']).padStart(15));
   if (result.lignes['227'] != null) lines.push('  Ligne 227 (Taxe foncière + taxes annexes)        : ' + fmt(result.lignes['227']).padStart(15));
   if (result.lignes['229'] != null) lines.push('  Ligne 229 (Provisions copropriété)               : ' + fmt(result.lignes['229']).padStart(15));
-  if (result.lignes['230'] != null) lines.push('  Ligne 230 (Régul N-1 provisions copro)           : ' + fmt(result.lignes['230']).padStart(15));
+  if (result.lignes['230'] != null) lines.push('  Ligne 230 (Régul N-1 provisions copro, à DÉDUIRE): − ' + fmt(result.lignes['230']).padStart(13));
   lines.push('  ─────────────────────────────────────────────────');
   lines.push('  Total charges déductibles                        : ' + fmt(result.totalCharges).padStart(15));
   lines.push('');
@@ -169,6 +215,7 @@ export function _2044ToCsv(result) {
     '211': 'Loyers encaissés / arriérés',
     '213': 'Subventions / indemnités / recettes diverses',
     '221': 'Frais de gestion et procédure',
+    '222': 'Frais de gestion forfaitaires (20 €/local)',
     '223': 'Primes d\'assurance (PNO, GLI)',
     '224': 'Travaux de réparation et d\'entretien',
     '224bis': 'Travaux de rénovation énergétique',
@@ -176,7 +223,7 @@ export function _2044ToCsv(result) {
     '226': 'Indemnités d\'éviction',
     '227': 'Taxe foncière + taxes annexes',
     '229': 'Provisions pour charges de copropriété',
-    '230': 'Régularisation provisions copro N-1',
+    '230': 'Régularisation provisions copro N-1 (à déduire des charges)',
     '250': 'Intérêts d\'emprunt + frais'
   };
   Object.keys(result.lignes).sort().forEach(ligne => {

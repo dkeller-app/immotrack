@@ -3,6 +3,24 @@
 // Testés par __tests__/helpers/candidature.test.js. Exposés sur window via js/main.js.
 
 /**
+ * Message pré-rempli pour la demande de complément partagée (réutilisé par la popup
+ * de partage). Rassure le candidat : son dépôt précédent est conservé.
+ * @param {string} note - ce qui manque (peut être vide)
+ * @param {string} bienLabel - libellé du bien (peut être vide)
+ * @returns {string} message multi-lignes
+ */
+export function buildComplementShareMessage(note, bienLabel) {
+  const bien = String(bienLabel || '').trim();
+  const cible = bien ? ('votre dossier de location pour ' + bien) : 'votre dossier de location';
+  const manque = String(note || '').trim();
+  return 'Bonjour,\n\n'
+    + 'Merci de compléter ' + cible + '.\n\n'
+    + (manque ? ('Élément(s) à compléter : ' + manque + '\n\n') : '')
+    + 'Votre dépôt précédent est conservé : reprenez simplement le dépôt via votre lien sécurisé ci-dessous.\n\n'
+    + 'Bien cordialement.';
+}
+
+/**
  * Score "Confiance" 0-100, transparent, critères de solvabilité légaux uniquement
  * (jamais discriminatoire). Voir spec §9.
  * Barème : ratio revenus/loyer ≥3×→35 / ≥2.5×→20 / ≥2×→10 · contrat CDI→25 / CDD→10
@@ -115,4 +133,18 @@ export function _purgeCandidatsRefuses(candidats, nowMs, joursRetention = 30) {
     const ts = c._modifiedAt ? Date.parse(c._modifiedAt) : 0;
     return (nowMs - ts) < seuil;
   });
+}
+
+/**
+ * Décide si un pull automatique des candidatures doit partir maintenant.
+ * @param {number|null} lastPullTs - timestamp (ms) du dernier pull, 0/null si jamais
+ * @param {number} now - Date.now()
+ * @param {number} intervalMs - délai mini entre 2 pulls (défaut 180000 = 3 min)
+ * @param {boolean} hasActiveLinks - existe-t-il ≥1 lien à rapatrier
+ * @returns {boolean}
+ */
+export function shouldAutoPull(lastPullTs, now, intervalMs = 180000, hasActiveLinks = false) {
+  if (!hasActiveLinks) return false;
+  if (!lastPullTs) return true;
+  return (now - lastPullTs) >= intervalMs;
 }

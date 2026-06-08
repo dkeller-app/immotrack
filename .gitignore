@@ -19,6 +19,18 @@ Thumbs.db
 .claude/worktrees/
 .claude/settings.local.json
 
+# ─── File de coordination des commits index.html (pur local, jamais versionné) ───
+# Gérée par la session maître. Voir docs/INDEX-COMMIT-PROTOCOL.md
+.index-queue/
+
+# ─── Secrets Supabase (repo public → JAMAIS commiter) ───
+# .env contient service_role + URL DB = accès TOTAL bypass RLS. .env.example reste safe.
+.env
+.env.local
+# ─── Artefacts CLI Supabase (générés, non versionnés) ───
+supabase/.temp/
+supabase/.branches/
+
 # ─── IDE ───
 .vscode/
 .idea/

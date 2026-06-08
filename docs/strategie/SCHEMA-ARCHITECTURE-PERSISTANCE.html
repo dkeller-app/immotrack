@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Architecture persistance multi-tenant</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#262b36; --ink:#e7eaf0; --muted:#9aa4b2;
+    --accent:#6c8cff; --green:#37c98b; --amber:#f5b14c; --red:#ef5f6b; --violet:#b07cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;padding:32px 20px 80px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 28px;font-size:14px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:22px 24px;margin:0 0 22px}
+  h2{font-size:18px;margin:0 0 6px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-flex;width:26px;height:26px;border-radius:8px;background:var(--accent);
+    color:#fff;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 16px}
+  .mermaid{background:#0c0e13;border:1px solid var(--line);border-radius:10px;padding:18px;overflow:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:13px;color:var(--muted)}
+  .legend b{color:var(--ink);font-weight:600}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.green{background:rgba(55,201,139,.15);color:var(--green)}
+  .pill.amber{background:rgba(245,177,76,.15);color:var(--amber)}
+  .pill.red{background:rgba(239,95,107,.15);color:var(--red)}
+  .pill.violet{background:rgba(176,124,255,.15);color:var(--violet)}
+  .key{margin:14px 0 0;padding:12px 14px;border-left:3px solid var(--accent);
+    background:rgba(108,140,255,.08);border-radius:0 8px 8px 0;font-size:14px}
+  .key b{color:var(--accent)}
+  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:30px}
+  code{background:#0c0e13;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ImmoTrack — Architecture cible de persistance</h1>
+  <p class="sub">SaaS multi-tenant · backend Supabase · 2026-06-04 · <span class="pill green">stratégie validée</span> · <span class="pill amber">durcie par audit adversarial (3 agents)</span></p>
+
+  <!-- 1 -->
+  <section>
+    <h2><span class="n">1</span> Vue d'ensemble : qui parle à qui</h2>
+    <p class="lead">Le <b>serveur est la source de vérité</b>. Le client n'est qu'un cache. Aucune sync de fichiers, aucun merge.</p>
+    <div class="mermaid">
+flowchart TB
+  subgraph CLIENT["📱 CLIENT (navigateur)"]
+    direction TB
+    UI["UI<br/><i>lectures SYNCHRONES</i>"]
+    CACHE["🧠 Cache working-set<br/>(mémoire)"]
+    OUTBOX["📦 Outbox offline<br/>EDL + signature<br/>(IndexedDB)"]
+    UI <--> CACHE
+  end
+  subgraph SUPA["☁️ SUPABASE — région EU — SOURCE DE VÉRITÉ"]
+    direction TB
+    PG[("🛡️ Postgres autoritaire<br/>ACID · clés étrangères<br/>RLS · triggers")]
+    AUTH["🔑 Auth<br/>email + Google SSO"]
+    RT["⚡ Realtime<br/>canal par espace"]
+    ST["🗄️ Storage<br/>bucket par espace"]
+  end
+  subgraph HOME["🏠 CHEZ LE CLIENT — copie sortante (one-way)"]
+    direction TB
+    ZIP["⬇️ Export ZIP total<br/>(à la demande)"]
+    WEBDAV["🔁 Miroir WebDAV<br/>NAS / Nextcloud / Box"]
+  end
+  CACHE -- "écritures<br/>(transaction + version)" --> PG
+  RT -- "modifs des collègues<br/>→ patch le cache" --> CACHE
+  OUTBOX -- "push au retour réseau<br/>(insert, PAS de merge)" --> PG
+  PG --- ST
+  PG -. "non-autoritaire" .-> ZIP
+  ST -. "non-autoritaire" .-> WEBDAV
+  classDef src fill:#10261c,stroke:#37c98b,color:#dff6ea;
+  classDef cli fill:#161a26,stroke:#6c8cff,color:#e7eaf0;
+  classDef home fill:#241a2e,stroke:#b07cff,color:#f1e9ff;
+  class PG,AUTH,RT,ST src;
+  class UI,CACHE,OUTBOX cli;
+  class ZIP,WEBDAV home;
+    </div>
+    <div class="legend">
+      <span><span class="pill green">vert</span> <b>source de vérité</b> (Supabase EU)</span>
+      <span><span class="pill"> </span><b style="color:var(--accent)">bleu</b> = cache client (jetable)</span>
+      <span><span class="pill violet">violet</span> <b>copie chez le client</b>, sens unique</span>
+    </div>
+    <div class="key"><b>Le point clé :</b> les flèches vers « chez le client » sont <b>en pointillé et à sens unique</b>. L'app pousse une copie, ne lit <u>jamais</u> en retour → impossible de ressusciter une vieille donnée. C'est ça qui change tout par rapport à l'ancien Drive.</div>
+  </section>
+
+  <!-- 2 -->
+  <section>
+    <h2><span class="n">2</span> Le modèle « espace » : partage sélectif</h2>
+    <p class="lead">Un <b>espace</b> = unité de <b>partage + facturation + membres</b>. Tu peux appartenir à plusieurs espaces. Tu partages en invitant quelqu'un <b>dans un espace</b>, pas bien par bien.</p>
+    <div class="mermaid">
+flowchart TB
+  DID["👤 Toi (Didier)<br/>membre des 2 espaces"]
+  COMP["👤 Ta compagne<br/>membre d'1 seul espace"]
+  subgraph E1["🏠 Espace « Mon patrimoine » — solo"]
+    direction TB
+    P1[("🏢 SCI perso<br/>+ immeubles perso")]
+  end
+  subgraph E2["🤝 Espace « Didier &amp; Compagne » — partagé"]
+    direction TB
+    P2[("🏢 Immeuble commun")]
+  end
+  DID --> E1
+  DID --> E2
+  COMP --> E2
+  COMP -. "🚫 jamais d'accès (RLS)" .- E1
+  classDef me fill:#161a26,stroke:#6c8cff,color:#e7eaf0;
+  classDef her fill:#241a2e,stroke:#b07cff,color:#f1e9ff;
+  class DID,E1,P1 me;
+  class COMP,E2,P2 her;
+    </div>
+    <div class="key"><b>Ton cas :</b> tu vois <u>tes deux</u> espaces (vue agrégée) ; ta compagne, invitée seulement dans « Didier &amp; Compagne », ne voit <u>que</u> l'immeuble commun. La <b>RLS</b> de Postgres applique la règle <b>en base</b> : « membre de l'espace de cette ligne ? sinon 🚫 ». Même un bug dans mon code ne peut pas faire fuiter les données d'un autre espace.</div>
+
+    <h2 style="margin-top:26px"><span class="n">2b</span> Pourquoi « espace » et pas « droits par immeuble » (ACL)</h2>
+    <p class="lead">Même résultat pour toi. La différence est <b>interne</b> : à quel point c'est simple — donc sûr — à appliquer sur <b>chaque</b> table.</p>
+    <div class="mermaid">
+flowchart LR
+  subgraph ESP["✅ ESPACE — retenu"]
+    direction TB
+    R1["ligne<br/>(bail, quittance, EDL…)"] --> Q1{"membre de<br/>l'espace ?"}
+    Q1 -->|oui| OK1["✅ accès"]
+    Q1 -->|non| NO1["🚫"]
+  end
+  subgraph ACL["⚠️ ACL par immeuble"]
+    direction TB
+    R2["ligne<br/>(bail, quittance, EDL…)"] --> J1["remonter au logement"]
+    J1 --> J2["lire la liste du bien"]
+    J2 --> Q2{"dans la liste ?"}
+    Q2 -->|oui| OK2["✅ accès"]
+    Q2 -->|non| NO2["🚫"]
+  end
+  classDef ok fill:#10261c,stroke:#37c98b,color:#dff6ea;
+  classDef warn fill:#2a2114,stroke:#f5b14c,color:#ffeccc;
+  class R1,Q1,OK1,NO1 ok;
+  class R2,J1,J2,Q2,OK2,NO2 warn;
+    </div>
+    <div class="legend">
+      <span><span class="pill green">espace</span> <b>1 seul test</b>, identique sur toutes les tables → quasi impossible de se tromper</span>
+      <span><span class="pill amber">ACL</span> chaîne à remonter <b>sur chaque table</b> → multiples occasions de fuite cross-tenant</span>
+    </div>
+    <div class="key">L'ACL ne sait faire qu'une chose de plus : partager <b>le même</b> immeuble dans deux groupes — inutile en immobilier (un immeuble = un groupe). Besoin futur de groupes différents (immeuble A avec Anne, B avec Bob) ? → <b>un espace par groupe</b>, la règle ne bouge pas.</div>
+  </section>
+
+  <!-- 3 -->
+  <section>
+    <h2><span class="n">3</span> Concurrence : la fin du bug d'alias</h2>
+    <p class="lead">Deux employés modifient en même temps. <b>Personne ne perd sa modif en silence.</b></p>
+    <div class="mermaid">
+sequenceDiagram
+  autonumber
+  participant E1 as 👤 Employé 1
+  participant PG as 🛡️ Postgres
+  participant E2 as 👤 Employé 2
+  E1->>PG: lit le bail (version 5)
+  E2->>PG: lit le bail (version 5)
+  E1->>PG: UPDATE ... WHERE version = 5
+  PG-->>E1: ✅ OK → version 6
+  E2->>PG: UPDATE ... WHERE version = 5
+  PG-->>E2: ❌ 0 ligne (périmé)
+  E2->>PG: refetch → version 6
+  Note over E2: "Employé 1 vient de modifier ce bail.<br/>Voici la version à jour."
+    </div>
+    <div class="key"><b>Avant (Drive LWW) :</b> le dernier qui sauvegarde écrase tout l'objet → ton ancien alias revenait. <b>Maintenant :</b> une écriture sur une version périmée est <b>rejetée</b>, l'utilisateur est prévenu et récupère la version fraîche. La classe de bug entière disparaît.</div>
+  </section>
+
+  <!-- 4 -->
+  <section>
+    <h2><span class="n">4</span> Abonnements : blocage & gratuités</h2>
+    <p class="lead">Les quotas (ex. bailleur solo = 1 bien) sont <b>appliqués en base</b> par des triggers Postgres — <b>incontournables</b>, comme la RLS. Le contrôle côté client n'est qu'un confort d'affichage.</p>
+    <div class="mermaid">
+flowchart LR
+  subgraph SRC["🔑 D'où vient le plan effectif"]
+    direction TB
+    STRIPE["💳 Stripe<br/>abonnement payant"]
+    TRIAL["⏳ Essai 1 mois"]
+    COMP["🎁 Offert à vie<br/>(beta testeur)"]
+    ADMIN["👑 Toi (admin)"] -. octroie .-> COMP
+    ADMIN -. octroie .-> TRIAL
+  end
+  PLAN[("📋 Plan effectif de l'espace<br/><b>comp &gt; stripe</b>")]
+  STRIPE --> PLAN
+  TRIAL --> PLAN
+  COMP --> PLAN
+  ACT["➕ créer un bien<br/>inviter un membre"] --> TRIG{{"🛡️ Trigger Postgres<br/>sous la limite ?"}}
+  PLAN -. lu par .-> TRIG
+  TRIG -->|oui| OK["✅ autorisé"]
+  TRIG -->|non| BLOCK["🔒 bloqué + upsell<br/>(données intactes,<br/>jamais détruites)"]
+  classDef src fill:#161a26,stroke:#6c8cff,color:#e7eaf0;
+  classDef ok fill:#10261c,stroke:#37c98b,color:#dff6ea;
+  classDef red fill:#2a1416,stroke:#ef5f6b,color:#ffe2e5;
+  class STRIPE,TRIAL,COMP,ADMIN,PLAN src;
+  class OK,TRIG ok;
+  class BLOCK red;
+    </div>
+    <div class="legend">
+      <span><span class="pill green">octroi admin</span> tu débloques un compte gratuit = tu changes son <b>plan effectif</b>, rien d'autre à coder</span>
+      <span><span class="pill violet">comp &gt; stripe</span> un compte offert n'est <b>jamais</b> downgradé par Stripe</span>
+      <span><span class="pill red">dépassement</span> = on <b>bloque la création</b>, jamais on ne détruit</span>
+    </div>
+    <div class="key">Une table <code>plans</code> pilotée par la donnée : ajouter un palier = <b>une ligne</b>, pas du code. Paliers prévus : <b>solo</b> · <b>co-détenteur</b> (espace 2+ owners, 1 payeur désigné) · <b>agence</b>. Essai 1 mois et beta testeurs gratuits à vie = simples valeurs de <code>source</code>. À l'échéance : <b>lock immédiat (0 jour de grâce) mais alertes en amont J-15 / J-7 / J-1</b> — données jamais détruites.</div>
+  </section>
+
+  <!-- 5 -->
+  <section>
+    <h2><span class="n">5</span> Deux backends, rôles disjoints</h2>
+    <p class="lead">Supabase porte <b>tout l'authentifié</b>. Le <b>relais Cloudflare</b> ne sert qu'à une chose : laisser un <b>tiers sans compte</b> (un locataire qui signe, un candidat) déposer un artefact — qui est ensuite <b>ingéré dans Supabase</b>. Le relais n'est <u>jamais</u> source de vérité.</p>
+    <div class="mermaid">
+flowchart LR
+  subgraph PUB["🌐 Tiers SANS compte"]
+    direction TB
+    SIGNER["✍️ Locataire<br/>signe à distance"]
+    CAND["📄 Candidat<br/>dépose un dossier"]
+  end
+  subgraph RELAY["☁️ Relais Cloudflare — ingress ÉPHÉMÈRE"]
+    direction TB
+    WORKER["Worker + R2 + KV<br/>TTL court · jetons HMAC"]
+  end
+  subgraph SUPA["☁️ Supabase EU — SOURCE DE VÉRITÉ"]
+    direction TB
+    PG[("🛡️ Postgres + Storage<br/>authentifié · RLS")]
+  end
+  APP["👤 Utilisateur connecté<br/>(l'app)"]
+  SIGNER --> WORKER
+  CAND --> WORKER
+  WORKER -- "webhook dès signature<br/>→ ingéré puis DELETE actif" --> PG
+  APP -- "tout l'authentifié" --> PG
+  classDef pub fill:#2a2114,stroke:#f5b14c,color:#ffeccc;
+  classDef relay fill:#241a2e,stroke:#b07cff,color:#f1e9ff;
+  classDef src fill:#10261c,stroke:#37c98b,color:#dff6ea;
+  classDef cli fill:#161a26,stroke:#6c8cff,color:#e7eaf0;
+  class SIGNER,CAND pub;
+  class WORKER relay;
+  class PG src;
+  class APP cli;
+    </div>
+    <div class="legend">
+      <span><span class="pill amber">tiers</span> personne <b>sans compte</b> — ce que l'auth ne peut pas couvrir</span>
+      <span><span class="pill violet">relais</span> éphémère (TTL), <b>purge active dès ingestion</b>, jamais autoritaire</span>
+      <span><span class="pill green">Supabase</span> unique source de vérité</span>
+    </div>
+    <div class="key"><b>Pourquoi deux backends ?</b> Un signataire externe n'a pas de compte → il ne peut pas passer par l'auth Supabase. Le relais est cette porte d'entrée publique <b>permanente et complémentaire</b>, pas un palliatif. Les données candidature y vivent <span class="pill amber">≤ 3 mois</span> (base légale = consentement), la signature ~14 j.</div>
+  </section>
+
+  <!-- 6 -->
+  <section>
+    <h2><span class="n">6</span> Cycle de vie d'un bail signé : immuable à vie</h2>
+    <p class="lead">Une fois signé, un bail ne se <b>modifie ni ne se supprime jamais</b> (trigger Postgres). Tout changement = un <b>nouvel objet</b>. Et il survit <b>bien après</b> la fin de la location (obligation légale).</p>
+    <div class="mermaid">
+flowchart TB
+  DRAFT["📝 Bail brouillon<br/>éditable librement"]
+  SIGNED["🔒 Bail SIGNÉ<br/>snapshot figé + hash"]
+  DRAFT -- "signature" --> SIGNED
+  SIGNED -. "UPDATE / DELETE refusés" .- LOCK["🚫 immuable<br/>(trigger)"]
+  SIGNED -- "loyer / locataire change" --> AVENANT["🔒 Avenant = nouveau signé<br/>amends_id → original"]
+  AVENANT --> SUP["original : statut superseded<br/>(jamais supprimé)"]
+  SIGNED -- "fin de bail" --> RESIL["📅 Résiliation = événement<br/>(baux_evenements) — n'altère rien"]
+  SIGNED --> RET{"⏳ rétention légale<br/>bail + 3 à 5 ans"}
+  RET -->|"en cours"| KEEP["conservé — effacement RGPD<br/>refusé (obligation légale)"]
+  RET -->|"écoulée"| PURGE["🗑️ purge sélective"]
+  classDef draft fill:#161a26,stroke:#6c8cff,color:#e7eaf0;
+  classDef lock fill:#2a1416,stroke:#ef5f6b,color:#ffe2e5;
+  classDef ok fill:#10261c,stroke:#37c98b,color:#dff6ea;
+  class DRAFT draft;
+  class SIGNED,LOCK,AVENANT lock;
+  class SUP,RESIL,KEEP,PURGE,RET ok;
+    </div>
+    <div class="legend">
+      <span><span class="pill red">immuable</span> ni édition ni suppression d'un signé — au niveau base</span>
+      <span><span class="pill green">avenant / résiliation</span> = <b>nouveaux objets</b>, l'original reste intact</span>
+    </div>
+    <div class="key"><b>Trouvaille de l'audit :</b> on ne peut pas juste « interdire de toucher un signé » — il faut <b>modéliser le besoin réel</b> (changement de loyer, résiliation, faute de frappe) <u>sans</u> muter l'original. D'où le chaînage <code>amends_id</code> et la table d'événements. Une <b>quittance créée après</b> la signature n'est <u>pas</u> bloquée (le verrou ne touche que la ligne signée).</div>
+  </section>
+
+  <!-- 7 -->
+  <section>
+    <h2><span class="n">7</span> RGPD : qui répond, et « droit à l'oubli » sélectif</h2>
+    <p class="lead">Deux corrections de l'audit. <b>(a)</b> Le responsable de traitement, c'est le <b>client</b>, pas nous. <b>(b)</b> « Tout effacer » est impossible : la loi impose de <b>conserver</b> le signé.</p>
+    <div class="mermaid">
+flowchart LR
+  CLIENT["🏢 Client (bailleur / agence)<br/>RESPONSABLE de traitement"]
+  US["🛠️ Nous (éditeur)<br/>SOUS-TRAITANT"]
+  SUB["Supabase · Stripe · Cloudflare<br/>sous-traitants ultérieurs"]
+  CLIENT -- "DPA" --> US
+  US -- "DPA" --> SUB
+  JOINT["🤝 Espace co-détenu<br/>= responsables CONJOINTS"]
+  CLIENT -. "si partagé" .-> JOINT
+  classDef a fill:#10261c,stroke:#37c98b,color:#dff6ea;
+  classDef b fill:#161a26,stroke:#6c8cff,color:#e7eaf0;
+  classDef c fill:#241a2e,stroke:#b07cff,color:#f1e9ff;
+  class CLIENT,JOINT a;
+  class US b;
+  class SUB c;
+    </div>
+    <h2 style="margin-top:26px"><span class="n">7b</span> Effacement <u>sélectif</u> piloté par la rétention</h2>
+    <div class="mermaid">
+flowchart TB
+  REQ["🙋 Demande d'effacement<br/>(locataire / candidat,<br/>même SANS compte → RPC dédiée)"]
+  REQ --> CLASS{"classe de rétention<br/>+ base légale ?"}
+  CLASS -->|"candidature ≤ 3 mois / superflu"| ERASE["🗑️ effacé ou anonymisé"]
+  CLASS -->|"signé sous obligation légale"| KEEP["🔒 conservé jusqu'à<br/>retention_until — pas effacé"]
+  classDef q fill:#2a2114,stroke:#f5b14c,color:#ffeccc;
+  classDef ok fill:#10261c,stroke:#37c98b,color:#dff6ea;
+  classDef lock fill:#2a1416,stroke:#ef5f6b,color:#ffe2e5;
+  class REQ,CLASS q;
+  class ERASE ok;
+  class KEEP lock;
+    </div>
+    <div class="key">Chaque donnée porte une <code>retention_class</code> + <code>base légale</code> + <code>retention_until</code>. Un <b>tiers sans compte</b> peut exercer ses droits via une fonction dédiée. Le journal d'accès (append-only) est <b>pseudonymisé</b> pour réconcilier accountability et droit à l'effacement.</div>
+  </section>
+
+  <!-- 8 -->
+  <section>
+    <h2><span class="n">8</span> Roadmap : beta → commercialisation</h2>
+    <p class="lead">Le <b>miroir Drive auto</b> est une feature de <span class="pill violet">commercialisation</span>. La beta valide le risque réel (concurrence + intégrité).</p>
+    <div class="mermaid">
+timeline
+  title De la beta à la commercialisation
+  section 🧪 Beta (2-3 mois)
+    P0 : Schéma + RLS + Auth + import de TA donnée (tenant #1)
+    P1 : Couche Store synchrone (refacto pur, 0 régression)
+    P2 : Cache working-set + écritures serveur-autoritaires
+    P3 : Bascule collections cœur + Realtime
+    P4 : Outbox offline EDL / signature
+    Export ZIP : filet de sécurité + "tu as tes données"
+  section 🚀 Commercialisation
+    P5 : Espaces/rôles complets + Stripe + onboarding + gratuités
+    Miroir auto : WebDAV, puis Google/Dropbox (à la demande)
+    Reste : collections secondaires + agent local desktop
+    </div>
+    <div class="legend">
+      <span><span class="pill amber">P2 / P3</span> = le gros morceau (cœur technique)</span>
+      <span><span class="pill green">non négociable</span> en beta : RLS · auth · intégrité</span>
+      <span>levier délai = <b>moins de collections</b>, jamais moins de solidité</span>
+    </div>
+  </section>
+
+  <footer>
+    Détail complet : <code>docs/superpowers/specs/2026-06-04-strategie-persistance-multitenant-design.md</code>
+  </footer>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad:true,
+    theme:"dark",
+    themeVariables:{
+      fontSize:"14px",
+      primaryColor:"#171a21",
+      primaryTextColor:"#e7eaf0",
+      lineColor:"#6c8cff",
+      tertiaryColor:"#0c0e13"
+    },
+    flowchart:{htmlLabels:true,curve:"basis"},
+    sequence:{useMaxWidth:true}
+  });
+</script>
+</body>
+</html>
