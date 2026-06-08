@@ -16,18 +16,21 @@ export async function lockRow(client, table, id, { source = 'immotrack', hash = 
   return data
 }
 
-// Démontage GUC-aware : PURGE les artefacts verrouillés (baux/edl/événements) d'un
-// jeu d'espaces, puis laisse le reste au cascade éprouvé de deleteUserByEmail (P0-B).
-//
-// Pourquoi pas un simple `delete from espaces` : (1) le trigger prevent_locked_mutation
-// lèverait sur le DELETE cascadé d'un signé ; (2) le trigger protect_last_owner (0005)
-// lèverait LAST_OWNER_PROTECTED sur le cascade d'espace_members. On contourne (1) via
-// app.bypass_immutable (session DB privilégiée only), et on ÉVITE (2) en ne touchant
-// PAS espaces/espace_members ici — c'est deleteUserByEmail (chemin P0-B prouvé) qui
-// supprime ensuite l'utilisateur → cascade propre (plus aucune ligne verrouillée à choker).
+// PURGE les artefacts VERROUILLÉS (baux/edl/événements) d'un jeu d'espaces, pour qu'ils
+// ne fassent plus échouer un démontage ultérieur (le trigger prevent_locked_mutation
+// lèverait sur le DELETE d'un signé). On lève ce trigger via app.bypass_immutable
+// (settable seulement depuis une session DB privilégiée — jamais depuis PostgREST).
 //
 // Ordre FK-correct (les FK RESTRICT ne sont PAS bypassées par le GUC, seuls les triggers
 // le sont) : événements d'abord, puis on casse les self-FK amends_id, puis baux, puis edl.
+//
+// ⚠️ LIMITE CONNUE (défaut pré-existant, hors P0-C1) : ce helper NE supprime PAS l'espace
+// ni l'utilisateur. deleteUserByEmail (appelé ensuite en afterAll) ne suffit PAS à un
+// nettoyage complet : `espaces.created_by → auth.users` est en NO ACTION et le trigger
+// protect_last_owner (0005) refuse la suppression cascadée du dernier owner. Résultat :
+// des espaces/users de test restent orphelins sur la base partagée. Le correctif robuste
+// = une primitive de suppression d'espace (offboarding tenant) — planifié en tâche dédiée,
+// PAS patché ici (cf. audit code-reviewer P0-C1, 2026-06-08).
 export async function purgeLockedArtefacts(espaceIds) {
   const c = new pg.Client({
     connectionString: process.env.SUPABASE_DB_URL,
