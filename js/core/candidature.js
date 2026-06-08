@@ -134,3 +134,17 @@ export function _purgeCandidatsRefuses(candidats, nowMs, joursRetention = 30) {
     return (nowMs - ts) < seuil;
   });
 }
+
+/**
+ * Décide si un pull automatique des candidatures doit partir maintenant.
+ * @param {number|null} lastPullTs - timestamp (ms) du dernier pull, 0/null si jamais
+ * @param {number} now - Date.now()
+ * @param {number} intervalMs - délai mini entre 2 pulls (défaut 180000 = 3 min)
+ * @param {boolean} hasActiveLinks - existe-t-il ≥1 lien à rapatrier
+ * @returns {boolean}
+ */
+export function shouldAutoPull(lastPullTs, now, intervalMs = 180000, hasActiveLinks = false) {
+  if (!hasActiveLinks) return false;
+  if (!lastPullTs) return true;
+  return (now - lastPullTs) >= intervalMs;
+}
