@@ -3,6 +3,24 @@
 // Testés par __tests__/helpers/candidature.test.js. Exposés sur window via js/main.js.
 
 /**
+ * Message pré-rempli pour la demande de complément partagée (réutilisé par la popup
+ * de partage). Rassure le candidat : son dépôt précédent est conservé.
+ * @param {string} note - ce qui manque (peut être vide)
+ * @param {string} bienLabel - libellé du bien (peut être vide)
+ * @returns {string} message multi-lignes
+ */
+export function buildComplementShareMessage(note, bienLabel) {
+  const bien = String(bienLabel || '').trim();
+  const cible = bien ? ('votre dossier de location pour ' + bien) : 'votre dossier de location';
+  const manque = String(note || '').trim();
+  return 'Bonjour,\n\n'
+    + 'Merci de compléter ' + cible + '.\n\n'
+    + (manque ? ('Élément(s) à compléter : ' + manque + '\n\n') : '')
+    + 'Votre dépôt précédent est conservé : reprenez simplement le dépôt via votre lien sécurisé ci-dessous.\n\n'
+    + 'Bien cordialement.';
+}
+
+/**
  * Score "Confiance" 0-100, transparent, critères de solvabilité légaux uniquement
  * (jamais discriminatoire). Voir spec §9.
  * Barème : ratio revenus/loyer ≥3×→35 / ≥2.5×→20 / ≥2×→10 · contrat CDI→25 / CDD→10

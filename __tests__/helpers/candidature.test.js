@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
-  _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses
+  _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
+  buildComplementShareMessage
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
@@ -150,5 +151,25 @@ describe('_purgeCandidatsRefuses', () => {
   });
   it('entrée non-array → []', () => {
     expect(_purgeCandidatsRefuses(null, now)).toEqual([]);
+  });
+});
+
+describe('buildComplementShareMessage', () => {
+  it('inclut le bien et la note de complément', () => {
+    const m = buildComplementShareMessage('Avis d\'imposition page 2', 'T2 — rue des Lilas');
+    expect(m).toContain('T2 — rue des Lilas');
+    expect(m).toContain('Avis d\'imposition page 2');
+    expect(m).toMatch(/conserv/i);
+  });
+  it('reste correct sans note', () => {
+    const m = buildComplementShareMessage('', 'Studio Foch');
+    expect(m).toContain('Studio Foch');
+    expect(m).not.toMatch(/Élément\(s\) à compléter/);
+  });
+  it('reste correct sans bien (libellé générique)', () => {
+    const m = buildComplementShareMessage('RIB', '');
+    expect(typeof m).toBe('string');
+    expect(m).toContain('RIB');
+    expect(m).toContain('votre dossier de location');
   });
 });
