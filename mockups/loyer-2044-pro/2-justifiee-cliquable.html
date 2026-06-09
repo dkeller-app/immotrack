@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — La 2044 qui se justifie toute seule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================================
+   TOKENS — repris à l'identique du design system (onboarding-demo/index.html)
+   ========================================================================== */
+:root{
+  --bg:#f4f6f9; --sur:#fff; --sur2:#f0f3f7;
+  --bor:rgba(30,50,80,.1); --bor2:rgba(30,50,80,.18);
+  --t1:#0f1f33; --t2:#5a6b80; --t3:#94a3b8;
+  --acc:#0ea5e9; --acc2:#14b8a6; --teal:#0d9488;
+  --grn:#059669; --red:#dc2626; --ora:#d97706; --vio:#7c3aed;
+  --grad:linear-gradient(120deg,#0ea5e9,#14b8a6);
+  --grad-hero:linear-gradient(135deg,#e6f4fb 0%,#e0f5f1 100%);
+  --r:14px; --r-lg:20px;
+  --sh:0 14px 40px -16px rgba(20,40,70,.22),0 2px 8px rgba(20,40,70,.06);
+  --font-d:'Fraunces',Georgia,serif; --font:'Manrope',sans-serif; --mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+.wrap{max-width:980px;margin:0 auto;padding:30px 24px 120px}
+
+/* ---- En-tête ---- */
+.head{margin-bottom:18px}
+.h1{font-family:var(--font-d);font-weight:600;font-size:30px;letter-spacing:-.02em;margin-bottom:4px}
+.h1 em{font-style:italic;color:var(--teal)}
+.sub{color:var(--t2);font-size:13.5px;line-height:1.5}
+.diff{display:inline-block;margin-top:12px;font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--teal);background:rgba(13,148,136,.08);border:1px solid rgba(13,148,136,.22);border-radius:999px;padding:6px 14px}
+
+/* ---- Bandeau de confiance ---- */
+.trust{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 18px;border-radius:var(--r-lg);background:var(--grad-hero);border:1px solid var(--bor);box-shadow:var(--sh);margin:18px 0 24px}
+.trust-ic{width:40px;height:40px;border-radius:12px;background:var(--sur);display:grid;place-items:center;font-size:19px;box-shadow:var(--sh);flex-shrink:0}
+.trust-txt{flex:1;min-width:200px}
+.trust-txt b{display:block;font-size:14px;font-weight:700}
+.trust-txt span{font-size:12px;color:var(--t2)}
+.trust-badge{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--grn);background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.25);border-radius:999px;padding:8px 14px}
+.trust-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--grn);box-shadow:0 0 0 4px rgba(5,150,105,.18)}
+
+/* ---- Carte formulaire 2044 ---- */
+.form2044{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r-lg);box-shadow:var(--sh);overflow:hidden}
+.form-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--bor);background:linear-gradient(180deg,#fafcfe,#fff)}
+.form-top .cerfa{display:flex;align-items:center;gap:12px}
+.form-top .cerfa .logo{width:38px;height:38px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-size:18px;color:#fff}
+.form-top .cerfa b{font-family:var(--font-d);font-weight:600;font-size:17px}
+.form-top .cerfa small{display:block;font-family:var(--mono);font-size:10px;color:var(--t3)}
+.form-top .meta{text-align:right;font-size:12px;color:var(--t2)}
+.form-top .meta b{font-weight:700;color:var(--t1)}
+
+/* Cadres (Recettes / Charges / Intérêts) */
+.cadre{padding:6px 22px 18px}
+.cadre-h{display:flex;align-items:center;gap:10px;padding:18px 0 10px;margin-bottom:4px;border-bottom:2px solid var(--sur2)}
+.cadre-h .num{font-family:var(--mono);font-size:11px;font-weight:600;color:#fff;background:var(--teal);border-radius:6px;padding:3px 8px}
+.cadre-h h3{font-family:var(--font-d);font-weight:600;font-size:16px;flex:1}
+.cadre-h .hint{font-size:11px;color:var(--t3)}
+
+/* Ligne 2044 cliquable */
+.l2044{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:14px;padding:12px 12px;border-radius:10px;cursor:pointer;transition:.18s var(--ease);border:1px solid transparent;position:relative}
+.l2044:hover{background:var(--sur2);border-color:var(--bor)}
+.l2044:hover .chev{opacity:1;transform:translateX(0)}
+.l2044.active{background:#eef7fd;border-color:rgba(14,165,233,.35)}
+.l2044 .ln{font-family:var(--mono);font-weight:600;font-size:13px;color:var(--acc);text-align:center;background:rgba(14,165,233,.1);border-radius:7px;padding:6px 0}
+.l2044 .lbl b{display:block;font-size:13.5px;font-weight:700;line-height:1.3}
+.l2044 .lbl span{font-size:11.5px;color:var(--t3);display:flex;align-items:center;gap:6px;margin-top:3px}
+.l2044 .cnt{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:999px;padding:2px 8px}
+.l2044 .amt{font-family:var(--mono);font-weight:600;font-size:15px;text-align:right;white-space:nowrap;display:flex;align-items:center;gap:9px;justify-content:flex-end}
+.l2044 .amt.neg{color:var(--ora)}
+.l2044 .chev{font-size:13px;color:var(--acc);opacity:0;transform:translateX(-4px);transition:.18s var(--ease)}
+
+/* Sous-total de cadre */
+.subtot{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:14px;padding:13px 12px;margin-top:6px;border-top:2px solid var(--sur2)}
+.subtot .lbl{grid-column:1 / 3;font-weight:700;font-size:13px;color:var(--t2);text-align:right;padding-right:4px}
+.subtot .amt{font-family:var(--mono);font-weight:700;font-size:16px;text-align:right}
+
+/* Bandeau résultat final */
+.result{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:6px 22px 22px;padding:20px 24px;border-radius:var(--r-lg);background:linear-gradient(120deg,#0f1f33,#16324f);color:#fff}
+.result .calc{font-size:12.5px;color:#aebfd4;font-family:var(--mono)}
+.result .calc .op{color:#7d93ad}
+.result .big{text-align:right}
+.result .big small{display:block;font-size:11px;font-weight:600;color:#aebfd4;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.result .big b{font-family:var(--font-d);font-weight:600;font-size:34px;letter-spacing:-.02em}
+.result .big b .c{font-size:18px;color:#aebfd4}
+.result .pos{color:#34d399}
+
+/* Barre d'actions */
+.actions{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:0 22px 22px}
+.actions .left{font-size:11.5px;color:var(--t3);max-width:420px;line-height:1.5}
+.btn{font-family:var(--font);font-weight:700;font-size:13.5px;padding:13px 22px;border-radius:12px;border:none;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:9px}
+.btn.prim{background:var(--grad);color:#fff;box-shadow:0 10px 26px -10px rgba(14,165,233,.6)}
+.btn.prim:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn.ghost{background:var(--sur);color:var(--t2);border:1px solid var(--bor2)}
+.btn.ghost:hover{background:var(--sur2)}
+
+/* ============================================================================
+   DRAWER — panneau latéral de justification
+   ========================================================================== */
+.scrim{position:fixed;inset:0;background:rgba(10,22,40,.5);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.3s var(--ease);z-index:90}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:480px;max-width:92vw;background:var(--sur);box-shadow:-24px 0 60px -20px rgba(10,22,40,.4);transform:translateX(100%);transition:transform .34s var(--ease);z-index:100;display:flex;flex-direction:column}
+.drawer.on{transform:translateX(0)}
+.dr-head{padding:22px 24px 18px;border-bottom:1px solid var(--bor);position:relative;background:var(--grad-hero)}
+.dr-close{position:absolute;top:18px;right:18px;width:34px;height:34px;border-radius:10px;border:none;background:var(--sur);color:var(--t2);cursor:pointer;font-size:16px;box-shadow:var(--sh)}
+.dr-close:hover{color:var(--t1)}
+.dr-ln{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);background:var(--sur);border:1px solid rgba(14,165,233,.3);border-radius:999px;padding:5px 12px;margin-bottom:12px}
+.dr-head h2{font-family:var(--font-d);font-weight:600;font-size:21px;letter-spacing:-.01em;line-height:1.2;padding-right:40px}
+.dr-amount{display:flex;align-items:baseline;gap:8px;margin-top:10px}
+.dr-amount b{font-family:var(--mono);font-weight:600;font-size:26px}
+.dr-amount span{font-size:12px;color:var(--t2)}
+.dr-body{flex:1;overflow-y:auto;padding:22px 24px}
+
+/* Bloc règle fiscale */
+.rule{background:#fffaf0;border:1px solid rgba(217,119,6,.25);border-radius:var(--r);padding:16px 18px;margin-bottom:22px}
+.rule .rh{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13px;color:var(--ora);margin-bottom:8px}
+.rule p{font-size:13px;line-height:1.6;color:var(--t1)}
+.rule p+p{margin-top:8px}
+.rule .src{display:inline-block;margin-top:11px;font-family:var(--mono);font-size:10.5px;color:var(--t3);border-top:1px dashed rgba(217,119,6,.3);padding-top:9px}
+
+/* Table des mouvements */
+.mv-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.mv-h b{font-size:13px;font-weight:700}
+.mv-h span{font-family:var(--mono);font-size:11px;color:var(--t2)}
+.mv-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.mv-tbl thead th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:0 8px 8px;border-bottom:1px solid var(--bor)}
+.mv-tbl thead th.r{text-align:right}
+.mv-tbl tbody td{padding:10px 8px;border-bottom:1px solid var(--sur2);vertical-align:top}
+.mv-tbl tbody tr:hover{background:var(--sur2)}
+.mv-tbl .date{font-family:var(--mono);font-size:11px;color:var(--t2);white-space:nowrap}
+.mv-tbl .lib{font-weight:600}
+.mv-tbl .lib small{display:block;font-weight:500;color:var(--t3);font-size:10.5px;margin-top:2px}
+.mv-tbl .mt{font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap}
+.mv-tbl .mt.neg{color:var(--ora)}
+.mv-tbl tfoot td{padding:12px 8px 0;font-weight:700;font-size:13px;border-top:2px solid var(--bor)}
+.mv-tbl tfoot td.r{text-align:right;font-family:var(--mono)}
+.bank{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--grn);font-weight:600;margin-top:6px;background:rgba(5,150,105,.08);border-radius:6px;padding:2px 7px}
+
+/* forfait légal (222) : pas de mouvements, encart explicatif */
+.auto-note{background:var(--sur2);border:1px dashed var(--bor2);border-radius:var(--r);padding:16px;font-size:12.5px;color:var(--t2);line-height:1.55;text-align:center}
+.auto-note b{color:var(--t1)}
+
+/* ============================================================================
+   APERÇU DOSSIER (modale plein écran)
+   ========================================================================== */
+.modal{position:fixed;inset:0;z-index:200;display:none;align-items:flex-start;justify-content:center;background:rgba(10,22,40,.6);backdrop-filter:blur(6px);padding:40px 20px;overflow-y:auto}
+.modal.on{display:flex}
+.preview{max-width:720px;width:100%;animation:pop .4s var(--ease)}
+@keyframes pop{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.pv-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--t1);border-radius:14px;padding:12px 16px;margin-bottom:16px;position:sticky;top:0;z-index:2}
+.pv-toolbar .tt{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:13px}
+.pv-toolbar .tt .ic{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.12);display:grid;place-items:center;font-size:15px}
+.pv-toolbar .grp{display:flex;gap:8px}
+.pv-btn{font-family:var(--font);font-weight:700;font-size:12.5px;padding:9px 16px;border-radius:9px;border:none;cursor:pointer}
+.pv-btn.dl{background:var(--grad);color:#fff}
+.pv-btn.cl{background:rgba(255,255,255,.12);color:#fff}
+
+/* feuille A4 simulée */
+.sheet{background:#fff;border-radius:6px;box-shadow:0 20px 50px -16px rgba(10,22,40,.5);padding:44px 48px;margin-bottom:16px;color:#1a2433}
+.sheet+.sheet{margin-top:0}
+.pg-tag{font-family:var(--mono);font-size:9px;color:#c4cdd9;text-align:right;margin-bottom:18px;letter-spacing:.08em}
+/* page de garde */
+.cover{text-align:center;padding:30px 0 10px}
+.cover .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--teal);border:1px solid rgba(13,148,136,.3);border-radius:999px;padding:6px 14px;margin-bottom:26px}
+.cover h1{font-family:var(--font-d);font-weight:600;font-size:30px;letter-spacing:-.02em;margin-bottom:6px}
+.cover .who{font-size:15px;color:#5a6b80;margin-bottom:34px}
+.cover-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0 auto 30px;max-width:540px}
+.cover-cell{border:1px solid var(--bor);border-radius:12px;padding:16px 12px}
+.cover-cell small{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px}
+.cover-cell b{font-family:var(--mono);font-weight:600;font-size:19px}
+.cover-cell.hl{background:#0f1f33;border-color:transparent;color:#fff}
+.cover-cell.hl small{color:#aebfd4}
+.cover-cell.hl b{color:#34d399}
+.cover .res-line{font-size:13px;color:#5a6b80;line-height:1.6;max-width:480px;margin:0 auto}
+
+/* sections détail dans le dossier */
+.dh{font-family:var(--font-d);font-weight:600;font-size:17px;margin:0 0 4px;padding-bottom:8px;border-bottom:2px solid #0f1f33}
+.dh .pre{font-family:var(--mono);font-size:12px;color:#94a3b8;margin-right:8px}
+.dsec{margin-bottom:26px}
+.dsec .drow{display:grid;grid-template-columns:54px 1fr auto;gap:12px;align-items:baseline;padding:9px 2px;border-bottom:1px solid #eef2f6;font-size:12.5px}
+.dsec .drow .dl{font-family:var(--mono);font-size:11px;color:var(--acc);font-weight:600}
+.dsec .drow .dn b{display:block;font-weight:700}
+.dsec .drow .dn span{font-size:11px;color:#94a3b8}
+.dsec .drow .dm{font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap}
+.dsec .drow .dm.neg{color:var(--ora)}
+/* sous-mouvements indentés dans le dossier */
+.dmv{margin:2px 0 6px 66px;border-left:2px solid #eef2f6;padding-left:14px}
+.dmv .dmvrow{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:#5a6b80;padding:3px 0;font-family:var(--mono)}
+.dmv .dmvrow .dd{color:#94a3b8}
+.dtot{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:10px;border-top:2px solid #0f1f33;font-weight:700}
+.dtot .v{font-family:var(--mono);font-size:15px}
+
+/* mentions légales */
+.legal{font-size:11px;color:#5a6b80;line-height:1.7;background:#f8fafc;border:1px solid var(--bor);border-radius:12px;padding:20px 22px}
+.legal b{color:#1a2433}
+.legal ul{margin:8px 0 0 18px}
+.legal li{margin-bottom:4px}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);z-index:500;background:var(--t1);color:#fff;padding:13px 22px;border-radius:12px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.35s var(--ease);box-shadow:var(--sh)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:600px){
+  .wrap{padding:20px 14px 100px}
+  .l2044{grid-template-columns:54px 1fr;gap:10px}
+  .l2044 .amt{grid-column:1 / 3;justify-content:flex-start;padding-left:64px}
+  .subtot{grid-template-columns:1fr auto}
+  .subtot .lbl{grid-column:1}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ===== En-tête ===== -->
+  <div class="head">
+    <div class="h1">La 2044 qui se <em>justifie toute seule</em></div>
+    <div class="sub">Déclaration des revenus fonciers · régime réel · année 2025. Chaque montant ci-dessous est calculé à partir de vos vrais mouvements bancaires — clique sur n'importe quel chiffre pour voir d'où il vient.</div>
+    <div class="diff">Le seul outil où tu peux justifier chaque euro de ta 2044 — anti-redressement.</div>
+  </div>
+
+  <!-- ===== Bandeau de confiance ===== -->
+  <div class="trust">
+    <div class="trust-ic">🔎</div>
+    <div class="trust-txt">
+      <b>Chaque chiffre est traçable jusqu'au relevé bancaire.</b>
+      <span>Aucune saisie manuelle : tout vient de vos mouvements catégorisés.</span>
+    </div>
+    <div class="trust-badge"><span class="dot"></span> 0 mouvement non classé ✓</div>
+  </div>
+
+  <!-- ===== Formulaire 2044 ===== -->
+  <div class="form2044">
+    <div class="form-top">
+      <div class="cerfa">
+        <div class="logo">📄</div>
+        <div>
+          <b>Déclaration n° 2044</b>
+          <small>Revenus fonciers · régime réel</small>
+        </div>
+      </div>
+      <div class="meta">
+        Entité&nbsp;: <b>SCI DEMO</b><br>
+        Année des revenus&nbsp;: <b>2025</b>
+      </div>
+    </div>
+
+    <!-- Cadre Recettes -->
+    <div class="cadre">
+      <div class="cadre-h">
+        <span class="num">Cadre IV</span>
+        <h3>Recettes</h3>
+        <span class="hint">ce que vous avez encaissé</span>
+      </div>
+      <div id="recettes"></div>
+      <div class="subtot">
+        <div class="lbl">Total des recettes (ligne 215)</div>
+        <div class="amt" id="tot-recettes"></div>
+      </div>
+    </div>
+
+    <!-- Cadre Frais et charges -->
+    <div class="cadre">
+      <div class="cadre-h">
+        <span class="num">Cadre V</span>
+        <h3>Frais et charges</h3>
+        <span class="hint">ce que vous avez dépensé (déductible)</span>
+      </div>
+      <div id="charges"></div>
+      <div class="subtot">
+        <div class="lbl">Total des frais et charges (ligne 240 = 221→229 − 230)</div>
+        <div class="amt" id="tot-charges"></div>
+      </div>
+    </div>
+
+    <!-- Cadre Intérêts -->
+    <div class="cadre">
+      <div class="cadre-h">
+        <span class="num">Cadre</span>
+        <h3>Intérêts d'emprunt</h3>
+        <span class="hint">déduits à part des autres charges</span>
+      </div>
+      <div id="interets"></div>
+      <div class="subtot">
+        <div class="lbl">Total des intérêts (ligne 250)</div>
+        <div class="amt" id="tot-interets"></div>
+      </div>
+    </div>
+
+    <!-- Résultat foncier -->
+    <div class="result">
+      <div class="calc">
+        Résultat foncier <span class="op">=</span> recettes <span class="op">−</span> charges <span class="op">−</span> intérêts<br>
+        <span id="calc-detail"></span>
+      </div>
+      <div class="big">
+        <small>Résultat foncier net imposable</small>
+        <b class="pos" id="resultat"></b>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <div class="left">Ce résultat se reporte directement sur votre déclaration 2042 (case 4BA si positif). Valeurs indicatives — à confirmer avec votre expert-comptable.</div>
+      <button class="btn prim" onclick="openPreview()">📄 Générer le dossier justificatif (PDF)</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== DRAWER de justification ===== -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dr-head">
+    <button class="dr-close" onclick="closeDrawer()" aria-label="Fermer">✕</button>
+    <span class="dr-ln" id="dr-ln"></span>
+    <h2 id="dr-title"></h2>
+    <div class="dr-amount"><b id="dr-amt"></b><span id="dr-amt-note"></span></div>
+  </div>
+  <div class="dr-body" id="dr-body"></div>
+</aside>
+
+<!-- ===== APERÇU DOSSIER ===== -->
+<div class="modal" id="modal">
+  <div class="preview">
+    <div class="pv-toolbar">
+      <div class="tt"><span class="ic">📄</span> Dossier justificatif 2044 — SCI DEMO 2025</div>
+      <div class="grp">
+        <button class="pv-btn dl" onclick="fakeDownload()">⬇ Télécharger le PDF</button>
+        <button class="pv-btn cl" onclick="closePreview()">Fermer</button>
+      </div>
+    </div>
+    <div id="pv-pages"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================================
+   DATASET DÉMO — SCI DEMO, année 2025 (chiffres figés par le brief)
+   Forme = sortie réelle du moteur js/core/legal-2044.js :
+     { lignes, mvtsByLigne, totalRecettes, totalCharges, totalInterets,
+       resultatFoncier, nonMappes }
+   mvtsByLigne[num] = [{ date, lib, montant }, ...]  ← le clic-pour-justifier
+   s'appuie dessus, ce n'est pas un fantasme : le moteur renvoie déjà ce détail.
+   ========================================================================== */
+
+// Détail des virements de loyer (211) — 3 lots, ~mensuels, total 21 840 €.
+// F-RDC 7 800 (650/mois), F-101 8 640 (720/mois), F-102 5 400 (loué à partir d'avril, 600/mois).
+const LOYERS = [
+  // F-RDC — 650 €/mois × 12 = 7 800
+  {date:'2025-01-05', lib:'VIR M. BERNARD — Loyer janv. F-RDC',  montant:650},
+  {date:'2025-02-04', lib:'VIR M. BERNARD — Loyer févr. F-RDC',  montant:650},
+  {date:'2025-03-05', lib:'VIR M. BERNARD — Loyer mars F-RDC',   montant:650},
+  {date:'2025-04-04', lib:'VIR M. BERNARD — Loyer avr. F-RDC',   montant:650},
+  {date:'2025-05-05', lib:'VIR M. BERNARD — Loyer mai F-RDC',    montant:650},
+  {date:'2025-06-04', lib:'VIR M. BERNARD — Loyer juin F-RDC',   montant:650},
+  {date:'2025-07-04', lib:'VIR M. BERNARD — Loyer juil. F-RDC',  montant:650},
+  {date:'2025-08-05', lib:'VIR M. BERNARD — Loyer août F-RDC',   montant:650},
+  {date:'2025-09-04', lib:'VIR M. BERNARD — Loyer sept. F-RDC',  montant:650},
+  {date:'2025-10-06', lib:'VIR M. BERNARD — Loyer oct. F-RDC',   montant:650},
+  {date:'2025-11-05', lib:'VIR M. BERNARD — Loyer nov. F-RDC',   montant:650},
+  {date:'2025-12-04', lib:'VIR M. BERNARD — Loyer déc. F-RDC',   montant:650},
+  // F-101 — 720 €/mois × 12 = 8 640
+  {date:'2025-01-03', lib:'VIR Mme NGUYEN — Loyer janv. F-101',  montant:720},
+  {date:'2025-02-03', lib:'VIR Mme NGUYEN — Loyer févr. F-101',  montant:720},
+  {date:'2025-03-03', lib:'VIR Mme NGUYEN — Loyer mars F-101',   montant:720},
+  {date:'2025-04-03', lib:'VIR Mme NGUYEN — Loyer avr. F-101',   montant:720},
+  {date:'2025-05-05', lib:'VIR Mme NGUYEN — Loyer mai F-101',    montant:720},
+  {date:'2025-06-03', lib:'VIR Mme NGUYEN — Loyer juin F-101',   montant:720},
+  {date:'2025-07-03', lib:'VIR Mme NGUYEN — Loyer juil. F-101',  montant:720},
+  {date:'2025-08-04', lib:'VIR Mme NGUYEN — Loyer août F-101',   montant:720},
+  {date:'2025-09-03', lib:'VIR Mme NGUYEN — Loyer sept. F-101',  montant:720},
+  {date:'2025-10-03', lib:'VIR Mme NGUYEN — Loyer oct. F-101',   montant:720},
+  {date:'2025-11-04', lib:'VIR Mme NGUYEN — Loyer nov. F-101',   montant:720},
+  {date:'2025-12-03', lib:'VIR Mme NGUYEN — Loyer déc. F-101',   montant:720},
+  // F-102 — relouée à partir d'avril, 600 €/mois × 9 = 5 400
+  {date:'2025-04-07', lib:'VIR M. & Mme PETIT — Loyer avr. F-102',  montant:600},
+  {date:'2025-05-06', lib:'VIR M. & Mme PETIT — Loyer mai F-102',   montant:600},
+  {date:'2025-06-05', lib:'VIR M. & Mme PETIT — Loyer juin F-102',  montant:600},
+  {date:'2025-07-07', lib:'VIR M. & Mme PETIT — Loyer juil. F-102', montant:600},
+  {date:'2025-08-06', lib:'VIR M. & Mme PETIT — Loyer août F-102',  montant:600},
+  {date:'2025-09-05', lib:'VIR M. & Mme PETIT — Loyer sept. F-102', montant:600},
+  {date:'2025-10-07', lib:'VIR M. & Mme PETIT — Loyer oct. F-102',  montant:600},
+  {date:'2025-11-06', lib:'VIR M. & Mme PETIT — Loyer nov. F-102',  montant:600},
+  {date:'2025-12-05', lib:'VIR M. & Mme PETIT — Loyer déc. F-102',  montant:600},
+];
+
+// Intérêts d'emprunt (250) — 12 échéances ≈ 341,67 €/mois = 4 100 €.
+const INTERETS = (function(){
+  const out=[]; const mois=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  // 11 × 341,67 + 1 × 341,63 pour tomber pile à 4 100,00
+  for(let i=0;i<12;i++){
+    const m = (i===11) ? 341.63 : 341.67;
+    out.push({date:`2025-${String(i+1).padStart(2,'0')}-15`, lib:`PRÊT IMMO — échéance ${mois[i]} (part intérêts)`, montant:m});
+  }
+  return out;
+})();
+
+// L'objet renvoyé par _compute2044(..., {detail:true}).
+const RESULT = {
+  entityNom:'SCI DEMO',
+  annee:2025,
+  lignes:   {'211':21840,'222':60,'223':420,'224':6200,'227':1850,'229':2400,'230':-300,'250':4100},
+  comptes:  {'211':LOYERS.length,'222':1,'223':1,'224':3,'227':1,'229':2,'230':1,'250':12},
+  mvtsByLigne:{
+    '211': LOYERS,
+    // 222 = forfait légal automatique (pas de mouvement bancaire) → traité à part.
+    '222': [],
+    '223': [
+      {date:'2025-02-12', lib:'PRLV ASSURANCE PNO — police 7741, prime annuelle', montant:420},
+    ],
+    '224': [
+      {date:'2025-06-18', lib:'CHQ COUVERTURE DURAND — réfection toiture (acompte)', montant:2800},
+      {date:'2025-09-22', lib:'VIR COUVERTURE DURAND — réfection toiture (solde)',   montant:2600},
+      {date:'2025-10-04', lib:'CB LEROY — fournitures zinguerie + faîtage',          montant:800},
+    ],
+    '227': [
+      {date:'2025-10-15', lib:'PRLV DGFIP — Taxe foncière 2025 SCI DEMO', montant:1850},
+    ],
+    '229': [
+      {date:'2025-01-10', lib:'PRLV SYNDIC FONCIA — provisions copro T1', montant:1200},
+      {date:'2025-07-09', lib:'PRLV SYNDIC FONCIA — provisions copro T3', montant:1200},
+    ],
+    '230': [
+      // déduction : se soustrait des charges (montant négatif côté résultat)
+      {date:'2025-04-30', lib:'Régul. copro N-1 — solde en faveur du propriétaire', montant:-300},
+    ],
+    '250': INTERETS,
+  },
+  totalRecettes:21840,
+  totalCharges:10630,   // 60 + 420 + 6200 + 1850 + 2400 − 300
+  totalInterets:4100,
+  resultatFoncier:7110, // 21840 − 10630 − 4100
+  nonMappes:[],
+};
+
+/* ----------------------------------------------------------------------------
+   Libellés + descriptions OFFICIELS (repris de LIGNES_2044, index.html ~29557).
+   Le champ `regle` = explication fiscale en français simple affichée dans le
+   drawer (le « pourquoi c'est déductible »).
+   -------------------------------------------------------------------------- */
+const META = {
+  '211':{type:'recette', libelle:'Loyers ou fermages bruts encaissés',
+    desc:"Loyers, fermages, arriérés, loyers d'avance + recettes exceptionnelles.",
+    regle:"On déclare les loyers réellement <b>encaissés</b> sur l'année civile (principe de la caisse), charges comprises éventuellement appelées. Chaque virement ci-dessous a été rapproché d'un loyer attendu sur l'un de vos 3 logements.",
+    src:'Notice 2044 § 211 — recettes brutes'},
+  '222':{type:'charge', libelle:'Autres frais de gestion (forfait 20 € / local)',
+    desc:"Forfait légal automatique de 20 €/local.",
+    regle:"Ce forfait de <b>20 € par local loué</b> est accordé d'office par l'administration pour couvrir les petits frais de gestion (courrier, téléphone, déplacements) sans avoir à les justifier. Aucun mouvement bancaire ne lui correspond : il est calculé automatiquement sur le nombre de logements.",
+    src:'Notice 2044 § 222 — frais de gestion forfaitaires'},
+  '223':{type:'charge', libelle:"Primes d'assurance",
+    desc:"Toutes primes : incendie, dégâts des eaux, PNO, GLI, RC bailleur.",
+    regle:"Les primes d'assurance liées au bien locatif sont <b>intégralement déductibles</b> pour leur montant réellement payé : assurance propriétaire non-occupant (PNO), garantie loyers impayés, multirisque immeuble…",
+    src:'Notice 2044 § 223 — primes d\'assurance'},
+  '224':{type:'charge', libelle:"Dépenses de réparation, d'entretien ou d'amélioration",
+    desc:"Réparation/entretien + amélioration. Exclus : construction, agrandissement.",
+    regle:"Les travaux de <b>réparation, d'entretien et d'amélioration</b> sont déductibles l'année de leur paiement. La réfection d'une toiture remet le bien en état sans l'agrandir : elle est donc bien déductible (≠ construction ou agrandissement, qui ne le sont pas).",
+    src:'Notice 2044 § 224 — travaux déductibles'},
+  '227':{type:'charge', libelle:'Taxes foncières et taxes annexes',
+    desc:"TF + taxes annexes. Exclus : taxe d'enlèvement des ordures ménagères.",
+    regle:"La <b>taxe foncière</b> (hors part « ordures ménagères », qui est refacturée au locataire) est déductible pour le montant payé dans l'année. On retient ici uniquement la part qui reste à votre charge.",
+    src:'Notice 2044 § 227 — taxes foncières'},
+  '229':{type:'charge', libelle:'Provisions pour charges de copropriété',
+    desc:"Total des provisions versées au syndic en N.",
+    regle:"Les <b>provisions de charges versées au syndic</b> pendant l'année sont déductibles dès leur paiement, même si le décompte définitif n'est pas encore connu. La régularisation se fait l'année suivante via la ligne 230.",
+    src:'Notice 2044 § 229 — provisions de copropriété'},
+  '230':{type:'deduction', libelle:'Régularisation des provisions N-1',
+    desc:"Réintégration du solde des provisions copro de l'année précédente.",
+    regle:"Cette ligne <b>se soustrait</b> des charges. Les provisions de copropriété déduites l'an dernier (ligne 229 N-1) doivent être ajustées une fois le décompte réel connu : la part qui n'était finalement pas déductible (ou récupérable sur le locataire) est <b>réintégrée</b> ici. C'est pour ça que le 240 fait <em>221→229 moins 230</em>.",
+    src:'Notice 2044 § 230 — régularisation des provisions'},
+  '250':{type:'interet', libelle:"Intérêts d'emprunt et frais accessoires",
+    desc:"Intérêts + frais (dossier, hypothèque, assurance emprunteur). Capital exclu.",
+    regle:"Seule la <b>part intérêts</b> de chaque mensualité de prêt est déductible (le capital remboursé ne l'est jamais). Les intérêts se déduisent <b>séparément</b> des autres charges — c'est pour ça qu'ils ont leur propre cadre. Les 12 échéances ci-dessous ne montrent que la fraction d'intérêts.",
+    src:'Notice 2044 § 250 — intérêts d\'emprunt'},
+};
+
+/* ===== Helpers de format ===== */
+const eur = n => (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+const eurSign = n => (n<0?'− ':'') + eur(Math.abs(n));
+const dateFr = s => { const [y,m,d]=s.split('-'); return `${d}/${m}/${y}`; };
+
+/* ============================================================================
+   RENDU DU FORMULAIRE — génère les lignes cliquables par cadre
+   ========================================================================== */
+const CADRES = {
+  recettes:['211'],
+  charges:['222','223','224','227','229','230'],
+  interets:['250'],
+};
+
+function ligneHTML(num){
+  const m = META[num];
+  const val = RESULT.lignes[num];
+  const cnt = RESULT.comptes[num] || 0;
+  const isNeg = m.type==='deduction'; // 230 affiché en − (se soustrait)
+  const cntLabel = num==='222'
+    ? 'forfait auto'
+    : (cnt>1 ? cnt+' mouvements' : cnt+' mouvement');
+  return `
+    <div class="l2044" data-num="${num}" tabindex="0" role="button"
+         onclick="openDrawer('${num}')" onkeypress="if(event.key==='Enter')openDrawer('${num}')">
+      <div class="ln">${num}</div>
+      <div class="lbl">
+        <b>${m.libelle}</b>
+        <span><span class="cnt">${cntLabel}</span> · cliquer pour justifier</span>
+      </div>
+      <div class="amt ${isNeg?'neg':''}">${isNeg?'− ':''}${eur(Math.abs(val))}<span class="chev">›</span></div>
+    </div>`;
+}
+
+function renderForm(){
+  document.getElementById('recettes').innerHTML = CADRES.recettes.map(ligneHTML).join('');
+  document.getElementById('charges').innerHTML  = CADRES.charges.map(ligneHTML).join('');
+  document.getElementById('interets').innerHTML = CADRES.interets.map(ligneHTML).join('');
+
+  document.getElementById('tot-recettes').textContent = eur(RESULT.totalRecettes);
+  document.getElementById('tot-charges').textContent  = eur(RESULT.totalCharges);
+  document.getElementById('tot-interets').textContent = eur(RESULT.totalInterets);
+  document.getElementById('resultat').innerHTML = '+ ' + eur(RESULT.resultatFoncier).replace(' €','<span class="c"> €</span>');
+  document.getElementById('calc-detail').innerHTML =
+    `${eur(RESULT.totalRecettes)} <span class="op">−</span> ${eur(RESULT.totalCharges)} <span class="op">−</span> ${eur(RESULT.totalInterets)}`;
+}
+
+/* ============================================================================
+   DRAWER — ouvre le détail d'une ligne (mouvements + règle fiscale)
+   ========================================================================== */
+function openDrawer(num){
+  const m = META[num];
+  const val = RESULT.lignes[num];
+  const mvts = RESULT.mvtsByLigne[num] || [];
+  const isNeg = m.type==='deduction';
+
+  // surbrillance de la ligne active
+  document.querySelectorAll('.l2044').forEach(el=>el.classList.toggle('active', el.dataset.num===num));
+
+  document.getElementById('dr-ln').innerHTML = `Ligne ${num} · ${labelType(m.type)}`;
+  document.getElementById('dr-title').textContent = m.libelle;
+  document.getElementById('dr-amt').textContent = (isNeg?'− ':'') + eur(Math.abs(val));
+  document.getElementById('dr-amt-note').textContent = isNeg ? 'se soustrait des charges' : reportNote(m.type);
+
+  let body = `
+    <div class="rule">
+      <div class="rh">💡 Pourquoi ce montant ${isNeg?'se déduit':'compte'} ?</div>
+      <p>${m.regle}</p>
+      <span class="src">📖 ${m.src}</span>
+    </div>`;
+
+  if(num==='222'){
+    // forfait légal : pas de mouvements
+    body += `
+      <div class="auto-note">
+        <b>3 logements × 20 €</b> = 60 €<br>
+        Calculé automatiquement à partir de votre patrimoine.<br>
+        Aucune pièce justificative à fournir — c'est un droit forfaitaire.
+      </div>`;
+  } else {
+    const sum = mvts.reduce((s,x)=>s+x.montant,0);
+    body += `
+      <div class="mv-h">
+        <b>Mouvements qui composent ce chiffre</b>
+        <span>${mvts.length} ligne${mvts.length>1?'s':''}</span>
+      </div>
+      <table class="mv-tbl">
+        <thead><tr><th>Date</th><th>Libellé bancaire</th><th class="r">Montant</th></tr></thead>
+        <tbody>
+          ${mvts.map(x=>`
+            <tr>
+              <td class="date">${dateFr(x.date)}</td>
+              <td class="lib">${x.lib}
+                <div class="bank">🏦 rapproché du relevé bancaire</div>
+              </td>
+              <td class="mt ${x.montant<0?'neg':''}">${eurSign(x.montant)}</td>
+            </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="2">Total ligne ${num}</td><td class="r">${eurSign(sum)}</td></tr>
+        </tfoot>
+      </table>`;
+  }
+
+  document.getElementById('dr-body').innerHTML = body;
+  document.getElementById('dr-body').scrollTop = 0;
+  document.getElementById('drawer').classList.add('on');
+  document.getElementById('drawer').setAttribute('aria-hidden','false');
+  document.getElementById('scrim').classList.add('on');
+}
+
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('on');
+  document.getElementById('drawer').setAttribute('aria-hidden','true');
+  document.getElementById('scrim').classList.remove('on');
+  document.querySelectorAll('.l2044').forEach(el=>el.classList.remove('active'));
+}
+
+function labelType(t){
+  return {recette:'Recette', charge:'Charge déductible', interet:"Intérêt d'emprunt", deduction:'Régularisation'}[t] || '';
+}
+function reportNote(t){
+  return {recette:"s'ajoute aux recettes", charge:"se déduit des recettes", interet:"se déduit séparément"}[t] || '';
+}
+
+/* ============================================================================
+   APERÇU DOSSIER — page de garde + détail par ligne + mentions légales
+   ========================================================================== */
+function coverHTML(){
+  return `
+    <div class="sheet">
+      <div class="pg-tag">DOSSIER JUSTIFICATIF · PAGE 1/3</div>
+      <div class="cover">
+        <span class="badge">🔎 Chaque euro est traçable</span>
+        <h1>Dossier justificatif 2044</h1>
+        <div class="who"><b>SCI DEMO</b> · revenus fonciers · année <b>2025</b></div>
+        <div class="cover-grid">
+          <div class="cover-cell"><small>Recettes</small><b>${eur(RESULT.totalRecettes)}</b></div>
+          <div class="cover-cell"><small>Charges + intérêts</small><b>${eur(RESULT.totalCharges+RESULT.totalInterets)}</b></div>
+          <div class="cover-cell hl"><small>Résultat foncier</small><b>+ ${eur(RESULT.resultatFoncier)}</b></div>
+        </div>
+        <p class="res-line">Ce dossier détaille, ligne par ligne, l'origine de chaque montant porté sur la déclaration 2044 — avec le rapprochement de chaque mouvement bancaire. À remettre tel quel à votre expert-comptable ou à conserver en cas de contrôle.</p>
+      </div>
+    </div>`;
+}
+
+function lineDetailHTML(num){
+  const m = META[num];
+  const val = RESULT.lignes[num];
+  const mvts = RESULT.mvtsByLigne[num] || [];
+  const isNeg = m.type==='deduction';
+  let sub = '';
+  if(num==='222'){
+    sub = `<div class="dmv"><div class="dmvrow"><span>3 logements × 20 € (forfait légal automatique)</span><span class="dd">${eur(60)}</span></div></div>`;
+  } else if(mvts.length){
+    sub = `<div class="dmv">${mvts.map(x=>`
+      <div class="dmvrow"><span>${dateFr(x.date)} — ${x.lib}</span><span>${eurSign(x.montant)}</span></div>`).join('')}</div>`;
+  }
+  return `
+    <div class="drow">
+      <div class="dl">${num}</div>
+      <div class="dn"><b>${m.libelle}</b><span>${m.desc}</span></div>
+      <div class="dm ${isNeg?'neg':''}">${isNeg?'− ':''}${eur(Math.abs(val))}</div>
+    </div>${sub}`;
+}
+
+function detailPageHTML(){
+  return `
+    <div class="sheet">
+      <div class="pg-tag">DÉTAIL PAR LIGNE · PAGE 2/3</div>
+
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Cadre IV</span>Recettes</h3>
+        ${CADRES.recettes.map(lineDetailHTML).join('')}
+        <div class="dtot"><span>Total des recettes (ligne 215)</span><span class="v">${eur(RESULT.totalRecettes)}</span></div>
+      </div>
+
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Cadre V</span>Frais et charges</h3>
+        ${CADRES.charges.map(lineDetailHTML).join('')}
+        <div class="dtot"><span>Total des frais et charges (ligne 240)</span><span class="v">${eur(RESULT.totalCharges)}</span></div>
+      </div>
+
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Cadre VI</span>Intérêts d'emprunt</h3>
+        ${CADRES.interets.map(lineDetailHTML).join('')}
+        <div class="dtot"><span>Total des intérêts (ligne 250)</span><span class="v">${eur(RESULT.totalInterets)}</span></div>
+      </div>
+
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Résultat</span>Résultat foncier net</h3>
+        <div class="drow">
+          <div class="dl">2042</div>
+          <div class="dn"><b>Résultat foncier = recettes − charges − intérêts</b>
+            <span>${eur(RESULT.totalRecettes)} − ${eur(RESULT.totalCharges)} − ${eur(RESULT.totalInterets)} · à reporter case 4BA</span></div>
+          <div class="dm">+ ${eur(RESULT.resultatFoncier)}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function legalPageHTML(){
+  return `
+    <div class="sheet">
+      <div class="pg-tag">MENTIONS LÉGALES · PAGE 3/3</div>
+      <h3 class="dh">Mentions légales et précautions</h3>
+      <div class="legal" style="margin-top:18px">
+        <p><b>Valeurs indicatives.</b> Ce dossier est une aide au remplissage de la déclaration 2044 (régime réel des revenus fonciers). Les montants sont calculés à partir de vos mouvements catégorisés dans ImmoTrack. Ils doivent être <b>vérifiés et confirmés par un expert-comptable</b> ou par votre centre des finances publiques avant dépôt. ImmoTrack ne se substitue pas à un conseil fiscal.</p>
+        <p style="margin-top:12px"><b>Conservation des pièces.</b> Conservez les justificatifs (factures, quittances, relevés bancaires, avis de taxe foncière, décomptes de syndic) pendant <b>au moins 6 ans</b> à compter de l'année d'imposition — durée du droit de reprise de l'administration fiscale.</p>
+        <p style="margin-top:12px"><b>Points de vigilance pris en compte dans ce calcul :</b></p>
+        <ul>
+          <li>Loyers retenus à l'<b>encaissement</b> (principe de la caisse), pas à l'échéance.</li>
+          <li>Seule la <b>part intérêts</b> des échéances de prêt est déduite — le capital est exclu (ligne 250).</li>
+          <li>Le <b>forfait de 20 €/local</b> (ligne 222) est ajouté automatiquement, sans pièce à fournir.</li>
+          <li>La <b>régularisation des provisions N-1</b> (ligne 230) est soustraite des charges, conformément au calcul de la ligne 240.</li>
+          <li><b>0 mouvement non classé</b> sur la période : le périmètre du calcul est complet.</li>
+        </ul>
+        <p style="margin-top:14px;font-family:var(--mono);font-size:10px;color:#94a3b8">Généré par ImmoTrack le ${dateFr('2026-06-08')} · SCI DEMO · exercice 2025 · réf. dossier 2044-SCI-DEMO-2025</p>
+      </div>
+    </div>`;
+}
+
+function openPreview(){
+  document.getElementById('pv-pages').innerHTML = coverHTML() + detailPageHTML() + legalPageHTML();
+  document.getElementById('modal').classList.add('on');
+  document.getElementById('modal').scrollTop = 0;
+}
+function closePreview(){ document.getElementById('modal').classList.remove('on'); }
+
+function fakeDownload(){ toast('✓ dossier-2044-SCI-DEMO-2025.pdf téléchargé'); }
+
+/* ===== Toast ===== */
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2600);
+}
+
+/* ===== Échap ferme drawer / aperçu ===== */
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ closeDrawer(); closePreview(); }
+});
+
+/* ===== Init ===== */
+renderForm();
+</script>
+</body>
+</html>
