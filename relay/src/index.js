@@ -383,7 +383,7 @@ app.get('/api/candidatures/:linkId/result', async (c) => {
   const linkId = c.req.param('linkId');
   const guard = await requireCandOwner(c, linkId);
   if (guard.error) return guard.error;
-  if (guard.cand.status !== 'submitted') return c.json({ error: 'not-submitted', status: guard.cand.status }, 409);
+  if (guard.cand.status !== 'submitted') return c.json({ status: guard.cand.status }, 200); // 200 (pas 409) → pas de rouge console au polling ; le client lit body.status
   const cand = guard.cand;
   return c.json({
     linkId: cand.linkId, logRef: cand.logRef, bienLabel: cand.bienLabel, loyer: cand.loyer,

@@ -95,10 +95,11 @@ describe('flux candidat complet', () => {
     expect(after.status).toBe(404);
   });
 
-  it('result 409 tant que non soumis', async () => {
+  it('result 200 + status:open tant que non soumis (pas de 409 → pas de rouge console)', async () => {
     const invite = await (await createInvite()).json();
     const r = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/result`, { headers:{ 'X-Owner-Token': invite.ownerToken } });
-    expect(r.status).toBe(409);
+    expect(r.status).toBe(200);
+    expect((await r.json()).status).toBe('open');
   });
 
   it('complément D13 : reopen remet en open et ré-autorise l\'écriture', async () => {
