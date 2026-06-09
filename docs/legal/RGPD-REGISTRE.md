@@ -1,7 +1,7 @@
 # Registre des traitements de données personnelles — ImmoTrack
 
-**Version** : 1.0
-**Date** : 2026-05-11
+**Version** : 1.1
+**Date** : 2026-05-11 (maj 2026-06-08)
 **Base légale** : Règlement (UE) 2016/679 art. 30 ("RGPD")
 **Statut** : Modèle à compléter par chaque utilisateur ImmoTrack (responsable du traitement)
 
@@ -24,11 +24,13 @@
 | Sous-traitant | Service | Localisation données | DPA signé | Référence |
 |---|---|---|---|---|
 | **Google Ireland Limited** | Stockage Drive (sync optionnelle) | UE + US (transferts encadrés clauses contractuelles types) | Oui — voir [DPA-GOOGLE-DRIVE.md](DPA-GOOGLE-DRIVE.md) | [Google Cloud DPA](https://cloud.google.com/terms/data-processing-addendum) |
-| **Cloudflare, Inc.** | Relais de signature à distance (Worker + R2 + KV) — `bail-sign-relay`, transit temporaire du bail le temps de la signature | R2/KV mondial par défaut (KV répliqué multi-régions) ; restreindre via *Jurisdictional Restrictions* (R2 hint `eu`) recommandé | DPA standard Cloudflare (SCC) — à accepter dans le dashboard Cloudflare | [Cloudflare DPA](https://www.cloudflare.com/cloudflare-customer-dpa/) |
+| **Cloudflare, Inc.** | Relais à distance (Worker + R2 + KV) — `bail-sign-relay` : transit temporaire (1) du bail le temps de la **signature**, (2) des **dépôts de candidature en ligne** (dossier + pièces) le temps de leur rapatriement | R2/KV mondial par défaut (KV répliqué multi-régions) ; restreindre via *Jurisdictional Restrictions* (R2 hint `eu`) recommandé | DPA standard Cloudflare (SCC) — à accepter dans le dashboard Cloudflare | [Cloudflare DPA](https://www.cloudflare.com/cloudflare-customer-dpa/) |
 
 **Important** : si vous activez la sync Drive, vous transférez vos données à Google. Si vos locataires ont saisi des données personnelles (nom, IBAN, email), informez-les via un avenant au bail ou un courrier ad hoc avant l'activation.
 
 **Relais de signature** : lorsqu'un bail est envoyé en signature à distance, le PDF du bail (riche en données personnelles : noms, adresse, montants) et les preuves de signature (hash SHA-256 de l'email, téléphone, IP, user-agent, horodatages) transitent par Cloudflare. Données purgées automatiquement après **14 jours** (TTL KV) / **15 jours** (cycle de vie R2). KV étant répliqué mondialement par défaut, configurer la restriction de juridiction UE si la localisation des données dans l'UE est requise.
+
+**Relais de candidature en ligne** : lorsqu'un bailleur invite un candidat à déposer son dossier en ligne (sans création de compte), le formulaire (identité, situation, garant) et les pièces justificatives téléversées transitent par le même relais Cloudflare (`bail-sign-relay`, stockage KV). Le lien candidat a une entropie de 256 bits (non devinable) ; le jeton de capacité bailleur (`ownerToken`) n'est **jamais** placé dans une URL ni journalisé. Données purgées automatiquement à l'expiration de l'invitation (**TTL KV = 7 / 14 / 30 jours** selon la durée choisie), après rapatriement dans l'app par le bailleur. Le rapatriement est **automatisé** (à l'ouverture de l'onglet Candidats, au retour de focus de la fenêtre, et toutes les 3 min) mais ne collecte **aucune donnée nouvelle** : il récupère uniquement ce que le candidat a volontairement déposé. Le « score de confiance » n'est **jamais** calculé ni transmis côté relais — il est recalculé localement dans l'app.
 
 ---
 
@@ -97,16 +99,17 @@
 | Champ | Détail |
 |---|---|
 | **Finalité** | Examen des dossiers de candidature en vue de sélectionner un locataire pour un logement vacant (mesures précontractuelles prises à la demande de la personne) |
+| **Canal de collecte** | (a) **Saisie manuelle** par le bailleur dans l'app ; (b) **Dépôt en ligne par le candidat** via un lien sécurisé sans compte (relais Cloudflare `bail-sign-relay`) : le candidat remplit le formulaire et téléverse ses pièces, qui transitent par le relais (KV) puis sont **rapatriées automatiquement** dans l'app par le bailleur (déclencheurs : ouverture de l'onglet Candidats, retour de focus, intervalle 3 min) — le rapatriement automatisé **ne collecte aucune donnée nouvelle**, il récupère ce que le candidat a volontairement déposé |
 | **Catégories de personnes** | Candidats locataires + leurs garants |
 | **Catégories de données** | Identité (nom, prénom, civilité, DDN), contact (téléphone, email), situation (revenus mensuels, type de contrat CDI/CDD/autre), garant (nom, situation), pièces justificatives **limitées à la liste autorisée** par le décret n° 2015-1437 du 5 novembre 2015 (justificatif d'identité, de domicile, d'activité professionnelle, de ressources) |
 | **Données INTERDITES** | Conformément à l'art. 22-2 de la loi n° 89-462 du 6 juillet 1989, ne sont jamais demandées : photo (hors pièce d'identité), copie de carte vitale, relevés de compte, attestation d'absence de crédit, etc. **Le RIB/IBAN n'est PAS collecté au stade candidature** — il l'est uniquement à la signature du bail (cf. traitement n°1) |
 | **Données sensibles** | Aucune |
 | **Base légale** | Mesures précontractuelles prises à la demande de la personne concernée (art. 6.1.b RGPD) |
 | **Profilage / décision automatisée** | Un « score de confiance » est calculé comme **aide à la décision**, fondé exclusivement sur des critères de solvabilité licites (ratio revenus/loyer, nature du contrat, présence d'un garant, complétude du dossier). **Pas de décision entièrement automatisée** au sens de l'art. 22 RGPD : la sélection finale est humaine. Aucun critère discriminatoire (art. 225-1 Code pénal) n'entre dans le score |
-| **Durée de conservation** | **Candidat refusé** : 30 jours après le refus, puis effacement automatique au démarrage de l'application (tombstone propagé à la sync Drive). **Candidat retenu** : converti en locataire → bascule sous le traitement n°1 (durée du bail + délais légaux) |
-| **Destinataires** | Responsable de traitement uniquement ; Google (si sync Drive) |
-| **Transferts hors UE** | Si Drive : oui, vers les USA, encadrés par les clauses contractuelles types (SCC) Google |
-| **Mesures techniques** | Score non-discriminant transparent (barème affiché) ; purge automatique des refusés à 30 j ; isolation des données de test (`_test_immotrack_v4`) ; chiffrement transport (HTTPS/TLS) et stockage au repos |
+| **Durée de conservation** | **Candidat refusé** : 30 jours après le refus, puis effacement automatique au démarrage de l'application (tombstone propagé à la sync Drive). **Candidat retenu** : converti en locataire → bascule sous le traitement n°1 (durée du bail + délais légaux). **Côté relais (dépôt en ligne)** : dossier déposé + pièces éphémères — purge automatique à l'expiration de l'invitation (TTL KV = 7/14/30 j selon la durée choisie), après rapatriement par le bailleur |
+| **Destinataires** | Responsable de traitement uniquement ; Google (si sync Drive) ; **Cloudflare** (sous-traitant : transit temporaire du dépôt en ligne le temps du rapatriement — cf. section Sous-traitants) |
+| **Transferts hors UE** | Si Drive : oui, vers les USA (SCC Google). **Dépôt en ligne** : transit via Cloudflare KV (répliqué mondialement) — encadré par les SCC du DPA Cloudflare ; restriction de juridiction UE recommandée |
+| **Mesures techniques** | Score non-discriminant transparent (barème affiché) ; purge automatique des refusés à 30 j ; isolation des données de test (`_test_immotrack_v4`) ; chiffrement transport (HTTPS/TLS) et stockage au repos. **Dépôt en ligne** : lien candidat 256 bits non devinable ; `ownerToken` jamais placé dans une URL ni journalisé ; le relais répond en 200 (statut) au polling (pas de fuite par code d'erreur) ; **score jamais calculé ni transmis côté relais** (recalcul local) ; rapatriement automatisé sans collecte de donnée nouvelle |
 
 ---
 
@@ -151,5 +154,5 @@ En cas de fuite de données (vol device + Drive non chiffré local, compromissio
 - Nouveau type de traitement (multi-user, portail locataire, etc.)
 - Changement de durée de conservation
 
-**Dernière mise à jour** : 2026-06-03 (ajout traitement n°6 candidatures locataires — purge RGPD refusés 30 j, score non-discriminant, RIB exclu au stade candidature)
+**Dernière mise à jour** : 2026-06-08 (traitement n°6 étendu — **canal de dépôt en ligne** via relais Cloudflare : TTL invitation 7/14/30 j, `ownerToken` hors URL, score jamais calculé/transmis côté relais ; **rapatriement automatisé** documenté — aucune donnée nouvelle collectée ; Cloudflare ajouté aux sous-traitants/destinataires des candidatures)
 **Mainteneur** : responsable de traitement ImmoTrack
