@@ -148,3 +148,18 @@ export function shouldAutoPull(lastPullTs, now, intervalMs = 180000, hasActiveLi
   if (!lastPullTs) return true;
   return (now - lastPullTs) >= intervalMs;
 }
+
+/** Nombre de candidatures non lues (vu === false), hors supprimées/archivées. */
+export function countUnreadCandidats(candidats) {
+  if (!Array.isArray(candidats)) return 0;
+  return candidats.filter(c => c && c.vu === false && !c._deleted && !c._archived).length;
+}
+
+/** Texte du toast d'arrivée de nouveaux dossiers. */
+export function nouveauDossierToast(newNames) {
+  const names = (Array.isArray(newNames) ? newNames : []).map(s => String(s || '').trim()).filter(Boolean);
+  const n = names.length;
+  if (n === 0) return '📩 Nouveau dossier reçu';
+  if (n === 1) return '📩 Nouveau dossier reçu : ' + names[0];
+  return '📩 Nouveau dossier reçu : ' + names[0] + ' et ' + (n - 1) + ' autre' + (n - 1 > 1 ? 's' : '');
+}

@@ -91,13 +91,17 @@ export async function relayCreateInvitation(cfg, input, fetchImpl = fetch) {
   return jsonOrThrow(res);
 }
 
-/** Lit le dossier soumis. 409 (pas encore soumis) → { _status: 409 } (non bloquant). */
+/** Lit le dossier soumis. « Pas encore soumis » → { _status: 409 } (sentinel non bloquant),
+ *  que le relais réponde en 200 {status:'open'} (nouveau protocole, sans rouge console) ou
+ *  409 (legacy, avant migration). Lève sur 404/410 (lien expiré / révoqué). */
 export async function relayFetchResult(cfg, linkId, ownerToken, fetchImpl = fetch) {
   const res = await fetchImpl(`${normalizeBase(cfg.base)}/api/candidatures/${linkId}/result`, {
     headers: { 'X-Owner-Token': ownerToken }
   });
-  if (res.status === 409) return { _status: 409 };
-  return jsonOrThrow(res);
+  if (res.status === 409) return { _status: 409 };          // relais legacy
+  const body = await jsonOrThrow(res);                       // 200 ; lève sur 404/410
+  if (body && body.status && body.status !== 'submitted') return { _status: 409 }; // 200 mais non soumis
+  return body;
 }
 
 /** Télécharge une pièce. → { bytes: Uint8Array, contentType }. */
