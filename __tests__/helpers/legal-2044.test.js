@@ -386,3 +386,44 @@ describe('_compute2044 — opts.mapping (catégories custom → ligne 2044)', ()
     expect(r.lignes['221']).toBeUndefined();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B1 (V3-REFONTE-LOYERS) — 5 catégories `special` hors résultat foncier
+// ─────────────────────────────────────────────────────────────────────────────
+describe('STD_CATEGORIES — 5 catégories special B1 (hors résultat foncier)', () => {
+  // Chaque catégorie doit être type:'special' + ligne2044:'' → ignorée par le moteur 2044.
+  const NEW_CATS = [
+    'construction / agrandissement',
+    'Acquisition / cession',
+    'CCA / distribution',
+    'Virement interne',
+    'Régularisation de solde',
+  ];
+  for (const file of ['index.html', 'index-test.html']) {
+    it(`${file} : les 5 catégories B1 sont type:'special' + ligne2044:''`, () => {
+      const html = readFileSync(resolve(repoRoot, file), 'utf8');
+      const lines = html.split('\n');
+      for (const key of NEW_CATS) {
+        const line = lines.find(l => l.includes(key) && l.includes('ligne2044'));
+        expect(line, `entrée STD_CATEGORIES « ${key} » introuvable dans ${file}`).toBeTruthy();
+        expect(line, `« ${key} » doit être type:'special'`).toMatch(/type:\s*'special'/);
+        expect(line, `« ${key} » doit avoir ligne2044:''`).toMatch(/ligne2044:\s*''/);
+      }
+    });
+  }
+});
+
+describe('_compute2044 — précédence type:special sur opts.mapping (B1)', () => {
+  const STD = STD_CATEGORIES;
+  it('une catégorie STD special reste EXCLUE même si opts.mapping lui force une ligne', () => {
+    const mvts = [
+      { date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 },
+      { date: '2026-03-01', cat: 'Prêt — Capital remboursé', db: 500 }, // special, ligne2044:''
+    ];
+    // mapping tordu : tente de mapper la catégorie special sur une ligne de charge → doit être IGNORÉ
+    const r = _compute2044(mvts, STD, { mapping: { 'Prêt — Capital remboursé': '224' } });
+    expect(r.lignes['224']).toBeUndefined(); // PAS comptée
+    expect(r.totalCharges).toBe(0);
+    expect(r.resultatFoncier).toBe(1000);    // le capital prêt n'affecte pas le résultat foncier
+  });
+});
