@@ -83,10 +83,22 @@ describe('réseau (fetch injecté)', () => {
     expect(seen.url).toBe('https://r.dev/candidatures');
     expect(seen.opts.headers.Authorization).toBe('Bearer SECRET');
   });
-  it('relayFetchResult renvoie {_status:409} si pas encore soumis', async () => {
+  it('relayFetchResult : relais legacy 409 → {_status:409}', async () => {
     const fakeFetch = async () => ({ ok: false, status: 409, json: async () => ({ error: 'not-submitted' }) });
     const out = await relayFetchResult({ base: 'https://r.dev' }, 'abc', 'OWN', fakeFetch);
     expect(out._status).toBe(409);
+  });
+  it('relayFetchResult : nouveau relais 200 {status:"open"} → sentinel {_status:409} (pas de rouge console)', async () => {
+    const fakeFetch = async () => ({ ok: true, status: 200, json: async () => ({ status: 'open' }) });
+    const out = await relayFetchResult({ base: 'https://r.dev' }, 'abc', 'OWN', fakeFetch);
+    expect(out._status).toBe(409);
+  });
+  it('relayFetchResult : 200 soumis → renvoie le dossier', async () => {
+    const fakeFetch = async () => ({ ok: true, status: 200, json: async () => ({ status: 'submitted', linkId: 'abc', pieces: [] }) });
+    const out = await relayFetchResult({ base: 'https://r.dev' }, 'abc', 'OWN', fakeFetch);
+    expect(out._status).toBeUndefined();
+    expect(out.status).toBe('submitted');
+    expect(out.linkId).toBe('abc');
   });
   it('relayPing GET /api/ping avec Bearer APP_KEY', async () => {
     let seen;
