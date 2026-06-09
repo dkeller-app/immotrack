@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Le parcours complet · du relevé bancaire à ta 2044</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════════════════════
+   LE PARCOURS COMPLET IMMOTRACK — démo phare, une seule histoire jouée
+   ────────────────────────────────────────────────────────────────────────────
+   FUSION des 4 mockups du dossier + ajout du chapitre manquant (lancement+import) :
+   · MOTEUR repris de 4-academie.html : spotlight (4 masques + ring) + bulle coach,
+     STEPS[] avec actions jouées, fausse-app multi-écrans, sidebar navigable.
+   · Chapitre Contrôle : cartes « findings » + jauge de fiabilité de 3-controle-prevol.
+   · Chapitre 2044 : copybox « à recopier sur impots.gouv.fr » de 1-copilote +
+     dossier justificatif (modale) de 2-justifiee-cliquable.
+   · NOUVEAU : Chapitre 1 (Bienvenue / hébergement sécurisé EU) + Chapitre 2 (import
+     fichier OFX/CSV uniquement, animation de reconnaissance).
+   Design system identique au lot : tokens :root, Fraunces+Manrope+JetBrains Mono,
+   --acc/--acc2/--teal/--grn/--red/--ora, .kpi/.pill/.ctx, spotlight, bulle coach.
+   ════════════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#f4f6f9; --sur:#fff; --sur2:#f0f3f7;
+  --bor:rgba(30,50,80,.1); --bor2:rgba(30,50,80,.18);
+  --t1:#0f1f33; --t2:#5a6b80; --t3:#94a3b8;
+  --acc:#0ea5e9; --acc2:#14b8a6; --teal:#0d9488;
+  --grn:#059669; --red:#dc2626; --ora:#d97706; --vio:#7c3aed;
+  --grad:linear-gradient(120deg,#0ea5e9,#14b8a6);
+  --grad-hero:linear-gradient(135deg,#e6f4fb 0%,#e0f5f1 100%);
+  --r:14px; --r-lg:20px;
+  --sh:0 14px 40px -16px rgba(20,40,70,.22),0 2px 8px rgba(20,40,70,.06);
+  --font-d:'Fraunces',Georgia,serif; --font:'Manrope',sans-serif; --mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* ═══ Barre de contrôle démo (hors app) ═══ */
+.demo-ctl{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:200;display:flex;gap:6px;padding:8px;border-radius:999px;background:var(--t1);box-shadow:var(--sh);flex-wrap:wrap;justify-content:center;max-width:94vw}
+.demo-ctl button{font-family:var(--font);font-weight:700;font-size:12.5px;padding:9px 15px;border:none;border-radius:999px;cursor:pointer;background:transparent;color:#cdd6e0;transition:.25s}
+.demo-ctl button:hover{color:#fff}
+.demo-ctl button.p{background:var(--grad);color:#fff}
+
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+
+/* ═══ Sidebar ═══ */
+.sb{background:var(--sur);border-right:1px solid var(--bor);padding:22px 14px;display:flex;flex-direction:column;gap:3px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 20px}
+.brand-logo{width:36px;height:36px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-size:18px}
+.brand b{font-family:var(--font-d);font-weight:600;font-size:18px}
+.brand small{display:block;font-family:var(--mono);font-size:9px;color:var(--t3)}
+.ni{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--t2);font-weight:600;font-size:13px;cursor:pointer;transition:.2s}
+.ni .ic{font-size:15px;width:18px;text-align:center}
+.ni .chap{margin-left:auto;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--t3);background:var(--sur2);border-radius:6px;padding:2px 6px}
+.ni:hover{background:var(--sur2)}
+.ni.act{background:var(--sur2);color:var(--t1)}
+.ni.act .chap{color:#fff;background:var(--teal)}
+.nlbl{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--t3);padding:16px 12px 7px}
+.sb-foot{margin-top:auto;padding:12px 8px 0}
+.acad-badge{display:flex;align-items:center;gap:9px;padding:10px 11px;border-radius:12px;background:var(--grad-hero);border:1px solid var(--bor)}
+.acad-badge .e{font-size:18px}
+.acad-badge b{font-size:11.5px;font-weight:800;display:block}
+.acad-badge s{font-size:9.5px;color:var(--t2);font-family:var(--mono)}
+
+.main{padding:24px 30px 110px;overflow:hidden}
+.h1{font-family:var(--font-d);font-weight:600;font-size:26px;letter-spacing:-.02em;margin-bottom:3px}
+.h1 em{font-style:italic;color:var(--teal)}
+.sub{color:var(--t2);font-size:13px;margin-bottom:18px}
+
+/* ═══ Ruban de progression « Chapitre x/5 » (visible pendant la démo) ═══ */
+.chapter-rail{display:none;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;border-radius:var(--r-lg);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);margin-bottom:18px}
+.chapter-rail.on{display:flex}
+.chapter-rail .lead{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--teal);white-space:nowrap}
+.chapter-rail .lead b{color:var(--t1)}
+.chap-dots{display:flex;gap:7px;flex:1;flex-wrap:wrap}
+.chap-dot{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--t3);padding:5px 11px;border-radius:99px;background:var(--sur2);border:1px solid var(--bor);transition:.3s;cursor:default}
+.chap-dot .e{font-size:13px;filter:grayscale(.6);opacity:.7;transition:.3s}
+.chap-dot.done{color:var(--grn);border-color:rgba(5,150,105,.3);background:rgba(5,150,105,.07)}
+.chap-dot.done .e{filter:none;opacity:1}
+.chap-dot.cur{color:#fff;background:var(--grad);border-color:transparent;box-shadow:0 6px 18px -8px rgba(14,165,233,.6)}
+.chap-dot.cur .e{filter:none;opacity:1}
+
+/* ═══ Barre contexte (filtre entité + période) ═══ */
+.ctx{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 14px;border-radius:var(--r-lg);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);margin-bottom:20px}
+.pills{display:flex;gap:7px;flex-wrap:wrap}
+.pill{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;height:46px;padding:0 13px;border-radius:12px;cursor:pointer;background:var(--sur2);border:1px solid var(--bor);color:var(--t2);transition:.25s}
+.pill b{font-weight:800;font-size:13px}.pill s{text-decoration:none;font-size:9px;color:var(--t3);font-weight:600}
+.pill.act{background:var(--grad);border-color:transparent;color:#fff}.pill.act s{color:rgba(255,255,255,.85)}
+.period{display:flex;align-items:center;gap:3px;background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:4px 5px}
+.period button{width:28px;height:28px;border:none;border-radius:8px;background:transparent;color:var(--t2);cursor:pointer;font-size:14px}
+.period .l{font-weight:700;font-size:12.5px;padding:0 8px;text-align:center}
+.period .l small{display:block;font-size:8.5px;color:var(--t3);letter-spacing:.07em}
+
+/* ═══ Écrans (un seul visible à la fois) ═══ */
+.screen{display:none;animation:fade .35s var(--ease)}
+.screen.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ═══ Carte générique ═══ */
+.panel{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r-lg);box-shadow:var(--sh);overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:11px;padding:14px 18px;border-bottom:1px solid var(--bor);background:var(--grad-hero)}
+.panel-h .ic{width:31px;height:31px;border-radius:9px;background:var(--sur);display:grid;place-items:center;font-size:15px;box-shadow:var(--sh)}
+.panel-h h3{font-family:var(--font-d);font-weight:600;font-size:17px;flex:1}
+.panel-h .meta{font-size:11.5px;color:var(--t2);font-family:var(--mono);font-weight:600}
+
+/* ═══ CHAPITRE 1 : BIENVENUE (NOUVEAU) ═══ */
+.welcome-hero{position:relative;overflow:hidden;border-radius:var(--r-lg);background:var(--grad-hero);border:1px solid var(--bor);box-shadow:var(--sh);padding:42px 36px 36px;text-align:center}
+.welcome-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% -10%,rgba(14,165,233,.14),transparent 60%);pointer-events:none}
+.welcome-hero .wlogo{width:72px;height:72px;border-radius:20px;background:var(--grad);display:grid;place-items:center;font-size:36px;margin:0 auto 20px;box-shadow:0 16px 38px -10px rgba(14,165,233,.55);position:relative}
+.welcome-hero h2{font-family:var(--font-d);font-weight:600;font-size:30px;letter-spacing:-.02em;margin-bottom:10px;position:relative}
+.welcome-hero h2 em{font-style:italic;color:var(--teal)}
+.welcome-hero .lead{color:var(--t2);font-size:14.5px;line-height:1.6;max-width:540px;margin:0 auto 24px;position:relative}
+.welcome-hero .lead b{color:var(--t1);font-weight:700}
+.welcome-start{font-family:var(--font);font-weight:800;font-size:15px;padding:14px 30px;border-radius:13px;border:none;cursor:pointer;background:var(--grad);color:#fff;box-shadow:0 12px 30px -10px rgba(14,165,233,.6);position:relative;transition:.2s}
+.welcome-start:hover{filter:brightness(1.05);transform:translateY(-1px)}
+.privacy{display:flex;align-items:center;justify-content:center;gap:11px;margin-top:24px;padding:13px 18px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor);max-width:560px;margin-left:auto;margin-right:auto;position:relative}
+.privacy .lock{width:36px;height:36px;border-radius:11px;background:rgba(5,150,105,.12);display:grid;place-items:center;font-size:18px;flex-shrink:0}
+.privacy .pt{text-align:left;font-size:12.5px;line-height:1.5;color:var(--t2)}
+.privacy .pt b{color:var(--t1);font-weight:700}
+.welcome-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px}
+.wstep{padding:16px 14px;border-radius:var(--r);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);text-align:center}
+.wstep .e{font-size:24px;display:block;margin-bottom:7px}
+.wstep b{font-size:13px;font-weight:700;display:block;margin-bottom:3px}
+.wstep s{text-decoration:none;font-size:11px;color:var(--t2);line-height:1.4;display:block}
+
+/* ═══ CHAPITRE 2 : IMPORT DU RELEVÉ (NOUVEAU — soigné) ═══ */
+.import-choices{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px}
+@media(max-width:720px){.import-choices{grid-template-columns:1fr}}
+.imp-card{border:1px solid var(--bor);border-radius:var(--r);padding:18px 18px 16px;background:var(--sur);transition:.25s;position:relative}
+.imp-card.reco{border-color:rgba(14,165,233,.4);box-shadow:0 0 0 3px rgba(14,165,233,.08)}
+.imp-card .iflag{position:absolute;top:-9px;left:16px;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--grad);border-radius:99px;padding:3px 10px}
+.imp-card .ih{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+.imp-card .ih .e{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:21px;background:var(--sur2)}
+.imp-card .ih b{font-size:14.5px;font-weight:800;display:block}
+.imp-card .ih s{text-decoration:none;font-size:11px;color:var(--t3);font-family:var(--mono)}
+.imp-card p{font-size:12.5px;color:var(--t2);line-height:1.55}
+/* zone de drop */
+.dropzone{margin-top:13px;border:2px dashed var(--bor2);border-radius:12px;padding:20px 14px;text-align:center;background:var(--sur2);transition:.3s;cursor:pointer}
+.dropzone.dropped{border-style:solid;border-color:var(--grn);background:rgba(5,150,105,.06)}
+.dropzone .dzic{font-size:28px;margin-bottom:6px}
+.dropzone b{font-size:13px;display:block}
+.dropzone s{text-decoration:none;font-size:11px;color:var(--t3);font-family:var(--mono)}
+.file-chip{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:8px 13px;border-radius:10px;background:var(--sur);border:1px solid var(--bor);font-size:12px;font-weight:600;box-shadow:var(--sh)}
+.file-chip .fx{width:24px;height:24px;border-radius:7px;background:rgba(14,165,233,.12);display:grid;place-items:center;font-size:13px}
+.file-chip .fok{color:var(--grn);font-weight:800}
+.bank-btn{margin-top:13px;width:100%;font-family:var(--font);font-weight:700;font-size:13px;padding:12px;border-radius:11px;border:1px solid var(--bor2);background:var(--sur);color:var(--t1);cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.bank-btn:hover{border-color:var(--acc);background:var(--sur2)}
+.bank-logos{display:flex;gap:6px;justify-content:center;margin-top:11px;flex-wrap:wrap}
+.bank-logos span{font-size:9.5px;font-weight:700;color:var(--t3);background:var(--sur2);border:1px solid var(--bor);border-radius:7px;padding:4px 8px}
+
+/* bandeau « compte = périmètre » */
+.perim{display:flex;align-items:center;gap:11px;margin:0 18px 18px;padding:12px 15px;border-radius:var(--r);background:var(--grad-hero);border:1px solid var(--bor);font-size:12.5px;color:var(--t1);line-height:1.5}
+.perim .e{font-size:19px}
+.perim b{font-weight:800}
+
+/* progression de reconnaissance */
+.reco-wrap{padding:0 18px 18px;display:none}
+.reco-wrap.on{display:block;animation:fade .4s var(--ease)}
+.reco-title{font-family:var(--font-d);font-weight:600;font-size:16px;margin:4px 0 4px}
+.reco-sub{font-size:12px;color:var(--t2);margin-bottom:14px;min-height:17px}
+.reco-sub b{color:var(--acc);font-weight:700}
+.reco-bar{height:8px;border-radius:99px;background:var(--sur2);overflow:hidden;margin-bottom:16px}
+.reco-bar i{display:block;height:100%;width:0;background:var(--grad);border-radius:99px;transition:width .25s linear}
+.import-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.istat{padding:15px 12px;border-radius:var(--r);background:var(--sur2);border:1px solid var(--bor);text-align:center}
+.istat b{font-family:var(--font-d);font-weight:600;font-size:25px;display:block;line-height:1}
+.istat.ok b{color:var(--grn)}.istat.todo b{color:var(--ora)}
+.istat s{text-decoration:none;font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-top:5px;display:block}
+.reco-explain{margin-top:14px;display:flex;gap:10px;align-items:flex-start;padding:13px 15px;border-radius:var(--r);background:var(--sur2);font-size:12.5px;line-height:1.55;color:var(--t1)}
+.reco-explain .e{font-size:18px;line-height:1.3}
+.reco-explain b{font-weight:700;color:var(--teal)}
+
+/* ═══ CHAPITRE 3 : CATÉGORISATION (mouvements + badges 2044) ═══ */
+.mvts{padding:8px 0}
+.mvt{display:grid;grid-template-columns:38px 1fr auto 130px;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--bor);transition:.3s}
+.mvt:last-child{border-bottom:none}
+.mvt .mic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:15px;background:var(--sur2)}
+.mvt .mtxt b{font-size:13.5px;font-weight:700;display:block}
+.mvt .mtxt s{font-size:11px;color:var(--t3);font-family:var(--mono)}
+.mvt .mamt{font-family:var(--mono);font-weight:600;font-size:14px;text-align:right;white-space:nowrap}
+.mvt .mamt.pos{color:var(--grn)}.mvt .mamt.neg{color:var(--t1)}
+/* badge ligne 2044 : éteint par défaut, s'allume via .lit */
+.l2044{display:inline-flex;align-items:center;gap:5px;justify-content:center;min-width:122px;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;font-family:var(--mono);background:var(--sur2);color:var(--t3);border:1px dashed var(--bor2);transition:.4s var(--ease);cursor:default}
+.l2044 .num{font-size:12px}
+.l2044.lit{background:rgba(5,150,105,.12);color:var(--grn);border-style:solid;border-color:rgba(5,150,105,.35)}
+.l2044.lit.warn{background:rgba(217,119,6,.13);color:var(--ora);border-color:rgba(217,119,6,.4)}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(5,150,105,.45)}100%{box-shadow:0 0 0 14px rgba(5,150,105,0)}}
+.l2044.ping{animation:ping .7s ease-out}
+/* mouvement écarté (véranda, virement interne) → barré + estompé */
+.mvt.excluded{opacity:.5}
+.mvt.excluded .mtxt b{text-decoration:line-through;text-decoration-color:var(--red)}
+.l2044.out{background:rgba(148,163,184,.18);color:var(--t2);border-style:solid;border-color:var(--bor2)}
+
+/* ═══ CHAPITRE 4 : CONTRÔLE PRÉ-VOL (repris de 3-controle-prevol) ═══ */
+/* jauge + résultat */
+.cp-top{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-bottom:6px;padding:16px 18px 4px}
+@media(max-width:880px){.cp-top{grid-template-columns:1fr}}
+.cp-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r-lg);padding:18px 20px}
+.gauge-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.gauge-head h4{font-family:var(--font-d);font-weight:600;font-size:15px}
+.gauge-head .st{font-size:11px;font-weight:700;font-family:var(--mono);color:var(--ora);transition:.4s}
+.gauge-wrap{display:flex;align-items:center;gap:20px}
+.gauge{position:relative;width:150px;height:84px;flex-shrink:0}
+.gauge svg{width:150px;height:84px;overflow:visible}
+.gauge .track{fill:none;stroke:var(--sur2);stroke-width:13;stroke-linecap:round}
+.gauge .fill{fill:none;stroke:var(--ora);stroke-width:13;stroke-linecap:round;stroke-dasharray:198;stroke-dashoffset:198;transition:stroke-dashoffset .9s var(--ease),stroke .9s var(--ease)}
+.gauge .num{position:absolute;left:0;right:0;bottom:2px;text-align:center;font-family:var(--font-d);font-weight:600;font-size:29px;letter-spacing:-.02em;transition:.4s}
+.gauge .num s{text-decoration:none;font-size:14px;color:var(--t3)}
+.gauge-msg{font-size:12px;color:var(--t2);line-height:1.5}
+.gauge-msg b{color:var(--t1);font-weight:700;transition:.4s}
+.res-l{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.res-v{font-family:var(--font-d);font-weight:600;font-size:32px;letter-spacing:-.02em;line-height:1;transition:.4s}
+.res-v .c{font-size:17px;color:var(--t2)}
+.res-flag{margin-top:11px;font-size:11.5px;font-weight:700;font-family:var(--mono);padding:5px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:6px;transition:.4s}
+.res-flag.bad{background:rgba(220,38,38,.1);color:var(--red)}
+.res-flag.good{background:rgba(5,150,105,.12);color:var(--grn)}
+.res-sub{margin-top:11px;font-size:11px;color:var(--t3);line-height:1.5;font-family:var(--mono)}
+/* compteurs */
+.counters{display:flex;gap:9px;margin:6px 18px 4px;flex-wrap:wrap}
+.cnt{display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:99px;background:var(--sur);border:1px solid var(--bor);font-size:12px;font-weight:700}
+.cnt .dot{width:9px;height:9px;border-radius:50%}
+.cnt s{text-decoration:none;color:var(--t2);font-weight:600}
+.dot-r{background:var(--red)}.dot-o{background:var(--ora)}.dot-y{background:#eab308}.dot-g{background:var(--grn)}
+.cp-sec{display:flex;align-items:baseline;justify-content:space-between;margin:18px 18px 11px}
+.cp-sec h4{font-family:var(--font-d);font-weight:600;font-size:16px}
+.cp-sec span{font-size:12px;color:var(--t2);font-weight:600}
+/* cartes findings */
+.findlist{padding:0 18px}
+.finding{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:12px;overflow:hidden;position:relative;transition:.45s var(--ease)}
+.finding::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.finding.sev-r{--c:var(--red)}.finding.sev-o{--c:var(--ora)}.finding.sev-y{--c:#eab308}.finding.sev-g{--c:var(--grn)}
+.finding.gone{opacity:0;transform:translateX(40px);max-height:0!important;margin:0;padding:0;border-width:0;pointer-events:none}
+.f-main{display:flex;gap:14px;padding:15px 17px 15px 19px}
+.f-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:19px;flex-shrink:0}
+.sev-r .f-ic{background:rgba(220,38,38,.1)}.sev-o .f-ic{background:rgba(217,119,6,.12)}
+.sev-y .f-ic{background:rgba(234,179,8,.13)}.sev-g .f-ic{background:rgba(5,150,105,.12)}
+.f-body{flex:1;min-width:0}
+.f-tags{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.f-sev{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px}
+.sev-r .f-sev{background:rgba(220,38,38,.12);color:var(--red)}
+.sev-o .f-sev{background:rgba(217,119,6,.14);color:var(--ora)}
+.sev-y .f-sev{background:rgba(234,179,8,.16);color:#a16207}
+.sev-g .f-sev{background:rgba(5,150,105,.13);color:var(--grn)}
+.f-line{font-family:var(--mono);font-size:10px;color:var(--t3);font-weight:600}
+.f-title{font-family:var(--font-d);font-weight:600;font-size:15.5px;letter-spacing:-.01em;margin-bottom:4px}
+.f-exp{font-size:12.5px;color:var(--t2);line-height:1.55}
+.f-exp em{font-style:normal;font-weight:700;color:var(--t1)}
+.f-impact{display:inline-flex;align-items:center;gap:7px;margin-top:10px;padding:7px 12px;border-radius:10px;background:var(--sur2);font-size:12px;font-weight:600}
+.f-impact b{font-family:var(--mono);font-weight:600}
+.f-impact .up{color:var(--grn)}.f-impact .dn{color:var(--red)}
+.f-act{display:flex;align-items:center;gap:9px;padding:12px 17px;background:var(--sur2);border-top:1px solid var(--bor);flex-wrap:wrap}
+.cbtn{font-family:var(--font);font-weight:700;font-size:12.5px;padding:9px 15px;border-radius:10px;border:1px solid var(--bor);cursor:pointer;background:var(--sur);color:var(--t2);transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.cbtn:hover{border-color:var(--bor2);color:var(--t1)}
+.cbtn.prim{background:var(--grad);border-color:transparent;color:#fff}
+.cbtn.prim:hover{filter:brightness(1.05)}
+.cbtn.ghost{background:none;border-color:transparent;color:var(--t3)}
+.cbtn.ghost:hover{color:var(--t2);background:var(--sur)}
+.f-act .grow{flex:1}
+.cp-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:10px 18px 18px;padding:16px 18px;border-radius:var(--r);background:var(--grad-hero);border:1px solid var(--bor)}
+.cp-foot .ft{font-size:12.5px;color:var(--t2);line-height:1.5}
+.cp-foot .ft b{color:var(--t1)}
+.lockbtn{font-family:var(--font);font-weight:800;font-size:13.5px;padding:12px 22px;border-radius:12px;border:none;cursor:not-allowed;background:var(--sur2);color:var(--t3);transition:.3s;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.lockbtn.ready{background:var(--grad);color:#fff;cursor:pointer;box-shadow:0 10px 26px -8px rgba(14,165,233,.5)}
+.lockbtn.ready:hover{filter:brightness(1.05)}
+
+/* ═══ CHAPITRE 5 : 2044 (récap + copybox + dossier) ═══ */
+.cerfa{padding:6px 0}
+.crow{display:grid;grid-template-columns:60px 1fr 130px;gap:12px;align-items:center;padding:11px 18px;border-bottom:1px solid var(--bor)}
+.crow .cnum{font-family:var(--mono);font-weight:800;font-size:12px;color:var(--acc);background:rgba(14,165,233,.1);border-radius:8px;padding:4px 0;text-align:center}
+.crow .clbl{font-size:12.5px}
+.crow .cval{font-family:var(--mono);font-weight:600;font-size:13.5px;text-align:right}
+.crow.tot{background:var(--sur2);font-weight:800}
+.crow.tot .clbl{font-weight:800}.crow.tot .cval{font-size:14px}
+.crow.res{background:linear-gradient(135deg,rgba(5,150,105,.1),rgba(20,184,166,.08));border:none;margin:8px;border-radius:var(--r);padding:16px 18px}
+.crow.res .clbl{font-family:var(--font-d);font-weight:600;font-size:16px}
+.crow.res .cval{font-family:var(--font-d);font-size:22px;color:var(--grn)}
+.crow .cneg{color:var(--red)}
+/* copybox « à recopier sur impots.gouv.fr » (repris de 1-copilote) */
+.copybox{background:var(--t1);color:#e8eef5;margin:8px 18px 18px;border-radius:var(--r-lg);padding:20px 22px}
+.copybox h3{font-family:var(--font-d);font-weight:600;font-size:16px;color:#fff;display:flex;align-items:center;gap:9px;margin-bottom:4px}
+.copybox .cb-sub{font-size:12px;color:#9fb0c4;margin-bottom:15px}
+.cb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:720px){.cb-grid{grid-template-columns:repeat(2,1fr)}}
+.cb-cell{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:9px 12px}
+.cb-cell .cn{font-family:var(--mono);font-size:10.5px;color:#9fb0c4}
+.cb-cell .cn b{color:#fff;font-weight:600}
+.cb-cell .cv{font-family:var(--mono);font-weight:600;font-size:13px;color:#fff}
+.cb-copy{margin-top:14px;display:flex;gap:11px;align-items:center;flex-wrap:wrap}
+.cb-copy button{font-family:var(--font);font-weight:700;font-size:12.5px;padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;transition:.2s}
+.cb-copy button:hover{background:rgba(255,255,255,.16)}
+.cb-copy .note{font-size:11px;color:#9fb0c4}
+.cerfa-foot{display:flex;gap:10px;flex-wrap:wrap;padding:0 18px 18px}
+.cerfa-foot button{font-family:var(--font);font-weight:700;font-size:13px;padding:12px 18px;border-radius:11px;border:1px solid var(--bor);background:var(--sur);color:var(--t2);cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:8px}
+.cerfa-foot button:hover{border-color:var(--bor2);color:var(--t1)}
+.cerfa-foot button.prim{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 10px 26px -12px rgba(14,165,233,.6)}
+.cerfa-foot button.prim:hover{filter:brightness(1.05)}
+
+/* ═══ Écran final : célébration ═══ */
+.final{text-align:center;padding:42px 28px}
+.final .conf{font-size:48px;margin-bottom:10px;animation:pop .5s var(--ease)}
+.final h2{font-family:var(--font-d);font-weight:600;font-size:29px;letter-spacing:-.02em;margin-bottom:10px}
+.final h2 em{font-style:italic;color:var(--teal)}
+.final .lead{color:var(--t2);font-size:14.5px;line-height:1.6;max-width:540px;margin:0 auto 8px}
+.final .punch{display:inline-block;margin:18px auto 4px;padding:13px 22px;border-radius:14px;background:var(--grad);color:#fff;font-family:var(--font-d);font-weight:600;font-size:16px;box-shadow:0 14px 34px -10px rgba(14,165,233,.5)}
+.final .recap{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+.final .recap div{padding:14px 18px;border-radius:var(--r);background:var(--sur2);border:1px solid var(--bor);min-width:118px}
+.final .recap b{font-family:var(--font-d);font-weight:600;font-size:22px;display:block;color:var(--teal)}
+.final .recap s{text-decoration:none;font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.final .replay-row{margin-top:26px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.final .replay-row button{font-family:var(--font);font-weight:700;font-size:13px;padding:12px 20px;border-radius:11px;border:1px solid var(--bor);background:var(--sur);color:var(--t2);cursor:pointer;transition:.2s}
+.final .replay-row button.prim{background:var(--grad);border-color:transparent;color:#fff}
+.final .replay-row button:hover{filter:brightness(1.03)}
+
+/* ═══ ONBOARDING (moteur spotlight repris à l'identique) ═══ */
+#ob-overlay{position:fixed;inset:0;z-index:300;display:none}
+#ob-overlay.on{display:block}
+.ob-mask{position:fixed;background:rgba(10,22,40,.62);z-index:301;transition:all .4s var(--ease)}
+.ob-ring{position:fixed;z-index:302;border-radius:16px;box-shadow:0 0 0 3px var(--acc);pointer-events:none;transition:all .4s var(--ease)}
+.ob-tip{position:fixed;z-index:303;max-width:348px;background:var(--sur);border-radius:16px;box-shadow:0 24px 60px -16px rgba(10,22,40,.5);padding:20px;transition:all .4s var(--ease)}
+.ob-tip .coach{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.ob-tip .coach .av{width:34px;height:34px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-size:18px;flex-shrink:0}
+.ob-step{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--acc);letter-spacing:.05em}
+.ob-step s{text-decoration:none;display:block;font-size:9.5px;color:var(--t3);letter-spacing:0}
+.ob-tip h4{font-family:var(--font-d);font-weight:600;font-size:18px;margin:2px 0 8px;letter-spacing:-.01em}
+.ob-tip p{font-size:13px;color:var(--t2);line-height:1.55}
+.ob-tip p .hl{color:var(--t1);font-weight:700}
+.ob-bar{height:4px;border-radius:99px;background:var(--sur2);margin:14px 0 13px;overflow:hidden}
+.ob-bar i{display:block;height:100%;background:var(--grad);border-radius:99px;transition:width .4s var(--ease)}
+.ob-act{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ob-act .skip{background:none;border:none;color:var(--t3);font-weight:600;font-size:12.5px;cursor:pointer;font-family:var(--font)}
+.ob-act .skip:hover{color:var(--t2)}
+.ob-nav{display:flex;gap:8px}
+.ob-btn{font-family:var(--font);font-weight:700;font-size:13px;padding:9px 18px;border-radius:10px;border:none;cursor:pointer;transition:.2s}
+.ob-prev{background:var(--sur2);color:var(--t2)}.ob-prev:hover{background:var(--bor)}
+.ob-next{background:var(--grad);color:#fff}.ob-next:hover{filter:brightness(1.05)}
+
+/* ═══ Welcome modal (au tout premier lancement) ═══ */
+.modal{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;background:rgba(10,22,40,.6);backdrop-filter:blur(6px);padding:20px}
+.modal.on{display:flex}
+.card{background:var(--sur);border-radius:24px;box-shadow:0 30px 80px -20px rgba(10,22,40,.55);max-width:560px;width:100%;padding:38px;text-align:center;animation:pop .45s var(--ease)}
+@keyframes pop{from{opacity:0;transform:scale(.92) translateY(14px)}to{opacity:1;transform:none}}
+.card .wlogo{width:64px;height:64px;border-radius:18px;background:var(--grad);display:grid;place-items:center;font-size:31px;margin:0 auto 18px;box-shadow:0 12px 30px -8px rgba(14,165,233,.5)}
+.card h2{font-family:var(--font-d);font-weight:600;font-size:26px;letter-spacing:-.02em;margin-bottom:8px}
+.card h2 em{font-style:italic;color:var(--teal)}
+.card .lead{color:var(--t2);font-size:14px;line-height:1.55;margin-bottom:24px}
+.choices{display:grid;gap:11px}
+.choice{display:flex;align-items:center;gap:14px;padding:15px 17px;border-radius:14px;border:1px solid var(--bor);background:var(--sur);cursor:pointer;text-align:left;transition:.22s;font-family:var(--font)}
+.choice:hover{border-color:var(--acc);background:var(--sur2);transform:translateY(-2px)}
+.choice .ce{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:20px;background:var(--sur2);flex-shrink:0}
+.choice b{display:block;font-size:14.5px;font-weight:700}
+.choice s{text-decoration:none;font-size:12px;color:var(--t2)}
+.choice.prim{background:var(--grad);border-color:transparent;color:#fff}
+.choice.prim .ce{background:rgba(255,255,255,.2)}.choice.prim s{color:rgba(255,255,255,.85)}
+.skip-w{margin-top:18px;background:none;border:none;color:var(--t3);font-weight:600;font-size:12.5px;cursor:pointer;font-family:var(--font)}
+
+/* ═══ Dossier justificatif (modale plein écran, repris de 2-justifiee) ═══ */
+.docmodal{position:fixed;inset:0;z-index:420;display:none;align-items:flex-start;justify-content:center;background:rgba(10,22,40,.6);backdrop-filter:blur(6px);padding:36px 18px;overflow-y:auto}
+.docmodal.on{display:flex}
+.preview{max-width:700px;width:100%;animation:pop .4s var(--ease)}
+.pv-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--t1);border-radius:14px;padding:12px 16px;margin-bottom:16px;position:sticky;top:0;z-index:2}
+.pv-toolbar .tt{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:13px}
+.pv-toolbar .tt .ic{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.12);display:grid;place-items:center;font-size:15px}
+.pv-btn{font-family:var(--font);font-weight:700;font-size:12.5px;padding:9px 16px;border-radius:9px;border:none;cursor:pointer}
+.pv-btn.dl{background:var(--grad);color:#fff}
+.pv-btn.cl{background:rgba(255,255,255,.12);color:#fff}
+.sheet{background:#fff;border-radius:6px;box-shadow:0 20px 50px -16px rgba(10,22,40,.5);padding:40px 44px;margin-bottom:16px;color:#1a2433}
+.pg-tag{font-family:var(--mono);font-size:9px;color:#c4cdd9;text-align:right;margin-bottom:18px;letter-spacing:.08em}
+.cover{text-align:center;padding:26px 0 6px}
+.cover .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--teal);border:1px solid rgba(13,148,136,.3);border-radius:999px;padding:6px 14px;margin-bottom:22px}
+.cover h1{font-family:var(--font-d);font-weight:600;font-size:28px;letter-spacing:-.02em;margin-bottom:6px}
+.cover .who{font-size:14px;color:#5a6b80;margin-bottom:28px}
+.cover-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 auto 26px;max-width:520px}
+.cover-cell{border:1px solid var(--bor);border-radius:12px;padding:15px 12px}
+.cover-cell small{display:block;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px}
+.cover-cell b{font-family:var(--mono);font-weight:600;font-size:18px}
+.cover-cell.hl{background:#0f1f33;border-color:transparent;color:#fff}
+.cover-cell.hl small{color:#aebfd4}.cover-cell.hl b{color:#34d399}
+.cover .res-line{font-size:12.5px;color:#5a6b80;line-height:1.6;max-width:460px;margin:0 auto}
+.dh{font-family:var(--font-d);font-weight:600;font-size:16px;margin:0 0 4px;padding-bottom:8px;border-bottom:2px solid #0f1f33}
+.dh .pre{font-family:var(--mono);font-size:11px;color:#94a3b8;margin-right:8px}
+.dsec{margin-bottom:24px}
+.dsec .drow{display:grid;grid-template-columns:50px 1fr auto;gap:12px;align-items:baseline;padding:9px 2px;border-bottom:1px solid #eef2f6;font-size:12px}
+.dsec .drow .dl{font-family:var(--mono);font-size:11px;color:var(--acc);font-weight:600}
+.dsec .drow .dn b{display:block;font-weight:700}
+.dsec .drow .dn span{font-size:11px;color:#94a3b8}
+.dsec .drow .dm{font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap}
+.dsec .drow .dm.neg{color:var(--ora)}
+.dtot{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:10px;border-top:2px solid #0f1f33;font-weight:700}
+.dtot .v{font-family:var(--mono);font-size:14px}
+.legal{font-size:11px;color:#5a6b80;line-height:1.7;background:#f8fafc;border:1px solid var(--bor);border-radius:12px;padding:18px 20px}
+.legal b{color:#1a2433}.legal ul{margin:8px 0 0 18px}.legal li{margin-bottom:4px}
+
+/* ═══ Toast ═══ */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);z-index:500;background:var(--t1);color:#fff;padding:13px 22px;border-radius:12px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.35s var(--ease);box-shadow:var(--sh)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:1024px){.app{grid-template-columns:1fr}.sb{display:none}}
+@media(max-width:560px){
+  .main{padding:18px 14px 110px}
+  .ob-tip{max-width:calc(100vw - 32px);left:16px!important;right:16px}
+  .mvt{grid-template-columns:34px 1fr;gap:8px}
+  .mvt .mamt,.mvt .l2044{grid-column:2;justify-self:start;text-align:left}
+  .welcome-steps{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ═══════════ SIDEBAR (navigation libre hors démo) ═══════════ -->
+  <aside class="sb">
+    <div class="brand"><div class="brand-logo">🏠</div><div><b>ImmoTrack</b><small>SCI DEMO · 2025</small></div></div>
+    <div class="nlbl">Le parcours</div>
+    <div class="ni" data-screen="welcome"><span class="ic">🚀</span> Bienvenue <span class="chap">1</span></div>
+    <div class="ni" data-screen="import"><span class="ic">🏦</span> Import du relevé <span class="chap">2</span></div>
+    <div class="ni act" data-screen="mvts"><span class="ic">🏷️</span> Catégorisation <span class="chap">3</span></div>
+    <div class="ni" data-screen="control"><span class="ic">🛡️</span> Contrôle pré-vol <span class="chap">4</span></div>
+    <div class="ni" data-screen="cerfa"><span class="ic">📋</span> Ta 2044 <span class="chap">5</span></div>
+    <div class="sb-foot">
+      <div class="acad-badge"><span class="e">🦊</span><div><b>Démo guidée</b><s>5 chapitres · rejouable</s></div></div>
+    </div>
+  </aside>
+
+  <!-- ═══════════ ZONE PRINCIPALE ═══════════ -->
+  <main class="main">
+    <div class="h1" id="page-title">Le <em>parcours complet</em> 🦊</div>
+    <div class="sub" id="page-sub">SCI DEMO · revenus fonciers 2025 — du tout premier lancement jusqu'à ta déclaration 2044, en une seule histoire.</div>
+
+    <!-- Ruban de progression Chapitre x/5 (apparaît pendant la démo) -->
+    <div class="chapter-rail" id="chapter-rail">
+      <span class="lead">Chapitre <b id="chap-cur">1</b>/5</span>
+      <div class="chap-dots" id="chap-dots"></div>
+    </div>
+
+    <!-- Barre contexte (cachée sur l'écran de bienvenue) -->
+    <div class="ctx" id="ctx-bar">
+      <div class="pills">
+        <div class="pill act"><b>★</b><s>SCI DEMO</s></div>
+        <div class="pill"><b>DK</b><s>Perso</s></div>
+      </div>
+      <div class="period"><button>‹</button><div class="l">Année 2025<small>EXERCICE</small></div><button>›</button></div>
+    </div>
+
+    <!-- ─────────── CHAP. 1 : BIENVENUE ─────────── -->
+    <section class="screen" id="screen-welcome">
+      <div class="welcome-hero" id="welcome-hero">
+        <div class="wlogo">🏠</div>
+        <h2>Bienvenue dans <em>ImmoTrack</em> 👋</h2>
+        <p class="lead">ImmoTrack transforme ton <b>relevé bancaire</b> en <b>déclaration 2044</b> — en quelques clics, sans comptable et sans jargon. On va le faire ensemble, du tout début à la fin.</p>
+        <button class="welcome-start" id="welcome-start" onclick="startTour()">Commencer le parcours →</button>
+        <div class="privacy">
+          <div class="lock">🔒</div>
+          <div class="pt"><b>Tes données sont protégées.</b> Hébergées et sauvegardées automatiquement sur un serveur sécurisé en Europe — ton espace est totalement isolé (personne d'autre n'y accède).</div>
+        </div>
+        <div class="welcome-steps">
+          <div class="wstep"><span class="e">🏦</span><b>Importe</b><s>Ton relevé bancaire au format OFX ou CSV</s></div>
+          <div class="wstep"><span class="e">🏷️</span><b>Range</b><s>Chaque mouvement à sa ligne 2044, guidé</s></div>
+          <div class="wstep"><span class="e">📋</span><b>Déclare</b><s>Ta 2044 prête à recopier sur impots.gouv.fr</s></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── CHAP. 2 : IMPORT DU RELEVÉ ─────────── -->
+    <section class="screen" id="screen-import">
+      <div class="panel">
+        <div class="panel-h"><div class="ic">🏦</div><h3>Importer mon relevé bancaire</h3><span class="meta" id="import-meta">Dépose ton fichier OFX / CSV</span></div>
+
+        <!-- Import par FICHIER uniquement (OFX/CSV). Pas de connexion bancaire / agrégation (n'existe pas). -->
+        <div class="import-choices" id="import-choices">
+          <div class="imp-card reco" id="imp-drop-card">
+            <div class="ih"><div class="e">📄</div><div><b>Dépose ton relevé</b><s>fichier OFX / CSV</s></div></div>
+            <p>Exporte ton relevé depuis l'espace en ligne de ta banque (format OFX, CSV ou Excel) et glisse-le ici. <b>Aucune connexion bancaire</b> : tes identifiants ne quittent jamais ta banque.</p>
+            <div class="dropzone" id="dropzone" onclick="dropFile()">
+              <div class="dzic" id="dz-ic">⬇️</div>
+              <b id="dz-title">Glisse ton relevé ici</b>
+              <s id="dz-sub">ou clique pour choisir un fichier</s>
+              <div id="dz-file"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Garde-fou : pas d'auto-catégorisation — l'utilisateur valide toujours -->
+        <div class="perim" id="perim-note">
+          <span class="e">🎯</span>
+          <span>ImmoTrack ne devine jamais à ta place : il te <b>propose</b> un classement, c'est toujours <b>toi qui valides</b>. Pas de catégorisation automatique hasardeuse.</span>
+        </div>
+
+        <!-- Animation de reconnaissance (apparaît après le dépôt) -->
+        <div class="reco-wrap" id="reco-wrap">
+          <div class="reco-title">Lecture & reconnaissance en cours…</div>
+          <div class="reco-sub" id="reco-sub"><b>0</b> / 142 mouvements analysés</div>
+          <div class="reco-bar"><i id="reco-bar"></i></div>
+          <div class="import-stat">
+            <div class="istat"><b id="st-lines">—</b><s>mouvements importés</s></div>
+            <div class="istat ok"><b id="st-reco">—</b><s>reconnus auto</s></div>
+            <div class="istat todo"><b id="st-todo">—</b><s>à compléter</s></div>
+          </div>
+          <div class="reco-explain">
+            <span class="e">💡</span>
+            <div><b>« Reconnu », ça veut dire quoi ?</b> On rattache chaque mouvement à ton logement et à sa catégorie quand on le reconnaît (un loyer récurrent, ton syndic, ta taxe foncière…). Les <b>11 cas particuliers</b> qui restent, tu les confirmes en un clic — c'est l'étape suivante.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── CHAP. 3 : CATÉGORISATION ─────────── -->
+    <section class="screen on" id="screen-mvts">
+      <div class="panel">
+        <div class="panel-h"><div class="ic">🏷️</div><h3>Ranger mes mouvements 2025</h3><span class="meta">chaque ligne → sa case 2044</span></div>
+        <div class="mvts" id="mvts">
+          <div class="mvt" id="mv-loyer">
+            <div class="mic">💰</div>
+            <div class="mtxt"><b>Loyers encaissés — 33 virements</b><s>F-RDC · F-101 · F-102 · jan→déc</s></div>
+            <div class="mamt pos">+21 840 €</div>
+            <div class="l2044" id="b-loyer"><span class="num">211</span> à ranger</div>
+          </div>
+          <div class="mvt" id="mv-toit">
+            <div class="mic">🔨</div>
+            <div class="mtxt"><b>Réfection toiture</b><s>Couverture Durand · acompte + solde</s></div>
+            <div class="mamt neg">−6 200 €</div>
+            <div class="l2044" id="b-toit"><span class="num">224</span> à ranger</div>
+          </div>
+          <div class="mvt" id="mv-veranda">
+            <div class="mic">🪤</div>
+            <div class="mtxt"><b>Construction véranda</b><s>Vérandas du Grand Est · 14/06</s></div>
+            <div class="mamt neg">−9 000 €</div>
+            <div class="l2044" id="b-veranda"><span class="num">?</span> à ranger</div>
+          </div>
+          <div class="mvt" id="mv-vir">
+            <div class="mic">🔁</div>
+            <div class="mtxt"><b>Virement CIC → Crédit Agricole</b><s>Transfert interne · 02/09</s></div>
+            <div class="mamt pos">+2 000 €</div>
+            <div class="l2044" id="b-vir"><span class="num">?</span> à ranger</div>
+          </div>
+          <div class="mvt" id="mv-copro">
+            <div class="mic">🏢</div>
+            <div class="mtxt"><b>Provisions copro + régul. N-1</b><s>Syndic Foncia · 2 400 € / −300 €</s></div>
+            <div class="mamt neg">−2 400 € / −300 €</div>
+            <div class="l2044" id="b-copro"><span class="num">229</span> à ranger</div>
+          </div>
+          <div class="mvt" id="mv-divers">
+            <div class="mic">🏛️</div>
+            <div class="mtxt"><b>Taxe foncière + intérêts d'emprunt</b><s>DGFiP · prêt SCI DEMO</s></div>
+            <div class="mamt neg">−1 850 € / −4 100 €</div>
+            <div class="l2044" id="b-divers"><span class="num">227·250</span> à ranger</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── CHAP. 4 : CONTRÔLE PRÉ-VOL ─────────── -->
+    <section class="screen" id="screen-control">
+      <div class="panel">
+        <div class="panel-h"><div class="ic">🛡️</div><h3>Contrôle avant de figer la 2044</h3><span class="meta" id="control-meta">le réviseur a scanné 142 mouvements</span></div>
+
+        <!-- jauge + résultat live -->
+        <div class="cp-top">
+          <div class="cp-card">
+            <div class="gauge-head"><h4>Indice de fiabilité</h4><span class="st" id="gaugeSt">1 erreur à corriger</span></div>
+            <div class="gauge-wrap">
+              <div class="gauge">
+                <svg viewBox="0 0 150 84">
+                  <path class="track" d="M 12 80 A 63 63 0 0 1 138 80"/>
+                  <path class="fill" id="gaugeFill" d="M 12 80 A 63 63 0 0 1 138 80"/>
+                </svg>
+                <div class="num" id="gaugeNum">78<s>%</s></div>
+              </div>
+              <div class="gauge-msg" id="gaugeMsg">2044 fiable à <b>78&nbsp;%</b>. Une erreur a un impact direct sur ton résultat foncier — corrige-la pour atteindre 100&nbsp;%.</div>
+            </div>
+          </div>
+          <div class="cp-card">
+            <div class="res-l">Résultat foncier estimé</div>
+            <div class="res-v" id="resV">+7 110<span class="c"> €</span></div>
+            <span class="res-flag bad" id="resFlag">⚠ +9 000 € déduits à tort</span>
+            <div class="res-sub" id="resSub">Si la véranda reste en 224, ton résultat affiché serait faux.</div>
+          </div>
+        </div>
+
+        <!-- compteurs -->
+        <div class="counters">
+          <div class="cnt"><span class="dot dot-r"></span><span id="cR">1</span> <s>erreur</s></div>
+          <div class="cnt"><span class="dot dot-o"></span><span id="cO">1</span> <s>à vérifier</s></div>
+          <div class="cnt"><span class="dot dot-y"></span><span id="cY">1</span> <s>optimisation</s></div>
+          <div class="cnt"><span class="dot dot-g"></span>5 <s>contrôles OK</s></div>
+        </div>
+
+        <div class="cp-sec"><h4>Constats à traiter</h4><span id="todoLeft">3 points détectés</span></div>
+        <div class="findlist" id="todoList">
+
+          <!-- 🔴 ERREUR : véranda -->
+          <article class="finding sev-r" id="f-veranda">
+            <div class="f-main">
+              <div class="f-ic">🏗️</div>
+              <div class="f-body">
+                <div class="f-tags"><span class="f-sev">Erreur · risque de redressement</span><span class="f-line">Ligne 224 — Réparation / amélioration</span></div>
+                <div class="f-title">Une véranda déduite comme « amélioration »</div>
+                <div class="f-exp">La <em>construction d'une véranda</em> agrandit le bien : c'est de la <em>construction</em>, <em>non déductible</em> en revenus fonciers. Classée à tort en travaux d'amélioration (224), elle gonfle tes charges. Laisser la déduction expose à un <em>redressement</em>.</div>
+                <div class="f-impact">Impact si on retire la déduction : <span>résultat <b class="dn">−1 890 €</b> ➜ <b class="up">+7 110 €</b></span></div>
+              </div>
+            </div>
+            <div class="f-act">
+              <button class="cbtn prim" onclick="correct('veranda')">✓ Corriger — sortir de la 2044</button>
+              <button class="cbtn" onclick="toast('Ouverture du mouvement du 14/06/25…')">🔍 Voir le mouvement</button>
+              <span class="grow"></span>
+              <button class="cbtn ghost" onclick="ignore('veranda')">Ignorer (je confirme)</button>
+            </div>
+          </article>
+
+          <!-- 🟠 SUSPECT : virement interne -->
+          <article class="finding sev-o" id="f-virement">
+            <div class="f-main">
+              <div class="f-ic">🔁</div>
+              <div class="f-body">
+                <div class="f-tags"><span class="f-sev">À vérifier · mouvement suspect</span><span class="f-line">2 lignes jumelles — même montant, comptes différents</span></div>
+                <div class="f-title">Un virement entre tes comptes</div>
+                <div class="f-exp">2&nbsp;000&nbsp;€ partent du <em>CIC</em> et arrivent le même jour sur le <em>Crédit Agricole</em> : c'est un <em>virement interne</em>, pas un revenu. Le compter créerait un <em>revenu fantôme</em> taxé pour rien. À <em>exclure de la 2044</em>.</div>
+                <div class="f-impact">Impact : <span><b>0 €</b> sur le résultat — mais nettoie tes totaux et le journal</span></div>
+              </div>
+            </div>
+            <div class="f-act">
+              <button class="cbtn prim" onclick="correct('virement')">✓ Marquer « virement interne »</button>
+              <button class="cbtn" onclick="toast('Affichage des 2 lignes jumelles du 02/09/25…')">🔍 Voir les 2 lignes</button>
+              <span class="grow"></span>
+              <button class="cbtn ghost" onclick="ignore('virement')">Ignorer (je confirme)</button>
+            </div>
+          </article>
+
+          <!-- 🟡 OPTIMISATION : frais de gestion -->
+          <article class="finding sev-y" id="f-gestion">
+            <div class="f-main">
+              <div class="f-ic">💼</div>
+              <div class="f-body">
+                <div class="f-tags"><span class="f-sev">Optimisation · déduction oubliée</span><span class="f-line">Ligne 221 — Frais d'administration et de gestion</span></div>
+                <div class="f-title">Aucun frais de gestion déduit cette année</div>
+                <div class="f-exp">Tu n'as <em>aucune charge</em> en ligne&nbsp;221 sur 2025. Si tu passes par une <em>agence</em> ou un <em>gérant</em>, ces honoraires sont <em>déductibles</em> — tout comme les frais de procédure. C'est souvent oublié, et ça réduit directement ton impôt.</div>
+                <div class="f-impact">Piste : <span>chaque <b>1 000 €</b> d'honoraires déduits ≈ <b class="up">−300 € d'impôt</b> (TMI 30&nbsp;%)</span></div>
+              </div>
+            </div>
+            <div class="f-act">
+              <button class="cbtn prim" onclick="correct('gestion')">＋ Ajouter mes frais de gestion</button>
+              <button class="cbtn" onclick="toast('Filtre Mouvements : catégorie « Frais de gestion »…')">🔍 Chercher dans mes mouvements</button>
+              <span class="grow"></span>
+              <button class="cbtn ghost" onclick="ignore('gestion')">Pas d'agence — ignorer</button>
+            </div>
+          </article>
+
+        </div>
+
+        <div class="cp-foot" id="cp-foot">
+          <div class="ft" id="footMsg"><b>1 erreur</b> bloque encore la déclaration. Corrige-la pour figer ta 2044 en toute sérénité.</div>
+          <button class="lockbtn" id="lockBtn" onclick="lock2044()">🔒 Figer la 2044</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── CHAP. 5 : TA 2044 ─────────── -->
+    <section class="screen" id="screen-cerfa">
+      <div class="panel" id="cerfa-panel">
+        <div class="panel-h"><div class="ic">📋</div><h3>Ta déclaration 2044 — prête à recopier</h3><span class="meta">Régime réel · SCI DEMO 2025</span></div>
+        <div class="cerfa">
+          <div class="crow"><div class="cnum">211</div><div class="clbl">Loyers bruts encaissés</div><div class="cval">21 840 €</div></div>
+          <div class="crow tot"><div class="cnum">215</div><div class="clbl">Total des recettes</div><div class="cval">21 840 €</div></div>
+          <div class="crow"><div class="cnum">222</div><div class="clbl">Forfait gestion (20 €/local × 3)</div><div class="cval cneg">60 €</div></div>
+          <div class="crow"><div class="cnum">223</div><div class="clbl">Primes d'assurance (PNO)</div><div class="cval cneg">420 €</div></div>
+          <div class="crow"><div class="cnum">224</div><div class="clbl">Réparation, entretien, amélioration (toiture)</div><div class="cval cneg">6 200 €</div></div>
+          <div class="crow"><div class="cnum">227</div><div class="clbl">Taxe foncière (hors TEOM)</div><div class="cval cneg">1 850 €</div></div>
+          <div class="crow"><div class="cnum">229</div><div class="clbl">Provisions pour charges de copropriété</div><div class="cval cneg">2 400 €</div></div>
+          <div class="crow"><div class="cnum">230</div><div class="clbl">Régularisation provisions N-1</div><div class="cval">−300 €</div></div>
+          <div class="crow tot"><div class="cnum">240</div><div class="clbl">Total des frais et charges</div><div class="cval cneg">10 630 €</div></div>
+          <div class="crow"><div class="cnum">250</div><div class="clbl">Intérêts d'emprunt et frais accessoires</div><div class="cval cneg">4 100 €</div></div>
+          <div class="crow res"><div class="cnum" style="background:rgba(5,150,105,.15);color:var(--grn)">263</div><div class="clbl">Résultat foncier 2025</div><div class="cval">+7 110 €</div></div>
+        </div>
+
+        <!-- À recopier sur impots.gouv.fr -->
+        <div class="copybox">
+          <h3>📋 À recopier sur impots.gouv.fr</h3>
+          <div class="cb-sub">Connecte-toi à ton espace, formulaire 2044, et reporte ces cases. Rien à calculer.</div>
+          <div class="cb-grid">
+            <div class="cb-cell"><span class="cn">Ligne <b>211</b></span><span class="cv">21 840</span></div>
+            <div class="cb-cell"><span class="cn">Ligne <b>222</b></span><span class="cv">60</span></div>
+            <div class="cb-cell"><span class="cn">Ligne <b>223</b></span><span class="cv">420</span></div>
+            <div class="cb-cell"><span class="cn">Ligne <b>224</b></span><span class="cv">6 200</span></div>
+            <div class="cb-cell"><span class="cn">Ligne <b>227</b></span><span class="cv">1 850</span></div>
+            <div class="cb-cell"><span class="cn">Ligne <b>229</b></span><span class="cv">2 400</span></div>
+            <div class="cb-cell"><span class="cn">Ligne <b>230</b></span><span class="cv">−300</span></div>
+            <div class="cb-cell"><span class="cn">Ligne <b>250</b></span><span class="cv">4 100</span></div>
+          </div>
+          <div class="cb-copy">
+            <button onclick="toast('📋 Les 8 cases ont été copiées dans le presse-papier.')">Copier les 8 cases</button>
+            <span class="note">Résultat foncier à reporter (case 4BA) : <b style="color:#fff">+7 110 €</b></span>
+          </div>
+        </div>
+
+        <div class="cerfa-foot">
+          <button class="prim" onclick="openDossier()">📄 Dossier justificatif</button>
+          <button onclick="toast('📄 Génération du récap PDF (lignes + justificatifs)…')">⬇ Télécharger le récap</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── ÉCRAN FINAL : CÉLÉBRATION ─────────── -->
+    <section class="screen" id="screen-final">
+      <div class="panel">
+        <div class="final">
+          <div class="conf">🎉</div>
+          <h2>Tu viens de faire ta <em>déclaration foncière</em>,<br>du relevé bancaire à la 2044, sans comptable.</h2>
+          <p class="lead">Relevé importé, mouvements rangés, 2 pièges déjoués, exercice figé. Ta 2044 est prête à recopier sur impots.gouv.fr.</p>
+          <div class="punch">De ton relevé à ta 2044, sans jargon.</div>
+          <div class="recap">
+            <div><b>142</b><s>mouvements importés</s></div>
+            <div><b>2</b><s>pièges déjoués</s></div>
+            <div><b>+7 110 €</b><s>résultat foncier</s></div>
+            <div><b>0</b><s>comptable</s></div>
+          </div>
+          <div class="replay-row">
+            <button class="prim" onclick="startTour()">↻ Rejouer la démo</button>
+            <button onclick="closeAll();goScreen('cerfa')">📋 Revoir ma 2044</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══ Welcome modal (premier lancement) ═══ -->
+<div class="modal on" id="welcome-modal">
+  <div class="card">
+    <div class="wlogo">🦊</div>
+    <h2>Bienvenue dans <em>ImmoTrack</em> 👋</h2>
+    <p class="lead">En 2 minutes chrono, on joue ensemble TOUT le parcours d'une déclaration foncière : du premier lancement de l'app à l'import de ton relevé, jusqu'à ta 2044 prête à recopier. Promis, c'est fun et sans jargon.</p>
+    <div class="choices">
+      <button class="choice prim" onclick="startTour()"><span class="ce">▶</span><span><b>Jouer la démo guidée</b><s>5 chapitres · on te tient la main du début à la fin</s></span></button>
+      <button class="choice" onclick="closeAll();goScreen('welcome')"><span class="ce">🧪</span><span><b>Explorer librement</b><s>Fouille les écrans à ton rythme via le menu</s></span></button>
+    </div>
+    <button class="skip-w" onclick="closeAll();goScreen('mvts')">Passer, je connais déjà</button>
+  </div>
+</div>
+
+<!-- ═══ Onboarding spotlight (moteur repris) ═══ -->
+<div id="ob-overlay">
+  <div class="ob-mask" id="m-top"></div><div class="ob-mask" id="m-bot"></div>
+  <div class="ob-mask" id="m-left"></div><div class="ob-mask" id="m-right"></div>
+  <div class="ob-ring" id="ob-ring"></div>
+  <div class="ob-tip" id="ob-tip">
+    <div class="coach"><div class="av" id="ob-av">🦊</div><div class="ob-step" id="ob-step">ÉTAPE 1 / 11<s>Coach Renard</s></div></div>
+    <h4 id="ob-title"></h4>
+    <p id="ob-text"></p>
+    <div class="ob-bar"><i id="ob-prog"></i></div>
+    <div class="ob-act">
+      <button class="skip" onclick="closeAll()">Quitter la démo</button>
+      <div class="ob-nav">
+        <button class="ob-btn ob-prev" id="ob-prev" onclick="obPrev()">Précédent</button>
+        <button class="ob-btn ob-next" id="ob-next" onclick="obNext()">Suivant →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Dossier justificatif (modale) ═══ -->
+<div class="docmodal" id="docmodal">
+  <div class="preview">
+    <div class="pv-toolbar">
+      <div class="tt"><span class="ic">📄</span> Dossier justificatif 2044 — SCI DEMO 2025</div>
+      <div>
+        <button class="pv-btn dl" onclick="toast('✓ dossier-2044-SCI-DEMO-2025.pdf téléchargé')">⬇ Télécharger le PDF</button>
+        <button class="pv-btn cl" onclick="closeDossier()">Fermer</button>
+      </div>
+    </div>
+    <div id="doc-pages"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="demo-ctl">
+  <button class="p" onclick="startTour()">▶ Démarrer / Rejouer</button>
+  <button onclick="closeAll();goScreen('cerfa')">📋 Voir la 2044</button>
+  <button onclick="closeAll();goScreen('welcome')">🧪 Explorer</button>
+  <button onclick="hardReset()">↻ Tout réinitialiser</button>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════════
+   MOTEUR DE VISITE — repris de 4-academie.html, étendu à 5 CHAPITRES.
+   Chaque STEP vise un écran (screen), un sélecteur (sel), porte un n° de chapitre
+   (chap 1→5) et peut déclencher une action jouée (scan import, badge qui s'allume,
+   ligne barrée, scan contrôle…). Le ruban « Chapitre x/5 » se met à jour à chaque pas.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Données démo PARTAGÉES (SCI DEMO 2025) :
+   211 Loyers 21 840 · 222 Forfait 60 · 223 PNO 420 · 224 Toiture 6 200 · 227 TF 1 850
+   · 229 Copro 2 400 · 230 Régul −300 · 250 Intérêts 4 100
+   → Recettes 21 840 · Charges 10 630 · Intérêts 4 100 · Résultat foncier +7 110 €.
+   Pièges : véranda 9 000 (construction, NON déductible) + virement interne 2 000. */
+
+const CHAPS = [
+  {n:1, e:'🚀', t:'Lancement'},
+  {n:2, e:'🏦', t:'Import'},
+  {n:3, e:'🏷️', t:'Catégorisation'},
+  {n:4, e:'🛡️', t:'Contrôle'},
+  {n:5, e:'📋', t:'Ta 2044'},
+];
+
+const STEPS=[
+  /* ─── CHAPITRE 1 — LANCEMENT ─── */
+  { chap:1, screen:'welcome', sel:'#welcome-hero', av:'🦊',
+    title:'🚀 Bienvenue — on commence ici',
+    text:'C\'est le tout premier écran d\'ImmoTrack. L\'idée tient en une phrase : <span class="hl">ton relevé bancaire devient ta déclaration 2044</span>, en quelques clics et sans comptable. On va le faire ensemble, étape par étape.',
+    action:null },
+
+  { chap:1, screen:'welcome', sel:'.privacy', av:'🛡️',
+    title:'🔒 Tes données sont protégées',
+    text:'Avant tout : tes données sont <span class="hl">hébergées et sauvegardées automatiquement</span> sur un serveur sécurisé en Europe, et ton <span class="hl">espace est totalement isolé</span> — personne d\'autre n\'y accède.',
+    action:null },
+
+  /* ─── CHAPITRE 2 — IMPORT (le morceau manquant) ─── */
+  { chap:2, screen:'import', sel:'#import-choices', av:'🦊',
+    title:'🏦 Deux façons de démarrer',
+    text:'Pour commencer, deux options : <span class="hl">connecter ta banque</span> (synchro auto) ou <span class="hl">déposer ton relevé</span> exporté en OFX / CSV. Pour la démo, on dépose un fichier — clique-le et regarde.',
+    action:null },
+
+  { chap:2, screen:'import', sel:'#imp-drop-card', av:'🦊',
+    title:'📄 On dépose le relevé',
+    text:'Glisse simplement ton export bancaire dans cette zone. On accepte l\'<span class="hl">OFX, le CSV et Excel</span> — pas besoin de format particulier. Hop, le fichier est déposé : la reconnaissance démarre.',
+    action:()=>dropFile() },
+
+  { chap:2, screen:'import', sel:'#perim-note', av:'🎯',
+    title:'🎯 Tu gardes le contrôle',
+    text:'ImmoTrack <span class="hl">ne devine jamais à ta place</span> : il te propose un classement, mais c\'est <span class="hl">toi qui valides</span> chaque mouvement. Pas de catégorisation automatique hasardeuse — ta 2044 reste juste.',
+    action:null },
+
+  { chap:2, screen:'import', sel:'#reco-wrap', av:'🦊',
+    title:'✨ 142 mouvements lus, 131 reconnus',
+    text:'En 2 secondes : <span class="hl">142 mouvements importés</span>, dont <span class="hl">131 reconnus automatiquement</span>. « Reconnu » = on a rattaché le mouvement à ton logement et à sa catégorie. Il reste <span class="hl">11 cas à compléter</span> — on s\'en occupe juste après.',
+    action:()=>runReco() },
+
+  /* ─── CHAPITRE 3 — CATÉGORISATION ─── */
+  { chap:3, screen:'mvts', sel:'#mv-loyer', av:'🦊',
+    title:'💰 Un loyer ? C\'est rangé en 211.',
+    text:'Voici tes <span class="hl">21 840 € de loyers</span> de l\'année, regroupés. Ils se classent en <span class="hl">ligne 211</span> du formulaire 2044. Tu n\'as rien à connaître du CERFA : le badge s\'allume tout seul.',
+    action:()=>litBadge('b-loyer') },
+
+  { chap:3, screen:'mvts', sel:'#mv-toit', av:'🦊',
+    title:'🔨 Toiture refaite → 224, déductible',
+    text:'Réparer, entretenir, améliorer sans toucher à la structure → <span class="hl">ligne 224, déductible</span>. Tes 6 200 € de toiture font baisser ton résultat imposable. ✓',
+    action:()=>litBadge('b-toit') },
+
+  { chap:3, screen:'mvts', sel:'#mv-veranda', av:'🚨',
+    title:'🪤 Piège n°1 — la véranda 9 000 €',
+    text:'Une véranda, c\'est de la <span class="hl">CONSTRUCTION</span>, pas de l\'entretien. Le fisc l\'interdit en charge (ce n\'est PAS du 224). ImmoTrack la repère et <span class="hl">la sort automatiquement</span>. La ligne se barre. 🛡️',
+    action:()=>excludeMvt('mv-veranda','b-veranda','Non déductible') },
+
+  { chap:3, screen:'mvts', sel:'#mv-vir', av:'🚨',
+    title:'🔁 Piège n°2 — le virement interne 2 000 €',
+    text:'2 000 € passent du <span class="hl">CIC au Crédit Agricole</span> : ce n\'est PAS un revenu, juste ton argent qui change de poche. Le compter créerait un <span class="hl">revenu fantôme</span> taxé pour rien. On l\'ignore. 🛡️',
+    action:()=>excludeMvt('mv-vir','b-vir','Ignoré') },
+
+  { chap:3, screen:'mvts', sel:'#mv-copro', av:'🦊',
+    title:'⚖️ Charges & taxes se rangent seules',
+    text:'Provisions copro en <span class="hl">229</span>, régul. N-1 en <span class="hl">230</span>, taxe foncière en <span class="hl">227</span> et intérêts d\'emprunt en <span class="hl">250</span> : tout atterrit à la bonne case automatiquement.',
+    action:()=>{litBadge('b-copro');litBadge('b-divers');} },
+
+  /* ─── CHAPITRE 4 — CONTRÔLE PRÉ-VOL ─── */
+  { chap:4, screen:'control', sel:'#control-meta', av:'🛡️',
+    title:'🛰️ Le réviseur scanne tout',
+    text:'Avant de figer, ImmoTrack repasse les <span class="hl">142 mouvements</span> au peigne fin : il remonte les anomalies <span class="hl">triées par gravité</span> et même une optimisation oubliée. La jauge de fiabilité te dit où tu en es.',
+    action:()=>runControlScan() },
+
+  { chap:4, screen:'control', sel:'#f-veranda', av:'🚨',
+    title:'🔴 Il attrape l\'erreur véranda',
+    text:'Le réviseur confirme : la véranda déduite à tort en 224 expose à un <span class="hl">redressement</span>. Corrige-la d\'un clic — regarde la <span class="hl">jauge grimper vers 100&nbsp;%</span> et le résultat redevenir fiable.',
+    action:()=>setTimeout(()=>correct('veranda'),700) },
+
+  { chap:4, screen:'control', sel:'#f-gestion', av:'💼',
+    title:'🟡 Et trouve de l\'argent oublié',
+    text:'Mieux que corriger : il <span class="hl">optimise</span>. Aucun frais de gestion déduit cette année ? S\'il y a une agence, ces honoraires sont déductibles. Le geste d\'un expert-comptable, en automatique.',
+    action:null },
+
+  { chap:4, screen:'control', sel:'#cp-foot', av:'🛡️',
+    title:'✅ Tout est vert — on fige',
+    text:'Plus aucune erreur bloquante, jauge à <span class="hl">100&nbsp;%</span>, résultat foncier <span class="hl">+7 110 €</span> cohérent. Tu peux figer l\'exercice en toute sérénité et générer ta 2044.',
+    action:null },
+
+  /* ─── CHAPITRE 5 — TA 2044 ─── */
+  { chap:5, screen:'cerfa', sel:'#cerfa-panel', av:'📋',
+    title:'📋 Et voilà ta 2044 !',
+    text:'Chaque ligne est remplie, additionnée, vérifiée. <span class="hl">Résultat foncier : +7 110 €</span>. L\'encart sombre te donne les <span class="hl">cases à recopier sur impots.gouv.fr</span> — et un <span class="hl">dossier justificatif</span> est prêt en cas de contrôle.',
+    action:null },
+
+  { chap:5, screen:'final', sel:'.final', av:'🎉',
+    title:'🎉 Déclaration bouclée, sans comptable !',
+    text:'Tu viens de faire ta déclaration foncière <span class="hl">du relevé bancaire à la 2044</span> : importé, rangé, 2 pièges déjoués, figé. Tu sais maintenant tout faire dans ImmoTrack. À toi de jouer !',
+    action:null }
+];
+
+let cur=0;
+
+/* ── Bascule l'écran + l'onglet sidebar + le titre de page ── */
+const SCREEN_TITLES = {
+  welcome:['Le <em>parcours complet</em> 🦊','Du premier lancement à ta déclaration 2044 — en une seule histoire.'],
+  import :['🏦 Import du <em>relevé</em>','Dépose ton relevé OFX/CSV exporté depuis ta banque — on reconnaît le reste.'],
+  mvts   :['🏷️ <em>Catégorisation</em> guidée','Chaque mouvement à sa case 2044, sans rien connaître du CERFA.'],
+  control:['🛡️ Contrôle <em>pré-vol</em>','Le réviseur scanne, corrige les erreurs et trouve les oublis.'],
+  cerfa  :['📋 Ta <em>2044</em>','Prête à recopier sur impots.gouv.fr · dossier justificatif inclus.'],
+  final  :['🎉 <em>Bravo</em> !','Du relevé bancaire à la 2044, sans comptable.'],
+};
+function goScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  const el=document.getElementById('screen-'+name);
+  if(el) el.classList.add('on');
+  document.querySelectorAll('.ni[data-screen]').forEach(n=>n.classList.toggle('act', n.dataset.screen===name));
+  // titre + sous-titre de page
+  const ttl=SCREEN_TITLES[name];
+  if(ttl){ document.getElementById('page-title').innerHTML=ttl[0]; document.getElementById('page-sub').textContent=ttl[1]; }
+  // barre contexte cachée sur l'écran de bienvenue (pas encore d'exercice)
+  document.getElementById('ctx-bar').style.display = (name==='welcome'||name==='final') ? 'none' : '';
+}
+
+/* ── Ruban Chapitre x/5 ── */
+function buildChapDots(){
+  const wrap=document.getElementById('chap-dots');
+  wrap.innerHTML=CHAPS.map(c=>`<div class="chap-dot" data-chap="${c.n}"><span class="e">${c.e}</span>${c.t}</div>`).join('');
+}
+function paintChapRail(chap){
+  document.getElementById('chap-cur').textContent=chap;
+  document.querySelectorAll('.chap-dot').forEach(d=>{
+    const n=+d.dataset.chap;
+    d.classList.toggle('done', n<chap);
+    d.classList.toggle('cur', n===chap);
+  });
+}
+
+/* ════════ ACTIONS JOUÉES ════════ */
+
+/* Chap 2 — dépôt du fichier de relevé */
+let fileDropped=false;
+function dropFile(){
+  if(fileDropped) return;
+  fileDropped=true;
+  const dz=document.getElementById('dropzone');
+  dz.classList.add('dropped');
+  document.getElementById('dz-ic').textContent='📄';
+  document.getElementById('dz-title').textContent='releve_CA_2025.ofx';
+  document.getElementById('dz-sub').textContent='déposé · prêt à analyser';
+  document.getElementById('dz-file').innerHTML='<div class="file-chip"><span class="fx">📄</span> releve_CA_2025.ofx · 38 Ko <span class="fok">✓</span></div>';
+  document.getElementById('import-meta').textContent='fichier reçu';
+}
+function connectBank(){ toast('🔗 (démo) On ouvrirait ici la connexion sécurisée à ta banque.'); }
+
+/* Chap 2 — animation de reconnaissance (barre + 3 compteurs) */
+let recoDone=false;
+function runReco(){
+  if(!fileDropped) dropFile();
+  const wrap=document.getElementById('reco-wrap');
+  wrap.classList.add('on');
+  if(recoDone) return;
+  const bar=document.getElementById('reco-bar');
+  const sub=document.getElementById('reco-sub');
+  let p=0;
+  bar.style.width='0%';
+  const iv=setInterval(()=>{
+    p+=Math.random()*8+5; if(p>100)p=100;
+    bar.style.width=p+'%';
+    const done=Math.round(142*p/100);
+    sub.innerHTML='<b>'+done+'</b> / 142 mouvements analysés';
+    if(p>=100){
+      clearInterval(iv);
+      recoDone=true;
+      document.getElementById('import-meta').textContent='import réussi 🎉';
+      sub.innerHTML='<b>142</b> mouvements importés en 2,1 s · 131 reconnus · 11 à compléter';
+      countTo('st-lines',0,142,700);
+      countTo('st-reco',0,131,800);
+      countTo('st-todo',0,11,650);
+    }
+  },90);
+}
+function countTo(id,from,to,dur){
+  const el=document.getElementById(id);const t0=performance.now();
+  (function tick(now){
+    const k=Math.min(1,(now-t0)/dur);
+    el.textContent=Math.round(from+(to-from)*k);
+    if(k<1) requestAnimationFrame(tick);
+  })(performance.now());
+}
+
+/* Chap 3 — allume un badge ligne 2044 (variante : 'warn') */
+function litBadge(id, ...cls){
+  const b=document.getElementById(id);
+  if(!b) return;
+  b.classList.add('lit','ping',...cls.filter(Boolean));
+  const num=b.querySelector('.num')?b.querySelector('.num').textContent:'';
+  b.innerHTML='<span class="num">'+num+'</span> rangé ✓';
+  setTimeout(()=>b.classList.remove('ping'),750);
+}
+/* Chap 3 — sort un mouvement (véranda, virement) : ligne barrée + badge "hors 2044" */
+function excludeMvt(rowId, badgeId, label){
+  const row=document.getElementById(rowId);
+  const b=document.getElementById(badgeId);
+  if(row) row.classList.add('excluded');
+  if(b){ b.className='l2044 out'; b.innerHTML='✕ '+label; }
+}
+
+/* ════════ CHAP 4 — CONTRÔLE PRÉ-VOL (jauge + findings) ════════ */
+const GAUGE_LEN=198;
+const openF={veranda:true,virement:true,gestion:true};
+const fmtRes=n=>(n>=0?'+':'−')+Math.abs(n).toLocaleString('fr-FR')+' €';
+
+/* relance visuelle douce de la jauge à l'entrée du chapitre */
+function runControlScan(){ refreshControl(); }
+
+function refreshControl(){
+  const erreur=openF.veranda;                 // seule erreur bloquante (rouge)
+  const score=erreur?78:100;
+  const fillEl=document.getElementById('gaugeFill');
+  fillEl.style.strokeDasharray=GAUGE_LEN;
+  fillEl.style.strokeDashoffset=GAUGE_LEN*(1-score/100);
+  fillEl.style.stroke=score>=100?'var(--grn)':'var(--ora)';
+  document.getElementById('gaugeNum').innerHTML=score+'<s>%</s>';
+
+  const st=document.getElementById('gaugeSt'), msg=document.getElementById('gaugeMsg');
+  if(score>=100){
+    st.textContent='Aucune erreur'; st.style.color='var(--grn)';
+    msg.innerHTML='2044 fiable à <b>100&nbsp;%</b>. Toutes les erreurs sont corrigées — tu peux figer la déclaration en toute sérénité.';
+  }else{
+    st.textContent='1 erreur à corriger'; st.style.color='var(--ora)';
+    msg.innerHTML='2044 fiable à <b>78&nbsp;%</b>. Une erreur a un impact direct sur ton résultat foncier — corrige-la pour atteindre 100&nbsp;%.';
+  }
+
+  const flag=document.getElementById('resFlag'), sub=document.getElementById('resSub');
+  document.getElementById('resV').innerHTML=fmtRes(7110).replace('€','<span class="c"> €</span>');
+  if(erreur){
+    flag.className='res-flag bad'; flag.innerHTML='⚠ +9 000 € déduits à tort';
+    sub.innerHTML='Si la véranda reste en 224, ton résultat affiché serait <b style="color:var(--red)">−1 890 €</b> (faux).';
+  }else{
+    flag.className='res-flag good'; flag.innerHTML='✓ cohérent';
+    sub.innerHTML='21 840 € recettes − 14 730 € charges déductibles';
+  }
+
+  const r=openF.veranda?1:0,o=openF.virement?1:0,y=openF.gestion?1:0;
+  document.getElementById('cR').textContent=r;
+  document.getElementById('cO').textContent=o;
+  document.getElementById('cY').textContent=y;
+  const left=r+o+y;
+  document.getElementById('todoLeft').textContent= left>0 ? (left+' point'+(left>1?'s':'')+' détecté'+(left>1?'s':'')) : 'Tout est traité 🎉';
+
+  const lock=document.getElementById('lockBtn'), foot=document.getElementById('footMsg');
+  if(!erreur){
+    lock.classList.add('ready');
+    foot.innerHTML='<b>Aucune erreur bloquante.</b> Ta 2044 est prête à être figée et exportée.';
+  }else{
+    lock.classList.remove('ready');
+    foot.innerHTML='<b>1 erreur</b> bloque encore la déclaration. Corrige-la pour figer ta 2044 en toute sérénité.';
+  }
+}
+const F_LABELS={
+  veranda:'Véranda sortie de la 2044 — sur-déduction corrigée ✓',
+  virement:'Virement interne exclu de la déclaration ✓',
+  gestion:'Pensez à saisir vos honoraires d\'agence dans Mouvements ✓'
+};
+function closeCard(key){
+  const el=document.getElementById('f-'+key);
+  if(!el||openF[key]===false) return;
+  el.style.maxHeight=el.offsetHeight+'px';
+  requestAnimationFrame(()=>el.classList.add('gone'));
+  openF[key]=false;
+}
+function correct(key){ closeCard(key); toast(F_LABELS[key]); setTimeout(refreshControl,60); }
+function ignore(key){ closeCard(key); toast('Constat ignoré — tu confirmes assumer ce choix.'); setTimeout(refreshControl,60); }
+function lock2044(){
+  if(openF.veranda){ toast('Corrige d\'abord l\'erreur 🔴 avant de figer.'); return; }
+  toast('🔒 2044 figée — résultat foncier +7 110 € · prête à exporter');
+  if(!obOn()){ setTimeout(()=>goScreen('cerfa'),500); }
+}
+
+/* ════════ CHAP 5 — DOSSIER JUSTIFICATIF (modale) ════════ */
+function openDossier(){
+  document.getElementById('doc-pages').innerHTML=`
+    <div class="sheet">
+      <div class="pg-tag">DOSSIER JUSTIFICATIF · PAGE 1/2</div>
+      <div class="cover">
+        <span class="badge">🔎 Chaque euro est traçable</span>
+        <h1>Dossier justificatif 2044</h1>
+        <div class="who"><b>SCI DEMO</b> · revenus fonciers · année <b>2025</b></div>
+        <div class="cover-grid">
+          <div class="cover-cell"><small>Recettes</small><b>21 840 €</b></div>
+          <div class="cover-cell"><small>Charges + intérêts</small><b>14 730 €</b></div>
+          <div class="cover-cell hl"><small>Résultat foncier</small><b>+7 110 €</b></div>
+        </div>
+        <p class="res-line">Ce dossier détaille, ligne par ligne, l'origine de chaque montant porté sur la déclaration 2044 — avec le rapprochement de chaque mouvement bancaire. À conserver en cas de contrôle ou à remettre à ton expert-comptable.</p>
+      </div>
+    </div>
+    <div class="sheet">
+      <div class="pg-tag">DÉTAIL PAR LIGNE · PAGE 2/2</div>
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Cadre IV</span>Recettes</h3>
+        ${drow('211','Loyers bruts encaissés','33 virements rapprochés des loyers attendus','21 840 €')}
+        <div class="dtot"><span>Total des recettes (ligne 215)</span><span class="v">21 840 €</span></div>
+      </div>
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Cadre V</span>Frais et charges</h3>
+        ${drow('222','Forfait gestion','20 € × 3 locaux (forfait légal auto)','60 €')}
+        ${drow('223','Primes d\'assurance','Assurance PNO — prime annuelle','420 €')}
+        ${drow('224','Réparation / entretien / amélioration','Réfection toiture (acompte + solde + fournitures)','6 200 €')}
+        ${drow('227','Taxes foncières','TF 2025 hors part ordures ménagères','1 850 €')}
+        ${drow('229','Provisions de copropriété','Appels de fonds syndic Foncia','2 400 €')}
+        ${drow('230','Régularisation provisions N-1','Solde en faveur du propriétaire','−300 €',true)}
+        <div class="dtot"><span>Total des frais et charges (ligne 240)</span><span class="v">10 630 €</span></div>
+      </div>
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Cadre VI</span>Intérêts d'emprunt</h3>
+        ${drow('250','Intérêts d\'emprunt','12 échéances — part intérêts (capital exclu)','4 100 €')}
+        <div class="dtot"><span>Total des intérêts (ligne 250)</span><span class="v">4 100 €</span></div>
+      </div>
+      <div class="dsec">
+        <h3 class="dh"><span class="pre">Exclus</span>Écartés du calcul (à juste titre)</h3>
+        ${drow('—','Construction véranda','Agrandissement — non déductible en revenus fonciers','9 000 €',true)}
+        ${drow('—','Virement interne CIC → Crédit Agricole','Transfert entre comptes — pas un revenu','2 000 €',true)}
+      </div>
+      <div class="legal">
+        <p><b>Valeurs indicatives.</b> Montants calculés à partir des mouvements catégorisés dans ImmoTrack, à vérifier avant dépôt. ImmoTrack ne se substitue pas à un conseil fiscal.</p>
+        <p style="margin-top:10px"><b>Conservation.</b> Conserve les justificatifs (factures, quittances, relevés, avis de TF, décomptes de syndic) pendant au moins <b>6 ans</b>.</p>
+        <p style="margin-top:10px;font-family:var(--mono);font-size:10px;color:#94a3b8">Généré par ImmoTrack · SCI DEMO · exercice 2025 · réf. 2044-SCI-DEMO-2025</p>
+      </div>
+    </div>`;
+  document.getElementById('docmodal').classList.add('on');
+}
+function drow(num,title,desc,val,neg){
+  return `<div class="drow"><div class="dl">${num}</div><div class="dn"><b>${title}</b><span>${desc}</span></div><div class="dm ${neg?'neg':''}">${neg&&val[0]!=='−'?'− ':''}${val}</div></div>`;
+}
+function closeDossier(){ document.getElementById('docmodal').classList.remove('on'); }
+
+/* ════════ MOTEUR DE VISITE (spotlight) ════════ */
+function obOn(){ return document.getElementById('ob-overlay').classList.contains('on'); }
+
+function startTour(){
+  closeModals(); closeDossier();
+  resetPlay();
+  cur=0;
+  document.getElementById('chapter-rail').classList.add('on');
+  document.getElementById('ob-overlay').classList.add('on');
+  render();
+}
+
+/* Remet tous les états jouables à zéro (rejouable proprement) */
+function resetPlay(){
+  // Chap 2 — import
+  fileDropped=false; recoDone=false;
+  const dz=document.getElementById('dropzone');
+  if(dz){
+    dz.classList.remove('dropped');
+    document.getElementById('dz-ic').textContent='⬇️';
+    document.getElementById('dz-title').textContent='Glisse ton relevé ici';
+    document.getElementById('dz-sub').textContent='ou clique pour choisir un fichier';
+    document.getElementById('dz-file').innerHTML='';
+    document.getElementById('import-meta').textContent='2 façons de démarrer';
+    document.getElementById('reco-wrap').classList.remove('on');
+    document.getElementById('reco-bar').style.width='0';
+    document.getElementById('reco-sub').innerHTML='<b>0</b> / 142 mouvements analysés';
+    ['st-lines','st-reco','st-todo'].forEach(i=>document.getElementById(i).textContent='—');
+  }
+  // Chap 3 — badges + lignes
+  resetBadge('b-loyer','211','à ranger');
+  resetBadge('b-toit','224','à ranger');
+  resetBadge('b-veranda','?','à ranger');
+  resetBadge('b-vir','?','à ranger');
+  resetBadge('b-copro','229','à ranger');
+  resetBadge('b-divers','227·250','à ranger');
+  document.getElementById('mv-veranda').classList.remove('excluded');
+  document.getElementById('mv-vir').classList.remove('excluded');
+  // Chap 4 — findings : on les restaure (au cas où la démo précédente en a fermé)
+  ['veranda','virement','gestion'].forEach(restoreCard);
+  openF.veranda=true; openF.virement=true; openF.gestion=true;
+  refreshControl();
+}
+function resetBadge(id,num,label){
+  const b=document.getElementById(id);
+  if(!b) return;
+  b.className='l2044';
+  b.innerHTML='<span class="num">'+num+'</span> '+label;
+}
+/* restaure une carte finding fermée (retire .gone + reset hauteur) */
+function restoreCard(key){
+  const el=document.getElementById('f-'+key);
+  if(!el) return;
+  el.classList.remove('gone');
+  el.style.maxHeight='';
+}
+
+function obNext(){
+  if(cur<STEPS.length-1){ cur++; render(); }
+  else{ closeAll(); toast('🎉 Démo terminée ! Du relevé à ta 2044, sans comptable.'); }
+}
+function obPrev(){ if(cur>0){ cur--; render(); } }
+
+function render(){
+  const s=STEPS[cur];
+  goScreen(s.screen);
+  paintChapRail(s.chap);
+  if(typeof s.action==='function') s.action();
+  const el=document.querySelector(s.sel);
+  if(!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>{
+    const r=el.getBoundingClientRect();const pad=8;
+    const x=r.left-pad,y=r.top-pad,w=r.width+pad*2,h=r.height+pad*2;
+    const ring=document.getElementById('ob-ring');
+    ring.style.left=x+'px';ring.style.top=y+'px';ring.style.width=w+'px';ring.style.height=h+'px';
+    document.getElementById('m-top').style.cssText=`left:0;top:0;width:100vw;height:${Math.max(0,y)}px`;
+    document.getElementById('m-bot').style.cssText=`left:0;top:${y+h}px;width:100vw;height:${Math.max(0,window.innerHeight-(y+h))}px`;
+    document.getElementById('m-left').style.cssText=`left:0;top:${y}px;width:${Math.max(0,x)}px;height:${h}px`;
+    document.getElementById('m-right').style.cssText=`left:${x+w}px;top:${y}px;width:${Math.max(0,window.innerWidth-(x+w))}px;height:${h}px`;
+    // bulle : sous la cible si place, sinon au-dessus
+    const tip=document.getElementById('ob-tip');
+    const below=y+h+16;const tipH=tip.offsetHeight||240;
+    let ty=(below+tipH<window.innerHeight)?below:Math.max(16,y-tipH-16);
+    let tx=Math.min(Math.max(16,x),window.innerWidth-364);
+    tip.style.left=tx+'px';tip.style.top=ty+'px';
+    document.getElementById('ob-av').textContent=s.av||'🦊';
+    document.getElementById('ob-step').innerHTML=`ÉTAPE ${cur+1} / ${STEPS.length} · CHAPITRE ${s.chap}/5<s>Coach Renard</s>`;
+    document.getElementById('ob-title').textContent=s.title;
+    document.getElementById('ob-text').innerHTML=s.text;
+    document.getElementById('ob-prog').style.width=((cur+1)/STEPS.length*100)+'%';
+    document.getElementById('ob-prev').style.visibility=cur===0?'hidden':'visible';
+    document.getElementById('ob-next').textContent=cur===STEPS.length-1?'Terminer 🎉':'Suivant →';
+  },340);
+}
+
+function closeModals(){document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on'));}
+function closeAll(){
+  closeModals();
+  document.getElementById('ob-overlay').classList.remove('on');
+  document.getElementById('chapter-rail').classList.remove('on');
+}
+function hardReset(){ location.reload(); }
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),3200);}
+
+/* ── Navigation libre par la sidebar (hors démo) ── */
+document.querySelectorAll('.ni[data-screen]').forEach(n=>{
+  n.addEventListener('click',()=>{ if(!obOn()) goScreen(n.dataset.screen); });
+});
+
+/* ── Clavier : ←/→ pendant la démo, Échap pour quitter ── */
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('docmodal').classList.contains('on')){
+    if(e.key==='Escape') closeDossier(); return;
+  }
+  if(obOn()){
+    if(e.key==='ArrowRight'||e.key==='Enter') obNext();
+    else if(e.key==='ArrowLeft') obPrev();
+    else if(e.key==='Escape') closeAll();
+  }else if(document.getElementById('welcome-modal').classList.contains('on') && e.key==='Escape'){
+    closeAll(); goScreen('welcome');
+  }
+});
+
+window.addEventListener('resize',()=>{ if(obOn()) render(); });
+
+/* ── Init : pose la jauge du contrôle, prépare le ruban ── */
+buildChapDots();
+refreshControl();
+goScreen('mvts');   // écran par défaut sous la modale de bienvenue
+</script>
+</body>
+</html>

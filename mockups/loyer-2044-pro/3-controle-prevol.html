@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Contrôle avant déclaration · 2044</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════════════════════
+   MOCKUP ③ — « Le contrôle pré-vol » : le réviseur intelligent avant 2044
+   Tokens CSS repris à l'identique de docs/strategie/mockups/onboarding-demo
+   pour cohérence avec le lot. Concept : on scanne TOUS les mouvements, on
+   remonte des constats triés par gravité, l'utilisateur corrige → la jauge de
+   fiabilité monte vers 100 % et le résultat foncier se recalcule en direct.
+   ════════════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#f4f6f9; --sur:#fff; --sur2:#f0f3f7;
+  --bor:rgba(30,50,80,.1); --bor2:rgba(30,50,80,.18);
+  --t1:#0f1f33; --t2:#5a6b80; --t3:#94a3b8;
+  --acc:#0ea5e9; --acc2:#14b8a6; --teal:#0d9488;
+  --grn:#059669; --red:#dc2626; --ora:#d97706; --vio:#7c3aed;
+  --grad:linear-gradient(120deg,#0ea5e9,#14b8a6);
+  --grad-hero:linear-gradient(135deg,#e6f4fb 0%,#e0f5f1 100%);
+  --r:14px; --r-lg:20px;
+  --sh:0 14px 40px -16px rgba(20,40,70,.22),0 2px 8px rgba(20,40,70,.06);
+  --font-d:'Fraunces',Georgia,serif; --font:'Manrope',sans-serif; --mono:'JetBrains Mono',monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* ── Coquille app (sidebar + main, comme l'onboarding) ───────────────────── */
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+.sb{background:var(--sur);border-right:1px solid var(--bor);padding:22px 14px;display:flex;flex-direction:column;gap:3px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px}
+.brand-logo{width:36px;height:36px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-size:18px}
+.brand b{font-family:var(--font-d);font-weight:600;font-size:18px}
+.brand small{display:block;font-family:var(--mono);font-size:9px;color:var(--t3)}
+.ni{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--t2);font-weight:600;font-size:13px;cursor:pointer;transition:.2s}
+.ni .ic{font-size:15px;width:18px;text-align:center}
+.ni:hover{background:var(--sur2)}
+.ni.act{background:var(--sur2);color:var(--t1)}
+.nlbl{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--t3);padding:16px 12px 7px}
+
+.main{padding:24px 30px 60px;overflow:hidden;max-width:1180px}
+.h1{font-family:var(--font-d);font-weight:600;font-size:26px;letter-spacing:-.02em;margin-bottom:3px}
+.h1 em{font-style:italic;color:var(--teal)}
+.sub{color:var(--t2);font-size:13px;margin-bottom:22px}
+
+/* Bandeau contexte (entité + exercice) repris de la barre .ctx */
+.ctx{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:12px 14px;border-radius:var(--r-lg);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);margin-bottom:22px}
+.pills{display:flex;gap:7px;flex-wrap:wrap}
+.pill{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:50px;height:46px;padding:0 13px;border-radius:12px;background:var(--sur2);border:1px solid var(--bor);color:var(--t2)}
+.pill b{font-weight:800;font-size:13px}.pill s{text-decoration:none;font-size:9px;color:var(--t3);font-weight:600}
+.pill.act{background:var(--grad);border-color:transparent;color:#fff}.pill.act s{color:rgba(255,255,255,.85)}
+.period{display:flex;align-items:center;gap:3px;background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:4px 5px}
+.period .l{font-weight:700;font-size:12.5px;padding:0 10px;text-align:center}
+.period .l small{display:block;font-size:8.5px;color:var(--t3);letter-spacing:.07em}
+
+/* ── Différenciant (la phrase signature) ─────────────────────────────────── */
+.diff{display:flex;align-items:center;gap:11px;padding:11px 16px;border-radius:var(--r);background:var(--grad-hero);border:1px solid var(--bor);margin-bottom:22px;font-size:13px;color:var(--t1)}
+.diff .em{font-size:19px}
+.diff b{font-weight:800}
+
+/* ════════════ ÉCRAN SCAN (animation pré-vol) ════════════ */
+.scan-wrap{display:grid;place-items:center;padding:54px 20px;border-radius:var(--r-lg);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh);position:relative;overflow:hidden}
+.scan-wrap::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(14,165,233,.10),transparent 65%);pointer-events:none}
+.radar{width:108px;height:108px;border-radius:50%;position:relative;display:grid;place-items:center;margin-bottom:26px;background:
+   radial-gradient(circle,rgba(14,165,233,.10),transparent 70%);
+   border:2px solid rgba(14,165,233,.25)}
+.radar::after{content:'';position:absolute;inset:6px;border-radius:50%;border:1px dashed rgba(14,165,233,.3)}
+.radar .sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(14,165,233,.45),transparent 28%);animation:sweep 1.4s linear infinite;-webkit-mask:radial-gradient(circle,transparent 18%,#000 19%)}
+@keyframes sweep{to{transform:rotate(360deg)}}
+.radar .em{font-size:34px;z-index:1}
+.scan-title{font-family:var(--font-d);font-weight:600;font-size:21px;letter-spacing:-.01em;margin-bottom:6px;text-align:center}
+.scan-count{font-family:var(--mono);font-size:13px;color:var(--t2);margin-bottom:22px;min-height:18px;text-align:center}
+.scan-count b{color:var(--acc);font-weight:600}
+.scan-bar{width:min(440px,82vw);height:7px;border-radius:99px;background:var(--sur2);overflow:hidden}
+.scan-bar i{display:block;height:100%;width:0;background:var(--grad);border-radius:99px;transition:width .3s linear}
+.scan-steps{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:20px;max-width:560px}
+.scan-chip{font-size:11px;font-weight:600;color:var(--t3);padding:5px 11px;border-radius:99px;background:var(--sur2);border:1px solid var(--bor);transition:.3s}
+.scan-chip.on{color:var(--teal);border-color:rgba(13,148,136,.35);background:rgba(20,184,166,.08)}
+.scan-chip.on::before{content:'✓ ';color:var(--grn)}
+
+/* ════════════ ÉCRAN RÉSULTATS ════════════ */
+#results{display:none}
+#results.show{display:block;animation:fade .5s var(--ease)}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Bandeau du haut : jauge de fiabilité + résultat foncier live */
+.top{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-bottom:22px}
+@media(max-width:880px){.top{grid-template-columns:1fr}}
+.panel{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r-lg);box-shadow:var(--sh);padding:20px 22px}
+
+/* Jauge demi-cercle */
+.gauge-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.gauge-head h3{font-family:var(--font-d);font-weight:600;font-size:16px}
+.gauge-head .st{font-size:11px;font-weight:700;font-family:var(--mono);color:var(--ora);transition:.4s}
+.gauge-wrap{display:flex;align-items:center;gap:22px}
+.gauge{position:relative;width:150px;height:84px;flex-shrink:0}
+.gauge svg{width:150px;height:84px;overflow:visible}
+.gauge .track{fill:none;stroke:var(--sur2);stroke-width:13;stroke-linecap:round}
+.gauge .fill{fill:none;stroke:var(--ora);stroke-width:13;stroke-linecap:round;
+   stroke-dasharray:220;stroke-dashoffset:220;transition:stroke-dashoffset .9s var(--ease),stroke .9s var(--ease)}
+.gauge .num{position:absolute;left:0;right:0;bottom:2px;text-align:center;font-family:var(--font-d);font-weight:600;font-size:30px;letter-spacing:-.02em;transition:.4s}
+.gauge .num s{text-decoration:none;font-size:15px;color:var(--t3)}
+.gauge-msg{font-size:12.5px;color:var(--t2);line-height:1.5}
+.gauge-msg b{color:var(--t1);font-weight:700;transition:.4s}
+
+/* Carte résultat foncier */
+.res-l{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.res-v{font-family:var(--font-d);font-weight:600;font-size:34px;letter-spacing:-.02em;line-height:1;transition:.4s}
+.res-v .c{font-size:18px;color:var(--t2)}
+.res-flag{margin-top:11px;font-size:11.5px;font-weight:700;font-family:var(--mono);padding:5px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:6px;transition:.4s}
+.res-flag.bad{background:rgba(220,38,38,.1);color:var(--red)}
+.res-flag.good{background:rgba(5,150,105,.12);color:var(--grn)}
+.res-sub{margin-top:11px;font-size:11.5px;color:var(--t3);line-height:1.5;font-family:var(--mono)}
+
+/* Compteur de constats */
+.counters{display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap}
+.cnt{display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:99px;background:var(--sur);border:1px solid var(--bor);font-size:12px;font-weight:700}
+.cnt .dot{width:9px;height:9px;border-radius:50%}
+.cnt s{text-decoration:none;color:var(--t2);font-weight:600}
+.dot-r{background:var(--red)}.dot-o{background:var(--ora)}.dot-y{background:#eab308}.dot-g{background:var(--grn)}
+
+.sec{display:flex;align-items:baseline;justify-content:space-between;margin:24px 2px 13px}
+.sec h2{font-family:var(--font-d);font-weight:600;font-size:18px}
+.sec span{font-size:12px;color:var(--t2);font-weight:600}
+
+/* ── Cartes de constats ─────────────────────────────────────────────────── */
+.finding{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r-lg);box-shadow:var(--sh);padding:0;margin-bottom:13px;overflow:hidden;position:relative;transition:.45s var(--ease)}
+.finding::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.finding.sev-r{--c:var(--red)}.finding.sev-o{--c:var(--ora)}.finding.sev-y{--c:#eab308}.finding.sev-g{--c:var(--grn)}
+.finding.gone{opacity:0;transform:translateX(40px);max-height:0!important;margin:0;padding:0;border-width:0;pointer-events:none}
+.f-main{display:flex;gap:15px;padding:17px 19px 17px 21px}
+.f-ic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
+.sev-r .f-ic{background:rgba(220,38,38,.1)}.sev-o .f-ic{background:rgba(217,119,6,.12)}
+.sev-y .f-ic{background:rgba(234,179,8,.13)}.sev-g .f-ic{background:rgba(5,150,105,.12)}
+.f-body{flex:1;min-width:0}
+.f-tags{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.f-sev{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:3px 8px;border-radius:99px}
+.sev-r .f-sev{background:rgba(220,38,38,.12);color:var(--red)}
+.sev-o .f-sev{background:rgba(217,119,6,.14);color:var(--ora)}
+.sev-y .f-sev{background:rgba(234,179,8,.16);color:#a16207}
+.sev-g .f-sev{background:rgba(5,150,105,.13);color:var(--grn)}
+.f-line{font-family:var(--mono);font-size:10px;color:var(--t3);font-weight:600}
+.f-title{font-family:var(--font-d);font-weight:600;font-size:16.5px;letter-spacing:-.01em;margin-bottom:4px}
+.f-exp{font-size:13px;color:var(--t2);line-height:1.55}
+.f-exp em{font-style:normal;font-weight:700;color:var(--t1)}
+.f-impact{display:inline-flex;align-items:center;gap:7px;margin-top:11px;padding:7px 12px;border-radius:10px;background:var(--sur2);font-size:12px;font-weight:600}
+.f-impact b{font-family:var(--mono);font-weight:600}
+.f-impact .up{color:var(--grn)}.f-impact .dn{color:var(--red)}
+
+/* Aperçu des lignes-mouvement liées au constat */
+.f-rows{margin:12px 0 2px;border:1px solid var(--bor);border-radius:11px;overflow:hidden}
+.f-row{display:grid;grid-template-columns:80px 1fr auto auto;gap:12px;align-items:center;padding:9px 13px;font-size:12px;background:var(--sur)}
+.f-row+.f-row{border-top:1px solid var(--bor)}
+.f-row .dt{font-family:var(--mono);font-size:11px;color:var(--t3)}
+.f-row .lib{font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.f-row .cat{font-size:10.5px;color:var(--t2);font-weight:600;background:var(--sur2);padding:3px 9px;border-radius:99px;white-space:nowrap}
+.f-row .mt{font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap}
+.f-row.twin .lib::after{content:' ⇄';color:var(--ora)}
+
+/* Actions de la carte */
+.f-act{display:flex;align-items:center;gap:9px;padding:13px 19px;background:var(--sur2);border-top:1px solid var(--bor);flex-wrap:wrap}
+.btn{font-family:var(--font);font-weight:700;font-size:12.5px;padding:9px 16px;border-radius:10px;border:1px solid var(--bor);cursor:pointer;background:var(--sur);color:var(--t2);transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--bor2);color:var(--t1)}
+.btn.prim{background:var(--grad);border-color:transparent;color:#fff}
+.btn.prim:hover{filter:brightness(1.05)}
+.btn.ghost{background:none;border-color:transparent;color:var(--t3)}
+.btn.ghost:hover{color:var(--t2);background:var(--sur)}
+.f-act .grow{flex:1}
+.f-passed{padding:13px 19px 15px}
+
+/* Footer action : figer la 2044 */
+.foot{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:26px;padding:18px 22px;border-radius:var(--r-lg);background:var(--sur);border:1px solid var(--bor);box-shadow:var(--sh)}
+.foot .ft{font-size:13px;color:var(--t2);line-height:1.5}
+.foot .ft b{color:var(--t1)}
+.btn-lock{font-family:var(--font);font-weight:800;font-size:14px;padding:13px 24px;border-radius:12px;border:none;cursor:not-allowed;background:var(--sur2);color:var(--t3);transition:.3s;display:inline-flex;align-items:center;gap:9px}
+.btn-lock.ready{background:var(--grad);color:#fff;cursor:pointer;box-shadow:0 10px 26px -8px rgba(14,165,233,.5)}
+.btn-lock.ready:hover{filter:brightness(1.05)}
+
+/* Toast */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);z-index:500;background:var(--t1);color:#fff;padding:13px 22px;border-radius:12px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.35s var(--ease);box-shadow:var(--sh);display:flex;align-items:center;gap:9px}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Bouton relancer le scan (coin haut droit) */
+.replay{font-family:var(--font);font-weight:700;font-size:12px;padding:8px 14px;border-radius:10px;border:1px solid var(--bor);background:var(--sur);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.replay:hover{color:var(--t1);border-color:var(--bor2)}
+
+@media(max-width:1024px){.app{grid-template-columns:1fr}.sb{display:none}}
+@media(max-width:620px){.main{padding:18px 14px 50px}.f-row{grid-template-columns:1fr auto}.f-row .dt,.f-row .cat{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar identique au lot, onglet Déclaration actif -->
+  <aside class="sb">
+    <div class="brand"><div class="brand-logo">🏠</div><div><b>ImmoTrack</b><small>démo · v15.261</small></div></div>
+    <div class="nlbl">Patrimoine</div>
+    <div class="ni"><span class="ic">🏠</span> Biens</div>
+    <div class="ni"><span class="ic">👥</span> Locataires</div>
+    <div class="nlbl">Finance</div>
+    <div class="ni"><span class="ic">💰</span> Mouvements</div>
+    <div class="ni"><span class="ic">📈</span> Révision IRL</div>
+    <div class="ni act"><span class="ic">🧾</span> Déclaration 2044</div>
+    <div class="nlbl">Relation</div>
+    <div class="ni"><span class="ic">📧</span> Communication</div>
+    <div class="ni"><span class="ic">📊</span> Tableau de bord</div>
+  </aside>
+
+  <main class="main">
+    <div class="h1">Contrôle <em>avant déclaration</em></div>
+    <div class="sub">On vérifie chaque mouvement avant de figer votre 2044 — pour ne ni payer trop, ni s'exposer à un redressement.</div>
+
+    <div class="ctx">
+      <div class="pills">
+        <div class="pill act"><b>SD</b><s>SCI DEMO</s></div>
+        <div class="pill"><b>★</b><s>Toutes</s></div>
+      </div>
+      <div class="period"><div class="l">Exercice 2025<small>REVENUS FONCIERS · RÉEL</small></div></div>
+    </div>
+
+    <div class="diff">
+      <span class="em">🧠</span>
+      <span><b>Le geste d'un expert-comptable, automatisé</b> — il corrige vos erreurs <b>et</b> trouve l'argent que vous oubliez de déduire.</span>
+    </div>
+
+    <!-- ════════ ÉCRAN 1 : SCAN ════════ -->
+    <section id="scan">
+      <div class="scan-wrap">
+        <div class="radar"><div class="sweep"></div><span class="em">🛰️</span></div>
+        <div class="scan-title">Analyse de votre exercice 2025…</div>
+        <div class="scan-count" id="scanCount"><b>0</b> / 142 mouvements analysés</div>
+        <div class="scan-bar"><i id="scanFill"></i></div>
+        <div class="scan-steps" id="scanSteps">
+          <span class="scan-chip" data-i="0">Cohérence recettes / loyers</span>
+          <span class="scan-chip" data-i="1">Nature des travaux (224 vs construction)</span>
+          <span class="scan-chip" data-i="2">Doublons & virements internes</span>
+          <span class="scan-chip" data-i="3">Charges obligatoires présentes</span>
+          <span class="scan-chip" data-i="4">Pistes de déduction oubliées</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ ÉCRAN 2 : RÉSULTATS ════════ -->
+    <section id="results">
+      <!-- Bandeau jauge + résultat -->
+      <div class="top">
+        <div class="panel">
+          <div class="gauge-head">
+            <h3>Indice de fiabilité</h3>
+            <span class="st" id="gaugeSt">1 erreur à corriger</span>
+          </div>
+          <div class="gauge-wrap">
+            <div class="gauge">
+              <svg viewBox="0 0 150 84">
+                <path class="track" d="M 12 80 A 63 63 0 0 1 138 80"/>
+                <path class="fill" id="gaugeFill" d="M 12 80 A 63 63 0 0 1 138 80"/>
+              </svg>
+              <div class="num" id="gaugeNum">78<s>%</s></div>
+            </div>
+            <div class="gauge-msg" id="gaugeMsg">
+              2044 fiable à <b>78&nbsp;%</b>. Une erreur a un impact direct sur votre résultat foncier — corrigez-la pour atteindre 100&nbsp;%.
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="res-l">Résultat foncier estimé</div>
+          <div class="res-v" id="resV">+7 110<span class="c"> €</span></div>
+          <span class="res-flag good" id="resFlag">✓ cohérent</span>
+          <div class="res-sub" id="resSub">21 840 € recettes − 14 730 € charges déductibles</div>
+        </div>
+      </div>
+
+      <!-- Compteurs -->
+      <div class="counters">
+        <div class="cnt"><span class="dot dot-r"></span><span id="cR">1</span> <s>erreur</s></div>
+        <div class="cnt"><span class="dot dot-o"></span><span id="cO">1</span> <s>à vérifier</s></div>
+        <div class="cnt"><span class="dot dot-y"></span><span id="cY">1</span> <s>optimisation</s></div>
+        <div class="cnt"><span class="dot dot-g"></span>5 <s>contrôles OK</s></div>
+        <div style="flex:1"></div>
+        <button class="replay" onclick="restart()">↻ Relancer le scan</button>
+      </div>
+
+      <!-- ── Constats à traiter ── -->
+      <div class="sec"><h2>Constats à traiter</h2><span id="todoLeft">3 points détectés</span></div>
+      <div id="todoList">
+
+        <!-- 🔴 ERREUR : véranda en 224 -->
+        <article class="finding sev-r" id="f-veranda">
+          <div class="f-main">
+            <div class="f-ic">🏗️</div>
+            <div class="f-body">
+              <div class="f-tags">
+                <span class="f-sev">Erreur · risque de redressement</span>
+                <span class="f-line">Ligne 224 — Réparation / amélioration</span>
+              </div>
+              <div class="f-title">Une véranda déduite comme « amélioration »</div>
+              <div class="f-exp">
+                La <em>construction d'une véranda</em> agrandit le bien : c'est de la <em>construction / agrandissement</em>,
+                <em>non déductible</em> en revenus fonciers. Elle est aujourd'hui classée en travaux d'amélioration (ligne&nbsp;224),
+                ce qui gonfle vos charges à tort. Laisser la déduction expose à un <em>redressement</em>.
+              </div>
+              <div class="f-rows">
+                <div class="f-row">
+                  <span class="dt">14/06/25</span>
+                  <span class="lib">Véranda 18 m² — Vérandas du Grand Est</span>
+                  <span class="cat">224 · Amélioration</span>
+                  <span class="mt">−9 000 €</span>
+                </div>
+              </div>
+              <div class="f-impact">
+                Impact si on retire la déduction :
+                <span>résultat foncier <b class="dn">−1 890 €</b> ➜ <b class="up">+7 110 €</b></span>
+              </div>
+            </div>
+          </div>
+          <div class="f-act">
+            <button class="btn prim" onclick="correct('veranda')">✓ Corriger — sortir de la 2044</button>
+            <button class="btn" onclick="toast('Ouverture du mouvement du 14/06/25…')">🔍 Voir le mouvement</button>
+            <span class="grow"></span>
+            <button class="btn ghost" onclick="ignore('veranda')">Ignorer (je confirme)</button>
+          </div>
+        </article>
+
+        <!-- 🟠 SUSPECT : virement interne -->
+        <article class="finding sev-o" id="f-virement">
+          <div class="f-main">
+            <div class="f-ic">🔁</div>
+            <div class="f-body">
+              <div class="f-tags">
+                <span class="f-sev">À vérifier · mouvement suspect</span>
+                <span class="f-line">2 lignes jumelles — même montant, comptes différents</span>
+              </div>
+              <div class="f-title">Un virement entre vos comptes compté comme charge</div>
+              <div class="f-exp">
+                2&nbsp;000&nbsp;€ partent du <em>CIC</em> et arrivent le même jour sur le <em>Crédit Agricole</em> :
+                c'est un <em>virement interne</em>, pas une dépense. Le compter en charge crée une
+                <em>charge fantôme</em>. À <em>exclure de la 2044</em> (sans effet sur le résultat, mais ça fausse vos totaux).
+              </div>
+              <div class="f-rows">
+                <div class="f-row twin">
+                  <span class="dt">02/09/25</span>
+                  <span class="lib">Virement CIC → Crédit Agricole</span>
+                  <span class="cat">Charge (à exclure)</span>
+                  <span class="mt">−2 000 €</span>
+                </div>
+                <div class="f-row twin">
+                  <span class="dt">02/09/25</span>
+                  <span class="lib">Réception depuis CIC</span>
+                  <span class="cat">Non classé</span>
+                  <span class="mt">+2 000 €</span>
+                </div>
+              </div>
+              <div class="f-impact">
+                Impact : <span><b>0 €</b> sur le résultat — mais nettoie vos totaux et le journal</span>
+              </div>
+            </div>
+          </div>
+          <div class="f-act">
+            <button class="btn prim" onclick="correct('virement')">✓ Marquer « virement interne »</button>
+            <button class="btn" onclick="toast('Affichage des 2 lignes jumelles du 02/09/25…')">🔍 Voir les 2 lignes</button>
+            <span class="grow"></span>
+            <button class="btn ghost" onclick="ignore('virement')">Ignorer (je confirme)</button>
+          </div>
+        </article>
+
+        <!-- 🟡 OPTIMISATION : frais de gestion -->
+        <article class="finding sev-y" id="f-gestion">
+          <div class="f-main">
+            <div class="f-ic">💼</div>
+            <div class="f-body">
+              <div class="f-tags">
+                <span class="f-sev">Optimisation · déduction oubliée</span>
+                <span class="f-line">Ligne 221 — Frais d'administration et de gestion</span>
+              </div>
+              <div class="f-title">Aucun frais de gestion / honoraires déduit cette année</div>
+              <div class="f-exp">
+                Vous n'avez <em>aucune charge</em> en ligne&nbsp;221 sur 2025. Si vous passez par une
+                <em>agence</em> ou un <em>gérant</em>, ces honoraires sont <em>déductibles</em> —
+                tout comme les frais de procédure (avocat, huissier) et les cotisations de bailleurs.
+                C'est souvent oublié, et ça réduit directement votre impôt.
+              </div>
+              <div class="f-impact">
+                Piste : <span>chaque <b>1 000 €</b> d'honoraires déduits ≈ <b class="up">−300 € d'impôt*</b> (TMI 30&nbsp;%)</span>
+              </div>
+            </div>
+          </div>
+          <div class="f-act">
+            <button class="btn prim" onclick="correct('gestion')">＋ Ajouter mes frais de gestion</button>
+            <button class="btn" onclick="toast('Filtre Mouvements : catégorie « Frais de gestion »…')">🔍 Chercher dans mes mouvements</button>
+            <span class="grow"></span>
+            <button class="btn ghost" onclick="ignore('gestion')">Pas d'agence — ignorer</button>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- ── Contrôles passés (rassurance) ── -->
+      <div class="sec"><h2>Contrôles passés</h2><span>5 vérifications OK</span></div>
+
+      <article class="finding sev-g">
+        <div class="f-main"><div class="f-ic">✅</div><div class="f-body">
+          <div class="f-tags"><span class="f-sev">Validé</span><span class="f-line">Ligne 227</span></div>
+          <div class="f-title">Taxe foncière présente — 1 850 €</div>
+          <div class="f-exp">La TF est bien enregistrée et déduite. (Rappel : la taxe d'enlèvement des ordures ménagères, elle, n'est pas déductible.)</div>
+        </div></div>
+      </article>
+
+      <article class="finding sev-g">
+        <div class="f-main"><div class="f-ic">✅</div><div class="f-body">
+          <div class="f-tags"><span class="f-sev">Validé</span><span class="f-line">Ligne 250</span></div>
+          <div class="f-title">Intérêts d'emprunt cohérents — 4 100 €</div>
+          <div class="f-exp">Le montant correspond à votre échéancier de prêt. Le <em>capital remboursé</em> a bien été exclu (non déductible).</div>
+        </div></div>
+      </article>
+
+      <article class="finding sev-g">
+        <div class="f-main"><div class="f-ic">✅</div><div class="f-body">
+          <div class="f-tags"><span class="f-sev">Validé</span><span class="f-line">Toutes lignes</span></div>
+          <div class="f-title">0 mouvement non classé</div>
+          <div class="f-exp">Chaque mouvement de l'exercice est rattaché à une catégorie — rien n'est oublié hors radar.</div>
+        </div></div>
+      </article>
+
+      <article class="finding sev-g">
+        <div class="f-main"><div class="f-ic">✅</div><div class="f-body">
+          <div class="f-tags"><span class="f-sev">Validé</span><span class="f-line">Ligne 223</span></div>
+          <div class="f-title">Assurance PNO présente — 420 €</div>
+          <div class="f-exp">La prime propriétaire non-occupant est déduite. Pensez à y inclure une éventuelle cotisation GLI.</div>
+        </div></div>
+      </article>
+
+      <article class="finding sev-g">
+        <div class="f-main"><div class="f-ic">✅</div><div class="f-body">
+          <div class="f-tags"><span class="f-sev">Validé</span><span class="f-line">Lignes 211 / 229 / 230</span></div>
+          <div class="f-title">Loyers, provisions copro & régularisation cohérents</div>
+          <div class="f-exp">Recettes 21 840 €, provisions 2 400 € et régularisation −300 € (part bailleur non récupérée → ligne 225) s'équilibrent comme attendu.</div>
+        </div></div>
+      </article>
+
+      <!-- ── Pied : figer la 2044 ── -->
+      <div class="foot">
+        <div class="ft" id="footMsg"><b>1 erreur</b> bloque encore la déclaration. Corrigez-la pour figer votre 2044 en toute sérénité.</div>
+        <button class="btn-lock" id="lockBtn" onclick="lock2044()">🔒 Figer la 2044</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   ÉTAT — chiffres du dataset démo (SCI DEMO, exercice 2025)
+   2044 « propre » : 211=21840 · 224=6200 · 227=1850 · 229=2400 · 250=4100
+   · 222 forfait=60 · 223=420 · 230=−300  →  résultat +7110 €.
+   La véranda (9000) est mal saisie en 224 : si on la garde, charges +9000
+   → résultat −1890 (faux). La corriger = la sortir = revenir à +7110 (juste).
+   ════════════════════════════════════════════════════════════════════════ */
+const TOTAL_MOUV = 142;
+const RECETTES   = 21840;
+const CHARGES_OK = 14730;          // charges déductibles correctes → +7110
+const VERANDA    = 9000;           // sur-déduction à retirer
+
+// État vivant : la véranda est-elle encore (à tort) déduite ?
+let verandaDeduite = true;         // tant que non corrigée, le « vrai » résultat affiché reste le bon (+7110) MAIS la fiabilité est < 100
+const open = { veranda:true, virement:true, gestion:true };  // constats encore ouverts
+
+const fmt = n => (n>=0?'+':'−') + Math.abs(n).toLocaleString('fr-FR') + ' €';
+
+/* ── Écran 1 : animation de scan ─────────────────────────────────────────── */
+function runScan(){
+  document.getElementById('scan').style.display='block';
+  document.getElementById('results').classList.remove('show');
+  const fill = document.getElementById('scanFill');
+  const cnt  = document.getElementById('scanCount');
+  const chips= [...document.querySelectorAll('.scan-chip')];
+  let p = 0;
+  fill.style.width='0%';
+  chips.forEach(c=>c.classList.remove('on'));
+  cnt.innerHTML = '<b>0</b> / '+TOTAL_MOUV+' mouvements analysés';
+
+  const iv = setInterval(()=>{
+    p += Math.random()*7 + 4;
+    if(p>100) p=100;
+    fill.style.width = p+'%';
+    const done = Math.round(TOTAL_MOUV * p/100);
+    cnt.innerHTML = '<b>'+done+'</b> / '+TOTAL_MOUV+' mouvements analysés';
+    // allume les étapes au fil de la barre
+    const stepIdx = Math.min(chips.length, Math.floor(p/20));
+    chips.forEach((c,i)=>{ if(i<stepIdx) c.classList.add('on'); });
+    if(p>=100){
+      clearInterval(iv);
+      chips.forEach(c=>c.classList.add('on'));
+      setTimeout(showResults, 420);
+    }
+  }, 110);
+}
+function showResults(){
+  document.getElementById('scan').style.display='none';
+  const r = document.getElementById('results');
+  r.classList.add('show');
+  refresh();   // pose la jauge à 78 %
+}
+
+/* ── Jauge + résultat : recalculés à chaque action ───────────────────────── */
+const GAUGE_LEN = 198;  // longueur de l'arc (≈ π·63)
+
+function refresh(){
+  // Fiabilité : 100 % si plus AUCUNE erreur (rouge) ouverte ; sinon 78 %.
+  // (les constats orange/jaune n'empêchent pas de figer, mais on les compte
+  //  dans le décompte. Seule l'erreur rouge bloque le verrou.)
+  const erreurOuverte = open.veranda;            // la seule sev-r
+  const score = erreurOuverte ? 78 : 100;
+
+  const fillEl = document.getElementById('gaugeFill');
+  const offset = GAUGE_LEN * (1 - score/100);
+  fillEl.style.strokeDasharray = GAUGE_LEN;
+  fillEl.style.strokeDashoffset = offset;
+  fillEl.style.stroke = score>=100 ? 'var(--grn)' : 'var(--ora)';
+
+  document.getElementById('gaugeNum').innerHTML = score+'<s>%</s>';
+
+  const st  = document.getElementById('gaugeSt');
+  const msg = document.getElementById('gaugeMsg');
+  if(score>=100){
+    st.textContent = 'Aucune erreur';
+    st.style.color = 'var(--grn)';
+    msg.innerHTML = '2044 fiable à <b>100&nbsp;%</b>. Toutes les erreurs sont corrigées — vous pouvez figer la déclaration en toute sérénité.';
+  } else {
+    st.textContent = '1 erreur à corriger';
+    st.style.color = 'var(--ora)';
+    msg.innerHTML = '2044 fiable à <b>78&nbsp;%</b>. Une erreur a un impact direct sur votre résultat foncier — corrigez-la pour atteindre 100&nbsp;%.';
+  }
+
+  // Résultat foncier : le bon résultat est +7110. La véranda est déjà neutralisée
+  // dans CHARGES_OK ; tant qu'elle n'est pas corrigée, on signale le risque.
+  const resultat = RECETTES - CHARGES_OK;   // = 7110
+  document.getElementById('resV').innerHTML = fmt(resultat).replace('€','<span class="c"> €</span>');
+  const flag = document.getElementById('resFlag');
+  const sub  = document.getElementById('resSub');
+  if(erreurOuverte){
+    flag.className = 'res-flag bad';
+    flag.innerHTML = '⚠ +9 000 € déduits à tort';
+    sub.innerHTML = 'Si la véranda reste en 224 : résultat affiché <b style="color:var(--red)">−1 890 €</b> (faux). À corriger.';
+  } else {
+    flag.className = 'res-flag good';
+    flag.innerHTML = '✓ cohérent';
+    sub.innerHTML = RECETTES.toLocaleString('fr-FR')+' € recettes − '+CHARGES_OK.toLocaleString('fr-FR')+' € charges déductibles';
+  }
+
+  // Décompte des cartes encore ouvertes
+  const r = open.veranda?1:0, o = open.virement?1:0, y = open.gestion?1:0;
+  document.getElementById('cR').textContent = r;
+  document.getElementById('cO').textContent = o;
+  document.getElementById('cY').textContent = y;
+  const left = r+o+y;
+  document.getElementById('todoLeft').textContent = left>0 ? (left+' point'+(left>1?'s':'')+' détecté'+(left>1?'s':'')) : 'Tout est traité 🎉';
+
+  // Verrou : on autorise à figer dès qu'il n'y a plus d'ERREUR rouge.
+  const lock = document.getElementById('lockBtn');
+  const foot = document.getElementById('footMsg');
+  if(!erreurOuverte){
+    lock.classList.add('ready');
+    foot.innerHTML = '<b>Aucune erreur bloquante.</b> Votre 2044 est prête à être figée et exportée.';
+  } else {
+    lock.classList.remove('ready');
+    foot.innerHTML = '<b>1 erreur</b> bloque encore la déclaration. Corrigez-la pour figer votre 2044 en toute sérénité.';
+  }
+}
+
+/* ── Corriger / Ignorer un constat → la carte disparaît, la jauge réagit ──── */
+const LABELS = {
+  veranda:  'Véranda sortie de la 2044 — sur-déduction corrigée ✓',
+  virement: 'Virement interne exclu de la déclaration ✓',
+  gestion:  'Pensez à saisir vos honoraires d\'agence dans Mouvements ✓'
+};
+function closeCard(key){
+  const el = document.getElementById('f-'+key);
+  if(!el) return;
+  el.style.maxHeight = el.offsetHeight+'px';   // fige la hauteur pour animer vers 0
+  requestAnimationFrame(()=> el.classList.add('gone'));
+  setTimeout(()=>{ el.remove(); }, 480);
+  open[key] = false;
+}
+function correct(key){
+  if(key==='veranda') verandaDeduite = false;
+  closeCard(key);
+  toast(LABELS[key]);
+  setTimeout(refresh, 60);
+}
+function ignore(key){
+  closeCard(key);
+  toast('Constat ignoré — vous confirmez assumer ce choix.');
+  setTimeout(refresh, 60);
+}
+
+/* ── Figer la 2044 (seulement si plus d'erreur rouge) ────────────────────── */
+function lock2044(){
+  if(open.veranda){ toast('Corrigez d\'abord l\'erreur 🔴 avant de figer.'); return; }
+  toast('🔒 2044 figée — résultat foncier +7 110 € · prête à exporter');
+}
+
+/* ── Toast util ──────────────────────────────────────────────────────────── */
+let tT;
+function toast(m){
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = m;
+  t.classList.add('on');
+  clearTimeout(tT);
+  tT = setTimeout(()=> t.classList.remove('on'), 2600);
+}
+
+/* ── Relancer depuis zéro ────────────────────────────────────────────────── */
+function restart(){ location.reload(); }
+
+/* GO */
+runScan();
+</script>
+</body>
+</html>
