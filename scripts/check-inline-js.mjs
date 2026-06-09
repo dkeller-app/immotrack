@@ -11,7 +11,10 @@ let m, ok = 0, errors = 0;
 while ((m = re.exec(stripped)) !== null) {
   const code = m[1].trim();
   if (!code) continue;
-  if (code.startsWith('window._BAIL_PDF_LIBS')) continue;
+  // v15.266 — NE PLUS sauter _BAIL_PDF_LIBS. C'est précisément ce bloc (virgule manquante
+  // avant la clé `pdfLib`, introduite en v15.263) qui a cassé TOUTE la génération PDF en prod
+  // (window._BAIL_PDF_LIBS jamais défini) sans que le CI ne le voie — il était le seul exclu.
+  // `new Function` COMPILE sans exécuter : valide la syntaxe, ne décode aucun base64.
   try { new Function(code); ok++; }
   catch(e) { console.error('FAIL :', e.message); errors++; }
 }
