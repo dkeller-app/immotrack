@@ -2026,7 +2026,13 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <!-- Styles scopés #ov-fiche-candidat (isolation totale le temps du sandbox dédié ;
      à consolider dans le bloc candidature de css/main.css lors de la propagation prod, Phase 8). -->
 <style>
-#ov-fiche-candidat .modal{max-width:920px}
+#ov-fiche-candidat .modal{width:92vw;max-width:1280px}
+/* Variante A — données (gauche) + colonne décision collée (droite) */
+#ov-fiche-candidat .fc-layout{display:grid;grid-template-columns:1.7fr 1fr;gap:18px;align-items:start}
+#ov-fiche-candidat .fc-main{min-width:0;display:flex;flex-direction:column;gap:16px}
+#ov-fiche-candidat .fc-side{position:sticky;top:8px;align-self:start;display:flex;flex-direction:column;gap:16px;min-width:0}
+#ov-fiche-candidat .fc-main>.card,#ov-fiche-candidat .fc-side>.card,#ov-fiche-candidat .fc-main>.fc-g2{margin-bottom:0}
+#ov-fiche-candidat .fc-sub-stack{display:flex;flex-direction:column;gap:14px}
 #ov-fiche-candidat .fc-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 #ov-fiche-candidat .fc-id{display:flex;align-items:center;gap:14px}
 #ov-fiche-candidat .fc-av{width:48px;height:48px;font-size:17px}
@@ -2076,7 +2082,16 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 #ov-fiche-candidat .toggle .track::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s}
 #ov-fiche-candidat .toggle.on .track{background:var(--grn)}
 #ov-fiche-candidat .toggle.on .track::after{transform:translateX(18px)}
+@media (max-width:1000px){
+  #ov-fiche-candidat .fc-layout{grid-template-columns:1fr}
+  #ov-fiche-candidat .fc-side{position:static}
+}
 @media (max-width:680px){#ov-fiche-candidat .fc-g2{grid-template-columns:1fr}#ov-fiche-candidat .score-hero{flex-direction:column;align-items:flex-start}#ov-fiche-candidat .crit .cbar{width:80px}}
+@media (max-width:560px){
+  #ov-fiche-candidat .modal{width:96vw}
+  #ov-fiche-candidat .fc-actions .btn{flex:1 1 100%}
+  #ov-fiche-candidat .step{min-width:64px}
+}
 /* ── T13d notification candidatures ── */
 .cand-inbox{display:flex;align-items:center;gap:14px;background:var(--bg-info,rgba(59,126,246,.10));border:1.5px solid rgba(59,126,246,.3);border-radius:var(--rl,14px);padding:14px 16px;margin:0 0 16px}
 .cand-inbox .ci-ic{width:40px;height:40px;border-radius:10px;background:var(--blu,#3b7ef6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
@@ -15157,10 +15172,12 @@ function openFicheCandidat(id){
       <button class="btn bs bb" onclick="_editCandidatFromFiche('${c.id}')">✏ Modifier</button>
     </div>
 
-    <div class="card mb16">
+    <div class="fc-layout">
+      <div class="fc-main">
+    <div class="card">
       <div class="ct" style="margin-top:0">Pipeline de candidature</div>
       <div class="stepper">${stepsHtml}</div>
-      <div class="flex-c" style="gap:8px;flex-wrap:wrap;margin-top:18px">${actionsHtml}</div>
+      <div class="flex-c fc-actions" style="gap:8px;flex-wrap:wrap;margin-top:18px">${actionsHtml}</div>
       ${complBanner}
     </div>
 
@@ -15177,6 +15194,7 @@ function openFicheCandidat(id){
           <div class="k">Adresse précédente</div><div class="v">${escHtml(c.adressePrecedente||'—')}</div>
         </div>
       </div>
+      <div class="fc-sub-stack">
       <div class="card">
         <div class="ct" style="margin-top:0">Situation</div>
         <div class="kv-grid">
@@ -15186,16 +15204,16 @@ function openFicheCandidat(id){
           <div class="k">Ratio revenus / loyer</div><div class="v">${ratioTxt}</div>
         </div>
       </div>
-    </div>
-
-    <div class="fc-g2">
       <div class="card">
         <div class="ct" style="margin-top:0">Garant</div>
         ${garantHtml}
       </div>
-      <div class="card">
-        <div class="flex-b" style="margin-bottom:12px">
-          <div class="ct" style="margin:0">Pièces du dossier</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="flex-b" style="margin-bottom:12px">
+        <div class="ct" style="margin:0">Pièces du dossier</div>
           <label class="toggle ${verifie?'on':''}" onclick="toggleCandidatPiecesVerifiees('${c.id}')" title="Tant que ce n'est pas activé, les données restent déclaratives">
             <span class="track"></span><span class="sm" style="font-weight:600">Pièces vérifiées</span>
           </label>
@@ -15203,9 +15221,9 @@ function openFicheCandidat(id){
         ${piecesFlags}
         <div style="margin-top:14px">${gedHtml}</div>
       </div>
-    </div>
-
-    <div class="card mb16">
+      </div>
+      <div class="fc-side">
+    <div class="card">
       <div class="flex-c" style="gap:8px;margin-bottom:16px">
         <div class="ct" style="margin:0">Score de confiance</div>
         <div class="tip-wrap" onclick="this.classList.toggle('show')"><span class="tip-ic">?</span><div class="tip-pop">${escHtml(tipTxt)}</div></div>
@@ -15223,6 +15241,8 @@ function openFicheCandidat(id){
     </div>
 
     ${convHtml}
+      </div>
+    </div>
   `;
   openM('ov-fiche-candidat');
 }
