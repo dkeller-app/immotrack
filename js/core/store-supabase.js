@@ -19,6 +19,10 @@
 //       update     = `UPDATE … SET … WHERE id=? AND version=? AND deleted_at IS NULL RETURNING version`
 //                    (0 ligne→null : version périmée OU tombstone → pas de résurrection).
 //       softDelete = `UPDATE … SET deleted_at=now() WHERE id=? AND version=? RETURNING version`.
+//     NB (audit Minor) : un insert→null peut signaler une ligne TOMBSTONE (soft-deleted, donc
+//       exclue de fetchTable / absente de _versions) occupant déjà l'id déterministe (ex. ref
+//       recréée) → conflit FAIL-CLOSED (jamais d'écrasement ni de résurrection). Le caller P3
+//       résout (un-delete ou fetch version), ce n'est pas un défaut de sécurité de ce module.
 //   detUuid(...parts), espaceId, ownerId : ctx du mapping (cf. store-mapping.js).
 //
 // ⚠️ Collections portées par la CONFIG (espace_config), pas par une table : en plus de la
@@ -114,7 +118,7 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, detUuid, 
     const nv = await writer.softDelete(table, row.id, _versions.get(row.id))
     if (nv == null) return { status: 'conflict', id: row.id }
     _versions.set(row.id, nv)
-    return { status: 'deleted', id: row.id }
+    return { status: 'deleted', id: row.id, version: nv }
   }
 
   return { hydrate, attach, upsert, remove, buildResolvers }

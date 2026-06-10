@@ -203,4 +203,15 @@ describe('SupabaseStore.upsert/remove — écriture + concurrence par version', 
     const r = await s.remove('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
     expect(r.status).toBe('conflict')
   })
+
+  it('réutilisation d\'un id TOMBSTONE (soft-deleted, non hydraté) → conflit fail-closed, tombstone intact', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    // un logement supprimé (tombstone) occupe déjà l'id déterministe ; exclu de fetchTable → _versions vide
+    w._tbl.set('logements', new Map([['uuid:logement|f-1', { row: { deleted_at: 'x' }, version: 3 }]]))
+    const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 5 })
+    expect(r.status).toBe('conflict')
+    expect(w._tbl.get('logements').get('uuid:logement|f-1').row.deleted_at).toBe('x')   // tombstone intact
+  })
 })
