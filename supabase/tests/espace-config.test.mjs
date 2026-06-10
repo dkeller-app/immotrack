@@ -54,7 +54,9 @@ describe('espace_config — config par espace, isolée', () => {
     const { error } = await clientB.from('espace_config')
       .insert({ espace_id: espaceA, data: { hack: true } })
     expect(error).not.toBeNull()
-    expect(error.message).toMatch(/row-level security|violates/i)
+    // resserré (audit Minor #1) : refus RLS spécifique (42501), pas un duplicate-key qui
+    // matcherait « violates » et masquerait une régression de la policy INSERT.
+    expect(error.code === '42501' || /row-level security/i.test(error.message)).toBe(true)
   })
 
   it('Bob écrit SA propre config (non-régression)', async () => {
