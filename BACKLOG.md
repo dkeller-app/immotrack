@@ -472,6 +472,13 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 
 ## ✅ Livré récemment
 
+### FIX-CLOSEBG-CLIC-DEHORS — un clic en dehors d'une modale ne ferme plus (anti perte de saisie) (2026-06-09, v15.268)
+> **Demande user** : « dès qu'on clique en dehors de la bulle, la fenêtre se ferme » — sur **tous les pop-up**. Risque = perte de saisie (et bientôt les PDF en attente du bug 1 dépôt-avant-save).
+> - **Cause** : `closeBg(e,id){ if(e.target===el(id)) closeM(id); }` — 1 fonction partagée, branchée sur **54 modales `.ov`** via `onclick="closeBg(event,'…')"`.
+> - **Fix** : `closeBg` rendue **inerte** → plus aucune modale ne ferme au clic sur le fond ; fermeture via ✕ / Annuler / Enregistrer. **No-trap vérifié** : les 54 modales ont toutes un `closeM`. `_closeBailWizardBg` (wrapper backdrop `ov-bail`) rendu inerte aussi (sinon un clic-fond effaçait `_pendingCandidatConv` sans fermer ; cette conversion candidat n'est nettoyée qu'à une vraie fermeture `_closeBailWizard`/✕ ou un `openBail`).
+> - **Hors-scope (laissé exprès)** : menus de navigation (`more-ov`, `sb-backdrop`) → tap sur le fond = ferme (UX mobile normale, aucune donnée perdue).
+> - **Vérifs** : check-inline-js **5/0** · `node --check sw.js` OK · 0 appel `closeBg` résiduel · aucun autre pattern backdrop (`target===this`) · parité `index.html`+`index-test.html`. Worktree off `origin/main` (v15.267 après b1), commit `d92ff18` → FF push → **origin/main = v15.268**.
+
 ### HOTFIX-PDF-LIBS-COMMA — virgule manquante cassait TOUTE la génération PDF en prod (2026-06-09, v15.266) · P0
 > **Bug user** (console live, déployé) : dépôt d'un PDF de diagnostic → toast `Lecture auto du PDF impossible (pdfjs base64 introuvable (window._BAIL_PDF_LIBS.pdfjs))`. Le DPE ne se remplit pas (« rien n'est repris »).
 > - **Cause racine** : `Uncaught SyntaxError: Unexpected identifier 'pdfLib'` (index.html L14). La valeur `pdfjsWorker` (L13) du bloc inline `window._BAIL_PDF_LIBS = {…}` n'avait **pas de virgule** avant la clé `pdfLib` ajoutée en v15.263 (`bail-sign-c3`, « pdf-lib vendored »). Le `<script>` entier plantait → `window._BAIL_PDF_LIBS` **undefined** → **pdf.js, lecture auto DPE, génération bail PDF ET quittances PDF cassés** en prod (v15.263→265). 1 caractère.
