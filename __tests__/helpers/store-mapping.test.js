@@ -1,0 +1,64 @@
+import { describe, it, expect } from 'vitest'
+import { mapToRow } from '../../js/core/store-mapping.js'
+
+// ctx minimal : ids déterministes simulés + resolvers (maps clé→uuid) injectés.
+const ctx = () => ({
+  espaceId: 'ESP', ownerId: 'OWN',
+  detUuid: (...p) => 'uuid:' + p.join('|'),
+  entiteByNom: new Map([['sci a', 'uuid:entite|sci a']]),
+  immeubleByNom: new Map([['imm1', 'uuid:immeuble|imm1']]),
+  logementByRef: new Map([['f-1', 'uuid:logement|f-1']]),
+  documentByLegacy: new Map([['900', 'uuid:document|900']]),
+})
+
+describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
+  it('logements : résout entite (nom) + immeuble (nom), colonnes typées + legacy_raw', () => {
+    const r = mapToRow('logements', { id: 10, ref: 'F-1', entity: 'SCI A', imm: 'Imm1', surf: 42, loyerHcRef: 700 }, ctx())
+    expect(r.id).toBe('uuid:logement|f-1')
+    expect(r.entite_id).toBe('uuid:entite|sci a')
+    expect(r.immeuble_id).toBe('uuid:immeuble|imm1')
+    expect(r.ref).toBe('F-1'); expect(r.surface).toBe(42); expect(r.loyer_hc_ref).toBe(700)
+    expect(r.espace_id).toBe('ESP'); expect(r.legacy_id).toBe('10')
+    expect(JSON.parse(r.legacy_raw).ref).toBe('F-1')
+  })
+
+  it('logements : entité non résolue → null (skip)', () => {
+    expect(mapToRow('logements', { id: 1, ref: 'X', entity: 'Inconnue' }, ctx())).toBeNull()
+  })
+
+  it('mouvements : qui=ref logement → logement_id ; imm → immeuble_id', () => {
+    const r = mapToRow('mouvements', { id: 5, date: '2026-01-15', qui: 'F-1', imm: 'Imm1', cat: 'loyer', cr: 800, db: 0 }, ctx())
+    expect(r.logement_id).toBe('uuid:logement|f-1'); expect(r.entite_id == null).toBe(true)
+    expect(r.immeuble_id).toBe('uuid:immeuble|imm1'); expect(r.credit).toBe(800); expect(r.date_mouvement).toBe('2026-01-15')
+  })
+
+  it('mouvements : qui="SCI:"+nom → entite_id (jamais logement+entite)', () => {
+    const r = mapToRow('mouvements', { id: 6, date: '2026-01-01', qui: 'SCI:SCI A', imm: 'Imm1', db: 10 }, ctx())
+    expect(r.entite_id).toBe('uuid:entite|sci a'); expect(r.logement_id == null).toBe(true)
+  })
+
+  it('mouvements : sans date → null (date_mouvement NOT NULL)', () => {
+    expect(mapToRow('mouvements', { id: 7, qui: 'F-1' }, ctx())).toBeNull()
+  })
+
+  it('baux : clé map (ref logement) → logement_id, signed_at depuis signatures', () => {
+    const r = mapToRow('baux', { __key: 'F-1', entity: 'SCI A', hc: 700, signatures: { signedAt: '2026-02-01T10:00:00Z' } }, ctx())
+    expect(r.id).toBe('uuid:bail|f-1'); expect(r.logement_id).toBe('uuid:logement|f-1')
+    expect(r.legacy_ref).toBe('F-1'); expect(r.signed_at).toMatch(/^2026-02-01/)
+  })
+
+  it('quittances : logement requis (NOT NULL) → null si non résolu', () => {
+    expect(mapToRow('quittances', { id: 1, logement: 'INCONNU', mois: '2026-01' }, ctx())).toBeNull()
+    const r = mapToRow('quittances', { id: 2, logement: 'F-1', entity: 'SCI A', mois: '2026-01', hc: 700, ch: 100 }, ctx())
+    expect(r.logement_id).toBe('uuid:logement|f-1'); expect(r.mois).toBe('2026-01')
+  })
+
+  it('assurances : depuis mrh, FK logement', () => {
+    const r = mapToRow('assurances', { id: 3, logement: 'F-1', compagnie: 'AXA', numContrat: 'C1', prime: 180 }, ctx())
+    expect(r.logement_id).toBe('uuid:logement|f-1'); expect(r.compagnie).toBe('AXA'); expect(r.num_contrat).toBe('C1')
+  })
+
+  it('collection inconnue → throw', () => {
+    expect(() => mapToRow('bidon', {}, ctx())).toThrow()
+  })
+})
