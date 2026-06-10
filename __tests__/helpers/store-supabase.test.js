@@ -93,9 +93,11 @@ function mockWriter() {
   const T = n => { if (!tbl.has(n)) tbl.set(n, new Map()); return tbl.get(n) }
   return {
     _tbl: tbl, inserts: [], updates: [], deletes: [],
-    async insert(table, row) { T(table).set(row.id, { row, version: 1 }); this.inserts.push([table, row.id]) },
-    async update(table, id, row, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer) return null; c.version++; c.row = row; this.updates.push([table, id, c.version]); return c.version },
-    async softDelete(table, id, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer) return null; c.version++; c.row.deleted_at = 'x'; this.deletes.push([table, id]); return c.version },
+    // INSERT fail-closed : null si l'id existe déjà (ON CONFLICT DO NOTHING RETURNING version).
+    async insert(table, row) { const t = T(table); if (t.has(row.id)) return null; t.set(row.id, { row, version: 1 }); this.inserts.push([table, row.id]); return 1 },
+    // UPDATE gardé par version ET deleted_at IS NULL (anti-résurrection §7/D20).
+    async update(table, id, row, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer || c.row.deleted_at) return null; c.version++; c.row = row; this.updates.push([table, id, c.version]); return c.version },
+    async softDelete(table, id, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer) return null; c.version++; c.row = { ...c.row, deleted_at: 'x' }; this.deletes.push([table, id]); return c.version },
   }
 }
 const detUuid = (...p) => 'uuid:' + p.join('|')
@@ -160,5 +162,45 @@ describe('SupabaseStore.upsert/remove — écriture + concurrence par version', 
     const r = await s.remove('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
     expect(r.status).toBe('deleted')
     expect(w.deletes).toContainEqual(['logements', 'uuid:logement|f-1'])
+  })
+
+  // ── trous trouvés par l'audit (NON-PASSANT → corrigés) ──────────────────────
+  it('CRITICAL : id existant en base mais NON tracké → conflit, PAS d\'écrasement silencieux', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    // ligne présente côté serveur (v5) mais jamais hydratée → _versions vide
+    w._tbl.set('logements', new Map([['uuid:logement|f-1', { row: { hc: 700 }, version: 5 }]]))
+    const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 99 })
+    expect(r.status).toBe('conflict')                                               // jamais 'inserted'
+    expect(w._tbl.get('logements').get('uuid:logement|f-1').version).toBe(5)          // intacte
+  })
+
+  it('anti-résurrection : UPDATE sur une ligne soft-deleted → conflit', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
+    await s.remove('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })             // soft-deleted
+    const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 1 })
+    expect(r.status).toBe('conflict')                                               // pas de résurrection
+  })
+
+  it('remove d\'une ligne NON trackée → conflit (refus, pas de delete deviné)', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    const r = await s.remove('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
+    expect(r.status).toBe('conflict'); expect(w.deletes.length).toBe(0)
+  })
+
+  it('remove STALE (version périmée) → conflit', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
+    w._tbl.get('logements').get('uuid:logement|f-1').version = 9
+    const r = await s.remove('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
+    expect(r.status).toBe('conflict')
   })
 })

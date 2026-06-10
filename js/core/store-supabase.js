@@ -10,8 +10,15 @@
 //   fetchTable(name) → Promise<Array<{ legacy_raw, id?, version? }>>
 //     ⚠️ DOIT exclure les soft-deleted (deleted_at IS NOT NULL).
 //   fetchConfig()    → Promise<object>   (espace_config.data, ou {})
-//   writer = { insert(table,row), update(table,id,row,expVer)→newVer|null,
-//              softDelete(table,id,expVer)→newVer|null }   (null = version périmée = conflit)
+//   writer = { insert(table,row)→newVer|null, update(table,id,row,expVer)→newVer|null,
+//              softDelete(table,id,expVer)→newVer|null }   (null = CONFLIT : id déjà présent
+//              côté serveur OU version périmée).
+//     ⚠️ SQL réel OBLIGATOIRE (anti-perte silencieuse, anti-résurrection, §7/D20) :
+//       insert     = `INSERT … ON CONFLICT (id) DO NOTHING RETURNING version` (0 ligne→null=conflit,
+//                    ne JAMAIS écraser une ligne existante → l'app re-hydrate puis UPDATE).
+//       update     = `UPDATE … SET … WHERE id=? AND version=? AND deleted_at IS NULL RETURNING version`
+//                    (0 ligne→null : version périmée OU tombstone → pas de résurrection).
+//       softDelete = `UPDATE … SET deleted_at=now() WHERE id=? AND version=? RETURNING version`.
 //   detUuid(...parts), espaceId, ownerId : ctx du mapping (cf. store-mapping.js).
 //
 // ⚠️ Collections portées par la CONFIG (espace_config), pas par une table : en plus de la
@@ -88,17 +95,23 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, detUuid, 
       _versions.set(row.id, nv)
       return { status: 'updated', id: row.id, version: nv }
     }
-    await writer.insert(table, row)
-    _versions.set(row.id, 1)
-    return { status: 'inserted', id: row.id }
+    // INSERT fail-closed : si l'id existe déjà côté serveur (ligne non trackée — mouvements
+    // paginés, gap Realtime, autre onglet), writer.insert renvoie null → CONFLIT (jamais
+    // d'écrasement silencieux ni de LWW). L'app re-hydrate → la ligne sera alors trackée → UPDATE.
+    const nv = await writer.insert(table, row)
+    if (nv == null) return { status: 'conflict', id: row.id }
+    _versions.set(row.id, nv)
+    return { status: 'inserted', id: row.id, version: nv }
   }
 
-  // remove : soft-delete gardé par version (jamais de DELETE physique).
+  // remove : soft-delete gardé par version (jamais de DELETE physique). Opération DESTRUCTIVE
+  // → on REFUSE si la version est inconnue (ligne non hydratée) plutôt que de deviner.
   async function remove(legacyColl, rec) {
     const table = tableOf(legacyColl)
     const row = mapToRow(table, rec, ctx())
     if (!row) return { status: 'skipped' }
-    const nv = await writer.softDelete(table, row.id, _versions.has(row.id) ? _versions.get(row.id) : 1)
+    if (!_versions.has(row.id)) return { status: 'conflict', id: row.id }   // version inconnue → re-hydrater d'abord
+    const nv = await writer.softDelete(table, row.id, _versions.get(row.id))
     if (nv == null) return { status: 'conflict', id: row.id }
     _versions.set(row.id, nv)
     return { status: 'deleted', id: row.id }
