@@ -7,8 +7,9 @@
 // ctx (injecté) :
 //   espaceId, ownerId : valeurs posées sur chaque ligne.
 //   detUuid(...parts) : uuid déterministe (même (collection,clé) → même uuid → upsert idempotent).
-//   entiteByNom / immeubleByNom / logementByRef : Map clé(legacy) → uuid (resolvers FK),
-//     construites depuis le DB en mémoire au runtime (ou depuis l'export à l'import).
+//   entiteByNom / immeubleByNom / logementByRef : Map PLATE clé(legacy)→uuid (resolvers FK).
+//     ⚠️ `.get(clé)` renvoie DIRECTEMENT l'uuid (PAS un objet {uuid,…}). Construites depuis le
+//     DB en mémoire au runtime (ou depuis l'export à l'import).
 //   documentByLegacy : Map (legacy doc id) → uuid (pour pj_document_id).
 //
 // Renvoie la ligne (objet col→valeur) ou `null` si une colonne NOT NULL ne peut être remplie
@@ -74,7 +75,10 @@ const MAPPERS = {
     return { id: ctx.detUuid('bail', norm(o.__key)), legacy_ref: o.__key, logement_id: log, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, type_bail: null, hc: num(o.hc), ch: num(o.ch), dg: num(o.dg), jour_paiement: num(o.jpay), date_debut: dateOnly(o.debut), date_fin: dateOnly(o.fin), date_fin_effective: dateOnly(o.finEffective), locataires: jb(o.locataires ?? []), garants: jb(o.signataires ?? null), signatures: jb(o.signatures ?? null), signed_at: sig ? ts(sig.signedAt) : null, notes: o.notes ?? null, quitt_auto_gen: !!o.quittAutoGen, ...base(o, ctx) }
   },
   baux_historique(o, ctx) {
-    return { id: ctx.detUuid('bailhist', String(o.ref ?? '') + '|' + (o._archivedAt ?? '')), legacy_ref: o.ref ?? null, logement_id: ctx.logementByRef.get(norm(o.ref)) || null, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, archived_at: ts(o._archivedAt) || null, bail_snapshot: jb(o), ...base(o, ctx) }
+    // archived_at est NOT NULL ; fallback déterministe (jamais null, jamais clock-dépendant) —
+    // identique à l'ETL import.mjs. La CLÉ d'id reste `ref|_archivedAt??''` (matche les rows importées).
+    const archived_at = ts(o._archivedAt) || ts(o._modifiedAt) || '1970-01-01T00:00:00.000Z'
+    return { id: ctx.detUuid('bailhist', String(o.ref ?? '') + '|' + (o._archivedAt ?? '')), legacy_ref: o.ref ?? null, logement_id: ctx.logementByRef.get(norm(o.ref)) || null, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, archived_at, bail_snapshot: jb(o), ...base(o, ctx) }
   },
   edl(o, ctx) {
     const log = ctx.logementByRef.get(norm(o.logement)); if (!log) return null

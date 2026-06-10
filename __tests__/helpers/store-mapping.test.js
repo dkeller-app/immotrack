@@ -58,6 +58,25 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(r.logement_id).toBe('uuid:logement|f-1'); expect(r.compagnie).toBe('AXA'); expect(r.num_contrat).toBe('C1')
   })
 
+  it('baux_historique : archived_at NON-NULL déterministe (audit #1), jamais null', () => {
+    expect(mapToRow('baux_historique', { ref: 'F-1', entity: 'SCI A', _archivedAt: '2026-03-01' }, ctx()).archived_at).toMatch(/^2026-03-01/)
+    expect(mapToRow('baux_historique', { ref: 'F-1', _modifiedAt: '2026-04-01' }, ctx()).archived_at).toMatch(/^2026-04-01/)
+    expect(mapToRow('baux_historique', { ref: 'F-1' }, ctx()).archived_at).toBe('1970-01-01T00:00:00.000Z')
+  })
+
+  it('documents : parent polymorphe résolu selon parentType', () => {
+    const c = ctx()
+    expect(mapToRow('documents', { id: 1, parentType: 'logement', parentRef: 'F-1' }, c).parent_id).toBe('uuid:logement|f-1')
+    expect(mapToRow('documents', { id: 2, parentType: 'immeuble', parentRef: 'Imm1' }, c).parent_id).toBe('uuid:immeuble|imm1')
+    expect(mapToRow('documents', { id: 3, parentType: 'entite', parentRef: 'SCI A' }, c).parent_id).toBe('uuid:entite|sci a')
+    expect(mapToRow('documents', { id: 4, parentType: 'mouvement', parentId: 50 }, c).parent_id).toBe('uuid:mouvement|50')
+  })
+
+  it('mapping déterministe : même entrée → sortie identique (idempotence upsert)', () => {
+    const rec = { id: 10, ref: 'F-1', entity: 'SCI A', surf: 42 }
+    expect(mapToRow('logements', rec, ctx())).toEqual(mapToRow('logements', rec, ctx()))
+  })
+
   it('collection inconnue → throw', () => {
     expect(() => mapToRow('bidon', {}, ctx())).toThrow()
   })
