@@ -21,11 +21,12 @@ export function closeM(id) {
   if (el) el.classList.add('hidden');
 }
 
-/** Helper pour click-outside : ferme uniquement si target = wrapper. */
-export function closeBg(e, id) {
-  const el = document.getElementById(id);
-  if (e.target === el) closeM(id);
-}
+/** Helper click-outside — DÉSACTIVÉ (décision user) : un clic en dehors d'une modale ne ferme
+ *  PLUS, pour éviter toute perte de saisie. Fermeture via ✕ / Annuler / Enregistrer.
+ *  Signature gardée (utilisée par ~54 wrappers `onclick="closeBg(event,'ov-X')"`).
+ *  NB : c'est CETTE version (module, exposée par main.js → window.closeBg) qui s'exécute au
+ *  runtime ; le `closeBg` inline d'index.html est écrasé au boot et n'est qu'un fallback. */
+export function closeBg(e, id) { /* no-op : clic dehors ne ferme plus */ }
 
 /** Wrapper simple sur window.confirm — utilisé pour confirm dialogs. */
 export function confirm2(msg) {
