@@ -15,7 +15,9 @@ import { renderDossierPage, renderDossierError } from './dossier-page.js';
 const app = new Hono();
 
 // CORS — l'app ImmoTrack appelle le relais en cross-origin avec en-têtes custom.
-const ALLOWED_ORIGINS = ['https://didierkeller.github.io', 'null'];
+// Origine PROD réelle = https://dkeller-app.github.io (repo GitHub dkeller-app/immotrack).
+// 'null' = frames sandboxées / file:// (tests locaux). didierkeller.github.io conservé (alias éventuel).
+const ALLOWED_ORIGINS = ['https://dkeller-app.github.io', 'https://didierkeller.github.io', 'null'];
 app.use('*', cors({
   origin: (origin) => {
     if (!origin) return undefined;
