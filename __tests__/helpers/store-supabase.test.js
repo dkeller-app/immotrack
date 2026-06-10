@@ -86,3 +86,79 @@ describe('SupabaseStore.hydrate — reconstruit le DB legacy depuis les tables',
     expect(db.entites).toEqual([]); expect(db.baux).toEqual({})
   })
 })
+
+// writer mock = simule la couche DB (Map table→id→{row,version}) avec concurrence par version.
+function mockWriter() {
+  const tbl = new Map()
+  const T = n => { if (!tbl.has(n)) tbl.set(n, new Map()); return tbl.get(n) }
+  return {
+    _tbl: tbl, inserts: [], updates: [], deletes: [],
+    async insert(table, row) { T(table).set(row.id, { row, version: 1 }); this.inserts.push([table, row.id]) },
+    async update(table, id, row, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer) return null; c.version++; c.row = row; this.updates.push([table, id, c.version]); return c.version },
+    async softDelete(table, id, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer) return null; c.version++; c.row.deleted_at = 'x'; this.deletes.push([table, id]); return c.version },
+  }
+}
+const detUuid = (...p) => 'uuid:' + p.join('|')
+function storeWith(writer, db) {
+  const s = createSupabaseStore({
+    fetchTable: async () => [], fetchConfig: async () => ({}),
+    writer, detUuid, espaceId: 'ESP', ownerId: 'OWN',
+  })
+  s.attach(db)
+  return s
+}
+
+describe('SupabaseStore.upsert/remove — écriture + concurrence par version', () => {
+  it('upsert d\'un nouvel enregistrement → insert + version trackée', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 42 })
+    expect(r.status).toBe('inserted')
+    expect(w.inserts).toContainEqual(['logements', 'uuid:logement|f-1'])
+  })
+
+  it('upsert existant → update avec la version trackée, version bumpée', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })          // insert (v1)
+    const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 50 })  // update
+    expect(r.status).toBe('updated'); expect(r.version).toBe(2)
+  })
+
+  it('upsert STALE (version périmée côté serveur) → conflit, PAS de perte silencieuse', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })   // v1, trackée=1
+    // un autre client bump la version côté serveur (v2) → notre version trackée (1) est périmée
+    w._tbl.get('logements').get('uuid:logement|f-1').version = 5
+    const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 99 })
+    expect(r.status).toBe('conflict')   // surfacé, l'app doit re-hydrater
+  })
+
+  it('upsert non-mappable (FK non résolue) → skipped, aucune écriture', async () => {
+    const w = mockWriter()
+    const s = storeWith(w, { entites: [], logements: [] })
+    const r = await s.upsert('logements', { id: 1, ref: 'X', entity: 'Inconnue' })
+    expect(r.status).toBe('skipped'); expect(w.inserts.length).toBe(0)
+  })
+
+  it('collection legacy `mrh` → table `assurances`', async () => {
+    const w = mockWriter()
+    const s = storeWith(w, { entites: [], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] })
+    await s.upsert('mrh', { id: 3, logement: 'F-1', compagnie: 'AXA' })
+    expect(w.inserts).toContainEqual(['assurances', 'uuid:assurance|3'])
+  })
+
+  it('remove → soft-delete avec garde de version', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
+    const r = await s.remove('logements', { id: 10, ref: 'F-1', entity: 'SCI A' })
+    expect(r.status).toBe('deleted')
+    expect(w.deletes).toContainEqual(['logements', 'uuid:logement|f-1'])
+  })
+})

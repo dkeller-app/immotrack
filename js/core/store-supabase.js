@@ -1,78 +1,108 @@
-// js/core/store-supabase.js — Backend Supabase du `Store` (P3).
+// js/core/store-supabase.js — Backend Supabase du `Store` (P3) : hydratation + écriture.
 //
-// hydrate() : reconstruit l'objet `DB` LEGACY (forme exacte attendue par l'app) à partir
-//   des tables Supabase, via la colonne `legacy_raw` (copie verbatim de l'enregistrement
-//   d'origine posée à l'import P0-E) + `espace_config.data` (collections de config).
-//   → l'app peut charger depuis Supabase sans réécrire ses lectures.
+// HYDRATE : reconstruit l'objet `DB` LEGACY (forme exacte) depuis les tables (`legacy_raw`)
+//   + `espace_config.data`. → l'app charge depuis Supabase sans réécrire ses lectures.
+// ÉCRITURE : upsert(coll, rec) / remove(coll, rec) → mapping legacy→ligne (store-mapping) +
+//   INSERT/UPDATE par ligne avec CONCURRENCE OPTIMISTE par `version` (jamais de perte
+//   silencieuse — un UPDATE périmé renvoie `conflict`, à l'app de re-hydrater).
 //
-// Dépendances INJECTÉES (fetchTable, fetchConfig) → testable offline (mock) ET branchable
-//   sur un vrai client (supabase-js ou pg) en fournissant les fetchers réels.
-//   fetchTable(name) → Promise<Array<{ legacy_raw: object|null }>>
-//     ⚠️ CONTRAT : fetchTable DOIT exclure les lignes soft-deleted (deleted_at IS NOT NULL),
-//        sinon des enregistrements supprimés ressusciteraient dans le DB legacy.
+// Dépendances INJECTÉES → testable offline ET branchable sur pg/supabase-js :
+//   fetchTable(name) → Promise<Array<{ legacy_raw, id?, version? }>>
+//     ⚠️ DOIT exclure les soft-deleted (deleted_at IS NOT NULL).
 //   fetchConfig()    → Promise<object>   (espace_config.data, ou {})
+//   writer = { insert(table,row), update(table,id,row,expVer)→newVer|null,
+//              softDelete(table,id,expVer)→newVer|null }   (null = version périmée = conflit)
+//   detUuid(...parts), espaceId, ownerId : ctx du mapping (cf. store-mapping.js).
 //
-// ⚠️ Collections portées par la CONFIG, pas par une table dédiée (couplage avec l'invariant
-//   `TABLE_BACKED` de `_import/import-config.mjs`) : en plus de la vraie config (params,
-//   categories, irlTable, templates, nid, flags…), `espace_config.data` contient aussi des
-//   collections métier-like NON encore tablées — `assurances` (≠ `mrh`), `candidats`,
-//   `auditTrail`, `compteursReleves`. hydrate les restitue via la fusion config. NE PAS les
-//   ajouter à ARRAY_TABLES (elles n'ont pas de table) ni confondre `assurances` avec `mrh`.
-//
-// La direction ÉCRITURE (persist/upsert legacy→tables par ligne, concurrence `version`)
-//   viendra ensuite ; ce module ne fait que l'hydratation pour l'instant.
+// ⚠️ Collections portées par la CONFIG (espace_config), pas par une table : en plus de la
+//   vraie config (params/categories/irlTable/templates/nid/flags), `assurances` (≠ `mrh`),
+//   `candidats`, `auditTrail`, `compteursReleves`. NE PAS les ajouter à ARRAY_TABLES.
+import { mapToRow } from './store-mapping.js'
 
-// table Supabase → nom de collection legacy dans DB (assurances revient à `mrh`).
 const ARRAY_TABLES = {
-  entites: 'entites',
-  logements: 'logements',
-  baux_historique: 'baux_historique',
-  mouvements: 'mouvements',
-  quittances: 'quittances',
-  edl: 'edl',
-  documents: 'documents',
-  assurances: 'mrh',
-  agenda: 'agenda',
+  entites: 'entites', logements: 'logements', baux_historique: 'baux_historique',
+  mouvements: 'mouvements', quittances: 'quittances', edl: 'edl', documents: 'documents',
+  assurances: 'mrh', agenda: 'agenda',
 }
-// `immeubles` n'est PAS hydratée séparément : les entités legacy contiennent déjà leur
-// tableau `immeubles` imbriqué dans leur legacy_raw.
+const norm = s => String(s == null ? '' : s).trim().toLowerCase()
+// collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
+const tableOf = coll => (coll === 'mrh' ? 'assurances' : coll)
 
-export function createSupabaseStore({ fetchTable, fetchConfig }) {
+export function createSupabaseStore({ fetchTable, fetchConfig, writer, detUuid, espaceId, ownerId }) {
   if (typeof fetchTable !== 'function' || typeof fetchConfig !== 'function')
     throw new Error('createSupabaseStore: fetchTable et fetchConfig (fonctions) requis')
 
+  let _db = null
+  const _versions = new Map()   // uuid de ligne → version courante (concurrence optimiste)
+  const captureVersions = rows => { for (const r of rows) if (r && r.id != null && r.version != null) _versions.set(r.id, r.version) }
+
   async function hydrate() {
     const db = {}
-
-    // collections-tableaux : legacy_raw → tableau (forme legacy exacte).
     for (const [table, coll] of Object.entries(ARRAY_TABLES)) {
       const rows = await fetchTable(table)
       db[coll] = rows.map(r => r && r.legacy_raw).filter(lr => lr != null)
+      captureVersions(rows)
     }
-
-    // baux : MAP keyée par la clé d'origine (ref du logement), stockée dans legacy_raw.__key.
     const bauxRows = await fetchTable('baux')
     db.baux = {}
-    for (const r of bauxRows) {
-      const lr = r && r.legacy_raw
-      if (!lr) continue
-      const { __key, ...rec } = lr
-      if (__key != null) db.baux[__key] = rec
-    }
+    for (const r of bauxRows) { const lr = r && r.legacy_raw; if (!lr) continue; const { __key, ...rec } = lr; if (__key != null) db.baux[__key] = rec }
+    captureVersions(bauxRows)
+    captureVersions(await fetchTable('immeubles'))   // versions seules (collection re-imbriquée dans entites)
 
-    // collections de config (params, categories, irlTable, templates… + assurances/candidats/
-    // auditTrail/compteursReleves non tablées) depuis espace_config.
-    // GARDE (audit #2) : la config ne doit JAMAIS écraser une collection métier reconstruite
-    // depuis sa table. On se défend même si l'invariant TABLE_BACKED de l'import est violé.
+    // config (+ collections non-tablées) ; GARDE : ne JAMAIS écraser une collection métier.
     const RESERVED = new Set([...Object.values(ARRAY_TABLES), 'baux', 'immeubles'])
     const cfg = (await fetchConfig()) || {}
     for (const [k, v] of Object.entries(cfg)) {
       if (RESERVED.has(k)) { console.warn('[SupabaseStore] clé config ignorée (collision collection métier) : ' + k); continue }
       db[k] = v
     }
-
+    _db = db
     return db
   }
 
-  return { hydrate }
+  function attach(db) { _db = db; return db }
+
+  // resolvers FK construits depuis le DB EN MÉMOIRE courant (reflète les ajouts récents).
+  function buildResolvers() {
+    const db = _db || {}
+    const entiteByNom = new Map(), immeubleByNom = new Map(), logementByRef = new Map(), documentByLegacy = new Map()
+    for (const e of (db.entites || [])) {
+      if (e && e.nom) entiteByNom.set(norm(e.nom), detUuid('entite', norm(e.nom)))
+      for (const im of (Array.isArray(e && e.immeubles) ? e.immeubles : [])) if (im && im.nom) immeubleByNom.set(norm(im.nom), detUuid('immeuble', norm(im.nom)))
+    }
+    for (const l of (db.logements || [])) if (l && l.ref) logementByRef.set(norm(l.ref), detUuid('logement', norm(l.ref)))
+    for (const d of (db.documents || [])) if (d && d.id != null) documentByLegacy.set(String(d.id), detUuid('document', String(d.id)))
+    return { entiteByNom, immeubleByNom, logementByRef, documentByLegacy }
+  }
+  const ctx = () => ({ espaceId, ownerId, detUuid, ...buildResolvers() })
+
+  // upsert : INSERT si ligne inconnue, sinon UPDATE gardé par la version trackée.
+  // Renvoie { status: 'inserted'|'updated'|'conflict'|'skipped', id?, version? }.
+  async function upsert(legacyColl, rec) {
+    const table = tableOf(legacyColl)
+    const row = mapToRow(table, rec, ctx())
+    if (!row) return { status: 'skipped' }
+    if (_versions.has(row.id)) {
+      const nv = await writer.update(table, row.id, row, _versions.get(row.id))
+      if (nv == null) return { status: 'conflict', id: row.id }   // version périmée → l'app re-hydrate
+      _versions.set(row.id, nv)
+      return { status: 'updated', id: row.id, version: nv }
+    }
+    await writer.insert(table, row)
+    _versions.set(row.id, 1)
+    return { status: 'inserted', id: row.id }
+  }
+
+  // remove : soft-delete gardé par version (jamais de DELETE physique).
+  async function remove(legacyColl, rec) {
+    const table = tableOf(legacyColl)
+    const row = mapToRow(table, rec, ctx())
+    if (!row) return { status: 'skipped' }
+    const nv = await writer.softDelete(table, row.id, _versions.has(row.id) ? _versions.get(row.id) : 1)
+    if (nv == null) return { status: 'conflict', id: row.id }
+    _versions.set(row.id, nv)
+    return { status: 'deleted', id: row.id }
+  }
+
+  return { hydrate, attach, upsert, remove, buildResolvers }
 }
