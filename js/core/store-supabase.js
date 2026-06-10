@@ -8,7 +8,16 @@
 // Dépendances INJECTÉES (fetchTable, fetchConfig) → testable offline (mock) ET branchable
 //   sur un vrai client (supabase-js ou pg) en fournissant les fetchers réels.
 //   fetchTable(name) → Promise<Array<{ legacy_raw: object|null }>>
+//     ⚠️ CONTRAT : fetchTable DOIT exclure les lignes soft-deleted (deleted_at IS NOT NULL),
+//        sinon des enregistrements supprimés ressusciteraient dans le DB legacy.
 //   fetchConfig()    → Promise<object>   (espace_config.data, ou {})
+//
+// ⚠️ Collections portées par la CONFIG, pas par une table dédiée (couplage avec l'invariant
+//   `TABLE_BACKED` de `_import/import-config.mjs`) : en plus de la vraie config (params,
+//   categories, irlTable, templates, nid, flags…), `espace_config.data` contient aussi des
+//   collections métier-like NON encore tablées — `assurances` (≠ `mrh`), `candidats`,
+//   `auditTrail`, `compteursReleves`. hydrate les restitue via la fusion config. NE PAS les
+//   ajouter à ARRAY_TABLES (elles n'ont pas de table) ni confondre `assurances` avec `mrh`.
 //
 // La direction ÉCRITURE (persist/upsert legacy→tables par ligne, concurrence `version`)
 //   viendra ensuite ; ce module ne fait que l'hydratation pour l'instant.
@@ -51,9 +60,16 @@ export function createSupabaseStore({ fetchTable, fetchConfig }) {
       if (__key != null) db.baux[__key] = rec
     }
 
-    // collections de config (params, categories, irlTable, templates…) depuis espace_config.
+    // collections de config (params, categories, irlTable, templates… + assurances/candidats/
+    // auditTrail/compteursReleves non tablées) depuis espace_config.
+    // GARDE (audit #2) : la config ne doit JAMAIS écraser une collection métier reconstruite
+    // depuis sa table. On se défend même si l'invariant TABLE_BACKED de l'import est violé.
+    const RESERVED = new Set([...Object.values(ARRAY_TABLES), 'baux', 'immeubles'])
     const cfg = (await fetchConfig()) || {}
-    for (const [k, v] of Object.entries(cfg)) db[k] = v
+    for (const [k, v] of Object.entries(cfg)) {
+      if (RESERVED.has(k)) { console.warn('[SupabaseStore] clé config ignorée (collision collection métier) : ' + k); continue }
+      db[k] = v
+    }
 
     return db
   }

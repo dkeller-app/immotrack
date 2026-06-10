@@ -32,11 +32,35 @@ describe('SupabaseStore.hydrate — reconstruit le DB legacy depuis les tables',
     expect(db.baux['F-1']).toEqual({ ref: 'F-1', hc: 700 })   // __key retiré
   })
 
-  it('table assurances → collection legacy `mrh`', async () => {
+  it('table assurances → collection legacy `mrh` (pas `assurances`)', async () => {
     const s = createSupabaseStore(mockBackend({ assurances: [{ id: 1, compagnie: 'AXA' }] }, {}))
     const db = await s.hydrate()
     expect(db.mrh).toEqual([{ id: 1, compagnie: 'AXA' }])
-    expect(db.assurances).toBeUndefined()
+    // NB : `db.assurances` (collection legacy distincte, vide) vient de la CONFIG, pas de cette
+    // table → testée séparément ci-dessous. Sans config (mock {}), elle est absente : normal.
+  })
+
+  it('collections portées par la config (assurances/candidats/auditTrail/compteursReleves)', async () => {
+    const s = createSupabaseStore(mockBackend({ assurances: [{ id: 1 }] }, {
+      assurances: [], candidats: [{ id: 9 }], auditTrail: [{ a: 1 }], compteursReleves: { 0: {} },
+    }))
+    const db = await s.hydrate()
+    // la table assurances → mrh ; la collection legacy `assurances` (config) reste vide et présente
+    expect(db.mrh).toEqual([{ id: 1 }])
+    expect(db.assurances).toEqual([])
+    expect(db.candidats).toEqual([{ id: 9 }])
+    expect(db.auditTrail).toEqual([{ a: 1 }])
+  })
+
+  it('GARDE (audit #2) : une clé config homonyme d\'une collection métier ne l\'écrase PAS', async () => {
+    const s = createSupabaseStore(mockBackend(
+      { mouvements: [{ id: 1, lib: 'vrai' }], entites: [{ id: 1, nom: 'vraie' }] },
+      { mouvements: [{ id: 99, lib: 'pirate' }], entites: 'corrompu', params: { ok: 1 } },
+    ))
+    const db = await s.hydrate()
+    expect(db.mouvements).toEqual([{ id: 1, lib: 'vrai' }])   // table gagne, config ignorée
+    expect(db.entites).toEqual([{ id: 1, nom: 'vraie' }])
+    expect(db.params).toEqual({ ok: 1 })                      // vraie config passe
   })
 
   it('config (espace_config.data) fusionnée : params/categories/irlTable…', async () => {
