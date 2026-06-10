@@ -113,6 +113,24 @@ describe('flux candidat complet', () => {
     expect(p.status).toBe(201);
   });
 
+  it('submit refusé 400 si dossier jamais renseigné (contournement JS)', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    const s = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/submit`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    expect(s.status).toBe(400);
+    expect((await s.json()).error).toBe('identite-missing');
+  });
+
+  it('submit refusé 400 si revenus absents (identité seule, contournement JS)', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    const partial = { identite:{ civilite:'M.', nom:'Durand', prenom:'Jean', ddn:'1985-05-05', lieuNaiss:'Paris', tel:'0600000000', email:'j@x.fr' }, situation:{ contrat:'CDI', employeur:'', revenus:0 }, garant:null };
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/dossier`, { method:'POST', headers:{ 'X-Cand-Token': tok, 'content-type':'application/json' }, body: JSON.stringify(partial) });
+    const s = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/submit`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    expect(s.status).toBe(400);
+    expect((await s.json()).error).toBe('revenus-missing');
+  });
+
   it('revoke rend le lien 410', async () => {
     const invite = await (await createInvite()).json();
     await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/revoke`, { method:'POST', headers:{ 'X-Owner-Token': invite.ownerToken } });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validatePdfUpload, validateSigners, MAX_PDF_BYTES, validatePieceUpload, validateDossier, validateCandidatureMeta, MAX_PIECE_BYTES } from '../src/validate.js';
+import { validatePdfUpload, validateSigners, MAX_PDF_BYTES, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta, MAX_PIECE_BYTES } from '../src/validate.js';
 
 const PDF_MAGIC = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
 
@@ -115,6 +115,26 @@ describe('validateDossier', () => {
     const bad = { identite: { ...ok.identite, nom:'  ' } };
     expect(validateDossier(bad).reason).toBe('nom-missing');
   });
+});
+
+describe('validateDossierComplete', () => {
+  const idOk = { civilite:'Mme', nom:'Moreau', prenom:'Camille', ddn:'1990-01-01', lieuNaiss:'Lyon', tel:'0600000000', email:'c@x.fr' };
+  const ok = { identite: idOk, situation: { contrat:'CDI', employeur:'ACME', revenus:3200 }, garant:null };
+  it('accepte un dossier identité + situation complets', () => expect(validateDossierComplete(ok).ok).toBe(true));
+  it('hérite des règles identité (dossier vide → identite-missing)', () => expect(validateDossierComplete({}).reason).toBe('identite-missing'));
+  it('hérite des règles identité (email invalide → bad-email)', () => {
+    const bad = { ...ok, identite: { ...idOk, email:'pasunemail' } };
+    expect(validateDossierComplete(bad).reason).toBe('bad-email');
+  });
+  it('rejette si situation absente', () => expect(validateDossierComplete({ identite: idOk }).reason).toBe('situation-missing'));
+  it('rejette si situation null', () => expect(validateDossierComplete({ identite: idOk, situation: null }).reason).toBe('situation-missing'));
+  it('rejette si contrat vide', () => expect(validateDossierComplete({ identite: idOk, situation:{ contrat:'  ', revenus:3200 } }).reason).toBe('contrat-missing'));
+  it('rejette si revenus absents (0)', () => expect(validateDossierComplete({ identite: idOk, situation:{ contrat:'CDI', revenus:0 } }).reason).toBe('revenus-missing'));
+  it('rejette si revenus non numériques (chaîne vide)', () => expect(validateDossierComplete({ identite: idOk, situation:{ contrat:'CDI', revenus:'' } }).reason).toBe('revenus-missing'));
+  it('rejette si revenus chaîne non numérique', () => expect(validateDossierComplete({ identite: idOk, situation:{ contrat:'CDI', revenus:'abc' } }).reason).toBe('revenus-missing'));
+  it('rejette si revenus null', () => expect(validateDossierComplete({ identite: idOk, situation:{ contrat:'CDI', revenus:null } }).reason).toBe('revenus-missing'));
+  it('rejette si revenus négatifs', () => expect(validateDossierComplete({ identite: idOk, situation:{ contrat:'CDI', revenus:-100 } }).reason).toBe('revenus-missing'));
+  it('accepte des revenus en chaîne numérique (tolérance transport)', () => expect(validateDossierComplete({ identite: idOk, situation:{ contrat:'CDI', revenus:'3200' } }).ok).toBe(true));
 });
 
 describe('validateCandidatureMeta', () => {

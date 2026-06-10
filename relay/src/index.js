@@ -4,7 +4,7 @@ import { createSession, loadSession, recordSignature, recordEmailVerified } from
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession } from './storage.js';
-import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateCandidatureMeta } from './validate.js';
+import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta } from './validate.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
 import {
   createCandidature, loadCandidature, saveDossier, addPiece, removePiece,
@@ -372,7 +372,9 @@ app.post('/api/candidatures/:linkId/submit', async (c) => {
   const guard = await requireCandidat(c, linkId);
   if (guard.error) return guard.error;
   if (guard.cand.status !== 'open') return c.json({ error: 'not-open' }, 409);
-  const v = validateDossier(guard.cand.dossier || {});
+  // Validation serveur complète (identité + situation) — défense en profondeur si
+  // le candidat contourne le JS. Le /dossier d'autosave reste permissif (reprise D13).
+  const v = validateDossierComplete(guard.cand.dossier || {});
   if (!v.ok) return c.json({ error: v.reason }, 400);
   const cand = await submitCandidature(c.env, linkId);
   return c.json({ status: cand.status, submittedAt: cand.submittedAt });

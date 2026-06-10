@@ -86,6 +86,24 @@ export function validateDossier(dossier) {
   return { ok: true };
 }
 
+// Validation « complète » au moment de l'envoi (submit). En plus de l'identité,
+// exige une situation exploitable (contrat + revenus > 0) — applique côté serveur
+// la même exigence minimale que validateClient (public/dossier.js), sans en être
+// un miroir octet-pour-octet (le client normalise déjà revenus via parseRevenus,
+// le serveur revalide la valeur reçue). Empêche un candidat qui contourne le JS
+// de soumettre un dossier sans revenus (sinon l'app rapatrie un « candidat vide »).
+// Le /dossier d'autosave garde validateDossier (permissif) pour la reprise D13.
+export function validateDossierComplete(dossier) {
+  const base = validateDossier(dossier);
+  if (!base.ok) return base;
+  const s = dossier.situation;
+  if (!s || typeof s !== 'object') return { ok: false, reason: 'situation-missing' };
+  if (typeof s.contrat !== 'string' || s.contrat.trim() === '') return { ok: false, reason: 'contrat-missing' };
+  const revenus = Number(s.revenus);
+  if (!Number.isFinite(revenus) || revenus <= 0) return { ok: false, reason: 'revenus-missing' };
+  return { ok: true };
+}
+
 export function validateCandidatureMeta(meta) {
   if (!meta || typeof meta !== 'object') return { ok: false, reason: 'bad-meta' };
   if (typeof meta.logRef !== 'string' || meta.logRef.trim() === '' || meta.logRef.trim().length > 200) return { ok: false, reason: 'bad-logref' };
