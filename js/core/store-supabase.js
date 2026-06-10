@@ -15,10 +15,13 @@
 //              côté serveur OU version périmée).
 //     ⚠️ SQL réel OBLIGATOIRE (anti-perte silencieuse, anti-résurrection, §7/D20) :
 //       insert     = `INSERT … ON CONFLICT (id) DO NOTHING RETURNING version` (0 ligne→null=conflit,
-//                    ne JAMAIS écraser une ligne existante → l'app re-hydrate puis UPDATE).
+//                    ne JAMAIS écraser une ligne existante → l'app re-hydrate puis UPDATE). null
+//                    couvre AUSSI un conflit sur un autre index unique (ex. quittances (logement,mois)) :
+//                    le binding mappe tout unique_violation 23505 → null (fail-closed, jamais un throw).
 //       update     = `UPDATE … SET … WHERE id=? AND version=? AND deleted_at IS NULL RETURNING version`
 //                    (0 ligne→null : version périmée OU tombstone → pas de résurrection).
-//       softDelete = `UPDATE … SET deleted_at=now() WHERE id=? AND version=? RETURNING version`.
+//                    Ne réécrit jamais created_by / legacy_id (provenance immuable post-création).
+//       softDelete = `UPDATE … SET deleted_at=now() WHERE id=? AND version=? AND deleted_at IS NULL RETURNING version`.
 //     NB (audit Minor) : un insert→null peut signaler une ligne TOMBSTONE (soft-deleted, donc
 //       exclue de fetchTable / absente de _versions) occupant déjà l'id déterministe (ex. ref
 //       recréée) → conflit FAIL-CLOSED (jamais d'écrasement ni de résurrection). Le caller P3
