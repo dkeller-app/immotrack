@@ -77,6 +77,11 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, detUuid, 
   function attach(db) { _db = db; return db }
 
   // resolvers FK construits depuis le DB EN MÉMOIRE courant (reflète les ajouts récents).
+  // INCLUT les tombstones À DESSEIN : lors d'une suppression EN CASCADE (parent + enfants
+  // tombstonés ensemble par l'app), le `remove` de l'enfant doit pouvoir résoudre le parent pour
+  // que `mapToRow` calcule le `row.id` de l'enfant et émette le softDelete. Exclure les tombstones
+  // ferait renvoyer null à mapToRow → remove `skipped` → SUPPRESSION PERDUE (enfant resté vivant
+  // côté serveur). L'anti-résurrection à l'UPDATE est déjà garantie par le garde `deleted_at IS NULL`.
   function buildResolvers() {
     const db = _db || {}
     const entiteByNom = new Map(), immeubleByNom = new Map(), logementByRef = new Map(), documentByLegacy = new Map()

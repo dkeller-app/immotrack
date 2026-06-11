@@ -215,3 +215,19 @@ describe('SupabaseStore.upsert/remove — écriture + concurrence par version', 
     expect(w._tbl.get('logements').get('uuid:logement|f-1').row.deleted_at).toBe('x')   // tombstone intact
   })
 })
+
+describe('SupabaseStore.buildResolvers — INCLUT les tombstones (remove en cascade doit résoudre le row.id)', () => {
+  it('un parent _deleted RESTE résolvable → un remove d\'enfant en cascade peut calculer son row.id et softDeleter', () => {
+    const s = storeWith(mockWriter(), {
+      entites: [{ nom: 'Morte', _deleted: true, immeubles: [{ nom: 'ImmDeMorte', _deleted: true }] }],
+      logements: [{ ref: 'L-DEL', _deleted: true }],
+      documents: [{ id: 2, _deleted: true }],
+    })
+    const r = s.buildResolvers()
+    // tombstonés mais RÉSOLVABLES : sinon mapToRow(enfant)→null → remove skipped → suppression perdue
+    expect(r.entiteByNom.has('morte')).toBe(true)
+    expect(r.immeubleByNom.has('immdemorte')).toBe(true)
+    expect(r.logementByRef.has('l-del')).toBe(true)
+    expect(r.documentByLegacy.has('2')).toBe(true)
+  })
+})
