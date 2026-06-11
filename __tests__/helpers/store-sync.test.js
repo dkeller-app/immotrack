@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { createStoreSync } from '../../js/core/store-sync.js'
+import { createStoreSync, SYNCED_COLLECTIONS } from '../../js/core/store-sync.js'
 import { mapToRow } from '../../js/core/store-mapping.js'
-import { createSupabaseStore } from '../../js/core/store-supabase.js'
+import { createSupabaseStore, TABLE_COLLECTIONS } from '../../js/core/store-supabase.js'
 
 // ctx réel minimal pour valider le CONTRAT (le record enuméré doit être accepté par le vrai mapper).
 const realCtx = () => ({
@@ -263,6 +263,38 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(summary.removes).toContainEqual({ coll: 'logements', key: 'f-1' })
     expect(summary.removes).toContainEqual({ coll: 'immeubles', key: 'bat nord' })
     expect(summary.skipped).toEqual([])
+  })
+
+  it('config (collections non-tablées) modifiée → store.persistConfig(db) une fois ; inchangée → aucun appel', async () => {
+    let persistCount = 0
+    const store = { ...mockStore(), persistConfig: async () => { persistCount++; return { status: 'config-written' } } }
+    const db = { entites: [], logements: [], mouvements: [], baux: {}, params: { devise: 'EUR' }, categories: ['Loyer'] }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    await sync.flush()
+    expect(persistCount).toBe(0)             // rien changé
+    db.params.devise = 'USD'
+    const s = await sync.flush()
+    expect(persistCount).toBe(1)             // config changée → persistConfig
+    expect(s.config).toBe('written')
+    await sync.flush()
+    expect(persistCount).toBe(1)             // baseline config à jour → plus d'appel
+  })
+
+  it('config : une collection TABLE-backée modifiée ne déclenche PAS persistConfig (c\'est le sync de table)', async () => {
+    let persistCount = 0
+    const store = { ...mockStore(), persistConfig: async () => { persistCount++; return { status: 'config-written' } } }
+    const db = { entites: [], logements: [{ ref: 'F-1', entity: 'SCI A' }], mouvements: [], baux: {} }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.logements[0].loyer = 800              // changement d'une TABLE, pas de la config
+    await sync.flush()
+    expect(persistCount).toBe(0)
+  })
+
+  it('GARDE ANTI-DRIFT : SYNCED_COLLECTIONS (store-sync) ≡ TABLE_COLLECTIONS (store-supabase) — sinon perte silencieuse', () => {
+    // une collection présente dans l'une mais pas l'autre tomberait entre sync-table et blob-config.
+    expect(new Set(SYNCED_COLLECTIONS)).toEqual(TABLE_COLLECTIONS)
   })
 
   it('markDirty programme un flush via le scheduler injecté (debounce app)', async () => {

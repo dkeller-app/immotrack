@@ -44,6 +44,16 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
     return (data && data.data) || {}
   }
 
+  // Écrit le blob config (collections non-tablées) en un seul jsonb par espace. Remplacement
+  // complet (pas de concurrence par ligne) : faible volume + faible fréquence → LWW acceptable ici,
+  // contrairement aux tables métier (gardées par version). RLS espace_config = has_role(owner|gestionnaire).
+  async function writeConfig(data) {
+    const { error } = await client.from('espace_config')
+      .upsert({ espace_id: espaceId, data }, { onConflict: 'espace_id' })
+    if (error) throw new Error('writeConfig: ' + error.message)
+    return true
+  }
+
   const writer = {
     // ON CONFLICT (id) DO NOTHING. Tout conflit unique (id OU autre index) → null (jamais d'écrasement).
     async insert(table, row) {
@@ -74,5 +84,5 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
     },
   }
 
-  return { fetchTable, fetchConfig, writer }
+  return { fetchTable, fetchConfig, writeConfig, writer }
 }

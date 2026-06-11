@@ -13,6 +13,7 @@
 //
 // Identité de diff par collection = la clé legacy NATURELLE (celle dont dérive l'id déterministe du
 // mapping) : entites/immeubles par nom, logements par ref, baux par clé de map, le reste par id.
+import { TABLE_COLLECTIONS } from './store-supabase.js'   // source unique des collections table-backées
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 
@@ -60,6 +61,18 @@ const sig = rec => JSON.stringify(rec)   // signature de changement (sur-envoi s
 // RESSUSCITERAIT la ligne côté Supabase (mapToRow ignore `_deleted`). Un record jamais synchronisé
 // vivant puis tombstoné n'est ni au baseline ni au courant → ignoré (rien à supprimer côté serveur).
 const isDeleted = rec => !!(rec && rec._deleted)
+// CONFIG = complément des tables : les collections non-tablées (params/categories/templates/irlTable/
+// catConfig/piecesEDL/auditTrail/candidats/compteursReleves/assurances bailleur…) → un seul blob
+// espace_config.data (chemin distinct du sync de table). Exclus : les collections table-backées
+// (SOURCE UNIQUE importée de store-supabase, anti-drift) + `_modifiedAt` (interne, churn inutile).
+// Le test « garde anti-drift » asserte que SYNCED_COLLECTIONS ≡ TABLE_COLLECTIONS (sinon perte silencieuse).
+const CONFIG_EXCLUDED = new Set([...TABLE_COLLECTIONS, '_modifiedAt'])
+export const SYNCED_COLLECTIONS = COLLECTIONS.map(c => c.coll)
+const configSig = db => {
+  const o = {}
+  for (const k of Object.keys(db || {}).sort()) if (!CONFIG_EXCLUDED.has(k)) o[k] = db[k]
+  return JSON.stringify(o)
+}
 
 export function createStoreSync({ store, getDB, schedule }) {
   if (!store || typeof store.upsert !== 'function' || typeof store.remove !== 'function')
@@ -69,6 +82,7 @@ export function createStoreSync({ store, getDB, schedule }) {
   // baseline = état « déjà synchronisé ». Map<coll, Map<key, { rec, sig }>>.
   const baseline = new Map()
   for (const { coll } of COLLECTIONS) baseline.set(coll, new Map())
+  let _configSig = null   // signature du blob config déjà synchronisé (espace_config)
 
   function snapshotOf(db) {
     const snap = new Map()
@@ -84,6 +98,7 @@ export function createStoreSync({ store, getDB, schedule }) {
   function seed(db = getDB()) {
     const snap = snapshotOf(db)
     for (const { coll } of COLLECTIONS) baseline.set(coll, snap.get(coll))
+    _configSig = configSig(db)
   }
 
   // flush : diffe le DB courant vs baseline, applique upserts (parent→enfant) puis removes
@@ -118,6 +133,13 @@ export function createStoreSync({ store, getDB, schedule }) {
         else if (st === 'conflict') summary.conflicts.push({ coll, key: k })
         else summary.skipped.push({ coll, key: k })
       }
+    }
+
+    // 3) config (collections non-tablées) → un seul blob espace_config, si changé. Une erreur
+    // propage (comme un throw d'upsert) et n'avance PAS _configSig → réessai au prochain flush.
+    if (typeof store.persistConfig === 'function') {
+      const cs = configSig(db)
+      if (cs !== _configSig) { await store.persistConfig(db); _configSig = cs; summary.config = 'written' }
     }
     return summary
   }

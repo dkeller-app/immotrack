@@ -216,6 +216,38 @@ describe('SupabaseStore.upsert/remove — écriture + concurrence par version', 
   })
 })
 
+describe('SupabaseStore.persistConfig — écrit le sous-ensemble CONFIG (complément des tables) dans espace_config', () => {
+  it('extrait les clés NON table-backées + appelle writeConfig (exclut entites/logements/baux/mrh/agenda… + _modifiedAt)', async () => {
+    let written = null
+    const s = createSupabaseStore({
+      fetchTable: async () => [], fetchConfig: async () => ({}),
+      writeConfig: async (data) => { written = data; return true },
+      writer: mockWriter(), detUuid, espaceId: 'ESP', ownerId: 'OWN',
+    })
+    s.attach({
+      entites: [{ nom: 'A' }], logements: [{ ref: 'F' }], baux: { 'F': {} }, mouvements: [{ id: 1 }],
+      quittances: [], edl: [], documents: [], baux_historique: [], mrh: [{ id: 2 }], agenda: [{ id: 3 }], _modifiedAt: 'x',
+      params: { devise: 'EUR' }, categories: ['Loyer'], irlTable: { 2026: 100 },
+      assurances: [{ id: 1, type: 'PNO' }], candidats: [], auditTrail: [{ a: 1 }],   // assurances BAILLEUR = config (pas de table)
+    })
+    const r = await s.persistConfig()
+    // table-backées + _modifiedAt EXCLUS du blob config
+    for (const k of ['entites', 'logements', 'baux', 'mouvements', 'quittances', 'edl', 'documents', 'baux_historique', 'mrh', 'agenda', '_modifiedAt'])
+      expect(written[k]).toBeUndefined()
+    // config INCLUSE (params/categories/irlTable + assurances bailleur + candidats + auditTrail)
+    expect(written.params).toEqual({ devise: 'EUR' }); expect(written.categories).toEqual(['Loyer'])
+    expect(written.irlTable).toEqual({ 2026: 100 }); expect(written.assurances).toEqual([{ id: 1, type: 'PNO' }])
+    expect(written.candidats).toEqual([]); expect(written.auditTrail).toEqual([{ a: 1 }])
+    expect(r.status).toBe('config-written')
+  })
+
+  it('sans writeConfig injecté → throw explicite (le binding doit le fournir)', async () => {
+    const s = createSupabaseStore({ fetchTable: async () => [], fetchConfig: async () => ({}), writer: mockWriter(), detUuid, espaceId: 'ESP', ownerId: 'OWN' })
+    s.attach({ params: { x: 1 } })
+    await expect(s.persistConfig()).rejects.toThrow()
+  })
+})
+
 describe('SupabaseStore.buildResolvers — INCLUT les tombstones (remove en cascade doit résoudre le row.id)', () => {
   it('un parent _deleted RESTE résolvable → un remove d\'enfant en cascade peut calculer son row.id et softDeleter', () => {
     const s = storeWith(mockWriter(), {

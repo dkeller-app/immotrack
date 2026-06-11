@@ -42,7 +42,19 @@ const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
 const tableOf = coll => (coll === 'mrh' ? 'assurances' : coll)
 
-export function createSupabaseStore({ fetchTable, fetchConfig, writer, detUuid, espaceId, ownerId }) {
+// collections legacy adossées à une TABLE (à NE PAS remettre dans le blob config espace_config).
+// SOURCE UNIQUE : store-sync importe ce set pour son exclusion config (anti-drift, cf. test d'égalité).
+export const TABLE_COLLECTIONS = new Set([...Object.values(ARRAY_TABLES), 'baux', 'immeubles'])
+// + `_modifiedAt` (horodatage interne, changerait à chaque save → churn config inutile). Aligné ETL.
+const CONFIG_EXCLUDED = new Set([...TABLE_COLLECTIONS, '_modifiedAt'])
+// extrait le sous-ensemble CONFIG (complément des tables) → ce qui va dans espace_config.data.
+const extractConfig = db => {
+  const out = {}
+  for (const [k, v] of Object.entries(db || {})) if (!CONFIG_EXCLUDED.has(k)) out[k] = v
+  return out
+}
+
+export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConfig, detUuid, espaceId, ownerId }) {
   if (typeof fetchTable !== 'function' || typeof fetchConfig !== 'function')
     throw new Error('createSupabaseStore: fetchTable et fetchConfig (fonctions) requis')
 
@@ -64,10 +76,9 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, detUuid, 
     captureVersions(await fetchTable('immeubles'))   // versions seules (collection re-imbriquée dans entites)
 
     // config (+ collections non-tablées) ; GARDE : ne JAMAIS écraser une collection métier.
-    const RESERVED = new Set([...Object.values(ARRAY_TABLES), 'baux', 'immeubles'])
     const cfg = (await fetchConfig()) || {}
     for (const [k, v] of Object.entries(cfg)) {
-      if (RESERVED.has(k)) { console.warn('[SupabaseStore] clé config ignorée (collision collection métier) : ' + k); continue }
+      if (TABLE_COLLECTIONS.has(k)) { console.warn('[SupabaseStore] clé config ignorée (collision collection métier) : ' + k); continue }
       db[k] = v
     }
     _db = db
@@ -129,5 +140,14 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, detUuid, 
     return { status: 'deleted', id: row.id, version: nv }
   }
 
-  return { hydrate, attach, upsert, remove, buildResolvers }
+  // persistConfig : écrit le sous-ensemble CONFIG (complément des tables) dans espace_config.data.
+  // Un seul blob jsonb par espace (pas de concurrence par ligne — l'espace_config a sa propre version
+  // côté table mais le contenu est remplacé en entier). Faible volume, faible fréquence de conflit.
+  async function persistConfig(db = _db) {
+    if (typeof writeConfig !== 'function') throw new Error('persistConfig: writeConfig (binding) requis')
+    await writeConfig(extractConfig(db || {}))
+    return { status: 'config-written' }
+  }
+
+  return { hydrate, attach, upsert, remove, persistConfig, buildResolvers }
 }

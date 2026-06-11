@@ -139,4 +139,11 @@ describe('store-supabase-adapter — fetchTable / fetchConfig (intégration Post
     expect(up.error).toBeNull()
     expect(await adapter.fetchConfig()).toEqual({ params: { devise: 'EUR' } })
   })
+
+  it('writeConfig : écrit le blob et l\'écrase au 2e appel (round-trip via fetchConfig)', async () => {
+    await adapter.writeConfig({ params: { devise: 'CHF' }, categories: ['Loyer', 'Charges'] })
+    expect(await adapter.fetchConfig()).toEqual({ params: { devise: 'CHF' }, categories: ['Loyer', 'Charges'] })
+    await adapter.writeConfig({ params: { devise: 'GBP' } })   // remplacement complet
+    expect(await adapter.fetchConfig()).toEqual({ params: { devise: 'GBP' } })
+  })
 })
