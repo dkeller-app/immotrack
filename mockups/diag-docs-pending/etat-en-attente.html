@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup — Documents de diagnostic « en attente » (Bug 1)</title>
+<style>
+  :root{
+    --bg:#eef0f3; --sur:#ffffff; --sur2:#f6f7f9; --bor:#e3e6ea;
+    --t1:#111827; --t2:#4b5563; --t3:#98a1ad; --acc:#0d9488; --acc2:#0f766e;
+    --r:6px; --rl:10px;
+  }
+  [data-theme="dark"]{
+    --bg:#0b1220; --sur:#161f30; --sur2:#101a2b; --bor:#2a3850;
+    --t1:#eef2f8; --t2:#c2cbd9; --t3:#7e8aa0; --acc:#2dd4bf; --acc2:#5eead4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--t1);font-size:14px;line-height:1.45}
+  .toolbar{position:sticky;top:0;z-index:10;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:var(--sur);border-bottom:1px solid var(--bor)}
+  .toolbar b{font-size:13px}
+  .tbtn{cursor:pointer;border:1px solid var(--bor);background:var(--sur2);color:var(--t1);border-radius:8px;padding:5px 11px;font-size:12.5px;font-weight:600}
+  .tbtn.act{background:var(--acc);border-color:var(--acc2);color:#fff}
+  .wrap{max-width:1200px;margin:0 auto;padding:18px 16px 60px;transition:max-width .2s}
+  .note{font-size:12.5px;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;margin:14px 0 20px;line-height:1.6}
+  .vlabel{font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--t3);margin:26px 0 8px}
+  .vsub{font-size:12px;color:var(--t2);margin:-4px 0 12px}
+
+  /* ── Faux modale / onglet Diagnostics (fidèle au design réel) ── */
+  .modal{background:var(--sur);border:1px solid var(--bor);border-radius:14px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.10)}
+  .m-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--bor)}
+  .m-head h3{margin:0;font-size:16px}
+  .m-close{border:none;background:none;font-size:18px;color:var(--t3);cursor:pointer}
+  .tabs{display:flex;gap:4px;padding:6px 12px 0;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+  .tab{padding:8px 12px;font-size:13px;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+  .tab.act{color:var(--acc);border-bottom-color:var(--acc);font-weight:600}
+  .body{padding:16px 18px}
+
+  /* zone upload (dashed) — copie du réel */
+  .upzone{border:1px dashed var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:14px;background:var(--sur2)}
+  .upzone-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
+  .upzone-head h4{margin:0;font-size:14px;color:var(--t1)}
+  .upzone-head .cnt{font-weight:400;color:var(--t3);font-size:12px}
+  .btn{cursor:pointer;border:1px solid var(--bor);background:var(--sur);color:var(--t1);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600}
+  .btn.bp{background:var(--acc);border-color:var(--acc2);color:#fff}
+  .btn.br{color:#991b1b;border-color:#fca5a5;background:#fff}
+  [data-theme="dark"] .btn.br{background:transparent}
+  .muline{font-size:10.5px;color:var(--t3);line-height:1.5;margin-top:8px}
+
+  /* ligne fichier — copie de .att-item réel */
+  .att-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .att-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--sur);border:1px solid var(--bor);border-radius:6px}
+  .att-item .ico{font-size:18px;flex:none}
+  .att-item .mid{flex:1;min-width:0}
+  .att-item .nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .att-item .meta{font-size:11px;color:var(--t3)}
+  .att-x{border:none;background:none;cursor:pointer;color:var(--t3);font-size:15px;padding:2px 6px;border-radius:5px}
+  .att-x:hover{background:#fee2e2;color:#991b1b}
+
+  /* badge "à joindre" ambre — repris de .logdiag-sg-badge réel */
+  .pend-badge{display:inline-flex;align-items:center;gap:3px;font-size:9.5px;font-weight:700;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:1px 7px;white-space:nowrap}
+  [data-theme="dark"] .pend-badge{background:rgba(251,191,36,.16);color:#fcd34d;border-color:rgba(251,191,36,.4)}
+
+  /* bandeau détection — copie de .logdiag-detect réel */
+  .detect{border:1px solid var(--bor);border-left:3px solid #2563eb;border-radius:8px;background:rgba(37,99,235,.05);padding:10px 12px;margin-bottom:14px}
+  .detect h5{margin:0 0 6px;font-size:12px;font-weight:700}
+  .detect .dpe{font-size:12px;line-height:1.5;margin-bottom:4px}
+  .chip{display:inline-block;font-size:10.5px;font-weight:600;background:var(--sur);border:1px solid var(--bor);border-radius:10px;padding:2px 8px;margin:0 4px 2px 0}
+
+  /* variante A : bandeau info ambre en tête de zone */
+  .pend-banner{display:flex;gap:8px;align-items:flex-start;background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:12px;color:#92400e;line-height:1.5}
+  [data-theme="dark"] .pend-banner{background:rgba(251,191,36,.10);color:#fcd34d}
+  .pend-banner .b{font-size:16px;line-height:1;flex:none}
+
+  /* variante B : sous-en-tête de groupe */
+  .grp-head{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:#92400e;margin:6px 0 6px}
+  [data-theme="dark"] .grp-head{color:#fcd34d}
+  .grp-head .ln{flex:1;height:1px;background:#fcd34d;opacity:.5}
+
+  /* variante C : rangée teintée ambre */
+  .att-item.tint{background:#fffdf3;border-color:#fcd34d}
+  [data-theme="dark"] .att-item.tint{background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.35)}
+
+  /* footer modale */
+  .m-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--bor);background:var(--sur2)}
+
+  .legend{font-size:12.5px;color:var(--t2);line-height:1.7;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:14px 16px;margin-top:26px}
+  .legend b{color:var(--t1)}
+  code{background:var(--sur);border:1px solid var(--bor);border-radius:4px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <b>Mockup · Documents diagnostic « en attente » (Bug 1)</b>
+  <span style="flex:1"></span>
+  <span style="font-size:12px;color:var(--t3)">Format :</span>
+  <button class="tbtn" onclick="setW('375px',this)">📱 375</button>
+  <button class="tbtn" onclick="setW('768px',this)">📲 768</button>
+  <button class="tbtn act" onclick="setW('1200px',this)">🖥 1200</button>
+  <button class="tbtn" onclick="toggleTheme()">🌓 Thème</button>
+</div>
+
+<div class="wrap" id="wrap">
+
+  <div class="note">
+    <b>Contexte :</b> on crée un <b>nouveau bien</b> (pas encore enregistré). Avant ce fix, la zone affichait « Enregistre d'abord le logement ».
+    Maintenant on peut déposer les PDF tout de suite : <b>lecture auto immédiate</b> (DPE→ADEME) + fichiers <b>mis en attente</b>, joints automatiquement à l'enregistrement.
+    Trois variantes ci-dessous pour le rendu de l'état « en attente ». Teste les 3 formats (boutons en haut) et le thème.
+  </div>
+
+  <!-- ════════════ VARIANTE A ════════════ -->
+  <div class="vlabel">Variante A — bandeau info + badge par ligne</div>
+  <div class="vsub">Un bandeau ambre explique l'état une fois, chaque fichier porte un badge « à joindre ».</div>
+  <div class="modal">
+    <div class="m-head"><h3>Modifier : <span style="color:var(--t3)">nouveau bien</span></h3><button class="m-close">✕</button></div>
+    <div class="tabs"><span class="tab">📍 Identité</span><span class="tab">📐 Description</span><span class="tab act">🏷 Diagnostics</span><span class="tab">🔧 Équipements</span><span class="tab">📣 Présentation</span></div>
+    <div class="body">
+      <div class="upzone">
+        <div class="upzone-head"><h4>📎 Documents de diagnostic <span class="cnt">(2 en attente)</span></h4><button class="btn">+ Ajouter</button></div>
+        <div class="pend-banner"><span class="b">⏳</span><div>Ces documents seront <b>joints au bien à l'enregistrement</b>. La lecture automatique a déjà tourné — vérifie les champs pré-remplis ci-dessous.</div></div>
+        <div class="att-list">
+          <div class="att-item">
+            <span class="ico">📄</span>
+            <div class="mid"><div class="nm">Diagnostics - plomb + amiante + électricité + DPE - RDC.pdf</div><div class="meta">3.23 Mo · <span class="pend-badge">⏳ à joindre à l'enregistrement</span></div></div>
+            <button class="att-x" title="Retirer">✕</button>
+          </div>
+          <div class="att-item">
+            <span class="ico">📄</span>
+            <div class="mid"><div class="nm">État des risques ERRIAL.pdf</div><div class="meta">412 Ko · <span class="pend-badge">⏳ à joindre à l'enregistrement</span></div></div>
+            <button class="att-x" title="Retirer">✕</button>
+          </div>
+        </div>
+        <div class="muline">📨 Stockés sur le Drive du bien à l'enregistrement, proposés à l'envoi avec le bail. 🤖 Lecture auto : N° DPE → ADEME.</div>
+      </div>
+
+      <div class="detect">
+        <h5>🤖 Détection automatique <span style="font-weight:400;color:var(--t3)">(2 documents lus · indicatif, à vérifier)</span></h5>
+        <div class="dpe">🔎 N° DPE détecté : <b>2611E0031228S</b> <span style="color:var(--t3)">→ classe énergie/GES, conso et date récupérées via l'ADEME.</span></div>
+        <div><span style="font-size:11.5px;color:var(--t2)">Diagnostics probablement couverts :</span>
+          <span class="chip">DPE</span><span class="chip">Plomb (CREP)</span><span class="chip">Amiante</span><span class="chip">Électricité</span><span class="chip">État des risques (ERP)</span></div>
+      </div>
+
+      <div style="font-size:12px;color:var(--t3);text-align:center;padding:14px;border:1px dashed var(--bor);border-radius:8px">… (tableau des diagnostics + détail DPE en dessous, inchangé) …</div>
+    </div>
+    <div class="m-foot"><button class="btn">Annuler</button><button class="btn bp">Enregistrer</button></div>
+  </div>
+
+  <!-- ════════════ VARIANTE B ════════════ -->
+  <div class="vlabel">Variante B — groupe « En attente » étiqueté</div>
+  <div class="vsub">Pas de bandeau ; un séparateur de groupe regroupe les fichiers en attente. Plus discret.</div>
+  <div class="modal">
+    <div class="m-head"><h3>Modifier : <span style="color:var(--t3)">nouveau bien</span></h3><button class="m-close">✕</button></div>
+    <div class="tabs"><span class="tab">📍 Identité</span><span class="tab">📐 Description</span><span class="tab act">🏷 Diagnostics</span><span class="tab">🔧 Équipements</span><span class="tab">📣 Présentation</span></div>
+    <div class="body">
+      <div class="upzone">
+        <div class="upzone-head"><h4>📎 Documents de diagnostic</h4><button class="btn">+ Ajouter</button></div>
+        <div class="grp-head">⏳ En attente — joints à l'enregistrement <span class="ln"></span></div>
+        <div class="att-list">
+          <div class="att-item">
+            <span class="ico">📄</span>
+            <div class="mid"><div class="nm">Diagnostics - plomb + amiante + électricité + DPE - RDC.pdf</div><div class="meta">3.23 Mo</div></div>
+            <button class="att-x" title="Retirer">✕</button>
+          </div>
+          <div class="att-item">
+            <span class="ico">📄</span>
+            <div class="mid"><div class="nm">État des risques ERRIAL.pdf</div><div class="meta">412 Ko</div></div>
+            <button class="att-x" title="Retirer">✕</button>
+          </div>
+        </div>
+        <div class="muline">📨 Stockés sur le Drive du bien à l'enregistrement, proposés à l'envoi avec le bail. 🤖 Lecture auto : N° DPE → ADEME.</div>
+      </div>
+      <div class="detect">
+        <h5>🤖 Détection automatique <span style="font-weight:400;color:var(--t3)">(2 documents lus)</span></h5>
+        <div class="dpe">🔎 N° DPE détecté : <b>2611E0031228S</b> <span style="color:var(--t3)">→ via l'ADEME.</span></div>
+        <div><span style="font-size:11.5px;color:var(--t2)">Couverts :</span> <span class="chip">DPE</span><span class="chip">Plomb</span><span class="chip">Amiante</span><span class="chip">Électricité</span><span class="chip">ERP</span></div>
+      </div>
+      <div style="font-size:12px;color:var(--t3);text-align:center;padding:14px;border:1px dashed var(--bor);border-radius:8px">… (tableau des diagnostics) …</div>
+    </div>
+    <div class="m-foot"><button class="btn">Annuler</button><button class="btn bp">Enregistrer</button></div>
+  </div>
+
+  <!-- ════════════ VARIANTE C ════════════ -->
+  <div class="vlabel">Variante C — rangées teintées ambre (minimal)</div>
+  <div class="vsub">Ni bandeau ni groupe : juste un fond ambre léger + petit badge. Le plus léger.</div>
+  <div class="modal">
+    <div class="m-head"><h3>Modifier : <span style="color:var(--t3)">nouveau bien</span></h3><button class="m-close">✕</button></div>
+    <div class="tabs"><span class="tab">📍 Identité</span><span class="tab">📐 Description</span><span class="tab act">🏷 Diagnostics</span><span class="tab">🔧 Équipements</span><span class="tab">📣 Présentation</span></div>
+    <div class="body">
+      <div class="upzone">
+        <div class="upzone-head"><h4>📎 Documents de diagnostic <span class="cnt">(2)</span></h4><button class="btn">+ Ajouter</button></div>
+        <div class="att-list">
+          <div class="att-item tint">
+            <span class="ico">📄</span>
+            <div class="mid"><div class="nm">Diagnostics - plomb + amiante + électricité + DPE - RDC.pdf</div><div class="meta">3.23 Mo · <span class="pend-badge">⏳ à l'enregistrement</span></div></div>
+            <button class="att-x" title="Retirer">✕</button>
+          </div>
+          <div class="att-item tint">
+            <span class="ico">📄</span>
+            <div class="mid"><div class="nm">État des risques ERRIAL.pdf</div><div class="meta">412 Ko · <span class="pend-badge">⏳ à l'enregistrement</span></div></div>
+            <button class="att-x" title="Retirer">✕</button>
+          </div>
+        </div>
+        <div class="muline">📨 Joints au Drive du bien à l'enregistrement. 🤖 Lecture auto : N° DPE → ADEME.</div>
+      </div>
+      <div class="detect">
+        <h5>🤖 Détection automatique</h5>
+        <div class="dpe">🔎 N° DPE détecté : <b>2611E0031228S</b></div>
+      </div>
+      <div style="font-size:12px;color:var(--t3);text-align:center;padding:14px;border:1px dashed var(--bor);border-radius:8px">… (tableau des diagnostics) …</div>
+    </div>
+    <div class="m-foot"><button class="btn">Annuler</button><button class="btn bp">Enregistrer</button></div>
+  </div>
+
+  <div class="legend">
+    <b>Comportement (identique aux 3 variantes) :</b><br>
+    • Dépôt sur un bien neuf → lecture pdf.js <b>immédiate</b> (DPE→ADEME + suggestions) dans le brouillon ; le fichier passe « en attente » (mémoire, jamais persisté seul).<br>
+    • <code>✕</code> retire le fichier de l'attente (rien à supprimer côté Drive/IDB puisque pas encore enregistré).<br>
+    • <b>Enregistrer</b> → création du bien + dossier Drive, puis flush des fichiers en attente via <code>_attachmentSaveForEntity</code> (IDB immédiat + Drive en fond).<br>
+    • <b>Annuler / fermer</b> → brouillon jeté, <b>zéro orphelin</b>.<br>
+    • Bien <b>existant</b> (déjà enregistré) → comportement actuel inchangé (persistance immédiate au dépôt).<br><br>
+    <b>À choisir :</b> A (explicite, pédagogique) · B (discret, groupé) · C (minimal). Tu peux aussi mixer (ex. badge de A + sans bandeau).
+  </div>
+
+</div>
+
+<script>
+  function setW(w, btn){ document.getElementById('wrap').style.maxWidth = w; document.querySelectorAll('.toolbar .tbtn').forEach(b=>{ if(b.textContent.match(/375|768|1200/)) b.classList.remove('act'); }); btn.classList.add('act'); }
+  function toggleTheme(){ const h=document.documentElement; h.setAttribute('data-theme', h.getAttribute('data-theme')==='dark'?'light':'dark'); }
+  // démo : le ✕ retire la ligne
+  document.addEventListener('click', e=>{ if(e.target.classList.contains('att-x')){ const it=e.target.closest('.att-item'); if(it) it.style.display='none'; }});
+</script>
+</body>
+</html>
