@@ -60,11 +60,11 @@ describe('components/modal.js', () => {
     document.getElementById = oldGetById;
   });
 
-  it('closeBg ferme si target = wrapper', () => {
+  it('closeBg ne ferme PLUS rien, même si target = wrapper (clic dehors désactivé — décision user v15.270)', () => {
     const el = document.getElementById('ov-bg');
     el.classList.remove('hidden');
     closeBg({ target: el }, 'ov-bg');
-    expect(el.classList.contains('hidden')).toBe(true);
+    expect(el.classList.contains('hidden')).toBe(false); // no-op : un clic en dehors ne ferme plus aucune modale
   });
 
   it('closeBg ne ferme PAS si target ≠ wrapper', () => {
