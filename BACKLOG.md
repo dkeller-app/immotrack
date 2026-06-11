@@ -472,7 +472,14 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 
 ## ✅ Livré récemment
 
-### FIX-CLOSEBG-CLIC-DEHORS — un clic en dehors d'une modale ne ferme plus (anti perte de saisie) (2026-06-09, v15.268)
+### BUG1-DEPOT-DIAGNOSTICS + vrai fix clic-dehors + cabinet DPE (2026-06-10, v15.274)
+> **Demande user** : pouvoir déposer les PDF de diagnostic dans l'onglet Diagnostics d'un bien **pas encore enregistré** (avant : message « Enregistre d'abord le logement »).
+> - **Bug 1 (dépôt avant save)** : zone de dépôt visible pour un bien neuf → PDF bufferisés dans `_logDiagDraft.pendingDocs` (mémoire, jamais persisté seul) + lecture auto immédiate (pdf.js → ADEME) + badge « ⏳ à enregistrer » → rattachés via `_attachmentSaveForEntity` au `saveParamLog`. Annulation/✕ → `_closeLogGuarded` confirme avant perte. Bien existant **inchangé**. Pattern buffer+flush réutilisé de l'import d'acte.
+> - **VRAI fix clic-dehors** : le fix v15.268 (inline `closeBg` no-op) était **inefficace** — `js/main.js` (`window.closeBg = closeBg`) expose la version **module** `js/components/modal.js` au boot, qui écrasait l'inline. Corrigé à la vraie source (`modal.js` no-op) + test `components.test.js` aligné (`toBe(false)`).
+> - **Cabinet DPE** : l'ADEME ne renvoie pas le diagnostiqueur ; sur un DDT combiné c'est le même cabinet que plomb/amiante → appliqué à la ligne DPE si vide (`_logDiagApplySuggestions`), sans toucher classe/GES/date.
+> - **Vérifs** : audit `superpowers:code-reviewer` **PASS 0 bloquant** (mémoire vidée flush+réinit, zéro orphelin à l'annulation, flush IDB-first sûr même Drive offline, non-régression `_handleAttachmentUpload`, injection escHtml, parité). **Vitest 1512 passed**. check-inline-js 5/0. Sandbox-first (`index-test.html`, validé user via serveur local). **origin/main `df55247`, v15.274** (rebases successifs bail-sign 271→273, renum 270→274). Spec + plan + mockup commités.
+
+### FIX-CLOSEBG-CLIC-DEHORS — clic dehors ne ferme plus — ⚠️ INEFFICACE (inline `closeBg` écrasé par le module au boot), VRAI fix en v15.274 ci-dessus (2026-06-09, v15.268)
 > **Demande user** : « dès qu'on clique en dehors de la bulle, la fenêtre se ferme » — sur **tous les pop-up**. Risque = perte de saisie (et bientôt les PDF en attente du bug 1 dépôt-avant-save).
 > - **Cause** : `closeBg(e,id){ if(e.target===el(id)) closeM(id); }` — 1 fonction partagée, branchée sur **54 modales `.ov`** via `onclick="closeBg(event,'…')"`.
 > - **Fix** : `closeBg` rendue **inerte** → plus aucune modale ne ferme au clic sur le fond ; fermeture via ✕ / Annuler / Enregistrer. **No-trap vérifié** : les 54 modales ont toutes un `closeM`. `_closeBailWizardBg` (wrapper backdrop `ov-bail`) rendu inerte aussi (sinon un clic-fond effaçait `_pendingCandidatConv` sans fermer ; cette conversion candidat n'est nettoyée qu'à une vraie fermeture `_closeBailWizard`/✕ ou un `openBail`).
