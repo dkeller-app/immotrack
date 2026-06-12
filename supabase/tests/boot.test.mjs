@@ -4,6 +4,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
 import { createBoot } from '../../js/app/supabase-boot.js'
+import { makeDetUuid } from '../../js/core/det-uuid.js'
 import { createUser, deleteUserByEmail } from './helpers/clients.mjs'
 import { teardownOwner } from './helpers/teardown.mjs'
 
@@ -66,5 +67,51 @@ describe('boot — résolution espace + round-trip Store/Sync', () => {
     // re-hydrate (relit Supabase) → l'entité est persistée et revient à l'identique
     const DB2 = await boot.hydrate()
     expect((DB2.entites || []).some(e => e.nom === 'SCI Boot')).toBe(true)
+  })
+
+  it('logout FLUSHE les modifs en attente avant de déconnecter (pas de perte)', async () => {
+    const boot = createBoot(anonClient())
+    await boot.loginEmail(U.email, U.pass)
+    const esp = await boot.resolveEspace('Espace Boot')
+    let DB = {}
+    boot.wireStore({ ...esp, getDB: () => DB, schedule: null })
+    DB = await boot.hydrate(); boot.seed(DB)
+    DB.entites = [...(DB.entites || []), { nom: 'SCI Logout', immeubles: [] }]
+    await boot.logout()                    // doit flusher SCI Logout AVANT signOut
+
+    // re-login frais → la modif a bien été persistée (sinon elle aurait été perdue au logout)
+    const boot2 = createBoot(anonClient())
+    await boot2.loginEmail(U.email, U.pass)
+    const esp2 = await boot2.resolveEspace('Espace Boot')
+    let DB3 = {}
+    boot2.wireStore({ ...esp2, getDB: () => DB3, schedule: null })
+    DB3 = await boot2.hydrate()
+    expect((DB3.entites || []).some(e => e.nom === 'SCI Logout')).toBe(true)
+  })
+
+  it('BASCULE : modifier une ligne PRÉ-EXISTANTE (style ETL, même namespace) → UPDATE même id, AUCUN doublon', async () => {
+    const boot = createBoot(anonClient())
+    await boot.loginEmail(U.email, U.pass)
+    const esp = await boot.resolveEspace('Espace Boot')
+    // pré-insère "SCI Pre" comme l'aurait fait l'ETL : id = makeDetUuid(ownerId)('entite','sci pre')
+    const preId = makeDetUuid(esp.ownerId)('entite', 'sci pre')
+    const cli = anonClient(); await cli.auth.signInWithPassword({ email: U.email, password: U.pass })
+    const ins = await cli.from('entites').insert({ id: preId, espace_id: esp.espaceId, nom: 'SCI Pre', legacy_raw: { nom: 'SCI Pre', immeubles: [], siren: null } })
+    expect(ins.error).toBeNull()
+
+    let DB = {}
+    boot.wireStore({ ...esp, getDB: () => DB, schedule: null })
+    DB = await boot.hydrate(); boot.seed(DB)
+    const pre = (DB.entites || []).find(e => e.nom === 'SCI Pre')
+    expect(pre).toBeTruthy()
+    pre.siren = '123456789'                // modif d'un champ NON-identité → même id → UPDATE
+    const summary = await boot.flush()
+    expect(summary.upserts).toContainEqual({ coll: 'entites', key: 'sci pre' })
+
+    const check = await cli.from('entites').select('id, version, legacy_raw').eq('espace_id', esp.espaceId).ilike('nom', 'SCI Pre')
+    expect(check.data.length).toBe(1)                          // AUCUN doublon
+    expect(check.data[0].id).toBe(preId)                       // même ligne
+    expect(Number(check.data[0].version)).toBeGreaterThan(1)   // UPDATE (pas ré-insertion)
+    expect(check.data[0].legacy_raw.siren).toBe('123456789')   // modif persistée + jsonb objet
   })
 })

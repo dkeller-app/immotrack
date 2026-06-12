@@ -27,9 +27,15 @@ Thumbs.db
 # .env contient service_role + URL DB = accès TOTAL bypass RLS. .env.example reste safe.
 .env
 .env.local
+# ─── Config front Supabase (URL + clé ANON publiques, mais locale par prudence) ───
+# Le vrai fichier reste local/déployé ; le template *.example.js est committé.
+js/app/supabase-config.js
 # ─── Artefacts CLI Supabase (générés, non versionnés) ───
 supabase/.temp/
 supabase/.branches/
+
+# ─── Mockups de design (artefacts locaux de travail) ───
+mockups/
 
 # ─── IDE ───
 .vscode/
