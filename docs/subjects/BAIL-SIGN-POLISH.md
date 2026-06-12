@@ -7,7 +7,17 @@
 > Restent des items de polish/bugs remontés par l'utilisateur en test réel.
 
 ## A. Page de signature (relais — `relay/public/sign.js`, auto-contenu, redeploy wrangler)
-- **A1 (CRITIQUE — EN COURS, diagnostic instrumenté)** : « PDF signé » sans paraphes/signature locataire.
+- **A1 (CRITIQUE — ✅ RÉSOLU 2026-06-12 : FAUX bug)** : ce n'était NI un bug de tamponnage NI d'archivage.
+  Preuves runtime : essai neuf → écran « Document signé » affiche **« Éléments apposés : 13 »** (12 paraphes
+  + 1 signature tamponnés et uploadés) ; côté app, contrôle d'intégrité **`contentHash` (PDF Drive archivé)
+  === `proof.pdfSha256` (PDF signé au relais)** = `f1676588…c688` → **MATCH = true** (le PDF archivé EST,
+  octet pour octet, le PDF tamponné). VRAIE CAUSE = **confusion de bouton** : l'utilisateur regardait
+  **« Voir bail signé »** (bleu) = snapshot LOCAL figé au moment de la signature bailleur (donc AVANT le
+  locataire, bailleur-seul par conception), au lieu de **« PDF signé »** (cyan) = `pdfRef.driveWebViewLink`
+  finalisé (avec locataire). → Le correctif réel est **B2** (clarifier/réorienter « Voir bail signé » pour
+  un bail signé à distance). Ancien diagnostic ci-dessous conservé pour mémoire.
+
+  [HISTORIQUE] « PDF signé » paraissait sans paraphes/signature locataire.
   CHAÎNE RELUE LIGNE À LIGNE (2026-06-12) = **provablement correcte** :
   capture ancres mm/jsPDF OK (log `13 ancres, 26 pages`, sigId `loc-0`) ; manifeste embarqué
   (`embedInDoc`/`setKeywords`) ; `resolveAnchors` filtre par sigId (le fait que l'utilisateur ait PU
@@ -36,8 +46,12 @@
 - **B1 (#4)** : boutons incohérents tant qu'une session distante est active — masquer « Le locataire
   signe » (présentiel) quand `remoteSession` ∈ {sent,chaining}. (Partiellement résolu par la cascade
   `mode='distance'` à la finalisation, mais à durcir pour les états intermédiaires.)
-- **B2 (#5)** : « Voir bail signé » affiche le snapshot LOCAL (bailleur-seul) — pour un bail signé à
-  distance, devrait pointer vers le PDF finalisé (relais/Drive). Clarifier snapshot vs finalisé.
+- **B2 (#5 — ⭐ PRIORITÉ : vraie cause de A1)** : « Voir bail signé » (bleu) affiche le snapshot LOCAL
+  (bailleur-seul, figé). Pour un bail **signé à distance** (`mode==='distance'` + `pdfRef`), ce bouton
+  induit en erreur (semble « non signé par le locataire »). Fix : quand le bail est signé à distance,
+  soit **rediriger « Voir bail signé » vers le PDF finalisé** (`pdfRef.driveWebViewLink`), soit le
+  **renommer** (« Voir snapshot bailleur ») et mettre en avant « PDF signé », soit le **masquer**.
+  Décision UX à prendre (cohérence boutons B4). C'est LE correctif qui clôt A1.
 - **B3 (#6)** ✅ VÉRIFIÉ (2026-06-12) : le bouton « 📄 PDF signé » du badge `completed` ouvre bien
   `sig.pdfRef.driveWebViewLink` (index.html worktree ligne ~6239) = l'artefact finalisé du relais.
   Donc le câblage est bon ; si le PDF est vide, la cause est en amont (cf A1).
@@ -65,9 +79,14 @@
   est ouverte + bouton **« Vérifier maintenant »**.
 
 ## Ordre proposé
-1. **A1** (compteur N à l'essai neuf → tamponnage OK = bug affichage app, sinon mismatch) — CRITIQUE.
+1. ~~**A1**~~ ✅ RÉSOLU (faux bug : confusion bouton « Voir bail signé » vs « PDF signé »). Vrai fix = B2.
 2. ~~**A2 + A3**~~ ✅ LIVRÉS (relais `fde36be5`).
-3. **B1 + B2 + B4 + D1 + D2 + D3** (cohérence/ergonomie boutons fiche bail + entrées de signature, app).
-4. **B5/D3** (finalisation + rafraîchissement robustes).
-5. **A4** (OTP email — chantier infra dédié).
+3. **Nettoyage** : retirer le debug `[SIGN-DEBUG]` + simplifier/retirer le compteur « Éléments apposés »
+   sur la page de signature (relais), une fois la confiance établie.
+4. **« Lu et approuvé »** sur la page de signature (relais) — demande utilisateur, parité avec la
+   signature in-app (case sous le pad) ; aujourd'hui couvert par c1 (consent) + mention imprimée.
+5. **B2 ⭐ + B1 + B4 + D1 + D2 + D3** (cohérence/ergonomie boutons fiche bail + entrées de signature, app
+   — protocole index-commit).
+6. **B5/D3** (finalisation + rafraîchissement robustes).
+7. **A4** (OTP email — chantier infra dédié).
 </content>
