@@ -30,6 +30,14 @@ export function paraphePagesFor(pdfDoc, { sigId, side }) {
   return [...new Set(pages)].sort((a, b) => a - b);
 }
 
+// Pages (1-based) qui portent une zone de SIGNATURE pour ce sigId — sign.js y affiche
+// un rappel « vous signerez à la dernière étape » (la signature ne se trace pas en lecture).
+export function signaturePagesFor(pdfDoc, { sigId, side }) {
+  const { anchors } = resolveAnchors(pdfDoc, { sigId, side });
+  const pages = anchors.filter((a) => a.kind === 'signature').map((a) => a.page);
+  return [...new Set(pages)].sort((a, b) => a - b);
+}
+
 export async function stampSignature(
   pdfDoc,
   { sigId, signaturePngDataUrl, paraphesByPage = {}, mentionLines = [], side },

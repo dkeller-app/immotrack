@@ -1,6 +1,6 @@
 import { initPad } from '/sign/pad.js';
 import { loadDocument, renderPageInto } from '/sign/viewer.js';
-import { stampSignature, paraphePagesFor } from '/sign/stamp.js';
+import { stampSignature, paraphePagesFor, signaturePagesFor } from '/sign/stamp.js';
 import { buildMentionLines, buildProofObject } from '/sign/proof.js';
 
 const S = window.__SIGN__ || {};
@@ -24,6 +24,7 @@ function fail(msg) { app.innerHTML = ''; app.appendChild(h(`<div class="state-ca
 let master;                 // Uint8Array intacts (jamais passés à PDF.js)
 let pdf;                    // doc PDF.js (lecture)
 let paraphePages = [];      // pages 1-based à parapher pour ce sigId
+let signaturePages = [];    // pages 1-based portant une zone de signature (rappel UX A3)
 let curPage = 1;            // page courante en lecture
 let signerName = '';
 const paraphesByPage = {};  // {page → dataURL} — une image distincte par page paraphée
@@ -160,6 +161,8 @@ async function startReading() {
     pdf = await loadDocument(master.slice()); // copie : PDF.js détache le buffer
     const probe = await PDFLib.PDFDocument.load(master); // master intact pour le tamponnage final
     paraphePages = paraphePagesFor(probe, { sigId: S.sigId, side: S.side });
+    signaturePages = signaturePagesFor(probe, { sigId: S.sigId, side: S.side });
+    console.log('[SIGN-DEBUG] sigId=', S.sigId, 'side=', S.side, 'paraphePages=', JSON.stringify(paraphePages), 'signaturePages=', JSON.stringify(signaturePages), 'manifestKw=', (probe.getKeywords() || '(vide)').slice(0, 280));
     curPage = 1;
   }
   await renderReadStep();
@@ -167,6 +170,11 @@ async function startReading() {
 
 async function renderReadStep() {
   await renderPageInto(pdf, curPage, app.querySelector('#pdf-page'));
+  // A2 : à chaque changement de page, on remonte la zone de lecture en haut (sinon on
+  // reste scrollé en bas après avoir paraphé la page précédente).
+  const sc = app.querySelector('#step-read .scroll');
+  if (sc) sc.scrollTop = 0;
+  window.scrollTo(0, 0);
   const total = pdf.numPages;
   const needsParaphe = paraphePages.includes(curPage);
   const isLast = curPage >= total;
@@ -174,6 +182,12 @@ async function renderReadStep() {
   const bar = app.querySelector('#read-bar');
   bar.innerHTML = '';
   bar.appendChild(h(`<div class="progress">Page ${curPage} / ${total}${needsParaphe ? ' · à parapher' : ' · lecture seule'}</div>`));
+
+  // A3 : la page qui porte la zone de signature est atteinte en lecture (avant la fin).
+  // On rappelle que la signature se trace à la dernière étape — sans réordonner le PDF (intégrité légale).
+  if (!needsParaphe && signaturePages.includes(curPage)) {
+    bar.appendChild(h(`<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:8px 10px;font-size:13px;color:#92400e;margin:6px 0">📝 La zone de signature figure sur cette page, mais vous <strong>tracerez votre signature à la dernière étape</strong>, après avoir tout lu. Continuez la lecture.</div>`));
+  }
 
   if (needsParaphe) {
     bar.appendChild(h(`<div class="pad-wrap small"><canvas id="par-pad" width="320" height="90"></canvas></div>`));
@@ -207,11 +221,12 @@ async function doSubmit() {
     const doc = await PDFLib.PDFDocument.load(master);
     const dateISO = new Date().toISOString();
     const mentionLines = buildMentionLines({ signerName, role: S.role, dateISO });
-    await stampSignature(doc, {
+    const _stampRes = await stampSignature(doc, {
       sigId: S.sigId, side: S.side,
       signaturePngDataUrl: signaturePad.toDataURL(),
       paraphesByPage, mentionLines
     }, { rgb: PDFLib.rgb });
+    console.log('[SIGN-DEBUG] stamp result=', JSON.stringify(_stampRes), '| paraphesByPage pages=', JSON.stringify(Object.keys(paraphesByPage)), '| sigPadEmpty=', signaturePad.isEmpty());
     const signed = await doc.save();
     // Dossier de preuve client (acte de volonté + horodatages d'étape, §5 #3) → en-tête X-Sign-Proof.
     const proof = buildProofObject({
@@ -227,6 +242,12 @@ async function doSubmit() {
     if (r.status === 410) return fail('Ce document est déjà signé.');
     if (!r.ok) throw new Error('http ' + r.status);
     show('step-done');
+    try {
+      const card = app.querySelector('#step-done .state-card');
+      if (card && _stampRes) {
+        card.appendChild(h(`<p style="font-size:13px;color:#475569;margin-top:10px">Éléments apposés sur le document : <strong>${_stampRes.stamped}</strong>${_stampRes.skipped ? ' · ignorés : ' + _stampRes.skipped : ''}.</p>`));
+      }
+    } catch (e2) {}
   } catch (e) {
     console.error(e);
     busy.hidden = true; btn.disabled = false;
