@@ -46,7 +46,7 @@
   pertinent pour la commercialisation.
 
 ## B. App / fiche bail (`index.html` — repasse par le protocole d'intégration index-commit)
-- **BUG-DRIVE-STALE-PDF (CRITIQUE — ⚠️ cause réelle de A1 — fix sandbox fait + audité, port prod À FAIRE)** :
+- **BUG-DRIVE-STALE-PDF (CRITIQUE — ✅ INTÉGRÉ PROD v15.277, commit `2c8268b` poussé `origin/main`)** :
   `_ingestSignedBailArtifacts` archivait le PDF signé sous un **nom fixe** `bail-<ref>-signe.pdf` avec
   `_driveFindFileInFolder(...) || _driveUploadBlob(...)`. Après « Réinitialiser » + re-signature, le PDF
   a un **contenu différent** mais `bail.ref` identique → le find trouve l'**ancien** fichier → le `||`
