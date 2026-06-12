@@ -1,0 +1,73 @@
+# BAIL-SIGN-POLISH — polish & correctifs signature de bail à distance (post-mise-en-prod)
+
+> Créé 2026-06-09. Contexte : BAIL-SIGNATURE-DISTANCE C3 livré en prod (v15.263) puis correctifs
+> v15.269 (auto-déclencheur émission), v15.271 (collision `_bsRelay*`), v15.272/273 (refresh Drive
+> à la finalisation) + relais CORS (`dkeller-app.github.io`). Le flux marche **de bout en bout**
+> (émission → partage → signature → finalisation → badge 🔒 + PDF signé/Certificat sur Drive).
+> Restent des items de polish/bugs remontés par l'utilisateur en test réel.
+
+## A. Page de signature (relais — `relay/public/sign.js`, auto-contenu, redeploy wrangler)
+- **A1 (CRITIQUE — EN COURS, diagnostic instrumenté)** : « PDF signé » sans paraphes/signature locataire.
+  CHAÎNE RELUE LIGNE À LIGNE (2026-06-12) = **provablement correcte** :
+  capture ancres mm/jsPDF OK (log `13 ancres, 26 pages`, sigId `loc-0`) ; manifeste embarqué
+  (`embedInDoc`/`setKeywords`) ; `resolveAnchors` filtre par sigId (le fait que l'utilisateur ait PU
+  parapher prouve que `paraphePagesFor` a matché → `stampSignature` matche les mêmes ancres) ;
+  coords mm→pt (`rectFromJsPdf`) tombent DANS la page ; `recordSignature` persiste les octets tamponnés,
+  `/result`→`getSignedPdf` les renvoie ; `_completeRemoteSign` archive CE blob ; bouton « PDF signé »
+  ouvre `pdfRef.driveWebViewLink` = ce blob. **161 tests relais PASSENT** dont `sign-e2e` (round-trip
+  réel bailleur+locataire, manifeste préservé). Contradiction code-correct / observé-vide → hypothèse
+  runtime. **Instrumentation déployée (relais `fde36be5`)** : écran final « ✓ Document signé » affiche
+  **« Éléments apposés : N »** + `[SIGN-DEBUG]` console (sigId/paraphePages/signaturePages/manifestKw +
+  stamp result). PROCHAIN PAS : un essai NEUF (ancien bail = session 401 expirée, inutilisable). Si N=13
+  → bug d'affichage/cache/ancienne-finalisation côté app ; si N=0 → mismatch sigId/manifeste révélé par
+  le log. (NB : retirer le `console.log [SIGN-DEBUG]` + simplifier le compteur après résolution.)
+- **A2 (UX #1)** ✅ LIVRÉ (relais `fde36be5`) : `renderReadStep` remet `#step-read .scroll` + window en
+  haut à chaque page.
+- **A3 (UX #3)** ✅ LIVRÉ (relais `fde36be5`) : bandeau jaune sur la/les page(s) portant une zone de
+  signature (`signaturePagesFor` ajouté à `stamp.js`) — « vous signerez à la dernière étape ». PDF non
+  réordonné (intégrité légale).
+- **A4 (FEATURE #2 — code email type Yousign / OTP)** : aujourd'hui = simple vérif d'email
+  (`/api/sessions/:id/verify-email` compare le hash, anti-transfert), PAS de code OTP. Un vrai OTP
+  exige que **le relais ENVOIE des emails** (il ne sait pas aujourd'hui) → brancher un service
+  (MailChannels/Resend sur le Worker) + générer/stocker/valider le code. Chantier infra dédié,
+  pertinent pour la commercialisation.
+
+## B. App / fiche bail (`index.html` — repasse par le protocole d'intégration index-commit)
+- **B1 (#4)** : boutons incohérents tant qu'une session distante est active — masquer « Le locataire
+  signe » (présentiel) quand `remoteSession` ∈ {sent,chaining}. (Partiellement résolu par la cascade
+  `mode='distance'` à la finalisation, mais à durcir pour les états intermédiaires.)
+- **B2 (#5)** : « Voir bail signé » affiche le snapshot LOCAL (bailleur-seul) — pour un bail signé à
+  distance, devrait pointer vers le PDF finalisé (relais/Drive). Clarifier snapshot vs finalisé.
+- **B3 (#6)** ✅ VÉRIFIÉ (2026-06-12) : le bouton « 📄 PDF signé » du badge `completed` ouvre bien
+  `sig.pdfRef.driveWebViewLink` (index.html worktree ligne ~6239) = l'artefact finalisé du relais.
+  Donc le câblage est bon ; si le PDF est vide, la cause est en amont (cf A1).
+- **B4** : design des boutons de la fiche bail (encombrement) — à revoir.
+- **B5** : finalisation sans console ni rechargement — relance le sondage quand Drive se (re)connecte,
+  ou bouton « Finaliser / Vérifier la signature » explicite. (Atténué par `_ensureDriveToken()` v15.273.)
+
+## C. Suivi connexe (hors signature, repéré en passant)
+- `rParamsTheme` : `JSON.parse` échoue sur la valeur de thème « light » (`Unexpected token 'l'`,
+  immotrack rParamsTheme) — bug séparé, à traiter à part.
+- Lanceur 📨 « Envoyer en signature » + badge câblés dans la fonction MORTE
+  `_rBauxLegacyCards_DEPRECATED_v15_224` (liste Locataires) → recâbler dans `rBaux()` vivant (seul
+  point d'entrée actuel = fiche bien).
+
+## D. Demandes fonctionnelles (retours utilisateur 2026-06-12 — app, protocole index-commit)
+- **D1** : bouton **« Signer maintenant »** explicite sur la fiche bail = signature bailleur en présentiel,
+  directe, sans ouvrir la modale d'envoi à distance. (Le flux existe via le wizard ; manque une entrée
+  claire « je signe moi-même tout de suite ».)
+- **D2** : (a) possibilité d'**envoyer le bail au bailleur** pour signature à distance (gérant ailleurs) —
+  le relais accepte déjà n'importe quel signataire, c'est une extension du choix présentiel/distance par
+  signataire ; (b) **ne pas générer le circuit relais si seul le bailleur signe** — la signature est cuite
+  dans le PDF par l'app (genPDFNative), aucune session/manifeste nécessaire. Clarifier le branchement.
+- **D3** (= durcissement B5) : après signature du locataire, **les boutons ne se rafraîchissent pas tout
+  de suite** (latence du sondage ~30 s). Pas de push relais dispo → sonder plus vite tant qu'une session
+  est ouverte + bouton **« Vérifier maintenant »**.
+
+## Ordre proposé
+1. **A1** (compteur N à l'essai neuf → tamponnage OK = bug affichage app, sinon mismatch) — CRITIQUE.
+2. ~~**A2 + A3**~~ ✅ LIVRÉS (relais `fde36be5`).
+3. **B1 + B2 + B4 + D1 + D2 + D3** (cohérence/ergonomie boutons fiche bail + entrées de signature, app).
+4. **B5/D3** (finalisation + rafraîchissement robustes).
+5. **A4** (OTP email — chantier infra dédié).
+</content>
