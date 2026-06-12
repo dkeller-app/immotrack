@@ -113,6 +113,36 @@ describe('flux candidat complet', () => {
     expect(p.status).toBe(201);
   });
 
+  it('reopen-self : le candidat rouvre lui-même son dossier soumis (submitted → open) + peut ré-uploader', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/dossier`, { method:'POST', headers:{ 'X-Cand-Token': tok, 'content-type':'application/json' }, body: JSON.stringify(DOSSIER) });
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/submit`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    const ro = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/reopen-self`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    expect(ro.status).toBe(200);
+    expect((await ro.json()).status).toBe('open');
+    const p = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/piece`, { method:'POST', headers:{ 'X-Cand-Token': tok, 'content-type':'application/pdf', 'X-Piece-Categorie':'autre', 'X-Piece-Filename':'extra.pdf' }, body: PDF() });
+    expect(p.status).toBe(201);
+  });
+
+  it('reopen-self : 409 si pas encore soumis (état open)', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    const ro = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/reopen-self`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    expect(ro.status).toBe(409);
+    expect((await ro.json()).error).toBe('not-submitted');
+  });
+
+  it('reopen-self : 410 si révoqué par le bailleur (le candidat ne peut plus rouvrir)', async () => {
+    const invite = await (await createInvite()).json();
+    const tok = await candTokenOf(invite.linkId);
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/dossier`, { method:'POST', headers:{ 'X-Cand-Token': tok, 'content-type':'application/json' }, body: JSON.stringify(DOSSIER) });
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/submit`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/revoke`, { method:'POST', headers:{ 'X-Owner-Token': invite.ownerToken } });
+    const ro = await SELF.fetch(`https://relay.test/api/candidatures/${invite.linkId}/reopen-self`, { method:'POST', headers:{ 'X-Cand-Token': tok } });
+    expect(ro.status).toBe(410);
+  });
+
   it('submit refusé 400 si dossier jamais renseigné (contournement JS)', async () => {
     const invite = await (await createInvite()).json();
     const tok = await candTokenOf(invite.linkId);

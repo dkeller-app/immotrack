@@ -82,6 +82,17 @@ export async function reopenForComplement(env, linkId, note) {
   return c;
 }
 
+// Candidat : rouvre lui-même son dépôt soumis (submitted → open) pour le compléter,
+// sans intervention du bailleur. NE touche PAS complementNote (réservé au bailleur).
+// Le contrôle d'état (doit être 'submitted', jamais 'revoked') est fait par la route.
+export async function reopenByCandidate(env, linkId) {
+  const c = await getCand(env, linkId);
+  if (!c) throw new Error('candidature-not-found');
+  c.status = 'open';
+  await putCand(env, linkId, c, ttlOf(c));
+  return c;
+}
+
 export async function revokeCandidature(env, linkId) {
   const c = await getCand(env, linkId);
   if (!c) throw new Error('candidature-not-found');

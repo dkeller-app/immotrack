@@ -8,7 +8,7 @@ import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossie
 import { renderSignPage, renderErrorPage } from './sign-page.js';
 import {
   createCandidature, loadCandidature, saveDossier, addPiece, removePiece,
-  markOpened, submitCandidature, reopenForComplement, revokeCandidature, purgeCandidature
+  markOpened, submitCandidature, reopenForComplement, reopenByCandidate, revokeCandidature, purgeCandidature
 } from './candidatures.js';
 import { renderDossierPage, renderDossierError } from './dossier-page.js';
 
@@ -299,7 +299,7 @@ app.get('/d/:linkId', async (c) => {
   const linkId = c.req.param('linkId');
   const cand = await loadCandidature(c.env, linkId);
   if (!cand) return c.html(renderDossierError('Lien invalide ou expiré.'), 404);
-  if (cand.status === 'revoked') return c.html(renderDossierError('Ce lien a été désactivé par le propriétaire.'), 410);
+  if (cand.status === 'revoked') return c.html(renderDossierError('Dossier traité — votre candidature a été étudiée par le propriétaire. Ce lien n\'est plus modifiable.'), 410);
   if (new Date(cand.expiresAt).getTime() < Date.now()) return c.html(renderDossierError('Ce lien a expiré.'), 410);
   const opened = await markOpened(c.env, linkId);
   const exp = Math.floor(new Date(opened.expiresAt).getTime() / 1000);
@@ -417,6 +417,18 @@ app.post('/api/candidatures/:linkId/reopen', async (c) => {
   let body = {};
   try { body = await c.req.json(); } catch {}
   const cand = await reopenForComplement(c.env, linkId, body && body.note);
+  return c.json({ status: cand.status });
+});
+
+// Candidat : rouvre LUI-MÊME son dépôt soumis (submitted → open) pour le compléter,
+// sans intervention du bailleur. Jeton candidat. Refusé si pas soumis (409) — donc
+// jamais si 'revoked' (≠ submitted), le bailleur ayant déjà tranché.
+app.post('/api/candidatures/:linkId/reopen-self', async (c) => {
+  const linkId = c.req.param('linkId');
+  const guard = await requireCandidat(c, linkId);
+  if (guard.error) return guard.error;
+  if (guard.cand.status !== 'submitted') return c.json({ error: 'not-submitted', status: guard.cand.status }, 409);
+  const cand = await reopenByCandidate(c.env, linkId);
   return c.json({ status: cand.status });
 });
 

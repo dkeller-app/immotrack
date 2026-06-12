@@ -315,7 +315,34 @@ function showSent(){
     <h2>Dossier envoyé !</h2>
     <p>Votre candidature pour <b>${esc(CAND.bienLabel||'ce bien')}</b> a bien été transmise au propriétaire.</p>
     <p>Il va l'étudier et pourra vous recontacter.</p>
-    <div class="tip">📎 Besoin d'ajouter une pièce ? Revenez avec <b>ce même lien</b> tant que votre dossier est en cours — rien n'est à ressaisir.</div>
+    <button id="reopen-self" class="btn bp full" style="max-width:300px;margin-top:14px">📎 Compléter mon dossier</button>
+    <div class="tip">Besoin d'ajouter une pièce ou de corriger une info ? Rouvrez votre dossier avec ce bouton — rien n'est à ressaisir. Possible tant que le propriétaire ne l'a pas traité.</div>
+  </div></div>`;
+  const b = document.getElementById('reopen-self');
+  if(b) b.addEventListener('click', reopenSelf);
+}
+
+// Candidat : rouvre LUI-MÊME son dépôt (submitted → open) pour le compléter, sans message au bailleur.
+async function reopenSelf(){
+  const b = document.getElementById('reopen-self');
+  if(b){ b.disabled = true; b.textContent = 'Réouverture…'; }
+  try {
+    const r = await fetch(`${API}/reopen-self`, { method:'POST', headers:{ 'X-Cand-Token':TOKEN } });
+    if(r.ok){ CAND.status = 'open'; start(); return; }
+    if(r.status === 409){ CAND.status = 'open'; start(); return; } // déjà rouvert (autre onglet) → on édite
+    if(r.status === 410){ showTreated(); return; } // le bailleur a tranché entre-temps → verrouillé
+    if(b){ b.disabled = false; b.textContent = '📎 Compléter mon dossier'; }
+    alert('Réouverture impossible — réessayez dans un instant.');
+  } catch(_){ if(b){ b.disabled=false; b.textContent='📎 Compléter mon dossier'; } alert('Connexion perdue — réessayez.'); }
+}
+
+// Écran verrouillé : le bailleur a déjà validé/refusé (lien révoqué). Plus modifiable.
+function showTreated(){
+  document.getElementById('app').innerHTML = `<div class="pub"><div class="state">
+    <div class="em no">🔒</div>
+    <h2>Dossier traité</h2>
+    <p>Le propriétaire a étudié votre candidature pour <b>${esc(CAND.bienLabel||'ce bien')}</b>.</p>
+    <p>Votre dossier n'est plus modifiable. Il vous recontactera s'il a besoin d'informations.</p>
   </div></div>`;
 }
 
