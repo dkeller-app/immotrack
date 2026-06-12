@@ -4,7 +4,8 @@ import {
   _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
   buildComplementShareMessage, shouldAutoPull,
-  countUnreadCandidats, nouveauDossierToast
+  countUnreadCandidats, nouveauDossierToast,
+  majDossierToast, repullDecision
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
@@ -231,5 +232,50 @@ describe('nouveauDossierToast', () => {
   });
   it('ignore les noms vides', () => {
     expect(nouveauDossierToast(['', null, 'Léa'])).toContain('Léa');
+  });
+});
+
+describe('majDossierToast', () => {
+  it('aucun nom → message générique', () => {
+    expect(majDossierToast([])).toMatch(/Dossier mis à jour/);
+  });
+  it('un nom', () => {
+    expect(majDossierToast(['Marie Dupont'])).toContain('Marie Dupont');
+  });
+  it('deux noms → « et 1 autre »', () => {
+    const t = majDossierToast(['Marie Dupont','Karim Benali']);
+    expect(t).toContain('Marie Dupont');
+    expect(t).toContain('1 autre');
+  });
+  it('distinct du toast « nouveau » (📝 vs 📩)', () => {
+    expect(majDossierToast(['Léa'])).toContain('📝');
+    expect(majDossierToast(['Léa'])).not.toContain('📩');
+  });
+});
+
+describe('repullDecision', () => {
+  it('lien actif → toujours import (1ère soumission / complément D13)', () => {
+    expect(repullDecision({ status: 'active' }, '2026-06-11T10:00:00Z', null)).toBe('import');
+  });
+  it('lien collecté sans horodatage suivi → baseline (pas de notif rétroactive)', () => {
+    expect(repullDecision({ status: 'collected' }, '2026-06-11T10:00:00Z', 'enCours')).toBe('baseline');
+    expect(repullDecision({ status: 'collected', _lastSubmittedAt: null }, '2026-06-11T10:00:00Z', 'enCours')).toBe('baseline');
+  });
+  it('même horodatage que le dernier import → skip (anti-boucle)', () => {
+    const link = { status: 'collected', _lastSubmittedAt: '2026-06-11T10:00:00Z' };
+    expect(repullDecision(link, '2026-06-11T10:00:00Z', 'enCours')).toBe('skip');
+  });
+  it('horodatage plus récent (ré-ouverture candidat) → import', () => {
+    const link = { status: 'collected', _lastSubmittedAt: '2026-06-11T10:00:00Z' };
+    expect(repullDecision(link, '2026-06-11T12:30:00Z', 'enCours')).toBe('import');
+  });
+  it('décision prise (validé/refusé/converti) → skip même si soumission change', () => {
+    const link = { status: 'collected', _lastSubmittedAt: '2026-06-11T10:00:00Z' };
+    expect(repullDecision(link, '2026-06-11T12:30:00Z', 'valide')).toBe('skip');
+    expect(repullDecision(link, '2026-06-11T12:30:00Z', 'refuse')).toBe('skip');
+    expect(repullDecision(link, '2026-06-11T12:30:00Z', 'converti')).toBe('skip');
+  });
+  it('lien absent → import (laisse le flux normal créer)', () => {
+    expect(repullDecision(null, '2026-06-11T10:00:00Z', null)).toBe('import');
   });
 });

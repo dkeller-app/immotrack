@@ -163,3 +163,36 @@ export function nouveauDossierToast(newNames) {
   if (n === 1) return '📩 Nouveau dossier reçu : ' + names[0];
   return '📩 Nouveau dossier reçu : ' + names[0] + ' et ' + (n - 1) + ' autre' + (n - 1 > 1 ? 's' : '');
 }
+
+/** Texte du toast de mise à jour d'un dossier déjà déposé (ré-ouverture candidat / complément). */
+export function majDossierToast(updatedNames) {
+  const names = (Array.isArray(updatedNames) ? updatedNames : []).map(s => String(s || '').trim()).filter(Boolean);
+  const n = names.length;
+  if (n === 0) return '📝 Dossier mis à jour';
+  if (n === 1) return '📝 Dossier mis à jour : ' + names[0];
+  return '📝 Dossiers mis à jour : ' + names[0] + ' et ' + (n - 1) + ' autre' + (n - 1 > 1 ? 's' : '');
+}
+
+/**
+ * Décide quoi faire d'une soumission relais lors du pull, vu l'état déjà connu du lien.
+ * Gère la ré-ouverture candidat : un lien déjà 'collected' est re-tiré, mais on ne (re)importe
+ * que si la soumission a changé (horodatage `submittedAt` différent), sinon on boucle.
+ * Pur — testé. L'appelant gère les effets (import, persistance du baseline).
+ *
+ * @param {object} link - lien candidat ({ status, _lastSubmittedAt, candId })
+ * @param {string} submittedAt - horodatage de soumission renvoyé par le relais
+ * @param {string|null} candStatut - statut du candidat lié (pour stopper après décision)
+ * @returns {'import'|'skip'|'baseline'}
+ *   - 'import'   : (ré)importer cette soumission (nouvelle ou modifiée)
+ *   - 'skip'     : ne rien faire (déjà importée, ou décision déjà prise)
+ *   - 'baseline' : lien collecté hérité sans horodatage suivi → adopter `submittedAt`
+ *                  comme référence SANS notifier (évite une fausse notif rétroactive)
+ */
+export function repullDecision(link, submittedAt, candStatut) {
+  if (!link) return 'import';
+  if (link.status !== 'collected') return 'import'; // 'active' → flux normal (1ère soumission / complément D13)
+  if (link._lastSubmittedAt == null) return 'baseline'; // hérité d'avant le suivi des ré-ouvertures
+  if (submittedAt && submittedAt === link._lastSubmittedAt) return 'skip'; // même soumission, déjà importée
+  if (candStatut === 'refuse' || candStatut === 'converti' || candStatut === 'valide') return 'skip'; // décision prise
+  return 'import';
+}
