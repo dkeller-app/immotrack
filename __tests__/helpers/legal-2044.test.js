@@ -305,6 +305,25 @@ describe('_2044ToCsv', () => {
     // qui contient des "/" mais pas de virgule, donc safe. Test du format CSV propre.
     expect(csv.split('\n').length).toBeGreaterThan(2); // header + at least 1 + totals
   });
+
+  it('signale les lots exclus (meublé) et flagués via opts — transparence comptable', () => {
+    const r = _compute2044([{ date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 }], STD_CATEGORIES);
+    const csv = _2044ToCsv(r, {
+      exclus: [{ ref: 'RDC gauche', mode: 'meuble' }],
+      flagues: [{ ref: 'Ferrette - Bar', mode: 'autre', msg: 'Régime à qualifier' }]
+    });
+    expect(csv).toContain('LOT_EXCLU_MEUBLE');
+    expect(csv).toContain('RDC gauche');
+    expect(csv).toContain('LOT_A_VERIFIER');
+    expect(csv).toContain('Ferrette - Bar');
+  });
+
+  it('sans opts → CSV inchangé (rétrocompatible)', () => {
+    const r = _compute2044([{ date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 }], STD_CATEGORIES);
+    const csv = _2044ToCsv(r);
+    expect(csv).not.toContain('LOT_EXCLU_MEUBLE');
+    expect(csv).toContain('RESULTAT_FONCIER');
+  });
 });
 
 describe('STD_CATEGORIES inline — ligne 230 typée deduction (anti-régression fiscale)', () => {

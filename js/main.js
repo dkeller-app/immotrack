@@ -59,6 +59,10 @@ import {
 } from './core/legal-2044.js';
 
 import {
+  lotRegimeForYear, splitFonciereLots, MEUBLE_TYPES
+} from './core/regime-lot.js';
+
+import {
   _findPersonalDataForRef, _generateGdprExport, _planErasure, _isEraseEligible
 } from './core/rgpd.js';
 
@@ -201,6 +205,11 @@ window._auditClean = _auditClean;
 window._compute2044 = _compute2044;
 window._format2044Recap = _format2044Recap;
 window._2044ToCsv = _2044ToCsv;
+
+// FEAT-REGIMES (P0) - régime fiscal par lot : exclure le meublé (BIC) du 2044 foncier
+window.lotRegimeForYear = lotRegimeForYear;
+window.splitFonciereLots = splitFonciereLots;
+window.MEUBLE_TYPES = MEUBLE_TYPES;
 
 // RGPD (Sprint 3D) - droits accès / portabilité / effacement art. 15-22
 window._findPersonalDataForRef = _findPersonalDataForRef;

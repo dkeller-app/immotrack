@@ -207,8 +207,9 @@ export function _format2044Recap(result, opts = {}) {
   return lines.join('\n');
 }
 
-/** Export CSV pour comptable. */
-export function _2044ToCsv(result) {
+/** Export CSV pour comptable. opts.exclus / opts.flagues (FEAT-REGIMES P0) ajoutent des
+ *  lignes de transparence sur le périmètre foncier (lots meublés exclus, lots à vérifier). */
+export function _2044ToCsv(result, opts = {}) {
   const headers = ['ligne_2044', 'description', 'nb_mouvements', 'montant_eur'];
   const rows = [];
   const labels = {
@@ -233,6 +234,13 @@ export function _2044ToCsv(result) {
   rows.push(['TOTAL_CHARGES', 'Total charges déductibles', '', result.totalCharges]);
   rows.push(['TOTAL_INTERETS', 'Total intérêts d\'emprunt', '', result.totalInterets]);
   rows.push(['RESULTAT_FONCIER', 'Résultat foncier (recettes - charges - intérêts)', '', result.resultatFoncier]);
+  // FEAT-REGIMES P0 : transparence du périmètre foncier (symétrie panneau / wizard / PDF / CSV).
+  (opts.exclus || []).forEach(e => {
+    rows.push(['LOT_EXCLU_MEUBLE', `Lot exclu du 2044 — meublé/BIC (${e.mode || 'meuble'}) : ${e.ref}`, '', '']);
+  });
+  (opts.flagues || []).forEach(f => {
+    rows.push(['LOT_A_VERIFIER', `Lot à vérifier (${f.mode || 'mixte'}) : ${f.ref}${f.msg ? ' — ' + f.msg : ''}`, '', '']);
+  });
   const escape = s => {
     const v = String(s == null ? '' : s);
     if (v.includes(',') || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g, '""') + '"';
