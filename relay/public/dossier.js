@@ -315,7 +315,7 @@ function showSent(){
     <h2>Dossier envoyé !</h2>
     <p>Votre candidature pour <b>${esc(CAND.bienLabel||'ce bien')}</b> a bien été transmise au propriétaire.</p>
     <p>Il va l'étudier et pourra vous recontacter.</p>
-    <button id="reopen-self" class="btn bp full" style="max-width:300px;margin-top:14px">📎 Compléter mon dossier</button>
+    <button id="reopen-self" class="btn bp" style="flex:0 0 auto;width:100%;max-width:300px;margin-top:14px">📎 Compléter mon dossier</button>
     <div class="tip">Besoin d'ajouter une pièce ou de corriger une info ? Rouvrez votre dossier avec ce bouton — rien n'est à ressaisir. Possible tant que le propriétaire ne l'a pas traité.</div>
   </div></div>`;
   const b = document.getElementById('reopen-self');
