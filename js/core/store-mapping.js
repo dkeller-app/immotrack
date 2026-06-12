@@ -17,7 +17,11 @@
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 const num = x => { if (x == null || x === '') return null; const n = Number(x); return Number.isFinite(n) ? n : null }
-const jb = x => (x == null ? null : JSON.stringify(x))
+// jsonb : passer la VALEUR telle quelle (objet/array/null). supabase-js (PostgREST) l'encode en jsonb ;
+// pré-stringifier ici la doublerait (la colonne jsonb recevrait une string "{…}" au lieu d'un objet,
+// → hydrate relirait une string). NB : l'ETL pg a son propre jb (stringify, correct pour node-postgres
+// qui parse le texte en jsonb) ; ici c'est le chemin APP via supabase-js.
+const jb = x => (x == null ? null : x)
 function ts(v) {
   if (v == null || v === '') return null
   if (typeof v === 'number') { const ms = v > 1e11 ? v : v > 1e9 ? v * 1000 : null; return ms ? new Date(ms).toISOString() : null }

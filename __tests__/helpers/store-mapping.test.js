@@ -19,7 +19,7 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(r.immeuble_id).toBe('uuid:immeuble|imm1')
     expect(r.ref).toBe('F-1'); expect(r.surface).toBe(42); expect(r.loyer_hc_ref).toBe(700)
     expect(r.espace_id).toBe('ESP'); expect(r.legacy_id).toBe('10')
-    expect(JSON.parse(r.legacy_raw).ref).toBe('F-1')
+    expect(r.legacy_raw).toEqual({ id: 10, ref: 'F-1', entity: 'SCI A', imm: 'Imm1', surf: 42, loyerHcRef: 700 })  // OBJET (pas string) → jsonb correct via supabase-js
   })
 
   it('logements : entité non résolue → null (skip)', () => {
@@ -75,6 +75,15 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
   it('mapping déterministe : même entrée → sortie identique (idempotence upsert)', () => {
     const rec = { id: 10, ref: 'F-1', entity: 'SCI A', surf: 42 }
     expect(mapToRow('logements', rec, ctx())).toEqual(mapToRow('logements', rec, ctx()))
+  })
+
+  it('colonnes jsonb (typées + legacy_raw) = OBJETS/ARRAYS, jamais des strings (anti double-encodage supabase-js)', () => {
+    const e = mapToRow('entites', { id: 1, nom: 'SCI A', gerants: [{ n: 'Dupont' }], signature: { url: 'x' } }, ctx())
+    expect(e.gerants).toEqual([{ n: 'Dupont' }]); expect(typeof e.gerants).toBe('object')   // pas '[{"n":"Dupont"}]'
+    expect(e.signature).toEqual({ url: 'x' })
+    expect(e.legacy_raw).toMatchObject({ nom: 'SCI A' }); expect(typeof e.legacy_raw).toBe('object')
+    const b = mapToRow('baux', { __key: 'F-1', entity: 'SCI A', locataires: [{ nom: 'X' }], signatures: { signedAt: '2026-01-01T00:00:00Z' } }, ctx())
+    expect(b.locataires).toEqual([{ nom: 'X' }]); expect(b.signatures).toMatchObject({ signedAt: '2026-01-01T00:00:00Z' })
   })
 
   it('collection inconnue → throw', () => {
