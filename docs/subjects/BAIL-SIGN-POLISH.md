@@ -7,15 +7,18 @@
 > Restent des items de polish/bugs remontés par l'utilisateur en test réel.
 
 ## A. Page de signature (relais — `relay/public/sign.js`, auto-contenu, redeploy wrangler)
-- **A1 (CRITIQUE — ✅ RÉSOLU 2026-06-12 : FAUX bug)** : ce n'était NI un bug de tamponnage NI d'archivage.
-  Preuves runtime : essai neuf → écran « Document signé » affiche **« Éléments apposés : 13 »** (12 paraphes
-  + 1 signature tamponnés et uploadés) ; côté app, contrôle d'intégrité **`contentHash` (PDF Drive archivé)
-  === `proof.pdfSha256` (PDF signé au relais)** = `f1676588…c688` → **MATCH = true** (le PDF archivé EST,
-  octet pour octet, le PDF tamponné). VRAIE CAUSE = **confusion de bouton** : l'utilisateur regardait
-  **« Voir bail signé »** (bleu) = snapshot LOCAL figé au moment de la signature bailleur (donc AVANT le
-  locataire, bailleur-seul par conception), au lieu de **« PDF signé »** (cyan) = `pdfRef.driveWebViewLink`
-  finalisé (avec locataire). → Le correctif réel est **B2** (clarifier/réorienter « Voir bail signé » pour
-  un bail signé à distance). Ancien diagnostic ci-dessous conservé pour mémoire.
+- **A1 (CRITIQUE — diagnostic terminé : NI tamponnage NI relais ; VRAIE CAUSE = BUG-DRIVE-STALE-PDF)** :
+  Preuves runtime : essai neuf → écran « Document signé » affiche **« Éléments apposés : 13 »** (tamponnage
+  OK + upload relais OK) ; contrôle d'intégrité **`contentHash` (blob téléchargé) === `proof.pdfSha256`
+  (relais)** = `f1676588…c688` → **MATCH = true**. Le tamponnage + le relais sont donc parfaits. MAIS
+  l'utilisateur, en ouvrant le **vrai** bouton cyan « PDF signé » (`pdfRef.driveWebViewLink`), voyait
+  TOUJOURS un **ancien PDF**. → `MATCH=true` ne prouve que le *téléchargement*, pas l'*upload* Drive.
+  **VRAIE CAUSE = BUG-DRIVE-STALE-PDF** (voir section B) : `_ingestSignedBailArtifacts` réutilisait un
+  fichier Drive de **nom fixe** ; après Réinitialiser + re-signature (contenu ≠, ref =), `_driveFindFileInFolder`
+  trouvait l'ancien fichier et le `||` court-circuitait l'upload → le PDF tamponné n'était **jamais uploadé**,
+  `pdfRef` pointait sur l'ancien. **Fix appliqué en sandbox + audité (APPROVE-WITH-NITS)** ; reste le port
+  index.html (prod) + bump + file index-commit. (La « confusion bouton » Voir-bail-signé vs PDF-signé = B2,
+  réelle aussi mais SECONDAIRE — pas la cause du PDF périmé.) Diagnostic chaîne ci-dessous (historique).
 
   [HISTORIQUE] « PDF signé » paraissait sans paraphes/signature locataire.
   CHAÎNE RELUE LIGNE À LIGNE (2026-06-12) = **provablement correcte** :
@@ -43,6 +46,23 @@
   pertinent pour la commercialisation.
 
 ## B. App / fiche bail (`index.html` — repasse par le protocole d'intégration index-commit)
+- **BUG-DRIVE-STALE-PDF (CRITIQUE — ⚠️ cause réelle de A1 — fix sandbox fait + audité, port prod À FAIRE)** :
+  `_ingestSignedBailArtifacts` archivait le PDF signé sous un **nom fixe** `bail-<ref>-signe.pdf` avec
+  `_driveFindFileInFolder(...) || _driveUploadBlob(...)`. Après « Réinitialiser » + re-signature, le PDF
+  a un **contenu différent** mais `bail.ref` identique → le find trouve l'**ancien** fichier → le `||`
+  **court-circuite l'upload** → le nouveau PDF signé n'est JAMAIS uploadé, `pdfRef.driveWebViewLink`
+  pointe sur l'ancien (PDF périmé). **Fix** : discriminant de contenu dans le nom
+  (`bail-<ref>-signe-<contentHash[0:12]>.pdf` + idem certificat), `contentHash` passé par `_completeRemoteSign`,
+  **fail-fast si `contentHash` absent** (anti-collision strict). Re-signature → empreinte ≠ → nouveau
+  fichier ✓ ; retry → empreinte = → réutilisé (idempotence I2 préservée) ✓ ; on n'écrase jamais un PDF
+  signé (immutabilité légale) ✓. **Sandbox** `index-test-lease-signature.html` ✅ (commit `2b0b182`,
+  branche `bail-sign-c3`). **Audit code-reviewer = APPROVE-WITH-NITS**. RESTE : porter verbatim à
+  `index.html` (fct ~6404, noms ~6418-6421, appelant ~6470) après re-grep prod + bump version + file
+  index-commit. Pour le bail F2 milieu déjà coincé : un Réinitialiser + re-signe après le port produira
+  le bon fichier (ancien `1x548…` orphelin, inoffensif).
+  - **Suivi (reviewer, non bloquant)** : l'ancien fichier reste orphelin sur Drive, partagé co-gest +
+    visible dans `baux/` → 2 `bail-<ref>-signe-*.pdf` sans canonique évident. Nettoyage ultérieur :
+    déplacer les PDF signés supersédés dans `baux/_archives/`. (Cosmétique, pas un défaut légal.)
 - **B1 (#4)** : boutons incohérents tant qu'une session distante est active — masquer « Le locataire
   signe » (présentiel) quand `remoteSession` ∈ {sent,chaining}. (Partiellement résolu par la cascade
   `mode='distance'` à la finalisation, mais à durcir pour les états intermédiaires.)
