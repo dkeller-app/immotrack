@@ -6287,7 +6287,7 @@ async function _buildBailCertificatePdf(bail, proof, contentHash) {
 // Cible Drive cohérente avec uploadBailPDFToDrive : dossier `baux` du logement
 // ([entite]/[immeuble]/[logement]/baux/), backfill arbo si absent, filet legacy sinon.
 // @returns {Promise<{pdfRef, certRef}>} refs OPAQUES {driveFileId, driveWebViewLink}.
-async function _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof) {
+async function _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof, contentHash) {
   // Garde fail-fast : Drive doit être connecté AVANT tout upload, sinon un échec en cours de route
   // laisse le bail non verrouillé + la session relais vivante → doublons au prochain poll (audit I2).
   const _tok = (typeof _driveToken !== 'undefined') ? _driveToken : (window._getDriveToken && window._getDriveToken());
@@ -6300,9 +6300,19 @@ async function _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof) {
   }
   if (!folderId) folderId = (DB.params && DB.params.edlDriveFolderId) || LEGACY_OWNER_EDL_ROOT_ID;
   // Idempotence (audit I2) : si un fichier du même nom existe déjà (retry après échec partiel),
-  // on le réutilise au lieu d'en recréer un doublon. Le PDF final est déterministe (même contenu).
-  const pdfName  = 'bail-' + bail.ref + '-signe.pdf';
-  const certName = 'bail-' + bail.ref + '-certificat.pdf';
+  // on le réutilise au lieu d'en recréer un doublon.
+  // BUG-DRIVE-STALE-PDF (2026-06-12) : le nom DOIT dépendre du CONTENU signé. Après un
+  // « Réinitialiser » + re-signature, le PDF est DIFFÉRENT mais bail.ref identique → un nom fixe
+  // ferait réutiliser l'ancien fichier par _driveFindFileInFolder (le nouveau PDF ne serait JAMAIS
+  // uploadé, pdfRef pointerait sur l'ancien). Discriminant = empreinte du PDF final (contentHash) :
+  // re-signature → empreinte ≠ → nouveau fichier ; retry → empreinte = → même nom réutilisé (idempotent).
+  const _disc = (contentHash || '').slice(0, 12);
+  // Contrat strict (audit 2026-06-12) : pas de discriminant ⇒ on refuse plutôt que de retomber sur un
+  // nom potentiellement colisionnant (qui rééditerait le bug de PDF périmé). contentHash est toujours
+  // un sha256 64-hex sur ce chemin ; ce throw protège contre un futur appelant fautif.
+  if (!_disc) throw new Error('contentHash manquant — archivage du bail signé refusé (anti-collision Drive)');
+  const pdfName  = 'bail-' + bail.ref + '-signe-' + _disc + '.pdf';
+  const certName = 'bail-' + bail.ref + '-certificat-' + _disc + '.pdf';
   const pdfRes  = (await _driveFindFileInFolder(folderId, pdfName))  || await _driveUploadBlob(folderId, pdfName,  pdfBlob,  'application/pdf');
   const certRes = (await _driveFindFileInFolder(folderId, certName)) || await _driveUploadBlob(folderId, certName, certBlob, 'application/pdf');
   if (typeof _drvShareFileWithCoGest === 'function') {
@@ -6353,7 +6363,7 @@ async function _completeRemoteSign(ref, state) {
   // 3) Certificat de preuve PDF (fichier separe).
   const certBlob = await _buildBailCertificatePdf(bail, proof, contentHash);
   // 4) Archivage (couture) + DELETE relais best-effort.
-  const { pdfRef, certRef } = await _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof);
+  const { pdfRef, certRef } = await _ingestSignedBailArtifacts(pdfBlob, certBlob, bail, proof, contentHash);
   try { await _relayDeleteSession(rs.relayUrl, rs.sessionId, rs.ownerToken); }
   catch (e) { console.warn('[remoteSign] DELETE relais', e); }
   // 5) Ecriture finale immuable + verrou. remoteSession PRESERVEE (status completed) pour le badge.
