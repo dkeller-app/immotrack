@@ -11,13 +11,16 @@
 const FLAG = (() => {
   try {
     const p = new URLSearchParams(location.search)
-    if (p.get('supabase') === '0' || localStorage.getItem('immo_use_supabase') === '0') return false   // forçage OFF
-    if (p.has('supabase') || localStorage.getItem('immo_use_supabase') === '1') return true              // forçage ON
-    // DÉFAUT : servi en http(s) (serveur de test local, ou hébergement futur) ⇒ mode Supabase.
-    // En file:// (double-clic index.html = appli de tous les jours) ⇒ INERTE (legacy localStorage+Drive).
-    // La présence de window.IMMO_SUPABASE reste requise pour démarrer (cf. plus bas) → github.io sans
-    // config (gitignorée) reste inerte. Donc aucun risque pour la prod legacy.
-    return location.protocol === 'http:' || location.protocol === 'https:'
+    const onTestPage = /index-supabase\.html$/.test((location.pathname || '').toLowerCase())
+    const inSandbox = /[?&]sandbox=1/.test(location.search || '')
+    const served = location.protocol === 'http:' || location.protocol === 'https:'
+    if (p.get('supabase') === '0' || localStorage.getItem('immo_use_supabase') === '0') return false   // OFF explicite
+    if (p.has('supabase') || localStorage.getItem('immo_use_supabase') === '1') return true              // ON explicite
+    // opt-in « app complète » (posé par le bouton) : actif UNIQUEMENT en sandbox (?sandbox=1) → JAMAIS
+    // sur l'app de tous les jours (index.html sans sandbox reste legacy, même si le flag traîne).
+    if (localStorage.getItem('immo_fullapp_once') === '1' && inSandbox) return true
+    // page de test DÉDIÉE (index-supabase.html) : auto en http(s). PAS index.html (app quotidienne).
+    return onTestPage && served
   } catch { return false }
 })()
 
@@ -70,7 +73,19 @@ async function onLoggedIn(api, overlay, user) {
   try {
     esp = await api.resolveEspace()
     api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => window.DB, schedule: null })
-    const db = await api.hydrate()                 // HYDRATE dans une variable locale (pas window.DB)
+    const db = await api.hydrate()
+    // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
+    // cloud EN MÉMOIRE + re-render, puis retirer l'overlay. Pas de localStorage (quota). Sinon (page
+    // de test dédiée index-supabase.html) → écran de compteurs + bouton.
+    if (typeof window.__immoSetDB === 'function' && typeof window.__immoRender === 'function') {
+      window.__immoSupabaseMode = true            // saveDB/beforeunload/storage ne toucheront pas localStorage
+      if (window.__immoSetDB(db) === false) { renderProof(overlay, api, user, esp, db); return }   // DB invalide → fallback
+      window.__immoRender()
+      try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
+      injectReadOnlyBanner(api, user, esp)        // bandeau « lecture seule » (I1 : modifs pas encore sauvées)
+      overlay.remove()                            // dévoile l'app complète sur les données cloud
+      return
+    }
     renderProof(overlay, api, user, esp, db)
   } catch (e) {
     renderProof(overlay, api, user, esp || {}, null, e.message)
@@ -97,16 +112,10 @@ function renderProof(overlay, api, user, esp, db, err) {
   }
   const oa = overlay.querySelector('#imsb-openapp')
   if (oa) oa.onclick = () => {
-    try {
-      // Écrit le DB cloud dans la clé SANDBOX (_test_immotrack_v4), ISOLÉE de la clé quotidienne
-      // (immotrack_v4). Puis ouvre l'app en mode bac à sable → elle affiche ces données. Aucune modif
-      // du monolithe, aucun risque pour les vraies données locales/Drive.
-      localStorage.setItem('_test_immotrack_v4', JSON.stringify(db))
-      location.href = 'index.html?sandbox=1'
-    } catch (e) {
-      const n = overlay.querySelector('#imsb-note')
-      if (n) { n.textContent = '⚠ Impossible d\'ouvrir : ' + e.message + ' (données trop volumineuses pour le cache ?)'; n.style.color = '#9d1c1c' }
-    }
+    // Pas d'écriture des données dans le cache (quota du localStorage github.io partagé). On pose juste
+    // un opt-in (consommé UNIQUEMENT en sandbox) puis on ouvre l'app : elle charge le cloud EN MÉMOIRE.
+    try { localStorage.setItem('immo_fullapp_once', '1') } catch (e) {}
+    location.href = 'index.html?sandbox=1'
   }
   const lo = overlay.querySelector('#imsb-logout')
   if (lo) lo.onclick = async () => { await api.logout(); location.reload() }
@@ -120,6 +129,29 @@ function renderLoading(overlay, user) {
 function brand() {
   return `<div class="imsb-brand"><div class="imsb-logo">🏠</div><div class="imsb-name">ImmoTrack</div></div>
     <div class="imsb-tag">Mode Supabase · test</div>`
+}
+
+// Bandeau permanent en mode « app complète » : rappelle que c'est un test EN LECTURE SEULE (les modifs
+// ne sont pas encore enregistrées — la sync cloud arrive en 2c). Évite que l'utilisateur croie avoir sauvé.
+function injectReadOnlyBanner(api, user, esp) {
+  if (document.getElementById('imsb-banner')) return
+  const css = document.createElement('style')
+  css.textContent = `#imsb-banner{position:fixed;top:0;left:0;right:0;z-index:2147483000;background:linear-gradient(90deg,#163b78,#2b5fd0);
+    color:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:12.5px;padding:7px 16px;display:flex;align-items:center;
+    justify-content:center;gap:14px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+    #imsb-banner b{font-weight:700}
+    #imsb-banner button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:6px;
+    padding:4px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+    #imsb-banner button:hover{background:rgba(255,255,255,.28)}
+    body{padding-top:34px!important}`
+  document.head.appendChild(css)
+  const b = document.createElement('div')
+  b.id = 'imsb-banner'
+  b.innerHTML = `<span>🔍 <b>Mode cloud (test)</b> · ${escapeHtml(user.email)} · espace « ${escapeHtml(esp.espaceNom || '?')} » — <b>LECTURE SEULE</b> : les modifications ne sont pas encore enregistrées.</span>
+    <button id="imsb-banner-out">Quitter le test</button>`
+  document.body.appendChild(b)
+  const out = document.getElementById('imsb-banner-out')
+  if (out) out.onclick = async () => { try { await api.logout() } catch (e) {} ; location.href = 'index.html' }
 }
 
 function injectOverlay() {
