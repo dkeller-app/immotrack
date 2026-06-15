@@ -69,6 +69,7 @@ function buildUI() {
           <h1>Votre signature</h1>
           <p>Tracez votre <strong>signature complète</strong> ci-dessous (distincte de vos paraphes).</p>
           <div class="pad-wrap"><canvas id="sig-pad" width="600" height="200"></canvas></div>
+          <label class="chk"><input id="luSign" type="checkbox"> <strong>« Lu et approuvé »</strong> — je reconnais avoir lu l'intégralité du bail et en approuver les termes.</label>
         </div>
         <div class="actionbar"><div class="bar-btns">
           <button id="sig-clr" class="ghost">Effacer</button>
@@ -145,7 +146,8 @@ function buildUI() {
   };
   app.querySelector('#sig-clr').onclick = () => signaturePad && signaturePad.clear();
   app.querySelector('#toConfirm').onclick = () => {
-    if (!signaturePad || signaturePad.isEmpty()) { alert('Veuillez signer avant de continuer.'); return; }
+    if (!signaturePad || signaturePad.isEmpty()) { alert('Veuillez tracer votre signature avant de continuer.'); return; }
+    if (!app.querySelector('#luSign').checked) { alert('Veuillez cocher « Lu et approuvé » pour confirmer votre signature.'); return; }
     show('step-confirm');
   };
   app.querySelector('#submit').onclick = doSubmit;
@@ -162,7 +164,6 @@ async function startReading() {
     const probe = await PDFLib.PDFDocument.load(master); // master intact pour le tamponnage final
     paraphePages = paraphePagesFor(probe, { sigId: S.sigId, side: S.side });
     signaturePages = signaturePagesFor(probe, { sigId: S.sigId, side: S.side });
-    console.log('[SIGN-DEBUG] sigId=', S.sigId, 'side=', S.side, 'paraphePages=', JSON.stringify(paraphePages), 'signaturePages=', JSON.stringify(signaturePages), 'manifestKw=', (probe.getKeywords() || '(vide)').slice(0, 280));
     curPage = 1;
   }
   await renderReadStep();
@@ -202,6 +203,18 @@ async function renderReadStep() {
     bar.appendChild(h(`<div class="bar-btns"><button id="par-next" class="primary">${nextLabel}</button></div>`));
     app.querySelector('#par-next').onclick = () => advancePage(isLast);
   }
+
+  // (4) Lecture forcée : « ${nextLabel} » reste désactivé tant que la page n'a pas été défilée
+  // jusqu'en bas (on s'assure que le signataire a vu toute la page avant de parapher/continuer).
+  const parNext = app.querySelector('#par-next');
+  if (sc && parNext) {
+    const hint = h(`<div class="scroll-hint" style="font-size:12px;color:#92400e;margin-top:6px;text-align:center">↓ Faites défiler la page jusqu'en bas pour ${needsParaphe ? 'pouvoir parapher' : 'continuer'}.</div>`);
+    bar.appendChild(hint);
+    const atBottom = () => sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 8;
+    const sync = () => { const ok = atBottom(); parNext.disabled = !ok; hint.style.display = ok ? 'none' : ''; };
+    sc.onscroll = sync;
+    sync(); // page courte (pas de défilement requis) → active d'emblée ; sinon désactivée jusqu'au bas
+  }
 }
 
 function advancePage(isLast) {
@@ -221,12 +234,11 @@ async function doSubmit() {
     const doc = await PDFLib.PDFDocument.load(master);
     const dateISO = new Date().toISOString();
     const mentionLines = buildMentionLines({ signerName, role: S.role, dateISO });
-    const _stampRes = await stampSignature(doc, {
+    await stampSignature(doc, {
       sigId: S.sigId, side: S.side,
       signaturePngDataUrl: signaturePad.toDataURL(),
       paraphesByPage, mentionLines
     }, { rgb: PDFLib.rgb });
-    console.log('[SIGN-DEBUG] stamp result=', JSON.stringify(_stampRes), '| paraphesByPage pages=', JSON.stringify(Object.keys(paraphesByPage)), '| sigPadEmpty=', signaturePad.isEmpty());
     const signed = await doc.save();
     // Dossier de preuve client (acte de volonté + horodatages d'étape, §5 #3) → en-tête X-Sign-Proof.
     const proof = buildProofObject({
@@ -242,12 +254,6 @@ async function doSubmit() {
     if (r.status === 410) return fail('Ce document est déjà signé.');
     if (!r.ok) throw new Error('http ' + r.status);
     show('step-done');
-    try {
-      const card = app.querySelector('#step-done .state-card');
-      if (card && _stampRes) {
-        card.appendChild(h(`<p style="font-size:13px;color:#475569;margin-top:10px">Éléments apposés sur le document : <strong>${_stampRes.stamped}</strong>${_stampRes.skipped ? ' · ignorés : ' + _stampRes.skipped : ''}.</p>`));
-      }
-    } catch (e2) {}
   } catch (e) {
     console.error(e);
     busy.hidden = true; btn.disabled = false;
