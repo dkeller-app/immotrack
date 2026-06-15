@@ -275,6 +275,12 @@ describe('repullDecision', () => {
     expect(repullDecision(link, '2026-06-11T12:30:00Z', 'refuse')).toBe('skip');
     expect(repullDecision(link, '2026-06-11T12:30:00Z', 'converti')).toBe('skip');
   });
+  it('décision prise prime sur baseline (lien hérité décidé → skip, pas de réécriture)', () => {
+    const link = { status: 'collected' }; // pas de _lastSubmittedAt (hérité)
+    expect(repullDecision(link, '2026-06-11T12:30:00Z', 'valide')).toBe('skip');
+    expect(repullDecision(link, '2026-06-11T12:30:00Z', 'refuse')).toBe('skip');
+    expect(repullDecision(link, '2026-06-11T12:30:00Z', 'converti')).toBe('skip');
+  });
   it('lien absent → import (laisse le flux normal créer)', () => {
     expect(repullDecision(null, '2026-06-11T10:00:00Z', null)).toBe('import');
   });

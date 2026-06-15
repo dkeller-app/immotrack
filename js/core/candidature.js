@@ -183,16 +183,18 @@ export function majDossierToast(updatedNames) {
  * @param {string} submittedAt - horodatage de soumission renvoyé par le relais
  * @param {string|null} candStatut - statut du candidat lié (pour stopper après décision)
  * @returns {'import'|'skip'|'baseline'}
- *   - 'import'   : (ré)importer cette soumission (nouvelle ou modifiée)
+ *   - 'import'   : (ré)importer + NOTIFIER le bailleur (nouvelle soumission ou maj détectée)
  *   - 'skip'     : ne rien faire (déjà importée, ou décision déjà prise)
- *   - 'baseline' : lien collecté hérité sans horodatage suivi → adopter `submittedAt`
- *                  comme référence SANS notifier (évite une fausse notif rétroactive)
+ *   - 'baseline' : lien collecté hérité sans horodatage suivi (ex. importé avant le suivi) →
+ *                  (ré)importer les données + pièces MAIS SANS notifier, et adopter `submittedAt`
+ *                  comme référence. Évite une fausse notif rétroactive tout en ne perdant pas
+ *                  une éventuelle ré-ouverture candidat survenue avant la 1re prise de référence.
  */
 export function repullDecision(link, submittedAt, candStatut) {
   if (!link) return 'import';
   if (link.status !== 'collected') return 'import'; // 'active' → flux normal (1ère soumission / complément D13)
+  if (candStatut === 'refuse' || candStatut === 'converti' || candStatut === 'valide') return 'skip'; // décision prise → fige (même un lien hérité, avant baseline)
   if (link._lastSubmittedAt == null) return 'baseline'; // hérité d'avant le suivi des ré-ouvertures
   if (submittedAt && submittedAt === link._lastSubmittedAt) return 'skip'; // même soumission, déjà importée
-  if (candStatut === 'refuse' || candStatut === 'converti' || candStatut === 'valide') return 'skip'; // décision prise
   return 'import';
 }
