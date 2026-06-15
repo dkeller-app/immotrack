@@ -91,7 +91,7 @@
 | 📥 **Import** | IMPORT-EXCEL-LOG (P2) · IMPORT-CONCURRENTS (P2) |
 | 🌐 **Agence / SaaS** | AGENCE-GESTION (P3) · AGENCE-CRG (P3) · AGENCE-HONORAIRES (P3) · SIGN-EIDAS (P3) · PORTAIL-LOC (P3) · SAAS-MULTIUSERS (P3) · **SAAS-PRICING-TIERS (P2, ~3-5h)** — *gating modules par abonnement, build sur l'infra USER-PROFILE-FILTERS livrée v15.04* |
 | 🤖 **IA / Pro Connect V2** | **IA-V2 🔮 (V2 post-commercialisation, ~15-25h)** — *opt-in payant Pro Connect ~5€/mois · 5 use cases prioritaires : OCR DPE/diagnostics · OCR factures travaux · OCR justifs candidat · annonce LLM-generated · classification auto Drive · 4 secondaires V2.5 · 5 écartés (conseil fiscal/analyse EDL/prédiction loyer = risque juridique). Pas en V1.1 (zéro coût récurrent)* |
-| 📈 **Stratégie / Business** | FOUNDER-EDITION (P1) · WATCH-LOCATAIRELIVE 🔄 (P2) · OUTILS-SEO-GRATUITS (P2) · IA-COPILOTE (P2) · VEILLE-QALIMO-V2 (P2) · BIZPLAN-V2 🔄 (P2) — *BIZPLAN-STRATEGIE ✅ Livré 2026-04-30 (5 docs `docs/strategie/`)* |
+| 📈 **Stratégie / Business** | **REBRAND-NAMING 🔄 (P1 — changement de nom, « ImmoTrack » pris par 3 acteurs immo dont ImmoTrack AG Suisse 2014)** · FOUNDER-EDITION (P1) · WATCH-LOCATAIRELIVE 🔄 (P2) · OUTILS-SEO-GRATUITS (P2) · IA-COPILOTE (P2) · VEILLE-QALIMO-V2 (P2) · BIZPLAN-V2 🔄 (P2) — *BIZPLAN-STRATEGIE ✅ Livré 2026-04-30 (5 docs `docs/strategie/`)* |
 | 📱 **Mobile / PWA / Offline** | BUG-MOBILE-MENU-PLUS ✅ v15.142 (bottom-sheet) · BUG-MOBILE-DASH-PROFILES ✅ v15.140 · **MOBILE-AUDIT-ONGLETS ✅ CLÔTURÉ v15.140-148** (audit 375px : 0 overflow · touch targets ≥40px · affordance scroll · toutes tables denses en cartes : Loyers, Pilotage ×3, Assurances) · MOBILE-PWA-OFFLINE (P2) |
 
 ---
