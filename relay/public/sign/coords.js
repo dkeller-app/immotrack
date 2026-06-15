@@ -1,5 +1,11 @@
 // Conversion de repère jsPDF(mm, haut-gauche) → pdf-lib(pt, bas-gauche) + ancres de repli.
 // PUR : aucune dépendance pdf-lib, aucun window.
+//
+// ⚠️ CONTRAT (garde anti-régression, bug double-conversion 2026-06-15) : les ancres du
+// MANIFESTE (et les fallbackAnchors) sont TOUJOURS en mm/jsPDF top-left. C'est ICI, au
+// tamponnage (stamp.js → rectFromJsPdf), que se fait l'UNIQUE conversion mm→pt + flip Y.
+// L'ÉMETTEUR (app, buildSignManifest) ne doit JAMAIS pré-convertir : convertir des deux
+// côtés applique mmToPt deux fois → ancres hors-page → tampons invisibles.
 
 // Constantes reproduites depuis index.html (PDF_NATIVE + drawParaphesFooter).
 export const PDF_NATIVE = {
