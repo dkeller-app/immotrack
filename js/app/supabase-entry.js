@@ -90,9 +90,23 @@ function renderProof(overlay, api, user, esp, db, err) {
         <div class="imsb-ok">✓ Connecté · données chargées depuis Supabase</div>
         <p class="imsb-lead"><b>${escapeHtml(user.email)}</b> — espace « ${escapeHtml(esp.espaceNom || '?')} »</p>
         <table class="imsb-tbl">${rows}</table>
-        <p class="imsb-note">Étape 2a : la <b>lecture</b> de tes vraies données depuis le cloud fonctionne. L'affichage dans l'app et la sauvegarde arrivent à l'étape suivante. Ton appli normale (sans <code>?supabase=1</code>) est intacte.</p>
+        <button class="imsb-btn imsb-primary" id="imsb-openapp">📂 Voir dans l'app complète →</button>
+        <p class="imsb-note" id="imsb-note">Ouvre l'app complète (tableau de bord, fiches, listes…) sur ces données cloud, en <b>mode bac à sable ISOLÉ</b> : ton appli de tous les jours (Drive) n'est PAS touchée. La <b>sauvegarde</b> vers le cloud arrive juste après.</p>
         <button class="imsb-btn imsb-ghost" id="imsb-logout">Se déconnecter</button>
       </div>`
+  }
+  const oa = overlay.querySelector('#imsb-openapp')
+  if (oa) oa.onclick = () => {
+    try {
+      // Écrit le DB cloud dans la clé SANDBOX (_test_immotrack_v4), ISOLÉE de la clé quotidienne
+      // (immotrack_v4). Puis ouvre l'app en mode bac à sable → elle affiche ces données. Aucune modif
+      // du monolithe, aucun risque pour les vraies données locales/Drive.
+      localStorage.setItem('_test_immotrack_v4', JSON.stringify(db))
+      location.href = 'index.html?sandbox=1'
+    } catch (e) {
+      const n = overlay.querySelector('#imsb-note')
+      if (n) { n.textContent = '⚠ Impossible d\'ouvrir : ' + e.message + ' (données trop volumineuses pour le cache ?)'; n.style.color = '#9d1c1c' }
+    }
   }
   const lo = overlay.querySelector('#imsb-logout')
   if (lo) lo.onclick = async () => { await api.logout(); location.reload() }
