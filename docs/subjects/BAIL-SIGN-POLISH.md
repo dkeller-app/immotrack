@@ -104,15 +104,27 @@
   de suite** (latence du sondage ~30 s). Pas de push relais dispo → sonder plus vite tant qu'une session
   est ouverte + bouton **« Vérifier maintenant »**.
 
-## Ordre proposé
-1. ~~**A1**~~ ✅ RÉSOLU (faux bug : confusion bouton « Voir bail signé » vs « PDF signé »). Vrai fix = B2.
-2. ~~**A2 + A3**~~ ✅ LIVRÉS (relais `fde36be5`).
-3. **Nettoyage** : retirer le debug `[SIGN-DEBUG]` + simplifier/retirer le compteur « Éléments apposés »
-   sur la page de signature (relais), une fois la confiance établie.
-4. **« Lu et approuvé »** sur la page de signature (relais) — demande utilisateur, parité avec la
-   signature in-app (case sous le pad) ; aujourd'hui couvert par c1 (consent) + mention imprimée.
-5. **B2 ⭐ + B1 + B4 + D1 + D2 + D3** (cohérence/ergonomie boutons fiche bail + entrées de signature, app
-   — protocole index-commit).
-6. **B5/D3** (finalisation + rafraîchissement robustes).
-7. **A4** (OTP email — chantier infra dédié).
-</content>
+## Statut final (2026-06-15 — tout livré en prod, audits code-reviewer APPROVE)
+- ✅ **BUG-DRIVE-STALE-PDF** (v15.277, `2c8268b`) — PDF Drive à jour : nom = empreinte du contenu.
+- ✅ **A1 / BUG-DOUBLE-CONVERSION** (v15.279, `6a49a45`) — manifeste en mm brut, relais convertit seul
+  → signature/paraphes locataire enfin **visibles** (étaient tamponnés hors-page).
+- ✅ **A2 + A3 + (4) défilement obligatoire + (7) retrait debug + (8) « Lu et approuvé »** — relais
+  (`fde36be5` puis `16efc997`) ; + garde « ancres = mm » dans `coords.js` (`52bc23c`).
+- ✅ **D1 / bouton « ✍️ Signer le bail »** — v15.281 (fiche `_renderLogFichePanelBail`) + v15.282
+  (cartes liste Locataires `rBaux`) → `previewBailSignRef` → `_AUTO_SIGN` → `startSignatureWizardV2()`.
+- ✅ **D2(b) / Drive-only** (v15.282) — bailleur signé → upload Drive seul, pas de téléchargement
+  (`pdf.save` gardé pour brouillon non signé). [D2(a) envoi au bailleur distant = extension future]
+- ✅ **(5) case paraphe locataire vide** (v15.282) — plus de « à compléter » sous le tampon (mode distance).
+- ✅ **(6) typo §1.3.1.3** (v15.282) — « ≤ » (glyphe absent de la police jsPDF) → « inférieure ou égale à ».
+- ✅ **D3 / bouton « 🔄 Vérifier »** (v15.282) sur le badge distant en attente (poll forcé) ; présentiel
+  déjà auto via `_refreshAfterMutation`→`rLogFiche`.
+
+### Reste (non bloquant — backlog)
+- **B2** : « Voir bail signé » (snapshot bailleur-seul) — rediriger/renommer pour un bail signé à distance
+  (UX, évite la confusion qui a lancé la saga ; le « PDF signé » finalisé est correct).
+- **B1 / B4** : cohérence + design des boutons de la fiche bail (encombrement).
+- **A4** : OTP email type Yousign (chantier infra — le relais doit envoyer des emails).
+- **C** : `rParamsTheme` JSON.parse ; fonction morte `_rBauxLegacyCards_DEPRECATED_v15_224`.
+- **Robustesse** : si l'upload Drive d'un bail signé échoue (mode Drive-only), proposer un re-téléchargement
+  de secours (aujourd'hui : toast d'erreur + retry token via `uploadBailPDFToDrive`).
+- **Nit** : ranger les PDF signés supersédés orphelins dans `baux/_archives/` ; D2(a) envoi bailleur distant.
