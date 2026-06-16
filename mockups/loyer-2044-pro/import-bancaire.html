@@ -167,7 +167,9 @@
     .rail .step span:last-child{max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .rail .prog{width:100%;margin-top:8px}
     .acctbar{font-size:11.5px} }
-  @media(max-width:520px){ .reco{grid-template-columns:1fr} .tabs{overflow-x:auto;white-space:nowrap} .pane{padding:14px 14px;min-height:0} .mvt{flex-direction:column} .mvt .amt{align-self:flex-end} .sp-row{grid-template-columns:1fr;gap:6px;border:1px solid var(--bor);border-radius:9px;padding:9px;margin-top:8px} .sp-row .sens{flex-direction:row} .sp-row .rgt{flex-direction:row;align-items:center;justify-content:space-between} .sp-row .rgt input{width:auto;flex:1} .foot{flex-direction:column;align-items:stretch} .foot .info{text-align:center} .sp-bal{flex-direction:column;gap:4px;align-items:flex-start} }
+  @media(max-width:520px){ .reco{grid-template-columns:1fr} .tabs{overflow-x:auto;white-space:nowrap} .pane{padding:14px 14px;min-height:0} .mvt{flex-direction:column} .mvt .amt{align-self:flex-end} .sp-row{grid-template-columns:1fr;gap:6px;border:1px solid var(--bor);border-radius:9px;padding:9px;margin-top:8px} .sp-row .sens{flex-direction:row} .sp-row .rgt{flex-direction:row;align-items:center;justify-content:space-between} .sp-row .rgt input{width:auto;flex:1} .foot{flex-direction:column;align-items:stretch} .foot .info{text-align:center} .sp-bal{flex-direction:column;gap:4px;align-items:flex-start}
+    /* Reconnus : ligne sur 2 niveaux (libellé pleine largeur, puis catégorie/source/montant/modifier) — sinon coupé hors écran */
+    .rec-row{flex-wrap:wrap;row-gap:6px} .rec-row .lib{flex-basis:100%} .rec-row .amt{margin-left:auto} }
 </style>
 </head>
 <body>
