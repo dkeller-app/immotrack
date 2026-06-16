@@ -109,6 +109,7 @@ async function onLoggedIn(api, overlay, user) {
       liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
       api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
       window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
+      window.__immoCloudInfo = { email: user && user.email, espaceNom: esp && esp.espaceNom }   // 2.2 : panneau Mode cloud des Reglages
       window.__immoRender()
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
       injectSyncBanner(api, user, esp)            // bandeau + indicateur de sync
