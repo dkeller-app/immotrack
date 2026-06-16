@@ -454,11 +454,17 @@ function renderTodo(){
   renderRail();
   const m=L[idx]; const sens=m.cr>0?'cr':'db'; const amt=m.cr>0?m.cr:-m.db; const cc=m.conf>=75?'hi':m.conf>=50?'mid':'lo';
   let h=`<div class="mvt"><div><div class="lib">${m.lib}</div><div class="meta">${m.date}/2026 · relevé OFX</div>${m.cat!=='— Choisir —'?`<div class="conf ${cc}">✨ proposé : ${m.cat} · ${m.conf}%</div>`:`<div class="conf lo">❓ non reconnu</div>`}</div><div class="amt ${sens}">${fmt(amt)}</div></div>`;
-  if(m.gerance){ h+=`<div class="dest none" style="margin-top:14px"><span class="di">✂️</span><div><div class="dt">À découper — ce virement regroupe plusieurs opérations</div><div class="dd"><b>Pourquoi ?</b> ImmoTrack a reconnu un <b>relevé de gérance</b> (libellé « GERANCE / GESTION LOCATIVE ») : un <b>seul</b> virement qui agrège <b>plusieurs loyers</b> de lots différents <b>− les frais d'agence</b>. Impossible de le rattacher à un seul bien → on le <b>ventile ligne par ligne</b> pour la 2044. L'app pré-remplit ce qu'elle sait ; tu ajoutes / corriges le reste (travaux, PNO…).</div></div></div><div id="split"></div>`; if(!SP)h+=`<div class="actions"><span class="split-link" onclick="showSplit()">✂️ Découper ce relevé (${fmt(amt)})</span><div></div></div>`; }
-  else { h+=affEditorHtml(m); }
+  if(m.gerance || m._splitMode){
+    splitId=m.id; SP=m._sp||null;
+    if(m.gerance) h+=`<div class="dest none" style="margin-top:14px"><span class="di">✂️</span><div><div class="dt">À découper — ce virement regroupe plusieurs opérations</div><div class="dd"><b>Pourquoi ?</b> ImmoTrack a reconnu un <b>relevé de gérance</b> (libellé « GERANCE / GESTION LOCATIVE ») : un <b>seul</b> virement qui agrège <b>plusieurs loyers</b> de lots différents <b>− les frais d'agence</b>. Impossible de le rattacher à un seul bien → on le <b>ventile ligne par ligne</b> pour la 2044. L'app pré-remplit ce qu'elle sait ; tu ajoutes / corriges le reste (travaux, PNO…).</div></div></div>`;
+    else h+=`<div class="dest none" style="margin-top:14px"><span class="di">✂️</span><div><div class="dt">Découpage manuel</div><div class="dd">Tu répartis ce virement en autant de lignes que nécessaire (un loyer par lot, frais, travaux…) jusqu'à retomber sur le montant viré. <a class="split-link" style="font-size:12px" onclick="cancelSplit(${m.id})">↩ finalement, ne pas découper</a></div></div></div>`;
+    h+=`<div id="split"></div>`;
+    if(!SP)h+=`<div class="actions"><span class="split-link" onclick="showSplit(${m.id})">✂️ Découper ce relevé (${fmt(amt)})</span><div></div></div>`;
+  }
+  else { h+=affEditorHtml(m)+`<div style="margin-top:10px;text-align:center"><span class="split-link" style="font-size:12px" onclick="showSplit(${m.id})">✂️ Ce virement regroupe plusieurs opérations ? Le découper</span></div>`; }
   // nav — « Suivant » bloqué tant que le mouvement courant n'est pas classé (le rail reste libre pour sauter)
   h+=`<div class="actions" id="todo-actions">${navInner()}</div>`;
-  $('pane').innerHTML=h; if(m.gerance&&SP)renderSplit(); if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
+  $('pane').innerHTML=h; if((m.gerance||m._splitMode)&&SP)renderSplit(); if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
   refreshFoot();
 }
 
@@ -473,18 +479,21 @@ function renderOk(){
   if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
 }
 
-// ===== découper (éditable) =====
-let SP=null;
-function showSplit(){
-  SP=[
+// ===== découper (éditable) — rattaché au mouvement (m._sp) ; SP = pointeur sur le découpage courant =====
+let SP=null, splitId=null;
+function showSplit(id){
+  const m=mById(id); m._splitMode=true;
+  if(id===9){ m._sp=[   // relevé de gérance détecté : pré-remplissage de ce que l'app sait
     {sens:'cr',lib:'Loyer F-001 (Becker)',mt:650,cat:'Loyers encaissés',cible:'F-001'},
     {sens:'cr',lib:'Loyer F-101 (Petit)', mt:620,cat:'Loyers encaissés',cible:'F-101'},
     {sens:'cr',lib:'Loyer F-201 (Yardin)',mt:540,cat:'Loyers encaissés',cible:'F-201'},
     {sens:'cr',lib:'Loyer F-102 (Benali)',mt:690,cat:'Loyers encaissés',cible:'F-102'},
     {sens:'db',lib:'Frais de gérance 7%', mt:146.69,cat:'Frais de gestion / honoraires',cible:'Résidence Iselin'},
-  ];
-  renderTodo();
+  ]; }
+  else { const amt=m.cr>0?m.cr:m.db; m._sp=[{sens:m.cr>0?'cr':'db', lib:m.lib, mt:amt, cat:(m.cat!=='— Choisir —'?m.cat:'Loyers encaissés'), cible:m.cible||''}]; }
+  SP=m._sp; renderTodo();
 }
+function cancelSplit(id){ const m=mById(id); m._splitMode=false; m._splitOk=false; m._sp=null; if(splitId===id)SP=null; renderTodo(); }
 function spCibleSelect(r,j){
   const c=CAT[r.cat]||{niv:'log'}; const niv=c.niv;
   if(niv==='sci') return `<select onchange="SP[${j}].cible=this.value;renderSplit()">`+SCIS.map(s=>`<option ${s===r.cible?'selected':''}>${s}</option>`).join('')+`</select>`;
@@ -502,10 +511,10 @@ function renderSplit(){
       <div class="rgt"><input type="number" step="0.01" value="${r.mt}" oninput="SP[${j}].mt=this.value;renderSplit()"><button class="x" title="Supprimer" onclick="SP.splice(${j},1);renderSplit()">✕ suppr.</button></div></div>`;
   });
   h+=`<button class="sp-add" onclick="SP.push({sens:'db',lib:'',mt:'',cat:'Travaux de réparation et d\\'entretien',cible:''});renderSplit()">+ Ajouter une ligne (travaux, assurance PNO, ascenseur…)</button>`;
-  const net=SP.reduce((s,r)=>s+(r.sens==='cr'?+r.mt||0:-(+r.mt||0)),0); const bank=2353.31; const reste=Math.round((bank-net)*100)/100; const ok=Math.abs(reste)<0.01;
+  const net=SP.reduce((s,r)=>s+(r.sens==='cr'?+r.mt||0:-(+r.mt||0)),0); const mv=mById(splitId); const bank=mv.cr>0?mv.cr:mv.db; const reste=Math.round((bank-net)*100)/100; const ok=Math.abs(reste)<0.01;
   h+=`<div class="sp-bal"><span>Net réparti : <b>${fmt(net)}</b> · reste <span class="${ok?'ok':'ko'}">${ok?'✅ équilibré':fmt(reste)}</span></span><span>Net viré : <b>${fmt(bank)}</b></span></div></div>`;
   box.innerHTML=h;
-  mById(9)._splitOk=ok;
+  mv._splitOk=ok;
   renderRail();                                            // rafraîchit les coches + la barre de progression
   const a=$('todo-actions'); if(a)a.innerHTML=navInner();  // débloque « Suivant » dès que c'est équilibré
   refreshFoot();
