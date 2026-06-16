@@ -223,8 +223,7 @@ const CAT = {
   'Taxe foncière (et taxes annexes)':{l:'227',t:'charge',niv:'imm'},
   'Provisions pour charges de copropriété':{l:'229',t:'charge',niv:'imm'},
   'Charges récupérables (eau, EDF…)':{l:'',t:'recup',niv:'imm',recup:true},
-  'Prêt — Intérêts d\'emprunt':{l:'250',t:'interet',niv:'imm'},
-  'Prêt — Capital remboursé':{l:'',t:'special',niv:'none'},
+  'Prêt (échéance de crédit)':{l:'250',t:'pret',niv:'imm'},
   'Virement interne (non déclarable)':{l:'',t:'special',niv:'none'},
   '— Choisir —':{l:'',t:'?',niv:'log'},
 };
@@ -362,6 +361,7 @@ function destHtml(m,niv){
   if(c.t==='special') return `<div class="dest none"><span class="di">📋</span><div><div class="dt">Hors 2044</div><div class="dd">Tracé, hors résultat foncier.</div></div></div>`;
   if((c.t==='recup')||(m.recup&&niv==='imm')){ const n=LOGS.filter(l=>l.imm===m.cible).length;
     return `<div class="dest recup"><span class="di">👥</span><div><div class="dt">Réparti sur ${m.cible?n:'…'} locataire(s)${m.cible?' de '+m.cible:''}</div><div class="dd">Compteur collectif → régularisation des charges. Pas sur ta 2044.</div></div></div>`; }
+  if(c.t==='pret') return `<div class="dest chg"><span class="di">🏦</span><div><div class="dt">Prêt — rattaché à 🏢 ${m.cible||'…'}</div><div class="dd">L'échéance mêle intérêts + capital. Pour la 2044, les <b>intérêts (ligne 250)</b> seront repris de ton <b>attestation annuelle de banque</b> — pas de ce mouvement. Le capital reste hors 2044.</div></div></div>`;
   if(!c.l) return '';
   const where = niv==='sci'?'🏛️ '+(m.cible||'…'):niv==='imm'?'🏢 '+(m.cible||'…'):'🚪 '+(m.cible||'…');
   const s = c.t==='recette'?'Recette':c.t==='interet'?"Intérêts":'Charge déductible';
@@ -429,7 +429,7 @@ function renderSplit(){
     h+=`<div class="sp-row"><div class="sens"><button class="cr ${r.sens==='cr'?'on':''}" onclick="SP[${j}].sens='cr';renderSplit()">+ Crédit</button><button class="db ${r.sens==='db'?'on':''}" onclick="SP[${j}].sens='db';renderSplit()">− Débit</button></div>
       <div class="mid"><input value="${r.lib.replace(/"/g,'&quot;')}" placeholder="Libellé" oninput="SP[${j}].lib=this.value">
         <select onchange="SP[${j}].cat=this.value;SP[${j}].cible='';renderSplit()">`+CATS.filter(k=>k!=='— Choisir —').map(k=>`<option ${k===r.cat?'selected':''}>${k}</option>`).join('')+`</select>
-        ${spCibleSelect(r,j)}<div class="rdest">→ ${c.l?'2044·'+c.l:(c.t==='recup'?'compteur':'hors 2044')}</div></div>
+        ${spCibleSelect(r,j)}<div class="rdest">→ ${c.t==='pret'?'prêt (intérêts via attestation)':(c.l?'2044·'+c.l:(c.t==='recup'?'compteur':'hors 2044'))}</div></div>
       <div class="rgt"><input type="number" step="0.01" value="${r.mt}" oninput="SP[${j}].mt=this.value;renderSplit()"><button class="x" title="Supprimer" onclick="SP.splice(${j},1);renderSplit()">✕ suppr.</button></div></div>`;
   });
   h+=`<button class="sp-add" onclick="SP.push({sens:'db',lib:'',mt:'',cat:'Travaux de réparation et d\\'entretien',cible:''});renderSplit()">+ Ajouter une ligne (travaux, assurance PNO, ascenseur…)</button>`;
