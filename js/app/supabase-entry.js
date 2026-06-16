@@ -32,9 +32,19 @@ const COUNTS = [
 ]
 const sizeOf = c => (Array.isArray(c) ? c.length : (c && typeof c === 'object' ? Object.keys(c).length : 0))
 
+// En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
+// n'a aucune raison d'etre : on a notre propre overlay de login + la vraie app cloud. S'il reste leve, il
+// MASQUE l'app cloud (pourtant chargee) derriere le portail Drive (bug 2026-06-16 : session persistee ->
+// onLoggedIn direct sans que le boot legacy ne leve le gate). Neutralise au boot cloud + a onLoggedIn.
+function _liftDriveGate() {
+  try { document.documentElement.removeAttribute('data-lpboot') } catch (e) {}
+  try { document.getElementById('ov-drive-connect')?.classList.add('hidden') } catch (e) {}
+}
+
 async function boot() {
   injectStyles()
   const overlay = injectOverlay()
+  _liftDriveGate()   // mode cloud : pas de gate Drive (sinon il masque l'overlay de login)
   const { createClient } = await import(/* @vite-ignore */ CDN)
   const { createBoot } = await import('./supabase-boot.js')
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
@@ -111,6 +121,7 @@ async function onLoggedIn(api, overlay, user) {
       window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
       window.__immoCloudInfo = { email: user && user.email, espaceNom: esp && esp.espaceNom }   // 2.2 : panneau Mode cloud des Reglages
       window.__immoRender()
+      _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
       injectSyncBanner(api, user, esp)            // bandeau + indicateur de sync
       overlay.remove()                            // dévoile l'app complète sur les données cloud
