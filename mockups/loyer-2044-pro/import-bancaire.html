@@ -112,6 +112,25 @@
   .rule-form input,.rule-form select{font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--bor2);border-radius:6px;background:#fff}
   .rule-form .hint{font-size:11.5px;color:var(--t2);margin:9px 0;background:#fff;border-radius:7px;padding:7px 10px}
   .hide{display:none!important}
+  /* ===== Layout PC plein écran, sans scroll de page (le contenu du mouvement défile à l'intérieur) ===== */
+  @media(min-width:781px){
+    html,body{height:100%}
+    body{overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}
+    .bar{flex-shrink:0}
+    .wrap{flex:1;min-height:0;display:flex;flex-direction:column;margin:8px auto 0;max-width:1180px;width:100%;padding-bottom:10px}
+    h1{flex-shrink:0;font-size:18px} .sub{display:none}
+    #screen-drop{flex-shrink:0}
+    #screen-review{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:8px}
+    #screen-review>.pad{flex-shrink:0;padding:11px 18px}
+    #screen-review>.tabs{flex-shrink:0}
+    #view-todo{flex:1;min-height:0;display:flex}
+    #view-todo .rail{width:160px;flex-shrink:0;overflow:auto}
+    #view-todo .pane{flex:1;overflow:auto;min-height:0}
+    #view-ok{flex:1;min-height:0;overflow:auto}
+    #screen-review>.foot{flex-shrink:0}
+    .reco{gap:8px} .reco .k{padding:6px 8px} .reco .n{font-size:17px}
+    .note{margin-top:8px;padding:6px 10px}
+  }
   @media(max-width:780px){ .wrap{margin-top:10px} .review{grid-template-columns:1fr} .rail{border-right:0;border-bottom:1px solid var(--bor);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center} .rail .rt{width:100%;margin:0} .rail .step{padding:3px 0} .rail .prog{width:100%} .acctbar{font-size:11.5px} }
   @media(max-width:520px){ .reco{grid-template-columns:1fr} .tabs{overflow-x:auto;white-space:nowrap} .pane{padding:14px 14px;min-height:0} .mvt{flex-direction:column} .mvt .amt{align-self:flex-end} .sp-row{grid-template-columns:1fr;gap:6px;border:1px solid var(--bor);border-radius:9px;padding:9px;margin-top:8px} .sp-row .sens{flex-direction:row} .sp-row .rgt{flex-direction:row;align-items:center;justify-content:space-between} .sp-row .rgt input{width:auto;flex:1} .foot{flex-direction:column;align-items:stretch} .foot .info{text-align:center} }
 </style>
