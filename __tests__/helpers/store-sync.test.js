@@ -46,6 +46,32 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(summary.removes).toEqual([])
   })
 
+  it('VERROU LÉGAL : un bail verrouillé au baseline = jamais ré-upserté/supprimé ; la transition false→true POSE le verrou', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    db.baux = { F3: { hc: 700, signatures: { signedAt: '2026-01-01T00:00:00Z', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: false } } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()                                   // baseline : F3 NON verrouillé
+    const bx = () => store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + c.rec.__key)
+
+    // (1) transition false→true → POSE le verrou : DOIT upserter (le baseline n'est pas encore verrouillé)
+    db.baux.F3.signatures.locked = true
+    await sync.flush()
+    expect(bx()).toEqual(['upsert:F3'])
+
+    // (2) F3 désormais verrouillé au baseline → une modif (illégitime) NE doit PAS ré-upserter (trigger refuserait)
+    store.calls.length = 0
+    db.baux.F3.hc = 999
+    await sync.flush()
+    expect(bx()).toEqual([])
+
+    // (3) suppression d'un signé verrouillé → NE doit PAS remove
+    store.calls.length = 0
+    delete db.baux.F3
+    await sync.flush()
+    expect(bx()).toEqual([])
+  })
+
   it('un nouvel enregistrement → upsert(coll, rec) ; baseline mis à jour (2e flush = no-op)', async () => {
     const store = mockStore()
     const db = baseDB()
