@@ -79,6 +79,10 @@
   .combo-card .opt{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--sur2);background:var(--sur);padding:12px 16px;font:inherit;font-size:14.5px;cursor:pointer}
   .combo-card .opt:hover{background:var(--acc-bg)}
   .combo-card .opt b{font-size:15px}
+  .combo-card .opt .ln{color:var(--t3);font-size:12.5px;font-weight:400}
+  .pick-btn{text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
+  .pick-btn .cev{color:var(--t3);flex-shrink:0}
+  .pick-btn .ln{color:var(--t3);font-weight:400}
   .scopenote{font-size:11px;color:var(--t2);margin-top:6px}.scopenote a{color:var(--acc);cursor:pointer;font-weight:600;text-decoration:underline}
   .dest{margin-top:14px;padding:11px 13px;border-radius:10px;font-size:13px;display:flex;gap:9px;align-items:flex-start}
   .dest .di{font-size:17px}
@@ -222,7 +226,9 @@ const IMMS = [
   {nom:'Le Cosmos', ent:'SCI Keller', ccs:[]},
   {nom:'Villa Metz', ent:'SCI Patrimoine', ccs:[{id:'cc2',nom:'Eau froide générale'}]},
 ];
-const SCIS = ['SCI Keller','SCI Patrimoine'];
+// Bailleurs = entités juridiques (SCI…) OU personne physique (nom propre) — cohérent avec les « entités » du reste de l'app.
+const ENTS = ['SCI Keller','SCI Patrimoine','Didier Keller (nom propre)'];
+const SCIS = ENTS; // alias rétro-compat (périmètre + découpage)
 // RÈGLE compte=périmètre (révisée) : un compte importé est rattaché à une SCI ou à un/des immeubles → pré-filtre les biens.
 const COMPTES = {
   cic: {label:'CIC ···4021', scope:{niv:'imm', cible:'Résidence Iselin'}},      // 1 immeuble → 5 logements
@@ -241,7 +247,7 @@ function scopeNote(){ const b=baseScope(); if(!b)return ''; return comboAll
   ? `<div class="scopenote">🌐 Tout le patrimoine · <a onclick="comboAll=false;rerender()">revenir au compte</a></div>`
   : `<div class="scopenote">📍 Limité au compte : ${scopeLbl(b)} · <a onclick="comboAll=true;rerender()">voir tout le patrimoine</a></div>`; }
 
-const NIV = { sci:{e:'🏛️',l:'SCI'}, imm:{e:'🏢',l:'Immeuble'}, log:{e:'🚪',l:'Logement'} };
+const NIV = { sci:{e:'🏛️',l:'Bailleur'}, imm:{e:'🏢',l:'Immeuble'}, log:{e:'🚪',l:'Logement'} };
 const LIGLBL = {'211':'Loyers','213':'Recettes diverses','221':'Frais de gestion','223':'Assurances','224':'Travaux','227':'Taxe foncière','229':'Provisions copro','250':"Intérêts d'emprunt"};
 const CAT = {
   'Loyers encaissés':{l:'211',t:'recette',niv:'log'},
@@ -249,7 +255,7 @@ const CAT = {
   'Indemnité d\'assurance sinistre':{l:'213',t:'recette',niv:'imm'},
   'Recettes diverses (parking, antennes…)':{l:'213',t:'recette',niv:'imm'},
   'Frais de gestion / honoraires':{l:'221',t:'charge',niv:'imm'},
-  'Frais de comptabilité / EC (SCI)':{l:'221',t:'charge',niv:'sci'},
+  'Frais de comptabilité / expert-comptable':{l:'221',t:'charge',niv:'sci'},
   'Primes d\'assurance PNO':{l:'223',t:'charge',niv:'imm'},
   'Primes d\'assurance GLI':{l:'223',t:'charge',niv:'log'},
   'Travaux de réparation et d\'entretien':{l:'224',t:'charge',niv:'log'},
@@ -265,7 +271,7 @@ const CATS = Object.keys(CAT);
 
 const MVTS = [
   {id:1, date:'20/05', lib:'VIR GESTION ASSURANCES SA SDT23Y', cr:1209.25, db:0, statut:'todo', conf:35, cat:'— Choisir —'},
-  {id:2, date:'21/05', lib:'PRLV SEPA SARL ICARUS CONSEILS', cr:0, db:152.60, statut:'todo', conf:55, cat:'Frais de comptabilité / EC (SCI)'},
+  {id:2, date:'21/05', lib:'PRLV SEPA SARL ICARUS CONSEILS', cr:0, db:152.60, statut:'todo', conf:55, cat:'Frais de comptabilité / expert-comptable'},
   {id:3, date:'22/05', lib:'LOYER CG3W26142M105046', cr:174.00, db:0, statut:'todo', conf:60, cat:'Loyers encaissés', cible:''},
   {id:9, date:'28/05', lib:'LOYERS 05/2026 GERANCE ISELIN', cr:2353.31, db:0, statut:'todo', conf:30, cat:'— Choisir —', gerance:true},
   {id:4, date:'22/05', lib:'VIR INST MME FRANCOISE BECKER LO', cr:250.00, db:0, statut:'ok', conf:88, cat:'Loyers encaissés', niv:'log', cible:'F-001'},
@@ -291,12 +297,13 @@ const todo = () => MVTS.filter(m=>m.statut==='todo');
 const fmt = n => (n<0?'− ':'')+Math.abs(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 const $ = id => document.getElementById(id);
 const mById = id => MVTS.find(x=>x.id===id);
-let idx=0, combo=null, okOpen=null, curTab='todo', ruleOpen=null, rulesPanelOpen=false;
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+let idx=0, picker=null, okOpen=null, curTab='todo', ruleOpen=null, rulesPanelOpen=false;
 
 function analyser(){ $('screen-drop').classList.add('hide'); $('screen-review').classList.remove('hide'); idx=0; applyRules(); renderAcct(); renderRules(false); renderTodo(); refreshFoot(); }
 function reset(){ $('screen-review').classList.add('hide'); $('screen-drop').classList.remove('hide'); }
 function rerender(){ if(curTab==='todo') renderTodo(); else renderOk(); }
-function setAcct(v){ acct=v; comboAll=false; combo=null; applyRules(); renderAcct(); renderRules(); rerender(); refreshFoot(); }
+function setAcct(v){ acct=v; comboAll=false; picker=null; applyRules(); renderAcct(); renderRules(); rerender(); refreshFoot(); }
 function renderAcct(){
   $('acct-sel').innerHTML = Object.keys(COMPTES).map(k=>`<option value="${k}" ${k===acct?'selected':''}>${COMPTES[k].label}</option>`).join('');
   $('acct-scope').textContent = scopeLbl(baseScope());
@@ -341,7 +348,7 @@ function renderRules(forceOpen, msg){
 }
 function toggleRules(){ renderRules(!rulesPanelOpen); }
 function deleteRule(i){ RULES.splice(i,1); renderRules(true); }
-function setTab(t){ curTab=t; combo=null; okOpen=null;
+function setTab(t){ curTab=t; picker=null; okOpen=null;
   $('tab-todo').classList.toggle('on',t==='todo'); $('tab-ok').classList.toggle('on',t==='ok');
   $('view-todo').classList.toggle('hide',t!=='todo'); $('view-ok').classList.toggle('hide',t!=='ok');
   if(t==='ok') renderOk(); else renderTodo();
@@ -350,45 +357,66 @@ function setTab(t){ curTab=t; combo=null; okOpen=null;
 // ===== bloc d'affectation réutilisable (déroulé + reconnus) =====
 function affEditorHtml(m){
   const c=CAT[m.cat]; const niv=m.niv||c.niv;
-  let h = `<div class="lbl">1 · C'est quoi ?</div><select class="inp" onchange="setCat(${m.id},this.value)">`+
-    CATS.map(k=>`<option ${k===m.cat?'selected':''}>${k}</option>`).join('')+`</select>`;
+  // 1 · Catégorie — sélecteur overlay cherchable (même composant que la cible)
+  let h = `<div class="lbl">1 · Nature de l'opération</div>`+pickerBtn(m,'cat', m.cat==='— Choisir —'?'🔍 Choisir une catégorie…':catLabel(m.cat));
   if(m.cat!=='— Choisir —' && c.t!=='special'){
-    h += `<div class="lbl">2 · Rattaché à quoi ?</div><div class="niv">`+
+    // 2 · Rattachement : bailleur (SCI ou nom propre) / immeuble / logement
+    h += `<div class="lbl">2 · Rattacher à</div><div class="niv">`+
       ['sci','imm','log'].map(k=>`<button class="${k===niv?'on':''}" onclick="setNiv(${m.id},'${k}')">${NIV[k].e} ${NIV[k].l}${(k===c.niv&&k!==niv)?' <span class="star">★</span>':''}</button>`).join('')+`</div>`;
-    h += `<div style="margin-top:8px">`+cibleHtml(m,niv)+`</div>`;
+    h += `<div style="margin-top:8px">`+pickerBtn(m, niv, cibleLabel(m,niv))+`</div>`;
     if(niv==='imm' && c.t==='charge'){ const im=IMMS.find(i=>i.nom===m.cible); if(im&&im.ccs.length)
       h += `<label style="display:flex;gap:7px;margin-top:10px;font-size:12.5px;cursor:pointer"><input type="checkbox" ${m.recup?'checked':''} onchange="setRecup(${m.id},this.checked)"><span>↩ Cette charge se <b>récupère</b> sur les locataires (compteur collectif, hors impôts)</span></label>`;
     }
   }
   h += destHtml(m,niv);
   h += ruleUiHtml(m);
+  h += pickerOverlay(m);
   return h;
 }
-function cibleHtml(m,niv){
-  const c=CAT[m.cat];
-  if(niv==='sci'){ const S=scopeScis(); return `<select class="inp" onchange="setCible(${m.id},this.value)"><option value="">— SCI —</option>`+S.map(s=>`<option ${s===m.cible?'selected':''}>${s}</option>`).join('')+`</select>`+scopeNote(); }
-  if(niv==='imm' || c.t==='recup'){ const I=scopeImms(); return `<select class="inp" onchange="setCible(${m.id},this.value)"><option value="">— Immeuble —</option>`+I.map(i=>`<option ${i.nom===m.cible?'selected':''}>${i.nom}</option>`).join('')+`</select>`+scopeNote(); }
-  // logement = combo cherchable scopé
-  const cur=LOGS.find(l=>l.ref===m.cible);
-  let h=`<div class="combo"><button type="button" class="inp" style="text-align:left;display:flex;justify-content:space-between" onclick="toggleCombo(${m.id})"><span>${cur?cur.ref+' — '+cur.loc:'🔍 Choisir un logement…'}</span><span>▾</span></button>`;
-  if(combo && combo.id===m.id){
-    const all=scopeLogs(); const b=baseScope();
-    const f=all.filter(l=>(`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes((combo.q||'').toLowerCase()));
-    const hdr = b ? (comboAll
-      ? `<div class="combo-scope-hdr amb">🌐 Tout le patrimoine (${LOGS.length}) · <a onclick="comboAll=false;rerender()">revenir au compte (${scopeLbl(b)})</a></div>`
-      : `<div class="combo-scope-hdr">📍 <b>${all.length} bien(s) de ce compte</b> · ${scopeLbl(b)} · <a onclick="comboAll=true;rerender()">voir tout (${LOGS.length})</a></div>`) : '';
-    h+=`<div class="combo-ov" onclick="if(event.target===this)toggleCombo(${m.id})"><div class="combo-card"><div class="combo-card-head"><span>🔍 Choisir un logement</span><button onclick="toggleCombo(${m.id})">✕</button></div>${hdr}<input class="inp" id="cs" placeholder="Réf. ou nom du locataire…" value="${combo.q||''}" oninput="combo.q=this.value;fillList(${m.id})"><div id="cl" class="combo-card-list">${listHtml(f,m.id)}</div></div></div>`;
+function catLabel(k){ const c=CAT[k]; return k+(c&&c.l?` <span class="ln">· ligne ${c.l}</span>`:''); }
+function cibleLabel(m,niv){
+  if(!m.cible) return niv==='log'?'🔍 Choisir un logement…':niv==='imm'?'🔍 Choisir un immeuble…':'🔍 Choisir un bailleur…';
+  if(niv==='log'){ const l=LOGS.find(x=>x.ref===m.cible); return l?`<b>${l.ref}</b> — ${l.loc}`:m.cible; }
+  return `<b>${m.cible}</b>`;
+}
+// ----- sélecteur générique en overlay : catégorie / bailleur / immeuble / logement -----
+function pickerBtn(m,kind,label){
+  return `<button type="button" class="inp pick-btn" onclick="openPicker(${m.id},'${kind}')"><span>${label}</span><span class="cev">▾</span></button>`;
+}
+function openPicker(id,kind){ picker=(picker&&picker.id===id&&picker.kind===kind)?null:{id,kind,q:''}; rerender(); if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0); }
+function closePicker(){ picker=null; rerender(); }
+function pickerOverlay(m){
+  if(!picker || picker.id!==m.id) return '';
+  const kind=picker.kind;
+  const titles={cat:'Choisir une nature d\'opération', log:'Choisir un logement', imm:'Choisir un immeuble', sci:'Choisir un bailleur'};
+  let hdr='';
+  if(kind!=='cat'){ const b=baseScope(); if(b) hdr = comboAll
+    ? `<div class="combo-scope-hdr amb">🌐 Tout le patrimoine · <a onclick="comboAll=false;rerender()">revenir au compte (${scopeLbl(b)})</a></div>`
+    : `<div class="combo-scope-hdr">📍 <b>limité au compte</b> · ${scopeLbl(b)} · <a onclick="comboAll=true;rerender()">voir tout le patrimoine</a></div>`; }
+  return `<div class="combo-ov" onclick="if(event.target===this)closePicker()"><div class="combo-card"><div class="combo-card-head"><span>🔍 ${titles[kind]}</span><button onclick="closePicker()">✕</button></div>${hdr}<input class="inp" id="cs" placeholder="Rechercher…" value="${esc(picker.q||'')}" oninput="picker.q=this.value;fillPicker()"><div id="cl" class="combo-card-list">${pickerListHtml(picker.id,kind,picker.q)}</div></div></div>`;
+}
+function pickerListHtml(id,kind,q){
+  q=(q||'').toLowerCase().trim();
+  if(kind==='cat'){
+    const order=['recette','charge','recup','pret','special']; const gl={recette:'Recettes',charge:'Charges déductibles',recup:'Charges récupérables',pret:'Prêt',special:'Hors 2044'};
+    let h='';
+    order.forEach(t=>{ const ks=CATS.filter(k=>k!=='— Choisir —'&&CAT[k].t===t&&k.toLowerCase().includes(q)); if(!ks.length)return;
+      h+=`<div class="grp">${gl[t]}</div>`+ks.map(k=>`<button type="button" class="opt" data-v="${esc(k)}" onclick="choosePick(${id},'cat',this.dataset.v)">${k}${CAT[k].l?` <span class="ln">→ ligne ${CAT[k].l}</span>`:''}</button>`).join('');
+    });
+    return h||noRes();
   }
-  return h+`</div>`;
+  if(kind==='log'){ const f=scopeLogs().filter(l=>(`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes(q)); if(!f.length)return noRes();
+    const byImm={}; f.forEach(l=>{(byImm[l.imm]=byImm[l.imm]||[]).push(l)});
+    return Object.keys(byImm).map(im=>`<div class="grp">${im}</div>`+byImm[im].map(l=>`<button type="button" class="opt" data-v="${esc(l.ref)}" onclick="choosePick(${id},'log',this.dataset.v)"><b>${l.ref}</b> — ${l.loc}</button>`).join('')).join(''); }
+  if(kind==='imm'){ const f=scopeImms().filter(i=>i.nom.toLowerCase().includes(q)); if(!f.length)return noRes();
+    return f.map(i=>`<button type="button" class="opt" data-v="${esc(i.nom)}" onclick="choosePick(${id},'imm',this.dataset.v)"><b>${i.nom}</b> <span class="ln">— ${i.ent}</span></button>`).join(''); }
+  // sci = bailleur (SCI ou personne physique)
+  const f=scopeScis().filter(e=>e.toLowerCase().includes(q)); if(!f.length)return noRes();
+  return f.map(e=>`<button type="button" class="opt" data-v="${esc(e)}" onclick="choosePick(${id},'sci',this.dataset.v)"><b>${e}</b>${e.includes('propre')?` <span class="ln">— personne physique</span>`:''}</button>`).join('');
 }
-function listHtml(f,id){
-  if(!f.length) return `<div style="padding:9px 11px;color:var(--t3);font-size:12.5px">Aucun résultat dans ce périmètre</div>`;
-  const byImm={}; f.forEach(l=>{(byImm[l.imm]=byImm[l.imm]||[]).push(l)});
-  return Object.keys(byImm).map(im=>`<div class="grp">${im}</div>`+byImm[im].map(l=>`<button type="button" class="opt" onclick="chooseLog(${id},'${l.ref}')"><b>${l.ref}</b> — ${l.loc}</button>`).join('')).join('');
-}
-function fillList(id){ const f=scopeLogs().filter(l=>(`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes((combo.q||'').toLowerCase())); const e=$('cl'); if(e)e.innerHTML=listHtml(f,id); }
-function toggleCombo(id){ combo=(combo&&combo.id===id)?null:{id,q:''}; rerender(); if(combo)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0); }
-function chooseLog(id,ref){ mById(id).cible=ref; combo=null; rerender(); }
+function noRes(){ return `<div style="padding:11px 16px;color:var(--t3);font-size:13px">Aucun résultat dans ce périmètre</div>`; }
+function fillPicker(){ if(!picker)return; const e=$('cl'); if(e)e.innerHTML=pickerListHtml(picker.id,picker.kind,picker.q); }
+function choosePick(id,kind,val){ if(kind==='cat'){ picker=null; setCat(id,val); } else { mById(id).cible=val; picker=null; rerender(); } }
 function destHtml(m,niv){
   const c=CAT[m.cat]; if(m.cat==='— Choisir —') return '';
   if(c.t==='special') return `<div class="dest none"><span class="di">📋</span><div><div class="dt">Hors 2044</div><div class="dd">${c.note||'Tracé, hors résultat foncier.'}</div></div></div>`;
@@ -401,15 +429,15 @@ function destHtml(m,niv){
   return `<div class="dest ${c.t==='recette'?'tax':'chg'}"><span class="di">🧾</span><div><div class="dt">2044 · ligne ${c.l} — ${LIGLBL[c.l]||''}</div><div class="dd">${s} · rattaché à ${where}.</div></div></div>`;
 }
 function isDone(m){ if(m.gerance) return !!m._splitOk; if(m.cat==='— Choisir —')return false; const c=CAT[m.cat]; if(c.t==='special')return true; return !!m.cible; }
-function setCat(id,v){ const m=mById(id); m.cat=v; m.niv=CAT[v].niv; m.recup=!!CAT[v].recup; m.cible=''; combo=null; rerender(); }
-function setNiv(id,k){ const m=mById(id); m.niv=k; m.recup=false; m.cible=''; combo=null; rerender(); }
+function setCat(id,v){ const m=mById(id); m.cat=v; m.niv=CAT[v].niv; m.recup=!!CAT[v].recup; m.cible=''; picker=null; rerender(); }
+function setNiv(id,k){ const m=mById(id); m.niv=k; m.recup=false; m.cible=''; picker=null; rerender(); }
 function setCible(id,v){ mById(id).cible=v; rerender(); }
 function setRecup(id,b){ mById(id).recup=b; rerender(); }
 
 // ===== déroulé à compléter =====
 function renderTodo(){
   const L=todo();
-  $('rail-steps').innerHTML=L.map((m,i)=>`<div class="step ${isDone(m)?'done':''} ${i===idx?'cur':''}" onclick="idx=${i};combo=null;renderTodo()"><span class="dot">${isDone(m)?'✓':i+1}</span><span>${m.lib.split(' ').slice(0,2).join(' ')}…</span></div>`).join('');
+  $('rail-steps').innerHTML=L.map((m,i)=>`<div class="step ${isDone(m)?'done':''} ${i===idx?'cur':''}" onclick="idx=${i};picker=null;renderTodo()"><span class="dot">${isDone(m)?'✓':i+1}</span><span>${m.lib.split(' ').slice(0,2).join(' ')}…</span></div>`).join('');
   $('rail-prog').style.width=Math.round(L.filter(isDone).length/L.length*100)+'%';
   const m=L[idx]; const sens=m.cr>0?'cr':'db'; const amt=m.cr>0?m.cr:-m.db; const cc=m.conf>=75?'hi':m.conf>=50?'mid':'lo';
   let h=`<div class="mvt"><div><div class="lib">${m.lib}</div><div class="meta">${m.date}/2026 · relevé OFX</div>${m.cat!=='— Choisir —'?`<div class="conf ${cc}">✨ proposé : ${m.cat} · ${m.conf}%</div>`:`<div class="conf lo">❓ non reconnu</div>`}</div><div class="amt ${sens}">${fmt(amt)}</div></div>`;
@@ -417,12 +445,12 @@ function renderTodo(){
   else { h+=affEditorHtml(m); }
   // nav — « Suivant » bloqué tant que le mouvement courant n'est pas classé (le rail reste libre pour sauter)
   const _done=isDone(m);
-  const _hint=_done?'':`<span style="font-size:11.5px;color:var(--amb)">⚠ ${m.gerance?'équilibre le découpage d\'abord':'choisis d\'abord la cible (SCI / immeuble / logement)'}</span>`;
+  const _hint=_done?'':`<span style="font-size:11.5px;color:var(--amb)">⚠ ${m.gerance?'équilibre le découpage d\'abord':'choisis d\'abord la cible (bailleur / immeuble / logement)'}</span>`;
   const _fwd=idx<L.length-1
-    ? `<button class="btn p" ${_done?'':'disabled'} onclick="idx++;combo=null;renderTodo()">Suivant →</button>`
+    ? `<button class="btn p" ${_done?'':'disabled'} onclick="idx++;picker=null;renderTodo()">Suivant →</button>`
     : `<button class="btn p" ${_done?'':'disabled'} onclick="setTab('ok')">Vérifier les reconnus →</button>`;
-  h+=`<div class="actions">`+(idx>0?`<button class="btn g" onclick="idx--;combo=null;renderTodo()">← Précédent</button>`:`<span></span>`)+`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${_hint}${_fwd}</div></div>`;
-  $('pane').innerHTML=h; if(m.gerance&&SP)renderSplit(); if(combo)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
+  h+=`<div class="actions">`+(idx>0?`<button class="btn g" onclick="idx--;picker=null;renderTodo()">← Précédent</button>`:`<span></span>`)+`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${_hint}${_fwd}</div></div>`;
+  $('pane').innerHTML=h; if(m.gerance&&SP)renderSplit(); if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
   refreshFoot();
 }
 
@@ -430,11 +458,11 @@ function renderTodo(){
 function renderOk(){
   $('ok-list').innerHTML=MVTS.filter(m=>m.statut==='ok').map(m=>{
     const sens=m.cr>0?'cr':'db'; const where=m.cible?' · '+m.cible:'';
-    let row=`<div class="rec-row" onclick="okOpen=okOpen===${m.id}?null:${m.id};combo=null;renderOk()"><span class="lib">${m.lib}</span><span class="cat">${m.cat}${where}</span><span class="amt ${sens}">${fmt(m.cr>0?m.cr:-m.db)}</span><span class="edit">${okOpen===m.id?'▲ fermer':'✏ modifier'}</span></div>`;
+    let row=`<div class="rec-row" onclick="okOpen=okOpen===${m.id}?null:${m.id};picker=null;renderOk()"><span class="lib">${m.lib}</span><span class="cat">${m.cat}${where}</span><span class="amt ${sens}">${fmt(m.cr>0?m.cr:-m.db)}</span><span class="edit">${okOpen===m.id?'▲ fermer':'✏ modifier'}</span></div>`;
     if(okOpen===m.id) row+=`<div class="rec-edit">${affEditorHtml(m)}</div>`;
     return row;
   }).join('');
-  if(combo)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
+  if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
 }
 
 // ===== découper (éditable) =====
