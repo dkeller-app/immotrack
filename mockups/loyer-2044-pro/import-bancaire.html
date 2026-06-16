@@ -166,7 +166,7 @@
     .rail .step span:last-child{max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .rail .prog{width:100%;margin-top:8px}
     .acctbar{font-size:11.5px} }
-  @media(max-width:520px){ .reco{grid-template-columns:1fr} .tabs{overflow-x:auto;white-space:nowrap} .pane{padding:14px 14px;min-height:0} .mvt{flex-direction:column} .mvt .amt{align-self:flex-end} .sp-row{grid-template-columns:1fr;gap:6px;border:1px solid var(--bor);border-radius:9px;padding:9px;margin-top:8px} .sp-row .sens{flex-direction:row} .sp-row .rgt{flex-direction:row;align-items:center;justify-content:space-between} .sp-row .rgt input{width:auto;flex:1} .foot{flex-direction:column;align-items:stretch} .foot .info{text-align:center} }
+  @media(max-width:520px){ .reco{grid-template-columns:1fr} .tabs{overflow-x:auto;white-space:nowrap} .pane{padding:14px 14px;min-height:0} .mvt{flex-direction:column} .mvt .amt{align-self:flex-end} .sp-row{grid-template-columns:1fr;gap:6px;border:1px solid var(--bor);border-radius:9px;padding:9px;margin-top:8px} .sp-row .sens{flex-direction:row} .sp-row .rgt{flex-direction:row;align-items:center;justify-content:space-between} .sp-row .rgt input{width:auto;flex:1} .foot{flex-direction:column;align-items:stretch} .foot .info{text-align:center} .sp-bal{flex-direction:column;gap:4px;align-items:flex-start} }
 </style>
 </head>
 <body>
@@ -314,6 +314,7 @@ const fmt = n => (n<0?'− ':'')+Math.abs(n).toLocaleString('fr-FR',{minimumFrac
 const $ = id => document.getElementById(id);
 const mById = id => MVTS.find(x=>x.id===id);
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const FINE_PTR = !!(window.matchMedia && window.matchMedia('(pointer:fine)').matches); // souris → autofocus recherche OK ; tactile → pas d'ouverture auto du clavier (seulement si l'utilisateur tape dans le champ)
 let idx=0, picker=null, okOpen=null, curTab='todo', ruleOpen=null, rulesPanelOpen=false;
 
 function analyser(){ $('screen-drop').classList.add('hide'); $('screen-review').classList.remove('hide'); idx=0; applyRules(); renderAcct(); renderRules(false); renderTodo(); refreshFoot(); }
@@ -399,7 +400,7 @@ function cibleLabel(m,niv){
 function pickerBtn(m,kind,label){
   return `<button type="button" class="inp pick-btn" onclick="openPicker(${m.id},'${kind}')"><span>${label}</span><span class="cev">▾</span></button>`;
 }
-function openPicker(id,kind){ picker=(picker&&picker.id===id&&picker.kind===kind)?null:{id,kind,q:''}; rerender(); if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0); }
+function openPicker(id,kind){ picker=(picker&&picker.id===id&&picker.kind===kind)?null:{id,kind,q:''}; rerender(); if(picker&&FINE_PTR)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0); }
 function closePicker(){ picker=null; rerender(); }
 function pickerOverlay(m){
   if(!picker || picker.id!==m.id) return '';
@@ -444,7 +445,7 @@ function destHtml(m,niv){
   const s = c.t==='recette'?'Recette':c.t==='interet'?"Intérêts":'Charge déductible';
   return `<div class="dest ${c.t==='recette'?'tax':'chg'}"><span class="di">🧾</span><div><div class="dt">2044 · ligne ${c.l} — ${LIGLBL[c.l]||''}</div><div class="dd">${s} · rattaché à ${where}.</div></div></div>`;
 }
-function isDone(m){ if(m.gerance) return !!m._splitOk; if(m.cat==='— Choisir —')return false; const c=CAT[m.cat]; if(c.t==='special')return true; return !!m.cible; }
+function isDone(m){ if(m.gerance||m._splitMode) return !!m._splitOk; if(m.cat==='— Choisir —')return false; const c=CAT[m.cat]; if(c.t==='special')return true; return !!m.cible; }
 function setCat(id,v){ const m=mById(id); m.cat=v; m.niv=CAT[v].niv; m.recup=!!CAT[v].recup; m.cible=''; picker=null; rerender(); }
 function setNiv(id,k){ const m=mById(id); m.niv=k; m.recup=false; m.cible=''; picker=null; rerender(); }
 function setCible(id,v){ mById(id).cible=v; rerender(); }
@@ -459,7 +460,7 @@ function renderRail(){
 // nav réutilisable — re-rendue aussi quand l'équilibre du découpage change (sinon « Suivant » reste figé)
 function navInner(){
   const L=todo(); const m=L[idx]; const _done=isDone(m);
-  const _hint=_done?'':`<span style="font-size:11.5px;color:var(--amb)">⚠ ${m.gerance?'équilibre le découpage d\'abord':'choisis d\'abord la cible (bailleur / immeuble / logement)'}</span>`;
+  const _hint=_done?'':`<span style="font-size:11.5px;color:var(--amb)">⚠ ${(m.gerance||m._splitMode)?'équilibre le découpage d\'abord':'choisis d\'abord la cible (bailleur / immeuble / logement)'}</span>`;
   const _fwd=idx<L.length-1
     ? `<button class="btn p" ${_done?'':'disabled'} onclick="idx++;picker=null;renderTodo()">Suivant →</button>`
     : `<button class="btn p" ${_done?'':'disabled'} onclick="setTab('ok')">Vérifier les reconnus →</button>`;
@@ -480,7 +481,7 @@ function renderTodo(){
   else { h+=affEditorHtml(m)+`<div style="margin-top:10px;text-align:center"><span class="split-link" style="font-size:12px" onclick="showSplit(${m.id})">✂️ Ce virement regroupe plusieurs opérations ? Le découper</span></div>`; }
   // nav — « Suivant » bloqué tant que le mouvement courant n'est pas classé (le rail reste libre pour sauter)
   h+=`<div class="actions" id="todo-actions">${navInner()}</div>`;
-  $('pane').innerHTML=h; if((m.gerance||m._splitMode)&&SP)renderSplit(); if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
+  $('pane').innerHTML=h; if((m.gerance||m._splitMode)&&SP)renderSplit(); if(picker&&FINE_PTR)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
   refreshFoot();
 }
 
@@ -496,7 +497,7 @@ function renderOk(){
     if(okOpen===m.id) row+=`<div class="rec-edit">${affEditorHtml(m)}</div>`;
     return row;
   }).join('');
-  if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
+  if(picker&&FINE_PTR)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
 }
 
 // ===== découper (éditable) — rattaché au mouvement (m._sp) ; SP = pointeur sur le découpage courant =====
