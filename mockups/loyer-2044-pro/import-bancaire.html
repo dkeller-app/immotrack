@@ -382,8 +382,13 @@ function renderTodo(){
   let h=`<div class="mvt"><div><div class="lib">${m.lib}</div><div class="meta">${m.date}/2026 · relevé OFX</div>${m.cat!=='— Choisir —'?`<div class="conf ${cc}">✨ proposé : ${m.cat} · ${m.conf}%</div>`:`<div class="conf lo">❓ non reconnu</div>`}</div><div class="amt ${sens}">${fmt(amt)}</div></div>`;
   if(m.gerance){ h+=`<div class="dest none" style="margin-top:14px"><span class="di">✂️</span><div><div class="dt">Relevé de gérance — un virement, plusieurs loyers + frais</div><div class="dd">À découper. L'app pré-remplit ce qu'elle sait ; tu ajoutes/corriges le reste (travaux, PNO…).</div></div></div><div id="split"></div>`; if(!SP)h+=`<div class="actions"><span class="split-link" onclick="showSplit()">✂️ Découper ce relevé (${fmt(amt)})</span><div></div></div>`; }
   else { h+=affEditorHtml(m); }
-  // nav
-  h+=`<div class="actions">`+(idx>0?`<button class="btn g" onclick="idx--;combo=null;renderTodo()">← Précédent</button>`:`<span></span>`)+(idx<L.length-1?`<button class="btn p" onclick="idx++;combo=null;renderTodo()">Suivant →</button>`:`<button class="btn p" onclick="setTab('ok')">Vérifier les reconnus →</button>`)+`</div>`;
+  // nav — « Suivant » bloqué tant que le mouvement courant n'est pas classé (le rail reste libre pour sauter)
+  const _done=isDone(m);
+  const _hint=_done?'':`<span style="font-size:11.5px;color:var(--amb)">⚠ ${m.gerance?'équilibre le découpage d\'abord':'choisis d\'abord la cible (SCI / immeuble / logement)'}</span>`;
+  const _fwd=idx<L.length-1
+    ? `<button class="btn p" ${_done?'':'disabled'} onclick="idx++;combo=null;renderTodo()">Suivant →</button>`
+    : `<button class="btn p" ${_done?'':'disabled'} onclick="setTab('ok')">Vérifier les reconnus →</button>`;
+  h+=`<div class="actions">`+(idx>0?`<button class="btn g" onclick="idx--;combo=null;renderTodo()">← Précédent</button>`:`<span></span>`)+`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${_hint}${_fwd}</div></div>`;
   $('pane').innerHTML=h; if(m.gerance&&SP)renderSplit(); if(combo)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
   refreshFoot();
 }
