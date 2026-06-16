@@ -69,20 +69,49 @@ function wireLoginForm(api, overlay, prefillEmail) {
 
 async function onLoggedIn(api, overlay, user) {
   renderLoading(overlay, user)
-  let esp
+  let esp, liveDB = null, flushTimer = null, _lastFlushFn = null
+  // Indicateur de sync du bandeau (si présent). I1 : JAMAIS « Enregistré » si conflit/skipped (donc
+  // pas réellement dans le cloud) — affichage honnête.
+  const setSync = (state) => {
+    const el = document.getElementById('imsb-sync'); if (!el) return
+    el.textContent = state === 'saving' ? '⟳ Enregistrement…'
+      : state === 'incomplete' ? '⚠ Sync incomplète — réessaie en modifiant'
+      : state === 'error' ? '⚠ Erreur réseau — réessai à la prochaine modif'
+      : '✓ Enregistré dans le cloud'
+  }
+  const runFlush = async (fn) => {
+    flushTimer = null; setSync('saving')
+    try {
+      const s = await fn()   // fn = () => sync.flush() ; flush est SÉRIALISÉ côté store-sync (anti-réentrance C2)
+      const incomplete = s && ((s.conflicts && s.conflicts.length) || (s.skipped && s.skipped.length))
+      if (incomplete) console.warn('[Supabase] sync incomplet (conflits/skipped — modif PAS dans le cloud)', s)
+      setSync(incomplete ? 'incomplete' : 'ok')
+    } catch (e) { console.error('[Supabase] flush', e); setSync('error') }
+  }
+  // Scheduler debouncé (800 ms, comme Drive) : saveDB → markDirty → ici → flush cloud (gardé par version).
+  const schedule = (fn) => { _lastFlushFn = fn; if (flushTimer) clearTimeout(flushTimer); flushTimer = setTimeout(() => runFlush(fn), 800) }
+  // C1 : à la fermeture/masquage de l'onglet, flush IMMÉDIAT du debounce en attente — sinon la modif est
+  // perdue (en mode cloud, le filet localStorage de beforeunload n'existe plus). visibilitychange:hidden +
+  // pagehide = plus fiables que beforeunload pour l'async. Best-effort (réseau coupé sur close dur possible).
+  const flushPendingNow = () => { if (flushTimer && _lastFlushFn) { clearTimeout(flushTimer); runFlush(_lastFlushFn) } }
+  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingNow() })
+  addEventListener('pagehide', flushPendingNow)
   try {
     esp = await api.resolveEspace()
-    api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => window.DB, schedule: null })
+    api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => liveDB, schedule })
     const db = await api.hydrate()
     // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
-    // cloud EN MÉMOIRE + re-render, puis retirer l'overlay. Pas de localStorage (quota). Sinon (page
-    // de test dédiée index-supabase.html) → écran de compteurs + bouton.
+    // cloud EN MÉMOIRE + re-render + brancher la SAUVEGARDE cloud (2c). Sinon (page de test dédiée
+    // index-supabase.html) → écran de compteurs + bouton.
     if (typeof window.__immoSetDB === 'function' && typeof window.__immoRender === 'function') {
       window.__immoSupabaseMode = true            // saveDB/beforeunload/storage ne toucheront pas localStorage
       if (window.__immoSetDB(db) === false) { renderProof(overlay, api, user, esp, db); return }   // DB invalide → fallback
+      liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
+      api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
+      window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
       window.__immoRender()
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
-      injectReadOnlyBanner(api, user, esp)        // bandeau « lecture seule » (I1 : modifs pas encore sauvées)
+      injectSyncBanner(api, user, esp)            // bandeau + indicateur de sync
       overlay.remove()                            // dévoile l'app complète sur les données cloud
       return
     }
@@ -131,15 +160,16 @@ function brand() {
     <div class="imsb-tag">Mode Supabase · test</div>`
 }
 
-// Bandeau permanent en mode « app complète » : rappelle que c'est un test EN LECTURE SEULE (les modifs
-// ne sont pas encore enregistrées — la sync cloud arrive en 2c). Évite que l'utilisateur croie avoir sauvé.
-function injectReadOnlyBanner(api, user, esp) {
+// Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud (test) + indicateur de
+// sync en direct. Depuis 2c, les modifications SONT enregistrées dans le cloud (plus en lecture seule).
+function injectSyncBanner(api, user, esp) {
   if (document.getElementById('imsb-banner')) return
   const css = document.createElement('style')
   css.textContent = `#imsb-banner{position:fixed;top:0;left:0;right:0;z-index:2147483000;background:linear-gradient(90deg,#163b78,#2b5fd0);
     color:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:12.5px;padding:7px 16px;display:flex;align-items:center;
     justify-content:center;gap:14px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
     #imsb-banner b{font-weight:700}
+    #imsb-banner #imsb-sync{font-weight:700;background:rgba(255,255,255,.16);padding:2px 9px;border-radius:999px}
     #imsb-banner button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:6px;
     padding:4px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
     #imsb-banner button:hover{background:rgba(255,255,255,.28)}
@@ -147,7 +177,8 @@ function injectReadOnlyBanner(api, user, esp) {
   document.head.appendChild(css)
   const b = document.createElement('div')
   b.id = 'imsb-banner'
-  b.innerHTML = `<span>🔍 <b>Mode cloud (test)</b> · ${escapeHtml(user.email)} · espace « ${escapeHtml(esp.espaceNom || '?')} » — <b>LECTURE SEULE</b> : les modifications ne sont pas encore enregistrées.</span>
+  b.innerHTML = `<span>☁️ <b>Mode cloud (test)</b> · ${escapeHtml(user.email)} · espace « ${escapeHtml(esp.espaceNom || '?')} »</span>
+    <span id="imsb-sync">✓ Enregistré dans le cloud</span>
     <button id="imsb-banner-out">Quitter le test</button>`
   document.body.appendChild(b)
   const out = document.getElementById('imsb-banner-out')

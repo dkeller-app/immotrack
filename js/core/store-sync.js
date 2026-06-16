@@ -101,9 +101,10 @@ export function createStoreSync({ store, getDB, schedule }) {
     _configSig = configSig(db)
   }
 
-  // flush : diffe le DB courant vs baseline, applique upserts (parent→enfant) puis removes
+  // _doFlush : diffe le DB courant vs baseline, applique upserts (parent→enfant) puis removes
   // (enfant→parent), met à jour le baseline sur succès uniquement. Renvoie un résumé.
-  async function flush(db = getDB()) {
+  // ⚠️ NE PAS appeler directement (réentrance) → passer par flush() qui SÉRIALISE.
+  async function _doFlush(db) {
     const summary = { upserts: [], removes: [], conflicts: [], skipped: [] }
     const current = snapshotOf(db)
 
@@ -142,6 +143,17 @@ export function createStoreSync({ store, getDB, schedule }) {
       if (cs !== _configSig) { await store.persistConfig(db); _configSig = cs; summary.config = 'written' }
     }
     return summary
+  }
+
+  // flush : SÉRIALISE les flush (anti-réentrance, audit C2). Un flush en vol n'est jamais doublé ; un
+  // flush demandé pendant un autre attend la fin du précédent → lit `_versions`/baseline À JOUR (pas
+  // de conflit de concurrence interne, donc pas de perte de modif quand 2 saves se chevauchent). Le DB
+  // est relu (getDB) au moment où le run démarre → état frais. db explicite (tests) respecté.
+  let _chain = Promise.resolve()
+  function flush(db) {
+    const p = _chain.then(() => _doFlush(db !== undefined ? db : getDB()))
+    _chain = p.catch(() => {})   // la chaîne survit aux erreurs (un flush qui throw ne bloque pas les suivants)
+    return p
   }
 
   // markDirty : programme un flush debouncé (le scheduler injecté gère le délai côté app).

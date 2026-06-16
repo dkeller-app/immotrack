@@ -281,6 +281,22 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(persistCount).toBe(1)             // baseline config à jour → plus d'appel
   })
 
+  it('réentrance (audit C2) : flush() SÉRIALISE — jamais 2 _doFlush en parallèle (2 saves rapprochés)', async () => {
+    let active = 0, maxActive = 0
+    const store = {
+      upsert: async () => { active++; maxActive = Math.max(maxActive, active); await new Promise(r => setTimeout(r, 15)); active--; return { status: 'inserted', version: 1 } },
+      remove: async () => ({ status: 'deleted' }),
+    }
+    const db = { entites: [{ nom: 'A', immeubles: [] }], logements: [], mouvements: [], baux: {} }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed({ entites: [], logements: [], mouvements: [], baux: {} })   // baseline vide → A est nouveau
+    const p1 = sync.flush()                       // flush 1 démarre (upsert lent)
+    db.entites.push({ nom: 'B', immeubles: [] })  // 2e modif PENDANT le flush 1
+    const p2 = sync.flush()                       // flush 2 demandé → DOIT attendre la fin du flush 1
+    await Promise.all([p1, p2])
+    expect(maxActive).toBe(1)                      // jamais 2 _doFlush (donc 2 upsert) concurrents
+  })
+
   it('config : une collection TABLE-backée modifiée ne déclenche PAS persistConfig (c\'est le sync de table)', async () => {
     let persistCount = 0
     const store = { ...mockStore(), persistConfig: async () => { persistCount++; return { status: 'config-written' } } }

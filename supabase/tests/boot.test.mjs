@@ -89,6 +89,31 @@ describe('boot — résolution espace + round-trip Store/Sync', () => {
     expect((DB3.entites || []).some(e => e.nom === 'SCI Logout')).toBe(true)
   })
 
+  it('2c SAUVEGARDE : saveDB→markDirty→scheduler→flush persiste dans le cloud (re-hydrate le voit)', async () => {
+    const boot = createBoot(anonClient())
+    await boot.loginEmail(U.email, U.pass)
+    const esp = await boot.resolveEspace('Espace Boot')
+    let liveDB = null, captured = null
+    // scheduler qui CAPTURE le flush (comme le debounce de l'entry, mais déclenché à la main ici)
+    boot.wireStore({ ...esp, getDB: () => liveDB, schedule: (fn) => { captured = fn } })
+    const db = await boot.hydrate()
+    liveDB = db; boot.seed(db)                      // câblage 2c : getDB lit liveDB, baseline = hydraté
+    // l'app modifie le DB EN PLACE puis appelle saveDB → (garde) → window.__immoMarkDirty → markDirty
+    db.entites = [...(db.entites || []), { nom: 'SCI Sync2C', immeubles: [] }]
+    boot.markDirty()                                 // → schedule(fn) → captured = fn (pas encore flushé)
+    expect(typeof captured).toBe('function')
+    const summary = await captured()                 // le debounce arrive à échéance → flush cloud
+    expect(summary.upserts).toContainEqual({ coll: 'entites', key: 'sci sync2c' })
+    expect(summary.conflicts).toEqual([])
+    // re-hydrate frais → la modif est bien dans le cloud
+    const boot2 = createBoot(anonClient())
+    await boot2.loginEmail(U.email, U.pass)
+    const esp2 = await boot2.resolveEspace('Espace Boot')
+    let DB4 = {}; boot2.wireStore({ ...esp2, getDB: () => DB4, schedule: null })
+    DB4 = await boot2.hydrate()
+    expect((DB4.entites || []).some(e => e.nom === 'SCI Sync2C')).toBe(true)
+  })
+
   it('BASCULE : modifier une ligne PRÉ-EXISTANTE (style ETL, même namespace) → UPDATE même id, AUCUN doublon', async () => {
     const boot = createBoot(anonClient())
     await boot.loginEmail(U.email, U.pass)
