@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Import bancaire (design complet à valider)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 40px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:8px;font-size:12.5px;font-weight:600}
+  .bar b{color:#ffd479}
+  .wrap{max-width:860px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .sub{color:var(--t2);font-size:13px;margin-top:4px}
+  .card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);margin-top:16px;overflow:hidden}
+  .pad{padding:18px 20px}
+  .drop{border:2px dashed var(--bor2);border-radius:var(--rl);padding:30px;text-align:center;background:var(--sur2);cursor:pointer;transition:.15s}
+  .drop:hover{border-color:var(--acc);background:var(--acc-bg)}
+  .drop .ic{font-size:34px}.drop .t{font-weight:700;margin-top:8px}.drop .s{color:var(--t2);font-size:12.5px;margin-top:4px}
+  .nobank{display:inline-flex;gap:6px;align-items:center;margin-top:12px;font-size:12px;color:var(--grn);background:var(--grn-bg);border:1px solid #16a34a33;padding:5px 11px;border-radius:8px}
+  .reco{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .reco .k{background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:11px 13px;text-align:center}
+  .reco .n{font-size:22px;font-weight:800}.reco .l{font-size:11px;color:var(--t2);margin-top:2px}
+  .reco .k.ok .n{color:var(--grn)}.reco .k.todo .n{color:var(--amb)}
+  .acctbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;background:var(--acc-bg);border:1px solid #3b7ef633;border-radius:10px;padding:9px 13px;font-size:12.5px}
+  .acctbar b{color:var(--t1)} .acctbar select{font:inherit;font-size:12.5px;padding:4px 8px;border-radius:7px;border:1px solid var(--bor2);background:#fff}
+  .acctbar .scope{color:var(--acc);font-weight:700}
+  .note{font-size:12px;color:var(--t2);margin-top:12px;background:var(--sur2);border-left:3px solid var(--acc);padding:8px 12px;border-radius:8px}.note b{color:var(--t1)}
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--bor);padding:0 14px}
+  .tabs button{border:0;background:none;padding:13px 12px;font:inherit;font-size:13px;font-weight:700;color:var(--t2);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px}
+  .tabs button.on{color:var(--acc);border-color:var(--acc)}
+  .tabs .b{display:inline-grid;place-items:center;min-width:19px;height:19px;border-radius:9px;background:var(--bor);color:var(--t2);font-size:11px;font-weight:800;margin-left:6px;padding:0 5px}
+  .tabs button.on .b{background:var(--acc);color:#fff}
+  .review{display:grid;grid-template-columns:140px 1fr;gap:0}
+  .rail{border-right:1px solid var(--bor);padding:16px 12px;background:var(--sur2)}
+  .rail .rt{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
+  .rail .step{display:flex;gap:8px;align-items:center;padding:6px 0;font-size:12px;color:var(--t2);cursor:pointer}
+  .rail .step .dot{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--bor2);display:grid;place-items:center;font-size:10px;flex-shrink:0}
+  .rail .step.done .dot{background:var(--grn);border-color:var(--grn);color:#fff}
+  .rail .step.cur{color:var(--t1);font-weight:700}.rail .step.cur .dot{border-color:var(--acc);color:var(--acc)}
+  .rail .prog{height:5px;background:var(--bor);border-radius:3px;margin-top:12px;overflow:hidden}.rail .prog i{display:block;height:100%;background:var(--acc);transition:.3s}
+  .pane{padding:18px 20px;min-height:340px}
+  .mvt{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:12px 14px}
+  .mvt .lib{font-family:var(--mono);font-size:12.5px;font-weight:600}.mvt .meta{font-size:11.5px;color:var(--t3);margin-top:3px}
+  .mvt .amt{font-size:17px;font-weight:800;white-space:nowrap}.mvt .amt.cr{color:var(--grn)}.mvt .amt.db{color:var(--red)}
+  .conf{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:7px;margin-top:6px}
+  .conf.hi{background:var(--grn-bg);color:#15803d}.conf.mid{background:var(--amb-bg);color:#b45309}.conf.lo{background:var(--red-bg);color:#b91c1c}
+  .lbl{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;margin:16px 0 6px}
+  .inp,select.inp{width:100%;padding:9px 11px;border:1px solid var(--bor2);border-radius:9px;background:var(--sur);font:inherit;font-size:13.5px;color:var(--t1)}
+  select.inp{cursor:pointer}
+  .niv{display:flex;gap:7px;margin-top:8px}
+  .niv button{flex:1;padding:9px;border-radius:9px;border:1px solid var(--bor2);background:var(--sur);font:inherit;font-size:12.5px;font-weight:600;color:var(--t2);cursor:pointer}
+  .niv button.on{border-color:var(--acc);background:var(--acc-bg);color:#1a4fb0}.niv button .star{color:var(--amb);font-size:10px}
+  .combo{position:relative;margin-top:8px}
+  .combo .pop{position:relative;border:1px solid var(--bor2);border-radius:9px;margin-top:5px;background:var(--sur);max-height:200px;overflow:auto;box-shadow:var(--sh)}
+  .combo .grp{padding:5px 11px;font-size:10.5px;font-weight:800;color:var(--t3);background:var(--sur2);text-transform:uppercase}
+  .combo .opt{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--sur2);background:var(--sur);padding:8px 11px;font:inherit;font-size:13px;cursor:pointer}
+  .combo .opt:hover{background:var(--acc-bg)}
+  .scopenote{font-size:11px;color:var(--t2);margin-top:6px}.scopenote a{color:var(--acc);cursor:pointer;font-weight:600;text-decoration:underline}
+  .dest{margin-top:14px;padding:11px 13px;border-radius:10px;font-size:13px;display:flex;gap:9px;align-items:flex-start}
+  .dest .di{font-size:17px}
+  .dest.tax{background:var(--grn-bg);border-left:3px solid var(--grn);color:#14532d}
+  .dest.chg{background:var(--acc-bg);border-left:3px solid var(--acc);color:#1e3a8a}
+  .dest.recup{background:var(--amb-bg);border-left:3px solid var(--amb);color:#92400e}
+  .dest.none{background:var(--sur2);border-left:3px solid var(--t3);color:var(--t2)}
+  .dest .dt{font-weight:700}.dest .dd{font-size:12px;opacity:.92;margin-top:2px}
+  .actions{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px;flex-wrap:wrap}
+  .btn{padding:9px 15px;border-radius:9px;border:1px solid var(--bor2);background:var(--sur);font:inherit;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer}
+  .btn.p{background:var(--acc);border-color:var(--acc);color:#fff}.btn.g{background:none;border:0;color:var(--acc)}.btn:disabled{opacity:.45;cursor:not-allowed}
+  .split-link{font-size:12.5px;color:var(--pur);background:var(--pur-bg);border:1px solid #7c3aed33;padding:6px 11px;border-radius:8px;cursor:pointer;font-weight:600}
+  .rec-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--sur2);font-size:13px;cursor:pointer}
+  .rec-row:hover{background:var(--sur2)}
+  .rec-row .lib{font-family:var(--mono);font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rec-row .cat{font-size:11.5px;color:var(--t2);background:var(--sur2);padding:3px 9px;border-radius:7px;white-space:nowrap}
+  .rec-row .amt{font-weight:700;white-space:nowrap}.rec-row .amt.cr{color:var(--grn)}.rec-row .amt.db{color:var(--red)}
+  .rec-row .edit{font-size:11px;color:var(--acc);font-weight:700}
+  .rec-edit{padding:4px 16px 16px;background:var(--sur2);border-top:1px solid var(--bor)}
+  /* découper */
+  .sp-row{display:grid;grid-template-columns:78px 1fr 92px;gap:7px;align-items:start;padding:9px 0;border-top:1px solid var(--sur2)}
+  .sp-row .sens{display:flex;flex-direction:column;gap:3px}
+  .sp-row .sens button{font-size:10.5px;font-weight:800;padding:4px;border-radius:6px;border:1px solid var(--bor2);background:#fff;cursor:pointer;color:var(--t2)}
+  .sp-row .sens button.on.cr{background:var(--grn-bg);color:#15803d;border-color:var(--grn)}
+  .sp-row .sens button.on.db{background:var(--red-bg);color:#b91c1c;border-color:var(--red)}
+  .sp-row .mid input,.sp-row .mid select{width:100%;padding:6px 8px;border:1px solid var(--bor2);border-radius:7px;font:inherit;font-size:12px;margin-bottom:5px}
+  .sp-row .mid .rdest{font-size:11px;color:var(--t2)}
+  .sp-row .rgt{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+  .sp-row .rgt input{width:92px;padding:6px 8px;border:1px solid var(--bor2);border-radius:7px;font:inherit;font-size:12.5px;text-align:right;font-family:var(--mono)}
+  .sp-row .x{border:0;background:none;color:var(--red);cursor:pointer;font-size:13px}
+  .sp-add{margin-top:10px;font-size:12.5px;color:var(--acc);background:none;border:1px dashed var(--bor2);border-radius:8px;padding:8px;width:100%;cursor:pointer;font-weight:600}
+  .sp-bal{display:flex;justify-content:space-between;font-size:12.5px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bor)}
+  .ok{color:var(--grn);font-weight:700}.ko{color:var(--red);font-weight:700}
+  .foot{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-top:1px solid var(--bor);background:var(--sur2);flex-wrap:wrap;gap:10px}
+  .foot .info{font-size:12.5px;color:var(--t2)}
+  /* règles mémorisées */
+  .rules-chip{margin-left:auto;font-size:12px;color:var(--pur);cursor:pointer;font-weight:700;background:var(--pur-bg);border:1px solid #7c3aed33;border-radius:8px;padding:4px 10px}
+  .rules-panel{margin-top:10px;border:1px solid var(--bor);border-radius:10px;overflow:hidden}
+  .rules-panel .r{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--sur2);font-size:12px}
+  .rules-panel .r .pat{font-family:var(--mono);font-weight:600}
+  .rules-panel .r .x{margin-left:auto;color:var(--red);cursor:pointer;border:0;background:none;font-size:13px}
+  .rulebox{margin-top:12px}
+  .rule-toggle{font-size:12px;color:var(--pur);background:var(--pur-bg);border:1px solid #7c3aed33;border-radius:8px;padding:6px 11px;cursor:pointer;font-weight:600}
+  .rule-form{margin-top:8px;border:1px solid #7c3aed55;border-radius:10px;padding:11px 13px;background:var(--pur-bg);font-size:12.5px;line-height:1.7}
+  .rule-form input,.rule-form select{font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--bor2);border-radius:6px;background:#fff}
+  .rule-form .hint{font-size:11.5px;color:var(--t2);margin:9px 0;background:#fff;border-radius:7px;padding:7px 10px}
+  .hide{display:none!important}
+  @media(max-width:780px){ .wrap{margin-top:10px} .review{grid-template-columns:1fr} .rail{border-right:0;border-bottom:1px solid var(--bor);display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center} .rail .rt{width:100%;margin:0} .rail .step{padding:3px 0} .rail .prog{width:100%} .acctbar{font-size:11.5px} }
+  @media(max-width:520px){ .reco{grid-template-columns:1fr} .tabs{overflow-x:auto;white-space:nowrap} .pane{padding:14px 14px;min-height:0} .mvt{flex-direction:column} .mvt .amt{align-self:flex-end} .sp-row{grid-template-columns:1fr;gap:6px;border:1px solid var(--bor);border-radius:9px;padding:9px;margin-top:8px} .sp-row .sens{flex-direction:row} .sp-row .rgt{flex-direction:row;align-items:center;justify-content:space-between} .sp-row .rgt input{width:auto;flex:1} .foot{flex-direction:column;align-items:stretch} .foot .info{text-align:center} }
+</style>
+</head>
+<body>
+<div class="bar">🛡️ Maquette à valider — <b>import bancaire</b> · v2 (reconnus modifiables · picker corrigé · compte=périmètre · découpage éditable)</div>
+<div class="wrap">
+  <h1>🏦 Importer mes mouvements</h1>
+  <div class="sub">Remplace l'écran actuel (selects « Bail » à plat). Données démo = tes vrais libellés.</div>
+
+  <div class="card" id="screen-drop">
+    <div class="pad">
+      <div class="drop" onclick="analyser()"><div class="ic">📄</div><div class="t">Glisse ton relevé (CSV / OFX) ou clique</div><div class="s">Compatible Crédit Mutuel, BNP, SG, LCL, Crédit Agricole, Boursorama…</div><div class="nobank">🔒 Fichier lu en local — tes identifiants ne quittent jamais ta banque.</div></div>
+      <div style="text-align:center;margin-top:12px"><button class="btn p" onclick="analyser()">Analyser comptes.ofx</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:16px 0 0;color:var(--t3);font-size:12px"><div style="flex:1;height:1px;background:var(--bor)"></div>ou<div style="flex:1;height:1px;background:var(--bor)"></div></div>
+      <div style="text-align:center;margin-top:12px"><button class="btn" disabled title="Open banking — prochaine étape">🔗 Connecter ma banque (à venir)</button></div>
+      <div style="text-align:center;font-size:11.5px;color:var(--t3);margin-top:7px;max-width:560px;margin-left:auto;margin-right:auto">Demain, via un <b>agrégateur agréé (DSP2)</b> : tes relevés arrivent tout seuls, en continu. <b>Le même écran de tri + tes règles</b> classeront automatiquement — tu ne valideras que les <b>nouveaux</b> mouvements. (ImmoTrack ne stocke jamais tes identifiants : c'est l'agrégateur qui gère, avec ton consentement renouvelable.)</div>
+    </div>
+  </div>
+
+  <div class="card hide" id="screen-review">
+    <div class="pad" style="padding-bottom:14px">
+      <div class="reco"><div class="k"><div class="n">10</div><div class="l">lignes lues</div></div><div class="k ok"><div class="n">6</div><div class="l">reconnues auto</div></div><div class="k todo"><div class="n">4</div><div class="l">à compléter</div></div></div>
+      <div class="acctbar">📄 <b>Relevé du compte :</b>
+        <select id="acct-sel" onchange="setAcct(this.value)"></select>
+        → <span class="scope" id="acct-scope"></span>
+        <span class="rules-chip" id="rules-chip" onclick="toggleRules()">⚙ règles</span>
+      </div>
+      <div id="rules-panel" class="hide"></div>
+      <div class="note">💡 ImmoTrack <b>propose</b> un classement (catégorie + bien) avec un % de confiance — <b>c'est toujours toi qui valides</b>.</div>
+    </div>
+    <div class="tabs">
+      <button id="tab-todo" class="on" onclick="setTab('todo')">À compléter <span class="b">4</span></button>
+      <button id="tab-ok" onclick="setTab('ok')">Reconnus <span class="b">6</span></button>
+    </div>
+    <div id="view-todo" class="review">
+      <div class="rail"><div class="rt">À compléter</div><div id="rail-steps"></div><div class="prog"><i id="rail-prog"></i></div></div>
+      <div class="pane" id="pane"></div>
+    </div>
+    <div id="view-ok" class="hide">
+      <div style="padding:12px 16px;font-size:12.5px;color:var(--t2)">✅ Classés automatiquement — <b>clique une ligne pour la corriger</b>.</div>
+      <div id="ok-list"></div>
+    </div>
+    <div class="foot"><span class="info" id="foot-info"></span>
+      <div style="display:flex;gap:10px"><button class="btn" onclick="reset()">Annuler</button><button class="btn p" id="btn-import" disabled>✓ Importer les 10 mouvements</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ----- modèle réel : entités > immeubles > logements (+ compteurs) -----
+const LOGS = [
+  // SCI Keller — Résidence Iselin (5)
+  {ref:'F-001', loc:'Françoise Becker', imm:'Résidence Iselin', ent:'SCI Keller'},
+  {ref:'F-101', loc:'Marc Petit',       imm:'Résidence Iselin', ent:'SCI Keller'},
+  {ref:'F-102', loc:'Aïcha Benali',     imm:'Résidence Iselin', ent:'SCI Keller'},
+  {ref:'F-201', loc:'Jérémy Yardin',    imm:'Résidence Iselin', ent:'SCI Keller'},
+  {ref:'F-202', loc:'Sophie Marchand',  imm:'Résidence Iselin', ent:'SCI Keller'},
+  // SCI Keller — Le Cosmos (4)
+  {ref:'CG-11', loc:'Léa Bernard',      imm:'Le Cosmos', ent:'SCI Keller'},
+  {ref:'CG-12', loc:'Hugo Lopez',       imm:'Le Cosmos', ent:'SCI Keller'},
+  {ref:'CG-21', loc:'Minh Nguyen',      imm:'Le Cosmos', ent:'SCI Keller'},
+  {ref:'CG-22', loc:'Claire Faure',     imm:'Le Cosmos', ent:'SCI Keller'},
+  // SCI Patrimoine — Villa Metz (7)
+  {ref:'MZ-1', loc:'Pablo Garcia', imm:'Villa Metz', ent:'SCI Patrimoine'},
+  {ref:'MZ-2', loc:'Eva Roux',     imm:'Villa Metz', ent:'SCI Patrimoine'},
+  {ref:'MZ-3', loc:'Tom Lambert',  imm:'Villa Metz', ent:'SCI Patrimoine'},
+  {ref:'MZ-4', loc:'Inès Simon',   imm:'Villa Metz', ent:'SCI Patrimoine'},
+  {ref:'MZ-5', loc:'Noah Girard',  imm:'Villa Metz', ent:'SCI Patrimoine'},
+  {ref:'MZ-6', loc:'Jade Moreau',  imm:'Villa Metz', ent:'SCI Patrimoine'},
+  {ref:'MZ-7', loc:'Liam Henry',   imm:'Villa Metz', ent:'SCI Patrimoine'},
+];
+const IMMS = [
+  {nom:'Résidence Iselin', ent:'SCI Keller', ccs:[{id:'cc1',nom:'Eau froide générale'}]},
+  {nom:'Le Cosmos', ent:'SCI Keller', ccs:[]},
+  {nom:'Villa Metz', ent:'SCI Patrimoine', ccs:[{id:'cc2',nom:'Eau froide générale'}]},
+];
+const SCIS = ['SCI Keller','SCI Patrimoine'];
+// RÈGLE compte=périmètre (révisée) : un compte importé est rattaché à une SCI ou à un/des immeubles → pré-filtre les biens.
+const COMPTES = {
+  cic: {label:'CIC ···4021', scope:{niv:'imm', cible:'Résidence Iselin'}},      // 1 immeuble → 5 logements
+  bp:  {label:'Banque Pop ···3300', scope:{niv:'sci', cible:'SCI Keller'}},      // 1 SCI → 9 logements (Iselin+Cosmos)
+  ca:  {label:'Crédit Agricole ···7788', scope:{niv:'sci', cible:'SCI Patrimoine'}}, // 1 SCI → 7 logements (Villa Metz)
+  none:{label:'Compte non rattaché (tout le patrimoine)', scope:null},           // 16 logements
+};
+let acct='cic', comboAll=false;
+const baseScope = () => (COMPTES[acct]||{}).scope;
+const acctScope = () => comboAll ? null : baseScope();
+function scopeLogs(){ const s=acctScope(); let L=LOGS.slice(); if(s){ if(s.niv==='imm')L=L.filter(l=>l.imm===s.cible); else if(s.niv==='sci')L=L.filter(l=>l.ent===s.cible);} return L; }
+function scopeImms(){ const s=acctScope(); let I=IMMS.slice(); if(s){ if(s.niv==='imm')I=I.filter(i=>i.nom===s.cible); else if(s.niv==='sci')I=I.filter(i=>i.ent===s.cible);} return I; }
+function scopeScis(){ const s=acctScope(); if(s&&s.niv==='sci')return SCIS.filter(x=>x===s.cible); return SCIS; }
+function scopeLbl(s){ return s?(s.niv==='sci'?'🏛️ '+s.cible:'🏢 '+s.cible):'🌐 tout le patrimoine'; }
+function scopeNote(){ const b=baseScope(); if(!b)return ''; return comboAll
+  ? `<div class="scopenote">🌐 Tout le patrimoine · <a onclick="comboAll=false;rerender()">revenir au compte</a></div>`
+  : `<div class="scopenote">📍 Limité au compte : ${scopeLbl(b)} · <a onclick="comboAll=true;rerender()">voir tout le patrimoine</a></div>`; }
+
+const NIV = { sci:{e:'🏛️',l:'SCI'}, imm:{e:'🏢',l:'Immeuble'}, log:{e:'🚪',l:'Logement'} };
+const LIGLBL = {'211':'Loyers','213':'Recettes diverses','221':'Frais de gestion','223':'Assurances','224':'Travaux','227':'Taxe foncière','229':'Provisions copro','250':"Intérêts d'emprunt"};
+const CAT = {
+  'Loyers encaissés':{l:'211',t:'recette',niv:'log'},
+  'Indemnité GLI / impayés':{l:'213',t:'recette',niv:'log'},
+  'Indemnité d\'assurance sinistre':{l:'213',t:'recette',niv:'imm'},
+  'Recettes diverses (parking, antennes…)':{l:'213',t:'recette',niv:'imm'},
+  'Frais de gestion / honoraires':{l:'221',t:'charge',niv:'imm'},
+  'Frais de comptabilité / EC (SCI)':{l:'221',t:'charge',niv:'sci'},
+  'Primes d\'assurance PNO':{l:'223',t:'charge',niv:'imm'},
+  'Primes d\'assurance GLI':{l:'223',t:'charge',niv:'log'},
+  'Travaux de réparation et d\'entretien':{l:'224',t:'charge',niv:'log'},
+  'Taxe foncière (et taxes annexes)':{l:'227',t:'charge',niv:'imm'},
+  'Provisions pour charges de copropriété':{l:'229',t:'charge',niv:'imm'},
+  'Charges récupérables (eau, EDF…)':{l:'',t:'recup',niv:'imm',recup:true},
+  'Prêt — Intérêts d\'emprunt':{l:'250',t:'interet',niv:'imm'},
+  'Prêt — Capital remboursé':{l:'',t:'special',niv:'none'},
+  'Virement interne (non déclarable)':{l:'',t:'special',niv:'none'},
+  '— Choisir —':{l:'',t:'?',niv:'log'},
+};
+const CATS = Object.keys(CAT);
+
+const MVTS = [
+  {id:1, date:'20/05', lib:'VIR GESTION ASSURANCES SA SDT23Y', cr:1209.25, db:0, statut:'todo', conf:35, cat:'— Choisir —'},
+  {id:2, date:'21/05', lib:'PRLV SEPA SARL ICARUS CONSEILS', cr:0, db:152.60, statut:'todo', conf:55, cat:'Frais de comptabilité / EC (SCI)'},
+  {id:3, date:'22/05', lib:'LOYER CG3W26142M105046', cr:174.00, db:0, statut:'todo', conf:60, cat:'Loyers encaissés', cible:''},
+  {id:9, date:'28/05', lib:'LOYERS 05/2026 GERANCE ISELIN', cr:2353.31, db:0, statut:'todo', conf:30, cat:'— Choisir —', gerance:true},
+  {id:4, date:'22/05', lib:'VIR INST MME FRANCOISE BECKER LO', cr:250.00, db:0, statut:'ok', conf:88, cat:'Loyers encaissés', niv:'log', cible:'F-001'},
+  {id:8, date:'28/05', lib:'VIR INST JEREMY YARDIN LOYER', cr:430.00, db:0, statut:'ok', conf:95, cat:'Loyers encaissés', niv:'log', cible:'F-201'},
+  {id:5, date:'25/05', lib:'PRLV SEPA SOCIETE DES EAUX DE L', cr:0, db:111.70, statut:'ok', conf:82, cat:'Charges récupérables (eau, EDF…)', niv:'imm', cible:'Résidence Iselin', recup:true},
+  {id:6, date:'26/05', lib:'PRLV SEPA EDF DD2AMELEVIERES', cr:0, db:17.69, statut:'ok', conf:80, cat:'Charges récupérables (eau, EDF…)', niv:'imm', cible:'Résidence Iselin', recup:true},
+  {id:7, date:'26/05', lib:'PRLV SEPA EDF CLIENTS PARTICULI', cr:0, db:21.00, statut:'ok', conf:80, cat:'Charges récupérables (eau, EDF…)', niv:'imm', cible:'Résidence Iselin', recup:true},
+  {id:10,date:'19/05', lib:'PRLV DGFIP TRESOR PUBLIC TF', cr:0, db:1240.00, statut:'ok', conf:90, cat:'Taxe foncière (et taxes annexes)', niv:'imm', cible:'Résidence Iselin'},
+];
+// Règles mémorisées : (compte + intitulé) → catégorie + affectation. Le COMPTE
+// désambiguïse (le comptable porte le même libellé sur toutes les SCI).
+const RULES = [
+  {account:'cic', pattern:'YARDIN', cat:'Loyers encaissés', niv:'log', cible:'F-201'},
+  {account:'cic', pattern:'BECKER', cat:'Loyers encaissés', niv:'log', cible:'F-001'},
+  {account:'cic', pattern:'EDF', cat:'Charges récupérables (eau, EDF…)', niv:'imm', cible:'Résidence Iselin', recup:true},
+  {account:'cic', pattern:'SOCIETE DES EAUX', cat:'Charges récupérables (eau, EDF…)', niv:'imm', cible:'Résidence Iselin', recup:true},
+  {account:'cic', pattern:'TRESOR PUBLIC', cat:'Taxe foncière (et taxes annexes)', niv:'imm', cible:'Résidence Iselin'},
+];
+function ruleMatch(m,r){ return (r.account==='*'||r.account===acct) && (m.lib||'').toUpperCase().includes(r.pattern.toUpperCase()); }
+function applyRules(){ let n=0; MVTS.forEach(m=>{ if(m.gerance)return; if(m.cat!=='— Choisir —'&&m.cible)return; const r=RULES.find(rl=>ruleMatch(m,rl)); if(r){ m.cat=r.cat; m.niv=r.niv; m.cible=r.cible; m.recup=!!r.recup; n++; } }); return n; }
+function guessPattern(lib){ const stop=new Set(['PRLV','SEPA','VIR','INST','SA','SARL','SAS','MME','M','MR','DGFIP','CLIENTS','PARTICULI','LO','DE','LA','LE','DU','DES','LES','SUR']); const w=(lib||'').split(/\s+/).filter(x=>!stop.has(x)&&!/\d/.test(x)&&x.length>2); return (w.slice(0,2).join(' ')||(lib||'').split(/\s+/).slice(-2).join(' ')); }
+const todo = () => MVTS.filter(m=>m.statut==='todo');
+const fmt = n => (n<0?'− ':'')+Math.abs(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const $ = id => document.getElementById(id);
+const mById = id => MVTS.find(x=>x.id===id);
+let idx=0, combo=null, okOpen=null, curTab='todo', ruleOpen=null, rulesPanelOpen=false;
+
+function analyser(){ $('screen-drop').classList.add('hide'); $('screen-review').classList.remove('hide'); idx=0; applyRules(); renderAcct(); renderRules(false); renderTodo(); refreshFoot(); }
+function reset(){ $('screen-review').classList.add('hide'); $('screen-drop').classList.remove('hide'); }
+function rerender(){ if(curTab==='todo') renderTodo(); else renderOk(); }
+function setAcct(v){ acct=v; comboAll=false; combo=null; applyRules(); renderAcct(); renderRules(); rerender(); refreshFoot(); }
+function renderAcct(){
+  $('acct-sel').innerHTML = Object.keys(COMPTES).map(k=>`<option value="${k}" ${k===acct?'selected':''}>${COMPTES[k].label}</option>`).join('');
+  $('acct-scope').textContent = scopeLbl(baseScope());
+}
+// ---- règles mémorisées ----
+function ruleUiHtml(m){
+  const c=CAT[m.cat]; if(m.cat==='— Choisir —') return '';
+  if(c.t!=='special' && !m.cible) return '';   // pas encore ciblé → pas de règle
+  let h=`<div class="rulebox"><button class="rule-toggle" onclick="ruleOpen=ruleOpen===${m.id}?null:${m.id};rerender()">${ruleOpen===m.id?'▲ Annuler la règle':'💾 Mémoriser une règle pour la prochaine fois'}</button>`;
+  if(ruleOpen===m.id){
+    const cl = c.t==='special'?'':' · '+(m.cible||'');
+    h+=`<div class="rule-form">
+      <div>Quand un mouvement contient <input id="rule-pat" value="${guessPattern(m.lib)}" size="22"></div>
+      <div>sur le compte <select id="rule-acct"><option value="${acct}">${(COMPTES[acct]||{}).label||acct}</option><option value="*">tous les comptes</option></select></div>
+      <div class="hint">💡 Ton comptable porte le <b>même libellé</b> sur toutes tes SCI → préciser <b>le compte</b> permet de savoir à quelle SCI le rattacher.</div>
+      <div>→ classera automatiquement en <b>${m.cat}</b>${cl}</div>
+      <button class="btn p" style="margin-top:9px;padding:7px 13px" onclick="createRule(${m.id})">✓ Enregistrer la règle</button>
+    </div>`;
+  }
+  return h+`</div>`;
+}
+function createRule(id){
+  const m=mById(id);
+  const pat=($('rule-pat')||{}).value||guessPattern(m.lib);
+  const ac=($('rule-acct')||{}).value||acct;
+  RULES.push({account:ac, pattern:pat, cat:m.cat, niv:m.niv||CAT[m.cat].niv, cible:m.cible, recup:!!m.recup});
+  ruleOpen=null;
+  const n=applyRules();
+  const msg = `✅ Règle créée — « ${pat} » sur ${ac==='*'?'tous les comptes':((COMPTES[ac]||{}).label||ac)}.${n>0?` ${n} ligne(s) de cet import classée(s) aussi.`:' S\'appliquera aux prochains imports.'}`;
+  renderRules(true, msg); rerender(); refreshFoot();
+}
+function renderRules(forceOpen, msg){
+  if(forceOpen!==undefined) rulesPanelOpen=forceOpen;
+  const chip=$('rules-chip'); if(chip) chip.textContent=`⚙ ${RULES.length} règle${RULES.length>1?'s':''}`;
+  const p=$('rules-panel'); if(!p) return;
+  p.classList.toggle('hide', !rulesPanelOpen);
+  if(rulesPanelOpen){
+    let h = msg?`<div style="padding:9px 12px;background:var(--grn-bg);color:#15803d;font-size:12.5px;font-weight:600">${msg}</div>`:'';
+    h += RULES.length ? RULES.map((r,i)=>`<div class="r"><span class="pat">« ${r.pattern} »</span><span style="color:var(--t3)">sur</span> ${r.account==='*'?'tous comptes':((COMPTES[r.account]||{}).label||r.account)} <span style="color:var(--t3)">→</span> ${r.cat}${r.cible?' · '+r.cible:''}<button class="x" title="Supprimer" onclick="deleteRule(${i})">✕</button></div>`).join('') : `<div class="r" style="color:var(--t3)">Aucune règle pour l'instant.</div>`;
+    p.innerHTML=h;
+  }
+}
+function toggleRules(){ renderRules(!rulesPanelOpen); }
+function deleteRule(i){ RULES.splice(i,1); renderRules(true); }
+function setTab(t){ curTab=t; combo=null; okOpen=null;
+  $('tab-todo').classList.toggle('on',t==='todo'); $('tab-ok').classList.toggle('on',t==='ok');
+  $('view-todo').classList.toggle('hide',t!=='todo'); $('view-ok').classList.toggle('hide',t!=='ok');
+  if(t==='ok') renderOk(); else renderTodo();
+}
+
+// ===== bloc d'affectation réutilisable (déroulé + reconnus) =====
+function affEditorHtml(m){
+  const c=CAT[m.cat]; const niv=m.niv||c.niv;
+  let h = `<div class="lbl">1 · C'est quoi ?</div><select class="inp" onchange="setCat(${m.id},this.value)">`+
+    CATS.map(k=>`<option ${k===m.cat?'selected':''}>${k}</option>`).join('')+`</select>`;
+  if(m.cat!=='— Choisir —' && c.t!=='special'){
+    h += `<div class="lbl">2 · Rattaché à quoi ?</div><div class="niv">`+
+      ['sci','imm','log'].map(k=>`<button class="${k===niv?'on':''}" onclick="setNiv(${m.id},'${k}')">${NIV[k].e} ${NIV[k].l}${(k===c.niv&&k!==niv)?' <span class="star">★</span>':''}</button>`).join('')+`</div>`;
+    h += `<div style="margin-top:8px">`+cibleHtml(m,niv)+`</div>`;
+    if(niv==='imm' && c.t==='charge'){ const im=IMMS.find(i=>i.nom===m.cible); if(im&&im.ccs.length)
+      h += `<label style="display:flex;gap:7px;margin-top:10px;font-size:12.5px;cursor:pointer"><input type="checkbox" ${m.recup?'checked':''} onchange="setRecup(${m.id},this.checked)"><span>↩ Cette charge se <b>récupère</b> sur les locataires (compteur collectif, hors impôts)</span></label>`;
+    }
+  }
+  h += destHtml(m,niv);
+  h += ruleUiHtml(m);
+  return h;
+}
+function cibleHtml(m,niv){
+  const c=CAT[m.cat];
+  if(niv==='sci'){ const S=scopeScis(); return `<select class="inp" onchange="setCible(${m.id},this.value)"><option value="">— SCI —</option>`+S.map(s=>`<option ${s===m.cible?'selected':''}>${s}</option>`).join('')+`</select>`+scopeNote(); }
+  if(niv==='imm' || c.t==='recup'){ const I=scopeImms(); return `<select class="inp" onchange="setCible(${m.id},this.value)"><option value="">— Immeuble —</option>`+I.map(i=>`<option ${i.nom===m.cible?'selected':''}>${i.nom}</option>`).join('')+`</select>`+scopeNote(); }
+  // logement = combo cherchable scopé
+  const cur=LOGS.find(l=>l.ref===m.cible);
+  let h=`<div class="combo"><button type="button" class="inp" style="text-align:left;display:flex;justify-content:space-between" onclick="toggleCombo(${m.id})"><span>${cur?cur.ref+' — '+cur.loc:'🔍 Choisir un logement…'}</span><span>▾</span></button>`;
+  if(combo && combo.id===m.id){
+    const all=scopeLogs(); const b=baseScope();
+    const f=all.filter(l=>(`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes((combo.q||'').toLowerCase()));
+    h+=`<div class="pop">`;
+    if(b) h+= comboAll
+      ? `<div style="padding:7px 11px;font-size:11px;background:var(--amb-bg);color:#92400e;border-bottom:1px solid var(--bor)">🌐 Tout le patrimoine (${LOGS.length} logements) · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="comboAll=false;rerender()">revenir au compte (${scopeLbl(b)})</a></div>`
+      : `<div style="padding:7px 11px;font-size:11px;background:var(--acc-bg);color:#1a4fb0;border-bottom:1px solid var(--bor)">📍 <b>${all.length} bien(s) de ce compte</b> · ${scopeLbl(b)} · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="comboAll=true;rerender()">voir tout (${LOGS.length})</a></div>`;
+    h+=`<input class="inp" id="cs" style="border:0;border-bottom:1px solid var(--bor)" placeholder="Réf. ou nom du locataire…" value="${combo.q||''}" oninput="combo.q=this.value;fillList(${m.id})"><div id="cl">${listHtml(f,m.id)}</div></div>`;
+  }
+  return h+`</div>`;
+}
+function listHtml(f,id){
+  if(!f.length) return `<div style="padding:9px 11px;color:var(--t3);font-size:12.5px">Aucun résultat dans ce périmètre</div>`;
+  const byImm={}; f.forEach(l=>{(byImm[l.imm]=byImm[l.imm]||[]).push(l)});
+  return Object.keys(byImm).map(im=>`<div class="grp">${im}</div>`+byImm[im].map(l=>`<button type="button" class="opt" onclick="chooseLog(${id},'${l.ref}')"><b>${l.ref}</b> — ${l.loc}</button>`).join('')).join('');
+}
+function fillList(id){ const f=scopeLogs().filter(l=>(`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes((combo.q||'').toLowerCase())); const e=$('cl'); if(e)e.innerHTML=listHtml(f,id); }
+function toggleCombo(id){ combo=(combo&&combo.id===id)?null:{id,q:''}; rerender(); if(combo)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0); }
+function chooseLog(id,ref){ mById(id).cible=ref; combo=null; rerender(); }
+function destHtml(m,niv){
+  const c=CAT[m.cat]; if(m.cat==='— Choisir —') return '';
+  if(c.t==='special') return `<div class="dest none"><span class="di">📋</span><div><div class="dt">Hors 2044</div><div class="dd">Tracé, hors résultat foncier.</div></div></div>`;
+  if((c.t==='recup')||(m.recup&&niv==='imm')){ const n=LOGS.filter(l=>l.imm===m.cible).length;
+    return `<div class="dest recup"><span class="di">👥</span><div><div class="dt">Réparti sur ${m.cible?n:'…'} locataire(s)${m.cible?' de '+m.cible:''}</div><div class="dd">Compteur collectif → régularisation des charges. Pas sur ta 2044.</div></div></div>`; }
+  if(!c.l) return '';
+  const where = niv==='sci'?'🏛️ '+(m.cible||'…'):niv==='imm'?'🏢 '+(m.cible||'…'):'🚪 '+(m.cible||'…');
+  const s = c.t==='recette'?'Recette':c.t==='interet'?"Intérêts":'Charge déductible';
+  return `<div class="dest ${c.t==='recette'?'tax':'chg'}"><span class="di">🧾</span><div><div class="dt">2044 · ligne ${c.l} — ${LIGLBL[c.l]||''}</div><div class="dd">${s} · rattaché à ${where}.</div></div></div>`;
+}
+function isDone(m){ if(m.gerance) return !!m._splitOk; if(m.cat==='— Choisir —')return false; const c=CAT[m.cat]; if(c.t==='special')return true; return !!m.cible; }
+function setCat(id,v){ const m=mById(id); m.cat=v; m.niv=CAT[v].niv; m.recup=!!CAT[v].recup; m.cible=''; combo=null; rerender(); }
+function setNiv(id,k){ const m=mById(id); m.niv=k; m.recup=false; m.cible=''; combo=null; rerender(); }
+function setCible(id,v){ mById(id).cible=v; rerender(); }
+function setRecup(id,b){ mById(id).recup=b; rerender(); }
+
+// ===== déroulé à compléter =====
+function renderTodo(){
+  const L=todo();
+  $('rail-steps').innerHTML=L.map((m,i)=>`<div class="step ${isDone(m)?'done':''} ${i===idx?'cur':''}" onclick="idx=${i};combo=null;renderTodo()"><span class="dot">${isDone(m)?'✓':i+1}</span><span>${m.lib.split(' ').slice(0,2).join(' ')}…</span></div>`).join('');
+  $('rail-prog').style.width=Math.round(L.filter(isDone).length/L.length*100)+'%';
+  const m=L[idx]; const sens=m.cr>0?'cr':'db'; const amt=m.cr>0?m.cr:-m.db; const cc=m.conf>=75?'hi':m.conf>=50?'mid':'lo';
+  let h=`<div class="mvt"><div><div class="lib">${m.lib}</div><div class="meta">${m.date}/2026 · relevé OFX</div>${m.cat!=='— Choisir —'?`<div class="conf ${cc}">✨ proposé : ${m.cat} · ${m.conf}%</div>`:`<div class="conf lo">❓ non reconnu</div>`}</div><div class="amt ${sens}">${fmt(amt)}</div></div>`;
+  if(m.gerance){ h+=`<div class="dest none" style="margin-top:14px"><span class="di">✂️</span><div><div class="dt">Relevé de gérance — un virement, plusieurs loyers + frais</div><div class="dd">À découper. L'app pré-remplit ce qu'elle sait ; tu ajoutes/corriges le reste (travaux, PNO…).</div></div></div><div id="split"></div>`; if(!SP)h+=`<div class="actions"><span class="split-link" onclick="showSplit()">✂️ Découper ce relevé (${fmt(amt)})</span><div></div></div>`; }
+  else { h+=affEditorHtml(m); }
+  // nav
+  h+=`<div class="actions">`+(idx>0?`<button class="btn g" onclick="idx--;combo=null;renderTodo()">← Précédent</button>`:`<span></span>`)+(idx<L.length-1?`<button class="btn p" onclick="idx++;combo=null;renderTodo()">Suivant →</button>`:`<button class="btn p" onclick="setTab('ok')">Vérifier les reconnus →</button>`)+`</div>`;
+  $('pane').innerHTML=h; if(m.gerance&&SP)renderSplit(); if(combo)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
+  refreshFoot();
+}
+
+// ===== reconnus (modifiables) =====
+function renderOk(){
+  $('ok-list').innerHTML=MVTS.filter(m=>m.statut==='ok').map(m=>{
+    const sens=m.cr>0?'cr':'db'; const where=m.cible?' · '+m.cible:'';
+    let row=`<div class="rec-row" onclick="okOpen=okOpen===${m.id}?null:${m.id};combo=null;renderOk()"><span class="lib">${m.lib}</span><span class="cat">${m.cat}${where}</span><span class="amt ${sens}">${fmt(m.cr>0?m.cr:-m.db)}</span><span class="edit">${okOpen===m.id?'▲ fermer':'✏ modifier'}</span></div>`;
+    if(okOpen===m.id) row+=`<div class="rec-edit">${affEditorHtml(m)}</div>`;
+    return row;
+  }).join('');
+  if(combo)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
+}
+
+// ===== découper (éditable) =====
+let SP=null;
+function showSplit(){
+  SP=[
+    {sens:'cr',lib:'Loyer F-001 (Becker)',mt:650,cat:'Loyers encaissés',cible:'F-001'},
+    {sens:'cr',lib:'Loyer F-101 (Petit)', mt:620,cat:'Loyers encaissés',cible:'F-101'},
+    {sens:'cr',lib:'Loyer F-201 (Yardin)',mt:540,cat:'Loyers encaissés',cible:'F-201'},
+    {sens:'cr',lib:'Loyer F-102 (Benali)',mt:690,cat:'Loyers encaissés',cible:'F-102'},
+    {sens:'db',lib:'Frais de gérance 7%', mt:146.69,cat:'Frais de gestion / honoraires',cible:'Résidence Iselin'},
+  ];
+  renderTodo();
+}
+function spCibleSelect(r,j){
+  const c=CAT[r.cat]||{niv:'log'}; const niv=c.niv;
+  if(niv==='sci') return `<select onchange="SP[${j}].cible=this.value;renderSplit()">`+SCIS.map(s=>`<option ${s===r.cible?'selected':''}>${s}</option>`).join('')+`</select>`;
+  if(niv==='imm'||c.t==='recup') return `<select onchange="SP[${j}].cible=this.value;renderSplit()"><option value="">— Immeuble —</option>`+IMMS.map(i=>`<option ${i.nom===r.cible?'selected':''}>${i.nom}</option>`).join('')+`</select>`;
+  return `<select onchange="SP[${j}].cible=this.value;renderSplit()"><option value="">— Logement —</option>`+scopeLogs().map(l=>`<option value="${l.ref}" ${l.ref===r.cible?'selected':''}>${l.ref} · ${l.loc}</option>`).join('')+`</select>`;
+}
+function renderSplit(){
+  const box=$('split'); if(!box)return;
+  let h=`<div style="border:1px solid var(--bor);border-radius:10px;padding:12px 14px;margin-top:10px"><div style="font-size:12px;color:var(--t2);margin-bottom:4px">L'app a pré-rempli les loyers + frais connus. <b>Ajoute / modifie</b> ce qui manque (travaux, PNO, ascenseur…).</div>`;
+  SP.forEach((r,j)=>{ const c=CAT[r.cat]||{l:'',t:'charge'};
+    h+=`<div class="sp-row"><div class="sens"><button class="cr ${r.sens==='cr'?'on':''}" onclick="SP[${j}].sens='cr';renderSplit()">+ Crédit</button><button class="db ${r.sens==='db'?'on':''}" onclick="SP[${j}].sens='db';renderSplit()">− Débit</button></div>
+      <div class="mid"><input value="${r.lib.replace(/"/g,'&quot;')}" placeholder="Libellé" oninput="SP[${j}].lib=this.value">
+        <select onchange="SP[${j}].cat=this.value;SP[${j}].cible='';renderSplit()">`+CATS.filter(k=>k!=='— Choisir —').map(k=>`<option ${k===r.cat?'selected':''}>${k}</option>`).join('')+`</select>
+        ${spCibleSelect(r,j)}<div class="rdest">→ ${c.l?'2044·'+c.l:(c.t==='recup'?'compteur':'hors 2044')}</div></div>
+      <div class="rgt"><input type="number" step="0.01" value="${r.mt}" oninput="SP[${j}].mt=this.value;renderSplit()"><button class="x" title="Supprimer" onclick="SP.splice(${j},1);renderSplit()">✕ suppr.</button></div></div>`;
+  });
+  h+=`<button class="sp-add" onclick="SP.push({sens:'db',lib:'',mt:'',cat:'Travaux de réparation et d\\'entretien',cible:''});renderSplit()">+ Ajouter une ligne (travaux, assurance PNO, ascenseur…)</button>`;
+  const net=SP.reduce((s,r)=>s+(r.sens==='cr'?+r.mt||0:-(+r.mt||0)),0); const bank=2353.31; const reste=Math.round((bank-net)*100)/100; const ok=Math.abs(reste)<0.01;
+  h+=`<div class="sp-bal"><span>Net réparti : <b>${fmt(net)}</b> · reste <span class="${ok?'ok':'ko'}">${ok?'✅ équilibré':fmt(reste)}</span></span><span>Net viré : <b>${fmt(bank)}</b></span></div></div>`;
+  box.innerHTML=h;
+  const m=mById(9); m._splitOk=ok;
+  const L=todo(); $('rail-prog').style.width=Math.round(L.filter(isDone).length/L.length*100)+'%';
+  refreshFoot();
+}
+
+function refreshFoot(){ const L=todo(); const left=L.filter(m=>!isDone(m)).length;
+  $('foot-info').textContent = left===0?'✅ Tout est classé — prêt à importer.':`${left} mouvement(s) restant(s) à compléter`;
+  $('btn-import').disabled = left>0;
+}
+// démarre sur l'écran de dépôt (montre le teaser open-banking) ; clic « Analyser » → revue
+</script>
+</body>
+</html>
