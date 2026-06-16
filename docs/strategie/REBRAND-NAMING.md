@@ -2,6 +2,12 @@
 
 **Décision prise 2026-06-15 : on change de nom avant le lancement public.**
 
+> ## ✅ NOM RETENU : **LODYO** (2026-06-16)
+> *loger* + finale *-yo* → évoque le métier (loger des locataires), moderne et friendly.
+> - **lodyo.fr** LIBRE (domaine principal) · **lodyo.app** LIBRE (cohérent SaaS/PWA) · lodyo.com pris (parking, secondaire)
+> - Aucune marque/société française « Lodyo » trouvée au screening web
+> - **Reste à faire AVANT toute communication** : (1) recherche d'antériorité INPI formelle classes 9/36/42 · (2) achat lodyo.fr + lodyo.app · (3) dépôt marque INPI 3 classes (~270 €) · (4) réservation handles sociaux · (5) propagation du nom dans le code + docs + supports réseaux (~1 j).
+
 ---
 
 ## 1. Pourquoi on change
@@ -130,3 +136,4 @@ Renommage à propager une fois le nom choisi :
 ## Journal
 
 - 2026-06-15 : décision de changer de nom prise par l'utilisateur. Constat des 3 collisions (immotrack.fr cadastre, ImmoTrack AG Suisse facility management, app Play Store). Stratégie brandable retenue. Brief + méthode documentés. Reste : session de génération + vérification.
+- 2026-06-16 : session de génération intensive (~80 noms testés en direct sur registre AFNIC `rdap.nic.fr` + EUIPO/web pour marque, dont 3 agents parallèles sur les angles location/immo/chez-soi). Itérations de cadrage du goût utilisateur : rejet du descriptif ringard (Géraloc/Pilobien = « prout prout »), rejet de l'abstrait latin (Tutaris/Llavio), rejet des collisions (Casyo ≈ Casio marque notoire). Cible affinée = moderne + évocateur métier + finale qui claque (style « Bailyo »/« Lokyo »). **NOM RETENU : LODYO** (loger + -yo), validé sur l'intonation par l'utilisateur. lodyo.fr + lodyo.app libres, pas de marque française détectée.
