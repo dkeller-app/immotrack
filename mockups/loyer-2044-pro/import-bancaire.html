@@ -511,6 +511,22 @@ function spCibleSelect(r,j){
   if(niv==='imm'||c.t==='recup') return `<select onchange="SP[${j}].cible=this.value;renderSplit()"><option value="">— Immeuble —</option>`+IMMS.map(i=>`<option ${i.nom===r.cible?'selected':''}>${i.nom}</option>`).join('')+`</select>`;
   return `<select onchange="SP[${j}].cible=this.value;renderSplit()"><option value="">— Logement —</option>`+scopeLogs().map(l=>`<option value="${l.ref}" ${l.ref===r.cible?'selected':''}>${l.ref} · ${l.loc}</option>`).join('')+`</select>`;
 }
+function splitBalance(){
+  const mv=mById(splitId); const bank=mv.cr>0?mv.cr:mv.db;
+  const net=SP.reduce((s,r)=>s+(r.sens==='cr'?+r.mt||0:-(+r.mt||0)),0);
+  const reste=Math.round((bank-net)*100)/100;
+  return {bank, net, reste, ok:Math.abs(reste)<0.01};
+}
+function spBalHtml(){ const b=splitBalance();
+  return `<span>Net réparti : <b>${fmt(b.net)}</b> · reste <span class="${b.ok?'ok':'ko'}">${b.ok?'✅ équilibré':fmt(b.reste)}</span></span><span>Net viré : <b>${fmt(b.bank)}</b></span>`; }
+// MAJ légère pendant la saisie du montant : on met à jour le total + rail + nav SANS reconstruire les champs (sinon l'input perd le focus au 1er chiffre)
+function refreshSplitTotals(){
+  const bal=$('sp-bal'); if(bal) bal.innerHTML=spBalHtml();
+  mById(splitId)._splitOk=splitBalance().ok;
+  renderRail();
+  const a=$('todo-actions'); if(a)a.innerHTML=navInner();
+  refreshFoot();
+}
 function renderSplit(){
   const box=$('split'); if(!box)return;
   let h=`<div style="border:1px solid var(--bor);border-radius:10px;padding:12px 14px;margin-top:10px"><div style="font-size:12px;color:var(--t2);margin-bottom:4px">L'app a pré-rempli les loyers + frais connus. <b>Ajoute / modifie</b> ce qui manque (travaux, PNO, ascenseur…).</div>`;
@@ -519,16 +535,12 @@ function renderSplit(){
       <div class="mid"><input value="${r.lib.replace(/"/g,'&quot;')}" placeholder="Libellé" oninput="SP[${j}].lib=this.value">
         <select onchange="SP[${j}].cat=this.value;SP[${j}].cible='';renderSplit()">`+CATS.filter(k=>k!=='— Choisir —').map(k=>`<option ${k===r.cat?'selected':''}>${k}</option>`).join('')+`</select>
         ${spCibleSelect(r,j)}<div class="rdest">→ ${c.t==='pret'?'prêt (intérêts via attestation)':(c.l?'2044·'+c.l:(c.t==='recup'?'compteur':'hors 2044'))}</div></div>
-      <div class="rgt"><input type="number" step="0.01" value="${r.mt}" oninput="SP[${j}].mt=this.value;renderSplit()"><button class="x" title="Supprimer" onclick="SP.splice(${j},1);renderSplit()">✕ suppr.</button></div></div>`;
+      <div class="rgt"><input type="number" step="0.01" value="${r.mt}" oninput="SP[${j}].mt=this.value;refreshSplitTotals()"><button class="x" title="Supprimer" onclick="SP.splice(${j},1);renderSplit()">✕ suppr.</button></div></div>`;
   });
   h+=`<button class="sp-add" onclick="SP.push({sens:'db',lib:'',mt:'',cat:'Travaux de réparation et d\\'entretien',cible:''});renderSplit()">+ Ajouter une ligne (travaux, assurance PNO, ascenseur…)</button>`;
-  const net=SP.reduce((s,r)=>s+(r.sens==='cr'?+r.mt||0:-(+r.mt||0)),0); const mv=mById(splitId); const bank=mv.cr>0?mv.cr:mv.db; const reste=Math.round((bank-net)*100)/100; const ok=Math.abs(reste)<0.01;
-  h+=`<div class="sp-bal"><span>Net réparti : <b>${fmt(net)}</b> · reste <span class="${ok?'ok':'ko'}">${ok?'✅ équilibré':fmt(reste)}</span></span><span>Net viré : <b>${fmt(bank)}</b></span></div></div>`;
+  h+=`<div class="sp-bal" id="sp-bal">${spBalHtml()}</div></div>`;
   box.innerHTML=h;
-  mv._splitOk=ok;
-  renderRail();                                            // rafraîchit les coches + la barre de progression
-  const a=$('todo-actions'); if(a)a.innerHTML=navInner();  // débloque « Suivant » dès que c'est équilibré
-  refreshFoot();
+  refreshSplitTotals();   // équilibre + rail + nav + pied (et _splitOk), sans reconstruire les champs
 }
 
 function refreshFoot(){ const L=todo(); const left=L.filter(m=>!isDone(m)).length;
