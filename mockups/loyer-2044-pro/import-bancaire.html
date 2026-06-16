@@ -65,6 +65,20 @@
   .combo .grp{padding:5px 11px;font-size:10.5px;font-weight:800;color:var(--t3);background:var(--sur2);text-transform:uppercase}
   .combo .opt{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--sur2);background:var(--sur);padding:8px 11px;font:inherit;font-size:13px;cursor:pointer}
   .combo .opt:hover{background:var(--acc-bg)}
+  /* sélecteur logement en overlay (grand, lisible, indépendant de la hauteur de la zone) */
+  .combo-ov{position:fixed;inset:0;background:rgba(15,30,50,.42);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px}
+  .combo-card{background:var(--sur);border-radius:14px;box-shadow:0 24px 60px -18px rgba(0,0,0,.5);width:min(560px,94vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+  .combo-card-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bor);font-weight:700;font-size:14.5px}
+  .combo-card-head button{border:0;background:none;font-size:18px;color:var(--t3);cursor:pointer;line-height:1}
+  .combo-card .combo-scope-hdr{padding:9px 16px;font-size:12px;background:var(--acc-bg);color:#1a4fb0;border-bottom:1px solid var(--bor)}
+  .combo-card .combo-scope-hdr.amb{background:var(--amb-bg);color:#92400e}
+  .combo-card .combo-scope-hdr a{color:var(--acc);cursor:pointer;text-decoration:underline;font-weight:600}
+  .combo-card>input{margin:11px 16px 4px;width:auto;font-size:14.5px;padding:11px 13px}
+  .combo-card-list{overflow:auto;flex:1;padding-bottom:6px}
+  .combo-card .grp{padding:8px 16px;font-size:11px;font-weight:800;color:var(--t3);background:var(--sur2);text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0}
+  .combo-card .opt{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--sur2);background:var(--sur);padding:12px 16px;font:inherit;font-size:14.5px;cursor:pointer}
+  .combo-card .opt:hover{background:var(--acc-bg)}
+  .combo-card .opt b{font-size:15px}
   .scopenote{font-size:11px;color:var(--t2);margin-top:6px}.scopenote a{color:var(--acc);cursor:pointer;font-weight:600;text-decoration:underline}
   .dest{margin-top:14px;padding:11px 13px;border-radius:10px;font-size:13px;display:flex;gap:9px;align-items:flex-start}
   .dest .di{font-size:17px}
@@ -360,11 +374,10 @@ function cibleHtml(m,niv){
   if(combo && combo.id===m.id){
     const all=scopeLogs(); const b=baseScope();
     const f=all.filter(l=>(`${l.ref} ${l.loc} ${l.imm}`).toLowerCase().includes((combo.q||'').toLowerCase()));
-    h+=`<div class="pop">`;
-    if(b) h+= comboAll
-      ? `<div style="padding:7px 11px;font-size:11px;background:var(--amb-bg);color:#92400e;border-bottom:1px solid var(--bor)">🌐 Tout le patrimoine (${LOGS.length} logements) · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="comboAll=false;rerender()">revenir au compte (${scopeLbl(b)})</a></div>`
-      : `<div style="padding:7px 11px;font-size:11px;background:var(--acc-bg);color:#1a4fb0;border-bottom:1px solid var(--bor)">📍 <b>${all.length} bien(s) de ce compte</b> · ${scopeLbl(b)} · <a style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="comboAll=true;rerender()">voir tout (${LOGS.length})</a></div>`;
-    h+=`<input class="inp" id="cs" style="border:0;border-bottom:1px solid var(--bor)" placeholder="Réf. ou nom du locataire…" value="${combo.q||''}" oninput="combo.q=this.value;fillList(${m.id})"><div id="cl">${listHtml(f,m.id)}</div></div>`;
+    const hdr = b ? (comboAll
+      ? `<div class="combo-scope-hdr amb">🌐 Tout le patrimoine (${LOGS.length}) · <a onclick="comboAll=false;rerender()">revenir au compte (${scopeLbl(b)})</a></div>`
+      : `<div class="combo-scope-hdr">📍 <b>${all.length} bien(s) de ce compte</b> · ${scopeLbl(b)} · <a onclick="comboAll=true;rerender()">voir tout (${LOGS.length})</a></div>`) : '';
+    h+=`<div class="combo-ov" onclick="if(event.target===this)toggleCombo(${m.id})"><div class="combo-card"><div class="combo-card-head"><span>🔍 Choisir un logement</span><button onclick="toggleCombo(${m.id})">✕</button></div>${hdr}<input class="inp" id="cs" placeholder="Réf. ou nom du locataire…" value="${combo.q||''}" oninput="combo.q=this.value;fillList(${m.id})"><div id="cl" class="combo-card-list">${listHtml(f,m.id)}</div></div></div>`;
   }
   return h+`</div>`;
 }
