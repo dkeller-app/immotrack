@@ -435,21 +435,29 @@ function setCible(id,v){ mById(id).cible=v; rerender(); }
 function setRecup(id,b){ mById(id).recup=b; rerender(); }
 
 // ===== déroulé à compléter =====
-function renderTodo(){
+function renderRail(){
   const L=todo();
   $('rail-steps').innerHTML=L.map((m,i)=>`<div class="step ${isDone(m)?'done':''} ${i===idx?'cur':''}" onclick="idx=${i};picker=null;renderTodo()"><span class="dot">${isDone(m)?'✓':i+1}</span><span>${m.lib.split(' ').slice(0,2).join(' ')}…</span></div>`).join('');
   $('rail-prog').style.width=Math.round(L.filter(isDone).length/L.length*100)+'%';
-  const m=L[idx]; const sens=m.cr>0?'cr':'db'; const amt=m.cr>0?m.cr:-m.db; const cc=m.conf>=75?'hi':m.conf>=50?'mid':'lo';
-  let h=`<div class="mvt"><div><div class="lib">${m.lib}</div><div class="meta">${m.date}/2026 · relevé OFX</div>${m.cat!=='— Choisir —'?`<div class="conf ${cc}">✨ proposé : ${m.cat} · ${m.conf}%</div>`:`<div class="conf lo">❓ non reconnu</div>`}</div><div class="amt ${sens}">${fmt(amt)}</div></div>`;
-  if(m.gerance){ h+=`<div class="dest none" style="margin-top:14px"><span class="di">✂️</span><div><div class="dt">Relevé de gérance — un virement, plusieurs loyers + frais</div><div class="dd">À découper. L'app pré-remplit ce qu'elle sait ; tu ajoutes/corriges le reste (travaux, PNO…).</div></div></div><div id="split"></div>`; if(!SP)h+=`<div class="actions"><span class="split-link" onclick="showSplit()">✂️ Découper ce relevé (${fmt(amt)})</span><div></div></div>`; }
-  else { h+=affEditorHtml(m); }
-  // nav — « Suivant » bloqué tant que le mouvement courant n'est pas classé (le rail reste libre pour sauter)
-  const _done=isDone(m);
+}
+// nav réutilisable — re-rendue aussi quand l'équilibre du découpage change (sinon « Suivant » reste figé)
+function navInner(){
+  const L=todo(); const m=L[idx]; const _done=isDone(m);
   const _hint=_done?'':`<span style="font-size:11.5px;color:var(--amb)">⚠ ${m.gerance?'équilibre le découpage d\'abord':'choisis d\'abord la cible (bailleur / immeuble / logement)'}</span>`;
   const _fwd=idx<L.length-1
     ? `<button class="btn p" ${_done?'':'disabled'} onclick="idx++;picker=null;renderTodo()">Suivant →</button>`
     : `<button class="btn p" ${_done?'':'disabled'} onclick="setTab('ok')">Vérifier les reconnus →</button>`;
-  h+=`<div class="actions">`+(idx>0?`<button class="btn g" onclick="idx--;picker=null;renderTodo()">← Précédent</button>`:`<span></span>`)+`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${_hint}${_fwd}</div></div>`;
+  return (idx>0?`<button class="btn g" onclick="idx--;picker=null;renderTodo()">← Précédent</button>`:`<span></span>`)+`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${_hint}${_fwd}</div>`;
+}
+function renderTodo(){
+  const L=todo();
+  renderRail();
+  const m=L[idx]; const sens=m.cr>0?'cr':'db'; const amt=m.cr>0?m.cr:-m.db; const cc=m.conf>=75?'hi':m.conf>=50?'mid':'lo';
+  let h=`<div class="mvt"><div><div class="lib">${m.lib}</div><div class="meta">${m.date}/2026 · relevé OFX</div>${m.cat!=='— Choisir —'?`<div class="conf ${cc}">✨ proposé : ${m.cat} · ${m.conf}%</div>`:`<div class="conf lo">❓ non reconnu</div>`}</div><div class="amt ${sens}">${fmt(amt)}</div></div>`;
+  if(m.gerance){ h+=`<div class="dest none" style="margin-top:14px"><span class="di">✂️</span><div><div class="dt">À découper — ce virement regroupe plusieurs opérations</div><div class="dd"><b>Pourquoi ?</b> ImmoTrack a reconnu un <b>relevé de gérance</b> (libellé « GERANCE / GESTION LOCATIVE ») : un <b>seul</b> virement qui agrège <b>plusieurs loyers</b> de lots différents <b>− les frais d'agence</b>. Impossible de le rattacher à un seul bien → on le <b>ventile ligne par ligne</b> pour la 2044. L'app pré-remplit ce qu'elle sait ; tu ajoutes / corriges le reste (travaux, PNO…).</div></div></div><div id="split"></div>`; if(!SP)h+=`<div class="actions"><span class="split-link" onclick="showSplit()">✂️ Découper ce relevé (${fmt(amt)})</span><div></div></div>`; }
+  else { h+=affEditorHtml(m); }
+  // nav — « Suivant » bloqué tant que le mouvement courant n'est pas classé (le rail reste libre pour sauter)
+  h+=`<div class="actions" id="todo-actions">${navInner()}</div>`;
   $('pane').innerHTML=h; if(m.gerance&&SP)renderSplit(); if(picker)setTimeout(()=>{const s=$('cs');if(s)s.focus();},0);
   refreshFoot();
 }
@@ -497,8 +505,9 @@ function renderSplit(){
   const net=SP.reduce((s,r)=>s+(r.sens==='cr'?+r.mt||0:-(+r.mt||0)),0); const bank=2353.31; const reste=Math.round((bank-net)*100)/100; const ok=Math.abs(reste)<0.01;
   h+=`<div class="sp-bal"><span>Net réparti : <b>${fmt(net)}</b> · reste <span class="${ok?'ok':'ko'}">${ok?'✅ équilibré':fmt(reste)}</span></span><span>Net viré : <b>${fmt(bank)}</b></span></div></div>`;
   box.innerHTML=h;
-  const m=mById(9); m._splitOk=ok;
-  const L=todo(); $('rail-prog').style.width=Math.round(L.filter(isDone).length/L.length*100)+'%';
+  mById(9)._splitOk=ok;
+  renderRail();                                            // rafraîchit les coches + la barre de progression
+  const a=$('todo-actions'); if(a)a.innerHTML=navInner();  // débloque « Suivant » dès que c'est équilibré
   refreshFoot();
 }
 
