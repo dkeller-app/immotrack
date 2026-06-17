@@ -14,6 +14,7 @@
 // Identité de diff par collection = la clé legacy NATURELLE (celle dont dérive l'id déterministe du
 // mapping) : entites/immeubles par nom, logements par ref, baux par clé de map, le reste par id.
 import { TABLE_COLLECTIONS } from './store-supabase.js'   // source unique des collections table-backées
+import { bailContentHash } from './bail-content-hash.js'  // empreinte légale canonique des baux signés (verrou)
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 
@@ -49,6 +50,9 @@ const COLLECTIONS = [
   { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) },
   { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) },
   { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) },
+  // ⚠️ EDL : `immutable` est prêt, MAIS il n'y a PAS de `sealSignedEdl` (cf. sealSignedBaux) → un EDL
+  //    signé partirait NON verrouillé en base. Scellement EDL DIFFÉRÉ (hors-scope spec : 0 EDL signé
+  //    aujourd'hui ; concept de verrou EDL non câblé). À compléter avant la 1ʳᵉ signature d'EDL.
   { coll: 'edl',             enumerate: db => db.edl || [],                             key: r => String(r.id), immutable: r => !!(r && r.signatures && r.signatures.locked) },
   { coll: 'mrh',             enumerate: db => db.mrh || [],                             key: r => String(r.id) },   // → table assurances
   { coll: 'agenda',          enumerate: db => db.agenda || [],                          key: r => String(r.id) },
@@ -63,6 +67,28 @@ const sig = rec => JSON.stringify(rec)   // signature de changement (sur-envoi s
 // RESSUSCITERAIT la ligne côté Supabase (mapToRow ignore `_deleted`). Un record jamais synchronisé
 // vivant puis tombstoné n'est ni au baseline ni au courant → ignoré (rien à supprimer côté serveur).
 const isDeleted = rec => !!(rec && rec._deleted)
+
+// VERROU LÉGAL (pièce 2) — SCELLEMENT au point UNIQUE de la sync : tout bail SIGNÉ (`signatures.signedAt`)
+// pas encore scellé reçoit ici son empreinte canonique + le verrou, quelle que soit la VOIE de signature
+// (présentiel / distance / futur) → un seul chokepoint, impossible de rater un chemin (≠ câbler chaque flux
+// de signature dans index.html). Idempotent : un bail déjà scellé (hash + locked) est ignoré ; un hash
+// existant n'est JAMAIS recalculé (immutabilité). Async (crypto.subtle) ; appelé AVANT le snapshot du flush
+// → le diff voit l'état scellé et POSE le verrou ; les flushs suivants l'excluent (déjà locked, pièce 4).
+async function sealSignedBaux(db) {
+  for (const bail of Object.values((db && db.baux) || {})) {
+    const sg = bail && bail.signatures
+    if (!sg || !sg.signedAt) continue                  // pas signé → rien à sceller
+    // ⚠️ C1 (audit 2026-06-16) : `bailleur-seul` = bail PARTIELLEMENT signé (bailleur OK, LOCATAIRE PAS
+    // ENCORE — la Phase 2 où il signe arrive APRÈS). Le verrouiller figerait un état juridiquement
+    // INCOMPLET et bloquerait/perdrait la signature du locataire. On ne scelle QUE les modes complets
+    // (avec-locataire, distance, et les baux legacy déjà bilatéraux). `signedAt` ≠ « signé par tous ».
+    if (sg.mode === 'bailleur-seul') continue
+    if (sg.contentHashTerms && sg.locked) continue      // déjà scellé → idempotent
+    if (!sg.contentHashTerms) sg.contentHashTerms = await bailContentHash(bail)   // empreinte figée (jamais recalculée)
+    if (!sg.signatureSource) sg.signatureSource = 'immotrack'
+    sg.locked = true
+  }
+}
 // CONFIG = complément des tables : les collections non-tablées (params/categories/templates/irlTable/
 // catConfig/piecesEDL/auditTrail/candidats/compteursReleves/assurances bailleur…) → un seul blob
 // espace_config.data (chemin distinct du sync de table). Exclus : les collections table-backées
@@ -111,6 +137,7 @@ export function createStoreSync({ store, getDB, schedule }) {
   // ⚠️ NE PAS appeler directement (réentrance) → passer par flush() qui SÉRIALISE.
   async function _doFlush(db) {
     const summary = { upserts: [], removes: [], conflicts: [], skipped: [] }
+    await sealSignedBaux(db)                            // VERROU (pièce 2) : scelle les baux signés AVANT le diff
     const current = snapshotOf(db)
 
     // 1) upserts (ajouts + modifs), dans l'ordre parent→enfant.
