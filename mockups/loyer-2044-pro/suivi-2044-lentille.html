@@ -1,0 +1,214 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi financier ⇄ 2044 — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 50px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:8px;font-size:12.5px;font-weight:600}
+  .bar b{color:#ffd479}
+  .wrap{max-width:980px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);margin-top:16px;overflow:hidden}
+  .note{font-size:12.5px;color:var(--t2);margin-top:14px;background:var(--sur2);border-left:3px solid var(--acc);padding:9px 13px;border-radius:8px}.note b{color:var(--t1)}
+
+  /* ===== LIEN ENTRE LES ONGLETS (flow) ===== */
+  .flow{display:flex;align-items:stretch;gap:6px;margin-top:16px}
+  .fstep{flex:1;background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:12px 12px;text-align:center;position:relative}
+  .fstep .fi{font-size:24px}
+  .fstep .ft{font-weight:800;font-size:13px;margin-top:3px}
+  .fstep .fd{font-size:11px;color:var(--t2);margin-top:3px;line-height:1.35}
+  .fstep.on{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-bg);background:#fbfdff}
+  .fstep.lens{border-color:#7c3aed55;background:var(--pur-bg)}
+  .fstep .lens2{display:flex;gap:5px;justify-content:center;margin-top:7px;flex-wrap:wrap}
+  .fstep .lens2 span{font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:6px;background:#fff;border:1px solid var(--bor)}
+  .farr{display:flex;align-items:center;color:var(--t3);font-size:20px;font-weight:800;flex-shrink:0}
+
+  /* ===== écran suivi ===== */
+  .head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+  .period{font-size:13px;color:var(--t2)}.period b{color:var(--t1)}
+  .toggle{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:3px}
+  .toggle button{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--t2);padding:7px 14px;border-radius:8px;cursor:pointer}
+  .toggle button.on{background:var(--sur);color:var(--t1);box-shadow:var(--sh)}
+  #view{padding:16px 18px}
+
+  .vintro{font-size:12.5px;color:var(--t2);margin-bottom:12px;display:flex;gap:8px;align-items:flex-start}
+  .vintro .vi{font-size:16px}
+
+  /* table mouvements (trésorerie) */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--t3);padding:6px 8px;border-bottom:1px solid var(--bor)}
+  td{padding:8px 8px;border-bottom:1px solid var(--sur2);vertical-align:top}
+  td.amt{text-align:right;font-family:var(--mono);font-weight:600;white-space:nowrap}
+  .amt.cr{color:var(--grn)}.amt.db{color:var(--red)}
+  .lib{font-weight:600}
+  .bien{color:var(--t2);font-size:11.5px}
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
+  .pill.r211,.pill.r213{background:var(--grn-bg);color:#15803d}
+  .pill.rc{background:var(--acc-bg);color:#1a4fb0}
+  .pill.x{background:var(--sur2);color:var(--t3)}
+  .pill.meuble{background:#fdf2f8;color:#9d174d}
+  .tot{display:flex;justify-content:flex-end;gap:22px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--bor);font-size:13px;flex-wrap:wrap}
+  .tot b{font-family:var(--mono)}
+  .solde{font-weight:800}
+
+  /* vue fiscale */
+  .fblock{margin-bottom:14px}
+  .fblock .bt{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);margin-bottom:6px}
+  .fline{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--sur2)}
+  .fline .lnum{font-family:var(--mono);font-weight:700;font-size:11.5px;background:var(--sur2);border-radius:6px;padding:2px 7px;flex-shrink:0}
+  .fline .lname{flex:1;min-width:0}
+  .fline .lname b{font-weight:600}
+  .fline .lbadge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
+  .fline .lbadge.calc{background:var(--pur-bg);color:#6d28d9}
+  .fline .lbadge.att{background:var(--amb-bg);color:#92400e}
+  .fline .lamt{font-family:var(--mono);font-weight:700;white-space:nowrap}
+  .fline .lamt.neg{color:var(--red)}
+  .fsub{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 10px;color:var(--t2)}.fsub b{font-family:var(--mono);color:var(--t1)}
+  .fresult{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:13px 15px;border-radius:11px;background:var(--grn-bg);border:1px solid #16a34a44}
+  .fresult .rl{font-weight:800}.fresult .rl small{display:block;font-weight:400;color:var(--t2);font-size:11px}
+  .fresult .rv{font-size:23px;font-weight:800;color:#15803d;font-family:var(--mono)}
+
+  .exclu{margin-top:14px;border:1px dashed var(--bor2);border-radius:12px;padding:12px 14px;background:var(--sur2)}
+  .exclu .et{font-weight:800;font-size:12.5px;display:flex;align-items:center;gap:7px}
+  .exclu .er{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--t2);padding:7px 0;border-top:1px solid var(--bor)}
+  .exclu .er:first-of-type{border-top:0;margin-top:4px}
+  .exclu .er .ei{font-size:15px}
+  .exclu .er b{color:var(--t1)}
+  .exclu .er .ea{margin-left:auto;font-family:var(--mono);font-weight:700;white-space:nowrap;color:var(--t2)}
+
+  @media(max-width:760px){
+    .flow{flex-wrap:wrap}
+    .fstep{flex:1 1 100%}
+    .farr{transform:rotate(90deg);width:100%;justify-content:center;height:14px}
+    .head{align-items:stretch}.toggle{width:100%}.toggle button{flex:1}
+    table .hideM{display:none}
+    .tot{justify-content:space-between}
+  }
+</style>
+</head><body>
+<div class="bar">🛡️ Maquette — <b>Suivi financier = la 2044 à deux altitudes</b> · le lien entre les onglets</div>
+<div class="wrap">
+  <h1>💶 Mon suivi financier</h1>
+
+  <!-- LIEN ENTRE LES ONGLETS -->
+  <div class="flow">
+    <div class="fstep"><div class="fi">📥</div><div class="ft">Import bancaire</div><div class="fd">tes relevés → mouvements classés (catégorie = ligne 2044)</div></div>
+    <div class="farr">→</div>
+    <div class="fstep on"><div class="fi">💶</div><div class="ft">Suivi financier</div><div class="fd"><b>LE journal unique</b>, toute l'année</div></div>
+    <div class="farr">→</div>
+    <div class="fstep lens"><div class="fi">🔭</div><div class="ft">2 lentilles</div><div class="fd">même donnée, 2 altitudes</div><div class="lens2"><span>🌊 Trésorerie</span><span>🧾 Fiscal 2044</span></div></div>
+    <div class="farr">→</div>
+    <div class="fstep"><div class="fi">📄</div><div class="ft">Export CERFA</div><div class="fd">recopie / pré-remplissage impots.gouv</div></div>
+  </div>
+  <div class="note">💡 La 2044 n'est <b>pas un fichier à part</b> : c'est <b>ton suivi financier regroupé par ligne CERFA</b>, avec la couche fiscale appliquée (exclusions + calculs auto). <b>Une seule source de données, deux vues</b> — bascule ci-dessous pour voir.</div>
+
+  <div class="card">
+    <div class="head">
+      <div class="period">📅 Exercice <b>2026</b> · 📍 <b>Tout le patrimoine</b> · 15 mouvements</div>
+      <div class="toggle">
+        <button id="t-treso" class="on" onclick="setView('treso')">🌊 Trésorerie</button>
+        <button id="t-fisc" onclick="setView('fisc')">🧾 Vue fiscale 2044</button>
+      </div>
+    </div>
+    <div id="view"></div>
+  </div>
+
+  <div class="note" style="border-left-color:var(--pur)">🔎 <b>À comparer :</b> le <b>solde de trésorerie</b> (ce qui reste sur le compte) et le <b>résultat foncier 2044</b> (la base imposable) sont <b>deux chiffres différents</b> issus des <b>mêmes mouvements</b> — c'est exactement pour ça qu'on ne peut pas confondre les deux, et pourquoi une seule donnée + deux lentilles est la bonne architecture.</div>
+</div>
+
+<script>
+const fmt = n => (n<0?'− ':'')+Math.abs(n).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' €';
+const $ = id => document.getElementById(id);
+
+// Mouvements de l'année (démo, en continuité avec l'import) — chacun porte sa nature 2044.
+const MVTS=[
+ {lib:'Loyers F-001 (Becker)',           bien:'Iselin · F-001', sens:'cr', mt:3000,  t:'recette', l:'211'},
+ {lib:'Loyers F-101 (Petit)',            bien:'Iselin · F-101', sens:'cr', mt:7440,  t:'recette', l:'211'},
+ {lib:'Loyers F-201 (Yardin)',           bien:'Iselin · F-201', sens:'cr', mt:5160,  t:'recette', l:'211'},
+ {lib:'Indemnité GLI (sinistre)',         bien:'Iselin · F-101', sens:'cr', mt:1209,  t:'recette', l:'213'},
+ {lib:'Loyers MZ-1 (Garcia) — MEUBLÉ',    bien:'Villa Metz · MZ-1', sens:'cr', mt:7800, t:'meuble'},
+ {lib:'Honoraires expert-comptable',      bien:'SCI Keller',     sens:'db', mt:460,   t:'charge', l:'221'},
+ {lib:'Assurance PNO',                    bien:'Iselin',         sens:'db', mt:540,   t:'charge', l:'223'},
+ {lib:'Travaux plomberie + chaudière',    bien:'Iselin · F-101', sens:'db', mt:1850,  t:'charge', l:'224'},
+ {lib:'Taxe foncière',                    bien:'Iselin',         sens:'db', mt:1240,  t:'charge', l:'227'},
+ {lib:'Provisions copropriété',           bien:'Iselin',         sens:'db', mt:1100,  t:'charge', l:'229'},
+ {lib:'Régularisation charges N-1',       bien:'Iselin',         sens:'db', mt:180,   t:'deduction', l:'230'},
+ {lib:'Eau + EDF communs (récupérables)', bien:'Iselin',         sens:'db', mt:620,   t:'recup'},
+ {lib:'Échéances de prêt (capital + intérêts)', bien:'Iselin',   sens:'db', mt:13200, t:'pret'},
+ {lib:'Dépôt de garantie reçu',           bien:'Iselin · F-201', sens:'cr', mt:1500,  t:'dg'},
+ {lib:'Virement vers compte personnel',   bien:'SCI Keller',     sens:'db', mt:5000,  t:'interne'},
+];
+const LIG={211:'Loyers encaissés',213:'Recettes diverses',221:'Frais de gestion / honoraires',222:'Forfait gestion (20 €/logement)',223:'Assurances (PNO, GLI)',224:'Travaux',225:'Charges non récupérées',227:'Taxe foncière',229:'Provisions copropriété',230:'Régularisation N-1',250:"Intérêts d'emprunt"};
+const PRET_CAPITAL=9000, PRET_INTERETS=4200; // l'attestation banque ventile l'échéance
+const FORFAIT_LOGEMENTS=3, REGUL_225=300;
+let view='treso';
+
+function setView(v){ view=v; $('t-treso').classList.toggle('on',v==='treso'); $('t-fisc').classList.toggle('on',v==='fisc'); render(); }
+
+function render(){ $('view').innerHTML = view==='treso' ? tresoHtml() : fiscHtml(); }
+
+// ---------- 🌊 TRÉSORERIE : le journal, tout y est ----------
+function tresoHtml(){
+  let cr=0, db=0;
+  const rows=MVTS.map(m=>{ if(m.sens==='cr')cr+=m.mt; else db+=m.mt;
+    const tag = m.t==='recette' ? `<span class="pill r${m.l}">2044 · ${m.l}</span>`
+      : m.t==='charge' ? `<span class="pill rc">2044 · ${m.l}</span>`
+      : m.t==='deduction' ? `<span class="pill rc">2044 · 230</span>`
+      : m.t==='meuble' ? `<span class="pill meuble">meublé · BIC</span>`
+      : `<span class="pill x">hors 2044</span>`;
+    return `<tr><td><div class="lib">${m.lib}</div><div class="bien">${m.bien}</div></td><td class="hideM">${tag}</td><td class="amt ${m.sens}">${m.sens==='cr'?'+':'−'} ${fmt(m.mt)}</td></tr>`;
+  }).join('');
+  return `<div class="vintro"><span class="vi">🌊</span><div>Le <b>journal de trésorerie</b> : <b>tous</b> les flux du compte, dans l'ordre — loyers, charges, prêt, dépôts de garantie, virements. Chaque ligne sait déjà à quelle ligne 2044 elle appartient (ou qu'elle en est exclue).</div></div>
+  <table><thead><tr><th>Mouvement</th><th class="hideM">Nature</th><th style="text-align:right">Montant</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="tot"><span>Encaissé <b class="amt cr">+ ${fmt(cr)}</b></span><span>Décaissé <b class="amt db">− ${fmt(db)}</b></span><span class="solde">Solde de trésorerie : <b>${fmt(cr-db)}</b></span></div>`;
+}
+
+// ---------- 🧾 FISCAL 2044 : même donnée, regroupée + couche fiscale ----------
+function fisc(){
+  const rec={}, chg={};
+  MVTS.forEach(m=>{ if(m.t==='recette')rec[m.l]=(rec[m.l]||0)+m.mt; else if(m.t==='charge')chg[m.l]=(chg[m.l]||0)+m.mt; });
+  chg['222']=20*FORFAIT_LOGEMENTS; chg['225']=REGUL_225;            // calculés auto
+  const ded=MVTS.filter(m=>m.t==='deduction').reduce((s,m)=>s+m.mt,0); // 230 (se soustrait)
+  const interets=PRET_INTERETS;                                     // 250 via attestation
+  const recTot=Object.values(rec).reduce((a,b)=>a+b,0);
+  const chgNet=Object.values(chg).reduce((a,b)=>a+b,0)-ded;
+  return {rec,chg,ded,interets,recTot,chgNet,result:recTot-chgNet-interets};
+}
+function fline(l,extra=''){ const f=fisc(); const amt=(l==='250')?f.interets:(l==='230'?-f.ded:(f.rec[l]??f.chg[l]));
+  return `<div class="fline"><span class="lnum">${l}</span><span class="lname"><b>${LIG[l]}</b>${extra}</span><span class="lamt${l==='230'?' neg':''}">${l==='230'?'− ':''}${fmt(Math.abs(amt))}</span></div>`; }
+function fiscHtml(){
+  const f=fisc();
+  const recLines=['211','213'].filter(l=>f.rec[l]).map(l=>fline(l)).join('');
+  const chgOrder=['221','222','223','224','225','227','229','230'];
+  const chgLines=chgOrder.filter(l=>f.chg[l]||l==='230').map(l=>{
+    const badge = l==='222'?` <span class="lbadge calc">calculé auto</span>` : l==='225'?` <span class="lbadge calc">calculé (régul)</span>` : '';
+    return fline(l,badge);
+  }).join('');
+  return `<div class="vintro"><span class="vi">🧾</span><div>La <b>même</b> liste, <b>regroupée par ligne CERFA</b> avec la couche fiscale : les flux non déclarables sont <b>écartés</b> (panneau du bas), et deux lignes sont <b>calculées pour toi</b> (forfait 222, régul 225) + les intérêts repris de l'<b>attestation</b>.</div></div>
+  <div class="fblock"><div class="bt">Recettes (cadre 210)</div>${recLines}<div class="fsub"><span>Total recettes</span><b>${fmt(f.recTot)}</b></div></div>
+  <div class="fblock"><div class="bt">Charges déductibles (cadre 220)</div>${chgLines}<div class="fsub"><span>Total charges (240 = 221…229 − 230)</span><b>${fmt(f.chgNet)}</b></div></div>
+  <div class="fblock"><div class="bt">Intérêts d'emprunt (cadre 250)</div>${fline('250',` <span class="lbadge att">repris de l'attestation banque</span>`)}</div>
+  <div class="fresult"><div class="rl">Résultat foncier 2026<small>recettes − charges − intérêts · base imposable (avant déficit / quote-part)</small></div><div class="rv">${fmt(f.result)}</div></div>
+
+  <div class="exclu">
+    <div class="et">🚫 Écarté de la 2044 <span style="font-weight:400;color:var(--t3);font-size:11.5px">(présent dans la trésorerie, mais pas dans le résultat foncier)</span></div>
+    <div class="er"><span class="ei">🛋️</span><div><b>Loyers meublés MZ-1 (Garcia)</b> — relèvent du <b>BIC</b> (2031 / 2042-C-PRO), pas du foncier. Exclus automatiquement par le régime du bail.</div><span class="ea">7 800 €</span></div>
+    <div class="er"><span class="ei">👥</span><div><b>Charges récupérables</b> (eau, EDF communs) — refacturées aux locataires, donc hors résultat foncier.</div><span class="ea">620 €</span></div>
+    <div class="er"><span class="ei">🏦</span><div><b>Échéances de prêt</b> — le <b>capital (≈ 9 000 €)</b> est hors 2044 ; seuls les <b>intérêts (4 200 €)</b> comptent, repris de l'attestation (ligne 250 ci-dessus).</div><span class="ea">9 000 €</span></div>
+    <div class="er"><span class="ei">🔒</span><div><b>Dépôt de garantie reçu</b> — n'est pas un revenu (restituable au locataire).</div><span class="ea">1 500 €</span></div>
+    <div class="er"><span class="ei">↔️</span><div><b>Virement interne</b> vers ton compte personnel — simple mouvement de trésorerie.</div><span class="ea">5 000 €</span></div>
+  </div>`;
+}
+render();
+</script>
+</body></html>
