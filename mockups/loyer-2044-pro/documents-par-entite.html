@@ -1,0 +1,172 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documents fiscaux par entité — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 50px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:8px;font-size:12.5px;font-weight:600}.bar b{color:#ffd479}
+  .wrap{max-width:940px;margin:18px auto 0;padding:0 16px}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .yr select{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--bor2);background:#fff;cursor:pointer}
+  .intro{font-size:12.5px;color:var(--t2);margin-top:14px;background:var(--sur2);border-left:3px solid var(--acc);padding:10px 13px;border-radius:8px}.intro b{color:var(--t1)}
+
+  .ent{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);margin-top:16px;overflow:hidden}
+  .ent-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+  .ent-h .nm{font-weight:800;font-size:16px}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+  .badge.forme{background:var(--sur2);color:var(--t2);border:1px solid var(--bor)}
+  .badge.ir{background:var(--acc-bg);color:#1a4fb0}
+  .badge.is{background:var(--pur-bg);color:#6d28d9}
+  .badge.perso{background:var(--grn-bg);color:#15803d}
+  .ent-b{padding:6px 18px 16px}
+
+  .route{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--sur2);flex-wrap:wrap}
+  .route:first-child{border-top:0}
+  .route .ri{font-size:22px;flex-shrink:0}
+  .route .rmid{flex:1;min-width:170px}
+  .route .rt{font-weight:700;font-size:13.5px}
+  .route .rd{font-size:12px;color:var(--t2);margin-top:2px}
+  .route .rval{font-family:var(--mono);font-weight:700;font-size:15px;white-space:nowrap}
+  .route .rval.pos{color:var(--grn)}
+  .gen{font:inherit;font-size:13px;font-weight:700;padding:9px 15px;border-radius:10px;cursor:pointer;white-space:nowrap;border:1px solid var(--bor2);background:var(--sur);color:var(--t1);text-decoration:none;display:inline-block}
+  .gen.app{background:var(--grn);border-color:var(--grn);color:#fff}
+  .gen.cpt{background:var(--pur);border-color:var(--pur);color:#fff}
+  .tag{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px}
+  .tag.app{background:var(--grn-bg);color:#15803d}
+  .tag.cpt{background:var(--pur-bg);color:#6d28d9}
+  .note-req{font-size:11.5px;color:#92400e;background:var(--amb-bg);border:1px solid #d9770633;border-radius:8px;padding:8px 11px;margin-top:6px}.note-req b{color:#7c2d12}
+
+  /* aperçu récap comptable (inline) */
+  .recap{margin-top:8px;border:1px dashed var(--bor2);border-radius:12px;background:var(--sur2);overflow:hidden}
+  .recap-h{padding:11px 14px;font-weight:800;font-size:13px;background:#fff;border-bottom:1px solid var(--bor);display:flex;align-items:center;gap:8px}
+  .recap-bd{padding:12px 14px}
+  .rsec{font:700 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);margin:10px 0 6px}
+  .rline{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--bor)}
+  .rline b{font-family:var(--mono)}
+  .rfourn{margin-top:10px;background:var(--amb-bg);border:1px solid #d9770633;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e}
+  .rfourn .ti{font-weight:800;color:#7c2d12;margin-bottom:4px}
+  .rfourn li{margin-left:18px}
+  .recap-acts{padding:0 14px 14px;display:flex;gap:8px;flex-wrap:wrap}
+
+  @media(max-width:680px){
+    .route{align-items:flex-start}.route .rval{width:100%}.gen{width:100%;text-align:center}
+    .ent-h{align-items:flex-start}
+  }
+</style>
+</head><body>
+<div class="bar">🛡️ Maquette — <b>Documents fiscaux par entité</b> · chaque entité → le document de SA fiscalité (foncier / meublé / IS)</div>
+<div class="wrap">
+  <div class="top">
+    <h1>📁 Mes documents fiscaux</h1>
+    <label class="yr">📅 Exercice <select onchange="setYear(this.value)"><option value="2026">2026 (en cours)</option><option value="2025">2025</option></select></label>
+  </div>
+  <div class="intro">💡 Chaque entité génère le(s) document(s) de <b>sa fiscalité</b>. L'app <b>génère la 2044</b> (foncier nu, complet). Pour le <b>meublé (BIC)</b> et la <b>SCI à l'IS</b>, elle produit un <b>récap pour ton comptable</b> — l'amortissement reste son métier, l'app ne fait pas la liasse. <span style="color:var(--grn);font-weight:700">vert = généré par l'app</span> · <span style="color:var(--pur);font-weight:700">violet = récap comptable</span>.</div>
+  <div id="list"></div>
+</div>
+
+<script>
+const f = n => (n<0?'− ':'')+Math.abs(Math.round(n)).toLocaleString('fr-FR')+' €';
+const $ = id => document.getElementById(id);
+let year=2026, openRecap=null;
+
+// Entités démo — fiscalité en TEXTE LIBRE (ent.type), comme dans l'app réelle.
+const ENTITES = [
+  { nom:'Didier Keller', type:'Personne physique',
+    foncier:{lots:2, result:7239},
+    meuble:{lots:1, loyers:7800, charges:[['Assurance PNO','223',410],['Taxe foncière (part)','227',520],['Petit entretien','—',180]], mobilier:14} },
+  { nom:'SCI Keller', type:'SCI IR (à l\'impôt sur le revenu)',
+    foncier:{lots:9, result:11200, sciIR:true, associes:2} },
+  { nom:'SCI Patrimoine', type:'SCI IS (à l\'impôt sur les sociétés)',
+    is:{lots:7, recettes:42000, charges:[['Honoraires gestion','221',2100],['Assurances','223',1450],['Travaux','224',6800],['Taxe foncière','227',3900],['Intérêts d\'emprunt','—',7600]]} }
+];
+
+// Parse la fiscalité depuis le texte libre (même esprit que le parser PDF de l'app).
+function fisc(type){
+  const t=(type||'').toLowerCase();
+  if(/\bis\b|soci[ée]t[ée]s/.test(t)) return {key:'is', forme:'SCI', opt:'IS', cls:'is', label:'SCI à l\'IS'};
+  if(/\bir\b|revenu/.test(t)) return {key:'ir', forme:'SCI', opt:'IR', cls:'ir', label:'SCI à l\'IR'};
+  return {key:'perso', forme:'Nom propre', opt:'IR', cls:'perso', label:'Personne physique'};
+}
+const scale = () => year===2026?1:0.9;
+
+function setYear(v){ year=parseInt(v); openRecap=null; render(); }
+function toggleRecap(k){ openRecap = openRecap===k?null:k; render(); }
+
+function render(){
+  $('list').innerHTML = ENTITES.map((e,i)=>{
+    const F=fisc(e.type);
+    let routes='';
+    if(F.key==='is'){
+      // SCI IS : tout relève de l'IS → 2065 → récap comptable (pas de 2044).
+      const rec=Math.round(e.is.recettes*scale());
+      routes += route('🏛️','Société soumise à l\'IS → résultat 2065','Tous les lots ('+e.is.lots+') · '+rec.toLocaleString('fr-FR')+' € de recettes', '', cptBtn(i,'is'), 'cpt');
+    } else {
+      if(e.foncier){
+        const r=Math.round(e.foncier.result*scale());
+        const sub = F.key==='ir'
+          ? 'Lots nus ('+e.foncier.lots+') · 2072 (SCI) + quote-part 2044 par associé ('+e.foncier.associes+')'
+          : 'Lots nus ('+e.foncier.lots+') · ta déclaration 2044';
+        routes += route('🏠','Revenus fonciers → 2044'+(F.key==='ir'?' / 2072':''), sub, '<span class="rval pos">'+f(r)+'</span>',
+          '<a class="gen app" href="previsu-2044.html">📋 Prévisualiser &amp; générer</a><span class="tag app">généré par l\'app</span>', 'app');
+      }
+      if(e.meuble){
+        const ly=Math.round(e.meuble.loyers*scale());
+        routes += route('🛋️','Location meublée → BIC (2031 / 2042-C-PRO)','Lots meublés ('+e.meuble.lots+') · '+ly.toLocaleString('fr-FR')+' € encaissés · déclaration séparée', '',
+          cptBtn(i,'meuble'), 'cpt');
+      }
+    }
+    let recapPanel = '';
+    if(openRecap==='ent'+i+'-meuble' && e.meuble) recapPanel = recapHtml(e,'meuble',F);
+    if(openRecap==='ent'+i+'-is' && e.is) recapPanel = recapHtml(e,'is',F);
+    return '<div class="ent"><div class="ent-h"><span class="nm">'+ (F.forme==='SCI'?'🏛️ ':'👤 ') + e.nom+'</span>'
+      + '<span class="badge forme">'+F.forme+'</span><span class="badge '+F.cls+'">'+F.label+'</span>'
+      + '<span style="margin-left:auto;font-size:11.5px;color:var(--t3)">'+ docCount(e,F)+'</span></div>'
+      + '<div class="ent-b">'+routes+recapPanel+'</div></div>';
+  }).join('');
+}
+function docCount(e,F){
+  if(F.key==='is') return '1 récap comptable';
+  let n=0; if(e.foncier)n++; if(e.meuble)n++;
+  return n+' document'+(n>1?'s':'');
+}
+function route(ic,t,d,val,btn,kind){
+  return '<div class="route"><span class="ri">'+ic+'</span><div class="rmid"><div class="rt">'+t+'</div><div class="rd">'+d+'</div></div>'
+    + (val||'') + btn + '</div>';
+}
+function cptBtn(i,reg){
+  return '<button class="gen cpt" onclick="toggleRecap(\'ent'+i+'-'+reg+'\')">📄 Récap comptable'+(openRecap==='ent'+i+'-'+reg?' ▲':'')+'</button><span class="tag cpt">récap comptable</span>';
+}
+function recapHtml(e,reg,F){
+  const sc=scale();
+  let rec, charges, mob=null, titre;
+  if(reg==='meuble'){ rec=Math.round(e.meuble.loyers*sc); charges=e.meuble.charges; mob=e.meuble.mobilier; titre='Récap BIC (meublé) — '+e.nom; }
+  else { rec=Math.round(e.is.recettes*sc); charges=e.is.charges; titre='Récap IS — '+e.nom; }
+  const chgLines = charges.map(c=>'<div class="rline"><span>'+(c[1]!=='—'?'<b style="font-family:var(--mono);font-size:11px;background:#fff;padding:1px 6px;border-radius:5px;margin-right:6px">'+c[1]+'</b>':'')+c[0]+'</span><b>'+f(Math.round(c[2]*sc))+'</b></div>').join('');
+  const chgTot = charges.reduce((s,c)=>s+Math.round(c[2]*sc),0);
+  return '<div class="recap"><div class="recap-h">📄 '+titre+' · exercice '+year+' <span style="margin-left:auto;font-weight:400;color:var(--t3);font-size:11px">document d\'entrée — pas une déclaration</span></div>'
+    + '<div class="recap-bd">'
+    +   '<div class="rsec">Recettes encaissées</div><div class="rline"><span>'+(reg==='meuble'?'Loyers meublés':'Recettes locatives')+'</span><b>'+f(rec)+'</b></div>'
+    +   '<div class="rsec">Charges payées (par catégorie)</div>'+chgLines+'<div class="rline" style="border-top:1px solid var(--bor2)"><span style="color:var(--t2)">Total charges</span><b>'+f(chgTot)+'</b></div>'
+    +   (mob!=null?'<div class="rsec">Inventaire mobilier (déjà saisi)</div><div class="rline"><span>Éléments inventoriés (décret 2015-981)</span><b style="font-family:Inter">'+mob+' éléments</b></div>':'')
+    +   '<div class="rfourn"><div class="ti">⚠️ À fournir à ton comptable (l\'app ne les stocke pas / ne les calcule pas) :</div>'
+    +     '<ul><li>Valeur d\'acquisition du bien + frais de notaire</li>'
+    +     (reg==='meuble'?'<li>Valeur du mobilier (base d\'amortissement)</li>':'')
+    +     '<li>Tableau d\'amortissement ('+(reg==='meuble'?'bien + mobilier + travaux':'bien + travaux, durées IS')+')</li>'
+    +     '<li>Le résultat '+(reg==='meuble'?'BIC':'IS')+' lui-même (après amortissement)</li></ul></div>'
+    + '</div>'
+    + '<div class="recap-acts"><button class="gen cpt" onclick="alert(\'(démo) export PDF du récap\')">📥 Exporter le récap (PDF)</button><button class="gen" onclick="alert(\'(démo) export CSV\')">📊 CSV détaillé</button></div></div>';
+}
+render();
+</script>
+</body></html>
