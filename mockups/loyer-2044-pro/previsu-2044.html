@@ -81,6 +81,20 @@
   .gen-acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:14px 18px 6px}
   .recopy{margin:8px 18px 18px;background:var(--acc-bg);border:1px solid #3b7ef633;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1a4fb0}.recopy b{color:#0b2e6b}
 
+  .lnk{color:var(--acc);cursor:pointer;font-weight:600;text-decoration:underline;font-size:12px}
+  .bdg.warn{background:var(--red-bg);color:#b91c1c}
+  .ov{position:fixed;inset:0;background:rgba(15,30,50,.42);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+  .ovc{background:var(--sur);border-radius:14px;box-shadow:0 24px 60px -18px rgba(0,0,0,.5);width:min(560px,95vw);max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+  .ovc-h{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--bor);font-weight:700;font-size:14px}
+  .ovc-h button{border:0;background:none;font-size:17px;color:var(--t3);cursor:pointer;line-height:1}
+  .ovc-b{padding:14px 16px;overflow:auto}
+  .ov-note{font-size:12px;background:var(--amb-bg);border:1px solid #d9770633;border-radius:8px;padding:9px 11px;margin-bottom:12px;line-height:1.5;color:#92400e}
+  .lp{border:1px solid var(--bor);border-radius:10px;padding:11px 12px;margin-bottom:10px}
+  .lp-h{font-weight:700;font-size:13px;margin-bottom:8px}
+  .lp-f{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+  .lp-f label{font-size:11px;color:var(--t2);display:flex;flex-direction:column;gap:3px}
+  .lp-f input{font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--bor2);border-radius:7px;font-family:var(--mono);width:100%}
+  .ovc-f{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--bor);background:var(--sur2)}
   @media(max-width:680px){
     .head{align-items:stretch}.selz{width:100%}.selz label{flex:1}.selz select{flex:1;width:100%}
     .decomp{flex-direction:column;gap:8px}.decomp .op{align-self:flex-start}
@@ -101,6 +115,7 @@
   </div>
 
   <div class="card"><div id="screen"></div></div>
+  <div id="loan-host"></div>
 </div>
 
 <script>
@@ -109,16 +124,16 @@ const $ = id => document.getElementById(id);
 const LIG={'211':'Loyers encaissés','213':'Recettes diverses (GLI, sinistre, subv.)','221':'Frais de gestion / honoraires','222':'Forfait gestion (20 €/logement)','223':'Assurances (PNO, GLI)','224':'Travaux & entretien','225':'Charges non récupérées','227':'Taxe foncière','229':'Provisions copropriété','230':'Régularisation N-1','250':"Intérêts d'emprunt"};
 
 const ENT_DATA = {
-  'SCI Keller': { l:{'211':15600,'213':1209,'221':460,'223':540,'224':1850,'227':1240,'229':1100,'230':180,'250':4200}, forf:3, regul:300,
+  'SCI Keller': { l:{'211':15600,'213':1209,'221':460,'223':540,'224':1850,'227':1240,'229':1100,'230':180}, forf:3, regul:300, prets:[{bien:'Résidence Iselin', interets:3600, assurance:600, frais:0}],
     exclus:[{ic:'👥',label:'Charges récupérables (eau, EDF communs)',mt:620,dest:'remboursées par les locataires'},
             {ic:'🏦',label:'Capital du prêt',mt:9000,dest:'hors charges (seuls les intérêts sont déductibles)'},
             {ic:'🔒',label:'Dépôt de garantie reçu',mt:1500,dest:'non imposable (restituable)'}], flagues:[] },
-  'SCI Patrimoine': { l:{'211':9000,'213':0,'221':300,'223':380,'224':600,'227':980,'229':0,'230':0,'250':2600}, forf:2, regul:0,
+  'SCI Patrimoine': { l:{'211':9000,'213':0,'221':300,'223':380,'224':600,'227':980,'229':0,'230':0}, forf:2, regul:0, prets:[{bien:'Villa Metz', interets:2200, assurance:400, frais:0}],
     exclus:[{ic:'🛋️',label:'Loyers meublés MZ-1 (Garcia)',mt:7800,dest:'BIC / LMNP — déclaration 2031 séparée',bic:true},
             {ic:'🏦',label:'Capital du prêt',mt:5400,dest:'hors charges déductibles'}],
     flagues:[{ref:'MZ-3 (Lambert)',note:'loué nu puis meublé en cours d\'année — vérifier la part meublée à retirer'}] }
 };
-let step=1, year=2026, ent='Toutes';
+let step=1, year=2026, ent='Toutes', loanEntered={}, showLoan=false;
 
 function compute(){
   const ents = ent==='Toutes' ? Object.keys(ENT_DATA) : [ent];
@@ -133,7 +148,8 @@ function compute(){
   L['222']=20*forf; if(regul) L['225']=(L['225']||0)+regul;
   const recTot=(L['211']||0)+(L['213']||0);
   const chgBrut=['221','222','223','224','225','227','229'].reduce((s,k)=>s+(L[k]||0),0);
-  const ded=L['230']||0, chgNet=chgBrut-ded, interets=L['250']||0;
+  const ded=L['230']||0, chgNet=chgBrut-ded;
+  const interets=loanTotal().tot; L['250']=interets; // ligne 250 = montant SAISI depuis l'attestation (jamais estimé)
   return {L, recTot, chgNet, ded, interets, result:recTot-chgNet-interets, exclus, flagues, forf};
 }
 
@@ -144,6 +160,7 @@ function go(s){ step=s; render(); }
 function render(){
   ['1','2','3'].forEach(n=>{ const e=$('st-'+n); e.className='s'+(+n<step?' done':(+n===step?' on':'')); });
   $('screen').innerHTML = step===3 ? genHtml() : previewHtml();
+  renderLoanModal();
 }
 
 function selectors(){
@@ -186,7 +203,7 @@ function previewHtml(){
       <tr class="grp"><td colspan="2">Recettes (cadre 210)</td></tr>${recLines}
       <tr class="grp"><td colspan="2">Charges déductibles (cadre 220)</td></tr>${chgLines}
       <tr class="grp"><td colspan="2">Intérêts d'emprunt (cadre 250)</td></tr>
-      <tr><td><span class="ln">250</span>${LIG['250']} <span class="bdg att">repris de l'attestation banque</span></td><td>${f(c.interets)}</td></tr>
+      ${lig250Row(c)}
       <tr class="tot"><td>Résultat foncier ${year}</td><td>${c.result>=0?'+':''}${f(c.result)}</td></tr>
     </tbody></table>
 
@@ -213,6 +230,38 @@ function genHtml(){
   <div class="recopy">💡 <b>Recopie ces lignes</b> sur impots.gouv → déclaration des revenus → annexe <b>2044</b>. Ou transmets le CSV à ton comptable. ${c.exclus.some(x=>x.bic)?'<br>⚠️ Tes <b>loyers meublés</b> se déclarent à part (BIC, formulaire 2031 / 2042-C-PRO).':''}</div>
   <div class="foot"><button class="btn g" onclick="go(1)">↩ Revenir à la prévisualisation</button><span class="info">Rien n'est envoyé automatiquement — tu gardes la main.</span></div>`;
 }
+// ----- ligne 250 : saisie depuis l'attestation (jamais d'estimation) -----
+function scopedPrets(){
+  const ents = ent==='Toutes' ? Object.keys(ENT_DATA) : [ent];
+  const out=[]; ents.forEach(e=>(ENT_DATA[e].prets||[]).forEach(p=>out.push(Object.assign({},p,{ent:e,key:e+'|'+p.bien})))); return out;
+}
+function loanTotal(){ let tot=0; scopedPrets().forEach(p=>{ const v=loanEntered[year+'|'+p.key]; if(v) tot+=(+v.interets||0)+(+v.assurance||0)+(+v.frais||0); }); return {tot:Math.round(tot), n:scopedPrets().length}; }
+function lig250Row(c){
+  if(loanTotal().tot>0) return `<tr><td><span class="ln">250</span>${LIG['250']} <span class="bdg att">saisi depuis l'attestation</span> <a class="lnk" onclick="openLoan()">modifier</a></td><td>${f(c.interets)}</td></tr>`;
+  return `<tr><td><span class="ln">250</span>${LIG['250']} <span class="bdg warn">⚠ à renseigner</span><div style="margin-top:6px"><button class="gen cpt" style="background:var(--acc);border-color:var(--acc)" onclick="openLoan()">🏦 Renseigner (attestation)</button></div></td><td>${f(0)}</td></tr>`;
+}
+function openLoan(){ showLoan=true; render(); }
+function closeLoan(){ showLoan=false; render(); }
+function skipLoan(){ showLoan=false; render(); }
+function fillExample(){ scopedPrets().forEach((p,i)=>{ const a=$('li-'+i),b=$('la-'+i),d=$('lf-'+i); if(a)a.value=p.interets; if(b)b.value=p.assurance; if(d)d.value=p.frais; }); }
+function saveLoan(){ scopedPrets().forEach((p,i)=>{ const a=$('li-'+i),b=$('la-'+i),d=$('lf-'+i); loanEntered[year+'|'+p.key]={interets:+((a&&a.value)||0),assurance:+((b&&b.value)||0),frais:+((d&&d.value)||0)}; }); showLoan=false; render(); }
+function loanModalHtml(){
+  const prets=scopedPrets();
+  const rows=prets.map((p,i)=>{ const v=loanEntered[year+'|'+p.key]||{};
+    return `<div class="lp"><div class="lp-h">🏦 ${p.bien} <span style="color:var(--t3);font-weight:400">· ${p.ent}</span></div>
+      <div class="lp-f"><label>Intérêts payés<input type="number" inputmode="decimal" id="li-${i}" placeholder="0" value="${v.interets!=null?v.interets:''}"></label>
+      <label>Assurance emprunteur<input type="number" inputmode="decimal" id="la-${i}" placeholder="0" value="${v.assurance!=null?v.assurance:''}"></label>
+      <label>Frais (dossier, garantie)<input type="number" inputmode="decimal" id="lf-${i}" placeholder="0" value="${v.frais!=null?v.frais:''}"></label></div></div>`;
+  }).join('');
+  return `<div class="ov" onclick="if(event.target===this)closeLoan()"><div class="ovc">
+    <div class="ovc-h"><span>🏦 Intérêts &amp; frais d'emprunt déductibles · ligne 250</span><button onclick="closeLoan()">✕</button></div>
+    <div class="ovc-b"><div class="ov-note">Reporte les montants <b>de ton attestation annuelle de banque</b> (exercice ${year}). <b>Aucune estimation</b> — si tu ne l'as pas, tu peux passer : la ligne 250 reste à 0 € et sera signalée.</div>
+      ${rows||'<div style="color:var(--t3);padding:8px 0">Aucun prêt sur ce périmètre.</div>'}
+      ${prets.length?'<div style="text-align:center;margin-top:6px"><a class="lnk" onclick="fillExample()">↪ (démo) remplir avec un exemple d\'attestation</a></div>':''}</div>
+    <div class="ovc-f"><button class="btn g" onclick="skipLoan()">Passer pour l'instant</button><button class="btn p" onclick="saveLoan()">✓ Enregistrer</button></div>
+  </div></div>`;
+}
+function renderLoanModal(){ const h=$('loan-host'); if(h) h.innerHTML = showLoan ? loanModalHtml() : ''; }
 render();
 </script>
 </body></html>
