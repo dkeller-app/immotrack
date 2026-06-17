@@ -1,0 +1,218 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prévisualisation 2044 — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 50px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:8px;font-size:12.5px;font-weight:600}.bar b{color:#ffd479}
+  .wrap{max-width:920px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .ctx{font-size:12.5px;color:var(--t2);margin-top:14px;background:var(--sur2);border-left:3px solid var(--acc);padding:9px 13px;border-radius:8px}.ctx b{color:var(--t1)}
+  .card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);margin-top:16px;overflow:hidden}
+
+  /* steps */
+  .steps{display:flex;gap:8px;align-items:center;margin-top:16px;font-size:12px;font-weight:700;color:var(--t3);flex-wrap:wrap}
+  .steps .s{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;background:var(--sur);border:1px solid var(--bor)}
+  .steps .s.on{color:var(--acc);border-color:var(--acc);background:var(--acc-bg)}
+  .steps .s.done{color:var(--grn);border-color:#16a34a44;background:var(--grn-bg)}
+  .steps .sep{color:var(--t3)}
+
+  .head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+  .head .ttl{font-weight:800;font-size:15px}
+  .selz{display:flex;gap:10px;flex-wrap:wrap}
+  .selz label{font-size:12px;color:var(--t2);display:flex;align-items:center;gap:6px}
+  .selz select{font:inherit;font-size:13px;padding:6px 9px;border-radius:8px;border:1px solid var(--bor2);background:#fff;cursor:pointer}
+  .body{padding:18px}
+
+  .hero{background:linear-gradient(135deg,var(--sur),var(--sur2));border:1px solid var(--bor);border-radius:14px;padding:20px 22px}
+  .hero .eyebrow{font:700 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+  .hero .big{font:800 38px/1 'JetBrains Mono',monospace;letter-spacing:-.02em;margin:8px 0 4px}
+  .hero .big.pos{color:var(--grn)}.hero .big.neg{color:var(--red)}
+  .hero .sub{font-size:12.5px;color:var(--t2)}
+  .decomp{display:flex;gap:18px;flex-wrap:wrap;margin-top:16px}
+  .decomp .it{display:flex;flex-direction:column;gap:2px}
+  .decomp .it .k{font:600 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
+  .decomp .it .v{font:700 17px/1 'JetBrains Mono',monospace}
+  .decomp .it .v.neg{color:var(--red)}.decomp .it .v.eq{color:var(--grn)}
+  .decomp .op{font-size:20px;color:var(--t3);align-self:center;font-weight:700}
+
+  .sec{font:700 11px/1 Inter;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin:20px 0 8px;display:flex;align-items:center;gap:10px}.sec::after{content:"";flex:1;height:1px;background:var(--bor)}
+  table.pl{width:100%;border-collapse:collapse;font-size:13px}
+  table.pl th{text-align:right;font:700 10px/1 Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);padding:7px 10px;border-bottom:1px solid var(--bor)}
+  table.pl th:first-child{text-align:left}
+  table.pl td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--sur2);font-family:var(--mono);font-weight:600}
+  table.pl td:first-child{text-align:left;font-family:Inter;font-weight:500;color:var(--t2)}
+  table.pl td .ln{font-family:var(--mono);font-weight:700;font-size:11px;background:var(--sur2);border-radius:5px;padding:1px 6px;margin-right:7px;color:var(--t2)}
+  table.pl td .bdg{font-family:Inter;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:7px}
+  table.pl td .bdg.calc{background:var(--pur-bg);color:#6d28d9}.table .bdg.att,table.pl td .bdg.att{background:var(--amb-bg);color:#92400e}
+  table.pl tr.grp td{background:var(--sur2);font:700 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);text-align:left}
+  table.pl tr.tot td{font-weight:800;color:var(--t1);border-top:1px solid var(--bor2)}
+  table.pl td.neg{color:var(--red)}
+
+  .exclu{margin-top:16px;border:1px dashed var(--bor2);border-radius:12px;padding:13px 15px;background:var(--sur2)}
+  .exclu .et{font-weight:800;font-size:12.5px;display:flex;align-items:center;gap:7px;margin-bottom:4px}
+  .exclu .er{display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--t2);padding:8px 0;border-top:1px solid var(--bor)}
+  .exclu .er .ei{font-size:16px}.exclu .er b{color:var(--t1)}
+  .exclu .er .ea{margin-left:auto;font-family:var(--mono);font-weight:700;white-space:nowrap;color:var(--t2)}
+  .exclu .er.bic{background:#fdf2f8;margin:0 -15px;padding:8px 15px}
+  .flag{margin-top:12px;background:var(--amb-bg);border:1px solid #d9770633;border-radius:10px;padding:10px 13px;font-size:12px;color:#92400e}.flag b{color:#7c2d12}
+
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-top:1px solid var(--bor);background:var(--sur2);flex-wrap:wrap}
+  .foot .info{font-size:12px;color:var(--t2)}
+  .btn{padding:10px 18px;border-radius:10px;border:1px solid var(--bor2);background:var(--sur);font:inherit;font-size:13.5px;font-weight:700;color:var(--t1);cursor:pointer}
+  .btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+  .btn.g{background:none;border:0;color:var(--acc)}
+
+  /* génération */
+  .gen-hd{text-align:center;padding:26px 18px 6px}
+  .gen-hd .chk{font-size:40px}
+  .gen-hd .gt{font-weight:800;font-size:18px;margin-top:6px}
+  .gen-hd .gs{font-size:13px;color:var(--t2);margin-top:4px}
+  .gen-acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:14px 18px 6px}
+  .recopy{margin:8px 18px 18px;background:var(--acc-bg);border:1px solid #3b7ef633;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1a4fb0}.recopy b{color:#0b2e6b}
+
+  @media(max-width:680px){
+    .head{align-items:stretch}.selz{width:100%}.selz label{flex:1}.selz select{flex:1;width:100%}
+    .decomp{flex-direction:column;gap:8px}.decomp .op{align-self:flex-start}
+    .hero .big{font-size:30px}
+    .foot{flex-direction:column;align-items:stretch}.foot .btn{width:100%}.foot .info{text-align:center;order:2}
+  }
+</style>
+</head><body>
+<div class="bar">🛡️ Maquette — <b>Prévisualisation 2044</b> · le bouton 2044 sort d'Export → prévisu (année + entités) → valider → générer</div>
+<div class="wrap">
+  <h1>📋 Ma déclaration 2044</h1>
+  <div class="ctx">📍 Dans <b>Finances</b>, le bouton <b>« 2044 »</b> n'ouvre plus l'onglet Export : il ouvre <b>cette prévisualisation</b>. Tu changes l'<b>année</b> et les <b>entités</b>, tu vérifies, puis tu génères. Le panneau <b>« Écarté du 2044 »</b> montre le meublé/récupérables/capital <b>routés vers leur déclaration</b> → la visu reste honnête, pas tronquée.</div>
+
+  <div class="steps">
+    <span class="s" id="st-1">1 · Prévisualiser</span><span class="sep">→</span>
+    <span class="s" id="st-2">2 · Valider</span><span class="sep">→</span>
+    <span class="s" id="st-3">3 · Générer</span>
+  </div>
+
+  <div class="card"><div id="screen"></div></div>
+</div>
+
+<script>
+const f = n => (n<0?'− ':'')+Math.abs(Math.round(n)).toLocaleString('fr-FR')+' €';
+const $ = id => document.getElementById(id);
+const LIG={'211':'Loyers encaissés','213':'Recettes diverses (GLI, sinistre, subv.)','221':'Frais de gestion / honoraires','222':'Forfait gestion (20 €/logement)','223':'Assurances (PNO, GLI)','224':'Travaux & entretien','225':'Charges non récupérées','227':'Taxe foncière','229':'Provisions copropriété','230':'Régularisation N-1','250':"Intérêts d'emprunt"};
+
+const ENT_DATA = {
+  'SCI Keller': { l:{'211':15600,'213':1209,'221':460,'223':540,'224':1850,'227':1240,'229':1100,'230':180,'250':4200}, forf:3, regul:300,
+    exclus:[{ic:'👥',label:'Charges récupérables (eau, EDF communs)',mt:620,dest:'remboursées par les locataires'},
+            {ic:'🏦',label:'Capital du prêt',mt:9000,dest:'hors charges (seuls les intérêts sont déductibles)'},
+            {ic:'🔒',label:'Dépôt de garantie reçu',mt:1500,dest:'non imposable (restituable)'}], flagues:[] },
+  'SCI Patrimoine': { l:{'211':9000,'213':0,'221':300,'223':380,'224':600,'227':980,'229':0,'230':0,'250':2600}, forf:2, regul:0,
+    exclus:[{ic:'🛋️',label:'Loyers meublés MZ-1 (Garcia)',mt:7800,dest:'BIC / LMNP — déclaration 2031 séparée',bic:true},
+            {ic:'🏦',label:'Capital du prêt',mt:5400,dest:'hors charges déductibles'}],
+    flagues:[{ref:'MZ-3 (Lambert)',note:'loué nu puis meublé en cours d\'année — vérifier la part meublée à retirer'}] }
+};
+let step=1, year=2026, ent='Toutes';
+
+function compute(){
+  const ents = ent==='Toutes' ? Object.keys(ENT_DATA) : [ent];
+  const sc = year===2026 ? 1 : 0.88;
+  const L={}, exclus=[], flagues=[]; let forf=0, regul=0;
+  ents.forEach(e=>{ const d=ENT_DATA[e];
+    Object.keys(d.l).forEach(k=> L[k]=(L[k]||0)+Math.round(d.l[k]*sc));
+    forf+=d.forf; regul+=Math.round(d.regul*sc);
+    d.exclus.forEach(x=>exclus.push(Object.assign({},x,{mt:Math.round(x.mt*sc),ent:e})));
+    d.flagues.forEach(g=>flagues.push(Object.assign({},g,{ent:e})));
+  });
+  L['222']=20*forf; if(regul) L['225']=(L['225']||0)+regul;
+  const recTot=(L['211']||0)+(L['213']||0);
+  const chgBrut=['221','222','223','224','225','227','229'].reduce((s,k)=>s+(L[k]||0),0);
+  const ded=L['230']||0, chgNet=chgBrut-ded, interets=L['250']||0;
+  return {L, recTot, chgNet, ded, interets, result:recTot-chgNet-interets, exclus, flagues, forf};
+}
+
+function setYear(v){ year=parseInt(v); render(); }
+function setEnt(v){ ent=v; render(); }
+function go(s){ step=s; render(); }
+
+function render(){
+  ['1','2','3'].forEach(n=>{ const e=$('st-'+n); e.className='s'+(+n<step?' done':(+n===step?' on':'')); });
+  $('screen').innerHTML = step===3 ? genHtml() : previewHtml();
+}
+
+function selectors(){
+  const yo=[2026,2025].map(y=>`<option value="${y}"${y===year?' selected':''}>${y}${y===2026?' (en cours)':''}</option>`).join('');
+  const eo=['Toutes','SCI Keller','SCI Patrimoine'].map(e=>`<option value="${e}"${e===ent?' selected':''}>${e==='Toutes'?'Toutes les entités':e}</option>`).join('');
+  return `<div class="selz"><label>📅 <select onchange="setYear(this.value)">${yo}</select></label><label>🏛️ <select onchange="setEnt(this.value)">${eo}</select></label></div>`;
+}
+
+function previewHtml(){
+  const c=compute();
+  const recLines=['211','213'].filter(k=>c.L[k]).map(k=>`<tr><td><span class="ln">${k}</span>${LIG[k]}</td><td>${f(c.L[k])}</td></tr>`).join('');
+  const chgOrder=['221','222','223','224','225','227','229','230'];
+  const chgLines=chgOrder.filter(k=>c.L[k]).map(k=>{
+    const bdg = k==='222'?' <span class="bdg calc">calculé auto</span>' : k==='225'?' <span class="bdg calc">calculé (régul)</span>' : '';
+    const neg = k==='230';
+    return `<tr><td><span class="ln">${k}</span>${LIG[k]}${bdg}</td><td class="${neg?'neg':''}">${neg?'− ':''}${f(c.L[k])}</td></tr>`;
+  }).join('');
+  const exclTot=c.exclus.reduce((s,x)=>s+x.mt,0);
+  const exclRows=c.exclus.map(x=>`<div class="er${x.bic?' bic':''}"><span class="ei">${x.ic}</span><div><b>${x.label}</b> — ${x.dest}${ent==='Toutes'?` <span style="color:var(--t3)">· ${x.ent}</span>`:''}</div><span class="ea">${f(x.mt)}</span></div>`).join('');
+  const flagHtml=c.flagues.length?`<div class="flag">⚠️ <b>${c.flagues.length} lot(s) mixte(s) à vérifier :</b> ${c.flagues.map(g=>g.ref+' — '+g.note).join(' ; ')}</div>`:'';
+  return `<div class="head"><div class="ttl">Prévisualisation — exercice ${year}</div>${selectors()}</div>
+  <div class="body">
+    <div class="hero">
+      <div class="eyebrow">Résultat foncier ${year} · base imposable 2044</div>
+      <div class="big ${c.result>=0?'pos':'neg'}">${c.result>=0?'+':''}${f(c.result)}</div>
+      <div class="sub">${c.result>=0?'Revenu foncier net imposable (s\'ajoute à ton revenu, imposé à ta TMI + 17,2 % de prélèvements sociaux).':'Déficit foncier — imputable sur ton revenu global (≤ 10 700 €/an) puis reportable.'}</div>
+      <div class="decomp">
+        <div class="it"><span class="k">Recettes (211+213)</span><span class="v">${f(c.recTot)}</span></div>
+        <div class="op">−</div>
+        <div class="it"><span class="k">Charges (221→229 − 230)</span><span class="v neg">${f(c.chgNet)}</span></div>
+        <div class="op">−</div>
+        <div class="it"><span class="k">Intérêts (250)</span><span class="v neg">${f(c.interets)}</span></div>
+        <div class="op">=</div>
+        <div class="it"><span class="k">Résultat foncier</span><span class="v eq">${f(c.result)}</span></div>
+      </div>
+    </div>
+
+    <div class="sec">Détail des lignes 2044</div>
+    <table class="pl"><thead><tr><th>Ligne CERFA</th><th>${year}</th></tr></thead><tbody>
+      <tr class="grp"><td colspan="2">Recettes (cadre 210)</td></tr>${recLines}
+      <tr class="grp"><td colspan="2">Charges déductibles (cadre 220)</td></tr>${chgLines}
+      <tr class="grp"><td colspan="2">Intérêts d'emprunt (cadre 250)</td></tr>
+      <tr><td><span class="ln">250</span>${LIG['250']} <span class="bdg att">repris de l'attestation banque</span></td><td>${f(c.interets)}</td></tr>
+      <tr class="tot"><td>Résultat foncier ${year}</td><td>${c.result>=0?'+':''}${f(c.result)}</td></tr>
+    </tbody></table>
+
+    <div class="exclu">
+      <div class="et">🚫 Écarté du 2044 <span style="font-weight:400;color:var(--t3);font-size:11.5px">— routé vers sa propre déclaration (rien n'est caché)</span></div>
+      ${exclRows}
+      <div class="er" style="border-top:1px dashed var(--bor2)"><span class="ei"> </span><div style="color:var(--t3)">Total écarté du résultat foncier</div><span class="ea" style="color:var(--t1)">${f(exclTot)}</span></div>
+    </div>
+    ${flagHtml}
+  </div>
+  <div class="foot"><span class="info">Vérifie les chiffres et le périmètre avant de générer.</span><button class="btn p" onclick="go(3)">✓ Valider et générer la 2044 →</button></div>`;
+}
+
+function genHtml(){
+  const c=compute();
+  const lines=['211','213','221','222','223','224','225','227','229','230','250'].filter(k=>c.L[k]);
+  const recap=lines.map(k=>`<tr><td><span class="ln">${k}</span>${LIG[k]}</td><td class="${k==='230'?'neg':''}">${k==='230'?'− ':''}${f(c.L[k])}</td></tr>`).join('');
+  return `<div class="gen-hd"><div class="chk">✅</div><div class="gt">Déclaration 2044 prête — ${year} · ${ent==='Toutes'?'toutes entités':ent}</div><div class="gs">Résultat foncier : <b>${c.result>=0?'+':''}${f(c.result)}</b></div></div>
+  <div class="body" style="padding-top:6px">
+    <div class="sec">Lignes à reporter sur le formulaire 2044</div>
+    <table class="pl"><tbody>${recap}<tr class="tot"><td>Résultat foncier</td><td>${c.result>=0?'+':''}${f(c.result)}</td></tr></tbody></table>
+  </div>
+  <div class="gen-acts"><button class="btn p" onclick="alert('(démo) téléchargement CSV')">📥 CSV pour le comptable</button><button class="btn" onclick="alert('(démo) aperçu PDF')">📄 Aperçu PDF</button></div>
+  <div class="recopy">💡 <b>Recopie ces lignes</b> sur impots.gouv → déclaration des revenus → annexe <b>2044</b>. Ou transmets le CSV à ton comptable. ${c.exclus.some(x=>x.bic)?'<br>⚠️ Tes <b>loyers meublés</b> se déclarent à part (BIC, formulaire 2031 / 2042-C-PRO).':''}</div>
+  <div class="foot"><button class="btn g" onclick="go(1)">↩ Revenir à la prévisualisation</button><span class="info">Rien n'est envoyé automatiquement — tu gardes la main.</span></div>`;
+}
+render();
+</script>
+</body></html>
