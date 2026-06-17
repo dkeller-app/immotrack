@@ -133,7 +133,7 @@ const ENT_DATA = {
             {ic:'🏦',label:'Capital du prêt',mt:5400,dest:'hors charges déductibles'}],
     flagues:[{ref:'MZ-3 (Lambert)',note:'loué nu puis meublé en cours d\'année — vérifier la part meublée à retirer'}] }
 };
-let step=1, year=2026, ent='Toutes', loanEntered={}, showLoan=false;
+let step=1, year=2026, ent='Toutes', loanEntered={}, showLoan=false, showLoanWarn=false;
 
 function compute(){
   const ents = ent==='Toutes' ? Object.keys(ENT_DATA) : [ent];
@@ -214,7 +214,7 @@ function previewHtml(){
     </div>
     ${flagHtml}
   </div>
-  <div class="foot"><span class="info">Vérifie les chiffres et le périmètre avant de générer.</span><button class="btn p" onclick="go(3)">✓ Valider et générer la 2044 →</button></div>`;
+  <div class="foot"><span class="info">Vérifie les chiffres et le périmètre avant de générer.</span><button class="btn p" onclick="validateGen()">✓ Valider et générer la 2044 →</button></div>`;
 }
 
 function genHtml(){
@@ -261,7 +261,19 @@ function loanModalHtml(){
     <div class="ovc-f"><button class="btn g" onclick="skipLoan()">Passer pour l'instant</button><button class="btn p" onclick="saveLoan()">✓ Enregistrer</button></div>
   </div></div>`;
 }
-function renderLoanModal(){ const h=$('loan-host'); if(h) h.innerHTML = showLoan ? loanModalHtml() : ''; }
+// garde-fou : générer avec ligne 250 = 0 → pop-up (renseigner ou générer quand même)
+function validateGen(){ if(loanTotal().tot>0){ go(3); } else { showLoanWarn=true; render(); } }
+function closeWarn(){ showLoanWarn=false; render(); }
+function warnGenAnyway(){ showLoanWarn=false; go(3); }
+function warnRenseigner(){ showLoanWarn=false; openLoan(); }
+function loanWarnHtml(){
+  return `<div class="ov" onclick="if(event.target===this)closeWarn()"><div class="ovc" style="width:min(440px,95vw)">
+    <div class="ovc-h"><span>⚠ Intérêts d'emprunt non renseignés</span><button onclick="closeWarn()">✕</button></div>
+    <div class="ovc-b"><div class="ov-note" style="background:var(--red-bg);border-color:#dc262633;color:#b91c1c">La <b>ligne 250 est à 0 €</b>. Les intérêts d'emprunt sont souvent le <b>1er poste déductible</b> — les oublier, c'est <b>payer plus d'impôt</b>. Si tu as un prêt, renseigne-les depuis ton attestation ; sinon (pas d'emprunt, ou attestation pas encore reçue) tu peux générer quand même.</div></div>
+    <div class="ovc-f"><button class="btn g" onclick="warnGenAnyway()">Générer sans (pas d'emprunt)</button><button class="btn p" onclick="warnRenseigner()">🏦 Renseigner maintenant</button></div>
+  </div></div>`;
+}
+function renderLoanModal(){ const h=$('loan-host'); if(h) h.innerHTML = showLoan ? loanModalHtml() : (showLoanWarn ? loanWarnHtml() : ''); }
 render();
 </script>
 </body></html>
