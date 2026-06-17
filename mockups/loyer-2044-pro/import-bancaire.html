@@ -126,6 +126,11 @@
   .ok{color:var(--grn);font-weight:700}.ko{color:var(--red);font-weight:700}
   .foot{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-top:1px solid var(--bor);background:var(--sur2);flex-wrap:wrap;gap:10px}
   .foot .info{font-size:12.5px;color:var(--t2)}
+  /* écran d'après-import (récap) */
+  .done-grid{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+  .done-grid .dest{margin-top:0}
+  .done-apercu{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:12px 15px;border:1px solid var(--bor);border-radius:10px;background:var(--sur2)}
+  .done-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center}
   /* règles mémorisées */
   .rules-chip{margin-left:auto;font-size:12px;color:var(--pur);cursor:pointer;font-weight:700;background:var(--pur-bg);border:1px solid #7c3aed33;border-radius:8px;padding:4px 10px}
   .rules-panel{margin-top:10px;border:1px solid var(--bor);border-radius:10px;overflow:hidden}
@@ -154,6 +159,7 @@
     #view-todo .pane{flex:1;overflow:auto;min-height:0}
     #view-ok{flex:1;min-height:0;overflow:auto}
     #screen-review>.foot{flex-shrink:0}
+    #screen-done{flex:1;min-height:0;overflow:auto;margin-top:8px}
     .reco{gap:8px} .reco .k{padding:6px 8px} .reco .n{font-size:17px}
     .note{margin-top:8px;padding:6px 10px}
   }
@@ -212,9 +218,11 @@
       <div id="ok-list"></div>
     </div>
     <div class="foot"><span class="info" id="foot-info"></span>
-      <div style="display:flex;gap:10px"><button class="btn" onclick="reset()">Annuler</button><button class="btn p" id="btn-import" disabled>✓ Importer les 10 mouvements</button></div>
+      <div style="display:flex;gap:10px"><button class="btn" onclick="reset()">Annuler</button><button class="btn p" id="btn-import" disabled onclick="finishImport()">✓ Importer les 10 mouvements</button></div>
     </div>
   </div>
+
+  <div class="card hide" id="screen-done"><div class="pad" id="done-body"></div></div>
 </div>
 
 <script>
@@ -321,7 +329,38 @@ const FINE_PTR = !!(window.matchMedia && window.matchMedia('(pointer:fine)').mat
 let idx=0, picker=null, okOpen=null, curTab='todo', ruleOpen=null, rulesPanelOpen=false;
 
 function analyser(){ $('screen-drop').classList.add('hide'); $('screen-review').classList.remove('hide'); idx=0; applyRules(); renderAcct(); renderRules(false); renderTodo(); refreshFoot(); }
-function reset(){ $('screen-review').classList.add('hide'); $('screen-drop').classList.remove('hide'); }
+function reset(){ $('screen-review').classList.add('hide'); $('screen-done').classList.add('hide'); $('screen-drop').classList.remove('hide'); }
+// ===== écran d'après-import : agrège le classé → impact 2044 =====
+function importSummary(){
+  const agg={recette:0,charge:0,recup:0,special:0,pret:0,n:0,lines:{}};
+  const add=(cat,amt)=>{ const c=CAT[cat]; if(!c)return; agg[c.t]=(agg[c.t]||0)+Math.abs(amt||0); if(c.l)agg.lines[c.l]=(agg.lines[c.l]||0)+Math.abs(amt||0); };
+  MVTS.forEach(m=>{ agg.n++;
+    if((m.gerance||m._splitMode)&&m._sp){ m._sp.forEach(r=>add(r.cat,+r.mt||0)); }
+    else if(m.cat&&m.cat!=='— Choisir —'){ add(m.cat, m.cr>0?m.cr:m.db); }
+  });
+  return agg;
+}
+function done2044(){ alert('→ Ouvrirait l\'écran « Déclaration 2044 » avec ces montants pré-remplis (hors maquette).'); }
+function finishImport(){
+  const s=importSummary();
+  const L211=s.lines['211']||0, L213=s.lines['213']||0, apercu=(s.recette||0)-(s.charge||0);
+  $('done-body').innerHTML=`
+    <div style="text-align:center;padding:6px 0 2px"><div style="font-size:40px">✅</div><div style="font-size:19px;font-weight:800;margin-top:4px">Import terminé</div><div style="color:var(--t2);font-size:13px;margin-top:3px">${s.n} mouvements classés et rattachés à tes biens.</div></div>
+    <div class="done-grid">
+      <div class="dest tax"><span class="di">📥</span><div><div class="dt">Recettes foncières — ${fmt(s.recette||0)}</div><div class="dd">2044 · ligne 211 loyers (${fmt(L211)})${L213?` + ligne 213 divers (${fmt(L213)})`:''}</div></div></div>
+      <div class="dest chg"><span class="di">📤</span><div><div class="dt">Charges déductibles — ${fmt(s.charge||0)}</div><div class="dd">2044 · lignes 221–229 (gestion, comptable, assurances, travaux, taxe foncière, copropriété…)</div></div></div>
+      ${s.recup?`<div class="dest recup"><span class="di">👥</span><div><div class="dt">Charges récupérables — ${fmt(s.recup)}</div><div class="dd">Hors 2044 — à régulariser sur les locataires (compteurs collectifs).</div></div></div>`:''}
+      <div class="dest chg"><span class="di">🏦</span><div><div class="dt">Prêt — intérêts ligne 250</div><div class="dd">Repris de ton <b>attestation annuelle de banque</b> (pas des échéances). Le capital reste hors 2044.</div></div></div>
+      ${s.special?`<div class="dest none"><span class="di">📋</span><div><div class="dt">Hors 2044 — ${s.special} opération(s)</div><div class="dd">Régularisations de solde, virements internes : tracés, hors résultat foncier.</div></div></div>`:''}
+    </div>
+    <div class="done-apercu"><div><div style="font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;font-weight:700">Aperçu 2044 (indicatif)</div><div style="font-size:12px;color:var(--t2);margin-top:3px">recettes ${fmt(s.recette||0)} − charges ${fmt(s.charge||0)}</div></div><div style="font-size:22px;font-weight:800;color:${apercu>=0?'var(--grn)':'var(--red)'}">${fmt(apercu)}</div></div>
+    <div style="font-size:11.5px;color:var(--t3);margin-top:8px;text-align:center;line-height:1.5">Avant <b>intérêts d'emprunt</b> (ligne 250, repris de l'attestation) et choix de régime (micro / réel) — le calcul complet se fait sur l'écran <b>Déclaration 2044</b>.</div>
+    <div class="done-actions"><button class="btn p" onclick="done2044()">📄 Voir l'impact sur ma 2044</button><button class="btn" onclick="reset()">↻ Importer un autre relevé</button></div>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--t2)">🔎 Tu les retrouves dans <b>Mouvements</b>, filtrables par bien.${RULES.length?` · ⚙ <b>${RULES.length} règles</b> actives — les prochains imports les classeront tout seuls.`:''}</div>`;
+  $('screen-review').classList.add('hide');
+  $('screen-done').classList.remove('hide');
+  window.scrollTo(0,0);
+}
 function rerender(){ if(curTab==='todo') renderTodo(); else renderOk(); }
 function setAcct(v){ acct=v; comboAll=false; picker=null; applyRules(); renderAcct(); renderRules(); rerender(); refreshFoot(); }
 function renderAcct(){
