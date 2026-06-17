@@ -172,10 +172,15 @@ function brand() {
     <div class="imsb-tag">Mode Supabase · test</div>`
 }
 
-// Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud (test) + indicateur de
-// sync en direct. Depuis 2c, les modifications SONT enregistrées dans le cloud (plus en lecture seule).
+// Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud + indicateur de sync en
+// direct. Depuis 2c, les modifications SONT enregistrées dans le cloud (plus en lecture seule). Wording +
+// sortie CONTEXTUELS : en sandbox (?sandbox=1) c'est un TEST (« Quitter le test ») ; en mode cloud RÉEL
+// (toggle immo_use_supabase=1) c'est le vrai mode (« Revenir en mode local »). ⚠️ La sortie COUPE TOUJOURS
+// le flag immo_use_supabase=0, sinon index.html re-booterait cloud (FLAG l.18) → utilisateur PIÉGÉ à l'écran
+// de login (legacy gaté, Réglages inaccessibles → pas de rollback possible).
 function injectSyncBanner(api, user, esp) {
   if (document.getElementById('imsb-banner')) return
+  const isSandbox = /[?&]sandbox=1/.test(location.search || '')
   const css = document.createElement('style')
   css.textContent = `#imsb-banner{position:fixed;top:0;left:0;right:0;z-index:2147483000;background:linear-gradient(90deg,#163b78,#2b5fd0);
     color:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:12.5px;padding:7px 16px;display:flex;align-items:center;
@@ -189,12 +194,17 @@ function injectSyncBanner(api, user, esp) {
   document.head.appendChild(css)
   const b = document.createElement('div')
   b.id = 'imsb-banner'
-  b.innerHTML = `<span>☁️ <b>Mode cloud (test)</b> · ${escapeHtml(user.email)} · espace « ${escapeHtml(esp.espaceNom || '?')} »</span>
+  b.innerHTML = `<span>☁️ <b>Mode cloud ${isSandbox ? '(test)' : '(Supabase)'}</b> · ${escapeHtml(user.email)} · espace « ${escapeHtml(esp.espaceNom || '?')} »</span>
     <span id="imsb-sync">✓ Enregistré dans le cloud</span>
-    <button id="imsb-banner-out">Quitter le test</button>`
+    <button id="imsb-banner-out">${isSandbox ? 'Quitter le test' : 'Revenir en mode local'}</button>`
   document.body.appendChild(b)
   const out = document.getElementById('imsb-banner-out')
-  if (out) out.onclick = async () => { try { await api.logout() } catch (e) {} ; location.href = 'index.html' }
+  if (out) out.onclick = async () => {
+    try { localStorage.setItem('immo_use_supabase', '0') } catch (e) {}   // anti-piège : index.html re-boote legacy (≠ flag resté à 1)
+    try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}     // consomme l'opt-in sandbox
+    if (isSandbox) { try { await api.logout() } catch (e) {} }            // test → déconnexion ; réel → session gardée (réactivation fluide, comme _cloudModeRollback)
+    location.href = 'index.html'
+  }
 }
 
 function injectOverlay() {
