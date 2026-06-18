@@ -64,7 +64,7 @@ export function createBoot(client) {
     const adapter = createSupabaseAdapter(client, espaceId, pageSize ? { pageSize } : {})
     const detUuid = makeDetUuid(ownerId)
     _store = createSupabaseStore({ ...adapter, detUuid, espaceId, ownerId })
-    _sync = createStoreSync({ store: _store, getDB, schedule })
+    _sync = createStoreSync({ store: _store, getDB, schedule, sealSigned: false })   // VERROU AUTO désactivé en phase test (pas de docs légaux réels) — repasser true avant prod légale
     _ctx = { espaceId, ownerId }
     return { store: _store, sync: _sync }
   }

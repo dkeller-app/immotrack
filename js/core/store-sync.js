@@ -68,6 +68,11 @@ const sig = rec => JSON.stringify(rec)   // signature de changement (sur-envoi s
 // vivant puis tombstoné n'est ni au baseline ni au courant → ignoré (rien à supprimer côté serveur).
 const isDeleted = rec => !!(rec && rec._deleted)
 
+// ⚠️ VERROU AUTO gouverné par l'option `sealSigned` de createStoreSync (défaut true). L'app le met à FALSE
+// en phase test/transition (décision user 2026-06-18 : « pas de documents légaux réels ») car il rendait un
+// bail signé IMMUABLE → bloquait reset/re-signature/archivage PDF (le cloud refuse toute modif d'un bail
+// locked). Le code reste intact ; l'app repassera `sealSigned: true` avant la prod avec de vrais baux légaux.
+
 // VERROU LÉGAL (pièce 2) — SCELLEMENT au point UNIQUE de la sync : tout bail SIGNÉ (`signatures.signedAt`)
 // pas encore scellé reçoit ici son empreinte canonique + le verrou, quelle que soit la VOIE de signature
 // (présentiel / distance / futur) → un seul chokepoint, impossible de rater un chemin (≠ câbler chaque flux
@@ -102,7 +107,7 @@ const configSig = db => {
   return JSON.stringify(o)
 }
 
-export function createStoreSync({ store, getDB, schedule }) {
+export function createStoreSync({ store, getDB, schedule, sealSigned = true }) {
   if (!store || typeof store.upsert !== 'function' || typeof store.remove !== 'function')
     throw new Error('createStoreSync: store.upsert/remove requis')
   if (typeof getDB !== 'function') throw new Error('createStoreSync: getDB requis')
@@ -137,7 +142,7 @@ export function createStoreSync({ store, getDB, schedule }) {
   // ⚠️ NE PAS appeler directement (réentrance) → passer par flush() qui SÉRIALISE.
   async function _doFlush(db) {
     const summary = { upserts: [], removes: [], conflicts: [], skipped: [] }
-    await sealSignedBaux(db)                            // VERROU (pièce 2) : scelle les baux signés AVANT le diff
+    if (sealSigned) await sealSignedBaux(db)            // VERROU (pièce 2) — gouverné par l'option sealSigned (false en phase test)
     const current = snapshotOf(db)
 
     // 1) upserts (ajouts + modifs), dans l'ordre parent→enfant.
