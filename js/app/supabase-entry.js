@@ -60,12 +60,23 @@ async function boot() {
   // document via son idbKey → URL signée courte (5 min) du fichier dans Supabase Storage, à la place du
   // lien Drive. Retourne null si pas d'espace résolu, pas d'idbKey, ou objet absent (ex. doc Drive-only
   // non migré → le caller affiche un message). Capture `client` (closure boot) ; lit _cloudEspaceId (login).
-  window.__immoCloudFileUrl = async function (idbKey) {
+  window.__immoCloudFileUrl = async function (idbKey, expiresIn) {
     try {
       if (!_cloudEspaceId || !idbKey) return null
-      const { data, error } = await client.storage.from('espace-files').createSignedUrl(_cloudEspaceId + '/files/' + idbKey, 300)
+      const { data, error } = await client.storage.from('espace-files').createSignedUrl(_cloudEspaceId + '/files/' + idbKey, expiresIn || 300)
       return error ? null : ((data && data.signedUrl) || null)
     } catch (e) { return null }
+  }
+
+  // DÉCOUPLAGE cloud↔Drive — upload d'un blob vers Supabase Storage (`<espaceId>/files/<idbKey>`, upsert).
+  // Sert à ARCHIVER le PDF du bail signé au moment de la signature (le blob existe dans la fenêtre de
+  // signature) → le bouton « PDF » et le partage le rouvrent via __immoCloudFileUrl. Retourne true/false.
+  window.__immoCloudUpload = async function (idbKey, blob, contentType) {
+    try {
+      if (!_cloudEspaceId || !idbKey || !blob) return false
+      const { error } = await client.storage.from('espace-files').upload(_cloudEspaceId + '/files/' + idbKey, blob, { contentType: contentType || 'application/pdf', upsert: true })
+      return !error
+    } catch (e) { return false }
   }
 
   // déjà connecté (session persistée) → enchaîner direct
