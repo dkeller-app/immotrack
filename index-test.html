@@ -19878,8 +19878,13 @@ function computeIRLRevision(log) {
   // - Logements DPE F ou G : loyer GELÉ, pas de révision possible
   // - Pas de DPE renseigné : alerter, pas de calcul
   // - DPE > 10 ans : warning (pas bloquant)
-  const dpe = (bail?.dpe || '').toUpperCase().trim();
-  const dpeDate = bail?.dpeDate || null;
+  // v15.305 LIEN-CASSÉ-DPE-IRL : depuis v15.233 (MODALE-LOGEMENT-CONSOLIDATION) la source de
+  //   vérité du DPE est le BIEN (log.diagnostics.dpe), plus le bail. On résout donc depuis le bien
+  //   via _diagGet quand bail.dpe est vide — même pattern que toutes les autres lectures DPE
+  //   (bail.dpe || _lbFill.dpe). Sans ce fallback : « DPE manquant » à tort alors qu'il est saisi.
+  const _logDpe = (typeof _diagGet === 'function') ? _diagGet(log, 'dpe') : null;
+  const dpe = (bail?.dpe || (_logDpe && _logDpe.classe) || '').toUpperCase().trim();
+  const dpeDate = bail?.dpeDate || (_logDpe && _logDpe.date) || null;
   if (!dpe) {
     return {
       dpeManquant: true, T: Math.ceil((moisAnniv+1)/3),
