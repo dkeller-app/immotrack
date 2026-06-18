@@ -1,0 +1,184 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crédit — intérêts vs capital — maquette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 50px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:8px;font-size:12.5px;font-weight:600}.bar b{color:#ffd479}
+  .wrap{max-width:940px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .sub{color:var(--t2);font-size:13px;margin-top:4px}
+  .card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);margin-top:16px;padding:16px 18px}
+  .sec{font:700 11px/1 Inter;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin:0 0 12px;display:flex;align-items:center;gap:10px}.sec::after{content:"";flex:1;height:1px;background:var(--bor)}
+
+  .modes{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:3px;margin-bottom:14px}
+  .modes button{border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--t2);padding:7px 13px;border-radius:8px;cursor:pointer}
+  .modes button.on{background:var(--sur);color:var(--t1);box-shadow:var(--sh)}
+  .params{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  .params label{font-size:11.5px;color:var(--t2);display:flex;flex-direction:column;gap:4px;font-weight:600}
+  .params input,.params select{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--bor2);border-radius:8px;background:#fff}
+  .drop{border:2px dashed var(--bor2);border-radius:12px;padding:24px;text-align:center;background:var(--sur2);cursor:pointer}
+  .drop:hover{border-color:var(--acc);background:var(--acc-bg)}
+  .drop .ic{font-size:30px}.drop .t{font-weight:700;margin-top:6px}.drop .s{font-size:12px;color:var(--t2);margin-top:4px}
+  .lnk{color:var(--acc);cursor:pointer;font-weight:600;text-decoration:underline;font-size:12.5px}
+
+  .yearbar{display:flex;align-items:center;gap:10px;margin:4px 0 14px;flex-wrap:wrap}
+  .yearbar select{font:inherit;font-size:14px;padding:6px 10px;border-radius:8px;border:1px solid var(--bor2);background:#fff}
+
+  .hero{background:linear-gradient(135deg,var(--grn-bg),#fff);border:1px solid #16a34a33;border-radius:14px;padding:20px 22px}
+  .hero .eyebrow{font:700 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
+  .hero .big{font:800 36px/1 'JetBrains Mono',monospace;color:var(--grn);margin:8px 0 6px}
+  .hero .msg{font-size:13.5px;color:var(--t1)}.hero .msg b{color:#15803d}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .box{border:1px solid var(--bor);border-radius:12px;padding:13px 15px}
+  .box .k{font:600 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
+  .box .v{font:800 22px/1 'JetBrains Mono',monospace;margin:7px 0 3px}
+  .box.cap{background:var(--grn-bg);border-color:#16a34a33}.box.cap .v{color:#15803d}
+  .box.int{background:var(--amb-bg);border-color:#d9770633}.box.int .v{color:#92400e}
+  .box .d{font-size:11.5px;color:var(--t2)}
+
+  .chart{margin-top:16px}
+  .chart .bars{display:flex;align-items:flex-end;gap:5px;height:150px;overflow-x:auto;padding-bottom:4px;border-bottom:1px solid var(--bor)}
+  .col{display:flex;flex-direction:column;justify-content:flex-end;min-width:26px;flex:1;cursor:pointer;position:relative}
+  .col .stack{display:flex;flex-direction:column;border-radius:4px 4px 0 0;overflow:hidden}
+  .col .int{background:#f0b84d}.col .cap{background:#34c27a}
+  .col.cur{outline:2px solid var(--acc);outline-offset:1px;border-radius:5px}
+  .col .yl{font-size:9.5px;color:var(--t3);text-align:center;margin-top:3px;font-family:var(--mono)}
+  .leg{display:flex;gap:16px;font-size:11.5px;color:var(--t2);margin-top:8px}.leg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  .cf{margin-top:16px;background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:13px 15px}
+  .cf .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+  .cf input{font:inherit;font-size:14px;padding:5px 8px;border:1px solid var(--bor2);border-radius:7px;width:110px;text-align:right;font-family:var(--mono)}
+  .cf .punch{margin-top:10px;font-size:14px;font-weight:700;color:#15803d;background:var(--grn-bg);border-radius:9px;padding:11px 13px;border:1px solid #16a34a33}
+  .note{font-size:12px;color:var(--t2);margin-top:14px;background:var(--acc-bg);border-left:3px solid var(--acc);padding:9px 12px;border-radius:8px}.note b{color:#1a4fb0}
+  .cum{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;color:var(--t2)}.cum b{font-family:var(--mono);color:var(--t1);font-size:14px;display:block}
+
+  @media(max-width:620px){ .split{grid-template-columns:1fr} .hero .big{font-size:28px} }
+</style>
+</head><body>
+<div class="bar">🛡️ Maquette — <b>Crédit : intérêts vs capital amorti</b> · visu info dans Finances (n'alimente pas la 2044)</div>
+<div class="wrap">
+  <h1>💳 Mon crédit</h1>
+  <div class="sub">Voir ce que tu <b>rembourses</b> (patrimoine) vs ce que ça te <b>coûte</b> (intérêts) — même quand le cash-flow ne le montre pas.</div>
+
+  <!-- SAISIE -->
+  <div class="card">
+    <div class="sec">1 · Renseigner le crédit</div>
+    <div class="modes">
+      <button id="m-calc" class="on" onclick="setMode('calc')">🧮 Calculer (montant / taux / durée)</button>
+      <button id="m-up" onclick="setMode('up')">📤 Importer mon tableau d'amortissement</button>
+    </div>
+    <div id="mode-calc">
+      <div class="params">
+        <label>Bien<input id="p-bien" value="Résidence Iselin" type="text"></label>
+        <label>Montant emprunté (€)<input id="p-montant" type="number" value="180000" oninput="render()"></label>
+        <label>Taux annuel (%)<input id="p-taux" type="number" step="0.01" value="2.8" oninput="render()"></label>
+        <label>Durée (ans)<input id="p-duree" type="number" value="20" oninput="render()"></label>
+        <label>1ʳᵉ échéance<input id="p-debut" type="number" value="2021" oninput="render()"></label>
+      </div>
+      <div class="sub" style="margin-top:8px">L'app génère l'échéancier (capital + intérêts par année). Mensualité calculée : <b id="mensualite">—</b>.</div>
+    </div>
+    <div id="mode-up" style="display:none">
+      <div class="drop" onclick="alert('(démo) sélection d\'un CSV / Excel d\'échéancier')">
+        <div class="ic">📄</div><div class="t">Glisse ton tableau d'amortissement (CSV / Excel)</div>
+        <div class="s">Le fichier que ta banque te fournit — colonnes date · capital · intérêts. <b>Pas un scan</b> (image illisible).</div>
+      </div>
+      <div style="text-align:center;margin-top:10px"><span class="lnk" onclick="setMode('calc')">↩ ou calcule-le à partir du montant / taux / durée</span></div>
+    </div>
+  </div>
+
+  <!-- VISU -->
+  <div class="card">
+    <div class="sec">2 · Ce que tu as remboursé — vue par année</div>
+    <div class="yearbar">📅 Année <select id="yr" onchange="render()"></select> <span class="sub" id="yr-sub"></span></div>
+    <div id="visu"></div>
+  </div>
+</div>
+
+<script>
+const f = n => (n<0?'− ':'')+Math.abs(Math.round(n)).toLocaleString('fr-FR')+' €';
+const $ = id => document.getElementById(id);
+let mode='calc', cashflow=-2400;
+
+function setMode(m){ mode=m; $('m-calc').classList.toggle('on',m==='calc'); $('m-up').classList.toggle('on',m==='up'); $('mode-calc').style.display=m==='calc'?'':'none'; $('mode-up').style.display=m==='up'?'':'none'; }
+
+function schedule(){
+  const P=+$('p-montant').value||0, taux=+$('p-taux').value||0, ans=+$('p-duree').value||1, start=parseInt($('p-debut').value)||2021;
+  const r=taux/100/12, n=Math.max(1,Math.round(ans*12));
+  const M = r>0 ? P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1) : P/n;
+  let bal=P; const byYear={};
+  for(let i=0;i<n;i++){
+    const interet=bal*r, capital=Math.min(M-interet,bal);
+    bal-=capital;
+    const y=start+Math.floor(i/12);
+    (byYear[y]=byYear[y]||{interet:0,capital:0,bal:0}).interet+=interet;
+    byYear[y].capital+=capital;
+    byYear[y].bal=Math.max(0,bal);
+  }
+  return {M, byYear, start, ans, P};
+}
+
+function render(){
+  const s=schedule();
+  $('mensualite').textContent = f(s.M)+' / mois';
+  const years=Object.keys(s.byYear).map(Number).sort((a,b)=>a-b);
+  // peuple le sélecteur d'année (en gardant la sélection si possible)
+  const cur = $('yr').value ? parseInt($('yr').value) : (years.includes(2026)?2026:years[Math.min(5,years.length-1)]);
+  $('yr').innerHTML = years.map(y=>`<option value="${y}"${y===cur?' selected':''}>${y}</option>`).join('');
+  const Y = parseInt($('yr').value)||cur;
+  const d = s.byYear[Y] || {interet:0,capital:0,bal:0};
+  const ech = d.interet+d.capital;
+  // patrimoine bâti cumulé jusqu'à fin Y + capital restant dû
+  let cumCap=0; years.forEach(y=>{ if(y<=Y) cumCap+=s.byYear[y].capital; });
+  $('yr-sub').textContent = `· ${$('p-bien').value||'crédit'} · ${f(ech)} d'échéances`;
+
+  // barres par année (capital vert + intérêt ambre), année courante encadrée
+  const maxEch = Math.max(...years.map(y=>s.byYear[y].interet+s.byYear[y].capital));
+  const bars = years.map(y=>{
+    const yy=s.byYear[y]; const tot=yy.interet+yy.capital; const h=Math.max(6,Math.round(tot/maxEch*140));
+    const ih=Math.round(yy.interet/tot*h), ch=h-ih;
+    return `<div class="col ${y===Y?'cur':''}" onclick="$('yr').value=${y};render()" title="${y} · intérêts ${f(yy.interet)} · capital ${f(yy.capital)}">
+      <div class="stack" style="height:${h}px"><div class="int" style="height:${ih}px"></div><div class="cap" style="height:${ch}px"></div></div>
+      <div class="yl">${String(y).slice(2)}</div></div>`;
+  }).join('');
+
+  $('visu').innerHTML =
+    `<div class="hero"><div class="eyebrow">En ${Y}, tu as capitalisé</div>
+      <div class="big">+ ${f(d.capital)}</div>
+      <div class="msg">C'est du <b>capital remboursé</b> : ton patrimoine a augmenté de <b>${f(d.capital)}</b> cette année — invisible dans ta trésorerie, bien réel dans ton patrimoine.</div>
+    </div>
+    <div class="split">
+      <div class="box cap"><div class="k">🏠 Capital amorti ${Y}</div><div class="v">${f(d.capital)}</div><div class="d">Patrimoine bâti · hors 2044 (non déductible)</div></div>
+      <div class="box int"><div class="k">💸 Intérêts payés ${Y}</div><div class="v">${f(d.interet)}</div><div class="d">Le coût · déductible → 2044 ligne 250</div></div>
+    </div>
+    <div class="chart">
+      <div class="bars">${bars}</div>
+      <div class="leg"><span><i style="background:#34c27a"></i>Capital (patrimoine)</span><span><i style="background:#f0b84d"></i>Intérêts (coût)</span><span style="color:var(--t3)">— les 1ères années = surtout des intérêts ; ça s'inverse avec le temps</span></div>
+    </div>
+    <div class="cf">
+      <div class="row">💧 Cash-flow ${Y} de ce bien (loyers − toutes charges − échéances) : <input type="number" value="${cashflow}" oninput="cashflow=+this.value||0;render()"> €</div>
+      <div class="punch">${cashflow>=0
+        ? `✅ Cash-flow positif (${f(cashflow)}) <b>ET</b> tu as bâti ${f(d.capital)} de patrimoine → enrichissement réel : <b>${f(cashflow+d.capital)}</b> en ${Y}.`
+        : `Même avec un cash-flow de <b style="color:#b91c1c">${f(cashflow)}</b>, tu as <b>capitalisé ${f(d.capital)}</b> → ton patrimoine net a augmenté de <b>${f(cashflow+d.capital)}</b> en ${Y}. L'effort de trésorerie construit ton capital.`}</div>
+    </div>
+    <div class="cum">
+      <span>Patrimoine bâti depuis le début<b>${f(cumCap)}</b></span>
+      <span>Capital restant dû fin ${Y}<b>${f(d.bal)}</b></span>
+      <span>Mensualité<b>${f(s.M)}</b></span>
+    </div>
+    <div class="note">ℹ️ <b>Cette visu est informative</b> — elle n'alimente pas la 2044. Les <b>intérêts</b> (${f(d.interet)}) sont déductibles, mais le montant porté ligne 250 te sera <b>redemandé à la déclaration</b> (un crédit peut bouger en cours d'année). Le <b>capital</b> n'est jamais déductible.</div>`;
+}
+render();
+</script>
+</body></html>
