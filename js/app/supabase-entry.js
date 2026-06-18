@@ -35,6 +35,7 @@ const sizeOf = c => (Array.isArray(c) ? c.length : (c && typeof c === 'object' ?
 // DÉCOUPLAGE cloud↔Drive — espace courant (posé au login) pour résoudre les chemins Supabase Storage des
 // fichiers : `<espaceId>/files/<idbKey>`. Lu par le helper window.__immoCloudFileUrl (ouverture de documents).
 let _cloudEspaceId = null
+let _supaClient = null   // client supabase (posé au boot) — pour le canal Realtime de synchro live
 
 // En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
 // n'a aucune raison d'etre : on a notre propre overlay de login + la vraie app cloud. S'il reste leve, il
@@ -54,6 +55,7 @@ async function boot() {
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
     auth: { persistSession: true, autoRefreshToken: true },
   })
+  _supaClient = client
   const api = createBoot(client)
 
   // DÉCOUPLAGE cloud↔Drive — helper global d'URL signée Storage. En mode cloud, index.html ouvre un
@@ -106,7 +108,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
 
 async function onLoggedIn(api, overlay, user) {
   renderLoading(overlay, user)
-  let esp, liveDB = null, flushTimer = null, _lastFlushFn = null
+  let esp, liveDB = null, flushTimer = null, _lastFlushFn = null, _liveChannel = null
   // Indicateur de sync du bandeau (si présent). I1 : JAMAIS « Enregistré » si conflit/skipped (donc
   // pas réellement dans le cloud) — affichage honnête.
   const setSync = (state) => {
@@ -123,6 +125,8 @@ async function onLoggedIn(api, overlay, user) {
       const incomplete = s && ((s.conflicts && s.conflicts.length) || (s.skipped && s.skipped.length))
       if (incomplete) console.warn('[Supabase] sync incomplet (conflits/skipped — modif PAS dans le cloud)', s)
       setSync(incomplete ? 'incomplete' : 'ok')
+      // SYNCHRO LIVE — après une sync RÉUSSIE, signale aux AUTRES appareils de l'espace qu'il y a du neuf.
+      if (!incomplete && _liveChannel) { try { _liveChannel.send({ type: 'broadcast', event: 'changed', payload: {} }) } catch (e) {} }
     } catch (e) { console.error('[Supabase] flush', e); setSync('error') }
   }
   // Scheduler debouncé (800 ms, comme Drive) : saveDB → markDirty → ici → flush cloud (gardé par version).
@@ -137,6 +141,14 @@ async function onLoggedIn(api, overlay, user) {
     esp = await api.resolveEspace()
     _cloudEspaceId = esp.espaceId   // DÉCOUPLAGE : permet à window.__immoCloudFileUrl de résoudre les chemins Storage
     api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => liveDB, schedule })
+    // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des
+    // données émet « changed » → on affiche une bannière « Actualiser » (rechargement MANUEL = zéro risque
+    // d'écraser une modif locale en cours). self:false → on ne reçoit pas ses propres broadcasts.
+    try {
+      _liveChannel = _supaClient.channel('espace:' + esp.espaceId, { config: { private: true, broadcast: { self: false } } })
+        .on('broadcast', { event: 'changed' }, () => { try { _showUpdateBanner() } catch (e) {} })
+        .subscribe((st) => { if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') console.warn('[Supabase] realtime', st) })
+    } catch (e) { console.warn('[Supabase] realtime subscribe', e) }
     const db = await api.hydrate()
     // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
     // cloud EN MÉMOIRE + re-render + brancher la SAUVEGARDE cloud (2c). Sinon (page de test dédiée
@@ -206,6 +218,27 @@ function brand() {
 // (toggle immo_use_supabase=1) c'est le vrai mode (« Revenir en mode local »). ⚠️ La sortie COUPE TOUJOURS
 // le flag immo_use_supabase=0, sinon index.html re-booterait cloud (FLAG l.18) → utilisateur PIÉGÉ à l'écran
 // de login (legacy gaté, Réglages inaccessibles → pas de rollback possible).
+// SYNCHRO LIVE — bannière « un autre appareil a modifié des données → Actualiser ». Idempotente (une seule
+// à la fois). Le rechargement re-hydrate proprement depuis le cloud (zéro merge hasardeux, zéro écrasement).
+function _showUpdateBanner() {
+  if (document.getElementById('imsb-update')) return
+  const css = document.createElement('style')
+  css.textContent = `#imsb-update{position:fixed;top:42px;left:50%;transform:translateX(-50%);z-index:2147483001;
+    background:#1e3a8a;color:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;padding:9px 14px;
+    border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:flex;align-items:center;gap:12px}
+    #imsb-update button{background:#fff;color:#1e3a8a;border:none;border-radius:7px;padding:6px 14px;font-weight:700;
+    cursor:pointer;font-size:13px;font-family:inherit}#imsb-update button:hover{background:#e0e7ff}`
+  document.head.appendChild(css)
+  const b = document.createElement('div')
+  b.id = 'imsb-update'
+  b.innerHTML = '<span>🔄 Un autre appareil a modifié des données</span>'
+  const btn = document.createElement('button')
+  btn.textContent = 'Actualiser'
+  btn.onclick = () => { try { location.reload() } catch (e) {} }
+  b.appendChild(btn)
+  document.body.appendChild(b)
+}
+
 function injectSyncBanner(api, user, esp) {
   if (document.getElementById('imsb-banner')) return
   const isSandbox = /[?&]sandbox=1/.test(location.search || '')
