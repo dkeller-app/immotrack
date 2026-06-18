@@ -19,8 +19,11 @@ const FLAG = (() => {
     // opt-in « app complète » (posé par le bouton) : actif UNIQUEMENT en sandbox (?sandbox=1) → JAMAIS
     // sur l'app de tous les jours (index.html sans sandbox reste legacy, même si le flag traîne).
     if (localStorage.getItem('immo_fullapp_once') === '1' && inSandbox) return true
-    // page de test DÉDIÉE (index-supabase.html) : auto en http(s). PAS index.html (app quotidienne).
-    return onTestPage && served
+    // CLOUD PAR DÉFAUT (2026-06-18 — Drive DÉBRANCHÉ, « on ne garde que la version Supabase »). Toute page
+    // servie en http(s) boote sur Supabase, y compris l'app de tous les jours (index.html). Échappatoire
+    // legacy/Drive de secours : `?supabase=0` ou localStorage immo_use_supabase=0 (testés en tête).
+    // (onTestPage conservé pour mémoire ; le défaut servi suffit désormais.)
+    return served || onTestPage
   } catch { return false }
 })()
 
