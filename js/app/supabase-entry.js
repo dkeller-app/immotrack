@@ -32,6 +32,10 @@ const COUNTS = [
 ]
 const sizeOf = c => (Array.isArray(c) ? c.length : (c && typeof c === 'object' ? Object.keys(c).length : 0))
 
+// DÉCOUPLAGE cloud↔Drive — espace courant (posé au login) pour résoudre les chemins Supabase Storage des
+// fichiers : `<espaceId>/files/<idbKey>`. Lu par le helper window.__immoCloudFileUrl (ouverture de documents).
+let _cloudEspaceId = null
+
 // En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
 // n'a aucune raison d'etre : on a notre propre overlay de login + la vraie app cloud. S'il reste leve, il
 // MASQUE l'app cloud (pourtant chargee) derriere le portail Drive (bug 2026-06-16 : session persistee ->
@@ -51,6 +55,18 @@ async function boot() {
     auth: { persistSession: true, autoRefreshToken: true },
   })
   const api = createBoot(client)
+
+  // DÉCOUPLAGE cloud↔Drive — helper global d'URL signée Storage. En mode cloud, index.html ouvre un
+  // document via son idbKey → URL signée courte (5 min) du fichier dans Supabase Storage, à la place du
+  // lien Drive. Retourne null si pas d'espace résolu, pas d'idbKey, ou objet absent (ex. doc Drive-only
+  // non migré → le caller affiche un message). Capture `client` (closure boot) ; lit _cloudEspaceId (login).
+  window.__immoCloudFileUrl = async function (idbKey) {
+    try {
+      if (!_cloudEspaceId || !idbKey) return null
+      const { data, error } = await client.storage.from('espace-files').createSignedUrl(_cloudEspaceId + '/files/' + idbKey, 300)
+      return error ? null : ((data && data.signedUrl) || null)
+    } catch (e) { return null }
+  }
 
   // déjà connecté (session persistée) → enchaîner direct
   const user = await api.currentUser()
@@ -108,6 +124,7 @@ async function onLoggedIn(api, overlay, user) {
   addEventListener('pagehide', flushPendingNow)
   try {
     esp = await api.resolveEspace()
+    _cloudEspaceId = esp.espaceId   // DÉCOUPLAGE : permet à window.__immoCloudFileUrl de résoudre les chemins Storage
     api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => liveDB, schedule })
     const db = await api.hydrate()
     // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
