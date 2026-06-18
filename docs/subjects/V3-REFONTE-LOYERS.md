@@ -15,6 +15,29 @@
 
 ---
 
+## 🔗 PASSATION REPORTING-BAILLEUR (2026-06-18) — la convergence catégorie→2044 se pilote ICI
+
+> **Décision user 2026-06-18** : « on pilote une seule session » pour la catégorisation 2044. La session **REPORTING-BAILLEUR** (onglet **Finances**) a livré son polish (hero + drill-down, **v15.293**) et **te passe la convergence du mapping catégorie→2044**. Reprends tout ce qui suit dans le périmètre Chantier A/B. Rien à recoder côté Finances pour l'instant — c'est une **note de cadrage** pour que tu intègres ces consommateurs quand `_catLigne2044` deviendra la source unique.
+
+**Le problème** : l'onglet Finances a son **mapping intérimaire** `_finCatLigne(cat)` → `{type, ligne2044}` (index.html), qui combine `STD_CATEGORIES` **+ le mapping custom utilisateur** `DB.catMapping` (édité via l'« **éditeur de correspondance catégories→2044** », feature PROD livrée v15.264). C'est un **2ᵉ classifieur** vivant en parallèle de ton `_catLigne2044` / `_isLoyerCategory` / `_isChargeCategory`. Tant qu'il existe en double, un même mapping custom peut diverger entre le 2044 (ton moteur) et le compte de résultat Finances.
+
+**Consommateurs de `_finCatLigne` à basculer sur le moteur unifié** (tous `index.html`, page Finances) :
+1. `_finChargeBuckets(year, scope)` — totaux de charges par ligne 2044 (250/227/224(+bis)/221/223/225-226 ; récupérables 229/230 **exclus** du résultat propriétaire).
+2. `_finLoyersHC(year, scope)` — split des loyers 211 en HC / provisions (au prorata `bail.hc/(hc+ch)`).
+3. **`_finDrillLigne(kind, yr)` — NOUVEAU v15.293** : drill-down derrière chaque ligne du compte de résultat (liste des mouvements par ligne 2044). ⬅️ **le consommateur ajouté** à intégrer dans ton périmètre de bascule.
+4. `_finUnmappedCats()` — catégories non encore mappées (bandeau + éditeur).
+
+**Invariant rassurant** : le drill **réutilise `_finCatLigne` tel quel** (filtres byte-identiques à `_finChargeBuckets`/`_finLoyersHC`) → **aucune divergence nouvelle introduite** ; il est cohérent par construction avec les chiffres affichés. La convergence = **remplacer/déléguer le seul `_finCatLigne`** vers `_catLigne2044` → les 4 consommateurs suivent automatiquement.
+
+**Comportements à préserver à la bascule** (déjà côté ton moteur) :
+- `'__ignore'` neutralisé (cf. ta note d'audit « `_catLigne2044` doit neutraliser `'__ignore'` comme `_finCatLigne` ») ;
+- catégories `type:'special'` → `null` (précédence special sur `catMapping`, déjà livré **B1 v15.267**) → exclues du résultat foncier **ET** du drill ;
+- récupérables 229/230 exclus des charges propriétaire.
+
+**Étoile** : une **seule** source de vérité catégorie→2044 (`_catLigne2044`), `_finCatLigne` réduit à un adaptateur (ou supprimé), `DB.catMapping` (custom user) intégré à l'éditeur unifié Chantier A. **Audit `code-reviewer` obligatoire** (modif fiscale sensible).
+
+---
+
 ## Étoile polaire : sortir le 2044 sans retouche
 
 La sortie cible validée par le user (2026-06-04) = **la déclaration de revenus fonciers (2044)** doit sortir remplie en un clic. **Le générateur existe déjà** : `js/core/legal-2044.js` (`_compute2044` / `_format2044Recap` / `_2044ToCsv`, testé `__tests__/helpers/legal-2044.test.js`). `STD_CATEGORIES` (index.html l.3920-3963) mappe chaque catégorie sur sa ligne CERFA (211/213/221/223/224/224bis/225/226/227/229/230/250) + un `type` (recette/charge/interet/special). **On ne réécrit pas le 2044** — la refonte ne fait que lui fournir des données propres (garbage in → 2044 faux).
@@ -160,6 +183,7 @@ Les deux cas concernent le user. Découpe **simple-maintenant / lourd-plus-tard*
 - ~~Q4 — Prêt & virement interne~~ → **tranché** (user a plusieurs comptes + un prêt) : **simple dans la refonte** (catégories + découpage manuel), **automatisations détachées** en 2 sujets `FEAT-VIR-INTERNE` + `FEAT-PRET-ECHEANCIER`.
 
 ## Journal
+- **2026-06-18 — PASSATION REPORTING-BAILLEUR (convergence catégorie→2044 reprise ici, décision user « on pilote une seule session »)** : voir la section **« 🔗 PASSATION REPORTING-BAILLEUR »** en tête de doc. La session Finances a livré **hero Variante B + drill-down `_finDrillLigne`** (PROD **v15.293**, `76c04fe`). Le drill est un **3ᵉ consommateur de `_finCatLigne`** (avec `_finChargeBuckets` / `_finLoyersHC` / `_finUnmappedCats`) à inclure quand `_catLigne2044` deviendra la source unique de la catégorisation 2044. Le drill réutilise `_finCatLigne` tel quel → **0 divergence nouvelle** ; il suit automatiquement la bascule du seul `_finCatLigne`. `DB.catMapping` (mapping custom user, éditeur PROD v15.264) à fusionner dans l'éditeur unifié Chantier A. Convergence désormais **pilotée ici**, plus côté Finances.
 - **2026-06-08 (suite 7 — Chantier A : planification + découverte « 2 moteurs 2044 vivants », pas 1 mort)** : en lisant le code réel avant d'écrire le plan, le « wizard inline mort » de l'audit s'est révélé **vivant et cassé**, pas mort. État réel :
   - **Deux générateurs 2044 coexistent en prod** : (1) le **module** `js/core/legal-2044.js` (`_compute2044(mouvements, STD_CATEGORIES, opts)`, ~30 tests, **correct**) consommé par le **panneau** « 📊 Récap/CSV » (`openLegal2044` l.43199) ; (2) un **`function _compute2044(ent, year, activeLogs)` inline** (l.29650) consommé par le **bouton « 📋 Wizard 2044 » par entité** (l.29442, parcours + mapping custom + impression PDF `_print2044`).
   - **Collision de noms = wizard cassé** : l'inline est hoisté en global → crée `window._compute2044`, que `js/main.js:199` **écrase** ensuite avec la version module (le commentaire main.js « idempotent même version » est **faux** pour `_compute2044` : signatures différentes). À l'exécution, le wizard appelle donc le module avec les mauvais arguments → `(mouvements=ent).filter` → **TypeError, le bouton plante**.
