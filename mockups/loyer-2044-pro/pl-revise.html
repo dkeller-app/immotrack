@@ -162,7 +162,17 @@
   .mvtools select{padding:8px 10px;border:1px solid var(--bor);border-radius:8px;font:600 12px Inter;background:#fff}
   .mvfoot{font-size:11px;color:var(--t3);margin-top:7px;line-height:1.4}
 
-  @media(max-width:680px){ .hero .big{font-size:30px} .enr .op{display:none} .enr .e{min-width:46%} .tabs .tb{font-size:10.5px} .dchart{flex-direction:column;align-items:flex-start} .repbar .rl{width:90px} }
+  @media(max-width:680px){
+    .hero .big{font-size:30px} .enr .op{display:none} .enr .e{min-width:46%} .tabs .tb{font-size:10.5px}
+    .dchart{flex-direction:column;align-items:flex-start} .repbar .rl{width:90px}
+    /* compte de résultat : sur mobile on ne garde que Poste + montant de l'année (le reste est dans le drill) */
+    table.pl th:nth-child(n+3),table.pl td:nth-child(n+3){display:none}
+    table.pl th:nth-child(2),table.pl td:nth-child(2){white-space:nowrap}
+    table.pl th,table.pl td{padding-left:8px;padding-right:8px}
+    /* table des mouvements (drill) : dates et montants non coupés */
+    table.mvt td.mv-date,table.mvt td.mv-am{white-space:nowrap}
+    table.mvt th,table.mvt td{padding:6px 7px}
+  }
 </style>
 </head><body>
 <div class="bar">🛡️ Maquette — <b>P&L = structure de l'app actuelle</b> (résultat de gestion − régul non récupéré · panneau « Argent à récupérer ») + ajouts <span class="ADD">AJOUT</span></div>
