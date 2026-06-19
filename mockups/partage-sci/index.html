@@ -143,7 +143,10 @@ button{font-family:inherit}
 .b-warn{background:var(--bg-warning);color:var(--fg-warning)}
 .b-info{background:var(--bg-info);color:var(--acc)}
 .b-mute{background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
-.b-owner{background:rgba(124,58,237,.14);color:var(--pur)}
+/* Badge « Lecture » (consultation seule) — discret, gris-ardoise */
+.b-read{background:var(--sur3);color:var(--t2);border:1px solid var(--bor);font-weight:600}
+/* Badge « vous » — très discret */
+.b-you{background:transparent;color:var(--t3);border:1px solid var(--bor);font-weight:600}
 
 /* SCI pastille (couleur entité) */
 .scip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--t1)}
@@ -172,29 +175,6 @@ button{font-family:inherit}
 .icbtn:hover{background:var(--sur3);color:var(--t1)}
 .icbtn.danger:hover{background:rgba(220,38,38,.14);color:var(--red);border-color:rgba(220,38,38,.3)}
 
-/* SCI block (variante A) */
-.sciblk{border:1px solid var(--bor);border-radius:var(--rl);background:var(--sur);overflow:hidden}
-.sciblk+.sciblk{margin-top:12px}
-.sciblk-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--bor2)}
-.sciblk-h .nm{font-family:'Manrope';font-weight:700;font-size:15px;color:var(--t1);flex:1;min-width:0}
-.sciblk-b{padding:12px 16px;display:flex;flex-direction:column;gap:9px}
-.member-mini{display:flex;align-items:center;gap:10px;font-size:13px}
-.member-mini .grow{flex:1;min-width:0}
-.member-mini .nm{font-weight:600;color:var(--t1)}
-.member-mini .em{font-size:11.5px;color:var(--t3)}
-
-/* Tableau croisé (variante C) */
-.xtbl{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
-.xtbl th,.xtbl td{padding:11px 12px;text-align:center;border-bottom:1px solid var(--bor2)}
-.xtbl th{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px}
-.xtbl th.who,.xtbl td.who{text-align:left}
-.xtbl thead th{position:sticky;top:0;background:var(--sur);z-index:1}
-.xtbl tbody tr:hover{background:var(--sur2)}
-.xcell{display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:7px;font-size:14px}
-.xcell.yes{background:var(--bg-success);color:var(--fg-success)}
-.xcell.no{background:var(--sur3);color:var(--t3)}
-.xcell.all{background:rgba(124,58,237,.16);color:var(--pur)}
-
 /* ── Overlay / Modale (style app : .ov .modal .m-head .m-body .m-foot) ── */
 .ov{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
 .ov.hidden{display:none}
@@ -221,9 +201,23 @@ button{font-family:inherit}
 .scipick .nm{font-weight:600;font-size:13.5px;color:var(--t1)}
 .scipick .sub{font-size:11.5px;color:var(--t3)}
 
-/* Bloc rôle figé */
-.rolebox{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:var(--r);background:var(--bg-success);border:1px solid rgba(22,163,74,.25);font-size:12.5px;color:var(--fg-success);line-height:1.45}
-.rolebox b{color:var(--fg-success)}
+/* Choix du MODE D'ACCÈS (Écriture / Lecture) dans l'invitation — 2 cartes radio */
+.modepick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modeopt{display:flex;gap:11px;align-items:flex-start;padding:12px 13px;border:1.5px solid var(--bor);border-radius:var(--r);background:var(--sur2);cursor:pointer;transition:.12s}
+.modeopt:hover{border-color:var(--blu)}
+.modeopt.on{border-color:var(--blu);background:var(--bg-info)}
+.modeopt .mo-ic{font-size:18px;line-height:1.2;flex-shrink:0}
+.modeopt .mo-nm{font-weight:700;font-size:13.5px;color:var(--t1);display:flex;align-items:center;gap:6px}
+.modeopt .mo-sub{font-size:11.5px;color:var(--t3);margin-top:3px;line-height:1.4}
+.modeopt .mo-radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--bor);flex-shrink:0;margin-left:auto;position:relative;transition:.12s}
+.modeopt.on .mo-radio{border-color:var(--blu)}
+.modeopt.on .mo-radio::after{content:'';position:absolute;inset:2px;border-radius:50%;background:var(--blu)}
+.frame.f-phone .modepick{grid-template-columns:1fr}
+
+/* Encadré récap du mode choisi (remplace l'ancien bloc rôle figé) */
+.rolebox{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:var(--r);background:var(--bg-info);border:1px solid rgba(59,126,246,.22);font-size:12.5px;color:var(--t2);line-height:1.45}
+.rolebox b{color:var(--t1)}
+.rolebox.read{background:var(--sur3);border-color:var(--bor)}
 
 /* Bloc partage multicanal (copié de .bss-* de l'app) */
 .bss-ctx{display:flex;gap:12px;align-items:center;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:14px}
@@ -260,6 +254,20 @@ button{font-family:inherit}
 .copresence-pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--bg-success);color:var(--fg-success);border:1px solid rgba(16,185,129,.3)}
 .copresence-pill .live-dot{width:8px;height:8px;border-radius:50%;background:var(--grn);animation:pulse 1.6s infinite}
 
+/* Pastille de co-présence PERMANENTE dans l'en-tête de l'app (avatars empilés + libellé) */
+.hdr-presence{display:inline-flex;align-items:center;gap:7px;cursor:default;position:relative}
+.hdr-presence:empty{display:none}
+.hdr-presence .stack{display:inline-flex;align-items:center}
+.hdr-presence .stack .pav{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff;border:2px solid var(--sur);position:relative}
+.hdr-presence .stack .pav+.pav{margin-left:-8px}
+.hdr-presence .stack .pav .live{position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border-radius:50%;background:var(--grn);border:1.5px solid var(--sur);animation:pulse 1.6s infinite}
+.hdr-presence .lbl-live{font-size:11px;font-weight:700;color:var(--fg-success);letter-spacing:.2px}
+/* tooltip custom au survol */
+.hdr-presence .tip{position:absolute;top:130%;right:0;background:var(--t1);color:var(--bg);font-size:11.5px;font-weight:500;line-height:1.45;padding:8px 11px;border-radius:8px;box-shadow:var(--shadow-lg);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:80}
+.hdr-presence:hover .tip{opacity:1}
+.hdr-presence .tip b{font-weight:700}
+.frame.f-phone .hdr-presence .lbl-live{display:none}
+
 .divider{height:1px;background:var(--bor);margin:18px 0}
 .hint{font-size:11.5px;color:var(--t3);margin-top:8px;line-height:1.5}
 .kpi-mini{background:var(--sur2);border-radius:var(--r);padding:11px 13px;text-align:center}
@@ -267,10 +275,6 @@ button{font-family:inherit}
 .kpi-mini .l{font-size:10.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-top:2px}
 
 .hide{display:none!important}
-
-/* note de variante (chrome only) */
-.vnote{font-size:11.5px;color:var(--t3);background:var(--sur2);border:1px dashed var(--bor);border-radius:var(--r);padding:8px 12px;margin-bottom:16px;line-height:1.5}
-.vnote b{color:var(--t2)}
 
 /* responsive interne au frame téléphone */
 .frame.f-phone .app{flex-direction:column;min-height:auto}
@@ -285,8 +289,6 @@ button{font-family:inherit}
 .frame.f-phone .tabs{overflow-x:auto;flex-wrap:nowrap}
 .frame.f-phone .mrow{flex-wrap:wrap}
 .frame.f-phone .mrow .acts{width:100%;justify-content:flex-end;margin-top:6px}
-.frame.f-phone .xtbl{font-size:11.5px}
-.frame.f-phone .xtbl th,.frame.f-phone .xtbl td{padding:8px 5px}
 
 .frame.f-tablet .main{padding:20px 20px}
 .frame.f-tablet .bss-chans{grid-template-columns:repeat(4,1fr)}
@@ -296,18 +298,10 @@ button{font-family:inherit}
 
 <div class="gallery-head">
   <h1>Mockup — Partage par SCI (multi-utilisateurs)</h1>
-  <p>Inviter un partenaire (lien/email) · rôle gestionnaire · scope par SCI · facturation add-on · co-présence live. Maquette de design — pas l'implémentation.</p>
+  <p>Inviter un partenaire (lien/email) · mode écriture / lecture · périmètre par SCI (et Perso) · 1er partenaire offert puis +3 €/mois · co-présence live. Maquette de design — pas l'implémentation.</p>
 </div>
 
 <div class="controls">
-  <div class="ctl">
-    <span class="lbl">Variante (écran « Partage & accès »)</span>
-    <div class="seg" id="seg-variant">
-      <button data-v="A" class="act" onclick="setVariant('A')">A · par SCI</button>
-      <button data-v="B" onclick="setVariant('B')">B · par membre</button>
-      <button data-v="C" onclick="setVariant('C')">C · tableau croisé</button>
-    </div>
-  </div>
   <div class="ctl">
     <span class="lbl">Format</span>
     <div class="seg" id="seg-format">
@@ -339,6 +333,9 @@ button{font-family:inherit}
     <div class="frame-bar">
       <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
       <span class="url" id="url-bar">app.lodyo.fr/#reglages/partage</span>
+      <span style="flex:1"></span>
+      <!-- Pastille de co-présence PERMANENTE dans l'en-tête de l'app -->
+      <span class="hdr-presence" id="hdr-presence" title=""></span>
     </div>
 
     <div class="app" id="app" style="position:relative">
@@ -354,7 +351,7 @@ button{font-family:inherit}
         <div class="ni act" id="ni-reglages"><span class="ico">⚙️</span><span class="ni-label">Réglages</span></div>
         <div class="sb-foot">
           <div class="sb-av" id="sb-av">DK</div>
-          <div class="sb-uinfo"><div class="sb-uname" id="sb-uname">Didier Keller</div><div class="sb-urole" id="sb-urole">Propriétaire</div></div>
+          <div class="sb-uinfo"><div class="sb-uname" id="sb-uname">Didier Keller</div><div class="sb-urole" id="sb-urole">Votre espace</div></div>
         </div>
       </nav>
 
@@ -375,10 +372,17 @@ const SCIS = [
   { id:'perso',   nom:'Perso',             color:'#10B981', biens:2, loyer:'1 540 €/mois' },
 ];
 const ME = { name:'Didier Keller', email:'didierkeller@gmail.com', initials:'DK', color:'#3b7ef6' };
-const PARTNER = { name:'Marie Lefèvre', email:'marie@exemple.fr', initials:'ML', color:'#F59E0B', scis:['martin'] };
+/* Plusieurs partenaires : Marie = co-gestionnaire (écriture) ; Agence Foch = lecture seule (cas agence→proprio) */
+const PARTNERS = [
+  { id:'marie',  name:'Marie Lefèvre',     email:'marie@exemple.fr',         initials:'ML', color:'#F59E0B', scis:['martin'],          mode:'write', since:'12 juin 2026', last:'il y a 8 min' },
+  { id:'agence', name:'Agence Foch Immo',  email:'gestion@agence-foch.fr',   initials:'AF', color:'#7C3AED', scis:['dupont'],          mode:'read',  since:'2 juin 2026',  last:'il y a 2 h' },
+];
+/* Partenaire « principal » utilisé par les scènes co-présence / partenaire */
+const PARTNER = PARTNERS[0];
 
 /* État de l'invitation (scène B) */
 let inviteSel = { martin:false, dupont:false, perso:false };
+let inviteMode = 'write';            // 'write' (défaut) | 'read'
 let inviteLinkGenerated = false;
 
 /* ════════════════ HELPERS RENDU ════════════════ */
@@ -388,6 +392,7 @@ function avatar(initials,color,cls=''){ return `<div class="av ${cls}" style="ba
 function sciById(id){ return SCIS.find(s=>s.id===id); }
 
 /* ════════════════ SCÈNE A — Partage & accès (3 variantes) ════════════════ */
+const ADDON = 3;   // € / mois par partenaire supplémentaire (au-delà du 1er offert)
 function billingCard(used,included){
   const extra = Math.max(0, used-included);
   const pct = Math.min(100, Math.round(used/Math.max(included,used,1)*100));
@@ -395,31 +400,27 @@ function billingCard(used,included){
     <div class="bill-row">
       <div>
         <div style="font-weight:700;color:var(--t1);font-size:13.5px">💳 Partenaires invités</div>
-        <div class="sm mu" style="margin-top:2px">${used} / ${included} inclus dans votre abonnement${extra>0?` · <b style="color:var(--acc)">+${extra} payant${extra>1?'s':''}</b>`:''}</div>
+        <div class="sm mu" style="margin-top:2px">${used} partenaire${used>1?'s':''} · <b style="color:var(--fg-success)">1er offert</b>${extra>0?` · <b style="color:var(--acc)">${extra} facturé${extra>1?'s':''}</b>`:''}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-family:'Manrope';font-weight:800;font-size:18px;color:var(--t1)">${extra>0?(extra*9)+' €':'0 €'}<span class="sm mu" style="font-weight:600">/mois</span></div>
-        <div class="sm t3">add-on partenaire</div>
+        <div style="font-family:'Manrope';font-weight:800;font-size:18px;color:var(--t1)">${extra>0?(extra*ADDON)+' €':'0 €'}<span class="sm mu" style="font-weight:600">/mois</span></div>
+        <div class="sm t3">add-on partenaires</div>
       </div>
     </div>
     <div class="bill-meter"><i style="width:${pct}%"></i></div>
-    <div class="hint">Abonnement de base <b style="color:var(--t2)">Lodyo Pro — 19 €/mois</b> · chaque partenaire supplémentaire = <b style="color:var(--t2)">+9 €/mois</b>. Premier partenaire inclus.</div>
+    <div class="hint">Abonnement de base <b style="color:var(--t2)">Lodyo Pro — 19 €/mois</b> · <b style="color:var(--fg-success)">1er partenaire offert</b>, puis <b style="color:var(--t2)">+${ADDON} €/mois</b> par partenaire supplémentaire.</div>
   </div>`;
 }
 
 function sceneOwner(){
-  let body = '';
-  if(currentVariant==='A') body = variantA();
-  else if(currentVariant==='B') body = variantB();
-  else body = variantC();
-
+  const usedPartners = PARTNERS.length;
   return `
     <div class="pg-head">
       <div>
         <h1 class="pg-title">Partage &amp; accès</h1>
-        <p class="pg-sub">Invitez un partenaire à co-gérer une ou plusieurs SCI. Il accède en écriture (gestionnaire) uniquement aux SCI que vous partagez — jamais aux autres ni à votre Perso.</p>
+        <p class="pg-sub">Invitez une personne à accéder à un ou plusieurs périmètres (SCI ou Perso). En <b>écriture</b>, vous co-gérez à parts égales ; en <b>lecture</b>, la personne consulte sans modifier. Chacun n'accède qu'aux périmètres que vous partagez.</p>
       </div>
-      <button class="btn bp" onclick="openInvite()">➕ Inviter un partenaire</button>
+      <button class="btn bp" onclick="openInvite()">➕ Inviter une personne</button>
     </div>
 
     <div class="tabs">
@@ -429,152 +430,154 @@ function sceneOwner(){
       <div class="tab">⚙️ Global</div>
     </div>
 
-    ${billingCard(1,1)}
+    ${billingCard(usedPartners,1)}
     <div style="height:16px"></div>
-    ${body}
+    ${membersView()}
   `;
 }
 
-/* — Variante A : liste PAR SCI (chaque SCI = un bloc, ses membres dessous) — */
-function variantA(){
-  const blocks = SCIS.map(s=>{
-    const owner = `<div class="member-mini">
-        ${avatar(ME.initials,ME.color,'sm')}
-        <div class="grow"><span class="nm">${ME.name}</span> <span class="badge b-owner" style="margin-left:4px">Propriétaire</span><div class="em">${ME.email}</div></div>
-      </div>`;
-    const partners = (PARTNER.scis.includes(s.id) ? [PARTNER] : []).map(p=>`
-      <div class="member-mini">
-        ${avatar(p.initials,p.color,'sm')}
-        <div class="grow"><span class="nm">${p.name}</span> <span class="badge b-info" style="margin-left:4px">Gestionnaire</span><div class="em">${p.email}</div></div>
-        <button class="icbtn danger" title="Retirer l'accès" onclick="confirmRemove('${p.name}','${s.nom}')">✕</button>
-      </div>`).join('');
-    const empty = (!PARTNER.scis.includes(s.id)) ? `<div class="sm t3" style="font-style:italic">Aucun partenaire — vous seul y accédez.</div>` : '';
-    return `<div class="sciblk">
-      <div class="sciblk-h">${sciDot(s.color)}<span class="nm">${s.nom}</span>
-        <span class="badge b-mute">${s.biens} biens</span>
-        <button class="btn bs bb" onclick="openInvite('${s.id}')">+ Inviter ici</button>
-      </div>
-      <div class="sciblk-b">${owner}${partners}${empty}</div>
-    </div>`;
-  }).join('');
-  return `<div class="vnote"><b>Variante A — par SCI.</b> Une carte par SCI, ses membres listés dessous. On voit d'un coup « qui touche à quoi » SCI par SCI.</div>
-    <div class="ct">Vos SCI &amp; qui y accède</div>${blocks}`;
-}
-
-/* — Variante B : liste PAR MEMBRE (toi + chaque partenaire = une carte, ses SCI en chips) — */
-function variantB(){
+/* — Écran « Partage & accès » : une carte PAR PERSONNE, ses périmètres en pastilles —
+   Modèle de rôle : pas de « Propriétaire / Gestionnaire ». Mode d'accès Écriture / Lecture.
+   • Écriture → membres égaux (co-gestionnaires), aucun label de hiérarchie.
+   • Lecture  → badge discret « Lecture ». */
+function membersView(){
+  /* Votre carte : « vous » discret, pas de « Propriétaire ». Accès à tout. */
   const meCard = `<div class="card" style="padding:16px 18px">
     <div class="flex-c" style="margin-bottom:10px">
       ${avatar(ME.initials,ME.color)}
-      <div class="grow"><div class="name" style="font-size:14.5px;font-weight:700">${ME.name} <span class="badge b-owner">Propriétaire</span></div><div class="sm t3">${ME.email}</div></div>
+      <div class="grow"><div class="name" style="font-size:14.5px;font-weight:700">${ME.name} <span class="badge b-you" title="Votre compte">vous</span></div><div class="sm t3">${ME.email}</div></div>
     </div>
-    <div class="sm mu" style="margin-bottom:7px">Accès complet — toutes les SCI + votre Perso :</div>
+    <div class="sm mu" style="margin-bottom:7px">Accès à tous vos périmètres :</div>
     <div class="row">${SCIS.map(sciChip).join('')}</div>
   </div>`;
 
-  const partnerCard = `<div class="card" style="padding:16px 18px">
+  const partnerCards = PARTNERS.map(p=>{
+    const isRead = p.mode==='read';
+    /* badge UNIQUEMENT si lecture ; en écriture, aucun label de hiérarchie */
+    const badge = isRead ? `<span class="badge b-read" title="Consultation seule">👁 Lecture</span>` : '';
+    const accessLine = isRead ? 'Consulte (lecture seule) :' : 'Co-gère (écriture) :';
+    return `<div class="card" style="padding:16px 18px">
     <div class="flex-b" style="margin-bottom:10px">
       <div class="flex-c">
-        ${avatar(PARTNER.initials,PARTNER.color)}
-        <div class="grow"><div class="name" style="font-size:14.5px;font-weight:700">${PARTNER.name} <span class="badge b-info">Gestionnaire</span></div><div class="sm t3">${PARTNER.email}</div></div>
+        ${avatar(p.initials,p.color)}
+        <div class="grow"><div class="name" style="font-size:14.5px;font-weight:700">${p.name} ${badge}</div><div class="sm t3">${p.email}</div></div>
       </div>
       <div class="acts" style="display:flex;gap:6px">
-        <button class="icbtn" title="Modifier les SCI partagées" onclick="openInvite('martin',true)">✏️</button>
-        <button class="icbtn danger" title="Révoquer tout l'accès" onclick="confirmRemove('${PARTNER.name}','toutes ses SCI')">🗑</button>
+        <button class="icbtn" title="Modifier le périmètre et le mode" onclick="openInvite(null,'${p.id}')">✏️</button>
+        <button class="icbtn danger" title="Révoquer tout l'accès" onclick="confirmRemove('${p.id}','tous ses accès')">🗑</button>
       </div>
     </div>
-    <div class="sm mu" style="margin-bottom:7px">Accède en écriture à :</div>
-    <div class="row">${PARTNER.scis.map(id=>sciChip(sciById(id))).join('')}</div>
+    <div class="sm mu" style="margin-bottom:7px">${accessLine}</div>
+    <div class="row">${p.scis.length?p.scis.map(id=>sciChip(sciById(id))).join(''):'<span class="sm t3" style="font-style:italic">Aucun périmètre — accès révoqué.</span>'}</div>
     <div class="divider"></div>
-    <div class="sm t3">Invité le 12 juin 2026 · dernière activité il y a 8 min</div>
+    <div class="sm t3">Invité${isRead?' (lecture)':''} le ${p.since} · dernière activité ${p.last}</div>
   </div>`;
+  }).join('<div style="height:12px"></div>');
 
-  return `<div class="vnote"><b>Variante B — par membre.</b> Une carte par personne, ses SCI en pastilles. Idéal pour gérer un partenaire (révoquer, voir son périmètre d'un coup).</div>
-    <div class="ct">Membres de votre espace</div>${meCard}<div style="height:12px"></div>${partnerCard}`;
-}
-
-/* — Variante C : tableau croisé SCI × membre — */
-function variantC(){
-  const cols = SCIS.map(s=>`<th>${sciDot(s.color)} ${s.nom.replace('SCI ','SCI<br>')}</th>`).join('');
-  const meRow = `<tr>
-    <td class="who"><div class="flex-c">${avatar(ME.initials,ME.color,'sm')}<div><div style="font-weight:700;font-size:13px">${ME.name}</div><div class="sm t3">Propriétaire</div></div></div></td>
-    ${SCIS.map(()=>`<td><span class="xcell all" title="Propriétaire — accès total">★</span></td>`).join('')}
-  </tr>`;
-  const pRow = `<tr>
-    <td class="who"><div class="flex-c">${avatar(PARTNER.initials,PARTNER.color,'sm')}<div><div style="font-weight:700;font-size:13px">${PARTNER.name}</div><div class="sm t3">Gestionnaire · marie@exemple.fr</div></div></div></td>
-    ${SCIS.map(s=>{
-      const on = PARTNER.scis.includes(s.id);
-      return `<td><span class="xcell ${on?'yes':'no'}" title="${on?'Acces gestionnaire':'Aucun acces'}" style="cursor:pointer" onclick="toggleCross('${s.id}')">${on?'✓':'—'}</span></td>`;
-    }).join('')}
-  </tr>`;
-  return `<div class="vnote"><b>Variante C — tableau croisé.</b> SCI en colonnes × membres en lignes. La grille de qui-accède-à-quoi en un coup d'œil ; cellules cliquables pour ajuster. Scalable si beaucoup de SCI/partenaires.</div>
-    <div class="ct">Matrice d'accès</div>
-    <div class="card" style="padding:6px 10px;overflow-x:auto">
-      <table class="xtbl">
-        <thead><tr><th class="who">Membre</th>${cols}</tr></thead>
-        <tbody>${meRow}${pRow}</tbody>
-      </table>
-    </div>
-    <div class="row" style="margin-top:12px;gap:16px">
-      <span class="flex-c sm mu"><span class="xcell all" style="width:22px;height:22px">★</span> Propriétaire (tout)</span>
-      <span class="flex-c sm mu"><span class="xcell yes" style="width:22px;height:22px">✓</span> Gestionnaire</span>
-      <span class="flex-c sm mu"><span class="xcell no" style="width:22px;height:22px">—</span> Pas d'accès</span>
-    </div>`;
+  return `<div class="ct">Membres de votre espace</div>${meCard}<div style="height:12px"></div>${partnerCards}`;
 }
 
 /* ════════════════ SCÈNE B — Inviter un partenaire (modale) ════════════════ */
-function openInvite(presetSci, editMode){
-  if(presetSci){ inviteSel={martin:false,dupont:false,perso:false}; inviteSel[presetSci]=true; }
-  if(editMode){ inviteSel={martin:true,dupont:false,perso:false}; }
+let editingPartnerId = null;
+function openInvite(presetSci, editPartnerId){
+  inviteSel={martin:false,dupont:false,perso:false};
+  inviteMode='write';
+  editingPartnerId = editPartnerId || null;
+  if(presetSci){ inviteSel[presetSci]=true; }
+  if(editPartnerId){
+    const p = PARTNERS.find(x=>x.id===editPartnerId);
+    if(p){ p.scis.forEach(id=>{ if(id in inviteSel) inviteSel[id]=true; }); inviteMode=p.mode||'write'; }
+  }
   inviteLinkGenerated=false;
-  setScene('invite', {preset:presetSci, edit:editMode});
+  setScene('invite');
 }
 function toggleSci(id){
   inviteSel[id]=!inviteSel[id];
   inviteLinkGenerated=false;
   renderInvite();
 }
+function setInviteMode(m){
+  inviteMode=m;
+  inviteLinkGenerated=false;
+  renderInvite();
+}
 function genLink(){ inviteLinkGenerated=true; renderInvite(); }
 
 function inviteModalHTML(){
+  const editing = editingPartnerId ? PARTNERS.find(p=>p.id===editingPartnerId) : null;
   const chosen = SCIS.filter(s=>inviteSel[s.id]);
   const n = chosen.length;
-  const picks = SCIS.map(s=>`
+  const isRead = inviteMode==='read';
+  const picks = SCIS.map(s=>{
+    const sub = s.id==='perso' ? `Votre patrimoine personnel · ${s.biens} biens` : `${s.biens} biens · ${s.loyer}`;
+    return `
     <label class="scipick ${inviteSel[s.id]?'on':''}" onclick="event.preventDefault();toggleSci('${s.id}')">
       <input type="checkbox" ${inviteSel[s.id]?'checked':''} tabindex="-1">
       ${sciDot(s.color)}
-      <div class="grow"><div class="nm">${s.nom}</div><div class="sub">${s.biens} biens · ${s.loyer}</div></div>
-    </label>`).join('');
+      <div class="grow"><div class="nm">${s.nom}</div><div class="sub">${sub}</div></div>
+    </label>`;}).join('');
 
-  /* facturation contextuelle : 1er partenaire inclus → ici on invite le 1er (gratuit) */
-  const billNote = `<div class="bss-info" style="margin-top:14px;background:var(--bg-success);border-color:rgba(22,163,74,.2);color:var(--fg-success)">
-    💳 <b style="color:var(--fg-success)">Premier partenaire inclus</b> dans votre abonnement Lodyo Pro. Les suivants : +9 €/mois chacun.</div>`;
+  /* Choix du MODE D'ACCÈS — Écriture (défaut) / Lecture */
+  const modePick = `
+    <div class="fg" style="margin-bottom:18px">
+      <label>Mode d'accès</label>
+      <div class="modepick">
+        <div class="modeopt ${!isRead?'on':''}" onclick="setInviteMode('write')">
+          <span class="mo-ic">✏️</span>
+          <div class="grow"><div class="mo-nm">Écriture <span class="badge b-info" style="font-size:9.5px;padding:1px 7px">défaut</span></div>
+            <div class="mo-sub">Co-gère à parts égales : crée, modifie, édite baux, loyers et documents.</div></div>
+          <span class="mo-radio"></span>
+        </div>
+        <div class="modeopt ${isRead?'on':''}" onclick="setInviteMode('read')">
+          <span class="mo-ic">👁</span>
+          <div class="grow"><div class="mo-nm">Lecture</div>
+            <div class="mo-sub">Consultation seule. Ex. : une agence donne au propriétaire un accès en lecture.</div></div>
+          <span class="mo-radio"></span>
+        </div>
+      </div>
+    </div>`;
+
+  /* facturation contextuelle : 1er partenaire offert, suivants +3 €/mois */
+  const nbExisting = PARTNERS.length;
+  const willBeFree = editing ? (PARTNERS[0] && PARTNERS[0].id===editing.id) : (nbExisting===0);
+  const billNote = willBeFree
+    ? `<div class="bss-info" style="margin-top:14px;background:var(--bg-success);border-color:rgba(22,163,74,.2);color:var(--fg-success)">
+        💳 <b style="color:var(--fg-success)">1er partenaire offert</b> dans votre abonnement Lodyo Pro. Partenaires suivants : <b style="color:var(--fg-success)">+${ADDON} €/mois</b> chacun.</div>`
+    : `<div class="bss-info" style="margin-top:14px">
+        💳 <b>1er partenaire offert</b> · ce partenaire supplémentaire : <b style="color:var(--acc)">+${ADDON} €/mois</b>, facturé à la prochaine échéance.</div>`;
+
+  /* récap du mode choisi (remplace l'ancien bloc « rôle ») */
+  const modeBox = isRead
+    ? `<div class="rolebox read">👁 <div>Accès <b>Lecture (consultation seule)</b><br><span style="font-weight:400;opacity:.85">La personne consulte les périmètres choisis sans rien pouvoir modifier ni exporter en son nom. Cas type : une agence laisse au propriétaire un accès lecture.</span></div></div>`
+    : `<div class="rolebox">✏️ <div>Accès <b>Écriture (co-gestion)</b><br><span style="font-weight:400;opacity:.85">La personne et vous êtes co-gestionnaires égaux : créer, modifier et éditer baux, loyers et documents des périmètres choisis. Rien d'autre n'est visible.</span></div></div>`;
 
   /* zone résultat : avant / après génération */
   let result = '';
   if(!inviteLinkGenerated){
     result = `
+      ${modePick}
       <div class="fg">
-        <label>Email du partenaire (optionnel)</label>
-        <input class="inp" value="marie@exemple.fr" placeholder="prénom@exemple.fr">
+        <label>Email de la personne (optionnel)</label>
+        <input class="inp" value="${editing?editing.email:''}" placeholder="prénom@exemple.fr">
         <div class="hint">Laissez vide pour partager seulement par lien / QR.</div>
       </div>
-      <div class="rolebox">🔑 <div>Rôle attribué : <b>Gestionnaire (écriture)</b><br><span style="font-weight:400;opacity:.85">Le partenaire pourra créer, modifier et éditer les baux, loyers et documents des SCI choisies. Il ne verra rien d'autre.</span></div></div>
+      ${modeBox}
       ${billNote}
       <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
-        <button class="btn bp" ${n===0?'disabled':''} onclick="genLink()">${n===0?'Choisissez au moins une SCI':'🔗 Générer l\'invitation'}</button>
+        <button class="btn bp" ${n===0?'disabled':''} onclick="genLink()">${n===0?'Choisissez au moins un périmètre':(editing?'💾 Mettre à jour l\'accès':'🔗 Générer l\'invitation')}</button>
       </div>`;
   } else {
+    const modeLabel = isRead ? 'Lecture' : 'Écriture';
     result = `
       <div class="bss-ctx">
         <div class="bss-ctx-ic">🤝</div>
-        <div><div class="bss-ctx-t">Invitation prête</div>
-          <div class="bss-ctx-s">${PARTNER.name||'Votre partenaire'} accédera à : ${chosen.map(s=>s.nom).join(', ')} · rôle <b>Gestionnaire</b></div></div>
+        <div><div class="bss-ctx-t">${editing?'Accès mis à jour':'Invitation prête'}</div>
+          <div class="bss-ctx-s">${editing?editing.name:'Votre invité'} accédera à : ${chosen.map(s=>s.nom).join(', ')} · mode <b>${modeLabel}</b></div></div>
       </div>
       <div class="fg">
         <label>Lien d'invitation sécurisé</label>
         <div class="bss-linkbox">
-          <div class="url">https://app.lodyo.fr/rejoindre/3f9a-${chosen.map(s=>s.id[0]).join('')}-x82k</div>
+          <div class="url">https://app.lodyo.fr/rejoindre/3f9a-${chosen.map(s=>s.id[0]).join('')}-${isRead?'ro':'rw'}-x82k</div>
           <button class="btn bp" onclick="toast('Lien copié ✓')">📋 Copier</button>
         </div>
       </div>
@@ -588,20 +591,20 @@ function inviteModalHTML(){
       </div>
       <div id="qr-wrap" class="hide" style="text-align:center;margin-top:14px">
         ${fakeQR()}
-        <div class="sm t3" style="margin-top:8px">Le partenaire scanne pour rejoindre depuis son mobile.</div>
+        <div class="sm t3" style="margin-top:8px">La personne scanne pour rejoindre depuis son mobile.</div>
       </div>
-      <div class="bss-info">🔒 À l'ouverture du lien, le partenaire crée son compte (ou se connecte) et rejoint instantanément. Il accède en écriture aux SCI listées. Vous pouvez révoquer l'accès à tout moment depuis cet écran.</div>`;
+      <div class="bss-info">🔒 À l'ouverture du lien, la personne crée son compte (ou se connecte) et rejoint instantanément. Elle accède en <b>${modeLabel.toLowerCase()}</b> aux périmètres listés. Vous pouvez révoquer ou changer le mode à tout moment depuis cet écran.</div>`;
   }
 
   return `
     <div class="ov" onclick="if(event.target===this) backToOwner()">
       <div class="modal" onclick="event.stopPropagation()">
-        <div class="m-head"><h3>🤝 Inviter un partenaire</h3><button class="m-close" onclick="backToOwner()">✕</button></div>
+        <div class="m-head"><h3>🤝 ${editing?'Modifier l\'accès':'Inviter une personne'}</h3><button class="m-close" onclick="backToOwner()">✕</button></div>
         <div class="m-body">
           <div class="fg" style="margin-bottom:18px">
-            <label>Quelle(s) SCI partager ?${n>0?` <span class="badge b-info" style="margin-left:6px">${n} sélectionnée${n>1?'s':''}</span>`:''}</label>
+            <label>Quel(s) périmètre(s) partager ?${n>0?` <span class="badge b-info" style="margin-left:6px">${n} sélectionné${n>1?'s':''}</span>`:''}</label>
             <div style="display:flex;flex-direction:column;gap:9px">${picks}</div>
-            ${n===0?'<div class="hint">Cochez au moins une SCI. Votre <b>Perso</b> peut aussi être partagé si besoin.</div>':''}
+            ${n===0?'<div class="hint">Cochez au moins un périmètre. Votre <b>Perso</b> se partage comme une SCI (ex. conjoints qui partagent le patrimoine perso).</div>':''}
           </div>
           <div class="divider"></div>
           ${result}
@@ -624,15 +627,12 @@ function fakeQR(){
   return `<div class="qrbox">${cells}</div>`;
 }
 function toggleQR(){ const w=document.getElementById('qr-wrap'); if(w) w.classList.toggle('hide'); }
-function backToOwner(){ setScene('owner'); }
-function toggleCross(id){
-  const i=PARTNER.scis.indexOf(id);
-  if(i>=0) PARTNER.scis.splice(i,1); else PARTNER.scis.push(id);
-  renderScene();
-}
-function confirmRemove(name,scope){
-  showConfirm(`Retirer l'accès de <b>${name}</b> à <b>${scope}</b> ?`, ()=>{
-    if(scope.startsWith('toutes')){ PARTNER.scis=[]; } else { PARTNER.scis=[]; }
+function backToOwner(){ editingPartnerId=null; setScene('owner'); }
+function confirmRemove(partnerId,scope){
+  const p = PARTNERS.find(x=>x.id===partnerId);
+  if(!p) return;
+  showConfirm(`Retirer l'accès de <b>${p.name}</b> à <b>${scope}</b> ?`, ()=>{
+    p.scis=[];
     toast('Accès révoqué');
     renderScene();
   });
@@ -640,19 +640,19 @@ function confirmRemove(name,scope){
 
 /* ════════════════ SCÈNE C — Vue du partenaire ════════════════ */
 function scenePartner(){
-  /* seul SCI Martin visible ; pas de Dupont, pas de Perso */
+  /* seul SCI Martin visible ; pas de Dupont, pas de Perso. Marie = écriture (co-gestion). */
   const sci = sciById('martin');
   return `
     <div class="pbanner">
       <span class="ic">🤝</span>
-      <div>Vous accédez à la <b>SCI Martin</b>, partagée par <b>Didier Keller</b> — rôle <b>Gestionnaire</b>. Vos modifications sont enregistrées et visibles par le propriétaire.</div>
+      <div>Vous co-gérez la <b>SCI Martin</b>, partagée par <b>Didier Keller</b> — accès en <b>écriture</b>. Vos modifications sont enregistrées et visibles par les autres membres.</div>
     </div>
     <div class="pg-head">
       <div>
         <h1 class="pg-title">Tableau de bord</h1>
         <p class="pg-sub">Espace partagé · ${sci.nom}</p>
       </div>
-      <span class="copresence-pill"><span class="live-dot"></span>Connecté en tant que partenaire</span>
+      <span class="copresence-pill"><span class="live-dot"></span>Connectée · accès écriture</span>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:8px 0 20px">
@@ -689,7 +689,7 @@ function sceneBilling(){
     <div class="pg-head">
       <div>
         <h1 class="pg-title">Abonnement &amp; partenaires</h1>
-        <p class="pg-sub">Votre formule et le coût des accès partagés. Le premier partenaire est inclus ; chaque accès supplémentaire est un add-on mensuel.</p>
+        <p class="pg-sub">Votre formule et le coût des accès partagés. Le 1er partenaire est offert ; chaque accès supplémentaire est un add-on de ${ADDON} €/mois.</p>
       </div>
     </div>
 
@@ -710,32 +710,41 @@ function sceneBilling(){
     <div class="card">
       <div class="ct" style="margin:0 0 12px">Partenaires &amp; add-ons</div>
       <div class="lst" style="margin-bottom:14px">
-        <div class="mrow" style="cursor:default">
-          ${avatar(PARTNER.initials,PARTNER.color,'sm')}
-          <div class="grow"><div class="name">${PARTNER.name}</div><div class="meta">SCI Martin · gestionnaire</div></div>
-          <span class="badge b-ok">Inclus</span>
-        </div>
+        ${PARTNERS.map((p,i)=>{
+          const free = i===0;
+          const modeTxt = p.mode==='read' ? 'lecture' : 'écriture';
+          const periTxt = p.scis.map(id=>sciById(id).nom).join(', ') || '—';
+          return `<div class="mrow" style="cursor:default">
+            ${avatar(p.initials,p.color,'sm')}
+            <div class="grow"><div class="name">${p.name}</div><div class="meta">${periTxt} · ${modeTxt}</div></div>
+            ${free?'<span class="badge b-ok">Offert</span>':`<span class="badge b-info">+${ADDON} €/mois</span>`}
+          </div>`;
+        }).join('')}
         <div class="mrow" style="border-style:dashed;cursor:pointer;color:var(--t2)" onclick="openInvite()">
           <span style="font-size:18px;width:28px;text-align:center">➕</span>
-          <div class="grow"><div class="name" style="color:var(--acc)">Inviter un 2ᵉ partenaire</div><div class="meta">+9 €/mois — facturé sur votre prochaine échéance</div></div>
+          <div class="grow"><div class="name" style="color:var(--acc)">Inviter une personne de plus</div><div class="meta">+${ADDON} €/mois — facturé sur votre prochaine échéance</div></div>
         </div>
       </div>
       <div class="bill">
-        <div class="bill-row">
-          <div class="sm mu">Récapitulatif mensuel</div>
-          <div style="font-family:'Manrope';font-weight:800;font-size:20px;color:var(--t1)">19 €<span class="sm mu" style="font-weight:600">/mois</span></div>
-        </div>
-        <div class="divider" style="margin:10px 0"></div>
-        <div class="bill-row sm mu"><span>Lodyo Pro</span><span>19 €</span></div>
-        <div class="bill-row sm mu" style="margin-top:4px"><span>Partenaire 1 (${PARTNER.name})</span><span style="color:var(--fg-success);font-weight:700">inclus</span></div>
-        <div class="bill-row sm mu" style="margin-top:4px;opacity:.6"><span>Partenaire 2+ (si invité)</span><span>+9 € / partenaire</span></div>
+        ${(()=>{
+          const extra = Math.max(0, PARTNERS.length-1);
+          const total = 19 + extra*ADDON;
+          let rows = `<div class="bill-row sm mu"><span>Lodyo Pro</span><span>19 €</span></div>
+            <div class="bill-row sm mu" style="margin-top:4px"><span>${PARTNERS[0]?PARTNERS[0].name:'Partenaire 1'} (1er partenaire)</span><span style="color:var(--fg-success);font-weight:700">offert</span></div>`;
+          PARTNERS.slice(1).forEach(p=>{ rows += `<div class="bill-row sm mu" style="margin-top:4px"><span>${p.name}</span><span>+${ADDON} €</span></div>`; });
+          return `<div class="bill-row">
+              <div class="sm mu">Récapitulatif mensuel</div>
+              <div style="font-family:'Manrope';font-weight:800;font-size:20px;color:var(--t1)">${total} €<span class="sm mu" style="font-weight:600">/mois</span></div>
+            </div>
+            <div class="divider" style="margin:10px 0"></div>${rows}`;
+        })()}
       </div>
     </div>
   `;
 }
 
 /* ════════════════ ROUTAGE / RENDU ════════════════ */
-let currentScene='owner', currentVariant='A', currentFormat='desktop', currentTheme='sobre';
+let currentScene='owner', currentFormat='desktop', currentTheme='sobre';
 let copresenceSceneActive=false;
 
 const SCENES = {
@@ -754,11 +763,11 @@ function renderScene(){
   /* user dans la sidebar */
   const uname=document.getElementById('sb-uname'), urole=document.getElementById('sb-urole'), av=document.getElementById('sb-av');
   if(s.user==='partner'){
-    uname.textContent='Marie Lefèvre'; urole.textContent='Partenaire · SCI Martin'; av.textContent='ML'; av.style.background='#F59E0B';
+    uname.textContent='Marie Lefèvre'; urole.textContent='Accès écriture · SCI Martin'; av.textContent='ML'; av.style.background='#F59E0B';
     document.getElementById('ni-biens').textContent='Biens (SCI Martin)';
     document.getElementById('sb-edition').textContent='ESPACE PARTAGÉ';
   } else {
-    uname.textContent='Didier Keller'; urole.textContent='Propriétaire'; av.textContent='DK'; av.style.background='#3b7ef6';
+    uname.textContent='Didier Keller'; urole.textContent='Votre espace'; av.textContent='DK'; av.style.background='#3b7ef6';
     document.getElementById('ni-biens').textContent='Biens';
     document.getElementById('sb-edition').textContent='GESTION LOCATIVE';
   }
@@ -770,24 +779,38 @@ function renderScene(){
   const host=document.getElementById('overlay-host');
   host.innerHTML = s.modal ? s.modal() : '';
 
-  /* co-présence */
+  /* pastille de co-présence PERMANENTE dans l'en-tête */
+  renderHeaderPresence(s);
+
+  /* co-présence (popup transitoire en plus) */
   copresenceSceneActive = !!s.copresence;
   if(s.copresence){ showCopresence(); }
+}
+
+/* Pastille permanente : qui est en ligne dans l'espace en ce moment.
+   - côté propriétaire : montre les partenaires actifs (ici Marie sur SCI Martin)
+   - côté partenaire : montre le propriétaire actif */
+function renderHeaderPresence(s){
+  const host = document.getElementById('hdr-presence');
+  if(!host) return;
+  if(s.user==='partner'){
+    host.innerHTML = `
+      <span class="stack"><span class="pav" style="background:#3b7ef6">DK<span class="live"></span></span></span>
+      <span class="lbl-live">En ligne</span>
+      <span class="tip"><b>Didier Keller</b> consulte la SCI Martin · synchro en direct</span>`;
+  } else {
+    /* Marie (écriture) est active sur SCI Martin */
+    host.innerHTML = `
+      <span class="stack"><span class="pav" style="background:#F59E0B">ML<span class="live"></span></span></span>
+      <span class="lbl-live">1 en ligne</span>
+      <span class="tip"><b>Marie</b> modifie la SCI Martin en ce moment · synchro en direct</span>`;
+  }
 }
 function renderInvite(){ document.getElementById('overlay-host').innerHTML = inviteModalHTML(); }
 
 function setScene(sc){
   currentScene=sc;
   document.querySelectorAll('#scene-nav button').forEach(b=>b.classList.toggle('act', b.dataset.s===sc));
-  /* variant switcher seulement utile sur owner/copresence */
-  const segV = document.getElementById('seg-variant').parentElement;
-  segV.style.opacity = (sc==='owner'||sc==='copresence') ? '1' : '.4';
-  segV.style.pointerEvents = (sc==='owner'||sc==='copresence') ? 'auto' : 'none';
-  renderScene();
-}
-function setVariant(v){
-  currentVariant=v;
-  document.querySelectorAll('#seg-variant button').forEach(b=>b.classList.toggle('act', b.dataset.v===v));
   renderScene();
 }
 function setFormat(f){
