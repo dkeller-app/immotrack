@@ -38,7 +38,9 @@ const sizeOf = c => (Array.isArray(c) ? c.length : (c && typeof c === 'object' ?
 // DÉCOUPLAGE cloud↔Drive — espace courant (posé au login) pour résoudre les chemins Supabase Storage des
 // fichiers : `<espaceId>/files/<idbKey>`. Lu par le helper window.__immoCloudFileUrl (ouverture de documents).
 let _cloudEspaceId = null
+let _cloudOwnerId = null  // owner de l'espace (posé au login) = namespace du detUuid → résout l'entite_id d'une SCI (chemin Storage par-SCI)
 let _supaClient = null   // client supabase (posé au boot) — pour le canal Realtime de synchro live
+let _makeDetUuid = null  // fabrique d'uuid déterministe (importée au boot) — pour window.__immoEntiteUuid
 
 // En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
 // n'a aucune raison d'etre : on a notre propre overlay de login + la vraie app cloud. S'il reste leve, il
@@ -60,15 +62,30 @@ async function boot() {
   })
   _supaClient = client
   const api = createBoot(client)
+  try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
+
+  // DÉCOUPLAGE — entite_id DÉTERMINISTE d'une SCI (par NOM), pour le chemin Storage par-SCI
+  // (<espace>/<entite_id>/files/<clé>). MÊME dérivation que store-mapping (mapper entites) : detUuid sur le
+  // namespace owner + ('entite', nom normalisé trim+lowercase). null si owner/fabrique pas prêts → orphelin.
+  window.__immoEntiteUuid = function (nom) {
+    try {
+      if (!_cloudOwnerId || !_makeDetUuid) return null
+      return _makeDetUuid(_cloudOwnerId)('entite', String(nom == null ? '' : nom).trim().toLowerCase())
+    } catch (e) { return null }
+  }
 
   // DÉCOUPLAGE cloud↔Drive — helper global d'URL signée Storage. En mode cloud, index.html ouvre un
   // document via son idbKey → URL signée courte (5 min) du fichier dans Supabase Storage, à la place du
   // lien Drive. Retourne null si pas d'espace résolu, pas d'idbKey, ou objet absent (ex. doc Drive-only
   // non migré → le caller affiche un message). Capture `client` (closure boot) ; lit _cloudEspaceId (login).
-  window.__immoCloudFileUrl = async function (idbKey, expiresIn) {
+  window.__immoCloudFileUrl = async function (pathOrKey, expiresIn) {
     try {
-      if (!_cloudEspaceId || !idbKey) return null
-      const { data, error } = await client.storage.from('espace-files').createSignedUrl(_cloudEspaceId + '/files/' + idbKey, expiresIn || 300)
+      if (!_cloudEspaceId || !pathOrKey) return null
+      // pathOrKey = chemin complet par-SCI (<espace>/<seg>/files/<clé>, contient '/files/') OU clé nue
+      // LEGACY (uploads d'avant le par-SCI) → reconstruit l'ancien chemin <espace>/files/<clé>. Rétro-compat.
+      const isFullPath = String(pathOrKey).indexOf('/files/') !== -1
+      const objPath = isFullPath ? pathOrKey : (_cloudEspaceId + '/files/' + pathOrKey)
+      const { data, error } = await client.storage.from('espace-files').createSignedUrl(objPath, expiresIn || 300)
       return error ? null : ((data && data.signedUrl) || null)
     } catch (e) { return null }
   }
@@ -76,12 +93,22 @@ async function boot() {
   // DÉCOUPLAGE cloud↔Drive — upload d'un blob vers Supabase Storage (`<espaceId>/files/<idbKey>`, upsert).
   // Sert à ARCHIVER le PDF du bail signé au moment de la signature (le blob existe dans la fenêtre de
   // signature) → le bouton « PDF » et le partage le rouvrent via __immoCloudFileUrl. Retourne true/false.
-  window.__immoCloudUpload = async function (idbKey, blob, contentType) {
+  window.__immoCloudUpload = async function (idbKey, blob, contentType, entiteSeg) {
     try {
-      if (!_cloudEspaceId || !idbKey || !blob) return false
-      const { error } = await client.storage.from('espace-files').upload(_cloudEspaceId + '/files/' + idbKey, blob, { contentType: contentType || 'application/pdf', upsert: true })
-      return !error
-    } catch (e) { return false }
+      if (!_cloudEspaceId || !idbKey || !blob) return null
+      // Chemin PAR-SCI : <espace>/<entite_id>/files/<clé> (ou /_orphelin/ si SCI non résolue → membre plein
+      // only côté RLS, cf migration 0031). entiteSeg = uuid d'entité via window.__immoEntiteUuid, ou falsy.
+      // RETOURNE le chemin complet (string, à STOCKER pour la relecture) ou null si échec.
+      // entiteSeg fourni (câblage par-SCI) → <espace>/<entiteSeg>/files/<clé> (uuid de SCI ou '_orphelin').
+      // ABSENT (ancien appelant, ex. index.html pas encore rafraîchi via le SW) → chemin LEGACY
+      // <espace>/files/<clé> : rétro-compat, l'ancien appelant stocke la clé nue et relit via le legacy.
+      // → aucune fenêtre cassée pendant un déploiement (entry réseau-first vs index.html bumpé).
+      const path = (entiteSeg == null)
+        ? (_cloudEspaceId + '/files/' + idbKey)
+        : (_cloudEspaceId + '/' + entiteSeg + '/files/' + idbKey)
+      const { error } = await client.storage.from('espace-files').upload(path, blob, { contentType: contentType || 'application/pdf', upsert: true })
+      return error ? null : path
+    } catch (e) { return null }
   }
 
   // déjà connecté (session persistée) → enchaîner direct
@@ -143,6 +170,7 @@ async function onLoggedIn(api, overlay, user) {
   try {
     esp = await api.resolveEspace()
     _cloudEspaceId = esp.espaceId   // DÉCOUPLAGE : permet à window.__immoCloudFileUrl de résoudre les chemins Storage
+    _cloudOwnerId = esp.ownerId     // namespace detUuid (= celui du store) → window.__immoEntiteUuid résout l'entite_id d'une SCI
     api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => liveDB, schedule })
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des
     // données émet « changed » → on affiche une bannière « Actualiser » (rechargement MANUEL = zéro risque
