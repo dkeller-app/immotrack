@@ -323,3 +323,64 @@ describe('P1 — immutabilité de l\'octroi (anti-redirection silencieuse)', () 
     await admin.from('entite_membre').update({ role: rows[0].role }).eq('id', rows[0].id)
   })
 })
+
+// ════════════════════════════════════════════════════════════════════════════
+// P1 — STORAGE par-SCI (migration 0031). Preuve runtime que les FICHIERS sont cloisonnés :
+//   chemin <espace>/<entite_id>/files/<clé>. Un scopé SCI-A lit/écrit SCI-A, jamais SCI-B ni legacy.
+//   L'owner PLEIN lit tout (par-SCI + legacy). Seed via service-role (bypass RLS), lecture via clients RLS.
+// ════════════════════════════════════════════════════════════════════════════
+describe('P1 — étanchéité STORAGE cross-SCI (fichiers par-SCI, migration 0031)', () => {
+  const BUCKET = 'espace-files'
+  const body = Buffer.from(`pdf-${RUN}`)
+  let pathA, pathB, pathLegacy
+  beforeAll(async () => {
+    const admin = adminClient()
+    pathA      = `${espaceA}/${A1.entite}/files/p1a_${RUN}.pdf`   // SCI-A
+    pathB      = `${espaceA}/${A2.entite}/files/p1b_${RUN}.pdf`   // SCI-B
+    pathLegacy = `${espaceA}/files/p1leg_${RUN}.pdf`              // LEGACY (seg2='files' → safe_uuid NULL)
+    for (const p of [pathA, pathB, pathLegacy]) {
+      const { error } = await admin.storage.from(BUCKET).upload(p, body, { contentType: 'application/pdf', upsert: true })
+      if (error) throw new Error(`seed storage ${p}: ${error.message}`)
+    }
+  })
+  afterAll(async () => {
+    await adminClient().storage.from(BUCKET).remove([pathA, pathB, pathLegacy])
+  })
+
+  it('Bob (scopé SCI-A) PEUT télécharger le fichier de SCI-A', async () => {
+    const { data, error } = await clientB.storage.from(BUCKET).download(pathA)
+    expect(error).toBeNull()
+    expect(data).not.toBeNull()
+  })
+  it('Bob NE PEUT PAS télécharger le fichier de SCI-B (fuite cross-SCI bloquée)', async () => {
+    const { data } = await clientB.storage.from(BUCKET).download(pathB)
+    expect(data).toBeNull()
+  })
+  it('Bob NE PEUT PAS télécharger un fichier LEGACY <espace>/files/ (seg2 non-uuid → membre plein only)', async () => {
+    const { data } = await clientB.storage.from(BUCKET).download(pathLegacy)
+    expect(data).toBeNull()
+  })
+  it('Alice (owner PLEIN) PEUT télécharger SCI-A, SCI-B ET legacy', async () => {
+    for (const p of [pathA, pathB, pathLegacy]) {
+      const { data, error } = await clientA.storage.from(BUCKET).download(p)
+      expect(error, `Alice download ${p}`).toBeNull()
+      expect(data, `Alice download ${p}`).not.toBeNull()
+    }
+  })
+  it('Bob (lecture seule SCI-A) NE PEUT PAS uploader dans SCI-A', async () => {
+    const { error } = await clientB.storage.from(BUCKET)
+      .upload(`${espaceA}/${A1.entite}/files/hackB_${RUN}.pdf`, body, { contentType: 'application/pdf' })
+    expect(error).not.toBeNull()
+  })
+  it('Carol (gestionnaire SCI-A) PEUT uploader dans SCI-A', async () => {
+    const p = `${espaceA}/${A1.entite}/files/carol_${RUN}.pdf`
+    const { error } = await clientC.storage.from(BUCKET).upload(p, body, { contentType: 'application/pdf' })
+    expect(error).toBeNull()
+    await adminClient().storage.from(BUCKET).remove([p])
+  })
+  it('Carol (gestionnaire SCI-A) NE PEUT PAS uploader dans SCI-B', async () => {
+    const { error } = await clientC.storage.from(BUCKET)
+      .upload(`${espaceA}/${A2.entite}/files/carolHack_${RUN}.pdf`, body, { contentType: 'application/pdf' })
+    expect(error).not.toBeNull()
+  })
+})

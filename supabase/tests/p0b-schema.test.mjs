@@ -88,14 +88,15 @@ describe('P0-B — schéma & RLS des tables métier', () => {
       it('trigger trg_touch_<table> (version + updated_at)', async () => {
         expect((await inspect(table)).hasTouchTrigger).toBe(true)
       })
-      it('policies non permissives (chaque policy référence is_member/has_role)', async () => {
+      it('policies non permissives (chaque policy référence un garde is_member/has_role/has_entite_access/has_entite_write)', async () => {
         const { policies } = await inspect(table)
         expect(policies.length).toBeGreaterThanOrEqual(4)
         for (const p of policies) {
           // une policy « using(true) » / « with check(true) » serait une faille d'isolation :
-          // on exige que CHAQUE policy s'appuie sur is_member (lecture) ou has_role (écriture).
+          // on exige que CHAQUE policy s'appuie sur un garde — is_member/has_role (espace-level) OU
+          // has_entite_access/has_entite_write (par-SCI, P1 — STRICTS : appellent is_full_member en interne).
           const guard = `${p.qual} ${p.withcheck}`
-          expect(/is_member|has_role/.test(guard), `${table} policy ${p.cmd} : « ${guard.trim()} »`).toBe(true)
+          expect(/is_member|has_role|is_full_member|is_full_manager|has_entite_access|has_entite_write/.test(guard), `${table} policy ${p.cmd} : « ${guard.trim()} »`).toBe(true)
         }
       })
     })
