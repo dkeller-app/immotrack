@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="sobre">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Partage par SCI (multi-utilisateurs)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════════════════════
+   DESIGN TOKENS — copiés EXACTEMENT de css/main.css (3 thèmes)
+   ════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#eef2f7;--sur:rgba(255,255,255,.93);--sur2:rgba(242,246,251,.97);--sur3:rgba(230,236,245,.8);
+  --bor:rgba(0,0,0,.09);--bor2:rgba(0,0,0,.05);
+  --t1:#1a2332;--t2:#5a6e87;--t3:#9aabbf;
+  --blu:#3b7ef6;--grn:#16a34a;--red:#dc2626;--ora:#ea580c;--pur:#7c3aed;--acc:#3b7ef6;
+  --bg-success:rgba(22,163,74,.10);--bg-danger:rgba(220,38,38,.10);--bg-warning:rgba(234,88,12,.12);--bg-info:rgba(59,126,246,.10);
+  --fg-success:#16a34a;--fg-danger:#dc2626;--fg-warning:#ea580c;--fg-info:#3b7ef6;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(59,126,246,.18),0 1px 4px rgba(0,0,0,.07);
+  --shadow-card:0 1px 2px rgba(0,0,0,.04);--shadow-card-hover:0 4px 16px rgba(59,126,246,.10),0 1px 3px rgba(0,0,0,.05);
+  --r:8px;--rl:14px;
+  --t-fast:120ms cubic-bezier(.4,0,.2,1);
+}
+[data-theme="sobre"]{
+  --bg:#F4F6FB;--sur:#FFFFFF;--sur2:#FAFBFD;--sur3:#F0F3F8;--bor:rgba(20,25,54,.08);--bor2:rgba(20,25,54,.04);
+  --t1:#141936;--t2:#525B7A;--t3:#8A94B0;--acc:#0E73F6;--cta:#00B5A6;
+  --blu:#0E73F6;--grn:#10B981;--red:#EF4444;--ora:#F59E0B;--pur:#7C3AED;
+  --bg-success:rgba(16,185,129,.14);--bg-danger:rgba(239,68,68,.14);--bg-warning:rgba(245,158,11,.14);--bg-info:rgba(14,115,246,.14);
+  --fg-success:#10B981;--fg-danger:#EF4444;--fg-warning:#F59E0B;--fg-info:#0E73F6;
+  --shadow:0 4px 20px rgba(20,25,54,.06);--shadow-lg:0 12px 40px rgba(20,25,54,.12);--shadow-hover:0 4px 18px rgba(20,25,54,.10);
+  --shadow-card:0 1px 3px rgba(20,25,54,.05);--shadow-card-hover:0 4px 18px rgba(20,25,54,.10);
+}
+[data-theme="colore"]{
+  --bg:#FFF7F2;--sur:#FFFFFF;--sur2:#FFF1E8;--sur3:#FFE7D7;--bor:rgba(0,38,38,.10);--bor2:rgba(0,38,38,.04);
+  --t1:#002626;--t2:#3D5151;--t3:#7A8C8C;--acc:#00CCBC;--cta:#FF8000;
+  --blu:#00CCBC;--grn:#00B884;--red:#E63946;--ora:#FF8000;--pur:#7B5BFF;
+  --bg-success:rgba(0,184,132,.14);--bg-danger:rgba(230,57,70,.14);--bg-warning:rgba(255,169,64,.14);--bg-info:rgba(0,204,188,.14);
+  --fg-success:#00B884;--fg-danger:#E63946;--fg-warning:#FFA940;--fg-info:#00CCBC;
+  --shadow:0 6px 24px rgba(0,38,38,.08);--shadow-lg:0 16px 40px rgba(0,38,38,.15);--shadow-hover:0 6px 22px rgba(255,128,0,.18);
+  --shadow-card:0 1px 3px rgba(0,38,38,.06);--shadow-card-hover:0 6px 22px rgba(255,128,0,.18);
+}
+[data-theme="dark"]{
+  --bg:#0A0E27;--sur:#141936;--sur2:#1A1F36;--sur3:#252b48;--bor:rgba(255,255,255,.08);--bor2:rgba(255,255,255,.05);
+  --t1:#F3F5FA;--t2:#A0A8C3;--t3:#6B7395;--acc:#0E73F6;--cta:#00CCBC;
+  --blu:#5C8AFF;--grn:#34D399;--red:#F87171;--ora:#FBB040;--pur:#7B5BFF;
+  --bg-success:rgba(52,211,153,.14);--bg-danger:rgba(248,113,113,.14);--bg-warning:rgba(251,176,64,.14);--bg-info:rgba(92,138,255,.14);
+  --fg-success:#34D399;--fg-danger:#F87171;--fg-warning:#FBB040;--fg-info:#5C8AFF;
+  --shadow:0 1px 2px rgba(0,0,0,.35);--shadow-lg:0 16px 40px rgba(0,0,0,.55);--shadow-hover:0 4px 18px rgba(0,0,0,.45);
+  --shadow-card:0 1px 2px rgba(0,0,0,.35);--shadow-card-hover:0 4px 18px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:#0b1020;color:var(--t1);font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.5}
+h1,h2,h3,.ttl,.mn{font-family:'Manrope','IBM Plex Sans',sans-serif}
+code,.mono{font-family:'JetBrains Mono',monospace}
+button{font-family:inherit}
+
+/* ── Chrome de la galerie (style mockups existants Immo) ── */
+.gallery-head{position:sticky;top:0;z-index:30;background:#0f1d33;color:#dbe6f7;padding:13px 22px;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.gallery-head h1{font-size:17px;font-weight:800;margin:0 0 3px;color:#fff;font-family:'Manrope',sans-serif}
+.gallery-head p{margin:0;font-size:12px;color:#9fb3d4}
+.controls{display:flex;flex-wrap:wrap;gap:16px 22px;padding:13px 22px;background:#16263f;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:52px;z-index:29;align-items:flex-end}
+.ctl{display:flex;flex-direction:column;gap:5px}
+.ctl .lbl{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#7e93b5}
+.seg{display:inline-flex;background:#0f1d33;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{background:transparent;border:none;color:#9fb3d4;padding:7px 13px;font-size:12.5px;font-weight:600;border-radius:5px;cursor:pointer;font-family:inherit;transition:.12s;white-space:nowrap}
+.seg button.act{background:#3b7ef6;color:#fff}
+.seg button:hover:not(.act){background:rgba(255,255,255,.06);color:#fff}
+.scene-nav{display:flex;flex-wrap:wrap;gap:6px;padding:11px 22px;background:#11223c;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:108px;z-index:28}
+.scene-nav button{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#b9cbe6;padding:7px 13px;font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;font-family:inherit;transition:.12s}
+.scene-nav button.act{background:#3b7ef6;border-color:#3b7ef6;color:#fff}
+.scene-nav button:hover:not(.act){background:rgba(255,255,255,.1);color:#fff}
+
+.stage{padding:32px 16px 80px;display:flex;justify-content:center;min-height:70vh;background:#0b1020}
+.frame{background:var(--bg);border:1px solid rgba(255,255,255,.12);border-radius:18px;box-shadow:0 24px 60px -24px rgba(0,0,0,.7);overflow:hidden;transition:width .25s;width:100%;max-width:1280px;display:flex;flex-direction:column}
+.frame.f-phone{max-width:380px}
+.frame.f-tablet{max-width:768px}
+.frame.f-desktop{max-width:1280px}
+.frame-bar{background:var(--sur);border-bottom:1px solid var(--bor);padding:8px 14px;font-size:11px;color:var(--t3);display:flex;gap:7px;align-items:center;flex-shrink:0}
+.frame-bar .dot{width:9px;height:9px;border-radius:50%;background:#cdd6e4}
+.frame-bar .dot.r{background:#ff6058}.frame-bar .dot.y{background:#ffbd2e}.frame-bar .dot.g{background:#27c93f}
+.frame-bar .url{margin-left:8px;font-family:'JetBrains Mono',monospace;font-size:10.5px;opacity:.75}
+
+/* ── Layout app : sidebar + main ── */
+.app{display:flex;min-height:560px}
+.sb{width:240px;flex-shrink:0;background:linear-gradient(170deg,rgba(11,21,45,.99) 0%,rgba(6,13,30,1) 100%);display:flex;flex-direction:column;padding:0;overflow:hidden}
+.sb-logo{display:flex;align-items:center;gap:10px;padding:16px 18px 14px}
+.sb-logo-ic{font-size:22px}
+.sb-logo strong{color:#fff;font-family:'Manrope';font-weight:700;font-size:16px;letter-spacing:-.2px}
+.sb-logo em{color:rgba(255,255,255,.45);font-size:10px;font-style:normal;font-weight:600;letter-spacing:.5px}
+.sb-sec{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,255,255,.3);padding:14px 18px 5px}
+.ni{display:flex;align-items:center;gap:12px;padding:9px 18px;color:rgba(255,255,255,.65);cursor:pointer;font-size:13.5px;font-weight:500;position:relative;transition:color var(--t-fast),background var(--t-fast)}
+.ni:hover{color:#fff;background:rgba(255,255,255,.07)}
+.ni.act{color:#fff;background:linear-gradient(90deg,rgba(59,126,246,.28) 0%,rgba(59,126,246,.06) 100%);font-weight:600}
+.ni.act::before{content:'';position:absolute;left:0;top:18%;bottom:18%;width:3px;border-radius:0 2px 2px 0;background:linear-gradient(180deg,#7eb1ff,#3b7ef6);box-shadow:0 0 8px rgba(59,126,246,.4)}
+.ni .ico{width:22px;text-align:center;font-size:15px;flex-shrink:0}
+.sb-foot{margin-top:auto;padding:14px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px}
+.sb-av{width:32px;height:32px;border-radius:50%;background:#3b7ef6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.sb-uinfo{overflow:hidden}
+.sb-uname{font-size:12.5px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-urole{font-size:10.5px;color:rgba(255,255,255,.45)}
+
+.main{flex:1;min-width:0;background:var(--bg);padding:24px 28px;overflow:auto}
+.pg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.pg-title{font-family:'Manrope';font-weight:800;font-size:22px;margin:0;color:var(--t1)}
+.pg-sub{color:var(--t2);font-size:13px;margin:3px 0 0;max-width:560px;line-height:1.5}
+
+/* ── Onglets Réglages ── */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bor);margin:18px 0 20px;flex-wrap:wrap}
+.tab{padding:9px 16px;cursor:pointer;color:var(--t2);font-size:13.5px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-weight:500;display:inline-flex;gap:7px;align-items:center}
+.tab:hover{color:var(--t1)}
+.tab.act{color:var(--acc);border-bottom-color:var(--acc);font-weight:600}
+
+/* ── Composants app fidèles ── */
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:20px;box-shadow:var(--shadow-card)}
+.card+.card{margin-top:14px}
+.ct{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin:24px 0 14px}
+.ct:first-child{margin-top:0}
+.mu{color:var(--t2)}.sm{font-size:12.5px}.t3{color:var(--t3)}
+.flex-b{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.flex-c{display:flex;align-items:center;gap:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);border:none;cursor:pointer;font-size:13.5px;font-weight:500;transition:all .15s;white-space:nowrap;font-family:'IBM Plex Sans',sans-serif}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.bp{background:var(--blu);color:#fff;box-shadow:0 2px 8px rgba(59,126,246,.3)}
+.bp:hover:not(:disabled){filter:brightness(.94);box-shadow:0 4px 14px rgba(59,126,246,.4)}
+.bs{background:var(--sur2);color:var(--t1);border:1px solid var(--bor)}
+.bs:hover:not(:disabled){background:var(--sur3);border-color:var(--blu)}
+.br{background:rgba(220,38,38,.1);color:var(--red);border:1px solid rgba(220,38,38,.2)}
+.br:hover:not(:disabled){background:rgba(220,38,38,.18)}
+.bg{background:rgba(22,163,74,.1);color:var(--grn);border:1px solid rgba(22,163,74,.25)}
+.bg:hover:not(:disabled){background:rgba(22,163,74,.18)}
+.bb{padding:5px 11px;font-size:12px}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:.2px;white-space:nowrap}
+.b-ok{background:var(--bg-success);color:var(--fg-success)}
+.b-warn{background:var(--bg-warning);color:var(--fg-warning)}
+.b-info{background:var(--bg-info);color:var(--acc)}
+.b-mute{background:var(--sur3);color:var(--t2);border:1px solid var(--bor)}
+.b-owner{background:rgba(124,58,237,.14);color:var(--pur)}
+
+/* SCI pastille (couleur entité) */
+.scip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--t1)}
+.scip .dot{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.sci-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid;line-height:1.2}
+
+/* Avatar membre */
+.av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;color:#fff}
+.av.sm{width:28px;height:28px;font-size:11px}
+
+/* Encart facturation */
+.bill{background:var(--bg-info);border:1px solid rgba(59,126,246,.22);border-radius:var(--rl);padding:14px 16px}
+.bill-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.bill-meter{height:7px;border-radius:4px;background:var(--sur3);overflow:hidden;margin-top:9px}
+.bill-meter > i{display:block;height:100%;background:var(--acc);border-radius:4px}
+
+/* Lignes de membre / SCI */
+.lst{display:flex;flex-direction:column;gap:10px}
+.mrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--bor);border-radius:var(--r);background:var(--sur);transition:box-shadow .15s,border-color .15s}
+.mrow:hover{box-shadow:var(--shadow-hover);border-color:rgba(59,126,246,.4)}
+.mrow .grow{flex:1;min-width:0}
+.mrow .name{font-weight:600;font-size:13.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .meta{font-size:11.5px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .acts{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.icbtn{border:1px solid var(--bor);background:var(--sur2);border-radius:var(--r);width:30px;height:30px;cursor:pointer;font-size:13px;color:var(--t2);display:inline-flex;align-items:center;justify-content:center;transition:.12s}
+.icbtn:hover{background:var(--sur3);color:var(--t1)}
+.icbtn.danger:hover{background:rgba(220,38,38,.14);color:var(--red);border-color:rgba(220,38,38,.3)}
+
+/* SCI block (variante A) */
+.sciblk{border:1px solid var(--bor);border-radius:var(--rl);background:var(--sur);overflow:hidden}
+.sciblk+.sciblk{margin-top:12px}
+.sciblk-h{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--bor2)}
+.sciblk-h .nm{font-family:'Manrope';font-weight:700;font-size:15px;color:var(--t1);flex:1;min-width:0}
+.sciblk-b{padding:12px 16px;display:flex;flex-direction:column;gap:9px}
+.member-mini{display:flex;align-items:center;gap:10px;font-size:13px}
+.member-mini .grow{flex:1;min-width:0}
+.member-mini .nm{font-weight:600;color:var(--t1)}
+.member-mini .em{font-size:11.5px;color:var(--t3)}
+
+/* Tableau croisé (variante C) */
+.xtbl{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.xtbl th,.xtbl td{padding:11px 12px;text-align:center;border-bottom:1px solid var(--bor2)}
+.xtbl th{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px}
+.xtbl th.who,.xtbl td.who{text-align:left}
+.xtbl thead th{position:sticky;top:0;background:var(--sur);z-index:1}
+.xtbl tbody tr:hover{background:var(--sur2)}
+.xcell{display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:7px;font-size:14px}
+.xcell.yes{background:var(--bg-success);color:var(--fg-success)}
+.xcell.no{background:var(--sur3);color:var(--t3)}
+.xcell.all{background:rgba(124,58,237,.16);color:var(--pur)}
+
+/* ── Overlay / Modale (style app : .ov .modal .m-head .m-body .m-foot) ── */
+.ov{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
+.ov.hidden{display:none}
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);width:100%;max-width:560px;box-shadow:var(--shadow-lg);animation:pop .18s ease}
+@keyframes pop{from{transform:translateY(8px) scale(.99);opacity:.6}to{transform:none;opacity:1}}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bor)}
+.m-head h3{font-size:16px;font-weight:700;font-family:'Manrope',sans-serif;margin:0;color:var(--t1);display:flex;gap:8px;align-items:center}
+.m-close{background:none;border:none;color:var(--t2);cursor:pointer;font-size:19px;padding:4px;border-radius:6px;transition:all .15s;line-height:1}
+.m-close:hover{color:var(--t1);background:var(--sur3)}
+.m-body{padding:22px;max-height:64vh;overflow-y:auto}
+.m-foot{padding:14px 22px;border-top:1px solid var(--bor);display:flex;justify-content:flex-end;gap:8px;background:var(--sur2);border-radius:0 0 var(--rl) var(--rl)}
+
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:12px;color:var(--t2);margin-bottom:5px;font-weight:600;letter-spacing:.2px}
+.inp{width:100%;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);color:var(--t1);padding:9px 12px;font-size:13.5px;font-family:'IBM Plex Sans',sans-serif;transition:border .15s,box-shadow .15s}
+.inp:focus{outline:none;border-color:var(--blu);box-shadow:0 0 0 3px rgba(59,126,246,.18)}
+
+/* Cases à cocher SCI dans l'invitation */
+.scipick{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1.5px solid var(--bor);border-radius:var(--r);background:var(--sur2);cursor:pointer;transition:.12s}
+.scipick:hover{border-color:var(--blu)}
+.scipick.on{border-color:var(--blu);background:var(--bg-info)}
+.scipick input{width:18px;height:18px;accent-color:var(--acc);flex-shrink:0;cursor:pointer}
+.scipick .grow{flex:1;min-width:0}
+.scipick .nm{font-weight:600;font-size:13.5px;color:var(--t1)}
+.scipick .sub{font-size:11.5px;color:var(--t3)}
+
+/* Bloc rôle figé */
+.rolebox{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:var(--r);background:var(--bg-success);border:1px solid rgba(22,163,74,.25);font-size:12.5px;color:var(--fg-success);line-height:1.45}
+.rolebox b{color:var(--fg-success)}
+
+/* Bloc partage multicanal (copié de .bss-* de l'app) */
+.bss-ctx{display:flex;gap:12px;align-items:center;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:14px}
+.bss-ctx-ic{font-size:26px}
+.bss-ctx-t{font-weight:700;color:var(--t1)}
+.bss-ctx-s{font-size:12.5px;color:var(--t2);margin-top:2px}
+.bss-linkbox{display:flex;gap:8px;align-items:stretch}
+.bss-linkbox .url{flex:1;background:var(--sur2);border:1.5px solid var(--grn);border-radius:var(--r);padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;background:var(--bg-success)}
+.bss-chans{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px}
+.bss-chan{display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 6px;border:1.5px solid var(--bor);border-radius:var(--rl);background:var(--sur2);cursor:pointer;transition:all .15s;text-align:center}
+.bss-chan:hover{border-color:var(--blu);background:var(--bg-info)}
+.bss-chan .ci{font-size:22px;line-height:1}
+.bss-chan .cl{font-size:11.5px;font-weight:600;color:var(--t1)}
+.bss-info{background:var(--bg-info);border:1px solid rgba(59,126,246,.18);border-radius:var(--rl);padding:12px 14px;font-size:12.5px;color:var(--t2);line-height:1.5;margin-top:14px}
+.bss-info b{color:var(--t1)}
+.qrbox{width:128px;height:128px;margin:0 auto;background:#fff;border-radius:8px;padding:9px;display:grid;grid-template-columns:repeat(11,1fr);grid-template-rows:repeat(11,1fr);gap:1px}
+.qrbox i{background:#0b1020;border-radius:1px}
+.qrbox i.w{background:transparent}
+
+/* Bandeau partenaire (scène C) */
+.pbanner{display:flex;align-items:center;gap:12px;padding:11px 16px;background:var(--bg-info);border:1px solid rgba(59,126,246,.25);border-radius:var(--rl);margin-bottom:18px;font-size:13px;color:var(--t1);line-height:1.45}
+.pbanner .ic{font-size:20px}
+.pbanner b{color:var(--acc)}
+
+/* Popup connexion simultanée (toast/indicateur live) */
+.copresence{position:absolute;right:18px;bottom:18px;z-index:60;display:flex;align-items:center;gap:11px;background:var(--sur);border:1px solid var(--bor);border-left:4px solid var(--grn);border-radius:var(--rl);box-shadow:var(--shadow-lg);padding:12px 15px;max-width:330px;animation:slidein .25s ease}
+@keyframes slidein{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.copresence .av{position:relative}
+.copresence .live{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;background:var(--grn);border:2px solid var(--sur);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}70%{box-shadow:0 0 0 7px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+.copresence .txt{font-size:12.5px;color:var(--t1);line-height:1.4}
+.copresence .txt b{font-weight:700}
+.copresence .x{margin-left:4px;cursor:pointer;color:var(--t3);font-size:15px}
+.copresence-pill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--bg-success);color:var(--fg-success);border:1px solid rgba(16,185,129,.3)}
+.copresence-pill .live-dot{width:8px;height:8px;border-radius:50%;background:var(--grn);animation:pulse 1.6s infinite}
+
+.divider{height:1px;background:var(--bor);margin:18px 0}
+.hint{font-size:11.5px;color:var(--t3);margin-top:8px;line-height:1.5}
+.kpi-mini{background:var(--sur2);border-radius:var(--r);padding:11px 13px;text-align:center}
+.kpi-mini .v{font-size:20px;font-weight:700;font-family:'Manrope';color:var(--t1)}
+.kpi-mini .l{font-size:10.5px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-top:2px}
+
+.hide{display:none!important}
+
+/* note de variante (chrome only) */
+.vnote{font-size:11.5px;color:var(--t3);background:var(--sur2);border:1px dashed var(--bor);border-radius:var(--r);padding:8px 12px;margin-bottom:16px;line-height:1.5}
+.vnote b{color:var(--t2)}
+
+/* responsive interne au frame téléphone */
+.frame.f-phone .app{flex-direction:column;min-height:auto}
+.frame.f-phone .sb{width:100%;flex-direction:row;align-items:center;padding:6px 8px;gap:4px;overflow-x:auto}
+.frame.f-phone .sb-logo{padding:8px 10px;flex-shrink:0}
+.frame.f-phone .sb-logo em,.frame.f-phone .sb-sec,.frame.f-phone .ni-label,.frame.f-phone .sb-foot,.frame.f-phone .ni.act::before{display:none}
+.frame.f-phone .ni{padding:9px 11px;border-radius:8px}
+.frame.f-phone .ni .ico{font-size:18px}
+.frame.f-phone .main{padding:16px 14px}
+.frame.f-phone .pg-title{font-size:18px}
+.frame.f-phone .bss-chans{grid-template-columns:repeat(2,1fr)}
+.frame.f-phone .tabs{overflow-x:auto;flex-wrap:nowrap}
+.frame.f-phone .mrow{flex-wrap:wrap}
+.frame.f-phone .mrow .acts{width:100%;justify-content:flex-end;margin-top:6px}
+.frame.f-phone .xtbl{font-size:11.5px}
+.frame.f-phone .xtbl th,.frame.f-phone .xtbl td{padding:8px 5px}
+
+.frame.f-tablet .main{padding:20px 20px}
+.frame.f-tablet .bss-chans{grid-template-columns:repeat(4,1fr)}
+</style>
+</head>
+<body>
+
+<div class="gallery-head">
+  <h1>Mockup — Partage par SCI (multi-utilisateurs)</h1>
+  <p>Inviter un partenaire (lien/email) · rôle gestionnaire · scope par SCI · facturation add-on · co-présence live. Maquette de design — pas l'implémentation.</p>
+</div>
+
+<div class="controls">
+  <div class="ctl">
+    <span class="lbl">Variante (écran « Partage & accès »)</span>
+    <div class="seg" id="seg-variant">
+      <button data-v="A" class="act" onclick="setVariant('A')">A · par SCI</button>
+      <button data-v="B" onclick="setVariant('B')">B · par membre</button>
+      <button data-v="C" onclick="setVariant('C')">C · tableau croisé</button>
+    </div>
+  </div>
+  <div class="ctl">
+    <span class="lbl">Format</span>
+    <div class="seg" id="seg-format">
+      <button data-f="desktop" class="act" onclick="setFormat('desktop')">PC 1280</button>
+      <button data-f="tablet" onclick="setFormat('tablet')">Tablette 768</button>
+      <button data-f="phone" onclick="setFormat('phone')">Téléphone 380</button>
+    </div>
+  </div>
+  <div class="ctl">
+    <span class="lbl">Thème app</span>
+    <div class="seg" id="seg-theme">
+      <button data-t="sobre" class="act" onclick="setTheme('sobre')">🌞 Sobre</button>
+      <button data-t="colore" onclick="setTheme('colore')">🎨 Coloré</button>
+      <button data-t="dark" onclick="setTheme('dark')">🌙 Dark</button>
+    </div>
+  </div>
+</div>
+
+<div class="scene-nav" id="scene-nav">
+  <button data-s="owner" class="act" onclick="setScene('owner')">A · Écran Partage &amp; accès</button>
+  <button data-s="invite" onclick="setScene('invite')">B · Inviter un partenaire</button>
+  <button data-s="partner" onclick="setScene('partner')">C · Vue du partenaire</button>
+  <button data-s="copresence" onclick="setScene('copresence')">D · Connexion simultanée</button>
+  <button data-s="billing" onclick="setScene('billing')">E · Encart facturation</button>
+</div>
+
+<div class="stage">
+  <div class="frame f-desktop" id="frame">
+    <div class="frame-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="url" id="url-bar">app.lodyo.fr/#reglages/partage</span>
+    </div>
+
+    <div class="app" id="app" style="position:relative">
+      <!-- SIDEBAR -->
+      <nav class="sb" id="sb">
+        <div class="sb-logo"><span class="sb-logo-ic">🏠</span><div><strong>Lodyo</strong><br><em id="sb-edition">GESTION LOCATIVE</em></div></div>
+        <div class="sb-sec">Pilotage</div>
+        <div class="ni"><span class="ico">📊</span><span class="ni-label">Tableau de bord</span></div>
+        <div class="ni"><span class="ico">🏢</span><span class="ni-label" id="ni-biens">Biens</span></div>
+        <div class="ni"><span class="ico">📄</span><span class="ni-label">Baux</span></div>
+        <div class="ni"><span class="ico">💶</span><span class="ni-label">Loyers</span></div>
+        <div class="sb-sec">Compte</div>
+        <div class="ni act" id="ni-reglages"><span class="ico">⚙️</span><span class="ni-label">Réglages</span></div>
+        <div class="sb-foot">
+          <div class="sb-av" id="sb-av">DK</div>
+          <div class="sb-uinfo"><div class="sb-uname" id="sb-uname">Didier Keller</div><div class="sb-urole" id="sb-urole">Propriétaire</div></div>
+        </div>
+      </nav>
+
+      <!-- MAIN -->
+      <main class="main" id="main"><!-- injecté par JS --></main>
+
+      <!-- overlays injectés ici -->
+      <div id="overlay-host"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════ DONNÉES D'EXEMPLE ════════════════ */
+const SCIS = [
+  { id:'martin',  nom:'SCI Martin',        color:'#0E73F6', biens:4, loyer:'4 280 €/mois' },
+  { id:'dupont',  nom:'SCI Dupont Invest', color:'#7C3AED', biens:6, loyer:'6 950 €/mois' },
+  { id:'perso',   nom:'Perso',             color:'#10B981', biens:2, loyer:'1 540 €/mois' },
+];
+const ME = { name:'Didier Keller', email:'didierkeller@gmail.com', initials:'DK', color:'#3b7ef6' };
+const PARTNER = { name:'Marie Lefèvre', email:'marie@exemple.fr', initials:'ML', color:'#F59E0B', scis:['martin'] };
+
+/* État de l'invitation (scène B) */
+let inviteSel = { martin:false, dupont:false, perso:false };
+let inviteLinkGenerated = false;
+
+/* ════════════════ HELPERS RENDU ════════════════ */
+function sciDot(c){ return `<span class="dot" style="background:${c}"></span>`; }
+function sciChip(s){ return `<span class="sci-chip" style="border-color:${s.color}44;background:${s.color}14;color:${s.color}">${sciDot(s.color)}${s.nom}</span>`; }
+function avatar(initials,color,cls=''){ return `<div class="av ${cls}" style="background:${color}">${initials}</div>`; }
+function sciById(id){ return SCIS.find(s=>s.id===id); }
+
+/* ════════════════ SCÈNE A — Partage & accès (3 variantes) ════════════════ */
+function billingCard(used,included){
+  const extra = Math.max(0, used-included);
+  const pct = Math.min(100, Math.round(used/Math.max(included,used,1)*100));
+  return `<div class="bill">
+    <div class="bill-row">
+      <div>
+        <div style="font-weight:700;color:var(--t1);font-size:13.5px">💳 Partenaires invités</div>
+        <div class="sm mu" style="margin-top:2px">${used} / ${included} inclus dans votre abonnement${extra>0?` · <b style="color:var(--acc)">+${extra} payant${extra>1?'s':''}</b>`:''}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'Manrope';font-weight:800;font-size:18px;color:var(--t1)">${extra>0?(extra*9)+' €':'0 €'}<span class="sm mu" style="font-weight:600">/mois</span></div>
+        <div class="sm t3">add-on partenaire</div>
+      </div>
+    </div>
+    <div class="bill-meter"><i style="width:${pct}%"></i></div>
+    <div class="hint">Abonnement de base <b style="color:var(--t2)">Lodyo Pro — 19 €/mois</b> · chaque partenaire supplémentaire = <b style="color:var(--t2)">+9 €/mois</b>. Premier partenaire inclus.</div>
+  </div>`;
+}
+
+function sceneOwner(){
+  let body = '';
+  if(currentVariant==='A') body = variantA();
+  else if(currentVariant==='B') body = variantB();
+  else body = variantC();
+
+  return `
+    <div class="pg-head">
+      <div>
+        <h1 class="pg-title">Partage &amp; accès</h1>
+        <p class="pg-sub">Invitez un partenaire à co-gérer une ou plusieurs SCI. Il accède en écriture (gestionnaire) uniquement aux SCI que vous partagez — jamais aux autres ni à votre Perso.</p>
+      </div>
+      <button class="btn bp" onclick="openInvite()">➕ Inviter un partenaire</button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab">👥 Partage &amp; accès</div>
+      <div class="tab">📁 Mes données</div>
+      <div class="tab">🎨 Thème</div>
+      <div class="tab">⚙️ Global</div>
+    </div>
+
+    ${billingCard(1,1)}
+    <div style="height:16px"></div>
+    ${body}
+  `;
+}
+
+/* — Variante A : liste PAR SCI (chaque SCI = un bloc, ses membres dessous) — */
+function variantA(){
+  const blocks = SCIS.map(s=>{
+    const owner = `<div class="member-mini">
+        ${avatar(ME.initials,ME.color,'sm')}
+        <div class="grow"><span class="nm">${ME.name}</span> <span class="badge b-owner" style="margin-left:4px">Propriétaire</span><div class="em">${ME.email}</div></div>
+      </div>`;
+    const partners = (PARTNER.scis.includes(s.id) ? [PARTNER] : []).map(p=>`
+      <div class="member-mini">
+        ${avatar(p.initials,p.color,'sm')}
+        <div class="grow"><span class="nm">${p.name}</span> <span class="badge b-info" style="margin-left:4px">Gestionnaire</span><div class="em">${p.email}</div></div>
+        <button class="icbtn danger" title="Retirer l'accès" onclick="confirmRemove('${p.name}','${s.nom}')">✕</button>
+      </div>`).join('');
+    const empty = (!PARTNER.scis.includes(s.id)) ? `<div class="sm t3" style="font-style:italic">Aucun partenaire — vous seul y accédez.</div>` : '';
+    return `<div class="sciblk">
+      <div class="sciblk-h">${sciDot(s.color)}<span class="nm">${s.nom}</span>
+        <span class="badge b-mute">${s.biens} biens</span>
+        <button class="btn bs bb" onclick="openInvite('${s.id}')">+ Inviter ici</button>
+      </div>
+      <div class="sciblk-b">${owner}${partners}${empty}</div>
+    </div>`;
+  }).join('');
+  return `<div class="vnote"><b>Variante A — par SCI.</b> Une carte par SCI, ses membres listés dessous. On voit d'un coup « qui touche à quoi » SCI par SCI.</div>
+    <div class="ct">Vos SCI &amp; qui y accède</div>${blocks}`;
+}
+
+/* — Variante B : liste PAR MEMBRE (toi + chaque partenaire = une carte, ses SCI en chips) — */
+function variantB(){
+  const meCard = `<div class="card" style="padding:16px 18px">
+    <div class="flex-c" style="margin-bottom:10px">
+      ${avatar(ME.initials,ME.color)}
+      <div class="grow"><div class="name" style="font-size:14.5px;font-weight:700">${ME.name} <span class="badge b-owner">Propriétaire</span></div><div class="sm t3">${ME.email}</div></div>
+    </div>
+    <div class="sm mu" style="margin-bottom:7px">Accès complet — toutes les SCI + votre Perso :</div>
+    <div class="row">${SCIS.map(sciChip).join('')}</div>
+  </div>`;
+
+  const partnerCard = `<div class="card" style="padding:16px 18px">
+    <div class="flex-b" style="margin-bottom:10px">
+      <div class="flex-c">
+        ${avatar(PARTNER.initials,PARTNER.color)}
+        <div class="grow"><div class="name" style="font-size:14.5px;font-weight:700">${PARTNER.name} <span class="badge b-info">Gestionnaire</span></div><div class="sm t3">${PARTNER.email}</div></div>
+      </div>
+      <div class="acts" style="display:flex;gap:6px">
+        <button class="icbtn" title="Modifier les SCI partagées" onclick="openInvite('martin',true)">✏️</button>
+        <button class="icbtn danger" title="Révoquer tout l'accès" onclick="confirmRemove('${PARTNER.name}','toutes ses SCI')">🗑</button>
+      </div>
+    </div>
+    <div class="sm mu" style="margin-bottom:7px">Accède en écriture à :</div>
+    <div class="row">${PARTNER.scis.map(id=>sciChip(sciById(id))).join('')}</div>
+    <div class="divider"></div>
+    <div class="sm t3">Invité le 12 juin 2026 · dernière activité il y a 8 min</div>
+  </div>`;
+
+  return `<div class="vnote"><b>Variante B — par membre.</b> Une carte par personne, ses SCI en pastilles. Idéal pour gérer un partenaire (révoquer, voir son périmètre d'un coup).</div>
+    <div class="ct">Membres de votre espace</div>${meCard}<div style="height:12px"></div>${partnerCard}`;
+}
+
+/* — Variante C : tableau croisé SCI × membre — */
+function variantC(){
+  const cols = SCIS.map(s=>`<th>${sciDot(s.color)} ${s.nom.replace('SCI ','SCI<br>')}</th>`).join('');
+  const meRow = `<tr>
+    <td class="who"><div class="flex-c">${avatar(ME.initials,ME.color,'sm')}<div><div style="font-weight:700;font-size:13px">${ME.name}</div><div class="sm t3">Propriétaire</div></div></div></td>
+    ${SCIS.map(()=>`<td><span class="xcell all" title="Propriétaire — accès total">★</span></td>`).join('')}
+  </tr>`;
+  const pRow = `<tr>
+    <td class="who"><div class="flex-c">${avatar(PARTNER.initials,PARTNER.color,'sm')}<div><div style="font-weight:700;font-size:13px">${PARTNER.name}</div><div class="sm t3">Gestionnaire · marie@exemple.fr</div></div></div></td>
+    ${SCIS.map(s=>{
+      const on = PARTNER.scis.includes(s.id);
+      return `<td><span class="xcell ${on?'yes':'no'}" title="${on?'Acces gestionnaire':'Aucun acces'}" style="cursor:pointer" onclick="toggleCross('${s.id}')">${on?'✓':'—'}</span></td>`;
+    }).join('')}
+  </tr>`;
+  return `<div class="vnote"><b>Variante C — tableau croisé.</b> SCI en colonnes × membres en lignes. La grille de qui-accède-à-quoi en un coup d'œil ; cellules cliquables pour ajuster. Scalable si beaucoup de SCI/partenaires.</div>
+    <div class="ct">Matrice d'accès</div>
+    <div class="card" style="padding:6px 10px;overflow-x:auto">
+      <table class="xtbl">
+        <thead><tr><th class="who">Membre</th>${cols}</tr></thead>
+        <tbody>${meRow}${pRow}</tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:12px;gap:16px">
+      <span class="flex-c sm mu"><span class="xcell all" style="width:22px;height:22px">★</span> Propriétaire (tout)</span>
+      <span class="flex-c sm mu"><span class="xcell yes" style="width:22px;height:22px">✓</span> Gestionnaire</span>
+      <span class="flex-c sm mu"><span class="xcell no" style="width:22px;height:22px">—</span> Pas d'accès</span>
+    </div>`;
+}
+
+/* ════════════════ SCÈNE B — Inviter un partenaire (modale) ════════════════ */
+function openInvite(presetSci, editMode){
+  if(presetSci){ inviteSel={martin:false,dupont:false,perso:false}; inviteSel[presetSci]=true; }
+  if(editMode){ inviteSel={martin:true,dupont:false,perso:false}; }
+  inviteLinkGenerated=false;
+  setScene('invite', {preset:presetSci, edit:editMode});
+}
+function toggleSci(id){
+  inviteSel[id]=!inviteSel[id];
+  inviteLinkGenerated=false;
+  renderInvite();
+}
+function genLink(){ inviteLinkGenerated=true; renderInvite(); }
+
+function inviteModalHTML(){
+  const chosen = SCIS.filter(s=>inviteSel[s.id]);
+  const n = chosen.length;
+  const picks = SCIS.map(s=>`
+    <label class="scipick ${inviteSel[s.id]?'on':''}" onclick="event.preventDefault();toggleSci('${s.id}')">
+      <input type="checkbox" ${inviteSel[s.id]?'checked':''} tabindex="-1">
+      ${sciDot(s.color)}
+      <div class="grow"><div class="nm">${s.nom}</div><div class="sub">${s.biens} biens · ${s.loyer}</div></div>
+    </label>`).join('');
+
+  /* facturation contextuelle : 1er partenaire inclus → ici on invite le 1er (gratuit) */
+  const billNote = `<div class="bss-info" style="margin-top:14px;background:var(--bg-success);border-color:rgba(22,163,74,.2);color:var(--fg-success)">
+    💳 <b style="color:var(--fg-success)">Premier partenaire inclus</b> dans votre abonnement Lodyo Pro. Les suivants : +9 €/mois chacun.</div>`;
+
+  /* zone résultat : avant / après génération */
+  let result = '';
+  if(!inviteLinkGenerated){
+    result = `
+      <div class="fg">
+        <label>Email du partenaire (optionnel)</label>
+        <input class="inp" value="marie@exemple.fr" placeholder="prénom@exemple.fr">
+        <div class="hint">Laissez vide pour partager seulement par lien / QR.</div>
+      </div>
+      <div class="rolebox">🔑 <div>Rôle attribué : <b>Gestionnaire (écriture)</b><br><span style="font-weight:400;opacity:.85">Le partenaire pourra créer, modifier et éditer les baux, loyers et documents des SCI choisies. Il ne verra rien d'autre.</span></div></div>
+      ${billNote}
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn bp" ${n===0?'disabled':''} onclick="genLink()">${n===0?'Choisissez au moins une SCI':'🔗 Générer l\'invitation'}</button>
+      </div>`;
+  } else {
+    result = `
+      <div class="bss-ctx">
+        <div class="bss-ctx-ic">🤝</div>
+        <div><div class="bss-ctx-t">Invitation prête</div>
+          <div class="bss-ctx-s">${PARTNER.name||'Votre partenaire'} accédera à : ${chosen.map(s=>s.nom).join(', ')} · rôle <b>Gestionnaire</b></div></div>
+      </div>
+      <div class="fg">
+        <label>Lien d'invitation sécurisé</label>
+        <div class="bss-linkbox">
+          <div class="url">https://app.lodyo.fr/rejoindre/3f9a-${chosen.map(s=>s.id[0]).join('')}-x82k</div>
+          <button class="btn bp" onclick="toast('Lien copié ✓')">📋 Copier</button>
+        </div>
+      </div>
+      <div class="fg" style="margin-bottom:6px"><label>Partager par</label>
+        <div class="bss-chans">
+          <div class="bss-chan" onclick="toast('Ouverture du mail…')"><span class="ci">✉️</span><span class="cl">Email</span></div>
+          <div class="bss-chan" onclick="toast('Ouverture SMS…')"><span class="ci">💬</span><span class="cl">SMS</span></div>
+          <div class="bss-chan" onclick="toast('Ouverture WhatsApp…')"><span class="ci">🟢</span><span class="cl">WhatsApp</span></div>
+          <div class="bss-chan" onclick="toggleQR()"><span class="ci">⬛</span><span class="cl">QR code</span></div>
+        </div>
+      </div>
+      <div id="qr-wrap" class="hide" style="text-align:center;margin-top:14px">
+        ${fakeQR()}
+        <div class="sm t3" style="margin-top:8px">Le partenaire scanne pour rejoindre depuis son mobile.</div>
+      </div>
+      <div class="bss-info">🔒 À l'ouverture du lien, le partenaire crée son compte (ou se connecte) et rejoint instantanément. Il accède en écriture aux SCI listées. Vous pouvez révoquer l'accès à tout moment depuis cet écran.</div>`;
+  }
+
+  return `
+    <div class="ov" onclick="if(event.target===this) backToOwner()">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="m-head"><h3>🤝 Inviter un partenaire</h3><button class="m-close" onclick="backToOwner()">✕</button></div>
+        <div class="m-body">
+          <div class="fg" style="margin-bottom:18px">
+            <label>Quelle(s) SCI partager ?${n>0?` <span class="badge b-info" style="margin-left:6px">${n} sélectionnée${n>1?'s':''}</span>`:''}</label>
+            <div style="display:flex;flex-direction:column;gap:9px">${picks}</div>
+            ${n===0?'<div class="hint">Cochez au moins une SCI. Votre <b>Perso</b> peut aussi être partagé si besoin.</div>':''}
+          </div>
+          <div class="divider"></div>
+          ${result}
+        </div>
+        <div class="m-foot">
+          <button class="btn bs" onclick="backToOwner()">${inviteLinkGenerated?'Fermer':'Annuler'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+function fakeQR(){
+  /* faux QR déterministe 11x11 */
+  let cells='';
+  for(let i=0;i<121;i++){
+    const r=Math.floor(i/11),c=i%11;
+    const finder = (r<3&&c<3)||(r<3&&c>7)||(r>7&&c<3);
+    const on = finder ? !((r===1&&c>=0&&c<3)||(r===1&&c>7)) && ((r+c)%1===0) && !(r===1&&(c===1||c===9)) : ((r*c+r+c)%3===0);
+    cells += `<i class="${on?'':'w'}"></i>`;
+  }
+  return `<div class="qrbox">${cells}</div>`;
+}
+function toggleQR(){ const w=document.getElementById('qr-wrap'); if(w) w.classList.toggle('hide'); }
+function backToOwner(){ setScene('owner'); }
+function toggleCross(id){
+  const i=PARTNER.scis.indexOf(id);
+  if(i>=0) PARTNER.scis.splice(i,1); else PARTNER.scis.push(id);
+  renderScene();
+}
+function confirmRemove(name,scope){
+  showConfirm(`Retirer l'accès de <b>${name}</b> à <b>${scope}</b> ?`, ()=>{
+    if(scope.startsWith('toutes')){ PARTNER.scis=[]; } else { PARTNER.scis=[]; }
+    toast('Accès révoqué');
+    renderScene();
+  });
+}
+
+/* ════════════════ SCÈNE C — Vue du partenaire ════════════════ */
+function scenePartner(){
+  /* seul SCI Martin visible ; pas de Dupont, pas de Perso */
+  const sci = sciById('martin');
+  return `
+    <div class="pbanner">
+      <span class="ic">🤝</span>
+      <div>Vous accédez à la <b>SCI Martin</b>, partagée par <b>Didier Keller</b> — rôle <b>Gestionnaire</b>. Vos modifications sont enregistrées et visibles par le propriétaire.</div>
+    </div>
+    <div class="pg-head">
+      <div>
+        <h1 class="pg-title">Tableau de bord</h1>
+        <p class="pg-sub">Espace partagé · ${sci.nom}</p>
+      </div>
+      <span class="copresence-pill"><span class="live-dot"></span>Connecté en tant que partenaire</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:8px 0 20px">
+      <div class="kpi-mini"><div class="v">4</div><div class="l">Biens (SCI Martin)</div></div>
+      <div class="kpi-mini"><div class="v">4 280 €</div><div class="l">Loyers / mois</div></div>
+      <div class="kpi-mini"><div class="v">3</div><div class="l">Baux actifs</div></div>
+      <div class="kpi-mini"><div class="v">1</div><div class="l">Alerte</div></div>
+    </div>
+
+    <div class="card">
+      <div class="flex-b" style="margin-bottom:12px">
+        <div class="ct" style="margin:0">Périmètre visible</div>
+        <span class="badge b-info">${sci.nom} uniquement</span>
+      </div>
+      <div class="lst">
+        <div class="mrow"><span style="font-size:20px">🏢</span><div class="grow"><div class="name">12 rue des Lilas — Lyon 3e</div><div class="meta">3 lots · SCI Martin</div></div><span class="badge b-ok">Occupé</span></div>
+        <div class="mrow"><span style="font-size:20px">🏢</span><div class="grow"><div class="name">8 av. Foch — Villeurbanne</div><div class="meta">1 lot · SCI Martin</div></div><span class="badge b-warn">1 vacant</span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="bss-info" style="margin:0">🔒 <b>Vous ne voyez que la SCI Martin.</b> Les autres SCI de Didier (Dupont Invest) et son Perso n'apparaissent ni dans la barre latérale, ni dans les listes, ni dans les exports. Le sélecteur d'entité est verrouillé sur ce périmètre.</div>
+    </div>
+  `;
+}
+
+/* ════════════════ SCÈNE D — Connexion simultanée ════════════════ */
+function sceneCopresence(){
+  /* on réutilise l'écran owner variante A, avec popup + pastille live */
+  return sceneOwner();
+}
+
+/* ════════════════ SCÈNE E — Encart facturation (détail) ════════════════ */
+function sceneBilling(){
+  return `
+    <div class="pg-head">
+      <div>
+        <h1 class="pg-title">Abonnement &amp; partenaires</h1>
+        <p class="pg-sub">Votre formule et le coût des accès partagés. Le premier partenaire est inclus ; chaque accès supplémentaire est un add-on mensuel.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px">
+      <div class="flex-b">
+        <div>
+          <div class="ct" style="margin:0 0 4px">Formule actuelle</div>
+          <div style="font-family:'Manrope';font-weight:800;font-size:20px;color:var(--t1)">Lodyo Pro</div>
+          <div class="sm mu">Biens illimités · multi-SCI · signature électronique</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Manrope';font-weight:800;font-size:26px;color:var(--t1)">19 €<span class="sm mu" style="font-weight:600">/mois</span></div>
+          <button class="btn bs bb" style="margin-top:6px" onclick="toast('Gestion de l abonnement')">Gérer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct" style="margin:0 0 12px">Partenaires &amp; add-ons</div>
+      <div class="lst" style="margin-bottom:14px">
+        <div class="mrow" style="cursor:default">
+          ${avatar(PARTNER.initials,PARTNER.color,'sm')}
+          <div class="grow"><div class="name">${PARTNER.name}</div><div class="meta">SCI Martin · gestionnaire</div></div>
+          <span class="badge b-ok">Inclus</span>
+        </div>
+        <div class="mrow" style="border-style:dashed;cursor:pointer;color:var(--t2)" onclick="openInvite()">
+          <span style="font-size:18px;width:28px;text-align:center">➕</span>
+          <div class="grow"><div class="name" style="color:var(--acc)">Inviter un 2ᵉ partenaire</div><div class="meta">+9 €/mois — facturé sur votre prochaine échéance</div></div>
+        </div>
+      </div>
+      <div class="bill">
+        <div class="bill-row">
+          <div class="sm mu">Récapitulatif mensuel</div>
+          <div style="font-family:'Manrope';font-weight:800;font-size:20px;color:var(--t1)">19 €<span class="sm mu" style="font-weight:600">/mois</span></div>
+        </div>
+        <div class="divider" style="margin:10px 0"></div>
+        <div class="bill-row sm mu"><span>Lodyo Pro</span><span>19 €</span></div>
+        <div class="bill-row sm mu" style="margin-top:4px"><span>Partenaire 1 (${PARTNER.name})</span><span style="color:var(--fg-success);font-weight:700">inclus</span></div>
+        <div class="bill-row sm mu" style="margin-top:4px;opacity:.6"><span>Partenaire 2+ (si invité)</span><span>+9 € / partenaire</span></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ════════════════ ROUTAGE / RENDU ════════════════ */
+let currentScene='owner', currentVariant='A', currentFormat='desktop', currentTheme='sobre';
+let copresenceSceneActive=false;
+
+const SCENES = {
+  owner:      { render:sceneOwner,      url:'app.lodyo.fr/#reglages/partage',      ni:'reglages', user:'owner' },
+  invite:     { render:sceneOwner,      url:'app.lodyo.fr/#reglages/partage',      ni:'reglages', user:'owner', modal:inviteModalHTML },
+  partner:    { render:scenePartner,    url:'app.lodyo.fr/#dashboard',             ni:null,        user:'partner' },
+  copresence: { render:sceneCopresence, url:'app.lodyo.fr/#reglages/partage',      ni:'reglages', user:'owner', copresence:true },
+  billing:    { render:sceneBilling,    url:'app.lodyo.fr/#reglages/abonnement',   ni:'reglages', user:'owner' },
+};
+
+function renderScene(){
+  const s = SCENES[currentScene];
+  document.getElementById('main').innerHTML = s.render();
+  document.getElementById('url-bar').textContent = s.url;
+
+  /* user dans la sidebar */
+  const uname=document.getElementById('sb-uname'), urole=document.getElementById('sb-urole'), av=document.getElementById('sb-av');
+  if(s.user==='partner'){
+    uname.textContent='Marie Lefèvre'; urole.textContent='Partenaire · SCI Martin'; av.textContent='ML'; av.style.background='#F59E0B';
+    document.getElementById('ni-biens').textContent='Biens (SCI Martin)';
+    document.getElementById('sb-edition').textContent='ESPACE PARTAGÉ';
+  } else {
+    uname.textContent='Didier Keller'; urole.textContent='Propriétaire'; av.textContent='DK'; av.style.background='#3b7ef6';
+    document.getElementById('ni-biens').textContent='Biens';
+    document.getElementById('sb-edition').textContent='GESTION LOCATIVE';
+  }
+  /* nav active */
+  document.querySelectorAll('#sb .ni').forEach(n=>n.classList.remove('act'));
+  if(s.user!=='partner') document.getElementById('ni-reglages').classList.add('act');
+
+  /* overlay / modale */
+  const host=document.getElementById('overlay-host');
+  host.innerHTML = s.modal ? s.modal() : '';
+
+  /* co-présence */
+  copresenceSceneActive = !!s.copresence;
+  if(s.copresence){ showCopresence(); }
+}
+function renderInvite(){ document.getElementById('overlay-host').innerHTML = inviteModalHTML(); }
+
+function setScene(sc){
+  currentScene=sc;
+  document.querySelectorAll('#scene-nav button').forEach(b=>b.classList.toggle('act', b.dataset.s===sc));
+  /* variant switcher seulement utile sur owner/copresence */
+  const segV = document.getElementById('seg-variant').parentElement;
+  segV.style.opacity = (sc==='owner'||sc==='copresence') ? '1' : '.4';
+  segV.style.pointerEvents = (sc==='owner'||sc==='copresence') ? 'auto' : 'none';
+  renderScene();
+}
+function setVariant(v){
+  currentVariant=v;
+  document.querySelectorAll('#seg-variant button').forEach(b=>b.classList.toggle('act', b.dataset.v===v));
+  renderScene();
+}
+function setFormat(f){
+  currentFormat=f;
+  const fr=document.getElementById('frame');
+  fr.classList.remove('f-desktop','f-tablet','f-phone'); fr.classList.add('f-'+f);
+  document.querySelectorAll('#seg-format button').forEach(b=>b.classList.toggle('act', b.dataset.f===f));
+}
+function setTheme(t){
+  currentTheme=t;
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('#seg-theme button').forEach(b=>b.classList.toggle('act', b.dataset.t===t));
+}
+
+/* ════════════════ POPUP CONNEXION SIMULTANÉE (D) ════════════════ */
+function showCopresence(){
+  const app=document.getElementById('app');
+  const existing=document.getElementById('copresence-pop'); if(existing) existing.remove();
+  const pop=document.createElement('div');
+  pop.id='copresence-pop'; pop.className='copresence';
+  pop.innerHTML = `
+    <div class="av sm" style="background:#F59E0B;position:relative">ML<span class="live"></span></div>
+    <div class="txt"><b>Marie Lefèvre</b> modifie aussi la <b>SCI Martin</b> en ce moment.<br><span style="color:var(--t3)">Vos changements se synchronisent en direct.</span></div>
+    <span class="x" onclick="this.parentElement.remove()" title="Masquer">✕</span>`;
+  app.appendChild(pop);
+}
+
+/* ════════════════ UI utilitaires (toast / confirm) ════════════════ */
+function toast(msg){
+  const app=document.getElementById('app');
+  const t=document.createElement('div');
+  t.style.cssText='position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;background:var(--t1);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s';
+  t.textContent=msg; app.appendChild(t);
+  requestAnimationFrame(()=>t.style.opacity='1');
+  setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),250); },1500);
+}
+function showConfirm(html,onYes){
+  const host=document.getElementById('overlay-host');
+  const prev=host.innerHTML;
+  host.innerHTML = `<div class="ov"><div class="modal" style="max-width:420px">
+    <div class="m-head"><h3>⚠️ Confirmer</h3><button class="m-close" id="cf-x">✕</button></div>
+    <div class="m-body"><div class="sm" style="font-size:14px;line-height:1.6">${html}</div></div>
+    <div class="m-foot"><button class="btn bs" id="cf-no">Annuler</button><button class="btn br" id="cf-yes">Retirer l'accès</button></div>
+  </div></div>`;
+  document.getElementById('cf-no').onclick=()=>{ host.innerHTML=prev; };
+  document.getElementById('cf-x').onclick=()=>{ host.innerHTML=prev; };
+  document.getElementById('cf-yes').onclick=()=>{ host.innerHTML=''; onYes&&onYes(); };
+}
+
+/* init */
+setFormat('desktop'); setTheme('sobre'); setScene('owner');
+</script>
+</body>
+</html>
