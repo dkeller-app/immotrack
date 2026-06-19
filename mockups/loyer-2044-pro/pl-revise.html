@@ -8,7 +8,7 @@
     --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
     --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
     --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
-    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff; --tl:#0d9488; --tl-bg:#effcfa;
     --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
     --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
   }
@@ -23,8 +23,17 @@
   .hero{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start}
   .hero .eyebrow{font:700 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
   .hero .big{font:800 38px/1 'JetBrains Mono',monospace;color:var(--grn);margin:7px 0 4px}
-  .hero .avimp{display:inline-block;font-size:11px;font-weight:800;color:#92400e;background:var(--amb-bg);border:1px solid #d9770633;border-radius:20px;padding:3px 11px;margin-top:4px}
-  .mention{font-size:12px;color:var(--t2);margin-top:12px;background:var(--sur2);border-left:3px solid var(--amb);padding:9px 12px;border-radius:8px;line-height:1.5}.mention b{color:var(--t1)}
+  .hero .avimp{display:inline-block;font-size:11px;font-weight:700;color:var(--t2);margin-top:2px}
+  .caveat{font-size:11.5px;color:var(--t3);margin-top:9px;font-style:italic;line-height:1.45;max-width:560px}
+
+  /* enrichissement = résultat + capital amorti */
+  .enr{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin-top:16px;border:1px solid var(--bor);border-radius:12px;overflow:hidden}
+  .enr .e{flex:1;min-width:150px;padding:12px 14px;background:var(--sur2)}
+  .enr .e .k{font:700 10px/1 Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3)}
+  .enr .e .v{font:800 19px/1 'JetBrains Mono',monospace;margin-top:6px}
+  .enr .e .h{font-size:10.5px;color:var(--t2);margin-top:4px}
+  .enr .op{display:flex;align-items:center;justify-content:center;font:800 20px/1 Inter;color:var(--t3);padding:0 4px;background:var(--sur2)}
+  .enr .e.res .v{color:var(--grn)} .enr .e.cap .v{color:var(--acc)} .enr .e.tot{background:var(--acc-bg)} .enr .e.tot .v{color:#1a4fb0}
 
   /* composition par régime */
   .reg{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
@@ -43,28 +52,37 @@
   table.pl tr.tot td{font-weight:800;color:var(--t1);border-top:1px solid var(--bor2)}
   table.pl td.neg{color:var(--red)}
   table.pl tr.net td{background:var(--grn-bg);font-weight:800;font-size:15px;border-top:2px solid #16a34a55}
+  table.pl tr.cap td{background:var(--acc-bg);font-weight:700;color:#1a4fb0}
+  table.pl tr.enr td{background:#e8edff;font-weight:800;font-size:14.5px;border-top:1px solid #3b7ef655;color:#163e8c}
   table.pl .tag{font-family:Inter;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:7px}
-  .tag.new{background:var(--grn-bg);color:#15803d}.tag.reg{background:var(--pur-bg);color:#6d28d9}.tag.lien{background:var(--acc-bg);color:#1a4fb0}
+  .tag.new{background:var(--grn-bg);color:#15803d}.tag.reg{background:var(--pur-bg);color:#6d28d9}.tag.lien{background:var(--acc-bg);color:#1a4fb0}.tag.pat{background:var(--acc-bg);color:#1a4fb0}
 
-  /* patrimoine bâti (hors résultat) */
-  .patr{margin-top:16px;border:1px solid #16a34a33;border-radius:14px;background:linear-gradient(135deg,var(--grn-bg),#fff);padding:16px 18px}
-  .patr .pt{font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px}
-  .patr .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-  .patr .pb{background:#fff;border:1px solid var(--bor);border-radius:10px;padding:11px 13px}
-  .patr .pb .k{font:600 10px/1 Inter;text-transform:uppercase;color:var(--t3)}
-  .patr .pb .v{font:800 20px/1 'JetBrains Mono',monospace;margin-top:6px}
-  .patr .pb.cap .v{color:#15803d}.patr .pb.int .v{color:#92400e}
-  .patr .punch{margin-top:12px;font-size:13.5px;font-weight:700;color:#15803d}
-  .patr .lk{font-size:12px;color:var(--acc);cursor:pointer;text-decoration:underline;margin-top:6px;display:inline-block}
+  /* bilan optimal */
+  .opti{margin-top:16px;border:1px solid #0d948833;border-radius:14px;background:linear-gradient(135deg,var(--tl-bg),#fff);padding:16px 18px}
+  .opti .ot{font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px}
+  .opti .og{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .opti .ob{background:#fff;border:1px solid var(--bor);border-radius:10px;padding:10px 12px}
+  .opti .ob .k{font:600 9.5px/1.2 Inter;text-transform:uppercase;color:var(--t3)}
+  .opti .ob .v{font:800 17px/1 'JetBrains Mono',monospace;margin-top:6px}
+  .opti .ob.real .v{color:var(--t1)} .opti .ob.pot .v{color:var(--tl)} .opti .ob.gap .v{color:var(--red)}
+  .opti .msg{margin-top:11px;font-size:13px;font-weight:700;color:#0f766e}
+  .opti .note{font-size:11px;color:var(--t3);margin-top:5px;font-style:italic}
 
-  .fisc{margin-top:16px;background:var(--acc-bg);border:1px solid #3b7ef633;border-radius:12px;padding:13px 15px;font-size:12.5px;color:#1a4fb0}
-  .fisc b{color:#0b2e6b} .fisc .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
-  .fisc .b{font-size:12px;font-weight:700;background:#fff;border:1px solid #3b7ef633;border-radius:8px;padding:7px 11px;color:#1a4fb0;text-decoration:none}
+  /* patrimoine bâti (hors résultat) — détail crédit */
+  .patr{margin-top:16px;border:1px solid #3b7ef633;border-radius:14px;background:linear-gradient(135deg,var(--acc-bg),#fff);padding:15px 18px}
+  .patr .pt{font-weight:800;font-size:13.5px;display:flex;align-items:center;gap:8px}
+  .patr .row{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+  .patr .row b{font-family:var(--mono)}
+  .patr .lk{font-size:12px;color:var(--acc);cursor:pointer;text-decoration:underline;margin-top:9px;display:inline-block}
 
-  @media(max-width:680px){ .patr .pgrid{grid-template-columns:1fr} .hero .big{font-size:30px} }
+  .fisc{margin-top:16px;background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:13px 15px;font-size:12.5px;color:var(--t2)}
+  .fisc b{color:var(--t1)} .fisc .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+  .fisc .b{font-size:12px;font-weight:700;background:#fff;border:1px solid var(--bor);border-radius:8px;padding:7px 11px;color:var(--acc);text-decoration:none}
+
+  @media(max-width:680px){ .opti .og{grid-template-columns:1fr} .hero .big{font-size:30px} .enr .op{display:none} .enr .e{min-width:46%} }
 </style>
 </head><body>
-<div class="bar">🛡️ Maquette — <b>P&L révisé = bilan de gestion GLOBAL</b> · tous régimes · résultat AVANT impôts (pas de simulation fiscale)</div>
+<div class="bar">🛡️ Maquette — <b>P&L = bilan de gestion GLOBAL</b> · tous régimes · résultat avant impôts (indicatif)</div>
 <div class="wrap">
   <h1>💶 Finances — Compte de résultat</h1>
 
@@ -74,7 +92,7 @@
       <div>
         <div class="eyebrow">Résultat net avant impôts</div>
         <div class="big">+ 14 928 €</div>
-        <div class="avimp">AVANT IMPÔTS — l'app ne simule pas l'imposition</div>
+        <div class="avimp">Bilan de gestion · tous régimes · avant impôts</div>
       </div>
       <div style="text-align:right;font-size:12.5px;color:var(--t2)">
         <div>Total revenus <b style="font-family:var(--mono);color:var(--t1)">27 809 €</b></div>
@@ -82,7 +100,17 @@
         <div style="margin-top:4px">Marge nette <b style="color:var(--t1)">54 %</b></div>
       </div>
     </div>
-    <div class="mention">🧮 <b>C'est un bilan de gestion, pas une déclaration d'impôts.</b> Il inclut <b>tous tes revenus</b> (nu, meublé, local pro…) et te donne le résultat économique <b>avant impôts</b>. L'app <b>ne simule pas l'imposition</b> — le détail fiscal se fait à part : <b>Déclaration 2044</b> (foncier nu) et <b>récap comptable</b> (meublé / SCI IS).</div>
+
+    <!-- enrichissement réel = résultat + capital amorti -->
+    <div class="enr">
+      <div class="e res"><div class="k">Résultat de gestion</div><div class="v">+ 14 928 €</div><div class="h">cash dégagé sur l'année</div></div>
+      <div class="op">+</div>
+      <div class="e cap"><div class="k">Capital de crédit amorti</div><div class="v">+ 13 201 €</div><div class="h">dette remboursée = patrimoine</div></div>
+      <div class="op">=</div>
+      <div class="e tot"><div class="k">Enrichissement sur l'année</div><div class="v">+ 28 129 €</div><div class="h">ce que tu as réellement gagné</div></div>
+    </div>
+
+    <div class="caveat">Résultat donné à titre indicatif. Il ne se substitue pas à votre déclaration fiscale ni à l'avis d'un expert-comptable. Les charges récupérables (eau, EDF, copro) sont exclues — neutres, le locataire les rembourse.</div>
 
     <div class="reg">
       <div class="rchip nu"><div class="rl">🏠 Foncier nu</div><div class="rv">15 600 €</div><div class="rt">→ déclaré en 2044</div></div>
@@ -111,27 +139,42 @@
         <tr><td>Frais de comptabilité / expert-comptable <span class="tag new">+ ajoutée</span></td><td class="neg">1 200 €</td><td class="neg">—</td><td>4 %</td></tr>
         <tr><td>Taxe sur logements vacants <span class="tag new">+ ajoutée</span></td><td class="neg">0 €</td><td class="neg">—</td><td>0 %</td></tr>
         <tr class="tot"><td>Total charges propriétaire</td><td class="neg">12 881 €</td><td class="neg">0 €</td><td>46 %</td></tr>
-        <tr class="net"><td>= Résultat net AVANT impôts</td><td>+ 14 928 €</td><td>0 €</td><td>54 %</td></tr>
+        <tr class="net"><td>= Résultat net avant impôts</td><td>+ 14 928 €</td><td>0 €</td><td>54 %</td></tr>
+        <tr class="cap"><td>+ Capital de crédit amorti <span class="tag pat">patrimoine — pas une charge</span></td><td>+ 13 201 €</td><td>—</td><td>—</td></tr>
+        <tr class="enr"><td>= Enrichissement réel sur l'année</td><td>+ 28 129 €</td><td>—</td><td>—</td></tr>
       </tbody>
     </table>
-    <div class="mention" style="border-left-color:var(--t3);margin-top:12px">Charges <b>récupérables</b> (eau, EDF, copro) exclues — neutres, le locataire rembourse. Le <b>capital</b> remboursé du prêt n'est <b>pas</b> une charge (c'est du patrimoine, voir ci-dessous) — seuls les <b>intérêts</b> le sont.</div>
+    <div class="caveat" style="font-style:normal;color:var(--t2)">Le <b>capital</b> remboursé du prêt n'est pas une charge — il efface ta dette et construit ton patrimoine. On l'ajoute donc <b>après</b> le résultat pour montrer ton enrichissement réel, sans fausser le résultat de gestion.</div>
   </div>
 
-  <!-- patrimoine bâti, hors résultat -->
+  <!-- bilan optimal sans vacance -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="opti" style="margin:0;border:0;border-radius:0">
+      <div class="ot">📊 Bilan optimal — 100 % occupé (sans vacance locative)</div>
+      <div class="og">
+        <div class="ob real"><div class="k">Résultat réel 2026</div><div class="v">+ 14 928 €</div></div>
+        <div class="ob pot"><div class="k">Résultat optimal (sans vacance)</div><div class="v">+ 17 128 €</div></div>
+        <div class="ob gap"><div class="k">Manque à gagner (vacance)</div><div class="v">− 2 200 €</div></div>
+      </div>
+      <div class="msg">💡 La vacance locative t'a coûté <b>2 200 €</b> cette année — soit <b>15 %</b> de ton résultat.</div>
+      <div class="note">Optimal = tous les lots loués 12 mois au loyer du bail en cours. Hors impayés et hors travaux exceptionnels.</div>
+    </div>
+  </div>
+
+  <!-- patrimoine bâti, détail crédit -->
   <div class="card" style="padding:0;overflow:hidden">
     <div class="patr" style="margin:0;border:0;border-radius:0">
-      <div class="pt">💳 Patrimoine bâti par tes crédits <span style="font-weight:400;color:var(--t2);font-size:12px">— hors résultat (ce n'est pas une charge)</span></div>
-      <div class="pgrid">
-        <div class="pb cap"><div class="k">🏠 Capital amorti 2026</div><div class="v">+ 13 201 €</div></div>
-        <div class="pb int"><div class="k">💸 Intérêts payés 2026 → ligne ci-dessus</div><div class="v">6 651 €</div></div>
+      <div class="pt">💳 Détail de tes crédits <span style="font-weight:400;color:var(--t2);font-size:12px">— d'où viennent les 6 651 € d'intérêts et 13 201 € de capital</span></div>
+      <div class="row">
+        <div>🏠 Capital amorti 2026 : <b style="color:#1a4fb0">+ 13 201 €</b></div>
+        <div>💸 Intérêts payés 2026 : <b style="color:#92400e">6 651 €</b> <span style="color:var(--t3)">(→ ligne du bilan)</span></div>
       </div>
-      <div class="punch">Même si ton résultat de gestion / cash-flow est serré, tu as <b>capitalisé 13 201 €</b> cette année : ton patrimoine grossit.</div>
-      <a class="lk" href="credit-amortissement.html">Voir le détail par crédit (intérêts vs capital, année par année) →</a>
+      <a class="lk" href="credit-amortissement.html">Voir le détail par crédit (intérêts vs capital, année par année, multi-prêts) →</a>
     </div>
   </div>
 
   <div class="fisc">
-    🧾 <b>Pour déclarer (séparé du bilan ci-dessus)</b> : le bilan est global et avant impôts. Le fiscal se fait par régime :
+    🧾 <b>Pour déclarer (séparé du bilan ci-dessus)</b> — le bilan est global et avant impôts ; le fiscal se fait par régime :
     <div class="btns"><a class="b" href="previsu-2044.html">📋 Déclaration 2044 (foncier nu)</a><a class="b" href="documents-par-entite.html">📄 Récap comptable (meublé / SCI IS)</a></div>
   </div>
 </div>
