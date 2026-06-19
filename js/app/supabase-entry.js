@@ -111,6 +111,115 @@ async function boot() {
     } catch (e) { return null }
   }
 
+  // ── PARTAGE PAR SCI (étapes 2-3) — helpers MANAGER de l'écran « Partage & accès ». TOUT passe par la
+  // RLS (migrations 0029/0030/0032) : le client n'agit que dans son espace, en tant que manager plein.
+  // Mapping : role entite_membre 'gestionnaire'→mode 'ecriture', 'lecture_seule'→mode 'lecture'.
+  // Couleur d'entité : l'app ne stocke PAS de couleur en base → on dérive une teinte stable du nom
+  // (hash → HSL), même esprit que _tenantColor côté index.html (mémoire visuelle inter-vues).
+  const _partageColor = (nom) => {
+    const s = String(nom == null ? '' : nom)
+    if (!s) return 'hsl(220,12%,60%)'
+    let h = 0
+    for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h = h & h }
+    return 'hsl(' + (Math.abs(h) % 320 + 20) + ',58%,52%)'   // évite le rouge (vacance) comme _tenantColor
+  }
+  // « Perso » = patrimoine personnel : entité dont le type évoque une personne physique (≠ SCI/société).
+  // Aligné sur la détection d'index.html (`/personne physique|perso/i` sur le type d'entité). Non figé :
+  // si l'utilisateur n'a pas d'entité « Perso », rien n'est forcé — on partage les entités telles quelles.
+  const _isPerso = (ent) => /personne\s*physique|perso/i.test(String((ent && ent.type) || ''))
+  const _curUid = async () => { try { const { data } = await client.auth.getUser(); return (data && data.user && data.user.id) || null } catch (e) { return null } }
+
+  // Liste des entités de l'espace (pour le picker du popup d'invitation). [{id, nom, couleur, perso}]
+  async function _listEntites () {
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
+    const { data, error } = await client
+      .from('entites').select('id, nom, type, archived')
+      .eq('espace_id', _cloudEspaceId)
+      .order('nom', { ascending: true })
+    if (error) return { error: error.message }
+    const list = (data || [])
+      .filter(e => e && !e.archived)
+      .map(e => ({ id: e.id, nom: e.nom, couleur: _partageColor(e.nom), perso: _isPerso(e) }))
+    return { entites: list }
+  }
+
+  // Membres de l'espace + leurs octrois par-entité. [{ user_id, isOwner, label, grants:[{entite_id,entite_nom,couleur,mode}] }]
+  async function _listMembers () {
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
+    const meUid = await _curUid()
+    // 3 lectures parallèles (toutes sous RLS, scopées à l'espace).
+    const [mRes, gRes, eRes, iRes] = await Promise.all([
+      client.from('espace_members').select('user_id, role, full_espace, invite_status, invite_email').eq('espace_id', _cloudEspaceId),
+      client.from('entite_membre').select('entite_id, user_id, role').eq('espace_id', _cloudEspaceId),
+      client.from('entites').select('id, nom').eq('espace_id', _cloudEspaceId),
+      client.from('invitations').select('invite_email, accepted_by').eq('espace_id', _cloudEspaceId).not('accepted_by', 'is', null)
+    ])
+    const firstErr = (mRes.error || gRes.error || eRes.error || iRes.error)
+    if (firstErr) return { error: firstErr.message }
+    const entById = {}
+    ;(eRes.data || []).forEach(e => { entById[e.id] = { nom: e.nom, couleur: _partageColor(e.nom) } })
+    // email lisible d'un partenaire : via l'invitation qu'il a acceptée (accepted_by = user_id).
+    const emailByUid = {}
+    ;(iRes.data || []).forEach(inv => { if (inv.accepted_by && inv.invite_email) emailByUid[inv.accepted_by] = inv.invite_email })
+    // octrois groupés par user
+    const grantsByUid = {}
+    ;(gRes.data || []).forEach(g => {
+      const ent = entById[g.entite_id] || { nom: 'Périmètre', couleur: _partageColor(g.entite_id) }
+      ;(grantsByUid[g.user_id] = grantsByUid[g.user_id] || []).push({
+        entite_id: g.entite_id, entite_nom: ent.nom, couleur: ent.couleur,
+        mode: g.role === 'gestionnaire' ? 'ecriture' : 'lecture'
+      })
+    })
+    const members = (mRes.data || [])
+      .filter(m => m && m.user_id && m.invite_status === 'active')
+      .map(m => {
+        const isOwner = m.full_espace === true
+        const isMe = meUid && m.user_id === meUid
+        const email = emailByUid[m.user_id] || m.invite_email || ''
+        const label = isMe ? 'Vous' : (email || ('Membre ' + String(m.user_id).slice(0, 8)))
+        return { user_id: m.user_id, isOwner, isMe: !!isMe, label, email: isMe ? '' : email, grants: grantsByUid[m.user_id] || [] }
+      })
+    // owner (vous) en premier, puis partenaires
+    members.sort((a, b) => (b.isOwner - a.isOwner) || (b.isMe - a.isMe))
+    return { members }
+  }
+
+  // Crée une invitation (RLS = manager). grants = [{entite_id, mode:'ecriture'|'lecture'}]. → { token, url }.
+  async function _createInvite (grants, inviteEmail) {
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
+    if (!Array.isArray(grants) || grants.length === 0) return { error: 'Choisissez au moins un périmètre.' }
+    const clean = grants
+      .filter(g => g && g.entite_id && (g.mode === 'ecriture' || g.mode === 'lecture'))
+      .map(g => ({ entite_id: g.entite_id, mode: g.mode }))
+    if (clean.length === 0) return { error: 'Périmètres invalides.' }
+    const row = { espace_id: _cloudEspaceId, grants: clean }
+    if (inviteEmail) row.invite_email = inviteEmail
+    const { data, error } = await client.from('invitations').insert(row).select('token').single()
+    if (error) return { error: error.message }
+    const token = data && data.token
+    if (!token) return { error: 'Token non renvoyé.' }
+    const url = location.origin + location.pathname + '?invite=' + encodeURIComponent(token)
+    return { token, url }
+  }
+
+  // Révoque l'accès d'un partenaire : octrois par-entité PUIS appartenance à l'espace (manager via RLS).
+  async function _revokeMember (userId) {
+    if (!_cloudEspaceId) return { error: 'Espace non résolu — reconnecte-toi.' }
+    if (!userId) return { error: 'Membre invalide.' }
+    const r1 = await client.from('entite_membre').delete().eq('espace_id', _cloudEspaceId).eq('user_id', userId)
+    if (r1.error) return { error: r1.error.message }
+    const r2 = await client.from('espace_members').delete().eq('espace_id', _cloudEspaceId).eq('user_id', userId)
+    if (r2.error) return { error: r2.error.message }
+    return { ok: true }
+  }
+
+  window.__immoPartage = {
+    listMembers: _listMembers,
+    listEntites: _listEntites,
+    createInvite: _createInvite,
+    revokeMember: _revokeMember
+  }
+
   // déjà connecté (session persistée) → enchaîner direct
   const user = await api.currentUser()
   if (user) return onLoggedIn(api, overlay, user)
