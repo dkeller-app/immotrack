@@ -24,7 +24,9 @@
   .hero .eyebrow{font:700 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.1em;color:var(--t3)}
   .hero .big{font:800 38px/1 'JetBrains Mono',monospace;color:var(--grn);margin:7px 0 4px}
   .hero .avimp{display:inline-block;font-size:11px;font-weight:700;color:var(--t2);margin-top:2px}
-  .caveat{font-size:11.5px;color:var(--t3);margin-top:9px;font-style:italic;line-height:1.45;max-width:560px}
+  .hero .sumbox{text-align:right;font-size:12.5px;color:var(--t2)}
+  .hero .sumbox b{font-family:var(--mono)}
+  .caveat{font-size:11.5px;color:var(--t3);margin-top:9px;font-style:italic;line-height:1.45;max-width:600px}
 
   /* enrichissement = résultat + capital amorti */
   .enr{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin-top:16px;border:1px solid var(--bor);border-radius:12px;overflow:hidden}
@@ -51,11 +53,13 @@
   table.pl tr.grp td{background:var(--sur2);font:700 10.5px/1 Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3);text-align:left}
   table.pl tr.tot td{font-weight:800;color:var(--t1);border-top:1px solid var(--bor2)}
   table.pl td.neg{color:var(--red)}
+  table.pl tr.subtot td{background:#f0fdf6;font-weight:800;border-top:1px solid #16a34a44}
+  table.pl tr.solde td{background:var(--amb-bg);font-weight:800;color:#92400e;border-top:1px solid #d9770644}
   table.pl tr.net td{background:var(--grn-bg);font-weight:800;font-size:15px;border-top:2px solid #16a34a55}
   table.pl tr.cap td{background:var(--acc-bg);font-weight:700;color:#1a4fb0}
   table.pl tr.enr td{background:#e8edff;font-weight:800;font-size:14.5px;border-top:1px solid #3b7ef655;color:#163e8c}
-  table.pl .tag{font-family:Inter;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:7px}
-  .tag.new{background:var(--grn-bg);color:#15803d}.tag.reg{background:var(--pur-bg);color:#6d28d9}.tag.lien{background:var(--acc-bg);color:#1a4fb0}.tag.pat{background:var(--acc-bg);color:#1a4fb0}
+  table.pl .tag{font-family:Inter;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:7px;white-space:nowrap}
+  .tag.new{background:var(--grn-bg);color:#15803d}.tag.reg{background:var(--pur-bg);color:#6d28d9}.tag.lien{background:var(--acc-bg);color:#1a4fb0}.tag.pat{background:var(--acc-bg);color:#1a4fb0}.tag.rec{background:#fff;color:var(--t2);border:1px solid var(--bor)}.tag.regul{background:#fff;color:#92400e;border:1px solid #d9770655}
 
   /* bilan optimal */
   .opti{margin-top:16px;border:1px solid #0d948833;border-radius:14px;background:linear-gradient(135deg,var(--tl-bg),#fff);padding:16px 18px}
@@ -91,26 +95,26 @@
     <div class="hero">
       <div>
         <div class="eyebrow">Résultat net avant impôts</div>
-        <div class="big">+ 14 928 €</div>
+        <div class="big">+ 14 678 €</div>
         <div class="avimp">Bilan de gestion · tous régimes · avant impôts</div>
       </div>
-      <div style="text-align:right;font-size:12.5px;color:var(--t2)">
-        <div>Total revenus <b style="font-family:var(--mono);color:var(--t1)">27 809 €</b></div>
-        <div style="margin-top:4px">− Charges propriétaire <b style="font-family:var(--mono);color:var(--red)">12 881 €</b></div>
-        <div style="margin-top:4px">Marge nette <b style="color:var(--t1)">54 %</b></div>
+      <div class="sumbox">
+        <div>Résultat de gestion <b style="color:var(--t1)">14 928 €</b></div>
+        <div style="margin-top:4px">± Régularisation charges <b style="color:#92400e">− 250 €</b></div>
+        <div style="margin-top:4px;padding-top:4px;border-top:1px solid var(--bor)">= Résultat net <b style="color:var(--grn)">14 678 €</b></div>
       </div>
     </div>
 
     <!-- enrichissement réel = résultat + capital amorti -->
     <div class="enr">
-      <div class="e res"><div class="k">Résultat de gestion</div><div class="v">+ 14 928 €</div><div class="h">cash dégagé sur l'année</div></div>
+      <div class="e res"><div class="k">Résultat net</div><div class="v">+ 14 678 €</div><div class="h">cash dégagé sur l'année</div></div>
       <div class="op">+</div>
       <div class="e cap"><div class="k">Capital de crédit amorti</div><div class="v">+ 13 201 €</div><div class="h">dette remboursée = patrimoine</div></div>
       <div class="op">=</div>
-      <div class="e tot"><div class="k">Enrichissement sur l'année</div><div class="v">+ 28 129 €</div><div class="h">ce que tu as réellement gagné</div></div>
+      <div class="e tot"><div class="k">Enrichissement sur l'année</div><div class="v">+ 27 879 €</div><div class="h">ce que tu as réellement gagné</div></div>
     </div>
 
-    <div class="caveat">Résultat donné à titre indicatif. Il ne se substitue pas à votre déclaration fiscale ni à l'avis d'un expert-comptable. Les charges récupérables (eau, EDF, copro) sont exclues — neutres, le locataire les rembourse.</div>
+    <div class="caveat">Résultat donné à titre indicatif. Il ne se substitue pas à votre déclaration fiscale ni à l'avis d'un expert-comptable.</div>
 
     <div class="reg">
       <div class="rchip nu"><div class="rl">🏠 Foncier nu</div><div class="rv">15 600 €</div><div class="rt">→ déclaré en 2044</div></div>
@@ -124,12 +128,12 @@
     <table class="pl">
       <thead><tr><th>Poste</th><th>2026</th><th>2025</th><th>% rev.</th></tr></thead>
       <tbody>
-        <tr class="grp"><td colspan="4">Revenus locatifs (tous régimes)</td></tr>
+        <tr class="grp"><td colspan="4">Revenus propres (à toi)</td></tr>
         <tr><td>Loyers hors charges encaissés</td><td>26 600 €</td><td>— €</td><td>96 %</td></tr>
         <tr><td>Recettes diverses (GLI, parking…)</td><td>1 209 €</td><td>—</td><td>4 %</td></tr>
-        <tr><td>Provisions sur charges encaissées <span class="tag" style="background:var(--sur2);color:var(--t3)">neutre</span></td><td>2 100 €</td><td>—</td><td>—</td></tr>
-        <tr class="tot"><td>Total revenus (hors provisions)</td><td>27 809 €</td><td>—</td><td>100 %</td></tr>
-        <tr class="grp"><td colspan="4">Charges propriétaire (non récupérables)</td></tr>
+        <tr class="tot"><td>Total revenus propres</td><td>27 809 €</td><td>—</td><td>100 %</td></tr>
+
+        <tr class="grp"><td colspan="4">Charges propriétaire (à ta charge)</td></tr>
         <tr><td>Intérêts d'emprunt <span class="tag lien">branché sur tes crédits ↓</span></td><td class="neg">6 651 €</td><td class="neg">0 €</td><td>24 %</td></tr>
         <tr><td>Taxe foncière</td><td class="neg">1 240 €</td><td class="neg">0 €</td><td>4 %</td></tr>
         <tr><td>Travaux & entretien</td><td class="neg">1 850 €</td><td class="neg">0 €</td><td>7 %</td></tr>
@@ -139,12 +143,19 @@
         <tr><td>Frais de comptabilité / expert-comptable <span class="tag new">+ ajoutée</span></td><td class="neg">1 200 €</td><td class="neg">—</td><td>4 %</td></tr>
         <tr><td>Taxe sur logements vacants <span class="tag new">+ ajoutée</span></td><td class="neg">0 €</td><td class="neg">—</td><td>0 %</td></tr>
         <tr class="tot"><td>Total charges propriétaire</td><td class="neg">12 881 €</td><td class="neg">0 €</td><td>46 %</td></tr>
-        <tr class="net"><td>= Résultat net avant impôts</td><td>+ 14 928 €</td><td>0 €</td><td>54 %</td></tr>
+        <tr class="subtot"><td>= Résultat de gestion</td><td>+ 14 928 €</td><td>0 €</td><td>54 %</td></tr>
+
+        <tr class="grp"><td colspan="4">Charges récupérables (refacturées au locataire)</td></tr>
+        <tr><td>Provisions / charges encaissées du locataire <span class="tag rec">récupérable</span></td><td>+ 2 100 €</td><td>—</td><td>—</td></tr>
+        <tr><td>Charges récupérables payées (eau, EDF communs, ordures, copro) <span class="tag rec">récupérable</span></td><td class="neg">2 350 €</td><td>—</td><td>—</td></tr>
+        <tr class="solde"><td>= Solde de régularisation <span class="tag regul">250 € à récupérer du locataire</span></td><td>− 250 €</td><td>—</td><td>—</td></tr>
+
+        <tr class="net"><td>= Résultat net avant impôts</td><td>+ 14 678 €</td><td>0 €</td><td>—</td></tr>
         <tr class="cap"><td>+ Capital de crédit amorti <span class="tag pat">patrimoine — pas une charge</span></td><td>+ 13 201 €</td><td>—</td><td>—</td></tr>
-        <tr class="enr"><td>= Enrichissement réel sur l'année</td><td>+ 28 129 €</td><td>—</td><td>—</td></tr>
+        <tr class="enr"><td>= Enrichissement réel sur l'année</td><td>+ 27 879 €</td><td>—</td><td>—</td></tr>
       </tbody>
     </table>
-    <div class="caveat" style="font-style:normal;color:var(--t2)">Le <b>capital</b> remboursé du prêt n'est pas une charge — il efface ta dette et construit ton patrimoine. On l'ajoute donc <b>après</b> le résultat pour montrer ton enrichissement réel, sans fausser le résultat de gestion.</div>
+    <div class="caveat" style="font-style:normal;color:var(--t2)">Les <b>charges récupérables</b> ne sont pas à ta charge : tu les avances et le locataire te les rembourse. Tant que les provisions encaissées ≠ charges réellement payées, il reste un <b>solde à régulariser</b> (ici <b>250 € à récupérer</b>) — il pèse sur ta trésorerie jusqu'à la régularisation annuelle, donc on l'intègre au résultat. Le <b>capital</b> remboursé du prêt, lui, n'est pas une charge : on l'ajoute <b>après</b> pour montrer ton enrichissement réel.</div>
   </div>
 
   <!-- bilan optimal sans vacance -->
@@ -152,8 +163,8 @@
     <div class="opti" style="margin:0;border:0;border-radius:0">
       <div class="ot">📊 Bilan optimal — 100 % occupé (sans vacance locative)</div>
       <div class="og">
-        <div class="ob real"><div class="k">Résultat réel 2026</div><div class="v">+ 14 928 €</div></div>
-        <div class="ob pot"><div class="k">Résultat optimal (sans vacance)</div><div class="v">+ 17 128 €</div></div>
+        <div class="ob real"><div class="k">Résultat réel 2026</div><div class="v">+ 14 678 €</div></div>
+        <div class="ob pot"><div class="k">Résultat optimal (sans vacance)</div><div class="v">+ 16 878 €</div></div>
         <div class="ob gap"><div class="k">Manque à gagner (vacance)</div><div class="v">− 2 200 €</div></div>
       </div>
       <div class="msg">💡 La vacance locative t'a coûté <b>2 200 €</b> cette année — soit <b>15 %</b> de ton résultat.</div>
