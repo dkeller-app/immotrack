@@ -131,7 +131,7 @@
   .drillsec .h{font:700 11px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3);margin-bottom:8px}
   .dnote{background:var(--amb-bg);border:1px solid #d9770633;border-radius:8px;padding:8px 11px;font-size:11.5px;color:#92400e;margin-bottom:16px}.dnote b{color:#7a3a08}
   .dchart{display:flex;align-items:center;gap:20px;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:14px 16px}
-  .dchart .bars{display:flex;align-items:flex-end;gap:16px;height:84px}
+  .dchart .bars{display:flex;align-items:flex-end;gap:16px;height:128px;flex-shrink:0}
   .dchart .bcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
   .dchart .bar{width:40px;border-radius:4px 4px 0 0}
   .dchart .bv{font:700 11px var(--mono);color:var(--t1)}
@@ -152,6 +152,12 @@
   table.mvt .edit{color:var(--acc);cursor:pointer;font-weight:600;font-size:11px;opacity:.55}
   table.mvt tr:hover .edit{opacity:1}
   table.mvt tfoot td{font-weight:800;border-top:1px solid var(--bor2)}
+  table.mvt thead th{position:sticky;top:0}
+  .mvtools{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+  .mvtools input{flex:1;padding:8px 10px;border:1px solid var(--bor);border-radius:8px;font:500 12.5px Inter}
+  .mvtools input:focus{outline:0;border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-bg)}
+  .mvtools select{padding:8px 10px;border:1px solid var(--bor);border-radius:8px;font:600 12px Inter;background:#fff}
+  .mvfoot{font-size:11px;color:var(--t3);margin-top:7px;line-height:1.4}
 
   @media(max-width:680px){ .hero .big{font-size:30px} .enr .op{display:none} .enr .e{min-width:46%} .tabs .tb{font-size:10.5px} .dchart{flex-direction:column;align-items:flex-start} .repbar .rl{width:90px} }
 </style>
@@ -291,17 +297,17 @@
 
 <!-- MODALE : drill-down d'une ligne (exemple Travaux) -->
 <div class="ov" id="ovDrill">
-  <div class="modal" style="max-width:640px">
-    <div class="mh"><div><div class="tt">🔧 Travaux & entretien</div><div class="sub">1 850 € · exercice 2026 · 4 mouvements · 3 biens</div></div><button class="x" onclick="closeDrill()">×</button></div>
-    <div style="padding:18px 20px 6px">
+  <div class="modal" style="max-width:780px">
+    <div class="mh"><div><div class="tt">🔧 Travaux & entretien</div><div class="sub">1 850 € · exercice 2026 · 12 mouvements · 3 biens</div></div><button class="x" onclick="closeDrill()">×</button></div>
+    <div style="padding:18px 22px 6px">
       <div class="dnote">ℹ️ Exemple sur <b>Travaux</b> — chaque ligne ouvre ce même type de détail, <b>adapté à son contenu</b> (un loyer → par logement/mois ; le régul → par bail provisions vs charges réelles ; etc.).</div>
 
       <div class="drillsec">
         <div class="h">📊 Évolution vs année précédente</div>
         <div class="dchart">
           <div class="bars">
-            <div class="bcol"><span class="bv">3 100 €</span><div class="bar" style="height:74px;background:#cbd5e1"></div><span class="bl">2025</span></div>
-            <div class="bcol"><span class="bv">1 850 €</span><div class="bar" style="height:44px;background:var(--acc)"></div><span class="bl">2026</span></div>
+            <div class="bcol"><span class="bv">3 100 €</span><div class="bar" style="height:84px;background:#cbd5e1"></div><span class="bl">2025</span></div>
+            <div class="bcol"><span class="bv">1 850 €</span><div class="bar" style="height:50px;background:var(--acc)"></div><span class="bl">2026</span></div>
           </div>
           <div class="ctx"><b>−40 %</b> vs 2025 &nbsp;·&nbsp; <b>7 %</b> de tes loyers<br>Moyenne sur 24 mois : <b>~2 100 €/an</b></div>
         </div>
@@ -315,19 +321,32 @@
       </div>
 
       <div class="drillsec">
-        <div class="h">🧾 Mouvements (4) — les pièces</div>
-        <div style="max-height:210px;overflow:auto;border:1px solid var(--bor);border-radius:9px">
+        <div class="h">🧾 Mouvements (12) — les pièces</div>
+        <div class="mvtools">
+          <input placeholder="🔍 Filtrer (libellé, bien…)">
+          <select><option>Tri : date ↓</option><option>Montant ↓</option><option>Par bien</option></select>
+        </div>
+        <div style="max-height:240px;overflow:auto;border:1px solid var(--bor);border-radius:9px">
         <table class="mvt">
           <thead><tr><th>Date</th><th>Libellé</th><th>Bien</th><th>Montant</th></tr></thead>
           <tbody>
             <tr><td class="mv-date">14/03</td><td>Remplacement chauffe-eau <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">980 €</td></tr>
+            <tr><td class="mv-date">22/03</td><td>Main d'œuvre plombier <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">140 €</td></tr>
             <tr><td class="mv-date">02/06</td><td>Peinture séjour <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">220 €</td></tr>
             <tr><td class="mv-date">18/06</td><td>Réparation volet roulant <span class="edit">✎ éditer</span></td><td>Bellevue</td><td class="mv-am">450 €</td></tr>
             <tr><td class="mv-date">09/09</td><td>Changement serrure <span class="edit">✎ éditer</span></td><td>Garage Centre</td><td class="mv-am">200 €</td></tr>
+            <tr><td class="mv-date">12/09</td><td>Joint silicone salle de bain <span class="edit">✎ éditer</span></td><td>Bellevue</td><td class="mv-am">45 €</td></tr>
+            <tr><td class="mv-date">03/10</td><td>Débouchage évier <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">90 €</td></tr>
+            <tr><td class="mv-date">15/10</td><td>Remplacement ampoules communs <span class="edit">✎ éditer</span></td><td>Bellevue</td><td class="mv-am">35 €</td></tr>
+            <tr><td class="mv-date">28/10</td><td>Entretien chaudière annuel <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">160 €</td></tr>
+            <tr><td class="mv-date">07/11</td><td>Réparation interphone <span class="edit">✎ éditer</span></td><td>Bellevue</td><td class="mv-am">120 €</td></tr>
+            <tr><td class="mv-date">19/11</td><td>Petites fournitures (quincaillerie) <span class="edit">✎ éditer</span></td><td>Garage Centre</td><td class="mv-am">30 €</td></tr>
+            <tr><td class="mv-date">04/12</td><td>Nettoyage gouttières <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">180 €</td></tr>
           </tbody>
           <tfoot><tr><td colspan="3">Total</td><td class="mv-am">1 850 €</td></tr></tfoot>
         </table>
         </div>
+        <div class="mvfoot">↕ La liste défile (compteur + filtre + tri en haut). Pour tout voir/éditer en plein écran, utilise « Ouvrir ces mouvements » ci-dessous.</div>
       </div>
     </div>
     <div class="mf"><button class="btn ghost" onclick="closeDrill()">Fermer</button><button class="btn prim" onclick="return false">📂 Ouvrir ces mouvements (filtre Travaux · 2026) →</button></div>
