@@ -121,7 +121,39 @@
   .btn{padding:10px 18px;border-radius:9px;font:700 13px Inter;cursor:pointer;border:1px solid var(--bor)}
   .btn.ghost{background:#fff;color:var(--t2)}.btn.prim{background:var(--acc);color:#fff;border-color:var(--acc)}
 
-  @media(max-width:680px){ .hero .big{font-size:30px} .enr .op{display:none} .enr .e{min-width:46%} .tabs .tb{font-size:10.5px} }
+  /* lignes cliquables (drill) */
+  tr.clk{cursor:pointer}
+  tr.clk:hover td{background:var(--acc-bg)!important}
+  .clkhint{font-size:11.5px;color:var(--acc);margin:2px 0 8px;font-weight:600}
+
+  /* contenu drill-down d'une ligne */
+  .drillsec{margin-bottom:16px}
+  .drillsec .h{font:700 11px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3);margin-bottom:8px}
+  .dnote{background:var(--amb-bg);border:1px solid #d9770633;border-radius:8px;padding:8px 11px;font-size:11.5px;color:#92400e;margin-bottom:16px}.dnote b{color:#7a3a08}
+  .dchart{display:flex;align-items:center;gap:20px;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:14px 16px}
+  .dchart .bars{display:flex;align-items:flex-end;gap:16px;height:84px}
+  .dchart .bcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
+  .dchart .bar{width:40px;border-radius:4px 4px 0 0}
+  .dchart .bv{font:700 11px var(--mono);color:var(--t1)}
+  .dchart .bl{font:600 10px Inter;color:var(--t3)}
+  .dchart .ctx{font-size:12px;color:var(--t2);line-height:1.7}.dchart .ctx b{color:var(--t1)}
+  .repbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12.5px}
+  .repbar .rl{width:130px;color:var(--t2);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .repbar .rt{flex:1;height:10px;background:#e4ebf3;border-radius:5px;overflow:hidden}
+  .repbar .rf{display:block;height:100%;background:var(--acc);border-radius:5px}
+  .repbar .rv{font:700 12px var(--mono);width:96px;text-align:right;flex-shrink:0}
+  table.mvt{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.mvt th{text-align:left;font:700 10px Inter;text-transform:uppercase;color:var(--t3);padding:6px 9px;border-bottom:1px solid var(--bor);background:var(--sur2)}
+  table.mvt th:last-child,table.mvt td.mv-am{text-align:right}
+  table.mvt td{padding:7px 9px;border-bottom:1px solid var(--sur2);vertical-align:top}
+  table.mvt td.mv-date{font-family:var(--mono);color:var(--t3);white-space:nowrap}
+  table.mvt td.mv-am{font-family:var(--mono);font-weight:700;white-space:nowrap}
+  table.mvt tr:hover td{background:var(--sur2)}
+  table.mvt .edit{color:var(--acc);cursor:pointer;font-weight:600;font-size:11px;opacity:.55}
+  table.mvt tr:hover .edit{opacity:1}
+  table.mvt tfoot td{font-weight:800;border-top:1px solid var(--bor2)}
+
+  @media(max-width:680px){ .hero .big{font-size:30px} .enr .op{display:none} .enr .e{min-width:46%} .tabs .tb{font-size:10.5px} .dchart{flex-direction:column;align-items:flex-start} .repbar .rl{width:90px} }
 </style>
 </head><body>
 <div class="bar">🛡️ Maquette — <b>P&L = structure de l'app actuelle</b> (résultat de gestion − régul non récupéré · panneau « Argent à récupérer ») + ajouts <span class="ADD">AJOUT</span></div>
@@ -166,28 +198,29 @@
 
   <div class="card">
     <div class="sec">Compte de résultat détaillé · 01/01 → 31/12/2026</div>
+    <div class="clkhint">👆 Clique sur une ligne → détail (mouvements / pièces · répartition par bien · évolution)</div>
     <div style="overflow-x:auto"><table class="pl">
       <thead><tr><th>Poste</th><th>2026</th><th>2025</th><th>Var.</th><th>% loyers</th></tr></thead>
       <tbody>
         <tr class="grp"><td colspan="5">Revenus locatifs</td></tr>
-        <tr><td>Loyers hors charges encaissés</td><td>26 600 €</td><td>25 010 €</td><td>+6,4 %</td><td>100 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Loyers hors charges encaissés</td><td>26 600 €</td><td>25 010 €</td><td>+6,4 %</td><td>100 %</td></tr>
 
         <tr class="grp"><td colspan="5">Charges propriétaire — à ta charge (non récupérables)</td></tr>
-        <tr><td>Intérêts d'emprunt <button class="lnbtn" onclick="openInt()">🧮 renseigner</button> <span class="ADD">bouton AJOUT</span></td><td class="neg">6 651 €</td><td class="neg">0 €</td><td>—</td><td>25 %</td></tr>
-        <tr><td>Taxe foncière</td><td class="neg">1 240 €</td><td class="neg">1 210 €</td><td>+2,5 %</td><td>5 %</td></tr>
-        <tr><td>Travaux & entretien</td><td class="neg">1 850 €</td><td class="neg">3 100 €</td><td>−40 %</td><td>7 %</td></tr>
-        <tr><td>Honoraires & gestion</td><td class="neg">920 €</td><td class="neg">880 €</td><td>+4,5 %</td><td>3 %</td></tr>
-        <tr><td>Assurance PNO / GLI</td><td class="neg">540 €</td><td class="neg">520 €</td><td>+3,8 %</td><td>2 %</td></tr>
-        <tr><td>CFE (cotisation foncière entreprises) <span class="tag new">+ ajoutée</span> <span class="tag reg">meublé / IS</span></td><td class="neg">480 €</td><td class="neg">—</td><td>—</td><td>2 %</td></tr>
-        <tr><td>Frais de comptabilité / expert-comptable <span class="tag new">+ ajoutée</span></td><td class="neg">1 200 €</td><td class="neg">—</td><td>—</td><td>5 %</td></tr>
-        <tr><td>Taxe sur logements vacants <span class="tag new">+ ajoutée</span></td><td class="neg">0 €</td><td class="neg">—</td><td>—</td><td>0 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Intérêts d'emprunt <button class="lnbtn" onclick="event.stopPropagation();openInt()">🧮 renseigner</button> <span class="ADD">bouton AJOUT</span></td><td class="neg">6 651 €</td><td class="neg">0 €</td><td>—</td><td>25 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Taxe foncière</td><td class="neg">1 240 €</td><td class="neg">1 210 €</td><td>+2,5 %</td><td>5 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Travaux & entretien</td><td class="neg">1 850 €</td><td class="neg">3 100 €</td><td>−40 %</td><td>7 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Honoraires & gestion</td><td class="neg">920 €</td><td class="neg">880 €</td><td>+4,5 %</td><td>3 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Assurance PNO / GLI</td><td class="neg">540 €</td><td class="neg">520 €</td><td>+3,8 %</td><td>2 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>CFE (cotisation foncière entreprises) <span class="tag new">+ ajoutée</span> <span class="tag reg">meublé / IS</span></td><td class="neg">480 €</td><td class="neg">—</td><td>—</td><td>2 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Frais de comptabilité / expert-comptable <span class="tag new">+ ajoutée</span></td><td class="neg">1 200 €</td><td class="neg">—</td><td>—</td><td>5 %</td></tr>
+        <tr class="clk" onclick="openDrill()"><td>Taxe sur logements vacants <span class="tag new">+ ajoutée</span></td><td class="neg">0 €</td><td class="neg">—</td><td>—</td><td>0 %</td></tr>
         <tr class="tot"><td>Total charges propriétaire</td><td class="neg">12 881 €</td><td class="neg">5 710 €</td><td>—</td><td>48 %</td></tr>
         <tr class="subtot"><td>= Résultat de gestion <span style="font-weight:500;color:var(--t2);font-size:11px">(loyers HC − charges propriétaire)</span></td><td>+ 13 719 €</td><td>+ 12 920 €</td><td>+6,2 %</td><td>52 %</td></tr>
 
         <tr class="grp"><td colspan="5">Régularisation des charges récupérables <span class="ADD">impacte le résultat</span></td></tr>
-        <tr class="neutre"><td>Provisions / charges encaissées du locataire</td><td>+ 2 100 €</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr class="neutre"><td>Charges récupérables payées (eau, EDF communs, ordures, copro)</td><td>− 2 350 €</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr class="regul"><td>= Solde de régularisation <span style="font-weight:500;font-size:11px">avancé, pas encore récupéré</span> <span class="tag lnk" onclick="document.getElementById('leaks').scrollIntoView({behavior:'smooth'})">250 € à récupérer ↓</span></td><td>− 250 €</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr class="neutre clk" onclick="openDrill()"><td>Provisions / charges encaissées du locataire</td><td>+ 2 100 €</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr class="neutre clk" onclick="openDrill()"><td>Charges récupérables payées (eau, EDF communs, ordures, copro)</td><td>− 2 350 €</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr class="regul clk" onclick="openDrill()"><td>= Solde de régularisation <span style="font-weight:500;font-size:11px">avancé, pas encore récupéré</span> <span class="tag lnk" onclick="event.stopPropagation();document.getElementById('leaks').scrollIntoView({behavior:'smooth'})">250 € à récupérer ↓</span></td><td>− 250 €</td><td>—</td><td>—</td><td>—</td></tr>
 
         <tr class="net"><td>= Résultat net avant impôts</td><td>+ 13 469 €</td><td>+ 12 920 €</td><td>+4,2 %</td><td>51 %</td></tr>
         <tr class="cap"><td>+ Capital de crédit amorti <span class="tag pat">patrimoine — pas une charge</span> <span class="ADD">AJOUT</span></td><td>+ 13 201 €</td><td>—</td><td>—</td><td>—</td></tr>
@@ -256,14 +289,62 @@
   </div>
 </div>
 
+<!-- MODALE : drill-down d'une ligne (exemple Travaux) -->
+<div class="ov" id="ovDrill">
+  <div class="modal" style="max-width:640px">
+    <div class="mh"><div><div class="tt">🔧 Travaux & entretien</div><div class="sub">1 850 € · exercice 2026 · 4 mouvements · 3 biens</div></div><button class="x" onclick="closeDrill()">×</button></div>
+    <div style="padding:18px 20px 6px">
+      <div class="dnote">ℹ️ Exemple sur <b>Travaux</b> — chaque ligne ouvre ce même type de détail, <b>adapté à son contenu</b> (un loyer → par logement/mois ; le régul → par bail provisions vs charges réelles ; etc.).</div>
+
+      <div class="drillsec">
+        <div class="h">📊 Évolution vs année précédente</div>
+        <div class="dchart">
+          <div class="bars">
+            <div class="bcol"><span class="bv">3 100 €</span><div class="bar" style="height:74px;background:#cbd5e1"></div><span class="bl">2025</span></div>
+            <div class="bcol"><span class="bv">1 850 €</span><div class="bar" style="height:44px;background:var(--acc)"></div><span class="bl">2026</span></div>
+          </div>
+          <div class="ctx"><b>−40 %</b> vs 2025 &nbsp;·&nbsp; <b>7 %</b> de tes loyers<br>Moyenne sur 24 mois : <b>~2 100 €/an</b></div>
+        </div>
+      </div>
+
+      <div class="drillsec">
+        <div class="h">🏠 Répartition par bien</div>
+        <div class="repbar"><span class="rl">Appt Rue Victor Hugo</span><span class="rt"><span class="rf" style="width:65%"></span></span><span class="rv">1 200 € · 65 %</span></div>
+        <div class="repbar"><span class="rl">Studio Bellevue</span><span class="rt"><span class="rf" style="width:24%"></span></span><span class="rv">450 € · 24 %</span></div>
+        <div class="repbar"><span class="rl">Garage Centre</span><span class="rt"><span class="rf" style="width:11%"></span></span><span class="rv">200 € · 11 %</span></div>
+      </div>
+
+      <div class="drillsec">
+        <div class="h">🧾 Mouvements (4) — les pièces</div>
+        <div style="max-height:210px;overflow:auto;border:1px solid var(--bor);border-radius:9px">
+        <table class="mvt">
+          <thead><tr><th>Date</th><th>Libellé</th><th>Bien</th><th>Montant</th></tr></thead>
+          <tbody>
+            <tr><td class="mv-date">14/03</td><td>Remplacement chauffe-eau <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">980 €</td></tr>
+            <tr><td class="mv-date">02/06</td><td>Peinture séjour <span class="edit">✎ éditer</span></td><td>Victor Hugo</td><td class="mv-am">220 €</td></tr>
+            <tr><td class="mv-date">18/06</td><td>Réparation volet roulant <span class="edit">✎ éditer</span></td><td>Bellevue</td><td class="mv-am">450 €</td></tr>
+            <tr><td class="mv-date">09/09</td><td>Changement serrure <span class="edit">✎ éditer</span></td><td>Garage Centre</td><td class="mv-am">200 €</td></tr>
+          </tbody>
+          <tfoot><tr><td colspan="3">Total</td><td class="mv-am">1 850 €</td></tr></tfoot>
+        </table>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn ghost" onclick="closeDrill()">Fermer</button><button class="btn prim" onclick="return false">📂 Ouvrir ces mouvements (filtre Travaux · 2026) →</button></div>
+  </div>
+</div>
+
 <script>
   function openInt(){document.getElementById('ovInt').classList.add('on');}
   function closeInt(){document.getElementById('ovInt').classList.remove('on');}
+  function openDrill(){document.getElementById('ovDrill').classList.add('on');}
+  function closeDrill(){document.getElementById('ovDrill').classList.remove('on');}
   function tab(n){
     var tbs=document.querySelectorAll('#ovInt .tb'),pns=document.querySelectorAll('#ovInt .pane');
     for(var i=0;i<tbs.length;i++)tbs[i].classList.toggle('on',i===n);
     for(var j=0;j<pns.length;j++)pns[j].classList.toggle('on',j===n);
   }
   document.getElementById('ovInt').addEventListener('click',function(e){if(e.target===this)closeInt();});
+  document.getElementById('ovDrill').addEventListener('click',function(e){if(e.target===this)closeDrill();});
 </script>
 </body></html>
