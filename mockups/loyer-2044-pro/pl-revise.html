@@ -118,6 +118,9 @@
   .addl{font:700 12px Inter;color:var(--acc);background:none;border:1px dashed var(--acc);border-radius:8px;padding:8px;width:100%;cursor:pointer;margin-top:2px}
   .drop{border:2px dashed var(--bor2);border-radius:12px;padding:26px 16px;text-align:center;color:var(--t3);font-size:13px;background:var(--sur2)}.drop .ic{font-size:28px}
   .mf{padding:14px 20px;border-top:1px solid var(--bor);display:flex;justify-content:space-between;gap:10px;align-items:center}
+  #ovDrill .modal{max-height:88vh;display:flex;flex-direction:column}
+  #ovDrill .mh,#ovDrill .mf{flex-shrink:0}
+  .mbody{flex:1 1 auto;overflow-y:auto;min-height:0}
   .btn{padding:10px 18px;border-radius:9px;font:700 13px Inter;cursor:pointer;border:1px solid var(--bor)}
   .btn.ghost{background:#fff;color:var(--t2)}.btn.prim{background:var(--acc);color:#fff;border-color:var(--acc)}
 
@@ -299,7 +302,7 @@
 <div class="ov" id="ovDrill">
   <div class="modal" style="max-width:780px">
     <div class="mh"><div><div class="tt">🔧 Travaux & entretien</div><div class="sub">1 850 € · exercice 2026 · 12 mouvements · 3 biens</div></div><button class="x" onclick="closeDrill()">×</button></div>
-    <div style="padding:18px 22px 6px">
+    <div class="mbody" style="padding:18px 22px 6px">
       <div class="dnote">ℹ️ Exemple sur <b>Travaux</b> — chaque ligne ouvre ce même type de détail, <b>adapté à son contenu</b> (un loyer → par logement/mois ; le régul → par bail provisions vs charges réelles ; etc.).</div>
 
       <div class="drillsec">

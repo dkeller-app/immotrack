@@ -1,0 +1,38 @@
+<!doctype html><html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P&L révisé — 3 formats (bureau / tablette / téléphone)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:22px 18px 60px;background:#dce3ec;font-family:'Inter',system-ui,sans-serif;color:#172033}
+  h1{font-size:20px;font-weight:800;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .sub{font-size:13px;color:#54657c;margin:0 0 22px}
+  .grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start;justify-content:center}
+  .device{background:#fff;border-radius:16px;box-shadow:0 22px 55px -22px rgba(20,40,70,.45);overflow:hidden;border:1px solid rgba(20,40,70,.12)}
+  .device .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;font:700 12px Inter;padding:9px 14px;display:flex;justify-content:space-between;align-items:center}
+  .device .bar .px{font-weight:600;opacity:.8;font-size:11px}
+  .device iframe{display:block;border:0;background:#eef2f7;width:100%}
+  .device.desk{width:1160px;max-width:100%}
+  .device.tab{width:800px;max-width:100%}
+  .device.phone{width:390px;max-width:100%}
+  .hint{font-size:12px;color:#54657c;text-align:center;margin-top:18px}
+</style>
+</head><body>
+  <h1>💶 P&L révisé — 3 formats</h1>
+  <p class="sub">La même page responsive (<code>pl-revise.html</code>) rendue à 3 largeurs. Clique dans n'importe quel cadre : tout est interactif (lignes → drill-down, bouton « renseigner » → fenêtre intérêts).</p>
+  <div class="grid">
+    <div class="device desk">
+      <div class="bar"><span>💻 Bureau</span><span class="px">1160 px</span></div>
+      <iframe src="pl-revise.html" style="height:760px" title="Bureau"></iframe>
+    </div>
+    <div class="device tab">
+      <div class="bar"><span>📲 Tablette</span><span class="px">800 px</span></div>
+      <iframe src="pl-revise.html" style="height:1060px" title="Tablette"></iframe>
+    </div>
+    <div class="device phone">
+      <div class="bar"><span>📱 Téléphone</span><span class="px">390 px</span></div>
+      <iframe src="pl-revise.html" style="height:780px" title="Téléphone"></iframe>
+    </div>
+  </div>
+  <p class="hint">↕ Chaque cadre défile indépendamment. La bascule de mise en page (bulles empilées, graphe en colonne…) se déclenche sous 680 px → visible sur le cadre Téléphone.</p>
+</body></html>
