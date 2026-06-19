@@ -61,6 +61,7 @@
   table.pl td:first-child{text-align:left;font-family:Inter;font-weight:500;color:var(--t2)}
   table.pl tr.grp td{background:var(--sur2);font:700 10px/1 Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3);text-align:left}
   table.pl tr.tot td{font-weight:800;color:var(--t1);border-top:1px solid var(--bor2)}
+  table.pl tr.subtot td{background:#f0fdf6;font-weight:800;color:var(--t1);border-top:1px solid #16a34a44}
   table.pl td.neg{color:var(--red)}
   table.pl tr.neutre td{color:var(--t3)}
   table.pl tr.regul td{background:var(--amb-bg);color:#92400e;font-weight:700}
@@ -123,7 +124,7 @@
   @media(max-width:680px){ .fintop{grid-template-columns:1fr} .hero .big{font-size:30px} .enr .op{display:none} .enr .e{min-width:46%} .tabs .tb{font-size:10.5px} }
 </style>
 </head><body>
-<div class="bar">🛡️ Maquette — <b>P&L = structure de l'app actuelle</b> (résultat = loyers HC − charges · récupérables neutres · panneau « Argent à récupérer ») + ajouts <span class="ADD">AJOUT</span></div>
+<div class="bar">🛡️ Maquette — <b>P&L = structure de l'app actuelle</b> (résultat de gestion − régul non récupéré · panneau « Argent à récupérer ») + ajouts <span class="ADD">AJOUT</span></div>
 <div class="wrap">
   <h1>💶 Finances — Compte de résultat</h1>
 
@@ -135,12 +136,14 @@
     <div class="fintop" style="margin-top:14px">
       <div class="hero">
         <div class="eyebrow">Résultat net avant impôts <span class="ADD">AJOUT « avant impôts »</span></div>
-        <div class="big">+ 13 719 €</div>
-        <div><span class="pill up">▲ +6,2 %</span> <span style="color:var(--t2);font-size:12px;margin-left:6px">vs 2025 (12 920 €) · marge nette 52 %</span></div>
+        <div class="big">+ 13 469 €</div>
+        <div><span class="pill up">▲ +4,2 %</span> <span style="color:var(--t2);font-size:12px;margin-left:6px">vs 2025 (12 920 €) · marge nette 51 %</span></div>
         <div class="decomp">
           <div class="it"><span class="k">Loyers encaissés (HC)</span><span class="v">26 600 €</span></div>
           <div class="it"><span class="k">− Charges propriétaire</span><span class="v neg">12 881 €</span></div>
-          <div class="it"><span class="k">= Résultat net</span><span class="v">13 719 €</span></div>
+          <div class="it"><span class="k">= Résultat de gestion</span><span class="v">13 719 €</span></div>
+          <div class="it"><span class="k">− Régul. charges avancées, non récupérées</span><span class="v neg">250 €</span></div>
+          <div class="it" style="border-top:1px solid var(--bor);margin-top:3px;padding-top:6px"><span class="k" style="font-weight:700;color:var(--t1)">= Résultat net avant impôts</span><span class="v">13 469 €</span></div>
         </div>
         <div class="caveat">Résultat donné à titre indicatif. Il ne se substitue pas à votre déclaration fiscale ni à l'avis d'un expert-comptable.</div>
       </div>
@@ -153,11 +156,11 @@
 
     <div class="sec" style="margin-top:18px">Enrichissement réel sur l'année <span class="ADD">AJOUT</span></div>
     <div class="enr">
-      <div class="e res"><div class="k">Résultat net</div><div class="v">+ 13 719 €</div><div class="h">cash dégagé</div></div>
+      <div class="e res"><div class="k">Résultat net</div><div class="v">+ 13 469 €</div><div class="h">cash dégagé</div></div>
       <div class="op">+</div>
       <div class="e cap"><div class="k">Capital de crédit amorti</div><div class="v">+ 13 201 €</div><div class="h">dette remboursée = patrimoine</div></div>
       <div class="op">=</div>
-      <div class="e tot"><div class="k">Enrichissement</div><div class="v">+ 26 920 €</div><div class="h">ce que tu as réellement gagné</div></div>
+      <div class="e tot"><div class="k">Enrichissement</div><div class="v">+ 26 670 €</div><div class="h">ce que tu as réellement gagné</div></div>
     </div>
 
     <div class="sec" style="margin-top:18px">Composition par régime <span class="ADD">AJOUT</span></div>
@@ -176,11 +179,6 @@
         <tr class="grp"><td colspan="5">Revenus locatifs</td></tr>
         <tr><td>Loyers hors charges encaissés</td><td>26 600 €</td><td>25 010 €</td><td>+6,4 %</td><td>100 %</td></tr>
 
-        <tr class="grp"><td colspan="5">Charges récupérables — neutres (le locataire rembourse) <span class="ADD">les 2 côtés</span></td></tr>
-        <tr class="neutre"><td>Provisions / charges encaissées du locataire <span class="tag neutre">neutre</span></td><td>+ 2 100 €</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr class="neutre"><td>Charges récupérables payées (eau, EDF communs, ordures, copro) <span class="tag neutre">neutre</span></td><td>− 2 350 €</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr class="regul"><td>= Solde à régulariser <span class="tag lnk" onclick="document.getElementById('leaks').scrollIntoView({behavior:'smooth'})">250 € à récupérer · voir Argent à récupérer ↓</span></td><td>− 250 €</td><td>—</td><td>—</td><td>n'impacte pas le résultat</td></tr>
-
         <tr class="grp"><td colspan="5">Charges propriétaire — à ta charge (non récupérables)</td></tr>
         <tr><td>Intérêts d'emprunt <button class="lnbtn" onclick="openInt()">🧮 renseigner</button> <span class="ADD">bouton AJOUT</span></td><td class="neg">6 651 €</td><td class="neg">0 €</td><td>—</td><td>25 %</td></tr>
         <tr><td>Taxe foncière</td><td class="neg">1 240 €</td><td class="neg">1 210 €</td><td>+2,5 %</td><td>5 %</td></tr>
@@ -191,13 +189,19 @@
         <tr><td>Frais de comptabilité / expert-comptable <span class="tag new">+ ajoutée</span></td><td class="neg">1 200 €</td><td class="neg">—</td><td>—</td><td>5 %</td></tr>
         <tr><td>Taxe sur logements vacants <span class="tag new">+ ajoutée</span></td><td class="neg">0 €</td><td class="neg">—</td><td>—</td><td>0 %</td></tr>
         <tr class="tot"><td>Total charges propriétaire</td><td class="neg">12 881 €</td><td class="neg">5 710 €</td><td>—</td><td>48 %</td></tr>
+        <tr class="subtot"><td>= Résultat de gestion <span style="font-weight:500;color:var(--t2);font-size:11px">(loyers HC − charges propriétaire)</span></td><td>+ 13 719 €</td><td>+ 12 920 €</td><td>+6,2 %</td><td>52 %</td></tr>
 
-        <tr class="net"><td>= Résultat net avant impôts <span style="font-weight:500;color:var(--t2);font-size:11px">(loyers HC − charges propriétaire)</span></td><td>+ 13 719 €</td><td>+ 12 920 €</td><td>+6,2 %</td><td>52 %</td></tr>
+        <tr class="grp"><td colspan="5">Régularisation des charges récupérables <span class="ADD">impacte le résultat</span></td></tr>
+        <tr class="neutre"><td>Provisions / charges encaissées du locataire</td><td>+ 2 100 €</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr class="neutre"><td>Charges récupérables payées (eau, EDF communs, ordures, copro)</td><td>− 2 350 €</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr class="regul"><td>= Solde de régularisation <span style="font-weight:500;font-size:11px">avancé, pas encore récupéré</span> <span class="tag lnk" onclick="document.getElementById('leaks').scrollIntoView({behavior:'smooth'})">250 € à récupérer ↓</span></td><td>− 250 €</td><td>—</td><td>—</td><td>—</td></tr>
+
+        <tr class="net"><td>= Résultat net avant impôts</td><td>+ 13 469 €</td><td>+ 12 920 €</td><td>+4,2 %</td><td>51 %</td></tr>
         <tr class="cap"><td>+ Capital de crédit amorti <span class="tag pat">patrimoine — pas une charge</span> <span class="ADD">AJOUT</span></td><td>+ 13 201 €</td><td>—</td><td>—</td><td>—</td></tr>
-        <tr class="enr2"><td>= Enrichissement réel sur l'année</td><td>+ 26 920 €</td><td>—</td><td>—</td><td>—</td></tr>
+        <tr class="enr2"><td>= Enrichissement réel sur l'année</td><td>+ 26 670 €</td><td>—</td><td>—</td><td>—</td></tr>
       </tbody>
     </table></div>
-    <div class="plnote"><b>Récupérables neutres :</b> le locataire te les rembourse → ils n'entrent <b>pas</b> dans le résultat (résultat = loyers HC − charges propriétaire). L'écart provisions/charges réelles (<b>250 € à récupérer</b>) est suivi dans « Argent à récupérer ». <span class="lnk">Voir par logement →</span></div>
+    <div class="plnote"><b>Pas récupéré, pas de résultat.</b> Tant que le locataire ne t'a pas remboursé les charges que tu as avancées, ce trou (<b>250 €</b>) pèse réellement sur ton résultat → on le déduit. Va le <b>récupérer</b> dans « Argent à récupérer » : une fois encaissé, ton résultat remonte à 13 719 €. <span class="lnk">Voir par logement →</span></div>
   </div>
 
   <!-- ARGENT À RÉCUPÉRER (repris de l'app actuelle) -->
