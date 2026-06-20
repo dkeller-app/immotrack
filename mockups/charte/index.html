@@ -3,45 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Propryo — Charte graphique (4 ambiances · base Cockpit)</title>
+<title>Propryo — Identité (Clair / Sombre · base Cockpit)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ===================================================================
-   PROPRYO — Charte graphique
-   Une seule mise en page (Cockpit produit / concept B), 4 ambiances.
-   Thème = classe .charte-1…4 sur <body> + jeux de tokens CSS.
+   PROPRYO — Identité visuelle
+   Une seule mise en page (Cockpit produit / concept B), 2 modes.
+   Mode = classe .mode-clair / .mode-sombre sur <body> + tokens CSS.
+
+   RÈGLE DE COULEUR (les 2 modes) :
+   - NEUTRES = la base  → fonds, surfaces, cartes, textes, bordures.
+   - CORAIL  = accent SEULEMENT → CTA/boutons primaires, liens, focus,
+     le point du logo, 1 chiffre clé. JAMAIS de grands aplats corail.
    =================================================================== */
 
-/* ---- TOKENS NEUTRES + ANTI-FOUC (surchargés par chaque charte) ---- */
+/* =====================================================================
+   MODE CLAIR (défaut sur :root) — neutres clairs, accent corail
+   ===================================================================== */
 :root{
-  --bg:#f6f7fb; --bg-grad:#f6f7fb; --surface:#ffffff; --surface-2:#fbfcff;
-  --ink:#0c1424; --ink-2:#3a4659; --ink-3:#6b7689;
-  --line:#e7e9f0; --line-2:#eef0f6;
-  --brand:#1b4dff; --brand-2:#0f3fe0; --brand-soft:#eef2ff; --brand-ink:#0c1424;
-  --accent:#0f8a5f; --accent-soft:#e7f6ef; --accent-2:#b97a12;
-  --good:#0f8a5f; --good-soft:#e7f6ef; --warn:#b97a12; --warn-soft:#fdf3e3; --bad:#c0395e; --bad-soft:#fdecef;
-  --stars:#caa04a;
+  /* — neutres (la base) — */
+  --bg:#f4f5f8;                         /* fond app : gris très clair */
+  --bg-grad:radial-gradient(120% 100% at 92% -8%,#fff4f1 0%,#f5f6f9 38%,#f1f2f6 100%);
+  --surface:#ffffff;                    /* cartes / panneaux */
+  --surface-2:#f7f8fb;                  /* inputs / surfaces creusées */
+  --ink:#101521;                        /* texte titres : encre */
+  --ink-2:#3c4658;                      /* texte courant */
+  --ink-3:#6e7888;                      /* texte secondaire (AA sur blanc) */
+  --line:#e4e7ee;                       /* bordures */
+  --line-2:#eef0f5;                     /* bordures internes plus douces */
+  --neutral-soft:#eef1f6;               /* pastille neutre (icônes piliers) */
+  --neutral-ink:#42506a;                /* encre froide secondaire */
+
+  /* — accent corail (réservé actions) — */
+  --accent:#ff5a3c;                     /* corail signature */
+  --accent-2:#e8431f;                   /* corail hover/foncé */
+  --accent-soft:#ffe7e0;                /* halo focus / soulignement très léger */
+  --accent-on:#ffffff;                  /* texte sur corail */
+
+  /* — sémantique loyers (sobre, neutre dominant) — */
+  --good:#1a8f6f; --good-soft:#dff3ec;
+  --warn:#b27a12; --warn-soft:#f8eed6;
+  --bad:#d23f3f;  --bad-soft:#fbe4e2;
+  --stars:#f0a13c;
+
+  /* — typo — */
   --font:'Inter',system-ui,sans-serif;
-  --display:'Inter',system-ui,sans-serif;
-  --display-w:800; --display-it:normal; --display-ls:-.035em; --display-lh:1.05;
-  --r-xs:8px; --r:12px; --r-md:14px; --r-lg:18px; --r-xl:22px; --pill:999px;
-  --shadow-sm:0 1px 2px rgba(12,20,36,.06);
-  --shadow-md:0 10px 30px -10px rgba(12,20,36,.2);
-  --shadow-lg:0 30px 70px -24px rgba(12,20,36,.32);
-  --btn-shadow:0 10px 24px -10px rgba(27,77,255,.7);
+  --display:'Schibsted Grotesk','Inter',system-ui,sans-serif;
+  --display-w:800; --display-ls:-.035em; --display-lh:1.03;
+
+  /* — rayons — */
+  --r-xs:9px; --r:13px; --r-md:15px; --r-lg:20px; --r-xl:26px; --pill:999px;
+
+  /* — élévation (ombres en mode clair) — */
+  --shadow-sm:0 1px 2px rgba(16,21,33,.06);
+  --shadow-md:0 14px 36px -18px rgba(16,21,33,.20);
+  --shadow-lg:0 34px 78px -30px rgba(16,21,33,.26);
+  --btn-shadow:0 12px 26px -12px rgba(255,90,60,.55);
   --dash-rotate:perspective(1700px) rotateY(-7deg) rotateX(1.5deg);
-  --logo-fg:#fff; --halo:transparent;
-  /* dashboard inner (mock) skin */
-  --mside-bg:#0c1424; --mside-fg:#aeb8cc; --mside-on:rgba(91,108,255,.18);
-  --mbody-bg:#f8f9fc; --mbar:linear-gradient(180deg,#5b6cff,#1b4dff); --mbar-muted:#dfe3f2;
-  --page-pattern:none;
+
+  /* — éléments décoratifs / structurels — */
+  --logo-mark-bg:#101521;               /* pavé logo = encre (neutre), point corail dessus */
+  --frame-border:rgba(16,21,33,.10);
+
+  /* — dashboard interne (mock) — */
+  --mside-bg:#141925;                   /* sidebar app sombre (constant, c'est une "chrome") */
+  --mside-fg:#aab4c6;
+  --mside-on:rgba(255,90,60,.20);       /* item actif = teinte corail discrète */
+  --mside-on-fg:#ffffff;
+  --mbody-bg:#f6f7fa;
+  --mbar:#cfd5e2;                       /* barres chart = neutre */
+  --mbar-hl:#ff5a3c;                    /* UNE barre = accent (le mois courant) */
+  --mbar-muted:#e2e6ee;
+}
+
+/* =====================================================================
+   MODE SOMBRE — bien contrasté, lisible (modèle pour le dark de l'app)
+   Fond pas noir pur ; surfaces nettement plus claires que le fond ;
+   bordures visibles ; texte quasi-blanc.
+   ===================================================================== */
+body.mode-sombre{
+  /* — neutres gris-bleu (la base) — */
+  --bg:#14161d;                         /* fond : pas noir pur */
+  --bg-grad:radial-gradient(120% 100% at 90% -10%,#221a1c 0%,#14161d 42%,#11131a 100%);
+  --surface:#1e222c;                    /* surfaces nettement > fond */
+  --surface-2:#262b37;                  /* cartes / inputs encore plus clairs */
+  --ink:#f2f5fa;                        /* titres quasi-blanc */
+  --ink-2:#cdd6e3;                      /* texte courant lisible */
+  --ink-3:#9aa6b8;                      /* secondaire (≥ AA sur fond sombre) */
+  --line:rgba(255,255,255,.12);         /* bordures visibles */
+  --line-2:rgba(255,255,255,.08);
+  --neutral-soft:rgba(255,255,255,.07);
+  --neutral-ink:#aeb9cb;
+
+  /* — accent corail un peu plus lumineux sur sombre — */
+  --accent:#ff6a4a;
+  --accent-2:#ff8163;
+  --accent-soft:rgba(255,106,74,.18);
+  --accent-on:#1a0d09;                  /* texte sur corail vif = encre foncée (contraste) */
+
+  /* — sémantique (versions lumineuses) — */
+  --good:#3fd6a3; --good-soft:rgba(63,214,163,.16);
+  --warn:#f1bd55; --warn-soft:rgba(241,189,85,.16);
+  --bad:#ff7a7a;  --bad-soft:rgba(255,122,122,.16);
+  --stars:#ffb454;
+
+  /* — élévation : sur sombre, l'ombre ne se voit pas → bordures + halos — */
+  --shadow-sm:0 0 0 1px rgba(255,255,255,.05);
+  --shadow-md:0 0 0 1px rgba(255,255,255,.09);
+  --shadow-lg:0 0 0 1px rgba(255,255,255,.11), 0 40px 90px -40px rgba(0,0,0,.7);
+  --btn-shadow:0 0 0 1px rgba(255,106,74,.45), 0 12px 30px -14px rgba(255,106,74,.5);
+
+  --logo-mark-bg:#262b37;               /* pavé logo = surface claire, point corail dessus */
+  --frame-border:rgba(255,255,255,.10);
+
+  /* — dashboard interne (mock) en sombre — */
+  --mside-bg:#10131a;                   /* sidebar encore plus sombre que le body de l'app */
+  --mside-fg:#9aa6b8;
+  --mside-on:rgba(255,106,74,.20);
+  --mside-on-fg:#ffffff;
+  --mbody-bg:#171a22;                   /* corps app */
+  --mbar:#3a4150;                       /* barres neutres lisibles */
+  --mbar-hl:#ff6a4a;                    /* mois courant = accent */
+  --mbar-muted:#2b313d;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:var(--font);background:#1a1c22;color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+body{font-family:var(--font);background:#0e1014;color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5;transition:background .25s}
 button{font-family:inherit;cursor:pointer;border:none;background:none}
 a{text-decoration:none;color:inherit}
 img{max-width:100%}
@@ -50,32 +140,32 @@ svg{display:block}
 /* ====================== HARNESS BAR ====================== */
 .harness-bar{
   position:sticky;top:0;z-index:9999;
-  background:rgba(10,14,24,.97);backdrop-filter:blur(10px);
-  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+  background:rgba(8,10,16,.97);backdrop-filter:blur(10px);
+  display:flex;align-items:center;gap:22px;flex-wrap:wrap;
   padding:11px 22px;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);
   font-family:'Inter',sans-serif;
 }
 .hb-brand{font-weight:800;letter-spacing:-.02em;font-size:14px;display:flex;align-items:center;gap:8px}
-.hb-brand .hb-mark{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,#5b6cff,#9b6bff);display:flex;align-items:center;justify-content:center;font-size:12px}
+.hb-brand .hb-mark{width:22px;height:22px;border-radius:6px;background:#1b1f2a;display:flex;align-items:center;justify-content:center;font-size:13px;color:#ff5a3c}
 .hb-brand b{color:#9fb0ff;font-weight:700}
 .hb-group{display:flex;align-items:center;gap:9px}
 .hb-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.13em;color:rgba(255,255,255,.42);font-weight:700}
 .hb-seg{display:flex;background:rgba(255,255,255,.07);border-radius:10px;padding:3px;gap:2px}
-.hb-seg button{padding:6px 12px;border-radius:7px;color:rgba(255,255,255,.62);font-size:12px;font-weight:600;transition:.16s;white-space:nowrap}
+.hb-seg button{padding:6px 13px;border-radius:7px;color:rgba(255,255,255,.62);font-size:12px;font-weight:600;transition:.16s;white-space:nowrap;display:flex;align-items:center;gap:6px}
 .hb-seg button.on{background:#fff;color:#0c1424}
 .hb-seg button:hover:not(.on){color:#fff}
-.hb-seg.charte button .sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid rgba(255,255,255,.5)}
-.hb-seg.charte button.on .sw{border-color:rgba(0,0,0,.18)}
-.sw1{background:#caa04a}.sw2{background:#4be3c0}.sw3{background:#ff5a3c}.sw4{background:#1f9f8a}
+.hb-seg.mode button .sw{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,.5)}
+.hb-seg.mode button.on .sw{border-color:rgba(0,0,0,.18)}
+.sw-clair{background:#f4f5f8}.sw-sombre{background:#14161d}
 .hb-spacer{flex:1}
 .hb-note{font-size:11px;color:rgba(255,255,255,.4)}
 
 /* ====================== STAGE / FRAME ====================== */
-.stage{padding:26px 18px 64px;display:flex;justify-content:center;background:#1a1c22}
+.stage{padding:26px 18px 64px;display:flex;justify-content:center;background:#0e1014}
 .frame{
-  background:var(--bg);background-image:var(--bg-grad),var(--page-pattern);
+  background:var(--bg);background-image:var(--bg-grad);
   width:100%;max-width:1280px;border-radius:18px;overflow:hidden;
-  box-shadow:var(--shadow-lg);border:1px solid rgba(0,0,0,.12);
+  box-shadow:var(--shadow-lg);border:1px solid var(--frame-border);
   transition:max-width .35s ease;
 }
 .stage[data-fmt="tablet"] .frame{max-width:840px}
@@ -89,86 +179,92 @@ svg{display:block}
   display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;
 }
 .avatars span:first-child{margin-left:0}
-.av1{background:#5b6cff}.av2{background:#0f8a5f}.av3{background:#c0395e}.av4{background:#b97a12}.av5{background:#7a4ed8}
+/* avatars = neutres froids (PAS de corail partout), une seule pastille corail */
+.av1{background:#5566aa}.av2{background:#3f8f7a}.av3{background:#7b6bb0}.av4{background:#ff5a3c}.av5{background:#4a7aa8}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700;border-radius:var(--r);transition:.18s;font-size:14.5px}
-.btn-primary{background-color:var(--brand);color:var(--logo-fg);padding:13px 22px;box-shadow:var(--btn-shadow)}
-.btn-primary:hover{filter:brightness(.95);transform:translateY(-1px)}
+.btn-primary{background-color:var(--accent);color:var(--accent-on);padding:13px 22px;box-shadow:var(--btn-shadow)}
+.btn-primary:hover{background-color:var(--accent-2);transform:translateY(-1px)}
 .btn-ghost{padding:13px 18px;color:var(--ink-2);font-weight:600}
-.btn-ghost:hover{color:var(--brand)}
+.btn-ghost:hover{color:var(--accent)}
 
 .trust{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);font-weight:600;flex-wrap:wrap}
 .trust .dot{width:4px;height:4px;border-radius:50%;background:var(--line)}
-.trust svg{color:var(--accent);flex-shrink:0}
+.trust svg{color:var(--neutral-ink);flex-shrink:0}
 
 /* ====================== NAV ====================== */
 .nav{display:flex;align-items:center;justify-content:space-between;padding:22px 44px}
-.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:21px;letter-spacing:-.03em;color:var(--ink);font-family:var(--display)}
-.logo .mark{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--brand);color:var(--logo-fg);box-shadow:var(--shadow-sm)}
+.logo{display:flex;align-items:center;gap:11px;font-weight:800;font-size:21px;letter-spacing:-.03em;color:var(--ink);font-family:var(--display)}
+.logo .mark{position:relative;width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--logo-mark-bg);color:#fff;box-shadow:var(--shadow-sm)}
 .logo .mark svg{width:20px;height:20px}
-.logo .pw{font-weight:var(--display-w);font-style:var(--display-it)}
+/* LE point corail du logo = la touche d'accent identité */
+.logo .mark::after{content:"";position:absolute;right:6px;bottom:6px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--logo-mark-bg)}
+.logo .pw{font-weight:var(--display-w)}
+.logo .pw b{color:var(--accent);font-weight:inherit} /* point typographique éventuel */
 .nav-links{display:flex;align-items:center;gap:30px;font-size:14.5px;font-weight:600;color:var(--ink-2)}
-.nav-links a:hover{color:var(--brand)}
+.nav-links a:hover{color:var(--accent)}
 .nav-cta{display:flex;align-items:center;gap:12px}
 
 /* ====================== HERO (Cockpit B) ====================== */
 .hero{display:grid;grid-template-columns:.88fr 1.12fr;gap:36px;padding:16px 44px 40px;align-items:center}
 
-/* social proof rate pill */
+/* social proof rate pill (neutre) */
 .rate{display:inline-flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--pill);padding:5px 15px 5px 6px;box-shadow:var(--shadow-sm);margin-bottom:22px}
 .rate .avatars span{width:25px;height:25px;font-size:9.5px}
 .rate .r-txt{font-size:12px;font-weight:700;color:var(--ink-2)}
 
-h1.hero-title{font-family:var(--display);font-weight:var(--display-w);font-style:var(--display-it);font-size:47px;line-height:var(--display-lh);letter-spacing:var(--display-ls);color:var(--ink)}
-h1.hero-title .hl{color:var(--brand)}
-.hero-sub{font-size:18px;color:var(--ink-2);font-weight:500;margin-top:16px;max-width:410px}
+h1.hero-title{font-family:var(--display);font-weight:var(--display-w);font-size:47px;line-height:var(--display-lh);letter-spacing:var(--display-ls);color:var(--ink)}
+/* UN mot en corail (accent) + soulignement très léger */
+h1.hero-title .hl{color:var(--accent);position:relative;display:inline-block}
+h1.hero-title .hl::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:8px;background:var(--accent-soft);border-radius:8px;z-index:-1}
+.hero-sub{font-size:18px;color:var(--ink-2);font-weight:500;margin-top:16px;max-width:420px}
 
-/* 2 piliers */
+/* 2 piliers — surfaces neutres, icônes en pastille neutre (PAS corail) */
 .piliers{display:flex;gap:12px;margin-top:24px}
 .pil{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:15px 15px 14px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
-.pil .pi-ic{width:34px;height:34px;border-radius:var(--r-xs);display:flex;align-items:center;justify-content:center;margin-bottom:10px}
-.pil.g .pi-ic{background:var(--brand-soft);color:var(--brand)}
-.pil.f .pi-ic{background:var(--accent-soft);color:var(--accent)}
+.pil .pi-ic{width:34px;height:34px;border-radius:var(--r-xs);display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:var(--neutral-soft);color:var(--neutral-ink)}
 .pil h4{font-size:14px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;color:var(--ink);font-family:var(--display)}
 .pil ul{list-style:none;display:flex;flex-direction:column;gap:6px}
 .pil li{font-size:12px;color:var(--ink-2);font-weight:600;display:flex;align-items:center;gap:7px}
-.pil li svg{width:13px;height:13px;flex-shrink:0}
-.pil.g li svg{color:var(--brand)}
-.pil.f li svg{color:var(--accent)}
+.pil li svg{width:13px;height:13px;flex-shrink:0;color:var(--good)} /* check = vert sobre, pas corail */
 
 .actions{display:flex;align-items:center;gap:16px;margin-top:26px;flex-wrap:wrap}
+/* LE chiffre clé : "6 h" en corail = la 1 touche d'accent autorisée sur un chiffre */
 .stat-saved{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1;font-family:var(--display)}
+.stat-saved em{font-style:normal;color:var(--accent)}
 .stat-saved span{display:block;font-size:12px;font-weight:600;color:var(--ink-3);letter-spacing:0;margin-top:3px}
 .trustline{margin-top:18px}
 
 /* ====================== RIGHT : dashboard + login ====================== */
 .right{position:relative}
-.dash{border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid rgba(0,0,0,.12);transform:var(--dash-rotate);transition:transform .4s ease}
-.login{position:absolute;right:-12px;bottom:-26px;width:266px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:20px;z-index:3}
+.dash{border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--frame-border);transform:var(--dash-rotate);transition:transform .4s ease}
+.login{position:absolute;right:-12px;bottom:-26px;width:268px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:20px;z-index:3}
 .login h3{font-size:16px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--ink);font-family:var(--display)}
-.login h3 svg{color:var(--brand)}
+.login h3 svg{color:var(--neutral-ink)}
 .field{margin-bottom:11px}
 .field label{display:block;font-size:11.5px;font-weight:700;color:var(--ink-2);margin-bottom:6px}
 .field .inp{display:flex;align-items:center;gap:9px;border:1.5px solid var(--line);border-radius:var(--r);padding:0 13px;height:43px;background-color:var(--surface-2);transition:.15s}
-.field .inp:focus-within{border-color:var(--brand);background-color:var(--surface);box-shadow:0 0 0 4px var(--brand-soft)}
+/* focus = corail (accent) */
+.field .inp:focus-within{border-color:var(--accent);background-color:var(--surface);box-shadow:0 0 0 4px var(--accent-soft)}
 .field .inp svg{color:var(--ink-3);flex-shrink:0}
 .field .inp input{border:none;outline:none;background:none;font-family:inherit;font-size:14px;width:100%;color:var(--ink)}
 .field .inp input::placeholder{color:var(--ink-3)}
 .lc-row{display:flex;justify-content:flex-end;margin:-1px 0 13px}
-.lc-row a{font-size:12px;font-weight:700;color:var(--brand)}
+.lc-row a{font-size:12px;font-weight:700;color:var(--accent)} /* lien = accent */
 .login .btn-primary{width:100%;padding:12px}
 .lc-foot{text-align:center;font-size:12px;color:var(--ink-3);margin-top:13px;font-weight:500}
-.lc-foot a{color:var(--brand);font-weight:700}
+.lc-foot a{color:var(--accent);font-weight:700} /* lien = accent */
 
 /* ====================== APP MOCK (inner dashboard) ====================== */
-.mock{background:var(--surface);font-size:12px}
+.mock{background:var(--mbody-bg);font-size:12px}
 .mock-grid{display:grid;grid-template-columns:180px 1fr}
 .mock-side{background:var(--mside-bg);color:var(--mside-fg);padding:16px 14px}
 .mock-side .m-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:800;font-size:14px;margin-bottom:18px;font-family:var(--display)}
-.mock-side .m-brand .mm{width:24px;height:24px;border-radius:7px;background:var(--brand);display:flex;align-items:center;justify-content:center}
+.mock-side .m-brand .mm{position:relative;width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center}
+.mock-side .m-brand .mm::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
 .mock-side .m-nav{display:flex;flex-direction:column;gap:3px}
 .mock-side .m-nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-xs);font-size:12.5px;font-weight:600;color:var(--mside-fg)}
-.mock-side .m-nav a.on{background:var(--mside-on);color:#fff}
+.mock-side .m-nav a.on{background:var(--mside-on);color:var(--mside-on-fg)}
 .mock-side .m-nav a svg{width:15px;height:15px;opacity:.9}
 .mock-body{padding:18px 20px;background:var(--mbody-bg)}
 .mock-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
@@ -177,20 +273,24 @@ h1.hero-title .hl{color:var(--brand)}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px}
 .kpi .k-lab{font-size:10px;color:var(--ink-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:5px}
+.kpi .k-lab svg{color:var(--ink-3)}
 .kpi .k-val{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-top:5px;font-family:var(--display)}
-.kpi .k-delta{font-size:10.5px;font-weight:700;margin-top:3px}
+/* UN seul KPI accentué : l'encaissé = chiffre corail (accent) */
+.kpi.accent .k-val{color:var(--accent)}
+.kpi .k-delta{font-size:10.5px;font-weight:700;margin-top:3px;color:var(--ink-3)}
 .up{color:var(--good)}.down{color:var(--bad)}
-.k-ico-e{color:var(--good)}.k-ico-b{color:var(--brand)}.k-ico-a{color:var(--warn)}
 .mock-cols{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
 .panel .p-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .panel .p-head h5{font-size:13px;font-weight:800;color:var(--ink);font-family:var(--display)}
 .panel .p-head .p-tag{font-size:10.5px;font-weight:700;color:var(--ink-3)}
-.chart{display:flex;align-items:flex-end;gap:9px;height:94px;padding-top:6px}
+/* chart : axe baseline + barres neutres, UNE barre (mois courant) en accent */
+.chart{display:flex;align-items:flex-end;gap:9px;height:96px;padding-top:6px;border-bottom:1px solid var(--line-2)}
 .chart .bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
-.chart .bar .bb{width:100%;border-radius:5px 5px 3px 3px;background:var(--mbar)}
+.chart .bar .bb{width:100%;border-radius:5px 5px 2px 2px;background:var(--mbar-muted)}
+.chart .bar.fill .bb{background:var(--mbar)}
+.chart .bar.hl .bb{background:var(--mbar-hl)}
 .chart .bar .bl{font-size:9.5px;color:var(--ink-3);font-weight:700}
-.chart .bar.muted .bb{background:var(--mbar-muted)}
 .loyers{display:flex;flex-direction:column;gap:9px}
 .loyer{display:flex;align-items:center;gap:10px}
 .loyer .l-av{width:30px;height:30px;border-radius:var(--r-xs);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
@@ -206,159 +306,7 @@ h1.hero-title .hl{color:var(--brand)}
 .dashbar{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--mside-bg);border-bottom:1px solid rgba(255,255,255,.07)}
 .dashbar .dots{display:flex;gap:6px}
 .dashbar .dots i{width:9px;height:9px;border-radius:50%;display:block}
-.dashbar .url{flex:1;text-align:center;font-size:10.5px;color:rgba(255,255,255,.5);font-weight:600;font-family:'IBM Plex Mono',monospace}
-
-/* =================================================================
-   CHARTE 1 — Bleu nuit + ambre/terracotta · chaleureux & premium
-   Fond bleu nuit, surfaces crème, accent terracotta, display Fraunces
-   ================================================================= */
-body.charte-1{
-  --bg:#0e1830; --bg-grad:radial-gradient(130% 120% at 78% -10%,#15224a 0%,#0e1830 50%,#0b1428 100%);
-  --surface:#fbf7ef; --surface-2:#f4eede;
-  --ink:#1c1408; --ink-2:#5a4d3a; --ink-3:#8a7c64;
-  --line:#e6dcc7; --line-2:#efe8d8;
-  --brand:#c4622d; --brand-2:#a94f20; --brand-soft:#f7e7da; --brand-ink:#3a1c0c;
-  --accent:#1f6a52; --accent-soft:#dcefe6; --accent-2:#caa04a;
-  --good:#1f6a52; --good-soft:#dcefe6; --warn:#a8740f; --warn-soft:#f8ecd2; --bad:#b23a3a; --bad-soft:#f6e0de;
-  --stars:#d99a3c;
-  --font:'Source Sans 3','Inter',sans-serif;
-  --display:'Fraunces',Georgia,serif;
-  --display-w:500; --display-it:normal; --display-ls:-.015em; --display-lh:1.04;
-  --r-xs:9px; --r:13px; --r-md:15px; --r-lg:20px; --r-xl:24px;
-  --shadow-md:0 14px 36px -14px rgba(8,12,30,.55);
-  --shadow-lg:0 36px 80px -28px rgba(6,10,26,.7);
-  --btn-shadow:0 12px 26px -10px rgba(196,98,45,.6);
-  --logo-fg:#fbf7ef;
-  --mside-bg:#13203f; --mside-fg:#9fadc9; --mside-on:rgba(196,98,45,.26);
-  --mbody-bg:#f6f1e6; --mbar:linear-gradient(180deg,#d98a52,#c4622d); --mbar-muted:#e4d9c4;
-  --halo:rgba(196,98,45,.35);
-}
-body.charte-1 h1.hero-title .hl{font-style:italic;color:var(--brand)}
-body.charte-1 .hero-sub{color:#c9d2e6}
-body.charte-1 .rate{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14);box-shadow:none}
-body.charte-1 .rate .r-txt{color:#dbe1f0}
-body.charte-1 .nav .logo{color:#fbf7ef}
-body.charte-1 .nav-links{color:#aeb8d2}
-body.charte-1 .nav-links a:hover{color:#f0c79a}
-body.charte-1 .nav .btn-ghost{color:#dbe1f0}
-body.charte-1 .nav .btn-ghost:hover{color:#f0c79a}
-body.charte-1 h1.hero-title{color:#fbf7ef}
-body.charte-1 .trust{color:#9fa9c4}
-body.charte-1 .trust .dot{background:rgba(255,255,255,.25)}
-body.charte-1 .trust svg{color:#9fdcc4}
-body.charte-1 .stat-saved{color:#fbf7ef}
-body.charte-1 .stat-saved span{color:#9fa9c4}
-/* logo mark : maison-toit éditorial */
-body.charte-1 .logo .mark{background:linear-gradient(140deg,#d98a52,#c4622d);border-radius:11px 11px 11px 3px}
-
-/* =================================================================
-   CHARTE 2 — Sombre & tech · accent cyan électrique · halos/glow
-   Anthracite quasi-noir, mono details, display Space Grotesk
-   ================================================================= */
-body.charte-2{
-  --bg:#0a0c10; --bg-grad:radial-gradient(120% 110% at 82% -8%,#10242a 0%,#0b0e13 46%,#080a0e 100%);
-  --surface:#12161d; --surface-2:#0d1116;
-  --ink:#eaf2f3; --ink-2:#9fb0b8; --ink-3:#697680;
-  --line:#222a33; --line-2:#1a212a;
-  --brand:#23e6c8; --brand-2:#13c3aa; --brand-soft:rgba(35,230,200,.13); --brand-ink:#04211c;
-  --accent:#23e6c8; --accent-soft:rgba(35,230,200,.13); --accent-2:#7a8bff;
-  --good:#34e6b0; --good-soft:rgba(52,230,176,.14); --warn:#f0b53c; --warn-soft:rgba(240,181,60,.14); --bad:#ff6b7d; --bad-soft:rgba(255,107,125,.14);
-  --stars:#23e6c8;
-  --font:'Inter',system-ui,sans-serif;
-  --display:'Space Grotesk','Inter',sans-serif;
-  --display-w:700; --display-it:normal; --display-ls:-.03em; --display-lh:1.04;
-  --r-xs:7px; --r:10px; --r-md:12px; --r-lg:14px; --r-xl:16px;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.5);
-  --shadow-md:0 16px 40px -16px rgba(0,0,0,.8);
-  --shadow-lg:0 40px 90px -30px rgba(0,0,0,.9);
-  --btn-shadow:0 0 0 1px rgba(35,230,200,.4),0 10px 30px -8px rgba(35,230,200,.45);
-  --logo-fg:#04211c;
-  --mside-bg:#0d1117; --mside-fg:#8b98a3; --mside-on:rgba(35,230,200,.16);
-  --mbody-bg:#0a0d12; --mbar:linear-gradient(180deg,#23e6c8,#13a99a); --mbar-muted:#202831;
-  --halo:rgba(35,230,200,.4);
-}
-body.charte-2 .frame{border-color:#1c242d}
-body.charte-2 h1.hero-title .hl{color:var(--brand)}
-body.charte-2 .rate{background:rgba(255,255,255,.04);border-color:#232b34;box-shadow:none}
-body.charte-2 .rate .r-txt{color:#c4d0d6}
-body.charte-2 .nav-links a:hover{color:var(--brand)}
-body.charte-2 .btn-primary{color:#04211c}
-body.charte-2 .pil{background:#10151c;border-color:#222b34}
-body.charte-2 .pil li{color:#b3c0c8}
-body.charte-2 .kpi,body.charte-2 .panel{background:#10151c;border-color:#1f2730}
-body.charte-2 .login{background:#10151c;border-color:#232c36}
-body.charte-2 .field .inp{background:#0c1015;border-color:#222b34}
-body.charte-2 .badge{border:1px solid currentColor}
-/* mono micro-labels in tech charte */
-body.charte-2 .kpi .k-lab,body.charte-2 .panel .p-tag,body.charte-2 .r-txt,body.charte-2 .field label{font-family:'IBM Plex Mono',monospace;letter-spacing:.02em}
-body.charte-2 .trust{font-family:'IBM Plex Mono',monospace;font-size:11px}
-/* glow halo behind dash */
-body.charte-2 .right::before{content:"";position:absolute;width:60%;height:70%;right:-4%;top:6%;background:radial-gradient(circle,rgba(35,230,200,.22),transparent 68%);filter:blur(46px);z-index:0;pointer-events:none}
-body.charte-2 .dash,body.charte-2 .login{position:relative;z-index:2}
-body.charte-2 .logo .mark{box-shadow:0 0 0 1px rgba(35,230,200,.35),0 0 22px -4px rgba(35,230,200,.6)}
-
-/* =================================================================
-   CHARTE 3 — Clair & frais · accent corail vif · motif signature
-   Beaucoup de blanc, forme/blob signature, display Schibsted Grotesk
-   ================================================================= */
-body.charte-3{
-  --bg:#fcfbfa; --bg-grad:radial-gradient(110% 90% at 88% -6%,#fff0eb 0%,#fdfbfa 44%,#faf9f8 100%);
-  --surface:#ffffff; --surface-2:#fbfaf9;
-  --ink:#16110f; --ink-2:#54484300; --ink-2:#574b46; --ink-3:#8c7f79;
-  --line:#ece7e3; --line-2:#f3efec;
-  --brand:#ff5a3c; --brand-2:#e8431f; --brand-soft:#ffe6df; --brand-ink:#5c1a0c;
-  --accent:#1a8f7a; --accent-soft:#dcf2ec; --accent-2:#ff5a3c;
-  --good:#1a8f7a; --good-soft:#dcf2ec; --warn:#c9820f; --warn-soft:#fbeed2; --bad:#e8431f; --bad-soft:#ffe1da;
-  --stars:#ff8a3c;
-  --font:'Inter',system-ui,sans-serif;
-  --display:'Schibsted Grotesk','Inter',sans-serif;
-  --display-w:800; --display-it:normal; --display-ls:-.035em; --display-lh:1.02;
-  --r-xs:10px; --r:14px; --r-md:16px; --r-lg:22px; --r-xl:28px;
-  --shadow-sm:0 1px 2px rgba(22,17,15,.05);
-  --shadow-md:0 16px 40px -18px rgba(232,67,31,.18);
-  --shadow-lg:0 34px 80px -28px rgba(232,67,31,.22);
-  --btn-shadow:0 12px 26px -10px rgba(255,90,60,.55);
-  --logo-fg:#fff;
-  --mside-bg:#16110f; --mside-fg:#b3a8a2; --mside-on:rgba(255,90,60,.22);
-  --mbody-bg:#fbf9f8; --mbar:linear-gradient(180deg,#ff7a5c,#ff5a3c); --mbar-muted:#f0e7e3;
-  --halo:rgba(255,90,60,.3);
-}
-body.charte-3 h1.hero-title .hl{color:var(--brand);position:relative;display:inline-block}
-/* underline signature stroke */
-body.charte-3 h1.hero-title .hl::after{content:"";position:absolute;left:0;right:0;bottom:2px;height:9px;background:var(--brand-soft);border-radius:8px;z-index:-1}
-/* signature blob top-right of frame */
-body.charte-3 .right::after{content:"";position:absolute;width:150px;height:150px;right:-30px;top:-46px;background:radial-gradient(circle,rgba(255,90,60,.16),transparent 70%);border-radius:48% 52% 60% 40%;z-index:0}
-body.charte-3 .logo .mark{border-radius:50% 50% 50% 8px}
-
-/* =================================================================
-   CHARTE 4 — Institutionnel rassurant · bleu/vert + neutres sobres
-   Confiance/finance, sans humaniste sérieux (Lora display + Source Sans)
-   ================================================================= */
-body.charte-4{
-  --bg:#f4f6f8; --bg-grad:linear-gradient(180deg,#f7f9fb 0%,#eef2f6 100%);
-  --surface:#ffffff; --surface-2:#f8fafb;
-  --ink:#101f2e; --ink-2:#3a4f60; --ink-3:#6c8093;
-  --line:#dde6ed; --line-2:#e8eef3;
-  --brand:#15577d; --brand-2:#0f4565; --brand-soft:#e3eef5; --brand-ink:#0a2638;
-  --accent:#1f8a6d; --accent-soft:#e0f1ec; --accent-2:#15577d;
-  --good:#1f8a6d; --good-soft:#e0f1ec; --warn:#b07d12; --warn-soft:#f6edd6; --bad:#b23a4a; --bad-soft:#f6e2e5;
-  --stars:#caa04a;
-  --font:'Source Sans 3','Inter',sans-serif;
-  --display:'Lora',Georgia,serif;
-  --display-w:600; --display-it:normal; --display-ls:-.01em; --display-lh:1.08;
-  --r-xs:6px; --r:10px; --r-md:11px; --r-lg:14px; --r-xl:16px;
-  --shadow-sm:0 1px 2px rgba(16,31,46,.07);
-  --shadow-md:0 12px 30px -14px rgba(16,31,46,.22);
-  --shadow-lg:0 28px 64px -26px rgba(16,31,46,.3);
-  --btn-shadow:0 10px 22px -10px rgba(21,87,125,.55);
-  --logo-fg:#fff;
-  --dash-rotate:perspective(1800px) rotateY(-5deg) rotateX(1deg);
-  --mside-bg:#0f2235; --mside-fg:#9fb2c2; --mside-on:rgba(31,138,109,.22);
-  --mbody-bg:#f6f9fb; --mbar:linear-gradient(180deg,#2a7aa6,#15577d); --mbar-muted:#dde6ed;
-  --halo:rgba(21,87,125,.22);
-}
-body.charte-4 .logo .mark{border-radius:8px}
-body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800}
+.dashbar .url{flex:1;text-align:center;font-size:10.5px;color:rgba(255,255,255,.5);font-weight:600;font-family:'Inter',monospace}
 
 /* =================================================================
    RESPONSIVE
@@ -367,8 +315,6 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
 .stage[data-fmt="tablet"] .login{position:static;width:100%;margin-top:18px}
 .stage[data-fmt="tablet"] .dash{transform:none}
 .stage[data-fmt="tablet"] h1.hero-title{font-size:44px}
-.stage[data-fmt="tablet"] body.charte-2 .right::before,
-.stage[data-fmt="tablet"] body.charte-3 .right::after{display:none}
 
 .stage[data-fmt="phone"] .nav{padding:16px 18px}
 .stage[data-fmt="phone"] .nav-links{display:none}
@@ -385,18 +331,16 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
 .stage[data-fmt="phone"] .mock-grid{grid-template-columns:1fr}
 </style>
 </head>
-<body class="charte-1">
+<body class="mode-clair">
 
 <!-- ====================== HARNESS BAR ====================== -->
 <div class="harness-bar">
-  <div class="hb-brand"><span class="hb-mark">◆</span> Propryo · <b>charte</b></div>
+  <div class="hb-brand"><span class="hb-mark">◆</span> Propryo · <b>identité</b></div>
   <div class="hb-group">
-    <span class="hb-label">Charte</span>
-    <div class="hb-seg charte" id="seg-charte">
-      <button data-ch="1" class="on"><span class="sw sw1"></span>1 · Nuit + ambre</button>
-      <button data-ch="2"><span class="sw sw2"></span>2 · Tech électrique</button>
-      <button data-ch="3"><span class="sw sw3"></span>3 · Clair corail</button>
-      <button data-ch="4"><span class="sw sw4"></span>4 · Institutionnel</button>
+    <span class="hb-label">Mode</span>
+    <div class="hb-seg mode" id="seg-mode">
+      <button data-mode="clair" class="on"><span class="sw sw-clair"></span>Clair</button>
+      <button data-mode="sombre"><span class="sw sw-sombre"></span>Sombre</button>
     </div>
   </div>
   <div class="hb-group">
@@ -408,7 +352,7 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
     </div>
   </div>
   <div class="hb-spacer"></div>
-  <div class="hb-note">Mise en page « Cockpit produit » · 4 ambiances · FR « tu »</div>
+  <div class="hb-note">Mise en page « Cockpit produit » · corail = accent · neutres dominants</div>
 </div>
 
 <div class="stage" id="stage" data-fmt="desktop">
@@ -418,7 +362,6 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
   <nav class="nav">
     <div class="logo">
       <span class="mark">
-        <!-- maison-toit minimaliste -->
         <svg viewBox="0 0 24 24" fill="none"><path d="M3.2 11 12 3.6 20.8 11M5.6 9.2V19a1 1 0 0 0 1 1H10v-5h4v5h3.4a1 1 0 0 0 1-1V9.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
       <span class="pw">Propryo</span>
@@ -436,7 +379,7 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
         <span class="stars">★★★★★</span><span class="r-txt">4,9/5 · 1 200+ bailleurs</span>
       </div>
 
-      <h1 class="hero-title">Du bail au bilan,<br><span class="hl">tout ton locatif maîtrisé.</span></h1>
+      <h1 class="hero-title">Du bail au bilan,<br><span class="hl">tout</span> ton locatif maîtrisé.</h1>
       <p class="hero-sub">Un seul outil pour gérer tes biens et piloter tes finances. Zéro paperasse.</p>
 
       <div class="piliers">
@@ -462,7 +405,7 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
 
       <div class="actions">
         <a class="btn btn-primary" href="#">Démarrer l'essai gratuit</a>
-        <div class="stat-saved">6 h<span>économisées / mois</span></div>
+        <div class="stat-saved"><em>6 h</em><span>économisées / mois</span></div>
       </div>
       <div class="trustline trust">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
@@ -491,29 +434,29 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
             <div class="mock-body">
               <div class="mock-head"><h4>Tableau de bord</h4><span class="m-date">Juin 2026</span></div>
               <div class="kpis">
-                <div class="kpi"><div class="k-lab"><svg class="k-ico-e" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Encaissé</div><div class="k-val">8 420 €</div><div class="k-delta up">▲ 4,2 %</div></div>
-                <div class="kpi"><div class="k-lab"><svg class="k-ico-a" width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>En attente</div><div class="k-val">1 150 €</div><div class="k-delta down">2 lots</div></div>
-                <div class="kpi"><div class="k-lab"><svg class="k-ico-b" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 18 9 11l4 4 7-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Renta nette</div><div class="k-val">6,1 %</div><div class="k-delta up">▲ an</div></div>
-                <div class="kpi"><div class="k-lab"><svg class="k-ico-b" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Occupation</div><div class="k-val">94 %</div><div class="k-delta up">12/13</div></div>
+                <div class="kpi accent"><div class="k-lab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Encaissé</div><div class="k-val">8 420 €</div><div class="k-delta up">▲ 4,2 %</div></div>
+                <div class="kpi"><div class="k-lab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>En attente</div><div class="k-val">1 150 €</div><div class="k-delta">2 lots</div></div>
+                <div class="kpi"><div class="k-lab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 18 9 11l4 4 7-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Renta nette</div><div class="k-val">6,1 %</div><div class="k-delta up">▲ an</div></div>
+                <div class="kpi"><div class="k-lab"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Occupation</div><div class="k-val">94 %</div><div class="k-delta up">12/13</div></div>
               </div>
               <div class="mock-cols">
                 <div class="panel">
                   <div class="p-head"><h5>Cashflow mensuel</h5><span class="p-tag">2026</span></div>
                   <div class="chart">
-                    <div class="bar muted"><div class="bb" style="height:48%"></div><div class="bl">J</div></div>
-                    <div class="bar muted"><div class="bb" style="height:56%"></div><div class="bl">F</div></div>
-                    <div class="bar muted"><div class="bb" style="height:52%"></div><div class="bl">M</div></div>
-                    <div class="bar muted"><div class="bb" style="height:66%"></div><div class="bl">A</div></div>
-                    <div class="bar muted"><div class="bb" style="height:72%"></div><div class="bl">M</div></div>
-                    <div class="bar"><div class="bb" style="height:90%"></div><div class="bl">J</div></div>
+                    <div class="bar fill"><div class="bb" style="height:48%"></div><div class="bl">J</div></div>
+                    <div class="bar fill"><div class="bb" style="height:56%"></div><div class="bl">F</div></div>
+                    <div class="bar fill"><div class="bb" style="height:52%"></div><div class="bl">M</div></div>
+                    <div class="bar fill"><div class="bb" style="height:66%"></div><div class="bl">A</div></div>
+                    <div class="bar fill"><div class="bb" style="height:72%"></div><div class="bl">M</div></div>
+                    <div class="bar hl"><div class="bb" style="height:90%"></div><div class="bl">J</div></div>
                   </div>
                 </div>
                 <div class="panel">
                   <div class="p-head"><h5>Suivi des loyers</h5><span class="p-tag">Juin</span></div>
                   <div class="loyers">
-                    <div class="loyer"><div class="l-av" style="background:#0f8a5f">SL</div><div class="l-info"><div class="l-name">S. Lefèvre</div><div class="l-meta">T2 · le 5</div></div><span class="badge b-paid">Payé</span></div>
-                    <div class="loyer"><div class="l-av" style="background:#b97a12">MK</div><div class="l-info"><div class="l-name">M. Kaci</div><div class="l-meta">Studio · J-2</div></div><span class="badge b-wait">Attente</span></div>
-                    <div class="loyer"><div class="l-av" style="background:#c0395e">TD</div><div class="l-info"><div class="l-name">T. Dubois</div><div class="l-meta">T3 · relance</div></div><span class="badge b-late">Retard</span></div>
+                    <div class="loyer"><div class="l-av" style="background:#3f8f7a">SL</div><div class="l-info"><div class="l-name">S. Lefèvre</div><div class="l-meta">T2 · le 5</div></div><span class="badge b-paid">Payé</span></div>
+                    <div class="loyer"><div class="l-av" style="background:#b27a12">MK</div><div class="l-info"><div class="l-name">M. Kaci</div><div class="l-meta">Studio · J-2</div></div><span class="badge b-wait">Attente</span></div>
+                    <div class="loyer"><div class="l-av" style="background:#7b6bb0">TD</div><div class="l-info"><div class="l-name">T. Dubois</div><div class="l-meta">T3 · relance</div></div><span class="badge b-late">Retard</span></div>
                   </div>
                 </div>
               </div>
@@ -541,23 +484,15 @@ body.charte-4 .kpi .k-val{font-family:'Source Sans 3',sans-serif;font-weight:800
   var stage=document.getElementById('stage');
   var body=document.body;
 
-  /* ---- Sélecteur de CHARTE : bascule la classe .charte-N sur <body> ---- */
-  var segCharte=document.getElementById('seg-charte');
-  segCharte.addEventListener('click',function(e){
+  /* ---- Sélecteur de MODE : bascule .mode-clair / .mode-sombre sur <body> ---- */
+  var segMode=document.getElementById('seg-mode');
+  segMode.addEventListener('click',function(e){
     var b=e.target.closest('button'); if(!b)return;
-    var n=b.getAttribute('data-ch');
-    /* bouton actif */
-    segCharte.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});
+    var m=b.getAttribute('data-mode');
+    segMode.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});
     b.classList.add('on');
-    /* retire toute classe charte-* puis applique la bonne */
-    body.className=body.className.replace(/\bcharte-\d\b/g,'').trim();
-    body.classList.add('charte-'+n);
-    /* Force un recalcul de style complet : certains moteurs (Chromium) ne
-       réinvalident pas les var() résolues sur des éléments ciblés par un
-       sélecteur descendant composé (.hero .btn-primary, .login .inp) quand
-       seule une classe du <body> change. On force le reskin intégral. */
-    void document.documentElement.offsetWidth;
-    var f=stage; f.style.display='none'; void f.offsetWidth; f.style.display='';
+    body.classList.remove('mode-clair','mode-sombre');
+    body.classList.add('mode-'+m);
   });
 
   /* ---- Sélecteur de FORMAT ---- */
