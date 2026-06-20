@@ -49,6 +49,17 @@ let _makeDetUuid = null  // fabrique d'uuid déterministe (importée au boot) �
 function _liftDriveGate() {
   try { document.documentElement.removeAttribute('data-lpboot') } catch (e) {}
   try { document.getElementById('ov-drive-connect')?.classList.add('hidden') } catch (e) {}
+  // Le CSS d'index.html ne pose `display:block` que sur `#ov-drive-connect:not(.hidden)` → avec `.hidden`
+  // l'élément n'est PAS masqué (display reste implicite, il reste visible EN FOND derrière l'overlay de
+  // login cloud semi-transparent). On injecte UNE règle persistante qui force le `display:none`. Mode cloud
+  // uniquement (ce helper n'est appelé que là) ; en legacy le fichier est inerte → l'écran Drive réapparaît.
+  try {
+    if (!document.getElementById('imsb-hide-drivegate')) {
+      const s = document.createElement('style'); s.id = 'imsb-hide-drivegate'
+      s.textContent = '#ov-drive-connect{display:none!important}'
+      document.head.appendChild(s)
+    }
+  } catch (e) {}
 }
 
 async function boot() {
@@ -58,7 +69,7 @@ async function boot() {
   const { createClient } = await import(/* @vite-ignore */ CDN)
   const { createBoot } = await import('./supabase-boot.js')
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: { persistSession: false, autoRefreshToken: true },
   })
   _supaClient = client
   const api = createBoot(client)
@@ -391,7 +402,9 @@ async function onLoggedIn(api, overlay, user) {
       window.__immoRender()
       _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
-      injectSyncBanner(api, user, esp)            // bandeau + indicateur de sync
+      // injectSyncBanner(api, user, esp)         // bandeau bleu cloud RETIRÉ (P1 nettoyage connexion) —
+      // l'escape « mode local » reste dispo dans les Réglages ; setSync no-op proprement sans le bandeau
+      // (getElementById('imsb-sync') → if(!el) return). Fonction injectSyncBanner conservée (morte) au cas où.
       overlay.remove()                            // dévoile l'app complète sur les données cloud
       return
     }
@@ -436,8 +449,8 @@ function renderLoading(overlay, user) {
 }
 
 function brand() {
-  return `<div class="imsb-brand"><div class="imsb-logo">🏠</div><div class="imsb-name">ImmoTrack</div></div>
-    <div class="imsb-tag">Mode Supabase · test</div>`
+  return `<div class="imsb-brand"><div class="imsb-logo">🏠</div><div class="imsb-name">Lodyo</div></div>
+    <div class="imsb-tag">Lodyo</div>`
 }
 
 // Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud + indicateur de sync en
@@ -511,12 +524,10 @@ function injectOverlay() {
       <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
       <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
       <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Se connecter</button>
-      <div class="imsb-divider">ou</div>
-      <button class="imsb-btn imsb-ghost" type="button" disabled title="À activer dans le dashboard Supabase">Se connecter avec Google (bientôt)</button>
     </form></div>
     <aside class="imsb-right">
       <h1 class="imsb-h1">Tes données, dans le cloud.</h1>
-      <p class="imsb-sub">Synchronisé, chiffré, hébergé en Europe (RGPD). Fini la dépendance à Google Drive.</p>
+      <p class="imsb-sub">Synchronisé, chiffré, hébergé en Europe (RGPD).</p>
     </aside></section>`
   document.body.appendChild(ov)
   return ov
