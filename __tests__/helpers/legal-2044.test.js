@@ -446,3 +446,48 @@ describe('_compute2044 — précédence type:special sur opts.mapping (B1)', () 
     expect(r.resultatFoncier).toBe(1000);    // le capital prêt n'affecte pas le résultat foncier
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CFE / Taxe logements vacants — charges « gestionCharge » : DANS le résultat de
+// gestion (côté _finChargeBuckets, index.html) mais HORS 2044 foncier.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('_compute2044 — catégories gestionCharge (CFE / TLV) exclues de la 2044', () => {
+  const STD = [
+    { nom: 'Loyers encaissés', ligne2044: '211', type: 'recette' },
+    { nom: 'CFE (cotisation foncière des entreprises)', ligne2044: '', type: 'special', gestionCharge: true },
+    { nom: 'Taxe sur les logements vacants', ligne2044: '', type: 'special', gestionCharge: true }
+  ];
+  it('CFE et TLV ne créent aucune ligne, charges = 0, résultat foncier intact', () => {
+    const r = _compute2044([
+      { date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000 },
+      { date: '2026-02-10', cat: 'CFE (cotisation foncière des entreprises)', db: 480 },
+      { date: '2026-03-10', cat: 'Taxe sur les logements vacants', db: 200 }
+    ], STD);
+    expect(r.totalCharges).toBe(0);
+    expect(r.resultatFoncier).toBe(1000);
+    expect(Object.keys(r.lignes)).toEqual(['211']);
+    expect(r.nonMappes).toHaveLength(0); // STD reconnue → pas « non mappée », juste ignorée
+  });
+  it('un mapping custom tordu ne peut pas remapper une gestionCharge vers la 2044', () => {
+    const r = _compute2044([
+      { date: '2026-02-10', cat: 'CFE (cotisation foncière des entreprises)', db: 480 }
+    ], STD, { mapping: { 'CFE (cotisation foncière des entreprises)': '227' } });
+    expect(r.lignes['227']).toBeUndefined();
+    expect(r.totalCharges).toBe(0);
+  });
+});
+
+describe('STD_CATEGORIES inline — CFE / TLV gestionCharge (anti-régression)', () => {
+  const CATS = ['CFE (cotisation', 'Taxe sur les logements vacants'];
+  it('index.html : CFE/TLV sont type:special + ligne2044:\'\' + gestionCharge:true', () => {
+    const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
+    const lines = html.split('\n');
+    for (const key of CATS) {
+      const line = lines.find(l => l.includes(key) && l.includes('ligne2044'));
+      expect(line, `« ${key} » introuvable dans index.html`).toBeTruthy();
+      expect(line).toMatch(/type:\s*'special'/);
+      expect(line).toMatch(/ligne2044:\s*''/);
+      expect(line).toMatch(/gestionCharge:\s*true/);
+    }
+  });
+});
