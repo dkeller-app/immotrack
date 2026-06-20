@@ -11,18 +11,28 @@ const baseInput = {
 };
 
 describe('_computeFinancesSummary — résultat net', () => {
-  it('résultat net = loyers HC − total charges propriétaire', () => {
+  it('résultat de gestion = loyers HC − total charges propriétaire (avant régul)', () => {
     const r = _computeFinancesSummary(baseInput);
     expect(r.totalCharges).toBe(32100);
-    expect(r.resultatNet).toBe(54700);
+    expect(r.resultatGestion).toBe(54700);
+  });
+  it('résultat net = résultat de gestion − régul à récupérer (« pas récupéré, pas de résultat »)', () => {
+    const r = _computeFinancesSummary(baseInput);
+    expect(r.regulImpact).toBe(2200);
+    expect(r.resultatNet).toBe(52500); // 54700 − 2200
+  });
+  it('régul nul ⇒ résultat net = résultat de gestion', () => {
+    const r = _computeFinancesSummary({ ...baseInput, recuperer: { ...baseInput.recuperer, regul: 0 } });
+    expect(r.resultatNet).toBe(r.resultatGestion);
+    expect(r.regulImpact).toBe(0);
   });
   it('marge nette = résultat net / loyers HC, arrondie au %', () => {
     const r = _computeFinancesSummary(baseInput);
-    expect(r.margePct).toBe(63);
+    expect(r.margePct).toBe(60); // 52500/86800
   });
-  it('variation vs N-1 en % signé, 1 décimale', () => {
+  it('variation vs N-1 en % signé, 1 décimale (sur le résultat net)', () => {
     const r = _computeFinancesSummary(baseInput);
-    expect(r.varPct).toBeCloseTo(6.2, 1);
+    expect(r.varPct).toBeCloseTo(1.9, 1); // (52500−51500)/51500
   });
   it('renvoie des nombres finis, jamais NaN, même avec entrées vides', () => {
     const r = _computeFinancesSummary({});

@@ -25,7 +25,12 @@ export function _computeFinancesSummary(input) {
   const loyersHC = n(i.loyersHC);
   const c = i.charges || {};
   const totalCharges = n(c.interets) + n(c.taxeFonciere) + n(c.travaux) + n(c.honoraires) + n(c.assurance) + n(c.autres);
-  const resultatNet = loyersHC - totalCharges;
+  const resultatGestion = loyersHC - totalCharges;
+  const rec = i.recuperer || {};
+  const regul = n(rec.regul);
+  // « Pas récupéré, pas de résultat » : la régul de charges avancée mais non encore
+  // récupérée pèse réellement sur le résultat net (trésorerie sortie, pas remboursée).
+  const resultatNet = resultatGestion - regul;
   const margePct = loyersHC > 0 ? Math.round(resultatNet / loyersHC * 100) : 0;
   const resultatNetN1 = n(i.resultatNetN1);
   const varPct = resultatNetN1 > 0 ? Math.round((resultatNet - resultatNetN1) / resultatNetN1 * 1000) / 10 : 0;
@@ -38,12 +43,11 @@ export function _computeFinancesSummary(input) {
     poidsCharges: loyersHC > 0 ? Math.round(totalCharges / loyersHC * 1000) / 10 : 0
   };
 
-  const rec = i.recuperer || {};
   const aRecuperer = {
-    vacance: n(rec.vacance), impaye: n(rec.impaye), irl: n(rec.irl), regul: n(rec.regul),
-    total: n(rec.vacance) + n(rec.impaye) + n(rec.irl) + n(rec.regul)
+    vacance: n(rec.vacance), impaye: n(rec.impaye), irl: n(rec.irl), regul: regul,
+    total: n(rec.vacance) + n(rec.impaye) + n(rec.irl) + regul
   };
 
   return { loyersHC, provisions: n(i.provisions), totalEncaisse: loyersHC + n(i.provisions),
-           totalCharges, resultatNet, margePct, resultatNetN1, loyersHCN1: n(i.loyersHCN1), varPct, ratios, aRecuperer };
+           totalCharges, resultatGestion, regulImpact: regul, resultatNet, margePct, resultatNetN1, loyersHCN1: n(i.loyersHCN1), varPct, ratios, aRecuperer };
 }
