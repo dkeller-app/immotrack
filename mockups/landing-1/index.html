@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propryo — Landing (3 concepts BOLD / conversion)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   PROPRYO — Page d'accueil + connexion (vitrine)
+   3 CONCEPTS DISTINCTS · axe imposé : BOLD / CONVERSION
+   100% statique, autosuffisant. Aucune image externe (CSS/SVG only).
+   Sélecteur de concept + sélecteur de format (PC / Tablette / Téléphone).
+   NE RIEN COMMITER.
+   ===================================================================== */
+
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:#070b14;
+  font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  -webkit-font-smoothing:antialiased;
+  color:#0e1626;
+}
+a{text-decoration:none;color:inherit;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+input{font-family:inherit;}
+
+/* ─────────────── BARRE D'OUTILS MAQUETTE (hors livrable) ─────────────── */
+.mk{
+  position:fixed;top:0;left:0;right:0;z-index:9000;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:8px 16px;
+  background:rgba(7,11,20,.9);backdrop-filter:blur(14px);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-family:'JetBrains Mono',monospace;font-size:12px;color:#c4d2ec;
+}
+.mk .lab{color:#647ba6;letter-spacing:.5px;text-transform:uppercase;font-size:10px;font-weight:600;}
+.mk-g{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.05);padding:4px;border-radius:9px;border:1px solid rgba(255,255,255,.08);}
+.mk-g button{color:#aebfdc;font-size:12px;padding:6px 12px;border-radius:6px;transition:.15s;font-weight:600;}
+.mk-g button:hover{color:#fff;}
+.mk-g button.on{background:linear-gradient(135deg,#ff7a45,#ff5e7d);color:#fff;box-shadow:0 2px 12px -2px rgba(255,94,125,.7);}
+.mk .sp{flex:1;}
+.mk .angle{color:#8fa6cf;max-width:520px;line-height:1.45;font-size:11px;}
+.mk .angle b{color:#fff;font-weight:600;}
+
+/* ─────────────── SCÈNE / VIEWPORT SIMULÉ ─────────────── */
+.stage{
+  padding-top:54px;min-height:100vh;
+  display:flex;justify-content:center;align-items:flex-start;
+  background:
+    radial-gradient(1100px 600px at 18% -5%,rgba(255,122,69,.10),transparent 60%),
+    radial-gradient(900px 600px at 92% 10%,rgba(91,124,255,.10),transparent 60%),
+    #070b14;
+}
+.frame{
+  width:100%;max-width:1320px;background:#fff;
+  box-shadow:0 40px 110px -40px rgba(0,0,0,.8);
+  transition:max-width .35s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;container-type:inline-size;
+}
+body[data-fmt="tablet"] .frame{max-width:800px;}
+body[data-fmt="phone"]  .frame{max-width:392px;}
+
+/* concepts visibility */
+.concept{display:none;}
+.concept.show{display:block;}
+
+/* =====================================================================
+   TOKENS partagés
+   ===================================================================== */
+:root{
+  --ink:#0e1626; --mid:#56627a; --soft:#8b97ad; --line:#e8ecf3;
+}
+
+/* shared rating stars */
+.stars{color:#ffb020;letter-spacing:1px;}
+
+/* shared avatars row */
+.av{display:flex;}
+.av span{
+  width:30px;height:30px;border-radius:50%;margin-left:-9px;
+  border:2px solid #fff;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#fff;
+}
+.av span:first-child{margin-left:0;}
+
+/* ─────────────── form bits shared ─────────────── */
+.fld{display:block;margin-bottom:12px;}
+.fld label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;}
+.fld input{
+  width:100%;height:44px;border-radius:10px;padding:0 14px;font-size:14px;
+  outline:none;transition:.15s;
+}
+.btn-cta{
+  width:100%;height:46px;border-radius:11px;font-weight:700;font-size:15px;
+  display:flex;align-items:center;justify-content:center;gap:8px;transition:.18s;
+}
+.btn-cta:hover{transform:translateY(-1px);}
+
+/* ===================================================================== */
+/* =====================  CONCEPT A — SPLIT NUIT  ====================== */
+/*  Angle : split sombre cinématographique. Promesse à gauche sur fond   */
+/*  nuit + aperçu app flottant ; connexion à droite sur panneau clair.   */
+/* ===================================================================== */
+#A{
+  --amber:#ff8a4c; --amber2:#ff6b35; --grn:#27c08a; --blue:#5b8cff;
+  --navy:#0c1322; --navy2:#131d33;
+  display:grid;grid-template-columns:1.18fr .82fr;min-height:760px;
+  font-family:'Plus Jakarta Sans',sans-serif;
+}
+@container (max-width:820px){#A{grid-template-columns:1fr;min-height:0;}}
+
+#A .left{
+  position:relative;padding:34px 46px 40px;color:#eef3fc;overflow:hidden;
+  background:
+    radial-gradient(700px 420px at 12% 8%,rgba(255,122,69,.18),transparent 62%),
+    radial-gradient(640px 460px at 96% 96%,rgba(91,140,255,.16),transparent 60%),
+    linear-gradient(160deg,#0c1322,#0a1020 60%,#0b1426);
+}
+#A .left::after{
+  content:"";position:absolute;inset:0;opacity:.5;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+  background-size:42px 42px;mask:radial-gradient(600px 400px at 30% 30%,#000,transparent 75%);
+}
+#A nav{display:flex;align-items:center;gap:26px;position:relative;z-index:2;}
+#A .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.3px;}
+#A .logo .mk-ic{
+  width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#ff8a4c,#ff5e7d);font-size:16px;
+}
+#A nav .links{display:flex;gap:22px;margin-left:14px;font-size:13.5px;color:#9fb0cc;font-weight:500;}
+#A nav .links a:hover{color:#fff;}
+#A nav .sp{flex:1;}
+#A nav .nlogin{font-size:13.5px;font-weight:600;color:#cdd8ee;border:1px solid rgba(255,255,255,.18);padding:7px 15px;border-radius:9px;}
+#A nav .nlogin:hover{background:rgba(255,255,255,.08);}
+
+#A .pill{
+  display:inline-flex;align-items:center;gap:8px;margin:40px 0 18px;position:relative;z-index:2;
+  background:rgba(255,138,76,.14);border:1px solid rgba(255,138,76,.32);
+  color:#ffcaa6;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:30px;
+}
+#A .pill b{color:#fff;}
+#A h1{
+  position:relative;z-index:2;margin:0;font-size:52px;line-height:1.04;letter-spacing:-1.5px;
+  font-weight:800;font-family:'Space Grotesk',sans-serif;color:#fff;max-width:560px;
+}
+#A h1 .hl{
+  background:linear-gradient(120deg,#ff8a4c,#ff5e7d);-webkit-background-clip:text;background-clip:text;color:transparent;
+}
+#A .sub{position:relative;z-index:2;margin:18px 0 0;font-size:18px;color:#aebdd8;font-weight:500;max-width:460px;}
+
+#A .bumps{display:flex;gap:10px;margin:22px 0 0;flex-wrap:wrap;position:relative;z-index:2;}
+#A .bump{
+  display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#dde6f6;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:7px 12px;border-radius:10px;
+}
+#A .bump i{color:#27c08a;font-style:normal;font-weight:800;}
+
+/* proof strip A */
+#A .proof{display:flex;align-items:center;gap:18px;margin:30px 0 0;position:relative;z-index:2;flex-wrap:wrap;}
+#A .proof .av span{border-color:#0e1626;}
+#A .proof .rt{font-size:13px;color:#aebdd8;}
+#A .proof .rt b{color:#fff;}
+#A .stat{
+  margin-left:auto;display:flex;align-items:center;gap:11px;
+  background:linear-gradient(135deg,rgba(255,138,76,.16),rgba(255,94,125,.12));
+  border:1px solid rgba(255,138,76,.3);border-radius:13px;padding:10px 15px;
+}
+#A .stat .num{font-size:26px;font-weight:800;font-family:'Space Grotesk';color:#fff;line-height:1;}
+#A .stat .lb{font-size:11.5px;color:#ffcaa6;line-height:1.25;font-weight:600;}
+
+/* floating app preview A */
+#A .preview{
+  position:relative;z-index:2;margin:34px 0 0;
+  background:#0f1830;border:1px solid rgba(255,255,255,.1);border-radius:16px;
+  box-shadow:0 30px 70px -30px rgba(0,0,0,.7);overflow:hidden;max-width:600px;
+}
+#A .pv-top{display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.07);}
+#A .pv-top .dot{width:10px;height:10px;border-radius:50%;}
+#A .pv-top .url{margin-left:10px;font-size:11px;font-family:'JetBrains Mono';color:#7e8fb0;}
+#A .pv-body{padding:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;}
+#A .kpi{background:#142039;border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:12px 13px;}
+#A .kpi .k{font-size:10.5px;color:#8294b6;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+#A .kpi .v{font-size:21px;font-weight:800;color:#fff;font-family:'Space Grotesk';margin-top:5px;}
+#A .kpi .d{font-size:11px;font-weight:700;margin-top:3px;}
+#A .kpi .d.up{color:#27c08a;}
+#A .kpi .d.warn{color:#ffb020;}
+#A .pv-chart{grid-column:1/3;background:#142039;border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:13px;}
+#A .pv-list{background:#142039;border:1px solid rgba(255,255,255,.06);border-radius:11px;padding:11px 12px;}
+#A .pv-list .row{display:flex;align-items:center;gap:8px;font-size:11px;color:#c2cee6;padding:5px 0;}
+#A .pv-list .row .tag{margin-left:auto;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:6px;}
+#A .pv-list .row .tag.ok{background:rgba(39,192,138,.18);color:#5ce0b0;}
+#A .pv-list .row .tag.wait{background:rgba(255,176,32,.18);color:#ffce6e;}
+
+/* right panel (login) A */
+#A .right{
+  background:#fbfcfe;padding:46px 44px;display:flex;flex-direction:column;justify-content:center;
+}
+#A .right .rhead{margin-bottom:24px;}
+#A .right h2{margin:0 0 6px;font-size:25px;font-weight:800;color:var(--ink);letter-spacing:-.4px;font-family:'Space Grotesk';}
+#A .right .rsub{margin:0;font-size:14px;color:var(--mid);}
+#A .right .fld input{border:1.5px solid var(--line);background:#fff;}
+#A .right .fld input:focus{border-color:var(--amber2);box-shadow:0 0 0 4px rgba(255,107,53,.13);}
+#A .right .pwrow{display:flex;justify-content:space-between;align-items:center;}
+#A .right .pwrow a{font-size:12px;font-weight:600;color:var(--amber2);}
+#A .right .pwrow a:hover{text-decoration:underline;}
+#A .right .btn-cta{background:linear-gradient(135deg,#ff8a4c,#ff5e7d);color:#fff;margin-top:6px;box-shadow:0 12px 26px -10px rgba(255,107,53,.6);}
+#A .right .create{margin:20px 0 0;text-align:center;font-size:13.5px;color:var(--mid);}
+#A .right .create a{font-weight:700;color:var(--amber2);}
+#A .right .create a:hover{text-decoration:underline;}
+#A .right .trust{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:11.5px;color:var(--soft);display:flex;align-items:center;gap:7px;justify-content:center;text-align:center;}
+#A .right .trust i{color:var(--grn);font-style:normal;}
+
+@container (max-width:520px){
+  #A .left{padding:26px 22px 30px;}
+  #A h1{font-size:38px;letter-spacing:-1px;}
+  #A .sub{font-size:16px;}
+  #A nav .links{display:none;}
+  #A .pv-body{grid-template-columns:1fr 1fr;}
+  #A .pv-chart{grid-column:1/3;}
+  #A .right{padding:32px 22px;}
+}
+
+/* ===================================================================== */
+/* =====================  CONCEPT B — VITRINE CLAIRE  ================== */
+/*  Angle : landing claire orientée conversion, hero asymétrique gauche  */
+/*  + dashboard premium plein cadre à droite ; deux piliers en chips ;   */
+/*  connexion en carte modale flottante (CTA "Créer un compte").         */
+/* ===================================================================== */
+#B{
+  --amber:#ff6b35; --amber2:#e8501c; --grn:#0f9d6b; --blue:#2f6bff; --ink:#0e1626;
+  font-family:'Plus Jakarta Sans',sans-serif;color:var(--ink);
+  background:
+    radial-gradient(900px 500px at 100% -10%,rgba(47,107,255,.08),transparent 60%),
+    radial-gradient(700px 500px at -10% 110%,rgba(255,107,53,.08),transparent 60%),
+    #ffffff;
+  min-height:760px;display:flex;flex-direction:column;
+}
+#B .nav{display:flex;align-items:center;gap:24px;padding:20px 48px;border-bottom:1px solid #eef1f6;}
+#B .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:20px;letter-spacing:-.3px;}
+#B .logo .mk-ic{width:31px;height:31px;border-radius:9px;background:linear-gradient(135deg,#ff8a4c,#ff5e7d);display:flex;align-items:center;justify-content:center;font-size:16px;}
+#B .nav .links{display:flex;gap:24px;margin-left:14px;font-size:14px;color:var(--mid);font-weight:600;}
+#B .nav .links a:hover{color:var(--ink);}
+#B .nav .sp{flex:1;}
+#B .nav .nlog{font-size:14px;font-weight:600;color:var(--ink);padding:8px 14px;}
+#B .nav .nfree{font-size:14px;font-weight:700;color:#fff;background:var(--ink);padding:9px 17px;border-radius:10px;}
+#B .nav .nfree:hover{background:#1c2740;}
+
+#B .wrap{flex:1;display:grid;grid-template-columns:1fr 1.05fr;gap:30px;align-items:center;padding:40px 48px 46px;}
+@container (max-width:880px){#B .wrap{grid-template-columns:1fr;gap:34px;padding:32px 30px;}}
+
+#B .pill{display:inline-flex;align-items:center;gap:8px;background:#fff3ec;border:1px solid #ffd9c4;color:#c4441a;font-size:12.5px;font-weight:700;padding:6px 13px;border-radius:30px;}
+#B .pill .stars{color:#ffb020;}
+#B h1{margin:18px 0 0;font-size:50px;line-height:1.05;letter-spacing:-1.4px;font-weight:800;font-family:'Space Grotesk';max-width:520px;}
+#B h1 .hl{color:var(--amber2);}
+#B .sub{margin:16px 0 0;font-size:18px;color:var(--mid);font-weight:500;max-width:420px;}
+
+#B .pillars{display:flex;gap:12px;margin:24px 0 0;flex-wrap:wrap;}
+#B .pl{flex:1;min-width:170px;border:1px solid #e9edf4;border-radius:14px;padding:14px 15px;background:#fff;}
+#B .pl .h{display:flex;align-items:center;gap:9px;font-weight:800;font-size:14.5px;}
+#B .pl .h .ic{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+#B .pl.gest .h .ic{background:rgba(255,107,53,.13);color:#e8501c;}
+#B .pl.fin  .h .ic{background:rgba(47,107,255,.12);color:#2f6bff;}
+#B .pl ul{margin:11px 0 0;padding:0;list-style:none;}
+#B .pl li{font-size:12.5px;color:var(--mid);font-weight:500;padding:3px 0 3px 17px;position:relative;}
+#B .pl li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;}
+#B .pl.gest li::before{background:#e8501c;}
+#B .pl.fin li::before{background:#2f6bff;}
+
+#B .ctas{display:flex;align-items:center;gap:14px;margin:26px 0 0;flex-wrap:wrap;}
+#B .ctas .go{background:linear-gradient(135deg,#ff8a4c,#ff5e7d);color:#fff;font-weight:700;font-size:15px;padding:13px 24px;border-radius:12px;display:flex;align-items:center;gap:8px;box-shadow:0 14px 28px -10px rgba(255,107,53,.55);transition:.18s;}
+#B .ctas .go:hover{transform:translateY(-1px);}
+#B .ctas .demo{font-weight:700;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:7px;}
+#B .ctas .demo:hover{color:var(--amber2);}
+
+#B .social{display:flex;align-items:center;gap:14px;margin:24px 0 0;flex-wrap:wrap;}
+#B .social .av span{background:#cfd8e6;color:#33405a;border-color:#fff;}
+#B .social .txt{font-size:12.5px;color:var(--mid);line-height:1.4;}
+#B .social .txt b{color:var(--ink);}
+
+/* right column: big dashboard + floating login B */
+#B .showcase{position:relative;}
+#B .dash{
+  background:#fff;border:1px solid #e7ebf2;border-radius:18px;overflow:hidden;
+  box-shadow:0 34px 80px -34px rgba(14,22,38,.4);
+}
+#B .dash-top{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid #eef1f6;background:#fafbfd;}
+#B .dash-top .dot{width:9px;height:9px;border-radius:50%;}
+#B .dash-top .ttl{margin-left:8px;font-size:12px;font-weight:700;color:#33405a;}
+#B .dash-top .seg{margin-left:auto;display:flex;gap:3px;background:#eef1f6;padding:3px;border-radius:8px;}
+#B .dash-top .seg span{font-size:10px;font-weight:700;color:#8b97ad;padding:3px 9px;border-radius:6px;}
+#B .dash-top .seg span.on{background:#fff;color:#0e1626;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+#B .dash-body{padding:16px;}
+#B .dkpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+#B .dk{border:1px solid #eef1f6;border-radius:12px;padding:11px 12px;}
+#B .dk .k{font-size:10px;color:#8b97ad;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+#B .dk .v{font-size:19px;font-weight:800;font-family:'Space Grotesk';margin-top:5px;}
+#B .dk .d{font-size:10.5px;font-weight:700;margin-top:2px;}
+#B .dk .d.up{color:#0f9d6b;}#B .dk .d.warn{color:#d98a00;}
+#B .dgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-top:12px;}
+#B .card2{border:1px solid #eef1f6;border-radius:12px;padding:13px;}
+#B .card2 .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+#B .card2 .ch .t{font-size:12px;font-weight:800;}
+#B .card2 .ch .leg{font-size:10px;color:#8b97ad;font-weight:600;}
+#B .lr{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:11.5px;}
+#B .lr .ava{width:24px;height:24px;border-radius:7px;background:#eef1f6;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#56627a;}
+#B .lr .nm{font-weight:700;color:#0e1626;}
+#B .lr .am{margin-left:auto;font-weight:800;font-family:'Space Grotesk';}
+#B .lr .st{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;}
+#B .lr .st.ok{background:rgba(15,157,107,.13);color:#0f9d6b;}
+#B .lr .st.wait{background:rgba(217,138,0,.14);color:#b87400;}
+
+/* floating login card B */
+#B .loginpop{
+  position:absolute;right:-14px;bottom:-26px;width:268px;
+  background:#fff;border:1px solid #e7ebf2;border-radius:16px;padding:18px 18px 16px;
+  box-shadow:0 28px 60px -22px rgba(14,22,38,.45);
+}
+#B .loginpop h3{margin:0 0 3px;font-size:16px;font-weight:800;font-family:'Space Grotesk';}
+#B .loginpop .lp-sub{margin:0 0 14px;font-size:11.5px;color:var(--mid);}
+#B .loginpop .fld label{font-size:11px;}
+#B .loginpop .fld input{height:38px;border:1.5px solid var(--line);font-size:12.5px;}
+#B .loginpop .fld input:focus{border-color:var(--amber2);box-shadow:0 0 0 3px rgba(232,80,28,.12);}
+#B .loginpop .pwrow{display:flex;justify-content:space-between;align-items:center;}
+#B .loginpop .pwrow a{font-size:10.5px;font-weight:600;color:var(--amber2);}
+#B .loginpop .btn-cta{height:40px;font-size:13.5px;background:var(--ink);color:#fff;}
+#B .loginpop .btn-cta:hover{background:#1c2740;}
+#B .loginpop .cr{margin:12px 0 0;text-align:center;font-size:11px;color:var(--mid);}
+#B .loginpop .cr a{font-weight:700;color:var(--amber2);}
+
+#B .footnote{padding:0 48px 22px;font-size:11.5px;color:var(--soft);display:flex;align-items:center;gap:7px;}
+#B .footnote i{color:var(--grn);font-style:normal;}
+
+@container (max-width:880px){
+  #B .loginpop{position:static;width:100%;margin-top:18px;}
+}
+@container (max-width:520px){
+  #B .nav{padding:16px 20px;gap:14px;}
+  #B .nav .links{display:none;}
+  #B .nav .nlog{display:none;}
+  #B h1{font-size:36px;letter-spacing:-1px;}
+  #B .sub{font-size:16px;}
+  #B .dkpis{grid-template-columns:1fr 1fr;}
+  #B .dgrid{grid-template-columns:1fr;}
+  #B .footnote{padding:0 20px 18px;}
+}
+
+/* ===================================================================== */
+/* =====================  CONCEPT C — MONO-ÉCRAN BANNER  ============== */
+/*  Angle : pleine page sombre éditoriale, énorme titre centré-gauche,   */
+/*  bandeau de preuve sociale fort en ligne, login compact inline, et    */
+/*  carrousel-écran d'app en perspective. Le plus "magazine / impact".   */
+/* ===================================================================== */
+#C{
+  --amber:#ff8a4c; --amber2:#ff6b35; --grn:#2ecf96; --blue:#5b8cff;
+  font-family:'Plus Jakarta Sans',sans-serif;color:#eaf0fb;
+  min-height:760px;position:relative;overflow:hidden;
+  background:
+    radial-gradient(900px 600px at 80% -10%,rgba(91,140,255,.16),transparent 60%),
+    radial-gradient(820px 560px at 6% 110%,rgba(255,122,69,.16),transparent 60%),
+    linear-gradient(165deg,#0a0f1c,#0c1424 55%,#0a1120);
+}
+#C::after{
+  content:"";position:absolute;inset:0;opacity:.45;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:48px 48px;mask:linear-gradient(180deg,#000,transparent 85%);
+}
+#C nav{position:relative;z-index:3;display:flex;align-items:center;gap:26px;padding:22px 50px;}
+#C .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:20px;letter-spacing:-.3px;color:#fff;}
+#C .logo .mk-ic{width:31px;height:31px;border-radius:9px;background:linear-gradient(135deg,#ff8a4c,#ff5e7d);display:flex;align-items:center;justify-content:center;font-size:16px;}
+#C nav .links{display:flex;gap:24px;margin-left:14px;font-size:14px;color:#9fb0cc;font-weight:500;}
+#C nav .links a:hover{color:#fff;}
+#C nav .sp{flex:1;}
+#C nav .nlog{font-size:14px;font-weight:600;color:#dbe4f5;border:1px solid rgba(255,255,255,.2);padding:8px 16px;border-radius:10px;}
+#C nav .nlog:hover{background:rgba(255,255,255,.08);}
+
+#C .hero{position:relative;z-index:3;display:grid;grid-template-columns:1.02fr .98fr;gap:40px;align-items:center;padding:18px 50px 44px;}
+@container (max-width:880px){#C .hero{grid-template-columns:1fr;gap:36px;padding:14px 30px 36px;}}
+
+#C .pill{display:inline-flex;align-items:center;gap:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);padding:6px 13px;border-radius:30px;font-size:12.5px;font-weight:600;color:#cdd8ee;}
+#C .pill .stars{color:#ffb020;}
+#C .pill b{color:#fff;}
+#C h1{margin:22px 0 0;font-size:58px;line-height:1.02;letter-spacing:-2px;font-weight:800;font-family:'Space Grotesk';color:#fff;max-width:600px;}
+#C h1 .hl{background:linear-gradient(110deg,#ff8a4c,#ff5e7d 55%,#5b8cff);-webkit-background-clip:text;background-clip:text;color:transparent;}
+#C .sub{margin:18px 0 0;font-size:19px;color:#aebdd8;font-weight:500;max-width:440px;}
+
+#C .duo{display:flex;gap:10px;margin:24px 0 0;}
+#C .duo .d{flex:1;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:12px 14px;}
+#C .duo .d .ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+#C .duo .d.g .ic{background:rgba(255,138,76,.16);color:#ff9d68;}
+#C .duo .d.f .ic{background:rgba(91,140,255,.16);color:#88a8ff;}
+#C .duo .d .t{font-size:14px;font-weight:800;color:#fff;}
+#C .duo .d .s{font-size:11px;color:#9fb0cc;margin-top:1px;font-weight:500;}
+
+#C .actband{display:flex;align-items:center;gap:16px;margin:28px 0 0;flex-wrap:wrap;}
+#C .actband .go{background:linear-gradient(135deg,#ff8a4c,#ff5e7d);color:#fff;font-weight:700;font-size:15px;padding:14px 26px;border-radius:12px;display:flex;align-items:center;gap:8px;box-shadow:0 16px 32px -12px rgba(255,94,125,.6);transition:.18s;}
+#C .actband .go:hover{transform:translateY(-1px);}
+#C .actband .stat{display:flex;align-items:center;gap:11px;}
+#C .actband .stat .num{font-size:30px;font-weight:800;font-family:'Space Grotesk';color:#fff;line-height:1;}
+#C .actband .stat .lb{font-size:12px;color:#9fb0cc;line-height:1.25;font-weight:600;}
+
+#C .proof{display:flex;align-items:center;gap:14px;margin:26px 0 0;flex-wrap:wrap;}
+#C .proof .av span{border-color:#0c1424;background:#27324a;color:#dbe4f5;}
+#C .proof .pt{font-size:12.5px;color:#aebdd8;}
+#C .proof .pt b{color:#fff;}
+
+/* right: perspective stacked app screens + inline login */
+#C .visual{position:relative;}
+#C .screens{position:relative;perspective:1600px;height:330px;}
+#C .scr{
+  position:absolute;border-radius:15px;overflow:hidden;border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 30px 70px -28px rgba(0,0,0,.75);background:#0f1830;
+}
+#C .scr1{width:90%;right:0;top:8px;transform:rotateY(-13deg) rotateX(5deg);z-index:2;}
+#C .scr2{width:62%;left:-6px;top:120px;transform:rotateY(-13deg) rotateX(5deg);z-index:3;}
+#C .scr .sb{display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.07);}
+#C .scr .sb .dot{width:8px;height:8px;border-radius:50%;}
+#C .scr .sb .lb{margin-left:8px;font-size:10px;font-weight:700;color:#8294b6;}
+#C .scr .sbody{padding:13px;}
+#C .scr .kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+#C .scr .kp{background:#16213c;border:1px solid rgba(255,255,255,.06);border-radius:9px;padding:9px 10px;}
+#C .scr .kp .k{font-size:9px;color:#8294b6;font-weight:700;text-transform:uppercase;}
+#C .scr .kp .v{font-size:16px;font-weight:800;color:#fff;font-family:'Space Grotesk';margin-top:3px;}
+#C .scr .kp .d{font-size:9px;font-weight:700;margin-top:1px;}
+#C .scr .kp .d.up{color:#2ecf96;}
+#C .scr .bars{display:flex;align-items:flex-end;gap:6px;height:62px;margin-top:11px;}
+#C .scr .bars span{flex:1;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#5b8cff,#3a63d6);}
+#C .scr .bars span.a{background:linear-gradient(180deg,#ff8a4c,#ff6b35);}
+#C .scr2 .lr{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:10.5px;color:#c2cee6;}
+#C .scr2 .lr .av2{width:22px;height:22px;border-radius:7px;background:#22304e;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#9fb0cc;}
+#C .scr2 .lr .tg{margin-left:auto;font-size:8.5px;font-weight:700;padding:2px 7px;border-radius:6px;}
+#C .scr2 .lr .tg.ok{background:rgba(46,207,150,.18);color:#74e2bb;}
+#C .scr2 .lr .tg.wait{background:rgba(255,176,32,.18);color:#ffce6e;}
+
+/* inline login C (under visual / right) */
+#C .clogin{
+  position:relative;z-index:3;margin:18px 0 0;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;
+  backdrop-filter:blur(10px);
+}
+#C .clogin .ch{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:13px;}
+#C .clogin .ch h3{margin:0;font-size:16px;font-weight:800;color:#fff;font-family:'Space Grotesk';}
+#C .clogin .ch a{font-size:12px;font-weight:700;color:#ff9d68;}
+#C .clogin .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+#C .clogin .fld{margin-bottom:0;}
+#C .clogin .fld label{color:#aebdd8;font-size:11px;}
+#C .clogin .fld input{height:42px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.14);color:#fff;}
+#C .clogin .fld input::placeholder{color:#6e7e9c;}
+#C .clogin .fld input:focus{border-color:#ff8a4c;box-shadow:0 0 0 3px rgba(255,138,76,.2);background:rgba(255,255,255,.09);}
+#C .clogin .brow{display:flex;align-items:center;gap:13px;margin-top:13px;}
+#C .clogin .btn-cta{width:auto;flex:1;background:linear-gradient(135deg,#ff8a4c,#ff5e7d);color:#fff;box-shadow:0 12px 26px -10px rgba(255,94,125,.6);}
+#C .clogin .fp{font-size:12px;font-weight:600;color:#9fb0cc;white-space:nowrap;}
+#C .clogin .fp:hover{color:#fff;}
+#C .clogin .trust{margin-top:13px;font-size:11px;color:#8294b6;display:flex;align-items:center;gap:7px;}
+#C .clogin .trust i{color:#2ecf96;font-style:normal;}
+
+@container (max-width:880px){
+  #C .screens{height:300px;}
+}
+@container (max-width:520px){
+  #C nav{padding:16px 20px;gap:14px;}
+  #C nav .links{display:none;}
+  #C h1{font-size:40px;letter-spacing:-1.4px;}
+  #C .sub{font-size:16px;}
+  #C .duo{flex-direction:column;}
+  #C .screens{height:240px;transform:scale(.92);transform-origin:top center;}
+  #C .clogin .frow{grid-template-columns:1fr;}
+  #C .clogin .brow{flex-direction:column;align-items:stretch;}
+  #C .actband .stat .num{font-size:24px;}
+}
+</style>
+</head>
+<body data-fmt="pc" data-concept="A">
+
+<!-- ─────────────── barre maquette ─────────────── -->
+<div class="mk">
+  <span class="lab">Propryo · vitrine</span>
+  <div class="mk-g" id="g-concept">
+    <button data-c="A" class="on">Concept A · Split nuit</button>
+    <button data-c="B">Concept B · Vitrine claire</button>
+    <button data-c="C">Concept C · Bannière impact</button>
+  </div>
+  <span class="sp"></span>
+  <span class="lab">Format</span>
+  <div class="mk-g" id="g-fmt">
+    <button data-f="pc" class="on">PC</button>
+    <button data-f="tablet">Tablette</button>
+    <button data-f="phone">Téléphone</button>
+  </div>
+  <span class="angle" id="angle"></span>
+</div>
+
+<div class="stage">
+  <div class="frame">
+
+    <!-- ===================== CONCEPT A ===================== -->
+    <section class="concept show" id="A">
+      <div class="left">
+        <nav>
+          <span class="logo"><span class="mk-ic">🏠</span>Propryo</span>
+          <span class="links"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a></span>
+          <span class="sp"></span>
+          <a href="#" class="nlogin">Connexion</a>
+        </nav>
+
+        <span class="pill"><span class="stars">★★★★★</span> Noté <b>4,9/5</b> par les bailleurs</span>
+        <h1>Gère tes biens.<br>Pilote tes <span class="hl">finances.</span></h1>
+        <p class="sub">Baux, quittances, états des lieux, loyers et rentabilité — au même endroit.</p>
+
+        <div class="bumps">
+          <span class="bump"><i>✓</i> Baux conformes auto</span>
+          <span class="bump"><i>✓</i> Quittances en 1 clic</span>
+          <span class="bump"><i>✓</i> Signature à distance</span>
+        </div>
+
+        <div class="proof">
+          <div class="av">
+            <span style="background:#ff6b35">SM</span>
+            <span style="background:#2f6bff">KL</span>
+            <span style="background:#0f9d6b">AD</span>
+            <span style="background:#7c5cff">JP</span>
+          </div>
+          <div class="rt"><b>1 200+</b> propriétaires gèrent déjà avec Propryo</div>
+          <div class="stat">
+            <div class="num">6 h</div>
+            <div class="lb">économisées<br>chaque mois</div>
+          </div>
+        </div>
+
+        <!-- aperçu app -->
+        <div class="preview">
+          <div class="pv-top">
+            <span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+            <span class="url">app.propryo.fr/tableau-de-bord</span>
+          </div>
+          <div class="pv-body">
+            <div class="kpi"><div class="k">Loyers perçus</div><div class="v">12 480 €</div><div class="d up">▲ ce mois</div></div>
+            <div class="kpi"><div class="k">En attente</div><div class="v">1 340 €</div><div class="d warn">2 locataires</div></div>
+            <div class="kpi"><div class="k">Rentabilité</div><div class="v">6,2 %</div><div class="d up">▲ net</div></div>
+            <div class="pv-chart">
+              <div style="display:flex;align-items:flex-end;gap:7px;height:70px;">
+                <span style="flex:1;height:42%;background:linear-gradient(180deg,#5b8cff,#3a63d6);border-radius:4px 4px 0 0"></span>
+                <span style="flex:1;height:60%;background:linear-gradient(180deg,#5b8cff,#3a63d6);border-radius:4px 4px 0 0"></span>
+                <span style="flex:1;height:54%;background:linear-gradient(180deg,#5b8cff,#3a63d6);border-radius:4px 4px 0 0"></span>
+                <span style="flex:1;height:78%;background:linear-gradient(180deg,#5b8cff,#3a63d6);border-radius:4px 4px 0 0"></span>
+                <span style="flex:1;height:66%;background:linear-gradient(180deg,#ff8a4c,#ff6b35);border-radius:4px 4px 0 0"></span>
+                <span style="flex:1;height:92%;background:linear-gradient(180deg,#ff8a4c,#ff6b35);border-radius:4px 4px 0 0"></span>
+              </div>
+              <div style="font-size:10px;color:#8294b6;margin-top:7px;font-weight:600">Cashflow · 6 derniers mois</div>
+            </div>
+            <div class="pv-list">
+              <div class="row">Appt. Lyon 3e<span class="tag ok">Payé</span></div>
+              <div class="row">Studio Bordeaux<span class="tag ok">Payé</span></div>
+              <div class="row">T3 Nantes<span class="tag wait">Attente</span></div>
+              <div class="row">Garage Lille<span class="tag ok">Payé</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- panneau connexion -->
+      <div class="right">
+        <div class="rhead">
+          <h2>Connecte-toi</h2>
+          <p class="rsub">Reprends le pilotage de ton patrimoine.</p>
+        </div>
+        <form onsubmit="return false">
+          <label class="fld">
+            <label>Email</label>
+            <input type="email" placeholder="toi@exemple.fr" autocomplete="email">
+          </label>
+          <div class="fld">
+            <div class="pwrow"><label>Mot de passe</label><a href="#">Mot de passe oublié ?</a></div>
+            <input type="password" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <button class="btn-cta" type="submit">Se connecter →</button>
+        </form>
+        <p class="create">Pas encore de compte ? <a href="#">Créer un compte · essai gratuit</a></p>
+        <div class="trust"><i>🔒</i> Hébergé en France/Europe · chiffré · conforme RGPD</div>
+      </div>
+    </section>
+
+    <!-- ===================== CONCEPT B ===================== -->
+    <section class="concept" id="B">
+      <div class="nav">
+        <span class="logo"><span class="mk-ic">🏠</span>Propryo</span>
+        <span class="links"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Connexion</a></span>
+        <span class="sp"></span>
+        <a href="#" class="nlog">Connexion</a>
+        <a href="#" class="nfree">Essai gratuit</a>
+      </div>
+
+      <div class="wrap">
+        <div class="copy">
+          <span class="pill"><span class="stars">★★★★★</span> 4,9/5 · 1 200+ bailleurs</span>
+          <h1>Ta gestion locative,<br><span class="hl">enfin sans paperasse.</span></h1>
+          <p class="sub">Gère tes baux et pilote tes loyers — au même endroit.</p>
+
+          <div class="pillars">
+            <div class="pl gest">
+              <div class="h"><span class="ic">📋</span>Gestion</div>
+              <ul>
+                <li>Baux conformes auto + révision IRL</li>
+                <li>États des lieux photos</li>
+                <li>Quittances 1 clic · signature à distance</li>
+              </ul>
+            </div>
+            <div class="pl fin">
+              <div class="h"><span class="ic">📊</span>Finance</div>
+              <ul>
+                <li>Tableau de bord & KPI</li>
+                <li>Loyers : payé / attente / relance</li>
+                <li>Cashflow & rentabilité par bien</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="ctas">
+            <a href="#" class="go">Démarrer gratuitement →</a>
+            <a href="#" class="demo">▶ Voir la démo</a>
+          </div>
+
+          <div class="social">
+            <div class="av">
+              <span>SM</span><span>KL</span><span>AD</span><span>JP</span><span>RG</span>
+            </div>
+            <div class="txt"><b>6 h économisées</b> par mois en moyenne.<br>Sans carte bancaire pour commencer.</div>
+          </div>
+        </div>
+
+        <div class="showcase">
+          <div class="dash">
+            <div class="dash-top">
+              <span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+              <span class="ttl">Tableau de bord</span>
+              <span class="seg"><span class="on">Mois</span><span>Trim.</span><span>Année</span></span>
+            </div>
+            <div class="dash-body">
+              <div class="dkpis">
+                <div class="dk"><div class="k">Perçu</div><div class="v" style="color:#0f9d6b">12 480 €</div><div class="d up">▲ 8 %</div></div>
+                <div class="dk"><div class="k">Attente</div><div class="v" style="color:#d98a00">1 340 €</div><div class="d warn">2 retards</div></div>
+                <div class="dk"><div class="k">Charges</div><div class="v">3 210 €</div><div class="d up">à jour</div></div>
+                <div class="dk"><div class="k">Rentab.</div><div class="v" style="color:#2f6bff">6,2 %</div><div class="d up">▲ net</div></div>
+              </div>
+              <div class="dgrid">
+                <div class="card2">
+                  <div class="ch"><span class="t">Cashflow</span><span class="leg">6 mois</span></div>
+                  <div style="display:flex;align-items:flex-end;gap:8px;height:84px;">
+                    <span style="flex:1;height:44%;background:#dfe7fb;border-radius:4px 4px 0 0"></span>
+                    <span style="flex:1;height:62%;background:#dfe7fb;border-radius:4px 4px 0 0"></span>
+                    <span style="flex:1;height:52%;background:#dfe7fb;border-radius:4px 4px 0 0"></span>
+                    <span style="flex:1;height:74%;background:#bcd0fb;border-radius:4px 4px 0 0"></span>
+                    <span style="flex:1;height:66%;background:#ffd2bd;border-radius:4px 4px 0 0"></span>
+                    <span style="flex:1;height:94%;background:linear-gradient(180deg,#ff8a4c,#ff6b35);border-radius:4px 4px 0 0"></span>
+                  </div>
+                </div>
+                <div class="card2">
+                  <div class="ch"><span class="t">Loyers</span><span class="leg">avril</span></div>
+                  <div class="lr"><span class="ava">SM</span><span class="nm">Lyon 3e</span><span class="am">780 €</span><span class="st ok">Payé</span></div>
+                  <div class="lr"><span class="ava">KL</span><span class="nm">Bordeaux</span><span class="am">560 €</span><span class="st ok">Payé</span></div>
+                  <div class="lr"><span class="ava">AD</span><span class="nm">Nantes</span><span class="am">690 €</span><span class="st wait">Relance</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- login flottant -->
+          <div class="loginpop">
+            <h3>Connexion</h3>
+            <p class="lp-sub">Heureux de te revoir.</p>
+            <form onsubmit="return false">
+              <div class="fld"><label>Email</label><input type="email" placeholder="toi@exemple.fr"></div>
+              <div class="fld">
+                <div class="pwrow"><label>Mot de passe</label><a href="#">Oublié ?</a></div>
+                <input type="password" placeholder="••••••••">
+              </div>
+              <button class="btn-cta" type="submit">Se connecter</button>
+            </form>
+            <p class="cr">Nouveau ? <a href="#">Créer un compte · essai gratuit</a></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footnote"><i>🔒</i> Données hébergées en France/Europe · chiffrées · conformes RGPD.</div>
+    </section>
+
+    <!-- ===================== CONCEPT C ===================== -->
+    <section class="concept" id="C">
+      <nav>
+        <span class="logo"><span class="mk-ic">🏠</span>Propryo</span>
+        <span class="links"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a></span>
+        <span class="sp"></span>
+        <a href="#" class="nlog">Connexion</a>
+      </nav>
+
+      <div class="hero">
+        <div class="copy">
+          <span class="pill"><span class="stars">★★★★★</span> <b>4,9/5</b> · 1 200+ bailleurs convaincus</span>
+          <h1>La gestion locative qui <span class="hl">bosse pour toi.</span></h1>
+          <p class="sub">Baux, quittances, loyers, rentabilité — pilotés d'un seul écran.</p>
+
+          <div class="duo">
+            <div class="d g"><span class="ic">📋</span><div><div class="t">Gestion</div><div class="s">Baux · EDL · quittances · signature</div></div></div>
+            <div class="d f"><span class="ic">📊</span><div><div class="t">Finance</div><div class="s">KPI · loyers · charges · rentabilité</div></div></div>
+          </div>
+
+          <div class="actband">
+            <a href="#" class="go">Créer mon compte gratuit →</a>
+            <div class="stat"><div class="num">6 h</div><div class="lb">gagnées<br>par mois</div></div>
+          </div>
+
+          <div class="proof">
+            <div class="av"><span>SM</span><span>KL</span><span>AD</span><span>JP</span></div>
+            <div class="pt"><b>+1 200</b> propriétaires ont déjà repris le contrôle</div>
+          </div>
+        </div>
+
+        <div class="visual">
+          <div class="screens">
+            <div class="scr scr1">
+              <div class="sb"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="lb">Finances · cashflow</span></div>
+              <div class="sbody">
+                <div class="kpis">
+                  <div class="kp"><div class="k">Perçu</div><div class="v">12 480 €</div><div class="d up">▲ 8 %</div></div>
+                  <div class="kp"><div class="k">Attente</div><div class="v">1 340 €</div><div class="d up" style="color:#ffb020">2</div></div>
+                  <div class="kp"><div class="k">Rentab.</div><div class="v">6,2 %</div><div class="d up">▲ net</div></div>
+                </div>
+                <div class="bars">
+                  <span style="height:40%"></span><span style="height:58%"></span><span style="height:50%"></span>
+                  <span style="height:72%"></span><span class="a" style="height:64%"></span><span class="a" style="height:92%"></span>
+                </div>
+              </div>
+            </div>
+            <div class="scr scr2">
+              <div class="sb"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="lb">Suivi des loyers</span></div>
+              <div class="sbody" style="padding-top:9px;padding-bottom:9px">
+                <div class="lr"><span class="av2">SM</span>Lyon 3e<span class="tg ok">Payé</span></div>
+                <div class="lr"><span class="av2">KL</span>Bordeaux<span class="tg ok">Payé</span></div>
+                <div class="lr"><span class="av2">AD</span>Nantes<span class="tg wait">Relance</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- login inline glassy -->
+          <div class="clogin">
+            <div class="ch"><h3>Déjà client ? Connecte-toi</h3><a href="#">Créer un compte</a></div>
+            <form onsubmit="return false">
+              <div class="frow">
+                <div class="fld"><label>Email</label><input type="email" placeholder="toi@exemple.fr"></div>
+                <div class="fld"><label>Mot de passe</label><input type="password" placeholder="••••••••"></div>
+              </div>
+              <div class="brow">
+                <button class="btn-cta" type="submit">Se connecter →</button>
+                <a href="#" class="fp">Mot de passe oublié ?</a>
+              </div>
+            </form>
+            <div class="trust"><i>🔒</i> Hébergé en France/Europe · chiffré · RGPD</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  var angles = {
+    A:'<b>Concept A — Split nuit.</b> Promesse + aperçu app sur fond nuit cinématographique à gauche, connexion sur panneau clair à droite.',
+    B:'<b>Concept B — Vitrine claire.</b> Landing lumineuse 2 piliers en chips + dashboard premium plein cadre, login en carte flottante.',
+    C:'<b>Concept C — Bannière impact.</b> Pleine page sombre éditoriale, titre géant, écrans d’app en perspective, login inline glassy.'
+  };
+  var body=document.body, ang=document.getElementById('angle');
+  function setAngle(c){ ang.innerHTML=angles[c]; }
+  setAngle('A');
+
+  document.getElementById('g-concept').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    var c=b.dataset.c;
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+    document.querySelectorAll('.concept').forEach(function(s){s.classList.toggle('show',s.id===c);});
+    body.dataset.concept=c; setAngle(c);
+  });
+  document.getElementById('g-fmt').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    this.querySelectorAll('button').forEach(function(x){x.classList.toggle('on',x===b);});
+    body.dataset.fmt=b.dataset.f;
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propryo — Landing-3 · 3 concepts product-led</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   PROPRYO — landing-3 — 3 concepts PRODUCT-LED ("show, don't tell")
+   L'app (faux-écran premium) est le HÉROS. Maquettes statiques.
+   Sélecteur de CONCEPT (A/B/C) + sélecteur de FORMAT (PC/Tablette/Tél.).
+   Rien n'est commité.
+   ===================================================================== */
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:#070b14;
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color:#0e1626; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+a{text-decoration:none;color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+ul{margin:0;padding:0;list-style:none;}
+
+/* ───────── BARRE D'OUTILS MAQUETTE (hors livrable) ───────── */
+.mk-bar{
+  position:fixed;top:0;left:0;right:0;z-index:9000;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:9px 18px;background:rgba(8,12,22,.9);backdrop-filter:blur(14px);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-family:'Spline Sans Mono',monospace;font-size:12px;color:#c4d2ec;
+}
+.mk-bar .mk-lab{color:#6b87b3;letter-spacing:.4px;text-transform:uppercase;font-size:10.5px;}
+.mk-group{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.05);padding:4px;border-radius:9px;border:1px solid rgba(255,255,255,.08);}
+.mk-group button{background:transparent;border:none;color:#aebfdc;font-family:inherit;font-size:12px;padding:6px 13px;border-radius:6px;transition:.16s;font-weight:600;}
+.mk-group button:hover{color:#fff;}
+.mk-group.concept button.on{background:#fff;color:#0e1626;}
+.mk-group.fmt button.on{background:linear-gradient(135deg,#2dd4bf,#0ea5a3);color:#04211f;}
+.mk-bar .mk-spacer{flex:1;}
+.mk-bar .mk-angle{color:#8fa6cf;max-width:430px;line-height:1.4;}
+.mk-bar .mk-angle b{color:#fff;}
+
+/* ───────── SCÈNE / VIEWPORT SIMULÉ ───────── */
+.mk-stage{
+  padding:60px 0 40px;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;
+  background:
+    radial-gradient(900px 520px at 18% 4%, rgba(45,212,191,.12), transparent 60%),
+    radial-gradient(760px 520px at 92% 18%, rgba(99,102,241,.12), transparent 60%),
+    #070b14;
+}
+.mk-frame{
+  width:100%;max-width:1280px;background:#fff;
+  box-shadow:0 40px 110px -36px rgba(0,0,0,.8);
+  transition:max-width .35s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;container-type:inline-size;border-radius:2px;
+}
+body[data-fmt="tablet"] .mk-frame{max-width:778px;}
+body[data-fmt="phone"]  .mk-frame{max-width:390px;}
+.concept{display:none;}
+body[data-concept="A"] #cA{display:block;}
+body[data-concept="B"] #cB{display:block;}
+body[data-concept="C"] #cC{display:block;}
+
+/* =====================================================================
+   TOKENS PARTAGÉS
+   ===================================================================== */
+.lp{ --ink:#0e1626; --mid:#5a6781; --soft:#8794ad; --line:#e7ecf3;
+     --teal:#0ea5a3; --teal2:#0c8b89; --tealL:#2dd4bf;
+     --indigo:#5b62e6; --amber:#f0a93a; --green:#13a05f; --red:#e0584f; }
+.lp .star{color:#f0a93a;letter-spacing:1px;}
+
+/* faux navigateur réutilisable */
+.win{border-radius:14px;overflow:hidden;background:#0c1322;border:1px solid rgba(255,255,255,.09);}
+.win-bar{display:flex;align-items:center;gap:7px;padding:10px 13px;background:#0a0f1c;border-bottom:1px solid rgba(255,255,255,.06);}
+.win-bar i{width:9px;height:9px;border-radius:50%;}
+.win-bar .d1{background:#ff5f57;}.win-bar .d2{background:#febc2e;}.win-bar .d3{background:#28c840;}
+.win-bar .url{margin-left:8px;font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#7e93b8;background:rgba(255,255,255,.05);padding:3px 11px;border-radius:6px;flex:1;max-width:300px;}
+
+/* avatars preuve sociale */
+.av{display:flex;}
+.av span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;margin-left:-9px;}
+.av span:first-child{margin-left:0;}
+
+/* ========================================================= APP SKIN (sombre) commun aux faux-écrans */
+.app{background:#0c1322;color:#dfe7f5;font-size:12px;}
+.app .side{background:#0a0f1c;border-right:1px solid rgba(255,255,255,.06);}
+.app .navi{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:8px;color:#94a6c6;font-size:12px;font-weight:500;}
+.app .navi.on{background:rgba(45,212,191,.14);color:#7af0e2;}
+.app .navi .ic{font-size:14px;}
+.kpi{background:#101a2e;border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:12px 13px;}
+.kpi .kl{font-size:10px;color:#8aa0c4;text-transform:uppercase;letter-spacing:.4px;}
+.kpi .kv{font-family:'Sora',sans-serif;font-weight:800;font-size:21px;color:#fff;margin-top:5px;letter-spacing:-.5px;}
+.kpi .kd{font-size:10px;font-weight:700;margin-top:4px;display:inline-flex;align-items:center;gap:3px;}
+.kpi .up{color:#43d99a;}.kpi .dn{color:#f3a76a;}
+.tag{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;}
+.tag.ok{background:rgba(19,160,95,.22);color:#5fe3a0;}
+.tag.wait{background:rgba(240,169,58,.2);color:#f4c074;}
+.tag.late{background:rgba(224,88,79,.2);color:#f49089;}
+
+/* =====================================================================
+   ░░ CONCEPT A — "Le tableau de bord est le héros" ░░
+   Dashboard finance plein cadre, carte connexion flottante qui chevauche
+   ===================================================================== */
+#cA .a-screen{
+  position:relative;overflow:hidden;min-height:calc(100vh - 100px);
+  display:flex;flex-direction:column;
+  background:
+    radial-gradient(1100px 640px at 84% -8%, rgba(45,212,191,.16), transparent 56%),
+    radial-gradient(760px 560px at 2% 110%, rgba(99,102,241,.16), transparent 60%),
+    linear-gradient(170deg,#0b1426 0%,#0e1a32 100%);
+  color:#eaf0fb;
+}
+#cA .a-grid-bg{position:absolute;inset:0;opacity:.5;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);
+  background-size:56px 56px;-webkit-mask-image:radial-gradient(820px 560px at 50% 22%,#000,transparent 76%);mask-image:radial-gradient(820px 560px at 50% 22%,#000,transparent 76%);}
+#cA .a-screen>*{position:relative;z-index:2;}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:16px 44px;}
+.brand{display:flex;align-items:center;gap:11px;}
+.mark{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:19px;background:linear-gradient(150deg,#2dd4bf,#0c8b89);box-shadow:0 6px 18px -6px rgba(45,212,191,.7);}
+.brand b{font-family:'Sora',sans-serif;font-weight:800;font-size:20px;letter-spacing:-.4px;color:#fff;}
+.nav-links{display:flex;gap:26px;font-size:14px;color:#aebdda;}
+.nav-links a:hover{color:#fff;}
+.nav-cta{display:flex;align-items:center;gap:14px;}
+.nav-cta .signin{font-size:14px;font-weight:600;color:#cfdcf3;}
+.nav-cta .signin:hover{color:#fff;}
+.nav-trial{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:#fff;font-weight:700;font-size:13.5px;border-radius:10px;padding:9px 16px;transition:.16s;}
+.nav-trial:hover{background:rgba(255,255,255,.16);}
+
+#cA .a-head{text-align:center;padding:6px 44px 0;}
+#cA .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#7af0e2;border:1px solid rgba(45,212,191,.4);background:rgba(45,212,191,.1);padding:5px 13px;border-radius:999px;margin-bottom:14px;}
+#cA .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:#2dd4bf;box-shadow:0 0 0 3px rgba(45,212,191,.28);}
+#cA h1{font-family:'Sora',sans-serif;font-weight:800;font-size:clamp(34px,4.4cqw,54px);line-height:1.04;letter-spacing:-1.3px;color:#fff;margin:0 0 12px;}
+#cA h1 em{font-style:normal;color:#2dd4bf;}
+#cA .a-sub{font-size:17px;color:#b9c8e2;margin:0 0 16px;font-weight:500;}
+#cA .a-trust{display:inline-flex;align-items:center;gap:13px;color:#9db0d2;font-size:13px;}
+#cA .a-trust .star{font-size:14px;}
+#cA .a-trust .sep{width:1px;height:15px;background:rgba(255,255,255,.16);}
+#cA .a-trust b{color:#fff;font-weight:700;}
+
+/* zone héro : dashboard centré + carte login flottante */
+#cA .a-hero{position:relative;padding:22px 44px 0;display:flex;justify-content:center;flex:1 1 auto;align-items:flex-end;}
+#cA .a-dash{width:100%;max-width:880px;box-shadow:0 50px 90px -40px rgba(0,0,0,.85);}
+#cA .a-dash .win-bar .url{max-width:240px;}
+#cA .dash-body{display:grid;grid-template-columns:172px 1fr;min-height:330px;}
+#cA .dash-side{padding:14px 10px;display:flex;flex-direction:column;gap:4px;}
+#cA .dash-side .s-brand{display:flex;align-items:center;gap:8px;padding:4px 10px 12px;font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;}
+#cA .dash-side .s-brand .m{width:24px;height:24px;border-radius:7px;background:linear-gradient(150deg,#2dd4bf,#0c8b89);display:grid;place-items:center;font-size:13px;}
+#cA .dash-main{padding:15px 18px;border-left:1px solid rgba(255,255,255,.06);}
+#cA .dm-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
+#cA .dm-top .t{font-family:'Sora',sans-serif;font-weight:700;font-size:15px;color:#fff;}
+#cA .dm-top .t small{display:block;font-weight:400;font-size:10.5px;color:#8aa0c4;margin-top:2px;}
+#cA .dm-period{font-size:10.5px;color:#9db0d2;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:5px 11px;}
+#cA .dm-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px;}
+#cA .dm-low{display:grid;grid-template-columns:1.35fr 1fr;gap:11px;}
+#cA .chart{background:#101a2e;border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:12px 13px;}
+#cA .chart .ch{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px;}
+#cA .chart .ch b{font-size:11.5px;color:#e6eefb;}
+#cA .chart .ch em{font-style:normal;font-size:10px;color:#43d99a;font-weight:700;}
+#cA .bars{display:flex;align-items:flex-end;gap:7px;height:84px;}
+#cA .bars .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;align-items:center;}
+#cA .bars .col i{width:100%;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#2dd4bf,#0c8b89);}
+#cA .bars .col.fade i{background:linear-gradient(180deg,rgba(45,212,191,.4),rgba(12,139,137,.4));}
+#cA .bars .col span{font-size:8.5px;color:#7e93b8;font-family:'Spline Sans Mono',monospace;}
+#cA .rentlist{background:#101a2e;border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:11px 12px;}
+#cA .rentlist .rh{font-size:11.5px;color:#e6eefb;font-weight:600;margin-bottom:9px;display:flex;justify-content:space-between;}
+#cA .rentlist .rh em{font-style:normal;color:#8aa0c4;font-weight:400;font-size:10px;}
+#cA .rrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-top:1px solid rgba(255,255,255,.05);}
+#cA .rrow:first-of-type{border-top:none;}
+#cA .rrow .av-min{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:9px;font-weight:700;color:#fff;flex:0 0 auto;}
+#cA .rrow .nm{flex:1;font-size:11px;color:#d4e0f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#cA .rrow .amt{font-size:11px;color:#fff;font-weight:600;font-variant-numeric:tabular-nums;}
+
+/* carte login flottante (chevauche le bord droit du dashboard) */
+#cA .a-login{
+  position:absolute;right:54px;bottom:34px;width:286px;z-index:6;
+  background:#fff;border-radius:16px;padding:18px 19px 16px;color:var(--ink);
+  box-shadow:0 34px 70px -22px rgba(3,8,22,.85);border:1px solid rgba(255,255,255,.7);
+}
+.lc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+.lc-title{font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:var(--ink);}
+.lc-pill{font-size:10px;font-weight:700;color:#0c8b89;background:rgba(14,165,163,.13);padding:4px 9px;border-radius:999px;display:inline-flex;gap:5px;align-items:center;}
+.lc-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:#0ea5a3;}
+.flabel{font-size:11.5px;font-weight:600;color:var(--ink);display:block;margin:0 0 5px;}
+.inp{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;color:var(--ink);background:#fcfdff;font-family:inherit;transition:.15s;}
+.inp:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(14,165,163,.15);}
+.field{margin-bottom:10px;}
+.forgot{text-align:right;margin:-2px 0 12px;}
+.forgot a{font-size:11.5px;color:var(--teal2);font-weight:600;}
+.forgot a:hover{text-decoration:underline;}
+.submit{width:100%;background:linear-gradient(135deg,#0ea5a3,#0c8b89);color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;transition:.16s;display:flex;gap:8px;align-items:center;justify-content:center;}
+.submit:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.signup{text-align:center;font-size:11.5px;color:var(--mid);margin-top:11px;}
+.signup a{color:var(--teal2);font-weight:700;}
+.signup a:hover{text-decoration:underline;}
+
+/* pied preuve A */
+#cA .a-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;padding:16px 44px 18px;border-top:1px solid rgba(255,255,255,.08);margin-top:18px;}
+#cA .pf{display:inline-flex;align-items:center;gap:8px;color:#aebfdc;font-size:12.5px;font-weight:600;}
+#cA .pf .pic{font-size:14px;}
+#cA .pf-sep{width:1px;height:15px;background:rgba(255,255,255,.13);}
+
+/* =====================================================================
+   ░░ CONCEPT B — "Le geste qui claque" (gestion / bail & quittance) ░░
+   Écran bail+quittance en perspective 3D, copie à gauche, login carte
+   ===================================================================== */
+#cB .b-screen{position:relative;overflow:hidden;min-height:calc(100vh - 100px);background:#f6f4ef;color:var(--ink);}
+#cB .b-screen::before{content:"";position:absolute;top:0;right:0;width:48%;height:100%;background:linear-gradient(160deg,#0e1a32,#0b1426);z-index:0;}
+#cB .nav{padding:16px 48px;}
+#cB .brand b{color:var(--ink);}
+#cB .nav-links{color:#5a6781;}
+#cB .nav-links a:hover{color:var(--ink);}
+#cB .nav-cta .signin{color:#3a465c;}
+#cB .nav-cta .signin:hover{color:var(--ink);}
+#cB .nav-trial{background:var(--ink);border-color:var(--ink);color:#fff;}
+#cB .nav-trial:hover{background:#1d2840;}
+#cB .b-main{position:relative;z-index:2;display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center;padding:14px 48px 0;flex:1 1 auto;min-height:calc(100vh - 220px);}
+
+#cB .b-copy{max-width:480px;}
+#cB .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#0c8b89;border:1px solid rgba(14,165,163,.3);background:rgba(14,165,163,.08);padding:5px 13px;border-radius:999px;margin-bottom:16px;}
+#cB .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:#0ea5a3;}
+#cB h1{font-family:'Sora',sans-serif;font-weight:800;font-size:clamp(34px,4.6cqw,56px);line-height:1.02;letter-spacing:-1.4px;color:var(--ink);margin:0 0 14px;}
+#cB h1 em{font-style:normal;color:#0c8b89;}
+#cB .b-sub{font-size:17px;color:#4a5870;margin:0 0 20px;font-weight:500;line-height:1.4;}
+#cB .b-pills{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:22px;}
+#cB .b-pills .p{font-size:12.5px;font-weight:600;color:#2a3650;background:#fff;border:1px solid #e3ded3;border-radius:999px;padding:7px 14px;display:inline-flex;align-items:center;gap:7px;}
+#cB .b-pills .p i{font-size:13px;color:#0ea5a3;}
+#cB .b-cta{display:flex;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:18px;}
+#cB .cta{background:linear-gradient(135deg,#0ea5a3,#0c8b89);color:#fff;font-weight:700;font-size:15px;border:none;border-radius:12px;padding:13px 24px;box-shadow:0 14px 30px -12px rgba(14,165,163,.75);transition:.18s;display:inline-flex;align-items:center;gap:9px;}
+#cB .cta:hover{transform:translateY(-2px);box-shadow:0 20px 40px -12px rgba(14,165,163,.85);}
+#cB .ghost{color:#2a3650;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;}
+#cB .ghost:hover{color:#000;}
+#cB .b-social{display:flex;align-items:center;gap:13px;}
+#cB .b-social .av span{border:2px solid #f6f4ef;}
+#cB .b-social .txt{font-size:12.5px;color:#5a6781;line-height:1.35;}
+#cB .b-social .txt b{color:var(--ink);}
+#cB .b-social .star{font-size:13px;}
+
+/* zone droite : login + perspective doc */
+#cB .b-right{position:relative;height:100%;display:flex;align-items:center;justify-content:center;}
+#cB .b-stack{position:relative;width:100%;max-width:420px;perspective:1500px;}
+/* faux écran "Bail / quittance" en perspective */
+#cB .b-doc{
+  transform:rotateY(-15deg) rotateX(6deg) rotateZ(1deg);transform-origin:center;
+  border-radius:14px;overflow:hidden;background:#fff;
+  box-shadow:0 50px 90px -34px rgba(3,8,22,.7);border:1px solid rgba(255,255,255,.5);
+}
+#cB .doc-bar{display:flex;align-items:center;gap:7px;padding:10px 13px;background:#f1efe9;border-bottom:1px solid #e3ded3;}
+#cB .doc-bar i{width:9px;height:9px;border-radius:50%;}
+#cB .doc-bar .d1{background:#ff5f57;}.b-doc .doc-bar .d2{background:#febc2e;}.b-doc .doc-bar .d3{background:#28c840;}
+#cB .doc-bar .url{margin-left:8px;font-family:'Spline Sans Mono',monospace;font-size:10px;color:#8a8475;}
+#cB .doc-body{padding:18px 20px;background:#fff;}
+#cB .doc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+#cB .doc-head .dt{font-family:'Sora',sans-serif;font-weight:800;font-size:16px;color:var(--ink);}
+#cB .doc-head .dt small{display:block;font-weight:500;font-size:10.5px;color:#8a8475;margin-top:2px;}
+#cB .doc-stamp{font-size:9.5px;font-weight:700;color:#13a05f;background:rgba(19,160,95,.12);border:1px solid rgba(19,160,95,.3);padding:5px 10px;border-radius:8px;display:inline-flex;align-items:center;gap:5px;}
+#cB .doc-lines{display:flex;flex-direction:column;gap:9px;margin-bottom:14px;}
+#cB .dline{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;}
+#cB .dline .k{color:#8a8475;}
+#cB .dline .v{color:#2a3650;font-weight:600;font-variant-numeric:tabular-nums;}
+#cB .doc-sep{height:1px;background:#ece8df;margin:4px 0 12px;}
+#cB .doc-sign{display:flex;align-items:center;justify-content:space-between;background:#f7f6f1;border:1px dashed #cfc8b8;border-radius:10px;padding:11px 13px;}
+#cB .doc-sign .ss{font-size:11px;color:#6a6456;}
+#cB .doc-sign .ss b{display:block;color:var(--ink);font-size:12px;margin-bottom:1px;}
+#cB .doc-sign .sg{font-family:'Sora',sans-serif;font-style:italic;font-size:19px;color:#0c8b89;transform:rotate(-4deg);}
+#cB .doc-cta{margin-top:13px;display:flex;gap:8px;}
+#cB .doc-cta .b1{flex:1;background:linear-gradient(135deg,#0ea5a3,#0c8b89);color:#fff;font-size:11.5px;font-weight:700;border-radius:9px;padding:9px;text-align:center;}
+#cB .doc-cta .b2{background:#fff;border:1px solid #e3ded3;color:#2a3650;font-size:11.5px;font-weight:600;border-radius:9px;padding:9px 13px;}
+/* badge flottant "signé à distance" */
+#cB .b-badge{position:absolute;z-index:8;background:#fff;border-radius:13px;padding:11px 13px;box-shadow:0 22px 44px -16px rgba(3,8,22,.5);border:1px solid #ece8df;display:flex;align-items:center;gap:10px;}
+#cB .b-badge .bi{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:17px;}
+#cB .b-badge .bt{font-size:11px;color:#5a6781;}
+#cB .b-badge .bt b{display:block;font-size:12.5px;color:var(--ink);font-weight:700;}
+#cB .b-badge.one{top:-26px;left:-30px;}
+#cB .b-badge.one .bi{background:rgba(19,160,95,.14);}
+#cB .b-badge.two{bottom:-24px;right:-26px;}
+#cB .b-badge.two .bi{background:rgba(240,169,58,.16);}
+
+/* login carte concept B — sous la copie ? Non : flottante en bas gauche du doc.
+   Choix : login compact ancré bas, sur fond sombre droit, près du doc */
+#cB .b-login{position:absolute;left:-44px;bottom:-6px;width:262px;z-index:9;background:#fff;border-radius:15px;padding:16px 17px 14px;box-shadow:0 30px 60px -20px rgba(3,8,22,.7);border:1px solid #ece8df;}
+
+#cB .b-foot{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;padding:14px 48px 18px;}
+#cB .pf{display:inline-flex;align-items:center;gap:8px;color:#5a6781;font-size:12.5px;font-weight:600;}
+#cB .pf .pic{font-size:14px;}
+#cB .pf-sep{width:1px;height:15px;background:#d8d2c4;}
+
+/* =====================================================================
+   ░░ CONCEPT C — "Plus jamais courir après un loyer" (suivi des loyers) ░░
+   Écran de suivi des loyers vivant, plein centre dans un faux navigateur,
+   bandeau connexion compact sous le héros
+   ===================================================================== */
+#cC .c-screen{position:relative;overflow:hidden;min-height:calc(100vh - 100px);display:flex;flex-direction:column;
+  background:radial-gradient(900px 600px at 50% -12%, rgba(91,98,230,.14), transparent 58%),#0b0f1a;color:#eaf0fb;}
+#cC .nav{padding:16px 48px;}
+#cC .nav-trial{background:linear-gradient(135deg,#5b62e6,#4349c7);border-color:transparent;}
+#cC .c-head{text-align:center;padding:8px 48px 0;}
+#cC .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#aab0ff;border:1px solid rgba(91,98,230,.4);background:rgba(91,98,230,.12);padding:5px 13px;border-radius:999px;margin-bottom:14px;}
+#cC .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:#5b62e6;box-shadow:0 0 0 3px rgba(91,98,230,.3);}
+#cC h1{font-family:'Sora',sans-serif;font-weight:800;font-size:clamp(34px,4.4cqw,54px);line-height:1.04;letter-spacing:-1.3px;color:#fff;margin:0 0 12px;}
+#cC h1 em{font-style:normal;color:#8b90ff;}
+#cC .c-sub{font-size:17px;color:#b9c8e2;margin:0 0 14px;font-weight:500;}
+#cC .c-trust{display:inline-flex;align-items:center;gap:13px;color:#9db0d2;font-size:13px;margin-bottom:6px;}
+#cC .c-trust .av span{border:2px solid #0b0f1a;}
+#cC .c-trust .star{font-size:14px;}
+#cC .c-trust .sep{width:1px;height:15px;background:rgba(255,255,255,.16);}
+#cC .c-trust b{color:#fff;font-weight:700;}
+
+#cC .c-hero{padding:20px 48px 0;display:flex;justify-content:center;flex:1 1 auto;align-items:flex-start;}
+#cC .c-win{width:100%;max-width:960px;box-shadow:0 50px 100px -40px rgba(0,0,0,.85);}
+#cC .c-win .win-bar .url{max-width:280px;}
+#cC .c-body{display:grid;grid-template-columns:158px 1fr;min-height:336px;}
+#cC .c-side{background:#0a0f1c;padding:13px 9px;display:flex;flex-direction:column;gap:3px;border-right:1px solid rgba(255,255,255,.06);}
+#cC .c-side .s-brand{display:flex;align-items:center;gap:8px;padding:3px 9px 12px;font-family:'Sora',sans-serif;font-weight:800;font-size:13.5px;color:#fff;}
+#cC .c-side .s-brand .m{width:23px;height:23px;border-radius:7px;background:linear-gradient(150deg,#5b62e6,#4349c7);display:grid;place-items:center;font-size:12px;}
+#cC .c-side .navi.on{background:rgba(91,98,230,.18);color:#b6baff;}
+#cC .c-main{padding:14px 17px;}
+#cC .c-mt{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
+#cC .c-mt .t{font-family:'Sora',sans-serif;font-weight:700;font-size:15px;color:#fff;}
+#cC .c-mt .t small{display:block;font-weight:400;font-size:10.5px;color:#8aa0c4;margin-top:2px;}
+#cC .c-seg{display:flex;gap:5px;}
+#cC .c-seg span{font-size:10.5px;font-weight:600;padding:5px 11px;border-radius:7px;border:1px solid rgba(255,255,255,.1);color:#9db0d2;}
+#cC .c-seg span.on{background:rgba(91,98,230,.2);border-color:rgba(91,98,230,.4);color:#c2c6ff;}
+/* mini résumé chiffré loyers */
+#cC .c-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px;}
+#cC .sumc{border-radius:11px;padding:11px 12px;border:1px solid rgba(255,255,255,.08);}
+#cC .sumc .sl{font-size:10px;text-transform:uppercase;letter-spacing:.4px;}
+#cC .sumc .sv{font-family:'Sora',sans-serif;font-weight:800;font-size:19px;margin-top:4px;letter-spacing:-.4px;}
+#cC .sumc.ok{background:rgba(19,160,95,.1);}.sumc.ok .sl{color:#6fe0a6;}.sumc.ok .sv{color:#a6f2c9;}
+#cC .sumc.wait{background:rgba(240,169,58,.1);}.sumc.wait .sl{color:#f4c074;}.sumc.wait .sv{color:#ffd89a;}
+#cC .sumc.late{background:rgba(224,88,79,.1);}.sumc.late .sl{color:#f49089;}.sumc.late .sv{color:#ffb3ad;}
+/* tableau loyers */
+#cC .c-tbl{background:#101a2e;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;}
+#cC .c-tr{display:grid;grid-template-columns:1.7fr 1fr .9fr 1fr 86px;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid rgba(255,255,255,.05);font-size:11.5px;}
+#cC .c-tr.hd{border-top:none;background:rgba(255,255,255,.03);color:#8aa0c4;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+#cC .c-tr .who{display:flex;align-items:center;gap:9px;min-width:0;}
+#cC .c-tr .who .av-min{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#fff;flex:0 0 auto;}
+#cC .c-tr .who .nm{min-width:0;}
+#cC .c-tr .who .nm b{display:block;color:#eaf0fb;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#cC .c-tr .who .nm span{color:#8aa0c4;font-size:10px;}
+#cC .c-tr .amt{color:#fff;font-weight:600;font-variant-numeric:tabular-nums;}
+#cC .c-tr .dte{color:#9db0d2;}
+#cC .c-tr .act{font-size:10px;font-weight:700;text-align:center;padding:5px 0;border-radius:7px;}
+#cC .c-tr .act.relance{background:rgba(91,98,230,.22);color:#c2c6ff;}
+#cC .c-tr .act.recu{color:#6fe0a6;}
+#cC .c-tr .act.recu i{font-size:13px;}
+
+/* bandeau connexion compact (sous le héros) */
+#cC .c-loginbar{flex:0 0 auto;margin-top:20px;border-top:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);padding:16px 48px;
+  display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;}
+#cC .c-lb-txt{color:#cdd9ee;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;}
+#cC .c-lb-txt .star{font-size:13px;}
+#cC .c-lb-form{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+#cC .c-lb-form .inp{width:175px;border:1.5px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#eaf0fb;border-radius:9px;padding:9px 11px;font-size:13px;}
+#cC .c-lb-form .inp::placeholder{color:#7e93b8;}
+#cC .c-lb-form .inp:focus{outline:none;border-color:#5b62e6;box-shadow:0 0 0 3px rgba(91,98,230,.25);}
+#cC .c-lb-form .submit{background:linear-gradient(135deg,#5b62e6,#4349c7);padding:10px 18px;border-radius:9px;width:auto;font-size:13.5px;}
+#cC .c-lb-links{display:flex;align-items:center;gap:14px;font-size:12px;}
+#cC .c-lb-links a{color:#aab0ff;font-weight:600;}
+#cC .c-lb-links a:hover{text-decoration:underline;}
+#cC .c-lb-links .sep{width:1px;height:14px;background:rgba(255,255,255,.16);}
+#cC .c-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;padding:12px 48px 16px;}
+#cC .pf{display:inline-flex;align-items:center;gap:8px;color:#9db0d2;font-size:12px;font-weight:600;}
+#cC .pf .pic{font-size:13px;}
+#cC .pf-sep{width:1px;height:14px;background:rgba(255,255,255,.13);}
+
+/* =====================================================================
+   RESPONSIVE (container queries sur .mk-frame)
+   ===================================================================== */
+@container (max-width:900px){
+  .nav{padding:14px 26px !important;}
+  .nav-links{display:none;}
+  /* A */
+  #cA .a-head{padding:6px 26px 0;}
+  #cA h1{font-size:clamp(30px,6.4cqw,40px);}
+  #cA .a-sub{font-size:15px;}
+  #cA .a-hero{padding:18px 26px 0;align-items:flex-start;}
+  #cA .a-dash{max-width:none;}
+  #cA .dash-body{grid-template-columns:1fr;}
+  #cA .dash-side{display:none;}
+  #cA .dash-main{border-left:none;}
+  #cA .dm-kpis{grid-template-columns:repeat(2,1fr);}
+  #cA .dm-low{grid-template-columns:1fr;}
+  #cA .a-login{position:relative;right:auto;bottom:auto;width:100%;max-width:420px;margin:18px auto 0;}
+  #cA .a-foot{padding:14px 26px 16px;}
+  /* B */
+  #cB .b-screen::before{display:none;}
+  #cB .b-main{grid-template-columns:1fr;gap:26px;padding:14px 26px 0;min-height:auto;}
+  #cB .b-copy{max-width:none;}
+  #cB .b-right{margin:14px 0 70px;}
+  #cB .b-doc{transform:none;}
+  #cB .b-badge.one{top:-20px;left:0;}
+  #cB .b-badge.two{bottom:-20px;right:0;}
+  #cB .b-login{left:auto;right:0;bottom:-56px;}
+  /* C */
+  #cC .c-head{padding:8px 26px 0;}
+  #cC h1{font-size:clamp(30px,6.4cqw,40px);}
+  #cC .c-hero{padding:18px 26px 0;}
+  #cC .c-body{grid-template-columns:1fr;}
+  #cC .c-side{display:none;}
+  #cC .c-tr{grid-template-columns:1.6fr 1fr 86px;}
+  #cC .c-tr .dte,#cC .c-tr.hd .dte{display:none;}
+  #cC .c-loginbar{padding:14px 26px;flex-direction:column;align-items:stretch;}
+  #cC .c-lb-form{justify-content:center;}
+}
+@container (max-width:470px){
+  .nav{padding:13px 18px !important;}
+  .nav-cta .signin{display:none;}
+  .mark{width:32px;height:32px;font-size:17px;}
+  .brand b{font-size:18px;}
+  /* A */
+  #cA .a-head{padding:6px 18px 0;}
+  #cA h1{font-size:29px;}
+  #cA .a-sub{font-size:14px;}
+  #cA .a-trust{flex-wrap:wrap;gap:9px;font-size:12px;}
+  #cA .a-trust .sep{display:none;}
+  #cA .a-hero{padding:16px 18px 0;}
+  #cA .dm-top{flex-direction:column;align-items:flex-start;gap:8px;}
+  #cA .dm-kpis{grid-template-columns:1fr 1fr;gap:8px;}
+  #cA .a-foot{gap:10px;padding:14px 18px 16px;}
+  #cA .pf-sep{display:none;}#cA .pf{font-size:11.5px;}
+  /* B */
+  #cB .nav{padding:13px 18px !important;}
+  #cB h1{font-size:30px;}
+  #cB .b-sub{font-size:15px;}
+  #cB .b-main{padding:14px 18px 0;}
+  #cB .b-cta{flex-direction:column;align-items:stretch;}
+  #cB .cta{justify-content:center;}#cB .ghost{justify-content:center;}
+  #cB .b-login{position:relative;right:auto;bottom:auto;width:100%;margin:64px auto 0;}
+  #cB .b-right{margin-bottom:0;}
+  #cB .b-foot{gap:10px;padding:14px 18px 16px;}#cB .pf-sep{display:none;}
+  /* C */
+  #cC .c-head{padding:8px 18px 0;}
+  #cC h1{font-size:29px;}
+  #cC .c-sub{font-size:14px;}
+  #cC .c-trust{flex-wrap:wrap;gap:9px;font-size:12px;}#cC .c-trust .sep{display:none;}
+  #cC .c-hero{padding:16px 18px 0;}
+  #cC .c-mt{flex-direction:column;align-items:flex-start;gap:9px;}
+  #cC .c-sum{grid-template-columns:1fr;gap:7px;}
+  #cC .c-tr{grid-template-columns:1.6fr 86px;gap:8px;}
+  #cC .c-tr .amt,#cC .c-tr.hd .amt{display:none;}
+  #cC .c-lb-form .inp{width:100%;}
+  #cC .c-foot{gap:9px;padding:12px 18px 16px;}#cC .pf-sep{display:none;}
+}
+</style>
+</head>
+<body data-concept="A" data-fmt="pc">
+
+<!-- ════════ BARRE D'OUTILS MAQUETTE (NON livrée) ════════ -->
+<div class="mk-bar">
+  <span class="mk-lab">Propryo · landing-3</span>
+  <div class="mk-group concept" id="mk-concept">
+    <button data-c="A" class="on">A · Dashboard héros</button>
+    <button data-c="B">B · Bail signé</button>
+    <button data-c="C">C · Suivi loyers</button>
+  </div>
+  <div class="mk-group fmt" id="mk-fmt">
+    <button data-f="pc" class="on">PC</button>
+    <button data-f="tablet">Tablette</button>
+    <button data-f="phone">Tél.</button>
+  </div>
+  <span class="mk-spacer"></span>
+  <span class="mk-angle" id="mk-angle"><b>A —</b> le tableau de bord finance domine, la connexion flotte par-dessus.</span>
+</div>
+
+<div class="mk-stage">
+  <div class="mk-frame">
+
+    <!-- ════════════════════════════════════════════════════════════════
+         CONCEPT A — DASHBOARD HÉROS
+         ════════════════════════════════════════════════════════════════ -->
+    <div class="concept lp" id="cA">
+      <div class="a-screen">
+        <div class="a-grid-bg"></div>
+
+        <nav class="nav">
+          <div class="brand"><div class="mark">🏠</div><b>Propryo</b></div>
+          <div class="nav-links"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Connexion</a></div>
+          <div class="nav-cta"><a href="#" class="signin">Connexion</a><button class="nav-trial">Essai gratuit</button></div>
+        </nav>
+
+        <div class="a-head">
+          <span class="eyebrow">Gestion locative tout-en-un</span>
+          <h1>Tes biens. Tes loyers.<br><em>Tout sous contrôle.</em></h1>
+          <p class="a-sub">Gère tes baux. Pilote tes finances. En un coup d'œil.</p>
+          <div class="a-trust">
+            <span><span class="star">★★★★★</span> &nbsp;4,9/5</span>
+            <span class="sep"></span>
+            <span><b>6 h</b> économisées / mois</span>
+            <span class="sep"></span>
+            <span class="av">
+              <span style="background:#0ea5a3">M</span><span style="background:#5b62e6">K</span><span style="background:#13a05f">S</span><span style="background:#f0a93a">L</span>
+            </span>
+            <span>+1 200 bailleurs</span>
+          </div>
+        </div>
+
+        <div class="a-hero">
+          <!-- faux dashboard finance -->
+          <div class="a-dash win app">
+            <div class="win-bar"><i class="d1"></i><i class="d2"></i><i class="d3"></i><span class="url">propryo.app/tableau-de-bord</span></div>
+            <div class="dash-body">
+              <div class="dash-side side">
+                <div class="s-brand"><span class="m">🏠</span> Propryo</div>
+                <div class="navi on"><span class="ic">📊</span> Tableau de bord</div>
+                <div class="navi"><span class="ic">🏢</span> Mes biens</div>
+                <div class="navi"><span class="ic">💶</span> Loyers</div>
+                <div class="navi"><span class="ic">📄</span> Baux</div>
+                <div class="navi"><span class="ic">🧾</span> Quittances</div>
+                <div class="navi"><span class="ic">📐</span> États des lieux</div>
+                <div class="navi"><span class="ic">📈</span> Finances</div>
+              </div>
+              <div class="dash-main">
+                <div class="dm-top">
+                  <div class="t">Bonjour Camille 👋<small>Voici ton patrimoine ce mois-ci</small></div>
+                  <div class="dm-period">Juin 2026 ▾</div>
+                </div>
+                <div class="dm-kpis">
+                  <div class="kpi"><div class="kl">Encaissé</div><div class="kv">11 480 €</div><div class="kd up">▲ 8 %</div></div>
+                  <div class="kpi"><div class="kl">Rentabilité</div><div class="kv">6,2 %</div><div class="kd up">▲ 0,4 pt</div></div>
+                  <div class="kpi"><div class="kl">Biens</div><div class="kv">14</div><div class="kd" style="color:#9db0d2">100 % occupés</div></div>
+                  <div class="kpi"><div class="kl">À relancer</div><div class="kv">1</div><div class="kd dn">340 € en retard</div></div>
+                </div>
+                <div class="dm-low">
+                  <div class="chart">
+                    <div class="ch"><b>Loyers encaissés · 6 mois</b><em>+12 % vs N-1</em></div>
+                    <div class="bars">
+                      <div class="col"><i style="height:46px"></i><span>Jan</span></div>
+                      <div class="col"><i style="height:54px"></i><span>Fév</span></div>
+                      <div class="col"><i style="height:50px"></i><span>Mar</span></div>
+                      <div class="col"><i style="height:66px"></i><span>Avr</span></div>
+                      <div class="col"><i style="height:60px"></i><span>Mai</span></div>
+                      <div class="col"><i style="height:80px"></i><span>Juin</span></div>
+                    </div>
+                  </div>
+                  <div class="rentlist">
+                    <div class="rh"><span>Derniers loyers</span><em>juin</em></div>
+                    <div class="rrow"><span class="av-min" style="background:#0ea5a3">SP</span><span class="nm">Studio · 12 r. Pasteur</span><span class="amt">620 €</span><span class="tag ok">Payé</span></div>
+                    <div class="rrow"><span class="av-min" style="background:#5b62e6">T2</span><span class="nm">T2 · 8 av. de la Gare</span><span class="amt">740 €</span><span class="tag wait">En attente</span></div>
+                    <div class="rrow"><span class="av-min" style="background:#e0584f">T3</span><span class="nm">T3 · 5 pl. du Marché</span><span class="amt">340 €</span><span class="tag late">Relance</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- carte connexion flottante -->
+          <div class="a-login">
+            <div class="lc-head"><span class="lc-title">Connexion</span><span class="lc-pill">Sécurisé</span></div>
+            <form onsubmit="return false">
+              <div class="field"><label class="flabel">Email</label><input class="inp" type="email" placeholder="toi@exemple.fr" autocomplete="username"></div>
+              <div class="field"><label class="flabel">Mot de passe</label><input class="inp" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+              <div class="forgot"><a href="#">Mot de passe oublié ?</a></div>
+              <button class="submit" type="submit">Se connecter →</button>
+            </form>
+            <p class="signup">Nouveau ? <a href="#">Créer un compte · essai gratuit</a></p>
+          </div>
+        </div>
+
+        <div class="a-foot">
+          <span class="pf"><span class="pic">🇪🇺</span> Hébergé en France / Europe</span>
+          <span class="pf-sep"></span>
+          <span class="pf"><span class="pic">🔐</span> Chiffré</span>
+          <span class="pf-sep"></span>
+          <span class="pf"><span class="pic">🛡️</span> RGPD</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         CONCEPT B — BAIL SIGNÉ EN PERSPECTIVE (gestion)
+         ════════════════════════════════════════════════════════════════ -->
+    <div class="concept lp" id="cB">
+      <div class="b-screen">
+        <nav class="nav">
+          <div class="brand"><div class="mark">🏠</div><b>Propryo</b></div>
+          <div class="nav-links"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Connexion</a></div>
+          <div class="nav-cta"><a href="#" class="signin">Connexion</a><button class="nav-trial">Essai gratuit</button></div>
+        </nav>
+
+        <div class="b-main">
+          <!-- copie gauche -->
+          <div class="b-copy">
+            <span class="eyebrow">Gestion locative tout-en-un</span>
+            <h1>Le bail signé.<br>La quittance <em>partie.</em></h1>
+            <p class="b-sub">Tout le papier de ta location. En quelques clics.</p>
+            <div class="b-pills">
+              <span class="p"><i>✓</i> Baux conformes auto</span>
+              <span class="p"><i>✓</i> Révision IRL</span>
+              <span class="p"><i>✓</i> EDL photos</span>
+              <span class="p"><i>✓</i> Quittances 1 clic</span>
+              <span class="p"><i>✓</i> Signature à distance</span>
+            </div>
+            <div class="b-cta">
+              <button class="cta">Commencer gratuitement →</button>
+              <a href="#" class="ghost">▶ Voir une démo</a>
+            </div>
+            <div class="b-social">
+              <span class="av"><span style="background:#0ea5a3">M</span><span style="background:#5b62e6">K</span><span style="background:#13a05f">S</span><span style="background:#f0a93a">L</span></span>
+              <span class="txt"><span class="star">★★★★★</span> <b>4,9/5</b> · <b>6 h</b> économisées / mois<br>par +1 200 bailleurs et SCI</span>
+            </div>
+          </div>
+
+          <!-- droite : doc en perspective + badges + login -->
+          <div class="b-right">
+            <div class="b-stack">
+              <div class="b-badge one"><span class="bi">✍️</span><span class="bt"><b>Signé à distance</b>il y a 2 min</span></div>
+
+              <div class="b-doc">
+                <div class="doc-bar"><i class="d1"></i><i class="d2"></i><i class="d3"></i><span class="url">propryo.app/quittance</span></div>
+                <div class="doc-body">
+                  <div class="doc-head">
+                    <div class="dt">Quittance de loyer<small>Juin 2026 · 12 rue Pasteur</small></div>
+                    <div class="doc-stamp">✓ Conforme</div>
+                  </div>
+                  <div class="doc-lines">
+                    <div class="dline"><span class="k">Loyer hors charges</span><span class="v">540,00 €</span></div>
+                    <div class="dline"><span class="k">Provision charges</span><span class="v">80,00 €</span></div>
+                    <div class="doc-sep"></div>
+                    <div class="dline"><span class="k" style="color:#2a3650;font-weight:600">Total quittancé</span><span class="v" style="font-size:13px">620,00 €</span></div>
+                  </div>
+                  <div class="doc-sign">
+                    <div class="ss"><b>M. Dupont — bailleur</b>Signé électroniquement</div>
+                    <div class="sg">Propryo</div>
+                  </div>
+                  <div class="doc-cta">
+                    <span class="b1">Envoyer au locataire</span>
+                    <span class="b2">PDF</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="b-badge two"><span class="bi">🧾</span><span class="bt"><b>Quittance prête</b>en 1 clic</span></div>
+
+              <!-- login compact -->
+              <div class="b-login">
+                <div class="lc-head"><span class="lc-title">Connexion</span><span class="lc-pill">Sécurisé</span></div>
+                <form onsubmit="return false">
+                  <div class="field"><label class="flabel">Email</label><input class="inp" type="email" placeholder="toi@exemple.fr" autocomplete="username"></div>
+                  <div class="field"><label class="flabel">Mot de passe</label><input class="inp" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+                  <div class="forgot"><a href="#">Mot de passe oublié ?</a></div>
+                  <button class="submit" type="submit">Se connecter →</button>
+                </form>
+                <p class="signup">Nouveau ? <a href="#">Créer un compte · essai gratuit</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="b-foot">
+          <span class="pf"><span class="pic">🇪🇺</span> Hébergé en France / Europe</span>
+          <span class="pf-sep"></span>
+          <span class="pf"><span class="pic">🔐</span> Chiffré</span>
+          <span class="pf-sep"></span>
+          <span class="pf"><span class="pic">🛡️</span> RGPD</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════
+         CONCEPT C — SUIVI DES LOYERS VIVANT
+         ════════════════════════════════════════════════════════════════ -->
+    <div class="concept lp" id="cC">
+      <div class="c-screen">
+        <nav class="nav">
+          <div class="brand"><div class="mark">🏠</div><b>Propryo</b></div>
+          <div class="nav-links"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Connexion</a></div>
+          <div class="nav-cta"><a href="#" class="signin">Connexion</a><button class="nav-trial">Essai gratuit</button></div>
+        </nav>
+
+        <div class="c-head">
+          <span class="eyebrow">Suivi des loyers en temps réel</span>
+          <h1>Plus jamais courir<br><em>après un loyer.</em></h1>
+          <p class="c-sub">Payé, en attente, en retard. Tu sais. Tu relances.</p>
+          <div class="c-trust">
+            <span class="av"><span style="background:#5b62e6">M</span><span style="background:#0ea5a3">K</span><span style="background:#13a05f">S</span><span style="background:#f0a93a">L</span></span>
+            <span><span class="star">★★★★★</span> <b>4,9/5</b></span>
+            <span class="sep"></span>
+            <span><b>6 h</b> économisées / mois</span>
+          </div>
+        </div>
+
+        <div class="c-hero">
+          <div class="c-win win app">
+            <div class="win-bar"><i class="d1"></i><i class="d2"></i><i class="d3"></i><span class="url">propryo.app/loyers</span></div>
+            <div class="c-body">
+              <div class="c-side">
+                <div class="s-brand"><span class="m">🏠</span> Propryo</div>
+                <div class="navi"><span class="ic">📊</span> Tableau de bord</div>
+                <div class="navi"><span class="ic">🏢</span> Mes biens</div>
+                <div class="navi on"><span class="ic">💶</span> Loyers</div>
+                <div class="navi"><span class="ic">📄</span> Baux</div>
+                <div class="navi"><span class="ic">🧾</span> Quittances</div>
+                <div class="navi"><span class="ic">📈</span> Finances</div>
+              </div>
+              <div class="c-main">
+                <div class="c-mt">
+                  <div class="t">Suivi des loyers<small>Juin 2026 · 14 biens</small></div>
+                  <div class="c-seg"><span class="on">Tous</span><span>En attente</span><span>En retard</span></div>
+                </div>
+                <div class="c-sum">
+                  <div class="sumc ok"><div class="sl">Payé</div><div class="sv">11 480 €</div></div>
+                  <div class="sumc wait"><div class="sl">En attente</div><div class="sv">740 €</div></div>
+                  <div class="sumc late"><div class="sl">En retard</div><div class="sv">340 €</div></div>
+                </div>
+                <div class="c-tbl">
+                  <div class="c-tr hd"><span>Locataire / bien</span><span class="amt">Montant</span><span class="dte">Échéance</span><span>Statut</span><span style="text-align:center">Action</span></div>
+                  <div class="c-tr">
+                    <span class="who"><span class="av-min" style="background:#0ea5a3">JL</span><span class="nm"><b>Julie Lambert</b><span>Studio · 12 r. Pasteur</span></span></span>
+                    <span class="amt">620 €</span><span class="dte">05 juin</span><span class="tag ok">Payé</span><span class="act recu"><i>✓</i> Reçu</span>
+                  </div>
+                  <div class="c-tr">
+                    <span class="who"><span class="av-min" style="background:#13a05f">MB</span><span class="nm"><b>Marc Bonnet</b><span>T1 · 3 r. Victor Hugo</span></span></span>
+                    <span class="amt">510 €</span><span class="dte">05 juin</span><span class="tag ok">Payé</span><span class="act recu"><i>✓</i> Reçu</span>
+                  </div>
+                  <div class="c-tr">
+                    <span class="who"><span class="av-min" style="background:#f0a93a">SP</span><span class="nm"><b>Sophie Petit</b><span>T2 · 8 av. de la Gare</span></span></span>
+                    <span class="amt">740 €</span><span class="dte">05 juin</span><span class="tag wait">En attente</span><span class="act relance">Relancer</span>
+                  </div>
+                  <div class="c-tr">
+                    <span class="who"><span class="av-min" style="background:#e0584f">TR</span><span class="nm"><b>Thomas Roy</b><span>T3 · 5 pl. du Marché</span></span></span>
+                    <span class="amt">340 €</span><span class="dte">05 juin</span><span class="tag late">+12 j retard</span><span class="act relance">Relancer</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- bandeau connexion compact -->
+        <div class="c-loginbar">
+          <span class="c-lb-txt"><span class="star">★★★★★</span> Rejoins +1 200 bailleurs</span>
+          <form class="c-lb-form" onsubmit="return false">
+            <input class="inp" type="email" placeholder="Email" autocomplete="username">
+            <input class="inp" type="password" placeholder="Mot de passe" autocomplete="current-password">
+            <button class="submit" type="submit">Se connecter →</button>
+          </form>
+          <span class="c-lb-links">
+            <a href="#">Mot de passe oublié ?</a>
+            <span class="sep"></span>
+            <a href="#">Créer un compte · essai gratuit</a>
+          </span>
+        </div>
+
+        <div class="c-foot">
+          <span class="pf"><span class="pic">🇪🇺</span> Hébergé en France / Europe</span>
+          <span class="pf-sep"></span>
+          <span class="pf"><span class="pic">🔐</span> Chiffré</span>
+          <span class="pf-sep"></span>
+          <span class="pf"><span class="pic">🛡️</span> RGPD</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── sélecteur de concept ── */
+var ANGLES = {
+  A:'<b>A —</b> le tableau de bord finance domine, la connexion flotte par-dessus.',
+  B:'<b>B —</b> gestion : bail/quittance signé en perspective, la connexion est ancrée près du doc.',
+  C:'<b>C —</b> suivi des loyers vivant plein écran, connexion en bandeau compact sous le héros.'
+};
+document.querySelectorAll('#mk-concept button').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#mk-concept button').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    document.body.dataset.concept=btn.dataset.c;
+    document.getElementById('mk-angle').innerHTML=ANGLES[btn.dataset.c];
+  });
+});
+/* ── sélecteur de format ── */
+document.querySelectorAll('#mk-fmt button').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('#mk-fmt button').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    document.body.dataset.fmt=btn.dataset.f;
+  });
+});
+</script>
+</body>
+</html>

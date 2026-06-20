@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propryo — Landing (3 concepts)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --c-ink:#0c1424;
+  --c-ink-2:#3a4659;
+  --c-ink-3:#6b7689;
+  --c-line:#e7e9f0;
+  --c-line-2:#eef0f6;
+  --c-bg:#f6f7fb;
+  --c-white:#ffffff;
+  --brand:#1b4dff;
+  --brand-2:#0f3fe0;
+  --brand-soft:#eef2ff;
+  --gold:#caa04a;
+  --emerald:#0f8a5f;
+  --emerald-soft:#e7f6ef;
+  --amber:#b97a12;
+  --amber-soft:#fdf3e3;
+  --rose:#c0395e;
+  --shadow-sm:0 1px 2px rgba(12,20,36,.06);
+  --shadow-md:0 8px 28px -8px rgba(12,20,36,.18);
+  --shadow-lg:0 30px 70px -24px rgba(12,20,36,.32);
+  --r:14px;
+  --r-lg:22px;
+  --font:'Plus Jakarta Sans','Inter',system-ui,sans-serif;
+  --serif:'Fraunces',Georgia,serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font);background:#e9ebf2;color:var(--c-ink);-webkit-font-smoothing:antialiased;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+a{text-decoration:none;color:inherit}
+img{max-width:100%}
+
+/* ============ HARNESS (control bar + frame) ============ */
+.harness-bar{
+  position:sticky;top:0;z-index:9999;
+  background:rgba(12,20,36,.96);backdrop-filter:blur(10px);
+  display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+  padding:11px 22px;color:#fff;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.harness-bar .hb-brand{font-weight:800;letter-spacing:-.02em;font-size:14px;display:flex;align-items:center;gap:7px}
+.harness-bar .hb-brand b{color:#8fb0ff}
+.hb-group{display:flex;align-items:center;gap:8px}
+.hb-label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600}
+.hb-seg{display:flex;background:rgba(255,255,255,.07);border-radius:10px;padding:3px}
+.hb-seg button{padding:6px 13px;border-radius:7px;color:rgba(255,255,255,.62);font-size:12.5px;font-weight:600;transition:.18s}
+.hb-seg button.on{background:#fff;color:var(--c-ink)}
+.hb-seg button:hover:not(.on){color:#fff}
+.hb-spacer{flex:1}
+.hb-note{font-size:11.5px;color:rgba(255,255,255,.4)}
+
+.stage{padding:30px 18px 70px;display:flex;justify-content:center}
+.frame{
+  background:var(--c-bg);
+  width:100%;max-width:1280px;
+  border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow-lg);
+  border:1px solid rgba(12,20,36,.08);
+  transition:max-width .35s ease;
+}
+.stage[data-fmt="tablet"] .frame{max-width:830px}
+.stage[data-fmt="phone"] .frame{max-width:404px}
+
+/* concept visibility */
+.concept{display:none}
+.concept.on{display:block}
+
+/* ============ shared atoms ============ */
+.stars{color:var(--gold);letter-spacing:1px;font-size:13px}
+.avatars{display:flex}
+.avatars span{
+  width:30px;height:30px;border-radius:50%;border:2.5px solid #fff;margin-left:-9px;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;
+}
+.avatars span:first-child{margin-left:0}
+.av1{background:#5b6cff}.av2{background:#0f8a5f}.av3{background:#c0395e}.av4{background:#b97a12}.av5{background:#7a4ed8}
+.pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:999px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700;border-radius:11px;transition:.18s;font-size:14.5px}
+.btn-primary{background:var(--brand);color:#fff;padding:13px 22px;box-shadow:0 8px 20px -8px rgba(27,77,255,.7)}
+.btn-primary:hover{background:var(--brand-2);transform:translateY(-1px)}
+.btn-ghost{padding:13px 20px;color:var(--c-ink);font-weight:600}
+.btn-ghost:hover{color:var(--brand)}
+.ico{display:inline-flex}
+svg{display:block}
+
+/* trust line */
+.trust{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--c-ink-3);font-weight:500}
+.trust .dot{width:4px;height:4px;border-radius:50%;background:var(--c-line)}
+.trust svg{color:var(--emerald)}
+
+/* ===== generic nav ===== */
+.nav{display:flex;align-items:center;justify-content:space-between;padding:20px 44px}
+.nav .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.025em}
+.nav .logo .mark{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff}
+.nav-links{display:flex;align-items:center;gap:30px;font-size:14.5px;font-weight:600;color:var(--c-ink-2)}
+.nav-links a:hover{color:var(--brand)}
+.nav-cta{display:flex;align-items:center;gap:14px}
+
+/* =========================================================
+   CONCEPT A — "Split signé" : éditorial gauche + login carte droite,
+   bandeau confiance, aperçu app flottant en bas. Bleu nuit + or.
+   ========================================================= */
+#A{background:linear-gradient(180deg,#fbfcff 0%,#f4f6fc 100%)}
+#A .a-nav .mark{background:var(--c-ink)}
+#A .a-nav .mark svg{width:18px;height:18px}
+#A .a-hero{display:grid;grid-template-columns:1.08fr .92fr;gap:46px;padding:18px 44px 30px;align-items:center}
+#A .a-eyebrow{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--c-line);border-radius:999px;padding:6px 14px 6px 8px;font-size:12.5px;font-weight:700;color:var(--c-ink-2);box-shadow:var(--shadow-sm);margin-bottom:22px}
+#A .a-eyebrow b{background:var(--c-ink);color:#fff;font-size:10.5px;padding:3px 9px;border-radius:999px;letter-spacing:.04em}
+#A h1{font-family:var(--serif);font-weight:500;font-size:50px;line-height:1.04;letter-spacing:-.02em;color:var(--c-ink)}
+#A h1 em{font-style:italic;color:var(--brand)}
+#A .a-sub{font-size:18px;color:var(--c-ink-2);font-weight:500;margin-top:18px;max-width:440px}
+#A .a-bens{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}
+#A .a-ben{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--c-line);border-radius:11px;padding:9px 14px;font-size:13.5px;font-weight:600;color:var(--c-ink)}
+#A .a-ben svg{color:var(--brand)}
+#A .a-proof{display:flex;align-items:center;gap:18px;margin-top:30px}
+#A .a-proof .sep{width:1px;height:36px;background:var(--c-line)}
+#A .a-proofnum{font-size:14px;color:var(--c-ink-2);font-weight:600}
+#A .a-proofnum b{display:block;font-size:13px;color:var(--c-ink-3);font-weight:600}
+
+/* login card A */
+.logincard{background:#fff;border:1px solid var(--c-line);border-radius:var(--r-lg);box-shadow:var(--shadow-md);padding:32px}
+.logincard h3{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.logincard .lc-sub{font-size:13.5px;color:var(--c-ink-3);margin-top:5px;margin-bottom:22px;font-weight:500}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;font-weight:700;color:var(--c-ink-2);margin-bottom:7px}
+.field .inp{display:flex;align-items:center;gap:10px;border:1.5px solid var(--c-line);border-radius:12px;padding:0 14px;height:48px;background:#fcfcfe;transition:.15s}
+.field .inp:focus-within{border-color:var(--brand);background:#fff;box-shadow:0 0 0 4px var(--brand-soft)}
+.field .inp svg{color:var(--c-ink-3);flex-shrink:0}
+.field .inp input{border:none;outline:none;background:none;font-family:inherit;font-size:14.5px;width:100%;color:var(--c-ink)}
+.lc-row{display:flex;justify-content:flex-end;margin:-2px 0 18px}
+.lc-row a{font-size:12.5px;font-weight:700;color:var(--brand)}
+.logincard .btn-primary{width:100%}
+.lc-foot{text-align:center;font-size:13px;color:var(--c-ink-3);margin-top:18px;font-weight:500}
+.lc-foot a{color:var(--brand);font-weight:700}
+.lc-secure{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:18px;padding-top:16px;border-top:1px solid var(--c-line-2);font-size:11.5px;color:var(--c-ink-3);font-weight:600}
+.lc-secure svg{color:var(--emerald)}
+
+/* app preview strip A */
+#A .a-app{margin:8px 22px 0;background:#fff;border:1px solid var(--c-line);border-radius:18px 18px 0 0;box-shadow:var(--shadow-md);overflow:hidden;padding:14px 16px 0}
+#A .a-appbar{display:flex;align-items:center;gap:8px;padding:0 4px 12px}
+#A .a-dots{display:flex;gap:6px}
+#A .a-dots i{width:9px;height:9px;border-radius:50%}
+#A .a-appgrid{display:grid;grid-template-columns:200px 1fr;gap:0;border-top:1px solid var(--c-line-2)}
+
+/* ============ APP MOCK (shared component used in all concepts) ============ */
+.mock{background:#fff;font-size:12px}
+.mock-side{background:#0c1424;color:#aeb8cc;padding:16px 14px;border-radius:0}
+.mock-side .m-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:800;font-size:14px;margin-bottom:18px}
+.mock-side .m-brand .mm{width:24px;height:24px;border-radius:7px;background:var(--brand);display:flex;align-items:center;justify-content:center}
+.mock-side .m-nav{display:flex;flex-direction:column;gap:3px}
+.mock-side .m-nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;font-size:12.5px;font-weight:600;color:#9aa6bd}
+.mock-side .m-nav a.on{background:rgba(91,108,255,.18);color:#fff}
+.mock-side .m-nav a svg{width:15px;height:15px;opacity:.85}
+.mock-body{padding:18px 20px;background:#f8f9fc}
+.mock-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.mock-head h4{font-size:16px;font-weight:800;color:var(--c-ink);letter-spacing:-.02em}
+.mock-head .m-date{font-size:11.5px;color:var(--c-ink-3);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--c-line);border-radius:12px;padding:12px 13px}
+.kpi .k-lab{font-size:10.5px;color:var(--c-ink-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:5px}
+.kpi .k-val{font-size:20px;font-weight:800;color:var(--c-ink);letter-spacing:-.02em;margin-top:5px}
+.kpi .k-delta{font-size:11px;font-weight:700;margin-top:3px}
+.up{color:var(--emerald)}.down{color:var(--rose)}.k-ico-e{color:var(--emerald)}.k-ico-b{color:var(--brand)}.k-ico-a{color:var(--amber)}
+.mock-cols{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
+.panel{background:#fff;border:1px solid var(--c-line);border-radius:12px;padding:14px}
+.panel .p-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.panel .p-head h5{font-size:13px;font-weight:800;color:var(--c-ink)}
+.panel .p-head .p-tag{font-size:10.5px;font-weight:700;color:var(--c-ink-3)}
+/* bar chart */
+.chart{display:flex;align-items:flex-end;gap:9px;height:96px;padding-top:6px}
+.chart .bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
+.chart .bar .bb{width:100%;border-radius:5px 5px 3px 3px;background:linear-gradient(180deg,#5b6cff,#1b4dff)}
+.chart .bar .bl{font-size:9.5px;color:var(--c-ink-3);font-weight:700}
+.chart .bar.muted .bb{background:#dfe3f2}
+/* loyers list */
+.loyers{display:flex;flex-direction:column;gap:9px}
+.loyer{display:flex;align-items:center;gap:10px}
+.loyer .l-av{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+.loyer .l-info{flex:1;min-width:0}
+.loyer .l-name{font-size:12px;font-weight:700;color:var(--c-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loyer .l-meta{font-size:10.5px;color:var(--c-ink-3);font-weight:600}
+.loyer .l-amt{font-size:12.5px;font-weight:800;color:var(--c-ink)}
+.badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:999px}
+.b-paid{background:var(--emerald-soft);color:var(--emerald)}
+.b-wait{background:var(--amber-soft);color:var(--amber)}
+.b-late{background:#fdecef;color:var(--rose)}
+
+/* =========================================================
+   CONCEPT B — "Cockpit" : nav haute, hero centré CONTENU À GAUCHE
+   avec dashboard plein cadre incliné à droite, login en modale-carte
+   ancrée. Fond clair lumineux, accent émeraude/bleu. Très "produit".
+   ========================================================= */
+#B{background:radial-gradient(120% 120% at 80% 0%,#eef3ff 0%,#f7f8fc 45%,#f4f6fb 100%)}
+#B .b-nav .mark{background:linear-gradient(135deg,#1b4dff,#3f6bff)}
+#B .b-nav .mark svg{width:18px;height:18px}
+#B .b-hero{display:grid;grid-template-columns:.86fr 1.14fr;gap:34px;padding:26px 44px 36px;align-items:center}
+#B .b-left .b-eyebrow{display:inline-flex;align-items:center;gap:9px;margin-bottom:20px}
+#B .b-rate{display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--c-line);border-radius:999px;padding:5px 14px 5px 6px;box-shadow:var(--shadow-sm)}
+#B .b-rate .avatars span{width:26px;height:26px;font-size:10px}
+#B .b-rate .r-txt{font-size:12px;font-weight:700;color:var(--c-ink-2)}
+#B h1{font-size:46px;font-weight:800;line-height:1.05;letter-spacing:-.035em;color:var(--c-ink)}
+#B h1 span{color:var(--brand)}
+#B .b-sub{font-size:18px;color:var(--c-ink-2);font-weight:500;margin-top:16px;max-width:400px}
+#B .b-piliers{display:flex;gap:12px;margin-top:24px}
+#B .b-pil{flex:1;background:#fff;border:1px solid var(--c-line);border-radius:14px;padding:14px;box-shadow:var(--shadow-sm)}
+#B .b-pil .pi-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:9px}
+#B .b-pil.g .pi-ic{background:var(--brand-soft);color:var(--brand)}
+#B .b-pil.f .pi-ic{background:var(--emerald-soft);color:var(--emerald)}
+#B .b-pil h4{font-size:14px;font-weight:800;letter-spacing:-.02em;margin-bottom:7px}
+#B .b-pil ul{list-style:none;display:flex;flex-direction:column;gap:6px}
+#B .b-pil li{font-size:12px;color:var(--c-ink-2);font-weight:600;display:flex;align-items:center;gap:7px}
+#B .b-pil li svg{width:13px;height:13px}
+#B .b-pil.g li svg{color:var(--brand)}
+#B .b-pil.f li svg{color:var(--emerald)}
+#B .b-actions{display:flex;align-items:center;gap:14px;margin-top:26px}
+#B .b-trustline{margin-top:18px}
+/* right: floating dashboard + login pinned */
+#B .b-right{position:relative}
+#B .b-dash{border-radius:18px;overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid rgba(12,20,36,.1);transform:perspective(1600px) rotateY(-6deg) rotateX(1.5deg)}
+#B .b-login{position:absolute;right:-14px;bottom:-22px;width:262px;background:#fff;border:1px solid var(--c-line);border-radius:18px;box-shadow:var(--shadow-lg);padding:20px}
+#B .b-login h3{font-size:16px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+#B .b-login h3 svg{color:var(--brand)}
+#B .b-login .field{margin-bottom:10px}
+#B .b-login .field .inp{height:42px}
+#B .b-login .lc-row{margin:-2px 0 12px}
+#B .b-login .btn-primary{width:100%;padding:11px}
+#B .b-login .lc-foot{margin-top:13px;font-size:12px}
+
+/* =========================================================
+   CONCEPT C — "Tableau de bord premium dark" : panneau gauche
+   sombre marque + preuve, panneau droit clair = formulaire,
+   aperçu app en médaillon. Format auth-page haut de gamme (Qonto-like).
+   ========================================================= */
+#C{background:#0a1020}
+#C .c-wrap{display:grid;grid-template-columns:1.05fr .95fr;min-height:600px}
+/* left dark */
+#C .c-left{background:linear-gradient(165deg,#0c1424 0%,#10193a 60%,#142055 100%);color:#fff;padding:34px 40px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+#C .c-left::after{content:"";position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(91,108,255,.28),transparent 70%);right:-160px;top:-120px}
+#C .c-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.025em;position:relative;z-index:1}
+#C .c-logo .mark{width:34px;height:34px;border-radius:10px;background:var(--brand);display:flex;align-items:center;justify-content:center}
+#C .c-logo .mark svg{width:18px;height:18px}
+#C .c-rate{display:flex;align-items:center;gap:10px;margin-top:30px;position:relative;z-index:1}
+#C .c-rate .stars{font-size:14px}
+#C .c-rate span{font-size:13px;color:#aeb8cc;font-weight:600}
+#C .c-head{position:relative;z-index:1;margin-top:18px}
+#C .c-head h1{font-family:var(--serif);font-weight:500;font-size:38px;line-height:1.08;letter-spacing:-.02em}
+#C .c-head h1 em{font-style:italic;color:#8fb0ff}
+#C .c-head p{font-size:16px;color:#b9c2d6;font-weight:500;margin-top:14px;max-width:380px}
+/* mini app medallion */
+#C .c-medallion{position:relative;z-index:1;margin-top:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;backdrop-filter:blur(4px)}
+#C .c-med-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+#C .c-med-head span{font-size:11px;font-weight:700;color:#aeb8cc;text-transform:uppercase;letter-spacing:.08em}
+#C .c-med-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:11px}
+#C .c-mk{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 10px}
+#C .c-mk .l{font-size:9.5px;color:#8d99b3;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+#C .c-mk .v{font-size:16px;font-weight:800;color:#fff;margin-top:3px}
+#C .c-mk .d{font-size:9.5px;font-weight:700;margin-top:1px}
+#C .c-med-chart{display:flex;align-items:flex-end;gap:6px;height:46px}
+#C .c-med-chart .bb{flex:1;border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,#7a8bff,#3f6bff)}
+#C .c-feat{position:relative;z-index:1;margin-top:auto;padding-top:22px;display:flex;gap:18px;flex-wrap:wrap}
+#C .c-feat .cf{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:#cdd5e6}
+#C .c-feat .cf svg{color:#7a8bff;width:18px;height:18px}
+/* right form */
+#C .c-right{background:#fff;padding:42px 44px;display:flex;flex-direction:column;justify-content:center}
+#C .c-right .c-nav{display:flex;align-items:center;justify-content:flex-end;gap:24px;font-size:13.5px;font-weight:700;color:var(--c-ink-2);margin-bottom:auto}
+#C .c-right .c-nav a:hover{color:var(--brand)}
+#C .c-form{margin:auto 0;max-width:340px;width:100%;align-self:center}
+#C .c-form h3{font-size:25px;font-weight:800;letter-spacing:-.03em}
+#C .c-form .c-formsub{font-size:14px;color:var(--c-ink-3);margin-top:6px;margin-bottom:24px;font-weight:500}
+#C .c-form .btn-primary{width:100%;margin-top:4px}
+#C .c-foot{margin-top:auto;padding-top:24px}
+
+/* =========================================================
+   responsive — tablet
+   ========================================================= */
+.stage[data-fmt="tablet"] #A .a-hero{grid-template-columns:1fr;gap:30px}
+.stage[data-fmt="tablet"] #A h1{font-size:42px}
+.stage[data-fmt="tablet"] #A .logincard{max-width:440px}
+.stage[data-fmt="tablet"] #A .a-appgrid{grid-template-columns:160px 1fr}
+.stage[data-fmt="tablet"] #B .b-hero{grid-template-columns:1fr;gap:40px}
+.stage[data-fmt="tablet"] #B .b-login{position:static;width:100%;margin-top:18px}
+.stage[data-fmt="tablet"] #B .b-dash{transform:none}
+.stage[data-fmt="tablet"] #C .c-wrap{grid-template-columns:1fr}
+.stage[data-fmt="tablet"] #C .c-left{padding:30px}
+.stage[data-fmt="tablet"] .kpis{grid-template-columns:repeat(4,1fr)}
+
+/* phone */
+.stage[data-fmt="phone"] .nav{padding:16px 18px}
+.stage[data-fmt="phone"] .nav-links{display:none}
+.stage[data-fmt="phone"] .hide-phone{display:none!important}
+.stage[data-fmt="phone"] #A .a-hero{grid-template-columns:1fr;gap:24px;padding:8px 18px 22px}
+.stage[data-fmt="phone"] #A h1{font-size:34px}
+.stage[data-fmt="phone"] #A .a-sub{font-size:16px}
+.stage[data-fmt="phone"] #A .a-app{margin:6px 12px 0}
+.stage[data-fmt="phone"] #A .a-appgrid{grid-template-columns:1fr}
+.stage[data-fmt="phone"] #A .mock-side{display:none}
+.stage[data-fmt="phone"] #B .b-hero{grid-template-columns:1fr;gap:26px;padding:18px 18px 26px}
+.stage[data-fmt="phone"] #B h1{font-size:33px}
+.stage[data-fmt="phone"] #B .b-piliers{flex-direction:column}
+.stage[data-fmt="phone"] #B .b-login{position:static;width:100%;margin-top:16px}
+.stage[data-fmt="phone"] #B .b-dash{transform:none}
+.stage[data-fmt="phone"] #C .c-wrap{grid-template-columns:1fr}
+.stage[data-fmt="phone"] #C .c-left{padding:24px 22px}
+.stage[data-fmt="phone"] #C .c-head h1{font-size:30px}
+.stage[data-fmt="phone"] #C .c-right{padding:28px 22px}
+.stage[data-fmt="phone"] #C .c-right .c-nav{justify-content:center;flex-wrap:wrap}
+.stage[data-fmt="phone"] .kpis{grid-template-columns:repeat(2,1fr)}
+.stage[data-fmt="phone"] .mock-cols{grid-template-columns:1fr}
+.stage[data-fmt="phone"] #C .c-med-kpis{grid-template-columns:repeat(3,1fr)}
+</style>
+</head>
+<body>
+
+<!-- ====================== HARNESS BAR ====================== -->
+<div class="harness-bar">
+  <div class="hb-brand"><span>🏠</span> Propryo · <b>landing-2</b></div>
+  <div class="hb-group">
+    <span class="hb-label">Concept</span>
+    <div class="hb-seg" id="seg-concept">
+      <button data-c="A" class="on">A · Split signé</button>
+      <button data-c="B">B · Cockpit produit</button>
+      <button data-c="C">C · Auth premium</button>
+    </div>
+  </div>
+  <div class="hb-group">
+    <span class="hb-label">Format</span>
+    <div class="hb-seg" id="seg-fmt">
+      <button data-f="desktop" class="on">PC</button>
+      <button data-f="tablet">Tablette</button>
+      <button data-f="phone">Téléphone</button>
+    </div>
+  </div>
+  <div class="hb-spacer"></div>
+  <div class="hb-note">Maquettes statiques · ton « tu » · FR</div>
+</div>
+
+<div class="stage" id="stage" data-fmt="desktop">
+<div class="frame">
+
+<!-- ============================================================
+     CONCEPT A — SPLIT SIGNÉ
+     ============================================================ -->
+<section class="concept on" id="A">
+  <nav class="nav a-nav">
+    <div class="logo"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V19a1 1 0 0 0 1 1H10v-5h4v5h3.5a1 1 0 0 0 1-1V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Propryo</div>
+    <div class="nav-links hide-phone"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Connexion</a></div>
+    <div class="nav-cta"><a class="btn btn-ghost hide-phone" href="#">Connexion</a><a class="btn btn-primary" href="#">Essai gratuit</a></div>
+  </nav>
+
+  <div class="a-hero">
+    <div class="a-left">
+      <div class="a-eyebrow"><b>NOUVEAU</b> Signature de bail à distance</div>
+      <h1>Ta gestion locative,<br><em>pilotée au cordeau.</em></h1>
+      <p class="a-sub">Baux, quittances, finances. Tout au même endroit.</p>
+      <div class="a-bens">
+        <span class="a-ben"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Baux conformes auto</span>
+        <span class="a-ben"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Quittances en 1 clic</span>
+        <span class="a-ben"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Rentabilité par bien</span>
+      </div>
+      <div class="a-proof">
+        <div class="avatars"><span class="av1">SL</span><span class="av2">MK</span><span class="av3">TD</span><span class="av4">PB</span><span class="av5">+</span></div>
+        <div class="a-proofnum"><span class="stars">★★★★★</span><b>Noté 4,9/5</b></div>
+        <div class="sep"></div>
+        <div class="a-proofnum" style="font-size:22px;font-weight:800;color:var(--c-ink);letter-spacing:-.02em">6 h<b style="font-size:12px;font-weight:600">économisées / mois</b></div>
+      </div>
+    </div>
+
+    <div class="a-right">
+      <div class="logincard">
+        <h3>Connexion</h3>
+        <p class="lc-sub">Reprends le pilotage de ton patrimoine.</p>
+        <div class="field">
+          <label>Email</label>
+          <div class="inp"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input type="email" placeholder="toi@email.fr"></div>
+        </div>
+        <div class="field">
+          <label>Mot de passe</label>
+          <div class="inp"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg><input type="password" placeholder="••••••••"></div>
+        </div>
+        <div class="lc-row"><a href="#">Mot de passe oublié ?</a></div>
+        <button class="btn btn-primary">Se connecter</button>
+        <p class="lc-foot">Pas encore de compte ? <a href="#">Créer un compte · essai gratuit</a></p>
+        <div class="lc-secure"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Hébergé en France · chiffré · conforme RGPD</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- app preview strip -->
+  <div class="a-app">
+    <div class="a-appbar">
+      <div class="a-dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+      <div style="flex:1"></div>
+      <div style="font-size:11px;color:var(--c-ink-3);font-weight:600">app.propryo.fr/tableau-de-bord</div>
+    </div>
+    <div class="a-appgrid">
+      <!-- sidebar -->
+      <div class="mock-side">
+        <div class="m-brand"><span class="mm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V19a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Propryo</div>
+        <div class="m-nav">
+          <a class="on"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg>Tableau de bord</a>
+          <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Baux</a>
+          <a><svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Mes biens</a>
+          <a><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Quittances</a>
+          <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Finances</a>
+        </div>
+      </div>
+      <!-- body -->
+      <div class="mock-body">
+        <div class="mock-head"><h4>Tableau de bord</h4><span class="m-date">Juin 2026</span></div>
+        <div class="kpis">
+          <div class="kpi"><div class="k-lab"><svg class="k-ico-e" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Loyers encaissés</div><div class="k-val">8 420 €</div><div class="k-delta up">▲ 4,2 %</div></div>
+          <div class="kpi"><div class="k-lab"><svg class="k-ico-a" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>En attente</div><div class="k-val">1 150 €</div><div class="k-delta down">2 lots</div></div>
+          <div class="kpi"><div class="k-lab"><svg class="k-ico-b" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 18 9 11l4 4 7-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Rentabilité</div><div class="k-val">6,1 %</div><div class="k-delta up">▲ net</div></div>
+          <div class="kpi"><div class="k-lab"><svg class="k-ico-b" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Taux d'occupation</div><div class="k-val">94 %</div><div class="k-delta up">12/13 lots</div></div>
+        </div>
+        <div class="mock-cols">
+          <div class="panel">
+            <div class="p-head"><h5>Cashflow mensuel</h5><span class="p-tag">2026</span></div>
+            <div class="chart">
+              <div class="bar muted"><div class="bb" style="height:48%"></div><div class="bl">J</div></div>
+              <div class="bar muted"><div class="bb" style="height:55%"></div><div class="bl">F</div></div>
+              <div class="bar muted"><div class="bb" style="height:50%"></div><div class="bl">M</div></div>
+              <div class="bar muted"><div class="bb" style="height:64%"></div><div class="bl">A</div></div>
+              <div class="bar muted"><div class="bb" style="height:70%"></div><div class="bl">M</div></div>
+              <div class="bar"><div class="bb" style="height:88%"></div><div class="bl">J</div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="p-head"><h5>Suivi des loyers</h5><span class="p-tag">Juin</span></div>
+            <div class="loyers">
+              <div class="loyer"><div class="l-av" style="background:#0f8a5f">SL</div><div class="l-info"><div class="l-name">S. Lefèvre · T2</div><div class="l-meta">Le 5 juin</div></div><span class="badge b-paid">Payé</span></div>
+              <div class="loyer"><div class="l-av" style="background:#b97a12">MK</div><div class="l-info"><div class="l-name">M. Kaci · Studio</div><div class="l-meta">Échéance 10</div></div><span class="badge b-wait">En attente</span></div>
+              <div class="loyer"><div class="l-av" style="background:#c0395e">TD</div><div class="l-info"><div class="l-name">T. Dubois · T3</div><div class="l-meta">Relance 1</div></div><span class="badge b-late">Retard</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CONCEPT B — COCKPIT PRODUIT
+     ============================================================ -->
+<section class="concept" id="B">
+  <nav class="nav b-nav">
+    <div class="logo"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V19a1 1 0 0 0 1 1H10v-5h4v5h3.5a1 1 0 0 0 1-1V9.8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Propryo</div>
+    <div class="nav-links hide-phone"><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Connexion</a></div>
+    <div class="nav-cta"><a class="btn btn-ghost hide-phone" href="#">Connexion</a><a class="btn btn-primary" href="#">Essai gratuit</a></div>
+  </nav>
+
+  <div class="b-hero">
+    <div class="b-left">
+      <div class="b-eyebrow">
+        <div class="b-rate">
+          <div class="avatars"><span class="av1">SL</span><span class="av2">MK</span><span class="av3">TD</span><span class="av4">PB</span></div>
+          <span class="stars">★★★★★</span><span class="r-txt">4,9/5 · 1 200+ bailleurs</span>
+        </div>
+      </div>
+      <h1>Gère tes biens.<br>Pilote tes <span>finances.</span></h1>
+      <p class="b-sub">Un seul outil. Zéro paperasse.</p>
+
+      <div class="b-piliers">
+        <div class="b-pil g">
+          <div class="pi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <h4>Gestion</h4>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Baux & révision IRL</li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>EDL photos</li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Signature à distance</li>
+          </ul>
+        </div>
+        <div class="b-pil f">
+          <div class="pi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h4>Finance</h4>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Suivi des loyers</li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Charges & régul</li>
+            <li><svg viewBox="0 0 24 24" fill="none"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Rentabilité par bien</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="b-actions">
+        <a class="btn btn-primary" href="#">Démarrer l'essai gratuit</a>
+        <div style="font-size:22px;font-weight:800;color:var(--c-ink);letter-spacing:-.02em;line-height:1">6 h<div style="font-size:12px;font-weight:600;color:var(--c-ink-3)">économisées / mois</div></div>
+      </div>
+      <div class="b-trustline trust">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        Hébergé en France / Europe<span class="dot"></span>chiffré<span class="dot"></span>conforme RGPD
+      </div>
+    </div>
+
+    <div class="b-right">
+      <div class="b-dash">
+        <div class="mock">
+          <div style="display:grid;grid-template-columns:178px 1fr">
+            <div class="mock-side">
+              <div class="m-brand"><span class="mm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V19a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Propryo</div>
+              <div class="m-nav">
+                <a class="on"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg>Tableau de bord</a>
+                <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Baux</a>
+                <a><svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Mes biens</a>
+                <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Finances</a>
+              </div>
+            </div>
+            <div class="mock-body">
+              <div class="mock-head"><h4>Tableau de bord</h4><span class="m-date">Juin 2026</span></div>
+              <div class="kpis">
+                <div class="kpi"><div class="k-lab"><svg class="k-ico-e" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Encaissé</div><div class="k-val">8 420 €</div><div class="k-delta up">▲ 4,2 %</div></div>
+                <div class="kpi"><div class="k-lab"><svg class="k-ico-a" width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>En attente</div><div class="k-val">1 150 €</div><div class="k-delta down">2 lots</div></div>
+                <div class="kpi"><div class="k-lab"><svg class="k-ico-b" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 18 9 11l4 4 7-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Renta nette</div><div class="k-val">6,1 %</div><div class="k-delta up">▲ an</div></div>
+                <div class="kpi"><div class="k-lab"><svg class="k-ico-b" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Occupation</div><div class="k-val">94 %</div><div class="k-delta up">12/13</div></div>
+              </div>
+              <div class="mock-cols">
+                <div class="panel">
+                  <div class="p-head"><h5>Cashflow mensuel</h5><span class="p-tag">2026</span></div>
+                  <div class="chart">
+                    <div class="bar muted"><div class="bb" style="height:48%"></div><div class="bl">J</div></div>
+                    <div class="bar muted"><div class="bb" style="height:56%"></div><div class="bl">F</div></div>
+                    <div class="bar muted"><div class="bb" style="height:52%"></div><div class="bl">M</div></div>
+                    <div class="bar muted"><div class="bb" style="height:66%"></div><div class="bl">A</div></div>
+                    <div class="bar muted"><div class="bb" style="height:72%"></div><div class="bl">M</div></div>
+                    <div class="bar"><div class="bb" style="height:90%"></div><div class="bl">J</div></div>
+                  </div>
+                </div>
+                <div class="panel">
+                  <div class="p-head"><h5>Suivi des loyers</h5><span class="p-tag">Juin</span></div>
+                  <div class="loyers">
+                    <div class="loyer"><div class="l-av" style="background:#0f8a5f">SL</div><div class="l-info"><div class="l-name">S. Lefèvre</div><div class="l-meta">T2 · le 5</div></div><span class="badge b-paid">Payé</span></div>
+                    <div class="loyer"><div class="l-av" style="background:#b97a12">MK</div><div class="l-info"><div class="l-name">M. Kaci</div><div class="l-meta">Studio · J-2</div></div><span class="badge b-wait">Attente</span></div>
+                    <div class="loyer"><div class="l-av" style="background:#c0395e">TD</div><div class="l-info"><div class="l-name">T. Dubois</div><div class="l-meta">T3 · relance</div></div><span class="badge b-late">Retard</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="b-login">
+        <h3><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg>Connexion</h3>
+        <div class="field"><label>Email</label><div class="inp"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input type="email" placeholder="toi@email.fr"></div></div>
+        <div class="field"><label>Mot de passe</label><div class="inp"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg><input type="password" placeholder="••••••••"></div></div>
+        <div class="lc-row"><a href="#">Mot de passe oublié ?</a></div>
+        <button class="btn btn-primary">Se connecter</button>
+        <p class="lc-foot">Nouveau ? <a href="#">Créer un compte · essai gratuit</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CONCEPT C — AUTH PREMIUM (dark / light split)
+     ============================================================ -->
+<section class="concept" id="C">
+  <div class="c-wrap">
+    <!-- LEFT dark brand panel -->
+    <div class="c-left">
+      <div class="c-logo"><span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V19a1 1 0 0 0 1 1H10v-5h4v5h3.5a1 1 0 0 0 1-1V9.8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Propryo</div>
+
+      <div class="c-rate">
+        <div class="avatars"><span class="av1">SL</span><span class="av2">MK</span><span class="av3">TD</span><span class="av4">PB</span></div>
+        <span class="stars">★★★★★</span><span>4,9/5 — 1 200+ bailleurs</span>
+      </div>
+
+      <div class="c-head">
+        <h1>Gère. Encaisse.<br><em>Dors tranquille.</em></h1>
+        <p>Baux, quittances, finances — tout au carré.</p>
+      </div>
+
+      <!-- mini app medallion -->
+      <div class="c-medallion">
+        <div class="c-med-head"><span>Tableau de bord</span><span style="color:#7a8bff">Juin 2026</span></div>
+        <div class="c-med-kpis">
+          <div class="c-mk"><div class="l">Encaissé</div><div class="v">8 420 €</div><div class="d up">▲ 4,2 %</div></div>
+          <div class="c-mk"><div class="l">Renta nette</div><div class="v">6,1 %</div><div class="d up">▲ an</div></div>
+          <div class="c-mk"><div class="l">Occupation</div><div class="v">94 %</div><div class="d" style="color:#8d99b3">12/13</div></div>
+        </div>
+        <div class="c-med-chart">
+          <div class="bb" style="height:48%;opacity:.5"></div>
+          <div class="bb" style="height:58%;opacity:.5"></div>
+          <div class="bb" style="height:52%;opacity:.5"></div>
+          <div class="bb" style="height:68%;opacity:.5"></div>
+          <div class="bb" style="height:74%;opacity:.6"></div>
+          <div class="bb" style="height:92%"></div>
+        </div>
+      </div>
+
+      <div class="c-feat">
+        <div class="cf"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m8 13 2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Gestion : baux, EDL, quittances</div>
+        <div class="cf"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Finance : loyers, charges, rentabilité</div>
+      </div>
+    </div>
+
+    <!-- RIGHT light form panel -->
+    <div class="c-right">
+      <div class="c-nav hide-phone">
+        <a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a class="btn btn-primary" style="padding:9px 18px;font-size:13.5px" href="#">Essai gratuit</a>
+      </div>
+
+      <div class="c-form">
+        <h3>Bon retour 👋</h3>
+        <p class="c-formsub">Connecte-toi pour piloter ton patrimoine.</p>
+        <div class="field">
+          <label>Email</label>
+          <div class="inp"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input type="email" placeholder="toi@email.fr"></div>
+        </div>
+        <div class="field">
+          <label>Mot de passe</label>
+          <div class="inp"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg><input type="password" placeholder="••••••••"></div>
+        </div>
+        <div class="lc-row"><a href="#">Mot de passe oublié ?</a></div>
+        <button class="btn btn-primary">Se connecter</button>
+        <p class="lc-foot">Pas de compte ? <a href="#">Créer un compte · essai gratuit</a></p>
+        <div class="lc-secure"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Hébergé en France · chiffré · RGPD</div>
+      </div>
+
+      <div class="c-foot" style="display:flex;align-items:center;gap:8px">
+        <span class="stars" style="font-size:12px">★★★★★</span>
+        <span style="font-size:12px;color:var(--c-ink-3);font-weight:600">Noté 4,9/5 · 6 h économisées / mois</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</div>
+
+<script>
+(function(){
+  var stage=document.getElementById('stage');
+  document.getElementById('seg-concept').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    this.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');
+    var id=b.getAttribute('data-c');
+    document.querySelectorAll('.concept').forEach(function(s){s.classList.toggle('on',s.id===id)});
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+  document.getElementById('seg-fmt').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    this.querySelectorAll('button').forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');
+    stage.setAttribute('data-fmt',b.getAttribute('data-f'));
+  });
+})();
+</script>
+</body>
+</html>
