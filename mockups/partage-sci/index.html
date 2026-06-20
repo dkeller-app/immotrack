@@ -341,7 +341,7 @@ button{font-family:inherit}
     <div class="app" id="app" style="position:relative">
       <!-- SIDEBAR -->
       <nav class="sb" id="sb">
-        <div class="sb-logo"><span class="sb-logo-ic">🏠</span><div><strong>Lodyo</strong><br><em id="sb-edition">GESTION LOCATIVE</em></div></div>
+        <div class="sb-logo"><span class="sb-logo-ic">🏠</span><div><strong>Propryo</strong><br><em id="sb-edition">GESTION LOCATIVE</em></div></div>
         <div class="sb-sec">Pilotage</div>
         <div class="ni"><span class="ico">📊</span><span class="ni-label">Tableau de bord</span></div>
         <div class="ni"><span class="ico">🏢</span><span class="ni-label" id="ni-biens">Biens</span></div>
@@ -408,7 +408,7 @@ function billingCard(used,included){
       </div>
     </div>
     <div class="bill-meter"><i style="width:${pct}%"></i></div>
-    <div class="hint">Abonnement de base <b style="color:var(--t2)">Lodyo Pro — 19 €/mois</b> · <b style="color:var(--fg-success)">1er partenaire offert</b>, puis <b style="color:var(--t2)">+${ADDON} €/mois</b> par partenaire supplémentaire.</div>
+    <div class="hint">Abonnement de base <b style="color:var(--t2)">Propryo Pro — 19 €/mois</b> · <b style="color:var(--fg-success)">1er partenaire offert</b>, puis <b style="color:var(--t2)">+${ADDON} €/mois</b> par partenaire supplémentaire.</div>
   </div>`;
 }
 
@@ -542,7 +542,7 @@ function inviteModalHTML(){
   const willBeFree = editing ? (PARTNERS[0] && PARTNERS[0].id===editing.id) : (nbExisting===0);
   const billNote = willBeFree
     ? `<div class="bss-info" style="margin-top:14px;background:var(--bg-success);border-color:rgba(22,163,74,.2);color:var(--fg-success)">
-        💳 <b style="color:var(--fg-success)">1er partenaire offert</b> dans votre abonnement Lodyo Pro. Partenaires suivants : <b style="color:var(--fg-success)">+${ADDON} €/mois</b> chacun.</div>`
+        💳 <b style="color:var(--fg-success)">1er partenaire offert</b> dans votre abonnement Propryo Pro. Partenaires suivants : <b style="color:var(--fg-success)">+${ADDON} €/mois</b> chacun.</div>`
     : `<div class="bss-info" style="margin-top:14px">
         💳 <b>1er partenaire offert</b> · ce partenaire supplémentaire : <b style="color:var(--acc)">+${ADDON} €/mois</b>, facturé à la prochaine échéance.</div>`;
 
@@ -697,7 +697,7 @@ function sceneBilling(){
       <div class="flex-b">
         <div>
           <div class="ct" style="margin:0 0 4px">Formule actuelle</div>
-          <div style="font-family:'Manrope';font-weight:800;font-size:20px;color:var(--t1)">Lodyo Pro</div>
+          <div style="font-family:'Manrope';font-weight:800;font-size:20px;color:var(--t1)">Propryo Pro</div>
           <div class="sm mu">Biens illimités · multi-SCI · signature électronique</div>
         </div>
         <div style="text-align:right">
@@ -729,7 +729,7 @@ function sceneBilling(){
         ${(()=>{
           const extra = Math.max(0, PARTNERS.length-1);
           const total = 19 + extra*ADDON;
-          let rows = `<div class="bill-row sm mu"><span>Lodyo Pro</span><span>19 €</span></div>
+          let rows = `<div class="bill-row sm mu"><span>Propryo Pro</span><span>19 €</span></div>
             <div class="bill-row sm mu" style="margin-top:4px"><span>${PARTNERS[0]?PARTNERS[0].name:'Partenaire 1'} (1er partenaire)</span><span style="color:var(--fg-success);font-weight:700">offert</span></div>`;
           PARTNERS.slice(1).forEach(p=>{ rows += `<div class="bill-row sm mu" style="margin-top:4px"><span>${p.name}</span><span>+${ADDON} €</span></div>`; });
           return `<div class="bill-row">

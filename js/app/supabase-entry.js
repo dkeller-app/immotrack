@@ -449,8 +449,8 @@ function renderLoading(overlay, user) {
 }
 
 function brand() {
-  return `<div class="imsb-brand"><div class="imsb-logo">🏠</div><div class="imsb-name">Lodyo</div></div>
-    <div class="imsb-tag">Lodyo</div>`
+  return `<div class="imsb-brand"><div class="imsb-logo">🏠</div><div class="imsb-name">Propryo</div></div>
+    <div class="imsb-tag">Propryo</div>`
 }
 
 // Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud + indicateur de sync en
