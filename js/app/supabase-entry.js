@@ -220,6 +220,11 @@ async function boot() {
     revokeMember: _revokeMember
   }
 
+  // Lien d'INVITATION (?invite=<token>) : aperçu + acceptation (connexion OU création de compte) AVANT
+  // le login normal. acceptInviteFlow enchaîne ensuite sur l'app (la RLS scope l'invité à ses SCIs).
+  const _inviteTok = (new URLSearchParams(location.search)).get('invite')
+  if (_inviteTok) return acceptInviteFlow(api, client, overlay, _inviteTok)
+
   // déjà connecté (session persistée) → enchaîner direct
   const user = await api.currentUser()
   if (user) return onLoggedIn(api, overlay, user)
@@ -243,6 +248,89 @@ function wireLoginForm(api, overlay, prefillEmail) {
     showError(overlay, 'Le « mot de passe oublié » nécessite un email (SMTP) à configurer — bientôt. Pour l\'instant, le mot de passe se définit côté dashboard.')
   }
   if (prefillEmail) overlay.querySelector('#imsb-email').value = prefillEmail
+}
+
+// ── PARCOURS D'ACCEPTATION D'UNE INVITATION (?invite=<token>) ─────────────────────────────────
+// Aperçu (invitation_preview) → connexion / création de compte → accept_invitation → on enchaîne sur
+// l'app SANS recharger (garde la session en mémoire) ; la RLS scope l'invité à ses SCIs octroyées.
+function _inviteErr(m) {
+  if (/ALREADY_FULL_MEMBER/.test(m)) return 'Tu es déjà membre à part entière de cet espace.'
+  if (/ALREADY_USED/.test(m)) return 'Cette invitation a déjà été utilisée.'
+  if (/REVOKED/.test(m)) return 'Cette invitation a été annulée.'
+  if (/EXPIRED/.test(m)) return 'Cette invitation a expiré.'
+  if (/NOT_FOUND/.test(m)) return 'Invitation introuvable.'
+  return m || 'Impossible de rejoindre ce partage.'
+}
+function renderInviteError(overlay, msg) {
+  const left = overlay.querySelector('#imsb-left'); if (!left) return
+  left.innerHTML = `${brand()}<div class="imsb-mid">
+    <h2 class="imsb-h2">Invitation</h2>
+    <div class="imsb-err" style="display:block">${escapeHtml(msg)}</div>
+    <a class="imsb-btn imsb-ghost" href="${escapeHtml(location.origin + location.pathname)}" style="text-decoration:none;margin-top:10px">Aller à l'application</a></div>`
+}
+async function acceptInviteFlow(api, client, overlay, token) {
+  let preview = null
+  try { const r = await client.rpc('invitation_preview', { p_token: token }); preview = r && r.data } catch (e) {}
+  if (!preview) return renderInviteError(overlay, 'Cette invitation est introuvable. Demande un nouveau lien.')
+  if (preview.status === 'revoked') return renderInviteError(overlay, 'Cette invitation a été annulée.')
+  if (preview.expired) return renderInviteError(overlay, 'Cette invitation a expiré. Demande un nouveau lien.')
+
+  const cleanUrl = location.origin + location.pathname
+  const espace = escapeHtml(preview.espace_nom || 'un espace')
+  const perim = (preview.grants || []).map(g =>
+    `${escapeHtml(g.entite_nom || 'SCI')} <b>(${g.mode === 'ecriture' ? 'écriture' : 'lecture'})</b>`).join(' · ') || 'des biens partagés'
+
+  // accepte puis enchaîne SANS recharger (garde la session ; URL nettoyée du ?invite)
+  const accept = async () => {
+    const { error } = await client.rpc('accept_invitation', { p_token: token })
+    if (error) { showError(overlay, _inviteErr(error.message)); return false }
+    try { history.replaceState(null, '', cleanUrl) } catch (e) {}
+    const u = await api.currentUser()
+    onLoggedIn(api, overlay, u)
+    return true
+  }
+
+  const user = await api.currentUser()
+  const left = overlay.querySelector('#imsb-left'); if (!left) return
+  if (user) {
+    left.innerHTML = `${brand()}<div class="imsb-mid">
+      <h2 class="imsb-h2">Rejoindre un partage</h2>
+      <p class="imsb-lead">On te donne accès à : ${perim}<br>dans « ${espace} ».</p>
+      <div class="imsb-err" id="imsb-error" style="display:none"></div>
+      <button class="imsb-btn imsb-primary" id="imsb-join" type="button">Rejoindre en tant que ${escapeHtml(user.email)}</button>
+      <a class="imsb-btn imsb-ghost" id="imsb-join-other" href="#" style="text-decoration:none;margin-top:6px">Utiliser un autre compte</a></div>`
+    left.querySelector('#imsb-join').onclick = async (ev) => { ev.target.disabled = true; if (!(await accept())) ev.target.disabled = false }
+    left.querySelector('#imsb-join-other').onclick = async (ev) => { ev.preventDefault(); try { await api.logout() } catch (e) {} acceptInviteFlow(api, client, overlay, token) }
+    return
+  }
+  left.innerHTML = `${brand()}<form id="imsb-iform" class="imsb-mid" autocomplete="on">
+    <h2 class="imsb-h2">Rejoindre un partage</h2>
+    <p class="imsb-lead">On te donne accès à : ${perim}<br>dans « ${espace} ». Crée ton compte (ou connecte-toi) pour rejoindre.</p>
+    <div class="imsb-err" id="imsb-error" style="display:none"></div>
+    <label class="imsb-flabel">Email</label>
+    <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
+    <label class="imsb-flabel">Mot de passe</label>
+    <input class="imsb-input" id="imsb-pass" type="password" placeholder="6 caractères minimum" required autocomplete="current-password" minlength="6">
+    <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Créer mon compte et rejoindre</button>
+    <p class="imsb-note" style="margin-top:12px">Déjà un compte ? Saisis tes identifiants : on te connecte automatiquement.</p></form>`
+  left.querySelector('#imsb-iform').onsubmit = async (e) => {
+    e.preventDefault()
+    const email = left.querySelector('#imsb-email').value.trim()
+    const pass = left.querySelector('#imsb-pass').value
+    const btn = left.querySelector('#imsb-submit')
+    btn.disabled = true; showError(overlay, '')
+    const fail = (msg) => { btn.disabled = false; showError(overlay, msg) }
+    let r = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+    if (!r.ok && /already.*(regist|exist)|user already/i.test(r.error || '')) {
+      r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      if (!r.ok) return fail('Ce compte existe déjà, mais le mot de passe ne correspond pas.')
+    } else if (!r.ok) {
+      return fail(traduireErreur(r.error))
+    } else if (r.ok && !r.session) {
+      return fail('Compte créé : il reste à confirmer ton email (l\'envoi d\'emails n\'est pas encore activé — préviens la personne qui t\'a invité).')
+    }
+    if (!(await accept())) btn.disabled = false
+  }
 }
 
 async function onLoggedIn(api, overlay, user) {

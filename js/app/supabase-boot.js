@@ -17,6 +17,14 @@ export function createBoot(client) {
     if (error) return { ok: false, error: error.message }
     return { ok: true, user: data.user }
   }
+  // Création de compte (invité qui rejoint un partage). Confirmation email DÉSACTIVÉE côté Supabase →
+  // data.session présente = connecté direct. ACTIVE (sans SMTP) → session null = bloqué tant que l'email
+  // n'est pas confirmé (le caller affiche un message). « already registered » → le caller bascule en login.
+  async function signUpEmail(email, password) {
+    const { data, error } = await client.auth.signUp({ email, password })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true, user: data.user, session: data.session }
+  }
   async function loginGoogle(redirectTo) {
     const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: redirectTo ? { redirectTo } : undefined })
     return error ? { ok: false, error: error.message } : { ok: true }   // déclenche une redirection
@@ -75,7 +83,7 @@ export function createBoot(client) {
   async function flush(db) { return _sync ? _sync.flush(db) : null }
 
   return {
-    loginEmail, loginGoogle, sendPasswordReset, logout, currentUser, onAuthChange,
+    loginEmail, signUpEmail, loginGoogle, sendPasswordReset, logout, currentUser, onAuthChange,
     resolveEspace, wireStore, hydrate, seed, markDirty, flush,
     get store() { return _store }, get sync() { return _sync }, get ctx() { return _ctx },
   }
