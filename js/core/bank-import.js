@@ -322,6 +322,8 @@ export function _bankMatchHeuristic(line, ctx = {}) {
   // aucune ligne 2044 (nonMappes) = sous-déclaration silencieuse. Corrigé ici.
   const KEYWORDS = [
     { rx: /\b(assurance|axa|maaf|matmut|aviva|allianz|maif|groupama|gli)\b/i, cat: "Primes d'assurance PNO", confidence: 0.85, src: 'Mot-clé assurance' },
+    // Frais forfaitisés (forfait 222, hors 2044) : frais bancaires de tenue de compte, péage/autoroute. (agios d'emprunt → 250, laissé à l'utilisateur)
+    { rx: /\b(frais bancaires|tenue de compte|cotisation carte|frais de compte|commission d.intervention|abonnement compte|peage|autoroute|aprr|sanef)\b/i, cat: 'Frais de gestion forfaitisés (forfait 222)', confidence: 0.72, src: 'Mot-clé frais forfaitisés (222)' },
     { rx: /\b(edf|engie|eni|enedis|electric|electricite|gaz de france|gdf|veolia|saur|suez|sde|smede|eaux|chauffage)\b/i, cat: 'Charges récupérables (eau, énergie…)', confidence: 0.80, src: 'Mot-clé énergie/eau' },
     { rx: /\b(syndic|copropriete|copro|charges copro|appel de fonds)\b/i, cat: 'Provisions pour charges de copropriété', confidence: 0.90, src: 'Mot-clé syndic' },
     { rx: /\b(travaux|renovation|reno|peinture|plombier|electricien|chauffagiste|menuisier|charpentier|carreleur|macon|serrurier)\b/i, cat: "Travaux de réparation et d'entretien", confidence: 0.80, src: 'Mot-clé travaux' },
