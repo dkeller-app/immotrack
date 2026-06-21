@@ -56,6 +56,7 @@ const COLLECTIONS = [
   { coll: 'edl',             enumerate: db => db.edl || [],                             key: r => String(r.id), immutable: r => !!(r && r.signatures && r.signatures.locked) },
   { coll: 'mrh',             enumerate: db => db.mrh || [],                             key: r => String(r.id) },   // → table assurances
   { coll: 'agenda',          enumerate: db => db.agenda || [],                          key: r => String(r.id) },
+  { coll: 'candidats',       enumerate: db => db.candidats || [],                       key: r => String(r.id) },
 ]
 
 const OK_UPSERT = new Set(['inserted', 'updated'])

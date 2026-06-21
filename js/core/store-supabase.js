@@ -36,7 +36,7 @@ import { mapToRow } from './store-mapping.js'
 const ARRAY_TABLES = {
   entites: 'entites', logements: 'logements', baux_historique: 'baux_historique',
   mouvements: 'mouvements', quittances: 'quittances', edl: 'edl', documents: 'documents',
-  assurances: 'mrh', agenda: 'agenda',
+  assurances: 'mrh', agenda: 'agenda', candidats: 'candidats',
 }
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).

@@ -106,6 +106,11 @@ const MAPPERS = {
   agenda(o, ctx) {
     return { id: ctx.detUuid('agenda', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entite)) || null, immeuble_id: ctx.immeubleByNom.get(norm(o.immeuble)) || null, logement_id: ctx.logementByRef.get(norm(o.logement)) || null, titre: o.titre ?? null, date_evt: dateOnly(o.date), date_fin: dateOnly(o.dateFin), categorie: o.cat ?? null, couleur: o.couleur ?? null, done: !!o.done, rappels: jb(o.rappels ?? null), recurrence: jb(o.recurrence ?? null), notes: o.notes ?? null, ...base(o, ctx) }
   },
+  // candidat (candidature locataire). Scope par-SCI : entite_id (candidat.entity) sinon logement_id
+  // (candidat.logRef) ; sinon NULL → membres pleins seulement (RLS fail-closed). Garant dans legacy_raw.
+  candidats(o, ctx) {
+    return { id: ctx.detUuid('candidat', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, logement_id: ctx.logementByRef.get(norm(o.logRef)) || null, ...base(o, ctx) }
+  },
 }
 
 export function mapToRow(collection, rec, ctx) {
