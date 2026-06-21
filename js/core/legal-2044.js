@@ -171,7 +171,7 @@ export function _format2044Recap(result, opts = {}) {
   lines.push('  Total recettes brutes                            : ' + fmt(result.totalRecettes).padStart(15));
   lines.push('');
   lines.push('▶ CHARGES DÉDUCTIBLES (à reporter en partie II)');
-  if (result.lignes['221'] != null) lines.push('  Ligne 221 (Frais de gestion / honoraires)        : ' + fmt(result.lignes['221']).padStart(15));
+  if (result.lignes['221'] != null) lines.push('  Ligne 221 (Frais de gestion / hon. / compta)     : ' + fmt(result.lignes['221']).padStart(15));
   if (result.lignes['222'] != null) lines.push('  Ligne 222 (Forfait gestion 20 €/local)           : ' + fmt(result.lignes['222']).padStart(15));
   if (result.lignes['223'] != null) lines.push('  Ligne 223 (Primes d\'assurance)                   : ' + fmt(result.lignes['223']).padStart(15));
   if (result.lignes['224'] != null) lines.push('  Ligne 224 (Travaux de réparation / entretien)    : ' + fmt(result.lignes['224']).padStart(15));

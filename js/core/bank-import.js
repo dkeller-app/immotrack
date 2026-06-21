@@ -329,13 +329,13 @@ export function _bankMatchHeuristic(line, ctx = {}) {
     { rx: /\b(syndic|copropriete|copro|charges copro|appel de fonds)\b/i, cat: 'Charges de copropriété', confidence: 0.90, src: 'Mot-clé syndic' },
     { rx: /\b(travaux|renovation|reno|peinture|plombier|electricien|chauffagiste|menuisier|charpentier|carreleur|macon|serrurier)\b/i, cat: 'Travaux (entretien, réparation, amélioration)', confidence: 0.80, src: 'Mot-clé travaux' },
     { rx: /\b(taxe fonciere|tf )/i, cat: 'Taxe foncière (et taxes annexes)', confidence: 0.92, src: 'Mot-clé TF' },
-    { rx: /\b(comptable|expert.comptable|comptabilite|cabinet comptable)\b/i, cat: 'Comptabilité / expert-comptable', confidence: 0.78, src: 'Mot-clé comptable' },
+    { rx: /\b(comptable|expert.comptable|comptabilite|cabinet comptable)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.78, src: 'Mot-clé comptable' },
     // Échéance de crédit importée → capital remboursé (trésorerie). Les intérêts (ligne 250) se saisissent
     // à part depuis l'attestation annuelle de banque (décision design 2026-06-21), pas dérivés de l'échéance.
     { rx: /\b(emprunt|pret|credit immo|credit immobilier|amortissement|echeance pret)\b/i, cat: 'Prêt — Capital remboursé', confidence: 0.72, src: 'Mot-clé emprunt (capital ; intérêts via attestation)' },
     { rx: /\b(notaire|frais notaire)\b/i, cat: 'Acquisition / cession de bien', confidence: 0.70, src: 'Mot-clé notaire' },
-    { rx: /\b(honoraires|gerance|gestion locative|agence immo)\b/i, cat: 'Frais de gestion / honoraires', confidence: 0.72, src: 'Mot-clé gestion' },
-    { rx: /\b(dpe|diagnostic|geometre|huissier|avocat|expertise)\b/i, cat: 'Frais de gestion / honoraires', confidence: 0.7, src: 'Mot-clé procédure/diagnostic' }
+    { rx: /\b(honoraires|gerance|gestion locative|agence immo)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.72, src: 'Mot-clé gestion' },
+    { rx: /\b(dpe|diagnostic|geometre|huissier|avocat|expertise)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.7, src: 'Mot-clé procédure/diagnostic' }
   ];
   for (const k of KEYWORDS) {
     if (k.rx.test(lib)) {
