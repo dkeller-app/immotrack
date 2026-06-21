@@ -100,7 +100,7 @@
 <div class="bar">🎨 MOCKUP À VALIDER — <b>Picker catégorie</b> : un seul composant cherchable + groupé, qui remplace les ~7 menus déroulants à plat. Rien n'est encore codé dans l'app.</div>
 <div class="wrap">
   <h1>🔍 Choisir une nature d'opération</h1>
-  <div class="sub">Le même bloc partout où on saisit une catégorie (formulaire, scinder, règles d'import, assistant d'import, filtre). Groupé par destination fiscale, avec la ligne 2044, cherchable, et ta zone <b>« Mes catégories »</b> pour créer librement.</div>
+  <div class="sub">Le même bloc partout où on saisit une catégorie (formulaire, scinder, règles d'import, assistant d'import, filtre). Groupé par <b>nature</b>, cherchable, et ta zone <b>« Mes catégories »</b> pour créer librement.</div>
 
   <div class="controls">
     <div class="cg">
@@ -109,20 +109,6 @@
         <button data-f="pc" class="on">💻 PC</button>
         <button data-f="tab">📱 Tablette</button>
         <button data-f="tel">📲 Téléphone</button>
-      </div>
-    </div>
-    <div class="cg">
-      <span class="ct">Disposition liste</span>
-      <div class="seg" id="var">
-        <button data-v="flat" class="on">Groupes à plat</button>
-        <button data-v="acc">Accordéon</button>
-      </div>
-    </div>
-    <div class="cg">
-      <span class="ct">Annotation ligne 2044</span>
-      <div class="seg" id="ann">
-        <button data-a="always" class="on">Toujours visible</button>
-        <button data-a="hover">Au survol</button>
       </div>
     </div>
   </div>
@@ -170,9 +156,9 @@ const $=id=>document.getElementById(id);
 // ---- vraie liste STD_CATEGORIES (21 saisissables) + customs ; auto 225/230 exclues ----
 const GRP=[
   {k:'rec',  l:'Recettes',                t:'imposable'},
-  {k:'chg',  l:'Charges déductibles',     t:'déductible 2044'},
+  {k:'chg',  l:'Charges déductibles',     t:'déductible'},
   {k:'pret', l:'Prêt',                    t:''},
-  {k:'recup',l:'Charges récupérables',    t:'hors 2044'},
+  {k:'recup',l:'Charges récupérables',    t:'récupéré sur le locataire'},
   {k:'hrs',  l:'Hors résultat foncier',   t:'tracé, non déclaré'},
   {k:'cust', l:'Mes catégories',          t:'libres'},
 ];
@@ -200,14 +186,14 @@ let CATS=[
   {n:'Taxe logements vacants',                 l:'',       g:'cust',i:'🏷️', custom:1},
 ];
 const DESTMAP={
-  rec:  {c:'tax',  i:'🧾', t:l=>`2044 · ligne ${l} — Recette imposable`,         d:'Imposée à l\'encaissement.'},
-  chg:  {c:'chg',  i:'🧾', t:l=>`2044 · ligne ${l} — Charge déductible`,          d:'Déduite de tes revenus fonciers.'},
-  pret: {c:'none', i:'🏦', t:()=>'Prêt — hors 2044',                              d:'L\'échéance entière se range ici. Les <b>intérêts (ligne 250)</b>, c\'est <b>toi</b> qui les saisis à part depuis l\'<b>attestation annuelle de ta banque</b> — pas dérivés de ce mouvement.'},
-  recup:{c:'recup',i:'👥', t:()=>'Charges récupérables',                          d:'Réparties sur les locataires (compteur). Hors 2044.'},
-  hrs:  {c:'none', i:'📋', t:()=>'Hors résultat foncier',                         d:'Tracé dans tes comptes, mais non déclaré au 2044.'},
-  cust: {c:'none', i:'🏷️', t:()=>'Catégorie personnelle',                         d:'À toi de la rattacher à une ligne 2044 (ou la laisser hors champ).'},
+  rec:  {c:'tax',  i:'🧾', t:'Recette imposable',        d:'Imposée à l\'encaissement.'},
+  chg:  {c:'chg',  i:'🧾', t:'Charge déductible',        d:'Déduite de tes revenus fonciers.'},
+  pret: {c:'none', i:'🏦', t:'Prêt',                     d:'L\'échéance entière se range ici. Les <b>intérêts</b>, c\'est <b>toi</b> qui les saisis à part depuis l\'<b>attestation annuelle de ta banque</b> — pas dérivés de ce mouvement.'},
+  recup:{c:'recup',i:'👥', t:'Charges récupérables',     d:'Réparties sur les locataires via le compteur collectif.'},
+  hrs:  {c:'none', i:'📋', t:'Hors résultat foncier',    d:'Tracé dans tes comptes, mais hors déclaration foncière.'},
+  cust: {c:'none', i:'🏷️', t:'Catégorie personnelle',    d:'À toi de la rattacher à une nature fiscale (ou la laisser hors champ).'},
 };
-let sel=null, fmt='pc', variant='flat', ann='always', adding=false, accOpen={rec:1,chg:1,pret:1,recup:1,hrs:1,cust:1};
+let sel=null, fmt='pc', adding=false;
 
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -219,18 +205,11 @@ function fill(){
   GRP.forEach(gr=>{
     const items=CATS.filter(c=>c.g===gr.k && c.n.toLowerCase().includes(q));
     if(!items.length) return;
-    const collapsed = variant==='acc' && !accOpen[gr.k] && !q;
-    h+=`<div class="grp"${variant==='acc'?` style="cursor:pointer" onclick="toggleAcc('${gr.k}')"`:''}>
-        <span>${variant==='acc'?(collapsed?'▸ ':'▾ '):''}${gr.l}</span>
-        <span class="gl">${gr.t||''}</span></div>`;
-    if(collapsed) return;
+    h+=`<div class="grp"><span>${gr.l}</span><span class="gl">${gr.t||''}</span></div>`;
     items.forEach(c=>{
       const isSel=sel&&sel.n===c.n;
-      let ln='';
-      if(c.l) ln=`<span class="ln${ann==='hover'?' hov':''}">→ ligne ${c.l}</span>`;
-      else if(c.hors) ln=`<span class="ln hrs${ann==='hover'?' hov':''}">hors 2044</span>`;
       h+=`<button class="opt${isSel?' sel':''}" onclick="choose('${esc(c.n).replace(/'/g,"\\'")}')">
-            <span class="ic">${c.i}</span><span class="nm">${esc(c.n)}</span>${ln}
+            <span class="ic">${c.i}</span><span class="nm">${esc(c.n)}</span>
             ${isSel?'<span class="chk">✓</span>':''}
           </button>`;
     });
@@ -246,7 +225,6 @@ function fill(){
   $('list').innerHTML=h;
 }
 let quickName='';
-function toggleAcc(k){ accOpen[k]=!accOpen[k]; fill(); }
 function choose(n){ sel=CATS.find(c=>c.n===n)||{n,g:'cust'}; closeP(); render(); }
 function createCat(){
   const v=(($('newcat')&&$('newcat').value)||quickName||'').trim(); quickName='';
@@ -258,25 +236,17 @@ function render(){
   const t=$('trigger'), lab=$('trigLabel');
   if(!sel){ t.classList.add('empty'); lab.textContent='🔍 Choisir une catégorie…'; $('dest').innerHTML=''; return; }
   t.classList.remove('empty');
-  const ln = sel.l?` <span class="ln">· ligne ${sel.l}</span>` : (sel.hors?` <span class="ln">· hors 2044</span>`:'');
-  lab.innerHTML=`<span class="ic">${sel.i||'🏷️'}</span>${esc(sel.n)}${ln}`;
+  lab.innerHTML=`<span class="ic">${sel.i||'🏷️'}</span>${esc(sel.n)}`;
   const dm=DESTMAP[sel.g]||DESTMAP.cust;
   $('dest').innerHTML=`<div class="lbl" style="margin-top:16px">Destination fiscale</div>
-    <div class="dest ${dm.c}"><span class="di">${dm.i}</span><div><div class="dt">${dm.t(sel.l)}</div><div class="dd">${dm.d}</div></div></div>`;
+    <div class="dest ${dm.c}"><span class="di">${dm.i}</span><div><div class="dt">${dm.t}</div><div class="dd">${dm.d}</div></div></div>`;
 }
 // controls
 $('fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('fmt').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');fmt=b.dataset.f;
   $('device').className='device '+fmt;
   if($('ov').classList.contains('show')) $('ov').className='ov '+fmt+' show';   // re-style le picker si déjà ouvert
   $('devlbl').textContent='Formulaire mouvement';};
-$('var').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('var').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');variant=b.dataset.v;fill();};
-$('ann').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('ann').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');ann=b.dataset.a;document.body.classList.toggle('ann-hover',ann==='hover');fill();};
 render();
 </script>
-<style>
-  /* annotation au survol seulement */
-  body.ann-hover .opt .ln.hov{opacity:0;transition:.12s}
-  body.ann-hover .opt:hover .ln.hov{opacity:1}
-</style>
 </body>
 </html>
