@@ -93,6 +93,9 @@ async function seedSci(client, espaceId, sciNom) {
   ids.agendaImm = await ins('agenda', {
     immeuble_id: ids.immeuble, titre: 'AG copro', date_evt: '2026-04-01',
   })
+  // candidat « via logement » (logement_id) + candidat « via SCI » (entite_id direct) — 2 voies de scope
+  ids.candLog = await ins('candidats', { logement_id: ids.logement, legacy_raw: { nom: 'CandLog', logRef: `F-${tag}` } })
+  ids.candSci = await ins('candidats', { entite_id: ids.entite, legacy_raw: { nom: 'CandSci', entity: sciNom } })
   return ids
 }
 
@@ -173,6 +176,11 @@ describe('P1 — Alice (owner PLEIN) voit TOUT (non-régression P0)', () => {
     const { data } = await clientA.from('agenda').select('id').in('id', ids)
     expect(new Set(data.map(r => r.id))).toEqual(new Set(ids))
   })
+  it('Alice voit les candidats (via logement + via SCI) des 2 SCIs', async () => {
+    const ids = [A1.candLog, A1.candSci, A2.candLog, A2.candSci]
+    const { data } = await clientA.from('candidats').select('id').in('id', ids)
+    expect(new Set(data.map(r => r.id))).toEqual(new Set(ids))
+  })
 })
 
 describe('P1 — Bob (SCOPÉ lecture SCI-A) VOIT SCI-A', () => {
@@ -198,6 +206,11 @@ describe('P1 — Bob (SCOPÉ lecture SCI-A) VOIT SCI-A', () => {
     const { data } = await clientB.from('agenda').select('id').in('id', ids)
     expect(new Set(data.map(r => r.id))).toEqual(new Set(ids))
   })
+  it('Bob voit les candidats de SCI-A (via logement ET via entite_id)', async () => {
+    const ids = [A1.candLog, A1.candSci]
+    const { data } = await clientB.from('candidats').select('id').in('id', ids)
+    expect(new Set(data.map(r => r.id))).toEqual(new Set(ids))
+  })
 })
 
 describe('P1 — Bob (SCOPÉ SCI-A) ne voit RIEN de SCI-B (étanchéité SELECT)', () => {
@@ -221,6 +234,11 @@ describe('P1 — Bob (SCOPÉ SCI-A) ne voit RIEN de SCI-B (étanchéité SELECT)
   it('Bob ne voit AUCUN agenda de SCI-B', async () => {
     const ids = [A2.agendaLog, A2.agendaImm]
     const { data } = await clientB.from('agenda').select('id').in('id', ids)
+    expect(data).toEqual([])
+  })
+  it('Bob ne voit AUCUN candidat de SCI-B (fuite #4 fermée)', async () => {
+    const ids = [A2.candLog, A2.candSci]
+    const { data } = await clientB.from('candidats').select('id').in('id', ids)
     expect(data).toEqual([])
   })
   it('un SELECT global table (sans filtre id) ne ramène AUCUNE ligne SCI-B pour Bob', async () => {
