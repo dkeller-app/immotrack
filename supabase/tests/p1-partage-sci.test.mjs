@@ -59,6 +59,12 @@ async function seedSci(client, espaceId, sciNom) {
     date_mouvement: '2026-01-20', libelle: 'Compta SCI', entite_id: ids.entite,
     categorie: 'frais', debit: 50,
   })
+  // mouvement « sur immeuble » → immeuble_id SEUL (entite_id + logement_id NULL) : résolution via
+  // immeuble (correctif #3 — sinon fail-closed, invisible du scopé)
+  ids.mvtImm = await ins('mouvements', {
+    date_mouvement: '2026-01-25', libelle: 'Travaux immeuble', immeuble_id: ids.immeuble,
+    categorie: 'travaux', debit: 200,
+  })
   // document rattaché au mouvement-logement (voie polymorphe parent_type='mouvement' → logement)
   ids.docMvt = await ins('documents', {
     name: 'facture.pdf', mime: 'application/pdf', size: 222,
@@ -161,8 +167,8 @@ describe('P1 — Alice (owner PLEIN) voit TOUT (non-régression P0)', () => {
       expect(new Set(data.map(r => r.id))).toEqual(new Set(ids))
     })
   }
-  it('Alice voit les 2 mouvements (logement + SCI) de chaque SCI', async () => {
-    const ids = [A1.mvtLog, A1.mvtSci, A2.mvtLog, A2.mvtSci]
+  it('Alice voit les mouvements (logement + SCI + immeuble) de chaque SCI', async () => {
+    const ids = [A1.mvtLog, A1.mvtSci, A1.mvtImm, A2.mvtLog, A2.mvtSci, A2.mvtImm]
     const { data } = await clientA.from('mouvements').select('id').in('id', ids)
     expect(new Set(data.map(r => r.id))).toEqual(new Set(ids))
   })
@@ -191,8 +197,8 @@ describe('P1 — Bob (SCOPÉ lecture SCI-A) VOIT SCI-A', () => {
       expect(data.map(r => r.id)).toEqual([A1[key]])
     })
   }
-  it('Bob voit les 2 mouvements de SCI-A (résolution via logement_id ET via entite_id)', async () => {
-    const ids = [A1.mvtLog, A1.mvtSci]
+  it('Bob voit les mouvements de SCI-A (via logement_id, entite_id ET immeuble_id — correctif #3)', async () => {
+    const ids = [A1.mvtLog, A1.mvtSci, A1.mvtImm]
     const { data } = await clientB.from('mouvements').select('id').in('id', ids)
     expect(new Set(data.map(r => r.id))).toEqual(new Set(ids))
   })
@@ -221,8 +227,8 @@ describe('P1 — Bob (SCOPÉ SCI-A) ne voit RIEN de SCI-B (étanchéité SELECT)
       expect(data).toEqual([])
     })
   }
-  it('Bob ne voit AUCUN mouvement de SCI-B', async () => {
-    const ids = [A2.mvtLog, A2.mvtSci]
+  it('Bob ne voit AUCUN mouvement de SCI-B (y compris immeuble-seul)', async () => {
+    const ids = [A2.mvtLog, A2.mvtSci, A2.mvtImm]
     const { data } = await clientB.from('mouvements').select('id').in('id', ids)
     expect(data).toEqual([])
   })
