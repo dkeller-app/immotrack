@@ -11,7 +11,9 @@ Permettre d'envoyer le bail en signature **à distance au(x) bailleur(s)/co-gér
 2. **Défaut bailleur = présentiel** (signe in-app), distance en **opt-in** via toggle. Tous bailleurs présentiel = comportement actuel inchangé.
 3. **Disposition modal = variante B** (2 sections : 🏛️ Côté bailleur / 🔑 Côté locataires).
 4. **Ordre de signature distant** : bailleurs d'abord, puis locataires, chacun à son tour (chaînage séquentiel existant).
-5. Mockup validé : `mockup-bailleur-distance.html` (variante B).
+5. **Exclusion d'un co-gérant** : chaque co-gérant a un **tri-état** « ne signe pas / présentiel / distance ». Un gérant « ne signe pas » n'a **aucune case signature ni paraphe** sur le PDF (ex. SCI où un seul gérant suffit à engager). Les **locataires sont toujours signataires** (parties au contrat — pas d'exclusion).
+6. **Pré-condition mixte** : un co-gérant **présentiel** doit avoir signé in-app avant l'envoi (sinon sa case partirait vide sans personne pour la remplir). L'envoi est gardé tant qu'un présentiel n'a pas signé.
+7. Mockup validé : `mockup-bailleur-distance.html` (variante B, tri-état co-gérant).
 
 ## Fait capital : le relais n'a AUCUN changement à subir
 Le relais (Composant 1, Cloudflare Worker, branche `origin/relay-bail-sign`, déployé) est **déjà role-aware** :
@@ -29,30 +31,36 @@ Le module pur app `__tests__/helpers/bail-sign-sigid.js` contient déjà `relayC
 - **Preuve / certificat / complétion** : `_completeRemoteSign` (`:6842`) mappe par `ordre` (1-based), `role` **stocké tel quel**, jamais supposé locataire en aval (`_buildBailCertificatePdf` imprime `p.role`). **Aucun blocage.**
 
 ## Modèle de signature retenu
-**présentiel = signe in-app (PNG cuit) · distance = case vide, remplie par le relais.** Indépendant par signataire.
+**Tri-état par co-gérant : `ne signe pas` · `présentiel` (signe in-app, PNG cuit) · `distance` (case vide, remplie par le relais).** Locataires : bi-état `présentiel`/`distance` (jamais exclus). Indépendant par signataire.
+- `ne signe pas` (bailleur seulement) : **aucune** case signature ni paraphe générée pour ce gérant (bloc §18 + paraphe footer omis).
 - Cas commun (tous bailleurs présentiel + locataires distance) : **inchangé**. Le PDF cuit les PNG bailleur présentiels, laisse les locataires distants vides + ancrés. Verrou `mode==='bailleur-seul'` conservé pour ce chemin.
 - Cas nouveau (≥1 bailleur distance) : la case de ce bailleur part **vide + ancrée `bailleur-N`** ; il signe à distance (avant les locataires). Les bailleurs présentiel restants gardent leur PNG cuit.
 - **Pré-condition** : un bailleur présentiel doit avoir signé in-app (PNG existant) avant l'envoi. S'il en reste un non signé, l'envoi est gardé (CTA « Signer le bail » d'abord). Un bailleur distance **n'exige plus** de signature in-app préalable.
+- **Garde-fou légal** : au moins un signataire bailleur (présentiel ou distance) doit rester ; on n'autorise pas « tous les gérants exclus » (bail non engagé côté bailleur).
 
 ## Les 5 foyers à coder (tous index.html + 1 module pur)
 
-### F1 — Collecte des signataires distants (inclure bailleurs)
+### F1 — Collecte des signataires distants (inclure bailleurs, exclure les non-signataires)
 - **Fichier** : `index.html` `_collectRemoteSigners` (`:6918`) + nouveau helper `_collectRemoteBailleurs(bail)`.
 - Construire la **liste combinée ordonnée** `[bailleurs distants…, locataires distants…]`. Pour chaque entrée, `role` = `'bailleur'`/`'locataire'`, `sigId` calculé par la **logique side-aware** (réutiliser `relayComputeSigId` / répliquer son rang par côté), `ordre` = position 1-based dans la liste combinée.
+- Un co-gérant **`ne signe pas`** est totalement exclu (ni distant, ni présentiel ; aucun rang side consommé). État persisté par gérant (ex. `bail.signataires[i].sign` ∈ `'no'|'pres'|'dist'`, ou flags `presentiel` + `exclu`).
 - Source bailleurs : les co-gérants/signataires bailleur (mêmes `sigNames`/entité que la phase 1 in-app, `index.html:20094`). Email bailleur : champ à exposer dans le modal (pré-rempli depuis l'entité si dispo, sinon vide).
 
 ### F2 — Modal d'envoi variante B
 - **Fichier** : `index.html` `openRemoteSignModal` (`:6940`) + CSS `.bsd-section-head` (déjà dans le mockup).
-- 2 sections : **🏛️ Côté bailleur** (rows par co-gérant, toggle présentiel↔distance, **défaut présentiel/coché**, champ email visible si distance) puis **🔑 Côté locataires** (inchangé, défaut distance).
-- Label de rôle dynamique (retirer « Locataire · » en dur, `:6992`). Pastille mode présentiel/distance. Bannière violette « un bailleur signe à distance → PDF sans sa signature » quand ≥1 bailleur distant.
-- Message d'erreur `:7131` : « Au moins un signataire doit signer à distance » (au lieu de « locataire »).
+- 2 sections : **🏛️ Côté bailleur** (rows par co-gérant : case **« signataire »** [défaut coché] + toggle présentiel↔distance [défaut présentiel], champ email visible si distance) puis **🔑 Côté locataires** (inchangé, défaut distance, pas d'exclusion).
+- Tri-état par gérant : décocher « signataire » ⇒ `ne signe pas` (row grisée, pastille « ne signe pas », pas d'email, badge ordre « — »).
+- Label de rôle dynamique (retirer « Locataire · » en dur, `:6992`). Pastille mode présentiel/distance/ne-signe-pas. Bannière violette « un bailleur signe à distance → PDF sans sa signature » quand ≥1 bailleur distant ; bannière warn « un co-gérant ne signe pas → aucune case générée, vérifier l'engagement de la SCI » quand ≥1 exclu.
+- Message d'erreur `:7131` : « Au moins un signataire doit signer à distance » (au lieu de « locataire »). Garde : au moins un signataire bailleur non exclu.
 - **Point d'entrée** : exposer « 📨 Envoyer en signature » même sur bail **non signé in-app** dès qu'au moins un bailleur peut être mis en distance ; lever le verrou `mode==='bailleur-seul'` pour ce chemin (F4). « ✍️ Signer le bail » reste pour les bailleurs présentiel.
 
-### F3 — Génération PDF : bailleur distant = case vide + ancre
+### F3 — Génération PDF : bailleur distant = case vide + ancre · exclu = aucune case
 - **Fichier** : `index.html` `genPDFNative` (branche §18 `signature-bailleur` `:21849` + paraphes footer `:21935`).
-- Par bailleur : si **distant**, NE PAS cuire son PNG → dessiner un **placeholder vide** (réutiliser `drawLocataireSignaturePlaceholder`, généralisé/renommé `drawSignaturePlaceholder`) + `__pushAnchor({sigId:'bailleur-N', kind:'signature', …, luApprouve})`. Idem paraphe footer : si bailleur distant, placeholder + `__pushAnchor({sigId:'bailleur-N', kind:'paraphe', …})` (réutiliser le mécanisme `__REMOTE_LOC_SIGIDS` généralisé en `__REMOTE_SIGIDS`).
-- Si **présentiel**, comportement actuel (cuit le PNG). La boucle par-bailleur existe déjà.
-- Coordonnées du bloc bailleur déjà connues (`x,y,w=90,h=30`, `:21864`) → réutilisées pour l'ancre, en **mm bruts**.
+- Par bailleur, selon son état :
+  - **présentiel** → comportement actuel : cuit le PNG (§18 + paraphe). La boucle par-bailleur existe déjà.
+  - **distant** → NE PAS cuire → **placeholder vide** (réutiliser `drawLocataireSignaturePlaceholder`, généralisé/renommé `drawSignaturePlaceholder`) + `__pushAnchor({sigId:'bailleur-N', kind:'signature', …, luApprouve})`. Idem paraphe footer : placeholder + `__pushAnchor({sigId:'bailleur-N', kind:'paraphe', …})` (mécanisme `__REMOTE_LOC_SIGIDS` généralisé en `__REMOTE_SIGIDS`).
+  - **ne signe pas** → **omettre** le bloc §18 ET le paraphe footer de ce gérant (filtrer `sigNames`/la liste des signataires bailleur en amont du dessin ; aucune ancre).
+- La liste des signataires bailleur dessinés = co-gérants non exclus, dans l'ordre. Coordonnées du bloc bailleur déjà connues (`x,y,w=90,h=30`, `:21864`) → réutilisées pour l'ancre, en **mm bruts**.
 
 ### F4 — Point d'entrée / mode
 - **Fichier** : `index.html` `:6943` (verrou modal) + boutons fiche `_renderLogFichePanelBail` (`:37469`) et liste `rBaux` (`:17074`).
@@ -66,7 +74,8 @@ Le module pur app `__tests__/helpers/bail-sign-sigid.js` contient déjà `relayC
 ## Stratégie de test (TDD sur le pur)
 - **Module sigId** (`bail-sign-sigid.test.js`) : liste mixte [bailleur1, bailleur2, loc1, loc2] → `[bailleur-0, bailleur-1, loc-0, loc-1]` ; cohérence app vs `relayComputeSigId` ; présentiel exclu du rang.
 - **Manifeste** (`build-sign-manifest.test.js`) : ancres `bailleur-N` (signature + paraphe) présentes, mm bruts, `luApprouve` propagé.
-- **Collecte** : `_collectRemoteSigners` étendu — ordre bailleurs→locataires, présentiel exclu, emails.
+- **Collecte** : `_collectRemoteSigners` étendu — ordre bailleurs→locataires, présentiel + exclus retirés des distants, emails ; un gérant exclu ne consomme aucun rang side (le rang `bailleur-N` reste contigu sur les gérants restants).
+- **Exclusion** : gérant `ne signe pas` ⇒ absent de la collecte ET aucune ancre/bloc pour lui ; garde « au moins un bailleur signataire » refuse l'envoi si tous exclus.
 - **Non-régression** : cas « tous bailleurs présentiel » ⇒ manifeste/PDF byte-identique à aujourd'hui (aucune ancre bailleur).
 - Garde existante `check-inline-js` + Vitest complet verts.
 
