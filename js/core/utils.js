@@ -191,11 +191,11 @@ export function _dpeInterdictionCalendrier() {
 const STD_CATEGORIES_DEFAULT = [
   { nom: 'Loyers encaissés', ligne2044: '211', type: 'recette' },
   { nom: 'Arriérés de loyers', ligne2044: '211', type: 'recette' },
-  { nom: 'Provisions pour charges de copropriété', ligne2044: '229', type: 'charge' },
+  { nom: 'Charges de copropriété', ligne2044: '229', type: 'charge' },
   { nom: 'Charges récupérables non récupérées', ligne2044: '225', type: 'charge' },
   { nom: 'Régularisation provisions copro N-1', ligne2044: '230', type: 'charge' },
-  { nom: 'Travaux de réparation et d\'entretien', ligne2044: '224', type: 'charge' },
-  { nom: 'Primes d\'assurance PNO', ligne2044: '223', type: 'charge' }
+  { nom: 'Travaux (entretien, réparation, amélioration)', ligne2044: '224', type: 'charge' },
+  { nom: 'Primes d\'assurance (PNO, GLI)', ligne2044: '223', type: 'charge' }
 ];
 
 function _findStd(stdCats, nom) {

@@ -321,21 +321,21 @@ export function _bankMatchHeuristic(line, ctx = {}) {
   // rémunérations », « Autres » — qui n'existent PAS dans STD_CATEGORIES → ces mouvements ne mappaient
   // aucune ligne 2044 (nonMappes) = sous-déclaration silencieuse. Corrigé ici.
   const KEYWORDS = [
-    { rx: /\b(assurance|axa|maaf|matmut|aviva|allianz|maif|groupama|gli)\b/i, cat: "Primes d'assurance PNO", confidence: 0.85, src: 'Mot-clé assurance' },
-    // Frais forfaitisés (forfait 222, hors 2044) : frais bancaires de tenue de compte, péage/autoroute. (agios d'emprunt → 250, laissé à l'utilisateur)
-    { rx: /\b(frais bancaires|tenue de compte|cotisation carte|frais de compte|commission d.intervention|abonnement compte|peage|autoroute|aprr|sanef)\b/i, cat: 'Frais de gestion forfaitisés (forfait 222)', confidence: 0.72, src: 'Mot-clé frais forfaitisés (222)' },
+    { rx: /\b(assurance|axa|maaf|matmut|aviva|allianz|maif|groupama|gli)\b/i, cat: 'Primes d\'assurance (PNO, GLI)', confidence: 0.85, src: 'Mot-clé assurance' },
+    // Frais bancaires (tenue de compte) → catégorie dédiée ; péage/carburant → Divers (tout hors 2044, couvert par le forfait 222).
+    { rx: /\b(frais bancaires|tenue de compte|cotisation carte|frais de compte|commission d.intervention|abonnement compte)\b/i, cat: 'Frais bancaires', confidence: 0.72, src: 'Mot-clé frais bancaires (forfait 222)' },
+    { rx: /\b(peage|autoroute|aprr|sanef|carburant|essence|station service)\b/i, cat: 'Divers (non déductible)', confidence: 0.6, src: 'Mot-clé péage/carburant (forfait 222 → Divers)' },
     { rx: /\b(edf|engie|eni|enedis|electric|electricite|gaz de france|gdf|veolia|saur|suez|sde|smede|eaux|chauffage)\b/i, cat: 'Charges récupérables (eau, énergie…)', confidence: 0.80, src: 'Mot-clé énergie/eau' },
-    { rx: /\b(syndic|copropriete|copro|charges copro|appel de fonds)\b/i, cat: 'Provisions pour charges de copropriété', confidence: 0.90, src: 'Mot-clé syndic' },
-    { rx: /\b(travaux|renovation|reno|peinture|plombier|electricien|chauffagiste|menuisier|charpentier|carreleur|macon|serrurier)\b/i, cat: "Travaux de réparation et d'entretien", confidence: 0.80, src: 'Mot-clé travaux' },
+    { rx: /\b(syndic|copropriete|copro|charges copro|appel de fonds)\b/i, cat: 'Charges de copropriété', confidence: 0.90, src: 'Mot-clé syndic' },
+    { rx: /\b(travaux|renovation|reno|peinture|plombier|electricien|chauffagiste|menuisier|charpentier|carreleur|macon|serrurier)\b/i, cat: 'Travaux (entretien, réparation, amélioration)', confidence: 0.80, src: 'Mot-clé travaux' },
     { rx: /\b(taxe fonciere|tf )/i, cat: 'Taxe foncière (et taxes annexes)', confidence: 0.92, src: 'Mot-clé TF' },
-    { rx: /\b(cfe|cotisation fonciere)\b/i, cat: 'CFE (cotisation foncière des entreprises)', confidence: 0.80, src: 'Mot-clé CFE' },
-    { rx: /\b(comptable|expert.comptable|comptabilite|cabinet comptable)\b/i, cat: 'Frais de comptabilité / expert-comptable', confidence: 0.78, src: 'Mot-clé comptable' },
+    { rx: /\b(comptable|expert.comptable|comptabilite|cabinet comptable)\b/i, cat: 'Comptabilité / expert-comptable', confidence: 0.78, src: 'Mot-clé comptable' },
     // Échéance de crédit importée → capital remboursé (trésorerie). Les intérêts (ligne 250) se saisissent
     // à part depuis l'attestation annuelle de banque (décision design 2026-06-21), pas dérivés de l'échéance.
     { rx: /\b(emprunt|pret|credit immo|credit immobilier|amortissement|echeance pret)\b/i, cat: 'Prêt — Capital remboursé', confidence: 0.72, src: 'Mot-clé emprunt (capital ; intérêts via attestation)' },
     { rx: /\b(notaire|frais notaire)\b/i, cat: 'Acquisition / cession de bien', confidence: 0.70, src: 'Mot-clé notaire' },
     { rx: /\b(honoraires|gerance|gestion locative|agence immo)\b/i, cat: 'Frais de gestion / honoraires', confidence: 0.72, src: 'Mot-clé gestion' },
-    { rx: /\b(dpe|diagnostic|geometre|huissier|avocat|expertise)\b/i, cat: 'Frais de procédure (avocat, huissier, expert)', confidence: 0.72, src: 'Mot-clé procédure/diagnostic' }
+    { rx: /\b(dpe|diagnostic|geometre|huissier|avocat|expertise)\b/i, cat: 'Frais de gestion / honoraires', confidence: 0.7, src: 'Mot-clé procédure/diagnostic' }
   ];
   for (const k of KEYWORDS) {
     if (k.rx.test(lib)) {
