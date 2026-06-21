@@ -116,8 +116,9 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
       db[k] = v
     }
     // Volet 3 : blob PRIVÉ (espace_config_private, is_full_member). Un membre PLEIN reçoit les clés
-    // propriétaire-privé ; un membre SCOPÉ → {} (RLS) → rien (fail-closed). `params` fusionné en
-    // profondeur (sous-clés privées greffées sur les sous-clés partagées).
+    // propriétaire-privé ; un membre SCOPÉ → {} (RLS) → rien (fail-closed). `params` : greffe SHALLOW
+    // ({...partagé, ...privé}) — correcte car les sous-clés partagées/privées sont DISJOINTES par
+    // construction (splitConfig répartit chaque sous-clé dans l'un OU l'autre, jamais les deux).
     const cfgPriv = (typeof fetchConfigPrivate === 'function' ? (await fetchConfigPrivate()) : null) || {}
     for (const [k, v] of Object.entries(cfgPriv)) {
       if (TABLE_COLLECTIONS.has(k)) continue

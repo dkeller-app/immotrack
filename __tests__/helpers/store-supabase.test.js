@@ -217,28 +217,49 @@ describe('SupabaseStore.upsert/remove — écriture + concurrence par version', 
 })
 
 describe('SupabaseStore.persistConfig — écrit le sous-ensemble CONFIG (complément des tables) dans espace_config', () => {
-  it('extrait les clés NON table-backées + appelle writeConfig (exclut entites/logements/baux/mrh/agenda… + _modifiedAt)', async () => {
-    let written = null
+  it('split partagé/privé : writeConfig = partagé (hors tables/_modifiedAt/clés privées) ; writeConfigPrivate = privé', async () => {
+    let written = null, writtenPriv = null
     const s = createSupabaseStore({
       fetchTable: async () => [], fetchConfig: async () => ({}),
       writeConfig: async (data) => { written = data; return true },
+      writeConfigPrivate: async (data) => { writtenPriv = data; return true },
       writer: mockWriter(), detUuid, espaceId: 'ESP', ownerId: 'OWN',
     })
     s.attach({
       entites: [{ nom: 'A' }], logements: [{ ref: 'F' }], baux: { 'F': {} }, mouvements: [{ id: 1 }],
-      quittances: [], edl: [], documents: [], baux_historique: [], mrh: [{ id: 2 }], agenda: [{ id: 3 }], _modifiedAt: 'x',
-      params: { devise: 'EUR' }, categories: ['Loyer'], irlTable: { 2026: 100 },
-      assurances: [{ id: 1, type: 'PNO' }], candidats: [], auditTrail: [{ a: 1 }],   // assurances BAILLEUR = config (pas de table)
+      quittances: [], edl: [], documents: [], baux_historique: [], mrh: [{ id: 2 }], agenda: [{ id: 3 }],
+      candidats: [{ id: 9 }], _modifiedAt: 'x',   // candidats = TABLE désormais → exclu du blob
+      params: { devise: 'EUR', bankAccounts: [{ iban: 'X' }], userProfile: { n: 'P' } },
+      categories: ['Loyer'], irlTable: { 2026: 100 }, assurances: [{ id: 1, type: 'PNO' }],   // assurances BAILLEUR = config (pas de table)
+      auditTrail: [{ a: 1 }], candidatLinks: { L: 't' },
     })
     const r = await s.persistConfig()
-    // table-backées + _modifiedAt EXCLUS du blob config
-    for (const k of ['entites', 'logements', 'baux', 'mouvements', 'quittances', 'edl', 'documents', 'baux_historique', 'mrh', 'agenda', '_modifiedAt'])
+    // table-backées (dont candidats) + _modifiedAt EXCLUS du blob partagé
+    for (const k of ['entites', 'logements', 'baux', 'mouvements', 'quittances', 'edl', 'documents', 'baux_historique', 'mrh', 'agenda', 'candidats', '_modifiedAt'])
       expect(written[k]).toBeUndefined()
-    // config INCLUSE (params/categories/irlTable + assurances bailleur + candidats + auditTrail)
-    expect(written.params).toEqual({ devise: 'EUR' }); expect(written.categories).toEqual(['Loyer'])
-    expect(written.irlTable).toEqual({ 2026: 100 }); expect(written.assurances).toEqual([{ id: 1, type: 'PNO' }])
-    expect(written.candidats).toEqual([]); expect(written.auditTrail).toEqual([{ a: 1 }])
+    // clés PRIVÉES exclues du blob PARTAGÉ (anti-fuite)
+    expect(written.auditTrail).toBeUndefined(); expect(written.candidatLinks).toBeUndefined()
+    expect(written.params).toEqual({ devise: 'EUR' })   // bankAccounts/userProfile retirés du partagé
+    // config PARTAGÉE conservée
+    expect(written.categories).toEqual(['Loyer']); expect(written.irlTable).toEqual({ 2026: 100 })
+    expect(written.assurances).toEqual([{ id: 1, type: 'PNO' }])
+    // blob PRIVÉ = clés propriétaire-privé
+    expect(writtenPriv.auditTrail).toEqual([{ a: 1 }]); expect(writtenPriv.candidatLinks).toEqual({ L: 't' })
+    expect(writtenPriv.params).toEqual({ bankAccounts: [{ iban: 'X' }], userProfile: { n: 'P' } })
     expect(r.status).toBe('config-written')
+  })
+
+  it('config sans clé privée → writeConfigPrivate PAS appelé (membre scopé : pas de refus RLS)', async () => {
+    let privCalled = false
+    const s = createSupabaseStore({
+      fetchTable: async () => [], fetchConfig: async () => ({}),
+      writeConfig: async () => true,
+      writeConfigPrivate: async () => { privCalled = true; return true },
+      writer: mockWriter(), detUuid, espaceId: 'ESP', ownerId: 'OWN',
+    })
+    s.attach({ baux: {}, logements: [], params: { devise: 'EUR' }, categories: ['Loyer'] })
+    await s.persistConfig()
+    expect(privCalled).toBe(false)
   })
 
   it('sans writeConfig injecté → throw explicite (le binding doit le fournir)', async () => {
