@@ -299,6 +299,18 @@ describe('P1 — étanchéité ÉCRITURE cross-SCI (Carol gestionnaire SCI-A, ja
     expect(error).not.toBeNull()
     expect(error.message).toMatch(/row-level security|violates/i)
   })
+  it('Carol ne peut PAS INSERT un candidat rattaché à un logement de SCI-B', async () => {
+    const { error } = await clientC.from('candidats')
+      .insert({ espace_id: espaceA, logement_id: A2.logement, legacy_raw: { nom: 'FuiteCand' } })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/row-level security|violates/i)
+  })
+  it('Carol PEUT INSERT un candidat rattaché à un logement de SCI-A (gestionnaire)', async () => {
+    const { data, error } = await clientC.from('candidats')
+      .insert({ espace_id: espaceA, logement_id: A1.logement, legacy_raw: { nom: 'CandCarolA' } }).select('id')
+    expect(error).toBeNull()
+    expect(data.length).toBe(1)
+  })
   it('Carol ne peut PAS DELETE le bail de SCI-B', async () => {
     const { data, error } = await clientC.from('baux').delete().eq('id', A2.bail).select()
     expect(error).toBeNull()

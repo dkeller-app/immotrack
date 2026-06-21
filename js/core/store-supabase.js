@@ -30,7 +30,8 @@
 //
 // ⚠️ Collections portées par la CONFIG (espace_config), pas par une table : en plus de la
 //   vraie config (params/categories/irlTable/templates/nid/flags), `assurances` (≠ `mrh`),
-//   `candidats`, `auditTrail`, `compteursReleves`. NE PAS les ajouter à ARRAY_TABLES.
+//   `auditTrail`, `compteursReleves`. NE PAS les ajouter à ARRAY_TABLES.
+//   (`candidats` = désormais une vraie TABLE par-SCI, cf migration 0034 — volet 2 anti-fuite.)
 import { mapToRow } from './store-mapping.js'
 
 const ARRAY_TABLES = {

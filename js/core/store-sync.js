@@ -18,9 +18,9 @@ import { bailContentHash } from './bail-content-hash.js'  // empreinte légale c
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 
-// PÉRIMÈTRE de ce moteur = les collections adossées à une TABLE métier (11). Sont gérées AILLEURS,
-// pas un oubli :
-//   • config (params/categories/templates/irlTable/catConfig/piecesEDL/auditTrail/candidats/
+// PÉRIMÈTRE de ce moteur = les collections adossées à une TABLE métier (12, candidats inclus depuis
+// le volet 2). Sont gérées AILLEURS, pas un oubli :
+//   • config (params/categories/templates/irlTable/catConfig/piecesEDL/auditTrail/
 //     compteursReleves) → espace_config.data (chemin de sync séparé, pièce 2).
 //   • ⚠️ GAP SCHÉMA CONNU : `DB.assurances` = assurance BAILLEUR (PNO/GLI/lot copro, ≠ `mrh` =
 //     MRH locataire). AUCUNE table Supabase aujourd'hui (la table `assurances` modélise `mrh`).
