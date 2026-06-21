@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { createSession, loadSession, recordSignature, recordEmailVerified } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
+import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession } from './storage.js';
 import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta } from './validate.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
@@ -50,11 +51,38 @@ function decodeProofHeader(header) {
   }
 }
 
-app.post('/sessions', async (c) => {
-  const auth = c.req.header('Authorization') || '';
-  if (!timingSafeEqualStr(auth, `Bearer ${c.env.APP_KEY}`)) {
-    return c.json({ error: 'unauthorized' }, 401);
+// ── Auth APP : un utilisateur CONNECTÉ à l'app ───────────────────────────────────────────────
+// Remplace l'ancienne APP_KEY partagée (qui devait vivre côté client = lisible par TOUT utilisateur d'un
+// site statique). On vérifie le jeton de session Supabase (JWT ES256) avec la CLÉ PUBLIQUE du projet
+// (JWKS) : rien de secret ni dans le client ni dans le worker, et le worker ne peut pas forger de jeton.
+// Le client envoie son access_token dans `Authorization: Bearer <token>`. Le JWKS (URL publique) vient de
+// la variable d'env worker SUPABASE_URL.
+let _supaJWKS = null;
+function supaJWKS(env) {
+  if (!_supaJWKS) {
+    const base = String(env.SUPABASE_URL || '').replace(/\/+$/, '');
+    _supaJWKS = createRemoteJWKSet(new URL(`${base}/auth/v1/.well-known/jwks.json`));
   }
+  return _supaJWKS;
+}
+async function requireSupabaseUser(c) {
+  const m = /^Bearer\s+(.+)$/i.exec(c.req.header('Authorization') || '');
+  if (!m) return { error: c.json({ error: 'unauthorized' }, 401) };
+  try {
+    const base = String(c.env.SUPABASE_URL || '').replace(/\/+$/, '');
+    const { payload } = await jwtVerify(m[1], supaJWKS(c.env), { issuer: `${base}/auth/v1` });
+    if (payload.role !== 'authenticated' || !payload.sub) {
+      return { error: c.json({ error: 'unauthorized' }, 401) };
+    }
+    return { userId: payload.sub };
+  } catch {
+    return { error: c.json({ error: 'unauthorized' }, 401) };
+  }
+}
+
+app.post('/sessions', async (c) => {
+  const gate = await requireSupabaseUser(c);
+  if (gate.error) return gate.error;
   const form = await c.req.formData();
   const pdfFile = form.get('pdf');
   const metaRaw = form.get('meta');
@@ -259,12 +287,10 @@ async function requireCandOwner(c, linkId) {
   return { cand };
 }
 
-// Le bailleur (app) crée une invitation. Auth = Bearer APP_KEY (comme POST /sessions).
+// Le bailleur (app) crée une invitation. Auth = jeton de session Supabase (comme POST /sessions).
 app.post('/candidatures', async (c) => {
-  const auth = c.req.header('Authorization') || '';
-  if (!timingSafeEqualStr(auth, `Bearer ${c.env.APP_KEY}`)) {
-    return c.json({ error: 'unauthorized' }, 401);
-  }
+  const gate = await requireSupabaseUser(c);
+  if (gate.error) return gate.error;
   let meta;
   try { meta = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
   const v = validateCandidatureMeta(meta);
@@ -284,13 +310,11 @@ app.post('/candidatures', async (c) => {
 });
 
 // Ping santé authentifié — alimente le bouton « Tester la connexion » des Réglages
-// côté app. Vérifie d'un seul coup que la base répond ET que l'APP_KEY est acceptée,
-// sans écrire dans KV (zéro pollution). Auth = Bearer APP_KEY.
-app.get('/api/ping', (c) => {
-  const auth = c.req.header('Authorization') || '';
-  if (!timingSafeEqualStr(auth, `Bearer ${c.env.APP_KEY}`)) {
-    return c.json({ error: 'unauthorized' }, 401);
-  }
+// côté app. Vérifie d'un seul coup que la base répond ET que le jeton de session est accepté,
+// sans écrire dans KV (zéro pollution). Auth = jeton de session Supabase.
+app.get('/api/ping', async (c) => {
+  const gate = await requireSupabaseUser(c);
+  if (gate.error) return gate.error;
   return c.json({ ok: true, ts: Date.now() });
 });
 
