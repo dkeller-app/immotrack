@@ -50,18 +50,19 @@
   .dest.recup{background:var(--pur-bg);border:1px solid #7c3aed2e}.dest.recup .dt{color:#6d28d9}
   .dest.none{background:var(--sur2);border:1px solid var(--bor)}.dest.none .dt{color:var(--t2)}
   .hintrow{margin-top:14px;font-size:12px;color:var(--t3);text-align:center}
-  /* ---- picker overlay (modal desktop/tab, bottom-sheet phone) ---- */
-  .ov{position:absolute;inset:0;background:rgba(15,30,50,.42);z-index:30;display:none;padding:20px}
+  /* ---- picker overlay : position:fixed plein écran (comme l'app réelle) — jamais rogné par un cadre ---- */
+  .ov{position:fixed;inset:0;background:rgba(15,30,50,.42);z-index:100;display:none;padding:24px}
   .ov.show{display:flex;align-items:center;justify-content:center}
-  .device.tel .ov{padding:0}
-  .device.tel .ov.show{align-items:flex-end}
-  .card{background:var(--sur);border-radius:14px;box-shadow:0 24px 60px -18px rgba(0,0,0,.5);width:100%;max-width:480px;max-height:84%;display:flex;flex-direction:column;overflow:hidden}
-  .device.tel .card{max-width:100%;max-height:90%;border-radius:18px 18px 0 0;animation:slideup .22s ease}
+  .ov.tel{padding:0}
+  .ov.tel.show{align-items:flex-end}
+  .card{background:var(--sur);border-radius:14px;box-shadow:0 24px 60px -18px rgba(0,0,0,.5);width:min(94vw,560px);max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+  .ov.tab .card{width:min(94vw,460px)}
+  .ov.tel .card{width:100%;max-width:100%;max-height:88vh;border-radius:18px 18px 0 0;animation:slideup .22s ease}
   @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
-  .card-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bor);font-weight:700;font-size:14.5px}
+  .card-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bor);font-weight:700;font-size:14.5px;position:relative}
   .card-head button{border:0;background:none;font-size:18px;color:var(--t3);cursor:pointer;line-height:1}
-  .device.tel .card-head::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);width:38px;height:4px;border-radius:3px;background:var(--bor2)}
-  .device.tel .card-head{position:relative;padding-top:18px}
+  .ov.tel .card-head{padding-top:18px}
+  .ov.tel .card-head::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);width:38px;height:4px;border-radius:3px;background:var(--bor2)}
   .search{margin:11px 16px 4px}
   .search input{width:100%;font:inherit;font-size:14.5px;padding:11px 13px 11px 36px;border:1px solid var(--bor2);border-radius:9px;background:var(--sur2)}
   .search{position:relative}.search::before{content:"🔍";position:absolute;left:28px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.6}
@@ -212,8 +213,8 @@ let sel=null, fmt='pc', variant='flat', ann='always', adding=false, accOpen={rec
 
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-function openP(){ $('ov').classList.add('show'); $('q').value=''; adding=false; fill(); setTimeout(()=>$('q').focus(),30); }
-function closeP(){ $('ov').classList.remove('show'); }
+function openP(){ $('ov').className='ov '+fmt+' show'; $('q').value=''; adding=false; fill(); setTimeout(()=>$('q').focus(),30); }
+function closeP(){ $('ov').className='ov '+fmt; }
 function fill(){
   const q=($('q').value||'').toLowerCase().trim();
   let h='';
@@ -268,7 +269,8 @@ function render(){
 // controls
 $('fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('fmt').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');fmt=b.dataset.f;
   $('device').className='device '+fmt;
-  $('devlbl').textContent={pc:'Formulaire mouvement',tab:'Formulaire mouvement',tel:'Formulaire mouvement'}[fmt];};
+  if($('ov').classList.contains('show')) $('ov').className='ov '+fmt+' show';   // re-style le picker si déjà ouvert
+  $('devlbl').textContent='Formulaire mouvement';};
 $('var').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('var').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');variant=b.dataset.v;fill();};
 $('ann').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('ann').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');ann=b.dataset.a;document.body.classList.toggle('ann-hover',ann==='hover');fill();};
 render();
