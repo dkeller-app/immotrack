@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Envoyer le bail au bailleur à distance</title>
+<style>
+:root{
+  --bg:#f3f4f6; --sur:#ffffff; --sur2:#f8fafc; --sur3:#eef2f7;
+  --bor:#e5e7eb; --t1:#111827; --t2:#6b7280; --t3:#9ca3af;
+  --blu:#3b7ef6; --grn:#16a34a; --pur:#7c3aed; --red:#dc2626; --acc:#3b7ef6;
+  --r:8px; --rl:12px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--t1);font-size:14px;line-height:1.5}
+.page{max-width:1100px;margin:0 auto;padding:22px 18px 80px}
+h1{font-size:20px;margin:0 0 4px}
+.sub{color:var(--t2);font-size:13px;margin:0 0 18px}
+
+/* ---- Barre de contrôle mockup ---- */
+.ctrl{position:sticky;top:0;z-index:50;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:22px;box-shadow:0 2px 8px rgba(0,0,0,.05);display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end}
+.cgrp{display:flex;flex-direction:column;gap:6px}
+.cgrp>label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t3)}
+.cbtns{display:flex;gap:4px;flex-wrap:wrap}
+.cbtns button{border:1px solid var(--bor);background:var(--sur2);color:var(--t1);padding:6px 11px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600;transition:.12s}
+.cbtns button:hover{border-color:var(--blu)}
+.cbtns button.on{background:var(--blu);border-color:var(--blu);color:#fff}
+.hint{font-size:11.5px;color:var(--t2);margin-left:auto;max-width:280px}
+
+/* ---- Cadre device ---- */
+.stage{display:flex;justify-content:center;padding:18px 0}
+.device{background:var(--bg);border:1px solid var(--bor);border-radius:16px;padding:18px;transition:width .2s;box-shadow:inset 0 0 0 1px rgba(0,0,0,.02)}
+.device.pc{width:760px}
+.device.tab{width:560px}
+.device.tel{width:380px}
+.device-label{text-align:center;font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+
+/* ---- Modal (repris d'index.html) ---- */
+.modal{background:var(--sur);border-radius:var(--rl);box-shadow:0 12px 40px rgba(0,0,0,.18);overflow:hidden;border:1px solid var(--bor)}
+.m-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--bor)}
+.m-head h3{margin:0;font-size:15px}
+.m-close{border:none;background:transparent;font-size:16px;cursor:pointer;color:var(--t2)}
+.m-body{padding:16px 18px;max-height:62vh;overflow:auto}
+.m-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--bor);flex-wrap:wrap}
+.btn{border:1px solid var(--bor);background:var(--sur2);color:var(--t1);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+.btn.bp{background:var(--blu);border-color:var(--blu);color:#fff}
+.btn.bs{background:var(--sur2)}
+.inp{width:100%;padding:7px 10px;border:1px solid var(--bor);border-radius:7px;font-size:13px;margin-top:4px;background:var(--sur)}
+
+/* ---- bsd-* (repris EXACT d'index.html) ---- */
+.bsd-signer-row{display:grid;grid-template-columns:26px 32px 1fr;gap:10px;align-items:start;padding:12px;border:1px solid var(--bor);border-radius:var(--r,8px);margin-bottom:10px;background:var(--sur2)}
+.bsd-signer-row.bsd-off{opacity:.5}
+.bsd-signer-row .bsd-ord{width:24px;height:24px;border-radius:50%;background:var(--blu);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.bsd-signer-row .bsd-ord.bsd-local{background:var(--grn)}
+.bsd-signer-row .bsd-ord.bsd-bail{background:var(--pur)}
+.bsd-signer-row .bsd-av{width:32px;height:32px;border-radius:50%;background:var(--acc,var(--blu));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.bsd-signer-row .bsd-av.av-bail{background:var(--pur)}
+.bsd-signer-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.bsd-signer-meta .bsd-role{font-size:12px;font-weight:700;color:var(--t1)}
+.bsd-signer-meta .bsd-sub{font-size:10.5px;color:var(--t2)}
+.bsd-modechip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}
+.chip-pres{background:#dcfce7;color:#166534}
+.chip-dist{background:#ede9fe;color:#5b21b6}
+.bsd-toggle-wrap{display:flex;align-items:center;gap:7px}
+.bsd-toggle-wrap .tlab{font-size:10.5px;color:var(--t2);font-weight:600}
+.bsd-toggle{position:relative;width:38px;height:22px;flex:none;cursor:pointer}
+.bsd-toggle input{display:none}
+.bsd-toggle span{position:absolute;inset:0;background:var(--sur3);border:1px solid var(--bor);border-radius:11px;transition:.15s}
+.bsd-toggle span::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.bsd-toggle input:checked + span{background:var(--blu);border-color:var(--blu)}
+.bsd-toggle input:checked + span::after{left:18px}
+.bsd-banner{border-radius:var(--r,8px);padding:10px 12px;font-size:12px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+.bsd-banner-warn{background:#fef3c7;border:1px solid #f59e0b;color:#92400e}
+.bsd-banner-info{background:rgba(59,126,246,.08);border:1px solid rgba(59,126,246,.25);color:#1d4ed8}
+.bsd-banner-pur{background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6}
+.bsd-state-label{font-size:11px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
+.bsd-section-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;margin:16px 0 8px;color:var(--t1)}
+.bsd-section-head .sline{flex:1;height:1px;background:var(--bor)}
+.bsd-check-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--bor);border-radius:var(--r);margin-bottom:8px;background:var(--sur2)}
+.bsd-check-row input{width:17px;height:17px;accent-color:var(--blu)}
+.bsd-email-preview{border:1px solid var(--bor);border-radius:var(--r);padding:14px;background:var(--sur2);font-size:12.5px}
+.bsd-email-preview .eh{font-weight:700;margin-bottom:6px}
+.bsd-email-preview .meta{color:var(--t2);font-size:11.5px;margin-bottom:8px}
+
+@media(max-width:560px){
+  .bsd-signer-row{grid-template-columns:24px 1fr}
+  .bsd-signer-row .bsd-av{display:none}
+}
+
+/* ---- panneaux secondaires ---- */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px}
+@media(max-width:780px){.panels{grid-template-columns:1fr}}
+.panel{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:14px 16px}
+.panel h4{margin:0 0 4px;font-size:13.5px}
+.panel .ph{font-size:11.5px;color:var(--t2);margin:0 0 12px}
+.fiche-actions{display:flex;gap:8px;flex-wrap:wrap}
+.fbtn{padding:8px 12px;border-radius:8px;font-size:12.5px;font-weight:600;border:none;color:#fff;cursor:pointer}
+.share-pop{max-width:360px;margin:0 auto}
+.bss-chans{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.bss-chan{flex:1;min-width:70px;text-align:center;border:1px solid var(--bor);border-radius:var(--r);padding:10px 6px;font-size:11px;cursor:pointer;background:var(--sur2)}
+.bss-chan .ci{display:block;font-size:18px;margin-bottom:3px}
+.linkbox{display:flex;gap:6px;align-items:center;border:1px solid var(--bor);border-radius:var(--r);padding:6px 8px;background:var(--sur2);font-size:11.5px}
+.linkbox .url{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--grn);font-weight:600}
+.note{font-size:11.5px;color:var(--t2);background:var(--sur3);border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.55}
+.legend{font-size:11.5px;color:var(--t2);margin-top:8px}
+.kbd{display:inline-block;background:var(--sur3);border:1px solid var(--bor);border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>📨 Envoyer le bail au bailleur à distance — mockup</h1>
+  <p class="sub">Extension du modal « Envoyer en signature » : le(s) bailleur(s)/co-gérant(s) deviennent des signataires basculables (présentiel ↔ distance), exactement comme les locataires. Décisions validées : <b>chacun son lien</b> (co-gérants SCI) · <b>présentiel par défaut</b> (zéro régression).</p>
+
+  <div class="ctrl">
+    <div class="cgrp">
+      <label>Variante de disposition</label>
+      <div class="cbtns" id="g-variant">
+        <button data-v="A">A · Liste unifiée</button>
+        <button data-v="B" class="on">B · 2 sections ★</button>
+        <button data-v="C">C · « Qui à distance ? »</button>
+      </div>
+    </div>
+    <div class="cgrp">
+      <label>Scénario</label>
+      <div class="cbtns" id="g-scen">
+        <button data-s="default" class="on">Défaut</button>
+        <button data-s="bailDist">Bailleur → distance</button>
+        <button data-s="mixed">Mixte</button>
+        <button data-s="all">Tout à distance</button>
+      </div>
+    </div>
+    <div class="cgrp">
+      <label>Format</label>
+      <div class="cbtns" id="g-dev">
+        <button data-d="pc" class="on">PC</button>
+        <button data-d="tab">Tablette</button>
+        <button data-d="tel">Téléphone</button>
+      </div>
+    </div>
+    <div class="hint" id="hint">★ B recommandée : sépare clairement « côté bailleur » (présentiel par défaut) et « côté locataires » (distance par défaut) — surtout en SCI multi-gérants.</div>
+  </div>
+
+  <div class="stage">
+    <div class="device pc" id="device">
+      <div class="device-label" id="devlabel">PC · 760 px</div>
+      <div class="modal" id="modal"></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h4>① Point d'entrée sur la fiche (change selon le scénario)</h4>
+      <p class="ph">Aujourd'hui « Envoyer en signature » n'apparaît qu'APRÈS la signature in-app du bailleur. Avec un bailleur à distance, l'envoi doit pouvoir partir d'un bail <b>non encore signé</b>.</p>
+      <div class="fiche-actions" id="fiche-actions"></div>
+      <div class="note" id="fiche-note"></div>
+    </div>
+    <div class="panel">
+      <h4>② Post-clic : partage du lien d'un signataire (popup existante réutilisée)</h4>
+      <p class="ph">Après envoi, chaque signataire distant (bailleur OU locataire) a son lien à partager — même popup <span class="kbd">_bssShareCtx</span> que pour les locataires.</p>
+      <div class="share-pop">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px" id="share-who">Bailleur · Gérant 1 (SCI Patrimoine)</div>
+        <div class="linkbox"><span class="url">https://sign.immotrack.app/s/9f3a…b21</span><button class="btn bs" style="padding:5px 9px">📋</button></div>
+        <div class="bss-chans">
+          <div class="bss-chan"><span class="ci">✉️</span>Email</div>
+          <div class="bss-chan"><span class="ci">💬</span>SMS</div>
+          <div class="bss-chan"><span class="ci">🟢</span>WhatsApp</div>
+          <div class="bss-chan"><span class="ci">⬛</span>QR</div>
+        </div>
+        <div class="note">🔒 Le signataire ouvre son lien, lit le bail, paraphe et signe. L'ordre est séquentiel : tu partages le lien suivant une fois le précédent signé.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px">
+    <h4>③ Implication PDF / légal (à auditer)</h4>
+    <p class="ph">Quand un bailleur est en distance, sa case signature part <b>VIDE</b> dans le PDF envoyé au relais (au lieu d'être cuite in-app). Le relais la remplit au moment de sa signature, comme pour un locataire. Conséquence : le verrou actuel <span class="kbd">mode==='bailleur-seul'</span> doit être levé pour ce chemin, et le manifeste de signature doit inclure les N ancres bailleur vides.</p>
+    <div class="legend">Légende des pastilles d'ordre : <span style="color:var(--grn);font-weight:700">●</span> présentiel (signe in-app, hors envoi) · <span style="color:var(--pur);font-weight:700">●</span> bailleur distant · <span style="color:var(--blu);font-weight:700">●</span> locataire distant. Le numéro = ordre de signature (bailleurs d'abord, puis locataires).</div>
+  </div>
+</div>
+
+<script>
+const SIGNERS = [
+  {id:'b1', role:'bailleur', label:'Bailleur', name:'Gérant 1 (SCI Patrimoine)', email:'gerant1@sci-patrimoine.fr', av:'G1'},
+  {id:'b2', role:'bailleur', label:'Bailleur', name:'Gérant 2 (SCI Patrimoine)', email:'gerant2@sci-patrimoine.fr', av:'G2'},
+  {id:'l1', role:'locataire', label:'Locataire', name:'Dupont Marie', email:'marie.dupont@email.fr', av:'DM'},
+  {id:'l2', role:'locataire', label:'Locataire', name:'Martin Paul', email:'paul.martin@email.fr', av:'MP'},
+];
+// présentiel = true → signe en personne (hors envoi). Défaut bailleur=présentiel, locataire=distance.
+const SCENARIOS = {
+  default : {b1:true,  b2:true,  l1:false, l2:false},
+  bailDist: {b1:false, b2:true,  l1:false, l2:false},
+  mixed   : {b1:true,  b2:false, l1:false, l2:false},
+  all     : {b1:false, b2:false, l1:false, l2:false},
+};
+let V='B', S='default', D='pc';
+
+function presOf(scen){ return SCENARIOS[scen]; }
+function escH(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// Calcule l'ordre de chaînage : signataires DISTANTS uniquement, bailleurs d'abord puis locataires.
+function chainOrder(pres){
+  const dist = SIGNERS.filter(s=>!pres[s.id]);
+  dist.sort((a,b)=> (a.role==='bailleur'?0:1)-(b.role==='bailleur'?0:1));
+  const map={}; dist.forEach((s,i)=>map[s.id]=i+1); return map;
+}
+
+function rowHtml(s, pres, ord){
+  const isPres = pres[s.id];
+  const isBail = s.role==='bailleur';
+  const ordBadge = isPres
+     ? `<div class="bsd-ord bsd-local" title="présentiel">✓</div>`
+     : `<div class="bsd-ord ${isBail?'bsd-bail':''}" title="ordre de signature à distance">${ord[s.id]}</div>`;
+  const chip = isPres
+     ? `<span class="bsd-modechip chip-pres">présentiel</span>`
+     : `<span class="bsd-modechip chip-dist">à distance</span>`;
+  const emailRow = isPres
+     ? `<div class="bsd-sub" style="font-size:11px;color:var(--grn);margin-top:2px">✅ Signe dans l'app — pas d'envoi</div>`
+     : `<input class="inp" value="${escH(s.email)}" placeholder="email du signataire">`;
+  return `
+    <div class="bsd-signer-row ${isPres?'bsd-off':''}">
+      ${ordBadge}
+      <div class="bsd-av ${isBail?'av-bail':''}">${escH(s.av)}</div>
+      <div>
+        <div class="bsd-signer-meta">
+          <span class="bsd-role">${escH(s.label)} · ${escH(s.name)} ${chip}</span>
+          <div class="bsd-toggle-wrap"><span class="tlab">distance</span>
+            <label class="bsd-toggle"><input type="checkbox" ${!isPres?'checked':''}><span></span></label>
+          </div>
+        </div>
+        ${emailRow}
+      </div>
+    </div>`;
+}
+
+function bailleurDistantBanner(pres){
+  const anyBailDist = SIGNERS.some(s=>s.role==='bailleur' && !pres[s.id]);
+  if(!anyBailDist) return '';
+  return `<div class="bsd-banner bsd-banner-pur">🖊️ <div><b>Un bailleur signe à distance.</b> Le PDF part <b>sans sa signature</b> (case laissée vide, remplie à distance comme pour un locataire). Le bailleur signe en premier, puis les locataires — chacun à son tour.</div></div>`;
+}
+
+function renderVariantA(pres,ord){
+  return SIGNERS.map(s=>rowHtml(s,pres,ord)).join('');
+}
+function renderVariantB(pres,ord){
+  const bail = SIGNERS.filter(s=>s.role==='bailleur').map(s=>rowHtml(s,pres,ord)).join('');
+  const loc  = SIGNERS.filter(s=>s.role==='locataire').map(s=>rowHtml(s,pres,ord)).join('');
+  return `
+    <div class="bsd-section-head">🏛️ Côté bailleur <span class="sline"></span><span class="bsd-sub" style="font-weight:600;color:var(--t3)">présentiel par défaut</span></div>
+    ${bail}
+    <div class="bsd-section-head">🔑 Côté locataires <span class="sline"></span><span class="bsd-sub" style="font-weight:600;color:var(--t3)">distance par défaut</span></div>
+    ${loc}`;
+}
+function renderVariantC(pres,ord){
+  // Étape "qui à distance ?" : cases à cocher, puis emails des cochés-distance.
+  const checks = SIGNERS.map(s=>{
+    const dist=!pres[s.id];
+    return `<div class="bsd-check-row"><input type="checkbox" ${dist?'checked':''}>
+      <div style="flex:1"><b style="font-size:12.5px">${escH(s.label)} · ${escH(s.name)}</b>
+      <div class="bsd-sub" style="font-size:11px">${dist?'reçoit un lien par email':'signe en présentiel (in-app)'}</div></div>
+      <span class="bsd-modechip ${dist?'chip-dist':'chip-pres'}">${dist?'à distance':'présentiel'}</span></div>`;
+  }).join('');
+  const emails = SIGNERS.filter(s=>!pres[s.id]).map(s=>
+    `<div style="margin-bottom:8px"><div class="bsd-sub" style="font-size:11px;font-weight:600">${escH(s.label)} · ${escH(s.name)} <span style="color:var(--pur)">#${ord[s.id]}</span></div>
+     <input class="inp" value="${escH(s.email)}"></div>`).join('');
+  return `<div class="bsd-state-label">Qui signe à distance ?</div>${checks}
+     <div class="bsd-state-label">Emails des signataires distants (dans l'ordre)</div>${emails}`;
+}
+
+function render(){
+  const pres = presOf(S);
+  const ord  = chainOrder(pres);
+  const body = V==='A'?renderVariantA(pres,ord):V==='B'?renderVariantB(pres,ord):renderVariantC(pres,ord);
+  const distCount = SIGNERS.filter(s=>!pres[s.id]).length;
+
+  document.getElementById('modal').innerHTML = `
+    <div class="m-head"><h3>📨 Envoyer pour signature · étape 1/2</h3><button class="m-close">✕</button></div>
+    <div class="m-body">
+      <div class="bsd-banner bsd-banner-info">📄 <div><b>Bail LOG-014</b> — 12 rue des Lilas, Lyon.<br>Active le toggle <b>distance</b> sur chaque signataire à envoyer. Chacun reçoit son lien <b>à son tour</b> (partage manuel depuis la fiche).</div></div>
+      ${bailleurDistantBanner(pres)}
+      ${body}
+      <div class="bsd-banner bsd-banner-info" style="margin-top:4px">ℹ️ <div>${distCount} signataire${distCount>1?'s':''} à distance · les présentiels signent in-app et sont exclus de l'envoi.</div></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs">Annuler</button>
+      <button class="btn bp">Continuer → (aperçu email)</button>
+    </div>`;
+
+  // Fiche entry state
+  const anyBailDist = SIGNERS.some(s=>s.role==='bailleur' && !pres[s.id]);
+  const fa = document.getElementById('fiche-actions');
+  const fn = document.getElementById('fiche-note');
+  if(anyBailDist){
+    fa.innerHTML = `<button class="fbtn" style="background:var(--grn)">✍️ Signer le bail (in-app)</button>
+      <button class="fbtn" style="background:var(--pur)">📨 Envoyer en signature</button>`;
+    fn.innerHTML = `Scénario « bailleur distant » : « Envoyer en signature » est dispo <b>même sans signature in-app préalable</b>. Le bouton « Signer le bail » reste là pour les gérants restés en présentiel.`;
+  } else {
+    fa.innerHTML = `<button class="fbtn" style="background:var(--grn)">✍️ Signer le bail (in-app)</button>
+      <button class="fbtn" style="background:var(--pur);opacity:.5">📨 Envoyer en signature</button>`;
+    fn.innerHTML = `Tous les bailleurs en présentiel = comportement actuel : « Envoyer » s'active <b>après</b> la signature in-app du bailleur (verrou <span class="kbd">mode==='bailleur-seul'</span> conservé).`;
+  }
+  document.getElementById('share-who').textContent = anyBailDist ? 'Bailleur · Gérant 1 (SCI Patrimoine)' : 'Locataire · Dupont Marie';
+}
+
+function bind(grp, attr, set){
+  document.getElementById(grp).addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...e.currentTarget.children].forEach(c=>c.classList.remove('on'));
+    b.classList.add('on'); set(b.dataset[attr]);
+    if(grp==='g-dev'){
+      const dev=document.getElementById('device');
+      dev.className='device '+ (D==='pc'?'pc':D==='tab'?'tab':'tel');
+      document.getElementById('devlabel').textContent = D==='pc'?'PC · 760 px':D==='tab'?'Tablette · 560 px':'Téléphone · 380 px';
+    }
+    if(grp==='g-variant'){
+      const h={A:'A · Liste unifiée : tous les signataires (bailleurs + locataires) dans une même liste avec le même toggle. Le plus compact.',
+               B:'★ B recommandée : sépare « côté bailleur » (présentiel par défaut) et « côté locataires » (distance par défaut) — surtout en SCI multi-gérants.',
+               C:'C · Étape « Qui signe à distance ? » : on coche d\'abord les distants, puis on saisit leurs emails. Plus guidé, mais une interaction de plus.'};
+      document.getElementById('hint').textContent=h[V];
+    }
+    render();
+  });
+}
+bind('g-variant','v', v=>V=v);
+bind('g-scen','s', s=>S=s);
+bind('g-dev','d', d=>D=d);
+render();
+</script>
+</body>
+</html>
