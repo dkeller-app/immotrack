@@ -70,7 +70,11 @@ async function requireSupabaseUser(c) {
   if (!m) return { error: c.json({ error: 'unauthorized' }, 401) };
   try {
     const base = String(c.env.SUPABASE_URL || '').replace(/\/+$/, '');
-    const { payload } = await jwtVerify(m[1], supaJWKS(c.env), { issuer: `${base}/auth/v1` });
+    const { payload } = await jwtVerify(m[1], supaJWKS(c.env), {
+      issuer: `${base}/auth/v1`,
+      audience: 'authenticated',          // jeton de session utilisateur (pas anon/service)
+      requiredClaims: ['exp', 'sub'],     // refuse un jeton sans expiration / sans sujet
+    });
     if (payload.role !== 'authenticated' || !payload.sub) {
       return { error: c.json({ error: 'unauthorized' }, 401) };
     }
