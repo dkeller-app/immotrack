@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockups — Dégraissage des boutons de la fiche bail</title>
+<style>
+  :root{
+    --grn:#16a34a; --blu:#0ea5e9; --pur:#7c3aed; --ora:#f59e0b; --red:#dc2626;
+    --t1:#1a2332; --t2:#5b6b85; --t3:#94a3b8; --sur:#fff; --bg:#f1f5fb; --bor:#e2e9f3;
+    --sh:0 8px 26px -12px rgba(20,40,80,.3);
+    font-family:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);padding:28px 16px 90px}
+  .wrap{max-width:1060px;margin:0 auto}
+  h1.page{font-size:23px;font-weight:800;margin:0 0 4px}
+  p.lead{color:var(--t2);font-size:14px;margin:0 0 8px;line-height:1.55}
+  .rule{font-size:12.5px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:8px;padding:8px 12px;margin:6px 0 26px;display:inline-block}
+  .vh{font-size:13px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--pur);margin:34px 0 4px}
+  .vsub{color:var(--t2);font-size:13px;margin:0 0 18px;max-width:780px;line-height:1.55}
+
+  .panel{background:var(--sur);border:1px solid var(--bor);border-radius:14px;box-shadow:var(--sh);padding:16px 18px;margin-bottom:16px}
+  .panel .st{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .badge{display:inline-flex;align-items:center;gap:6px;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700}
+  .badge.warn{background:#fef3c7;border:1.5px solid #f59e0b;color:#92400e}
+  .badge.ok{background:#dcfce7;border:1.5px solid #16a34a;color:#166534}
+  .badge.rem{background:#ede9fe;border:1.5px solid #7c3aed;color:#5b21b6}
+
+  /* boutons app */
+  .acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .b{border:1px solid var(--bor);background:#fff;color:var(--t1);border-radius:9px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:inherit;white-space:nowrap}
+  .b.grn{background:var(--grn);color:#fff;border-color:transparent}
+  .b.blu{background:var(--blu);color:#fff;border-color:transparent}
+  .b.pur{background:var(--pur);color:#fff;border-color:transparent}
+  .b.ora{background:var(--ora);color:#fff;border-color:transparent}
+  .b.icon{padding:9px 11px}
+  .b.sm{padding:7px 10px;font-size:12px}
+  .more{position:relative;display:inline-block}
+  .b.more-btn{background:#f3f6fc}
+  .menu{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid var(--bor);border-radius:11px;box-shadow:var(--sh);padding:6px;min-width:210px;z-index:5}
+  .menu .mi{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;font-size:13px;color:var(--t1);cursor:pointer}
+  .menu .mi:hover{background:#f3f6fc}
+  .menu .mi.danger{color:var(--red)}
+  .menu .sep{height:1px;background:var(--bor);margin:5px 4px}
+
+  .cap{font-size:11.5px;color:var(--t3);margin-top:9px}
+  .vs{display:grid;grid-template-columns:1fr;gap:0}
+  .arrow{font-size:11px;color:var(--t3);text-align:center;margin:2px 0}
+
+  .formats{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .phone{width:300px;border:9px solid #1a2332;border-radius:30px;overflow:hidden;box-shadow:var(--sh);background:#fff}
+  .phone .pc-b{padding:12px}
+  .fmt-lbl{font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px}
+  .note{background:#eef3fd;border:1px solid #cfdcf3;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1f4e9c;line-height:1.55}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">🧹 Dégraissage des boutons — fiche bail</h1>
+  <p class="lead">La rangée d'actions a grossi (jusqu'à <b>7–10 boutons</b> en état signé). Objectif : garder <b>2–3 actions principales</b> visibles selon l'état, et ranger le secondaire dans un <b>menu « ⋯ »</b>. <i>(B2 « Voir bail signé » est déjà retiré.)</i></p>
+  <span class="rule">⚠ Mockup statique — rien n'est codé. Tu valides la direction, puis je passe en spec → code → audit.</span>
+
+  <!-- ───────── AUJOURD'HUI (problème) ───────── -->
+  <div class="vh">Aujourd'hui — la rangée surchargée</div>
+  <p class="vsub">État « signé à distance » : tout est en ligne, ça déborde et noie l'action utile.</p>
+  <div class="panel">
+    <div class="st">📜 Bail en cours <span class="badge ok">✓ Signé bilatéralement</span></div>
+    <div class="acts">
+      <button class="b">✏️ Modifier bail</button>
+      <button class="b">👁 Aperçu</button>
+      <button class="b">📋 Aperçu garant</button>
+      <span class="badge rem">🔒 Signé à distance</span>
+      <button class="b blu">📄 PDF du bail</button>
+      <button class="b">📜 Certificat</button>
+      <button class="b pur">📤 Partager le PDF signé</button>
+      <button class="b ora">🔄 Réinitialiser</button>
+      <button class="b">🔚 Clôturer</button>
+    </div>
+    <div class="cap">9 boutons + 1 badge → surcharge.</div>
+  </div>
+
+  <!-- ───────── VARIANTE A — menu ⋯ ───────── -->
+  <div class="vh">Variante A — Actions principales + menu « ⋯ » (recommandée)</div>
+  <p class="vsub">On garde l'essentiel contextuel visible ; le reste (Modifier, Aperçu, Garant, Réinitialiser, Clôturer) passe dans un menu compact. Le menu s'ouvre au clic sur « ⋯ ».</p>
+
+  <div class="panel">
+    <div class="st">État : non signé <span class="badge warn">⚠ Non signé</span></div>
+    <div class="acts">
+      <button class="b grn">✍️ Signer le bail</button>
+      <button class="b">👁 Aperçu</button>
+      <div class="more"><button class="b more-btn">⋯ Plus</button></div>
+    </div>
+    <div class="cap">Action utile (« Signer ») mise en avant.</div>
+  </div>
+
+  <div class="panel">
+    <div class="st">État : bailleur signé, locataire en attente <span class="badge warn">⚠ Bailleur signé</span></div>
+    <div class="acts">
+      <button class="b grn">✍️ Le locataire signe</button>
+      <button class="b pur">📨 Envoyer en signature</button>
+      <div class="more"><button class="b more-btn">⋯ Plus</button></div>
+    </div>
+    <div class="cap">Les 2 chemins de signature locataire (présentiel / distant) en avant.</div>
+  </div>
+
+  <div class="panel">
+    <div class="st">État : signé bilatéralement <span class="badge ok">✓ Signé</span></div>
+    <div class="acts">
+      <button class="b blu">📄 PDF du bail</button>
+      <button class="b pur">📤 Partager le PDF signé</button>
+      <div class="more"><button class="b more-btn">⋯ Plus</button>
+        <!-- menu OUVERT (post-clic) -->
+        <div class="menu">
+          <div class="mi">✏️ <span>Modifier le bail</span></div>
+          <div class="mi">👁 <span>Aperçu</span></div>
+          <div class="mi">📋 <span>Aperçu garant</span></div>
+          <div class="mi">📜 <span>Certificat de preuve</span></div>
+          <div class="sep"></div>
+          <div class="mi danger">🔄 <span>Réinitialiser les signatures</span></div>
+          <div class="mi danger">🔚 <span>Clôturer le bail</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="cap">PDF + Partage en avant ; tout le reste dans « ⋯ » (menu montré ouvert ci-dessus).</div>
+  </div>
+
+  <div class="panel">
+    <div class="st">État : signé à distance <span class="badge rem">🔒 Signé à distance</span></div>
+    <div class="acts">
+      <button class="b blu">📄 PDF du bail</button>
+      <button class="b pur">📤 Partager</button>
+      <div class="more"><button class="b more-btn">⋯ Plus</button></div>
+    </div>
+    <div class="cap">Le badge « Signé à distance » devient le statut ; Certificat passe dans « ⋯ ».</div>
+  </div>
+
+  <!-- ───────── VARIANTE B — icônes compactes ───────── -->
+  <div class="vh">Variante B — Principales en toutes lettres + secondaires en icônes</div>
+  <p class="vsub">Pas de menu : les actions secondaires deviennent de petits boutons icône (avec tooltip au survol). Plus rapide d'accès, mais reste plus chargé que A.</p>
+  <div class="panel">
+    <div class="st">État : signé bilatéralement <span class="badge ok">✓ Signé</span></div>
+    <div class="acts">
+      <button class="b blu">📄 PDF du bail</button>
+      <button class="b pur">📤 Partager</button>
+      <span style="width:1px;height:24px;background:var(--bor);margin:0 4px"></span>
+      <button class="b icon" title="Modifier">✏️</button>
+      <button class="b icon" title="Aperçu">👁</button>
+      <button class="b icon" title="Aperçu garant">📋</button>
+      <button class="b icon" title="Certificat">📜</button>
+      <button class="b icon" title="Réinitialiser" style="color:var(--ora)">🔄</button>
+      <button class="b icon" title="Clôturer">🔚</button>
+    </div>
+    <div class="cap">Compact, mais l'utilisateur doit deviner les icônes (tooltip requis).</div>
+  </div>
+
+  <!-- ───────── VARIANTE C — un seul CTA + menu Actions ───────── -->
+  <div class="vh">Variante C — 1 seul bouton principal + menu « Actions »</div>
+  <p class="vsub">Le plus épuré : une seule action mise en avant, tout le reste (y compris PDF/Partage) dans un menu « Actions ». Très propre, mais une action de plus pour ouvrir le PDF.</p>
+  <div class="panel">
+    <div class="st">État : signé bilatéralement <span class="badge ok">✓ Signé</span></div>
+    <div class="acts">
+      <button class="b blu">📄 PDF du bail</button>
+      <div class="more"><button class="b more-btn">⚙ Actions ▾</button></div>
+    </div>
+    <div class="cap">Minimaliste ; « Partager » descend d'un cran (dans Actions).</div>
+  </div>
+
+  <!-- ───────── POST-CLIC menu ───────── -->
+  <div class="vh">Post-clic — le menu « ⋯ » (commun A/C)</div>
+  <p class="vsub">Regroupe le secondaire, avec un séparateur avant les actions sensibles (Réinitialiser / Clôturer) en rouge.</p>
+  <div style="display:inline-block;position:relative">
+    <div class="menu" style="position:static;display:inline-block">
+      <div class="mi">✏️ <span>Modifier le bail</span></div>
+      <div class="mi">👁 <span>Aperçu</span></div>
+      <div class="mi">📋 <span>Aperçu garant</span></div>
+      <div class="mi">📜 <span>Certificat de preuve</span></div>
+      <div class="sep"></div>
+      <div class="mi danger">🔄 <span>Réinitialiser les signatures</span></div>
+      <div class="mi danger">🔚 <span>Clôturer le bail</span></div>
+    </div>
+  </div>
+
+  <!-- ───────── RESPONSIVE ───────── -->
+  <div class="vh">Responsive — téléphone (variante A)</div>
+  <div class="formats">
+    <div>
+      <p class="fmt-lbl">📱 Téléphone</p>
+      <div class="phone"><div class="pc-b">
+        <div class="panel" style="box-shadow:none;margin:0">
+          <div class="st" style="font-size:10px">📜 Bail <span class="badge ok" style="font-size:10px">✓ Signé</span></div>
+          <div class="acts" style="gap:7px">
+            <button class="b blu sm" style="flex:1;justify-content:center">📄 PDF</button>
+            <button class="b pur sm" style="flex:1;justify-content:center">📤 Partager</button>
+            <button class="b more-btn sm">⋯</button>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div style="flex:1;min-width:260px">
+      <p class="fmt-lbl">💻 PC / 📋 Tablette</p>
+      <div class="note">Sur téléphone : 2 boutons principaux pleine largeur + « ⋯ ». Sur PC/tablette : les principales en toutes lettres + « ⋯ » à droite. Le menu « ⋯ » s'ouvre en feuille (bottom-sheet) sur mobile, en dropdown sur desktop.</div>
+      <div class="note" style="margin-top:10px;background:#f0fdf4;border-color:#b6e6c8;color:#166534"><b>À valider :</b> variante <b>A</b> (menu ⋯, recommandée) / <b>B</b> (icônes) / <b>C</b> (1 CTA + Actions) ? Et : la liste exacte du <b>principal vs secondaire</b> par état te convient ?</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
