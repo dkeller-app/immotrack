@@ -449,8 +449,13 @@ function renderLoading(overlay, user) {
 }
 
 function brand() {
-  return `<div class="imsb-brand"><div class="imsb-logo">🏠</div><div class="imsb-name">Propryo</div></div>
-    <div class="imsb-tag">Propryo</div>`
+  // Logo + wordmark Propryo de la charte : pavé encre + point corail (accent identité).
+  return `<div class="imsb-brand">
+    <span class="imsb-mark">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.2 11 12 3.6 20.8 11M5.6 9.2V19a1 1 0 0 0 1 1H10v-5h4v5h3.4a1 1 0 0 0 1-1V9.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <span class="imsb-name">Propryo</span>
+  </div>`
 }
 
 // Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud + indicateur de sync en
@@ -509,27 +514,173 @@ function injectSyncBanner(api, user, esp) {
   }
 }
 
+// Le SVG « check » réutilisé dans les listes des piliers.
+function _imsbCheck() {
+  return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+}
+
 function injectOverlay() {
   const ov = document.createElement('div')
   ov.id = 'imsb-overlay'
-  ov.innerHTML = `<section class="imsb-panel"><div id="imsb-left">
-    ${brand()}
-    <form id="imsb-form" class="imsb-mid" autocomplete="on">
-      <h2 class="imsb-h2">Accède à ton espace</h2>
-      <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
-      <div class="imsb-err" id="imsb-error" style="display:none"></div>
-      <label class="imsb-flabel">Email</label>
-      <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
-      <label class="imsb-flabel">Mot de passe</label>
-      <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
-      <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
-      <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Se connecter</button>
-    </form></div>
-    <aside class="imsb-right">
-      <h1 class="imsb-h1">Tes données, dans le cloud.</h1>
-      <p class="imsb-sub">Synchronisé, chiffré, hébergé en Europe (RGPD).</p>
-    </aside></section>`
+  // Thème mémorisé (défaut clair). On l'applique AVANT le 1er paint pour éviter le flash.
+  let theme = 'clair'
+  try { const t = localStorage.getItem('immo_theme'); if (t === 'sombre' || t === 'clair') theme = t } catch (e) {}
+  if (theme === 'sombre') ov.classList.add('mode-sombre')
+
+  // STRUCTURE — landing plein écran (vitrine cockpit) :
+  //   #imsb-overlay
+  //     .imsb-page (scroll/centrage)
+  //       nav (wordmark + toggle thème + liens)
+  //       .imsb-hero
+  //         .imsb-pitch ........ marketing (HORS #imsb-left → reste visible pendant chargement/invitation)
+  //         .imsb-right
+  //           .imsb-dash ....... aperçu dashboard (HORS #imsb-left)
+  //           #imsb-left ....... la COLONNE de connexion (login / chargement / invitation)
+  //
+  // ⚠️ #imsb-left contient le formulaire #imsb-form (#imsb-email/#imsb-pass/#imsb-submit/#imsb-error/#imsb-forgot).
+  //   renderLoading() et acceptInviteFlow() font `overlay.querySelector('#imsb-left').innerHTML = …`,
+  //   donc tout le marketing/aperçu DOIT rester en dehors de #imsb-left.
+  ov.innerHTML = `<div class="imsb-page">
+    <nav class="imsb-nav">
+      ${brand()}
+      <div class="imsb-nav-right">
+        <div class="imsb-nav-links">
+          <a href="#" class="imsb-nav-link">Fonctionnalités</a>
+          <a href="#" class="imsb-nav-link">Tarifs</a>
+        </div>
+        <button type="button" id="imsb-theme" class="imsb-theme" aria-label="Basculer le thème clair / sombre" title="Clair / Sombre">
+          <span class="imsb-theme-ic imsb-theme-sun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </span>
+          <span class="imsb-theme-ic imsb-theme-moon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="imsb-hero">
+      <div class="imsb-pitch">
+        <div class="imsb-rate">
+          <div class="imsb-avatars"><span class="av1">SL</span><span class="av2">MK</span><span class="av3">TD</span><span class="av4">PB</span></div>
+          <span class="imsb-stars">★★★★★</span><span class="imsb-rate-txt">4,9/5 · 1 200+ bailleurs</span>
+        </div>
+        <h1 class="imsb-h1">Du bail au bilan,<br><span class="imsb-hl">tout</span> ton locatif maîtrisé.</h1>
+        <p class="imsb-sub">Un seul outil pour gérer tes biens et piloter tes finances. Zéro paperasse.</p>
+        <div class="imsb-piliers">
+          <div class="imsb-pil">
+            <div class="imsb-pi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <h4>Gestion</h4>
+            <ul>
+              <li>${_imsbCheck()}Baux &amp; révision IRL</li>
+              <li>${_imsbCheck()}EDL photos &amp; quittances</li>
+              <li>${_imsbCheck()}Signature à distance</li>
+            </ul>
+          </div>
+          <div class="imsb-pil">
+            <div class="imsb-pi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h4>Finance</h4>
+            <ul>
+              <li>${_imsbCheck()}Dashboard &amp; KPI</li>
+              <li>${_imsbCheck()}Loyers · payé / relance</li>
+              <li>${_imsbCheck()}Charges, régul &amp; cashflow</li>
+            </ul>
+          </div>
+        </div>
+        <div class="imsb-actions">
+          <div class="imsb-stat-saved"><em>6 h</em><span>économisées / mois</span></div>
+        </div>
+        <div class="imsb-trustline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          Hébergé en France / Europe<span class="imsb-dot"></span>chiffré<span class="imsb-dot"></span>conforme RGPD
+        </div>
+      </div>
+
+      <div class="imsb-right">
+        <div class="imsb-dash">
+          <div class="imsb-dashbar">
+            <div class="imsb-dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+            <div class="imsb-url">app.propryo.fr/tableau-de-bord</div>
+          </div>
+          <div class="imsb-mock">
+            <div class="imsb-mock-grid">
+              <div class="imsb-mock-side">
+                <div class="imsb-m-brand"><span class="imsb-mm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3.2 11 12 3.6 20.8 11M5.6 9.2V19a1 1 0 0 0 1 1h10.8a1 1 0 0 0 1-1V9.2" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Propryo</div>
+                <div class="imsb-m-nav">
+                  <a class="on"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg>Tableau de bord</a>
+                  <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Baux</a>
+                  <a><svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Mes biens</a>
+                  <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Finances</a>
+                </div>
+              </div>
+              <div class="imsb-mock-body">
+                <div class="imsb-mock-head"><h4>Tableau de bord</h4><span class="imsb-m-date">Juin 2026</span></div>
+                <div class="imsb-kpis">
+                  <div class="imsb-kpi accent"><div class="imsb-k-lab">Encaissé</div><div class="imsb-k-val">8 420 €</div><div class="imsb-k-delta up">▲ 4,2 %</div></div>
+                  <div class="imsb-kpi"><div class="imsb-k-lab">En attente</div><div class="imsb-k-val">1 150 €</div><div class="imsb-k-delta">2 lots</div></div>
+                  <div class="imsb-kpi"><div class="imsb-k-lab">Renta nette</div><div class="imsb-k-val">6,1 %</div><div class="imsb-k-delta up">▲ an</div></div>
+                  <div class="imsb-kpi"><div class="imsb-k-lab">Occupation</div><div class="imsb-k-val">94 %</div><div class="imsb-k-delta up">12/13</div></div>
+                </div>
+                <div class="imsb-mock-cols">
+                  <div class="imsb-panel">
+                    <div class="imsb-p-head"><h5>Cashflow mensuel</h5><span class="imsb-p-tag">2026</span></div>
+                    <div class="imsb-chart">
+                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:48%"></div><div class="imsb-bl">J</div></div>
+                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:56%"></div><div class="imsb-bl">F</div></div>
+                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:52%"></div><div class="imsb-bl">M</div></div>
+                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:66%"></div><div class="imsb-bl">A</div></div>
+                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:72%"></div><div class="imsb-bl">M</div></div>
+                      <div class="imsb-bar hl"><div class="imsb-bb" style="height:90%"></div><div class="imsb-bl">J</div></div>
+                    </div>
+                  </div>
+                  <div class="imsb-panel">
+                    <div class="imsb-p-head"><h5>Suivi des loyers</h5><span class="imsb-p-tag">Juin</span></div>
+                    <div class="imsb-loyers">
+                      <div class="imsb-loyer"><div class="imsb-l-av" style="background:#3f8f7a">SL</div><div class="imsb-l-info"><div class="imsb-l-name">S. Lefèvre</div><div class="imsb-l-meta">T2 · le 5</div></div><span class="imsb-badge b-paid">Payé</span></div>
+                      <div class="imsb-loyer"><div class="imsb-l-av" style="background:#b27a12">MK</div><div class="imsb-l-info"><div class="imsb-l-name">M. Kaci</div><div class="imsb-l-meta">Studio · J-2</div></div><span class="imsb-badge b-wait">Attente</span></div>
+                      <div class="imsb-loyer"><div class="imsb-l-av" style="background:#7b6bb0">TD</div><div class="imsb-l-info"><div class="imsb-l-name">T. Dubois</div><div class="imsb-l-meta">T3 · relance</div></div><span class="imsb-badge b-late">Retard</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="imsb-left">
+          ${brand()}
+          <form id="imsb-form" class="imsb-mid" autocomplete="on">
+            <h2 class="imsb-h2">Connexion</h2>
+            <p class="imsb-lead">Connecte-toi pour gérer tes locations.</p>
+            <div class="imsb-err" id="imsb-error" style="display:none"></div>
+            <label class="imsb-flabel">Email</label>
+            <input class="imsb-input" id="imsb-email" type="email" placeholder="toi@exemple.fr" required autocomplete="username">
+            <label class="imsb-flabel">Mot de passe</label>
+            <input class="imsb-input" id="imsb-pass" type="password" placeholder="••••••••" required autocomplete="current-password">
+            <div class="imsb-forgot"><a href="#" id="imsb-forgot">Mot de passe oublié ?</a></div>
+            <button class="imsb-btn imsb-primary" id="imsb-submit" type="submit">Se connecter</button>
+            <p class="imsb-foot">Nouveau ? <a href="#" id="imsb-signup">Créer un compte · essai gratuit</a></p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>`
   document.body.appendChild(ov)
+
+  // Toggle thème Clair/Sombre — bascule .mode-sombre sur #imsb-overlay, persisté (immo_theme).
+  const toggle = ov.querySelector('#imsb-theme')
+  if (toggle) toggle.onclick = () => {
+    const dark = ov.classList.toggle('mode-sombre')
+    try { localStorage.setItem('immo_theme', dark ? 'sombre' : 'clair') } catch (e) {}
+  }
+
+  // « Créer un compte · essai gratuit » — inscription publique pas encore ouverte → message informatif.
+  const signup = ov.querySelector('#imsb-signup')
+  if (signup) signup.onclick = (e) => {
+    e.preventDefault()
+    showError(ov, "L'inscription arrive bientôt — pour l'instant le compte est créé côté admin.")
+  }
+
   return ov
 }
 
@@ -552,50 +703,222 @@ const escapeHtml = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&
 
 function injectStyles() {
   if (document.getElementById('imsb-style')) return
+  // CSS de la charte Propryo, SCOPÉ à #imsb-overlay (tokens via variables ; mode sombre = .mode-sombre).
+  // RÈGLE COULEUR : neutres = la base ; corail = accent SEULEMENT (CTA / liens / focus / point logo / 1 chiffre).
   const css = `
-  #imsb-overlay{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:24px;
-    font-family:'IBM Plex Sans',system-ui,sans-serif;background:rgba(16,28,54,.55);backdrop-filter:blur(4px)}
-  .imsb-panel{display:grid;grid-template-columns:440px 1fr;max-width:900px;width:100%;min-height:540px;
-    background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 40px 90px -30px rgba(0,0,0,.55)}
-  #imsb-left{padding:40px 42px;display:flex;flex-direction:column}
-  .imsb-brand{display:flex;align-items:center;gap:12px}
-  .imsb-logo{width:44px;height:44px;border-radius:10px;background:#163b78;display:grid;place-items:center;font-size:22px}
-  .imsb-name{font-weight:700;font-size:21px;color:#163b78}
-  .imsb-tag{margin-top:9px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#2b5fd0;
-    border:1px solid #cfdcf3;background:#f2f6fd;padding:4px 10px;border-radius:6px;width:fit-content}
-  .imsb-mid{margin:auto 0;display:flex;flex-direction:column}
-  .imsb-h2{font-size:23px;font-weight:700;margin:0 0 5px;color:#1a2332}
-  .imsb-lead{color:#4b5870;font-size:14px;line-height:1.5;margin:0 0 18px}
-  .imsb-flabel{font-size:12.5px;font-weight:600;color:#4b5870;margin-bottom:6px}
-  .imsb-input{width:100%;border:1.5px solid #d4ddea;border-radius:8px;padding:12px 14px;font-size:14.5px;
-    margin-bottom:13px;font-family:inherit}
-  .imsb-input:focus{outline:none;border-color:#3b7ef6;box-shadow:0 0 0 3px rgba(59,126,246,.15)}
-  .imsb-forgot{text-align:right;margin:-6px 0 15px}
-  .imsb-forgot a{font-size:12.5px;color:#2b5fd0;font-weight:600;text-decoration:none}
-  .imsb-btn{width:100%;border:none;cursor:pointer;font-family:inherit;font-size:15px;font-weight:600;border-radius:8px;
-    padding:13px;display:flex;align-items:center;justify-content:center;gap:9px}
-  .imsb-primary{background:linear-gradient(160deg,#1f4e9c,#2b5fd0);color:#fff}
-  .imsb-primary:disabled{opacity:.7;cursor:default}
-  .imsb-ghost{background:#fff;color:#1a2332;border:1.5px solid #d4ddea;margin-top:6px}
-  .imsb-divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:#8a96ab;font-size:12px;text-transform:uppercase}
-  .imsb-divider::before,.imsb-divider::after{content:"";flex:1;height:1px;background:#e3e9f1}
-  .imsb-err{background:#fdecec;border:1px solid #f3c4c4;color:#9d1c1c;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:14px}
-  .imsb-ok{background:#eafaf0;border:1px solid #b6e6c8;color:#13703a;border-radius:8px;padding:10px 12px;font-size:13.5px;font-weight:600;margin-bottom:12px}
-  .imsb-tbl{width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:14px}
-  .imsb-tbl td{padding:6px 4px;border-bottom:1px solid #eef2f7;color:#4b5870}
-  .imsb-tbl .imsb-num{text-align:right;font-weight:700;color:#1a2332}
-  .imsb-note{font-size:12px;color:#6b7890;line-height:1.5;background:#f7faff;border:1px solid #e0e9f6;border-radius:8px;padding:10px 12px}
-  .imsb-note code{background:#e6eefb;padding:1px 5px;border-radius:4px;font-size:11px}
-  .imsb-right{background:radial-gradient(800px 500px at 80% -10%,rgba(59,126,246,.3),transparent 60%),linear-gradient(160deg,#163b78,#1f4e9c);
-    color:#dbe6f7;padding:48px 44px;display:flex;flex-direction:column;justify-content:center}
-  .imsb-h1{font-weight:800;font-size:30px;line-height:1.15;color:#fff;margin:0 0 14px}
-  .imsb-sub{font-size:15.5px;line-height:1.55;color:#aec3e3;margin:0}
-  .imsb-spin{width:26px;height:26px;border:3px solid #d4ddea;border-top-color:#2b5fd0;border-radius:50%;animation:imsb-rot .7s linear infinite;margin-bottom:14px}
-  .imsb-spin-sm{width:16px;height:16px;border-width:2.5px;border-top-color:#fff;margin:0;display:inline-block}
+  /* ===== TOKENS — MODE CLAIR (défaut) ===== */
+  #imsb-overlay{
+    --bg:#f4f5f8;
+    --bg-grad:radial-gradient(120% 100% at 92% -8%,#fff4f1 0%,#f5f6f9 38%,#f1f2f6 100%);
+    --surface:#ffffff; --surface-2:#f7f8fb;
+    --ink:#101521; --ink-2:#3c4658; --ink-3:#6e7888;
+    --line:#e4e7ee; --line-2:#eef0f5;
+    --neutral-soft:#eef1f6; --neutral-ink:#42506a;
+    --accent:#ff5a3c; --accent-2:#e8431f; --accent-soft:#ffe7e0; --accent-on:#ffffff;
+    --good:#1a8f6f; --good-soft:#dff3ec; --warn:#b27a12; --warn-soft:#f8eed6; --bad:#d23f3f; --bad-soft:#fbe4e2; --stars:#f0a13c;
+    --font:'Inter',system-ui,sans-serif;
+    --display:'Schibsted Grotesk','Inter',system-ui,sans-serif;
+    --display-w:800; --display-ls:-.035em; --display-lh:1.03;
+    --r-xs:9px; --r:13px; --r-md:15px; --r-lg:20px; --r-xl:26px; --pill:999px;
+    --shadow-sm:0 1px 2px rgba(16,21,33,.06);
+    --shadow-md:0 14px 36px -18px rgba(16,21,33,.20);
+    --shadow-lg:0 34px 78px -30px rgba(16,21,33,.26);
+    --btn-shadow:0 12px 26px -12px rgba(255,90,60,.55);
+    --dash-rotate:perspective(1700px) rotateY(-7deg) rotateX(1.5deg);
+    --logo-mark-bg:#101521; --frame-border:rgba(16,21,33,.10);
+    --mside-bg:#141925; --mside-fg:#aab4c6; --mside-on:rgba(255,90,60,.20); --mside-on-fg:#ffffff;
+    --mbody-bg:#f6f7fa; --mbar:#cfd5e2; --mbar-hl:#ff5a3c; --mbar-muted:#e2e6ee;
+  }
+  /* ===== TOKENS — MODE SOMBRE ===== */
+  #imsb-overlay.mode-sombre{
+    --bg:#14161d;
+    --bg-grad:radial-gradient(120% 100% at 90% -10%,#221a1c 0%,#14161d 42%,#11131a 100%);
+    --surface:#1e222c; --surface-2:#262b37;
+    --ink:#f2f5fa; --ink-2:#cdd6e3; --ink-3:#9aa6b8;
+    --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.08);
+    --neutral-soft:rgba(255,255,255,.07); --neutral-ink:#aeb9cb;
+    --accent:#ff6a4a; --accent-2:#ff8163; --accent-soft:rgba(255,106,74,.18); --accent-on:#1a0d09;
+    --good:#3fd6a3; --good-soft:rgba(63,214,163,.16); --warn:#f1bd55; --warn-soft:rgba(241,189,85,.16); --bad:#ff7a7a; --bad-soft:rgba(255,122,122,.16); --stars:#ffb454;
+    --shadow-sm:0 0 0 1px rgba(255,255,255,.05);
+    --shadow-md:0 0 0 1px rgba(255,255,255,.09);
+    --shadow-lg:0 0 0 1px rgba(255,255,255,.11), 0 40px 90px -40px rgba(0,0,0,.7);
+    --btn-shadow:0 0 0 1px rgba(255,106,74,.45), 0 12px 30px -14px rgba(255,106,74,.5);
+    --logo-mark-bg:#262b37; --frame-border:rgba(255,255,255,.10);
+    --mside-bg:#10131a; --mside-fg:#9aa6b8; --mside-on:rgba(255,106,74,.20); --mside-on-fg:#ffffff;
+    --mbody-bg:#171a22; --mbar:#3a4150; --mbar-hl:#ff6a4a; --mbar-muted:#2b313d;
+  }
+
+  /* ===== ROOT / PAGE ===== */
+  #imsb-overlay{position:fixed;inset:0;z-index:2147483000;overflow:auto;
+    background:var(--bg);background-image:var(--bg-grad);color:var(--ink);
+    font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .25s}
+  #imsb-overlay *{box-sizing:border-box}
+  #imsb-overlay svg{display:block}
+  .imsb-page{max-width:1280px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:0 0 48px}
+
+  /* ===== NAV ===== */
+  .imsb-nav{display:flex;align-items:center;justify-content:space-between;padding:22px 44px;gap:20px}
+  .imsb-brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:var(--display-w);font-size:21px;letter-spacing:-.03em;color:var(--ink)}
+  .imsb-mark{position:relative;width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;background:var(--logo-mark-bg);color:#fff;box-shadow:var(--shadow-sm);flex-shrink:0}
+  .imsb-mark svg{width:20px;height:20px}
+  .imsb-mark::after{content:"";position:absolute;right:6px;bottom:6px;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--logo-mark-bg)}
+  .imsb-name{font-weight:var(--display-w)}
+  .imsb-nav-right{display:flex;align-items:center;gap:24px}
+  .imsb-nav-links{display:flex;align-items:center;gap:28px;font-size:14.5px;font-weight:600;color:var(--ink-2)}
+  .imsb-nav-link:hover{color:var(--accent)}
+  /* toggle thème : icône neutre, halo corail au survol */
+  .imsb-theme{position:relative;width:40px;height:40px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--ink-2);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);transition:.16s}
+  .imsb-theme:hover{color:var(--accent);border-color:var(--accent-soft)}
+  .imsb-theme-ic{position:absolute;display:flex}.imsb-theme-ic svg{width:19px;height:19px}
+  #imsb-overlay .imsb-theme-moon{display:none}#imsb-overlay .imsb-theme-sun{display:flex}
+  #imsb-overlay.mode-sombre .imsb-theme-sun{display:none}#imsb-overlay.mode-sombre .imsb-theme-moon{display:flex}
+
+  /* ===== HERO ===== */
+  .imsb-hero{flex:1;display:grid;grid-template-columns:.88fr 1.12fr;gap:36px;padding:16px 44px 40px;align-items:center}
+  .imsb-rate{display:inline-flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--pill);padding:5px 15px 5px 6px;box-shadow:var(--shadow-sm);margin-bottom:22px}
+  .imsb-avatars{display:flex}
+  .imsb-avatars span{width:25px;height:25px;border-radius:50%;border:2.5px solid var(--surface);margin-left:-9px;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff}
+  .imsb-avatars span:first-child{margin-left:0}
+  .imsb-avatars .av1{background:#5566aa}.imsb-avatars .av2{background:#3f8f7a}.imsb-avatars .av3{background:#7b6bb0}.imsb-avatars .av4{background:#ff5a3c}
+  .imsb-stars{color:var(--stars);letter-spacing:1px;font-size:13px}
+  .imsb-rate-txt{font-size:12px;font-weight:700;color:var(--ink-2)}
+  .imsb-h1{font-family:var(--display);font-weight:var(--display-w);font-size:47px;line-height:var(--display-lh);letter-spacing:var(--display-ls);color:var(--ink);margin:0}
+  .imsb-hl{color:var(--accent);position:relative;display:inline-block}
+  .imsb-hl::after{content:"";position:absolute;left:0;right:0;bottom:1px;height:8px;background:var(--accent-soft);border-radius:8px;z-index:-1}
+  .imsb-sub{font-size:18px;color:var(--ink-2);font-weight:500;margin-top:16px;max-width:420px}
+  .imsb-piliers{display:flex;gap:12px;margin-top:24px}
+  .imsb-pil{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:15px 15px 14px;box-shadow:var(--shadow-sm)}
+  .imsb-pi-ic{width:34px;height:34px;border-radius:var(--r-xs);display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:var(--neutral-soft);color:var(--neutral-ink)}
+  .imsb-pil h4{font-size:14px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;color:var(--ink);font-family:var(--display)}
+  .imsb-pil ul{list-style:none;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
+  .imsb-pil li{font-size:12px;color:var(--ink-2);font-weight:600;display:flex;align-items:center;gap:7px}
+  .imsb-pil li svg{width:13px;height:13px;flex-shrink:0;color:var(--good)}
+  .imsb-actions{display:flex;align-items:center;gap:16px;margin-top:26px;flex-wrap:wrap}
+  .imsb-stat-saved{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1;font-family:var(--display)}
+  .imsb-stat-saved em{font-style:normal;color:var(--accent)}
+  .imsb-stat-saved span{display:block;font-size:12px;font-weight:600;color:var(--ink-3);letter-spacing:0;margin-top:3px}
+  .imsb-trustline{margin-top:18px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);font-weight:600;flex-wrap:wrap}
+  .imsb-trustline svg{color:var(--neutral-ink);flex-shrink:0}
+  .imsb-dot{width:4px;height:4px;border-radius:50%;background:var(--line)}
+
+  /* ===== RIGHT : dashboard + colonne login (#imsb-left) ===== */
+  .imsb-right{position:relative}
+  .imsb-dash{border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--frame-border);transform:var(--dash-rotate);transition:transform .4s ease}
+  /* #imsb-left = la carte de connexion, posée en surimpression du dashboard (login / chargement / invitation) */
+  #imsb-left{position:absolute;right:-12px;bottom:-26px;width:286px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:20px;z-index:3;display:flex;flex-direction:column}
+  /* le brand est répété dans #imsb-left (login/chargement/invitation) mais discret dans la carte */
+  #imsb-left .imsb-brand{font-size:15px;margin-bottom:12px}
+  #imsb-left .imsb-mark{width:26px;height:26px;border-radius:8px}
+  #imsb-left .imsb-mark svg{width:15px;height:15px}
+  #imsb-left .imsb-mark::after{right:4px;bottom:4px;width:5px;height:5px}
+  .imsb-mid{display:flex;flex-direction:column}
+  .imsb-h2{font-size:17px;font-weight:800;margin:0 0 4px;color:var(--ink);font-family:var(--display)}
+  .imsb-lead{color:var(--ink-3);font-size:12.5px;line-height:1.45;margin:0 0 14px}
+  .imsb-flabel{font-size:11.5px;font-weight:700;color:var(--ink-2);margin-bottom:6px}
+  .imsb-input{width:100%;border:1.5px solid var(--line);border-radius:var(--r);padding:11px 13px;font-size:14px;margin-bottom:11px;font-family:inherit;background:var(--surface-2);color:var(--ink);transition:.15s}
+  .imsb-input::placeholder{color:var(--ink-3)}
+  .imsb-input:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 4px var(--accent-soft)}
+  .imsb-forgot{text-align:right;margin:-2px 0 13px}
+  .imsb-forgot a{font-size:12px;color:var(--accent);font-weight:700;text-decoration:none}
+  .imsb-btn{width:100%;border:none;cursor:pointer;font-family:inherit;font-size:14.5px;font-weight:700;border-radius:var(--r);padding:12px;display:flex;align-items:center;justify-content:center;gap:9px;transition:.18s}
+  .imsb-primary{background:var(--accent);color:var(--accent-on);box-shadow:var(--btn-shadow)}
+  .imsb-primary:hover{background:var(--accent-2);transform:translateY(-1px)}
+  .imsb-primary:disabled{opacity:.7;cursor:default;transform:none}
+  .imsb-ghost{background:var(--surface);color:var(--ink-2);border:1.5px solid var(--line);margin-top:6px}
+  .imsb-ghost:hover{color:var(--accent);border-color:var(--accent-soft)}
+  .imsb-foot{text-align:center;font-size:12px;color:var(--ink-3);margin-top:13px;font-weight:500}
+  .imsb-foot a{color:var(--accent);font-weight:700}
+  .imsb-err{background:var(--bad-soft);border:1px solid var(--bad);color:var(--bad);border-radius:var(--r);padding:9px 11px;font-size:12.5px;margin-bottom:12px}
+  .imsb-ok{background:var(--good-soft);border:1px solid var(--good);color:var(--good);border-radius:var(--r);padding:9px 11px;font-size:12.5px;font-weight:700;margin-bottom:12px}
+  .imsb-note{font-size:11.5px;color:var(--ink-3);line-height:1.45;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;margin-top:10px}
+  .imsb-note code{background:var(--neutral-soft);padding:1px 5px;border-radius:4px;font-size:11px}
+  .imsb-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px}
+  .imsb-tbl td{padding:5px 4px;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
+  .imsb-tbl .imsb-num{text-align:right;font-weight:700;color:var(--ink)}
+  .imsb-spin{width:24px;height:24px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:imsb-rot .7s linear infinite;margin:8px auto 12px}
+  .imsb-spin-sm{width:15px;height:15px;border-width:2.5px;border-top-color:var(--accent-on);margin:0;display:inline-block}
   @keyframes imsb-rot{to{transform:rotate(360deg)}}
-  @media(max-width:760px){.imsb-panel{grid-template-columns:1fr}.imsb-right{display:none}#imsb-left{padding:32px 26px}}`
+
+  /* ===== APP MOCK (aperçu dashboard) ===== */
+  .imsb-mock{background:var(--mbody-bg);font-size:12px}
+  .imsb-mock-grid{display:grid;grid-template-columns:170px 1fr}
+  .imsb-mock-side{background:var(--mside-bg);color:var(--mside-fg);padding:16px 14px}
+  .imsb-m-brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:800;font-size:14px;margin-bottom:18px;font-family:var(--display)}
+  .imsb-mm{position:relative;width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center}
+  .imsb-mm::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+  .imsb-m-nav{display:flex;flex-direction:column;gap:3px}
+  .imsb-m-nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-xs);font-size:12.5px;font-weight:600;color:var(--mside-fg)}
+  .imsb-m-nav a.on{background:var(--mside-on);color:var(--mside-on-fg)}
+  .imsb-m-nav a svg{width:15px;height:15px;opacity:.9}
+  .imsb-mock-body{padding:18px 20px;background:var(--mbody-bg)}
+  .imsb-mock-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .imsb-mock-head h4{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:-.02em;font-family:var(--display)}
+  .imsb-m-date{font-size:11.5px;color:var(--ink-3);font-weight:600}
+  .imsb-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .imsb-kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px}
+  .imsb-k-lab{font-size:10px;color:var(--ink-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .imsb-k-val{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-top:5px;font-family:var(--display)}
+  .imsb-kpi.accent .imsb-k-val{color:var(--accent)}
+  .imsb-k-delta{font-size:10.5px;font-weight:700;margin-top:3px;color:var(--ink-3)}
+  .imsb-k-delta.up{color:var(--good)}.imsb-k-delta.down{color:var(--bad)}
+  .imsb-mock-cols{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
+  .imsb-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+  .imsb-p-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .imsb-p-head h5{font-size:13px;font-weight:800;color:var(--ink);font-family:var(--display)}
+  .imsb-p-tag{font-size:10.5px;font-weight:700;color:var(--ink-3)}
+  .imsb-chart{display:flex;align-items:flex-end;gap:9px;height:96px;padding-top:6px;border-bottom:1px solid var(--line-2)}
+  .imsb-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
+  .imsb-bb{width:100%;border-radius:5px 5px 2px 2px;background:var(--mbar-muted)}
+  .imsb-bar.fill .imsb-bb{background:var(--mbar)}
+  .imsb-bar.hl .imsb-bb{background:var(--mbar-hl)}
+  .imsb-bl{font-size:9.5px;color:var(--ink-3);font-weight:700}
+  .imsb-loyers{display:flex;flex-direction:column;gap:9px}
+  .imsb-loyer{display:flex;align-items:center;gap:10px}
+  .imsb-l-av{width:30px;height:30px;border-radius:var(--r-xs);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+  .imsb-l-info{flex:1;min-width:0}
+  .imsb-l-name{font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .imsb-l-meta{font-size:10.5px;color:var(--ink-3);font-weight:600}
+  .imsb-badge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:var(--pill)}
+  .imsb-badge.b-paid{background:var(--good-soft);color:var(--good)}
+  .imsb-badge.b-wait{background:var(--warn-soft);color:var(--warn)}
+  .imsb-badge.b-late{background:var(--bad-soft);color:var(--bad)}
+  .imsb-dashbar{display:flex;align-items:center;gap:8px;padding:9px 13px;background:var(--mside-bg);border-bottom:1px solid rgba(255,255,255,.07)}
+  .imsb-dots{display:flex;gap:6px}
+  .imsb-dots i{width:9px;height:9px;border-radius:50%;display:block}
+  .imsb-url{flex:1;text-align:center;font-size:10.5px;color:rgba(255,255,255,.5);font-weight:600}
+
+  /* ===== RESPONSIVE ===== */
+  @media(max-width:1020px){
+    .imsb-hero{grid-template-columns:1fr;gap:42px}
+    .imsb-dash{transform:none}
+    #imsb-left{position:static;width:100%;margin-top:18px;right:auto;bottom:auto}
+    .imsb-h1{font-size:42px}
+  }
+  @media(max-width:620px){
+    .imsb-nav{padding:16px 18px}
+    .imsb-nav-links{display:none}
+    .imsb-hero{padding:14px 18px 28px;gap:28px}
+    .imsb-h1{font-size:33px}
+    .imsb-sub{font-size:16px}
+    .imsb-piliers{flex-direction:column}
+    .imsb-kpis{grid-template-columns:repeat(2,1fr)}
+    .imsb-mock-cols{grid-template-columns:1fr}
+    .imsb-mock-side{display:none}
+    .imsb-mock-grid{grid-template-columns:1fr}
+  }`
   const s = document.createElement('style'); s.id = 'imsb-style'; s.textContent = css
   document.head.appendChild(s)
+
+  // Polices de la charte (Schibsted Grotesk + Inter), idempotent.
+  try {
+    if (!document.getElementById('imsb-fonts')) {
+      const pre1 = document.createElement('link'); pre1.rel = 'preconnect'; pre1.href = 'https://fonts.googleapis.com'
+      const pre2 = document.createElement('link'); pre2.rel = 'preconnect'; pre2.href = 'https://fonts.gstatic.com'; pre2.crossOrigin = 'anonymous'
+      const f = document.createElement('link'); f.id = 'imsb-fonts'; f.rel = 'stylesheet'
+      f.href = 'https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap'
+      document.head.appendChild(pre1); document.head.appendChild(pre2); document.head.appendChild(f)
+    }
+  } catch (e) {}
 }
 
 // ── Démarrage (en dernier : toutes les déclarations const/function sont initialisées) ───────────
