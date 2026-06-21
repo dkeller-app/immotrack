@@ -54,6 +54,22 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
     return true
   }
 
+  // Blob config PROPRIÉTAIRE-PRIVÉ (espace_config_private, RLS is_full_member). Un membre SCOPÉ
+  // n'a aucun accès : la SELECT renvoie 0 ligne (→ {}), l'UPSERT est refusé (mais le Store ne tente
+  // l'écriture privée que si le sous-ensemble privé est non vide — un scopé ne l'a jamais). Volet 3.
+  async function fetchConfigPrivate() {
+    const { data, error } = await client.from('espace_config_private')
+      .select('data').eq('espace_id', espaceId).maybeSingle()
+    if (error) throw new Error('fetchConfigPrivate: ' + error.message)
+    return (data && data.data) || {}
+  }
+  async function writeConfigPrivate(data) {
+    const { error } = await client.from('espace_config_private')
+      .upsert({ espace_id: espaceId, data }, { onConflict: 'espace_id' })
+    if (error) throw new Error('writeConfigPrivate: ' + error.message)
+    return true
+  }
+
   const writer = {
     // ON CONFLICT (id) DO NOTHING. Tout conflit unique (id OU autre index) → null (jamais d'écrasement).
     async insert(table, row) {
@@ -84,5 +100,5 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
     },
   }
 
-  return { fetchTable, fetchConfig, writeConfig, writer }
+  return { fetchTable, fetchConfig, writeConfig, fetchConfigPrivate, writeConfigPrivate, writer }
 }

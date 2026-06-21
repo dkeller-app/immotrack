@@ -414,3 +414,36 @@ describe('P1 — étanchéité STORAGE cross-SCI (fichiers par-SCI, migration 00
     expect(error).not.toBeNull()
   })
 })
+
+// ════════════════════════════════════════════════════════════════════════════
+// P1 — VOLET 3 : config PROPRIÉTAIRE-PRIVÉ (espace_config_private, RLS is_full_member).
+// auditTrail / candidatLinks / params.bankAccounts / params.userProfile sortis du blob partagé
+// (is_member) → un membre SCOPÉ ne les lit NI ne les écrit. Un membre PLEIN (Alice owner) oui.
+// ════════════════════════════════════════════════════════════════════════════
+describe('P1 — espace_config_private : propriétaire-privé (membres pleins seulement)', () => {
+  beforeAll(async () => {
+    const { error } = await clientA.from('espace_config_private')
+      .upsert({ espace_id: espaceA, data: { bankAccounts: [{ iban: `FR-${RUN}` }], auditTrail: [1, 2, 3] } }, { onConflict: 'espace_id' })
+    if (error) throw new Error('seed espace_config_private: ' + error.message)
+  })
+  it('Alice (owner PLEIN) lit le blob privé', async () => {
+    const { data, error } = await clientA.from('espace_config_private').select('data').eq('espace_id', espaceA).maybeSingle()
+    expect(error).toBeNull()
+    expect(data?.data?.bankAccounts?.length).toBe(1)
+  })
+  it('Bob (SCOPÉ) ne lit RIEN du blob privé (fuite bankAccounts/auditTrail fermée)', async () => {
+    const { data, error } = await clientB.from('espace_config_private').select('data').eq('espace_id', espaceA)
+    expect(error).toBeNull()
+    expect(data).toEqual([])
+  })
+  it('Carol (SCOPÉ gestionnaire) ne lit RIEN non plus du blob privé', async () => {
+    const { data } = await clientC.from('espace_config_private').select('data').eq('espace_id', espaceA)
+    expect(data).toEqual([])
+  })
+  it('Bob (SCOPÉ) ne peut PAS écrire le blob privé (is_full_manager faux)', async () => {
+    const { error } = await clientB.from('espace_config_private')
+      .upsert({ espace_id: espaceA, data: { x: 1 } }, { onConflict: 'espace_id' })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/row-level security|violates/i)
+  })
+})

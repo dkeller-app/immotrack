@@ -67,7 +67,28 @@ const extractConfig = db => {
   return stripLocalUserParams(out)
 }
 
-export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConfig, detUuid, espaceId, ownerId }) {
+// 🔐 Volet 3 — clés PROPRIÉTAIRE-PRIVÉ : jamais dans le blob partagé `espace_config` (RLS is_member, lu
+// par tout membre scopé) → vont dans `espace_config_private` (RLS is_full_member). Top-level en bloc +
+// sous-clés de `params`. Un membre scopé ne les reçoit pas (fail-closed : RLS renvoie 0 ligne).
+export const PRIVATE_CONFIG_KEYS = ['auditTrail', 'candidatLinks']
+export const PRIVATE_PARAM_KEYS = ['bankAccounts', 'userProfile']
+export const splitConfig = cfg => {
+  const shared = {}, priv = {}
+  for (const [k, v] of Object.entries(cfg || {})) {
+    if (PRIVATE_CONFIG_KEYS.includes(k)) { priv[k] = v; continue }
+    if (k === 'params' && v && typeof v === 'object') {
+      const sp = {}, pp = {}
+      for (const [pk, pv] of Object.entries(v)) (PRIVATE_PARAM_KEYS.includes(pk) ? pp : sp)[pk] = pv
+      shared.params = sp
+      if (Object.keys(pp).length) priv.params = pp
+      continue
+    }
+    shared[k] = v
+  }
+  return { shared, priv }
+}
+
+export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConfig, fetchConfigPrivate, writeConfigPrivate, detUuid, espaceId, ownerId }) {
   if (typeof fetchTable !== 'function' || typeof fetchConfig !== 'function')
     throw new Error('createSupabaseStore: fetchTable et fetchConfig (fonctions) requis')
 
@@ -93,6 +114,15 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
     for (const [k, v] of Object.entries(cfg)) {
       if (TABLE_COLLECTIONS.has(k)) { console.warn('[SupabaseStore] clé config ignorée (collision collection métier) : ' + k); continue }
       db[k] = v
+    }
+    // Volet 3 : blob PRIVÉ (espace_config_private, is_full_member). Un membre PLEIN reçoit les clés
+    // propriétaire-privé ; un membre SCOPÉ → {} (RLS) → rien (fail-closed). `params` fusionné en
+    // profondeur (sous-clés privées greffées sur les sous-clés partagées).
+    const cfgPriv = (typeof fetchConfigPrivate === 'function' ? (await fetchConfigPrivate()) : null) || {}
+    for (const [k, v] of Object.entries(cfgPriv)) {
+      if (TABLE_COLLECTIONS.has(k)) continue
+      if (k === 'params' && db.params && typeof db.params === 'object' && v && typeof v === 'object') db.params = { ...db.params, ...v }
+      else db[k] = v
     }
     _db = db
     return db
@@ -158,7 +188,11 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   // côté table mais le contenu est remplacé en entier). Faible volume, faible fréquence de conflit.
   async function persistConfig(db = _db) {
     if (typeof writeConfig !== 'function') throw new Error('persistConfig: writeConfig (binding) requis')
-    await writeConfig(extractConfig(db || {}))
+    const { shared, priv } = splitConfig(extractConfig(db || {}))
+    await writeConfig(shared)
+    // Le blob privé n'est écrit que s'il y a quelque chose (un membre scopé n'a aucune clé privée →
+    // priv vide → pas d'UPSERT → pas de refus RLS is_full_manager). Seul un membre plein l'écrit.
+    if (typeof writeConfigPrivate === 'function' && priv && Object.keys(priv).length) await writeConfigPrivate(priv)
     return { status: 'config-written' }
   }
 
