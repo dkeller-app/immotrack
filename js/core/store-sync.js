@@ -13,7 +13,7 @@
 //
 // Identité de diff par collection = la clé legacy NATURELLE (celle dont dérive l'id déterministe du
 // mapping) : entites/immeubles par nom, logements par ref, baux par clé de map, le reste par id.
-import { TABLE_COLLECTIONS } from './store-supabase.js'   // source unique des collections table-backées
+import { TABLE_COLLECTIONS, LOCAL_USER_PARAM_KEYS } from './store-supabase.js'   // source unique des collections table-backées + params local-user
 import { bailContentHash } from './bail-content-hash.js'  // empreinte légale canonique des baux signés (verrou)
 
 const norm = s => String(s == null ? '' : s).trim().toLowerCase()
@@ -104,6 +104,13 @@ export const SYNCED_COLLECTIONS = COLLECTIONS.map(c => c.coll)
 const configSig = db => {
   const o = {}
   for (const k of Object.keys(db || {}).sort()) if (!CONFIG_EXCLUDED.has(k)) o[k] = db[k]
+  // 🔐 Exclure les params LOCAL-USER de la signature (ils ne sont jamais persistés dans espace_config —
+  // cf strip extractConfig) : sinon changer la clé relais marquerait « dirty » → flush qui ne pousse rien.
+  if (o.params && typeof o.params === 'object') {
+    const p = {}
+    for (const [k, v] of Object.entries(o.params)) if (!LOCAL_USER_PARAM_KEYS.includes(k)) p[k] = v
+    o.params = p
+  }
   return JSON.stringify(o)
 }
 

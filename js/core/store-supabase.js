@@ -47,11 +47,23 @@ const tableOf = coll => (coll === 'mrh' ? 'assurances' : coll)
 export const TABLE_COLLECTIONS = new Set([...Object.values(ARRAY_TABLES), 'baux', 'immeubles'])
 // + `_modifiedAt` (horodatage interne, changerait à chaque save → churn config inutile). Aligné ETL.
 const CONFIG_EXCLUDED = new Set([...TABLE_COLLECTIONS, '_modifiedAt'])
+// 🔐 Params LOCAL-USER : par-appareil, JAMAIS synchronisés dans espace_config (lue par tout membre via
+// is_member → un membre scopé lirait le SECRET `bailSignAppKey`). Symétrique du strip Drive `_buildGlobalPayload`.
+// Ces clés sont gardées en localStorage côté app et restaurées après hydrate (cf __immoSetDB).
+export const LOCAL_USER_PARAM_KEYS = ['coGestionnaires', 'imRootFolderId', 'edlDriveFolderId', 'bailSignRelayUrl', 'bailSignAppKey']
+const stripLocalUserParams = cfg => {
+  if (cfg && cfg.params && typeof cfg.params === 'object') {
+    const p = {}
+    for (const [k, v] of Object.entries(cfg.params)) if (!LOCAL_USER_PARAM_KEYS.includes(k)) p[k] = v
+    cfg.params = p   // nouvel objet : ne mute PAS le DB.params vivant
+  }
+  return cfg
+}
 // extrait le sous-ensemble CONFIG (complément des tables) → ce qui va dans espace_config.data.
 const extractConfig = db => {
   const out = {}
   for (const [k, v] of Object.entries(db || {})) if (!CONFIG_EXCLUDED.has(k)) out[k] = v
-  return out
+  return stripLocalUserParams(out)
 }
 
 export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConfig, detUuid, espaceId, ownerId }) {
