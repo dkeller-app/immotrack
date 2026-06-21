@@ -125,7 +125,7 @@ h1{font-size:20px;margin:0 0 4px}
       <div class="cbtns" id="g-scen">
         <button data-s="default" class="on">Défaut</button>
         <button data-s="bailDist">Bailleur → distance</button>
-        <button data-s="mixed">Mixte</button>
+        <button data-s="excl">Gérant exclu</button>
         <button data-s="all">Tout à distance</button>
       </div>
     </div>
@@ -185,81 +185,94 @@ const SIGNERS = [
   {id:'l1', role:'locataire', label:'Locataire', name:'Dupont Marie', email:'marie.dupont@email.fr', av:'DM'},
   {id:'l2', role:'locataire', label:'Locataire', name:'Martin Paul', email:'paul.martin@email.fr', av:'MP'},
 ];
-// présentiel = true → signe en personne (hors envoi). Défaut bailleur=présentiel, locataire=distance.
+// État par signataire : 'pres' (présentiel, in-app) · 'dist' (à distance, email) · 'no' (ne signe pas — bailleurs UNIQUEMENT).
+// Défaut : bailleur 'pres', locataire 'dist'. Locataires n'ont jamais 'no' (parties au contrat).
 const SCENARIOS = {
-  default : {b1:true,  b2:true,  l1:false, l2:false},
-  bailDist: {b1:false, b2:true,  l1:false, l2:false},
-  mixed   : {b1:true,  b2:false, l1:false, l2:false},
-  all     : {b1:false, b2:false, l1:false, l2:false},
+  default : {b1:'pres', b2:'pres', l1:'dist', l2:'dist'},
+  bailDist: {b1:'dist', b2:'pres', l1:'dist', l2:'dist'},
+  excl    : {b1:'pres', b2:'no',   l1:'dist', l2:'dist'},
+  all     : {b1:'dist', b2:'dist', l1:'dist', l2:'dist'},
 };
 let V='B', S='default', D='pc';
 
-function presOf(scen){ return SCENARIOS[scen]; }
+function stOf(scen){ return SCENARIOS[scen]; }
 function escH(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-// Calcule l'ordre de chaînage : signataires DISTANTS uniquement, bailleurs d'abord puis locataires.
-function chainOrder(pres){
-  const dist = SIGNERS.filter(s=>!pres[s.id]);
+// Ordre de chaînage : signataires DISTANTS uniquement (state 'dist'), bailleurs d'abord puis locataires.
+function chainOrder(st){
+  const dist = SIGNERS.filter(s=>st[s.id]==='dist');
   dist.sort((a,b)=> (a.role==='bailleur'?0:1)-(b.role==='bailleur'?0:1));
   const map={}; dist.forEach((s,i)=>map[s.id]=i+1); return map;
 }
 
-function rowHtml(s, pres, ord){
-  const isPres = pres[s.id];
+function rowHtml(s, st, ord){
+  const v = st[s.id];           // 'pres' | 'dist' | 'no'
   const isBail = s.role==='bailleur';
-  const ordBadge = isPres
-     ? `<div class="bsd-ord bsd-local" title="présentiel">✓</div>`
-     : `<div class="bsd-ord ${isBail?'bsd-bail':''}" title="ordre de signature à distance">${ord[s.id]}</div>`;
-  const chip = isPres
-     ? `<span class="bsd-modechip chip-pres">présentiel</span>`
-     : `<span class="bsd-modechip chip-dist">à distance</span>`;
-  const emailRow = isPres
-     ? `<div class="bsd-sub" style="font-size:11px;color:var(--grn);margin-top:2px">✅ Signe dans l'app — pas d'envoi</div>`
-     : `<input class="inp" value="${escH(s.email)}" placeholder="email du signataire">`;
+  const off = (v==='pres' || v==='no');
+  const ordBadge = v==='dist'
+     ? `<div class="bsd-ord ${isBail?'bsd-bail':''}" title="ordre de signature à distance">${ord[s.id]}</div>`
+     : v==='pres'
+       ? `<div class="bsd-ord bsd-local" title="présentiel">✓</div>`
+       : `<div class="bsd-ord" style="background:var(--t3)" title="ne signe pas">—</div>`;
+  const chip = v==='dist' ? `<span class="bsd-modechip chip-dist">à distance</span>`
+             : v==='pres' ? `<span class="bsd-modechip chip-pres">présentiel</span>`
+             : `<span class="bsd-modechip" style="background:#f1f5f9;color:#64748b">ne signe pas</span>`;
+  // Contrôle d'exclusion : bailleurs seulement (case « Signataire »). Locataires : toujours signataires.
+  const exclCtl = isBail
+     ? `<label class="bsd-toggle-wrap" style="cursor:pointer" title="Décoche si ce co-gérant ne signe pas le bail"><input type="checkbox" ${v!=='no'?'checked':''} style="width:15px;height:15px;accent-color:var(--pur)"><span class="tlab">signataire</span></label>`
+     : '';
+  const modeToggle = (v!=='no')
+     ? `<div class="bsd-toggle-wrap"><span class="tlab">distance</span><label class="bsd-toggle"><input type="checkbox" ${v==='dist'?'checked':''}><span></span></label></div>`
+     : '';
+  const body = v==='no'
+     ? `<div class="bsd-sub" style="font-size:11px;color:var(--t3);margin-top:2px">— Exclu de la signature (aucune case sur le PDF)</div>`
+     : v==='pres'
+       ? `<div class="bsd-sub" style="font-size:11px;color:var(--grn);margin-top:2px">✅ Signe dans l'app — pas d'envoi</div>`
+       : `<input class="inp" value="${escH(s.email)}" placeholder="email du signataire">`;
   return `
-    <div class="bsd-signer-row ${isPres?'bsd-off':''}">
+    <div class="bsd-signer-row ${off?'bsd-off':''}">
       ${ordBadge}
       <div class="bsd-av ${isBail?'av-bail':''}">${escH(s.av)}</div>
       <div>
         <div class="bsd-signer-meta">
           <span class="bsd-role">${escH(s.label)} · ${escH(s.name)} ${chip}</span>
-          <div class="bsd-toggle-wrap"><span class="tlab">distance</span>
-            <label class="bsd-toggle"><input type="checkbox" ${!isPres?'checked':''}><span></span></label>
-          </div>
+          <div style="display:flex;gap:12px;align-items:center">${exclCtl}${modeToggle}</div>
         </div>
-        ${emailRow}
+        ${body}
       </div>
     </div>`;
 }
 
-function bailleurDistantBanner(pres){
-  const anyBailDist = SIGNERS.some(s=>s.role==='bailleur' && !pres[s.id]);
-  if(!anyBailDist) return '';
-  return `<div class="bsd-banner bsd-banner-pur">🖊️ <div><b>Un bailleur signe à distance.</b> Le PDF part <b>sans sa signature</b> (case laissée vide, remplie à distance comme pour un locataire). Le bailleur signe en premier, puis les locataires — chacun à son tour.</div></div>`;
+function bailleurDistantBanner(st){
+  const anyBailDist = SIGNERS.some(s=>s.role==='bailleur' && st[s.id]==='dist');
+  const anyExcl = SIGNERS.some(s=>s.role==='bailleur' && st[s.id]==='no');
+  let out='';
+  if(anyBailDist) out += `<div class="bsd-banner bsd-banner-pur">🖊️ <div><b>Un bailleur signe à distance.</b> Le PDF part <b>sans sa signature</b> (case laissée vide, remplie à distance comme pour un locataire). Les bailleurs signent en premier, puis les locataires — chacun à son tour.</div></div>`;
+  if(anyExcl) out += `<div class="bsd-banner bsd-banner-warn">🚫 <div><b>Un co-gérant ne signe pas.</b> Aucune case signature ni paraphe n'est générée pour lui sur le PDF. Vérifie que la signature des gérants restants suffit à engager la SCI.</div></div>`;
+  return out;
 }
 
-function renderVariantA(pres,ord){
-  return SIGNERS.map(s=>rowHtml(s,pres,ord)).join('');
+function renderVariantA(st,ord){
+  return SIGNERS.map(s=>rowHtml(s,st,ord)).join('');
 }
-function renderVariantB(pres,ord){
-  const bail = SIGNERS.filter(s=>s.role==='bailleur').map(s=>rowHtml(s,pres,ord)).join('');
-  const loc  = SIGNERS.filter(s=>s.role==='locataire').map(s=>rowHtml(s,pres,ord)).join('');
+function renderVariantB(st,ord){
+  const bail = SIGNERS.filter(s=>s.role==='bailleur').map(s=>rowHtml(s,st,ord)).join('');
+  const loc  = SIGNERS.filter(s=>s.role==='locataire').map(s=>rowHtml(s,st,ord)).join('');
   return `
-    <div class="bsd-section-head">🏛️ Côté bailleur <span class="sline"></span><span class="bsd-sub" style="font-weight:600;color:var(--t3)">présentiel par défaut</span></div>
+    <div class="bsd-section-head">🏛️ Côté bailleur <span class="sline"></span><span class="bsd-sub" style="font-weight:600;color:var(--t3)">présentiel par défaut · co-gérant exclu possible</span></div>
     ${bail}
-    <div class="bsd-section-head">🔑 Côté locataires <span class="sline"></span><span class="bsd-sub" style="font-weight:600;color:var(--t3)">distance par défaut</span></div>
+    <div class="bsd-section-head">🔑 Côté locataires <span class="sline"></span><span class="bsd-sub" style="font-weight:600;color:var(--t3)">distance par défaut · tous signataires</span></div>
     ${loc}`;
 }
-function renderVariantC(pres,ord){
-  // Étape "qui à distance ?" : cases à cocher, puis emails des cochés-distance.
+function renderVariantC(st,ord){
   const checks = SIGNERS.map(s=>{
-    const dist=!pres[s.id];
+    const v=st[s.id]; const dist=v==='dist';
     return `<div class="bsd-check-row"><input type="checkbox" ${dist?'checked':''}>
       <div style="flex:1"><b style="font-size:12.5px">${escH(s.label)} · ${escH(s.name)}</b>
-      <div class="bsd-sub" style="font-size:11px">${dist?'reçoit un lien par email':'signe en présentiel (in-app)'}</div></div>
-      <span class="bsd-modechip ${dist?'chip-dist':'chip-pres'}">${dist?'à distance':'présentiel'}</span></div>`;
+      <div class="bsd-sub" style="font-size:11px">${v==='dist'?'reçoit un lien par email':v==='pres'?'signe en présentiel (in-app)':'ne signe pas'}</div></div>
+      <span class="bsd-modechip ${dist?'chip-dist':v==='pres'?'chip-pres':''}" ${v==='no'?'style="background:#f1f5f9;color:#64748b"':''}>${v==='dist'?'à distance':v==='pres'?'présentiel':'ne signe pas'}</span></div>`;
   }).join('');
-  const emails = SIGNERS.filter(s=>!pres[s.id]).map(s=>
+  const emails = SIGNERS.filter(s=>st[s.id]==='dist').map(s=>
     `<div style="margin-bottom:8px"><div class="bsd-sub" style="font-size:11px;font-weight:600">${escH(s.label)} · ${escH(s.name)} <span style="color:var(--pur)">#${ord[s.id]}</span></div>
      <input class="inp" value="${escH(s.email)}"></div>`).join('');
   return `<div class="bsd-state-label">Qui signe à distance ?</div>${checks}
@@ -267,26 +280,25 @@ function renderVariantC(pres,ord){
 }
 
 function render(){
-  const pres = presOf(S);
-  const ord  = chainOrder(pres);
-  const body = V==='A'?renderVariantA(pres,ord):V==='B'?renderVariantB(pres,ord):renderVariantC(pres,ord);
-  const distCount = SIGNERS.filter(s=>!pres[s.id]).length;
+  const st  = stOf(S);
+  const ord = chainOrder(st);
+  const body = V==='A'?renderVariantA(st,ord):V==='B'?renderVariantB(st,ord):renderVariantC(st,ord);
+  const distCount = SIGNERS.filter(s=>st[s.id]==='dist').length;
 
   document.getElementById('modal').innerHTML = `
     <div class="m-head"><h3>📨 Envoyer pour signature · étape 1/2</h3><button class="m-close">✕</button></div>
     <div class="m-body">
       <div class="bsd-banner bsd-banner-info">📄 <div><b>Bail LOG-014</b> — 12 rue des Lilas, Lyon.<br>Active le toggle <b>distance</b> sur chaque signataire à envoyer. Chacun reçoit son lien <b>à son tour</b> (partage manuel depuis la fiche).</div></div>
-      ${bailleurDistantBanner(pres)}
+      ${bailleurDistantBanner(st)}
       ${body}
-      <div class="bsd-banner bsd-banner-info" style="margin-top:4px">ℹ️ <div>${distCount} signataire${distCount>1?'s':''} à distance · les présentiels signent in-app et sont exclus de l'envoi.</div></div>
+      <div class="bsd-banner bsd-banner-info" style="margin-top:4px">ℹ️ <div>${distCount} signataire${distCount>1?'s':''} à distance · les présentiels signent in-app · les exclus n'ont aucune case.</div></div>
     </div>
     <div class="m-foot">
       <button class="btn bs">Annuler</button>
       <button class="btn bp">Continuer → (aperçu email)</button>
     </div>`;
 
-  // Fiche entry state
-  const anyBailDist = SIGNERS.some(s=>s.role==='bailleur' && !pres[s.id]);
+  const anyBailDist = SIGNERS.some(s=>s.role==='bailleur' && st[s.id]==='dist');
   const fa = document.getElementById('fiche-actions');
   const fn = document.getElementById('fiche-note');
   if(anyBailDist){
