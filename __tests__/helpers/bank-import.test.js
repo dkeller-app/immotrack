@@ -313,10 +313,10 @@ describe('_bankMatchHeuristic', () => {
     expect(r.cat).toMatch(/assurance|PNO/i);
   });
 
-  it('Mot-clé EDF → catégorie énergie', () => {
+  it('Mot-clé EDF → Charges récupérables (eau, énergie…) [catégorie STD réelle]', () => {
     const line = { libelle: 'PRELEV EDF 0123456', credit:0, debit:85, signedAmount:-85 };
     const r = _bankMatchHeuristic(line, ctx);
-    expect(r.cat).toMatch(/charges|énergie/i);
+    expect(r.cat).toMatch(/^Charges récupérables/);
   });
 
   it('Mot-clé SYNDIC → catégorie copropriété', () => {
@@ -331,16 +331,30 @@ describe('_bankMatchHeuristic', () => {
     expect(r.cat).toMatch(/Travaux/i);
   });
 
-  it('Mot-clé taxe foncière → Taxes', () => {
+  it('Mot-clé taxe foncière → Taxe foncière (et taxes annexes) [catégorie STD réelle]', () => {
     const line = { libelle: 'TAXE FONCIERE 2026', credit:0, debit:1200, signedAmount:-1200 };
     const r = _bankMatchHeuristic(line, ctx);
-    expect(r.cat).toMatch(/Taxes/i);
+    expect(r.cat).toBe('Taxe foncière (et taxes annexes)');
   });
 
-  it('Fallback Autres si aucun match', () => {
+  // V3-REFONTE-LOYERS — fix du bug : le moteur ne propose plus de catégories inexistantes.
+  it('Mot-clé emprunt → Prêt — Capital remboursé (intérêts via attestation, pas dérivés)', () => {
+    const r = _bankMatchHeuristic({ libelle:'ECHEANCE PRET IMMOBILIER 0042', credit:0, debit:780, signedAmount:-780 }, ctx);
+    expect(r.cat).toBe('Prêt — Capital remboursé');
+  });
+  it('Mot-clé notaire → Acquisition / cession de bien', () => {
+    const r = _bankMatchHeuristic({ libelle:'VIR NOTAIRE MAITRE DURAND', credit:0, debit:3200, signedAmount:-3200 }, ctx);
+    expect(r.cat).toBe('Acquisition / cession de bien');
+  });
+  it('Mot-clé comptable → Frais de comptabilité / expert-comptable', () => {
+    const r = _bankMatchHeuristic({ libelle:'PRLV CABINET COMPTABLE SARL', credit:0, debit:150, signedAmount:-150 }, ctx);
+    expect(r.cat).toBe('Frais de comptabilité / expert-comptable');
+  });
+
+  it('Fallback vide (aucune catégorie inventée) si aucun match', () => {
     const line = { libelle: 'OPERATION INCONNUE XYZ', credit:0, debit:50, signedAmount:-50 };
     const r = _bankMatchHeuristic(line, ctx);
-    expect(r.cat).toBe('Autres');
+    expect(r.cat).toBe('');
     expect(r.confidence).toBeLessThan(0.5);
   });
 
