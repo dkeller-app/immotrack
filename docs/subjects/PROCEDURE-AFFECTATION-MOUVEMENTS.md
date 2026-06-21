@@ -72,8 +72,8 @@ Quand tu catégorises un mouvement, **3 informations** en découlent automatique
 
 ## 5. Ce que ça implique pour l'app (spec B2-B3)
 
-- **Catégorie à créer** : **« Frais de gestion forfaitisés (forfait 222) »** (`special`, hors résultat) — couvre frais bancaires, péage, déplacement, matériel. + garde-fou « déjà couvert par le forfait 20 €/logement, ne pas déduire ».
-- **« Frais de gestion / honoraires » (221)** : rendre le niveau **SCI** accessible (pour le comptable).
+- ✅ **Catégorie créée (v15.325)** : **« Frais de gestion forfaitisés (forfait 222) »** (`special`, `ligne2044:''`, `gestionCharge:true`, `niv:'sci'`) — couvre frais bancaires, péage, déplacement, matériel. Exclue de la 2044 (anti double-déduction avec le forfait auto) ; réduit le résultat de gestion P&L. Heuristique d'import branchée (frais bancaires/péage → cette catégorie). *Garde-fou pédagogique « déjà couvert par le forfait 20 €/logement » = à afficher dans le parcours guidé (reste à faire).*
+- ✅ **Niveau SCI par défaut (v15.325)** pour **« Frais de comptabilité / expert-comptable » (221)** via `niv:'sci'` (charge de la société, BOFiP §60). « Frais de gestion / honoraires » garde le niveau SCI **accessible** (pastille _affZone).
 - **Le forfait 222 reste 100 % automatique** (calculé par le moteur 2044 — Chantier A).
 - **Garde-fous pédagogiques** (le « comprendre avant ») : afficher, au moment de catégoriser, la ligne 2044 cible + un mot d'explication ; alerter sur les 3 pièges (construction vs entretien, capital vs intérêts, frais forfaitisés). → c'est le **parcours guidé** déjà maquetté (`mockups/loyer-2044-pro/`).
 - **Hors scope actuel** : meublé / micro / SCI IS → `FEAT-REGIMES-FISCAUX`.
