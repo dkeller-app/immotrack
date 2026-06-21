@@ -114,7 +114,7 @@ const PAIRS = [
     src: '__tests__/helpers/bail-sign-sigid.js',
     dst: 'js/helpers/bail-sign-sigid.global.js',
     globalName: 'BailSignSigid',
-    exports: ['buildRemoteSigIdMap', 'relayComputeSigId'],
+    exports: ['buildRemoteSigIdMap', 'buildBailleurSigIdMap', 'relayComputeSigId'],
   },
   {
     name: 'bail-sign-manifest',

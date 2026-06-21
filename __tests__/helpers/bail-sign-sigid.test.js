@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRemoteSigIdMap, relayComputeSigId } from './bail-sign-sigid.js';
+import { buildRemoteSigIdMap, buildBailleurSigIdMap, relayComputeSigId } from './bail-sign-sigid.js';
 
 describe('buildRemoteSigIdMap', () => {
   it('tous distants → loc-0, loc-1, …', () => {
@@ -29,5 +29,43 @@ describe('alignement avec computeSigId du relais (non-régression cross-composan
       expect(map[i]).toBe(relayComputeSigId(remote, r)); // loc-0 puis loc-1
       r++;
     });
+  });
+});
+
+describe('buildBailleurSigIdMap (D2a — bailleur à distance)', () => {
+  it('tous distants → bailleur-0, bailleur-1, …', () => {
+    expect(buildBailleurSigIdMap([{}, {}])).toEqual(['bailleur-0', 'bailleur-1']);
+  });
+  it('présentiel → null, ne consomme pas de rang', () => {
+    expect(buildBailleurSigIdMap([{ presentiel: true }, {}])).toEqual([null, 'bailleur-0']);
+  });
+  it('exclu (ne signe pas) → null, ne consomme pas de rang', () => {
+    expect(buildBailleurSigIdMap([{}, { exclu: true }, {}])).toEqual(['bailleur-0', null, 'bailleur-1']);
+  });
+  it('présentiel + exclu mêlés → rangs distants séquentiels', () => {
+    expect(buildBailleurSigIdMap([{ presentiel: true }, { exclu: true }, {}, {}]))
+      .toEqual([null, null, 'bailleur-0', 'bailleur-1']);
+  });
+  it('liste vide / non-array → []', () => {
+    expect(buildBailleurSigIdMap([])).toEqual([]);
+    expect(buildBailleurSigIdMap(undefined)).toEqual([]);
+  });
+});
+
+describe('alignement combiné bailleurs+locataires avec computeSigId relais', () => {
+  it('[bailleur, bailleur, loc, loc] distants → bailleur-0, bailleur-1, loc-0, loc-1', () => {
+    const bailleurs = [{}, {}];
+    const locataires = [{}, {}];
+    const bMap = buildBailleurSigIdMap(bailleurs);
+    const lMap = buildRemoteSigIdMap(locataires);
+    // Liste relais = bailleurs distants PUIS locataires distants (ordre validé : bailleurs d'abord).
+    const remote = [
+      ...bailleurs.filter(b => !(b && (b.presentiel || b.exclu))).map(() => ({ role: 'bailleur' })),
+      ...locataires.filter(l => !(l && l.presentiel)).map(() => ({ role: 'locataire' }))
+    ];
+    expect(bMap[0]).toBe(relayComputeSigId(remote, 0)); // bailleur-0
+    expect(bMap[1]).toBe(relayComputeSigId(remote, 1)); // bailleur-1
+    expect(lMap[0]).toBe(relayComputeSigId(remote, 2)); // loc-0
+    expect(lMap[1]).toBe(relayComputeSigId(remote, 3)); // loc-1
   });
 });

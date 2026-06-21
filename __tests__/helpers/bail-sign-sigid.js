@@ -4,11 +4,25 @@
 // loc-0, loc-1, … par rang dans la liste reçue. Le manifeste embarqué par l'app DOIT porter les
 // mêmes sigId, sinon la signature distante est tamponnée dans la mauvaise case (ou nulle part).
 
+// Map sigId générique par côté : pour chaque item (index original), 'prefix-<rang parmi les
+// signataires distants de ce côté>' ou null si l'item est exclu de l'envoi (skip). Les exclus ne
+// consomment PAS de rang → rangs distants contigus, alignés sur computeSigId du relais.
+function _sideSigIdMap(items, prefix, skip) {
+  const arr = Array.isArray(items) ? items : [];
+  let rank = 0;
+  return arr.map(it => skip(it) ? null : (prefix + '-' + (rank++)));
+}
+
 // Pour CHAQUE locataire (index original) : 'loc-<rang parmi les distants>' ou null si présentiel.
 export function buildRemoteSigIdMap(locataires) {
-  const arr = Array.isArray(locataires) ? locataires : [];
-  let rank = 0;
-  return arr.map(l => (l && l.presentiel) ? null : ('loc-' + (rank++)));
+  return _sideSigIdMap(locataires, 'loc', l => !!(l && l.presentiel));
+}
+
+// D2a — Pour CHAQUE bailleur/co-gérant (index original) : 'bailleur-<rang parmi les distants>' ou
+// null si présentiel (signe in-app) OU exclu (ne signe pas). Côté indépendant des locataires
+// (rangs bailleur-N et loc-N comptés séparément, comme sideOf/computeSigId du relais).
+export function buildBailleurSigIdMap(bailleurs) {
+  return _sideSigIdMap(bailleurs, 'bailleur', b => !!(b && (b.presentiel || b.exclu)));
 }
 
 // Réplique locale du computeSigId du relais — pour le test de non-régression cross-composant.
