@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Picker catégorie (composant unique à valider)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed; --pur-bg:#f5f3ff;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 60px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:9px;font-size:12.5px;font-weight:600}
+  .bar b{color:#ffd479}
+  .wrap{max-width:960px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .sub{color:var(--t2);font-size:13px;margin-top:5px;max-width:680px}
+  .controls{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:16px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 16px;box-shadow:var(--sh)}
+  .cg{display:flex;flex-direction:column;gap:5px}
+  .cg .ct{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)}
+  .seg{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:3px}
+  .seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--t2);padding:6px 12px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--acc);color:#fff;box-shadow:0 1px 4px rgba(59,126,246,.4)}
+  .stage{display:flex;justify-content:center;margin-top:22px}
+  /* device frames */
+  .device{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);overflow:hidden;position:relative;transition:width .25s ease}
+  .device.pc{width:100%;max-width:560px}
+  .device.tab{width:480px}
+  .device.tel{width:360px}
+  .dev-top{background:var(--sur2);border-bottom:1px solid var(--bor);padding:7px 14px;font-size:11px;color:var(--t3);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .dev-top .dots{display:flex;gap:5px}.dev-top .dots i{width:8px;height:8px;border-radius:50%;background:var(--bor2);display:block}
+  .form{padding:18px 18px 26px}
+  .lbl{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.03em;margin:0 0 7px}
+  .pick-btn{width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;padding:11px 13px;border:1px solid var(--bor2);border-radius:9px;background:var(--sur);font:inherit;font-size:14px;color:var(--t1)}
+  .pick-btn.empty{color:var(--t3)}
+  .pick-btn .cev{color:var(--t3);flex-shrink:0}
+  .pick-btn .ln{color:var(--t3);font-weight:400;font-size:12.5px}
+  .pick-btn .ic{margin-right:3px}
+  .dest{margin-top:12px;display:flex;gap:10px;align-items:flex-start;border-radius:10px;padding:11px 13px;font-size:12.5px;line-height:1.5}
+  .dest .di{font-size:18px;line-height:1}
+  .dest .dt{font-weight:700}.dest .dd{color:var(--t2);margin-top:2px}
+  .dest.tax{background:var(--grn-bg);border:1px solid #16a34a2e}.dest.tax .dt{color:#15803d}
+  .dest.chg{background:var(--acc-bg);border:1px solid #3b7ef62e}.dest.chg .dt{color:#1a4fb0}
+  .dest.recup{background:var(--pur-bg);border:1px solid #7c3aed2e}.dest.recup .dt{color:#6d28d9}
+  .dest.none{background:var(--sur2);border:1px solid var(--bor)}.dest.none .dt{color:var(--t2)}
+  .hintrow{margin-top:14px;font-size:12px;color:var(--t3);text-align:center}
+  /* ---- picker overlay (modal desktop/tab, bottom-sheet phone) ---- */
+  .ov{position:absolute;inset:0;background:rgba(15,30,50,.42);z-index:30;display:none;padding:20px}
+  .ov.show{display:flex;align-items:center;justify-content:center}
+  .device.tel .ov{padding:0}
+  .device.tel .ov.show{align-items:flex-end}
+  .card{background:var(--sur);border-radius:14px;box-shadow:0 24px 60px -18px rgba(0,0,0,.5);width:100%;max-width:480px;max-height:84%;display:flex;flex-direction:column;overflow:hidden}
+  .device.tel .card{max-width:100%;max-height:90%;border-radius:18px 18px 0 0;animation:slideup .22s ease}
+  @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .card-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--bor);font-weight:700;font-size:14.5px}
+  .card-head button{border:0;background:none;font-size:18px;color:var(--t3);cursor:pointer;line-height:1}
+  .device.tel .card-head::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);width:38px;height:4px;border-radius:3px;background:var(--bor2)}
+  .device.tel .card-head{position:relative;padding-top:18px}
+  .search{margin:11px 16px 4px}
+  .search input{width:100%;font:inherit;font-size:14.5px;padding:11px 13px 11px 36px;border:1px solid var(--bor2);border-radius:9px;background:var(--sur2)}
+  .search{position:relative}.search::before{content:"🔍";position:absolute;left:28px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.6}
+  .list{overflow:auto;flex:1;padding-bottom:8px}
+  .grp{padding:8px 16px;font-size:11px;font-weight:800;color:var(--t3);background:var(--sur2);text-transform:uppercase;letter-spacing:.03em;position:sticky;top:0;display:flex;justify-content:space-between}
+  .grp .gl{color:var(--t3);font-weight:600;text-transform:none;letter-spacing:0}
+  .opt{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;border-top:1px solid var(--sur2);background:var(--sur);padding:11px 16px;font:inherit;font-size:14px;color:var(--t1);cursor:pointer}
+  .opt:hover{background:var(--acc-bg)}
+  .opt.sel{background:var(--acc-bg)}
+  .opt .ic{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+  .opt .nm{flex:1}
+  .opt .ln{color:var(--t3);font-size:12.5px;font-weight:500;white-space:nowrap}
+  .opt .ln.hrs{color:var(--amb)}
+  .opt .chk{color:var(--acc);font-weight:800}
+  .addrow{padding:10px 16px;border-top:1px dashed var(--bor2)}
+  .addbtn{display:flex;align-items:center;gap:8px;width:100%;border:1px dashed var(--bor2);background:var(--sur2);border-radius:9px;padding:10px 12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--acc);cursor:pointer}
+  .addbtn:hover{background:var(--acc-bg)}
+  .addform{display:flex;gap:8px;margin-top:8px}
+  .addform input{flex:1;font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--acc);border-radius:9px}
+  .addform button{border:0;background:var(--acc);color:#fff;font:inherit;font-weight:700;font-size:13px;padding:0 14px;border-radius:9px;cursor:pointer}
+  .nores{padding:22px 16px;text-align:center;color:var(--t3);font-size:13px}
+  .nores b{color:var(--t2)}
+  /* sidebar info */
+  .info{margin-top:26px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:16px 18px;box-shadow:var(--sh)}
+  .info h2{font-size:14px;font-weight:800;display:flex;gap:7px;align-items:center}
+  .info p{font-size:12.5px;color:var(--t2);margin-top:7px;line-height:1.6}
+  .info code{font-family:var(--mono);font-size:11.5px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px;padding:1px 5px}
+  .sites{list-style:none;margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .sites li{font-size:12px;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;display:flex;gap:7px;align-items:center}
+  .sites li .dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0}
+  @media(max-width:560px){.sites{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="bar">🎨 MOCKUP À VALIDER — <b>Picker catégorie</b> : un seul composant cherchable + groupé, qui remplace les ~7 menus déroulants à plat. Rien n'est encore codé dans l'app.</div>
+<div class="wrap">
+  <h1>🔍 Choisir une nature d'opération</h1>
+  <div class="sub">Le même bloc partout où on saisit une catégorie (formulaire, scinder, règles d'import, assistant d'import, filtre). Groupé par destination fiscale, avec la ligne 2044, cherchable, et ta zone <b>« Mes catégories »</b> pour créer librement.</div>
+
+  <div class="controls">
+    <div class="cg">
+      <span class="ct">Format</span>
+      <div class="seg" id="fmt">
+        <button data-f="pc" class="on">💻 PC</button>
+        <button data-f="tab">📱 Tablette</button>
+        <button data-f="tel">📲 Téléphone</button>
+      </div>
+    </div>
+    <div class="cg">
+      <span class="ct">Disposition liste</span>
+      <div class="seg" id="var">
+        <button data-v="flat" class="on">Groupes à plat</button>
+        <button data-v="acc">Accordéon</button>
+      </div>
+    </div>
+    <div class="cg">
+      <span class="ct">Annotation ligne 2044</span>
+      <div class="seg" id="ann">
+        <button data-a="always" class="on">Toujours visible</button>
+        <button data-a="hover">Au survol</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="device pc" id="device">
+      <div class="dev-top"><span id="devlbl">Formulaire mouvement</span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="form">
+        <div class="lbl">1 · Nature de l'opération</div>
+        <button class="pick-btn empty" id="trigger" onclick="openP()">
+          <span id="trigLabel">🔍 Choisir une catégorie…</span>
+          <span class="cev">▾</span>
+        </button>
+        <div id="dest"></div>
+        <div class="hintrow">👆 Clique le champ pour ouvrir le picker · teste la recherche, les groupes, la création</div>
+      </div>
+      <!-- overlay injected here -->
+      <div class="ov" id="ov" onclick="if(event.target===this)closeP()">
+        <div class="card">
+          <div class="card-head"><span>🔍 Choisir une nature d'opération</span><button onclick="closeP()">✕</button></div>
+          <div class="search"><input id="q" placeholder="Rechercher (loyer, assurance, taxe…)" oninput="fill()"></div>
+          <div class="list" id="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info">
+    <h2>🧩 Pourquoi un seul composant</h2>
+    <p>Aujourd'hui la <b>donnée</b> est centralisée (<code>STD_CATEGORIES</code> → <code>STD_CATEGORY_NAMES</code>), mais le <b>rendu</b> est dupliqué : ~7 endroits refont chacun <code>DB.categories.map(c =&gt; &lt;option&gt;)</code> à la main, en <code>&lt;select&gt;</code> à plat. Ce mockup les remplace tous par <b>un appel unique</b> au même picker (celui qui existe déjà dans l'app pour logement / immeuble / bailleur — on lui ajoute juste le type <code>cat</code>).</p>
+    <ul class="sites">
+      <li><span class="dot"></span>Formulaire mouvement (<code>mv-cat</code>)</li>
+      <li><span class="dot"></span>Scinder un mouvement (par ligne)</li>
+      <li><span class="dot"></span>Éditeur de règles d'import</li>
+      <li><span class="dot"></span>Assistant d'import (par ligne)</li>
+      <li><span class="dot"></span>Filtre « Toutes catégories »</li>
+      <li><span class="dot"></span>Paramètres catégories</li>
+      <li><span class="dot"></span>+ tout futur sélecteur</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+// ---- vraie liste STD_CATEGORIES (21 saisissables) + customs ; auto 225/230 exclues ----
+const GRP=[
+  {k:'rec',  l:'Recettes',                t:'imposable'},
+  {k:'chg',  l:'Charges déductibles',     t:'déductible 2044'},
+  {k:'pret', l:'Prêt',                    t:''},
+  {k:'recup',l:'Charges récupérables',    t:'hors 2044'},
+  {k:'hrs',  l:'Hors résultat foncier',   t:'tracé, non déclaré'},
+  {k:'cust', l:'Mes catégories',          t:'libres'},
+];
+let CATS=[
+  {n:'Loyers encaissés',                       l:'211',    g:'rec', i:'💰'},
+  {n:'Indemnité GLI / loyers impayés',         l:'213',    g:'rec', i:'🛡️'},
+  {n:'Recettes diverses',                      l:'213',    g:'rec', i:'📡'},
+  {n:'Frais de gestion / honoraires',          l:'221',    g:'chg', i:'💼'},
+  {n:'Comptabilité / expert-comptable',        l:'221',    g:'chg', i:'🧮'},
+  {n:"Primes d'assurance (PNO, GLI)",          l:'223',    g:'chg', i:'🛡️'},
+  {n:'Travaux (entretien, réparation, amélioration)', l:'224', g:'chg', i:'🔨'},
+  {n:'Travaux de rénovation énergétique',      l:'224bis', g:'chg', i:'♻️'},
+  {n:"Indemnités d'éviction / relogement",     l:'226',    g:'chg', i:'📤'},
+  {n:'Taxe foncière (et taxes annexes)',       l:'227',    g:'chg', i:'🏛️'},
+  {n:'Charges de copropriété',                 l:'229',    g:'chg', i:'🏢'},
+  {n:"Prêt — Intérêts d'emprunt",              l:'250',    g:'pret',i:'💳'},
+  {n:'Prêt — Capital remboursé',               l:'',       g:'pret',i:'💳', hors:1},
+  {n:'Charges récupérables (eau, énergie…)',   l:'',       g:'recup',i:'⚡', hors:1},
+  {n:'Frais bancaires',                        l:'',       g:'hrs', i:'🏦', hors:1},
+  {n:'Acquisition / cession de bien',          l:'',       g:'hrs', i:'🔑', hors:1},
+  {n:'Dépôt de garantie (reçu / restitué)',    l:'',       g:'hrs', i:'🔒', hors:1},
+  {n:'Travaux de construction / agrandissement (non déductible)', l:'', g:'hrs', i:'🧱', hors:1},
+  {n:'Virement interne (non déclarable)',      l:'',       g:'hrs', i:'🔁', hors:1},
+  {n:'CCA / distribution SCI',                 l:'',       g:'hrs', i:'🏦', hors:1},
+  {n:'Divers (non déductible)',                l:'',       g:'hrs', i:'📋', hors:1},
+  {n:'CFE',                                    l:'',       g:'cust',i:'🏷️', custom:1},
+  {n:'Taxe logements vacants',                 l:'',       g:'cust',i:'🏷️', custom:1},
+];
+const DESTMAP={
+  rec:  {c:'tax',  i:'🧾', t:l=>`2044 · ligne ${l} — Recette imposable`,         d:'Imposée à l\'encaissement.'},
+  chg:  {c:'chg',  i:'🧾', t:l=>`2044 · ligne ${l} — Charge déductible`,          d:'Déduite de tes revenus fonciers.'},
+  pret: {c:'chg',  i:'🏦', t:()=>'Prêt',                                          d:'Intérêts (250) repris de l\'attestation de banque ; capital hors 2044.'},
+  recup:{c:'recup',i:'👥', t:()=>'Charges récupérables',                          d:'Réparties sur les locataires (compteur). Hors 2044.'},
+  hrs:  {c:'none', i:'📋', t:()=>'Hors résultat foncier',                         d:'Tracé dans tes comptes, mais non déclaré au 2044.'},
+  cust: {c:'none', i:'🏷️', t:()=>'Catégorie personnelle',                         d:'À toi de la rattacher à une ligne 2044 (ou la laisser hors champ).'},
+};
+let sel=null, fmt='pc', variant='flat', ann='always', adding=false, accOpen={rec:1,chg:1,pret:1,recup:1,hrs:1,cust:1};
+
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function openP(){ $('ov').classList.add('show'); $('q').value=''; adding=false; fill(); setTimeout(()=>$('q').focus(),30); }
+function closeP(){ $('ov').classList.remove('show'); }
+function fill(){
+  const q=($('q').value||'').toLowerCase().trim();
+  let h='';
+  GRP.forEach(gr=>{
+    const items=CATS.filter(c=>c.g===gr.k && c.n.toLowerCase().includes(q));
+    if(!items.length) return;
+    const collapsed = variant==='acc' && !accOpen[gr.k] && !q;
+    h+=`<div class="grp"${variant==='acc'?` style="cursor:pointer" onclick="toggleAcc('${gr.k}')"`:''}>
+        <span>${variant==='acc'?(collapsed?'▸ ':'▾ '):''}${gr.l}</span>
+        <span class="gl">${gr.t||''}</span></div>`;
+    if(collapsed) return;
+    items.forEach(c=>{
+      const isSel=sel&&sel.n===c.n;
+      let ln='';
+      if(c.l) ln=`<span class="ln${ann==='hover'?' hov':''}">→ ligne ${c.l}</span>`;
+      else if(c.hors) ln=`<span class="ln hrs${ann==='hover'?' hov':''}">hors 2044</span>`;
+      h+=`<button class="opt${isSel?' sel':''}" onclick="choose('${esc(c.n).replace(/'/g,"\\'")}')">
+            <span class="ic">${c.i}</span><span class="nm">${esc(c.n)}</span>${ln}
+            ${isSel?'<span class="chk">✓</span>':''}
+          </button>`;
+    });
+    if(gr.k==='cust'){
+      h+= adding
+        ? `<div class="addrow"><div class="addform">
+             <input id="newcat" placeholder="Nom de la catégorie…" onkeydown="if(event.key==='Enter')createCat()">
+             <button onclick="createCat()">Créer</button></div></div>`
+        : `<div class="addrow"><button class="addbtn" onclick="adding=true;fill();setTimeout(()=>document.getElementById('newcat').focus(),20)">＋ Créer une catégorie</button></div>`;
+    }
+  });
+  if(!h) h=`<div class="nores">Aucune catégorie pour « <b>${esc(q)}</b> »<br><button class="addbtn" style="margin:12px auto 0;max-width:240px" onclick="adding=true;quickName='${esc(q)}';fill()">＋ Créer « ${esc(q)} »</button></div>`;
+  $('list').innerHTML=h;
+}
+let quickName='';
+function toggleAcc(k){ accOpen[k]=!accOpen[k]; fill(); }
+function choose(n){ sel=CATS.find(c=>c.n===n)||{n,g:'cust'}; closeP(); render(); }
+function createCat(){
+  const v=(($('newcat')&&$('newcat').value)||quickName||'').trim(); quickName='';
+  if(!v){adding=false;fill();return;}
+  if(!CATS.some(c=>c.n===v)) CATS.push({n:v,l:'',g:'cust',i:'🏷️',custom:1});
+  adding=false; sel=CATS.find(c=>c.n===v); closeP(); render();
+}
+function render(){
+  const t=$('trigger'), lab=$('trigLabel');
+  if(!sel){ t.classList.add('empty'); lab.textContent='🔍 Choisir une catégorie…'; $('dest').innerHTML=''; return; }
+  t.classList.remove('empty');
+  const ln = sel.l?` <span class="ln">· ligne ${sel.l}</span>` : (sel.hors?` <span class="ln">· hors 2044</span>`:'');
+  lab.innerHTML=`<span class="ic">${sel.i||'🏷️'}</span>${esc(sel.n)}${ln}`;
+  const dm=DESTMAP[sel.g]||DESTMAP.cust;
+  $('dest').innerHTML=`<div class="lbl" style="margin-top:16px">Destination fiscale</div>
+    <div class="dest ${dm.c}"><span class="di">${dm.i}</span><div><div class="dt">${dm.t(sel.l)}</div><div class="dd">${dm.d}</div></div></div>`;
+}
+// controls
+$('fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('fmt').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');fmt=b.dataset.f;
+  $('device').className='device '+fmt;
+  $('devlbl').textContent={pc:'Formulaire mouvement',tab:'Formulaire mouvement',tel:'Formulaire mouvement'}[fmt];};
+$('var').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('var').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');variant=b.dataset.v;fill();};
+$('ann').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('ann').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');ann=b.dataset.a;document.body.classList.toggle('ann-hover',ann==='hover');fill();};
+render();
+</script>
+<style>
+  /* annotation au survol seulement */
+  body.ann-hover .opt .ln.hov{opacity:0;transition:.12s}
+  body.ann-hover .opt:hover .ln.hov{opacity:1}
+</style>
+</body>
+</html>
