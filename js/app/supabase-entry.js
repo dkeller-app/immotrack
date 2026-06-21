@@ -62,6 +62,24 @@ function _liftDriveGate() {
   } catch (e) {}
 }
 
+// #2 (test partage) — nom d'affichage PAR-UTILISATEUR (auth), pour un invité qui n'est pas le
+// propriétaire de l'espace : metadata du compte sinon partie locale de l'email « jolifiée ».
+function _displayNameFromUser(user) {
+  if (!user) return ''
+  const m = user.user_metadata || {}
+  const meta = String(m.name || m.full_name || m.display_name || '').trim()
+  if (meta) return meta
+  const local = String(user.email || '').split('@')[0].replace(/[._-]+/g, ' ').trim()
+  if (!local) return ''
+  return local.split(' ').map(s => s ? s[0].toUpperCase() + s.slice(1) : s).join(' ')
+}
+
+// sessionStorage gardé : son accès peut throw (mode privé ancien / cookies bloqués). undefined →
+// supabase retombe sur son storage mémoire interne (≈ persistSession:false), le login reste vivant.
+function _safeSessionStorage() {
+  try { const s = window.sessionStorage; s.getItem('__immo_probe'); return s } catch (e) { return undefined }
+}
+
 async function boot() {
   injectStyles()
   const overlay = injectOverlay()
@@ -69,7 +87,11 @@ async function boot() {
   const { createClient } = await import(/* @vite-ignore */ CDN)
   const { createBoot } = await import('./supabase-boot.js')
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
-    auth: { persistSession: false, autoRefreshToken: true },
+    // Session PAR ONGLET (sessionStorage) : pas d'auto-connexion silencieuse à froid — un nouvel
+    // onglet / navigateur fermé n'a pas de session → mot de passe redemandé (besoin « ressaisir »).
+    // MAIS un rechargement ou le bouton RETOUR dans le même onglet garde la session : sinon back =
+    // recharge le document = plus de session (persistSession:false) = on retombe sur le login.
+    auth: { persistSession: true, storage: _safeSessionStorage(), autoRefreshToken: true },
   })
   _supaClient = client
   const api = createBoot(client)
@@ -398,7 +420,14 @@ async function onLoggedIn(api, overlay, user) {
       liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
       api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
       window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
-      window.__immoCloudInfo = { email: user && user.email, espaceNom: esp && esp.espaceNom }   // 2.2 : panneau Mode cloud des Reglages
+      // 2.2 : panneau Mode cloud des Réglages. isOwner/displayName (#2) : un invité scopé ne doit pas
+      // hériter du nom du PROPRIÉTAIRE (DB.params est partagé par-espace) → _appUserName lit son identité.
+      window.__immoCloudInfo = {
+        email: user && user.email,
+        espaceNom: esp && esp.espaceNom,
+        isOwner: !!(user && esp && esp.ownerId && user.id === esp.ownerId),
+        displayName: _displayNameFromUser(user),
+      }
       window.__immoRender()
       _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
