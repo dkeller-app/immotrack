@@ -94,6 +94,11 @@ async function boot() {
     auth: { persistSession: true, storage: _safeSessionStorage(), autoRefreshToken: true },
   })
   _supaClient = client
+  // Jeton de session Supabase (ES256) pour authentifier l'app auprès du worker de signature : le worker
+  // le vérifie via JWKS (clé publique) → AUCUNE clé/secret dans le client. '' si pas de session.
+  window.__immoSupaToken = async () => {
+    try { const { data } = await client.auth.getSession(); return (data && data.session && data.session.access_token) || '' } catch (e) { return '' }
+  }
   const api = createBoot(client)
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
 

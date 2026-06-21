@@ -1,8 +1,9 @@
 // js/core/relay-client.js
 // Client du relais Cloudflare pour les candidatures en ligne (lien candidat).
 // Helpers PURS (testés) + wrappers réseau (fetchImpl injectable). Aucune dépendance
-// DOM. La config {base, appKey} est fournie par l'appelant (index.html lit
-// localStorage via _lsKey). Le ownerToken (capacité bailleur) n'est jamais loggé
+// DOM. La config {base, getToken} est fournie par l'appelant (index.html) : getToken()
+// renvoie le jeton de session Supabase (vérifié côté worker via JWKS — aucune clé côté client).
+// Le ownerToken (capacité bailleur) n'est jamais loggé
 // ni placé dans une URL. Exposé sur window par js/main.js.
 
 const EXP_DAYS_ALLOWED = [7, 14, 30];
@@ -17,9 +18,9 @@ export function buildCandidatUrl(base, linkId) {
   return `${normalizeBase(base)}/d/${encodeURIComponent(String(linkId || ''))}`;
 }
 
-/** true si la config relais est exploitable. */
+/** true si la config relais est exploitable (base + obtention du jeton de session Supabase). */
 export function relayConfigured(cfg) {
-  return !!(cfg && normalizeBase(cfg.base) && String(cfg.appKey || '').trim());
+  return !!(cfg && normalizeBase(cfg.base) && typeof cfg.getToken === 'function');
 }
 
 /** Construit et valide le corps d'une invitation. Lève si logRef vide / expDays invalide. */
@@ -85,7 +86,7 @@ export async function relayCreateInvitation(cfg, input, fetchImpl = fetch) {
   const payload = buildInvitationPayload(input);
   const res = await fetchImpl(`${normalizeBase(cfg.base)}/candidatures`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${cfg.appKey}`, 'content-type': 'application/json' },
+    headers: { Authorization: `Bearer ${await cfg.getToken()}`, 'content-type': 'application/json' },
     body: JSON.stringify(payload)
   });
   return jsonOrThrow(res);
@@ -139,10 +140,10 @@ export async function relayPurge(cfg, linkId, ownerToken, fetchImpl = fetch) {
   return jsonOrThrow(res);
 }
 
-/** Test de connexion (Réglages). Vérifie base + APP_KEY d'un coup. → { ok:true } ou lève. */
+/** Test de connexion (Réglages). Vérifie base + jeton de session d'un coup. → { ok:true } ou lève. */
 export async function relayPing(cfg, fetchImpl = fetch) {
   const res = await fetchImpl(`${normalizeBase(cfg.base)}/api/ping`, {
-    headers: { Authorization: `Bearer ${cfg.appKey}` }
+    headers: { Authorization: `Bearer ${await cfg.getToken()}` }
   });
   return jsonOrThrow(res);
 }

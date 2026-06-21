@@ -21,10 +21,11 @@ describe('buildCandidatUrl', () => {
 });
 
 describe('relayConfigured', () => {
-  it('exige base ET appKey', () => {
-    expect(relayConfigured({ base: 'https://r.dev', appKey: 'k' })).toBe(true);
-    expect(relayConfigured({ base: 'https://r.dev', appKey: '' })).toBe(false);
-    expect(relayConfigured({ base: '', appKey: 'k' })).toBe(false);
+  it('exige base ET getToken', () => {
+    const gt = async () => 'tok';
+    expect(relayConfigured({ base: 'https://r.dev', getToken: gt })).toBe(true);
+    expect(relayConfigured({ base: 'https://r.dev' })).toBe(false);
+    expect(relayConfigured({ base: '', getToken: gt })).toBe(false);
     expect(relayConfigured(null)).toBe(false);
   });
 });
@@ -75,13 +76,13 @@ describe('_relayDossierVersCandidat', () => {
 });
 
 describe('réseau (fetch injecté)', () => {
-  it('relayCreateInvitation envoie Bearer APP_KEY et renvoie le JSON', async () => {
+  it('relayCreateInvitation envoie Bearer <jeton session> et renvoie le JSON', async () => {
     let seen;
     const fakeFetch = async (url, opts) => { seen = { url, opts }; return { ok: true, json: async () => ({ linkId: 'abc', candidatUrl: 'https://r.dev/d/abc', ownerToken: 'OWN' }) }; };
-    const out = await relayCreateInvitation({ base: 'https://r.dev', appKey: 'SECRET' }, { logRef: 'L1' }, fakeFetch);
+    const out = await relayCreateInvitation({ base: 'https://r.dev', getToken: async () => 'JWT' }, { logRef: 'L1' }, fakeFetch);
     expect(out.linkId).toBe('abc');
     expect(seen.url).toBe('https://r.dev/candidatures');
-    expect(seen.opts.headers.Authorization).toBe('Bearer SECRET');
+    expect(seen.opts.headers.Authorization).toBe('Bearer JWT');
   });
   it('relayFetchResult : relais legacy 409 → {_status:409}', async () => {
     const fakeFetch = async () => ({ ok: false, status: 409, json: async () => ({ error: 'not-submitted' }) });
@@ -100,12 +101,12 @@ describe('réseau (fetch injecté)', () => {
     expect(out.status).toBe('submitted');
     expect(out.linkId).toBe('abc');
   });
-  it('relayPing GET /api/ping avec Bearer APP_KEY', async () => {
+  it('relayPing GET /api/ping avec Bearer <jeton session>', async () => {
     let seen;
     const fakeFetch = async (url, opts) => { seen = { url, opts }; return { ok: true, json: async () => ({ ok: true }) }; };
-    const out = await relayPing({ base: 'https://r.dev', appKey: 'SECRET' }, fakeFetch);
+    const out = await relayPing({ base: 'https://r.dev', getToken: async () => 'JWT' }, fakeFetch);
     expect(out.ok).toBe(true);
     expect(seen.url).toBe('https://r.dev/api/ping');
-    expect(seen.opts.headers.Authorization).toBe('Bearer SECRET');
+    expect(seen.opts.headers.Authorization).toBe('Bearer JWT');
   });
 });
