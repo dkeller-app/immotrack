@@ -13,3 +13,7 @@ kv_namespaces = [
 [assets]
 directory = "./public"
 binding = "ASSETS"
+
+[vars]
+# URL publique du projet Supabase (pour récupérer la clé PUBLIQUE de vérif JWT via JWKS) — non secret.
+SUPABASE_URL = "https://xcbtashflclswyiyvfgn.supabase.co"
