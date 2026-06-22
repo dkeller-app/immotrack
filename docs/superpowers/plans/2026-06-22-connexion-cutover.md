@@ -8,7 +8,11 @@
 
 **Tech Stack:** vanilla JS, Supabase (@supabase/supabase-js via CDN), Vitest, `check-inline-js.mjs`.
 
-**Ordre :** C (entry, sûr) → E-rebrand (cosmétique) → D (menu Compte) → A (cloud-only, le gros) → B (Drive mort après A). Banner bleu retiré dans E.
+**Ordre RÉVISÉ (après analyse des 84 « ImmoTrack ») :** C (entry, ✅ fait) → A (cloud-only) → B (Drive) → E (rebrand) → D (menu Compte). **B AVANT E** : ~25 des 84 occurrences « ImmoTrack » sont des chaînes Drive (nom du dossier racine, fonctions `_drvImmoTrack*`, picker/partage) qui **disparaissent au lot B** — rebrander avant casserait la résolution du dossier Drive + des identifiants. Un remplacement global aveugle est INTERDIT (renommerait le dossier Drive réel + des identifiants de code). Bandeau bleu retiré au lot E2 (entry-only → peut se faire indépendamment, hors file).
+
+**⚠️ Gating réel (règles projet, pas optionnel) :** les lots A/B/D/E touchent `index.html` → **sandbox-first + file d'attente `.index-queue/QUEUE.md` + maître intègre + audit `code-reviewer`** (transverse). **Lot A doit attendre la CONFIRMATION que la re-connexion (lot C) fonctionne** — il retire l'échappatoire `immo_use_supabase=0` (filet de secours mode local). E2 (retrait bandeau bleu, entry-only) est faisable tout de suite, hors file.
+
+**Rebrand sélectif (lot E) — VISIBLE seulement (~35) :** `<title>`/`document.title` (l.6, 3890), logo sidebar (68, 7973), footer (3813), onboarding (10034, 52045, 52085), aides 2044 (32237-32770), import bancaire (45715-46007), tooltip comptes (316), couleurs (1000), template bail (933), toast Autre (18231), alertes signature générées (21295-22439), meta Generator (22550), diag (36024), annonce PDF (41784), noms de fichiers export (31715, 47426, 47749, 47774, 48379). **EXCLUS (Drive, retirés au lot B) :** 1121/1132, 3787/3796, 14122, 29277-29710, 48616, 49127-49143, 50503-51469. **EXCLUS (commentaires/identifiants) :** 3943, 27266, 30489, 40214.
 
 ---
 

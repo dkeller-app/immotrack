@@ -439,7 +439,9 @@ async function onLoggedIn(api, overlay, user) {
         try { if (typeof window.__immoRenderPresence === 'function') window.__immoRenderPresence() } catch (e) {}
       }
       _liveChannel = _supaClient.channel('espace:' + esp.espaceId, { config: { private: true, broadcast: { self: false }, presence: { key: user.id } } })
-        .on('broadcast', { event: 'changed' }, () => { try { _showUpdateBanner() } catch (e) {} })
+        // 'changed' (émis l.~406 après flush) n'a plus de récepteur : le bandeau bleu « un autre appareil a
+        // modifié » est retiré (décision cutover). Le canal continue d'émettre (réabonnable à une pastille
+        // discrète plus tard). La co-présence (presence:sync) reste.
         .on('presence', { event: 'sync' }, () => { try { _syncPresence(user.id) } catch (e) {} })
         .subscribe(async (st) => {
           // CO-PRÉSENCE : on s'annonce dès la souscription (nom d'affichage + owner). Les autres reçoivent
@@ -472,9 +474,6 @@ async function onLoggedIn(api, overlay, user) {
       window.__immoRender()
       _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
-      // injectSyncBanner(api, user, esp)         // bandeau bleu cloud RETIRÉ (P1 nettoyage connexion) —
-      // l'escape « mode local » reste dispo dans les Réglages ; setSync no-op proprement sans le bandeau
-      // (getElementById('imsb-sync') → if(!el) return). Fonction injectSyncBanner conservée (morte) au cas où.
       overlay.remove()                            // dévoile l'app complète sur les données cloud
       return
     }
@@ -528,61 +527,9 @@ function brand() {
   </div>`
 }
 
-// Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud + indicateur de sync en
-// direct. Depuis 2c, les modifications SONT enregistrées dans le cloud (plus en lecture seule). Wording +
-// sortie CONTEXTUELS : en sandbox (?sandbox=1) c'est un TEST (« Quitter le test ») ; en mode cloud RÉEL
-// (toggle immo_use_supabase=1) c'est le vrai mode (« Revenir en mode local »). ⚠️ La sortie COUPE TOUJOURS
-// le flag immo_use_supabase=0, sinon index.html re-booterait cloud (FLAG l.18) → utilisateur PIÉGÉ à l'écran
-// de login (legacy gaté, Réglages inaccessibles → pas de rollback possible).
-// SYNCHRO LIVE — bannière « un autre appareil a modifié des données → Actualiser ». Idempotente (une seule
-// à la fois). Le rechargement re-hydrate proprement depuis le cloud (zéro merge hasardeux, zéro écrasement).
-function _showUpdateBanner() {
-  if (document.getElementById('imsb-update')) return
-  const css = document.createElement('style')
-  css.textContent = `#imsb-update{position:fixed;top:42px;left:50%;transform:translateX(-50%);z-index:2147483001;
-    background:#1e3a8a;color:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:13px;padding:9px 14px;
-    border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.4);display:flex;align-items:center;gap:12px}
-    #imsb-update button{background:#fff;color:#1e3a8a;border:none;border-radius:7px;padding:6px 14px;font-weight:700;
-    cursor:pointer;font-size:13px;font-family:inherit}#imsb-update button:hover{background:#e0e7ff}`
-  document.head.appendChild(css)
-  const b = document.createElement('div')
-  b.id = 'imsb-update'
-  b.innerHTML = '<span>🔄 Un autre appareil a modifié des données</span>'
-  const btn = document.createElement('button')
-  btn.textContent = 'Actualiser'
-  btn.onclick = () => { try { location.reload() } catch (e) {} }
-  b.appendChild(btn)
-  document.body.appendChild(b)
-}
-
-function injectSyncBanner(api, user, esp) {
-  if (document.getElementById('imsb-banner')) return
-  const isSandbox = /[?&]sandbox=1/.test(location.search || '')
-  const css = document.createElement('style')
-  css.textContent = `#imsb-banner{position:fixed;top:0;left:0;right:0;z-index:2147483000;background:linear-gradient(90deg,#163b78,#2b5fd0);
-    color:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:12.5px;padding:7px 16px;display:flex;align-items:center;
-    justify-content:center;gap:14px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
-    #imsb-banner b{font-weight:700}
-    #imsb-banner #imsb-sync{font-weight:700;background:rgba(255,255,255,.16);padding:2px 9px;border-radius:999px}
-    #imsb-banner button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:6px;
-    padding:4px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
-    #imsb-banner button:hover{background:rgba(255,255,255,.28)}
-    body{padding-top:34px!important}`
-  document.head.appendChild(css)
-  const b = document.createElement('div')
-  b.id = 'imsb-banner'
-  b.innerHTML = `<span>☁️ <b>Mode cloud ${isSandbox ? '(test)' : '(Supabase)'}</b> · ${escapeHtml(user.email)} · espace « ${escapeHtml(esp.espaceNom || '?')} »</span>
-    <span id="imsb-sync">✓ Enregistré dans le cloud</span>
-    <button id="imsb-banner-out">${isSandbox ? 'Quitter le test' : 'Revenir en mode local'}</button>`
-  document.body.appendChild(b)
-  const out = document.getElementById('imsb-banner-out')
-  if (out) out.onclick = async () => {
-    try { localStorage.setItem('immo_use_supabase', '0') } catch (e) {}   // anti-piège : index.html re-boote legacy (≠ flag resté à 1)
-    try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}     // consomme l'opt-in sandbox
-    if (isSandbox) { try { await api.logout() } catch (e) {} }            // test → déconnexion ; réel → session gardée (réactivation fluide, comme _cloudModeRollback)
-    location.href = 'index.html'
-  }
-}
+// Bandeau bleu RETIRÉ (cutover) : `_showUpdateBanner` (« un autre appareil a modifié → Actualiser ») et
+// `injectSyncBanner` (bandeau permanent « Mode cloud »/« Revenir en mode local ») supprimés. La synchro
+// Realtime + la co-présence restent ; `setSync` est un no-op tant que `#imsb-sync` n'existe plus.
 
 // Le SVG « check » réutilisé dans les listes des piliers.
 function _imsbCheck() {
