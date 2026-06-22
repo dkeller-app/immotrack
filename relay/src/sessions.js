@@ -49,6 +49,44 @@ export async function recordEmailVerified(env, sessionId) {
   return session;
 }
 
+// OTP : pose le code (hashé) envoyé au signataire courant ; les tentatives repartent à 0.
+export async function recordOtpSent(env, sessionId, hash, expiresAt) {
+  const session = await getMeta(env, sessionId);
+  if (!session) throw new Error('session-not-found');
+  const signer = session.signers[session.currentIndex];
+  if (!signer) throw new Error('signer-not-found');
+  signer.otp = { hash, expiresAt, attempts: 0 };
+  await putMeta(env, sessionId, session);
+  return session;
+}
+
+// OTP : marque l'identité vérifiée (autorité serveur) ; pose aussi emailVerifiedAt (l'OTP prouve
+// l'email) et consomme le code (hash → null, plus rejouable).
+export async function recordOtpVerified(env, sessionId) {
+  const session = await getMeta(env, sessionId);
+  if (!session) throw new Error('session-not-found');
+  const signer = session.signers[session.currentIndex];
+  if (!signer) throw new Error('signer-not-found');
+  signer.otpVerifiedAt = new Date().toISOString();
+  signer.otpChannel = 'email';
+  if (!signer.emailVerifiedAt) signer.emailVerifiedAt = signer.otpVerifiedAt;
+  if (signer.otp) signer.otp.hash = null;
+  await putMeta(env, sessionId, session);
+  return session;
+}
+
+// OTP : incrémente le compteur de tentatives échouées du signataire courant.
+export async function recordOtpAttempt(env, sessionId) {
+  const session = await getMeta(env, sessionId);
+  if (!session) throw new Error('session-not-found');
+  const signer = session.signers[session.currentIndex];
+  if (signer && signer.otp) {
+    signer.otp.attempts = (signer.otp.attempts || 0) + 1;
+    await putMeta(env, sessionId, session);
+  }
+  return session;
+}
+
 // N'accepte que les champs attendus de la preuve client (acte de volonté + horodatages).
 // Tout le reste est ignoré ; les chaînes sont bornées pour éviter l'enflure du KV.
 function sanitizeClientProof(raw) {
