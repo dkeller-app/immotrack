@@ -23,3 +23,6 @@ binding = "ASSETS"
 [vars]
 EMAIL_MODE = "dev"
 EMAIL_FROM = "onboarding@resend.dev"
+# OTP_REQUIRED = "true" → /signed refuse une signature sans OTP vérifié (garde serveur, audit point 9).
+# Défaut "false" pendant le staging ; flip à "true" à l'activation, AVEC EMAIL_MODE=resend + domaine.
+OTP_REQUIRED = "false"

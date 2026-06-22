@@ -154,6 +154,9 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   const h = await hashCode(sessionId, code);
   await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS);
   const sent = await makeSender(c.env).send({ to: email, code, bailRef: guard.session.bailRef });
+  // Audit point 7 : en mode resend, un échec d'envoi (ni sent ni devCode) doit remonter une erreur
+  // explicite — sinon le signataire attend un code jamais reçu, sans recours.
+  if (!sent.sent && !sent.devCode) return c.json({ ok: true, otpSent: false, error: 'send-failed' }, 502);
   return c.json({ ok: true, otpSent: true, ...(sent.devCode ? { devCode: sent.devCode } : {}) });
 });
 
@@ -191,6 +194,14 @@ app.post('/api/sessions/:id/signed', async (c) => {
   const sessionId = c.req.param('id');
   const guard = await requireSigner(c, sessionId);
   if (guard.error) return guard.error;
+
+  // OTP obligatoire (gardé serveur, staged comme EMAIL_MODE). Quand OTP_REQUIRED=true, l'identité
+  // (contrôle de la boîte email) DOIT être vérifiée avant la signature — l'UI seule ne suffit pas (un
+  // appel direct à l'API la contournerait). Audit point 9 : à activer AVEC EMAIL_MODE=resend + domaine.
+  if (c.env.OTP_REQUIRED === 'true') {
+    const _signer = guard.session.signers[guard.session.currentIndex];
+    if (!_signer || !_signer.otpVerifiedAt) return c.json({ error: 'otp-required' }, 403);
+  }
 
   const contentType = c.req.header('content-type') || '';
   const bytes = new Uint8Array(await c.req.arrayBuffer());
@@ -233,6 +244,8 @@ app.get('/api/sessions/:id', async (c) => {
     signers: s.signers.map((sg) => ({
       role: sg.role, ordre: sg.ordre, statut: sg.statut,
       emailVerifiedAt: sg.emailVerifiedAt || null,
+      otpVerifiedAt: sg.otpVerifiedAt || null,   // OTP : email CONTRÔLÉ (code saisi) → certificat app
+      otpChannel: sg.otpChannel || null,
       // Dossier de preuve complet exposé au propriétaire (§5 #1/#3/#6/#8).
       proof: sg.proof ? {
         signedAt: sg.proof.signedAt,

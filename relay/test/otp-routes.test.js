@@ -77,3 +77,7 @@ describe('verify-otp', () => {
     expect(j.verified).toBe(false);
   });
 });
+
+// NB : la garde /signed OTP_REQUIRED=true n'est pas testable ici — muter env.OTP_REQUIRED ne se
+// propage pas au Worker via SELF.fetch (env fixé par la config du pool). Logique simple (if env →
+// vérifie otpVerifiedAt, sinon 403), validée à l'activation. Voir index.js route /signed.
