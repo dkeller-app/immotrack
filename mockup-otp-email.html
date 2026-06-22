@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — OTP email (signature bail type Yousign)</title>
+<style>
+:root{
+  --bg:#eef1f6; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0;
+  --brand:#2563eb; --brand-d:#1d4ed8; --ok:#16a34a; --okbg:#dcfce7; --warn:#b45309; --warnbg:#fef3c7;
+  --r:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 18px 80px}
+h1{font-size:21px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13.5px;margin:0 0 22px}
+.cols{display:grid;grid-template-columns:340px 1fr;gap:30px;align-items:start}
+@media(max-width:820px){.cols{grid-template-columns:1fr;gap:24px}}
+
+/* ── Téléphone ── */
+.phone{width:320px;margin:0 auto;background:#0b1220;border-radius:36px;padding:12px;box-shadow:0 24px 60px rgba(15,23,42,.28)}
+.screen{background:var(--card);border-radius:26px;overflow:hidden;min-height:600px;display:flex;flex-direction:column}
+.notch{height:26px;display:flex;align-items:center;justify-content:center}
+.notch span{width:90px;height:6px;background:#0b1220;border-radius:6px;opacity:.25}
+.topbar{padding:14px 18px 10px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+.logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--brand),#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+.topbar b{font-size:13.5px}
+.topbar small{color:var(--muted);font-size:11px;display:block;font-weight:400}
+.steps{display:flex;gap:5px;padding:10px 18px 0}
+.steps i{height:4px;flex:1;border-radius:3px;background:var(--line)}
+.steps i.on{background:var(--brand)}
+.body{padding:18px;flex:1;display:flex;flex-direction:column}
+.body h2{font-size:17px;margin:6px 0 4px}
+.body p.lead{color:var(--muted);font-size:13px;margin:0 0 16px}
+.inp{width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;margin-bottom:12px}
+.inp:focus{outline:none;border-color:var(--brand)}
+.btn{display:block;width:100%;padding:13px;border:none;border-radius:11px;background:var(--brand);color:#fff;font-size:14.5px;font-weight:700;cursor:pointer;text-align:center}
+.btn:hover{background:var(--brand-d)}
+.btn.ghost{background:#f1f5f9;color:var(--ink)}
+.btn.sm{padding:9px;font-size:12.5px;font-weight:600}
+.muted{color:var(--muted);font-size:12px}
+.center{text-align:center}
+.spacer{flex:1}
+
+/* code boxes */
+.codebox{display:flex;gap:8px;justify-content:center;margin:14px 0 8px}
+.codebox div{width:38px;height:48px;border:1.5px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700}
+.codebox div.f{border-color:var(--brand);color:var(--brand)}
+.codebox.err div{border-color:#dc2626}
+
+.bailprev{border:1px solid var(--line);border-radius:10px;padding:12px;font-size:11px;color:#475569;height:230px;overflow:hidden;position:relative;background:#fafbfc}
+.bailprev h4{margin:0 0 6px;font-size:12.5px;color:var(--ink)}
+.bailprev::after{content:'';position:absolute;left:0;right:0;bottom:0;height:60px;background:linear-gradient(transparent,#fafbfc)}
+.readbadge{display:inline-flex;align-items:center;gap:6px;background:var(--okbg);color:var(--ok);font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:20px;margin:12px 0}
+
+.verified{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px}
+.vcircle{width:72px;height:72px;border-radius:50%;background:var(--okbg);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:38px;margin-bottom:6px}
+
+.padbox{border:1.5px dashed var(--line);border-radius:10px;height:130px;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-style:italic;margin:12px 0;font-size:13px}
+
+.devnote{background:var(--warnbg);border:1px solid #fcd34d;color:var(--warn);border-radius:9px;padding:9px 11px;font-size:11.5px;margin-top:12px;display:flex;gap:7px;align-items:flex-start}
+
+/* ── Contrôles ── */
+.ctrl{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.ctrl button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer}
+.ctrl button:hover{border-color:var(--brand)}
+.ctrl button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* ── Panneau droite ── */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:18px}
+.panel h3{margin:0 0 4px;font-size:15px}
+.panel .ph{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+
+.email{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.email .eh{background:#f8fafc;border-bottom:1px solid var(--line);padding:12px 14px;font-size:12.5px}
+.email .eh .ef{display:flex;gap:7px;margin-bottom:3px}
+.email .eh .ef span{color:var(--muted);width:54px;flex:none}
+.email .eb{padding:16px 16px 18px;font-size:13px;color:#334155}
+.email .code{font-size:30px;font-weight:800;letter-spacing:7px;color:var(--brand);text-align:center;margin:14px 0;background:#eff6ff;border-radius:10px;padding:14px}
+
+.flow{display:flex;gap:0;margin-top:6px}
+.flow .f{flex:1;text-align:center;position:relative;font-size:11px;color:var(--muted)}
+.flow .f .n{width:30px;height:30px;border-radius:50%;background:#eff6ff;color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:700;margin:0 auto 5px;border:2px solid var(--brand);font-size:13px}
+.flow .f::before{content:'';position:absolute;top:15px;left:-50%;width:100%;height:2px;background:var(--line);z-index:0}
+.flow .f:first-child::before{display:none}
+.flow .f .n{position:relative;z-index:1}
+.flow .f b{display:block;color:var(--ink);font-size:11.5px}
+
+.staging{display:grid;gap:8px}
+.srow{display:flex;gap:10px;align-items:flex-start;font-size:12.5px}
+.srow .dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
+.kbd{display:inline-block;background:#f1f5f9;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11.5px;font-weight:600;font-family:monospace}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:11px}
+.tag.no{background:var(--okbg);color:var(--ok)}
+.tag.yes{background:#ffe4e6;color:#be123c}
+table.b{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+table.b td{padding:7px 4px;border-bottom:1px solid var(--line)}
+table.b td:last-child{text-align:right;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔐 Vérification d'identité par code email — mockup signature bail</h1>
+  <p class="sub">Ce que vit le signataire à distance : on ajoute une étape « code reçu par email » (type Yousign) entre la lecture du bail et la signature. Clique les étapes pour dérouler le parcours.</p>
+
+  <div class="cols">
+    <!-- TÉLÉPHONE -->
+    <div>
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"><span></span></div>
+          <div class="topbar">
+            <div class="logo">P</div>
+            <div><b>Signature du bail</b><small>LOG-014 · 12 rue des Lilas, Lyon</small></div>
+          </div>
+          <div class="steps" id="steps"></div>
+          <div class="body" id="screen"></div>
+        </div>
+      </div>
+      <div class="ctrl" id="ctrl"></div>
+    </div>
+
+    <!-- PANNEAUX -->
+    <div>
+      <div class="panel">
+        <h3>📨 L'email que reçoit le signataire</h3>
+        <p class="ph">Envoyé par le relais au moment où il clique « Recevoir mon code ».</p>
+        <div class="email">
+          <div class="eh">
+            <div class="ef"><span>De&nbsp;:</span> <b>Propryo</b>&nbsp;&lt;code@propryo.fr&gt;</div>
+            <div class="ef"><span>À&nbsp;:</span> jeremie.parra@email.fr</div>
+            <div class="ef"><span>Objet&nbsp;:</span> Votre code de signature</div>
+          </div>
+          <div class="eb">
+            Bonjour,<br>Voici votre code pour signer le bail <b>LOG-014</b> :
+            <div class="code">472&nbsp;915</div>
+            Valable <b>10 minutes</b>. Ne le communiquez à personne — il prouve que c'est bien vous.
+            <div style="margin-top:10px;color:var(--muted);font-size:11.5px">— Propryo, signature électronique</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>🔄 Le parcours</h3>
+        <div class="flow">
+          <div class="f"><div class="n">1</div><b>Lit le bail</b>scroll complet</div>
+          <div class="f"><div class="n">2</div><b>Saisit l'email</b>vérif. existante</div>
+          <div class="f"><div class="n">3</div><b>Reçoit + saisit le code</b>NOUVEAU</div>
+          <div class="f"><div class="n">4</div><b>Paraphe + signe</b>inchangé</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>🌐 Et le domaine que tu n'as pas encore ?</h3>
+        <p class="ph">Tout est conçu « config-staged ». Le domaine ne bloque QUE l'envoi réel.</p>
+        <div class="staging">
+          <div class="srow"><span class="dot" style="background:var(--ok)"></span><div><b>Maintenant</b> (sans domaine) — <span class="kbd">EMAIL_MODE=dev</span> : le code s'affiche à l'écran (encadré jaune dans le tél.), aucun email envoyé. <b>Tout est testable.</b></div></div>
+          <div class="srow"><span class="dot" style="background:var(--brand)"></span><div><b>Quand tu veux tester l'envoi</b> — compte Resend + <span class="kbd">EMAIL_MODE=resend</span> : les codes arrivent sur ta boîte.</div></div>
+          <div class="srow"><span class="dot" style="background:#7c3aed"></span><div><b>Prod</b> — <span class="kbd">propryo.fr</span> vérifié → <span class="kbd">EMAIL_FROM=code@propryo.fr</span>. <b>Bascule = 1 ligne.</b></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>✅ Ce qui est livrable sans le domaine</h3>
+        <table class="b">
+          <tr><td>Logique code 6 chiffres + tests</td><td><span class="tag no">non bloqué</span></td></tr>
+          <tr><td>Écran « saisir le code » (sign.html)</td><td><span class="tag no">non bloqué</span></td></tr>
+          <tr><td>Routes relais + stockage session</td><td><span class="tag no">non bloqué</span></td></tr>
+          <tr><td>Preuve + certificat (otpVerifiedAt)</td><td><span class="tag no">non bloqué</span></td></tr>
+          <tr><td><b>Envoi réel de l'email en prod</b></td><td><span class="tag yes">domaine requis</span></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCREENS = [
+  { // 0 — lecture
+    step:0,
+    html:`<h2>Lisez votre bail</h2><p class="lead">Faites défiler jusqu'en bas pour pouvoir signer.</p>
+      <div class="bailprev"><h4>CONTRAT DE LOCATION — LOG-014</h4>
+        Entre les soussignés : la SCI Patrimoine, représentée par son gérant, ci-après « le bailleur »,
+        et M. Jérémie Parra, ci-après « le locataire ». Il a été convenu ce qui suit.<br><br>
+        <b>Article 1 — Objet.</b> Le bailleur loue le logement situé 12 rue des Lilas, 69000 Lyon…<br>
+        <b>Article 2 — Durée.</b> Le présent bail est consenti pour 3 ans à compter du 01/06/2026…<br>
+        <b>Article 3 — Loyer.</b> 460 € hors charges + 30 € de provisions…</div>
+      <div class="center"><span class="readbadge">✓ Lu jusqu'en bas</span></div>
+      <button class="btn" onclick="go(1)">Vérifier mon identité →</button>` },
+  { // 1 — email
+    step:1,
+    html:`<h2>Confirmez votre identité</h2><p class="lead">Pour signer en toute sécurité, on vérifie que c'est bien vous.</p>
+      <label class="muted" style="font-weight:600">Votre email</label>
+      <input class="inp" value="jeremie.parra@email.fr" style="margin-top:6px">
+      <button class="btn" onclick="go(2)">Recevoir mon code par email</button>
+      <p class="muted center" style="margin-top:12px">Un code à 6 chiffres vous sera envoyé.<br>Il prouve que vous contrôlez bien cette boîte.</p>
+      <div class="spacer"></div>` },
+  { // 2 — code
+    step:2,
+    html:`<h2>Entrez le code</h2><p class="lead">Code envoyé à <b>j••••@email.fr</b>.</p>
+      <div class="codebox"><div class="f">4</div><div class="f">7</div><div class="f">2</div><div class="f">9</div><div class="f">1</div><div>•</div></div>
+      <div class="center"><button class="btn ghost sm" style="width:auto;display:inline-block" disabled>Renvoyer le code (28 s)</button></div>
+      <div class="devnote">🧪 <div><b>Mode test (sans domaine) :</b> aucun email envoyé, le code s'affiche ici → <b>4&nbsp;7&nbsp;2&nbsp;9&nbsp;1&nbsp;5</b></div></div>
+      <div class="spacer"></div>
+      <button class="btn" onclick="go(3)">Valider</button>` },
+  { // 3 — vérifié
+    step:2,
+    html:`<div class="verified"><div class="vcircle">✓</div><h2 style="margin:0">Identité vérifiée</h2>
+      <p class="lead" style="margin:4px 0 0">Le code est correct. Vous pouvez signer.</p></div>
+      <button class="btn" onclick="go(4)">Parapher et signer →</button>` },
+  { // 4 — signature
+    step:3,
+    html:`<h2>Signez le bail</h2><p class="lead">Tracez votre signature ci-dessous.</p>
+      <div class="padbox">✍️ zone de signature</div>
+      <label class="muted" style="display:flex;gap:8px;align-items:center;margin:4px 0 14px"><input type="checkbox" checked> J'ai lu et j'approuve ce bail.</label>
+      <div class="spacer"></div>
+      <button class="btn" onclick="alert('Mockup — fin du parcours. Bail signé + horodaté + code vérifié dans la preuve.')">Confirmer ma signature</button>` },
+];
+const LABELS=['Lecture','Email','Code','Vérifié','Signature'];
+let cur=0;
+function render(){
+  const s=SCREENS[cur];
+  document.getElementById('screen').innerHTML=s.html;
+  let st=''; for(let i=0;i<4;i++) st+=`<i class="${i<=s.step?'on':''}"></i>`;
+  document.getElementById('steps').innerHTML=st;
+  document.getElementById('ctrl').innerHTML=LABELS.map((l,i)=>`<button class="${i===cur?'on':''}" onclick="go(${i})">${i+1}. ${l}</button>`).join('');
+}
+function go(i){cur=i;render();}
+render();
+</script>
+</body>
+</html>
