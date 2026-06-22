@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Lignes d'import lisibles (à valider)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --pur:#7c3aed;
+    --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 60px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:9px;font-size:12.5px;font-weight:600}.bar b{color:#ffd479}
+  .wrap{max-width:880px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;gap:9px;align-items:center}
+  .sub{color:var(--t2);font-size:13px;margin-top:5px;max-width:700px}
+  .controls{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin-top:16px}
+  .cg{display:flex;flex-direction:column;gap:5px}.cg .ct{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)}
+  .seg{display:inline-flex;background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:3px}
+  .seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--t2);padding:6px 12px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--acc);color:#fff}
+  .lbl-sec{font:700 11px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);margin:22px 0 8px}
+  .stage{display:flex;justify-content:center}
+  .device{width:100%;transition:max-width .25s}
+  .device.pc{max-width:640px}.device.tab{max-width:480px}.device.tel{max-width:360px}
+  .list{border:1px solid var(--bor);border-radius:10px;overflow:hidden;background:var(--sur)}
+  /* ===== ACTUEL (1 ligne, tronqué) ===== */
+  .old-row{display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:1px solid var(--sur2);font-size:12.5px;cursor:pointer}
+  .old-row:first-child{border-top:0}
+  .old-row .lib{font-family:var(--mono);font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .old-row .meta{color:var(--t2);font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .old-row .amt{font-weight:700;white-space:nowrap}
+  /* ===== NOUVEAU (2 lignes, tout visible) ===== */
+  .new-row{padding:9px 12px;border-top:1px solid var(--sur2);cursor:pointer}
+  .new-row:first-child{border-top:0}
+  .new-row:hover{background:var(--sur2)}
+  .nr-1{display:flex;align-items:center;gap:8px}
+  .nr-date{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .nr-lib{font-family:var(--mono);font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nr-amt{font-weight:800;white-space:nowrap;font-size:13.5px}
+  .nr-amt.cr{color:var(--grn)}.nr-amt.db{color:var(--red)}
+  .nr-2{display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap}
+  .nr-cat{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--t1)}
+  .nr-cat.todo{color:var(--red)}
+  .nr-aff{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:6px;padding:1px 7px}
+  .nr-badge{font-size:10px;font-weight:700;border-radius:6px;padding:1px 7px;white-space:nowrap}
+  .badge.rule{color:#6d28d9;background:#f5f3ff;border:1px solid #7c3aed33}
+  .badge.fuzzy{color:#1a4fb0;background:var(--acc-bg)}
+  .badge.todo{color:var(--red);background:#fef2f2;border:1px solid #dc262633}
+  .nr-act{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--t3);font-size:13px}
+  .nr-act span{cursor:pointer}
+  .split{color:var(--pur);font-weight:600;font-size:11px}
+</style>
+</head>
+<body>
+<div class="bar">🎨 MOCKUP À VALIDER — <b>Lignes d'import lisibles</b> : voir catégorie + bien <b>sans ouvrir</b> la ligne. Rien n'est codé.</div>
+<div class="wrap">
+  <h1>📋 Import bancaire — lignes lisibles d'un coup d'œil</h1>
+  <div class="sub">Aujourd'hui la ligne repliée tronque la catégorie et l'affectation (le libellé prend toute la place) → tu dois ouvrir chaque ligne. Proposition : passer sur <b>2 lignes</b> — libellé + montant en haut, <b>catégorie · bien · source</b> en bas, tout visible.</div>
+
+  <div class="controls">
+    <div class="cg"><span class="ct">Format</span>
+      <div class="seg" id="fmt"><button data-f="pc" class="on">💻 PC</button><button data-f="tab">📱 Tablette</button><button data-f="tel">📲 Téléphone</button></div>
+    </div>
+  </div>
+
+  <div class="stage"><div class="device pc" id="device">
+
+    <div class="lbl-sec">❌ Aujourd'hui (tronqué — il faut ouvrir)</div>
+    <div class="list">
+      <div class="old-row"><span class="lib">VIR DE M JULIEN ZITO LOYER JAN</span><span class="meta">Loyers encaiss…</span><span style="color:#1a4fb0;background:var(--acc-bg);border-radius:7px;padding:2px 7px;font-size:10.5px;font-weight:700">✨ 92%</span><span class="amt" style="color:var(--grn)">+ 460,00 €</span><span style="color:var(--t3)">✏</span></div>
+      <div class="old-row"><span class="lib">PRLV EXPERT COMPTABLE FIDUCIA SCI</span><span class="meta">Frais de gesti…</span><span style="color:#6d28d9;background:#f5f3ff;border-radius:7px;padding:2px 7px;font-size:10.5px;font-weight:700">⚙ règle</span><span class="amt" style="color:var(--red)">− 240,00 €</span><span style="color:var(--t3)">✏</span></div>
+      <div class="old-row"><span class="lib">VIR INST SARL XYZ TRAVAUX</span><span class="meta">—</span><span style="color:var(--red);font-size:10.5px;font-weight:700">❓ à classer</span><span class="amt" style="color:var(--red)">− 1 200,00 €</span><span style="color:var(--t3)">✏</span></div>
+    </div>
+
+    <div class="lbl-sec">✅ Proposé (2 lignes — tout visible sans ouvrir)</div>
+    <div class="list" id="newlist"></div>
+
+  </div></div>
+
+  <div class="wrap" style="padding:0;margin-top:22px">
+    <div style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);padding:14px 18px;font-size:12.5px;color:var(--t2);line-height:1.7">
+      🧩 La ligne reste <b>cliquable pour éditer</b> (catégorie / bien / découper / renommer / supprimer), mais on n'a <b>plus besoin de l'ouvrir juste pour lire</b>. Ligne 1 : date · libellé · montant. Ligne 2 : <b>icône + catégorie</b> · <b>🏠 bien affecté</b> · <b>source</b> (⚙ règle / ✨ proposé / ❓ à classer) · actions (✂️ découper, 🗑, ✏).
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const ROWS=[
+  {date:'10/01', lib:'VIR DE M JULIEN ZITO LOYER JAN', amt:460, sens:'cr', cat:'💰 Loyers encaissés', aff:'🚪 F-101 · Zito', badge:'fuzzy', badgeTxt:'✨ 92%'},
+  {date:'29/01', lib:'LOYERS 01/2026 GERANCE ISELIN — Versement brut', amt:2670.57, sens:'cr', cat:'✂️ Découpé · 4 lignes', aff:'', badge:'rule', badgeTxt:'⚙ gérance', split:true},
+  {date:'15/01', lib:'PRLV EXPERT COMPTABLE FIDUCIA SCI ALPHA', amt:240, sens:'db', cat:'💼 Frais de gestion / hon. / compta', aff:'🏛️ SCI Alpha', badge:'rule', badgeTxt:'⚙ règle'},
+  {date:'05/02', lib:'PRLV ASSURANCE PNO AXA 8841', amt:38.40, sens:'db', cat:'🛡️ Primes d\'assurance (PNO, GLI)', aff:'🏢 Imm. Victor Hugo', badge:'fuzzy', badgeTxt:'✨ 78%'},
+  {date:'12/01', lib:'VIR INST SARL XYZ TRAVAUX SDB', amt:1200, sens:'db', cat:'❓ à classer', aff:'', badge:'todo', badgeTxt:'❓ à classer', todo:true}
+];
+const fmtE=n=>(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+$('newlist').innerHTML = ROWS.map(r=>{
+  const sgn = r.sens==='cr'?'+ ':'− ';
+  return `<div class="new-row">
+    <div class="nr-1">
+      <span class="nr-date">${r.date}</span>
+      <span class="nr-lib" title="${r.lib}">${r.lib}</span>
+      <span class="nr-amt ${r.sens}">${sgn}${fmtE(r.amt)}</span>
+    </div>
+    <div class="nr-2">
+      <span class="nr-cat ${r.todo?'todo':''}">${r.cat}</span>
+      ${r.aff?`<span class="nr-aff">${r.aff}</span>`:''}
+      <span class="nr-badge badge ${r.badge}">${r.badgeTxt}</span>
+      <span class="nr-act">${r.split?'<span class="split">✂️ modifier</span>':'<span title="Découper">✂️</span>'}<span title="Ne pas importer">🗑</span><span title="Éditer">✏</span></span>
+    </div>
+  </div>`;
+}).join('');
+$('fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('fmt').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');$('device').className='device '+b.dataset.f;};
+</script>
+</body>
+</html>
