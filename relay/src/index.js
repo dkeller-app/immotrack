@@ -1,8 +1,10 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createSession, loadSession, recordSignature, recordEmailVerified } from './sessions.js';
+import { createSession, loadSession, recordSignature, recordEmailVerified, recordOtpSent, recordOtpVerified, recordOtpAttempt } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
+import { generateCode, hashCode, verifyCode, otpUsable, OTP_TTL_MS } from './otp.js';
+import { makeSender } from './email-sender.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession } from './storage.js';
 import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta } from './validate.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
@@ -144,8 +146,33 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   const match = timingSafeEqualStr(await emailHash(email), signer.emailHash);
   if (!match) return c.json({ ok: false });
 
+  // emailVerifiedAt = email CONNU (preuve existante, conservée). L'OTP ci-dessous prouve en plus
+  // que le signataire CONTRÔLE la boîte (otpVerifiedAt, posé à verify-otp).
   await recordEmailVerified(c.env, sessionId);
-  return c.json({ ok: true });
+  // Match OK → génère + envoie un code OTP (email fourni par le signataire, jamais persisté en clair).
+  const code = generateCode();
+  const h = await hashCode(sessionId, code);
+  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS);
+  const sent = await makeSender(c.env).send({ to: email, code, bailRef: guard.session.bailRef });
+  return c.json({ ok: true, otpSent: true, ...(sent.devCode ? { devCode: sent.devCode } : {}) });
+});
+
+// Vérifie le code OTP saisi par le signataire (TTL + max tentatives via otpUsable ; comparaison
+// constant-time). Succès → otpVerifiedAt (autorité serveur) + emailVerifiedAt. Échec → attempts++.
+app.post('/api/sessions/:id/verify-otp', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireSigner(c, sessionId);
+  if (guard.error) return guard.error;
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
+  const input = body && typeof body.code === 'string' ? body.code : '';
+  const signer = guard.session.signers[guard.session.currentIndex];
+  if (!otpUsable(signer.otp, Date.now())) return c.json({ verified: false, reason: 'expired-or-locked' }, 400);
+  const ok = await verifyCode(sessionId, input, signer.otp.hash);
+  if (!ok) { await recordOtpAttempt(c.env, sessionId); return c.json({ verified: false }); }
+  await recordOtpVerified(c.env, sessionId);
+  return c.json({ verified: true });
 });
 
 async function requireOwner(c, sessionId) {
