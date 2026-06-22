@@ -332,7 +332,7 @@ export function _bankMatchHeuristic(line, ctx = {}) {
     { rx: /\b(comptable|expert.comptable|comptabilite|cabinet comptable)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.78, src: 'Mot-clé comptable' },
     // Échéance de crédit importée → capital remboursé (trésorerie). Les intérêts (ligne 250) se saisissent
     // à part depuis l'attestation annuelle de banque (décision design 2026-06-21), pas dérivés de l'échéance.
-    { rx: /\b(emprunt|pret|credit immo|credit immobilier|amortissement|echeance pret)\b/i, cat: 'Prêt — Capital remboursé', confidence: 0.72, src: 'Mot-clé emprunt (capital ; intérêts via attestation)' },
+    { rx: /\b(emprunt|pret|credit immo|credit immobilier|amortissement|echeance pret)\b/i, cat: 'Prêt', confidence: 0.72, src: 'Mot-clé emprunt (échéance ; intérêts via attestation)' },
     { rx: /\b(notaire|frais notaire)\b/i, cat: 'Acquisition / cession de bien', confidence: 0.70, src: 'Mot-clé notaire' },
     { rx: /\b(honoraires|gerance|gestion locative|agence immo)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.72, src: 'Mot-clé gestion' },
     { rx: /\b(dpe|diagnostic|geometre|huissier|avocat|expertise)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.7, src: 'Mot-clé procédure/diagnostic' }
