@@ -79,12 +79,6 @@ function _displayNameFromUser(user) {
   return local.split(' ').map(s => s ? s[0].toUpperCase() + s.slice(1) : s).join(' ')
 }
 
-// sessionStorage gardé : son accès peut throw (mode privé ancien / cookies bloqués). undefined →
-// supabase retombe sur son storage mémoire interne (≈ persistSession:false), le login reste vivant.
-function _safeSessionStorage() {
-  try { const s = window.sessionStorage; s.getItem('__immo_probe'); return s } catch (e) { return undefined }
-}
-
 async function boot() {
   injectStyles()
   const overlay = injectOverlay()
@@ -92,11 +86,12 @@ async function boot() {
   const { createClient } = await import(/* @vite-ignore */ CDN)
   const { createBoot } = await import('./supabase-boot.js')
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
-    // Session PAR ONGLET (sessionStorage) : pas d'auto-connexion silencieuse à froid — un nouvel
-    // onglet / navigateur fermé n'a pas de session → mot de passe redemandé (besoin « ressaisir »).
-    // MAIS un rechargement ou le bouton RETOUR dans le même onglet garde la session : sinon back =
-    // recharge le document = plus de session (persistSession:false) = on retombe sur le login.
-    auth: { persistSession: true, storage: _safeSessionStorage(), autoRefreshToken: true },
+    // AUCUNE session persistée : le mot de passe est redemandé à CHAQUE chargement (décision cutover
+    // « re-saisir le mdp à chaque ouverture »). La session vit en mémoire pour le chargement courant
+    // uniquement → un rechargement ou le bouton RETOUR ramène au login (compromis accepté).
+    // detectSessionInUrl (défaut true) reste actif : SSO Google / reset mdp / invitation établissent la
+    // session en mémoire au retour de redirection, pour le chargement courant.
+    auth: { persistSession: false, autoRefreshToken: true },
   })
   _supaClient = client
   // Jeton de session Supabase (ES256) pour authentifier l'app auprès du worker de signature : le worker
@@ -503,7 +498,7 @@ function renderProof(overlay, api, user, esp, db, err) {
         <p class="imsb-lead"><b>${escapeHtml(user.email)}</b> — espace « ${escapeHtml(esp.espaceNom || '?')} »</p>
         <table class="imsb-tbl">${rows}</table>
         <button class="imsb-btn imsb-primary" id="imsb-openapp">📂 Voir dans l'app complète →</button>
-        <p class="imsb-note" id="imsb-note">Ouvre l'app complète (tableau de bord, fiches, listes…) sur ces données cloud, en <b>mode bac à sable ISOLÉ</b> : ton appli de tous les jours (Drive) n'est PAS touchée. La <b>sauvegarde</b> vers le cloud arrive juste après.</p>
+        <p class="imsb-note" id="imsb-note">Tes données cloud sont prêtes. Ouvre l'app complète (tableau de bord, fiches, listes…).</p>
         <button class="imsb-btn imsb-ghost" id="imsb-logout">Se déconnecter</button>
       </div>`
   }
