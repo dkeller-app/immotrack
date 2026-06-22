@@ -61,7 +61,7 @@
 <div class="bar">🎨 MOCKUP À VALIDER — <b>Encart « Enrichissement » corrigé</b>. Aujourd'hui il double-compte le capital. Rien n'est codé.</div>
 <div class="wrap">
   <h1>💰 Enrichissement réel — calcul corrigé</h1>
-  <div class="sub">Le principe juste : <b>cash réellement dégagé + capital remboursé = enrichissement</b>, et cet enrichissement <b>est égal à ton résultat net avant impôts</b> (le remboursement de capital est neutre : cash en moins, équité en plus). Il faut donc connaître la <b>part intérêts</b> de tes échéances.</div>
+  <div class="sub">« Prêt » à l'import = l'<b>échéance entière</b> (capital + intérêts). Donc le <b>cash-flow est toujours dispo</b> (on connaît l'échéance payée). <b>Sans les intérêts</b> → vue cash-flow seule. <b>Avec les intérêts</b> → cash-flow <b>ET</b> enrichissement (= cash-flow + capital remboursé = résultat net avant impôts).</div>
 
   <div class="controls">
     <div class="cg"><span class="ct">Format</span>
@@ -105,10 +105,10 @@
   <div class="panel" style="max-width:none">
     <div class="sec">🧩 En clair (la logique)</div>
     <div style="font-size:12.5px;color:var(--t2);line-height:1.7">
-      • <b>Cash réellement dégagé</b> = résultat net − capital remboursé (l'argent qui reste vraiment, après remboursement de la dette).<br>
-      • <b>+ Capital remboursé</b> = la part de tes échéances qui réduit ta dette → ça construit ton <b>patrimoine</b>.<br>
-      • <b>= Enrichissement</b> = exactement ton <b>résultat net avant impôts</b>. Le capital ne s'ajoute PAS en plus : il est déjà « dans » le résultat (cash sorti = équité gagnée, ça s'annule).<br>
-      • ⚠️ <b>Sans la part intérêts saisie</b>, le résultat net est surévalué (le coût des intérêts est invisible) → l'enrichissement aussi. D'où l'avertissement.
+      • <b>Cash-flow réel</b> = recettes − charges − <b>échéance de prêt entière</b> (« Prêt »). C'est l'argent réellement en poche. <b>Toujours calculable</b> (l'échéance est connue à l'import) — même sans la part intérêts.<br>
+      • <b>+ Capital remboursé</b> = la part de l'échéance qui réduit ta dette → construit ton <b>patrimoine</b>. Connue seulement si les <b>intérêts</b> sont saisis (capital = échéance − intérêts).<br>
+      • <b>= Enrichissement</b> = cash-flow + capital remboursé = ton <b>résultat net avant impôts</b>. (On NE rajoute PLUS le capital à un résultat qui n'a pas retiré l'échéance — c'était le double-comptage.)<br>
+      • Donc : <b>sans intérêts</b> = vue cash-flow seule ; <b>avec intérêts</b> = cash-flow + enrichissement.
     </div>
   </div>
 </div>
@@ -121,38 +121,33 @@ const RESULTAT_GESTION=22923, REGUL=7, ECHEANCES=14238, INTERETS=4238;
 const CAPITAL=ECHEANCES-INTERETS; // 10 000
 let intSaisis='yes';
 function render(){
-  // résultat net : si intérêts saisis → ils sont une charge (déduits) ; sinon non déduits (surévalué)
-  const resultatNet = intSaisis==='yes' ? (RESULTAT_GESTION - INTERETS - REGUL) : (RESULTAT_GESTION - REGUL);
-  const capital = CAPITAL;
-  const cashReel = resultatNet - capital;
-  const enrichissement = resultatNet; // = cash + capital
-  // loan breakdown affichage
+  // « Prêt » à l'import = échéance ENTIÈRE (capital + intérêts). Le cash-flow est TOUJOURS calculable
+  // (on connaît l'échéance totale sortie). L'enrichissement nécessite EN PLUS la part intérêts (pour
+  // isoler le capital = équité). Sans intérêts → vue cash-flow seule. Avec → cash-flow + enrichissement.
+  const cashFlow = RESULTAT_GESTION - ECHEANCES;      // toujours dispo
   $('int-val').textContent = intSaisis==='yes' ? '− 4 238 €' : '? (non saisis)';
-  $('int-tag').textContent = intSaisis==='yes' ? 'coût déductible' : 'NON saisis';
-  $('int-tag').className = 'tag '+(intSaisis==='yes'?'cost':'cost');
-  $('cap-val').textContent = intSaisis==='yes' ? '10 000 €' : 'indéterminé';
+  $('cap-val').textContent = intSaisis==='yes' ? '10 000 €' : 'indéterminé (faute d\'intérêts)';
   if (intSaisis==='yes') {
-    // décomposition complète : cash + capital = enrichissement
+    const capital = CAPITAL;
+    const enr = cashFlow + capital;                    // = résultat net avant impôts
     $('enr').innerHTML =
-      box('Cash réellement dégagé', cashReel, 'ce qui reste après remboursement du prêt', cashReel>=0?'#16a34a':'#dc2626')
+      box('Cash-flow réel', cashFlow, 'l\'argent réellement en poche (prêt payé)', cashFlow>=0?'#16a34a':'#dc2626')
       + op('+')
       + box('Capital remboursé', capital, 'dette remboursée = patrimoine', '#3b7ef6')
       + op('=')
-      + box('Enrichissement', enrichissement, 'ce que tu as réellement gagné', '#1a4fb0', true);
-    $('ident').innerHTML = 'Enrichissement = <b>résultat net avant impôts</b> ('+fmtE(resultatNet)+') · le capital ne s\'ajoute pas en double.';
+      + box('Enrichissement', enr, 'cash-flow + équité bâtie', '#1a4fb0', true);
+    $('ident').innerHTML = 'Tu as les <b>2 vues</b> : cash-flow ('+fmtE(cashFlow)+') ET enrichissement ('+fmtE(enr)+' = ton résultat net avant impôts).';
+    $('state-note').innerHTML = '<div class="ok-note">✅ Intérêts saisis → cash-flow <b>et</b> enrichissement (cash-flow + capital remboursé).</div>';
   } else {
-    // intérêts non saisis : pas de partage capital/intérêts → on n'affiche QUE l'enrichissement = résultat net, surévalué.
     $('enr').innerHTML =
-      '<div class="box" style="flex:1;opacity:.55"><div class="k">Cash réellement dégagé</div><div class="v" style="color:var(--t3)">indisponible</div><div class="h">nécessite la part intérêts</div></div>'
+      box('Cash-flow réel', cashFlow, 'l\'argent réellement en poche (prêt payé)', cashFlow>=0?'#16a34a':'#dc2626')
       + op('+')
-      + '<div class="box" style="flex:1;opacity:.55"><div class="k">Capital remboursé</div><div class="v" style="color:var(--t3)">indisponible</div><div class="h">nécessite la part intérêts</div></div>'
+      + '<div class="box" style="flex:1;opacity:.5"><div class="k">Capital remboursé</div><div class="v" style="color:var(--t3)">indisponible</div><div class="h">nécessite la part intérêts</div></div>'
       + op('=')
-      + box('Enrichissement', enrichissement, '≈ résultat net — surévalué', '#b45309', true);
-    $('ident').innerHTML = 'Enrichissement = résultat net ('+fmtE(resultatNet)+') <b style="color:var(--amb)">mais surévalué</b> tant que les intérêts ne sont pas saisis.';
+      + '<div class="box final" style="flex:1;opacity:.5"><div class="k">Enrichissement</div><div class="v" style="color:var(--t3)">indisponible</div><div class="h">nécessite la part intérêts</div></div>';
+    $('ident').innerHTML = 'Sans la part intérêts : <b>vue cash-flow uniquement</b> ('+fmtE(cashFlow)+') — c\'est déjà juste et utile. L\'enrichissement patrimonial nécessite de séparer capital et intérêts.';
+    $('state-note').innerHTML = '<div class="note">ℹ️ <b>Intérêts non saisis</b> → on affiche <b>uniquement le cash-flow</b> (ton vrai flux de trésorerie, prêt compris). Pour voir l\'<b>enrichissement</b> (cash-flow + capital remboursé), saisis tes intérêts via « 🧮 Renseigner les intérêts d\'emprunt ».</div>';
   }
-  $('state-note').innerHTML = intSaisis==='yes'
-    ? '<div class="ok-note">✅ Tes intérêts d\'emprunt sont saisis → le partage capital/intérêts est exact, et l\'enrichissement est juste.</div>'
-    : '<div class="note">⚠️ <b>Tes intérêts d\'emprunt ne sont pas saisis.</b> Du coup l\'app ne peut pas séparer capital et intérêts, et ton <b>résultat net est surévalué</b> (le coût des intérêts manque). Saisis-les via « 🧮 Renseigner les intérêts d\'emprunt » pour un enrichissement exact. En attendant, on affiche l\'enrichissement = résultat net (sans le faux « + capital »).</div>';
 }
 function box(k,v,h,color,final){ return '<div class="box'+(final?' final':'')+'"><div class="k">'+k+'</div><div class="v" style="color:'+color+'">'+fmtE(v)+'</div><div class="h">'+h+'</div></div>'; }
 function op(s){ return '<div class="op">'+s+'</div>'; }
