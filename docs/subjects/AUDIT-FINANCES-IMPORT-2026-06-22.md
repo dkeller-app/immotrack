@@ -7,15 +7,17 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 
 | # | Item | Type | Statut |
 |---|------|------|--------|
-| A1 | Reconnaître qu'une ligne a été **scindée** (split) → ne pas la re-proposer à l'import (ex : versement gérance splitté en loyer + frais + APL). Dédup sur la ligne source d'un split. | 🐞 | ⬜ |
-| A2 | Pouvoir **supprimer une ligne** dans l'aperçu d'import (ne pas l'importer du tout). | ✨ | ⬜ |
-| A3 | Pouvoir **renommer le libellé** d'une ligne d'import. | ✨ | ⬜ |
-| A4 | **Bouton « Valider »** explicite — l'import auto est dérangeant et source d'erreurs. Rien ne doit s'importer sans validation. | ✨ UX | ⬜ |
-| A5 | **Ne pas classer en « Reconnus » sans affectation** (logement / immeuble / SCI). Ex : un mouvement de prêt apparaît en Reconnus sans immeuble. | 🐞 | ⬜ |
-| A6 | **Expliquer / revoir** : les lignes validées dans « À compléter » basculent dans « Reconnus » (déroutant). | ✨ UX | ⬜ |
-| A7 | **Bloquer l'import** tant que les « Reconnus » n'ont pas été vérifiés (avoir scrollé en bas de la liste). | ✨ | ⬜ |
-| A8 | **Aperçu 2044 de fin d'import FAUX** : additionne recettes + charges au lieu de soustraire (ex : 2179,64 « + » 2121,16 = 4300,80 affiché ; correct ≈ 58). | ⚖️🐞 | ⬜ |
-| A9 | **Règles d'import** : ne gère pas le couple **compte + intitulé** → une règle pour l'import compta reprend toujours une seule SCI. | 🐞 | ⬜ |
+| A1 | Reconnaître qu'une ligne a été **scindée** (split) → ne pas la re-proposer à l'import. Dédup sur la ligne source d'un split. | 🐞 | ✅ déjà OK (empreinte stockée sur part 0 du split → dédup au ré-import ; vérifié) |
+| A2 | Pouvoir **supprimer une ligne** dans l'aperçu d'import. | ✨ | ✅ v15.339 (🗑 + `_userExclude` + footer rétablir) |
+| A3 | Pouvoir **renommer le libellé** d'une ligne d'import. | ✨ | ✅ v15.339 (champ Libellé éditable → `_bankRenameLine`) |
+| A4 | **Bouton « Valider »** explicite — pas d'import à l'aveugle. | ✨ UX | ✅ v15.340 (« Valider et importer » gaté par revue) |
+| A5 | **Ne pas classer en « Reconnus » sans affectation** (ex prêt sans immeuble). | 🐞 | ✅ v15.340 (special-avec-niv exige une cible) |
+| A6 | **Expliquer** : à compléter → reconnus. | ✨ UX | ✅ v15.340 (note dans l'onglet + revue forcée A7) |
+| A7 | **Bloquer l'import** tant que les Reconnus n'ont pas été vérifiés (scroll bas). | ✨ | ✅ v15.340 (`_bankReviewedOk` + scroll-to-bottom) |
+| A8 | **Aperçu 2044 de fin d'import** : additionne au lieu de soustraire. | ⚖️🐞 | ✅ déjà correct (formule `recettes − charges − intérêts` depuis v15.323 ; test live 58,48 €) |
+| A9 | **Règles d'import** : couple **compte + intitulé**. | 🐞 | ✅ v15.341 (colonne Compte + condition matcher) |
+
+**→ Tout l'import bancaire (A1–A9) est traité (v15.337→341 + 2 déjà OK).**
 
 ## B. Finances (reporting / 2044 / dashboard)
 
