@@ -119,4 +119,41 @@ describe('createMultiStore — fusion multi-espace', () => {
     await multi.upsert('logements', { ref: 'L2' })
     expect(storeA.calls.upsert).toHaveLength(1)
   })
+
+  it('B1 — la vue de l\'espace PROPRE inclut les enregistrements NEUFS non tagués (les tiers, non)', async () => {
+    const { multi, storeA, storeB, setLive } = setup()
+    setLive({ logements: [
+      { ref: 'L1', _espaceId: 'A' },   // hydraté (tagué propre)
+      { ref: 'LNEUF' },                // créé par l'app → PAS de tag
+      { ref: 'L1', _espaceId: 'B' },   // tiers
+    ] })
+    await multi.upsert('mouvements', { id: 1, _espaceId: 'A' })
+    expect(storeA.calls.attach.at(-1).logements.map(l => l.ref).sort()).toEqual(['L1', 'LNEUF'])
+    await multi.upsert('mouvements', { id: 2, _espaceId: 'B' })
+    expect(storeB.calls.attach.at(-1).logements.map(l => l.ref)).toEqual(['L1'])   // jamais le neuf non tagué
+  })
+
+  it('B1 (bout-en-bout) — mouvement sur un logement NEUF non tagué : INSÉRÉ, pas skippé (comme le mono)', async () => {
+    // Store qui RÉSOUT la FK comme le vrai mapToRow : un mouvement n'est inséré que si son logement parent
+    // figure dans la dernière vue attachée ; sinon "skipped" (mapToRow renvoie null). Avant le fix B1, le
+    // logement neuf non tagué était exclu de la vue → skip en boucle = perte de sync silencieuse.
+    let view = {}
+    const store = {
+      skipped: [], inserted: [],
+      async hydrate() { return { logements: [], mouvements: [] } },
+      attach(v) { view = v || {} },
+      async upsert(coll, rec) {
+        if (coll === 'mouvements' && !(view.logements || []).some(l => l.ref === rec.logementRef)) { store.skipped.push(rec); return { status: 'skipped' } }
+        store.inserted.push(rec); return { status: 'inserted' }
+      },
+      async remove() {}, async persistConfig() {},
+    }
+    let live = {}
+    const multi = createMultiStore({ espaces: [{ espaceId: 'A', ownerId: 'oA', mine: true }], makeStore: () => store, getDB: () => live })
+    await multi.hydrate()
+    live = { logements: [{ ref: 'LNEUF' }], mouvements: [] }                  // l'app crée un logement (non tagué)
+    const r = await multi.upsert('mouvements', { id: 1, logementRef: 'LNEUF' })   // puis un mouvement dessus (défaut propre)
+    expect(r.status).toBe('inserted')
+    expect(store.skipped).toHaveLength(0)
+  })
 })

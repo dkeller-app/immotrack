@@ -66,12 +66,19 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
   function _viewFor(espaceId, live) {
     const v = {}
     const L = live || {}
+    const isOwn = espaceId === own.espaceId
+    // Un enregistrement CRÉÉ par l'app n'a PAS encore de tag `_espaceId` (le tag n'est posé qu'à l'hydrate).
+    // Par défaut (D2) il appartient à l'espace PROPRE → sa vue inclut les non-tagués, sinon la FK d'un enfant
+    // dont le parent est neuf (ex. logement sous une SCI tout juste créée) ne résoudrait jamais → upsert
+    // skippé en boucle = perte de sync SILENCIEUSE (régression vs mono, où les résolveurs voient le DB vivant
+    // entier). Les espaces TIERS ne voient QUE leurs enregistrements explicitement tagués.
+    const keep = it => it && (it._espaceId === espaceId || (isOwn && it._espaceId == null))
     for (const [k, val] of Object.entries(L)) {
       if (k === 'baux' && val && typeof val === 'object') {
         v.baux = {}
-        for (const [ref, bail] of Object.entries(val)) if (bail && bail._espaceId === espaceId) v.baux[(ref.split('@@')[0])] = bail
+        for (const [ref, bail] of Object.entries(val)) if (keep(bail)) v.baux[ref.split('@@')[0]] = bail
       } else if (Array.isArray(val)) {
-        v[k] = val.filter(it => it && it._espaceId === espaceId)
+        v[k] = val.filter(keep)
       }
     }
     return v

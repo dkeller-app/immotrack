@@ -33,7 +33,13 @@ function ts(v) {
   return null
 }
 const dateOnly = v => { const i = ts(v); return i ? i.slice(0, 10) : (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null) }
-const base = (o, ctx) => ({ espace_id: ctx.espaceId, created_by: ctx.ownerId, legacy_raw: jb(o) })
+// `_espaceId` = tag de provenance posé par le Store multi-espace (store-multi.js) sur les enregistrements
+// vivants. Détail d'implémentation côté app : on le RETIRE de legacy_raw pour ne pas polluer la donnée
+// persistée (et éviter qu'un tag périmé y subsiste si un enregistrement changeait d'espace). L'hydrate
+// ne le lit jamais (le Store multi le re-pose). NB : `__key`/`__entiteNom`/`__immeubleNom` sont conservés
+// (load-bearing : l'hydrate reconstruit la map baux et les FK depuis ces clés dans legacy_raw).
+const stripTag = o => { if (!o || typeof o !== 'object' || o._espaceId == null) return o; const { _espaceId, ...rest } = o; return rest }
+const base = (o, ctx) => ({ espace_id: ctx.espaceId, created_by: ctx.ownerId, legacy_raw: jb(stripTag(o)) })
 
 const MAPPERS = {
   entites(o, ctx) {
