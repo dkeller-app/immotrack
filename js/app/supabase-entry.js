@@ -45,6 +45,7 @@ let _espaceOwners = {}   // MULTI-ESPACE : espaceId → ownerId (tous les espace
 //   l'espaceId de SON propriétaire et son entite_id se dérive avec LE detUuid de ce propriétaire → résolution
 //   par-entité (jamais l'owner propre figé). Vide / un seul espace à N=1 → tout retombe sur l'espace propre.
 let _liveDBRef = null    // réf vers le DB fusionné vivant (= liveDB), pour résoudre l'espace/owner d'une SCI
+let _resolveEntiteOwner = null, _resolveEspaceOfSeg = null   // résolveurs PURS (store-multi.js) — résolution par-SCI
 
 // En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
 // n'a aucune raison d'etre : on a notre propre overlay de login + la vraie app cloud. S'il reste leve, il
@@ -105,36 +106,14 @@ async function boot() {
   }
   const api = createBoot(client)
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
+  try { const m = await import('../core/store-multi.js'); _resolveEntiteOwner = m.resolveEntiteOwner; _resolveEspaceOfSeg = m.resolveEspaceOfSeg } catch (e) { console.warn('[Supabase] store-multi resolvers', e) }
 
   const _normNom = s => String(s == null ? '' : s).trim().toLowerCase()
-  // MULTI-ESPACE — owner de l'espace où vit une SCI (par nom) : on la cherche dans le DB fusionné vivant →
-  // son tag _espaceId → ownerId de cet espace. SCI TIERS → owner tiers (son entite_id a été dérivé avec SON
-  // detUuid) ; entité neuve / introuvable → owner PROPRE (défaut). À N=1, _espaceOwners n'a qu'un espace.
-  function _entiteOwner(nom) {
-    try {
-      const n = _normNom(nom), db = _liveDBRef
-      if (db && Array.isArray(db.entites)) {
-        const ent = db.entites.find(e => e && _normNom(e.nom) === n)
-        if (ent && ent._espaceId && _espaceOwners[ent._espaceId]) return _espaceOwners[ent._espaceId]
-      }
-    } catch (_e) {}
-    return _cloudOwnerId
-  }
-  // espaceId où vit la SCI dont l'uuid (segment Storage) = seg : une SCI TIERS vit sous l'espaceId de SON
-  // propriétaire. On reconstruit l'uuid de chaque entité (avec l'owner de SON espace) et on matche seg.
-  // Aucun match → espace propre (défaut, ex. entité neuve pas encore dans le DB).
-  function _espaceOfEntiteSeg(seg) {
-    try {
-      const db = _liveDBRef
-      if (seg && db && Array.isArray(db.entites) && _makeDetUuid) {
-        for (const e of db.entites) {
-          const oid = (e && e._espaceId && _espaceOwners[e._espaceId]) || _cloudOwnerId
-          if (_makeDetUuid(oid)('entite', _normNom(e && e.nom)) === seg) return e._espaceId || _cloudEspaceId
-        }
-      }
-    } catch (_e) {}
-    return _cloudEspaceId
-  }
+  // MULTI-ESPACE — délégation aux résolveurs PURS (store-multi.js, testés) : owner de l'espace où vit une SCI
+  // (par nom) et espaceId d'un segment Storage. SCI TIERS → owner/espace tiers ; entité neuve / introuvable /
+  // résolveur non chargé → propre (défaut sûr). À N=1, _espaceOwners n'a qu'un espace → toujours le propre.
+  const _entiteOwner = nom => { try { return _resolveEntiteOwner ? _resolveEntiteOwner(_liveDBRef && _liveDBRef.entites, _espaceOwners, nom, _cloudOwnerId) : _cloudOwnerId } catch (_e) { return _cloudOwnerId } }
+  const _espaceOfEntiteSeg = seg => { try { return _resolveEspaceOfSeg ? _resolveEspaceOfSeg(_liveDBRef && _liveDBRef.entites, _espaceOwners, _makeDetUuid, seg, _cloudOwnerId, _cloudEspaceId) : _cloudEspaceId } catch (_e) { return _cloudEspaceId } }
 
   // entite_id DÉTERMINISTE d'une SCI (par NOM), pour le chemin Storage par-SCI (<espace>/<entite_id>/files/<clé>).
   // MÊME dérivation que store-mapping (mapper entites) : detUuid(owner de LA SCI) + ('entite', nom normalisé).

@@ -100,10 +100,48 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
   // __key. L'écriture doit porter la RÉF NUE : le store cible keye/résout le bail par réf logement
   // (logementByRef, detUuid('bail', ref), legacy_ref), jamais par la clé désambiguïsée. store-sync garde sa
   // propre identité de baseline suffixée (interne, inchangée). No-op à N=1 / hors collision (pas de « @@ »).
-  const _bareKey = rec => (rec && typeof rec.__key === 'string' && rec.__key.includes('@@')) ? { ...rec, __key: rec.__key.split('@@')[0] } : rec
+  // On ne strippe le suffixe QUE s'il correspond à un espaceId CONNU (byId) → une réf de logement contenant
+  // littéralement « @@ » (saisie libre) n'est jamais corrompue. Le séparateur « ref@@espaceId » n'est posé
+  // que par hydrate, donc le suffixe est toujours un espaceId réel hors faux positif.
+  const _bareKey = rec => {
+    if (rec && typeof rec.__key === 'string') {
+      const i = rec.__key.indexOf('@@')
+      if (i !== -1 && byId.has(rec.__key.slice(i + 2))) return { ...rec, __key: rec.__key.slice(0, i) }
+    }
+    return rec
+  }
   async function upsert(coll, rec) { const r = _bareKey(rec); return _route(r).upsert(coll, r) }
   async function remove(coll, rec) { const r = _bareKey(rec); return _route(r).remove(coll, r) }
   async function persistConfig(db) { return own.store.persistConfig(db) }   // config = espace propre uniquement
 
   return { hydrate, upsert, remove, persistConfig, stores }
+}
+
+const _norm = s => String(s == null ? '' : s).trim().toLowerCase()
+
+// PUR (testable) — owner de l'espace où vit une SCI (par nom), dans un DB fusionné taggé. `entites` = tableau
+// taggé `_espaceId` ; `espaceOwners` = map espaceId→ownerId ; `fallbackOwner` = owner propre (entité neuve /
+// introuvable / non taggée). Sert au chemin Storage par-SCI : une SCI TIERS a son entite_id dérivé avec LE
+// detUuid de SON propriétaire. ⚠️ collision de NOM inter-espaces : le premier par ordre du tableau gagne
+// (own d'abord via le tri I4) → range dans l'espace propre, jamais chez un tiers (pas de fuite ; cf D1).
+export function resolveEntiteOwner(entites, espaceOwners, nom, fallbackOwner) {
+  const n = _norm(nom)
+  if (Array.isArray(entites)) {
+    const ent = entites.find(e => e && _norm(e.nom) === n)
+    if (ent && ent._espaceId && espaceOwners && espaceOwners[ent._espaceId]) return espaceOwners[ent._espaceId]
+  }
+  return fallbackOwner
+}
+
+// PUR (testable) — espaceId où vit la SCI dont l'uuid de segment Storage = `seg`. Reconstruit l'uuid de chaque
+// entité avec l'owner de SON espace et matche `seg`. `makeDetUuid` = fabrique ((...parts)→uuid). Aucun match
+// (seg d'une entité absente / legacy) → `fallbackEspace`. À N=1, tout retombe sur fallbackOwner/fallbackEspace.
+export function resolveEspaceOfSeg(entites, espaceOwners, makeDetUuid, seg, fallbackOwner, fallbackEspace) {
+  if (seg && Array.isArray(entites) && typeof makeDetUuid === 'function') {
+    for (const e of entites) {
+      const oid = (e && e._espaceId && espaceOwners && espaceOwners[e._espaceId]) || fallbackOwner
+      if (makeDetUuid(oid)('entite', _norm(e && e.nom)) === seg) return (e && e._espaceId) || fallbackEspace
+    }
+  }
+  return fallbackEspace
 }

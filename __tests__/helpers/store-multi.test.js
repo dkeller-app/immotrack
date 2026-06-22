@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createMultiStore } from '../../js/core/store-multi.js'
+import { createMultiStore, resolveEntiteOwner, resolveEspaceOfSeg } from '../../js/core/store-multi.js'
 
 // Store espionné : hydrate renvoie une COPIE du db fourni (le merge tague les objets → ne pas polluer la
 // source) ; upsert/remove/persistConfig/attach enregistrent leurs appels pour vérifier le routage.
@@ -180,5 +180,35 @@ describe('createMultiStore — fusion multi-espace', () => {
     // hors collision : la clé nue passe inchangée
     await multi.upsert('baux', { __key: 'L9', ref: 'L9', _espaceId: 'B' })
     expect(storeB.calls.upsert[1][1].__key).toBe('L9')
+    // M-3 : réf contenant littéralement '@@' avec suffixe NON-espaceId → PAS corrompue (byId ne connaît pas '2')
+    await multi.upsert('baux', { __key: 'APT@@2', ref: 'APT@@2', _espaceId: 'B' })
+    expect(storeB.calls.upsert[2][1].__key).toBe('APT@@2')
+  })
+})
+
+describe('resolveEntiteOwner / resolveEspaceOfSeg — résolution Storage par-SCI (purs)', () => {
+  const entites = [{ nom: 'SCI A', _espaceId: 'A' }, { nom: 'SCI B', _espaceId: 'B' }, { nom: 'Neuve' }]
+  const owners = { A: 'oA', B: 'oB' }
+  const det = ownerId => (...parts) => 'u:' + ownerId + ':' + parts.join('|')   // fabrique detUuid factice
+
+  it('resolveEntiteOwner : SCI tierce → owner tiers ; neuve/introuvable/DB absent → fallback propre', () => {
+    expect(resolveEntiteOwner(entites, owners, 'SCI B', 'oA')).toBe('oB')
+    expect(resolveEntiteOwner(entites, owners, 'sci b', 'oA')).toBe('oB')   // nom normalisé
+    expect(resolveEntiteOwner(entites, owners, 'Neuve', 'oA')).toBe('oA')   // non taggée → fallback
+    expect(resolveEntiteOwner(entites, owners, 'Inconnue', 'oA')).toBe('oA')
+    expect(resolveEntiteOwner(undefined, owners, 'SCI B', 'oA')).toBe('oA') // DB pas prêt
+  })
+
+  it('resolveEspaceOfSeg : seg d\'une SCI tierce → son espaceId ; aucun match → fallback propre', () => {
+    expect(resolveEspaceOfSeg(entites, owners, det, det('oB')('entite', 'sci b'), 'oA', 'A')).toBe('B')
+    expect(resolveEspaceOfSeg(entites, owners, det, det('oA')('entite', 'sci a'), 'oA', 'A')).toBe('A')
+    expect(resolveEspaceOfSeg(entites, owners, det, 'inexistant', 'oA', 'A')).toBe('A')   // fallback
+    expect(resolveEspaceOfSeg(entites, owners, null, 'x', 'oA', 'A')).toBe('A')           // fabrique absente
+  })
+
+  it('N=1 : un seul espace → tout retombe sur le fallback propre', () => {
+    const solo = [{ nom: 'SCI A', _espaceId: 'A' }]
+    expect(resolveEntiteOwner(solo, { A: 'oA' }, 'SCI A', 'oA')).toBe('oA')
+    expect(resolveEspaceOfSeg(solo, { A: 'oA' }, det, det('oA')('entite', 'sci a'), 'oA', 'A')).toBe('A')
   })
 })
