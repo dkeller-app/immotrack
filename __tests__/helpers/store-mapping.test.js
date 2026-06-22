@@ -22,6 +22,17 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(r.legacy_raw).toEqual({ id: 10, ref: 'F-1', entity: 'SCI A', imm: 'Imm1', surf: 42, loyerHcRef: 700 })  // OBJET (pas string) → jsonb correct via supabase-js
   })
 
+  it('legacy_raw : retire le tag _espaceId (Store multi) mais CONSERVE __key (load-bearing hydrate)', () => {
+    // _espaceId = tag de provenance posé par le Store multi-espace → ne doit pas polluer la donnée persistée.
+    const r = mapToRow('logements', { id: 10, ref: 'F-1', entity: 'SCI A', _espaceId: 'ESP-TIERS' }, ctx())
+    expect(r.legacy_raw._espaceId).toBeUndefined()
+    expect(r.legacy_raw).toEqual({ id: 10, ref: 'F-1', entity: 'SCI A' })
+    // __key DOIT rester : l'hydrate reconstruit la map baux (et les FK) depuis legacy_raw.__key.
+    const b = mapToRow('baux', { __key: 'F-1', entity: 'SCI A', hc: 700, _espaceId: 'ESP-TIERS' }, ctx())
+    expect(b.legacy_raw._espaceId).toBeUndefined()
+    expect(b.legacy_raw.__key).toBe('F-1')
+  })
+
   it('logements : entité non résolue → null (skip)', () => {
     expect(mapToRow('logements', { id: 1, ref: 'X', entity: 'Inconnue' }, ctx())).toBeNull()
   })
