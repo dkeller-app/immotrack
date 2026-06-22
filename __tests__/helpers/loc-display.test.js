@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { avatarInitials, echeanceInfo, bailProgressPct } from './loc-display.js';
+import { avatarInitials, echeanceInfo, bailProgressPct, isBailPresent } from './loc-display.js';
 
 // ─── avatarInitials ────────────────────────────────────────────────
 describe('avatarInitials — filtre civilités', () => {
@@ -98,11 +98,54 @@ describe('echeanceInfo — vert/orange/rouge + NaN safe', () => {
     expect(r.text).toMatch(/\(4[45]j\)/);
   });
 
-  it('bail fin il y a 5j → err (rouge) + urgent', () => {
+  // ── v15.343 BUG-STATUT-TACITE : échéance dépassée = tacite reconduction
+  //    (nu/meublé) et NON « échu », sauf types non reconductibles
+  //    (étudiant/mobilité/garage/autre). Source : isTaciteReconductionAllowed.
+  const pastBail = (days, type) => ({ type, fin: ymd(new Date(today.getTime() + days * 86400000)) });
+
+  it('bail NU fin il y a 5j → tacite reconduction (PAS échu)', () => {
+    const r = echeanceInfo(pastBail(-5, 'nu'));
+    expect(r.cls).toBe('ok');
+    expect(r.text).toBe('Tacite reconduction');
+    expect(r.urgent).toBe(false);
+  });
+
+  it('bail SANS type fin il y a 5j → tacite reconduction (défaut nu)', () => {
     const r = echeanceInfo(futureBail(-5));
+    expect(r.cls).toBe('ok');
+    expect(r.text).toBe('Tacite reconduction');
+  });
+
+  it('bail MEUBLÉ fin il y a 400j → tacite reconduction', () => {
+    const r = echeanceInfo(pastBail(-400, 'meuble'));
+    expect(r.cls).toBe('ok');
+    expect(r.text).toBe('Tacite reconduction');
+  });
+
+  it('bail ÉTUDIANT fin il y a 5j → échu réel (non reconductible)', () => {
+    const r = echeanceInfo(pastBail(-5, 'etudiant'));
     expect(r.cls).toBe('err');
     expect(r.urgent).toBe(true);
     expect(r.text).toContain('Échu');
+  });
+
+  it('bail MOBILITÉ fin il y a 5j → échu réel (non reconductible)', () => {
+    const r = echeanceInfo(pastBail(-5, 'mobilite'));
+    expect(r.cls).toBe('err');
+    expect(r.text).toContain('Échu');
+  });
+
+  it('bail GARAGE fin il y a 5j → échu réel (régime libre, pas de tacite)', () => {
+    const r = echeanceInfo(pastBail(-5, 'garage'));
+    expect(r.cls).toBe('err');
+    expect(r.text).toContain('Échu');
+  });
+
+  it('bail type inconnu/legacy (importé) fin il y a 5j → tacite (défaut sûr, pas échu)', () => {
+    // Liste noire : un type non explicitement non-reconductible → tacite reconduction.
+    const r = echeanceInfo(pastBail(-5, 'colocation'));
+    expect(r.cls).toBe('ok');
+    expect(r.text).toBe('Tacite reconduction');
   });
 
   it('date invalide → warn ⚠ Date invalide (PAS ok silencieux)', () => {
@@ -167,5 +210,43 @@ describe('bailProgressPct — % bail écoulé', () => {
   it('fin <= debut → null (pas de progression possible)', () => {
     expect(bailProgressPct({ debut: '2027-01-01', fin: '2026-01-01' })).toBe(null);
     expect(bailProgressPct({ debut: '2027-01-01', fin: '2027-01-01' })).toBe(null);
+  });
+});
+
+// ─── isBailPresent — occupation logement (vacance) ──────────────────
+// v15.343 BUG-STATUT-TACITE : un logement n'est vacant que si le bail est
+// absent / supprimé / clôturé / résilié. Une simple échéance dépassée
+// (tacite reconduction OU échu réel) ne rend PAS le logement vacant.
+describe('isBailPresent — bail présent = logement NON vacant', () => {
+  const ymd = d => d.toISOString().slice(0, 10);
+  const daysFromNow = days => ymd(new Date(Date.now() + days * 86400000));
+
+  it('bail nu fin PASSÉE non clôturé → présent (PAS vacant) [tacite reconduction]', () => {
+    expect(isBailPresent({ type: 'nu', fin: daysFromNow(-30), locataire: 'X' })).toBe(true);
+  });
+
+  it('bail étudiant fin passée (échu réel) non clôturé → présent (échu ≠ vacant)', () => {
+    expect(isBailPresent({ type: 'etudiant', fin: daysFromNow(-30), locataire: 'X' })).toBe(true);
+  });
+
+  it('bail fin future → présent', () => {
+    expect(isBailPresent({ type: 'nu', fin: daysFromNow(365) })).toBe(true);
+  });
+
+  it('bail clôturé → absent (vacant)', () => {
+    expect(isBailPresent({ type: 'nu', fin: daysFromNow(-30), cloture: true })).toBe(false);
+  });
+
+  it('bail avec finEffective (résilié) → absent (vacant)', () => {
+    expect(isBailPresent({ type: 'nu', finEffective: daysFromNow(-10) })).toBe(false);
+  });
+
+  it('bail supprimé (_deleted) → absent', () => {
+    expect(isBailPresent({ type: 'nu', _deleted: true })).toBe(false);
+  });
+
+  it('bail null/undefined → absent', () => {
+    expect(isBailPresent(null)).toBe(false);
+    expect(isBailPresent(undefined)).toBe(false);
   });
 });
