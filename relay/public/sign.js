@@ -53,6 +53,11 @@ function buildUI() {
           </div>
           <p class="hint">🔒 L'adresse à laquelle ce bail vous a été envoyé. Permet de garantir que c'est bien vous qui signez (lien non transférable).</p>
           <p id="email-status" class="email-status" hidden></p>
+          <div id="otp-row" class="email-row" hidden style="margin-top:8px">
+            <input id="otp-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="Code à 6 chiffres">
+            <button id="verifyOtp" type="button" class="ghost">Valider le code</button>
+          </div>
+          <p id="otp-hint" class="hint" hidden></p>
           <label class="chk"><input id="c1" type="checkbox"> Je reconnais signer ce bail (${esc(S.role)}).</label>
           <label class="chk"><input id="c2" type="checkbox"> Je consens à signer par procédé électronique.</label>
         </div>
@@ -93,6 +98,8 @@ function buildUI() {
   const name = app.querySelector('#name'), c1 = app.querySelector('#c1'), c2 = app.querySelector('#c2');
   const email = app.querySelector('#email'), verifyBtn = app.querySelector('#verifyEmail');
   const statusEl = app.querySelector('#email-status');
+  const otpRow = app.querySelector('#otp-row'), otpCode = app.querySelector('#otp-code');
+  const verifyOtpBtn = app.querySelector('#verifyOtp'), otpHint = app.querySelector('#otp-hint');
   const toRead = app.querySelector('#toRead');
   const gate = () => { toRead.disabled = !(name.value.trim() && emailVerified && c1.checked && c2.checked); };
   [name, c1, c2].forEach((el) => el.addEventListener('input', gate));
@@ -122,10 +129,13 @@ function buildUI() {
       });
       const data = await r.json().catch(() => ({}));
       if (data.ok) {
-        emailVerified = true; email.readOnly = true;
-        email.classList.remove('is-err'); email.classList.add('is-ok');
+        // Email connu → un code OTP a été envoyé. L'identité n'est confirmée qu'après sa saisie (verify-otp).
+        email.readOnly = true; email.classList.remove('is-err');
         verifyBtn.hidden = true;
-        setStatus('ok', '✓ Adresse confirmée — c\'est bien vous.');
+        otpRow.hidden = false; otpCode.focus();
+        setStatus('ok', '📨 Un code à 6 chiffres vous a été envoyé par email. Saisissez-le ci-dessous.');
+        otpHint.hidden = !data.devCode;
+        if (data.devCode) otpHint.textContent = '🧪 Mode test : votre code est ' + data.devCode;
       } else {
         emailVerified = false;
         email.classList.remove('is-ok'); email.classList.add('is-err');
@@ -135,6 +145,35 @@ function buildUI() {
       setStatus('err', 'Vérification impossible. Vérifiez votre connexion et réessayez.');
     } finally {
       verifyBtn.disabled = false; gate();
+    }
+  };
+
+  // Vérification du code OTP (contrôle de la boîte). Succès → emailVerified (porte d'accès à la lecture).
+  verifyOtpBtn.onclick = async () => {
+    const code = otpCode.value.trim();
+    if (!/^[0-9]{6}$/.test(code)) { otpHint.hidden = false; otpHint.textContent = 'Entrez les 6 chiffres du code.'; return; }
+    verifyOtpBtn.disabled = true;
+    try {
+      const r = await fetch(`/api/sessions/${SID}/verify-otp`, {
+        method: 'POST', headers: { 'X-Sign-Token': TOKEN, 'content-type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (data.verified) {
+        emailVerified = true;
+        otpRow.hidden = true; otpHint.hidden = true;
+        email.classList.add('is-ok');
+        setStatus('ok', '✓ Identité vérifiée — c\'est bien vous.');
+      } else if (data.reason === 'expired-or-locked') {
+        otpHint.hidden = false; otpHint.textContent = 'Code expiré ou trop de tentatives. Cliquez « Confirmer » pour recevoir un nouveau code.';
+        otpRow.hidden = true; verifyBtn.hidden = false; email.readOnly = false;
+      } else {
+        otpHint.hidden = false; otpHint.textContent = 'Code incorrect, réessayez.';
+      }
+    } catch {
+      otpHint.hidden = false; otpHint.textContent = 'Vérification impossible. Réessayez.';
+    } finally {
+      verifyOtpBtn.disabled = false; gate();
     }
   };
 
