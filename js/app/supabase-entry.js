@@ -411,9 +411,30 @@ async function onLoggedIn(api, overlay, user) {
     // données émet « changed » → on affiche une bannière « Actualiser » (rechargement MANUEL = zéro risque
     // d'écraser une modif locale en cours). self:false → on ne reçoit pas ses propres broadcasts.
     try {
-      _liveChannel = _supaClient.channel('espace:' + esp.espaceId, { config: { private: true, broadcast: { self: false } } })
+      const _syncPresence = (meUid) => {
+        const list = []
+        try {
+          const state = (_liveChannel && _liveChannel.presenceState) ? _liveChannel.presenceState() : {}
+          for (const key of Object.keys(state || {})) {
+            const meta = (state[key] && state[key][0]) || {}
+            list.push({ name: meta.name || 'Membre', isOwner: !!meta.isOwner, isMe: key === meUid })
+          }
+        } catch (e) {}
+        list.sort((a, b) => (b.isOwner - a.isOwner) || (b.isMe - a.isMe))
+        window.__immoPresence = list
+        try { if (typeof window.__immoRenderPresence === 'function') window.__immoRenderPresence() } catch (e) {}
+      }
+      _liveChannel = _supaClient.channel('espace:' + esp.espaceId, { config: { private: true, broadcast: { self: false }, presence: { key: user.id } } })
         .on('broadcast', { event: 'changed' }, () => { try { _showUpdateBanner() } catch (e) {} })
-        .subscribe((st) => { if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') console.warn('[Supabase] realtime', st) })
+        .on('presence', { event: 'sync' }, () => { try { _syncPresence(user.id) } catch (e) {} })
+        .subscribe(async (st) => {
+          // CO-PRÉSENCE : on s'annonce dès la souscription (nom d'affichage + owner). Les autres reçoivent
+          // un événement presence:sync → la pastille topbar se met à jour. Espace-level (v1).
+          if (st === 'SUBSCRIBED') {
+            try { await _liveChannel.track({ name: _displayNameFromUser(user), isOwner: !!(esp && esp.ownerId && user.id === esp.ownerId) }) } catch (e) {}
+          }
+          if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') console.warn('[Supabase] realtime', st)
+        })
     } catch (e) { console.warn('[Supabase] realtime subscribe', e) }
     const db = await api.hydrate()
     // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
