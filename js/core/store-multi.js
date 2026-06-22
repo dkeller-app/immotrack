@@ -23,6 +23,10 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
   if (!Array.isArray(espaces) || !espaces.length) throw new Error('createMultiStore: espaces requis')
   const stores = espaces.map(e => ({ espaceId: e.espaceId, ownerId: e.ownerId, mine: !!e.mine, store: makeStore(e.espaceId, e.ownerId) }))
   const own = stores.find(s => s.mine) || stores[0]
+  // own ITÉRÉ EN PREMIER (défense en profondeur, ne dépend pas de l'ordre passé par l'appelant) : la dédup de
+  // collision baux (hydrate) garde la clé NUE pour le 1er espace vu → ce doit être l'espace PROPRE, jamais un
+  // tiers. tri stable : own d'abord, le reste dans l'ordre d'origine.
+  stores.sort((a, b) => (a === own ? -1 : b === own ? 1 : 0))
   const byId = new Map(stores.map(s => [s.espaceId, s]))
 
   // Collections legacy keyées par OBJET (pas un tableau). `baux` = { logementRef: bail }.
@@ -92,8 +96,13 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
     return s.store
   }
 
-  async function upsert(coll, rec) { return _route(rec).upsert(coll, rec) }
-  async function remove(coll, rec) { return _route(rec).remove(coll, rec) }
+  // À la collision (D1), la clé baux fusionnée est désambiguïsée « ref@@espaceId » → store-sync la passe en
+  // __key. L'écriture doit porter la RÉF NUE : le store cible keye/résout le bail par réf logement
+  // (logementByRef, detUuid('bail', ref), legacy_ref), jamais par la clé désambiguïsée. store-sync garde sa
+  // propre identité de baseline suffixée (interne, inchangée). No-op à N=1 / hors collision (pas de « @@ »).
+  const _bareKey = rec => (rec && typeof rec.__key === 'string' && rec.__key.includes('@@')) ? { ...rec, __key: rec.__key.split('@@')[0] } : rec
+  async function upsert(coll, rec) { const r = _bareKey(rec); return _route(r).upsert(coll, r) }
+  async function remove(coll, rec) { const r = _bareKey(rec); return _route(r).remove(coll, r) }
   async function persistConfig(db) { return own.store.persistConfig(db) }   // config = espace propre uniquement
 
   return { hydrate, upsert, remove, persistConfig, stores }

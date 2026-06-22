@@ -156,4 +156,29 @@ describe('createMultiStore — fusion multi-espace', () => {
     expect(r.status).toBe('inserted')
     expect(store.skipped).toHaveLength(0)
   })
+
+  it('I4 — own itéré en premier quel que soit l\'ordre passé : le bail PROPRE garde la clé nue', async () => {
+    const storeB = makeFakeStore({ baux: { L1: { ref: 'L1', hc: 500 } } })   // tiers
+    const storeA = makeFakeStore({ baux: { L1: { ref: 'L1', hc: 700 } } })   // propre
+    const multi = createMultiStore({
+      espaces: [{ espaceId: 'B', ownerId: 'oB', mine: false }, { espaceId: 'A', ownerId: 'oA', mine: true }],  // own EN SECOND
+      makeStore: (id) => (id === 'A' ? storeA : storeB), getDB: () => ({}),
+    })
+    const db = await multi.hydrate()
+    expect(db.baux.L1._espaceId).toBe('A')         // le propre garde la clé nue malgré l'ordre
+    expect(db.baux.L1.hc).toBe(700)
+    expect(db.baux['L1@@B']._espaceId).toBe('B')   // le tiers est suffixé
+  })
+
+  it('I2 — écriture baux : la clé désambiguïsée @@ est ramenée à la réf nue pour le store cible', async () => {
+    const { multi, storeB } = setup()
+    await multi.upsert('baux', { __key: 'L1@@B', ref: 'L1', hc: 500, _espaceId: 'B' })
+    expect(storeB.calls.upsert).toHaveLength(1)
+    expect(storeB.calls.upsert[0][1].__key).toBe('L1')   // réf NUE, jamais 'L1@@B'
+    await multi.remove('baux', { __key: 'L1@@B', ref: 'L1', _espaceId: 'B' })
+    expect(storeB.calls.remove[0][1].__key).toBe('L1')
+    // hors collision : la clé nue passe inchangée
+    await multi.upsert('baux', { __key: 'L9', ref: 'L9', _espaceId: 'B' })
+    expect(storeB.calls.upsert[1][1].__key).toBe('L9')
+  })
 })

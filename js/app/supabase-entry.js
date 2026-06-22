@@ -41,6 +41,10 @@ let _cloudEspaceId = null
 let _cloudOwnerId = null  // owner de l'espace (posé au login) = namespace du detUuid → résout l'entite_id d'une SCI (chemin Storage par-SCI)
 let _supaClient = null   // client supabase (posé au boot) — pour le canal Realtime de synchro live
 let _makeDetUuid = null  // fabrique d'uuid déterministe (importée au boot) — pour window.__immoEntiteUuid
+let _espaceOwners = {}   // MULTI-ESPACE : espaceId → ownerId (tous les espaces vus). Une SCI TIERS vit sous
+//   l'espaceId de SON propriétaire et son entite_id se dérive avec LE detUuid de ce propriétaire → résolution
+//   par-entité (jamais l'owner propre figé). Vide / un seul espace à N=1 → tout retombe sur l'espace propre.
+let _liveDBRef = null    // réf vers le DB fusionné vivant (= liveDB), pour résoudre l'espace/owner d'une SCI
 
 // En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
 // n'a aucune raison d'etre : on a notre propre overlay de login + la vraie app cloud. S'il reste leve, il
@@ -102,13 +106,44 @@ async function boot() {
   const api = createBoot(client)
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
 
-  // DÉCOUPLAGE — entite_id DÉTERMINISTE d'une SCI (par NOM), pour le chemin Storage par-SCI
-  // (<espace>/<entite_id>/files/<clé>). MÊME dérivation que store-mapping (mapper entites) : detUuid sur le
-  // namespace owner + ('entite', nom normalisé trim+lowercase). null si owner/fabrique pas prêts → orphelin.
+  const _normNom = s => String(s == null ? '' : s).trim().toLowerCase()
+  // MULTI-ESPACE — owner de l'espace où vit une SCI (par nom) : on la cherche dans le DB fusionné vivant →
+  // son tag _espaceId → ownerId de cet espace. SCI TIERS → owner tiers (son entite_id a été dérivé avec SON
+  // detUuid) ; entité neuve / introuvable → owner PROPRE (défaut). À N=1, _espaceOwners n'a qu'un espace.
+  function _entiteOwner(nom) {
+    try {
+      const n = _normNom(nom), db = _liveDBRef
+      if (db && Array.isArray(db.entites)) {
+        const ent = db.entites.find(e => e && _normNom(e.nom) === n)
+        if (ent && ent._espaceId && _espaceOwners[ent._espaceId]) return _espaceOwners[ent._espaceId]
+      }
+    } catch (_e) {}
+    return _cloudOwnerId
+  }
+  // espaceId où vit la SCI dont l'uuid (segment Storage) = seg : une SCI TIERS vit sous l'espaceId de SON
+  // propriétaire. On reconstruit l'uuid de chaque entité (avec l'owner de SON espace) et on matche seg.
+  // Aucun match → espace propre (défaut, ex. entité neuve pas encore dans le DB).
+  function _espaceOfEntiteSeg(seg) {
+    try {
+      const db = _liveDBRef
+      if (seg && db && Array.isArray(db.entites) && _makeDetUuid) {
+        for (const e of db.entites) {
+          const oid = (e && e._espaceId && _espaceOwners[e._espaceId]) || _cloudOwnerId
+          if (_makeDetUuid(oid)('entite', _normNom(e && e.nom)) === seg) return e._espaceId || _cloudEspaceId
+        }
+      }
+    } catch (_e) {}
+    return _cloudEspaceId
+  }
+
+  // entite_id DÉTERMINISTE d'une SCI (par NOM), pour le chemin Storage par-SCI (<espace>/<entite_id>/files/<clé>).
+  // MÊME dérivation que store-mapping (mapper entites) : detUuid(owner de LA SCI) + ('entite', nom normalisé).
+  // null si owner/fabrique pas prêts → orphelin.
   window.__immoEntiteUuid = function (nom) {
     try {
-      if (!_cloudOwnerId || !_makeDetUuid) return null
-      return _makeDetUuid(_cloudOwnerId)('entite', String(nom == null ? '' : nom).trim().toLowerCase())
+      const ownerId = _entiteOwner(nom)
+      if (!ownerId || !_makeDetUuid) return null
+      return _makeDetUuid(ownerId)('entite', _normNom(nom))
     } catch (e) { return null }
   }
 
@@ -141,9 +176,12 @@ async function boot() {
       // ABSENT (ancien appelant, ex. index.html pas encore rafraîchi via le SW) → chemin LEGACY
       // <espace>/files/<clé> : rétro-compat, l'ancien appelant stocke la clé nue et relit via le legacy.
       // → aucune fenêtre cassée pendant un déploiement (entry réseau-first vs index.html bumpé).
+      // MULTI-ESPACE : un fichier de SCI TIERS vit sous l'espaceId de SON propriétaire (pas le nôtre). On
+      // résout l'espace depuis le segment d'entité ; legacy (entiteSeg absent) → espace propre. N=1 → propre.
+      const eid = (entiteSeg == null) ? _cloudEspaceId : _espaceOfEntiteSeg(entiteSeg)
       const path = (entiteSeg == null)
-        ? (_cloudEspaceId + '/files/' + idbKey)
-        : (_cloudEspaceId + '/' + entiteSeg + '/files/' + idbKey)
+        ? (eid + '/files/' + idbKey)
+        : (eid + '/' + entiteSeg + '/files/' + idbKey)
       const { error } = await client.storage.from('espace-files').upload(path, blob, { contentType: contentType || 'application/pdf', upsert: true })
       return error ? null : path
     } catch (e) { return null }
@@ -405,8 +443,9 @@ async function onLoggedIn(api, overlay, user) {
   try {
     const _espaces = await api.resolveEspaces()
     esp = _espaces.find(e => e.mine) || _espaces[0]   // espace PROPRE = primaire (Storage/Realtime/affichage + __immoCloudInfo)
-    _cloudEspaceId = esp.espaceId   // DÉCOUPLAGE : chemins Storage de l'espace propre (Storage multi-espace = affinage ultérieur)
-    _cloudOwnerId = esp.ownerId     // namespace detUuid de l'espace propre → window.__immoEntiteUuid
+    _cloudEspaceId = esp.espaceId   // espace propre : chemins Storage par défaut (entités neuves) + canal Realtime
+    _cloudOwnerId = esp.ownerId     // namespace detUuid par défaut → window.__immoEntiteUuid (entités neuves)
+    _espaceOwners = {}; _espaces.forEach(e => { _espaceOwners[e.espaceId] = e.ownerId })   // résolution par-SCI (Storage/uuid)
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des
     // données émet « changed » → on affiche une bannière « Actualiser » (rechargement MANUEL = zéro risque
@@ -445,6 +484,7 @@ async function onLoggedIn(api, overlay, user) {
       window.__immoSupabaseMode = true            // saveDB/beforeunload/storage ne toucheront pas localStorage
       if (window.__immoSetDB(db) === false) { renderProof(overlay, api, user, esp, db); return }   // DB invalide → fallback
       liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
+      _liveDBRef = db                             // réf pour résoudre l'espace/owner d'une SCI (Storage + uuid par-SCI)
       api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
       window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
       // 2.2 : panneau Mode cloud des Réglages. isOwner/displayName (#2) : un invité scopé ne doit pas
