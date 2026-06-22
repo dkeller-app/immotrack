@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Drill « par bien » revu (à valider)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626;
+    --amb:#d97706; --amb-bg:#fff8e6; --pur:#7c3aed;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace; --num:'Manrope',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 60px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:9px;font-size:12.5px;font-weight:600}
+  .bar b{color:#ffd479}
+  .wrap{max-width:880px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .sub{color:var(--t2);font-size:13px;margin-top:5px;max-width:700px}
+  .controls{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin-top:16px}
+  .cg{display:flex;flex-direction:column;gap:5px}
+  .cg .ct{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)}
+  .seg{display:inline-flex;background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:3px}
+  .seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--t2);padding:6px 12px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--acc);color:#fff}
+  .stage{display:flex;justify-content:center;margin-top:18px}
+  /* drill modal */
+  .modal{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);width:100%;overflow:hidden;transition:max-width .25s}
+  .modal.pc{max-width:680px}.modal.tab{max-width:520px}.modal.tel{max-width:380px}
+  .mhead{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid var(--bor)}
+  .mhead .t{font-size:16px;font-weight:800}
+  .mhead .x{border:0;background:none;font-size:19px;color:var(--t3);cursor:pointer}
+  .mbody{padding:16px 20px 20px;max-height:74vh;overflow:auto}
+  /* N/N-1 chart */
+  .chart{display:flex;align-items:center;gap:22px;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .bars{display:flex;align-items:flex-end;gap:18px;height:90px}
+  .barC{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
+  .barC .v{font:700 11px var(--num);color:var(--t1)} .barC .b{width:40px;border-radius:4px 4px 0 0} .barC .l{font:600 10px Inter;color:var(--t3)}
+  .chart .meta{font-size:12.5px;color:var(--t2);line-height:1.6}.chart .meta b{color:var(--t1)}
+  /* NON VENTILÉ alert */
+  .nv{background:var(--amb-bg);border:1px solid #d9770655;border-radius:12px;padding:13px 15px;margin-bottom:16px}
+  .nv .top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .nv .amt{font:800 18px var(--num);color:#b45309}
+  .nv .pct{font:800 12px Inter;background:#d97706;color:#fff;border-radius:20px;padding:2px 9px}
+  .nv .ttl{font-weight:800;font-size:13px;color:#92400e}
+  .nv .desc{font-size:12px;color:#92400e;margin-top:6px;line-height:1.5;opacity:.95}
+  .nv .act{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .nv .btn{border:0;border-radius:8px;font:inherit;font-weight:700;font-size:12.5px;padding:8px 14px;cursor:pointer}
+  .nv .btn.p{background:var(--pur);color:#fff}
+  .nv .btn.g{background:#fff;border:1px solid #d9770655;color:#92400e}
+  /* répartition */
+  .secT{font:700 11px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3);margin:0 0 8px;display:flex;justify-content:space-between;align-items:baseline}
+  .secT .hint{font-weight:600;text-transform:none;letter-spacing:0;color:var(--t3);font-size:11px}
+  .rep{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:12.5px}
+  .rep .nm{width:160px;flex-shrink:0;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rep .track{flex:1;height:9px;background:#e4ebf3;border-radius:5px;overflow:hidden}
+  .rep .fill{display:block;height:100%;background:var(--acc);border-radius:5px}
+  .rep .val{font:700 12px var(--num);width:120px;text-align:right;flex-shrink:0;color:var(--t1)}
+  .device.tel .rep .nm{width:96px}.device.tel .rep .val{width:92px}
+  .modal.tel .rep .nm{width:90px}.modal.tel .rep .val{width:88px}
+  /* movements table */
+  table.pl{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  table.pl th{text-align:left;font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.03em;color:var(--t3);padding:6px 8px;border-bottom:1px solid var(--bor)}
+  table.pl td{padding:6px 8px;border-bottom:1px solid var(--sur2)}
+  table.pl td.num{text-align:right;font-family:var(--num);font-weight:700}
+  table.pl tr.nv-row td{background:#fffaf0}
+  .nvtag{font-size:9.5px;font-weight:800;color:#b45309;background:var(--amb-bg);border:1px solid #d9770633;border-radius:5px;padding:1px 5px;margin-left:5px;white-space:nowrap}
+  .info{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:14px 18px;box-shadow:var(--sh);font-size:12.5px;color:var(--t2);line-height:1.6}
+  .info b{color:var(--t1)} .info code{font-family:var(--mono);font-size:11.5px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="bar">🎨 MOCKUP À VALIDER — <b>Drill « Répartition par bien » revu</b> : le « — » (versements de gérance non ventilés) devient une alerte claire + actionnable. Rien n'est codé.</div>
+<div class="wrap">
+  <h1>📊 Drill-down d'un poste — gestion du « non ventilé »</h1>
+  <div class="sub">Aujourd'hui les versements groupés de gérance (sans bien précis) forment un blob « — » qui écrase la répartition (52 %). Ici : on les <b>sort de la répartition</b>, on les <b>explique</b>, et on propose de les <b>ventiler</b>.</div>
+
+  <div class="controls">
+    <div class="cg"><span class="ct">Format</span>
+      <div class="seg" id="fmt"><button data-f="pc" class="on">💻 PC</button><button data-f="tab">📱 Tablette</button><button data-f="tel">📲 Téléphone</button></div>
+    </div>
+    <div class="cg"><span class="ct">Base des %</span>
+      <div class="seg" id="pctbase"><button data-b="vent" class="on">Du déjà ventilé</button><button data-b="total">Du total</button></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="modal pc" id="modal">
+      <div class="mhead"><span class="t">Loyers encaissés — 2026</span><button class="x">✕</button></div>
+      <div class="mbody">
+        <div class="chart">
+          <div class="bars">
+            <div class="barC"><span class="v">0,00 €</span><div class="b" style="height:2px;background:#cbd5e1"></div><span class="l">2025</span></div>
+            <div class="barC"><span class="v">15 992,97 €</span><div class="b" style="height:78px;background:var(--acc)"></div><span class="l">2026</span></div>
+          </div>
+          <div class="meta"><b>nouveau poste</b> vs 2025<br>6 biens identifiés</div>
+        </div>
+
+        <div class="nv">
+          <div class="top">
+            <span class="amt">8 347,97 €</span>
+            <span class="pct">52 % du poste</span>
+            <span class="ttl">non ventilés par bien</span>
+          </div>
+          <div class="desc"><b>4 versements de gérance groupés</b> (« LOYERS … GERANCE ISELIN — Versement brut ») agrègent plusieurs loyers en une ligne. Tant qu'ils ne sont pas répartis par logement, ta répartition par bien est <b>incomplète</b> (et ta 2044 par bien aussi).</div>
+          <div class="act">
+            <button class="btn p">✂️ Ventiler ces 4 versements par bien</button>
+            <button class="btn g">Voir les lignes concernées</button>
+          </div>
+        </div>
+
+        <div class="secT"><span>Répartition par bien</span><span class="hint" id="repHint">% du montant déjà ventilé (7 645 €)</span></div>
+        <div id="rep"></div>
+
+        <div class="secT" style="margin-top:16px"><span>Mouvements · 28 pièces</span></div>
+        <table class="pl">
+          <thead><tr><th>Date</th><th>Logement · locataire</th><th>Libellé</th><th style="text-align:right">Montant</th></tr></thead>
+          <tbody id="mvts"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="info">
+    🧩 <b>Côté code</b> : aujourd'hui <code>parBien[m.qui || '—']</code> met tous les versements sans <code>qui</code> dans un seul blob « — » trié en tête. Le revu : on isole la clé vide → carte « non ventilé » dédiée (montant + nb + action), et la répartition ne montre que les biens réels (barres enfin lisibles). L'action « Ventiler » réutilise le découpage de gérance déjà en place (<code>openSplitMvList</code> / seed gérance).
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const BIENS=[
+  {nm:'F-102 · MME MASTALERZ LEA', v:1858.00},
+  {nm:'F-001 · AUDRIN Faustine', v:1709.00},
+  {nm:'F-101 · M. JULIEN ZITO', v:1380.00},
+  {nm:'F-201 · Jérémy YARDIN', v:1290.00},
+  {nm:'F-Local · M. REGIS MANuel', v:750.00},
+  {nm:'F-002 · MME MOMPER FABIENNE', v:658.00}
+];
+const VENT=BIENS.reduce((s,b)=>s+b.v,0);     // 7645
+const TOTAL=15992.97;
+const fmtE=n=>n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+let pctBase='vent';
+function renderRep(){
+  const base = pctBase==='vent'?VENT:TOTAL;
+  const maxB=BIENS[0].v;
+  $('repHint').textContent = pctBase==='vent'?'% du montant déjà ventilé ('+fmtE(VENT).replace(',00','')+')':'% du total du poste';
+  $('rep').innerHTML = BIENS.map(b=>{
+    const pct=Math.round(b.v/base*100);
+    const w=Math.round(b.v/maxB*100);
+    return `<div class="rep"><span class="nm">${b.nm}</span><span class="track"><span class="fill" style="width:${w}%"></span></span><span class="val">${fmtE(b.v)} · ${pct} %</span></div>`;
+  }).join('');
+}
+const MVTS=[
+  {d:'29/01/2026', lot:'', lib:'LOYERS 01/2026 GERANCE ISELIN — Versement brut', amt:2670.57, nv:true},
+  {d:'09/01/2026', lot:'F-102 · MME MASTALERZ LEA', lib:'VIR INST M OU MME MASTALERZ NORBERT LOYER JAN', amt:479.00},
+  {d:'10/01/2026', lot:'F-101 · M. JULIEN ZITO', lib:'VIR DE M JULIEN ZITO LOYER JAN', amt:460.00},
+  {d:'26/02/2026', lot:'', lib:'LOYERS 02/2026 GERANCE ISELIN — Versement brut', amt:2705.40, nv:true},
+  {d:'01/02/2026', lot:'F-201 · Jérémy YARDIN', lib:'VIR INST JEREMY YARDIN LOYER FEV', amt:430.00},
+  {d:'05/02/2026', lot:'F-002 · MME MOMPER FABIENNE', lib:'VIR MME MOMPER FABIENNE LOYER FEV', amt:124.00}
+];
+function renderMvts(){
+  $('mvts').innerHTML = MVTS.map(m=>`<tr class="${m.nv?'nv-row':''}"><td>${m.d}</td><td>${m.lot||'—'}${m.nv?'<span class="nvtag">⚠ non ventilé</span>':''}</td><td style="font-family:var(--mono);font-size:11px">${m.lib}</td><td class="num">${fmtE(m.amt)}</td></tr>`).join('');
+}
+$('fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('fmt').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');$('modal').className='modal '+b.dataset.f;};
+$('pctbase').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('pctbase').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');pctBase=b.dataset.b;renderRep();};
+renderRep(); renderMvts();
+</script>
+</body>
+</html>
