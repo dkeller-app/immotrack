@@ -403,10 +403,11 @@ async function onLoggedIn(api, overlay, user) {
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingNow() })
   addEventListener('pagehide', flushPendingNow)
   try {
-    esp = await api.resolveEspace()
-    _cloudEspaceId = esp.espaceId   // DÉCOUPLAGE : permet à window.__immoCloudFileUrl de résoudre les chemins Storage
-    _cloudOwnerId = esp.ownerId     // namespace detUuid (= celui du store) → window.__immoEntiteUuid résout l'entite_id d'une SCI
-    api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => liveDB, schedule })
+    const _espaces = await api.resolveEspaces()
+    esp = _espaces.find(e => e.mine) || _espaces[0]   // espace PROPRE = primaire (Storage/Realtime/affichage + __immoCloudInfo)
+    _cloudEspaceId = esp.espaceId   // DÉCOUPLAGE : chemins Storage de l'espace propre (Storage multi-espace = affinage ultérieur)
+    _cloudOwnerId = esp.ownerId     // namespace detUuid de l'espace propre → window.__immoEntiteUuid
+    api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des
     // données émet « changed » → on affiche une bannière « Actualiser » (rechargement MANUEL = zéro risque
     // d'écraser une modif locale en cours). self:false → on ne reçoit pas ses propres broadcasts.

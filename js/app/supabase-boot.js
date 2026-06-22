@@ -6,6 +6,7 @@ import { createSupabaseStore } from '../core/store-supabase.js'
 import { createSupabaseAdapter } from '../core/store-supabase-adapter.js'
 import { createStoreSync } from '../core/store-sync.js'
 import { makeDetUuid } from '../core/det-uuid.js'
+import { createMultiStore } from '../core/store-multi.js'
 
 export function createBoot(client) {
   if (!client || !client.auth || typeof client.from !== 'function') throw new Error('createBoot: client supabase-js requis')
@@ -65,6 +66,30 @@ export function createBoot(client) {
     return { espaceId: created.id, ownerId: created.created_by, espaceNom: created.nom }
   }
 
+  // MULTI-ESPACE : tous les espaces de l'utilisateur — son espace PROPRE (full_espace=true) + les espaces
+  // TIERS où il a des SCI octroyées (full_espace=false). → [{espaceId, ownerId(created_by), mine}]. Espace
+  // propre d'abord. 0 membership → en créer un (resolveEspace). N=1 → comportement mono identique.
+  async function resolveEspaces(defaultName = 'Mon patrimoine') {
+    const u = await currentUser()
+    const uid = u && u.id
+    const { data: mems, error } = await client.from('espace_members')
+      .select('espace_id, full_espace').eq('user_id', uid).eq('invite_status', 'active')
+    if (error) throw new Error('resolveEspaces: ' + error.message)
+    if (!mems || !mems.length) {
+      const one = await resolveEspace(defaultName)
+      return [{ espaceId: one.espaceId, ownerId: one.ownerId, espaceNom: one.espaceNom, mine: true }]
+    }
+    const ids = [...new Set(mems.map(m => m.espace_id))]
+    const { data: esps, error: e2 } = await client.from('espaces').select('id, created_by, nom').in('id', ids)
+    if (e2) throw new Error('resolveEspaces espaces: ' + e2.message)
+    const metaById = {}; (esps || []).forEach(e => { metaById[e.id] = e })
+    const list = mems
+      .filter(m => metaById[m.espace_id])
+      .map(m => ({ espaceId: m.espace_id, ownerId: metaById[m.espace_id].created_by, espaceNom: metaById[m.espace_id].nom, mine: m.full_espace === true }))
+    list.sort((a, b) => (b.mine - a.mine))   // espace propre d'abord
+    return list
+  }
+
   // ── STORE + SYNC ───────────────────────────────────────────────────────────────
   // getDB = () => objet DB mémoire (window.DB) ; schedule(fn) = debounce app (setTimeout 800ms).
   function wireStore({ espaceId, ownerId, getDB, schedule, pageSize }) {
@@ -77,6 +102,23 @@ export function createBoot(client) {
     return { store: _store, sync: _sync }
   }
 
+  // MULTI-ESPACE : un store par-espace agrégé par createMultiStore (interface identique → sync inchangé).
+  // N=1 → équivaut à wireStore (1 store, pas de fusion réelle). getDB sert au routage des écritures (vue
+  // filtrée par espace pour les résolveurs FK).
+  function wireStores({ espaces, getDB, schedule, pageSize }) {
+    if (!Array.isArray(espaces) || !espaces.length) throw new Error('wireStores: espaces requis')
+    const makeStore = (espaceId, ownerId) => {
+      if (!espaceId || !ownerId) throw new Error('wireStores: espaceId + ownerId requis par espace')
+      const adapter = createSupabaseAdapter(client, espaceId, pageSize ? { pageSize } : {})
+      return createSupabaseStore({ ...adapter, detUuid: makeDetUuid(ownerId), espaceId, ownerId })
+    }
+    _store = createMultiStore({ espaces, makeStore, getDB })
+    _sync = createStoreSync({ store: _store, getDB, schedule, sealSigned: false })
+    const own = espaces.find(e => e.mine) || espaces[0]
+    _ctx = { espaces, espaceId: own.espaceId, ownerId: own.ownerId }
+    return { store: _store, sync: _sync }
+  }
+
   async function hydrate() { if (!_store) throw new Error('hydrate: wireStore() d\'abord'); return _store.hydrate() }
   function seed(db) { if (_sync) _sync.seed(db) }              // baseline « déjà synchronisé » après hydrate
   function markDirty() { if (_sync) _sync.markDirty() }         // à brancher dans saveDB()
@@ -84,7 +126,7 @@ export function createBoot(client) {
 
   return {
     loginEmail, signUpEmail, loginGoogle, sendPasswordReset, logout, currentUser, onAuthChange,
-    resolveEspace, wireStore, hydrate, seed, markDirty, flush,
+    resolveEspace, resolveEspaces, wireStore, wireStores, hydrate, seed, markDirty, flush,
     get store() { return _store }, get sync() { return _sync }, get ctx() { return _ctx },
   }
 }

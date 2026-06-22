@@ -16,11 +16,13 @@ describe('SupabaseStore.hydrate — reconstruit le DB legacy depuis les tables',
       entites: [{ id: 1, nom: 'A', immeubles: [{ nom: 'Imm1' }] }],
       logements: [{ id: 10, ref: 'F-1' }, { id: 11, ref: 'F-2' }],
       mouvements: [{ id: 100, lib: 'Loyer' }],
+      candidats: [{ id: 9, nom: 'Dupont' }],
     }, {}))
     const db = await s.hydrate()
     expect(db.entites).toEqual([{ id: 1, nom: 'A', immeubles: [{ nom: 'Imm1' }] }])  // immeubles RE-NESTÉS (déjà dans legacy_raw)
     expect(db.logements.map(l => l.ref)).toEqual(['F-1', 'F-2'])
     expect(db.mouvements[0].lib).toBe('Loyer')
+    expect(db.candidats).toEqual([{ id: 9, nom: 'Dupont' }])   // candidats = TABLE par-SCI (migration 0034, fix anti-fuite)
   })
 
   it('baux : reconstruit la MAP keyée par ref (depuis __key), sans polluer avec __key', async () => {
@@ -40,15 +42,16 @@ describe('SupabaseStore.hydrate — reconstruit le DB legacy depuis les tables',
     // table → testée séparément ci-dessous. Sans config (mock {}), elle est absente : normal.
   })
 
-  it('collections portées par la config (assurances/candidats/auditTrail/compteursReleves)', async () => {
+  it('collections portées par la config (assurances/auditTrail/compteursReleves)', async () => {
+    // candidats n'est PLUS ici : c'est une table (cf test ci-dessus + migration 0034). Une clé `candidats`
+    // en config serait d'ailleurs ignorée par la garde collision (TABLE_COLLECTIONS), cf test GARDE.
     const s = createSupabaseStore(mockBackend({ assurances: [{ id: 1 }] }, {
-      assurances: [], candidats: [{ id: 9 }], auditTrail: [{ a: 1 }], compteursReleves: { 0: {} },
+      assurances: [], auditTrail: [{ a: 1 }], compteursReleves: { 0: {} },
     }))
     const db = await s.hydrate()
     // la table assurances → mrh ; la collection legacy `assurances` (config) reste vide et présente
     expect(db.mrh).toEqual([{ id: 1 }])
     expect(db.assurances).toEqual([])
-    expect(db.candidats).toEqual([{ id: 9 }])
     expect(db.auditTrail).toEqual([{ a: 1 }])
   })
 
