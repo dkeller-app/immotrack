@@ -100,6 +100,13 @@ async function boot() {
     try { const { data } = await client.auth.getSession(); return (data && data.session && data.session.access_token) || '' } catch (e) { return '' }
   }
   const api = createBoot(client)
+  // Connexion D1 — hook de déconnexion global utilisé par le menu Compte de l'app (index.html).
+  // FLUSH puis signOut (api.logout) → recharge la page : sans session persistée, on retombe sur le
+  // login. Repli sûr : si logout échoue, on recharge quand même (la session n'est pas persistée).
+  window.__immoLogout = async () => {
+    try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) }
+    try { location.reload() } catch (e) {}
+  }
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
   try { const m = await import('../core/store-multi.js'); _resolveEntiteOwner = m.resolveEntiteOwner; _resolveEspaceOfSeg = m.resolveEspaceOfSeg } catch (e) { console.warn('[Supabase] store-multi resolvers', e) }
 
