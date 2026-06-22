@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Co-présence & Facturation (Propryo)</title>
+<style>
+/* ── Charte Propryo (corail = accent uniquement ; Schibsted Grotesk + Inter ; clair + sombre) ── */
+:root{
+  --bg:#f4f5f8; --surface:#fff; --inset:#f7f8fb; --border:#e4e7ee;
+  --ink:#101521; --text:#3c4658; --t2:#6e7888;
+  --acc:#ff5a3c; --acc-hover:#e8431f; --acc-halo:#ffe7e0;
+  --ok:#16a34a; --radius:14px; --shadow:0 1px 2px rgba(16,21,33,.04),0 8px 24px rgba(16,21,33,.06);
+}
+.mode-sombre{
+  --bg:#14161d; --surface:#1e222c; --inset:#262b37; --border:rgba(255,255,255,.12);
+  --ink:#f2f5fa; --text:#cdd6e3; --t2:#9aa6b8;
+  --acc:#ff6a4a; --acc-hover:#ff7d60; --acc-halo:rgba(255,106,74,.18); --shadow:none;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.disp{font-family:"Schibsted Grotesk",Inter,sans-serif;font-weight:800;color:var(--ink);letter-spacing:-.01em}
+.wrap{max-width:1080px;margin:0 auto;padding:22px 18px 70px}
+.toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap}
+.toolbar .t{font-size:12px;color:var(--t2)}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;color:var(--text);padding:7px 13px;font:600 13px Inter;cursor:pointer}
+.seg button.on{background:var(--acc);color:#1a0d09}
+.note{font-size:12.5px;color:var(--t2);margin:6px 0 16px}
+
+/* faux device frame */
+.device{background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;margin:0 auto;transition:max-width .2s}
+.device[data-w="pc"]{max-width:1080px}
+.device[data-w="tab"]{max-width:680px}
+.device[data-w="tel"]{max-width:380px}
+
+/* app topbar */
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
+.brand{display:flex;align-items:center;gap:8px;font-family:"Schibsted Grotesk",Inter;font-weight:800;color:var(--ink)}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--acc)}
+.tb-title{font-weight:700;color:var(--ink)}
+.spacer{flex:1}
+
+/* ── CO-PRÉSENCE : pastille d'en-tête ── */
+.presence{position:relative;display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:5px 11px 5px 6px;border:1px solid var(--border);border-radius:999px;background:var(--inset);user-select:none}
+.avs{display:flex}
+.av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 11px Inter;color:#fff;border:2px solid var(--surface);margin-left:-8px}
+.av:first-child{margin-left:0}
+.av.me{background:#5b6b86}.av.a{background:#7a4ddb}.av.b{background:#0ea5e9}
+.pdot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
+.pcount{font:600 12.5px Inter;color:var(--text)}
+.pcount b{color:var(--ink)}
+
+/* popup co-présence */
+.pop{position:absolute;top:42px;right:0;width:280px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 10px 30px rgba(16,21,33,.16);padding:12px;z-index:5}
+.mode-sombre .pop{box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.pop h4{margin:2px 4px 10px;font:800 12px "Schibsted Grotesk";color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
+.prow{display:flex;align-items:center;gap:10px;padding:7px 4px}
+.prow .av{margin:0;border:0;width:30px;height:30px}
+.prow .who{font-weight:600;color:var(--ink);font-size:13.5px}
+.prow .what{font-size:12px;color:var(--t2)}
+.prow .live{margin-left:auto;font-size:11px;color:var(--ok);font-weight:600;display:flex;align-items:center;gap:5px}
+
+/* body */
+.body{padding:18px 16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.card>h3{margin:0 0 4px;font-size:16px}
+.card .sub{font-size:12.5px;color:var(--t2);margin-bottom:14px}
+
+/* membres */
+.member{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--border)}
+.member:first-of-type{border-top:0}
+.member .info{min-width:0}
+.member .nm{font-weight:600;color:var(--ink)}
+.member .nm .vous{font:600 10.5px Inter;color:var(--t2);background:var(--inset);border:1px solid var(--border);border-radius:999px;padding:1px 7px;margin-left:7px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.chip{font:600 11px Inter;padding:2px 9px;border-radius:999px;background:var(--inset);border:1px solid var(--border);color:var(--text)}
+.chip.r{color:var(--t2)}
+.member .act{margin-left:auto;display:flex;gap:8px}
+.lnk{font:600 12.5px Inter;color:var(--acc);background:none;border:0;cursor:pointer}
+.lnk.mut{color:var(--t2)}
+
+/* ── FACTURATION : encart ── */
+.bill{display:flex;align-items:center;gap:14px;background:var(--inset);border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-top:6px;flex-wrap:wrap}
+.bill .big{font-family:"Schibsted Grotesk";font-weight:800;font-size:22px;color:var(--ink)}
+.bill .lbl{font-size:12.5px;color:var(--t2)}
+.bill .accent{color:var(--acc)}
+.bill .grow{flex:1}
+.btn{font:700 13px Inter;border-radius:10px;padding:9px 15px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#1a0d09}
+
+/* invite popup (post-clic) */
+.invite{max-width:430px;margin:18px auto 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.invite h3{margin:0 0 12px;font-size:16px}
+.fld{margin-bottom:11px}
+.fld label{display:block;font:600 12px Inter;color:var(--t2);margin-bottom:5px}
+.fld input,.fld select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--inset);color:var(--ink);font:14px Inter}
+.costline{display:flex;align-items:center;gap:9px;background:var(--acc-halo);border:1px solid color-mix(in srgb,var(--acc) 30%,transparent);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);margin:4px 0 14px}
+.costline .tag{font:700 11px Inter;background:var(--acc);color:#1a0d09;border-radius:999px;padding:2px 9px}
+.sectit{font:800 12px "Schibsted Grotesk";color:var(--t2);text-transform:uppercase;letter-spacing:.04em;margin:26px 4px 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toolbar">
+    <div>
+      <h1 style="margin:0 0 2px;font-size:20px">Mockup — Co-présence & Facturation</h1>
+      <div class="t">Charte Propryo · rendu de la spec (à valider avant code)</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <div class="seg" id="fmt"><button data-w="pc" class="on">PC</button><button data-w="tab">Tablette</button><button data-w="tel">Téléphone</button></div>
+      <div class="seg" id="thm"><button data-m="clair" class="on">Clair</button><button data-m="sombre">Sombre</button></div>
+    </div>
+  </div>
+
+  <div class="sectit">1 · Co-présence — pastille d'en-tête (clic = qui est là)</div>
+  <div class="note">Avatars empilés + point vert « N en ligne ». Clic → popup : qui + ce qu'il modifie. Discret, à droite de la barre.</div>
+
+  <div class="device" data-w="pc" id="dev">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span>Propryo</div>
+      <div class="tb-title">Loyers & Mouvements</div>
+      <div class="spacer"></div>
+      <div class="presence" onclick="document.getElementById('pop').style.display = (this.querySelector('.pop')?'none':'block') || (function(){document.getElementById('pop').style.display='block'})()">
+        <span class="pdot"></span>
+        <div class="avs"><span class="av me">DK</span><span class="av a">MK</span></div>
+        <span class="pcount"><b>2</b> en ligne</span>
+        <div class="pop" id="pop" style="display:none">
+          <h4>En ligne maintenant</h4>
+          <div class="prow"><span class="av me">DK</span><div><div class="who">Didier <span style="font-weight:400;color:var(--t2);font-size:12px">(vous)</span></div><div class="what">Toutes les SCI</div></div><span class="live"><span class="pdot"></span>ici</span></div>
+          <div class="prow"><span class="av a">MK</span><div><div class="who">Marie</div><div class="what">modifie la <b style="color:var(--ink)">SCI du Parc</b></div></div><span class="live"><span class="pdot"></span>actif</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="body">
+      <div class="card">
+        <h3>Partage & accès</h3>
+        <div class="sub">Qui a accès à tes SCI, et à quel niveau.</div>
+
+        <div class="member">
+          <span class="av me" style="margin:0;border:0;width:34px;height:34px">DK</span>
+          <div class="info"><div class="nm">Didier <span class="vous">vous</span></div><div class="chips"><span class="chip">Toutes les SCI</span></div></div>
+        </div>
+        <div class="member">
+          <span class="av a" style="margin:0;border:0;width:34px;height:34px">MK</span>
+          <div class="info"><div class="nm">Marie</div><div class="chips"><span class="chip">SCI du Parc</span></div></div>
+          <div class="act"><button class="lnk">Modifier</button><button class="lnk mut">Révoquer</button></div>
+        </div>
+        <div class="member">
+          <span class="av b" style="margin:0;border:0;width:34px;height:34px">AG</span>
+          <div class="info"><div class="nm">Agence Léo</div><div class="chips"><span class="chip">SCI Centre-Ville</span><span class="chip r">Lecture</span></div></div>
+          <div class="act"><button class="lnk">Modifier</button><button class="lnk mut">Révoquer</button></div>
+        </div>
+
+        <div class="sectit" style="margin:20px 0 8px">Facturation du partage</div>
+        <div class="bill">
+          <div><div class="big">1<span style="font-size:14px;color:var(--t2)"> / écriture</span></div><div class="lbl">partenaire en écriture · <span class="accent">le 1ᵉʳ est offert</span></div></div>
+          <div style="width:1px;align-self:stretch;background:var(--border)"></div>
+          <div><div class="big accent">+3 €</div><div class="lbl">/mois par partenaire écriture en plus</div></div>
+          <div class="grow"></div>
+          <div class="lbl" style="text-align:right">Lecture (agences)<br><b style="color:var(--ok)">gratuit</b></div>
+        </div>
+        <div style="margin-top:14px"><button class="btn p">+ Inviter un partenaire</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sectit">2 · À l'invitation — le coût est annoncé clairement</div>
+  <div class="note">Au moment d'inviter, on dit si l'accès est offert ou facturé, avant de valider.</div>
+  <div class="invite">
+    <h3>Inviter un partenaire</h3>
+    <div class="fld"><label>Email (ou lien à partager)</label><input value="marie@exemple.fr"></div>
+    <div class="fld"><label>SCI partagée</label><select><option>SCI du Parc</option><option>SCI Centre-Ville</option></select></div>
+    <div class="fld"><label>Niveau d'accès</label><select><option>Écriture (gestion)</option><option>Lecture seule</option></select></div>
+    <div class="costline"><span class="tag">Offert</span> 1ᵉʳ partenaire en écriture inclus dans ton abonnement. Le suivant : +3 €/mois.</div>
+    <button class="btn p" style="width:100%">Envoyer l'invitation</button>
+  </div>
+</div>
+
+<script>
+  const dev=document.getElementById('dev');
+  document.getElementById('fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');dev.dataset.w=b.dataset.w};
+  document.getElementById('thm').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...e.currentTarget.children].forEach(x=>x.classList.remove('on'));b.classList.add('on');document.body.classList.toggle('mode-sombre',b.dataset.m==='sombre')};
+</script>
+</body>
+</html>
