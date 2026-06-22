@@ -338,9 +338,9 @@ describe('_bankMatchHeuristic', () => {
   });
 
   // V3-REFONTE-LOYERS — fix du bug : le moteur ne propose plus de catégories inexistantes.
-  it('Mot-clé emprunt → Prêt — Capital remboursé (intérêts via attestation, pas dérivés)', () => {
+  it('Mot-clé emprunt → Prêt (échéance ; intérêts via attestation, pas dérivés)', () => {
     const r = _bankMatchHeuristic({ libelle:'ECHEANCE PRET IMMOBILIER 0042', credit:0, debit:780, signedAmount:-780 }, ctx);
-    expect(r.cat).toBe('Prêt — Capital remboursé');
+    expect(r.cat).toBe('Prêt');
   });
   it('Mot-clé notaire → Acquisition / cession de bien', () => {
     const r = _bankMatchHeuristic({ libelle:'VIR NOTAIRE MAITRE DURAND', credit:0, debit:3200, signedAmount:-3200 }, ctx);
