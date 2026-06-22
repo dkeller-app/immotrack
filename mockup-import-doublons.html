@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoTrack — Import : onglet Doublons (à valider)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef2f7; --sur:#fff; --sur2:#f5f8fc; --bor:rgba(20,40,70,.12); --bor2:rgba(20,40,70,.22);
+    --t1:#172033; --t2:#54657c; --t3:#8ba0b6;
+    --acc:#3b7ef6; --acc-bg:#eef4ff; --grn:#16a34a; --grn-bg:#ecfdf5; --red:#dc2626; --red-bg:#fef2f2;
+    --amb:#d97706; --amb-bg:#fff8e6;
+    --r:10px; --rl:16px; --sh:0 14px 38px -16px rgba(20,40,70,.28),0 2px 6px rgba(20,40,70,.05);
+    --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 60px}
+  .bar{background:linear-gradient(90deg,#1e3a5f,#2b5a8a);color:#fff;text-align:center;padding:9px;font-size:12.5px;font-weight:600}
+  .bar b{color:#ffd479}
+  .wrap{max-width:920px;margin:18px auto 0;padding:0 16px}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .sub{color:var(--t2);font-size:13px;margin-top:5px;max-width:720px}
+  .controls{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  .cg{display:flex;flex-direction:column;gap:5px}
+  .cg .ct{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)}
+  .seg{display:inline-flex;background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:3px}
+  .seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--t2);padding:6px 12px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--acc);color:#fff}
+  .stage{display:flex;justify-content:center;margin-top:18px}
+  .device{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--sh);overflow:hidden;width:100%;transition:max-width .25s}
+  .device.pc{max-width:780px}.device.tab{max-width:560px}.device.tel{max-width:380px}
+  /* assistant header */
+  .ahead{padding:14px 18px 0}
+  .atitle{font-size:16px;font-weight:800}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .chip{font-size:11.5px;border-radius:20px;padding:4px 12px;border:1px solid}
+  .chip.ok{background:var(--grn-bg);color:#14532d;border-color:#16a34a}
+  .chip.todo{background:var(--amb-bg);color:#92400e;border-color:#d97706}
+  .chip.dup{background:#eef4ff;color:#1a4fb0;border-color:#3b7ef6;font-weight:600}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--bor);margin-top:12px}
+  .tabs button{border:0;background:none;padding:9px 13px;font:inherit;font-size:13px;font-weight:700;color:var(--t2);cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px}
+  .tabs button.on{color:var(--acc);border-color:var(--acc)}
+  .tabs .b{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:var(--bor);color:var(--t2);font-size:11px;font-weight:800;padding:0 5px}
+  .tabs button.on .b{background:var(--acc);color:#fff}
+  .body{padding:16px 18px 20px}
+  .note{font-size:12.5px;color:var(--t2);background:var(--sur2);border-left:3px solid var(--acc);padding:9px 12px;border-radius:8px;margin-bottom:14px;line-height:1.55}
+  .note b{color:var(--t1)}
+  /* duplicate card */
+  .dup-card{border:1px solid var(--bor);border-radius:12px;margin-bottom:12px;overflow:hidden;background:var(--sur)}
+  .dup-cmp{display:grid;grid-template-columns:1fr 132px 1fr;align-items:stretch}
+  .device.tel .dup-cmp{grid-template-columns:1fr}
+  .side{padding:12px 14px}
+  .side.imp{background:#fffdf8}
+  .side.exi{background:var(--grn-bg)}
+  .side .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:5px}
+  .side.imp .lbl{color:var(--amb)} .side.exi .lbl{color:#15803d}
+  .side .lib{font-family:var(--mono);font-size:12px;font-weight:600;margin-top:6px;color:var(--t1)}
+  .side .meta{font-size:11.5px;color:var(--t2);margin-top:4px}
+  .side .amt{font-size:16px;font-weight:800;margin-top:6px}
+  .amt.cr{color:var(--grn)} .amt.db{color:var(--red)}
+  .side .cat{display:inline-block;font-size:11px;background:#fff;border:1px solid var(--bor);border-radius:6px;padding:2px 7px;margin-top:6px;color:var(--t2)}
+  .mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--sur2);border-left:1px solid var(--bor);border-right:1px solid var(--bor);padding:10px 8px;text-align:center}
+  .device.tel .mid{border:0;border-top:1px dashed var(--bor2);border-bottom:1px dashed var(--bor2);flex-direction:row}
+  .mid .eq{font-size:20px;font-weight:800;color:var(--t3)}
+  .mid .why{font-size:10.5px;color:var(--t2);line-height:1.35}
+  .mid .conf{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-radius:5px;padding:2px 6px}
+  .conf.certain{background:#fee2e2;color:#b91c1c} .conf.probable{background:var(--amb-bg);color:#92400e}
+  .actions{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--bor);background:var(--sur2);flex-wrap:wrap}
+  .btn{border:0;border-radius:8px;font:inherit;font-size:12.5px;font-weight:700;padding:8px 14px;cursor:pointer}
+  .btn.keep{background:var(--acc);color:#fff}
+  .btn.ign{background:var(--sur);border:1px solid var(--bor2);color:var(--t2)}
+  .btn:active{transform:translateY(1px)}
+  /* resolved states */
+  .dup-card.resolved .dup-cmp,.dup-card.resolved .actions{display:none}
+  .res{display:none;align-items:center;gap:10px;padding:13px 16px;font-size:13px;font-weight:600}
+  .dup-card.resolved .res{display:flex}
+  .dup-card.kept .res{background:var(--acc-bg);color:#1a4fb0}
+  .dup-card.ignored .res{background:var(--sur2);color:var(--t3)}
+  .res a{margin-left:auto;font-size:12px;color:var(--acc);cursor:pointer;text-decoration:underline;font-weight:600}
+  .dup-card.ignored .res a{color:var(--t3)}
+  .empty{text-align:center;color:var(--t3);font-size:13px;padding:26px 16px}
+  .info{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:14px 18px;box-shadow:var(--sh);font-size:12.5px;color:var(--t2);line-height:1.6}
+  .info b{color:var(--t1)} .info code{font-family:var(--mono);font-size:11.5px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="bar">🎨 MOCKUP À VALIDER — <b>Onglet « Doublons » de l'import bancaire</b> : voir les doublons détectés + forcer l'import d'un faux positif. Rien n'est codé.</div>
+<div class="wrap">
+  <h1>🔁 Import bancaire — gérer les doublons</h1>
+  <div class="sub">Aujourd'hui les doublons sont détectés puis <b>ignorés en silence</b> (juste un compteur). Ici : un vrai onglet pour les <b>comparer au mouvement déjà enregistré</b> et <b>forcer l'import</b> si c'en est pas un.</div>
+
+  <div class="controls">
+    <div class="cg"><span class="ct">Format</span>
+      <div class="seg" id="fmt"><button data-f="pc" class="on">💻 PC</button><button data-f="tab">📱 Tablette</button><button data-f="tel">📲 Téléphone</button></div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="device pc" id="device">
+      <div class="ahead">
+        <div class="atitle">Compte CIC ···4021 — 37 opérations</div>
+        <div class="chips">
+          <span class="chip ok"><b id="c-ok">6</b> reconnues</span>
+          <span class="chip todo"><b id="c-todo">4</b> à compléter</span>
+          <span class="chip dup"><b id="c-dup">3</b> doublons</span>
+        </div>
+        <div class="tabs">
+          <button onclick="tab('todo')" id="t-todo">À compléter <span class="b" id="b-todo">4</span></button>
+          <button onclick="tab('ok')" id="t-ok">Reconnus <span class="b" id="b-ok">6</span></button>
+          <button onclick="tab('dup')" id="t-dup" class="on">🔁 Doublons <span class="b" id="b-dup">3</span></button>
+        </div>
+      </div>
+      <div class="body" id="body"></div>
+    </div>
+  </div>
+
+  <div class="info">
+    🧩 <b>Le back est déjà prêt</b> — l'app stocke pour chaque doublon sa raison (<code>duplicateReason</code>) et le mouvement qu'il duplique (<code>duplicateOf</code>), et le filtre d'import sait déjà forcer une ligne (<code>_userKeep</code>). Il ne manque que cet écran : l'onglet + le bouton « Importer quand même ». Forcer un doublon le bascule dans <b>« À compléter »</b> pour être catégorisé comme les autres.
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let DUPS=[
+  { id:0, state:'open',
+    imp:{date:'10/01/2026', lib:'VIR DE M JULIEN ZITO LOYER JAN', amt:460, sens:'cr'},
+    exi:{date:'10/01/2026', lib:'Loyer janvier', cat:'Loyers encaissés', amt:460, qui:'F-101 · M. JULIEN ZITO'},
+    why:'Empreinte OFX identique (FITID)', conf:'certain' },
+  { id:1, state:'open',
+    imp:{date:'05/02/2026', lib:'VIR MME MOMPER FABIENNE LOYER FEV', amt:124, sens:'cr'},
+    exi:{date:'03/02/2026', lib:'Loyer février', cat:'Loyers encaissés', amt:124, qui:'F-002 · MME MOMPER F.'},
+    why:'Date ±3j + montant ±1€', conf:'probable' },
+  { id:2, state:'open',
+    imp:{date:'15/01/2026', lib:'PRLV ASSURANCE PNO AXA 8841', amt:38.40, sens:'db'},
+    exi:{date:'15/01/2026', lib:'Prime PNO annuelle', cat:"Primes d'assurance (PNO, GLI)", amt:38.40, qui:'🏢 Immeuble Victor Hugo'},
+    why:'Date + montant identiques', conf:'probable' }
+];
+const fmtE=n=>n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+function counts(){
+  const openDup=DUPS.filter(d=>d.state==='open').length;
+  const kept=DUPS.filter(d=>d.state==='kept').length;
+  $('c-dup').textContent=openDup; $('b-dup').textContent=openDup;
+  $('c-todo').textContent=4+kept; $('b-todo').textContent=4+kept;
+}
+function render(){
+  counts();
+  const cur=tabState;
+  ['todo','ok','dup'].forEach(k=>$('t-'+k).classList.toggle('on',k===cur));
+  if(cur!=='dup'){ $('body').innerHTML='<div class="empty">— aperçu de l\'onglet « '+(cur==='todo'?'À compléter':'Reconnus')+' » (inchangé) —</div>'; return; }
+  let h='<div class="note">Ces lignes ressemblent à des mouvements <b>déjà enregistrés</b> → <b>ignorées par défaut</b>. Vérifie la comparaison ; si c\'est une vraie opération distincte (ex. même loyer payé deux fois), <b>force l\'import</b>.</div>';
+  const openOnes=DUPS.filter(d=>true);
+  DUPS.forEach(d=>{
+    const sensCls=d.imp.sens, sign=d.imp.sens==='cr'?'+ ':'− ';
+    h+=`<div class="dup-card ${d.state==='kept'?'resolved kept':d.state==='ignored'?'resolved ignored':''}" id="card${d.id}">
+      <div class="dup-cmp">
+        <div class="side imp">
+          <div class="lbl">📥 Ligne importée</div>
+          <div class="lib">${d.imp.lib}</div>
+          <div class="meta">${d.imp.date} · relevé</div>
+          <div class="amt ${sensCls}">${sign}${fmtE(d.imp.amt)}</div>
+        </div>
+        <div class="mid">
+          <div class="eq">≈</div>
+          <div class="conf ${d.conf}">${d.conf==='certain'?'doublon certain':'doublon probable'}</div>
+          <div class="why">${d.why}</div>
+        </div>
+        <div class="side exi">
+          <div class="lbl">✓ Déjà dans ImmoTrack</div>
+          <div class="lib">${d.exi.lib}</div>
+          <div class="meta">${d.exi.date} · ${d.exi.qui}</div>
+          <div class="amt ${sensCls}">${sign}${fmtE(d.exi.amt)}</div>
+          <div><span class="cat">${d.exi.cat}</span></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn ign" onclick="setState(${d.id},'ignored')">✓ Confirmer le doublon (ignorer)</button>
+        <button class="btn keep" onclick="setState(${d.id},'kept')">Importer quand même →</button>
+      </div>
+      <div class="res">
+        <span>${d.state==='kept'?'✅ Forcé — ajouté à « À compléter » pour classement.':'🚫 Doublon confirmé — non importé.'}</span>
+        <a onclick="setState(${d.id},'open')">annuler</a>
+      </div>
+    </div>`;
+  });
+  if(!DUPS.length) h+='<div class="empty">Aucun doublon détecté 🎉</div>';
+  $('body').innerHTML=h;
+}
+let tabState='dup';
+function tab(t){ tabState=t; render(); }
+function setState(id,s){ const d=DUPS.find(x=>x.id===id); if(d) d.state=s; render(); }
+$('fmt').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('fmt').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');$('device').className='device '+b.dataset.f;};
+render();
+</script>
+</body>
+</html>
