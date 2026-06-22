@@ -13,3 +13,13 @@ kv_namespaces = [
 [assets]
 directory = "./public"
 binding = "ASSETS"
+
+# OTP email (vérification identité signataire).
+#   EMAIL_MODE = "dev"    → aucun envoi, le code est retourné/loggé (état par défaut tant qu'il n'y
+#                           a pas de domaine vérifié). Tout le flux est testable ainsi.
+#   EMAIL_MODE = "resend" → envoi réel via Resend. Bascule = changer cette var + redeploy.
+#   EMAIL_FROM  : expéditeur. Dev/test → "onboarding@resend.dev" ; prod → "code@propryo.fr".
+#   RESEND_API_KEY : SECRET, jamais ici → `npx wrangler secret put RESEND_API_KEY`.
+[vars]
+EMAIL_MODE = "dev"
+EMAIL_FROM = "onboarding@resend.dev"
