@@ -135,6 +135,29 @@ export function isTaciteReconductionAllowed(type) {
 }
 
 /**
+ * Type de bail EFFECTIF d'un bail. Source d'autorité : `bail.type` (champ b-type, v15.191+).
+ * Fallback rétrocompat : `log.typeUsage` (baux pré-v15.191 sans bail.type).
+ *
+ * NE lit JAMAIS `bail.typeContrat` : ce champ porte la NATURE du contrat
+ * (initial / renouvellement / repris), pas le type de bail. Le confondre rendait
+ * les détections meublé/mobilité/étudiant dépendantes du seul log.typeUsage
+ * (cf fix v15.349 : _bailIsMeuble/_bailIsMobilite/_bailDureeMois inline).
+ *
+ * @param {object|null} bail
+ * @param {object|null} log
+ * @returns {string} un des BAIL_TYPES (défaut 'nu')
+ */
+export function resolveBailType(bail, log) {
+  const t = bail && bail.type;
+  if (t && BAIL_TYPES.includes(t)) return t;
+  const u = log && log.typeUsage;
+  if (u === 'mobilite') return 'mobilite';
+  if (u === 'etudiant') return 'etudiant';
+  if (u === 'habitation-meuble') return 'meuble';
+  return BAIL_TYPE_DEFAULT;
+}
+
+/**
  * Évalue la complétude de l'inventaire mobilier d'un bail.
  * @param {object} mobilier  bail.mobilier (objet avec clés booléennes)
  * @returns {{ count: number, total: number, complete: boolean, missing: string[] }}

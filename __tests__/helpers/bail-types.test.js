@@ -25,7 +25,8 @@ import {
   getBailPreavisMonths,
   isTaciteReconductionAllowed,
   getMobilierCompletion,
-  isMobilierLegallyComplete
+  isMobilierLegallyComplete,
+  resolveBailType
 } from './bail-types.js';
 
 describe('BAIL_TYPES — constantes', () => {
@@ -357,5 +358,49 @@ describe('Cohérence inter-helpers (smoke tests sur les 6 types)', () => {
     expect(getBailDureeMonths('etudiant')).toBe(9);
     expect(isTaciteReconductionAllowed('etudiant')).toBe(false);
     expect(getBailPreavisMonths('etudiant', 'bailleur')).toBeNull();
+  });
+});
+
+// v15.349 FIX-DETECTION-TYPE-BAIL — type effectif depuis bail.type (autorité),
+// fallback log.typeUsage. NE doit JAMAIS lire bail.typeContrat (initial/renouvellement/repris).
+describe('resolveBailType — type effectif (bail.type prioritaire, fallback log.typeUsage)', () => {
+  it('bail.type explicite fait autorité', () => {
+    expect(resolveBailType({ type: 'meuble' }, null)).toBe('meuble');
+    expect(resolveBailType({ type: 'mobilite' }, { typeUsage: 'habitation-meuble' })).toBe('mobilite');
+    expect(resolveBailType({ type: 'garage' }, null)).toBe('garage');
+    expect(resolveBailType({ type: 'etudiant' }, null)).toBe('etudiant');
+  });
+
+  it('bail.type prioritaire même si log.typeUsage diffère', () => {
+    expect(resolveBailType({ type: 'nu' }, { typeUsage: 'etudiant' })).toBe('nu');
+  });
+
+  it('bail.type absent → déduit de log.typeUsage (rétrocompat pré-v15.191)', () => {
+    expect(resolveBailType({}, { typeUsage: 'habitation-meuble' })).toBe('meuble');
+    expect(resolveBailType({}, { typeUsage: 'etudiant' })).toBe('etudiant');
+    expect(resolveBailType({}, { typeUsage: 'mobilite' })).toBe('mobilite');
+  });
+
+  it('bail.type absent + typeUsage non meublé/inconnu/absent → nu', () => {
+    expect(resolveBailType({}, { typeUsage: 'habitation' })).toBe('nu');
+    expect(resolveBailType({}, {})).toBe('nu');
+    expect(resolveBailType({}, null)).toBe('nu');
+  });
+
+  it('bail null/undefined → nu', () => {
+    expect(resolveBailType(null, null)).toBe('nu');
+    expect(resolveBailType(undefined, undefined)).toBe('nu');
+  });
+
+  it('bail.type invalide (hors liste) → fallback typeUsage puis nu', () => {
+    expect(resolveBailType({ type: 'colocation' }, { typeUsage: 'etudiant' })).toBe('etudiant');
+    expect(resolveBailType({ type: 'colocation' }, null)).toBe('nu');
+  });
+
+  it('NE lit PAS typeContrat — régression du bug détecté', () => {
+    // typeContrat = nature du contrat (initial/renouvellement/repris), JAMAIS le type de bail.
+    expect(resolveBailType({ typeContrat: 'meuble' }, null)).toBe('nu');
+    expect(resolveBailType({ typeContrat: 'mobilite' }, null)).toBe('nu');
+    expect(resolveBailType({ type: 'meuble', typeContrat: 'renouvellement' }, null)).toBe('meuble');
   });
 });
