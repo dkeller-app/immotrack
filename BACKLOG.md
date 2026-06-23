@@ -15,6 +15,12 @@
 
 ---
 
+## ✅ Livré récemment
+
+- **REFONTE-REGUL** — onglet Charges & régularisation (2026-06-23, **v15.350**, `1b92b85`). Retour user : « charges récup non demandées alors qu'il y en a » + « visu par bloc illisible ». Livré : (1) **fix calcul** — `_isChargeRecupCategory` lit le flag `recup` → les charges « Charges récupérables (eau, énergie…) » entrent enfin dans la régul ; (2) **visu** cartes → tableau replié par immeuble + détail par logement (« ce qu'il y a derrière » = vrais mouvements) + **mobile en cartes** ; (3) **détection des trous** (charges non réparties → bandeau) ; (4) **vue globale matrice** par immeuble + **état de validation** (`DB.regulValidations`) + **gate envoi décompte**. Audit `code-reviewer` PASSANT (0 XSS, 0 régression ; 2 points corrigés). Tests charges 21/21. Spec : `docs/superpowers/specs/2026-06-22-regul-charges-refonte-design.md`. ⚠️ validation visuelle sur **vraies données = user** (post-déploiement). Suivis non bloquants : `index-test.html` pré-V3 (sandbox non synchro) ; `_rgValidate` ne trace pas l'auteur ; pas de purge des validations obsolètes.
+
+---
+
 ## 🔥 Sprint email UX & cache PWA (insert 2026-05-18, P0 dans le marathon)
 
 > **Découvert pendant test v15.84** : la modale email envoie bien via Gmail API MAIS :
