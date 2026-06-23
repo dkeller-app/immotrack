@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lot D — Menu Compte (état EXACT implémenté v15.344)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* TOKENS RÉELS de l'app (css/main.css :root — thème par défaut). Le menu utilise ces variables → il
+   adopte automatiquement le thème actif (Sobre/Coloré/Dark) dans la vraie app. Ici = thème par défaut. */
+:root{
+  --bg:#eef2f7; --sur:rgba(255,255,255,.93); --sur2:rgba(242,246,251,.97);
+  --bor:rgba(0,0,0,.09); --bor2:rgba(0,0,0,.05);
+  --t1:#1a2332; --t2:#5a6e87; --t3:#9aabbf;
+  --grn:#16a34a; --red:#dc2626; --acc:#3b7ef6; --cta:#3b7ef6;
+  --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
+}
+*{box-sizing:border-box}
+body{margin:0;background:#dfe6ef;color:var(--t2);font-family:'Inter',sans-serif;padding:0 0 60px}
+.pagehead{background:#fff;border-bottom:1px solid var(--bor);padding:16px 24px}
+.pagehead h1{font:800 18px 'Manrope',sans-serif;color:var(--t1);margin:0 0 4px}
+.pagehead p{margin:0;font-size:13px;color:var(--t2);max-width:760px}
+.pagehead .warn{margin-top:8px;font-size:12.5px;color:#92400e;background:#fef3c7;border-radius:8px;padding:7px 11px;display:inline-block}
+.stage{display:flex;gap:40px;flex-wrap:wrap;padding:34px 24px;align-items:flex-start}
+.case{display:flex;flex-direction:column;gap:10px}
+.case .cap{font:700 13px 'Manrope',sans-serif;color:var(--t1)}
+.case .sub{font-size:12px;color:#6b7686;margin-top:-6px}
+
+/* ───── SIDEBAR V4 (reproduction fidèle) ───── */
+.sb{width:260px;height:560px;background:var(--sur);border:1px solid var(--bor);border-radius:14px;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px -16px rgba(16,21,33,.25);position:relative}
+.sb .logo{display:flex;align-items:center;gap:9px;padding:16px 16px 12px}
+.sb .logo .mk{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#0E73F6,#00CCBC);display:grid;place-items:center;color:#fff;font:800 13px 'Manrope'}
+.sb .logo .nm{font:800 16px 'Manrope';color:var(--t1)}
+.sb .logo .prem{font:800 9px 'Inter';letter-spacing:.06em;color:#0E73F6;background:rgba(14,115,246,.10);padding:2px 6px;border-radius:5px}
+.sb .nav{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.sb .nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;color:var(--t2);font-size:13.5px;font-weight:500;text-decoration:none}
+.sb .nav a.act{background:var(--sur2);color:var(--t1);font-weight:600}
+.sb .nav a .d{width:7px;height:7px;border-radius:2px;background:currentColor;opacity:.5}
+
+/* pied compte — RÈGLES EXACTES (v4s-sb-userfoot*) */
+.v4s-acct-wrap{position:relative;margin-top:auto}
+.v4s-sb-userfoot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--bor);
+  background:transparent;cursor:pointer;text-align:left;font:inherit;color:inherit;border-left:0;border-right:0;border-bottom:0;
+  transition:background .15s;width:100%}
+.v4s-sb-userfoot:hover{background:var(--sur2)}
+.v4s-sb-userfoot.open{background:var(--sur2)}
+.v4s-sb-userfoot-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0E73F6 0%,#00CCBC 100%);
+  display:flex;align-items:center;justify-content:center;font:700 12px 'Manrope',sans-serif;color:#fff;flex-shrink:0;letter-spacing:.02em}
+.v4s-sb-userfoot-info{display:flex;flex-direction:column;min-width:0;flex:1;overflow:hidden}
+.v4s-sb-userfoot-name{font:600 13px 'Inter';color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4s-sb-userfoot-role{font:500 11px 'Inter';color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.v4s-acct-chev{margin-left:auto;color:var(--t3);font-size:12px;transition:transform .15s;flex-shrink:0}
+.v4s-sb-userfoot.open .v4s-acct-chev{transform:rotate(180deg)}
+
+/* popover — RÈGLES EXACTES (v4s-acct-*) variante A : remonte au-dessus */
+.v4s-acct-pop{position:absolute;left:10px;right:10px;bottom:calc(100% + 6px);background:var(--sur);border:1px solid var(--bor);
+  border-radius:14px;box-shadow:var(--shadow-lg);padding:7px;z-index:30;display:block}
+.v4s-acct-grab{display:none}
+.v4s-acct-who{padding:9px 11px 10px;border-bottom:1px solid var(--bor2);margin-bottom:6px}
+.v4s-acct-n{font:700 14px 'Manrope','Inter',sans-serif;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4s-acct-e{font:500 12px 'Inter';color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4s-acct-esp{display:inline-flex;align-items:center;gap:6px;margin-top:8px;max-width:100%;background:var(--sur2);color:var(--t2);
+  font:600 11px 'Inter';padding:3px 9px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v4s-acct-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);flex-shrink:0}
+.v4s-acct-it{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border:0;background:transparent;border-radius:9px;
+  color:var(--t2);font:500 13.5px 'Inter';text-align:left;cursor:pointer}
+.v4s-acct-it:hover{background:var(--sur2)}
+.v4s-acct-it .v4s-acct-ic{width:17px;text-align:center;opacity:.85;flex-shrink:0}
+.v4s-acct-danger{color:var(--red);font-weight:600}
+.v4s-acct-danger:hover{background:rgba(220,38,38,.10)}
+.v4s-acct-sep{height:1px;background:var(--bor2);margin:6px 4px}
+
+/* ───── PHONE (bottom-sheet) ───── */
+.phone{width:300px;height:560px;border:1px solid var(--bor);border-radius:26px;overflow:hidden;background:var(--bg);
+  position:relative;box-shadow:0 10px 40px -16px rgba(16,21,33,.25)}
+.phone .ptop{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--sur);border-bottom:1px solid var(--bor)}
+.phone .ham{font-size:18px;color:var(--t2)}
+.phone .ptt{font:800 16px 'Manrope';color:var(--t1);flex:1}
+.phone .pav{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#0E73F6,#00CCBC);display:grid;place-items:center;color:#fff;font:700 11px 'Manrope'}
+.phone .pbody{padding:14px}
+.phone .pcard{height:62px;background:var(--sur);border:1px solid var(--bor);border-radius:12px;margin-bottom:10px;display:flex;align-items:center;padding:0 14px;gap:12px}
+.phone .pcard .k{font:800 18px 'Manrope';color:var(--t1)} .phone .pcard .l b{display:block;color:var(--t1);font-size:12.5px} .phone .pcard .l span{color:var(--t3);font-size:11px}
+.phone .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:10}
+.phone .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sur);border-radius:18px 18px 0 0;border-top:1px solid var(--bor);
+  box-shadow:0 -16px 40px -18px rgba(0,0,0,.4);padding:8px 12px 18px;z-index:11}
+.phone .sheet .v4s-acct-grab{display:block;width:38px;height:4px;border-radius:3px;background:var(--bor);margin:2px auto 10px}
+.phone .sheet .v4s-acct-it{padding:11px}
+.legend{padding:0 24px;font-size:12.5px;color:#6b7686;max-width:820px}
+.legend b{color:var(--t1)}
+.legend code{background:#fff;border:1px solid var(--bor);border-radius:5px;padding:1px 5px;font-size:11.5px}
+</style>
+</head>
+<body>
+
+<div class="pagehead">
+  <h1>Lot D — Menu Compte &amp; Déconnexion · état EXACT implémenté (v15.344)</h1>
+  <p>Reproduction fidèle du code livré (commit local non poussé), avec le <b>vrai CSS de l'app</b> (variables <code>--sur/--bor/--t1/--red…</code>, thème par défaut). Le menu adopte automatiquement le thème actif (Sobre/Coloré/Dark) dans l'app réelle.</p>
+  <div class="warn">⚠️ Ce n'est PAS encore la charte Propryo (corail) — le rebrand visuel est le lot E, séparé. Ici on valide <b>uniquement</b> le menu Compte sur le design actuel de l'app.</div>
+</div>
+
+<div class="stage">
+
+  <div class="case">
+    <span class="cap">PC / tablette — popover ouvert (variante A : remonte au-dessus du pied)</span>
+    <div class="sb">
+      <div class="logo"><span class="mk">P</span><span class="nm">Propryo</span><span class="prem">PREMIUM</span></div>
+      <div class="nav">
+        <a class="act"><span class="d"></span>Tableau de bord</a>
+        <a><span class="d"></span>Biens</a>
+        <a><span class="d"></span>Mouvements</a>
+        <a><span class="d"></span>Locataires</a>
+        <a><span class="d"></span>Documents</a>
+      </div>
+      <div class="v4s-acct-wrap">
+        <button class="v4s-sb-userfoot open" aria-expanded="true">
+          <span class="v4s-sb-userfoot-av">DK</span>
+          <span class="v4s-sb-userfoot-info">
+            <span class="v4s-sb-userfoot-name">Didier K.</span>
+            <span class="v4s-sb-userfoot-role">didierkeller@gmail.com</span>
+          </span>
+          <span class="v4s-acct-chev">▴</span>
+        </button>
+        <div class="v4s-acct-pop" role="menu">
+          <div class="v4s-acct-who">
+            <div class="v4s-acct-n">Didier Keller</div>
+            <div class="v4s-acct-e">didierkeller@gmail.com</div>
+            <span class="v4s-acct-esp"><span class="v4s-acct-dot"></span>Espace : Patrimoine</span>
+          </div>
+          <button class="v4s-acct-it"><span class="v4s-acct-ic">⚙</span>Paramètres</button>
+          <div class="v4s-acct-sep"></div>
+          <button class="v4s-acct-it v4s-acct-danger"><span class="v4s-acct-ic">⎋</span>Se déconnecter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="case">
+    <span class="cap">Téléphone — bottom-sheet (pouce-compatible)</span>
+    <span class="sub">la sidebar est masquée → le menu vient du bas, sur fond assombri</span>
+    <div class="phone">
+      <div class="ptop"><span class="ham">☰</span><span class="ptt">Propryo</span><span class="pav">DK</span></div>
+      <div class="pbody">
+        <div class="pcard"><span class="k">8</span><div class="l"><b>Biens</b><span>2 SCI</span></div></div>
+        <div class="pcard"><span class="k">96%</span><div class="l"><b>Occupation</b><span>juin</span></div></div>
+      </div>
+      <div class="backdrop"></div>
+      <div class="sheet">
+        <div class="v4s-acct-grab"></div>
+        <div class="v4s-acct-who">
+          <div class="v4s-acct-n">Didier Keller</div>
+          <div class="v4s-acct-e">didierkeller@gmail.com</div>
+          <span class="v4s-acct-esp"><span class="v4s-acct-dot"></span>Espace : Patrimoine</span>
+        </div>
+        <button class="v4s-acct-it"><span class="v4s-acct-ic">⚙</span>Paramètres</button>
+        <div class="v4s-acct-sep"></div>
+        <button class="v4s-acct-it v4s-acct-danger"><span class="v4s-acct-ic">⎋</span>Se déconnecter</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <p><b>Comportement implémenté :</b> clic sur le pied → ouvre le menu (chevron pivote) ; <b>clic extérieur</b> ou touche <b>Échap</b> ferme ; accessible (<code>aria-haspopup/expanded</code>, <code>role="menu"</code>, focus visible). Identité (nom <code>_appUserName()</code>, email + espace <code>__immoCloudInfo</code>) ; si non connecté au cloud, email/espace sont simplement omis. <b>Paramètres</b> → page Réglages ; <b>Se déconnecter</b> → flush + signOut + rechargement (retombe sur le login, mot de passe redemandé). L'item « Thème » du mockup initial a été omis (l'app a déjà un sélecteur de thème dans la barre du haut — pas de doublon).</p>
+</div>
+
+</body>
+</html>
