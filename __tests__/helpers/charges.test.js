@@ -43,8 +43,14 @@ describe('_isChargeRecupCategory', () => {
     expect(_isChargeRecupCategory('Charges')).toBe(true);
   });
 
-  it('accepte LEGAL-2044 "Provisions pour charges de copropriété" (229)', () => {
-    expect(_isChargeRecupCategory('Provisions pour charges de copropriété')).toBe(true);
+  it('accepte "Charges de copropriété" (229)', () => {
+    expect(_isChargeRecupCategory('Charges de copropriété')).toBe(true);
+  });
+
+  it('accepte "Charges récupérables (eau, énergie…)" (flag recup, hors 2044)', () => {
+    // FIX-REGUL-RECUP : l'intitulé eau/énergie tagué à l'import DOIT entrer dans la régul.
+    // Avant : ignoré car ligne2044 vide → charges récup jamais refacturées au locataire.
+    expect(_isChargeRecupCategory('Charges récupérables (eau, énergie…)')).toBe(true);
   });
 
   it('accepte "Régularisation provisions copro N-1" (230)', () => {
@@ -87,7 +93,7 @@ describe('Scenario complet — BUG-CHARGE-001', () => {
   const mvtsModern = [
     { date: '2026-01-15', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' },
     { date: '2026-02-15', cat: 'Loyers encaissés', cr: 1000, qui: 'F-001' },
-    { date: '2026-01-20', cat: 'Provisions pour charges de copropriété', db: 200, imm: 'Beta' }
+    { date: '2026-01-20', cat: 'Charges de copropriété', db: 200, imm: 'Beta' }
   ];
 
   it('AVANT FIX : filtre legacy stricte casse avec catégories LEGAL-2044', () => {
@@ -117,5 +123,16 @@ describe('Scenario complet — BUG-CHARGE-001', () => {
     expect(prov).toBe(4); // 2 legacy + 2 modern
     const chg = _countMatching(mvtsMix, m => _isChargeRecupCategory(m.cat) && m.db > 0);
     expect(chg).toBe(2);
+  });
+
+  it('FIX-REGUL-RECUP : une charge « Charges récupérables (eau, énergie…) » entre dans la régul', () => {
+    // Le vrai bug remonté : eau/énergie taguée à l'import → ignorée par computeRegul.
+    const mvts = [
+      { date: '2026-03-10', cat: 'Charges récupérables (eau, énergie…)', db: 320, qui: 'F-001' },
+      { date: '2026-04-10', cat: 'Charges récupérables (eau, énergie…)', db: 180, qui: 'F-001' },
+      { date: '2026-05-10', cat: 'Travaux (entretien, réparation, amélioration)', db: 500, imm: 'Beta' } // NON récup
+    ];
+    const chg = _countMatching(mvts, m => _isChargeRecupCategory(m.cat) && m.db > 0);
+    expect(chg).toBe(2); // les 2 lignes eau/énergie, pas les travaux
   });
 });

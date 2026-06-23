@@ -3992,6 +3992,9 @@ function _isChargeRecupCategory(cat) {
   if (!cat) return false;
   if (cat === 'Charges') return true; // legacy v14.59
   const std = _stdCategoryByName(cat);
+  // v15.x FIX-REGUL-RECUP : catégorie « Charges récupérables (eau, énergie…) » (flag recup,
+  // hors 2044). Intitulé tagué à l'import pour eau/énergie → la régul DOIT la prendre.
+  if (std && std.recup) return true;
   // 229 Provisions copro + 230 Régul N-1 = charges récupérables refacturables.
   // 225 = part bailleur (non refacturable) → exclu.
   // 224 (travaux), 221 (honoraires), 223 (PNO) = charges propriétaire → exclu.

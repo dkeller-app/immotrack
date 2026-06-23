@@ -4191,6 +4191,12 @@ function _isLoyerCategory(cat) {
 function _isChargeRecupCategory(cat) {
   if (!cat) return false;
   if (cat === 'Charges') return true; // legacy v14.59
+  // v15.x FIX-REGUL-RECUP : la catégorie « Charges récupérables (eau, énergie…) » porte
+  // le flag recup (hors 2044, ligne vide). C'est l'intitulé que l'utilisateur tague à
+  // l'import pour l'eau/énergie. La régul DOIT la prendre — avant, ignorée (bug : charges
+  // récup jamais refacturées). Source unifiée avec js/core/utils.js + tests charges.test.js.
+  const std = _stdCategoryByName(cat);
+  if (std && std.recup) return true;
   // 229 Provisions copro + 230 Régul N-1 = charges récupérables refacturables.
   // 225 = part bailleur (non refacturable) → exclu. 224/221/223 = charges propriétaire → exclu.
   const ln = _catLigne2044(cat);
@@ -24318,9 +24324,79 @@ function rRegulInit() {
       </div>
     </div>
     <div class="g3 mb16" id="reg-kpis"></div>
-    <div class="g3" id="reg-cards"></div>
+    <div id="reg-cards"></div>
   `;
   rRegul();
+}
+
+// v15.x REFONTE-REGUL Phase A — pliage immeuble / détail logement (tableau récap)
+function _rgToggleImm(cls, row){
+  const open = row.classList.toggle('rg-open');
+  document.querySelectorAll('tr.rg-log.'+cls).forEach(r=>{ r.style.display = open ? '' : 'none'; });
+  if(!open) document.querySelectorAll('tr.rg-det.'+cls).forEach(r=>{ r.style.display='none'; });
+}
+function _rgToggleDet(id){ const r=document.getElementById(id); if(r) r.style.display = (r.style.display==='none') ? '' : 'none'; }
+
+// v15.x REFONTE-REGUL Phase C — état de validation par (immeuble, période)
+function _rgValKey(imm){ return imm+'|'+(window._regulFrom||'')+'|'+(window._regulTo||''); }
+function _rgIsValidated(imm){ return !!((DB.regulValidations||{})[_rgValKey(imm)]); }
+function _rgValidate(imm){
+  if(!DB.regulValidations) DB.regulValidations={};
+  DB.regulValidations[_rgValKey(imm)] = { at: new Date().toISOString() };
+  if(typeof saveDB==='function') saveDB();
+  if(typeof showToast==='function') showToast('Immeuble « '+imm+' » validé ✓','ok');
+  rRegul();
+}
+function _rgBackToList(){ rRegul(); }
+
+// v15.x REFONTE-REGUL Phase C — vue globale immeuble (matrice charges × occupations)
+function _rgShowGlobal(immNom){
+  const from=window._regulFrom, to=window._regulTo;
+  const result=computeRegul(from,to);
+  const entries=Object.values(result.entries||{}).filter(e=>e.imm===immNom)
+    .sort((a,b)=>(a.ref||'').localeCompare(b.ref||'')||(a.debutOcc||'').localeCompare(b.debutOcc||''));
+  const bail=(result.bailleur||{})[immNom];
+  const nonRep=(result.nonReparti||{})[immNom];
+  const f=fmt;
+  // pivot : 1 ligne par mouvement, 1 colonne par occupation
+  const mv={};
+  entries.forEach(e=>(e.details||[]).forEach(d=>{
+    const id=(d.mvId!=null?d.mvId:(d.date+'|'+(d.mvLib||d.lib)));
+    if(!mv[id]) mv[id]={lib:(d.mvLib||d.lib||''), date:d.date, total:d.mvTotal||0, per:{}};
+    mv[id].per[e.entryKey]=(mv[id].per[e.entryKey]||0)+d.montant;
+    if(d.mvTotal) mv[id].total=d.mvTotal;
+  }));
+  const mvArr=Object.values(mv).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const colH=entries.map(e=>`<th class="num">${escHtml(e.ref)}<small>${escHtml(e.loc||'Vacant')}</small></th>`).join('');
+  const mvRows=mvArr.map(m=>{ const rowSum=Math.round(Object.values(m.per).reduce((s,x)=>s+x,0)*100)/100;
+    return `<tr><td class="lib">${escHtml(m.lib)}<small>${escHtml(m.date||'')}${m.total?' · facture '+f(m.total):''}</small></td>${entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'—'}</td>`).join('')}<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
+  const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>`<tr class="trou"><td class="lib">${escHtml(l.lib||'')}<small>⚠️ ${escHtml(l.motif||'')}</small></td>${entries.map(()=>`<td class="num">—</td>`).join('')}<td class="num col-tot">${f(l.montant)}</td></tr>`).join(''):'';
+  const rowCharges=entries.map(e=>`<td class="num">${f(e.charges)}</td>`).join('');
+  const rowProv=entries.map(e=>`<td class="num">${f(e.provisions)}</td>`).join('');
+  const rowSolde=entries.map(e=>{const s=e.provisions-e.charges;return `<td class="num">${s>=0?'+':''}${f(s)}</td>`;}).join('');
+  const sumCharges=entries.reduce((s,e)=>s+e.charges,0), sumProv=entries.reduce((s,e)=>s+e.provisions,0);
+  const hasTrou=!!(nonRep&&nonRep.total>0.005);
+  const validated=_rgIsValidated(immNom);
+  const banner=hasTrou?`<div class="rg-trou-banner"><div class="rg-trou-h"><span style="font-size:17px">⚠️</span> <b>${f(nonRep.total)} de charges non réparties</b> — corrige avant de valider cet immeuble</div></div>`:'';
+  el('reg-cards').innerHTML=`
+    <div class="rg-glob-h"><button class="rg-back" onclick="_rgBackToList()">← Retour</button>
+      <b>🔎 Vue globale — ${escHtml(immNom)}</b>
+      ${validated?'<span class="rg-badge-ok">✓ validé</span>':'<span class="rg-badge-todo">⚠️ à valider</span>'}</div>
+    ${banner}
+    <div class="rg-wrap"><table class="tbl rg-mtx">
+      <thead><tr><th>Charge (mouvement)</th>${colH}<th class="num col-tot">Réparti loc.</th></tr></thead>
+      <tbody>
+        ${mvRows||`<tr><td colspan="${entries.length+2}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
+        ${trouRows}
+        <tr class="sumc"><td>Total charges réelles</td>${rowCharges}<td class="num col-tot">${f(sumCharges)}</td></tr>
+        <tr class="prov"><td>Provisions appelées</td>${rowProv}<td class="num col-tot">${f(sumProv)}</td></tr>
+        <tr class="solde"><td>Solde</td>${rowSolde}<td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
+      </tbody></table></div>
+    ${bail&&bail.total>0?`<div class="rg-glob-bail">🏛️ Part bailleur (non récupérable → 2044) : <b>${f(bail.total)}</b></div>`:''}
+    <div class="rg-glob-foot">
+      <button class="btn ${hasTrou?'bs':'bp'}" data-imm="${escHtml(immNom)}" ${hasTrou?'disabled':''} onclick="_rgValidate(this.dataset.imm)">✓ Valider la régul de l'immeuble</button>
+      <span class="mu sm">${hasTrou?'Validation bloquée tant qu’il reste des charges non réparties.':'Une fois validé, les décomptes de cet immeuble peuvent être envoyés.'}</span>
+    </div>`;
 }
 
 function computeRegul(from, to) {
@@ -24416,6 +24492,17 @@ function computeRegul(from, to) {
     bailleur[immNom].segments.push(seg);
   }
 
+  // v15.x Phase B — charges récupérables NON RÉPARTIES (« trous ») : montant qui ne tombe
+  // ni sur un locataire ni sur la part bailleur (périmètre manquant, bail absent, compteur
+  // supprimé…). Remonté à l'UI pour correction avant validation.
+  const nonReparti = {}; // { immKey: {imm, total, lines:[{date,lib,montant,motif}]} }
+  function _nonRepAdd(immKey, seg) {
+    const k = immKey || '(sans immeuble)';
+    if(!nonReparti[k]) nonReparti[k] = { imm: k, total: 0, lines: [] };
+    nonReparti[k].total += seg.montant;
+    nonReparti[k].lines.push(seg);
+  }
+
   // Helper local : retrouve un compteur cc par id dans toutes les entités/immeubles.
   function _findCcById(ccId) {
     for(const ent of (DB.entites||[]).filter(_isAlive)) {
@@ -24429,11 +24516,17 @@ function computeRegul(from, to) {
 
   // v14.82 BUG-CHARGE-001 : _isChargeRecupCategory match legacy 'Charges' ET LEGAL-2044 (229+230)
   DB.mouvements.filter(_isAlive).filter(m=>_isChargeRecupCategory(m.cat)&&m.db>0&&m.date>=from&&m.date<=to).forEach(m=>{
+    // v15.x Phase B — trou : charge récup sans aucun périmètre (ni logement, ni immeuble, ni compteur)
+    if(!m.compteurCcId && !m.qui && !m.imm){
+      _nonRepAdd(m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Aucun périmètre (ni logement, ni immeuble, ni compteur)'});
+      return;
+    }
     // ── (1) Charge liée à un compteur collectif → moteur unifié _calcCcRepartition ────
     if(m.compteurCcId) {
       const found = _findCcById(m.compteurCcId);
       if(!found) {
         console.warn('[computeRegul] Compteur', m.compteurCcId, 'introuvable (supprimé ?) → mouvement', m.id, 'ignoré');
+        _nonRepAdd(m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Compteur supprimé / introuvable'});
         return;
       }
       const { cc, im } = found;
@@ -24463,7 +24556,12 @@ function computeRegul(from, to) {
           return;
         }
         const candidates = Object.values(res).filter(e => e.ref === p.ref);
-        if(!candidates.length) return;
+        if(!candidates.length){
+          // v15.x Phase C (audit) : part de compteur pour un logement sans bail sur la période
+          // → reste à charge du bailleur (sinon perdue silencieusement).
+          _bailleurAdd(im.nom, { date:m.date, lib:m.lib, cc:cc.nom||'Compteur', montant:Math.round(p.montant*100)/100, motif:'Logement '+p.ref+' sans bail sur la période' });
+          return;
+        }
         // Match l'entrée res dont la période d'occupation chevauche la part (par locataire successif)
         let target = null;
         if(p.debut && p.fin) {
@@ -24479,7 +24577,8 @@ function computeRegul(from, to) {
           lib: m.lib + (cc.nom?' · '+cc.nom:''),
           montant: partR,
           repartition: `${cc.nom||'Compteur'} · ${cleLabel}${p.denomLabel?' ('+p.denomLabel+')':''}`,
-          ccId: cc.id, ccNom: cc.nom||''
+          ccId: cc.id, ccNom: cc.nom||'',
+          mvId: m.id, mvLib: m.lib, mvTotal: Math.round((m.db||0)*100)/100
         });
       });
       return;
@@ -24487,10 +24586,10 @@ function computeRegul(from, to) {
     // ── (2) Charge directe : qui rempli ──────────────────────────────────────────────
     if(m.qui) {
       const candidates = Object.values(res).filter(e=>e.ref===m.qui);
-      if(!candidates.length) return;
+      if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
       const target = candidates.find(e=>m.date>=e.debutOcc&&m.date<=e.finOcc) || candidates[0];
       target.charges += m.db;
-      target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct'});
+      target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct', mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
       return;
     }
     // ── (3) Charge sur immeuble sans compteur → prorata jours, filtré compteCharges:false
@@ -24500,7 +24599,7 @@ function computeRegul(from, to) {
         const log = (DB.logements||[]).find(l => l.ref === e.ref);
         return !log || log.compteCharges !== false;
       });
-      if(!immEntries.length) return;
+      if(!immEntries.length){ _nonRepAdd(m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Aucun logement occupé (comptant les charges) sur la période'}); return; }
       const totalOcc = immEntries.reduce((s,e)=>s+e.occDays, 0);
       // v14.73 : la fraction non-occupée = part bailleur (vacances dans la période)
       const partBailleur = Math.max(0, m.db - immEntries.reduce((s,e)=>{
@@ -24517,13 +24616,13 @@ function computeRegul(from, to) {
         e.charges += part;
         const pct  = Math.round(coeff * 100);
         const jStr = e.occDays < totalDays ? `${e.occDays}j/${totalDays}j` : `${totalDays}j`;
-        e.details.push({date:m.date, lib:m.lib, montant:part, repartition:`Prorata ${pct}% (${jStr})`});
+        e.details.push({date:m.date, lib:m.lib, montant:part, repartition:`Prorata ${pct}% (${jStr})`, mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
       });
     }
   });
 
-  // v14.73 : retour structuré { entries, bailleur }
-  return { entries: res, bailleur: bailleur };
+  // v14.73 : retour structuré { entries, bailleur } · v15.x Phase B : + nonReparti
+  return { entries: res, bailleur: bailleur, nonReparti: nonReparti };
 }
 
 function rRegul() {
@@ -24535,6 +24634,7 @@ function rRegul() {
   const result = computeRegul(from, to);
   const regul = result.entries || {};
   const bailleurMap = result.bailleur || {};
+  const nonRepMap = result.nonReparti || {};
   // v15.234 NAV-FILTRE-ENTITE-GLOBAL : filtre entité (immeubles de l'entité active).
   const _entRegImms = _activeEntity ? new Set((DB.logements||[]).filter(_logInEnt).map(l=>l.imm).filter(Boolean)) : null;
   let items = Object.values(regul).filter(r=>(!_entRegImms||_entRegImms.has(r.imm))&&(!fimm||r.imm===fimm));
@@ -24551,6 +24651,18 @@ function rRegul() {
   // v15.234 NAV-FILTRE-ENTITE-GLOBAL : + filtre entité active.
   const bailleurArr = Object.values(bailleurMap).filter(b => (!_entRegImms||_entRegImms.has(b.imm)) && (!fimm || b.imm === fimm));
   const totBailleur = bailleurArr.reduce((s,b) => s + b.total, 0);
+  // v15.x Phase B — bandeau « charges non réparties » (trous)
+  const nonRepArr = Object.values(nonRepMap)
+    .filter(n => n.imm==='(sans immeuble)' || !_entRegImms || _entRegImms.has(n.imm))
+    .filter(n => !fimm || n.imm===fimm || n.imm==='(sans immeuble)');
+  const totNonRep = nonRepArr.reduce((s,n)=>s+n.total,0);
+  const nonRepBanner = totNonRep > 0.005 ? `<div class="rg-trou-banner">
+      <div class="rg-trou-h"><span style="font-size:17px">⚠️</span> <b>${fmt(totNonRep)} de charges récupérables non réparties</b> — à corriger avant d'envoyer les décomptes</div>
+      <details><summary>Voir le détail</summary><div class="rg-trou-body">
+      ${nonRepArr.map(n=>`<div class="rg-trou-im"><b>${escHtml(n.imm)}</b> · ${fmt(n.total)}</div>`+
+        n.lines.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(l=>`<div class="rg-trou-l">${escHtml(l.date||'')} · ${escHtml(l.lib||'')} · <b>${fmt(l.montant)}</b> <span class="mu sm">— ${escHtml(l.motif||'')}</span></div>`).join('')
+      ).join('')}
+      </div></details></div>` : '';
   el('reg-kpis').innerHTML=`
     <div class="kpi"><div class="kv">${fmt(totProv)}</div><div class="kl">Provisions totales</div></div>
     <div class="kpi"><div class="kv neg">${fmt(totChar)}</div><div class="kl">Charges réelles</div></div>
@@ -24589,31 +24701,65 @@ function rRegul() {
         </p>
       </div>`
     : '';
-  el('reg-cards').innerHTML = bailleurCardsHtml + items.map(r=>{
-    const solde = r.provisions - r.charges;
-    const pct   = r.charges>0 ? Math.min(100,r.provisions/r.charges*100) : 100;
-    const badge = r.isHistorique
-      ? `<span style="font-size:10px;padding:2px 6px;background:#e0e0e0;border-radius:8px;color:#555;margin-left:6px;vertical-align:middle">Clôturé</span>` : '';
-    const periodeStr = r.debutOcc ? `${fd(r.debutOcc)} → ${fd(r.finOcc||to)}` : '–';
-    // v14.80 SECU-INNERHTML : escape r.entryKey, r.ref, r.loc + onclick via data-attribute
-    const ekEsc = escHtml(r.entryKey);
-    return `<div class="regul-card" style="${r.isHistorique?'opacity:.82;border-style:dashed':''}">
-      <input type="checkbox" class="regul-cb" data-ref="${ekEsc}" style="position:absolute;top:12px;right:12px;width:16px;height:16px;cursor:pointer">
-      <div class="rc-ref">${escHtml(r.ref)}${badge}</div>
-      <div class="rc-loc mu sm">${escHtml(r.loc||'Vacant')}</div>
-      <div style="font-size:10px;color:#888;margin-bottom:6px">${periodeStr}</div>
-      <div class="flex-b mt8 mb4"><span class="mu sm">Provisions</span><span>${fmt(r.provisions)}</span></div>
-      <div class="flex-b mb4"><span class="mu sm">Charges réelles</span><span>${fmt(r.charges)}</span></div>
-      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${pct>=100?'var(--grn)':'var(--ora)'}"></div></div>
-      <div class="flex-b mt8">
-        <span class="rc-amt ${solde>=0?'pos':'neg'}">${solde>=0?'+':''}${fmt(solde)}</span>
-        <div style="display:flex;gap:4px">
-          <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="envoyerDecompteParEmail(this.dataset.entryKey)" title="Envoyer décompte par email">📧</button>
-          <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="openRegulDoc(this.dataset.entryKey)">📄 Décompte</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  // v15.x REFONTE-REGUL Phase A — tableau replié par immeuble + détail par logement
+  // (remplace les cartes .regul-card). Réutilise r.details[] produit par computeRegul.
+  const byImm = {};
+  items.forEach(r => { const k = r.imm || '(sans immeuble)'; (byImm[k] = byImm[k] || []).push(r); });
+  const immNames = Object.keys(byImm).sort((a,b)=>a.localeCompare(b));
+  let body = '';
+  immNames.forEach((imNom, gi) => {
+    const grp  = byImm[imNom];
+    const gP   = grp.reduce((s,r)=>s+r.provisions,0);
+    const gC   = grp.reduce((s,r)=>s+r.charges,0);
+    const gS   = gP - gC;
+    const cls  = 'rgim'+gi;
+    const imVal = _rgIsValidated(imNom);
+    const imBadge = imVal ? '<span class="rg-badge-ok">✓ validé</span>' : '<span class="rg-badge-todo">⚠️ à valider</span>';
+    body += `<tr class="rg-imm" onclick="_rgToggleImm('${cls}',this)">
+      <td><span class="rg-chev">▸</span> 🏘️ ${escHtml(imNom)} <span class="mu sm">· ${grp.length} occupation${grp.length>1?'s':''}</span> ${imBadge}</td>
+      <td class="num">${fmt(gP)}</td><td class="num">${fmt(gC)}</td>
+      <td class="num ${gS>=0?'pos':'neg'}">${gS>=0?'+':''}${fmt(gS)}</td>
+      <td class="num"><button class="btn bs bb" data-imm="${escHtml(imNom)}" onclick="event.stopPropagation();_rgShowGlobal(this.dataset.imm)">🔎 Vue globale</button></td></tr>`;
+    grp.forEach((r,li) => {
+      const solde = r.provisions - r.charges;
+      const did   = cls+'d'+li;
+      const ekEsc = escHtml(r.entryKey);
+      const badge = r.isHistorique ? ` <span class="rg-badge">Clôturé</span>` : '';
+      const per   = r.debutOcc ? ` · ${fd(r.debutOcc)} → ${fd(r.finOcc||to)}` : '';
+      const tag   = solde>=0
+        ? `<span class="rg-tag rest">+${fmt(solde)} à restituer</span>`
+        : `<span class="rg-tag dem">${fmt(solde)} à demander</span>`;
+      body += `<tr class="rg-log ${cls}" style="display:none">
+        <td><input type="checkbox" class="regul-cb" data-ref="${ekEsc}" onclick="event.stopPropagation()">
+          <span class="rg-logref" onclick="_rgToggleDet('${did}')">${escHtml(r.ref)}</span>${badge}
+          <span class="mu sm">${escHtml(r.loc||'Vacant')}${per}</span></td>
+        <td class="num" data-l="Provisions">${fmt(r.provisions)}</td><td class="num" data-l="Charges réelles">${fmt(r.charges)}</td>
+        <td class="num" data-l="Solde">${tag}</td>
+        <td class="num rg-acts">
+          <button class="btn bs bb" data-entry-key="${ekEsc}" ${imVal?'':'disabled'} onclick="event.stopPropagation();envoyerDecompteParEmail(this.dataset.entryKey)" title="${imVal?'Envoyer décompte par email':'Valide l’immeuble (Vue globale) avant d’envoyer'}">📧</button>
+          <button class="btn bs bb" data-entry-key="${ekEsc}" onclick="event.stopPropagation();openRegulDoc(this.dataset.entryKey)" title="Décompte détaillé (PDF)">📄</button></td></tr>`;
+      const detRows = (r.details||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(d=>`
+        <tr><td>${escHtml(d.date||'')}</td><td>${escHtml(d.lib||'')}</td><td class="mu sm">${escHtml(d.repartition||'')}</td><td class="num">${fmt(d.montant)}</td></tr>`).join('');
+      body += `<tr class="rg-det ${cls}" id="${did}" style="display:none"><td colspan="5">
+        <div class="rg-det-in">
+          <div class="rg-det-h">Ce qu'il y a derrière — ${escHtml(r.ref)} <span class="mu sm">${escHtml(r.loc||'')}</span></div>
+          <table class="tbl rg-det-tbl">
+            <thead><tr><th>Date</th><th>Mouvement</th><th>Répartition</th><th class="num">Quote-part</th></tr></thead>
+            <tbody>${detRows || '<tr><td colspan="4" class="mu sm">Aucune charge répartie sur cette période.</td></tr>'}
+              <tr class="rg-det-sum"><td colspan="3">Total charges réparties</td><td class="num">${fmt(r.charges)}</td></tr>
+              <tr><td colspan="3">Provisions versées</td><td class="num">${fmt(r.provisions)}</td></tr>
+              <tr class="rg-det-solde"><td colspan="3">Solde ${solde>=0?'(à restituer)':'(à demander)'}</td><td class="num">${solde>=0?'+':''}${fmt(solde)}</td></tr>
+            </tbody>
+          </table>
+        </div></td></tr>`;
+    });
+  });
+  const totRow = `<tr class="rg-total"><td>TOTAL — solde net locataires</td><td class="num">${fmt(totProv)}</td><td class="num">${fmt(totChar)}</td><td class="num">${totSolde>=0?'+':''}${fmt(totSolde)}</td><td></td></tr>`;
+  el('reg-cards').innerHTML = nonRepBanner + `
+    <div class="rg-wrap"><table class="tbl rg-table">
+      <thead><tr><th>Immeuble / logement</th><th class="num">Provisions</th><th class="num">Charges réelles</th><th class="num">Solde</th><th></th></tr></thead>
+      <tbody>${body || '<tr><td colspan="5" class="mu sm">Aucune donnée de régularisation sur la période.</td></tr>'}${totRow}</tbody>
+    </table></div>` + bailleurCardsHtml;
 }
 
 function selectAllRegul() {

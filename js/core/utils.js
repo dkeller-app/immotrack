@@ -194,6 +194,7 @@ const STD_CATEGORIES_DEFAULT = [
   { nom: 'Charges de copropriété', ligne2044: '229', type: 'charge' },
   { nom: 'Charges récupérables non récupérées', ligne2044: '225', type: 'charge' },
   { nom: 'Régularisation provisions copro N-1', ligne2044: '230', type: 'charge' },
+  { nom: 'Charges récupérables (eau, énergie…)', ligne2044: '', type: 'special', recup: true },
   { nom: 'Travaux (entretien, réparation, amélioration)', ligne2044: '224', type: 'charge' },
   { nom: 'Primes d\'assurance (PNO, GLI)', ligne2044: '223', type: 'charge' }
 ];
@@ -216,6 +217,10 @@ export function _isChargeRecupCategory(cat, stdCats = STD_CATEGORIES_DEFAULT) {
   if (!cat) return false;
   if (cat === 'Charges') return true;
   const std = _findStd(stdCats, cat);
+  // v15.x FIX-REGUL-RECUP : la catégorie « Charges récupérables (eau, énergie…) »
+  // porte le flag recup (hors 2044). C'est l'intitulé que l'utilisateur tague à
+  // l'import pour l'eau/énergie. La régul DOIT la prendre (avant : ignorée car ligne vide).
+  if (std && std.recup) return true;
   if (std && (std.ligne2044 === '229' || std.ligne2044 === '230')) return true;
   return false;
 }

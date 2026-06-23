@@ -3003,6 +3003,86 @@ textarea.field-modified-since-sig{
 .regul-card .rc-amt{font-size:20px;font-weight:800;font-family:'Manrope',sans-serif}
 .regul-card .rc-cb{position:absolute;top:14px;right:14px;width:17px;height:17px;cursor:pointer}
 
+/* ── REGUL — tableau récap replié par immeuble (v15.x REFONTE-REGUL Phase A) ── */
+.rg-wrap{overflow-x:auto}
+.rg-table{width:100%}
+.rg-table th,.rg-table td{vertical-align:middle}
+.rg-table tr.rg-imm{cursor:pointer;background:var(--sur2)}
+.rg-table tr.rg-imm:hover{background:var(--bg-info,rgba(59,126,246,.06))}
+.rg-table tr.rg-imm td{font-weight:700;border-top:1px solid var(--bor)}
+.rg-chev{display:inline-block;width:13px;color:var(--t3);transition:transform .15s;font-size:11px}
+.rg-table tr.rg-imm.rg-open .rg-chev{transform:rotate(90deg)}
+.rg-table tr.rg-log td:first-child{padding-left:30px}
+.rg-logref{font-weight:600;color:var(--blu);cursor:pointer}
+.rg-logref:hover{text-decoration:underline}
+.rg-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;font-weight:700;white-space:nowrap}
+.rg-tag.dem{background:var(--bg-success,rgba(22,163,74,.12));color:var(--grn)}
+.rg-tag.rest{background:var(--bg-warning,rgba(234,88,12,.12));color:var(--ora)}
+.rg-badge{font-size:10px;padding:1px 6px;border-radius:8px;background:var(--bor);color:var(--t2);vertical-align:middle}
+.rg-acts{white-space:nowrap}
+.rg-acts .btn{margin-left:4px}
+.rg-table tr.rg-total td{background:#0f1b30;color:#fff;font-weight:800;font-size:14px;border:0}
+.rg-table tr.rg-total td.num{font-size:15px}
+.rg-table tr.rg-total td.pos,.rg-table tr.rg-total td.neg{color:#fff}
+.rg-table tr.rg-det td{background:var(--sur2);padding:0}
+.rg-det-in{padding:8px 14px 14px 30px}
+.rg-det-h{font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;margin:8px 0 6px}
+.rg-det-tbl{font-size:12.5px;background:var(--sur);border:1px solid var(--bor);border-radius:8px;overflow:hidden}
+.rg-det-tbl tr.rg-det-sum td{font-weight:700;border-top:1px solid var(--bor)}
+.rg-det-tbl tr.rg-det-solde td{font-weight:800}
+/* bandeau « charges non réparties » (Phase B) */
+.rg-trou-banner{background:var(--bg-danger,rgba(220,38,38,.10));border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:11px 14px;margin-bottom:12px}
+.rg-trou-h{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--red)}
+.rg-trou-banner summary{cursor:pointer;font-size:12px;color:var(--t2);margin-top:6px;font-weight:600}
+.rg-trou-body{margin-top:4px}
+.rg-trou-im{font-size:12px;margin-top:8px;font-weight:700;color:var(--t1)}
+.rg-trou-l{font-size:11.5px;color:var(--t2);padding:2px 0 2px 14px}
+/* badges validation (Phase C) */
+.rg-badge-ok{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--bg-success,rgba(22,163,74,.12));color:var(--grn);vertical-align:middle;margin-left:6px;white-space:nowrap}
+.rg-badge-todo{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--bg-warning,rgba(234,88,12,.12));color:var(--ora);vertical-align:middle;margin-left:6px;white-space:nowrap}
+/* vue globale immeuble (matrice) */
+.rg-glob-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.rg-glob-h b{font-size:15px}
+.rg-back{background:none;border:0;color:var(--blu);font:inherit;font-weight:600;cursor:pointer;font-size:13px;padding:0}
+.rg-mtx{width:100%;font-size:12.5px}
+.rg-mtx th,.rg-mtx td{text-align:right;white-space:nowrap}
+.rg-mtx th:first-child,.rg-mtx td:first-child{text-align:left}
+.rg-mtx thead th small{display:block;font-weight:400;color:var(--t3);font-size:10px}
+.rg-mtx td.lib small{display:block;color:var(--t3);font-size:10.5px}
+.rg-mtx td.col-tot,.rg-mtx th.col-tot{background:var(--sur2);font-weight:700}
+.rg-mtx tr.trou td{background:var(--bg-danger,rgba(220,38,38,.10))}
+.rg-mtx tr.trou td.lib{color:var(--red)}
+.rg-mtx tr.sumc td{font-weight:700;border-top:2px solid var(--bor);background:var(--sur2)}
+.rg-mtx tr.prov td{color:var(--t2)}
+.rg-mtx tr.solde td{font-weight:800;border-top:1px solid var(--bor);background:#0f1b30;color:#fff}
+.rg-glob-bail{margin:12px 0;padding:10px 14px;background:#fffbf0;border:1px solid #f59e0b44;border-radius:10px;font-size:12.5px;color:var(--amb)}
+.rg-glob-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bor)}
+@media(max-width:560px){
+  /* tableau → cartes sur téléphone (pattern data-label) */
+  .rg-wrap{overflow-x:visible}
+  .rg-table thead{display:none}
+  .rg-table tbody{display:block}
+  /* immeuble = barre repliable (nom + solde) */
+  .rg-table tr.rg-imm{display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 8px;padding:9px 10px;border-top:2px solid var(--bor)}
+  .rg-table tr.rg-imm td{display:block;padding:0;border:0}
+  .rg-table tr.rg-imm td:nth-child(2),.rg-table tr.rg-imm td:nth-child(3),.rg-table tr.rg-imm td:last-child{display:none}
+  .rg-table tr.rg-imm td:nth-child(4){text-align:right;font-size:14px}
+  /* logement = carte */
+  .rg-table tr.rg-log{display:block;border:1px solid var(--bor);border-radius:10px;margin:8px 4px;padding:6px 11px;background:var(--sur)}
+  .rg-table tr.rg-log td{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border:0;text-align:right}
+  .rg-table tr.rg-log td:first-child{display:block;text-align:left;padding:2px 0 7px;margin-bottom:3px;border-bottom:1px solid var(--bor)}
+  .rg-table tr.rg-log td[data-l]::before{content:attr(data-l);color:var(--t3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  .rg-table tr.rg-log td.rg-acts{justify-content:flex-end;gap:6px}
+  /* total = barre */
+  .rg-table tr.rg-total{display:grid;grid-template-columns:1fr auto}
+  .rg-table tr.rg-total td{display:block;border:0}
+  .rg-table tr.rg-total td:nth-child(2),.rg-table tr.rg-total td:nth-child(3),.rg-table tr.rg-total td:last-child{display:none}
+  .rg-table tr.rg-total td:nth-child(4){text-align:right}
+  /* détail : table scrollable */
+  .rg-table tr.rg-det td{display:block;padding:0}
+  .rg-det-in{padding:8px 8px 12px 12px;overflow-x:auto}
+}
+
 /* ── SCROLLBAR ────────────────────────────────────────────── */
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
