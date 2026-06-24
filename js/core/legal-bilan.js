@@ -22,11 +22,16 @@ import { _compute2044 } from './legal-2044.js';
  * @param {number|string} year - Année (ex 2025)
  * @returns {Object} - bilan structuré (KPIs + détail par logement + résultat fiscal)
  */
-export function _computeBilanAnnuel(db, stdCategories, entityNom, year) {
+export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
   if (!db || !entityNom || !year) return null;
   const yr = String(year);
   const from = yr + '-01-01';
   const to = yr + '-12-31';
+  // B3 — occupation / vacance : ne PAS projeter les mois à venir. Pour l'exercice EN COURS, on borne
+  // le calcul d'occupation à aujourd'hui (le fiscal et les mouvements gardent l'année pleine [from,to]).
+  // opts.today (YYYY-MM-DD) injectable pour des tests déterministes ; défaut = date du jour.
+  const _todayStr = (opts && opts.today) || new Date().toISOString().slice(0, 10);
+  const occTo = (_todayStr >= from && _todayStr < to) ? _todayStr : to;
   const isAlive = e => e && !e._deleted;
 
   const entity = (db.entites || []).find(e => isAlive(e) && e.nom === entityNom);
@@ -56,8 +61,8 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year) {
     const bailCourant = (db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;
     const histsForRef = (db.baux_historique || []).filter(b => isAlive(b) && b.ref === l.ref);
     const allBails = [...(bailCourant ? [bailCourant] : []), ...histsForRef];
-    const occDays = _calcOccDays(allBails, from, to);
-    const totalDays = _daysBetween(from, to);
+    const occDays = _calcOccDays(allBails, from, occTo);
+    const totalDays = _daysBetween(from, occTo);
     const vacanceDays = totalDays - occDays;
     const loyerMensuelMoyen = bailCourant ? Number(bailCourant.hc || 0) : (histsForRef.length ? Number(histsForRef[histsForRef.length-1].hc || 0) : 0);
     return {
