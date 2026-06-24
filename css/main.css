@@ -349,7 +349,7 @@ a{color:var(--blu);text-decoration:none}
   transition:opacity 180ms;
 }
 .sb.sb-collapsed .sb-logo-utils{opacity:0;pointer-events:none;width:0;overflow:hidden}
-.sb-logo-icon{font-size:22px;flex-shrink:0;line-height:1}
+.sb-logo-icon{font-size:22px;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;color:#fff}
 .sb-logo-text{display:flex;flex-direction:column;gap:1px;overflow:hidden;white-space:nowrap;transition:opacity 180ms,width 180ms}
 .sb-logo-text strong{font-family:var(--display);font-weight:800;font-size:16px;color:#fff;letter-spacing:-.02em}
 .sb-logo-text em{
@@ -489,7 +489,7 @@ a{color:var(--blu);text-decoration:none}
   background:var(--acc);
   box-shadow:0 0 8px color-mix(in srgb,var(--acc) 40%,transparent);
 }
-.ni .ico{width:22px;text-align:center;font-size:16px;flex-shrink:0;line-height:1}
+.ni .ico{width:22px;text-align:center;font-size:16px;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;color:inherit}
 .ni-label{transition:opacity 180ms,width 180ms;overflow:hidden}
 .sb-nav.sb-collapsed .ni-label{opacity:0;width:0}
 .sb-nav.sb-collapsed .ni{padding:10px 0;justify-content:center}
@@ -3351,6 +3351,8 @@ textarea.field-modified-since-sig{
   font-family:var(--display);
   font-size:48px;font-weight:800;letter-spacing:-.02em;line-height:1;
   white-space:nowrap;
+  /* P1 reskin : chiffre clé hero = corail accent (1 seul, cohérent avec le mockup Propryo) */
+  color:var(--acc);
 }
 @media(max-width:900px){ .dw-hero-value{font-size:40px} }
 @media(max-width:768px){ .dw-hero-value{font-size:34px} }
@@ -4961,11 +4963,38 @@ textarea.field-modified-since-sig{
   color: var(--t3);
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  display: block;
-  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* P2 reskin : pastille icône neutre dans les cartes KPI (mockup Propryo) */
+.bb-icon-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--sur2);
+  color: var(--t2);
+  flex-shrink: 0;
+  border: 1px solid var(--bor);
+}
+.bb-icon-pill svg { width: 13px; height: 13px; display: block; flex-shrink: 0; }
+[data-theme="dark"] .bb-icon-pill {
+  background: rgba(255,255,255,.09);
+  color: var(--t2);
+  border-color: rgba(255,255,255,.12);
+}
+/* texte de l'eyebrow en petites capitales après la pastille */
+.bb-eyebrow .bb-eyebrow-txt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .bb-card .dw-kpi-label { /* surcharge label legacy → cache (eyebrow le remplace) */
   display: none;
@@ -7631,23 +7660,37 @@ body[data-dash-v4="on"] .v4h-donut-vl {
 }
 body[data-dash-v4="on"] .v4h-donut-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: 10px;
-  font: 500 13.5px/1.3 'Inter', sans-serif;
+  font: 500 13px/1.35 'Inter', sans-serif;
   color: var(--t2);
   border: 1px solid transparent;
-  transition: .15s;
+  transition: background .15s, border-color .15s;
 }
+/* P4 reskin : point → badge pill sémantique (mockup Propryo) */
 body[data-dash-v4="on"] .v4h-donut-row .v4h-dot {
-  width: 10px; height: 10px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
   flex-shrink: 0;
 }
 body[data-dash-v4="on"] .v4h-donut-row b {
-  color: var(--t1); font-weight: 700; margin-right: 3px;
+  color: var(--t1); font-weight: 700; margin-right: 2px;
 }
 body[data-dash-v4="on"] .v4h-donut-row .v4h-am {
-  margin-left: auto; font-weight: 700; color: var(--t1);
+  margin-left: auto; font: 700 12px/1 'Manrope',sans-serif; color: var(--t1);
+  letter-spacing: -.01em;
 }
+/* badge pill statut (P4) : s'applique aux spans enfants avec data-badge */
+body[data-dash-v4="on"] .v4h-badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px; border-radius: 999px;
+  font: 700 9.5px/1 'Inter',sans-serif;
+  text-transform: uppercase; letter-spacing: .04em;
+  border: 1px solid transparent; white-space: nowrap;
+}
+body[data-dash-v4="on"] .v4h-badge.paid  { background: var(--bg-success); color: var(--pos);        border-color: var(--pos); }
+body[data-dash-v4="on"] .v4h-badge.warn  { background: var(--warn-soft,var(--bg-warning)); color: var(--fg-warning); border-color: var(--fg-warning); }
+body[data-dash-v4="on"] .v4h-badge.bad   { background: var(--bg-danger); color: var(--neg);          border-color: var(--neg); }
+body[data-dash-v4="on"] .v4h-badge.neu   { background: var(--sur2);      color: var(--t3);           border-color: var(--bor); }
 body[data-dash-v4="on"] .v4h-donut-row.pos .v4h-dot { background: var(--pos); }
 body[data-dash-v4="on"] .v4h-donut-row.neg {
   background: rgba(239,68,68,.04);
@@ -7905,7 +7948,7 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   transition: background .15s, border-color .15s;
 }
 .more-it:active { background: var(--bor); }
-.more-it .more-ic { font-size: 24px; line-height: 1; }
+.more-it .more-ic { font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; color: var(--t2); }
 @media (min-width: 480px) { .more-grid { grid-template-columns: repeat(4, 1fr); } }
 
 @media (max-width: 767px) {
@@ -7931,6 +7974,7 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   body[data-dash-v4="on"] .v4-bnav .v4-bn .ic {
     font-size: 20px; line-height: 1; filter: grayscale(.5);
     transition: filter .15s;
+    display: flex; align-items: center; justify-content: center;
   }
   body[data-dash-v4="on"] .v4-bnav .v4-bn.act { color: var(--cta); }
   body[data-dash-v4="on"] .v4-bnav .v4-bn.act .ic { filter: grayscale(0); }
