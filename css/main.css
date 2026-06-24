@@ -3044,17 +3044,33 @@ textarea.field-modified-since-sig{
 .rg-glob-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .rg-glob-h b{font-size:15px}
 .rg-back{background:none;border:0;color:var(--blu);font:inherit;font-weight:600;cursor:pointer;font-size:13px;padding:0}
-.rg-mtx{width:100%;font-size:12.5px}
-.rg-mtx th,.rg-mtx td{text-align:right;white-space:nowrap}
-.rg-mtx th:first-child,.rg-mtx td:first-child{text-align:left}
-.rg-mtx thead th small{display:block;font-weight:400;color:var(--t3);font-size:10px}
-.rg-mtx td.lib small{display:block;color:var(--t3);font-size:10.5px}
+.rg-mtx{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+.rg-mtx th,.rg-mtx td{text-align:right;white-space:nowrap;padding:9px 10px;border-bottom:1px solid rgba(0,0,0,.05)}
+/* 1re colonne figée + libellé sur 2 lignes (v2 : libellés bancaires longs) */
+.rg-mtx th.c0,.rg-mtx td.c0{position:sticky;left:0;z-index:2;text-align:left;background:var(--sur);border-right:1px solid var(--bor);min-width:184px;max-width:184px;white-space:normal}
+.rg-mtx thead th{position:sticky;top:0;z-index:1;background:var(--sur2)}
+.rg-mtx thead th.c0{z-index:3;background:var(--sur2)}
+.rg-mtx thead th small{display:block;font-weight:400;color:var(--t3);font-size:10px;max-width:82px;overflow:hidden;text-overflow:ellipsis}
+.rg-mtx-lib{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:600;color:var(--t1);line-height:1.25;font-size:11.5px}
+.rg-mtx td.c0 small{display:block;color:var(--t3);font-size:10px;font-weight:400;margin-top:2px}
+.rg-mtx td.z,.rg-mtx .z{color:var(--t3)}
 .rg-mtx td.col-tot,.rg-mtx th.col-tot{background:var(--sur2);font-weight:700}
+.rg-mtx tbody tr.clk{cursor:pointer}
+.rg-mtx tbody tr.rg-mv.clk:hover td{background:rgba(59,126,246,.08)}
+.rg-mtx tbody tr.rg-mv.clk:hover td.c0{background:rgba(59,126,246,.12)}
 .rg-mtx tr.trou td{background:var(--bg-danger,rgba(220,38,38,.10))}
-.rg-mtx tr.trou td.lib{color:var(--red)}
+.rg-mtx tr.trou td.c0{background:var(--bg-danger,rgba(220,38,38,.10))}
+.rg-mtx tr.trou td.c0 .rg-mtx-lib{color:var(--red)}
 .rg-mtx tr.sumc td{font-weight:700;border-top:2px solid var(--bor);background:var(--sur2)}
+.rg-mtx tr.sumc td.c0{background:var(--sur2)}
 .rg-mtx tr.prov td{color:var(--t2)}
 .rg-mtx tr.solde td{font-weight:800;border-top:1px solid var(--bor);background:#0f1b30;color:#fff}
+.rg-mtx tr.solde td.c0{background:#0f1b30;color:#fff}
+/* mobile : masquer les colonnes logements → liste (charge + total réparti) */
+@media(max-width:560px){
+  .rg-mtx th:not(.c0):not(.col-tot),.rg-mtx td:not(.c0):not(.col-tot){display:none}
+  .rg-mtx th.c0,.rg-mtx td.c0{position:static;min-width:0;max-width:none}
+}
 .rg-glob-bail{margin:12px 0;padding:10px 14px;background:#fffbf0;border:1px solid #f59e0b44;border-radius:10px;font-size:12.5px;color:var(--amb)}
 .rg-glob-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bor)}
 @media(max-width:560px){

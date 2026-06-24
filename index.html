@@ -24362,15 +24362,23 @@ function _rgShowGlobal(immNom){
   const mv={};
   entries.forEach(e=>(e.details||[]).forEach(d=>{
     const id=(d.mvId!=null?d.mvId:(d.date+'|'+(d.mvLib||d.lib)));
-    if(!mv[id]) mv[id]={lib:(d.mvLib||d.lib||''), date:d.date, total:d.mvTotal||0, per:{}};
+    if(!mv[id]) mv[id]={mvId:(d.mvId!=null?d.mvId:null), lib:(d.mvLib||d.lib||''), date:d.date, total:d.mvTotal||0, per:{}};
     mv[id].per[e.entryKey]=(mv[id].per[e.entryKey]||0)+d.montant;
     if(d.mvTotal) mv[id].total=d.mvTotal;
   }));
   const mvArr=Object.values(mv).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const colH=entries.map(e=>`<th class="num">${escHtml(e.ref)}<small>${escHtml(e.loc||'Vacant')}</small></th>`).join('');
   const mvRows=mvArr.map(m=>{ const rowSum=Math.round(Object.values(m.per).reduce((s,x)=>s+x,0)*100)/100;
-    return `<tr><td class="lib">${escHtml(m.lib)}<small>${escHtml(m.date||'')}${m.total?' · facture '+f(m.total):''}</small></td>${entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'—'}</td>`).join('')}<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
-  const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>`<tr class="trou"><td class="lib">${escHtml(l.lib||'')}<small>⚠️ ${escHtml(l.motif||'')}</small></td>${entries.map(()=>`<td class="num">—</td>`).join('')}<td class="num col-tot">${f(l.montant)}</td></tr>`).join(''):'';
+    const clk=(m.mvId!=null);
+    return `<tr class="rg-mv${clk?' clk':''}"${clk?` onclick="openEditMv(${m.mvId})"`:''}>`
+      + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(m.lib)}">${escHtml(m.lib)}</span><small>${escHtml(m.date||'')}${m.total?' · facture '+f(m.total):''}${clk?' · ✏️':''}</small></td>`
+      + entries.map(e=>`<td class="num">${m.per[e.entryKey]?f(m.per[e.entryKey]):'<span class="z">—</span>'}</td>`).join('')
+      + `<td class="num col-tot">${f(rowSum)}</td></tr>`; }).join('');
+  const trouRows=(nonRep&&nonRep.total>0.005)?nonRep.lines.map(l=>{ const clk=(l.mvId!=null);
+    return `<tr class="trou${clk?' clk':''}"${clk?` onclick="openEditMv(${l.mvId})"`:''}>`
+      + `<td class="c0"><span class="rg-mtx-lib" title="${escHtml(l.lib||'')}">${escHtml(l.lib||'')}</span><small>⚠️ ${escHtml(l.motif||'')}${clk?' · ✏️ corriger':''}</small></td>`
+      + entries.map(()=>`<td class="num"><span class="z">—</span></td>`).join('')
+      + `<td class="num col-tot">${f(l.montant)}</td></tr>`; }).join(''):'';
   const rowCharges=entries.map(e=>`<td class="num">${f(e.charges)}</td>`).join('');
   const rowProv=entries.map(e=>`<td class="num">${f(e.provisions)}</td>`).join('');
   const rowSolde=entries.map(e=>{const s=e.provisions-e.charges;return `<td class="num">${s>=0?'+':''}${f(s)}</td>`;}).join('');
@@ -24384,13 +24392,13 @@ function _rgShowGlobal(immNom){
       ${validated?'<span class="rg-badge-ok">✓ validé</span>':'<span class="rg-badge-todo">⚠️ à valider</span>'}</div>
     ${banner}
     <div class="rg-wrap"><table class="tbl rg-mtx">
-      <thead><tr><th>Charge (mouvement)</th>${colH}<th class="num col-tot">Réparti loc.</th></tr></thead>
+      <thead><tr><th class="c0">Charge (mouvement)</th>${colH}<th class="num col-tot">Réparti loc.</th></tr></thead>
       <tbody>
         ${mvRows||`<tr><td colspan="${entries.length+2}" class="mu sm">Aucune charge répartie sur la période.</td></tr>`}
         ${trouRows}
-        <tr class="sumc"><td>Total charges réelles</td>${rowCharges}<td class="num col-tot">${f(sumCharges)}</td></tr>
-        <tr class="prov"><td>Provisions appelées</td>${rowProv}<td class="num col-tot">${f(sumProv)}</td></tr>
-        <tr class="solde"><td>Solde</td>${rowSolde}<td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
+        <tr class="sumc"><td class="c0">Total charges réelles</td>${rowCharges}<td class="num col-tot">${f(sumCharges)}</td></tr>
+        <tr class="prov"><td class="c0">Provisions appelées</td>${rowProv}<td class="num col-tot">${f(sumProv)}</td></tr>
+        <tr class="solde"><td class="c0">Solde</td>${rowSolde}<td class="num col-tot">${(sumProv-sumCharges)>=0?'+':''}${f(sumProv-sumCharges)}</td></tr>
       </tbody></table></div>
     ${bail&&bail.total>0?`<div class="rg-glob-bail">🏛️ Part bailleur (non récupérable → 2044) : <b>${f(bail.total)}</b></div>`:''}
     <div class="rg-glob-foot">
@@ -24518,7 +24526,7 @@ function computeRegul(from, to) {
   DB.mouvements.filter(_isAlive).filter(m=>_isChargeRecupCategory(m.cat)&&m.db>0&&m.date>=from&&m.date<=to).forEach(m=>{
     // v15.x Phase B — trou : charge récup sans aucun périmètre (ni logement, ni immeuble, ni compteur)
     if(!m.compteurCcId && !m.qui && !m.imm){
-      _nonRepAdd(m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Aucun périmètre (ni logement, ni immeuble, ni compteur)'});
+      _nonRepAdd(m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Aucun périmètre (ni logement, ni immeuble, ni compteur)'});
       return;
     }
     // ── (1) Charge liée à un compteur collectif → moteur unifié _calcCcRepartition ────
@@ -24526,7 +24534,7 @@ function computeRegul(from, to) {
       const found = _findCcById(m.compteurCcId);
       if(!found) {
         console.warn('[computeRegul] Compteur', m.compteurCcId, 'introuvable (supprimé ?) → mouvement', m.id, 'ignoré');
-        _nonRepAdd(m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Compteur supprimé / introuvable'});
+        _nonRepAdd(m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Compteur supprimé / introuvable'});
         return;
       }
       const { cc, im } = found;
@@ -24586,7 +24594,7 @@ function computeRegul(from, to) {
     // ── (2) Charge directe : qui rempli ──────────────────────────────────────────────
     if(m.qui) {
       const candidates = Object.values(res).filter(e=>e.ref===m.qui);
-      if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
+      if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
       const target = candidates.find(e=>m.date>=e.debutOcc&&m.date<=e.finOcc) || candidates[0];
       target.charges += m.db;
       target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct', mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
@@ -24599,7 +24607,7 @@ function computeRegul(from, to) {
         const log = (DB.logements||[]).find(l => l.ref === e.ref);
         return !log || log.compteCharges !== false;
       });
-      if(!immEntries.length){ _nonRepAdd(m.imm, {date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Aucun logement occupé (comptant les charges) sur la période'}); return; }
+      if(!immEntries.length){ _nonRepAdd(m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Aucun logement occupé (comptant les charges) sur la période'}); return; }
       const totalOcc = immEntries.reduce((s,e)=>s+e.occDays, 0);
       // v14.73 : la fraction non-occupée = part bailleur (vacances dans la période)
       const partBailleur = Math.max(0, m.db - immEntries.reduce((s,e)=>{
