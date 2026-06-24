@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup — Vue globale régul lisible + responsive</title>
+<title>Mockup — Vue globale régul (v2 : libellé 2 lignes + clic mouvement)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -14,48 +14,62 @@ body{margin:0;background:#dfe5ee;color:var(--t1);font-family:'Inter',system-ui,s
 h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin:6px 2px 10px}
 .card{background:var(--card);border:1px solid var(--bor);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,30,60,.05);margin-bottom:22px}
 .gh{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
-.gh .bk{color:var(--blu);font-weight:600;font-size:12.5px}
-.gh b{font-size:14px}
+.gh .bk{color:var(--blu);font-weight:600;font-size:12.5px}.gh b{font-size:14px}
 .badge-todo{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;background:var(--bg-warning);color:var(--ora)}
 .warn{display:flex;gap:9px;align-items:flex-start;background:var(--bg-danger);border:1px solid rgba(220,38,38,.3);border-radius:10px;padding:10px 13px;margin:13px 16px}
-.warn b{color:var(--red)} .warn .s{font-size:11.5px;color:var(--t2)}
-/* ===== PC : matrice scrollable, 1re colonne figée, libellés tronqués ===== */
-.mwrap{overflow-x:auto;position:relative}
+.warn b{color:var(--red)}.warn .s{font-size:11.5px;color:var(--t2)}
+.scrollhint{font-size:11px;color:var(--t3);padding:6px 16px;font-style:italic}
+.mwrap{overflow-x:auto}
 table.mtx{border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%}
-table.mtx th,table.mtx td{padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.05);text-align:right;white-space:nowrap}
-/* 1re colonne figée */
-table.mtx th.c0,table.mtx td.c0{position:sticky;left:0;z-index:2;text-align:left;background:var(--card);border-right:1px solid var(--bor);min-width:240px;max-width:240px}
+table.mtx th,table.mtx td{padding:9px 10px;border-bottom:1px solid rgba(0,0,0,.05);text-align:right;white-space:nowrap}
+table.mtx th.c0,table.mtx td.c0{position:sticky;left:0;z-index:2;text-align:left;background:var(--card);border-right:1px solid var(--bor);min-width:184px;max-width:184px;white-space:normal}
 table.mtx thead th{position:sticky;top:0;z-index:1;background:var(--sur2);font-size:10px;text-transform:uppercase;letter-spacing:.3px;color:var(--t3);font-weight:700;line-height:1.25;vertical-align:bottom}
 table.mtx thead th.c0{z-index:3}
-table.mtx thead th small{display:block;font-weight:500;color:var(--t3);font-size:9.5px;max-width:90px;overflow:hidden;text-overflow:ellipsis}
-.libtrunc{display:block;max-width:228px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--t1)}
-td.c0 small{display:block;color:var(--t3);font-size:10.5px;font-weight:400}
+table.mtx thead th small{display:block;font-weight:500;color:var(--t3);font-size:9.5px;max-width:78px;overflow:hidden;text-overflow:ellipsis}
+.lib2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:600;color:var(--t1);line-height:1.25;font-size:11.5px}
+td.c0 small{display:block;color:var(--t3);font-size:10px;font-weight:400;margin-top:2px}
 table.mtx td.num{font-family:'Manrope',sans-serif}
 table.mtx td.z{color:var(--t3)}
 table.mtx td.col-tot,table.mtx th.col-tot{background:#eef3fb;font-weight:700}
-table.mtx tr.trou td{background:var(--bg-danger)} table.mtx tr.trou td.c0 .libtrunc{color:var(--red)}
-table.mtx tr.sumc td{font-weight:700;border-top:2px solid var(--bor);background:var(--sur2)}
-table.mtx tr.sumc td.c0{background:var(--sur2)}
-table.mtx tr.prov td{color:var(--t2)} table.mtx tr.prov td.c0{color:var(--t2)}
-table.mtx tr.solde td{font-weight:800;background:#0f1b30;color:#fff} table.mtx tr.solde td.c0{background:#0f1b30;color:#fff}
+table.mtx tbody tr.mv{cursor:pointer}
+table.mtx tbody tr.mv:hover td{background:#f1f6ff}
+table.mtx tbody tr.mv:hover td.c0{background:#eaf1ff}
+table.mtx tbody tr.mv td.c0 .open{color:var(--blu);font-size:9.5px;font-weight:600;opacity:0;margin-top:2px}
+table.mtx tbody tr.mv:hover td.c0 .open{opacity:1}
+table.mtx tr.trou td{background:var(--bg-danger)}table.mtx tr.trou td.c0 .lib2{color:var(--red)}
+table.mtx tr.sumc td{font-weight:700;border-top:2px solid var(--bor);background:var(--sur2)}table.mtx tr.sumc td.c0{background:var(--sur2)}
+table.mtx tr.prov td{color:var(--t2)}table.mtx tr.prov td.c0{color:var(--t2)}
+table.mtx tr.solde td{font-weight:800;background:#0f1b30;color:#fff}table.mtx tr.solde td.c0{background:#0f1b30;color:#fff}
 .foot{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:13px 16px;border-top:1px solid var(--bor);background:var(--sur2)}
 .btn-valid{background:#cbd5e1;color:#fff;border:0;border-radius:9px;padding:9px 15px;font:inherit;font-weight:700;font-size:13px;cursor:not-allowed}
 .foot .hint{font-size:11.5px;color:var(--t2)}
 .note{font-size:11.5px;color:var(--t2);padding:10px 16px;background:var(--sur2);border-top:1px solid var(--bor)}
-.scrollhint{font-size:11px;color:var(--t3);padding:6px 16px;font-style:italic}
-/* ===== phone ===== */
+/* popup mouvement */
+.ov{position:fixed;inset:0;background:rgba(15,27,48,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.ov.show{display:flex}
+.mv-modal{background:#fff;border-radius:14px;max-width:460px;width:100%;box-shadow:0 20px 50px rgba(20,30,60,.3);overflow:hidden}
+.mv-h{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--bor)}
+.mv-h b{font-size:14px}.mv-h .x{margin-left:auto;cursor:pointer;color:var(--t3);font-size:18px;border:0;background:none}
+.mv-b{padding:14px 16px}
+.mv-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12.5px}
+.mv-row .k{color:var(--t3);min-width:96px}.mv-row .v{font-weight:600;flex:1}
+.mv-lib{font-size:12px;color:var(--t1);background:var(--sur2);border-radius:8px;padding:8px 10px;margin-top:4px;word-break:break-word}
+.mv-f{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--bor);background:var(--sur2)}
+.mv-f .btn{flex:1;border:1px solid var(--bor);background:#fff;border-radius:9px;padding:9px;font:inherit;font-weight:600;cursor:pointer}
+.mv-f .btn.primary{background:var(--blu);color:#fff;border-color:var(--blu)}
+/* phone */
 .stage{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
 .phone{width:360px;background:var(--bg);border-radius:30px;border:9px solid #11161f;overflow:hidden;box-shadow:0 12px 32px rgba(20,30,60,.22)}
 .notch{height:22px;background:#11161f;border-radius:0 0 12px 12px;width:120px;margin:0 auto}
-.pscreen{height:660px;overflow-y:auto;padding:10px}
+.pscreen{height:640px;overflow-y:auto;padding:10px}
 .pg-h{display:flex;align-items:center;gap:8px;margin:3px 2px 10px}.pg-h .bk{color:var(--blu);font-weight:600;font-size:12px}.pg-h b{font-size:13.5px}
-.chg-card{background:#fff;border:1px solid var(--bor);border-radius:11px;padding:10px 12px;margin-bottom:8px}
+.chg-card{background:#fff;border:1px solid var(--bor);border-radius:11px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
 .chg-card.trou{background:var(--bg-danger);border-color:rgba(220,38,38,.3)}
-.chg-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.chg-lib{font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.chg-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.chg-lib{font-weight:600;font-size:12px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .chg-card.trou .chg-lib{color:var(--red)}
 .chg-tot{font-weight:800;font-family:'Manrope',sans-serif;white-space:nowrap}
-.chg-meta{font-size:10.5px;color:var(--t3);margin-top:2px}
+.chg-meta{font-size:10.5px;color:var(--t3);margin-top:3px}
 .chg-split{font-size:11px;color:var(--blu);margin-top:6px;font-weight:600}
 .psum{background:#0f1b30;color:#fff;border-radius:11px;padding:11px 13px;margin-top:6px}
 .psum .r{display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0}.psum .r.big{font-weight:800;font-size:14px}
@@ -65,11 +79,11 @@ table.mtx tr.solde td{font-weight:800;background:#0f1b30;color:#fff} table.mtx t
 </head>
 <body>
 
-<h2 class="sec">🖥️ PC / tablette — matrice lisible (libellés tronqués + survol, 1re colonne figée, défilement horizontal)</h2>
+<h2 class="sec">🖥️ PC / tablette — libellé sur 2 lignes · colonne Charge réduite · clic ligne → popup mouvement</h2>
 <div class="card">
   <div class="gh"><span class="bk">← Retour</span><b>🔎 Vue globale — Ferrette</b><span class="badge-todo">⚠️ à valider</span></div>
   <div class="warn"><span style="font-size:16px">⚠️</span><div><b>78,80 € non répartis</b><div class="s">« VIR vers SCI ALTA remboursement … eau » n'est rattaché à aucun logement. Validation bloquée tant que ce trou n'est pas réglé.</div></div></div>
-  <div class="scrollhint">↔ Défile horizontalement pour voir tous les logements ; la colonne « Charge » reste figée.</div>
+  <div class="scrollhint">↔ Défile pour voir tous les logements · clique une ligne pour voir le mouvement complet · la colonne « Charge » reste figée.</div>
   <div class="mwrap">
     <table class="mtx">
       <thead><tr>
@@ -78,55 +92,62 @@ table.mtx tr.solde td{font-weight:800;background:#0f1b30;color:#fff} table.mtx t
         <th class="num col-tot">Réparti<br>loc.</th>
       </tr></thead>
       <tbody>
-        <tr><td class="c0"><span class="libtrunc" title="PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471 RUM:MA970002337400 …">PRELEVEMENT ELECTRICITE DE FRANCE…</span><small>02/03/2026 · facture 7,93 €</small></td><td class="num">0,63 €</td><td class="num">0,42 €</td><td class="num">0,42 €</td><td class="num">0,40 €</td><td class="num">0,38 €</td><td class="num z">—</td><td class="num col-tot">2,25 €</td></tr>
-        <tr><td class="c0"><span class="libtrunc" title="PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471 … 2026-03-17">PRELEVEMENT ELECTRICITE DE FRANCE…</span><small>17/03/2026 · facture 15,44 €</small></td><td class="num">1,23 €</td><td class="num">0,81 €</td><td class="num">0,81 €</td><td class="num">0,77 €</td><td class="num">0,74 €</td><td class="num z">—</td><td class="num col-tot">4,36 €</td></tr>
-        <tr><td class="c0"><span class="libtrunc" title="PRELEVEMENT | ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471 … 2026-04-17">PRELEVEMENT | ELECTRICITE DE FRANC…</span><small>16/04/2026 · facture 14,99 €</small></td><td class="num">1,20 €</td><td class="num">0,79 €</td><td class="num">0,79 €</td><td class="num">0,75 €</td><td class="num">0,72 €</td><td class="num z">—</td><td class="num col-tot">4,25 €</td></tr>
-        <tr><td class="c0"><span class="libtrunc" title="VIREMENT EMIS | VIR INST vers SARAR Tagi Facture N01/26 | Facture N01/26">VIREMENT EMIS | VIR INST vers SARAR…</span><small>20/04/2026 · facture 150,00 €</small></td><td class="num">42,60 €</td><td class="num">27,90 €</td><td class="num">27,90 €</td><td class="num">26,40 €</td><td class="num">25,20 €</td><td class="num z">—</td><td class="num col-tot">150,00 €</td></tr>
-        <tr class="trou"><td class="c0"><span class="libtrunc" title="VIREMENT EMIS | VIR INST vers SCI ALTA remboursement versement Lisa Weigel - eau">VIREMENT … SCI ALTA remboursement…</span><small>20/04/2026 · facture 78,80 € · ⚠️ non réparti</small></td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num col-tot">78,80 €</td></tr>
-        <tr><td class="c0"><span class="libtrunc" title="ELECTRICITE DE FRANCE — PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS … 2026-05-18">ELECTRICITE DE FRANCE — PRELEVEMENT…</span><small>18/05/2026 · facture 15,02 €</small></td><td class="num">1,20 €</td><td class="num">0,79 €</td><td class="num">0,79 €</td><td class="num">0,75 €</td><td class="num">0,72 €</td><td class="num z">—</td><td class="num col-tot">4,25 €</td></tr>
+        <tr class="mv" onclick="showMv(0)"><td class="c0"><span class="lib2">PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471</span><small>02/03/2026 · facture 7,93 €</small><span class="open">cliquer → voir le mouvement</span></td><td class="num">0,63 €</td><td class="num">0,42 €</td><td class="num">0,42 €</td><td class="num">0,40 €</td><td class="num">0,38 €</td><td class="num z">—</td><td class="num col-tot">2,25 €</td></tr>
+        <tr class="mv" onclick="showMv(0)"><td class="c0"><span class="lib2">PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471</span><small>17/03/2026 · facture 15,44 €</small></td><td class="num">1,23 €</td><td class="num">0,81 €</td><td class="num">0,81 €</td><td class="num">0,77 €</td><td class="num">0,74 €</td><td class="num z">—</td><td class="num col-tot">4,36 €</td></tr>
+        <tr class="mv" onclick="showMv(0)"><td class="c0"><span class="lib2">PRELEVEMENT | ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471</span><small>16/04/2026 · facture 14,99 €</small></td><td class="num">1,20 €</td><td class="num">0,79 €</td><td class="num">0,79 €</td><td class="num">0,75 €</td><td class="num">0,72 €</td><td class="num z">—</td><td class="num col-tot">4,25 €</td></tr>
+        <tr class="mv" onclick="showMv(1)"><td class="c0"><span class="lib2">VIREMENT EMIS | VIR INST vers SARAR Tagi Facture N01/26</span><small>20/04/2026 · facture 150,00 €</small></td><td class="num">42,60 €</td><td class="num">27,90 €</td><td class="num">27,90 €</td><td class="num">26,40 €</td><td class="num">25,20 €</td><td class="num z">—</td><td class="num col-tot">150,00 €</td></tr>
+        <tr class="mv trou" onclick="showMv(2)"><td class="c0"><span class="lib2">VIREMENT EMIS | VIR INST vers SCI ALTA remboursement versement Lisa Weigel - eau</span><small>20/04/2026 · 78,80 € · ⚠️ non réparti</small></td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num z">—</td><td class="num col-tot">78,80 €</td></tr>
+        <tr class="mv" onclick="showMv(0)"><td class="c0"><span class="lib2">ELECTRICITE DE FRANCE — PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS</span><small>18/05/2026 · facture 15,02 €</small></td><td class="num">1,20 €</td><td class="num">0,79 €</td><td class="num">0,79 €</td><td class="num">0,75 €</td><td class="num">0,72 €</td><td class="num z">—</td><td class="num col-tot">4,25 €</td></tr>
         <tr class="sumc"><td class="c0">Total charges réelles</td><td class="num">46,86 €</td><td class="num">30,71 €</td><td class="num">30,71 €</td><td class="num">29,07 €</td><td class="num">27,76 €</td><td class="num z">—</td><td class="num col-tot">243,91 €</td></tr>
         <tr class="prov"><td class="c0">Provisions appelées</td><td class="num">40,00 €</td><td class="num">25,00 €</td><td class="num">25,00 €</td><td class="num">25,00 €</td><td class="num">20,00 €</td><td class="num z">—</td><td class="num col-tot">135,00 €</td></tr>
         <tr class="solde"><td class="c0">Solde</td><td class="num">−6,86 €</td><td class="num">−5,71 €</td><td class="num">−5,71 €</td><td class="num">−4,07 €</td><td class="num">−7,76 €</td><td class="num z">—</td><td class="num col-tot">−30,11 €</td></tr>
       </tbody>
     </table>
   </div>
-  <div class="foot"><button class="btn-valid">✓ Valider la régul de l'immeuble</button><span class="hint">Bloqué : 78,80 € non répartis. Le libellé complet s'affiche au survol ; le détail par locataire reste dans sa fiche.</span></div>
-  <div class="note">Améliorations : <b>libellés tronqués</b> (texte complet au survol/clic) → les colonnes logements redeviennent lisibles · <b>1re colonne figée</b> + <b>défilement horizontal</b> pour les immeubles à beaucoup de logements · ligne « Réparti loc. » réconciliée avec les cellules.</div>
+  <div class="foot"><button class="btn-valid">✓ Valider la régul de l'immeuble</button><span class="hint">Bloqué : 78,80 € non répartis.</span></div>
+  <div class="note">v2 : <b>libellé sur 2 lignes</b> (colonne Charge réduite à 184px → +de place pour les logements) · <b>clic sur une ligne → popup du mouvement</b> (libellé complet + montant + catégorie + répartition + bouton Modifier), sans aller dans l'onglet Mouvements.</div>
 </div>
 
-<h2 class="sec">📱 Téléphone / tablette étroite — la matrice devient une liste de charges (pas de grille large)</h2>
+<h2 class="sec">📱 Téléphone — liste de charges (libellé 2 lignes, tap → popup mouvement)</h2>
 <div class="stage">
   <div class="phone"><div class="notch"></div><div class="pscreen">
     <div class="pg-h"><span class="bk">←</span><b>🔎 Ferrette — vue globale</b></div>
-    <div class="warn" style="margin:0 0 10px"><span style="font-size:15px">⚠️</span><div><b>78,80 € non répartis</b><div class="s">VIR SCI ALTA remboursement eau. Validation bloquée.</div></div></div>
-    <div class="chg-card"><div class="chg-top"><span class="chg-lib" title="PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS…">PRELEVEMENT ELECTRICITE DE…</span><span class="chg-tot">7,93 €</span></div><div class="chg-meta">02/03/2026 · facture</div><div class="chg-split">↳ réparti sur 5 logts · prorata ›</div></div>
-    <div class="chg-card"><div class="chg-top"><span class="chg-lib" title="VIREMENT EMIS | VIR INST vers SARAR Tagi Facture N01/26">VIR vers SARAR Tagi N01/26</span><span class="chg-tot">150,00 €</span></div><div class="chg-meta">20/04/2026 · facture</div><div class="chg-split">↳ réparti sur 5 logts · prorata ›</div></div>
-    <div class="chg-card trou"><div class="chg-top"><span class="chg-lib" title="VIREMENT EMIS | VIR INST vers SCI ALTA remboursement versement Lisa Weigel - eau">VIR SCI ALTA rembours. eau</span><span class="chg-tot">78,80 €</span></div><div class="chg-meta">20/04/2026 · ⚠️ non réparti — à corriger</div></div>
-    <div class="chg-card"><div class="chg-top"><span class="chg-lib" title="ELECTRICITE DE FRANCE — PRELEVEMENT…">ELECTRICITE DE FRANCE…</span><span class="chg-tot">15,02 €</span></div><div class="chg-meta">18/05/2026 · facture</div><div class="chg-split">↳ réparti sur 5 logts · prorata ›</div></div>
-    <div class="psum">
-      <div class="r"><span>Total charges réelles</span><span class="mono">243,91 €</span></div>
-      <div class="r"><span>Provisions appelées</span><span class="mono">135,00 €</span></div>
-      <div class="r big"><span>Solde</span><span class="mono">−30,11 €</span></div>
-    </div>
+    <div class="warn" style="margin:0 0 10px"><span style="font-size:15px">⚠️</span><div><b>78,80 € non répartis</b><div class="s">VIR SCI ALTA remboursement eau.</div></div></div>
+    <div class="chg-card" onclick="showMv(0)"><div class="chg-top"><span class="chg-lib">PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471</span><span class="chg-tot">7,93 €</span></div><div class="chg-meta">02/03/2026 · facture</div><div class="chg-split">↳ réparti sur 5 logts · prorata ›</div></div>
+    <div class="chg-card" onclick="showMv(1)"><div class="chg-top"><span class="chg-lib">VIREMENT EMIS | VIR INST vers SARAR Tagi Facture N01/26</span><span class="chg-tot">150,00 €</span></div><div class="chg-meta">20/04/2026 · facture</div><div class="chg-split">↳ réparti sur 5 logts · prorata ›</div></div>
+    <div class="chg-card trou" onclick="showMv(2)"><div class="chg-top"><span class="chg-lib">VIREMENT EMIS | VIR INST vers SCI ALTA remboursement versement Lisa Weigel - eau</span><span class="chg-tot">78,80 €</span></div><div class="chg-meta">20/04/2026 · ⚠️ non réparti — à corriger</div></div>
+    <div class="psum"><div class="r"><span>Total charges</span><span class="mono">243,91 €</span></div><div class="r"><span>Provisions</span><span class="mono">135,00 €</span></div><div class="r big"><span>Solde</span><span class="mono">−30,11 €</span></div></div>
     <button class="pbtn">✓ Valider (bloqué : 78,80 € non répartis)</button>
-    <div style="font-size:10px;color:var(--t3);text-align:center;margin-top:8px;font-style:italic">Tap une charge → sa répartition par logement.</div>
   </div></div>
+  <div style="flex:1;min-width:240px"><div class="card" style="margin:0"><div style="padding:14px 16px"><b style="font-size:13px">Tes 2 demandes</b><ul style="font-size:12.5px;color:var(--t2);line-height:1.7;padding-left:18px;margin:8px 0 0"><li><b>Libellé sur 2 lignes</b> → on lit beaucoup plus, et la colonne Charge passe de 240→184px (les logements respirent).</li><li><b>Clic sur une ligne → popup du mouvement</b> (essaie : clique n'importe quelle ligne) : date, libellé complet, montant, catégorie, répartition + bouton « Modifier » → tu corriges sans quitter la régul.</li></ul></div></div></div>
+</div>
 
-  <div style="flex:1;min-width:260px">
-    <div class="card" style="margin:0">
-      <div style="padding:14px 16px">
-        <b style="font-size:13px">Principe responsive</b>
-        <ul style="font-size:12.5px;color:var(--t2);line-height:1.7;padding-left:18px;margin:8px 0 0">
-          <li><b>PC / tablette large</b> : matrice complète (charges × logements), 1re colonne figée, défilement horizontal si beaucoup de logements.</li>
-          <li><b>Téléphone / tablette étroite</b> : la grille large ne passe pas → <b>liste de charges</b> (1 carte par charge : libellé tronqué + total + « réparti sur N logts »), tap pour voir la répartition. Le solde par logement reste dans la liste principale de l'onglet.</li>
-          <li><b>Libellés bancaires</b> : tronqués partout, texte complet au survol (PC) / tap (mobile).</li>
-        </ul>
-      </div>
+<p class="cap">Mockup statique. Le popup réutilisera l'éditeur de mouvement existant de l'app (openEditMv) — tu peux corriger la catégorie d'un virement mal classé directement depuis là.</p>
+
+<!-- popup mouvement -->
+<div class="ov" id="mvov" onclick="if(event.target===this)hideMv()">
+  <div class="mv-modal">
+    <div class="mv-h"><span style="font-size:16px">🧾</span><b id="mv-title">Mouvement</b><button class="x" onclick="hideMv()">✕</button></div>
+    <div class="mv-b">
+      <div class="mv-row"><span class="k">Date</span><span class="v" id="mv-date"></span></div>
+      <div class="mv-row"><span class="k">Montant</span><span class="v" id="mv-mt"></span></div>
+      <div class="mv-row"><span class="k">Catégorie</span><span class="v" id="mv-cat"></span></div>
+      <div class="mv-row"><span class="k">Immeuble</span><span class="v">Ferrette</span></div>
+      <div class="mv-row"><span class="k">Répartition</span><span class="v" id="mv-rep"></span></div>
+      <div style="margin-top:8px"><span class="k" style="color:var(--t3);font-size:12px">Libellé complet</span><div class="mv-lib" id="mv-lib"></div></div>
     </div>
+    <div class="mv-f"><button class="btn" onclick="hideMv()">Fermer</button><button class="btn primary">✏️ Modifier le mouvement</button></div>
   </div>
 </div>
 
-<p class="cap">Mockup statique — données proches de ton Ferrette réel. Bascule matrice↔liste selon la largeur d'écran. Le détail par locataire d'un logement reste accessible depuis la liste principale (« ce qu'il y a derrière »).</p>
-
+<script>
+var MVS=[
+  {t:'Électricité (prélèvement EDF)',date:'02/03/2026',mt:'7,93 € (débit)',cat:'⚡ Charges récupérables (eau, énergie…)',rep:'Prorata surface · 5 logements',lib:'PRELEVEMENT ELECTRICITE DE FRANCE SMARTOSAURUS Ref EDF:1645472471 RUM:MA970002337400 E 2026-03-02 MA970002337400 FR47EDF001007 Z001645472471 99285 2 FELIX 992'},
+  {t:'Virement SARAR Tagi',date:'20/04/2026',mt:'150,00 € (débit)',cat:'⚡ Charges récupérables (eau, énergie…)',rep:'Prorata surface · 5 logements',lib:'VIREMENT EMIS | VIR INST vers SARAR Tagi Facture N01/26 | Facture N01/26'},
+  {t:'⚠️ Virement SCI ALTA (remboursement)',date:'20/04/2026',mt:'78,80 € (débit)',cat:'⚡ Charges récupérables (eau, énergie…) — à vérifier',rep:'❌ Non réparti (aucun logement / clé) — corrige ou re-catégorise',lib:'VIREMENT EMIS | VIR INST vers SCI ALTA remboursement versement Lisa Weigel - eau'}
+];
+function showMv(i){var m=MVS[i];document.getElementById('mv-title').textContent=m.t;document.getElementById('mv-date').textContent=m.date;document.getElementById('mv-mt').textContent=m.mt;document.getElementById('mv-cat').textContent=m.cat;document.getElementById('mv-rep').textContent=m.rep;document.getElementById('mv-lib').textContent=m.lib;document.getElementById('mvov').classList.add('show');}
+function hideMv(){document.getElementById('mvov').classList.remove('show');}
+</script>
 </body>
 </html>
