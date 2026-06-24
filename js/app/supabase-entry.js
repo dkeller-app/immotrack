@@ -1,8 +1,8 @@
-// js/app/supabase-entry.js — Entrée du MODE SUPABASE dans le monolithe, sous INTERRUPTEUR.
+// js/app/supabase-entry.js — Entrée du MODE CLOUD (Supabase) du monolithe.
 //
-// Sans le flag (`?supabase=1` dans l'URL, ou localStorage immo_use_supabase=1), ce module est INERTE :
-// aucun chargement réseau, aucune UI, l'app reste 100% comme aujourd'hui (localStorage + Drive). Le flag
-// est notre garde-fou de bascule : on teste la version Supabase à la demande, sans risque pour l'app réelle.
+// CLOUD-ONLY (cutover « Connexion B », 2026-06-23) : Supabase est la SEULE persistance. Toute page servie
+// en http(s) boote ici (login → hydrate → app). Le module reste INERTE uniquement sur le harnais de test
+// (index-test*.html / ?sandbox=1), qui garde son storage local isolé _test_*. Google Drive a été retiré.
 //
 // ÉTAPE 2a (ce fichier) : login email/mdp (Variante A) → résout l'espace → HYDRATE les vraies données
 // depuis Supabase dans une variable LOCALE → affiche les compteurs (preuve bout-en-bout dans le navigateur).
@@ -10,20 +10,18 @@
 
 const FLAG = (() => {
   try {
-    const p = new URLSearchParams(location.search)
-    const onTestPage = /index-supabase\.html$/.test((location.pathname || '').toLowerCase())
+    const path = (location.pathname || '').toLowerCase()
     const inSandbox = /[?&]sandbox=1/.test(location.search || '')
     const served = location.protocol === 'http:' || location.protocol === 'https:'
-    if (p.get('supabase') === '0' || localStorage.getItem('immo_use_supabase') === '0') return false   // OFF explicite
-    if (p.has('supabase') || localStorage.getItem('immo_use_supabase') === '1') return true              // ON explicite
-    // opt-in « app complète » (posé par le bouton) : actif UNIQUEMENT en sandbox (?sandbox=1) → JAMAIS
-    // sur l'app de tous les jours (index.html sans sandbox reste legacy, même si le flag traîne).
-    if (localStorage.getItem('immo_fullapp_once') === '1' && inSandbox) return true
-    // CLOUD PAR DÉFAUT (2026-06-18 — Drive DÉBRANCHÉ, « on ne garde que la version Supabase »). Toute page
-    // servie en http(s) boote sur Supabase, y compris l'app de tous les jours (index.html). Échappatoire
-    // legacy/Drive de secours : `?supabase=0` ou localStorage immo_use_supabase=0 (testés en tête).
-    // (onTestPage conservé pour mémoire ; le défaut servi suffit désormais.)
-    return served || onTestPage
+    // HARNAIS DE TEST — les pages index-test*.html / ?sandbox=1 restent en mode legacy/démo isolé
+    // (storage local _test_*). Le module cloud y est INERTE : aucun login, aucun réseau. Même détection
+    // que le boot-gate (head) et _isTestMode (index.html) → ne pas diverger.
+    const isTestPage = path.endsWith('index-test.html') || path.endsWith('/test') || path.includes('-test.') || inSandbox
+    if (isTestPage) return false
+    // CLOUD-ONLY (cutover « Connexion B », 2026-06-23 — Google Drive PHYSIQUEMENT retiré) : toute page
+    // servie en http(s) boote sur Supabase, sans échappatoire. Le bi-mode et le flag immo_use_supabase
+    // sont supprimés (l'ancien `?supabase=0` / localStorage immo_use_supabase=0 n'a plus aucun effet).
+    return served
   } catch { return false }
 })()
 
@@ -47,24 +45,12 @@ let _espaceOwners = {}   // MULTI-ESPACE : espaceId → ownerId (tous les espace
 let _liveDBRef = null    // réf vers le DB fusionné vivant (= liveDB), pour résoudre l'espace/owner d'une SCI
 let _resolveEntiteOwner = null, _resolveEspaceOfSeg = null   // résolveurs PURS (store-multi.js) — résolution par-SCI
 
-// En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
-// n'a aucune raison d'etre : on a notre propre overlay de login + la vraie app cloud. S'il reste leve, il
-// MASQUE l'app cloud (pourtant chargee) derriere le portail Drive (bug 2026-06-16 : session persistee ->
-// onLoggedIn direct sans que le boot legacy ne leve le gate). Neutralise au boot cloud + a onLoggedIn.
+// BOOT-GATE — le <head> d'index.html pose `html[data-lpboot]` qui masque tout le body SAUF #imsb-overlay
+// (+ #toast) le temps que ce module injecte l'overlay de login. Une fois l'overlay en place (ou l'app
+// cloud révélée à onLoggedIn), on lève le gate en retirant l'attribut. Le portail Drive #ov-drive-connect
+// a été PHYSIQUEMENT retiré (cutover « Connexion B ») → plus rien à masquer côté legacy.
 function _liftDriveGate() {
   try { document.documentElement.removeAttribute('data-lpboot') } catch (e) {}
-  try { document.getElementById('ov-drive-connect')?.classList.add('hidden') } catch (e) {}
-  // Le CSS d'index.html ne pose `display:block` que sur `#ov-drive-connect:not(.hidden)` → avec `.hidden`
-  // l'élément n'est PAS masqué (display reste implicite, il reste visible EN FOND derrière l'overlay de
-  // login cloud semi-transparent). On injecte UNE règle persistante qui force le `display:none`. Mode cloud
-  // uniquement (ce helper n'est appelé que là) ; en legacy le fichier est inerte → l'écran Drive réapparaît.
-  try {
-    if (!document.getElementById('imsb-hide-drivegate')) {
-      const s = document.createElement('style'); s.id = 'imsb-hide-drivegate'
-      s.textContent = '#ov-drive-connect{display:none!important}'
-      document.head.appendChild(s)
-    }
-  } catch (e) {}
 }
 
 // #2 (test partage) — nom d'affichage PAR-UTILISATEUR (auth), pour un invité qui n'est pas le
