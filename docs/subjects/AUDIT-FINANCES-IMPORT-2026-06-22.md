@@ -29,7 +29,7 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 | B3 | **Vacance locative** : passé ou projeté ? En Finances on ne doit prendre que la période **passée** de l'exercice. | 🐞 | ⬜ (même principe que B2 — à appliquer à la vacance) |
 | B4 | **Visu 12 mois glissants** (cash-flow) — nouvelle visualisation à concevoir. | ✨ | ⬜ |
 | B5 | **Année en cours par défaut** partout (sélecteur d'exercice). | 🐞/✨ | ✅ v15.354 (Finances : défaut = année en cours + bandeau « chiffres partiels ») |
-| B6 | **SCI à plusieurs immeubles** : pouvoir filtrer sur **un seul immeuble**. | ✨ | ⬜ |
+| B6 | **SCI à plusieurs immeubles** : pouvoir filtrer sur **un seul immeuble**. | ✨ | ✅ v15.355 (sélecteur immeuble dans Finances ; loyers / charges / impayé / occupation / régul / IRL scopés par immeuble ; **frais SCI répartis ÷ nb immeubles** du bailleur, 1 immeuble → ÷1 ; vérifié : résultats par immeuble = total entité, charges SCI 1000 → 500/500 sur 2 immeubles) |
 | B7 | Drill « Répartition par bien » : non ventilé (gérance) isolé + actionnable. | ✨ | ✅ v15.338 |
 
 ## C. Mouvements / Prêt
