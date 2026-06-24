@@ -16,8 +16,9 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 | A7 | **Bloquer l'import** tant que les Reconnus n'ont pas été vérifiés (scroll bas). | ✨ | ✅ v15.340 (`_bankReviewedOk` + scroll-to-bottom) |
 | A8 | **Aperçu 2044 de fin d'import** : additionne au lieu de soustraire. | ⚖️🐞 | ✅ déjà correct (formule `recettes − charges − intérêts` depuis v15.323 ; test live 58,48 €) |
 | A9 | **Règles d'import** : couple **compte + intitulé**. | 🐞 | ✅ v15.341 (colonne Compte + condition matcher) |
+| A10 | **Connexion bancaire en DIRECT via API** (sync auto des comptes au lieu du CSV manuel). Demandé 2026-06-24. | ✨ XL | ⬜ = **BANK-INTEGRATION V2** — déjà étudié (Saltedge MVP → Bridge/Powens). **Nécessite un BACKEND** (OAuth DSP2 + chiffrement tokens, impossible en offline-first), agrément AISP via prestataire, ~50h dev + **coût récurrent 30–280 €/mois**, lié à la commercialisation. Voir `docs/subjects/BANK-INTEGRATION.md`. |
 
-**→ Tout l'import bancaire (A1–A9) est traité (v15.337→341 + 2 déjà OK).**
+**→ Import CSV/OFX (A1–A9) traité + UX « compléter pas à pas » livrée v15.351. A10 = chantier V2 backend, séparé.**
 
 ## B. Finances (reporting / 2044 / dashboard)
 
