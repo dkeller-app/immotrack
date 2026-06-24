@@ -22,7 +22,7 @@
   --neutral-ink:#42506a;
   --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.07);
   --shadow-lg:0 8px 40px rgba(0,0,0,.13),0 2px 8px rgba(0,0,0,.07);
-  --shadow-hover:0 4px 20px rgba(59,126,246,.18),0 1px 4px rgba(0,0,0,.07);
+  --shadow-hover:0 4px 20px rgba(255,90,60,.16),0 1px 4px rgba(0,0,0,.07);
   --r:8px;--rl:14px;
   --sb:260px;
   --font-base:17px;
@@ -31,11 +31,11 @@
   --bg-success:rgba(22,163,74,.10);
   --bg-danger:rgba(220,38,38,.10);
   --bg-warning:rgba(234,88,12,.12);
-  --bg-info:rgba(59,126,246,.10);
+  --bg-info:rgba(66,80,106,.10);
   --fg-success:#16a34a;
   --fg-danger:#dc2626;
   --fg-warning:#ea580c;
-  --fg-info:#3b7ef6;
+  --fg-info:#42506a;
   /* ── v2 Dashboard — card shadows ── */
   --shadow-card:0 1px 2px rgba(0,0,0,.04);
   --shadow-card-hover:0 4px 16px rgba(255,90,60,.10),0 1px 3px rgba(0,0,0,.05);
@@ -148,7 +148,7 @@
   --shadow-card-hover:0 4px 18px rgba(255,90,60,.14);
 }
 
-/* ── Thème DARK BOURSORAMA (bleu nuit profond — accents bleu primaire + CTA teal) ── */
+/* ── Thème SOMBRE Propryo (fond #14161d, accent corail, surfaces détachées + bordures visibles, ombres→halos) ── */
 [data-theme="dark"] {
   color-scheme:dark;
   --bg:#14161d;
@@ -8066,7 +8066,7 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 
 .loc-avatar-b {
   width: 32px; height: 32px; border-radius: 50%;
-  background: var(--acc, #2563eb); color: #fff;
+  background: #5566aa; color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-weight: 700; font-size: 12px;
 }
