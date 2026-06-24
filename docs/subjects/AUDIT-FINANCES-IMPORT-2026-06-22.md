@@ -43,7 +43,7 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 
 | # | Item | Type | Statut |
 |---|------|------|--------|
-| D1 | Compteur **Ferrette - 101** impossible à supprimer ni modifier. | 🐞 | ⬜ |
+| D1 | Compteur **Ferrette - 101** impossible à supprimer ni modifier. | 🐞 | ✅ v15.357 (cause : id entité/immeuble **manquant, non-numérique ou DUPLIQUÉ** → `_findImm` (lookup `+id`) échoue silencieusement → TOUS les boutons compteur de cet immeuble morts. Fix : migration `_ensureEntImmIds` au chargement = backfill d'ids numériques uniques par entité, idempotent) |
 | D2 | Compteurs : permettre un **calcul** (compteur général − sous-compteur = conso d'un logement). | ✨ | ⬜ |
 
 ## E. HORS finance/loyers → AUTRE SESSION
