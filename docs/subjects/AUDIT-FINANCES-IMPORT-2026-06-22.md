@@ -24,11 +24,11 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 
 | # | Item | Type | Statut |
 |---|------|------|--------|
-| B1 | **Calcul d'enrichissement FAUX** : ajoute le capital amorti alors qu'il n'a pas été retiré du P&L → grosse différence Finances (22 916 €) vs Dashboard (37 154 €). À revoir clairement (cash-flow réel vs résultat comptable). | ⚖️🐞 | ⬜ (déjà analysé en session) |
-| B2 | **360 k€ de loyers impayés** affichés dans « Argent à récupérer » → manifestement faux (cumul sur toute la durée des baux ?). | ⚖️🐞 | ⬜ |
-| B3 | **Vacance locative** : passé ou projeté ? En Finances on ne doit prendre que la période **passée** de l'exercice. | 🐞 | ⬜ |
+| B1 | **Calcul d'enrichissement FAUX** : ajoute le capital amorti alors qu'il n'a pas été retiré du P&L → grosse différence Finances (22 916 €) vs Dashboard (37 154 €). | ⚖️🐞 | ✅ en prod & vérifié (carte « Enrichissement réel » : cash-flow réel = résultat net − capital ; enrichissement = résultat net, SANS double-compte ; `resultatNet = loyersHC − charges − régul`). À confirmer visuellement sur données réelles. |
+| B2 | **360 k€ de loyers impayés** affichés dans « Argent à récupérer » → manifestement faux (cumul sur toute la durée des baux ?). | ⚖️🐞 | ✅ v15.354 (KPI Finances impayé = exercice, **mois ÉCOULÉS seulement**, agrégé → neutralise gérance non ventilée ; le cumul vie-entière reste réservé au DG + page « Impayés actifs ») |
+| B3 | **Vacance locative** : passé ou projeté ? En Finances on ne doit prendre que la période **passée** de l'exercice. | 🐞 | ⬜ (même principe que B2 — à appliquer à la vacance) |
 | B4 | **Visu 12 mois glissants** (cash-flow) — nouvelle visualisation à concevoir. | ✨ | ⬜ |
-| B5 | **Année en cours par défaut** partout (sélecteur d'exercice). | 🐞/✨ | ⬜ |
+| B5 | **Année en cours par défaut** partout (sélecteur d'exercice). | 🐞/✨ | ✅ v15.354 (Finances : défaut = année en cours + bandeau « chiffres partiels ») |
 | B6 | **SCI à plusieurs immeubles** : pouvoir filtrer sur **un seul immeuble**. | ✨ | ⬜ |
 | B7 | Drill « Répartition par bien » : non ventilé (gérance) isolé + actionnable. | ✨ | ✅ v15.338 |
 
