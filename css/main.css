@@ -7068,16 +7068,37 @@ body[data-dash-v4="on"] .v4s-k-projection > * {
    Sinon, en sobre/coloré le texte foncé sur fond bleu nuit est illisible. */
 body[data-dash-v4="on"] .sb-nav {
   font-family: 'Inter', sans-serif;
-  background: var(--sur) !important;
-  border-right: 1px solid var(--bor) !important;
-  box-shadow: 1px 0 0 var(--bor2);
+  /* CHROME SOMBRE CONSTANT (charte + maquette validée). Fond dark + RE-SCOPE des tokens
+     → tous les enfants (nav, icônes, pastilles, headers, footer) utilisent var(--t1/--sur/...)
+     donc deviennent clairs-sur-sombre AUTOMATIQUEMENT, en mode clair ET sombre. */
+  background: #141925 !important;
+  background-image: linear-gradient(180deg,#171c29 0%,#11151f 100%) !important;
+  border-right: 1px solid rgba(255,255,255,.08) !important;
+  box-shadow: 1px 0 0 rgba(0,0,0,.28);
+  color: #aab4c6;
+  --bg: #141925;
+  --sur: #1e222c;
+  --sur2: rgba(255,255,255,.07);
+  --sur3: rgba(255,255,255,.11);
+  --bor: rgba(255,255,255,.10);
+  --bor2: rgba(255,255,255,.06);
+  --t1: #e6ebf3;
+  --t2: #aab4c6;
+  --t3: #6c778c;
+  --neutral-soft: rgba(255,255,255,.08);
+  --neutral-ink: #cdd6e3;
 }
-/* En sobre/coloré : sidebar légèrement teintée pour différencier du main */
-html[data-theme="sobre"] body[data-dash-v4="on"] .sb-nav {
-  background: #fbfcfe !important;
-}
+/* Sidebar = CHROME SOMBRE CONSTANT (charte + maquette validée) — sombre aussi en thème clair. */
+html[data-theme="sobre"] body[data-dash-v4="on"] .sb-nav,
 html[data-theme="colore"] body[data-dash-v4="on"] .sb-nav {
-  background: #fffaf5 !important;
+  background: #141925 !important;
+  background-image: linear-gradient(180deg,#171c29 0%,#11151f 100%) !important;
+}
+/* En SOMBRE : sidebar encore plus sombre que le fond (#14161d) pour la distinguer, comme la maquette. */
+html[data-theme="dark"] body[data-dash-v4="on"] .sb-nav {
+  background: #10131a !important;
+  background-image: linear-gradient(180deg,#12151d 0%,#0d1016 100%) !important;
+  --t1: #f2f5fa; --t2: #9aa6b8; --t3: #737e93;
 }
 body[data-dash-v4="on"] .v4s-sb-logo {
   font-family: 'Manrope', sans-serif;
@@ -7113,50 +7134,49 @@ body[data-dash-v4="on"] .v4s-sb-version {
   text-transform: uppercase;
 }
 body[data-dash-v4="on"] .v4s-sb-ent {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 0 4px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 8px 12px;
   border-bottom: 1px dashed var(--bor);
   margin-bottom: 10px;
 }
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e {
-  aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--sur2);
   border: 1px solid var(--bor);
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 4px;
+  padding: 3px 9px 3px 8px;
   cursor: pointer;
   position: relative;
   transition: .2s;
 }
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e:hover { border-color: rgba(255,255,255,.18); }
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e b {
-  font: 700 9.5px/1 'Manrope', sans-serif;
+  font: 800 10px/1 'Manrope', sans-serif;
   color: var(--t1);
-  letter-spacing: .03em;
+  letter-spacing: .02em;
 }
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e s {
-  font: 500 8px/1 'Inter', sans-serif;
-  color: var(--t3);
+  font: 600 9.5px/1 'Inter', sans-serif;
+  color: var(--t2);
   text-decoration: none;
 }
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e.act {
-  background: linear-gradient(135deg, rgba(255,90,60,.16), rgba(255,90,60,.10));
-  border-color: var(--cta);
-  transform: scale(1.05);
-  box-shadow: 0 0 0 3px rgba(255,90,60,.16), 0 6px 16px rgba(255,90,60,.18);
+  background: rgba(255,106,74,.20);
+  border-color: rgba(255,106,74,.55);
 }
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e.act b { color: var(--cta); }
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e.add {
   border-style: dashed;
   color: var(--t3);
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1;
+  padding: 3px 11px;
 }
 /* v15.44 — Chip "Toutes" (reset filtre entité). Look distinct : étoile + couleur cta. */
 body[data-dash-v4="on"] .v4s-sb-ent .v4s-e-all {
@@ -7195,13 +7215,13 @@ body[data-dash-v4="on"] .v4s-sb-nav .v4s-a .v4s-ic {
   width: 16px; height: 16px;
   display: inline-flex;
   justify-content: center;
-  color: var(--t3);
+  color: var(--t2);
 }
 body[data-dash-v4="on"] .v4s-sb-nav .v4s-a .v4s-ic svg {
-  width: 15px; height: 15px;
+  width: 16px; height: 16px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 1.7;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
