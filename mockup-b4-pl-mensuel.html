@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup B4 — Sous-P&L mensuel déployable (Finances) · Propryo</title>
+<title>Mockup B4 — Sous-P&L mensuel + prêt entier en charge · Propryo</title>
 <style>
   :root{
     --bg:#f4f5f8; --sur:#ffffff; --sur2:#f7f8fb; --sur3:#eef1f6;
     --bor:#e4e7ee; --bor2:rgba(0,0,0,.05);
     --t1:#101521; --t2:#3c4658; --t3:#6e7888;
     --acc:#ff5a3c; --acc-hover:#e8431f; --acc-soft:#ffe7e0;
-    --grn:#16a34a; --red:#dc2626; --warn:#F59E0B;
+    --grn:#16a34a; --red:#dc2626; --warn:#F59E0B; --blue:#2563eb;
     --r:8px; --rl:14px;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--t1);font:14px/1.5 Inter,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
   .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
   h1{font:800 22px Inter;letter-spacing:-.02em;margin:0 0 4px}
-  .lede{color:var(--t2);font-size:13.5px;margin:0 0 20px;max-width:800px}
+  .lede{color:var(--t2);font-size:13.5px;margin:0 0 18px;max-width:820px}
   .lede b{color:var(--t1)}
 
   .ctrl{position:sticky;top:0;z-index:30;background:rgba(244,245,248,.92);backdrop-filter:blur(8px);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:22px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
@@ -38,26 +38,31 @@
   .card-h h3{font-size:14px;font-weight:700;margin:0}
   .card-h .meta{font-size:11.5px;color:var(--t3);margin-left:auto}
 
-  /* P&L annuel compact */
   table.an{border-collapse:separate;border-spacing:0;width:100%;font-variant-numeric:tabular-nums}
-  table.an th,table.an td{padding:6px 18px;font-size:12.5px;text-align:right}
+  table.an th,table.an td{padding:6px 16px;font-size:12.5px;text-align:right}
   table.an thead th{font:700 10.5px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--bor)}
   table.an th:first-child,table.an td:first-child{text-align:left}
   table.an tr.grp td{background:var(--sur3);font:700 10px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);text-align:left}
   table.an tr.tot td{font-weight:700;border-top:1px solid var(--bor)}
+  table.an tr.fonc td{font-weight:700;border-top:1px solid var(--bor);background:#f3f8ff;color:var(--blue)}
   table.an tr.net td{font-weight:800;border-top:2px solid var(--t2);font-size:13px}
-  .neg{color:var(--red)} .pos{color:var(--grn)} .zero{color:var(--t3)}
+  .neg{color:var(--red)} .pos{color:var(--grn)} .zero{color:var(--t3)} .blue{color:var(--blue)}
+  .tag2044{display:inline-block;font:700 8.5px Inter;background:var(--blue);color:#fff;border-radius:5px;padding:1px 5px;vertical-align:1px;margin-left:6px;letter-spacing:.03em}
+  .taghors{display:inline-block;font:700 8.5px Inter;background:var(--sur3);color:var(--t2);border:1px solid var(--bor);border-radius:5px;padding:1px 5px;vertical-align:1px;margin-left:6px}
 
-  /* zone déployable */
+  /* colonne du bouton, ENTRE 2026 et 2025 */
+  .col-tg{width:1%;white-space:nowrap;padding:0 6px !important}
+  .toggle{display:inline-flex;align-items:center;gap:6px;background:var(--acc-soft);border:1px solid var(--acc);color:var(--acc-hover);border-radius:20px;padding:4px 11px;font:700 11.5px Inter;cursor:pointer;user-select:none;white-space:nowrap}
+  .toggle .chev{transition:transform .2s;font-size:10px}
+  .toggle.open .chev{transform:rotate(90deg)}
+  th.col-tg{vertical-align:bottom;padding-bottom:5px !important}
+
   .foot{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:11px 18px 14px;font-size:12.5px}
   .lnk{color:var(--acc);font-weight:600;cursor:pointer;text-decoration:none}
   .lnk:hover{text-decoration:underline}
-  .toggle{display:inline-flex;align-items:center;gap:7px;background:var(--acc-soft);border:1px solid var(--acc);color:var(--acc-hover);border-radius:20px;padding:5px 14px;font:700 12.5px Inter;cursor:pointer;user-select:none}
-  .toggle .chev{transition:transform .2s;font-size:11px}
-  .toggle.open .chev{transform:rotate(90deg)}
 
-  .expand{border-top:1px dashed var(--bor);background:var(--sur2);max-height:0;overflow:hidden;transition:max-height .3s ease}
-  .expand.open{max-height:1400px}
+  .expand{border-top:1px dashed var(--bor);background:var(--sur2);max-height:0;overflow:hidden;transition:max-height .35s ease}
+  .expand.open{max-height:1700px}
   .expand-in{padding:14px 0 6px}
   .expand-h{display:flex;align-items:baseline;gap:10px;padding:0 18px 4px;flex-wrap:wrap}
   .expand-h .ttl{font:800 14px Inter}
@@ -66,18 +71,14 @@
   .dir .ar{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--acc))}
   .frozhint{font-size:10.5px;color:var(--acc-hover);font-weight:600}
 
-  /* tableau mensuel : Poste + Année figés à gauche, mois défilent */
   .mscroll{overflow-x:auto;padding-bottom:6px}
   table.mo{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;min-width:100%}
-  table.mo th,table.mo td{padding:7px 10px;font-size:12px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--bor2)}
+  table.mo th,table.mo td{padding:6px 10px;font-size:12px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--bor2)}
   table.mo thead th{position:sticky;top:0;background:var(--sur2);font:700 10.5px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.02em;z-index:1}
-  /* col 1 : Poste */
-  .mo th.poste,.mo td.poste{position:sticky;left:0;z-index:3;text-align:left;background:var(--sur);min-width:178px;max-width:178px;width:178px;white-space:normal}
+  .mo th.poste,.mo td.poste{position:sticky;left:0;z-index:3;text-align:left;background:var(--sur);min-width:186px;max-width:186px;width:186px;white-space:normal}
   .mo thead th.poste{z-index:5;background:var(--sur2)}
-  /* col 2 : ANNÉE (figée à gauche, jamais cachée) */
-  .mo th.annee,.mo td.annee{position:sticky;left:178px;z-index:3;min-width:104px;width:104px;background:#eef4ff;font-weight:700;box-shadow:2px 0 0 var(--acc) inset, 6px 0 8px -6px rgba(16,21,33,.18)}
+  .mo th.annee,.mo td.annee{position:sticky;left:186px;z-index:3;min-width:104px;width:104px;background:#eef4ff;font-weight:700;box-shadow:2px 0 0 var(--acc) inset, 6px 0 8px -6px rgba(16,21,33,.18)}
   .mo thead th.annee{z-index:5;color:var(--acc-hover);background:#e6eeff}
-  /* mois */
   .mo td.mois,.mo th.mois{min-width:80px}
   .mo th.cur,.mo td.cur{background:var(--acc-soft)}
   .mo thead th.cur{color:var(--acc)}
@@ -85,6 +86,8 @@
   .mo tr.grp td.poste{background:var(--sur3)} .mo tr.grp td.annee{background:#e6eeff}
   .mo tr.tot td{font-weight:700;border-top:1px solid var(--bor)}
   .mo tr.tot td.annee{background:#e6eeff}
+  .mo tr.fonc td{font-weight:700;border-top:1px solid var(--bor);background:#f3f8ff;color:var(--blue)}
+  .mo tr.fonc td.poste{background:#f3f8ff} .mo tr.fonc td.annee{background:#e2ecff;color:var(--blue)}
   .mo tr.net td{font-weight:800;border-top:2px solid var(--t2);font-size:12.5px;background:#fbfcff}
   .mo tr.net td.poste{background:#fbfcff} .mo tr.net td.annee{background:#dfeaff}
   td.lab .mut{color:var(--t3);font-weight:400;font-size:10px}
@@ -93,14 +96,14 @@
   .exp-note b{color:var(--t1)}
 
   .caption{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--t2);line-height:1.6}
-  .caption b{color:var(--t1)} .you{color:var(--acc);font-weight:700}
+  .caption b{color:var(--t1)} .you{color:var(--acc);font-weight:700} .caption .bl{color:var(--blue);font-weight:700}
   .caption code{background:var(--sur2);border:1px solid var(--bor);border-radius:4px;padding:1px 5px;font-size:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>B4 — Détail mois par mois <span style="color:var(--acc)">·</span> déployable sous le compte de résultat</h1>
-  <p class="lede">Un bouton <b>« Détail mois par mois »</b> sous le compte de résultat le <b>déplie dans la page</b> (pas de fenêtre). La colonne <b>Année</b> reste <b>figée à gauche</b> (avec « Poste ») : tu <b>fais défiler les mois</b> à droite — mois en cours d'abord, on remonte à l'envers — <b>sans jamais perdre la colonne Année</b> de vue. Chaque mois se compare ainsi en permanence au total de l'année.</p>
+  <h1>B4 — Détail mois par mois <span style="color:var(--acc)">·</span> prêt entier en charge</h1>
+  <p class="lede">Deux changements : <b>(1)</b> le bouton « Détail mois par mois » passe <b>entre les colonnes 2026 et 2025</b> ; <b>(2)</b> on met <b>toute la mensualité de prêt en charge</b> (intérêts <span class="bl">+ capital</span>). Comme le capital n'est <b>pas déductible</b> de la 2044, on affiche deux résultats : le <span class="bl">Résultat foncier imposable (2044)</span> — intérêts seuls — et le <b>Résultat réel après prêt</b> — toute la mensualité déduite, ton vrai cash.</p>
 
   <div class="ctrl">
     <div class="grp"><span class="lbl">Format</span>
@@ -123,26 +126,29 @@
     <div class="card">
       <div class="card-h"><h3>Du 01/01/2026 au 30/06/2026 · exercice en cours</h3><span class="meta">montants réels · % = part des loyers</span></div>
       <table class="an">
-        <thead><tr><th>Poste</th><th>2026</th><th>2025</th><th>Var.</th><th>% loyers</th></tr></thead>
+        <thead><tr><th>Poste</th><th>2026</th><th class="col-tg"><span class="toggle open" id="toggle"><span class="chev">▶</span>Détail mois</span></th><th>2025</th><th>Var.</th><th>% loyers</th></tr></thead>
         <tbody>
-          <tr class="grp"><td colspan="5">Revenus locatifs</td></tr>
-          <tr><td>Loyers hors charges encaissés</td><td>15 450 €</td><td>28 200 €</td><td>—</td><td>100 %</td></tr>
-          <tr><td>Provisions sur charges encaissées</td><td>1 650 €</td><td>3 600 €</td><td>—</td><td>—</td></tr>
-          <tr class="tot"><td>Total encaissé</td><td>17 100 €</td><td>31 800 €</td><td>—</td><td>—</td></tr>
-          <tr class="grp"><td colspan="5">Charges propriétaire (non récupérables)</td></tr>
-          <tr><td>Intérêts d'emprunt</td><td>2 700 €</td><td>5 400 €</td><td>—</td><td>17,5 %</td></tr>
-          <tr><td>Taxe foncière</td><td>900 €</td><td>1 450 €</td><td>—</td><td>5,8 %</td></tr>
-          <tr><td>Travaux &amp; entretien</td><td>800 €</td><td>5 300 €</td><td>—</td><td>5,2 %</td></tr>
-          <tr><td>Honoraires &amp; gestion</td><td>1 200 €</td><td>2 400 €</td><td>—</td><td>7,8 %</td></tr>
-          <tr><td>Assurance PNO / GLI</td><td>650 €</td><td>650 €</td><td>—</td><td>4,2 %</td></tr>
-          <tr class="tot"><td>Total charges propriétaire</td><td class="neg">6 250 €</td><td class="neg">15 200 €</td><td>—</td><td>40,5 %</td></tr>
-          <tr class="net"><td>Résultat net avant impôts</td><td class="pos">+ 9 200 €</td><td>16 600 €</td><td>—</td><td>59,5 %</td></tr>
+          <tr class="grp"><td colspan="6">Revenus locatifs</td></tr>
+          <tr><td>Loyers hors charges encaissés</td><td>15 450 €</td><td class="col-tg"></td><td>28 200 €</td><td>—</td><td>100 %</td></tr>
+          <tr><td>Provisions sur charges encaissées</td><td>1 650 €</td><td class="col-tg"></td><td>3 600 €</td><td>—</td><td>—</td></tr>
+          <tr class="tot"><td>Total encaissé</td><td>17 100 €</td><td class="col-tg"></td><td>31 800 €</td><td>—</td><td>—</td></tr>
+          <tr class="grp"><td colspan="6">Charges déductibles (2044)</td></tr>
+          <tr><td>Intérêts d'emprunt</td><td>2 700 €</td><td class="col-tg"></td><td>5 400 €</td><td>—</td><td>17,5 %</td></tr>
+          <tr><td>Taxe foncière</td><td>900 €</td><td class="col-tg"></td><td>1 450 €</td><td>—</td><td>5,8 %</td></tr>
+          <tr><td>Travaux &amp; entretien</td><td>800 €</td><td class="col-tg"></td><td>5 300 €</td><td>—</td><td>5,2 %</td></tr>
+          <tr><td>Honoraires &amp; gestion</td><td>1 200 €</td><td class="col-tg"></td><td>2 400 €</td><td>—</td><td>7,8 %</td></tr>
+          <tr><td>Assurance PNO / GLI</td><td>650 €</td><td class="col-tg"></td><td>650 €</td><td>—</td><td>4,2 %</td></tr>
+          <tr class="tot"><td>Sous-total charges déductibles</td><td class="neg">6 250 €</td><td class="col-tg"></td><td class="neg">15 200 €</td><td>—</td><td>40,5 %</td></tr>
+          <tr class="fonc"><td>= Résultat foncier imposable <span class="tag2044">2044</span></td><td>+ 9 200 €</td><td class="col-tg"></td><td>+ 13 000 €</td><td>—</td><td>59,5 %</td></tr>
+          <tr class="grp"><td colspan="6">Remboursement d'emprunt — capital <span style="font-weight:400;text-transform:none;letter-spacing:0">(non déductible, hors 2044)</span></td></tr>
+          <tr><td>Capital remboursé</td><td class="neg">4 200 €</td><td class="col-tg"></td><td class="neg">8 400 €</td><td>—</td><td>27,2 %</td></tr>
+          <tr class="net"><td>Résultat réel après prêt</td><td class="pos">+ 5 000 €</td><td class="col-tg"></td><td>+ 4 600 €</td><td>—</td><td>32,4 %</td></tr>
         </tbody>
       </table>
 
       <div class="foot">
         <span class="lnk">Voir par logement →</span>
-        <span class="toggle open" id="toggle"><span class="chev">▶</span><span id="tg-label">Détail mois par mois</span></span>
+        <span style="color:var(--t3);font-size:11.5px">↑ le bouton « Détail mois » est maintenant entre 2026 et 2025</span>
       </div>
 
       <div class="expand open" id="expand">
@@ -161,26 +167,31 @@
     </div>
 
     <div class="caption">
-      <b>Intégration (réponse à ta question) :</b> un bouton <code>Détail mois par mois</code> au pied du compte de résultat le <b>déplie/replie dans la page</b> (le bouton « État » en haut simule l'ouverture). La colonne <b>Année</b> est <span class="you">figée à gauche avec « Poste »</span> — quand tu fais défiler les mois, elle reste toujours visible. Mois en cours à gauche, on remonte à l'envers vers la droite.<br>
-      <span style="font-size:11.5px;color:var(--t3)">Mockup — rien n'est codé. Lignes = celles du P&amp;L (réutilise <code>_finChargeBuckets</code> par mois). « – » = rien ce mois-là. Σ des mois = colonne Année ✔️. Périmètre entité + immeuble + poids SCI (B6) respecté.</span>
+      <b>Ce qui change :</b><br>
+      • <b>Bouton</b> « <code>▼ Détail mois</code> » déplacé <span class="you">entre les colonnes 2026 et 2025</span>, dans l'en-tête (le bouton « État » en haut simule déplier/replier). Le tableau mensuel se déplie dessous, colonne <b>Année figée à gauche</b>, les mois défilent.<br>
+      • <b>Prêt entier en charge</b> : la mensualité = <span class="bl">intérêts</span> (déductibles → ligne du <span class="bl">Résultat foncier 2044</span>) <b>+ capital</b> (non déductible → ligne séparée). Le <b>Résultat réel après prêt</b> (+ 5 000 €) déduit toute la mensualité = ton vrai cash. <span class="bl">Le Résultat foncier 2044 (+ 9 200 €) reste la base imposable</span> — on ne le perd pas, sinon l'impôt serait faux.<br>
+      <span class="you">À toi :</span> ça te va d'avoir <b>les deux résultats</b> (foncier 2044 + réel après prêt), ou tu veux <b>un seul</b> chiffre « réel après prêt » avec la 2044 reléguée à l'export ?<br>
+      <span style="font-size:11px;color:var(--t3)">Mockup — rien n'est codé. Réutilise <code>_finChargeBuckets</code> + le capital (cat « Prêt ») par mois. « – » = rien ce mois-là. Σ des mois = colonne Année. Périmètre entité/immeuble/poids SCI (B6) respecté. ⚠ Changement fiscal → audit code-reviewer au portage.</span>
     </div>
   </div>
 </div>
 
 <script>
-/* Exercice 2026 : janv → juin (mois écoulés), affichés mois courant à gauche. */
+/* Exercice 2026 : janv → juin (mois écoulés), mois courant à gauche.
+   Mensualité de prêt = intérêts (déductible) + capital (hors 2044). */
 var M = [
-  {key:'2026-01', lib:'janv. 26', hc:2800, prov:300, interets:450, taxe:900, travaux:0,   honoraires:200, assurance:0},
-  {key:'2026-02', lib:'févr. 26', hc:2800, prov:300, interets:450, taxe:0,   travaux:0,   honoraires:200, assurance:0},
-  {key:'2026-03', lib:'mars 26',  hc:2800, prov:300, interets:450, taxe:0,   travaux:800, honoraires:200, assurance:650},
-  {key:'2026-04', lib:'avr. 26',  hc:2800, prov:300, interets:450, taxe:0,   travaux:0,   honoraires:200, assurance:0},
-  {key:'2026-05', lib:'mai 26',   hc:2800, prov:300, interets:450, taxe:0,   travaux:0,   honoraires:200, assurance:0},
-  {key:'2026-06', lib:'juin 26',  hc:1450, prov:150, interets:450, taxe:0,   travaux:0,   honoraires:200, assurance:0, partiel:true}
+  {key:'2026-01', lib:'janv. 26', hc:2800, prov:300, interets:450, capital:700, taxe:900, travaux:0,   honoraires:200, assurance:0},
+  {key:'2026-02', lib:'févr. 26', hc:2800, prov:300, interets:450, capital:700, taxe:0,   travaux:0,   honoraires:200, assurance:0},
+  {key:'2026-03', lib:'mars 26',  hc:2800, prov:300, interets:450, capital:700, taxe:0,   travaux:800, honoraires:200, assurance:650},
+  {key:'2026-04', lib:'avr. 26',  hc:2800, prov:300, interets:450, capital:700, taxe:0,   travaux:0,   honoraires:200, assurance:0},
+  {key:'2026-05', lib:'mai 26',   hc:2800, prov:300, interets:450, capital:700, taxe:0,   travaux:0,   honoraires:200, assurance:0},
+  {key:'2026-06', lib:'juin 26',  hc:1450, prov:150, interets:450, capital:700, taxe:0,   travaux:0,   honoraires:200, assurance:0, partiel:true}
 ];
 M.forEach(function(m){
-  m.encaisse=m.hc+m.prov;
-  m.charges=m.interets+m.taxe+m.travaux+m.honoraires+m.assurance;
-  m.net=m.hc-m.charges;
+  m.encaisse = m.hc + m.prov;
+  m.deduc = m.interets + m.taxe + m.travaux + m.honoraires + m.assurance; // charges déductibles 2044
+  m.foncier = m.hc - m.deduc;          // = base imposable 2044
+  m.reel = m.foncier - m.capital;      // = résultat réel après TOUTE la mensualité
 });
 var CUR='2026-06';
 function fmt(n){ return Math.round(n).toLocaleString('fr-FR').replace(/ /g,' ')+' €'; }
@@ -190,18 +201,22 @@ var ROWS=[
   {lab:'Loyers hors charges encaissés', f:function(m){return m.hc;}},
   {lab:'Provisions sur charges <span class="mut">(neutres)</span>', f:function(m){return m.prov;}, mut:true},
   {tot:'Total encaissé', f:function(m){return m.encaisse;}},
-  {grp:'Charges propriétaire (non récupérables)'},
+  {grp:'Charges déductibles (2044)'},
   {lab:'Intérêts d\'emprunt', f:function(m){return m.interets;}, charge:true},
   {lab:'Taxe foncière', f:function(m){return m.taxe;}, charge:true},
   {lab:'Travaux &amp; entretien', f:function(m){return m.travaux;}, charge:true},
   {lab:'Honoraires &amp; gestion', f:function(m){return m.honoraires;}, charge:true},
   {lab:'Assurance PNO / GLI', f:function(m){return m.assurance;}, charge:true},
-  {tot:'Total charges propriétaire', f:function(m){return m.charges;}, neg:true},
-  {net:'Résultat net avant impôts', f:function(m){return m.net;}}
+  {tot:'Sous-total charges déductibles', f:function(m){return m.deduc;}, neg:true},
+  {fonc:'= Résultat foncier imposable <span class="tag2044">2044</span>', f:function(m){return m.foncier;}},
+  {grp:'Remboursement d\'emprunt — capital (hors 2044)'},
+  {lab:'Capital remboursé <span class="mut">(non déductible)</span>', f:function(m){return m.capital;}, charge:true},
+  {net:'Résultat réel après prêt', f:function(m){return m.reel;}}
 ];
 
 function val(v, r){
   if(r.net) return '<span class="'+(v>=0?'pos':'neg')+'">'+(v>=0?'+ ':'− ')+fmt(Math.abs(v))+'</span>';
+  if(r.fonc) return '<span class="blue">'+(v>=0?'+ ':'− ')+fmt(Math.abs(v))+'</span>';
   if(!v) return '<span class="zero">–</span>';
   if(r.neg) return '<span class="neg">'+fmt(v)+'</span>';
   if(r.mut) return '<span style="color:var(--t3)">'+fmt(v)+'</span>';
@@ -209,7 +224,7 @@ function val(v, r){
 }
 
 function paint(){
-  var months=M.slice().reverse(); // mois courant à gauche
+  var months=M.slice().reverse();
   var thead='<thead><tr><th class="poste">Poste</th><th class="annee">Année 2026</th>';
   months.forEach(function(m){
     thead+='<th class="mois'+(m.key===CUR?' cur':'')+'">'+m.lib+(m.partiel?'<br><span class="mini">en cours</span>':'')+'</th>';
@@ -219,28 +234,25 @@ function paint(){
   var tb='<tbody>';
   ROWS.forEach(function(r){
     if(r.grp){ tb+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="annee"></td><td colspan="'+months.length+'"></td></tr>'; return; }
-    var cls=r.tot?'tot':(r.net?'net':'');
-    var label=r.lab||r.tot||r.net;
+    var cls=r.tot?'tot':(r.fonc?'fonc':(r.net?'net':''));
+    var label=r.lab||r.tot||r.fonc||r.net;
     var annee=months.reduce(function(a,m){return a+r.f(m);},0);
     tb+='<tr class="'+cls+'"><td class="poste lab">'+label+'</td><td class="annee">'+val(annee,r)+'</td>';
-    months.forEach(function(m){
-      tb+='<td class="mois'+(m.key===CUR?' cur':'')+'">'+val(r.f(m),r)+'</td>';
-    });
+    months.forEach(function(m){ tb+='<td class="mois'+(m.key===CUR?' cur':'')+'">'+val(r.f(m),r)+'</td>'; });
     tb+='</tr>';
   });
   tb+='</tbody>';
   document.getElementById('tbl').innerHTML=thead+tb;
 
-  var totNet=M.reduce(function(a,m){return a+m.net;},0);
+  var sFonc=M.reduce(function(a,m){return a+m.foncier;},0);
+  var sReel=M.reduce(function(a,m){return a+m.reel;},0);
   document.getElementById('exp-note').innerHTML=
-    'La colonne <b>Année</b> (figée) = Σ des mois = <b>'+(totNet>=0?'+ ':'− ')+fmt(Math.abs(totNet))+'</b>, identique au compte de résultat annuel ✔️. '
-    +'« – » = aucun mouvement ce mois-là (ex. l\'assurance ne tombe qu\'en mars). Cliquer une ligne ouvrira le détail des mouvements.';
+    'Colonne <b>Année</b> (figée) = Σ des mois. <span class="blue" style="font-weight:700">Résultat foncier 2044 = + '+fmt(sFonc).replace(' €','')+' €</span> (base imposable, intérêts seuls déductibles ✔️) · <b>Résultat réel après prêt = + '+fmt(sReel).replace(' €','')+' €</b> (toute la mensualité déduite). « – » = aucun mouvement ce mois-là.';
 }
 
 function setExpand(open){
   document.getElementById('expand').classList.toggle('open',open);
   document.getElementById('toggle').classList.toggle('open',open);
-  document.getElementById('tg-label').textContent = open?'Détail mois par mois':'Détail mois par mois';
 }
 document.getElementById('toggle').addEventListener('click',function(){
   var open=!document.getElementById('expand').classList.contains('open');
