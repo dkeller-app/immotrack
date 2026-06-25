@@ -81,6 +81,12 @@
   .left tr.net .y26{background:#d6e4fc}
   .pane tr.info td{font-size:10.5px;color:var(--blue);background:#fafcff;border-top:1px dashed #cfe0fb;font-weight:600}
   .left tr.info .y26{background:#e9f1ff}
+  /* 2044 grisée quand intérêts non renseignés */
+  .pane tr.info.locked td{color:var(--t3);background:#f5f6f8;border-top:1px dashed var(--bor)}
+  .left tr.info.locked .y26{background:#eef0f3;color:var(--t3);font-weight:600}
+  .left tr.info.locked .tag2044{background:var(--t3)}
+  .info-cta{color:var(--acc);font-weight:700;cursor:pointer;text-decoration:underline}
+  .info-cta:hover{color:var(--acc-hover)}
   .neg{color:var(--red)} .pos{color:var(--grn)} .zero{color:var(--t3)} .blue{color:var(--blue)}
   .left td.lab{position:relative}
   .left .sub{display:block;color:var(--t3);font-weight:400;font-size:10px;margin-top:1px}
@@ -120,6 +126,11 @@
       <button data-d="pc" class="on">🖥 PC</button>
       <button data-d="tab">📱 Tablette</button>
       <button data-d="mob">📲 Tél.</button>
+    </div>
+    <span class="lbl">Intérêts d'emprunt</span>
+    <div class="seg" id="seg-int">
+      <button data-i="no" class="on">Non renseignés</button>
+      <button data-i="yes">Renseignés</button>
     </div>
   </div>
 
@@ -196,8 +207,11 @@ function varOf(r){ if(r.grp||r.mut) return r.mut?'<span class="zero">—</span>'
   var p=(n-n1)/n1*100; return '<span class="'+(p>=0?'pos':'neg')+'">'+(p>=0?'+':'−')+Math.abs(Math.round(p*10)/10).toString().replace('.',',')+' %</span>'; }
 function pctOf(r){ if(r.grp||r.mut) return r.mut?'<span class="zero">—</span>':''; return (Math.round(y26(r)/15450*1000)/10).toString().replace('.',',')+' %'; }
 function rc(r){ return r.tot?'tot':(r.net?'net':(r.info?'info':'')); }
+function isLocked(r){ return r.info && !STATE.intOk; }   // 2044 indisponible si intérêts non renseignés
+var DASH='<span class="zero">–</span>';
+var LOCKED_LABEL='Base imposable <span class="tag2044">2044</span> <span class="sub" style="color:var(--t3)">🔒 <span class="info-cta">renseigne tes intérêts d\'emprunt</span> pour la calculer</span>';
 
-var STATE={exp:true, dev:'pc'};
+var STATE={exp:true, dev:'pc', intOk:false};
 var MONTHS=M.slice().reverse();
 
 function paint(){
@@ -208,7 +222,9 @@ function paint(){
   var L='<thead><tr><th class="poste">Poste</th><th class="y26">Année 2026</th></tr></thead><tbody>';
   ROWS.forEach(function(r){
     if(r.grp){ L+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="y26"></td></tr>'; return; }
-    L+='<tr class="'+rc(r)+'"><td class="poste lab">'+(r.lab||r.tot||r.net||r.info)+'</td><td class="y26">'+val(y26(r),r)+'</td></tr>';
+    var lk=isLocked(r);
+    var label = lk ? LOCKED_LABEL : (r.lab||r.tot||r.net||r.info);
+    L+='<tr class="'+rc(r)+(lk?' locked':'')+'"><td class="poste lab">'+label+'</td><td class="y26">'+(lk?DASH:val(y26(r),r))+'</td></tr>';
   });
   L+='</tbody>';
   document.getElementById('p-left').innerHTML=L;
@@ -217,7 +233,8 @@ function paint(){
   var Mid='<thead><tr>'+MONTHS.map(function(m){return '<th class="mo'+(m.key===CUR?' cur':'')+'">'+m.lib+(m.partiel?'<br><span class="mini">en cours</span>':'')+'</th>';}).join('')+'</tr></thead><tbody>';
   ROWS.forEach(function(r){
     if(r.grp){ Mid+='<tr class="grp">'+MONTHS.map(function(){return '<td class="mo"></td>';}).join('')+'</tr>'; return; }
-    Mid+='<tr class="'+rc(r)+'">'+MONTHS.map(function(m){return '<td class="mo'+(m.key===CUR?' cur':'')+'">'+val(r.fm(m),r)+'</td>';}).join('')+'</tr>';
+    var lk=isLocked(r);
+    Mid+='<tr class="'+rc(r)+(lk?' locked':'')+'">'+MONTHS.map(function(m){return '<td class="mo'+(m.key===CUR?' cur':'')+'">'+(lk?DASH:val(r.fm(m),r))+'</td>';}).join('')+'</tr>';
   });
   Mid+='</tbody>';
   document.getElementById('p-mid').innerHTML=Mid;
@@ -226,7 +243,8 @@ function paint(){
   var R='<thead><tr><th class="y25">2025<br><span class="mini">janv→juin</span></th><th class="var">Var.</th><th class="pct">% loyers</th></tr></thead><tbody>';
   ROWS.forEach(function(r){
     if(r.grp){ R+='<tr class="grp"><td class="y25"></td><td class="var"></td><td class="pct"></td></tr>'; return; }
-    R+='<tr class="'+rc(r)+'"><td class="y25">'+val(r.y25!=null?r.y25:0,r)+'</td><td class="var">'+varOf(r)+'</td><td class="pct">'+pctOf(r)+'</td></tr>';
+    var lk=isLocked(r);
+    R+='<tr class="'+rc(r)+(lk?' locked':'')+'"><td class="y25">'+(lk?DASH:val(r.y25!=null?r.y25:0,r))+'</td><td class="var">'+(lk?DASH:varOf(r))+'</td><td class="pct">'+(lk?DASH:pctOf(r))+'</td></tr>';
   });
   R+='</tbody>';
   document.getElementById('p-right').innerHTML=R;
@@ -238,7 +256,9 @@ function paint(){
   var sR=M.reduce(function(a,m){return a+m.reel;},0), sB=M.reduce(function(a,m){return a+m.base2044;},0);
   document.getElementById('foot').innerHTML=
     'Colonne <b>Année</b> = Σ des mois (panneau figé à gauche). <b>Résultat réel après prêt = + '+fmt(sR).replace(' €','')+' €</b>. '
-    +'<span class="blue">Base imposable 2044 = + '+fmt(sB).replace(' €','')+' €</span> (intérêts seuls déductibles). '
+    +(STATE.intOk
+        ? '<span class="blue">Base imposable 2044 = + '+fmt(sB).replace(' €','')+' €</span> (intérêts seuls déductibles). '
+        : '<span style="color:var(--t3)">🔒 Base imposable 2044 indisponible — <span class="info-cta">renseigne tes intérêts d\'emprunt</span> (seuls les intérêts sont déductibles, pas le capital). </span>')
     +'<b>2025</b> et <b>Var.</b> = même période janv→juin → comparaison juste. « – » = aucun mouvement ce mois-là.';
 
   var tg=document.getElementById('toggle'), sh=document.getElementById('slidehint');
@@ -260,6 +280,10 @@ function syncRows(mobile, exp){
 }
 
 document.getElementById('toggle').addEventListener('click',function(){ if(STATE.dev==='mob')return; STATE.exp=!STATE.exp; paint(); });
+document.getElementById('seg-int').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return;
+  [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');}); b.classList.add('on');
+  STATE.intOk=b.getAttribute('data-i')==='yes'; paint();
+});
 document.getElementById('seg-dev').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return;
   [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');}); b.classList.add('on');
   STATE.dev=b.getAttribute('data-d'); document.getElementById('device').className='device '+STATE.dev; paint();
