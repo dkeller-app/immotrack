@@ -55,21 +55,20 @@
   .tscroll::-webkit-scrollbar-track{background:var(--sur3)}
   .tscroll::-webkit-scrollbar-thumb{background:var(--acc);border-radius:8px;border:3px solid var(--sur3)}
   .tscroll::-webkit-scrollbar-thumb:hover{background:var(--acc-hover)}
-  table.pl{border-collapse:separate;border-spacing:0;width:100%;font-variant-numeric:tabular-nums}
-  table.pl th,table.pl td{padding:7px 14px;font-size:12.5px;text-align:right;white-space:nowrap}
+  table.pl{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;font-variant-numeric:tabular-nums}
+  table.pl.expanded{width:max-content;min-width:100%}
+  table.pl th,table.pl td{padding:7px 14px;font-size:12.5px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   table.pl thead th{font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bor);background:var(--sur);vertical-align:bottom;padding-bottom:8px}
-  /* gelé gauche : Poste + Année */
-  td.poste,th.poste{position:sticky;left:0;z-index:4;text-align:left;white-space:normal;min-width:188px;max-width:188px;width:188px;background:var(--sur)}
-  td.y26,th.y26{position:sticky;left:188px;z-index:4;min-width:100px;background:var(--blue-soft);font-weight:700;box-shadow:inset 3px 0 0 -1px transparent}
+  /* largeurs EXACTES (table-layout:fixed) → ancrages sticky pixel-parfaits, aucun décalage */
+  td.poste,th.poste{position:sticky;left:0;z-index:4;text-align:left;white-space:normal;width:188px;background:var(--sur)}
+  td.y26,th.y26{position:sticky;left:188px;z-index:4;width:104px;background:var(--blue-soft);font-weight:700;border-right:1px solid #d7e3fb}
   thead th.y26{color:var(--blue);background:#e4eeff}
-  td.y26{border-right:1px solid #d7e3fb}
-  /* gelé droite : 2025 (même période) + Var + % */
-  td.pct,th.pct{position:sticky;right:0;z-index:4;min-width:78px;background:var(--sur)}
-  td.var,th.var{position:sticky;right:78px;z-index:4;min-width:70px;background:var(--sur)}
-  td.y25,th.y25{position:sticky;right:148px;z-index:4;min-width:104px;background:var(--sur);box-shadow:inset 1px 0 0 var(--bor)}
-  thead th.y25{box-shadow:inset 1px 0 0 var(--bor)}
+  /* gelé droite : 2025 (même période) + Var + % — offsets = somme exacte des largeurs à droite */
+  td.pct,th.pct{position:sticky;right:0;z-index:4;width:86px;background:var(--sur)}
+  td.var,th.var{position:sticky;right:86px;z-index:4;width:88px;background:var(--sur)}
+  td.y25,th.y25{position:sticky;right:174px;z-index:4;width:110px;background:var(--sur);box-shadow:inset 1px 0 0 var(--bor)}
   /* mois (défilent au milieu) */
-  td.mo,th.mo{min-width:104px;background:#fffcfb}
+  td.mo,th.mo{width:104px;background:#fffcfb}
   td.mo.cur,th.mo.cur{background:var(--acc-soft)}
   thead th.mo{color:var(--t2)} thead th.mo.cur{color:var(--acc-hover)}
   .mini{font-size:9px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0}
@@ -94,19 +93,19 @@
   .foot{padding:11px 18px 15px;font-size:11px;color:var(--t2);line-height:1.55;border-top:1px solid var(--bor2)}
   .foot b{color:var(--t1)} .foot .blue{color:var(--blue);font-weight:700}
 
-  /* TABLETTE */
+  /* TABLETTE : largeurs + offsets exacts */
   .device.tab table.pl th,.device.tab table.pl td{padding:6px 9px;font-size:11.5px}
-  .device.tab td.poste,.device.tab th.poste{min-width:150px;max-width:150px;width:150px}
-  .device.tab td.y26,.device.tab th.y26{left:150px;min-width:78px}
-  .device.tab td.y25,.device.tab th.y25{right:118px;min-width:84px}
-  .device.tab td.var,.device.tab th.var{right:60px;min-width:58px}
-  .device.tab td.pct,.device.tab th.pct{min-width:60px}
-  .device.tab td.mo,.device.tab th.mo{min-width:84px}
+  .device.tab td.poste,.device.tab th.poste{width:150px}
+  .device.tab td.y26,.device.tab th.y26{left:150px;width:84px}
+  .device.tab td.mo,.device.tab th.mo{width:88px}
+  .device.tab td.y25,.device.tab th.y25{right:134px;width:92px}
+  .device.tab td.var,.device.tab th.var{right:64px;width:70px}
+  .device.tab td.pct,.device.tab th.pct{right:0;width:64px}
   /* TÉLÉPHONE : annuel condensé, rien de gelé à droite, tient sans scroll */
   .device.mob table.pl th,.device.mob table.pl td{padding:5px 7px;font-size:10.5px}
-  .device.mob td.poste,.device.mob th.poste{min-width:92px;max-width:92px;width:92px}
-  .device.mob td.y26,.device.mob th.y26{left:92px;min-width:58px}
-  .device.mob td.y25,.device.mob th.y25,.device.mob td.var,.device.mob th.var,.device.mob td.pct,.device.mob th.pct{position:static;min-width:0}
+  .device.mob td.poste,.device.mob th.poste{width:92px}
+  .device.mob td.y26,.device.mob th.y26{left:92px;width:58px}
+  .device.mob td.y25,.device.mob th.y25,.device.mob td.var,.device.mob th.var,.device.mob td.pct,.device.mob th.pct{position:static;width:auto}
   .device.mob td.lab .sub,.device.mob td.lab .smut{display:none}
 
   .caption{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--t2);line-height:1.6}
@@ -231,7 +230,9 @@ function paint(){
     tb+='<td class="y25">'+val(r.y25!=null?r.y25:0,r)+'</td><td class="var">'+varOf(r)+'</td><td class="pct">'+pctOf(r)+'</td></tr>';
   });
   tb+='</tbody>';
-  document.getElementById('tbl').innerHTML=thead+tb;
+  var tbl=document.getElementById('tbl');
+  tbl.innerHTML=thead+tb;
+  tbl.className = exp ? 'pl expanded' : 'pl';
 
   var sR=M.reduce(function(a,m){return a+m.reel;},0), sB=M.reduce(function(a,m){return a+m.base2044;},0);
   document.getElementById('foot').innerHTML=
