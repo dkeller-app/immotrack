@@ -171,10 +171,11 @@ function rowClass(r){ return r.tot?'tot':(r.net?'net':(r.info?'info':'')); }
 
 var REV=M.slice().reverse();
 var PAGES=[]; for(var i=0;i<REV.length;i+=4){ PAGES.push(REV.slice(i,i+4)); }
-var STATE={exp:true, page:0};
+var STATE={exp:true, page:0, dev:'pc'};
 
 function paint(){
-  var exp=STATE.exp;
+  var mobile=STATE.dev==='mob';          // téléphone : pas de détail mensuel (sinon N-1 hors écran)
+  var exp=mobile?false:STATE.exp;
   var pg=PAGES[STATE.page]||[];
   var thead='<thead>';
   if(exp){
@@ -191,20 +192,19 @@ function paint(){
     }
     thead+='</tr>';
   } else {
-    thead+='<tr><th class="poste">Poste</th><th class="y26">Année 2026</th>'
-      +'<th class="tg"><span class="toggle" id="toggle"><span class="chev">▶</span>Détail&nbsp;mois</span></th>'
-      +'<th>2025</th><th>Var.</th><th>% loyers</th></tr>';
+    var tgTh = mobile ? '' : '<th class="tg"><span class="toggle" id="toggle"><span class="chev">▶</span>Détail&nbsp;mois</span></th>';
+    thead+='<tr><th class="poste">Poste</th><th class="y26">Année 2026</th>'+tgTh+'<th>2025</th><th>Var.</th><th>% loyers</th></tr>';
   }
   thead+='</thead>';
 
   var tb='<tbody>';
   ROWS.forEach(function(r){
-    if(r.grp){ tb+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="y26"></td><td colspan="'+((exp?4:1)+3)+'"></td></tr>'; return; }
+    if(r.grp){ tb+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="y26"></td><td colspan="'+((exp?4:(mobile?0:1))+3)+'"></td></tr>'; return; }
     var label=r.lab||r.tot||r.net||r.info;
     tb+='<tr class="'+rowClass(r)+'"><td class="poste lab">'+label+'</td><td class="y26">'+val(y26(r),r)+'</td>';
     if(exp){ for(var k2=0;k2<4;k2++){ var mm=pg[k2];
       tb+= mm? '<td class="mo'+(mm.key===CUR?' cur':'')+'">'+val(r.fm(mm),r)+'</td>' : '<td class="mo empty"></td>';
-    } } else { tb+='<td class="tg"></td>'; }
+    } } else if(!mobile){ tb+='<td class="tg"></td>'; }
     var y25=r.y25!=null?r.y25:0;
     tb+='<td>'+val(y25,r)+'</td><td class="zero">—</td><td>'+pctOf(r)+'</td></tr>';
   });
@@ -216,7 +216,9 @@ function paint(){
     'Colonne <b>Année</b> = Σ des 12 mois (figée à gauche). <b>Résultat réel après prêt = + '+fmt(sR).replace(' €','')+' €</b> (toute la mensualité déduite). '
     +'<span class="blue">Base imposable 2044 = + '+fmt(sB).replace(' €','')+' €</span> (intérêts seuls déductibles, le capital n\'entre pas dans l\'impôt). « – » = aucun mouvement ce mois-là.';
 
-  if(exp){
+  if(mobile){
+    document.getElementById('foot').innerHTML += ' <br><b>📱 Sur téléphone</b>, le détail mois par mois est masqué pour garder l\'année N-1 (2025) lisible — il reste dispo sur PC et tablette.';
+  } else if(exp){
     var bo=document.getElementById('nav-old'), bn=document.getElementById('nav-new');
     bo.disabled=STATE.page>=PAGES.length-1; bn.disabled=STATE.page<=0;
     bo.onclick=function(){ if(STATE.page<PAGES.length-1){STATE.page++;paint();} };
@@ -234,7 +236,11 @@ function setExp(v){ STATE.exp=v;
 document.getElementById('seg-exp').addEventListener('click',function(e){ var b=e.target.closest('button'); if(b)setExp(b.getAttribute('data-e')==='open'); });
 document.getElementById('seg-dev').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return;
   [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');}); b.classList.add('on');
-  document.getElementById('device').className='device '+b.getAttribute('data-d');
+  STATE.dev=b.getAttribute('data-d');
+  document.getElementById('device').className='device '+STATE.dev;
+  var se=document.getElementById('seg-exp'); var mob=STATE.dev==='mob';
+  se.style.opacity=mob?'.35':''; se.style.pointerEvents=mob?'none':'';
+  paint();
 });
 paint();
 </script>
