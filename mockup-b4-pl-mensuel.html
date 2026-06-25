@@ -3,95 +3,111 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup B4 — Détail mensuel intercalé (4 mois) · prêt entier · Propryo</title>
+<title>Mockup B4 — Détail mensuel, slider + 2025 même période · Propryo</title>
 <style>
   :root{
     --bg:#f4f5f8; --sur:#ffffff; --sur2:#f7f8fb; --sur3:#eef1f6;
-    --bor:#e4e7ee; --bor2:rgba(0,0,0,.05);
+    --bor:#e4e7ee; --bor2:#eef0f5;
     --t1:#101521; --t2:#3c4658; --t3:#6e7888;
-    --acc:#ff5a3c; --acc-hover:#e8431f; --acc-soft:#ffe7e0;
-    --grn:#16a34a; --red:#dc2626; --warn:#F59E0B; --blue:#2563eb;
+    --acc:#ff5a3c; --acc-hover:#e8431f; --acc-soft:#ffeee9;
+    --grn:#16a34a; --red:#dc2626; --warn:#F59E0B; --blue:#2563eb; --blue-soft:#eef4ff;
     --r:8px; --rl:14px;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--t1);font:14px/1.5 Inter,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
   .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
   h1{font:800 22px Inter;letter-spacing:-.02em;margin:0 0 4px}
-  .lede{color:var(--t2);font-size:13.5px;margin:0 0 18px;max-width:830px}
+  .lede{color:var(--t2);font-size:13.5px;margin:0 0 18px;max-width:840px}
   .lede b{color:var(--t1)}
 
   .ctrl{position:sticky;top:0;z-index:30;background:rgba(244,245,248,.92);backdrop-filter:blur(8px);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:22px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
-  .ctrl .grp{display:flex;align-items:center;gap:8px}
   .ctrl .lbl{font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
   .seg{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:3px;gap:2px}
-  .seg button{border:none;background:none;font:600 12.5px Inter;color:var(--t2);padding:6px 13px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:.12s}
+  .seg button{border:none;background:none;font:600 12.5px Inter;color:var(--t2);padding:6px 13px;border-radius:7px;cursor:pointer;white-space:nowrap}
   .seg button.on{background:var(--sur);color:var(--t1);box-shadow:0 1px 3px rgba(16,21,33,.12);font-weight:700}
 
-  .device{margin:0 auto;transition:max-width .25s ease}
+  .device{margin:0 auto;transition:max-width .2s ease}
   .device.pc{max-width:1140px}
   .device.tab{max-width:760px}
   .device.mob{max-width:380px}
 
   .sec-title{font:700 12px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin:0 0 8px}
-  .card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:0 1px 2px rgba(16,21,33,.04);overflow:hidden}
-  .card-h{display:flex;align-items:baseline;gap:10px;padding:14px 18px 8px}
+  .card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:0 1px 3px rgba(16,21,33,.05);overflow:hidden}
+  .card-h{display:flex;align-items:center;gap:12px;padding:15px 18px 12px;flex-wrap:wrap}
   .card-h h3{font-size:14px;font-weight:700;margin:0}
-  .card-h .meta{font-size:11.5px;color:var(--t3);margin-left:auto}
+  .card-h .meta{font-size:11px;color:var(--t3);margin-left:auto}
 
-  .tscroll{overflow-x:auto}
+  /* toggle discret du détail mensuel */
+  .dtoggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font:600 12px Inter;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:20px;padding:5px 12px 5px 10px}
+  .dtoggle:hover{border-color:var(--acc);color:var(--acc-hover)}
+  .dtoggle .pill{width:30px;height:17px;border-radius:10px;background:var(--sur3);position:relative;transition:.18s;flex:none}
+  .dtoggle .pill::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:.18s}
+  .dtoggle.on{color:var(--acc-hover);border-color:var(--acc)}
+  .dtoggle.on .pill{background:var(--acc)}
+  .dtoggle.on .pill::after{left:15px}
+
+  .slidehint{font-size:10.5px;color:var(--acc-hover);font-weight:600;display:none;align-items:center;gap:5px}
+  .slidehint.show{display:inline-flex}
+
+  /* table */
+  .tscroll{overflow-x:auto;scrollbar-color:var(--acc) var(--sur3)}
+  .tscroll::-webkit-scrollbar{height:13px}
+  .tscroll::-webkit-scrollbar-track{background:var(--sur3)}
+  .tscroll::-webkit-scrollbar-thumb{background:var(--acc);border-radius:8px;border:3px solid var(--sur3)}
+  .tscroll::-webkit-scrollbar-thumb:hover{background:var(--acc-hover)}
   table.pl{border-collapse:separate;border-spacing:0;width:100%;font-variant-numeric:tabular-nums}
-  table.pl th,table.pl td{padding:6px 12px;font-size:12.5px;text-align:right;white-space:nowrap}
-  table.pl thead th{font:700 10.5px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--bor);background:var(--sur);vertical-align:middle}
-  table.pl td.poste,table.pl th.poste{text-align:left;white-space:normal;min-width:188px;max-width:188px;width:188px;position:sticky;left:0;z-index:2;background:var(--sur)}
-  table.pl td.y26,table.pl th.y26{position:sticky;left:188px;z-index:2;background:#eef4ff;font-weight:700;min-width:98px;box-shadow:6px 0 8px -7px rgba(16,21,33,.18)}
-  table.pl thead th.y26{color:var(--acc-hover);background:#e6eeff}
+  table.pl th,table.pl td{padding:7px 14px;font-size:12.5px;text-align:right;white-space:nowrap}
+  table.pl thead th{font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bor);background:var(--sur);vertical-align:bottom;padding-bottom:8px}
+  /* gelé gauche : Poste + Année */
+  td.poste,th.poste{position:sticky;left:0;z-index:4;text-align:left;white-space:normal;min-width:188px;max-width:188px;width:188px;background:var(--sur)}
+  td.y26,th.y26{position:sticky;left:188px;z-index:4;min-width:100px;background:var(--blue-soft);font-weight:700;box-shadow:inset 3px 0 0 -1px transparent}
+  thead th.y26{color:var(--blue);background:#e4eeff}
+  td.y26{border-right:1px solid #d7e3fb}
+  /* gelé droite : 2025 (même période) + Var + % */
+  td.pct,th.pct{position:sticky;right:0;z-index:4;min-width:78px;background:var(--sur)}
+  td.var,th.var{position:sticky;right:78px;z-index:4;min-width:70px;background:var(--sur)}
+  td.y25,th.y25{position:sticky;right:148px;z-index:4;min-width:104px;background:var(--sur);box-shadow:inset 1px 0 0 var(--bor)}
+  thead th.y25{box-shadow:inset 1px 0 0 var(--bor)}
+  /* mois (défilent au milieu) */
+  td.mo,th.mo{min-width:104px;background:#fffcfb}
+  td.mo.cur,th.mo.cur{background:var(--acc-soft)}
+  thead th.mo{color:var(--t2)} thead th.mo.cur{color:var(--acc-hover)}
+  .mini{font-size:9px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0}
 
-  th.mo,td.mo{min-width:82px;background:#fffaf8}
-  th.mo.cur,td.mo.cur{background:var(--acc-soft)}
-  thead th.mo{color:var(--t2)} thead th.mo.cur{color:var(--acc)}
-  td.mo.empty,th.mo.empty{background:#fbfbfc}
-  .mini{font-size:9px;color:var(--t3);font-weight:400}
-  th.monav{background:var(--sur2);border-bottom:1px solid var(--bor);padding:5px 8px}
-  .nav{display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
-  .nav .rng{font:800 11px Inter;color:var(--acc-hover);letter-spacing:.02em;text-transform:none}
-  .nav button{width:24px;height:24px;border-radius:7px;border:1px solid var(--bor);background:var(--sur);color:var(--t2);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
-  .nav button:disabled{opacity:.32;cursor:default}
-  .nav .close{margin-left:4px;color:var(--t3);border:none;background:none;font-size:14px;width:auto;height:auto;cursor:pointer}
-
-  th.tg,td.tg{padding:0 6px;width:1%}
-  th.tg{vertical-align:middle}
-  .toggle{display:inline-flex;align-items:center;gap:6px;background:var(--acc-soft);border:1px solid var(--acc);color:var(--acc-hover);border-radius:20px;padding:4px 11px;font:700 11.5px Inter;cursor:pointer;user-select:none;white-space:nowrap}
-  .toggle .chev{font-size:10px}
-
-  tr.grp td{background:var(--sur3);font:700 10px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);text-align:left}
-  tr.grp td.poste{background:var(--sur3)} tr.grp td.y26{background:#e6eeff}
-  tr.tot td{font-weight:700;border-top:1px solid var(--bor)} tr.tot td.y26{background:#e6eeff}
-  tr.net td{font-weight:800;border-top:2px solid var(--t2);font-size:13px;background:#fbfcff}
-  tr.net td.poste{background:#fbfcff} tr.net td.y26{background:#dfeaff}
-  /* ligne info 2044 (discrète, sous le résultat) */
-  tr.info td{font-size:11px;color:var(--blue);background:#f5f9ff;border-top:1px dashed #c7dbff;font-weight:600}
-  tr.info td.poste{background:#f5f9ff} tr.info td.y26{background:#eaf2ff}
+  tr.grp td{background:var(--sur3);font:700 9.5px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);text-align:left}
+  tr.grp td.poste{background:var(--sur3)} tr.grp td.y26{background:#dfe9fb} tr.grp td.mo{background:var(--sur3)}
+  tr.grp td.y25,tr.grp td.var,tr.grp td.pct{background:var(--sur3)}
+  tr.tot td{font-weight:700;border-top:1px solid var(--bor);background:#fcfdff}
+  tr.tot td.poste{background:#fcfdff} tr.tot td.y26{background:#dfe9fb} tr.tot td.mo{background:#fcfbfa}
+  tr.tot td.y25,tr.tot td.var,tr.tot td.pct{background:#fcfdff}
+  tr.net td{font-weight:800;border-top:2px solid var(--t1);font-size:13px;background:#f6f9ff}
+  tr.net td.poste{background:#f6f9ff} tr.net td.y26{background:#d6e4fc} tr.net td.mo{background:#f6f8ff}
+  tr.net td.y25,tr.net td.var,tr.net td.pct{background:#f6f9ff}
+  tr.info td{font-size:10.5px;color:var(--blue);background:#fafcff;border-top:1px dashed #cfe0fb;font-weight:600}
+  tr.info td.poste{background:#fafcff} tr.info td.y26{background:#e9f1ff} tr.info td.mo{background:#fafcff}
+  tr.info td.y25,tr.info td.var,tr.info td.pct{background:#fafcff}
   .neg{color:var(--red)} .pos{color:var(--grn)} .zero{color:var(--t3)} .blue{color:var(--blue)}
-  td.lab .mut{color:var(--t3);font-weight:400;font-size:10px}
   td.lab .sub{display:block;color:var(--t3);font-weight:400;font-size:10px;margin-top:1px}
-  .tag2044{display:inline-block;font:700 8.5px Inter;background:var(--blue);color:#fff;border-radius:5px;padding:1px 5px;vertical-align:1px;margin-left:6px;letter-spacing:.03em}
+  td.lab .smut{color:var(--t3);font-weight:400;font-size:10px}
+  .tag2044{display:inline-block;font:700 8.5px Inter;background:var(--blue);color:#fff;border-radius:5px;padding:1px 5px;vertical-align:1px;margin-left:6px}
 
-  /* colonne tampon : absorbe le vide à droite → colonnes collées à gauche, pas de trou */
-  table.pl td.spacer,table.pl th.spacer{width:100%;min-width:24px;padding:0;border:none;background:transparent}
-  tr.tot{background:#fff} tr.net{background:#fbfcff} tr.info{background:#f5f9ff}
-  /* TABLETTE : condensé pour tenir sur l'écran */
-  .device.tab table.pl th,.device.tab table.pl td{padding:5px 7px;font-size:11px}
-  .device.tab td.poste,.device.tab th.poste{min-width:140px;max-width:140px;width:140px}
-  .device.tab td.y26,.device.tab th.y26{left:140px;min-width:72px}
-  .device.tab th.mo,.device.tab td.mo{min-width:56px}
-  /* TÉLÉPHONE : annuel condensé, tient sans scroll horizontal */
-  .device.mob table.pl th,.device.mob table.pl td{padding:4px 6px;font-size:10.5px}
-  .device.mob td.poste,.device.mob th.poste{min-width:92px;max-width:92px;width:92px}
-  .device.mob td.y26,.device.mob th.y26{left:92px;min-width:56px;box-shadow:none}
-  .device.mob td.lab .sub,.device.mob td.lab .mut{display:none}
-
-  .foot{padding:10px 18px 14px;font-size:11px;color:var(--t2);line-height:1.5}
+  .foot{padding:11px 18px 15px;font-size:11px;color:var(--t2);line-height:1.55;border-top:1px solid var(--bor2)}
   .foot b{color:var(--t1)} .foot .blue{color:var(--blue);font-weight:700}
+
+  /* TABLETTE */
+  .device.tab table.pl th,.device.tab table.pl td{padding:6px 9px;font-size:11.5px}
+  .device.tab td.poste,.device.tab th.poste{min-width:150px;max-width:150px;width:150px}
+  .device.tab td.y26,.device.tab th.y26{left:150px;min-width:78px}
+  .device.tab td.y25,.device.tab th.y25{right:118px;min-width:84px}
+  .device.tab td.var,.device.tab th.var{right:60px;min-width:58px}
+  .device.tab td.pct,.device.tab th.pct{min-width:60px}
+  .device.tab td.mo,.device.tab th.mo{min-width:84px}
+  /* TÉLÉPHONE : annuel condensé, rien de gelé à droite, tient sans scroll */
+  .device.mob table.pl th,.device.mob table.pl td{padding:5px 7px;font-size:10.5px}
+  .device.mob td.poste,.device.mob th.poste{min-width:92px;max-width:92px;width:92px}
+  .device.mob td.y26,.device.mob th.y26{left:92px;min-width:58px}
+  .device.mob td.y25,.device.mob th.y25,.device.mob td.var,.device.mob th.var,.device.mob td.pct,.device.mob th.pct{position:static;min-width:0}
+  .device.mob td.lab .sub,.device.mob td.lab .smut{display:none}
 
   .caption{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--t2);line-height:1.6}
   .caption b{color:var(--t1)} .you{color:var(--acc);font-weight:700} .caption .bl{color:var(--blue);font-weight:700}
@@ -100,44 +116,44 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>B4 — Détail mensuel intercalé <span style="color:var(--acc)">·</span> prêt entier en charge</h1>
-  <p class="lede">Une <b>seule ligne « Prêt »</b> = toute la mensualité (capital + intérêts) en charge, à la place de la ligne intérêts. <b>Un seul résultat = réel après prêt</b>, ton vrai cash. Je garde une petite ligne <span class="bl">info `2044`</span> en dessous (intérêts déductibles seuls = base imposable) pour ne pas perdre le fiscal. Le détail s'intercale <b>entre 2026 et 2025</b>, par blocs de 4 mois.</p>
+  <h1>B4 — Détail mensuel <span style="color:var(--acc)">·</span> slider + comparaison même période</h1>
+  <p class="lede">Le toggle <b>« Détail mensuel »</b> (en-tête, discret) ajoute les colonnes-mois. <b>Année 2026 figée à gauche</b>, <b>2025 figée à droite</b> — les mois <b>se font glisser avec la barre</b> en bas (plus de boutons). La colonne <b>2025</b> et la <b>variation</b> sont sur la <b>même période</b> (janv→juin) → comparaison juste. Le prêt entier est en charge.</p>
 
   <div class="ctrl">
-    <div class="grp"><span class="lbl">Format</span>
-      <div class="seg" id="seg-dev">
-        <button data-d="pc" class="on">🖥 PC</button>
-        <button data-d="tab">📱 Tablette</button>
-        <button data-d="mob">📲 Tél.</button>
-      </div>
-    </div>
-    <div class="grp"><span class="lbl">Détail mensuel</span>
-      <div class="seg" id="seg-exp">
-        <button data-e="open" class="on">Déplié</button>
-        <button data-e="closed">Replié</button>
-      </div>
+    <span class="lbl">Format</span>
+    <div class="seg" id="seg-dev">
+      <button data-d="pc" class="on">🖥 PC</button>
+      <button data-d="tab">📱 Tablette</button>
+      <button data-d="mob">📲 Tél.</button>
     </div>
   </div>
 
   <div class="device pc" id="device">
     <div class="sec-title">Compte de résultat détaillé</div>
     <div class="card">
-      <div class="card-h"><h3>Du 01/01/2026 au 30/06/2026 · exercice en cours</h3><span class="meta">montants réels · % = part des loyers</span></div>
+      <div class="card-h">
+        <h3>Du 01/01/2026 au 30/06/2026</h3>
+        <span class="dtoggle on" id="toggle"><span class="pill"></span>Détail mensuel</span>
+        <span class="slidehint show" id="slidehint">↔ glisse la barre pour parcourir les mois</span>
+        <span class="meta">montants réels · % = part des loyers</span>
+      </div>
       <div class="tscroll"><table class="pl" id="tbl"></table></div>
       <div class="foot" id="foot"></div>
     </div>
 
     <div class="caption">
-      <b>Ce que tu as demandé :</b> la ligne « Intérêts » devient <span class="you">« Prêt »</span> = toute la mensualité (capital + intérêts) en charge. Le <b>Résultat réel après prêt</b> est ton seul résultat principal.<br>
-      <b>Le seul truc que j'ai gardé :</b> une ligne fine <span class="bl">Base imposable 2044</span> juste en dessous (intérêts déductibles seuls). Sinon la base de ta déclaration disparaît de l'écran → risque au moment de l'impôt. <span class="you">Tu la gardes (info), ou je la sors complètement (uniquement à l'export 2044) ?</span><br>
-      • Détail intercalé entre 2026 et 2025, <b>4 mois</b> à la fois (◀▶), Année figée à gauche.<br>
-      <span style="font-size:11px;color:var(--t3)">Mockup — rien n'est codé. La ligne « Prêt » = mvts cat « Prêt » (capital) + « Prêt — Intérêts » par mois. « – » = rien ce mois-là. Σ des 12 mois = colonne Année. ⚠ Changement fiscal → audit code-reviewer au portage.</span>
+      <b>Les corrections :</b><br>
+      • <span class="you">Variation = même période</span> : la colonne « 2025 » montre <b>janv→juin 2025</b> (pas l'année pleine) → la variation est juste (ex. loyers <span class="pos">+7,3 %</span>, pas −45 %).<br>
+      • <span class="you">Slider</span> : les mois se parcourent avec la <b>barre en bas</b> (drag), plus de boutons ◀▶. Année 2026 reste à gauche, 2025 à droite — toutes deux toujours visibles.<br>
+      • <span class="you">Plus de gros bouton</span> : le détail s'active via un <b>petit interrupteur</b> discret dans l'en-tête.<br>
+      • Prêt entier en charge → <b>Résultat réel après prêt</b> + ligne fine <span class="bl">Base imposable 2044</span>.<br>
+      <span style="font-size:11px;color:var(--t3)">Mockup — rien n'est codé. Téléphone : détail masqué (annuel condensé). ⚠ Changement fiscal → audit code-reviewer au portage.</span>
     </div>
   </div>
 </div>
 
 <script>
-/* Exercice 2026 : janv → juin. Mensualité prêt = intérêts + capital (= ligne « Prêt »). */
+/* 2026 janv→juin (mois écoulés). 2025 = MÊME période (janv→juin 2025) pour comparer. */
 var M = [
   {key:'2026-01', lib:'janv. 26', hc:2800, prov:300, interets:450, capital:700, taxe:900, travaux:0,   honoraires:200, assurance:0},
   {key:'2026-02', lib:'févr. 26', hc:2800, prov:300, interets:450, capital:700, taxe:0,   travaux:0,   honoraires:200, assurance:0},
@@ -147,32 +163,32 @@ var M = [
   {key:'2026-06', lib:'juin 26',  hc:1450, prov:150, interets:450, capital:700, taxe:0,   travaux:0,   honoraires:200, assurance:0, partiel:true}
 ];
 M.forEach(function(m){
-  m.encaisse=m.hc+m.prov;
-  m.pret=m.interets+m.capital;                                   // ligne « Prêt » = mensualité entière
-  m.charges=m.pret+m.taxe+m.travaux+m.honoraires+m.assurance;    // total charges (prêt entier)
-  m.reel=m.hc-m.charges;                                         // résultat réel après prêt
-  m.base2044=m.hc-(m.interets+m.taxe+m.travaux+m.honoraires+m.assurance); // info : intérêts seuls déductibles
+  m.encaisse=m.hc+m.prov; m.pret=m.interets+m.capital;
+  m.charges=m.pret+m.taxe+m.travaux+m.honoraires+m.assurance;
+  m.reel=m.hc-m.charges;
+  m.base2044=m.hc-(m.interets+m.taxe+m.travaux+m.honoraires+m.assurance);
 });
 var CUR='2026-06';
 function fmt(n){ return Math.round(n).toLocaleString('fr-FR').replace(/ /g,' ')+' €'; }
 
+/* y25 = même période janv→juin 2025 */
 var ROWS=[
   {grp:'Revenus locatifs'},
-  {lab:'Loyers hors charges encaissés', y25:28200, fm:function(m){return m.hc;}},
-  {lab:'Provisions sur charges <span class="mut">(neutres)</span>', y25:3600, fm:function(m){return m.prov;}, mut:true},
-  {tot:'Total encaissé', y25:31800, fm:function(m){return m.encaisse;}},
+  {lab:'Loyers hors charges encaissés', y25:14400, fm:function(m){return m.hc;}},
+  {lab:'Provisions sur charges <span class="smut">(neutres)</span>', y25:1500, fm:function(m){return m.prov;}, mut:true},
+  {tot:'Total encaissé', y25:15900, fm:function(m){return m.encaisse;}},
   {grp:'Charges'},
-  {lab:'Prêt <span class="sub">capital + intérêts — mensualité entière</span>', y25:13800, fm:function(m){return m.pret;}, charge:true},
-  {lab:'Taxe foncière', y25:1450, fm:function(m){return m.taxe;}, charge:true},
-  {lab:'Travaux &amp; entretien', y25:5300, fm:function(m){return m.travaux;}, charge:true},
-  {lab:'Honoraires &amp; gestion', y25:2400, fm:function(m){return m.honoraires;}, charge:true},
+  {lab:'Prêt <span class="sub">capital + intérêts — mensualité entière</span>', y25:6900, fm:function(m){return m.pret;}, charge:true},
+  {lab:'Taxe foncière', y25:850, fm:function(m){return m.taxe;}, charge:true},
+  {lab:'Travaux &amp; entretien', y25:1200, fm:function(m){return m.travaux;}, charge:true},
+  {lab:'Honoraires &amp; gestion', y25:1200, fm:function(m){return m.honoraires;}, charge:true},
   {lab:'Assurance PNO / GLI', y25:650, fm:function(m){return m.assurance;}, charge:true},
-  {tot:'Total charges', y25:23600, fm:function(m){return m.charges;}, neg:true},
-  {net:'Résultat réel après prêt', y25:4600, fm:function(m){return m.reel;}},
-  {info:'Base imposable <span class="tag2044">2044</span> <span class="sub" style="color:var(--blue);opacity:.7">intérêts seuls déductibles · pour ta déclaration</span>', y25:13000, fm:function(m){return m.base2044;}}
+  {tot:'Total charges', y25:10800, fm:function(m){return m.charges;}, neg:true},
+  {net:'Résultat réel après prêt', y25:3600, fm:function(m){return m.reel;}},
+  {info:'Base imposable <span class="tag2044">2044</span> <span class="sub" style="color:var(--blue);opacity:.7">intérêts seuls déductibles</span>', y25:7800, fm:function(m){return m.base2044;}}
 ];
 
-function val(v, r){
+function val(v,r){
   if(r.net) return '<span class="'+(v>=0?'pos':'neg')+'">'+(v>=0?'+ ':'− ')+fmt(Math.abs(v))+'</span>';
   if(r.info) return '<span class="blue">'+(v>=0?'+ ':'− ')+fmt(Math.abs(v))+'</span>';
   if(!v && !r.tot) return '<span class="zero">–</span>';
@@ -181,88 +197,59 @@ function val(v, r){
   return fmt(v);
 }
 function y26(r){ if(r.grp) return 0; return M.reduce(function(a,m){return a+r.fm(m);},0); }
+function varOf(r){
+  if(r.grp||r.mut) return r.mut?'<span class="zero">—</span>':'';
+  var n=y26(r), n1=(r.y25!=null?r.y25:0);
+  if(!n1) return '<span class="zero">—</span>';
+  var p=(n-n1)/n1*100;
+  return '<span class="'+(p>=0?'pos':'neg')+'">'+(p>=0?'+':'−')+Math.abs(Math.round(p*10)/10).toString().replace('.',',')+' %</span>';
+}
+function pctOf(r){ if(r.grp||r.mut) return r.mut?'<span class="zero">—</span>':''; return (Math.round(y26(r)/15450*1000)/10).toString().replace('.',',')+' %'; }
 function rowClass(r){ return r.tot?'tot':(r.net?'net':(r.info?'info':'')); }
 
-var REV=M.slice().reverse();
-var PAGES=[]; for(var i=0;i<REV.length;i+=4){ PAGES.push(REV.slice(i,i+4)); }
-var STATE={exp:true, page:0, dev:'pc'};
+var STATE={exp:true, dev:'pc'};
+var MONTHS=M.slice().reverse(); // mois courant à gauche
 
 function paint(){
-  var mobile=STATE.dev==='mob';          // téléphone : pas de détail mensuel (sinon N-1 hors écran)
+  var mobile=STATE.dev==='mob';
   var exp=mobile?false:STATE.exp;
-  var pg=PAGES[STATE.page]||[];
-  var thead='<thead>';
-  if(exp){
-    var rng=pg.length?(pg[0].lib+(pg.length>1?' … '+pg[pg.length-1].lib:'')):'';
-    thead+='<tr><th class="poste" rowspan="2">Poste</th><th class="y26" rowspan="2">Année 2026</th>'
-      +'<th class="monav" colspan="4"><div class="nav">'
-        +'<button id="nav-old" title="Mois plus anciens">◀</button>'
-        +'<span class="rng">'+rng+'</span>'
-        +'<button id="nav-new" title="Mois plus récents">▶</button>'
-        +'<button class="close" id="nav-close" title="Replier">✕</button></div></th>'
-      +'<th rowspan="2">2025</th><th rowspan="2">Var.</th><th rowspan="2">% loyers</th><th class="spacer" rowspan="2"></th></tr><tr>';
-    for(var k=0;k<4;k++){ var m=pg[k];
-      thead+= m? '<th class="mo'+(m.key===CUR?' cur':'')+'">'+m.lib+(m.partiel?'<br><span class="mini">en cours</span>':'')+'</th>' : '<th class="mo empty"></th>';
-    }
-    thead+='</tr>';
-  } else {
-    var tgTh = mobile ? '' : '<th class="tg"><span class="toggle" id="toggle"><span class="chev">▶</span>Détail&nbsp;mois</span></th>';
-    thead+='<tr><th class="poste">Poste</th><th class="y26">Année 2026</th>'+tgTh+'<th>2025</th><th>Var.</th><th>% loyers</th></tr>';
-  }
-  thead+='</thead>';
+  // entête
+  var thead='<thead><tr><th class="poste">Poste</th><th class="y26">Année 2026</th>';
+  if(exp){ MONTHS.forEach(function(m){
+    thead+='<th class="mo'+(m.key===CUR?' cur':'')+'">'+m.lib+(m.partiel?'<br><span class="mini">en cours</span>':'')+'</th>';
+  }); }
+  thead+='<th class="y25">2025<br><span class="mini">janv→juin</span></th><th class="var">Var.</th><th class="pct">% loyers</th></tr></thead>';
 
   var tb='<tbody>';
   ROWS.forEach(function(r){
-    if(r.grp){ tb+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="y26"></td><td colspan="'+((exp?5:(mobile?0:1))+3)+'"></td></tr>'; return; }
+    if(r.grp){ tb+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="y26"></td>'
+      +(exp?MONTHS.map(function(){return '<td class="mo"></td>';}).join(''):'')
+      +'<td class="y25"></td><td class="var"></td><td class="pct"></td></tr>'; return; }
     var label=r.lab||r.tot||r.net||r.info;
     tb+='<tr class="'+rowClass(r)+'"><td class="poste lab">'+label+'</td><td class="y26">'+val(y26(r),r)+'</td>';
-    if(exp){ for(var k2=0;k2<4;k2++){ var mm=pg[k2];
-      tb+= mm? '<td class="mo'+(mm.key===CUR?' cur':'')+'">'+val(r.fm(mm),r)+'</td>' : '<td class="mo empty"></td>';
-    } } else if(!mobile){ tb+='<td class="tg"></td>'; }
-    var y25=r.y25!=null?r.y25:0;
-    tb+='<td>'+val(y25,r)+'</td><td>'+varOf(r)+'</td><td>'+pctOf(r)+'</td>'+(exp?'<td class="spacer"></td>':'')+'</tr>';
+    if(exp){ MONTHS.forEach(function(m){ tb+='<td class="mo'+(m.key===CUR?' cur':'')+'">'+val(r.fm(m),r)+'</td>'; }); }
+    tb+='<td class="y25">'+val(r.y25!=null?r.y25:0,r)+'</td><td class="var">'+varOf(r)+'</td><td class="pct">'+pctOf(r)+'</td></tr>';
   });
   tb+='</tbody>';
   document.getElementById('tbl').innerHTML=thead+tb;
 
   var sR=M.reduce(function(a,m){return a+m.reel;},0), sB=M.reduce(function(a,m){return a+m.base2044;},0);
   document.getElementById('foot').innerHTML=
-    'Colonne <b>Année</b> = Σ des 12 mois (figée à gauche). <b>Résultat réel après prêt = + '+fmt(sR).replace(' €','')+' €</b> (toute la mensualité déduite). '
-    +'<span class="blue">Base imposable 2044 = + '+fmt(sB).replace(' €','')+' €</span> (intérêts seuls déductibles, le capital n\'entre pas dans l\'impôt). '
-    +'<b>Var.</b> = 2026 (6 mois écoulés) vs 2025 (année pleine) → forcément en baisse tant que l\'exercice n\'est pas fini. « – » = aucun mouvement ce mois-là.';
+    'Colonne <b>Année</b> = Σ des mois (figée à gauche). <b>Résultat réel après prêt = + '+fmt(sR).replace(' €','')+' €</b> (toute la mensualité déduite). '
+    +'<span class="blue">Base imposable 2044 = + '+fmt(sB).replace(' €','')+' €</span> (intérêts seuls déductibles). '
+    +'<b>2025</b> et <b>Var.</b> = même période (janv→juin) → comparaison juste. « – » = aucun mouvement ce mois-là.';
 
-  if(mobile){
-    document.getElementById('foot').innerHTML += ' <br><b>📱 Sur téléphone</b>, le détail mois par mois est masqué pour garder l\'année N-1 (2025) lisible — il reste dispo sur PC et tablette.';
-  } else if(exp){
-    var bo=document.getElementById('nav-old'), bn=document.getElementById('nav-new');
-    bo.disabled=STATE.page>=PAGES.length-1; bn.disabled=STATE.page<=0;
-    bo.onclick=function(){ if(STATE.page<PAGES.length-1){STATE.page++;paint();} };
-    bn.onclick=function(){ if(STATE.page>0){STATE.page--;paint();} };
-    document.getElementById('nav-close').onclick=function(){ setExp(false); };
-  } else {
-    document.getElementById('toggle').onclick=function(){ setExp(true); };
-  }
+  // toggle + hint : actifs seulement hors mobile
+  var tg=document.getElementById('toggle'), sh=document.getElementById('slidehint');
+  tg.classList.toggle('on', exp);
+  tg.style.opacity = mobile?'.4':''; tg.style.pointerEvents = mobile?'none':'';
+  sh.classList.toggle('show', exp && !mobile);
 }
-function pctOf(r){ if(r.grp||r.mut) return r.mut?'—':''; var v=y26(r); return (Math.round(v/15450*1000)/10).toString().replace('.',',')+' %'; }
-function varOf(r){
-  if(r.grp||r.mut) return r.mut?'—':'';
-  var n=y26(r), n1=(r.y25!=null?r.y25:0);
-  if(!n1) return '<span class="zero">—</span>';
-  var p=(n-n1)/n1*100;
-  return '<span class="'+(p>=0?'pos':'neg')+'" style="font-weight:600">'+(p>=0?'+':'−')+Math.abs(Math.round(p*10)/10).toString().replace('.',',')+' %</span>';
-}
-function setExp(v){ STATE.exp=v;
-  document.querySelectorAll('#seg-exp button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-e')===(v?'open':'closed')); });
-  paint();
-}
-document.getElementById('seg-exp').addEventListener('click',function(e){ var b=e.target.closest('button'); if(b)setExp(b.getAttribute('data-e')==='open'); });
+
+document.getElementById('toggle').addEventListener('click',function(){ if(STATE.dev==='mob')return; STATE.exp=!STATE.exp; paint(); });
 document.getElementById('seg-dev').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return;
   [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');}); b.classList.add('on');
-  STATE.dev=b.getAttribute('data-d');
-  document.getElementById('device').className='device '+STATE.dev;
-  var se=document.getElementById('seg-exp'); var mob=STATE.dev==='mob';
-  se.style.opacity=mob?'.35':''; se.style.pointerEvents=mob?'none':'';
-  paint();
+  STATE.dev=b.getAttribute('data-d'); document.getElementById('device').className='device '+STATE.dev; paint();
 });
 paint();
 </script>
