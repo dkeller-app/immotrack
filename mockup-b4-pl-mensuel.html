@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup B4 — Sous-P&L mensuel (Finances) · Propryo</title>
+<style>
+  :root{
+    --bg:#f4f5f8; --sur:#ffffff; --sur2:#f7f8fb; --sur3:#eef1f6;
+    --bor:#e4e7ee; --bor2:rgba(0,0,0,.05);
+    --t1:#101521; --t2:#3c4658; --t3:#6e7888;
+    --acc:#ff5a3c; --acc-hover:#e8431f; --acc-soft:#ffe7e0;
+    --grn:#16a34a; --red:#dc2626; --warn:#F59E0B;
+    --r:8px; --rl:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);font:14px/1.5 Inter,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
+  h1{font:800 22px Inter;letter-spacing:-.02em;margin:0 0 4px}
+  .lede{color:var(--t2);font-size:13.5px;margin:0 0 20px;max-width:780px}
+  .lede b{color:var(--t1)}
+
+  .ctrl{position:sticky;top:0;z-index:30;background:rgba(244,245,248,.92);backdrop-filter:blur(8px);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:22px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+  .ctrl .grp{display:flex;align-items:center;gap:8px}
+  .ctrl .lbl{font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+  .seg{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:3px;gap:2px}
+  .seg button{border:none;background:none;font:600 12.5px Inter;color:var(--t2);padding:6px 13px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:.12s}
+  .seg button.on{background:var(--sur);color:var(--t1);box-shadow:0 1px 3px rgba(16,21,33,.12);font-weight:700}
+  .seg button:not(.on):hover{color:var(--t1)}
+
+  .device{margin:0 auto;transition:max-width .25s ease}
+  .device.pc{max-width:1140px}
+  .device.tab{max-width:760px}
+  .device.mob{max-width:380px}
+
+  /* --- contexte : bas du P&L annuel avec le déclencheur --- */
+  .pl-foot{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:14px 18px;margin-bottom:8px;box-shadow:0 1px 2px rgba(16,21,33,.04)}
+  .pl-foot .net{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0 10px;border-bottom:1px solid var(--bor)}
+  .pl-foot .net .k{font:700 14px Inter}
+  .pl-foot .net .v{font:800 22px 'Manrope',Inter;color:var(--grn);font-variant-numeric:tabular-nums}
+  .pl-foot .links{display:flex;gap:18px;flex-wrap:wrap;margin-top:11px;font-size:12.5px}
+  .lnk{color:var(--acc);font-weight:600;cursor:pointer;text-decoration:none}
+  .lnk:hover{text-decoration:underline}
+  .lnk.new{background:var(--acc-soft);border:1px dashed var(--acc);border-radius:20px;padding:3px 12px}
+
+  /* --- la fenêtre (drill) du sous-P&L --- */
+  .drill{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:0 8px 30px rgba(16,21,33,.10);overflow:hidden}
+  .drill-h{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+  .drill-h .ttl{font:800 15px Inter;letter-spacing:-.01em}
+  .drill-h .sub{font-size:11.5px;color:var(--t3)}
+  .drill-h .x{margin-left:auto;width:30px;height:30px;border-radius:8px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .dir{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--t3);padding:8px 18px 2px;font-weight:600}
+  .dir .ar{flex:1;height:1px;background:linear-gradient(90deg,var(--acc),transparent)}
+
+  .scroll{overflow-x:auto;padding:4px 0 8px}
+  table.pl{border-collapse:separate;border-spacing:0;width:100%;font-variant-numeric:tabular-nums}
+  table.pl th,table.pl td{padding:7px 10px;font-size:12.5px;white-space:nowrap;text-align:right}
+  table.pl thead th{position:sticky;top:0;background:var(--sur);font:700 11px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--bor)}
+  /* colonne Poste figée à gauche */
+  table.pl th.poste,table.pl td.poste{position:sticky;left:0;z-index:2;text-align:left;background:var(--sur);min-width:188px;max-width:188px;white-space:normal;box-shadow:1px 0 0 var(--bor)}
+  table.pl thead th.poste{z-index:3}
+  /* colonne mois courant mise en avant */
+  table.pl th.cur,table.pl td.cur{background:var(--acc-soft)}
+  table.pl thead th.cur{color:var(--acc)}
+  /* colonne Σ */
+  table.pl th.sum,table.pl td.sum{background:var(--sur2);font-weight:700;border-left:2px solid var(--bor);min-width:96px}
+  table.pl thead th.sum{color:var(--t2)}
+
+  tr.grp td{background:var(--sur3);font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);text-align:left}
+  tr.grp td.poste{background:var(--sur3)}
+  td.lab{text-align:left}
+  td.lab .mut{color:var(--t3);font-weight:400;font-size:10.5px}
+  tr.sub td{font-weight:700;border-top:1px solid var(--bor);background:#fcfdff}
+  tr.sub td.poste{background:#fcfdff}
+  tr.sub td.sum{background:var(--sur2)}
+  tr.net td{font-weight:800;border-top:2px solid var(--t2);font-size:13px;background:#fbfcff}
+  tr.net td.poste{background:#fbfcff;font-size:13px}
+  tr.net td.sum{background:#eef4ff}
+  .pos{color:var(--grn)} .neg{color:var(--red)} .zero{color:var(--t3)}
+  td.charge{color:var(--t1)}
+  .mini{font-size:9.5px;color:var(--t3);font-weight:400}
+
+  .foot-note{padding:10px 18px 16px;font-size:11.5px;color:var(--t2);line-height:1.55}
+  .foot-note b{color:var(--t1)}
+
+  .caption{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--t2);line-height:1.6}
+  .caption b{color:var(--t1)} .you{color:var(--acc);font-weight:700}
+  .caption code{background:var(--sur2);border:1px solid var(--bor);border-radius:4px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>B4 — Sous-P&amp;L mensuel <span style="color:var(--acc)">·</span> ouvert depuis le compte de résultat</h1>
+  <p class="lede">Pas un graphique : le <b>compte de résultat éclaté mois par mois</b>. Mêmes lignes que le P&amp;L annuel, mais une colonne par mois — <b>le mois en cours à gauche</b>, on remonte dans le temps vers la droite. La colonne <b>Σ</b> à droite = le total de l'exercice (les mois s'additionnent exactement au P&amp;L annuel). On voit d'un coup <b>quand</b> chaque charge est tombée.</p>
+
+  <div class="ctrl">
+    <div class="grp"><span class="lbl">Période</span>
+      <div class="seg" id="seg-per">
+        <button data-p="exo" class="on">Exercice 2026 (mois écoulés)</button>
+        <button data-p="roll">12 mois glissants</button>
+      </div>
+    </div>
+    <div class="grp"><span class="lbl">Format</span>
+      <div class="seg" id="seg-dev">
+        <button data-d="pc" class="on">🖥 PC</button>
+        <button data-d="tab">📱 Tablette</button>
+        <button data-d="mob">📲 Tél.</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="device pc" id="device">
+    <!-- contexte : pied du P&L annuel avec le déclencheur -->
+    <div class="pl-foot">
+      <div class="net"><span class="k">Résultat net avant impôts · exercice 2026</span><span class="v" id="ctx-net">+ 9 200 €</span></div>
+      <div class="links">
+        <span class="lnk">Voir par logement →</span>
+        <span class="lnk new" id="trigger">📅 Détail mois par mois →</span>
+      </div>
+    </div>
+
+    <!-- la fenêtre ouverte (drill) -->
+    <div class="drill">
+      <div class="drill-h">
+        <div>
+          <div class="ttl" id="d-ttl">Compte de résultat mois par mois — 2026</div>
+          <div class="sub" id="d-sub">SCI Patrimoine · tous les immeubles · montants réels encaissés/payés</div>
+        </div>
+        <button class="x" title="Fermer">✕</button>
+      </div>
+      <div class="dir"><span>← plus récent</span><span class="ar"></span><span>plus ancien →</span></div>
+      <div class="scroll">
+        <table class="pl" id="tbl"></table>
+      </div>
+      <div class="foot-note" id="d-foot"></div>
+    </div>
+
+    <div class="caption">
+      <b>Ce que je propose / ce qu'il reste à trancher :</b><br>
+      • <b>Déclencheur</b> : un lien « <code>📅 Détail mois par mois →</code> » au pied du compte de résultat (à côté de « Voir par logement → »). <span class="you">OK pour toi ?</span><br>
+      • <b>Ordre</b> : mois en cours à gauche, on remonte vers la droite (à l'envers) ✔️ comme tu l'as demandé. La colonne <b>Σ</b> est tout à droite et reconcilie avec le P&amp;L annuel.<br>
+      • <b>Période</b> : par défaut <b>l'exercice sélectionné</b> (les mois s'additionnent au total — janv→juin pour 2026, 12 colonnes pour une année close). Le bouton « 12 mois glissants » montre l'alternative (juil 2025 → juin 2026). <span class="you">Tu préfères lequel par défaut ?</span><br>
+      • <b>Lignes</b> = exactement celles du P&amp;L (loyers, chaque poste de charge, résultat net) — réutilise <code>_finChargeBuckets</code> par mois. Une cellule « – » = rien ce mois-là (ex. l'assurance ne tombe qu'en mars).<br>
+      <span style="font-size:11.5px;color:var(--t3)">Mockup — rien n'est codé dans l'app. Le tableau scrolle horizontalement, la colonne « Poste » reste figée. Périmètre entité + immeuble + poids SCI (B6) respecté.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Données démo — 12 mois chronologiques juil 2025 → juin 2026.
+   Chaque mois : loyersHC, prov, et charges par poste (façon _finChargeBuckets). */
+var M = [
+  {key:'2025-07', lib:'juil. 25', hc:2800, prov:300, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2025-08', lib:'août 25',  hc:2800, prov:300, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2025-09', lib:'sept. 25', hc:2800, prov:300, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2025-10', lib:'oct. 25',  hc:2800, prov:300, interets:450, taxe:0,    travaux:4500, honoraires:200, assurance:0,   autres:0},
+  {key:'2025-11', lib:'nov. 25',  hc:2800, prov:300, interets:450, taxe:1450, travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2025-12', lib:'déc. 25',  hc:2800, prov:300, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2026-01', lib:'janv. 26', hc:2800, prov:300, interets:450, taxe:900,  travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2026-02', lib:'févr. 26', hc:2800, prov:300, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2026-03', lib:'mars 26',  hc:2800, prov:300, interets:450, taxe:0,    travaux:800,  honoraires:200, assurance:650, autres:0},
+  {key:'2026-04', lib:'avr. 26',  hc:2800, prov:300, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2026-05', lib:'mai 26',   hc:2800, prov:300, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0},
+  {key:'2026-06', lib:'juin 26',  hc:1450, prov:150, interets:450, taxe:0,    travaux:0,    honoraires:200, assurance:0,   autres:0, partiel:true}
+];
+M.forEach(function(m){
+  m.encaisse = m.hc + m.prov;
+  m.charges  = m.interets + m.taxe + m.travaux + m.honoraires + m.assurance + m.autres;
+  m.net      = m.hc - m.charges;            // provisions neutres (charges récup), comme le P&L réel
+});
+
+function fmt(n){ return Math.round(n).toLocaleString('fr-FR').replace(/ /g,' ') + ' €'; }
+function cell(n, opt){
+  opt = opt||{};
+  if(!n && !opt.keepZero) return '<span class="zero">–</span>';
+  var s = fmt(Math.abs(n));
+  if(opt.signed) return '<span class="'+(n>=0?'pos':'neg')+'">'+(n>=0?'+ ':'− ')+s+'</span>';
+  return s;
+}
+
+var STATE={per:'exo'};
+function curMonths(){
+  // chronologique → on prend l'exercice (janv→juin 26) ou les 12 glissants
+  var arr = STATE.per==='exo' ? M.filter(function(m){return m.key>='2026-01';}) : M.slice();
+  return arr.slice().reverse(); // mois en cours à GAUCHE
+}
+
+var ROWS = [
+  {grp:'Revenus locatifs'},
+  {lab:'Loyers hors charges encaissés', f:function(m){return m.hc;}, kind:'rev'},
+  {lab:'Provisions sur charges <span class="mut">(neutres)</span>', f:function(m){return m.prov;}, kind:'mut'},
+  {sub:'= Total encaissé', f:function(m){return m.encaisse;}},
+  {grp:'Charges propriétaire (non récupérables)'},
+  {lab:'Intérêts d\'emprunt', f:function(m){return m.interets;}, kind:'charge'},
+  {lab:'Taxe foncière', f:function(m){return m.taxe;}, kind:'charge'},
+  {lab:'Travaux &amp; entretien', f:function(m){return m.travaux;}, kind:'charge'},
+  {lab:'Honoraires &amp; gestion', f:function(m){return m.honoraires;}, kind:'charge'},
+  {lab:'Assurance PNO / GLI', f:function(m){return m.assurance;}, kind:'charge'},
+  {subneg:'= Total charges propriétaire', f:function(m){return m.charges;}},
+  {net:'Résultat net avant impôts', f:function(m){return m.net;}}
+];
+
+function paint(){
+  var months = curMonths();
+  var curKey = '2026-06';
+  // entête
+  var thead = '<thead><tr><th class="poste">Poste</th>';
+  months.forEach(function(m){
+    var cls = 'col' + (m.key===curKey?' cur':'');
+    thead += '<th class="'+cls+'">'+m.lib+(m.partiel?'<br><span class="mini">en cours</span>':'')+'</th>';
+  });
+  thead += '<th class="sum">Σ '+(STATE.per==='exo'?'exercice':'12 mois')+'</th></tr></thead>';
+
+  var tbody = '<tbody>';
+  ROWS.forEach(function(r){
+    if(r.grp){ tbody += '<tr class="grp"><td class="poste">'+r.grp+'</td><td colspan="'+(months.length+1)+'"></td></tr>'; return; }
+    var rowcls = r.sub||r.subneg ? 'sub' : (r.net ? 'net' : '');
+    var label = r.lab || r.sub || r.subneg || r.net;
+    tbody += '<tr class="'+rowcls+'"><td class="poste lab">'+label+'</td>';
+    var sum=0;
+    months.forEach(function(m){
+      var v = r.f(m); sum += v;
+      var cls = 'col' + (m.key===curKey?' cur':'');
+      var html;
+      if(r.net) html = cell(v,{signed:true});
+      else if(r.subneg) html = v? '<span class="neg">'+fmt(v)+'</span>' : '<span class="zero">–</span>';
+      else if(r.kind==='charge') html = v? '<span class="charge">'+fmt(v)+'</span>' : '<span class="zero">–</span>';
+      else if(r.kind==='mut') html = v? '<span class="mut" style="color:var(--t3)">'+fmt(v)+'</span>' : '<span class="zero">–</span>';
+      else html = cell(v);
+      tbody += '<td class="'+cls+'">'+html+'</td>';
+    });
+    // Σ
+    var sumHtml;
+    if(r.net) sumHtml = cell(sum,{signed:true});
+    else if(r.subneg) sumHtml = '<span class="neg">'+fmt(sum)+'</span>';
+    else sumHtml = fmt(sum);
+    tbody += '<td class="sum">'+sumHtml+'</td></tr>';
+  });
+  tbody += '</tbody>';
+  document.getElementById('tbl').innerHTML = thead + tbody;
+
+  // titre + total contexte
+  document.getElementById('d-ttl').textContent = STATE.per==='exo'
+    ? 'Compte de résultat mois par mois — 2026'
+    : 'Compte de résultat mois par mois — 12 mois glissants';
+  var totNet = months.reduce(function(a,m){return a+m.net;},0);
+  document.getElementById('d-foot').innerHTML =
+    'Σ résultat net sur la période = <b>'+(totNet>=0?'+ ':'− ')+fmt(Math.abs(totNet))+'</b>'
+    + (STATE.per==='exo' ? ' — identique au compte de résultat annuel ✔️ (les mois s\'additionnent au total).' : ' — vue glissante, ne correspond pas à un exercice civil.')
+    + ' Charges récupérables exclues (le locataire rembourse). Cliquer une ligne ouvrira son détail des mouvements.';
+}
+
+document.getElementById('seg-per').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
+  b.classList.add('on'); STATE.per=b.getAttribute('data-p'); paint();
+});
+document.getElementById('seg-dev').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
+  b.classList.add('on');
+  document.getElementById('device').className='device '+b.getAttribute('data-d');
+});
+
+paint();
+</script>
+</body>
+</html>
