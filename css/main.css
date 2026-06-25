@@ -7621,7 +7621,7 @@ body[data-dash-v4="on"] .v4h-qa-ic {
   width: 56px; height: 56px;
   border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--sur2); color: var(--t2);
+  background: var(--neutral-soft); color: var(--neutral-ink);
 }
 body[data-dash-v4="on"] .v4h-qa-ic svg {
   width: 24px; height: 24px;
@@ -7632,7 +7632,7 @@ body[data-dash-v4="on"] .v4h-qa-ic svg {
 body[data-dash-v4="on"] .v4h-qa.t1 .v4h-qa-ic,
 body[data-dash-v4="on"] .v4h-qa.t2 .v4h-qa-ic,
 body[data-dash-v4="on"] .v4h-qa.t3 .v4h-qa-ic,
-body[data-dash-v4="on"] .v4h-qa.t4 .v4h-qa-ic { background: var(--sur2); color: var(--t2); }
+body[data-dash-v4="on"] .v4h-qa.t4 .v4h-qa-ic { background: var(--neutral-soft); color: var(--neutral-ink); }
 body[data-dash-v4="on"] .v4h-qa b {
   font: 700 16px/1.2 'Manrope', sans-serif;
   color: var(--t1);
