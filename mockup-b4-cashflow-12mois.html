@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup B4 — Cash-flow 12 mois (Finances) · Propryo</title>
+<style>
+  /* Tokens fidèles à css/main.css (thème clair par défaut) + accent corail Propryo */
+  :root{
+    --bg:#f4f5f8; --sur:#ffffff; --sur2:#f7f8fb; --sur3:#eef1f6;
+    --bor:#e4e7ee; --bor2:rgba(0,0,0,.05);
+    --t1:#101521; --t2:#3c4658; --t3:#6e7888;
+    --acc:#ff5a3c; --acc-hover:#e8431f; --acc-soft:#ffe7e0;
+    --grn:#16a34a; --red:#dc2626;
+    --fg-success:#16a34a; --fg-danger:#dc2626;
+    --bg-success:rgba(22,163,74,.10); --bg-danger:rgba(220,38,38,.10);
+    --warn:#F59E0B;
+    --r:8px; --rl:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);font:14px/1.5 Inter,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 80px}
+  h1{font:800 22px Inter;letter-spacing:-.02em;margin:0 0 4px}
+  .lede{color:var(--t2);font-size:13.5px;margin:0 0 20px;max-width:760px}
+
+  /* Barre de contrôle du mockup */
+  .ctrl{position:sticky;top:0;z-index:30;background:rgba(244,245,248,.92);backdrop-filter:blur(8px);border:1px solid var(--bor);border-radius:var(--rl);padding:12px 14px;margin-bottom:22px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+  .ctrl .grp{display:flex;align-items:center;gap:8px}
+  .ctrl .lbl{font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+  .seg{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:3px;gap:2px}
+  .seg button{border:none;background:none;font:600 12.5px Inter;color:var(--t2);padding:6px 13px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:.12s}
+  .seg button.on{background:var(--sur);color:var(--t1);box-shadow:0 1px 3px rgba(16,21,33,.12);font-weight:700}
+  .seg button:not(.on):hover{color:var(--t1)}
+
+  /* Cadre device */
+  .device{margin:0 auto;transition:max-width .25s ease}
+  .device.pc{max-width:1140px}
+  .device.tab{max-width:760px}
+  .device.mob{max-width:380px}
+  .device.mob .fin-card, .device.tab .fin-card{box-shadow:0 1px 0 var(--bor)}
+
+  /* ---- Contexte onglet Finances (condensé, fidèle) ---- */
+  .fin-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,21,33,.04)}
+  .fin-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .fin-head .ent{font:700 13px Inter;color:var(--t2)}
+  .fin-head .selects{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .sel{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--t2);white-space:nowrap}
+  select.inp{font:inherit;font-size:12.5px;color:var(--t1);background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:5px 8px}
+  .note{font-size:12px;color:var(--t2);background:var(--sur2);border-radius:8px;padding:9px 12px;margin-bottom:12px}
+  .note.warn{border-left:3px solid var(--warn)}
+
+  .hero{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;padding:4px 0 6px}
+  .hero-l{flex:1;min-width:240px}
+  .eyebrow{font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
+  .big{font:800 38px/1.05 'Manrope',Inter;letter-spacing:-.02em;margin-top:4px}
+  .big.pos{color:var(--grn)} .big.neg{color:var(--red)}
+  .pill{display:inline-block;font:700 11.5px Inter;border-radius:20px;padding:2px 9px}
+  .pill.up{background:var(--bg-success);color:var(--grn)} .pill.down{background:var(--bg-danger);color:var(--red)}
+  .decomp{min-width:240px;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:10px 14px}
+  .decomp .it{display:flex;justify-content:space-between;gap:16px;font-size:12.5px;padding:3px 0}
+  .decomp .it .k{color:var(--t2)} .decomp .it .v{font-weight:700;font-variant-numeric:tabular-nums}
+  .decomp .it .v.neg{color:var(--red)}
+  .ratios{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+  .ratio{flex:1;min-width:150px;background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:11px 13px}
+  .ratio .rk{font:700 10px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3)}
+  .ratio .rv{font:800 22px 'Manrope',Inter;margin-top:3px}
+  .ratio .rh{font-size:11px;color:var(--t2);margin-top:2px}
+  .ratio .rv.pos{color:var(--grn)} .ratio .rv.acc{color:var(--acc)} .ratio .rv.warn{color:var(--warn)}
+
+  /* ---- LE bloc B4 ---- */
+  .b4{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:18px 20px;box-shadow:0 1px 2px rgba(16,21,33,.04);position:relative}
+  .b4.spotlight{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft),0 2px 10px rgba(16,21,33,.06)}
+  .b4-tag{position:absolute;top:-10px;left:16px;background:var(--acc);color:#fff;font:800 10px Inter;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:20px}
+  .b4-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+  .b4-title{font:800 15px Inter;letter-spacing:-.01em}
+  .b4-sub{font-size:11.5px;color:var(--t3)}
+  .b4-cum{font:800 20px 'Manrope',Inter;font-variant-numeric:tabular-nums}
+  .b4-cum.pos{color:var(--grn)} .b4-cum.neg{color:var(--red)}
+  .chartbox{margin-top:10px;position:relative}
+  .chartbox svg{display:block;width:100%;height:auto;overflow:visible}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bor)}
+  .meta span{font-size:11.5px;color:var(--t2)}
+  .meta strong{color:var(--t1);font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:16px;margin-top:8px;font-size:11.5px;color:var(--t2)}
+  .legend .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  /* Tooltip */
+  .tip{position:fixed;pointer-events:none;z-index:60;background:var(--t1);color:#fff;font:600 11.5px Inter;padding:6px 9px;border-radius:7px;opacity:0;transform:translateY(4px);transition:opacity .1s,transform .1s;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  .tip.on{opacity:1;transform:translateY(0)}
+  .tip b{font-weight:800}
+
+  .axis-x{display:flex;justify-content:space-between;margin-top:2px;padding:0 2px}
+  .axis-x span{font-size:9.5px;color:var(--t3);flex:1;text-align:center}
+
+  .caption{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--t2);line-height:1.6}
+  .caption b{color:var(--t1)}
+  .caption code{background:var(--sur2);border:1px solid var(--bor);border-radius:4px;padding:1px 5px;font-size:12px}
+  .you{color:var(--acc);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>B4 — Cash-flow 12 mois glissants <span style="color:var(--acc)">·</span> onglet Finances</h1>
+  <p class="lede">La visu s'insère dans l'onglet <b>Finances</b>, juste sous le « Résultat net » de l'exercice, pour donner la <b>tendance</b> que le chiffre annuel seul ne montre pas. Choisis le <b>type de graphe</b> ci-dessous et teste les 3 formats. Tout réutilise les graphes déjà en place sur le Dashboard (aucun nouveau moteur).</p>
+
+  <div class="ctrl">
+    <div class="grp"><span class="lbl">Type de graphe</span>
+      <div class="seg" id="seg-type">
+        <button data-v="bars" class="on">📊 Barres mois</button>
+        <button data-v="area">📈 Aire signée</button>
+        <button data-v="dual">⚖️ Revenus / Charges</button>
+      </div>
+    </div>
+    <div class="grp"><span class="lbl">Format</span>
+      <div class="seg" id="seg-dev">
+        <button data-d="pc" class="on">🖥 PC</button>
+        <button data-d="tab">📱 Tablette</button>
+        <button data-d="mob">📲 Tél.</button>
+      </div>
+    </div>
+    <div class="grp"><span class="lbl">Période</span>
+      <div class="seg" id="seg-per">
+        <button data-p="glissant" class="on">12 mois glissants</button>
+        <button data-p="exercice">Exercice civil</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="device pc" id="device">
+    <!-- Contexte Finances (condensé) -->
+    <div class="fin-card">
+      <div class="fin-head">
+        <div class="ent">📂 SCI Patrimoine</div>
+        <div class="selects">
+          <label class="sel">🏢 <select class="inp"><option>Tous les immeubles</option><option>Ferrette</option><option>Mulhouse</option></select></label>
+          <label class="sel">Exercice <select class="inp" id="exo"><option selected>2026 (en cours)</option><option>2025</option><option>2024</option></select></label>
+        </div>
+      </div>
+      <div class="note warn">⚠️ Exercice <b>en cours</b> (2026) : chiffres partiels — l'analyse annuelle est plus juste sur un exercice clos.</div>
+      <div class="hero">
+        <div class="hero-l">
+          <div class="eyebrow">Résultat net avant impôts · exercice 2026</div>
+          <div class="big pos">+ 9 200 €</div>
+          <div style="margin-top:6px"><span class="pill up">▲ +12,4 %</span>
+            <span style="color:var(--t2);font-size:12.5px;margin-left:8px">vs 2025 (8 185 €) · marge nette 41 %</span></div>
+        </div>
+        <div class="decomp">
+          <div class="it"><span class="k">Loyers encaissés (HC)</span><span class="v">22 400 €</span></div>
+          <div class="it"><span class="k">− Charges propriétaire</span><span class="v neg">13 200 €</span></div>
+          <div class="it"><span class="k">= Résultat net</span><span class="v">9 200 €</span></div>
+        </div>
+      </div>
+      <div class="ratios">
+        <div class="ratio"><div class="rk">Recouvrement</div><div class="rv pos">98 %</div><div class="rh">1 impayé</div></div>
+        <div class="ratio"><div class="rk">Occupation</div><div class="rv acc">94 %</div><div class="rh">moyenne · 6 lots</div></div>
+        <div class="ratio"><div class="rk">Poids des charges</div><div class="rv warn">59 %</div><div class="rh">13 200 € / 22 400 €</div></div>
+      </div>
+    </div>
+
+    <!-- B4 -->
+    <div class="b4 spotlight">
+      <span class="b4-tag">Nouveau · B4</span>
+      <div class="b4-head">
+        <div>
+          <div class="b4-title" id="b4-title">💸 Cash-flow — 12 mois glissants</div>
+          <div class="b4-sub" id="b4-sub">juil. 2025 → juin 2026 · recettes − dépenses, par mois · périmètre SCI Patrimoine</div>
+        </div>
+        <div style="text-align:right">
+          <div class="b4-sub">Cumul sur la période</div>
+          <div class="b4-cum pos" id="b4-cum">+ 13 050 €</div>
+        </div>
+      </div>
+      <div class="chartbox" id="chartbox"></div>
+      <div class="axis-x" id="axisx"></div>
+      <div class="meta" id="meta"></div>
+      <div class="legend" id="legend" style="display:none"></div>
+    </div>
+
+    <div class="caption">
+      <b>Deux choix pour toi&nbsp;:</b><br>
+      1. <b>Type de graphe</b> (bouton en haut) — <span class="you">à toi de dire lequel tu préfères</span>. Les barres montrent « quel mois bon/mauvais » d'un coup d'œil&nbsp;; l'aire signée est la plus douce (identique au Dashboard)&nbsp;; revenus/charges montre <i>pourquoi</i> un mois plonge.<br>
+      2. <b>Période</b> — « <code>12 mois glissants</code> » = les 12 derniers mois jusqu'à aujourd'hui (vraie tendance, indépendante du sélecteur d'exercice). « <code>Exercice civil</code> » = janv→déc de l'année choisie en haut (cohérent avec le reste de l'onglet, mais s'arrête au mois en cours pour l'année en cours). <span class="you">Recommandé : glissant</span> — c'est le mot que tu as utilisé et c'est ce qui manque vraiment.<br>
+      <span style="font-size:11.5px;color:var(--t3)">Survole les points/barres → tooltip. Le graphe respecte l'entité + l'immeuble + le poids SCI (B6). Mockup — rien n'est encore codé dans l'app.</span>
+    </div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+/* ===== Données démo (juil 2025 → juin 2026) ===== */
+var MONTHS = [
+  {m:'juil.', y:25, rev:3100, chg:1250},
+  {m:'août',  y:25, rev:3100, chg:1250},
+  {m:'sept.', y:25, rev:3100, chg:1300},
+  {m:'oct.',  y:25, rev:3100, chg:6300},   // gros travaux
+  {m:'nov.',  y:25, rev:3100, chg:1250},
+  {m:'déc.',  y:25, rev:3100, chg:1250},
+  {m:'janv.', y:26, rev:3100, chg:2000},   // acompte taxe foncière
+  {m:'févr.', y:26, rev:3100, chg:1250},
+  {m:'mars',  y:26, rev:3100, chg:4550},   // assurance annuelle + travaux
+  {m:'avr.',  y:26, rev:3100, chg:1250},
+  {m:'mai',   y:26, rev:3100, chg:1250},
+  {m:'juin',  y:26, rev:3100, chg:1250}
+];
+MONTHS.forEach(function(d){ d.cf = d.rev - d.chg; });
+
+var GRN='#16a34a', RED='#dc2626', GRN_BG='rgba(22,163,74,.16)', RED_BG='rgba(220,38,38,.16)';
+function fmt(n){ var s = Math.round(n).toLocaleString('fr-FR'); return s.replace(/ /g,' ') + ' €'; }
+function signed(n){ return (n>=0?'+ ':'− ') + fmt(Math.abs(n)); }
+
+var W=720, H=230, PADX=12, PADTOP=16, PADBOT=8;
+
+/* ---- Barres mensuelles ---- */
+function renderBars(data){
+  var vals=data.map(function(d){return d.cf;});
+  var maxV=Math.max.apply(null,vals.concat([0])), minV=Math.min.apply(null,vals.concat([0]));
+  var range=(maxV-minV)||1;
+  var plotH=H-PADTOP-PADBOT;
+  var y0 = PADTOP + (maxV/range)*plotH;            // y de la baseline 0
+  var n=data.length, gap=10, bw=(W-2*PADX-gap*(n-1))/n;
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+  // baseline 0
+  svg+='<line x1="'+PADX+'" y1="'+y0.toFixed(1)+'" x2="'+(W-PADX)+'" y2="'+y0.toFixed(1)+'" stroke="var(--t3)" stroke-dasharray="3 3" opacity=".55"/>';
+  svg+='<text x="'+(W-PADX-2)+'" y="'+(y0-4).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--t3)">0 €</text>';
+  data.forEach(function(d,i){
+    var x=PADX+i*(bw+gap);
+    var h=Math.abs(d.cf)/range*plotH;
+    var y=d.cf>=0 ? y0-h : y0;
+    var col=d.cf>=0?GRN:RED, bg=d.cf>=0?GRN_BG:RED_BG;
+    svg+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(1,h).toFixed(1)+'" rx="3" fill="'+bg+'" stroke="'+col+'" stroke-width="1.4" '
+       +'class="hit" data-tip="'+d.m+' '+(d.y+2000)+' <b>'+signed(d.cf)+'</b>"/>';
+    // étiquette valeur (k€) au-dessus/dessous
+    var lblY=d.cf>=0 ? y-4 : y+h+11;
+    svg+='<text x="'+(x+bw/2).toFixed(1)+'" y="'+lblY.toFixed(1)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="'+col+'">'+(d.cf>=0?'+':'−')+Math.round(Math.abs(d.cf)/100)/10+'k</text>';
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+/* ---- Aire sign-colorée (façon _mkSparkline) ---- */
+function renderArea(data){
+  var vals=data.map(function(d){return d.cf;});
+  var maxV=Math.max.apply(null,vals.concat([0])), minV=Math.min.apply(null,vals.concat([0]));
+  var range=(maxV-minV)||1, plotH=H-PADTOP-PADBOT;
+  var dx=(W-2*PADX)/(data.length-1);
+  function yOf(v){ return PADTOP + (maxV-v)/range*plotH; }
+  var y0=yOf(0);
+  var pts=data.map(function(d,i){return [PADX+i*dx, yOf(d.cf)];});
+  var total=vals.reduce(function(a,b){return a+b;},0);
+  var crosses=minV<0&&maxV>0;
+  var pctY0=((y0/H)*100).toFixed(2);
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+  if(crosses){
+    svg+='<defs><linearGradient id="gs" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="'+H+'">'
+      +'<stop offset="0%" stop-color="'+GRN+'"/><stop offset="'+pctY0+'%" stop-color="'+GRN+'"/>'
+      +'<stop offset="'+pctY0+'%" stop-color="'+RED+'"/><stop offset="100%" stop-color="'+RED+'"/></linearGradient>'
+      +'<linearGradient id="gf" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="'+H+'">'
+      +'<stop offset="0%" stop-color="'+GRN_BG+'"/><stop offset="'+pctY0+'%" stop-color="'+GRN_BG+'"/>'
+      +'<stop offset="'+pctY0+'%" stop-color="'+RED_BG+'"/><stop offset="100%" stop-color="'+RED_BG+'"/></linearGradient></defs>';
+  }
+  var stroke=crosses?'url(#gs)':(total>=0?GRN:RED), fill=crosses?'url(#gf)':(total>=0?GRN_BG:RED_BG);
+  var area='M '+pts[0][0].toFixed(1)+' '+y0.toFixed(1)+' L '+pts.map(function(p){return p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' L ')+' L '+pts[pts.length-1][0].toFixed(1)+' '+y0.toFixed(1)+' Z';
+  svg+='<path d="'+area+'" fill="'+fill+'" opacity=".9"/>';
+  svg+='<line x1="'+PADX+'" y1="'+y0.toFixed(1)+'" x2="'+(W-PADX)+'" y2="'+y0.toFixed(1)+'" stroke="var(--t3)" stroke-dasharray="3 3" opacity=".55"/>';
+  svg+='<text x="'+(W-PADX-2)+'" y="'+(y0-4).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--t3)">0 €</text>';
+  svg+='<polyline points="'+pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="none" stroke="'+stroke+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+  pts.forEach(function(p,i){
+    var col=data[i].cf>=0?GRN:RED;
+    svg+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.2" fill="'+col+'"/>';
+    svg+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="11" fill="#000" opacity="0" class="hit" data-tip="'+data[i].m+' '+(data[i].y+2000)+' <b>'+signed(data[i].cf)+'</b>"/>';
+  });
+  svg+='</svg>';
+  return svg;
+}
+
+/* ---- Double courbe Revenus vs Charges (façon _mkMultiLineChart) ---- */
+function renderDual(data){
+  var all=data.map(function(d){return d.rev;}).concat(data.map(function(d){return d.chg;}));
+  var maxV=Math.max.apply(null,all), minV=Math.min.apply(null,all.concat([0]));
+  var range=(maxV-minV)||1, PADBOTTOM=8, plotH=H-PADTOP-PADBOTTOM;
+  var dx=(W-2*PADX)/(data.length-1);
+  function yOf(v){ return PADTOP + (maxV-v)/range*plotH; }
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+  // grille Y (max, médiane, min)
+  [maxV, minV+range/2, minV].forEach(function(v){
+    var y=yOf(v);
+    svg+='<line x1="'+PADX+'" y1="'+y.toFixed(1)+'" x2="'+(W-PADX)+'" y2="'+y.toFixed(1)+'" stroke="var(--bor)" stroke-dasharray="2 3" opacity=".7"/>';
+    svg+='<text x="'+(W-PADX-2)+'" y="'+(y-3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--t3)">'+fmt(v)+'</text>';
+  });
+  function line(key,col){
+    var pts=data.map(function(d,i){return [PADX+i*dx, yOf(d[key])];});
+    var s='<polyline points="'+pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+    pts.forEach(function(p,i){
+      s+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="2.8" fill="'+col+'"/>';
+      s+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="11" fill="#000" opacity="0" class="hit" data-tip="'+data[i].m+' '+(data[i].y+2000)+' · '+(key==='rev'?'Revenus':'Charges')+' <b>'+fmt(data[i][key])+'</b>"/>';
+    });
+    return s;
+  }
+  svg+=line('rev',GRN)+line('chg',RED);
+  svg+='</svg>';
+  return svg;
+}
+
+/* ===== State + montage ===== */
+var STATE={type:'bars', dev:'pc', per:'glissant'};
+var EXO_DATA = MONTHS; // glissant
+// version "exercice civil 2026" : janv→juin (mois écoulés) — illustre l'arrêt au mois en cours
+var EXO_CIVIL = MONTHS.slice(6); // janv..juin 26
+
+function curData(){ return STATE.per==='exercice' ? EXO_CIVIL : EXO_DATA; }
+
+function paint(){
+  var data=curData();
+  var box=document.getElementById('chartbox');
+  var legend=document.getElementById('legend');
+  if(STATE.type==='bars'){ box.innerHTML=renderBars(data); legend.style.display='none'; }
+  else if(STATE.type==='area'){ box.innerHTML=renderArea(data); legend.style.display='none'; }
+  else { box.innerHTML=renderDual(data);
+    legend.style.display='flex';
+    legend.innerHTML='<span><span class="sw" style="background:'+GRN+'"></span>Revenus</span><span><span class="sw" style="background:'+RED+'"></span>Charges propriétaire</span><span style="color:var(--t3)">écart vertical = cash-flow</span>';
+  }
+  // axe X mois
+  var ax=document.getElementById('axisx');
+  ax.innerHTML=data.map(function(d){return '<span>'+d.m+'</span>';}).join('');
+  // titre/sous-titre/cumul/meta
+  var cum=data.reduce(function(a,d){return a+d.cf;},0);
+  var first=data[0], last=data[data.length-1];
+  var range=first.m+' '+(first.y+2000)+' → '+last.m+' '+(last.y+2000);
+  var title = STATE.per==='exercice' ? '💸 Cash-flow — exercice 2026 (mois écoulés)' : '💸 Cash-flow — 12 mois glissants';
+  document.getElementById('b4-title').textContent=title;
+  document.getElementById('b4-sub').textContent=range+' · recettes − dépenses, par mois · périmètre SCI Patrimoine';
+  var cumEl=document.getElementById('b4-cum');
+  cumEl.textContent=signed(cum); cumEl.className='b4-cum '+(cum>=0?'pos':'neg');
+  var avg=cum/data.length;
+  var best=data.reduce(function(a,b){return b.cf>a.cf?b:a;});
+  var worst=data.reduce(function(a,b){return b.cf<a.cf?b:a;});
+  document.getElementById('meta').innerHTML=
+     '<span>Moyenne <strong>'+signed(avg)+'</strong>/mois</span>'
+    +'<span>Meilleur <strong>'+best.m+' '+(best.y)+' '+signed(best.cf)+'</strong></span>'
+    +'<span>Pire <strong>'+worst.m+' '+(worst.y)+' '+signed(worst.cf)+'</strong></span>';
+  wireHits();
+}
+
+function wireHits(){
+  var tip=document.getElementById('tip');
+  [].forEach.call(document.querySelectorAll('.hit'),function(el){
+    el.style.cursor='default';
+    el.addEventListener('mouseenter',function(e){
+      tip.innerHTML=el.getAttribute('data-tip'); tip.classList.add('on');
+      moveTip(e);
+    });
+    el.addEventListener('mousemove',moveTip);
+    el.addEventListener('mouseleave',function(){ tip.classList.remove('on'); });
+  });
+  function moveTip(e){
+    var tip=document.getElementById('tip');
+    var x=e.clientX, y=e.clientY;
+    tip.style.left=Math.min(x+12, window.innerWidth-tip.offsetWidth-8)+'px';
+    tip.style.top=(y-tip.offsetHeight-10)+'px';
+  }
+}
+
+/* segmented controls */
+function wireSeg(id,key,after){
+  document.getElementById(id).addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    STATE[key]=b.getAttribute('data-v')||b.getAttribute('data-d')||b.getAttribute('data-p');
+    if(after)after();
+  });
+}
+wireSeg('seg-type','type',paint);
+wireSeg('seg-per','per',paint);
+document.getElementById('seg-dev').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
+  b.classList.add('on');
+  var d=b.getAttribute('data-d');
+  document.getElementById('device').className='device '+d;
+  setTimeout(paint,260);
+});
+
+paint();
+</script>
+</body>
+</html>
