@@ -74,6 +74,11 @@ import {
   _computeFinancesSummary
 } from './core/finances-summary.js';
 
+// B4 — sous-P&L mensuel (modèle prêt entier en charge)
+import {
+  _computeFinancesMonthly
+} from './core/finances-monthly.js';
+
 import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
 } from './core/export-comptable.js';
@@ -230,6 +235,9 @@ window._formatBilanTexte = _formatBilanTexte;
 
 // REPORTING-BAILLEUR — agrégat onglet Finances
 window._computeFinancesSummary = _computeFinancesSummary;
+
+// B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
+window._computeFinancesMonthly = _computeFinancesMonthly;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;

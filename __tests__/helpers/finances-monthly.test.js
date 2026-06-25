@@ -63,6 +63,12 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.interetsKnown).toBe(false);
   });
 
+  it('option lastMonth borne la période (N-1 sur la même période que l\'exercice en cours)', () => {
+    const r = _computeFinancesMonthly({ ...base, lastMonth: 1 });   // janvier seulement
+    expect(r.months.map(m => m.ym)).toEqual(['2026-01']);
+    expect(r.annual.reel).toBe(300);                                 // janv uniquement
+  });
+
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
     const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350

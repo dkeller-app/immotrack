@@ -29,9 +29,12 @@ export function _computeFinancesMonthly(input) {
   const isEcheance = i.isEcheance || (() => false);
 
   // Borne « mois écoulés » pour l'exercice en cours (B3/B5) : on ne projette pas l'avenir.
+  // `lastMonth` peut être forcé (ex. comparer le N-1 sur la MÊME période que l'exercice en cours).
   const today = i.today || new Date().toISOString().slice(0, 10);
   const curYear = today.slice(0, 4);
-  const lastMonth = (yr === curYear) ? parseInt(today.slice(5, 7), 10) : 12;
+  const lastMonth = (i.lastMonth != null)
+    ? Math.max(1, Math.min(12, i.lastMonth))
+    : ((yr === curYear) ? parseInt(today.slice(5, 7), 10) : 12);
 
   const blank = () => ({
     loyersBrut: 0, loyersHC: 0, provisions: 0,
