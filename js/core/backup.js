@@ -25,7 +25,9 @@ const _safeName = s => String(s == null ? 'fichier' : s).replace(/[^a-zA-Z0-9._-
 // chaque photo = { idbKey, cloudKey?, ts, synced, name } — l'horodatage est `ts`).
 export function collectBackupFiles(db, lastBackupAt) {
   const out = []
-  const after = ts => !lastBackupAt || (ts && new Date(ts).getTime() > lastBackupAt)
+  // Sans lastBackupAt → tout. Un fichier porteur d'une clé MAIS sans horodatage (records legacy/importés)
+  // est TOUJOURS inclus : mieux re-sauvegarder un doublon (le manifeste dédoublonne) que perdre une preuve légale.
+  const after = ts => !lastBackupAt || !ts || new Date(ts).getTime() > lastBackupAt
   const push = (key, name, kind, ts) => { if (key && after(ts)) out.push({ key, name, kind, ts: ts || null }) }
   for (const d of (db && db.documents) || []) push(d.cloudKey, _safeName(d.nom || ('doc-' + d.id)), 'document', d._modifiedAt)
   for (const [ref, b] of Object.entries((db && db.baux) || {})) {
@@ -56,6 +58,9 @@ export function collectBackupFiles(db, lastBackupAt) {
       for (const ph of (m.photosE || [])) pushPhoto(ph)
       for (const ph of (m.photosS || [])) pushPhoto(ph)
     }
+    // DAAF — 5e emplacement légal (détecteur de fumée, obligation R129-13). Forme confirmée par grep
+    // (index.html L29168/29314/29339) : edl.daaf.photos[] = { name, idbKey, cloudKey?, ts }.
+    for (const ph of ((e.daaf && e.daaf.photos) || [])) pushPhoto(ph)
   }
   return out
 }
@@ -86,9 +91,9 @@ export function storedZip(entries) {
   const u32 = n => [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF]
   for (const e of entries) {
     const nameB = enc.encode(e.name), data = e.bytes, crc = crc32(data), sz = data.length
-    const lh = [].concat(u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(nameB.length), u16(0))
+    const lh = [].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(nameB.length), u16(0))
     locals.push(new Uint8Array(lh), nameB, data)
-    const ch = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(nameB.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))
+    const ch = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(nameB.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))
     centrals.push(new Uint8Array(ch), nameB)
     offset += lh.length + nameB.length + data.length
   }

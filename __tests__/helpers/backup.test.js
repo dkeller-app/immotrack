@@ -28,6 +28,13 @@ describe('collectBackupFiles', () => {
     expect(collectBackupFiles(db, last).map(f => f.key).sort()).toEqual(['esp/seg/files/bc_L1', 'esp/seg/files/bp_L1', 'esp/seg/files/d2'])
   })
   it('lastBackupAt null → tout (sans clé ignoré)', () => { expect(collectBackupFiles(db, null).length).toBe(5) })
+  // Fix audit #1 — un fichier porteur d'une clé MAIS sans horodatage (legacy/importé) ne doit JAMAIS
+  // être dropé en silence quand lastBackupAt est posé (preuve légale perdue). On préfère un doublon.
+  it('clé sans horodatage incluse même avec lastBackupAt non-null', () => {
+    const dbNoTs = { documents: [{ id: 1, cloudKey: 'esp/seg/files/legacy', nom: 'legacy.pdf' }] }
+    const last = new Date('2026-06-22T00:00:00Z').getTime()
+    expect(collectBackupFiles(dbNoTs, last).map(f => f.key)).toEqual(['esp/seg/files/legacy'])
+  })
 
   // ── Photos EDL — forme RÉELLE confirmée par grep (_edlPreloadPhotos, index.html L26791) ──
   // pieces[].elements[].photosE/photosS, cles[].photos/photosS, compteursPhotos[k][], mobilier.elements[].photosE/photosS
@@ -67,6 +74,15 @@ describe('collectBackupFiles', () => {
     // Seules elec (08:50) et mobilier (08:55) sont postérieures à 08:47
     expect(keys).toEqual(['esp/seg/files/phElec', 'esp/seg/files/phMob'])
   })
+  // Fix audit #2 — DAAF = 5e emplacement légal (détecteur de fumée, R129-13). Forme confirmée par grep
+  // (index.html L29168/29314/29339) : edl.daaf.photos[] = { name, idbKey, cloudKey?, ts }.
+  it('photos EDL : emplacement DAAF (détecteur de fumée) collecté', () => {
+    const dbDaaf = { edl: [{ id: 7, _modifiedAt: '2026-06-23T10:00:00Z', daaf: { statut: 'present', photos: [{ idbKey: 'idbDAAF', cloudKey: 'kd', ts: '2026-06-23T09:30:00Z' }] } }] }
+    const photos = collectBackupFiles(dbDaaf, null).filter(f => f.kind === 'photo')
+    expect(photos.map(f => f.key)).toEqual(['kd'])
+    expect(photos[0].kind).toBe('photo')
+    expect(photos[0].ts).toBe('2026-06-23T09:30:00Z')
+  })
   it('photo sans cloudKey ignorée', () => {
     const dbNoKey = { edl: [{ id: 1, pieces: [{ elements: [{ photosE: [{ idbKey: 'x', ts: '2026-06-23T08:00:00Z' }] }] }] }] }
     expect(collectBackupFiles(dbNoKey, null).length).toBe(0)
@@ -97,6 +113,12 @@ describe('storedZip', () => {
     expect([u8[0], u8[1], u8[2], u8[3]]).toEqual([0x50, 0x4B, 0x03, 0x04])
     const tail = u8.slice(u8.length - 22)
     expect([tail[0], tail[1], tail[2], tail[3]]).toEqual([0x50, 0x4B, 0x05, 0x06])
+  })
+  // Fix audit #3 — bit 11 (UTF-8) du general purpose bit flag = 0x0800, pour les noms accentués.
+  // Local header : offset 0-3 sig, 4-5 version, 6-7 gp-flag (little-endian) → [0x00, 0x08].
+  it('local header pose le bit UTF-8 (gp-flag 0x0800)', () => {
+    const u8 = storedZip([{ name: 'données.json', bytes: new TextEncoder().encode('{}') }])
+    expect([u8[6], u8[7]]).toEqual([0x00, 0x08])
   })
   it('EOCD annonce le bon nombre d\'entrées', () => {
     const u8 = storedZip([{ name: 'a.txt', bytes: new TextEncoder().encode('aa') }, { name: 'b.txt', bytes: new TextEncoder().encode('bbb') }, { name: 'c.txt', bytes: new TextEncoder().encode('c') }])
