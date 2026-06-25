@@ -1,0 +1,72 @@
+import { describe, it, expect } from 'vitest';
+import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
+
+// Résolveurs stub (en prod : _finCatLigne / _finScopeWeight / hcRatio / m.cat==='Prêt').
+const catLigne = (cat) => ({
+  'Loyer': { ligne2044: '211', type: 'recette' },
+  'Taxe foncière': { ligne2044: '227', type: 'charge' },
+  'Prêt — Intérêts': { ligne2044: '250', type: 'interet' },
+  'Prêt': null,            // échéance = special (hors 2044) → géré via isEcheance
+}[cat] || null);
+const scopeWeight = () => 1;
+const hcRatio = () => 1;                 // tout en HC (pas de provisions)
+const isEcheance = (m) => m.cat === 'Prêt';
+
+const mvts = [
+  { date: '2026-01-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 },
+  { date: '2026-01-05', cat: 'Prêt', qui: 'L1', cr: 0, db: 600 },          // échéance entière
+  { date: '2026-01-20', cat: 'Taxe foncière', qui: 'L1', cr: 0, db: 100 },
+  { date: '2026-02-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 },
+  { date: '2026-02-05', cat: 'Prêt', qui: 'L1', cr: 0, db: 600 },
+  { date: '2026-02-28', cat: 'Prêt — Intérêts', qui: 'L1', cr: 0, db: 150 }, // intérêts (ligne 250)
+];
+
+const base = { mouvements: mvts, year: 2026, scope: null, scopeWeight, catLigne, hcRatio, isEcheance, today: '2026-02-28' };
+
+describe('_computeFinancesMonthly — modèle prêt entier', () => {
+  it('produit les mois écoulés de l\'exercice (janv + févr 2026)', () => {
+    const r = _computeFinancesMonthly(base);
+    expect(r.months.map(m => m.ym)).toEqual(['2026-01', '2026-02']);
+  });
+
+  it('ligne « Prêt » = échéance entière (cat Prêt), pas seulement les intérêts', () => {
+    const r = _computeFinancesMonthly(base);
+    expect(r.months[0].pret).toBe(600);
+    expect(r.annual.pret).toBe(1200);
+  });
+
+  it('Résultat réel après prêt = loyers HC − (prêt entier + autres charges)', () => {
+    const r = _computeFinancesMonthly(base);
+    // janv : 1000 − (600 prêt + 100 TF) = 300
+    expect(r.months[0].reel).toBe(300);
+    // févr : 1000 − 600 = 400
+    expect(r.months[1].reel).toBe(400);
+    expect(r.annual.reel).toBe(700);
+  });
+
+  it('Base imposable 2044 = loyers HC − (intérêts + autres charges), le capital JAMAIS dedans', () => {
+    const r = _computeFinancesMonthly(base);
+    // annuel : 2000 − (150 intérêts + 100 TF) = 1750 (capital 1050 exclu)
+    expect(r.annual.base2044).toBe(1750);
+  });
+
+  it('intérêts renseignés → base 2044 disponible', () => {
+    const r = _computeFinancesMonthly(base);
+    expect(r.interetsTotal).toBe(150);
+    expect(r.interetsKnown).toBe(true);
+  });
+
+  it('aucun intérêt saisi → base 2044 verrouillée (interetsKnown=false)', () => {
+    const sansInt = mvts.filter(m => m.cat !== 'Prêt — Intérêts');
+    const r = _computeFinancesMonthly({ ...base, mouvements: sansInt });
+    expect(r.interetsTotal).toBe(0);
+    expect(r.interetsKnown).toBe(false);
+  });
+
+  it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
+    const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
+    // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350
+    expect(r.months[0].taxe).toBe(50);
+    expect(r.months[0].reel).toBe(350);
+  });
+});
