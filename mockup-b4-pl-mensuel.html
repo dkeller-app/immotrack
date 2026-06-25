@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup B4 — Détail mensuel, slider + 2025 même période · Propryo</title>
+<title>Mockup B4 — 3 panneaux (mois défilent seuls) · Propryo</title>
 <style>
   :root{
     --bg:#f4f5f8; --sur:#ffffff; --sur2:#f7f8fb; --sur3:#eef1f6;
@@ -37,7 +37,6 @@
   .card-h h3{font-size:14px;font-weight:700;margin:0}
   .card-h .meta{font-size:11px;color:var(--t3);margin-left:auto}
 
-  /* toggle discret du détail mensuel */
   .dtoggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font:600 12px Inter;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:20px;padding:5px 12px 5px 10px}
   .dtoggle:hover{border-color:var(--acc);color:var(--acc-hover)}
   .dtoggle .pill{width:30px;height:17px;border-radius:10px;background:var(--sur3);position:relative;transition:.18s;flex:none}
@@ -45,68 +44,65 @@
   .dtoggle.on{color:var(--acc-hover);border-color:var(--acc)}
   .dtoggle.on .pill{background:var(--acc)}
   .dtoggle.on .pill::after{left:15px}
-
   .slidehint{font-size:10.5px;color:var(--acc-hover);font-weight:600;display:none;align-items:center;gap:5px}
   .slidehint.show{display:inline-flex}
 
-  /* table */
-  .tscroll{overflow-x:auto;scrollbar-color:var(--acc) var(--sur3)}
-  .tscroll::-webkit-scrollbar{height:13px}
-  .tscroll::-webkit-scrollbar-track{background:var(--sur3)}
-  .tscroll::-webkit-scrollbar-thumb{background:var(--acc);border-radius:8px;border:3px solid var(--sur3)}
-  .tscroll::-webkit-scrollbar-thumb:hover{background:var(--acc-hover)}
-  table.pl{border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;font-variant-numeric:tabular-nums}
-  table.pl.expanded{width:max-content;min-width:100%}
-  table.pl th,table.pl td{padding:7px 14px;font-size:12.5px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  table.pl thead th{font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bor);background:var(--sur);vertical-align:bottom;padding-bottom:8px}
-  /* largeurs EXACTES (table-layout:fixed) → ancrages sticky pixel-parfaits, aucun décalage */
-  td.poste,th.poste{position:sticky;left:0;z-index:4;text-align:left;white-space:normal;width:188px;background:var(--sur)}
-  td.y26,th.y26{position:sticky;left:188px;z-index:4;width:104px;background:var(--blue-soft);font-weight:700;border-right:1px solid #d7e3fb}
-  thead th.y26{color:var(--blue);background:#e4eeff}
-  /* gelé droite : 2025 (même période) + Var + % — offsets = somme exacte des largeurs à droite */
-  td.pct,th.pct{position:sticky;right:0;z-index:4;width:86px;background:var(--sur)}
-  td.var,th.var{position:sticky;right:86px;z-index:4;width:88px;background:var(--sur)}
-  td.y25,th.y25{position:sticky;right:174px;z-index:4;width:110px;background:var(--sur);box-shadow:inset 1px 0 0 var(--bor)}
-  /* mois (défilent au milieu) */
-  td.mo,th.mo{width:104px;background:#fffcfb}
-  td.mo.cur,th.mo.cur{background:var(--acc-soft)}
-  thead th.mo{color:var(--t2)} thead th.mo.cur{color:var(--acc-hover)}
-  .mini{font-size:9px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0}
+  /* ===== 3 panneaux : gauche (figé) | milieu (défile seul) | droite (figé) ===== */
+  .plgrid{display:flex;align-items:flex-start}
+  .pane{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
+  .pane.left,.pane.right{flex:none}
+  .midwrap{flex:1;min-width:0;overflow-x:auto;scrollbar-color:var(--acc) var(--sur3)}
+  .midwrap::-webkit-scrollbar{height:13px}
+  .midwrap::-webkit-scrollbar-track{background:var(--sur3)}
+  .midwrap::-webkit-scrollbar-thumb{background:var(--acc);border-radius:8px;border:3px solid var(--sur3)}
+  .midwrap::-webkit-scrollbar-thumb:hover{background:var(--acc-hover)}
+  .pane.mid{table-layout:fixed;width:max-content}
+  .pane th,.pane td{padding:7px 14px;font-size:12.5px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--bor2);overflow:hidden}
+  .pane thead th{font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bor);vertical-align:bottom;padding-bottom:8px;background:var(--sur)}
+  .pane .mini{font-size:9px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0}
 
-  tr.grp td{background:var(--sur3);font:700 9.5px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);text-align:left}
-  tr.grp td.poste{background:var(--sur3)} tr.grp td.y26{background:#dfe9fb} tr.grp td.mo{background:var(--sur3)}
-  tr.grp td.y25,tr.grp td.var,tr.grp td.pct{background:var(--sur3)}
-  tr.tot td{font-weight:700;border-top:1px solid var(--bor);background:#fcfdff}
-  tr.tot td.poste{background:#fcfdff} tr.tot td.y26{background:#dfe9fb} tr.tot td.mo{background:#fcfbfa}
-  tr.tot td.y25,tr.tot td.var,tr.tot td.pct{background:#fcfdff}
-  tr.net td{font-weight:800;border-top:2px solid var(--t1);font-size:13px;background:#f6f9ff}
-  tr.net td.poste{background:#f6f9ff} tr.net td.y26{background:#d6e4fc} tr.net td.mo{background:#f6f8ff}
-  tr.net td.y25,tr.net td.var,tr.net td.pct{background:#f6f9ff}
-  tr.info td{font-size:10.5px;color:var(--blue);background:#fafcff;border-top:1px dashed #cfe0fb;font-weight:600}
-  tr.info td.poste{background:#fafcff} tr.info td.y26{background:#e9f1ff} tr.info td.mo{background:#fafcff}
-  tr.info td.y25,tr.info td.var,tr.info td.pct{background:#fafcff}
+  .left{table-layout:fixed}
+  .left .poste{width:190px;text-align:left;white-space:normal}
+  .left .y26{width:104px;background:var(--blue-soft);font-weight:700;border-left:1px solid #dce6f8}
+  .left thead .y26{color:var(--blue);background:#e4eeff}
+  .mid .mo{width:100px;background:#fffcfb}
+  .mid .mo.cur{background:var(--acc-soft)}
+  .mid thead .mo{color:var(--t2)} .mid thead .mo.cur{color:var(--acc-hover)}
+  .right .y25{width:108px;border-left:1px solid var(--bor)}
+  .right .var{width:84px}
+  .right .pct{width:80px}
+
+  /* fonds par type de ligne (mêmes dans les 3 panneaux → bandes continues) */
+  .pane tr.grp td{background:var(--sur3);font:700 9.5px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);text-align:left;height:24px}
+  .left tr.grp .y26{background:#dfe9fb}
+  .pane tr.tot td{font-weight:700;border-top:1px solid var(--bor);background:#fcfdff}
+  .left tr.tot .y26{background:#dfe9fb}
+  .pane tr.net td{font-weight:800;border-top:2px solid var(--t1);font-size:13px;background:#f6f9ff}
+  .left tr.net .y26{background:#d6e4fc}
+  .pane tr.info td{font-size:10.5px;color:var(--blue);background:#fafcff;border-top:1px dashed #cfe0fb;font-weight:600}
+  .left tr.info .y26{background:#e9f1ff}
   .neg{color:var(--red)} .pos{color:var(--grn)} .zero{color:var(--t3)} .blue{color:var(--blue)}
-  td.lab .sub{display:block;color:var(--t3);font-weight:400;font-size:10px;margin-top:1px}
-  td.lab .smut{color:var(--t3);font-weight:400;font-size:10px}
+  .left td.lab{position:relative}
+  .left .sub{display:block;color:var(--t3);font-weight:400;font-size:10px;margin-top:1px}
+  .left .smut{color:var(--t3);font-weight:400;font-size:10px}
   .tag2044{display:inline-block;font:700 8.5px Inter;background:var(--blue);color:#fff;border-radius:5px;padding:1px 5px;vertical-align:1px;margin-left:6px}
 
   .foot{padding:11px 18px 15px;font-size:11px;color:var(--t2);line-height:1.55;border-top:1px solid var(--bor2)}
   .foot b{color:var(--t1)} .foot .blue{color:var(--blue);font-weight:700}
 
-  /* TABLETTE : largeurs + offsets exacts */
-  .device.tab table.pl th,.device.tab table.pl td{padding:6px 9px;font-size:11.5px}
-  .device.tab td.poste,.device.tab th.poste{width:150px}
-  .device.tab td.y26,.device.tab th.y26{left:150px;width:84px}
-  .device.tab td.mo,.device.tab th.mo{width:88px}
-  .device.tab td.y25,.device.tab th.y25{right:134px;width:92px}
-  .device.tab td.var,.device.tab th.var{right:64px;width:70px}
-  .device.tab td.pct,.device.tab th.pct{right:0;width:64px}
-  /* TÉLÉPHONE : annuel condensé, rien de gelé à droite, tient sans scroll */
-  .device.mob table.pl th,.device.mob table.pl td{padding:5px 7px;font-size:10.5px}
-  .device.mob td.poste,.device.mob th.poste{width:92px}
-  .device.mob td.y26,.device.mob th.y26{left:92px;width:58px}
-  .device.mob td.y25,.device.mob th.y25,.device.mob td.var,.device.mob th.var,.device.mob td.pct,.device.mob th.pct{position:static;width:auto}
-  .device.mob td.lab .sub,.device.mob td.lab .smut{display:none}
+  /* TABLETTE */
+  .device.tab .pane th,.device.tab .pane td{padding:6px 9px;font-size:11.5px}
+  .device.tab .left .poste{width:150px}
+  .device.tab .left .y26{width:84px}
+  .device.tab .mid .mo{width:86px}
+  .device.tab .right .y25{width:90px} .device.tab .right .var{width:66px} .device.tab .right .pct{width:62px}
+  /* TÉLÉPHONE : milieu masqué (annuel), condensé, tient sans scroll */
+  .device.mob .midwrap{display:none}
+  .device.mob .pane th,.device.mob .pane td{padding:5px 7px;font-size:10.5px}
+  .device.mob .left{flex:1} .device.mob .right{flex:none}
+  .device.mob .left .poste{width:auto} .device.mob .left .y26{width:64px}
+  .device.mob .right .y25{width:64px} .device.mob .right .var{width:54px} .device.mob .right .pct{width:50px}
+  .device.mob .left .sub,.device.mob .left .smut{display:none}
 
   .caption{margin-top:22px;background:var(--sur);border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--t2);line-height:1.6}
   .caption b{color:var(--t1)} .you{color:var(--acc);font-weight:700} .caption .bl{color:var(--blue);font-weight:700}
@@ -115,8 +111,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>B4 — Détail mensuel <span style="color:var(--acc)">·</span> slider + comparaison même période</h1>
-  <p class="lede">Le toggle <b>« Détail mensuel »</b> (en-tête, discret) ajoute les colonnes-mois. <b>Année 2026 figée à gauche</b>, <b>2025 figée à droite</b> — les mois <b>se font glisser avec la barre</b> en bas (plus de boutons). La colonne <b>2025</b> et la <b>variation</b> sont sur la <b>même période</b> (janv→juin) → comparaison juste. Le prêt entier est en charge.</p>
+  <h1>B4 — Détail mensuel <span style="color:var(--acc)">·</span> 3 panneaux (les mois défilent seuls)</h1>
+  <p class="lede">Fix définitif : <b>Année 2026</b> (gauche) et <b>2025 / Var</b> (droite) sont dans des <b>panneaux figés séparés</b> — seuls les <b>mois du milieu défilent</b>, avec la barre. Plus aucun décalage possible (pas de sticky). 2025 et la variation sont sur la <b>même période</b> (janv→juin). Prêt entier en charge.</p>
 
   <div class="ctrl">
     <span class="lbl">Format</span>
@@ -136,23 +132,24 @@
         <span class="slidehint show" id="slidehint">↔ glisse la barre pour parcourir les mois</span>
         <span class="meta">montants réels · % = part des loyers</span>
       </div>
-      <div class="tscroll"><table class="pl" id="tbl"></table></div>
+      <div class="plgrid">
+        <table class="pane left" id="p-left"></table>
+        <div class="midwrap" id="midwrap"><table class="pane mid" id="p-mid"></table></div>
+        <table class="pane right" id="p-right"></table>
+      </div>
       <div class="foot" id="foot"></div>
     </div>
 
     <div class="caption">
-      <b>Les corrections :</b><br>
-      • <span class="you">Variation = même période</span> : la colonne « 2025 » montre <b>janv→juin 2025</b> (pas l'année pleine) → la variation est juste (ex. loyers <span class="pos">+7,3 %</span>, pas −45 %).<br>
-      • <span class="you">Slider</span> : les mois se parcourent avec la <b>barre en bas</b> (drag), plus de boutons ◀▶. Année 2026 reste à gauche, 2025 à droite — toutes deux toujours visibles.<br>
-      • <span class="you">Plus de gros bouton</span> : le détail s'active via un <b>petit interrupteur</b> discret dans l'en-tête.<br>
-      • Prêt entier en charge → <b>Résultat réel après prêt</b> + ligne fine <span class="bl">Base imposable 2044</span>.<br>
-      <span style="font-size:11px;color:var(--t3)">Mockup — rien n'est codé. Téléphone : détail masqué (annuel condensé). ⚠ Changement fiscal → audit code-reviewer au portage.</span>
+      <b>Pourquoi ça ne bougera plus :</b> les mois sont dans <span class="you">leur propre conteneur qui défile</span>, totalement séparé des colonnes Année/2025/Var qui sont des panneaux fixes. Il n'y a plus de <code>sticky</code> → rien à décaler, sur aucun écran.<br>
+      • 2025 et Var sur la <b>même période</b> (janv→juin) → variation juste.<br>
+      • Prêt entier en charge → <b>Résultat réel après prêt</b> + ligne <span class="bl">Base imposable 2044</span>.<br>
+      <span style="font-size:11px;color:var(--t3)">Mockup — rien n'est codé. Téléphone : milieu masqué (annuel condensé). ⚠ Changement fiscal → audit code-reviewer au portage.</span>
     </div>
   </div>
 </div>
 
 <script>
-/* 2026 janv→juin (mois écoulés). 2025 = MÊME période (janv→juin 2025) pour comparer. */
 var M = [
   {key:'2026-01', lib:'janv. 26', hc:2800, prov:300, interets:450, capital:700, taxe:900, travaux:0,   honoraires:200, assurance:0},
   {key:'2026-02', lib:'févr. 26', hc:2800, prov:300, interets:450, capital:700, taxe:0,   travaux:0,   honoraires:200, assurance:0},
@@ -170,7 +167,6 @@ M.forEach(function(m){
 var CUR='2026-06';
 function fmt(n){ return Math.round(n).toLocaleString('fr-FR').replace(/ /g,' ')+' €'; }
 
-/* y25 = même période janv→juin 2025 */
 var ROWS=[
   {grp:'Revenus locatifs'},
   {lab:'Loyers hors charges encaissés', y25:14400, fm:function(m){return m.hc;}},
@@ -186,7 +182,6 @@ var ROWS=[
   {net:'Résultat réel après prêt', y25:3600, fm:function(m){return m.reel;}},
   {info:'Base imposable <span class="tag2044">2044</span> <span class="sub" style="color:var(--blue);opacity:.7">intérêts seuls déductibles</span>', y25:7800, fm:function(m){return m.base2044;}}
 ];
-
 function val(v,r){
   if(r.net) return '<span class="'+(v>=0?'pos':'neg')+'">'+(v>=0?'+ ':'− ')+fmt(Math.abs(v))+'</span>';
   if(r.info) return '<span class="blue">'+(v>=0?'+ ':'− ')+fmt(Math.abs(v))+'</span>';
@@ -196,55 +191,72 @@ function val(v,r){
   return fmt(v);
 }
 function y26(r){ if(r.grp) return 0; return M.reduce(function(a,m){return a+r.fm(m);},0); }
-function varOf(r){
-  if(r.grp||r.mut) return r.mut?'<span class="zero">—</span>':'';
-  var n=y26(r), n1=(r.y25!=null?r.y25:0);
-  if(!n1) return '<span class="zero">—</span>';
-  var p=(n-n1)/n1*100;
-  return '<span class="'+(p>=0?'pos':'neg')+'">'+(p>=0?'+':'−')+Math.abs(Math.round(p*10)/10).toString().replace('.',',')+' %</span>';
-}
+function varOf(r){ if(r.grp||r.mut) return r.mut?'<span class="zero">—</span>':'';
+  var n=y26(r), n1=(r.y25!=null?r.y25:0); if(!n1) return '<span class="zero">—</span>';
+  var p=(n-n1)/n1*100; return '<span class="'+(p>=0?'pos':'neg')+'">'+(p>=0?'+':'−')+Math.abs(Math.round(p*10)/10).toString().replace('.',',')+' %</span>'; }
 function pctOf(r){ if(r.grp||r.mut) return r.mut?'<span class="zero">—</span>':''; return (Math.round(y26(r)/15450*1000)/10).toString().replace('.',',')+' %'; }
-function rowClass(r){ return r.tot?'tot':(r.net?'net':(r.info?'info':'')); }
+function rc(r){ return r.tot?'tot':(r.net?'net':(r.info?'info':'')); }
 
 var STATE={exp:true, dev:'pc'};
-var MONTHS=M.slice().reverse(); // mois courant à gauche
+var MONTHS=M.slice().reverse();
 
 function paint(){
   var mobile=STATE.dev==='mob';
   var exp=mobile?false:STATE.exp;
-  // entête
-  var thead='<thead><tr><th class="poste">Poste</th><th class="y26">Année 2026</th>';
-  if(exp){ MONTHS.forEach(function(m){
-    thead+='<th class="mo'+(m.key===CUR?' cur':'')+'">'+m.lib+(m.partiel?'<br><span class="mini">en cours</span>':'')+'</th>';
-  }); }
-  thead+='<th class="y25">2025<br><span class="mini">janv→juin</span></th><th class="var">Var.</th><th class="pct">% loyers</th></tr></thead>';
 
-  var tb='<tbody>';
+  // ---- panneau GAUCHE : Poste + Année 2026
+  var L='<thead><tr><th class="poste">Poste</th><th class="y26">Année 2026</th></tr></thead><tbody>';
   ROWS.forEach(function(r){
-    if(r.grp){ tb+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="y26"></td>'
-      +(exp?MONTHS.map(function(){return '<td class="mo"></td>';}).join(''):'')
-      +'<td class="y25"></td><td class="var"></td><td class="pct"></td></tr>'; return; }
-    var label=r.lab||r.tot||r.net||r.info;
-    tb+='<tr class="'+rowClass(r)+'"><td class="poste lab">'+label+'</td><td class="y26">'+val(y26(r),r)+'</td>';
-    if(exp){ MONTHS.forEach(function(m){ tb+='<td class="mo'+(m.key===CUR?' cur':'')+'">'+val(r.fm(m),r)+'</td>'; }); }
-    tb+='<td class="y25">'+val(r.y25!=null?r.y25:0,r)+'</td><td class="var">'+varOf(r)+'</td><td class="pct">'+pctOf(r)+'</td></tr>';
+    if(r.grp){ L+='<tr class="grp"><td class="poste">'+r.grp+'</td><td class="y26"></td></tr>'; return; }
+    L+='<tr class="'+rc(r)+'"><td class="poste lab">'+(r.lab||r.tot||r.net||r.info)+'</td><td class="y26">'+val(y26(r),r)+'</td></tr>';
   });
-  tb+='</tbody>';
-  var tbl=document.getElementById('tbl');
-  tbl.innerHTML=thead+tb;
-  tbl.className = exp ? 'pl expanded' : 'pl';
+  L+='</tbody>';
+  document.getElementById('p-left').innerHTML=L;
 
+  // ---- panneau MILIEU : mois
+  var Mid='<thead><tr>'+MONTHS.map(function(m){return '<th class="mo'+(m.key===CUR?' cur':'')+'">'+m.lib+(m.partiel?'<br><span class="mini">en cours</span>':'')+'</th>';}).join('')+'</tr></thead><tbody>';
+  ROWS.forEach(function(r){
+    if(r.grp){ Mid+='<tr class="grp">'+MONTHS.map(function(){return '<td class="mo"></td>';}).join('')+'</tr>'; return; }
+    Mid+='<tr class="'+rc(r)+'">'+MONTHS.map(function(m){return '<td class="mo'+(m.key===CUR?' cur':'')+'">'+val(r.fm(m),r)+'</td>';}).join('')+'</tr>';
+  });
+  Mid+='</tbody>';
+  document.getElementById('p-mid').innerHTML=Mid;
+
+  // ---- panneau DROITE : 2025 (même période) + Var + %
+  var R='<thead><tr><th class="y25">2025<br><span class="mini">janv→juin</span></th><th class="var">Var.</th><th class="pct">% loyers</th></tr></thead><tbody>';
+  ROWS.forEach(function(r){
+    if(r.grp){ R+='<tr class="grp"><td class="y25"></td><td class="var"></td><td class="pct"></td></tr>'; return; }
+    R+='<tr class="'+rc(r)+'"><td class="y25">'+val(r.y25!=null?r.y25:0,r)+'</td><td class="var">'+varOf(r)+'</td><td class="pct">'+pctOf(r)+'</td></tr>';
+  });
+  R+='</tbody>';
+  document.getElementById('p-right').innerHTML=R;
+
+  // synchroniser la hauteur des lignes entre les 3 panneaux
+  syncRows(mobile, exp);
+
+  // foot
   var sR=M.reduce(function(a,m){return a+m.reel;},0), sB=M.reduce(function(a,m){return a+m.base2044;},0);
   document.getElementById('foot').innerHTML=
-    'Colonne <b>Année</b> = Σ des mois (figée à gauche). <b>Résultat réel après prêt = + '+fmt(sR).replace(' €','')+' €</b> (toute la mensualité déduite). '
+    'Colonne <b>Année</b> = Σ des mois (panneau figé à gauche). <b>Résultat réel après prêt = + '+fmt(sR).replace(' €','')+' €</b>. '
     +'<span class="blue">Base imposable 2044 = + '+fmt(sB).replace(' €','')+' €</span> (intérêts seuls déductibles). '
-    +'<b>2025</b> et <b>Var.</b> = même période (janv→juin) → comparaison juste. « – » = aucun mouvement ce mois-là.';
+    +'<b>2025</b> et <b>Var.</b> = même période janv→juin → comparaison juste. « – » = aucun mouvement ce mois-là.';
 
-  // toggle + hint : actifs seulement hors mobile
   var tg=document.getElementById('toggle'), sh=document.getElementById('slidehint');
   tg.classList.toggle('on', exp);
-  tg.style.opacity = mobile?'.4':''; tg.style.pointerEvents = mobile?'none':'';
+  tg.style.opacity=mobile?'.4':''; tg.style.pointerEvents=mobile?'none':'';
   sh.classList.toggle('show', exp && !mobile);
+}
+
+function syncRows(mobile, exp){
+  var left=document.getElementById('p-left'), mid=document.getElementById('p-mid'), right=document.getElementById('p-right');
+  document.getElementById('midwrap').style.display = (exp && !mobile) ? '' : 'none';
+  var panes=[left, right]; if(exp && !mobile) panes.splice(1,0,mid);
+  var nRows=left.rows.length;
+  for(var i=0;i<nRows;i++){ panes.forEach(function(p){ if(p.rows[i]) p.rows[i].style.height='auto'; }); }
+  for(var i=0;i<nRows;i++){
+    var h=0; panes.forEach(function(p){ if(p.rows[i]) h=Math.max(h, p.rows[i].offsetHeight); });
+    panes.forEach(function(p){ if(p.rows[i]) p.rows[i].style.height=h+'px'; });
+  }
 }
 
 document.getElementById('toggle').addEventListener('click',function(){ if(STATE.dev==='mob')return; STATE.exp=!STATE.exp; paint(); });
@@ -253,6 +265,7 @@ document.getElementById('seg-dev').addEventListener('click',function(e){ var b=e
   STATE.dev=b.getAttribute('data-d'); document.getElementById('device').className='device '+STATE.dev; paint();
 });
 paint();
+window.addEventListener('resize',function(){ syncRows(STATE.dev==='mob', STATE.dev!=='mob'&&STATE.exp); });
 </script>
 </body>
 </html>
