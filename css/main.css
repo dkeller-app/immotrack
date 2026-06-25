@@ -8211,3 +8211,43 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   #cand-table td[colspan]{display:block;grid-template-columns:none}
   #cand-table td[colspan]::before{display:none}
 }
+
+/* ── 🛟 SAUVEGARDE de sécurité (Chantier 3 cloud-cutover) ────────────────────
+   Carte Réglages → Données. Tokens du design-system (var(--t1/t2/t3), --sur2, --bor,
+   --pos/--pos-soft, --warn/--warn-soft, --blu). Préfixe bk- pour ne rien écraser. */
+#backup-card .bk-ch{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+#backup-card .bk-ic{width:30px;height:30px;border-radius:8px;background:var(--sur2);display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+#backup-card .bk-ch h3{font-size:14.5px;font-weight:700;color:var(--t1);margin:0}
+#backup-card .bk-sub{font-size:12px;color:var(--t3);margin:0 0 12px 39px}
+#backup-card .bk-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--bor)}
+#backup-card .bk-row:first-of-type{border-top:none}
+#backup-card .bk-lbl{font-size:13px;color:var(--t2);flex:1}
+#backup-card .bk-val{font-size:12.5px;color:var(--t1);font-weight:600}
+#backup-card .bk-hint{font-size:11.5px;color:var(--t3);margin-top:12px;line-height:1.5}
+#backup-card .bk-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px}
+#backup-card .bk-pill.ok{background:var(--pos-soft);color:var(--pos)}
+#backup-card .bk-pill.warn{background:var(--warn-soft);color:var(--warn)}
+#backup-card .bk-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+#backup-card .bk-seg{display:inline-flex;background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:2px;gap:1px}
+#backup-card .bk-seg span{font-size:12px;font-weight:600;color:var(--t3);padding:5px 10px;border-radius:7px;cursor:pointer;user-select:none}
+#backup-card .bk-seg span.on{background:var(--sur);color:var(--t1);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+#backup-card .bk-foldchip{display:inline-flex;align-items:center;gap:7px;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--t1);max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#backup-card .bk-mobmsg{background:var(--sur2);border:1px solid var(--bor);border-radius:12px;padding:16px;text-align:center;margin-top:6px}
+#backup-card .bk-mobmsg .big{font-size:26px;margin-bottom:8px}
+#backup-card .bk-mobmsg .t{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px}
+#backup-card .bk-mobmsg .d{font-size:12px;color:var(--t3);line-height:1.5}
+#backup-card .bk-prog{height:8px;background:var(--sur2);border-radius:999px;overflow:hidden;margin:10px 0 6px}
+#backup-card .bk-prog i{display:block;height:100%;background:var(--blu);border-radius:999px;transition:width .2s ease}
+
+/* Bandeau de proposition (mode zip / dossier non autorisé) — fixé en bas, responsive. */
+.bk-propose{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9000;display:flex;align-items:center;gap:12px;
+  background:var(--warn-soft);border:1px solid var(--warn);border-radius:12px;padding:12px 14px;width:660px;max-width:calc(100vw - 32px);
+  box-shadow:0 10px 36px -16px rgba(16,21,33,.45)}
+.bk-propose .tx{flex:1;font-size:13px;color:var(--t1)}
+.bk-propose .tx b{color:var(--t1)}
+@media(max-width:640px){
+  .bk-propose{flex-wrap:wrap;left:8px;right:8px;transform:none;width:auto}
+  .bk-propose .tx{flex:1 1 100%}
+  #backup-card .bk-row{flex-wrap:wrap}
+  #backup-card .bk-seg{flex-wrap:wrap}
+}

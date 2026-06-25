@@ -150,6 +150,13 @@ import {
   relayFetchPiece, relayReopen, relayRevoke, relayPurge, relayPing
 } from './core/relay-client.js';
 
+// SAUVEGARDE (Chantier 3 cloud-cutover) — cœur PUR de la sauvegarde de sécurité.
+// Exposé sous window._bk.* ; l'orchestration IMPURE (File System Access, fetch
+// Storage, UI Réglages, auto-check) vit inline dans index-test.html / index.html.
+import {
+  FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip
+} from './core/backup.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -346,6 +353,9 @@ window._relayReopen = relayReopen;
 window._relayRevoke = relayRevoke;
 window._relayPurge = relayPurge;
 window._relayPing = relayPing;
+
+// SAUVEGARDE (Chantier 3) — cœur pur exposé en bloc sous window._bk pour le code inline.
+window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip };
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
