@@ -41,7 +41,11 @@ export function collectBackupFiles(db, lastBackupAt) {
     const pushPhoto = ph => {
       if (!ph || !ph.cloudKey) return
       const stamp = ph.ts || e._modifiedAt
-      push(ph.cloudKey, _safeName('photo-' + String(ph.idbKey || ph.cloudKey || '').slice(-12) + '.jpg'), 'photo', stamp)
+      // Audit M4 : unicité du nom de fichier. slice(-12) faisait collisionner 2 photos dont les
+      // 12 derniers chars d'idbKey coïncident → getFileHandle(create:true) en écrasait une.
+      // On sanitise l'idbKey COMPLET (fallback cloudKey) → nom déterministe et distinct.
+      const uid = _safeName(ph.idbKey || ph.cloudKey || 'photo')
+      push(ph.cloudKey, _safeName('photo-' + uid + '.jpg'), 'photo', stamp)
     }
     for (const pc of (e.pieces || [])) for (const x of (pc.elements || [])) {
       for (const ph of (x.photosE || [])) pushPhoto(ph)

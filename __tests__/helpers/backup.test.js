@@ -87,6 +87,29 @@ describe('collectBackupFiles', () => {
     const dbNoKey = { edl: [{ id: 1, pieces: [{ elements: [{ photosE: [{ idbKey: 'x', ts: '2026-06-23T08:00:00Z' }] }] }] }] }
     expect(collectBackupFiles(dbNoKey, null).length).toBe(0)
   })
+  // Fix audit M4 — 2 photos dont les 12 derniers chars d'idbKey coïncident NE doivent PAS partager
+  // le même `name` (sinon getFileHandle(create:true) en écraserait une dans le dossier). On nomme
+  // désormais sur l'idbKey COMPLET sanitisé → noms distincts garantis.
+  it('noms de photos uniques même si 12 derniers chars idbKey identiques', () => {
+    const dbColl = {
+      edl: [{
+        id: 1,
+        pieces: [{
+          elements: [{
+            photosE: [
+              { idbKey: 'edl1_pieceA_0123456789AB', cloudKey: 'esp/seg/files/phA', ts: '2026-06-23T08:00:00Z' },
+              { idbKey: 'edl1_pieceB_0123456789AB', cloudKey: 'esp/seg/files/phB', ts: '2026-06-23T08:01:00Z' }
+            ]
+          }]
+        }]
+      }]
+    }
+    const photos = collectBackupFiles(dbColl, null).filter(f => f.kind === 'photo')
+    expect(photos.length).toBe(2)
+    const names = photos.map(f => f.name)
+    expect(names[0]).not.toBe(names[1])               // pas de collision
+    expect(new Set(names).size).toBe(2)               // 2 noms distincts
+  })
 })
 describe('buildManifest', () => {
   it('accumule clés + historise snapshots', () => {
