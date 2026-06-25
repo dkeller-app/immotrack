@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Clôture locataire : estimation N-1 + règle 20%</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f7;--card:#fff;--bor:rgba(0,0,0,.09);--t1:#1a2332;--t2:#5a6e87;--t3:#9aabbf;--blu:#3b7ef6;--grn:#16a34a;--red:#dc2626;--ora:#ea580c;--amb:#d97706;--sur2:#f5f8fc;--bg-success:rgba(22,163,74,.10);--bg-warning:rgba(234,88,12,.12);--bg-info:rgba(59,126,246,.10)}
+*{box-sizing:border-box}
+body{margin:0;background:#dfe5ee;color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:13.5px;line-height:1.45;padding:20px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+.mono{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin:0 0 10px;width:100%}
+/* trigger snippet */
+.snip{background:var(--card);border:1px solid var(--bor);border-radius:12px;overflow:hidden;width:340px;box-shadow:0 1px 3px rgba(20,30,60,.05)}
+.snip-h{padding:10px 14px;border-bottom:1px solid var(--bor);font-weight:700;font-size:13px}
+.lg{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid rgba(0,0,0,.05)}
+.lg .ln{font-weight:600;font-size:12.5px}.lg .ls{font-size:10.5px;color:var(--t3)}
+.badge{font-size:9.5px;padding:2px 7px;border-radius:20px;font-weight:700;white-space:nowrap}
+.badge.parti{background:var(--bg-warning);color:var(--ora)} .badge.est{background:var(--bg-info);color:var(--blu)}
+.lg .grow{flex:1}
+.btn-fin{margin-left:auto;border:1px solid var(--ora);background:rgba(234,88,12,.07);color:var(--ora);border-radius:8px;padding:6px 10px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.snip-note{font-size:11px;color:var(--t2);padding:10px 14px;background:var(--sur2)}
+/* clôture panel */
+.panel{background:var(--card);border:1px solid var(--bor);border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(20,30,60,.12);flex:1;min-width:420px}
+.p-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--bor)}
+.p-h .ttl{font-size:15px;font-weight:800}.p-h .sub{font-size:11.5px;color:var(--t3)}.p-h .x{margin-left:auto;border:0;background:none;color:var(--t3);font-size:18px;cursor:pointer}
+.p-b{padding:16px 18px}
+.blk{margin-bottom:18px}
+.blk-t{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;background:#e2e8f1;border-radius:9px;padding:3px;gap:2px;margin-left:auto}
+.seg button{border:0;background:transparent;padding:5px 11px;border-radius:7px;font:inherit;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer}
+.seg button.on{background:#fff;color:var(--t1);box-shadow:0 1px 2px rgba(20,30,60,.15)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+.estbar{display:flex;gap:8px;align-items:flex-start;background:var(--bg-info);border:1px solid rgba(59,126,246,.25);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:12px}
+.estbar b{color:var(--blu)}
+.line{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;font-size:13px;border-bottom:1px solid rgba(0,0,0,.05)}
+.line .l{color:var(--t2)}.line .l small{color:var(--t3);font-size:11px}
+.line .v{font-weight:600;font-family:'Manrope',sans-serif}
+.line.calc .l{padding-left:14px;color:var(--t3);font-size:12px}
+.line.tot{border-top:2px solid var(--bor);border-bottom:0;margin-top:4px;padding-top:9px}
+.line.tot .l{font-weight:700;color:var(--t1)}.line.tot .v{font-size:16px;font-weight:800}
+.v.neg{color:var(--red)}.v.pos{color:var(--grn)}
+.tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:6px;font-weight:700}
+.tag.dem{background:var(--bg-success);color:var(--grn)}.tag.rest{background:var(--bg-warning);color:var(--ora)}
+/* 20% card */
+.dg{background:#fffaf0;border:1px solid #f59e0b55;border-radius:11px;padding:13px 15px}
+.dg .dgh{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:var(--amb);margin-bottom:8px}
+.dg .dgr{display:flex;justify-content:space-between;padding:4px 0;font-size:12.5px}
+.dg .dgr .v{font-weight:700;font-family:'Manrope',sans-serif}
+.dg .hi{background:#fff;border:1px dashed #f59e0b88;border-radius:8px;padding:9px 11px;margin-top:8px;font-size:12px;color:var(--t1)}
+.dg .hi b{color:var(--amb)}
+.dg .legal{font-size:10.5px;color:var(--t3);margin-top:8px;font-style:italic}
+.p-f{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--bor);background:var(--sur2);flex-wrap:wrap}
+.p-f .btn{border:1px solid var(--bor);background:#fff;border-radius:9px;padding:9px 13px;font:inherit;font-weight:600;font-size:12.5px;cursor:pointer}
+.p-f .btn.primary{background:var(--t1);color:#fff;border-color:var(--t1)}
+.p-f .btn.amber{border-color:var(--amb);color:var(--amb)}
+/* annotations */
+.anno{width:100%;display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.anno .a{flex:1;min-width:240px;background:#fff;border:1px solid var(--bor);border-left:3px solid var(--blu);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--t2)}
+.anno .a b{color:var(--t1)}
+.cap{width:100%;font-size:11px;color:var(--t3);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h2 class="sec">Où ça se déclenche → le panneau de clôture</h2>
+
+  <!-- trigger snippet -->
+  <div class="snip">
+    <div class="snip-h">📋 Régularisation — Morschwiller <span class="badge est" style="margin-left:6px">exercice 2026 · estimé</span></div>
+    <div class="lg"><div class="grow"><div class="ln">RDC gauche <span class="badge parti">parti 30/06</span></div><div class="ls">Mme Schmitt</div></div><button class="btn-fin">🏁 Clôturer</button></div>
+    <div class="lg"><div class="grow"><div class="ln">F2 milieu</div><div class="ls">M. Klein · en cours</div></div><span class="mono" style="color:var(--ora);font-size:12px">≈ −20 €</span></div>
+    <div class="lg"><div class="grow"><div class="ln">F3</div><div class="ls">Mme Berger · en cours</div></div><span class="mono" style="color:var(--grn);font-size:12px">≈ +30 €</span></div>
+    <div class="snip-note">Année 2026 non clôturée → soldes en <b>estimation (base 2025)</b>. Sur un locataire <b>parti</b>, le bouton <b>🏁 Clôturer</b> ouvre le panneau ci‑contre.</div>
+  </div>
+
+  <!-- clôture panel -->
+  <div class="panel">
+    <div class="p-h"><span style="font-size:18px">🏁</span><div><div class="ttl">Clôture — RDC gauche · Mme Schmitt</div><div class="sub">Occupation 01/01/2024 → sortie 30/06/2026 · Morschwiller (immeuble collectif)</div></div><button class="x">✕</button></div>
+    <div class="p-b">
+
+      <div class="blk">
+        <div class="blk-t">① Charges récupérables 2026 <div class="seg"><button class="on">Estimation (base 2025)</button><button disabled title="Comptes 2026 pas encore arrêtés">Réel — indispo</button></div></div>
+        <div class="estbar"><span style="font-size:15px">⏳</span><div>Les charges réelles 2026 ne sont pas encore connues (factures/arrêté des comptes à venir). <b>Estimation calculée sur 2025</b> (dernière année complète), proratisée sur la période d'occupation 2026.</div></div>
+        <div class="line"><span class="l">Charges récup. <b>2025</b> (réel, ce logement)</span><span class="v">720 €</span></div>
+        <div class="line calc"><span class="l">× prorata occupation 2026 — 181 j / 365</span><span class="v">357 €</span></div>
+        <div class="line"><span class="l">− Provisions versées 2026 <small>(6 mois × 50 €)</small></span><span class="v">300 €</span></div>
+        <div class="line tot"><span class="l">= Solde estimé</span><span class="v"><span class="tag dem">−57 € à demander</span></span></div>
+      </div>
+
+      <div class="blk">
+        <div class="blk-t">② Dépôt de garantie &amp; retenue</div>
+        <div class="dg">
+          <div class="dgh"><span style="font-size:16px">🏛️</span> Règle des 20 % (immeuble collectif, comptes non arrêtés)</div>
+          <div class="dgr"><span>Dépôt de garantie versé</span><span class="v">450 €</span></div>
+          <div class="dgr"><span>Retenue maximale autorisée (20 %)</span><span class="v" style="color:var(--amb)">90 €</span></div>
+          <div class="hi">💡 Tu peux <b>retenir jusqu'à 90 €</b> sur le DG en attendant l'arrêté des comptes, puis <b>régulariser dans le mois suivant l'approbation</b>. L'estimation du dû (<b>57 €</b>) est <b>≤ 90 €</b> → tu peux retenir 57 € (ou les 90 € max par prudence) et restituer le reste.</div>
+          <div class="dgr" style="margin-top:8px;border-top:1px dashed var(--bor);padding-top:8px"><span><b>À restituer maintenant</b> (DG − retenue 57 €)</span><span class="v" style="color:var(--grn)">393 €</span></div>
+          <div class="legal">Restitution sous 1 mois (EDL sortie conforme à l'entrée) / 2 mois sinon. Solde définitif à l'approbation des comptes. Réf. : loi 89‑462 art. 22 (DG, retenue 20 %) &amp; art. 23 (régularisation).</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="p-f">
+      <button class="btn primary">📄 Décompte ESTIMATIF</button>
+      <button class="btn amber">🏛️ Retenir 57 € sur le DG</button>
+      <button class="btn">✓ Marquer définitif (à l'arrêté des comptes)</button>
+    </div>
+  </div>
+
+  <!-- annotations -->
+  <div class="anno">
+    <div class="a"><b>① Estimation N‑1</b> — l'app reprend le calcul réel 2025 du logement et le proratise sur les jours d'occupation 2026. Toggle « Réel » grisé tant que 2026 n'est pas clôturé → on n'envoie jamais un estimatif comme du définitif.</div>
+    <div class="a"><b>② Règle des 20 %</b> — n'apparaît que si immeuble collectif + comptes non arrêtés. Montre le plafond (20 % du DG), suggère la retenue = min(dû estimé, 20 %), et calcule le DG à restituer tout de suite. Délais + articles cités.</div>
+    <div class="a"><b>Décompte ESTIMATIF</b> — le PDF porte un bandeau « estimatif, à régulariser à l'arrêté des comptes ». Quand les comptes sont approuvés → bouton « Marquer définitif » → décompte final + restitution du solde.</div>
+  </div>
+
+  <p class="cap">Mockup statique — données illustratives (Mme Schmitt, RDC gauche, sortie 30/06/2026). Intégration : badge « estimé » dans la régul (exercice non clôturé) + bouton « 🏁 Clôturer » sur une occupation terminée → ce panneau. Version mobile : panneau plein écran, blocs ① puis ② empilés.</p>
+
+</div>
+</body>
+</html>
