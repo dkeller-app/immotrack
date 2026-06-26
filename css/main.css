@@ -3084,8 +3084,28 @@ textarea.field-modified-since-sig{
   .rg-mtx th:not(.c0):not(.col-tot),.rg-mtx td:not(.c0):not(.col-tot){display:none}
   .rg-mtx th.c0,.rg-mtx td.c0{position:static;min-width:0;max-width:none}
 }
-.rg-glob-bail{margin:12px 0;padding:10px 14px;background:#fffbf0;border:1px solid #f59e0b44;border-radius:10px;font-size:12.5px;color:var(--amb)}
+.rg-glob-bail{margin:12px 0;padding:10px 14px;background:#fffbf0;border:1px solid #f59e0b44;border-radius:10px;font-size:12.5px;color:var(--amb,#d97706)}
 .rg-glob-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bor)}
+/* panneau clôture locataire (REGUL-CLOTURE : estimation N-1 + règle 20%) */
+.rgc-blk{margin-bottom:16px}
+.rgc-t{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);font-weight:700;margin-bottom:9px}
+.rgc-est{display:flex;gap:8px;background:var(--bg-info,rgba(59,126,246,.10));border:1px solid rgba(59,126,246,.25);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:12px}
+.rgc-l{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;font-size:13px;border-bottom:1px solid rgba(0,0,0,.05)}
+.rgc-l span:first-child{color:var(--t2)}
+.rgc-l.sub span:first-child{padding-left:14px;color:var(--t3);font-size:12px}
+.rgc-l.tot{border-top:2px solid var(--bor);border-bottom:0;margin-top:4px;padding-top:9px}
+.rgc-l.tot span:first-child{font-weight:700;color:var(--t1)}
+.rgc-tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:6px;font-weight:700}
+.rgc-tag.dem{background:var(--bg-success,rgba(22,163,74,.12));color:var(--grn)}
+.rgc-tag.rest{background:var(--bg-warning,rgba(234,88,12,.12));color:var(--ora)}
+.rgc-dg{background:#fffaf0;border:1px solid #f59e0b55;border-radius:11px;padding:13px 15px}
+.rgc-dgh{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px;color:var(--amb,#d97706);margin-bottom:8px}
+.rgc-dgr{display:flex;justify-content:space-between;padding:4px 0;font-size:12.5px}
+.rgc-hi{background:#fff;border:1px dashed #f59e0b88;border-radius:8px;padding:9px 11px;margin-top:8px;font-size:12px;color:var(--t1)}
+.rgc-hi b{color:var(--amb,#d97706)}
+.rgc-restit{border-top:1px dashed var(--bor);margin-top:8px;padding-top:8px;font-weight:600}
+.rgc-legal{font-size:10.5px;color:var(--t3);margin-top:8px;font-style:italic}
+.rgc-blk .mono,.rgc-dg .mono{font-family:'Manrope',ui-monospace,monospace;font-variant-numeric:tabular-nums}
 @media(max-width:560px){
   /* tableau → cartes sur téléphone (pattern data-label) */
   .rg-wrap{overflow-x:visible}
