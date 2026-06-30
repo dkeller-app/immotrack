@@ -15834,6 +15834,9 @@ function openBailMenu(evt, ref, full) {
   }
   if (bail) {
     items.push('<div style="height:1px;background:#e5e7eb;margin:4px 0"></div>');
+    if (!bail._deleted && !bail.cloture) {
+      items.push(`<button class="bmp-item" onclick="_closeBienMenus();_departOuvrir('${refEsc}')" style="font-weight:700">🏁 Assistant de départ…</button>`);
+    }
     items.push(`<button class="bmp-item" onclick="_closeBienMenus();openBailClore('${refEsc}')">🔚 Clôturer ce bail</button>`);
     items.push(`<button class="bmp-item" onclick="_closeBienMenus();delBail('${refEsc}')" style="color:#dc2626">🗑 Supprimer le bail</button>`);
   }
@@ -24246,6 +24249,239 @@ function _rgApplyRetenue(entryKey, retenue, restit){
   if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
   if(typeof showToast==='function') showToast('Retenue de '+fmt(retenue)+' € enregistrée sur le dépôt de garantie ✓','ok');
   closeM('ov-rg-cloture');
+}
+
+// ═══════════════ ASSISTANT DE DÉPART — fil rouge guidé (v15.x DEPART-ASSISTANT) ═══════════════
+// Orchestre les écrans EXISTANTS (congé → EDL sortie → retenues/régul → restitution DG →
+// régul définitive copro → remise en location). L'état de chaque étape est DÉRIVÉ des signaux
+// déjà présents (DB.edl, bail.dgRetenu/dgRestitue, bail.dgRestitueAt, bail.cloture…) ; seul
+// bail.depart {congePar, congeDate, dateSortie, motif, remiseLocationFait, notes} est stocké.
+// Réutilise : _calculerDelaiRestitution, _dgStatut, _calculerSoldeDG, _rgImmRegime, _dgOpenRestitution.
+function _departBail(ref){ const b = DB.baux && DB.baux[ref]; return (b && !b._deleted) ? b : null; }
+function _departOv(){
+  let ov=document.getElementById('ov-depart');
+  if(!ov){ ov=document.createElement('div'); ov.id='ov-depart'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-depart')"); document.body.appendChild(ov); }
+  return ov;
+}
+
+// Date limite de restitution du DG calculée DÈS le départ (avant clôture/archive) :
+// date de sortie (remise des clés) + délai légal (1 mois EDL conforme / 2 mois sinon, art. 22).
+function _departDeadlineDG(bail){
+  const d = bail && bail.depart;
+  const sortie = (d && d.dateSortie) || (bail && bail.finEffective) || '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(sortie);
+  if(!m) return null;
+  // Tant qu'aucun EDL de sortie n'existe, le délai n'est pas figé (_calculerDelaiRestitution renvoie 1
+  // par défaut) → on affiche le MAXIMUM légal (2 mois) pour ne pas annoncer une échéance trop optimiste.
+  // Une fois l'EDL réalisé, _calculerDelaiRestitution tranche (1 mois conforme / 2 mois retenues).
+  const edlExists = !!(bail && bail.ref && (DB.edl||[]).some(e=>e && !e._deleted && e.logement===bail.ref && e.type==='Sortie'));
+  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail) : 2) : 2;
+  // Construction locale (sans suffixe TZ) puis ajout calendaire → évite le décalage UTC de toISOString().
+  const day = +m[3];
+  const lim = new Date(+m[1], +m[2]-1, day); lim.setMonth(lim.getMonth()+mois);
+  // Débordement de fin de mois (ex. 31/01 + 1 mois ≠ 31/02) → dernier jour du mois cible (art. 641 CPC).
+  if(lim.getDate() !== day) lim.setDate(0);
+  const todayStr = (typeof td==='function') ? td() : new Date().toISOString().slice(0,10);
+  const tm = /^(\d{4})-(\d{2})-(\d{2})/.exec(todayStr);
+  // Écart en jours sur composants purs (Date.UTC) → insensible au fuseau / DST.
+  const todayUTC = tm ? Date.UTC(+tm[1], +tm[2]-1, +tm[3]) : Date.now();
+  const limUTC = Date.UTC(lim.getFullYear(), lim.getMonth(), lim.getDate());
+  const jours = Math.round((limUTC - todayUTC) / 86400000);
+  return { iso: (typeof _isoLocal==='function') ? _isoLocal(lim) : sortie, mois, jours, provisional: !edlExists };
+}
+
+// Dérive l'état des 6 étapes depuis les signaux existants.
+function _departState(bail){
+  const ref = bail.ref;
+  const log = (DB.logements||[]).find(l=>l.ref===ref) || {};
+  const reg = (typeof _rgImmRegime==='function') ? _rgImmRegime({bail, imm: log.imm||''}) : {collectif:true, applies20:true, label:''};
+  const edlSortie = (DB.edl||[]).find(e=>e && !e._deleted && e.logement===ref && e.type==='Sortie') || null;
+  const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail) : 2;
+  const deadline = _departDeadlineDG(bail);
+  const d = bail.depart || null;
+  const jsRef = (ref||'').replace(/'/g,"\\'");
+  const congeFait   = !!(d && d.dateSortie);
+  const edlFait     = !!edlSortie;
+  // NB : saveBail écrit toujours dgRetenu/dgRestitue (pf() → 0 si vide). 0 ≠ « retenues arrêtées »
+  // → on exige un signal POSITIF réel pour considérer l'étape faite.
+  const retenueFaite= (Number(bail.dgRetenu)>0) || (Number(bail.dgRestitue)>0) || !!bail.dgDetailRetenues || !!bail.dgRestitueAt;
+  const dgRestitue  = !!bail.dgRestitueAt;
+  const reloue      = !!(d && d.remiseLocationFait) || !!bail.cloture;
+  const steps = [];
+  steps.push({ n:1, key:'conge', title:'Congé & préavis',
+    sub: congeFait
+      ? `${d.congePar==='bailleur'?'Congé donné au locataire':'Congé reçu du locataire'}${d.congeDate?(' le '+fd(d.congeDate)):''} · sortie prévue le ${d.dateSortie?fd(d.dateSortie):'—'}.`
+      : 'Enregistrer le congé et la date de sortie (remise des clés).',
+    done: congeFait,
+    cta: congeFait
+      ? [{label:'Modifier', ghost:true, on:`_departDeclarer('${jsRef}')`}]
+      : [{label:'Déclarer le départ', on:`_departDeclarer('${jsRef}')`}]
+  });
+  steps.push({ n:2, key:'edl', title:'État des lieux de sortie',
+    sub: edlFait ? 'EDL de sortie enregistré · comparaison entrée/sortie, relevé compteurs, clés remises.'
+                 : "Réaliser l'EDL de sortie (comparé à l'entrée) et relever les compteurs.",
+    alert: edlFait
+      ? (delaiMois===1 ? '✅ Conforme → délai de restitution du DG = 1 mois.' : '⚠ Retenues / dégradations → délai de restitution du DG = 2 mois.')
+      : 'Le délai légal de restitution du DG (1 ou 2 mois) part de la remise des clés.',
+    done: edlFait,
+    cta: [{label: edlFait?"Voir l'EDL de sortie":"Faire l'EDL de sortie", ghost: edlFait, on:`closeM('ov-depart');go('edl')`}]
+  });
+  steps.push({ n:3, key:'retenues', title:'Calcul des retenues',
+    sub:'Réparations locatives (devis), loyers/charges impayés, régularisation des charges.',
+    alert: reg.applies20
+      ? "Charges de l'année souvent non arrêtées → estimation sur N‑1 + retenue ≤ 20 % du dépôt de garantie (loi 89‑462 art. 22)."
+      : 'Maison individuelle → pas de retenue 20 % ; déduire les seules sommes justifiées.',
+    done: retenueFaite,
+    cta:[{label:'🏁 Ouvrir la clôture (charges + DG)', on:`closeM('ov-depart');go('regul')`}]
+  });
+  const dgLocked = !edlFait;
+  steps.push({ n:4, key:'dg', title:'Restitution du dépôt de garantie',
+    sub:'Solde de tout compte = dépôt de garantie − retenues. Document + virement.',
+    alert: dgRestitue ? `Dépôt restitué le ${fd(bail.dgRestitueAt)}.` : '',
+    done: dgRestitue, locked: dgLocked,
+    cta:[{label:'Générer le solde de tout compte', disabled: dgLocked, on:`closeM('ov-depart');_dgOpenRestitution('${jsRef}')`}]
+  });
+  if(reg.applies20){
+    const regulDefFait = !!(d && d.regulDefFait);
+    steps.push({ n:5, key:'reguldef', title:'Régularisation définitive', waiting:!regulDefFait, done:regulDefFait,
+      sub:"À l'approbation des comptes de copropriété (dans le mois) → solder la retenue de 20 %.",
+      alert: regulDefFait ? '' : 'Étape spécifique copropriété / immeuble collectif.',
+      cta: regulDefFait ? [] : [{label:'✓ Marquer comme réglé', on:`_departMarkRegulDef('${jsRef}')`}]
+    });
+  }
+  steps.push({ n:6, key:'reloc', title:'Remise en location',
+    sub:'Préparer le logement pour un nouveau locataire.',
+    done: reloue, locked: !dgRestitue && !reloue,
+    subchips:[
+      {ic:'🛠️', t:'Remise en état / travaux', s:'Équipements'},
+      {ic:'📑', t:'Diagnostics à jour (DPE…)', s:'Diagnostics'},
+      {ic:'📣', t:'Annonce + candidatures', s:'Candidats'},
+      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail'}
+    ],
+    cta:[{label:'🔚 Clôturer le bail (archiver)', on:`closeM('ov-depart');openBailClore('${jsRef}')`},
+         {label:'Candidatures', ghost:true, on:`closeM('ov-depart');go('candidats')`}]
+  });
+  let currentSet=false;
+  steps.forEach(s=>{
+    if(s.done){ s.status='done'; }
+    else if(s.waiting){ s.status='wait'; }
+    else if(s.locked){ s.status='lock'; }
+    else if(!currentSet){ s.status='cur'; currentSet=true; }
+    else { s.status='todo'; }
+  });
+  const total = steps.length;
+  const doneCount = steps.filter(s=>s.done).length;
+  const pct = total ? Math.round(doneCount/total*100) : 0;
+  return { steps, total, doneCount, pct, deadline, reg, edlSortie, delaiMois };
+}
+
+// Point d'entrée (menu ⋮) : pas encore déclaré → formulaire ; sinon → stepper.
+function _departOuvrir(ref){
+  const bail=_departBail(ref);
+  if(!bail){
+    // Bail clôturé (tombstone) → ne PAS re-proposer « Déclarer le départ » ; renvoyer vers l'historique.
+    const arch=(DB.baux_historique||[]).filter(h=>h && h.ref===ref).slice(-1)[0];
+    if(typeof showToast==='function') showToast(arch ? ('Bail clôturé'+((arch.finEffective||arch._archivedAt)?(' le '+fd(arch.finEffective||arch._archivedAt)):'')+' — voir l\'historique des baux') : 'Bail introuvable', arch?'warn':'err', 4000);
+    return;
+  }
+  if(!bail.depart){ _departDeclarer(ref); return; }
+  _departRenderStepper(ref);
+}
+
+// Formulaire « Déclarer le départ » (création ou édition de bail.depart).
+function _departDeclarer(ref){
+  const bail=_departBail(ref); if(!bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  const d=bail.depart||{};
+  const jsRef=(ref||'').replace(/'/g,"\\'");
+  const loc=(bail.locataires&&bail.locataires[0]&&bail.locataires[0].nom)||bail.nom||ref;
+  const ov=_departOv();
+  ov.innerHTML=`<div class="modal"><div class="m-head"><h3>🏁 Déclarer le départ — ${escHtml(ref)}</h3><button class="m-close" onclick="closeM('ov-depart')">✕</button></div>
+    <div class="m-body dep-form">
+      <div class="mu sm" style="margin-bottom:14px;line-height:1.5">Locataire : <b>${escHtml(loc)}</b>. Renseigne le congé et la date de remise des clés ; l'assistant déroulera ensuite les étapes (EDL de sortie, retenues, restitution du dépôt de garantie, remise en location).</div>
+      <div class="fg"><label>Congé donné par</label>
+        <select class="inp" id="dep-conge-par" style="width:100%">
+          <option value="locataire"${d.congePar!=='bailleur'?' selected':''}>Le locataire (congé reçu)</option>
+          <option value="bailleur"${d.congePar==='bailleur'?' selected':''}>Le bailleur (congé donné)</option>
+        </select></div>
+      <div class="fg"><label>Date du congé</label><input class="inp" type="date" id="dep-conge-date" value="${escHtml(d.congeDate||'')}" style="width:200px"></div>
+      <div class="fg"><label>Date de sortie / remise des clés *</label><input class="inp" type="date" id="dep-sortie" value="${escHtml(d.dateSortie||'')}" style="width:200px"></div>
+      <div class="fg"><label>Motif</label><input class="inp" id="dep-motif" value="${escHtml(d.motif||'')}" placeholder="Ex : congé locataire, mutation, vente…" style="width:100%"></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs" onclick="closeM('ov-depart')">Annuler</button>
+      <button class="btn bp" onclick="_departSaveDeclare('${jsRef}')">${d.dateSortie?'Enregistrer':'Déclarer le départ'}</button>
+    </div></div>`;
+  openM('ov-depart');
+}
+
+function _departSaveDeclare(ref){
+  const bail=_departBail(ref); if(!bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  const sortie=v('dep-sortie');
+  if(!sortie){ if(typeof showToast==='function') showToast('Date de sortie (remise des clés) requise','err'); return; }
+  const prev=bail.depart||{};
+  bail.depart={
+    declaredAt: prev.declaredAt || td(),
+    congePar:   v('dep-conge-par')||'locataire',
+    congeDate:  v('dep-conge-date')||'',
+    dateSortie: sortie,
+    motif:      v('dep-motif')||'',
+    remiseLocationFait: !!prev.remiseLocationFait,
+    notes:      prev.notes||''
+  };
+  if(typeof _stamp==='function') _stamp(bail);
+  if(typeof saveDB==='function') saveDB();
+  if(typeof showToast==='function') showToast('Départ déclaré — assistant ouvert','ok');
+  _departRenderStepper(ref);
+  if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
+}
+
+// Étape 5 (copropriété) : marquer la régularisation définitive (post-arrêté des comptes) comme réglée.
+function _departMarkRegulDef(ref){
+  const bail=_departBail(ref); if(!bail || !bail.depart){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  bail.depart.regulDefFait=true;
+  if(typeof _stamp==='function') _stamp(bail);
+  if(typeof saveDB==='function') saveDB();
+  if(typeof showToast==='function') showToast('Régularisation définitive marquée comme réglée ✓','ok');
+  _departRenderStepper(ref);
+  if(typeof _refreshAfterMutation==='function') _refreshAfterMutation();
+}
+
+function _departRenderStepper(ref){
+  const bail=_departBail(ref); if(!bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  const st=_departState(bail);
+  const loc=(bail.locataires&&bail.locataires[0]&&bail.locataires[0].nom)||bail.nom||ref;
+  const log=(DB.logements||[]).find(l=>l.ref===ref)||{};
+  const d=bail.depart||{};
+  const dgDone = (st.steps.find(s=>s.key==='dg')||{}).done;
+  let dl='';
+  if(st.deadline && !dgDone){
+    const late=st.deadline.jours<0;
+    const qual = st.deadline.provisional ? "maximum légal — figé après l'EDL de sortie" : (st.deadline.mois===1 ? 'EDL conforme' : 'retenues / dégradations');
+    dl=`<div class="dep-dl${late?' late':''}"><span style="font-size:16px">⏰</span><div><b>Dépôt de garantie à restituer avant le ${fd(st.deadline.iso)}</b> <span class="small">— délai ${st.deadline.mois} mois (${qual}) · ${late?('retard '+(-st.deadline.jours)+' j — majoration de 10 % du loyer mensuel par mois entamé'):('J‑'+st.deadline.jours)}</span></div></div>`;
+  }
+  const pillMap={done:['ok','fait'],cur:['cur','à faire'],todo:['todo','à venir'],lock:['lock','bloqué'],wait:['wait','en attente']};
+  const stepsHtml=st.steps.map(s=>{
+    const dotTxt = s.status==='done'?'✓' : s.status==='lock'?'🔒' : s.status==='wait'?'⏸' : s.n;
+    const pm = pillMap[s.status]||['todo','à venir'];
+    let inner=`<div class="dep-top"><span class="dep-ttl">${s.n} · ${escHtml(s.title)}</span><span class="dep-pill ${pm[0]}">${escHtml(pm[1])}</span></div>`;
+    if(s.sub)   inner+=`<div class="dep-sub">${escHtml(s.sub)}</div>`;
+    if(s.alert) inner+=`<div class="dep-alert">${escHtml(s.alert)}</div>`;
+    if(s.subchips) inner+=`<div class="dep-chips">`+s.subchips.map(c=>`<div class="dep-chip">${c.ic} ${escHtml(c.t)} <span class="s">${escHtml(c.s)}</span></div>`).join('')+`</div>`;
+    if(s.cta && s.cta.length) inner+=`<div class="dep-cta">`+s.cta.map(c=>`<button class="${c.ghost?'ghost':''}"${c.disabled?' disabled':''}${(c.on&&!c.disabled)?` onclick="${c.on}"`:''}>${escHtml(c.label)}</button>`).join('')+`</div>`;
+    return `<div class="dep-step${s.status==='lock'?' locked':''}"><div class="dep-dot ${s.status}">${dotTxt}</div>${inner}</div>`;
+  }).join('');
+  const ov=_departOv();
+  ov.innerHTML=`<div class="modal"><div class="m-head">
+      <div><h3 style="margin:0">🏁 Départ — ${escHtml(ref)} · ${escHtml(loc)}</h3>
+      <div class="mu sm" style="margin-top:2px">${d.congePar==='bailleur'?'Congé donné':'Congé reçu'}${d.congeDate?(' le '+fd(d.congeDate)):''} · sortie ${d.dateSortie?fd(d.dateSortie):'—'}${log.imm?(' · '+escHtml(log.imm)):''}${st.reg.label?(' ('+escHtml(st.reg.label)+')'):''}</div></div>
+      <button class="m-close" onclick="closeM('ov-depart')">✕</button></div>
+    <div class="m-body">
+      <div class="dep-prog"><div class="dep-bar"><i style="width:${st.pct}%"></i></div><div class="dep-pc">${st.doneCount} / ${st.total} étapes</div></div>
+      <div style="height:12px"></div>
+      ${dl}
+      <div class="dep-steps">${stepsHtml}</div>
+    </div></div>`;
+  openM('ov-depart');
 }
 
 // v15.x REFONTE-REGUL Phase C — vue globale immeuble (matrice charges × occupations)
