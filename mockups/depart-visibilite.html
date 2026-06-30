@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Rendre le départ super visible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f5f8;--sur:#ffffff;--sur2:#f7f8fb;--sur3:#eef1f6;--bor:#e4e7ee;
+  --t1:#101521;--t2:#3c4658;--t3:#6e7888;--acc:#ff5a3c;--acc-soft:#ffe7e0;
+  --grn:#1a8f6f;--grn-soft:rgba(26,143,111,.10);--red:#d23f3f;--red-soft:rgba(210,63,63,.10);
+  --ora:#b27a12;--warn:#f59e0b;--warn-bg:#fef3c7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e7ebf2;color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:13.5px;line-height:1.45;padding:22px}
+.wrap{max-width:1180px;margin:0 auto}
+h1{font-size:19px;font-weight:800;margin:0 0 4px}
+.lead{font-size:13px;color:var(--t2);margin:0 0 22px;max-width:760px}
+.lead b{color:var(--t1)}
+h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--t2);margin:26px 0 12px;display:flex;align-items:center;gap:8px}
+h2.sec .n{width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.col{flex:1;min-width:430px}
+.anno{background:#fff;border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:8px;padding:10px 13px;font-size:12px;color:var(--t2);margin-top:10px}
+.anno b{color:var(--t1)}
+.cap{font-size:11px;color:var(--t3);margin-top:8px}
+
+/* ── carte panel (immeuble) — reproduit l'app ── */
+.panel{background:var(--sur);border:1px solid var(--bor);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,30,60,.05)}
+.panel-h{display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--sur2);border-bottom:1px solid var(--bor);font-weight:700;font-size:13px}
+.panel-h .count{margin-left:auto;font-size:11px;color:var(--t3);font-weight:600}
+
+/* ── loc-card-row-b fidèle ── */
+.loc{display:grid;grid-template-columns:36px 1fr auto auto auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--sur2);cursor:pointer;transition:background .12s;position:relative}
+.loc:last-child{border-bottom:0}
+.loc:hover{background:var(--sur3)}
+.av{width:32px;height:32px;border-radius:50%;background:#5566aa;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.info{min-width:0}
+.nom{font-weight:600;font-size:13px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:11px;color:var(--t2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loyer{font-weight:600;font-size:13px;white-space:nowrap}
+.ech{font-size:11.5px;white-space:nowrap}
+.ech.ok{color:var(--grn)}.ech.warn{color:var(--warn);font-weight:600}
+.acts{display:flex;gap:4px}
+.acts button{padding:5px 9px;background:var(--sur);border:1px solid var(--bor);border-radius:7px;font-size:12px;cursor:pointer;color:var(--t2)}
+.acts button:hover{background:var(--acc);color:#fff;border-color:var(--acc)}
+
+/* état « échéance proche » */
+.loc.soon{background:var(--warn-bg)}
+.loc.soon .av{background:var(--warn)}
+.btn-prep{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--warn);background:#fff;color:var(--ora);border-radius:8px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+/* état « départ en cours » — TRÈS visible */
+.loc.depart{background:linear-gradient(90deg,rgba(255,90,60,.07),transparent 60%);box-shadow:inset 3px 0 0 var(--acc)}
+.loc.depart .av{background:var(--acc)}
+.depchip{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:20px;background:var(--acc-soft);color:var(--acc);font-weight:700;font-size:11px;white-space:nowrap}
+.dgcount{font-size:11px;font-weight:700;white-space:nowrap}
+.dgcount.warn{color:var(--ora)}.dgcount.late{color:var(--red)}
+.mini-prog{height:4px;background:var(--sur3);border-radius:3px;overflow:hidden;margin-top:5px;max-width:150px}
+.mini-prog i{display:block;height:100%;background:var(--acc);border-radius:3px}
+.badge-go{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:8px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+
+/* ── dashboard "À traiter" card ── */
+.todo-wrap{background:var(--sur);border:1px solid var(--bor);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(20,30,60,.05)}
+.todo-h{font-size:13px;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.todo-h .pill{background:var(--red);color:#fff;border-radius:10px;font-size:11px;font-weight:700;padding:1px 8px}
+.todo-card{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--bor);border-left:3px solid var(--acc);border-radius:10px;background:var(--sur2);margin-bottom:8px}
+.todo-card:last-child{margin-bottom:0}
+.todo-ic{width:34px;height:34px;border-radius:9px;background:var(--acc-soft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.todo-tx{flex:1;min-width:0}
+.todo-tx .t{font-weight:700;font-size:12.5px}
+.todo-tx .s{font-size:11.5px;color:var(--t2);margin-top:1px}
+.todo-tx .s b{color:var(--ora)}
+.todo-card.late{border-left-color:var(--red)}
+.todo-card.late .todo-ic{background:var(--red-soft);color:var(--red)}
+.todo-card.late .s b{color:var(--red)}
+
+/* ── fiche 360 panel ── */
+.fiche{background:var(--sur);border:1px solid var(--bor);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,30,60,.05);max-width:520px}
+.fiche-h{padding:12px 16px;background:var(--sur2);border-bottom:1px solid var(--bor);font-weight:800;font-size:14px}
+.fiche-b{padding:16px}
+.dep-banner{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:11px;background:linear-gradient(90deg,var(--acc-soft),transparent 70%);border:1px solid var(--acc)}
+.dep-banner .big{width:40px;height:40px;border-radius:11px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.dep-banner .tx{flex:1;min-width:0}
+.dep-banner .tx .t{font-weight:800;font-size:14px}
+.dep-banner .tx .s{font-size:12px;color:var(--t2);margin-top:2px}
+.dep-banner .tx .s b{color:var(--ora)}
+
+/* phone */
+.phones{display:flex;gap:22px;flex-wrap:wrap}
+.phone{width:340px;background:var(--bg);border-radius:28px;border:8px solid #11161f;overflow:hidden;box-shadow:0 12px 32px rgba(20,30,60,.22)}
+.notch{height:20px;background:#11161f;border-radius:0 0 11px 11px;width:110px;margin:0 auto}
+.pscreen{padding:12px;background:var(--bg)}
+/* loc card mobile (empilée) */
+.locm{background:#fff;border:1px solid var(--bor);border-radius:11px;padding:11px 12px;margin-bottom:10px}
+.locm.depart{box-shadow:inset 3px 0 0 var(--acc);background:linear-gradient(90deg,rgba(255,90,60,.06),#fff 60%)}
+.locm .top{display:flex;align-items:center;gap:9px}
+.locm .av{width:34px;height:34px}
+.locm .nom{font-size:13.5px}
+.locm .sub{font-size:11.5px;color:var(--t2);margin-top:1px}
+.locm .strip{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🏁 Rendre le départ « super visible »</h1>
+  <p class="lead">Aujourd'hui l'assistant de départ est caché dans le menu <b>⋮</b> d'un bail. Un départ est un évènement majeur avec un <b>délai légal</b> (restitution du dépôt de garantie) → il doit sauter aux yeux. Proposition : le surfacer sur <b>3 surfaces qui existent déjà</b> dans l'app, sans rien réinventer. Le menu ⋮ reste comme accès secondaire.</p>
+
+  <!-- SURFACE 1 -->
+  <h2 class="sec"><span class="n">1</span> Onglet Locataires — la carte devient un état « départ »</h2>
+  <div class="row">
+    <div class="col">
+      <div class="panel">
+        <div class="panel-h"><span>🏛</span><span>Morschwiller — 12 rue des Vergers</span><span class="count">3 locataires</span></div>
+
+        <!-- normal -->
+        <div class="loc">
+          <div class="av">JD</div>
+          <div class="info"><div class="nom">Jean Dupont</div><div class="meta">1er étage · T3 · 06 12 34 56 78</div></div>
+          <div class="loyer">685 € CC</div>
+          <div class="ech ok">En cours</div>
+          <div class="acts"><button title="Modifier">📝</button><button title="Aperçu">👁</button><button title="Plus">⋮</button></div>
+        </div>
+
+        <!-- échéance proche → bouton préparer -->
+        <div class="loc soon">
+          <div class="av">PM</div>
+          <div class="info"><div class="nom">Paul Martin</div><div class="meta">2e étage · T2 · fin de bail 30/09/2026</div></div>
+          <div class="loyer">540 € CC</div>
+          <div class="ech warn">J‑92</div>
+          <div class="acts"><button class="btn-prep">🏁 Préparer le départ</button><button title="Plus">⋮</button></div>
+        </div>
+
+        <!-- départ en cours → état visible -->
+        <div class="loc depart">
+          <div class="av">SC</div>
+          <div class="info">
+            <div class="nom">Mme Schmitt</div>
+            <div class="meta">RDC gauche · T2 · sortie 30/06/2026</div>
+            <div class="mini-prog"><i style="width:50%"></i></div>
+          </div>
+          <div><span class="depchip">🏁 Départ · 3/6</span></div>
+          <div class="dgcount warn">DG&nbsp;J‑12</div>
+          <div class="acts"><button class="badge-go">Ouvrir l'assistant →</button></div>
+        </div>
+      </div>
+      <p class="cap">Carte reproduite à l'identique de l'app (grille avatar / infos / loyer / échéance / actions).</p>
+    </div>
+    <div class="col" style="max-width:330px;min-width:280px">
+      <div class="anno"><b>Bail normal</b> — inchangé. Un départ se déclenche soit via ⋮, soit quand l'échéance approche (ci-dessous).</div>
+      <div class="anno"><b>Échéance proche</b> (déjà surligné en ambre dans l'app) → bouton <b>« 🏁 Préparer le départ »</b> directement sur la carte, plus besoin d'aller dans ⋮.</div>
+      <div class="anno"><b>Départ en cours</b> = la carte change d'état : liseré orange, <b>pastille d'avancement « Départ · 3/6 »</b>, <b>compte à rebours du dépôt de garantie</b> à la place de l'échéance, et un bouton plein <b>« Ouvrir l'assistant »</b>. Impossible à rater.</div>
+    </div>
+  </div>
+
+  <!-- SURFACE 2 -->
+  <h2 class="sec"><span class="n">2</span> Tableau de bord — bloc « À traiter » (la home)</h2>
+  <div class="row">
+    <div class="col">
+      <div class="todo-wrap">
+        <div class="todo-h">⚠️ Alertes &amp; Actions <span class="pill">3</span></div>
+        <div class="todo-card late">
+          <div class="todo-ic">🏁</div>
+          <div class="todo-tx"><div class="t">Départ Mme Schmitt — RDC gauche</div><div class="s">Dépôt de garantie à restituer avant le <b>30/07/2026</b> — retard 3 j · majoration 10 %/mois</div></div>
+          <button class="badge-go">Traiter →</button>
+        </div>
+        <div class="todo-card">
+          <div class="todo-ic">🏁</div>
+          <div class="todo-tx"><div class="t">Départ Paul Martin — 2e étage</div><div class="s">EDL de sortie à planifier · <b>fin de bail le 30/09</b></div></div>
+          <button class="badge-go">Traiter →</button>
+        </div>
+        <div class="todo-card">
+          <div class="todo-ic" style="background:var(--warn-bg);color:var(--ora)">📅</div>
+          <div class="todo-tx"><div class="t">Révision IRL — 3 baux</div><div class="s">Indice T1 2026 disponible</div></div>
+          <button class="badge-go" style="background:var(--t2);border-color:var(--t2)">Voir →</button>
+        </div>
+      </div>
+      <p class="cap">Réutilise le bloc « Alertes &amp; Actions » (<code>rAlertsSection</code>) déjà présent sur le dashboard.</p>
+    </div>
+    <div class="col" style="max-width:330px;min-width:280px">
+      <div class="anno"><b>Pourquoi ici</b> — le départ a un <b>délai légal</b> (restitution du dépôt, art. 22). C'est exactement ce que « À traiter » est censé montrer : une échéance datée, actionnable, sur l'écran d'accueil.</div>
+      <div class="anno"><b>Priorité par urgence</b> — un départ en retard sur le DG passe en <b>rouge</b> en tête (risque de majoration). Clic → ouvre l'assistant à la bonne étape.</div>
+    </div>
+  </div>
+
+  <!-- SURFACE 3 -->
+  <h2 class="sec"><span class="n">3</span> Fiche bien (360) — panneau dédié</h2>
+  <div class="row">
+    <div class="col" style="flex:0 0 auto">
+      <div class="fiche">
+        <div class="fiche-h">🏠 RDC gauche — Fiche bien</div>
+        <div class="fiche-b">
+          <div class="dep-banner">
+            <div class="big">🏁</div>
+            <div class="tx"><div class="t">Départ en cours — Mme Schmitt</div><div class="s">Étape 3/6 · dépôt de garantie à restituer avant le <b>30/07/2026 (J‑12)</b></div></div>
+            <button class="badge-go">Ouvrir →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col" style="max-width:330px;min-width:280px">
+      <div class="anno"><b>Sur la fiche 360</b> — au lieu d'un item caché dans ⋮, un <b>panneau « Départ »</b> en haut de la fiche du bien quand un départ est actif (et un bouton « Préparer le départ » sinon).</div>
+    </div>
+  </div>
+
+  <!-- PHONE -->
+  <h2 class="sec"><span class="n">📱</span> Téléphone — carte locataire + À traiter</h2>
+  <div class="phones">
+    <div class="phone"><div class="notch"></div><div class="pscreen">
+      <div class="locm">
+        <div class="top"><div class="av" style="width:34px;height:34px;border-radius:50%;background:#5566aa;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">JD</div>
+          <div><div class="nom" style="font-weight:600">Jean Dupont</div><div class="sub">1er · T3 · 685 € CC · En cours</div></div></div>
+      </div>
+      <div class="locm depart">
+        <div class="top"><div class="av" style="width:34px;height:34px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">SC</div>
+          <div><div class="nom" style="font-weight:600">Mme Schmitt</div><div class="sub">RDC g · sortie 30/06</div></div></div>
+        <div class="strip"><span class="depchip">🏁 Départ · 3/6</span><span class="dgcount warn">DG J‑12</span></div>
+        <div class="strip"><button class="badge-go" style="width:100%;justify-content:center">Ouvrir l'assistant →</button></div>
+      </div>
+      <div class="locm soon" style="background:var(--warn-bg)">
+        <div class="top"><div class="av" style="width:34px;height:34px;border-radius:50%;background:var(--warn);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">PM</div>
+          <div><div class="nom" style="font-weight:600">Paul Martin</div><div class="sub">2e · fin 30/09 · J‑92</div></div></div>
+        <div class="strip"><button class="btn-prep" style="width:100%;justify-content:center">🏁 Préparer le départ</button></div>
+      </div>
+    </div></div>
+
+    <div class="phone"><div class="notch"></div><div class="pscreen">
+      <div class="todo-wrap" style="padding:11px 12px">
+        <div class="todo-h" style="font-size:12.5px">⚠️ À traiter <span class="pill">3</span></div>
+        <div class="todo-card late" style="flex-wrap:wrap;gap:9px">
+          <div class="todo-ic">🏁</div>
+          <div class="todo-tx"><div class="t" style="font-size:12px">Départ — RDC gauche</div><div class="s">DG avant <b>30/07</b> · retard 3 j</div></div>
+          <button class="badge-go" style="width:100%;justify-content:center">Traiter →</button>
+        </div>
+        <div class="todo-card" style="flex-wrap:wrap;gap:9px">
+          <div class="todo-ic">🏁</div>
+          <div class="todo-tx"><div class="t" style="font-size:12px">Départ — 2e étage</div><div class="s">EDL à planifier · fin 30/09</div></div>
+          <button class="badge-go" style="width:100%;justify-content:center">Traiter →</button>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <p class="cap" style="margin-top:18px">Mockup statique — données illustratives. Palette &amp; carte locataire = celles de l'app. Le menu ⋮ reste comme accès secondaire ; ces 3 surfaces rendent le départ visible là où l'utilisateur regarde déjà.</p>
+</div>
+</body>
+</html>
