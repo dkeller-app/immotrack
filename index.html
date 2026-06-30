@@ -17290,9 +17290,31 @@ function rBaux() {
       // v15.230 P1-F — Fix mailto encoding (encodeURIComponent au lieu d'escHtml)
       const mailtoUrl = email ? `mailto:${encodeURIComponent(email).replace(/'/g, '%27')}` : '';
 
+      // v15.x DEPART-VISIBILITE — remonter l'état de départ sur la carte (au lieu du seul menu ⋮).
+      // bail.depart présent → carte en état « départ » (accent + avancement N/6 + compte à rebours DG) ;
+      // sinon bail actif à échéance proche → bouton « 🏁 Départ » pour préparer (ouvre l'assistant).
+      let depState = null;
+      if (bail && bail.depart && !bail.cloture && !bail._deleted && typeof _departState === 'function') {
+        try { depState = _departState(bail); } catch (e) { depState = null; }
+      }
+      let depDgHtml = '';
+      if (depState && depState.deadline && !(depState.steps.find(s => s.key === 'dg') || {}).done) {
+        const dl = depState.deadline;
+        depDgHtml = ` · <span class="loc-dep-dg${dl.jours < 0 ? ' late' : ''}">DG ${dl.jours >= 0 ? ('J‑' + dl.jours) : ('retard ' + (-dl.jours) + 'j')}</span>`;
+      }
+      const echCellHtml = depState
+        ? `<div class="loc-ech-b loc-dep-cell" title="Départ en cours — ouvrir l'assistant" onclick="event.stopPropagation();_departOuvrir('${refEsc}')">🏁 Départ ${depState.doneCount}/${depState.total}${depDgHtml}</div>`
+        : `<div class="loc-ech-b ${ech.cls}">📅 ${ech.text}</div>`;
+      const depActionBtn = depState
+        ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Ouvrir l'assistant de départ" aria-label="Assistant de départ" class="loc-dep-go">🏁</button>`
+        : (bail && !bail.cloture && !bail._deleted && ech.urgent
+            ? `<button onclick="event.stopPropagation();_departOuvrir('${refEsc}')" title="Préparer le départ du locataire" aria-label="Préparer le départ" class="loc-dep-prep">🏁 Départ</button>`
+            : '');
+      const rowDepCls = depState ? ' loc-depart' : (ech.urgent ? ' warn-soon' : '');
+
       // Actions compactes : principales en visible + ⋮ menu pour actions secondaires
       // (Clôturer / Supprimer / Acte cautionnement / PDF Drive / Réinitialiser sigs)
-      const actions = `
+      const actions = `${depActionBtn}
         <button onclick="event.stopPropagation();openBail('${refEsc}')" title="Modifier le bail" aria-label="Modifier le bail">📝</button>
         <button onclick="event.stopPropagation();previewBailRef('${refEsc}')" title="Aperçu bail" aria-label="Aperçu bail">👁</button>
         ${/* « Voir bail signé » (snapshot HTML) retiré 2026-06-18 — remplacé par « PDF du bail » */ ''}
@@ -17305,7 +17327,7 @@ function rBaux() {
       `;
 
       const onRowClick = `openLogFiche('${refEsc}')`;
-      return `<div class="loc-card-row-b${ech.urgent ? ' warn-soon' : ''}" onclick="${onRowClick}">
+      return `<div class="loc-card-row-b${rowDepCls}" onclick="${onRowClick}">
         <div class="loc-avatar-b">${initials}</div>
         <div class="loc-info-b">
           <div class="nom-b">${isVacant ? '<span style="color:var(--err,#ef4444)">VACANT</span>' : escHtml(locDisplay) + typeBadge + sigBadge + mrhBadge}</div>
@@ -17313,7 +17335,7 @@ function rBaux() {
           ${progBar}
         </div>
         <div class="loc-loyer-b">${loyerStr}</div>
-        <div class="loc-ech-b ${ech.cls}">📅 ${ech.text}</div>
+        ${echCellHtml}
         <div class="loc-meta-bail-b">${escHtml(debutLbl)}</div>
         <div class="loc-actions-b">${actions}</div>
       </div>`;
