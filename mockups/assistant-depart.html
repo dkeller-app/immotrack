@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Assistant de départ locataire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f7;--card:#fff;--bor:rgba(0,0,0,.09);--t1:#1a2332;--t2:#5a6e87;--t3:#9aabbf;--blu:#3b7ef6;--grn:#16a34a;--red:#dc2626;--ora:#ea580c;--amb:#d97706;--sur2:#f5f8fc;--bgs:rgba(22,163,74,.10);--bgw:rgba(234,88,12,.12);--bgi:rgba(59,126,246,.10);--bgd:rgba(220,38,38,.10)}
+*{box-sizing:border-box}
+body{margin:0;background:#dfe5ee;color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:13.5px;line-height:1.45;padding:20px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+.mono{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+h2.sec{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin:0 0 10px;width:100%}
+.card{background:var(--card);border:1px solid var(--bor);border-radius:14px;overflow:hidden;box-shadow:0 1px 3px rgba(20,30,60,.05);flex:1;min-width:440px}
+.hd{padding:14px 18px;border-bottom:1px solid var(--bor)}
+.hd .ttl{font-size:16px;font-weight:800}.hd .sub{font-size:12px;color:var(--t3);margin-top:2px}
+.prog{display:flex;align-items:center;gap:10px;margin-top:10px}
+.prog .bar{flex:1;height:7px;background:#e2e8f1;border-radius:5px;overflow:hidden}.prog .bar i{display:block;height:100%;width:42%;background:var(--grn);border-radius:5px}
+.prog .pc{font-size:11.5px;color:var(--t2);font-weight:700;white-space:nowrap}
+.dl{display:flex;gap:9px;align-items:center;background:var(--bgw);border:1px solid #f59e0b55;border-radius:10px;padding:10px 13px;margin:14px 18px}
+.dl b{color:var(--amb)} .dl .small{font-size:11.5px;color:var(--t2)}
+/* stepper */
+.steps{padding:6px 18px 16px;position:relative}
+.step{position:relative;padding:12px 0 12px 42px;border-bottom:1px solid rgba(0,0,0,.05)}
+.step:last-child{border-bottom:0}
+.step::before{content:'';position:absolute;left:13px;top:34px;bottom:-12px;width:2px;background:var(--bor)}
+.step:last-child::before{display:none}
+.dot{position:absolute;left:0;top:12px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border:2px solid var(--bor);background:#fff}
+.dot.done{background:var(--grn);border-color:var(--grn);color:#fff}
+.dot.cur{background:var(--blu);border-color:var(--blu);color:#fff;box-shadow:0 0 0 4px rgba(59,126,246,.15)}
+.dot.lock{background:#f1f5f9;color:var(--t3)}
+.dot.wait{background:#fff7ed;border-color:#f59e0b;color:var(--amb)}
+.st-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.st-ttl{font-weight:700;font-size:14px}
+.step.locked .st-ttl,.step.locked .st-sub{color:var(--t3)}
+.pill{font-size:9.5px;padding:2px 8px;border-radius:20px;font-weight:700}
+.pill.ok{background:var(--bgs);color:var(--grn)} .pill.cur{background:var(--bgi);color:var(--blu)}
+.pill.lock{background:#eef2f7;color:var(--t3)} .pill.wait{background:var(--bgw);color:var(--amb)}
+.st-sub{font-size:12px;color:var(--t2);margin-top:3px}
+.st-alert{font-size:11.5px;color:var(--amb);margin-top:5px}
+.cta{margin-top:8px;display:inline-flex;gap:7px;flex-wrap:wrap}
+.cta button{border:1px solid var(--blu);background:rgba(59,126,246,.07);color:var(--blu);border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.cta button.ghost{border-color:var(--bor);background:#fff;color:var(--t2)}
+.cta button:disabled{opacity:.5;cursor:not-allowed;border-color:var(--bor);background:#f8fafc;color:var(--t3)}
+.subchips{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.subchip{display:flex;align-items:center;gap:8px;background:var(--sur2);border:1px solid var(--bor);border-radius:8px;padding:7px 10px;font-size:12px}
+.subchip .s{margin-left:auto;font-size:10px;color:var(--t3)}
+/* annotations */
+.anno{flex:1;min-width:240px}
+.anno .a{background:#fff;border:1px solid var(--bor);border-left:3px solid var(--blu);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--t2);margin-bottom:10px}
+.anno .a b{color:var(--t1)}
+/* phone */
+.phone{width:360px;background:var(--bg);border-radius:30px;border:9px solid #11161f;overflow:hidden;box-shadow:0 12px 32px rgba(20,30,60,.22)}
+.notch{height:22px;background:#11161f;border-radius:0 0 12px 12px;width:120px;margin:0 auto}
+.pscreen{height:640px;overflow-y:auto;background:#fff}
+.cap{width:100%;font-size:11px;color:var(--t3);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="sec">🖥️ Assistant de départ — déclenché à la déclaration du départ (fiche locataire / bail)</h2>
+
+  <!-- PC -->
+  <div class="card">
+    <div class="hd">
+      <div class="ttl">🏁 Départ — RDC gauche · Mme Schmitt</div>
+      <div class="sub">Congé reçu · sortie le 30/06/2026 · Morschwiller (immeuble collectif)</div>
+      <div class="prog"><div class="bar"><i></i></div><div class="pc">2 / 6 étapes</div></div>
+    </div>
+    <div class="dl"><span style="font-size:16px">⏰</span><div><b>Dépôt de garantie à restituer avant le 30/07/2026</b> <span class="small">— délai 1 mois (EDL de sortie conforme) · J‑12</span></div></div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="dot done">✓</div>
+        <div class="st-top"><span class="st-ttl">1 · Congé &amp; préavis</span><span class="pill ok">fait</span></div>
+        <div class="st-sub">Préavis 1 mois (zone tendue) · fin de bail fixée au 30/06/2026.</div>
+      </div>
+
+      <div class="step">
+        <div class="dot done">✓</div>
+        <div class="st-top"><span class="st-ttl">2 · État des lieux de sortie</span><span class="pill ok">fait · conforme</span></div>
+        <div class="st-sub">Comparé à l'entrée · relevé compteurs · clés remises.</div>
+        <div class="st-alert">✅ Conforme → délai de restitution du DG = <b>1 mois</b>.</div>
+        <div class="cta"><button class="ghost">Voir l'EDL de sortie</button></div>
+      </div>
+
+      <div class="step">
+        <div class="dot cur">3</div>
+        <div class="st-top"><span class="st-ttl">3 · Calcul des retenues</span><span class="pill cur">à faire</span></div>
+        <div class="st-sub">Réparations locatives (devis) · loyers/charges impayés · régularisation des charges.</div>
+        <div class="st-alert">Charges 2026 non arrêtées → estimation N‑1 + retenue ≤ 20 % du dépôt de garantie.</div>
+        <div class="cta"><button>🏁 Ouvrir la clôture (charges + DG)</button><button class="ghost">Ajouter une réparation</button></div>
+      </div>
+
+      <div class="step locked">
+        <div class="dot lock">🔒</div>
+        <div class="st-top"><span class="st-ttl">4 · Restitution du dépôt de garantie</span><span class="pill lock">bloqué</span></div>
+        <div class="st-sub">Solde de tout compte = DG − retenues. Document + virement.</div>
+        <div class="cta"><button disabled>Générer le solde de tout compte</button></div>
+      </div>
+
+      <div class="step">
+        <div class="dot wait">⏸</div>
+        <div class="st-top"><span class="st-ttl">5 · Régularisation définitive</span><span class="pill wait">en attente</span></div>
+        <div class="st-sub">À l'approbation des comptes de copropriété (dans le mois) → solder la retenue 20 %.</div>
+        <div class="st-alert">Rappel auto à l'arrêté des comptes.</div>
+      </div>
+
+      <div class="step">
+        <div class="dot lock">6</div>
+        <div class="st-top"><span class="st-ttl">6 · Remise en location</span><span class="pill lock">à venir</span></div>
+        <div class="subchips">
+          <div class="subchip">🛠️ Remise en état / travaux <span class="s">à faire</span></div>
+          <div class="subchip">📑 Diagnostics à jour (DPE…) <span class="s">Diagnostics</span></div>
+          <div class="subchip">📣 Annonce + candidatures <span class="s">Candidatures</span></div>
+          <div class="subchip">📝 Nouveau bail + EDL entrée + DG <span class="s">Bail</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- annotations -->
+  <div class="anno">
+    <div class="a"><b>Fil rouge guidé</b> — déclarer le départ crée un état « départ » sur le bail et déroule ces 6 étapes. Chaque étape a un statut (fait / à faire / bloqué / en attente) et pousse au bon écran existant.</div>
+    <div class="a"><b>Garde‑fous</b> — étape 4 (restitution DG) <b>bloquée</b> tant que l'EDL + les retenues ne sont pas faits. Le <b>délai légal</b> (1 ou 2 mois) est calculé depuis l'EDL et affiché en compte à rebours.</div>
+    <div class="a"><b>Réutilise l'existant</b> — étape 2 = écran États des lieux · étape 3 = panneau 🏁 Clôture (déjà livré) · étape 6 = Diagnostics / Candidatures / Bail.</div>
+    <div class="a"><b>Mémoire</b> — l'état de chaque étape est stocké sur le bail (reprise possible plus tard, multi‑appareils via la sync).</div>
+  </div>
+
+  <h2 class="sec" style="margin-top:8px">📱 Téléphone — même checklist, empilée</h2>
+  <div class="phone"><div class="notch"></div><div class="pscreen">
+    <div class="hd"><div class="ttl" style="font-size:14px">🏁 Départ — RDC gauche</div><div class="sub">Mme Schmitt · sortie 30/06/2026</div><div class="prog"><div class="bar"><i></i></div><div class="pc">2/6</div></div></div>
+    <div class="dl" style="margin:10px 12px"><span>⏰</span><div><b style="font-size:12px">DG à restituer avant le 30/07</b><div class="small">délai 1 mois · J‑12</div></div></div>
+    <div class="steps" style="padding:0 12px 14px">
+      <div class="step"><div class="dot done">✓</div><div class="st-top"><span class="st-ttl">1 · Congé</span><span class="pill ok">fait</span></div></div>
+      <div class="step"><div class="dot done">✓</div><div class="st-top"><span class="st-ttl">2 · EDL sortie</span><span class="pill ok">conforme</span></div><div class="st-sub">délai DG = 1 mois</div></div>
+      <div class="step"><div class="dot cur">3</div><div class="st-top"><span class="st-ttl">3 · Retenues</span><span class="pill cur">à faire</span></div><div class="st-sub">estimation N‑1 + 20 % DG</div><div class="cta"><button>🏁 Ouvrir la clôture</button></div></div>
+      <div class="step locked"><div class="dot lock">🔒</div><div class="st-top"><span class="st-ttl">4 · Restitution DG</span><span class="pill lock">bloqué</span></div></div>
+      <div class="step"><div class="dot wait">⏸</div><div class="st-top"><span class="st-ttl">5 · Régul définitive</span><span class="pill wait">en attente</span></div></div>
+      <div class="step"><div class="dot lock">6</div><div class="st-top"><span class="st-ttl">6 · Remise en location</span><span class="pill lock">à venir</span></div></div>
+    </div>
+  </div></div>
+
+  <p class="cap">Mockup statique — données illustratives (Mme Schmitt). L'assistant enchaîne des écrans existants ; seul l'« état de départ » par étape est à stocker sur le bail.</p>
+</div>
+</body>
+</html>
