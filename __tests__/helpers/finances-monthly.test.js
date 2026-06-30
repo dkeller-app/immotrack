@@ -86,6 +86,47 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.base2044).toBe(1000); // CFE EXCLUE de la base imposable
   });
 
+  it('charges récupérables : solde trésorerie (provisions − récup payées) → cash-flow réel & net', () => {
+    const mv3 = [
+      { date: '2026-01-10', cat: 'Loyer', qui: 'L1', cr: 1150, db: 0 },        // HC 1000 + provisions 150
+      { date: '2026-01-15', cat: 'Prêt', qui: 'L1', cr: 0, db: 600 },          // échéance
+      { date: '2026-01-20', cat: 'Charges copro', qui: 'L1', cr: 0, db: 200 }  // récupérable 229 payée par le bailleur
+    ];
+    const r = _computeFinancesMonthly({
+      mouvements: mv3, year: 2026, scope: null,
+      scopeWeight: () => 1, isEcheance: m => m.cat === 'Prêt',
+      hcRatio: () => 1000 / 1150,
+      catLigne: cat => ({ 'Loyer': { ligne2044: '211', type: 'recette' }, 'Charges copro': { ligne2044: '229', type: 'charge' } }[cat] || null),
+      today: '2026-01-31'
+    });
+    expect(r.annual.loyersHC).toBe(1000);
+    expect(r.annual.provisions).toBe(150);     // payées par le locataire
+    expect(r.annual.recup).toBe(200);          // payées par le bailleur
+    expect(r.annual.recupSolde).toBe(-50);     // 150 − 200 (le bailleur a avancé 50)
+    expect(r.annual.cashflowNet).toBe(400);    // = réel après prêt (loyers HC − prêt) = ton résultat propre
+    expect(r.annual.cashflowReel).toBe(350);   // = net + solde récup = 400 − 50 (le vrai cash)
+  });
+
+  it('charges récupérables payées en direct (flag recup, ligne 2044 vide) comptées dans recup', () => {
+    const mv = [
+      { date: '2026-01-10', cat: 'Loyer', qui: 'L1', cr: 1150, db: 0 },       // HC 1000 + provisions 150
+      { date: '2026-01-20', cat: 'Eau commune', qui: 'L1', cr: 0, db: 120 }   // special recup (ligne2044 vide)
+    ];
+    const r = _computeFinancesMonthly({
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      isRecupCharge: m => m.cat === 'Eau commune',          // flag recup → captée avant catLigne
+      hcRatio: () => 1000 / 1150,
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null), // Eau commune non mappée
+      today: '2026-01-31'
+    });
+    expect(r.annual.recup).toBe(120);          // captée malgré ligne2044 vide
+    expect(r.annual.provisions).toBe(150);
+    expect(r.annual.recupSolde).toBe(30);      // 150 − 120 = +30 (trop-perçu, à rendre)
+    expect(r.annual.cashflowNet).toBe(1000);   // aucune charge propriétaire → réel = loyers HC
+    expect(r.annual.cashflowReel).toBe(1030);  // 1000 + 30
+  });
+
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
     const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350
