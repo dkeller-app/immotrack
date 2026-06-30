@@ -8201,6 +8201,18 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 }
 .loc-card-row-b:hover { background: var(--sur3, #f9fafb); }
 .loc-card-row-b:last-child { border-bottom: none; }
+/* v15.x DEPART-VISIBILITE — état « départ » de la carte locataire (au lieu du seul menu ⋮) */
+.loc-card-row-b.loc-depart { box-shadow: inset 3px 0 0 var(--acc,#ff5a3c); background: linear-gradient(90deg, rgba(255,90,60,.06), transparent 55%); }
+.loc-card-row-b.loc-depart:hover { background: linear-gradient(90deg, rgba(255,90,60,.10), var(--sur3,#f9fafb) 55%); }
+.loc-card-row-b.loc-depart .loc-avatar-b { background: var(--acc,#ff5a3c); }
+.loc-dep-cell { display: flex; align-items: center; gap: 5px; color: var(--acc,#ff5a3c); font-weight: 700; cursor: pointer; }
+.loc-ech-b.loc-dep-cell::before { content: '' !important; }
+.loc-dep-dg { font-weight: 700; color: var(--ora,#b27a12); }
+.loc-dep-dg.late { color: var(--err,#ef4444); }
+.loc-actions-b button.loc-dep-go { background: var(--acc,#ff5a3c); border-color: var(--acc,#ff5a3c); color: #fff; }
+.loc-actions-b button.loc-dep-go:hover { filter: brightness(1.06); background: var(--acc,#ff5a3c); border-color: var(--acc,#ff5a3c); color: #fff; }
+.loc-actions-b button.loc-dep-prep { background: #fff; border-color: var(--warn,#f59e0b); color: var(--ora,#b27a12); font-weight: 700; white-space: nowrap; }
+.loc-actions-b button.loc-dep-prep:hover { background: var(--warn,#f59e0b); color: #fff; border-color: var(--warn,#f59e0b); }
 .loc-card-row-b.warn-soon { background: #fef3c7; }
 .loc-card-row-b.warn-soon:hover { background: #fde68a; }
 
