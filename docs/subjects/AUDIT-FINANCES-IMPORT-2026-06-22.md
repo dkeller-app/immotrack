@@ -38,6 +38,8 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 |---|------|------|--------|
 | C1 | **Mouvements récurrents** (saisie manuelle) + warning « ce mouvement sera récurrent, ne pas réimporter le même ». | ✨ | ⬜ |
 | C2 | **Import des tableaux d'amortissement** de prêt. | ✨ | ⬜ |
+| C3 | **Drill-down d'une ligne du P&L moche** (popup `_finDrillLigne`, ex « Prêt — échéances 2026 », 27 mvts en liste plate). Cible : **regrouper par mois** (blocs mensuels + sous-total/mois) avec **séparateurs nets entre mouvements**. Cohérent avec l'archi blocs mensuels du sous-P&L B4. | ✨ UX | ⬜ **mockup-first** |
+| C4 | **Comparer le détail entre 2 mois** dans le drill-down — outil de **diagnostic** : « mes charges ont augmenté, pourquoi ? » → vue côte-à-côte / diff qui fait ressortir le mouvement en plus, le montant qui grimpe, la nouvelle catégorie. Lié à C3. | ✨ | ⬜ **mockup-first**, session dédiée |
 
 ## D. Compteurs / Charges récupérables
 
@@ -55,4 +57,5 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 
 ## Journal
 - **2026-06-24** : ✅ **Import « compléter pas à pas » livré PROD v15.351** (au-delà de A1–A9). Fenêtre « Renseigner ce mouvement » au design v2 natif (segmenté Affecter/Découper, cartes niveau + badge destination 2044, libellé sans-serif) + parcours pas-à-pas (compteur N/total, barre de progression, Valider→suivant gaté par complétude cat+bien, Précédent/Passer, écran de fin actionnable : reprendre à compléter / vérifier reconnus NON-confirmés / importer). Liste + récap restylés v2, bloc d'affectation PARTAGÉ `_affZone` élevé (cartes + `_affDestBadge` display-only, bénéficie aussi au formulaire mouvement/règles/split), « Mémoriser la règle » dans le pied. **Audit agent code-reviewer = PROD OK** (chemin d'écriture fiscal `_bankImportConfirm` byte-identique → 2044 inchangée). Mockups validés : `mockup-import-window-v2.html`, `mockup-import-stepbystep.html`.
-- **Restent en attente** (non démarrés) : B1 (enrichissement ⚖️), B2 (impayés 360k ⚖️), B3 (vacance passé/projeté), B4 (visu 12 mois), B5 (année en cours défaut), B6 (filtre 1 immeuble), C1 (mvts récurrents), C2 (import amortissement), D1 (compteur Ferrette-101), D2 (calcul compteur), E1/E2 (bail — autre session).
+- **2026-06-30** : 🔄 **B4 sous-P&L mensuel + cash-flow réel/net livré v15.379** (commit local, audit en attente — voir Journal projet). Le P&L sépare charges propriétaire / charges récupérables (provisions locataires − récup avancées = solde signé) → **Cash-flow réel** (= résultat propre + solde) et **Cash-flow net** (= résultat propre). Héro aligné. Base 2044 inchangée. **Nouveaux items capturés C3/C4** (drill-down : blocs mensuels + comparaison 2 mois — pour après, mockup-first).
+- **Restent en attente** (non démarrés) : B1 (enrichissement ⚖️), B2 (impayés 360k ⚖️), C1 (mvts récurrents), C2 (import amortissement), **C3 (drill blocs mensuels), C4 (drill comparaison 2 mois)**, D2 (calcul compteur), E1/E2 (bail — autre session).
