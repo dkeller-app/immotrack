@@ -8469,3 +8469,18 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   .dep-dot{width:24px;height:24px;font-size:12px}
   .dep-step::before{left:11px}
 }
+
+/* ── Vignettes photos EDL (orientation respectée + agrandies, option A « contenir ») ──
+   Carré = surface égale portrait/paysage ; object-fit:contain = photo entière, jamais rognée.
+   Remplace les anciens styles inline 48×38 / 38×30 / 48×48 + object-fit:cover.
+   Le fond/bord suivent les tokens → s'adaptent au mode sombre. */
+.edl-thumb{
+  width:96px; height:96px;
+  object-fit:contain;
+  background:var(--bg);
+  border:1px solid var(--bor);
+  border-radius:6px;
+  cursor:pointer;
+  display:block;
+}
+@media (max-width:640px){ .edl-thumb{ width:72px; height:72px; } }
