@@ -69,6 +69,23 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.reel).toBe(300);                                 // janv uniquement
   });
 
+  it('CFE / taxe vacance (gestionCharge) : comptées dans le réel mais EXCLUES de la base 2044', () => {
+    const mv2 = [
+      { date: '2026-01-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 },
+      { date: '2026-01-20', cat: 'CFE', qui: 'L1', cr: 0, db: 300 } // special hors 2044
+    ];
+    const r = _computeFinancesMonthly({
+      mouvements: mv2, year: 2026, scope: null,
+      scopeWeight: () => 1, hcRatio: () => 1, isEcheance: m => m.cat === 'Prêt',
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
+      isGestionCharge: m => m.cat === 'CFE',
+      today: '2026-01-31'
+    });
+    expect(r.annual.gestionHF).toBe(300);
+    expect(r.annual.reel).toBe(700);      // 1000 − 300 (CFE déduite du réel)
+    expect(r.annual.base2044).toBe(1000); // CFE EXCLUE de la base imposable
+  });
+
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
     const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350

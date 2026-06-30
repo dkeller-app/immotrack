@@ -27,6 +27,7 @@ export function _computeFinancesMonthly(input) {
   const catLigne = i.catLigne || (() => null);
   const hcRatio = i.hcRatio || (() => 1);
   const isEcheance = i.isEcheance || (() => false);
+  const isGestionCharge = i.isGestionCharge || (() => false); // CFE / taxe logements vacants : charge proprio HORS 2044
 
   // Borne « mois écoulés » pour l'exercice en cours (B3/B5) : on ne projette pas l'avenir.
   // `lastMonth` peut être forcé (ex. comparer le N-1 sur la MÊME période que l'exercice en cours).
@@ -38,7 +39,7 @@ export function _computeFinancesMonthly(input) {
 
   const blank = () => ({
     loyersBrut: 0, loyersHC: 0, provisions: 0,
-    pret: 0, taxe: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, interets: 0,
+    pret: 0, taxe: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, gestionHF: 0, interets: 0,
     charges: 0, reel: 0, base2044: 0
   });
 
@@ -62,6 +63,9 @@ export function _computeFinancesMonthly(input) {
 
     // Échéance de prêt (cat « Prêt ») = mensualité entière → ligne « Prêt » (jamais via catLigne).
     if (isEcheance(mv)) { b.pret += (db - cr) * w; return; }
+    // CFE / taxe logements vacants (flag gestionCharge, cat special) : charge propriétaire RÉELLE
+    // mais HORS base 2044. Captée avant catLigne (qui renverrait null pour une cat special).
+    if (isGestionCharge(mv)) { b.gestionHF += (db - cr) * w; return; }
 
     const r = catLigne(mv.cat);
     if (!r || !r.ligne2044) return;         // non mappée / special → hors résultat
@@ -87,10 +91,10 @@ export function _computeFinancesMonthly(input) {
   const round2 = n => Math.round(n * 100) / 100;
   const finalize = b => {
     b.provisions = Math.max(0, b.loyersBrut - b.loyersHC);
-    b.charges = b.pret + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres;   // réel : échéance entière
+    b.charges = b.pret + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres + b.gestionHF;   // réel : prêt entier + CFE/TLV
     b.reel = b.loyersHC - b.charges;
-    b.base2044 = b.loyersHC - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // capital exclu
-    ['loyersBrut', 'loyersHC', 'provisions', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'interets', 'charges', 'reel', 'base2044']
+    b.base2044 = b.loyersHC - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // capital ET gestionHF (CFE/TLV) exclus
+    ['loyersBrut', 'loyersHC', 'provisions', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'interets', 'charges', 'reel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -100,7 +104,7 @@ export function _computeFinancesMonthly(input) {
   // Agrégat annuel (Σ des mois)
   const annual = Object.assign({ ym: yr, mo: 0 }, blank());
   months.forEach(b => {
-    ['loyersBrut', 'loyersHC', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'interets']
+    ['loyersBrut', 'loyersHC', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'interets']
       .forEach(k => { annual[k] += b[k]; });
   });
   finalize(annual);
