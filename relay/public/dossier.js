@@ -84,7 +84,7 @@ function build() {
           <div class="field"><label>Prénom <span class="req">*</span></label><input class="inp" data-path="identite.prenom" placeholder="Camille"></div>
         </div>
         <div class="row2">
-          <div class="field"><label>Date de naissance <span class="req">*</span></label><input class="inp" data-path="identite.ddn" placeholder="jj/mm/aaaa"></div>
+          <div class="field"><label>Date de naissance <span class="req">*</span></label><input type="date" class="inp" data-path="identite.ddn" max="2010-12-31"></div>
           <div class="field"><label>Lieu de naissance</label><input class="inp" data-path="identite.lieuNaiss" placeholder="Lyon"></div>
         </div>
         <div class="row2">
@@ -116,7 +116,7 @@ function build() {
           <div class="field"><label>Nom complet du garant</label><input class="inp" data-path="garant.nom" placeholder="Nom Prénom"></div>
           <div class="field"><label>Adresse du garant</label><input class="inp" data-path="garant.adresse" placeholder="N°, rue, code postal, ville"></div>
           <div class="row2">
-            <div class="field"><label>Date de naissance</label><input class="inp" data-path="garant.ddn" placeholder="jj/mm/aaaa"></div>
+            <div class="field"><label>Date de naissance</label><input type="date" class="inp" data-path="garant.ddn" max="2010-12-31"></div>
             <div class="field"><label>Lieu de naissance</label><input class="inp" data-path="garant.lieuNaiss" placeholder="Ville"></div>
           </div>
         </div>
