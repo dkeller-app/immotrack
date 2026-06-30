@@ -17,6 +17,36 @@ export function dueForBackup(lastAt, frequence, nowMs) {
 
 const _safeName = s => String(s == null ? 'fichier' : s).replace(/[^a-zA-Z0-9._-]/g, '_')
 
+// MIME → extension (fallback quand le nom original n'en porte pas).
+const MIME_EXT = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+  'image/gif': 'gif', 'image/heic': 'heic', 'image/heif': 'heif', 'image/tiff': 'tiff', 'image/bmp': 'bmp',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'text/plain': 'txt', 'text/csv': 'csv', 'application/zip': 'zip', 'application/json': 'json'
+}
+
+// Nom de fichier de sauvegarde d'un document uploadé.
+// ⚠️ Le champ réel est `originalName || name` (PAS `nom` — bug du 1er jet : sans extension,
+// Windows affichait « format non reconnu »). L'extension vient du nom original sinon du MIME
+// (fallback 'bin'). On suffixe l'id (`nid()` unique) → 2 docs de même nom ne se collisionnent pas
+// (getFileHandle create:true écraserait l'un d'eux), tout en gardant un nom LISIBLE.
+export function backupDocName(d) {
+  const id = (d && d.id != null) ? d.id : ''
+  const orig = String((d && (d.originalName || d.name)) || '')   // coercion : un nom non-string ne doit JAMAIS faire throw collectBackupFiles (avorterait TOUTE la sauvegarde)
+  const dot = orig.lastIndexOf('.')
+  let base = dot > 0 ? orig.slice(0, dot) : orig
+  let ext = dot > 0 ? orig.slice(dot + 1).toLowerCase() : ''
+  if (!ext) ext = MIME_EXT[String((d && d.mime) || '').toLowerCase()] || 'bin'
+  if (!base) base = 'doc-' + id
+  return _safeName(base + '-' + id + '.' + ext)
+}
+
 // Fichiers Storage à sauvegarder = porteurs d'une clé cloud ET postérieurs à lastBackupAt.
 // → [{ key, name, kind, ts }]. Sources : documents[].cloudKey, baux[ref].signatures.cloudPdfKey
 // (+ .certRef.cloudPdfKey), edl[].cloudPdfKey, photos EDL (forme RÉELLE confirmée par grep —
@@ -29,7 +59,7 @@ export function collectBackupFiles(db, lastBackupAt) {
   // est TOUJOURS inclus : mieux re-sauvegarder un doublon (le manifeste dédoublonne) que perdre une preuve légale.
   const after = ts => !lastBackupAt || !ts || new Date(ts).getTime() > lastBackupAt
   const push = (key, name, kind, ts) => { if (key && after(ts)) out.push({ key, name, kind, ts: ts || null }) }
-  for (const d of (db && db.documents) || []) push(d.cloudKey, _safeName(d.nom || ('doc-' + d.id)), 'document', d._modifiedAt)
+  for (const d of (db && db.documents) || []) push(d.cloudKey, backupDocName(d), 'document', d._modifiedAt)
   for (const [ref, b] of Object.entries((db && db.baux) || {})) {
     const s = b && b.signatures; if (!s) continue
     push(s.cloudPdfKey, _safeName('bail-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt)

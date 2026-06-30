@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { backupStamp, dueForBackup, FREQ_MS, collectBackupFiles, buildManifest, crc32, storedZip } from '../../js/core/backup.js'
+import { backupStamp, dueForBackup, FREQ_MS, collectBackupFiles, buildManifest, crc32, storedZip, backupDocName } from '../../js/core/backup.js'
 
 describe('backupStamp', () => {
   it('formate AAAA-MM-JJ_HHhMM (local)', () => { expect(backupStamp(new Date(2026, 5, 24, 14, 30, 0))).toBe('2026-06-24_14h30') })
@@ -16,8 +16,8 @@ describe('dueForBackup', () => {
 describe('collectBackupFiles', () => {
   const db = {
     documents: [
-      { id: 1, cloudKey: 'esp/seg/files/d1', _modifiedAt: '2026-06-20T10:00:00Z', nom: 'bail.pdf' },
-      { id: 2, cloudKey: 'esp/seg/files/d2', _modifiedAt: '2026-06-23T10:00:00Z', nom: 'dpe.pdf' },
+      { id: 1, cloudKey: 'esp/seg/files/d1', _modifiedAt: '2026-06-20T10:00:00Z', name: 'bail.pdf', originalName: 'bail.pdf', mime: 'application/pdf' },
+      { id: 2, cloudKey: 'esp/seg/files/d2', _modifiedAt: '2026-06-23T10:00:00Z', name: 'dpe.pdf', originalName: 'dpe.pdf', mime: 'application/pdf' },
       { id: 3, _modifiedAt: '2026-06-23T10:00:00Z' }
     ],
     baux: { 'L1': { signatures: { cloudPdfKey: 'esp/seg/files/bp_L1', certRef: { cloudPdfKey: 'esp/seg/files/bc_L1' }, signedAt: '2026-06-23T09:00:00Z' } } },
@@ -31,9 +31,15 @@ describe('collectBackupFiles', () => {
   // Fix audit #1 — un fichier porteur d'une clé MAIS sans horodatage (legacy/importé) ne doit JAMAIS
   // être dropé en silence quand lastBackupAt est posé (preuve légale perdue). On préfère un doublon.
   it('clé sans horodatage incluse même avec lastBackupAt non-null', () => {
-    const dbNoTs = { documents: [{ id: 1, cloudKey: 'esp/seg/files/legacy', nom: 'legacy.pdf' }] }
+    const dbNoTs = { documents: [{ id: 1, cloudKey: 'esp/seg/files/legacy', name: 'legacy.pdf' }] }
     const last = new Date('2026-06-22T00:00:00Z').getTime()
     expect(collectBackupFiles(dbNoTs, last).map(f => f.key)).toEqual(['esp/seg/files/legacy'])
+  })
+  // Bug « format non reconnu » (Windows) : les documents étaient écrits SANS extension
+  // (lecture de `d.nom` inexistant → fallback `doc-<id>`). Le champ réel est originalName||name.
+  it('nom de document : extension préservée + id pour l’unicité', () => {
+    const f = collectBackupFiles(db, null).find(x => x.key === 'esp/seg/files/d1')
+    expect(f.name).toBe('bail-1.pdf')           // base lisible + -id + .ext
   })
 
   // ── Photos EDL — forme RÉELLE confirmée par grep (_edlPreloadPhotos, index.html L26791) ──
@@ -109,6 +115,47 @@ describe('collectBackupFiles', () => {
     const names = photos.map(f => f.name)
     expect(names[0]).not.toBe(names[1])               // pas de collision
     expect(new Set(names).size).toBe(2)               // 2 noms distincts
+  })
+})
+describe('backupDocName', () => {
+  it('nom original → extension conservée + id suffixé', () => {
+    expect(backupDocName({ id: 1782133475720, originalName: 'quittance-2024-06.pdf', mime: 'application/pdf' }))
+      .toBe('quittance-2024-06-1782133475720.pdf')
+  })
+  it('name seul (pas originalName)', () => {
+    expect(backupDocName({ id: 7, name: 'photo.jpg' })).toBe('photo-7.jpg')
+  })
+  it('pas d’extension dans le nom → dérivée du MIME', () => {
+    expect(backupDocName({ id: 9, name: 'scan-sans-ext', mime: 'image/png' })).toBe('scan-sans-ext-9.png')
+  })
+  it('aucun nom → base doc-<id> + extension du MIME', () => {
+    expect(backupDocName({ id: 42, mime: 'image/jpeg' })).toBe('doc-42-42.jpg')
+  })
+  it('extension de nom en MAJUSCULES → minuscule', () => {
+    expect(backupDocName({ id: 3, name: 'Bail.PDF' })).toBe('Bail-3.pdf')
+  })
+  it('ni nom ni MIME connu → fallback .bin (jamais sans extension)', () => {
+    expect(backupDocName({ id: 5 })).toBe('doc-5-5.bin')
+    expect(backupDocName({ id: 6, mime: 'application/x-inconnu' })).toBe('doc-6-6.bin')
+  })
+  it('Word docx via MIME long', () => {
+    expect(backupDocName({ id: 8, name: 'contrat', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }))
+      .toBe('contrat-8.docx')
+  })
+  it('2 documents de MÊME nom original → noms de fichiers DISTINCTS (anti-collision)', () => {
+    const a = backupDocName({ id: 100, name: 'facture.pdf' })
+    const b = backupDocName({ id: 200, name: 'facture.pdf' })
+    expect(a).not.toBe(b)
+  })
+  it('séparateurs de chemin du nom sanitisés', () => {
+    expect(backupDocName({ id: 1, name: 'a/b.pdf' })).toBe('a_b-1.pdf')
+  })
+  it('originalName prioritaire sur name', () => {
+    expect(backupDocName({ id: 4, originalName: 'vrai.pdf', name: 'autre.docx' })).toBe('vrai-4.pdf')
+  })
+  it('nom non-string ne throw pas (coercion défensive — sinon TOUTE la sauvegarde avorte)', () => {
+    expect(() => backupDocName({ id: 12, name: 12345, mime: 'application/pdf' })).not.toThrow()
+    expect(backupDocName({ id: 12, name: 12345, mime: 'application/pdf' })).toBe('12345-12.pdf')
   })
 })
 describe('buildManifest', () => {
