@@ -2239,6 +2239,9 @@ textarea.field-modified-since-sig{
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--bor);margin-bottom:18px}
 .tab{padding:9px 18px;cursor:pointer;color:var(--t2);font-size:13.5px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-weight:500}
 .tabs .tab svg{width:15px;height:15px;vertical-align:-3px;margin-right:5px}
+/* RE-SKIN — pastille d'icône de catégorie comptable (SVG monochrome ; verte = recette, neutre = charge) */
+.catic{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:var(--neutral-soft);color:var(--neutral-ink);flex-shrink:0;vertical-align:middle}
+.catic.rec{background:var(--bg-success);color:var(--fg-success)}
 /* v15.150 MOBILE-AUDIT — Barres d'onglets : sur mobile/tablette elles débordaient et étaient
    coupées (IRL/Pilotage/Paramètres).
    v15.153 : retour à la ligne (flex-wrap) plutôt que défilement horizontal — un onglet coupé
