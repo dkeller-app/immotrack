@@ -105,8 +105,8 @@
   .pdf-now .pbox{width:65px;height:48px;background:var(--neutral);border:1px solid #ddd;overflow:hidden}
   .pdf-now .pbox img{width:100%;height:100%;object-fit:fill;display:block}
 
-  /* PDF A — Contenir : ~55×42mm, 3/ligne (≈102×78px), photo entière */
-  .pdf-A .pbox{width:102px;height:78px;background:var(--neutral);border:1px solid #ddd;
+  /* PDF A — Contenir : boîte CARRÉE ~55×55mm, 3/ligne (≈92×92px), photo entière, même surface portrait/paysage */
+  .pdf-A .pbox{width:92px;height:92px;background:var(--neutral);border:1px solid #ddd;
     display:flex;align-items:center;justify-content:center;overflow:hidden}
   .pdf-A .pbox img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 
@@ -204,7 +204,7 @@
             <div class="thumbs" data-grid="mix"></div>
           </div>
         </div>
-        <div class="vlabel">Vignettes ~96&nbsp;px (≈2× plus grandes), responsive</div>
+        <div class="vlabel">Boîtes carrées ~96&nbsp;px (≈2× plus grandes) · <b>même surface portrait/paysage</b> · responsive</div>
       </div>
       <div class="col">
         <h3>Dans le PDF</h3>
@@ -213,10 +213,10 @@
           <div class="ph-sec">PHOTOS</div>
           <div class="pdfgrid pdf-A" data-pdf="mix"></div>
         </div></div>
-        <div class="pdf-cap">~55×42&nbsp;mm · 3 par ligne · photo entière (déborde sur 2 pages si besoin)</div>
+        <div class="pdf-cap">~55×55&nbsp;mm (carré) · 3 par ligne · <b>même surface portrait/paysage</b>, rien coupé (déborde sur 2 pages si besoin)</div>
       </div>
     </div>
-    <div class="obody" style="padding-top:0"><div class="verdict">✅ Le plus simple et robuste. Portraits et paysages côte à côte sans déformation ni recadrage. Seul compromis : de fines bandes neutres autour des photos hors-format.</div></div>
+    <div class="obody" style="padding-top:0"><div class="verdict">✅ Le plus simple et robuste. Boîte <b>carrée identique</b> pour toutes → portrait et paysage ont la <b>même surface</b> (l'un remplit la hauteur, l'autre la largeur), sans déformation ni recadrage. Seul compromis : de fines bandes neutres autour des photos hors-format.</div></div>
   </div>
 
   <!-- OPTION B -->
