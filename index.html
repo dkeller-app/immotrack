@@ -11864,6 +11864,34 @@ function _computeUnifiedTodo(ctx) {
     }
   });
 
+  // 7bis. Départ de locataire en cours (DEPART-VISIBILITE #2) — fil rouge guidé + délai légal DG (art. 22).
+  // Le départ remonte sur la home avec son échéance datée ; sévérité pilotée par le compte à rebours du DG.
+  if(typeof _departState === 'function' && DB.baux) {
+    scopeLogs.forEach(l => {
+      const bail = DB.baux[l.ref];
+      if(!bail || bail._deleted || bail.cloture || !bail.depart) return;
+      let st; try { st = _departState(bail); } catch(e){ return; }
+      if(!st || st.doneCount >= st.total) return; // départ terminé → plus une action
+      const loc = (bail.locataires && bail.locataires[0] && bail.locataires[0].nom) || bail.nom || l.locataire || l.ref;
+      const dl = st.deadline;
+      const dgDone = (st.steps.find(s => s.key === 'dg') || {}).done;
+      let severity = 'info', score = 58, dgTxt = '';
+      if(dl && !dgDone) {
+        if(dl.jours < 0)        { severity = 'red'; score = 97; dgTxt = ' — DG en retard ' + (-dl.jours) + ' j (majoration)'; }
+        else if(dl.jours <= 15) { severity = 'ora'; score = 78; dgTxt = ' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
+        else                    { dgTxt = ' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
+      }
+      out.push({
+        type:'depart', severity, score,
+        title:'Départ en cours — étape ' + st.doneCount + '/' + st.total,
+        subtitle:l.ref + ' — ' + loc + dgTxt,
+        contextRef:l.ref,
+        actionLabel:'Ouvrir l\'assistant',
+        actionFn:'_departOuvrir(\'' + String(l.ref).replace(/'/g, "\\'") + '\')'
+      });
+    });
+  }
+
   // 8. Équipements : entretien en retard ou à venir (< 30 j) — cf. EQUIP_RULES
   if(typeof EQUIP_RULES !== 'undefined' && DB.baux) {
     scopeLogs.filter(l => l.locataire).forEach(l => {
@@ -12358,7 +12386,8 @@ const _TODO_TYPE_META = {
   vacance:{icon:'🏚',  label:'Logements vacants',go:"go('biens',null)"},
   dpe:    {icon:'📐',  label:'DPE',              go:"go('biens',null)"},
   ddt:    {icon:'📋',  label:'Diagnostics',      go:"go('biens',null)"},
-  impaye: {icon:'💰',  label:'Loyers impayés',   go:"_dashGoImpayes()"}
+  impaye: {icon:'💰',  label:'Loyers impayés',   go:"_dashGoImpayes()"},
+  depart: {icon:'🏁',  label:'Départs locataires',go:"go('baux',null)"}
 };
 
 function _todoV2(ctx, col, row) {
