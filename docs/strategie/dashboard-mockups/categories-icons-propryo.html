@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Propryo — Icônes de catégories (maquette)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Schibsted+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f5f8; --sur:#ffffff; --sur2:#f7f8fb; --bor:#e4e7ee;
+  --t1:#101521; --t2:#3c4658; --t3:#6e7888;
+  --acc:#ff5a3c; --acc-soft:#ffe7e0;
+  --neutral-soft:#eef1f6; --neutral-ink:#42506a;
+  --pos:#1a8f6f; --pos-soft:rgba(26,143,111,.12);
+  --display:'Schibsted Grotesk',system-ui,sans-serif;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 18px rgba(0,0,0,.06);
+}
+[data-theme="dark"]{
+  --bg:#14161d; --sur:#1e222c; --sur2:#262b37; --bor:rgba(255,255,255,.12);
+  --t1:#f2f5fa; --t2:#cdd6e3; --t3:#9aa6b8;
+  --acc:#ff6a4a; --acc-soft:rgba(255,106,74,.18);
+  --neutral-soft:rgba(255,255,255,.07); --neutral-ink:#aeb9cb;
+  --pos:#3fd6a3; --pos-soft:rgba(63,214,163,.14);
+  --shadow:0 0 0 1px rgba(255,255,255,.05);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t1);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:760px;margin:0 auto;padding:28px 20px 80px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+h1{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.02em;margin:0}
+.sub{color:var(--t3);font-size:13px;margin:0 0 22px}
+.toggle{display:inline-flex;gap:2px;background:var(--sur2);border:1px solid var(--bor);border-radius:999px;padding:3px}
+.toggle button{border:0;background:transparent;color:var(--t2);font:inherit;font-size:13px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.toggle button.on{background:var(--sur);color:var(--t1);box-shadow:var(--shadow)}
+.toggle svg{width:15px;height:15px}
+
+.card{background:var(--sur);border:1px solid var(--bor);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.grp{padding:18px 18px 6px;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--t3)}
+.cat{display:flex;align-items:center;gap:13px;padding:11px 18px;border-top:1px solid var(--bor)}
+.grp + .cat{border-top:0}
+.cat-ic{flex:0 0 auto;width:34px;height:34px;border-radius:10px;background:var(--neutral-soft);color:var(--neutral-ink);display:flex;align-items:center;justify-content:center}
+.cat-ic svg{width:19px;height:19px}
+.cat.rec .cat-ic{background:var(--pos-soft);color:var(--pos)}
+.cat-nom{flex:1 1 auto;font-weight:600;font-size:14.5px;color:var(--t1)}
+.cat-l{flex:0 0 auto;font-size:11px;font-weight:700;color:var(--t2);background:var(--neutral-soft);border-radius:7px;padding:3px 8px;letter-spacing:.01em}
+.cat-l.muted{color:var(--t3);background:transparent;border:1px dashed var(--bor)}
+.note{margin:22px 4px 0;color:var(--t3);font-size:12.5px;line-height:1.6}
+.note b{color:var(--t2)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin:14px 4px 0;font-size:12.5px;color:var(--t2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.swatch{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center}
+.swatch.n{background:var(--neutral-soft);color:var(--neutral-ink)}
+.swatch.p{background:var(--pos-soft);color:var(--pos)}
+@media(max-width:560px){.wrap{padding:20px 12px 60px}.cat-nom{font-size:13.5px}.cat{gap:11px;padding:10px 13px}.cat-ic{width:32px;height:32px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Catégories — jeu d'icônes</h1>
+    <div class="toggle">
+      <button id="bL" class="on" onclick="setT('light')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Clair</button>
+      <button id="bD" onclick="setT('dark')"><svg viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Sombre</button>
+    </div>
+  </div>
+  <p class="sub">Remplacement des emoji par des icônes SVG cohérentes (monochrome, charte Propryo). Pastille neutre pour les charges, verte pour les recettes. À valider avant intégration.</p>
+
+  <div class="card">
+    <div class="grp">Recettes</div>
+    <div class="cat rec"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M5.5 9.5v5M18.5 9.5v5"/></svg></span><span class="cat-nom">Loyers encaissés</span><span class="cat-l">L. 211</span></div>
+    <div class="cat rec"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.5v5.4c0 4-3 6.6-7 7.6-4-1-7-3.6-7-7.6V5.5L12 3Z"/><path d="M9 12l2 2 4-4"/></svg></span><span class="cat-nom">Indemnité GLI / loyers impayés</span><span class="cat-l">L. 213</span></div>
+    <div class="cat rec"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.8"/><path d="M7.8 16.2a6 6 0 010-8.4M16.2 7.8a6 6 0 010 8.4M5 19a10 10 0 010-14M19 5a10 10 0 010 14"/></svg></span><span class="cat-nom">Recettes diverses</span><span class="cat-l">L. 213</span></div>
+  </div>
+
+  <div style="height:14px"></div>
+  <div class="card">
+    <div class="grp">Charges déductibles</div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A2.5 2.5 0 0110.5 3h3A2.5 2.5 0 0116 5.5V7"/><path d="M3 12.5h18"/></svg></span><span class="cat-nom">Frais de gestion / honoraires / comptabilité</span><span class="cat-l">L. 221</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2"/><path d="M3.5 11a8.5 8.5 0 0117 0H3.5Z"/><path d="M12 11v6.5a2.4 2.4 0 01-4.4 1.4"/></svg></span><span class="cat-nom">Primes d'assurance (PNO, GLI)</span><span class="cat-l">L. 223</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5l5 5-2.2 2.2-5-5z"/><path d="M12 7L5 14a2.1 2.1 0 003 3l7-7"/></svg></span><span class="cat-nom">Travaux (entretien, réparation, amélioration)</span><span class="cat-l">L. 224</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19C5 11 11 5 19 5c0 8-6 14-14 14Z"/><path d="M5.5 18.5c3-4 7-6.5 11-7.5"/></svg></span><span class="cat-nom">Travaux de rénovation énergétique</span><span class="cat-l">L. 224bis</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a1 1 0 011 1v14a1 1 0 01-1 1h-4"/><path d="M11 12H3M6 8l-3 4 3 4"/></svg></span><span class="cat-nom">Indemnités d'éviction / relogement</span><span class="cat-l">L. 226</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5l9-5 9 5"/><path d="M5.5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3.5 20.5h17"/></svg></span><span class="cat-nom">Taxe foncière (et taxes annexes)</span><span class="cat-l">L. 227</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10.5 21v-4h3v4"/></svg></span><span class="cat-nom">Charges de copropriété</span><span class="cat-l">L. 229</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/><circle cx="7.3" cy="7.3" r="2.3"/><circle cx="16.7" cy="16.7" r="2.3"/></svg></span><span class="cat-nom">Prêt — Intérêts d'emprunt</span><span class="cat-l">L. 250</span></div>
+  </div>
+
+  <div style="height:14px"></div>
+  <div class="card">
+    <div class="grp">Charges récupérables</div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5s6 6.2 6 10.2a6 6 0 01-12 0C6 9.7 12 3.5 12 3.5Z"/><path d="M12.5 9l-2 4h3l-2 4"/></svg></span><span class="cat-nom">Charges récupérables (eau, énergie…)</span><span class="cat-l muted">hors 2044</span></div>
+  </div>
+
+  <div style="height:14px"></div>
+  <div class="card">
+    <div class="grp">Hors résultat foncier</div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3.5"/></svg></span><span class="cat-nom">Prêt (échéance / capital)</span><span class="cat-l muted">hors 2044</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 9.5h12a2 2 0 010 4H3"/><circle cx="17" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg></span><span class="cat-nom">Frais bancaires</span><span class="cat-l muted">hors 2044</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="4"/><path d="M10.9 10.9L20 20M16.6 16.6l2.2-2.2M18.8 18.8l1.8-1.8"/></svg></span><span class="cat-nom">Acquisition / cession de bien</span><span class="cat-l muted">hors 2044</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/><path d="M12 14.5v2.5"/></svg></span><span class="cat-nom">Dépôt de garantie (reçu / restitué)</span><span class="cat-l muted">hors 2044</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 20V9.5h3V20M10.5 20V6h3v14M16 20v-8.5h3V20"/></svg></span><span class="cat-nom">Travaux de construction / agrandissement</span><span class="cat-l muted">non déductible</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a7 7 0 0111.5-5.4M20 13a7 7 0 01-11.5 5.4"/><path d="M15.5 4.5V8h-3.5M8.5 19.5V16H12"/></svg></span><span class="cat-nom">Virement interne (non déclarable)</span><span class="cat-l muted">hors 2044</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V5M7 5L4 8M7 5l3 3M17 4v15M17 19l-3-3M17 19l3-3"/></svg></span><span class="cat-nom">CCA / distribution SCI</span><span class="cat-l muted">hors 2044</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4a1 1 0 011-1h4a1 1 0 011 1v1H9V4Z"/><path d="M9 11h6M9 15h4"/></svg></span><span class="cat-nom">Divers (non déductible)</span><span class="cat-l muted">hors 2044</span></div>
+  </div>
+
+  <div style="height:14px"></div>
+  <div class="card">
+    <div class="grp">Auto — calculées par l'app</div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8.5 11h0M12 11h0M15.5 11h0M8.5 14.5h0M12 14.5h0M15.5 14v3.5"/></svg></span><span class="cat-nom">Charges récupérables non récupérées</span><span class="cat-l">L. 225</span></div>
+    <div class="cat"><span class="cat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8L4 13l5 5"/><path d="M4 13h11a5 5 0 005-5V6"/></svg></span><span class="cat-nom">Régularisation provisions copro N-1</span><span class="cat-l">L. 230</span></div>
+  </div>
+
+  <div class="legend">
+    <span><span class="swatch p"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Recette (pastille verte)</span>
+    <span><span class="swatch n"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h12" stroke-linecap="round"/></svg></span> Charge / neutre (pastille grise)</span>
+  </div>
+  <p class="note"><b>22 icônes</b> couvrant toutes les catégories standard CERFA 2044 + hors-résultat + auto. Monochrome = elles prennent automatiquement la bonne couleur en clair et en sombre, et restent lisibles. Les <b>catégories personnalisées</b> que tu crées garderont leur emoji (ou choisiront une icône dans ce jeu). Dis si le style te convient ou si certaines icônes ne « parlent » pas.</p>
+</div>
+<script>
+function setT(t){document.documentElement.setAttribute('data-theme',t);document.getElementById('bL').classList.toggle('on',t==='light');document.getElementById('bD').classList.toggle('on',t==='dark');}
+</script>
+</body>
+</html>
