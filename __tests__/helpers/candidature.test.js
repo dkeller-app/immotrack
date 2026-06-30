@@ -5,7 +5,7 @@ import {
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
   buildComplementShareMessage, shouldAutoPull,
   countUnreadCandidats, nouveauDossierToast,
-  majDossierToast, repullDecision
+  majDossierToast, repullDecision, loyerAttenduForLog
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
@@ -283,5 +283,35 @@ describe('repullDecision', () => {
   });
   it('lien absent → import (laisse le flux normal créer)', () => {
     expect(repullDecision(null, '2026-06-11T10:00:00Z', null)).toBe('import');
+  });
+});
+
+describe('loyerAttenduForLog', () => {
+  it('priorité 1 : loyer du logement', () => {
+    const r = loyerAttenduForLog({ logHC: 720, baux: [{hc:600,fin:'2025-01-01'}], linkLoyer: 900 });
+    expect(r).toEqual({ loyer: 720, source: 'logement', locataire: null });
+  });
+  it('priorité 2 : ancien locataire (logement vide) — bail le plus récent', () => {
+    const r = loyerAttenduForLog({ logHC: 0, baux: [
+      {hc:600,fin:'2024-05-31',locataire:'Vieux'},
+      {hc:680,fin:'2026-05-31',locataire:'Dupont'}
+    ], linkLoyer: 900 });
+    expect(r).toEqual({ loyer: 680, source: 'ancien', locataire: 'Dupont' });
+  });
+  it('bail en cours (sans fin) prime sur un historique', () => {
+    const r = loyerAttenduForLog({ logHC: 0, baux: [
+      {hc:680,fin:'2026-05-31',locataire:'Dupont'},
+      {hc:700,locataire:'EnCours'}
+    ]});
+    expect(r.loyer).toBe(700);
+    expect(r.locataire).toBe('EnCours');
+  });
+  it('priorité 3 : loyer saisi à l\'invitation (ni logement ni bail)', () => {
+    const r = loyerAttenduForLog({ logHC: 0, baux: [], linkLoyer: 850 });
+    expect(r).toEqual({ loyer: 850, source: 'invitation', locataire: null });
+  });
+  it('rien → manquant, loyer 0', () => {
+    expect(loyerAttenduForLog({})).toEqual({ loyer: 0, source: 'manquant', locataire: null });
+    expect(loyerAttenduForLog({ logHC: 0, baux: [{hc:0}], linkLoyer: 0 })).toEqual({ loyer: 0, source: 'manquant', locataire: null });
   });
 });

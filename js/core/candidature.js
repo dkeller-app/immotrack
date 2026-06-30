@@ -198,3 +198,26 @@ export function repullDecision(link, submittedAt, candStatut) {
   if (submittedAt && submittedAt === link._lastSubmittedAt) return 'skip'; // même soumission, déjà importée
   return 'import';
 }
+
+/**
+ * Loyer attendu d'un logement pour scorer un candidat (ratio revenus/loyer), en cascade.
+ * Pur — l'appelant rassemble les données depuis DB. Ordre validé : logement → ancien
+ * locataire (dernier bail courant/historique avec un loyer) → loyer saisi à l'invitation.
+ *
+ * @param {object} src
+ * @param {number} src.logHC      - loyer HC du logement (log.hc), source de vérité
+ * @param {Array<{hc:number,fin?:string,locataire?:string}>} src.baux - baux courant + historiques du logement
+ * @param {number} src.linkLoyer  - loyer saisi à l'invitation (link.loyer)
+ * @returns {{loyer:number, source:'logement'|'ancien'|'invitation'|'manquant', locataire:(string|null)}}
+ */
+export function loyerAttenduForLog({ logHC = 0, baux = [], linkLoyer = 0 } = {}) {
+  if (Number(logHC) > 0) return { loyer: Number(logHC), source: 'logement', locataire: null };
+  const withHc = (Array.isArray(baux) ? baux : []).filter(b => b && Number(b.hc) > 0);
+  if (withHc.length) {
+    // Le plus récent fait foi : un bail en cours (sans 'fin') prime ; sinon tri par fin décroissante.
+    withHc.sort((a, b) => String(b.fin || '9999').localeCompare(String(a.fin || '9999')));
+    return { loyer: Number(withHc[0].hc), source: 'ancien', locataire: withHc[0].locataire || null };
+  }
+  if (Number(linkLoyer) > 0) return { loyer: Number(linkLoyer), source: 'invitation', locataire: null };
+  return { loyer: 0, source: 'manquant', locataire: null };
+}
