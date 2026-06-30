@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Photos EDL (orientation + taille)</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --sur:#ffffff; --sur2:#fafbfc; --bor:#e2e5ea; --bor2:#d3d7de;
+    --t1:#1c2230; --t2:#5b6473; --acc:#ff5a3c; --acc-w:#fff1ed;
+    --neutral:#eef0f3; --shadow:0 1px 3px rgba(20,30,50,.08),0 4px 16px rgba(20,30,50,.05);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);
+    font-family:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:"Schibsted Grotesk","Inter",sans-serif;letter-spacing:-.01em;margin:0}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 18px 80px}
+  header.hd{margin-bottom:22px}
+  header.hd h1{font-size:26px}
+  header.hd p{color:var(--t2);margin:8px 0 0;max-width:760px}
+  .pill{display:inline-block;background:var(--acc-w);color:var(--acc);font-weight:600;
+    font-size:12px;padding:3px 10px;border-radius:999px;margin-bottom:10px}
+
+  /* ── Barre de contrôles ─────────────────────────── */
+  .controls{position:sticky;top:0;z-index:30;background:var(--bg);
+    padding:12px 0;border-bottom:1px solid var(--bor);margin-bottom:24px;
+    display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  .seg{display:inline-flex;background:var(--sur);border:1px solid var(--bor2);border-radius:10px;padding:3px;gap:2px}
+  .seg button{border:0;background:transparent;color:var(--t2);font-weight:600;font-size:13px;
+    padding:7px 14px;border-radius:7px;cursor:pointer;font-family:inherit}
+  .seg button.on{background:var(--acc);color:#fff}
+  .ctl-lbl{font-size:12px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-right:-8px}
+  .chk{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--t1);cursor:pointer;user-select:none}
+  .chk input{accent-color:var(--acc);width:16px;height:16px}
+
+  /* ── Carte option ───────────────────────────────── */
+  .opt{background:var(--sur);border:1px solid var(--bor);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin-bottom:26px;overflow:hidden}
+  .opt > .ohead{padding:16px 20px;border-bottom:1px solid var(--bor);display:flex;gap:14px;align-items:flex-start}
+  .obadge{flex:0 0 auto;width:30px;height:30px;border-radius:8px;background:var(--acc);color:#fff;
+    font-weight:700;display:flex;align-items:center;justify-content:center;font-family:"Schibsted Grotesk",sans-serif}
+  .opt h2{font-size:18px}
+  .opt .odesc{color:var(--t2);font-size:13.5px;margin-top:3px}
+  .reco{display:inline-block;background:#e7f7ee;color:#15803d;font-weight:700;font-size:11px;
+    padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .obody{padding:18px 20px}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:860px){.twocol{grid-template-columns:1fr}}
+  .col h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);margin-bottom:10px;
+    display:flex;align-items:center;gap:8px}
+  .col h3 .ic{width:16px;height:16px;color:var(--acc)}
+
+  /* ── Écran : viewport simulé ────────────────────── */
+  .viewport{margin:0 auto;border:1px dashed var(--bor2);border-radius:10px;background:var(--sur2);
+    padding:14px;transition:max-width .25s ease}
+  .viewport.pc{max-width:100%}
+  .viewport.tab{max-width:560px}
+  .viewport.mob{max-width:320px}
+  .vlabel{font-size:11px;color:var(--t2);text-align:center;margin-top:6px}
+  .erow{margin-bottom:12px}
+  .erow .ename{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:6px}
+  .side-lbl{font-size:11px;color:var(--t2);font-weight:600;margin:8px 0 5px}
+
+  /* grilles de vignettes (selon option) */
+  .thumbs{display:flex;flex-wrap:wrap;gap:8px}
+
+  /* Option A — Contenir : boîtes régulières, photo entière */
+  .A .th{width:96px;height:96px;border:1px solid var(--bor2);border-radius:8px;overflow:hidden;
+    background:var(--neutral);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .A .th img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+  .viewport.mob .A .th{width:78px;height:78px}
+
+  /* Option B — Ratio réel : largeur fixe, hauteur libre selon ratio */
+  .B .th{width:96px;border:1px solid var(--bor2);border-radius:8px;overflow:hidden;
+    background:var(--neutral);cursor:pointer;align-self:flex-start}
+  .B .th img{width:100%;height:auto;display:block}
+  .viewport.mob .B .th{width:78px}
+
+  /* Option C — Recadrage par orientation : boîte orientée, cover (rogne) */
+  .C .th{border:1px solid var(--bor2);border-radius:8px;overflow:hidden;cursor:pointer;background:var(--neutral)}
+  .C .th.port{width:78px;height:104px}
+  .C .th.land{width:120px;height:90px}
+  .C .th img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* rappel "avant" (état actuel) */
+  .now .th{width:48px;height:38px;border:1px solid var(--bor2);border-radius:3px;overflow:hidden;background:var(--neutral)}
+  .now .th img{width:100%;height:100%;object-fit:cover;display:block}
+
+  .ctx-note{font-size:12px;color:var(--t2);margin-top:12px;padding:9px 12px;background:var(--sur2);
+    border:1px solid var(--bor);border-radius:8px}
+  .ctx-note b{color:var(--t1)}
+
+  /* ── Page PDF (proportion A4) ───────────────────── */
+  .pdfwrap{display:flex;justify-content:center}
+  .a4{width:340px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.14);border:1px solid #e7e7e7;
+    aspect-ratio:210/297;padding:18px 16px;overflow:hidden;position:relative}
+  .a4 .ph-h{font-size:9px;font-weight:700;color:#333;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:8px}
+  .a4 .ph-sec{font-size:8px;font-weight:700;color:var(--acc);margin:8px 0 5px}
+  .pdfgrid{display:flex;flex-wrap:wrap;gap:5px}
+  .cap{font-size:6.5px;color:#666;margin-top:1px;line-height:1.2}
+  .pcell{display:flex;flex-direction:column}
+
+  /* PDF actuel : 35×26mm, 4/ligne (≈ scale 1.85px/mm → 65×48px) */
+  .pdf-now .pbox{width:65px;height:48px;background:var(--neutral);border:1px solid #ddd;overflow:hidden}
+  .pdf-now .pbox img{width:100%;height:100%;object-fit:fill;display:block}
+
+  /* PDF A — Contenir : ~55×42mm, 3/ligne (≈102×78px), photo entière */
+  .pdf-A .pbox{width:102px;height:78px;background:var(--neutral);border:1px solid #ddd;
+    display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .pdf-A .pbox img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+
+  /* PDF B — Ratio réel : largeur 102px, hauteur libre, 3/ligne */
+  .pdf-B .pbox{width:102px;background:var(--neutral);border:1px solid #ddd;overflow:hidden}
+  .pdf-B .pbox img{width:100%;height:auto;display:block}
+
+  /* PDF C — boîte orientée cover */
+  .pdf-C .pbox{background:var(--neutral);border:1px solid #ddd;overflow:hidden}
+  .pdf-C .pbox.port{width:78px;height:104px}
+  .pdf-C .pbox.land{width:104px;height:78px}
+  .pdf-C .pbox img{width:100%;height:100%;object-fit:cover;display:block}
+
+  .pdf-cap{font-size:11px;color:var(--t2);text-align:center;margin-top:8px}
+
+  /* ── Lightbox ───────────────────────────────────── */
+  #lb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;display:none;
+    align-items:center;justify-content:center;cursor:pointer}
+  #lb.on{display:flex}
+  #lb img{max-width:94vw;max-height:90vh;object-fit:contain}
+  #lb .x{position:absolute;top:14px;right:16px;width:38px;height:38px;border-radius:50%;border:0;
+    background:#fff;font-size:20px;cursor:pointer}
+  #lb .cap2{position:absolute;top:18px;left:18px;color:#fff;font-size:13px;background:rgba(0,0,0,.4);padding:4px 10px;border-radius:6px}
+
+  .verdict{background:var(--acc-w);border:1px solid #ffd9cf;border-radius:10px;padding:14px 16px;
+    font-size:13.5px;color:#7a2a18;margin-top:8px}
+  .legend{font-size:12px;color:var(--t2);margin:14px 0 0;display:flex;gap:18px;flex-wrap:wrap}
+  .legend b{color:var(--t1)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hd">
+    <span class="pill">Mockup · Propryo</span>
+    <h1>Photos d'état des lieux — orientation &amp; taille</h1>
+    <p>Diagnostic : les pixels des photos sont <b>corrects</b> (le viewer plein écran les montre bien droites).
+      Le « toujours en paysage » vient de la <b>forme de la boîte</b> (vignette paysage + recadrage). Même cause sur le PDF
+      (photos forcées dans 35×26&nbsp;mm, écrasées et petites). Compare ci-dessous <b>3 façons</b> de respecter
+      l'orientation réelle et d'agrandir. Les photos « PORTRAIT/PAYSAGE » ont des repères <b>haut/bas/gauche/droite</b> :
+      ce qui disparaît = ce qui est rogné.</p>
+  </header>
+
+  <div class="controls">
+    <span class="ctl-lbl">Format écran</span>
+    <div class="seg" id="fmt">
+      <button data-f="pc" class="on">💻 PC</button>
+      <button data-f="tab">📱 Tablette</button>
+      <button data-f="mob">📲 Mobile</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="showNow"> Montrer l'état actuel (avant)</label>
+    <span class="ctl-lbl" style="margin-left:auto">👆 clique une photo = viewer plein écran (identique partout)</span>
+  </div>
+
+  <!-- POUR INFO : état actuel -->
+  <div class="opt" id="nowCard" style="display:none">
+    <div class="ohead"><div class="obadge" style="background:var(--t2)">↺</div>
+      <div><h2>Aujourd'hui (avant)</h2>
+      <div class="odesc">Vignettes 48×38&nbsp;px en paysage + recadrage → portraits coupés ; PDF 35×26&nbsp;mm écrasés, 4/ligne.</div></div>
+    </div>
+    <div class="obody twocol">
+      <div class="col">
+        <h3>À l'écran</h3>
+        <div class="viewport pc now">
+          <div class="erow"><div class="ename">Séjour — Mur</div>
+            <div class="side-lbl">📷 Entrée</div>
+            <div class="thumbs" data-grid="now"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <h3>Dans le PDF</h3>
+        <div class="pdfwrap"><div class="a4">
+          <div class="ph-h">ÉTAT DES LIEUX — Séjour</div>
+          <div class="ph-sec">PHOTOS</div>
+          <div class="pdfgrid pdf-now" data-pdf="now"></div>
+        </div></div>
+        <div class="pdf-cap">35×26&nbsp;mm · 4 par ligne · ratio écrasé</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION A -->
+  <div class="opt A">
+    <div class="ohead"><div class="obadge">A</div>
+      <div><h2>Contenir <span class="reco">recommandé</span></h2>
+      <div class="odesc">Boîtes plus grandes &amp; régulières, photo <b>entière</b> dedans (fines bandes neutres pour les hors-format).
+        Rien n'est coupé, grille alignée, pagination PDF prévisible.</div></div>
+    </div>
+    <div class="obody twocol">
+      <div class="col">
+        <h3>À l'écran</h3>
+        <div class="viewport pc A">
+          <div class="erow"><div class="ename">Séjour — Mur</div>
+            <div class="side-lbl">📷 Entrée</div>
+            <div class="thumbs" data-grid="mix"></div>
+          </div>
+        </div>
+        <div class="vlabel">Vignettes ~96&nbsp;px (≈2× plus grandes), responsive</div>
+      </div>
+      <div class="col">
+        <h3>Dans le PDF</h3>
+        <div class="pdfwrap"><div class="a4">
+          <div class="ph-h">ÉTAT DES LIEUX — Séjour</div>
+          <div class="ph-sec">PHOTOS</div>
+          <div class="pdfgrid pdf-A" data-pdf="mix"></div>
+        </div></div>
+        <div class="pdf-cap">~55×42&nbsp;mm · 3 par ligne · photo entière (déborde sur 2 pages si besoin)</div>
+      </div>
+    </div>
+    <div class="obody" style="padding-top:0"><div class="verdict">✅ Le plus simple et robuste. Portraits et paysages côte à côte sans déformation ni recadrage. Seul compromis : de fines bandes neutres autour des photos hors-format.</div></div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="opt B">
+    <div class="ohead"><div class="obadge">B</div>
+      <div><h2>Ratio réel (mosaïque)</h2>
+      <div class="odesc">Chaque photo prend sa <b>vraie proportion</b> : portrait plus haut, paysage plus large.
+        Aucune bande, le plus fidèle — mais grille moins régulière.</div></div>
+    </div>
+    <div class="obody twocol">
+      <div class="col">
+        <h3>À l'écran</h3>
+        <div class="viewport pc B">
+          <div class="erow"><div class="ename">Séjour — Mur</div>
+            <div class="side-lbl">📷 Entrée</div>
+            <div class="thumbs" data-grid="mix"></div>
+          </div>
+        </div>
+        <div class="vlabel">Largeur fixe ~96&nbsp;px, hauteur selon la photo</div>
+      </div>
+      <div class="col">
+        <h3>Dans le PDF</h3>
+        <div class="pdfwrap"><div class="a4">
+          <div class="ph-h">ÉTAT DES LIEUX — Séjour</div>
+          <div class="ph-sec">PHOTOS</div>
+          <div class="pdfgrid pdf-B" data-pdf="mix"></div>
+        </div></div>
+        <div class="pdf-cap">Largeur ~55&nbsp;mm, hauteur variable · 3 par ligne</div>
+      </div>
+    </div>
+    <div class="obody" style="padding-top:0"><div class="verdict" style="background:#fff8ed;border-color:#fde8c4;color:#7a5512">⚖️ Le plus fidèle visuellement (zéro bande), mais hauteurs irrégulières → grille « en escalier » et pagination PDF plus délicate à caler proprement.</div></div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="opt C">
+    <div class="ohead"><div class="obadge">C</div>
+      <div><h2>Recadrage par orientation</h2>
+      <div class="odesc">Vignettes <b>pleines</b> (sans bande) : boîte portrait pour une photo portrait, paysage pour une paysage.
+        Remplit bien — mais <b>rogne</b> encore les bords.</div></div>
+    </div>
+    <div class="obody twocol">
+      <div class="col">
+        <h3>À l'écran</h3>
+        <div class="viewport pc C">
+          <div class="erow"><div class="ename">Séjour — Mur</div>
+            <div class="side-lbl">📷 Entrée</div>
+            <div class="thumbs" data-grid="mixC"></div>
+          </div>
+        </div>
+        <div class="vlabel">Boîtes orientées, remplissage plein (cover)</div>
+      </div>
+      <div class="col">
+        <h3>Dans le PDF</h3>
+        <div class="pdfwrap"><div class="a4">
+          <div class="ph-h">ÉTAT DES LIEUX — Séjour</div>
+          <div class="ph-sec">PHOTOS</div>
+          <div class="pdfgrid pdf-C" data-pdf="mixC"></div>
+        </div></div>
+        <div class="pdf-cap">Boîtes orientées plus grandes · remplit, mais rogne les bords</div>
+      </div>
+    </div>
+    <div class="obody" style="padding-top:0"><div class="verdict" style="background:#fdeef0;border-color:#f7ccd4;color:#8a1f33">⚠️ Joli &amp; plein, mais on <b>perd des bords</b> (vois les repères « haut/bas » coupés). Risqué pour un EDL où la photo sert de preuve : ne pas couper l'info.</div></div>
+  </div>
+
+  <p class="legend">
+    <span>📷 Repères sur les photos : <b>▲ haut · ▼ bas · ◀ gauche · ▶ droite</b> — s'ils disparaissent, c'est qu'ils sont rognés.</span>
+  </p>
+</div>
+
+<div id="lb"><button class="x" onclick="closeLb()">×</button><span class="cap2"></span><img alt=""></div>
+
+<script>
+// ── Génère des "photos" SVG (data-URI) avec repères de bord pour visualiser le recadrage ──
+function photo(orient, label, hue){
+  const port = orient==='port';
+  const W = port?300:400, H = port?400:300;
+  const svg =
+   `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>`+
+   `<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>`+
+   `<stop offset='0' stop-color='hsl(${hue},55%,62%)'/><stop offset='1' stop-color='hsl(${hue+30},60%,42%)'/></linearGradient></defs>`+
+   `<rect width='${W}' height='${H}' fill='url(#g)'/>`+
+   `<rect x='8' y='8' width='${W-16}' height='${H-16}' fill='none' stroke='rgba(255,255,255,.55)' stroke-width='3' stroke-dasharray='10 8'/>`+
+   `<text x='${W/2}' y='${H/2-6}' fill='#fff' font-family='sans-serif' font-size='30' font-weight='700' text-anchor='middle'>${label}</text>`+
+   `<text x='${W/2}' y='${H/2+22}' fill='rgba(255,255,255,.9)' font-family='sans-serif' font-size='17' text-anchor='middle'>${W}×${H}</text>`+
+   `<text x='${W/2}' y='30' fill='#fff' font-family='sans-serif' font-size='17' font-weight='700' text-anchor='middle'>▲ HAUT</text>`+
+   `<text x='${W/2}' y='${H-16}' fill='#fff' font-family='sans-serif' font-size='17' font-weight='700' text-anchor='middle'>▼ BAS</text>`+
+   `<text x='16' y='${H/2}' fill='#fff' font-family='sans-serif' font-size='15' font-weight='700' text-anchor='start'>◀G</text>`+
+   `<text x='${W-16}' y='${H/2}' fill='#fff' font-family='sans-serif' font-size='15' font-weight='700' text-anchor='end'>D▶</text>`+
+   `</svg>`;
+  return 'data:image/svg+xml;utf8,'+encodeURIComponent(svg);
+}
+// jeu de photos mixte (portrait + paysage)
+const PHOTOS = [
+  {o:'port', l:'PORTRAIT', h:14,  cap:'Porte d\'entrée'},
+  {o:'land', l:'PAYSAGE',  h:200, cap:'Mur fenêtre'},
+  {o:'port', l:'PORTRAIT', h:150, cap:'Radiateur'},
+  {o:'land', l:'PAYSAGE',  h:95,  cap:'Plafond'},
+  {o:'port', l:'PORTRAIT', h:265, cap:'Prise élec.'},
+  {o:'land', l:'PAYSAGE',  h:50,  cap:'Sol parquet'},
+];
+PHOTOS.forEach(p=>p.src=photo(p.o,p.l,p.h));
+
+function fill(){
+  // grilles écran
+  document.querySelectorAll('[data-grid]').forEach(g=>{
+    const mode=g.dataset.grid; g.innerHTML='';
+    PHOTOS.forEach((p,i)=>{
+      const d=document.createElement('div');
+      d.className='th'+(mode==='mixC'?(' '+(p.o==='port'?'port':'land')):'');
+      d.innerHTML=`<img src="${p.src}" alt="${p.cap}">`;
+      d.onclick=()=>openLb(p.src,p.cap);
+      g.appendChild(d);
+    });
+  });
+  // grilles PDF
+  document.querySelectorAll('[data-pdf]').forEach(g=>{
+    const mode=g.dataset.pdf; g.innerHTML='';
+    PHOTOS.forEach(p=>{
+      const cell=document.createElement('div'); cell.className='pcell';
+      const box=document.createElement('div');
+      box.className='pbox'+(mode==='mixC'?(' '+(p.o==='port'?'port':'land')):'');
+      box.innerHTML=`<img src="${p.src}" alt="">`;
+      cell.appendChild(box);
+      const c=document.createElement('div'); c.className='cap'; c.textContent=p.cap;
+      cell.appendChild(c);
+      g.appendChild(cell);
+    });
+  });
+}
+fill();
+
+// format toggle
+document.getElementById('fmt').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#fmt button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  const f=b.dataset.f;
+  document.querySelectorAll('.viewport').forEach(v=>{
+    v.classList.remove('pc','tab','mob'); v.classList.add(f);
+  });
+});
+// afficher l'état actuel
+document.getElementById('showNow').addEventListener('change',e=>{
+  document.getElementById('nowCard').style.display=e.target.checked?'':'none';
+});
+
+// lightbox
+function openLb(src,cap){const lb=document.getElementById('lb');
+  lb.querySelector('img').src=src; lb.querySelector('.cap2').textContent=cap; lb.classList.add('on');}
+function closeLb(){document.getElementById('lb').classList.remove('on');}
+document.getElementById('lb').addEventListener('click',e=>{if(e.target.id==='lb')closeLb();});
+</script>
+</body>
+</html>
