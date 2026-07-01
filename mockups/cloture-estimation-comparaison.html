@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Clôture : estimation charges comparée aux années passées</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--sur:#fff;--sur2:#f7f8fb;--sur3:#eef1f6;--bor:#e4e7ee;--t1:#101521;--t2:#3c4658;--t3:#6e7888;--acc:#ff5a3c;--grn:#1a8f6f;--red:#d23f3f;--ora:#b27a12;--warnbg:#fdf3e3;--okbg:#e8f4ef}
+*{box-sizing:border-box}
+body{margin:0;background:#e7ebf2;color:var(--t1);font-family:'Inter',system-ui,sans-serif;font-size:13.5px;line-height:1.45;padding:20px}
+.wrap{max-width:660px;margin:0 auto}
+.lead{font-size:12.5px;color:var(--t2);margin:0 0 14px}
+.panel{background:var(--sur);border:1px solid var(--bor);border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(20,30,60,.08)}
+.mh{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--bor);font-weight:800;font-size:14.5px}
+.mh .x{margin-left:auto;color:var(--t3);font-weight:400;cursor:pointer}
+.mb{padding:14px 16px}
+.sub{font-size:12px;color:var(--t3);margin-bottom:14px}
+.bt{font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nw{font-size:9.5px;font-weight:700;background:var(--acc);color:#fff;border-radius:10px;padding:1px 7px}
+.chart{position:relative;display:flex;align-items:flex-end;gap:16px;height:108px;padding:0 4px;margin-bottom:6px}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.bar{width:100%;max-width:70px;border-radius:6px 6px 0 0;background:#d7deea;position:relative;display:flex;flex-direction:column-reverse}
+.bar .kept{background:var(--acc);border-radius:0}
+.bar .excl{background:repeating-linear-gradient(45deg,#e7c9c0,#e7c9c0 4px,#efd8d1 4px,#efd8d1 8px)}
+.bv{font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:4px}
+.bl{font-size:10.5px;color:var(--t3);margin-top:5px}
+.avg{position:absolute;left:4px;right:4px;border-top:1.5px dashed var(--t2);z-index:2}
+.avgl{position:absolute;right:6px;font-size:10px;color:var(--t2);background:var(--sur);padding:0 4px;transform:translateY(-50%);z-index:3}
+.flag{font-size:11.5px;color:var(--ora);background:var(--warnbg);border-radius:8px;padding:7px 10px;margin:10px 0 14px;display:flex;gap:6px;line-height:1.4}
+.occ{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:12.5px;color:var(--t2)}
+.occ input[type=range]{flex:1;accent-color:var(--acc)}
+.occ b{color:var(--t1);font-variant-numeric:tabular-nums;min-width:96px;text-align:right}
+.lh{display:grid;grid-template-columns:26px 1fr 84px;gap:8px;font-size:10.5px;color:var(--t3);padding:0 2px 4px}
+.row{display:grid;grid-template-columns:26px 1fr 84px;gap:8px;align-items:center;padding:8px 2px;border-top:0.5px solid var(--bor);font-size:12.5px}
+.row input{width:17px;height:17px;accent-color:var(--grn);cursor:pointer}
+.row.off .nm,.row.off .amt{color:var(--t3);text-decoration:line-through}
+.nm .tag{display:inline-block;font-size:9.5px;background:var(--warnbg);color:var(--ora);border-radius:8px;padding:0 6px;margin-left:5px;text-decoration:none;vertical-align:1px}
+.dt{font-size:10.5px;color:var(--t3)}
+.amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.base{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;padding:8px 2px 0;border-top:2px solid var(--bor);margin-top:4px}
+.est{background:var(--sur2);border:1px solid var(--bor);border-radius:11px;padding:12px;margin-top:14px}
+.el{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:3px 0}
+.el .m{font-variant-numeric:tabular-nums;font-weight:600}
+.el.tot{border-top:1px solid var(--bor);margin-top:5px;padding-top:7px;font-weight:700}
+.cmp{font-size:11px;color:var(--t3);margin-top:4px}
+.seg{display:inline-flex;border:1px solid var(--bor);border-radius:8px;overflow:hidden;margin:12px 0 0}
+.seg button{border:0;background:#fff;padding:7px 13px;font:inherit;font-size:12px;color:var(--t2);cursor:pointer}
+.seg button.on{background:#fff2ef;color:var(--acc);font-weight:600}
+.dgblk{background:var(--sur2);border:1px solid var(--bor);border-radius:11px;padding:12px;margin-top:12px}
+.hi{font-size:11.5px;background:var(--okbg);border-radius:8px;padding:8px 10px;margin:8px 0;line-height:1.45}
+.restit{display:flex;justify-content:space-between;font-weight:700;border-top:1px solid var(--bor);margin-top:6px;padding-top:8px}
+.lg{font-size:10.5px;color:var(--t3);margin-top:10px;line-height:1.45}
+.mf{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--bor);flex-wrap:wrap}
+.b{font-size:12.5px;border-radius:8px;padding:8px 13px;font-weight:600;cursor:pointer}
+.b.s{background:#fff;border:1px solid var(--bor);color:var(--t2)}
+.b.p{background:var(--acc);border:1px solid var(--acc);color:#fff}
+.cap{font-size:11px;color:var(--t3);margin-top:12px;text-align:center}
+@media(max-width:480px){body{padding:10px}.chart{gap:10px}.occ b{min-width:80px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="lead">Mockup interactif — coche / décoche les postes de l'année N‑1, bouge la durée d'occupation : l'estimation, le solde et la retenue se recalculent. Données illustratives.</p>
+  <div class="panel">
+    <div class="mh"><span>🏁 Clôture — RDC gauche · Mme Schmitt</span><span class="x">✕</span></div>
+    <div class="mb">
+      <div class="sub">Occupation 01/01 → 30/06/2026 · copropriété</div>
+      <div class="bt">① Charges récupérables — estimation <span class="nw">comparé aux années passées</span></div>
+
+      <div class="chart">
+        <div class="avg" style="bottom:68%"></div><div class="avgl" style="bottom:68%">moyenne 817 €</div>
+        <div class="col"><div class="bv">610 €</div><div class="bar" style="height:51%"></div><div class="bl">N‑3</div></div>
+        <div class="col"><div class="bv">640 €</div><div class="bar" style="height:53%"></div><div class="bl">N‑2</div></div>
+        <div class="col"><div class="bv" id="bvN1" style="color:var(--acc)">1 200 €</div>
+          <div class="bar" style="height:100%"><div class="kept" id="barKept" style="height:50%"></div><div class="excl" id="barExcl" style="height:50%"></div></div>
+          <div class="bl">N‑1</div></div>
+      </div>
+      <div class="flag">⚠ N‑1 décroche (+87 % vs la moyenne des 3 ans). Regarde les gros postes avant d'estimer — la part hachurée est ce que tu as exclu.</div>
+
+      <div class="occ"><label for="occ">Durée d'occupation</label><input type="range" id="occ" min="1" max="365" step="1" value="180"><b id="occV">180 j / 365</b></div>
+
+      <div class="lh"><span></span><span>dépense N‑1 (triée par coût décroissant)</span><span style="text-align:right">montant</span></div>
+      <div id="list"></div>
+      <div class="base"><span>Base retenue (postes cochés)</span><span id="baseV">600 €</span></div>
+
+      <div class="est">
+        <div class="el"><span>Base retenue × prorata occupation</span><span class="m" id="fEst">600 € × 180/365</span></div>
+        <div class="el tot"><span>= Charges estimées du locataire</span><span class="m" id="vEst">296 €</span></div>
+        <div class="cmp" id="cmpBrut">N‑1 brut (sans rien décocher) : 1 200 € × 180/365 = 592 €.</div>
+        <div class="el" style="margin-top:8px"><span>− Provisions versées</span><span class="m">540 €</span></div>
+        <div class="el tot"><span>= Solde estimé</span><span class="m" id="vSolde">+ 244 € à restituer</span></div>
+      </div>
+
+      <div class="seg"><button id="rCo" class="on" type="button">Copropriété / collectif</button><button id="rMi" type="button">Maison individuelle</button></div>
+
+      <div class="dgblk">
+        <div class="bt" style="margin-bottom:8px">② Dépôt de garantie &amp; retenue</div>
+        <div class="el"><span>Dépôt de garantie</span><span class="m">800 €</span></div>
+        <div class="el"><span>Retenue maximale (20 %)</span><span class="m" id="vMax20" style="color:var(--ora)">160 €</span></div>
+        <div class="hi" id="hiTxt">Solde en faveur du locataire → rien à retenir à ce titre.</div>
+        <div class="restit"><span>À restituer maintenant</span><span id="vRestit" style="color:var(--grn);font-variant-numeric:tabular-nums">800 €</span></div>
+        <div class="lg">Solde définitif réglé dans le mois suivant l'approbation des comptes (régul N réelle). Réf. loi 89‑462 art. 22 &amp; 23. Retenir une part fait passer le délai de restitution à 2 mois.</div>
+      </div>
+    </div>
+    <div class="mf"><button class="b s">📄 Décompte estimatif</button><button class="b p" id="btnRet">Solde en faveur du locataire</button></div>
+  </div>
+  <p class="cap">Mockup statique interactif — Mme Schmitt (données illustratives). Base = mouvements de charges récupérables N‑1 ; comparaison via <code>computeRegul</code> sur N‑1/N‑2/N‑3.</p>
+</div>
+<script>
+var DG=800, PROV=540, N1TOTAL=1200;
+var moves=[
+  {id:'m1', label:'Réparation portail', date:'12/03/2025', amt:600, tag:'montant inhabituel', on:false},
+  {id:'m2', label:'Eau froide', date:'relevé annuel', amt:240, on:true},
+  {id:'m3', label:'Électricité parties communes', date:'mensualisé', amt:205, on:true},
+  {id:'m4', label:'Entretien chaudière', date:'contrat annuel', amt:130, on:true},
+  {id:'m5', label:'Ramonage', date:'annuel', amt:25, on:true}
+];
+var regime='co';
+function eur(n){return (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0})+' €';}
+function eur2(n){return (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function renderList(){
+  var h='';
+  moves.forEach(function(m){
+    h+='<div class="row'+(m.on?'':' off')+'"><span><input type="checkbox" data-id="'+m.id+'"'+(m.on?' checked':'')+'></span>'
+      +'<span class="nm">'+m.label+(m.tag?' <span class="tag">'+m.tag+'</span>':'')+'<div class="dt">'+m.date+'</div></span>'
+      +'<span class="amt">'+eur(m.amt)+'</span></div>';
+  });
+  document.getElementById('list').innerHTML=h;
+  Array.prototype.forEach.call(document.querySelectorAll('#list input'),function(cb){
+    cb.addEventListener('change',function(){
+      var m=moves.filter(function(x){return x.id===cb.dataset.id;})[0];
+      m.on=cb.checked; compute();
+      cb.closest('.row').classList.toggle('off',!cb.checked);
+    });
+  });
+}
+function compute(){
+  var occ=parseInt(document.getElementById('occ').value,10);
+  document.getElementById('occV').textContent=occ+' j / 365';
+  var base=moves.reduce(function(s,m){return s+(m.on?m.amt:0);},0);
+  var excl=N1TOTAL-base;
+  document.getElementById('baseV').textContent=eur(base);
+  document.getElementById('barKept').style.height=(base/N1TOTAL*100)+'%';
+  document.getElementById('barExcl').style.height=(excl/N1TOTAL*100)+'%';
+  var prorata=occ/365;
+  var est=base*prorata, estBrut=N1TOTAL*prorata;
+  document.getElementById('fEst').textContent=eur(base)+' × '+occ+'/365';
+  document.getElementById('vEst').textContent=eur2(est);
+  document.getElementById('cmpBrut').textContent='N‑1 brut (sans rien décocher) : '+eur(N1TOTAL)+' × '+occ+'/365 = '+eur2(estBrut)+'.';
+  var solde=PROV-est;
+  var vs=document.getElementById('vSolde');
+  vs.textContent=(solde>=0?'+ ':'− ')+eur2(Math.abs(solde))+(solde>=0?' à restituer':' à demander');
+  vs.style.color=solde>=0?'var(--grn)':'var(--red)';
+  var du=solde<0?-solde:0, max20=DG*0.2, retenue=0;
+  document.getElementById('vMax20').textContent=eur(max20);
+  var hi=document.getElementById('hiTxt'), btn=document.getElementById('btnRet');
+  if(regime==='mi'){
+    hi.textContent='Maison individuelle → pas de retenue 20 % ; déduction des seules sommes justifiées.';
+    retenue=0;
+  } else if(du>0){
+    retenue=Math.min(du,max20);
+    hi.innerHTML='Dû estimé <b>'+eur2(du)+'</b> '+(du<=max20?'≤':'>')+' plafond '+eur(max20)+' → retenue suggérée <b>'+eur2(retenue)+'</b>, en attendant l’arrêté des comptes.';
+  } else {
+    hi.textContent='Solde en faveur du locataire → rien à retenir à ce titre.';
+  }
+  document.getElementById('vRestit').textContent=eur2(DG-retenue);
+  btn.textContent=retenue>0?('🏛️ Retenir '+eur2(retenue)+' sur le DG'):'Solde en faveur du locataire';
+  btn.style.opacity=retenue>0?'1':'.55';
+}
+document.getElementById('occ').addEventListener('input',compute);
+document.getElementById('rCo').addEventListener('click',function(){regime='co';this.classList.add('on');document.getElementById('rMi').classList.remove('on');compute();});
+document.getElementById('rMi').addEventListener('click',function(){regime='mi';this.classList.add('on');document.getElementById('rCo').classList.remove('on');compute();});
+renderList();compute();
+</script>
+</body>
+</html>
