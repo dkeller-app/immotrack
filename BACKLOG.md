@@ -38,6 +38,15 @@
 > | 15 | Paramètres + Export/Sauvegarde : hors sidebar → menu bouton connexion + audit contenu | [NAV-SIDEBAR-CLEANUP](docs/subjects/NAV-SIDEBAR-CLEANUP.md) 🆕 | P2 | S | 🧭 Nav cleanup |
 >
 > **Regroupement en 6 chantiers** : ⚡ Quick wins (1+6, ~½ journée) · 🎛 Dashboard cockpit (2+3) · 🏠 Biens (4+5) · 📐 Intercalaires (7+9+10+12b — mécanique v15.76 existante à propager) · 🧾 Quittances (11) · 🧭 Nav cleanup (12a+15). + 🔎 Diagnostics (8) et Import (14) au fil de l'eau.
+>
+> **2e vague (2026-07-02, pendant la session quick wins)** :
+>
+> | # | Retour | Code | Prio | Statut |
+> |---|---|---|---|---|
+> | 16 | Bouton retour navigateur partout (tunnels/fiches inclus) — « absolument » | [NAV-HISTORY-BACK](docs/subjects/NAV-HISTORY-BACK.md) 🆕 | **P1** | 🔄 session quick wins |
+> | 17 | IRL renoncée affichée « Appliquée » en vert avec nouveau loyer → état orange « IRL renoncée » | [BUG-IRL-RENONCE-AFFICHAGE](docs/subjects/BUG-IRL-RENONCE-AFFICHAGE.md) 🆕 | P1 | 🔄 session quick wins |
+> | 18 | Loyers & Mouvements : sélection des colonnes bugge parfois | [BUG-MVT-COL-SELECT](docs/subjects/BUG-MVT-COL-SELECT.md) 🆕 | P2 | ⏳ attente repro user |
+> | 19 | Logement « Vacant » avec locataire en place 6+ ans (tacite reconduction ?) | [BUG-VACANT-LOCATAIRE-PRESENT](docs/subjects/BUG-VACANT-LOCATAIRE-PRESENT.md) 🆕 | P1 | 🔄 session quick wins |
 
 ---
 
