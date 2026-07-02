@@ -4,12 +4,13 @@ begin;
 
 -- ── Allowlist : seuls ces emails peuvent créer un compte (vérifié par le hook 0039) ──
 create table public.beta_allowlist (
-  email         text primary key,                 -- normalisé lower(trim())
-  source        text not null default 'admin',    -- 'admin' | 'invitation'
-  added_by      uuid references auth.users(id),
-  invitation_id uuid references public.invitations(id) on delete set null,
-  created_at    timestamptz not null default now(),
-  registered_at timestamptz                        -- rempli quand le compte est créé (hook)
+  email            text primary key,                 -- normalisé lower(trim())
+  source           text not null default 'admin',    -- 'admin' (testeur ajouté par le super-admin) | 'invitation' (partenaire)
+  added_by         uuid references auth.users(id),
+  invited_by_email text,                             -- source='invitation' : email du testeur qui a invité (affichage « via … »)
+  invitation_id    uuid references public.invitations(id) on delete set null,
+  created_at       timestamptz not null default now(),
+  registered_at    timestamptz                        -- rempli quand le compte est créé (trigger auth.users)
 );
 
 -- ── Super-admins globaux (≠ owner d'espace) : accès à l'écran admin bêta ──
@@ -41,10 +42,12 @@ create policy app_admins_self_read on public.app_admins
 -- Le testeur crée une invitation avec invite_email → l'email devient autorisé (le hook le laissera passer).
 create or replace function public.invitation_to_allowlist()
 returns trigger language plpgsql security definer set search_path = '' as $$
+declare v_inviter text;
 begin
   if new.invite_email is not null and length(trim(new.invite_email)) > 0 then
-    insert into public.beta_allowlist (email, source, added_by, invitation_id)
-    values (lower(trim(new.invite_email)), 'invitation', new.created_by, new.id)
+    select u.email into v_inviter from auth.users u where u.id = new.created_by;
+    insert into public.beta_allowlist (email, source, added_by, invited_by_email, invitation_id)
+    values (lower(trim(new.invite_email)), 'invitation', new.created_by, v_inviter, new.id)
     on conflict (email) do nothing;
   end if;
   return new;

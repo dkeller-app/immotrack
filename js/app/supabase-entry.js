@@ -284,7 +284,7 @@ async function boot() {
   }
   async function _listAllowlist () {
     const { data, error } = await client.from('beta_allowlist')
-      .select('email, source, created_at, registered_at').order('created_at', { ascending: false })
+      .select('email, source, invited_by_email, created_at, registered_at').order('created_at', { ascending: false })
     if (error) return { error: error.message }
     return { rows: data || [] }
   }
