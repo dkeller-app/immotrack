@@ -24426,22 +24426,55 @@ function _rgImmRegime(entry){
            label: copro ? 'copropriété' : (nbLogs>1 ? 'immeuble collectif (monopropriété)' : 'maison individuelle') };
 }
 
-// Charges récupérables RÉELLES de l'année N-1 d'un logement (toutes occupations confondues),
-// base de l'estimation quand l'exercice en cours n'est pas encore clôturé.
-function _rgN1Charges(ref){
+// Charges récupérables d'un logement pour une année décalée (yearOffset : 1=N-1, 2=N-2, 3=N-3),
+// avec le détail PAR MOUVEMENT (part imputée au logement) pour la liste décochable. Réutilise computeRegul.
+// NB : la base agrège TOUTES les occupations du logement sur l'année (rotation de locataires incluse) —
+// c'est la reconstitution des charges annuelles du logement, proratisée ensuite à l'occupation du partant.
+function _rgYearChargesDetail(ref, yearOffset){
   const from=window._regulFrom||'', to=window._regulTo||'';
   if(!/^\d{4}-\d{2}-\d{2}/.test(from) || !/^\d{4}-\d{2}-\d{2}/.test(to)) return null;
-  const y1 = String(Number(from.slice(0,4))-1);
-  const n1 = computeRegul(y1+from.slice(4), y1+to.slice(4));
-  const ent = Object.values(n1.entries||{}).filter(e=>e.ref===ref);
-  if(!ent.length || !ent.some(e=>(e.charges||0)>0)) return null;
-  return { total: Math.round(ent.reduce((s,e)=>s+(e.charges||0),0)*100)/100 };
+  const y = String(Number(from.slice(0,4)) - yearOffset);
+  // clamp 29/02 → 28/02 si l'année cible n'est pas bissextile (évite le glissement d'1 jour)
+  const clamp = base=>{ let t=base.slice(4); if(t==='-02-29'){ const yn=Number(y); if(!((yn%4===0&&yn%100!==0)||yn%400===0)) t='-02-28'; } return y+t; };
+  const res = computeRegul(clamp(from), clamp(to));
+  const entries = Object.values(res.entries||{}).filter(e=>e.ref===ref);
+  if(!entries.length) return { year:y, total:0, moves:[] };
+  const byMv = {};
+  entries.forEach(e=>(e.details||[]).forEach(d=>{
+    const k = (d.mvId!=null) ? ('id:'+d.mvId) : ((d.date||'')+'|'+(d.mvLib||d.lib||''));
+    if(!byMv[k]) byMv[k]={key:k, date:d.date||'', lib:(d.mvLib||d.lib||''), montant:0};
+    byMv[k].montant += (d.montant||0);
+  }));
+  const moves = Object.values(byMv)
+    .map(m=>({key:m.key, date:m.date, lib:m.lib, montant:Math.round(m.montant*100)/100}))
+    .filter(m=>m.montant>0)
+    .sort((a,b)=>b.montant-a.montant);
+  // total = somme des parts arrondies → cohérent avec la « base retenue » (pas de dérive de cents vs barre N-1)
+  const total = Math.round(moves.reduce((s,m)=>s+m.montant,0)*100)/100;
+  return { year:y, total, moves };
 }
 
-function _rgClotureLocataire(entryKey){
+// Base d'estimation = charges récup N-1 du logement, + comparaison N-2/N-3 (repérer une année
+// atypique) + liste des mouvements N-1 (décochables). Renvoie null si pas d'historique N-1.
+function _rgN1Charges(ref){
+  const n1 = _rgYearChargesDetail(ref, 1);
+  if(!n1 || !(n1.total>0)) return null;
+  const n2 = _rgYearChargesDetail(ref, 2);
+  const n3 = _rgYearChargesDetail(ref, 3);
+  const prev = [n2, n3].filter(x=>x && x.total>0).map(x=>x.total);
+  const moyennePrev = prev.length ? Math.round((prev.reduce((s,v)=>s+v,0)/prev.length)*100)/100 : null;
+  const all = [n1.total].concat(prev);
+  const moyenne = Math.round((all.reduce((s,v)=>s+v,0)/all.length)*100)/100;
+  const spike = (moyennePrev!=null && n1.total > moyennePrev*1.3); // N-1 > +30 % vs moyenne des années d'avant
+  return { total:n1.total, y1:n1.total, y2:(n2?n2.total:null), y3:(n3?n3.total:null),
+           moyenne, moyennePrev, spike, moves:n1.moves, year:n1.year };
+}
+
+// DEPART-ESTIM : calcul unifié de la clôture (partagé panneau + décompte estimatif) — DRY.
+function _rgClotureCompute(entryKey){
   const res = computeRegul(window._regulFrom, window._regulTo);
   const entry = (res.entries||{})[entryKey];
-  if(!entry){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
+  if(!entry) return null;
   const bail = entry.bail || {};
   const log  = (DB.logements||[]).find(l=>l.ref===entry.ref) || {};
   const dg   = Number(bail.dg || log.dg || 0);
@@ -24449,24 +24482,55 @@ function _rgClotureLocataire(entryKey){
   const n1   = _rgN1Charges(entry.ref);
   const occN = entry.occDays || 0;
   const winDays = entry.totalDays || 365; // durée de la fenêtre régul (≠ 365 si période custom)
-  const estCharges = n1 ? Math.round(n1.total * (occN/winDays) * 100)/100 : null;
+  const excl = new Set((bail.estimExclues)||[]);
+  const baseN1 = n1 ? Math.round(n1.moves.reduce((s,m)=> s + (excl.has(m.key)?0:m.montant), 0)*100)/100 : 0;
+  const estCharges = n1 ? Math.round(baseN1 * (occN/winDays) * 100)/100 : null;
   const prov = entry.provisions || 0;
   const real = entry.charges || 0;
-  const chargesUsed = (estCharges!=null) ? estCharges : real;
+  const estimated = (estCharges!=null);
+  const chargesUsed = estimated ? estCharges : real;
   const solde = Math.round((prov - chargesUsed)*100)/100; // + = à restituer ; - = à demander
   const du    = solde < 0 ? -solde : 0;
   const max20 = Math.round(dg*0.20*100)/100;
   const retenueSugg = reg.applies20 ? Math.min(du, max20) : 0;
   const dgRestit = Math.round((dg - retenueSugg)*100)/100;
-  const f = fmt, estimated = (estCharges!=null);
+  return { entry, bail, log, dg, reg, n1, occN, winDays, excl, baseN1, estCharges, prov, real, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit };
+}
+
+function _rgClotureLocataire(entryKey){
+  const c = _rgClotureCompute(entryKey);
+  if(!c){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
+  const entry=c.entry, dg=c.dg, reg=c.reg, n1=c.n1, occN=c.occN, winDays=c.winDays, excl=c.excl,
+        baseN1=c.baseN1, estCharges=c.estCharges, prov=c.prov, real=c.real, estimated=c.estimated,
+        solde=c.solde, du=c.du, max20=c.max20, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
+  const f = fmt;
   let ov = document.getElementById('ov-rg-cloture');
   if(!ov){ ov=document.createElement('div'); ov.id='ov-rg-cloture'; ov.className='ov hidden'; ov.setAttribute('onclick',"closeBg(event,'ov-rg-cloture')"); document.body.appendChild(ov); }
   const soldeTag = solde>=0 ? `<span class="rgc-tag rest">+${f(solde)} à restituer</span>` : `<span class="rgc-tag dem">−${f(-solde)} à demander</span>`;
-  const chargeLines = estimated
-    ? `<div class="rgc-est">⏳ Charges réelles de l'année pas encore connues → estimation calculée sur l'année précédente (réel ${f(n1.total)}), proratisée sur la durée d'occupation.</div>
-       <div class="rgc-l"><span>Charges récup. N‑1 (réel, ce logement)</span><span class="mono">${f(n1.total)}</span></div>
-       <div class="rgc-l sub"><span>× prorata occupation — ${occN} j / ${winDays}</span><span class="mono">${f(estCharges)}</span></div>`
-    : `<div class="rgc-l"><span>Charges réelles imputées</span><span class="mono">${f(real)}</span></div>`;
+  let chargeLines;
+  if(estimated){
+    const vals=[{lbl:'N‑3',v:n1.y3},{lbl:'N‑2',v:n1.y2},{lbl:'N‑1',v:n1.y1}].filter(x=>x.v!=null);
+    const maxV=Math.max.apply(null, vals.map(x=>x.v).concat([n1.moyenne||0,1]));
+    const bars=vals.map(x=>{
+      const h=Math.round(x.v/maxV*100), hot=(x.lbl==='N‑1');
+      return `<div class="rgc-bcol"><div class="rgc-bv"${hot?' style="color:var(--acc)"':''}>${f(x.v)}</div><div class="rgc-bar${hot?' hot':''}" style="height:${h}%"></div><div class="rgc-bl">${x.lbl}</div></div>`;
+    }).join('');
+    const avgPct=Math.round((n1.moyenne||0)/maxV*100);
+    const barChart=`<div class="rgc-chart">${n1.moyenne!=null?`<div class="rgc-avg" style="bottom:${avgPct}%"></div><div class="rgc-avgl" style="bottom:${avgPct}%">moy. ${f(n1.moyenne)}</div>`:''}${bars}</div>`;
+    const spikeFlag = n1.spike ? `<div class="rgc-spike">⚠ N‑1 décroche vs les années précédentes — vérifie les gros postes ci‑dessous.</div>` : '';
+    const list = n1.moves.map((m,i)=>{
+      const off=excl.has(m.key);
+      return `<div class="rgc-mv${off?' off':''}"><label class="rgc-mvck"><input type="checkbox" data-ek="${escHtml(entryKey)}" data-idx="${i}" ${off?'':'checked'} onclick="_rgToggleExcl(this.dataset.ek,+this.dataset.idx)"><span class="rgc-mvl">${escHtml(m.lib||'(sans libellé)')}${m.date?` <span class="rgc-mvd">${fd(m.date)}</span>`:''}</span></label><span class="mono">${f(m.montant)}</span></div>`;
+    }).join('');
+    chargeLines = `<div class="rgc-est">⏳ Charges réelles de l'année pas encore arrêtées → estimation sur l'historique, proratisée à l'occupation. Compare les années et décoche un poste exceptionnel.</div>
+       ${barChart}${spikeFlag}
+       <div class="rgc-mvh">Dépenses N‑1 (${escHtml(n1.year)}) — décoche un poste isolé pour l'exclure de la base</div>
+       ${list}
+       <div class="rgc-l"><span>Base retenue (postes cochés)</span><span class="mono">${f(baseN1)}</span></div>
+       <div class="rgc-l sub"><span>× prorata occupation — ${occN} j / ${winDays}</span><span class="mono">${f(estCharges)}</span></div>`;
+  } else {
+    chargeLines = `<div class="rgc-l"><span>Charges réelles imputées</span><span class="mono">${f(real)}</span></div>`;
+  }
   const dgBlock = reg.applies20
     ? `<div class="rgc-blk"><div class="rgc-t">② Dépôt de garantie &amp; retenue</div>
         <div class="rgc-dg"><div class="rgc-dgh">🏛️ Règle des 20 % — ${escHtml(reg.label)}, comptes non arrêtés</div>
@@ -24482,7 +24546,7 @@ function _rgClotureLocataire(entryKey){
   ov.innerHTML = `<div class="modal"><div class="m-head"><h3>🏁 Clôture — ${escHtml(entry.ref)} · ${escHtml(entry.loc||'')}</h3><button class="m-close" onclick="closeM('ov-rg-cloture')">✕</button></div>
     <div class="m-body">
       <div class="mu sm" style="margin-bottom:12px">Occupation ${entry.debutOcc?fd(entry.debutOcc):'—'} → sortie ${entry.fin?fd(entry.fin):'—'} · ${escHtml(entry.imm||'')} (${escHtml(reg.label)})</div>
-      <div class="rgc-blk"><div class="rgc-t">① Charges récupérables — ${estimated?'estimation (base N‑1)':'réel'}</div>
+      <div class="rgc-blk"><div class="rgc-t">① Charges récupérables — ${estimated?'estimation comparée':'réel'}</div>
         ${chargeLines}
         <div class="rgc-l"><span>− Provisions versées</span><span class="mono">${f(prov)}</span></div>
         <div class="rgc-l tot"><span>= Solde ${estimated?'estimé':''}</span><span>${soldeTag}</span></div>
@@ -24490,10 +24554,72 @@ function _rgClotureLocataire(entryKey){
       ${dgBlock}
     </div>
     <div class="m-foot">
-      <button class="btn bs" data-ek="${escHtml(entryKey)}" onclick="closeM('ov-rg-cloture');openRegulDoc(this.dataset.ek)">📄 Décompte${estimated?' estimatif':''}</button>
+      <button class="btn bs" data-ek="${escHtml(entryKey)}" onclick="closeM('ov-rg-cloture');_rgOpenDecompteEstimatif(this.dataset.ek)">📄 Décompte${estimated?' estimatif':''}</button>
       ${(reg.applies20 && retenueSugg>0)?`<button class="btn bp" data-ek="${escHtml(entryKey)}" data-ret="${retenueSugg}" data-res="${dgRestit}" onclick="_rgApplyRetenue(this.dataset.ek,+this.dataset.ret,+this.dataset.res)">🏛️ Retenir ${f(retenueSugg)} sur le DG</button>`:''}
     </div></div>`;
   openM('ov-rg-cloture');
+}
+
+// DEPART-ESTIM : bascule l'exclusion d'un poste N-1 de la base d'estimation (persisté sur le bail) + re-render.
+function _rgToggleExcl(entryKey, idx){
+  const res=computeRegul(window._regulFrom,window._regulTo); const entry=(res.entries||{})[entryKey];
+  if(!entry || !entry.bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  const n1=_rgN1Charges(entry.ref); if(!n1 || !n1.moves[idx]) return;
+  const key=n1.moves[idx].key, bail=entry.bail;
+  if(!Array.isArray(bail.estimExclues)) bail.estimExclues=[];
+  const p=bail.estimExclues.indexOf(key);
+  if(p>=0) bail.estimExclues.splice(p,1); else bail.estimExclues.push(key);
+  if(typeof _stamp==='function') _stamp(bail);
+  if(typeof saveDB==='function') saveDB();
+  _rgClotureLocataire(entryKey);
+}
+
+// DEPART-ESTIM : décompte ESTIMATIF (provisoire) — mêmes valeurs que le panneau via _rgClotureCompute.
+// Distinct du décompte DÉFINITIF (openRegulDoc/_buildDecompteHtml, basé sur le réel) qui reste inchangé.
+function _rgOpenDecompteEstimatif(entryKey){
+  const c = _rgClotureCompute(entryKey);
+  if(!c){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
+  if(!c.estimated){ openRegulDoc(entryKey); return; } // pas d'historique N-1 → décompte réel classique
+  const entry=c.entry, bail=c.bail, log=c.log, dg=c.dg, reg=c.reg, n1=c.n1,
+        occN=c.occN, winDays=c.winDays, baseN1=c.baseN1, estCharges=c.estCharges,
+        prov=c.prov, solde=c.solde, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
+  const f = v => fmtN(v) + ' €';
+  const ent = (DB.entites||[]).find(e=>e && e.nom===((bail&&bail.entity)||log.entity)) || {};
+  const cmpRows = [{l:'N‑3',v:n1.y3},{l:'N‑2',v:n1.y2},{l:'N‑1 ('+escHtml(n1.year)+')',v:n1.y1}]
+    .filter(x=>x.v!=null)
+    .map(x=>`<tr><td style="padding:5px;border:1px solid #ccc">${x.l}</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(x.v)}</td></tr>`).join('');
+  const soldeLbl = solde>=0 ? 'estimé à votre crédit (trop-perçu prévisionnel)' : 'estimé à votre charge (complément prévisionnel)';
+  const dgBlock = reg.applies20 ? `
+    <p style="font-size:11px;margin-top:14px"><b>Retenue provisoire sur le dépôt de garantie (art. 22)</b> — les comptes n'étant pas arrêtés, une provision peut être retenue dans la limite de 20 % du dépôt jusqu'à leur approbation :</p>
+    <table style="width:100%;border-collapse:collapse;margin:6px 0;font-size:12px">
+      <tr><td style="padding:5px;border:1px solid #ccc">Dépôt de garantie</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(dg)}</td></tr>
+      <tr><td style="padding:5px;border:1px solid #ccc">Retenue provisoire (≤ 20 %)</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(retenueSugg)}</td></tr>
+      <tr style="font-weight:bold"><td style="padding:5px;border:1px solid #ccc">Dépôt restitué à ce stade</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(dgRestit)}</td></tr>
+    </table>` : '';
+  const html = `<div style="margin-bottom:40px">
+    <div style="text-align:right;margin-bottom:20px"><b>${escHtml(ent.nom||'–')}</b><br>${escHtml(ent.siege||'')}</div>
+    <p>${escHtml(entry.loc||log.locataire||'–')}<br>${escHtml((bail&&bail.adrBien)||log.adr||'–')}</p>
+    <p style="margin-top:16px"><b>Décompte ESTIMATIF de charges — provisoire</b><br>Logement ${escHtml(entry.ref)} · occupation ${entry.debutOcc?fd(entry.debutOcc):'—'} → ${entry.fin?fd(entry.fin):'—'} (${occN} j / ${winDays})</p>
+    <p style="font-size:11px;margin-top:12px;padding:8px 11px;background:#fff8e6;border-left:3px solid #c9a000;border-radius:2px">⚠ <b>Document provisoire</b> : les charges réelles de l'année ne sont pas encore arrêtées. Estimation calculée sur l'historique (année précédente), proratisée à la durée d'occupation. Un <b>décompte définitif</b> suivra après l'arrêté des comptes (art. 23 loi 89‑462).</p>
+    <p style="font-size:11px;margin-top:14px"><b>Base d'estimation — charges récupérables du logement par année</b></p>
+    <table style="width:100%;border-collapse:collapse;margin:6px 0;font-size:12px">${cmpRows}</table>
+    <table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:12px">
+      <tr><td style="padding:5px;border:1px solid #ccc">Base retenue (année précédente)</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(baseN1)}</td></tr>
+      <tr><td style="padding:5px;border:1px solid #ccc">Quote-part estimée (× ${occN}/${winDays})</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(estCharges)}</td></tr>
+      <tr><td style="padding:5px;border:1px solid #ccc">Provisions versées</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(prov)}</td></tr>
+      <tr style="font-weight:bold;background:${solde>=0?'#f0fff0':'#fff0f0'}"><td style="padding:5px;border:1px solid #ccc">SOLDE ${soldeLbl}</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${solde>=0?'+':''}${f(solde)}</td></tr>
+    </table>
+    ${dgBlock}
+    <div style="margin-top:24px;padding:10px 14px;border:1px solid #bbb;border-radius:4px;font-size:10px;color:#555;line-height:1.7;background:#fafafa">
+      <b>Mentions</b><br>
+      • Estimation provisoire fondée sur les charges récupérables de l'année précédente (liste limitative, décret n°87‑713), proratisée à la durée d'occupation.<br>
+      • Une retenue au plus égale à 20 % du dépôt de garantie peut être conservée jusqu'à l'arrêté des comptes (art. 22 loi 89‑462) ; le solde est régularisé dans le mois suivant leur approbation (art. 23).<br>
+      • Les pièces justificatives seront tenues à votre disposition lors du décompte définitif.
+    </div>
+  </div>`;
+  const box = el('regul-doc-content');
+  if(box){ box.innerHTML = html; openM('ov-regul-doc'); }
+  else if(typeof showToast==='function') showToast('Aperçu indisponible','err');
 }
 
 function _rgApplyRetenue(entryKey, retenue, restit){
