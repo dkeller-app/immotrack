@@ -3113,6 +3113,23 @@ textarea.field-modified-since-sig{
 .rgc-restit{border-top:1px dashed var(--bor);margin-top:8px;padding-top:8px;font-weight:600}
 .rgc-legal{font-size:10.5px;color:var(--t3);margin-top:8px;font-style:italic}
 .rgc-blk .mono,.rgc-dg .mono{font-family:'Manrope',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+/* DEPART-ESTIM : comparaison multi-années + liste décochable */
+.rgc-chart{position:relative;display:flex;align-items:flex-end;gap:16px;height:96px;padding:0 4px;margin:4px 0 8px}
+.rgc-bcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.rgc-bar{width:100%;max-width:58px;border-radius:5px 5px 0 0;background:#d7deea}
+.rgc-bar.hot{background:var(--acc,#ff5a3c)}
+.rgc-bv{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:4px}
+.rgc-bl{font-size:10.5px;color:var(--t3);margin-top:5px}
+.rgc-avg{position:absolute;left:4px;right:4px;border-top:1.5px dashed var(--t2);z-index:2}
+.rgc-avgl{position:absolute;right:6px;font-size:10px;color:var(--t2);background:var(--sur);padding:0 4px;transform:translateY(-50%);z-index:3}
+.rgc-spike{font-size:11.5px;color:var(--ora);background:var(--bg-warning,rgba(234,88,12,.12));border-radius:8px;padding:7px 10px;margin-bottom:10px;line-height:1.4}
+.rgc-mvh{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);margin:8px 0 4px}
+.rgc-mv{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12.5px}
+.rgc-mvck{display:flex;align-items:center;gap:8px;min-width:0;cursor:pointer}
+.rgc-mvck input{width:16px;height:16px;accent-color:var(--grn);flex:0 0 auto;cursor:pointer}
+.rgc-mvl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rgc-mvd{color:var(--t3);font-size:11px}
+.rgc-mv.off .rgc-mvl,.rgc-mv.off .mono{color:var(--t3);text-decoration:line-through}
 @media(max-width:560px){
   /* tableau → cartes sur téléphone (pattern data-label) */
   .rg-wrap{overflow-x:visible}
