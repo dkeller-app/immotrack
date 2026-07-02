@@ -456,6 +456,11 @@ async function onLoggedIn(api, overlay, user) {
       _liveDBRef = db                             // réf pour résoudre l'espace/owner d'une SCI (Storage + uuid par-SCI)
       api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
       window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
+      // RESTAURATION LOCALE : flush COMPLET synchrone + awaitable (renvoie le résumé {upserts,removes,conflicts,skipped}).
+      // Utilisé par _backupRestoreRun (index.html) : après avoir muté DB EN PLACE = instantané, on pousse tout vers
+      // Supabase et on ATTEND (le moteur diffe instantané-vs-cloud → upserts version-guardés + removes des extras +
+      // saute les baux `locked`). Contrairement à markDirty (debouncé fire-and-forget), on a besoin du résultat.
+      window.__immoFlush = () => api.flush()
       // 2.2 : panneau Mode cloud des Réglages. isOwner/displayName (#2) : un invité scopé ne doit pas
       // hériter du nom du PROPRIÉTAIRE (DB.params est partagé par-espace) → _appUserName lit son identité.
       window.__immoCloudInfo = {
