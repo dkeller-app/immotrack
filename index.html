@@ -11960,10 +11960,18 @@ function _computeUnifiedTodo(ctx) {
         else if(dl.jours <= 15) { severity = 'ora'; score = 78; dgTxt = ' — DG à restituer avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
         else                    { dgTxt = ' — DG avant le ' + fd(dl.iso) + ' (J‑' + dl.jours + ')'; }
       }
+      // acompte conseillé AVANT l'EDL (même jalon que l'alerte de l'assistant : le locataire est encore
+      // présent). Après l'EDL/remise des clés, l'acompte amiable n'a plus de sens.
+      let acpTxt='';
+      const edlDone2=(st.steps.find(s=>s.key==='edl')||{}).done;
+      if(!edlDone2 && !(bail.depart && bail.depart.acompteDemande)){
+        let e=null; try{ e=_departEstimDu(bail); }catch(err){ if(window.console) console.warn('[depart-estim todo]', err); }
+        if(e && e.reste>0){ acpTxt=' · acompte conseillé (~'+fmtN(e.du)+' €)'; if(severity==='info'){ severity='ora'; score=Math.max(score,72); } }
+      }
       out.push({
         type:'depart', severity, score,
         title:'Départ en cours — étape ' + st.doneCount + '/' + st.total,
-        subtitle:l.ref + ' — ' + loc + dgTxt,
+        subtitle:l.ref + ' — ' + loc + dgTxt + acpTxt,
         contextRef:l.ref,
         actionLabel:'Ouvrir l\'assistant',
         actionFn:'_departOuvrir(\'' + String(l.ref).replace(/'/g, "\\'") + '\')'
@@ -24852,6 +24860,26 @@ function _departRenderStepper(ref){
     if(s.cta && s.cta.length) inner+=`<div class="dep-cta">`+s.cta.map(c=>`<button class="${c.ghost?'ghost':''}"${c.disabled?' disabled':''}${(c.on&&!c.disabled)?` onclick="${c.on}"`:''}>${escHtml(c.label)}</button>`).join('')+`</div>`;
     return `<div class="dep-step${s.status==='lock'?' locked':''}"><div class="dep-dot ${s.status}">${dotTxt}</div>${inner}</div>`;
   }).join('');
+  // DEPART-ESTIM Phase B : alerte acompte AVANT l'EDL (le locataire est encore présent)
+  let acp='';
+  const edlDone=(st.steps.find(s=>s.key==='edl')||{}).done;
+  if(!edlDone){
+    let e=null; try{ e=_departEstimDu(bail); }catch(err){ if(window.console) console.warn('[depart-estim stepper]', err); }
+    if(e && e.du>0){
+      const jsref=(ref||'').replace(/'/g,"\\'");
+      acp=`<div class="dep-acp"><div class="dep-acp-h">⏰ À anticiper — avant l'état des lieux</div>
+        <div class="dep-acp-l"><span>Charges estimées du locataire</span><span>${fmt(e.est)}</span></div>
+        <div class="dep-acp-l"><span>− Provisions${e.acompte>0?' + acompte reçu':''} versées</span><span>${fmt(e.prov+e.acompte)}</span></div>
+        <div class="dep-acp-l tot"><span>= Dû estimé</span><span class="neg">${fmt(e.du)}</span></div>
+        ${e.applies20?`<div class="dep-acp-l"><span>Retenue possible sur le dépôt (20 %)</span><span>${fmt(e.couvertDG)}</span></div><div class="dep-acp-l"><span>Reste non couvert par le dépôt</span><span class="neg">${fmt(e.reste)}</span></div>`:''}
+        <div class="dep-acp-rc">💡 Le locataire est encore présent → demande-lui un <b>acompte de ${fmt(e.du)}</b> (le dû estimé), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
+        ${d.acompteDemande
+          ? `<div class="dep-acp-ok">✓ Acompte de ${fmt(d.acompteDemande.montant)} demandé le ${fd(d.acompteDemande.at)}${(Math.abs((d.acompteDemande.montant||0)-e.du)>1)?` <span style="color:var(--ora)">— estimation actuelle : ${fmt(e.du)}</span>`:''}</div>
+             <div class="dep-cta"><button class="ghost" onclick="_departDemanderAcompte('${jsref}',${e.du})">Réviser (${fmt(e.du)})</button><button class="ghost" onclick="_departAnnulerAcompte('${jsref}')">Annuler la demande</button></div>`
+          : `<div class="dep-cta"><button onclick="_departDemanderAcompte('${jsref}',${e.du})">Demander un acompte de charges</button></div>`}
+      </div>`;
+    }
+  }
   const ov=_departOv();
   ov.innerHTML=`<div class="modal"><div class="m-head">
       <div><h3 style="margin:0">🏁 Départ — ${escHtml(ref)} · ${escHtml(loc)}</h3>
@@ -24860,10 +24888,69 @@ function _departRenderStepper(ref){
     <div class="m-body">
       <div class="dep-prog"><div class="dep-bar"><i style="width:${st.pct}%"></i></div><div class="dep-pc">${st.doneCount} / ${st.total} étapes</div></div>
       <div style="height:12px"></div>
-      ${dl}
+      ${dl}${acp}
       <div class="dep-steps">${stepsHtml}</div>
     </div></div>`;
   openM('ov-depart');
+}
+
+// DEPART-ESTIM Phase B : dû estimé du partant HORS écran régul (assistant + À traiter).
+// Occupation bornée à la date de sortie PLANIFIÉE (≠ bail.fin, qui peut être le terme du bail).
+// Réutilise _rgClotureCompute (base N-1 filtrée + provisions + DG + régime) sur la fenêtre = exercice de la sortie ;
+// n'override que le prorata d'occupation (jusqu'à la sortie prévue). Restaure window._regulFrom/_regulTo.
+function _departEstimDu(bail){
+  const d = bail && bail.depart;
+  if(!d || !d.dateSortie) return null;
+  const mm = /^(\d{4})-\d{2}-\d{2}/.exec(d.dateSortie); if(!mm) return null;
+  const year = mm[1], winFrom = year+'-01-01', winTo = year+'-12-31';
+  const _sf=window._regulFrom, _st=window._regulTo;
+  window._regulFrom=winFrom; window._regulTo=winTo;
+  // NB perf : _rgClotureCompute → computeRegul ×4 (exercice + N-1/N-2/N-3), sans mémoïsation. OK pour un
+  // patrimoine perso ; à mémoïser (cache computeRegul par from|to invalidé sur saveDB) avant le scale SaaS.
+  // Restauration HORS try → l'invariant tient même si _rgClotureCompute throw.
+  let c=null; try{ c=_rgClotureCompute(bail.ref); }catch(e){ if(window.console) console.warn('[_departEstimDu]', e); }
+  window._regulFrom=_sf; window._regulTo=_st;
+  if(!c || !c.estimated) return null;
+  const occStart = (bail.debut && bail.debut > winFrom) ? bail.debut : winFrom;
+  const occEnd = (d.dateSortie < winTo) ? d.dateSortie : winTo;
+  const days = (a,b)=>Math.max(0, Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000)+1);
+  const occ = days(occStart, occEnd);
+  const est = Math.round(c.baseN1 * (occ/c.winDays) * 100)/100;
+  // acompteEncaisse = acompte réellement reçu (Phase C, non alimenté ici → 0). ⚠ quand il sera saisi
+  // comme mouvement, le catégoriser HORS _isLoyerCategory sinon double-comptage avec `prov` (computeRegul).
+  const acompte = Math.round(Number(d.acompteEncaisse||0)*100)/100;
+  const solde = Math.round((c.prov + acompte - est)*100)/100; // + = trop-perçu ; - = dû
+  const du = solde<0 ? -solde : 0;
+  const couvertDG = c.reg.applies20 ? Math.min(du, c.max20) : 0;
+  const reste = Math.round((du - couvertDG)*100)/100;
+  return { est, prov:c.prov, acompte, solde, du, dg:c.dg, max20:c.max20, applies20:c.reg.applies20, couvertDG, reste, occ, winDays:c.winDays };
+}
+
+// Enregistre une demande d'acompte (traçable sur le bail) + email/mailto au locataire. Imputé au décompte final.
+function _departDemanderAcompte(ref, montant){
+  const bail=_departBail(ref); if(!bail || !bail.depart){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  const m=Math.round(Number(montant||0)*100)/100;
+  bail.depart.acompteDemande = { montant:m, at:td() };
+  if(typeof _stamp==='function') _stamp(bail);
+  if(typeof saveDB==='function') saveDB();
+  if(typeof showToast==='function') showToast('Acompte de '+fmt(m)+' demandé — envoie la demande au locataire','ok',4500);
+  const loc=(bail.locataires&&bail.locataires[0])||{};
+  if(loc.email){
+    const subj=encodeURIComponent('Acompte sur régularisation de charges — '+ref);
+    const body=encodeURIComponent('Bonjour '+(loc.nom||'')+',\n\nDans le cadre de votre départ, une estimation des charges récupérables vous concernant fait apparaître un solde d\'environ '+fmt(m)+' à votre charge. Afin d\'anticiper la régularisation, nous vous proposons de régler dès à présent un acompte de '+fmt(m)+' ; il sera imputé sur le décompte définitif établi après l\'arrêté des comptes de l\'immeuble. Si ce décompte définitif fait apparaître un trop-versé, il vous sera restitué.\n\nCordialement,');
+    try{ window.location.href='mailto:'+encodeURIComponent(loc.email)+'?subject='+subj+'&body='+body; }catch(e){}
+  }
+  _departRenderStepper(ref);
+}
+
+// Annule une demande d'acompte (le montant figé pouvant devenir périmé si l'estimation évolue).
+function _departAnnulerAcompte(ref){
+  const bail=_departBail(ref); if(!bail || !bail.depart || !bail.depart.acompteDemande) return;
+  delete bail.depart.acompteDemande;
+  if(typeof _stamp==='function') _stamp(bail);
+  if(typeof saveDB==='function') saveDB();
+  if(typeof showToast==='function') showToast('Demande d\'acompte annulée','ok');
+  _departRenderStepper(ref);
 }
 
 // v15.x REFONTE-REGUL Phase C — vue globale immeuble (matrice charges × occupations)
