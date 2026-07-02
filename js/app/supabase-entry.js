@@ -154,6 +154,18 @@ async function boot() {
     } catch (e) { return null }
   }
 
+  // RÉ-UPLOAD BINAIRES (restauration cas « cloud perdu ») : upload vers un CHEMIN EXACT (le cloudKey déjà
+  // stocké dans le DB) → reproduit à l'identique le fichier là où l'app le cherche, quel que soit son
+  // format (par-SCI `<espace>/<seg>/files/<clé>` ou legacy). Clé nue (sans '/files/') → chemin legacy propre.
+  window.__immoCloudUploadPath = async function (cloudKey, blob, contentType) {
+    try {
+      if (!_cloudEspaceId || !cloudKey || !blob) return null
+      const objPath = String(cloudKey).indexOf('/files/') !== -1 ? cloudKey : (_cloudEspaceId + '/files/' + cloudKey)
+      const { error } = await client.storage.from('espace-files').upload(objPath, blob, { contentType: contentType || 'application/octet-stream', upsert: true })
+      return error ? null : objPath
+    } catch (e) { return null }
+  }
+
   // ── PARTAGE PAR SCI (étapes 2-3) — helpers MANAGER de l'écran « Partage & accès ». TOUT passe par la
   // RLS (migrations 0029/0030/0032) : le client n'agit que dans son espace, en tant que manager plein.
   // Mapping : role entite_membre 'gestionnaire'→mode 'ecriture', 'lecture_seule'→mode 'lecture'.
