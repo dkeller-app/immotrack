@@ -1,6 +1,6 @@
 # BUG-ACCUEIL-NAV-LOGEMENT — Accueil : la tuile/lien « Logement » ne dirige vers rien
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : XS
+**Status** : 🔄 En cours (session quick wins 2026-07-02) · **Prio** : P1 · **Taille** : XS
 **Détecté** : 2026-07-02 (user, test app réelle)
 
 ## Contexte

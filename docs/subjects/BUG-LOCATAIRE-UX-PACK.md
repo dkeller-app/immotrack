@@ -1,6 +1,6 @@
 # BUG-LOCATAIRE-UX-PACK — Onglet Locataires : 3 fixes UX (assistant départ, aperçu bail = PDF, popup « … » figé)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : S
+**Status** : 🔄 En cours (session quick wins 2026-07-02) · **Prio** : P1 · **Taille** : S
 **Détecté** : 2026-07-02 (user, test app réelle)
 
 ## Contexte
