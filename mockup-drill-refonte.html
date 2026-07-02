@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drill-down refondu — maquette Propryo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f5f8; --sur:#fff; --sur2:#f7f8fb; --sur3:#eef1f6;
+  --bor:#e4e7ee; --bor2:#eef0f5;
+  --t1:#101521; --t2:#3c4658; --t3:#6e7888;
+  --acc:#ff5a3c; --acc2:#e8431f; --grn:#1a8f6f; --red:#d23f3f; --warn:#b27a12; --pur:#7b6bb0;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--t1);font:400 14px/1.5 Inter,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 18px 80px}
+h1{font:800 24px Manrope,sans-serif;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--t2);font-size:14px;margin:0 0 22px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 28px}
+.chip{background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;color:var(--t2);display:flex;align-items:center;gap:6px}
+.chip .d{width:8px;height:8px;border-radius:50%}
+.stage{margin:0 0 40px}
+.stage-t{font:700 12px Manrope,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--acc);margin:0 0 4px}
+.stage-d{color:var(--t3);font-size:12.5px;margin:0 0 12px}
+
+/* ---- Modale drill ---- */
+.modal{background:var(--sur);border:1px solid var(--bor);border-radius:16px;box-shadow:0 18px 50px rgba(16,21,33,.14);overflow:hidden;max-width:640px}
+.modal.wide{max-width:760px}
+.m-head{display:flex;align-items:flex-start;gap:12px;padding:16px 18px 12px;border-bottom:1px solid var(--bor2)}
+.m-ic{width:38px;height:38px;border-radius:11px;background:rgba(255,90,60,.1);color:var(--acc);display:flex;align-items:center;justify-content:center;flex:none}
+.m-ic svg{width:20px;height:20px}
+.m-tt{flex:1;min-width:0}
+.m-tt h3{font:700 16px Manrope,sans-serif;margin:0 0 1px;letter-spacing:-.01em}
+.m-tt .m-scope{font-size:12px;color:var(--t3)}
+.m-tt .m-scope b{color:var(--t2)}
+.m-x{width:30px;height:30px;border-radius:8px;border:1px solid var(--bor);background:var(--sur);color:var(--t3);cursor:pointer;font-size:15px;flex:none}
+.m-tools{display:flex;gap:8px;padding:10px 18px;border-bottom:1px solid var(--bor2);background:var(--sur2);flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;background:var(--sur3);border:1px solid var(--bor);border-radius:9px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--t2);font:600 12px Inter;padding:5px 11px;border-radius:7px;cursor:pointer}
+.seg button.on{background:var(--sur);color:var(--t1);box-shadow:0 1px 3px rgba(16,21,33,.1)}
+.m-tools .sp{margin-left:auto;font-size:12px;color:var(--t3)}
+
+.m-body{max-height:520px;overflow:auto}
+/* bloc mois */
+.mblock{}
+.mbh{position:sticky;top:0;z-index:1;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 18px;background:var(--sur3);border-bottom:1px solid var(--bor2)}
+.mbh .mo{font:700 12.5px Manrope,sans-serif;text-transform:uppercase;letter-spacing:.05em;color:var(--t2)}
+.mbh .mo small{font-weight:600;color:var(--t3);text-transform:none;letter-spacing:0;margin-left:6px}
+.mbh .st{font:600 13px var(--mono);color:var(--t1)}
+.mbh .st.neg{color:var(--red)} .mbh .st.pos{color:var(--grn)}
+/* ligne mouvement */
+.mv{display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--bor2)}
+.mv:last-child{border-bottom:0}
+.mv .dt{font:500 11.5px var(--mono);color:var(--t3);text-align:center}
+.mv .lb{min-width:0}
+.mv .lb b{display:block;font-weight:600;font-size:13px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mv .lb s{display:block;text-decoration:none;font-size:11.5px;color:var(--t3)}
+.mv .lb .lot{display:inline-flex;align-items:center;gap:4px;background:var(--sur3);border-radius:5px;padding:1px 7px;font-size:11px;font-weight:600;color:var(--t2);margin-top:2px}
+.mv .am{font:600 13.5px var(--mono);white-space:nowrap;text-align:right}
+.mv .am.neg{color:var(--red)} .mv .am.pos{color:var(--grn)}
+.note-imm{grid-column:2/4;margin-top:4px;display:flex;align-items:center;gap:6px;background:rgba(178,122,18,.09);border:1px solid rgba(178,122,18,.25);border-radius:7px;padding:4px 9px;font-size:11.5px;color:var(--warn);font-weight:600}
+.note-imm svg{width:13px;height:13px;flex:none}
+.m-foot{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:2px solid var(--t1);background:var(--sur2)}
+.m-foot .lbl{font:700 13px Manrope,sans-serif}
+.m-foot .tot{font:700 16px var(--mono)}
+.m-foot .tot.neg{color:var(--red)} .m-foot .tot.pos{color:var(--grn)}
+
+/* comparaison 2 mois */
+.cmp{display:grid;grid-template-columns:1fr 44px 1fr;gap:0}
+.cmp-col{padding:0}
+.cmp-col.mid{background:var(--sur2);border-left:1px solid var(--bor2);border-right:1px solid var(--bor2)}
+.cmp-h{padding:10px 14px;text-align:center;border-bottom:1px solid var(--bor2)}
+.cmp-h .mo{font:700 12px Manrope;text-transform:uppercase;letter-spacing:.05em;color:var(--t2)}
+.cmp-h .st{font:700 15px var(--mono);margin-top:2px}
+.cmp-h .st.neg{color:var(--red)}
+.cmp-row{padding:9px 14px;border-bottom:1px solid var(--bor2);font-size:12.5px}
+.cmp-row .c{font:600 12.5px var(--mono);text-align:right;display:block}
+.cmp-row .k{color:var(--t2);font-weight:600;font-size:12px}
+.cmp-mid{display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--bor2);padding:9px 0}
+.delta{font:600 11.5px var(--mono);padding:2px 6px;border-radius:6px}
+.delta.up{background:rgba(210,63,63,.12);color:var(--red)}
+.delta.down{background:rgba(26,143,111,.12);color:var(--grn)}
+.delta.flat{background:var(--sur3);color:var(--t3)}
+.cmp-cause{padding:12px 16px;background:rgba(255,90,60,.06);border-top:1px solid var(--bor2);font-size:12.5px;color:var(--t2)}
+.cmp-cause b{color:var(--t1)}
+.cmp-cause .tag{display:inline-block;background:var(--acc);color:#fff;font:700 11px Inter;padding:1px 7px;border-radius:5px;margin-right:6px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+@media(max-width:900px){ .grid2{grid-template-columns:1fr} }
+.frame-lbl{font:600 11px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px}
+
+/* mobile frame */
+.phone{width:330px;margin:0 auto;border:9px solid #14161c;border-radius:34px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+.phone .modal{border-radius:0;border:0;max-width:none;box-shadow:none}
+.phone .mv{grid-template-columns:1fr auto;padding:10px 13px}
+.phone .mv .dt{display:none}
+.phone .m-body{max-height:420px}
+.foot-tip{margin-top:34px;padding:14px 16px;background:#101521;color:#c9d2e0;border-radius:12px;font-size:12.5px;line-height:1.6}
+.foot-tip b{color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Drill-down du compte de résultat — refonte</h1>
+  <p class="sub">Maquette · couvre : clic sur une case de mois → drill de ce mois · blocs par mois + séparateurs · comparaison 2 mois (diagnostic) · drill des charges récupérables · note quand un mouvement est réparti sur plusieurs immeubles.</p>
+  <div class="legend">
+    <span class="chip"><span class="d" style="background:var(--acc)"></span>Nouveau : blocs par mois</span>
+    <span class="chip"><span class="d" style="background:var(--pur)"></span>Nouveau : comparer 2 mois</span>
+    <span class="chip"><span class="d" style="background:var(--warn)"></span>Nouveau : note multi-immeuble</span>
+    <span class="chip"><span class="d" style="background:var(--grn)"></span>Nouveau : remboursements (crédits) inclus</span>
+  </div>
+
+  <div class="grid2">
+    <!-- A : drill exercice, blocs par mois -->
+    <div class="stage">
+      <div class="stage-t">A · Clic sur la colonne « Année »</div>
+      <div class="stage-d">Tout l'exercice, groupé par mois. Sous-total par mois, séparateurs nets, remboursements visibles.</div>
+      <div class="modal">
+        <div class="m-head">
+          <div class="m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+          <div class="m-tt"><h3>Prêt — échéances</h3><div class="m-scope">Exercice <b>2026</b> · SCI Damelevières · <b>27 mouvements</b></div></div>
+          <button class="m-x">✕</button>
+        </div>
+        <div class="m-tools">
+          <div class="seg"><button class="on">Par mois</button><button>Comparer 2 mois</button></div>
+          <span class="sp">↕ tout l'exercice</span>
+        </div>
+        <div class="m-body">
+          <div class="mblock">
+            <div class="mbh"><span class="mo">Juin 2026<small>3 mouvements</small></span><span class="st neg">− 9 713,19 €</span></div>
+            <div class="mv"><span class="dt">06/06</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 08</b><span class="lot">🏠 Freyming</span></span><span class="am neg">− 1 721,96 €</span></div>
+            <div class="mv"><span class="dt">06/06</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 07</b><span class="lot">🏠 Damelevières</span></span><span class="am neg">− 2 314,16 €</span></div>
+            <div class="mv"><span class="dt">05/06</span><span class="lb"><b>PRLV SEPA SAS MULTI IMPACT ASSUR</b><s>assurance de prêt</s></span><span class="am neg">− 14,93 €</span></div>
+          </div>
+          <div class="mblock">
+            <div class="mbh"><span class="mo">Mai 2026<small>4 mouvements</small></span><span class="st neg">− 7 688,26 €</span></div>
+            <div class="mv"><span class="dt">05/05</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 06</b><span class="lot">🏠 Damelevières</span></span><span class="am neg">− 679,93 €</span></div>
+            <div class="mv"><span class="dt">05/05</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 08</b><span class="lot">🏠 Freyming</span></span><span class="am neg">− 1 721,96 €</span></div>
+            <div class="mv"><span class="dt">15/05</span><span class="lb"><b>REMB TROP-PERÇU ASSURANCE PRET</b><s>ristourne assureur</s></span><span class="am pos">+ 80,00 €</span></div>
+            <div class="mv"><span class="dt">05/05</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 07</b><span class="lot">🏠 Damelevières</span></span><span class="am neg">− 2 289,89 €</span></div>
+          </div>
+          <div class="mblock">
+            <div class="mbh"><span class="mo">Avr. 2026<small>2 mouvements</small></span><span class="st neg">− 7 665,95 €</span></div>
+            <div class="mv"><span class="dt">03/04</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 07</b><span class="lot">🏠 Damelevières</span></span><span class="am neg">− 2 289,89 €</span></div>
+            <div class="mv"><span class="dt">03/04</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 08</b><span class="lot">🏠 Freyming</span></span><span class="am neg">− 1 749,60 €</span></div>
+          </div>
+        </div>
+        <div class="m-foot"><span class="lbl">Total exercice</span><span class="tot neg">− 25 067,40 €</span></div>
+      </div>
+    </div>
+
+    <!-- B : drill d'un seul mois -->
+    <div class="stage">
+      <div class="stage-t">B · Clic sur la case « Juin 26 »</div>
+      <div class="stage-d">Le drill ne montre QUE ce mois (ce que tu as demandé). Même bloc, en-tête sur le mois.</div>
+      <div class="modal">
+        <div class="m-head">
+          <div class="m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+          <div class="m-tt"><h3>Prêt — échéances</h3><div class="m-scope"><b>Juin 2026</b> · SCI Damelevières · <b>3 mouvements</b></div></div>
+          <button class="m-x">✕</button>
+        </div>
+        <div class="m-tools">
+          <div class="seg"><button class="on">Ce mois</button><button>Voir l'exercice</button></div>
+          <span class="sp">← Mai · Juil. →</span>
+        </div>
+        <div class="m-body">
+          <div class="mblock">
+            <div class="mv"><span class="dt">06/06</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 08</b><span class="lot">🏠 Freyming</span></span><span class="am neg">− 1 721,96 €</span></div>
+            <div class="mv"><span class="dt">06/06</span><span class="lb"><b>ECH PRET CAP+IN 01400 213174 07</b><span class="lot">🏠 Damelevières</span></span><span class="am neg">− 2 314,16 €</span></div>
+            <div class="mv"><span class="dt">05/06</span><span class="lb"><b>PRLV SEPA SAS MULTI IMPACT ASSUR</b><s>assurance de prêt</s></span><span class="am neg">− 14,93 €</span></div>
+          </div>
+        </div>
+        <div class="m-foot"><span class="lbl">Total Juin 2026</span><span class="tot neg">− 9 713,19 €</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C : comparer 2 mois -->
+  <div class="stage">
+    <div class="stage-t">C · Comparer 2 mois (diagnostic « pourquoi mes charges montent »)</div>
+    <div class="stage-d">On choisit 2 mois, la maquette met en évidence l'écart poste par poste et propose la cause probable.</div>
+    <div class="modal wide">
+      <div class="m-head">
+        <div class="m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></svg></div>
+        <div class="m-tt"><h3>Comparer — Total charges propriétaire</h3><div class="m-scope">SCI Damelevières · <b>Mai</b> vs <b>Juin 2026</b></div></div>
+        <button class="m-x">✕</button>
+      </div>
+      <div class="m-tools">
+        <div class="seg"><button>Par mois</button><button class="on">Comparer 2 mois</button></div>
+        <span class="sp">Mai ▾ &nbsp; vs &nbsp; Juin ▾</span>
+      </div>
+      <div class="cmp">
+        <div class="cmp-col">
+          <div class="cmp-h"><div class="mo">Mai 2026</div><div class="st neg">− 14 404,12 €</div></div>
+          <div class="cmp-row"><span class="k">Prêt</span><span class="c">7 688,26 €</span></div>
+          <div class="cmp-row"><span class="k">Honoraires &amp; gestion</span><span class="c">664,94 €</span></div>
+          <div class="cmp-row"><span class="k">Charges gestion hors foncier</span><span class="c">5 411,40 €</span></div>
+          <div class="cmp-row"><span class="k">Assurance</span><span class="c">439,52 €</span></div>
+          <div class="cmp-row"><span class="k">Travaux</span><span class="c">200,00 €</span></div>
+        </div>
+        <div class="cmp-col mid">
+          <div class="cmp-mid"><span class="delta down">−32 %</span></div>
+          <div class="cmp-mid"><span class="delta up">+8 %</span></div>
+          <div class="cmp-mid"><span class="delta down">−99,8 %</span></div>
+          <div class="cmp-mid"><span class="delta down">−12 %</span></div>
+          <div class="cmp-mid"><span class="delta up">nouv.</span></div>
+        </div>
+        <div class="cmp-col">
+          <div class="cmp-h"><div class="mo">Juin 2026</div><div class="st neg">− 10 826,97 €</div></div>
+          <div class="cmp-row"><span class="k">Prêt</span><span class="c">9 713,19 €</span></div>
+          <div class="cmp-row"><span class="k">Honoraires &amp; gestion</span><span class="c">718,26 €</span></div>
+          <div class="cmp-row"><span class="k">Charges gestion hors foncier</span><span class="c">9,00 €</span></div>
+          <div class="cmp-row"><span class="k">Assurance</span><span class="c">386,52 €</span></div>
+          <div class="cmp-row"><span class="k">Travaux</span><span class="c">—</span></div>
+        </div>
+      </div>
+      <div class="cmp-cause"><span class="tag">Cause n°1</span> La baisse de <b>−3 577 €</b> vient surtout de <b>Charges de gestion hors foncier</b> : <b>5 411 € en mai</b> (CFE annuelle prélevée) tombe à <b>9 € en juin</b>. <span style="color:var(--t3)">Clique une ligne pour voir les mouvements des 2 mois côte à côte.</span></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- D : charges récupérables + note multi-immeuble -->
+    <div class="stage">
+      <div class="stage-t">D · Drill des charges récupérables + note multi-immeuble</div>
+      <div class="stage-d">« Payées par toi » devient cliquable. En vue immeuble, un mouvement SCI réparti est signalé.</div>
+      <div class="modal">
+        <div class="m-head">
+          <div class="m-ic" style="background:rgba(178,122,18,.12);color:var(--warn)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M7 6V4h10v2M6 6l1 14h10l1-14"/></svg></div>
+          <div class="m-tt"><h3>Charges récupérables payées par toi</h3><div class="m-scope"><b>Juin 2026</b> · vue immeuble <b>Freyming</b></div></div>
+          <button class="m-x">✕</button>
+        </div>
+        <div class="m-body">
+          <div class="mblock">
+            <div class="mv"><span class="dt">12/06</span><span class="lb"><b>Eau — compteur général</b><span class="lot">🏠 Freyming</span></span><span class="am neg">− 254,95 €</span></div>
+            <div class="mv"><span class="dt">18/06</span><span class="lb"><b>PRLV SEPA AFI ESCA — honoraires syndic</b><span class="lot">🏢 SCI (compta)</span></span><span class="am neg">− 46,18 €</span>
+              <div class="note-imm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Mouvement SCI réparti sur <b>3 immeubles</b> · quote-part Freyming affichée = <b>1/3</b> (montant total 138,54 €)</div>
+            </div>
+          </div>
+        </div>
+        <div class="m-foot"><span class="lbl">Total Juin · Freyming</span><span class="tot neg">− 301,13 €</span></div>
+      </div>
+    </div>
+
+    <!-- E : mobile -->
+    <div class="stage">
+      <div class="stage-t">E · Téléphone</div>
+      <div class="stage-d">Blocs empilés, date fusionnée dans la ligne, sous-total par mois conservé.</div>
+      <div class="phone">
+        <div class="modal">
+          <div class="m-head" style="padding:13px 14px 10px">
+            <div class="m-ic" style="width:32px;height:32px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+            <div class="m-tt"><h3 style="font-size:15px">Prêt — échéances</h3><div class="m-scope"><b>Juin 2026</b> · 3 mvts</div></div>
+            <button class="m-x">✕</button>
+          </div>
+          <div class="m-body">
+            <div class="mblock">
+              <div class="mbh"><span class="mo">Juin 2026</span><span class="st neg">− 9 713 €</span></div>
+              <div class="mv"><span class="lb"><b>ECH PRET 08</b><span class="lot">🏠 Freyming</span></span><span class="am neg">− 1 721,96 €</span></div>
+              <div class="mv"><span class="lb"><b>ECH PRET 07</b><span class="lot">🏠 Damelevières</span></span><span class="am neg">− 2 314,16 €</span></div>
+              <div class="mv"><span class="lb"><b>PRLV ASSURANCE</b><s>assurance prêt</s></span><span class="am neg">− 14,93 €</span></div>
+            </div>
+          </div>
+          <div class="m-foot" style="padding:11px 14px"><span class="lbl" style="font-size:12px">Total Juin</span><span class="tot neg" style="font-size:15px">− 9 713 €</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-tip">
+    <b>Ce que ça règle de ta liste :</b> #6 clic sur une case de mois → drill de ce mois (écran B) · #2 drill sur les charges récupérables (écran D) · #5 note quand un mouvement SCI est réparti et qu'on regarde un immeuble (écran D) · « c'est moche » → blocs par mois + séparateurs + sous-total (écrans A/B) · bonus : comparer 2 mois pour comprendre une hausse (écran C) + les remboursements (crédits) apparaissent en vert.
+    <br><br><b>À valider :</b> l'écran <b>C (comparer 2 mois)</b> — est-ce la bonne forme (2 colonnes + écart + cause auto), ou tu préfères plus simple ?
+  </div>
+</div>
+</body>
+</html>
