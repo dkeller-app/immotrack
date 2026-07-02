@@ -683,6 +683,10 @@ a{color:var(--blu);text-decoration:none}
 .bmp-item.bmp-danger{color:var(--red)}
 .bmp-item.bmp-danger:hover{background:rgba(220,38,38,.08)}
 .bmp-divider{height:1px;background:var(--bor2);margin:4px 0}
+/* v15.398 BUG-LOCATAIRE-UX-PACK — variante flottante : popover ancré au viewport (position:fixed),
+   posé sur <body> par _openMenuPopover. Neutralise le top/right de la classe de base (pensée pour
+   un parent .bien-card) : sans ça, right:8px + left inline étirait le menu sur toute la largeur. */
+.bien-menu-popover.bmp-float{position:fixed;top:auto;right:auto;left:auto;min-width:220px;z-index:1000}
 
 /* v14.2 LOG-LISTE-CARDS Phase 2 — toolbar : recherche, filtres, tri, export */
 .biens-search-wrap{position:relative;display:flex;align-items:center}
