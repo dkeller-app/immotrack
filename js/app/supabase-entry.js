@@ -247,8 +247,9 @@ async function boot() {
       .filter(g => g && g.entite_id && (g.mode === 'ecriture' || g.mode === 'lecture'))
       .map(g => ({ entite_id: g.entite_id, mode: g.mode }))
     if (clean.length === 0) return { error: 'Périmètres invalides.' }
-    const row = { espace_id: _cloudEspaceId, grants: clean }
-    if (inviteEmail) row.invite_email = inviteEmail
+    const em = String(inviteEmail || '').trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return { error: 'Email du partenaire requis (il sera autorisé à s\'inscrire).' }
+    const row = { espace_id: _cloudEspaceId, grants: clean, invite_email: em }
     const { data, error } = await client.from('invitations').insert(row).select('token').single()
     if (error) return { error: error.message }
     const token = data && data.token
