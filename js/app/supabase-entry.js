@@ -275,6 +275,32 @@ async function boot() {
     revokeMember: _revokeMember
   }
 
+  // ── Admin bêta (super-admin global) : gestion de l'allowlist d'inscription ──
+  async function _isAppAdmin () {
+    const { data, error } = await client.rpc('is_app_admin')
+    if (error) return false
+    return data === true
+  }
+  async function _listAllowlist () {
+    const { data, error } = await client.from('beta_allowlist')
+      .select('email, source, created_at, registered_at').order('created_at', { ascending: false })
+    if (error) return { error: error.message }
+    return { rows: data || [] }
+  }
+  async function _addAllowedEmail (email) {
+    const e = String(email || '').trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return { error: 'Email invalide.' }
+    const { error } = await client.from('beta_allowlist').insert({ email: e, source: 'admin' })
+    if (error) return { error: /duplicate|unique/i.test(error.message) ? 'Cet email est déjà autorisé.' : error.message }
+    return { ok: true, email: e }
+  }
+  async function _removeAllowedEmail (email) {
+    const { error } = await client.from('beta_allowlist').delete().eq('email', String(email || '').trim().toLowerCase())
+    if (error) return { error: error.message }
+    return { ok: true }
+  }
+  window.__immoAdmin = { isAppAdmin: _isAppAdmin, listAllowlist: _listAllowlist, addEmail: _addAllowedEmail, removeEmail: _removeAllowedEmail }
+
   // Lien d'INVITATION (?invite=<token>) : aperçu + acceptation (connexion OU création de compte) AVANT
   // le login normal. acceptInviteFlow enchaîne ensuite sur l'app (la RLS scope l'invité à ses SCIs).
   const _inviteTok = (new URLSearchParams(location.search)).get('invite')
@@ -481,6 +507,8 @@ async function onLoggedIn(api, overlay, user) {
         isOwner: !!(user && esp && esp.ownerId && user.id === esp.ownerId),
         displayName: _displayNameFromUser(user),
       }
+      // Super-admin bêta (global, ≠ owner d'espace) → contrôle la visibilité de l'écran « Accès bêta ».
+      try { window.__immoIsAdmin = (await window.__immoAdmin.isAppAdmin()) === true } catch (e) { window.__immoIsAdmin = false }
       window.__immoRender()
       _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
