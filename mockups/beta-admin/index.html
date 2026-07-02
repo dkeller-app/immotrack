@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Accès bêta (écran admin)</title>
+<style>
+  :root{
+    --bg:#f4f5f8; --sur:#ffffff; --sur2:#fafbfc; --sur3:#eef0f4; --bor:#e4e7ee; --bor2:#d3d7de;
+    --t1:#1c2230; --t2:#5b6473; --t3:#8a92a1; --acc:#ff5a3c; --acc-w:#fff1ed;
+    --grn:#15803d; --grn-w:#e7f7ee; --amb:#b45309; --amb-w:#fef3e2; --red:#dc2626;
+    --r:10px; --rl:12px; --shadow:0 1px 3px rgba(20,30,50,.07),0 6px 20px rgba(20,30,50,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);
+    font-family:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.h{font-family:"Schibsted Grotesk","Inter",sans-serif;letter-spacing:-.01em;margin:0}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 18px 80px}
+  header.hd{margin-bottom:18px}
+  header.hd h1{font-size:25px}
+  header.hd p{color:var(--t2);margin:8px 0 0;max-width:720px}
+  .pill{display:inline-block;background:var(--acc-w);color:var(--acc);font-weight:600;font-size:12px;padding:3px 10px;border-radius:999px;margin-bottom:10px}
+
+  .controls{position:sticky;top:0;z-index:20;background:var(--bg);padding:12px 0;border-bottom:1px solid var(--bor);margin-bottom:22px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .ctl-lbl{font-size:12px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .seg{display:inline-flex;background:var(--sur);border:1px solid var(--bor2);border-radius:10px;padding:3px;gap:2px}
+  .seg button{border:0;background:transparent;color:var(--t2);font-weight:600;font-size:13px;padding:7px 14px;border-radius:7px;cursor:pointer;font-family:inherit}
+  .seg button.on{background:var(--acc);color:#fff}
+  .note{font-size:12px;color:var(--t3)}
+
+  .viewport{margin:0 auto;transition:max-width .25s ease}
+  .viewport.pc{max-width:640px}
+  .viewport.tab{max-width:520px}
+  .viewport.mob{max-width:340px}
+
+  /* Carte Réglages (calquée sur l'app : .card, tokens) */
+  .card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);box-shadow:var(--shadow);padding:20px 22px;margin-bottom:20px}
+  .card-h{display:flex;align-items:flex-start;gap:12px;margin-bottom:4px}
+  .card-h .ic{font-size:20px;line-height:1.3}
+  .card-h h2{font-size:17px}
+  .card-sub{color:var(--t2);font-size:13px;margin:2px 0 16px}
+  .adminbadge{margin-left:auto;background:var(--acc-w);color:var(--acc);font-weight:700;font-size:10.5px;padding:3px 9px;border-radius:999px;white-space:nowrap;align-self:center}
+
+  /* Ligne d'ajout */
+  .addrow{display:flex;gap:8px;margin-bottom:16px}
+  .addrow input{flex:1;min-width:0;border:1px solid var(--bor2);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;background:var(--sur2);color:var(--t1)}
+  .addrow input:focus{outline:none;border-color:var(--acc);background:var(--sur)}
+  .btn{border:0;border-radius:9px;padding:10px 15px;font-weight:600;font-size:13.5px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .btn.bp{background:var(--acc);color:#fff}
+  .btn.bs{background:var(--sur3);color:var(--t1)}
+  .btn.br{background:transparent;color:var(--red);padding:7px 9px}
+  .btn.bb{font-size:12px;padding:6px 10px}
+
+  /* Compteurs */
+  .counts{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .cbadge{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px}
+  .cbadge.tot{background:var(--sur3);color:var(--t2)}
+  .cbadge.ins{background:var(--grn-w);color:var(--grn)}
+  .cbadge.att{background:var(--amb-w);color:var(--amb)}
+
+  /* Liste des emails */
+  .list{display:flex;flex-direction:column;gap:1px;background:var(--bor);border:1px solid var(--bor);border-radius:var(--r);overflow:hidden}
+  .row{display:flex;align-items:center;gap:11px;background:var(--sur);padding:11px 13px}
+  .row .em{font-weight:600;font-size:13.5px;color:var(--t1);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .meta{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .src{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px}
+  .src.admin{background:var(--sur3);color:var(--t2)}
+  .src.invit{background:var(--acc-w);color:var(--acc)}
+  .stat{font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+  .stat.ok{color:var(--grn)}
+  .stat.wait{color:var(--amb)}
+  .dot{width:7px;height:7px;border-radius:50%}
+  .dot.ok{background:var(--grn)}
+  .dot.wait{background:var(--amb)}
+  .row .rm{background:transparent;border:0;color:var(--t3);cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px}
+  .row .rm:hover{color:var(--red);background:var(--acc-w)}
+  .mob-hide{}
+  .viewport.mob .src{display:none}          /* mobile : on cache la source pour respirer */
+  .viewport.mob .row{gap:8px;padding:10px 11px}
+
+  .empty{text-align:center;padding:26px 16px;color:var(--t3);border:1.5px dashed var(--bor2);border-radius:var(--r)}
+  .empty .big{font-size:26px;margin-bottom:6px}
+
+  .secttl{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);margin:26px 0 10px;font-weight:700}
+  .legend{font-size:12.5px;color:var(--t2);margin-top:14px;line-height:1.6;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);padding:12px 14px}
+  .legend b{color:var(--t1)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hd">
+    <span class="pill">Mockup · Propryo · réservé super-admin</span>
+    <h1>Réglages → « Accès bêta »</h1>
+    <p>Écran <b>visible seulement pour toi</b> (super-admin). Tu autorises des emails → ces personnes peuvent créer leur compte et tester l'app (chacune son espace). Les <b>partenaires invités</b> par un testeur y apparaissent automatiquement.</p>
+  </header>
+
+  <div class="controls">
+    <span class="ctl-lbl">Format</span>
+    <div class="seg" id="fmt">
+      <button data-f="pc" class="on">💻 PC</button>
+      <button data-f="tab">📱 Tablette</button>
+      <button data-f="mob">📲 Mobile</button>
+    </div>
+    <span class="note">Données d'exemple — rien n'est réel ici.</span>
+  </div>
+
+  <!-- État peuplé -->
+  <div class="secttl">État courant (avec des accès)</div>
+  <div class="viewport pc" id="vp">
+    <div class="card">
+      <div class="card-h">
+        <span class="ic">🎫</span>
+        <div>
+          <h2>Accès bêta</h2>
+        </div>
+        <span class="adminbadge">🔒 Admin</span>
+      </div>
+      <div class="card-sub">Emails autorisés à créer un compte. Les personnes invitées par un testeur s'ajoutent toutes seules.</div>
+
+      <div class="addrow">
+        <input type="email" placeholder="nouvel-email@exemple.fr" aria-label="Email à autoriser">
+        <button class="btn bp">Autoriser</button>
+      </div>
+
+      <div class="counts">
+        <span class="cbadge tot">5 autorisés</span>
+        <span class="cbadge ins">3 inscrits</span>
+        <span class="cbadge att">2 en attente</span>
+      </div>
+
+      <div class="list" id="list"></div>
+
+      <div class="legend">
+        <b>Source</b> : <span class="src admin" style="display:inline-block">admin</span> = ajouté par toi · <span class="src invit" style="display:inline-block">invitation</span> = partenaire invité par un testeur.<br>
+        <b>Statut</b> : <span class="stat ok"><span class="dot ok"></span>inscrit</span> = le compte a été créé · <span class="stat wait"><span class="dot wait"></span>en attente</span> = autorisé, pas encore inscrit.
+      </div>
+    </div>
+  </div>
+
+  <!-- État vide -->
+  <div class="secttl">État vide (démarrage)</div>
+  <div class="viewport pc">
+    <div class="card">
+      <div class="card-h"><span class="ic">🎫</span><div><h2>Accès bêta</h2></div><span class="adminbadge">🔒 Admin</span></div>
+      <div class="card-sub">Emails autorisés à créer un compte.</div>
+      <div class="addrow"><input type="email" placeholder="premier-testeur@exemple.fr"><button class="btn bp">Autoriser</button></div>
+      <div class="empty"><div class="big">🎫</div>Aucun accès pour l'instant.<br>Ajoute l'email d'un testeur pour l'autoriser à s'inscrire.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ROWS = [
+    { em:'marion.dupont@gmail.com',   src:'admin',  stat:'ok'   },
+    { em:'j.martin@exemple.fr',        src:'admin',  stat:'wait' },
+    { em:'partenaire.sci@outlook.com', src:'invit',  stat:'ok'   },
+    { em:'thomas.bernard@gmail.com',   src:'admin',  stat:'ok'   },
+    { em:'associe.leroy@free.fr',      src:'invit',  stat:'wait' },
+  ];
+  const srcLbl = { admin:'admin', invit:'invitation' };
+  document.getElementById('list').innerHTML = ROWS.map(r => `
+    <div class="row">
+      <span class="em">${r.em}</span>
+      <span class="meta">
+        <span class="src ${r.src==='admin'?'admin':'invit'}">${srcLbl[r.src]}</span>
+        <span class="stat ${r.stat==='ok'?'ok':'wait'}"><span class="dot ${r.stat==='ok'?'ok':'wait'}"></span>${r.stat==='ok'?'inscrit':'en attente'}</span>
+        <button class="rm" title="Retirer l'accès">🗑</button>
+      </span>
+    </div>`).join('');
+
+  document.getElementById('fmt').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#fmt button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.querySelectorAll('.viewport').forEach(v=>{ v.classList.remove('pc','tab','mob'); v.classList.add(b.dataset.f); });
+  });
+</script>
+</body>
+</html>
