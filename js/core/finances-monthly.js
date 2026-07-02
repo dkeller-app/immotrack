@@ -39,7 +39,7 @@ export function _computeFinancesMonthly(input) {
     : ((yr === curYear) ? parseInt(today.slice(5, 7), 10) : 12);
 
   const blank = () => ({
-    loyersBrut: 0, loyersHC: 0, provisions: 0,
+    loyersBrut: 0, loyersHC: 0, provisions: 0, recettesDiverses: 0,
     pret: 0, taxe: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, gestionHF: 0, recup: 0, interets: 0,
     charges: 0, reel: 0, recupSolde: 0, cashflowNet: 0, cashflowReel: 0, base2044: 0
   });
@@ -81,7 +81,7 @@ export function _computeFinancesMonthly(input) {
       b.loyersHC += amt * hcRatio(mv.qui);
       return;
     }
-    if (l === '213') return;                // recettes diverses : hors loyers HC, neutres ici
+    if (l === '213') { b.recettesDiverses += (cr - db) * w; return; } // recettes diverses/GLI : imposables (parité _compute2044)
     const v = (db - cr) * w;                // net (remboursements partiels)
     if (l === '250') b.interets += v;
     else if (l === '227') b.taxe += v;
@@ -96,12 +96,12 @@ export function _computeFinancesMonthly(input) {
   const finalize = b => {
     b.provisions = Math.max(0, b.loyersBrut - b.loyersHC);
     b.charges = b.pret + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres + b.gestionHF;   // charges propriétaire : prêt entier + CFE/TLV
-    b.reel = b.loyersHC - b.charges;                                  // résultat propre
+    b.reel = b.loyersHC + b.recettesDiverses - b.charges;             // résultat propre (loyers HC + recettes diverses 213 − charges)
     b.recupSolde = b.provisions - b.recup;                            // transit locataire : + trop-perçu / − bailleur a avancé
     b.cashflowNet = b.reel;                                           // ton résultat propre (hors transit locataire)
     b.cashflowReel = b.reel + b.recupSolde;                           // vrai cash sur le compte (transit inclus)
-    b.base2044 = b.loyersHC - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // capital ET gestionHF (CFE/TLV) exclus
-    ['loyersBrut', 'loyersHC', 'provisions', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
+    b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus
+    ['loyersBrut', 'loyersHC', 'provisions', 'recettesDiverses', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -111,7 +111,7 @@ export function _computeFinancesMonthly(input) {
   // Agrégat annuel (Σ des mois)
   const annual = Object.assign({ ym: yr, mo: 0 }, blank());
   months.forEach(b => {
-    ['loyersBrut', 'loyersHC', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets']
+    ['loyersBrut', 'loyersHC', 'recettesDiverses', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets']
       .forEach(k => { annual[k] += b[k]; });
   });
   finalize(annual);
