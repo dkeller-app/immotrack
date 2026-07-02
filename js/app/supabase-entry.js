@@ -315,21 +315,57 @@ async function boot() {
 }
 
 function wireLoginForm(api, overlay, prefillEmail) {
-  overlay.querySelector('#imsb-form').onsubmit = async (e) => {
+  // Bascule Connexion ↔ Inscription (self-service gardée par le hook allowlist côté serveur).
+  // Réutilise les champs email/mdp du formulaire login (DRY) : seul le mode + le libellé changent.
+  let mode = 'login'  // 'login' | 'signup'
+  const q = s => overlay.querySelector(s)
+  const applyMode = () => {
+    const h2 = q('#imsb-form .imsb-h2'), sub = q('#imsb-submit'), lnk = q('#imsb-signup'), pw = q('#imsb-pass')
+    if (mode === 'signup') {
+      if (h2) h2.textContent = 'Créer un compte'
+      if (sub) sub.textContent = 'Créer mon compte'
+      if (lnk) lnk.textContent = '← J\'ai déjà un compte'
+      if (pw) { pw.setAttribute('minlength', '6'); pw.setAttribute('autocomplete', 'new-password'); pw.placeholder = '6 caractères minimum' }
+    } else {
+      if (h2) h2.textContent = 'Connexion'
+      if (sub) sub.textContent = 'Se connecter'
+      if (lnk) lnk.textContent = 'Créer un compte · essai gratuit'
+      if (pw) { pw.setAttribute('autocomplete', 'current-password'); pw.placeholder = '••••••••' }
+    }
+    showError(overlay, '')
+  }
+  const sgn = q('#imsb-signup')
+  if (sgn) sgn.onclick = (e) => { e.preventDefault(); mode = (mode === 'login' ? 'signup' : 'login'); applyMode() }
+
+  q('#imsb-form').onsubmit = async (e) => {
     e.preventDefault()
-    const email = overlay.querySelector('#imsb-email').value.trim()
-    const pass = overlay.querySelector('#imsb-pass').value
+    const email = q('#imsb-email').value.trim()
+    const pass = q('#imsb-pass').value
     setBusy(overlay, true); showError(overlay, '')
+    if (mode === 'signup') {
+      const s = await api.signUpEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      if (!s.ok) {
+        setBusy(overlay, false)
+        if (/already.*(regist|exist)|user already/i.test(s.error || '')) { showError(overlay, 'Ce compte existe déjà — connecte-toi.'); mode = 'login'; applyMode(); return }
+        showError(overlay, traduireErreur(s.error)); return   // inclut le refus du hook (« pas encore autorisé »)
+      }
+      // Compte créé (confirmation email désactivée → session directe). On enchaîne sur la connexion.
+      const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
+      setBusy(overlay, false)
+      if (!r.ok) { showError(overlay, 'Compte créé — connecte-toi avec ton mot de passe.'); mode = 'login'; applyMode(); return }
+      onLoggedIn(api, overlay, r.user)
+      return
+    }
     const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
     setBusy(overlay, false)
     if (!r.ok) { showError(overlay, traduireErreur(r.error)); return }
     onLoggedIn(api, overlay, r.user)
   }
-  overlay.querySelector('#imsb-forgot').onclick = (e) => {
+  q('#imsb-forgot').onclick = (e) => {
     e.preventDefault()
     showError(overlay, 'Le « mot de passe oublié » nécessite un email (SMTP) à configurer — bientôt. Pour l\'instant, le mot de passe se définit côté dashboard.')
   }
-  if (prefillEmail) overlay.querySelector('#imsb-email').value = prefillEmail
+  if (prefillEmail) q('#imsb-email').value = prefillEmail
 }
 
 // ── PARCOURS D'ACCEPTATION D'UNE INVITATION (?invite=<token>) ─────────────────────────────────
@@ -730,12 +766,8 @@ function injectOverlay() {
     try { localStorage.setItem('immo_theme', dark ? 'sombre' : 'clair') } catch (e) {}
   }
 
-  // « Créer un compte · essai gratuit » — inscription publique pas encore ouverte → message informatif.
-  const signup = ov.querySelector('#imsb-signup')
-  if (signup) signup.onclick = (e) => {
-    e.preventDefault()
-    showError(ov, "L'inscription arrive bientôt — pour l'instant le compte est créé côté admin.")
-  }
+  // Le lien « Créer un compte » (#imsb-signup) est câblé par wireLoginForm (bascule Connexion↔Inscription),
+  // qui seul dispose de `api` pour appeler signUpEmail. Inscription gardée côté serveur par le hook allowlist.
 
   return ov
 }
