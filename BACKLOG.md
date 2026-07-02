@@ -15,6 +15,32 @@
 
 ---
 
+## 🔥 Retours test user 2026-07-02 — triage (15 retours → 12 codes, 9 nouveaux)
+
+> **Campagne de test app réelle du 2026-07-02.** Triés en session pilotage le jour même.
+>
+> | # | Retour | Code | Prio | Taille | Chantier / session |
+> |---|---|---|---|---|---|
+> | 1 | Accueil : « logement » ne dirige vers rien | [BUG-ACCUEIL-NAV-LOGEMENT](docs/subjects/BUG-ACCUEIL-NAV-LOGEMENT.md) 🆕 | P1 | XS | ⚡ Quick wins |
+> | 2 | Dash gestionnaire : parc tronqué >8 apparts + Quittance toujours rouge (point si demandée, sinon –) | [BUG-DASH-GESTIONNAIRE-PARC](docs/subjects/BUG-DASH-GESTIONNAIRE-PARC.md) 🆕 | P1 | S | 🎛 Dashboard cockpit |
+> | 3 | **Actions priorisées : refonte complète (PRIO user)** — 5 visibles / 14 en cours + redondance bulles | [DASH-ACTIONS-REFONTE](docs/subjects/DASH-ACTIONS-REFONTE.md) 🆕 | **P1** | M | 🎛 Dashboard cockpit (mockup-first) |
+> | 4 | Fil rouge création bailleur → immeuble → logement + import acte de vente | [FLOW-CREATION-BIEN](docs/subjects/FLOW-CREATION-BIEN.md) 🆕 | P1 | L | 🏠 Chantier Biens (mockup-first) |
+> | 5 | Onglet Biens : trop de sous-onglets, être sharp « type iPhone » | [NAV-BIENS-SIMPLIFICATION](docs/subjects/NAV-BIENS-SIMPLIFICATION.md) 🆕 | P1 | M | 🏠 Chantier Biens (mockup-first) |
+> | 6 | Locataires : icône assistant départ + aperçu bail = PDF légal + popup « … » figé (aussi mal sur Logement) | [BUG-LOCATAIRE-UX-PACK](docs/subjects/BUG-LOCATAIRE-UX-PACK.md) 🆕 | P1 | S | ⚡ Quick wins |
+> | 7 | Locataires : classement immeubles incohérent (bloc vide, bailleurs mélangés) | [UX-GROUP-BY-IMMEUBLE](docs/subjects/UX-GROUP-BY-IMMEUBLE.md) note | P1 ⬆ | — | 📐 Intercalaires |
+> | 8 | Diagnostics DPE/plomb : pas de rappel si locataire en place (vérifier la loi) | [DIAG-RAPPEL-LOC-EN-PLACE](docs/subjects/DIAG-RAPPEL-LOC-EN-PLACE.md) 🆕 | P2 | S | 🔎 Session dédiée (vérif légale d'abord) |
+> | 9 | Équipements : intercalaires immeubles comme IRL | [UX-GROUP-BY-IMMEUBLE](docs/subjects/UX-GROUP-BY-IMMEUBLE.md) note | P1 ⬆ | — | 📐 Intercalaires |
+> | 10 | IRL vue tableau : intercalaires | [UX-GROUP-BY-IMMEUBLE](docs/subjects/UX-GROUP-BY-IMMEUBLE.md) note | P1 ⬆ | — | 📐 Intercalaires |
+> | 11 | Reçus & quittances : dernière quittance fait foi, historique replié, bulles illisibles → **mockup demandé** | [V3-REFONTE-QUIT](docs/subjects/V3-REFONTE-QUIT.md) P2→P1 | P1 ⬆ | M | 🧾 Session dédiée (mockup-first) |
+> | 12 | EDL : sortir de « Comptabilité » + intercalaires immeubles | [NAV-SIDEBAR-CLEANUP](docs/subjects/NAV-SIDEBAR-CLEANUP.md) 🆕 (placement) + UX-GROUP-BY-IMMEUBLE (intercalaires) | P2 | S | 🧭 Nav cleanup / 📐 Intercalaires |
+> | 13 | Onglet Pilotage à revoir complètement (**pas prio** — user) | [PILOTAGE-ONGLET-REFONTE](docs/subjects/PILOTAGE-ONGLET-REFONTE.md) 🆕 | P3 | M-L | plus tard |
+> | 14 | Import : template Excel multi-onglets à renvois pas intuitif | [IMPORT-EXCEL-LOG](docs/subjects/IMPORT-EXCEL-LOG.md) (doc créée) | P2 | M | avec V3-REFONTE-IMPORTS-UI (19E) |
+> | 15 | Paramètres + Export/Sauvegarde : hors sidebar → menu bouton connexion + audit contenu | [NAV-SIDEBAR-CLEANUP](docs/subjects/NAV-SIDEBAR-CLEANUP.md) 🆕 | P2 | S | 🧭 Nav cleanup |
+>
+> **Regroupement en 6 chantiers** : ⚡ Quick wins (1+6, ~½ journée) · 🎛 Dashboard cockpit (2+3) · 🏠 Biens (4+5) · 📐 Intercalaires (7+9+10+12b — mécanique v15.76 existante à propager) · 🧾 Quittances (11) · 🧭 Nav cleanup (12a+15). + 🔎 Diagnostics (8) et Import (14) au fil de l'eau.
+
+---
+
 ## 🔥 Sprint email UX & cache PWA (insert 2026-05-18, P0 dans le marathon)
 
 > **Découvert pendant test v15.84** : la modale email envoie bien via Gmail API MAIS :

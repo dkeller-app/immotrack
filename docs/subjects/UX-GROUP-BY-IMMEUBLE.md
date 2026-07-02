@@ -75,6 +75,11 @@ Appliquer dans les 10 onglets identifiés. Ordre par ROI :
 ## Notes utilisateur
 
 > 💬 2026-05-17 : *« pour l'onglet IRL, tous les biens sont mélangés. On peut faire un tri visuel par immeuble avec des séparateurs ? règles pour tous les onglets »*
+> 💬 2026-07-02 (triage retours test user — **4 demandes explicites de propagation, prio remontée P2→P1**) :
+> - *« équipements, faire des intercalaires immeubles comme dans l'onglet révision IRL »* → onglet **Équipements**
+> - *« révision IRL : dans la vue tableau, ajouter les intercalaires »* → **IRL mode tableau** (v15.76 n'a couvert que le mode cards)
+> - *« EDL : mettre intercalaire immeubles »* → onglet **EDL**
+> - *« locataire : comment sont classés les immeubles ? j'ai un gros immeuble de 7 apparts à gauche puis à droite un immeuble d'un logement. ça fait un gros bloc vide et en plus les 2 immeubles ne sont pas du même bailleur »* → onglet **Locataires/Baux** : le layout 2 colonnes par immeuble crée des trous et mélange les bailleurs → passer au pattern sections pleine largeur (variante D validée), groupées bailleur > immeuble (répond à D1)
 
 ## Journal
 
