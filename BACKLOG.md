@@ -21,12 +21,12 @@
 >
 > | # | Retour | Code | Prio | Taille | Chantier / session |
 > |---|---|---|---|---|---|
-> | 1 | Accueil : « logement » ne dirige vers rien | [BUG-ACCUEIL-NAV-LOGEMENT](docs/subjects/BUG-ACCUEIL-NAV-LOGEMENT.md) 🔄 En cours (session quick wins 2026-07-02) | P1 | XS | ⚡ Quick wins |
+> | 1 | Accueil : « logement » ne dirige vers rien | [BUG-ACCUEIL-NAV-LOGEMENT](docs/subjects/BUG-ACCUEIL-NAV-LOGEMENT.md) ✅ **Livré v15.407** (`go('biens')`, seule cible morte de l'app — inventaire complet) | P1 | XS | ⚡ Quick wins |
 > | 2 | Dash gestionnaire : parc tronqué >8 apparts + Quittance toujours rouge (point si demandée, sinon –) | [BUG-DASH-GESTIONNAIRE-PARC](docs/subjects/BUG-DASH-GESTIONNAIRE-PARC.md) 🆕 | P1 | S | 🎛 Dashboard cockpit |
 > | 3 | **Actions priorisées : refonte complète (PRIO user)** — 5 visibles / 14 en cours + redondance bulles | [DASH-ACTIONS-REFONTE](docs/subjects/DASH-ACTIONS-REFONTE.md) 🆕 | **P1** | M | 🎛 Dashboard cockpit (mockup-first) |
 > | 4 | Fil rouge création bailleur → immeuble → logement + import acte de vente | [FLOW-CREATION-BIEN](docs/subjects/FLOW-CREATION-BIEN.md) 🆕 | P1 | L | 🏠 Chantier Biens (mockup-first) |
 > | 5 | Onglet Biens : trop de sous-onglets, être sharp « type iPhone » | [NAV-BIENS-SIMPLIFICATION](docs/subjects/NAV-BIENS-SIMPLIFICATION.md) 🆕 | P1 | M | 🏠 Chantier Biens (mockup-first) |
-> | 6 | Locataires : icône assistant départ + aperçu bail = PDF légal + popup « … » figé (aussi mal sur Logement) | [BUG-LOCATAIRE-UX-PACK](docs/subjects/BUG-LOCATAIRE-UX-PACK.md) 🔄 En cours (session quick wins 2026-07-02) | P1 | S | ⚡ Quick wins |
+> | 6 | Locataires : icône assistant départ + aperçu bail = PDF légal + popup « … » figé (aussi mal sur Logement) | [BUG-LOCATAIRE-UX-PACK](docs/subjects/BUG-LOCATAIRE-UX-PACK.md) ✅ **Livré v15.407** (menus ⋮ unifiés `_openMenuPopover` fixed-viewport · aperçu bail signé = PDF archivé cloud/legacy · icône porte-de-sortie · audit code-reviewer PASS) | P1 | S | ⚡ Quick wins |
 > | 7 | Locataires : classement immeubles incohérent (bloc vide, bailleurs mélangés) | [UX-GROUP-BY-IMMEUBLE](docs/subjects/UX-GROUP-BY-IMMEUBLE.md) note | P1 ⬆ | — | 📐 Intercalaires |
 > | 8 | Diagnostics DPE/plomb : pas de rappel si locataire en place (vérifier la loi) | [DIAG-RAPPEL-LOC-EN-PLACE](docs/subjects/DIAG-RAPPEL-LOC-EN-PLACE.md) 🆕 | P2 | S | 🔎 Session dédiée (vérif légale d'abord) |
 > | 9 | Équipements : intercalaires immeubles comme IRL | [UX-GROUP-BY-IMMEUBLE](docs/subjects/UX-GROUP-BY-IMMEUBLE.md) note | P1 ⬆ | — | 📐 Intercalaires |
@@ -43,10 +43,10 @@
 >
 > | # | Retour | Code | Prio | Statut |
 > |---|---|---|---|---|
-> | 16 | Bouton retour navigateur partout (tunnels/fiches inclus) — « absolument » | [NAV-HISTORY-BACK](docs/subjects/NAV-HISTORY-BACK.md) 🆕 | **P1** | 🔄 session quick wins |
-> | 17 | IRL renoncée affichée « Appliquée » en vert avec nouveau loyer → état orange « IRL renoncée » | [BUG-IRL-RENONCE-AFFICHAGE](docs/subjects/BUG-IRL-RENONCE-AFFICHAGE.md) 🆕 | P1 | 🔄 session quick wins |
+> | 16 | Bouton retour navigateur partout (tunnels/fiches inclus) — « absolument » | [NAV-HISTORY-BACK](docs/subjects/NAV-HISTORY-BACK.md) ✅ **Livré v15.407** (`#p-{page}` via go() + hashchange étendu + nettoyage état fiches au back + surbrillance sidebar ; restait : F5 restaure la page — mineur audité, itération suivante) | **P1** | ✅ |
+> | 17 | IRL renoncée affichée « Appliquée » en vert avec nouveau loyer → état orange « IRL renoncée » | [BUG-IRL-RENONCE-AFFICHAGE](docs/subjects/BUG-IRL-RENONCE-AFFICHAGE.md) ✅ **Livré v15.407** (flag `renonce` computeIRLRevision + carte orange « ⊘ IRL renoncée » loyer inchangé + tableau/drill/masse ; cycle skip→reset→apply validé) | P1 | ✅ |
 > | 18 | Loyers & Mouvements : sélection des colonnes bugge parfois | [BUG-MVT-COL-SELECT](docs/subjects/BUG-MVT-COL-SELECT.md) 🆕 | P2 | ⏳ attente repro user |
-> | 19 | Logement « Vacant » avec locataire en place 6+ ans (tacite reconduction ?) | [BUG-VACANT-LOCATAIRE-PRESENT](docs/subjects/BUG-VACANT-LOCATAIRE-PRESENT.md) 🆕 | P1 | 🔄 session quick wins |
+> | 19 | Logement « Vacant » avec locataire en place 6+ ans (tacite reconduction ?) | [BUG-VACANT-LOCATAIRE-PRESENT](docs/subjects/BUG-VACANT-LOCATAIRE-PRESENT.md) ✅ **Livré v15.407** (`_bienIsBailActif` aligné sur la règle tacite v15.343 + resync boot `log.locataire` depuis bail actif — vérifier F4 après déploiement) | P1 | ✅ |
 
 ---
 

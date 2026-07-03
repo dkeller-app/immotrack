@@ -1,6 +1,6 @@
 # BUG-LOCATAIRE-UX-PACK — Onglet Locataires : 3 fixes UX (assistant départ, aperçu bail = PDF, popup « … » figé)
 
-**Status** : 🔄 En cours (session quick wins 2026-07-02) · **Prio** : P1 · **Taille** : S
+**Status** : ✅ Livré v15.407 (2026-07-03) · **Prio** : P1 · **Taille** : S
 **Détecté** : 2026-07-02 (user, test app réelle)
 
 ## Contexte
@@ -32,3 +32,5 @@ Le menu contextuel ouvert via « … » est figé (position fixe ? scroll bloqu�
 ## Journal
 
 - 2026-07-02 : sujet créé en session pilotage (triage retours test user).
+
+- 2026-07-03 : ✅ **Livré v15.407** sur origin/main (branche fix/quickwins-ux-20260702, merge FF 4349b1e). Audit agent code-reviewer PASS (0 bloquant, 2 importants corrigés avant push : clé pdfRef transmise à _openCloudBailPdf + nettoyage état fiches au retour navigateur). Gates : check-inline-js 5/0, Vitest 1753 verts, vérif navigateur complète, 0 erreur console. Renum v15.398-400→v15.407 (collisions sessions parallèles).

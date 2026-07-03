@@ -1,6 +1,6 @@
 # NAV-HISTORY-BACK — Bouton retour navigateur fonctionnel partout (History API)
 
-**Status** : 🔄 En cours (session quick wins 2026-07-02) · **Prio** : **P1 (« absolument » — user)** · **Taille** : M
+**Status** : ✅ Livré v15.407 (2026-07-03) · **Prio** : **P1 (« absolument » — user)** · **Taille** : M
 **Détecté** : 2026-07-02 (user, test app réelle, 2e vague)
 
 ## Contexte
@@ -24,3 +24,5 @@ L'app est une SPA (navigation via `go(page)`) sans intégration History API : le
 ## Journal
 
 - 2026-07-02 : sujet créé (2e vague retours test). Implémentation directe en session quick wins (décision user « fais-le toi-même, direct sur index »).
+
+- 2026-07-03 : ✅ **Livré v15.407** sur origin/main (branche fix/quickwins-ux-20260702, merge FF 4349b1e). Audit agent code-reviewer PASS (0 bloquant, 2 importants corrigés avant push : clé pdfRef transmise à _openCloudBailPdf + nettoyage état fiches au retour navigateur). Gates : check-inline-js 5/0, Vitest 1753 verts, vérif navigateur complète, 0 erreur console. Renum v15.398-400→v15.407 (collisions sessions parallèles).
