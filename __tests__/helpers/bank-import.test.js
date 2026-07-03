@@ -437,6 +437,34 @@ describe('_bankDedup', () => {
     ];
     expect(_bankDedup(newLines, existing, { toleranceDays:10 })[0].isDuplicate).toBe(true);
   });
+
+  it('Relevé déjà DÉCOUPÉ : ligne source = somme des parts du même jour (sans empreinte) → doublon', () => {
+    const parts = [
+      { id:'p1', date:'2026-06-06', cr:639.24, db:0, _source:'bank_import' },
+      { id:'p2', date:'2026-06-06', cr:487.01, db:0, _source:'bank_import' },
+      { id:'p3', date:'2026-06-06', cr:600.00, db:0, _source:'bank_import' }
+    ]; // total 1726,25 ; aucune part ne vaut 1726,25 individuellement
+    const src = [{ date:'2026-06-06', libelle:'LOYERS 06/2026 GERANCE ISELIN', credit:1726.25, debit:0 }];
+    const out = _bankDedup(src, parts);
+    expect(out[0].isDuplicate).toBe(true);
+    expect(out[0].duplicateReason).toMatch(/découpé|somme/i);
+  });
+
+  it('Découpé : ne flag PAS si la somme du jour ne correspond pas', () => {
+    const parts = [
+      { id:'p1', date:'2026-06-06', cr:639.24, db:0, _source:'bank_import' },
+      { id:'p2', date:'2026-06-06', cr:487.01, db:0, _source:'bank_import' }
+    ];
+    const out = _bankDedup([{ date:'2026-06-06', libelle:'AUTRE', credit:9999, debit:0 }], parts);
+    expect(out[0].isDuplicate).toBe(false);
+  });
+
+  it('Découpé : ne flag PAS un seul mouvement du jour (pas un split → géré par legacy montant+date)', () => {
+    const parts = [{ id:'p1', date:'2026-06-06', cr:639.24, db:0, _source:'bank_import' }];
+    // ligne source 1726,25 ≠ 639,24 → pas doublon (un seul mvt, pas une somme de parts)
+    const out = _bankDedup([{ date:'2026-06-06', libelle:'X', credit:1726.25, debit:0 }], parts);
+    expect(out[0].isDuplicate).toBe(false);
+  });
 });
 
 
