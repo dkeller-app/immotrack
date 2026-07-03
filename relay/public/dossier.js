@@ -49,11 +49,17 @@ function $all(sel, root){ return [...(root||document).querySelectorAll(sel)]; }
 function build() {
   const d = dossier;
   const civBtn = (v) => `<button type="button" data-civ="${esc(v)}" class="${d.identite.civilite===v?'on':''}">${esc(v)}</button>`;
-  const piecesHtml = CATS.map(cat => `
+  const piecesHtml = CATS.map(cat => {
+    const inner = `
     <div class="uph"><span>${cat.title}</span>${cat.req?'<span class="req">*</span>':''}</div>
     <div class="drop" data-cat="${cat.key}"><span class="plus">+</span><div class="big">${cat.big}</div><div class="small">${cat.small}</div></div>
     <input type="file" multiple accept="image/jpeg,image/png,application/pdf" data-input="${cat.key}" hidden>
-    <div class="tiles" id="tiles-${cat.key}"></div>`).join('');
+    <div class="tiles" id="tiles-${cat.key}"></div>`;
+    // La pièce du garant n'a de sens que si un garant est déclaré (Q2) → conteneur masquable,
+    // synchronisé avec le switch « J'ai un garant ». Sans garant, aucun dépôt garant proposé.
+    if (cat.key === 'garant') return `<div class="upcat" id="upcat-garant"${d.garant?'':' hidden'}>${inner}</div>`;
+    return inner;
+  }).join('');
 
   document.getElementById('app').innerHTML = `
   <div class="pub">
@@ -167,6 +173,7 @@ function bindFields(){
     const sw = $('#gsw'); sw.classList.toggle('on');
     const on = sw.classList.contains('on');
     $('#gfields').hidden = !on;
+    const uc = $('#upcat-garant'); if(uc) uc.hidden = !on; // Q2 : dépôt garant visible seulement avec garant
     dossier.garant = on ? Object.assign({ nom:'', adresse:'', ddn:'', lieuNaiss:'' }, dossier.garant || {}) : null;
     if(on) $all('#gfields [data-path]').forEach(inp => inp.value = getPath(dossier, inp.dataset.path));
     scheduleSave();
