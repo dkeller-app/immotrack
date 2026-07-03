@@ -150,6 +150,23 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.base2044).toBe(1100);              // 1000 + 200 − 100 (213 imposable)
   });
 
+  it('split HC/charges : le ratio reçoit la DATE du mouvement (bail actif du mois, pas le bail courant)', () => {
+    const mv = [
+      { date: '2026-01-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 }, // ancien bail : ratio 0,8
+      { date: '2026-06-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 }  // nouveau bail : ratio 0,5
+    ];
+    const r = _computeFinancesMonthly({
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      hcRatio: (qui, date) => (date < '2026-04-01' ? 0.8 : 0.5), // ratio dépend de la DATE (changement de locataire)
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
+      today: '2026-06-30'
+    });
+    // janv : HC 800 / prov 200 ; juin : HC 500 / prov 500 → annuel HC 1300, prov 700
+    expect(r.annual.loyersHC).toBe(1300);
+    expect(r.annual.provisions).toBe(700);
+  });
+
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
     const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350

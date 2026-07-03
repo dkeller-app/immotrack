@@ -78,7 +78,7 @@ export function _computeFinancesMonthly(input) {
     if (l === '211') {                      // loyers (HC + provisions de charges)
       const amt = (cr - db) * w;
       b.loyersBrut += amt;
-      b.loyersHC += amt * hcRatio(mv.qui);
+      b.loyersHC += amt * hcRatio(mv.qui, mv.date);   // ratio du bail ACTIF au mois (date), pas le bail courant
       return;
     }
     if (l === '213') { b.recettesDiverses += (cr - db) * w; return; } // recettes diverses/GLI : imposables (parité _compute2044)
