@@ -777,7 +777,7 @@ Conformément à l'article 23 de la loi n° 89-462 du 6 juillet 1989, nous vous 
 Synthèse :
 - Provisions sur charges versées sur la période : {{provisions}} €
 - Charges réelles refacturables (quote-part locataire) : {{chargesReelles}} €
-- Solde : {{solde}} € ({{soldeSens}})
+{{acompteLine}}- Solde : {{solde}} € ({{soldeSens}})
 
 Le détail par nature de charge (eau, ordures ménagères, chauffage collectif, entretien des parties communes, etc.) figure dans le décompte joint en PDF.
 

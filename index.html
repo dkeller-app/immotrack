@@ -24805,7 +24805,7 @@ function _departState(bail){
       ? "Charges de l'année souvent non arrêtées → estimation sur N‑1 + retenue ≤ 20 % du dépôt de garantie (loi 89‑462 art. 22)."
       : 'Maison individuelle → pas de retenue 20 % ; déduire les seules sommes justifiées.',
     done: retenueFaite,
-    cta:[{label:'🏁 Ouvrir la clôture (charges + DG)', on:`closeM('ov-depart');go('regul')`}]
+    cta:[{label:'🏁 Ouvrir la clôture (charges + DG)', on:`closeM('ov-depart');_departOuvrirCloture('${jsRef}')`}]
   });
   const dgLocked = !edlFait;
   steps.push({ n:4, key:'dg', title:'Restitution du dépôt de garantie',
@@ -24826,10 +24826,10 @@ function _departState(bail){
     sub:'Préparer le logement pour un nouveau locataire.',
     done: reloue, locked: !dgRestitue && !reloue,
     subchips:[
-      {ic:'🛠️', t:'Remise en état / travaux', s:'Équipements'},
-      {ic:'📑', t:'Diagnostics à jour (DPE…)', s:'Diagnostics'},
-      {ic:'📣', t:'Annonce + candidatures', s:'Candidats'},
-      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail'}
+      {ic:'🛠️', t:'Remise en état / travaux', s:'Équipements', on:`closeM('ov-depart');go('equipements')`},
+      {ic:'📑', t:'Diagnostics à jour (DPE…)', s:'Diagnostics', on:`closeM('ov-depart');go('biens')`},
+      {ic:'📣', t:'Annonce + candidatures', s:'Candidats', on:`closeM('ov-depart');go('candidats')`},
+      {ic:'📝', t:'Nouveau bail + EDL entrée + DG', s:'Bail', on:`closeM('ov-depart');openBail('${jsRef}')`}
     ],
     cta:[{label:'🔚 Clôturer le bail (archiver)', on:`closeM('ov-depart');openBailClore('${jsRef}')`},
          {label:'Candidatures', ghost:true, on:`closeM('ov-depart');go('candidats')`}]
@@ -24939,7 +24939,7 @@ function _departRenderStepper(ref){
     let inner=`<div class="dep-top"><span class="dep-ttl">${s.n} · ${escHtml(s.title)}</span><span class="dep-pill ${pm[0]}">${escHtml(pm[1])}</span></div>`;
     if(s.sub)   inner+=`<div class="dep-sub">${escHtml(s.sub)}</div>`;
     if(s.alert) inner+=`<div class="dep-alert">${escHtml(s.alert)}</div>`;
-    if(s.subchips) inner+=`<div class="dep-chips">`+s.subchips.map(c=>`<div class="dep-chip">${c.ic} ${escHtml(c.t)} <span class="s">${escHtml(c.s)}</span></div>`).join('')+`</div>`;
+    if(s.subchips) inner+=`<div class="dep-chips">`+s.subchips.map(c=>`<div class="dep-chip"${c.on?` onclick="${c.on}" role="button" tabindex="0" style="cursor:pointer"`:''}>${c.ic} ${escHtml(c.t)} <span class="s">${escHtml(c.s)}${c.on?' →':''}</span></div>`).join('')+`</div>`;
     if(s.cta && s.cta.length) inner+=`<div class="dep-cta">`+s.cta.map(c=>`<button class="${c.ghost?'ghost':''}"${c.disabled?' disabled':''}${(c.on&&!c.disabled)?` onclick="${c.on}"`:''}>${escHtml(c.label)}</button>`).join('')+`</div>`;
     return `<div class="dep-step${s.status==='lock'?' locked':''}"><div class="dep-dot ${s.status}">${dotTxt}</div>${inner}</div>`;
   }).join('');
@@ -25057,6 +25057,19 @@ function _departMarquerAcompteRecu(ref, montant){
     if(el('mv-qui')) el('mv-qui').value=ref;                 // après : garantit la valeur lue par saveMv
   }catch(e){ if(window.console) console.warn('[acompte reçu prefill]',e); }
   if(typeof showToast==='function') showToast('Vérifie le logement puis enregistre — catégorie « Acompte de charges (départ) »','ok',5500);
+}
+
+// Phase 2 : ouvre la clôture (estimation + retenue) PRÉ-REMPLIE pour le locataire, depuis l'assistant —
+// pose la fenêtre régul sur l'exercice de la sortie puis ouvre _rgClotureLocataire(ref) (entryKey=ref pour un bail actif).
+function _departOuvrirCloture(ref){
+  const bail=_departBail(ref); if(!bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  const sortie=(bail.depart&&bail.depart.dateSortie)||bail.fin||(typeof td==='function'?td():'');
+  const y=String(sortie).slice(0,4);
+  if(/^\d{4}$/.test(y)){ window._regulFrom=y+'-01-01'; window._regulTo=y+'-12-31'; }
+  if(typeof _rgClotureLocataire==='function'){
+    try{ _rgClotureLocataire(ref); return; }catch(e){ if(window.console) console.warn('[departOuvrirCloture]',e); }
+  }
+  if(typeof go==='function') go('regul');
 }
 
 // v15.x REFONTE-REGUL Phase C — vue globale immeuble (matrice charges × occupations)
@@ -25441,6 +25454,8 @@ function rRegul() {
       <td class="num ${gS>=0?'pos':'neg'}">${gS>=0?'+':''}${fmt(gS)}</td>
       <td class="num"><button class="btn bs bb" data-imm="${escHtml(imNom)}" onclick="event.stopPropagation();_rgShowGlobal(this.dataset.imm)">🔎 Vue globale</button></td></tr>`;
     grp.forEach((r,li) => {
+      // Liste régul = régul BRUTE (provisions vs charges réelles), cohérente avec ses sous-totaux/total.
+      // L'acompte de départ ne s'impute que dans les DOCUMENTS de décompte + le panneau clôture, pas ici.
       const solde = r.provisions - r.charges;
       const did   = cls+'d'+li;
       const ekEsc = escHtml(r.entryKey);
@@ -25508,6 +25523,17 @@ function printSelectedRegul() {
  * @param {string} to - date fin ISO
  * @returns {{html, css, title} | {error}}
  */
+// Phase C : acompte de charges (départ) déjà versé pour une entrée régul `r` — dérivé des mouvements
+// (catégorie neutre), borné à l'occupation (debutOcc/finOcc → pas de mélange en cas de rotation).
+function _regulAcompteDep(r){
+  if(!r) return 0;
+  // repli aligné sur _rgClotureCompute : si debutOcc/finOcc vides (occDays=0), borne = fenêtre régul courante.
+  const from = r.debutOcc || window._regulFrom, to = r.finOcc || window._regulTo;
+  return Math.round((DB.mouvements||[])
+    .filter(m=>m && !m._deleted && m.cat===_DEPART_ACOMPTE_CAT && m.qui===r.ref && (Number(m.cr)||0)>0 && (!from||m.date>=from) && (!to||m.date<=to))
+    .reduce((s,m)=>s+(Number(m.cr)||0),0)*100)/100;
+}
+
 function _buildDecompteHtml(entryKey, from, to) {
   const result = computeRegul(from, to);
   const regul = result.entries || {};
@@ -25516,7 +25542,9 @@ function _buildDecompteHtml(entryKey, from, to) {
   const log  = DB.logements.find(l=>l.ref===r.ref);
   const bail = r.bail;
   const ent  = DB.entites.find(e=>e.nom===(bail?.entity||log?.entity));
-  const solde = r.provisions - r.charges;
+  // Phase C : imputer l'acompte de charges déjà versé (catégorie neutre) sur le solde définitif.
+  const acompteDep = _regulAcompteDep(r);
+  const solde = Math.round((r.provisions + acompteDep - r.charges)*100)/100;
   const detailsRows = r.details.map(d=>
     `<tr><td>${fd(d.date)}</td><td>${escHtml(d.lib)}</td><td>${escHtml(d.repartition)}</td><td style="text-align:right">${fmtN(d.montant)} €</td></tr>`
   ).join('');
@@ -25541,6 +25569,7 @@ function _buildDecompteHtml(entryKey, from, to) {
     </table>
     <table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:12px">
       <tr><td style="padding:6px;border:1px solid #ccc">Provisions versées</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${fmtN(r.provisions)} €</td></tr>
+      ${acompteDep>0?`<tr><td style="padding:6px;border:1px solid #ccc">Acompte de charges déjà versé</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${fmtN(acompteDep)} €</td></tr>`:''}
       <tr><td style="padding:6px;border:1px solid #ccc">Charges réelles</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${fmtN(r.charges)} €</td></tr>
       <tr style="font-weight:bold;background:${solde>=0?'#f0fff0':'#fff0f0'}"><td style="padding:6px;border:1px solid #ccc">SOLDE ${solde>=0?'(à votre crédit)':'(à payer)'}</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${solde>=0?'+':''}${fmtN(solde)} €</td></tr>
     </table>
@@ -25592,7 +25621,8 @@ function envoyerDecompteParEmail(entryKey) {
     nom: r.loc || log?.locataire || '',
     email: log?.mail || ''
   };
-  const solde = r.provisions - r.charges;
+  const acompteDep = _regulAcompteDep(r);
+  const solde = Math.round((r.provisions + acompteDep - r.charges)*100)/100;
   const soldeSens = solde >= 0 ? 'à votre crédit (trop-perçu)' : 'à votre charge (complément dû)';
   const soldeAction = solde >= 0
     ? `Le trop-perçu de ${Math.abs(solde).toFixed(2)} € vous sera restitué dans le mois suivant l'envoi du présent décompte (art. 23 al. 4 loi 89-462).`
@@ -25606,6 +25636,8 @@ function envoyerDecompteParEmail(entryKey) {
     annee,
     provisions: r.provisions.toFixed(2),
     chargesReelles: r.charges.toFixed(2),
+    // ligne conditionnelle (vide si pas d'acompte) → cohérence math du corps de l'email avec le solde netté
+    acompteLine: acompteDep > 0 ? ('- Acompte de charges déjà versé (imputé) : ' + acompteDep.toFixed(2) + ' €\n') : '',
     solde: Math.abs(solde).toFixed(2),
     soldeSens,
     soldeAction,
@@ -25662,7 +25694,8 @@ window._shareDecompteWithPdf = async function(entryKey) {
   const locataire = (bail?.locataires && bail.locataires[0]) || {
     nom: r.loc || log?.locataire || '', email: log?.mail || ''
   };
-  const solde = r.provisions - r.charges;
+  const acompteDep = _regulAcompteDep(r);
+  const solde = Math.round((r.provisions + acompteDep - r.charges)*100)/100;
   const annee = (from || '').slice(0, 4);
 
   showToast('Génération du PDF en cours…', 'info', 2000);
@@ -25676,6 +25709,7 @@ window._shareDecompteWithPdf = async function(entryKey) {
       annee, from, to,
       provisions: r.provisions.toFixed(2),
       chargesReelles: r.charges.toFixed(2),
+      acompteLine: acompteDep > 0 ? ('- Acompte de charges déjà versé (imputé) : ' + acompteDep.toFixed(2) + ' €\n') : '',
       solde: Math.abs(solde).toFixed(2),
       entryKey, // v15.113 — pour que _genPdfDecompteRegul appelle _buildDecompteHtml
       regulEntry: r // legacy support
@@ -37839,12 +37873,27 @@ function _renderLogFichePanelBail(log, bail, ref) {
                  : '<span class="logf-badge b-warn">⚠ Non signé</span>');
     const locataires = (Array.isArray(bail.locataires) && bail.locataires.length) ? bail.locataires : [{nom: log.locataire}];
     const locNoms = locataires.map(l => l && l.nom).filter(Boolean).join(', ') || log.locataire || '—';
+    // #3 DEPART-VISIBILITE : bandeau « départ en cours » sur la fiche 360 (réutilise _departState/_departOuvrir).
+    let depBanner='';
+    if(bail.depart && !bail.cloture && typeof _departState==='function'){
+      let dst=null; try{ dst=_departState(bail); }catch(e){}
+      if(dst){
+        const dl=dst.deadline, dgDone=(dst.steps.find(s=>s.key==='dg')||{}).done;
+        const dgTxt=(dl && !dgDone)?(dl.jours>=0?` · DG à restituer avant le ${fd(dl.iso)} (J‑${dl.jours})`:` · DG en retard ${-dl.jours} j`):'';
+        depBanner=`<div class="logf-depart" onclick="_departOuvrir('${refSafe}')" role="button" tabindex="0" title="Ouvrir l'assistant de départ">
+          <span class="logf-depart-ic">🏁</span>
+          <div class="logf-depart-tx"><div class="t">Départ en cours — étape ${dst.doneCount}/${dst.total}</div><div class="s">${bail.depart.dateSortie?('sortie prévue le '+fd(bail.depart.dateSortie)):'à dérouler'}${dgTxt}</div></div>
+          <button class="btn bp" onclick="event.stopPropagation();_departOuvrir('${refSafe}')">Ouvrir l'assistant →</button>
+        </div>`;
+      }
+    }
     currentSection = `
       <div class="logf-panel" style="grid-column:1/-1">
         <div class="flex-b" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
           <h3 class="logf-panel-title" style="margin:0">📜 Bail en cours</h3>
           ${sigBadge}
         </div>
+        ${depBanner}
         <div class="logf-bail-grid">
           <div class="logf-row"><span class="logf-label">Locataire(s)</span><span class="logf-value">${escHtml(locNoms)}</span></div>
           <div class="logf-row"><span class="logf-label">Type contrat</span><span class="logf-value">${escHtml(typeContratMap[bail.typeContrat] || bail.typeContrat || '—')}</span></div>
