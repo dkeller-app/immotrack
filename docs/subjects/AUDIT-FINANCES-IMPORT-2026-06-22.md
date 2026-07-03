@@ -58,15 +58,15 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 
 | # | Item | Type | Statut |
 |---|------|------|--------|
-| G1 | **Import : liste COMPLÈTE des logements** proposée même quand un **compte bailleur** est déjà sélectionné → scoper l'affectation au bailleur du compte. | 🐞 UX | ⬜ |
+| G1 | ✅ **v15.407** — picker scopé au bailleur actif à défaut du scope compte (+ échappatoire « voir tout »). **Import : liste COMPLÈTE des logements** proposée même quand un **compte bailleur** est déjà sélectionné → scoper l'affectation au bailleur du compte. | 🐞 UX | ⬜ |
 | G2 | ✅ **v15.404** — `_bankDedup` stratégie 3 : relevé découpé détecté = somme des parts du jour. **Doublons NON détectés** alors que les lignes sont **identiques** — dédup import trop stricte/cassée. | 🐞 | ⬜ **à diagnostiquer** |
-| G3 | **Découpage** : la case « découpé » ne reste pas cochée après split (mais le découpage EST pris en compte) — état UI. | 🐞 UX | ⬜ |
+| G3 | ⬜ **repro demandé** (dans le code : split appliqué + ligne reste ouverte + badge « Découpé » — symptôme à préciser). **Découpage** : la case « découpé » ne reste pas cochée après split (mais le découpage EST pris en compte) — état UI. | 🐞 UX | ⬜ |
 
 ## H. SUIVI LOYERS (retour user 2026-07-02)
 
 | # | Item | Type | Statut |
 |---|------|------|--------|
-| H1 | Afficher si les locataires sont en **retard** de paiement (info déjà là) **ET en AVANCE** de paiement. | ✨ | ⬜ |
+| H1 | Afficher si les locataires sont en **retard** ET en **AVANCE** de paiement. | ✨ | ✅ **v15.408/410 (mockup-first)** — « Suivi des loyers » : bande 12 mois par locataire (payé/partiel/retard/avance/à venir) + solde courant + détail échéancier + drill paiements/mois. `_suiviLoyerStrip` (allocation chronologique, brique prorata réutilisée). |
 
 ## D. Compteurs / Charges récupérables
 

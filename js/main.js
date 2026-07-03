@@ -145,7 +145,8 @@ import {
   _calculConfiance, _candidatVersLocataire, _candidatVersGarant,
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
   buildComplementShareMessage, shouldAutoPull, countUnreadCandidats, nouveauDossierToast,
-  majDossierToast, repullDecision, loyerAttenduForLog
+  majDossierToast, repullDecision, loyerAttenduForLog,
+  PIECES_REQUISES, piecesScoreFromCategories
 } from './core/candidature.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
@@ -336,6 +337,8 @@ window.PROCEDURE_ETAT = PROCEDURE_ETAT;
 
 // LOG-CANDIDATS (Phase 2) - helpers purs candidature locataire
 window._calculConfiance = _calculConfiance;
+window.PIECES_REQUISES = PIECES_REQUISES;
+window.piecesScoreFromCategories = piecesScoreFromCategories;
 window._candidatVersLocataire = _candidatVersLocataire;
 window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;
