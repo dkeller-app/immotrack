@@ -26,3 +26,5 @@ L'app est une SPA (navigation via `go(page)`) sans intégration History API : le
 - 2026-07-02 : sujet créé (2e vague retours test). Implémentation directe en session quick wins (décision user « fais-le toi-même, direct sur index »).
 
 - 2026-07-03 : ✅ **Livré v15.407** sur origin/main (branche fix/quickwins-ux-20260702, merge FF 4349b1e). Audit agent code-reviewer PASS (0 bloquant, 2 importants corrigés avant push : clé pdfRef transmise à _openCloudBailPdf + nettoyage état fiches au retour navigateur). Gates : check-inline-js 5/0, Vitest 1753 verts, vérif navigateur complète, 0 erreur console. Renum v15.398-400→v15.407 (collisions sessions parallèles).
+
+- 2026-07-03 (suite) : ✅ mineurs audit livrés **v15.412** origin/main (fea7032) : F5 restaure la page #p-xxx + fix latent v15.73 (go accueil 50ms écrasait le deeplink fiche, fallback si fiche invalide) + toast « PDF partiellement signé » sur aperçu bail bailleur-seul. Gates 1758 verts.
