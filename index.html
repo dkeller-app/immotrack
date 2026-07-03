@@ -3966,6 +3966,7 @@ const STD_CATEGORIES = [
   { nom: 'Virement interne (non déclarable)',               ligne2044:'',    type:'special', icon:'🔁', editable:false, deletable:false, std:true, descHors:'Transfert entre 2 comptes du bailleur — ne rien déclarer (détection auto des paires = sujet FEAT-VIR-INTERNE).' },
   { nom: 'CCA / distribution SCI',                          ligne2044:'',    type:'special', niv:'sci', icon:'🏦', editable:false, deletable:false, std:true, descHors:'Compte courant d\'associé (apport / retrait) ou distribution de résultat — trésorerie entre la SCI et ses associés, hors résultat foncier.' },
   { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso, régularisation de solde locataire… — hors champ foncier (déplacement/matériel déjà dans le forfait 222).' },
+  { nom: 'Acompte de charges (départ)',                     ligne2044:'',    type:'special', niv:'log', icon:'🏁', editable:false, deletable:false, std:true, descHors:'Acompte versé par un locataire partant, en anticipation de la régularisation des charges. Neutre au 2044 ; imputé sur le décompte final. À ne PAS confondre avec un loyer (sinon compté deux fois).' },
   // ── AUTO — calculées par l'app (régul), HORS menu de saisie ; gardées pour le mapping 2044 ──
   { nom: 'Charges récupérables non récupérées',             ligne2044:'225', type:'charge',  auto:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Part avancée par le bailleur et non remboursée au départ du locataire — calculée automatiquement par la régularisation (computeRegul). Tu ne la tagues jamais.' },
   { nom: 'Régularisation provisions copro N-1',             ligne2044:'230', type:'deduction', auto:true, icon:'↩️', editable:false, deletable:false, std:true, descHors:'Régularisation annuelle du syndic — se déduit du total des charges (240 = (221..229) − 230). Gérée via l\'écran Régularisation.' }
@@ -24495,21 +24496,29 @@ function _rgClotureCompute(entryKey){
   const estCharges = n1 ? Math.round(baseN1 * (occN/winDays) * 100)/100 : null;
   const prov = entry.provisions || 0;
   const real = entry.charges || 0;
+  // Phase C : acompte de charges déjà reçu (catégorie dédiée neutre) pour ce logement sur la fenêtre.
+  // Source unique = mouvements → pas de double-comptage avec `prov` (computeRegul ignore cette catégorie).
+  // Borné à l'OCCUPATION de l'entrée (comme les provisions) et non à la fenêtre entière : en cas de
+  // rotation de locataires dans l'année, chaque acompte retombe sur le bon partant (pas de mélange).
+  const _accFrom = entry.debutOcc || window._regulFrom, _accTo = entry.finOcc || window._regulTo;
+  const acompte = Math.round((DB.mouvements||[])
+    .filter(m=>m && !m._deleted && m.cat===_DEPART_ACOMPTE_CAT && m.qui===entry.ref && (Number(m.cr)||0)>0 && m.date>=_accFrom && m.date<=_accTo)
+    .reduce((s,m)=>s+(Number(m.cr)||0),0)*100)/100;
   const estimated = (estCharges!=null);
   const chargesUsed = estimated ? estCharges : real;
-  const solde = Math.round((prov - chargesUsed)*100)/100; // + = à restituer ; - = à demander
+  const solde = Math.round((prov + acompte - chargesUsed)*100)/100; // + = à restituer ; - = à demander
   const du    = solde < 0 ? -solde : 0;
   const max20 = Math.round(dg*0.20*100)/100;
   const retenueSugg = reg.applies20 ? Math.min(du, max20) : 0;
   const dgRestit = Math.round((dg - retenueSugg)*100)/100;
-  return { entry, bail, log, dg, reg, n1, occN, winDays, excl, baseN1, estCharges, prov, real, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit };
+  return { entry, bail, log, dg, reg, n1, occN, winDays, excl, baseN1, estCharges, prov, real, acompte, estimated, chargesUsed, solde, du, max20, retenueSugg, dgRestit };
 }
 
 function _rgClotureLocataire(entryKey){
   const c = _rgClotureCompute(entryKey);
   if(!c){ if(typeof showToast==='function') showToast('Occupation introuvable','err'); return; }
   const entry=c.entry, dg=c.dg, reg=c.reg, n1=c.n1, occN=c.occN, winDays=c.winDays, excl=c.excl,
-        baseN1=c.baseN1, estCharges=c.estCharges, prov=c.prov, real=c.real, estimated=c.estimated,
+        baseN1=c.baseN1, estCharges=c.estCharges, prov=c.prov, real=c.real, acompte=c.acompte, estimated=c.estimated,
         solde=c.solde, du=c.du, max20=c.max20, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
   const f = fmt;
   let ov = document.getElementById('ov-rg-cloture');
@@ -24557,6 +24566,7 @@ function _rgClotureLocataire(entryKey){
       <div class="rgc-blk"><div class="rgc-t">① Charges récupérables — ${estimated?'estimation comparée':'réel'}</div>
         ${chargeLines}
         <div class="rgc-l"><span>− Provisions versées</span><span class="mono">${f(prov)}</span></div>
+        ${acompte>0?`<div class="rgc-l"><span>− Acompte de charges déjà versé</span><span class="mono">${f(acompte)}</span></div>`:''}
         <div class="rgc-l tot"><span>= Solde ${estimated?'estimé':''}</span><span>${soldeTag}</span></div>
       </div>
       ${dgBlock}
@@ -24590,7 +24600,7 @@ function _rgOpenDecompteEstimatif(entryKey){
   if(!c.estimated){ openRegulDoc(entryKey); return; } // pas d'historique N-1 → décompte réel classique
   const entry=c.entry, bail=c.bail, log=c.log, dg=c.dg, reg=c.reg, n1=c.n1,
         occN=c.occN, winDays=c.winDays, baseN1=c.baseN1, estCharges=c.estCharges,
-        prov=c.prov, solde=c.solde, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
+        prov=c.prov, acompte=c.acompte, solde=c.solde, retenueSugg=c.retenueSugg, dgRestit=c.dgRestit;
   const f = v => fmtN(v) + ' €';
   const ent = (DB.entites||[]).find(e=>e && e.nom===((bail&&bail.entity)||log.entity)) || {};
   const cmpRows = [{l:'N‑3',v:n1.y3},{l:'N‑2',v:n1.y2},{l:'N‑1 ('+escHtml(n1.year)+')',v:n1.y1}]
@@ -24615,6 +24625,7 @@ function _rgOpenDecompteEstimatif(entryKey){
       <tr><td style="padding:5px;border:1px solid #ccc">Base retenue (année précédente)</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(baseN1)}</td></tr>
       <tr><td style="padding:5px;border:1px solid #ccc">Quote-part estimée (× ${occN}/${winDays})</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(estCharges)}</td></tr>
       <tr><td style="padding:5px;border:1px solid #ccc">Provisions versées</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(prov)}</td></tr>
+      ${acompte>0?`<tr><td style="padding:5px;border:1px solid #ccc">Acompte de charges déjà versé</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${f(acompte)}</td></tr>`:''}
       <tr style="font-weight:bold;background:${solde>=0?'#f0fff0':'#fff0f0'}"><td style="padding:5px;border:1px solid #ccc">SOLDE ${soldeLbl}</td><td style="padding:5px;border:1px solid #ccc;text-align:right">${solde>=0?'+':''}${f(solde)}</td></tr>
     </table>
     ${dgBlock}
@@ -24873,9 +24884,10 @@ function _departRenderStepper(ref){
         <div class="dep-acp-l tot"><span>= Dû estimé</span><span class="neg">${fmt(e.du)}</span></div>
         ${e.applies20?`<div class="dep-acp-l"><span>Retenue possible sur le dépôt (20 %)</span><span>${fmt(e.couvertDG)}</span></div><div class="dep-acp-l"><span>Reste non couvert par le dépôt</span><span class="neg">${fmt(e.reste)}</span></div>`:''}
         <div class="dep-acp-rc">💡 Le locataire est encore présent → demande-lui un <b>acompte de ${fmt(e.du)}</b> (le dû estimé), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
+        ${e.acompte>0?`<div class="dep-acp-ok">✓ Acompte déjà reçu : ${fmt(e.acompte)} (imputé sur le décompte)</div>`:''}
         ${d.acompteDemande
           ? `<div class="dep-acp-ok">✓ Acompte de ${fmt(d.acompteDemande.montant)} demandé le ${fd(d.acompteDemande.at)}${(Math.abs((d.acompteDemande.montant||0)-e.du)>1)?` <span style="color:var(--ora)">— estimation actuelle : ${fmt(e.du)}</span>`:''}</div>
-             <div class="dep-cta"><button class="ghost" onclick="_departDemanderAcompte('${jsref}',${e.du})">Réviser (${fmt(e.du)})</button><button class="ghost" onclick="_departAnnulerAcompte('${jsref}')">Annuler la demande</button></div>`
+             <div class="dep-cta"><button onclick="_departMarquerAcompteRecu('${jsref}',${d.acompteDemande.montant})">Marquer comme reçu</button><button class="ghost" onclick="_departDemanderAcompte('${jsref}',${e.du})">Réviser (${fmt(e.du)})</button><button class="ghost" onclick="_departAnnulerAcompte('${jsref}')">Annuler</button></div>`
           : `<div class="dep-cta"><button onclick="_departDemanderAcompte('${jsref}',${e.du})">Demander un acompte de charges</button></div>`}
       </div>`;
     }
@@ -24893,6 +24905,9 @@ function _departRenderStepper(ref){
     </div></div>`;
   openM('ov-depart');
 }
+
+// Catégorie dédiée de l'acompte de charges (Phase C) — neutre au 2044, hors prov/charges régul.
+const _DEPART_ACOMPTE_CAT = 'Acompte de charges (départ)';
 
 // DEPART-ESTIM Phase B : dû estimé du partant HORS écran régul (assistant + À traiter).
 // Occupation bornée à la date de sortie PLANIFIÉE (≠ bail.fin, qui peut être le terme du bail).
@@ -24916,9 +24931,8 @@ function _departEstimDu(bail){
   const days = (a,b)=>Math.max(0, Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000)+1);
   const occ = days(occStart, occEnd);
   const est = Math.round(c.baseN1 * (occ/c.winDays) * 100)/100;
-  // acompteEncaisse = acompte réellement reçu (Phase C, non alimenté ici → 0). ⚠ quand il sera saisi
-  // comme mouvement, le catégoriser HORS _isLoyerCategory sinon double-comptage avec `prov` (computeRegul).
-  const acompte = Math.round(Number(d.acompteEncaisse||0)*100)/100;
+  // Phase C : acompte déjà reçu — dérivé des mouvements par _rgClotureCompute (même fenêtre exercice).
+  const acompte = c.acompte || 0;
   const solde = Math.round((c.prov + acompte - est)*100)/100; // + = trop-perçu ; - = dû
   const du = solde<0 ? -solde : 0;
   const couvertDG = c.reg.applies20 ? Math.min(du, c.max20) : 0;
@@ -24951,6 +24965,26 @@ function _departAnnulerAcompte(ref){
   if(typeof saveDB==='function') saveDB();
   if(typeof showToast==='function') showToast('Demande d\'acompte annulée','ok');
   _departRenderStepper(ref);
+}
+
+// Phase C : « Marquer l'acompte reçu » → ouvre le formulaire mouvement pré-rempli sur la catégorie dédiée.
+// Le mouvement enregistré (via saveMv normal) devient la SOURCE de _departEstimDu (dérivation) → pas de double-compte.
+function _departMarquerAcompteRecu(ref, montant){
+  const bail=_departBail(ref); if(!bail){ if(typeof showToast==='function') showToast('Bail introuvable','err'); return; }
+  closeM('ov-depart');
+  if(typeof openNewMv!=='function'){ if(typeof showToast==='function') showToast('Saisie mouvement indisponible','err'); return; }
+  openNewMv();
+  try{
+    const loc=(bail.locataires&&bail.locataires[0]&&bail.locataires[0].nom)||ref;
+    if(el('mv-lib')) el('mv-lib').value='Acompte de charges — '+loc;
+    if(el('mv-cr'))  el('mv-cr').value=String(Math.round(Number(montant||0)*100)/100);
+    if(el('mv-cat')) el('mv-cat').value=_DEPART_ACOMPTE_CAT;
+    if(el('mv-cat-host') && typeof _catBtn==='function') el('mv-cat-host').innerHTML=_catBtn('mv','mv');
+    if(el('mv-qui')) el('mv-qui').value=ref;                 // avant : _affRender lit mv-qui pour le libellé du bouton
+    if(typeof _affRender==='function') _affRender('mv','mv');
+    if(el('mv-qui')) el('mv-qui').value=ref;                 // après : garantit la valeur lue par saveMv
+  }catch(e){ if(window.console) console.warn('[acompte reçu prefill]',e); }
+  if(typeof showToast==='function') showToast('Vérifie le logement puis enregistre — catégorie « Acompte de charges (départ) »','ok',5500);
 }
 
 // v15.x REFONTE-REGUL Phase C — vue globale immeuble (matrice charges × occupations)
