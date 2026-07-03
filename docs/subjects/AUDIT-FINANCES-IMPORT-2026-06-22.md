@@ -49,8 +49,8 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 
 | # | Item | Type | Statut |
 |---|------|------|--------|
-| F1 | **Part charges (provisions) FAUSSE** — `_finHcRatio`=hc/(hc+ch) du bail COURANT. Bugs suspectés : bail courant sur mois passés (changement locataire), versement gérance groupé → ratio 1 → provisions=0, bail sans `ch` → part perdue. | ⚖️🐞 | 🔄 **audit agent en cours** |
-| F2 | **Revenus = loyers seulement** alors que 3 catégories recette (211 + 213 GLI + 213 recettes diverses). Le moteur fait `if(l==='213') return` → recettes diverses IGNORÉES (or 213 imposable en 2044). | ⚖️🐞 | 🔄 **audit** |
+| F1a | ✅ **v15.402** — ratio du bail ACTIF du mois (bloc `_bailActifAt` rappelle `_getAllBailsForLog`, DRY). Reste F1b (versements groupés non rattachés) + F1c (bail sans `ch`). **Part charges (provisions) FAUSSE** — `_finHcRatio`=hc/(hc+ch) du bail COURANT. Bugs suspectés : bail courant sur mois passés (changement locataire), versement gérance groupé → ratio 1 → provisions=0, bail sans `ch` → part perdue. | ⚖️🐞 | 🔄 **audit agent en cours** |
+| F2 | ✅ **v15.401** — recettes 213 (parking/GLI/indemnités) comptées en revenus + cash-flow + base 2044 (aligné `_compute2044`). **Revenus = loyers seulement** alors que 3 catégories recette (211 + 213 GLI + 213 recettes diverses). Le moteur fait `if(l==='213') return` → recettes diverses IGNORÉES (or 213 imposable en 2044). | ⚖️🐞 | 🔄 **audit** |
 | F3 | **Audit EXHAUSTIF** : chaque catégorie STD × son traitement (comptée/droppée). « je veux que TOUS les mouvements possibles soient présents ». | ⚖️ | 🔄 **audit agent en cours** |
 | F4 | **Prorata entrée/sortie en cours de mois** — déjà dans le code (`_getActiveBailHcChProrated`), ne pas tout recommencer ; vérifier que le split HC/charges en tient compte. | ⚖️ | 🔄 **audit** |
 
@@ -59,7 +59,7 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 | # | Item | Type | Statut |
 |---|------|------|--------|
 | G1 | **Import : liste COMPLÈTE des logements** proposée même quand un **compte bailleur** est déjà sélectionné → scoper l'affectation au bailleur du compte. | 🐞 UX | ⬜ |
-| G2 | **Doublons NON détectés** alors que les lignes sont **identiques** — dédup import trop stricte/cassée. | 🐞 | ⬜ **à diagnostiquer** |
+| G2 | ✅ **v15.404** — `_bankDedup` stratégie 3 : relevé découpé détecté = somme des parts du jour. **Doublons NON détectés** alors que les lignes sont **identiques** — dédup import trop stricte/cassée. | 🐞 | ⬜ **à diagnostiquer** |
 | G3 | **Découpage** : la case « découpé » ne reste pas cochée après split (mais le découpage EST pris en compte) — état UI. | 🐞 UX | ⬜ |
 
 ## H. SUIVI LOYERS (retour user 2026-07-02)
