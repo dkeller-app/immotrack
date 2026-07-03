@@ -5,7 +5,8 @@ import {
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
   buildComplementShareMessage, shouldAutoPull,
   countUnreadCandidats, nouveauDossierToast,
-  majDossierToast, repullDecision, loyerAttenduForLog
+  majDossierToast, repullDecision, loyerAttenduForLog,
+  PIECES_REQUISES, piecesScoreFromCategories
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
@@ -34,8 +35,17 @@ describe('_calculConfiance', () => {
     expect(_calculConfiance({ garant: { nom: '  ' } }, 0)).toBe(0);
     expect(_calculConfiance({ garant: { nom: 'Tante' } }, 0)).toBe(20);
   });
-  it('pièces complètes = 20 pts', () => {
+  it('pièces complètes (flag déclaratif) = 20 pts quand piecesPts absent', () => {
     expect(_calculConfiance({ piecesCompletes: true }, 0)).toBe(20);
+  });
+  it('piecesPts (documents réels) fait foi sur le flag déclaratif', () => {
+    // flag true mais 0 doc → 0 pt de pièces (le paramètre explicite gagne)
+    expect(_calculConfiance({ piecesCompletes: true }, 0, 0)).toBe(0);
+    // flag false mais 3 catégories fournies (15) → 15 pts
+    expect(_calculConfiance({ piecesCompletes: false }, 0, 15)).toBe(15);
+    // clamp 0-20
+    expect(_calculConfiance({}, 0, 999)).toBe(20);
+    expect(_calculConfiance({}, 0, -5)).toBe(0);
   });
   it('le RIB n\'entre PAS dans le score (décret 2015-1437 / art. 22-2 loi 1989)', () => {
     expect(_calculConfiance({ ribFourni: true }, 0)).toBe(0);
@@ -53,6 +63,29 @@ describe('_calculConfiance', () => {
   it('plafonné à 100', () => {
     const c = { revenus: 99999, contrat: 'CDI', garant: { nom: 'X' }, piecesCompletes: true };
     expect(_calculConfiance(c, 1)).toBe(100);
+  });
+});
+
+describe('piecesScoreFromCategories', () => {
+  it('5 points par catégorie requise présente (max 20)', () => {
+    expect(piecesScoreFromCategories([])).toBe(0);
+    expect(piecesScoreFromCategories(['identite'])).toBe(5);
+    expect(piecesScoreFromCategories(['identite', 'ressources'])).toBe(10);
+    expect(piecesScoreFromCategories(['identite', 'domicile', 'situation'])).toBe(15);
+    expect(piecesScoreFromCategories(['identite', 'domicile', 'situation', 'ressources'])).toBe(20);
+  });
+  it('déduplique et ignore les catégories hors requises (garant, candidature, vide)', () => {
+    expect(piecesScoreFromCategories(['identite', 'identite'])).toBe(5); // dédup
+    expect(piecesScoreFromCategories(['garant', 'candidature', ''])).toBe(0); // non requises
+    expect(piecesScoreFromCategories(['identite', 'garant'])).toBe(5); // garant ne compte pas
+  });
+  it('entrée invalide → 0, pas de crash', () => {
+    expect(piecesScoreFromCategories(null)).toBe(0);
+    expect(piecesScoreFromCategories(undefined)).toBe(0);
+    expect(piecesScoreFromCategories('identite')).toBe(0); // pas un tableau
+  });
+  it('PIECES_REQUISES = les 4 catégories du décret 2015-1437 (garant exclu)', () => {
+    expect(PIECES_REQUISES).toEqual(['identite', 'domicile', 'situation', 'ressources']);
   });
 });
 

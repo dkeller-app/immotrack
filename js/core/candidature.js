@@ -21,18 +21,42 @@ export function buildComplementShareMessage(note, bienLabel) {
 }
 
 /**
+ * Pièces requises pour un dossier de location (décret n°2015-1437). Ce sont les
+ * catégories des documents GED, alignées sur le formulaire de dépôt relais. Le garant
+ * n'est PAS requis (le candidat peut n'en avoir aucun).
+ */
+export const PIECES_REQUISES = ['identite', 'domicile', 'situation', 'ressources'];
+
+/**
+ * Score de complétude des pièces (0-20) déduit des documents RÉELLEMENT fournis :
+ * 5 points par catégorie requise présente (4 × 5 = 20). Pur — l'appelant rassemble les
+ * catégories depuis DB.documents. Le garant, non requis, n'entre pas dans ce score.
+ * @param {string[]} categoriesPresentes - catégories des documents du candidat (ex. ['identite','ressources'])
+ * @returns {number} 0..20
+ */
+export function piecesScoreFromCategories(categoriesPresentes) {
+  const set = new Set((Array.isArray(categoriesPresentes) ? categoriesPresentes : []).map(s => String(s || '')));
+  const n = PIECES_REQUISES.filter(k => set.has(k)).length;
+  return n * 5;
+}
+
+/**
  * Score "Confiance" 0-100, transparent, critères de solvabilité légaux uniquement
  * (jamais discriminatoire). Voir spec §9.
  * Barème : ratio revenus/loyer ≥3×→35 / ≥2.5×→20 / ≥2×→10 · contrat CDI→25 / CDD→10
- *          · garant présent→20 · pièces complètes→20. Plafonné à 100.
+ *          · garant présent→20 · pièces fournies→0-20. Plafonné à 100.
+ * Complétude des pièces : si `piecesPts` (0-20) est fourni (déduit des documents réels
+ * via piecesScoreFromCategories), il fait foi ; sinon repli sur le flag déclaratif
+ * `piecesCompletes` (candidat saisi à la main / module non chargé) → 20.
  * Le RIB n'entre PAS dans le score : ce n'est ni un indicateur de solvabilité ni une
  * pièce de sélection autorisée (décret 2015-1437 ; art. 22-2 loi du 6 juillet 1989 —
  * l'autorisation de prélèvement ne peut être exigée). Il est collecté à la signature du bail.
  * @param {object} cand - candidat (revenus, contrat, garant, piecesCompletes)
  * @param {number} loyerHC - loyer hors charges du logement visé (pour le ratio)
+ * @param {number} [piecesPts] - complétude des pièces 0-20 (documents réels) ; optionnel
  * @returns {number} score entier 0-100
  */
-export function _calculConfiance(cand, loyerHC = 0) {
+export function _calculConfiance(cand, loyerHC = 0, piecesPts) {
   if (!cand || typeof cand !== 'object') return 0;
   let score = 0;
   const revenus = Number(cand.revenus) || 0;
@@ -46,7 +70,8 @@ export function _calculConfiance(cand, loyerHC = 0) {
   if (cand.contrat === 'CDI') score += 25;
   else if (cand.contrat === 'CDD') score += 10;
   if (cand.garant && String(cand.garant.nom || '').trim()) score += 20;
-  if (cand.piecesCompletes) score += 20;
+  if (Number.isFinite(piecesPts)) score += Math.max(0, Math.min(20, piecesPts));
+  else if (cand.piecesCompletes) score += 20;
   return Math.min(100, score);
 }
 
