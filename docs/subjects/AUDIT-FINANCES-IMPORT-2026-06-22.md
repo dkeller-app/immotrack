@@ -38,8 +38,35 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 |---|------|------|--------|
 | C1 | **Mouvements récurrents** (saisie manuelle) + warning « ce mouvement sera récurrent, ne pas réimporter le même ». | ✨ | ⬜ |
 | C2 | **Import des tableaux d'amortissement** de prêt. | ✨ | ⬜ |
-| C3 | **Drill-down d'une ligne du P&L moche** (popup `_finDrillLigne`, ex « Prêt — échéances 2026 », 27 mvts en liste plate). Cible : **regrouper par mois** (blocs mensuels + sous-total/mois) avec **séparateurs nets entre mouvements**. Cohérent avec l'archi blocs mensuels du sous-P&L B4. | ✨ UX | ⬜ **mockup-first** |
-| C4 | **Comparer le détail entre 2 mois** dans le drill-down — outil de **diagnostic** : « mes charges ont augmenté, pourquoi ? » → vue côte-à-côte / diff qui fait ressortir le mouvement en plus, le montant qui grimpe, la nouvelle catégorie. Lié à C3. | ✨ | ⬜ **mockup-first**, session dédiée |
+| C3 | **Drill-down d'une ligne du P&L moche** → blocs mensuels + séparateurs. | ✨ UX | ✅ **v15.398** (refonte drill : blocs par mois, sous-total, séparateurs, crédits en vert) |
+| C4 | **Comparer le détail entre 2 mois** dans le drill (diagnostic hausse de charges). | ✨ | ⬜ **mockup validé (écran C)**, reste à coder |
+| C5 | **Clic sur une case de mois → drill de CE mois** (pas l'année). | ✨ | ✅ **v15.398** (param `mo` sur `_finDrillLigne`) |
+| C6 | **Drill sur les charges récupérables** (provisions encaissées / récup déboursées). | ✨ | ✅ **v15.398** (kinds `provisions`/`recup`) |
+| C7 | **Note « mvt SCI réparti sur N immeubles »** en vue immeuble (quote-part). | ✨ | ✅ **v15.398** |
+| C8 | **Ligne Prêt : remboursement (crédit) ignoré** dans le drill (« tu ne prends que le négatif »). | ⚖️🐞 | ✅ **v15.397** (drill inclut les crédits → total drill = total ligne) |
+
+## F. AUDIT CORRECTNESS FINANCES (retour user 2026-07-02 — « j'ai peur pour tout le reste »)
+
+| # | Item | Type | Statut |
+|---|------|------|--------|
+| F1a | ✅ **v15.402** — ratio du bail ACTIF du mois (bloc `_bailActifAt` rappelle `_getAllBailsForLog`, DRY). Reste F1b (versements groupés non rattachés) + F1c (bail sans `ch`). **Part charges (provisions) FAUSSE** — `_finHcRatio`=hc/(hc+ch) du bail COURANT. Bugs suspectés : bail courant sur mois passés (changement locataire), versement gérance groupé → ratio 1 → provisions=0, bail sans `ch` → part perdue. | ⚖️🐞 | 🔄 **audit agent en cours** |
+| F2 | ✅ **v15.401** — recettes 213 (parking/GLI/indemnités) comptées en revenus + cash-flow + base 2044 (aligné `_compute2044`). **Revenus = loyers seulement** alors que 3 catégories recette (211 + 213 GLI + 213 recettes diverses). Le moteur fait `if(l==='213') return` → recettes diverses IGNORÉES (or 213 imposable en 2044). | ⚖️🐞 | 🔄 **audit** |
+| F3 | **Audit EXHAUSTIF** : chaque catégorie STD × son traitement (comptée/droppée). « je veux que TOUS les mouvements possibles soient présents ». | ⚖️ | 🔄 **audit agent en cours** |
+| F4 | **Prorata entrée/sortie en cours de mois** — déjà dans le code (`_getActiveBailHcChProrated`), ne pas tout recommencer ; vérifier que le split HC/charges en tient compte. | ⚖️ | 🔄 **audit** |
+
+## G. IMPORT (retour user 2026-07-02)
+
+| # | Item | Type | Statut |
+|---|------|------|--------|
+| G1 | **Import : liste COMPLÈTE des logements** proposée même quand un **compte bailleur** est déjà sélectionné → scoper l'affectation au bailleur du compte. | 🐞 UX | ⬜ |
+| G2 | ✅ **v15.404** — `_bankDedup` stratégie 3 : relevé découpé détecté = somme des parts du jour. **Doublons NON détectés** alors que les lignes sont **identiques** — dédup import trop stricte/cassée. | 🐞 | ⬜ **à diagnostiquer** |
+| G3 | **Découpage** : la case « découpé » ne reste pas cochée après split (mais le découpage EST pris en compte) — état UI. | 🐞 UX | ⬜ |
+
+## H. SUIVI LOYERS (retour user 2026-07-02)
+
+| # | Item | Type | Statut |
+|---|------|------|--------|
+| H1 | Afficher si les locataires sont en **retard** de paiement (info déjà là) **ET en AVANCE** de paiement. | ✨ | ⬜ |
 
 ## D. Compteurs / Charges récupérables
 

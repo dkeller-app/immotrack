@@ -683,7 +683,7 @@ a{color:var(--blu);text-decoration:none}
 .bmp-item.bmp-danger{color:var(--red)}
 .bmp-item.bmp-danger:hover{background:rgba(220,38,38,.08)}
 .bmp-divider{height:1px;background:var(--bor2);margin:4px 0}
-/* v15.398 BUG-LOCATAIRE-UX-PACK — variante flottante : popover ancré au viewport (position:fixed),
+/* v15.405 BUG-LOCATAIRE-UX-PACK — variante flottante : popover ancré au viewport (position:fixed),
    posé sur <body> par _openMenuPopover. Neutralise le top/right de la classe de base (pensée pour
    un parent .bien-card) : sans ça, right:8px + left inline étirait le menu sur toute la largeur. */
 .bien-menu-popover.bmp-float{position:fixed;top:auto;right:auto;left:auto;min-width:220px;z-index:1000}
@@ -8460,6 +8460,7 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .bkr-m{flex:1;min-width:0} .bkr-d{font-size:13.5px;font-weight:600;color:var(--t1)} .bkr-s{font-size:11px;color:var(--t3);margin-top:1px}
 .bkr-tag{font-size:9.5px;font-weight:700;color:var(--grn);background:var(--bg-success);border-radius:5px;padding:2px 6px;margin-left:4px;vertical-align:1px}
 .bkr-empty{text-align:center;padding:22px 12px;color:var(--t3)} .bkr-empty b{display:block;font-size:14px;color:var(--t1);margin:8px 0 3px} .bkr-empty span{font-size:12px}
+.bkr-foot{margin-top:14px;padding-top:12px;border-top:1px solid var(--bor);display:flex;flex-direction:column;gap:7px;align-items:flex-start}
 #bkr-progress{position:fixed;inset:0;background:rgba(15,30,50,.5);z-index:100001;display:flex;align-items:center;justify-content:center}
 .bkr-prog-box{background:var(--sur);border:1px solid var(--bor);border-radius:12px;padding:20px 26px;display:flex;align-items:center;gap:14px;font-size:14px;color:var(--t1);box-shadow:var(--shadow-lg)}
 .bkr-prog-spin{width:24px;height:24px;border:3px solid var(--bor);border-top-color:var(--acc);border-radius:50%;animation:bkr-spin .8s linear infinite;flex-shrink:0}
@@ -8481,6 +8482,14 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 .dep-dl.late{background:var(--bg-danger);border-color:var(--red)}
 .dep-dl b{color:var(--ora)} .dep-dl.late b{color:var(--red)}
 .dep-dl .small{font-size:11.5px;color:var(--t2)}
+/* DEPART-ESTIM Phase B : alerte acompte avant l'EDL */
+.dep-acp{border:1px solid var(--ora);background:var(--bg-warning);border-radius:11px;padding:11px 13px;margin:0 0 14px}
+.dep-acp-h{font-weight:700;font-size:12.5px;color:var(--ora);margin-bottom:8px}
+.dep-acp-l{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;font-variant-numeric:tabular-nums}
+.dep-acp-l.tot{border-top:1px solid var(--ora);margin-top:4px;padding-top:6px;font-weight:700}
+.dep-acp-l .neg{color:var(--red);font-weight:700}
+.dep-acp-rc{font-size:11.5px;color:var(--t1);line-height:1.45;margin-top:8px}
+.dep-acp-ok{font-size:12px;color:var(--grn);font-weight:600;margin-top:8px}
 .dep-steps{position:relative}
 .dep-step{position:relative;padding:12px 0 12px 42px;border-bottom:1px solid var(--bor2)}
 .dep-step:last-child{border-bottom:0}

@@ -420,6 +420,25 @@ export function _bankDedup(newLines, mouvementsExistants, options = {}) {
       }
     }
 
+    // Stratégie 3 — relevé déjà DÉCOUPÉ : la ligne source ne matche aucune part individuelle
+    // (montants différents) et n'a pas d'empreinte (CSV legacy). On détecte que son montant = la
+    // SOMME des parts d'import bancaire du MÊME jour (même compte si connu). Robuste sans empreinte.
+    if (!isDuplicate) {
+      const lineMontant = line.credit > 0 ? line.credit : -line.debit;
+      const acct = line._bankAccountId || null;
+      const parts = (mouvementsExistants || []).filter(m =>
+        m && !m._deleted && m.date === line.date && m._source === 'bank_import' &&
+        (!acct || !m._bankAccountId || m._bankAccountId === acct));
+      if (parts.length >= 2) {
+        const sum = parts.reduce((s, m) => s + ((m.cr || 0) > 0 ? (m.cr || 0) : -(m.db || 0)), 0);
+        if (Math.abs(sum - lineMontant) <= toleranceAmount) {
+          isDuplicate = true;
+          duplicateOf = String(parts[0].id || '?');
+          duplicateReason = 'Relevé déjà importé et découpé (somme des parts du jour)';
+        }
+      }
+    }
+
     out.push({ ...line, isDuplicate, duplicateOf, duplicateReason });
   }
   return out;
