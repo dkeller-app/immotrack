@@ -39,7 +39,7 @@ Légende statut : ⬜ à faire · 🔄 en cours · ✅ livré.
 | C1 | **Mouvements récurrents** (saisie manuelle) + warning « ce mouvement sera récurrent, ne pas réimporter le même ». | ✨ | ⬜ |
 | C2 | **Import des tableaux d'amortissement** de prêt. | ✨ | ⬜ |
 | C3 | **Drill-down d'une ligne du P&L moche** → blocs mensuels + séparateurs. | ✨ UX | ✅ **v15.398** (refonte drill : blocs par mois, sous-total, séparateurs, crédits en vert) |
-| C4 | **Comparer le détail entre 2 mois** dans le drill (diagnostic hausse de charges). | ✨ | ⬜ **mockup validé (écran C)**, reste à coder |
+| C4 | **Comparer 2 mois** (diagnostic hausse de charges). | ✨ | ✅ **v15.413 (mockup A validé)** — bouton « ⇄ Comparer 2 mois » → tableau poste × A × B × écart + cause n°1 + 2 sélecteurs + post-clic drill mois. DRY (`_finMonthly().months` + drill mois-scopé). Reste polish : post-clic côte-à-côte des 2 mois (écran B du mockup). |
 | C5 | **Clic sur une case de mois → drill de CE mois** (pas l'année). | ✨ | ✅ **v15.398** (param `mo` sur `_finDrillLigne`) |
 | C6 | **Drill sur les charges récupérables** (provisions encaissées / récup déboursées). | ✨ | ✅ **v15.398** (kinds `provisions`/`recup`) |
 | C7 | **Note « mvt SCI réparti sur N immeubles »** en vue immeuble (quote-part). | ✨ | ✅ **v15.398** |
