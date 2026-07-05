@@ -48,4 +48,4 @@ Problèmes identifiés :
 
 ## Mockups
 
-- 2026-07-05 : **mockups livrés** `mockups/dashboard-cockpit/index.html` (origin/main 694c23b) — 3 variantes (A file unique triée sections Urgent/Semaine/Planifier · B groupes dépliables toutes catégories · C triage 3 colonnes) × responsive natif, drill « Tout voir » cliquable avec filtres, dataset réaliste 14 actions. **Attente choix user A/B/C.**
+- 2026-07-05 : **mockups livrés** `C:\Users\Did_K\Desktop\Immo\mockups\dashboard-cockpit\index.html` (LOCAL, retire du repo public commit ee0ce30 - decision user 2026-07-05 : mockups jamais sur GitHub) — 3 variantes (A file unique triée sections Urgent/Semaine/Planifier · B groupes dépliables toutes catégories · C triage 3 colonnes) × responsive natif, drill « Tout voir » cliquable avec filtres, dataset réaliste 14 actions. **Attente choix user A/B/C.**

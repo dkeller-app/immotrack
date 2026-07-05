@@ -39,4 +39,4 @@ Vérifier le flag existant « quittance demandée » sur le bail (il existe côt
 
 - Cause A (tronqué) : `scopeLogs.slice(0,8)` l.9760 dans `_renderDashV4Gestionnaire`, pas de scroll interne.
 - Cause B (Quittance rouge) : l.9782 rouge = aucune quittance émise le mois courant ; AUCUN flag « quittance demandée » n existe sur le bail (seul `quittanceAuto`) → à créer (case sur le bail) pour la logique point/–.
-- 2026-07-05 : **mockup livré** dans `mockups/dashboard-cockpit/index.html` (origin/main 694c23b) : table complète scroll interne ~260px, en-têtes collants, intercalaires immeuble, colonne Quit. point vert/rouge/– + légende. Attente validation user (commun aux 3 variantes actions).
+- 2026-07-05 : **mockup livré** dans `C:\Users\Did_K\Desktop\Immo\mockups\dashboard-cockpit\index.html` (LOCAL, retire du repo public commit ee0ce30 - decision user 2026-07-05 : mockups jamais sur GitHub) : table complète scroll interne ~260px, en-têtes collants, intercalaires immeuble, colonne Quit. point vert/rouge/– + légende. Attente validation user (commun aux 3 variantes actions).
