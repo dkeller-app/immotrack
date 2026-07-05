@@ -39,3 +39,13 @@ Problèmes identifiés :
 ## Journal
 
 - 2026-07-02 : sujet créé en session pilotage (triage retours test user). Marqué P1 « prio » par le user.
+
+## Inventaire code réel (2026-07-05, agent Explore)
+
+- Sources : `_computeUnifiedTodo` (l.11922, 8 types, score+sévérité, AUCUNE limite au calcul) · `_TODO_TYPE_META` (l.12597) · `rAlertsSection` (l.13929) = la bannière redondante à fusionner.
+- Limites d affichage : Premium = top 3 GROUPES (slice(0,3) l.8790) · Gestionnaire = 5 items bruts (l.9807) → incohérent, et le « voir tout » (`_openDD(todo-unified)`) existe déjà côté Premium.
+- Parc gestionnaire : `_renderDashV4Gestionnaire` l.9728, `scopeLogs.slice(0,8)` l.9760, pas de scroll interne. Colonne Quit. l.9782 : rouge = aucune quittance émise le mois courant — PAS de flag « quittance demandée » sur le bail (seul `bail.quittanceAuto` existe) → le flag est à créer.
+
+## Mockups
+
+- 2026-07-05 : **mockups livrés** `mockups/dashboard-cockpit/index.html` (origin/main 694c23b) — 3 variantes (A file unique triée sections Urgent/Semaine/Planifier · B groupes dépliables toutes catégories · C triage 3 colonnes) × responsive natif, drill « Tout voir » cliquable avec filtres, dataset réaliste 14 actions. **Attente choix user A/B/C.**
