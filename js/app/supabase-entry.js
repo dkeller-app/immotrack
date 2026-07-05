@@ -544,8 +544,6 @@ async function onLoggedIn(api, overlay, user) {
         isOwner: !!(user && esp && esp.ownerId && user.id === esp.ownerId),
         displayName: _displayNameFromUser(user),
       }
-      // Super-admin bêta (global, ≠ owner d'espace) → contrôle la visibilité de l'écran « Accès bêta ».
-      try { window.__immoIsAdmin = (await window.__immoAdmin.isAppAdmin()) === true } catch (e) { window.__immoIsAdmin = false }
       window.__immoRender()
       _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
