@@ -1,0 +1,2 @@
+
+- 2026-07-06 (audit v15.418, statu quo élargi — à traiter en session dédiée) : les actionFn de _computeUnifiedTodo embarquent des refs user NON échappées injectées dans des attributs onclick (goToAssurances(l.ref)…), et escHtml est insuffisant en contexte JS-dans-attribut (re-décodage avant parsing). Auto-injection tant que mono-user, devient vecteur réel entre associés avec le partage SCI. Sites : _computeUnifiedTodo actionFn (~l.12039+), _gest2ItemHtml, _renderTopBandeauPrio, drills. → à couvrir dans la Phase 2 (migration data-attributes).
