@@ -8548,3 +8548,75 @@ body[data-dash-v4="on"] .v4h-todo-empty {
   display:block;
 }
 @media (max-width:640px){ .edl-thumb{ width:72px; height:72px; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   v15.414 DASH-ACTIONS-REFONTE + BUG-DASH-GESTIONNAIRE-PARC — dashboard
+   Gestionnaire refondu (mockup B validé user 2026-07-05) :
+   parc COMPLET pleine hauteur à gauche (scroll interne, intercalaires immeuble)
+   · droite : Agenda → « À traiter » (pastilles par catégorie dépliables, bulle
+   FIGÉE, scroll interne) → 4 widgets conformité 2×2 ÉPINGLÉS en bas.
+   La page ne déborde jamais (hauteur calée viewport).
+   ═══════════════════════════════════════════════════════════════════════════ */
+body[data-dash-v4="on"] .v4s-gest2{display:flex;flex-direction:column;gap:14px;height:calc(100dvh - 100px);min-height:520px}
+body[data-dash-v4="on"] .v4s-gest2 .v4s-weather-gest{flex-shrink:0;margin-bottom:0}
+body[data-dash-v4="on"] .v4s-gest2-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;min-height:0}
+body[data-dash-v4="on"] .v4s-gest2-parc{display:flex;flex-direction:column;min-width:0;min-height:0}
+body[data-dash-v4="on"] .v4s-gest2-parcwrap{flex:1;min-height:0;overflow-y:auto;border:1px solid var(--bor2);border-radius:8px}
+body[data-dash-v4="on"] .v4s-gest2-parcwrap table{width:100%;border-collapse:collapse}
+body[data-dash-v4="on"] .v4s-gest2-parcwrap thead th{position:sticky;top:0;background:var(--sur2);z-index:2;text-align:left;padding:6px 7px;font:700 9.5px Inter,sans-serif;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bor)}
+body[data-dash-v4="on"] .v4s-gest2-parcwrap tbody td{padding:5px 7px;border-bottom:1px solid var(--bor2);font:500 11.5px Inter,sans-serif;color:var(--t1);white-space:nowrap}
+body[data-dash-v4="on"] .v4s-gest2-parcwrap tbody tr:not(.v4s-gest2-immsep):hover{background:var(--sur2);cursor:pointer}
+body[data-dash-v4="on"] .v4s-gest2-parcwrap td:nth-child(n+3),
+body[data-dash-v4="on"] .v4s-gest2-parcwrap th:nth-child(n+3){text-align:center}
+body[data-dash-v4="on"] .v4s-gest2-immsep td{background:var(--sur3);font:700 10px Inter,sans-serif;padding:3px 8px;color:var(--t2)}
+body[data-dash-v4="on"] .v4s-gest2-right{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
+body[data-dash-v4="on"] .v4s-gest2-right > .v4s-card{flex-shrink:0}
+body[data-dash-v4="on"] .v4s-gest2-conf{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+body[data-dash-v4="on"] .v4s-gest2-conf .v4s-conf-card{min-width:0}
+body[data-dash-v4="on"] .v4s-gest2-actions{height:238px;display:flex;flex-direction:column;overflow:hidden}
+body[data-dash-v4="on"] .v4s-gest2-ah{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+body[data-dash-v4="on"] .v4s-gest2-ah h3{font:700 13.5px Manrope,Inter,sans-serif;color:var(--t1);margin:0}
+body[data-dash-v4="on"] .v4s-gest2-count{background:#fee2e2;color:#991b1b;border-radius:12px;padding:2px 9px;font:700 11px Inter,sans-serif}
+body[data-dash-v4="on"] .v4s-gest2-all{margin-left:auto;background:none;border:none;color:var(--acc);font:700 12px Inter,sans-serif;cursor:pointer}
+body[data-dash-v4="on"] .v4s-gest2-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+body[data-dash-v4="on"] .v4s-gest2-chip{display:flex;align-items:center;gap:6px;border:1.5px solid var(--bor);background:var(--sur);border-radius:16px;padding:4px 10px;cursor:pointer;font:600 11.5px Inter,sans-serif;color:var(--t1)}
+body[data-dash-v4="on"] .v4s-gest2-chip .n{background:var(--sur3);border-radius:9px;padding:0 6px;font:800 10.5px Inter,sans-serif}
+body[data-dash-v4="on"] .v4s-gest2-chip.red{border-color:#fca5a5}
+body[data-dash-v4="on"] .v4s-gest2-chip.red .n{background:#fee2e2;color:#991b1b}
+body[data-dash-v4="on"] .v4s-gest2-chip.ora{border-color:#fcd34d}
+body[data-dash-v4="on"] .v4s-gest2-chip.ora .n{background:#fef3c7;color:#92400e}
+body[data-dash-v4="on"] .v4s-gest2-chip.open{background:var(--t1);color:var(--sur);border-color:var(--t1)}
+body[data-dash-v4="on"] .v4s-gest2-chip.open .n{background:rgba(255,255,255,.22);color:inherit}
+body[data-dash-v4="on"] .v4s-gest2-bbody{border-top:1px dashed var(--bor);padding-top:5px;display:none;flex:1;min-height:0;overflow-y:auto}
+body[data-dash-v4="on"] .v4s-gest2-bbody.open{display:block}
+body[data-dash-v4="on"] .v4s-gest2-row{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+body[data-dash-v4="on"] .v4s-gest2-row:hover{background:var(--sur2);border-color:var(--bor2)}
+body[data-dash-v4="on"] .v4s-gest2-row .ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+body[data-dash-v4="on"] .v4s-gest2-row .ic svg{width:14px;height:14px}
+body[data-dash-v4="on"] .v4s-gest2-row.sev-red .ic{background:#fee2e2;color:#dc2626}
+body[data-dash-v4="on"] .v4s-gest2-row.sev-ora .ic{background:#fef3c7;color:#b45309}
+body[data-dash-v4="on"] .v4s-gest2-row.sev-info .ic{background:#e0f2fe;color:#0369a1}
+body[data-dash-v4="on"] .v4s-gest2-row .tx{min-width:0;flex:1}
+body[data-dash-v4="on"] .v4s-gest2-row .tx b{display:block;font:600 11.5px Inter,sans-serif;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body[data-dash-v4="on"] .v4s-gest2-row .tx s{display:block;text-decoration:none;color:var(--t3);font:400 10px Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body[data-dash-v4="on"] .v4s-gest2-row .go{flex-shrink:0;font:700 10.5px Inter,sans-serif;color:var(--acc);background:rgba(255,90,60,.08);border:none;border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap}
+body[data-dash-v4="on"] .v4s-gest2-pill{display:inline-block;border-radius:9px;padding:1px 7px;font:700 9.5px Inter,sans-serif;white-space:nowrap}
+body[data-dash-v4="on"] .v4s-gest2-pill.pos{background:#dcfce7;color:#166534}
+body[data-dash-v4="on"] .v4s-gest2-pill.neg{background:#fee2e2;color:#991b1b}
+body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
+/* Empilement mobile/tablette étroite */
+@media(max-width:1000px){
+  body[data-dash-v4="on"] .v4s-gest2{height:auto}
+  body[data-dash-v4="on"] .v4s-gest2-grid{grid-template-columns:1fr}
+  body[data-dash-v4="on"] .v4s-gest2-parcwrap{max-height:420px}
+  body[data-dash-v4="on"] .v4s-gest2-actions{height:auto;max-height:340px}
+}
+/* Écrans courts : compacter la colonne droite pour garder les widgets collés en bas */
+@media(max-height:840px) and (min-width:1001px){
+  body[data-dash-v4="on"] .v4s-gest2-actions{height:180px}
+  body[data-dash-v4="on"] .v4s-gest2 .v4s-cal-legend{display:none}
+  body[data-dash-v4="on"] .v4s-gest2-conf .v4s-conf-card{padding:10px 12px}
+  body[data-dash-v4="on"] .v4s-gest2-conf .v4s-conf-val{font-size:16px}
+}
+/* Dark mode : les pastilles sévérité gardent leurs teintes (lisibles sur fond sombre) */
+[data-theme="dark"] body[data-dash-v4="on"] .v4s-gest2-chip.open{background:var(--sur3);color:var(--t1);border-color:var(--bor)}
