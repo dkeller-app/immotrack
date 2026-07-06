@@ -317,10 +317,9 @@ function _fillModal(draft, type, opts, context) {
 
   // Bouton share : visible seulement si Web Share API dispo (mobile principalement)
   const shareBtn = document.getElementById('em-share-btn');
-  if (shareBtn) {
-    const hasShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-    shareBtn.style.display = hasShare ? '' : 'none';
-  }
+  // Toujours visible : sur mobile/Chrome-Edge → partage natif avec PDF joint ; sur les autres PC
+  // → télécharge le PDF + ouvre le mail pré-rempli (cf. _onShare). Dans tous les cas, action utile.
+  if (shareBtn) shareBtn.style.display = '';
 
   // v15.80 EMAIL-SMTP-CONNECT — bouton "Envoyer maintenant" visible si OAuth Gmail OK.
   // Détection : window._driveTokenValid() retourne true → token Drive actif (inclut le
@@ -516,16 +515,17 @@ function _onSendNow(ctx) {
 }
 
 function _onShare(ctx) {
-  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') {
-    showToast('Partage non disponible sur ce navigateur', 'err');
-    return;
-  }
   const v = _readModalValues();
-  const shareData = { title: v.subject, text: v.subject + '\n\n' + v.body };
+  const _log = (channel) => {
+    if (typeof window !== 'undefined' && typeof window._logEmailSent === 'function') {
+      window._logEmailSent(ctx.entityType, ctx.entityId, {
+        type: ctx.type, to: v.to, cc: v.cc, subject: v.subject, status: 'shared', sendChannel: channel
+      });
+    }
+  };
 
-  // Joint le PDF au partage natif (avant : seul le TEXTE partait → PDF jamais attaché, la cause du
-  // « pourquoi le PDF n'est pas joint »). PJ auto-générée : modal._emailCtx.pjAttachments = [{filename,mimeType,base64}].
-  // → le partage propose l'appli mail de l'user (Outlook/Gmail/…) AVEC le PDF déjà attaché, depuis SA boîte.
+  // PJ PDF auto-générée : modal._emailCtx.pjAttachments = [{filename,mimeType,base64}].
+  let file = null;
   try {
     const modalEl = document.getElementById(MODAL_ID);
     const pj = (modalEl && modalEl._emailCtx && Array.isArray(modalEl._emailCtx.pjAttachments)) ? modalEl._emailCtx.pjAttachments[0] : null;
@@ -533,25 +533,46 @@ function _onShare(ctx) {
       const bin = atob(pj.base64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const file = new File([bytes], pj.filename || 'document.pdf', { type: pj.mimeType || 'application/pdf' });
-      if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-        shareData.files = [file];   // supporté (mobile + Chrome/Edge desktop) → PDF joint
-      }
+      file = new File([bytes], pj.filename || 'document.pdf', { type: pj.mimeType || 'application/pdf' });
     }
-  } catch (e) { /* PJ non partageable → on partage au moins le texte */ }
+  } catch (e) { file = null; }
 
-  navigator.share(shareData).then(() => {
-    showToast(shareData.files ? 'Partagé — PDF joint ✓' : 'Partagé ✓', 'ok');
-    closeM(MODAL_ID);
-    if (typeof window !== 'undefined' && typeof window._logEmailSent === 'function') {
-      window._logEmailSent(ctx.entityType, ctx.entityId, {
-        type: ctx.type, to: v.to, cc: v.cc, subject: v.subject,
-        status: 'shared', sendChannel: shareData.files ? 'share-file' : 'share-text'
-      });
-    }
-  }).catch(() => {
-    // Annulation user = silent
-  });
+  const canShareFile = file
+    && typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+    && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+
+  // Cas 1 — téléphone / Chrome-Edge PC : partage natif AVEC le PDF joint (tout automatique).
+  if (canShareFile) {
+    navigator.share({ title: v.subject, text: v.subject + '\n\n' + v.body, files: [file] })
+      .then(() => { showToast('Partagé — PDF joint ✓', 'ok'); closeM(MODAL_ID); _log('share-file'); })
+      .catch(() => { /* annulation = silencieux */ });
+    return;
+  }
+
+  // Cas 2 — autres navigateurs PC (Firefox/Opera/Safari) : la loi du web interdit à un site de joindre
+  // un fichier à un mail. Meilleur substitut : télécharger le PDF + ouvrir le mail pré-rempli → l'user y glisse le PDF.
+  if (file) {
+    try {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) {} }, 4000);
+    } catch (e) { /* download best-effort */ }
+    showToast('PDF téléchargé — glisse-le dans le mail qui s\'ouvre', 'ok', 7000);
+    _log('download+mailto');
+    _onMailto(ctx);   // ouvre le client mail pré-rempli (Outlook…) — l'user y dépose le PDF
+    return;
+  }
+
+  // Cas 3 — aucune PJ : partage texte natif si possible, sinon on ouvre le client mail.
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    navigator.share({ title: v.subject, text: v.subject + '\n\n' + v.body })
+      .then(() => { showToast('Partagé ✓', 'ok'); closeM(MODAL_ID); _log('share-text'); })
+      .catch(() => {});
+  } else {
+    _onMailto(ctx);
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -210,11 +210,12 @@ describe('openEmailModal — pré-remplissage', () => {
     expect(modal._emailCtx.type).toBe('quittance');
   });
 
-  it('bouton share caché si navigator.share absent', () => {
-    // navigator.share volontairement supprimé par beforeEach
+  it('bouton share TOUJOURS visible, même sans navigator.share (repli télécharge + ouvre le mail)', () => {
+    // navigator.share volontairement supprimé par beforeEach. Le bouton reste affiché : _onShare
+    // télécharge alors le PDF et ouvre le client mail pré-rempli (au lieu de masquer l'option).
     openEmailModal('quittance', baseCtx);
     const sb = document.getElementById('em-share-btn');
-    expect(sb.style.display).toBe('none');
+    expect(sb.style.display).toBe('');
   });
 
   it('bouton share visible si navigator.share dispo', () => {
