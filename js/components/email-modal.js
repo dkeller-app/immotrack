@@ -165,7 +165,7 @@ function _ensureModalDom() {
       <div class="m-foot">
         <button class="btn bs" type="button" onclick="closeM('${MODAL_ID}')">Annuler</button>
         <div class="em-foot-secondary">
-          <button class="btn" type="button" onclick="window._emHandleAction('share')" id="em-share-btn" style="display:none">📱 Partager</button>
+          <button class="btn bp" type="button" onclick="window._emHandleAction('share')" id="em-share-btn" style="display:none">📎 Partager (PDF joint)</button>
           <button class="btn" type="button" onclick="window._emHandleAction('copy')">📋 Copier</button>
           <button class="btn" type="button" onclick="window._emHandleAction('mailto')">📧 Client externe</button>
         </div>
@@ -521,15 +521,32 @@ function _onShare(ctx) {
     return;
   }
   const v = _readModalValues();
-  navigator.share({
-    title: v.subject,
-    text: v.subject + '\n\n' + v.body
-  }).then(() => {
-    showToast('Partagé ✓', 'ok');
+  const shareData = { title: v.subject, text: v.subject + '\n\n' + v.body };
+
+  // Joint le PDF au partage natif (avant : seul le TEXTE partait → PDF jamais attaché, la cause du
+  // « pourquoi le PDF n'est pas joint »). PJ auto-générée : modal._emailCtx.pjAttachments = [{filename,mimeType,base64}].
+  // → le partage propose l'appli mail de l'user (Outlook/Gmail/…) AVEC le PDF déjà attaché, depuis SA boîte.
+  try {
+    const modalEl = document.getElementById(MODAL_ID);
+    const pj = (modalEl && modalEl._emailCtx && Array.isArray(modalEl._emailCtx.pjAttachments)) ? modalEl._emailCtx.pjAttachments[0] : null;
+    if (pj && pj.base64) {
+      const bin = atob(pj.base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const file = new File([bytes], pj.filename || 'document.pdf', { type: pj.mimeType || 'application/pdf' });
+      if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+        shareData.files = [file];   // supporté (mobile + Chrome/Edge desktop) → PDF joint
+      }
+    }
+  } catch (e) { /* PJ non partageable → on partage au moins le texte */ }
+
+  navigator.share(shareData).then(() => {
+    showToast(shareData.files ? 'Partagé — PDF joint ✓' : 'Partagé ✓', 'ok');
     closeM(MODAL_ID);
     if (typeof window !== 'undefined' && typeof window._logEmailSent === 'function') {
       window._logEmailSent(ctx.entityType, ctx.entityId, {
-        type: ctx.type, to: v.to, cc: v.cc, subject: v.subject, status: 'shared'
+        type: ctx.type, to: v.to, cc: v.cc, subject: v.subject,
+        status: 'shared', sendChannel: shareData.files ? 'share-file' : 'share-text'
       });
     }
   }).catch(() => {
