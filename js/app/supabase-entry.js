@@ -69,8 +69,21 @@ async function boot() {
   injectStyles()
   const overlay = injectOverlay()
   _liftDriveGate()   // mode cloud : pas de gate Drive (sinon il masque l'overlay de login)
-  const { createClient } = await import(/* @vite-ignore */ CDN)
-  const { createBoot } = await import('./supabase-boot.js')
+  // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — l'import CDN peut échouer (réseau, esm.sh lent,
+  // bloqueur) : avant, boot() mourait en silence (console) et le formulaire restait câblé sur la
+  // soumission native → chaque tentative rechargeait la page. Désormais : erreur VISIBLE + bouton
+  // « Réessayer » propre.
+  let createClient, createBoot
+  try {
+    ;({ createClient } = await import(/* @vite-ignore */ CDN))
+    ;({ createBoot } = await import('./supabase-boot.js'))
+  } catch (e) {
+    console.error('[ImmoSupabase] import CDN/boot :', e)
+    showError(overlay, 'Impossible de charger le service de connexion (réseau ?). Recharge la page pour réessayer.')
+    const btn = overlay.querySelector('#imsb-submit')
+    if (btn) { btn.disabled = false; btn.textContent = 'Recharger la page'; btn.type = 'button'; btn.onclick = () => location.reload() }
+    return
+  }
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
     // AUCUNE session persistée : le mot de passe est redemandé à CHAQUE chargement (décision cutover
     // « re-saisir le mdp à chaque ouverture »). La session vit en mémoire pour le chargement courant
@@ -366,6 +379,19 @@ function wireLoginForm(api, overlay, prefillEmail) {
     showError(overlay, 'Le « mot de passe oublié » nécessite un email (SMTP) à configurer — bientôt. Pour l\'instant, le mot de passe se définit côté dashboard.')
   }
   if (prefillEmail) q('#imsb-email').value = prefillEmail
+  // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — l'utilisateur a cliqué « Se connecter » PENDANT le
+  // chargement (garde d'injectOverlay) : on remet le bouton en état et on REJOUE sa demande
+  // maintenant que le vrai handler est câblé — il n'a pas à re-cliquer.
+  setBusy(overlay, false)
+  if (overlay._pendingSubmit) {
+    overlay._pendingSubmit = false
+    const f = q('#imsb-form')
+    const email = (q('#imsb-email') || {}).value, pass = (q('#imsb-pass') || {}).value
+    if (f && email && pass) {
+      if (typeof f.requestSubmit === 'function') f.requestSubmit()
+      else f.onsubmit(new Event('submit', { cancelable: true }))
+    }
+  }
 }
 
 // ── PARCOURS D'ACCEPTATION D'UNE INVITATION (?invite=<token>) ─────────────────────────────────
@@ -756,6 +782,22 @@ function injectOverlay() {
     </div>
   </div>`
   document.body.appendChild(ov)
+
+  // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — GARDE ANTI-SUBMIT-NATIF. Le formulaire est visible
+  // AVANT que wireLoginForm ait câblé le vrai onsubmit : boot() attend l'import CDN de
+  // supabase-js (plusieurs secondes au 1er chargement à froid). Sans garde, « Se connecter »
+  // (ou Entrée) déclenchait la soumission NATIVE du <form> → rechargement de la page → les
+  // identifiants tapés disparaissaient (« la première connexion échoue »). Ici : on neutralise
+  // le submit, on mémorise l'intention (_pendingSubmit) et on passe le bouton en attente ;
+  // wireLoginForm REJOUE la demande dès qu'il est prêt (l'utilisateur n'a rien à refaire).
+  ov._pendingSubmit = false
+  const _earlyForm = ov.querySelector('#imsb-form')
+  if (_earlyForm) _earlyForm.onsubmit = (e) => {
+    e.preventDefault()
+    ov._pendingSubmit = true
+    const btn = ov.querySelector('#imsb-submit')
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="imsb-spin imsb-spin-sm"></span> Chargement…' }
+  }
 
   // Toggle thème Clair/Sombre — bascule .mode-sombre sur #imsb-overlay, persisté (immo_theme).
   const toggle = ov.querySelector('#imsb-theme')
