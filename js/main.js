@@ -102,6 +102,7 @@ import {
 } from './core/email-compose.js';
 
 import { openEmailModal, _buildMailtoUrl, _emHandleAction } from './components/email-modal.js';
+import { validateNewRef, canRenameLogement, renameLogementRef } from './core/rename-logement.js';
 
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
@@ -380,6 +381,8 @@ window._relayPing = relayPing;
 
 // SAUVEGARDE (Chantier 3) — cœur pur exposé en bloc sous window._bk pour le code inline.
 window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip };
+// RENOMMER UN BIEN — cœur pur exposé pour le code inline (validation + garde-fou + report des 11 rattachements).
+window._renameLogement = { validate: validateNewRef, canRename: canRenameLogement, rename: renameLogementRef };
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
