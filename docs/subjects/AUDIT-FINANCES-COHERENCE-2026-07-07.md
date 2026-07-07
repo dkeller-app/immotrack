@@ -155,6 +155,64 @@ présente deux « charges à récupérer » sans dire que ce sont deux concepts.
 
 ---
 
+## 3bis. Complément 2026-07-08 — statut de paiement dans TOUS les onglets (question user : trop-payé un mois, régularisé un autre)
+
+40. **[IMPORTANT · CONFIRMÉ] Accueil + Tableau de bord en vue MOIS : statut strict, aucun report.**
+    `_computeImpayes` (index 12385-12412) et `_v4ComputeLotStatus` (8284-8357) reçoivent des mouvements
+    filtrés AU MOIS sélectionné (matchMv, 8425-8434) : reçu = encaissé DANS le mois, dû = celui DU mois.
+    Payer 2 mois en janvier et rien en février → février « impayé » FAUX (hero, donut, cartes lots),
+    alors que le locataire est en avance.
+41. **[IMPORTANT · CONFIRMÉ] Tableau de bord vue ANNÉE : les impayés de début d'année sont effacés du dû.**
+    L'attendu annuel démarre au mois du **premier paiement encaissé de l'année** (`_moisDebut`, 8317-8320) :
+    janv-févr impayés puis 1ᵉʳ paiement en mars → l'attendu ne compte que mars→aujourd'hui → les 2 mois
+    réellement impayés disparaissent du statut annuel. Inverse du constat 40 : de VRAIS impayés masqués.
+42. **[IMPORTANT · CONFIRMÉ] Quittances : paiements matchés au MOIS CALENDAIRE strict.**
+    `_statutQuittance` ne compte que les paiements datés du mois de la quittance (`_qaMatcheMois` =
+    `mvt.date.startsWith(ym)`, 26820-26826) → quittance février « impayée J+n » FAUSSE dans le même
+    scénario, et le sur-paiement de janvier (1 310 reçus / 655 attendus) est invisible (statut « payée »
+    sans mention). C'est aussi la page vers laquelle naviguent les clics « impayés » (constat 24).
+43. **[IMPORTANT · CONFIRMÉ] Pilotage « Suivi comptable » : matrice stricte, solde en report — sur la même page.**
+    `_pilEncaisseMois` (44845-44853) = encaissé daté du mois → case février vide/rouge FAUSSE ; à côté,
+    `_pilSoldeLocataire` (44824-44842) cumule sur la vie du bail (report OK, mais loyer ACTUEL rétroactif
+    + mois inclusifs). La même page peut afficher février rouge ET un solde à jour.
+44. **[IMPORTANT · CONFIRMÉ] Régularisation : provisions dues sous-comptées quand 2 mois sont payés en 1 virement.**
+    `computeRegul` compte les MOIS DISTINCTS ayant ≥1 paiement (`_moisSet`, 25488-25503) : 2 loyers payés
+    dans le même virement de janvier → 1 seul mois compté → provisions dues = 1 × ch au lieu de 2 × ch →
+    le « à récupérer » du locataire est GONFLÉ de 1 × ch (widget Finances ET décompte de régul). Le
+    scénario fausse donc AUSSI la régularisation, pas seulement les statuts.
+45. **[IMPORTANT · CONFIRMÉ] Contradiction frontale en début de mois : Accueil/Dashboard affichent
+    0 impayé avant le 10** (tolérance `today.getDate() < 10`, 12392-12393) **pendant que le widget
+    Finances dit « 14 locataires en retard »** (mois entier dû dès le 1ᵉʳ, constat 5). Au 7 juillet :
+    0 impayé sur une page, 12 329,90 € sur l'autre — les deux visibles à 2 clics d'écart.
+
+### Carte des verdicts — scénario « paie 2 mois en janvier, rien en février »
+
+| Surface | Formule | Verdict février |
+|---|---|---|
+| Accueil (donut/hero, vue mois) | `_computeImpayes` mois strict | ✕ impayé FAUX |
+| Tableau de bord (hero + cartes lots, vue mois) | `_v4ComputeLotStatus` mois strict | ✕ impayé FAUX |
+| Tableau de bord (vue année) | attendu depuis le 1ᵉʳ paiement de l'année | ✓ à jour (mais constat 41) |
+| Loyers/Quittances | `_statutQuittance` mois calendaire | ✕ quittance « impayée » FAUSSE |
+| Pilotage — matrice compta | `_pilEncaisseMois` mois strict | ✕ case vide FAUSSE |
+| Pilotage — solde locataire | `_pilSoldeLocataire` cumul bail | ✓ à jour |
+| Suivi des loyers (modale) | `_suiviLoyerStrip` FIFO annuel | ✓✓ CORRECT (février « avance ») |
+| Finances — widget impayé | max(0, Σattendu − Σencaissé) annuel global | ✓ 0 impayé |
+| Finances — compte de résultat | mouvements réels (trésorerie) | ✓ neutre par définition |
+| Régularisation | mois distincts avec paiement × ch | ✕ 1 mois de provisions manquant (constat 44) |
+| Fiche locataire / DG / « 14 locataires » | `_calculerLoyerImpayeCumule` cumul bail | ✓ à jour (biais constat 8) |
+
+**6 formules différentes pour « ce locataire est-il à jour ? » — 5 surfaces sur 11 donnent un verdict
+faux sur ce scénario pourtant banal.**
+
+→ Renforce le Lot 3 : `_suiviLoyerStrip` (pool annuel FIFO + solde par locataire) devient LA source unique
+du statut de paiement : cellules mois Accueil/Dashboard ET matrice Pilotage = `strip.months[mo].cls`
+(report géré), compteurs hero = locataires à solde ≤ −20 (avec UNE règle de tolérance début de mois
+partagée partout), montant widget Finances = Σ soldes négatifs PAR locataire (règle aussi le masquage du
+constat 7), statut quittance dérivé du strip, fiche locataire = solde du strip, régul : provisions dues =
+mois COUVERTS par l'allocation FIFO (pas « mois ayant un paiement »).
+
+---
+
 ## 4. Vérifié SAIN (à ne pas « corriger »)
 
 - **Cohérence interne du tableau** avec les chiffres réels de l'écran : net + solde = réel ✓ (−1 363,78
