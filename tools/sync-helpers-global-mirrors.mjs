@@ -130,6 +130,13 @@ const PAIRS = [
     globalName: 'BuildSignManifest',
     exports: ['buildSignManifest'],
   },
+  {
+    name: 'bail-sign-plan',
+    src: '__tests__/helpers/bail-sign-plan.js',
+    dst: 'js/helpers/bail-sign-plan.global.js',
+    globalName: 'BailSignPlan',
+    exports: ['buildSignaturePlan'],
+  },
 ];
 
 let totalErrors = 0;
