@@ -131,7 +131,14 @@ const PAIRS = [
     exports: ['buildSignManifest'],
   },
   {
-    // v15.424 DRY-FACTORISATION chantier 1 — catalogue canonique des règles d'alertes
+    name: 'bail-sign-plan',
+    src: '__tests__/helpers/bail-sign-plan.js',
+    dst: 'js/helpers/bail-sign-plan.global.js',
+    globalName: 'BailSignPlan',
+    exports: ['buildSignaturePlan'],
+  },
+  {
+    // v15.428 DRY-FACTORISATION chantier 1 — catalogue canonique des règles d'alertes
     // (consommé par _computeUnifiedTodo, rAlertsSection et les widgets legacy).
     name: 'alert-rules',
     src: '__tests__/helpers/alert-rules.js',

@@ -79,6 +79,11 @@ import {
   _computeFinancesMonthly
 } from './core/finances-monthly.js';
 
+// SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
+import {
+  _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _LOYER_TOLERANCE_JOUR
+} from './core/loyer-statut.js';
+
 import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
 } from './core/export-comptable.js';
@@ -97,6 +102,7 @@ import {
 } from './core/email-compose.js';
 
 import { openEmailModal, _buildMailtoUrl, _emHandleAction } from './components/email-modal.js';
+import { validateNewRef, canRenameLogement, renameLogementRef } from './core/rename-logement.js';
 
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
@@ -240,6 +246,13 @@ window._computeFinancesSummary = _computeFinancesSummary;
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;
 
+// SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
+window._computeLoyerStatut = _computeLoyerStatut;
+window._loyerChipVerdict = _loyerChipVerdict;
+window._loyerToleranceActive = _loyerToleranceActive;
+window._loyerTodayLocal = _loyerTodayLocal;
+window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
+
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;
 window._buildGrandLivre = _buildGrandLivre;
@@ -368,6 +381,8 @@ window._relayPing = relayPing;
 
 // SAUVEGARDE (Chantier 3) — cœur pur exposé en bloc sous window._bk pour le code inline.
 window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip };
+// RENOMMER UN BIEN — cœur pur exposé pour le code inline (validation + garde-fou + report des 11 rattachements).
+window._renameLogement = { validate: validateNewRef, canRename: canRenameLogement, rename: renameLogementRef };
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
