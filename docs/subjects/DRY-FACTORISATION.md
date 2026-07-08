@@ -1,6 +1,6 @@
 # DRY-FACTORISATION — Blocs de code écrits plusieurs fois (audit complet 2026-07-06)
 
-**Status** : ⬜ À faire (rapport livré, priorisation user attendue) · **Prio** : P1 (3 divergences = bugs latents) · **Taille** : L (5 chantiers découpables)
+**Status** : 🔄 Chantier 1 ✅ livré v15.428 · chantiers 2-5 à faire · **Prio** : P1 (3 divergences = bugs latents) · **Taille** : L (5 chantiers découpables)
 **Demandé par** : user 2026-07-06 (« audit si tu trouves des blocs de code écrits plusieurs fois et non pas un rappel de bloc »)
 **Base auditée** : Immo-wt-quickwins v15.418+ (agent general-purpose, lignes vérifiées)
 
@@ -31,3 +31,5 @@ Puis 2+4 ensemble (ctx + KPIs), puis 3 (bail), 5 en fil de l'eau.
 ## Journal
 
 - 2026-07-06 : audit livré (agent, 2 passes — la 1re tuée par la limite de session). Rapport complet ci-dessus. Attente priorisation user.
+
+- 2026-07-08 : ✅ **Chantier 1 LIVRÉ v15.428** origin/main (6c16216). Catalogue canonique `__tests__/helpers/alert-rules.js` (6 règles pures, 20 tests dont bornes/tombstones/jour-J) + wrapper généré `js/helpers/alert-rules.global.js` (window.AlertRules, paire ajoutée au sync tool). 3 consommateurs recâblés (_computeUnifiedTodo, rAlertsSection, widgets legacy irl/bail/mrh/regul) → les 3 DIVERGENCES AVÉRÉES sont mortes et verrouillées par tests nommés. + LIBELLÉS anti-jargon (demande user) : « MRH » → « Assurance habitation »/« Ass. hab. » sur ~26 sites UI (PDF bail et onglet Excel MRH_Locataires conservés exprès). Audit code-reviewer PASS (0 bloquant/0 important, 6 mineurs → 3 corrigés avant push : normalisation minuit, libellé RGPD, tests bornes ; consignés : PNO bannière scopée entité, widget régul référé à aujourdhui, sandbox hors périmètre). Restent : chantiers 2+4 (ctx+KPIs dashboard), 3 (formulaire bail), 5 (dismiss popovers).
