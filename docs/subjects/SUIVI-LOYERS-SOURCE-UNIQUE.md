@@ -25,7 +25,7 @@ Décisions gravées :
 
 | Ph | Contenu | Statut |
 |---|---|---|
-| A | **Moteur pur** : extraction de `_suiviLoyerStrip` en module `js/core/loyer-statut.js` (TDD Vitest, résolveurs injectés, zéro accès DB) + verdict pastille (seuils ±20 €) + constante de tolérance + **mémoïsation** par (ref, année, `_dbGen`) dans le wrapper. Zéro changement visuel. | 🔄 |
+| A | **Moteur pur** : extraction de `_suiviLoyerStrip` en module `js/core/loyer-statut.js` (TDD Vitest, résolveurs injectés, zéro accès DB) + verdict pastille (seuils ±20 €) + constante de tolérance + **mémoïsation** par (ref, année, `_dbGen`, jour local) dans le wrapper. Zéro changement visuel. | ✅ v15.425 |
 | B | Accueil + Tableau de bord : donut/hero/cartes lots branchés sur le moteur (cases mois AVEC report, pastilles, tooltip « couvert par avance »), `_computeImpayes` et `_v4ComputeLotStatus` deviennent des façades. Corrige constats 40-41-45. | ⬜ |
 | C | Finances + navigation : widget « Loyers en retard » par locataire (compte = montant, avances à part), tous les clics impayés (Finances, Dashboard, Accueil) → modale Suivi des loyers ; bouton « 📅 Suivi des loyers » ajouté sur l'onglet Loyers/Quittances. Corrige constats 4-9, 22-24. | ⬜ |
 | D | Quittances + Pilotage : `_statutQuittance` dérivé du mois couvert par l'allocation ; matrice compta = cases du Suivi. Corrige constats 42-43. | ⬜ |
@@ -34,3 +34,7 @@ Décisions gravées :
 ## Journal
 
 - 2026-07-08 : sujet créé, direction + mockup validés par user. Phase A démarrée.
+- 2026-07-08 : **Phase A livrée v15.425**. TDD 20 tests verts. Audit code-reviewer PASSANT (parité
+  algorithmique exacte vérifiée ligne à ligne) ; 3 correctifs d'audit appliqués : bump `_dbGen` dans
+  `_backupRestoreApply` (cache non invalidé après restauration cloud — corrige aussi le trou hérité de
+  `_departEstimCache`), date locale au lieu d'UTC (`_loyerTodayLocal`), jour local dans la clé de cache.
