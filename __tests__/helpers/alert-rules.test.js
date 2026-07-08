@@ -116,6 +116,30 @@ describe('regulAEmettre — sémantique canonique (clarif user)', () => {
   })
 })
 
+describe('bornes de jours (fix audit : normalisation à minuit)', () => {
+  const MIDI = new Date('2026-07-06T14:30:00')   // exécution l'après-midi
+  it('échéance du JOUR MÊME = 0 jour (expirante, pas expirée), quelle que soit l heure', () => {
+    const out = mrhEcheances([{ logement: 'A', echeance: '2026-07-06' }], [{ ref: 'A' }], '', MIDI)
+    expect(out[0]).toMatchObject({ jours: 0, expiree: false })
+  })
+  it('borne horizon INCLUSE : 30 j pile signalé, 31 j non', () => {
+    const in30 = mrhEcheances([{ logement: 'A', echeance: '2026-08-05' }], [{ ref: 'A' }], '', MIDI)
+    const in31 = mrhEcheances([{ logement: 'A', echeance: '2026-08-06' }], [{ ref: 'A' }], '', MIDI)
+    expect(in30[0]).toMatchObject({ jours: 30 })
+    expect(in31).toEqual([])
+  })
+  it('échéance invalide → ignorée (pas de NaN)', () => {
+    expect(mrhEcheances([{ logement: 'A', echeance: 'pas-une-date' }], [{ ref: 'A' }], '', MIDI)).toEqual([])
+  })
+  it('tombstones filtrés dans pnoEcheances et regulAEmettre (mouvements)', () => {
+    const pno = pnoEcheances([{ logement: 'A', echeance: '2026-06-01', _deleted: true }], [{ ref: 'A' }], '', MIDI)
+    expect(pno).toEqual([])
+    const logs = [{ ref: 'A', locataire: 'X', ch: 50 }]
+    const mvs = [{ qui: 'A', cat: 'Loyers encaissés', cr: 500, date: '2025-03-05', _deleted: true }]
+    expect(regulAEmettre(logs, mvs, MIDI, c => c === 'Loyers encaissés')).toEqual([])   // loyer N-1 tombstoné = pas loué
+  })
+})
+
 describe('bauxEcheance', () => {
   it('expirés + ≤90 j, triés par urgence', () => {
     const logs = [

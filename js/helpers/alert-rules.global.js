@@ -37,10 +37,16 @@
 
   const alive = x => x && !x._deleted
 
+  // Jours calendaires entre today et une échéance — les DEUX bornes sont normalisées à minuit
+  // (fix audit v15.425 mineur #4 : sans ça, une échéance du jour J n'était « expirée » qu'après
+  // ~midi, selon l'heure d'exécution). Jour J → 0 (expirante, pas expirée) — sémantique du todo.
   const joursEntre = (dateIso, today) => {
-    const d = dateIso instanceof Date ? dateIso : new Date(dateIso)
+    const d = dateIso instanceof Date ? new Date(dateIso.getTime()) : new Date(dateIso)
     if (isNaN(d.getTime())) return null
-    return Math.round((d - today) / 86400000)
+    const t = new Date(today.getTime())
+    d.setHours(0, 0, 0, 0)
+    t.setHours(0, 0, 0, 0)
+    return Math.round((d - t) / 86400000)
   }
 
   /** Assurance habitation locataire MANQUANTE (obligatoire, art. 7g loi 89-462).
