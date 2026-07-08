@@ -55,7 +55,22 @@ export function _computeLoyerStatut(input) {
     months.push({ mi, cls, recu, attendu: ecoule ? round2(due) : 0, due: round2(due) });
   }
   const solde = round2(totalPaid - attenduEcoule);          // + = avance, − = retard
-  return { months, solde, recu: round2(totalPaid), attendu: round2(attenduEcoule), curMo, monthlyFull };
+  return { months, solde, recu: round2(totalPaid), attendu: round2(attenduEcoule), curMo, monthlyFull, year: y };
+}
+
+/**
+ * Solde AJUSTÉ par la règle de tolérance début de mois : tant qu'elle est active,
+ * le dû du mois COURANT est neutralisé (pas encore exigible à l'affichage) — mais les
+ * arriérés des mois précédents restent visibles (contrairement à l'ancien
+ * _computeImpayes qui masquait TOUT avant le 10 — audit constat 45).
+ */
+export function _loyerSoldeAjuste(statut, todayISO) {
+  const s = statut || {};
+  const today = String(todayISO || _loyerTodayLocal());
+  if (!_loyerToleranceActive(today)) return s.solde || 0;
+  if (parseInt(today.slice(0, 4), 10) !== s.year || !s.curMo) return s.solde || 0;
+  const cur = (s.months || [])[s.curMo - 1];
+  return Math.round(((s.solde || 0) + ((cur && cur.attendu) || 0)) * 100) / 100;
 }
 
 /**

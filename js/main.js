@@ -81,7 +81,7 @@ import {
 
 // SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
 import {
-  _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _LOYER_TOLERANCE_JOUR
+  _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _loyerSoldeAjuste, _LOYER_TOLERANCE_JOUR
 } from './core/loyer-statut.js';
 
 import {
@@ -251,6 +251,7 @@ window._computeLoyerStatut = _computeLoyerStatut;
 window._loyerChipVerdict = _loyerChipVerdict;
 window._loyerToleranceActive = _loyerToleranceActive;
 window._loyerTodayLocal = _loyerTodayLocal;
+window._loyerSoldeAjuste = _loyerSoldeAjuste;
 window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre

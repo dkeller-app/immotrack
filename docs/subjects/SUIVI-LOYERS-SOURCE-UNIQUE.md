@@ -26,7 +26,7 @@ Décisions gravées :
 | Ph | Contenu | Statut |
 |---|---|---|
 | A | **Moteur pur** : extraction de `_suiviLoyerStrip` en module `js/core/loyer-statut.js` (TDD Vitest, résolveurs injectés, zéro accès DB) + verdict pastille (seuils ±20 €) + constante de tolérance + **mémoïsation** par (ref, année, `_dbGen`, jour local) dans le wrapper. Zéro changement visuel. | ✅ v15.425 |
-| B | Accueil + Tableau de bord : donut/hero/cartes lots branchés sur le moteur (cases mois AVEC report, pastilles, tooltip « couvert par avance »), `_computeImpayes` et `_v4ComputeLotStatus` deviennent des façades. Corrige constats 40-41-45. | ⬜ |
+| B | Accueil + Tableau de bord : donut/hero/cartes lots branchés sur le moteur (cases mois AVEC report, pastilles, tooltip « couvert par avance »), `_computeImpayes` et `_v4ComputeLotStatus` deviennent des façades. Corrige constats 40-41-45. | ✅ v15.427 |
 | C | Finances + navigation : widget « Loyers en retard » par locataire (compte = montant, avances à part), tous les clics impayés (Finances, Dashboard, Accueil) → modale Suivi des loyers ; bouton « 📅 Suivi des loyers » ajouté sur l'onglet Loyers/Quittances. Corrige constats 4-9, 22-24. | ⬜ |
 | D | Quittances + Pilotage : `_statutQuittance` dérivé du mois couvert par l'allocation ; matrice compta = cases du Suivi. Corrige constats 42-43. | ⬜ |
 | E | Régularisation : provisions dues = mois **couverts** par l'allocation (remplace `_moisSet` « mois ayant un paiement »). **Impact fiscal → audit renforcé.** Corrige constat 44 + C3/C4 de l'audit. | ⬜ |
@@ -38,3 +38,10 @@ Décisions gravées :
   algorithmique exacte vérifiée ligne à ligne) ; 3 correctifs d'audit appliqués : bump `_dbGen` dans
   `_backupRestoreApply` (cache non invalidé après restauration cloud — corrige aussi le trou hérité de
   `_departEstimCache`), date locale au lieu d'UTC (`_loyerTodayLocal`), jour local dans la clé de cache.
+- 2026-07-08 : **Phase B livrée v15.427**. _v4ComputeLotStatus + _computeImpayes + jauge collecte Accueil
+  = façades sur le moteur (report géré, _moisDebut supprimé ×2, tolérance partagée via _loyerSoldeAjuste :
+  seul le mois courant est neutralisé avant le 10, les arriérés restent). Tooltip « couvert par avance ».
+  + _loyerSoldeAjuste (module, 4 tests) + verrou test « régul hors pool loyers » (25 tests module).
+  Décision complémentaire (question user régul) : 2 correctifs à venir — garde-fou import (nom locataire
+  + montant ≠ loyer → ne plus suggérer Loyers ; ≈ solde de régul → « Divers (non déductible) ») + bouton
+  « Marquer le règlement comme reçu » sur le décompte (patron acompte départ).

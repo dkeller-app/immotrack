@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
 import {
   _computeLoyerStatut,
   _loyerChipVerdict,
   _loyerToleranceActive,
   _loyerTodayLocal,
+  _loyerSoldeAjuste,
   _LOYER_TOLERANCE_JOUR
 } from '../../js/core/loyer-statut.js';
 
@@ -152,5 +154,40 @@ describe('tolérance début de mois — LA règle partagée (fin du « 0 impayé
   it('_loyerTodayLocal : ISO local (pas UTC — parité avec l\'ancien getMonth() inline)', () => {
     expect(_loyerTodayLocal(new Date(2026, 0, 1, 0, 30))).toBe('2026-01-01');   // 1er janv 0h30 local
     expect(_loyerTodayLocal(new Date(2026, 6, 8, 23, 59))).toBe('2026-07-08');
+  });
+});
+
+describe('_loyerSoldeAjuste — tolérance = SEUL le mois courant est neutralisé (constat 45)', () => {
+  it('avant le 10 : le loyer du mois courant non payé ne compte pas comme retard', () => {
+    const s = strip({ today: '2026-07-07', totalPaid: 655 * 6 });   // 6 payés / 7 échus (juillet manque)
+    expect(s.solde).toBe(-655);
+    expect(_loyerSoldeAjuste(s, '2026-07-07')).toBe(0);             // juillet neutralisé
+    expect(_loyerChipVerdict(_loyerSoldeAjuste(s, '2026-07-07'), 655).cls).toBe('ajour');
+  });
+  it('avant le 10 : les VRAIS arriérés des mois précédents restent visibles', () => {
+    const s = strip({ today: '2026-07-07', totalPaid: 655 * 5 });   // mai/juin/juillet manquent
+    expect(_loyerSoldeAjuste(s, '2026-07-07')).toBe(-655);          // juillet neutralisé, juin reste
+    expect(_loyerChipVerdict(-655, 655).cls).toBe('retard');
+  });
+  it('à partir du 10 : solde inchangé', () => {
+    const s = strip({ today: '2026-07-15', totalPaid: 655 * 6 });
+    expect(_loyerSoldeAjuste(s, '2026-07-15')).toBe(-655);
+  });
+  it('autre année que celle du statut : solde inchangé (pas de neutralisation rétroactive)', () => {
+    const s = strip({ year: 2025, today: '2026-07-07', totalPaid: 655 * 11 });
+    expect(_loyerSoldeAjuste(s, '2026-07-07')).toBe(s.solde);
+  });
+});
+
+describe('verrou : un règlement de régul ne pollue JAMAIS le pool loyers', () => {
+  it('le wrapper _suiviLoyerStrip filtre par _isLoyerCategory (211 seulement) — un mouvement « Divers (non déductible) » est exclu', () => {
+    const src = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+    const i = src.indexOf('function _suiviLoyerStrip(');
+    expect(i).toBeGreaterThan(0);
+    const body = src.slice(i, src.indexOf('\n}', i));
+    expect(body).toContain('isLoy(m.cat)');                        // le pool ne prend que les loyers 211
+    expect(body).toContain('_computeLoyerStatut');                 // et délègue bien au moteur unique
+    // La catégorie de règlement de régul reste hors 211 (special, ligne vide) :
+    expect(src).toMatch(/nom: 'Divers \(non déductible\)',\s+ligne2044:'',\s+type:'special'/);
   });
 });
