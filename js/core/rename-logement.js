@@ -57,5 +57,16 @@ export function renameLogementRef(db, oldRef, newRef, opts = {}) {
   ;(db.documents || []).forEach(d => { if (d && !d._deleted && d.parentType === 'logement' && (d.parentRef === oldRef || d.logRef === oldRef)) { if (d.parentRef === oldRef) d.parentRef = newRef; if (d.logRef === oldRef) d.logRef = newRef; stamp(d); bump('document') } })
   ;(db.candidats || []).forEach(c => { if (c && !c._deleted && c.logRef === oldRef) { c.logRef = newRef; stamp(c); bump('candidat') } })
 
+  // ── Collections du BLOB config (hors tables : persistées par valeur, mais la ref doit suivre sinon
+  //    les données du bien deviennent injoignables après renommage). Pas de _stamp (le blob sync en entier).
+  if (db.compteursReleves && Object.prototype.hasOwnProperty.call(db.compteursReleves, oldRef)) {
+    db.compteursReleves[newRef] = db.compteursReleves[oldRef]; delete db.compteursReleves[oldRef]; bump('compteursReleves')
+  }
+  if (db.equipements && Object.prototype.hasOwnProperty.call(db.equipements, oldRef)) {
+    db.equipements[newRef] = db.equipements[oldRef]; delete db.equipements[oldRef]; bump('equipements')
+  }
+  ;(db.irlHistorique || []).forEach(h => { if (h && !h._deleted && h.ref === oldRef) { h.ref = newRef; bump('irlHistorique') } })
+  ;(db.candidatLinks || []).forEach(c => { if (c && !c._deleted && c.logRef === oldRef) { c.logRef = newRef; bump('candidatLink') } })
+
   return { ok: true, touched, breakdown }
 }
