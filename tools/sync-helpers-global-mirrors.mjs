@@ -130,6 +130,15 @@ const PAIRS = [
     globalName: 'BuildSignManifest',
     exports: ['buildSignManifest'],
   },
+  {
+    // v15.424 DRY-FACTORISATION chantier 1 — catalogue canonique des règles d'alertes
+    // (consommé par _computeUnifiedTodo, rAlertsSection et les widgets legacy).
+    name: 'alert-rules',
+    src: '__tests__/helpers/alert-rules.js',
+    dst: 'js/helpers/alert-rules.global.js',
+    globalName: 'AlertRules',
+    exports: ['mrhManquante', 'mrhEcheances', 'pnoEcheances', 'irlClassifier', 'regulAEmettre', 'bauxEcheance'],
+  },
 ];
 
 let totalErrors = 0;
