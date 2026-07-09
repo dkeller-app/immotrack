@@ -45,3 +45,7 @@ Décisions gravées :
   Décision complémentaire (question user régul) : 2 correctifs à venir — garde-fou import (nom locataire
   + montant ≠ loyer → ne plus suggérer Loyers ; ≈ solde de régul → « Divers (non déductible) ») + bouton
   « Marquer le règlement comme reçu » sur le décompte (patron acompte départ).
+- 2026-07-09 : audit Phase B PASSANT (constats 40/41/45 confirmés corrigés, perf en gain, forme rétro-compat).
+  Fix B1 appliqué avant push (mois futur = neutre : attendu 0, plus de « impayé » sur un mois non dû, jauge
+  = attendu échu). À acter en Phase C (relevés d'audit) : tolérance sur donut/cartes, libellé hero
+  « arriérés » vs « mois », harmonisation seuil warn mois/année, sémantique items, gauge vs donut (alloué/daté).
