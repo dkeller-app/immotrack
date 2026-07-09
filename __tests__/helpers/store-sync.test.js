@@ -200,6 +200,20 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(rm[0].rec.nom).toBe('SCI A')               // supprime l'ANCIENNE ligne, pas la nouvelle
   })
 
+  it('RENOMMAGE : baux_historique.ref (dérive l\'uuid bailhist) muté EN PLACE → le remove vise l\'ANCIENNE ref (table de PREUVE, pas de doublon)', async () => {
+    const store = mockStore()
+    const db = { entites: [], logements: [], mouvements: [], baux: {}, baux_historique: [{ ref: 'F-1', logement: 'F-1', _archivedAt: '2026-01-01' }] }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()                                // baseline : archive F-1|2026-01-01 synchronisée
+    db.baux_historique[0].ref = 'F-9'          // renommage EN PLACE (renameLogementRef mute .ref)
+    await sync.flush()
+    const up = store.calls.filter(c => c.coll === 'baux_historique' && c.op === 'upsert')
+    const rm = store.calls.filter(c => c.coll === 'baux_historique' && c.op === 'remove')
+    expect(up.map(c => c.rec.ref)).toEqual(['F-9'])   // insère l'archive re-clée
+    expect(rm).toHaveLength(1)
+    expect(rm[0].rec.ref).toBe('F-1')                 // supprime l'ANCIENNE archive (pas F-9)
+  })
+
   it('record créé ET tombstoné avant tout sync (jamais synchronisé vivant) → ignoré (ni upsert ni remove)', async () => {
     const store = mockStore()
     const db = baseDB()
