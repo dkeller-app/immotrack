@@ -6,7 +6,7 @@ import {
   buildComplementShareMessage, shouldAutoPull,
   countUnreadCandidats, nouveauDossierToast,
   majDossierToast, repullDecision, loyerAttenduForLog,
-  PIECES_REQUISES, piecesScoreFromCategories
+  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
@@ -34,6 +34,13 @@ describe('_calculConfiance', () => {
   it('garant compte seulement si nom non vide', () => {
     expect(_calculConfiance({ garant: { nom: '  ' } }, 0)).toBe(0);
     expect(_calculConfiance({ garant: { nom: 'Tante' } }, 0)).toBe(20);
+  });
+  it('garantie Visale (n° de visa) compte comme garant = 20 pts', () => {
+    expect(_calculConfiance({ visale: { visaId: 'V-2026-4827193' } }, 0)).toBe(20);
+    expect(_calculConfiance({ visale: { visaId: '  ' } }, 0)).toBe(0); // visa vide → rien
+  });
+  it('Visale + garant physique = 20 pts (crédité une seule fois)', () => {
+    expect(_calculConfiance({ garant: { nom: 'Papa' }, visale: { visaId: 'V-1' } }, 0)).toBe(20);
   });
   it('pièces complètes (flag déclaratif) = 20 pts quand piecesPts absent', () => {
     expect(_calculConfiance({ piecesCompletes: true }, 0)).toBe(20);
@@ -63,6 +70,22 @@ describe('_calculConfiance', () => {
   it('plafonné à 100', () => {
     const c = { revenus: 99999, contrat: 'CDI', garant: { nom: 'X' }, piecesCompletes: true };
     expect(_calculConfiance(c, 1)).toBe(100);
+  });
+});
+
+describe('candHasGarantie', () => {
+  it('garant physique avec nom → true', () => {
+    expect(candHasGarantie({ garant: { nom: 'Papa' } })).toBe(true);
+    expect(candHasGarantie({ garant: { nom: '  ' } })).toBe(false);
+  });
+  it('garantie Visale avec n° de visa → true', () => {
+    expect(candHasGarantie({ visale: { visaId: 'V-2026-1' } })).toBe(true);
+    expect(candHasGarantie({ visale: { visaId: '' } })).toBe(false);
+    expect(candHasGarantie({ visale: {} })).toBe(false);
+  });
+  it('ni garant ni Visale → false ; entrée nulle → false', () => {
+    expect(candHasGarantie({})).toBe(false);
+    expect(candHasGarantie(null)).toBe(false);
   });
 });
 

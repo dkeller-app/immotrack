@@ -57,6 +57,20 @@ export function piecesScoreFromCategories(categoriesPresentes) {
  * @param {number} [piecesPts] - complétude des pièces 0-20 (documents réels) ; optionnel
  * @returns {number} score entier 0-100
  */
+/**
+ * Le candidat dispose-t-il d'une garantie ? Garant physique (nom renseigné) OU garantie Visale
+ * (caution d'État Action Logement, n° de visa renseigné). Les deux valent le même crédit au score
+ * (une seule fois). Pur — réutilisé par _calculConfiance, _confBreakdown et la fiche.
+ * @param {object} cand
+ * @returns {boolean}
+ */
+export function candHasGarantie(cand) {
+  if (!cand || typeof cand !== 'object') return false;
+  const garant = !!(cand.garant && String(cand.garant.nom || '').trim());
+  const visale = !!(cand.visale && String(cand.visale.visaId || '').trim());
+  return garant || visale;
+}
+
 export function _calculConfiance(cand, loyerHC = 0, piecesPts) {
   if (!cand || typeof cand !== 'object') return 0;
   let score = 0;
@@ -70,7 +84,7 @@ export function _calculConfiance(cand, loyerHC = 0, piecesPts) {
   }
   if (cand.contrat === 'CDI') score += 25;
   else if (cand.contrat === 'CDD') score += 10;
-  if (cand.garant && String(cand.garant.nom || '').trim()) score += 20;
+  if (candHasGarantie(cand)) score += 20;
   if (Number.isFinite(piecesPts)) score += Math.max(0, Math.min(20, piecesPts));
   else if (cand.piecesCompletes) score += 20;
   return Math.min(100, score);
@@ -117,6 +131,7 @@ export function _nouveauCandidat(partial = {}) {
     employeur: partial.employeur || '',
     contrat: partial.contrat || '',
     garant: partial.garant || null,
+    visale: partial.visale || null,
     piecesCompletes: partial.piecesCompletes || false,
     statut: partial.statut || 'recu',
     confianceScore: Number(partial.confianceScore) || 0,

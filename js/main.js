@@ -152,7 +152,7 @@ import {
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
   buildComplementShareMessage, shouldAutoPull, countUnreadCandidats, nouveauDossierToast,
   majDossierToast, repullDecision, loyerAttenduForLog,
-  PIECES_REQUISES, piecesScoreFromCategories
+  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie
 } from './core/candidature.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
@@ -353,6 +353,7 @@ window.PROCEDURE_ETAT = PROCEDURE_ETAT;
 window._calculConfiance = _calculConfiance;
 window.PIECES_REQUISES = PIECES_REQUISES;
 window.piecesScoreFromCategories = piecesScoreFromCategories;
+window.candHasGarantie = candHasGarantie;
 window._candidatVersLocataire = _candidatVersLocataire;
 window._candidatVersGarant = _candidatVersGarant;
 window._nouveauCandidat = _nouveauCandidat;
