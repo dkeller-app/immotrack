@@ -34,6 +34,7 @@
 > | Lot | Sujet | Prio | Taille | Statut |
 > |---|---|---|---|---|
 > | EM-1 | [BUG-SW-CACHE-JS](docs/subjects/BUG-SW-CACHE-JS.md) — fix cache SW (bumper CACHE_VER + network-first pour JS) | **P0** | XS | ✅ Livré v15.85 |
+> | EM-CDN | **FIX-CDN-VENDORED** — libs tierces auto-hébergées (Supabase `esm.sh`→`js/vendor/` au boot + `xlsx` cdnjs→`js/vendor/`) : app cassée chez un client (démo, Windows 11, Chrome/Firefox/Edge identiques : widgets vides + splash géant) car réseau d'entreprise bloquant les CDN externes au runtime. Bloqueur commercialisation SaaS. Suivi : d'autres CDN runtime (fonts Google…) à vendorer pour étanchéité réseau totale. | **P0** | S | ✅ Livré v15.444 (boot `64d2289` push direct + xlsx `14c2539` via file) |
 > | EM-2a | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — refonte HTML modale variant A (FROM bar + PJ card + note légale repliable + footer 2 rangs mobile) | P1 | M | ✅ Livré v15.86 |
 > | EM-2b | [EMAIL-MODAL-UX-REFONTE](docs/subjects/EMAIL-MODAL-UX-REFONTE.md) — PJ PDF auto-générée (quittance + IRL V1.0) | P1 | M | ✅ Livré v15.87 + fix lazy load jsPDF v15.88 |
 > | EM-2c | PJ auto types restants (régul + bail + EDL ent/sort + cautionnement) | P2 | M | ✅ Livré v15.89 (5 nouveaux types) |
