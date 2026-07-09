@@ -507,6 +507,12 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 
 ## ✅ Livré récemment
 
+### EDL-LEGENDE — légende des états N/B/U/M/– dans le PDF de l'état des lieux (2026-07-08, v15.435)
+> **Demande user** : les codes d'état (N/B/U/M/–) apparaissaient en lettres nues dans le PDF EDL, sans clé de lecture. Or l'état conditionne l'**imputation des dégradations** (qui paie) → portée juridique.
+> - **Variante détaillée validée (mockup)** : petit tableau `Code · État · Signification` avec pastilles couleur, inséré **juste avant l'inventaire des pièces** dans `generateEDLPdfNative` (index.html). Reprend la portée juridique : « État d'usage → vétusté normale, **non imputable** » / « Mauvais état → dégradation anormale, **à charge du locataire** ».
+> - **DRY** : réutilise les constantes globales `EDL_ETATS`/`EDL_ABBREV`/`EDL_DESC`/`EDL_COLORS` (source unique, zéro recopie) + helper local `_edlHexRgb` (hex→RGB pour autoTable). Légende **mobilier** laissée telle quelle (barème distinct : U = « Usagé fonctionnel », HS).
+> - **Vérifs** : **audit `superpowers:code-reviewer` SAFE** (didParseCell OK, row.index aligné body, pas de casse de la pagination « 1 pièce/page », légende fidèle aux codes réellement imprimés, DRY confirmé) — 1 mineur corrigé (réserve `newPageIfNeeded` 46→54 pour que la légende ne se coupe jamais en 2 pages). check-inline-js 5/0. **origin/main `c3a0c78`, v15.435.** Reste : test user (générer un EDL et vérifier la légende).
+
 ### RENOMMER-BIEN — renommer la référence d'un logement (cascade complète) (2026-07-07, v15.426)
 > **Demande user** : la réf d'un bien était `readOnly` en édition → impossible de corriger un nom (cas principal : bien vacant fraîchement créé). « Indispensable en utilisation ».
 > - **Module pur `js/core/rename-logement.js`** (exposé `window._renameLogement`) : `validateNewRef` (format 60 max + collision `norm()` tombstones inclus + no-op) · `canRenameLogement` (bloque si bail courant/historique `.signatures.locked||.signedAt` ou EDL signé — immutabilité légale) · `renameLogementRef` valide+garde PUIS reporte. Réutilise le patron cascade de `saveEnt` (comme BUG-ENT-RENAME-CASCADE v14.51), pas une copie.
