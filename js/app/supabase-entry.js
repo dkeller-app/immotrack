@@ -25,7 +25,13 @@ const FLAG = (() => {
   } catch { return false }
 })()
 
-const CDN = 'https://esm.sh/@supabase/supabase-js@2'
+// v15.437 FIX-CDN-VENDORED — client Supabase SELF-HOSTED (même origine github.io), plus de CDN runtime.
+// Avant : import dynamique depuis esm.sh → sur un réseau d'entreprise qui bloque/filtre esm.sh (pare-feu,
+// DNS, proxy), le boot échouait ou traînait pour TOUS les navigateurs → app cassée chez le client (démo).
+// Désormais : fichier vendored `js/vendor/supabase-js-2.110.2.esm.js` (UMD officiel wrappé ESM, exposant
+// { createClient }), servi par github.io comme le reste de l'app → aucune dépendance tierce au chargement.
+// Régénérer : curl UMD `@supabase/supabase-js@<ver>/dist/umd/supabase.js` + wrapper ESM (voir en-tête du fichier).
+const CDN = new URL('../vendor/supabase-js-2.110.2.esm.js', import.meta.url).href
 const COUNTS = [
   ['entites', 'entités'], ['logements', 'logements'], ['baux', 'baux'], ['mouvements', 'mouvements'],
   ['quittances', 'quittances'], ['edl', 'états des lieux'], ['documents', 'documents'],
@@ -69,10 +75,11 @@ async function boot() {
   injectStyles()
   const overlay = injectOverlay()
   _liftDriveGate()   // mode cloud : pas de gate Drive (sinon il masque l'overlay de login)
-  // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — l'import CDN peut échouer (réseau, esm.sh lent,
-  // bloqueur) : avant, boot() mourait en silence (console) et le formulaire restait câblé sur la
-  // soumission native → chaque tentative rechargeait la page. Désormais : erreur VISIBLE + bouton
-  // « Réessayer » propre.
+  // v15.422 BUG-LOGIN-PREMIERE-CONNEXION — l'import du client peut échouer (réseau, fichier absent) :
+  // avant, boot() mourait en silence (console) et le formulaire restait câblé sur la soumission native
+  // → chaque tentative rechargeait la page. Désormais : erreur VISIBLE + bouton « Réessayer » propre.
+  // v15.437 — la source est désormais le fichier vendored MÊME ORIGINE (github.io), plus esm.sh : ce
+  // catch ne se déclenche donc plus sur un blocage CDN d'entreprise, seulement sur un vrai 404/déploiement.
   let createClient, createBoot
   try {
     ;({ createClient } = await import(/* @vite-ignore */ CDN))
