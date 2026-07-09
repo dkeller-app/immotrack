@@ -207,6 +207,12 @@ describe('buildComplementShareMessage', () => {
     expect(m).toContain('RIB');
     expect(m).toContain('votre dossier de location');
   });
+  it('mentionne le RGPD (finalité + conservation 30 j + droits)', () => {
+    const m = buildComplementShareMessage('', 'Studio Foch');
+    expect(m).toMatch(/RGPD/);
+    expect(m).toMatch(/30 jours/);
+    expect(m).toMatch(/rectification/);
+  });
 });
 
 describe('shouldAutoPull', () => {
