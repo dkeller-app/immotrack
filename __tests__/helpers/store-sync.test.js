@@ -172,6 +172,34 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(s.upserts).toEqual([])
   })
 
+  it('RENOMMAGE logement (ref = clé d\'identité, mutée EN PLACE) : le remove vise l\'ANCIENNE ref, pas la nouvelle — sinon l\'ancienne ligne cloud survit = DOUBLON', async () => {
+    const store = mockStore()
+    const db = baseDB()                        // logements: [{ ref: 'F-1', entity: 'SCI A' }]
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()                                // baseline : F-1 synchronisé (uuid dérivé de la ref)
+    db.logements[0].ref = 'F-9'                // renommage EN PLACE (comme renameLogementRef)
+    await sync.flush()
+    const up = store.calls.filter(c => c.coll === 'logements' && c.op === 'upsert')
+    const rm = store.calls.filter(c => c.coll === 'logements' && c.op === 'remove')
+    expect(up.map(c => c.rec.ref)).toEqual(['F-9'])   // insère le nouveau bien
+    expect(rm).toHaveLength(1)
+    expect(rm[0].rec.ref).toBe('F-1')                 // supprime l'ANCIEN (uuid F-1), pas F-9 — cœur du doublon
+  })
+
+  it('RENOMMAGE entité (nom = clé d\'identité, muté EN PLACE) : même garantie — le remove vise l\'ANCIEN nom', async () => {
+    const store = mockStore()
+    const db = baseDB()                        // entites: [{ nom: 'SCI A', immeubles: [] }]
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.entites[0].nom = 'SCI B'                // renommage entité EN PLACE
+    await sync.flush()
+    const up = store.calls.filter(c => c.coll === 'entites' && c.op === 'upsert')
+    const rm = store.calls.filter(c => c.coll === 'entites' && c.op === 'remove')
+    expect(up.map(c => c.rec.nom)).toEqual(['SCI B'])
+    expect(rm).toHaveLength(1)
+    expect(rm[0].rec.nom).toBe('SCI A')               // supprime l'ANCIENNE ligne, pas la nouvelle
+  })
+
   it('record créé ET tombstoné avant tout sync (jamais synchronisé vivant) → ignoré (ni upsert ni remove)', async () => {
     const store = mockStore()
     const db = baseDB()
