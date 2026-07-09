@@ -146,6 +146,15 @@ const PAIRS = [
     globalName: 'AlertRules',
     exports: ['mrhManquante', 'mrhEcheances', 'pnoEcheances', 'irlClassifier', 'regulAEmettre', 'bauxEcheance'],
   },
+  {
+    // v15.429 DRY-FACTORISATION chantier 2+4 — contexte dashboard canonique (scope + matchMv
+    // + mvs/mvsYTD/mvsPrev/refYrMo) + KPIs occupation/totaux, ex-copiés dans rDash/rAccueil/renders.
+    name: 'dash-ctx',
+    src: '__tests__/helpers/dash-ctx.js',
+    dst: 'js/helpers/dash-ctx.global.js',
+    globalName: 'DashCtx',
+    exports: ['makeMatchMv', 'buildDashCtx', 'occupationKpis', 'mvTotals'],
+  },
 ];
 
 let totalErrors = 0;
