@@ -25310,11 +25310,11 @@ function _departRenderStepper(ref){
     if(e && e.du>0){
       const jsref=(ref||'').replace(/'/g,"\\'");
       acp=`<div class="dep-acp"><div class="dep-acp-h">⏰ À anticiper — avant l'état des lieux</div>
-        <div class="dep-acp-l"><span>Charges estimées du locataire</span><span>${fmt(e.est)}</span></div>
+        <div class="dep-acp-l"><span>Charges ${e.estimated?'estimées':'réelles'} du locataire</span><span>${fmt(e.est)}</span></div>
         <div class="dep-acp-l"><span>− Provisions${e.acompte>0?' + acompte reçu':''} versées</span><span>${fmt(e.prov+e.acompte)}</span></div>
         <div class="dep-acp-l tot"><span>= Dû estimé</span><span class="neg">${fmt(e.du)}</span></div>
         ${e.applies20?`<div class="dep-acp-l"><span>Retenue possible sur le dépôt (20 %)</span><span>${fmt(e.couvertDG)}</span></div><div class="dep-acp-l"><span>Reste non couvert par le dépôt</span><span class="neg">${fmt(e.reste)}</span></div>`:''}
-        <div class="dep-acp-rc">💡 Le locataire est encore présent → demande-lui un <b>acompte de ${fmt(e.du)}</b> (le dû estimé), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
+        <div class="dep-acp-rc">💡 Le locataire est encore présent → demande-lui un <b>acompte de ${fmt(e.du)}</b> (le dû${e.estimated?' estimé':''}), imputé sur le décompte final. ${e.reste>0?`Sinon ~${fmt(e.reste)} resteraient non couverts par le dépôt après son départ.`:'Ça évite de retenir sur le dépôt (restitution plus rapide).'}</div>
         ${e.acompte>0?`<div class="dep-acp-ok">✓ Acompte déjà reçu : ${fmt(e.acompte)} (imputé sur le décompte)</div>`:''}
         ${d.acompteDemande
           ? `<div class="dep-acp-ok">✓ Acompte de ${fmt(d.acompteDemande.montant)} demandé le ${fd(d.acompteDemande.at)}${(Math.abs((d.acompteDemande.montant||0)-e.du)>1)?` <span style="color:var(--ora)">— estimation actuelle : ${fmt(e.du)}</span>`:''}</div>
@@ -25366,19 +25366,26 @@ function _departEstimDu(bail){
   // Restauration HORS try → l'invariant tient même si _rgClotureCompute throw.
   let c=null; try{ c=_rgClotureCompute(bail.ref); }catch(e){ if(window.console) console.warn('[_departEstimDu]', e); }
   window._regulFrom=_sf; window._regulTo=_st;
-  if(!c || !c.estimated){ _departEstimCache.set(_ck, null); return null; }
-  const occStart = (bail.debut && bail.debut > winFrom) ? bail.debut : winFrom;
-  const occEnd = (d.dateSortie < winTo) ? d.dateSortie : winTo;
-  const days = (a,b)=>Math.max(0, Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000)+1);
-  const occ = days(occStart, occEnd);
-  const est = Math.round(c.baseN1 * (occ/c.winDays) * 100)/100;
-  // Phase C : acompte déjà reçu — dérivé des mouvements par _rgClotureCompute (même fenêtre exercice).
-  const acompte = c.acompte || 0;
-  const solde = Math.round((c.prov + acompte - est)*100)/100; // + = trop-perçu ; - = dû
+  if(!c){ _departEstimCache.set(_ck, null); return null; }
+  const acompte = c.acompte || 0; // Phase C : acompte déjà reçu, dérivé des mouvements par _rgClotureCompute
+  let est, solde, occ;
+  if(c.estimated){
+    // historique N-1 dispo → estimation proratisée à la SORTIE PLANIFIÉE
+    const occStart = (bail.debut && bail.debut > winFrom) ? bail.debut : winFrom;
+    const occEnd = (d.dateSortie < winTo) ? d.dateSortie : winTo;
+    const days = (a,b)=>Math.max(0, Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000)+1);
+    occ = days(occStart, occEnd);
+    est = Math.round(c.baseN1 * (occ/c.winDays) * 100)/100;
+    solde = Math.round((c.prov + acompte - est)*100)/100; // + = trop-perçu ; - = dû
+  } else {
+    // pas d'historique N-1 → on retombe sur les charges RÉELLES déjà imputées (comme le panneau clôture),
+    // pour ne PAS masquer un dû réel du partant. `c.solde` est déjà net de l'acompte.
+    est = c.real; solde = c.solde; occ = c.occN;
+  }
   const du = solde<0 ? -solde : 0;
   const couvertDG = c.reg.applies20 ? Math.min(du, c.max20) : 0;
   const reste = Math.round((du - couvertDG)*100)/100;
-  const _res = { est, prov:c.prov, acompte, solde, du, dg:c.dg, max20:c.max20, applies20:c.reg.applies20, couvertDG, reste, occ, winDays:c.winDays };
+  const _res = { est, prov:c.prov, acompte, solde, du, dg:c.dg, max20:c.max20, applies20:c.reg.applies20, couvertDG, reste, occ, winDays:c.winDays, estimated:c.estimated };
   _departEstimCache.set(_ck, _res);
   return _res;
 }
