@@ -31,19 +31,30 @@ const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // Collections poussées vers des TABLES, ORDONNÉES parent→enfant (la ligne parente doit exister
 // côté Postgres avant l'insert d'un enfant : FK composite (parent_id, espace_id)).
 const COLLECTIONS = [
-  { coll: 'entites',         enumerate: db => db.entites || [],                         key: r => norm(r.nom) },
+  // SPREAD DÉFENSIF (comme immeubles/baux) : la clé d'identité (nom) dérive l'uuid de ligne. `saveEnt`
+  // renomme aujourd'hui par REMPLACEMENT d'objet (DB.entites[i]=ent) → l'entité n'a jamais souffert du
+  // doublon. Mais la copie fige l'identité au seed et immunise contre une future mutation en place (même
+  // classe de bug que logements/baux_historique ci-dessous). Invariant homogène sur toutes les collections
+  // à clé naturelle mutable. Voir le contrat verrouillé par store-sync.test.js (renommage entité).
+  { coll: 'entites',         enumerate: db => (db.entites || []).map(e => ({ ...e })),   key: r => norm(r.nom) },
   // immeubles IMBRIQUÉS : héritent de la suppression du parent (nesting = appartenance structurelle).
   // delEnt tombstone l'entité mais préserve ses immeubles SANS `_deleted` → sans cette propagation,
   // l'immeuble partirait en upsert = ligne zombie vivante sous une entité supprimée. Robuste quel que
   // soit le chemin de suppression de l'app (défense en profondeur, indépendant de delEnt).
   { coll: 'immeubles',       enumerate: db => (db.entites || []).flatMap(e => (Array.isArray(e.immeubles) ? e.immeubles : []).map(im => ({ ...im, __entiteNom: e.nom, _deleted: !!(im && im._deleted) || !!(e && e._deleted) }))), key: r => norm(r.nom) },
-  { coll: 'logements',       enumerate: db => db.logements || [],                       key: r => norm(r.ref) },
+  // ⚠️ SPREAD OBLIGATOIRE (idem entites) : la ref dérive l'uuid, et RENOMMER-BIEN mute logement.ref EN
+  // PLACE. Sans copie → baseline rétro-corrompu → remove vise le nouvel uuid → ANCIEN bien cloud survit =
+  // DOUBLON (bug observé v15.435). La copie au seed fige l'identité de suppression.
+  { coll: 'logements',       enumerate: db => (db.logements || []).map(l => ({ ...l })), key: r => norm(r.ref) },
   // VERROU LÉGAL : `immutable` = un bail signé verrouillé. S'il est DÉJÀ verrouillé au baseline (déjà
   // synchronisé locked), le moteur ne le ré-upserte/supprime JAMAIS (le trigger DB refuserait → conflit).
   { coll: 'baux',            enumerate: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, ...v })), key: r => norm(r.__key), immutable: r => !!(r && r.signatures && r.signatures.locked) },
   // ⚠️ clé = identité EXACTE du mapping (store-mapping baux_historique : detUuid('bailhist', ref + '|' + _archivedAt)).
   //    Keyer par `id` (non unique sur un log d'archive) regrouperait deux archives distinctes → perte silencieuse.
-  { coll: 'baux_historique', enumerate: db => db.baux_historique || [],                 key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') },
+  // ⚠️ SPREAD OBLIGATOIRE (audit BUG-RENAME-CLOUD-DUP) : `ref` (mutée EN PLACE par renameLogementRef) dérive
+  //    l'uuid. Sans copie → même doublon que logements, ici dans une table à valeur de PREUVE. Renommer un bien
+  //    dont l'historique n'est pas signé (= la population renommable) dupliquerait la ligne d'archive. La copie fige.
+  { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') },
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
   // document doit exister avant l'insert d'un mouvement qui la référence). documents.parent_id est
   // polymorphe SANS FK dure → peut précéder ses parents sans violation. (Aligné sur l'ETL import.mjs.)
