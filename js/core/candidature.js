@@ -17,6 +17,7 @@ export function buildComplementShareMessage(note, bienLabel) {
     + 'Merci de compléter ' + cible + '.\n\n'
     + (manque ? ('Élément(s) à compléter : ' + manque + '\n\n') : '')
     + 'Votre dépôt précédent est conservé : reprenez simplement le dépôt via votre lien sécurisé ci-dessous.\n\n'
+    + 'Conformément au RGPD, vos données ne sont utilisées que pour l\'étude de votre candidature, ne sont communiquées qu\'au propriétaire, et sont supprimées sous 30 jours si votre dossier n\'est pas retenu (droits d\'accès, de rectification et de suppression sur simple demande).\n\n'
     + 'Bien cordialement.';
 }
 
