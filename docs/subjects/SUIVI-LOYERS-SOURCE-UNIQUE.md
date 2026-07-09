@@ -49,3 +49,13 @@ Décisions gravées :
   Fix B1 appliqué avant push (mois futur = neutre : attendu 0, plus de « impayé » sur un mois non dû, jauge
   = attendu échu). À acter en Phase C (relevés d'audit) : tolérance sur donut/cartes, libellé hero
   « arriérés » vs « mois », harmonisation seuil warn mois/année, sémantique items, gauge vs donut (alloué/daté).
+
+## Phase D-matrice — Pilotage « Suivi comptable » (design validé user 2026-07-09, mockups pilotage_matrice_complete + pilotage_avance)
+- Cases = allocation du moteur (report géré), **fenêtre décalée pour inclure 1 mois à venir** (M-2..M+1)
+  → une avance sur un mois futur est visible en bleu « ↑ payé d'avance ».
+- **Dû du bail de l'époque** (IRL + prorata entrée) via `_getActiveBailHcChProrated` — plus de faux « ~ partiel ».
+- **Cumul signé ±** = total encaissé − dû échu, **borné à `max(bail.debut, début du suivi)`** (début du suivi =
+  1er mouvement de la base) → tue le −63 050 € fantôme SANS masquer les arriérés réels post-suivi (≠ `_moisDebut`).
+  Nouveau helper pur `_computeLoyerCumul` (TDD). Chip = `_loyerChipVerdict(cumul)` (avance bleu / retard rouge / à jour vert).
+- **DG « non suivi »** quand aucun versement DG enregistré (au lieu du 0,00 € rouge).
+- Langage visuel = Suivi des loyers (cohérent Phase B).
