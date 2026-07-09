@@ -31,13 +31,20 @@ const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // Collections poussées vers des TABLES, ORDONNÉES parent→enfant (la ligne parente doit exister
 // côté Postgres avant l'insert d'un enfant : FK composite (parent_id, espace_id)).
 const COLLECTIONS = [
-  { coll: 'entites',         enumerate: db => db.entites || [],                         key: r => norm(r.nom) },
+  // ⚠️ SPREAD OBLIGATOIRE (comme immeubles/baux) : la clé d'identité (nom) dérive l'uuid de ligne, et
+  // l'app RENOMME EN PLACE (saveEnt mute entite.nom). Sans copie, le baseline partagerait l'objet vivant
+  // → au renommage, le rec du baseline serait rétro-corrompu → le remove viserait le NOUVEAU uuid au lieu
+  // de l'ANCIEN → l'ancienne ligne cloud survivrait = DOUBLON. La copie fige l'identité au seed.
+  { coll: 'entites',         enumerate: db => (db.entites || []).map(e => ({ ...e })),   key: r => norm(r.nom) },
   // immeubles IMBRIQUÉS : héritent de la suppression du parent (nesting = appartenance structurelle).
   // delEnt tombstone l'entité mais préserve ses immeubles SANS `_deleted` → sans cette propagation,
   // l'immeuble partirait en upsert = ligne zombie vivante sous une entité supprimée. Robuste quel que
   // soit le chemin de suppression de l'app (défense en profondeur, indépendant de delEnt).
   { coll: 'immeubles',       enumerate: db => (db.entites || []).flatMap(e => (Array.isArray(e.immeubles) ? e.immeubles : []).map(im => ({ ...im, __entiteNom: e.nom, _deleted: !!(im && im._deleted) || !!(e && e._deleted) }))), key: r => norm(r.nom) },
-  { coll: 'logements',       enumerate: db => db.logements || [],                       key: r => norm(r.ref) },
+  // ⚠️ SPREAD OBLIGATOIRE (idem entites) : la ref dérive l'uuid, et RENOMMER-BIEN mute logement.ref EN
+  // PLACE. Sans copie → baseline rétro-corrompu → remove vise le nouvel uuid → ANCIEN bien cloud survit =
+  // DOUBLON (bug observé v15.435). La copie au seed fige l'identité de suppression.
+  { coll: 'logements',       enumerate: db => (db.logements || []).map(l => ({ ...l })), key: r => norm(r.ref) },
   // VERROU LÉGAL : `immutable` = un bail signé verrouillé. S'il est DÉJÀ verrouillé au baseline (déjà
   // synchronisé locked), le moteur ne le ré-upserte/supprime JAMAIS (le trigger DB refuserait → conflit).
   { coll: 'baux',            enumerate: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, ...v })), key: r => norm(r.__key), immutable: r => !!(r && r.signatures && r.signatures.locked) },
