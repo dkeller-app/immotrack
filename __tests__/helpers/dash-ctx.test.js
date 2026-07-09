@@ -68,6 +68,11 @@ describe('occupationKpis', () => {
     const k = occupationKpis([{ locataire: 'X' }, { locataire: '' }, { locataire: 'Y' }, { locataire: null }])
     expect(k).toMatchObject({ nbTotal: 4, nbOcc: 2, nbVacants: 2, pctOcc: 50 })
   })
+  it('occupied est un TABLEAU des occupés (contrat de type — consommé par occupied[0] dans Solo)', () => {
+    const k = occupationKpis([{ ref: 'X', locataire: 'A' }, { ref: 'Y', locataire: '' }])
+    expect(Array.isArray(k.occupied)).toBe(true)
+    expect(k.occupied.map(l => l.ref)).toEqual(['X'])
+  })
   it('parc vide → 0 % (pas de division par zéro)', () => {
     expect(occupationKpis([])).toMatchObject({ nbTotal: 0, nbOcc: 0, nbVacants: 0, pctOcc: 0 })
   })
