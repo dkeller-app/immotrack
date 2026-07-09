@@ -1,6 +1,6 @@
 # DRY-FACTORISATION — Blocs de code écrits plusieurs fois (audit complet 2026-07-06)
 
-**Status** : 🔄 Chantier 1 ✅ livré v15.428 · chantiers 2-5 à faire · **Prio** : P1 (3 divergences = bugs latents) · **Taille** : L (5 chantiers découpables)
+**Status** : 🔄 Chantiers 1+2+4+5 ✅ livrés (v15.428→442) · reste chantier 3 (bail, session dédiée) · **Prio** : P1 (3 divergences = bugs latents) · **Taille** : L (5 chantiers découpables)
 **Demandé par** : user 2026-07-06 (« audit si tu trouves des blocs de code écrits plusieurs fois et non pas un rappel de bloc »)
 **Base auditée** : Immo-wt-quickwins v15.418+ (agent general-purpose, lignes vérifiées)
 
@@ -37,3 +37,11 @@ Puis 2+4 ensemble (ctx + KPIs), puis 3 (bail), 5 en fil de l'eau.
 - 2026-07-09 : ✅ **Chantiers 2+4 LIVRÉS v15.432** origin/main (0f33620). Module canonique `__tests__/helpers/dash-ctx.js` (buildDashCtx + makeMatchMv + occupationKpis + mvTotals, 13 tests) + wrapper `js/helpers/dash-ctx.global.js` (window.DashCtx). Chantier 2 : bloc ctx (scope+matchMv+mvs/mvsYTD/mvsPrev, 28 lignes byte-identiques) recâblé dans rDash + rAccueil → 0 `const matchMv` dupliqué. Chantier 4 : occupationKpis (6 sites) + mvTotals (4 sites) → 0 `nbVacants = Math.max` dupliqué. Audit code-reviewer PASS, RIEN à corriger (équivalence exacte confirmée, aucun orphelin, 6 points adversariaux vérifiés). Gates check-inline-js 5/0, Vitest 1826 verts, vérif navigateur 3 modes+Accueil (occupation 67%, 0 erreur console). **Restent : chantier 3 (formulaire bail, 5 listes de champs), chantier 5 (dismiss popovers).**
 
 - 2026-07-09 : ✅ **Chantiers 2+4 LIVRÉS v15.438** origin/main (67c92b5). Module `__tests__/helpers/dash-ctx.js` (buildDashCtx/makeMatchMv/occupationKpis/mvTotals, 14 tests) + wrapper `js/helpers/dash-ctx.global.js` (window.DashCtx). Chantier 2 : le bloc scope+matchMv+mvs/mvsYTD/mvsPrev/refYrMo (copié-collé quasi byte-identique rDash↔rAccueil) → source unique ; withPrev pour rDash (deltas), pas pour rAccueil. Chantier 4 : KPIs occupation (6 renders) + totaux mvs (4 renders) factorisés. Audit code-reviewer PASS (0 bloquant/0 important, équivalence prouvée site par site ; 2 suggestions appliquées : dernier îlot _renderAccueil recâblé + test contrat de type occupied=tableau). Vérif navigateur : les 4 rendus (Premium/Solo/Gestionnaire/Accueil) OK sans erreur, chiffres corrects. **Restent chantiers 3 (formulaire bail — 5 listes de champs, RISQUÉ car touche le highlight signature légale → session dédiée stable) et 5 (dismiss popovers, petit).**
+
+- 2026-07-09 : ✅ **Chantiers 2+4 LIVRÉS v15.440** origin/main + ✅ **Chantier 5 LIVRÉ v15.442**.
+  - **Chantier 2 (contexte dashboard)** : module `dash-ctx.js` (`buildDashCtx` + `makeMatchMv`, 14 tests) → le bloc scope+matchMv+mvs/mvsYTD/mvsPrev/refYrMo copié-collé entre rDash et rAccueil devient un appel unique. Audit code-reviewer **PASS, équivalence byte-pour-byte vérifiée** (0 bloquant).
+  - **Chantier 4 (KPIs)** : `occupationKpis` (nbTotal/nbOcc/nbVacants/pctOcc + `occupied` tableau, contrat de type verrouillé par test) recâblé dans les 6 renders ; `mvTotals` (6 reduces) dans 3 renders.
+  - **Chantier 5 (popovers)** : helper `_bindPopoverDismiss({safe, onClose, escGuard, refocus})` → dismiss clic-hors + Échap commun au menu Compte sidebar et aux filtres/tri Biens (comportement préservé, vérif navigateur OK).
+  - Restes non bloquants signalés par l'audit (futur passage) : `_buildOccDrill` calcule encore l'occupation localement ; const `occupied` morte dans `_renderDashV4Gestionnaire`.
+
+- **RESTE : chantier 3 (formulaire bail — 5 listes de champs parallèles)**. DÉLIBÉRÉMENT reporté à une session dédiée STABLE : c'est le plus risqué (touche `_BAIL_FIELD_MAP` qui pilote le highlight « modifié depuis signature » = zone légale), et les sessions ont été instables (interruptions/erreurs API répétées). Ne PAS l'attaquer en fin de session.
