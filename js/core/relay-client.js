@@ -67,6 +67,9 @@ export function _relayDossierVersCandidat(result, ctx = {}) {
     garant: g && String(g.nom || '').trim()
       ? { nom: g.nom || '', adresse: g.adresse || '', ddn: g.ddn || '', lieu: g.lieuNaiss || g.lieu || '' }
       : null,
+    visale: d.visale && String(d.visale.visaId || '').trim()
+      ? { visaId: String(d.visale.visaId).trim() }
+      : null,
     piecesCompletes: false,
     dateCreation: (result && result.submittedAt) || new Date().toISOString()
   };

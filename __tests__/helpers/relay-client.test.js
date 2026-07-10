@@ -73,6 +73,14 @@ describe('_relayDossierVersCandidat', () => {
     const c2 = _relayDossierVersCandidat({ dossier: { garant: null } }, {});
     expect(c2.garant).toBeNull();
   });
+  it('mappe la garantie Visale (n° de visa, trimé)', () => {
+    const c2 = _relayDossierVersCandidat({ dossier: { identite:{}, visale: { visaId: '  V-2026-4827193 ' } } }, {});
+    expect(c2.visale).toEqual({ visaId: 'V-2026-4827193' });
+  });
+  it('Visale absent ou n° vide → null', () => {
+    expect(_relayDossierVersCandidat({ dossier: { identite:{} } }, {}).visale).toBeNull();
+    expect(_relayDossierVersCandidat({ dossier: { identite:{}, visale: { visaId: '  ' } } }, {}).visale).toBeNull();
+  });
 });
 
 describe('réseau (fetch injecté)', () => {
