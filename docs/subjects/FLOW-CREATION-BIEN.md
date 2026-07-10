@@ -1,6 +1,6 @@
 # FLOW-CREATION-BIEN — Fil rouge guidé de création bailleur → immeuble → logement (avec import acte de vente)
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : L (mockup-first)
+**Status** : 🔀 Fusionné dans FIL-ROUGE-CREATION-BIEN (spec 2026-07-09) — voir mockup, attente validation user · **Prio** : P1 · **Taille** : L (mockup-first)
 **Détecté** : 2026-07-02 (user, test app réelle)
 **Lié à** : NAV-BIENS-SIMPLIFICATION (même chantier Biens), LOG-CANDIDATS (pattern wizard existant), wizard Bail Phase 2 (pattern step-by-step existant), IA-V2 (OCR — V2, pas ici)
 
@@ -35,3 +35,5 @@ Aujourd'hui la création se fait en pièces détachées (créer entité, puis im
 ## Journal
 
 - 2026-07-02 : sujet créé en session pilotage (triage retours test user). Même chantier que NAV-BIENS-SIMPLIFICATION → à traiter dans la même session de design.
+
+- 2026-07-09 : 🔀 **FUSIONNÉ** dans la spec consolidée `docs/superpowers/specs/2026-07-09-fil-rouge-creation-bien-design.md` + mockup local `C:\Users\Did_K\Desktop\Immo\mockupsil-rouge-creation-bien\index.html`. Décisions brainstorm : coquille wizard plein écran unique + registre extensible ; parcours = bailleur→immeuble→logement (« bien prêt ») + relais optionnel vers le wizard Bail existant. Ce sujet ne vit plus seul → suivre la spec consolidée.
