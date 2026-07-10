@@ -65,3 +65,9 @@ Décisions gravées :
   Fenêtre M-2..M+1 (avance visible en bleu sur le mois à venir), dû du bail de l’époque, cumul borné
   (fin du −63 050 € fantôme), DG « non suivi ». Vérifié preview : bail 2018 suivi 2026-01 → cumul 0 ;
   avance → +655 + mois à venir bleu ; DG non suivi. 34 tests module verts. Reste `_statutQuittance` (Phase D-quittances).
+- 2026-07-09 : **audit Phase D-matrice PASSANT** (fantôme tué, faux partiels tués, 0 consommateur cassé,
+  3 rouges orthogonaux confirmés). 3 correctifs appliqués → **v15.451** : (bug 1) `_pilCumulLocataire`
+  `totalPaid` sans borne haute → une avance datée d'un mois futur compte, chip et case M+1 concordent ;
+  (risque 2) DG « non suivi » seulement si le bail est antérieur au suivi, sinon DG dû-non-versé sur bail
+  récent = alerte `⚠ 0 / X` (visible aussi dans le filtre dg_incomplet) ; (risque 3/perf) mémoïsation du
+  cumul par (ref, `_dbGen`, jour) → plus de recalcul à chaque coche. Vérifié preview (3 scénarios).
