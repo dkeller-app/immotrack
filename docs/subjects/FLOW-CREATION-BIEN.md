@@ -36,4 +36,4 @@ Aujourd'hui la création se fait en pièces détachées (créer entité, puis im
 
 - 2026-07-02 : sujet créé en session pilotage (triage retours test user). Même chantier que NAV-BIENS-SIMPLIFICATION → à traiter dans la même session de design.
 
-- 2026-07-09 : 🔀 **FUSIONNÉ** dans la spec consolidée `docs/superpowers/specs/2026-07-09-fil-rouge-creation-bien-design.md` + mockup local `C:\Users\Did_K\Desktop\Immo\mockupsil-rouge-creation-bien\index.html`. Décisions brainstorm : coquille wizard plein écran unique + registre extensible ; parcours = bailleur→immeuble→logement (« bien prêt ») + relais optionnel vers le wizard Bail existant. Ce sujet ne vit plus seul → suivre la spec consolidée.
+- 2026-07-09 : 🔀 **FUSIONNÉ** dans la spec consolidée `docs/superpowers/specs/2026-07-09-fil-rouge-creation-bien-design.md` + mockup local `C:\Users\Did_K\Desktop\Immo\mockups/fil-rouge-creation-bien/index.html`. Décisions brainstorm : coquille wizard plein écran unique + registre extensible ; parcours = bailleur→immeuble→logement (« bien prêt ») + relais optionnel vers le wizard Bail existant. Ce sujet ne vit plus seul → suivre la spec consolidée.
