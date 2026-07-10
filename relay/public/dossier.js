@@ -20,7 +20,7 @@ const CATS = [
   { key:'ressources', req:true,  title:'Justificatif de ressources', big:"Dernier avis d'imposition",                          small:'PDF de préférence' },
   { key:'garant',     req:false, title:'Pièces du garant',           big:'Identité + ressources du garant',                    small:'Si vous avez indiqué un garant' }
 ];
-const STEP_LABELS = ['Identité', 'Situation', 'Garant', 'Pièces'];
+const STEP_LABELS = ['Identité', 'Situation', 'Garantie', 'Pièces'];
 
 // ── État ─────────────────────────────────────────────────────────────────
 const dossier = normalizeDossier(CAND.dossier);
@@ -34,7 +34,8 @@ function normalizeDossier(d) {
   return {
     identite: Object.assign({ civilite:'M.', nom:'', prenom:'', ddn:'', lieuNaiss:'', tel:'', email:'', adresseActuelle:'' }, d.identite),
     situation: Object.assign({ contrat:'CDI', employeur:'', revenus:'' }, d.situation),
-    garant: d.garant ? Object.assign({ nom:'', adresse:'', ddn:'', lieuNaiss:'' }, d.garant) : null
+    garant: d.garant ? Object.assign({ nom:'', adresse:'', ddn:'', lieuNaiss:'' }, d.garant) : null,
+    visale: d.visale ? Object.assign({ visaId:'' }, d.visale) : null
   };
 }
 
@@ -57,7 +58,7 @@ function build() {
     <div class="tiles" id="tiles-${cat.key}"></div>`;
     // La pièce du garant n'a de sens que si un garant est déclaré (Q2) → conteneur masquable,
     // synchronisé avec le switch « J'ai un garant ». Sans garant, aucun dépôt garant proposé.
-    if (cat.key === 'garant') return `<div class="upcat" id="upcat-garant"${d.garant?'':' hidden'}>${inner}</div>`;
+    if (cat.key === 'garant') return `<div class="upcat" id="upcat-garant"${(d.garant||d.visale)?'':' hidden'}>${inner}</div>`;
     return inner;
   }).join('');
 
@@ -111,19 +112,33 @@ function build() {
         <div class="field"><label>Revenus mensuels nets (€) <span class="req">*</span></label><input class="inp" inputmode="numeric" data-path="situation.revenus" placeholder="ex. 3200"></div>
       </section>
 
-      <!-- 3 · Garant -->
+      <!-- 3 · Garant / Garantie Visale -->
       <section class="sec" data-step="3" hidden>
-        <div class="sec-h"><span class="si">🛡️</span> Garant <span class="opt">facultatif</span></div>
-        <div class="switch-row" style="margin-bottom:12px">
-          <div class="switch${d.garant?' on':''}" id="gsw"></div>
-          <div class="tx">J'ai un garant<small>Un garant n'est pas obligatoire mais renforce votre dossier.</small></div>
+        <div class="sec-h"><span class="si">🛡️</span> Garantie <span class="opt">facultative</span></div>
+        <div class="info" style="margin-bottom:12px"><span class="i">ℹ️</span><span>Un garant ou la garantie <b>Visale</b> (caution d'État gratuite) n'est pas obligatoire, mais renforce votre dossier.</span></div>
+        <div class="segc" id="gtype" style="margin-bottom:14px">
+          <button type="button" data-g="aucun">Aucun</button>
+          <button type="button" data-g="garant">Un garant</button>
+          <button type="button" data-g="visale">Garantie Visale</button>
         </div>
-        <div id="gfields" ${d.garant?'':'hidden'}>
+        <div id="gfields" hidden>
           <div class="field"><label>Nom complet du garant</label><input class="inp" data-path="garant.nom" placeholder="Nom Prénom"></div>
           <div class="field"><label>Adresse du garant</label><input class="inp" data-path="garant.adresse" placeholder="N°, rue, code postal, ville"></div>
           <div class="row2">
             <div class="field"><label>Date de naissance</label><input type="date" class="inp" data-path="garant.ddn" max="2010-12-31"></div>
             <div class="field"><label>Lieu de naissance</label><input class="inp" data-path="garant.lieuNaiss" placeholder="Ville"></div>
+          </div>
+        </div>
+        <div id="vfields" hidden>
+          <div style="border:1px solid #bcd9f2;background:#eef4fb;border-radius:12px;padding:14px 16px">
+            <div style="font-weight:700;color:#1b6ec2;margin-bottom:6px">🛡️ Garantie Visale — caution d'État <b>gratuite</b></div>
+            <div style="font-size:12.5px;line-height:1.55;color:#274b66">
+              <b>Suis-je éligible ?</b> Jeunes 18–30 ans (tous) · salariés de +30 ans si revenus ≤ 1 710 €/mois net (ou embauche/mutation de moins de 6 mois) · étudiants, alternants, saisonniers.<br>
+              Logement : loyer charges comprises ≤ 1 940 € (Île-de-France) / 1 575 € (grandes agglomérations, DROM) / 1 365 € ailleurs, et ≤ 50 % de vos revenus.<br>
+              Couvre 36 mois de loyers impayés. <a href="https://www.visale.fr" target="_blank" rel="noopener" style="color:#1b6ec2;font-weight:600">Vérifier &amp; créer mon visa sur visale.fr →</a> <span style="color:#7a90a6">· barème 2026, susceptible d'évoluer</span>
+            </div>
+            <div class="field" style="margin-top:12px"><label>Numéro de visa Visale</label><input class="inp" data-path="visale.visaId" placeholder="ex. V-2026-XXXXXXXX"></div>
+            <div style="font-size:11.5px;color:#5a7691;margin-top:6px">📎 Joignez votre attestation de visa à l'étape « Pièces » (case garant).</div>
           </div>
         </div>
       </section>
@@ -150,7 +165,7 @@ function build() {
 }
 
 // ── Liaison des champs (prefill + autosave) ──────────────────────────────
-function setPath(obj, path, val){ const k=path.split('.'); if(k[0]==='garant'&&!obj.garant)return; let o=obj; for(let i=0;i<k.length-1;i++)o=o[k[i]]; o[k[k.length-1]]=val; }
+function setPath(obj, path, val){ const k=path.split('.'); if(k[0]==='garant'&&!obj.garant)return; if(k[0]==='visale'&&!obj.visale)return; let o=obj; for(let i=0;i<k.length-1;i++)o=o[k[i]]; o[k[k.length-1]]=val; }
 function getPath(obj, path){ const k=path.split('.'); let o=obj; for(const p of k){ if(o==null)return ''; o=o[p]; } return o==null?'':o; }
 
 function bindFields(){
@@ -168,16 +183,30 @@ function bindFields(){
     $all('#civ button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     dossier.identite.civilite = b.dataset.civ; scheduleSave();
   });
-  // garant toggle
-  $('#gsw').addEventListener('click', () => {
-    const sw = $('#gsw'); sw.classList.toggle('on');
-    const on = sw.classList.contains('on');
-    $('#gfields').hidden = !on;
-    const uc = $('#upcat-garant'); if(uc) uc.hidden = !on; // Q2 : dépôt garant visible seulement avec garant
-    dossier.garant = on ? Object.assign({ nom:'', adresse:'', ddn:'', lieuNaiss:'' }, dossier.garant || {}) : null;
-    if(on) $all('#gfields [data-path]').forEach(inp => inp.value = getPath(dossier, inp.dataset.path));
+  // Choix de garantie : Aucun / Garant physique / Garantie Visale (exclusif). Pilote gfields,
+  // vfields et le dépôt de pièces garant/attestation (#upcat-garant).
+  const _gApply = (type) => {
+    $all('#gtype button').forEach(x => x.classList.toggle('on', x.dataset.g === type));
+    $('#gfields').hidden = type !== 'garant';
+    $('#vfields').hidden = type !== 'visale';
+    const uc = $('#upcat-garant'); if(uc) uc.hidden = !(type === 'garant' || type === 'visale');
+  };
+  $('#gtype').addEventListener('click', e => {
+    const b = e.target.closest('[data-g]'); if(!b) return;
+    const type = b.dataset.g;
+    dossier.garant = type === 'garant' ? Object.assign({ nom:'', adresse:'', ddn:'', lieuNaiss:'' }, dossier.garant || {}) : null;
+    dossier.visale = type === 'visale' ? Object.assign({ visaId:'' }, dossier.visale || {}) : null;
+    _gApply(type);
+    const scope = type === 'garant' ? '#gfields' : type === 'visale' ? '#vfields' : null;
+    if(scope) $all(scope + ' [data-path]').forEach(inp => inp.value = getPath(dossier, inp.dataset.path));
     scheduleSave();
   });
+  // État initial (prefill) : visale > garant > aucun. Exclusivité forcée aussi sur le MODÈLE
+  // (nulle la garantie non retenue) pour qu'une donnée legacy garant+visale ne renvoie pas les deux.
+  const _initGType = dossier.visale ? 'visale' : dossier.garant ? 'garant' : 'aucun';
+  if(_initGType !== 'garant') dossier.garant = null;
+  if(_initGType !== 'visale') dossier.visale = null;
+  _gApply(_initGType);
   // RGPD panel
   $('#rgpd-toggle').addEventListener('click', () => { const p=$('#rgpd-panel'); p.hidden=!p.hidden; });
 }
@@ -187,7 +216,8 @@ function collect(){
   return {
     identite: { ...dossier.identite },
     situation: { ...dossier.situation, revenus: parseRevenus(dossier.situation.revenus) },
-    garant: dossier.garant ? { ...dossier.garant } : null
+    garant: dossier.garant ? { ...dossier.garant } : null,
+    visale: dossier.visale ? { ...dossier.visale } : null
   };
 }
 function parseRevenus(v){ const n = parseInt(String(v).replace(/[^\d]/g,''),10); return isNaN(n)?0:n; }
