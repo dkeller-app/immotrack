@@ -6,6 +6,7 @@ import {
   _loyerToleranceActive,
   _loyerTodayLocal,
   _loyerSoldeAjuste,
+  _computeLoyerCumul,
   _LOYER_TOLERANCE_JOUR
 } from '../../js/core/loyer-statut.js';
 
@@ -176,6 +177,43 @@ describe('_loyerSoldeAjuste — tolérance = SEUL le mois courant est neutralis�
   it('autre année que celle du statut : solde inchangé (pas de neutralisation rétroactive)', () => {
     const s = strip({ year: 2025, today: '2026-07-07', totalPaid: 655 * 11 });
     expect(_loyerSoldeAjuste(s, '2026-07-07')).toBe(s.solde);
+  });
+});
+
+describe('_computeLoyerCumul — position cumulée signée, bornée au suivi (Phase D-matrice, anti −63050)', () => {
+  const due = () => 655;
+  it('à jour : encaissé = dû sur la période → cumul 0', () => {
+    const c = _computeLoyerCumul({ startYm: '2025-01', endYm: '2026-07', dueOfMonth: due, totalPaid: 655 * 19 });
+    expect(c.cumul).toBe(0); expect(c.months).toBe(19); expect(c.tracked).toBe(true);
+  });
+  it('retard : cumul négatif (7 dus, 5 payés)', () => {
+    expect(_computeLoyerCumul({ startYm: '2026-01', endYm: '2026-07', dueOfMonth: due, totalPaid: 655 * 5 }).cumul).toBe(-1310);
+  });
+  it('avance : cumul positif', () => {
+    expect(_computeLoyerCumul({ startYm: '2026-06', endYm: '2026-06', dueOfMonth: due, totalPaid: 1310 }).cumul).toBe(655);
+  });
+  it('BORNE anti-fantôme : ne compte AUCUN mois avant startYm (bail 2018, suivi depuis 2026-01)', () => {
+    const c = _computeLoyerCumul({ startYm: '2026-01', endYm: '2026-03', dueOfMonth: due, totalPaid: 655 * 3 });
+    expect(c.cumul).toBe(0); expect(c.months).toBe(3);   // 3 mois, pas 8 ans → plus de −63050
+  });
+  it('dû du bail de l\'époque via dueOfMonth (IRL + prorata entrée), pas un loyer constant', () => {
+    const dyn = (ym) => ym === '2026-06' ? 655.05 : (ym === '2026-01' ? 327.5 : 650);
+    const c = _computeLoyerCumul({ startYm: '2026-01', endYm: '2026-06', dueOfMonth: dyn, totalPaid: 327.5 + 650 * 4 + 655.05 });
+    expect(c.cumul).toBe(0);
+  });
+  it('startYm vide/invalide → non suivi (tracked false, cumul 0)', () => {
+    expect(_computeLoyerCumul({ startYm: '', endYm: '2026-07', dueOfMonth: due, totalPaid: 0 })).toEqual({ cumul: 0, sumDue: 0, months: 0, tracked: false });
+  });
+  it('endYm < startYm (bail futur) → 0 mois, cumul 0', () => {
+    const c = _computeLoyerCumul({ startYm: '2026-08', endYm: '2026-07', dueOfMonth: due, totalPaid: 0 });
+    expect(c.months).toBe(0); expect(c.cumul).toBe(0); expect(c.tracked).toBe(true);
+  });
+  it('traverse une frontière d\'année (2025-11 → 2026-02 = 4 mois)', () => {
+    expect(_computeLoyerCumul({ startYm: '2025-11', endYm: '2026-02', dueOfMonth: due, totalPaid: 0 }).months).toBe(4);
+  });
+  it('le chip du cumul réutilise _loyerChipVerdict (avance/retard/à jour)', () => {
+    expect(_loyerChipVerdict(_computeLoyerCumul({ startYm: '2026-01', endYm: '2026-07', dueOfMonth: due, totalPaid: 655 * 5 }).cumul, 655).cls).toBe('retard');
+    expect(_loyerChipVerdict(_computeLoyerCumul({ startYm: '2026-06', endYm: '2026-06', dueOfMonth: due, totalPaid: 1310 }).cumul, 655).cls).toBe('avance');
   });
 });
 

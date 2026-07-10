@@ -84,6 +84,34 @@ export function _loyerTodayLocal(d) {
 }
 
 /**
+ * Position cumulée signée d'un locataire, BORNÉE à une fenêtre [startYm, endYm]
+ * (SUIVI-LOYERS-SOURCE-UNIQUE Phase D-matrice). cumul = total encaissé − Σ dû échu.
+ * + = avance, − = retard. En prod, le wrapper pose `startYm = max(bail.debut, début du
+ * suivi = 1er mouvement de la base)` → tue le « −63 050 € » fantôme (dette comptée sur des
+ * années sans données) SANS masquer les arriérés réels post-suivi (≠ `_moisDebut`, constat 41).
+ * `dueOfMonth(ym)` = dû du mois (bail de l'époque + prorata, ex. `_getActiveBailHcChProrated`).
+ * @returns {{cumul:number, sumDue:number, months:number, tracked:boolean}}
+ */
+export function _computeLoyerCumul(input) {
+  const i = input || {};
+  const startYm = String(i.startYm || '');
+  const endYm = String(i.endYm || _loyerTodayLocal().slice(0, 7));
+  const dueOfMonth = (typeof i.dueOfMonth === 'function') ? i.dueOfMonth : (() => 0);
+  const totalPaid = Number(i.totalPaid) || 0;
+  if (!/^\d{4}-\d{2}$/.test(startYm)) return { cumul: 0, sumDue: 0, months: 0, tracked: false };
+  const ey = parseInt(endYm.slice(0, 4), 10), em = parseInt(endYm.slice(5, 7), 10);
+  let y = parseInt(startYm.slice(0, 4), 10), m = parseInt(startYm.slice(5, 7), 10);
+  let sumDue = 0, months = 0;
+  while ((y < ey) || (y === ey && m <= em)) {
+    sumDue += Number(dueOfMonth(y + '-' + String(m).padStart(2, '0'))) || 0;
+    months++;
+    m++; if (m > 12) { m = 1; y++; }
+    if (months > 600) break;                          // garde-fou (50 ans)
+  }
+  return { cumul: Math.round((totalPaid - sumDue) * 100) / 100, sumDue: Math.round(sumDue * 100) / 100, months, tracked: true };
+}
+
+/**
  * La pastille unique (mêmes seuils que la modale Suivi des loyers) :
  * ±20 € de bruit toléré ; nMois = équivalent en mois arrondi à 0,1.
  * @returns {{cls:'retard'|'avance'|'ajour', montant:number, nMois:number}}

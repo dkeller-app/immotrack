@@ -59,3 +59,9 @@ Décisions gravées :
   Nouveau helper pur `_computeLoyerCumul` (TDD). Chip = `_loyerChipVerdict(cumul)` (avance bleu / retard rouge / à jour vert).
 - **DG « non suivi »** quand aucun versement DG enregistré (au lieu du 0,00 € rouge).
 - Langage visuel = Suivi des loyers (cohérent Phase B).
+
+- 2026-07-09 : **Phase D-matrice LIVRÉE v15.450**. `_computeLoyerCumul` (module, 9 tests TDD) + wrappers
+  `_pilTrackingStartYm`/`_pilCumulLocataire` ; `_pilGetFilteredRows` + `_rPilCompta` = façades moteur.
+  Fenêtre M-2..M+1 (avance visible en bleu sur le mois à venir), dû du bail de l’époque, cumul borné
+  (fin du −63 050 € fantôme), DG « non suivi ». Vérifié preview : bail 2018 suivi 2026-01 → cumul 0 ;
+  avance → +655 + mois à venir bleu ; DG non suivi. 34 tests module verts. Reste `_statutQuittance` (Phase D-quittances).
