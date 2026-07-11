@@ -414,6 +414,7 @@ function _inviteErr(m) {
 }
 function renderInviteError(overlay, msg) {
   const left = overlay.querySelector('#imsb-left'); if (!left) return
+  overlay.classList.add('imv-auth-open')  // erreur d'invitation → ouvrir la modale (sinon message invisible)
   left.innerHTML = `${brand()}<div class="imsb-mid">
     <h2 class="imsb-h2">Invitation</h2>
     <div class="imsb-err" style="display:block">${escapeHtml(msg)}</div>
@@ -443,6 +444,7 @@ async function acceptInviteFlow(api, client, overlay, token) {
 
   const user = await api.currentUser()
   const left = overlay.querySelector('#imsb-left'); if (!left) return
+  overlay.classList.add('imv-auth-open')  // invitation → ouvrir la modale de connexion/acceptation
   if (user) {
     left.innerHTML = `${brand()}<div class="imsb-mid">
       <h2 class="imsb-h2">Rejoindre un partage</h2>
@@ -591,6 +593,7 @@ async function onLoggedIn(api, overlay, user) {
 
 // ── UI ───────────────────────────────────────────────────────────────────────
 function renderProof(overlay, api, user, esp, db, err) {
+  overlay.classList.add('imv-auth-open')
   const left = overlay.querySelector('#imsb-left')
   if (err) {
     left.innerHTML = `${brand()}<div class="imsb-mid"><div class="imsb-err">⚠ Hydratation : ${escapeHtml(err)}</div>
@@ -619,6 +622,7 @@ function renderProof(overlay, api, user, esp, db, err) {
 }
 
 function renderLoading(overlay, user) {
+  overlay.classList.add('imv-auth-open')
   overlay.querySelector('#imsb-left').innerHTML = `${brand()}<div class="imsb-mid">
     <div class="imsb-spin"></div><p class="imsb-lead">Chargement de tes données…</p></div>`
 }
@@ -664,13 +668,16 @@ function injectOverlay() {
   //   renderLoading() et acceptInviteFlow() font `overlay.querySelector('#imsb-left').innerHTML = …`,
   //   donc tout le marketing/aperçu DOIT rester en dehors de #imsb-left.
   ov.innerHTML = `<div class="imsb-page">
-    <nav class="imsb-nav">
+    <header class="imv-nav">
       ${brand()}
+      <nav class="imv-mid">
+        <a href="#">Fonctionnalités</a>
+        <a href="#">Tarifs</a>
+        <a href="#">Sécurité</a>
+      </nav>
       <div class="imsb-nav-right">
-        <div class="imsb-nav-links">
-          <a href="#" class="imsb-nav-link">Fonctionnalités</a>
-          <a href="#" class="imsb-nav-link">Tarifs</a>
-        </div>
+        <a href="#" class="imv-nav-link" id="imsb-open-login">Se connecter</a>
+        <a href="#" class="imv-btn-mini" id="imsb-open-signup">Créer un compte</a>
         <button type="button" id="imsb-theme" class="imsb-theme" aria-label="Basculer le thème clair / sombre" title="Clair / Sombre">
           <span class="imsb-theme-ic imsb-theme-sun" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.5" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -680,96 +687,60 @@ function injectOverlay() {
           </span>
         </button>
       </div>
-    </nav>
+    </header>
 
-    <div class="imsb-hero">
-      <div class="imsb-pitch">
-        <div class="imsb-rate">
-          <div class="imsb-avatars"><span class="av1">SL</span><span class="av2">MK</span><span class="av3">TD</span><span class="av4">PB</span></div>
-          <span class="imsb-stars">★★★★★</span><span class="imsb-rate-txt">4,9/5 · 1 200+ bailleurs</span>
-        </div>
-        <h1 class="imsb-h1">Du bail au bilan,<br><span class="imsb-hl">tout</span> ton locatif maîtrisé.</h1>
-        <p class="imsb-sub">Un seul outil pour gérer tes biens et piloter tes finances. Zéro paperasse.</p>
-        <div class="imsb-piliers">
-          <div class="imsb-pil">
-            <div class="imsb-pi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
-            <h4>Gestion</h4>
-            <ul>
-              <li>${_imsbCheck()}Baux &amp; révision IRL</li>
-              <li>${_imsbCheck()}EDL photos &amp; quittances</li>
-              <li>${_imsbCheck()}Signature à distance</li>
-            </ul>
+    <main class="imv-hero">
+      <div class="imv-hero-in">
+        <div class="imv-copy">
+          <span class="imv-eyebrow"><span class="imv-pip"></span>Gestion locative · particuliers &amp; SCI</span>
+          <h1 class="imv-h1">Gérer son parc immobilier ne devrait pas être un <em>deuxième métier</em>.</h1>
+          <p class="imv-triad"><b>La gestion locative</b> — simplifiée <i>·</i> démystifiée <i>·</i> vulgarisée.</p>
+          <div class="imv-cta">
+            <a class="imv-btn imv-btn-primary" href="#" id="imsb-open-signup2">Créer un compte <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            <a class="imv-btn imv-btn-ghost" href="#">Voir la démo</a>
           </div>
-          <div class="imsb-pil">
-            <div class="imsb-pi-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-            <h4>Finance</h4>
-            <ul>
-              <li>${_imsbCheck()}Dashboard &amp; KPI</li>
-              <li>${_imsbCheck()}Loyers · payé / relance</li>
-              <li>${_imsbCheck()}Charges, régul &amp; cashflow</li>
-            </ul>
-          </div>
+          <p class="imv-trust">
+            <span><span class="imv-s"></span>Hébergé en Europe</span>
+            <span><span class="imv-s"></span>Vos données vous appartiennent</span>
+            <span><span class="imv-s"></span>Sans engagement</span>
+          </p>
         </div>
-        <div class="imsb-actions">
-          <div class="imsb-stat-saved"><em>6 h</em><span>économisées / mois</span></div>
-        </div>
-        <div class="imsb-trustline">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-          Hébergé en France / Europe<span class="imsb-dot"></span>chiffré<span class="imsb-dot"></span>conforme RGPD
-        </div>
+
+        <aside class="imv-panel">
+          <div class="imv-panel-h">Du bail au bilan, <em>tout</em> le locatif maîtrisé.</div>
+          <ul class="imv-feat">
+            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M8 3h6l5 5v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg></span><div><b>Baux conformes</b><small>générés, signés, archivés</small></div></li>
+            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-2.5-1.5L14 21l-2-1.5L10 21l-2.5-1.5L5 21z"/><path d="M9 8h6M9 12h4"/></svg></span><div><b>Quittances</b><small>envoyées automatiquement</small></div></li>
+            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="3.5"/></svg></span><div><b>États des lieux</b><small>horodatés, avec photos</small></div></li>
+            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-8"/><path d="M16 8h5v5"/></svg></span><div><b>Loyers &amp; charges</b><small>suivis et relancés</small></div></li>
+            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><path d="M9 3h6a1 1 0 0 1 1 1v1h1a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1V4a1 1 0 0 1 1-1z"/><path d="M9 13l2 2 4-4"/></svg></span><div><b>Déclaration 2044</b><small>pré-remplie</small></div></li>
+            <li><span class="imv-fi"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"/><path d="M16 4a3 3 0 0 1 0 6M21 20v-1a5 5 0 0 0-3-4.5"/></svg></span><div><b>Partage SCI</b><small>chacun son accès</small></div></li>
+          </ul>
+          <div class="imv-panel-f">Une seule app pour <b>toutes les situations</b> — nu, meublé, SCI, colocation.</div>
+        </aside>
       </div>
+    </main>
 
-      <div class="imsb-right">
-        <div class="imsb-dash">
-          <div class="imsb-dashbar">
-            <div class="imsb-dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
-            <div class="imsb-url">app.propryo.fr/tableau-de-bord</div>
-          </div>
-          <div class="imsb-mock">
-            <div class="imsb-mock-grid">
-              <div class="imsb-mock-side">
-                <div class="imsb-m-brand"><span class="imsb-mm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3.2 11 12 3.6 20.8 11M5.6 9.2V19a1 1 0 0 0 1 1h10.8a1 1 0 0 0 1-1V9.2" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Propryo</div>
-                <div class="imsb-m-nav">
-                  <a class="on"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg>Tableau de bord</a>
-                  <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Baux</a>
-                  <a><svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Mes biens</a>
-                  <a><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Finances</a>
-                </div>
-              </div>
-              <div class="imsb-mock-body">
-                <div class="imsb-mock-head"><h4>Tableau de bord</h4><span class="imsb-m-date">Juin 2026</span></div>
-                <div class="imsb-kpis">
-                  <div class="imsb-kpi accent"><div class="imsb-k-lab">Encaissé</div><div class="imsb-k-val">8 420 €</div><div class="imsb-k-delta up">▲ 4,2 %</div></div>
-                  <div class="imsb-kpi"><div class="imsb-k-lab">En attente</div><div class="imsb-k-val">1 150 €</div><div class="imsb-k-delta">2 lots</div></div>
-                  <div class="imsb-kpi"><div class="imsb-k-lab">Renta nette</div><div class="imsb-k-val">6,1 %</div><div class="imsb-k-delta up">▲ an</div></div>
-                  <div class="imsb-kpi"><div class="imsb-k-lab">Occupation</div><div class="imsb-k-val">94 %</div><div class="imsb-k-delta up">12/13</div></div>
-                </div>
-                <div class="imsb-mock-cols">
-                  <div class="imsb-panel">
-                    <div class="imsb-p-head"><h5>Cashflow mensuel</h5><span class="imsb-p-tag">2026</span></div>
-                    <div class="imsb-chart">
-                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:48%"></div><div class="imsb-bl">J</div></div>
-                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:56%"></div><div class="imsb-bl">F</div></div>
-                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:52%"></div><div class="imsb-bl">M</div></div>
-                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:66%"></div><div class="imsb-bl">A</div></div>
-                      <div class="imsb-bar fill"><div class="imsb-bb" style="height:72%"></div><div class="imsb-bl">M</div></div>
-                      <div class="imsb-bar hl"><div class="imsb-bb" style="height:90%"></div><div class="imsb-bl">J</div></div>
-                    </div>
-                  </div>
-                  <div class="imsb-panel">
-                    <div class="imsb-p-head"><h5>Suivi des loyers</h5><span class="imsb-p-tag">Juin</span></div>
-                    <div class="imsb-loyers">
-                      <div class="imsb-loyer"><div class="imsb-l-av" style="background:#3f8f7a">SL</div><div class="imsb-l-info"><div class="imsb-l-name">S. Lefèvre</div><div class="imsb-l-meta">T2 · le 5</div></div><span class="imsb-badge b-paid">Payé</span></div>
-                      <div class="imsb-loyer"><div class="imsb-l-av" style="background:#b27a12">MK</div><div class="imsb-l-info"><div class="imsb-l-name">M. Kaci</div><div class="imsb-l-meta">Studio · J-2</div></div><span class="imsb-badge b-wait">Attente</span></div>
-                      <div class="imsb-loyer"><div class="imsb-l-av" style="background:#7b6bb0">TD</div><div class="imsb-l-info"><div class="imsb-l-name">T. Dubois</div><div class="imsb-l-meta">T3 · relance</div></div><span class="imsb-badge b-late">Retard</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+    <footer class="imv-footer">
+      <div class="imv-foot-grid">
+        <div class="imv-foot-brand">
+          ${brand()}
+          <p class="imv-foot-tag">La gestion locative simplifiée, démystifiée, vulgarisée — pour les particuliers et les SCI.</p>
+          <span class="imv-foot-eu"><span class="imv-s"></span>Hébergé en Europe · conforme RGPD</span>
         </div>
+        <div class="imv-foot-col"><h4>Produit</h4><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Sécurité</a><a href="#">Voir la démo</a></div>
+        <div class="imv-foot-col"><h4>Légal</h4><a href="#">Mentions légales</a><a href="#">CGU</a><a href="#">CGV</a><a href="#">Politique de confidentialité</a><a href="#">Gestion des cookies</a><a href="#">Sous-traitance (DPA)</a></div>
+        <div class="imv-foot-col"><h4>Entreprise</h4><a href="#">À propos</a><a href="#">Contact</a><a href="#">Support</a><a href="#">Blog</a></div>
+      </div>
+      <div class="imv-foot-bottom">
+        <span>© 2026 Propryo — Tous droits réservés.</span>
+        <span>Données de bailleurs et locataires protégées (réf. CNIL gestion locative).</span>
+      </div>
+    </footer>
 
+    <div class="imv-authwrap" id="imsb-authwrap">
+      <div class="imv-authcard">
+        <button class="imv-authclose" id="imsb-authclose" type="button" aria-label="Fermer">✕</button>
         <div id="imsb-left">
           ${brand()}
           <form id="imsb-form" class="imsb-mid" autocomplete="on">
@@ -813,6 +784,19 @@ function injectOverlay() {
     try { localStorage.setItem('immo_theme', dark ? 'sombre' : 'clair') } catch (e) {}
   }
 
+  // Vitrine → la connexion est une MODALE révélée au clic (le formulaire n'est plus affiché en dur).
+  // #imsb-left reste dans le DOM et câblé ; on montre/cache juste sa modale via la classe imv-auth-open.
+  const _openAuth = () => ov.classList.add('imv-auth-open')
+  const _closeAuth = () => ov.classList.remove('imv-auth-open')
+  ;['imsb-open-login', 'imsb-open-signup', 'imsb-open-signup2'].forEach(id => {
+    const el = ov.querySelector('#' + id)
+    if (el) el.onclick = (e) => { e.preventDefault(); _openAuth() }
+  })
+  const _authClose = ov.querySelector('#imsb-authclose')
+  if (_authClose) _authClose.onclick = _closeAuth
+  const _authWrap = ov.querySelector('#imsb-authwrap')
+  if (_authWrap) _authWrap.onclick = (e) => { if (e.target === _authWrap) _closeAuth() }
+
   // Le lien « Créer un compte » (#imsb-signup) est câblé par wireLoginForm (bascule Connexion↔Inscription),
   // qui seul dispose de `api` pour appeler signUpEmail. Inscription gardée côté serveur par le hook allowlist.
 
@@ -827,6 +811,7 @@ function setBusy(overlay, busy) {
 }
 function showError(overlay, msg) {
   const e = overlay.querySelector('#imsb-error'); if (!e) return
+  if (msg) overlay.classList.add('imv-auth-open')  // rend l'erreur visible même si la modale était fermée
   e.textContent = msg; e.style.display = msg ? 'block' : 'none'
 }
 function traduireErreur(m) {
@@ -889,7 +874,14 @@ function injectStyles() {
     font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .25s}
   #imsb-overlay *{box-sizing:border-box}
   #imsb-overlay svg{display:block}
-  .imsb-page{max-width:1280px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:0 0 48px}
+  /* Ambiance « agence » : halos corail + bleu froid, profondeur premium (portée du mockup validé) */
+  #imsb-overlay::before{content:"";position:fixed;top:-18%;left:18%;width:48vw;height:48vw;
+    background:radial-gradient(circle at 50% 50%,var(--accent),transparent 62%);opacity:.13;filter:blur(40px);pointer-events:none;z-index:0}
+  #imsb-overlay::after{content:"";position:fixed;bottom:-24%;left:-12%;width:44vw;height:44vw;
+    background:radial-gradient(circle at 50% 50%,#6f8bff,transparent 60%);opacity:.07;filter:blur(48px);pointer-events:none;z-index:0}
+  #imsb-overlay.mode-sombre::before{opacity:.22}
+  #imsb-overlay.mode-sombre::after{opacity:.11}
+  .imsb-page{position:relative;z-index:1;max-width:1280px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:0 0 48px}
 
   /* ===== NAV ===== */
   .imsb-nav{display:flex;align-items:center;justify-content:space-between;padding:22px 44px;gap:20px}
@@ -940,7 +932,7 @@ function injectStyles() {
   .imsb-right{position:relative}
   .imsb-dash{border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--frame-border);transform:var(--dash-rotate);transition:transform .4s ease}
   /* #imsb-left = la carte de connexion, posée en surimpression du dashboard (login / chargement / invitation) */
-  #imsb-left{position:absolute;right:-12px;bottom:-26px;width:286px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:20px;z-index:3;display:flex;flex-direction:column}
+  #imsb-left{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:22px;display:flex;flex-direction:column}
   /* le brand est répété dans #imsb-left (login/chargement/invitation) mais discret dans la carte */
   #imsb-left .imsb-brand{font-size:15px;margin-bottom:12px}
   #imsb-left .imsb-mark{width:26px;height:26px;border-radius:8px}
@@ -1022,6 +1014,75 @@ function injectStyles() {
   .imsb-dots i{width:9px;height:9px;border-radius:50%;display:block}
   .imsb-url{flex:1;text-align:center;font-size:10.5px;color:rgba(255,255,255,.5);font-weight:600}
 
+  /* ===== FOOTER LÉGAL (liens obligatoires LCEN/RGPD ; pages cibles à créer avec infos société) ===== */
+  .imsb-legal{display:flex;align-items:center;justify-content:space-between;gap:12px 22px;flex-wrap:wrap;margin:0 44px;padding:20px 0 0;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+  .imsb-legal-copy{font-weight:600}
+  .imsb-legal-links{display:flex;flex-wrap:wrap;gap:8px 18px}
+  .imsb-legal-links a{color:var(--ink-3);text-decoration:none;font-weight:600;transition:color .15s}
+  .imsb-legal-links a:hover{color:var(--accent)}
+
+  /* ===== VITRINE (page d'accueil crafted — portee du mockup valide) ===== */
+  .imv-nav{display:flex;align-items:center;justify-content:space-between;padding:24px clamp(20px,5vw,56px);gap:20px}
+  .imv-mid{display:flex;gap:26px}
+  .imv-mid a{font-size:14px;font-weight:500;color:var(--ink-2);text-decoration:none;opacity:.85;transition:color .2s}
+  .imv-mid a:hover{color:var(--accent);opacity:1}
+  @media(max-width:840px){.imv-mid{display:none}}
+  .imv-nav-link{font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;cursor:pointer}
+  .imv-nav-link:hover{color:var(--accent)}
+  .imv-btn-mini{font-size:13.5px;font-weight:700;padding:9px 16px;border-radius:var(--r-xs);background:var(--accent);color:var(--accent-on);text-decoration:none;cursor:pointer;box-shadow:var(--btn-shadow);transition:background .15s}
+  .imv-btn-mini:hover{background:var(--accent-2)}
+  @media(max-width:520px){.imv-btn-mini{display:none}}
+  .imv-hero{flex:1;display:flex;align-items:center;padding:clamp(24px,3vw,44px) clamp(20px,5vw,56px)}
+  .imv-hero-in{max-width:1180px;width:100%;margin:0 auto;display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(32px,5vw,68px);align-items:center}
+  @media(max-width:880px){.imv-hero-in{grid-template-columns:1fr;gap:38px}}
+  .imv-eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-bottom:clamp(20px,3vw,30px)}
+  .imv-pip{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .imv-h1{font-family:var(--display);font-weight:800;color:var(--ink);font-size:clamp(2.3rem,4.6vw,4rem);line-height:1.0;letter-spacing:-.035em;max-width:15ch;margin:0 0 clamp(16px,2vw,24px)}
+  .imv-h1 em{font-style:normal;color:var(--accent)}
+  .imv-triad{font-family:var(--display);font-weight:500;color:var(--ink-2);font-size:clamp(1.1rem,2vw,1.6rem);letter-spacing:-.01em;margin:0 0 clamp(26px,3.4vw,38px)}
+  .imv-triad b{color:var(--ink);font-weight:600}
+  .imv-triad i{font-style:normal;color:var(--accent);margin:0 .42em;font-weight:700}
+  .imv-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:clamp(22px,3vw,30px)}
+  .imv-btn{font-family:inherit;font-weight:600;font-size:16px;border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:transform .15s,background .15s;text-decoration:none;display:inline-flex;align-items:center;gap:9px}
+  .imv-btn:active{transform:translateY(1px)}
+  .imv-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+  .imv-btn-primary{background:var(--accent);color:var(--accent-on);padding:15px 28px;box-shadow:var(--btn-shadow)}
+  .imv-btn-primary:hover{background:var(--accent-2)}
+  .imv-btn-primary:hover svg{transform:translateX(3px)}
+  .imv-btn-ghost{background:var(--surface);color:var(--ink);padding:15px 22px;border-color:var(--line)}
+  .imv-btn-ghost:hover{border-color:var(--ink-3)}
+  .imv-trust{display:flex;gap:9px 18px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
+  .imv-trust span{display:inline-flex;align-items:center;gap:8px}
+  .imv-s{width:4px;height:4px;border-radius:50%;background:var(--accent);opacity:.75}
+  .imv-panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:clamp(20px,2.2vw,28px);box-shadow:var(--shadow-lg)}
+  .imv-panel-h{font-family:var(--display);font-weight:700;font-size:clamp(1.02rem,1.35vw,1.2rem);color:var(--ink);letter-spacing:-.015em;line-height:1.22;margin-bottom:16px}
+  .imv-panel-h em{font-style:normal;color:var(--accent)}
+  .imv-feat{list-style:none;display:flex;flex-direction:column;margin:0;padding:0}
+  .imv-feat li{display:flex;gap:14px;align-items:center;padding:13px 2px;border-bottom:1px solid var(--line)}
+  .imv-feat li:last-child{border-bottom:none}
+  .imv-fi{width:40px;height:40px;border-radius:12px;background:var(--neutral-soft);border:1px solid var(--line);display:grid;place-items:center;flex-shrink:0}
+  .imv-fi svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.82}
+  .imv-feat b{display:block;font-family:var(--display);font-weight:600;font-size:15.5px;color:var(--ink);letter-spacing:-.01em}
+  .imv-feat small{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
+  .imv-panel-f{margin-top:16px;padding-top:15px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3);line-height:1.5}
+  .imv-panel-f b{color:var(--accent);font-weight:600}
+  .imv-footer{border-top:1px solid var(--line);padding:clamp(34px,4vw,52px) clamp(20px,5vw,56px) 24px;background:var(--surface)}
+  .imv-foot-grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:clamp(24px,3vw,40px)}
+  @media(max-width:720px){.imv-foot-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:440px){.imv-foot-grid{grid-template-columns:1fr}}
+  .imv-foot-brand .imsb-brand{margin-bottom:12px}
+  .imv-foot-tag{font-size:13px;color:var(--ink-3);line-height:1.55;max-width:32ch;margin:0 0 14px}
+  .imv-foot-eu{font-size:12px;color:var(--ink-3);display:inline-flex;align-items:center;gap:7px}
+  .imv-foot-col h4{font-family:var(--display);font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px}
+  .imv-foot-col a{display:block;font-size:13.5px;color:var(--ink-2);text-decoration:none;padding:5px 0;transition:color .2s}
+  .imv-foot-col a:hover{color:var(--accent)}
+  .imv-foot-bottom{max-width:1180px;margin:26px auto 0;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .imv-authwrap{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(8,10,15,.55)}
+  #imsb-overlay.imv-auth-open .imv-authwrap{display:flex}
+  .imv-authcard{position:relative;width:100%;max-width:340px}
+  .imv-authclose{position:absolute;top:-42px;right:0;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);cursor:pointer;font-size:16px;line-height:1}
+  .imv-authclose:hover{color:var(--accent)}
+
   /* ===== RESPONSIVE ===== */
   @media(max-width:1020px){
     .imsb-hero{grid-template-columns:1fr;gap:42px}
@@ -1040,6 +1101,7 @@ function injectStyles() {
     .imsb-mock-cols{grid-template-columns:1fr}
     .imsb-mock-side{display:none}
     .imsb-mock-grid{grid-template-columns:1fr}
+    .imsb-legal{margin:0 18px;flex-direction:column;align-items:flex-start;gap:10px}
   }`
   const s = document.createElement('style'); s.id = 'imsb-style'; s.textContent = css
   document.head.appendChild(s)
