@@ -787,6 +787,18 @@ function injectOverlay() {
         </div>
       </div>
     </div>
+
+    <footer class="imsb-legal">
+      <span class="imsb-legal-copy">© 2026 Propryo</span>
+      <nav class="imsb-legal-links" aria-label="Informations légales">
+        <a href="#">Mentions légales</a>
+        <a href="#">CGU</a>
+        <a href="#">CGV</a>
+        <a href="#">Confidentialité</a>
+        <a href="#">Cookies</a>
+        <a href="#">Sous-traitance</a>
+      </nav>
+    </footer>
   </div>`
   document.body.appendChild(ov)
 
@@ -889,7 +901,14 @@ function injectStyles() {
     font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .25s}
   #imsb-overlay *{box-sizing:border-box}
   #imsb-overlay svg{display:block}
-  .imsb-page{max-width:1280px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:0 0 48px}
+  /* Ambiance « agence » : halos corail + bleu froid, profondeur premium */
+  #imsb-overlay::before{content:"";position:fixed;top:-18%;left:18%;width:48vw;height:48vw;
+    background:radial-gradient(circle at 50% 50%,var(--accent),transparent 62%);opacity:.13;filter:blur(40px);pointer-events:none;z-index:0}
+  #imsb-overlay::after{content:"";position:fixed;bottom:-24%;left:-12%;width:44vw;height:44vw;
+    background:radial-gradient(circle at 50% 50%,#6f8bff,transparent 60%);opacity:.07;filter:blur(48px);pointer-events:none;z-index:0}
+  #imsb-overlay.mode-sombre::before{opacity:.22}
+  #imsb-overlay.mode-sombre::after{opacity:.11}
+  .imsb-page{position:relative;z-index:1;max-width:1280px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding:0 0 48px}
 
   /* ===== NAV ===== */
   .imsb-nav{display:flex;align-items:center;justify-content:space-between;padding:22px 44px;gap:20px}
@@ -1022,6 +1041,13 @@ function injectStyles() {
   .imsb-dots i{width:9px;height:9px;border-radius:50%;display:block}
   .imsb-url{flex:1;text-align:center;font-size:10.5px;color:rgba(255,255,255,.5);font-weight:600}
 
+  /* ===== FOOTER LÉGAL (liens obligatoires LCEN/RGPD ; pages cibles à créer avec infos société) ===== */
+  .imsb-legal{display:flex;align-items:center;justify-content:space-between;gap:12px 22px;flex-wrap:wrap;margin:0 44px;padding:20px 0 0;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+  .imsb-legal-copy{font-weight:600}
+  .imsb-legal-links{display:flex;flex-wrap:wrap;gap:8px 18px}
+  .imsb-legal-links a{color:var(--ink-3);text-decoration:none;font-weight:600;transition:color .15s}
+  .imsb-legal-links a:hover{color:var(--accent)}
+
   /* ===== RESPONSIVE ===== */
   @media(max-width:1020px){
     .imsb-hero{grid-template-columns:1fr;gap:42px}
@@ -1040,6 +1066,7 @@ function injectStyles() {
     .imsb-mock-cols{grid-template-columns:1fr}
     .imsb-mock-side{display:none}
     .imsb-mock-grid{grid-template-columns:1fr}
+    .imsb-legal{margin:0 18px;flex-direction:column;align-items:flex-start;gap:10px}
   }`
   const s = document.createElement('style'); s.id = 'imsb-style'; s.textContent = css
   document.head.appendChild(s)
