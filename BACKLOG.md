@@ -22,7 +22,7 @@
 > | Sujet | Prio | Taille | Statut |
 > |---|---|---|---|
 > | P0.1 Sauver créations Marion (localStorage PC → réimport espace `2e5c49db`) | P0 | S | ⬜ NE PAS effacer le cache de son PC |
-> | P0.2 Session PC Didier : console F12 (401 vs throw) + hard-refresh v15.457 ; modifs du 12/07 JAMAIS montées au cloud | P0 | XS | ⬜ |
+> | P0.2 Session PC Didier : console F12 (401 vs throw) + hard-refresh v15.457 ; modifs du 12/07 JAMAIS montées au cloud | P0 | XS | ✅ **CAUSE TROUVÉE + FIX APPLIQUÉ** : console = `documents_parent_type_check` 23514 (attestation assurance `mrh`/`assurance` refusée par CHECK 0026 limitée à 5 types) → **migration 0040 écrite + auditée PASS + APPLIQUÉE au DB prod + poussée origin/main `6b8deb3`**. Reste : Didier fait une modif → vérifier console (plus d'erreur flush) + suppressions qui partent. ⚠️ console montre aussi `[RESYNC-LOC]` : le bail zombie « Delle b » recrée le logement localement à chaque boot → supprimer le BAIL zombie d'abord (ou P0.3). + relay 401 candidatures (sujet séparé, noté) |
 > | P0.3 Nettoyage cloud : 6 lignes « Delle b » + 29 doublons agenda (app fermée, audit code-reviewer) | P0 | S | ⬜ |
 > | P0.4 Loyer Fric : 660,14 € dû depuis 15/06 appliqué puis écrasé 09/07 (+5,09 €/mois perdus) + régul | P0 | XS | ⬜ |
 > | P0.5 Vérif MOMPER 124 € (2× sur F-002, double comptage possible) | P0 | XS | ⬜ user |
