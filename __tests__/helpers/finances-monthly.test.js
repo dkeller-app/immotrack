@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 
-// Résolveurs stub (en prod : _finCatLigne / _finScopeWeight / hcRatio / m.cat==='Prêt').
+// Résolveurs stub (en prod : _finCatLigne / _finScopeWeight / _finBailHcChAt / m.cat==='Prêt').
 const catLigne = (cat) => ({
   'Loyer': { ligne2044: '211', type: 'recette' },
   'Taxe foncière': { ligne2044: '227', type: 'charge' },
@@ -9,7 +9,6 @@ const catLigne = (cat) => ({
   'Prêt': null,            // échéance = special (hors 2044) → géré via isEcheance
 }[cat] || null);
 const scopeWeight = () => 1;
-const hcRatio = () => 1;                 // tout en HC (pas de provisions)
 const isEcheance = (m) => m.cat === 'Prêt';
 
 const mvts = [
@@ -21,7 +20,7 @@ const mvts = [
   { date: '2026-02-28', cat: 'Prêt — Intérêts', qui: 'L1', cr: 0, db: 150 }, // intérêts (ligne 250)
 ];
 
-const base = { mouvements: mvts, year: 2026, scope: null, scopeWeight, catLigne, hcRatio, isEcheance, today: '2026-02-28' };
+const base = { mouvements: mvts, year: 2026, scope: null, scopeWeight, catLigne, isEcheance, today: '2026-02-28' };
 
 describe('_computeFinancesMonthly — modèle prêt entier', () => {
   it('produit les mois écoulés de l\'exercice (janv + févr 2026)', () => {
@@ -76,7 +75,7 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     ];
     const r = _computeFinancesMonthly({
       mouvements: mv2, year: 2026, scope: null,
-      scopeWeight: () => 1, hcRatio: () => 1, isEcheance: m => m.cat === 'Prêt',
+      scopeWeight: () => 1, isEcheance: m => m.cat === 'Prêt',
       catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
       isGestionCharge: m => m.cat === 'CFE',
       today: '2026-01-31'
@@ -95,7 +94,7 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     const r = _computeFinancesMonthly({
       mouvements: mv3, year: 2026, scope: null,
       scopeWeight: () => 1, isEcheance: m => m.cat === 'Prêt',
-      hcRatio: () => 1000 / 1150,
+      loyerDue: () => ({ hc: 1000, ch: 150 }),          // dû du mois → cascade cumulative
       catLigne: cat => ({ 'Loyer': { ligne2044: '211', type: 'recette' }, 'Charges copro': { ligne2044: '229', type: 'charge' } }[cat] || null),
       today: '2026-01-31'
     });
@@ -116,7 +115,7 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
       mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
       isEcheance: m => m.cat === 'Prêt',
       isRecupCharge: m => m.cat === 'Eau commune',          // flag recup → captée avant catLigne
-      hcRatio: () => 1000 / 1150,
+      loyerDue: () => ({ hc: 1000, ch: 150 }),          // dû du mois → cascade cumulative
       catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null), // Eau commune non mappée
       today: '2026-01-31'
     });
@@ -134,7 +133,7 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
       { date: '2026-01-20', cat: 'Taxe foncière', qui: 'L1', cr: 0, db: 100 } // 227 charge
     ];
     const r = _computeFinancesMonthly({
-      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1, hcRatio: () => 1,
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
       isEcheance: m => m.cat === 'Prêt',
       catLigne: cat => ({
         'Loyer': { ligne2044: '211', type: 'recette' },
@@ -150,21 +149,45 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.base2044).toBe(1100);              // 1000 + 200 − 100 (213 imposable)
   });
 
-  it('split HC/charges : le ratio reçoit la DATE du mouvement (bail actif du mois, pas le bail courant)', () => {
+  it('split HC/charges : la cascade reçoit le bail DU MOIS (bail actif du mois, pas le bail courant)', () => {
     const mv = [
-      { date: '2026-01-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 }, // ancien bail : ratio 0,8
-      { date: '2026-06-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 }  // nouveau bail : ratio 0,5
+      { date: '2026-01-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 }, // ancien bail : hc 800 / ch 200
+      { date: '2026-06-10', cat: 'Loyer', qui: 'L1', cr: 1000, db: 0 }  // nouveau bail : hc 500 / ch 500
     ];
     const r = _computeFinancesMonthly({
       mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
       isEcheance: m => m.cat === 'Prêt',
-      hcRatio: (qui, date) => (date < '2026-04-01' ? 0.8 : 0.5), // ratio dépend de la DATE (changement de locataire)
+      loyerDue: (qui, ym) => ym < '2026-04' ? ({ hc: 800, ch: 200 }) : ({ hc: 500, ch: 500 }),
       catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
       today: '2026-06-30'
     });
-    // janv : HC 800 / prov 200 ; juin : HC 500 / prov 500 → annuel HC 1300, prov 700
+    // janv : payé pile 1000 → HC 800 / prov 200 ; juin : HC 500 / prov 500 → annuel HC 1300, prov 700
     expect(r.annual.loyersHC).toBe(1300);
     expect(r.annual.provisions).toBe(700);
+  });
+
+  it('CASCADE CUMULATIVE (dettes avant avance) : jan-avr pleins, mai 515 partiel, juin 615 → juin récupère l\'arriéré, avance 70', () => {
+    const mv = [
+      { date: '2026-01-05', cat: 'Loyer', qui: 'L1', cr: 530, db: 0 },
+      { date: '2026-02-05', cat: 'Loyer', qui: 'L1', cr: 530, db: 0 },
+      { date: '2026-03-05', cat: 'Loyer', qui: 'L1', cr: 530, db: 0 },
+      { date: '2026-04-05', cat: 'Loyer', qui: 'L1', cr: 530, db: 0 },
+      { date: '2026-05-05', cat: 'Loyer', qui: 'L1', cr: 515, db: 0 },   // dû 530 → 500 HC + 15 ch (15 en arriéré)
+      { date: '2026-06-05', cat: 'Loyer', qui: 'L1', cr: 615, db: 0 }    // 500 HC + 30 ch + 15 récup mai + 70 avance
+    ];
+    const r = _computeFinancesMonthly({
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      loyerDue: () => ({ hc: 500, ch: 30 }),
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
+      today: '2026-07-31'
+    });
+    const mai = r.months.find(m => m.mo === 5), juin = r.months.find(m => m.mo === 6);
+    expect(mai.loyersHC).toBe(500); expect(mai.provisions).toBe(15); expect(mai.avance).toBe(0);
+    expect(juin.loyersHC).toBe(570); expect(juin.provisions).toBe(45); expect(juin.avance).toBe(70);  // récup 15 mai + avance 70
+    expect(r.annual.loyersHC).toBe(3070);
+    expect(r.annual.provisions).toBe(180);   // les 15 de mai récupérés en juin
+    expect(r.annual.avance).toBe(70);        // PAS 85 : les dettes passent avant l'avance
   });
 
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {

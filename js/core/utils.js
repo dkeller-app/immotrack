@@ -301,11 +301,15 @@ export function _chargesAtDate(log /*, dateRef, chHistorique */) {
  * @param {Date} [todayRef] — date "aujourd'hui" pour distinguer bail courant vs historique (test only)
  * @returns {number} montant prorata total HC+CH pour le mois (somme baux qui chevauchent)
  */
-export function _loyerProrataMois(log, yr, mi, bails, irlHistorique = [], todayRef = new Date()) {
-  if (!log || !Array.isArray(bails) || !bails.length) return 0;
+// Split proraté {hc, ch} d'un mois (somme des baux qui chevauchent). Le HC/CH est déjà
+// proratisé jours-d'occupation — c'est LA source du dû pour la cascade d'imputation
+// (_loyerSplitCascade). _loyerProrataMois délègue à ce split (DRY, comportement inchangé = hc+ch).
+export function _loyerProrataMoisSplit(log, yr, mi, bails, irlHistorique = [], todayRef = new Date()) {
+  const empty = { hc: 0, ch: 0 };
+  if (!log || !Array.isArray(bails) || !bails.length) return empty;
   const y = parseInt(yr);
   const m = parseInt(mi);
-  if (Number.isNaN(y) || Number.isNaN(m) || m < 0 || m > 11) return 0;
+  if (Number.isNaN(y) || Number.isNaN(m) || m < 0 || m > 11) return empty;
 
   // Bornes ISO du mois
   const mm = String(m + 1).padStart(2, '0');
@@ -316,7 +320,7 @@ export function _loyerProrataMois(log, yr, mi, bails, irlHistorique = [], todayR
 
   const todayIso = todayRef.toISOString().slice(0, 10);
 
-  let total = 0;
+  let hcTotal = 0, chTotal = 0;
 
   for (const bail of bails) {
     if (!bail || !bail.debut) continue;
@@ -341,9 +345,14 @@ export function _loyerProrataMois(log, yr, mi, bails, irlHistorique = [], todayR
       ? _loyerHCAtDate(log, debutEff, irlHistorique)
       : (Number(bail.hc) || 0);
     const ch = Number(bail.ch) || 0;
-    const loyerMensuel = hc + ch;
-    total += loyerMensuel * (joursOcc / joursDansMois);
+    const f = joursOcc / joursDansMois;
+    hcTotal += hc * f;
+    chTotal += ch * f;
   }
 
-  return total;
+  return { hc: hcTotal, ch: chTotal };
+}
+export function _loyerProrataMois(log, yr, mi, bails, irlHistorique = [], todayRef = new Date()) {
+  const s = _loyerProrataMoisSplit(log, yr, mi, bails, irlHistorique, todayRef);
+  return s.hc + s.ch;
 }

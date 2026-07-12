@@ -39,7 +39,7 @@ import {
   _isDpeClassValide, _bailGelDpeFG, _dpeExpire, _estRevisableIRL,
   _dpeInterditLocationAuDate, _dpeInterdictionCalendrier,
   _isLoyerCategory, _isChargeRecupCategory,
-  _bailEstActifAt, _loyerHCAtDate, _chargesAtDate, _loyerProrataMois
+  _bailEstActifAt, _loyerHCAtDate, _chargesAtDate, _loyerProrataMois, _loyerProrataMoisSplit
 } from './core/utils.js';
 
 import {
@@ -81,7 +81,7 @@ import {
 
 // SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
 import {
-  _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _loyerSoldeAjuste, _computeLoyerCumul, _LOYER_TOLERANCE_JOUR
+  _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _loyerSoldeAjuste, _computeLoyerCumul, _computeLoyerChargeAlloc, _loyerSplitCascade, _LOYER_TOLERANCE_JOUR
 } from './core/loyer-statut.js';
 
 import {
@@ -196,6 +196,9 @@ window._chargesAtDate = _chargesAtDate;
 // v15.19 Phase A1 BUG-PRORATA-DASH : prorata jours intra-mois
 window._loyerProrataMois = (log, yr, mi, bails) =>
   _loyerProrataMois(log, yr, mi, bails, window.DB?.irlHistorique || []);
+// Split {hc, ch} proraté (même signature, irlHistorique consommé) — source du dû pour la cascade d'imputation.
+window._loyerProrataMoisSplit = (log, yr, mi, bails) =>
+  _loyerProrataMoisSplit(log, yr, mi, bails, window.DB?.irlHistorique || []);
 
 // IndexedDB helpers (Phase 1b)
 window._IDB_NAME = _IDB_NAME;
@@ -253,6 +256,8 @@ window._loyerToleranceActive = _loyerToleranceActive;
 window._loyerTodayLocal = _loyerTodayLocal;
 window._loyerSoldeAjuste = _loyerSoldeAjuste;
 window._computeLoyerCumul = _computeLoyerCumul;
+window._computeLoyerChargeAlloc = _computeLoyerChargeAlloc;
+window._loyerSplitCascade = _loyerSplitCascade;
 window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre

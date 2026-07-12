@@ -112,6 +112,60 @@ export function _computeLoyerCumul(input) {
 }
 
 /**
+ * CASCADE d'imputation d'un montant encaissé sur un mois (décision user 2026-07-09) :
+ * loyer d'abord (plafonné au HC dû), puis charges (plafonné au CH dû), l'excédent = LOYER
+ * perçu d'avance (fiscalement du loyer, pas une provision). Remplace l'ancien split au RATIO.
+ * Invariant : hc + provisions = paid (pour paid > 0). `avance` est la part de `hc` au-delà de hc+ch.
+ * @returns {{hc:number, provisions:number, avance:number}}
+ */
+export function _loyerSplitCascade(paid, hc, ch) {
+  const P = Number(paid) || 0;
+  const L = Math.max(0, Number(hc) || 0);
+  const C = Math.max(0, Number(ch) || 0);
+  const r2 = n => Math.round(n * 100) / 100;
+  if (P <= 0) return { hc: r2(P), provisions: 0, avance: 0 };   // remboursement/arriéré négatif → imputé au loyer
+  const loyerCourant = Math.min(P, L);
+  const avance = Math.max(0, P - L - C);
+  const provisions = Math.min(Math.max(0, P - L), C);
+  return { hc: r2(loyerCourant + avance), provisions: r2(provisions), avance: r2(avance) };
+}
+
+/**
+ * Cascade d'imputation CUMULATIVE d'un lot sur l'année (décision user 2026-07-09 :
+ * « effacer les dettes avant de faire de l'avance sur loyer »). Passage chronologique :
+ * chaque mois comble d'abord SON loyer puis SES charges, puis le reliquat récupère les
+ * ARRIÉRÉS (loyer d'abord, puis charges), et seul ce qui reste APRÈS les dettes = loyer
+ * perçu d'avance. Attribué au mois qui reçoit (cohérence trésorerie), pas de pull-back.
+ * `loyersHC` inclut l'avance (loyer imposable à l'encaissement). « sans bail » (dû 0 partout)
+ * → tout en loyer, JAMAIS d'avance (un arriéré n'est pas une avance — audit).
+ * @param {Array<{hcDue:number, chDue:number, received:number}>} months chronologiques (échus)
+ * @returns {Array<{loyersHC:number, provisions:number, avance:number}>}
+ */
+export function _computeLoyerChargeAlloc(months) {
+  const r2 = n => Math.round(n * 100) / 100;
+  const ms = months || [];
+  const hasDue = ms.some(m => (Math.max(0, Number(m.hcDue) || 0) + Math.max(0, Number(m.chDue) || 0)) > 0);
+  let loyerArrear = 0, chargeArrear = 0;
+  return ms.map(m => {
+    const hcDue = Math.max(0, Number(m.hcDue) || 0);
+    const chDue = Math.max(0, Number(m.chDue) || 0);
+    const recv = Number(m.received) || 0;
+    let pool = Math.max(0, recv);
+    const loyerCur = Math.min(pool, hcDue); pool -= loyerCur; loyerArrear += (hcDue - loyerCur);
+    const chargeCur = Math.min(pool, chDue); pool -= chargeCur; chargeArrear += (chDue - chargeCur);
+    const loyerRecov = Math.min(pool, loyerArrear); pool -= loyerRecov; loyerArrear -= loyerRecov;   // arriérés loyer (priorité)
+    const chargeRecov = Math.min(pool, chargeArrear); pool -= chargeRecov; chargeArrear -= chargeRecov;
+    const leftover = Math.max(0, pool);
+    const negAdj = Math.min(0, recv);                       // remboursement net → réduit le loyer du mois
+    return {
+      loyersHC: r2(loyerCur + loyerRecov + leftover + negAdj),
+      provisions: r2(chargeCur + chargeRecov),
+      avance: r2(hasDue ? leftover : 0)
+    };
+  });
+}
+
+/**
  * La pastille unique (mêmes seuils que la modale Suivi des loyers) :
  * ±20 € de bruit toléré ; nMois = équivalent en mois arrondi à 0,1.
  * @returns {{cls:'retard'|'avance'|'ajour', montant:number, nMois:number}}

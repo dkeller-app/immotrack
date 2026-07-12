@@ -7,6 +7,8 @@ import {
   _loyerTodayLocal,
   _loyerSoldeAjuste,
   _computeLoyerCumul,
+  _computeLoyerChargeAlloc,
+  _loyerSplitCascade,
   _LOYER_TOLERANCE_JOUR
 } from '../../js/core/loyer-statut.js';
 
@@ -214,6 +216,80 @@ describe('_computeLoyerCumul — position cumulée signée, bornée au suivi (Ph
   it('le chip du cumul réutilise _loyerChipVerdict (avance/retard/à jour)', () => {
     expect(_loyerChipVerdict(_computeLoyerCumul({ startYm: '2026-01', endYm: '2026-07', dueOfMonth: due, totalPaid: 655 * 5 }).cumul, 655).cls).toBe('retard');
     expect(_loyerChipVerdict(_computeLoyerCumul({ startYm: '2026-06', endYm: '2026-06', dueOfMonth: due, totalPaid: 1310 }).cumul, 655).cls).toBe('avance');
+  });
+});
+
+describe('_loyerSplitCascade — loyer → charges → avance (remplace le ratio, décision user 2026-07-09)', () => {
+  it('mois complet payé pile (530, hc 500 ch 30) → 500 loyer + 30 charges, 0 avance', () => {
+    expect(_loyerSplitCascade(530, 500, 30)).toEqual({ hc: 500, provisions: 30, avance: 0 });
+  });
+  it('partiel (515) → loyer prioritaire : 500 loyer + 15 charges (15 encore dues), 0 avance', () => {
+    expect(_loyerSplitCascade(515, 500, 30)).toEqual({ hc: 500, provisions: 15, avance: 0 });
+  });
+  it('excédent (615) → 500 loyer + 30 charges + 85 d\'avance ; hc inclut l\'avance = 585', () => {
+    expect(_loyerSplitCascade(615, 500, 30)).toEqual({ hc: 585, provisions: 30, avance: 85 });
+  });
+  it('paiement < loyer (300) → tout en loyer, 0 charges', () => {
+    expect(_loyerSplitCascade(300, 500, 30)).toEqual({ hc: 300, provisions: 0, avance: 0 });
+  });
+  it('invariant hc + provisions = payé (pour payé > 0)', () => {
+    for (const p of [200, 515, 530, 615, 999.99]) {
+      const s = _loyerSplitCascade(p, 500, 30);
+      expect(Math.round((s.hc + s.provisions) * 100) / 100).toBe(Math.round(p * 100) / 100);
+    }
+  });
+  it('sans charges connues (ch 0) → tout au loyer, l\'excédent au-delà du HC = avance', () => {
+    expect(_loyerSplitCascade(615, 500, 0)).toEqual({ hc: 615, provisions: 0, avance: 115 });
+  });
+  it('remboursement / arriéré négatif → imputé au loyer, pas de provisions négatives', () => {
+    expect(_loyerSplitCascade(-100, 500, 30)).toEqual({ hc: -100, provisions: 0, avance: 0 });
+  });
+  it('prorata entrée mi-mois (hc 250, ch 15) — pas de règle spéciale, le HC/CH est déjà proratisé', () => {
+    expect(_loyerSplitCascade(265, 250, 15)).toEqual({ hc: 250, provisions: 15, avance: 0 });
+    expect(_loyerSplitCascade(200, 250, 15)).toEqual({ hc: 200, provisions: 0, avance: 0 });
+  });
+  it('scénario table Finances : mai 515 + juin 615 → provisions 15+30=45, avance 85, loyer 500+585=1085', () => {
+    const mai = _loyerSplitCascade(515, 500, 30);
+    const juin = _loyerSplitCascade(615, 500, 30);
+    expect(mai.provisions + juin.provisions).toBe(45);
+    expect(mai.avance + juin.avance).toBe(85);
+    expect(mai.hc + juin.hc).toBe(1085);
+  });
+});
+
+describe('_computeLoyerChargeAlloc — cascade CUMULATIVE, dettes avant avance (correction user 2026-07-09)', () => {
+  const M = (received, hcDue = 500, chDue = 30) => ({ hcDue, chDue, received });
+  const sum = (out) => out.reduce((a, b) => ({ hc: a.hc + b.loyersHC, prov: a.prov + b.provisions, av: a.av + b.avance }), { hc: 0, prov: 0, av: 0 });
+  it('SCÉNARIO USER : mai partiel 515, juin 615 → juin récupère les 15 d\'arriéré, avance 70 (PAS 85)', () => {
+    const out = _computeLoyerChargeAlloc([M(530), M(530), M(530), M(530), M(515), M(615)]);
+    expect(out[4]).toEqual({ loyersHC: 500, provisions: 15, avance: 0 });    // mai : 500 loyer + 15 charges (arriéré 15)
+    expect(out[5]).toEqual({ loyersHC: 570, provisions: 45, avance: 70 });   // juin : 500 loyer + 70 avance ; 30 courant + 15 récup
+    expect(sum(out)).toEqual({ hc: 3070, prov: 180, av: 70 });               // annuel : arriéré comblé, avance 70
+  });
+  it('à jour → provisions pleines, 0 avance', () => {
+    expect(_computeLoyerChargeAlloc([M(530), M(530)])).toEqual([
+      { loyersHC: 500, provisions: 30, avance: 0 }, { loyersHC: 500, provisions: 30, avance: 0 }]);
+  });
+  it('mois impayé au milieu → AUCUN pull-back négatif (janv payé, févr 0)', () => {
+    const out = _computeLoyerChargeAlloc([M(530), M(0)]);
+    expect(out[0]).toEqual({ loyersHC: 500, provisions: 30, avance: 0 });
+    expect(out[1]).toEqual({ loyersHC: 0, provisions: 0, avance: 0 });       // févr impayé, PAS de −30
+  });
+  it('loyer priorité : paie 500 sur 530 → 500 loyer, 0 charges (charges en arriéré)', () => {
+    expect(_computeLoyerChargeAlloc([M(500)])[0]).toEqual({ loyersHC: 500, provisions: 0, avance: 0 });
+  });
+  it('excédent franc : paie 545 → 500 loyer + 30 charges + 15 avance (loyersHC = 515)', () => {
+    expect(_computeLoyerChargeAlloc([M(545)])[0]).toEqual({ loyersHC: 515, provisions: 30, avance: 15 });
+  });
+  it('arriéré de loyer récupéré AVANT charges (loyer priorité) : janv 0, févr 1060 → tout comblé', () => {
+    const out = _computeLoyerChargeAlloc([M(0), M(1060)]);
+    expect(out[1]).toEqual({ loyersHC: 1000, provisions: 60, avance: 0 });   // févr : 500 courant + 500 récup loyer, 30+30 charges
+  });
+  it('lot SANS bail (dû 0/0) : tout en loyer, AUCUNE avance (un arriéré n\'est pas une avance)', () => {
+    expect(_computeLoyerChargeAlloc([{ hcDue: 0, chDue: 0, received: 500 }])[0]).toEqual({ loyersHC: 500, provisions: 0, avance: 0 });
+  });
+  it('prorata d\'entrée : janv dû 327,50 (mi-mois), paie 327,50 → tout loyer HC, 0 charge', () => {
+    expect(_computeLoyerChargeAlloc([{ hcDue: 327.5, chDue: 0, received: 327.5 }])[0]).toEqual({ loyersHC: 327.5, provisions: 0, avance: 0 });
   });
 });
 
