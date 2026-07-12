@@ -12,12 +12,17 @@ const realCtx = () => ({
 
 // Mock store : enregistre les appels upsert/remove et renvoie un statut configurable.
 // Par défaut : upsert→{status:'inserted'}, remove→{status:'deleted'}. Override par (coll,key).
+// Un override { throws: 'msg' } fait THROW l'appel (simule le POISON du 12/07 : CHECK 23514,
+// RLS 42501, réseau… — l'adapter réel `writer.insert/update/softDelete` throw sur ces erreurs).
 function mockStore(overrides = {}) {
   const calls = []
   const keyOf = (coll, rec) => coll + ':' + (rec.__key ?? rec.nom ?? rec.ref ?? rec.id)
   const reply = (op, coll, rec) => {
     const k = keyOf(coll, rec)
-    if (overrides[k]) return overrides[k]
+    if (overrides[k]) {
+      if (overrides[k].throws) throw new Error(overrides[k].throws)
+      return overrides[k]
+    }
     return op === 'upsert' ? { status: 'inserted', id: k, version: 1 } : { status: 'deleted', id: k, version: 2 }
   }
   return {
@@ -422,6 +427,142 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
   it('GARDE ANTI-DRIFT : SYNCED_COLLECTIONS (store-sync) ≡ TABLE_COLLECTIONS (store-supabase) — sinon perte silencieuse', () => {
     // une collection présente dans l'une mais pas l'autre tomberait entre sync-table et blob-config.
     expect(new Set(SYNCED_COLLECTIONS)).toEqual(TABLE_COLLECTIONS)
+  })
+
+  // ── P1.2 FLUSH BLINDÉ (audit sync cloud 2026-07-12, cause C-A) ─────────────────────────────
+  // Bug réel du 12/07 : UN insert documents refusé (CHECK 23514) a fait throw _doFlush entier →
+  // removes + config JAMAIS tentés, sync 100 % morte une journée, en silence. Contrat blindé :
+  // un throw de store est un ÉCHEC PAR ENREGISTREMENT (summary.errors), jamais un abort global.
+
+  it('POISON (12/07) : un upsert qui THROW n\'avorte plus le flush — autres upserts + removes + config TOUJOURS tentés, poison dans summary.errors', async () => {
+    let persistCount = 0
+    const store = { ...mockStore({ 'documents:66': { throws: 'insert documents: violates check constraint (23514)' } }), persistConfig: async () => { persistCount++; return { status: 'config-written' } } }
+    const db = { ...baseDB(), documents: [], params: { devise: 'EUR' } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.documents.push({ id: 66, parentType: 'mrh' })                 // le POISON
+    db.logements.push({ ref: 'F-2', entity: 'SCI A' })               // un autre upsert sain
+    db.mouvements = []                                               // une SUPPRESSION (perdue le 12/07)
+    db.params.devise = 'USD'                                         // une modif CONFIG (perdue le 12/07)
+    const s = await sync.flush()
+    expect(s.errors).toContainEqual({ op: 'upsert', coll: 'documents', key: '66', message: expect.stringContaining('23514') })
+    expect(s.upserts).toContainEqual({ coll: 'logements', key: 'f-2' })       // l'upsert sain est passé
+    expect(s.removes).toContainEqual({ coll: 'mouvements', key: '1' })        // le remove est passé
+    expect(s.config).toBe('written'); expect(persistCount).toBe(1)            // la config est passée
+  })
+
+  it('POISON : baseline NON avancé pour l\'enregistrement en échec → retenté au prochain flush ; les succès ne sont PAS re-poussés', async () => {
+    const store = mockStore({ 'documents:66': { throws: 'boom' } })
+    const db = { ...baseDB(), documents: [] }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.documents.push({ id: 66, parentType: 'mrh' })
+    db.logements.push({ ref: 'F-2', entity: 'SCI A' })
+    await sync.flush()
+    store.calls.length = 0
+    const s2 = await sync.flush()
+    expect(store.calls.map(c => c.coll + ':' + (c.rec.id ?? c.rec.ref))).toEqual(['documents:66'])   // seul le poison est retenté
+    expect(s2.errors).toHaveLength(1)
+  })
+
+  it('un remove qui THROW est isolé pareil : les autres removes + la config passent quand même', async () => {
+    let persistCount = 0
+    const store = { ...mockStore({ 'logements:F-1': { throws: 'softDelete logements: réseau' } }), persistConfig: async () => { persistCount++; return { status: 'config-written' } } }
+    const db = { ...baseDB(), params: { devise: 'EUR' } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.logements = []                                                // remove poison (throw)
+    db.mouvements = []                                               // remove sain
+    db.params.devise = 'USD'
+    const s = await sync.flush()
+    expect(s.errors).toContainEqual({ op: 'remove', coll: 'logements', key: 'f-1', message: expect.stringContaining('réseau') })
+    expect(s.removes).toContainEqual({ coll: 'mouvements', key: '1' })
+    expect(s.config).toBe('written'); expect(persistCount).toBe(1)
+  })
+
+  it('persistConfig qui THROW → summary.config = \'error\' + summary.errors, le flush ne throw PAS, config retentée au prochain flush', async () => {
+    let persistCount = 0, fail = true
+    const store = { ...mockStore(), persistConfig: async () => { persistCount++; if (fail) throw new Error('writeConfig: RLS'); return { status: 'config-written' } } }
+    const db = { ...baseDB(), params: { devise: 'EUR' } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.params.devise = 'USD'
+    const s1 = await sync.flush()                                    // ne doit PAS rejeter
+    expect(s1.config).toBe('error')
+    expect(s1.errors).toContainEqual({ op: 'config', coll: 'config', key: 'espace_config', message: expect.stringContaining('RLS') })
+    fail = false
+    const s2 = await sync.flush()                                    // signature config non avancée → retry
+    expect(persistCount).toBe(2)
+    expect(s2.config).toBe('written')
+  })
+
+  it('SUPPRESSION = FLUSH IMMÉDIAT : markDirty avec un remove en attente → schedule({immediate:true}) (bypass du debounce 800 ms)', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    // modif SANS suppression → debounce normal (pas d'immediate)
+    db.logements[0].loyer = 800
+    sync.markDirty()
+    expect(sched).toHaveLength(1)
+    expect(sched[0].opts && sched[0].opts.immediate).toBeFalsy()
+    // suppression par tombstone EN PLACE (sémantique réelle de l'app) → immediate
+    db.mouvements[0] = { ...db.mouvements[0], _deleted: true }
+    sync.markDirty()
+    expect(sched).toHaveLength(2)
+    expect(sched[1].opts).toMatchObject({ immediate: true })
+    await sched[1].fn()
+    expect(store.calls.filter(c => c.op === 'remove' && c.coll === 'mouvements')).toHaveLength(1)
+  })
+
+  it('markDirty : la suppression d\'un bail VERROUILLÉ au baseline ne déclenche PAS l\'immédiat (le flush ne ferait rien → anti-boucle)', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    db.baux = { F3: { hc: 700, signatures: { signedAt: '2026-01-01T00:00:00Z', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true } } }
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()                                   // baseline : F3 verrouillé
+    delete db.baux.F3
+    sync.markDirty()
+    expect(sched).toHaveLength(1)
+    expect(sched[0].opts && sched[0].opts.immediate).toBeFalsy()
+  })
+
+  it('RETRY BACKOFF : un flush avec erreurs re-programme un flush via schedule({retryDelayMs}) — délai doublé à chaque échec, plafonné, remis à zéro au succès', async () => {
+    const store = mockStore({ 'documents:66': { throws: 'boom' } })
+    const db = { ...baseDB(), documents: [] }
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    db.documents.push({ id: 66, parentType: 'mrh' })
+    await sync.flush()
+    expect(sched.at(-1).opts).toMatchObject({ retryDelayMs: 2000 })   // 1er échec → 2 s
+    await sched.at(-1).fn()
+    expect(sched.at(-1).opts).toMatchObject({ retryDelayMs: 4000 })   // 2e échec → 4 s
+    for (let i = 0; i < 8; i++) await sched.at(-1).fn()               // …
+    expect(sched.at(-1).opts.retryDelayMs).toBe(60000)                // plafonné à 60 s (l'onglet vit → on retente)
+    // guérison : le poison disparaît (jamais monté → créé-puis-retiré = ignoré) → flush PROPRE → streak reset
+    db.documents = []
+    const before = sched.length
+    await sched.at(-1).fn()
+    expect(sched.length).toBe(before)                                 // flush PROPRE → aucun retry re-programmé
+    // nouvel échec plus tard → le backoff repart à 2 s (streak remis à zéro par le succès)
+    db.documents.push({ id: 66, parentType: 'mrh' })                  // le store throw toujours sur documents:66
+    await sync.flush()
+    expect(sched.at(-1).opts).toMatchObject({ retryDelayMs: 2000 })
+  })
+
+  it('RETRY : un conflit de version seul ne re-programme PAS (résolution = re-hydrate, P1 item 2 — retenter à l\'identique serait une boucle éternelle)', async () => {
+    const store = mockStore({ 'logements:F-3': { status: 'conflict', id: 'x' } })
+    const db = baseDB()
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    db.logements.push({ ref: 'F-3', entity: 'SCI A' })
+    const s = await sync.flush()
+    expect(s.conflicts).toHaveLength(1)
+    expect(sched.filter(c => c.opts && c.opts.retryDelayMs)).toHaveLength(0)
   })
 
   it('markDirty programme un flush via le scheduler injecté (debounce app)', async () => {

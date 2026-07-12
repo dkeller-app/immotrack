@@ -110,6 +110,7 @@ async function boot() {
   // FLUSH puis signOut (api.logout) → recharge la page : sans session persistée, on retombe sur le
   // login. Repli sûr : si logout échoue, on recharge quand même (la session n'est pas persistée).
   window.__immoLogout = async () => {
+    window.__immoLoggingOut = true   // le SIGNED_OUT qui suit est VOULU → pas de bannière « session expirée »
     try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) }
     try { location.reload() } catch (e) {}
   }
@@ -489,34 +490,122 @@ async function acceptInviteFlow(api, client, overlay, token) {
 async function onLoggedIn(api, overlay, user) {
   renderLoading(overlay, user)
   let esp, liveDB = null, flushTimer = null, _lastFlushFn = null, _liveChannel = null
-  // Indicateur de sync du bandeau (si présent). I1 : JAMAIS « Enregistré » si conflit/skipped (donc
-  // pas réellement dans le cloud) — affichage honnête.
-  const setSync = (state) => {
-    const el = document.getElementById('imsb-sync'); if (!el) return
-    el.textContent = state === 'saving' ? '⟳ Enregistrement…'
-      : state === 'incomplete' ? '⚠ Sync incomplète — réessaie en modifiant'
-      : state === 'error' ? '⚠ Erreur réseau — réessai à la prochaine modif'
-      : '✓ Enregistré dans le cloud'
+
+  // ── P1.1 SYNC HONNÊTE (audit 2026-07-12, cause C-B) — pastille topbar RÉELLE. L'ancien #imsb-sync
+  // vivait dans le bandeau bleu supprimé au cutover → setSync était un no-op = échecs 100 % invisibles
+  // (le 12/07 : 0 écriture cloud sur une journée entière, sans un seul signal). La pastille est
+  // (re)créée PARESSEUSEMENT à chaque setSync → elle survit aux re-rendus/re-injections de la topbar.
+  const _syncEl = () => {
+    let el = document.getElementById('imsb-sync')
+    if (el && el.isConnected) return el
+    const tb = document.querySelector('.tb')
+    if (!tb) return null                          // app pas encore rendue → retenté au prochain setSync
+    if (!document.getElementById('imsb-sync-style')) {
+      // Style aligné sur la pastille de co-présence (.cop-pill) : mêmes tokens app (--bd/--sur2/--t2),
+      // point d'état coloré (vert=sauvé · gris pulsé=en cours · orange=échec · gris=hors ligne).
+      const st = document.createElement('style'); st.id = 'imsb-sync-style'
+      st.textContent = '#imsb-sync{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;margin-left:8px;border:1px solid var(--bd,#e4e7ee);border-radius:999px;background:var(--sur2,#f7f8fb);font:600 12px/1.2 sans-serif;color:var(--t2,#3c4658);white-space:nowrap;user-select:none;flex:none}'
+        + '#imsb-sync .is-dot{width:8px;height:8px;border-radius:50%;background:var(--grn,#16a34a);flex:none}'
+        + '#imsb-sync[data-state=saving] .is-dot{background:#8a93a6;animation:imsb-sync-pulse 1s ease-in-out infinite}'
+        + '#imsb-sync[data-state=warn] .is-dot,#imsb-sync[data-state=dead] .is-dot{background:var(--org,#f59e0b)}'
+        + '#imsb-sync[data-state=warn]{cursor:pointer}'
+        + '#imsb-sync[data-state=offline] .is-dot{background:#8a93a6}'
+        + '@keyframes imsb-sync-pulse{50%{opacity:.35}}'
+        + '@media(max-width:700px){#imsb-sync .is-txt{display:none}#imsb-sync{padding:4px 7px}}'
+      document.head.appendChild(st)
+    }
+    el = document.createElement('div'); el.id = 'imsb-sync'
+    el.setAttribute('role', 'status')
+    el.innerHTML = '<span class="is-dot"></span><span class="is-txt"></span>'
+    el.onclick = () => { if (el.dataset.state === 'warn' && _lastFlushFn) runFlush(_lastFlushFn) }   // clic sur ⚠ = réessayer MAINTENANT
+    const anchor = document.getElementById('presence-pill')
+    if (anchor && anchor.parentElement === tb) tb.insertBefore(el, anchor)
+    else tb.appendChild(el)
+    return el
   }
+  // I1 : JAMAIS « Enregistré » si conflit/skipped/erreur (donc pas réellement dans le cloud) — honnête.
+  const setSync = (state, detail) => {
+    const el = _syncEl(); if (!el) return
+    el.dataset.state = state
+    const msg = state === 'saving' ? 'Enregistrement…'
+      : state === 'warn' ? (detail || 'Non synchronisé — réessai auto')
+      : state === 'dead' ? 'Session expirée'
+      : state === 'offline' ? 'Hors ligne'
+      : 'Enregistré'
+    const txt = el.querySelector('.is-txt'); if (txt) txt.textContent = msg
+    el.title = state === 'warn' ? (msg + ' — clic : réessayer maintenant') : msg
+  }
+
+  // ── P1.1 DÉTECTION SESSION MORTE — persistSession:false = session en mémoire seule ; token mort
+  // après veille = tous les appels en 401 avalés (audit C-B : « fini les 401 silencieux »). Bannière
+  // UNE fois, non fermable autrement qu'en se reconnectant (les modifs ne partent plus au cloud).
+  let _deadShown = false
+  const _sessionDead = () => {
+    if (_deadShown) return
+    _deadShown = true
+    setSync('dead')
+    if (document.getElementById('imsb-dead')) return
+    const b = document.createElement('div'); b.id = 'imsb-dead'
+    b.setAttribute('role', 'alert')
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;padding:10px 16px;background:#7a1f1f;color:#fff;font:600 13.5px/1.4 sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)'
+    b.innerHTML = '<span>⚠ Ta session a expiré : tes modifications ne sont <u>plus enregistrées</u> dans le cloud.</span>'
+      + '<button id="imsb-dead-btn" style="border:none;border-radius:9px;padding:8px 16px;background:#fff;color:#7a1f1f;font:700 13px sans-serif;cursor:pointer">Se reconnecter</button>'
+    document.body.appendChild(b)
+    const btn = b.querySelector('#imsb-dead-btn')
+    if (btn) btn.onclick = () => { try { location.reload() } catch (e) {} }
+  }
+
   const runFlush = async (fn) => {
     flushTimer = null; setSync('saving')
     try {
       const s = await fn()   // fn = () => sync.flush() ; flush est SÉRIALISÉ côté store-sync (anti-réentrance C2)
-      const incomplete = s && ((s.conflicts && s.conflicts.length) || (s.skipped && s.skipped.length))
-      if (incomplete) console.warn('[Supabase] sync incomplet (conflits/skipped — modif PAS dans le cloud)', s)
-      setSync(incomplete ? 'incomplete' : 'ok')
+      // P1.2 : le résumé porte désormais les échecs PAR ENREGISTREMENT (summary.errors = throws isolés)
+      // en plus des conflits/skipped. Le moteur re-programme lui-même un retry backoff (errors/skipped/
+      // config) via schedule({retryDelayMs}) ; les conflits attendent le chantier « conflit → re-hydrate ».
+      const bad = (s ? ((s.errors && s.errors.length) || 0) + ((s.conflicts && s.conflicts.length) || 0) + ((s.skipped && s.skipped.length) || 0) : 0) + (s && s.config === 'error' ? 1 : 0)
+      if (bad) {
+        console.warn('[Supabase] sync incomplète (des modifs ne sont PAS dans le cloud)', s)
+        // Un token mort se manifeste en erreurs JWT/401 sur chaque appel → bannière re-login, pas une ⚠ générique.
+        if (s.errors && s.errors.some(er => /jwt|401|token .*(expired|invalid)|expired.*token/i.test(String(er.message)))) _sessionDead()
+        if (!_deadShown) setSync('warn', bad + ' modif' + (bad > 1 ? 's' : '') + ' non synchronisée' + (bad > 1 ? 's' : '') + ' — réessai auto')
+      } else if (!_deadShown) setSync('ok')
       // SYNCHRO LIVE — après une sync RÉUSSIE, signale aux AUTRES appareils de l'espace qu'il y a du neuf.
-      if (!incomplete && _liveChannel) { try { _liveChannel.send({ type: 'broadcast', event: 'changed', payload: {} }) } catch (e) {} }
-    } catch (e) { console.error('[Supabase] flush', e); setSync('error') }
+      if (!bad && _liveChannel) { try { _liveChannel.send({ type: 'broadcast', event: 'changed', payload: {} }) } catch (e) {} }
+      return s
+    } catch (e) {
+      console.error('[Supabase] flush', e)
+      setSync(navigator.onLine === false ? 'offline' : 'warn', 'Erreur réseau — réessai à la prochaine modif')
+    }
   }
   // Scheduler debouncé (800 ms, comme Drive) : saveDB → markDirty → ici → flush cloud (gardé par version).
-  const schedule = (fn) => { _lastFlushFn = fn; if (flushTimer) clearTimeout(flushTimer); flushTimer = setTimeout(() => runFlush(fn), 800) }
+  // P1.2 : honore les options du moteur — { immediate:true } (suppression en attente → bypass du debounce,
+  // le remove part MAINTENANT) et { retryDelayMs } (retry backoff après échec ; remplace le timer en
+  // attente — sans perte : un flush couvre TOUT le diff, y compris la modif qui attendait).
+  const schedule = (fn, opts) => {
+    _lastFlushFn = fn
+    if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+    if (opts && opts.immediate) { runFlush(fn); return }
+    flushTimer = setTimeout(() => runFlush(fn), (opts && opts.retryDelayMs) || 800)
+  }
+  // P1.1 — le réseau qui tombe/revient : pastille honnête + reprise immédiate au retour du réseau.
+  addEventListener('offline', () => { if (!_deadShown) setSync('offline') })
+  addEventListener('online', () => { if (_deadShown) return; if (_lastFlushFn) runFlush(_lastFlushFn); else setSync('ok') })
   // C1 : à la fermeture/masquage de l'onglet, flush IMMÉDIAT du debounce en attente — sinon la modif est
   // perdue (en mode cloud, le filet localStorage de beforeunload n'existe plus). visibilitychange:hidden +
   // pagehide = plus fiables que beforeunload pour l'async. Best-effort (réseau coupé sur close dur possible).
   const flushPendingNow = () => { if (flushTimer && _lastFlushFn) { clearTimeout(flushTimer); runFlush(_lastFlushFn) } }
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingNow() })
   addEventListener('pagehide', flushPendingNow)
+  // P1.1 — session expirée/révoquée pendant la vie de l'onglet : supabase-js émet SIGNED_OUT quand le
+  // refresh du token échoue (autoRefreshToken:true, session mémoire) → bannière re-login. Abonné UNE
+  // SEULE fois pour la vie de la page (contrat onAuthChange). Un logout VOLONTAIRE (menu Compte) pose
+  // window.__immoLoggingOut → pas de bannière pendant le signOut → reload ramène au login proprement.
+  try {
+    api.onAuthChange((session, evt) => {
+      if (window.__immoLoggingOut) return
+      if (evt === 'SIGNED_OUT' || !session) _sessionDead()
+    })
+  } catch (e) { console.warn('[Supabase] onAuthChange', e) }
   try {
     const _espaces = await api.resolveEspaces()
     esp = _espaces.find(e => e.mine) || _espaces[0]   // espace PROPRE = primaire (Storage/Realtime/affichage + __immoCloudInfo)
@@ -580,6 +669,7 @@ async function onLoggedIn(api, overlay, user) {
         displayName: _displayNameFromUser(user),
       }
       window.__immoRender()
+      setSync('ok')      // P1.1 : pastille visible dès le dévoilement (état initial = hydraté ≙ enregistré)
       _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
       overlay.remove()                            // dévoile l'app complète sur les données cloud
@@ -639,7 +729,8 @@ function brand() {
 
 // Bandeau bleu RETIRÉ (cutover) : `_showUpdateBanner` (« un autre appareil a modifié → Actualiser ») et
 // `injectSyncBanner` (bandeau permanent « Mode cloud »/« Revenir en mode local ») supprimés. La synchro
-// Realtime + la co-présence restent ; `setSync` est un no-op tant que `#imsb-sync` n'existe plus.
+// Realtime + la co-présence restent ; `setSync` pilote désormais la PASTILLE topbar #imsb-sync
+// (recréée paresseusement dans .tb — P1.1 sync honnête, audit 2026-07-12).
 
 // Le SVG « check » réutilisé dans les listes des piliers.
 function _imsbCheck() {
