@@ -126,7 +126,7 @@ const configSig = db => {
   return JSON.stringify(o)
 }
 
-export function createStoreSync({ store, getDB, schedule, sealSigned = true }) {
+export function createStoreSync({ store, getDB, schedule, sealSigned = true, retryBaseMs = 2000, retryMaxMs = 60000 }) {
   if (!store || typeof store.upsert !== 'function' || typeof store.remove !== 'function')
     throw new Error('createStoreSync: store.upsert/remove requis')
   if (typeof getDB !== 'function') throw new Error('createStoreSync: getDB requis')
@@ -159,8 +159,15 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true }) {
   // _doFlush : diffe le DB courant vs baseline, applique upserts (parent→enfant) puis removes
   // (enfant→parent), met à jour le baseline sur succès uniquement. Renvoie un résumé.
   // ⚠️ NE PAS appeler directement (réentrance) → passer par flush() qui SÉRIALISE.
+  //
+  // 🛡 FLUSH BLINDÉ (audit sync cloud 2026-07-12, cause C-A) : un throw du store (CHECK 23514, RLS
+  // 42501, réseau…) est un ÉCHEC PAR ENREGISTREMENT (summary.errors, baseline non avancé → retenté),
+  // JAMAIS un abort global. Bug réel : le 12/07, UN insert documents refusé a tué 100 % de la sync
+  // une journée entière (removes + config jamais tentés), en silence. Seul sealSignedBaux reste
+  // hors isolation À DESSEIN (fail-closed légal : ne jamais pousser un bail signé non scellé).
+  const _errMsg = e => (e && e.message) || String(e)
   async function _doFlush(db) {
-    const summary = { upserts: [], removes: [], conflicts: [], skipped: [] }
+    const summary = { upserts: [], removes: [], conflicts: [], skipped: [], errors: [] }
     if (sealSigned) await sealSignedBaux(db)            // VERROU (pièce 2) — gouverné par l'option sealSigned (false en phase test)
     const current = snapshotOf(db)
 
@@ -174,7 +181,9 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true }) {
         // immuable → jamais ré-upsertée (le trigger refuserait → conflit). La 1ʳᵉ transition false→true
         // (baseline NON verrouillé) passe : c'est elle qui POSE le verrou.
         if (prev && prev.locked) continue
-        const res = await store.upsert(coll, rec)
+        let res
+        try { res = await store.upsert(coll, rec) }
+        catch (e) { summary.errors.push({ op: 'upsert', coll, key: k, message: _errMsg(e) }); continue }   // poison isolé → retry
         const st = res && res.status
         if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked }); summary.upserts.push({ coll, key: k }) }
         else if (st === 'conflict') summary.conflicts.push({ coll, key: k })   // baseline inchangé → retry
@@ -189,7 +198,9 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true }) {
       for (const [k, { rec, locked }] of [...base]) {
         if (cur.has(k)) continue
         if (locked) continue                               // VERROU : un signé verrouillé (figé au baseline) ne se supprime pas
-        const res = await store.remove(coll, rec)          // l'ANCIEN rec → résout l'id de ligne
+        let res
+        try { res = await store.remove(coll, rec) }        // l'ANCIEN rec → résout l'id de ligne
+        catch (e) { summary.errors.push({ op: 'remove', coll, key: k, message: _errMsg(e) }); continue }
         const st = res && res.status
         if (st === 'deleted') { base.delete(k); summary.removes.push({ coll, key: k }) }
         else if (st === 'conflict') summary.conflicts.push({ coll, key: k })
@@ -197,14 +208,28 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true }) {
       }
     }
 
-    // 3) config (collections non-tablées) → un seul blob espace_config, si changé. Une erreur
-    // propage (comme un throw d'upsert) et n'avance PAS _configSig → réessai au prochain flush.
+    // 3) config (collections non-tablées) → un seul blob espace_config, si changé. Une erreur est
+    // ISOLÉE (config='error') et n'avance PAS _configSig → réessai au prochain flush. Le 12/07, la
+    // config était en DERNIER derrière le throw global → jamais écrite de la journée ; plus maintenant.
     if (typeof store.persistConfig === 'function') {
       const cs = configSig(db)
-      if (cs !== _configSig) { await store.persistConfig(db); _configSig = cs; summary.config = 'written' }
+      if (cs !== _configSig) {
+        try { await store.persistConfig(db); _configSig = cs; summary.config = 'written' }
+        catch (e) { summary.config = 'error'; summary.errors.push({ op: 'config', coll: 'config', key: 'espace_config', message: _errMsg(e) }) }
+      }
     }
     return summary
   }
+
+  // 🔁 RETRY BACKOFF (P1.2) : un flush avec des échecs RETENTABLES (errors = throws isolés, skipped =
+  // FK pas encore résolue, config en erreur) re-programme un flush via le scheduler injecté, avec un
+  // délai qui DOUBLE à chaque échec consécutif (2 s → 60 s max), remis à zéro au premier flush propre.
+  // Les CONFLITS de version sont EXCLUS à dessein : retenter à l'identique est une boucle éternelle
+  // (audit C-A) — leur résolution est « conflit → re-hydrate » (P1 item 2, chantier séparé).
+  // Le scheduler de l'app reçoit { retryDelayMs } et remplace son debounce ; sans scheduler (tests,
+  // restauration __immoFlush), aucun retry automatique.
+  const _hasRetryable = s => !!(s && ((s.errors && s.errors.length) || (s.skipped && s.skipped.length) || s.config === 'error'))
+  let _failStreak = 0
 
   // flush : SÉRIALISE les flush (anti-réentrance, audit C2). Un flush en vol n'est jamais doublé ; un
   // flush demandé pendant un autre attend la fin du précédent → lit `_versions`/baseline À JOUR (pas
@@ -212,14 +237,45 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true }) {
   // est relu (getDB) au moment où le run démarre → état frais. db explicite (tests) respecté.
   let _chain = Promise.resolve()
   function flush(db) {
-    const p = _chain.then(() => _doFlush(db !== undefined ? db : getDB()))
+    const p = _chain
+      .then(() => _doFlush(db !== undefined ? db : getDB()))
+      .then(s => {   // retry AVANT de rendre la main (déterministe : `await flush()` ⇒ retry déjà programmé)
+        if (_hasRetryable(s)) {
+          _failStreak++
+          if (typeof schedule === 'function') schedule(() => flush(), { retryDelayMs: Math.min(retryBaseMs * 2 ** (_failStreak - 1), retryMaxMs) })
+        } else _failStreak = 0
+        return s
+      })
     _chain = p.catch(() => {})   // la chaîne survit aux erreurs (un flush qui throw ne bloque pas les suivants)
     return p
   }
 
-  // markDirty : programme un flush debouncé (le scheduler injecté gère le délai côté app).
+  // 🗑 SUPPRESSION = FLUSH IMMÉDIAT (P1.2) : une suppression en attente est le diff le plus fragile
+  // (diff d'absence + debounce 800 ms + fermeture d'onglet = remove jamais parti, cf. « Delle b »).
+  // markDirty détecte un remove pendable (clé au baseline, absente du courant vivant, hors baux
+  // verrouillés — qui ne se suppriment jamais → anti-boucle) et demande au scheduler un flush
+  // IMMÉDIAT ({ immediate: true }) au lieu du debounce.
+  function _hasPendingRemoves(db) {
+    for (const { coll, enumerate, key } of COLLECTIONS) {
+      const base = baseline.get(coll)
+      if (!base || base.size === 0) continue
+      let live = null   // Set des clés vivantes, construit PARESSEUSEMENT (uniquement si baseline non vide)
+      for (const [k, v] of base) {
+        if (v.locked) continue
+        if (live === null) { live = new Set(); for (const rec of enumerate(db)) { if (!isDeleted(rec)) live.add(key(rec)) } }
+        if (!live.has(k)) return true
+      }
+    }
+    return false
+  }
+
+  // markDirty : programme un flush debouncé (le scheduler injecté gère le délai côté app) ;
+  // immédiat si une suppression est en attente (cf. _hasPendingRemoves).
   function markDirty() {
-    if (typeof schedule === 'function') schedule(() => flush())
+    if (typeof schedule !== 'function') return undefined
+    let immediate = false
+    try { immediate = _hasPendingRemoves(getDB()) } catch (_e) { /* détection best-effort : au pire, debounce normal */ }
+    schedule(() => flush(), immediate ? { immediate: true } : undefined)
     return undefined
   }
 

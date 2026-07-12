@@ -38,15 +38,24 @@ export function createBoot(client) {
   // se déconnecte juste après une modif), puis signOut + reset. L'app doit AUSSI annuler son timer de
   // debounce en attente (sinon un flush programmé tirerait après le reset). Best-effort (catch).
   async function logout() {
-    try { if (_sync) await _sync.flush() } catch (_e) { /* réseau : la modif reste dans le cache local */ }
+    try {
+      if (_sync) {
+        const s = await _sync.flush()
+        // P1.1 (audit C-B : « logout avale le résumé ») : un flush final incomplet est au moins TRACÉ —
+        // la modif restée à quai est perdue à la fermeture (pas de file persistée avant P2.3).
+        const bad = s ? (((s.errors && s.errors.length) || 0) + ((s.conflicts && s.conflicts.length) || 0) + ((s.skipped && s.skipped.length) || 0)) : 0
+        if (bad || (s && s.config === 'error')) console.warn('[Supabase] logout : flush final INCOMPLET (modifs pas dans le cloud)', s)
+      }
+    } catch (_e) { console.warn('[Supabase] logout : flush final en échec', _e) }
     await client.auth.signOut()
     _store = _sync = _ctx = null
   }
   async function currentUser() { const { data } = await client.auth.getUser(); return (data && data.user) || null }
   // onAuthChange : renvoie l'ABONNEMENT directement (appeler .unsubscribe() pour résilier). À appeler UNE
   // SEULE FOIS au boot de l'app et garder pour toute sa vie (ne PAS ré-abonner à chaque login → fuite).
+  // cb(session, evt) : evt = 'SIGNED_OUT' | 'TOKEN_REFRESHED' | … (session morte ⇒ SIGNED_OUT / session null).
   function onAuthChange(cb) {
-    const { data } = client.auth.onAuthStateChange((_evt, session) => cb(session))
+    const { data } = client.auth.onAuthStateChange((evt, session) => cb(session, evt))
     return (data && data.subscription) || null
   }
 
