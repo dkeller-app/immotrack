@@ -29,6 +29,20 @@ function fmtEUR(n) {
   return Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
+/** Slugifie une chaîne pour usage sûr dans un nom de fichier : minuscules,
+ *  accents retirés, tout caractère hors [a-z0-9] réduit à un tiret unique,
+ *  tirets de tête/queue supprimés. */
+// Plage Unicode des diacritiques combinants (U+0300-U+036F), construite via
+// codes pour éviter d'embarquer des caractères combinants bruts en source.
+const DIACRITICS_RE = new RegExp('[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']', 'g');
+function slugify(s) {
+  return String(s == null ? '' : s)
+    .toLowerCase()
+    .normalize('NFD').replace(DIACRITICS_RE, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 /** Dérive le libellé de période "du 01/MM/AAAA au <dernier jour>/MM/AAAA" depuis {mois, annee}. */
 function derivePeriodeLabel(periode) {
   const moisIdx = MOIS_FR.indexOf(String(periode && periode.mois || '').toLowerCase());
@@ -73,7 +87,12 @@ export function buildQuittanceDoc(input) {
   const estComplet = montantRecu >= montantDu - 0.01;
   const estPartiel = !estComplet && montantRecu > 0;
   const status = estComplet ? 'complet' : (estPartiel ? 'partiel' : 'non-paye');
-  const titre = estPartiel ? 'REÇU DE PAIEMENT PARTIEL' : 'QUITTANCE DE LOYER';
+  // Une quittance atteste un paiement REÇU (art. 21 loi 89-462). Sans paiement,
+  // le document ne peut pas s'intituler "QUITTANCE DE LOYER" (risque légal :
+  // remise d'une fausse quittance) — titre neutre à la place.
+  const titre = estPartiel
+    ? 'REÇU DE PAIEMENT PARTIEL'
+    : (status === 'non-paye' ? "AVIS D'ÉCHÉANCE — LOYER NON ACQUITTÉ" : 'QUITTANCE DE LOYER');
 
   const periodeLabel = derivePeriodeLabel(periode);
   const adresseBien = bien.adresse || '–';
@@ -89,7 +108,7 @@ export function buildQuittanceDoc(input) {
   const locatairesHtml = locataires.map(l => {
     const civ = l.civilite ? escHtml(l.civilite) + ' ' : '';
     let line = civ + escHtml(l.nom || '–');
-    if (l.ddn) line += ', né' + (l.civilite === 'Mme' ? 'e' : '') + ' le ' + fd(l.ddn);
+    if (l.ddn) line += ', né' + (l.civilite === 'Mme' ? 'e' : '') + ' le ' + escHtml(fd(l.ddn));
     if (l.lieuNaiss) line += ' à ' + escHtml(l.lieuNaiss);
     line += ', demeurant ' + escHtml(adresseBien);
     return '<p style="margin:0 0 4px">' + line + '&nbsp;;</p>';
@@ -97,8 +116,8 @@ export function buildQuittanceDoc(input) {
 
   const montantDuLettres = numToWords(montantDu);
   const montantRecuLettres = numToWords(montantRecu);
-  const datePayFmt = input.datePaiement ? fd(input.datePaiement) : '–';
-  const dateEmissionFmt = input.dateEmission ? fd(input.dateEmission) : fd(new Date().toISOString().slice(0, 10));
+  const datePayFmt = escHtml(input.datePaiement ? fd(input.datePaiement) : '–');
+  const dateEmissionFmt = escHtml(input.dateEmission ? fd(input.dateEmission) : fd(new Date().toISOString().slice(0, 10)));
 
   const enteteHtml = `
 <h2>1. Le Bailleur</h2>
@@ -143,9 +162,9 @@ ${prorataMention}
 <div class="mention">La présente quittance est établie conformément à l'article 21 de la loi n°89-462 du 6 juillet 1989 tendant à améliorer les rapports locatifs. Elle annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire.</div>`;
   }
 
-  const mois = String(periode.mois || 'periode').toLowerCase();
-  const annee = periode.annee || '';
-  const filename = `quittance-${mois}-${annee}.pdf`.toLowerCase();
+  const moisSlug = slugify(periode.mois || 'periode') || 'periode';
+  const anneeSlug = slugify(String(periode.annee || ''));
+  const filename = `quittance-${moisSlug}${anneeSlug ? '-' + anneeSlug : ''}.pdf`;
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${escHtml(titre)}</title><style>${CSS}</style></head><body>${corpsHtml}</body></html>`;
 

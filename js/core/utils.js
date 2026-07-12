@@ -309,8 +309,11 @@ export function numToWords(n) {
     if (n < 20) return u[n];
     const di = Math.floor(n / 10), un = n % 10;
     if (di === 7 || di === 9) {
-      const sub = numUnder100(10 + (di === 7 ? un : un));
-      return d[di] + (un === 0 && di !== 9 ? '' : '-' + sub);
+      // 70-79 : soixante + (dix..dix-neuf), avec "et" pour 71 uniquement.
+      // 90-99 : quatre-vingt + (dix..dix-neuf), jamais de "et".
+      const sub = u[10 + un];
+      const joiner = (di === 7 && un === 1) ? ' et ' : '-';
+      return d[di] + joiner + sub;
     }
     let r = d[di];
     if (di === 8 && un === 0) r += 's';
@@ -322,7 +325,7 @@ export function numToWords(n) {
   function group(n) {
     const c = Math.floor(n / 100), rest = n % 100;
     let r = '';
-    if (c > 1) r = u[c] + '-cent' + (rest === 0 ? 's' : '');
+    if (c > 1) r = u[c] + ' cent' + (rest === 0 ? 's' : '');
     else if (c === 1) r = 'cent';
     if (rest > 0) r += (r ? ' ' : '') + centaines(rest);
     return r;
