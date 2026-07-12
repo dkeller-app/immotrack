@@ -71,3 +71,36 @@ Décisions gravées :
   (risque 2) DG « non suivi » seulement si le bail est antérieur au suivi, sinon DG dû-non-versé sur bail
   récent = alerte `⚠ 0 / X` (visible aussi dans le filtre dg_incomplet) ; (risque 3/perf) mémoïsation du
   cumul par (ref, `_dbGen`, jour) → plus de recalcul à chaque coche. Vérifié preview (3 scénarios).
+
+## Phase — Cascade d'imputation loyer / charges / avance (règle validée user 2026-07-09)
+Règle (source unique) : un encaissement 211 s'impute d'abord sur le **loyer HC** du mois, puis sur les
+**charges** (provisions), puis — s'il reste — sur les **arriérés** (loyer d'abord, charges ensuite), et
+**seul le reliquat APRÈS les dettes = loyer perçu d'avance** (imposable à l'encaissement, pas une provision).
+Pas de prorata charges à part pour une entrée en cours de mois. « sans bail » (dû 0) → tout en loyer, jamais d'avance.
+
+- 2026-07-09 : **v15.457** — 1re version cascade *per-paiement* (`_loyerSplitCascade`). Remplaçait le split au
+  RATIO hc/(hc+ch). Correction user : l'avance était sur-évaluée (85 au lieu de 70 sur le scénario D1) car
+  elle ne soldait pas d'abord l'arriéré de charge.
+- 2026-07-12 : **v15.459 LIVRÉE** (`ac7acb4`) — cascade **CUMULATIVE par lot sur l'année**. Nouveau moteur pur
+  `_computeLoyerChargeAlloc(months)` (loyer-statut.js) : chaque mois comble loyer+charges courants puis récupère
+  les arriérés (loyer→charges), reliquat = avance. Recâblé : module `_computeFinancesMonthly` (collecte par
+  (lot,mois) → passe cumulative, injection `loyerDue(qui,ym)→{hc,ch}`), `_finLoyersHC`, `_finMonthly`, drill
+  provisions ; sous-ligne « ↳ dont loyer perçu d'avance » dans le P&L. **Invariant fiscal** : base 2044 officielle
+  (`_compute2044`) reste le brut `(cr−db)`, jamais dépendante du split. Σ mois = annuel.
+  Scénario user D1 (dû 500/30 ; jan-avr 530, mai 515, juin 615) → mai {500,15,0}, juin {570,45,70},
+  annuel {HC 3070, prov 180, avance **70** — pas 85}. **65 tests verts**, **audit code-reviewer PASSANT**.
+  Vérifié preview NATIF (chemin prod, sans injection) : `_finLoyersHC` = 3070/180/70, drill provisions +180,00 €.
+  Fix au passage : import manquant `_computeLoyerChargeAlloc` dans main.js (aurait crashé les exports suivants
+  en prod). Code mort retiré : `_finLoyerSplit`, `_finHcRatio`, `_bailActifAt`, param `hcRatio` du module, doublon d'export.
+
+### Résidus audit v15.459 (non bloquants, à traiter à l'occasion)
+- **R1 — avance cosmétique au passage d'année** : l'allocateur est borné à l'année civile (arriérés remis à 0
+  au 1er janvier). Un locataire en retard fin N-1 qui se met à jour par un gros versement en janvier N verra ce
+  rattrapage classé « ↳ loyer perçu d'avance » (sous-ligne gonflée). **Impact fiscal NUL** (le montant reste dans
+  loyersHC ; base 2044 correcte). Fix éventuel : semer `loyerArrear`/`chargeArrear` depuis la position d'ouverture
+  (`_computeLoyerCumul` fournit déjà le socle). Priorité basse (cosmétique).
+- **R2 — parité `index-test.html`** : le sandbox a un onglet Finances architecturalement ANTÉRIEUR (son
+  `_finLoyersHC` est encore au ratio, pas de `_finMonthly`/drill/module B4) — ce n'est pas un dérivé « à une modif
+  près » mais un sous-système plus vieux. Ce chantier Finances a été validé via preview (données démo isolées) +
+  app déployée, pas via `index-test.html`. Rétro-porter une seule fonction dans un sous-système divergent serait
+  incohérent (violerait DRY). À reprendre si/quand le sandbox Finances est remis à niveau globalement.
