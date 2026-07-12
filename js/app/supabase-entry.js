@@ -722,20 +722,10 @@ function injectOverlay() {
     </main>
 
     <footer class="imv-footer">
-      <div class="imv-foot-grid">
-        <div class="imv-foot-brand">
-          ${brand()}
-          <p class="imv-foot-tag">La gestion locative simplifiée, démystifiée, vulgarisée — pour les particuliers et les SCI.</p>
-          <span class="imv-foot-eu"><span class="imv-s"></span>Hébergé en Europe · conforme RGPD</span>
-        </div>
-        <div class="imv-foot-col"><h4>Produit</h4><a href="#">Fonctionnalités</a><a href="#">Tarifs</a><a href="#">Sécurité</a><a href="#">Voir la démo</a></div>
-        <div class="imv-foot-col"><h4>Légal</h4><a href="#">Mentions légales</a><a href="#">CGU</a><a href="#">CGV</a><a href="#">Politique de confidentialité</a><a href="#">Gestion des cookies</a><a href="#">Sous-traitance (DPA)</a></div>
-        <div class="imv-foot-col"><h4>Entreprise</h4><a href="#">À propos</a><a href="#">Contact</a><a href="#">Support</a><a href="#">Blog</a></div>
-      </div>
-      <div class="imv-foot-bottom">
-        <span>© 2026 Propryo — Tous droits réservés.</span>
-        <span>Données de bailleurs et locataires protégées (réf. CNIL gestion locative).</span>
-      </div>
+      <span class="imv-foot-copy">© 2026 Propryo · Hébergé en Europe · RGPD</span>
+      <nav class="imv-foot-links" aria-label="Informations légales">
+        <a href="#">Mentions légales</a><a href="#">CGU</a><a href="#">CGV</a><a href="#">Confidentialité</a><a href="#">Cookies</a><a href="#">Sous-traitance</a>
+      </nav>
     </footer>
 
     <div class="imv-authwrap" id="imsb-authwrap">
@@ -1022,7 +1012,7 @@ function injectStyles() {
   .imsb-legal-links a:hover{color:var(--accent)}
 
   /* ===== VITRINE (page d'accueil crafted — portee du mockup valide) ===== */
-  .imv-nav{display:flex;align-items:center;justify-content:space-between;padding:24px clamp(20px,5vw,56px);gap:20px}
+  .imv-nav{display:flex;align-items:center;justify-content:space-between;padding:16px clamp(20px,5vw,56px);gap:20px}
   .imv-mid{display:flex;gap:26px}
   .imv-mid a{font-size:14px;font-weight:500;color:var(--ink-2);text-decoration:none;opacity:.85;transition:color .2s}
   .imv-mid a:hover{color:var(--accent);opacity:1}
@@ -1032,7 +1022,7 @@ function injectStyles() {
   .imv-btn-mini{font-size:13.5px;font-weight:700;padding:9px 16px;border-radius:var(--r-xs);background:var(--accent);color:var(--accent-on);text-decoration:none;cursor:pointer;box-shadow:var(--btn-shadow);transition:background .15s}
   .imv-btn-mini:hover{background:var(--accent-2)}
   @media(max-width:520px){.imv-btn-mini{display:none}}
-  .imv-hero{flex:1;display:flex;align-items:center;padding:clamp(24px,3vw,44px) clamp(20px,5vw,56px)}
+  .imv-hero{flex:1;display:flex;align-items:center;padding:clamp(12px,2vw,26px) clamp(20px,5vw,56px)}
   .imv-hero-in{max-width:1180px;width:100%;margin:0 auto;display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(32px,5vw,68px);align-items:center}
   @media(max-width:880px){.imv-hero-in{grid-template-columns:1fr;gap:38px}}
   .imv-eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-bottom:clamp(20px,3vw,30px)}
@@ -1066,17 +1056,11 @@ function injectStyles() {
   .imv-feat small{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
   .imv-panel-f{margin-top:16px;padding-top:15px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3);line-height:1.5}
   .imv-panel-f b{color:var(--accent);font-weight:600}
-  .imv-footer{border-top:1px solid var(--line);padding:clamp(34px,4vw,52px) clamp(20px,5vw,56px) 24px;background:var(--surface)}
-  .imv-foot-grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:clamp(24px,3vw,40px)}
-  @media(max-width:720px){.imv-foot-grid{grid-template-columns:1fr 1fr}}
-  @media(max-width:440px){.imv-foot-grid{grid-template-columns:1fr}}
-  .imv-foot-brand .imsb-brand{margin-bottom:12px}
-  .imv-foot-tag{font-size:13px;color:var(--ink-3);line-height:1.55;max-width:32ch;margin:0 0 14px}
-  .imv-foot-eu{font-size:12px;color:var(--ink-3);display:inline-flex;align-items:center;gap:7px}
-  .imv-foot-col h4{font-family:var(--display);font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px}
-  .imv-foot-col a{display:block;font-size:13.5px;color:var(--ink-2);text-decoration:none;padding:5px 0;transition:color .2s}
-  .imv-foot-col a:hover{color:var(--accent)}
-  .imv-foot-bottom{max-width:1180px;margin:26px auto 0;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .imv-footer{border-top:1px solid var(--line);margin:0 clamp(20px,5vw,56px);padding:14px 0 16px;display:flex;align-items:center;justify-content:space-between;gap:8px 22px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-3)}
+  .imv-foot-copy{font-weight:600}
+  .imv-foot-links{display:flex;flex-wrap:wrap;gap:6px 16px}
+  .imv-foot-links a{color:var(--ink-3);text-decoration:none;font-weight:600;transition:color .15s}
+  .imv-foot-links a:hover{color:var(--accent)}
   .imv-authwrap{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(8,10,15,.55)}
   #imsb-overlay.imv-auth-open .imv-authwrap{display:flex}
   .imv-authcard{position:relative;width:100%;max-width:340px}
