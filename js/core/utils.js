@@ -273,6 +273,79 @@ export function _chargesAtDate(log /*, dateRef, chHistorique */) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Helpers documents (date FR / montant en toutes lettres / mois FR)
+// Source unique — copiés depuis index.html (td/fd/numToWords/MOIS_FR), purs,
+// sans dépendance DB/DOM. index.html garde ses propres définitions pour
+// l'instant (convergence prévue en tâche ultérieure du fil rouge quittance
+// publique) ; ce module devient la source partagée pour tout nouveau code.
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Date du jour au format ISO (YYYY-MM-DD). */
+export function td() { return new Date().toISOString().slice(0, 10); }
+
+/** Formate une date ISO en date FR (JJ/MM/AAAA). Tolérant : renvoie la valeur brute si non parsable. */
+export function fd(iso) {
+  if (!iso) return '–';
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString('fr-FR');
+}
+
+/** Noms des mois FR, index 0 = janvier. */
+export const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+/** Convertit un montant en euros en toutes lettres (FR). */
+export function numToWords(n) {
+  if (isNaN(n) || n === '' || n === null) return '';
+  n = Math.round(parseFloat(n) * 100) / 100;
+  if (n < 0) return 'moins ' + numToWords(-n);
+  const u = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
+    'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept',
+    'dix-huit', 'dix-neuf'];
+  const d = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante',
+    'quatre-vingt', 'quatre-vingt'];
+  function centaines(n) {
+    if (n === 0) return '';
+    if (n < 20) return u[n];
+    const di = Math.floor(n / 10), un = n % 10;
+    if (di === 7 || di === 9) {
+      const sub = numUnder100(10 + (di === 7 ? un : un));
+      return d[di] + (un === 0 && di !== 9 ? '' : '-' + sub);
+    }
+    let r = d[di];
+    if (di === 8 && un === 0) r += 's';
+    if (un === 1 && di !== 8) r += '-et-un';
+    else if (un > 0) r += '-' + u[un];
+    return r;
+  }
+  function numUnder100(n) { return centaines(n); }
+  function group(n) {
+    const c = Math.floor(n / 100), rest = n % 100;
+    let r = '';
+    if (c > 1) r = u[c] + '-cent' + (rest === 0 ? 's' : '');
+    else if (c === 1) r = 'cent';
+    if (rest > 0) r += (r ? ' ' : '') + centaines(rest);
+    return r;
+  }
+  const euros = Math.floor(n);
+  const cts = Math.round((n - euros) * 100);
+  let res = '';
+  if (euros === 0) res = 'zéro';
+  else {
+    const mill = Math.floor(euros / 1000000);
+    const mil = Math.floor((euros % 1000000) / 1000);
+    const rem = euros % 1000;
+    if (mill > 0) res += (mill === 1 ? 'un million' : (group(mill) + ' millions')) + ' ';
+    if (mil > 0) res += (mil === 1 ? 'mille' : (group(mil) + ' mille')) + ' ';
+    if (rem > 0) res += group(rem);
+    res = res.trim();
+  }
+  res += euros > 1 ? ' euros' : ' euro';
+  if (cts > 0) res += ' et ' + centaines(cts) + (cts > 1 ? ' centimes' : ' centime');
+  return res.charAt(0).toUpperCase() + res.slice(1);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Prorata loyer intra-mois (v15.19 — Phase A1 BUG-PRORATA-DASH)
 // Loi 6 juillet 1989 + jurisprudence Cass. 3e civ. : loyer dû au prorata du
 // temps d'occupation pour entrée/sortie/transition intra-mois.
