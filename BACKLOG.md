@@ -15,6 +15,26 @@
 
 ---
 
+## 🚨 P0 ABSOLU — AUDIT SYNC CLOUD 2026-07-12 (5 agents, code déployé v15.457 + forensique DB)
+
+> **Rapport complet : [AUDIT-SYNC-CLOUD-2026-07-12](docs/subjects/AUDIT-SYNC-CLOUD-2026-07-12.md).** Déclencheur : fuite post-révocation (Marion voit Zito/Fric), créations PC Marion jamais montées, « Delle b » qui ressuscite, popup IRL faux, 0 confiance. **Tous les symptômes élucidés** — 3 causes systémiques : boucle sync push-only sans résolution ni isolation d'erreur · échecs 100 % invisibles (`#imsb-sync` n'existe plus) · cache client jamais purgé (miroir localStorage = fuite RGPD post-révocation).
+>
+> | Sujet | Prio | Taille | Statut |
+> |---|---|---|---|
+> | P0.1 Sauver créations Marion (localStorage PC → réimport espace `2e5c49db`) | P0 | S | ⬜ NE PAS effacer le cache de son PC |
+> | P0.2 Session PC Didier : console F12 (401 vs throw) + hard-refresh v15.457 ; modifs du 12/07 JAMAIS montées au cloud | P0 | XS | ⬜ |
+> | P0.3 Nettoyage cloud : 6 lignes « Delle b » + 29 doublons agenda (app fermée, audit code-reviewer) | P0 | S | ⬜ |
+> | P0.4 Loyer Fric : 660,14 € dû depuis 15/06 appliqué puis écrasé 09/07 (+5,09 €/mois perdus) + régul | P0 | XS | ⬜ |
+> | P0.5 Vérif MOMPER 124 € (2× sur F-002, double comptage possible) | P0 | XS | ⬜ user |
+> | P0.6 Sauvegardes cloud horodatées (script `_import/backup-cloud.mjs` fait — 1ʳᵉ : 12/07 13:08, 664 l.) → cron | P0 | XS | 🔄 |
+> | P0.7 `sealSigned: true` (verrou légal baux signés DÉSACTIVÉ en prod !) | P0 | XS | ⬜ décision user |
+> | P1 Colmatage (~2-3 sem) : indicateur sync réel + conflit→re-hydrate + récepteur Realtime + isolation erreurs `_doFlush` + removes immédiats + purge cache logout/révocation + défauts espace frais (onboarding cassé pour TOUT nouvel inscrit) | P1 | L-XL | ⬜ session dédiée |
+> | P2 Sync robuste (~6-9 sem) : pull incrémental + version sur espace_config (fin LWW, fuite scopé [AUDIT] 5-7) + journal d'écritures IndexedDB + auditTrail cloud + docs→Storage (20/35 idb-only !) + kill-switch révocation | P1 | XL | ⬜ prérequis commercialisation |
+>
+> **⚖️ Seuil commercialisation (avis audit)** : P1 complet + P2.1-3 ≈ 8-10 semaines. P1 seul = passable = non (règle gravée).
+
+---
+
 ## 🔥 Retours test user 2026-07-02 — triage (15 retours → 12 codes, 9 nouveaux)
 
 > **Campagne de test app réelle du 2026-07-02.** Triés en session pilotage le jour même.
@@ -506,6 +526,15 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 ---
 
 ## ✅ Livré récemment
+
+### REFONTE-NAV — refonte complète de la navigation (2026-07-10, v15.455)
+> **Déclencheur** : « sur téléphone/tablette on ne retrouve pas tous les onglets ». Cause réelle = **3 systèmes de nav désynchronisés** (sidebar V4 générée · sidebar legacy morte · bottom-nav + feuille « Plus ») → `finances`/`candidats` **injoignables sur mobile**.
+> - **Une seule source de vérité `_V4_NAV_MODEL`** génère sidebar + bottom-nav + feuille « Plus » (fin de la triple divergence). **8 onglets en 3 zones** (Pilotage · Gestion locative · Argent) + **sous-onglets** (`_NAV_GROUPS`/`_navSubtabsHtml`, réutilise `.tabs/.tab`).
+> - **Réglages hors des onglets** → menu compte (popover `v4s-acct-pop` : Personnaliser le menu · Paramètres · Import de données · Sauvegarde & export · Déconnexion). Import bancaire reste son bouton dans Loyers ; Finances = sous-onglet de Pilotage ; Quittances = sous-onglet de Loyers ; Candidats → « Candidatures ».
+> - **Menu personnalisable par compte** (`_MENU_PRESETS` Propriétaire/Gestion locative/Comptable + interrupteurs par onglet/sous-partie, `_lsKey('immo_menu_on')`) ; **Accueil + Logements verrouillés** (`_MENU_LOCKED`, jamais de menu vide) ; page masquée reste joignable `#p-id`.
+> - **Mobile** : feuille « Plus » liste les 3 zones + 8 onglets + 14 sous-parties → **tout joignable** (fix du bug). Tablette = sidebar complète libellée.
+> - **Ids `#p-<id>` INCHANGÉS** (compat deep-links/back/refresh) — regroupement au niveau menu, pas en renommant les pages. Onglet parent atterrit sur sa 1re page **encore activée** par le menu perso (`_navSidebarLanding` + surlignage via `data-nav`).
+> - **Vérifs** : mockup-first validé (`mockups/refonte-nav/`, fidèle au vrai style) · **5 phases**, 2 audits `superpowers:code-reviewer` **PASS** (phase 1 byte-identique · phases 2a-4 « SÛR prod » + 2 findings IMPORTANT corrigés+vérifiés : landing enfant-activé, Import de données réintégré) · check-inline-js **5/0**. Intégré par MERGE dans worktree jetable, **2 reset+re-merge** sur `origin/main` mouvant (v15.452→453→454, autres sessions), **conflits = lignes de version uniquement**, renum→**455**, FF push `c1d6410..747050d`. Spec `docs/superpowers/specs/2026-07-08-refonte-navigation-design.md`. ⚠️ **jamais vu navigateur réel peuplé** → smoke test prod requis (sidebar 8 onglets/sous-onglets · feuille Plus mobile · menu perso Comptable). Communications laissée hors menu (choix user). Polish optionnel : bottom-nav 4 primaires à relabeliser, noms (Suivi, Loyer (IRL)).
 
 ### BUG-RENAME-CLOUD-DUP — renommer un bien créait un DOUBLON cloud (2026-07-08, v15.439)
 > **Signalé par user au test** : renommer un bien en **créait un deuxième** (l'ancien réapparaissait au rechargement) ; c'était aussi la vraie cause du « Bien introuvable ». Régression du cœur de sync, données réelles → **priorité absolue**.
