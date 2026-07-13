@@ -148,8 +148,10 @@ async function boot() {
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
   try { const m = await import('../core/store-multi.js'); _resolveEntiteOwner = m.resolveEntiteOwner; _resolveEspaceOfSeg = m.resolveEspaceOfSeg } catch (e) { console.warn('[Supabase] store-multi resolvers', e) }
   // P1.3 — décisions de purge (pur, testé) + prédicat M4 (le flush a-t-il réellement écrit ?). Best-effort
-  // comme les imports voisins : sans eux, la purge login/logout retombe sur les littéraux + l'ancienne
-  // condition d'émission (aucune fonctionnalité de sync perdue).
+  // comme les imports voisins. Mode dégradé SANS ces modules (audit M-b) : le miroir est quand même purgé
+  // au login (verdict 'untagged' forcé) et au logout (littéraux) ; seules la purge IDB 'other-user' (exige
+  // la preuve du tag) et la rétention IDB au logout (exige l'inventaire) deviennent inertes, et l'émission
+  // Realtime retombe sur l'ancienne condition « flush 100 % propre ».
   try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
   try { _hasCloudWrites = (await import('../core/store-sync.js')).summaryHasCloudWrites } catch (e) { console.warn('[Supabase] store-sync helpers', e) }
 
@@ -645,6 +647,11 @@ async function onLoggedIn(api, overlay, user) {
   let _lastHydrateAt = 0     // posé au login (hydratation initiale) puis à chaque re-pull réussi
   let _repullBusy = false    // anti-réentrance : conflits en cascade pendant une ré-hydratation = 1 seul pull
   let _repullTimer = null    // coalescence des `changed` rapprochés + report tant qu'une modale est ouverte
+  let _dirtySeq = 0          // (audit I-1) compteur de mutations locales (incrémenté par __immoMarkDirty) —
+  //   permet de détecter une saisie survenue PENDANT l'attente réseau d'un re-pull de confort et
+  //   d'abandonner ce pull (sinon le snapshot serveur, antérieur à la saisie, l'écraserait en silence).
+  let _pendingConflictBanner = false   // (audit I-2) un conflit signalé pendant qu'un pull tourne ne doit
+  //   pas perdre sa bannière « revérifie ta modif » : elle est consommée à la fin du pull en cours.
   // Bannière « revérifie ta modif » (chemin conflit) : l'utilisateur DOIT savoir que sa modification
   // locale a été remplacée par l'état serveur (jamais de LWW silencieux). Fermable, auto-retirée à 15 s.
   const _showRefreshBanner = (msg) => {
@@ -665,23 +672,36 @@ async function onLoggedIn(api, overlay, user) {
   // le serveur gagne ; la résolution fine par ligne est P2.6.
   async function _repullCloud(opts) {
     const o = opts || {}
-    if (_repullBusy || !liveDB) return                    // déjà en cours / pas encore hydraté
+    if (_repullBusy || !liveDB) {                         // déjà en cours / pas encore hydraté
+      if (o.banner) _pendingConflictBanner = true         // (I-2) conflit pendant un pull → bannière due à sa fin
+      else if (liveDB) _repullSoon()                      // (M-a) signal reçu pendant un pull → re-programmé
+      return
+    }
     _repullBusy = true
     try {
       // Pousser d'abord le debounce en attente : sans ça, la ré-hydratation écraserait une modif locale
       // pas encore partie. Chemin CONFLIT (flushFirst:false) : on SORT d'un flush, re-flusher ne ferait
       // que reproduire le conflit — on hydrate directement.
       if (o.flushFirst !== false && flushTimer && _lastFlushFn) { clearTimeout(flushTimer); flushTimer = null; await runFlush(_lastFlushFn) }
+      const seq0 = _dirtySeq
       const db = await api.hydrate()
+      // (I-2) la bannière conflit due (posée pendant CE pull, par un runFlush concurrent) est consommée ici.
+      const wantBanner = !!o.banner || _pendingConflictBanner
+      // (I-1) une mutation locale est survenue PENDANT l'attente réseau : ce snapshot serveur lui est
+      // ANTÉRIEUR — l'injecter l'écraserait en silence. Re-pull de CONFORT → on jette ce snapshot et on
+      // re-programme (la modif sera flushée d'abord). Chemin CONFLIT → on continue (le serveur gagne,
+      // c'est le contrat annoncé par la bannière — abandonner laisserait le conflit sans résolution).
+      if (!wantBanner && _dirtySeq !== seq0) { _repullSoon(); return }
       if (typeof window.__immoSetDB !== 'function' || window.__immoSetDB(db) === false) return
+      _pendingConflictBanner = false
       liveDB = db
       _liveDBRef = db
       api.seed(db)                                        // baseline neuve (purge aussi les conflits M2)
       _lastHydrateAt = Date.now()
       try { (typeof window.__immoRerenderCurrent === 'function' ? window.__immoRerenderCurrent : window.__immoRender)() } catch (e) { console.warn('[Supabase] re-render post-pull', e) }
       if (!_deadShown) setSync('ok')
-      if (o.banner) _showRefreshBanner('Données actualisées — revérifie ta modif : une modification concurrente a été conservée à ta place.')
-      else if (typeof window.showToast === 'function') { try { window.showToast('🔄 Données actualisées depuis un autre appareil', 'ok', 3500) } catch (e) {} }
+      if (wantBanner) _showRefreshBanner('Données actualisées — revérifie ta modif : une modification concurrente a été conservée à ta place.')
+      else if (typeof window.showToast === 'function') { try { window.showToast('🔄 Données actualisées', 'ok', 3500) } catch (e) {} }
     } catch (e) {
       console.warn('[Supabase] re-hydratation échouée (retentée au prochain signal)', e)
     } finally { _repullBusy = false }
@@ -734,12 +754,12 @@ async function onLoggedIn(api, overlay, user) {
     // la RGPD prime. 'untagged'/'other-espace' : IndexedDB ÉPARGNÉE (peut contenir les seuls exemplaires
     // de preuves du même user, cf. matrice §3b du design 2026-07-13). Best-effort, jamais bloquant.
     try {
-      if (_cachePurge) {
-        const cls = _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp.espaceId)
-        if (cls !== 'same') { try { localStorage.removeItem(MIRROR_KEY) } catch (e) {} }
-        if (cls === 'other-user') await _deletePhotosDb()
-        try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge.mirrorTag(user.id, esp.espaceId)) } catch (e) {}
-      }
+      // (audit M-b) SANS le module (import raté) : verdict 'untagged' forcé → miroir purgé quand même
+      // (fail-safe RGPD ; seule la purge IDB 'other-user', qui exige la PREUVE du tag, devient inerte).
+      const cls = _cachePurge ? _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp.espaceId) : 'untagged'
+      if (cls !== 'same') { try { localStorage.removeItem(MIRROR_KEY) } catch (e) {} }
+      if (cls === 'other-user') await _deletePhotosDb()
+      try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge ? _cachePurge.mirrorTag(user.id, esp.espaceId) : JSON.stringify({ userId: user.id, espaceId: esp.espaceId })) } catch (e) {}
     } catch (e) { console.warn('[Supabase] purge cache au login', e) }
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des
@@ -788,7 +808,7 @@ async function onLoggedIn(api, overlay, user) {
       // P1.3 volet RGPD : le miroir est RE-BASÉ immédiatement sur la vue AUTORISÉE courante (RLS) — l'ancien
       // contenu (potentiellement un périmètre révoqué depuis) ne survit jamais à un login, même sans saveDB.
       try { localStorage.setItem(MIRROR_KEY, JSON.stringify(db)) } catch (e) {}
-      window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
+      window.__immoMarkDirty = () => { _dirtySeq++; api.markDirty() }   // 2c : le garde saveDB l'appelle → debounce → flush cloud (+_dirtySeq : détection de saisie pendant un re-pull, audit I-1)
       // RESTAURATION LOCALE : flush COMPLET synchrone + awaitable (renvoie le résumé {upserts,removes,conflicts,skipped}).
       // Utilisé par _backupRestoreRun (index.html) : après avoir muté DB EN PLACE = instantané, on pousse tout vers
       // Supabase et on ATTEND (le moteur diffe instantané-vs-cloud → upserts version-guardés + removes des extras +
