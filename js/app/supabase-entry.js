@@ -58,6 +58,7 @@ let _resolveEntiteOwner = null, _resolveEspaceOfSeg = null   // résolveurs PURS
 const MIRROR_KEY = 'immotrack_v4'          // clé PROD du miroir (l'entry ne tourne jamais en mode test)
 const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (contrat verrouillé par test)
 let _cachePurge = null           // module cache-purge (importé au boot, best-effort)
+let _teardownSession = null      // dépose de session ({flush}) — posée au boot, utilisée par logout + purge espace
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
 // Suppression de la base binaire locale. `onblocked` résolu quand même : la suppression reste PENDANTE
 // tant qu'une connexion est ouverte et s'exécute dès leur fermeture (le reload qui suit les ferme).
@@ -125,9 +126,14 @@ async function boot() {
   // Connexion D1 — hook de déconnexion global utilisé par le menu Compte de l'app (index.html).
   // FLUSH puis signOut (api.logout) → recharge la page : sans session persistée, on retombe sur le
   // login. Repli sûr : si logout échoue, on recharge quand même (la session n'est pas persistée).
-  window.__immoLogout = async () => {
+  // RESET-CLOUD UX : la même dépose de session sert au logout (flush d'abord) ET à la purge
+  // d'espace (flush SAUTÉ : l'espace n'existe plus — re-pousser le DB mémoire ne produirait que
+  // des erreurs FK, ligne par ligne, vers un tenant supprimé). Var MODULE : onLoggedIn (autre
+  // portée) la réutilise pour __immoPurgeEspace.
+  _teardownSession = async ({ flush }) => {
     window.__immoLoggingOut = true   // le SIGNED_OUT qui suit est VOULU → pas de bannière « session expirée »
-    try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) }
+    if (flush) { try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) } }
+    else { try { await _supaClient.auth.signOut() } catch (e) { console.warn('[Supabase] signOut', e) } }
     // P1.3 volet RGPD (audit C-C) : le miroir localStorage est TOUJOURS purgé au logout — sinon le
     // dernier saveDB laisse une copie intégrale du DB lisible à vie sur la machine (cas Marion).
     try { localStorage.removeItem(MIRROR_KEY); localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {}
@@ -145,6 +151,7 @@ async function boot() {
     } catch (e) { console.warn('[Supabase] logout purge IndexedDB', e) }
     try { location.reload() } catch (e) {}
   }
+  window.__immoLogout = () => _teardownSession({ flush: true })
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
   try { const m = await import('../core/store-multi.js'); _resolveEntiteOwner = m.resolveEntiteOwner; _resolveEspaceOfSeg = m.resolveEspaceOfSeg } catch (e) { console.warn('[Supabase] store-multi resolvers', e) }
   // P1.3 — décisions de purge (pur, testé) + prédicat M4 (le flush a-t-il réellement écrit ?). Best-effort
@@ -821,6 +828,19 @@ async function onLoggedIn(api, overlay, user) {
         espaceNom: esp && esp.espaceNom,
         isOwner: !!(user && esp && esp.ownerId && user.id === esp.ownerId),
         displayName: _displayNameFromUser(user),
+      }
+      // RESET-CLOUD UX — « ⚠️ Vider mon espace cloud » (Réglages). La GARDE est côté serveur
+      // (RPC purge_mon_espace, migration 0041 : owner actif + nom exact re-vérifiés en SECURITY
+      // DEFINER) ; ici on ne fait qu'appeler avec l'espace PROPRE et déposer la session en cas de
+      // succès SANS flush (l'espace n'existe plus). Au prochain login : resolveEspaces() recrée un
+      // espace vierge et les défauts v15.461 s'appliquent. Renvoie { error } (jamais de throw).
+      window.__immoPurgeEspace = async (confirmNom) => {
+        try {
+          const { error } = await _supaClient.rpc('purge_mon_espace', { p_espace_id: esp.espaceId, p_confirm_nom: confirmNom })
+          if (error) return { error }
+          await _teardownSession({ flush: false })   // purge miroir + signOut + reload (pas de flush : plus de destination)
+          return { ok: true }
+        } catch (e) { return { error: e } }
       }
       window.__immoRender()
       setSync('ok')      // P1.1 : pastille visible dès le dévoilement (état initial = hydraté ≙ enregistré)
