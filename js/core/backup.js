@@ -17,6 +17,55 @@ export function dueForBackup(lastAt, frequence, nowMs) {
 
 const _safeName = s => String(s == null ? 'fichier' : s).replace(/[^a-zA-Z0-9._-]/g, '_')
 
+// Sanitise un SEGMENT de chemin (nom de DOSSIER). Contrairement à _safeName (noms de fichiers,
+// ASCII strict), on GARDE espaces/accents/parenthèses pour rester lisible ; on ne retire que les
+// caractères interdits par les systèmes de fichiers (/ \ : * ? " < > |) et les points en
+// tête/fin (interdits sous Windows). Borne à 80 car. Vide → '—'.
+const _safeFolder = s => {
+  let x = String(s == null ? '' : s).replace(/[/\\:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim()
+  x = x.replace(/^\.+|\.+$/g, '').trim()
+  return x.slice(0, 80) || '—'
+}
+
+// Date seule AAAA-MM-JJ (préfixe LISIBLE des noms de photos → un même EDL se regroupe visuellement).
+// ts invalide/absent → '' (pas de préfixe, l'uid garantit déjà l'unicité).
+const _dateStamp = ts => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return isNaN(d.getTime()) ? '' : d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())
+}
+
+// category attachement → sous-dossier « type » lisible. Les photos EDL vont dans un sous-dossier
+// DÉDIÉ « Photos » sous l'EDL (objectif : un dossier avec TOUTES les photos datées, séparé du PDF).
+const _CAT_FOLDER = { bail: 'Bail', edl: 'État des lieux', quittances: 'Quittances', photos: 'État des lieux/Photos' }
+const _typeFolder = cat => _CAT_FOLDER[cat] || 'Documents'
+
+// Index ref logement → { entity, imm, ref } pour ranger chaque fichier sous son bien.
+// Un logement NON supprimé l'emporte sur un tombstone de même ref (ref réutilisée après suppression).
+export function buildLogMap(db) {
+  const m = new Map()
+  for (const l of (db && db.logements) || []) {
+    if (!l || l.ref == null) continue
+    const k = String(l.ref)
+    if (!m.has(k) || !l._deleted) m.set(k, { entity: l.entity, imm: l.imm, ref: l.ref })
+  }
+  return m
+}
+
+// Chemin relatif (dossiers seuls, SANS le nom de fichier) où ranger un fichier :
+//   Bailleur — <entité> / Immeuble — <immeuble> / Appartement — <ref> / <Type>
+// Bien sans immeuble → pas de niveau immeuble. Logement introuvable → « _Non rattachés / <Type> ».
+export function backupFolderFor(logMap, logRef, category) {
+  const type = _typeFolder(category)
+  const log = logRef != null ? (logMap && logMap.get(String(logRef))) : null
+  if (!log) return '_Non rattachés/' + type
+  const seg = ['Bailleur — ' + _safeFolder(log.entity || 'Sans bailleur')]
+  if (log.imm) seg.push('Immeuble — ' + _safeFolder(log.imm))
+  seg.push('Appartement — ' + _safeFolder(log.ref))
+  seg.push(type)
+  return seg.join('/')
+}
+
 // MIME → extension (fallback quand le nom original n'en porte pas).
 const MIME_EXT = {
   'application/pdf': 'pdf',
@@ -55,18 +104,23 @@ export function backupDocName(d) {
 // chaque photo = { idbKey, cloudKey?, ts, synced, name } — l'horodatage est `ts`).
 export function collectBackupFiles(db, lastBackupAt) {
   const out = []
+  // Index ref logement → bien, construit UNE fois : chaque fichier reçoit son dossier logique
+  // (arbre Bailleur / Immeuble / Appartement / Type) via backupFolderFor.
+  const logMap = buildLogMap(db)
   // Sans lastBackupAt → tout. Un fichier porteur d'une clé MAIS sans horodatage (records legacy/importés)
   // est TOUJOURS inclus : mieux re-sauvegarder un doublon (le manifeste dédoublonne) que perdre une preuve légale.
   const after = ts => !lastBackupAt || !ts || new Date(ts).getTime() > lastBackupAt
-  const push = (key, name, kind, ts) => { if (key && after(ts)) out.push({ key, name, kind, ts: ts || null }) }
-  for (const d of (db && db.documents) || []) push(d.cloudKey, backupDocName(d), 'document', d._modifiedAt)
+  const push = (key, name, kind, ts, logRef, category) => {
+    if (key && after(ts)) out.push({ key, name, kind, ts: ts || null, dir: backupFolderFor(logMap, logRef, category) })
+  }
+  for (const d of (db && db.documents) || []) push(d.cloudKey, backupDocName(d), 'document', d._modifiedAt, d.logRef, d.category || 'documents')
   for (const [ref, b] of Object.entries((db && db.baux) || {})) {
     const s = b && b.signatures; if (!s) continue
-    push(s.cloudPdfKey, _safeName('bail-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt)
-    if (s.certRef) push(s.certRef.cloudPdfKey, _safeName('certificat-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt)
+    push(s.cloudPdfKey, _safeName('bail-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt, ref, 'bail')
+    if (s.certRef) push(s.certRef.cloudPdfKey, _safeName('certificat-' + ref + '.pdf'), 'document', s.signedAt || b._modifiedAt, ref, 'bail')
   }
   for (const e of (db && db.edl) || []) {
-    push(e.cloudPdfKey, _safeName('edl-' + (e.id || '') + '.pdf'), 'document', e._modifiedAt)
+    push(e.cloudPdfKey, _safeName('edl-' + (e.id || '') + '.pdf'), 'document', e._modifiedAt, e.logement, 'edl')
     // Photos EDL — on parcourt EXACTEMENT les mêmes emplacements que _edlPreloadPhotos (index.html).
     const pushPhoto = ph => {
       if (!ph || !ph.cloudKey) return
@@ -74,8 +128,10 @@ export function collectBackupFiles(db, lastBackupAt) {
       // Audit M4 : unicité du nom de fichier. slice(-12) faisait collisionner 2 photos dont les
       // 12 derniers chars d'idbKey coïncident → getFileHandle(create:true) en écrasait une.
       // On sanitise l'idbKey COMPLET (fallback cloudKey) → nom déterministe et distinct.
+      // Préfixe DATE (AAAA-MM-JJ) : les photos EDL doivent être datées et se regrouper par jour.
       const uid = _safeName(ph.idbKey || ph.cloudKey || 'photo')
-      push(ph.cloudKey, _safeName('photo-' + uid + '.jpg'), 'photo', stamp)
+      const dpfx = _dateStamp(stamp)
+      push(ph.cloudKey, _safeName((dpfx ? dpfx + '_' : '') + 'photo-' + uid + '.jpg'), 'photo', stamp, e.logement, 'photos')
     }
     for (const pc of (e.pieces || [])) for (const x of (pc.elements || [])) {
       for (const ph of (x.photosE || [])) pushPhoto(ph)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { backupStamp, dueForBackup, FREQ_MS, collectBackupFiles, buildManifest, crc32, storedZip, backupDocName } from '../../js/core/backup.js'
+import { backupStamp, dueForBackup, FREQ_MS, collectBackupFiles, buildManifest, crc32, storedZip, backupDocName, buildLogMap, backupFolderFor } from '../../js/core/backup.js'
 
 describe('backupStamp', () => {
   it('formate AAAA-MM-JJ_HHhMM (local)', () => { expect(backupStamp(new Date(2026, 5, 24, 14, 30, 0))).toBe('2026-06-24_14h30') })
@@ -115,6 +115,99 @@ describe('collectBackupFiles', () => {
     const names = photos.map(f => f.name)
     expect(names[0]).not.toBe(names[1])               // pas de collision
     expect(new Set(names).size).toBe(2)               // 2 noms distincts
+  })
+})
+// ── Rangement en arbre Bailleur / Immeuble / Appartement / Type ──
+describe('buildLogMap', () => {
+  it('indexe ref → { entity, imm, ref }', () => {
+    const db = { logements: [{ ref: 'L1', entity: 'SCI Alpha', imm: 'Résidence A' }] }
+    expect(buildLogMap(db).get('L1')).toEqual({ entity: 'SCI Alpha', imm: 'Résidence A', ref: 'L1' })
+  })
+  it('ref numérique coercée en clé string', () => {
+    const db = { logements: [{ ref: 7, entity: 'X' }] }
+    expect(buildLogMap(db).get('7')).toBeTruthy()
+  })
+  it('logement sans ref ignoré', () => {
+    expect(buildLogMap({ logements: [{ entity: 'X' }] }).size).toBe(0)
+  })
+  // Ref réutilisée après suppression (tombstone) : un logement VIVANT l'emporte sur le _deleted.
+  it('logement vivant l’emporte sur un tombstone de même ref', () => {
+    const db = { logements: [
+      { ref: 'L1', entity: 'ANCIEN', _deleted: true },
+      { ref: 'L1', entity: 'NOUVEAU' }
+    ] }
+    expect(buildLogMap(db).get('L1').entity).toBe('NOUVEAU')
+    const db2 = { logements: [
+      { ref: 'L1', entity: 'NOUVEAU' },
+      { ref: 'L1', entity: 'ANCIEN', _deleted: true }
+    ] }
+    expect(buildLogMap(db2).get('L1').entity).toBe('NOUVEAU')   // ordre inverse → même résultat
+  })
+  it('db vide / sans logements → map vide', () => {
+    expect(buildLogMap(null).size).toBe(0)
+    expect(buildLogMap({}).size).toBe(0)
+  })
+})
+describe('backupFolderFor', () => {
+  const logMap = buildLogMap({ logements: [
+    { ref: 'L1', entity: 'SCI Alpha', imm: 'Résidence A' },
+    { ref: 'L2', entity: 'Jean Dupont' }                       // sans immeuble
+  ] })
+  it('bien avec immeuble : Bailleur / Immeuble / Appartement / Type', () => {
+    expect(backupFolderFor(logMap, 'L1', 'bail'))
+      .toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/Bail')
+  })
+  it('bien sans immeuble : pas de niveau Immeuble', () => {
+    expect(backupFolderFor(logMap, 'L2', 'edl'))
+      .toBe('Bailleur — Jean Dupont/Appartement — L2/État des lieux')
+  })
+  it('photos EDL → sous-dossier dédié Photos', () => {
+    expect(backupFolderFor(logMap, 'L1', 'photos'))
+      .toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/État des lieux/Photos')
+  })
+  it('logement introuvable → _Non rattachés / Type', () => {
+    expect(backupFolderFor(logMap, 'INCONNU', 'quittances')).toBe('_Non rattachés/Quittances')
+    expect(backupFolderFor(logMap, null, 'bail')).toBe('_Non rattachés/Bail')
+  })
+  it('catégorie inconnue → Documents', () => {
+    expect(backupFolderFor(logMap, 'L2', 'divers')).toBe('Bailleur — Jean Dupont/Appartement — L2/Documents')
+  })
+  it('caractères interdits FS sanitisés dans les segments (accents gardés)', () => {
+    const lm = buildLogMap({ logements: [{ ref: 'A/B:C', entity: 'Immo <SARL>', imm: 'Résidence Élysée' }] })
+    const p = backupFolderFor(lm, 'A/B:C', 'bail')
+    expect(p).not.toMatch(/[<>:"|?*\\]/)                        // aucun caractère interdit (hors séparateurs /)
+    expect(p).toContain('Immeuble — Résidence Élysée')         // accents préservés
+    expect(p).toContain('Immo SARL')                           // < > → espace, espaces collapsés
+  })
+})
+// ── collectBackupFiles : dossier logique attaché à chaque fichier ──
+describe('collectBackupFiles — rangement en arbre', () => {
+  const db = {
+    logements: [{ ref: 'L1', entity: 'SCI Alpha', imm: 'Résidence A' }],
+    documents: [{ id: 1, cloudKey: 'k/d1', logRef: 'L1', category: 'documents', name: 'dpe.pdf', mime: 'application/pdf', _modifiedAt: '2026-06-20T10:00:00Z' }],
+    baux: { 'L1': { signatures: { cloudPdfKey: 'k/bail', certRef: { cloudPdfKey: 'k/cert' }, signedAt: '2026-06-23T09:00:00Z' } } },
+    edl: [{ id: 9, logement: 'L1', cloudPdfKey: 'k/edl', _modifiedAt: '2026-06-19T10:00:00Z',
+      pieces: [{ elements: [{ photosE: [{ idbKey: 'ph1', cloudKey: 'k/ph1', ts: '2026-06-23T08:00:00Z' }] }] }] }]
+  }
+  const byKey = k => collectBackupFiles(db, null).find(f => f.key === k)
+  it('document → dossier du bien + Documents', () => {
+    expect(byKey('k/d1').dir).toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/Documents')
+  })
+  it('bail + certificat → dossier Bail du bien', () => {
+    expect(byKey('k/bail').dir).toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/Bail')
+    expect(byKey('k/cert').dir).toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/Bail')
+  })
+  it('EDL PDF → dossier État des lieux du bien', () => {
+    expect(byKey('k/edl').dir).toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/État des lieux')
+  })
+  it('photo EDL → sous-dossier Photos + nom daté', () => {
+    const ph = byKey('k/ph1')
+    expect(ph.dir).toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/État des lieux/Photos')
+    expect(ph.name).toMatch(/^\d{4}-\d{2}-\d{2}_photo-.+\.jpg$/)   // préfixe date AAAA-MM-JJ
+  })
+  it('document sans logRef → _Non rattachés', () => {
+    const orphan = { documents: [{ id: 2, cloudKey: 'k/orphan', name: 'x.pdf', mime: 'application/pdf' }] }
+    expect(collectBackupFiles(orphan, null)[0].dir).toBe('_Non rattachés/Documents')
   })
 })
 describe('backupDocName', () => {
