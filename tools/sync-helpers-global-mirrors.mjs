@@ -155,17 +155,6 @@ const PAIRS = [
     globalName: 'DashCtx',
     exports: ['makeMatchMv', 'buildDashCtx', 'occupationKpis', 'mvTotals'],
   },
-  {
-    // Fil rouge « Ajouter un bien » — modèle pur (canCreate + complétude + arbre parcours).
-    name: 'parcours-bien-model',
-    src: '__tests__/helpers/parcours-bien-model.js',
-    dst: 'js/helpers/parcours-bien-model.global.js',
-    globalName: 'ParcoursBienModel',
-    exports: [
-      'canCreateLogement', 'logementCompleteness', 'immeubleCompleteness',
-      'buildParcoursTree', 'parcoursSummary', 'LOG_REQUIRED', 'LOG_OPTIONAL_KEY',
-    ],
-  },
 ];
 
 let totalErrors = 0;
