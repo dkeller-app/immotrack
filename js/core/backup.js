@@ -21,10 +21,13 @@ const _safeName = s => String(s == null ? 'fichier' : s).replace(/[^a-zA-Z0-9._-
 // ASCII strict), on GARDE espaces/accents/parenthèses pour rester lisible ; on ne retire que les
 // caractères interdits par les systèmes de fichiers (/ \ : * ? " < > |) et les points en
 // tête/fin (interdits sous Windows). Borne à 80 car. Vide → '—'.
+const _WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
 const _safeFolder = s => {
   let x = String(s == null ? '' : s).replace(/[/\\:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim()
   x = x.replace(/^\.+|\.+$/g, '').trim()
-  return x.slice(0, 80) || '—'
+  x = x.slice(0, 80).replace(/[ .]+$/, '')          // re-trim : slice(0,80) peut ré-exposer un espace/point en fin (interdits Windows)
+  if (_WIN_RESERVED.test(x)) x = x + '_'             // noms réservés Windows (CON, PRN, NUL, COM1…) → suffixe pour ne pas casser getDirectoryHandle
+  return x || '—'
 }
 
 // Date seule AAAA-MM-JJ (préfixe LISIBLE des noms de photos → un même EDL se regroupe visuellement).
@@ -35,9 +38,12 @@ const _dateStamp = ts => {
   return isNaN(d.getTime()) ? '' : d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate())
 }
 
-// category attachement → sous-dossier « type » lisible. Les photos EDL vont dans un sous-dossier
-// DÉDIÉ « Photos » sous l'EDL (objectif : un dossier avec TOUTES les photos datées, séparé du PDF).
-const _CAT_FOLDER = { bail: 'Bail', edl: 'État des lieux', quittances: 'Quittances', photos: 'État des lieux/Photos' }
+// category attachement → sous-dossier « type » lisible.
+// ⚠️ Deux catégories « photo » DISTINCTES à ne pas mélanger :
+//   'edl-photos' = photos de CONSTAT d'état des lieux (valeur légale) → sous-dossier dédié daté ;
+//   'photos'     = galerie photo du logement (documents décoratifs) → dossier séparé « Photos ».
+// Sinon des photos décoratives pollueraient le dossier juridique « État des lieux ».
+const _CAT_FOLDER = { bail: 'Bail', edl: 'État des lieux', quittances: 'Quittances', 'edl-photos': 'État des lieux/Photos', photos: 'Photos' }
 const _typeFolder = cat => _CAT_FOLDER[cat] || 'Documents'
 
 // Index ref logement → { entity, imm, ref } pour ranger chaque fichier sous son bien.
@@ -131,7 +137,8 @@ export function collectBackupFiles(db, lastBackupAt) {
       // Préfixe DATE (AAAA-MM-JJ) : les photos EDL doivent être datées et se regrouper par jour.
       const uid = _safeName(ph.idbKey || ph.cloudKey || 'photo')
       const dpfx = _dateStamp(stamp)
-      push(ph.cloudKey, _safeName((dpfx ? dpfx + '_' : '') + 'photo-' + uid + '.jpg'), 'photo', stamp, e.logement, 'photos')
+      // 'edl-photos' (PAS 'photos') → dossier légal « État des lieux/Photos », distinct de la galerie logement.
+      push(ph.cloudKey, _safeName((dpfx ? dpfx + '_' : '') + 'photo-' + uid + '.jpg'), 'photo', stamp, e.logement, 'edl-photos')
     }
     for (const pc of (e.pieces || [])) for (const x of (pc.elements || [])) {
       for (const ph of (x.photosE || [])) pushPhoto(ph)

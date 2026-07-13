@@ -50076,8 +50076,13 @@ async function _backupReuploadFiles(dir) {
       let blob = null;
       // Lit au chemin arbre (Bailleur/Immeuble/Appartement/Type). Repli sur l'ancienne mise en page
       // plate (documents/ · photos/) pour rester compatible avec un dossier de sauvegarde d'avant l'arbre.
+      // ⚠️ Les photos portent désormais un préfixe date (AAAA-MM-JJ_) : sur un dossier plat d'AVANT
+      // l'arbre le fichier s'appelait « photo-<uid>.jpg » sans date → on strippe le préfixe pour le repli.
       try { blob = await _backupReadFolderFile(dir, (f.dir ? f.dir + '/' : '') + f.name); } catch (e) {}
-      if (!blob) { try { blob = await _backupReadFolderFile(dir, (f.kind === 'photo' ? 'photos/' : 'documents/') + f.name); } catch (e) {} }
+      if (!blob) {
+        const flatName = f.kind === 'photo' ? f.name.replace(/^\d{4}-\d{2}-\d{2}_/, '') : f.name;
+        try { blob = await _backupReadFolderFile(dir, (f.kind === 'photo' ? 'photos/' : 'documents/') + flatName); } catch (e) {}
+      }
       if (!blob) { missing++; continue; }   // absent du dossier (jamais sauvegardé / mode cloud absent au backup) → on saute
       const p = await window.__immoCloudUploadPath(f.key, blob, _backupMimeFromName(f.name));
       if (p) ok++; else failed++;

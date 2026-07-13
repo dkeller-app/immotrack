@@ -161,9 +161,13 @@ describe('backupFolderFor', () => {
     expect(backupFolderFor(logMap, 'L2', 'edl'))
       .toBe('Bailleur — Jean Dupont/Appartement — L2/État des lieux')
   })
-  it('photos EDL → sous-dossier dédié Photos', () => {
-    expect(backupFolderFor(logMap, 'L1', 'photos'))
+  it('photos de CONSTAT EDL (edl-photos) → sous-dossier légal État des lieux/Photos', () => {
+    expect(backupFolderFor(logMap, 'L1', 'edl-photos'))
       .toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/État des lieux/Photos')
+  })
+  it('galerie photo du logement (photos) → dossier Photos SÉPARÉ du dossier légal EDL', () => {
+    expect(backupFolderFor(logMap, 'L1', 'photos'))
+      .toBe('Bailleur — SCI Alpha/Immeuble — Résidence A/Appartement — L1/Photos')
   })
   it('logement introuvable → _Non rattachés / Type', () => {
     expect(backupFolderFor(logMap, 'INCONNU', 'quittances')).toBe('_Non rattachés/Quittances')
@@ -178,6 +182,11 @@ describe('backupFolderFor', () => {
     expect(p).not.toMatch(/[<>:"|?*\\]/)                        // aucun caractère interdit (hors séparateurs /)
     expect(p).toContain('Immeuble — Résidence Élysée')         // accents préservés
     expect(p).toContain('Immo SARL')                           // < > → espace, espaces collapsés
+  })
+  it('noms réservés Windows (CON, PRN, NUL…) suffixés', () => {
+    const lm = buildLogMap({ logements: [{ ref: 'CON', entity: 'NUL', imm: 'PRN' }] })
+    const p = backupFolderFor(lm, 'CON', 'bail')
+    expect(p).toBe('Bailleur — NUL_/Immeuble — PRN_/Appartement — CON_/Bail')
   })
 })
 // ── collectBackupFiles : dossier logique attaché à chaque fichier ──
