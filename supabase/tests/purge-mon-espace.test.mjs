@@ -13,10 +13,11 @@ const RUN = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)
 const A = { email: `purgeme-alice-${RUN}@example.test`, pass: 'Test-Passw0rd!A' }   // owner espace A
 const B = { email: `purgeme-bob-${RUN}@example.test`,   pass: 'Test-Passw0rd!B' }   // owner espace B (étranger à A)
 const C = { email: `purgeme-carol-${RUN}@example.test`, pass: 'Test-Passw0rd!C' }   // membre NON-owner de A
+const D = { email: `purgeme-dave-${RUN}@example.test`,  pass: 'Test-Passw0rd!D' }   // owner PENDING de A (invitation pas acceptée)
 
 const NOM_A = 'Espace à purger'   // accents + espaces : la confirmation est exacte, btrim seulement
 
-let clientA, clientB, clientC, espaceA, espaceB
+let clientA, clientB, clientC, clientD, espaceA, espaceB
 
 async function countEspace(espaceId) {
   const { count } = await adminClient().from('espaces').select('id', { count: 'exact', head: true }).eq('id', espaceId)
@@ -24,10 +25,11 @@ async function countEspace(espaceId) {
 }
 
 beforeAll(async () => {
-  const [, bUser, cUser] = await Promise.all([createUser(A.email, A.pass), createUser(B.email, B.pass), createUser(C.email, C.pass)])
+  const [, bUser, cUser, dUser] = await Promise.all([createUser(A.email, A.pass), createUser(B.email, B.pass), createUser(C.email, C.pass), createUser(D.email, D.pass)])
   clientA = await userClient(A.email, A.pass)
   clientB = await userClient(B.email, B.pass)
   clientC = await userClient(C.email, C.pass)
+  clientD = await userClient(D.email, D.pass)
 
   const { data: ea, error: e1 } = await clientA.rpc('create_espace', { p_nom: NOM_A })
   if (e1) throw e1
@@ -42,12 +44,19 @@ beforeAll(async () => {
   const { error: e3 } = await clientA.from('espace_members')
     .insert({ espace_id: espaceA, user_id: cUser.id, role: 'lecture_seule', invite_status: 'active', full_espace: true })
   if (e3) throw e3
+
+  // Dave = rôle OWNER mais invitation PAS acceptée (pending) — la clause invite_status='active'
+  // de 0041 doit le refuser. Seed via admin (bypass RLS : un owner actif ne peut pas s'inventer).
+  const { error: e4 } = await adminClient().from('espace_members')
+    .insert({ espace_id: espaceA, user_id: dUser.id, role: 'owner', invite_status: 'pending', full_espace: true })
+  if (e4) throw e4
 }, 60000)
 
 afterAll(async () => {
   await teardownOwner(B.email, [espaceB]).catch(() => {})
   await teardownOwner(A.email, [espaceA]).catch(() => {})
   await deleteUserByEmail(C.email).catch(() => {})
+  await deleteUserByEmail(D.email).catch(() => {})
 })
 
 describe('purge_mon_espace — gardes serveur (0041)', () => {
@@ -71,6 +80,19 @@ describe('purge_mon_espace — gardes serveur (0041)', () => {
     expect(error).not.toBeNull()
     expect(error.message).toMatch(/PURGE_NOT_OWNER/)
     expect(await countEspace(espaceA)).toBe(1)
+  })
+
+  it('un rôle owner dont l\'invitation est PENDING (pas active) est refusé', async () => {
+    const { error } = await clientD.rpc('purge_mon_espace', { p_espace_id: espaceA, p_confirm_nom: NOM_A })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/PURGE_NOT_OWNER/)
+    expect(await countEspace(espaceA)).toBe(1)
+  })
+
+  it('espace INEXISTANT → PURGE_NOT_OWNER (pas d\'oracle d\'existence)', async () => {
+    const { error } = await clientA.rpc('purge_mon_espace', { p_espace_id: '00000000-0000-4000-8000-000000000000', p_confirm_nom: 'Peu importe' })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/PURGE_NOT_OWNER/)
   })
 
   it('cross-espace : l\'owner de A ne peut PAS purger l\'espace de B', async () => {
@@ -106,5 +128,11 @@ describe('purge_mon_espace — gardes serveur (0041)', () => {
       const { count } = await admin.from(t).select(col, { count: 'exact', head: true }).eq(col, espaceA)
       expect(count, `${t} doit être vide après purge`).toBe(0)
     }
+  })
+
+  it('idempotence : re-purger un espace déjà purgé → PURGE_NOT_OWNER (membership disparue)', async () => {
+    const { error } = await clientA.rpc('purge_mon_espace', { p_espace_id: espaceA, p_confirm_nom: NOM_A })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/PURGE_NOT_OWNER/)
   })
 })
