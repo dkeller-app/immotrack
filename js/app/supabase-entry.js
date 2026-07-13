@@ -51,6 +51,22 @@ let _espaceOwners = {}   // MULTI-ESPACE : espaceId → ownerId (tous les espace
 let _liveDBRef = null    // réf vers le DB fusionné vivant (= liveDB), pour résoudre l'espace/owner d'une SCI
 let _resolveEntiteOwner = null, _resolveEspaceOfSeg = null   // résolveurs PURS (store-multi.js) — résolution par-SCI
 
+// ── P1.3 (audit sync cloud 2026-07-12) — purge cache RGPD + signal Realtime honnête ──────────────
+// Le miroir localStorage (écrit par saveDB en mode cloud, filet de rollback) et l'IndexedDB photos ne
+// doivent JAMAIS survivre à un changement d'utilisateur ni à un logout (cause C-C : un révoqué gardait
+// une copie lisible à vie). Décisions PURES dans js/core/cache-purge.js (testé) ; exécution ici.
+const MIRROR_KEY = 'immotrack_v4'          // clé PROD du miroir (l'entry ne tourne jamais en mode test)
+const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (contrat verrouillé par test)
+let _cachePurge = null           // module cache-purge (importé au boot, best-effort)
+let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
+// Suppression de la base binaire locale. `onblocked` résolu quand même : la suppression reste PENDANTE
+// tant qu'une connexion est ouverte et s'exécute dès leur fermeture (le reload qui suit les ferme).
+function _deletePhotosDb() {
+  return new Promise(res => {
+    try { const r = indexedDB.deleteDatabase('immotrack_photos'); r.onsuccess = r.onerror = r.onblocked = () => res() } catch (e) { res() }
+  })
+}
+
 // BOOT-GATE — le <head> d'index.html pose `html[data-lpboot]` qui masque tout le body SAUF #imsb-overlay
 // (+ #toast) le temps que ce module injecte l'overlay de login. Une fois l'overlay en place (ou l'app
 // cloud révélée à onLoggedIn), on lève le gate en retirant l'attribut. Le portail Drive #ov-drive-connect
@@ -112,10 +128,30 @@ async function boot() {
   window.__immoLogout = async () => {
     window.__immoLoggingOut = true   // le SIGNED_OUT qui suit est VOULU → pas de bannière « session expirée »
     try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) }
+    // P1.3 volet RGPD (audit C-C) : le miroir localStorage est TOUJOURS purgé au logout — sinon le
+    // dernier saveDB laisse une copie intégrale du DB lisible à vie sur la machine (cas Marion).
+    try { localStorage.removeItem(MIRROR_KEY); localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {}
+    // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).
+    // 20/35 documents vivants n'existent QUE là (forensique 12/07) : les détruire = perdre des preuves
+    // légales (règle « pas d'auto-suppression »). Le rattrapage _drvUploadPendingAttachments (rebranché
+    // post-hydratation, P1.3) fait fondre ce reliquat → la purge deviendra effective d'elle-même.
+    try {
+      const dbNow = window.DB   // posé par __immoSetDB ; absent = déconnexion avant hydratation → prudence
+      if (dbNow && _cachePurge) {
+        const leftovers = _cachePurge.listIdbOnlyBinaries(dbNow)
+        if (leftovers.length === 0) await _deletePhotosDb()
+        else console.warn('[Supabase] logout : IndexedDB photos CONSERVÉE — ' + leftovers.length + ' binaire(s) sans copie Storage (preuves)')
+      }
+    } catch (e) { console.warn('[Supabase] logout purge IndexedDB', e) }
     try { location.reload() } catch (e) {}
   }
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
   try { const m = await import('../core/store-multi.js'); _resolveEntiteOwner = m.resolveEntiteOwner; _resolveEspaceOfSeg = m.resolveEspaceOfSeg } catch (e) { console.warn('[Supabase] store-multi resolvers', e) }
+  // P1.3 — décisions de purge (pur, testé) + prédicat M4 (le flush a-t-il réellement écrit ?). Best-effort
+  // comme les imports voisins : sans eux, la purge login/logout retombe sur les littéraux + l'ancienne
+  // condition d'émission (aucune fonctionnalité de sync perdue).
+  try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
+  try { _hasCloudWrites = (await import('../core/store-sync.js')).summaryHasCloudWrites } catch (e) { console.warn('[Supabase] store-sync helpers', e) }
 
   const _normNom = s => String(s == null ? '' : s).trim().toLowerCase()
   // MULTI-ESPACE — délégation aux résolveurs PURS (store-multi.js, testés) : owner de l'espace où vit une SCI
@@ -569,8 +605,16 @@ async function onLoggedIn(api, overlay, user) {
         if (s.errors && s.errors.some(er => /jwt|401|token .*(expired|invalid)|expired.*token/i.test(String(er.message)))) _sessionDead()
         if (!_deadShown) setSync('warn', bad + ' modif' + (bad > 1 ? 's' : '') + ' non synchronisée' + (bad > 1 ? 's' : '') + ' — réessai auto')
       } else if (!_deadShown) setSync('ok')
-      // SYNCHRO LIVE — après une sync RÉUSSIE, signale aux AUTRES appareils de l'espace qu'il y a du neuf.
-      if (!bad && _liveChannel) { try { _liveChannel.send({ type: 'broadcast', event: 'changed', payload: {} }) } catch (e) {} }
+      // SYNCHRO LIVE (M4, audit v15.460) : signale aux AUTRES appareils dès que le flush a RÉELLEMENT
+      // écrit quelque chose (upserts/removes/config) — un poison isolé (P1.2) n'étouffe plus le signal.
+      // Repli sans le helper (import raté) : ancienne condition « flush 100 % propre ».
+      if (_liveChannel && (_hasCloudWrites ? _hasCloudWrites(s) : !bad)) { try { _liveChannel.send({ type: 'broadcast', event: 'changed', payload: {} }) } catch (e) {} }
+      // P1.3 CONFLIT → RE-HYDRATE : le contrat écrit depuis toujours dans store-supabase.js (l.7,161)
+      // est enfin honoré. Un conflit de version = notre baseline est PÉRIMÉE (autre appareil / associé) ;
+      // retenter à l'identique est une impasse éternelle (audit C-A). On re-hydrate TOUT (serveur gagne),
+      // on re-render, et la bannière avertit que la modif locale doit être revérifiée. Fire-and-forget :
+      // le résumé est rendu au caller tout de suite, la ré-hydratation suit (gardée _repullBusy).
+      if (s && s.conflicts && s.conflicts.length) _repullCloud({ flushFirst: false, banner: true })
       return s
     } catch (e) {
       console.error('[Supabase] flush', e)
@@ -593,14 +637,80 @@ async function onLoggedIn(api, overlay, user) {
     flushDueAt = Date.now() + delay
     flushTimer = setTimeout(() => runFlush(fn), delay)
   }
+  // ── P1.3 RE-PULL — la boucle de sync se FERME enfin (audit C-A : pull uniquement au login) ──────
+  // Trois déclencheurs, une seule routine : (1) conflit de version (runFlush) ; (2) broadcast Realtime
+  // `changed` d'un autre appareil (récepteur rebranché plus bas — l'émission n'avait PLUS de récepteur
+  // depuis le cutover) ; (3) retour de visibilité si l'hydratation date de > 5 min (téléphone figé à J-3).
+  const REPULL_STALE_MS = 5 * 60 * 1000
+  let _lastHydrateAt = 0     // posé au login (hydratation initiale) puis à chaque re-pull réussi
+  let _repullBusy = false    // anti-réentrance : conflits en cascade pendant une ré-hydratation = 1 seul pull
+  let _repullTimer = null    // coalescence des `changed` rapprochés + report tant qu'une modale est ouverte
+  // Bannière « revérifie ta modif » (chemin conflit) : l'utilisateur DOIT savoir que sa modification
+  // locale a été remplacée par l'état serveur (jamais de LWW silencieux). Fermable, auto-retirée à 15 s.
+  const _showRefreshBanner = (msg) => {
+    let b = document.getElementById('imsb-refresh')
+    if (b) b.remove()
+    b = document.createElement('div'); b.id = 'imsb-refresh'
+    b.setAttribute('role', 'alert')
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147482900;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;padding:10px 16px;background:#9a5b00;color:#fff;font:600 13.5px/1.4 sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)'
+    b.innerHTML = '<span>🔄 ' + msg + '</span>'
+      + '<button id="imsb-refresh-x" style="border:none;border-radius:9px;padding:7px 14px;background:#fff;color:#9a5b00;font:700 13px sans-serif;cursor:pointer">OK</button>'
+    document.body.appendChild(b)
+    const x = b.querySelector('#imsb-refresh-x')
+    if (x) x.onclick = () => { try { b.remove() } catch (e) {} }
+    setTimeout(() => { try { b.remove() } catch (e) {} }, 15000)
+  }
+  // Ré-hydratation COMPLÈTE (pas par-table : volume faible, zéro état intermédiaire) + re-seed + re-render
+  // de la page COURANTE (__immoRerenderCurrent — __immoRender renverrait à l'Accueil). Sémantique P1 :
+  // le serveur gagne ; la résolution fine par ligne est P2.6.
+  async function _repullCloud(opts) {
+    const o = opts || {}
+    if (_repullBusy || !liveDB) return                    // déjà en cours / pas encore hydraté
+    _repullBusy = true
+    try {
+      // Pousser d'abord le debounce en attente : sans ça, la ré-hydratation écraserait une modif locale
+      // pas encore partie. Chemin CONFLIT (flushFirst:false) : on SORT d'un flush, re-flusher ne ferait
+      // que reproduire le conflit — on hydrate directement.
+      if (o.flushFirst !== false && flushTimer && _lastFlushFn) { clearTimeout(flushTimer); flushTimer = null; await runFlush(_lastFlushFn) }
+      const db = await api.hydrate()
+      if (typeof window.__immoSetDB !== 'function' || window.__immoSetDB(db) === false) return
+      liveDB = db
+      _liveDBRef = db
+      api.seed(db)                                        // baseline neuve (purge aussi les conflits M2)
+      _lastHydrateAt = Date.now()
+      try { (typeof window.__immoRerenderCurrent === 'function' ? window.__immoRerenderCurrent : window.__immoRender)() } catch (e) { console.warn('[Supabase] re-render post-pull', e) }
+      if (!_deadShown) setSync('ok')
+      if (o.banner) _showRefreshBanner('Données actualisées — revérifie ta modif : une modification concurrente a été conservée à ta place.')
+      else if (typeof window.showToast === 'function') { try { window.showToast('🔄 Données actualisées depuis un autre appareil', 'ok', 3500) } catch (e) {} }
+    } catch (e) {
+      console.warn('[Supabase] re-hydratation échouée (retentée au prochain signal)', e)
+    } finally { _repullBusy = false }
+  }
+  // Re-pull de CONFORT (realtime / visibilité) : coalescé (1,2 s) et JAMAIS pendant une saisie — tant
+  // qu'une modale .ov est ouverte, on re-vérifie toutes les 5 s (le flush de la modale partira d'abord,
+  // et un conflit éventuel prendra le chemin immédiat). Le chemin CONFLIT, lui, n'attend pas.
+  const _repullSoon = () => {
+    if (_repullTimer) return
+    const tick = () => {
+      _repullTimer = null
+      if (document.querySelector('.ov:not(.hidden)')) { _repullTimer = setTimeout(tick, 5000); return }
+      _repullCloud({ flushFirst: true })
+    }
+    _repullTimer = setTimeout(tick, 1200)
+  }
   // P1.1 — le réseau qui tombe/revient : pastille honnête + reprise immédiate au retour du réseau.
   addEventListener('offline', () => { if (!_deadShown) setSync('offline') })
   addEventListener('online', () => { if (_deadShown) return; if (_lastFlushFn) runFlush(_lastFlushFn); else setSync('ok') })
   // C1 : à la fermeture/masquage de l'onglet, flush IMMÉDIAT du debounce en attente — sinon la modif est
   // perdue (en mode cloud, le filet localStorage de beforeunload n'existe plus). visibilitychange:hidden +
   // pagehide = plus fiables que beforeunload pour l'async. Best-effort (réseau coupé sur close dur possible).
+  // P1.3 : au RETOUR de visibilité, si l'hydratation date (> 5 min), re-pull — tue la vue figée
+  // multi-appareils (le téléphone rouvert après 3 jours re-voit enfin l'état réel).
   const flushPendingNow = () => { if (flushTimer && _lastFlushFn) { clearTimeout(flushTimer); runFlush(_lastFlushFn) } }
-  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingNow() })
+  addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingNow()
+    else if (document.visibilityState === 'visible' && liveDB && _lastHydrateAt && (Date.now() - _lastHydrateAt) > REPULL_STALE_MS) _repullSoon()
+  })
   addEventListener('pagehide', flushPendingNow)
   // P1.1 — session expirée/révoquée pendant la vie de l'onglet : supabase-js émet SIGNED_OUT quand le
   // refresh du token échoue (autoRefreshToken:true, session mémoire) → bannière re-login. Abonné UNE
@@ -618,6 +728,19 @@ async function onLoggedIn(api, overlay, user) {
     _cloudEspaceId = esp.espaceId   // espace propre : chemins Storage par défaut (entités neuves) + canal Realtime
     _cloudOwnerId = esp.ownerId     // namespace detUuid par défaut → window.__immoEntiteUuid (entités neuves)
     _espaceOwners = {}; _espaces.forEach(e => { _espaceOwners[e.espaceId] = e.ownerId })   // résolution par-SCI (Storage/uuid)
+    // P1.3 volet RGPD — le miroir résiduel appartient-il à CE user/espace ? (tag posé au login précédent).
+    // Tout sauf 'same' → miroir purgé (le cloud est la source, il est re-basé juste après l'hydratation).
+    // 'other-user' (prouvé par le tag) → IndexedDB photos purgée aussi : ce sont les binaires d'AUTRUI —
+    // la RGPD prime. 'untagged'/'other-espace' : IndexedDB ÉPARGNÉE (peut contenir les seuls exemplaires
+    // de preuves du même user, cf. matrice §3b du design 2026-07-13). Best-effort, jamais bloquant.
+    try {
+      if (_cachePurge) {
+        const cls = _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp.espaceId)
+        if (cls !== 'same') { try { localStorage.removeItem(MIRROR_KEY) } catch (e) {} }
+        if (cls === 'other-user') await _deletePhotosDb()
+        try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge.mirrorTag(user.id, esp.espaceId)) } catch (e) {}
+      }
+    } catch (e) { console.warn('[Supabase] purge cache au login', e) }
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des
     // données émet « changed » → on affiche une bannière « Actualiser » (rechargement MANUEL = zéro risque
@@ -637,9 +760,10 @@ async function onLoggedIn(api, overlay, user) {
         try { if (typeof window.__immoRenderPresence === 'function') window.__immoRenderPresence() } catch (e) {}
       }
       _liveChannel = _supaClient.channel('espace:' + esp.espaceId, { config: { private: true, broadcast: { self: false }, presence: { key: user.id } } })
-        // 'changed' (émis l.~406 après flush) n'a plus de récepteur : le bandeau bleu « un autre appareil a
-        // modifié » est retiré (décision cutover). Le canal continue d'émettre (réabonnable à une pastille
-        // discrète plus tard). La co-présence (presence:sync) reste.
+        // P1.3 RÉCEPTEUR REBRANCHÉ (audit C-A : l'émission `changed` n'avait PLUS de récepteur depuis le
+        // cutover → vue figée multi-appareils). Un autre appareil qui vient de flusher → re-pull coalescé
+        // (jamais pendant une saisie, cf. _repullSoon). self:false → on ne reçoit pas ses propres émissions.
+        .on('broadcast', { event: 'changed' }, () => { try { _repullSoon() } catch (e) {} })
         .on('presence', { event: 'sync' }, () => { try { _syncPresence(user.id) } catch (e) {} })
         .subscribe(async (st) => {
           // CO-PRÉSENCE : on s'annonce dès la souscription (nom d'affichage + owner). Les autres reçoivent
@@ -660,6 +784,10 @@ async function onLoggedIn(api, overlay, user) {
       liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
       _liveDBRef = db                             // réf pour résoudre l'espace/owner d'une SCI (Storage + uuid par-SCI)
       api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
+      _lastHydrateAt = Date.now()                 // P1.3 : référence de fraîcheur pour le re-pull visibilité
+      // P1.3 volet RGPD : le miroir est RE-BASÉ immédiatement sur la vue AUTORISÉE courante (RLS) — l'ancien
+      // contenu (potentiellement un périmètre révoqué depuis) ne survit jamais à un login, même sans saveDB.
+      try { localStorage.setItem(MIRROR_KEY, JSON.stringify(db)) } catch (e) {}
       window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
       // RESTAURATION LOCALE : flush COMPLET synchrone + awaitable (renvoie le résumé {upserts,removes,conflicts,skipped}).
       // Utilisé par _backupRestoreRun (index.html) : après avoir muté DB EN PLACE = instantané, on pousse tout vers
@@ -734,9 +862,9 @@ function brand() {
 }
 
 // Bandeau bleu RETIRÉ (cutover) : `_showUpdateBanner` (« un autre appareil a modifié → Actualiser ») et
-// `injectSyncBanner` (bandeau permanent « Mode cloud »/« Revenir en mode local ») supprimés. La synchro
-// Realtime + la co-présence restent ; `setSync` pilote désormais la PASTILLE topbar #imsb-sync
-// (recréée paresseusement dans .tb — P1.1 sync honnête, audit 2026-07-12).
+// `injectSyncBanner` (bandeau permanent « Mode cloud »/« Revenir en mode local ») supprimés. `setSync`
+// pilote la PASTILLE topbar #imsb-sync (P1.1) ; depuis P1.3, le broadcast `changed` a de nouveau un
+// RÉCEPTEUR (re-pull automatique coalescé, cf. _repullSoon) — plus de rechargement manuel demandé.
 
 // Le SVG « check » réutilisé dans les listes des piliers.
 function _imsbCheck() {

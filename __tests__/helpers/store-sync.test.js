@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createStoreSync, SYNCED_COLLECTIONS } from '../../js/core/store-sync.js'
+import { createStoreSync, SYNCED_COLLECTIONS, summaryHasCloudWrites } from '../../js/core/store-sync.js'
 import { mapToRow } from '../../js/core/store-mapping.js'
 import { createSupabaseStore, TABLE_COLLECTIONS } from '../../js/core/store-supabase.js'
 
@@ -611,5 +611,71 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(store.calls).toEqual([])
     await scheduled()                            // le debounce arrive à échéance
     expect(store.calls.filter(c => c.rec.ref === 'F-5')).toHaveLength(1)
+  })
+
+  // ── P1.3 (chantier conflit→re-hydrate) — réserves M2/M4 de l'audit v15.460 ────────────────────
+
+  it('M2 : un remove en CONFLIT permanent ne neutralise plus le debounce (markDirty redevient debounce normal tant que le conflit vit)', async () => {
+    const store = mockStore({ 'mouvements:1': { status: 'conflict', id: 'x' } })
+    const db = baseDB()
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    db.mouvements[0] = { ...db.mouvements[0], _deleted: true }
+    sync.markDirty()
+    expect(sched.at(-1).opts).toMatchObject({ immediate: true })   // 1re détection → immédiat (P1.2 inchangé)
+    const s = await sync.flush()
+    expect(s.conflicts).toContainEqual({ coll: 'mouvements', key: '1' })
+    // le remove reste en attente (baseline non avancé) MAIS sa dernière tentative fut un CONFLIT :
+    // une modif utilisateur quelconque ne doit PLUS déclencher l'immédiat à chaque frappe (audit M2)
+    db.logements[0].loyer = 900
+    sync.markDirty()
+    expect(sched.at(-1).opts && sched.at(-1).opts.immediate).toBeFalsy()
+  })
+
+  it('M2 : l\'exclusion est PAR CLÉ — un NOUVEAU remove en attente déclenche l\'immédiat malgré un autre remove en conflit', async () => {
+    const store = mockStore({ 'mouvements:1': { status: 'conflict', id: 'x' } })
+    const db = { ...baseDB(), quittances: [{ id: 7, mois: '2026-01' }] }
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    db.mouvements[0] = { ...db.mouvements[0], _deleted: true }
+    await sync.flush()                                             // remove mouvements:1 → conflit (exclu)
+    db.quittances[0] = { ...db.quittances[0], _deleted: true }     // NOUVELLE suppression, clé différente
+    sync.markDirty()
+    expect(sched.at(-1).opts).toMatchObject({ immediate: true })
+  })
+
+  it('M2 : seed() (= re-hydratation) purge l\'exclusion — un remove re-tenté après re-hydrate redevient immédiat', async () => {
+    const ov = { 'mouvements:1': { status: 'conflict', id: 'x' } }
+    const store = mockStore(ov)
+    const db = baseDB()
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed()
+    db.mouvements[0] = { ...db.mouvements[0], _deleted: true }
+    await sync.flush()                                             // conflit → clé exclue
+    // re-hydratation : le serveur a toujours la ligne vivante → DB neuf, mouvement VIVANT
+    const db2 = baseDB()
+    sync.seed(db2)
+    delete ov['mouvements:1']                                      // le conflit de version est résolu côté serveur
+    db2.mouvements[0] = { ...db2.mouvements[0], _deleted: true }   // l'utilisateur re-supprime
+    sync.markDirty()
+    expect(sched.at(-1).opts).toMatchObject({ immediate: true })   // exclusion purgée par seed
+  })
+
+  it('M4 : summaryHasCloudWrites — vrai si le flush a réellement écrit (upserts/removes/config), faux si seulement erreurs/conflits/skipped', () => {
+    const S = (o = {}) => ({ upserts: [], removes: [], conflicts: [], skipped: [], errors: [], ...o })
+    expect(summaryHasCloudWrites(S({ upserts: [{ coll: 'logements', key: 'f-1' }] }))).toBe(true)
+    expect(summaryHasCloudWrites(S({ removes: [{ coll: 'agenda', key: '3' }] }))).toBe(true)
+    expect(summaryHasCloudWrites(S({ config: 'written' }))).toBe(true)
+    // poison isolé + vraie écriture dans le MÊME flush (cas M4 : le signal doit partir)
+    expect(summaryHasCloudWrites(S({ upserts: [{ coll: 'agenda', key: '9' }], errors: [{ op: 'upsert', coll: 'documents', key: '66', message: 'boom' }] }))).toBe(true)
+    expect(summaryHasCloudWrites(S({ errors: [{ op: 'upsert', coll: 'documents', key: '66', message: 'boom' }] }))).toBe(false)
+    expect(summaryHasCloudWrites(S({ conflicts: [{ coll: 'baux', key: 'f3' }] }))).toBe(false)
+    expect(summaryHasCloudWrites(S({ skipped: [{ coll: 'logements', key: 'f-9' }] }))).toBe(false)
+    expect(summaryHasCloudWrites(S({ config: 'error' }))).toBe(false)
+    expect(summaryHasCloudWrites(S())).toBe(false)
+    expect(summaryHasCloudWrites(null)).toBe(false)
   })
 })

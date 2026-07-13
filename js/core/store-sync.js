@@ -113,6 +113,13 @@ async function sealSignedBaux(db) {
 // Le test « garde anti-drift » asserte que SYNCED_COLLECTIONS ≡ TABLE_COLLECTIONS (sinon perte silencieuse).
 const CONFIG_EXCLUDED = new Set([...TABLE_COLLECTIONS, '_modifiedAt'])
 export const SYNCED_COLLECTIONS = COLLECTIONS.map(c => c.coll)
+
+// M4 (audit v15.460, chantier P1.3) : « le flush a-t-il réellement écrit quelque chose au cloud ? »
+// Sert au broadcast Realtime `changed` : un poison isolé (P1.2) ne doit PAS étouffer le signal quand des
+// upserts/removes/config VIENNENT d'aboutir dans le même flush — sinon les autres appareils restent figés
+// tant qu'un enregistrement toxique traîne. Pur (testable), tolérant à un résumé absent (flush qui throw).
+export const summaryHasCloudWrites = s => !!(s && (
+  (s.upserts && s.upserts.length) || (s.removes && s.removes.length) || s.config === 'written'))
 const configSig = db => {
   const o = {}
   for (const k of Object.keys(db || {}).sort()) if (!CONFIG_EXCLUDED.has(k)) o[k] = db[k]
@@ -135,6 +142,13 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   const baseline = new Map()
   for (const { coll } of COLLECTIONS) baseline.set(coll, new Map())
   let _configSig = null   // signature du blob config déjà synchronisé (espace_config)
+  // M2 (audit v15.460) : clés dont le DERNIER remove est parti en CONFLIT. Un remove en conflit reste
+  // en attente (baseline non avancé → retenté à chaque flush) mais ne doit plus déclencher le flush
+  // IMMÉDIAT de markDirty à chaque save — sinon le debounce est neutralisé tant que le conflit vit
+  // (sa résolution est « conflit → re-hydrate », pas un martèlement). Clé = coll + ' ' + key
+  // (injectif : aucun nom de collection ne contient d'espace).
+  const _removeConflicts = new Set()
+  const _rcKey = (coll, k) => coll + ' ' + k
 
   function snapshotOf(db) {
     const snap = new Map()
@@ -154,6 +168,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
     const snap = snapshotOf(db)
     for (const { coll } of COLLECTIONS) baseline.set(coll, snap.get(coll))
     _configSig = configSig(db)
+    _removeConflicts.clear()   // M2 : baseline neuve (re-hydratation) → les conflits mémorisés sont périmés
   }
 
   // _doFlush : diffe le DB courant vs baseline, applique upserts (parent→enfant) puis removes
@@ -202,8 +217,8 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         try { res = await store.remove(coll, rec) }        // l'ANCIEN rec → résout l'id de ligne
         catch (e) { summary.errors.push({ op: 'remove', coll, key: k, message: _errMsg(e) }); continue }
         const st = res && res.status
-        if (st === 'deleted') { base.delete(k); summary.removes.push({ coll, key: k }) }
-        else if (st === 'conflict') summary.conflicts.push({ coll, key: k })
+        if (st === 'deleted') { base.delete(k); _removeConflicts.delete(_rcKey(coll, k)); summary.removes.push({ coll, key: k }) }
+        else if (st === 'conflict') { _removeConflicts.add(_rcKey(coll, k)); summary.conflicts.push({ coll, key: k }) }   // M2 : mémorisé → plus de flush immédiat pour cette clé
         else summary.skipped.push({ coll, key: k })
       }
     }
@@ -262,6 +277,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       let live = null   // Set des clés vivantes, construit PARESSEUSEMENT (uniquement si baseline non vide)
       for (const [k, v] of base) {
         if (v.locked) continue
+        if (_removeConflicts.has(_rcKey(coll, k))) continue   // M2 : dernier essai = conflit → debounce normal (anti-neutralisation)
         if (live === null) { live = new Set(); for (const rec of enumerate(db)) { if (!isDeleted(rec)) live.add(key(rec)) } }
         if (!live.has(k)) return true
       }
