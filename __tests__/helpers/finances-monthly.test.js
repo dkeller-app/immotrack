@@ -190,6 +190,57 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.avance).toBe(70);        // PAS 85 : les dettes passent avant l'avance
   });
 
+  it('RETARD par lot exposé (annuel = fin de période, mensuel = running) : Marion janv-mai pleins, juin 300, juil 0', () => {
+    const mk = (mo, cr) => ({ date: '2026-' + mo + '-05', cat: 'Loyer', qui: 'L1', cr, db: 0 });
+    const mv = [mk('01', 530), mk('02', 530), mk('03', 530), mk('04', 530), mk('05', 530), mk('06', 300), mk('07', 0)];
+    const r = _computeFinancesMonthly({
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      loyerDue: () => ({ hc: 500, ch: 30 }),
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
+      today: '2026-07-31'
+    });
+    expect(r.annual.loyerRetard).toBe(700);       // fin de période (PAS la somme des mois)
+    expect(r.annual.chargeRetard).toBe(60);
+    const juin = r.months.find(m => m.mo === 6), juil = r.months.find(m => m.mo === 7);
+    expect(juin.loyerRetard).toBe(200); expect(juin.chargeRetard).toBe(30);   // running
+    expect(juil.loyerRetard).toBe(700); expect(juil.chargeRetard).toBe(60);
+  });
+
+  it('POINT 1 — l\'avance d\'un lot ne MASQUE PAS le retard d\'un autre (agrégat par-lot, jamais sur le net)', () => {
+    const L = (qui, mo, cr) => ({ date: '2026-' + mo + '-05', cat: 'Loyer', qui, cr, db: 0 });
+    const mv = [
+      L('A', '01', 530), L('A', '02', 530), L('A', '03', 530), L('A', '04', 530), L('A', '05', 530), L('A', '06', 300), L('A', '07', 0), // A : retard 700/60
+      L('B', '01', 530), L('B', '02', 530), L('B', '03', 530), L('B', '04', 530), L('B', '05', 530), L('B', '06', 530), L('B', '07', 1430) // B : à jour + 900 avance
+    ];
+    const r = _computeFinancesMonthly({
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      loyerDue: () => ({ hc: 500, ch: 30 }),
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
+      today: '2026-07-31'
+    });
+    expect(r.annual.loyerRetard).toBe(700);   // retard de A VISIBLE malgré l'avance de B
+    expect(r.annual.chargeRetard).toBe(60);
+    expect(r.annual.avance).toBe(900);         // avance de B (indépendante du retard de A)
+  });
+
+  it('lot à bail actif SANS aucun paiement (activeLots) : retard = dû total, PAS invisible', () => {
+    const mv = [{ date: '2026-01-05', cat: 'Loyer', qui: 'L1', cr: 530, db: 0 }]; // seul L1 a un mouvement ; L2 ne paie RIEN
+    const r = _computeFinancesMonthly({
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      loyerDue: () => ({ hc: 500, ch: 30 }),        // les deux lots doivent 500/30
+      activeLots: ['L1', 'L2'],                     // L2 a un bail actif mais 0 mouvement
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
+      today: '2026-02-28'
+    });
+    expect(r.annual.loyerRetard).toBe(1500);   // L1 févr 500 + L2 janv-févr 1000 (invisible sans activeLots)
+    expect(r.annual.chargeRetard).toBe(90);    // 30 + 60
+    expect(r.annual.loyersHC).toBe(500);       // L2 n'INVENTE aucune recette (0 payé)
+    expect(r.annual.provisions).toBe(30);
+  });
+
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
     const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350

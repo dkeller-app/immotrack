@@ -1,4 +1,4 @@
-import { _computeLoyerChargeAlloc } from './loyer-statut.js';
+import { _computeLoyerChargeAlloc, _computeLoyerArrears } from './loyer-statut.js';
 
 /**
  * core/finances-monthly.js — Sous-P&L mensuel (B4).
@@ -35,6 +35,11 @@ export function _computeFinancesMonthly(input) {
   // (loyer → charges → arriérés → avance) via _computeLoyerChargeAlloc. Injecté :
   // loyerDue(qui, ym) → {hc, ch} = dû proraté du mois (cf _finBailHcChAt). Fallback = pas de dû.
   const loyerDue = i.loyerDue || (() => ({ hc: 0, ch: 0 }));
+  // Lots à bail actif dans la période (injecté) : inclus au RETARD même sans aucun mouvement —
+  // un locataire qui ne paie RIEN de l'année est le pire retard, il ne doit pas être invisible
+  // (règle « dès qu'au moins un locataire en retard », décision user 2026-07-12). N'invente
+  // aucune recette : sans encaissement, sa cascade est 0/0/0, seul son arriéré compte.
+  const activeLots = Array.isArray(i.activeLots) ? i.activeLots : [];
 
   // Borne « mois écoulés » pour l'exercice en cours (B3/B5) : on ne projette pas l'avenir.
   // `lastMonth` peut être forcé (ex. comparer le N-1 sur la MÊME période que l'exercice en cours).
@@ -46,6 +51,7 @@ export function _computeFinancesMonthly(input) {
 
   const blank = () => ({
     loyersBrut: 0, loyersHC: 0, provisions: 0, avance: 0, recettesDiverses: 0,
+    loyerRetard: 0, chargeRetard: 0,   // arriérés (retard orange) — running au mois, fin de période à l'année
     pret: 0, taxe: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, gestionHF: 0, recup: 0, interets: 0,
     charges: 0, reel: 0, recupSolde: 0, cashflowNet: 0, cashflowReel: 0, base2044: 0,
     _loyerByLot: null   // { qui → total encaissé du mois } — cascadé au finalize (non exporté)
@@ -107,6 +113,7 @@ export function _computeFinancesMonthly(input) {
   //     mensuels somment exactement à l'annuel (le mois qui reçoit porte la récup + l'avance).
   const allLots = new Set();
   order.forEach(ym => { const lots = buckets[ym]._loyerByLot; if (lots) for (const q in lots) allLots.add(q); });
+  activeLots.forEach(q => allLots.add(q));   // + lots à bail actif sans mouvement (retard « zéro paiement »)
   allLots.forEach(q => {
     const lotMonths = order.map(ym => {
       const d = loyerDue(q, ym) || {};
@@ -115,6 +122,12 @@ export function _computeFinancesMonthly(input) {
     _computeLoyerChargeAlloc(lotMonths).forEach((a, idx) => {
       const b = buckets[order[idx]];
       b.loyersHC += a.loyersHC; b.provisions += a.provisions; b.avance += a.avance;
+    });
+    // Retard orange : arriérés courants (running) du lot, cumulés au mois. L'annuel prend la
+    // FIN de période (ci-dessous), pas la somme des mois (un arriéré ne s'additionne pas).
+    _computeLoyerArrears(lotMonths).months.forEach((am, idx) => {
+      const b = buckets[order[idx]];
+      b.loyerRetard += am.loyerArrear; b.chargeRetard += am.chargeArrear;
     });
   });
   // (2) Champs dérivés (loyersHC/provisions/avance déjà posés : par cascade au mois, par somme à l'année).
@@ -125,7 +138,7 @@ export function _computeFinancesMonthly(input) {
     b.cashflowNet = b.reel;                                           // ton résultat propre (hors transit locataire)
     b.cashflowReel = b.reel + b.recupSolde;                           // vrai cash sur le compte (transit inclus)
     b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -139,6 +152,10 @@ export function _computeFinancesMonthly(input) {
       .forEach(k => { annual[k] += b[k]; });
   });
   finalizeDerived(annual);
+  // Retard annuel = FIN de période (dernier mois échu = dette encore ouverte), jamais la Σ des mois.
+  const lastB = months.length ? months[months.length - 1] : null;
+  annual.loyerRetard = lastB ? lastB.loyerRetard : 0;
+  annual.chargeRetard = lastB ? lastB.chargeRetard : 0;
 
   const interetsTotal = annual.interets;
   return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0 };

@@ -8,6 +8,7 @@ import {
   _loyerSoldeAjuste,
   _computeLoyerCumul,
   _computeLoyerChargeAlloc,
+  _computeLoyerArrears,
   _loyerSplitCascade,
   _LOYER_TOLERANCE_JOUR
 } from '../../js/core/loyer-statut.js';
@@ -290,6 +291,52 @@ describe('_computeLoyerChargeAlloc — cascade CUMULATIVE, dettes avant avance (
   });
   it('prorata d\'entrée : janv dû 327,50 (mi-mois), paie 327,50 → tout loyer HC, 0 charge', () => {
     expect(_computeLoyerChargeAlloc([{ hcDue: 327.5, chDue: 0, received: 327.5 }])[0]).toEqual({ loyersHC: 327.5, provisions: 0, avance: 0 });
+  });
+});
+
+describe('_computeLoyerArrears — arriérés courants + CAUSE résiduelle FIFO (retard orange, sous-ligne cliquable)', () => {
+  const M = (received, hcDue = 500, chDue = 30) => ({ hcDue, chDue, received });
+  it('SCÉNARIO Marion : janv→mai 530, juin 300, juil 0 → retard loyer 700 + charges 60', () => {
+    const r = _computeLoyerArrears([M(530), M(530), M(530), M(530), M(530), M(300), M(0)]);
+    expect(r.loyerArrear).toBe(700);
+    expect(r.chargeArrear).toBe(60);
+    // cause résiduelle : les mois encore dus (somme = arriéré affiché)
+    expect(r.causeLoyer).toEqual([{ idx: 5, short: 200, due: 500, recv: 300 }, { idx: 6, short: 500, due: 500, recv: 0 }]);
+    expect(r.causeCharge).toEqual([{ idx: 5, short: 30, due: 30, recv: 300 }, { idx: 6, short: 30, due: 30, recv: 0 }]);
+    expect(r.causeLoyer.reduce((s, e) => s + e.short, 0)).toBe(r.loyerArrear);   // invariant drill = sous-ligne
+  });
+  it('à jour → aucun arriéré, cause vide', () => {
+    const r = _computeLoyerArrears([M(530), M(530)]);
+    expect(r.loyerArrear).toBe(0);
+    expect(r.chargeArrear).toBe(0);
+    expect(r.causeLoyer).toEqual([]);
+    expect(r.causeCharge).toEqual([]);
+  });
+  it('récupération PARTIELLE FIFO : janv 0, févr 800 → le plus vieux mois se solde d\'abord (loyer 230 restant)', () => {
+    const r = _computeLoyerArrears([M(0), M(800)]);
+    // févr : 500 loyer courant + 30 charges courant, reste 270 → récupère 270 sur janv loyer (500→230)
+    expect(r.loyerArrear).toBe(230);
+    expect(r.chargeArrear).toBe(30);
+    expect(r.causeLoyer).toEqual([{ idx: 0, short: 230, due: 500, recv: 0 }]);   // seul janv reste, montant RÉSIDUEL
+    expect(r.causeCharge).toEqual([{ idx: 0, short: 30, due: 30, recv: 0 }]);
+  });
+  it('récupération TOTALE : janv 0, févr 1060 → tout comblé, cause vide', () => {
+    const r = _computeLoyerArrears([M(0), M(1060)]);
+    expect(r.loyerArrear).toBe(0);
+    expect(r.chargeArrear).toBe(0);
+    expect(r.causeLoyer).toEqual([]);
+    expect(r.causeCharge).toEqual([]);
+  });
+  it('lot SANS bail (dû 0/0) : jamais d\'arriéré (un impayé sans dû n\'existe pas)', () => {
+    const r = _computeLoyerArrears([{ hcDue: 0, chDue: 0, received: 0 }, { hcDue: 0, chDue: 0, received: 0 }]);
+    expect(r.loyerArrear).toBe(0);
+    expect(r.chargeArrear).toBe(0);
+    expect(r.causeLoyer).toEqual([]);
+  });
+  it('arriérés COURANTS par mois (running) : suivent la dette au fil de l\'eau', () => {
+    const r = _computeLoyerArrears([M(530), M(300), M(0)]);
+    expect(r.months.map(m => m.loyerArrear)).toEqual([0, 200, 700]);
+    expect(r.months.map(m => m.chargeArrear)).toEqual([0, 30, 60]);
   });
 });
 

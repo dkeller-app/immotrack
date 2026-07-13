@@ -166,6 +166,44 @@ export function _computeLoyerChargeAlloc(months) {
 }
 
 /**
+ * Arriérés d'un lot (loyer / charges) + CAUSE résiduelle (retard orange, décision user
+ * 2026-07-12 : « on doit pouvoir cliquer dessus afin de connaître la cause »). Même passage
+ * chronologique que _computeLoyerChargeAlloc (loyer courant → charges courant → récup arriérés
+ * loyer FIFO → récup arriérés charges FIFO), mais on garde une FILE des manques incurrus par mois.
+ * La récupération solde les plus VIEUX manques d'abord → à la fin, la file = les mois ENCORE dus,
+ * dont la somme des `short` résiduels = l'arriéré affiché (invariant drill ↔ sous-ligne).
+ * « sans bail » (dû 0 partout) → jamais d'arriéré (un impayé sans dû n'existe pas).
+ * @param {Array<{hcDue:number, chDue:number, received:number}>} months chronologiques (échus)
+ * @returns {{months:Array<{loyerArrear,chargeArrear}>, loyerArrear:number, chargeArrear:number,
+ *            causeLoyer:Array<{idx,short,due,recv}>, causeCharge:Array<{idx,short,due,recv}>}}
+ */
+export function _computeLoyerArrears(months) {
+  const r2 = n => Math.round(n * 100) / 100;
+  const ms = months || [];
+  const loyerQ = [], chargeQ = [];                          // files des manques : {idx, short, due, recv}
+  const sumQ = q => q.reduce((s, e) => s + e.short, 0);
+  const recover = (q, amt) => { let a = amt; for (const e of q) { if (a <= 0.0000001) break; const t = Math.min(a, e.short); e.short -= t; a -= t; } };
+  const perMonth = ms.map((m, idx) => {
+    const hcDue = Math.max(0, Number(m.hcDue) || 0);
+    const chDue = Math.max(0, Number(m.chDue) || 0);
+    const recv = Number(m.received) || 0;
+    let pool = Math.max(0, recv);
+    const loyerCur = Math.min(pool, hcDue); pool -= loyerCur;
+    const loyerShort = hcDue - loyerCur;
+    if (loyerShort > 0.005) loyerQ.push({ idx, short: loyerShort, due: hcDue, recv });
+    const chargeCur = Math.min(pool, chDue); pool -= chargeCur;
+    const chargeShort = chDue - chargeCur;
+    if (chargeShort > 0.005) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
+    const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL);   // arriérés loyer (priorité)
+    const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC);
+    return { loyerArrear: r2(sumQ(loyerQ)), chargeArrear: r2(sumQ(chargeQ)) };
+  });
+  const clean = q => q.filter(e => e.short > 0.005).map(e => ({ idx: e.idx, short: r2(e.short), due: r2(e.due), recv: r2(e.recv) }));
+  const last = perMonth.length ? perMonth[perMonth.length - 1] : { loyerArrear: 0, chargeArrear: 0 };
+  return { months: perMonth, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
+}
+
+/**
  * La pastille unique (mêmes seuils que la modale Suivi des loyers) :
  * ±20 € de bruit toléré ; nMois = équivalent en mois arrondi à 0,1.
  * @returns {{cls:'retard'|'avance'|'ajour', montant:number, nMois:number}}
