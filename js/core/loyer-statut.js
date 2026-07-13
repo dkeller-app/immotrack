@@ -173,13 +173,18 @@ export function _computeLoyerChargeAlloc(months) {
  * La récupération solde les plus VIEUX manques d'abord → à la fin, la file = les mois ENCORE dus,
  * dont la somme des `short` résiduels = l'arriéré affiché (invariant drill ↔ sous-ligne).
  * « sans bail » (dû 0 partout) → jamais d'arriéré (un impayé sans dû n'existe pas).
+ * `graceLast` (tolérance début de mois, cf _loyerToleranceActive / constat 45) : le manque NOUVEAU
+ * du DERNIER mois (= mois courant avant le 10) n'est pas compté en retard — mais son paiement
+ * récupère quand même les arriérés antérieurs, et ces arriérés antérieurs restent visibles.
  * @param {Array<{hcDue:number, chDue:number, received:number}>} months chronologiques (échus)
+ * @param {boolean} [graceLast] neutralise le manque neuf du dernier mois (mois courant sous tolérance)
  * @returns {{months:Array<{loyerArrear,chargeArrear}>, loyerArrear:number, chargeArrear:number,
  *            causeLoyer:Array<{idx,short,due,recv}>, causeCharge:Array<{idx,short,due,recv}>}}
  */
-export function _computeLoyerArrears(months) {
+export function _computeLoyerArrears(months, graceLast) {
   const r2 = n => Math.round(n * 100) / 100;
   const ms = months || [];
+  const lastIdx = ms.length - 1;
   const loyerQ = [], chargeQ = [];                          // files des manques : {idx, short, due, recv}
   const sumQ = q => q.reduce((s, e) => s + e.short, 0);
   const recover = (q, amt) => { let a = amt; for (const e of q) { if (a <= 0.0000001) break; const t = Math.min(a, e.short); e.short -= t; a -= t; } };
@@ -187,13 +192,14 @@ export function _computeLoyerArrears(months) {
     const hcDue = Math.max(0, Number(m.hcDue) || 0);
     const chDue = Math.max(0, Number(m.chDue) || 0);
     const recv = Number(m.received) || 0;
+    const grace = !!graceLast && idx === lastIdx;           // mois courant sous tolérance : manque neuf non compté
     let pool = Math.max(0, recv);
     const loyerCur = Math.min(pool, hcDue); pool -= loyerCur;
     const loyerShort = hcDue - loyerCur;
-    if (loyerShort > 0.005) loyerQ.push({ idx, short: loyerShort, due: hcDue, recv });
+    if (loyerShort > 0.005 && !grace) loyerQ.push({ idx, short: loyerShort, due: hcDue, recv });
     const chargeCur = Math.min(pool, chDue); pool -= chargeCur;
     const chargeShort = chDue - chargeCur;
-    if (chargeShort > 0.005) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
+    if (chargeShort > 0.005 && !grace) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
     const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL);   // arriérés loyer (priorité)
     const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC);
     return { loyerArrear: r2(sumQ(loyerQ)), chargeArrear: r2(sumQ(chargeQ)) };

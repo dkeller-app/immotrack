@@ -338,6 +338,22 @@ describe('_computeLoyerArrears — arriérés courants + CAUSE résiduelle FIFO 
     expect(r.months.map(m => m.loyerArrear)).toEqual([0, 200, 700]);
     expect(r.months.map(m => m.chargeArrear)).toEqual([0, 30, 60]);
   });
+  it('TOLÉRANCE début de mois (graceLast) : le mois COURANT impayé n\'est PAS un retard avant le 10', () => {
+    const sans = _computeLoyerArrears([M(530), M(530), M(0)]);          // 3e mois (courant) impayé
+    expect(sans.loyerArrear).toBe(500); expect(sans.chargeArrear).toBe(30);
+    const avec = _computeLoyerArrears([M(530), M(530), M(0)], true);    // sous tolérance
+    expect(avec.loyerArrear).toBe(0); expect(avec.chargeArrear).toBe(0);
+    expect(avec.causeLoyer).toEqual([]); expect(avec.causeCharge).toEqual([]);
+  });
+  it('grace : un ARRIÉRÉ ANTÉRIEUR reste visible (seul le mois courant est neutralisé, cf constat 45)', () => {
+    const avec = _computeLoyerArrears([M(0), M(0)], true);              // mois 1 arriéré, mois 2 courant impayé
+    expect(avec.loyerArrear).toBe(500); expect(avec.chargeArrear).toBe(30);   // mois 1 SEULEMENT
+    expect(avec.causeLoyer).toEqual([{ idx: 0, short: 500, due: 500, recv: 0 }]);
+  });
+  it('grace : un paiement du mois courant récupère quand même les arriérés antérieurs', () => {
+    const avec = _computeLoyerArrears([M(0), M(1060)], true);           // mois 2 courant paie tout + récup mois 1
+    expect(avec.loyerArrear).toBe(0); expect(avec.chargeArrear).toBe(0);
+  });
 });
 
 describe('verrou : un règlement de régul ne pollue JAMAIS le pool loyers', () => {

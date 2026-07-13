@@ -241,6 +241,23 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.provisions).toBe(30);
   });
 
+  it('tolérance début de mois : le loyer du mois COURANT impayé n\'est pas « en retard » avant le 10', () => {
+    const mk = (mo) => ({ date: '2026-' + mo + '-05', cat: 'Loyer', qui: 'L1', cr: 530, db: 0 });
+    const mv = ['01', '02', '03', '04', '05', '06'].map(mk); // jan-juin payés ; juillet (courant) RIEN
+    const opts = {
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      loyerDue: () => ({ hc: 500, ch: 30 }),
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null)
+    };
+    const avant = _computeFinancesMonthly({ ...opts, today: '2026-07-05' }); // avant le 10
+    expect(avant.annual.loyerRetard).toBe(0);    // juillet impayé mais sous tolérance
+    expect(avant.annual.chargeRetard).toBe(0);
+    const apres = _computeFinancesMonthly({ ...opts, today: '2026-07-15' }); // après le 10
+    expect(apres.annual.loyerRetard).toBe(500);  // juillet redevient un retard
+    expect(apres.annual.chargeRetard).toBe(30);
+  });
+
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
     const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350

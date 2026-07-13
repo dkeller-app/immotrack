@@ -1,4 +1,4 @@
-import { _computeLoyerChargeAlloc, _computeLoyerArrears } from './loyer-statut.js';
+import { _computeLoyerChargeAlloc, _computeLoyerArrears, _LOYER_TOLERANCE_JOUR } from './loyer-statut.js';
 
 /**
  * core/finances-monthly.js — Sous-P&L mensuel (B4).
@@ -48,6 +48,9 @@ export function _computeFinancesMonthly(input) {
   const lastMonth = (i.lastMonth != null)
     ? Math.max(1, Math.min(12, i.lastMonth))
     : ((yr === curYear) ? parseInt(today.slice(5, 7), 10) : 12);
+  // Tolérance début de mois (parité Suivi des loyers, constat 45) : tant qu'on est avant le 10 ET
+  // que le dernier mois affiché EST le mois courant, son loyer non encore payé n'est pas un « retard ».
+  const graceLast = (yr === curYear) && (lastMonth === parseInt(today.slice(5, 7), 10)) && (parseInt(today.slice(8, 10), 10) < _LOYER_TOLERANCE_JOUR);
 
   const blank = () => ({
     loyersBrut: 0, loyersHC: 0, provisions: 0, avance: 0, recettesDiverses: 0,
@@ -125,7 +128,7 @@ export function _computeFinancesMonthly(input) {
     });
     // Retard orange : arriérés courants (running) du lot, cumulés au mois. L'annuel prend la
     // FIN de période (ci-dessous), pas la somme des mois (un arriéré ne s'additionne pas).
-    _computeLoyerArrears(lotMonths).months.forEach((am, idx) => {
+    _computeLoyerArrears(lotMonths, graceLast).months.forEach((am, idx) => {
       const b = buckets[order[idx]];
       b.loyerRetard += am.loyerArrear; b.chargeRetard += am.chargeArrear;
     });
