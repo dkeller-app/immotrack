@@ -46,10 +46,10 @@ Fix : émettre si le flush a réellement écrit quelque chose — helper pur exp
 **Constat** (audit C-A) : l'émission `changed` existe (post-flush) mais AUCUN récepteur depuis le
 cutover → vue figée multi-appareils (téléphone à J-3 de retard).
 
-- **Récepteur** : `_liveChannel.on('broadcast', { event:'changed' }, () => _repullSoon('realtime'))`
+- **Récepteur** : `_liveChannel.on('broadcast', { event:'changed' }, () => _repullSoon())`
   (le canal privé + presence existent déjà ; `self:false` → jamais son propre écho).
 - **Re-pull visibilité** : sur `visibilitychange:visible`, si `Date.now() - _lastHydrateAt >
-  REPULL_STALE_MS` (**5 min**) → `_repullSoon('visible')`. Tue le téléphone figé.
+  REPULL_STALE_MS` (**5 min**) → `_repullSoon()`. Tue le téléphone figé.
 - **`_repullSoon`** : coalesce (timer 1200 ms — plusieurs `changed` rapprochés = 1 re-pull) et
   **diffère tant qu'une modale `.ov` est ouverte** (recheck 5 s) : on ne détruit pas une saisie en
   cours pour un rafraîchissement de confort. Le chemin CONFLIT, lui, est immédiat (correction de
@@ -120,6 +120,18 @@ re-render sidebar/filtres + `go(<page .act courante>)` (repli `accueil` si la pa
 - Kill-switch révocation en session ouverte (P2.5) — mais le re-pull visibilité re-scope déjà la vue
   au retour d'onglet si la RLS a changé.
 - Upload Storage systématique à la création (P2.4) — seul le rattrapage existant est rebranché.
+
+## 5bis. Audit code-reviewer (2026-07-13) — PASS avec réserves
+Verdict : 0 critique · 2 importants **corrigés** dans la foulée (I-1 : mutation locale pendant l'attente
+réseau d'un re-pull de confort → compteur `_dirtySeq` incrémenté par `__immoMarkDirty`, le pull qui a
+« raté » une saisie est abandonné et re-programmé ; I-2 : conflit survenant PENDANT un pull → bannière
+« revérifie ta modif » mémorisée `_pendingConflictBanner` et consommée à la fin du pull — jamais de LWW
+silencieux) · quick wins M-a (signal reçu pendant un pull → re-programmé), M-b (miroir purgé au login
+même si l'import cache-purge échoue), M-d (toast neutre « Données actualisées »). **Résidus consignés,
+assumés** : M-c — tag `same` + hydratation en ÉCHEC au login → miroir ni purgé ni re-basé jusqu'au
+prochain login réussi (fenêtre résiduelle, même user/même espace) ; M-f — photos d'une saisie EDL en
+cours non sauvée (arrays de travail, pas encore dans `DB.edl`) invisibles de `listIdbOnlyBinaries` → un
+logout à cet instant précis peut les purger si 0 autre reliquat (le formulaire est perdu de toute façon).
 
 ## 6. Testabilité
 - Moteur : M2 + helpers résumé → `__tests__/helpers/store-sync.test.js` (offline).
