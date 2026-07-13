@@ -33,6 +33,12 @@
 > | P2 Sync robuste (~6-9 sem) : pull incrémental + version sur espace_config (fin LWW, fuite scopé [AUDIT] 5-7) + journal d'écritures IndexedDB + auditTrail cloud + docs→Storage (20/35 idb-only !) + kill-switch révocation | P1 | XL | ⬜ prérequis commercialisation |
 >
 > **⚖️ Seuil commercialisation (avis audit)** : P1 complet + P2.1-3 ≈ 8-10 semaines. P1 seul = passable = non (règle gravée).
+>
+> **Suites 13/07 (session maître)** :
+> - ✅ **CI GitHub reverdie** (`be56dac` sur main) — rouge depuis v15.326 (~1 mois, personne n'avait vu) : 3 tests anti-régression 2044/import cherchaient les anciens noms de catégories (restructuration 31→21). Sémantique fiscale VÉRIFIÉE avant alignement (B1 exclusions tenues ; CFE/TLV = customs, moteur fail-safe `nonMappes`). 1874/1874 verts.
+> - ⚠️ Découvert : **`index-test.html` figé pré-v15.314** (catégories un an en arrière) — résidu R2 de la session cascade, régénération sandbox = session dédiée à planifier.
+> - ⏳ Nettoyage **29 doublons agenda** : script `_import/cleanup-agenda-dups.mjs` écrit, EN ATTENTE d'audit code-reviewer (quota agents 13h) — ne pas exécuter avant.
+> - ⏳ `relay 401` pull candidatures (spam console, non bloquant) — à traiter avec le chantier candidatures.
 
 ---
 
