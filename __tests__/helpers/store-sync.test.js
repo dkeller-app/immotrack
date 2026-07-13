@@ -553,6 +553,40 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(sched.at(-1).opts).toMatchObject({ retryDelayMs: 2000 })
   })
 
+  it('(audit M6a) remove d\'ENFANT qui THROW : la chaîne de removes CONTINUE (ordre enfant→parent préservé, le parent est bien soft-deleté)', async () => {
+    const store = mockStore({ 'logements:F-1': { throws: 'softDelete logements: réseau' } })
+    const db = baseDB()                            // entites: SCI A (parent), logements: F-1 (enfant)
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // suppression en cascade : l'app tombstone parent + enfant ensemble
+    db.entites[0] = { ...db.entites[0], _deleted: true }
+    db.logements[0] = { ...db.logements[0], _deleted: true }
+    const s = await sync.flush()
+    const rms = store.calls.filter(c => c.op === 'remove')
+    expect(rms.map(c => c.coll)).toEqual(['logements', 'entites'])    // enfant TENTÉ d'abord, parent ENSUITE malgré le throw
+    expect(s.errors).toContainEqual({ op: 'remove', coll: 'logements', key: 'f-1', message: expect.stringContaining('réseau') })
+    expect(s.removes).toContainEqual({ coll: 'entites', key: 'sci a' })   // le parent est bien parti (pas d'abort de chaîne)
+    // l'enfant en échec est RETENTÉ au prochain flush (baseline non avancé)
+    store.calls.length = 0
+    const s2 = await sync.flush()
+    expect(store.calls.filter(c => c.op === 'remove' && c.coll === 'logements')).toHaveLength(1)
+    expect(s2.errors).toHaveLength(1)
+  })
+
+  it('(audit M6b) markDirty : getDB qui THROW pendant la détection de removes → repli DEBOUNCE normal (jamais de crash, jamais d\'immediate)', async () => {
+    const store = mockStore()
+    let boom = true
+    const db = baseDB()
+    const sched = []
+    const sync = createStoreSync({ store, getDB: () => { if (boom) throw new Error('DB pas prêt'); return db }, schedule: (fn, opts) => sched.push({ fn, opts }) })
+    sync.seed(db)                                  // seed avec db explicite (getDB piégé)
+    expect(() => sync.markDirty()).not.toThrow()
+    expect(sched).toHaveLength(1)                  // flush quand même programmé…
+    expect(sched[0].opts && sched[0].opts.immediate).toBeFalsy()   // …en debounce normal (détection best-effort)
+    boom = false                                   // au moment où le debounce tire, le DB est redevenu lisible
+    await sched[0].fn()
+  })
+
   it('RETRY : un conflit de version seul ne re-programme PAS (résolution = re-hydrate, P1 item 2 — retenter à l\'identique serait une boucle éternelle)', async () => {
     const store = mockStore({ 'logements:F-3': { status: 'conflict', id: 'x' } })
     const db = baseDB()

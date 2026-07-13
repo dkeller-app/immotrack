@@ -574,18 +574,24 @@ async function onLoggedIn(api, overlay, user) {
       return s
     } catch (e) {
       console.error('[Supabase] flush', e)
-      setSync(navigator.onLine === false ? 'offline' : 'warn', 'Erreur réseau — réessai à la prochaine modif')
+      if (!_deadShown) setSync(navigator.onLine === false ? 'offline' : 'warn', 'Erreur réseau — réessai à la prochaine modif')   // (audit M3) ne pas écraser l'état « session expirée »
     }
   }
   // Scheduler debouncé (800 ms, comme Drive) : saveDB → markDirty → ici → flush cloud (gardé par version).
   // P1.2 : honore les options du moteur — { immediate:true } (suppression en attente → bypass du debounce,
-  // le remove part MAINTENANT) et { retryDelayMs } (retry backoff après échec ; remplace le timer en
-  // attente — sans perte : un flush couvre TOUT le diff, y compris la modif qui attendait).
+  // le remove part MAINTENANT) et { retryDelayMs } (retry backoff après échec). (Audit M1) un RETRY ne
+  // REPOUSSE jamais un timer déjà plus proche : si une modif utilisateur attend son debounce 800 ms
+  // pendant qu'un flush échoue, le retry (jusqu'à 60 s) ne doit pas la retarder — le timer court reste,
+  // et son flush couvre TOUT le diff (y compris ce que le retry aurait retenté).
+  let flushDueAt = 0
   const schedule = (fn, opts) => {
     _lastFlushFn = fn
+    const delay = (opts && opts.immediate) ? 0 : ((opts && opts.retryDelayMs) || 800)
+    if (opts && opts.retryDelayMs && flushTimer && flushDueAt <= Date.now() + delay) return
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
     if (opts && opts.immediate) { runFlush(fn); return }
-    flushTimer = setTimeout(() => runFlush(fn), (opts && opts.retryDelayMs) || 800)
+    flushDueAt = Date.now() + delay
+    flushTimer = setTimeout(() => runFlush(fn), delay)
   }
   // P1.1 — le réseau qui tombe/revient : pastille honnête + reprise immédiate au retour du réseau.
   addEventListener('offline', () => { if (!_deadShown) setSync('offline') })
