@@ -43,6 +43,12 @@
 > | **RESET-CLOUD UX** — « réinitialiser » local ne vide PAS l'espace cloud (design : pas d'auto-suppression, preuves légales) → reconnexion re-télécharge tout = incompréhensible pour l'user. Décider : bouton « vider l'espace cloud » assumé (primitive `purge_espace` existe côté DB) ou wording | P2 | ⬜ |
 > | iPhone : PWA installée figée (vieille version+session, fix SW v15.457 arrivé après son install) — navigateur Safari OK sur le même tél = serveur sain | — | action user : réinstaller la PWA |
 >
+> **✅ Smoke test 2 appareils 13/07 soir (v15.463) : « synchro ok entre tablette et téléphone » — P1.3 VALIDÉ en réel.** 2 irritants relevés :
+> | Sujet | Prio | Statut |
+> |---|---|---|
+> | BANDEAU-SAUVEGARDE-CLOUD — `_backupShowProposeBanner` (sauvegarde LOCALE ère Drive, index.html ~49374) s'affiche en mode cloud (non-sens : cloud = stockage primaire + backup serveur quotidien) et sur tablette (File System Access indispo). Gater `_backupAutoCheck` derrière `!__immoSupabaseMode` (ou politique cloud-aware desktop-only, bien moins fréquente) | P2 | ⬜ quick win |
+> | BUG-LOGIN-DOUBLE (aléatoire, vu tablette 13/07) — hypothèse : session mémoire (`persistSession:false`) + nouveau SW qui prend le contrôle PENDANT l'écran de login (garde anti-reload v15.457 armée seulement post-login via `__immoSupabaseMode`) → reload → session perdue → 2ᵉ login. Ne se produit que quand une MAJ attend (5 deploys le 13/07). Pistes : armer le garde dès le boot cloud, ou différer l'activation SW, ou (P2) persistance session | P1 | ⬜ repro console souhaitée |
+>
 > **Suites 13/07 (session maître)** :
 > - ✅ **CI GitHub reverdie** (`be56dac` sur main) — rouge depuis v15.326 (~1 mois, personne n'avait vu) : 3 tests anti-régression 2044/import cherchaient les anciens noms de catégories (restructuration 31→21). Sémantique fiscale VÉRIFIÉE avant alignement (B1 exclusions tenues ; CFE/TLV = customs, moteur fail-safe `nonMappes`). 1874/1874 verts.
 > - ⚠️ Découvert : **`index-test.html` figé pré-v15.314** (catégories un an en arrière) — résidu R2 de la session cascade, régénération sandbox = session dédiée à planifier.
