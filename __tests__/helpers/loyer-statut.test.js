@@ -347,6 +347,19 @@ describe('_computeLoyerArrears — arriérés courants + CAUSE résiduelle FIFO 
     expect(r.months.map(m => m.loyerArrear)).toEqual([0, 200, 700]);
     expect(r.months.map(m => m.chargeArrear)).toEqual([0, 30, 60]);
   });
+  it('RÉSIDU par mois (colonnes P&L : on ne reporte pas) : chaque mois porte SON manque net, somme = annuel', () => {
+    // Marion : janv-mai pleins, juin 300 (short 200/30), juil 0 (short 500/30), aucun rattrapage
+    const r = _computeLoyerArrears([M(530), M(530), M(530), M(530), M(530), M(300), M(0)]);
+    expect(r.retardMois.map(x => x.loyer)).toEqual([0, 0, 0, 0, 0, 200, 500]);   // PAS cumulé (running = …,200,700)
+    expect(r.retardMois.map(x => x.charge)).toEqual([0, 0, 0, 0, 0, 30, 30]);
+    expect(r.retardMois.reduce((s, x) => s + x.loyer, 0)).toBe(r.loyerArrear);    // invariant : Σ mois = annuel (outstanding)
+    expect(r.loyerArrear).toBe(700);
+  });
+  it('RÉSIDU : un mois rattrapé plus tard retombe à 0 (net des rattrapages, « non encaissé » exact)', () => {
+    const r = _computeLoyerArrears([M(0), M(1060)]);   // janv impayé, févr rattrape tout
+    expect(r.retardMois).toEqual([{ loyer: 0, charge: 0 }, { loyer: 0, charge: 0 }]);
+    expect(r.loyerArrear).toBe(0);
+  });
   it('TOLÉRANCE début de mois (graceLast) : le mois COURANT impayé n\'est PAS un retard avant le 10', () => {
     const sans = _computeLoyerArrears([M(530), M(530), M(0)]);          // 3e mois (courant) impayé
     expect(sans.loyerArrear).toBe(500); expect(sans.chargeArrear).toBe(30);

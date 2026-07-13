@@ -190,7 +190,7 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(r.annual.avance).toBe(70);        // PAS 85 : les dettes passent avant l'avance
   });
 
-  it('RETARD par lot exposé (annuel = fin de période, mensuel = running) : Marion janv-mai pleins, juin 300, juil 0', () => {
+  it('RETARD par lot exposé (mensuel = RÉSIDU du mois, on ne reporte pas ; annuel = somme) : Marion janv-mai pleins, juin 300, juil 0', () => {
     const mk = (mo, cr) => ({ date: '2026-' + mo + '-05', cat: 'Loyer', qui: 'L1', cr, db: 0 });
     const mv = [mk('01', 530), mk('02', 530), mk('03', 530), mk('04', 530), mk('05', 530), mk('06', 300), mk('07', 0)];
     const r = _computeFinancesMonthly({
@@ -200,11 +200,11 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
       catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
       today: '2026-07-31'
     });
-    expect(r.annual.loyerRetard).toBe(700);       // fin de période (PAS la somme des mois)
+    expect(r.annual.loyerRetard).toBe(700);       // somme des mois (= outstanding, pas de rattrapage ici)
     expect(r.annual.chargeRetard).toBe(60);
     const juin = r.months.find(m => m.mo === 6), juil = r.months.find(m => m.mo === 7);
-    expect(juin.loyerRetard).toBe(200); expect(juin.chargeRetard).toBe(30);   // running
-    expect(juil.loyerRetard).toBe(700); expect(juil.chargeRetard).toBe(60);
+    expect(juin.loyerRetard).toBe(200); expect(juin.chargeRetard).toBe(30);   // manque PROPRE de juin
+    expect(juil.loyerRetard).toBe(500); expect(juil.chargeRetard).toBe(30);   // manque PROPRE de juil (PAS 700/60 cumulé)
   });
 
   it('POINT 1 — l\'avance d\'un lot ne MASQUE PAS le retard d\'un autre (agrégat par-lot, jamais sur le net)', () => {

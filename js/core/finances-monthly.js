@@ -126,11 +126,12 @@ export function _computeFinancesMonthly(input) {
       const b = buckets[order[idx]];
       b.loyersHC += a.loyersHC; b.provisions += a.provisions; b.avance += a.avance;
     });
-    // Retard orange : arriérés courants (running) du lot, cumulés au mois. L'annuel prend la
-    // FIN de période (ci-dessous), pas la somme des mois (un arriéré ne s'additionne pas).
-    _computeLoyerArrears(lotMonths, graceLast).months.forEach((am, idx) => {
+    // Retard orange : RÉSIDU du mois (manque encore dû attribué à son mois d'origine, net des
+    // rattrapages) — colonne P&L par mois, on ne reporte pas (user 2026-07-13). L'annuel = SOMME
+    // des mois (= dette ouverte de fin de période, puisque le résidu somme à l'arriéré final).
+    _computeLoyerArrears(lotMonths, graceLast).retardMois.forEach((rm, idx) => {
       const b = buckets[order[idx]];
-      b.loyerRetard += am.loyerArrear; b.chargeRetard += am.chargeArrear;
+      b.loyerRetard += rm.loyer; b.chargeRetard += rm.charge;
     });
   });
   // (2) Champs dérivés (loyersHC/provisions/avance déjà posés : par cascade au mois, par somme à l'année).
@@ -151,14 +152,10 @@ export function _computeFinancesMonthly(input) {
   // Agrégat annuel (Σ des mois — loyersHC/provisions/avance inclus, PAS de re-cascade)
   const annual = Object.assign({ ym: yr, mo: 0 }, blank());
   months.forEach(b => {
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets']
-      .forEach(k => { annual[k] += b[k]; });
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets']
+      .forEach(k => { annual[k] += b[k]; });   // retard : Σ des résidus mensuels = dette ouverte de fin de période
   });
   finalizeDerived(annual);
-  // Retard annuel = FIN de période (dernier mois échu = dette encore ouverte), jamais la Σ des mois.
-  const lastB = months.length ? months[months.length - 1] : null;
-  annual.loyerRetard = lastB ? lastB.loyerRetard : 0;
-  annual.chargeRetard = lastB ? lastB.chargeRetard : 0;
 
   const interetsTotal = annual.interets;
   return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0 };

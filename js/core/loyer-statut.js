@@ -210,7 +210,12 @@ export function _computeLoyerArrears(months, graceLast) {
   });
   const clean = q => q.filter(e => e.short > 0.005).map(e => ({ idx: e.idx, short: r2(e.short), due: r2(e.due), recv: r2(e.recv) }));
   const last = perMonth.length ? perMonth[perMonth.length - 1] : { loyerArrear: 0, chargeArrear: 0 };
-  return { months: perMonth, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
+  // RÉSIDU par mois (colonnes P&L, décision user 2026-07-13 « on ne reporte pas ») : le manque ENCORE
+  // dû attribué à son mois d'origine (net des rattrapages FIFO), ≠ l'arriéré courant cumulé. Σ = arriéré final.
+  const residual = q => { const a = ms.map(() => 0); q.forEach(e => { if (e.short > 0.005) a[e.idx] = r2(a[e.idx] + e.short); }); return a; };
+  const loyerRes = residual(loyerQ), chargeRes = residual(chargeQ);
+  const retardMois = ms.map((m, idx) => ({ loyer: loyerRes[idx], charge: chargeRes[idx] }));
+  return { months: perMonth, retardMois, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
 }
 
 /**
