@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MIRROR_TAG_KEY, mirrorTag, classifyMirrorTag, listIdbOnlyBinaries } from '../../js/core/cache-purge.js'
+import { MIRROR_TAG_KEY, mirrorTag, classifyMirrorTag, listIdbOnlyBinaries, authStorageKeys } from '../../js/core/cache-purge.js'
 
 // P1.3 — volet RGPD de l'audit sync cloud 2026-07-12 (cause C-C : miroir localStorage + IndexedDB
 // jamais purgés → un révoqué garde une copie lisible à vie). Module PUR : la décision de purge est
@@ -36,6 +36,24 @@ describe('mirrorTag / classifyMirrorTag — tag {userId, espaceId} du miroir loc
     expect(classifyMirrorTag('42', U, E)).toBe('untagged')
     expect(classifyMirrorTag(JSON.stringify({ userId: U }), U, E)).toBe('untagged')
     expect(classifyMirrorTag(JSON.stringify({ espaceId: E }), U, E)).toBe('untagged')
+  })
+})
+
+describe('authStorageKeys — clés localStorage du token de session à purger (BUG-LOGIN-DOUBLE)', () => {
+  // persistSession:true fait vivre le token dans localStorage sous une clé DÉTERMINISTE (storageKey
+  // explicite) → au logout ET au changement de compte, il DOIT partir (sinon un token valide reste
+  // lisible sur la machine, aggravation RGPD au-delà du miroir). supabase-js peut aussi écrire un
+  // `${storageKey}-code-verifier` (flux PKCE / Google SSO) → on purge les deux.
+  it('renvoie la clé du token + la clé code-verifier PKCE', () => {
+    expect(authStorageKeys('immo-supabase-auth')).toEqual(['immo-supabase-auth', 'immo-supabase-auth-code-verifier'])
+  })
+
+  it('fail-safe : storageKey absent/vide → [] (rien à purger, jamais throw)', () => {
+    expect(authStorageKeys(null)).toEqual([])
+    expect(authStorageKeys(undefined)).toEqual([])
+    expect(authStorageKeys('')).toEqual([])
+    expect(() => authStorageKeys(42)).not.toThrow()
+    expect(authStorageKeys(42)).toEqual([])
   })
 })
 

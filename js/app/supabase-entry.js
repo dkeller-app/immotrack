@@ -8,6 +8,8 @@
 // depuis Supabase dans une variable LOCALE → affiche les compteurs (preuve bout-en-bout dans le navigateur).
 // Ne touche PAS window.DB ni le rendu (ça vient à l'étape 2b). Donc zéro interférence avec l'app derrière.
 
+import { BREADCRUMB_KEY, appendCrumb } from '../core/login-breadcrumb.js'
+
 const FLAG = (() => {
   try {
     const path = (location.pathname || '').toLowerCase()
@@ -57,6 +59,11 @@ let _resolveEntiteOwner = null, _resolveEspaceOfSeg = null   // résolveurs PURS
 // une copie lisible à vie). Décisions PURES dans js/core/cache-purge.js (testé) ; exécution ici.
 const MIRROR_KEY = 'immotrack_v4'          // clé PROD du miroir (l'entry ne tourne jamais en mode test)
 const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (contrat verrouillé par test)
+// BUG-LOGIN-DOUBLE — storageKey EXPLICITE du token de session (persistSession:true). Clé DÉTERMINISTE
+// (au lieu du défaut sb-<projectref>-auth-token, dérivé de l'URL) → purge FIABLE au logout / changement
+// de compte (cf. cache-purge.authStorageKeys). __immoSupaToken (worker de signature) lit getSession qui
+// relit ce storage → inchangé pour l'appelant.
+const AUTH_STORAGE_KEY = 'immo-supabase-auth'
 let _cachePurge = null           // module cache-purge (importé au boot, best-effort)
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
 // Suppression de la base binaire locale. `onblocked` résolu quand même : la suppression reste PENDANTE
@@ -65,6 +72,18 @@ function _deletePhotosDb() {
   return new Promise(res => {
     try { const r = indexedDB.deleteDatabase('immotrack_photos'); r.onsuccess = r.onerror = r.onblocked = () => res() } catch (e) { res() }
   })
+}
+
+// BUG-LOGIN-DOUBLE volet sécurité — purge des clés localStorage du token de session (persistSession:true).
+// Appelé au logout ET au changement de compte via l'invitation (« Utiliser un autre compte ») : un token
+// valide ne doit JAMAIS rester lisible sur la machine. signOut() le retire déjà ; ceci est la
+// ceinture+bretelles (si signOut a throw avant d'écrire le storage — réseau). Mode dégradé sans
+// cache-purge (import raté) : littéraux, même patron que les fallbacks voisins. Ne throw jamais.
+function _purgeAuthTokenKeys() {
+  try {
+    const keys = _cachePurge ? _cachePurge.authStorageKeys(AUTH_STORAGE_KEY) : [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier']
+    keys.forEach(k => { try { localStorage.removeItem(k) } catch (e) {} })
+  } catch (e) {}
 }
 
 // BOOT-GATE — le <head> d'index.html pose `html[data-lpboot]` qui masque tout le body SAUF #imsb-overlay
@@ -88,6 +107,20 @@ function _displayNameFromUser(user) {
 }
 
 async function boot() {
+  // BUG-LOGIN-DOUBLE — fil d'Ariane de diagnostic posé AU PLUS TÔT (avant tout réseau/import). Écrit une
+  // étape horodatée dans sessionStorage (SURVIT à location.reload() dans le même onglet → capture la
+  // séquence d'un reload intempestif). Décision pure + testée (login-breadcrumb.js) ; exécution ici. Le
+  // handler `controllerchange` d'index.html l'appelle aussi (le principal suspect du reload post-login).
+  try {
+    window.__immoCrumb = (event) => {
+      try {
+        const next = appendCrumb(sessionStorage.getItem(BREADCRUMB_KEY), event, Date.now())
+        sessionStorage.setItem(BREADCRUMB_KEY, next)
+        console.debug('[login-trace]', event)
+      } catch (_e) {}
+    }
+    window.__immoCrumb('entry-boot')
+  } catch (_e) {}
   injectStyles()
   const overlay = injectOverlay()
   _liftDriveGate()   // mode cloud : pas de gate Drive (sinon il masque l'overlay de login)
@@ -108,12 +141,16 @@ async function boot() {
     return
   }
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
-    // AUCUNE session persistée : le mot de passe est redemandé à CHAQUE chargement (décision cutover
-    // « re-saisir le mdp à chaque ouverture »). La session vit en mémoire pour le chargement courant
-    // uniquement → un rechargement ou le bouton RETOUR ramène au login (compromis accepté).
-    // detectSessionInUrl (défaut true) reste actif : SSO Google / reset mdp / invitation établissent la
-    // session en mémoire au retour de redirection, pour le chargement courant.
-    auth: { persistSession: false, autoRefreshToken: true },
+    // BUG-LOGIN-DOUBLE (P0 vente) — FIX : session PERSISTÉE (standard SaaS). Avant, persistSession:false
+    // gardait la session en MÉMOIRE SEULE : tout reload entre le login et l'Accueil la détruisait → « il
+    // faut se connecter 2× » (récurrent PC + tablette, « rédhibitoire pour la vente »). Le principal
+    // déclencheur : le SW `controllerchange` qui rechargeait la page pendant la fenêtre post-login (le
+    // flag anti-reload n'était armé qu'APRÈS onLoggedIn). Désormais la session survit aux reloads/onglets
+    // (au boot, currentUser() la retrouve → onLoggedIn direct, pas de 2ᵉ login) et autoRefreshToken la
+    // maintient vivante. storageKey EXPLICITE (AUTH_STORAGE_KEY) → clé déterministe, purgée au logout /
+    // changement de compte (hygiène RGPD : un token valide ne doit pas rester lisible sur la machine).
+    // detectSessionInUrl (défaut true) reste actif : SSO Google / reset mdp / invitation.
+    auth: { persistSession: true, autoRefreshToken: true, storageKey: AUTH_STORAGE_KEY },
   })
   _supaClient = client
   // Jeton de session Supabase (ES256) pour authentifier l'app auprès du worker de signature : le worker
@@ -123,14 +160,18 @@ async function boot() {
   }
   const api = createBoot(client)
   // Connexion D1 — hook de déconnexion global utilisé par le menu Compte de l'app (index.html).
-  // FLUSH puis signOut (api.logout) → recharge la page : sans session persistée, on retombe sur le
-  // login. Repli sûr : si logout échoue, on recharge quand même (la session n'est pas persistée).
+  // FLUSH puis signOut (api.logout) → purge cache + token → recharge la page : la session persistée
+  // ayant été effacée, on retombe sur le login. Repli sûr : si logout échoue, on purge et recharge
+  // quand même (surtout : on ne laisse jamais un token valide derrière soi — cf. purge ci-dessous).
   window.__immoLogout = async () => {
     window.__immoLoggingOut = true   // le SIGNED_OUT qui suit est VOULU → pas de bannière « session expirée »
+    try { window.__immoCrumb && window.__immoCrumb('logout') } catch (e) {}
     try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) }
     // P1.3 volet RGPD (audit C-C) : le miroir localStorage est TOUJOURS purgé au logout — sinon le
     // dernier saveDB laisse une copie intégrale du DB lisible à vie sur la machine (cas Marion).
     try { localStorage.removeItem(MIRROR_KEY); localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {}
+    // BUG-LOGIN-DOUBLE volet sécurité : le token de session (persistSession:true) DOIT partir aussi.
+    _purgeAuthTokenKeys()
     // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).
     // 20/35 documents vivants n'existent QUE là (forensique 12/07) : les détruire = perdre des preuves
     // légales (règle « pas d'auto-suppression »). Le rattrapage _drvUploadPendingAttachments (rebranché
@@ -366,10 +407,12 @@ async function boot() {
   const _inviteTok = (new URLSearchParams(location.search)).get('invite')
   if (_inviteTok) return acceptInviteFlow(api, client, overlay, _inviteTok)
 
-  // déjà connecté (session persistée) → enchaîner direct
+  // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
+  // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
   const user = await api.currentUser()
-  if (user) return onLoggedIn(api, overlay, user)
+  if (user) { try { window.__immoCrumb && window.__immoCrumb('already-connected') } catch (e) {} return onLoggedIn(api, overlay, user) }
 
+  try { window.__immoCrumb && window.__immoCrumb('login-form-shown') } catch (e) {}
   wireLoginForm(api, overlay)
 }
 
@@ -398,6 +441,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
 
   q('#imsb-form').onsubmit = async (e) => {
     e.preventDefault()
+    try { window.__immoCrumb && window.__immoCrumb('login-start') } catch (_e) {}
     const email = q('#imsb-email').value.trim()
     const pass = q('#imsb-pass').value
     setBusy(overlay, true); showError(overlay, '')
@@ -418,6 +462,7 @@ function wireLoginForm(api, overlay, prefillEmail) {
     const r = await api.loginEmail(email, pass).catch(err => ({ ok: false, error: err.message }))
     setBusy(overlay, false)
     if (!r.ok) { showError(overlay, traduireErreur(r.error)); return }
+    try { window.__immoCrumb && window.__immoCrumb('login-ok') } catch (_e) {}
     onLoggedIn(api, overlay, r.user)
   }
   q('#imsb-forgot').onclick = (e) => {
@@ -492,7 +537,7 @@ async function acceptInviteFlow(api, client, overlay, token) {
       <button class="imsb-btn imsb-primary" id="imsb-join" type="button">Rejoindre en tant que ${escapeHtml(user.email)}</button>
       <a class="imsb-btn imsb-ghost" id="imsb-join-other" href="#" style="text-decoration:none;margin-top:6px">Utiliser un autre compte</a></div>`
     left.querySelector('#imsb-join').onclick = async (ev) => { ev.target.disabled = true; if (!(await accept())) ev.target.disabled = false }
-    left.querySelector('#imsb-join-other').onclick = async (ev) => { ev.preventDefault(); try { await api.logout() } catch (e) {} acceptInviteFlow(api, client, overlay, token) }
+    left.querySelector('#imsb-join-other').onclick = async (ev) => { ev.preventDefault(); try { await api.logout() } catch (e) {} _purgeAuthTokenKeys(); acceptInviteFlow(api, client, overlay, token) }
     return
   }
   left.innerHTML = `${brand()}<form id="imsb-iform" class="imsb-mid" autocomplete="on">
@@ -574,13 +619,15 @@ async function onLoggedIn(api, overlay, user) {
     el.title = state === 'warn' ? (msg + ' — clic : réessayer maintenant') : msg
   }
 
-  // ── P1.1 DÉTECTION SESSION MORTE — persistSession:false = session en mémoire seule ; token mort
-  // après veille = tous les appels en 401 avalés (audit C-B : « fini les 401 silencieux »). Bannière
-  // UNE fois, non fermable autrement qu'en se reconnectant (les modifs ne partent plus au cloud).
+  // ── P1.1 DÉTECTION SESSION MORTE — la session est désormais persistée + auto-rafraîchie (BUG-LOGIN-
+  // DOUBLE), mais un refresh token expiré/révoqué finit par échouer → supabase-js émet SIGNED_OUT →
+  // bannière (audit C-B : « fini les 401 silencieux »). UNE fois, non fermable autrement qu'en se
+  // reconnectant (les modifs ne partent plus au cloud).
   let _deadShown = false
   const _sessionDead = () => {
     if (_deadShown) return
     _deadShown = true
+    try { window.__immoCrumb && window.__immoCrumb('session-dead') } catch (e) {}
     setSync('dead')
     if (document.getElementById('imsb-dead')) return
     const b = document.createElement('div'); b.id = 'imsb-dead'
@@ -733,7 +780,7 @@ async function onLoggedIn(api, overlay, user) {
   })
   addEventListener('pagehide', flushPendingNow)
   // P1.1 — session expirée/révoquée pendant la vie de l'onglet : supabase-js émet SIGNED_OUT quand le
-  // refresh du token échoue (autoRefreshToken:true, session mémoire) → bannière re-login. Abonné UNE
+  // refresh du token échoue (autoRefreshToken:true, session persistée) → bannière re-login. Abonné UNE
   // SEULE fois pour la vie de la page (contrat onAuthChange). Un logout VOLONTAIRE (menu Compte) pose
   // window.__immoLoggingOut → pas de bannière pendant le signOut → reload ramène au login proprement.
   try {
@@ -826,6 +873,7 @@ async function onLoggedIn(api, overlay, user) {
       setSync('ok')      // P1.1 : pastille visible dès le dévoilement (état initial = hydraté ≙ enregistré)
       _liftDriveGate()   // revele l'app cloud (leve le gate Drive reste leve apres le boot legacy)
       try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
+      try { window.__immoCrumb && window.__immoCrumb('accueil-revealed') } catch (e) {}   // login abouti : Accueil affiché
       overlay.remove()                            // dévoile l'app complète sur les données cloud
       return
     }

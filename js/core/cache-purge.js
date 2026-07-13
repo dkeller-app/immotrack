@@ -32,6 +32,18 @@ export function classifyMirrorTag(raw, userId, espaceId) {
   return 'same'
 }
 
+// ── Token de session Supabase (BUG-LOGIN-DOUBLE) — clés localStorage à purger ─────────────────────
+// persistSession:true (fix du double-login : la session survit aux reloads/onglets, standard SaaS) fait
+// vivre le token dans localStorage sous une clé DÉTERMINISTE (storageKey EXPLICITE, cf. supabase-entry).
+// Il DOIT partir au logout ET au changement de compte : un token valide laissé sur la machine est une
+// aggravation RGPD au-delà du miroir de données (cause C-C). supabase-js écrit aussi, pendant un flux
+// PKCE (Google SSO / reset), un `${storageKey}-code-verifier` transitoire → on purge les deux.
+// Fail-safe : storageKey absent/non-chaîne → [] (rien à purger, jamais de throw).
+export function authStorageKeys(storageKey) {
+  if (!storageKey || typeof storageKey !== 'string') return []
+  return [storageKey, storageKey + '-code-verifier']
+}
+
 // ── Binaires « idb-only » : présents en IndexedDB SANS copie Supabase Storage ─────────────────────
 // Tant que P2.4 (upload Storage systématique) n'est pas fait, 20/35 documents vivants n'existent QUE
 // dans IndexedDB (forensique 12/07) : les purger = détruire des preuves légales (quittances, baux…).
