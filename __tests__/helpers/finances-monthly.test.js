@@ -258,6 +258,21 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     expect(apres.annual.chargeRetard).toBe(30);
   });
 
+  it('changement de locataire : paiements de l\'ancien (mois au dû non résolu) → loyer HC, PAS « trop-perçu »', () => {
+    const mk = (mo, cr) => ({ date: '2026-' + mo + '-05', cat: 'Loyer', qui: 'D1', cr, db: 0 });
+    const mv = [mk('01', 530), mk('02', 530), mk('07', 640)]; // ancien loc janv-févr, nouveau juillet
+    const r = _computeFinancesMonthly({
+      mouvements: mv, year: 2026, scope: null, scopeWeight: () => 1,
+      isEcheance: m => m.cat === 'Prêt',
+      loyerDue: (qui, ym) => ym >= '2026-07' ? ({ hc: 600, ch: 40 }) : ({ hc: 0, ch: 0 }), // ancien bail non archivé → dû 0 avant juillet
+      catLigne: cat => (cat === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null),
+      today: '2026-07-31'
+    });
+    expect(r.annual.avance).toBe(0);        // AUCUNE fausse avance sur les paiements de l'ancien
+    expect(r.annual.loyersHC).toBe(1660);   // 530 + 530 (ancien) + 600 (nouveau juillet)
+    expect(r.annual.provisions).toBe(40);   // juillet : 640 → 600 HC + 40 charges
+  });
+
   it('respecte le poids de périmètre (scopeWeight) — frais SCI répartis', () => {
     const r = _computeFinancesMonthly({ ...base, scopeWeight: (s, m) => (m.cat === 'Taxe foncière' ? 0.5 : 1) });
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350

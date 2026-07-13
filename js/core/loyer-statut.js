@@ -144,12 +144,16 @@ export function _loyerSplitCascade(paid, hc, ch) {
 export function _computeLoyerChargeAlloc(months) {
   const r2 = n => Math.round(n * 100) / 100;
   const ms = months || [];
-  const hasDue = ms.some(m => (Math.max(0, Number(m.hcDue) || 0) + Math.max(0, Number(m.chDue) || 0)) > 0);
   let loyerArrear = 0, chargeArrear = 0;
   return ms.map(m => {
     const hcDue = Math.max(0, Number(m.hcDue) || 0);
     const chDue = Math.max(0, Number(m.chDue) || 0);
     const recv = Number(m.received) || 0;
+    // Le reliquat n'est une AVANCE que si le mois a un dû actif (bail en cours). Un paiement sur un
+    // mois SANS dû (ancien locataire dont le bail n'est pas résolu, vacance) = loyer encaissé, PAS
+    // une avance — sinon changement de locataire → paiements de l'ancien comptés « trop-perçu »
+    // (bug user 2026-07-13). Garde-fou PAR MOIS, plus global au lot.
+    const monthHasDue = (hcDue + chDue) > 0.005;
     let pool = Math.max(0, recv);
     const loyerCur = Math.min(pool, hcDue); pool -= loyerCur; loyerArrear += (hcDue - loyerCur);
     const chargeCur = Math.min(pool, chDue); pool -= chargeCur; chargeArrear += (chDue - chargeCur);
@@ -160,7 +164,7 @@ export function _computeLoyerChargeAlloc(months) {
     return {
       loyersHC: r2(loyerCur + loyerRecov + leftover + negAdj),
       provisions: r2(chargeCur + chargeRecov),
-      avance: r2(hasDue ? leftover : 0)
+      avance: r2(monthHasDue ? leftover : 0)
     };
   });
 }

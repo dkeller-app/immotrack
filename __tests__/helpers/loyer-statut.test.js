@@ -292,6 +292,15 @@ describe('_computeLoyerChargeAlloc — cascade CUMULATIVE, dettes avant avance (
   it('prorata d\'entrée : janv dû 327,50 (mi-mois), paie 327,50 → tout loyer HC, 0 charge', () => {
     expect(_computeLoyerChargeAlloc([{ hcDue: 327.5, chDue: 0, received: 327.5 }])[0]).toEqual({ loyersHC: 327.5, provisions: 0, avance: 0 });
   });
+  it('CHANGEMENT DE LOCATAIRE : un paiement sur un mois SANS dû (ancien bail non résolu) n\'est PAS une avance', () => {
+    // mois 1 : ancien locataire paie 530, mais dû du mois = 0 (bail historique absent) ; mois 2 : nouveau, dû 500/30
+    const out = _computeLoyerChargeAlloc([{ hcDue: 0, chDue: 0, received: 530 }, { hcDue: 500, chDue: 30, received: 530 }]);
+    expect(out[0]).toEqual({ loyersHC: 530, provisions: 0, avance: 0 });   // PAS 530 « perçu d'avance »
+    expect(out[1]).toEqual({ loyersHC: 500, provisions: 30, avance: 0 });
+  });
+  it('avance LÉGITIME conservée : trop-payé un mois AVEC dû actif reste une avance', () => {
+    expect(_computeLoyerChargeAlloc([{ hcDue: 500, chDue: 30, received: 700 }])[0]).toEqual({ loyersHC: 670, provisions: 30, avance: 170 });
+  });
 });
 
 describe('_computeLoyerArrears — arriérés courants + CAUSE résiduelle FIFO (retard orange, sous-ligne cliquable)', () => {
