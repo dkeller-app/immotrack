@@ -35,6 +35,14 @@
 >
 > **⚖️ Seuil commercialisation (avis audit)** : P1 complet + P2.1-3 ≈ 8-10 semaines. P1 seul = passable = non (règle gravée).
 >
+> **🔴 Découverts au smoke test user 13/07 (v15.461)** :
+> | Sujet | Prio | Statut |
+> |---|---|---|
+> | **B-REBAIL-TOMBSTONE** — relouer un logement ne peut JAMAIS syncer le nouveau bail : `id = detUuid('bail', __key)` (store-mapping.js:95) → l'id est occupé À VIE par le tombstone de l'ancien bail (insert `ON CONFLICT DO NOTHING` → conflit éternel, update gardé `deleted_at is null` → conflit). **PROUVÉ** : bail Baysang/Ferrette-001 créé 12/07 jamais monté (id `97dfc78f` = tombstone Misslin 20/06), perdu localement au reload-cloud du 13/07 → « plus aucune donnée ». Bloque le flux métier cœur (relocation). Pistes : id par `__key+debut` (comme baux_historique) + migration, OU chemin « revive » délibéré du tombstone gardé version | **P0** | ⬜ session dédiée |
+> | **RESTAURATION-CLOUD** — restaurer une sauvegarde en mode cloud se heurte aux gardes de version → « Restauration incomplète » + reload = restauration perdue (comportement honnête v15.460, mais flux inutilisable). Spécifier : re-hydrater d'abord → seed → appliquer la sauvegarde comme modifs par-dessus baseline fraîche (+ décision sur les suppressions) | P1 | ⬜ à spécifier |
+> | **RESET-CLOUD UX** — « réinitialiser » local ne vide PAS l'espace cloud (design : pas d'auto-suppression, preuves légales) → reconnexion re-télécharge tout = incompréhensible pour l'user. Décider : bouton « vider l'espace cloud » assumé (primitive `purge_espace` existe côté DB) ou wording | P2 | ⬜ |
+> | iPhone : PWA installée figée (vieille version+session, fix SW v15.457 arrivé après son install) — navigateur Safari OK sur le même tél = serveur sain | — | action user : réinstaller la PWA |
+>
 > **Suites 13/07 (session maître)** :
 > - ✅ **CI GitHub reverdie** (`be56dac` sur main) — rouge depuis v15.326 (~1 mois, personne n'avait vu) : 3 tests anti-régression 2044/import cherchaient les anciens noms de catégories (restructuration 31→21). Sémantique fiscale VÉRIFIÉE avant alignement (B1 exclusions tenues ; CFE/TLV = customs, moteur fail-safe `nonMappes`). 1874/1874 verts.
 > - ⚠️ Découvert : **`index-test.html` figé pré-v15.314** (catégories un an en arrière) — résidu R2 de la session cascade, régénération sandbox = session dédiée à planifier.
