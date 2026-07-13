@@ -169,6 +169,11 @@ import {
   FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip
 } from './core/backup.js';
 
+// RESET-CLOUD UX — cœur PUR du « ⚠️ Vider mon espace cloud » (gating UI, saisie du nom,
+// messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
+// export JSON préalable, appel RPC via __immoPurgeEspace) vit inline dans index.html.
+import { confirmNameMatches, purgeUiState, purgeErrorMessage } from './core/espace-purge.js';
+
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
 window.escHtml = escHtml;
@@ -390,6 +395,9 @@ window._relayPing = relayPing;
 
 // SAUVEGARDE (Chantier 3) — cœur pur exposé en bloc sous window._bk pour le code inline.
 window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip };
+
+// RESET-CLOUD UX — cœur pur du « Vider mon espace cloud » (voir import en tête).
+window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };
 // RENOMMER UN BIEN — cœur pur exposé pour le code inline (validation + garde-fou + report des 11 rattachements).
 window._renameLogement = { validate: validateNewRef, canRename: canRenameLogement, rename: renameLogementRef };
 
