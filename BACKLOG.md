@@ -26,7 +26,7 @@
 > | P0.3 Nettoyage cloud : 6 lignes « Delle b » + 29 doublons agenda (app fermée, audit code-reviewer) | P0 | S | 🔄 **« Delle b » ÉRADIQUÉ 12/07 soir** : logement tombstoné PAR L'APP (20:52, preuve sync réparée) + bail zombie & 4 agenda tombstonés en base (script `_import/cleanup-delleb.mjs`, audit code-reviewer PASS, transaction, 0 ligne vivante restante, restaurable backup 13:08). **Reste : 29 doublons agenda** (session dédiée) + rattacher/purger fichiers Storage orphelins du matin |
 > | P0.4 Loyer Fric : 660,14 € dû depuis 15/06 appliqué puis écrasé 09/07 (+5,09 €/mois perdus) + régul | P0 | XS | ⬜ |
 > | P0.5 Vérif MOMPER 124 € (2× sur F-002, double comptage possible) | P0 | XS | ⬜ user |
-> | P0.6 Sauvegardes cloud horodatées (script `_import/backup-cloud.mjs` fait — 1ʳᵉ : 12/07 13:08, 664 l.) → cron | P0 | XS | 🔄 |
+> | P0.6 Sauvegardes cloud horodatées | P0 | XS | ✅ **Livré 12/07** — tâche Windows `Propryo-Backup-Cloud` (quotidien 03:30, `node _import/backup-cloud.mjs`, 10 min max, StartWhenAvailable) ; run de test validé (BACKUP `…T20-14-53`, 672 l.) ; 2 backups en réserve |
 > | P0.7 `sealSigned: true` (verrou légal baux signés DÉSACTIVÉ en prod !) | P0 | XS | ⬜ décision user |
 > | P1 Colmatage (~2-3 sem) : indicateur sync réel + conflit→re-hydrate + récepteur Realtime + isolation erreurs `_doFlush` + removes immédiats + purge cache logout/révocation + défauts espace frais (onboarding cassé pour TOUT nouvel inscrit) | P1 | L-XL | ⬜ session dédiée |
 > | P2 Sync robuste (~6-9 sem) : pull incrémental + version sur espace_config (fin LWW, fuite scopé [AUDIT] 5-7) + journal d'écritures IndexedDB + auditTrail cloud + docs→Storage (20/35 idb-only !) + kill-switch révocation | P1 | XL | ⬜ prérequis commercialisation |
