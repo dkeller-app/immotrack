@@ -346,9 +346,9 @@ describe('_bankMatchHeuristic', () => {
     const r = _bankMatchHeuristic({ libelle:'VIR NOTAIRE MAITRE DURAND', credit:0, debit:3200, signedAmount:-3200 }, ctx);
     expect(r.cat).toBe('Acquisition / cession de bien');
   });
-  it('Mot-clé comptable → Frais de comptabilité / expert-comptable', () => {
+  it('Mot-clé comptable → Frais de gestion / honoraires / comptabilité (fusion 221, v15.326)', () => {
     const r = _bankMatchHeuristic({ libelle:'PRLV CABINET COMPTABLE SARL', credit:0, debit:150, signedAmount:-150 }, ctx);
-    expect(r.cat).toBe('Frais de comptabilité / expert-comptable');
+    expect(r.cat).toBe('Frais de gestion / honoraires / comptabilité');
   });
 
   it('Fallback vide (aucune catégorie inventée) si aucun match', () => {

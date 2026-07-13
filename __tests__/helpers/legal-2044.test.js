@@ -410,23 +410,30 @@ describe('_compute2044 — opts.mapping (catégories custom → ligne 2044)', ()
 // B1 (V3-REFONTE-LOYERS) — 5 catégories `special` hors résultat foncier
 // ─────────────────────────────────────────────────────────────────────────────
 describe('STD_CATEGORIES — 5 catégories special B1 (hors résultat foncier)', () => {
-  // Chaque catégorie doit être type:'special' + ligne2044:'' → ignorée par le moteur 2044.
+  // Chaque flux B1 doit être porté par une catégorie type:'special' + ligne2044:'' → ignorée
+  // par le moteur 2044. Les NOMS ont changé à la restructuration 31→21 (v15.326) et
+  // index-test.html (sandbox, figé pré-v15.314 — résidu R2, parité à régénérer) porte encore
+  // les anciens : chaque flux est donc décrit par ses alias successifs — la ligne trouvée,
+  // quel que soit le millésime du fichier, doit rester special/hors-2044. Une entrée
+  // introuvable sous TOUS ses alias = régression (le flux a perdu son exclusion).
   const NEW_CATS = [
-    'construction / agrandissement',
-    'Acquisition / cession',
-    'CCA / distribution',
-    'Virement interne',
-    'Régularisation de solde',
+    ['construction / agrandissement'],
+    ['Acquisition / cession'],
+    ['CCA / distribution'],
+    ['Virement interne'],
+    // v15.326 : « Régularisation de solde locataire » migrée vers « Divers (non déductible) »
+    // (_CAT_MIGRATION, index.html) — même sémantique : neutre au 2044.
+    ['Divers (non déductible)', 'Régularisation de solde'],
   ];
   for (const file of ['index.html', 'index-test.html']) {
     it(`${file} : les 5 catégories B1 sont type:'special' + ligne2044:''`, () => {
       const html = readFileSync(resolve(repoRoot, file), 'utf8');
       const lines = html.split('\n');
-      for (const key of NEW_CATS) {
-        const line = lines.find(l => l.includes(key) && l.includes('ligne2044'));
-        expect(line, `entrée STD_CATEGORIES « ${key} » introuvable dans ${file}`).toBeTruthy();
-        expect(line, `« ${key} » doit être type:'special'`).toMatch(/type:\s*'special'/);
-        expect(line, `« ${key} » doit avoir ligne2044:''`).toMatch(/ligne2044:\s*''/);
+      for (const aliases of NEW_CATS) {
+        const line = lines.find(l => aliases.some(a => l.includes(a)) && l.includes('ligne2044'));
+        expect(line, `entrée STD_CATEGORIES « ${aliases[0]} » (ou alias ${aliases.join(' / ')}) introuvable dans ${file}`).toBeTruthy();
+        expect(line, `« ${aliases[0]} » doit être type:'special'`).toMatch(/type:\s*'special'/);
+        expect(line, `« ${aliases[0]} » doit avoir ligne2044:''`).toMatch(/ligne2044:\s*''/);
       }
     });
   }
@@ -477,17 +484,29 @@ describe('_compute2044 — catégories gestionCharge (CFE / TLV) exclues de la 2
   });
 });
 
-describe('STD_CATEGORIES inline — CFE / TLV gestionCharge (anti-régression)', () => {
-  const CATS = ['CFE (cotisation', 'Taxe sur les logements vacants'];
-  it('index.html : CFE/TLV sont type:special + ligne2044:\'\' + gestionCharge:true', () => {
+describe('CFE / TLV — sorties du standard v15.326, exclusion 2044 préservée via le régime custom', () => {
+  // v15.326 (restructuration 31→21) : CFE et TLV ne sont PLUS des STD_CATEGORIES — elles
+  // survivent en catégories CUSTOM chez les utilisateurs qui les avaient (« garde les customs
+  // (dont CFE/TLV) », migration index.html). Le filet légal a changé de forme :
+  //   avant : type:'special' + gestionCharge → exclusion DURE, non mappable ;
+  //   après : custom NON mappée → exclue du résultat ET remontée dans `nonMappes`
+  //           (legal-2044.js — fail-safe : rien n'entre silencieusement dans la 2044).
+  // Ce describe garde les deux moitiés de ce contrat.
+  it('index.html : CFE/TLV ne sont plus définies dans STD_CATEGORIES (décision v15.326)', () => {
     const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
-    const lines = html.split('\n');
-    for (const key of CATS) {
-      const line = lines.find(l => l.includes(key) && l.includes('ligne2044'));
-      expect(line, `« ${key} » introuvable dans index.html`).toBeTruthy();
-      expect(line).toMatch(/type:\s*'special'/);
-      expect(line).toMatch(/ligne2044:\s*''/);
-      expect(line).toMatch(/gestionCharge:\s*true/);
-    }
+    const std = html.slice(html.indexOf('const STD_CATEGORIES'), html.indexOf('STD_CATEGORIES.find'));
+    // Si quelqu'un les ré-introduit dans le standard, ce test force une décision consciente
+    // (retrouver l'exclusion dure OU documenter le nouveau régime) au lieu d'un demi-retour.
+    expect(std, 'CFE ré-introduite dans STD_CATEGORIES — retrancher ou re-garantir l\'exclusion dure').not.toMatch(/CFE \(cotisation/);
+    expect(std, 'TLV ré-introduite dans STD_CATEGORIES — retrancher ou re-garantir l\'exclusion dure').not.toMatch(/Taxe sur les logements vacants/);
+  });
+  it('custom CFE non mappée : exclue de toutes les lignes 2044 + visible dans nonMappes', () => {
+    const r = _compute2044([
+      { id: 'm1', date: '2026-02-10', lib: 'CFE 2026', cat: 'CFE (cotisation foncière des entreprises)', db: 480 },
+      { id: 'm2', date: '2026-03-01', cat: 'Loyers encaissés', cr: 1000 },
+    ], STD_CATEGORIES, {});
+    expect(Object.values(r.lignes).reduce((s, v) => s + Math.abs(v), 0)).toBe(1000); // seule la recette
+    expect(r.totalCharges).toBe(0);
+    expect(r.nonMappes.map(n => n.cat)).toContain('CFE (cotisation foncière des entreprises)');
   });
 });
