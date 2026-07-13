@@ -772,6 +772,54 @@ describe('_bankSliceAfterFingerprint', () => {
     expect(r.found).toBe(true);
     expect(r.idx).toBe(2);
   });
+
+  // ── BUG-BANK-SLICE-DESC (13/07/2026, repro prod Crédit Agricole) ──────────────────────────
+  // Le CA exporte du PLUS RÉCENT au plus ancien. Le slice positionnel supposait un fichier
+  // croissant → sur un fichier décroissant il renvoyait le côté ANCIEN (déjà importé) et
+  // JETAIT silencieusement toutes les nouvelles lignes (12 doublons proposés, 13 nouvelles
+  // lignes de juillet invisibles). Sémantique attendue : « les lignes PLUS RÉCENTES que le
+  // pointeur », quel que soit l'ordre du fichier.
+  it('Fichier DÉCROISSANT (Crédit Agricole) : after = les lignes PLUS RÉCENTES (avant le pointeur)', () => {
+    const lines = [L(5), L(4), L(3), L(2), L(1)];   // 05/01 → 01/01 (récent en premier)
+    const r = _bankSliceAfterFingerprint(lines, 'fp_3');
+    expect(r.found).toBe(true);
+    expect(r.idx).toBe(2);
+    expect(r.after.map(l => l._fingerprint)).toEqual(['fp_5', 'fp_4']);   // les NOUVELLES, ordre du fichier
+  });
+
+  it('Fichier DÉCROISSANT : pointeur = 1re ligne (la plus récente) → after vide (tout déjà importé)', () => {
+    const lines = [L(3), L(2), L(1)];
+    const r = _bankSliceAfterFingerprint(lines, 'fp_3');
+    expect(r.found).toBe(true);
+    expect(r.after).toEqual([]);
+  });
+
+  it('Fichier DÉCROISSANT : pointeur = dernière ligne (la plus ancienne) → after = tout le reste', () => {
+    const lines = [L(3), L(2), L(1)];
+    const r = _bankSliceAfterFingerprint(lines, 'fp_1');
+    expect(r.found).toBe(true);
+    expect(r.after.map(l => l._fingerprint)).toEqual(['fp_3', 'fp_2']);
+  });
+
+  it('Repro prod CA 13/07 : pointeur 22/06 dans un fichier 12/07→01/06 → juillet proposé, juin exclu', () => {
+    const mk = (d, fp) => ({ date: d, _fingerprint: fp });
+    const lines = [
+      mk('2026-07-12', 'odc'), mk('2026-07-11', 'frais'), mk('2026-07-06', 'fric'),
+      mk('2026-06-30', 'sci'), mk('2026-06-27', 'arslan'),
+      mk('2026-06-22', 'sarar'),                                 // ← pointeur (dernier import)
+      mk('2026-06-17', 'edf'), mk('2026-06-09', 'weigel'), mk('2026-06-01', 'pacifica'),
+    ];
+    const r = _bankSliceAfterFingerprint(lines, 'sarar');
+    expect(r.found).toBe(true);
+    expect(r.after.map(l => l._fingerprint)).toEqual(['odc', 'frais', 'fric', 'sci', 'arslan']);
+  });
+
+  it('Dates absentes/inexploitables autour du pointeur → repli positionnel historique (ASC)', () => {
+    const lines = [{ _fingerprint: 'a' }, { _fingerprint: 'b' }, { _fingerprint: 'c' }];
+    const r = _bankSliceAfterFingerprint(lines, 'b');
+    expect(r.found).toBe(true);
+    expect(r.after.map(l => l._fingerprint)).toEqual(['c']);   // comportement historique conservé
+  });
 });
 
 describe('_bankComputeLastImport', () => {

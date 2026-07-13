@@ -536,14 +536,23 @@ export function _bankCsvHeaderHash(parsed) {
  * @param {object[]} lines — lignes parsées (chaque ligne a un `_fingerprint`)
  * @param {string} fingerprint — fingerprint de la dernière ligne déjà importée
  * @returns {{after:object[], found:boolean, idx:number}}
- *   - found:true  → idx = position du pointeur ; after = lines après cette position (peut être vide si tout est déjà importé)
+ *   - found:true  → idx = position du pointeur ; after = les lignes PLUS RÉCENTES que le pointeur (peut être vide si tout est déjà importé)
  *   - found:false → idx = -1 ; after = lines (toutes — le caller doit appliquer un fallback : dédup heuristique)
  */
 export function _bankSliceAfterFingerprint(lines, fingerprint) {
   if (!fingerprint || !Array.isArray(lines)) return { after: Array.isArray(lines) ? lines : [], found: false, idx: -1 };
   const idx = lines.findIndex(l => l && l._fingerprint === fingerprint);
   if (idx < 0) return { after: lines, found: false, idx: -1 };
-  return { after: lines.slice(idx + 1), found: true, idx };
+  // BUG-BANK-SLICE-DESC (13/07/2026) : la sémantique est « les lignes PLUS RÉCENTES que le
+  // pointeur », pas « après dans l'ordre du fichier ». Certains exports sont chronologiques
+  // croissants (CM, BNP…), d'autres DÉCROISSANTS (Crédit Agricole : récent en premier) — le
+  // slice positionnel supposait croissant et, sur un fichier décroissant, renvoyait le côté
+  // ANCIEN (déjà importé) en jetant silencieusement toutes les nouvelles lignes. Détection de
+  // l'ordre par les dates qui encadrent le fichier ; dates absentes/égales → repli positionnel
+  // historique (croissant), inchangé.
+  const dates = lines.map(l => (l && l.date) || '').filter(Boolean);
+  const desc = dates.length >= 2 && dates[0] > dates[dates.length - 1];
+  return { after: desc ? lines.slice(0, idx) : lines.slice(idx + 1), found: true, idx };
 }
 
 /**
