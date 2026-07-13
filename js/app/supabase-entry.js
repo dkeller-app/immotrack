@@ -167,9 +167,12 @@ async function boot() {
   // soi — cf. _purgeAuthTokenKeys ci-dessous, appelé sur les DEUX chemins flush/purge).
   // RESET-CLOUD UX : la même dépose de session sert au logout (flush d'abord) ET à la purge
   // d'espace (flush SAUTÉ : l'espace n'existe plus — re-pousser le DB mémoire ne produirait que
-  // des erreurs FK, ligne par ligne, vers un tenant supprimé). Var MODULE : onLoggedIn (autre
-  // portée) la réutilise pour __immoPurgeEspace.
-  _teardownSession = async ({ flush }) => {
+  // des erreurs FK, ligne par ligne, vers un tenant supprimé ; keepPhotos : l'IndexedDB photos
+  // est TOUJOURS conservée après une purge d'espace, car Storage devient inaccessible (espace
+  // supprimé) → ces binaires locaux sont la seule copie restante, récupérable via restauration —
+  // c'est la promesse affichée par la modale, audit #1). Var MODULE : onLoggedIn (autre portée)
+  // la réutilise pour __immoPurgeEspace.
+  _teardownSession = async ({ flush, keepPhotos }) => {
     window.__immoLoggingOut = true   // le SIGNED_OUT qui suit est VOULU → pas de bannière « session expirée »
     try { window.__immoCrumb && window.__immoCrumb('logout') } catch (e) {}
     if (flush) { try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) } }
@@ -185,7 +188,8 @@ async function boot() {
     // post-hydratation, P1.3) fait fondre ce reliquat → la purge deviendra effective d'elle-même.
     try {
       const dbNow = window.DB   // posé par __immoSetDB ; absent = déconnexion avant hydratation → prudence
-      if (dbNow && _cachePurge) {
+      if (keepPhotos) console.info('[Supabase] purge espace : IndexedDB photos CONSERVÉE (seule copie restante, Storage inaccessible)')
+      else if (dbNow && _cachePurge) {
         const leftovers = _cachePurge.listIdbOnlyBinaries(dbNow)
         if (leftovers.length === 0) await _deletePhotosDb()
         else console.warn('[Supabase] logout : IndexedDB photos CONSERVÉE — ' + leftovers.length + ' binaire(s) sans copie Storage (preuves)')
@@ -884,9 +888,13 @@ async function onLoggedIn(api, overlay, user) {
       // espace vierge et les défauts v15.461 s'appliquent. Renvoie { error } (jamais de throw).
       window.__immoPurgeEspace = async (confirmNom) => {
         try {
+          // Audit #3 : annule le flush débouncé en vol — inutile qu'il tire pendant/après la purge
+          // (les FK vers l'espace supprimé le feraient échouer ligne à ligne : bruit console).
+          if (flushTimer) { try { clearTimeout(flushTimer) } catch (e) {} flushTimer = null }
           const { error } = await _supaClient.rpc('purge_mon_espace', { p_espace_id: esp.espaceId, p_confirm_nom: confirmNom })
           if (error) return { error }
-          await _teardownSession({ flush: false })   // purge miroir + signOut + reload (pas de flush : plus de destination)
+          // Pas de flush (plus de destination) ; photos IDB conservées (seule copie restante, audit #1).
+          await _teardownSession({ flush: false, keepPhotos: true })
           return { ok: true }
         } catch (e) { return { error: e } }
       }
