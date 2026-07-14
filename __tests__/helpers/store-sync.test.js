@@ -736,3 +736,95 @@ describe('createStoreSync — B-REBAIL : allowRevive (intention) + statut revive
     expect(store.calls.length).toBe(n)
   })
 })
+
+// ════════════════════════════════════════════════════════════════════════════
+// D1 — FUSION MULTI-ESPACES SÛRE : désambiguïsation de la clé de diff par espace.
+//
+// Cas réel (PARTAGE SCI) : Marion partage « SMARTOSAURUS » à Didier qui garde une ARCHIVE
+// FIGÉE homonyme (même nom de SCI, refs FERRETTE proches) dans SON espace. Le store multi-espace
+// fusionne les deux copies dans un seul DB, chaque enregistrement taggé `_espaceId`. Les baux
+// portaient déjà « ref@@espaceId » (store-multi hydrate) ; les collections adossées à une TABLE
+// (entites/immeubles/logements) étaient keyées par la SEULE clé naturelle (norm(nom)/norm(ref))
+// → deux espaces homonymes S'ÉCRASENT dans la Map baseline/snapshot du diff : la modif de l'un est
+// PERDUE (l'autre le masque) et la suppression de l'un vise à tort la ligne de l'autre.
+// Correctif : la clé de diff porte le tag d'espace quand il est présent (inerte à N=1 : mono-espace
+// = aucun tag = clé nue = comportement inchangé).
+// ════════════════════════════════════════════════════════════════════════════
+describe('D1 — fusion multi-espaces : clé de diff désambiguïsée par _espaceId (homonymes SMARTOSAURUS)', () => {
+  it('deux entités homonymes de 2 espaces sont suivies DISTINCTEMENT — modifier l’une déclenche SON seul upsert', async () => {
+    const store = mockStore()
+    const db = {
+      entites: [
+        { nom: 'SMARTOSAURUS', _espaceId: 'ESP_A', siren: '111', immeubles: [] },
+        { nom: 'SMARTOSAURUS', _espaceId: 'ESP_B', siren: '222', immeubles: [] },
+      ],
+      logements: [], mouvements: [], baux: {},
+    }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // modifier UNIQUEMENT l'entité de ESP_A
+    db.entites[0].siren = '999'
+    await sync.flush()
+    const up = store.calls.filter(c => c.op === 'upsert' && c.coll === 'entites')
+    expect(up.length).toBe(1)
+    expect(up[0].rec._espaceId).toBe('ESP_A')
+    expect(up[0].rec.siren).toBe('999')
+  })
+
+  it('deux logements homonymes (FERRETTE-001 dans 2 espaces) : supprimer celui d’un espace ne supprime QUE le sien', async () => {
+    const store = mockStore()
+    const db = {
+      entites: [{ nom: 'SMARTOSAURUS', _espaceId: 'ESP_A', immeubles: [] }, { nom: 'SMARTOSAURUS', _espaceId: 'ESP_B', immeubles: [] }],
+      logements: [
+        { ref: 'FERRETTE-001', entity: 'SMARTOSAURUS', _espaceId: 'ESP_A', surf: 40 },
+        { ref: 'FERRETTE-001', entity: 'SMARTOSAURUS', _espaceId: 'ESP_B', surf: 41 },
+      ],
+      mouvements: [], baux: {},
+    }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // tombstoner le logement de ESP_A (disparaît du courant vivant)
+    db.logements[0]._deleted = true
+    await sync.flush()
+    const rm = store.calls.filter(c => c.op === 'remove' && c.coll === 'logements')
+    expect(rm.length).toBe(1)
+    expect(rm[0].rec._espaceId).toBe('ESP_A')
+    // le logement de ESP_B ne doit JAMAIS être touché
+    expect(store.calls.some(c => c.coll === 'logements' && c.rec._espaceId === 'ESP_B')).toBe(false)
+  })
+
+  it('immeubles homonymes de 2 espaces : suivis distinctement (modif de l’un = son seul upsert)', async () => {
+    const store = mockStore()
+    const db = {
+      entites: [
+        { nom: 'SMARTOSAURUS', _espaceId: 'ESP_A', immeubles: [{ nom: 'RES DU PARC', _espaceId: 'ESP_A', adr: 'a' }] },
+        { nom: 'SMARTOSAURUS', _espaceId: 'ESP_B', immeubles: [{ nom: 'RES DU PARC', _espaceId: 'ESP_B', adr: 'b' }] },
+      ],
+      logements: [], mouvements: [], baux: {},
+    }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.entites[0].immeubles[0].adr = 'a2'
+    await sync.flush()
+    const up = store.calls.filter(c => c.op === 'upsert' && c.coll === 'immeubles')
+    expect(up.length).toBe(1)
+    expect(up[0].rec._espaceId).toBe('ESP_A')
+  })
+
+  it('N=1 (mono-espace, aucun tag _espaceId) : clé de diff NUE — comportement inchangé', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // modifier l'entité (sans tag) → 1 upsert, clé nue, pas de suffixe « @@ » nulle part
+    db.entites[0].immeubles = []
+    db.logements[0].surf = 50
+    await sync.flush()
+    const up = store.calls.filter(c => c.op === 'upsert' && c.coll === 'logements')
+    expect(up.length).toBe(1)
+    expect(up[0].rec._espaceId).toBeUndefined()
+    // aucune clé de résumé ne contient « @@ » (pas de désambiguïsation à N=1)
+    const summary = await sync.flush()
+    expect(JSON.stringify(summary)).not.toContain('@@')
+  })
+})

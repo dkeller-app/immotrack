@@ -28,6 +28,20 @@ const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 //     schéma (table dédiée OU colonne discriminante) AVANT qu'un utilisateur saisisse une assurance
 //     bailleur. NE PAS l'ajouter naïvement à COLLECTIONS (collision d'ids nid() avec `mrh` → même table).
 //
+// D1 — FUSION MULTI-ESPACES : suffixe la clé de DIFF par l'espace du record quand il est taggé
+// (`_espaceId`, posé par le store multi-espace à l'hydrate pour CHAQUE collection adossée à une table).
+// Deux espaces peuvent porter la MÊME clé naturelle (même SCI, mêmes refs — cas réel SMARTOSAURUS des
+// deux côtés + refs FERRETTE proches) : sans ce suffixe, ils s'ÉCRASENT dans la Map baseline/snapshot du
+// diff → la modif de l'un est perdue (l'autre le masque), et la suppression de l'un vise à tort la ligne
+// de l'autre. Miroir du « ref@@espaceId » que store-multi pose déjà sur les clés d'OBJET de `baux`.
+// N'affecte QUE les collections à CLÉ NATURELLE (entites/immeubles nom, logements ref, baux_historique
+// ref|date) : les collections keyées par un `id` LOCAL unique (mouvements/quittances/documents/edl/mrh/
+// agenda/candidats) ne collisionnent jamais inter-espaces → clé inchangée. INERTE à N=1 (mono-espace =
+// aucun tag = clé nue = comportement mono strictement inchangé, cf. test « N=1 clé de diff NUE »). La clé
+// de diff est PUREMENT INTERNE (baseline Map + _removeConflicts) : jamais transmise au store — l'écriture
+// route par `rec._espaceId` (store-multi). Ne PAS la confondre avec l'id de ligne (dérivé du mapping).
+const espTag = r => (r && r._espaceId != null) ? '@@' + r._espaceId : ''
+
 // Collections poussées vers des TABLES, ORDONNÉES parent→enfant (la ligne parente doit exister
 // côté Postgres avant l'insert d'un enfant : FK composite (parent_id, espace_id)).
 const COLLECTIONS = [
@@ -36,16 +50,16 @@ const COLLECTIONS = [
   // doublon. Mais la copie fige l'identité au seed et immunise contre une future mutation en place (même
   // classe de bug que logements/baux_historique ci-dessous). Invariant homogène sur toutes les collections
   // à clé naturelle mutable. Voir le contrat verrouillé par store-sync.test.js (renommage entité).
-  { coll: 'entites',         enumerate: db => (db.entites || []).map(e => ({ ...e })),   key: r => norm(r.nom) },
+  { coll: 'entites',         enumerate: db => (db.entites || []).map(e => ({ ...e })),   key: r => norm(r.nom) + espTag(r) },
   // immeubles IMBRIQUÉS : héritent de la suppression du parent (nesting = appartenance structurelle).
   // delEnt tombstone l'entité mais préserve ses immeubles SANS `_deleted` → sans cette propagation,
   // l'immeuble partirait en upsert = ligne zombie vivante sous une entité supprimée. Robuste quel que
   // soit le chemin de suppression de l'app (défense en profondeur, indépendant de delEnt).
-  { coll: 'immeubles',       enumerate: db => (db.entites || []).flatMap(e => (Array.isArray(e.immeubles) ? e.immeubles : []).map(im => ({ ...im, __entiteNom: e.nom, _deleted: !!(im && im._deleted) || !!(e && e._deleted) }))), key: r => norm(r.nom) },
+  { coll: 'immeubles',       enumerate: db => (db.entites || []).flatMap(e => (Array.isArray(e.immeubles) ? e.immeubles : []).map(im => ({ ...im, __entiteNom: e.nom, _deleted: !!(im && im._deleted) || !!(e && e._deleted) }))), key: r => norm(r.nom) + espTag(r) },
   // ⚠️ SPREAD OBLIGATOIRE (idem entites) : la ref dérive l'uuid, et RENOMMER-BIEN mute logement.ref EN
   // PLACE. Sans copie → baseline rétro-corrompu → remove vise le nouvel uuid → ANCIEN bien cloud survit =
   // DOUBLON (bug observé v15.435). La copie au seed fige l'identité de suppression.
-  { coll: 'logements',       enumerate: db => (db.logements || []).map(l => ({ ...l })), key: r => norm(r.ref) },
+  { coll: 'logements',       enumerate: db => (db.logements || []).map(l => ({ ...l })), key: r => norm(r.ref) + espTag(r) },
   // VERROU LÉGAL : `immutable` = un bail signé verrouillé. S'il est DÉJÀ verrouillé au baseline (déjà
   // synchronisé locked), le moteur ne le ré-upserte/supprime JAMAIS (le trigger DB refuserait → conflit).
   { coll: 'baux',            enumerate: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, ...v })), key: r => norm(r.__key), immutable: r => !!(r && r.signatures && r.signatures.locked) },
@@ -54,7 +68,7 @@ const COLLECTIONS = [
   // ⚠️ SPREAD OBLIGATOIRE (audit BUG-RENAME-CLOUD-DUP) : `ref` (mutée EN PLACE par renameLogementRef) dérive
   //    l'uuid. Sans copie → même doublon que logements, ici dans une table à valeur de PREUVE. Renommer un bien
   //    dont l'historique n'est pas signé (= la population renommable) dupliquerait la ligne d'archive. La copie fige.
-  { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') },
+  { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') + espTag(r) },
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
   // document doit exister avant l'insert d'un mouvement qui la référence). documents.parent_id est
   // polymorphe SANS FK dure → peut précéder ses parents sans violation. (Aligné sur l'ETL import.mjs.)
