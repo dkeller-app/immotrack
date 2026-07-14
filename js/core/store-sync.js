@@ -30,16 +30,17 @@ const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 //
 // D1 — FUSION MULTI-ESPACES : suffixe la clé de DIFF par l'espace du record quand il est taggé
 // (`_espaceId`, posé par le store multi-espace à l'hydrate pour CHAQUE collection adossée à une table).
-// Deux espaces peuvent porter la MÊME clé naturelle (même SCI, mêmes refs — cas réel SMARTOSAURUS des
-// deux côtés + refs FERRETTE proches) : sans ce suffixe, ils s'ÉCRASENT dans la Map baseline/snapshot du
-// diff → la modif de l'un est perdue (l'autre le masque), et la suppression de l'un vise à tort la ligne
-// de l'autre. Miroir du « ref@@espaceId » que store-multi pose déjà sur les clés d'OBJET de `baux`.
-// N'affecte QUE les collections à CLÉ NATURELLE (entites/immeubles nom, logements ref, baux_historique
-// ref|date) : les collections keyées par un `id` LOCAL unique (mouvements/quittances/documents/edl/mrh/
-// agenda/candidats) ne collisionnent jamais inter-espaces → clé inchangée. INERTE à N=1 (mono-espace =
-// aucun tag = clé nue = comportement mono strictement inchangé, cf. test « N=1 clé de diff NUE »). La clé
-// de diff est PUREMENT INTERNE (baseline Map + _removeConflicts) : jamais transmise au store — l'écriture
-// route par `rec._espaceId` (store-multi). Ne PAS la confondre avec l'id de ligne (dérivé du mapping).
+// Deux espaces peuvent porter la MÊME clé (même SCI, mêmes refs — cas réel SMARTOSAURUS des deux côtés
+// + refs FERRETTE proches ; ou, plus subtil, deux records d'espaces distincts portant le même `id` local
+// verbatim après une copie/restauration) : sans ce suffixe, ils s'ÉCRASENT dans la Map baseline/snapshot
+// du diff → la modif de l'un est perdue (l'autre le masque), et la suppression de l'un vise à tort la
+// ligne de l'autre. Miroir du « ref@@espaceId » que store-multi pose déjà sur les clés d'OBJET de `baux`.
+// Appliqué SYMÉTRIQUEMENT à TOUTES les collections — y compris celles keyées par un `id` local (audit
+// D1 : ne PAS reposer sur l'unicité PROCÉDURALE de nid() inter-espaces, qui n'est pas une garantie du
+// code mais un heureux hasard). INERTE à N=1 (mono-espace = aucun tag = clé nue = comportement mono
+// strictement inchangé, cf. test « N=1 clé de diff NUE »). La clé de diff est PUREMENT INTERNE (baseline
+// Map + _removeConflicts) : jamais transmise au store — l'écriture route par `rec._espaceId` (store-multi).
+// Ne PAS la confondre avec l'id de ligne (dérivé du mapping, namespacé par owner).
 const espTag = r => (r && r._espaceId != null) ? '@@' + r._espaceId : ''
 
 // Collections poussées vers des TABLES, ORDONNÉES parent→enfant (la ligne parente doit exister
@@ -72,16 +73,16 @@ const COLLECTIONS = [
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
   // document doit exister avant l'insert d'un mouvement qui la référence). documents.parent_id est
   // polymorphe SANS FK dure → peut précéder ses parents sans violation. (Aligné sur l'ETL import.mjs.)
-  { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) },
-  { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) },
-  { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) },
+  { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) + espTag(r) },
+  { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) + espTag(r) },
+  { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) + espTag(r) },
   // ⚠️ EDL : `immutable` est prêt, MAIS il n'y a PAS de `sealSignedEdl` (cf. sealSignedBaux) → un EDL
   //    signé partirait NON verrouillé en base. Scellement EDL DIFFÉRÉ (hors-scope spec : 0 EDL signé
   //    aujourd'hui ; concept de verrou EDL non câblé). À compléter avant la 1ʳᵉ signature d'EDL.
-  { coll: 'edl',             enumerate: db => db.edl || [],                             key: r => String(r.id), immutable: r => !!(r && r.signatures && r.signatures.locked) },
-  { coll: 'mrh',             enumerate: db => db.mrh || [],                             key: r => String(r.id) },   // → table assurances
-  { coll: 'agenda',          enumerate: db => db.agenda || [],                          key: r => String(r.id) },
-  { coll: 'candidats',       enumerate: db => db.candidats || [],                       key: r => String(r.id) },
+  { coll: 'edl',             enumerate: db => db.edl || [],                             key: r => String(r.id) + espTag(r), immutable: r => !!(r && r.signatures && r.signatures.locked) },
+  { coll: 'mrh',             enumerate: db => db.mrh || [],                             key: r => String(r.id) + espTag(r) },   // → table assurances
+  { coll: 'agenda',          enumerate: db => db.agenda || [],                          key: r => String(r.id) + espTag(r) },
+  { coll: 'candidats',       enumerate: db => db.candidats || [],                       key: r => String(r.id) + espTag(r) },
 ]
 
 // 'revived' (B-REBAIL) = ré-ouverture délibérée d'un tombstone (relocation / clé naturelle recréée) :

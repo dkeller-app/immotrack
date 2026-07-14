@@ -811,6 +811,26 @@ describe('D1 — fusion multi-espaces : clé de diff désambiguïsée par _espac
     expect(up[0].rec._espaceId).toBe('ESP_A')
   })
 
+  it('collections keyées par id LOCAL (mouvements) : deux records homonymes d’id de 2 espaces suivis distinctement (audit D1 : pas de dépendance à l’unicité de nid())', async () => {
+    const store = mockStore()
+    const db = {
+      entites: [], logements: [], baux: {},
+      // même id « 5 » dans deux espaces (copie/restauration) → SANS espTag, collision de clé de diff
+      mouvements: [
+        { id: 5, _espaceId: 'ESP_A', date: '2026-01-01', qui: 'F-1', db: 10 },
+        { id: 5, _espaceId: 'ESP_B', date: '2026-01-02', qui: 'F-2', db: 20 },
+      ],
+    }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.mouvements[0].db = 99
+    await sync.flush()
+    const up = store.calls.filter(c => c.op === 'upsert' && c.coll === 'mouvements')
+    expect(up.length).toBe(1)
+    expect(up[0].rec._espaceId).toBe('ESP_A')
+    expect(up[0].rec.db).toBe(99)
+  })
+
   it('N=1 (mono-espace, aucun tag _espaceId) : clé de diff NUE — comportement inchangé', async () => {
     const store = mockStore()
     const db = baseDB()
