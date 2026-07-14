@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Propryo — Déchiffrer une sauvegarde</title>
+<style>
+  :root { --corail:#ff6b57; --bg:#faf7f5; --card:#fff; --tx:#2a2320; --mu:#7a6f68; --bd:#e7ddd6; --ok:#1f8a53; --err:#c0392b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--tx); line-height:1.5; }
+  .wrap { max-width:620px; margin:0 auto; padding:32px 20px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--mu); margin:0 0 24px; font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:14px; padding:22px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+  label { display:block; font-weight:600; font-size:14px; margin:16px 0 6px; }
+  input[type=file], input[type=password] { width:100%; padding:11px 12px; border:1px solid var(--bd); border-radius:9px; font-size:15px; background:#fff; color:var(--tx); }
+  input[type=file] { padding:9px; }
+  .row { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:13px; color:var(--mu); }
+  button { margin-top:22px; width:100%; padding:13px; border:0; border-radius:10px; background:var(--corail); color:#fff; font-size:16px; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .msg { margin-top:16px; padding:12px 14px; border-radius:9px; font-size:14px; display:none; }
+  .msg.show { display:block; }
+  .msg.ok { background:#e7f6ee; color:var(--ok); border:1px solid #bfe6cf; }
+  .msg.err { background:#fdecea; color:var(--err); border:1px solid #f5c9c3; }
+  .note { margin-top:22px; font-size:12.5px; color:var(--mu); }
+  .note b { color:var(--tx); }
+  code { background:#f0e9e4; padding:1px 5px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔓 Déchiffrer une sauvegarde Propryo</h1>
+  <p class="sub">Outil autonome et hors ligne. Rien n'est envoyé sur Internet — tout se passe dans votre navigateur.</p>
+  <div class="card">
+    <label for="file">Fichier de sauvegarde chiffré (<code>.enc</code>)</label>
+    <input type="file" id="file" accept=".enc,application/octet-stream">
+
+    <label for="pwd">Mot de passe</label>
+    <input type="password" id="pwd" autocomplete="off" placeholder="Le mot de passe choisi lors de la sauvegarde">
+    <div class="row"><input type="checkbox" id="show"> <label for="show" style="margin:0;font-weight:400;cursor:pointer">Afficher le mot de passe</label></div>
+
+    <button id="go" disabled>Déchiffrer et télécharger le .zip</button>
+    <div class="msg" id="msg"></div>
+  </div>
+  <p class="note">
+    <b>Comment ça marche</b> — cet outil retrouve le fichier <code>.zip</code> d'origine à partir de votre <code>.enc</code>
+    et du mot de passe, puis vous le fait télécharger. Vous ouvrez ensuite le <code>.zip</code> avec n'importe quel outil.<br><br>
+    <b>Mot de passe oublié = données irrécupérables.</b> Il n'existe aucune porte dérobée : le chiffrement est
+    <code>AES-256-GCM</code>, la clé dérivée de votre mot de passe par <code>PBKDF2-SHA256</code>. Conservez ce fichier
+    HTML avec vos sauvegardes : il fonctionne même sans l'application, hors ligne, indéfiniment.
+  </p>
+</div>
+<script>
+const MAGIC = 'PROPRYO-ENC1', VERSION = 1, SALT_LEN = 16, IV_LEN = 12, HEADER_MIN = MAGIC.length + 1 + 4 + SALT_LEN + IV_LEN;
+const $ = id => document.getElementById(id);
+let fileBytes = null, fileName = 'sauvegarde';
+
+$('file').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  hide();
+  if (!f) { fileBytes = null; refresh(); return; }
+  fileName = f.name.replace(/\.enc$/i, '') || 'sauvegarde';
+  fileBytes = new Uint8Array(await f.arrayBuffer());
+  refresh();
+});
+$('pwd').addEventListener('input', refresh);
+$('show').addEventListener('change', e => { $('pwd').type = e.target.checked ? 'text' : 'password'; });
+$('go').addEventListener('click', run);
+$('pwd').addEventListener('keydown', e => { if (e.key === 'Enter' && !$('go').disabled) run(); });
+
+function refresh() { $('go').disabled = !(fileBytes && $('pwd').value); }
+function hide() { $('msg').className = 'msg'; }
+function show(kind, html) { const m = $('msg'); m.className = 'msg show ' + kind; m.innerHTML = html; }
+
+function unpack(b) {
+  if (b.length < HEADER_MIN) throw new Error('Fichier chiffré invalide (trop court).');
+  if (new TextDecoder().decode(b.slice(0, MAGIC.length)) !== MAGIC) throw new Error('Ce fichier n’est pas une sauvegarde Propryo chiffrée.');
+  let o = MAGIC.length;
+  const version = b[o]; o += 1;
+  if (version !== VERSION) throw new Error('Version de chiffrement non supportée : ' + version + '.');
+  const iterations = (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; o += 4;
+  const salt = b.slice(o, o + SALT_LEN); o += SALT_LEN;
+  const iv = b.slice(o, o + IV_LEN); o += IV_LEN;
+  const ct = b.slice(o);
+  return { iterations, salt, iv, ct };
+}
+
+async function run() {
+  hide(); $('go').disabled = true; $('go').textContent = 'Déchiffrement…';
+  try {
+    const { iterations, salt, iv, ct } = unpack(fileBytes);
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode($('pwd').value), 'PBKDF2', false, ['deriveKey']);
+    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    let plain;
+    try { plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct)); }
+    catch (e) { throw new Error('Mot de passe incorrect ou fichier corrompu.'); }
+    const blob = new Blob([plain], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fileName + '.zip'; a.click();
+    URL.revokeObjectURL(url);
+    show('ok', '✅ Déchiffré. Le fichier <b>' + fileName + '.zip</b> a été téléchargé — ouvrez-le avec n’importe quel outil de décompression.');
+  } catch (e) {
+    show('err', '❌ ' + (e && e.message ? e.message : 'Échec du déchiffrement.'));
+  } finally {
+    $('go').textContent = 'Déchiffrer et télécharger le .zip'; refresh();
+  }
+}
+</script>
+</body>
+</html>
