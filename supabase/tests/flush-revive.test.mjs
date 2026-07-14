@@ -83,7 +83,8 @@ describe('B-REBAIL-TOMBSTONE — re-location Misslin→Baysang sur le VRAI Postg
     C.DB.baux[REF] = { ...BAYSANG }                           // relocation : nouveau bail sur Ferrette-001
     const s = await C.boot.flush()
     expect(s.errors).toEqual([]); expect(s.conflicts).toEqual([]); expect(s.skipped).toEqual([])
-    expect(s.upserts).toContainEqual({ coll: 'baux', key: REF.toLowerCase() })   // 'revived' compté comme upsert
+    expect(s.revives).toContainEqual({ coll: 'baux', key: REF.toLowerCase() })   // 'revived' tracé À PART (distinct des upserts)
+    expect(s.upserts).toEqual([])                                                // la relocation n'est PAS un upsert banal
     const row = await bailRow(espaceId)
     expect(row.id).toBe(tombstone.id)                         // MÊME ligne (même id déterministe)
     expect(row.deleted_at).toBeNull()                         // slot RÉ-OUVERT
@@ -116,5 +117,47 @@ describe('B-REBAIL-TOMBSTONE — re-location Misslin→Baysang sur le VRAI Postg
     const row = await bailRow(espaceId)
     expect(row.deleted_at).not.toBeNull()                     // RESTE supprimé (pas de résurrection)
     expect(row.legacy_raw.hc).not.toBe(999)                   // l'édition périmée n'a pas écrasé
+  })
+})
+
+// ── 2ᵉ cas ciblé : le PENDANT CLOUD de BUG-RECREATE-REF-TOMBSTONE (v15.262) sur une table SANS
+// colonne `locked` (logements). Prouve que le chemin revive GÉNÉRIQUE (store.upsert) marche pour une
+// clé naturelle recréée hors baux, et que l'absence de `.eq('locked')` ne casse rien en vrai Postgres.
+const REFLOG = 'Lot-Recree-01'
+async function logRowByRef(espaceId, ref) {
+  const { data } = await adminClient().from('logements').select('id, version, deleted_at, legacy_raw')
+    .eq('espace_id', espaceId).order('created_at', { ascending: true })
+  return (data || []).find(r => r.legacy_raw && r.legacy_raw.ref === ref) || null
+}
+
+describe('B-REBAIL classe — logement recréé même ref (pendant cloud v15.262) sur le VRAI Postgres', () => {
+  it('appareil A : logement créé → poussé (insert), puis supprimé → tombstone', async () => {
+    const A = await device()
+    A.DB.logements = [...(A.DB.logements || []), { id: 900, ref: REFLOG, entity: 'SCI Ferrette', surf: 30 }]
+    const s1 = await A.boot.flush()
+    expect(s1.errors).toEqual([])
+    expect(s1.upserts).toContainEqual({ coll: 'logements', key: REFLOG.toLowerCase() })   // insert frais, PAS un revive
+    expect(s1.revives).toEqual([])
+    // suppression (tombstone en place)
+    const A2 = await device()
+    A2.DB.logements = A2.DB.logements.map(l => l.ref === REFLOG ? { ...l, _deleted: true, _deletedAt: '2026-07-14T10:00:00Z' } : l)
+    const s2 = await A2.boot.flush()
+    expect(s2.removes).toContainEqual({ coll: 'logements', key: REFLOG.toLowerCase() })
+    expect((await logRowByRef(espaceId, REFLOG)).deleted_at).not.toBeNull()
+  })
+
+  it('🎯 appareil FRAIS : logement recréé même ref → REVIVIFIÉ (table sans colonne locked, v+1)', async () => {
+    const C = await device()
+    expect((C.DB.logements || []).some(l => l.ref === REFLOG)).toBe(false)   // le supprimé n'est pas hydraté
+    const tombstone = await logRowByRef(espaceId, REFLOG)
+    C.DB.logements = [...(C.DB.logements || []), { id: 901, ref: REFLOG, entity: 'SCI Ferrette', surf: 42 }]
+    const s = await C.boot.flush()
+    expect(s.errors).toEqual([]); expect(s.conflicts).toEqual([]); expect(s.skipped).toEqual([])
+    expect(s.revives).toContainEqual({ coll: 'logements', key: REFLOG.toLowerCase() })   // ré-ouverture, pas rejet
+    const row = await logRowByRef(espaceId, REFLOG)
+    expect(row.id).toBe(tombstone.id)                        // MÊME ligne (id déterministe sur la ref)
+    expect(row.deleted_at).toBeNull()                        // slot ré-ouvert
+    expect(Number(row.version)).toBe(Number(tombstone.version) + 1)
+    expect(row.legacy_raw.surf).toBe(42)                     // nouveau payload
   })
 })

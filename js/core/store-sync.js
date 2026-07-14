@@ -121,7 +121,8 @@ export const SYNCED_COLLECTIONS = COLLECTIONS.map(c => c.coll)
 // upserts/removes/config VIENNENT d'aboutir dans le même flush — sinon les autres appareils restent figés
 // tant qu'un enregistrement toxique traîne. Pur (testable), tolérant à un résumé absent (flush qui throw).
 export const summaryHasCloudWrites = s => !!(s && (
-  (s.upserts && s.upserts.length) || (s.removes && s.removes.length) || s.config === 'written'))
+  (s.upserts && s.upserts.length) || (s.revives && s.revives.length) ||
+  (s.removes && s.removes.length) || s.config === 'written'))
 const configSig = db => {
   const o = {}
   for (const k of Object.keys(db || {}).sort()) if (!CONFIG_EXCLUDED.has(k)) o[k] = db[k]
@@ -184,7 +185,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   // hors isolation À DESSEIN (fail-closed légal : ne jamais pousser un bail signé non scellé).
   const _errMsg = e => (e && e.message) || String(e)
   async function _doFlush(db) {
-    const summary = { upserts: [], removes: [], conflicts: [], skipped: [], errors: [] }
+    const summary = { upserts: [], revives: [], removes: [], conflicts: [], skipped: [], errors: [] }
     if (sealSigned) await sealSignedBaux(db)            // VERROU (pièce 2) — gouverné par l'option sealSigned (false en phase test)
     const current = snapshotOf(db)
 
@@ -206,7 +207,10 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         try { res = await store.upsert(coll, rec, { allowRevive: !prev }) }
         catch (e) { summary.errors.push({ op: 'upsert', coll, key: k, message: _errMsg(e) }); continue }   // poison isolé → retry
         const st = res && res.status
-        if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked }); summary.upserts.push({ coll, key: k }) }
+        // 'revived' (B-REBAIL) = succès d'écriture MAIS tracé À PART (summary.revives) : un revive = une
+        // ré-ouverture délibérée d'un slot (relocation / clé naturelle recréée), événement notable sur un
+        // chemin juridiquement sensible → visible dans les logs/l'indicateur de sync, pas noyé dans les upserts.
+        if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked }); (st === 'revived' ? summary.revives : summary.upserts).push({ coll, key: k }) }
         else if (st === 'conflict') summary.conflicts.push({ coll, key: k })   // baseline inchangé → retry
         else summary.skipped.push({ coll, key: k })                            // skipped (FK non résolue) → retry
       }

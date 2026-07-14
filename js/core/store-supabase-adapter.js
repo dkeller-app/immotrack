@@ -109,7 +109,9 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
     // n'en connaît aucune (le tombstone est hors hydrate) — la réouverture est un acte volontaire, gouverné
     // en amont par store-sync (allowRevive = ajout frais uniquement, jamais une édition → pas de résurrection).
     // Concurrence : 2 revives simultanés → le 2e trouve deleted_at IS NULL → 0 ligne → null → re-hydrate.
-    // Ne réécrit jamais id/version/created_by/legacy_id (provenance immuable, comme update).
+    // Ne réécrit jamais id/version/created_by/legacy_id (provenance immuable, comme update). NB : le mapper
+    // `baux` porte sa clé legacy dans `legacy_ref` (pas `legacy_id`) → non strippé, donc réécrit ici ; en
+    // relocation c'est idempotent (même __key = même legacy_ref), jamais un changement de provenance.
     async reviveTombstone(table, id, row) {
       const { id: _pk, version: _v, created_by: _cb, legacy_id: _lid, ...set } = row
       let q = client.from(table).update({ ...set, deleted_at: null })

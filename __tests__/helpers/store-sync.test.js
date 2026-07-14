@@ -669,6 +669,9 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(summaryHasCloudWrites(S({ upserts: [{ coll: 'logements', key: 'f-1' }] }))).toBe(true)
     expect(summaryHasCloudWrites(S({ removes: [{ coll: 'agenda', key: '3' }] }))).toBe(true)
     expect(summaryHasCloudWrites(S({ config: 'written' }))).toBe(true)
+    // B-REBAIL : un flush qui ne fait QUE revivifier (relocation pure) doit AUSSI broadcaster, sinon le
+    // bail revivifié ne redescend jamais sur les autres appareils (variante du bug qu'on corrige).
+    expect(summaryHasCloudWrites(S({ revives: [{ coll: 'baux', key: 'f-1' }] }))).toBe(true)
     // poison isolé + vraie écriture dans le MÊME flush (cas M4 : le signal doit partir)
     expect(summaryHasCloudWrites(S({ upserts: [{ coll: 'agenda', key: '9' }], errors: [{ op: 'upsert', coll: 'documents', key: '66', message: 'boom' }] }))).toBe(true)
     expect(summaryHasCloudWrites(S({ errors: [{ op: 'upsert', coll: 'documents', key: '66', message: 'boom' }] }))).toBe(false)
@@ -725,7 +728,8 @@ describe('createStoreSync — B-REBAIL : allowRevive (intention) + statut revive
     sync.seed(db)
     db.baux.F3 = { hc: 495 }
     const s1 = await sync.flush()
-    expect(s1.upserts).toContainEqual({ coll: 'baux', key: 'f3' })   // 'revived' compté comme succès d'upsert
+    expect(s1.revives).toContainEqual({ coll: 'baux', key: 'f3' })   // 'revived' = succès tracé À PART (distinct des upserts)
+    expect(s1.upserts).toEqual([])                                   // pas noyé dans les upserts
     expect(s1.skipped).toEqual([])
     const n = store.calls.length
     await sync.flush()                                                // baseline avancé → rien à re-pousser

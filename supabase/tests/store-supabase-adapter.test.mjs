@@ -170,3 +170,28 @@ describe('store-supabase-adapter — fetchTable / fetchConfig (intégration Post
     expect(await adapter.fetchConfig()).toEqual({ params: { devise: 'GBP' } })
   })
 })
+
+// ── B-REBAIL : VERROU LÉGAL — reviveTombstone REFUSE un baux signé verrouillé (preuve DB réelle) ──────
+// Le point le plus sensible du correctif : la clause `AND locked=false` (LOCKED_TABLES) doit empêcher la
+// réanimation d'un bail SIGNÉ tombstoné, sur le VRAI Postgres (le mock unit ne prouve pas la vraie SQL).
+// Un tombstone verrouillé ne peut normalement PAS naître (la sync ne soft-delete jamais un locked), mais
+// on en fabrique un directement (service role — l'INSERT n'est jamais intercepté par prevent_locked_mutation)
+// pour prouver que même dans ce cas dégradé, le verrou tient.
+describe('store-supabase-adapter — reviveTombstone honore le verrou légal (baux locked, Postgres)', () => {
+  it('tombstone baux locked=true → reviveTombstone renvoie null, ligne verrouillée + supprimée INTACTE', async () => {
+    const { randomUUID: uuid } = await import('node:crypto')
+    const admin = adminClient()
+    const entId = uuid(), logId = uuid(), bailId = uuid()
+    // chaîne FK minimale (entite → logement → baux), service role
+    expect((await admin.from('entites').insert({ id: entId, espace_id: espaceA, nom: 'SCI Verrou ' + entId.slice(0, 6), created_by: idSentinel })).error).toBeNull()
+    expect((await admin.from('logements').insert({ id: logId, espace_id: espaceA, ref: 'V-LOCK-' + logId.slice(0, 6), entite_id: entId, created_by: idSentinel })).error).toBeNull()
+    // bail SIGNÉ VERROUILLÉ puis TOMBSTONÉ — l'état qui ne doit JAMAIS être réanimé
+    expect((await admin.from('baux').insert({ id: bailId, espace_id: espaceA, logement_id: logId, locked: true, deleted_at: new Date().toISOString(), hc: 655, created_by: idSentinel })).error).toBeNull()
+    // tentative de revive (relocation) → REFUS : AND locked=false → 0 ligne → null (pas de throw du trigger)
+    const nv = await adapter.writer.reviveTombstone('baux', bailId, { id: bailId, espace_id: espaceA, logement_id: logId, hc: 999 })
+    expect(nv).toBeNull()
+    // le bail signé reste VERROUILLÉ, SUPPRIMÉ et non écrasé (immutabilité légale intacte)
+    const { data } = await admin.from('baux').select('locked, deleted_at, hc').eq('id', bailId).single()
+    expect(data.locked).toBe(true); expect(data.deleted_at).not.toBeNull(); expect(Number(data.hc)).toBe(655)
+  })
+})
