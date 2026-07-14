@@ -107,6 +107,29 @@ describe('store-supabase-adapter — writer gardé par version (intégration Pos
     const { data } = await clientA.from('entites').select('deleted_at, nom').eq('id', idLifecycle).single()
     expect(data.deleted_at).toBe(before.data.deleted_at); expect(data.nom).toBe('Entité cycle v2')
   })
+
+  // ── B-REBAIL-TOMBSTONE : reviveTombstone (réouverture délibérée d'un slot recréé) ────────────────
+  it('reviveTombstone sur un TOMBSTONE → ré-ouvre (deleted_at NULL), réécrit le payload, bumpe la version', async () => {
+    const { randomUUID: uuid } = await import('node:crypto')
+    const id = uuid()
+    expect(await adapter.writer.insert('entites', baseRow(id, 'Bien à reloger'))).toBe(1)
+    expect(await adapter.writer.softDelete('entites', id, 1)).toBe(2)                 // tombstone (v2)
+    const nv = await adapter.writer.reviveTombstone('entites', id, baseRow(id, 'Bien reloué'))
+    expect(nv).toBe(3)                                                                // touch_row bumpe
+    const { data } = await clientA.from('entites').select('deleted_at, nom').eq('id', id).single()
+    expect(data.deleted_at).toBeNull()                                               // slot ré-ouvert
+    expect(data.nom).toBe('Bien reloué')                                             // nouveau payload
+  })
+
+  it('reviveTombstone sur une ligne VIVANTE → null (n\'agit QUE sur un tombstone, fail-closed)', async () => {
+    const { randomUUID: uuid } = await import('node:crypto')
+    const id = uuid()
+    expect(await adapter.writer.insert('entites', baseRow(id, 'Vivante'))).toBe(1)   // pas un tombstone
+    const nv = await adapter.writer.reviveTombstone('entites', id, baseRow(id, 'Tentative écrasement'))
+    expect(nv).toBeNull()
+    const { data } = await clientA.from('entites').select('nom, deleted_at').eq('id', id).single()
+    expect(data.nom).toBe('Vivante'); expect(data.deleted_at).toBeNull()             // intacte
+  })
 })
 
 describe('store-supabase-adapter — fetchTable / fetchConfig (intégration Postgres)', () => {

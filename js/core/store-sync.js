@@ -70,7 +70,9 @@ const COLLECTIONS = [
   { coll: 'candidats',       enumerate: db => db.candidats || [],                       key: r => String(r.id) },
 ]
 
-const OK_UPSERT = new Set(['inserted', 'updated'])
+// 'revived' (B-REBAIL) = ré-ouverture délibérée d'un tombstone (relocation / clé naturelle recréée) :
+// un SUCCÈS d'écriture au même titre qu'insert/update → le baseline avance (sinon retry éternel).
+const OK_UPSERT = new Set(['inserted', 'updated', 'revived'])
 const sig = rec => JSON.stringify(rec)   // signature de changement (sur-envoi sûr, jamais de sous-détection)
 // L'app supprime par TOMBSTONE EN PLACE : le record RESTE dans la collection avec `_deleted:true`
 // (jamais retiré de l'array). Même prédicat que l'ETL import.mjs (`isDel`). On EXCLUT les tombstones
@@ -196,8 +198,12 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
         // immuable → jamais ré-upsertée (le trigger refuserait → conflit). La 1ʳᵉ transition false→true
         // (baseline NON verrouillé) passe : c'est elle qui POSE le verrou.
         if (prev && prev.locked) continue
+        // B-REBAIL : `allowRevive` = INTENTION explicite de ré-ouvrir un tombstone. Vrai UNIQUEMENT pour un
+        // AJOUT FRAIS (`!prev` — clé absente du baseline : relocation, ou record neuf), jamais pour une
+        // ÉDITION (prev défini). Le store ne revive que sur ce signal → une édition périmée d'un record
+        // supprimé ailleurs reste un conflit (anti-résurrection fail-closed, classe « Delle b »).
         let res
-        try { res = await store.upsert(coll, rec) }
+        try { res = await store.upsert(coll, rec, { allowRevive: !prev }) }
         catch (e) { summary.errors.push({ op: 'upsert', coll, key: k, message: _errMsg(e) }); continue }   // poison isolé → retry
         const st = res && res.status
         if (OK_UPSERT.has(st)) { base.set(k, { rec, sig: s, locked: curLocked }); summary.upserts.push({ coll, key: k }) }

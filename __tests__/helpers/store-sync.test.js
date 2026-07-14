@@ -27,7 +27,7 @@ function mockStore(overrides = {}) {
   }
   return {
     calls,
-    upsert: async (coll, rec) => { calls.push({ op: 'upsert', coll, rec }); return reply('upsert', coll, rec) },
+    upsert: async (coll, rec, opts) => { calls.push({ op: 'upsert', coll, rec, opts }); return reply('upsert', coll, rec) },
     remove: async (coll, rec) => { calls.push({ op: 'remove', coll, rec }); return reply('remove', coll, rec) },
   }
 }
@@ -677,5 +677,58 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(summaryHasCloudWrites(S({ config: 'error' }))).toBe(false)
     expect(summaryHasCloudWrites(S())).toBe(false)
     expect(summaryHasCloudWrites(null)).toBe(false)
+  })
+})
+
+// ── B-REBAIL-TOMBSTONE : émission de allowRevive + acceptation du statut 'revived' ─────────────────
+// Le SIGNAL D'INTENTION vit ici (store-sync connaît le baseline). Un AJOUT FRAIS (clé absente du
+// baseline = relocation OU record neuf) émet allowRevive:true → le store pourra ré-ouvrir un tombstone.
+// Une ÉDITION (clé présente) émet allowRevive:false → jamais de revive (anti-résurrection, classe « Delle b »).
+describe('createStoreSync — B-REBAIL : allowRevive (intention) + statut revived', () => {
+  it('AJOUT FRAIS émet allowRevive:true ; ÉDITION émet allowRevive:false', async () => {
+    const store = mockStore()
+    const db = baseDB()                                   // baux: {} (vide au baseline)
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed(db)
+    // ajout frais d'un bail : clé absente du baseline → relocation possible → allowRevive:true
+    db.baux.F3 = { hc: 655 }
+    await sync.flush()
+    const add = store.calls.find(c => c.coll === 'baux' && c.rec.__key === 'F3')
+    expect(add.opts && add.opts.allowRevive).toBe(true)
+    // édition du même bail : clé présente au baseline → allowRevive:false (jamais de résurrection)
+    db.baux.F3.hc = 700
+    await sync.flush()
+    const edits = store.calls.filter(c => c.coll === 'baux' && c.rec.__key === 'F3')
+    expect(edits[1].opts.allowRevive).toBe(false)
+  })
+
+  it('un logement recréé (clé revenue au courant après suppression) émet allowRevive:true', async () => {
+    const store = mockStore()
+    const db = baseDB()                                   // logements: [{ ref: 'F-1' }] déjà au baseline
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed(db)
+    // suppression (tombstone) → baseline retire F-1
+    db.logements[0]._deleted = true
+    await sync.flush()
+    // recréation même ref (pendant cloud v15.262 : _deleted effacé) → clé revenue = ajout frais
+    delete db.logements[0]._deleted
+    db.logements[0].surf = 42
+    await sync.flush()
+    const recreate = store.calls.filter(c => c.op === 'upsert' && c.coll === 'logements' && c.rec.ref === 'F-1')
+    expect(recreate[recreate.length - 1].opts.allowRevive).toBe(true)
+  })
+
+  it('le store renvoyant status:revived fait AVANCER le baseline (2e flush = no-op)', async () => {
+    const store = mockStore({ 'baux:F3': { status: 'revived', id: 'uuid:bail|f3', version: 4 } })
+    const db = baseDB()
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed(db)
+    db.baux.F3 = { hc: 495 }
+    const s1 = await sync.flush()
+    expect(s1.upserts).toContainEqual({ coll: 'baux', key: 'f3' })   // 'revived' compté comme succès d'upsert
+    expect(s1.skipped).toEqual([])
+    const n = store.calls.length
+    await sync.flush()                                                // baseline avancé → rien à re-pousser
+    expect(store.calls.length).toBe(n)
   })
 })
