@@ -381,6 +381,16 @@ git commit -m "Fil rouge v2 : conducteur (état + _frOpenStep + attache fil d'Ar
 
 ---
 
+## Carte d'ancrage RÉELLE (relevée sur le worktree, à re-grep car dérive)
+
+Champs/modales confirmés : modale bailleur `#ov-ent` (`.m-head` + `.m-body`, champs `ent-nom`/`ent-type`/…), immeuble `#ov-imm` (`imm-nom`, parent via `imm-ent-id`, édition via `imm-edit-id`), logement `#ov-log` (`log-ref`/`log-type`/`log-surf`/`log-entity`/`log-imm`). Toutes les `.ov` partagent `z-index:200`.
+
+Points d'insertion des hooks (chemin SUCCÈS, objet réel EN SCOPE, garde création vs édition) :
+- **`saveEnt`** — après `showToast('Entité enregistrée','ok');` (juste avant `}`). Objet : `ent` (a `.id`,`.nom`). Création si `!id`. → `_frAfterSave('ent', ent, !id)`.
+- **`saveImm`** — après `showToast(idx!==''?'Immeuble modifié':'Immeuble ajouté','ok');`. Objets : `im`,`ent`. Création si `idx===''`. → `_frAfterSave('imm', im, idx==='', ent)`.
+- **`saveParamLog`** — après `showToast('Logement enregistré','ok');` (ligne `saveDB(); closeM('ov-log'); initFilters(); rBiens();`). Objet : `log` (a `.entity`,`.imm`). Création : variable `isNew` déjà calculée. → `_frAfterSave('log', log, isNew)`.
+- **`_acteApply`** — ⚠ a son PROPRE écran de succès (`_acteRenderSucces()`/`_acteSetStep('succes')`). Objets : `ent`,`im`. Ne PAS auto-sauter tout de suite. Hook après le `showToast('Import réussi…')` → `_frAfterActe(ent, im.nom)` qui, hors fil, propose la continuité ; « Continuer » **ferme la modale acte** (`closeM('ov-acte')`) puis ouvre le fil au logement.
+
 ## Task 6 : `index.html` — hooks post-save gardés (auto-avance)
 
 Poser un hook **inerte hors fil rouge** en fin de succès des vraies fonctions de save. **Ne rien changer d'autre dans ces fonctions.**
