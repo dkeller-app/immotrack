@@ -101,6 +101,37 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(mapToRow('documents', { id: 4, parentType: 'mouvement', parentId: 50 }, c).parent_id).toBe('uuid:mouvement|50')
   })
 
+  // D3 — ÉCRITURE MEMBRE SCOPÉ : parent_id résolu pour les parentType émis par l'app mais laissés à
+  // NULL avant (→ entité NULL → has_entite_write faux → 42501 → sync du gestionnaire scopé empoisonnée).
+  // parent_id est PUREMENT une clé de résolution RLS (l'hydrate reconstruit depuis legacy_raw, pas ces
+  // colonnes) → le fixer ne change jamais le document rendu par l'app. Résolution VIA LE LOGEMENT (logRef)
+  // pour les 5 types 0040 ; via la clé de bail (parentRef=ref logement) pour 'bail' (résolveur existant).
+  it('documents D3 : bail résolu via la clé de bail (parentRef = ref logement)', () => {
+    const c = ctx()
+    // bail keyé par ref logement → id de ligne bail = detUuid('bail', norm(ref)) (résolveur entite_of_bail)
+    expect(mapToRow('documents', { id: 10, parentType: 'bail', parentRef: 'F-1' }, c).parent_id).toBe('uuid:bail|f-1')
+  })
+
+  it('documents D3 : assurance/mrh/equipement/quittance résolus via le logement (logRef)', () => {
+    const c = ctx()
+    expect(mapToRow('documents', { id: 11, parentType: 'assurance', parentId: 3, parentRef: 'AXA C1', logRef: 'F-1' }, c).parent_id).toBe('uuid:logement|f-1')
+    expect(mapToRow('documents', { id: 12, parentType: 'mrh', parentId: 4, parentRef: 'MMA', logRef: 'F-1' }, c).parent_id).toBe('uuid:logement|f-1')
+    expect(mapToRow('documents', { id: 13, parentType: 'equipement', parentId: 'F-1__chaudiere', parentRef: 'F-1 · Chaudière', logRef: 'F-1' }, c).parent_id).toBe('uuid:logement|f-1')
+    expect(mapToRow('documents', { id: 14, parentType: 'quittance', parentId: 900, parentRef: 'F-1 · 2026-01', logRef: 'F-1' }, c).parent_id).toBe('uuid:logement|f-1')
+  })
+
+  it('documents D3 : candidat résolu via le logement (logRef) ; SCI-level sans logRef → NULL (fail-closed)', () => {
+    const c = ctx()
+    expect(mapToRow('documents', { id: 15, parentType: 'candidat', parentId: 'cand1', parentRef: 'cand1', logRef: 'F-1' }, c).parent_id).toBe('uuid:logement|f-1')
+    // candidat rattaché à une SCI sans bien précis (logRef vide) → aucun logement → NULL → owner-only
+    expect(mapToRow('documents', { id: 16, parentType: 'candidat', parentId: 'cand2', parentRef: 'cand2', logRef: null }, c).parent_id).toBeNull()
+  })
+
+  it('documents D3 : logRef inconnu (logement non résolu) → parent_id NULL (fail-closed), jamais un throw', () => {
+    const c = ctx()
+    expect(mapToRow('documents', { id: 17, parentType: 'assurance', parentId: 9, logRef: 'INCONNU' }, c).parent_id).toBeNull()
+  })
+
   it('mapping déterministe : même entrée → sortie identique (idempotence upsert)', () => {
     const rec = { id: 10, ref: 'F-1', entity: 'SCI A', surf: 42 }
     expect(mapToRow('logements', rec, ctx())).toEqual(mapToRow('logements', rec, ctx()))

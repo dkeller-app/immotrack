@@ -63,6 +63,19 @@ const MAPPERS = {
     else if (o.parentType === 'immeuble') pid = ctx.immeubleByNom.get(norm(o.parentRef)) || null
     else if (o.parentType === 'entite') pid = ctx.entiteByNom.get(norm(o.parentRef)) || null
     else if (o.parentType === 'mouvement') pid = o.parentId != null ? ctx.detUuid('mouvement', String(o.parentId)) : null
+    // D3 — ÉCRITURE MEMBRE SCOPÉ : parent_id des types réellement émis par l'app mais laissés NULL avant
+    // (→ entité NULL dans entite_of_document → has_entite_write faux → 42501 → sync du gestionnaire scopé
+    // empoisonnée, réserve consignée de l'audit 0040). parent_id est PUREMENT une clé de résolution RLS :
+    // l'hydrate reconstruit le document depuis legacy_raw, PAS depuis cette colonne → le fixer ne change
+    // jamais le document rendu par l'app (aucun risque sur les lignes existantes ; c'est fail-closed →
+    // ouvert, jamais l'inverse). Un membre PLEIN passait déjà (has_entite_write court-circuite is_full_*).
+    // 'bail' : keyé par la ref logement (parentRef) → id de ligne bail → résolveur entite_of_bail EXISTANT.
+    else if (o.parentType === 'bail') pid = o.parentRef ? ctx.detUuid('bail', norm(o.parentRef)) : null
+    // assurance/mrh/equipement/quittance/candidat : résolus VIA LE LOGEMENT (logRef) → parent_id = uuid de
+    // ligne logement ; le résolveur RLS fait entite_of_logement(parent_id). logRef absent/inconnu (candidat
+    // rattaché à une SCI sans bien précis, saisie libre) → null → fail-closed (owner-only), jamais un throw.
+    else if (o.parentType === 'assurance' || o.parentType === 'mrh' || o.parentType === 'equipement' || o.parentType === 'quittance' || o.parentType === 'candidat')
+      pid = o.logRef ? (ctx.logementByRef.get(norm(o.logRef)) || null) : null
     return { id: ctx.detUuid('document', String(o.id)), legacy_id: String(o.id ?? ''), name: o.name ?? null, mime: o.mime ?? null, size: num(o.size), idb_key: o.idbKey ?? null, drive_file_id: o.driveFileId ?? null, parent_type: o.parentType ?? null, parent_id: pid, ...base(o, ctx) }
   },
   mouvements(o, ctx) {
