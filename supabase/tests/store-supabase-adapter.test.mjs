@@ -186,7 +186,8 @@ describe('store-supabase-adapter — reviveTombstone honore le verrou légal (ba
     expect((await admin.from('entites').insert({ id: entId, espace_id: espaceA, nom: 'SCI Verrou ' + entId.slice(0, 6), created_by: idSentinel })).error).toBeNull()
     expect((await admin.from('logements').insert({ id: logId, espace_id: espaceA, ref: 'V-LOCK-' + logId.slice(0, 6), entite_id: entId, created_by: idSentinel })).error).toBeNull()
     // bail SIGNÉ VERROUILLÉ puis TOMBSTONÉ — l'état qui ne doit JAMAIS être réanimé
-    expect((await admin.from('baux').insert({ id: bailId, espace_id: espaceA, logement_id: logId, locked: true, deleted_at: new Date().toISOString(), hc: 655, created_by: idSentinel })).error).toBeNull()
+    // signature_source='externe' satisfait baux_locked_provenance_chk sans content_hash (import externe légitime)
+    expect((await admin.from('baux').insert({ id: bailId, espace_id: espaceA, logement_id: logId, locked: true, signature_source: 'externe', deleted_at: new Date().toISOString(), hc: 655, created_by: idSentinel })).error).toBeNull()
     // tentative de revive (relocation) → REFUS : AND locked=false → 0 ligne → null (pas de throw du trigger)
     const nv = await adapter.writer.reviveTombstone('baux', bailId, { id: bailId, espace_id: espaceA, logement_id: logId, hc: 999 })
     expect(nv).toBeNull()
