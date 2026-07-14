@@ -166,6 +166,14 @@ const PAIRS = [
       'buildParcoursTree', 'parcoursSummary', 'LOG_REQUIRED', 'LOG_OPTIONAL_KEY',
     ],
   },
+  {
+    // Fil rouge « Ajouter un bien » v2 — conducteur pur (machine à états + fil d'Ariane).
+    name: 'fil-rouge-conductor',
+    src: '__tests__/helpers/fil-rouge-conductor.js',
+    dst: 'js/helpers/fil-rouge-conductor.global.js',
+    globalName: 'FilRougeConductor',
+    exports: ['STEPS', 'entryStep', 'advance', 'breadcrumb'],
+  },
 ];
 
 let totalErrors = 0;
