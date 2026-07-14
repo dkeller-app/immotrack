@@ -95,12 +95,15 @@ function mockWriter() {
   const tbl = new Map()
   const T = n => { if (!tbl.has(n)) tbl.set(n, new Map()); return tbl.get(n) }
   return {
-    _tbl: tbl, inserts: [], updates: [], deletes: [],
+    _tbl: tbl, inserts: [], updates: [], deletes: [], revives: [],
     // INSERT fail-closed : null si l'id existe déjà (ON CONFLICT DO NOTHING RETURNING version).
     async insert(table, row) { const t = T(table); if (t.has(row.id)) return null; t.set(row.id, { row, version: 1 }); this.inserts.push([table, row.id]); return 1 },
     // UPDATE gardé par version ET deleted_at IS NULL (anti-résurrection §7/D20).
     async update(table, id, row, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer || c.row.deleted_at) return null; c.version++; c.row = row; this.updates.push([table, id, c.version]); return c.version },
     async softDelete(table, id, expVer) { const c = T(table).get(id); if (!c || c.version !== expVer) return null; c.version++; c.row = { ...c.row, deleted_at: 'x' }; this.deletes.push([table, id]); return c.version },
+    // reviveTombstone : ré-ouvre UNIQUEMENT un tombstone (deleted_at posé), REFUSE un locked, sinon null
+    // (WHERE id=? AND deleted_at IS NOT NULL [AND locked=false] RETURNING version). touch_row bumpe version.
+    async reviveTombstone(table, id, row) { const c = T(table).get(id); if (!c || !c.row.deleted_at || c.row.locked) return null; c.version++; c.row = { ...row, deleted_at: null }; this.revives.push([table, id]); return c.version },
   }
 }
 const detUuid = (...p) => 'uuid:' + p.join('|')
@@ -216,6 +219,113 @@ describe('SupabaseStore.upsert/remove — écriture + concurrence par version', 
     const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 5 })
     expect(r.status).toBe('conflict')
     expect(w._tbl.get('logements').get('uuid:logement|f-1').row.deleted_at).toBe('x')   // tombstone intact
+  })
+})
+
+// ── B-REBAIL-TOMBSTONE : chemin « revive » délibéré (Option B) ────────────────────
+// Reloger un logement (ou recréer un bien même ref) produit un id déterministe qui COLLISIONNE avec le
+// tombstone de l'ancien → conflit éternel (insert ON CONFLICT DO NOTHING, ou update gardé deleted_at IS
+// NULL). Le revive ré-ouvre le slot, MAIS seulement sur INTENTION EXPLICITE (allowRevive, posé par
+// store-sync quand c'est un AJOUT FRAIS et non une édition) → l'anti-résurrection reste fail-closed.
+describe('SupabaseStore.upsert — revive tombstone (B-REBAIL, gardé par allowRevive)', () => {
+  // Bail Misslin sur Ferrette-001 → tombstone. Session FRAÎCHE : _versions vide (hydrate exclut les
+  // soft-deleted) → chemin INSERT → conflit. allowRevive:true (relocation) → ré-ouverture du slot.
+  it('INSERT-conflit sur tombstone + allowRevive → revived (relocation, session fraîche)', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    // tombstone du bail Misslin occupe déjà l'id, non hydraté (_versions vide)
+    w._tbl.set('baux', new Map([['uuid:bail|f-1', { row: { deleted_at: 'x', locked: false }, version: 3 }]]))
+    const r = await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 495, ch: 30 }, { allowRevive: true })
+    expect(r.status).toBe('revived')
+    expect(r.version).toBe(4)                                               // v+1
+    expect(w.revives).toContainEqual(['baux', 'uuid:bail|f-1'])
+    expect(w._tbl.get('baux').get('uuid:bail|f-1').row.deleted_at).toBe(null)   // slot ré-ouvert
+    expect(w._tbl.get('baux').get('uuid:bail|f-1').row.hc).toBe(495)            // nouveau payload
+  })
+
+  // Même session : la suppression a laissé la version trackée → chemin UPDATE (gardé deleted_at IS NULL)
+  // → conflit. allowRevive:true → revive quand même.
+  it('UPDATE-conflit sur tombstone tracké + allowRevive → revived (relocation, même session)', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 655 })       // Misslin (v1, trackée)
+    await s.remove('baux', { __key: 'F-1', entity: 'SCI A', hc: 655 })       // fin Misslin → tombstone (v2, trackée)
+    const r = await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 495 }, { allowRevive: true })  // Baysang
+    expect(r.status).toBe('revived')
+    expect(w.revives).toContainEqual(['baux', 'uuid:bail|f-1'])
+    expect(w._tbl.get('baux').get('uuid:bail|f-1').row.hc).toBe(495)
+  })
+
+  // ANTI-RÉSURRECTION : une ÉDITION (allowRevive absent/false) d'un enregistrement dont la ligne cloud a
+  // été supprimée par un autre appareil NE DOIT JAMAIS revivre → conflit → re-hydrate (classe « Delle b »).
+  it('UPDATE-conflit sur tombstone SANS allowRevive → conflit (édition périmée, pas de résurrection)', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 655 })
+    await s.remove('baux', { __key: 'F-1', entity: 'SCI A', hc: 655 })
+    const r = await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 999 })   // édition, pas de allowRevive
+    expect(r.status).toBe('conflict')
+    expect(w.revives.length).toBe(0)
+  })
+
+  // allowRevive ne réanime QUE des tombstones : un conflit sur une ligne VIVANTE (autre onglet) reste
+  // fail-closed → conflit (jamais d'écrasement d'un bail vivant).
+  it('INSERT-conflit sur ligne VIVANTE + allowRevive → conflit (fail-closed, pas d\'écrasement)', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    w._tbl.set('baux', new Map([['uuid:bail|f-1', { row: { hc: 655 }, version: 5 }]]))   // vivante, non trackée
+    const r = await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 495 }, { allowRevive: true })
+    expect(r.status).toBe('conflict')
+    expect(w.revives.length).toBe(0)
+    expect(w._tbl.get('baux').get('uuid:bail|f-1').row.hc).toBe(655)   // vivante intacte
+  })
+
+  // VERROU LÉGAL : un tombstone verrouillé (signé) n'est JAMAIS réanimé (reviveTombstone refuse locked).
+  it('INSERT-conflit sur tombstone LOCKED + allowRevive → conflit (immutabilité légale intacte)', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    w._tbl.set('baux', new Map([['uuid:bail|f-1', { row: { deleted_at: 'x', locked: true }, version: 3 }]]))
+    const r = await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 495 }, { allowRevive: true })
+    expect(r.status).toBe('conflict')
+    expect(w.revives.length).toBe(0)
+  })
+
+  // Collection keyée par `id` (mouvements) : jamais de collision à la re-création → revive JAMAIS tenté
+  // même avec allowRevive (REVIVABLE = clés naturelles uniquement).
+  it('collection non-revivable (mouvements) + allowRevive → conflit, revive non tenté', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    w._tbl.set('mouvements', new Map([['uuid:mouvement|100', { row: { deleted_at: 'x' }, version: 3 }]]))
+    const r = await s.upsert('mouvements', { id: 100, qui: 'F-1', date: '2026-07-01', db: 0, cr: 500 }, { allowRevive: true })
+    expect(r.status).toBe('conflict')
+    expect(w.revives.length).toBe(0)
+  })
+
+  // logements : même trou que baux (pendant cloud de BUG-RECREATE-REF-TOMBSTONE v15.262). Revive OK.
+  it('logement recréé même ref (tombstone) + allowRevive → revived (pendant cloud v15.262)', async () => {
+    const w = mockWriter()
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    w._tbl.set('logements', new Map([['uuid:logement|f-1', { row: { deleted_at: 'x' }, version: 2 }]]))
+    const r = await s.upsert('logements', { id: 10, ref: 'F-1', entity: 'SCI A', surf: 42 }, { allowRevive: true })
+    expect(r.status).toBe('revived')
+    expect(w.revives).toContainEqual(['logements', 'uuid:logement|f-1'])
+  })
+
+  // Robustesse : writer sans reviveTombstone (ex. mock ancien) → conflit gracieux, jamais de throw.
+  it('writer sans reviveTombstone + allowRevive → conflit gracieux (pas de throw)', async () => {
+    const w = mockWriter(); delete w.reviveTombstone
+    const db = { entites: [{ id: 1, nom: 'SCI A' }], logements: [{ id: 10, ref: 'F-1', entity: 'SCI A' }] }
+    const s = storeWith(w, db)
+    w._tbl.set('baux', new Map([['uuid:bail|f-1', { row: { deleted_at: 'x' }, version: 3 }]]))
+    const r = await s.upsert('baux', { __key: 'F-1', entity: 'SCI A', hc: 495 }, { allowRevive: true })
+    expect(r.status).toBe('conflict')
   })
 })
 

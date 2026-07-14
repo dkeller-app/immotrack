@@ -110,7 +110,7 @@ export function createMultiStore({ espaces, makeStore, getDB }) {
     }
     return rec
   }
-  async function upsert(coll, rec) { const r = _bareKey(rec); return _route(r).upsert(coll, r) }
+  async function upsert(coll, rec, opts) { const r = _bareKey(rec); return _route(r).upsert(coll, r, opts) }
   async function remove(coll, rec) { const r = _bareKey(rec); return _route(r).remove(coll, r) }
   async function persistConfig(db) { return own.store.persistConfig(db) }   // config = espace propre uniquement
 

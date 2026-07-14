@@ -18,6 +18,9 @@
 //    (touch_row bumpe version à chaque UPDATE → la version renvoyée est la NOUVELLE.)
 
 const PAGE_DEFAULT = 1000   // limite PostgREST par défaut
+// Tables portant une colonne `locked` (immutabilité légale). reviveTombstone y ajoute `AND locked=false`
+// → un signé verrouillé n'est JAMAIS réanimé (fail-closed sans laisser le trigger prevent_locked_mutation throw).
+const LOCKED_TABLES = new Set(['baux', 'edl'])
 
 export function createSupabaseAdapter(client, espaceId, opts = {}) {
   const pageSize = opts.pageSize || PAGE_DEFAULT
@@ -96,6 +99,24 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', id).eq('version', expectedVersion).is('deleted_at', null).select('version')
       if (error) throw new Error('softDelete ' + table + ': ' + error.message)
+      return data && data.length ? data[0].version : null
+    },
+    // B-REBAIL-TOMBSTONE — reviveTombstone : ré-ouvre le slot d'une clé naturelle RE-CRÉÉE délibérément
+    // (relocation d'un logement → nouveau bail ; bien recréé même ref). UPDATE ciblé :
+    //   SET <payload>, deleted_at=NULL WHERE id=? AND espace_id=? AND deleted_at IS NOT NULL [AND locked=false]
+    // → n'agit QUE sur un TOMBSTONE (ligne vivante → 0 ligne → null = conflit, fail-closed), REFUSE un
+    // signé verrouillé (baux/edl), et touch_row bumpe la version (renvoyée). PAS de garde de version : on
+    // n'en connaît aucune (le tombstone est hors hydrate) — la réouverture est un acte volontaire, gouverné
+    // en amont par store-sync (allowRevive = ajout frais uniquement, jamais une édition → pas de résurrection).
+    // Concurrence : 2 revives simultanés → le 2e trouve deleted_at IS NULL → 0 ligne → null → re-hydrate.
+    // Ne réécrit jamais id/version/created_by/legacy_id (provenance immuable, comme update).
+    async reviveTombstone(table, id, row) {
+      const { id: _pk, version: _v, created_by: _cb, legacy_id: _lid, ...set } = row
+      let q = client.from(table).update({ ...set, deleted_at: null })
+        .eq('id', id).eq('espace_id', espaceId).not('deleted_at', 'is', null)
+      if (LOCKED_TABLES.has(table)) q = q.eq('locked', false)
+      const { data, error } = await q.select('version')
+      if (error) throw new Error('reviveTombstone ' + table + ': ' + error.message)
       return data && data.length ? data[0].version : null
     },
   }

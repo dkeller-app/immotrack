@@ -43,6 +43,14 @@ const norm = s => String(s == null ? '' : s).trim().toLowerCase()
 // collection legacy → table Supabase (mrh = la table assurances ; sinon identique).
 const tableOf = coll => (coll === 'mrh' ? 'assurances' : coll)
 
+// B-REBAIL-TOMBSTONE : collections dont l'id de ligne dérive d'une CLÉ NATURELLE ré-créable (nom
+// d'entité, ref de logement, clé de bail). Reloger / recréer avec la même clé produit le MÊME id
+// déterministe → collision avec le tombstone de l'ancien → conflit éternel. Ces collections seules
+// autorisent le chemin « revive » (ré-ouverture délibérée du slot). Les collections keyées par un `id`
+// local unique (mouvements/quittances/documents/edl/agenda/candidats) ne collisionnent JAMAIS à la
+// re-création → exclues (un conflit y reste fail-closed, jamais de revive).
+const REVIVABLE = new Set(['baux', 'logements', 'immeubles', 'entites'])
+
 // collections legacy adossées à une TABLE (à NE PAS remettre dans le blob config espace_config).
 // SOURCE UNIQUE : store-sync importe ce set pour son exclusion config (anti-drift, cf. test d'égalité).
 export const TABLE_COLLECTIONS = new Set([...Object.values(ARRAY_TABLES), 'baux', 'immeubles'])
@@ -151,24 +159,42 @@ export function createSupabaseStore({ fetchTable, fetchConfig, writer, writeConf
   const ctx = () => ({ espaceId, ownerId, detUuid, ...buildResolvers() })
 
   // upsert : INSERT si ligne inconnue, sinon UPDATE gardé par la version trackée.
-  // Renvoie { status: 'inserted'|'updated'|'conflict'|'skipped', id?, version? }.
-  async function upsert(legacyColl, rec) {
+  // Renvoie { status: 'inserted'|'updated'|'revived'|'conflict'|'skipped', id?, version? }.
+  //
+  // B-REBAIL-TOMBSTONE (chemin « revive ») : reloger un logement / recréer une clé naturelle produit un
+  // id déterministe qui COLLISIONNE avec le tombstone de l'ancien → conflit éternel (INSERT ON CONFLICT
+  // DO NOTHING → null ; ou UPDATE gardé deleted_at IS NULL → null). Sur INTENTION EXPLICITE — `opts.allowRevive`,
+  // posé par store-sync UNIQUEMENT pour un AJOUT FRAIS (clé absente du baseline), jamais pour une édition —
+  // on tente `reviveTombstone` : un UPDATE qui ré-ouvre le slot SEULEMENT s'il est TOMBSTONÉ (deleted_at
+  // IS NOT NULL) et NON verrouillé. Une ligne vivante ou un signé locked → null → retombe en conflit
+  // (fail-closed) : l'anti-résurrection reste entière hors du chemin d'ajout-frais, verrou légal intact.
+  async function upsert(legacyColl, rec, opts = {}) {
     const table = tableOf(legacyColl)
     const row = mapToRow(table, rec, ctx())
     if (!row) return { status: 'skipped' }
+    const canRevive = !!(opts && opts.allowRevive) && REVIVABLE.has(legacyColl) && typeof writer.reviveTombstone === 'function'
     if (_versions.has(row.id)) {
       const nv = await writer.update(table, row.id, row, _versions.get(row.id))
-      if (nv == null) return { status: 'conflict', id: row.id }   // version périmée → l'app re-hydrate
-      _versions.set(row.id, nv)
-      return { status: 'updated', id: row.id, version: nv }
+      if (nv != null) { _versions.set(row.id, nv); return { status: 'updated', id: row.id, version: nv } }
+      // UPDATE null = version périmée OU tombstone (relocation même session : la suppression a laissé la
+      // version trackée). Si ajout-frais délibéré sur un tombstone → revive ; sinon conflit (re-hydrate).
+      return _reviveOrConflict(canRevive, table, row)
     }
     // INSERT fail-closed : si l'id existe déjà côté serveur (ligne non trackée — mouvements
     // paginés, gap Realtime, autre onglet), writer.insert renvoie null → CONFLIT (jamais
     // d'écrasement silencieux ni de LWW). L'app re-hydrate → la ligne sera alors trackée → UPDATE.
     const nv = await writer.insert(table, row)
-    if (nv == null) return { status: 'conflict', id: row.id }
-    _versions.set(row.id, nv)
-    return { status: 'inserted', id: row.id, version: nv }
+    if (nv != null) { _versions.set(row.id, nv); return { status: 'inserted', id: row.id, version: nv } }
+    // INSERT null = id déjà pris. Session fraîche + relocation → l'id est un tombstone → revive.
+    return _reviveOrConflict(canRevive, table, row)
+  }
+  // Tente la ré-ouverture d'un tombstone (ssi autorisée) ; retombe en conflit sinon (fail-closed).
+  async function _reviveOrConflict(canRevive, table, row) {
+    if (canRevive) {
+      const rv = await writer.reviveTombstone(table, row.id, row)
+      if (rv != null) { _versions.set(row.id, rv); return { status: 'revived', id: row.id, version: rv } }
+    }
+    return { status: 'conflict', id: row.id }
   }
 
   // remove : soft-delete gardé par version (jamais de DELETE physique). Opération DESTRUCTIVE
