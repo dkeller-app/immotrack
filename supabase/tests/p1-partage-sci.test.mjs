@@ -453,3 +453,69 @@ describe('P1 — espace_config_private : propriétaire-privé (membres pleins se
     expect(error.message).toMatch(/row-level security|violates/i)
   })
 })
+
+// ════════════════════════════════════════════════════════════════════════════
+// D3 — ÉCRITURE MEMBRE SCOPÉ : documents des parent_types 0040 (assurance/mrh/equipement/
+//   quittance/candidat) résolus VIA LE LOGEMENT (migration 0042). Le mapper pose parent_id =
+//   uuid du LOGEMENT concerné → entite_of_document(parent_type, parent_id) = entite_of_logement(logement).
+//   AVANT 0042 : ces types donnaient entité NULL → has_entite_write faux → 42501 pour un scopé
+//   (sync empoisonnée). Carol (gestionnaire SCI-A) doit pouvoir attacher sur un logement SCI-A,
+//   JAMAIS sur SCI-B ; Bob (lecture SCI-A) ne peut pas écrire du tout. 'bail' (parent_id = uuid bail)
+//   reste résolu par entite_of_bail — vérifié aussi.
+// ════════════════════════════════════════════════════════════════════════════
+describe('D3 — écriture membre scopé : documents types 0040 résolus via logement (migration 0042)', () => {
+  const NEW_TYPES = ['assurance', 'mrh', 'equipement', 'quittance', 'candidat']
+  const mkDoc = (parentType, parentId) => ({
+    espace_id: espaceA, name: `${parentType}.pdf`, mime: 'application/pdf', size: 10,
+    parent_type: parentType, parent_id: parentId,
+  })
+
+  for (const t of NEW_TYPES) {
+    it(`Carol (gestionnaire SCI-A) PEUT INSERT un document parent_type='${t}' sur un logement de SCI-A`, async () => {
+      const { data, error } = await clientC.from('documents').insert(mkDoc(t, A1.logement)).select('id')
+      expect(error).toBeNull()
+      expect(data.length).toBe(1)
+    })
+    it(`Carol ne peut PAS INSERT un document parent_type='${t}' sur un logement de SCI-B (with check faux)`, async () => {
+      const { error } = await clientC.from('documents').insert(mkDoc(t, A2.logement))
+      expect(error).not.toBeNull()
+      expect(error.message).toMatch(/row-level security|violates/i)
+    })
+  }
+
+  it("Carol PEUT INSERT un document parent_type='bail' sur un bail de SCI-A (résolveur entite_of_bail)", async () => {
+    const { data, error } = await clientC.from('documents').insert(mkDoc('bail', A1.bail)).select('id')
+    expect(error).toBeNull()
+    expect(data.length).toBe(1)
+  })
+  it("Carol ne peut PAS INSERT un document parent_type='bail' sur un bail de SCI-B", async () => {
+    const { error } = await clientC.from('documents').insert(mkDoc('bail', A2.bail))
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/row-level security|violates/i)
+  })
+
+  it('Bob (lecture_seule SCI-A) ne peut PAS INSERT un document assurance, même sur SCI-A (write faux)', async () => {
+    const { error } = await clientB.from('documents').insert(mkDoc('assurance', A1.logement))
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/row-level security|violates/i)
+  })
+
+  it('parent_id NULL (candidat SCI-level sans logement) → entité NULL → INSERT refusé pour un scopé (fail-closed)', async () => {
+    const { error } = await clientC.from('documents')
+      .insert({ espace_id: espaceA, name: 'candSci.pdf', mime: 'application/pdf', size: 10, parent_type: 'candidat', parent_id: null })
+    expect(error).not.toBeNull()
+    expect(error.message).toMatch(/row-level security|violates/i)
+  })
+
+  it('Bob (SCOPÉ SCI-A) VOIT un document assurance de SCI-A mais PAS de SCI-B (étanchéité SELECT via logement)', async () => {
+    const admin = adminClient()
+    const { data: dA, error: eA } = await admin.from('documents')
+      .insert({ espace_id: espaceA, name: 'segA.pdf', parent_type: 'assurance', parent_id: A1.logement }).select('id').single()
+    if (eA) throw new Error('seed docA: ' + eA.message)
+    const { data: dB, error: eB } = await admin.from('documents')
+      .insert({ espace_id: espaceA, name: 'segB.pdf', parent_type: 'assurance', parent_id: A2.logement }).select('id').single()
+    if (eB) throw new Error('seed docB: ' + eB.message)
+    const { data } = await clientB.from('documents').select('id').in('id', [dA.id, dB.id])
+    expect(data.map(r => r.id)).toEqual([dA.id])   // SCI-A visible, SCI-B invisible
+  })
+})
