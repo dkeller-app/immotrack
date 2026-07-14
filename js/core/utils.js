@@ -249,8 +249,13 @@ export function _loyerHCAtDate(log, dateRef, irlHistorique = []) {
   const refStr = String(dateRef);
   const refTs = new Date(refStr + (refStr.length === 10 ? 'T00:00:00' : '')).getTime();
   if (Number.isNaN(refTs)) return Number(log.hc) || 0;
+  // Ref TOLÉRANTE (trim + minuscule), comme partout ailleurs dans l'app (_findBailByRefTolerant,
+  // validateNewRef) : une révision enregistrée avec une ref légèrement différente (re-bail, import,
+  // casse/espaces) reste rattachée → plus de repli rétroactif sur le loyer courant (bug user 2026-07-14).
+  const _nr = s => String(s == null ? '' : s).trim().toLowerCase();
+  const _wantRef = _nr(log.ref);
   const hist = (irlHistorique || [])
-    .filter(h => h && !h._deleted && h.ref === log.ref && h.action !== 'renonciation' && h.dateRevision);
+    .filter(h => h && !h._deleted && _nr(h.ref) === _wantRef && h.action !== 'renonciation' && h.dateRevision);
   if (!hist.length) return Number(log.hc) || 0;
   const sorted = hist.slice().sort((a, b) => a.dateRevision.localeCompare(b.dateRevision));
   if (refTs < new Date(sorted[0].dateRevision + 'T00:00:00').getTime()) {
