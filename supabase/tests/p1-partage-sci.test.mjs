@@ -102,7 +102,8 @@ async function seedSci(client, espaceId, sciNom) {
   // candidat « via logement » (logement_id) + candidat « via SCI » (entite_id direct) — 2 voies de scope
   ids.candLog = await ins('candidats', { logement_id: ids.logement, legacy_raw: { nom: 'CandLog', logRef: `F-${tag}` } })
   ids.candSci = await ins('candidats', { entite_id: ids.entite, legacy_raw: { nom: 'CandSci', entity: sciNom } })
-  ids.ref = `F-${tag}`   // ref du logement (clé des blobs config per-SCI : irlHistorique/assurances/compteursReleves)
+  ids.ref = `F-${tag}`       // ref du logement (clé des blobs config per-SCI : irlHistorique/assurances/compteursReleves/equipements/emailsSent)
+  ids.immNom = `Imm ${tag}`  // nom d'immeuble (clé de regulValidations : « <immeuble>|<du>|<au> »)
   return ids
 }
 
@@ -157,6 +158,20 @@ beforeAll(async () => {
       compteursReleves: {
         [A1.ref]: [{ id: 1, value: 111 }],                     // SCI-A
         [A2.ref]: [{ id: 2, value: 222 }],                     // SCI-B
+      },
+      // clés per-SCI additionnelles trouvées à l'audit code-reviewer (fuite résiduelle fermée)
+      equipements: {
+        [A1.ref]: { chaudiere: { lastDate: '2026-01-01' } },   // SCI-A
+        [A2.ref]: { chaudiere: { lastDate: '2026-02-02' } },   // SCI-B
+      },
+      emailsSent: [
+        { entityType: 'logement', entityId: A1.ref, subject: 'quittance A' },   // SCI-A (PII)
+        { entityType: 'bail', entityId: A1.ref, subject: 'bail A' },            // SCI-A
+        { entityType: 'logement', entityId: A2.ref, subject: 'quittance B' },   // SCI-B (PII)
+      ],
+      regulValidations: {
+        [`${A1.immNom}|2025-01|2025-12`]: { at: '2026-01-01' },  // SCI-A
+        [`${A2.immNom}|2025-01|2025-12`]: { at: '2026-01-01' },  // SCI-B
       },
     },
   }, { onConflict: 'espace_id' })
@@ -577,6 +592,10 @@ describe('D2 — config scopée : espace_config filtré par SCI côté serveur (
     expect(data.irlHistorique.map(e => e.ref).sort()).toEqual([A1.ref, A2.ref].sort())
     expect(data.assurances.map(e => e.logement).sort()).toEqual([A1.ref, A2.ref].sort())
     expect(Object.keys(data.compteursReleves).sort()).toEqual([A1.ref, A2.ref].sort())
+    // clés additionnelles (audit) : le membre PLEIN les reçoit INTÉGRALEMENT (SCI-A + SCI-B)
+    expect(Object.keys(data.equipements).sort()).toEqual([A1.ref, A2.ref].sort())
+    expect(data.emailsSent.length).toBe(3)
+    expect(Object.keys(data.regulValidations).length).toBe(2)
   })
 
   for (const [who, getClient] of [['Bob (lecture)', () => clientB], ['Carol (gestionnaire)', () => clientC]]) {
@@ -591,8 +610,15 @@ describe('D2 — config scopée : espace_config filtré par SCI côté serveur (
       expect(data.assurances.map(e => e.logement)).toEqual([A1.ref])
       // compteursReleves : clé SCI-A seulement
       expect(Object.keys(data.compteursReleves)).toEqual([A1.ref])
-      // étanchéité : la ref SCI-B n'apparaît NULLE PART dans le blob rendu
+      // equipements (audit) : clé SCI-A seulement
+      expect(Object.keys(data.equipements)).toEqual([A1.ref])
+      // emailsSent (audit, PII) : uniquement les entrées SCI-A (2 : logement + bail)
+      expect(data.emailsSent.map(e => e.entityId)).toEqual([A1.ref, A1.ref])
+      // regulValidations (audit) : clé immeuble SCI-A seulement
+      expect(Object.keys(data.regulValidations)).toEqual([`${A1.immNom}|2025-01|2025-12`])
+      // étanchéité GLOBALE : ni la ref ni le nom d'immeuble de SCI-B n'apparaissent dans le blob rendu
       expect(JSON.stringify(data)).not.toContain(A2.ref)
+      expect(JSON.stringify(data)).not.toContain(A2.immNom)
     })
   }
 })
