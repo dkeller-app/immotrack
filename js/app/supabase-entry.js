@@ -198,6 +198,9 @@ async function boot() {
     try { location.reload() } catch (e) {}
   }
   window.__immoLogout = () => _teardownSession({ flush: true })
+  // ESPACE PROPRE (getter — posé au login) : sert au code inline à distinguer un renommage d'un objet de
+  // l'espace propre (config own-only re-keyable, records non tagués = propres) d'un objet d'une SCI TIERS.
+  window.__immoOwnEspaceId = () => _cloudEspaceId
   try { _makeDetUuid = (await import('../core/det-uuid.js')).makeDetUuid } catch (e) { console.warn('[Supabase] det-uuid', e) }
   try { const m = await import('../core/store-multi.js'); _resolveEntiteOwner = m.resolveEntiteOwner; _resolveEspaceOfSeg = m.resolveEspaceOfSeg } catch (e) { console.warn('[Supabase] store-multi resolvers', e) }
   // P1.3 — décisions de purge (pur, testé) + prédicat M4 (le flush a-t-il réellement écrit ?). Best-effort
