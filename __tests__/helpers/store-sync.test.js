@@ -98,6 +98,32 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(store.calls.filter(c => c.coll === 'baux')).toEqual([])   // déjà verrouillé → exclu (pièce 4)
   })
 
+  it('§5 SIGNATURE À DISTANCE (audit 2026-07-15) : un bail signé à distance (source immotrack + locked posés par _completeRemoteSign, SANS contentHashTerms) reçoit son empreinte au flush → poussé CHECK-safe (fin du poison 23514)', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    // Réalité : le bail a d'abord été synchronisé à l'état « sent » (non signé, non verrouillé) → baseline
+    // le capture DÉVERROUILLÉ. Le locataire signe ensuite → _completeRemoteSign transitionne l'état local.
+    db.baux = { F3: { hc: 700, signatures: { remoteSession: { status: 'sent' }, bailSnapshot: { log: { ref: 'F-1' } } } } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()                                   // baseline : F3 non signé / non verrouillé
+    await sync.flush()
+    store.calls.length = 0
+    // Forme EXACTE produite par _completeRemoteSign (index.html) : signedAt + mode distance + source immotrack
+    // + locked:true, MAIS contentHashTerms ABSENT (index.html ne l'a jamais posé → cause du poison D4).
+    db.baux.F3.signatures = { signedAt: '2026-01-01T00:00:00Z', mode: 'distance', signatureSource: 'immotrack', locked: true, bailSnapshot: { log: { ref: 'F-1' } } }
+    await sync.flush()
+    const sg = db.baux.F3.signatures
+    // sealSignedBaux calcule l'empreinte manquante → immotrack a désormais son content_hash → CHECK satisfait.
+    expect(sg.contentHashTerms).toMatch(/^[0-9a-f]{64}$/)
+    expect(sg.signatureSource).toBe('immotrack')
+    expect(sg.locked).toBe(true)
+    expect(store.calls.filter(c => c.coll === 'baux').map(c => c.op)).toEqual(['upsert'])   // poussé (n'était PAS synchronisable avant)
+    // idempotent : déjà verrouillé → exclu au flush suivant (pièce 4)
+    store.calls.length = 0
+    await sync.flush()
+    expect(store.calls.filter(c => c.coll === 'baux')).toEqual([])
+  })
+
   it('VERROU pièce 2 — C1 (audit) : un bail PARTIELLEMENT signé (mode bailleur-seul) n\'est PAS verrouillé ; il l\'est quand le locataire signe (avec-locataire)', async () => {
     const store = mockStore()
     const db = baseDB()                           // baux: {}

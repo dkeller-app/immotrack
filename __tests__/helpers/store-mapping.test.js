@@ -63,9 +63,11 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     // signé immotrack + hash → verrouillé
     const ok = mapToRow('baux', sg({ signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }), ctx())
     expect(ok.locked).toBe(true); expect(ok.content_hash).toBe('a'.repeat(64)); expect(ok.signature_source).toBe('immotrack')
-    // locked demandé MAIS immotrack sans hash → CHECK non satisfiable → locked:false (robuste à l'ordre de déploiement)
+    // immotrack SANS hash → CHECK baux_immotrack_hash_chk INCONDITIONNEL (immotrack ⇒ content_hash NOT NULL,
+    // le locked n'entre pas dans la contrainte) → source DÉGRADÉE à null + locked:false → ligne CHECK-safe
+    // (anti-poison 23514 D4, audit 2026-07-15). Se re-scellera au flush suivant une fois l'empreinte calculée.
     const noHash = mapToRow('baux', sg({ signatureSource: 'immotrack', locked: true }), ctx())
-    expect(noHash.locked).toBe(false); expect(noHash.content_hash).toBeNull()
+    expect(noHash.locked).toBe(false); expect(noHash.content_hash).toBeNull(); expect(noHash.signature_source).toBeNull()
     // externe peut omettre le hash → verrouillable
     expect(mapToRow('baux', sg({ signatureSource: 'externe', locked: true }), ctx()).locked).toBe(true)
     // source INVALIDE (corruption amont) → normalisée à null (anti-23514 en boucle) → pas de verrou

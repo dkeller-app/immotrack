@@ -106,7 +106,7 @@ export function createBoot(client) {
     const adapter = createSupabaseAdapter(client, espaceId, pageSize ? { pageSize } : {})
     const detUuid = makeDetUuid(ownerId)
     _store = createSupabaseStore({ ...adapter, detUuid, espaceId, ownerId })
-    _sync = createStoreSync({ store: _store, getDB, schedule, sealSigned: false })   // VERROU AUTO désactivé en phase test (pas de docs légaux réels) — repasser true avant prod légale
+    _sync = createStoreSync({ store: _store, getDB, schedule, sealSigned: true })   // VERROU LÉGAL AUTO activé (§5 chantier SIGNATURE-DISTANCE 2026-07-15) : un bail signé (présentiel/distance) reçoit son empreinte canonique (contentHashTerms) + verrou AVANT le snapshot → content_hash NOT NULL → satisfait baux_immotrack_hash_chk (fin du poison 23514 qui bloquait la poussée cloud des baux signés à distance)
     _ctx = { espaceId, ownerId }
     return { store: _store, sync: _sync }
   }
@@ -122,7 +122,7 @@ export function createBoot(client) {
       return createSupabaseStore({ ...adapter, detUuid: makeDetUuid(ownerId), espaceId, ownerId })
     }
     _store = createMultiStore({ espaces, makeStore, getDB })
-    _sync = createStoreSync({ store: _store, getDB, schedule, sealSigned: false })
+    _sync = createStoreSync({ store: _store, getDB, schedule, sealSigned: true })   // VERROU LÉGAL AUTO activé (§5 chantier SIGNATURE-DISTANCE 2026-07-15) — cf. wireStore
     const own = espaces.find(e => e.mine) || espaces[0]
     _ctx = { espaces, espaceId: own.espaceId, ownerId: own.ownerId }
     return { store: _store, sync: _sync }

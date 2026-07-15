@@ -100,10 +100,17 @@ const MAPPERS = {
     // → robuste à l'ordre de déploiement : un signé dont le content_hash n'est pas encore calculé se
     //   synchronise NON verrouillé (pas de violation CHECK), puis se verrouille à la sync suivante.
     const sg = o.signatures || {}
+    const hash = sg.contentHashTerms ?? null
     // src NORMALISÉ à la liste autorisée (CHECK baux_signature_source_chk) : une valeur inattendue
     // (corruption amont / mode futur) → null, plutôt que la propager et faire boucler le flush sur 23514.
-    const src = (sg.signatureSource === 'immotrack' || sg.signatureSource === 'externe') ? sg.signatureSource : null
-    const hash = sg.contentHashTerms ?? null
+    const rawSrc = (sg.signatureSource === 'immotrack' || sg.signatureSource === 'externe') ? sg.signatureSource : null
+    // CHECK baux_immotrack_hash_chk (migration 0015) = INCONDITIONNEL : signature_source='immotrack' ⇒
+    // content_hash NOT NULL (le `locked` n'entre PAS dans la contrainte). Un signé 'immotrack' dont
+    // l'empreinte n'est pas encore calculée (sealSignedBaux pas passé) DÉGRADE donc source→null pour rester
+    // CHECK-safe (sinon 23514 → ligne poison retentée en boucle, jamais poussée : bug D4 audit 2026-07-15).
+    // Il se re-synchronisera 'immotrack'+hash+locked au flush suivant, une fois scellé. ('externe' n'exige
+    // aucun hash : la contrainte ne vise que 'immotrack'.)
+    const src = (rawSrc === 'immotrack' && hash == null) ? null : rawSrc
     const locked = !!sg.locked && src != null && (src !== 'immotrack' || hash != null)
     return { id: ctx.detUuid('bail', norm(o.__key)), legacy_ref: o.__key, logement_id: log, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, type_bail: null, hc: num(o.hc), ch: num(o.ch), dg: num(o.dg), jour_paiement: num(o.jpay), date_debut: dateOnly(o.debut), date_fin: dateOnly(o.fin), date_fin_effective: dateOnly(o.finEffective), locataires: jb(o.locataires ?? []), garants: jb(o.signataires ?? null), signatures: jb(o.signatures ?? null), signed_at: sig ? ts(sig.signedAt) : null, content_hash: hash, signature_source: src, locked, notes: o.notes ?? null, quitt_auto_gen: !!o.quittAutoGen, ...base(o, ctx) }
   },
