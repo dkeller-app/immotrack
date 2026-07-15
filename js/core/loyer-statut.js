@@ -1,3 +1,5 @@
+import { _loyerArrearsPass } from './loyer-du-mois.js';
+
 /**
  * core/loyer-statut.js — SUIVI-LOYERS-SOURCE-UNIQUE Phase A.
  *
@@ -186,36 +188,11 @@ export function _computeLoyerChargeAlloc(months) {
  *            causeLoyer:Array<{idx,short,due,recv}>, causeCharge:Array<{idx,short,due,recv}>}}
  */
 export function _computeLoyerArrears(months, graceLast) {
-  const r2 = n => Math.round(n * 100) / 100;
-  const ms = months || [];
-  const lastIdx = ms.length - 1;
-  const loyerQ = [], chargeQ = [];                          // files des manques : {idx, short, due, recv}
-  const sumQ = q => q.reduce((s, e) => s + e.short, 0);
-  const recover = (q, amt) => { let a = amt; for (const e of q) { if (a <= 0.0000001) break; const t = Math.min(a, e.short); e.short -= t; a -= t; } };
-  const perMonth = ms.map((m, idx) => {
-    const hcDue = Math.max(0, Number(m.hcDue) || 0);
-    const chDue = Math.max(0, Number(m.chDue) || 0);
-    const recv = Number(m.received) || 0;
-    const grace = !!graceLast && idx === lastIdx;           // mois courant sous tolérance : manque neuf non compté
-    let pool = Math.max(0, recv);
-    const loyerCur = Math.min(pool, hcDue); pool -= loyerCur;
-    const loyerShort = hcDue - loyerCur;
-    if (loyerShort > 0.005 && !grace) loyerQ.push({ idx, short: loyerShort, due: hcDue, recv });
-    const chargeCur = Math.min(pool, chDue); pool -= chargeCur;
-    const chargeShort = chDue - chargeCur;
-    if (chargeShort > 0.005 && !grace) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
-    const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL);   // arriérés loyer (priorité)
-    const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC);
-    return { loyerArrear: r2(sumQ(loyerQ)), chargeArrear: r2(sumQ(chargeQ)) };
-  });
-  const clean = q => q.filter(e => e.short > 0.005).map(e => ({ idx: e.idx, short: r2(e.short), due: r2(e.due), recv: r2(e.recv) }));
-  const last = perMonth.length ? perMonth[perMonth.length - 1] : { loyerArrear: 0, chargeArrear: 0 };
-  // RÉSIDU par mois (colonnes P&L, décision user 2026-07-13 « on ne reporte pas ») : le manque ENCORE
-  // dû attribué à son mois d'origine (net des rattrapages FIFO), ≠ l'arriéré courant cumulé. Σ = arriéré final.
-  const residual = q => { const a = ms.map(() => 0); q.forEach(e => { if (e.short > 0.005) a[e.idx] = r2(a[e.idx] + e.short); }); return a; };
-  const loyerRes = residual(loyerQ), chargeRes = residual(chargeQ);
-  const retardMois = ms.map((m, idx) => ({ loyer: loyerRes[idx], charge: chargeRes[idx] }));
-  return { months: perMonth, retardMois, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
+  // AUDIT-SUIVI-LOYERS étape 1 (2026-07-15) : l'algorithme vit désormais dans
+  // loyer-du-mois.js (_loyerArrearsPass, moteur partagé). Ici : délégué SANS netting
+  // (carry:false = comportement historique « pas de pull-back », décision 2026-07-13) —
+  // les surfaces basculeront sur _computeLoyerNetting (carry:true) à l'étape 4.
+  return _loyerArrearsPass(months, { carry: false, graceLast: !!graceLast });
 }
 
 /**
