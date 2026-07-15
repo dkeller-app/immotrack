@@ -1,16 +1,17 @@
 // Conducteur pur du fil rouge « Ajouter un bien ». AUCUNE dépendance DOM ni données.
 // Ne gère que la NAVIGATION (étapes) et le FIL D'ARIANE. La donnée vit dans DB.
 
-export const STEPS = ['ent', 'imm', 'log', 'next', 'done', 'bail'];
+export const STEPS = ['start', 'ent', 'imm', 'log', 'next', 'done', 'bail'];
 
 // Étape de départ selon le point d'entrée.
 export function entryStep(kind) {
   switch (kind) {
+    case 'manual': return 'ent';        // saisie manuelle : on crée le bailleur
     case 'acte': return 'log';          // acte : bailleur+immeuble pré-remplis, on confirme le lot
     case 'continue-ent': return 'imm';  // continuité après un bailleur créé hors fil
     case 'continue-imm': return 'log';  // continuité après un immeuble créé hors fil
-    case 'bien':
-    default: return 'ent';
+    case 'bien': return 'start';        // « + Ajouter un bien » neutre → écran de choix acte/manuel
+    default: return 'ent';              // fallback sûr : bailleur
   }
 }
 
