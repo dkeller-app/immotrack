@@ -40,11 +40,15 @@ export function createSupabaseAdapter(client, espaceId, opts = {}) {
     return out
   }
 
+  // D2 — CONFIG SCOPÉE : on lit le blob via la RPC SECURITY DEFINER `espace_config_scoped` (migration 0043)
+  // et NON plus par un SELECT brut (dont la RLS est désormais is_full_member). Un membre PLEIN reçoit le
+  // blob INTÉGRAL (identique à l'ancien SELECT) ; un membre SCOPÉ reçoit le blob FILTRÉ par-SCI côté serveur
+  // (irlHistorique/assurances bailleur/compteursReleves réduits aux refs de logement accessibles) → aucune
+  // fuite des autres SCIs, et le filtrage n'est JAMAIS fait côté client. Renvoie {} si non membre / vide.
   async function fetchConfig() {
-    const { data, error } = await client.from('espace_config')
-      .select('data').eq('espace_id', espaceId).maybeSingle()
+    const { data, error } = await client.rpc('espace_config_scoped', { p_espace_id: espaceId })
     if (error) throw new Error('fetchConfig: ' + error.message)
-    return (data && data.data) || {}
+    return data || {}
   }
 
   // Écrit le blob config (collections non-tablées) en un seul jsonb par espace. Remplacement

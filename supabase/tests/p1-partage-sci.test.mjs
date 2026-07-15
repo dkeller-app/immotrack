@@ -102,6 +102,7 @@ async function seedSci(client, espaceId, sciNom) {
   // candidat « via logement » (logement_id) + candidat « via SCI » (entite_id direct) — 2 voies de scope
   ids.candLog = await ins('candidats', { logement_id: ids.logement, legacy_raw: { nom: 'CandLog', logRef: `F-${tag}` } })
   ids.candSci = await ins('candidats', { entite_id: ids.entite, legacy_raw: { nom: 'CandSci', entity: sciNom } })
+  ids.ref = `F-${tag}`   // ref du logement (clé des blobs config per-SCI : irlHistorique/assurances/compteursReleves)
   return ids
 }
 
@@ -135,6 +136,31 @@ beforeAll(async () => {
   const { error: e5 } = await clientA.from('entite_membre')
     .insert({ espace_id: espaceA, entite_id: A1.entite, user_id: carolId, role: 'gestionnaire' })
   if (e5) throw e5
+
+  // D2 — blob espace_config PARTAGÉ (RLS is_member à l'origine → fuite vers le scopé). On y sème les 3
+  // clés per-SCI (irlHistorique array {ref}, assurances bailleur array {logement}, compteursReleves objet
+  // {ref:[]}) pour SCI-A ET SCI-B, plus une clé d'APP non per-SCI (categories). Un scopé SCI-A ne doit
+  // recevoir QUE le sous-ensemble SCI-A + les clés d'app. Semé en service-role (bypass RLS).
+  const _admin = adminClient()
+  const { error: ecfg } = await _admin.from('espace_config').upsert({
+    espace_id: espaceA,
+    data: {
+      categories: ['loyer', 'charges'],                        // clé d'APP (non per-SCI) → conservée pour tous
+      irlHistorique: [
+        { ref: A1.ref, date: '2026-01-01', nouveauHC: 700 },   // SCI-A
+        { ref: A2.ref, date: '2026-01-01', nouveauHC: 800 },   // SCI-B
+      ],
+      assurances: [
+        { id: 1, logement: A1.ref, compagnie: 'AXA-A' },       // SCI-A
+        { id: 2, logement: A2.ref, compagnie: 'AXA-B' },       // SCI-B
+      ],
+      compteursReleves: {
+        [A1.ref]: [{ id: 1, value: 111 }],                     // SCI-A
+        [A2.ref]: [{ id: 2, value: 222 }],                     // SCI-B
+      },
+    },
+  }, { onConflict: 'espace_id' })
+  if (ecfg) throw ecfg
 })
 
 afterAll(async () => {
@@ -518,4 +544,55 @@ describe('D3 — écriture membre scopé : documents types 0040 résolus via log
     const { data } = await clientB.from('documents').select('id').in('id', [dA.id, dB.id])
     expect(data.map(r => r.id)).toEqual([dA.id])   // SCI-A visible, SCI-B invisible
   })
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// D2 — CONFIG SCOPÉE : le blob espace_config (RLS is_member) fuitait ENTIER au membre scopé
+//   (irlHistorique/assurances bailleur/compteursReleves de TOUTES les SCIs — gap AUDIT §4).
+//   Correctif SERVEUR (migration 0043) : (1) la SELECT brute passe à is_full_member → un scopé ne lit
+//   PLUS le blob ; (2) l'RPC SECURITY DEFINER espace_config_scoped() renvoie le blob INTÉGRAL au membre
+//   plein, et FILTRÉ (3 clés per-SCI réduites aux refs de logement accessibles) au membre scopé — les
+//   clés d'app (categories…) restent servies. Filtrage CÔTÉ SERVEUR, jamais client.
+// ════════════════════════════════════════════════════════════════════════════
+describe('D2 — config scopée : espace_config filtré par SCI côté serveur (migration 0043)', () => {
+  it('FUITE FERMÉE : Bob (scopé) ne peut PLUS lire le blob espace_config brut (SELECT is_full_member)', async () => {
+    const { data, error } = await clientB.from('espace_config').select('data').eq('espace_id', espaceA)
+    expect(error).toBeNull()
+    expect(data).toEqual([])
+  })
+  it('Carol (scopé gestionnaire) ne peut PLUS lire le blob brut non plus', async () => {
+    const { data } = await clientC.from('espace_config').select('data').eq('espace_id', espaceA)
+    expect(data).toEqual([])
+  })
+  it('Alice (membre PLEIN) lit toujours le blob brut (non-régression)', async () => {
+    const { data, error } = await clientA.from('espace_config').select('data').eq('espace_id', espaceA).maybeSingle()
+    expect(error).toBeNull()
+    expect(data?.data?.irlHistorique?.length).toBe(2)
+  })
+
+  it('RPC espace_config_scoped : Alice (PLEIN) reçoit le blob INTÉGRAL (SCI-A + SCI-B)', async () => {
+    const { data, error } = await clientA.rpc('espace_config_scoped', { p_espace_id: espaceA })
+    expect(error).toBeNull()
+    expect(data.categories).toEqual(['loyer', 'charges'])
+    expect(data.irlHistorique.map(e => e.ref).sort()).toEqual([A1.ref, A2.ref].sort())
+    expect(data.assurances.map(e => e.logement).sort()).toEqual([A1.ref, A2.ref].sort())
+    expect(Object.keys(data.compteursReleves).sort()).toEqual([A1.ref, A2.ref].sort())
+  })
+
+  for (const [who, getClient] of [['Bob (lecture)', () => clientB], ['Carol (gestionnaire)', () => clientC]]) {
+    it(`RPC espace_config_scoped : ${who} (scopé SCI-A) reçoit UNIQUEMENT le sous-ensemble SCI-A + les clés d'app`, async () => {
+      const { data, error } = await getClient().rpc('espace_config_scoped', { p_espace_id: espaceA })
+      expect(error).toBeNull()
+      // clés d'app (non per-SCI) conservées
+      expect(data.categories).toEqual(['loyer', 'charges'])
+      // irlHistorique : SCI-A seulement, SCI-B absent
+      expect(data.irlHistorique.map(e => e.ref)).toEqual([A1.ref])
+      // assurances bailleur : SCI-A seulement
+      expect(data.assurances.map(e => e.logement)).toEqual([A1.ref])
+      // compteursReleves : clé SCI-A seulement
+      expect(Object.keys(data.compteursReleves)).toEqual([A1.ref])
+      // étanchéité : la ref SCI-B n'apparaît NULLE PART dans le blob rendu
+      expect(JSON.stringify(data)).not.toContain(A2.ref)
+    })
+  }
 })
