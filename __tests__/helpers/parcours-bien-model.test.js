@@ -105,3 +105,51 @@ describe('parcoursSummary', () => {
     expect(s.logementsALouer.map((l) => l.ref)).toEqual(['A-1']);
   });
 });
+
+import { identiteParcours, isRentable } from './parcours-bien-model.js';
+
+describe('identiteParcours — garde bloquante du fil rouge (mockup validé, décision user 2026-07-15)', () => {
+  const full = { ref: 'F-102', type: 'T2', surface: 44, loyer: 508 };
+  it('ok quand réf + type + surface + loyer sont présents', () => {
+    expect(identiteParcours(full)).toEqual({ ok: true, missing: [] });
+  });
+  it('refuse si le type manque', () => {
+    const r = identiteParcours({ ...full, type: ' ' });
+    expect(r.ok).toBe(false);
+    expect(r.missing).toEqual(['type']);
+  });
+  it('refuse surface vide ou 0 (0 m² = manquant)', () => {
+    expect(identiteParcours({ ...full, surface: '' }).missing).toContain('surface');
+    expect(identiteParcours({ ...full, surface: 0 }).missing).toContain('surface');
+  });
+  it('refuse loyer vide ou 0', () => {
+    expect(identiteParcours({ ...full, loyer: 0 }).missing).toContain('loyer');
+  });
+  it('liste TOUS les manquants (message d’alerte complet)', () => {
+    const r = identiteParcours({ ref: 'F-102' });
+    expect(r.missing).toEqual(['type', 'surface', 'loyer']);
+  });
+  it('tolère null en entrée', () => {
+    expect(identiteParcours(null).ok).toBe(false);
+  });
+});
+
+describe('isRentable — un logement ne propose « Créer le bail » que si son identité louable est complète (mockup)', () => {
+  it('louable : réf + type + surface + loyer présents', () => {
+    expect(isRentable({ ref: 'F-102', type: 'T2', surface: 44, loyer: 508 })).toBe(true);
+  });
+  it('pas louable sans loyer (ou loyer 0)', () => {
+    expect(isRentable({ ref: 'F-102', type: 'T2', surface: 44, loyer: 0 })).toBe(false);
+    expect(isRentable({ ref: 'F-102', type: 'T2', surface: 44 })).toBe(false);
+  });
+  it('pas louable sans type ou sans surface', () => {
+    expect(isRentable({ ref: 'F-102', surface: 44, loyer: 508 })).toBe(false);
+    expect(isRentable({ ref: 'F-102', type: 'T2', loyer: 508 })).toBe(false);
+  });
+  it('le DPE n’entre PAS dans la louabilité (il joue sur le badge complet, pas sur le bail)', () => {
+    expect(isRentable({ ref: 'F-102', type: 'T2', surface: 44, loyer: 508, dpe: '' })).toBe(true);
+  });
+  it('tolère null', () => {
+    expect(isRentable(null)).toBe(false);
+  });
+});

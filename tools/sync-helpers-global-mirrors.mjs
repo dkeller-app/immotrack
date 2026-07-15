@@ -164,6 +164,7 @@ const PAIRS = [
     exports: [
       'canCreateLogement', 'logementCompleteness', 'immeubleCompleteness',
       'buildParcoursTree', 'parcoursSummary', 'LOG_REQUIRED', 'LOG_OPTIONAL_KEY',
+      'identiteParcours', 'isRentable', 'PARCOURS_IDENTITY',
     ],
   },
   {

@@ -42,6 +42,26 @@
     return { level: missingOpt.length ? 'a-completer' : 'complet', missing: missingOpt };
   }
 
+  // Garde bloquante du parcours (mockup validé + décision user 2026-07-15) : dans le fil
+  // rouge, un logement ne s'enregistre qu'avec réf + type + surface + loyer. Distinct de
+  // canCreateLogement (création hors parcours, rattachement) et du badge de complétude
+  // (qui ajoute le dpe). `surface`/`loyer` numériques : 0 ou vide = manquant.
+  const PARCOURS_IDENTITY = ['ref', 'type', 'surface', 'loyer'];
+
+  function identiteParcours(fields) {
+    const f = fields || {};
+    const missing = PARCOURS_IDENTITY.filter((k) =>
+      (k === 'surface' || k === 'loyer') ? _num(f[k]) === '' : _s(f[k]) === ''
+    );
+    return { ok: missing.length === 0, missing };
+  }
+
+  /** Louable = identité du parcours complète (réf/type/surface/loyer). Le dpe n'y entre
+   *  pas : il pèse sur le badge « complet », pas sur la possibilité de créer le bail. */
+  function isRentable(log) {
+    return identiteParcours(log).ok;
+  }
+
   function immeubleCompleteness(imm) {
     const adr = _s((imm || {}).adr);
     return adr ? { level: 'complet', missing: [] } : { level: 'a-completer', missing: ['adr'] };
@@ -98,6 +118,9 @@
     buildParcoursTree: buildParcoursTree,
     parcoursSummary: parcoursSummary,
     LOG_REQUIRED: LOG_REQUIRED,
-    LOG_OPTIONAL_KEY: LOG_OPTIONAL_KEY
+    LOG_OPTIONAL_KEY: LOG_OPTIONAL_KEY,
+    identiteParcours: identiteParcours,
+    isRentable: isRentable,
+    PARCOURS_IDENTITY: PARCOURS_IDENTITY
   };
 })(typeof window !== 'undefined' ? window : globalThis);
