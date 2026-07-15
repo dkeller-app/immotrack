@@ -80,6 +80,15 @@ describe('renameImmeubleRefs — rename d\'un immeuble PROPRE (config re-keyée,
     expect(res.breakdown.assurance).toBe(1)
   })
 
+  it('immeuble PROPRE créé en session (non tagué, scope=null) en multi-espace : traité comme propre (regul re-keyée) — durcissement audit', () => {
+    const d = { logements: [{ ref: 'F-1', imm: 'Vieux' }], mouvements: [], agenda: [], documents: [], regulValidations: { 'Vieux|a|b': { at: 1 } } }
+    // immeuble non tagué (créé en session) → espaceId absent (scope null) MAIS ownEspaceId renseigné (multi-espace actif)
+    const res = renameImmeubleRefs(d, 'Vieux', 'Neuf', { ownEspaceId: 'OWN' })
+    expect(d.logements[0].imm).toBe('Neuf')
+    expect(d.regulValidations['Neuf|a|b']).toEqual({ at: 1 })   // config re-keyée (scope=null → propre)
+    expect(res.breakdown.regulValidation).toBe(1)
+  })
+
   it('mono-espace (aucun tag, ownEspaceId absent → null===null) : propage tout, config incluse', () => {
     const d = { logements: [{ ref: 'F-1', imm: 'Vieux' }], mouvements: [], agenda: [], documents: [], regulValidations: { 'Vieux|a|b': { at: 1 } } }
     const res = renameImmeubleRefs(d, 'Vieux', 'Neuf', {})

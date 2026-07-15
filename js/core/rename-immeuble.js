@@ -31,7 +31,10 @@ export function validateNewImmNom(db, oldNom, newNom, espaceId, ownEspaceId) {
   if (!nn) return { ok: false, error: 'Nom d\'immeuble requis' }
   if (nn === norm(oldNom)) return { ok: true }                       // inchangé → rien à valider
   const scope = espaceId != null ? espaceId : null
-  const scopeIsOwn = scope === (ownEspaceId != null ? ownEspaceId : null)
+  // scope===null = immeuble NON tagué → créé en session → toujours PROPRE (la création route vers l'espace
+  // propre, store-multi) → own, même si ownEspaceId est renseigné (durcissement audit : évite qu'un immeuble
+  // propre créé sans reload soit classé tiers).
+  const scopeIsOwn = scope == null || scope === (ownEspaceId != null ? ownEspaceId : null)
   const belongs = makeBelongs(scope, scopeIsOwn)
   const clash = (db.entites || []).some(e =>
     Array.isArray(e && e.immeubles) &&
@@ -46,7 +49,8 @@ export function validateNewImmNom(db, oldNom, newNom, espaceId, ownEspaceId) {
 export function renameImmeubleRefs(db, oldNom, newNom, opts = {}) {
   const stamp = opts.stamp || (x => { if (x) x._modifiedAt = new Date().toISOString(); return x })
   const scope = opts.espaceId != null ? opts.espaceId : null
-  const scopeIsOwn = scope === (opts.ownEspaceId != null ? opts.ownEspaceId : null)
+  // scope===null (immeuble non tagué = créé en session) → toujours PROPRE (cf. validateNewImmNom).
+  const scopeIsOwn = scope == null || scope === (opts.ownEspaceId != null ? opts.ownEspaceId : null)
   const on = norm(oldNom)
   if (!db || on === norm(newNom)) return { touched: 0, breakdown: {} }
   const belongs = makeBelongs(scope, scopeIsOwn)
