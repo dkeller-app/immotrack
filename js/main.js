@@ -103,6 +103,7 @@ import {
 
 import { openEmailModal, _buildMailtoUrl, _emHandleAction } from './components/email-modal.js';
 import { validateNewRef, canRenameLogement, renameLogementRef } from './core/rename-logement.js';
+import { validateNewImmNom, renameImmeubleRefs } from './core/rename-immeuble.js';
 
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
@@ -400,6 +401,9 @@ window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildMani
 window._espacePurge = { confirmNameMatches, purgeUiState, purgeErrorMessage };
 // RENOMMER UN BIEN — cœur pur exposé pour le code inline (validation + garde-fou + report des 11 rattachements).
 window._renameLogement = { validate: validateNewRef, canRename: canRenameLogement, rename: renameLogementRef };
+// RENOMMER UN IMMEUBLE — propage le nouveau nom aux logements/mouvements/agenda/documents/regul (scopé
+// par espace) : sans ça, renommer un immeuble orpheline ses logements (« Logements isolés »).
+window._renameImmeuble = { validate: validateNewImmNom, propagate: renameImmeubleRefs };
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
