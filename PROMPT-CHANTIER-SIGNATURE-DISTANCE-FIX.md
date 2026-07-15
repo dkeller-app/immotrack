@@ -60,6 +60,13 @@ le résultat signé irrécupérable. Relais (`Immo-relay-bailsign/relay`) : stoc
 `POST /api/sessions/:id/reclaim` (auth JWT Supabase, `sub === createdBy`) qui re-mint un
 ownerToken. Déploiement `npx wrangler deploy` = **confirmation user obligatoire**.
 
+### 7. P2 cosmétique — doublon de boutons PDF (constat user 15/07)
+Sur un bail signé à distance, la fiche affiche DEUX boutons qui ouvrent LE MÊME fichier :
+« 📄 PDF signé » (badge `_renderRemoteSignBadge` branche completed, ~6992) et « 📄 PDF du
+bail » (bouton générique cloud-aware, ~38756) — tous deux `_openCloudBailPdf(ref)` sur
+`signatures.cloudPdfKey`. Masquer le bouton générique quand le badge completed affiche déjà
+le sien (condition : `remoteSession.status !== 'completed'`). Vérifier aussi rBaux (~37547).
+
 ## Contraintes (non négociables)
 - Code de SIGNATURE = document légal → audit `superpowers:code-reviewer` AVANT « prêt à tester ».
 - `node scripts/check-inline-js.mjs` (5|0) + `node scripts/verif-popup.cjs` (PARSE OK).
