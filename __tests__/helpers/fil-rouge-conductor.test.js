@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { STEPS, entryStep, advance, breadcrumb } from './fil-rouge-conductor.js';
 
 describe('fil-rouge-conductor — entrée', () => {
-  it('« + Ajouter un bien » neutre démarre à l’écran de choix', () => { expect(entryStep('bien')).toBe('start'); });
-  it('choix « saisir à la main » démarre au bailleur', () => { expect(entryStep('manual')).toBe('ent'); });
+  it('« + Ajouter un bien » démarre au bailleur', () => { expect(entryStep('bien')).toBe('ent'); });
   it('import acte démarre au logement (bailleur+immeuble pré-remplis)', () => { expect(entryStep('acte')).toBe('log'); });
   it('continuité après bailleur créé → immeuble', () => { expect(entryStep('continue-ent')).toBe('imm'); });
   it('continuité après immeuble créé → logement', () => { expect(entryStep('continue-imm')).toBe('log'); });
