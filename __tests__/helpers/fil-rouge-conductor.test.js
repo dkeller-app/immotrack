@@ -2,11 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { STEPS, entryStep, advance, breadcrumb } from './fil-rouge-conductor.js';
 
 describe('fil-rouge-conductor — entrée', () => {
-  it('« + Ajouter un bien » démarre au bailleur', () => { expect(entryStep('bien')).toBe('ent'); });
+  // Porte UNIQUE (décision user 2026-07-15) : « + Ajouter un bien » ouvre l'écran de CHOIX
+  // (importer un acte / saisir à la main), d'où découle tout le fil. Plus de 2e bouton acte.
+  it('« + Ajouter un bien » démarre sur l’écran de choix', () => { expect(entryStep('bien')).toBe('start'); });
   it('import acte démarre au logement (bailleur+immeuble pré-remplis)', () => { expect(entryStep('acte')).toBe('log'); });
   it('continuité après bailleur créé → immeuble', () => { expect(entryStep('continue-ent')).toBe('imm'); });
   it('continuité après immeuble créé → logement', () => { expect(entryStep('continue-imm')).toBe('log'); });
   it('entrée inconnue → bailleur par défaut', () => { expect(entryStep('???')).toBe('ent'); });
+});
+
+describe('fil-rouge-conductor — écran de choix (start)', () => {
+  it('choix « saisir à la main » → bailleur', () => { expect(advance('start','manual')).toBe('ent'); });
+  it('« start » fait partie des étapes', () => { expect(STEPS[0]).toBe('start'); });
+  it('événement inconnu depuis start → on reste sur le choix', () => { expect(advance('start','???')).toBe('start'); });
 });
 
 describe('fil-rouge-conductor — transitions (auto-avance)', () => {
