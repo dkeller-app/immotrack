@@ -151,6 +151,10 @@ beforeAll(async () => {
         { ref: A1.ref, date: '2026-01-01', nouveauHC: 700 },   // SCI-A
         { ref: A2.ref, date: '2026-01-01', nouveauHC: 800 },   // SCI-B
       ],
+      loyerBareme: [                                            // AUDIT-SUIVI-LOYERS étape 2 (migration 0044)
+        { ref: A1.ref, debut: '2026-01-01', fin: null, hc: 700, ch: 50, source: 'bail' },   // SCI-A
+        { ref: A2.ref, debut: '2026-01-01', fin: null, hc: 800, ch: 60, source: 'bail' },   // SCI-B
+      ],
       assurances: [
         { id: 1, logement: A1.ref, compagnie: 'AXA-A' },       // SCI-A
         { id: 2, logement: A2.ref, compagnie: 'AXA-B' },       // SCI-B
@@ -590,6 +594,7 @@ describe('D2 — config scopée : espace_config filtré par SCI côté serveur (
     expect(error).toBeNull()
     expect(data.categories).toEqual(['loyer', 'charges'])
     expect(data.irlHistorique.map(e => e.ref).sort()).toEqual([A1.ref, A2.ref].sort())
+    expect(data.loyerBareme.map(e => e.ref).sort()).toEqual([A1.ref, A2.ref].sort())
     expect(data.assurances.map(e => e.logement).sort()).toEqual([A1.ref, A2.ref].sort())
     expect(Object.keys(data.compteursReleves).sort()).toEqual([A1.ref, A2.ref].sort())
     // clés additionnelles (audit) : le membre PLEIN les reçoit INTÉGRALEMENT (SCI-A + SCI-B)
@@ -606,6 +611,8 @@ describe('D2 — config scopée : espace_config filtré par SCI côté serveur (
       expect(data.categories).toEqual(['loyer', 'charges'])
       // irlHistorique : SCI-A seulement, SCI-B absent
       expect(data.irlHistorique.map(e => e.ref)).toEqual([A1.ref])
+      // loyerBareme (AUDIT-SUIVI-LOYERS, migration 0044) : SCI-A seulement
+      expect(data.loyerBareme.map(e => e.ref)).toEqual([A1.ref])
       // assurances bailleur : SCI-A seulement
       expect(data.assurances.map(e => e.logement)).toEqual([A1.ref])
       // compteursReleves : clé SCI-A seulement

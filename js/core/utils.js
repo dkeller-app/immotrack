@@ -254,16 +254,20 @@ export function _loyerHCAtDate(log, dateRef, irlHistorique = []) {
   // casse/espaces) reste rattachée → plus de repli rétroactif sur le loyer courant (bug user 2026-07-14).
   const _nr = s => String(s == null ? '' : s).trim().toLowerCase();
   const _wantRef = _nr(log.ref);
+  // AUDIT-SUIVI-LOYERS Q1 : le loyer d'un mois suit la DATE D'EFFET explicite (`dateEffet`), jamais
+  // l'anniversaire (`dateRevision`, resté la clé de cycle IRL). Fin de la sur-facturation rétroactive
+  // (cause Fric). Repli sur dateRevision pour les entrées legacy (avant v15.484, réparées par la migration).
+  const _eff = h => h.dateEffet || h.dateRevision;
   const hist = (irlHistorique || [])
-    .filter(h => h && !h._deleted && _nr(h.ref) === _wantRef && h.action !== 'renonciation' && h.dateRevision);
+    .filter(h => h && !h._deleted && _nr(h.ref) === _wantRef && h.action !== 'renonciation' && _eff(h));
   if (!hist.length) return Number(log.hc) || 0;
-  const sorted = hist.slice().sort((a, b) => a.dateRevision.localeCompare(b.dateRevision));
-  if (refTs < new Date(sorted[0].dateRevision + 'T00:00:00').getTime()) {
+  const sorted = hist.slice().sort((a, b) => _eff(a).localeCompare(_eff(b)));
+  if (refTs < new Date(_eff(sorted[0]) + 'T00:00:00').getTime()) {
     return Number(sorted[0].ancienHC) || Number(log.hc) || 0;
   }
   let applicable = null;
   for (let i = sorted.length - 1; i >= 0; i--) {
-    if (new Date(sorted[i].dateRevision + 'T00:00:00').getTime() <= refTs) {
+    if (new Date(_eff(sorted[i]) + 'T00:00:00').getTime() <= refTs) {
       applicable = sorted[i];
       break;
     }

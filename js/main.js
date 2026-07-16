@@ -84,6 +84,14 @@ import {
   _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _loyerSoldeAjuste, _computeLoyerCumul, _computeLoyerChargeAlloc, _computeLoyerArrears, _loyerSplitCascade, _LOYER_TOLERANCE_JOUR
 } from './core/loyer-statut.js';
 
+// AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
+import { duMois, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
+import {
+  computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
+  appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, tombstonerPeriodesDuBail,
+  _premierDuMois, _premierDuMoisSuivant
+} from './core/loyer-bareme.js';
+
 import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
 } from './core/export-comptable.js';
@@ -266,6 +274,23 @@ window._computeLoyerChargeAlloc = _computeLoyerChargeAlloc;
 window._computeLoyerArrears = _computeLoyerArrears;
 window._loyerSplitCascade = _loyerSplitCascade;
 window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
+
+// AUDIT-SUIVI-LOYERS — résolveur unique du dû + noyau barème (étapes 1-2).
+// duMois(ctx, ym) : ctx est construit par l'inline (bails du lot + DB.loyerBareme + quittances).
+// Les surfaces basculeront dessus à l'étape 4 ; ici le barème est ALIMENTÉ par les writers.
+window.duMois = duMois;
+window._baremeOfLot = (ref) => _baremeOfLot(window.DB?.loyerBareme || [], ref);
+window._debutSuivi = _debutSuivi;
+window._computeLoyerNetting = _computeLoyerNetting;
+window._baremeComputeDateEffetIRL = computeDateEffetIRL;
+window._baremeClampDateEffet = clampDateEffet;
+window._baremePeriodeInitialeBail = periodeInitialeBail;
+window._baremeAppliquerNouvellePeriode = appliquerNouvellePeriode;
+window._baremeSynchroniserPeriodeBail = synchroniserPeriodeBail;
+window._baremeCloturer = cloturerBareme;
+window._baremeTombstonerBail = tombstonerPeriodesDuBail;
+window._premierDuMois = _premierDuMois;
+window._premierDuMoisSuivant = _premierDuMoisSuivant;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;
