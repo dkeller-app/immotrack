@@ -86,6 +86,7 @@ import {
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
 import { duMois, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
+import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, tombstonerPeriodesDuBail,
@@ -291,6 +292,7 @@ window._baremeCloturer = cloturerBareme;
 window._baremeTombstonerBail = tombstonerPeriodesDuBail;
 window._premierDuMois = _premierDuMois;
 window._premierDuMoisSuivant = _premierDuMoisSuivant;
+window.reconstruireBaremeLot = reconstruireBaremeLot;   // étape 3 — migration de l'existant
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;
