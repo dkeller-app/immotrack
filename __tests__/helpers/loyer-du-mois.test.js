@@ -12,9 +12,10 @@ import { _computeLoyerArrears } from '../../js/core/loyer-statut.js';
 // Chaque CAS reprend le harness de repro `_import/repro-audit-suivi-loyers.mjs`
 // (audit docs/subjects/AUDIT-SUIVI-LOYERS-2026-07-14.md) mais encode le comportement
 // ATTENDU (décisions actées 14/07), pas le comportement bugué reproduit :
-//   - le dû d'un mois QUITTANCÉ = la quittance émise, figée (B3) ;
-//   - sinon le barème historisé (périodes datées — une révision IRL porte une date
-//     d'effet EXPLICITE, jamais rétroactive : Q1) ;
+//   - le dû vient UNIQUEMENT du bail/barème historisé (décision user 16/07 : 2 sources =
+//     bail + import ; la QUITTANCE n'entre JAMAIS dans le calcul du dû — c'est un document
+//     imprimé, pas une source). Périodes datées : une révision IRL porte une date d'effet
+//     EXPLICITE, jamais rétroactive (Q1) ;
 //   - occupation par baux avec finEffective prioritaire, tacite reconduction (C7),
 //     chevauchements tronqués (C4/CAS 5), tombstones filtrés (C10), prorata jours ;
 //   - netting avance↔retard : une avance couvre les mois suivants AVANT de laisser
@@ -67,44 +68,37 @@ describe('CAS 1 — IRL validée en retard : la date d\'effet EXPLICITE du barè
   });
 });
 
-describe('B3 — le dû d\'un mois QUITTANCÉ = la quittance émise, figée', () => {
-  it('quittance mars à 550 + barème (cassé) disant 555.15 depuis mars → mars = 550, source quittance', () => {
+describe('DÛ = BAIL/BARÈME UNIQUEMENT — la quittance n\'entre JAMAIS dans le calcul (décision user 16/07 : 2 sources = bail + import)', () => {
+  it('une quittance émise à un montant DIFFÉRENT du barème est IGNORÉE : le dû suit le barème', () => {
     const ctx = ctxFric({
-      bareme: [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 505.15, ch: 50 }], // données cassées : rétroactif
-      quittances: [{ ym: '2026-03', hc: 500, ch: 50 }]
+      bareme: [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 500, ch: 50 }],
+      quittances: [{ ym: '2026-03', hc: 600, ch: 0 }]   // quittance fausse (600) : NE DOIT PAS influencer le dû
     });
     const d = duMois(ctx, '2026-03');
-    expect(d.hc).toBe(500);
-    expect(d.ch).toBe(50);
-    expect(d.total).toBe(550);
-    expect(d.source).toBe('quittance');
-    // le mois suivant, non quittancé, suit le barème (cassé → 555.15) : la quittance
-    // est la SEULE mémoire tant que la migration (étape 3) n'a pas reconstruit le barème
-    expect(duMois(ctx, '2026-04').total).toBe(555.15);
+    expect(d.total).toBe(550);          // le barème, jamais la quittance
+    expect(d.source).toBe('bareme');
   });
-  it('quittance tombstonée (_deleted) ignorée', () => {
-    const ctx = ctxFric({ quittances: [{ ym: '2026-03', hc: 111, ch: 11, _deleted: true }] });
-    expect(duMois(ctx, '2026-03').total).toBe(550);
-  });
-  it('deux quittances vivantes sur le même mois → la DERNIÈRE de la collection gagne (append-only : la plus récente)', () => {
-    const ctx = ctxFric({ quittances: [{ ym: '2026-03', hc: 500, ch: 50 }, { ym: '2026-03', hc: 505, ch: 50 }] });
-    expect(duMois(ctx, '2026-03').total).toBe(555);
+  it('des quittances fausses ne font naître AUCUNE avance/retard : dû mars = dû avril si même barème', () => {
+    // cas Fric réel : loyer 655.05, quittances pourries à 600 → le dû reste 655.05 partout.
+    const ctx = ctxFric({
+      bareme: [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 655.05, ch: 0 }],
+      quittances: [{ ym: '2026-03', hc: 600, ch: 0 }, { ym: '2026-04', hc: 600, ch: 0 }]
+    });
+    expect(duMois(ctx, '2026-03').total).toBe(655.05);
+    expect(duMois(ctx, '2026-04').total).toBe(655.05);
   });
 });
 
-describe('CAS 2 — barème absent (historique effacé) : repli bail courant, quittances protègent le passé', () => {
+describe('CAS 2 — barème absent (historique effacé) : repli bail courant, quittances SANS effet', () => {
   const ctx = ctxFric({
     bareme: [],
     quittances: [{ ym: '2026-01', hc: 500, ch: 50 }, { ym: '2026-02', hc: 500, ch: 50 }]
   });
-  it('mois quittancés : figés à 550', () => {
-    expect(duMois(ctx, '2026-01').total).toBe(550);
-    expect(duMois(ctx, '2026-02').source).toBe('quittance');
-  });
-  it('mois non quittancé : repli hc/ch du bail (555.15), source "bail"', () => {
-    const d = duMois(ctx, '2026-03');
-    expect(d.total).toBe(555.15);
-    expect(d.source).toBe('bail');
+  it('tous les mois : repli hc/ch du bail (555.15), les quittances n\'y changent rien', () => {
+    expect(duMois(ctx, '2026-01').total).toBe(555.15);
+    expect(duMois(ctx, '2026-01').source).toBe('bail');
+    expect(duMois(ctx, '2026-03').total).toBe(555.15);
+    expect(duMois(ctx, '2026-03').source).toBe('bail');
   });
 });
 
@@ -398,15 +392,15 @@ describe('duMoisFromRaw — assemblage du ctx depuis les collections brutes', ()
     expect(duMoisFromRaw('F-001', '2026-06', raw).total).toBe(550);
     expect(duMoisFromRaw('F-001', '2026-07', raw).total).toBe(555.15);
   });
-  it('B3 : un mois quittancé lit la quittance émise, figée (prioritaire sur le barème)', () => {
+  it('une quittance fausse est IGNORÉE : le dû suit le barème (2 sources = bail + import, pas la quittance)', () => {
     const raw = {
-      currentBail: { debut: '2024-03-01', fin: null, hc: 505.15, ch: 50 },
+      currentBail: { debut: '2024-03-01', fin: null, hc: 655.05, ch: 0 },
       bauxHistorique: [],
-      bareme: [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 505.15, ch: 50 }], // cassé (rétroactif)
-      quittances: [{ ym: '2026-03', hc: 500, ch: 50 }]
+      bareme: [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 655.05, ch: 0 }],
+      quittances: [{ ym: '2026-03', hc: 600, ch: 0 }]     // quittance pourrie : sans effet
     };
-    expect(duMoisFromRaw('F-001', '2026-03', raw).total).toBe(550);        // quittance figée
-    expect(duMoisFromRaw('F-001', '2026-03', raw).source).toBe('quittance');
+    expect(duMoisFromRaw('F-001', '2026-03', raw).total).toBe(655.05);     // le barème, jamais la quittance
+    expect(duMoisFromRaw('F-001', '2026-03', raw).source).toBe('bareme');
   });
   it('C7 tacite reconduction : bail COURANT à fin contractuelle passée reste dû (pas de finEffective)', () => {
     const raw = {

@@ -90,28 +90,21 @@ function _occupation(bails) {
 }
 
 /**
- * LE dû d'un mois pour un lot. Politiques : quittance figée > barème daté > repli bail.
+ * LE dû d'un mois pour un lot. DÉCISION USER 16/07 : DEUX sources seulement — le bail (→ le dû,
+ * via le barème = le loyer du bail dans le temps) et l'import (→ le payé, ailleurs). La QUITTANCE
+ * n'entre JAMAIS dans le dû : c'est un document imprimé, pas une source (des quittances fausses ne
+ * doivent plus faire naître d'avance/retard fantômes). Politiques : barème daté > repli bail.
  * @param {Object} ctx { ref, bails:[{debut,fin,finEffective,archive,hc,ch,_deleted}],
- *                       bareme:[{ref,debut,fin,hc,ch,_deleted}], quittances:[{ym,hc,ch,_deleted}] }
+ *                       bareme:[{ref,debut,fin,hc,ch,_deleted}] }
  * @param {string} ym 'YYYY-MM'
- * @returns {{hc:number, ch:number, total:number, source:'quittance'|'bareme'|'bail'|'vacance'}}
+ * @returns {{hc:number, ch:number, total:number, source:'bareme'|'bail'|'vacance'}}
  */
 export function duMois(ctx, ym) {
   const empty = { hc: 0, ch: 0, total: 0, source: 'vacance' };
   if (!ctx || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return empty;
   ym = String(ym);
 
-  // 1. Le mois est quittancé → le document émis fait foi, définitivement (B3).
-  // Plusieurs quittances vivantes sur le même mois : la DERNIÈRE de la collection gagne
-  // (collections append-only → la plus récemment émise).
-  let q = null;
-  for (const x of ctx.quittances || []) { if (_isAlive(x) && String(x.ym) === ym) q = x; }
-  if (q) {
-    const hc = _r2(Number(q.hc) || 0), ch = _r2(Number(q.ch) || 0);
-    return { hc, ch, total: _r2(hc + ch), source: 'quittance' };
-  }
-
-  // 2. Occupation × barème, prorata jours.
+  // Occupation × barème, prorata jours. (La quittance ne participe PAS — retirée le 16/07.)
   const y = parseInt(ym.slice(0, 4), 10);
   const m = parseInt(ym.slice(5, 7), 10);
   const first = ym + '-01';
@@ -169,7 +162,7 @@ export function duMois(ctx, ym) {
  * @param {string} ref ref du lot
  * @param {string} ym 'YYYY-MM'
  * @param {Object} raw { currentBail:DB.baux[ref]|null, bauxHistorique:DB.baux_historique,
- *                       bareme:DB.loyerBareme, quittances:[{ym,hc,ch,_deleted}] du lot }
+ *                       bareme:DB.loyerBareme } — la quittance n'entre PAS dans le dû (16/07).
  */
 export function duMoisFromRaw(ref, ym, raw) {
   raw = raw || {};
@@ -185,7 +178,7 @@ export function duMoisFromRaw(ref, ym, raw) {
     if (!b || b._deleted || !b.debut || _nr(b.ref) !== want) continue;
     bails.push({ debut: b.debut, fin: b.fin || null, finEffective: b.finEffective || null, archive: true, hc: Number(b.hc) || 0, ch: Number(b.ch) || 0 });
   }
-  return duMois({ ref, bails, bareme: raw.bareme || [], quittances: raw.quittances || [] }, ym);
+  return duMois({ ref, bails, bareme: raw.bareme || [] }, ym);
 }
 
 /**
