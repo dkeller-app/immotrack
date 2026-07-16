@@ -1,4 +1,8 @@
-import { _computeLoyerChargeAlloc, _computeLoyerArrears, _LOYER_TOLERANCE_JOUR } from './loyer-statut.js';
+import { _computeLoyerChargeAlloc, _LOYER_TOLERANCE_JOUR } from './loyer-statut.js';
+// AUDIT-SUIVI-LOYERS étape 4 — le RETARD affiché passe au netting avance↔retard (une avance
+// couvre les mois suivants avant de laisser naître un retard) : fin des « retard ET avance
+// simultanés » (C2, scénario user « 2 loyers payés en janvier, rien en février »).
+import { _computeLoyerNetting } from './loyer-du-mois.js';
 
 /**
  * core/finances-monthly.js — Sous-P&L mensuel (B4).
@@ -129,7 +133,7 @@ export function _computeFinancesMonthly(input) {
     // Retard orange : RÉSIDU du mois (manque encore dû attribué à son mois d'origine, net des
     // rattrapages) — colonne P&L par mois, on ne reporte pas (user 2026-07-13). L'annuel = SOMME
     // des mois (= dette ouverte de fin de période, puisque le résidu somme à l'arriéré final).
-    _computeLoyerArrears(lotMonths, graceLast).retardMois.forEach((rm, idx) => {
+    _computeLoyerNetting(lotMonths, graceLast).retardMois.forEach((rm, idx) => {
       const b = buckets[order[idx]];
       b.loyerRetard += rm.loyer; b.chargeRetard += rm.charge;
     });

@@ -161,6 +161,34 @@ export function duMois(ctx, ym) {
 }
 
 /**
+ * AUDIT-SUIVI-LOYERS étape 4 — assemble le ctx duMois depuis les collections BRUTES de l'app,
+ * puis délègue à duMois(). POINT D'ENTRÉE UNIQUE des 5 surfaces (via l'inline _duMoisLot).
+ * La forme des baux est le point sensible : un bail COURANT à fin contractuelle passée reste
+ * OUVERT (tacite reconduction, C7) — seule finEffective le clôture ; un bail archivé se clôt sur
+ * finEffective|fin. On préserve donc la distinction (≠ _getAllBailsForLog qui la collapse).
+ * @param {string} ref ref du lot
+ * @param {string} ym 'YYYY-MM'
+ * @param {Object} raw { currentBail:DB.baux[ref]|null, bauxHistorique:DB.baux_historique,
+ *                       bareme:DB.loyerBareme, quittances:[{ym,hc,ch,_deleted}] du lot }
+ */
+export function duMoisFromRaw(ref, ym, raw) {
+  raw = raw || {};
+  const want = _nr(ref);
+  const bails = [];
+  const cur = raw.currentBail;
+  if (cur && !cur._deleted && cur.debut) {
+    // Bail COURANT : fin contractuelle IGNORÉE pour le dû (tacite reconduction) — on ne passe
+    // que finEffective à duMois, jamais `fin`, et archive:false.
+    bails.push({ debut: cur.debut, finEffective: cur.finEffective || null, archive: false, hc: Number(cur.hc) || 0, ch: Number(cur.ch) || 0 });
+  }
+  for (const b of (raw.bauxHistorique || [])) {
+    if (!b || b._deleted || !b.debut || _nr(b.ref) !== want) continue;
+    bails.push({ debut: b.debut, fin: b.fin || null, finEffective: b.finEffective || null, archive: true, hc: Number(b.hc) || 0, ch: Number(b.ch) || 0 });
+  }
+  return duMois({ ref, bails, bareme: raw.bareme || [], quittances: raw.quittances || [] }, ym);
+}
+
+/**
  * Départ du suivi d'un lot (B2, décision user) : 1er versement du lot, avec le rattrapage
  * d'entrée réintégré (C6) — les mois entre le début du bail et le 1er versement sont DUS
  * (pas une avance) ; le bornage ne s'applique qu'aux MILLÉSIMES antérieurs au suivi

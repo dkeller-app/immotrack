@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   duMois,
+  duMoisFromRaw,
   _baremeOfLot,
   _debutSuivi,
   _computeLoyerNetting
@@ -375,5 +376,82 @@ describe('_computeLoyerArrears (legacy) — comportement PRÉSERVÉ après facto
     expect(r.loyerArrear).toBe(500);
     expect(r.chargeArrear).toBe(50);
     expect(r.retardMois[1]).toEqual({ loyer: 500, charge: 50 });
+  });
+});
+
+// AUDIT-SUIVI-LOYERS étape 4 (2026-07-16) — duMoisFromRaw : assemble le ctx duMois depuis les
+// collections BRUTES de l'app (DB.baux[ref] courant + DB.baux_historique + DB.loyerBareme +
+// quittances déjà converties en {ym,hc,ch}). C'est le point d'entrée unique des 5 surfaces.
+// Le point RISQUÉ = la forme des baux : un bail COURANT à fin contractuelle passée reste ouvert
+// (tacite reconduction C7) ; seule finEffective le clôture ; un bail archivé se clôt sur fin|finEffective.
+describe('duMoisFromRaw — assemblage du ctx depuis les collections brutes', () => {
+  it('bail courant + révision IRL dans le barème → dû lu depuis le barème', () => {
+    const raw = {
+      currentBail: { debut: '2024-03-01', fin: null, hc: 505.15, ch: 50 },
+      bauxHistorique: [],
+      bareme: [
+        { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 50 },
+        { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 505.15, ch: 50 }
+      ],
+      quittances: []
+    };
+    expect(duMoisFromRaw('F-001', '2026-06', raw).total).toBe(550);
+    expect(duMoisFromRaw('F-001', '2026-07', raw).total).toBe(555.15);
+  });
+  it('B3 : un mois quittancé lit la quittance émise, figée (prioritaire sur le barème)', () => {
+    const raw = {
+      currentBail: { debut: '2024-03-01', fin: null, hc: 505.15, ch: 50 },
+      bauxHistorique: [],
+      bareme: [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 505.15, ch: 50 }], // cassé (rétroactif)
+      quittances: [{ ym: '2026-03', hc: 500, ch: 50 }]
+    };
+    expect(duMoisFromRaw('F-001', '2026-03', raw).total).toBe(550);        // quittance figée
+    expect(duMoisFromRaw('F-001', '2026-03', raw).source).toBe('quittance');
+  });
+  it('C7 tacite reconduction : bail COURANT à fin contractuelle passée reste dû (pas de finEffective)', () => {
+    const raw = {
+      currentBail: { debut: '2023-05-01', fin: '2025-04-30', hc: 500, ch: 50 }, // fin papier dépassée
+      bauxHistorique: [], bareme: [], quittances: []
+    };
+    expect(duMoisFromRaw('L-1', '2026-03', raw).total).toBe(550);
+  });
+  it('bail courant CLÔTURÉ (finEffective) → prorata le mois de sortie, 0 après', () => {
+    const raw = {
+      currentBail: { debut: '2024-01-01', fin: null, finEffective: '2026-03-15', hc: 500, ch: 50 },
+      bauxHistorique: [], bareme: [], quittances: []
+    };
+    expect(duMoisFromRaw('L-1', '2026-03', raw).hc).toBe(241.94);          // 500 × 15/31
+    expect(duMoisFromRaw('L-1', '2026-04', raw).total).toBe(0);
+  });
+  it('re-bail : ancien bail ARCHIVÉ clôturé + nouveau bail courant, JAMAIS de dû doublé', () => {
+    const raw = {
+      currentBail: { debut: '2026-03-01', fin: null, hc: 520, ch: 50 },
+      bauxHistorique: [{ ref: 'F-002', debut: '2023-05-01', fin: '2026-01-31', hc: 480, ch: 45 }],
+      bareme: [], quittances: []
+    };
+    expect(duMoisFromRaw('F-002', '2026-01', raw).total).toBe(525);        // ancien (480+45)
+    expect(duMoisFromRaw('F-002', '2026-02', raw).total).toBe(0);          // vacance
+    expect(duMoisFromRaw('F-002', '2026-03', raw).total).toBe(570);        // nouveau (520+50)
+  });
+  it('bail courant tombstoné (_deleted) ignoré ; l\'historique porte l\'occupation', () => {
+    const raw = {
+      currentBail: { ref: 'L-1', _deleted: true },                          // clôturé → tombstone
+      bauxHistorique: [{ ref: 'L-1', debut: '2024-01-01', fin: '2026-05-31', hc: 500, ch: 50 }],
+      bareme: [], quittances: []
+    };
+    expect(duMoisFromRaw('L-1', '2026-03', raw).total).toBe(550);
+    expect(duMoisFromRaw('L-1', '2026-06', raw).total).toBe(0);
+  });
+  it('ref tolérante sur les baux_historique (casse/espaces)', () => {
+    const raw = {
+      currentBail: null,
+      bauxHistorique: [{ ref: ' f-002 ', debut: '2023-05-01', fin: '2026-01-31', hc: 480, ch: 45 }],
+      bareme: [], quittances: []
+    };
+    expect(duMoisFromRaw('F-002', '2026-01', raw).total).toBe(525);
+  });
+  it('entrées vides → vacance', () => {
+    expect(duMoisFromRaw('X', '2026-03', {}).total).toBe(0);
+    expect(duMoisFromRaw('X', '2026-03', { currentBail: null, bauxHistorique: [], bareme: [], quittances: [] }).source).toBe('vacance');
   });
 });

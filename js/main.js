@@ -85,7 +85,7 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
@@ -280,6 +280,7 @@ window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 // duMois(ctx, ym) : ctx est construit par l'inline (bails du lot + DB.loyerBareme + quittances).
 // Les surfaces basculeront dessus à l'étape 4 ; ici le barème est ALIMENTÉ par les writers.
 window.duMois = duMois;
+window.duMoisFromRaw = duMoisFromRaw;
 window._baremeOfLot = (ref) => _baremeOfLot(window.DB?.loyerBareme || [], ref);
 window._debutSuivi = _debutSuivi;
 window._computeLoyerNetting = _computeLoyerNetting;
