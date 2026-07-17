@@ -162,7 +162,8 @@ import {
   _nouveauCandidat, _migrerDocsCandidatVersBail, _purgeCandidatsRefuses,
   buildComplementShareMessage, shouldAutoPull, countUnreadCandidats, nouveauDossierToast,
   majDossierToast, repullDecision, loyerAttenduForLog,
-  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie
+  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie,
+  candidatLinkExpire, partitionCandidatLinks
 } from './core/candidature.js';
 
 // LOG-CANDIDATS (lien en ligne) — client relais Cloudflare
@@ -407,6 +408,8 @@ window.nouveauDossierToast = nouveauDossierToast;
 window.majDossierToast = majDossierToast;
 window.repullDecision = repullDecision;
 window.loyerAttenduForLog = loyerAttenduForLog;
+window.candidatLinkExpire = candidatLinkExpire;
+window.partitionCandidatLinks = partitionCandidatLinks;
 
 // LOG-CANDIDATS (lien en ligne) — client relais
 window._relayNormalizeBase = normalizeBase;

@@ -190,6 +190,48 @@ export function shouldAutoPull(lastPullTs, now, intervalMs = 180000, hasActiveLi
   return (now - lastPullTs) >= intervalMs;
 }
 
+/**
+ * Grâce de rapatriement après expiresAt, alignée sur le TTL de l'ownerToken côté
+ * relais (CANDIDATURE_GRACE_SECONDS = 7 j) : un dossier déposé in extremis reste
+ * rapatriable pendant cette fenêtre.
+ */
+export const CANDIDATURE_PULL_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * true si le lien candidat est définitivement mort côté relais : expiresAt + grâce
+ * dépassés. Au-delà, l'ownerToken HMAC est échu et le relais répond 401 (jamais
+ * 404/410) à vie → continuer à tirer ne fait que du bruit console + réseau.
+ * Sans expiresAt lisible (lien legacy) → false, on continue de tirer comme avant.
+ */
+export function candidatLinkExpire(link, nowMs) {
+  if (!link || !link.expiresAt) return false;
+  const t = Date.parse(link.expiresAt);
+  if (!Number.isFinite(t)) return false;
+  return nowMs >= t + CANDIDATURE_PULL_GRACE_MS;
+}
+
+/**
+ * Partition des liens candidats pour le pull relais.
+ * - pullable      : à tirer sur le réseau ('active'/'collected', non archivés, non expirés)
+ * - expiredActive : 'active' mais mort (candidatLinkExpire) → à clore localement SANS réseau,
+ *                   comme le ferait la réponse 404/410 du relais.
+ * Les 'collected' expirés ne sont ni tirés ni touchés (déjà clos). Pur — l'appelant
+ * applique les effets (statut, _stamp, saveDB).
+ */
+export function partitionCandidatLinks(links, nowMs) {
+  const pullable = [], expiredActive = [];
+  for (const l of (Array.isArray(links) ? links : [])) {
+    if (!l || l._archived) continue;
+    if (l.status !== 'active' && l.status !== 'collected') continue;
+    if (candidatLinkExpire(l, nowMs)) {
+      if (l.status === 'active') expiredActive.push(l);
+      continue;
+    }
+    pullable.push(l);
+  }
+  return { pullable, expiredActive };
+}
+
 /** Nombre de candidatures non lues (vu === false), hors supprimées/archivées. */
 export function countUnreadCandidats(candidats) {
   if (!Array.isArray(candidats)) return 0;

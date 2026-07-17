@@ -6,7 +6,8 @@ import {
   buildComplementShareMessage, shouldAutoPull,
   countUnreadCandidats, nouveauDossierToast,
   majDossierToast, repullDecision, loyerAttenduForLog,
-  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie
+  PIECES_REQUISES, piecesScoreFromCategories, candHasGarantie,
+  candidatLinkExpire, partitionCandidatLinks, CANDIDATURE_PULL_GRACE_MS
 } from '../../js/core/candidature.js';
 
 describe('_calculConfiance', () => {
@@ -375,5 +376,71 @@ describe('loyerAttenduForLog', () => {
   it('rien → manquant, loyer 0', () => {
     expect(loyerAttenduForLog({})).toEqual({ loyer: 0, source: 'manquant', locataire: null });
     expect(loyerAttenduForLog({ logHC: 0, baux: [{hc:0}], linkLoyer: 0 })).toEqual({ loyer: 0, source: 'manquant', locataire: null });
+  });
+});
+
+describe('candidatLinkExpire', () => {
+  const NOW = Date.parse('2026-07-17T12:00:00Z');
+  const J = 24 * 60 * 60 * 1000;
+  it('grâce = 7 jours, alignée sur le TTL du token relais (CANDIDATURE_GRACE_SECONDS)', () => {
+    expect(CANDIDATURE_PULL_GRACE_MS).toBe(7 * J);
+  });
+  it('false sans expiresAt (lien legacy) ou lien null', () => {
+    expect(candidatLinkExpire(null, NOW)).toBe(false);
+    expect(candidatLinkExpire({}, NOW)).toBe(false);
+    expect(candidatLinkExpire({ expiresAt: '' }, NOW)).toBe(false);
+  });
+  it('false si expiresAt passé mais grâce de 7 j pas encore écoulée (rapatriement tardif possible)', () => {
+    const expiresAt = new Date(NOW - 2 * J).toISOString();
+    expect(candidatLinkExpire({ expiresAt }, NOW)).toBe(false);
+  });
+  it('true si expiresAt + 7 j de grâce dépassés (le relais répondra 401 à vie)', () => {
+    const expiresAt = new Date(NOW - 8 * J).toISOString();
+    expect(candidatLinkExpire({ expiresAt }, NOW)).toBe(true);
+  });
+  it('frontière : expire exactement à expiresAt + 7 j', () => {
+    const expiresAt = new Date(NOW - 7 * J).toISOString();
+    expect(candidatLinkExpire({ expiresAt }, NOW)).toBe(true);
+    expect(candidatLinkExpire({ expiresAt }, NOW - 1)).toBe(false);
+  });
+  it('false si expiresAt illisible (comportement inchangé, on continue de tirer)', () => {
+    expect(candidatLinkExpire({ expiresAt: 'n/a' }, NOW)).toBe(false);
+  });
+});
+
+describe('partitionCandidatLinks', () => {
+  const NOW = Date.parse('2026-07-17T12:00:00Z');
+  const J = 24 * 60 * 60 * 1000;
+  const vif = new Date(NOW + 3 * J).toISOString();      // encore valable
+  const mort = new Date(NOW - 30 * J).toISOString();     // expiré grâce comprise
+  it('active/collected non expirés → pullable', () => {
+    const a = { id: 'a', status: 'active', expiresAt: vif };
+    const c = { id: 'c', status: 'collected', expiresAt: vif };
+    expect(partitionCandidatLinks([a, c], NOW)).toEqual({ pullable: [a, c], expiredActive: [] });
+  });
+  it('active expiré → expiredActive (à clore localement, aucun réseau)', () => {
+    const z = { id: 'z', status: 'active', expiresAt: mort };
+    expect(partitionCandidatLinks([z], NOW)).toEqual({ pullable: [], expiredActive: [z] });
+  });
+  it('collected expiré → ni pullable ni expiredActive (déjà clos, plus rien à faire)', () => {
+    const z = { id: 'z', status: 'collected', expiresAt: mort };
+    expect(partitionCandidatLinks([z], NOW)).toEqual({ pullable: [], expiredActive: [] });
+  });
+  it('lien sans expiresAt (legacy) → pullable (comportement inchangé)', () => {
+    const l = { id: 'l', status: 'active' };
+    expect(partitionCandidatLinks([l], NOW).pullable).toEqual([l]);
+  });
+  it('archivés, done, revoked, null → ignorés', () => {
+    const links = [
+      null,
+      { id: 'x', status: 'active', expiresAt: vif, _archived: true },
+      { id: 'd', status: 'done', expiresAt: vif },
+      { id: 'r', status: 'revoked', expiresAt: vif }
+    ];
+    expect(partitionCandidatLinks(links, NOW)).toEqual({ pullable: [], expiredActive: [] });
+  });
+  it('entrée non-tableau → vide', () => {
+    expect(partitionCandidatLinks(null, NOW)).toEqual({ pullable: [], expiredActive: [] });
+    expect(partitionCandidatLinks(undefined, NOW)).toEqual({ pullable: [], expiredActive: [] });
   });
 });
