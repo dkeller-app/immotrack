@@ -39279,15 +39279,202 @@ function _bailDocsEnsureCSS() {
     .bdocs-foot .fill{flex:1;min-width:120px;font-size:11.5px;color:var(--t3)}
     .bdocs-tip{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:2px 0 4px;padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);font-size:12px;color:var(--t2)}
     .bdocs-tip .fill{flex:1;min-width:140px}
+    .bdocs-drop{border:2px dashed var(--bor);border-radius:12px;padding:20px 16px;text-align:center;background:var(--sur2);color:var(--t3);cursor:pointer}
+    .bdocs-drop.drag{border-color:var(--acc);color:var(--acc);background:var(--sur3)}
+    .bdocs-drop .big{font-size:24px}
+    .bdocs-drop b{color:var(--t2)}
+    .bdocs-drop .fn{margin-top:8px;font-size:12px;color:var(--acc);font-weight:600;word-break:break-all}
+    .bdocs-covers{margin-top:16px}
+    .bdocs-covers .cl{font-size:12px;font-weight:700;color:var(--t1);margin-bottom:6px}
+    .bdocs-cov{display:flex;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--bor);border-radius:10px;margin-top:7px;cursor:pointer}
+    .bdocs-cov input{width:16px;height:16px;accent-color:var(--acc);flex:0 0 auto}
+    .bdocs-cov .cn{font-weight:600;color:var(--t1);font-size:13px;flex:1;min-width:0}
+    .bdocs-cov .cw{font-size:11px;color:var(--t3)}
+    .bdocs-cov.dis{opacity:.55;cursor:default}
+    .bdocs-legal{background:var(--sur3);border-radius:9px;padding:10px 12px;font-size:12px;color:var(--t3);margin-top:14px}
     @media(max-width:520px){.bdocs-foot{flex-direction:column;align-items:stretch}.bdocs-foot .btn{width:100%;text-align:center}.bdocs-tip .btn{width:100%;text-align:center}}
   `;
   document.head.appendChild(s);
 }
 
-/** STUB — la modale « Joindre » (multi-couverture d'un même PDF) est livrée en Tâche 6.
- *  Ici : simple no-op avec toast informatif, pour ne pas bloquer le rendu du panneau. */
+/** SC1 Tâche 6 — modale « Joindre » multi-couverture.
+ *  Un même PDF (dossier de diagnostics) peut couvrir plusieurs pièces obligatoires :
+ *  on tague le doc créé avec requirementKeys[] (les cases cochées). Réutilise la chaîne
+ *  de stockage UNIQUE (_attachmentSaveForEntity → IDB + DB.documents + Drive background).
+ *  key === '' (ou null) ⇒ « dossier complet » : toutes les pièces DDT applicables
+ *  pré-cochées, rattachement au logement. Sinon PIECES_META[key].level décide
+ *  logement (défaut) vs immeuble (règlement copro). */
+let _bdocsJoinState = null; // { ref, key, level, file, fallbackKeys } — contexte modale ouverte
+
 function _bailDocsJoin(ref, key) {
-  if (typeof showToast === 'function') showToast('Ajout de pièce — disponible très bientôt', 'info', 2200);
+  if (typeof window === 'undefined' || !window.BailRequiredDocs) return;
+  _bailDocsEnsureCSS();
+  const META = window.BailRequiredDocs.PIECES_META || {};
+  const pieces = _bailRequiredDocsFor(ref);
+  const dossier = (key === '' || key == null);
+  const meta = dossier ? null : META[key];
+  if (!dossier && !meta) { if (typeof showToast === 'function') showToast('Pièce inconnue', 'err'); return; }
+  const piece = dossier ? null : pieces.find(p => p.key === key);
+  const isDiag = dossier || (meta && meta.kind === 'diagnostic');
+  const level = (!dossier && meta && meta.level === 'immeuble') ? 'immeuble' : 'logement';
+  // Candidates à la couverture = pièces DDT (diagnostics) applicables pour ce bail.
+  const diagPieces = pieces.filter(p => p.kind === 'diagnostic' && p.state !== 'na');
+
+  _bdocsJoinState = { ref: String(ref), key: dossier ? '' : key, level, file: null, fallbackKeys: dossier ? [] : [key] };
+
+  let title, coversHtml = '', legalHtml = '';
+  if (dossier) {
+    title = 'Joindre le dossier de diagnostics';
+    diagPieces.forEach(p => { coversHtml += _bdocsCoverRow(p, true, p.state === 'ok'); });
+    legalHtml = '📄 Un seul PDF peut contenir plusieurs diagnostics. Décoche ce qu’il ne contient pas.';
+  } else if (meta.kind === 'diagnostic') {
+    title = (piece && piece.state === 'ok' ? 'Pièce jointe — ' : 'Joindre — ') + meta.label;
+    diagPieces.forEach(p => {
+      const already = p.state === 'ok';
+      coversHtml += _bdocsCoverRow(p, p.key === key || already, already);
+    });
+    legalHtml = '📄 ' + escHtml(meta.label) + ' — obligatoire (' + escHtml(meta.legal) + ').';
+  } else {
+    title = (piece && piece.state === 'ok' ? 'Pièce jointe — ' : 'Joindre — ') + meta.label;
+    legalHtml = '📄 ' + escHtml(meta.label) + ' — ' + escHtml(meta.legal) + '.';
+  }
+  const coversBlock = coversHtml
+    ? `<div class="bdocs-covers"><div class="cl">Ce document couvre :</div>${coversHtml}</div>` : '';
+  const refJs = String(ref).replace(/'/g, "\\'");
+  const keyJs = String(dossier ? '' : key).replace(/'/g, "\\'");
+  const naBtn = (!dossier && meta.kind === 'diagnostic')
+    ? `<button class="btn bs bb" onclick="_bdocsJoinMarkNA('${refJs}','${keyJs}')" title="Marquer ce diagnostic comme non applicable à ce logement">Je n’ai pas ce diagnostic</button>` : '';
+
+  const html = `
+    <div class="ov" id="ov-bdocs-join">
+      <div class="modal" style="max-width:480px">
+        <div class="m-head"><h3>${escHtml(title)}</h3>
+          <button class="m-close" onclick="_bdocsJoinClose()">✕</button></div>
+        <div class="m-body">
+          <input type="file" id="bdocs-join-file" accept="application/pdf" style="display:none" onchange="_bdocsJoinFilePicked(this)">
+          <div class="bdocs-drop" onclick="el('bdocs-join-file').click()"
+               ondragover="event.preventDefault();this.classList.add('drag')"
+               ondragleave="this.classList.remove('drag')" ondrop="_bdocsJoinDrop(event)">
+            <div class="big">📎</div>
+            <div style="margin-top:6px"><b>Glisse le PDF ici</b> ou <span style="color:var(--acc);font-weight:600">parcourir</span></div>
+            <div style="font-size:11.5px;margin-top:4px">PDF · 10 Mo max · stocké sur ${level === 'immeuble' ? 'l’immeuble' : 'le logement'}</div>
+            <div class="fn" id="bdocs-join-fname"></div>
+          </div>
+          ${coversBlock}
+          <div class="bdocs-legal">${legalHtml}</div>
+        </div>
+        <div class="m-foot">
+          ${naBtn}
+          <button class="btn bs" onclick="_bdocsJoinClose()">Annuler</button>
+          <button class="btn bp" onclick="_bdocsJoinConfirm()">✓ Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  const old = document.getElementById('ov-bdocs-join'); if (old) old.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
+  openM('ov-bdocs-join');
+}
+
+/** Ligne de couverture (case à cocher) d'une pièce DDT dans la modale Joindre. */
+function _bdocsCoverRow(p, checked, disabled) {
+  return `<label class="bdocs-cov${disabled ? ' dis' : ''}">`
+    + `<input type="checkbox" class="bdocs-cover-cb" data-key="${escHtml(p.key)}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
+    + `<span class="cn">${escHtml(p.label)}</span><span class="cw">${escHtml(p.why || '')}</span></label>`;
+}
+
+function _bdocsJoinRenderFileName(f) {
+  const box = document.getElementById('bdocs-join-fname');
+  if (box) box.textContent = f ? ('📄 ' + f.name) : '';
+}
+function _bdocsJoinFilePicked(input) {
+  const f = input.files && input.files[0];
+  if (_bdocsJoinState) _bdocsJoinState.file = f || null;
+  _bdocsJoinRenderFileName(f);
+}
+function _bdocsJoinDrop(ev) {
+  ev.preventDefault();
+  if (ev.currentTarget && ev.currentTarget.classList) ev.currentTarget.classList.remove('drag');
+  const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+  if (f && f.type && f.type !== 'application/pdf') { if (typeof showToast === 'function') showToast('PDF uniquement', 'err'); return; }
+  if (_bdocsJoinState) _bdocsJoinState.file = f || null;
+  _bdocsJoinRenderFileName(f);
+}
+function _bdocsJoinClose() {
+  closeM('ov-bdocs-join');
+  const ov = document.getElementById('ov-bdocs-join'); if (ov) ov.remove();
+  _bdocsJoinState = null;
+}
+
+/** Immeuble du logement — même résolution que _bailRequiredDocsFor (match nom → DB.entites). */
+function _bdocsImmForLog(log) {
+  if (!log || !log.imm) return null;
+  for (const e of (DB.entites || [])) {
+    if (!e || !Array.isArray(e.immeubles)) continue;
+    const f = e.immeubles.find(i => i && i.nom === log.imm && !i._deleted);
+    if (f) return f;
+  }
+  return null;
+}
+
+async function _bdocsJoinConfirm() {
+  const st = _bdocsJoinState;
+  if (!st) return;
+  const file = st.file;
+  if (!file) { showToast('Choisis un PDF à joindre', 'err'); return; }
+  const maxSize = (typeof ATTACHMENT_DEFAULT_MAX_SIZE !== 'undefined') ? ATTACHMENT_DEFAULT_MAX_SIZE : 10 * 1024 * 1024;
+  if (file.size > maxSize) { showToast('Fichier trop lourd : ' + (file.size / 1024 / 1024).toFixed(2) + ' Mo (max ' + (maxSize / 1024 / 1024) + ' Mo)', 'err', 6000); return; }
+  // Clés couvertes = cases cochées (dont déjà-jointes désactivées) ou repli mono-pièce.
+  const modal = document.getElementById('ov-bdocs-join');
+  const boxes = modal ? modal.querySelectorAll('input.bdocs-cover-cb') : [];
+  let keys = boxes.length
+    ? Array.prototype.slice.call(boxes).filter(b => b.checked).map(b => b.getAttribute('data-key'))
+    : (st.fallbackKeys || []);
+  keys = Array.from(new Set(keys.filter(Boolean)));
+  if (!keys.length) { showToast('Coche au moins une pièce couverte par ce document', 'err'); return; }
+  const log = (DB.logements || []).find(l => l && l.ref === st.ref && !l._deleted);
+  if (!log) { showToast('Bien introuvable', 'err'); return; }
+  let parent;
+  if (st.level === 'immeuble') {
+    const imm = _bdocsImmForLog(log);
+    if (!imm) { showToast('Immeuble introuvable pour ce bien', 'err', 5000); return; }
+    parent = { type: 'immeuble', id: imm.id, ref: imm.nom, logRef: null, category: 'documents' };
+  } else {
+    parent = { type: 'logement', id: log.id, ref: st.ref, logRef: st.ref, category: 'documents' };
+  }
+  try {
+    const dataB64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = e => resolve(e.target.result);
+      r.onerror = () => reject(new Error('Lecture fichier échouée'));
+      r.readAsDataURL(file);
+    });
+    const doc = await _attachmentSaveForEntity(parent, { name: file.name, mime: file.type, size: file.size, dataB64 });
+    doc.requirementKeys = keys;
+    _stamp(doc);
+    saveDB();
+    showToast('📎 Pièce jointe : ' + file.name, 'ok', 3000);
+    _bdocsJoinClose();
+    if (typeof currentPage !== 'undefined' && currentPage === 'log-fiche' && typeof rLogFiche === 'function') rLogFiche();
+    if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  } catch (e) {
+    console.error('[_bdocsJoinConfirm] échec', e);
+    showToast('Échec : ' + (e.message || 'erreur inconnue'), 'err', 6000);
+  }
+}
+
+/** « Je n’ai pas ce diagnostic » — marque le diagnostic non applicable via le flag
+ *  existant log.diagnostics[key].na (lu par _estDiagApplicable). Pas de store parallèle. */
+function _bdocsJoinMarkNA(ref, key) {
+  const log = (DB.logements || []).find(l => l && l.ref === ref && !l._deleted);
+  if (!log || !key) return;
+  if (!log.diagnostics) log.diagnostics = {};
+  log.diagnostics[key] = Object.assign({}, log.diagnostics[key] || {}, { na: true });
+  _stamp(log);
+  saveDB();
+  showToast('Diagnostic marqué « non applicable »', 'ok', 2500);
+  _bdocsJoinClose();
+  if (typeof currentPage !== 'undefined' && currentPage === 'log-fiche' && typeof rLogFiche === 'function') rLogFiche();
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
 }
 
 /** Anneau de complétude SVG (piste --bor, progression --acc). */
