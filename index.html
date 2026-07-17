@@ -37057,6 +37057,48 @@ function _estDiagApplicable(diagKey, logement) {
   if (info && info.na === true) return false;
   return entry.isApplicable(logement);
 }
+// ════════════════════════════════════════════════════════════════════════════
+// SC1 PIÈCES-OBLIGATOIRES-BAIL — Adaptateur du moteur pur (window.BailRequiredDocs)
+// Construit les entrées du moteur en RÉUTILISANT l'applicabilité tri-état existante
+// (_estDiagApplicable, qui renvoie déjà null quand un champ décisif manque) et le
+// type de bail EFFECTIF (_bailTypeEff — JAMAIS bail.typeContrat, qui vaut
+// initial/renouvellement/repris et n'est PAS le type de bail). Habitation
+// (nu/meublé/étudiant/mobilité) → DDT complet ; non-habitation (garage/autre)
+// → DPE seul. Ne ré-encode AUCUN seuil légal.
+// ════════════════════════════════════════════════════════════════════════════
+const _DDT_KEYS_SC1 = ['dpe','crep','amiante','gaz','elec','erp','bruit','termites','merule'];
+const _HABITATION_BAIL_TYPES_SC1 = ['nu','meuble','etudiant','mobilite'];
+function _bailRequiredDocsFor(ref) {
+  if (typeof window === 'undefined' || !window.BailRequiredDocs) return [];
+  const log = (DB.logements || []).find(l => l && l.ref === ref && !l._deleted);
+  if (!log) return [];
+  const bail = (DB.baux || {})[ref] || {};
+  // Immeuble du logement : DB.entites[*].immeubles[*] matché par nom (log.imm === imm.nom).
+  let imm = null;
+  if (log.imm) {
+    for (const e of (DB.entites || [])) {
+      if (!e || !Array.isArray(e.immeubles)) continue;
+      const f = e.immeubles.find(i => i && i.nom === log.imm && !i._deleted);
+      if (f) { imm = f; break; }
+    }
+  }
+  // Type de bail EFFECTIF (jamais bail.typeContrat) → habitation vs garage/autre.
+  const bailType = _bailTypeEff(bail, log);
+  const isHabitation = _HABITATION_BAIL_TYPES_SC1.includes(bailType);
+  const diagApplicability = {};
+  if (isHabitation) { for (const k of _DDT_KEYS_SC1) diagApplicability[k] = _estDiagApplicable(k, log); }
+  else { diagApplicability.dpe = _estDiagApplicable('dpe', log); }
+  // Documents rattachés à ce logement OU à son immeuble. Les PJ immeuble sont clées
+  // par parentId (imm.id) dans l'app → on matche par id (robuste au renommage), avec
+  // repli sur parentRef===imm.nom pour compat.
+  const documents = (DB.documents || []).filter(d => d && !d._deleted && (
+    (d.parentType === 'logement' && (String(d.parentRef) === String(ref) || String(d.logRef) === String(ref))) ||
+    (d.parentType === 'immeuble' && imm && (
+      (d.parentId != null && +d.parentId === +imm.id) ||
+      String(d.parentRef) === String(imm.nom)))));
+  return window.BailRequiredDocs.computeRequiredDocs({ diagApplicability, imm: imm || {}, log, documents });
+}
+
 
 function _diagAddYM(iso, years, months) {
   const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -39190,6 +39232,133 @@ function _renderLogFichePanelGeneral(log, bail) {
 }
 
 // v14.13 A3 — onglet Bail dédié : bail courant détaillé + actions + historique + timeline horizontale
+// ════════════════════════════════════════════════════════════════════════════
+// SC1 PIÈCES-OBLIGATOIRES-BAIL — Panneau checklist (variante C, charte Propryo)
+// Anneau de complétude + groupes « À traiter » (miss+verify) / « Jointes » (ok)
+// + pastille critère par ligne + section dépliable « Pièces non demandées » (na).
+// Tokens de l'app (--acc/--grn/--warn/--sur…), light+dark hérités. La modale
+// « Joindre » multi-couverture = Tâche 6 → _bailDocsJoin est un STUB no-op ici.
+// ════════════════════════════════════════════════════════════════════════════
+function _bailDocsEnsureCSS() {
+  if (document.getElementById('bdocs-css')) return;
+  const s = document.createElement('style');
+  s.id = 'bdocs-css';
+  s.textContent = `
+    .bdocs-head{display:flex;align-items:center;gap:15px;margin:-2px 0 4px}
+    .bdocs-ring{position:relative;width:58px;height:58px;flex:0 0 auto}
+    .bdocs-ring svg{transform:rotate(-90deg)}
+    .bdocs-ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+    .bdocs-ring .val b{font-size:16px;font-weight:800;color:var(--t1);font-family:var(--display,inherit)}
+    .bdocs-ring .val span{font-size:8.5px;color:var(--t3);font-weight:600;margin-top:1px;text-transform:uppercase;letter-spacing:.04em}
+    .bdocs-htx{flex:1;min-width:0}
+    .bdocs-htx .sub{font-size:12px;color:var(--t3);margin-top:2px}
+    .bdocs-htx .sub b{color:var(--warn,var(--ora))}
+    .bdocs-grph{display:flex;align-items:center;gap:8px;margin:15px 0 2px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+    .bdocs-grph.warn{color:var(--warn,var(--ora))}
+    .bdocs-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--bor)}
+    .bdocs-chk{width:21px;height:21px;border-radius:6px;border:2px solid var(--bor);flex:0 0 auto;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800;margin-top:1px}
+    .bdocs-chk.ok{background:var(--grn);border-color:var(--grn)}
+    .bdocs-chk.vf{border-color:var(--warn,var(--ora));color:var(--warn,var(--ora))}
+    .bdocs-mid{flex:1;min-width:0}
+    .bdocs-nm{font-weight:600;color:var(--t1);font-size:13.5px}
+    .bdocs-crit{font-size:11.5px;color:var(--t3);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .bdocs-why{background:var(--sur3);border-radius:5px;padding:1px 7px;font-weight:600;color:var(--t3)}
+    .bdocs-why.vf{color:var(--warn,var(--ora));background:var(--warn-soft,var(--bg-warning))}
+    .bdocs-src{display:inline-flex;align-items:center;gap:4px;color:var(--grn);font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+    .bdocs-rt{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+    .bdocs-link{color:var(--acc);font-weight:600;font-size:12px;cursor:pointer;background:none;border:0;padding:0;font-family:inherit}
+    .bdocs-link:hover{text-decoration:underline}
+    .bdocs-masked{border-top:1px solid var(--bor);margin-top:6px}
+    .bdocs-masked summary{list-style:none;cursor:pointer;padding:11px 0 4px;font-size:12px;color:var(--t3);display:flex;align-items:center;gap:8px}
+    .bdocs-masked summary::-webkit-details-marker{display:none}
+    .bdocs-masked summary .caret{transition:transform .2s;display:inline-block}
+    .bdocs-masked[open] summary .caret{transform:rotate(90deg)}
+    .bdocs-mrow{padding:6px 0 6px 30px;font-size:12px;color:var(--t3);display:flex;gap:8px;align-items:baseline}
+    .bdocs-mrow b{color:var(--t2);font-weight:600}
+    .bdocs-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--bor)}
+    .bdocs-foot .fill{flex:1;min-width:120px;font-size:11.5px;color:var(--t3)}
+    .bdocs-tip{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:2px 0 4px;padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);font-size:12px;color:var(--t2)}
+    .bdocs-tip .fill{flex:1;min-width:140px}
+    @media(max-width:520px){.bdocs-foot{flex-direction:column;align-items:stretch}.bdocs-foot .btn{width:100%;text-align:center}.bdocs-tip .btn{width:100%;text-align:center}}
+  `;
+  document.head.appendChild(s);
+}
+
+/** STUB — la modale « Joindre » (multi-couverture d'un même PDF) est livrée en Tâche 6.
+ *  Ici : simple no-op avec toast informatif, pour ne pas bloquer le rendu du panneau. */
+function _bailDocsJoin(ref, key) {
+  if (typeof showToast === 'function') showToast('Ajout de pièce — disponible très bientôt', 'info', 2200);
+}
+
+/** Anneau de complétude SVG (piste --bor, progression --acc). */
+function _bdocsRing(ok, total) {
+  const p = total ? (ok / total) : 0;
+  const c = 2 * Math.PI * 24;
+  const off = (c - c * p).toFixed(1);
+  return `<div class="bdocs-ring"><svg width="58" height="58" viewBox="0 0 58 58">`
+    + `<circle cx="29" cy="29" r="24" fill="none" stroke="var(--bor)" stroke-width="6"/>`
+    + `<circle cx="29" cy="29" r="24" fill="none" stroke="var(--acc)" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off}"/></svg>`
+    + `<div class="val"><b>${ok}/${total}</b><span>jointes</span></div></div>`;
+}
+
+/** Panneau « Pièces obligatoires du bail » monté dans l'onglet Bail de la fiche 360. */
+function _renderRequiredDocsPanel(ref) {
+  if (typeof window === 'undefined' || !window.BailRequiredDocs) return '';
+  _bailDocsEnsureCSS();
+  const refSafe = String(ref).replace(/'/g, "\\'");
+  const pieces = _bailRequiredDocsFor(ref);
+  if (!pieces.length) return '';
+  const { ok, total } = window.BailRequiredDocs.completenessCount(pieces);
+  const todo = pieces.filter(p => p.state === 'miss' || p.state === 'verify');
+  const done = pieces.filter(p => p.state === 'ok');
+  const na   = pieces.filter(p => p.state === 'na');
+
+  const rowHtml = (p) => {
+    let box, crit, act;
+    if (p.state === 'ok') {
+      box = '<div class="bdocs-chk ok">✓</div>';
+      const fname = (p.files && p.files[0] && p.files[0].name) ? p.files[0].name : '';
+      const src = fname ? `<span class="bdocs-src" title="${escHtml(fname)}">📄 ${escHtml(fname)}</span>` : '';
+      crit = `<span class="bdocs-why">${escHtml(p.why || '')}</span>${src}`;
+      act = `<button class="bdocs-link" onclick="_bailDocsJoin('${refSafe}','${p.key}')">Voir</button>`;
+    } else if (p.state === 'verify') {
+      box = '<div class="bdocs-chk vf">?</div>';
+      crit = `<span class="bdocs-why vf">${escHtml(p.why || 'À vérifier')}</span>`;
+      act = `<button class="btn bs bb" onclick="_bailDocsJoin('${refSafe}','${p.key}')" title="Lever le doute ou joindre la pièce">Vérifier</button>`;
+    } else {
+      box = '<div class="bdocs-chk"></div>';
+      crit = `<span class="bdocs-why">${escHtml(p.why || '')}</span>`;
+      act = `<button class="btn bp bb" onclick="_bailDocsJoin('${refSafe}','${p.key}')" title="Joindre le document">Joindre</button>`;
+    }
+    return `<div class="bdocs-row"><div>${box}</div>`
+      + `<div class="bdocs-mid"><div class="bdocs-nm">${escHtml(p.label)}</div><div class="bdocs-crit">${crit}</div></div>`
+      + `<div class="bdocs-rt">${act}</div></div>`;
+  };
+
+  let h = `<div class="logf-panel" style="grid-column:1/-1;margin-top:14px">`;
+  h += `<div class="bdocs-head">${_bdocsRing(ok, total)}<div class="bdocs-htx">`
+     + `<h3 class="logf-panel-title" style="margin:0">📎 Pièces obligatoires du bail</h3>`
+     + `<div class="sub">${todo.length ? ('<b>' + todo.length + ' pièce' + (todo.length > 1 ? 's' : '') + '</b> à traiter avant la signature') : 'Toutes les pièces requises sont jointes ✓'}</div>`
+     + `</div></div>`;
+
+  h += `<div class="bdocs-tip"><div class="fill">Astuce : un <b>dossier de diagnostics</b> couvre souvent DPE, amiante, gaz et élec en un seul PDF.</div>`
+     + `<button class="btn bp bb" onclick="_bailDocsJoin('${refSafe}','')">＋ Joindre le dossier complet</button></div>`;
+
+  if (todo.length) { h += `<div class="bdocs-grph warn">À traiter — ${todo.length}</div>`; todo.forEach(p => { h += rowHtml(p); }); }
+  if (done.length) { h += `<div class="bdocs-grph">Jointes — ${done.length}</div>`; done.forEach(p => { h += rowHtml(p); }); }
+
+  if (na.length) {
+    h += `<details class="bdocs-masked"><summary><span class="caret">▸</span>Pièces non demandées pour ce logement (${na.length})</summary>`;
+    na.forEach(m => { h += `<div class="bdocs-mrow"><b>${escHtml(m.label)}</b> — ${escHtml(m.why || '')}</div>`; });
+    h += `</details>`;
+  }
+
+  h += `<div class="bdocs-foot"><div class="fill">Les pièces jointes partiront avec le bail signé.</div>`
+     + `<button class="btn bs bb" onclick="_ddtRecapOpen('${refSafe}')" title="Aperçu / téléchargement du récapitulatif des diagnostics">Tout télécharger</button></div>`;
+  h += `</div>`;
+  return h;
+}
+
 function _renderLogFichePanelBail(log, bail, ref) {
   const refSafe = (ref||'').replace(/'/g,"\\'");
   const typeContratMap = { initial:'Initial', renouvellement:'Renouvellement', avenant:'Avenant', repris:'Repris (Art. 1743)' };
@@ -39410,7 +39579,7 @@ function _renderLogFichePanelBail(log, bail, ref) {
       </div>`;
   }
 
-  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${dgSection}${historySection}${irlHistSection}</div>`;
+  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${(!log.archived ? _renderRequiredDocsPanel(ref) : '')}${dgSection}${historySection}${irlHistSection}</div>`;
 }
 
 // Timeline horizontale empilée bail courant + historique. Couleur par locataire principal (hash).
