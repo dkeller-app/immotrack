@@ -1,6 +1,6 @@
 # BUG-PARTAGE-EDL-ESPACE-TIERS — EDL d'un espace partagé invisible côté membre invité
 
-**Status** : ✅ **ROOT CAUSE TROUVÉE + FIX CONSTRUIT 2026-08-10** (branche `fix/partage-edl-espace-tiers`, worktree `Immo-wt-partage-edl`) — reste : audit code-reviewer → QUEUE → E2E réel user · **Prio** : P1 · **Taille** : S-M
+**Status** : ✅ **FIX PRÊT À INTÉGRER 2026-08-10** — audits code-reviewer ×2 (RÉSERVES → v2 → **SÛR**), branche `origin/fix/partage-edl-espace-tiers` (`083db0e`, 2 commits js/core+tests, base v15.495, 0 changement index.html) inscrite QUEUE (P1, cible v15.496). **EDL prod RESTAURÉ (un-delete, v3)** — Marion et Didier le revoient dès reconnexion. Reste : intégration maître + déploiement → **E2E réel Didier↔Marion**. ⚠️ Jusqu'au déploiement : ne RÉ-ENREGISTRER aucun EDL depuis un compte cloud (toute réédition re-déclenche le bug) ; consultation/PDF sans risque. · **Prio** : P1 · **Taille** : S-M
 **Détecté** : 2026-08-08 (post-restauration Supabase : Didier connecté sur SON compte PC ne voit pas l'EDL de juillet)
 **Lié à** : project_partage_sci (chantier PARTAGE SCI SOLIDE v15.483) · P0-SUPABASE-PAUSE · EDL-MOBILE-TERRAIN
 
@@ -52,6 +52,24 @@ candidats (homonymie réelle) → ambigu, pas de devinette (D2).
   nouveau record D2, ambiguïté, mono inerte, baux, entites, markDirty).
 - Suite offline complète : **2191/2191** (base rebasée v15.495). Suite RLS complète : en cours au
   moment de cette note (voir QUEUE).
+
+## Portée réelle (plus large que le titre)
+
+Le bug ne visait pas que le membre scopé : depuis v15.483, l'hydrate tague TOUT même à N=1 →
+**toute réédition d'EDL par n'importe quel utilisateur cloud** déclenchait remove + conflit d'id
+éternel (edl hors REVIVABLE). Le fix D1b couvre les deux cas (adoption du tag propre incluse).
+
+## Follow-ons tracés (audit v2)
+
+1. **Résidu PRÉEXISTANT upsert-D2-en-ambiguïté** : quand la clé nue matche 2 espaces (homonymes,
+   ex. SMARTOSAURUS des 2 côtés), l'upsert du record reconstruit part espace propre et peut
+   **écraser l'homonyme propre** avec le contenu tiers (ids déterministes par clé naturelle). Le
+   remove destructeur est désormais suspendu, mais ce bleed d'édition reste. Piste : suspendre
+   aussi l'upsert ambigu — trade-off à instruire (une édition propre légitime serait alors perdue
+   à la re-hydrate). → ligne BACKLOG.
+2. **Migration 0044 non appliquée au DB hébergé** (suite RLS 347/349, les 2 rouges =
+   `espace_config_scoped` ne filtre pas `loyerBareme`) — RESTE déjà connu (« 0044 avant partage
+   SCI »), indépendant de ce chantier. À appliquer avec feu vert user.
 
 ## Récupération données
 
