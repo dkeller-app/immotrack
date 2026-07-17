@@ -7459,9 +7459,85 @@ function _collectRemoteSigners(bail) {
   return out;
 }
 
+// ── Tâche 7 SC1 — GARDE DE SIGNATURE NON BLOQUANTE (pièces obligatoires) ─────────────────────────
+// Purement additive : si des pièces obligatoires manquent / sont à vérifier, on affiche un bandeau
+// « Compléter / Signer quand même » AVANT d'ouvrir la modale. Le chemin de signature reste INTACT.
+/** Pièces obligatoires encore en attente au lancement de la signature.
+ *  Retourne { miss:[labels], verify:[labels] } ou null si rien à signaler. */
+function _signaturePendingPieces(ref) {
+  const pieces = (typeof _bailRequiredDocsFor === 'function') ? _bailRequiredDocsFor(ref) : [];
+  const miss = (Array.isArray(pieces) ? pieces : []).filter(p => p && p.state === 'miss').map(p => p.label);
+  const verify = (Array.isArray(pieces) ? pieces : []).filter(p => p && p.state === 'verify').map(p => p.label);
+  return (miss.length || verify.length) ? { miss, verify } : null;
+}
+
+let _signGuardProceedFn = null;
+function _signGuardClose() {
+  closeM('ov-sign-guard');
+  const ov = document.getElementById('ov-sign-guard'); if (ov) ov.remove();
+  _signGuardProceedFn = null;
+}
+function _signGuardComplete() {
+  _signGuardClose();
+  // Retour à la checklist : le panneau « Pièces obligatoires » de l'onglet Bail est déjà à l'écran.
+  try { const p = document.querySelector('.bdocs-head'); if (p && p.scrollIntoView) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+}
+function _signGuardProceed() {
+  const fn = _signGuardProceedFn;   // capturé avant _signGuardClose (qui remet à null)
+  _signGuardClose();
+  if (typeof fn === 'function') return fn();   // lancement de signature ORIGINAL, byte-for-byte inchangé
+}
+
+/** Bandeau NON BLOQUANT avant signature. Si aucune pièce en attente → proceedFn() est appelé
+ *  DIRECTEMENT (0 modale, 0 changement de comportement). Sinon → modale non bloquante. */
+function _signatureGuardBanner(ref, proceedFn) {
+  let pending = null;
+  try { pending = _signaturePendingPieces(ref); } catch (e) { pending = null; }
+  if (!pending) { return (typeof proceedFn === 'function') ? proceedFn() : undefined; } // rien à signaler → chemin original
+
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
+  const nMiss = pending.miss.length, nVf = pending.verify.length, n = nMiss + nVf;
+  const parts = [];
+  if (nMiss) parts.push(nMiss + ' manquante' + (nMiss > 1 ? 's' : ''));
+  if (nVf) parts.push(nVf + ' à vérifier');
+  const chip = (l) => `<span style="font-size:11.5px;font-weight:600;border:1px solid rgba(245,158,11,.6);background:rgba(245,158,11,.14);border-radius:999px;padding:2px 9px">${esc(l)}</span>`;
+  const chips = pending.miss.map(l => chip(l + ' (manquant)')).join('') + pending.verify.map(l => chip(l + ' (à vérifier)')).join('');
+
+  const html = `
+    <div class="ov" id="ov-sign-guard">
+      <div class="modal" style="max-width:460px">
+        <div class="m-head"><h3>⚠️ Avant de signer</h3>
+          <button class="m-close" onclick="_signGuardClose()">✕</button></div>
+        <div class="m-body">
+          <div style="display:flex;gap:12px;align-items:flex-start;border:1px solid rgba(245,158,11,.55);background:rgba(245,158,11,.12);border-radius:12px;padding:13px 14px">
+            <div style="font-size:22px;line-height:1">⚠️</div>
+            <div style="flex:1;min-width:0">
+              <b>${n} pièce${n > 1 ? 's' : ''} à traiter${parts.length ? ' (' + parts.join(', ') + ')' : ''}.</b>
+              <div style="margin-top:4px;font-size:12.5px;opacity:.82">Non bloquant — tu peux compléter maintenant ou signer quand même.</div>
+              <div style="margin-top:9px;display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+            </div>
+          </div>
+        </div>
+        <div class="m-foot">
+          <button class="btn bs" onclick="_signGuardComplete()">Compléter les pièces</button>
+          <button class="btn bp" onclick="_signGuardProceed()">Signer quand même</button>
+        </div>
+      </div>
+    </div>`;
+  const old = document.getElementById('ov-sign-guard'); if (old) old.remove();
+  _signGuardProceedFn = (typeof proceedFn === 'function') ? proceedFn : null;
+  document.body.insertAdjacentHTML('beforeend', html);
+  openM('ov-sign-guard');
+}
+
 // B. Ouvre la modale d'envoi (ou le repli « relais non configuré »).
+// Tâche 7 SC1 — point de garde UNIQUE : présentiel (openBailSignatureFlow) ET distance (Relancer)
+// passent par openRemoteSignModal → on intercale le bandeau non bloquant ici, sans toucher au corps.
+function openRemoteSignModal(ref) {
+  return _signatureGuardBanner(ref, () => _openRemoteSignModalNow(ref));
+}
 // async (§4) : pré-vol non destructif avant toute relance — on vérifie l'état RÉEL de l'ancienne session.
-async function openRemoteSignModal(ref) {
+async function _openRemoteSignModalNow(ref) {
   const bail = DB.baux[ref];
   const log = DB.logements.find(l => l.ref === ref);
   if (!bail) { showToast('Bail introuvable', 'err'); return; }
