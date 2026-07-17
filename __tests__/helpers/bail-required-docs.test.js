@@ -24,6 +24,16 @@ describe('computeRequiredDocs — résolution d’état (pur)', () => {
     expect(r.find(p => p.key === 'gaz').state).toBe('verify')
   })
 
+  it('applicabilité null MAIS fichier joint → ok (présence prime sur le doute)', () => {
+    const r = computeRequiredDocs({ diagApplicability: { gaz: null }, imm: {}, log: {}, documents: [doc(['gaz'])] })
+    expect(r.find(p => p.key === 'gaz').state).toBe('ok')
+  })
+
+  it('applicabilité false → na (même avec un fichier résiduel)', () => {
+    const r = computeRequiredDocs({ diagApplicability: { crep: false }, imm: {}, log: {}, documents: [doc(['crep'])] })
+    expect(r.find(p => p.key === 'crep').state).toBe('na')
+  })
+
   it('applicabilité false → na', () => {
     const r = computeRequiredDocs({ diagApplicability: { crep: false }, imm: {}, log: {}, documents: [] })
     expect(r.find(p => p.key === 'crep').state).toBe('na')

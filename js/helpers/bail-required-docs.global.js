@@ -48,10 +48,15 @@
   function pieceFrom(key, applicable, documents) {
     const meta = PIECES_META[key]
     const base = { key, label: meta.label, legal: meta.legal, level: meta.level, kind: meta.kind, files: [] }
+    // Non applicable (connu) → jamais demandé, quel que soit un fichier résiduel.
     if (applicable === false) return { ...base, state: 'na', why: meta.negWhy }
-    if (applicable === null || applicable === undefined) return { ...base, state: 'verify', why: 'À vérifier — champ manquant' }
+    // Complétude = FICHIER réel : un fichier joint satisfait la pièce même si
+    // l'applicabilité est incertaine (année manquante) — la présence prime sur le doute.
     const files = filesFor(key, documents)
-    return { ...base, state: files.length ? 'ok' : 'miss', why: meta.posWhy, files }
+    if (files.length) return { ...base, state: 'ok', why: meta.posWhy, files }
+    // Aucun fichier : doute sur l'applicabilité → à vérifier ; sinon manquant.
+    if (applicable === null || applicable === undefined) return { ...base, state: 'verify', why: 'À vérifier — champ manquant' }
+    return { ...base, state: 'miss', why: meta.posWhy, files }
   }
 
   function computeRequiredDocs({ diagApplicability = {}, imm = {}, log = {}, documents = [] } = {}) {
