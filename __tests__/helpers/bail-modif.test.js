@@ -46,3 +46,63 @@ describe('dateEffetModifDefaut — pré-remplissage garde-fous Q1', () => {
     expect(dateEffetModifDefaut('2026-07-17', '2026-08')).toEqual({ effetIso: '2026-09-01', ajustee: true });
   });
 });
+
+// ── Correction d'événement (décision user ⑤) : re-dater la date d'effet d'une révision
+// IRL erronée depuis la timeline — garde-fous Q1, périodes du barème re-bornées, trace.
+import { redaterRevisionIRL } from '../../js/core/bail-modif.js';
+
+describe('redaterRevisionIRL — corriger la date d\'effet depuis la timeline', () => {
+  const irlHist = [
+    { ref: 'F-001', date: '2026-06-20', dateRevision: '2026-03-01', dateEffet: '2026-07-01', dateApplication: '2026-07-01', ancienHC: 500, nouveauHC: 505.15 }
+  ];
+  const bareme = [
+    { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 65, source: 'bail', bailDebut: '2024-03-01' },
+    { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 505.15, ch: 65, source: 'irl', bailDebut: '2024-03-01' }
+  ];
+
+  it('re-date la révision + re-borne les périodes (début irl + fin de la précédente)', () => {
+    const r = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
+      revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-09-01' });
+    expect(r.ok).toBe(true);
+    expect(r.effetIso).toBe('2026-09-01');
+    const rev = r.irlHistorique[0];
+    expect(rev.dateEffet).toBe('2026-09-01');
+    expect(rev.dateApplication).toBe('2026-09-01');
+    const pIrl = r.bareme.find(p => p.source === 'irl');
+    expect(pIrl.debut).toBe('2026-09-01');
+    expect(r.bareme.find(p => p.source === 'bail').fin).toBe('2026-08-31');
+    // pureté : les entrées d'origine ne sont pas mutées
+    expect(irlHist[0].dateEffet).toBe('2026-07-01');
+    expect(bareme[1].debut).toBe('2026-07-01');
+  });
+
+  it('normalise au 1er du mois et refuse un mois déjà quittancé (remonte + signale)', () => {
+    const r = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
+      revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2026-05-15',
+      dernierMoisQuittanceYm: '2026-06' });
+    expect(r.ok).toBe(true);
+    expect(r.effetIso).toBe('2026-07-01');   // 05→ clampé après le dernier quittancé (06) → 07-01
+    expect(r.ajustee).toBe(true);
+  });
+
+  it('refuse de franchir la période précédente (chevauchement)', () => {
+    const r = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
+      revisionDate: '2026-06-20', ancienEffet: '2026-07-01', nouvelleDateEffet: '2024-02-01' });
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toMatch(/périod/i);
+  });
+
+  it('révision introuvable → erreur explicite', () => {
+    const r = redaterRevisionIRL({ irlHistorique: irlHist, bareme, ref: 'F-001',
+      revisionDate: '2020-01-01', ancienEffet: '2020-02-01', nouvelleDateEffet: '2026-09-01' });
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toMatch(/introuvable/i);
+  });
+
+  it('renonciation → rien à re-dater (erreur)', () => {
+    const hist = [{ ref: 'F-001', date: '2025-03-05', ancienHC: 500, action: 'renonciation' }];
+    const r = redaterRevisionIRL({ irlHistorique: hist, bareme, ref: 'F-001',
+      revisionDate: '2025-03-05', ancienEffet: '', nouvelleDateEffet: '2026-09-01' });
+    expect(r.ok).toBe(false);
+  });
+});

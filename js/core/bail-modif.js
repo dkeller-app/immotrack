@@ -43,3 +43,70 @@ export function dateEffetModifDefaut(todayIso, dernierMoisQuittanceYm) {
   const propose = _premierDuMoisSuivant(todayIso);
   return clampDateEffet(propose, { dernierMoisQuittanceYm: dernierMoisQuittanceYm || undefined });
 }
+
+const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
+const _ymd = (iso) => String(iso == null ? '' : iso).slice(0, 10);
+function _veille(iso) {
+  const d = new Date(_ymd(iso) + 'T00:00:00');
+  d.setDate(d.getDate() - 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/**
+ * Correction d'événement (décision user ⑤) : re-dater la date d'effet d'une révision IRL
+ * erronée depuis la timeline. PUR (copies). Garde-fous : normalisation au 1er du mois +
+ * jamais dans un mois quittancé (clampDateEffet) ; la nouvelle date doit rester STRICTEMENT
+ * entre la période précédente et la période suivante du barème (pas de chevauchement).
+ * Re-borne la période 'irl' correspondante (debut) et la fin de la période précédente.
+ * @param {{irlHistorique:Array, bareme:Array, ref:string, revisionDate:string,
+ *          ancienEffet:string, nouvelleDateEffet:string, dernierMoisQuittanceYm?:string}} input
+ * @returns {{ok:boolean, erreur?:string, effetIso?:string, ajustee?:boolean,
+ *            irlHistorique?:Array, bareme?:Array}}
+ */
+export function redaterRevisionIRL(input) {
+  const i = input || {};
+  const want = _nr(i.ref);
+  const revDate = _ymd(i.revisionDate);
+  const ancienEffet = _ymd(i.ancienEffet);
+
+  const hist = (i.irlHistorique || []).map((h) => ({ ...h }));
+  const idx = hist.findIndex((h) => h && !h._deleted && _nr(h.ref) === want
+    && (_ymd(h.date) === revDate || _ymd(h.dateRevision) === revDate)
+    && (!ancienEffet || _ymd(h.dateEffet) === ancienEffet || _ymd(h.dateApplication) === ancienEffet));
+  if (idx < 0) return { ok: false, erreur: 'Révision introuvable dans l\'historique IRL.' };
+  if (hist[idx].action === 'renonciation') {
+    return { ok: false, erreur: 'Une renonciation n\'a pas de date d\'effet à corriger.' };
+  }
+
+  const cl = clampDateEffet(i.nouvelleDateEffet, { dernierMoisQuittanceYm: i.dernierMoisQuittanceYm || undefined });
+  const effet = cl.effetIso;
+  if (!effet) return { ok: false, erreur: 'Date d\'effet invalide.' };
+
+  // Période 'irl' portée par cette révision : même lot, source irl, debut = ancien effet.
+  const bar = (i.bareme || []).map((p) => ({ ...p }));
+  const oldEffet = ancienEffet || _ymd(hist[idx].dateEffet);
+  const pIdx = bar.findIndex((p) => p && !p._deleted && _nr(p.ref) === want
+    && p.source === 'irl' && _ymd(p.debut) === oldEffet);
+
+  if (pIdx >= 0) {
+    // Bornes : strictement après le debut de la période précédente, avant la suivante.
+    const vivantes = bar.filter((p) => p && !p._deleted && _nr(p.ref) === want && p !== bar[pIdx])
+      .sort((a, b) => _ymd(a.debut).localeCompare(_ymd(b.debut)));
+    const prev = vivantes.filter((p) => _ymd(p.debut) < oldEffet).pop() || null;
+    const next = vivantes.find((p) => _ymd(p.debut) > oldEffet) || null;
+    if (prev && effet <= _ymd(prev.debut)) {
+      return { ok: false, erreur: `La date d'effet franchirait la période précédente (début ${prev.debut}).` };
+    }
+    if (next && effet >= _ymd(next.debut)) {
+      return { ok: false, erreur: `La date d'effet franchirait la période suivante (début ${next.debut}).` };
+    }
+    bar[pIdx] = { ...bar[pIdx], debut: effet };
+    if (prev && prev.fin != null) {
+      const prevIdx = bar.indexOf(prev);
+      bar[prevIdx] = { ...prev, fin: _veille(effet) };
+    }
+  }
+
+  hist[idx] = { ...hist[idx], dateEffet: effet, dateApplication: effet, dateEffetAjustee: cl.ajustee };
+  return { ok: true, effetIso: effet, ajustee: cl.ajustee, irlHistorique: hist, bareme: bar };
+}

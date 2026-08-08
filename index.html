@@ -25306,19 +25306,56 @@ function applyIRL(ref, newHC) {
     ? window._baremeComputeDateEffetIRL({ anniversaireIso: annivIso, validationIso: todayLocal, dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ref) })
     : { effetIso: annivIso, ajustee: false };
   const dateEffetIso = _eff.effetIso || annivIso;
+
+  // HISTORIQUE-BAIL-ONGLET (17/07) : la date d'effet est ÉDITABLE dans une vraie modale de
+  // validation (fini le confirm() figé) — pré-remplie Q1, re-validée par les MÊMES garde-fous
+  // au clic (clampDateEffet : jamais avant l'anniversaire, jamais un mois quittancé).
+  _irlValidCtx = { ref, newHC };
+  el('iv-sub').textContent = ref + (log.locataire ? ' — ' + log.locataire : '');
+  el('iv-move').innerHTML = `<div class="bv-row"><span class="bv-lbl">Loyer hors charges</span>
+    <span class="hl-move" style="margin-top:0"><span class="old">${fmt(log.hc)}</span><span>→</span><span class="new">${fmt(newHC)}</span></span></div>`;
+  el('iv-effet').value = dateEffetIso;
+  el('iv-effet-hint').textContent = _eff.ajustee
+    ? 'Date pré-remplie AJUSTÉE (jamais rétroactive, jamais sur un mois déjà quittancé). Modifiable — mêmes garde-fous.'
+    : 'Pré-remplie selon la règle Q1 (anniversaire ou 1er du mois suivant la validation). Modifiable — jamais rétroactive, jamais dans un mois quittancé.';
+  openM('ov-irl-valid');
+}
+
+let _irlValidCtx = null;
+function _irlValidConfirm() {
+  const ctx = _irlValidCtx; if (!ctx) { closeM('ov-irl-valid'); return; }
+  const log = DB.logements.find(l => l.ref === ctx.ref);
+  if (!log) { _irlValidCtx = null; closeM('ov-irl-valid'); return; }
+  let effet = v('iv-effet');
+  if (!effet) { showToast('Date d\'effet requise', 'err'); return; }
+  const rev = computeIRLRevision(log);
+  const annivIso = rev?.dateRevision ? _isoLocal(rev.dateRevision) : '';
+  if (typeof window !== 'undefined' && typeof window._baremeClampDateEffet === 'function') {
+    const cl = window._baremeClampDateEffet(effet, {
+      annivMoisPremierIso: annivIso ? window._premierDuMois(annivIso) : undefined,
+      dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ctx.ref) || undefined
+    });
+    if (cl.ajustee) showToast(`Date d'effet ajustée au ${fd(cl.effetIso)} (garde-fous : anniversaire / mois quittancé / 1er du mois)`, 'warn', 5000);
+    effet = cl.effetIso;
+  }
+  // La date proposée Q1 a-t-elle été modifiée/ajustée ? (tracé dans l'historique)
+  const defQ1 = (typeof window._baremeComputeDateEffetIRL === 'function')
+    ? window._baremeComputeDateEffetIRL({ anniversaireIso: annivIso, validationIso: _todayIsoLocal(), dernierMoisQuittanceYm: _dernierMoisQuittanceYm(ctx.ref) })
+    : { effetIso: effet };
+  const ajustee = effet !== defQ1.effetIso;
+  _irlValidCtx = null;
+  closeM('ov-irl-valid');
+  _applyIRLValidated(ctx.ref, ctx.newHC, effet, ajustee);
+}
+
+// Exécute la révision validée (ex-corps d'applyIRL après le confirm) — dateEffetIso garantie
+// par les garde-fous de _irlValidConfirm.
+function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
+  const log = DB.logements.find(l => l.ref === ref); if (!log) return;
+  const rev = computeIRLRevision(log);
+  const annivIso = rev?.dateRevision ? _isoLocal(rev.dateRevision) : '';
+  const todayLocal = _todayIsoLocal();
   const futureApplication = dateEffetIso > todayLocal;
-
-  // Date modifiable : proposée pré-remplie, l'utilisateur peut la corriger (re-validée par les
-  // mêmes garde-fous). L'édition fine par période reste sur l'écran Historique du loyer (étape 3).
-  const confirmMsg =
-    `Valider la révision IRL pour ${ref} ?\n\n` +
-    `• Nouveau loyer HC : ${fmt(newHC)} (actuel ${fmt(log.hc)})\n` +
-    `• Date d'effet : ${fd(dateEffetIso)}${_eff.ajustee ? ' (ajustée — jamais rétroactive ni sur un mois quittancé)' : ''}\n\n` +
-    (futureApplication
-      ? `Le loyer actuel reste facturé jusqu'à cette date ; les quittances antérieures ne changent pas.`
-      : `Prend effet le 1er du mois — les mois déjà quittancés ne sont jamais recalculés.`);
-  if (!confirm2(confirmMsg)) return;
-
   const ancienHC = log.hc;                   // capturé AVANT toute mutation (M1 audit)
   if (!DB.irlHistorique) DB.irlHistorique = [];
   DB.irlHistorique.push({
@@ -25335,7 +25372,7 @@ function applyIRL(ref, newHC) {
     dateRevision:    annivIso,              // ANNIVERSAIRE = clé de cycle IRL (dejaApplique / rappels / reset), inchangé
     dateEffet:       dateEffetIso,          // Q1 : date d'EFFET du nouveau loyer (lue par _loyerHCAtDate + barème), non rétroactive
     dateApplication: dateEffetIso,          // = date d'effet (déclenche l'application auto au boot)
-    dateEffetAjustee: !!_eff.ajustee,
+    dateEffetAjustee: !!dateAjustee,        // date proposée Q1 modifiée/ajustée dans la modale
     pendingApply:    futureApplication,
     appliedAt:       futureApplication ? '' : todayLocal
   });
@@ -36912,8 +36949,12 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     const move = `<div class="hl-move"><span class="old">${fmt(ev.ancienHC)}</span><span>→</span><span class="new">${fmt(ev.nouveauHC)}</span>${pct!=null?`<span class="pct">${pct>=0?'+':''}${pct.toFixed(2)} %</span>`:''}</div>`;
     const etat = ev.pendingApply ? '<span class="hl-badge b-warn">⏳ en attente</span>' : (ev.future ? '<span class="hl-badge b-warn">⏳ à venir</span>' : '');
     const hb = ev.horsBail ? '<span class="hl-badge b-warn">hors bail ?</span>' : '';
+    // Correction d'événement (décision user ⑤) : re-dater une date d'effet erronée — bail COURANT
+    // uniquement (un bail clos est figé), garde-fous Q1 + bornes de périodes dans le module.
+    const corr = (c.statut==='courant')
+      ? `<div class="hl-foot"><span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${escHtml(ev.date)}','${escHtml(ev.effet)}')">✏️ Corriger la date d'effet</span></div>` : '';
     return `<div class="hl-card" data-dot="d-irl"><div class="tt"><h4>Révision IRL validée</h4><span class="hl-badge b-irl">IRL${ev.irlVigueur?' '+escHtml(String(ev.irlVigueur).replace(/\s.*$/,'')):''}</span>${etat}${hb}</div>
-      <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}</div>`;
+      <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}${corr}</div>`;
   }
   if(t==='irl-renonce'){
     return `<div class="hl-card" style="opacity:.8" data-dot="d-renon"><div class="tt"><h4>Révision IRL — renoncée</h4><span class="hl-badge b-warn">⊘ renonciation</span></div>
@@ -36948,6 +36989,60 @@ function _histoLoyerValiderMigration(ref){
   saveDB();
   rLogFiche();   // l'historique vit désormais inline dans l'onglet Bail
   showToast('Corrections validées', 'ok');
+}
+
+// ── Correction d'un événement IRL depuis la timeline (décision user ⑤) : re-dater la date
+// d'effet en cas d'erreur (« j'ai annulé et refait un IRL, la date est figée »). Module pur
+// redaterRevisionIRL : garde-fous Q1 + bornes de périodes ; trace append-only DB.bailEvents.
+let _histoIrlCorrCtx = null;
+function _histoIrlCorrOpen(ref, revisionDate, ancienEffet){
+  _histoIrlCorrCtx = { ref, revisionDate, ancienEffet };
+  el('ic-sub').textContent = `${ref} — révision validée le ${fd(revisionDate)}, effet actuel ${fd(ancienEffet)}.`;
+  el('ic-effet').value = ancienEffet || '';
+  el('ic-motif').value = '';
+  openM('ov-irl-corr');
+}
+function _histoIrlCorrSave(){
+  const ctx = _histoIrlCorrCtx; if(!ctx){ closeM('ov-irl-corr'); return; }
+  const effet = v('ic-effet'); const motif = (v('ic-motif')||'').trim();
+  if(!effet){ showToast('Nouvelle date d\'effet requise','err'); return; }
+  if(!motif){ showToast('Motif obligatoire — la correction est tracée','err'); return; }
+  if(typeof window==='undefined' || typeof window._bailModifRedaterIRL!=='function'){ showToast('Module indisponible','err'); return; }
+  const r = window._bailModifRedaterIRL({
+    irlHistorique: DB.irlHistorique||[], bareme: DB.loyerBareme||[], ref: ctx.ref,
+    revisionDate: ctx.revisionDate, ancienEffet: ctx.ancienEffet, nouvelleDateEffet: effet,
+    dernierMoisQuittanceYm: (typeof _dernierMoisQuittanceYm==='function') ? _dernierMoisQuittanceYm(ctx.ref) : null
+  });
+  if(!r.ok){ showToast(r.erreur||'Correction impossible','err',6000); return; }
+  if(r.ajustee) showToast(`Date ajustée au ${fd(r.effetIso)} (1er du mois / mois quittancé)`, 'warn', 5000);
+  DB.irlHistorique = r.irlHistorique;
+  DB.loyerBareme = r.bareme;
+  // Cohérence du loyer VIVANT (log.hc / bail.hc) avec la nouvelle date d'effet :
+  //  · effet repoussé dans le futur alors que la révision était appliquée → repasser en
+  //    pendingApply et revenir à l'ancien HC (le boot _applyPendingIRLRevisions ré-appliquera) ;
+  //  · effet arrivé alors que la révision était en attente → _applyPendingIRLRevisions l'applique.
+  const todayIso = _histoBailTodayIso();
+  const rev = (DB.irlHistorique||[]).find(h => h && String(h.ref)===String(ctx.ref)
+    && (String(h.date||'').slice(0,10)===String(ctx.revisionDate).slice(0,10) || String(h.dateRevision||'').slice(0,10)===String(ctx.revisionDate).slice(0,10))
+    && String(h.dateEffet||'').slice(0,10)===r.effetIso);
+  if(rev && r.effetIso > todayIso && !rev.pendingApply){
+    rev.pendingApply = true; rev.appliedAt = '';
+    const log = (DB.logements||[]).find(l=>l && !l._deleted && l.ref===ctx.ref);
+    if(log && Number(log.hc)===Number(rev.nouveauHC)){ log.hc = Number(rev.ancienHC); _pushLoyerTheoFromLive(log); _stamp(log); }
+    if(DB.baux[ctx.ref] && Number(DB.baux[ctx.ref].hc)===Number(rev.nouveauHC)) DB.baux[ctx.ref].hc = Number(rev.ancienHC);
+  }
+  if(!DB.bailEvents) DB.bailEvents = [];
+  DB.bailEvents.push(_stamp({ ref: ctx.ref, bailDebut: (DB.baux[ctx.ref]&&DB.baux[ctx.ref].debut)||'',
+    date: todayIso, type: 'correction', motif,
+    avant: null, apres: null, dateEffet: r.effetIso,
+    detail: `Effet IRL re-daté ${fd(ctx.ancienEffet)} → ${fd(r.effetIso)}` }));
+  if(typeof _auditLog==='function') _auditLog('update','bareme',ctx.ref,`re-datage IRL ${ctx.ancienEffet} → ${r.effetIso} : ${motif}`);
+  saveDB();
+  if(typeof _applyPendingIRLRevisions==='function') _applyPendingIRLRevisions();
+  closeM('ov-irl-corr');
+  _histoIrlCorrCtx = null;
+  rLogFiche();
+  showToast('Date d\'effet corrigée','ok');
 }
 
 function openHistoCorrPeriode(ref, presetDebut){
@@ -53892,6 +53987,48 @@ window.addEventListener('DOMContentLoaded', ()=>{
   .hl-period .tag{margin-left:0}
 }
 </style>
+<!-- HISTORIQUE-BAIL-ONGLET (17/07) — correction d'un événement IRL (re-datage) depuis la timeline -->
+<div class="ov hidden" id="ov-irl-corr" onclick="closeBg(event,'ov-irl-corr')">
+  <div class="modal" style="max-width:460px;width:96%">
+    <div class="m-head">
+      <h3>✏️ Corriger la date d'effet</h3>
+      <button class="m-close" onclick="closeM('ov-irl-corr')">✕</button>
+    </div>
+    <div class="m-body">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:12px" id="ic-sub"></div>
+      <div><label class="mu sm">Nouvelle date d'effet</label><input type="date" class="inp" id="ic-effet" style="width:100%"></div>
+      <div style="margin-top:12px"><label class="mu sm">Motif (obligatoire — la correction est tracée)</label>
+        <textarea class="inp" id="ic-motif" rows="2" style="width:100%" placeholder="Ex. : révision annulée puis refaite — date d'effet erronée…"></textarea></div>
+      <div style="font-size:11.5px;color:var(--t2);background:var(--warn-soft,rgba(178,122,18,.13));border-radius:var(--r);padding:9px 12px;margin-top:12px">⚠️ Normalisée au 1er du mois, jamais dans un mois déjà quittancé, sans chevaucher une autre période. La correction apparaît dans l'historique.</div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs" onclick="closeM('ov-irl-corr')">Annuler</button>
+      <button class="btn bp" onclick="_histoIrlCorrSave()">Corriger</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORIQUE-BAIL-ONGLET (17/07) — validation d'une révision IRL avec date d'effet ÉDITABLE -->
+<div class="ov hidden" id="ov-irl-valid" onclick="closeBg(event,'ov-irl-valid')">
+  <div class="modal" style="max-width:460px;width:96%">
+    <div class="m-head">
+      <h3>📈 Valider la révision IRL</h3>
+      <button class="m-close" onclick="closeM('ov-irl-valid')">✕</button>
+    </div>
+    <div class="m-body">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:12px" id="iv-sub"></div>
+      <div id="iv-move" style="margin-bottom:12px"></div>
+      <div><label class="mu sm">Date d'effet du nouveau loyer</label><input type="date" class="inp" id="iv-effet" style="width:100%"></div>
+      <div class="mu sm" id="iv-effet-hint" style="margin-top:4px;font-size:11px"></div>
+      <div style="font-size:11.5px;color:var(--t2);background:var(--warn-soft,rgba(178,122,18,.13));border-radius:var(--r);padding:9px 12px;margin-top:12px">⚠️ Jamais rétroactif : le loyer actuel reste facturé jusqu'à la date d'effet, les mois déjà quittancés ne sont pas recalculés.</div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs" onclick="closeM('ov-irl-valid')">Annuler</button>
+      <button class="btn bp" onclick="_irlValidConfirm()">Valider la révision</button>
+    </div>
+  </div>
+</div>
+
 <!-- HISTORIQUE-BAIL-ONGLET (17/07) — popup de validation d'une modification financière du bail -->
 <style>
 .bv-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;

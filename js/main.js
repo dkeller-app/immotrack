@@ -95,7 +95,7 @@ import {
 // HISTORIQUE-BAIL-ONGLET (17/07)  chapitres/rail de l'historique du bail (onglet Bail inline)
 import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
 // HISTORIQUE-BAIL-ONGLET - popup de validation des modifs financieres du bail
-import { detecterChangementsFinanciers, dateEffetModifDefaut } from './core/bail-modif.js';
+import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL } from './core/bail-modif.js';
 
 import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -302,6 +302,7 @@ window._bailHistoConstruire = construireHistoriqueBail;   // HISTORIQUE-BAIL-ONG
 window._bailHistoEnVigueur = bailHistoEnVigueur;
 window._bailModifDetecterChangements = detecterChangementsFinanciers;
 window._bailModifDateEffetDefaut = dateEffetModifDefaut;
+window._bailModifRedaterIRL = redaterRevisionIRL;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;
