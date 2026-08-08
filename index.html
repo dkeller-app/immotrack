@@ -34295,7 +34295,8 @@ function setLogFicheComptaYear(y) {
 // timeline Bail, hero déjà trop haut") :
 //   - SUPPRESSION du bandeau status pleine largeur
 //   - SUPPRESSION de la timeline 24 mois pleine largeur (redondante avec
-//     _renderBailTimeline de l'onglet Bail)
+//     l'ex-timeline horizontale de l'onglet Bail — elle-même remplacée 17/07 par
+//     la timeline en accordéons « Historique du bail »)
 //   - HERO compact intégré : 4 KPIs scoreboard (loyer/durée/occup/manque)
 //     + pulse fine 8px de haut servant de séparateur entre badges et KPIs
 // Hauteur fiche avant les sous-onglets : ~420px → ~190px (gain ~55%).
@@ -36634,23 +36635,8 @@ function _renderQuitForLog(ref, year) {
   return `<div class="compta-list">${rows}</div>`;
 }
 
-// ── Historique IRL d'un logement (toutes années)
-function _renderIrlForLog(ref) {
-  const hist = (DB.irlHistorique||[])
-    .filter(_isAlive) // v14.72 BUG #15 : exclure tombstones
-    .filter(h => h.ref === ref)
-    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  if(!hist.length) return `<div class="compta-empty">Aucune révision IRL appliquée à ce jour</div>`;
-  const rows = hist.map(h => `
-    <div class="compta-row">
-      <span class="compta-row-date">${fd(h.date)}</span>
-      <span class="compta-row-lib">${escHtml(h.trimestre||'—')}<span class="mu sm" style="margin-left:6px">→ ${(+h.pct||0).toFixed(2)}%</span></span>
-      <span class="compta-row-cat"><span class="mu sm">${fmt(h.ancienHC||0)} → ${fmt(h.nouveauHC||0)}</span></span>
-      <span class="compta-row-amt ${(+h.delta||0)>0?'pos':''}">${(+h.delta||0)>0?'+':''}${fmt(h.delta||0)}</span>
-      <span class="compta-row-act"></span>
-    </div>`).join('');
-  return `<div class="compta-list">${rows}</div>`;
-}
+// HISTORIQUE-BAIL-ONGLET (17/07) : _renderIrlForLog supprimé — l'historique IRL est
+// absorbé par la timeline « Historique du bail » de l'onglet Bail (décision user).
 
 // ════════════════════════════════════════════════════════════════════════════
 // AUDIT-SUIVI-LOYERS étape 3 — Écran « Historique du loyer » (variante B Timeline).
@@ -36681,38 +36667,63 @@ function _histoLoyerIncoherences(ref){
   try{ return window.reconstruireBaremeLot({ref, bails, irlHistorique:irl, logHc:log.hc}).incoherences||[]; }catch(e){ return []; }
 }
 
-function openHistoriqueLoyer(ref){
-  if(!ref) return;
-  _histoLoyerRef = ref;
-  _renderHistoriqueLoyer(ref);
-  openM('ov-histo-loyer');
-}
-let _histoLoyerRef = null;
+// ════════════════════════════════════════════════════════════════════════════
+// HISTORIQUE-BAIL-ONGLET (17/07, décisions user ①-⑤) — l'« Historique du bail »
+// vit INLINE dans l'onglet Bail de la fiche logement (plus de popup de consultation).
+// Un ACCORDÉON par bail (courant déplié, clos repliés — 20 ans lisibles), construit
+// par le module pur js/core/bail-historique.js (chapitres + rail périodes/événements :
+// bail, DG versé/restitué, IRL/renonciations, modifications, fins de bail).
+// Les décorations data-dépendantes (nb quittances, statut DG via _dgStatut) restent ici.
+// Remplace l'overlay ov-histo-loyer (étape 3) ; la modale ov-histo-corr est conservée.
+// ════════════════════════════════════════════════════════════════════════════
+let _histoLoyerRef = null;            // lot ciblé par la modale « Corriger une période »
+const _histoBailOuverts = {};         // `${ref}|${bailDebut}` → bool (accordéons, mémoire de session)
 
-function _renderHistoriqueLoyer(ref){
-  const body = el('histo-loyer-body'); if(!body) return;
+function _histoBailTodayIso(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _histoBailEnVigueur(ref){
+  return (typeof window!=='undefined' && typeof window._bailHistoEnVigueur==='function')
+    ? window._bailHistoEnVigueur(ref, DB.loyerBareme||[], _histoBailTodayIso()) : null;
+}
+function _histoBailChapId(key){ return 'hbc-'+String(key).replace(/[^a-z0-9|_-]/gi,'_'); }
+function _histoBailToggleChap(key){
+  _histoBailOuverts[key] = !_histoBailOuverts[key];
+  const n = document.getElementById(_histoBailChapId(key));
+  if(n) n.classList.toggle('open', !!_histoBailOuverts[key]);
+}
+
+function _renderHistoBailSection(ref){
   const rEsc = escHtml(ref);
-  const log = (DB.logements||[]).find(l=>l && !l._deleted && String(l.ref).trim().toLowerCase()===String(ref).trim().toLowerCase());
-  const periods = (typeof window!=='undefined' && typeof window._baremeOfLot==='function') ? window._baremeOfLot(ref) : [];
-  const bails = (typeof _migrationBailsForLot==='function') ? _migrationBailsForLot(ref) : [];
-  const irls = (DB.irlHistorique||[]).filter(h=>h && !h._deleted && String(h.ref||'').trim().toLowerCase()===String(ref).trim().toLowerCase());
+  const refSafe = (ref||'').replace(/'/g,"\\'");
+  if(typeof window==='undefined' || typeof window._bailHistoConstruire!=='function'){
+    return `<div class="logf-panel" style="grid-column:1/-1;margin-top:14px"><h3 class="logf-panel-title">🕒 Historique du bail</h3>
+      <div class="logf-panel-empty">Historique indisponible (modules non chargés).</div></div>`;
+  }
+  const bailCur = (DB.baux && DB.baux[ref] && !DB.baux[ref]._deleted && !DB.baux[ref].cloture) ? DB.baux[ref] : null;
+  const chapitres = window._bailHistoConstruire({
+    ref, today: _histoBailTodayIso(), bailCourant: bailCur,
+    bauxHistorique: DB.baux_historique||[], bareme: DB.loyerBareme||[],
+    irlHistorique: DB.irlHistorique||[], bailEvents: DB.bailEvents||[]
+  }).chapitres;
+
+  // ── bandeau « en vigueur » + prochaine évolution ──
+  const v = _histoBailEnVigueur(ref);
+  const nextChip = (v && v.prochaine)
+    ? `<span class="hl-nextchip">⏳ ${fmt(v.prochaine.total)} au ${fd(v.prochaine.debut)}${v.prochaine.note?` — ${escHtml(v.prochaine.note)}`:''}</span>` : '';
+  const nowHtml = v ? `
+    <div class="hl-nowband">
+      <div><div class="k">Loyer en vigueur</div><div class="v acc">${fmt(v.hc)} <small>HC</small></div></div>
+      <div class="sep"></div>
+      <div><div class="k">Provision charges</div><div class="v">${fmt(v.ch)}</div></div>
+      <div class="sep"></div>
+      <div><div class="k">Total mensuel</div><div class="v">${fmt(v.total)}</div></div>
+      <div class="sep"></div>
+      <div class="since">depuis le <b>${fd(v.depuis)}</b>${v.source==='irl'?'<br>(révision IRL)':(v.source==='manuel'?'<br>(modification)':'')}</div>
+      ${nextChip?`<div class="sep"></div>${nextChip}`:''}
+    </div>` : (chapitres.length ? `<div class="hl-nowband"><div class="since">Aucun bail en cours sur ce lot (logement vacant) — l'historique des baux passés reste consultable ci-dessous.</div></div>` : '');
+
+  // ── bandeau migration (incohérences recalculées, étape 3 — conservé) ──
   const incs = _histoLoyerIncoherences(ref);
   const migreValide = !!(DB.params && DB.params._loyerBaremeMigreValide);
-
-  // ── bandeau « en vigueur » (période ouverte du barème) ──
-  const open = periods.filter(p=>p.fin==null).slice(-1)[0] || null;
-  const nowHtml = open ? `
-    <div class="hl-nowband">
-      <div><div class="k">Loyer en vigueur</div><div class="v acc">${fmt(open.hc)} <small>HC</small></div></div>
-      <div class="sep"></div>
-      <div><div class="k">Provision charges</div><div class="v">${fmt(open.ch)}</div></div>
-      <div class="sep"></div>
-      <div><div class="k">Total mensuel</div><div class="v">${fmt((+open.hc||0)+(+open.ch||0))}</div></div>
-      <div class="sep"></div>
-      <div class="since">depuis le <b>${fd(open.debut)}</b>${open.source==='irl'?'<br>(révision IRL)':(open.source==='manuel'?'<br>(correction manuelle)':'')}</div>
-    </div>` : `<div class="hl-nowband"><div class="since">Aucun bail en cours sur ce lot (logement vacant).</div></div>`;
-
-  // ── bandeau migration (incohérences à valider) ──
   let migHtml = '';
   if(!migreValide && incs.length){
     const lignes = incs.map(i=>i.message).join(' ');
@@ -36721,67 +36732,134 @@ function _renderHistoriqueLoyer(ref){
         <div style="margin-top:8px"><button class="btn bp bb" style="padding:6px 12px;font-size:12px" onclick="_histoLoyerValiderMigration('${rEsc}')">✓ Valider ces corrections</button></div></div></div>`;
   }
 
-  // ── assemblage timeline : périodes (spine) + événements, tri décroissant ──
-  const rail = []; // {date, order, html}  order : 0 = période (au-dessus de l'évt qui la démarre), 1 = évt
-  periods.forEach(p=>{
-    const isOpen = p.fin==null;
-    const nMois = _hlNbMois(p.debut, p.fin);
-    const nQ = _hlNbQuittances(ref, p.debut, p.fin);
-    const span = isOpen
-      ? `en vigueur depuis le ${fd(p.debut)} — ${nMois} mois`
-      : `du ${fd(p.debut)} au ${fd(p.fin)} — ${nMois} mois${nQ?` · ${nQ} quittance${nQ>1?'s':''} émise${nQ>1?'s':''}`:''}`;
-    rail.push({ date:String(p.debut).slice(0,10), order:0, html:
-      `<div class="hl-period${isOpen?' current':''}"><span class="tag">${fmt((+p.hc||0)+(+p.ch||0))} / mois</span><span class="span">${span}</span></div>` });
-  });
-  // bails (courant + archivés) → événement « Bail signé »
-  bails.forEach(b=>{
-    const clos = b.finEffective || (b.archive ? b.fin : null);
-    rail.push({ date:String(b.debut).slice(0,10), order:1, html:
-      _hlEventCard('d-bail','b-bail', b.archive?'bail archivé':'bail', 'Bail — '+(log&&log.locataire||'locataire'),
-        `Loyer initial <b>${fmt(b.hc)} HC + ${fmt(b.ch)}</b> de provision.${clos?` Clôturé le <b>${fd(clos)}</b>.`:''}`, '') });
-  });
-  // IRL (application + renonciation)
-  irls.forEach(h=>{
-    if(h.action==='renonciation'){
-      rail.push({ date:String(h.date||h.dateRevision||'').slice(0,10), order:1, html:
-        _hlEventCard('d-renon','b-warn','⊘ renonciation','Révision IRL — renoncée',
-          `Loyer maintenu à <b>${fmt(h.ancienHC||h.nouveauHC||0)} HC</b>. La renonciation ne modifie pas le barème.`, '') });
-      return;
-    }
-    const eff = h.dateEffet || h.dateRevision || '';
-    const pct = (h.irlVigueurVal && h.irlRefVal) ? ((h.irlVigueurVal-h.irlRefVal)/h.irlRefVal*100) : (h.pct!=null?+h.pct:null);
-    const move = `<div class="hl-move"><span class="old">${fmt(h.ancienHC||0)}</span><span>→</span><span class="new">${fmt(h.nouveauHC||0)}</span>${pct!=null?`<span class="pct">${pct>=0?'+':''}${pct.toFixed(2)} %</span>`:''}</div>`;
-    rail.push({ date:String(h.date||eff||'').slice(0,10), order:1, html:
-      _hlEventCard('d-irl','b-irl', 'IRL'+(h.irlVigueur?' '+String(h.irlVigueur).replace(/\s.*$/,''):''), 'Révision IRL validée',
-        `Nouveau loyer à compter du <b>${fd(eff)}</b> (jamais rétroactif — les mois quittancés font foi).`, move) });
-  });
-  // corrections manuelles (périodes source manuel) → événement dédié (le motif est dans note)
-  periods.filter(p=>p.source==='manuel').forEach(p=>{
-    rail.push({ date:String(p.debut).slice(0,10), order:1, html:
-      _hlEventCard('d-man','b-man','correction','Correction manuelle',
-        `Loyer <b>${fmt(p.hc)} HC + ${fmt(p.ch)}</b> à compter du <b>${fd(p.debut)}</b>.${p.note?' Motif : '+escHtml(p.note)+'.':''}`, '') });
-  });
-  // corrections migration (incohérences irl-redatee) → événement « à valider »
-  if(!migreValide){
-    incs.filter(i=>i.type==='irl-redatee').forEach(i=>{
-      rail.push({ date:String(i.dateEffet||'').slice(0,10), order:2, html:
-        `<div class="hl-card dashed"><div class="tt"><h4>Correction migration</h4><span class="hl-badge b-warn">à valider</span></div>
-          <div class="hl-desc">Effet de la révision IRL re-daté : <b>${fd(i.ancienDateEffet)} → ${fd(i.dateEffet)}</b>. Les quittances émises font foi — aucun retard recalculé.</div>
-          <div class="hl-foot"><span class="meta">système (migration)</span></div></div>` });
-    });
+  // ── DG : même sélection que l'ancien panneau (bail courant actif, sinon dernier archivé) ──
+  const _bailForDg = bailCur || (DB.baux_historique||[]).filter(h=>h && !h._deleted && h.ref===ref)
+    .sort((a,b)=>(b._archivedAt||'').localeCompare(a._archivedAt||''))[0] || null;
+
+  const chapsHtml = chapitres.length
+    ? chapitres.map(c=>_histoBailChapHtml(c, ref, refSafe, _bailForDg)).join('')
+    : `<div class="logf-panel-empty">Aucun bail (ni courant ni passé) sur ce bien.</div>`;
+
+  return `
+    <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
+      <div class="flex-b" style="margin-bottom:4px;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <div><h3 class="logf-panel-title" style="margin:0">🕒 Historique du bail</h3>
+          <div class="mu sm" style="margin-top:2px">Toutes les évolutions, tous baux confondus : loyer · charges · dépôt de garantie · révisions IRL · fins de bail</div></div>
+        <button class="btn bs bb" onclick="openHistoCorrPeriode('${rEsc}')">＋ Corriger une période</button>
+      </div>
+      <div style="margin-top:12px">${nowHtml}${migHtml}${chapsHtml}</div>
+    </div>`;
+}
+
+// Un chapitre (accordéon) = un bail. Courant déplié par défaut ; état mémorisé par session.
+function _histoBailChapHtml(c, ref, refSafe, bailForDg){
+  const key = ref+'|'+(c.bailDebut||'');
+  if(!(key in _histoBailOuverts)) _histoBailOuverts[key] = (c.statut==='courant');
+  const open = !!_histoBailOuverts[key];
+  const keySafe = key.replace(/'/g,"\\'");
+  const duree = _hlNbMois(c.debut, c.fin);
+  const dureeLbl = duree>=12 ? `${Math.floor(duree/12)} an${Math.floor(duree/12)>1?'s':''}${duree%12?` ${duree%12} mois`:''}` : `${duree} mois`;
+  const statutChip = c.statut==='courant'
+    ? '<span class="hbc-status cur">● En cours</span>'
+    : '<span class="hbc-status old">Clos</span>';
+  const railHtml = c.rail.length
+    ? `<div class="hl-tl">${c.rail.map(r=> r.kind==='periode' ? _histoBailPeriodeHtml(r.periode, ref)
+        : `<div class="hl-ev"><div class="hl-date"><b>${_hlDateParts(r.dateTri).j}</b>${_hlDateParts(r.dateTri).a}</div><div class="hl-dot ${_hlDotOf(_histoBailEventHtml(r.ev, c, refSafe, bailForDg))}"></div>${_histoBailEventHtml(r.ev, c, refSafe, bailForDg)}</div>`).join('')}</div>`
+    : `<div class="logf-panel-empty">Aucun événement.</div>`;
+  return `
+    <div class="hbc${open?' open':''}${c.statut==='clos'?' hbc-old':''}" id="${_histoBailChapId(key)}">
+      <div class="hbc-head" role="button" tabindex="0" onclick="_histoBailToggleChap('${keySafe}')"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_histoBailToggleChap('${keySafe}');}"
+        aria-expanded="${open}" title="${open?'Replier':'Déplier'} ce bail">
+        ${statutChip}
+        <span class="hbc-who">${escHtml(c.locataires||'—')}</span>
+        <span class="hbc-meta">${fd(c.debut)} → ${c.fin?fd(c.fin):'en cours'} · ${dureeLbl}</span>
+        <span class="hbc-grow"></span>
+        <span class="hbc-count">${c.nbEvenements} événement${c.nbEvenements>1?'s':''}</span>
+        <span class="hbc-chev">▾</span>
+      </div>
+      <div class="hbc-body">${railHtml}</div>
+    </div>`;
+}
+
+function _histoBailPeriodeHtml(p, ref){
+  const nMois = _hlNbMois(p.debut, p.fin);
+  const nQ = _hlNbQuittances(ref, p.debut, p.fin);
+  const span = p.future
+    ? `à partir du ${fd(p.debut)}${p.note?` — ${escHtml(p.note)}`:''}`
+    : (p.courante && p.fin==null)
+      ? `en vigueur depuis le ${fd(p.debut)} — ${nMois} mois${nQ?` · ${nQ} quittance${nQ>1?'s':''} émise${nQ>1?'s':''}`:''}`
+      : `du ${fd(p.debut)}${p.fin?` au ${fd(p.fin)}`:''} — ${nMois} mois${nQ?` · ${nQ} quittance${nQ>1?'s':''} émise${nQ>1?'s':''}`:''}`;
+  return `<div class="hl-period${p.courante?' current':''}${p.future?' upcoming':''}"><span class="tag">${fmt(p.total)} / mois</span><span class="span">${span}</span></div>`;
+}
+
+// Carte d'un événement du rail — types : bail-debut, dg-verse, dg-restitue, irl,
+// irl-renonce, modif (barème manuel), fin-bail, traces bailEvents (modif-dg…).
+function _histoBailEventHtml(ev, c, refSafe, bailForDg){
+  const t = ev.type;
+  if(t==='bail-debut'){
+    const badge = ev.signe ? 'bail signé' : 'bail';
+    const foot = c.statut==='clos' && c.histIdx!=null
+      ? `<div class="hl-foot"><span class="hl-lnk" onclick="openBailHist(${c.histIdx})">👁 Voir le bail archivé</span></div>` : '';
+    return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Bail — ${escHtml(ev.locataires||'locataire')}</h4><span class="hl-badge b-bail">${escHtml(badge)}</span></div>
+      <div class="hl-desc">Loyer initial <b>${fmt(ev.hc0)} HC + ${fmt(ev.ch0)}</b> de provision${ev.dg?` · dépôt de garantie dû ${fmt(ev.dg)}`:''}.</div>${foot}</div>`;
   }
-
-  rail.sort((a,b)=> a.date<b.date?1 : a.date>b.date?-1 : a.order-b.order);
-  const tlHtml = rail.length ? `<div class="hl-tl">${rail.map(r=>r.order===0?r.html:`<div class="hl-ev"><div class="hl-date"><b>${_hlDateParts(r.date).j}</b>${_hlDateParts(r.date).a}</div><div class="hl-dot ${_hlDotOf(r.html)}"></div>${r.html}</div>`).join('')}</div>`
-    : `<div class="compta-empty">Aucun historique de loyer pour ce lot.</div>`;
-
-  body.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <div style="flex:1;min-width:180px"><div style="font-size:15px;font-weight:800">${rEsc}</div>
-        <div class="mu sm">Locataire actuel : <b>${escHtml(log&&log.locataire||'—')}</b></div></div>
-      <button class="btn bp bb" onclick="openHistoCorrPeriode('${rEsc}')">＋ Corriger une période</button>
-    </div>
-    ${nowHtml}${migHtml}${tlHtml}`;
+  if(t==='dg-verse'){
+    // Statut + CTA restitution : mêmes règles que l'ancien panneau « Dépôt de garantie »
+    // (v15.14 Fix 4), portées par l'événement DG du bail concerné (_bailForDg).
+    let statutHtml='', ctaHtml='';
+    const isDgBail = bailForDg && c.bail===bailForDg;
+    if(isDgBail && typeof _dgStatut==='function'){
+      const dgInfo=_dgStatut(bailForDg);
+      const isRestit = dgInfo.statut===DG_STATUS.RESTITUE;
+      const map = {
+        [DG_STATUS.RESTITUE]:  ['✓ Restitué','b-irl'],
+        [DG_STATUS.EN_RETARD]: [`🚨 En retard ${dgInfo.joursRetard}j`,'b-warn'],
+        [DG_STATUS.A_RESTITUER]:[`⏳ À restituer J-${dgInfo.joursRestants} (délai légal ${dgInfo.delaiMois} mois)`,'b-warn'],
+        [DG_STATUS.COMPLET]:   [`✓ Versé (${fmt(dgInfo.dgPaid)})`,'b-irl'],
+        [DG_STATUS.PARTIEL]:   [`⚠ Partiel (${fmt(dgInfo.dgPaid)} / ${fmt(dgInfo.dgDu)})`,'b-warn']
+      };
+      const st = map[dgInfo.statut] || ['❓ Non versé','b-warn'];
+      statutHtml = `<span class="hl-badge ${st[1]}">${st[0]}</span>`;
+      if(!!bailForDg.cloture && !isRestit){
+        ctaHtml = `<div class="hl-foot"><button class="btn bp bb" style="padding:5px 12px;font-size:12px" onclick="_dgOpenRestitution('${refSafe}')">✦ Préparer la restitution du DG</button></div>`;
+      }
+    }
+    return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie versé</h4><span class="hl-badge b-dg">DG</span>${statutHtml}</div>
+      <div class="hl-desc"><b>${fmt(ev.montant)}</b> dû à la signature. Restituable au départ (délai légal 1 mois, 2 mois si retenues).</div>${ctaHtml}</div>`;
+  }
+  if(t==='dg-restitue'){
+    const retenue = (ev.dgVerse||0)-(ev.montant||0);
+    const move = `<div class="hl-move"><span class="old">${fmt(ev.dgVerse)}</span><span>→</span><span class="new">${fmt(ev.montant)}</span>${retenue>0?`<span class="pct" style="color:var(--warn)">−${fmt(retenue)}</span>`:''}</div>`;
+    return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie restitué</h4><span class="hl-badge b-dg">DG</span></div>
+      <div class="hl-desc"><b>${fmt(ev.montant)}</b> restitué${retenue>0?` (${fmt(ev.dgVerse)} versés − <b>${fmt(retenue)}</b> de retenues${ev.retenues?` : ${escHtml(ev.retenues)}`:''})`:' intégralement'}.</div>${move}</div>`;
+  }
+  if(t==='irl'){
+    const pct = (ev.ancienHC>0) ? ((ev.nouveauHC-ev.ancienHC)/ev.ancienHC*100) : null;
+    const move = `<div class="hl-move"><span class="old">${fmt(ev.ancienHC)}</span><span>→</span><span class="new">${fmt(ev.nouveauHC)}</span>${pct!=null?`<span class="pct">${pct>=0?'+':''}${pct.toFixed(2)} %</span>`:''}</div>`;
+    const etat = ev.pendingApply ? '<span class="hl-badge b-warn">⏳ en attente</span>' : (ev.future ? '<span class="hl-badge b-warn">⏳ à venir</span>' : '');
+    const hb = ev.horsBail ? '<span class="hl-badge b-warn">hors bail ?</span>' : '';
+    return `<div class="hl-card" data-dot="d-irl"><div class="tt"><h4>Révision IRL validée</h4><span class="hl-badge b-irl">IRL${ev.irlVigueur?' '+escHtml(String(ev.irlVigueur).replace(/\s.*$/,'')):''}</span>${etat}${hb}</div>
+      <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}</div>`;
+  }
+  if(t==='irl-renonce'){
+    return `<div class="hl-card" style="opacity:.8" data-dot="d-renon"><div class="tt"><h4>Révision IRL — renoncée</h4><span class="hl-badge b-warn">⊘ renonciation</span></div>
+      <div class="hl-desc">Loyer maintenu à <b>${fmt(ev.ancienHC)} HC</b>. La renonciation ne modifie pas le barème.</div></div>`;
+  }
+  if(t==='modif'){
+    return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4>Modification du loyer</h4><span class="hl-badge b-man">modification</span></div>
+      <div class="hl-desc">Loyer <b>${fmt(ev.hc)} HC + ${fmt(ev.ch)}</b> à compter du <b>${fd(ev.effet)}</b>.${ev.note?' Motif : '+escHtml(ev.note)+'.':''}</div></div>`;
+  }
+  if(t==='fin-bail'){
+    return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Fin de bail</h4><span class="hl-badge b-bail">fin de bail</span></div>
+      <div class="hl-desc">Sortie effective le <b>${fd(ev.date)}</b>${ev.finTheorique?` <span class="mu" style="font-size:11px">(prévu jusqu'au ${fd(ev.finTheorique)})</span>`:''}${ev.motif?` · ${escHtml(ev.motif)}`:(ev.auto?' · clôture automatique':'')}. Le dû s'arrête à cette date.</div></div>`;
+  }
+  // Traces génériques (DB.bailEvents : modif-dg, corrections…)
+  const titre = t==='modif-dg' ? 'Dépôt de garantie modifié' : (t==='correction' ? 'Correction' : 'Événement');
+  const move = (ev.avant!=null && ev.apres!=null)
+    ? `<div class="hl-move"><span class="old">${fmt(ev.avant)}</span><span>→</span><span class="new">${fmt(ev.apres)}</span></div>` : '';
+  return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4>${escHtml(titre)}</h4><span class="hl-badge b-man">${escHtml(t)}</span></div>
+    <div class="hl-desc">${ev.dateEffet?`Effet au <b>${fd(ev.dateEffet)}</b>. `:''}${ev.motif?'Motif : '+escHtml(ev.motif)+'.':''}</div>${move}</div>`;
 }
 // petit utilitaire : la carte d'événement (le dot est ajouté par l'appelant selon le type)
 function _hlEventCard(dot, badge, badgeLabel, title, desc, extra){
@@ -36795,7 +36873,7 @@ function _histoLoyerValiderMigration(ref){
   DB.params._loyerBaremeMigreValide = true;
   if(typeof _auditLog==='function') _auditLog('validate','bareme','loyer','migration validée');
   saveDB();
-  _renderHistoriqueLoyer(ref);
+  rLogFiche();   // l'historique vit désormais inline dans l'onglet Bail
   showToast('Corrections validées', 'ok');
 }
 
@@ -36829,7 +36907,7 @@ function _histoSaveCorrPeriode(){
   if(typeof _auditLog==='function') _auditLog('update','bareme',ref,`correction manuelle ${debut} ${hc}+${ch||0} : ${motif}`);
   saveDB();
   closeM('ov-histo-corr');
-  _renderHistoriqueLoyer(ref);
+  rLogFiche();   // l'historique vit désormais inline dans l'onglet Bail
   showToast('Période corrigée','ok');
 }
 
@@ -36868,10 +36946,9 @@ function _renderLogFichePanelCompta(log, ref) {
     ${_renderQuitForLog(ref, year)}
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <span class="logf-subtab act" style="cursor:default">📈 Historique IRL</span>
-      <button class="btn bs bb" onclick="openHistoriqueLoyer('${refSafe}')" title="Le journal complet du loyer : bail, révisions, périodes en vigueur">🕒 Historique du loyer</button>
+      <span class="logf-subtab act" style="cursor:default">🕒 Historique du loyer</span>
+      <button class="btn bs bb" onclick="setLogFicheTab('bail')" title="L'historique complet du bail (loyer, charges, DG, IRL) vit dans l'onglet Bail">↗ Voir dans l'onglet Bail</button>
     </div>
-    ${_renderIrlForLog(ref)}
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none">
       <span class="logf-subtab act" style="cursor:default">⚖ Régularisation des charges</span>
@@ -39683,6 +39760,8 @@ function _renderLogFichePanelBail(log, bail, ref) {
           <div class="logf-row"><span class="logf-label">Loyer total</span><span class="logf-value logf-value-strong">${fmt(totalLoyer)}<small>/mois</small></span></div>
           <div class="logf-row"><span class="logf-label">Dépôt de garantie</span><span class="logf-value logf-value-num">${fmt(+bail.dg||+log.dg||0)}</span></div>
           <div class="logf-row"><span class="logf-label">Indice IRL</span><span class="logf-value">${escHtml(bail.irl||log.irl||'–')}</span></div>
+          ${(()=>{ const v=_histoBailEnVigueur(ref); if(!v||!v.prochaine) return '';
+            const n=v.prochaine; return `<div class="logf-row"><span class="logf-label">Prochaine évolution</span><span class="logf-value">${fmt(n.hc)} HC${n.ch?` + ${fmt(n.ch)}`:''} au ${fd(n.debut)}${n.note?` <span class="mu" style="font-size:10.5px">(${escHtml(n.note)})</span>`:''}</span></div>`; })()}
           ${bail.jpay?`<div class="logf-row"><span class="logf-label">Jour paiement</span><span class="logf-value">${escHtml(String(bail.jpay))}</span></div>`:''}
           <!-- v15.249 B6 (D-B5) : ligne « Régime fiscal » retirée de l'affichage (donnée conservée mais non surfacée). -->
           ${bail.notes?`<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Notes</span><span class="logf-value" style="font-style:italic;font-weight:400;text-align:left">${escHtml(bail.notes)}</span></div>`:''}
@@ -39704,236 +39783,16 @@ function _renderLogFichePanelBail(log, bail, ref) {
       </div>`;
   }
 
-  // v15.14 Fix 4 — Section "💰 Dépôt de garantie" visible et accessible.
-  // Affiche le statut DG + bouton "✦ Préparer restitution" bien en évidence
-  // (l'utilisateur ne devait passer par les alertes en bas du dashboard).
-  let dgSection = '';
-  // Récupère le bail clôturé le plus récent depuis l'historique si pas de bail actif
-  const _bailForDg = (DB.baux && DB.baux[ref] && !DB.baux[ref]._deleted && !DB.baux[ref].cloture)
-    ? DB.baux[ref]
-    : (DB.baux_historique||[]).filter(h => h && !h._deleted && h.ref === ref)
-        .sort((a,b) => (b._archivedAt||'').localeCompare(a._archivedAt||''))[0];
-  if (_bailForDg && (Number(_bailForDg.dg)||0) > 0 && typeof _dgStatut === 'function') {
-    const dgInfo = _dgStatut(_bailForDg);
-    const isClotur = !!_bailForDg.cloture;
-    const isRestit = dgInfo.statut === DG_STATUS.RESTITUE;
-    let statusBadge, statusColor, headerBg;
-    if (isRestit) {
-      statusBadge = `✓ Restitué`; statusColor = '#14532d'; headerBg = '#dcfce7';
-    } else if (dgInfo.statut === DG_STATUS.EN_RETARD) {
-      statusBadge = `🚨 En retard ${dgInfo.joursRetard}j`; statusColor = '#7f1d1d'; headerBg = '#fee2e2';
-    } else if (dgInfo.statut === DG_STATUS.A_RESTITUER) {
-      statusBadge = `⏳ À restituer J-${dgInfo.joursRestants}`; statusColor = '#78350f'; headerBg = '#fef3c7';
-    } else if (dgInfo.statut === DG_STATUS.COMPLET) {
-      statusBadge = `✓ Versé (${fmt(dgInfo.dgPaid)})`; statusColor = '#14532d'; headerBg = '#dcfce7';
-    } else if (dgInfo.statut === DG_STATUS.PARTIEL) {
-      statusBadge = `⚠ Partiel`; statusColor = '#78350f'; headerBg = '#fef3c7';
-    } else {
-      statusBadge = `❓ Non versé`; statusColor = '#7f1d1d'; headerBg = '#fee2e2';
-    }
-    const showRestitButton = isClotur && !isRestit;
-    dgSection = `
-      <div class="logf-panel" style="grid-column:1/-1;margin-top:14px;background:${headerBg}33;border:1px solid ${statusColor}33">
-        <div class="flex-b" style="margin-bottom:10px;flex-wrap:wrap;gap:10px;align-items:center">
-          <h3 class="logf-panel-title" style="margin:0">💰 Dépôt de garantie</h3>
-          <span style="background:${headerBg};color:${statusColor};border:1px solid ${statusColor};border-radius:14px;padding:3px 12px;font-size:12px;font-weight:700">${statusBadge}</span>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:${showRestitButton?'14px':'0'}">
-          <div><div class="mu sm" style="font-size:10.5px">DG dû</div><div style="font-weight:700;font-size:14px">${fmt(dgInfo.dgDu)}</div></div>
-          <div><div class="mu sm" style="font-size:10.5px">DG versé</div><div style="font-weight:700;font-size:14px">${fmt(dgInfo.dgPaid)}</div></div>
-          ${isRestit ? `<div><div class="mu sm" style="font-size:10.5px">Restitué le</div><div style="font-weight:700;font-size:14px">${fd(_bailForDg.dgRestitueAt||'')}</div></div>
-            <div><div class="mu sm" style="font-size:10.5px">Montant restitué</div><div style="font-weight:700;font-size:14px">${fmt(_bailForDg.dgRestitueMontant||0)}</div></div>` : ''}
-          ${(dgInfo.statut === DG_STATUS.A_RESTITUER || dgInfo.statut === DG_STATUS.EN_RETARD) ? `<div><div class="mu sm" style="font-size:10.5px">Délai légal</div><div style="font-weight:700;font-size:14px">${dgInfo.delaiMois} mois</div></div>` : ''}
-        </div>
-        ${showRestitButton ? `<div style="text-align:center"><button class="btn bp bb" onclick="_dgOpenRestitution('${refSafe}')" style="font-size:13px;font-weight:600;padding:8px 18px">✦ Préparer la restitution du DG</button></div>` : ''}
-        ${isRestit && _bailForDg.dgDetailRetenues ? `<div class="mu sm" style="margin-top:10px;padding:8px 12px;background:var(--sur);border-radius:var(--rl);font-size:11.5px;white-space:pre-wrap"><strong>Retenues détaillées :</strong>\n${escHtml(_bailForDg.dgDetailRetenues)}</div>` : ''}
-      </div>`;
-  }
-
-  // ── Section Historique des baux (DB.baux_historique filtré + index global pour openBailHist)
-  const histAll = (DB.baux_historique||[]);
-  const history = histAll.map((h,idx) => ({...h, _idx:idx})).filter(h => h.ref === ref)
-                          .sort((a,b) => (b._archivedAt||'').localeCompare(a._archivedAt||''));
-
-  // Timeline (toujours rendue si on a au moins le bail courant)
-  const timelineHTML = (bail || history.length) ? _renderBailTimeline(bail, history, ref) : '';
-
-  let historySection = '';
-  if(history.length) {
-    historySection = `
-      <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
-        <h3 class="logf-panel-title">🗂 Historique des baux (${history.length})</h3>
-        ${timelineHTML}
-        <div class="logf-bail-history-list">
-          ${history.map(h => {
-            const locs = (Array.isArray(h.locataires) && h.locataires.length)
-              ? h.locataires.map(l=>l && l.nom).filter(Boolean).join(', ')
-              : (h.locataire||'—');
-            const totalH = (+h.hc||0)+(+h.ch||0);
-            const motif = h.finMotif ? ` · ${escHtml(h.finMotif)}` : (h._archivedAuto?' · clôture auto':'');
-            // v14.13 A4 fix : prioriser finEffective (date réelle de sortie) sur fin (théorique)
-            const finReelle = h.finEffective || h.fin;
-            const periodeLabel = `${fd(h.debut)} → ${finReelle?fd(finReelle):'?'}`;
-            const finTheoSuffix = (h.finEffective && h.fin && h.finEffective !== h.fin)
-              ? ` <span class="mu" style="font-size:10px;color:var(--t3)">(prévu jusqu'au ${fd(h.fin)})</span>` : '';
-            return `<div class="logf-bail-hist-row">
-              <div style="flex:1;min-width:0">
-                <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(locs)}</div>
-                <div class="mu">${periodeLabel}${finTheoSuffix}${motif}</div>
-              </div>
-              <div class="flex-c" style="gap:10px;flex-shrink:0">
-                <span class="mu">${fmt(totalH)}<span style="font-size:10px">/mois</span></span>
-                <button class="btn bs bb" onclick="openBailHist(${h._idx})" title="Voir le bail archivé">👁</button>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-  } else if(bail) {
-    historySection = `
-      <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
-        <h3 class="logf-panel-title">🗂 Historique des baux</h3>
-        ${timelineHTML}
-        <div class="logf-panel-empty" style="padding:8px 0">Aucun bail antérieur — c'est le premier bail sur ce bien.</div>
-      </div>`;
-  }
-
-  // v15.10 Sprint 11 IRL-REVISION-UX-FIX Phase A4 — Historique des révisions IRL pour ce logement
-  let irlHistSection = '';
-  const irlAll = (DB.irlHistorique||[]).filter(h => h && !h._deleted && h.ref === ref);
-  if (irlAll.length) {
-    const sorted = irlAll.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
-    const today = new Date(); today.setHours(0,0,0,0);
-    const todayIso = today.toISOString().slice(0,10);
-    irlHistSection = `
-      <div class="logf-panel" style="grid-column:1/-1;margin-top:14px">
-        <h3 class="logf-panel-title">📈 Historique des révisions IRL (${sorted.length})</h3>
-        <table class="tbl" style="width:100%;font-size:12px;margin-top:8px">
-          <thead><tr>
-            <th style="text-align:left">Validée le</th>
-            <th style="text-align:left">Application</th>
-            <th style="text-align:right">Ancien HC</th>
-            <th style="text-align:right">Nouveau HC</th>
-            <th style="text-align:right">Variation</th>
-            <th style="text-align:left">Indices</th>
-            <th style="text-align:center">Statut</th>
-          </tr></thead>
-          <tbody>${sorted.map(h => {
-            const dateAppli = h.dateApplication || h.dateRevision || '';
-            const appliFutur = dateAppli && dateAppli > todayIso;
-            const renonciation = h.action === 'renonciation';
-            const statusBadge = renonciation
-              ? '<span style="background:#f3f4f6;color:#374151;border:1px solid #9ca3af;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:700">⊘ Renonciation</span>'
-              : h.pendingApply
-              ? `<span style="background:#fef3c7;color:#78350f;border:1px solid #d97706;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:700">⏳ En attente</span>`
-              : appliFutur
-              ? `<span style="background:#fef3c7;color:#78350f;border:1px solid #d97706;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:700">⏳ En attente</span>`
-              : '<span style="background:#dcfce7;color:#14532d;border:1px solid #16a34a;border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:700">✅ Appliquée</span>';
-            const diffColor = (h.diff||0) > 0 ? 'var(--grn)' : (h.diff||0) < 0 ? 'var(--red)' : 'var(--mut)';
-            return `<tr>
-              <td style="font-size:11.5px;white-space:nowrap">${escHtml(fd(h.date||''))}</td>
-              <td style="font-size:11.5px;white-space:nowrap">${escHtml(fd(dateAppli))}</td>
-              <td style="text-align:right;font-size:12px">${fmt(h.ancienHC||0)}</td>
-              <td style="text-align:right;font-size:12px;font-weight:600">${renonciation ? '<span class="mu">—</span>' : fmt(h.nouveauHC||0)}</td>
-              <td style="text-align:right;font-size:11.5px;color:${diffColor}">${renonciation ? '<span class="mu">—</span>' : ((h.diff||0) > 0 ? '+' : '') + fmtN(h.diff||0) + ' €'}</td>
-              <td style="font-size:10.5px;color:var(--mut)">${escHtml(h.irlRef||'')} → ${escHtml(h.irlVigueur||'')}</td>
-              <td style="text-align:center">${statusBadge}</td>
-            </tr>`;
-          }).join('')}
-          </tbody>
-        </table>
-      </div>`;
-  }
-
-  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${(!log.archived ? _renderRequiredDocsPanel(ref) : '')}${dgSection}${historySection}${irlHistSection}</div>`;
+  // HISTORIQUE-BAIL-ONGLET (17/07, décisions user) — la timeline inline « Historique du
+  // bail » (accordéon par bail) REMPLACE ici : le panneau « 💰 Dépôt de garantie » (le DG
+  // devient des ÉVÉNEMENTS de la timeline, statut + CTA restitution préservés), la liste
+  // « 🗂 Historique des baux » (+ timeline horizontale) et le tableau « 📈 Historique des
+  // révisions IRL » — une seule vue, tous baux confondus. Cf _renderHistoBailSection.
+  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${(!log.archived ? _renderRequiredDocsPanel(ref) : '')}${_renderHistoBailSection(ref)}</div>`;
 }
 
-// Timeline horizontale empilée bail courant + historique. Couleur par locataire principal (hash).
-// Marker rouge "auj." pour position relative aujourd'hui sur l'axe.
-function _renderBailTimeline(currentBail, history, ref) {
-  const allBails = [];
-  if(currentBail) allBails.push(Object.assign({}, currentBail, { _isCurrent: true }));
-  history.forEach(h => allBails.push(Object.assign({}, h, { _isCurrent: false })));
-  if(!allBails.length) return '';
-
-  const today = new Date();
-  let minDate = null, maxDate = null;
-  allBails.forEach(b => {
-    if(b.debut) {
-      const d = new Date(b.debut + 'T00:00:00');
-      if(!isNaN(d) && (!minDate || d < minDate)) minDate = d;
-    }
-    // v14.13 A4 fix : prioriser finEffective (date réelle clôture) sur fin (théorique)
-    // Pour bail courant non clôturé : finEffective vide → utilise fin (échéance théorique)
-    // Pour bail clôturé : finEffective défini → reflète la vraie sortie
-    const finStr = b.finEffective || b.fin;
-    if(finStr) {
-      const d = new Date(finStr + 'T00:00:00');
-      if(!isNaN(d) && (!maxDate || d > maxDate)) maxDate = d;
-    }
-  });
-  if(!minDate) minDate = new Date(today.getFullYear()-1, 0, 1);
-  if(!maxDate || maxDate < today) maxDate = new Date(today.getTime() + 1000*60*60*24*180); // padding 6 mois si bail en cours
-  // Pad début aussi (3 mois avant le 1er bail) pour la lisibilité
-  minDate = new Date(minDate.getTime() - 1000*60*60*24*60);
-  const range = maxDate - minDate;
-  if(range <= 0) return '';
-
-  const todayPct = Math.max(0, Math.min(100, ((today - minDate) / range) * 100));
-
-  const bars = allBails.map(b => {
-    if(!b.debut) return '';
-    const start = new Date(b.debut + 'T00:00:00');
-    // v14.13 A4 fix : la fin RÉELLE = finEffective (clôture réelle) sinon fin théorique
-    // sinon today (bail courant en cours sans date de fin saisie)
-    const finStr = b.finEffective || b.fin;
-    const end = finStr ? new Date(finStr + 'T00:00:00') : today;
-    if(isNaN(start) || isNaN(end) || end <= start) return '';
-    const leftPct = ((start - minDate) / range) * 100;
-    const widthPct = ((end - start) / range) * 100;
-    if(widthPct <= 0.3) return '';
-    const locNoms = (Array.isArray(b.locataires) && b.locataires.length)
-      ? b.locataires.map(l => l && l.nom).filter(Boolean).join(', ')
-      : (b.locataire || '—');
-    const color = _bailColorFromName(locNoms);
-    const finReelle = b.finEffective || b.fin;
-    const finLabel = finReelle ? fd(finReelle) : 'en cours';
-    const finTheoExtra = (b.finEffective && b.fin && b.finEffective !== b.fin) ? ` (prévu ${fd(b.fin)})` : '';
-    const label = `${locNoms} · ${fd(b.debut)} → ${finLabel}${finTheoExtra}`;
-    const cls = b._isCurrent ? ' current' : '';
-    return `<div class="bail-tl-bar${cls}" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color}" title="${escHtml(label)}">${escHtml(locNoms)}</div>`;
-  }).join('');
-
-  // Axe années
-  const minYear = minDate.getFullYear();
-  const maxYear = maxDate.getFullYear();
-  const years = [];
-  for(let y = minYear; y <= maxYear; y++) years.push(y);
-  // Si trop d'années, garder ~6 max (sample)
-  let displayedYears = years;
-  if(years.length > 8) {
-    const step = Math.ceil(years.length / 6);
-    displayedYears = years.filter((_,i) => i % step === 0 || i === years.length-1);
-  }
-  const axisHTML = displayedYears.map(y => `<span>${y}</span>`).join('');
-
-  return `<div class="bail-tl">
-    <div class="bail-tl-bars">
-      ${bars}
-      <div class="bail-tl-marker-now" style="left:${todayPct.toFixed(2)}%" title="Aujourd'hui"></div>
-    </div>
-    <div class="bail-tl-axis">${axisHTML}</div>
-  </div>`;
-}
-
-// Couleur stable hash-basée à partir du nom du/des locataire(s) — saturation et luminosité fixes
-function _bailColorFromName(s) {
-  s = String(s || '');
-  let h = 0;
-  for(let i = 0; i < s.length; i++) h = (h*31 + s.charCodeAt(i)) & 0xffff;
-  const hue = h % 360;
-  return `hsl(${hue}, 52%, 46%)`;
-}
+// HISTORIQUE-BAIL-ONGLET (17/07) : _renderBailTimeline (timeline horizontale) et
+// _bailColorFromName retires (code mort) - remplaces par la timeline en accordeons.
 
 // v14.3 IMM-FICHE-360 Phase 1 — vue dédiée d'un immeuble (hub patrimoine intermédiaire).
 // Le hub manquant entre Bailleur et Logement. Drill-in cohérent : Bailleur > Immeuble > Logement.
@@ -53879,9 +53738,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
   </div>
 </div>
 
-<!-- ═══ AUDIT-SUIVI-LOYERS étape 3 — Écran « Historique du loyer » (variante B Timeline validée 14/07) ═══ -->
+<!-- ═══ AUDIT-SUIVI-LOYERS étape 3 → HISTORIQUE-BAIL-ONGLET (17/07) : la timeline vit
+     INLINE dans l'onglet Bail (accordéons .hbc par bail) — l'overlay ov-histo-loyer a été
+     supprimé, la modale ov-histo-corr est conservée. Styles .hl-* partagés. ═══ -->
 <style>
-#ov-histo-loyer .modal{max-width:840px;width:97%;max-height:94vh;overflow:auto}
 .hl-nowband{display:flex;align-items:center;gap:20px;background:var(--sur);border:1px solid var(--bor);
   border-radius:var(--rl);padding:14px 20px;margin-bottom:18px;flex-wrap:wrap}
 .hl-nowband .k{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--t3);font-weight:700}
@@ -53903,6 +53763,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 .hl-dot{position:absolute;left:-34px;top:18px;width:13px;height:13px;border-radius:50%;border:3px solid var(--sur2)}
 .hl-dot.d-bail{background:#5566aa}.hl-dot.d-irl{background:var(--grn)}
 .hl-dot.d-man{background:#7b6bb0}.hl-dot.d-warn{background:var(--warn)}.hl-dot.d-renon{background:var(--t3)}
+.hl-dot.d-dg{background:#a9791f}
 .hl-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:12px 16px}
 .hl-card.dashed{border-style:dashed}
 .hl-card .tt{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
@@ -53912,6 +53773,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 .hl-badge.b-irl{background:var(--grn-soft,rgba(26,143,111,.14));color:var(--grn)}
 .hl-badge.b-man{background:rgba(123,107,176,.14);color:#7b6bb0}
 .hl-badge.b-warn{background:var(--warn-soft,rgba(178,122,18,.16));color:var(--warn)}
+.hl-badge.b-dg{background:rgba(169,121,31,.14);color:#a9791f}
 .hl-desc{font-size:12.5px;color:var(--t2);margin-top:5px;line-height:1.5}
 .hl-desc b{color:var(--t1)}
 .hl-move{display:inline-flex;align-items:center;gap:8px;margin-top:8px;background:var(--sur2);
@@ -53926,26 +53788,37 @@ window.addEventListener('DOMContentLoaded', ()=>{
   font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 13px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .hl-period .span{font-size:11px;color:var(--t3)}
 .hl-period.current .tag{background:var(--grn-soft,rgba(26,143,111,.14));border-color:transparent;color:var(--grn)}
+.hl-period.upcoming .tag{background:var(--warn-soft,rgba(178,122,18,.13));border:1px dashed rgba(178,122,18,.45);color:var(--warn)}
+.hl-nextchip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--warn);
+  background:var(--warn-soft,rgba(178,122,18,.13));border-radius:999px;padding:5px 12px;white-space:nowrap}
+.hl-lnk{font-size:12px;color:var(--acc);font-weight:700;cursor:pointer}
+/* ── accordéons « un bail = un chapitre » (HISTORIQUE-BAIL-ONGLET) ── */
+.hbc{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.hbc-head{display:flex;align-items:center;gap:12px;padding:11px 15px;cursor:pointer;user-select:none;flex-wrap:wrap}
+.hbc-head:hover{background:var(--sur2)}
+.hbc-status{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.hbc-status.cur{background:var(--grn-soft,rgba(26,143,111,.14));color:var(--grn)}
+.hbc-status.old{background:var(--sur3);color:var(--t3)}
+.hbc-who{font-weight:800;font-size:13.5px}
+.hbc-meta{font-size:11.5px;color:var(--t3);font-variant-numeric:tabular-nums}
+.hbc-grow{flex:1}
+.hbc-count{font-size:11px;color:var(--t3);white-space:nowrap}
+.hbc-chev{width:20px;height:20px;border-radius:50%;background:var(--sur3);display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--t3);transition:transform .2s;flex-shrink:0}
+.hbc.open .hbc-chev{transform:rotate(180deg)}
+.hbc-body{display:none;padding:16px 18px 6px;border-top:1px solid var(--bor)}
+.hbc.open .hbc-body{display:block}
+.hbc.hbc-old .hl-card{opacity:.9}
 [data-theme="phone"] .hl-tl,.hl-phone .hl-tl{padding-left:24px}
 @media(max-width:560px){
-  #ov-histo-loyer .hl-tl{padding-left:22px}
-  #ov-histo-loyer .hl-tl::before{left:5px}
-  #ov-histo-loyer .hl-dot{left:-25px}
-  #ov-histo-loyer .hl-date{position:static;width:auto;text-align:left;margin-bottom:3px;top:auto}
-  #ov-histo-loyer .hl-date b{display:inline;margin-right:5px}
-  #ov-histo-loyer .hl-period .tag{margin-left:0}
+  .hl-tl{padding-left:22px}
+  .hl-tl::before{left:5px}
+  .hl-dot{left:-25px}
+  .hl-date{position:static;width:auto;text-align:left;margin-bottom:3px;top:auto}
+  .hl-date b{display:inline;margin-right:5px}
+  .hl-period .tag{margin-left:0}
 }
 </style>
-<div class="ov hidden" id="ov-histo-loyer" onclick="closeBg(event,'ov-histo-loyer')">
-  <div class="modal">
-    <div class="m-head">
-      <h3>🕒 Historique du loyer</h3>
-      <button class="m-close" onclick="closeM('ov-histo-loyer')">✕</button>
-    </div>
-    <div class="m-body" id="histo-loyer-body"></div>
-  </div>
-</div>
-
 <div class="ov hidden" id="ov-histo-corr" onclick="closeBg(event,'ov-histo-corr')">
   <div class="modal" style="max-width:480px;width:96%">
     <div class="m-head">

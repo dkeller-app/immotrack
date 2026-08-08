@@ -1294,58 +1294,11 @@ a{color:var(--blu);text-decoration:none}
   display:flex;flex-wrap:wrap;gap:8px;
   border-top:1px solid var(--bor2);padding-top:14px;margin-top:6px;
 }
-.logf-bail-history-list{margin-top:14px;display:flex;flex-direction:column;gap:6px}
-.logf-bail-hist-row{
-  display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);
-  border-radius:var(--r);font-size:13px;
-}
-.logf-bail-hist-row:hover{background:var(--sur3);border-color:rgba(255,90,60,.3)}
-.logf-bail-hist-row .mu{font-size:11px;color:var(--t3)}
-
-/* Timeline horizontale des baux (bail courant + historique empilés sur axe temporel) */
-.bail-tl{
-  position:relative;
-  background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);
-  padding:18px 16px 8px;margin:14px 0;
-}
-.bail-tl-bars{
-  position:relative;height:36px;
-  background:linear-gradient(to bottom,transparent 49%,var(--bor) 49%,var(--bor) 51%,transparent 51%);
-}
-.bail-tl-bar{
-  position:absolute;top:6px;height:24px;
-  border-radius:6px;
-  display:flex;align-items:center;padding:0 9px;
-  font-size:11px;font-weight:700;color:#fff;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  box-shadow:0 1px 4px rgba(0,0,0,.18);cursor:pointer;
-  transition:transform var(--t-fast),box-shadow var(--t-fast);
-  text-shadow:0 1px 2px rgba(0,0,0,.25);
-  min-width:24px;
-}
-.bail-tl-bar:hover{transform:scale(1.04);box-shadow:0 3px 10px rgba(0,0,0,.28);z-index:3}
-.bail-tl-bar.current{outline:2px solid #fff;outline-offset:-1px;box-shadow:0 1px 4px rgba(0,0,0,.18),0 0 0 3px var(--acc)}
-.bail-tl-marker-now{
-  position:absolute;top:-6px;bottom:-6px;width:2px;
-  background:var(--red);z-index:2;
-}
-.bail-tl-marker-now::after{
-  content:'auj.';position:absolute;top:-16px;left:50%;
-  transform:translateX(-50%);
-  background:var(--red);color:#fff;
-  font-size:9px;font-weight:700;padding:1px 5px;border-radius:7px;
-  letter-spacing:.4px;
-}
-.bail-tl-axis{
-  display:flex;justify-content:space-between;
-  font-size:10px;color:var(--t3);font-weight:600;
-  margin-top:8px;letter-spacing:.4px;
-}
+/* HISTORIQUE-BAIL-ONGLET (17/07) : styles .logf-bail-hist-* et .bail-tl-* retires
+   (liste historique + timeline horizontale remplacees par les accordeons .hbc). */
 @media (max-width:600px){
   .logf-bail-grid{grid-template-columns:1fr;gap:0}
   .logf-bail-actions .btn{flex:1;justify-content:center}
-  .bail-tl-bar{font-size:10px;padding:0 5px}
 }
 
 /* v14.15 ARCHI-DB-DOUBLONS Phase 3a — modale logement avec tabs internes

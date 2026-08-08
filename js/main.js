@@ -92,6 +92,8 @@ import {
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, tombstonerPeriodesDuBail,
   _premierDuMois, _premierDuMoisSuivant
 } from './core/loyer-bareme.js';
+// HISTORIQUE-BAIL-ONGLET (17/07)  chapitres/rail de l'historique du bail (onglet Bail inline)
+import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
 
 import {
   _buildEcritures, _buildGrandLivre, _toFEC, _journalToCsv, _grandLivreToCsv
@@ -294,6 +296,8 @@ window._baremeTombstonerBail = tombstonerPeriodesDuBail;
 window._premierDuMois = _premierDuMois;
 window._premierDuMoisSuivant = _premierDuMoisSuivant;
 window.reconstruireBaremeLot = reconstruireBaremeLot;   // étape 3 — migration de l'existant
+window._bailHistoConstruire = construireHistoriqueBail;   // HISTORIQUE-BAIL-ONGLET
+window._bailHistoEnVigueur = bailHistoEnVigueur;
 
 // EXPORT-COMPTABLE (Sprint 3E) - FEC + journal + grand livre
 window._buildEcritures = _buildEcritures;
