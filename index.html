@@ -19669,6 +19669,47 @@ function _civNoms(locs, fallback) {
   return fallback||'–';
 }
 
+// ── HISTORIQUE-BAIL-ONGLET (17/07, décision user ④) — popup de validation des modifs
+// financières du bail. saveBail détecte hc/ch/dg changés (édition seulement), suspend le
+// save et ouvre ov-bail-valid : ancien → nouveau, date d'effet pré-remplie (1er du mois
+// suivant, garde-fous Q1 via clampDateEffet — jamais rétroactive, jamais un mois quittancé),
+// motif OBLIGATOIRE. Confirmer relance saveBail avec _bailValidPending = {dateEffet, motif}.
+let _bailValidPending = null;
+
+function _openBailValidModal(ref, changes){
+  const dq = (typeof _dernierMoisQuittanceYm === 'function') ? _dernierMoisQuittanceYm(ref) : null;
+  const def = (typeof _bailModifDateEffetDefaut === 'function')
+    ? _bailModifDateEffetDefaut(_histoBailTodayIso(), dq) : { effetIso: '', ajustee: false };
+  el('bv-sub').textContent = ref + ' — chaque modification financière est datée, motivée et tracée dans l\'historique du bail.';
+  el('bv-changes').innerHTML = changes.map(c => `
+    <div class="bv-row"><span class="bv-lbl">${escHtml(c.label)}</span>
+      <span class="hl-move" style="margin-top:0"><span class="old">${fmt(c.avant)}</span><span>→</span><span class="new">${fmt(c.apres)}</span></span></div>`).join('');
+  el('bv-effet').value = def.effetIso;
+  el('bv-effet-hint').textContent = def.ajustee
+    ? `Date remontée après le dernier mois quittancé (${dq}) — le passé quittancé ne se recalcule jamais.`
+    : 'Pré-remplie au 1er du mois suivant. Modifiable — jamais rétroactive, jamais dans un mois déjà quittancé.';
+  el('bv-motif').value = '';
+  openM('ov-bail-valid');
+}
+
+function _bailValidConfirm(){
+  const refPop = v('b-edit-ref') || (el('b-ref')?.tagName==='SELECT' ? el('b-ref').value : v('b-ref').trim());
+  const motif = (v('bv-motif')||'').trim();
+  if(!motif){ showToast('Motif obligatoire — il apparaît dans l\'historique du bail','err'); return; }
+  let effet = v('bv-effet');
+  if(!effet){ showToast('Date d\'effet requise','err'); return; }
+  // Re-validation par les mêmes garde-fous (la date saisie peut être remontée).
+  if (typeof window !== 'undefined' && typeof window._baremeClampDateEffet === 'function'){
+    const dq = (typeof _dernierMoisQuittanceYm === 'function' && refPop) ? _dernierMoisQuittanceYm(refPop) : null;
+    const cl = window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm: dq || undefined });
+    if (cl.ajustee) showToast(`Date d'effet ajustée au ${fd(cl.effetIso)} (mois quittancé / normalisation au 1er)`, 'warn', 5000);
+    effet = cl.effetIso;
+  }
+  _bailValidPending = { dateEffet: effet, motif };
+  closeM('ov-bail-valid');
+  saveBail();   // relance : cette fois _bailValidPending est consommé
+}
+
 function saveBail() {
   const ref = (el('b-ref')?.tagName==='SELECT' ? el('b-ref').value : v('b-ref').trim()) || v('b-edit-ref');
   if(!ref) { showToast('Référence logement requise','err'); return; }
@@ -19798,6 +19839,19 @@ function saveBail() {
   // v15.344 — préserver dateSignaturePrevue si le champ est vide au save (bail signé : input masqué
   // → v('b-dateSignature')='' ; ne jamais effacer la date de signature déjà fixée).
   if (!bail.dateSignaturePrevue && DB.baux[ref] && DB.baux[ref].dateSignaturePrevue) bail.dateSignaturePrevue = DB.baux[ref].dateSignaturePrevue;
+  // HISTORIQUE-BAIL-ONGLET (17/07, décision user ④) — ÉDITION d'un bail avec changement
+  // d'un terme FINANCIER (hc/ch/dg) : popup de validation obligatoire (ancien → nouveau,
+  // date d'effet Q1, motif). Le save est suspendu ; _bailValidConfirm relance saveBail
+  // avec _bailValidPending rempli. Création (isNewBail) : jamais de popup.
+  const _prevFin = (!isNewBail && DB.baux[editRef] && !DB.baux[editRef]._deleted) ? DB.baux[editRef] : null;
+  const _finChanges = (typeof _bailModifDetecterChangements === 'function')
+    ? _bailModifDetecterChangements(_prevFin, bail) : [];
+  let _validCtx = null;
+  if (_finChanges.length) {
+    if (!_bailValidPending) { _openBailValidModal(ref, _finChanges); return; }
+    _validCtx = _bailValidPending;
+  }
+  _bailValidPending = null;
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
   DB.baux[ref] = bail;
   if (_resetSignaturesAfterSave) {
@@ -19820,11 +19874,30 @@ function saveBail() {
   log.entity = bail.entity;
   log.irl = bail.irl ? bail.irl.replace(/\s.*$/,'') : log.irl; // "T4 2025" → "T4"
   _pushLoyerTheoFromLive(log); // v15.233 B1 : bail → loyer théorique logement
-  // AUDIT-SUIVI-LOYERS étape 2 : le barème suit le bail courant (création → période initiale ;
-  // édition des termes → mise à jour de la période OUVERTE). Les révisions IRL datées passent
-  // par applyIRL (période datée non rétroactive), jamais par ici.
+  // AUDIT-SUIVI-LOYERS étape 2 : le barème suit le bail courant (création → période initiale).
+  // HISTORIQUE-BAIL-ONGLET (17/07) : l'ÉDITION d'un terme hc/ch validée en popup crée une
+  // NOUVELLE PÉRIODE DATÉE (date d'effet + motif, source 'manuel') — fini la maj silencieuse
+  // de la période ouverte. Les révisions IRL datées passent par applyIRL, jamais par ici.
   if (typeof window !== 'undefined' && typeof window._baremeSynchroniserPeriodeBail === 'function') {
-    DB.loyerBareme = window._baremeSynchroniserPeriodeBail(DB.loyerBareme || [], { ref, debut: bail.debut, hc: bail.hc, ch: bail.ch });
+    const _hcChChange = _validCtx && _finChanges.some(c => c.champ === 'hc' || c.champ === 'ch');
+    if (_hcChChange && typeof window._baremeAppliquerNouvellePeriode === 'function') {
+      DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme || [], {
+        ref, debut: _validCtx.dateEffet, hc: bail.hc, ch: bail.ch,
+        source: 'manuel', bailDebut: bail.debut, note: _validCtx.motif
+      });
+    } else {
+      DB.loyerBareme = window._baremeSynchroniserPeriodeBail(DB.loyerBareme || [], { ref, debut: bail.debut, hc: bail.hc, ch: bail.ch });
+    }
+    // Trace DG (append-only, hors barème : le DG n'entre pas dans le dû mensuel).
+    if (_validCtx) {
+      const _dgChange = _finChanges.find(c => c.champ === 'dg');
+      if (_dgChange) {
+        if (!DB.bailEvents) DB.bailEvents = [];
+        DB.bailEvents.push(_stamp({ ref, bailDebut: bail.debut, date: _histoBailTodayIso(),
+          type: 'modif-dg', avant: _dgChange.avant, apres: _dgChange.apres,
+          motif: _validCtx.motif, dateEffet: _validCtx.dateEffet }));
+      }
+    }
   }
   // v14.89 AUDIT-TRAIL : log la mutation du bail (RGPD : nom locataire est PII)
   _auditLog(isNewBail ? 'create' : 'update', 'bail', ref, ref);
@@ -53819,6 +53892,34 @@ window.addEventListener('DOMContentLoaded', ()=>{
   .hl-period .tag{margin-left:0}
 }
 </style>
+<!-- HISTORIQUE-BAIL-ONGLET (17/07) — popup de validation d'une modification financière du bail -->
+<style>
+.bv-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;
+  background:var(--sur2);border:1px solid var(--bor);border-radius:var(--r);margin-bottom:6px;flex-wrap:wrap}
+.bv-lbl{font-size:12.5px;font-weight:700}
+</style>
+<div class="ov hidden" id="ov-bail-valid" onclick="closeBg(event,'ov-bail-valid')">
+  <div class="modal" style="max-width:480px;width:96%">
+    <div class="m-head">
+      <h3>✅ Valider la modification du bail</h3>
+      <button class="m-close" onclick="closeM('ov-bail-valid')">✕</button>
+    </div>
+    <div class="m-body">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:12px" id="bv-sub"></div>
+      <div id="bv-changes" style="margin-bottom:12px"></div>
+      <div><label class="mu sm">Date d'effet</label><input type="date" class="inp" id="bv-effet" style="width:100%"></div>
+      <div class="mu sm" id="bv-effet-hint" style="margin-top:4px;font-size:11px"></div>
+      <div style="margin-top:12px"><label class="mu sm">Motif (obligatoire — tracé dans l'historique)</label>
+        <textarea class="inp" id="bv-motif" rows="2" style="width:100%" placeholder="Ex. : révision après travaux d'amélioration (avenant signé), régularisation charges, erreur de saisie…"></textarea></div>
+      <div style="font-size:11.5px;color:var(--t2);background:var(--warn-soft,rgba(178,122,18,.13));border-radius:var(--r);padding:9px 12px;margin-top:12px">⚠️ Les mois déjà quittancés ne sont pas recalculés : la quittance émise fait foi. En zone d'encadrement des loyers, une hausse hors IRL suppose un avenant et le respect du plafond légal.</div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bs" onclick="closeM('ov-bail-valid')">Annuler</button>
+      <button class="btn bp" onclick="_bailValidConfirm()">Valider la modification</button>
+    </div>
+  </div>
+</div>
+
 <div class="ov hidden" id="ov-histo-corr" onclick="closeBg(event,'ov-histo-corr')">
   <div class="modal" style="max-width:480px;width:96%">
     <div class="m-head">
