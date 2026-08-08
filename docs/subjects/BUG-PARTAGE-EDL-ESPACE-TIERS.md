@@ -1,6 +1,6 @@
 # BUG-PARTAGE-EDL-ESPACE-TIERS — EDL d'un espace partagé invisible côté membre invité
 
-**Status** : ⬜ À investiguer (session dédiée, console requise) · **Prio** : P1 (partage SCI = non négociable) · **Taille** : S-M
+**Status** : 🔄 Chantier lancé 2026-08-08 — prompt session dédiée : `PROMPT-CHANTIER-PARTAGE-EDL-ESPACE-TIERS.md` · **Prio** : P1 (partage SCI = non négociable) · **Taille** : S-M
 **Détecté** : 2026-08-08 (post-restauration Supabase : Didier connecté sur SON compte PC ne voit pas l'EDL de juillet)
 **Lié à** : project_partage_sci (chantier PARTAGE SCI SOLIDE v15.483 — le « RESTE : E2E réel » jamais exécuté) · P0-SUPABASE-PAUSE · EDL-MOBILE-TERRAIN
 
