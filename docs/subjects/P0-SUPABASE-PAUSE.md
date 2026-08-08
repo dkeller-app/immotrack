@@ -36,3 +36,4 @@ Reco : **B tout de suite** (10 min, gratuit, débloque le quotidien) puis **A au
 ## Journal
 
 - 2026-08-08 : créé. Panne totale constatée sur 2 appareils + mail Supabase. Restauration = action user dashboard. Prévention à décider (keep-alive gratuit vs Pro).
+- 2026-08-08 soir : **projet restauré par le user** (dashboard « Resume project », données intactes, resumable jusqu'au 01/09/2027 d'après l'écran). Vérifié en direct : auth health OK (GoTrue v2.195.0), endpoint login répond proprement. **Login PC re-testé OK par le user.** Précision user : le problème de connexion existait DÉJÀ le jour de l'EDL → la pause explique la « page de connexion » pendant l'EDL du matin (session impossible à rafraîchir). ⏳ Reste : (a) re-test login iPhone (fermer l'onglet et rouvrir) · (b) re-test compte Marion + visibilité EDL partagés · (c) décision prévention (keep-alive quotidien gratuit reco, puis Pro à la bêta).

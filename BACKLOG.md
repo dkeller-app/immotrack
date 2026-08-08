@@ -1365,7 +1365,7 @@ Pour les baux **signés en v15.215, v15.216 ou v15.217** où l'utilisateur a mod
 > Espace libre pour les remarques que tu me dis dans le chat avant que je les classifie ailleurs.
 > Ex : "le total quittance est faux quand TVA" → je l'ajoute ici si je ne sais pas où le ranger immédiatement.
 
-(vide pour le moment)
+- **CI-VITEST-MAIN-ROUGE** (P1 dette / S, constat 2026-08-08) : GitHub montre **356 notifications « Tests Vitest workflow run failed for main branch »** (~1 mois d'échecs continus sur chaque push). Les sessions récentes passent pourtant les 2168 tests en local → probablement le **workflow Actions** cassé (setup Node/deps/timeout), pas l'app. Garde-fou CI rouge en permanence = plus aucune valeur de signal. À investiguer en session : lire le log d'un run échoué, fixer le workflow, et re-vérifier vert sur main.
 
 ---
 
