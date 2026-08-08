@@ -17,7 +17,9 @@
 
 ## 🚨 P0 PANNE ACTIVE — Projet Supabase EN PAUSE (2026-08-08) → app inutilisable partout
 
-> **[P0-SUPABASE-PAUSE](docs/subjects/P0-SUPABASE-PAUSE.md)** — login « Failed to fetch »/« Load failed » sur iPhone ET PC + mail Supabase « suspendu pour inactivité » (free tier ≈ pause après 1 semaine sans activité API ; données conservées). **Action USER : supabase.com (adresse tapée à la main, PAS le lien du mail) → projet → Restore project (~2-5 min).** Puis re-tester login PC/tél + compte Marion (le « EDL pas dispo chez Marion » est peut-être un symptôme de la panne — re-vérifier APRÈS restauration, sinon bug partage à ouvrir). Prévention à décider : keep-alive gratuit (cron 1 ping/jour, reco immédiate) puis plan Pro à la bêta.
+> **[P0-SUPABASE-PAUSE](docs/subjects/P0-SUPABASE-PAUSE.md)** — ✅ **RESTAURÉ 08/08 soir** (Resume project par le user ; auth vérifiée en direct ; login PC re-testé OK ; la panne datait d'AVANT l'EDL du matin → expliquait la « page de connexion »). Reste : re-test iPhone · décision prévention (keep-alive gratuit reco immédiate, puis Pro à la bêta).
+>
+> **[BUG-PARTAGE-EDL-ESPACE-TIERS](docs/subjects/BUG-PARTAGE-EDL-ESPACE-TIERS.md) (P1 / S-M)** — post-restauration : Didier connecté sur SON compte ne voit pas l'EDL de juillet. **Vérifié en base 08/08 : l'EDL EST au cloud, intact** (Entrée 15/07 FERRETTE 001, maj 18/07) dans l'espace de MARION (architecture inversée = normal), et **Didier a les droits RLS** (octroi `entite_membre` gestionnaire sur SCI SMARTOSAURUS → policy edl_select OK). Donc bug CLIENT (hydratation/fusion espaces tiers ou UI liste EDL — le « E2E réel » du chantier PARTAGE SCI SOLIDE jamais exécuté). Contournement : compte Marion (owner). Session investigation console à planifier.
 
 ---
 
