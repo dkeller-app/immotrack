@@ -15,6 +15,12 @@
 
 ---
 
+## 🚨 P0 PANNE ACTIVE — Projet Supabase EN PAUSE (2026-08-08) → app inutilisable partout
+
+> **[P0-SUPABASE-PAUSE](docs/subjects/P0-SUPABASE-PAUSE.md)** — login « Failed to fetch »/« Load failed » sur iPhone ET PC + mail Supabase « suspendu pour inactivité » (free tier ≈ pause après 1 semaine sans activité API ; données conservées). **Action USER : supabase.com (adresse tapée à la main, PAS le lien du mail) → projet → Restore project (~2-5 min).** Puis re-tester login PC/tél + compte Marion (le « EDL pas dispo chez Marion » est peut-être un symptôme de la panne — re-vérifier APRÈS restauration, sinon bug partage à ouvrir). Prévention à décider : keep-alive gratuit (cron 1 ping/jour, reco immédiate) puis plan Pro à la bêta.
+
+---
+
 ## 🚨 P0 ABSOLU — AUDIT SYNC CLOUD 2026-07-12 (5 agents, code déployé v15.457 + forensique DB)
 
 > **Rapport complet : [AUDIT-SYNC-CLOUD-2026-07-12](docs/subjects/AUDIT-SYNC-CLOUD-2026-07-12.md).** Déclencheur : fuite post-révocation (Marion voit Zito/Fric), créations PC Marion jamais montées, « Delle b » qui ressuscite, popup IRL faux, 0 confiance. **Tous les symptômes élucidés** — 3 causes systémiques : boucle sync push-only sans résolution ni isolation d'erreur · échecs 100 % invisibles (`#imsb-sync` n'existe plus) · cache client jamais purgé (miroir localStorage = fuite RGPD post-révocation).

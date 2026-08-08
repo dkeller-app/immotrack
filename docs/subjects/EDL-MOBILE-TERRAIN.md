@@ -74,10 +74,17 @@ Contexte terrain : l'EDL se fait DEBOUT, téléphone en main, dans le logement (
 
 ---
 
+### Complément constats (2026-08-08 après-midi — contexte PANNE Supabase, cf P0-SUPABASE-PAUSE)
+
+5. **« Si déconnexion on perd tout »** — confirmé et aggravé par la panne : la page de connexion vue après le pull-to-refresh du matin était probablement DÉJÀ la panne Supabase (session impossible à rafraîchir → écran login). Le draft persistant Phase 1 doit survivre AUSSI à un état déconnecté : le brouillon se stocke sur l'appareil AVANT toute considération de session/cloud, et se restaure après re-login.
+6. **« Photos prises non enregistrées sur le téléphone ! il faut une possibilité de faire ça »** — demande explicite : les photos EDL prises via l'app doivent pouvoir être conservées côté téléphone. Options à trancher en design Phase 1/3 : (a) input capture natif = la photo passe par l'app SANS entrer dans la pellicule (comportement iOS standard) → proposer un bouton « Enregistrer sur l'appareil » (Web Share API / téléchargement) par photo ou par EDL ; (b) a minima les photos restent en IndexedDB local (déjà le cas une fois reçues par l'app) et l'écran doit le DIRE (« conservée sur l'appareil, envoi cloud en attente »).
+
 ## Notes utilisateur
 
-> 💬 2026-08-08 : « EDL : ne s'enregistre pas tout seul. visu téléphone non ok. boutons trop gros prennent toute la place. Si scroll (type mise à jour) l'EDL est perdu avec page de connexion. Comment faire si pas de réseau pendant un EDL ? »
+> 💬 2026-08-08 matin : « EDL : ne s'enregistre pas tout seul. visu téléphone non ok. boutons trop gros prennent toute la place. Si scroll (type mise à jour) l'EDL est perdu avec page de connexion. Comment faire si pas de réseau pendant un EDL ? »
+> 💬 2026-08-08 après-midi : « EDL : ne s'enregistre pas tout seul. si déconnexion on perd tout ! photos prises non enregistrées sur le téléphone ! il faut une possibilité de faire ça. […] EDL pas dispo sur compte de Marion alors que c'est partagé ! » (⚠ le point Marion est à RE-TESTER après restauration Supabase — peut être un symptôme de la panne, sinon ouvrir un bug partage dédié)
 
 ## Journal
 
 - 2026-08-08 : créé après remontée user en conditions réelles (EDL FERRETTE 001 sur iPhone). Diagnostic 4 points ancré dans origin/main v15.494 (pas d'autosave · CSS footer 2833 · zéro overscroll-behavior · retry sync non persisté). Plan 3 phases + 1 investigation session. Aucun code touché.
+- 2026-08-08 (suite) : 2 constats ajoutés (draft doit survivre à la déconnexion · sauvegarde des photos sur le téléphone = exigence explicite). Découverte majeure : la « page de connexion » et les erreurs du jour = **panne Supabase projet en pause** ([P0-SUPABASE-PAUSE](P0-SUPABASE-PAUSE.md)) — l'investigation « login après reload » reste ouverte mais devra être re-testée APRÈS restauration du projet.
