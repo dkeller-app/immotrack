@@ -52,16 +52,6 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(mapToRow('mouvements', { id: 7, qui: 'F-1' }, ctx())).toBeNull()
   })
 
-  it('documents : requirementKeys → requirement_keys (jsonb objet, pas string)', () => {
-    const r = mapToRow('documents', { id: 900, name: 'ddt.pdf', parentType: 'logement', parentRef: 'F-1', logRef: 'F-1', requirementKeys: ['dpe', 'amiante'] }, ctx())
-    expect(r.requirement_keys).toEqual(['dpe', 'amiante'])
-  })
-
-  it('documents : requirementKeys absent → [] (jamais null)', () => {
-    const r = mapToRow('documents', { id: 901, name: 'x.pdf', parentType: 'logement', parentRef: 'F-1' }, ctx())
-    expect(r.requirement_keys).toEqual([])
-  })
-
   it('baux : clé map (ref logement) → logement_id, signed_at depuis signatures', () => {
     const r = mapToRow('baux', { __key: 'F-1', entity: 'SCI A', hc: 700, signatures: { signedAt: '2026-02-01T10:00:00Z' } }, ctx())
     expect(r.id).toBe('uuid:bail|f-1'); expect(r.logement_id).toBe('uuid:logement|f-1')

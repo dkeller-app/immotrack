@@ -76,7 +76,7 @@ const MAPPERS = {
     // rattaché à une SCI sans bien précis, saisie libre) → null → fail-closed (owner-only), jamais un throw.
     else if (o.parentType === 'assurance' || o.parentType === 'mrh' || o.parentType === 'equipement' || o.parentType === 'quittance' || o.parentType === 'candidat')
       pid = o.logRef ? (ctx.logementByRef.get(norm(o.logRef)) || null) : null
-    return { id: ctx.detUuid('document', String(o.id)), legacy_id: String(o.id ?? ''), name: o.name ?? null, mime: o.mime ?? null, size: num(o.size), idb_key: o.idbKey ?? null, drive_file_id: o.driveFileId ?? null, parent_type: o.parentType ?? null, parent_id: pid, requirement_keys: jb(Array.isArray(o.requirementKeys) ? o.requirementKeys : []), ...base(o, ctx) }
+    return { id: ctx.detUuid('document', String(o.id)), legacy_id: String(o.id ?? ''), name: o.name ?? null, mime: o.mime ?? null, size: num(o.size), idb_key: o.idbKey ?? null, drive_file_id: o.driveFileId ?? null, parent_type: o.parentType ?? null, parent_id: pid, ...base(o, ctx) }
   },
   mouvements(o, ctx) {
     const d = dateOnly(o.date); if (!d) return null

@@ -175,14 +175,6 @@ const PAIRS = [
     globalName: 'FilRougeConductor',
     exports: ['STEPS', 'entryStep', 'advance', 'breadcrumb'],
   },
-  {
-    // SC1 — moteur pur de complétude des pièces obligatoires du bail.
-    name: 'bail-required-docs',
-    src: '__tests__/helpers/bail-required-docs.js',
-    dst: 'js/helpers/bail-required-docs.global.js',
-    globalName: 'BailRequiredDocs',
-    exports: ['computeRequiredDocs', 'completenessCount', 'PIECES_META'],
-  },
 ];
 
 let totalErrors = 0;
