@@ -41814,8 +41814,8 @@ function _acteApply() {
       _auditPending = _auditPending.filter(e => !_createdIds.has(e.entityId));
       if (DB.auditTrail) DB.auditTrail = DB.auditTrail.filter(e => !_createdIds.has(e.entityId));
     });
-    // ── 1. ENTITÉ — rattacher au doublon détecté, sinon créer.
-    let ent = d.dupEntity || null;
+    // ── 1. ENTITÉ — rattacher au doublon détecté (sauf refus user), sinon créer.
+    let ent = (d.dupEntity && !d.forceNewEntity) ? d.dupEntity : null;
     let entCreated = false;
     if (!ent) {
       const e = d.entite || {};
@@ -41842,35 +41842,50 @@ function _acteApply() {
     }
     if (!ent.immeubles) ent.immeubles = [];
 
-    // ── 2. IMMEUBLE — toujours créé, rattaché à l'entité.
+    // ── 2. IMMEUBLE — rattaché au choix user (dupImmeuble, Task 4) sinon créé.
     const im0 = d.immeuble || {};
     const immNom = ((im0.adr || '').trim() || (im0.ville || '').trim() || 'Immeuble importé');
-    const notesParts = [];
-    if (im0.contenance) notesParts.push('Contenance cadastrale : ' + im0.contenance);
-    if (im0.surfaceTotale) notesParts.push('Surface totale : ' + im0.surfaceTotale + ' m²');
-    notesParts.push("Importé depuis l'acte « " + (d.fileName || 'acte.pdf') + " » le " + new Date().toLocaleDateString('fr-FR') + '.');
-    const im = {
-      id: nid(), nom: immNom,
-      adr: (im0.adr || '').trim(), codePostal: (im0.cp || '').trim(), ville: (im0.ville || '').trim(),
-      annee: 0, periodeConstr: '',
-      regimeJuridique: (d.logements || []).length > 1 ? 'copropriete' : '',
-      typeHabitat: '', nbLots: (d.logements || []).length || 0,
-      valeurEstimee: 0, travaux: '', montantTravaux: 0,
-      notes: notesParts.join('\n'),
-      contenance: (im0.contenance || '').trim(),        // stockage prospectif
-      surfaceTotale: (im0.surfaceTotale || '').trim(),  // stockage prospectif
-      equipementsCommuns: { customs: [], ascenseur: false, gardien: false, interphone: false, digicode: false, videosurv: false, parking_commun: false, local_velos: false, jardin_commun: false },
-      syndic: null, driveFolderId: null
-    };
-    if (typeof _auditLog === 'function') _auditLog('create', 'immeuble', im.id, ent.nom + '/' + immNom);
-    _createdIds.add(im.id);
-    ent.immeubles.push(im);
-    _rollback.push(() => { const i = ent.immeubles.indexOf(im); if (i >= 0) ent.immeubles.splice(i, 1); });
-    // Bump _modifiedAt de l'entité (un immeuble lui a été ajouté) — réversible : en cas de rollback
-    // on restaure l'horodatage précédent pour ne pas laisser une entité existante (doublon) modifiée à tort.
-    const _entPrevMod = ent._modifiedAt;
-    if (typeof _stamp === 'function') _stamp(ent);
-    _rollback.push(() => { ent._modifiedAt = _entPrevMod; });
+    let im = null, immCreated = false;
+    if (d.dupImmeuble && d.dupImmeuble.immId && !entCreated) {
+      im = (ent.immeubles || []).find(x => x && String(x.id) === String(d.dupImmeuble.immId) && !x._deleted) || null;
+    }
+    if (im) {
+      // Rattachement : rien n'est écrasé — on complète nbLots + trace l'import dans les notes.
+      const _prevNbLots = im.nbLots, _prevNotes = im.notes, _prevMod = im._modifiedAt;
+      im.nbLots = (Number(im.nbLots) || 0) + ((d.logements || []).length || 0);
+      im.notes = [(im.notes || '').trim(), "Lots ajoutés depuis l'acte « " + (d.fileName || 'acte.pdf') + " » le " + new Date().toLocaleDateString('fr-FR') + '.'].filter(Boolean).join('\n');
+      if (typeof _stamp === 'function') _stamp(im);
+      _rollback.push(() => { im.nbLots = _prevNbLots; im.notes = _prevNotes; im._modifiedAt = _prevMod; });
+      if (typeof _auditLog === 'function') _auditLog('update', 'immeuble', im.id, ent.nom + '/' + im.nom + ' (lots acte)');
+    } else {
+      immCreated = true;
+      const notesParts = [];
+      if (im0.contenance) notesParts.push('Contenance cadastrale : ' + im0.contenance);
+      if (im0.surfaceTotale) notesParts.push('Surface totale : ' + im0.surfaceTotale + ' m²');
+      notesParts.push("Importé depuis l'acte « " + (d.fileName || 'acte.pdf') + " » le " + new Date().toLocaleDateString('fr-FR') + '.');
+      im = {
+        id: nid(), nom: immNom,
+        adr: (im0.adr || '').trim(), codePostal: (im0.cp || '').trim(), ville: (im0.ville || '').trim(),
+        annee: 0, periodeConstr: '',
+        regimeJuridique: (d.logements || []).length > 1 ? 'copropriete' : '',
+        typeHabitat: '', nbLots: (d.logements || []).length || 0,
+        valeurEstimee: 0, travaux: '', montantTravaux: 0,
+        notes: notesParts.join('\n'),
+        contenance: (im0.contenance || '').trim(),        // stockage prospectif
+        surfaceTotale: (im0.surfaceTotale || '').trim(),  // stockage prospectif
+        equipementsCommuns: { customs: [], ascenseur: false, gardien: false, interphone: false, digicode: false, videosurv: false, parking_commun: false, local_velos: false, jardin_commun: false },
+        syndic: null, driveFolderId: null
+      };
+      if (typeof _auditLog === 'function') _auditLog('create', 'immeuble', im.id, ent.nom + '/' + immNom);
+      _createdIds.add(im.id);
+      ent.immeubles.push(im);
+      _rollback.push(() => { const i = ent.immeubles.indexOf(im); if (i >= 0) ent.immeubles.splice(i, 1); });
+      // Bump _modifiedAt de l'entité (un immeuble lui a été ajouté) — réversible : en cas de rollback
+      // on restaure l'horodatage précédent pour ne pas laisser une entité existante (doublon) modifiée à tort.
+      const _entPrevMod = ent._modifiedAt;
+      if (typeof _stamp === 'function') _stamp(ent);
+      _rollback.push(() => { ent._modifiedAt = _entPrevMod; });
+    }
 
     // ── 3. LOGEMENTS — un par ligne validée (réf unique dans DB.logements).
     if (!DB.logements) DB.logements = [];
@@ -41968,7 +41983,10 @@ function _acteApply() {
     });
 
     // nbLots reflète l'ensemble des lots créés (logements + annexes devenues biens à louer).
-    im.nbLots = createdLogs.length + annexBiens;
+    // Rattachement : les logements sont déjà comptés au §2 (incrément), on n'ajoute que les
+    // annexes devenues biens — le rollback du §2 restaure de toute façon la valeur d'origine.
+    if (immCreated) im.nbLots = createdLogs.length + annexBiens;
+    else if (annexBiens) im.nbLots = (Number(im.nbLots) || 0) + annexBiens;
 
     // ── 5. PERSISTANCE + DRIVE + RAFRAÎCHISSEMENT.
     // saveDB() isolé : si quota localStorage dépassé, on annule les push DB en mémoire (pas de doublon au prochain save).
@@ -41976,10 +41994,10 @@ function _acteApply() {
     catch (e) { _rollback.reverse().forEach(fn => { try { fn(); } catch (_) {} }); throw e; }
     if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
 
-    d._created = { entCreated, entNom: ent.nom, entId: ent.id, immNom: im.nom, nbLog: createdLogs.length, annexBiens, annexAttached };
+    d._created = { entCreated, entNom: ent.nom, entId: ent.id, immCreated, immNom: im.nom, nbLog: createdLogs.length, annexBiens, annexAttached };
     _acteRenderSucces();
     _acteSetStep('succes');
-    showToast(`Import réussi — ${entCreated ? '1 bailleur, ' : ''}1 immeuble, ${createdLogs.length} logement(s)${annexBiens ? ', ' + annexBiens + ' annexe(s)' : ''} créé(s).`, 'ok', 5200);
+    showToast(`Import réussi — ${entCreated ? '1 bailleur, ' : ''}${immCreated ? '1 immeuble, ' : ''}${createdLogs.length} logement(s)${annexBiens ? ', ' + annexBiens + ' annexe(s)' : ''} créé(s).`, 'ok', 5200);
     if(typeof _frAfterActe==='function') _frAfterActe(ent, im.nom); // fil rouge v2 : propose la continuité (ou avance si déjà dans le fil)
   } catch (err) {
     console.error('[acte] création échouée', err);
