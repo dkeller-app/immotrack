@@ -48,6 +48,13 @@ describe('matchImmeuble', () => {
     const r = matchImmeuble(ent, { adr: '16 rue des Tilleuls', ville: 'Mulhouse' });
     expect(r[0]).toMatchObject({ imm: ent.immeubles[0], idx: 0, strength: 'identique' });
   });
+  it('voie composée à tiret interne finissant par la ville (Petit-Mulhouse) non tronquée', () => {
+    const cible = { adr: '16 Chemin du Petit-Mulhouse', ville: 'Mulhouse' };
+    const avecAdr = { immeubles: [{ id: 'i5', adr: '16 Chemin du Petit-Mulhouse', ville: 'Mulhouse' }] };
+    const sansAdr = { immeubles: [{ id: 'i6', nom: '16 Chemin du Petit-Mulhouse', ville: 'Mulhouse' }] };
+    expect(matchImmeuble(avecAdr, cible)[0]).toMatchObject({ imm: avecAdr.immeubles[0], strength: 'identique' });
+    expect(matchImmeuble(sansAdr, cible)[0]).toMatchObject({ imm: sansAdr.immeubles[0], strength: 'identique' });
+  });
   it("la ville peut arriver collée au CP (champ vérif « 68100 Mulhouse »)", () => {
     const r = matchImmeuble(ENT, { adr: '16 rue des Tilleuls', ville: '68100 Mulhouse' });
     expect(r[0].strength).toBe('identique');

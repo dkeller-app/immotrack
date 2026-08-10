@@ -33,12 +33,15 @@ function canonVille(v) {
 /**
  * Retire un suffixe « - <ville> » en fin de voie (cas fallback sur imm.nom,
  * souvent « 16 r. des Tilleuls — Mulhouse »). villes = candidates déjà canonisées.
+ * Le tiret séparateur doit être ENTOURÉ d'espaces (après strip(), le cadratin
+ * garde ses espaces : « tilleuls - mulhouse ») — un tiret collé est un nom
+ * composé (« petit-mulhouse ») qu'on ne tronque JAMAIS.
  */
 function stripVilleSuffix(voie, villes) {
   for (const v of villes) {
     if (!v || voie === v || !voie.endsWith(v)) continue;
     const head = voie.slice(0, voie.length - v.length);
-    if (/-\s*$/.test(head)) return head.replace(/[\s-]+$/, '').trim();
+    if (/\s-\s*$/.test(head)) return head.replace(/[\s-]+$/, '').trim();
   }
   return voie;
 }
@@ -58,7 +61,8 @@ export function matchImmeuble(entite, cible) {
     if (!imm || imm._deleted) return;
     const ia = canonAdresse(imm.adr || imm.nom);
     const iv = canonVille(imm.ville);
-    const iaVoie = stripVilleSuffix(ia.voie, [iv, cv]);
+    // stripVilleSuffix UNIQUEMENT en fallback nom : un adr explicite n'a pas de suffixe ville.
+    const iaVoie = imm.adr ? ia.voie : stripVilleSuffix(ia.voie, [iv, cv]);
     if (!iaVoie || iaVoie !== c.voie || iv !== cv) return;
     if (ia.num && c.num && ia.num === c.num) out.push({ imm, idx, strength: 'identique' });
     else out.push({ imm, idx, strength: 'proche' });
