@@ -3003,6 +3003,11 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   .acte-dup-h{font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .acte-dup p{margin:6px 0 0;line-height:1.5} .acte-dup .why{font-size:11px;margin-top:5px;opacity:.85}
   .acte-dup-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .acte-pick{display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:12.5px;cursor:pointer}
+  .acte-pick input{margin:0;flex:0 0 auto;accent-color:var(--ora)}
+  .acte-pick-badge{font-size:10.5px;border:1px solid #fcd34d;border-radius:99px;padding:1px 8px;background:#fffbeb;white-space:nowrap}
+  .acte-pick-badge.ident{font-weight:700}
+  [data-theme="dark"] .acte-pick-badge{background:rgba(251,191,36,.12)}
   .acte-absent-note{font-size:10.5px;color:var(--ora);background:var(--bg-warning);border:1px solid #fdba74;border-radius:5px;padding:4px 8px;line-height:1.4;margin-top:4px}
   .acte-interp{font-size:11px;color:var(--grn);background:var(--bg-success);border:1px solid #86efac;border-radius:5px;padding:6px 9px;margin-top:8px;line-height:1.45}
   .acte-lgmt{border:1px solid #fcd34d;border-radius:var(--r);padding:11px 13px;margin-bottom:8px;background:#fffdf3}
@@ -41143,7 +41148,7 @@ function _acteRegroup(ext) {
    Dépôt PDF (lu 100% en local via pdf.js) → _acteExtract → champs « ✨ à vérifier »
    → récap → _acteApply (création réelle : entité + immeuble + logements + annexes).
 ═══════════════════════════════════════════════════════════════════════════ */
-let _acteDraft = null;      // { type, entite, immeuble, logementsHint, _src, fileName, rawText, logements:[], dupEntity }
+let _acteDraft = null;      // { type, entite, immeuble, logementsHint, _src, fileName, rawText, logements:[], dupEntity, dupImmeuble:null|{immId}, forceNewEntity }
 let _acteStep = 'depot';
 let _acteDndBound = false;
 
@@ -41241,6 +41246,8 @@ async function _acteProcessPdf(dataUrl, name) {
     const ex = _acteExtract(text);
     _acteDraft = Object.assign({ fileName: name, rawText: text, logements: [] }, ex);
     _acteDraft.dupEntity = _acteFindDupEntity(ex.entite && ex.entite.siren, ex.entite && ex.entite.nom);
+    _acteDraft.dupImmeuble = null;     // choix user immeuble existant ({immId}) — jamais automatique
+    _acteDraft.forceNewEntity = false; // choix user « créer une nouvelle entité quand même »
     _acteSeedLogements();
     _acteRenderVerif();
     _acteSetStep('verif');
@@ -41262,6 +41269,30 @@ function _acteFindDupEntity(siren, nom) {
     if (k) dup = ents.find(e => String(e.nom || '').trim().toLowerCase() === k);
   }
   return dup || null;
+}
+
+/** Candidats immeuble existants pour l'adresse de l'acte, DANS l'entité effective (dupEntity). */
+function _acteFindDupImm() {
+  const d = _acteDraft; if (!d || !d.dupEntity || d.forceNewEntity || !window.ActeRapprochement) return [];
+  const im = d.immeuble || {};
+  return window.ActeRapprochement.matchImmeuble(d.dupEntity, { adr: im.adr || '', ville: [im.cp, im.ville].filter(Boolean).join(' ') });
+}
+
+/** Choix bailleur (bandeau doublon) : rattacher à l'entité existante (false) ou forcer
+ *  une nouvelle entité (true). Collecte AVANT re-render pour ne pas perdre les saisies. */
+function _actePickEnt(force) {
+  if (!_acteDraft) return;
+  _acteDraft.forceNewEntity = !!force;
+  _acteCollectVerif();   // invalide aussi dupImmeuble si forceNewEntity (cf. _acteCollectVerif)
+  _acteRenderVerif();
+}
+
+/** Choix immeuble (bandeau rapprochement) : immId d'un immeuble existant, ou '' → nouveau.
+ *  Pas de re-render nécessaire (le choix n'affecte rien d'autre à l'écran vérif). */
+function _actePickImm(immId) {
+  if (!_acteDraft) return;
+  const v = String(immId == null ? '' : immId).trim();
+  _acteDraft.dupImmeuble = v ? { immId: v } : null;
 }
 
 /** Convertit un nombre en lettres (français, jusqu'à 16) ou un chiffre en entier. */
@@ -41340,18 +41371,20 @@ function _acteRenderVerif() {
   const ent = d.entite || {}, imm = d.immeuble || {};
   let html = '';
 
-  // bandeau anti-doublon
+  // bandeau anti-doublon bailleur — choix inline (rattachement = défaut, mais c'est l'utilisateur qui tranche)
   if (d.dupEntity) {
     const by = d.dupEntity.siren ? ('le SIREN <b>' + escHtml(d.dupEntity.siren) + '</b>') : ('le nom <b>' + escHtml(d.dupEntity.nom || '') + '</b>');
     html += `<div class="acte-dup">
       <div class="acte-dup-h">⚠️ Entité déjà connue : <b>${escHtml(d.dupEntity.nom || '')}</b></div>
-      <p>Une entité avec ${by} existe déjà dans tes bailleurs. L'immeuble et les logements lui seront <b>rattachés</b> plutôt que de créer un doublon.</p>
+      <p>Une entité avec ${by} existe déjà dans tes bailleurs.</p>
+      <label class="acte-pick"><input type="radio" name="acte-pick-ent" ${d.forceNewEntity ? '' : 'checked'} onchange="_actePickEnt(false)"><span>🔗 <b>Rattacher</b> l'immeuble et les logements à <b>${escHtml(d.dupEntity.nom || '')}</b> plutôt que de créer un doublon</span></label>
+      <label class="acte-pick"><input type="radio" name="acte-pick-ent" ${d.forceNewEntity ? 'checked' : ''} onchange="_actePickEnt(true)"><span>➕ Créer une nouvelle entité « <b>${escHtml(ent.nom || '')}</b> » quand même</span></label>
       <div class="why">Détection : ${d.dupEntity.siren ? 'SIREN identique' : 'nom identique'}.</div>
     </div>`;
   }
 
   // BAILLEUR
-  html += `<div class="acte-sec"><div class="acte-sec-h"><span class="ic">${d.type === 'societe' ? '🏢' : '👤'}</span><b>Bailleur ${d.type === 'societe' ? '(société)' : '(personne physique)'}</b><span class="count">${d.dupEntity ? 'rattachement' : 'nouvelle entité'}</span></div><div class="acte-sec-body">`;
+  html += `<div class="acte-sec"><div class="acte-sec-h"><span class="ic">${d.type === 'societe' ? '🏢' : '👤'}</span><b>Bailleur ${d.type === 'societe' ? '(société)' : '(personne physique)'}</b><span class="count">${(d.dupEntity && !d.forceNewEntity) ? 'rattachement' : 'nouvelle entité'}</span></div><div class="acte-sec-body">`;
   if (d.type === 'societe') {
     html += `<div class="acte-grid2">`;
     html += _acteFieldBlock('acte-f-nom', 'Dénomination', ent.nom, 'nom', { ph: 'SCI …' });
@@ -41391,6 +41424,32 @@ function _acteRenderVerif() {
   html += _acteFieldBlock('acte-f-imm-conten', 'Contenance cadastrale', imm.contenance, 'contenance', { ph: 'ex. 2 a 15 ca' });
   html += _acteFieldBlock('acte-f-imm-surf', 'Surface totale (m²)', imm.surfaceTotale, 'surfaceTotale', { ph: 'ex. 433,18' });
   html += `</div></div></div>`;
+
+  // RAPPROCHEMENT IMMEUBLE — candidats existants dans l'entité effective (dupEntity).
+  // JAMAIS automatique : picker radio INLINE dans le bandeau (pas de 2e overlay), défaut = nouvel immeuble.
+  const dupImms = _acteFindDupImm();
+  if (dupImms.length) {
+    const candIds = dupImms.map(c => String(c.imm && c.imm.id != null ? c.imm.id : '')).filter(Boolean);
+    // Choix périmé (candidats recalculés) → repli « nouvel immeuble », état réaligné (même pattern que le clamp targetIdx des annexes).
+    if (d.dupImmeuble && candIds.indexOf(String(d.dupImmeuble.immId)) === -1) d.dupImmeuble = null;
+    const chosen = d.dupImmeuble ? String(d.dupImmeuble.immId) : '';
+    let picks = '';
+    dupImms.forEach(c => {
+      const id = String(c.imm && c.imm.id != null ? c.imm.id : '');
+      if (!id) return; // immeuble sans id : non rattachable de façon fiable → on ne le propose pas
+      const lbl = c.imm.nom || c.imm.adr || ('Immeuble ' + (c.idx + 1));
+      const badge = `<span class="acte-pick-badge${c.strength === 'identique' ? ' ident' : ''}">${c.strength === 'identique' ? 'adresse identique' : 'adresse proche'}</span>`;
+      picks += `<label class="acte-pick"><input type="radio" name="acte-pick-imm" value="${escHtml(id)}" ${chosen === id ? 'checked' : ''} onchange="_actePickImm(this.value)"><span>🏛 <b>${escHtml(lbl)}</b> ${badge}</span></label>`;
+    });
+    const newImmLbl = [imm.adr, [imm.cp, imm.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ') || "l'adresse de l'acte";
+    html += `<div class="acte-dup">
+      <div class="acte-dup-h">🏛 Un immeuble existant ressemble à cette adresse</div>
+      <p>Ajouter les lots de l'acte dans un immeuble existant de <b>${escHtml(d.dupEntity.nom || '')}</b>, ou créer un immeuble séparé ? Rien n'est automatique — c'est toi qui tranches.</p>
+      ${picks}
+      <label class="acte-pick"><input type="radio" name="acte-pick-imm" value="" ${chosen === '' ? 'checked' : ''} onchange="_actePickImm(this.value)"><span>➕ Créer un nouvel immeuble « <b>${escHtml(newImmLbl)}</b> »</span></label>
+      <div class="why">Si tu rattaches : les lots s'ajoutent aux logements existants (réfs uniques garanties). Rien n'est fusionné ni écrasé.</div>
+    </div>`;
+  }
 
   // LOGEMENTS
   const h = d.logementsHint || {};
@@ -41643,11 +41702,22 @@ function _acteCollectVerif() {
     d.entite.cp = g('acte-f-cp'); d.entite.ville = g('acte-f-ville'); d.entite.adr = g('acte-f-adr');
   }
   d.immeuble = d.immeuble || {};
+  const prevImm = { adr: d.immeuble.adr || '', cp: d.immeuble.cp || '', ville: d.immeuble.ville || '' };
+  const prevDup = d.dupEntity || null;
   d.immeuble.adr = g('acte-f-imm-adr'); d.immeuble.cp = g('acte-f-imm-cp'); d.immeuble.ville = g('acte-f-imm-ville');
   d.immeuble.contenance = g('acte-f-imm-conten'); d.immeuble.surfaceTotale = g('acte-f-imm-surf');
   _acteCollectLogements();
   // re-détection doublon après édition éventuelle du SIREN/nom
   d.dupEntity = _acteFindDupEntity(d.entite.siren, d.entite.nom);
+  // Invalidation du choix immeuble : il ne survit ni à un changement d'adresse/CP/ville de
+  // l'immeuble, ni à un changement d'entité détectée (disparue OU différente), ni au choix
+  // « nouvelle entité ». NB : l'écran vérif ne se re-render pas à l'édition des champs simples ;
+  // l'invalidation prend donc effet à la prochaine collecte (clic « Continuer › » ou choix
+  // bailleur), et le bandeau immeuble est recalculé au prochain _acteRenderVerif.
+  if (d.dupImmeuble && (
+    (d.immeuble.adr || '') !== prevImm.adr || (d.immeuble.cp || '') !== prevImm.cp || (d.immeuble.ville || '') !== prevImm.ville ||
+    d.dupEntity !== prevDup || !d.dupEntity || d.forceNewEntity
+  )) d.dupImmeuble = null;
 }
 
 /** Rendu de l'étape récap (lecture seule). */
