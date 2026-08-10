@@ -21,7 +21,7 @@ Une V1 propre, stable, utilisable au quotidien sur **téléphone, tablette et PC
 
 ### Nettoyage repo & bureau
 - [x] Purge des worktrees morts du bureau + tmp + .claude (10/08 — gardés : `Immo`, `Immo-wt-partage-edl`, `Immo-wt-filrouge-complet`).
-- [ ] Clone pilotage réaligné sur origin/main (fin de la divergence ; opération avec sauvegarde préalable).
+- [x] Clone pilotage réaligné sur origin/main (10/08 — main = v15.497 `91d2847`, push direct rétabli ; backup complet ancienne lignée + fichiers racine = branche `backup/pilotage-pre-realign-2026-08-10` sur origin, 0 secret vérifié).
 - [ ] Intégration du fix relay-401 (prêt depuis 17/07, branche poussée sur origin), puis fermeture de la file QUEUE.
 - [ ] Fin de la triple copie index* → un seul fichier + mode sandbox intégré (clé `_test_immotrack_v4`).
 - [ ] BACKLOG allégé : historique en archive, backlog court actif.
