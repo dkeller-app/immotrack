@@ -22,10 +22,10 @@ Une V1 propre, stable, utilisable au quotidien sur **téléphone, tablette et PC
 ### Nettoyage repo & bureau
 - [x] Purge des worktrees morts du bureau + tmp + .claude (10/08 — gardés : `Immo`, `Immo-wt-partage-edl`, `Immo-wt-filrouge-complet`).
 - [x] Clone pilotage réaligné sur origin/main (10/08 — main = v15.497 `91d2847`, push direct rétabli ; backup complet ancienne lignée + fichiers racine = branche `backup/pilotage-pre-realign-2026-08-10` sur origin, 0 secret vérifié).
-- [ ] Intégration du fix relay-401 (prêt depuis 17/07, branche poussée sur origin), puis fermeture de la file QUEUE.
-- [ ] Fin de la triple copie index* → un seul fichier + mode sandbox intégré (clé `_test_immotrack_v4`).
-- [ ] BACKLOG allégé : historique en archive, backlog court actif.
-- [ ] Purge des branches mortes (après réalignement).
+- [x] Intégration du fix relay-401 (10/08 — cherry-pick `7d720fe` → **v15.498** déployé, suite 2214/2214 verte) ; file QUEUE fermée.
+- [x] Fin de la triple copie index* (10/08 — 6 copies trackées supprimées, 28 MB ; **le sandbox existe déjà en mode intégré : `index.html?sandbox=1`** ou `/test`, storage isolé `_test_*`).
+- [x] BACKLOG allégé (10/08 — intégral archivé dans `docs/archive/BACKLOG-integral-2026-08-10.md`, backlog court actif).
+- [x] Purge des branches mortes (10/08 — 83 branches archivées en tags `archive-20260810/*` sur origin puis supprimées ; restent : main, backup, partage-edl, relay-otp + fil-rouge-complet local).
 
 ## 2. Règles de fonctionnement (remplacent les anciennes)
 
