@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P0 — Preuve sur tes vraies données</title>
+<style>
+  :root{ --bg:#eef2f7; --sur:#fff; --bor:rgba(20,40,70,.12); --t1:#172033; --t2:#54657c;
+    --grn:#16a34a; --red:#dc2626; --amb:#d97706; --font:'Inter',system-ui,Arial,sans-serif; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--font);background:var(--bg);color:var(--t1);padding:24px;line-height:1.45}
+  .wrap{max-width:920px;margin:0 auto}
+  h1{font-size:22px;font-weight:800}
+  .sub{color:var(--t2);font-size:14px;margin:6px 0 16px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+  .pill{font-size:13px;font-weight:700;padding:7px 13px;border-radius:9px;border:1px solid var(--bor);background:var(--sur)}
+  .pill.g{color:var(--grn);border-color:#16a34a55} .pill.r{color:var(--red);border-color:#dc262655} .pill.a{color:var(--amb);border-color:#d9770655}
+  select{font:inherit;padding:6px 10px;border-radius:8px;border:1px solid var(--bor);background:var(--sur)}
+  table{width:100%;border-collapse:collapse;background:var(--sur);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px -16px rgba(20,40,70,.3);font-size:13px}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--bor)}
+  th{background:#f5f8fc;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);font-weight:800}
+  tr.exclu{background:#fef2f2} tr.flag{background:#fff8e6}
+  .tag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap}
+  .tag.g{background:#dcfce7;color:#166534} .tag.r{background:#fee2e2;color:#991b1b} .tag.a{background:#fef3c7;color:#92400e}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--t2)}
+  .err{background:#fee2e2;color:#991b1b;padding:14px;border-radius:10px;font-size:14px}
+  .note{font-size:12px;color:var(--t2);margin-top:14px;font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>P0 — Ce que la 2044 garde / exclut, sur <em>tes</em> données</h1>
+  <div class="sub">Moteur réel <span class="mono">js/core/regime-lot.js</span> appliqué à ton export <span class="mono">immotrack-export-2026-06-09.json</span>. Aucune donnée modifiée.</div>
+  <div class="bar">
+    <label>Année déclarée : <select id="year"><option>2024</option><option>2025</option><option selected>2026</option></select></label>
+    <span class="pill g" id="p-fonc">—</span>
+    <span class="pill r" id="p-exc">—</span>
+    <span class="pill a" id="p-flag">—</span>
+  </div>
+  <div id="out"></div>
+  <div class="note">🟩 gardé au foncier (2044) · 🟥 exclu (meublé → BIC/LMNP, déclaration séparée) · 🟧 à vérifier (usage à qualifier / mixte). La nature vient de <b>bail.type</b> si présent, sinon de <b>logement.typeUsage</b>.</div>
+</div>
+<script type="module">
+import { lotRegimeForYear, splitFonciereLots } from './js/core/regime-lot.js';
+
+const out = document.getElementById('out');
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let DB = null;
+try {
+  const res = await fetch('./_import/immotrack-export-2026-06-09.json');
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  DB = await res.json();
+} catch (e) {
+  out.innerHTML = `<div class="err">Impossible de charger l'export : ${esc(e.message)}. Vérifie que le serveur sert <span class="mono">/_import/immotrack-export-2026-06-09.json</span>.</div>`;
+}
+
+function render(year) {
+  const logs = (DB.logements || []).filter(l => !l.archived && !l._deleted);
+  const baux = DB.baux || {};
+  const histo = DB.baux_historique || [];
+  const split = splitFonciereLots(logs, { baux, bauxHisto: histo, year });
+
+  document.getElementById('p-fonc').textContent = `🟩 ${split.fonciereRefs.length} au foncier`;
+  document.getElementById('p-exc').textContent  = `🟥 ${split.exclus.length} exclus (meublé)`;
+  document.getElementById('p-flag').textContent = `🟧 ${split.flagues.length} à vérifier`;
+
+  const rows = logs.map(l => {
+    const r = lotRegimeForYear({
+      currentBail: baux[l.ref] || null,
+      histoBails: histo.filter(b => (b.logement || b.ref) === l.ref),
+      logement: l, year
+    });
+    const cls = !r.fonciere ? 'exclu' : (r.flag ? 'flag' : '');
+    const tag = !r.fonciere ? '<span class="tag r">EXCLU — meublé</span>'
+              : r.flag ? '<span class="tag a">À VÉRIFIER</span>'
+              : '<span class="tag g">FONCIER</span>';
+    return `<tr class="${cls}">
+      <td><b>${esc(l.ref)}</b></td>
+      <td>${esc(l.entity||'')}</td>
+      <td class="mono">${esc(l.typeUsage||'—')}</td>
+      <td class="mono">${esc((baux[l.ref]||{}).type||'—')}</td>
+      <td>${tag}</td>
+      <td style="color:var(--t2);font-size:12px">${esc(r.flag ? r.flag.msg : (r.mode==='meuble'?'relève du BIC/LMNP':''))}</td>
+    </tr>`;
+  }).join('');
+
+  out.innerHTML = `<table>
+    <thead><tr><th>Lot</th><th>Entité</th><th>typeUsage</th><th>bail.type</th><th>Verdict ${year}</th><th>Raison</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+if (DB) {
+  const sel = document.getElementById('year');
+  const go = () => render(parseInt(sel.value));
+  sel.addEventListener('change', go);
+  go();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+diff --git a/.claude/launch.json b/.claude/launch.json
+index cb18cbf..7f9e9d1 100644
+--- a/.claude/launch.json
++++ b/.claude/launch.json
+@@ -4,20 +4,58 @@
+     {
+       "name": "dashboard-mockups",
+       "runtimeExecutable": "npx",
+-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/docs/strategie/dashboard-mockups", "-p", "8765", "-c-1", "--silent"],
++      "runtimeArgs": [
++        "--yes",
++        "http-server",
++        "C:/Users/Did_K/Desktop/Immo/docs/strategie/dashboard-mockups",
++        "-p",
++        "8765",
++        "-c-1",
++        "--silent"
++      ],
+       "port": 8765
+     },
+     {
+       "name": "immotrack-sandbox",
+       "runtimeExecutable": "npx",
+-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo", "-p", "8766", "-c-1", "--silent"],
++      "runtimeArgs": [
++        "--yes",
++        "http-server",
++        "C:/Users/Did_K/Desktop/Immo",
++        "-p",
++        "8766",
++        "-c-1",
++        "--silent"
++      ],
+       "port": 8766
+     },
+     {
+       "name": "immotrack-worktree-email-auto",
+       "runtimeExecutable": "npx",
+-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb", "-p", "8770", "-c-1", "--silent"],
++      "runtimeArgs": [
++        "--yes",
++        "http-server",
++        "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb",
++        "-p",
++        "8770",
++        "-c-1",
++        "--silent"
++      ],
+       "port": 8770
++    },
++    {
++      "name": "quickwins-audit",
++      "runtimeExecutable": "npx",
++      "runtimeArgs": [
++        "--yes",
++        "http-server",
++        "C:/Users/Did_K/Desktop/Immo-wt-quickwins",
++        "-p",
++        "8771",
++        "-c-1",
++        "--silent"
++      ],
++      "port": 8771
+     }
+   ]
+-}
++}
+\ No newline at end of file

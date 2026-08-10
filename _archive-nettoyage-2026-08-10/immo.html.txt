@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImmoPilot X PRO</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body class="bg-gray-950 text-white font-sans">
+
+<div class="flex">
+
+<!-- SIDEBAR -->
+<aside class="w-64 h-screen bg-gray-900 p-6 space-y-6">
+  <h1 class="text-2xl font-bold">🚀 ImmoPilot X</h1>
+
+  <nav class="space-y-3 text-sm">
+    <button onclick="showPage('dashboard')">📊 Dashboard</button>
+    <button onclick="showPage('properties')">🏢 Biens</button>
+    <button onclick="showPage('detail')">🔍 Détail</button>
+    <button onclick="showPage('finance')">💰 Finance</button>
+    <button onclick="showPage('forecast')">📈 Prévision</button>
+  </nav>
+</aside>
+
+<!-- MAIN -->
+<main class="flex-1 p-6 space-y-6">
+
+<!-- DASHBOARD -->
+<section id="dashboard" class="page">
+  <h2 class="text-2xl font-bold">Pilotage global</h2>
+
+  <div class="grid grid-cols-4 gap-4 mt-4">
+    <div class="bg-gray-800 p-4 rounded">
+      <p>Cashflow</p>
+      <h3 id="cashflow" class="text-green-400 text-xl"></h3>
+    </div>
+    <div class="bg-gray-800 p-4 rounded">
+      <p>Revenus</p>
+      <h3 id="income"></h3>
+    </div>
+    <div class="bg-gray-800 p-4 rounded">
+      <p>Dépenses</p>
+      <h3 id="expenses" class="text-red-400"></h3>
+    </div>
+    <div class="bg-gray-800 p-4 rounded">
+      <p>Biens</p>
+      <h3 id="count"></h3>
+    </div>
+  </div>
+
+  <div class="bg-gray-800 p-4 rounded mt-6">
+    <canvas id="chart"></canvas>
+  </div>
+
+  <div class="bg-gray-800 p-4 rounded mt-6">
+    <h3 class="font-bold">🤖 Recommandations</h3>
+    <ul id="insights" class="text-sm mt-2"></ul>
+  </div>
+</section>
+
+<!-- PROPERTIES -->
+<section id="properties" class="page hidden">
+  <h2 class="text-2xl font-bold">Biens</h2>
+
+  <div class="flex gap-2 mt-4">
+    <input id="name" placeholder="Nom" class="text-black p-1">
+    <input id="city" placeholder="Ville" class="text-black p-1">
+    <input id="rent" placeholder="Loyer" class="text-black p-1">
+    <button onclick="addProperty()" class="bg-blue-600 px-3">Ajouter</button>
+  </div>
+
+  <div id="list" class="grid grid-cols-3 gap-4 mt-4"></div>
+</section>
+
+<!-- DETAIL -->
+<section id="detail" class="page hidden">
+  <h2 class="text-2xl font-bold">Fiche Bien</h2>
+
+  <div id="detailContent" class="bg-gray-800 p-4 rounded mt-4"></div>
+</section>
+
+<!-- FINANCE -->
+<section id="finance" class="page hidden">
+  <h2 class="text-2xl font-bold">Transactions</h2>
+
+  <div class="flex gap-2 mt-4">
+    <input id="desc" placeholder="Desc" class="text-black p-1">
+    <input id="amount" placeholder="Montant" class="text-black p-1">
+    <button onclick="addTx()" class="bg-blue-600 px-3">Ajouter</button>
+  </div>
+
+  <ul id="txlist" class="mt-4"></ul>
+</section>
+
+<!-- FORECAST -->
+<section id="forecast" class="page hidden">
+  <h2 class="text-2xl font-bold">Prévision</h2>
+
+  <div class="bg-gray-800 p-4 rounded mt-4">
+    <h3 id="forecastValue" class="text-green-400 text-xl"></h3>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+
+let properties = JSON.parse(localStorage.getItem('props')||'[]');
+let transactions = JSON.parse(localStorage.getItem('tx')||'[]');
+
+function save(){
+ localStorage.setItem('props', JSON.stringify(properties));
+ localStorage.setItem('tx', JSON.stringify(transactions));
+ render();
+}
+
+function addProperty(){
+ properties.push({
+  name: name.value,
+  city: city.value,
+  rent: Number(rent.value)
+ });
+ save();
+}
+
+function addTx(){
+ transactions.push({
+  desc: desc.value,
+  amount: Number(amount.value)
+ });
+ save();
+}
+
+function render(){
+
+ let income = properties.reduce((a,b)=>a+b.rent,0);
+ let expenses = transactions.reduce((a,b)=>a+b.amount,0);
+ let cash = income + expenses;
+
+ cashflow.innerText = cash+"€";
+ incomeEl = document.getElementById('income');
+ incomeEl.innerText = income+"€";
+ expensesEl = document.getElementById('expenses');
+ expensesEl.innerText = expenses+"€";
+ count.innerText = properties.length;
+
+ forecastValue.innerText = (cash*12)+"€";
+
+ // properties
+ list.innerHTML = properties.map((p,i)=>
+ `<div class='bg-gray-800 p-3 rounded cursor-pointer' onclick='selectProperty(${i})'>
+ <h3>${p.name}</h3>
+ <p>${p.city}</p>
+ <p class='text-green-400'>${p.rent}€</p>
+ </div>`).join('');
+
+ // tx
+ txlist.innerHTML = transactions.map(t=>
+ `<li>${t.desc} : ${t.amount}€</li>`).join('');
+
+ // insights
+ insights.innerHTML = "";
+ if(expenses < -1000){
+ insights.innerHTML += "<li>⚠️ Charges élevées</li>";
+ }
+ if(income < 2000){
+ insights.innerHTML += "<li>📈 Potentiel augmentation loyers</li>";
+ }
+
+ renderChart(income, expenses);
+}
+
+let selected = null;
+
+function selectProperty(i){
+ selected = properties[i];
+ detailContent.innerHTML = `
+ <h3 class='text-xl font-bold'>${selected.name}</h3>
+ <p>${selected.city}</p>
+ <p>Loyer: ${selected.rent}€</p>
+ <p class='text-green-400'>Cashflow estimé: ${selected.rent - 200}€</p>
+ `;
+ showPage('detail');
+}
+
+let chart;
+function renderChart(income, expenses){
+ if(chart) chart.destroy();
+ chart = new Chart(document.getElementById('chart'),{
+  type:'bar',
+  data:{
+    labels:['Revenus','Dépenses'],
+    datasets:[{data:[income,Math.abs(expenses)]}]
+  }
+ });
+}
+
+function showPage(id){
+ document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+ document.getElementById(id).classList.remove('hidden');
+}
+
+render();
+
+</script>
+
+</body>
+</html>

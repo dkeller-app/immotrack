@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propryo — Storyboard vidéo héros · Camille · ~75s</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* charte Propryo */
+    --corail:#ff5a3c; --corail-h:#e8431f; --corail-soft:#ffe7e0;
+    --bg:#f4f5f8; --sur:#ffffff; --sur2:#f7f8fb; --bor:#e4e7ee;
+    --ink:#101521; --ink2:#3c4658; --ink3:#6e7888;
+    --good:#1a8f6f; --bad:#d23f3f; --warn:#b27a12;
+    /* deck (sombre cinéma) */
+    --d-bg:#14161d; --d-bg2:#1a1d26; --d-sur:#1e222c; --d-bor:rgba(255,255,255,.12);
+    --d-ink:#f2f5fa; --d-ink2:#cdd6e3; --d-ink3:#9aa6b8;
+    --display:'Schibsted Grotesk',system-ui,sans-serif;
+    --body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--body); color:var(--d-ink);
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(255,90,60,.10), transparent 60%),
+      radial-gradient(700px 600px at -10% 110%, rgba(255,90,60,.06), transparent 55%),
+      var(--d-bg);
+    background-attachment:fixed;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+    padding:48px 24px 96px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+
+  /* ---- en-tête deck ---- */
+  .masthead{margin-bottom:48px}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+  .logo{display:inline-flex;align-items:center;gap:.5ch;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.02em;color:#fff}
+  .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--corail);display:inline-block;transform:translateY(1px)}
+  .kicker{font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--corail);margin-bottom:14px}
+  .masthead h1{font-family:var(--display);font-weight:900;font-size:clamp(34px,5vw,56px);line-height:1.02;letter-spacing:-.025em;color:#fff;max-width:18ch}
+  .masthead h1 em{font-style:normal;color:var(--corail)}
+  .lede{margin-top:18px;color:var(--d-ink2);font-size:17px;max-width:62ch}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .chip{font-size:12.5px;font-weight:600;color:var(--d-ink2);background:var(--d-sur);border:1px solid var(--d-bor);border-radius:999px;padding:7px 14px}
+  .chip b{color:#fff}
+  .chip .c{color:var(--corail)}
+
+  /* ---- timeline ---- */
+  .timeline{display:flex;align-items:stretch;gap:0;margin:34px 0 8px;border-radius:12px;overflow:hidden;border:1px solid var(--d-bor)}
+  .tl{flex:var(--w,1);padding:12px 14px;font-size:12px;font-weight:600;color:var(--d-ink3);background:var(--d-sur);border-right:1px solid var(--d-bor);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl:last-child{border-right:0}
+  .tl.hot{background:linear-gradient(180deg,rgba(255,90,60,.18),rgba(255,90,60,.05));color:#fff}
+  .tl span{display:block;color:var(--d-ink3);font-weight:500;font-size:11px;margin-top:2px}
+
+  /* ---- shots ---- */
+  .shot{display:grid;grid-template-columns:1.35fr .9fr;gap:28px;align-items:center;
+    background:linear-gradient(180deg,var(--d-bg2),rgba(30,34,44,.4));
+    border:1px solid var(--d-bor);border-radius:20px;padding:24px;margin-top:22px}
+  .shot:nth-child(even){grid-template-columns:.9fr 1.35fr}
+  .shot:nth-child(even) .stage{order:2}
+  .shot:nth-child(even) .script{order:1}
+  @media(max-width:780px){.shot,.shot:nth-child(even){grid-template-columns:1fr}.shot:nth-child(even) .stage{order:0}.shot:nth-child(even) .script{order:0}}
+
+  .script .sn{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .script .num{font-family:var(--display);font-weight:900;font-size:40px;line-height:1;color:var(--corail);letter-spacing:-.04em}
+  .script .time{font-size:12.5px;font-weight:700;color:var(--d-ink3);letter-spacing:.04em}
+  .script h2{font-family:var(--display);font-weight:800;font-size:22px;color:#fff;margin:2px 0 16px;letter-spacing:-.01em}
+  .ln{margin-bottom:14px}
+  .ln .lbl{display:block;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--corail);margin-bottom:5px}
+  .ln .onscreen{font-family:var(--display);font-weight:700;font-size:17px;color:#fff}
+  .ln .vo{font-size:14.5px;color:var(--d-ink2);font-style:italic}
+  .ln .note{font-size:12.5px;color:var(--d-ink3)}
+
+  /* ---- stage : la "fenêtre app" Propryo (mode clair) ---- */
+  .stage{position:relative}
+  .screen{background:var(--bg);border:1px solid var(--d-bor);border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 70px -30px rgba(0,0,0,.7);aspect-ratio:16/10;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--sur);border-bottom:1px solid var(--bor);flex:none}
+  .dots{display:flex;gap:5px}.dots i{width:8px;height:8px;border-radius:50%;background:#d7dbe4;display:block}
+  .topbar .wm{margin-left:6px;font-family:var(--display);font-weight:800;font-size:12.5px;color:var(--ink);display:flex;align-items:center;gap:.4ch}
+  .topbar .wm .dot{width:6px;height:6px;border-radius:50%;background:var(--corail)}
+  .topbar .mode{margin-left:auto;font-size:10px;color:var(--ink3);font-weight:600}
+  .canvas{flex:1;padding:16px 18px;color:var(--ink);overflow:hidden;position:relative}
+
+  /* generic UI atoms (mode clair Propryo) */
+  .h-disp{font-family:var(--display);font-weight:800;color:var(--ink);letter-spacing:-.01em}
+  .muted{color:var(--ink3)}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--corail-soft);color:var(--corail-h)}
+  .btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--body);font-weight:700;font-size:13px;color:#fff;background:var(--corail);border:0;border-radius:10px;padding:10px 16px}
+
+  /* SHOT 1 — douleur : 2044 vierge, désaturée */
+  .pain{filter:grayscale(.5);height:100%;display:flex;flex-direction:column;justify-content:center;gap:10px;position:relative}
+  .form2044{background:var(--sur);border:1px dashed #c3c9d4;border-radius:10px;padding:14px 16px}
+  .form2044 .ttl{font-family:var(--display);font-weight:800;font-size:13px;color:var(--ink2);margin-bottom:10px;display:flex;justify-content:space-between}
+  .form2044 .ttl .stamp{color:var(--bad);border:1.5px solid var(--bad);border-radius:5px;font-size:9.5px;padding:2px 6px;transform:rotate(-4deg);font-weight:800}
+  .frow{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eceef3;font-size:12px;color:var(--ink2)}
+  .frow:last-child{border-bottom:0}
+  .blank{width:80px;height:13px;border-bottom:1.5px dashed #b9c0cc;border-radius:1px}
+  .receipts{position:absolute;inset:0;pointer-events:none}
+  .rcpt{position:absolute;background:#fff;border:1px solid var(--bor);border-radius:4px;font-size:8.5px;color:var(--ink3);padding:3px 6px;box-shadow:0 6px 14px -8px rgba(0,0,0,.4);font-weight:600}
+
+  /* SHOT 2 — bascule */
+  .switch{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px}
+  .biglogo{font-family:var(--display);font-weight:900;font-size:34px;color:var(--ink);display:flex;align-items:center;gap:.5ch;letter-spacing:-.02em}
+  .biglogo .dot{width:13px;height:13px;border-radius:50%;background:var(--corail)}
+  .switch .q{font-family:var(--display);font-weight:800;font-size:20px;color:var(--ink2);max-width:20ch}
+
+  /* SHOT 3 — import auto */
+  .imp h4{font-family:var(--display);font-weight:800;font-size:13px;margin-bottom:3px}
+  .imp .sub{font-size:11px;color:var(--ink3);margin-bottom:12px}
+  .irow{display:grid;grid-template-columns:38px 1fr auto auto;gap:8px;align-items:center;font-size:11px;padding:7px 0;border-top:1px solid var(--bor)}
+  .irow .dt{color:var(--ink3);font-weight:600}
+  .irow .lib{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .irow .amt{font-weight:700;font-variant-numeric:tabular-nums}
+  .irow .amt.pos{color:var(--good)} .irow .amt.neg{color:var(--ink2)}
+  .cat{font-size:9.5px;font-weight:700;color:var(--corail-h);background:var(--corail-soft);border-radius:999px;padding:3px 8px;white-space:nowrap}
+
+  /* SHOT 4 — WAW : 2044 remplie + drill */
+  .recap{height:100%;display:flex;flex-direction:column}
+  .recap .hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .recap .hd h4{font-family:var(--display);font-weight:800;font-size:13px}
+  .recap .hd .yr{font-size:10px;color:var(--ink3);font-weight:600}
+  .lines{font-size:11px;flex:1}
+  .lrow{display:flex;align-items:center;justify-content:space-between;padding:4.5px 8px;border-radius:6px}
+  .lrow .lc{color:var(--ink2)} .lrow .lc b{color:var(--ink);font-weight:700}
+  .lrow .lv{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .lrow.hot{background:var(--corail-soft);outline:1.5px solid var(--corail);position:relative}
+  .lrow.hot .lv{color:var(--corail-h)}
+  .result{margin-top:8px;border-top:2px solid var(--ink);padding-top:8px;display:flex;align-items:baseline;justify-content:space-between}
+  .result .rl{font-family:var(--display);font-weight:800;font-size:12px;color:var(--ink2)}
+  .result .rv{font-family:var(--display);font-weight:900;font-size:26px;color:var(--corail);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  /* drill popover */
+  .drill{position:absolute;right:14px;bottom:14px;width:62%;background:var(--sur);border:1px solid var(--bor);border-radius:10px;box-shadow:0 24px 50px -20px rgba(16,21,33,.45);padding:11px 12px}
+  .drill .dh{font-size:10px;font-weight:800;color:var(--ink2);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+  .drill .dh .pill{font-size:9px}
+  .drow{display:flex;align-items:center;justify-content:space-between;font-size:10px;padding:5px 0;border-top:1px solid var(--bor)}
+  .drow .dl{color:var(--ink2)}
+  .drow .fac{display:inline-flex;align-items:center;gap:3px;color:var(--corail-h);font-weight:700}
+  .drow .dv{font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* SHOT 5 — CTA */
+  .cta{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+  .cta .tag{font-family:var(--display);font-weight:800;font-size:18px;color:var(--ink);max-width:22ch}
+  .cta .url{font-size:11px;color:var(--ink3);font-weight:600;letter-spacing:.04em}
+
+  /* SHOT 5 — "encore plus" : panorama + lien */
+  .more{height:100%;display:flex;flex-direction:column;justify-content:center;gap:13px}
+  .more .mh{font-family:var(--display);font-weight:800;font-size:18px;color:var(--ink);text-align:center;letter-spacing:-.01em}
+  .more .mh b{color:var(--corail)}
+  .fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .feat{display:flex;align-items:center;gap:9px;background:var(--sur);border:1px solid var(--bor);border-radius:9px;padding:9px 11px}
+  .feat .ic{width:28px;height:28px;border-radius:7px;background:var(--sur2);border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;color:var(--ink2);flex:none}
+  .feat .ic svg{width:16px;height:16px}
+  .feat .ft{font-size:11px;font-weight:700;color:var(--ink);display:block}
+  .feat .fs{font-size:9.5px;color:var(--ink3);display:block;margin-top:1px}
+  .morelink{display:inline-flex;align-items:center;justify-content:center;gap:7px;align-self:center;font-size:12px;font-weight:700;color:var(--corail-h);background:var(--corail-soft);border-radius:999px;padding:8px 16px;margin-top:2px}
+
+  .foot{margin-top:40px;padding-top:22px;border-top:1px solid var(--d-bor);color:var(--d-ink3);font-size:12.5px;line-height:1.7}
+  .foot b{color:var(--d-ink2)}
+  .foot .c{color:var(--corail)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="brand"><span class="logo">Propryo<span class="dot"></span></span></div>
+    <div class="kicker">Storyboard · Vidéo héros · Recrutement bêta</div>
+    <h1>6 plans, <em>~85 secondes</em>, une seule idée qui reste.</h1>
+    <p class="lede">Persona <b style="color:#fff">Camille Mercier</b> — bailleuse en direct, 3 logements nus. Chiffres réels du dataset démo (vérifiés dans l'app). Le pic émotionnel : sa 2044 se remplit seule, et chaque case renvoie à sa facture.</p>
+    <div class="meta-row">
+      <span class="chip">Marque <b>Propryo</b> · accent <span class="c">corail</span></span>
+      <span class="chip">Typo <b>Schibsted Grotesk + Inter</b></span>
+      <span class="chip">Résultat foncier démo <b>14 940 €</b></span>
+      <span class="chip">Voix-off FR + sous-titres</span>
+    </div>
+
+    <div class="timeline">
+      <div class="tl" style="--w:10">01 · Douleur<span>0:00–0:10</span></div>
+      <div class="tl" style="--w:10">02 · Bascule<span>0:10–0:20</span></div>
+      <div class="tl" style="--w:28">03 · Gestion auto<span>0:20–0:48</span></div>
+      <div class="tl hot" style="--w:14">04 · Le waw<span>0:48–1:02</span></div>
+      <div class="tl" style="--w:12">05 · Encore plus<span>1:02–1:14</span></div>
+      <div class="tl" style="--w:14">06 · CTA<span>1:14–1:28</span></div>
+    </div>
+  </header>
+
+  <!-- SHOT 1 -->
+  <section class="shot">
+    <div class="stage">
+      <div class="screen">
+        <div class="topbar"><div class="dots"><i></i><i></i><i></i></div><span class="wm">impots.gouv.fr</span><span class="mode">formulaire 2044</span></div>
+        <div class="canvas">
+          <div class="pain">
+            <div class="form2044">
+              <div class="ttl">Déclaration 2044 — revenus fonciers <span class="stamp">À REMPLIR À LA MAIN</span></div>
+              <div class="frow"><span>211 — Loyers encaissés</span><span class="blank"></span></div>
+              <div class="frow"><span>221 — Frais &amp; charges</span><span class="blank"></span></div>
+              <div class="frow"><span>250 — Intérêts d'emprunt</span><span class="blank"></span></div>
+              <div class="frow"><span>450 — Déficit antérieur</span><span class="blank"></span></div>
+            </div>
+            <div class="receipts">
+              <div class="rcpt" style="top:6%;right:6%;transform:rotate(7deg)">Facture plomberie ?</div>
+              <div class="rcpt" style="bottom:10%;left:4%;transform:rotate(-6deg)">Taxe foncière 980 €</div>
+              <div class="rcpt" style="top:40%;right:3%;transform:rotate(-3deg)">Attestation banque</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="script">
+      <div class="sn"><span class="num">01</span><span class="time">0:00 – 0:10</span></div>
+      <h2>La douleur</h2>
+      <div class="ln"><span class="lbl">Texte écran</span><div class="onscreen">« Chaque printemps, la même galère. »</div></div>
+      <div class="ln"><span class="lbl">Voix-off</span><div class="vo">« Locataires, quittances, charges… et chaque printemps, la 2044. L'administration te la laisse vierge. Case par case. À la main. »</div></div>
+      <div class="ln"><span class="lbl">À l'écran</span><div class="note">Le 2044 vierge, désaturé, factures éparpillées autour. Zéro corail (le « avant » est terne).</div></div>
+    </div>
+  </section>
+
+  <!-- SHOT 2 -->
+  <section class="shot">
+    <div class="stage">
+      <div class="screen">
+        <div class="topbar"><div class="dots"><i></i><i></i><i></i></div><span class="wm">Propryo<span class="dot"></span></span><span class="mode">clair</span></div>
+        <div class="canvas">
+          <div class="switch">
+            <div class="biglogo">Propryo<span class="dot"></span></div>
+            <div class="q">Et si tout était déjà là ?</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="script">
+      <div class="sn"><span class="num">02</span><span class="time">0:10 – 0:20</span></div>
+      <h2>La bascule</h2>
+      <div class="ln"><span class="lbl">Texte écran</span><div class="onscreen">« Et si tout était déjà là ? »</div></div>
+      <div class="ln"><span class="lbl">Voix-off</span><div class="vo">« Et si tout était déjà là, prêt, classé, calculé ? »</div></div>
+      <div class="ln"><span class="lbl">À l'écran</span><div class="note">Fond neutre, logo Propryo (point corail) qui apparaît. Respiration : le calme après le chaos.</div></div>
+    </div>
+  </section>
+
+  <!-- SHOT 3 -->
+  <section class="shot">
+    <div class="stage">
+      <div class="screen">
+        <div class="topbar"><div class="dots"><i></i><i></i><i></i></div><span class="wm">Propryo<span class="dot"></span></span><span class="mode">Import bancaire</span></div>
+        <div class="canvas">
+          <div class="imp">
+            <h4>Import relevé — mars 2025</h4>
+            <div class="sub">Catégorisation automatique · <span class="pill">12 opérations reconnues</span></div>
+            <div class="irow"><span class="dt">05/03</span><span class="lib">VIR LOYER WEISS — T3 Neustadt</span><span class="amt pos">+860</span><span class="cat">Loyers encaissés · 211</span></div>
+            <div class="irow"><span class="dt">12/03</span><span class="lib">DGFIP TAXE FONCIERE</span><span class="amt neg">−980</span><span class="cat">Taxe foncière · 227</span></div>
+            <div class="irow"><span class="dt">15/03</span><span class="lib">PLOMBERIE SCHMITT FACT.</span><span class="amt neg">−1 450</span><span class="cat">Travaux · 224</span></div>
+            <div class="irow"><span class="dt">20/03</span><span class="lib">ASSURANCE PNO MAIF</span><span class="amt neg">−140</span><span class="cat">Assurance · 223</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="script">
+      <div class="sn"><span class="num">03</span><span class="time">0:20 – 0:48</span></div>
+      <h2>La gestion qui se fait seule</h2>
+      <div class="ln"><span class="lbl">Texte écran</span><div class="onscreen">« Importé. Classé. Sans ressaisie. »</div></div>
+      <div class="ln"><span class="lbl">Voix-off</span><div class="vo">« Tu importes tes relevés. Propryo reconnaît tes loyers, tes charges, et les classe tout seul — chaque opération dans la bonne case fiscale. »</div></div>
+      <div class="ln"><span class="lbl">À l'écran</span><div class="note">Les pastilles catégorie (corail) apparaissent en cascade ligne par ligne — l'effet « ça se range tout seul ».</div></div>
+    </div>
+  </section>
+
+  <!-- SHOT 4 — WAW -->
+  <section class="shot">
+    <div class="stage">
+      <div class="screen">
+        <div class="topbar"><div class="dots"><i></i><i></i><i></i></div><span class="wm">Propryo<span class="dot"></span></span><span class="mode">Aide déclaration 2044</span></div>
+        <div class="canvas">
+          <div class="recap">
+            <div class="hd"><h4>Ta déclaration 2044</h4><span class="yr">Revenus 2025 · Camille Mercier</span></div>
+            <div class="lines">
+              <div class="lrow"><span class="lc"><b>211</b> Loyers encaissés</span><span class="lv">24 360 €</span></div>
+              <div class="lrow"><span class="lc"><b>223</b> Assurances PNO/GLI</span><span class="lv">420 €</span></div>
+              <div class="lrow hot"><span class="lc"><b>224</b> Travaux</span><span class="lv">2 130 €</span></div>
+              <div class="lrow"><span class="lc"><b>227</b> Taxe foncière</span><span class="lv">2 280 €</span></div>
+              <div class="lrow"><span class="lc"><b>229</b> Charges de copropriété</span><span class="lv">1 800 €</span></div>
+              <div class="lrow"><span class="lc"><b>250</b> Intérêts d'emprunt</span><span class="lv">2 640 €</span></div>
+            </div>
+            <div class="result"><span class="rl">Résultat foncier</span><span class="rv">14 940 €</span></div>
+            <div class="drill">
+              <div class="dh">Ligne 224 — Travaux <span class="pill">2 pièces</span></div>
+              <div class="drow"><span class="dl">15/03 · Plomberie T3 Neustadt</span><span class="dv">1 450 €</span></div>
+              <div class="drow"><span class="fac">📎 PLOMB-2025-0312</span><span class="dv"></span></div>
+              <div class="drow"><span class="dl">05/09 · Peinture studio Campus</span><span class="dv">680 €</span></div>
+              <div class="drow"><span class="fac">📎 PEINT-2025-0905</span><span class="dv"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="script">
+      <div class="sn"><span class="num">04</span><span class="time">0:48 – 1:02</span></div>
+      <h2>Le moment « waw »</h2>
+      <div class="ln"><span class="lbl">Texte écran</span><div class="onscreen">« Ta 2044. Pré-remplie. Et justifiée. »</div></div>
+      <div class="ln"><span class="lbl">Voix-off</span><div class="vo">« Ta 2044, pré-remplie, case par case. Et ce que personne d'autre ne fait : clique sur une case… et tu vois la facture qui la justifie. Chaque chiffre, prouvé. »</div></div>
+      <div class="ln"><span class="lbl">À l'écran</span><div class="note">Le résultat 14 940 € s'inscrit en corail ; clic sur la case 224 → le drill s'ouvre sur les 2 factures. Plan le plus long à l'écran.</div></div>
+    </div>
+  </section>
+
+  <!-- SHOT 5 — encore plus -->
+  <section class="shot">
+    <div class="stage">
+      <div class="screen">
+        <div class="topbar"><div class="dots"><i></i><i></i><i></i></div><span class="wm">Propryo<span class="dot"></span></span><span class="mode">clair</span></div>
+        <div class="canvas">
+          <div class="more">
+            <div class="mh">Propryo fait <b>encore plus</b> que ça.</div>
+            <div class="fgrid">
+              <div class="feat">
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3l2-2h8l2 2h3v12H3z"/><circle cx="12" cy="13" r="3.2"/></svg></span>
+                <span><span class="ft">États des lieux</span><span class="fs">Photos entrée/sortie + comparaison</span></span>
+              </div>
+              <div class="feat">
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg></span>
+                <span><span class="ft">Révision IRL</span><span class="fs">Indexation auto sur l'indice INSEE</span></span>
+              </div>
+              <div class="feat">
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11M10 20V5M16 20v-6M2 20h20"/></svg></span>
+                <span><span class="ft">Tableau Finances</span><span class="fs">Cash-flow &amp; bilan par bien</span></span>
+              </div>
+              <div class="feat">
+                <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M9 13h6M9 17h4"/></svg></span>
+                <span><span class="ft">Bail &amp; Quittances</span><span class="fs">Génération + signature à distance</span></span>
+              </div>
+            </div>
+            <div class="morelink">Tout voir → propryo.fr/fonctionnalites</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="script">
+      <div class="sn"><span class="num">05</span><span class="time">1:02 – 1:14</span></div>
+      <h2>« Et Propryo fait encore plus »</h2>
+      <div class="ln"><span class="lbl">Texte écran</span><div class="onscreen">« Propryo fait encore plus que ça. »</div></div>
+      <div class="ln"><span class="lbl">Voix-off</span><div class="vo">« États des lieux, révision des loyers, tableau de bord financier… découvre tout sur propryo.fr. »</div></div>
+      <div class="ln"><span class="lbl">À l'écran</span><div class="note">Grille de 4 fonctions (icônes monochromes, charte respectée), puis un lien corail vers la page fonctionnalités — la passerelle vers les capsules.</div></div>
+    </div>
+  </section>
+
+  <!-- SHOT 6 — CTA -->
+  <section class="shot">
+    <div class="stage">
+      <div class="screen">
+        <div class="topbar"><div class="dots"><i></i><i></i><i></i></div><span class="wm">Propryo<span class="dot"></span></span><span class="mode">clair</span></div>
+        <div class="canvas">
+          <div class="cta">
+            <div class="biglogo">Propryo<span class="dot"></span></div>
+            <div class="tag">Ta gestion locative, ta 2044 enfin tranquille.</div>
+            <button class="btn">Rejoindre la bêta →</button>
+            <div class="url">propryo.fr</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="script">
+      <div class="sn"><span class="num">06</span><span class="time">1:14 – 1:28</span></div>
+      <h2>Réassurance + CTA</h2>
+      <div class="ln"><span class="lbl">Texte écran</span><div class="onscreen">« Propryo — rejoins la bêta. »</div></div>
+      <div class="ln"><span class="lbl">Voix-off</span><div class="vo">« Toute ta gestion locative au même endroit. Ta fiscalité, enfin tranquille. Propryo — rejoins la bêta. »</div></div>
+      <div class="ln"><span class="lbl">À l'écran</span><div class="note">CTA corail (seul aplat corail autorisé). URL en attente d'activation du domaine propryo.fr.</div></div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <b>Notes.</b> Storyboard = validation de la direction visuelle avant d'animer (voie B : walkthrough HTML auto-joué construit sur cette base).<br>
+    Chiffres = dataset démo <b>Camille</b> vérifié dans l'app réelle (résultat foncier <span class="c">14 940 €</span>, 0 mouvement non mappé).<br>
+    Le plan 04 peut, en option, ouvrir une <b>vraie pièce jointe PDF</b> (et pas seulement le n° de facture) si on seed un <code>documents[]</code> — décision tournage.
+  </div>
+
+</div>
+</body>
+</html>

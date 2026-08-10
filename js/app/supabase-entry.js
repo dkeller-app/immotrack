@@ -11,13 +11,16 @@
 const FLAG = (() => {
   try {
     const p = new URLSearchParams(location.search)
-    if (p.get('supabase') === '0' || localStorage.getItem('immo_use_supabase') === '0') return false   // forçage OFF
-    if (p.has('supabase') || localStorage.getItem('immo_use_supabase') === '1') return true              // forçage ON
-    // DÉFAUT : servi en http(s) (serveur de test local, ou hébergement futur) ⇒ mode Supabase.
-    // En file:// (double-clic index.html = appli de tous les jours) ⇒ INERTE (legacy localStorage+Drive).
-    // La présence de window.IMMO_SUPABASE reste requise pour démarrer (cf. plus bas) → github.io sans
-    // config (gitignorée) reste inerte. Donc aucun risque pour la prod legacy.
-    return location.protocol === 'http:' || location.protocol === 'https:'
+    const onTestPage = /index-supabase\.html$/.test((location.pathname || '').toLowerCase())
+    const inSandbox = /[?&]sandbox=1/.test(location.search || '')
+    const served = location.protocol === 'http:' || location.protocol === 'https:'
+    if (p.get('supabase') === '0' || localStorage.getItem('immo_use_supabase') === '0') return false   // OFF explicite
+    if (p.has('supabase') || localStorage.getItem('immo_use_supabase') === '1') return true              // ON explicite
+    // opt-in « app complète » (posé par le bouton) : actif UNIQUEMENT en sandbox (?sandbox=1) → JAMAIS
+    // sur l'app de tous les jours (index.html sans sandbox reste legacy, même si le flag traîne).
+    if (localStorage.getItem('immo_fullapp_once') === '1' && inSandbox) return true
+    // page de test DÉDIÉE (index-supabase.html) : auto en http(s). PAS index.html (app quotidienne).
+    return onTestPage && served
   } catch { return false }
 })()
 
@@ -29,9 +32,20 @@ const COUNTS = [
 ]
 const sizeOf = c => (Array.isArray(c) ? c.length : (c && typeof c === 'object' ? Object.keys(c).length : 0))
 
+// En mode cloud, le boot-gate Drive legacy (`html[data-lpboot]` masque tout le body SAUF #ov-drive-connect)
+// n'a aucune raison d'être : on a notre propre overlay de login + la vraie app cloud. S'il reste levé, il
+// MASQUE l'app cloud (pourtant chargée) derrière le portail Drive (bug 2026-06-16 : session persistée →
+// onLoggedIn direct sans que le boot legacy ne lève le gate). On le neutralise au boot cloud (overlay de
+// login visible) ET à l'affichage de l'app (onLoggedIn, après le boot legacy).
+function _liftDriveGate() {
+  try { document.documentElement.removeAttribute('data-lpboot') } catch (e) {}
+  try { document.getElementById('ov-drive-connect')?.classList.add('hidden') } catch (e) {}
+}
+
 async function boot() {
   injectStyles()
   const overlay = injectOverlay()
+  _liftDriveGate()   // mode cloud : pas de gate Drive (sinon il masque l'overlay de login)
   const { createClient } = await import(/* @vite-ignore */ CDN)
   const { createBoot } = await import('./supabase-boot.js')
   const client = createClient(window.IMMO_SUPABASE.url, window.IMMO_SUPABASE.anonKey, {
@@ -66,11 +80,54 @@ function wireLoginForm(api, overlay, prefillEmail) {
 
 async function onLoggedIn(api, overlay, user) {
   renderLoading(overlay, user)
-  let esp
+  let esp, liveDB = null, flushTimer = null, _lastFlushFn = null
+  // Indicateur de sync du bandeau (si présent). I1 : JAMAIS « Enregistré » si conflit/skipped (donc
+  // pas réellement dans le cloud) — affichage honnête.
+  const setSync = (state) => {
+    const el = document.getElementById('imsb-sync'); if (!el) return
+    el.textContent = state === 'saving' ? '⟳ Enregistrement…'
+      : state === 'incomplete' ? '⚠ Sync incomplète — réessaie en modifiant'
+      : state === 'error' ? '⚠ Erreur réseau — réessai à la prochaine modif'
+      : '✓ Enregistré dans le cloud'
+  }
+  const runFlush = async (fn) => {
+    flushTimer = null; setSync('saving')
+    try {
+      const s = await fn()   // fn = () => sync.flush() ; flush est SÉRIALISÉ côté store-sync (anti-réentrance C2)
+      const incomplete = s && ((s.conflicts && s.conflicts.length) || (s.skipped && s.skipped.length))
+      if (incomplete) console.warn('[Supabase] sync incomplet (conflits/skipped — modif PAS dans le cloud)', s)
+      setSync(incomplete ? 'incomplete' : 'ok')
+    } catch (e) { console.error('[Supabase] flush', e); setSync('error') }
+  }
+  // Scheduler debouncé (800 ms, comme Drive) : saveDB → markDirty → ici → flush cloud (gardé par version).
+  const schedule = (fn) => { _lastFlushFn = fn; if (flushTimer) clearTimeout(flushTimer); flushTimer = setTimeout(() => runFlush(fn), 800) }
+  // C1 : à la fermeture/masquage de l'onglet, flush IMMÉDIAT du debounce en attente — sinon la modif est
+  // perdue (en mode cloud, le filet localStorage de beforeunload n'existe plus). visibilitychange:hidden +
+  // pagehide = plus fiables que beforeunload pour l'async. Best-effort (réseau coupé sur close dur possible).
+  const flushPendingNow = () => { if (flushTimer && _lastFlushFn) { clearTimeout(flushTimer); runFlush(_lastFlushFn) } }
+  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingNow() })
+  addEventListener('pagehide', flushPendingNow)
   try {
     esp = await api.resolveEspace()
-    api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => window.DB, schedule: null })
-    const db = await api.hydrate()                 // HYDRATE dans une variable locale (pas window.DB)
+    api.wireStore({ espaceId: esp.espaceId, ownerId: esp.ownerId, getDB: () => liveDB, schedule })
+    const db = await api.hydrate()
+    // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
+    // cloud EN MÉMOIRE + re-render + brancher la SAUVEGARDE cloud (2c). Sinon (page de test dédiée
+    // index-supabase.html) → écran de compteurs + bouton.
+    if (typeof window.__immoSetDB === 'function' && typeof window.__immoRender === 'function') {
+      window.__immoSupabaseMode = true            // saveDB/beforeunload/storage ne toucheront pas localStorage
+      if (window.__immoSetDB(db) === false) { renderProof(overlay, api, user, esp, db); return }   // DB invalide → fallback
+      liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
+      api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
+      window.__immoMarkDirty = () => api.markDirty()   // 2c : le garde saveDB l'appelle → debounce → flush cloud
+      window.__immoCloudInfo = { email: user && user.email, espaceNom: esp && esp.espaceNom }   // 2.2 : panneau « Mode cloud » des Réglages
+      window.__immoRender()
+      _liftDriveGate()   // révèle l'app cloud (lève le gate Drive resté levé après le boot legacy)
+      try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}   // consomme l'opt-in one-shot (M1)
+      injectSyncBanner(api, user, esp)            // bandeau + indicateur de sync
+      overlay.remove()                            // dévoile l'app complète sur les données cloud
+      return
+    }
     renderProof(overlay, api, user, esp, db)
   } catch (e) {
     renderProof(overlay, api, user, esp || {}, null, e.message)
@@ -90,9 +147,17 @@ function renderProof(overlay, api, user, esp, db, err) {
         <div class="imsb-ok">✓ Connecté · données chargées depuis Supabase</div>
         <p class="imsb-lead"><b>${escapeHtml(user.email)}</b> — espace « ${escapeHtml(esp.espaceNom || '?')} »</p>
         <table class="imsb-tbl">${rows}</table>
-        <p class="imsb-note">Étape 2a : la <b>lecture</b> de tes vraies données depuis le cloud fonctionne. L'affichage dans l'app et la sauvegarde arrivent à l'étape suivante. Ton appli normale (sans <code>?supabase=1</code>) est intacte.</p>
+        <button class="imsb-btn imsb-primary" id="imsb-openapp">📂 Voir dans l'app complète →</button>
+        <p class="imsb-note" id="imsb-note">Ouvre l'app complète (tableau de bord, fiches, listes…) sur ces données cloud, en <b>mode bac à sable ISOLÉ</b> : ton appli de tous les jours (Drive) n'est PAS touchée. La <b>sauvegarde</b> vers le cloud arrive juste après.</p>
         <button class="imsb-btn imsb-ghost" id="imsb-logout">Se déconnecter</button>
       </div>`
+  }
+  const oa = overlay.querySelector('#imsb-openapp')
+  if (oa) oa.onclick = () => {
+    // Pas d'écriture des données dans le cache (quota du localStorage github.io partagé). On pose juste
+    // un opt-in (consommé UNIQUEMENT en sandbox) puis on ouvre l'app : elle charge le cloud EN MÉMOIRE.
+    try { localStorage.setItem('immo_fullapp_once', '1') } catch (e) {}
+    location.href = 'index.html?sandbox=1'
   }
   const lo = overlay.querySelector('#imsb-logout')
   if (lo) lo.onclick = async () => { await api.logout(); location.reload() }
@@ -106,6 +171,41 @@ function renderLoading(overlay, user) {
 function brand() {
   return `<div class="imsb-brand"><div class="imsb-logo">🏠</div><div class="imsb-name">ImmoTrack</div></div>
     <div class="imsb-tag">Mode Supabase · test</div>`
+}
+
+// Bandeau permanent en mode « app complète » : rappelle qu'on est sur le cloud + indicateur de sync en
+// direct. Depuis 2c, les modifications SONT enregistrées dans le cloud (plus en lecture seule). Wording +
+// sortie CONTEXTUELS : en sandbox (?sandbox=1) c'est un TEST (« Quitter le test ») ; en mode cloud RÉEL
+// (toggle immo_use_supabase=1) c'est le vrai mode (« Revenir en mode local »). ⚠️ La sortie COUPE TOUJOURS
+// le flag immo_use_supabase=0, sinon index.html re-booterait cloud (FLAG l.18) → utilisateur PIÉGÉ à l'écran
+// de login (legacy gaté, Réglages inaccessibles → pas de rollback possible).
+function injectSyncBanner(api, user, esp) {
+  if (document.getElementById('imsb-banner')) return
+  const isSandbox = /[?&]sandbox=1/.test(location.search || '')
+  const css = document.createElement('style')
+  css.textContent = `#imsb-banner{position:fixed;top:0;left:0;right:0;z-index:2147483000;background:linear-gradient(90deg,#163b78,#2b5fd0);
+    color:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:12.5px;padding:7px 16px;display:flex;align-items:center;
+    justify-content:center;gap:14px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+    #imsb-banner b{font-weight:700}
+    #imsb-banner #imsb-sync{font-weight:700;background:rgba(255,255,255,.16);padding:2px 9px;border-radius:999px}
+    #imsb-banner button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:6px;
+    padding:4px 12px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+    #imsb-banner button:hover{background:rgba(255,255,255,.28)}
+    body{padding-top:34px!important}`
+  document.head.appendChild(css)
+  const b = document.createElement('div')
+  b.id = 'imsb-banner'
+  b.innerHTML = `<span>☁️ <b>Mode cloud ${isSandbox ? '(test)' : '(Supabase)'}</b> · ${escapeHtml(user.email)} · espace « ${escapeHtml(esp.espaceNom || '?')} »</span>
+    <span id="imsb-sync">✓ Enregistré dans le cloud</span>
+    <button id="imsb-banner-out">${isSandbox ? 'Quitter le test' : 'Revenir en mode local'}</button>`
+  document.body.appendChild(b)
+  const out = document.getElementById('imsb-banner-out')
+  if (out) out.onclick = async () => {
+    try { localStorage.setItem('immo_use_supabase', '0') } catch (e) {}   // anti-piège : index.html re-boote legacy (≠ flag resté à 1)
+    try { localStorage.removeItem('immo_fullapp_once') } catch (e) {}     // consomme l'opt-in sandbox
+    if (isSandbox) { try { await api.logout() } catch (e) {} }            // test → déconnexion ; réel → session gardée (réactivation fluide, comme _cloudModeRollback)
+    location.href = 'index.html'
+  }
 }
 
 function injectOverlay() {

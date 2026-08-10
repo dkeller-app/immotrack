@@ -46,6 +46,75 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(summary.removes).toEqual([])
   })
 
+  it('VERROU LÉGAL : un bail verrouillé au baseline = jamais ré-upserté/supprimé ; la transition false→true POSE le verrou', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    db.baux = { F3: { hc: 700, signatures: { signedAt: '2026-01-01T00:00:00Z', signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: false } } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()                                   // baseline : F3 NON verrouillé
+    const bx = () => store.calls.filter(c => c.coll === 'baux').map(c => c.op + ':' + c.rec.__key)
+
+    // (1) transition false→true → POSE le verrou : DOIT upserter (le baseline n'est pas encore verrouillé)
+    db.baux.F3.signatures.locked = true
+    await sync.flush()
+    expect(bx()).toEqual(['upsert:F3'])
+
+    // (2) F3 désormais verrouillé au baseline → une modif (illégitime) NE doit PAS ré-upserter (trigger refuserait)
+    store.calls.length = 0
+    db.baux.F3.hc = 999
+    await sync.flush()
+    expect(bx()).toEqual([])
+
+    // (3) suppression d'un signé verrouillé → NE doit PAS remove
+    store.calls.length = 0
+    delete db.baux.F3
+    await sync.flush()
+    expect(bx()).toEqual([])
+  })
+
+  it('VERROU pièce 2 : un bail signé NON scellé (ex. présentiel : signedAt sans locked) est SCELLÉ au flush (empreinte + verrou) puis poussé, idempotent ensuite', async () => {
+    const store = mockStore()
+    const db = baseDB()
+    // signé via une voie qui NE verrouille PAS (présentiel) : signedAt présent, ni locked ni contentHashTerms
+    db.baux = { F3: { hc: 700, signatures: { signedAt: '2026-01-01T00:00:00Z', mode: 'avec-locataire', bailSnapshot: { log: { ref: 'F-1' } } } } }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()                                   // baseline : F3 PAS encore scellé
+    await sync.flush()
+    const sg = db.baux.F3.signatures
+    expect(sg.locked).toBe(true)                  // scellé au flush
+    expect(sg.signatureSource).toBe('immotrack')
+    expect(sg.contentHashTerms).toMatch(/^[0-9a-f]{64}$/)
+    expect(store.calls.filter(c => c.coll === 'baux').map(c => c.op)).toEqual(['upsert'])   // poussé UNE fois (pose le verrou)
+
+    const h = sg.contentHashTerms
+    store.calls.length = 0
+    await sync.flush()
+    expect(sg.contentHashTerms).toBe(h)           // jamais recalculé (immutabilité)
+    expect(store.calls.filter(c => c.coll === 'baux')).toEqual([])   // déjà verrouillé → exclu (pièce 4)
+  })
+
+  it('VERROU pièce 2 — C1 (audit) : un bail PARTIELLEMENT signé (mode bailleur-seul) n\'est PAS verrouillé ; il l\'est quand le locataire signe (avec-locataire)', async () => {
+    const store = mockStore()
+    const db = baseDB()                           // baux: {}
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // le bailleur signe SEUL → signedAt présent MAIS locataire pas encore signé
+    db.baux.F3 = { hc: 700, signatures: { signedAt: '2026-01-01T00:00:00Z', mode: 'bailleur-seul', bailSnapshot: { log: { ref: 'F-1' } } } }
+    await sync.flush()
+    expect(db.baux.F3.signatures.locked).toBeFalsy()                 // PARTIEL → JAMAIS verrouillé
+    expect(db.baux.F3.signatures.contentHashTerms).toBeUndefined()
+    expect(store.calls.filter(c => c.coll === 'baux').map(c => c.op)).toEqual(['upsert'])   // synchronisé (non verrouillé) — la Phase 2 reste possible
+
+    // Phase 2 : le locataire signe → mode complet → MAINTENANT scellé + verrouillé
+    store.calls.length = 0
+    db.baux.F3.signatures.mode = 'avec-locataire'
+    db.baux.F3.signatures.signedLocataireAt = '2026-01-02T00:00:00Z'
+    await sync.flush()
+    expect(db.baux.F3.signatures.locked).toBe(true)
+    expect(db.baux.F3.signatures.contentHashTerms).toMatch(/^[0-9a-f]{64}$/)
+    expect(store.calls.filter(c => c.coll === 'baux').map(c => c.op)).toEqual(['upsert'])   // re-poussé AVEC le verrou
+  })
+
   it('un nouvel enregistrement → upsert(coll, rec) ; baseline mis à jour (2e flush = no-op)', async () => {
     const store = mockStore()
     const db = baseDB()
@@ -279,6 +348,22 @@ describe('createStoreSync — moteur de diff DB → upsert/remove (cœur Option 
     expect(s.config).toBe('written')
     await sync.flush()
     expect(persistCount).toBe(1)             // baseline config à jour → plus d'appel
+  })
+
+  it('réentrance (audit C2) : flush() SÉRIALISE — jamais 2 _doFlush en parallèle (2 saves rapprochés)', async () => {
+    let active = 0, maxActive = 0
+    const store = {
+      upsert: async () => { active++; maxActive = Math.max(maxActive, active); await new Promise(r => setTimeout(r, 15)); active--; return { status: 'inserted', version: 1 } },
+      remove: async () => ({ status: 'deleted' }),
+    }
+    const db = { entites: [{ nom: 'A', immeubles: [] }], logements: [], mouvements: [], baux: {} }
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed({ entites: [], logements: [], mouvements: [], baux: {} })   // baseline vide → A est nouveau
+    const p1 = sync.flush()                       // flush 1 démarre (upsert lent)
+    db.entites.push({ nom: 'B', immeubles: [] })  // 2e modif PENDANT le flush 1
+    const p2 = sync.flush()                       // flush 2 demandé → DOIT attendre la fin du flush 1
+    await Promise.all([p1, p2])
+    expect(maxActive).toBe(1)                      // jamais 2 _doFlush (donc 2 upsert) concurrents
   })
 
   it('config : une collection TABLE-backée modifiée ne déclenche PAS persistConfig (c\'est le sync de table)', async () => {

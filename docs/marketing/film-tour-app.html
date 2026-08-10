@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Propryo — Film Tour app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --corail:#ff5a3c; --corail-h:#e8431f; --corail-soft:#ffe7e0;
+    --bg:#f4f5f8; --sur:#ffffff; --bor:#e4e7ee; --ink:#101521; --ink2:#3c4658; --ink3:#6e7888;
+    --good:#1a8f6f; --bad:#d23f3f;
+    --display:'Schibsted Grotesk',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+    --ease:cubic-bezier(.22,.9,.3,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--body);background:#0f1116;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;-webkit-font-smoothing:antialiased}
+  .player{position:relative;width:100vw;height:100vh;overflow:hidden;background:var(--bg)}
+  .prog{position:absolute;top:0;left:0;height:4px;width:0;background:var(--corail);z-index:60}
+
+  .scene{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .55s var(--ease)}
+  .scene.active{opacity:1;visibility:visible}
+  .rv{opacity:0;transform:translateY(16px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+  .scene.active .rv{opacity:1;transform:none;transition-delay:var(--d,0s)}
+
+  /* caption lower-third */
+  .caption{position:absolute;left:0;right:0;bottom:0;padding:34px 6vw 46px;z-index:50;
+    background:linear-gradient(0deg,rgba(15,17,22,.72),rgba(15,17,22,0));
+    font-family:var(--display);font-weight:800;font-size:34px;color:#fff;text-align:center;text-shadow:0 2px 18px rgba(0,0,0,.4);
+    opacity:0;transform:translateY(10px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+  .caption.show{opacity:1;transform:none}
+  .brandline{position:absolute;top:26px;left:34px;z-index:50;font-family:var(--display);font-weight:800;font-size:22px;color:#fff;display:flex;align-items:center;gap:.45ch;text-shadow:0 2px 12px rgba(0,0,0,.35);opacity:.0;transition:opacity .5s}
+  .brandline.on{opacity:.92}
+  .brandline .dot{width:8px;height:8px;border-radius:50%;background:var(--corail)}
+
+  /* ---- SCÈNES ÉCRAN RÉEL (Ken Burns push-in) ---- */
+  .shot{position:absolute;inset:0;overflow:hidden;background:#0f1116}
+  .shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;
+    transform:scale(1.02);transition:transform var(--kb,7000ms) linear;transform-origin:var(--ox,50%) var(--oy,50%)}
+  .scene.active .shot img{transform:scale(var(--kbs,1.32))}
+  .tag{position:absolute;z-index:40;left:var(--tx,50%);top:var(--ty,80%);transform:translate(-50%,-50%);
+    font-family:var(--display);font-weight:800;font-size:19px;color:#fff;background:var(--corail);border-radius:999px;padding:9px 18px;box-shadow:0 14px 34px -12px rgba(255,90,60,.7);
+    opacity:0;transition:opacity .45s,transform .45s var(--ease)}
+  .scene.active .tag{opacity:1;transition-delay:1.2s}
+
+  /* ---- SCÈNES CONCEPT (charte clair) ---- */
+  .concept{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:24px;padding:6vw;
+    background:radial-gradient(700px 380px at 50% 34%,rgba(255,90,60,.10),transparent 70%),var(--bg)}
+  .biglogo{font-family:var(--display);font-weight:900;font-size:64px;color:var(--ink);display:flex;align-items:center;gap:.5ch;letter-spacing:-.02em}
+  .biglogo .dot{width:16px;height:16px;border-radius:50%;background:var(--corail)}
+  .ph{font-family:var(--display);font-weight:800;font-size:32px;color:var(--ink2);max-width:20ch}
+
+  /* hook : corvées éparpillées */
+  .chaos{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:70%}
+  .chaos span{font-size:20px;font-weight:600;color:var(--ink3);background:#fff;border:1px solid var(--bor);border-radius:10px;padding:10px 16px;box-shadow:0 10px 22px -12px rgba(0,0,0,.28)}
+
+  /* import acte */
+  .pdfdrop{display:flex;align-items:center;gap:36px}
+  .pdf{width:120px;height:150px;border-radius:14px;background:#fff;border:1px solid var(--bor);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;box-shadow:0 26px 50px -22px rgba(0,0,0,.4);font-size:42px}
+  .pdf b{font-size:15px;color:var(--corail-h);font-weight:800}.pdf small{font-size:11px;color:var(--ink3)}
+  .arrow{font-size:52px;color:var(--corail)}
+  .fields{display:flex;flex-direction:column;gap:12px;text-align:left}
+  .fields span{font-size:20px;color:var(--ink2);font-weight:600;display:flex;align-items:center;gap:10px}
+  .fields span b{color:var(--corail-h);font-weight:800}
+
+  /* 2044 moat */
+  .recap{width:min(760px,80%);background:var(--sur);border:1px solid var(--bor);border-radius:16px;padding:26px 30px;box-shadow:0 34px 70px -34px rgba(16,21,33,.4);position:relative}
+  .recap h4{font-family:var(--display);font-weight:800;font-size:18px;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+  .recap h4 .yr{font-size:13px;color:var(--ink3);font-weight:600}
+  .lrow{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;font-size:16px}
+  .lrow .lc{color:var(--ink2)}.lrow .lc b{color:var(--ink)}
+  .lrow .lv{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .scene.active .lrow.hot{background:var(--corail-soft);outline:2px solid var(--corail);transition:.4s;transition-delay:2s}
+  .scene.active .lrow.hot .lv{color:var(--corail-h)}
+  .result{margin-top:14px;border-top:2px solid var(--ink);padding-top:14px;display:flex;align-items:baseline;justify-content:space-between}
+  .result .rl{font-family:var(--display);font-weight:800;font-size:17px;color:var(--ink2)}
+  .result .rfval{font-family:var(--display);font-weight:900;font-size:44px;color:var(--corail);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .drill{position:absolute;right:22px;bottom:-14px;width:64%;background:var(--sur);border:1px solid var(--bor);border-radius:14px;box-shadow:0 30px 64px -24px rgba(16,21,33,.5);padding:16px 18px;
+    opacity:0;transform:translateY(16px) scale(.96);transition:opacity .5s,transform .5s var(--ease)}
+  .scene.active .drill{opacity:1;transform:none;transition-delay:2.8s}
+  .drill .dh{font-size:14px;font-weight:800;color:var(--ink2);margin-bottom:9px}
+  .drow{display:flex;align-items:center;justify-content:space-between;font-size:13px;padding:6px 0;border-top:1px solid var(--bor)}
+  .drow .fac{color:var(--corail-h);font-weight:700}
+  .btn{font-family:var(--body);font-weight:700;font-size:19px;color:#fff;background:var(--corail);border:0;border-radius:14px;padding:15px 28px}
+  .url{font-size:15px;color:var(--ink3);font-weight:600;letter-spacing:.04em}
+  .ctrls{position:fixed;bottom:8px;left:8px;z-index:99;display:flex;gap:8px}
+  .ctrls button{font-family:var(--body);font-size:12px;color:#cdd6e3;background:#1e222c;border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:6px 11px;cursor:pointer}
+  body.rec .ctrls{display:none}
+</style>
+</head>
+<body>
+  <div class="player" id="player">
+    <div class="prog" id="prog"></div>
+    <div class="brandline" id="brand">Propryo<span class="dot"></span></div>
+
+    <!-- 1 HOOK -->
+    <section class="scene">
+      <div class="concept">
+        <div class="chaos">
+          <span class="rv" style="--d:.05s">Bail.docx</span><span class="rv" style="--d:.15s">Relevé banque</span>
+          <span class="rv" style="--d:.25s">Quittance ?</span><span class="rv" style="--d:.35s">Facture plombier</span>
+          <span class="rv" style="--d:.45s">Taxe foncière</span><span class="rv" style="--d:.55s">Révision IRL ?</span>
+          <span class="rv" style="--d:.65s">2044 vierge</span><span class="rv" style="--d:.75s">Charges copro</span>
+        </div>
+        <div class="ph rv" style="--d:.9s">Mille petites corvées.</div>
+      </div>
+    </section>
+
+    <!-- 2 PROMESSE -->
+    <section class="scene">
+      <div class="concept">
+        <div class="biglogo rv">Propryo<span class="dot"></span></div>
+        <div class="ph rv" style="--d:.5s">Il fait le pénible. Toi, tu pilotes.</div>
+      </div>
+    </section>
+
+    <!-- 3 IMPORT ACTE -->
+    <section class="scene">
+      <div class="concept">
+        <div class="pdfdrop">
+          <div class="pdf rv">📄<b>ACTE</b><small>de vente.pdf</small></div>
+          <div class="arrow rv" style="--d:.5s">→</div>
+          <div class="fields">
+            <span class="rv" style="--d:.8s"><b>✦</b> Adresse, surfaces</span>
+            <span class="rv" style="--d:1.2s"><b>✦</b> Lots &amp; tantièmes</span>
+            <span class="rv" style="--d:1.6s"><b>✦</b> Bail en cours repris</span>
+            <span class="rv" style="--d:2.1s"><b>✦</b> Bien créé ✓</span>
+          </div>
+        </div>
+        <div class="ph rv" style="--d:2.5s;font-size:26px">Dépose ton acte. C'est tout.</div>
+      </div>
+    </section>
+
+    <!-- 4 CANDIDATS (réel, zoom colonne confiance à droite) -->
+    <section class="scene" style="--ox:82%;--oy:55%;--kbs:1.38;--kb:7000ms">
+      <div class="shot"><img src="tour-frames/02-candidats.png" alt=""></div>
+      <div class="tag" style="--tx:80%;--ty:52%">Score de confiance</div>
+    </section>
+
+    <!-- 5 FINANCES (réel, zoom hero +12 720 en haut à gauche) -->
+    <section class="scene" style="--ox:22%;--oy:26%;--kbs:1.4;--kb:7000ms">
+      <div class="shot"><img src="tour-frames/04-finances.png" alt=""></div>
+      <div class="tag" style="--tx:24%;--ty:30%">Cash-flow, en direct</div>
+    </section>
+
+    <!-- 6 IRL (réel, zoom carte STU-CAM révision) -->
+    <section class="scene" style="--ox:32%;--oy:52%;--kbs:1.42;--kb:7000ms">
+      <div class="shot"><img src="tour-frames/05b-irl-page.png" alt=""></div>
+      <div class="tag" style="--tx:31%;--ty:52%">430 → 442,80 € (+2,98 %)</div>
+    </section>
+
+    <!-- 7 RÉGUL (réel, zoom KPIs/solde) -->
+    <section class="scene" style="--ox:50%;--oy:30%;--kbs:1.34;--kb:7000ms">
+      <div class="shot"><img src="tour-frames/05-regul.png" alt=""></div>
+      <div class="tag" style="--tx:50%;--ty:28%">Solde par locataire</div>
+    </section>
+
+    <!-- 8 2044 MOAT -->
+    <section class="scene">
+      <div class="concept">
+        <div class="recap rv">
+          <h4>Ta déclaration 2044 <span class="yr">Revenus 2025 · Camille</span></h4>
+          <div class="lrow"><span class="lc"><b>211</b> Loyers encaissés</span><span class="lv">24 360 €</span></div>
+          <div class="lrow hot"><span class="lc"><b>224</b> Travaux</span><span class="lv">2 130 €</span></div>
+          <div class="lrow"><span class="lc"><b>227</b> Taxe foncière</span><span class="lv">2 280 €</span></div>
+          <div class="lrow"><span class="lc"><b>250</b> Intérêts d'emprunt</span><span class="lv">2 640 €</span></div>
+          <div class="result"><span class="rl">Résultat foncier</span><span class="rfval" id="rfval">14 940 €</span></div>
+          <div class="drill">
+            <div class="dh">Ligne 224 — Travaux · 2 pièces</div>
+            <div class="drow"><span>15/03 · Plomberie</span><span>1 450 €</span></div>
+            <div class="drow"><span class="fac">📎 PLOMB-2025-0312</span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 CLOSE -->
+    <section class="scene">
+      <div class="concept">
+        <div class="biglogo rv">Propryo<span class="dot"></span></div>
+        <div class="ph rv" style="--d:.4s">Tout, simplement. Et le fisc tranquille.</div>
+        <button class="btn rv" style="--d:.9s">Rejoindre la bêta →</button>
+        <div class="url rv" style="--d:1.2s">propryo.fr</div>
+      </div>
+    </section>
+
+    <div class="caption" id="caption"></div>
+  </div>
+
+  <div class="ctrls"><button id="btnReplay">↺ Rejouer</button></div>
+
+<script>
+(function(){
+  var scenes=[
+    { cap:'Gérer ses locations, c’est mille corvées.', dur:6000, brand:false },
+    { cap:'Propryo fait le pénible. Toi, tu pilotes.',      dur:6000, brand:false },
+    { cap:'Ton acte de vente → ton bien, créé.',            dur:8500, brand:true },
+    { cap:'Le bon locataire, sans éplucher les dossiers.',  dur:7000, brand:true },
+    { cap:'Tes loyers suivis sans y penser.',               dur:7000, brand:true },
+    { cap:'La révision de loyer, calculée pour toi.',       dur:7000, brand:true },
+    { cap:'Tes charges régularisées sans calculette.',      dur:7000, brand:true },
+    { cap:'Ta 2044 justifiée, case par facture.',           dur:9000, brand:true },
+    { cap:'Propryo — tout, simplement.',                    dur:7000, brand:false }
+  ];
+  if (window.SCENE_DURS && window.SCENE_DURS.length) window.SCENE_DURS.forEach(function(d,i){ if(scenes[i]) scenes[i].dur=d; });
+  var els=document.querySelectorAll('.scene');
+  var prog=document.getElementById('prog'), cap=document.getElementById('caption'), brand=document.getElementById('brand');
+  var total=scenes.reduce(function(a,s){return a+s.dur;},0), cum=[]; (function(){var t=0;scenes.forEach(function(s){cum.push(t);t+=s.dur;});})();
+  var i=0,timer=null,capT=null,playing=true;
+
+  function countUp(n){
+    if(n!==7) return; var node=document.getElementById('rfval'); if(!node) return;
+    var target=14940,start=null,dur=1100,delay=2000; node.textContent='0 €';
+    setTimeout(function(){ function step(ts){ if(!start)start=ts; var p=Math.min((ts-start)/dur,1);
+      node.textContent=Math.round(target*p).toLocaleString('fr-FR')+' €'; if(p<1) requestAnimationFrame(step);} requestAnimationFrame(step); }, delay);
+  }
+  function go(n){
+    i=n; clearTimeout(timer); clearTimeout(capT);
+    els.forEach(function(e,idx){ e.classList.toggle('active',idx===n); });
+    brand.classList.toggle('on', !!scenes[n].brand);
+    cap.classList.remove('show'); cap.textContent=scenes[n].cap;
+    capT=setTimeout(function(){ cap.classList.add('show'); }, 550);
+    var endPct=((cum[n]+scenes[n].dur)/total)*100;
+    prog.style.transition='none'; prog.style.width=((cum[n]/total)*100)+'%'; prog.offsetWidth;
+    if(playing){ prog.style.transition='width '+scenes[n].dur+'ms linear'; prog.style.width=endPct+'%'; }
+    countUp(n);
+    if(playing){ if(n<scenes.length-1) timer=setTimeout(function(){go(n+1);},scenes[n].dur);
+      else timer=setTimeout(function(){ document.body.classList.add('ended'); },scenes[n].dur); }
+  }
+  document.getElementById('btnReplay').onclick=function(){ document.body.classList.remove('ended'); playing=true; go(0); };
+  go(0);
+})();
+</script>
+</body>
+</html>

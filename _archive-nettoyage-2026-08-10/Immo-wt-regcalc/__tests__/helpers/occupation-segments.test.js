@@ -1,0 +1,144 @@
+import { describe, it, expect } from 'vitest'
+import { logOccupationSegments, finEffOccupation } from '../../js/core/occupation-segments.js'
+
+// ────────────────────────────────────────────────────────────────────────────
+// Modèle cible : une SEULE vérité d'occupation d'un logement sur [from,to].
+// Découpe en segments qui se suivent sans trou ni chevauchement.
+// Chaque jour appartient à exactement un segment : locataire OU vacant→bailleur.
+// Règle de fin unique par bail : dateSortie (déclarée & < fin) → sinon finEffective → sinon fin.
+// Invariant : Σ occDays == totalDays.
+// Réf : docs/superpowers/specs/2026-07-05-regul-vacance-depart-design.md §7
+// ────────────────────────────────────────────────────────────────────────────
+
+const FROM = '2026-01-01'
+const TO = '2026-12-31'
+const TOTAL = 365
+
+const sum = segs => segs.reduce((s, x) => s + x.occDays, 0)
+
+describe('logOccupationSegments — invariant', () => {
+  it('Σ occDays == totalDays dans tous les cas', () => {
+    const cases = [
+      [],
+      [{ debut: '2025-06-01', fin: null, nom: 'A' }],
+      [{ debut: '2026-03-15', fin: null, nom: 'A' }],
+      [{ debut: '2026-01-01', fin: '2029-12-31', dateSortie: '2026-06-30', nom: 'A' }],
+      [{ debut: '2026-01-01', fin: '2026-06-30', nom: 'A' }, { debut: '2026-08-01', fin: null, nom: 'B' }],
+    ]
+    for (const bails of cases) {
+      const { segments, totalDays } = logOccupationSegments(bails, FROM, TO)
+      expect(totalDays).toBe(TOTAL)
+      expect(sum(segments)).toBe(TOTAL)
+    }
+  })
+
+  it('segments ordonnés, sans trou ni chevauchement', () => {
+    const bails = [{ debut: '2026-01-01', fin: '2026-06-30', nom: 'A' }, { debut: '2026-08-01', fin: null, nom: 'B' }]
+    const { segments } = logOccupationSegments(bails, FROM, TO)
+    expect(segments[0].debut).toBe(FROM)
+    expect(segments[segments.length - 1].fin).toBe(TO)
+    for (let i = 1; i < segments.length; i++) {
+      // chaque segment démarre le lendemain de la fin du précédent
+      const prevFin = new Date(segments[i - 1].fin + 'T00:00:00').getTime()
+      const curDeb = new Date(segments[i].debut + 'T00:00:00').getTime()
+      expect(curDeb - prevFin).toBe(86400000)
+    }
+  })
+})
+
+describe('logOccupationSegments — cas', () => {
+  it('aucun bail → tout vacant (bailleur)', () => {
+    const { segments } = logOccupationSegments([], FROM, TO)
+    expect(segments).toHaveLength(1)
+    expect(segments[0].kind).toBe('vacant')
+    expect(segments[0].isBailleur).toBe(true)
+    expect(segments[0].occDays).toBe(TOTAL)
+  })
+
+  it('bail plein (entrée avant la période, pas de sortie) → 100% locataire, aucune vacance (non-régression)', () => {
+    const { segments } = logOccupationSegments([{ debut: '2025-06-01', fin: null, nom: 'A' }], FROM, TO)
+    expect(segments).toHaveLength(1)
+    expect(segments[0].kind).toBe('locataire')
+    expect(segments[0].locataire).toBe('A')
+    expect(segments[0].occDays).toBe(TOTAL)
+  })
+
+  it('entrée en cours d\'année → vacance AVANT puis locataire', () => {
+    const { segments } = logOccupationSegments([{ debut: '2026-03-15', fin: null, nom: 'A' }], FROM, TO)
+    expect(segments.map(s => s.kind)).toEqual(['vacant', 'locataire'])
+    expect(segments[0].occDays).toBe(73)   // 01/01 → 14/03 inclus
+    expect(segments[1].occDays).toBe(292)  // 15/03 → 31/12 inclus
+  })
+
+  it('SORTIE DÉCLARÉE non archivée → clip à dateSortie, PAS au terme du bail (le bug corrigé)', () => {
+    const bails = [{ debut: '2026-01-01', fin: '2029-12-31', dateSortie: '2026-06-30', nom: 'A' }]
+    const { segments } = logOccupationSegments(bails, FROM, TO)
+    expect(segments.map(s => s.kind)).toEqual(['locataire', 'vacant'])
+    expect(segments[0].occDays).toBe(181)  // 01/01 → 30/06
+    expect(segments[1].occDays).toBe(184)  // 01/07 → 31/12 → bailleur
+    expect(segments[1].isBailleur).toBe(true)
+  })
+
+  it('rotation avec trou → loc1, vacance, loc2', () => {
+    const bails = [
+      { debut: '2026-01-01', fin: '2026-06-30', nom: 'A' },
+      { debut: '2026-08-01', fin: null, nom: 'B' },
+    ]
+    const { segments } = logOccupationSegments(bails, FROM, TO)
+    expect(segments.map(s => s.kind)).toEqual(['locataire', 'vacant', 'locataire'])
+    expect(segments[0].occDays).toBe(181)  // A : 01/01 → 30/06
+    expect(segments[1].occDays).toBe(31)   // juillet vacant
+    expect(segments[2].occDays).toBe(153)  // B : 01/08 → 31/12
+    expect(segments[0].locataire).toBe('A')
+    expect(segments[2].locataire).toBe('B')
+  })
+
+  it('rotation sans trou (successeur le lendemain) → aucune vacance', () => {
+    const bails = [
+      { debut: '2026-01-01', fin: '2026-06-30', nom: 'A' },
+      { debut: '2026-07-01', fin: null, nom: 'B' },
+    ]
+    const { segments } = logOccupationSegments(bails, FROM, TO)
+    expect(segments.map(s => s.kind)).toEqual(['locataire', 'locataire'])
+    expect(segments[0].occDays).toBe(181)
+    expect(segments[1].occDays).toBe(184)
+  })
+})
+
+describe('finEffOccupation — contrat de la règle de fin (verrou audit #1)', () => {
+  it('lit dateSortie AU TOP-LEVEL', () => {
+    expect(finEffOccupation({ fin: '2029-12-31', dateSortie: '2026-06-30' })).toBe('2026-06-30')
+  })
+  it('lit dateSortie DANS depart', () => {
+    expect(finEffOccupation({ fin: '2029-12-31', depart: { dateSortie: '2026-06-30' } })).toBe('2026-06-30')
+  })
+  it('sans sortie → terme du bail', () => {
+    expect(finEffOccupation({ fin: '2029-12-31' })).toBe('2029-12-31')
+  })
+  it('finEffective prioritaire sur fin si pas de sortie', () => {
+    expect(finEffOccupation({ fin: '2029-12-31', finEffective: '2026-05-31' })).toBe('2026-05-31')
+  })
+  it('dateSortie ignorée si >= terme', () => {
+    expect(finEffOccupation({ fin: '2026-06-30', dateSortie: '2026-12-31' })).toBe('2026-06-30')
+  })
+  it('bail ouvert (aucune date) → null', () => {
+    expect(finEffOccupation({})).toBe(null)
+  })
+})
+
+describe('logOccupationSegments — règle de fin', () => {
+  it('dateSortie ignorée si postérieure au terme (dateSortie >= fin) → on garde fin', () => {
+    // fin 2026-09-30, dateSortie 2026-12-31 (>= fin) → occupation jusqu'à fin, pas au-delà
+    const bails = [{ debut: '2026-01-01', fin: '2026-09-30', dateSortie: '2026-12-31', nom: 'A' }]
+    const { segments } = logOccupationSegments(bails, FROM, TO)
+    expect(segments.map(s => s.kind)).toEqual(['locataire', 'vacant'])
+    expect(segments[0].fin).toBe('2026-09-30')
+  })
+
+  it('finEffective prioritaire sur fin contractuelle quand pas de dateSortie', () => {
+    const bails = [{ debut: '2026-01-01', fin: '2029-12-31', finEffective: '2026-05-31', nom: 'A' }]
+    const { segments } = logOccupationSegments(bails, FROM, TO)
+    expect(segments[0].fin).toBe('2026-05-31')
+    expect(segments[0].occDays).toBe(151) // 01/01 → 31/05
+  })
+})

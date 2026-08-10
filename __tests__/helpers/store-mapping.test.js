@@ -47,6 +47,24 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(r.legacy_ref).toBe('F-1'); expect(r.signed_at).toMatch(/^2026-02-01/)
   })
 
+  it('VERROU : content_hash/signature_source/locked mappés depuis signatures (+ garde CHECK-satisfiable)', () => {
+    const sg = (extra) => ({ __key: 'F-1', entity: 'SCI A', signatures: { signedAt: '2026-02-01T10:00:00Z', ...extra } })
+    // signé immotrack + hash → verrouillé
+    const ok = mapToRow('baux', sg({ signatureSource: 'immotrack', contentHashTerms: 'a'.repeat(64), locked: true }), ctx())
+    expect(ok.locked).toBe(true); expect(ok.content_hash).toBe('a'.repeat(64)); expect(ok.signature_source).toBe('immotrack')
+    // locked demandé MAIS immotrack sans hash → CHECK non satisfiable → locked:false (robuste à l'ordre de déploiement)
+    const noHash = mapToRow('baux', sg({ signatureSource: 'immotrack', locked: true }), ctx())
+    expect(noHash.locked).toBe(false); expect(noHash.content_hash).toBeNull()
+    // externe peut omettre le hash → verrouillable
+    expect(mapToRow('baux', sg({ signatureSource: 'externe', locked: true }), ctx()).locked).toBe(true)
+    // source INVALIDE (corruption amont) → normalisée à null (anti-23514 en boucle) → pas de verrou
+    const bad = mapToRow('baux', sg({ signatureSource: 'bidon', contentHashTerms: 'a'.repeat(64), locked: true }), ctx())
+    expect(bad.signature_source).toBeNull(); expect(bad.locked).toBe(false)
+    // non signé → pas verrouillé, pas de hash/source
+    const unsigned = mapToRow('baux', { __key: 'F-1', entity: 'SCI A', hc: 700 }, ctx())
+    expect(unsigned.locked).toBe(false); expect(unsigned.content_hash).toBeNull(); expect(unsigned.signature_source).toBeNull()
+  })
+
   it('quittances : logement requis (NOT NULL) → null si non résolu', () => {
     expect(mapToRow('quittances', { id: 1, logement: 'INCONNU', mois: '2026-01' }, ctx())).toBeNull()
     const r = mapToRow('quittances', { id: 2, logement: 'F-1', entity: 'SCI A', mois: '2026-01', hc: 700, ch: 100 }, ctx())

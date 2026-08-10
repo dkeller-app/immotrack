@@ -3815,6 +3815,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/bail-sign-manifest.global.js"></script>
 <script src="js/helpers/build-sign-manifest.global.js"></script>
 <script src="js/helpers/bail-sign-sigid.global.js"></script>
+<!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
+     INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
+<script src="js/app/supabase-config.js"></script>
+<script type="module" src="js/app/supabase-entry.js"></script>
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
@@ -5818,6 +5822,16 @@ function _undoUIInit() {
 /* ═══ FIN UNDO-OP cœur ═════════════════════════════════════════════════════ */
 
 function saveDB() {
+  // BASCULE SUPABASE (P3) : en mode Supabase, le DB vit EN MÉMOIRE (chargé du cloud) ; on NE persiste
+  // PAS en localStorage (cache github.io partagé + saturé) ni Drive. Undo/audit conservés. La sync
+  // cloud (écriture ligne-par-ligne gardée par version) = étape 2c via _markSupabaseDirty (à venir).
+  if (typeof window !== 'undefined' && window.__immoSupabaseMode) {
+    if (typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
+    if (typeof _auditFlushPending === 'function') _auditFlushPending();
+    if (typeof window.__immoMarkDirty === 'function') window.__immoMarkDirty();
+    if (typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
+    return true;
+  }
   // v15.116 DRIVE-CONFIANCE-UX Étape A (OFFLINE-FIRST) : on NE bloque PLUS l'écriture
   // quand Drive est déconnecté. Le localStorage est le filet de sécurité : toute modif
   // est TOUJOURS persistée en local immédiatement, puis poussée vers Drive dès la
@@ -5844,6 +5858,26 @@ function saveDB() {
   if (typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
   return true;
 }
+
+// === BASCULE SUPABASE (P3) — points d'injection pour le module externe js/app/supabase-entry.js ===
+// Le module tourne dans un scope séparé (<script type=module>) et ne peut pas accéder à `DB` ni aux
+// fonctions de rendu (locales). On expose le STRICT nécessaire : injecter le DB cloud EN MÉMOIRE et
+// re-render l'app. Inerte tant que le mode Supabase n'est pas activé (window.__immoSupabaseMode).
+window.__immoSetDB = function(cloudDB) {
+  // Garde-fou (audit I2) : n'accepte qu'un objet en forme de DB (baux + logements). Évite qu'un appel
+  // accidentel (extension/console) n'écrase le DB de l'app par n'importe quoi.
+  if (!cloudDB || typeof cloudDB !== 'object' || !('baux' in cloudDB) || !Array.isArray(cloudDB.logements)) {
+    console.warn('[Supabase] __immoSetDB refusé : objet DB invalide'); return false;
+  }
+  DB = cloudDB; return true;
+};
+window.__immoRender = function() {
+  try { _renderSidebarFiltered(); } catch (e) { console.warn('[Supabase] sidebar', e); }
+  try { _initSidebarV2(); } catch (e) {}
+  try { initFilters(); } catch (e) {}
+  try { rDash(); } catch (e) { console.warn('[Supabase] rDash', e); }
+  try { go('accueil'); } catch (e) {}
+};
 
 // v14.89 AUDIT-TRAIL Sprint 3A — Journal des modifications.
 // Pattern d'usage :
@@ -48552,6 +48586,9 @@ function _scheduleAutoPull() {
 // le silent re-grant `prompt:''` peut quand même afficher popup OAuth — intrusif).
 // beforeunload : fallback + sauvegarde localStorage synchrone garantie
 window.addEventListener('beforeunload', ()=>{
+  // BASCULE SUPABASE (P3) : en mode cloud, le DB en mémoire ne doit JAMAIS redescendre en localStorage
+  // (sinon le snapshot cloud écraserait la vraie clé locale prod). Cf. audit C1.
+  if (window.__immoSupabaseMode) return;
   // localStorage toujours synchrone — garanti même si Drive échoue
   try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e){}
   // Tentative Drive best-effort (peut être interrompue par le navigateur)
@@ -48565,6 +48602,9 @@ window.addEventListener('beforeunload', ()=>{
 // instantanément (bail signé visible sans recharger) et le beforeunload ultérieur
 // n'écrase plus nos signatures fraîchement sauvegardées.
 window.addEventListener('storage', (e) => {
+  // BASCULE SUPABASE (P3) : en mode cloud, ne JAMAIS adopter un état localStorage (cf. audit C2 —
+  // contamination cross-onglet : le DB cloud ne doit pas se substituer aux données prod d'un autre onglet).
+  if (window.__immoSupabaseMode) return;
   if (e.key !== KEY || !e.newValue) return;
   // v15.123 ANTI PING-PONG : si le contenu reçu est IDENTIQUE à notre DB actuelle, on
   // ignore (un autre onglet a ré-écrit le même contenu via pull/push, ce n'est pas un

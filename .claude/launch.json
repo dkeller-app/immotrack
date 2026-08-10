@@ -4,20 +4,534 @@
     {
       "name": "dashboard-mockups",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/docs/strategie/dashboard-mockups", "-p", "8765", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/docs/strategie/dashboard-mockups",
+        "-p",
+        "8765",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8765
+    },
+    {
+      "name": "wt-defauts-frais",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-defauts-frais",
+        "-p",
+        "8771",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8771
     },
     {
       "name": "immotrack-sandbox",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo", "-p", "8766", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo",
+        "-p",
+        "8766",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8766
     },
     {
       "name": "immotrack-worktree-email-auto",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb", "-p", "8770", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb",
+        "-p",
+        "8770",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8770
+    },
+    {
+      "name": "wt-finbuild",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/tmp/wt-finbuild",
+        "-p",
+        "8780",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8780
+    },
+    {
+      "name": "wt-cloudfix",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/immo-wt-cloudfix",
+        "-p",
+        "8781",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8781
+    },
+    {
+      "name": "wt-charges-regul",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-charges-regul",
+        "-p",
+        "8782",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8782
+    },
+    {
+      "name": "reskin-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/immo-wt-reskin",
+        "-p",
+        "8783",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8783
+    },
+    {
+      "name": "wt-depart",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-depart",
+        "-p",
+        "8784",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8784
+    },
+    {
+      "name": "demo-marketing",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-demo-marketing",
+        "-p",
+        "8790",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8790
+    },
+    {
+      "name": "marketing-assets",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/docs/marketing",
+        "-p",
+        "8791",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8791
+    },
+    {
+      "name": "wt-depart2",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-depart2",
+        "-p",
+        "8785",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8785
+    },
+    {
+      "name": "wt-quickwins",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-quickwins",
+        "-p",
+        "8787",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "wt-estim",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-estim",
+        "-p",
+        "8786",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8786
+    },
+    {
+      "name": "wt-fin",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-fin",
+        "-p",
+        "8788",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8788
+    },
+    {
+      "name": "wt-reste",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-reste",
+        "-p",
+        "8789",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8789
+    },
+    {
+      "name": "wt-fix",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-fix",
+        "-p",
+        "8792",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8792
+    },
+    {
+      "name": "wt-clip",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-clip",
+        "-p",
+        "8793",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8793
+    },
+    {
+      "name": "charges-cahier",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/charges-occupation-cahier",
+        "-p",
+        "8794",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8794
+    },
+    {
+      "name": "wt-nav",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/immo-wt-nav",
+        "-p",
+        "8795",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8795
+    },
+    {
+      "name": "compteurs-cahier",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/compteurs-facture-rapprochement",
+        "-p",
+        "8796",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8796
+    },
+    {
+      "name": "releves-cadence",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/releves-cadence-annualisation",
+        "-p",
+        "8797",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8797
+    },
+    {
+      "name": "compteurs-page-app",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/compteurs-page-app",
+        "-p",
+        "8799",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8799
+    },
+    {
+      "name": "compteurs-page-reelle",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/compteurs-page-reelle",
+        "-p",
+        "8801",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8801
+    },
+    {
+      "name": "page-charges",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/page-charges",
+        "-p",
+        "8802",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8802
+    },
+    {
+      "name": "wt-regul",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-regul",
+        "-p",
+        "8803",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8803
+    },
+    {
+      "name": "wt-filrouge",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-filrouge",
+        "-p",
+        "8804",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8804
+    },
+    {
+      "name": "wt-mobilenav",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/immo-wt-mobilenav",
+        "-p",
+        "8806",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8806
+    },
+    {
+      "name": "mockup-reset-cloud",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/RESET-CLOUD",
+        "-p",
+        "8807",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8807
+    },
+    {
+      "name": "wt-cloud-ux",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-cloud-ux",
+        "-p",
+        "8808",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8808
+    },
+    {
+      "name": "mockup-historique-loyer",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/historique-loyer",
+        "-p",
+        "8809",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8809
+    },
+    {
+      "name": "wt-filrouge-fidelite",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-filrouge-fidelite",
+        "-p",
+        "8810",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8810
+    },
+    {
+      "name": "wt-regcalc",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-regcalc",
+        "-p",
+        "8811",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8811
+    },
+    {
+      "name": "decompte-depart",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/decompte-depart",
+        "-p",
+        "8803",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8803
+    },
+    {
+      "name": "regul-page",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/regul-page",
+        "-p",
+        "8804",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8804
+    },
+    {
+      "name": "regul-app",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups/regul-app",
+        "-p",
+        "8805",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8805
+    },
+    {
+      "name": "mockups-all",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups",
+        "-p",
+        "8806",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8806
+    },
+    {
+      "name": "wt-histo-bail",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-histo-bail",
+        "-p",
+        "8772",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8772
     }
   ]
 }

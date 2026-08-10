@@ -1,0 +1,24 @@
+diff --git a/index.html b/index.html
+index e77ebb0..10be2dc 100644
+--- a/index.html
++++ b/index.html
+@@ -25568,11 +25568,17 @@ function computeRegul(from, to) {
+     const bailRaw = DB.baux[l.ref];
+     const bail = (bailRaw && _isAlive(bailRaw)) ? bailRaw : null;
+     if(bail) {
+-      const clip = clipBail(bail.debut, bail.fin);
++      // DEPART-CLIP : un départ DÉCLARÉ (bail.depart.dateSortie) borne l'occupation à la sortie, même si le
++      // bail n'est pas encore archivé (bail.fin = terme du bail). Sinon le partant est facturé jusqu'au terme
++      // (sur-facturation). Les charges postérieures à la sortie ne lui sont plus imputées (→ occupation suivante
++      // ou non réparti = bailleur, comportement correct).
++      const _dep = (bail.depart && bail.depart.dateSortie) || '';
++      const bailEnd = (_dep && (!bail.fin || _dep < bail.fin)) ? _dep : bail.fin;
++      const clip = clipBail(bail.debut, bailEnd);
+       if(clip.occDays > 0) pool.push({
+         entryKey: l.ref, ref: l.ref, imm: l.imm,
+         loc: bail.locataires?.[0]?.nom || l.locataire || '–',
+-        bail, debut: bail.debut, fin: bail.fin||'',
++        bail, debut: bail.debut, fin: bailEnd||'',
+         isHistorique: false, ...clip
+       });
+     }

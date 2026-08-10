@@ -1,0 +1,219 @@
+diff --git a/index.html b/index.html
+index f7be5c1..4945e4d 100644
+--- a/index.html
++++ b/index.html
+@@ -26012,11 +26012,14 @@ function computeRegul(from, to) {
+     const bailRaw = DB.baux[l.ref];
+     const bail = (bailRaw && _isAlive(bailRaw)) ? bailRaw : null;
+     if(bail) {
+-      const clip = clipBail(bail.debut, bail.fin);
++      // FIX-DEPART-OCCUPATION : clip à la sortie DÉCLARÉE (dateSortie→finEffective→fin),
++      // pas au terme du bail → le partant paie SON prorata, la vacance retombe au bailleur.
++      const bailEnd = _finEffOccupation(bail);
++      const clip = clipBail(bail.debut, bailEnd);
+       if(clip.occDays > 0) pool.push({
+         entryKey: l.ref, ref: l.ref, imm: l.imm,
+         loc: bail.locataires?.[0]?.nom || l.locataire || '–',
+-        bail, debut: bail.debut, fin: bail.fin||'',
++        bail, debut: bail.debut, fin: bailEnd || '',
+         isHistorique: false, ...clip
+       });
+     }
+@@ -26167,15 +26170,47 @@ function computeRegul(from, to) {
+           mvId: m.id, mvLib: m.lib, mvTotal: Math.round((m.db||0)*100)/100
+         });
+       });
++      // FIX-AUDIT #2 : les parts compteur sont arrondies indépendamment (locataire ET bailleur)
++      // → dérive de quelques centimes possible. On réconcilie le reste sur le bailleur pour que
++      // Σ parts arrondies == m.db AU CENTIME (invariant 2044 dur).
++      const _ccAttrib = (repart.parts||[]).reduce((s,p)=> s + Math.round((p.montant||0)*100)/100, 0);
++      const _ccReste = Math.round((m.db - _ccAttrib) * 100) / 100;
++      // FIX-AUDIT I-2 : distinguer un vrai TROU (rien réparti : périmètre vide, clé/tantièmes à 0…)
++      // d'une simple dérive d'arrondi. Le trou → _nonRepAdd (gate la validation, ne gonfle pas
++      // silencieusement la part bailleur 2044) ; le résidu d'arrondi → bailleur.
++      const _ccNonImpute = Math.round(((repart.totaux && repart.totaux.totalNonImpute) || 0) * 100) / 100;
++      if(Math.abs(_ccNonImpute) >= 0.01){
++        _nonRepAdd(im.nom, { date:m.date, lib:m.lib, montant:_ccReste, motif:'Compteur '+(cc.nom||'')+' : montant non réparti (périmètre ou clé incomplète)' });
++      } else if(Math.abs(_ccReste) >= 0.01){
++        _bailleurAdd(im.nom, { date:m.date, lib:m.lib, cc:cc.nom||'Compteur', montant:_ccReste, motif:"Ajustement d'arrondi (répartition compteur)" });
++      }
+       return;
+     }
+     // ── (2) Charge directe : qui rempli ──────────────────────────────────────────────
+     if(m.qui) {
++      // ANNUALISÉ + PRORATA DE PRÉSENCE (comme compteur/immeuble) : la charge du logement est
++      // répartie entre ses occupants au prorata de leurs jours de présence ; la fraction vacante
++      // du logement (période post-départ / sans bail) → bailleur. Plus de "100% à l'occupant du jour".
+       const candidates = Object.values(res).filter(e=>e.ref===m.qui);
+-      if(!candidates.length){ const _lg=(DB.logements||[]).find(l=>l.ref===m.qui); _nonRepAdd(_lg?_lg.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » sans bail actif sur la période'}); return; }
+-      const target = candidates.find(e=>m.date>=e.debutOcc&&m.date<=e.finOcc) || candidates[0];
+-      target.charges += m.db;
+-      target.details.push({date:m.date, lib:m.lib, montant:m.db, repartition:'Direct', mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
++      const _lgD = (DB.logements||[]).find(l=>l.ref===m.qui);
++      if(!candidates.length){
++        _bailleurAdd(_lgD?_lgD.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Logement « '+m.qui+' » vacant sur toute la période'});
++        return;
++      }
++      let _dirAttrib = 0;
++      candidates.forEach(e=>{
++        const coeff = totalDays>0 ? e.occDays/totalDays : 0;
++        const part = Math.round(m.db * coeff * 100)/100;
++        if(part<=0) return;
++        e.charges += part; _dirAttrib += part;
++        const pct = Math.round(coeff*100);
++        e.details.push({date:m.date, lib:m.lib, montant:part, repartition:`Direct · prorata ${pct}% (${e.occDays}j/${totalDays}j)`, mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
++      });
++      const _dirReste = Math.round((m.db - _dirAttrib)*100)/100;
++      // FIX-AUDIT I-1 : corriger les DEUX signes (comme le compteur). Reste positif = fraction vacante
++      // → bailleur ; reste négatif = sur-arrondi → repris sur le bailleur (montant négatif), sinon le
++      // locataire est sur-facturé et Σ loc + bailleur dérive de m.db.
++      if(Math.abs(_dirReste) >= 0.01) _bailleurAdd(_lgD?_lgD.imm:m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:_dirReste, motif:_dirReste<0?"Ajustement d'arrondi":'Fraction vacante du logement (hors occupation)'});
+       return;
+     }
+     // ── (3) Charge sur immeuble sans compteur → prorata jours, filtré compteCharges:false
+@@ -26186,24 +26221,25 @@ function computeRegul(from, to) {
+         return !log || log.compteCharges !== false;
+       });
+       if(!immEntries.length){ _nonRepAdd(m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:Math.round((m.db||0)*100)/100, motif:'Aucun logement occupé (comptant les charges) sur la période'}); return; }
+-      const totalOcc = immEntries.reduce((s,e)=>s+e.occDays, 0);
+-      // v14.73 : la fraction non-occupée = part bailleur (vacances dans la période)
+-      const partBailleur = Math.max(0, m.db - immEntries.reduce((s,e)=>{
+-        const coeff = e.occDays / totalOcc;
+-        return s + Math.round(m.db * coeff * 100) / 100;
+-      }, 0));
+-      // En pratique partBailleur est ~0 ici car immEntries.totalOcc somme à 100%.
+-      // Le vrai bailleur des charges sans compteur n'est pas calculable proprement
+-      // (car on n'a pas de scope explicite). On se contente du prorata locataires.
++      // FIX-DEPART-OCCUPATION : parts égales entre les logements de l'immeuble (comptant les
++      // charges), chacune proratisée à SON occupation. Dénominateur = N logements × fenêtre →
++      // la fraction vacante (logement vide ou période post-départ) retombe au BAILLEUR, au lieu
++      // d'être réabsorbée par les occupants (Σ occDays/totalOcc valait toujours 100%).
++      const scopeLogs = (DB.logements||[]).filter(_isAlive).filter(l => l.imm===m.imm && l.compteCharges!==false);
++      const N = scopeLogs.length || immEntries.length;
++      const denom = N * totalDays;
+       immEntries.forEach(e=>{
+-        const coeff = e.occDays / totalOcc;
++        const coeff = denom > 0 ? e.occDays / denom : 0;
+         const part  = Math.round(m.db * coeff * 100) / 100;
+         if(part <= 0) return;
+         e.charges += part;
+         const pct  = Math.round(coeff * 100);
+-        const jStr = e.occDays < totalDays ? `${e.occDays}j/${totalDays}j` : `${totalDays}j`;
+-        e.details.push({date:m.date, lib:m.lib, montant:part, repartition:`Prorata ${pct}% (${jStr})`, mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
++        e.details.push({date:m.date, lib:m.lib, montant:part, repartition:`Prorata ${pct}% (${e.occDays}j/${totalDays}j · 1/${N})`, mvId:m.id, mvLib:m.lib, mvTotal:Math.round((m.db||0)*100)/100});
+       });
++      const totalLoc = immEntries.reduce((s,e)=> s + Math.round(m.db * (denom>0?e.occDays/denom:0) * 100)/100, 0);
++      const partBailleur = Math.round((m.db - totalLoc) * 100) / 100;
++      // FIX-AUDIT I-1 : idem — corriger aussi le reste négatif (sur-arrondi) pour ne pas sur-facturer.
++      if(Math.abs(partBailleur) >= 0.01) _bailleurAdd(m.imm, {mvId:m.id, date:m.date, lib:m.lib, montant:partBailleur, motif:partBailleur<0?"Ajustement d'arrondi":'Fraction vacante de l\'immeuble (logement vide / hors occupation)'});
+     }
+   });
+ 
+@@ -34994,51 +35030,67 @@ function _ccConsoLogPeriod(log, ccType, periodFrom, periodTo) {
+   return Math.max(0, end - start);
+ }
+ 
+-// Calcul prorata jours d'occupation d'un logement par locataire sur la période.
+-// Retourne [{ bailId, locataire, debut, fin, occDays }] segments + total
+-// vacance non couverte par un bail (= part bailleur).
+-function _ccLogOccupations(log, periodFrom, periodTo) {
+-  // Helpers de date
+-  const fromMs = new Date(periodFrom + 'T00:00:00').getTime();
+-  const toMs = new Date(periodTo + 'T00:00:00').getTime();
+-  const totalDays = Math.max(1, Math.round((toMs - fromMs) / 86400000) + 1);
++// ─── Occupation d'un logement : SOURCE UNIQUE ───
++// Réplique inline (shadow file://) du module pur js/core/occupation-segments.js
++// (19 tests Vitest). MÊME logique — toute correction se fait DANS LES DEUX.
++// Règle de fin : dateSortie déclarée (< terme) → finEffective → fin.
++// UTC de bout en bout ; invariant Σ occDays == totalDays.
++function _finEffOccupation(b) {
++  const ds = (b && (b.dateSortie || (b.depart && b.depart.dateSortie))) || '';
++  const fin = (b && (b.finEffective || b.fin)) || null;
++  if (ds && (!fin || ds < fin)) return ds;
++  return fin;
++}
++function _logOccupationSegments(bails, from, to) {
++  const DAY = 86400000;
++  const _ms = d => { const [y,m,dd] = String(d).split('-').map(Number); return Date.UTC(y, m-1, dd); };
++  const _iso = ms => { const dt = new Date(ms); return dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0'); };
++  const fromMs = _ms(from), toMs = _ms(to);
++  const totalDays = Math.max(1, Math.round((toMs - fromMs) / DAY) + 1);
+   const segments = [];
+-  // Bails : courant + historique (même structure que _getAllBailsForLog)
+-  const bails = (typeof _getAllBailsForLog === 'function') ? _getAllBailsForLog(log.ref) : [];
+-  // Trier les bails par debut
+-  const sorted = bails.slice().sort((a,b) => (a.debut||'').localeCompare(b.debut||''));
++  const sorted = (bails || []).filter(b => b && b.debut).slice().sort((a,b) => (a.debut||'').localeCompare(b.debut||''));
+   let cursorMs = fromMs;
+-  for(const b of sorted) {
+-    if(!b.debut) continue;
+-    const bDebMs = Math.max(fromMs, new Date(b.debut + 'T00:00:00').getTime());
+-    const bFinMs = Math.min(toMs, b.fin ? new Date(b.fin + 'T00:00:00').getTime() : toMs);
+-    if(bDebMs > toMs || bFinMs < fromMs) continue;
+-    // Période avant ce bail (si gap depuis cursor) → vacance bailleur
+-    if(bDebMs > cursorMs) {
+-      const vacDays = Math.round((bDebMs - cursorMs) / 86400000);
+-      if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: new Date(cursorMs).toISOString().slice(0,10), fin: new Date(bDebMs - 86400000).toISOString().slice(0,10), occDays: vacDays, isBailleur: true });
+-    }
+-    // Période du bail
+-    const occDays = Math.round((bFinMs - bDebMs) / 86400000) + 1;
+-    if(occDays > 0) segments.push({
+-      bailId: b._type === 'current' ? 'current' : 'hist',
+-      locataire: b.nom || '—',
+-      debut: new Date(bDebMs).toISOString().slice(0,10),
+-      fin: new Date(bFinMs).toISOString().slice(0,10),
+-      occDays, isBailleur: false
+-    });
+-    cursorMs = Math.max(cursorMs, bFinMs + 86400000);
+-  }
+-  // Vacance résiduelle après le dernier bail
+-  if(cursorMs <= toMs) {
+-    const vacDays = Math.round((toMs - cursorMs) / 86400000) + 1;
+-    if(vacDays > 0) segments.push({ bailId: null, locataire: '—', debut: new Date(cursorMs).toISOString().slice(0,10), fin: periodTo, occDays: vacDays, isBailleur: true });
+-  }
+-  // Si aucun bail du tout : tout en vacance bailleur
+-  if(segments.length === 0) segments.push({ bailId: null, locataire: '—', debut: periodFrom, fin: periodTo, occDays: totalDays, isBailleur: true });
++  for (const b of sorted) {
++    const finE = _finEffOccupation(b);
++    const rawDebMs = _ms(b.debut);
++    const rawFinMs = finE ? _ms(finE) : toMs;
++    const segStart = Math.max(rawDebMs, cursorMs, fromMs);
++    const segEnd = Math.min(rawFinMs, toMs);
++    if (segEnd < segStart) continue;
++    if (segStart > cursorMs) {
++      const vacDays = Math.round((segStart - cursorMs) / DAY);
++      if (vacDays > 0) segments.push({ kind:'vacant', bailId:null, locataire:'—', debut:_iso(cursorMs), fin:_iso(segStart-DAY), occDays:vacDays, isBailleur:true });
++    }
++    const occDays = Math.round((segEnd - segStart) / DAY) + 1;
++    segments.push({ kind:'locataire', bailId: b.bailId || (b._type === 'current' ? 'current' : 'hist'), locataire: b.nom || '—', debut:_iso(segStart), fin:_iso(segEnd), occDays, isBailleur:false, loc: b.nom||'', hc: b.hc, ch: b.ch });
++    cursorMs = segEnd + DAY;
++  }
++  if (cursorMs <= toMs) {
++    const vacDays = Math.round((toMs - cursorMs) / DAY) + 1;
++    if (vacDays > 0) segments.push({ kind:'vacant', bailId:null, locataire:'—', debut:_iso(cursorMs), fin: to, occDays:vacDays, isBailleur:true });
++  }
++  if (segments.length === 0) segments.push({ kind:'vacant', bailId:null, locataire:'—', debut: from, fin: to, occDays: totalDays, isBailleur:true });
+   return { segments, totalDays };
+ }
+ 
++// Occupation d'un logement sur la période — délègue à la source unique.
++// v15.x FIX-DEPART-OCCUPATION : le partant est clippé à sa date de sortie DÉCLARÉE
++// (avant : compté jusqu'au terme du bail → sur-facturé jusqu'à 100 %). La vacance → bailleur.
++// dateSortie injectée sur le bail COURANT sans toucher _getAllBailsForLog (13 autres
++// consommateurs veulent la fin contractuelle).
++function _ccLogOccupations(log, periodFrom, periodTo) {
++  const bails = (typeof _getAllBailsForLog === 'function') ? _getAllBailsForLog(log.ref) : [];
++  const cur = (typeof _findBailByRefTolerant === 'function') ? _findBailByRefTolerant(log.ref) : null;
++  // FIX-AUDIT #1 : même contrat que _finEffOccupation (dateSortie top-level OU depart.dateSortie),
++  // sinon le chemin compteur ne clipperait pas un départ posé en top-level → partant sur-facturé eau/chauffage.
++  const ds = cur && (cur.dateSortie || (cur.depart && cur.depart.dateSortie));
++  if (ds) {
++    const b = bails.find(x => x._type === 'current');
++    if (b) b.dateSortie = ds;
++  }
++  return _logOccupationSegments(bails, periodFrom, periodTo);
++}
++
+ // Helper interne — applique une clé simple (sans composition, sans sous-compteurs hybrides)
+ // sur un montant donné, pour un sous-ensemble de logements. Utilisé par _calcCcRepartition
+ // et la composition.

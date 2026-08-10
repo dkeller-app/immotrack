@@ -3,6 +3,7 @@
 > **Document principal du dossier BIZPLAN-STRATEGIE.**
 > 4 documents annexes : [CARTE_POSITIONNEMENT.md](CARTE_POSITIONNEMENT.md) · [EFFORT_DEPLOIEMENT.md](EFFORT_DEPLOIEMENT.md) · [PROJECTIONS.md](PROJECTIONS.md) · [PLAN_ACTIONS.md](PLAN_ACTIONS.md)
 > Daté avril 2026. Échéance lancement V1 visée : 14 octobre 2026.
+> **Métriques concurrents rafraîchies juil. 2026** — benchmark sociétés détaillé : [BENCHMARK-CONCURRENCE-2026-07.md](BENCHMARK-CONCURRENCE-2026-07.md).
 
 ---
 
@@ -101,7 +102,7 @@ Cap commercial à 3 ans (scénario médian, cf [PROJECTIONS.md](PROJECTIONS.md))
 Sur ~6,8 M logements locatifs privés, on estime que **20–25 % sont gérés via un logiciel SaaS** (le reste : Excel personnel, agence physique, gestion manuelle).
 - Marché B2C SaaS gestion locative FR (estim) : **~1,5 M logements gérés via logiciel**
 - À ARPU moyen 8 €/mois × 12 = **~145 M€ de marché annuel adressable**
-- Concurrents B2C cumulés : Rentila (200 K biens), Gererseul (42 K users × ~3 logements estim = ~120 K biens), Qalimo / BailFacile / Smartloc / autres : ~150 K biens estim cumul = **~470 K biens captés** sur ~1,5 M → **~30 % de pénétration logicielle**
+- Concurrents B2C cumulés : Rentila (200 K biens ; éditeur bulgare), Gererseul (**42 435 propriétaires / 48 123 lots**), BailFacile (**100 000+ bailleurs**), Qalimo (6 500 bailleurs, société créée 01/2024), Smartloc / ImmobilierLoyer / Smovin (parcs non communiqués) = **~470 K biens captés** sur ~1,5 M → **~30 % de pénétration logicielle** _(chiffres users rafraîchis juil. 2026)_
 
 **Conclusion** : 1 M de logements potentiellement adressables ne sont pas encore digitalisés. C'est un marché en cours de digitalisation, pas un marché captif à voler aux concurrents.
 
@@ -142,38 +143,40 @@ ImmoTrack se positionne en **B2C SaaS particuliers** (V1), avec extension **B2B 
 
 ### 3.2 — Hiérarchie des concurrents B2C par couverture (Scorecard 149 critères)
 
-| # | Outil | Score pondéré | Différenciants ⭐ | Pricing entrée (€/mois) | Trustpilot |
-|---|---|---|---|---|---|
-| 1 | Qalimo | **71,1 %** | 0 | 0–5 | 4,9/5 (record) |
-| 2 | Gererseul | 67,8 % | 0 | 9,75 | 4,8/5 |
-| 3 | Rentila | 63,1 % | 0 | 0–8 | 4,5/5 |
-| 4 | ImmobilierLoyer | 57,7 % | 0 | 7,70 | n/a |
-| 5 | BailFacile | 55,0 % | 0 | 9,90 | n/a |
-| 5 | Smartloc | 55,0 % | 0 | 6,50 | n/a |
-| 5 | Smovin | 55,0 % | 0 | 4–8 | n/a |
-| 8 | **ImmoTrack** | **54,7 %** | **12** ⭐ | **0 / 9,90 / 19,90 (proposé)** | – |
+| # | Outil | Score pondéré | ⭐ | Pricing entrée | Trustpilot | Éditeur / créé | Base clients | Financement |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Qalimo | **71,1 %** | 0 | 4,90 €/bien/mois | **4,9/5** (89) | QALIMO SAS / **2024** | 6 500 bailleurs | bootstrap (0 salarié) |
+| 2 | Gererseul | 67,8 % | 0 | 5–14,90 € | 4,7/5 (543) | GERERSEUL SARL / **2009** | 42 435 propr. / 48 K lots | bootstrap (3–5 sal.) |
+| 3 | Rentila | 63,1 % | 0 | 0 / 49–99 €/an | 4,2–4,7/5 | **Rentila ltd (BG)** / 2008 | 50 K bailleurs / 200 K biens | bootstrap |
+| 4 | ImmobilierLoyer | 57,7 % | 0 | 88,80 €/an | ~5/5 Google (200) | SUPSOFT SAS / 2016 | non comm. | bootstrap rentable (RN +177 K€) |
+| 5 | BailFacile | 55,0 % | 0 | 9,99 €/mois/bien | 4,5–4,6/5 (2 500) | BAILFACILE SAS / 2017 | 100 000+ bailleurs | bootstrap probable (CA non publié) |
+| 5 | Smartloc | 55,0 % | 0 | 6,50 €/mois | ~4,4 Google | GINZA SAS / 2012 | non comm. | bootstrap rentable (CA 761 K€) |
+| 5 | Smovin | 55,0 % | 0 | 5 €/bien/mois | ~7,4/10 Capterra | SMOVIN SA (BE) / 2016 | 800+ investisseurs | **VC ~1,4 M€, déficitaire** |
+| 8 | **ImmoTrack** | **54,7 %** | **12** ⭐ | **0 / 9,90 / 19,90 (proposé)** | – | perso Didier Keller | dogfood | autofinancé |
 
-**Lecture** : ImmoTrack arrive 8e en couverture brute, mais c'est le seul du panel avec des différenciants exclusifs identifiés. La trajectoire-cible V1 = **65–70 % de couverture + 12 ⭐ + 4 nouveaux différenciants**.
+**Lecture** : ImmoTrack arrive 8e en couverture brute, mais c'est le seul du panel avec des différenciants exclusifs identifiés. **Le panel B2C est intégralement bootstrap** (seul Smovin a levé, et il est déficitaire/fonds propres négatifs) → un SaaS gestion locative B2C FR **peut être rentable sans levée** (Smartloc, ImmobilierLoyer, LOCKimmo le prouvent). Deux surprises du benchmark : **Qalimo n'a que 18 mois d'existence et 0 salarié** malgré sa notation record ; **Gérer Seul date de 2009** (et non 2007). La trajectoire-cible V1 = **65–70 % de couverture + 12 ⭐ + 4 nouveaux différenciants**.
 
 ### 3.3 — Hiérarchie B2B (référentiel + cible V2)
 
-| Outil | Score | Pricing | Cible | Stratégie 2024–2026 |
+| Outil | Score | CA / financement (juil. 2026) | Cible | Stratégie 2024–2026 |
 |---|---|---|---|---|
-| Septeo Crypto/ICS/ADB | 86,2 % | sur devis | Agences, admin biens | Consolidation : 8 acquisitions 2024, vise 1 Md€ revenus 2030 |
-| LOCKimmo | 86,2 % | sur devis | Agences indép. | Modulaire (gestion / syndic / transaction) |
-| Powimo (Seiitra) | n/a | sur devis | Tout-en-un syndic+GL | "Claim #1 syndic" |
-| VILOGI | n/a | abonnement | Syndic full web | +47 % croissance 2024 |
+| Septeo ADB / SPI | 86,2 %* | **CA groupe 420 M€ (2024), valo >3,5 Md€** (Hg+Téthys+GIC+Bpifrance) | Agences, admin biens, syndics | Consolidation (INCH, stp.one >500 M€), vise **>1 Md€ 2030**. Trustpilot 1,6–1,9/5 |
+| LOCKimmo | 86,2 % | **CA 1,79 M€ (2023), RN 438 K€ — bootstrap rentable** | Agences indép. | Refonte LOCKimmo.IO + IA. ~1 200 clients, ~15 sal. |
+| VILOGI | n/a | RN 144 K€ (2024), CA confidentiel | Syndic + GL full web | **+47 % 2024** (build-up MIP Alpes + AGLI), IA + sync Bridge |
+| Powimo (Orisha) | n/a | groupe Orisha | Tout-en-un syndic+GL | ⚠️ **Crypto = Orisha, PAS Septeo** |
 | Hektor (La Boîte Immo) | n/a | abonnement | Transaction (≠ GL) | 8 500 agences, 45 K users |
-| Manda (digital agency) | – | 5,9 % loyer | Bailleur voulant déléguer | 9+15 acquisitions, 43 M€ Naxicap |
+| Manda (digital agency) | – | **64 M€ Naxicap (21+43 M€), RN −11,7 M€ (cash burn)** | Bailleur voulant déléguer | 5 acquisitions 2024 + ~15 visées 2025 (roll-up), objectif 1 300 salariés |
 
-**Lecture** : Le B2B est en consolidation rapide (Septeo + Manda). ImmoTrack ne doit PAS attaquer ce segment en V1. La cible V2 (Q3 2027) = "petit gestionnaire / mini-agence familiale 5–30 logements" = niche entre B2C et B2B où aucun acteur n'est dominant.
+*Le 86,2 % « Crypto/Septeo » de la grille est à re-ventiler : Crypto appartient à Orisha, pas Septeo (correction juil. 2026).
+
+**Lecture** : Le B2B est en consolidation rapide et **bien capitalisée** (Septeo valo 3,5 Md€, Manda LBO Naxicap) — mais **l'argent et le M&A restent côté pro/syndic, pas côté bailleur particulier**. ImmoTrack ne doit PAS attaquer ce segment en V1. La cible V2 (Q3 2027) = "petit gestionnaire / mini-agence familiale 5–30 logements" = niche entre B2C et B2B où aucun acteur n'est dominant.
 
 ### 3.4 — Positionnement carte 2D (résumé)
 
 ```
                                                 Richesse fonctionnelle
                                                        ↑
-                                              Septeo Crypto ⬛   LOCKimmo ⬛
+                                              Septeo ADB ⬛   LOCKimmo ⬛
                                               (86,2 % · sur devis)
                                   
                             Qalimo ●  Gererseul ●

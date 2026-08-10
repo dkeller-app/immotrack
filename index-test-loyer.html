@@ -1356,30 +1356,22 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   <div class="m-body">
     <div class="fg2">
       <div class="fg"><label>Date *</label><input class="inp" type="date" id="mv-date"></div>
-      <div class="fg"><label>Catégorie *</label><select class="inp" id="mv-cat"></select></div>
+      <div class="fg"><label>Catégorie *</label><select class="inp" id="mv-cat" onchange="_mvAffOnCat()"></select></div>
     </div>
     <div class="fg"><label>Libellé *</label><input class="inp" id="mv-lib" placeholder="Description du mouvement"></div>
-    <div class="fg2">
-      <div class="fg"><label>Immeuble</label><input class="inp" id="mv-imm" placeholder="ex: Freyming" list="mv-imm-list" oninput="_mvSyncCcSelect()" onchange="_mvSyncCcSelect()"><datalist id="mv-imm-list"></datalist></div>
-      <div class="fg"><label>Qui (logement/entité)</label><select class="inp" id="mv-qui" onchange="_mvEnforceExclusivity()"></select></div>
-    </div>
+    <input type="hidden" id="mv-imm"><input type="hidden" id="mv-qui">
     <div class="fg2">
       <div class="fg"><label>Débit (charge) €</label><input class="inp" type="number" id="mv-db" min="0" step="0.01" placeholder="0.00"></div>
       <div class="fg"><label>Crédit (recette) €</label><input class="inp" type="number" id="mv-cr" min="0" step="0.01" placeholder="0.00"></div>
     </div>
-    <!-- v14.60 CHARGES-COMMUNES Phase 1.5 — lien compteur collectif (single source) -->
-    <div class="fg" id="mv-cc-wrap" style="display:none">
-      <label>⚡ Compteur collectif lié <span class="mu sm">(facture imputable à un compteur de l'immeuble)</span></label>
-      <select class="inp" id="mv-cc" onchange="_mvEnforceExclusivity()">
-        <option value="">— Aucun (mouvement ordinaire)</option>
-      </select>
-      <div class="mu sm" style="font-size:11px;color:var(--t3);margin-top:4px">
-        Si lié, le mouvement apparaîtra dans le tableau quote-part par logement (fiche immeuble → ⚡ Charges communes).
-      </div>
-      <div id="mv-cc-warn" class="mu sm" style="font-size:11px;color:var(--ora);margin-top:4px;display:none">
-        ⚠ Mutuellement exclusif avec « Qui » : un mvt est soit direct (Qui rempli), soit réparti par compteur — pas les deux.
-      </div>
+    <input type="hidden" id="mv-cc">
+    <!-- V3-REFONTE-LOYERS : affectation guidée (remplace imm/qui/cc à plat) -->
+    <div class="mv-mode" id="mv-mode" style="display:flex;gap:8px;margin:6px 0 12px">
+      <button type="button" class="mv-mode-btn on" data-m="aff" onclick="_mvSetMode('aff')" style="flex:1;padding:9px;border-radius:9px;border:1px solid #2563eb;background:#eff6ff;color:#1e40af;cursor:pointer;font-size:12.5px;font-weight:700">🎯 Affecter à un poste</button>
+      <button type="button" class="mv-mode-btn" data-m="split" onclick="_mvSetMode('split')" style="flex:1;padding:9px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#334155;cursor:pointer;font-size:12.5px;font-weight:700">✂️ Découper en lignes</button>
     </div>
+    <div id="mv-aff-zone"></div>
+    <div id="mv-aff-dest"></div>
     <div class="fg">
       <label>N° Facture</label>
       <div style="display:flex;gap:6px;align-items:stretch">
@@ -12916,6 +12908,141 @@ function _nextFacNumber() {
   return `${yr}-${String(max + 1).padStart(3, '0')}`;
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// V3-REFONTE-LOYERS — Affectation guidée du mouvement (maquette loyer-refonte).
+// Remplace les champs imm/qui/cc « à plat » par : niveau (SCI / immeuble / logement)
+// suggéré par la catégorie + cible scopée & cherchable + récupérable (compteur
+// collectif) + bandeau « où ça atterrit ». Pilote les champs CACHÉS mv-imm/mv-qui/
+// mv-cc → saveMv() reste inchangé. Mode « Découper » = prochaine étape.
+// ════════════════════════════════════════════════════════════════════════════
+const _MV_NIV = { sci:{e:'🏛️',l:'La SCI'}, imm:{e:'🏢',l:'Un immeuble'}, log:{e:'🚪',l:'Un logement'} };
+// Niveau par défaut selon la ligne 2044 (modifiable par l'utilisateur).
+const _MV_DEFNIV = { '211':'log','213':'imm','221':'log','223':'imm','224':'log','224bis':'log','225':'log','226':'log','227':'imm','229':'imm','230':'imm','250':'imm' };
+let _mvAff = { mode:'aff', niv:'log', cible:'', recup:false, ccId:'', q:'', comboOpen:false };
+
+function _mvAffLogs(){ return (DB.logements||[]).filter(l=>_isAlive(l) && !l.archived); }
+function _mvAffImms(){ return (DB.entites||[]).filter(_isAlive).flatMap(e=>(e.immeubles||[]).filter(_isAlive).map(i=>({nom:i.nom, ent:e.nom, ccs:(i.compteursCollectifs||[]).filter(_isAlive)}))); }
+function _mvAffScis(){ return (DB.entites||[]).filter(_isAlive).filter(e=>e.type && String(e.type).toUpperCase().includes('SCI')); }
+function _mvAffImmObj(nom){ return _mvAffImms().find(i=>i.nom===nom); }
+
+function _mvAffCatMeta(){
+  const std = _stdCategoryByName(v('mv-cat'));
+  const l = std ? std.ligne2044 : '';
+  const t = std ? std.type : 'charge';
+  return { l, t, defNiv:(_MV_DEFNIV[l] || (t==='recette'?'log':'imm')), std:!!std, descHors: std && std.descHors };
+}
+function _mvAffSetDefaultCible(){
+  if(_mvAff.niv==='log'){ _mvAff.cible = (_mvAffLogs()[0]||{}).ref || ''; }
+  else if(_mvAff.niv==='imm'){ _mvAff.cible = (_mvAffImms()[0]||{}).nom || ''; }
+  else { _mvAff.cible = (_mvAffScis()[0]||{}).nom || ''; }
+}
+function _mvAffOnCat(){
+  const meta=_mvAffCatMeta();
+  _mvAff.niv=meta.defNiv; _mvAff.recup=false; _mvAff.ccId=''; _mvAff.comboOpen=false; _mvAff.q='';
+  _mvAffSetDefaultCible(); _mvAffRender();
+}
+function _mvAffSetNiv(k){ _mvAff.niv=k; _mvAff.recup=false; _mvAff.ccId=''; _mvAff.comboOpen=false; _mvAffSetDefaultCible(); _mvAffRender(); }
+function _mvSetMode(m){
+  _mvAff.mode=m;
+  document.querySelectorAll('#mv-mode .mv-mode-btn').forEach(b=>{ const on=b.dataset.m===m; b.classList.toggle('on',on); b.style.borderColor=on?'#2563eb':'#cbd5e1'; b.style.background=on?'#eff6ff':'#fff'; b.style.color=on?'#1e40af':'#334155'; });
+  _mvAffRender();
+}
+function _mvAffInit(existing){
+  _mvAff = { mode:'aff', niv:'log', cible:'', recup:false, ccId:'', q:'', comboOpen:false };
+  if(existing && existing.compteurCcId){ _mvAff.niv='imm'; _mvAff.recup=true; _mvAff.ccId=existing.compteurCcId; _mvAff.cible=existing.imm||''; }
+  else if(existing && existing.qui && existing.qui.indexOf('SCI:')===0){ _mvAff.niv='sci'; _mvAff.cible=existing.qui.slice(4); }
+  else if(existing && existing.qui && existing.qui!=='Global'){ _mvAff.niv='log'; _mvAff.cible=existing.qui; }
+  else if(existing && existing.imm){ _mvAff.niv='imm'; _mvAff.cible=existing.imm; }
+  else { const meta=_mvAffCatMeta(); _mvAff.niv=meta.defNiv; _mvAffSetDefaultCible(); }
+  _mvSetMode('aff');
+}
+function _mvAffRender(){
+  const zone=el('mv-aff-zone'), dest=el('mv-aff-dest');
+  if(!zone || !dest) return;
+  if(_mvAff.mode==='split'){
+    zone.innerHTML = `<div style="padding:12px 14px;border:1px dashed #cbd5e1;border-radius:10px;color:#475569;font-size:13px">✂️ <b>Découper en lignes</b> — prochaine étape (un virement = plusieurs biens/locataires, ex : relevé de gérance). Pour l'instant, utilise « Affecter à un poste ».</div>`;
+    dest.innerHTML=''; return;
+  }
+  const meta=_mvAffCatMeta(), niv=_mvAff.niv;
+  let h = `<div style="border:1px solid #e2e8f0;border-radius:12px;padding:13px;background:#f8fafc">`;
+  h += `<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:9px">À quoi rattacher ce mouvement ?</div>`;
+  h += `<div style="display:flex;gap:6px;margin-bottom:11px;flex-wrap:wrap">`;
+  ['sci','imm','log'].forEach(k=>{
+    const on=k===niv, sugg=(k===meta.defNiv && k!==niv);
+    h += `<button type="button" onclick="_mvAffSetNiv('${k}')" style="flex:1;min-width:92px;padding:8px;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:600;border:1px solid ${on?'#2563eb':(sugg?'#93c5fd':'#cbd5e1')};background:${on?'#eff6ff':'#fff'};color:${on?'#1e40af':'#334155'}">${_MV_NIV[k].e} ${_MV_NIV[k].l}${sugg?' ★':''}</button>`;
+  });
+  h += `</div>`;
+  if(niv==='sci'){
+    const S=_mvAffScis();
+    h += S.length ? `<select class="inp" onchange="_mvAff.cible=this.value;_mvAffRender()">`+S.map(e=>`<option ${e.nom===_mvAff.cible?'selected':''}>${escHtml(e.nom)}</option>`).join('')+`</select>` : `<div class="mu sm">Aucune SCI — crée une entité SCI d'abord.</div>`;
+  } else if(niv==='imm'){
+    const I=_mvAffImms();
+    h += I.length ? `<select class="inp" onchange="_mvAff.cible=this.value;_mvAff.recup=false;_mvAff.ccId='';_mvAffRender()">`+I.map(i=>`<option ${i.nom===_mvAff.cible?'selected':''}>${escHtml(i.nom)}</option>`).join('')+`</select>` : `<div class="mu sm">Aucun immeuble.</div>`;
+  } else {
+    h += _mvAffComboHtml();
+  }
+  if(niv==='imm' && meta.t==='charge'){
+    const im=_mvAffImmObj(_mvAff.cible);
+    if(im && im.ccs.length){
+      h += `<label style="display:flex;align-items:flex-start;gap:7px;margin-top:9px;font-size:12.5px;cursor:pointer"><input type="checkbox" ${_mvAff.recup?'checked':''} onchange="_mvAff.recup=this.checked;_mvAff.ccId=this.checked?'${escHtml(im.ccs[0].id)}':'';_mvAffRender()"><span>↩ Cette charge se <b>récupère</b> sur les locataires (répartie par compteur collectif, pas déduite aux impôts)</span></label>`;
+      if(_mvAff.recup) h += `<select class="inp" style="margin-top:7px" onchange="_mvAff.ccId=this.value;_mvAffRender()">`+im.ccs.map(c=>`<option value="${escHtml(c.id)}" ${c.id===_mvAff.ccId?'selected':''}>${escHtml(c.nom||'Compteur')}</option>`).join('')+`</select>`;
+    }
+  }
+  h += `</div>`;
+  zone.innerHTML=h; dest.innerHTML=_mvAffDestHtml(meta); _mvAffSync();
+}
+function _mvAffComboHtml(){
+  const logs=_mvAffLogs(), cur=logs.find(l=>l.ref===_mvAff.cible);
+  const label=cur?`${cur.ref} — ${cur.locataire||'Vacant'}`:'Choisir un logement…';
+  let h = `<button type="button" class="inp" style="text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="_mvAff.comboOpen=!_mvAff.comboOpen;_mvAffRender()"><span>${escHtml(label)}</span><span>▾</span></button>`;
+  if(_mvAff.comboOpen){
+    const q=(_mvAff.q||'').toLowerCase().trim();
+    const filt=logs.filter(l=>(`${l.ref} ${l.locataire||''} ${l.imm||''}`).toLowerCase().includes(q));
+    h += `<div style="border:1px solid #cbd5e1;border-radius:9px;margin-top:5px;background:#fff;max-height:240px;overflow:auto">`;
+    h += `<input class="inp" id="mv-aff-search" style="border:0;border-bottom:1px solid #e2e8f0;border-radius:9px 9px 0 0" placeholder="🔍 Réf. ou locataire…" value="${escHtml(_mvAff.q||'')}" oninput="_mvAff.q=this.value;_mvAffFillCombo()">`;
+    h += `<div id="mv-aff-list">${_mvAffListHtml(filt)}</div></div>`;
+  }
+  return h;
+}
+function _mvAffListHtml(filt){
+  if(!filt.length) return `<div class="mu sm" style="padding:9px 11px">Aucun résultat</div>`;
+  const byImm={}; filt.forEach(l=>{ const k=l.imm||'(sans immeuble)'; (byImm[k]=byImm[k]||[]).push(l); });
+  let h=''; Object.keys(byImm).sort().forEach(im=>{
+    h += `<div style="padding:5px 11px;font-size:11px;font-weight:700;color:#64748b;background:#f8fafc">${escHtml(im)} (${byImm[im].length})</div>`;
+    byImm[im].slice(0,40).forEach(l=>{ h += `<button type="button" data-ref="${escHtml(l.ref)}" style="display:block;width:100%;text-align:left;padding:7px 11px;border:0;border-top:1px solid #f1f5f9;background:#fff;cursor:pointer;font-size:12.5px" onclick="_mvAffChoose(this.dataset.ref)"><b>${escHtml(l.ref)}</b> — ${escHtml(l.locataire||'Vacant')}</button>`; });
+    if(byImm[im].length>40) h += `<div class="mu sm" style="padding:5px 11px">+ ${byImm[im].length-40} autres — précise ta recherche</div>`;
+  });
+  return h;
+}
+function _mvAffFillCombo(){
+  const q=(_mvAff.q||'').toLowerCase().trim();
+  const filt=_mvAffLogs().filter(l=>(`${l.ref} ${l.locataire||''} ${l.imm||''}`).toLowerCase().includes(q));
+  const list=el('mv-aff-list'); if(list) list.innerHTML=_mvAffListHtml(filt);
+}
+function _mvAffChoose(ref){ _mvAff.cible=ref; _mvAff.comboOpen=false; _mvAff.q=''; _mvAffRender(); }
+function _mvAffDestHtml(meta){
+  const niv=_mvAff.niv;
+  if(_mvAff.recup && niv==='imm'){
+    const n=_mvAffLogs().filter(l=>l.imm===_mvAff.cible).length;
+    return `<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:#fff8e6;border-left:3px solid #d97706;font-size:12.5px;color:#92400e">👥 <b>Réparti sur ${n} locataire(s) de ${escHtml(_mvAff.cible)}</b> via compteur collectif → régularisation des charges. <span style="opacity:.8">Pas sur ta 2044 (ça se neutralise).</span></div>`;
+  }
+  if(!meta.l) return `<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:#f8fafc;border-left:3px solid #94a3b8;font-size:12.5px;color:#475569">📋 <b>Hors 2044</b>${meta.descHors?' — '+escHtml(meta.descHors):''} (tracé, hors résultat foncier).</div>`;
+  const where = niv==='sci'?`🏛️ ${escHtml(_mvAff.cible)}`:niv==='imm'?`🏢 ${escHtml(_mvAff.cible)}`:`🚪 ${escHtml(_mvAff.cible)}`;
+  const s = meta.t==='recette'?'Recette':meta.t==='interet'?"Intérêts d'emprunt":meta.t==='deduction'?'Déduction (régul N-1)':'Charge déductible';
+  const lig=(typeof LIGNES_2044!=='undefined'&&LIGNES_2044.find)?((LIGNES_2044.find(x=>x.num===meta.l)||{}).libelle||''):'';
+  const col = meta.t==='recette'?['#ecfdf5','#059669','#065f46']:['#eff6ff','#2563eb','#1e3a8a'];
+  return `<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:${col[0]};border-left:3px solid ${col[1]};font-size:12.5px;color:${col[2]}">🧾 <b>2044 · ligne ${escHtml(meta.l)}${lig?' — '+escHtml(lig):''}</b><br>${s} · rattaché à ${where}.</div>`;
+}
+// Écrit l'état → champs cachés mv-imm / mv-qui / mv-cc (lus par saveMv).
+function _mvAffSync(){
+  const set=(id,val)=>{ const e=el(id); if(e) e.value=val; };
+  if(_mvAff.mode!=='aff') return;
+  if(_mvAff.recup && _mvAff.niv==='imm'){ set('mv-imm',_mvAff.cible||''); set('mv-qui',''); set('mv-cc',_mvAff.ccId||''); }
+  else if(_mvAff.niv==='log'){ const lo=_mvAffLogs().find(l=>l.ref===_mvAff.cible); set('mv-qui',_mvAff.cible||''); set('mv-imm', lo?(lo.imm||''):''); set('mv-cc',''); }
+  else if(_mvAff.niv==='sci'){ set('mv-qui', _mvAff.cible?('SCI:'+_mvAff.cible):''); set('mv-imm',''); set('mv-cc',''); }
+  else { set('mv-imm',_mvAff.cible||''); set('mv-qui',''); set('mv-cc',''); }
+}
+
 function openNewMv() {
   el('mv-edit-id').value = '';
   el('m-mv-title').textContent = 'Nouveau mouvement';
@@ -12930,12 +13057,7 @@ function openNewMv() {
   _mvDocSyncUI();
   // Fill cat
   fillSel('mv-cat', DB.categories, c=>c, c=>c);
-  // Fill qui
-  fillMvQui();
-  // v14.60 CHARGES-COMMUNES : reset + masque le select compteur (immeuble vide)
-  _mvSyncCcSelect();
-  // v14.79 Bug #2 : applique la mutuelle exclusivité (ici tous vides)
-  _mvEnforceExclusivity();
+  _mvAffInit();
   openM('ov-mv');
 }
 
@@ -12960,8 +13082,7 @@ function openEditMv(id) {
   el('mv-fac').value = m.fac||'';
   fillSel('mv-cat', DB.categories, c=>c, c=>c);
   el('mv-cat').value = m.cat||'';
-  fillMvQui();
-  el('mv-qui').value = m.qui||'';
+  _mvAffInit(m);
   // v14.19 / v14.99 — Charge la PJ existante dans l'état pending pour édition
   // Nouvelle voie : m.pjId → DB.documents → IDB (binaire lazy). Legacy : m.pj.dataB64 direct.
   (async () => {

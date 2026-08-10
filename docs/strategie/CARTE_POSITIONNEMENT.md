@@ -1,8 +1,9 @@
-# Carte de positionnement & analyse concurrentielle ImmoTrack — avril 2026
+# Carte de positionnement & analyse concurrentielle ImmoTrack — avril 2026 (métriques sociétés rafraîchies juillet 2026)
 
 > Livrable 2/5 du dossier BIZPLAN-STRATEGIE.
-> Source quantitative principale : `ImmoTrack_Comparatif_Concurrents_2026.xlsx` (149 critères, 9 outils, scorecard pondérée).
+> Source quantitative principale : `ImmoTrack_Comparatif_Concurrents_2026.xlsx` (149 critères, 9 outils, scorecard pondérée) + onglet **Sociétés** ajouté 2026-07.
 > Sources qualitatives : sites éditeurs, Trustpilot, presse spécialisée (sources listées en fin de doc).
+> **📊 Benchmark sociétés (CA, users, levées, effectifs, roadmap) daté 2026-07-07 : [BENCHMARK-CONCURRENCE-2026-07.md](BENCHMARK-CONCURRENCE-2026-07.md).** Les blocs « **Société (juil. 2026)** » ci-dessous en sont l'extrait sourcé.
 
 ---
 
@@ -39,14 +40,16 @@ Le marché de la gestion locative en France se divise en **trois familles distin
 
 Donnée structurante pour la stratégie 2026–2027 :
 
-- **Septeo Group** (Montpellier) : CA 2024 = 420 M€ (+20 %), valorisation > 3 Md€. 8 acquisitions en 2024, dont INCH spécifiquement pour ADB. Investisseurs : Tethys Invest, GIC. Vise 1 Md€ de revenus logiciels d'ici 2030. (Source : Le Journal des Entreprises, MySweetimmo, ToulÉco)
-- **Manda** (ex-Hello Syndic + Flatlooker) : 43 M€ levés Naxicap février 2024, CA 20 M€ visé fin 2024, **9 acquisitions sur 2024–début 2025 + 15 prévues sur 2025**. (Source : Maddyness)
-- **VILOGI** : +47 % de croissance en 2024.
-- **BailFacile** : pas de levée publique connue (seed jamais annoncée). (Source : Pappers, J'aime les startups)
-- **Rentila** : 50 000 bailleurs, 200 000 biens. Aucune levée publique connue.
+- **Septeo Group** (Montpellier) : CA 2024 = **420 M€ (+20 %)**, objectif 2025 ~500 M€, **valorisation > 3,5 Md€**. Actionnariat Hg (majoritaire) + Téthys Invest + GIC (11/2024) + **Bpifrance (04/2025)**. Acquisitions INCH (10/2025) + **stp.one Allemagne (>500 M€, plus grosse à date)**. Vise **> 1 Md€ de revenus 2030**. ⚠️ **« Crypto » n'appartient PAS à Septeo mais à Orisha** — le pôle immo Septeo = **Septeo ADB / SPI** (3 200 agences, >950 K lots locatifs + >1,98 M lots syndic gérés). Trustpilot 1,6–1,9/5 (satisfaction basse). (Sources : entreprises-occitanie, hgcapital, MySweetImmo, Wikipédia)
+- **Manda** (ex-Hello Syndic + Flatlooker) : **21 M€ (05/2023) + 43 M€ (02/2024) Naxicap** (structure LBO), 40 000 clients à la fusion, **5 acquisitions 2024 + ~15 visées 2025** (roll-up de syndics). CA ex-Hello Syndic 2024 = 4,34 M€ mais **RN −11,7 M€ (cash burn élevé)**, capitaux propres sous la moitié du capital. Objectif 200→1 300 salariés en 5 ans. (Source : Maddyness, societe.com)
+- **VILOGI** : SAS créée 2010, CA confidentiel, **RN 2024 = 144 K€**, croissance déclarée **+47 % 2024** (build-up : rachats MIP Alpes + AGLI). ~1 200–1 500 clients, ~12 000 users simultanés, 10–19 salariés. IA + sync bancaire Bridge. (Source : Journal de l'Agence, Immo Matin, societe.com)
+- **LOCKimmo** : SARL créée 2006 (Oise, pas Montpellier), **CA 2023 = 1,79 M€ (+26,5 %), RN ~438 K€ — bootstrapped rentable**, ~1 200 clients, ~15 salariés. Refonte LOCKimmo.IO 2023 + IA. (Source : manageo, Immo Matin)
+- **BailFacile** : SAS créée 2017, CA non publié (« rentable fin 2024 »), **100 000+ bailleurs**, levée non tranchée (bootstrap probable — capital 10 K€, détention 100 % fondateurs), ~50 salariés estim, Trustpilot 4,5–4,6 (2 500+ avis). (Source : Pappers, societe.com)
+- **Rentila** : **éditeur bulgare (Rentila ltd, pas d'entité FR)**, créé 2008, 50 000 bailleurs / 200 000 biens, autofinancé, aucune levée. (Source : rentila.com/about)
+- **Smartloc / ImmobilierLoyer** : deux **bootstrap rentables** (Smartloc CA 2024 761 K€ / RN +141 K€ ; ImmobilierLoyer RN +177 K€) → **preuve qu'un SaaS gestion locative B2C FR peut être rentable sans levée**. (Source : societe.com)
 - **Imodirect** : 500 K€ levés en 2018 (post-création). (Source : CFNEWS)
 
-**Lecture** : le marché B2B est en consolidation rapide menée par Septeo et Manda. Le marché B2C reste fragmenté avec **aucun leader dominant** côté logiciel pur (Rentila a la plus grosse base utilisateurs mais sur un modèle low-cost). C'est la fenêtre d'entrée pour ImmoTrack.
+**Lecture** : le marché B2B est en consolidation rapide et **bien capitalisée** (Septeo valo 3,5 Md€, Manda LBO Naxicap, Indy 86 M€) — mais **l'argent et le M&A sont concentrés côté pro/syndic, pas côté bailleur particulier**. Le marché B2C pur reste **fragmenté, bootstrap et sans leader dominant** (Rentila = plus grosse base mais low-cost/étranger ; Qalimo = notation record mais société de 18 mois ; Gérer Seul = base solide mais SARL artisanale). C'est la fenêtre d'entrée pour ImmoTrack. **Course à l'IA généralisée 2025-2026** (Rentila, BailFacile, LOCKimmo, Vilogi, Qalimo) → l'IA devient une commodité, pas un différenciant.
 
 ---
 
@@ -60,10 +63,11 @@ Donnée structurante pour la stratégie 2026–2027 :
 - **Pricing** : gratuit (1 lot, 2 baux, 2 locataires) → 8 €/mois max
 - **Cible** : bailleur particulier 1–10 logements, débutant en gestion
 - **USP** : prix imbattable, base utilisateurs énorme (50 000 bailleurs / 200 000 biens), rapprochement bancaire DSP2, comptabilité de base, locations saisonnières
-- **Faiblesses** : interface vieillissante, support limité, pas de SCI avancée, pas de différenciants techniques
+- **Faiblesses** : interface vieillissante, support limité, pas de SCI avancée, pas de différenciants techniques ; **éditeur étranger (pas d'entité FR)**
 - **Score Scorecard** : 63,1 % (3e du panel B2C)
-- **Trustpilot** : 4,5/5
-- **Sources** : [rentila.com/pricing](https://www.rentila.com/pricing), [bailpdf.com/rentila](https://bailpdf.com/gestion-locative/rentila), [lafabriquedunet.fr/rentila](https://www.lafabriquedunet.fr/logiciel/rentila)
+- **Société (juil. 2026)** : **Rentila ltd** (société **bulgare**, immat. BG 203572574, Sofia — aucun établissement France) · créée **2008** · 50 000 bailleurs / 200 000 biens · **autofinancée, aucune levée** · effectifs « taille humaine » (non publiés) · CA non publié · Trustpilot 4,2–4,7/5 (~100 avis)
+- **Pricing 2026** : Gratuit (1 bien) → **Silver 49 €/an** (2–5 biens) → **Gold 99 €/an** (illimité). E-signature + connexion bancaire + assistant IA inclus tous plans.
+- **Sources** : [rentila.com/about](https://www.rentila.com/about), [rentila.com/pricing](https://www.rentila.com/pricing), [fr.trustpilot.com/rentila](https://fr.trustpilot.com/review/www.rentila.com)
 
 ### 3.2 — BailFacile
 
@@ -71,10 +75,11 @@ Donnée structurante pour la stratégie 2026–2027 :
 - **Pricing** : 9,90 €/mois entrée, 19,90 €/mois multi-biens
 - **Cible** : investisseur 1–5 logements, néo-bailleur, focus LMNP/LMP
 - **USP** : très bon SEO content (blog dense), UX moderne, signature électronique intégrée, support juridique
-- **Faiblesses** : pas de SCI avancée, pas de mandat Hoguet, comparatif fonctionnel moyen (55 % score)
+- **Faiblesses** : pas de SCI avancée, pas de mandat Hoguet, comparatif fonctionnel moyen (55 % score) ; **opacité financière (CA non publié)**
 - **Score Scorecard** : 55,0 %
-- **Société** : créée 2017–2018 par Thibaud & Valentin Fily. Pas de levée connue.
-- **Sources** : [bailfacile.fr/tarifs](https://www.bailfacile.fr/tarifs), [pappers.fr/bailfacile](https://www.pappers.fr/entreprise/bailfacile-827909078), [bailpdf.com/bailfacile](https://bailpdf.com/gestion-locative/bailfacile)
+- **Société (juil. 2026)** : **BAILFACILE SAS** (SIREN 827 909 078), créée **23/02/2017** par **Thibaud & Valentin Fily** (détention 100 % via holdings) · capital 10 K€ · **100 000+ bailleurs** (350 K abonnés newsletter) · **CA non publié** (« rentable fin 2024 ») · **levée non tranchée** (narratif bootstrap dominant ; 1 agrégateur cite 14,5 M€ non corroboré → à traiter comme « aucune levée confirmée de façon fiable ») · ~50 salariés (estim) · Trustpilot 4,5–4,6/5 (2 500+ avis)
+- **Pricing 2026** : **9,99 €/mois/bien** (annuel) · 12,99 € mensuel · signature électronique illimitée incluse. **Assistant IA (clauses de bail tracées) depuis fin 2025.**
+- **Sources** : [bailfacile.fr/tarifs](https://www.bailfacile.fr/tarifs), [pappers.fr/bailfacile](https://www.pappers.fr/entreprise/bailfacile-827909078), [societe.com/bailfacile](https://www.societe.com/societe/bailfacile-827909078.html)
 
 ### 3.3 — Smovin
 
@@ -82,9 +87,11 @@ Donnée structurante pour la stratégie 2026–2027 :
 - **Pricing** : 4–8 €/bien/mois selon plan, 2 biens gratuits, devis au-delà 30 biens
 - **Cible** : bailleur europhone 1–30 logements, multi-pays
 - **USP** : facturation auto, multi-devises, app mobile, levée de fonds substantielle (montant non public)
-- **Faiblesses** : conformité fiscale française imparfaite (pas 2044 ni 2072), score 55 % (= BailFacile)
+- **Faiblesses** : conformité fiscale française imparfaite (pas 2044 ni 2072), score 55 % (= BailFacile) ; **fondamentaux financiers fragiles**
 - **Score Scorecard** : 55,0 %
-- **Sources** : [smovin.app/tarifs](https://www.smovin.app/fr-be/tarifs/), [capterra.com/smovin](https://www.capterra.com/p/177288/Smovin/), [lavenir.net/smovin](https://www.lavenir.net/cnt/dmf20200129_01438265/immobilier-importante-levee-de-fonds-pour-la-start-up-smovin)
+- **Société (juil. 2026)** : **SMOVIN SA** (Belgique, BE 0649.610.582), créée **03/03/2016** · filiale FR SIREN 899 002 810 · **CA 2023 = 889 K€** mais **RN −264 K€ (2024), pertes chroniques, fonds propres négatifs** (pertes en réduction) · **~1,4 M€ levés (2019–2020)** dont prêt Région wallonne, rien depuis · ~8,5 ETP (en baisse depuis 13) · 800+ investisseurs · **seul acteur VC du panel B2C** · Capterra ~7,4/10
+- **Pricing 2026** : **5 €/bien/mois** (Standard) · Pro/Enterprise/Premium sur devis. **Expansion France = cible affichée.**
+- **Sources** : [smovin.app/tarifs](https://www.smovin.app/fr-be/tarifs/), [companyweb.be/smovin](https://www.companyweb.be/), [lavenir.net/smovin](https://www.lavenir.net/cnt/dmf20200129_01438265/immobilier-importante-levee-de-fonds-pour-la-start-up-smovin)
 
 ### 3.4 — Qalimo
 
@@ -92,9 +99,12 @@ Donnée structurante pour la stratégie 2026–2027 :
 - **Pricing** : gratuit (1 bien) → ~5–15 €/bien/mois (formules "Investisseur" 2–6 biens, "Patrimoine" 7+)
 - **Cible** : investisseur 1–10 logements, primo-utilisateur
 - **USP** : 5/5 Google + 4,9/5 Trustpilot (record du marché), synchro bancaire DSP2, quittance auto sur paiement détecté, candidatures locataires intégrées, signature électronique
-- **Faiblesses** : pas de différenciants exclusifs, pas de SCI avancée, scorecard 71,1 % mais 0 ⭐
+- **Faiblesses** : pas de différenciants exclusifs, pas de SCI avancée, scorecard 71,1 % mais 0 ⭐ ; **société très jeune (18 mois) et petite base**
 - **Score Scorecard** : **71,1 % (1er du B2C)**
-- **Sources** : [qalimo.fr/tarif](https://www.qalimo.fr/tarif/), [appvizer.fr/qalimo](https://www.appvizer.fr/operations/gestion-locative/qalimo)
+- **Société (juil. 2026)** : **QALIMO SAS** (SIREN 983 757 865), créée **12/01/2024** seulement · capital 1 110 € · **0 salarié** au registre · fondée par **Nicolas Thomas** (ex-huissier ~10 ans) + un dev · **6 500 bailleurs** revendiqués (≈10× plus petit que Rentila/Gérer Seul) · **aucune levée** · CA non publié (1er exercice) · **Trustpilot 4,9/5** (~89 avis, record marché)
+- **Pricing 2026** : **Starter 4,90 €/bien/mois** (1–7 biens) · **Pro 343 €/an** (7–40) · Business/Enterprise sur devis. Add-ons : e-signature 2,90 €, LRAR 8,50 €, compta fiscale dès 399 €.
+- **Lecture** : notation record mais **antériorité de 18 mois** — la traction est réelle mais la solidité (base, effectifs, ancienneté) reste à prouver dans le temps.
+- **Sources** : [qalimo.fr/tarif](https://www.qalimo.fr/tarif/), [pappers.fr/qalimo](https://www.pappers.fr/entreprise/qalimo-983757865), [trustpilot.com/qalimo](https://www.trustpilot.com/review/qalimo.fr)
 
 ### 3.5 — Smartloc
 
@@ -104,27 +114,33 @@ Donnée structurante pour la stratégie 2026–2027 :
 - **USP** : comparateur GLI intégré (dès 2,55 % loyer via Insured), vérif dossier locataire IA, app mobile native (4,7/5 store), créée 2012 (légitimité)
 - **Faiblesses** : pas de SCI avancée, fiscalité limitée, scorecard 55 %
 - **Score Scorecard** : 55,0 %
-- **Sources** : [smartloc.fr/tarifs](https://www.smartloc.fr/tarifs), [bailpdf.com/smartloc](https://bailpdf.com/gestion-locative/smartloc), [investis.fr/smartloc](https://www.investis.fr/smartloc)
+- **Société (juil. 2026)** : **GINZA SAS** (nom commercial Smartloc, SIREN 751 750 548), créée **30/05/2012** · capital 20 K€ · **CA 2024 = 761 K€ (+27 %), RN +141 K€ — bootstrap rentable** · aucune levée · 3–5 salariés · Google ~4,4/5. ⚠️ Ne pas confondre avec la SARL homonyme « Smartloc » à Bordeaux (sans lien).
+- **Pricing 2026** : **Zen 6,50 €/mois** (1 bien) · Multi 12,50 € (2–4) · Investisseur 20 € (5–15). **GLI via courtier Insured dès 2,55 %** du loyer.
+- **Sources** : [smartloc.fr/tarifs](https://www.smartloc.fr/tarifs), [societe.com/ginza](https://www.societe.com/societe/ginza-751750548.html)
 
 ### 3.6 — Gererseul
 
 - **Positionnement** : challenger SCI / accompagnement humain
 - **Pricing** : 9,75 €/mois (117 €/an) pour 1 bien, dégressif au-delà
 - **Cible** : SCI / propriétaire qui veut un appui fiscal humain
-- **USP** : **42 000 utilisateurs**, 4,8/5 Trustpilot (2e du panel), fondé en 2007 (le plus ancien indépendant FR), rapprochement bancaire certifié ACPR, **fiscaliste 5j/7 inclus**, gestion SCI avancée
+- **USP** : **42 435 propriétaires / 48 123 lots**, 4,7/5 Trustpilot (543 avis — plus grosse base d'avis du B2C), acteur historique, rapprochement bancaire, **fiscaliste + accompagnement humain inclus**, gestion SCI avancée
 - **Faiblesses** : pas d'application mobile native (web responsive seulement), interface "vieille école", pas de différenciants techniques rares
 - **Score Scorecard** : 67,8 % (2e du B2C)
-- **Sources** : [gererseul.com/tarifs](https://www.gererseul.com/tarifs/), [investissement-locatif-avis.fr/gererseul](https://investissement-locatif-avis.fr/gererseul-avis-2/), [rentilot.fr/gererseul](https://www.rentilot.fr/avis/gererseul/)
+- **Société (juil. 2026)** : **GERERSEUL.COM SARL** (SIREN 513 148 023), créée **2009** (⚠️ pas 2007 comme indiqué précédemment) · capital 23,5 K€ · dirigeant **Patrick Chappey** · 3–5 salariés · **seul CA publié = 2010 (159 K€)**, rien depuis · **aucune levée** (SARL autofinancée) · ORIAS (intermédiaire assurance)
+- **Pricing 2026** : **Garage dès 5 €/mois** · **Appartement 14,90 €/mois** · −15 % dès le 3e bien · essai 15 j.
+- **Sources** : [gererseul.com](https://www.gererseul.com/), [societe.com/gererseul](https://www.societe.com/societe/gererseul-com-513148023.html), [trustpilot.com/gererseul](https://www.trustpilot.com/review/www.gererseul.com)
 
 ### 3.7 — ImmobilierLoyer
 
 - **Positionnement** : seul outil B2C avec liasse 2072 SCI IR intégrée
 - **Pricing** : 7,70 €/mois (1–3 lots annuel = 92,40 €/an), 9,50 €/mois mensuel, 12,50 €/mois (2–4 logements), option SCI 5 €/mois supplémentaires
 - **Cible** : SCI familiale, comptable amateur, bailleur 1–10 logements
-- **USP** : **liasse 2072 SCI IR (différenciant exclusif sur ce panel)**, bilan annuel par entité, suivi compte associés, distribution bénéfices
+- **USP** : **liasse 2072 SCI IR (différenciant exclusif sur ce panel)**, bilan annuel par entité, suivi compte associés, distribution bénéfices, exports fiscaux 2044
 - **Faiblesses** : interface 2010, app à télécharger (pas full web), pas d'app mobile, pas de différenciants UX
 - **Score Scorecard** : 57,7 %
-- **Sources** : [immobilierloyer.com](https://www.immobilierloyer.com/), [immobilierloyer.com/acheter](https://www.immobilierloyer.com/acheter.php)
+- **Société (juil. 2026)** : **SUPSOFT SAS** (SIREN 824 197 677), créée **14/12/2016** · capital 1 K€, Valbonne (06) · dirigeant Benoit Maire · **RN 2024 = 177 K€ (vs 135 K€ 2023) — bootstrap rentable** · aucune levée · éditeur artisanal (très petite structure) · Google ~5/5 (200+ avis) · « conçu/hébergé en France »
+- **Pricing 2026** : abonnement annuel **dès 88,80 €/an** (1–3 locations) → **jusqu'à 1 017,60 €/an** (illimité) · options SCI + gérance pro · essai 30 j.
+- **Sources** : [immobilierloyer.com/acheter](https://www.immobilierloyer.com/acheter.php), [societe.com/supsoft](https://www.societe.com/societe/supsoft-824197677.html)
 
 ### 3.8 — Itsmycoaching
 
@@ -134,15 +150,18 @@ Donnée structurante pour la stratégie 2026–2027 :
 
 ## 4. Fiches concurrents B2B (référentiel + option V2)
 
-### 4.1 — Septeo Group (ICS, Crypto, Septeo ADB)
+### 4.1 — Septeo Group (Septeo ADB / SPI)
+
+> ⚠️ **Correction juil. 2026 :** « **Crypto** » (La Solution Crypto) appartient à **ORISHA** (Orisha Real Estate), **PAS à Septeo** — le pôle immo Septeo = **Septeo ADB** (logiciels **SPI** : Gestion Locative / Syndic / Saisonnière) + Netty, Modelo, Kinaxia, INCH. La filiation « ICS » n'a pas pu être confirmée par source primaire. Le Scorecard 86,2 % avait été attribué à « Crypto/Septeo » : à re-ventiler (Crypto = Orisha) lors du prochain passage de la grille fonctionnelle.
 
 - **Positionnement** : **leader marché B2B FR**, suite tout-en-un agences/notaires/avocats/admin biens
-- **Pricing** : sur devis (~80–300 €/mois/utilisateur)
+- **Pricing** : sur devis (~119 € HT/mois entrée immo, majoritairement sur devis)
 - **Cible** : agences immobilières (3 200 cabinets ADB clients), syndics, transaction
-- **USP** : couverture exhaustive (86,2 % Scorecard), intégration suite Septeo (juridique + immo + transaction), R&D 40 M€/an, IA en cours
-- **Stratégie** : consolidation acquisitive (8 rachats 2024 dont INCH), vise 1 Md€ revenus 2030
-- **Faiblesses** : prix prohibitif pour bailleurs particuliers, complexité onboarding, image "lourd" / corporate
-- **Sources** : [septeo-adb.fr](https://www.septeo-adb.fr/), [lejournaldesentreprises.com/septeo](https://www.lejournaldesentreprises.com/breve/le-groupe-septeo-prevoit-de-recruter-350-personnes-en-2025-2116198), [mysweetimmo.com/septeo-inch](https://www.mysweetimmo.com/2025/10/28/immobilier-septeo-muscle-son-offre-adb-avec-le-rachat-dinch/)
+- **USP** : couverture exhaustive, intégration suite Septeo, R&D ~100 M€ 2025, labo IA « Brain »
+- **Société (juil. 2026)** : **SEPTEO GROUP SAS** (SIREN 934 859 240, topco 11/2024), groupe créé **2013** Montpellier · **CA groupe 2024 = 420 M€ (+20 %)**, objectif 2025 ~500 M€ · **valorisation > 3,5 Md€** · actionnariat **Hg (majoritaire) + Téthys Invest + GIC + Bpifrance (04/2025)** · ~3 100 salariés (dont 220 Septeo ADB immo) · immo : **>950 K lots locatifs + >1,98 M lots syndic** gérés · **Trustpilot 1,6–1,9/5 (« Mauvais »)**
+- **Stratégie** : consolidation acquisitive (INCH 10/2025, **stp.one Allemagne >500 M€**), vise **> 1 Md€ revenus 2030**
+- **Faiblesses** : prix prohibitif pour bailleurs particuliers, complexité onboarding, image "lourd"/corporate, **satisfaction client immo très basse (angle différenciant support/stabilité pour ImmoTrack)**
+- **Sources** : [septeo-adb.fr](https://www.septeo-adb.fr/), [entreprises-occitanie.com](https://www.entreprises-occitanie.com/), [hgcapital.com/septeo](https://hgcapital.com/insights/septeo-la-success-story), [mysweetimmo.com/septeo-inch](https://www.mysweetimmo.com/2025/10/28/immobilier-septeo-muscle-son-offre-adb-avec-le-rachat-dinch/), [realestate.orisha.com/crypto](https://realestate.orisha.com/nos-solutions/crypto/)
 
 ### 4.2 — LOCKimmo
 
@@ -150,8 +169,9 @@ Donnée structurante pour la stratégie 2026–2027 :
 - **Pricing** : sur devis, plans Standard / Pro / Enterprise / Premium
 - **Cible** : agences indépendantes
 - **USP** : modulaire (gestion loc / syndic / transaction / location saisonnière / travaux), depuis 2006
-- **Score Scorecard** : 86,2 % (= Septeo)
-- **Sources** : [lockimmo.com](https://www.lockimmo.com/), [appvizer.fr/lockimmo](https://www.appvizer.fr/construction/agence-immobiliere/lockimmo)
+- **Score Scorecard** : 86,2 %
+- **Société (juil. 2026)** : **LOCKIMMO.COM SARL** (SIREN 492 291 489), créée **12/09/2006** · capital 103 K€, **Mouy (Oise)** — pas Montpellier · dirigeant Julien Dourlen · **CA 2023 = 1,79 M€ (+26,5 %), RN ~438 K€ — bootstrap rentable** · ~1 200 clients · ~15 salariés · aucune levée · Google 4,7/5 (195 avis). Refonte **LOCKimmo.IO** (2023) + IA (génération d'annonces, sync bancaire, module travaux).
+- **Sources** : [lockimmo.com](https://www.lockimmo.com/), [manageo.fr/lockimmo](https://www.manageo.fr/entreprises/492291489.html), [immomatin.com](https://www.immomatin.com/logiciels/actualite/logiciel-immobilier-lockimmo-affiche-une-forte-croissance-de-son-activite.html)
 
 ### 4.3 — Powimo (Seiitra)
 
@@ -170,18 +190,19 @@ Donnée structurante pour la stratégie 2026–2027 :
 
 ### 4.5 — VILOGI / Even / ICS
 
-- **VILOGI** : SaaS syndic + GL full web, +47 % croissance 2024
+- **VILOGI** : SaaS syndic + GL full web. **VILOGI SAS** (SIREN 528 341 571), créée **2010**, Paris · CA confidentiel, **RN 2024 = 144 K€**, croissance déclarée **+47 % 2024** (build-up : rachats **MIP Alpes + AGLI** en 2024) · ~1 200–1 500 clients, ~12 000 users simultanés, 10–19 salariés · IA générative + OCR factures + **sync bancaire Bridge** + app B2B2C « VILOGI & Me ». **Fort chevauchement avec les briques IA/DSP2 explorées par ImmoTrack.** Trustpilot 3,2/5 (1 avis, non significatif).
 - **Even** : éditeur syndic
 - **ICS** : leader syndic copro (cf étude USH 2022 : 114 répondants, 1er du panel)
-- **Sources** : [vilogi.com](https://www.vilogi.com/), [union-habitat.org/etude-syndic](https://www.union-habitat.org/sites/default/files/articles/pdf/2022-04/ush-etude_logiciels_copropriete.pdf)
+- **Sources** : [vilogi.com](https://www.vilogi.com/), [societe.com/vilogi](https://www.societe.com/societe/vilogi-528341571.html), [journaldelagence.com](https://www.journaldelagence.com/1409173-dans-un-marche-tendu-la-gestion-locative-et-le-syndic-deviennent-des-leviers-de-revenus-recurrents-samuel-essaka-ekedi-vilogi), [union-habitat.org/etude-syndic](https://www.union-habitat.org/sites/default/files/articles/pdf/2022-04/ush-etude_logiciels_copropriete.pdf)
 
 ### 4.6 — Manda (agence digitale)
 
 - **Positionnement** : ≠ logiciel SaaS, agence physique digitalisée
-- **Pricing** : 5,9 % TTC tout-inclus (location + visites + EDL + gestion courante)
-- **Modèle** : 9 acquisitions 2024 + 15 visées 2025, 43 M€ Naxicap, 20 M€ CA visé fin 2024
+- **Pricing** : **gestion locative 4,9 % TTC/mois** (min 29 €) · mise en location 80 % du 1er loyer · GLI 2,5 %
+- **Modèle** : fusion **Hello Syndic (2017) + Flatlooker (2016) le 22/02/2024**. **21 M€ (05/2023) + 43 M€ (02/2024) Naxicap** (LBO). **5 acquisitions 2024 + ~15 visées 2025** (roll-up de syndics). 40 000 clients à la fusion. Objectif 200→1 300 salariés en 5 ans.
+- **Santé financière (juil. 2026)** : entité ex-Hello Syndic **CA 2024 = 4,34 M€ mais RN −11,7 M€** (cash burn du roll-up, capitaux propres sous la moitié du capital) — **modèle brûle-cash, à surveiller**. Trustpilot ~3,2/5 (~3 100 avis, polarisés).
 - **Threat sur ImmoTrack** : indirect (capture le bailleur qui *veut déléguer*, pas celui qui *veut un outil*)
-- **Source** : [maddyness.com/manda-rachats](https://www.maddyness.com/2024/10/28/la-proptech-manda-continue-de-grandir-et-annonce-de-nouveaux-rachats/)
+- **Source** : [maddyness.com/manda-rachats](https://www.maddyness.com/2024/10/28/la-proptech-manda-continue-de-grandir-et-annonce-de-nouveaux-rachats/), [societe.com/manda-ex-hello-syndic](https://www.societe.com/societe/manda-ex-hello-syndic-828499897.html)
 
 ### 4.7 — Imodirect
 
@@ -189,6 +210,25 @@ Donnée structurante pour la stratégie 2026–2027 :
 - **Modèle** : agence digitale créée 2018, 500 K€ levés
 - **Threat sur ImmoTrack** : indirect (idem Manda)
 - **Source** : [imodirect.com/tarif](https://www.imodirect.com/tarif), [cfnews.net/imodirect](https://www.cfnews.net/L-actualite/Capital-innovation/Operations/1er-tour/Imodirect-forfaitise-son-premier-tour-255491)
+
+---
+
+## 4bis. Panel fiscalité immobilière (spécialistes 2044 / SCI / LMNP) — ajouté juil. 2026
+
+> Panel distinct, issu de l'audit [AUDIT-CONCURRENCE-FISCAL.md](AUDIT-CONCURRENCE-FISCAL.md). Enjeu : identifier qui est **frontal** sur la cible fiscale ImmoTrack = **le 2044 foncier nu du bailleur particulier en direct**. Détail sourcé dans [BENCHMARK-CONCURRENCE-2026-07.md](BENCHMARK-CONCURRENCE-2026-07.md) §3.
+
+| Acteur | Société | Créé | CA / levées | Cible fiscale | 2044 nu direct ? | Prix repère | Note |
+|---|---|---|---|---|---|---|---|
+| **Déclaration-Foncier.fr** | KIPDEV SAS (884 120 890) | 2020 | CA confidentiel (<700 K€), aucune levée | **2044 foncier nu du particulier uniquement** | ✅ **Oui — pré-rempli case/case (PDF), cœur unique.** Pas d'EDI, pas LMNP/SCI | 19 € one-shot / 39 €/an | non trouvée |
+| **Ownily** | incubé Crédit Mutuel Arkéa | 2020 | non publié | SCI (IR/IS) + LMNP | ✅ Oui mais **via SCI** (liasse 2072+2044, EDI-TDFC inclus) | 84–325 €/an | Trustpilot 4/5 (33 avis) |
+| **Qlower** | QLOWER PATRIMOINE SAS (903 122 984) | 2021 | 565 K€ (Crowdcube 04/2024), 18 pers, ~10 K users | LMNP + SCI + nu (open banking) | ⚠️ 2044/2042 + EDI annoncés, case-par-case non documenté | 239 €/an | Google 4,6/5 |
+| **Indy** (ex-Georges) | INDY.FR SAS (820 648 830) | 2016 | **~30,5 M€ (2024), ~86 M€ levés** | Cœur BIC/BNC + SCI + LMNP | ⚠️ 2044 **seulement via SCI**, ne cible pas le nu direct | freemium + ~24 €/mois | Trustpilot 4,8/5 (~14 K avis) |
+
+**Lecture stratégique** :
+- **Frontal exact** : **Déclaration-Foncier.fr** est le seul dédié au 2044 nu du particulier — micro-structure bootstrap, très low-cost (19–39 €), **mais fragile** (pas d'EDI, pas d'avis, société minuscule). C'est le **benchmark prix/simplicité** le plus proche de la cible ImmoTrack.
+- **Frontal élargi** : **Ownily** produit la 2044 avec EDI, mais son entrée est la **SCI**, pas le bailleur nu en direct ; produit perçu comme stagnant.
+- **Menaces latentes** (force de frappe, mais pas frontaux aujourd'hui) : **Indy** (mastodonte 86 M€, 4,8/5 sur 14 K avis, mais cœur BIC/BNC) et **Qlower** (open banking, app mobile, JEI).
+- → Le créneau **2044 nu + traçabilité ligne-à-pièce** (cf audit fiscal) **reste peu couvert et défendable**.
 
 ---
 
@@ -208,7 +248,7 @@ Le **prix** est traité comme couleur/taille de point (cf §5.3) plutôt qu'axe,
                                          ↑
                                     100% │
                                          │
-                                         │       ⬛ Septeo Crypto/ICS
+                                         │       ⬛ Septeo ADB / SPI
                                      90% │       (86,2 % · sur devis)
                                          │       ⬛ LOCKimmo
                                          │       (86,2 % · sur devis)
@@ -355,7 +395,14 @@ Pour atteindre 70 % il faudrait ajouter **multi-users (V2 Q1 2027)** + **portail
 ## 9. Sources
 
 ### Comparatif quantitatif
-- `ImmoTrack_Comparatif_Concurrents_2026.xlsx` — 149 critères, 9 outils, scorecard pondérée
+- `ImmoTrack_Comparatif_Concurrents_2026.xlsx` — 149 critères, 9 outils, scorecard pondérée + **onglet Sociétés** (métriques ajoutées juil. 2026)
+- **[BENCHMARK-CONCURRENCE-2026-07.md](BENCHMARK-CONCURRENCE-2026-07.md)** — benchmark sociétés daté 2026-07-07 (CA, users, levées, effectifs, roadmap, sources ligne à ligne)
+
+### Panel fiscalité (ajouté juil. 2026)
+- Déclaration-Foncier.fr / KIPDEV : [declaration-foncier.fr](https://declaration-foncier.fr/), [pappers KIPDEV](https://www.pappers.fr/entreprise/kipdev-884120890)
+- Ownily : [ownily.fr/tarifs](https://www.ownily.fr/tarifs)
+- Qlower : [qlower.com](https://www.qlower.com/), [pappers QLOWER PATRIMOINE](https://www.pappers.fr/entreprise/qlower-patrimoine-903122984)
+- Indy : [indy.fr/prix](https://www.indy.fr/prix/), [getlatka.com/georgestech](https://getlatka.com/companies/georgestech)
 
 ### Concurrents B2C
 - Rentila : [rentila.com](https://www.rentila.com/), [bailpdf.com/rentila](https://bailpdf.com/gestion-locative/rentila), [lafabriquedunet.fr](https://www.lafabriquedunet.fr/logiciel/rentila), [capterra.com/rentila](https://www.capterra.com/p/205374/Rentila/)

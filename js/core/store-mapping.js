@@ -76,7 +76,17 @@ const MAPPERS = {
   baux(o, ctx) {
     const log = ctx.logementByRef.get(norm(o.__key)); if (!log) return null
     const sig = o.signatures && o.signatures.signedAt ? o.signatures : null
-    return { id: ctx.detUuid('bail', norm(o.__key)), legacy_ref: o.__key, logement_id: log, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, type_bail: null, hc: num(o.hc), ch: num(o.ch), dg: num(o.dg), jour_paiement: num(o.jpay), date_debut: dateOnly(o.debut), date_fin: dateOnly(o.fin), date_fin_effective: dateOnly(o.finEffective), locataires: jb(o.locataires ?? []), garants: jb(o.signataires ?? null), signatures: jb(o.signatures ?? null), signed_at: sig ? ts(sig.signedAt) : null, notes: o.notes ?? null, quitt_auto_gen: !!o.quittAutoGen, ...base(o, ctx) }
+    // VERROU LÉGAL (P0-C1) : provenance + empreinte canonique + verrou, depuis bail.signatures.
+    // `locked` n'est posé QUE si la contrainte CHECK est satisfiable (source présente ; immotrack⇒hash)
+    // → robuste à l'ordre de déploiement : un signé dont le content_hash n'est pas encore calculé se
+    //   synchronise NON verrouillé (pas de violation CHECK), puis se verrouille à la sync suivante.
+    const sg = o.signatures || {}
+    // src NORMALISÉ à la liste autorisée (CHECK baux_signature_source_chk) : une valeur inattendue
+    // (corruption amont / mode futur) → null, plutôt que la propager et faire boucler le flush sur 23514.
+    const src = (sg.signatureSource === 'immotrack' || sg.signatureSource === 'externe') ? sg.signatureSource : null
+    const hash = sg.contentHashTerms ?? null
+    const locked = !!sg.locked && src != null && (src !== 'immotrack' || hash != null)
+    return { id: ctx.detUuid('bail', norm(o.__key)), legacy_ref: o.__key, logement_id: log, entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, type_bail: null, hc: num(o.hc), ch: num(o.ch), dg: num(o.dg), jour_paiement: num(o.jpay), date_debut: dateOnly(o.debut), date_fin: dateOnly(o.fin), date_fin_effective: dateOnly(o.finEffective), locataires: jb(o.locataires ?? []), garants: jb(o.signataires ?? null), signatures: jb(o.signatures ?? null), signed_at: sig ? ts(sig.signedAt) : null, content_hash: hash, signature_source: src, locked, notes: o.notes ?? null, quitt_auto_gen: !!o.quittAutoGen, ...base(o, ctx) }
   },
   baux_historique(o, ctx) {
     // archived_at est NOT NULL ; fallback déterministe (jamais null, jamais clock-dépendant) —

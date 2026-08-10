@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Page /outils/quittance (A vs B)</title>
+<style>
+  :root{--brand:#2563eb;--ink:#0f172a;--mut:#64748b;--line:#e2e8f0;--bg:#f8fafc;--card:#fff;--ok:#16a34a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);padding:24px;line-height:1.5}
+  h1{font-size:20px;margin-bottom:4px}
+  .sub{color:var(--mut);font-size:14px;margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:1100px;margin:0 auto}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .col h2{font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .badge{background:var(--brand);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+  .reco{background:var(--ok);color:#fff;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600}
+  .page{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .bar{background:#eef2f7;border-bottom:1px solid var(--line);padding:6px 10px;font-size:11px;color:var(--mut)}
+  .nav{padding:10px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .nav .cta{background:var(--brand);color:#fff;font-size:11px;padding:5px 10px;border-radius:6px;font-weight:600}
+  .body{padding:16px 14px}
+  .h1{font-size:16px;font-weight:800;margin-bottom:2px}
+  .lead{color:var(--mut);font-size:12px;margin-bottom:12px}
+  .tool{border:2px solid var(--brand);border-radius:10px;padding:12px;background:#f5f8ff}
+  .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--brand);font-weight:700;margin-bottom:6px}
+  .inp{width:100%;border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:12px;margin-bottom:6px;background:#fff;color:var(--mut)}
+  .row{display:flex;gap:6px}
+  .row .inp{flex:1}
+  .btn{width:100%;background:var(--brand);color:#fff;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:700;margin-top:2px}
+  .seo{margin-top:14px;padding-top:12px;border-top:1px dashed #cbd5e1}
+  .seo li{font-size:12px;color:#334155;margin:5px 0;list-style:none}
+  .seo li::before{content:"▸ ";color:var(--brand)}
+  .hook{margin-top:12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;font-size:12px;color:#065f46}
+  .hook b{color:#047857}
+  .note{font-size:12px;color:var(--mut);margin-top:10px}
+  .thin{opacity:.5;font-size:11px;color:var(--mut);padding:14px 0;text-align:center}
+</style>
+</head>
+<body>
+  <h1>Page <code>/outils/quittance</code> — quelle mise en page ?</h1>
+  <div class="sub">But : ranker sur « quittance de loyer » (Google veut du contenu) ET convertir. Choisis A ou B.</div>
+
+  <div class="grid">
+    <!-- A -->
+    <div class="col">
+      <h2><span class="badge">A</span> Outil-first (minimaliste)</h2>
+      <div class="page">
+        <div class="bar">propryo.fr/outils/quittance</div>
+        <div class="nav">Propryo · Outils gratuits <span class="cta">Ouvrir l'app</span></div>
+        <div class="body">
+          <div class="h1" style="text-align:center;margin-bottom:12px">Générateur de quittance de loyer gratuit</div>
+          <div class="tool">
+            <div class="lbl">Le formulaire, direct</div>
+            <input class="inp" value="Bailleur — nom + adresse" readonly>
+            <input class="inp" value="Locataire — nom" readonly>
+            <input class="inp" value="Bien loué — adresse" readonly>
+            <div class="row"><input class="inp" value="Loyer HC" readonly><input class="inp" value="Charges" readonly></div>
+            <input class="inp" value="Mois · date de paiement" readonly>
+            <button class="btn">Générer + Télécharger le PDF</button>
+          </div>
+          <div class="thin">— un peu de texte SEO tout en bas de page —</div>
+        </div>
+      </div>
+      <div class="note">✅ Convertit fort (outil au-dessus de la flottaison).<br>⚠️ Peu de contenu = plus dur à ranker sur un mot-clé très concurrentiel.</div>
+    </div>
+
+    <!-- B -->
+    <div class="col">
+      <h2><span class="badge">B</span> Outil en haut + contenu SEO dessous <span class="reco">RECO</span></h2>
+      <div class="page">
+        <div class="bar">propryo.fr/outils/quittance</div>
+        <div class="nav">Propryo · Outils gratuits <span class="cta">Ouvrir l'app</span></div>
+        <div class="body">
+          <div class="h1">Quittance de loyer gratuite — modèle 2026 conforme</div>
+          <div class="lead">Générez et téléchargez votre quittance en 30 secondes, conforme à la loi du 6 juillet 1989. Sans inscription.</div>
+          <div class="tool">
+            <div class="lbl">Le générateur (au-dessus de la flottaison)</div>
+            <input class="inp" value="Bailleur / Locataire / Bien loué…" readonly>
+            <div class="row"><input class="inp" value="Loyer HC" readonly><input class="inp" value="Charges" readonly></div>
+            <button class="btn">Générer + Télécharger le PDF</button>
+          </div>
+          <div class="hook">📌 <b>Automatise-la chaque mois</b> + envoi auto au locataire → <b>compte gratuit Propryo</b> (tes infos déjà pré-remplies)</div>
+          <div class="seo">
+            <div class="lbl" style="color:#334155">Contenu qui fait ranker</div>
+            <ul>
+              <li>Qu'est-ce qu'une quittance de loyer ? (mentions loi 1989)</li>
+              <li>Quittance vs reçu de paiement partiel</li>
+              <li>Est-elle obligatoire ? gratuite ? sous quel délai ?</li>
+              <li>FAQ + modèle Word/PDF à télécharger</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="note">✅ L'outil reste visible d'emblée (conversion) ET le contenu riche fait ranker.<br>✅ C'est le combo gagnant des concurrents (BailFacile, ImmobilierLoyer…).</div>
+    </div>
+  </div>
+</body>
+</html>
