@@ -175,6 +175,14 @@ const PAIRS = [
     globalName: 'FilRougeConductor',
     exports: ['STEPS', 'entryStep', 'advance', 'breadcrumb'],
   },
+  {
+    // Fil rouge COMPLET — rapprochement immeuble par adresse canon (import d'acte).
+    name: 'acte-rapprochement',
+    src: '__tests__/helpers/acte-rapprochement.js',
+    dst: 'js/helpers/acte-rapprochement.global.js',
+    globalName: 'ActeRapprochement',
+    exports: ['canonAdresse', 'matchImmeuble'],
+  },
 ];
 
 let totalErrors = 0;
