@@ -110,6 +110,10 @@ Mockup `pl-revise` validé (19/06) : bilan avant impôts + drill par ligne. **En
 ### Accueil / KPI
 Garder l'actuel : encaissement, cash flow, occupation, rendement brut, dépôts de garantie, perçu vs potentiel, payés/impayés par logement. Contrainte : tient sur 1 écran PC (~900 px).
 
+### Transverse (ajouts validés user 10/08)
+- **Documents unifiés** : un gabarit unique Propryo (logo + charte + code PROPRYO) pour tous les documents émis — quittance, avis/courrier IRL, décomptes… Traité avec les CDC Quittances et Bail/Révisions.
+- **Visuels des liens locataire** : les pages publiques ouvertes par le locataire (lien candidature, lien signature bail) passent au design Propryo. Traité avec les CDC Candidature et Signature à distance.
+
 ## 6. Validation par onglet (gate de sortie, non négociable)
 
 Fonctionnel complet sur **téléphone + tablette + PC** · 0 erreur console · données réelles intactes · tests verts · audit agent SÛR · smoke explicite du user. Onglet validé = figé.

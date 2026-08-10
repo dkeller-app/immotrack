@@ -28,6 +28,10 @@ Blindage connexion + partage AVANT tout · CDC + mockup 3 formats + validation u
 
 Biens (simplification mapping — gros morceau) · Bail · Candidature · Signature à distance (fix relais) · EDL (+ mobile terrain) · Import bancaire · Quittances · Suivi · Finances P&L · Accueil/KPI. Ordre décidé au fil de l'eau en session pilotage.
 
+**Transverse V1 (ajouts user 10/08)** :
+- **DOCS-UNIFIÉS** — gabarit de document unique Propryo (logo + charte + code PROPRYO) pour tous les documents émis : quittance, avis/courrier IRL, décomptes… → à traiter avec les CDC Quittances et Révisions/Bail.
+- **LIENS-LOCATAIRE-VISUEL** — refonte visuelle des pages publiques côté locataire : lien candidature en ligne + lien signature bail à distance → à traiter avec les CDC Candidature et Signature.
+
 ## 🧊 Après V1 (gelé — détail dans docs/subjects/ et l'archive)
 
 Charges/régularisation · Agenda (à redéfinir) · Annonces (supprimées de la cible) · OTP email signature (branche `relay-otp`, attend domaine propryo.fr) · sealSigned · CFE-GESTION-2044 · sync P2 robuste (seuil commercialisation) · import bancaire API auto (DSP2) · générateur quittance public · marketing/recrutement bêta · reporting bailleur/CRG.
