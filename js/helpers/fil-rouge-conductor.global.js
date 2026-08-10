@@ -15,7 +15,7 @@
   // Conducteur pur du fil rouge « Ajouter un bien ». AUCUNE dépendance DOM ni données.
   // Ne gère que la NAVIGATION (étapes) et le FIL D'ARIANE. La donnée vit dans DB.
 
-  const STEPS = ['start', 'ent', 'imm', 'log', 'next', 'done', 'bail'];
+  const STEPS = ['start', 'ent', 'imm', 'log', 'next', 'done', 'bail', 'transition', 'completion'];
 
   // Étape de départ selon le point d'entrée.
   function entryStep(kind) {
@@ -39,6 +39,9 @@
     bail: { back: 'done' },
   };
   function advance(step, event) {
+    // Fil complet (post-import d'acte) : ces 2 écrans se FERMENT (null = fin du fil).
+    if (step === 'transition') return event === 'continue' ? 'completion' : null;
+    if (step === 'completion') return null;
     const row = _T[step];
     return (row && row[event]) || step;
   }

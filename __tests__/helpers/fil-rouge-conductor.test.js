@@ -29,6 +29,20 @@ describe('fil-rouge-conductor — transitions (auto-avance)', () => {
   it('retour arrière explicite', () => { expect(advance('imm','back')).toBe('ent'); expect(advance('log','back')).toBe('imm'); });
 });
 
+describe('étapes transition/completion (fil complet acte)', () => {
+  it('STEPS contient transition et completion', () => {
+    expect(STEPS).toContain('transition');
+    expect(STEPS).toContain('completion');
+  });
+  it("advance('transition','continue') → completion ; ('transition','later') → null (fermeture)", () => {
+    expect(advance('transition', 'continue')).toBe('completion');
+    expect(advance('transition', 'later')).toBe(null);
+  });
+  it("advance('completion','close') → null", () => {
+    expect(advance('completion', 'close')).toBe(null);
+  });
+});
+
 describe('fil-rouge-conductor — fil d’Ariane', () => {
   it('4 maillons, bailleur en cours au départ', () => {
     const b = breadcrumb({ step:'ent' });
