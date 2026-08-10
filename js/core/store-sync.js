@@ -51,38 +51,40 @@ const COLLECTIONS = [
   // doublon. Mais la copie fige l'identité au seed et immunise contre une future mutation en place (même
   // classe de bug que logements/baux_historique ci-dessous). Invariant homogène sur toutes les collections
   // à clé naturelle mutable. Voir le contrat verrouillé par store-sync.test.js (renommage entité).
-  { coll: 'entites',         enumerate: db => (db.entites || []).map(e => ({ ...e })),   key: r => norm(r.nom) + espTag(r) },
+  // `sources` (D1b) : accès aux records VIVANTS du DB (PAS les copies d'enumerate) → la réadoption
+  // du tag d'espace s'y pose durablement (résolveurs FK, _viewFor et flushs suivants la revoient).
+  { coll: 'entites',         enumerate: db => (db.entites || []).map(e => ({ ...e })),   key: r => norm(r.nom) + espTag(r), sources: db => db.entites || [] },
   // immeubles IMBRIQUÉS : héritent de la suppression du parent (nesting = appartenance structurelle).
   // delEnt tombstone l'entité mais préserve ses immeubles SANS `_deleted` → sans cette propagation,
   // l'immeuble partirait en upsert = ligne zombie vivante sous une entité supprimée. Robuste quel que
   // soit le chemin de suppression de l'app (défense en profondeur, indépendant de delEnt).
-  { coll: 'immeubles',       enumerate: db => (db.entites || []).flatMap(e => (Array.isArray(e.immeubles) ? e.immeubles : []).map(im => ({ ...im, __entiteNom: e.nom, _deleted: !!(im && im._deleted) || !!(e && e._deleted) }))), key: r => norm(r.nom) + espTag(r) },
+  { coll: 'immeubles',       enumerate: db => (db.entites || []).flatMap(e => (Array.isArray(e.immeubles) ? e.immeubles : []).map(im => ({ ...im, __entiteNom: e.nom, _deleted: !!(im && im._deleted) || !!(e && e._deleted) }))), key: r => norm(r.nom) + espTag(r), sources: db => (db.entites || []).flatMap(e => (Array.isArray(e.immeubles) ? e.immeubles : [])) },
   // ⚠️ SPREAD OBLIGATOIRE (idem entites) : la ref dérive l'uuid, et RENOMMER-BIEN mute logement.ref EN
   // PLACE. Sans copie → baseline rétro-corrompu → remove vise le nouvel uuid → ANCIEN bien cloud survit =
   // DOUBLON (bug observé v15.435). La copie au seed fige l'identité de suppression.
-  { coll: 'logements',       enumerate: db => (db.logements || []).map(l => ({ ...l })), key: r => norm(r.ref) + espTag(r) },
+  { coll: 'logements',       enumerate: db => (db.logements || []).map(l => ({ ...l })), key: r => norm(r.ref) + espTag(r), sources: db => db.logements || [] },
   // VERROU LÉGAL : `immutable` = un bail signé verrouillé. S'il est DÉJÀ verrouillé au baseline (déjà
   // synchronisé locked), le moteur ne le ré-upserte/supprime JAMAIS (le trigger DB refuserait → conflit).
-  { coll: 'baux',            enumerate: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, ...v })), key: r => norm(r.__key), immutable: r => !!(r && r.signatures && r.signatures.locked) },
+  { coll: 'baux',            enumerate: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, ...v })), key: r => norm(r.__key), immutable: r => !!(r && r.signatures && r.signatures.locked), sources: db => Object.entries(db.baux || {}).map(([k, v]) => ({ __key: k, __src: v, _espaceId: v && typeof v === 'object' ? v._espaceId : null })) },
   // ⚠️ clé = identité EXACTE du mapping (store-mapping baux_historique : detUuid('bailhist', ref + '|' + _archivedAt)).
   //    Keyer par `id` (non unique sur un log d'archive) regrouperait deux archives distinctes → perte silencieuse.
   // ⚠️ SPREAD OBLIGATOIRE (audit BUG-RENAME-CLOUD-DUP) : `ref` (mutée EN PLACE par renameLogementRef) dérive
   //    l'uuid. Sans copie → même doublon que logements, ici dans une table à valeur de PREUVE. Renommer un bien
   //    dont l'historique n'est pas signé (= la population renommable) dupliquerait la ligne d'archive. La copie fige.
-  { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') + espTag(r) },
+  { coll: 'baux_historique', enumerate: db => (db.baux_historique || []).map(h => ({ ...h })), key: r => String(r.ref ?? '') + '|' + (r._archivedAt ?? '') + espTag(r), sources: db => db.baux_historique || [] },
   // documents AVANT mouvements : FK DURE mouvements_pj_fk (pj_document_id) → documents (la ligne
   // document doit exister avant l'insert d'un mouvement qui la référence). documents.parent_id est
   // polymorphe SANS FK dure → peut précéder ses parents sans violation. (Aligné sur l'ETL import.mjs.)
-  { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) + espTag(r) },
-  { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) + espTag(r) },
-  { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) + espTag(r) },
+  { coll: 'documents',       enumerate: db => db.documents || [],                       key: r => String(r.id) + espTag(r), sources: db => db.documents || [] },
+  { coll: 'mouvements',      enumerate: db => db.mouvements || [],                       key: r => String(r.id) + espTag(r), sources: db => db.mouvements || [] },
+  { coll: 'quittances',      enumerate: db => db.quittances || [],                      key: r => String(r.id) + espTag(r), sources: db => db.quittances || [] },
   // ⚠️ EDL : `immutable` est prêt, MAIS il n'y a PAS de `sealSignedEdl` (cf. sealSignedBaux) → un EDL
   //    signé partirait NON verrouillé en base. Scellement EDL DIFFÉRÉ (hors-scope spec : 0 EDL signé
   //    aujourd'hui ; concept de verrou EDL non câblé). À compléter avant la 1ʳᵉ signature d'EDL.
-  { coll: 'edl',             enumerate: db => db.edl || [],                             key: r => String(r.id) + espTag(r), immutable: r => !!(r && r.signatures && r.signatures.locked) },
-  { coll: 'mrh',             enumerate: db => db.mrh || [],                             key: r => String(r.id) + espTag(r) },   // → table assurances
-  { coll: 'agenda',          enumerate: db => db.agenda || [],                          key: r => String(r.id) + espTag(r) },
-  { coll: 'candidats',       enumerate: db => db.candidats || [],                       key: r => String(r.id) + espTag(r) },
+  { coll: 'edl',             enumerate: db => db.edl || [],                             key: r => String(r.id) + espTag(r), immutable: r => !!(r && r.signatures && r.signatures.locked), sources: db => db.edl || [] },
+  { coll: 'mrh',             enumerate: db => db.mrh || [],                             key: r => String(r.id) + espTag(r), sources: db => db.mrh || [] },   // → table assurances
+  { coll: 'agenda',          enumerate: db => db.agenda || [],                          key: r => String(r.id) + espTag(r), sources: db => db.agenda || [] },
+  { coll: 'candidats',       enumerate: db => db.candidats || [],                       key: r => String(r.id) + espTag(r), sources: db => db.candidats || [] },
 ]
 
 // 'revived' (B-REBAIL) = ré-ouverture délibérée d'un tombstone (relocation / clé naturelle recréée) :
@@ -170,26 +172,36 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
 
   // D1b — RÉADOPTION du tag d'espace (BUG-PARTAGE-EDL-ESPACE-TIERS, incident du 18/07/2026).
   // Plusieurs flux de l'app éditent par REMPLACEMENT d'objet (saveEDL : `DB.edl[i] = record` ;
-  // saveEnt ; `DB.baux[ref] = {…}`) → le tag `_espaceId` posé à l'hydrate est PERDU. Sans
-  // réadoption, le diff voyait « clé@@tiers disparue » (softDelete routé chez le TIERS — l'octroi
-  // gestionnaire du membre scopé l'AUTORISE) + « clé nue apparue » (upsert routé espace PROPRE,
-  // où la FK ne résout pas → skipped) = DESTRUCTION silencieuse du record tiers, aucune copie.
-  // Cas réel : l'EDL d'entrée FERRETTE 001 de l'espace Marion, détruit le 18/07 à 09:16 UTC.
-  // Règle : un record VIVANT non tagué dont la clé NUE correspond à un UNIQUE espace tagué du
-  // baseline est LE MÊME record réédité → il ré-adopte ce tag AVANT le diff. Sûretés :
+  // saveEnt : `DB.entites[i] = ent` ; `DB.baux[ref] = {…}`) → le tag `_espaceId` posé à l'hydrate
+  // est PERDU. Sans réadoption, le diff voyait « clé@@espace disparue » (softDelete routé vers cet
+  // espace — pour un membre scopé gestionnaire, la RLS l'AUTORISE) + « clé nue apparue » (upsert
+  // routé espace PROPRE, FK souvent irrésoluble → skipped, ou conflit d'id éternel pour les
+  // collections hors REVIVABLE) = DESTRUCTION silencieuse. Cas réel : l'EDL d'entrée FERRETTE 001
+  // de l'espace Marion, détruit le 18/07 à 09:16 UTC. Touche AUSSI le mono-espace cloud (N=1) :
+  // depuis v15.483 l'hydrate tague TOUT, donc toute réédition d'EDL déclenchait la même mécanique.
+  // Règles :
+  //   • un record VIVANT non tagué dont la clé NUE correspond à un UNIQUE espace tagué du baseline
+  //     est LE MÊME record réédité → il ré-adopte ce tag (durablement, SUR LA SOURCE du DB vivant :
+  //     le routage, les résolveurs FK et _viewFor de store-multi le revoient) AVANT le diff ;
   //   • un record déjà tagué n'est JAMAIS retagué ;
   //   • clé nue connue NON taguée au baseline → record propre (D2 inchangé ; mono-espace inerte) ;
-  //   • 2+ espaces candidats (homonymie réelle de clé) → ambigu : PAS de devinette (D2).
-  // Mutation : sur les collections énumérées par référence (edl/documents/mouvements/…) le tag
-  // se re-fixe durablement sur le record vivant ; sur celles énumérées par COPIE (entites/
-  // logements/baux/…) il est ré-adopté à chaque flush (idempotent, le routage lit le rec énuméré).
+  //   • AMBIGUÏTÉ (2+ espaces candidats — homonymie réelle, ex. SMARTOSAURUS des deux côtés) : pas
+  //     de devinette de ROUTAGE (le record reste D2) MAIS les removes des clés taguées homonymes
+  //     sont SUSPENDUS (audit réserve 1) : on ne détruit JAMAIS une ligne cloud dont un jumeau
+  //     vivant non résolu existe localement — convergence à la prochaine re-hydrate (re-tag).
   const _bareKey = (keyFn, rec) => (rec && rec._espaceId != null) ? keyFn({ ...rec, _espaceId: null }) : keyFn(rec)
-  function _adoptTags(coll, keyFn, recs) {
+  // Réadoption d'UNE collection, sur ses records SOURCES (vivants). Renvoie l'ensemble des clés
+  // nues restées AMBIGUËS (jumeau vivant non résolu) → sert à suspendre les removes correspondants.
+  function _adoptTags(coll, keyFn, srcs) {
     const base = baseline.get(coll)
-    if (!base || base.size === 0) return
+    let unresolved = null
+    if (!base || base.size === 0) return unresolved
     let idx = null   // paresseux (uniquement si un record non tagué existe) : cléNue → { untagged, tags }
-    for (const rec of recs) {
-      if (!rec || typeof rec !== 'object' || rec._espaceId != null) continue
+    for (const probe of srcs) {
+      // baux : la clé (__key) vit dans le dict, pas dans la valeur → sources() fournit un wrapper
+      // { __key, __src } ; le tag se pose sur __src (l'objet bail vivant). Ailleurs probe = source.
+      const target = (probe && probe.__src !== undefined) ? probe.__src : probe
+      if (!target || typeof target !== 'object' || target._espaceId != null || isDeleted(target)) continue
       if (idx === null) {
         idx = new Map()
         for (const v of base.values()) {
@@ -199,25 +211,36 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
           if (tag == null) e.untagged = true; else e.tags.add(tag)
         }
       }
-      const e = idx.get(keyFn(rec))   // rec non tagué → keyFn(rec) = clé nue
-      if (e && !e.untagged && e.tags.size === 1) rec._espaceId = e.tags.values().next().value
+      const e = idx.get(keyFn(probe))   // probe non tagué → keyFn(probe) = clé nue
+      if (!e) continue                  // clé inconnue du baseline → vrai nouveau record (D2)
+      if (!e.untagged && e.tags.size === 1) target._espaceId = e.tags.values().next().value
+      else if (e.tags.size) {           // ambigu (ou clé nue connue + homonymes tagués) → removes suspendus
+        if (!unresolved) unresolved = new Set()
+        unresolved.add(keyFn(probe))
+      }
     }
+    return unresolved
+  }
+  // Réadoption de TOUTES les collections (appelée par le flush ET la détection de removes
+  // pendables — JAMAIS au seed : post-hydrate tout est tagué, et le baseline consulté serait
+  // celui d'avant, périmé). Renvoie Map<coll, Set<cléNue>> des jumeaux vivants non résolus.
+  function _adoptAll(db) {
+    const suspended = new Map()
+    for (const { coll, sources, key } of COLLECTIONS) {
+      const u = _adoptTags(coll, key, sources(db))
+      if (u) suspended.set(coll, u)
+    }
+    return suspended
   }
 
-  // `adopt` : réadoption des tags AVANT keying — depuis le FLUSH et la détection de removes
-  // pendables UNIQUEMENT, jamais au seed (post-hydrate tout est tagué ; et le baseline consulté
-  // par la réadoption serait celui d'avant, périmé).
-  function snapshotOf(db, adopt) {
+  function snapshotOf(db) {
     const snap = new Map()
     for (const { coll, enumerate, key, immutable } of COLLECTIONS) {
       const m = new Map()
-      const recs = []
-      for (const rec of enumerate(db)) { if (isDeleted(rec)) continue; recs.push(rec) }
-      if (adopt) _adoptTags(coll, key, recs)
       // `locked` = état d'immutabilité CAPTURÉ ici (booléen STABLE), pas relu via la référence `rec` : le
       // rec partage `signatures` avec le bail vivant (spread shallow) ; muter `signatures.locked` en place
       // changerait rétroactivement le baseline → la 1ʳᵉ transition de verrouillage serait sautée à tort.
-      for (const rec of recs) m.set(key(rec), { rec, sig: sig(rec), locked: immutable ? !!immutable(rec) : false })
+      for (const rec of enumerate(db)) { if (isDeleted(rec)) continue; m.set(key(rec), { rec, sig: sig(rec), locked: immutable ? !!immutable(rec) : false }) }
       snap.set(coll, m)
     }
     return snap
@@ -244,7 +267,8 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   async function _doFlush(db) {
     const summary = { upserts: [], revives: [], removes: [], conflicts: [], skipped: [], errors: [] }
     if (sealSigned) await sealSignedBaux(db)            // VERROU (pièce 2) — gouverné par l'option sealSigned (false en phase test)
-    const current = snapshotOf(db, true)                // D1b : réadoption des tags d'espace avant le diff
+    const suspended = _adoptAll(db)                     // D1b : réadoption des tags AVANT le snapshot (+ clés ambiguës → removes suspendus)
+    const current = snapshotOf(db)
 
     // 1) upserts (ajouts + modifs), dans l'ordre parent→enfant.
     for (const { coll } of COLLECTIONS) {
@@ -275,11 +299,16 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
 
     // 2) removes (présents au baseline, absents du courant), dans l'ordre enfant→parent.
     for (let i = COLLECTIONS.length - 1; i >= 0; i--) {
-      const { coll } = COLLECTIONS[i]
+      const { coll, key } = COLLECTIONS[i]
       const cur = current.get(coll), base = baseline.get(coll)
+      const susp = suspended.get(coll)
       for (const [k, { rec, locked }] of [...base]) {
         if (cur.has(k)) continue
         if (locked) continue                               // VERROU : un signé verrouillé (figé au baseline) ne se supprime pas
+        // D1b (audit réserve 1) : un jumeau VIVANT non résolu (ambiguïté d'homonymie) porte cette
+        // clé nue → remove SUSPENDU (fail-safe : jamais de destruction sur devinette ; converge à
+        // la prochaine re-hydrate qui re-tague tout).
+        if (susp && susp.has(_bareKey(key, rec))) continue
         let res
         try { res = await store.remove(coll, rec) }        // l'ANCIEN rec → résout l'id de ligne
         catch (e) { summary.errors.push({ op: 'remove', coll, key: k, message: _errMsg(e) }); continue }
@@ -338,22 +367,20 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   // verrouillés — qui ne se suppriment jamais → anti-boucle) et demande au scheduler un flush
   // IMMÉDIAT ({ immediate: true }) au lieu du debounce.
   function _hasPendingRemoves(db) {
+    // D1b : réadoption AVANT keying — sinon un record tiers reconstruit sans tag (clé nue ≠
+    // clé@@tiers du baseline) serait vu comme un remove pendable → flush immédiat parasite ;
+    // et les clés ambiguës (removes suspendus au flush) ne sont pas non plus pendables.
+    const suspended = _adoptAll(db)
     for (const { coll, enumerate, key } of COLLECTIONS) {
       const base = baseline.get(coll)
       if (!base || base.size === 0) continue
+      const susp = suspended.get(coll)
       let live = null   // Set des clés vivantes, construit PARESSEUSEMENT (uniquement si baseline non vide)
       for (const [k, v] of base) {
         if (v.locked) continue
         if (_removeConflicts.has(_rcKey(coll, k))) continue   // M2 : dernier essai = conflit → debounce normal (anti-neutralisation)
-        // D1b : réadoption AVANT keying — sinon un record tiers reconstruit sans tag (clé nue ≠
-        // clé@@tiers du baseline) serait vu comme un remove pendable → flush immédiat parasite.
-        if (live === null) {
-          live = new Set()
-          const recs = []
-          for (const rec of enumerate(db)) { if (!isDeleted(rec)) recs.push(rec) }
-          _adoptTags(coll, key, recs)
-          for (const rec of recs) live.add(key(rec))
-        }
+        if (susp && susp.has(_bareKey(key, v.rec))) continue  // D1b : remove suspendu (jumeau vivant non résolu)
+        if (live === null) { live = new Set(); for (const rec of enumerate(db)) { if (!isDeleted(rec)) live.add(key(rec)) } }
         if (!live.has(k)) return true
       }
     }

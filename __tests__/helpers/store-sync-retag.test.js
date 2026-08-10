@@ -194,6 +194,62 @@ describe('D1b — réadoption du tag d\'espace au flush (record reconstruit sans
     expect(store.calls.filter(c => c.op === 'remove')).toEqual([])
   })
 
+  it('le tag ré-adopté est DURABLE sur le record VIVANT (toutes collections, y compris énumérées par copie) — résolveurs/_viewFor le revoient', async () => {
+    const store = mockStore()
+    const db = baseMulti()
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.edl[0] = { id: 1784120562200, logement: 'FERRETTE 001', type: 'Entrée', date: '2026-07-15', pieces: [{ nom: 'S', elements: [] }] }
+    db.entites[1] = { nom: 'SMARTOSAURUS', siren: '842', immeubles: [] }
+    await sync.flush()
+    expect(db.edl[0]._espaceId, 'source edl retaguée durablement').toBe('ESP_TIERS')
+    expect(db.entites[1]._espaceId, 'source entité retaguée durablement (collection énumérée par copie)').toBe('ESP_TIERS')
+  })
+
+  it('IMMEUBLES imbriqués sous une entité tiers remplacée : entité ET immeubles ré-adoptent le tag → upserts routés tiers, zéro remove', async () => {
+    const store = mockStore()
+    const db = baseMulti()
+    db.entites[1].immeubles = [{ nom: 'RES DU PARC', _espaceId: 'ESP_TIERS', adr: 'a' }]
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // saveEnt : remplacement complet, entité + immeubles reconstruits sans tag
+    db.entites[1] = { nom: 'SMARTOSAURUS', siren: '842', immeubles: [{ nom: 'RES DU PARC', adr: 'b' }] }
+    await sync.flush()
+    expect(store.calls.filter(c => c.op === 'remove')).toEqual([])
+    const upImm = store.calls.filter(c => c.op === 'upsert' && c.coll === 'immeubles')
+    expect(upImm.length).toBe(1)
+    expect(upImm[0].rec._espaceId).toBe('ESP_TIERS')
+  })
+
+  it('AMBIGUÏTÉ destructrice fermée (réserve 1 audit) : entités HOMONYMES dans 2 espaces + saveEnt → le remove@@espace est SUSPENDU (fail-safe), jamais poussé', async () => {
+    // Config prod réelle : SMARTOSAURUS existe chez Didier (archive) ET chez Marion. saveEnt sur
+    // l'une des deux → record non tagué, 2 candidats → pas d'adoption (pas de devinette de routage),
+    // MAIS aucune des deux lignes ne doit être supprimée au cloud : le remove est suspendu tant que
+    // le jumeau vivant non résolu existe (convergence à la prochaine re-hydrate).
+    const store = mockStore()
+    const db = baseMulti()
+    db.entites.push({ nom: 'SMARTOSAURUS', _espaceId: 'ESP_OWN', siren: '111', immeubles: [] })   // homonyme espace propre
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    db.entites[1] = { nom: 'SMARTOSAURUS', siren: '842', immeubles: [] }   // rebuild de la version TIERS, tag perdu
+    await sync.flush()
+    expect(store.calls.filter(c => c.op === 'remove'), 'aucun remove ne doit partir (ni Marion ni Didier)').toEqual([])
+  })
+
+  it('la SUSPENSION ne bloque pas une VRAIE suppression : tombstone en place (tag préservé) d\'un homonyme → le remove part normalement', async () => {
+    const store = mockStore()
+    const db = baseMulti()
+    db.entites.push({ nom: 'SMARTOSAURUS', _espaceId: 'ESP_OWN', siren: '111', immeubles: [] })
+    const sync = createStoreSync({ store, getDB: () => db })
+    sync.seed()
+    // delEnt tombstone EN PLACE (mutation, tag préservé) de la version ESP_OWN — pas de jumeau non tagué
+    db.entites[2] = { ...db.entites[2], _deleted: true }
+    await sync.flush()
+    const rm = store.calls.filter(c => c.op === 'remove' && c.coll === 'entites')
+    expect(rm.length).toBe(1)
+    expect(rm[0].rec._espaceId).toBe('ESP_OWN')
+  })
+
   it('markDirty/_hasPendingRemoves : un record tiers reconstruit sans tag n\'est PAS un remove pendable (pas de flush immédiat parasite)', async () => {
     const store = mockStore()
     const db = baseMulti()
@@ -204,5 +260,18 @@ describe('D1b — réadoption du tag d\'espace au flush (record reconstruit sans
     sync.markDirty()
     expect(scheduled.length).toBe(1)
     expect(scheduled[0] && scheduled[0].immediate, 'pas de fausse détection de suppression').toBeFalsy()
+  })
+
+  it('markDirty en AMBIGUÏTÉ (homonymes 2 espaces, rebuild sans tag) : le remove suspendu n\'est pas non plus un remove pendable', async () => {
+    const store = mockStore()
+    const db = baseMulti()
+    db.entites.push({ nom: 'SMARTOSAURUS', _espaceId: 'ESP_OWN', siren: '111', immeubles: [] })
+    const scheduled = []
+    const sync = createStoreSync({ store, getDB: () => db, schedule: (fn, opts) => scheduled.push(opts) })
+    sync.seed()
+    db.entites[1] = { nom: 'SMARTOSAURUS', siren: '842', immeubles: [] }
+    sync.markDirty()
+    expect(scheduled.length).toBe(1)
+    expect(scheduled[0] && scheduled[0].immediate).toBeFalsy()
   })
 })
