@@ -89,12 +89,12 @@ import { duMois, duMoisFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting 
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
-  appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, tombstonerPeriodesDuBail,
+  appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, tombstonerPeriodesDuBail,
   _premierDuMois, _premierDuMoisSuivant
 } from './core/loyer-bareme.js';
-// HISTORIQUE-BAIL-ONGLET (17/07)  chapitres/rail de l'historique du bail (onglet Bail inline)
+// HISTORIQUE-BAIL-ONGLET (17/07) - chapitres/rail de l'historique du bail (onglet Bail inline)
 import { construireHistoriqueBail, enVigueur as bailHistoEnVigueur } from './core/bail-historique.js';
-// HISTORIQUE-BAIL-ONGLET - popup de validation des modifs financieres du bail
+// HISTORIQUE-BAIL-ONGLET - popup de validation des modifications financieres du bail
 import { detecterChangementsFinanciers, dateEffetModifDefaut, redaterRevisionIRL, borneMinEffetBareme } from './core/bail-modif.js';
 
 import {
@@ -294,6 +294,7 @@ window._baremePeriodeInitialeBail = periodeInitialeBail;
 window._baremeAppliquerNouvellePeriode = appliquerNouvellePeriode;
 window._baremeSynchroniserPeriodeBail = synchroniserPeriodeBail;
 window._baremeCloturer = cloturerBareme;
+window._baremeCloturerParDebut = cloturerPeriodeParDebut;   // audit 17/07 : cloture ciblee (correction avec fin)
 window._baremeTombstonerBail = tombstonerPeriodesDuBail;
 window._premierDuMois = _premierDuMois;
 window._premierDuMoisSuivant = _premierDuMoisSuivant;

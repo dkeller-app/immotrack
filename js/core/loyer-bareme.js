@@ -175,6 +175,25 @@ export function cloturerBareme(periods, ref, finIso) {
   return arr;
 }
 
+/**
+ * Clôture CIBLÉE par (ref, debut) — audit HISTORIQUE-BAIL-ONGLET 17/07 : le chemin « fin
+ * explicite » d'une correction de période doit fermer LA période insérée, pas la période
+ * ouverte la plus récente du lot (cloturerBareme), sinon la vivante se corrompt (fin < debut).
+ * No-op si fin < debut ou période introuvable. PUR.
+ */
+export function cloturerPeriodeParDebut(periods, ref, debutIso, finIso) {
+  const want = _nr(ref);
+  const debut = _ymd(debutIso);
+  const fin = _ymd(finIso);
+  if (!debut || !fin || fin < debut) return (periods || []).map((p) => ({ ...p }));
+  return (periods || []).map((p) => {
+    if (p && !p._deleted && _nr(p.ref) === want && _ymd(p.debut) === debut && p.fin == null) {
+      return { ...p, fin };
+    }
+    return { ...p };
+  });
+}
+
 /** Tombstone toutes les périodes vivantes d'un bail donné (bailDebut) d'un lot. PUR. */
 export function tombstonerPeriodesDuBail(periods, ref, bailDebut) {
   const want = _nr(ref);

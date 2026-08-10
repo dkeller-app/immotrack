@@ -37109,8 +37109,12 @@ function _histoSaveCorrPeriode(){
     DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], {
       ref, debut, hc, ch: Number.isFinite(ch)?ch:0, source:'manuel',
       bailDebut:(DB.baux[ref]&&DB.baux[ref].debut)||debut, note:motif });
-    if(fin){ // fin explicite → clôturer la période à cette date
-      DB.loyerBareme = window._baremeCloturer(DB.loyerBareme, ref, fin);
+    if(fin){ // fin explicite → clôturer LA période insérée (ciblage ref+debut — audit 17/07 :
+      // _baremeCloturer visait la période ouverte la plus récente du lot = la VIVANTE, qui
+      // recevait une fin < debut ; la correction restait ouverte → double période + dû divergent).
+      DB.loyerBareme = (typeof window._baremeCloturerParDebut==='function')
+        ? window._baremeCloturerParDebut(DB.loyerBareme, ref, debut, fin)
+        : DB.loyerBareme;
     }
   }
   if(typeof _auditLog==='function') _auditLog('update','bareme',ref,`correction manuelle ${debut} ${hc}+${ch||0} : ${motif}`);

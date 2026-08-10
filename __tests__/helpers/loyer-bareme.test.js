@@ -196,3 +196,33 @@ describe('tombstonerPeriodesDuBail — au re-bail, les périodes de l\'ANCIEN ba
     expect(out[1]._deleted).toBeFalsy();
   });
 });
+
+// ── Audit HISTORIQUE-BAIL-ONGLET 17/07 (re-audit) : le chemin « fin explicite » de la
+// correction de période clôturait la période ouverte LA PLUS RÉCENTE du lot (la vivante)
+// au lieu de la correction insérée → période vivante corrompue (fin < debut) + double
+// période ouverte. cloturerPeriodeParDebut cible la période par (ref, debut).
+import { cloturerPeriodeParDebut } from '../../js/core/loyer-bareme.js';
+
+describe('cloturerPeriodeParDebut — clôture ciblée par (ref, debut)', () => {
+  const bareme = [
+    { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 50, source: 'bail' },
+    { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 505.15, ch: 65, source: 'irl' },
+    { ref: 'F-001', debut: '2025-01-01', fin: null, hc: 480, ch: 50, source: 'manuel', note: 'correction' }
+  ];
+
+  it('clôture la période visée SANS toucher la période vivante ultérieure', () => {
+    const out = cloturerPeriodeParDebut(bareme, 'F-001', '2025-01-01', '2025-12-31');
+    expect(out.find(p => p.debut === '2025-01-01').fin).toBe('2025-12-31');
+    expect(out.find(p => p.debut === '2026-07-01').fin).toBe(null);   // vivante intacte
+    expect(bareme[2].fin).toBe(null);                                  // pureté
+  });
+
+  it('fin < debut refusée (no-op) ; période introuvable → no-op ; ref tolérante', () => {
+    const out = cloturerPeriodeParDebut(bareme, 'F-001', '2025-01-01', '2024-01-01');
+    expect(out.find(p => p.debut === '2025-01-01').fin).toBe(null);
+    const out2 = cloturerPeriodeParDebut(bareme, 'F-001', '2030-01-01', '2030-06-30');
+    expect(out2).toHaveLength(3);
+    const out3 = cloturerPeriodeParDebut(bareme, '  f-001 ', '2025-01-01', '2025-12-31');
+    expect(out3.find(p => p.debut === '2025-01-01').fin).toBe('2025-12-31');
+  });
+});

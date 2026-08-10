@@ -112,23 +112,21 @@ export function redaterRevisionIRL(input) {
     return { ok: false, erreur: 'Période du barème introuvable pour cette révision — utiliser « Corriger une période ».' };
   }
 
-  if (pIdx >= 0) {
-    // Bornes : strictement après le debut de la période précédente, avant la suivante.
-    const vivantes = bar.filter((p) => p && !p._deleted && _nr(p.ref) === want && p !== bar[pIdx])
-      .sort((a, b) => _ymd(a.debut).localeCompare(_ymd(b.debut)));
-    const prev = vivantes.filter((p) => _ymd(p.debut) < oldEffet).pop() || null;
-    const next = vivantes.find((p) => _ymd(p.debut) > oldEffet) || null;
-    if (prev && effet <= _ymd(prev.debut)) {
-      return { ok: false, erreur: `La date d'effet franchirait la période précédente (début ${prev.debut}).` };
-    }
-    if (next && effet >= _ymd(next.debut)) {
-      return { ok: false, erreur: `La date d'effet franchirait la période suivante (début ${next.debut}).` };
-    }
-    bar[pIdx] = { ...bar[pIdx], debut: effet };
-    if (prev && prev.fin != null) {
-      const prevIdx = bar.indexOf(prev);
-      bar[prevIdx] = { ...prev, fin: _veille(effet) };
-    }
+  // Bornes : strictement après le debut de la période précédente, avant la suivante.
+  const vivantes = bar.filter((p) => p && !p._deleted && _nr(p.ref) === want && p !== bar[pIdx])
+    .sort((a, b) => _ymd(a.debut).localeCompare(_ymd(b.debut)));
+  const prev = vivantes.filter((p) => _ymd(p.debut) < oldEffet).pop() || null;
+  const next = vivantes.find((p) => _ymd(p.debut) > oldEffet) || null;
+  if (prev && effet <= _ymd(prev.debut)) {
+    return { ok: false, erreur: `La date d'effet franchirait la période précédente (début ${prev.debut}).` };
+  }
+  if (next && effet >= _ymd(next.debut)) {
+    return { ok: false, erreur: `La date d'effet franchirait la période suivante (début ${next.debut}).` };
+  }
+  bar[pIdx] = { ...bar[pIdx], debut: effet };
+  if (prev && prev.fin != null) {
+    const prevIdx = bar.indexOf(prev);
+    bar[prevIdx] = { ...prev, fin: _veille(effet) };
   }
 
   hist[idx] = { ...hist[idx], dateEffet: effet, dateApplication: effet, dateEffetAjustee: cl.ajustee };
