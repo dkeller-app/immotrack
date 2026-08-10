@@ -144,7 +144,9 @@
           // schéma logement stocké : `surf` → surface, `hc` → loyer.
           T('caracteristiques', 'Caractéristiques', isRentable({ ref: l.ref, type: l.type, surface: l.surf, loyer: l.hc })),
           T('numFiscal', 'N° fiscal du logement', _s(l.numFiscal) !== '', { warn: true, detail: 'obligatoire depuis 2024' }),
-          T('dpe', 'DPE', !!(l.dpe && (l.dpe.classe || l.dpe.lettre || l.dpe.note))),
+          // `dpe` = objet {classe|lettre|note} (schéma courant) OU chaîne legacy ('D') sur
+          // les vieux logements (même tolérance que _diagGet côté app).
+          T('dpe', 'DPE', typeof l.dpe === 'string' ? l.dpe.trim() !== '' : !!(l.dpe && (l.dpe.classe || l.dpe.lettre || l.dpe.note))),
           bailTask,
         ] });
     });

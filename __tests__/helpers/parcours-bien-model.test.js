@@ -183,6 +183,15 @@ describe('completionModel', () => {
     expect(m.nodes[2].badge).toBe('loue');
     expect(m.nodes[3].badge).toBe('vac');
   });
+  it('dpe legacy chaîne non vide (vieux logements) ⇒ tâche dpe done', () => {
+    const r = completionModel({ entite: ENT2, immeuble: IMM2, logements: [{ ...LOGS2[0], dpe: 'D' }], bauxActifs: BAUX2 });
+    expect(r.nodes[2].tasks.find(x => x.id === 'dpe').status).toBe('done');
+  });
+  it('dpe objet {classe} ⇒ tâche dpe done ; null ⇒ todo', () => {
+    const r = completionModel({ entite: ENT2, immeuble: IMM2, logements: [{ ...LOGS2[0], dpe: { classe: 'D' } }], bauxActifs: BAUX2 });
+    expect(r.nodes[2].tasks.find(x => x.id === 'dpe').status).toBe('done');
+    expect(m.nodes[2].tasks.find(x => x.id === 'dpe').status).toBe('todo'); // LOGS2[0].dpe = null
+  });
   it('bail repris vérifié + tout rempli ⇒ nœud full', () => {
     const full = completionModel({
       entite: { ...ENT2, gerant: 'D. Keller', emailEnvoi: 'x@y.z', iban: 'FR76...' },
