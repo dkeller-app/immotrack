@@ -41846,6 +41846,7 @@ function _acteApply() {
     const im0 = d.immeuble || {};
     const immNom = ((im0.adr || '').trim() || (im0.ville || '').trim() || 'Immeuble importé');
     let im = null, immCreated = false;
+    // !entCreated = défense en profondeur : _acteCollectVerif invalide déjà dupImmeuble si forceNewEntity/dupEntity change ; cette garde couvre un draft stale.
     if (d.dupImmeuble && d.dupImmeuble.immId && !entCreated) {
       im = (ent.immeubles || []).find(x => x && String(x.id) === String(d.dupImmeuble.immId) && !x._deleted) || null;
     }
@@ -42004,7 +42005,9 @@ function _acteApply() {
     else if (annexBiens) im.nbLots = (Number(im.nbLots) || 0) + annexBiens;
 
     // ── 5. PERSISTANCE + DRIVE + RAFRAÎCHISSEMENT.
-    // saveDB() isolé : si quota localStorage dépassé, on annule les push DB en mémoire (pas de doublon au prochain save).
+    // saveDB() isolé : NB saveDB AVALE l'erreur de quota localStorage (catch interne → toast → return true) ;
+    // le rollback couvre les throw internes (_undoOnSaveDB/_auditFlushPending/__immoMarkDirty…) et tout
+    // futur saveDB qui remonterait l'échec — on annule alors les push DB en mémoire (pas de doublon au prochain save).
     try { saveDB(); }
     catch (e) { _rollback.reverse().forEach(fn => { try { fn(); } catch (_) {} }); throw e; }
     if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
@@ -42029,7 +42032,7 @@ function _acteRenderSucces() {
   if (msg) {
     const bits = [];
     bits.push(c.entCreated ? `Bailleur <b>${escHtml(c.entNom || '')}</b> créé` : `Rattaché au bailleur <b>${escHtml(c.entNom || '')}</b>`);
-    bits.push(`immeuble <b>${escHtml(c.immNom || '')}</b>`);
+    bits.push(c.immCreated === false ? `lots ajoutés à l'immeuble <b>${escHtml(c.immNom || '')}</b> (existant)` : `immeuble <b>${escHtml(c.immNom || '')}</b>`);
     bits.push(`<b>${c.nbLog || 0}</b> logement(s)`);
     if (c.annexBiens) bits.push(`<b>${c.annexBiens}</b> annexe(s) en bien`);
     if (c.annexAttached) bits.push(`<b>${c.annexAttached}</b> annexe(s) rattachée(s)`);
