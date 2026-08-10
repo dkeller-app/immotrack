@@ -85,6 +85,62 @@ function _decorateLog(l) {
   return { ...l, completeness: logementCompleteness(l) };
 }
 
+/**
+ * Modèle du fil de complétion (écran accordéon « complétion à 100 % »). PUR : tout
+ * arrive en données. `bauxActifs` = map {ref: bail} des seuls baux ACTIFS (précalculée
+ * par l'appelant) ; un bail `source.import === 'acte'` est un bail repris de l'acte.
+ * @param {object} p {entite, immeuble, logements[], bauxActifs:{ref:bail}}
+ * @returns {{nodes:[{kind,id,name,sub,badge,full,tasks:[{id,label,detail,status,action}]}], pct:number}}
+ */
+export function completionModel({ entite, immeuble, logements, bauxActifs }) {
+  const ent = entite || {}, imm = immeuble || {}, logs = logements || [], baux = bauxActifs || {};
+  const T = (id, label, done, opts) => ({ id, label, detail: (opts && opts.detail) || '',
+    status: done ? 'done' : ((opts && opts.warn) ? 'warn' : 'todo'), action: (opts && opts.action) || null });
+  const nodes = [];
+
+  nodes.push({ kind: 'ent', id: ent.id || null, name: ent.nom || 'Bailleur', sub: 'Bailleur', badge: null, tasks: [
+    T('identite', 'Identité', _s(ent.nom) !== '', { detail: 'nom, forme, SIREN' }),
+    T('gerant', 'Gérant / représentant légal', !!((ent.gerants || []).length) || _s(ent.gerant) !== '', { detail: 'requis sur les baux' }),
+    T('coordonnees', 'Coordonnées', _s(ent.emailEnvoi) !== '', { detail: 'email d’envoi' }),
+    T('iban', 'IBAN', _s(ent.iban) !== '', { detail: 'quittances & appels de loyer' }),
+  ] });
+
+  const eq = imm.equipementsCommuns || {};
+  const hasEq = Object.keys(eq).some((k) => k !== 'customs' && eq[k]) || ((eq.customs || []).length > 0);
+  nodes.push({ kind: 'imm', id: imm.id || null, name: imm.nom || 'Immeuble', sub: _s(imm.ville), badge: null, tasks: [
+    T('adresse', 'Adresse', _s(imm.adr) !== '' && _s(imm.ville) !== ''),
+    T('valeur', 'Prix / valeur estimée', _num(imm.valeurEstimee) !== ''),
+    T('annee', 'Année de construction', _num(imm.annee) !== '', { detail: 'absente des actes — viendra du DPE' }),
+    T('equipements', 'Équipements communs', hasEq),
+  ] });
+
+  logs.forEach((l) => {
+    const bail = baux[l.ref] || null;
+    const repris = !!(bail && bail.source && bail.source.import === 'acte');
+    let bailTask;
+    if (bail && repris && !bail.reprisVerifie) bailTask = T('bail', 'Vérifier le bail repris', false, { warn: true, action: 'verifier-repris', detail: 'état civil, loyer, clauses' });
+    else if (bail) bailTask = T('bail', 'Bail en place', true);
+    else if (l.vacantAssume) bailTask = T('bail', 'Vacant assumé', true, { detail: 'bail à créer plus tard si besoin' });
+    else bailTask = T('bail', 'Créer le bail', false, { action: 'creer-bail', detail: 'wizard bail existant' });
+    nodes.push({ kind: 'log', id: l.ref, name: l.ref,
+      sub: [l.type, l.surf ? (l.surf + ' m²') : ''].filter(Boolean).join(' · '),
+      badge: bail ? 'loue' : 'vac',
+      tasks: [
+        // Caractéristiques = identité louable du parcours (réf/type/surface/loyer),
+        // schéma logement stocké : `surf` → surface, `hc` → loyer.
+        T('caracteristiques', 'Caractéristiques', isRentable({ ref: l.ref, type: l.type, surface: l.surf, loyer: l.hc })),
+        T('numFiscal', 'N° fiscal du logement', _s(l.numFiscal) !== '', { warn: true, detail: 'obligatoire depuis 2024' }),
+        T('dpe', 'DPE', !!(l.dpe && (l.dpe.classe || l.dpe.lettre || l.dpe.note))),
+        bailTask,
+      ] });
+  });
+
+  nodes.forEach((n) => { n.full = n.tasks.every((t) => t.status === 'done'); });
+  const all = nodes.flatMap((n) => n.tasks);
+  const pct = all.length ? Math.round(all.filter((t) => t.status === 'done').length / all.length * 100) : 100;
+  return { nodes, pct };
+}
+
 export function parcoursSummary(tree) {
   const t = tree || { immeubles: [] };
   const realImms = t.immeubles.filter((i) => !i.synthetic);

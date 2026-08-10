@@ -134,6 +134,67 @@ describe('identiteParcours — garde bloquante du fil rouge (mockup validé, dé
   });
 });
 
+import { completionModel } from './parcours-bien-model.js';
+
+const ENT2 = { id: 'e1', nom: 'SCI DK', gerants: [], gerant: '', emailEnvoi: '', iban: '' };
+const IMM2 = { id: 'i1', nom: '16 rue des Tilleuls', adr: '16 rue des Tilleuls', ville: 'Mulhouse', annee: 0, valeurEstimee: 0, equipementsCommuns: { customs: [] } };
+const LOGS2 = [
+  { ref: 'A', imm: '16 rue des Tilleuls', type: 'T2', surf: 34, hc: 650, numFiscal: '', dpe: null },          // occupé bail repris
+  { ref: 'B', imm: '16 rue des Tilleuls', type: 'T1', surf: 28, hc: 500, numFiscal: '', dpe: null },          // vacant louable
+  { ref: 'C', imm: '16 rue des Tilleuls', type: '',   surf: 0,  hc: 0,   numFiscal: '', dpe: null, vacantAssume: true }, // vacant assumé
+];
+const BAUX2 = { A: { ref: 'A', source: { import: 'acte' }, reprisVerifie: false } };
+
+describe('completionModel', () => {
+  const m = completionModel({ entite: ENT2, immeuble: IMM2, logements: LOGS2, bauxActifs: BAUX2 });
+  it('nœuds = bailleur, immeuble, puis chaque logement (ordre du fil)', () => {
+    expect(m.nodes.map(n => n.kind)).toEqual(['ent', 'imm', 'log', 'log', 'log']);
+  });
+  it('bailleur : identité done (nom posé), gérant/coordonnées/IBAN todo', () => {
+    const t = m.nodes[0].tasks;
+    expect(t.find(x => x.id === 'identite').status).toBe('done');
+    expect(t.find(x => x.id === 'gerant').status).toBe('todo');
+    expect(t.find(x => x.id === 'iban').status).toBe('todo');
+  });
+  it("immeuble : adresse done, année/valeur/équipements todo", () => {
+    const t = m.nodes[1].tasks;
+    expect(t.find(x => x.id === 'adresse').status).toBe('done');
+    expect(t.find(x => x.id === 'annee').status).toBe('todo');
+  });
+  it('log A (bail repris non vérifié) : tâche bail = warn verifier-repris', () => {
+    const t = m.nodes[2].tasks.find(x => x.id === 'bail');
+    expect(t.status).toBe('warn');
+    expect(t.action).toBe('verifier-repris');
+  });
+  it('log B (vacant louable) : tâche bail = todo creer-bail ; numFiscal = warn', () => {
+    const t = m.nodes[3].tasks.find(x => x.id === 'bail');
+    expect(t.status).toBe('todo');
+    expect(t.action).toBe('creer-bail');
+    expect(m.nodes[3].tasks.find(x => x.id === 'numFiscal').status).toBe('warn');
+  });
+  it('log C (vacantAssume) : tâche bail done, mais caractéristiques todo (type/surface vides)', () => {
+    expect(m.nodes[4].tasks.find(x => x.id === 'bail').status).toBe('done');
+    expect(m.nodes[4].tasks.find(x => x.id === 'caracteristiques').status).toBe('todo');
+  });
+  it('pct global cohérent (done/total, arrondi) et badges', () => {
+    const done = m.nodes.flatMap(n => n.tasks).filter(t => t.status === 'done').length;
+    const tot = m.nodes.flatMap(n => n.tasks).length;
+    expect(m.pct).toBe(Math.round(done / tot * 100));
+    expect(m.nodes[2].badge).toBe('loue');
+    expect(m.nodes[3].badge).toBe('vac');
+  });
+  it('bail repris vérifié + tout rempli ⇒ nœud full', () => {
+    const full = completionModel({
+      entite: { ...ENT2, gerant: 'D. Keller', emailEnvoi: 'x@y.z', iban: 'FR76...' },
+      immeuble: { ...IMM2, annee: 1971, valeurEstimee: 285000, equipementsCommuns: { customs: [], ascenseur: true } },
+      logements: [{ ...LOGS2[0], numFiscal: '123', dpe: { classe: 'D' } }],
+      bauxActifs: { A: { ref: 'A', source: { import: 'acte' }, reprisVerifie: true } },
+    });
+    expect(full.pct).toBe(100);
+    expect(full.nodes.every(n => n.full)).toBe(true);
+  });
+});
+
 describe('isRentable — un logement ne propose « Créer le bail » que si son identité louable est complète (mockup)', () => {
   it('louable : réf + type + surface + loyer présents', () => {
     expect(isRentable({ ref: 'F-102', type: 'T2', surface: 44, loyer: 508 })).toBe(true);
