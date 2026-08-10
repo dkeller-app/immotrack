@@ -15,16 +15,11 @@
 
 ---
 
-## 🎯 CAP — V1 LIGHT FIN AOÛT 2026 (décision user 10/08, PRIME sur tout le reste)
+## 🎯 CAP — V1 LIGHT FIN AOÛT 2026 (VALIDÉ user 10/08, PRIME sur tout le reste)
 
-> **[V1-LIGHT-FIN-AOUT](docs/subjects/V1-LIGHT-FIN-AOUT.md)** — 🔄 **Décision stratégique 10/08** après audit complet (monolithe 54k lignes/6,8 MB, 3 copies index* divergentes, ~70 worktrees, clone pilotage divergé 609/108) + mapping PPTX user (`Propryo mapping.pptx` = cahier des charges cible : garder/supprimer/refaire par module).
-> **Objectif : V1 light livrée au 31/08** — features consolidées uniquement, chaque onglet passé au cahier des charges puis **validé téléphone + tablette + PC** (gate non négociable, un onglet à la fois).
-> - **Préalable absolu (S1)** : connexion + partage BLINDÉS (keep-alive Supabase + re-test iPhone + session 2 appareils E2E · fix EDL espace tiers fini RLS/audit/E2E + écrans invitation 4-7 + E2E réel Didier↔Marion) + **nettoyage repo** (clone pilotage réaligné origin/main, purge ~65 worktrees, fin de la triple copie index* → mode sandbox intégré).
-> - **Périmètre IN (8)** : Accueil/KPI (actuel) · Biens (simplifiés selon mapping : purge onglets Description/Présentation/Général/Compteurs/annonces) · Bail (actuel + historique v15.496) · Candidature · EDL (PC/tablette) · Import bancaire · Quittances (simplifiées) · Connexion+partage blindés.
-> - **Périmètre OUT (après V1)** : charges/régul · suivi (à redéfinir) · agenda (à redéfinir) · annonces · signature à distance+OTP · EDL mobile terrain · fil rouge acte de vente · refonte P&L.
-> - **Pipeline par onglet** : CDC → mockup 3 formats → validation user → chantier TDD (worktree origin/main) → audit code-reviewer → déploiement → smoke 3 formats = VALIDÉ.
-> - **Timeline** : S1 11-17/08 blindage+nettoyage+CDC Biens · S2 18-24/08 Biens livrés + CDC/validation Bail-Candidature-EDL · S3 25-31/08 Import-Quittances-KPI + stabilisation + smoke global.
-> - **Règle de gel** : plus aucune nouvelle fonction dans index.html — toute feature naît en module js/ testé.
+> **Document unique de référence : [docs/CDC-V1-LIGHT.md](docs/CDC-V1-LIGHT.md)** (règles de fonctionnement + périmètre + CDC par onglet + modèle Claude par chantier). Validé dans le chat pilotage 10/08 — toute modification passe par validation user.
+> Résumé : blindage connexion+partage AVANT tout · une session de chantier à la fois · CDC détaillé + mockup 3 formats + validation AVANT tout code · gate = smoke téléphone+tablette+PC · gel du monolithe (toute logique en module js/) · valider puis figer (plus de docs spéculatifs).
+> Sessions : partage-EDL et fil rouge création CONTINUENT · pièces-obligatoires TUÉE · dormantes archivées · worktrees purgés 10/08 (gardés : Immo, Immo-wt-partage-edl, Immo-wt-filrouge-complet).
 
 ---
 
