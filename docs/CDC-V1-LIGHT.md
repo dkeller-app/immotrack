@@ -70,11 +70,18 @@ Une V1 propre, stable, utilisable au quotidien sur **téléphone, tablette et PC
 
 > Chaque onglet aura son CDC **détaillé** au moment de son tour (règle 5). Ce qui suit est le cadre validé.
 
-### Biens — référentiel
-Entrée : **fil rouge création** (analyse d'acte de vente, saisie manuelle, import Excel simple).
-- **Bailleur** : nom, type, SIREN/RCS, gérants, siège, IBAN/BIC, signature, logo. Un seul onglet Immeubles + documents dans l'entête.
-- **Immeuble** : Logements + charges communes uniquement + documents dans l'entête. Résoudre le doublon régime juridique / année construction / type habitat.
-- **Logement** : identité (réf, type d'usage, rattachements, T2/T3, surface, tantième, loyer HC, charges, étage, n° appart). Supprimer : boutons annonce ×2, onglets Général, Compteurs, Présentation. Fusionner Description dans Équipements (T2/T3 = nb pièces principales, chambres ajoutables avec équipements). Déplacer n° identifiant fiscal + case charges communes. Diagnostics conservés (DPE, plomb…).
+### Biens — référentiel · **CDC DÉTAILLÉ VALIDÉ 10/08** (audit code v15.498 + réponses user)
+Entrée : **fil rouge création** (analyse d'acte de vente, saisie manuelle, import Excel simple — session en cours).
+
+État actuel audité : bailleur 3 onglets (Immeubles/Documents juridiques/Compta globale) · immeuble 5 (Logements/Plan d'occupation/Charges communes/Documents/Assurances) · fiche logement 5 (Général/Bail/Comptabilité/Compteurs/Documents) · modale logement 5 (Identité/Description/Diagnostics/Équipements/Présentation) + boutons Annonce.
+
+Cible validée :
+- **Bailleur → 1 onglet (Immeubles) + entête** : identité complète (nom, type, SIREN/RCS, gérants, siège, IBAN/BIC, signature, logo) + documents juridiques remontés dans l'entête. **Compta globale SUPPRIMÉE → part dans Finances P&L** (décision user 10/08).
+- **Immeuble → 2 onglets (Logements · Charges communes) + entête** : documents communs dans l'entête. **Assurance immeuble = simple document (MRO/PNO) dans les documents d'entête** — onglet Assurances supprimé, aucune logique dédiée (décision user 10/08). **Plan d'occupation conservé SANS onglet** : intégré à l'onglet Logements en vue commutable Liste ⇄ Frise (toggle, rendu existant réutilisé) — à confirmer au mockup. Doublon résolu : régime juridique / période construction / type habitat saisis une fois à l'immeuble, hérités par les logements.
+- **Modale logement → 3 onglets (Identité · Diagnostics · Équipements)** : Description fusionnée dans Équipements (type T2/T3 = nb pièces principales ; pièces + chambres ajoutables avec leurs équipements — structure réutilisée par l'EDL). Présentation supprimée + les 2 boutons Annonce partout. Identité récupère n° identifiant fiscal + case charges communes.
+- **Fiche logement → 3 onglets (Bail · Comptabilité · Documents)** : Général supprimé (synthèse dans l'entête de fiche) ; Compteurs supprimé → relevés dans Charges communes de l'immeuble (sélecteur de logement).
+
+Prochain gate : mockups 4 surfaces × 3 formats (Opus), réutilisant les écrans existants → validation user → chantier Fable.
 
 ### Candidature
 Fonctionnement actuel + fix relay-401 intégré. Dossier → bail.
