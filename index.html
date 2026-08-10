@@ -37095,6 +37095,11 @@ function _histoSaveCorrPeriode(){
   if(dq && String(debut).slice(0,7) <= dq){
     if(!confirm2(`Le mois ${String(debut).slice(0,7)} est déjà quittancé (dernier : ${dq}). La quittance émise fait foi et ne sera pas recalculée. Enregistrer quand même une correction à partir de ${fd(debut)} ?`)) return;
   }
+  // R1 (re-audit 17/07) : fin < debut → cloturerPeriodeParDebut no-op silencieux → la
+  // correction resterait OUVERTE à côté de la vivante (l'état interdit). Refus explicite.
+  if(fin && String(fin).slice(0,10) < String(debut).slice(0,10)){
+    showToast('La date de fin doit être postérieure au début de la période','err'); return;
+  }
   // B1-bis (audit 17/07) : une correction DANS LE PASSÉ (avant la dernière période vivante)
   // doit poser une FIN explicite — appliquerNouvellePeriode ne clôt que la période ouverte
   // antérieure : sans fin, deux périodes resteraient ouvertes (dû divergent).
