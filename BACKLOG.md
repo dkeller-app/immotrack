@@ -12,7 +12,7 @@ Blindage connexion + partage AVANT tout · CDC + mockup 3 formats + validation u
 
 | Quoi | État | Reste |
 |---|---|---|
-| **Blindage partage** — session partage-EDL (`Immo-wt-partage-edl`, `fix/partage-edl-espace-tiers`) | fix D1b construit, repro E2E 7/7 | suite RLS · audit code-reviewer · un-delete EDL Marion · **E2E réel Didier↔Marion** · intégration puis destruction du worktree |
+| **Blindage partage** — partage-EDL | ✅ **fix D1b INTÉGRÉ + DÉPLOYÉ v15.499** (audits ×2 SÛR, EDL 15/07 restauré, worktree détruit) | **E2E réel Didier↔Marion** : chacun recharge l'app (v15.499) → voit l'EDL 15/07 → Didier le ré-enregistre (test du fix) → l'EDL survit des 2 côtés. Follow-ons : migration 0044 à appliquer (feu vert user) · upsert-D2-en-ambiguïté (homonymes SMARTOSAURUS, fiche sujet) |
 | **Fil rouge création** — session (`Immo-wt-filrouge-complet`, `feat/fil-rouge-complet`) | étape 2/8 | étapes 3-8 · rebase v15.498+ · intégration puis destruction du worktree |
 | **Blindage connexion** | keep-alive poussé | vérifier le keep-alive actif · E2E réel login PC + iPhone (post-pause Supabase) |
 
@@ -33,6 +33,7 @@ Charges/régularisation · Agenda (à redéfinir) · Annonces (supprimées de la
 
 ## ✅ Livré récemment
 
+- **v15.499** (10/08) : fix partage/EDL (D1b réadoption du tag d'espace, `store-sync.js`) — ré-enregistrer un EDL ne détruit plus la ligne cloud (cause de l'EDL 15/07 FERRETTE 001 soft-deleted le 18/07, restauré) ; removes suspendus en ambiguïté d'homonymie. ⚠️ ménage restant : `legal-2044.test.js`/`data-defaults.test.js` réfèrent les `index-test*.html` supprimés au nettoyage → 3 rouges + 18 skipped préexistants sur main.
 - **v15.498** (10/08) : relay-401 candidatures — liens expirés clos localement, fin de la boucle 401.
 - **v15.497** (10/08) : revert SC1 pièces obligatoires (retrait complet demandé user).
 - **v15.496** (10/08) : historique bail en onglet (timeline, DG, popup modif → barème).
