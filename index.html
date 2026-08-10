@@ -41856,7 +41856,22 @@ function _acteApply() {
       im.notes = [(im.notes || '').trim(), "Lots ajoutés depuis l'acte « " + (d.fileName || 'acte.pdf') + " » le " + new Date().toLocaleDateString('fr-FR') + '.'].filter(Boolean).join('\n');
       if (typeof _stamp === 'function') _stamp(im);
       _rollback.push(() => { im.nbLots = _prevNbLots; im.notes = _prevNotes; im._modifiedAt = _prevMod; });
-      if (typeof _auditLog === 'function') _auditLog('update', 'immeuble', im.id, ent.nom + '/' + im.nom + ' (lots acte)');
+      // Audit 'update' réversible (atomicité) : im.id n'est PAS dans _createdIds (immeuble existant)
+      // → la purge générique ne couvre pas cette entrée. _auditLog ne retourne pas l'entrée (et son
+      // try/catch peut ne rien pousser) → capture par longueur avant/après. Rollback par RÉFÉRENCE
+      // d'objet dans les DEUX listes : saveDB() appelle _auditFlushPending() AVANT l'écriture
+      // localStorage, donc en cas d'échec l'entrée peut déjà être dans DB.auditTrail (flush = mêmes
+      // objets déplacés tels quels). Pas de purge par entityId : on sur-purgerait l'historique
+      // d'audit légitime de cet immeuble existant.
+      if (typeof _auditLog === 'function') {
+        const _apLen = _auditPending.length;
+        _auditLog('update', 'immeuble', im.id, ent.nom + '/' + im.nom + ' (lots acte)');
+        const _updEntry = _auditPending.length > _apLen ? _auditPending[_apLen] : null;
+        if (_updEntry) _rollback.push(() => {
+          let i = _auditPending.indexOf(_updEntry); if (i >= 0) _auditPending.splice(i, 1);
+          if (DB.auditTrail) { i = DB.auditTrail.indexOf(_updEntry); if (i >= 0) DB.auditTrail.splice(i, 1); }
+        });
+      }
     } else {
       immCreated = true;
       const notesParts = [];
