@@ -46,6 +46,25 @@ export function dateEffetModifDefaut(todayIso, dernierMoisQuittanceYm) {
 
 const _nr = (s) => String(s == null ? '' : s).trim().toLowerCase();
 const _ymd = (iso) => String(iso == null ? '' : iso).slice(0, 10);
+
+/**
+ * B1 (audit 17/07) : borne minimale de la date d'effet d'une NOUVELLE période — le 1er du
+ * mois SUIVANT le dernier début de période vivante du lot. appliquerNouvellePeriode ne clôt
+ * que la période ouverte ANTÉRIEURE au nouveau début : sans cette borne, une date d'effet
+ * placée avant une période vivante plus récente (ex. IRL en attente déjà inscrite au barème)
+ * laisserait DEUX périodes ouvertes → dû divergent silencieusement.
+ * @returns {string} borne ISO ('' si barème vide pour ce lot)
+ */
+export function borneMinEffetBareme(bareme, ref) {
+  const want = _nr(ref);
+  let max = '';
+  for (const p of (bareme || [])) {
+    if (!p || p._deleted || _nr(p.ref) !== want) continue;
+    const d = _ymd(p.debut);
+    if (d > max) max = d;
+  }
+  return max ? _premierDuMoisSuivant(max) : '';
+}
 function _veille(iso) {
   const d = new Date(_ymd(iso) + 'T00:00:00');
   d.setDate(d.getDate() - 1);
@@ -87,6 +106,11 @@ export function redaterRevisionIRL(input) {
   const oldEffet = ancienEffet || _ymd(hist[idx].dateEffet);
   const pIdx = bar.findIndex((p) => p && !p._deleted && _nr(p.ref) === want
     && p.source === 'irl' && _ymd(p.debut) === oldEffet);
+  // M2 (audit 17/07) : sans période barème correspondante (révision legacy pré-Q1), re-dater
+  // l'historique seul ferait diverger l'affichage du dû réel → refus explicite.
+  if (pIdx < 0) {
+    return { ok: false, erreur: 'Période du barème introuvable pour cette révision — utiliser « Corriger une période ».' };
+  }
 
   if (pIdx >= 0) {
     // Bornes : strictement après le debut de la période précédente, avant la suivante.

@@ -19680,6 +19680,11 @@ function _openBailValidModal(ref, changes){
   const dq = (typeof _dernierMoisQuittanceYm === 'function') ? _dernierMoisQuittanceYm(ref) : null;
   const def = (typeof _bailModifDateEffetDefaut === 'function')
     ? _bailModifDateEffetDefaut(_histoBailTodayIso(), dq) : { effetIso: '', ajustee: false };
+  // B1 (audit 17/07) : jamais avant/dans la dernière période vivante du lot (ex. IRL en
+  // attente déjà inscrite au barème) — sinon deux périodes ouvertes, dû divergent.
+  const bmin = (typeof window._bailModifBorneMinEffet === 'function')
+    ? window._bailModifBorneMinEffet(DB.loyerBareme||[], ref) : '';
+  if (bmin && def.effetIso && def.effetIso < bmin) { def.effetIso = bmin; def.ajustee = true; }
   el('bv-sub').textContent = ref + ' — chaque modification financière est datée, motivée et tracée dans l\'historique du bail.';
   el('bv-changes').innerHTML = changes.map(c => `
     <div class="bv-row"><span class="bv-lbl">${escHtml(c.label)}</span>
@@ -19702,8 +19707,13 @@ function _bailValidConfirm(){
   if (typeof window !== 'undefined' && typeof window._baremeClampDateEffet === 'function'){
     const dq = (typeof _dernierMoisQuittanceYm === 'function' && refPop) ? _dernierMoisQuittanceYm(refPop) : null;
     const cl = window._baremeClampDateEffet(effet, { dernierMoisQuittanceYm: dq || undefined });
-    if (cl.ajustee) showToast(`Date d'effet ajustée au ${fd(cl.effetIso)} (mois quittancé / normalisation au 1er)`, 'warn', 5000);
-    effet = cl.effetIso;
+    let effetOk = cl.effetIso, ajuste = cl.ajustee;
+    // B1 (audit 17/07) : borne min = après la dernière période vivante (pas de double période ouverte).
+    const bmin = (typeof window._bailModifBorneMinEffet === 'function')
+      ? window._bailModifBorneMinEffet(DB.loyerBareme||[], refPop) : '';
+    if (bmin && effetOk < bmin) { effetOk = bmin; ajuste = true; }
+    if (ajuste) showToast(`Date d'effet ajustée au ${fd(effetOk)} (mois quittancé / période existante / 1er du mois)`, 'warn', 5000);
+    effet = effetOk;
   }
   _bailValidPending = { dateEffet: effet, motif };
   closeM('ov-bail-valid');
@@ -19711,6 +19721,10 @@ function _bailValidConfirm(){
 }
 
 function saveBail() {
+  // M1 (audit 17/07) : consommer la validation EN TÊTE — si le save abandonne plus loin
+  // (confirm composition, DDT, DPE, Visale, dates…), rien ne doit rester armé : la
+  // prochaine édition financière repassera par la popup (comportement sain).
+  const _pendingVal = _bailValidPending; _bailValidPending = null;
   const ref = (el('b-ref')?.tagName==='SELECT' ? el('b-ref').value : v('b-ref').trim()) || v('b-edit-ref');
   if(!ref) { showToast('Référence logement requise','err'); return; }
   const locs = getBailLocs().filter(l=>l.nom.trim());
@@ -19848,10 +19862,9 @@ function saveBail() {
     ? _bailModifDetecterChangements(_prevFin, bail) : [];
   let _validCtx = null;
   if (_finChanges.length) {
-    if (!_bailValidPending) { _openBailValidModal(ref, _finChanges); return; }
-    _validCtx = _bailValidPending;
+    if (!_pendingVal) { _openBailValidModal(ref, _finChanges); return; }
+    _validCtx = _pendingVal;
   }
-  _bailValidPending = null;
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
   DB.baux[ref] = bail;
   if (_resetSignaturesAfterSave) {
@@ -36829,7 +36842,15 @@ function _renderHistoBailSection(ref){
       <div class="sep"></div>
       <div class="since">depuis le <b>${fd(v.depuis)}</b>${v.source==='irl'?'<br>(révision IRL)':(v.source==='manuel'?'<br>(modification)':'')}</div>
       ${nextChip?`<div class="sep"></div>${nextChip}`:''}
-    </div>` : (chapitres.length ? `<div class="hl-nowband"><div class="since">Aucun bail en cours sur ce lot (logement vacant) — l'historique des baux passés reste consultable ci-dessous.</div></div>` : '');
+    </div>` : (bailCur ? (()=>{
+      // Mineur 1 (audit 17/07) : bail courant SANS période couvrant aujourd'hui (bail démarrant
+      // le mois prochain, barème lacunaire) — ne pas afficher « vacant », montrer la prochaine.
+      const fut = (DB.loyerBareme||[]).filter(p=>p && !p._deleted
+        && String(p.ref||'').trim().toLowerCase()===String(ref).trim().toLowerCase()
+        && String(p.debut||'').slice(0,10) > _histoBailTodayIso())
+        .sort((a,b)=>String(a.debut).localeCompare(String(b.debut)))[0];
+      return `<div class="hl-nowband"><div class="since">Pas encore de loyer en vigueur ce mois-ci${fut?` — <b>${fmt((+fut.hc||0)+(+fut.ch||0))}</b> à partir du <b>${fd(fut.debut)}</b>`:''}.</div></div>`;
+    })() : (chapitres.length ? `<div class="hl-nowband"><div class="since">Aucun bail en cours sur ce lot (logement vacant) — l'historique des baux passés reste consultable ci-dessous.</div></div>` : ''));
 
   // ── bandeau migration (incohérences recalculées, étape 3 — conservé) ──
   const incs = _histoLoyerIncoherences(ref);
@@ -36862,9 +36883,17 @@ function _renderHistoBailSection(ref){
 }
 
 // Un chapitre (accordéon) = un bail. Courant déplié par défaut ; état mémorisé par session.
+// Mineur 3 (audit 17/07) : un chapitre CLOS dont le DG est à restituer / en retard est déplié
+// d'office — l'ancien panneau DG était toujours visible, le CTA ne doit pas se cacher.
 function _histoBailChapHtml(c, ref, refSafe, bailForDg){
   const key = ref+'|'+(c.bailDebut||'');
-  if(!(key in _histoBailOuverts)) _histoBailOuverts[key] = (c.statut==='courant');
+  if(!(key in _histoBailOuverts)){
+    let dgUrgent = false;
+    if(c.statut==='clos' && bailForDg && c.bail===bailForDg && typeof _dgStatut==='function'){
+      try{ const st=_dgStatut(bailForDg).statut; dgUrgent = (st===DG_STATUS.A_RESTITUER || st===DG_STATUS.EN_RETARD); }catch(e){}
+    }
+    _histoBailOuverts[key] = (c.statut==='courant') || dgUrgent;
+  }
   const open = !!_histoBailOuverts[key];
   const keySafe = key.replace(/'/g,"\\'");
   const duree = _hlNbMois(c.debut, c.fin);
@@ -37022,7 +37051,9 @@ function _histoIrlCorrSave(){
   //    pendingApply et revenir à l'ancien HC (le boot _applyPendingIRLRevisions ré-appliquera) ;
   //  · effet arrivé alors que la révision était en attente → _applyPendingIRLRevisions l'applique.
   const todayIso = _histoBailTodayIso();
-  const rev = (DB.irlHistorique||[]).find(h => h && String(h.ref)===String(ctx.ref)
+  // Mineur 6 (audit 17/07) : ref TOLÉRANTE (trim+casse), alignée sur le module.
+  const _nrRef = s => String(s==null?'':s).trim().toLowerCase();
+  const rev = (DB.irlHistorique||[]).find(h => h && _nrRef(h.ref)===_nrRef(ctx.ref)
     && (String(h.date||'').slice(0,10)===String(ctx.revisionDate).slice(0,10) || String(h.dateRevision||'').slice(0,10)===String(ctx.revisionDate).slice(0,10))
     && String(h.dateEffet||'').slice(0,10)===r.effetIso);
   if(rev && r.effetIso > todayIso && !rev.pendingApply){
@@ -37063,6 +37094,16 @@ function _histoSaveCorrPeriode(){
   const dq = (typeof _dernierMoisQuittanceYm==='function') ? _dernierMoisQuittanceYm(ref) : null;
   if(dq && String(debut).slice(0,7) <= dq){
     if(!confirm2(`Le mois ${String(debut).slice(0,7)} est déjà quittancé (dernier : ${dq}). La quittance émise fait foi et ne sera pas recalculée. Enregistrer quand même une correction à partir de ${fd(debut)} ?`)) return;
+  }
+  // B1-bis (audit 17/07) : une correction DANS LE PASSÉ (avant la dernière période vivante)
+  // doit poser une FIN explicite — appliquerNouvellePeriode ne clôt que la période ouverte
+  // antérieure : sans fin, deux périodes resteraient ouvertes (dû divergent).
+  const _dernierDebutVivant = (DB.loyerBareme||[]).reduce((m,p)=>{
+    if(!p||p._deleted||String(p.ref||'').trim().toLowerCase()!==String(ref).trim().toLowerCase()) return m;
+    const d=String(p.debut||'').slice(0,10); return d>m?d:m; },'');
+  if(!fin && _dernierDebutVivant && String(debut).slice(0,10) <= _dernierDebutVivant){
+    showToast(`Cette correction commence avant la dernière période du barème (${fd(_dernierDebutVivant)}) : indiquez une date de FIN, sinon deux périodes resteraient ouvertes.`,'err',7000);
+    return;
   }
   if(typeof window!=='undefined' && typeof window._baremeAppliquerNouvellePeriode==='function'){
     DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], {

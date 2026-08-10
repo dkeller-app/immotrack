@@ -106,3 +106,37 @@ describe('redaterRevisionIRL — corriger la date d\'effet depuis la timeline', 
     expect(r.ok).toBe(false);
   });
 });
+
+// ── Corrections audit 17/07 : B1 (borne min d'effet = jamais avant/dans la dernière
+// période vivante du lot → pas de double période ouverte) et M2 (re-datage refusé si
+// la période barème de la révision est introuvable — legacy pré-Q1).
+import { borneMinEffetBareme } from '../../js/core/bail-modif.js';
+
+describe('borneMinEffetBareme — B1 : la nouvelle période ne peut pas passer derrière une période vivante', () => {
+  const bareme = [
+    { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 65, source: 'bail' },
+    { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 505.15, ch: 65, source: 'irl' }
+  ];
+
+  it('borne = 1er du mois SUIVANT le dernier début vivant du lot', () => {
+    expect(borneMinEffetBareme(bareme, 'F-001')).toBe('2026-08-01');
+    // période future (IRL en attente au 01-10) → borne au 01-11
+    expect(borneMinEffetBareme([...bareme, { ref: 'F-001', debut: '2026-10-01', fin: null, hc: 510, ch: 65, source: 'irl' }], 'F-001')).toBe('2026-11-01');
+  });
+
+  it('tombstones et autres lots ignorés ; barème vide → pas de borne', () => {
+    expect(borneMinEffetBareme([{ ref: 'F-001', debut: '2030-01-01', _deleted: true }, { ref: 'AUTRE', debut: '2030-01-01' }, ...bareme], 'F-001')).toBe('2026-08-01');
+    expect(borneMinEffetBareme([], 'F-001')).toBe('');
+  });
+});
+
+describe('redaterRevisionIRL — M2 : période barème introuvable = refus explicite', () => {
+  it('révision legacy sans période irl correspondante → ok:false (pas de divergence silencieuse)', () => {
+    const hist = [{ ref: 'F-001', date: '2023-04-10', dateRevision: '2023-03-01', dateEffet: '2023-03-01', ancienHC: 480, nouveauHC: 490 }];
+    const bareme = [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 500, ch: 65, source: 'bail' }];
+    const r = redaterRevisionIRL({ irlHistorique: hist, bareme, ref: 'F-001',
+      revisionDate: '2023-04-10', ancienEffet: '2023-03-01', nouvelleDateEffet: '2023-05-01' });
+    expect(r.ok).toBe(false);
+    expect(r.erreur).toMatch(/introuvable/i);
+  });
+});

@@ -136,6 +136,14 @@ export function construireHistoriqueBail(input) {
         hc: periode.hc, ch: periode.ch, note: p.note || ''
       }, debut);
     }
+    // Audit 17/07 (mineur 2) : « Loyer initial » de la carte bail-debut = la PREMIÈRE période
+    // source 'bail' du chapitre (le hc du bail VIVANT est muté par les IRL/modifs).
+    if (p.source === 'bail') {
+      const bd = c.rail.find((r) => r.kind === 'evenement' && r.ev.type === 'bail-debut');
+      if (bd && (!bd.ev._hc0Periode || debut < bd.ev._hc0Periode)) {
+        bd.ev.hc0 = periode.hc; bd.ev.ch0 = periode.ch; bd.ev._hc0Periode = debut;
+      }
+    }
   }
 
   // ── Révisions IRL / renonciations (rattachées par date d'effet puis date de validation).

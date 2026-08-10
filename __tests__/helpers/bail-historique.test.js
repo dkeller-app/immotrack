@@ -204,3 +204,19 @@ describe('enVigueur — bandeau « en vigueur » + prochaine évolution', () => 
     expect(v.prochaine).toBe(null);
   });
 });
+
+describe('audit 17/07 — mineur 2 : « Loyer initial » = première période source bail du chapitre', () => {
+  it('bail-debut affiche le hc/ch de la période initiale, pas le hc VIVANT (muté par IRL)', () => {
+    // bailFric.hc = 505.15 (déjà révisé) mais la période source 'bail' du chapitre = 500 + 50
+    const h = build();
+    const ev = h.chapitres[0].rail.find(r => r.kind === 'evenement' && r.ev.type === 'bail-debut').ev;
+    expect(ev.hc0).toBe(500);
+    expect(ev.ch0).toBe(50);
+  });
+
+  it('sans période bail (barème vide) → repli sur les champs du bail', () => {
+    const h = build({ bareme: [] });
+    const ev = h.chapitres[0].rail.find(r => r.kind === 'evenement' && r.ev.type === 'bail-debut').ev;
+    expect(ev.hc0).toBe(505.15);
+  });
+});
