@@ -18,6 +18,10 @@ describe('canonAdresse', () => {
     expect(canonAdresse('14-16 rue des Tilleuls')).toEqual({ num: '14-16', voie: 'rue des tilleuls' });
     expect(canonAdresse('rue des Tilleuls')).toEqual({ num: '', voie: 'rue des tilleuls' });
   });
+  it('bis/ter : « 16 bis » et « 16bis » donnent le même num', () => {
+    expect(canonAdresse('16 bis rue X').num).toBe(canonAdresse('16bis rue X').num);
+    expect(canonAdresse('16 bis rue X').num).toBe('16bis');
+  });
 });
 
 describe('matchImmeuble', () => {
@@ -38,6 +42,11 @@ describe('matchImmeuble', () => {
     expect(matchImmeuble(ENT, { adr: '16 rue des Tilleuls', ville: 'Colmar' })).toEqual([]);
     expect(matchImmeuble(null, { adr: 'x', ville: 'y' })).toEqual([]);
     expect(matchImmeuble({ immeubles: [] }, { adr: '16 rue des Tilleuls', ville: 'Mulhouse' })).toEqual([]);
+  });
+  it('fallback nom : suffixe ville (« — Mulhouse ») retiré quand adr absent', () => {
+    const ent = { immeubles: [{ id: 'i4', nom: '16 r. des Tilleuls — Mulhouse', ville: 'Mulhouse' }] };
+    const r = matchImmeuble(ent, { adr: '16 rue des Tilleuls', ville: 'Mulhouse' });
+    expect(r[0]).toMatchObject({ imm: ent.immeubles[0], idx: 0, strength: 'identique' });
   });
   it("la ville peut arriver collée au CP (champ vérif « 68100 Mulhouse »)", () => {
     const r = matchImmeuble(ENT, { adr: '16 rue des Tilleuls', ville: '68100 Mulhouse' });

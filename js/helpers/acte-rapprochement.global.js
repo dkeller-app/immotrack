@@ -17,10 +17,11 @@
   // DANS une entité donnée (les liens app sont par NOM → rattacher = pointer un
   // immeuble de CETTE entité). Jamais de décision automatique : on renvoie des
   // candidats triés, l'UI fait choisir.
+  // NB : strip() a déjà remplacé les points par des espaces → on matche des mots nus.
   const VOIE_ABBR = [
-    [/\br\.?\b/g, 'rue'], [/\bav\.?\b/g, 'avenue'], [/\bbd\.?\b/g, 'boulevard'],
-    [/\bpl\.?\b/g, 'place'], [/\bimp\.?\b/g, 'impasse'], [/\bch\.?\b/g, 'chemin'],
-    [/\bsq\.?\b/g, 'square'], [/\ball\.?\b/g, 'allee'], [/\bfg\b/g, 'faubourg'],
+    [/\br\b/g, 'rue'], [/\bav\b/g, 'avenue'], [/\bbd\b/g, 'boulevard'],
+    [/\bpl\b/g, 'place'], [/\bimp\b/g, 'impasse'], [/\bch\b/g, 'chemin'],
+    [/\bsq\b/g, 'square'], [/\ball\b/g, 'allee'], [/\bfg\b/g, 'faubourg'],
   ];
 
   function strip(s) {
@@ -34,13 +35,26 @@
     for (const [re, full] of VOIE_ABBR) s = s.replace(re, full);
     s = s.replace(/\s+/g, ' ').trim();
     const m = s.match(/^(\d+(?:\s*-\s*\d+)?(?:\s?(?:bis|ter|quater))?)\s+(.*)$/);
-    if (m) return { num: m[1].replace(/\s*-\s*/, '-'), voie: m[2].trim() };
+    if (m) return { num: m[1].replace(/\s*-\s*/, '-').replace(/\s+/g, ''), voie: m[2].trim() };
     return { num: '', voie: s };
   }
 
   function canonVille(v) {
     // tolère « 68100 Mulhouse » (champ ville de l'écran vérif) : on retire un CP en tête
     return strip(v).replace(/^\d{5}\s*/, '');
+  }
+
+  /**
+   * Retire un suffixe « - <ville> » en fin de voie (cas fallback sur imm.nom,
+   * souvent « 16 r. des Tilleuls — Mulhouse »). villes = candidates déjà canonisées.
+   */
+  function stripVilleSuffix(voie, villes) {
+    for (const v of villes) {
+      if (!v || voie === v || !voie.endsWith(v)) continue;
+      const head = voie.slice(0, voie.length - v.length);
+      if (/-\s*$/.test(head)) return head.replace(/[\s-]+$/, '').trim();
+    }
+    return voie;
   }
 
   /**
@@ -55,10 +69,11 @@
     if (!c.voie || !cv) return [];
     const out = [];
     entite.immeubles.forEach((imm, idx) => {
-      if (imm && imm._deleted) return;
+      if (!imm || imm._deleted) return;
       const ia = canonAdresse(imm.adr || imm.nom);
       const iv = canonVille(imm.ville);
-      if (!ia.voie || ia.voie !== c.voie || iv !== cv) return;
+      const iaVoie = stripVilleSuffix(ia.voie, [iv, cv]);
+      if (!iaVoie || iaVoie !== c.voie || iv !== cv) return;
       if (ia.num && c.num && ia.num === c.num) out.push({ imm, idx, strength: 'identique' });
       else out.push({ imm, idx, strength: 'proche' });
     });
