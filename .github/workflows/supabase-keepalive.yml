@@ -1,0 +1,32 @@
+name: Supabase keep-alive
+
+# Empêche la mise en pause automatique du projet Supabase free tier après
+# ~1 semaine d'inactivité API (panne P0 du 08/08 — docs/subjects/P0-SUPABASE-PAUSE.md,
+# option B). 1 requête anonyme/jour suffit à compter comme activité.
+# URL + clé publishable = déjà publiques côté client (js/app/supabase-config.js),
+# aucun secret à déclarer ici.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    name: Ping Supabase REST API
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: GET /rest/v1/ (anon)
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://xcbtashflclswyiyvfgn.supabase.co/rest/v1/" \
+            -H "apikey: sb_publishable_mu8HNkruDoElJY7QGAHW2w_5nPvfxZO")
+          echo "HTTP $code"
+          # Pause/DNS-down => pas de réponse HTTP exploitable ; un projet actif
+          # répond (200 sur la racine REST, ou 401/404 selon le routage — tout
+          # sauf 000 prouve que l'API a répondu, donc que le projet est éveillé).
+          if [ "$code" = "000" ]; then
+            echo "::error::Aucune réponse de l'API Supabase (projet en pause ?)"
+            exit 1
+          fi
