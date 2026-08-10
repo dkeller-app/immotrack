@@ -329,8 +329,9 @@ describe('_2044ToCsv', () => {
 describe('STD_CATEGORIES inline — ligne 230 typée deduction (anti-régression fiscale)', () => {
   // La ligne 230 (régul provisions copro N-1) DOIT se soustraire des charges (notice 2044 :
   // 240 = (221..229) − 230). Si elle est typée 'charge' elle s'AJOUTE → ~×2 d'erreur.
-  // Ce test lit les deux HTML pour empêcher une régression silencieuse côté données inline.
-  for (const file of ['index.html', 'index-test.html', 'index-test-loyer.html']) {
+  // Ce test lit le HTML pour empêcher une régression silencieuse côté données inline.
+  // (Copies index-test* supprimées au nettoyage V1 light 2026-08-10 — sandbox = ?sandbox=1.)
+  for (const file of ['index.html']) {
     it(`${file} : la catégorie ligne 230 est type:'deduction'`, () => {
       const html = readFileSync(resolve(repoRoot, file), 'utf8');
       // Cible la ligne du tableau STD_CATEGORIES qui porte ligne2044:'230'
@@ -425,7 +426,7 @@ describe('STD_CATEGORIES — 5 catégories special B1 (hors résultat foncier)',
     // (_CAT_MIGRATION, index.html) — même sémantique : neutre au 2044.
     ['Divers (non déductible)', 'Régularisation de solde'],
   ];
-  for (const file of ['index.html', 'index-test.html']) {
+  for (const file of ['index.html']) {
     it(`${file} : les 5 catégories B1 sont type:'special' + ligne2044:''`, () => {
       const html = readFileSync(resolve(repoRoot, file), 'utf8');
       const lines = html.split('\n');

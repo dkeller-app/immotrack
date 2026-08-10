@@ -36,11 +36,12 @@ const DEFAULT_CATS = ['Loyers encaissés', 'Frais bancaires', 'Prêt'];
 const DEFAULT_PIECES = { 'Cuisine': ['Sol', 'Murs'], 'Séjour': ['Sol'] };
 const BAIL_TEMPLATE_DEFAULT = '<html>TPL-DEFAUT</html>';
 
-let indexHtml, indexTestHtml, applyDataDefaults;
+let indexHtml, applyDataDefaults;
 
 beforeAll(() => {
+  // Copies index-test* supprimées au nettoyage V1 light 2026-08-10 (sandbox = ?sandbox=1)
+  // → les checks de parité prod↔sandbox sont retirés, index.html reste couvert.
   indexHtml = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
-  indexTestHtml = readFileSync(resolve(repoRoot, 'index-test.html'), 'utf8');
   const src = extractFn(indexHtml, '_applyDataDefaults');
   if (src) {
     // La fonction inline référence DB + constantes globales → wrapper qui les fournit.
@@ -57,13 +58,8 @@ describe('_applyDataDefaults — extraction & câblage index.html', () => {
     expect(extractFn(indexHtml, '_applyDataDefaults'), '_applyDataDefaults introuvable dans index.html').toBeTruthy();
   });
 
-  it('parité : source byte-identique dans index-test.html', () => {
-    expect(extractFn(indexTestHtml, '_applyDataDefaults'), '_applyDataDefaults introuvable dans index-test.html')
-      .toBe(extractFn(indexHtml, '_applyDataDefaults'));
-  });
-
-  it('initDB appelle _applyDataDefaults() (les deux fichiers)', () => {
-    for (const [name, html] of [['index.html', indexHtml], ['index-test.html', indexTestHtml]]) {
+  it('initDB appelle _applyDataDefaults()', () => {
+    for (const [name, html] of [['index.html', indexHtml]]) {
       const initDB = html.slice(html.indexOf('function initDB()'), html.indexOf('AGENDA — Modèle de données'));
       expect(initDB.includes('_applyDataDefaults();'), `initDB de ${name} n'appelle pas _applyDataDefaults`).toBe(true);
     }
@@ -81,7 +77,7 @@ describe('_applyDataDefaults — extraction & câblage index.html', () => {
   });
 
   it("initDB ne garde AUCUN doublon des blocs déplacés (DRY : déplacé, pas copié)", () => {
-    for (const [name, html] of [['index.html', indexHtml], ['index-test.html', indexTestHtml]]) {
+    for (const [name, html] of [['index.html', indexHtml]]) {
       const initDB = html.slice(html.indexOf('function initDB()'), html.indexOf('AGENDA — Modèle de données'));
       for (const marker of [
         'if (!DB.entites) DB.entites = [];',
