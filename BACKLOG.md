@@ -14,6 +14,7 @@ Blindage connexion + partage AVANT tout · CDC + mockup 3 formats + validation u
 |---|---|---|
 | **Blindage partage** — partage-EDL | ✅ **fix D1b INTÉGRÉ + DÉPLOYÉ v15.499** (audits ×2 SÛR, EDL 15/07 restauré, worktree détruit) | **E2E réel Didier↔Marion** : chacun recharge l'app (v15.499) → voit l'EDL 15/07 → Didier le ré-enregistre (test du fix) → l'EDL survit des 2 côtés. Follow-ons : migration 0044 à appliquer (feu vert user) · upsert-D2-en-ambiguïté (homonymes SMARTOSAURUS, fiche sujet) |
 | **Fil rouge création** — session (`Immo-wt-filrouge-complet`, `feat/fil-rouge-complet`) | étape 2/8 | étapes 3-8 · rebase v15.498+ · intégration puis destruction du worktree |
+| **Onglet Biens** — CDC détaillé ✅ VALIDÉ 10/08 (cf CDC-V1-LIGHT §5) | session mockups lancée 10/08 (Opus, `PROMPT-CHANTIER-MOCKUPS-BIENS.md`, sortie `mockups/BIENS-SIMPLIFIES/`) | validation user des mockups 3 formats → chantier code (Fable) |
 | **Blindage connexion** | keep-alive poussé | vérifier le keep-alive actif · E2E réel login PC + iPhone (post-pause Supabase) |
 
 ## 🧪 Smoke user en attente (Didier)
