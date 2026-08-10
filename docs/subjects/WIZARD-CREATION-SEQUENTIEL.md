@@ -1,6 +1,6 @@
 # WIZARD-CREATION-SEQUENTIEL — Suite logique guidée Immeuble → Bien → Bail
 
-**Status** : ⬜ À faire · **Prio** : P1 · **Taille** : M (~4-6h)
+**Status** : 🔀 Fusionné dans FIL-ROUGE-CREATION-BIEN (spec 2026-07-09) — voir mockup, attente validation user · **Prio** : P1 · **Taille** : M (~4-6h)
 **Détecté** : 2026-05-25 (user : « quand on créé un immeuble ou bien, il faudrait avoir une suite logique (immeuble → biens → baux) pour que l'utilisateur puisse avoir une vraie expérience et utilisation »)
 **Lié à** : ARCHI-IMM-LOG-DEDUP · ARCHI-DB-DOUBLONS · NAV-LOGEMENT-BAIL-CLARIF · BAILLEUR-FORM-RICHE · ONBOARDING-PREMIERE-CONNEXION · BUG-CRITIQUES-2026-05-25 (3.C)
 
@@ -86,3 +86,5 @@ Créer un bail ✓
 ## Journal
 
 - 2026-05-25 : créé · wizard séquentiel Immeuble → Bien → Bail · propose (pas force) chaque étape suivante · pré-remplissage des liens · règle au passage le BUG 3.A (bouton créer bail mal câblé) · couple avec ARCHI-IMM-LOG-DEDUP + ARCHI-DB-DOUBLONS + ONBOARDING
+
+- 2026-07-09 : 🔀 **FUSIONNÉ** dans la spec consolidée `docs/superpowers/specs/2026-07-09-fil-rouge-creation-bien-design.md` + mockup local `C:\Users\Did_K\Desktop\Immo\mockups/fil-rouge-creation-bien/index.html`. Décisions brainstorm : coquille wizard plein écran unique + registre extensible ; parcours = bailleur→immeuble→logement (« bien prêt ») + relais optionnel vers le wizard Bail existant. Ce sujet ne vit plus seul → suivre la spec consolidée.
