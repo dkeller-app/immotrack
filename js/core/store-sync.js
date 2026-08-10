@@ -168,14 +168,56 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   const _removeConflicts = new Set()
   const _rcKey = (coll, k) => coll + ' ' + k
 
-  function snapshotOf(db) {
+  // D1b — RÉADOPTION du tag d'espace (BUG-PARTAGE-EDL-ESPACE-TIERS, incident du 18/07/2026).
+  // Plusieurs flux de l'app éditent par REMPLACEMENT d'objet (saveEDL : `DB.edl[i] = record` ;
+  // saveEnt ; `DB.baux[ref] = {…}`) → le tag `_espaceId` posé à l'hydrate est PERDU. Sans
+  // réadoption, le diff voyait « clé@@tiers disparue » (softDelete routé chez le TIERS — l'octroi
+  // gestionnaire du membre scopé l'AUTORISE) + « clé nue apparue » (upsert routé espace PROPRE,
+  // où la FK ne résout pas → skipped) = DESTRUCTION silencieuse du record tiers, aucune copie.
+  // Cas réel : l'EDL d'entrée FERRETTE 001 de l'espace Marion, détruit le 18/07 à 09:16 UTC.
+  // Règle : un record VIVANT non tagué dont la clé NUE correspond à un UNIQUE espace tagué du
+  // baseline est LE MÊME record réédité → il ré-adopte ce tag AVANT le diff. Sûretés :
+  //   • un record déjà tagué n'est JAMAIS retagué ;
+  //   • clé nue connue NON taguée au baseline → record propre (D2 inchangé ; mono-espace inerte) ;
+  //   • 2+ espaces candidats (homonymie réelle de clé) → ambigu : PAS de devinette (D2).
+  // Mutation : sur les collections énumérées par référence (edl/documents/mouvements/…) le tag
+  // se re-fixe durablement sur le record vivant ; sur celles énumérées par COPIE (entites/
+  // logements/baux/…) il est ré-adopté à chaque flush (idempotent, le routage lit le rec énuméré).
+  const _bareKey = (keyFn, rec) => (rec && rec._espaceId != null) ? keyFn({ ...rec, _espaceId: null }) : keyFn(rec)
+  function _adoptTags(coll, keyFn, recs) {
+    const base = baseline.get(coll)
+    if (!base || base.size === 0) return
+    let idx = null   // paresseux (uniquement si un record non tagué existe) : cléNue → { untagged, tags }
+    for (const rec of recs) {
+      if (!rec || typeof rec !== 'object' || rec._espaceId != null) continue
+      if (idx === null) {
+        idx = new Map()
+        for (const v of base.values()) {
+          const tag = v.rec && v.rec._espaceId
+          const bare = _bareKey(keyFn, v.rec)
+          let e = idx.get(bare); if (!e) { e = { untagged: false, tags: new Set() }; idx.set(bare, e) }
+          if (tag == null) e.untagged = true; else e.tags.add(tag)
+        }
+      }
+      const e = idx.get(keyFn(rec))   // rec non tagué → keyFn(rec) = clé nue
+      if (e && !e.untagged && e.tags.size === 1) rec._espaceId = e.tags.values().next().value
+    }
+  }
+
+  // `adopt` : réadoption des tags AVANT keying — depuis le FLUSH et la détection de removes
+  // pendables UNIQUEMENT, jamais au seed (post-hydrate tout est tagué ; et le baseline consulté
+  // par la réadoption serait celui d'avant, périmé).
+  function snapshotOf(db, adopt) {
     const snap = new Map()
     for (const { coll, enumerate, key, immutable } of COLLECTIONS) {
       const m = new Map()
+      const recs = []
+      for (const rec of enumerate(db)) { if (isDeleted(rec)) continue; recs.push(rec) }
+      if (adopt) _adoptTags(coll, key, recs)
       // `locked` = état d'immutabilité CAPTURÉ ici (booléen STABLE), pas relu via la référence `rec` : le
       // rec partage `signatures` avec le bail vivant (spread shallow) ; muter `signatures.locked` en place
       // changerait rétroactivement le baseline → la 1ʳᵉ transition de verrouillage serait sautée à tort.
-      for (const rec of enumerate(db)) { if (isDeleted(rec)) continue; m.set(key(rec), { rec, sig: sig(rec), locked: immutable ? !!immutable(rec) : false }) }
+      for (const rec of recs) m.set(key(rec), { rec, sig: sig(rec), locked: immutable ? !!immutable(rec) : false })
       snap.set(coll, m)
     }
     return snap
@@ -202,7 +244,7 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
   async function _doFlush(db) {
     const summary = { upserts: [], revives: [], removes: [], conflicts: [], skipped: [], errors: [] }
     if (sealSigned) await sealSignedBaux(db)            // VERROU (pièce 2) — gouverné par l'option sealSigned (false en phase test)
-    const current = snapshotOf(db)
+    const current = snapshotOf(db, true)                // D1b : réadoption des tags d'espace avant le diff
 
     // 1) upserts (ajouts + modifs), dans l'ordre parent→enfant.
     for (const { coll } of COLLECTIONS) {
@@ -303,7 +345,15 @@ export function createStoreSync({ store, getDB, schedule, sealSigned = true, ret
       for (const [k, v] of base) {
         if (v.locked) continue
         if (_removeConflicts.has(_rcKey(coll, k))) continue   // M2 : dernier essai = conflit → debounce normal (anti-neutralisation)
-        if (live === null) { live = new Set(); for (const rec of enumerate(db)) { if (!isDeleted(rec)) live.add(key(rec)) } }
+        // D1b : réadoption AVANT keying — sinon un record tiers reconstruit sans tag (clé nue ≠
+        // clé@@tiers du baseline) serait vu comme un remove pendable → flush immédiat parasite.
+        if (live === null) {
+          live = new Set()
+          const recs = []
+          for (const rec of enumerate(db)) { if (!isDeleted(rec)) recs.push(rec) }
+          _adoptTags(coll, key, recs)
+          for (const rec of recs) live.add(key(rec))
+        }
         if (!live.has(k)) return true
       }
     }
