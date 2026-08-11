@@ -94,7 +94,7 @@ describe('_exportMonitoringLogs', () => {
     window.DB.eventLog = [{ ts: 'y', name: 'evt' }];
     const json = _exportMonitoringLogs(window.DB);
     const p = JSON.parse(json);
-    expect(p._meta.app).toBe('ImmoTrack');
+    expect(p._meta.app).toBe('Propryo');
     expect(p.errorLog).toHaveLength(1);
     expect(p.eventLog).toHaveLength(1);
   });

@@ -179,7 +179,7 @@ export function _formatBilanTexte(bilan) {
   });
   lines.push('');
   lines.push('═══════════════════════════════════════════════════════════════');
-  lines.push('  Document généré par ImmoTrack le ' + bilan.generatedAt);
+  lines.push('  Document généré par Propryo le ' + bilan.generatedAt);
   lines.push('═══════════════════════════════════════════════════════════════');
   return lines.join('\n');
 }

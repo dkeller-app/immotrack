@@ -77,7 +77,7 @@ export function _generateGdprExport(db, logRef) {
   if (!data) return JSON.stringify({ error: 'logRef invalide ou DB null' }, null, 2);
   const pkg = {
     _meta: {
-      app: 'ImmoTrack',
+      app: 'Propryo',
       generatedAt: new Date().toISOString(),
       logRef,
       rgpdArticle: 'Art. 20 RGPD - Droit à la portabilité',

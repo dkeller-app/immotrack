@@ -80,7 +80,7 @@ describe('_generateGdprExport', () => {
   it('produit un JSON valide avec metadata', () => {
     const json = _generateGdprExport(mkDB(), 'F-001');
     const parsed = JSON.parse(json);
-    expect(parsed._meta.app).toBe('ImmoTrack');
+    expect(parsed._meta.app).toBe('Propryo');
     expect(parsed._meta.logRef).toBe('F-001');
     expect(parsed._meta.rgpdArticle).toMatch(/Art\. 20 RGPD/);
     expect(parsed.data.totalRecords).toBeGreaterThan(0);

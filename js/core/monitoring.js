@@ -131,7 +131,7 @@ export function _installGlobalCapture() {
 export function _exportMonitoringLogs(db) {
   if (!db) return JSON.stringify({ errorLog: [], eventLog: [] }, null, 2);
   return JSON.stringify({
-    _meta: { app: 'ImmoTrack', exportedAt: new Date().toISOString() },
+    _meta: { app: 'Propryo', exportedAt: new Date().toISOString() },
     errorLog: db.errorLog || [],
     eventLog: db.eventLog || []
   }, null, 2);
