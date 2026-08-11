@@ -443,4 +443,19 @@ describe('partitionCandidatLinks', () => {
     expect(partitionCandidatLinks(null, NOW)).toEqual({ pullable: [], expiredActive: [] });
     expect(partitionCandidatLinks(undefined, NOW)).toEqual({ pullable: [], expiredActive: [] });
   });
+  it('mix réaliste (contrat consommé par _relayPullCandidatures v15.501) : le tri est exact en un appel', () => {
+    // 2 morts hors grâce (dont les boucleurs 401 du terrain), 1 échu MAIS dans la grâce de 7 j
+    // (rapatriement tardif encore possible → tiré), 1 vivant, 1 collected mort (silencieux).
+    const dansGrace = new Date(NOW - 2 * J).toISOString();
+    const links = [
+      { id: 'mort1', status: 'active', expiresAt: mort },
+      { id: 'grace', status: 'active', expiresAt: dansGrace },
+      { id: 'vivant', status: 'active', expiresAt: vif },
+      { id: 'mort2', status: 'active', expiresAt: mort },
+      { id: 'collMort', status: 'collected', expiresAt: mort }
+    ];
+    const part = partitionCandidatLinks(links, NOW);
+    expect(part.pullable.map(l => l.id)).toEqual(['grace', 'vivant']);
+    expect(part.expiredActive.map(l => l.id)).toEqual(['mort1', 'mort2']);
+  });
 });
