@@ -3196,6 +3196,58 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .fr-cont .tx{flex:1}.fr-cont .tx b{font:700 13px system-ui;display:block;color:#17233b}.fr-cont .tx s{text-decoration:none;font:400 11.5px system-ui;color:#556074}
 .fr-cont .later{background:none;border:none;color:#9098a8;font:600 11.5px system-ui;cursor:pointer}
 .fr-cont .go{background:#ff5a3c;border:none;border-radius:8px;padding:8px 14px;font:700 12px system-ui;color:#fff;cursor:pointer;white-space:nowrap}
+/* Fil COMPLET : écran de complétion (accordéon « tu es ici » — mockup fil-rouge-complet écran 4) */
+.fr-comp-hero{padding:14px 16px;border:1px solid #e6e9f0;border-radius:13px;background:#f7f8fa;margin-bottom:16px}
+.fr-comp-hero .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fr-comp-hero .big{width:42px;height:42px;border-radius:12px;background:#fff7ed;color:#ff5a3c;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}
+.fr-comp-hero h4{margin:0;font:800 15px system-ui;color:#17233b}
+.fr-comp-hero .sub{font:400 11.5px system-ui;color:#9098a8;margin-top:2px}
+.fr-comp-hero .pct{margin-left:auto;font:800 23px system-ui;color:#ff5a3c}
+.fr-comp-hero .bar{height:7px;background:#eef1f6;border-radius:4px;overflow:hidden;margin-top:11px}
+.fr-comp-hero .bar>i{display:block;height:100%;background:linear-gradient(90deg,#ff7a5c,#ff5a3c);border-radius:4px;transition:width .3s}
+.fr-comp-wrap{position:relative;padding-left:34px}
+.fr-comp-line{position:absolute;left:12px;top:8px;bottom:26px;width:3px;background:#eef1f6;border-radius:2px;overflow:hidden}
+.fr-comp-line>i{position:absolute;left:0;top:0;width:100%;background:#ff5a3c;transition:height .3s}
+.fr-comp-node{position:relative;margin-bottom:10px}
+.fr-comp-node.end{color:#9098a8;font:600 12px system-ui;padding-top:4px}
+.fr-comp-node.end b{color:#166534}
+.fr-comp-dot{position:absolute;left:-34px;top:5px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 11px system-ui;border:2px solid #e6e9f0;background:#fff;color:#9098a8;z-index:1}
+.fr-comp-dot.done{background:#16a34a;color:#fff;border-color:#16a34a}
+.fr-comp-dot.here{background:#ff5a3c;color:#fff;border-color:#ff5a3c;box-shadow:0 0 0 4px rgba(255,90,60,.15)}
+.fr-comp-card{border:1px solid #e6e9f0;border-radius:11px;background:#f7f8fa}
+.fr-comp-card.here{border-color:#ff5a3c;background:#fff}
+.fr-comp-card .hd{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 13px;cursor:pointer}
+.fr-comp-card.closed .hd{padding:8px 13px}
+.fr-comp-card .hd .tx{flex:1;min-width:0}
+.fr-comp-card .hd b{font:700 13px system-ui;color:#17233b}
+.fr-comp-card .hd .meta{font:400 10.5px system-ui;color:#9098a8}
+.fr-comp-card .hd .sp{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fr-comp-card .hd .chev{color:#9098a8;font:700 13px system-ui;transition:transform .15s}
+.fr-comp-card:not(.closed) .hd .chev{transform:rotate(90deg)}
+.fr-comp-card .bd{padding:0 13px 11px}
+.fr-comp-gauge{font:700 10px system-ui;border-radius:9px;padding:2px 9px;border:1px solid}
+.fr-comp-gauge.full{color:#166534;background:#dcfce7;border-color:#bbf7d0}
+.fr-comp-gauge.part{color:#92400e;background:#fef3c7;border-color:#fde68a}
+.fr-comp-here{font:700 9.5px system-ui;color:#ff5a3c;background:#fff7ed;border:1px solid #ff5a3c;border-radius:8px;padding:1px 7px}
+.fr-comp-badge{font:700 9.5px system-ui;border-radius:9px;padding:2px 8px;white-space:nowrap;border:1px solid}
+.fr-comp-badge.loue{color:#1d4ed8;background:#e9f0fd;border-color:#bcd2f7}
+.fr-comp-badge.vac{color:#9098a8;background:#eef1f6;border-color:#e6e9f0}
+.fr-comp-tasks{border-top:1px solid #eef0f4}
+.fr-comp-task{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid #eef0f4;flex-wrap:wrap}
+.fr-comp-task:last-child{border-bottom:none}
+.fr-comp-task .st{width:21px;height:21px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 11px system-ui;flex-shrink:0}
+.fr-comp-task .st.done{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.fr-comp-task .st.todo{background:#eef1f6;color:#9098a8;border:1px solid #e6e9f0}
+.fr-comp-task .st.warn{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+.fr-comp-task .tx{flex:1;min-width:0}
+.fr-comp-task .tx b{font:600 12px system-ui;display:block;color:#17233b}
+.fr-comp-task .tx span{font:400 10.5px system-ui;color:#9098a8}
+.fr-comp-task .go{display:flex;gap:6px;flex-wrap:wrap}
+.fr-comp-act{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;justify-content:flex-end}
+.fr-comp-btn{background:#fff;border:1.5px solid #e6e9f0;border-radius:8px;padding:6px 11px;font:700 11.5px system-ui;color:#17233b;cursor:pointer}
+.fr-comp-btn:hover{border-color:#9098a8}
+.fr-comp-btn.prim{background:linear-gradient(135deg,#ff7a5c,#ff5a3c);border:none;color:#fff;box-shadow:0 4px 10px -5px rgba(255,90,60,.6)}
+@media (max-width:640px){ .fr-comp-task .go{margin-left:31px;width:100%} .fr-comp-hero .pct{font-size:19px} }
 </style>
 <div id="fr-bread" class="fr-bread" hidden></div>
 
@@ -42002,7 +42054,7 @@ function _acteApply() {
     _acteRenderSucces();
     _acteSetStep('succes');
     showToast(`Import réussi — ${entCreated ? '1 bailleur, ' : ''}${immCreated ? '1 immeuble, ' : ''}${createdLogs.length} logement(s)${annexBiens ? ', ' + annexBiens + ' annexe(s)' : ''} créé(s).`, 'ok', 5200);
-    if(typeof _frAfterActe==='function') _frAfterActe(ent, im.nom); // fil rouge v2 : propose la continuité (ou avance si déjà dans le fil)
+    if(typeof _frAfterActe==='function') _frAfterActe(ent, im.nom, allLogs.map(l=>l.ref)); // fil rouge v2 : refs créées par CET import (logements + annexes-biens) → transition/complétion
   } catch (err) {
     console.error('[acte] création échouée', err);
     showToast('Échec de la création : ' + (err && err.message ? err.message : 'erreur inconnue'), 'err', 6000);
@@ -44183,6 +44235,8 @@ let _frMode = false, _frStep = null, _frCloseHooked = false;
 // _frCtx.created trace ce qui est créé PENDANT le fil courant (P4 fidélité mockup : le récap
 // « bien prêt » et l'étape bail ne montrent que ça, jamais tout le patrimoine du bailleur).
 let _frCtx = { entId: null, immName: null, bailDone: false, bailRef: null, created: { imms: [], logs: [] } };
+// Fil COMPLET : nœud ouvert de l'accordéon de complétion (null = auto : premier incomplet).
+let _frCompOpen = null;
 function _frResetCreated(){ return { imms: [], logs: [] }; }
 // closeM est fourni par js/components/modal.js (window.closeM). On l'enveloppe UNE fois
 // (à la 1re ouverture du fil, quand le module est chargé) pour détecter l'ANNULATION d'une
@@ -44193,10 +44247,16 @@ function _frInstallCloseHook(){
   const orig = window.closeM;
   window.closeM = function(id){
     orig(id);
-    if(_frMode && (id==='ov-ent' || id==='ov-imm' || id==='ov-log' || id==='ov-acte')){
+    // Fil COMPLET : ov-bail surveillé aussi (étape completion : fermer le wizard bail = retour au fil).
+    // ⚠️ ov-fr N'EST PAS un déclencheur (anti-boucle : fermer le fil ne doit jamais le rouvrir).
+    if(_frMode && (id==='ov-ent' || id==='ov-imm' || id==='ov-log' || id==='ov-acte' || id==='ov-bail')){
       Promise.resolve().then(()=>{ // laisse un éventuel save→_frAfterSave (ou _frAfterActe) rouvrir la modale/écran suivant
-        const anyOpen = ['ov-ent','ov-imm','ov-log','ov-acte','ov-fr'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
-        if(_frMode && !anyOpen){ _frMode=false; _frStep=null; _frDetachBread(); }
+        const anyOpen = ['ov-ent','ov-imm','ov-log','ov-acte','ov-bail','ov-fr'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
+        if(!_frMode || anyOpen) return;
+        // Étape completion : fermer une fiche/le bail (save OU annulation ✕) RAMÈNE au fil (recalcul
+        // du modèle) — le mode ne se relâche que via « Plus tard » (_frClose). Autres étapes : inchangé.
+        if(_frStep==='completion'){ _frShowFr('completion'); return; }
+        _frMode=false; _frStep=null; _frDetachBread();
       });
     }
   };
@@ -44249,6 +44309,14 @@ function _frAfterSave(kind, obj, isNew, ownerEnt){
   if(_frMode){
     if(kind==='ent'&&obj) _frCtx.entId=obj.id;
     if(kind==='imm'&&obj) _frCtx.immName=obj.nom;
+    // Fil COMPLET : en étape completion, un save (édition de fiche) ne fait PAS avancer la machine —
+    // on rouvre l'accordéon, le modèle recalcule (jauges/%). Suivre un éventuel rename d'immeuble
+    // dans l'état de reprise persisté (sera sauvé au prochain saveDB, le save vient d'en faire un).
+    if(_frStep==='completion'){
+      if(DB.params && DB.params.frCompletion){ DB.params.frCompletion.entId=_frCtx.entId; DB.params.frCompletion.immName=_frCtx.immName; }
+      _frShowFr('completion');
+      return;
+    }
     // P4 fidélité mockup : on trace ce que CE fil crée (le récap ne montrera que ça)
     if(isNew&&obj){ if(!_frCtx.created) _frCtx.created=_frResetCreated(); if(kind==='imm') _frCtx.created.imms.push(obj.nom); if(kind==='log') _frCtx.created.logs.push(obj.ref); }
     _frOpenStep(window.FilRougeConductor.advance(_frStep,'saved'));
@@ -44259,13 +44327,28 @@ function _frAfterSave(kind, obj, isNew, ownerEnt){
   else if(kind==='imm'&&obj){ _frCtx={entId:ownerEnt?ownerEnt.id:_frCtx.entId,immName:obj.nom,bailDone:false,bailRef:null,created:{imms:[obj.nom],logs:[]}}; _frOfferContinue('imm'); }
   else if(kind==='log'&&obj){ const e=(DB.entites||[]).find(x=>x&&x.nom===obj.entity); _frCtx={entId:e?e.id:null,immName:obj.imm||null,bailDone:false,bailRef:null,created:{imms:[],logs:[obj.ref]}}; _frOfferContinue('log'); }
 }
-// L'acte crée bailleur + immeuble + lots d'un coup : l'immeuble importé est neuf, donc TOUS
-// ses logements sont « créés par ce fil » (P4 : le récap montrera l'immeuble entier, rien d'autre).
+// L'acte crée bailleur + immeuble + lots d'un coup : quand l'appelant ne fournit pas les refs
+// réellement créées (legacy), on considère TOUS les logements de l'immeuble comme « créés par ce
+// fil ». ⚠️ Faux en RATTACHEMENT à un immeuble existant (inclut les lots pré-existants) — d'où le
+// paramètre createdRefs de _frAfterActe qui fait foi quand il est fourni.
 function _frActeCreated(ent, immName){
   const logs=(DB.logements||[]).filter(l=>l&&!l._deleted&&l.entity===ent.nom&&(l.imm||'')===(immName||'')).map(l=>l.ref);
   return { imms: immName?[immName]:[], logs: logs };
 }
-function _frAfterActe(ent, immName){ if(!ent) return; _frCtx={entId:ent.id,immName:immName||null,bailDone:false,bailRef:null,created:_frActeCreated(ent,immName)}; if(_frMode){ closeM('ov-acte'); _frOpenStep('done'); } else { _frOfferContinue('acte'); } }
+// ── Fil COMPLET : état de reprise de la complétion (persisté dans DB.params, UI de reprise = Task 8) ──
+function _frSetCompletionState(entId, immName){ if(!DB.params) DB.params={}; DB.params.frCompletion={entId:entId, immName:immName, dismissed:false}; saveDB(); }
+function _frClearCompletionState(){ if(DB.params && DB.params.frCompletion){ delete DB.params.frCompletion; saveDB(); } }
+// Post-import d'acte : pose le contexte + l'état de reprise, puis (en mode fil) enchaîne sur
+// l'écran TRANSITION « le fil continue » (remplace l'ex-arrivée directe sur le récap 'done').
+function _frAfterActe(ent, immName, createdRefs){
+  if(!ent) return;
+  const created = Array.isArray(createdRefs)
+    ? { imms: immName?[immName]:[], logs: createdRefs.slice() } // refs réellement créées par CET import (logements + annexes-biens)
+    : _frActeCreated(ent, immName);                             // legacy (appel sans refs)
+  _frCtx={entId:ent.id,immName:immName||null,bailDone:false,bailRef:null,created:created};
+  _frSetCompletionState(ent.id, immName||null);
+  if(_frMode){ closeM('ov-acte'); _frOpenStep('transition'); } else { _frOfferContinue('acte'); }
+}
 
 // ── carte de continuité (voie B : action normale → proposition non-bloquante) ──
 function _frOfferContinue(kind){
@@ -44333,6 +44416,7 @@ function _frSubmitLog(){
 function _frShowFr(kind){
   _frStep=kind; openM('ov-fr'); _frAttachBread('ov-fr');
   const body=el('fr-fr-body'), foot=el('fr-fr-foot'); if(!body||!foot) return;
+  const _ttl=document.querySelector('#ov-fr .m-head h3'); if(_ttl) _ttl.textContent=(kind==='completion')?'Compléter ton patrimoine':'Ajouter un bien';
   const stop='<button class="fr-later" onclick="_frClose()" title="Ce qui est créé est conservé">Plus tard — c’est gardé</button>';
   if(kind==='ent'){
     // Écran BAILLEUR (mockup) — formulaire léger ; écrit via la vraie saveEnt (inputs réels cachés)
@@ -44372,6 +44456,58 @@ function _frShowFr(kind){
       +'<div class="fr-choice log" onclick="_frOpenStep(window.FilRougeConductor.advance(\'start\',\'manual\'))"><span class="ic">✍️</span><div class="tx"><b>Saisir à la main</b><s>On crée le bailleur, puis tu ajoutes immeubles et logements</s></div><span class="chev">›</span></div>'
       +'</div></div>';
     foot.innerHTML=stop;
+  } else if(kind==='transition'){
+    // Fil COMPLET — soudure acte → complétion : remplace l'ex-arrivée « Succès » cul-de-sac.
+    const _nb=((_frCtx.created&&_frCtx.created.logs)||[]).length;
+    body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Patrimoine créé — le fil continue</h3>'
+      +'<p>'+_nb+' bien'+(_nb>1?'s':'')+' posé'+(_nb>1?'s':'')+' par l’acte. Le fil rouge t’emmène maintenant compléter chaque fiche à 100 % — bailleur, immeuble, chaque bien, chaque bail.</p>'
+      +'<div class="fr-choices">'
+      +'<div class="fr-choice log" onclick="_frCompContinue()"><span class="ic">🧭</span><div class="tx"><b>Continuer — compléter à 100 %</b><s>le fil te guide fiche par fiche, dans l’ordre</s></div><span class="chev">›</span></div>'
+      +'<div class="fr-choice fin" onclick="_frClose()"><span class="ic">🕊</span><div class="tx"><b>Plus tard — c’est gardé</b><s>tout est enregistré · le fil t’attendra</s></div><span class="chev">›</span></div>'
+      +'</div></div>';
+    foot.innerHTML='<span class="fr-grow"></span><span class="fr-hint" style="margin:0">Rien d’obligatoire — tu peux t’arrêter à tout moment.</span>';
+  } else if(kind==='completion'){
+    // Fil COMPLET — accordéon de complétion (mockup validé : UN nœud ouvert, « tu es ici »,
+    // fiches pleines repliées ✓, chaque bouton ouvre l'ÉCRAN EXISTANT — zéro formulaire recopié).
+    const cm=_frCompModel();
+    if(!cm){ _frClose(); return; } // défensif : contexte perdu (entité supprimée…)
+    _frDetachBread(); // le hero % remplace le fil d'Ariane sur cet écran (mockup)
+    const nodes=cm.model.nodes||[], pct=cm.model.pct;
+    if(pct===100) _frClearCompletionState(); // 100 % atteint → plus de reprise à proposer
+    if(_frCompOpen!=null && _frCompOpen>=0 && (!nodes[_frCompOpen] || nodes[_frCompOpen].full)) _frCompOpen=null; // fiche finie → se replie, le fil pousse à la suivante
+    const firstInc=nodes.findIndex(n=>!n.full);
+    const openIdx=(_frCompOpen!==null&&_frCompOpen>=0)?_frCompOpen:firstInc;
+    const ICON={ent:'👤',imm:'🏛',log:'🏠'};
+    let h='<div class="fr-comp-hero"><div class="top"><span class="big">🧭</span>'
+      +'<div><h4>Configuration du patrimoine</h4><div class="sub">'+escHtml(cm.ent.nom)+(cm.imm?(' · '+escHtml(cm.imm.nom)):'')+' — pause quand tu veux : c’est gardé.</div></div>'
+      +'<span class="pct">'+pct+'%</span></div>'
+      +'<div class="bar"><i style="width:'+pct+'%"></i></div></div>';
+    h+='<div class="fr-comp-wrap"><div class="fr-comp-line"><i style="height:'+pct+'%"></i></div>';
+    nodes.forEach((n,i)=>{
+      const done=n.tasks.filter(t=>t.status==='done').length, total=n.tasks.length;
+      const isOpen=(i===openIdx&&!n.full), here=(i===firstInc);
+      const badge=n.badge==='loue'?'<span class="fr-comp-badge loue">🔑 Loué</span>':(n.badge==='vac'?'<span class="fr-comp-badge vac">🏠 Vacant</span>':'');
+      h+='<div class="fr-comp-node"><div class="fr-comp-dot '+(n.full?'done':(here?'here':''))+'">'+(n.full?'✓':(i+1))+'</div>'
+        +'<div class="fr-comp-card '+(isOpen?'here':'closed')+'">'
+        +'<div class="hd" onclick="_frCompToggle('+i+')"><span>'+(ICON[n.kind]||'🏠')+'</span><div class="tx"><b>'+escHtml(n.name)+'</b>'+(n.sub?'<div class="meta">'+escHtml(n.sub)+'</div>':'')+'</div>'
+        +'<span class="sp">'+badge+((here&&!n.full)?'<span class="fr-comp-here">tu es ici</span>':'')+'<span class="fr-comp-gauge '+(n.full?'full':'part')+'">'+done+'/'+total+'</span><span class="chev">›</span></span></div>';
+      if(isOpen){
+        const refA=(n.kind==='log')?escHtml(_frAttr(String(n.id))):'';
+        h+='<div class="bd"><div class="fr-comp-tasks">';
+        n.tasks.forEach(t=>{
+          const ico=t.status==='done'?'✓':(t.status==='warn'?'!':'○');
+          let act='';
+          if(t.status!=='done'&&t.action==='creer-bail') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'creer-bail\',\''+refA+'\')">✍️ Créer le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'vacant-assume\',\''+refA+'\')" title="Pas de locataire — assumé, jamais bloquant">Vacant assumé</button></span>';
+          else if(t.status!=='done'&&t.action==='verifier-repris') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'verifier-repris\',\''+refA+'\')">📋 Ouvrir le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'repris-ok\',\''+refA+'\')" title="Bail repris relu et conforme">✓ Vérifié</button></span>';
+          h+='<div class="fr-comp-task"><span class="st '+t.status+'">'+ico+'</span><div class="tx"><b>'+escHtml(t.label)+'</b>'+(t.detail?'<span>'+escHtml(t.detail)+'</span>':'')+'</div>'+act+'</div>';
+        });
+        h+='</div><div class="fr-comp-act"><button class="fr-comp-btn prim" onclick="_frCompAction(\''+n.kind+'\''+(n.kind==='log'?(',\''+refA+'\''):'')+')">Compléter la fiche →</button></div></div>';
+      }
+      h+='</div></div>';
+    });
+    h+='<div class="fr-comp-node end"><div class="fr-comp-dot">'+(pct===100?'🎉':'🏁')+'</div>'+(pct===100?'100 % — <b>configuration terminée</b>. Bailleur, immeuble, biens et baux sont complets.':'Fin du fil — quand tout est vert, bailleur, immeuble, biens et baux sont à 100 %.')+'</div></div>';
+    body.innerHTML=h;
+    foot.innerHTML=stop+'<span class="fr-grow"></span>'+(pct===100?'<button class="fr-prim" onclick="_frClose()">Terminer — voir mes biens</button>':'');
   } else if(kind==='next'){
     body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Logement '+escHtml(_frLastLogRef()||'')+' ajouté</h3><p>Le fil rouge peut continuer. Qu’est-ce qu’on fait ?</p><div class="fr-choices">'
       +'<div class="fr-choice log" onclick="_frNextChoice(\'addLog\')"><span class="ic">🏠</span><div class="tx"><b>Un autre logement ici</b><s>'+escHtml(_frCtx.immName?('dans '+_frCtx.immName):'')+'</s></div><span class="chev">›</span></div>'
@@ -44390,6 +44526,28 @@ function _frShowFr(kind){
   _frRenderBread();
 }
 function _frNextChoice(ev){ _frOpenStep(window.FilRougeConductor.advance('next', ev)); }
+// ── Fil COMPLET : écran de complétion (accordéon) — modèle pur + actions vers les ÉCRANS EXISTANTS ──
+// Entrée en complétion (depuis transition, ou reprise Task 8) : accordéon en position auto (premier incomplet).
+function _frCompContinue(){ _frCompOpen=null; _frOpenStep(window.FilRougeConductor.advance('transition','continue')); }
+function _frCompModel(){
+  const ent=_frCurEnt(); if(!ent||ent._deleted) return null;
+  const imm=(ent.immeubles||[]).find(i=>i && !i._deleted && i.nom===_frCtx.immName) || null;
+  const logs=(DB.logements||[]).filter(l=>l&&!l._deleted&&l.entity===ent.nom&&(!imm||l.imm===imm.nom));
+  const bauxActifs={}; logs.forEach(l=>{ const b=_bienActiveBail(l.ref); if(b) bauxActifs[l.ref]=b; });
+  return { ent, imm, model: window.ParcoursBienModel.completionModel({entite:ent, immeuble:imm, logements:logs, bauxActifs}) };
+}
+function _frCompToggle(i){ _frCompOpen=(_frCompOpen===i)?-1:i; _frShowFr('completion'); }
+function _frCompAction(action, ref){
+  // Fiches : on FERME le fil avant d'ouvrir l'écran existant (un seul overlay à tout instant).
+  // _frMode reste vrai + _frStep==='completion' → save OU annulation (close hook) ramènent au fil.
+  if(action==='ent'){ closeM('ov-fr'); openNewEnt(_frCtx.entId); return; }
+  if(action==='imm'){ const ent=_frCurEnt(); const idx=ent?(ent.immeubles||[]).findIndex(i=>i&&!i._deleted&&i.nom===_frCtx.immName):-1; if(idx>=0){ closeM('ov-fr'); editImm(idx, ent.id); } return; }
+  if(action==='log'){ closeM('ov-fr'); openNewLog(ref); return; }
+  if(action==='creer-bail'||action==='verifier-repris'){ closeM('ov-fr'); openBail(ref); return; }
+  // Décisions explicites SANS écran (décisions user gravées : vacant assumé possible, ✓ Vérifié explicite).
+  if(action==='vacant-assume'){ const l=(DB.logements||[]).find(x=>x&&x.ref===ref&&!x._deleted); if(l){ l.vacantAssume=true; if(typeof _stamp==='function')_stamp(l); saveDB(); } _frShowFr('completion'); return; }
+  if(action==='repris-ok'){ const b=DB.baux&&DB.baux[ref]; if(b){ b.reprisVerifie=true; if(typeof _stamp==='function')_stamp(b); saveDB(); } _frShowFr('completion'); return; }
+}
 function _frOpenBailStep(ref){ if(ref) _frCtx.bailRef=ref; _frCtx.bailDone=false; _frShowFr('bail'); }
 function _frConfirmBail(){ const sel=el('fr-bail-log'); if(sel&&sel.value) _frCtx.bailRef=sel.value; _frCtx.bailDone=true; const ref=_frCtx.bailRef; _frClose(); if(typeof openBail==='function') openBail(ref); }
 function _frRentableOptions(){ return _frRentableLogs().map(l=>'<option value="'+escHtml(l.ref)+'"'+(l.ref===_frCtx.bailRef?' selected':'')+'>'+escHtml(l.ref)+'</option>').join('')||'<option>—</option>'; }

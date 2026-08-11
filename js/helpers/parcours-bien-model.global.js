@@ -179,6 +179,7 @@
     LOG_OPTIONAL_KEY: LOG_OPTIONAL_KEY,
     identiteParcours: identiteParcours,
     isRentable: isRentable,
-    PARCOURS_IDENTITY: PARCOURS_IDENTITY
+    PARCOURS_IDENTITY: PARCOURS_IDENTITY,
+    completionModel: completionModel
   };
 })(typeof window !== 'undefined' ? window : globalThis);
