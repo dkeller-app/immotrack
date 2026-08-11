@@ -41137,7 +41137,8 @@ function _acteRegroup(ext) {
 /* ══════════════════════════════════════════════════════════════════════════
    IMPORT-ACTE-VENTE — wizard « Importer un acte de vente »
    Dépôt PDF (lu 100% en local via pdf.js) → _acteExtract → champs « ✨ à vérifier »
-   → récap → _acteApply (création réelle : entité + immeuble + logements + annexes).
+   → création directe depuis la vérif (synthèse live + « ✓ Tout est bon — créer »)
+   → _acteApply (création réelle : entité + immeuble + logements + annexes).
 ═══════════════════════════════════════════════════════════════════════════ */
 let _acteDraft = null;      // { type, entite, immeuble, logementsHint, _src, fileName, rawText, logements:[], dupEntity, dupImmeuble:null|{immId}, forceNewEntity }
 let _acteStep = 'depot';
@@ -41337,7 +41338,8 @@ function _acteFieldBlock(id, label, value, srcKey, opts) {
 }
 
 /** Champ occupation (bail repris) : variante de _acteFieldBlock dont la citation provient
- *  directement de `lg.occupation._src` (et non de `_acteDraft._src`). */
+ *  directement de `lg.occupation._src` (et non de `_acteDraft._src`). oninput → la synthèse
+ *  du bas reste exacte à la saisie (la pill « bail repris » dépend du contenu de ces champs). */
 function _acteOccField(id, label, value, srcTxt, opts) {
   opts = opts || {};
   const v = value == null ? '' : value;
@@ -41349,7 +41351,7 @@ function _acteOccField(id, label, value, srcTxt, opts) {
     : '';
   return `<div class="acte-fg">
     <label>${escHtml(label)} ${tag}</label>
-    <input class="inp ${v !== '' ? 'acte-sg' : ''}" id="${id}" value="${escHtml(v)}" placeholder="${escHtml(opts.ph || '')}">
+    <input class="inp ${v !== '' ? 'acte-sg' : ''}" id="${id}" value="${escHtml(v)}" placeholder="${escHtml(opts.ph || '')}" oninput="_acteRenderSynth()">
     ${srcHtml}
   </div>`;
 }
@@ -41576,18 +41578,28 @@ function _acteRenderAnnexes() {
 }
 
 /** Synthèse « À la création » (bas de vérif) — ne remplit que #acte-synth, à partir du brouillon.
- *  Occupation : _matched mirrore l'état du toggle (initialisé par l'extraction, resynchronisé à
- *  chaque _acteCollectLogements) — même source que la checkbox de _acteRenderLogements. */
+ *  Pill « bail repris » : MÊME condition que la création réelle (_acteApply §3bis) — toggle actif
+ *  ET au moins un contenu (locataire OU loyer HC OU date). Toggle + champs lus en LIVE dans le
+ *  DOM (le draft n'est synchronisé qu'à la collecte ; oninput de _acteOccField passe ici),
+ *  repli sur le draft quand l'écran n'est pas rendu. */
 function _acteRenderSynth() {
   const box = el('acte-synth'), d = _acteDraft;
   if (!box || !d) return;
   const anns = d.annexes || [];
   const nbBiens = (d.logements || []).length + anns.filter(a => (a.mode || 'rattacher') === 'bien').length;
-  const nbRepris = (d.logements || []).filter(l => l.occupation && l.occupation._matched).length;
+  const nbRepris = (d.logements || []).filter((l, i) => {
+    const occ = l.occupation || null;
+    const onEl = el('occ-on-' + i);
+    const on = onEl ? onEl.checked : !!(occ && occ._matched);
+    if (!on) return false;
+    const txt = (id, fb) => { const e = el(id); return e ? e.value.trim() : String(fb || '').trim(); };
+    const num = (id, fb) => { const e = el(id); const raw = e ? e.value : fb; const n = parseFloat(String(raw == null ? '' : raw).replace(',', '.')); return isFinite(n) ? n : 0; };
+    return !!(txt('occ-loc-' + i, occ && occ.locataire) || num('occ-hc-' + i, occ && occ.hc) || txt('occ-debut-' + i, occ && occ.debut));
+  }).length;
   const nbRatt = anns.filter(a => (a.mode || 'rattacher') === 'rattacher').length;
   let pills = `<span class="pill ${(d.dupEntity && !d.forceNewEntity) ? 'acte-tag-link">🔗 bailleur rattaché' : 'acte-tag-new">✚ 1 bailleur'}</span>`;
   pills += `<span class="pill ${(d.dupImmeuble && d.dupImmeuble.immId) ? 'acte-tag-link">🔗 immeuble existant' : 'acte-tag-new">✚ 1 immeuble'}</span>`;
-  pills += `<span class="pill acte-tag-new">✚ ${nbBiens} bien${nbBiens > 1 ? 's' : ''}</span>`;
+  if (nbBiens) pills += `<span class="pill acte-tag-new">✚ ${nbBiens} bien${nbBiens > 1 ? 's' : ''}</span>`;
   if (nbRepris) pills += `<span class="pill acte-tag-link">🔑 ${nbRepris} ${nbRepris > 1 ? 'baux repris' : 'bail repris'}</span>`;
   if (nbRatt) pills += `<span class="pill acte-tag-link">🔗 ${nbRatt} annexe${nbRatt > 1 ? 's' : ''} rattachée${nbRatt > 1 ? 's' : ''}</span>`;
   box.innerHTML = `<b>À la création :</b> ${pills}`;
