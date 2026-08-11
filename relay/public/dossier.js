@@ -65,11 +65,15 @@ function build() {
   document.getElementById('app').innerHTML = `
   <div class="pub">
     <div class="pub-head">
-      <div class="pub-brand"><span class="dot">i</span> Dossier de candidature <span class="by">via ImmoTrack</span></div>
+      <div class="pub-brand"><span class="dot">i</span> Dossier de candidature <span class="by">via Propryo</span></div>
       <div class="prop">
         <span class="ico">🏠</span>
         <div style="flex:1"><div class="ttl">${esc(CAND.bienLabel||'Bien à louer')}</div></div>
-        ${CAND.loyer?`<div class="rent">${esc(String(CAND.loyer))} €<br><span style="font-weight:500;color:var(--t3);font-size:11px">CC / mois</span></div>`:''}
+        ${/* La valeur envoyée par l'app est `log.hc` — le loyer HORS CHARGES (index.html, _invBienInfo),
+             et la modale d'invitation l'étiquette elle-même « € HC ». L'afficher « CC » annonçait au
+             candidat un budget sous-estimé, juste au-dessus du rappel Visale qui parle, lui, de
+             « loyer charges comprises ». */''}
+        ${CAND.loyer?`<div class="rent">${esc(String(CAND.loyer))} €<br><span style="font-weight:500;color:var(--t3);font-size:11px">HC / mois</span></div>`:''}
       </div>
       <div class="reassure">🔒 <span><b>Transmission chiffrée</b> au propriétaire uniquement · données supprimées sous 30 j si non retenu</span></div>
     </div>
