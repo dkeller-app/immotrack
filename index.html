@@ -44370,7 +44370,10 @@ function _frClearCompletionState(){ if(DB.params && DB.params.frCompletion){ del
 // (accordéon en position auto = premier nœud incomplet) et « Masquer » (dismissed persisté, l'état
 // reste réutilisable — un futur import d'acte le re-pose via _frSetCompletionState).
 function _frCompPct(entId, immName){ const cm=_frCompModelFor(entId, immName); return cm?cm.model.pct:null; }
-function _frStartCompletion(entId, immName){ _frCompOpen=null; _frStartCtx('completion', entId, immName); }
+// Revue c6086b7 I1 : l'onclick du bandeau transmet entId en String, mais des consommateurs en aval
+// comparent STRICTEMENT sur des ids numériques (ex. openNewEnt : find(e=>e.id===id)) → on re-coerce
+// vers le nombre d'origine ; un id non-numérique (NaN) repasse tel quel.
+function _frStartCompletion(entId, immName){ _frCompOpen=null; const n=+entId; _frStartCtx('completion', Number.isNaN(n)?entId:n, immName); }
 function _frDismissCompletion(){ if(DB.params && DB.params.frCompletion){ DB.params.frCompletion.dismissed=true; saveDB(); } if(typeof rBiens==='function') rBiens(); }
 // Bandeau « Fil rouge en cours » (mockup fil-rouge-complet écran 6) — rendu dans #fr-resume-slot
 // par rBiens à CHAQUE rendu de la page Biens. État fantôme (entité/immeuble disparus) ou 100 %
@@ -44379,8 +44382,12 @@ function _frRenderResumeBanner(){
   const slot=el('fr-resume-slot'); if(!slot) return;
   const fc=DB && DB.params && DB.params.frCompletion;
   if(!fc){ slot.innerHTML=''; return; }
+  // Revue c6086b7 M1 : module manquant ≠ état fantôme — sans ParcoursBienModel on ne peut pas
+  // ÉVALUER l'état, donc on ne rend rien mais on ne purge SURTOUT PAS (skip silencieux).
+  if(!window.ParcoursBienModel || !window.ParcoursBienModel.completionModel){ slot.innerHTML=''; return; }
   // Purge AVANT de respecter dismissed : un état masqué qui atteint 100 % (ou devient fantôme)
-  // hors fil ne doit pas rester orphelin dans DB.params.
+  // hors fil ne doit pas rester orphelin dans DB.params. Le module est disponible ici → pct null
+  // signifie bien entité/immeuble introuvables, jamais « modèle indisponible ».
   const pct=_frCompPct(fc.entId, fc.immName);
   if(pct==null || pct>=100){ _frClearCompletionState(); slot.innerHTML=''; return; }
   if(fc.dismissed){ slot.innerHTML=''; return; }
