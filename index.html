@@ -800,6 +800,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 
     <!-- PAGE: BIENS (v14.2 NAV-RESTRUCTURE + LOG-LISTE-CARDS Phases 1+2 + LOG-ARCHIVE) -->
     <div class="page" id="p-biens">
+      <!-- Fil COMPLET (Task 8) : bandeau « Fil rouge en cours » (reprise) — rempli par _frRenderResumeBanner via rBiens -->
+      <div id="fr-resume-slot"></div>
       <div class="biens-tabs" role="tablist" aria-label="Filtre cycle de vie">
         <button class="biens-tab act" id="biens-tab-actifs" role="tab" aria-selected="true" onclick="setBiensTab('actifs')">
           Tous mes biens <span class="biens-tab-count" id="biens-tab-count-actifs">0</span>
@@ -3247,6 +3249,16 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .fr-comp-btn{background:#fff;border:1.5px solid #e6e9f0;border-radius:8px;padding:6px 11px;font:700 11.5px system-ui;color:#17233b;cursor:pointer}
 .fr-comp-btn:hover{border-color:#9098a8}
 .fr-comp-btn.prim{background:linear-gradient(135deg,#ff7a5c,#ff5a3c);border:none;color:#fff;box-shadow:0 4px 10px -5px rgba(255,90,60,.6)}
+/* Fil COMPLET Task 8 : bandeau de reprise page Biens (mockup fil-rouge-complet écran 6) */
+.fr-resume{display:flex;align-items:center;gap:12px;border:1.5px solid #ff5a3c;border-radius:12px;background:#fff7ed;padding:12px 15px;margin-bottom:14px;flex-wrap:wrap}
+.fr-resume .ic{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#ff7a5c,#ff5a3c);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.fr-resume .tx{flex:1;min-width:180px}
+.fr-resume .tx b{font:800 13px system-ui;display:block;color:#17233b}
+.fr-resume .tx s{text-decoration:none;font:400 11px system-ui;color:#556074}
+.fr-resume .bar{height:5px;background:#fff;border-radius:3px;overflow:hidden;margin-top:6px;max-width:220px}
+.fr-resume .bar>i{display:block;height:100%;background:linear-gradient(90deg,#ff7a5c,#ff5a3c);border-radius:3px;transition:width .3s}
+.fr-resume-go{background:linear-gradient(135deg,#ff7a5c,#ff5a3c);border:none;border-radius:10px;padding:9px 16px;font:700 12.5px system-ui;color:#fff;cursor:pointer;box-shadow:0 4px 10px -5px rgba(255,90,60,.6);white-space:nowrap}
+.fr-resume-hide{background:none;border:none;color:#9098a8;font:600 11.5px system-ui;cursor:pointer;white-space:nowrap}
 @media (max-width:640px){ .fr-comp-task .go{margin-left:31px;width:100%} .fr-comp-hero .pct{font-size:19px} }
 </style>
 <div id="fr-bread" class="fr-bread" hidden></div>
@@ -18778,7 +18790,9 @@ function _openBienFromBailWizard() {
   const r = (el('b-edit-ref') && el('b-edit-ref').value) || v('b-ref') || '';
   if(r) {
     closeM('ov-bail');
-    // Délai court pour que la modale ov-bail se ferme avant l'ouverture de ov-log
+    // Délai court pour que la modale ov-bail se ferme avant l'ouverture de ov-log.
+    // ⚠️ 200 < 250 ms du re-check completion du close-hook (_frInstallCloseHook) : ov-log doit être
+    // ouvert AVANT que le fil rouge ne re-vérifie « aucun overlay » — si tu bump l'un, bump l'autre.
     setTimeout(() => openNewLog(r), 200);
   } else {
     showToast('Sauvegardez d\'abord le bail pour pouvoir éditer le bien', 'info');
@@ -34196,6 +34210,9 @@ function _renderBiensModeBailleurs(wrap, cntEl) {
 
 function rBiens() {
   const wrap = el('biens-list-wrap'); if(!wrap) return;
+  // Fil COMPLET (Task 8) : bandeau de reprise AVANT les early-returns (empty states, mode bailleurs)
+  // pour qu'il soit rafraîchi à chaque rendu de la page, quel que soit le sous-onglet.
+  if(typeof _frRenderResumeBanner==='function') _frRenderResumeBanner();
   if(!DB.logements) { wrap.innerHTML='<p class="mu">Chargement…</p>'; return; }
   _closeBienMenus();
 
@@ -44349,6 +44366,31 @@ function _frActeCreated(ent, immName){
 // ── Fil COMPLET : état de reprise de la complétion (persisté dans DB.params, UI de reprise = Task 8) ──
 function _frSetCompletionState(entId, immName){ if(!DB.params) DB.params={}; DB.params.frCompletion={entId:entId, immName:immName, dismissed:false}; saveDB(); }
 function _frClearCompletionState(){ if(DB.params && DB.params.frCompletion){ delete DB.params.frCompletion; saveDB(); } }
+// Task 8 — reprise depuis la page Biens : % silencieux (null si l'état ne résout plus), reprise
+// (accordéon en position auto = premier nœud incomplet) et « Masquer » (dismissed persisté, l'état
+// reste réutilisable — un futur import d'acte le re-pose via _frSetCompletionState).
+function _frCompPct(entId, immName){ const cm=_frCompModelFor(entId, immName); return cm?cm.model.pct:null; }
+function _frStartCompletion(entId, immName){ _frCompOpen=null; _frStartCtx('completion', entId, immName); }
+function _frDismissCompletion(){ if(DB.params && DB.params.frCompletion){ DB.params.frCompletion.dismissed=true; saveDB(); } if(typeof rBiens==='function') rBiens(); }
+// Bandeau « Fil rouge en cours » (mockup fil-rouge-complet écran 6) — rendu dans #fr-resume-slot
+// par rBiens à CHAQUE rendu de la page Biens. État fantôme (entité/immeuble disparus) ou 100 %
+// atteint hors fil → purge SILENCIEUSE (pas de toast ici, contrairement à l'ouverture du fil).
+function _frRenderResumeBanner(){
+  const slot=el('fr-resume-slot'); if(!slot) return;
+  const fc=DB && DB.params && DB.params.frCompletion;
+  if(!fc){ slot.innerHTML=''; return; }
+  // Purge AVANT de respecter dismissed : un état masqué qui atteint 100 % (ou devient fantôme)
+  // hors fil ne doit pas rester orphelin dans DB.params.
+  const pct=_frCompPct(fc.entId, fc.immName);
+  if(pct==null || pct>=100){ _frClearCompletionState(); slot.innerHTML=''; return; }
+  if(fc.dismissed){ slot.innerHTML=''; return; }
+  // entId transite en String par l'onclick — accepté par _frCurEnt/_frCompModelFor (+e.id===+entId).
+  slot.innerHTML='<div class="fr-resume"><span class="ic">🧭</span><div class="tx"><b>Fil rouge en cours — '+escHtml(fc.immName||'')+'</b>'
+    +'<s>'+pct+' % — il reste des fiches à compléter. Reprends où tu t’étais arrêté.</s>'
+    +'<div class="bar"><i style="width:'+pct+'%"></i></div></div>'
+    +'<button class="fr-resume-go" onclick="_frStartCompletion(\''+escHtml(_frAttr(String(fc.entId)))+'\',\''+escHtml(_frAttr(String(fc.immName||'')))+'\')">Reprendre →</button>'
+    +'<button class="fr-resume-hide" onclick="_frDismissCompletion()">Masquer</button></div>';
+}
 // Post-import d'acte : pose le contexte + l'état de reprise, puis (en mode fil) enchaîne sur
 // l'écran TRANSITION « le fil continue » (remplace l'ex-arrivée directe sur le récap 'done').
 function _frAfterActe(ent, immName, createdRefs){
@@ -44510,19 +44552,29 @@ function _frNextChoice(ev){ _frOpenStep(window.FilRougeConductor.advance('next',
 // ── Fil COMPLET : écran de complétion (accordéon) — modèle pur + actions vers les ÉCRANS EXISTANTS ──
 // Entrée en complétion (depuis transition, ou reprise Task 8) : accordéon en position auto (premier incomplet).
 function _frCompContinue(){ _frCompOpen=null; _frOpenStep(window.FilRougeConductor.advance('transition','continue')); }
-function _frCompModel(){
-  const ent=_frCurEnt(); if(!ent||ent._deleted) return null;
-  const imm=(ent.immeubles||[]).find(i=>i && !i._deleted && i.nom===_frCtx.immName) || null;
-  if(!imm){
-    // Revue I4 : immeuble renommé/supprimé HORS fil → ne pas élargir silencieusement le fil à
-    // toute l'entité (bouton « Compléter la fiche » immeuble muet). On purge la reprise et on sort.
-    showToast('Le fil rouge ne retrouve plus cet immeuble — état de reprise purgé.', 'warn');
-    _frClearCompletionState();
-    return null;
-  }
+// Task 8 : résolution PURE du modèle de complétion pour un couple bailleur/immeuble — AUCUN effet
+// de bord (ni toast ni purge). Partagée entre l'écran completion (_frCompModel, avec effets) et le
+// bandeau de reprise page Biens (_frCompPct, purge silencieuse côté rBiens). entId comparé en
+// coercition numérique (+e.id===+entId, comme _frCurEnt) : accepte l'id d'origine (number) OU sa
+// forme String (transit par l'onclick du bandeau).
+function _frCompModelFor(entId, immName){
+  if(entId==null || !window.ParcoursBienModel || !window.ParcoursBienModel.completionModel) return null;
+  const ent=(DB.entites||[]).find(e=>e&&!e._deleted&&+e.id===+entId); if(!ent) return null;
+  const imm=(ent.immeubles||[]).find(i=>i&&!i._deleted&&i.nom===immName); if(!imm) return null;
   const logs=(DB.logements||[]).filter(l=>l&&!l._deleted&&l.entity===ent.nom&&l.imm===imm.nom);
   const bauxActifs={}; logs.forEach(l=>{ const b=_bienActiveBail(l.ref); if(b) bauxActifs[l.ref]=b; });
   return { ent, imm, model: window.ParcoursBienModel.completionModel({entite:ent, immeuble:imm, logements:logs, bauxActifs}) };
+}
+function _frCompModel(){
+  const cm=_frCompModelFor(_frCtx.entId, _frCtx.immName);
+  if(!cm){
+    // Revue I4 : entité/immeuble renommé ou supprimé HORS fil → ne pas élargir silencieusement le
+    // fil à toute l'entité (bouton « Compléter la fiche » immeuble muet). Purge de la reprise + explication.
+    showToast('Le fil rouge ne retrouve plus ce patrimoine — état de reprise purgé.', 'warn');
+    _frClearCompletionState();
+    return null;
+  }
+  return cm;
 }
 // Corps HTML de l'accordéon (revue M4 : extrait de _frShowFr pour la lisibilité). Mute _frCompOpen :
 // normalise (nœud plein → repli auto + fil pousse à la suivante) puis MATÉRIALISE le choix auto,
