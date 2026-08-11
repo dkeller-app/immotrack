@@ -1,7 +1,7 @@
 import { SELF } from 'cloudflare:test';
 import { describe, it, expect } from 'vitest';
+import { appToken } from './_auth.js';
 
-const APP_KEY = 'test-app-key';
 
 async function createSession(signers, bailRef = 'BAIL-2026-001') {
   const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xe2]); // %PDF-1.4
@@ -9,7 +9,7 @@ async function createSession(signers, bailRef = 'BAIL-2026-001') {
   form.set('pdf', new File([pdf], 'bail.pdf', { type: 'application/pdf' }));
   form.set('meta', JSON.stringify({ bailRef, signers }));
   const res = await SELF.fetch('https://relay.test/sessions', {
-    method: 'POST', headers: { Authorization: `Bearer ${APP_KEY}` }, body: form
+    method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
   });
   return (await res.json()).sessionId;
 }

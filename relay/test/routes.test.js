@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SELF, env } from 'cloudflare:test';
 import { emailHash } from '../src/crypto-utils.js';
 import { verifyToken } from '../src/tokens.js';
+import { appToken } from './_auth.js';
 
 describe('GET /health', () => {
   it('répond 200 avec ok:true', async () => {
@@ -23,7 +24,7 @@ function pdfForm(meta) {
 describe('POST /sessions', () => {
   const META = { bailRef: 'BAIL-1', signers: [{ role: 'locataire', email: 'a@b.fr', tel: '', ordre: 1 }] };
 
-  it('rejette 401 sans APP_KEY', async () => {
+  it('rejette 401 sans jeton de session Supabase', async () => {
     const res = await SELF.fetch('https://relay.test/sessions', { method: 'POST', body: pdfForm(META) });
     expect(res.status).toBe(401);
   });
@@ -31,7 +32,7 @@ describe('POST /sessions', () => {
   it('crée la session et renvoie sessionId + signUrl + ownerToken valides', async () => {
     const res = await SELF.fetch('https://relay.test/sessions', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${env.APP_KEY}` },
+      headers: { Authorization: `Bearer ${await appToken()}` },
       body: pdfForm(META)
     });
     expect(res.status).toBe(201);
@@ -47,7 +48,7 @@ describe('POST /sessions', () => {
   it('rejette 400 un signataire sans email (anti emailHash("undefined"))', async () => {
     const res = await SELF.fetch('https://relay.test/sessions', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${env.APP_KEY}` },
+      headers: { Authorization: `Bearer ${await appToken()}` },
       body: pdfForm({ bailRef: 'BAIL-X', signers: [{ role: 'locataire', tel: '', ordre: 1 }] })
     });
     expect(res.status).toBe(400);
@@ -60,7 +61,7 @@ async function createTestSession(signers) {
   form.set('pdf', new Blob([new Uint8Array([0x25,0x50,0x44,0x46,1])], { type: 'application/pdf' }), 'b.pdf');
   form.set('meta', JSON.stringify({ bailRef: 'B', signers }));
   const res = await SELF.fetch('https://relay.test/sessions', {
-    method: 'POST', headers: { Authorization: `Bearer ${env.APP_KEY}` }, body: form
+    method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
   });
   return res.json();
 }
@@ -184,7 +185,7 @@ describe('routes bailleur (ownerToken)', () => {
     form.set('pdf', new Blob([new Uint8Array([0x25,0x50,0x44,0x46,1])], { type: 'application/pdf' }), 'b.pdf');
     form.set('meta', JSON.stringify({ bailRef: 'B', signers }));
     const res = await SELF.fetch('https://relay.test/sessions', {
-      method: 'POST', headers: { Authorization: `Bearer ${env.APP_KEY}` }, body: form
+      method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
     });
     return res.json(); // { sessionId, signUrl, ownerToken }
   }
@@ -249,7 +250,7 @@ describe('aller-retour complet — gestion (bailleur + locataire ordonnés)', ()
       { role: 'locataire', email: 'loc@x.fr', tel: '', ordre: 2 }
     ]}));
     const create = await SELF.fetch('https://relay.test/sessions', {
-      method: 'POST', headers: { Authorization: `Bearer ${env.APP_KEY}` }, body: form
+      method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
     });
     const { sessionId, ownerToken } = await create.json();
 

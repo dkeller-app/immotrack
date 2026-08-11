@@ -2,13 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { SELF, env } from 'cloudflare:test';
 import { verifyToken } from '../src/tokens.js';
 import { putCand, getCand } from '../src/storage.js';
+import { appToken } from './_auth.js';
 
 const PDF = () => new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3]);
 const DOSSIER = { identite: { civilite:'Mme', nom:'Moreau', prenom:'Camille', ddn:'1990-01-01', lieuNaiss:'Lyon', tel:'0600000000', email:'c@x.fr', adressePrecedente:'1 rue X' }, situation:{ contrat:'CDI', employeur:'ACME', revenus:3200 }, garant:null };
 
 async function createInvite() {
   const res = await SELF.fetch('https://relay.test/candidatures', {
-    method: 'POST', headers: { Authorization: `Bearer ${env.APP_KEY}`, 'content-type': 'application/json' },
+    method: 'POST', headers: { Authorization: `Bearer ${await appToken()}`, 'content-type': 'application/json' },
     body: JSON.stringify({ logRef: 'L1', bienLabel: 'T2 Lilas', loyer: 1100, message: 'Bonjour', expDays: 14 })
   });
   return res;
@@ -19,7 +20,7 @@ async function candTokenOf(linkId) {
 }
 
 describe('POST /candidatures', () => {
-  it('401 sans APP_KEY', async () => {
+  it('401 sans jeton de session Supabase', async () => {
     const res = await SELF.fetch('https://relay.test/candidatures', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ logRef:'L1', expDays:14 }) });
     expect(res.status).toBe(401);
   });
@@ -34,17 +35,17 @@ describe('POST /candidatures', () => {
     expect(ver.payload.lid).toBe(b.linkId);
   });
   it('400 expDays invalide', async () => {
-    const res = await SELF.fetch('https://relay.test/candidatures', { method:'POST', headers:{ Authorization:`Bearer ${env.APP_KEY}`, 'content-type':'application/json'}, body: JSON.stringify({ logRef:'L1', expDays:99 }) });
+    const res = await SELF.fetch('https://relay.test/candidatures', { method:'POST', headers:{ Authorization:`Bearer ${await appToken()}`, 'content-type':'application/json'}, body: JSON.stringify({ logRef:'L1', expDays:99 }) });
     expect(res.status).toBe(400);
   });
 });
 
 describe('GET /api/ping', () => {
-  it('401 sans APP_KEY', async () => {
+  it('401 sans jeton de session Supabase', async () => {
     expect((await SELF.fetch('https://relay.test/api/ping')).status).toBe(401);
   });
-  it('200 { ok:true } avec APP_KEY', async () => {
-    const res = await SELF.fetch('https://relay.test/api/ping', { headers: { Authorization: `Bearer ${env.APP_KEY}` } });
+  it('200 { ok:true } avec un jeton de session Supabase', async () => {
+    const res = await SELF.fetch('https://relay.test/api/ping', { headers: { Authorization: `Bearer ${await appToken()}` } });
     expect(res.status).toBe(200);
     expect((await res.json()).ok).toBe(true);
   });

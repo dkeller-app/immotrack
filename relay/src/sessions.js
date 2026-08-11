@@ -3,7 +3,11 @@ import {
   putMeta, getMeta, putOriginalPdf, putSignedPdf, SESSION_TTL_SECONDS
 } from './storage.js';
 
-export async function createSession(env, { bailRef, pdfBytes, signers }) {
+// `createdBy` = `sub` du jeton de session Supabase du bailleur qui crée la session. C'est la
+// SEULE preuve de propriété durable : l'ownerToken, lui, n'existe qu'en un exemplaire côté app
+// et un écrasement rendrait un résultat signé irrécupérable (§6 de l'audit 2026-07-15).
+// Jamais renvoyé au client ; sert uniquement à autoriser POST /api/sessions/:id/reclaim.
+export async function createSession(env, { bailRef, pdfBytes, signers, createdBy }) {
   const sessionId = randomHex(32); // 256 bits
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_SECONDS * 1000);
@@ -20,6 +24,7 @@ export async function createSession(env, { bailRef, pdfBytes, signers }) {
     sessionId,
     bailRef,
     provider: 'native',
+    createdBy: createdBy || null,
     createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),
     status: 'pending',
@@ -46,6 +51,17 @@ export async function recordEmailVerified(env, sessionId) {
     signer.emailVerifiedAt = new Date().toISOString();
     await putMeta(env, sessionId, session);
   }
+  return session;
+}
+
+// §6 — journalise une re-frappe d'ownerToken. Un jeton propriétaire ouvre la suppression de
+// la session (donc du PDF signé) : la re-frappe doit laisser un écrit opposable. Liste bornée
+// aux 20 dernières entrées pour ne pas enfler le KV. Ne touche à RIEN d'autre dans la session.
+export async function recordReclaim(env, sessionId, userId) {
+  const session = await getMeta(env, sessionId);
+  if (!session) throw new Error('session-not-found');
+  session.reclaims = [...(session.reclaims || []), { at: new Date().toISOString(), by: userId }].slice(-20);
+  await putMeta(env, sessionId, session);
   return session;
 }
 

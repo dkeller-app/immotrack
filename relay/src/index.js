@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createSession, loadSession, recordSignature, recordEmailVerified } from './sessions.js';
+import { createSession, loadSession, recordSignature, recordEmailVerified, recordReclaim } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
@@ -108,16 +108,24 @@ app.post('/sessions', async (c) => {
     });
   }
 
-  const { sessionId } = await createSession(c.env, { bailRef: meta.bailRef, pdfBytes, signers });
-  const exp = expEpoch();
-  const ownerToken = await createToken(
-    { sid: sessionId, role: 'owner', jti: randomHex(8), exp },
-    c.env.SIGNING_SECRET
-  );
+  const { sessionId } = await createSession(c.env, {
+    bailRef: meta.bailRef, pdfBytes, signers,
+    createdBy: gate.userId          // preuve de propriété durable (cf. mintOwnerToken / reclaim)
+  });
+  const ownerToken = await mintOwnerToken(c.env, sessionId);
   const signUrl = new URL(`/s/${sessionId}`, c.req.url).toString();
 
   return c.json({ sessionId, signUrl, ownerToken }, 201);
 });
+
+// Frappe d'un jeton propriétaire. UNE seule fabrique, partagée par la création et la
+// récupération : les deux jetons sont interchangeables par construction.
+async function mintOwnerToken(env, sessionId) {
+  return createToken(
+    { sid: sessionId, role: 'owner', jti: randomHex(8), exp: expEpoch() },
+    env.SIGNING_SECRET
+  );
+}
 
 async function requireSigner(c, sessionId) {
   const token = c.req.header('X-Sign-Token') || '';
@@ -253,6 +261,47 @@ app.get('/api/sessions/:id', async (c) => {
       } : null
     }))
   });
+});
+
+// §6 (audit 2026-07-15) — RÉCUPÉRATION d'un accès propriétaire perdu.
+// L'ownerToken n'existe qu'en un exemplaire côté app : écrasé, il rend un bail SIGNÉ
+// irrécupérable. Le créateur (identité Supabase, pas un jeton) peut en re-frapper un.
+//
+// Ce n'est PAS une révocation : les jetons sont des HMAC sans état côté serveur, l'ancien
+// reste donc valide jusqu'à son expiration. On répare un accès perdu, on ne ferme pas un accès fuité.
+//
+// PORTÉE — à ne pas surestimer : la récupération n'existe que TANT QUE la session vit dans KV.
+// Passé le TTL (SESSION_TTL_SECONDS, prolongé à chaque écriture), `loadSession` renvoie null et
+// la route répond 404 : un bail signé dont la session a expiré reste définitivement hors d'atteinte
+// côté relais. Ce chantier réduit la fenêtre de perte, il ne la supprime pas.
+app.post('/api/sessions/:id/reclaim', async (c) => {
+  const gate = await requireSupabaseUser(c);
+  if (gate.error) return gate.error;
+
+  const sessionId = c.req.param('id');
+  const session = await loadSession(c.env, sessionId);
+  if (!session) return c.json({ error: 'not found' }, 404);
+
+  // Sessions créées avant ce chantier : aucun créateur enregistré, donc aucune propriété
+  // démontrable. On refuse pour tout le monde — sinon n'importe quel compte connecté
+  // s'approprierait le bail signé d'un autre.
+  if (!session.createdBy) return c.json({ error: 'no-owner-recorded' }, 403);
+  if (session.createdBy !== gate.userId) return c.json({ error: 'not-owner' }, 403);
+
+  // TRACE OPPOSABLE : un jeton propriétaire ouvre `DELETE /api/sessions/:id`, qui détruit le PDF
+  // signé. Un accès capable d'effacer la preuve ne doit pas pouvoir être re-frappé sans laisser
+  // d'écrit. On journalise donc chaque re-frappe dans la méta (bornée : 20 dernières).
+  await recordReclaim(c.env, sessionId, gate.userId);
+
+  const ownerToken = await mintOwnerToken(c.env, sessionId);
+  // Pas d'`expiresAt` dans cette réponse : la valeur portée par la session est figée à la création
+  // alors que `putMeta` repousse le TTL KV à chaque écriture — la renvoyer ferait croire à une
+  // expiration plus proche que la réalité, soit exactement la famille de bug de l'incident du 15/07.
+  return c.json(
+    { sessionId, ownerToken, status: session.status, currentIndex: session.currentIndex },
+    200,
+    { 'Cache-Control': 'no-store' }   // la réponse porte un jeton d'accès
+  );
 });
 
 app.delete('/api/sessions/:id', async (c) => {

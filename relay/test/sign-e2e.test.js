@@ -7,8 +7,8 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import { embedInDoc, readFromDoc } from '../public/sign/manifest.js';
 import { stampSignature } from '../public/sign/stamp.js';
 import { buildProofObject } from '../public/sign/proof.js';
+import { appToken } from './_auth.js';
 
-const APP_KEY = 'test-app-key';
 
 // Symétrique du décodage relais (X-Sign-Proof) — comme sign.js.
 function b64urlJson(obj) {
@@ -44,7 +44,7 @@ async function createSession(signers, pdfBytes, bailRef = 'BAIL-E2E-001') {
   form.set('pdf', new File([pdfBytes], 'bail.pdf', { type: 'application/pdf' }));
   form.set('meta', JSON.stringify({ bailRef, signers }));
   const res = await SELF.fetch('https://relay.test/sessions', {
-    method: 'POST', headers: { Authorization: `Bearer ${APP_KEY}` }, body: form
+    method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: form
   });
   expect(res.status).toBe(201);
   return res.json();
@@ -149,6 +149,41 @@ describe('sign e2e — round-trip réel + chaînage 2 signataires', () => {
     expect(manifest.anchors).toHaveLength(8);
     // Le tamponnage a ajouté du contenu → fichier plus volumineux que l'original.
     expect(finalBytes.length).toBeGreaterThan(original.length);
+  });
+
+  // §6 — LE scénario qui motive la route de récupération : le bail est réellement signé, puis
+  // l'app perd son ownerToken. Sans récupération, le PDF signé est définitivement hors d'atteinte.
+  // On vérifie ici la chaîne complète jusqu'aux OCTETS du PDF, pas seulement le code retour.
+  it('§6 — un bail SIGNÉ reste récupérable après perte de l\'ownerToken', async () => {
+    const original = await makeBailBytes(2);
+    // On ignore volontairement l'ownerToken renvoyé à la création : il est « perdu ».
+    const { sessionId } = await createSession(
+      [{ role: 'locataire', email: 'l@x.fr', ordre: 0 }],
+      original
+    );
+    const s = await signCurrentSigner(sessionId, 'l@x.fr');
+    expect(s.status).toBe('completed');
+
+    // Sans jeton propriétaire, le résultat signé est inaccessible.
+    const avant = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`);
+    expect(avant.status).toBe(401);
+
+    // Récupération par l'IDENTITÉ du créateur (pas par un jeton, qu'on n'a plus).
+    const rec = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/reclaim`, {
+      method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }
+    });
+    expect(rec.status).toBe(200);
+    const { ownerToken } = await rec.json();
+
+    const resultRes = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}/result`, {
+      headers: { 'X-Owner-Token': ownerToken }
+    });
+    expect(resultRes.status).toBe(200);
+    const finalBytes = new Uint8Array(await resultRes.arrayBuffer());
+    const finalDoc = await PDFDocument.load(finalBytes);
+    expect(finalDoc.getPageCount()).toBe(2);            // c'est bien le bail, pas une page d'erreur
+    expect(readFromDoc(finalDoc)).not.toBeNull();       // manifeste de signature intact
+    expect(finalBytes.length).toBeGreaterThan(original.length);  // tamponné
   });
 
   it('mono-signataire locataire : round-trip complet → completed', async () => {

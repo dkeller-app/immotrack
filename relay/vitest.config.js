@@ -10,8 +10,7 @@ export default defineWorkersConfig({
         isolatedStorage: false,
         miniflare: {
           bindings: {
-            SIGNING_SECRET: 'test-secret-please-change-test-secret-please-change',
-            APP_KEY: 'test-app-key'
+            SIGNING_SECRET: 'test-secret-please-change-test-secret-please-change'
           }
         }
       }

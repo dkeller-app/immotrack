@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { env } from 'cloudflare:test';
 import app from '../src/index.js';
+import { appToken } from './_auth.js';
 
 async function createSession() {
   const fd = new FormData();
   fd.set('pdf', new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46])], { type: 'application/pdf' }), 'b.pdf');
   fd.set('meta', JSON.stringify({ bailRef: 'L1-2026', signers: [{ role: 'locataire', nom: 'X', email: 'x@y.fr', ordre: 1 }] }));
   const res = await app.request('/sessions', {
-    method: 'POST', headers: { Authorization: `Bearer ${env.APP_KEY}` }, body: fd
+    method: 'POST', headers: { Authorization: `Bearer ${await appToken()}` }, body: fd
   }, env);
   return res.json();
 }
