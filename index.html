@@ -6846,10 +6846,12 @@ async function _reclaimRemoteSignSession(ref) {
   // Garde de ré-entrance : le reclaim n'est PAS idempotent côté app (il persiste un jeton),
   // un double-clic ferait courir deux réponses et la plus lente écraserait la plus récente.
   window.__reclaimBusy = window.__reclaimBusy || {};
-  if (window.__reclaimBusy[ref]) return;
+  if (window.__reclaimBusy[ref]) { showToast('Récupération déjà en cours…', 'info', 2000); return; }
   window.__reclaimBusy[ref] = true;
-  showToast('🔑 Récupération de l\'accès…', 'info', 2000);
   try {
+    // DANS le try : un toast qui lèverait avant l'ouverture du bloc laisserait le verrou fermé
+    // à vie (window.__reclaimBusy survit à la navigation SPA) et tuerait le bouton.
+    showToast('🔑 Récupération de l\'accès…', 'info', 2000);
     const out = await window._relayReclaimSession({ base, getToken: cfg.getToken }, rs.sessionId);
     bail.signatures.remoteSession = window._applyReclaimedSession(rs, out);
     saveDB();
@@ -7229,8 +7231,9 @@ async function _pollRemoteSignSessions(opts) {
   const refs = Object.keys(DB.baux || {}).filter(ref => {
     const rs = DB.baux[ref].signatures && DB.baux[ref].signatures.remoteSession;
     // 'unreachable' (§3) = 404 non terminal → on CONTINUE de re-poller (auto-guérison dès base correcte).
-    // 'access-lost' (§6) = 401 : exclu du poll AUTOMATIQUE (le même jeton redonnerait 401 en boucle),
-    // mais autorisé sur demande EXPLICITE (bouton « Réessayer ») — une perte d'accès passagère se répare.
+    // 'access-lost' (§6) = 401 : exclu du poll PÉRIODIQUE (le même jeton redonnerait 401 toutes les
+    // 30 s), mais repollé sur `force` — bouton « Réessayer » ET poll de boot, qui passe force:true
+    // sans logRef : une perte d'accès passagère se répare alors d'elle-même au rechargement.
     if (!rs) return false;
     if (!(['sent', 'chaining', 'unreachable'].includes(rs.status) || (opts.force && rs.status === 'access-lost'))) return false;
     if (opts.logRef && ref !== opts.logRef) return false; // DB.baux est clé par ref logement
@@ -7611,10 +7614,14 @@ async function openRemoteSignModal(ref) {
   //  • expired (404) → session absente du relais, rien à perdre → on relance.
   //  • poll en ERREUR (relais injoignable) → état INDÉTERMINÉ → on N'ÉCRASE PAS (fail-closed légal).
   const _existingRs = bail.signatures.remoteSession;
-  if (_existingRs && _existingRs.sessionId && _existingRs.ownerToken) {
+  // On n'exige QUE le sessionId : un ownerToken absent est précisément le scénario §6, et sauter
+  // le pré-vol dans ce cas menait à écraser remoteSession (donc à perdre le sessionId, donc toute
+  // chance de récupération). Sans jeton, on ne peut rien vérifier → état indéterminé → access-lost.
+  if (_existingRs && _existingRs.sessionId) {
     const _base = _resolveRelayBase(_existingRs);
     let _realState;
-    try { _realState = await _bsRelayPollSession(_base, _existingRs.sessionId, _existingRs.ownerToken); }
+    if (!_existingRs.ownerToken) { _realState = { status: 'access-lost' }; }
+    else try { _realState = await _bsRelayPollSession(_base, _existingRs.sessionId, _existingRs.ownerToken); }
     catch (e) {
       console.warn('[remoteSign] pré-vol relance échoué', e);
       showToast('Impossible de vérifier l\'état de la session existante (relais injoignable). On ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe — réessaie dans un instant.', 'err', 8000);
@@ -7638,7 +7645,16 @@ async function openRemoteSignModal(ref) {
     if (_realState && ['pending', 'sent', 'chaining'].includes(_realState.status)) {
       if (!confirm('Une session de signature à distance est déjà en cours pour ce bail.\n\nLa remplacer créera un nouveau lien et invalidera l\'ancien (les signatures déjà recueillies seraient perdues). Continuer ?')) return;
     }
-    // Ici : 'expired' (404 = rien à perdre) OU pending confirmé → purge best-effort avant de recréer.
+    // LISTE BLANCHE de la destruction : 'expired' (404 = rien à perdre) OU un pending/sent/chaining
+    // que l'utilisateur vient de confirmer. TOUT le reste (réponse nulle, corps illisible, statut
+    // relais inattendu) = état indéterminé → on ne détruit RIEN. C'est la même règle que §6 :
+    // on ne remplace jamais une session dont on ne sait pas si elle porte une signature.
+    const _destroyOk = !!_realState && ['expired', 'pending', 'sent', 'chaining'].includes(_realState.status);
+    if (!_destroyOk) {
+      console.warn('[remoteSign] pré-vol : statut relais inattendu', _realState);
+      showToast('État de la session existante indéterminé — on ne relance pas tant qu\'on n\'a pas confirmé qu\'aucune signature n\'existe. Réessaie dans un instant.', 'err', 8000);
+      return;
+    }
     if (typeof _bsRelayDeleteSession === 'function') {
       _bsRelayDeleteSession(_base, _existingRs.sessionId, _existingRs.ownerToken).catch(function () {});
     }
