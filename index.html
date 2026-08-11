@@ -3032,15 +3032,13 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   .acte-add-row:hover{border-color:var(--acc);color:var(--acc)}
   .acte-icon-btn{border:1px solid var(--bor);background:var(--sur);border-radius:var(--r);width:28px;height:28px;cursor:pointer;font-size:13px;color:var(--t2)}
   .acte-icon-btn:hover{background:var(--bg-danger);color:var(--red);border-color:#fca5a5}
-  /* récap */
-  .acte-recap-card{border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden}
-  .acte-recap-line{display:flex;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid var(--bor2)}
-  .acte-recap-line:last-child{border-bottom:none}
-  .acte-recap-line .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:15px;flex:none;background:var(--sur2)}
-  .acte-recap-line .txt b{font-size:13px} .acte-recap-line .txt div{font-size:11.5px;color:var(--t2)}
-  .acte-recap-line .tag{margin-left:auto;font-size:10.5px;font-weight:700;border-radius:10px;padding:2px 9px;white-space:nowrap}
+  /* synthèse « à la création » (bas de vérif) */
+  .acte-synth{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;padding:11px 14px;border:1px solid var(--bor);border-radius:var(--rl);background:var(--sur2);font-size:12.5px}
+  .acte-synth .pill{font-size:11px;font-weight:700;border-radius:10px;padding:3px 10px;white-space:nowrap}
   .acte-tag-new{background:var(--bg-success);color:var(--grn);border:1px solid #86efac}
   .acte-tag-link{background:var(--bg-info);color:var(--acc);border:1px solid #93c5fd}
+  [data-theme="dark"] .acte-tag-new{border-color:rgba(134,239,172,.35)}
+  [data-theme="dark"] .acte-tag-link{border-color:rgba(147,197,253,.35)}
   /* succès */
   .acte-success{text-align:center;padding:36px 20px} .acte-success .big{font-size:48px}
   .acte-success h4{margin:10px 0 4px;font-size:18px} .acte-success p{margin:0 auto;font-size:13px;color:var(--t2);max-width:420px}
@@ -3060,9 +3058,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div class="acte-stepper" id="acte-stepper">
     <div class="acte-stp" data-s="depot"><span class="n">1</span><span class="lbl">Dépôt de l'acte</span></div>
     <span class="acte-stp-sep">›</span>
-    <div class="acte-stp" data-s="verif"><span class="n">2</span><span class="lbl">Vérification</span></div>
-    <span class="acte-stp-sep">›</span>
-    <div class="acte-stp" data-s="recap"><span class="n">3</span><span class="lbl">Création</span></div>
+    <div class="acte-stp" data-s="verif"><span class="n">2</span><span class="lbl">Vérification &amp; création</span></div>
   </div>
   <div class="m-body" id="acte-body">
 
@@ -3091,11 +3087,6 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- ÉTAPE 2 — VÉRIFICATION -->
     <div class="acte-step" data-step="verif">
       <div id="acte-verif-content"></div>
-    </div>
-
-    <!-- ÉTAPE 3 — RÉCAP -->
-    <div class="acte-step" data-step="recap">
-      <div id="acte-recap-content"></div>
     </div>
 
     <!-- SUCCÈS -->
@@ -41157,7 +41148,6 @@ function openActeImport() {
   _acteDraft = null;
   _acteBindDnd();
   if (el('acte-verif-content')) el('acte-verif-content').innerHTML = '';
-  if (el('acte-recap-content')) el('acte-recap-content').innerHTML = '';
   if (el('acte-file')) el('acte-file').value = '';
   _acteSetStep('depot');
   openM('ov-acte');
@@ -41169,13 +41159,12 @@ function _acteSetStep(s) {
   document.querySelectorAll('#acte-body .acte-step').forEach(p => {
     p.classList.toggle('act', p.dataset.step === s);
   });
-  // stepper (3 jalons visibles : depot / verif / recap)
-  const order = ['depot', 'verif', 'recap'];
+  // stepper (2 jalons visibles : depot / verif — la création se déclenche depuis la vérif)
+  const order = ['depot', 'verif'];
   let curIdx = 0;
   if (s === 'depot' || s === 'loading') curIdx = 0;
   else if (s === 'verif') curIdx = 1;
-  else if (s === 'recap') curIdx = 2;
-  else if (s === 'succes') curIdx = 3;
+  else if (s === 'succes') curIdx = 2;
   document.querySelectorAll('#acte-stepper .acte-stp').forEach(st => {
     const i = order.indexOf(st.dataset.s);
     st.classList.toggle('act', i === curIdx);
@@ -41184,14 +41173,13 @@ function _acteSetStep(s) {
   // pied de page
   const back = el('acte-back'), next = el('acte-next'), hint = el('acte-hint'), foot = el('acte-foot');
   if (foot) foot.style.display = (s === 'succes') ? 'none' : 'flex';
-  if (back) back.style.display = (s === 'verif' || s === 'recap') ? '' : 'none';
-  if (next) next.style.display = (s === 'verif' || s === 'recap') ? '' : 'none';
-  if (next) next.textContent = (s === 'recap') ? "Valider l'import ✓" : 'Continuer ›';
+  if (back) back.style.display = (s === 'verif') ? '' : 'none';
+  if (next) next.style.display = (s === 'verif') ? '' : 'none';
+  if (next) next.textContent = '✓ Tout est bon — créer';
   if (hint) {
     if (s === 'depot') hint.textContent = "Dépose ou choisis l'acte PDF.";
     else if (s === 'loading') hint.textContent = "Lecture de l'acte en cours…";
-    else if (s === 'verif') hint.textContent = '✨ Vérifie chaque champ suggéré avant de continuer.';
-    else if (s === 'recap') hint.innerHTML = "Vérifie le récapitulatif puis valide pour créer.";
+    else if (s === 'verif') hint.textContent = "Rien n'est écrit avant ce clic.";
   }
 }
 
@@ -41288,11 +41276,12 @@ function _actePickEnt(force) {
 }
 
 /** Choix immeuble (bandeau rapprochement) : immId d'un immeuble existant, ou '' → nouveau.
- *  Pas de re-render nécessaire (le choix n'affecte rien d'autre à l'écran vérif). */
+ *  Pas de re-render complet nécessaire — seule la synthèse du bas reflète ce choix. */
 function _actePickImm(immId) {
   if (!_acteDraft) return;
   const v = String(immId == null ? '' : immId).trim();
   _acteDraft.dupImmeuble = v ? { immId: v } : null;
+  _acteRenderSynth(); // pill « immeuble existant » / « ✚ 1 immeuble » en live.
 }
 
 /** Convertit un nombre en lettres (français, jusqu'à 16) ou un chiffre en entier. */
@@ -41475,6 +41464,10 @@ function _acteRenderVerif() {
   html += `<button class="acte-add-row" onclick="_acteAddAnnexe()">＋ Ajouter une annexe</button>`;
   html += `</div></div>`;
 
+  // SYNTHÈSE « à la création » — remplie/rafraîchie par _acteRenderSynth() (fin de _acteRenderAnnexes,
+  // _actePickImm, _acteToggleOcc) : reflète en live ce que le clic « ✓ Tout est bon — créer » va écrire.
+  html += `<div class="acte-synth" id="acte-synth"></div>`;
+
   el('acte-verif-content').innerHTML = html;
   _acteRenderLogements();
   _acteRenderAnnexes();
@@ -41579,12 +41572,31 @@ function _acteRenderAnnexes() {
   });
   list.innerHTML = h;
   const c = el('acte-an-count'); if (c) c.textContent = (_acteDraft.annexes || []).length + ' annexe(s)';
+  _acteRenderSynth(); // tout re-rendu structurel (verif complet, ajout/retrait logement ou annexe, mode annexe) passe ici.
+}
+
+/** Synthèse « À la création » (bas de vérif) — ne remplit que #acte-synth, à partir du brouillon.
+ *  Occupation : _matched mirrore l'état du toggle (initialisé par l'extraction, resynchronisé à
+ *  chaque _acteCollectLogements) — même source que la checkbox de _acteRenderLogements. */
+function _acteRenderSynth() {
+  const box = el('acte-synth'), d = _acteDraft;
+  if (!box || !d) return;
+  const anns = d.annexes || [];
+  const nbBiens = (d.logements || []).length + anns.filter(a => (a.mode || 'rattacher') === 'bien').length;
+  const nbRepris = (d.logements || []).filter(l => l.occupation && l.occupation._matched).length;
+  const nbRatt = anns.filter(a => (a.mode || 'rattacher') === 'rattacher').length;
+  let pills = `<span class="pill ${(d.dupEntity && !d.forceNewEntity) ? 'acte-tag-link">🔗 bailleur rattaché' : 'acte-tag-new">✚ 1 bailleur'}</span>`;
+  pills += `<span class="pill ${(d.dupImmeuble && d.dupImmeuble.immId) ? 'acte-tag-link">🔗 immeuble existant' : 'acte-tag-new">✚ 1 immeuble'}</span>`;
+  pills += `<span class="pill acte-tag-new">✚ ${nbBiens} bien${nbBiens > 1 ? 's' : ''}</span>`;
+  if (nbRepris) pills += `<span class="pill acte-tag-link">🔑 ${nbRepris} ${nbRepris > 1 ? 'baux repris' : 'bail repris'}</span>`;
+  if (nbRatt) pills += `<span class="pill acte-tag-link">🔗 ${nbRatt} annexe${nbRatt > 1 ? 's' : ''} rattachée${nbRatt > 1 ? 's' : ''}</span>`;
+  box.innerHTML = `<b>À la création :</b> ${pills}`;
 }
 
 /** Phase C : changement de mode d'une annexe → recollecte + re-rendu pour afficher/masquer le sélecteur cible. */
 function _acteOnAnnexMode() {
   _acteCollectLogements();
-  _acteRenderAnnexes();
+  _acteRenderAnnexes(); // rafraîchit aussi la synthèse (pill « bien(s) » / « rattachée(s) »).
 }
 
 /** Bail repris : (dé)pli des champs occupation d'un logement quand on bascule le toggle.
@@ -41592,6 +41604,7 @@ function _acteOnAnnexMode() {
 function _acteToggleOcc(i, on) {
   _acteCollectLogements();
   const f = el('occ-fields-' + i); if (f) f.style.display = on ? '' : 'none';
+  _acteRenderSynth(); // pill « bail(aux) repris » en live.
 }
 
 /** Normalise un libellé d'annexe saisi librement vers une clé connue (cave/garage/parking/grenier),
@@ -41720,54 +41733,15 @@ function _acteCollectVerif() {
   )) d.dupImmeuble = null;
 }
 
-/** Rendu de l'étape récap (lecture seule). */
-function _acteRenderRecap() {
-  const d = _acteDraft; if (!d) return;
-  const ent = d.entite || {}, imm = d.immeuble || {};
-  const entName = ent.nom || (d.type === 'societe' ? '(société sans nom)' : '(personne sans nom)');
-  const entTag = d.dupEntity ? '<span class="tag acte-tag-link">rattachement</span>' : '<span class="tag acte-tag-new">nouveau</span>';
-  const entSub = (d.type === 'societe'
-    ? [ent.forme, ent.siren ? ('SIREN ' + ent.siren) : '', [ent.cp, ent.ville].filter(Boolean).join(' ')]
-    : [ent.civilite, [ent.cp, ent.ville].filter(Boolean).join(' ')]).filter(Boolean).join(' · ');
-  const ln = d.logements.length;
-  let html = `<div class="acte-recap-card">`;
-  html += `<div class="acte-recap-line"><span class="ic">${d.type === 'societe' ? '🏢' : '👤'}</span><div class="txt"><b>${escHtml(entName)}</b><div>${escHtml(entSub || '—')}</div></div>${entTag}</div>`;
-  html += `<div class="acte-recap-line"><span class="ic">🏠</span><div class="txt"><b>${escHtml(imm.adr || '(adresse à compléter)')}</b><div>${escHtml([imm.cp, imm.ville].filter(Boolean).join(' ') || '—')}</div></div><span class="tag acte-tag-new">nouveau</span></div>`;
-  html += `<div class="acte-recap-line"><span class="ic">🚪</span><div class="txt"><b>${ln} logement(s)</b><div>${escHtml(d.logements.map(l => l.ref).filter(Boolean).join(', ') || '—')}</div></div><span class="tag acte-tag-new">${ln} nouveau(x)</span></div>`;
-  // Bail repris (Art. 1743) — un par logement occupé activé avec un locataire renseigné (source unique : l'état).
-  const repris = (d.logements || []).filter(l => l.occupation && l.occupation.on && (l.occupation.locataire || l.occupation.hc || l.occupation.debut));
-  if (repris.length) {
-    const noms = repris.map(l => ((l.ref || '').trim() || 'Logement') + ' — ' + (l.occupation.locataire || '(locataire à compléter)')).join(' · ');
-    html += `<div class="acte-recap-line"><span class="ic">🔑</span><div class="txt"><b>${repris.length} bail/baux repris</b><div>${escHtml(noms)}</div></div><span class="tag acte-tag-link">Art. 1743</span></div>`;
-  }
-  // Phase C : annexes — biens à louer créés + rattachements vers le logement cible.
-  const NAT_LBL_R = { cave: 'Cave', garage: 'Garage', parking: 'Parking', grenier: 'Grenier', cellier: 'Cellier', buanderie: 'Buanderie', atelier: 'Atelier', annexe: 'Annexe' };
-  const anLabel = a => { const n = NAT_LBL_R[a.nature] || (a.nature ? (a.nature.charAt(0).toUpperCase() + a.nature.slice(1)) : 'Annexe'); return a.lot ? (n + ' ' + a.lot) : n; };
-  const logRef = j => { const lg = d.logements[j]; return lg ? ((lg.ref || '').trim() || ('Logement ' + (j + 1))) : ('Logement ' + (j + 1)); };
-  const anns = d.annexes || [];
-  anns.filter(a => (a.mode || 'rattacher') === 'bien').forEach(a => {
-    html += `<div class="acte-recap-line"><span class="ic">🏷</span><div class="txt"><b>${escHtml(anLabel(a))}</b><div>bien à louer indépendant</div></div><span class="tag acte-tag-new">nouveau</span></div>`;
-  });
-  const ratt = anns.filter(a => (a.mode || 'rattacher') === 'rattacher');
-  if (ratt.length) {
-    const parts = ratt.map(a => { let ti = Number.isInteger(a.targetIdx) ? a.targetIdx : 0; if (ti < 0 || ti >= d.logements.length) ti = 0; return escHtml(anLabel(a)) + ' → ' + escHtml(logRef(ti)); });
-    html += `<div class="acte-recap-line"><span class="ic">🔗</span><div class="txt"><b>${ratt.length} annexe(s) rattachée(s)</b><div>${parts.join(' · ')}</div></div><span class="tag acte-tag-link">rattachement</span></div>`;
-  }
-  html += `</div>`;
-  html += `<div class="acte-rgpd" style="margin-top:14px">ℹ️ <b>Dernière étape.</b> En validant, l'app crée ${d.dupEntity ? "l'immeuble et les logements et les rattache au bailleur existant" : 'le bailleur, l\'immeuble et les logements'}. Tout reste modifiable ensuite dans tes fiches.</div>`;
-  el('acte-recap-content').innerHTML = html;
-}
-
-/** Bouton « Continuer » : verif → récap, récap → création réelle. */
+/** Bouton du pied de page (« ✓ Tout est bon — créer ») : création réelle directe depuis la vérif
+ *  (l'étape récap a été supprimée — la synthèse en bas de vérif joue ce rôle en live). */
 function _acteNextStep() {
-  if (_acteStep === 'verif') { _acteCollectVerif(); _acteRenderRecap(); _acteSetStep('recap'); }
-  else if (_acteStep === 'recap') { _acteApply(); }
+  if (_acteStep === 'verif') { _acteCollectVerif(); _acteApply(); }
 }
 
 /** Bouton « Retour ». */
 function _actePrevStep() {
-  if (_acteStep === 'recap') _acteSetStep('verif');
-  else if (_acteStep === 'verif') _acteSetStep('depot');
+  if (_acteStep === 'verif') _acteSetStep('depot');
 }
 
 /** Normalise un nom d'entité comme saveEnt (NFC + dashes + NBSP). */
@@ -41801,7 +41775,7 @@ function buildReprisBail(occ, entNom, ref, nowISO) {
 
 /** CRÉATION RÉELLE (Phase D) — applique le brouillon validé : entité (rattachée si doublon,
  *  sinon créée), immeuble rattaché, logements, annexes (triple mode). Aucune écriture aveugle :
- *  on n'arrive ici qu'après vérification (verif) + récap explicitement validés par l'utilisateur. */
+ *  on n'arrive ici que par le clic explicite « ✓ Tout est bon — créer » de l'écran vérification. */
 function _acteApply() {
   const d = _acteDraft; if (!d) return;
   try {
