@@ -14,7 +14,7 @@ import { SELF, env } from 'cloudflare:test';
 import { appToken, appAuth, PUBLIC_JWK, TEST_USER_ID, OTHER_USER_ID } from './_auth.js';
 import { verifyToken } from '../src/tokens.js';
 import { loadSession } from '../src/sessions.js';
-import { putMeta } from '../src/storage.js';
+import { putMeta, getReclaims } from '../src/storage.js';
 
 async function createTestSession(sub = TEST_USER_ID) {
   const form = new FormData();
@@ -183,21 +183,46 @@ describe('POST /api/sessions/:id/reclaim', () => {
 
   it('journalise la re-frappe (trace opposable : un jeton propriétaire peut détruire le PDF signé)', async () => {
     const { sessionId } = await createTestSession(TEST_USER_ID);
-    expect((await loadSession(env, sessionId)).reclaims).toBeUndefined();
+    expect(await getReclaims(env, sessionId)).toEqual([]);
 
     await reclaim(sessionId, await appAuth());
     await reclaim(sessionId, await appAuth());
 
-    const { reclaims } = await loadSession(env, sessionId);
-    expect(reclaims).toHaveLength(2);
-    expect(reclaims[0].by).toBe(TEST_USER_ID);
-    expect(reclaims[0].at).toMatch(/^20\d\d-/);
+    const journal = await getReclaims(env, sessionId);
+    expect(journal).toHaveLength(2);
+    expect(journal[0].by).toBe(TEST_USER_ID);
+    expect(journal[0].at).toMatch(/^20\d\d-/);
   });
 
   it('ne journalise RIEN quand la récupération est refusée', async () => {
     const { sessionId } = await createTestSession(TEST_USER_ID);
     await reclaim(sessionId, await appAuth({ sub: OTHER_USER_ID }));   // 403
     await reclaim(sessionId, {});                                      // 401
-    expect((await loadSession(env, sessionId)).reclaims).toBeUndefined();
+    expect(await getReclaims(env, sessionId)).toEqual([]);
+  });
+
+  // Le journal vit dans SA PROPRE clé KV : le reclaim ne doit jamais réécrire la méta de session,
+  // sous peine d'écraser une signature enregistrée entre-temps (KV = pas de compare-and-swap).
+  it('n\'écrit pas dans la méta de session (pas de second écrivain concurrent)', async () => {
+    const { sessionId } = await createTestSession(TEST_USER_ID);
+    const avant = await loadSession(env, sessionId);
+
+    await reclaim(sessionId, await appAuth());
+
+    const apres = await loadSession(env, sessionId);
+    expect(apres).toEqual(avant);                    // méta strictement inchangée, octet pour octet
+    expect(apres).not.toHaveProperty('reclaims');
+  });
+
+  it('purge le journal avec la session', async () => {
+    const { sessionId, ownerToken } = await createTestSession(TEST_USER_ID);
+    await reclaim(sessionId, await appAuth());
+    expect(await getReclaims(env, sessionId)).toHaveLength(1);
+
+    const del = await SELF.fetch(`https://relay.test/api/sessions/${sessionId}`, {
+      method: 'DELETE', headers: { 'X-Owner-Token': ownerToken }
+    });
+    expect(del.status).toBe(204);
+    expect(await getReclaims(env, sessionId)).toEqual([]);
   });
 });

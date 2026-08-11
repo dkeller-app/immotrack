@@ -1,6 +1,6 @@
 import { randomHex, sha256hex } from './crypto-utils.js';
 import {
-  putMeta, getMeta, putOriginalPdf, putSignedPdf, SESSION_TTL_SECONDS
+  putMeta, getMeta, putOriginalPdf, putSignedPdf, appendReclaim, SESSION_TTL_SECONDS
 } from './storage.js';
 
 // `createdBy` = `sub` du jeton de session Supabase du bailleur qui crée la session. C'est la
@@ -55,14 +55,15 @@ export async function recordEmailVerified(env, sessionId) {
 }
 
 // §6 — journalise une re-frappe d'ownerToken. Un jeton propriétaire ouvre la suppression de
-// la session (donc du PDF signé) : la re-frappe doit laisser un écrit opposable. Liste bornée
-// aux 20 dernières entrées pour ne pas enfler le KV. Ne touche à RIEN d'autre dans la session.
+// la session (donc du PDF signé) : la re-frappe doit laisser un écrit opposable.
+//
+// N'ÉCRIT PAS DANS LA MÉTA DE SESSION, volontairement : celle-ci est réécrite en entier par le
+// chemin signataire (recordSignature). Un second écrivain concurrent sur le chemin propriétaire
+// pourrait, entre son getMeta et son putMeta, écraser une signature qui vient d'être posée —
+// et le reclaim se déclenche justement pendant que le locataire signe. Le journal vit donc dans
+// sa propre clé KV (storage.appendReclaim) : plus de course, plus de signature en jeu.
 export async function recordReclaim(env, sessionId, userId) {
-  const session = await getMeta(env, sessionId);
-  if (!session) throw new Error('session-not-found');
-  session.reclaims = [...(session.reclaims || []), { at: new Date().toISOString(), by: userId }].slice(-20);
-  await putMeta(env, sessionId, session);
-  return session;
+  return appendReclaim(env, sessionId, { at: new Date().toISOString(), by: userId });
 }
 
 // N'accepte que les champs attendus de la preuve client (acte de volonté + horodatages).

@@ -41,6 +41,30 @@ export async function getSignedPdf(env, sid) {
   return env.SESSIONS_KV.get(signedKey(sid), { type: 'arrayBuffer' });
 }
 
+// §6 — journal des re-frappes d'ownerToken, dans une clé DISTINCTE de la méta de session.
+// La séparation est le point important : la méta est écrite par le chemin SIGNATAIRE
+// (recordSignature, recordEmailVerified). Y ajouter un écrivain sur le chemin PROPRIÉTAIRE
+// créerait une course read-modify-write — KV n'offre pas de compare-and-swap — capable de
+// réécrire une méta périmée par-dessus une signature qui vient d'être enregistrée, donc
+// d'ANNULER une signature. Une clé à part supprime la course au lieu de la rétrécir.
+const reclaimKey = (sid) => `reclaims:${sid}`;
+
+export async function appendReclaim(env, sid, entry) {
+  const raw = await env.SESSIONS_KV.get(reclaimKey(sid));
+  const list = raw ? JSON.parse(raw) : [];
+  list.push(entry);
+  const bounded = list.slice(-20);   // borné : pas d'enflure du KV
+  await env.SESSIONS_KV.put(reclaimKey(sid), JSON.stringify(bounded), {
+    expirationTtl: SESSION_TTL_SECONDS
+  });
+  return bounded;
+}
+
+export async function getReclaims(env, sid) {
+  const raw = await env.SESSIONS_KV.get(reclaimKey(sid));
+  return raw ? JSON.parse(raw) : [];
+}
+
 // Purge complète d'une session (D12 : relais éphémère).
 // On supprime la meta EN PREMIER : la session devient immédiatement introuvable
 // (requireOwner gate sur la meta) même si une suppression PDF échoue ensuite.
@@ -49,7 +73,8 @@ export async function deleteSession(env, sid) {
   await env.SESSIONS_KV.delete(metaKey(sid));
   await Promise.all([
     env.SESSIONS_KV.delete(originalKey(sid)),
-    env.SESSIONS_KV.delete(signedKey(sid))
+    env.SESSIONS_KV.delete(signedKey(sid)),
+    env.SESSIONS_KV.delete(reclaimKey(sid))
   ]);
 }
 
