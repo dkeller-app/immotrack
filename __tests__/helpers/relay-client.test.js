@@ -118,3 +118,90 @@ describe('réseau (fetch injecté)', () => {
     expect(seen.opts.headers.Authorization).toBe('Bearer JWT');
   });
 });
+
+// ── §6 audit BAIL-SIGNE-SESSION-EXPIREE — récupération d'un ownerToken perdu ────────────────
+import {
+  classifyOwnerPollStatus, relayReclaimSession, applyReclaimedSession
+} from '../../js/core/relay-client.js';
+
+describe('classifyOwnerPollStatus', () => {
+  it('200 → ok', () => expect(classifyOwnerPollStatus(200)).toBe('ok'));
+  it('401 → access-lost (jeton propriétaire écrasé, la session existe toujours)', () => {
+    expect(classifyOwnerPollStatus(401)).toBe('access-lost');
+  });
+  it('404 → missing (base injoignable OU session purgée — jamais terminal ici)', () => {
+    expect(classifyOwnerPollStatus(404)).toBe('missing');
+  });
+  it('toute autre erreur → other (ne déclenche aucune conclusion)', () => {
+    expect(classifyOwnerPollStatus(500)).toBe('other');
+    expect(classifyOwnerPollStatus(0)).toBe('other');
+  });
+});
+
+describe('relayReclaimSession', () => {
+  const cfg = { base: 'https://r.dev/', getToken: async () => 'jwt-supabase' };
+
+  it('POST /api/sessions/:id/reclaim avec le jeton de session Supabase', async () => {
+    let seen = null;
+    const fetchImpl = async (url, opts) => {
+      seen = { url, opts };
+      return { ok: true, status: 200, json: async () => ({ sessionId: 'S1', ownerToken: 'neuf', status: 'pending' }) };
+    };
+    const out = await relayReclaimSession(cfg, 'S1', fetchImpl);
+    expect(seen.url).toBe('https://r.dev/api/sessions/S1/reclaim');
+    expect(seen.opts.method).toBe('POST');
+    expect(seen.opts.headers.Authorization).toBe('Bearer jwt-supabase');
+    // Jamais d'ownerToken dans l'URL (capacité) ni d'X-Owner-Token : on prouve l'IDENTITÉ.
+    expect(seen.opts.headers['X-Owner-Token']).toBeUndefined();
+    expect(out.ownerToken).toBe('neuf');
+  });
+
+  it('encode le sessionId dans l\'URL', async () => {
+    let url = '';
+    const fetchImpl = async (u) => { url = u; return { ok: true, status: 200, json: async () => ({}) }; };
+    await relayReclaimSession(cfg, 'a/b?c', fetchImpl);
+    expect(url).toBe('https://r.dev/api/sessions/a%2Fb%3Fc/reclaim');
+  });
+
+  it('lève avec le motif relais sur 403 (pas le créateur)', async () => {
+    const fetchImpl = async () => ({ ok: false, status: 403, json: async () => ({ error: 'not-owner' }) });
+    await expect(relayReclaimSession(cfg, 'S1', fetchImpl)).rejects.toThrow(/403.*not-owner/);
+  });
+
+  it('lève sur 404 (session inconnue)', async () => {
+    const fetchImpl = async () => ({ ok: false, status: 404, json: async () => ({ error: 'not found' }) });
+    await expect(relayReclaimSession(cfg, 'S1', fetchImpl)).rejects.toThrow(/404/);
+  });
+});
+
+describe('applyReclaimedSession', () => {
+  const base = { sessionId: 'S1', ownerToken: 'perdu', status: 'access-lost', signers: [{ ordre: 1 }] };
+
+  it('remplace l\'ownerToken et relance le suivi', () => {
+    const out = applyReclaimedSession(base, { ownerToken: 'neuf', status: 'pending' });
+    expect(out.ownerToken).toBe('neuf');
+    expect(out.status).toBe('sent');           // repollable → le prochain poll recalcule tout
+  });
+
+  it('ne mute pas la session d\'origine (pur)', () => {
+    applyReclaimedSession(base, { ownerToken: 'neuf', status: 'pending' });
+    expect(base.ownerToken).toBe('perdu');
+    expect(base.status).toBe('access-lost');
+  });
+
+  it('conserve un chaînage en cours', () => {
+    const rs = { ...base, status: 'chaining' };
+    expect(applyReclaimedSession(rs, { ownerToken: 'neuf' }).status).toBe('chaining');
+  });
+
+  it('préserve les signataires et le reste de la session', () => {
+    const out = applyReclaimedSession(base, { ownerToken: 'neuf' });
+    expect(out.signers).toEqual(base.signers);
+    expect(out.sessionId).toBe('S1');
+  });
+
+  it('refuse un résultat sans ownerToken (ne casse jamais la session locale)', () => {
+    expect(() => applyReclaimedSession(base, {})).toThrow(/ownerToken/);
+    expect(() => applyReclaimedSession(base, null)).toThrow(/ownerToken/);
+  });
+});

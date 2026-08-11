@@ -174,7 +174,8 @@ import {
 import {
   normalizeBase, buildCandidatUrl, relayConfigured, buildInvitationPayload,
   _relayDossierVersCandidat, relayCreateInvitation, relayFetchResult,
-  relayFetchPiece, relayReopen, relayRevoke, relayPurge, relayPing
+  relayFetchPiece, relayReopen, relayRevoke, relayPurge, relayPing,
+  classifyOwnerPollStatus, relayReclaimSession, applyReclaimedSession
 } from './core/relay-client.js';
 
 // SAUVEGARDE (Chantier 3 cloud-cutover) — cœur PUR de la sauvegarde de sécurité.
@@ -435,6 +436,10 @@ window._relayReopen = relayReopen;
 window._relayRevoke = relayRevoke;
 window._relayPurge = relayPurge;
 window._relayPing = relayPing;
+// §6 signature à distance — récupération d'un ownerToken perdu (audit 2026-07-15).
+window._relayReclaimSession = relayReclaimSession;
+window._classifyOwnerPollStatus = classifyOwnerPollStatus;
+window._applyReclaimedSession = applyReclaimedSession;
 
 // SAUVEGARDE (Chantier 3) — cœur pur exposé en bloc sous window._bk pour le code inline.
 window._bk = { FREQ_MS, backupStamp, dueForBackup, collectBackupFiles, buildManifest, crc32, storedZip };

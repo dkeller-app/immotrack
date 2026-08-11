@@ -150,3 +150,49 @@ export async function relayPing(cfg, fetchImpl = fetch) {
   });
   return jsonOrThrow(res);
 }
+
+// ── §6 audit BAIL-SIGNE-SESSION-EXPIREE (2026-07-15) — récupération d'un accès propriétaire ──
+// L'ownerToken d'une session de signature n'existe qu'en UN exemplaire, côté app. Écrasé (reset,
+// appareil perdu, bug), il rendait un bail SIGNÉ irrécupérable : le poll répondait 401 en boucle
+// et la session restait « En attente » pour toujours, sans rien dire. Le relais mémorise désormais
+// le créateur ; l'app peut re-frapper un jeton en prouvant son IDENTITÉ Supabase.
+
+/**
+ * Interprète le code HTTP d'un appel propriétaire (poll / result).
+ * 401 = le jeton est refusé alors que la session existe → accès perdu, récupérable.
+ * 404 = base injoignable OU session purgée — surtout PAS « expiré » (cf. §3).
+ */
+export function classifyOwnerPollStatus(httpStatus) {
+  if (httpStatus === 200) return 'ok';
+  if (httpStatus === 401) return 'access-lost';
+  if (httpStatus === 404) return 'missing';
+  return 'other';
+}
+
+/**
+ * Re-frappe un ownerToken pour une session de signature. On présente l'identité Supabase
+ * (Bearer), jamais l'ancien jeton — qui est précisément ce qu'on a perdu.
+ * → { sessionId, ownerToken, status, currentIndex, expiresAt }. Lève 403 si non-créateur.
+ */
+export async function relayReclaimSession(cfg, sessionId, fetchImpl = fetch) {
+  const res = await fetchImpl(
+    `${normalizeBase(cfg.base)}/api/sessions/${encodeURIComponent(String(sessionId || ''))}/reclaim`,
+    { method: 'POST', headers: { Authorization: `Bearer ${await cfg.getToken()}` } }
+  );
+  return jsonOrThrow(res);
+}
+
+/**
+ * Applique le résultat d'un reclaim à une session locale. PUR (ne mute pas l'entrée).
+ * Repose le statut sur un état repollable : le prochain poll recalculera tout, y compris
+ * une complétion survenue pendant la perte d'accès (l'ingestion suivra son cours normal).
+ */
+export function applyReclaimedSession(rs, result) {
+  const token = result && result.ownerToken;
+  if (!token) throw new Error('reclaim sans ownerToken');
+  return {
+    ...rs,
+    ownerToken: token,
+    status: rs && rs.status === 'chaining' ? 'chaining' : 'sent'
+  };
+}
