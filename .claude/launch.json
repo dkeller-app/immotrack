@@ -18,6 +18,18 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb", "-p", "8770", "-c-1", "--silent"],
       "port": 8770
+    },
+    {
+      "name": "wt-relay401",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo-wt-relay401", "-p", "8813", "-c-1", "--silent"],
+      "port": 8813
+    },
+    {
+      "name": "wt-filrouge-complet",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo-wt-filrouge-complet", "-p", "8812", "-c-1", "--silent"],
+      "port": 8812
     }
   ]
 }
