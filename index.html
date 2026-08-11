@@ -41316,15 +41316,17 @@ async function _acteProcessPdf(dataUrl, name) {
   }
 }
 
-/** Cherche un doublon d'entité par SIREN (prioritaire) puis par nom, dans DB.entites. */
+/** Cherche un doublon d'entité par SIREN (prioritaire) puis par nom, dans DB.entites.
+ *  Ignore les tombstones (_deleted) : proposer de rattacher à une entité supprimée
+ *  mènerait à un patrimoine invisible (filtré par _isAlive partout ailleurs). */
 function _acteFindDupEntity(siren, nom) {
   const ents = (typeof DB !== 'undefined' && DB.entites) ? DB.entites : [];
   const digits = String(siren || '').replace(/\D/g, '');
   let dup = null;
-  if (digits.length === 9) dup = ents.find(e => String(e.siren || '').replace(/\D/g, '') === digits);
+  if (digits.length === 9) dup = ents.find(e => !e._deleted && String(e.siren || '').replace(/\D/g, '') === digits);
   if (!dup && nom) {
     const k = String(nom).trim().toLowerCase();
-    if (k) dup = ents.find(e => String(e.nom || '').trim().toLowerCase() === k);
+    if (k) dup = ents.find(e => !e._deleted && String(e.nom || '').trim().toLowerCase() === k);
   }
   return dup || null;
 }
@@ -41968,8 +41970,11 @@ function _acteApply() {
       ...Object.keys(DB.baux || {})
     ].filter(Boolean));
     const uniqueRef = base => {
+      // Suffixe anti-collision SANS parenthèses : la validation sécu des réfs
+      // (saveParamLog, /^[A-Za-z0-9À-ſ.\-_/ ]{1,60}$/) les refuse — une réf « Logt 1 (2) »
+      // rendrait la fiche du lot inéditable pour toujours (découvert vérif audit v15.500).
       let r = (base || 'Logt').trim() || 'Logt', i = 2;
-      while (usedRefs.has(r)) { r = (base || 'Logt') + ' (' + i + ')'; i++; }
+      while (usedRefs.has(r)) { r = (base || 'Logt') + ' - ' + i; i++; }
       usedRefs.add(r); return r;
     };
     const parseSurf = s => { const n = parseFloat(String(s == null ? '' : s).replace(',', '.')); return isNaN(n) ? 0 : n; };
@@ -42015,6 +42020,13 @@ function _acteApply() {
       // Cache dénormalisé sur le logement → loyer attendu = HC+CH, lot affiché occupé (pas vacant).
       log.locataire = bail.nom; log.hc = bail.hc; log.ch = bail.ch;
       log.dg = bail.dg; log.debut = bail.debut; log.fin = '';
+      // Loyer THÉORIQUE de référence (audit v15.500) — même mapping que le boot-backfill v15.233 B1 :
+      // sans lui, la fiche du lot loué affiche un loyer vide (champ grisé par le bail actif).
+      // Le log vient d'être créé dans cette transaction (rollback = splice du log entier) → set direct.
+      const _hasv = vv => vv !== null && vv !== undefined && String(vv).trim() !== '';
+      if (_hasv(bail.hc)) log.loyerHcRef = bail.hc;
+      if (_hasv(bail.ch)) log.chargesRef = bail.ch;
+      if (_hasv(bail.dg)) log.dgRef = bail.dg;
       if (typeof _stamp === 'function') _stamp(log); // le cache dénormalisé doit gagner le merge Drive (sinon lot ré-affiché vacant).
       if (typeof _auditLog === 'function') _auditLog('create', 'bail', log.ref, ent.nom + '/' + log.ref + ' (repris)');
       _createdIds.add(log.ref); // atomicité audit : purge l'entrée si saveDB() échoue (cohérent avec le fix 🟠).
@@ -43615,7 +43627,11 @@ function saveParamLog() {
   // FIL-ROUGE FIDÉLITÉ P2 (mockup validé + décision user 2026-07-15) : DANS le parcours guidé,
   // l'identité louable est OBLIGATOIRE — réf, type, surface, loyer — sinon blocage avec alerte.
   // Hors parcours, comportement historique inchangé (réf seule requise).
-  if (typeof _frMode !== 'undefined' && _frMode && window.ParcoursBienModel) {
+  // Exception FIL COMPLET (audit v15.500) : en étape COMPLETION on édite des fiches EXISTANTES
+  // (dont des lots loués où le champ loyer est grisé par le bail actif et peut être vide) —
+  // la garde de création bloquerait « Enregistrer » pour toujours. Elle ne s'applique donc
+  // qu'aux écrans de CRÉATION du fil (fil manuel), jamais à la complétion.
+  if (typeof _frMode !== 'undefined' && _frMode && (typeof _frStep === 'undefined' || _frStep !== 'completion') && window.ParcoursBienModel) {
     const gate = window.ParcoursBienModel.identiteParcours({ ref: ref, type: v('log-type'), surface: pf('log-surf'), loyer: Number(v('logp-loc-hcRef'))||0 });
     if (!gate.ok) {
       const lbl = { type: 'le type', surface: 'la surface', loyer: 'le loyer hors charges' };
