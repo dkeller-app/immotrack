@@ -44250,12 +44250,22 @@ function _frInstallCloseHook(){
     // Fil COMPLET : ov-bail surveillé aussi (étape completion : fermer le wizard bail = retour au fil).
     // ⚠️ ov-fr N'EST PAS un déclencheur (anti-boucle : fermer le fil ne doit jamais le rouvrir).
     if(_frMode && (id==='ov-ent' || id==='ov-imm' || id==='ov-log' || id==='ov-acte' || id==='ov-bail')){
+      // anyOpen inclut les sous-modales du wizard bail (clôture, DPE interdit) : tant qu'elles
+      // sont affichées, on ne considère pas le parcours comme « sans overlay ».
+      const anyOpen = ()=>['ov-ent','ov-imm','ov-log','ov-acte','ov-bail','ov-bail-clore','ov-dpe-interdit','ov-fr'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
       Promise.resolve().then(()=>{ // laisse un éventuel save→_frAfterSave (ou _frAfterActe) rouvrir la modale/écran suivant
-        const anyOpen = ['ov-ent','ov-imm','ov-log','ov-acte','ov-bail','ov-fr'].some(x=>{ const e=el(x); return e && !e.classList.contains('hidden'); });
-        if(!_frMode || anyOpen) return;
+        if(!_frMode || anyOpen()) return;
         // Étape completion : fermer une fiche/le bail (save OU annulation ✕) RAMÈNE au fil (recalcul
-        // du modèle) — le mode ne se relâche que via « Plus tard » (_frClose). Autres étapes : inchangé.
-        if(_frStep==='completion'){ _frShowFr('completion'); return; }
+        // du modèle) — le mode ne se relâche que via « Plus tard » (_frClose). Réouverture DIFFÉRÉE
+        // + re-check : certains sorteurs du wizard bail ferment PUIS ouvrent en différé (ex.
+        // _openBienFromBailWizard : closeM('ov-bail') puis setTimeout(openNewLog, 200)) — rouvrir
+        // en microtask empilerait 2 overlays. Le délai absorbe aussi les rafales de closeM.
+        // Limitation assumée : si l'utilisateur part vers une PAGE (ex. fiche logement via le lien
+        // DPE-interdit), completion rouvrira par-dessus — récupérable via « Plus tard », rare, accepté.
+        if(_frStep==='completion'){
+          setTimeout(()=>{ if(_frMode && _frStep==='completion' && !anyOpen()) _frShowFr('completion'); }, 250);
+          return;
+        }
         _frMode=false; _frStep=null; _frDetachBread();
       });
     }
@@ -44311,9 +44321,10 @@ function _frAfterSave(kind, obj, isNew, ownerEnt){
     if(kind==='imm'&&obj) _frCtx.immName=obj.nom;
     // Fil COMPLET : en étape completion, un save (édition de fiche) ne fait PAS avancer la machine —
     // on rouvre l'accordéon, le modèle recalcule (jauges/%). Suivre un éventuel rename d'immeuble
-    // dans l'état de reprise persisté (sera sauvé au prochain saveDB, le save vient d'en faire un).
+    // dans l'état de reprise persisté, et le sauver TOUT DE SUITE (sinon un F5 reprend sur un
+    // immName périmé → reprise cassée).
     if(_frStep==='completion'){
-      if(DB.params && DB.params.frCompletion){ DB.params.frCompletion.entId=_frCtx.entId; DB.params.frCompletion.immName=_frCtx.immName; }
+      if(DB.params && DB.params.frCompletion){ DB.params.frCompletion.entId=_frCtx.entId; DB.params.frCompletion.immName=_frCtx.immName; saveDB(); }
       _frShowFr('completion');
       return;
     }
@@ -44414,6 +44425,10 @@ function _frSubmitLog(){
 
 // ── écrans du fil (overlay #ov-fr) : bailleur, immeuble, logement, « et ensuite », « bien prêt », « bail » ──
 function _frShowFr(kind){
+  // Fil COMPLET (revue M4) : le modèle de complétion se résout AVANT d'ouvrir l'overlay —
+  // contexte perdu (entité/immeuble introuvable) → fermeture propre, sans flash d'écran vide.
+  let _cm=null;
+  if(kind==='completion'){ _cm=_frCompModel(); if(!_cm){ _frClose(); return; } }
   _frStep=kind; openM('ov-fr'); _frAttachBread('ov-fr');
   const body=el('fr-fr-body'), foot=el('fr-fr-foot'); if(!body||!foot) return;
   const _ttl=document.querySelector('#ov-fr .m-head h3'); if(_ttl) _ttl.textContent=(kind==='completion')?'Compléter ton patrimoine':'Ajouter un bien';
@@ -44469,45 +44484,11 @@ function _frShowFr(kind){
   } else if(kind==='completion'){
     // Fil COMPLET — accordéon de complétion (mockup validé : UN nœud ouvert, « tu es ici »,
     // fiches pleines repliées ✓, chaque bouton ouvre l'ÉCRAN EXISTANT — zéro formulaire recopié).
-    const cm=_frCompModel();
-    if(!cm){ _frClose(); return; } // défensif : contexte perdu (entité supprimée…)
+    // _cm est résolu (non-null) en tête de fonction, AVANT openM.
     _frDetachBread(); // le hero % remplace le fil d'Ariane sur cet écran (mockup)
-    const nodes=cm.model.nodes||[], pct=cm.model.pct;
-    if(pct===100) _frClearCompletionState(); // 100 % atteint → plus de reprise à proposer
-    if(_frCompOpen!=null && _frCompOpen>=0 && (!nodes[_frCompOpen] || nodes[_frCompOpen].full)) _frCompOpen=null; // fiche finie → se replie, le fil pousse à la suivante
-    const firstInc=nodes.findIndex(n=>!n.full);
-    const openIdx=(_frCompOpen!==null&&_frCompOpen>=0)?_frCompOpen:firstInc;
-    const ICON={ent:'👤',imm:'🏛',log:'🏠'};
-    let h='<div class="fr-comp-hero"><div class="top"><span class="big">🧭</span>'
-      +'<div><h4>Configuration du patrimoine</h4><div class="sub">'+escHtml(cm.ent.nom)+(cm.imm?(' · '+escHtml(cm.imm.nom)):'')+' — pause quand tu veux : c’est gardé.</div></div>'
-      +'<span class="pct">'+pct+'%</span></div>'
-      +'<div class="bar"><i style="width:'+pct+'%"></i></div></div>';
-    h+='<div class="fr-comp-wrap"><div class="fr-comp-line"><i style="height:'+pct+'%"></i></div>';
-    nodes.forEach((n,i)=>{
-      const done=n.tasks.filter(t=>t.status==='done').length, total=n.tasks.length;
-      const isOpen=(i===openIdx&&!n.full), here=(i===firstInc);
-      const badge=n.badge==='loue'?'<span class="fr-comp-badge loue">🔑 Loué</span>':(n.badge==='vac'?'<span class="fr-comp-badge vac">🏠 Vacant</span>':'');
-      h+='<div class="fr-comp-node"><div class="fr-comp-dot '+(n.full?'done':(here?'here':''))+'">'+(n.full?'✓':(i+1))+'</div>'
-        +'<div class="fr-comp-card '+(isOpen?'here':'closed')+'">'
-        +'<div class="hd" onclick="_frCompToggle('+i+')"><span>'+(ICON[n.kind]||'🏠')+'</span><div class="tx"><b>'+escHtml(n.name)+'</b>'+(n.sub?'<div class="meta">'+escHtml(n.sub)+'</div>':'')+'</div>'
-        +'<span class="sp">'+badge+((here&&!n.full)?'<span class="fr-comp-here">tu es ici</span>':'')+'<span class="fr-comp-gauge '+(n.full?'full':'part')+'">'+done+'/'+total+'</span><span class="chev">›</span></span></div>';
-      if(isOpen){
-        const refA=(n.kind==='log')?escHtml(_frAttr(String(n.id))):'';
-        h+='<div class="bd"><div class="fr-comp-tasks">';
-        n.tasks.forEach(t=>{
-          const ico=t.status==='done'?'✓':(t.status==='warn'?'!':'○');
-          let act='';
-          if(t.status!=='done'&&t.action==='creer-bail') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'creer-bail\',\''+refA+'\')">✍️ Créer le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'vacant-assume\',\''+refA+'\')" title="Pas de locataire — assumé, jamais bloquant">Vacant assumé</button></span>';
-          else if(t.status!=='done'&&t.action==='verifier-repris') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'verifier-repris\',\''+refA+'\')">📋 Ouvrir le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'repris-ok\',\''+refA+'\')" title="Bail repris relu et conforme">✓ Vérifié</button></span>';
-          h+='<div class="fr-comp-task"><span class="st '+t.status+'">'+ico+'</span><div class="tx"><b>'+escHtml(t.label)+'</b>'+(t.detail?'<span>'+escHtml(t.detail)+'</span>':'')+'</div>'+act+'</div>';
-        });
-        h+='</div><div class="fr-comp-act"><button class="fr-comp-btn prim" onclick="_frCompAction(\''+n.kind+'\''+(n.kind==='log'?(',\''+refA+'\''):'')+')">Compléter la fiche →</button></div></div>';
-      }
-      h+='</div></div>';
-    });
-    h+='<div class="fr-comp-node end"><div class="fr-comp-dot">'+(pct===100?'🎉':'🏁')+'</div>'+(pct===100?'100 % — <b>configuration terminée</b>. Bailleur, immeuble, biens et baux sont complets.':'Fin du fil — quand tout est vert, bailleur, immeuble, biens et baux sont à 100 %.')+'</div></div>';
-    body.innerHTML=h;
-    foot.innerHTML=stop+'<span class="fr-grow"></span>'+(pct===100?'<button class="fr-prim" onclick="_frClose()">Terminer — voir mes biens</button>':'');
+    if(_cm.model.pct===100) _frClearCompletionState(); // 100 % atteint → plus de reprise à proposer
+    body.innerHTML=_frCompHtml(_cm);
+    foot.innerHTML=stop+'<span class="fr-grow"></span>'+(_cm.model.pct===100?'<button class="fr-prim" onclick="_frClose()">Terminer — voir mes biens</button>':'');
   } else if(kind==='next'){
     body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Logement '+escHtml(_frLastLogRef()||'')+' ajouté</h3><p>Le fil rouge peut continuer. Qu’est-ce qu’on fait ?</p><div class="fr-choices">'
       +'<div class="fr-choice log" onclick="_frNextChoice(\'addLog\')"><span class="ic">🏠</span><div class="tx"><b>Un autre logement ici</b><s>'+escHtml(_frCtx.immName?('dans '+_frCtx.immName):'')+'</s></div><span class="chev">›</span></div>'
@@ -44532,21 +44513,72 @@ function _frCompContinue(){ _frCompOpen=null; _frOpenStep(window.FilRougeConduct
 function _frCompModel(){
   const ent=_frCurEnt(); if(!ent||ent._deleted) return null;
   const imm=(ent.immeubles||[]).find(i=>i && !i._deleted && i.nom===_frCtx.immName) || null;
-  const logs=(DB.logements||[]).filter(l=>l&&!l._deleted&&l.entity===ent.nom&&(!imm||l.imm===imm.nom));
+  if(!imm){
+    // Revue I4 : immeuble renommé/supprimé HORS fil → ne pas élargir silencieusement le fil à
+    // toute l'entité (bouton « Compléter la fiche » immeuble muet). On purge la reprise et on sort.
+    showToast('Le fil rouge ne retrouve plus cet immeuble — état de reprise purgé.', 'warn');
+    _frClearCompletionState();
+    return null;
+  }
+  const logs=(DB.logements||[]).filter(l=>l&&!l._deleted&&l.entity===ent.nom&&l.imm===imm.nom);
   const bauxActifs={}; logs.forEach(l=>{ const b=_bienActiveBail(l.ref); if(b) bauxActifs[l.ref]=b; });
   return { ent, imm, model: window.ParcoursBienModel.completionModel({entite:ent, immeuble:imm, logements:logs, bauxActifs}) };
 }
+// Corps HTML de l'accordéon (revue M4 : extrait de _frShowFr pour la lisibilité). Mute _frCompOpen :
+// normalise (nœud plein → repli auto + fil pousse à la suivante) puis MATÉRIALISE le choix auto,
+// pour que _frCompToggle replie le nœud auto-ouvert dès le 1er clic (revue M1).
+function _frCompHtml(cm){
+  const nodes=cm.model.nodes||[], pct=cm.model.pct;
+  if(_frCompOpen!=null && _frCompOpen>=0 && (!nodes[_frCompOpen] || nodes[_frCompOpen].full)) _frCompOpen=null; // fiche finie → se replie
+  const firstInc=nodes.findIndex(n=>!n.full);
+  const openIdx=(_frCompOpen==null)?firstInc:_frCompOpen; // -1 (tout replié par l'utilisateur) est respecté
+  _frCompOpen=openIdx;
+  const ICON={ent:'👤',imm:'🏛',log:'🏠'};
+  let h='<div class="fr-comp-hero"><div class="top"><span class="big">🧭</span>'
+    +'<div><h4>Configuration du patrimoine</h4><div class="sub">'+escHtml(cm.ent.nom)+(cm.imm?(' · '+escHtml(cm.imm.nom)):'')+' — pause quand tu veux : c’est gardé.</div></div>'
+    +'<span class="pct">'+pct+'%</span></div>'
+    +'<div class="bar"><i style="width:'+pct+'%"></i></div></div>';
+  h+='<div class="fr-comp-wrap"><div class="fr-comp-line"><i style="height:'+pct+'%"></i></div>';
+  nodes.forEach((n,i)=>{
+    const done=n.tasks.filter(t=>t.status==='done').length, total=n.tasks.length;
+    const isOpen=(i===openIdx&&!n.full), here=(i===firstInc);
+    const badge=n.badge==='loue'?'<span class="fr-comp-badge loue">🔑 Loué</span>':(n.badge==='vac'?'<span class="fr-comp-badge vac">🏠 Vacant</span>':'');
+    h+='<div class="fr-comp-node"><div class="fr-comp-dot '+(n.full?'done':(here?'here':''))+'">'+(n.full?'✓':(i+1))+'</div>'
+      +'<div class="fr-comp-card '+(isOpen?'here':'closed')+'">'
+      +'<div class="hd" onclick="_frCompToggle('+i+')"><span>'+(ICON[n.kind]||'🏠')+'</span><div class="tx"><b>'+escHtml(n.name)+'</b>'+(n.sub?'<div class="meta">'+escHtml(n.sub)+'</div>':'')+'</div>'
+      +'<span class="sp">'+badge+((here&&!n.full)?'<span class="fr-comp-here">tu es ici</span>':'')+'<span class="fr-comp-gauge '+(n.full?'full':'part')+'">'+done+'/'+total+'</span><span class="chev">›</span></span></div>';
+    if(isOpen){
+      const refA=(n.kind==='log')?escHtml(_frAttr(String(n.id))):'';
+      h+='<div class="bd"><div class="fr-comp-tasks">';
+      n.tasks.forEach(t=>{
+        const ico=t.status==='done'?'✓':(t.status==='warn'?'!':'○');
+        let act='';
+        if(t.status!=='done'&&t.action==='creer-bail') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'creer-bail\',\''+refA+'\')">✍️ Créer le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'vacant-assume\',\''+refA+'\')" title="Pas de locataire — assumé, jamais bloquant">Vacant assumé</button></span>';
+        else if(t.status!=='done'&&t.action==='verifier-repris') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'verifier-repris\',\''+refA+'\')">📋 Ouvrir le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'repris-ok\',\''+refA+'\')" title="Bail repris relu et conforme">✓ Vérifié</button></span>';
+        h+='<div class="fr-comp-task"><span class="st '+t.status+'">'+ico+'</span><div class="tx"><b>'+escHtml(t.label)+'</b>'+(t.detail?'<span>'+escHtml(t.detail)+'</span>':'')+'</div>'+act+'</div>';
+      });
+      h+='</div><div class="fr-comp-act"><button class="fr-comp-btn prim" onclick="_frCompAction(\''+n.kind+'\''+(n.kind==='log'?(',\''+refA+'\''):'')+')">Compléter la fiche →</button></div></div>';
+    }
+    h+='</div></div>';
+  });
+  h+='<div class="fr-comp-node end"><div class="fr-comp-dot">'+(pct===100?'🎉':'🏁')+'</div>'+(pct===100?'100 % — <b>configuration terminée</b>. Bailleur, immeuble, biens et baux sont complets.':'Fin du fil — quand tout est vert, bailleur, immeuble, biens et baux sont à 100 %.')+'</div></div>';
+  return h;
+}
 function _frCompToggle(i){ _frCompOpen=(_frCompOpen===i)?-1:i; _frShowFr('completion'); }
+// Revue I1 : chaque délégation vers un écran existant est gardée — si l'opener throw APRÈS la
+// fermeture du fil, on rouvre completion au lieu de laisser _frMode/_frStep en fuite (sinon la
+// prochaine fermeture d'une modale surveillée repopperait le fil sans rapport).
+function _frCompGuard(fn){ try{ fn(); }catch(e){ console.error('[fil rouge] ouverture d\'un écran existant échouée', e); _frShowFr('completion'); } }
 function _frCompAction(action, ref){
   // Fiches : on FERME le fil avant d'ouvrir l'écran existant (un seul overlay à tout instant).
   // _frMode reste vrai + _frStep==='completion' → save OU annulation (close hook) ramènent au fil.
-  if(action==='ent'){ closeM('ov-fr'); openNewEnt(_frCtx.entId); return; }
-  if(action==='imm'){ const ent=_frCurEnt(); const idx=ent?(ent.immeubles||[]).findIndex(i=>i&&!i._deleted&&i.nom===_frCtx.immName):-1; if(idx>=0){ closeM('ov-fr'); editImm(idx, ent.id); } return; }
-  if(action==='log'){ closeM('ov-fr'); openNewLog(ref); return; }
-  if(action==='creer-bail'||action==='verifier-repris'){ closeM('ov-fr'); openBail(ref); return; }
+  if(action==='ent'){ closeM('ov-fr'); _frCompGuard(()=>openNewEnt(_frCtx.entId)); return; }
+  if(action==='imm'){ const ent=_frCurEnt(); const idx=ent?(ent.immeubles||[]).findIndex(i=>i&&!i._deleted&&i.nom===_frCtx.immName):-1; if(idx>=0){ closeM('ov-fr'); _frCompGuard(()=>editImm(idx, ent.id)); } return; }
+  if(action==='log'){ closeM('ov-fr'); _frCompGuard(()=>openNewLog(ref)); return; }
+  if(action==='creer-bail'||action==='verifier-repris'){ closeM('ov-fr'); _frCompGuard(()=>openBail(ref)); return; }
   // Décisions explicites SANS écran (décisions user gravées : vacant assumé possible, ✓ Vérifié explicite).
   if(action==='vacant-assume'){ const l=(DB.logements||[]).find(x=>x&&x.ref===ref&&!x._deleted); if(l){ l.vacantAssume=true; if(typeof _stamp==='function')_stamp(l); saveDB(); } _frShowFr('completion'); return; }
-  if(action==='repris-ok'){ const b=DB.baux&&DB.baux[ref]; if(b){ b.reprisVerifie=true; if(typeof _stamp==='function')_stamp(b); saveDB(); } _frShowFr('completion'); return; }
+  if(action==='repris-ok'){ const b=_bienActiveBail(ref); if(b){ b.reprisVerifie=true; if(typeof _stamp==='function')_stamp(b); saveDB(); } _frShowFr('completion'); return; } // revue M2 : résolution via _bienActiveBail (tombstones/clôture)
 }
 function _frOpenBailStep(ref){ if(ref) _frCtx.bailRef=ref; _frCtx.bailDone=false; _frShowFr('bail'); }
 function _frConfirmBail(){ const sel=el('fr-bail-log'); if(sel&&sel.value) _frCtx.bailRef=sel.value; _frCtx.bailDone=true; const ref=_frCtx.bailRef; _frClose(); if(typeof openBail==='function') openBail(ref); }
