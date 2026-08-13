@@ -183,24 +183,98 @@ describe('completionModel', () => {
     expect(m.nodes[2].badge).toBe('loue');
     expect(m.nodes[3].badge).toBe('vac');
   });
-  it('dpe legacy chaîne non vide (vieux logements) ⇒ tâche dpe done', () => {
+  // MIGRATION 13/08 (2 paliers) : la tâche `dpe` lue depuis `l.dpe` (tolérance legacy
+  // chaîne / objet {classe|lettre|note}) est remplacée par `dpeLouable`, alimentée par
+  // l'INJECTION `dpeParLot` — c'est l'appelant qui résout la classe ET l'interdiction de
+  // louer (calendrier loi Climat, inline index.html, inaccessible à un module pur).
+  it('plus de tâche `dpe` lue du logement : la classe arrive par injection (dpeParLot)', () => {
     const r = completionModel({ entite: ENT2, immeuble: IMM2, logements: [{ ...LOGS2[0], dpe: 'D' }], bauxActifs: BAUX2 });
-    expect(r.nodes[2].tasks.find(x => x.id === 'dpe').status).toBe('done');
+    expect(r.nodes[2].tasks.find(x => x.id === 'dpe')).toBe(undefined);
+    expect(r.nodes[2].tasks.find(x => x.id === 'dpeLouable').status).toBe('todo'); // pas d'injection ⇒ todo
+    const inj = completionModel({ entite: ENT2, immeuble: IMM2, logements: [LOGS2[0]], bauxActifs: BAUX2,
+      dpeParLot: { A: { classe: 'D', interdit: false, raison: '' } } });
+    expect(inj.nodes[2].tasks.find(x => x.id === 'dpeLouable').status).toBe('done');
   });
-  it('dpe objet {classe} ⇒ tâche dpe done ; null ⇒ todo', () => {
-    const r = completionModel({ entite: ENT2, immeuble: IMM2, logements: [{ ...LOGS2[0], dpe: { classe: 'D' } }], bauxActifs: BAUX2 });
-    expect(r.nodes[2].tasks.find(x => x.id === 'dpe').status).toBe('done');
-    expect(m.nodes[2].tasks.find(x => x.id === 'dpe').status).toBe('todo'); // LOGS2[0].dpe = null
-  });
-  it('bail repris vérifié + tout rempli ⇒ nœud full', () => {
+  // `full` = palier LÉGAL complet (décision user 13/08) : ici le confort reste vide
+  // (IBAN, syndic, photos…), donc `pct` global < 100 alors que le légal est à 100 %.
+  it('bail repris vérifié + tout le LÉGAL rempli ⇒ nœuds full et pctLegal 100', () => {
     const full = completionModel({
-      entite: { ...ENT2, gerant: 'D. Keller', emailEnvoi: 'x@y.z', iban: 'FR76...' },
-      immeuble: { ...IMM2, annee: 1971, valeurEstimee: 285000, equipementsCommuns: { customs: [], ascenseur: true } },
-      logements: [{ ...LOGS2[0], numFiscal: '123', dpe: { classe: 'D' } }],
+      entite: { ...ENT2, gerant: 'D. Keller', siege: '1 rue Y', emailEnvoi: 'x@y.z', iban: 'FR76...' },
+      immeuble: { ...IMM2, annee: 1971, regimeJuridique: 'copro', valeurEstimee: 285000, equipementsCommuns: { customs: [], ascenseur: true } },
+      logements: [{ ...LOGS2[0], numFiscal: '123' }],
       bauxActifs: { A: { ref: 'A', source: { import: 'acte' }, reprisVerifie: true } },
+      diagsParLot: { A: { requis: [{ key: 'dpe', label: 'DPE' }], indetermines: [], fournis: ['dpe'] } },
+      dpeParLot: { A: { classe: 'D', interdit: false, raison: '' } },
     });
-    expect(full.pct).toBe(100);
+    expect(full.pctLegal).toBe(100);
+    expect(full.pct).toBeLessThan(100);
     expect(full.nodes.every(n => n.full)).toBe(true);
+  });
+});
+
+// Décision user 13/08 : le fil rouge sépare les OBLIGATIONS LÉGALES (« il faut que le légal
+// soit en place », chaque tâche porte sa source) du confort de gestion. Le module reste PUR :
+// le catalogue de diagnostics et le calendrier d'interdiction DPE (inline index.html) lui sont
+// INJECTÉS par l'appelant via `diagsParLot` / `dpeParLot`.
+describe('completionModel — 2 paliers (légal / confort)', () => {
+  const ENT = { id:'e1', nom:'SCI T', gerants:[], gerant:'', siege:'', emailEnvoi:'', iban:'' };
+  const IMM = { id:'i1', nom:'12 rue X', adr:'12 rue X', ville:'Ferrette', annee:0, valeurEstimee:0, regimeJuridique:'', equipementsCommuns:{customs:[]} };
+  const LOG = { ref:'F-102', imm:'12 rue X', type:'T2', surf:44, hc:508, numFiscal:'', dpe:null };
+  const base = { entite:ENT, immeuble:IMM, logements:[LOG], bauxActifs:{},
+    diagsParLot:{ 'F-102': { requis:[{key:'dpe',label:'DPE'},{key:'erp',label:'ERP'}], indetermines:[{key:'amiante',label:'Amiante',cause:'annee'}], fournis:[] } },
+    dpeParLot:{ 'F-102': { classe:'', interdit:false, raison:'' } } };
+
+  it('chaque tâche porte un palier legal|confort', () => {
+    const m = completionModel(base);
+    const all = m.nodes.flatMap(n => n.tasks);
+    expect(all.every(t => t.palier === 'legal' || t.palier === 'confort')).toBe(true);
+  });
+  it('le palier légal contient exactement les tâches validées', () => {
+    const m = completionModel(base);
+    const legal = id => m.nodes.flatMap(n => n.tasks).find(t => t.id === id).palier;
+    ['identite','gerant','siege','adresse','annee','regime','caracteristiques','diagnostics','dpeLouable','numFiscal','bail']
+      .forEach(id => expect(legal(id)).toBe('legal'));
+    ['iban','coordonnees','rcsCapital','signatureLogo','syndic','equipements','valeur','surfaceTotale',
+     'chauffageEcs','tantiemes','etage','annexes','mobilier','photos'].forEach(id => expect(legal(id)).toBe('confort'));
+  });
+  it('les tâches légales portent une source, jamais les tâches confort', () => {
+    const m = completionModel(base);
+    const all = m.nodes.flatMap(n => n.tasks);
+    expect(all.filter(t => t.palier==='legal' && t.id!=='bail').every(t => !!t.src)).toBe(true);
+    expect(all.filter(t => t.palier==='confort').every(t => !t.src)).toBe(true);
+  });
+  it('pctLegal ne compte QUE le palier légal (le confort ne le fait pas baisser)', () => {
+    const m = completionModel(base);
+    const L = m.nodes.flatMap(n => n.tasks).filter(t => t.palier === 'legal');
+    expect(m.pctLegal).toBe(Math.round(L.filter(t=>t.status==='done').length / L.length * 100));
+    expect(m.pct).not.toBe(undefined);
+  });
+  it('nœud « full » = palier légal complet (le confort restant n\'empêche pas le vert)', () => {
+    const m = completionModel({ ...base, entite:{ ...ENT, gerant:'D. K.', siege:'1 rue Y' } });
+    const nEnt = m.nodes.find(n => n.kind === 'ent');
+    expect(nEnt.tasks.filter(t=>t.palier==='confort').some(t=>t.status!=='done')).toBe(true);
+    expect(nEnt.full).toBe(true);
+  });
+  it('diagnostics : done seulement si tous les requis sont fournis ; détail des indéterminés exposé', () => {
+    const m = completionModel(base);
+    const d = m.nodes.flatMap(n=>n.tasks).find(t => t.id === 'diagnostics');
+    expect(d.status).toBe('todo');
+    expect(d.diags.requis.map(x=>x.key)).toEqual(['dpe','erp']);
+    expect(d.diags.indetermines[0].cause).toBe('annee');
+    const ok = completionModel({ ...base, diagsParLot:{ 'F-102': { requis:[{key:'dpe',label:'DPE'}], indetermines:[], fournis:['dpe'] } } });
+    expect(ok.nodes.flatMap(n=>n.tasks).find(t=>t.id==='diagnostics').status).toBe('done');
+  });
+  it('DPE louable : interdit ⇒ warn + raison ; classe saine ⇒ done ; classe absente ⇒ todo', () => {
+    const ko = completionModel({ ...base, dpeParLot:{ 'F-102': { classe:'G', interdit:true, raison:'DPE G interdit…' } } });
+    const t = ko.nodes.flatMap(n=>n.tasks).find(x=>x.id==='dpeLouable');
+    expect(t.status).toBe('warn'); expect(t.detail).toContain('interdit');
+    const ok = completionModel({ ...base, dpeParLot:{ 'F-102': { classe:'D', interdit:false, raison:'' } } });
+    expect(ok.nodes.flatMap(n=>n.tasks).find(x=>x.id==='dpeLouable').status).toBe('done');
+  });
+  it('entrées d\'injection absentes ⇒ pas de crash (diagnostics/DPE en todo)', () => {
+    const m = completionModel({ entite:ENT, immeuble:IMM, logements:[LOG], bauxActifs:{} });
+    expect(m.nodes.flatMap(n=>n.tasks).find(t=>t.id==='diagnostics').status).toBe('todo');
+    expect(m.pctLegal).toBeGreaterThanOrEqual(0);
   });
 });
 
