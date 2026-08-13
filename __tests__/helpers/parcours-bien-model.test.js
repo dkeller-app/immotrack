@@ -276,6 +276,49 @@ describe('completionModel — 2 paliers (légal / confort)', () => {
     expect(m.nodes.flatMap(n=>n.tasks).find(t=>t.id==='diagnostics').status).toBe('todo');
     expect(m.pctLegal).toBeGreaterThanOrEqual(0);
   });
+  // « Pas d'injection » ≠ « injection vide » : sans entrée pour le lot on ne peut RIEN
+  // affirmer (todo), mais si l'injecteur répond « aucun diagnostic exigé pour ce bien »
+  // la tâche doit pouvoir se clore — sinon elle resterait todo à vie.
+  it('diagnostics : injection PRÉSENTE mais vide (rien à annexer) ⇒ done', () => {
+    const m = completionModel({ ...base, diagsParLot:{ 'F-102': { requis:[], indetermines:[], fournis:[] } } });
+    const d = m.nodes.flatMap(n=>n.tasks).find(t=>t.id==='diagnostics');
+    expect(d.status).toBe('done');
+    expect(d.diags).toEqual({ requis:[], indetermines:[], fournis:[] });
+  });
+  it('diagnostics : injection ABSENTE pour ce lot ⇒ todo (on ne peut rien affirmer)', () => {
+    const m = completionModel({ ...base, diagsParLot:{ 'AUTRE-LOT': { requis:[], indetermines:[], fournis:[] } } });
+    expect(m.nodes.flatMap(n=>n.tasks).find(t=>t.id==='diagnostics').status).toBe('todo');
+  });
+});
+
+// Faux positifs du palier confort (vus en vérif navigateur 13/08) : la migration de l'app
+// pré-remplit des SQUELETTES vides (`{elec:false,…}`, `{cave:{present:false},…}`). Une clé
+// présente ou un sous-objet truthy ne valent pas saisie.
+describe('completionModel — squelettes de migration vides ≠ saisie (palier confort)', () => {
+  const ENT = { id:'e1', nom:'SCI T' };
+  const IMM = { id:'i1', nom:'12 rue X', adr:'12 rue X', ville:'Ferrette', equipementsCommuns:{customs:[]} };
+  const CHAUF_VIDE = { elec:false, gaz:false, coll:false, pac:false, fioul:false, bois:false,
+    poeleBois:false, poeleGran:false, insert:false, cheminee:false, clim:false, autre:'', label:'' };
+  const ECS_VIDE = { elec:false, gaz:false, coll:false, thermo:false, solaire:false, fioul:false, autre:'', label:'' };
+  const ANX_VIDE = { cave:{present:false,num:''}, grenier:{present:false,num:''},
+    parking:{present:false,num:'',type:'place'}, garage:{present:false,num:''},
+    buanderie:{present:false,num:''}, cellier:{present:false,num:''},
+    localVelos:{present:false,num:''}, atelier:{present:false,num:''}, customs:[] };
+  const mk = (log) => {
+    const m = completionModel({ entite:ENT, immeuble:IMM, bauxActifs:{},
+      logements:[{ ref:'F-102', imm:'12 rue X', type:'T2', surf:44, hc:508, ...log }] });
+    return (id) => m.nodes.flatMap(n=>n.tasks).find(t=>t.id===id).status;
+  };
+  it('chauffage/ECS : squelette tout à false ⇒ todo ; une seule valeur vraie ⇒ done', () => {
+    expect(mk({ chauffage: CHAUF_VIDE, ecs: ECS_VIDE })('chauffageEcs')).toBe('todo');
+    expect(mk({ chauffage: { ...CHAUF_VIDE, gaz:true }, ecs: ECS_VIDE })('chauffageEcs')).toBe('done');
+    expect(mk({ chauffage: CHAUF_VIDE, ecs: { ...ECS_VIDE, label:'Ballon électrique' } })('chauffageEcs')).toBe('done');
+  });
+  it('annexes : squelette {present:false} ⇒ todo ; une annexe présente ou un custom ⇒ done', () => {
+    expect(mk({ annexes: ANX_VIDE })('annexes')).toBe('todo');
+    expect(mk({ annexes: { ...ANX_VIDE, cave:{present:true,num:'3'} } })('annexes')).toBe('done');
+    expect(mk({ annexes: { ...ANX_VIDE, customs:['Box vélos'] } })('annexes')).toBe('done');
+  });
 });
 
 describe('isRentable — un logement ne propose « Créer le bail » que si son identité louable est complète (mockup)', () => {
