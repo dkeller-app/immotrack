@@ -15,11 +15,15 @@
 import { describe, it, expect } from 'vitest';
 import * as MD from './montant-doc.js';
 import * as BS from './bail-signataires.js';
+import * as PF from './pdf-flow.js';
 
 // Réplique EXACTE de l'ordre d'injection de index.html (previewBailData, var scripts = '<script>').
 function buildPopupBundle() {
   return [
     'var _padSignersFor=' + BS.padSignersFor.toString() + ';',
+    'var bodyBottom=' + PF.bodyBottom.toString() + ';',
+    'var PDF_BODY=' + JSON.stringify(PF.PDF_BODY) + ';',
+    'var _splitBlockAcrossPages=' + PF.splitBlockAcrossPages.toString() + ';',
     'var WINANSI_HIGH=' + JSON.stringify(MD.WINANSI_HIGH) + ';',
     'var PDF_UNSAFE_MAP=' + JSON.stringify(MD.PDF_UNSAFE_MAP) + ';',
     'var isWinAnsiChar=' + MD.isWinAnsiChar.toString() + ';',
@@ -33,7 +37,7 @@ function buildPopupBundle() {
 // exactement comme dans la popup.
 function evalBundle() {
   const factory = new Function(buildPopupBundle()
-    + 'return {padSignersFor:_padSignersFor, pdfSafeText:pdfSafeText, hasPdfUnsafeChars:hasPdfUnsafeChars, hardenJsPdfText:hardenJsPdfText};');
+    + 'return {padSignersFor:_padSignersFor, pdfSafeText:pdfSafeText, hasPdfUnsafeChars:hasPdfUnsafeChars, hardenJsPdfText:hardenJsPdfText, splitBlockAcrossPages:_splitBlockAcrossPages};');
   return factory();
 }
 
@@ -75,6 +79,15 @@ describe('bundle injecté dans la popup de signature', () => {
     popup.hardenJsPdfText(fakePdf);          // 2e passe : ne doit pas ré-emballer
     expect(fakePdf.text('x')).toBe(fakePdf); // chaînage jsPDF (pdf.text(...).setFont(...))
     expect(n).toBe(1);
+  });
+
+  it('splitBlockAcrossPages coupe à l\'identique côté popup (paraphes jamais sous le texte)', () => {
+    const popup = evalBundle();
+    const o = { pageH: 297, marginTop: 15, marginBottom: 25 };
+    expect(popup.splitBlockAcrossPages(260, 10, 4, o)).toEqual(PF.splitBlockAcrossPages(260, 10, 4, o));
+    for (const c of popup.splitBlockAcrossPages(260, 10, 4, o)) {
+      expect(c.y + (c.to - c.from) * 4).toBeLessThanOrEqual(272);
+    }
   });
 
   it('aucune source injectée ne contient « </script » (cassure du document.write)', () => {
