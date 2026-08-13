@@ -6582,13 +6582,19 @@ function pf(id) { return parseFloat(v(id))||0; }
 // n'existe pas en WinAnsi, jsPDF bascule alors toute la chaîne en 16 bits et le PDF affiche
 // « 1 2 / 0 0 0 , 0 0 ». Rendu HTML identique (espace insécable), PDF réparé sur TOUTES les
 // surfaces documents qui passent par fmt/fmtN (bail, quittance, décomptes, EDL, certificats).
+// Repli défensif (audit 13/08) : fmt/fmtN sont appelés dès le premier rendu (~490 usages). Si
+// js/helpers/montant-doc.global.js n'a pas pu être chargé (404 en cours de déploiement, premier
+// lancement hors ligne), on rend un montant dégradé plutôt qu'un écran blanc.
+function _fmtFallback(n) {
+  return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/ /g,' ');
+}
 function fmt(n) {
   if(n===null||n===undefined||isNaN(n)) return '–';
-  return window.MontantDoc.fmtEuroDoc(n);
+  return window.MontantDoc ? window.MontantDoc.fmtEuroDoc(n) : (_fmtFallback(n)+' €');
 }
 function fmtN(n) {
   if(!n&&n!==0) return '–';
-  return window.MontantDoc.fmtMontantDoc(n);
+  return window.MontantDoc ? window.MontantDoc.fmtMontantDoc(n) : _fmtFallback(n);
 }
 
 function fd(iso) {
@@ -7370,7 +7376,11 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt) {
   const ensure = (need) => { if (y < (need || 60)) { page = doc.addPage([595.28, 841.89]); y = 800; } };
   const line = (t, size = 11, bold = false) => {
     ensure(size + 12);
-    page.drawText(String(t == null ? '' : t), { x: 40, y, size, font: bold ? fontB : font });
+    /* AUDIT 13/08 — pdf-lib + StandardFonts.Helvetica LÈVE « WinAnsi cannot encode … » sur tout
+       caractère hors WinAnsi (locataire « Nguyễn », nom collé contenant U+202F…). L'exception
+       remontait dans _completeRemoteSign SANS être gardée : le bail restait « en attente » à vie
+       alors qu'il était signé côté relais. On assainit AVANT d'écrire. */
+    page.drawText(window.MontantDoc.pdfSafeText(t), { x: 40, y, size, font: bold ? fontB : font });
     y -= size + 6;
   };
   line('Certificat de preuve de signature electronique', 16, true); y -= 8;
@@ -7610,6 +7620,9 @@ function _bsdSetMode(side, i, mode) {
 // mandataire, ce qui faisait demander un signataire 'bailleur' absent du document.
 function _bailBailleurSigners(bail) {
   if (!bail) return [];
+  // Garde explicite (audit 13/08) : sur la chaîne SIGNATURE, mieux vaut un message clair qu'un
+  // TypeError opaque ou, pire, un repli local qui ferait diverger à nouveau les identités.
+  if (!window.BailSignataires) throw new Error('Module signataires non chargé (js/helpers/bail-signataires.global.js) — rechargez la page (Ctrl+Shift+R) avant de signer.');
   const withMand = !!(bail.withMandataire && DB.params && DB.params.mandataire && DB.params.mandataire.actif && DB.params.mandataire.nom);
   if (withMand) return [];
   const ent = (DB.entites || []).find(e => e && e.nom === bail.entity) || {};
@@ -7811,7 +7824,7 @@ function _confirmBailSignatureFlow(ref) {
   const bSigners = _bailBailleurSigners(bail);       // [] si mandataire
   if (!bSigners.length) {
     const mandNom = (DB.params && DB.params.mandataire && DB.params.mandataire.nom) || bail.entity || 'Bailleur';
-    signers.push({ id: 'bailleur', role: 'bailleur', nom: mandNom, mode: 'pres', email: '' });
+    signers.push({ id: window.BailSignataires.ID_MANDATAIRE, role: 'bailleur', nom: mandNom, mode: 'pres', email: '' });   /* S1 : id INDEXÉ, aligné §18 + paraphes */
   } else {
     for (let i = 0; i < bSigners.length; i++) {
       const modeEl = document.getElementById('bsd-mode-b-' + i);
@@ -21768,7 +21781,11 @@ function previewBailData(bail, log, ref, opts) {
         id:(_bailleurSigners[i]&&_bailleurSigners[i].id)||('bailleur-'+i),   /* S1 : id PARTAGÉ */
         role: (sigNames.length>1 ? 'CO-GÉRANT'+roleSuffix : 'BAILLEUR / GÉRANT'),
         nomCourt: g.split(' ').slice(-1)[0]||g,
-        header:'<strong>'+(sigNames.length>1?'CO-G\u00c9RANT'+roleSuffix:'LE BAILLEUR')+'</strong> &mdash; '+sciLabel+' &mdash; <em>repr\u00e9sent\u00e9e par '+g+'</em>'
+        /* AUDIT 13/08 \u2014 entit\u00e9 SANS g\u00e9rant : le repli met sciLabel dans sigNames, ce qui donnait
+           \u00ab LE BAILLEUR \u2014 SCI X \u2014 repr\u00e9sent\u00e9e par SCI X \u00bb dans l'aper\u00e7u alors que le PDF affiche
+           \u00ab LE BAILLEUR \u2014 SCI X \u00bb. L'aper\u00e7u doit dire EXACTEMENT ce que le user signe. */
+        header:'<strong>'+(sigNames.length>1?'CO-G\u00c9RANT'+roleSuffix:'LE BAILLEUR')+'</strong> &mdash; '+sciLabel
+          +((_bailleurSigners[i]&&_bailleurSigners[i].kind==='entite')?'':' &mdash; <em>repr\u00e9sent\u00e9e par '+g+'</em>')
       });
     });
   }
@@ -22409,7 +22426,10 @@ function previewBailData(bail, log, ref, opts) {
     +'.wizV2-pad-actions{display:flex;justify-content:center;margin-top:8px}'
     +'.wizV2-pad-clear{font-size:11pt;color:#c00;padding:4px 14px;background:#fff;border:1px solid #c00;border-radius:4px;cursor:pointer}'
     +'.wizV2-page-label{font-size:13pt;font-weight:bold;color:#6e7888;margin-bottom:10px;text-align:center}' /* FIL-ROUGE restyle : gris neutre */
-    +'@media (max-width:600px){.wizV2-overlay{padding:54px 6px 100px}.wizV2-card{padding:8px;margin-bottom:10px}.wizV2-pad-canvas{max-width:100%;height:100px}}'
+    /* SIGNATURE-SMOKE — l'overlay est un ID (#wizV2-overlay), pas une classe : le sélecteur
+       .wizV2-overlay ne matchait RIEN, donc le wizard gardait son padding desktop (60/12/110)
+       sur téléphone. Corrigé en #wizV2-overlay (le re-smoke se fait aussi au téléphone). */
+    +'@media (max-width:600px){#wizV2-overlay{padding:54px 6px 100px}.wizV2-card{padding:8px;margin-bottom:10px}.wizV2-pad-canvas{max-width:100%;height:100px}}'
     /* Mobile responsive : optimisations pour smartphone */
     +'@media (max-width:600px){'
     +'#toolbar{padding:8px 10px;font-size:12px;flex-wrap:wrap}'
@@ -22464,8 +22484,16 @@ function previewBailData(bail, log, ref, opts) {
        __tests__/helpers/*.js → js/helpers/*.global.js). La popup est un document about:blank :
        elle ne peut pas charger js/helpers/ par URL relative, mais toString() garantit qu'on
        n'entretient AUCUNE copie divergente du code. */
+    /* ⚠️ ORDRE ET COMPLÉTUDE CRITIQUES : chaque fonction sérialisée doit trouver TOUTES ses
+       variables libres déjà déclarées ici, sinon ReferenceError au moment de générer le PDF —
+       c'est-à-dire APRÈS que l'utilisateur a paraphé les 26 pages. Le test
+       __tests__/helpers/popup-signature-bundle.test.js rejoue exactement ce bundle : toute
+       addition ici doit y être répercutée. */
     +'var _padSignersFor='+window.BailSignataires.padSignersFor.toString()+';'
+    +'var WINANSI_HIGH='+JSON.stringify(window.MontantDoc.WINANSI_HIGH)+';'
     +'var PDF_UNSAFE_MAP='+JSON.stringify(window.MontantDoc.PDF_UNSAFE_MAP)+';'
+    +'var isWinAnsiChar='+window.MontantDoc.isWinAnsiChar.toString()+';'
+    +'var hasPdfUnsafeChars='+window.MontantDoc.hasPdfUnsafeChars.toString()+';'
     +'var pdfSafeText='+window.MontantDoc.pdfSafeText.toString()+';'
     +'var hardenJsPdfText='+window.MontantDoc.hardenJsPdfText.toString()+';'
     +'var _SIGS='+sigsJson+';'
@@ -22633,6 +22661,14 @@ function previewBailData(bail, log, ref, opts) {
     +  '}'
     +  'var btn=document.querySelector(".btn-wiz");'
     +  'if(btn){btn.disabled=true;btn.textContent="⏳ Génération PDF...";}'
+    /* SIGNATURE-SMOKE — l'overlay OPAQUE est monté AVANT le pré-rendu (26 pages via PDF.js, plusieurs
+       secondes) : sans ça l'utilisateur reste devant le document brut, avec les bandeaux de paraphe
+       du HTML, sans savoir si son clic a fait quelque chose. Retiré si le pré-rendu échoue. */
+    +  'if(!document.getElementById("wizV2-overlay")){'
+    +    'var ov0=document.createElement("div");ov0.id="wizV2-overlay";document.body.appendChild(ov0);'
+    +  '}'
+    +  'document.body.classList.add("wizV2-mode");'
+    +  'document.getElementById("wizV2-overlay").innerHTML="<div class=\\"wizV2-card\\" style=\\"text-align:center;padding:40px 18px\\"><div style=\\"font-size:40px\\">⏳</div><h2 style=\\"margin:10px 0 4px\\">Préparation du document…</h2><p style=\\"color:#475569\\">Le bail est mis en page pour la signature. Quelques secondes.</p></div>";'
     +  'try{'
     +    'var pages=await prerenderPDFPages();'
     +    'window._wizV2Pages=pages;'
@@ -22652,6 +22688,9 @@ function previewBailData(bail, log, ref, opts) {
     +    '_wizV2ScrollTop();'
     +  '}catch(err){'
     +    'console.error("[startSignatureWizardV2]",err);'
+    /* Pré-rendu en échec : on REND la main sur le document au lieu de laisser un overlay figé. */
+    +    'document.body.classList.remove("wizV2-mode");'
+    +    'var ovErr=document.getElementById("wizV2-overlay");if(ovErr)ovErr.innerHTML="";'
     +    'alert("Erreur génération PDF :\\n"+err.message);'
     +  '}finally{'
     +    'if(btn){btn.disabled=false;btn.textContent="✍️ Démarrer signature";}'
@@ -22913,8 +22952,11 @@ function previewBailData(bail, log, ref, opts) {
     +      'var luBox=document.getElementById("wizV2-lu-"+s.id);'
     +      'if(luBox&&luBox.checked)luPartial[s.id]=true;'
     +    '});'
-    +    'window._wizV2FinalSignatures=partial;'
-    +    'window._wizV2LuApprouveBy=luPartial;'
+    /* AUDIT 13/08 — MERGE et non remplacement (comme _wizV2Next). En « chacun son tour »,
+       _wizV2GetSigs() ne renvoie QUE le signataire courant : remplacer effaçait les signatures
+       finales des co-signataires déjà passés dès qu'on cliquait « Précédent ». */
+    +    'window._wizV2FinalSignatures=Object.assign({},window._wizV2FinalSignatures||{},partial);'
+    +    'window._wizV2LuApprouveBy=Object.assign({},window._wizV2LuApprouveBy||{},luPartial);'
     +  '}else{'
     +    '_wizV2CaptureCurrent();'
     +  '}'
@@ -28255,7 +28297,7 @@ Solde restant dû&nbsp;: <b>${fmt(solde)}</b>.</p>
     html = `
 <h1 style="color:#003399">Quittance de loyer</h1>
 ${enteteHtml}
-<p style="margin-top:10px">Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme de <b>${total.toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:2})} €</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:</p>
+<p style="margin-top:10px">Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme de <b>${fmt(total)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:</p>
 <div style="margin:10px 0 12px">
   ${prorataLineHC}
   ${prorataLineCH}

@@ -27,8 +27,12 @@
   // Règle d'or : un signataire attendu introuvable est une ERREUR EXPLICITE, jamais une
   // liste vide silencieuse.
 
-  /** Convention d'id historique du signataire mandataire (pas d'index : il est seul). */
-  const ID_MANDATAIRE = 'bailleur';
+  // Id du signataire mandataire. AUDIT 13/08 (finding critique 1) : c'était 'bailleur' (sans index),
+  // alors que TOUS les consommateurs construisent leur clé par concaténation d'index —
+  // genPDFNative §18 ('bailleur-'+bIdx), _footerSide (prefix+'-'+i) et buildBailleurSigIdMap.
+  // Un bail signé par un mandataire sortait donc avec cadre §18 et paraphes bailleur VIDES,
+  // exactement le symptôme S1/S2. Le mandataire est le signataire bailleur d'index 0.
+  const ID_MANDATAIRE = 'bailleur-0';
 
   /**
    * Résout la liste des signataires du CÔTÉ BAILLEUR. Ne renvoie JAMAIS une liste vide.
