@@ -6592,6 +6592,49 @@ function pf(id) { return parseFloat(v(id))||0; }
 function _fmtFallback(n) {
   return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/ /g,' ');
 }
+// S4 — bandeau d'identité d'un document : logo du bailleur (ou son nom) à gauche, logo Propryo
+// à droite. Gabarit DOCUMENTS-PROPRYO validé 12/08. UN SEUL point d'appel pour tous les
+// documents émis : quittance, lettre IRL, décompte de charges, acte de cautionnement.
+// (Le bail et l'EDL passent par leur générateur PDF, qui appelle le même helper DocBrand.)
+function _entiteDeLogement(log) {
+  return (DB.entites || []).find(e => e && e.nom === (log && log.entity)) || {};
+}
+// S4 — même bandeau, côté générateurs jsPDF de l'app (EDL, et tout document PDF à venir).
+// Le tracé Propryo est rejoué en VECTORIEL (roundedRect + circle) : net à tout zoom, aucune
+// police ni canvas en jeu. Retourne l'ordonnée à laquelle le contenu peut reprendre.
+function _pdfDrawBrandzone(pdf, ent, x, y, right) {
+  if (!window.DocBrand) return y;
+  let ratio = 1;
+  if (ent && ent.logo) { try { const p = pdf.getImageProperties(ent.logo); if (p && p.height) ratio = p.width / p.height; } catch (e) {} }
+  const m = window.DocBrand.brandzoneModel({ entLogo: (ent && ent.logo) || '', entNom: (ent && ent.nom) || '', logoRatio: ratio });
+  let bandH = m.logoH;
+  if (m.left.kind === 'logo') {
+    try { pdf.addImage(ent.logo, x, y, m.left.w, m.left.h); bandH = Math.max(bandH, m.left.h); }
+    catch (e) { pdf.setFont('helvetica','bold').setFontSize(13).setTextColor(16,21,33); pdf.text(String((ent && ent.nom) || ''), x, y + m.logoH * 0.75); }
+  } else {
+    pdf.setFont('helvetica','bold').setFontSize(13).setTextColor(16,21,33);
+    pdf.text(String(m.left.text || ''), x, y + m.logoH * 0.85);
+  }
+  pdf.setFont('helvetica','bold').setFontSize(m.propryo.wordSize * 2.83);
+  const wordW = pdf.getTextWidth(m.propryo.mot), mark = m.propryo.markSize, gap = mark * 0.28;
+  const markY = y + (bandH - mark) / 2;
+  for (const o of window.DocBrand.propryoMarkOps(right - wordW - gap - mark, markY, mark)) {
+    if (o.op === 'roundedRect') { pdf.setDrawColor(o.color[0], o.color[1], o.color[2]); pdf.setLineWidth(o.lineWidth); pdf.roundedRect(o.x, o.y, o.w, o.h, o.r, o.r, 'S'); }
+    else { pdf.setFillColor(o.color[0], o.color[1], o.color[2]); pdf.circle(o.x, o.y, o.r, 'F'); }
+  }
+  pdf.setTextColor(16, 21, 33);
+  pdf.text(m.propryo.mot, right, markY + mark * 0.78, { align: 'right' });
+  const ruleY = y + bandH + 4;
+  pdf.setDrawColor(228, 231, 238); pdf.setLineWidth(0.35); pdf.line(x, ruleY, right, ruleY);
+  pdf.setTextColor(20, 20, 20);
+  return ruleY + 5;
+}
+function _docBrandzone(ent) {
+  if (!window.DocBrand) return '';   // repli : un document sans bandeau vaut mieux qu'un document en erreur
+  return window.DocBrand.brandzoneHtml(window.DocBrand.brandzoneModel({
+    entLogo: (ent && ent.logo) || '', entNom: (ent && ent.nom) || ''
+  }));
+}
 function fmt(n) {
   if(n===null||n===undefined||isNaN(n)) return '–';
   return window.MontantDoc ? window.MontantDoc.fmtEuroDoc(n) : (_fmtFallback(n)+' €');
@@ -7387,6 +7430,27 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt) {
     page.drawText(window.MontantDoc.pdfSafeText(t), { x: 40, y, size, font: bold ? fontB : font });
     y -= size + 6;
   };
+  // S4 — bandeau d'identité. pdf-lib n'embarque pas d'image ici (le logo du bailleur est un
+  // data-URL de format libre) : on pose le NOM de l'entité à gauche et le tracé Propryo à
+  // droite, en vectoriel (rectangle arrondi + point), aux mêmes proportions que le helper commun.
+  try {
+    const _ent = (DB.entites || []).find(e => e && e.nom === bail.entity) || {};
+    const _m = window.DocBrand.brandzoneModel({ entLogo: '', entNom: _ent.nom || bail.entity || '' });
+    const PT = 72 / 25.4, W = 595.28;
+    page.drawText(window.MontantDoc.pdfSafeText(_m.left.text), { x: 40, y: y - 2, size: 13, font: fontB });
+    const mark = _m.propryo.markSize * PT, wordSize = _m.propryo.wordSize * 2.83;
+    const wordW = fontB.widthOfTextAtSize('Propryo', wordSize);
+    const mx = W - 40 - wordW - mark * 0.28 - mark, my = y - 2;
+    const cor = PDFLib.rgb(1, 90 / 255, 60 / 255);
+    for (const o of window.DocBrand.propryoMarkOps(0, 0, _m.propryo.markSize)) {
+      if (o.op === 'roundedRect') page.drawRectangle({ x: mx + o.x * PT, y: my + o.y * PT, width: o.w * PT, height: o.h * PT, borderColor: cor, borderWidth: o.lineWidth * PT });
+      else page.drawCircle({ x: mx + o.x * PT, y: my + o.y * PT, size: o.r * PT, color: cor });
+    }
+    page.drawText('Propryo', { x: W - 40 - wordW, y: my + 1, size: wordSize, font: fontB });
+    y -= 26;
+    page.drawLine({ start: { x: 40, y }, end: { x: W - 40, y }, thickness: 0.6, color: PDFLib.rgb(.89, .91, .93) });
+    y -= 16;
+  } catch (e) { console.warn('[certificat] bandeau', e); }
   line('Certificat de preuve de signature electronique', 16, true); y -= 8;
   line('Bail : ' + (bail.ref || ''));
   line('Date de completion : ' + (completedAt ? new Date(completedAt) : new Date()).toLocaleString('fr-FR'));
@@ -27139,7 +27203,7 @@ function _buildDecompteHtml(entryKey, from, to) {
       ${solde < 0 ? '• <b>Paiement du solde :</b> le solde appelé est exigible dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).' : '• <b>Remboursement :</b> le trop-perçu vous sera restitué dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).'}
     </div>
   </div>`;
-  return { html, css: '', title: 'Décompte régul — ' + escHtml(r.ref || '–') };
+  return { html: _docBrandzone(_entiteDeLogement(log)) + html, css: '', title: 'Décompte régul — ' + escHtml(r.ref || '–') };   /* S4 */
 }
 if (typeof window !== 'undefined') window._buildDecompteHtml = _buildDecompteHtml;
 
@@ -28403,7 +28467,7 @@ ${prorataMention}
   }
 
   const title = (estComplet?'Quittance':estPartiel?'Reçu partiel':'Non émissible') + ' — ' + escHtml(q.logement||'') + ' — ' + escHtml(q.mois||'');
-  return { html, css, title, status };
+  return { html: _docBrandzone(ent) + html, css, title, status };   /* S4 : bandeau d'identité */
 }
 // Expose pour email-pdf-attachment.js (PJ PDF auto réutilise le rendu officiel)
 if (typeof window !== 'undefined') window._buildQuittanceHtml = _buildQuittanceHtml;
@@ -28797,7 +28861,7 @@ function _buildIRLLetterHtml(log, bail, ent, rev) {
     </div>
     `;
 
-  return { html, css: '', title: 'Lettre IRL — ' + (log.ref || '–') + ' — ' + moisAnniv };
+  return { html: _docBrandzone(ent) + html, css: '', title: 'Lettre IRL — ' + (log.ref || '–') + ' — ' + moisAnniv };   /* S4 */
 }
 if (typeof window !== 'undefined') window._buildIRLLetterHtml = _buildIRLLetterHtml;
 
@@ -30489,10 +30553,10 @@ async function generateEDLPdfNative(edl) {
 
   let y = MT;
 
-  // ─── 1. En-tête : logo entité + titre ───────────────────────────
-  if (ent && ent.logo) {
-    try { pdf.addImage(ent.logo, 'PNG', M, y, 30, 12); } catch(e) {}
-  }
+  // ─── 1. En-tête : bandeau d'identité + titre ────────────────────
+  // S4 — le logo seul (30×12 mm) cède la place au bandeau commun : logo du bailleur — ou son
+  // nom s'il n'en a pas — à gauche, logo Propryo à droite, même hauteur, filet dessous.
+  y = _pdfDrawBrandzone(pdf, ent, M, y, PW - M);
   pdf.setFont('helvetica','bold').setFontSize(14).setTextColor(20,20,20);
   pdf.text(`ÉTAT DES LIEUX D'${edl.type.toUpperCase()}`, PW/2, y+6, {align:'center'});
   pdf.setFont('helvetica','normal').setFontSize(8).setTextColor(120,120,120);
@@ -45688,9 +45752,9 @@ function _cautionnementBlock(bail, log, ent, garantNom, garantAdr, garantDdn, ga
   const lignes = n => '<div style="border-bottom:1px solid #888;margin:3px 0;height:18px;width:100%"><\/div>'.repeat(n)+'<div style="height:6px"><\/div>';
 
   // v13.28 BAIL-PRINT-POLISH point 4 : logo entité en header de l'acte cautionnement
-  const logoHeaderHtml = ent && ent.logo
-    ? `<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid #ddd;page-break-inside:avoid"><img src="${ent.logo}" alt="Logo" style="max-width:180px;max-height:60px;object-fit:contain"><div style="text-align:right;font-size:9pt;color:#666;font-style:italic">${ent.nom||''}</div></div>`
-    : '';
+  // S4 — l'en-tête propre à l'acte (logo seul + nom en italique à droite) laisse place au
+  // bandeau commun : le nom de l'entité reste dans le corps de l'acte, Propryo prend la droite.
+  const logoHeaderHtml = _docBrandzone(ent);
   return `
 ${logoHeaderHtml}
 <h1>ACTE DE CAUTIONNEMENT SOLIDAIRE<\/h1>
