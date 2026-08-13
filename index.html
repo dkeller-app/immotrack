@@ -3931,6 +3931,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/build-sign-manifest.global.js"></script>
 <script src="js/helpers/bail-sign-sigid.global.js"></script>
 <script src="js/helpers/bail-sign-plan.global.js"></script>
+<!-- SIGNATURE-SMOKE S1 — dérivation UNIQUE des signataires bailleur (file de signature ET _SIGS du document) + garde anti-parcours muet. -->
+<script src="js/helpers/bail-signataires.global.js"></script>
+<!-- SIGNATURE-SMOKE S3 — montants déterministes (jamais toLocaleString) + assainisseur de texte PDF (U+202F casse jsPDF). -->
+<script src="js/helpers/montant-doc.global.js"></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
 <script src="js/helpers/alert-rules.global.js"></script>
@@ -6573,13 +6577,18 @@ function nid() { return Date.now() + Math.floor(Math.random()*9999); }
 function td() { return new Date().toISOString().slice(0,10); }
 function pf(id) { return parseFloat(v(id))||0; }
 
+// SIGNATURE-SMOKE S3 — formateur DÉTERMINISTE partagé (js/helpers/montant-doc.global.js) au lieu
+// de toLocaleString('fr-FR'), qui sépare les milliers avec U+202F depuis ICU 72 : ce caractère
+// n'existe pas en WinAnsi, jsPDF bascule alors toute la chaîne en 16 bits et le PDF affiche
+// « 1 2 / 0 0 0 , 0 0 ». Rendu HTML identique (espace insécable), PDF réparé sur TOUTES les
+// surfaces documents qui passent par fmt/fmtN (bail, quittance, décomptes, EDL, certificats).
 function fmt(n) {
   if(n===null||n===undefined||isNaN(n)) return '–';
-  return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  return window.MontantDoc.fmtEuroDoc(n);
 }
 function fmtN(n) {
   if(!n&&n!==0) return '–';
-  return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return window.MontantDoc.fmtMontantDoc(n);
 }
 
 function fd(iso) {
@@ -7594,6 +7603,11 @@ function _bsdSetMode(side, i, mode) {
 // État persisté dans bail.bailleurSign[i] (parallèle aux noms). Défaut (absent) = 'pres' (présentiel
 // in-app) → comportement actuel préservé. Cas mandataire (signe p/o le bailleur) : reste présentiel
 // in-app en v1 (pas d'envoi distant) → liste vide.
+// SIGNATURE-SMOKE S1 — la liste passe par le résolveur PARTAGÉ (window.BailSignataires) : plus
+// aucune dérivation locale des ids/noms. « Liste vide » signifie désormais UNIQUEMENT « mandataire »
+// (cas verrouillé présentiel in-app). Une entité SANS gérant renvoie 1 signataire de repli
+// (id bailleur-0, au nom de l'entité) — avant, elle renvoyait [] et était confondue avec le
+// mandataire, ce qui faisait demander un signataire 'bailleur' absent du document.
 function _bailBailleurSigners(bail) {
   if (!bail) return [];
   const withMand = !!(bail.withMandataire && DB.params && DB.params.mandataire && DB.params.mandataire.actif && DB.params.mandataire.nom);
@@ -7601,10 +7615,13 @@ function _bailBailleurSigners(bail) {
   const ent = (DB.entites || []).find(e => e && e.nom === bail.entity) || {};
   const names = (typeof getBailSignataires === 'function' ? getBailSignataires(bail, ent) : []) || [];
   const states = Array.isArray(bail.bailleurSign) ? bail.bailleurSign : [];
-  return names.map((nom, i) => {
+  const resolved = window.BailSignataires.resolveBailleurSigners({
+    names, withMandataire: false, entityLabel: ent.nom || bail.entity || ''
+  });
+  return resolved.map((s, i) => {
     const st = states[i] || {};
     const mode = (st.mode === 'dist' || st.mode === 'no') ? st.mode : 'pres';
-    return { idx: i, nom: String(nom || ''), mode, email: (st.email || '').trim() };
+    return { idx: i, id: s.id, kind: s.kind, nom: s.nom, mode, email: (st.email || '').trim() };
   });
 }
 
@@ -7805,7 +7822,7 @@ function _confirmBailSignatureFlow(ref) {
         showToast('Email invalide pour ' + (bSigners[i].nom || ('Co-gérant ' + (i + 1))) + ' — corrige-le ou passe-le en présentiel', 'err', 5000);
         if (emailEl) { emailEl.classList.add('err'); emailEl.focus(); } return;
       }
-      signers.push({ id: 'bailleur-' + i, role: 'bailleur', nom: bSigners[i].nom || ('Co-gérant ' + (i + 1)), mode, email });
+      signers.push({ id: bSigners[i].id, role: 'bailleur', nom: bSigners[i].nom || ('Co-gérant ' + (i + 1)), mode, email });   /* S1 : id du résolveur PARTAGÉ */
     }
   }
 
@@ -20458,7 +20475,7 @@ function previewBailDataV2Ref(ref) {
 function buildBailStructure(bail, log, ref, ent, locs) {
   const S    = s => String(s==null?'':s);
   const fd2  = s => s ? new Date(s).toLocaleDateString('fr-FR') : '–';
-  const fmtN2 = n => n ? parseFloat(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '0,00';
+  const fmtN2 = n => window.MontantDoc.fmtMontantDoc(n);   /* S3 : jamais toLocaleString (U+202F casse jsPDF) */
 
   // Données de base
   const nomSci    = S(ent.nom||bail.entity||'–');
@@ -21272,8 +21289,17 @@ function buildBailStructure(bail, log, ref, ent, locs) {
   // bailleur (au lieu d'un seul bloc). Sinon, en cas de multi-gérants, le wizard
   // capture bien N signatures (bailleur-0, bailleur-1, ...) mais le PDF n'a
   // qu'un cadre → seules les sigs du 1er gérant apparaissent.
-  const _sigsBailleur = getBailSignataires(bail, ent);
   const _withMandataire = !!(bail.withMandataire && typeof DB !== 'undefined' && DB.params && DB.params.mandataire && DB.params.mandataire.actif && DB.params.mandataire.nom);
+  // SIGNATURE-SMOKE S1 — dérivation UNIQUE (partagée avec previewBailData/_SIGS et la file de
+  // signature). Couvre « entité sans gérant » : repli sur le bailleur lui-même (id bailleur-0),
+  // au lieu du « (représenté par –) » sans signataire nommé de la v15.502.
+  const _bSignersRes = window.BailSignataires.resolveBailleurSigners({
+    names: getBailSignataires(bail, ent),
+    withMandataire: _withMandataire,
+    mandataireNom: (typeof DB !== 'undefined' && DB.params && DB.params.mandataire && DB.params.mandataire.nom) || '',
+    entityLabel: nomSci
+  });
+  const _sigsBailleur = _withMandataire ? [] : _bSignersRes.map(s => s.nom);
   // D2a — état de signature par co-gérant (bail.bailleurSign[i].mode : 'pres'|'dist'|'no'). Défaut 'pres'.
   // 'no' (exclu) → AUCUN cadre signature ni paraphe. 'dist' → case vide + ancre (remplie à distance).
   const _bMode = (i) => { const s = Array.isArray(bail.bailleurSign) ? bail.bailleurSign[i] : null; return (s && (s.mode === 'dist' || s.mode === 'no')) ? s.mode : 'pres'; };
@@ -21289,10 +21315,12 @@ function buildBailStructure(bail, log, ref, ent, locs) {
       out.push({ type:'signature-bailleur', role: `CO-GÉRANT ${i+1} — ${nomSci} (représenté par ${g})`, bIdx: i, remote: (m === 'dist') });
     });
   } else {
-    // 1 gérant signataire (cas standard) : comportement historique conservé
+    // 1 gérant signataire (cas standard) : comportement historique conservé.
+    // S1 — entité SANS gérant : le bailleur signe pour lui-même → pas de « représenté par – ».
     const g = _sigsBailleur[0] || nomGerant;
+    const _kind0 = (_bSignersRes[0] && _bSignersRes[0].kind) || 'gerant';
     const m = _bMode(0);
-    if (m !== 'no') out.push({ type:'signature-bailleur', role: `LE BAILLEUR — ${nomSci} (représenté par ${g})`, bIdx: 0, remote: (m === 'dist') });
+    if (m !== 'no') out.push({ type:'signature-bailleur', role: (_kind0 === 'entite' ? `LE BAILLEUR — ${nomSci}` : `LE BAILLEUR — ${nomSci} (représenté par ${g})`), bIdx: 0, remote: (m === 'dist') });
   }
   // Signature(s) locataire(s) — placeholders pour Acrobat
   out.push(
@@ -21700,7 +21728,13 @@ function previewBailData(bail, log, ref, opts) {
   /* ── MOD-03 : résolution co-gérants & signataires figés ─────── */
   var allGerants  = getGerants(ent);                        /* tous les co-gérants déclarés au niveau SCI */
   var sigNames    = getBailSignataires(bail, ent);          /* signataires figés pour CE bail */
-  if(!sigNames.length && gerantLabel) sigNames = [gerantLabel]; /* ultime fallback */
+  /* SIGNATURE-SMOKE S1 — repli « entité sans gérant » via le résolveur PARTAGÉ (même source que
+     buildBailStructure et la file de signature). L'ancien repli local [gerantLabel] produisait un
+     _SIGS en 'bailleur-0' alors que la file demandait 'bailleur' → wizard sans aucun pad. */
+  var _bailleurSigners = window.BailSignataires.resolveBailleurSigners({
+    names: sigNames, withMandataire: withMandataire, mandataireNom: mand.nom || '', entityLabel: sciLabel
+  });
+  if(!withMandataire && !sigNames.length) sigNames = _bailleurSigners.map(function(s){ return s.nom; });
   var nomGerantsList   = formatGerantsList(allGerants);           /* "X, Y et Z" */
   var nomSignatairesList = formatGerantsList(sigNames);            /* "X et Y" */
   var roleLabel   = sigNames.length>=2 ? 'Co-gérants' : 'Gérant';
@@ -21722,7 +21756,7 @@ function previewBailData(bail, log, ref, opts) {
   var signataires = [];
   if(withMandataire) {
     signataires.push({
-      id:'bailleur',
+      id:_bailleurSigners[0].id,   /* S1 : id issu du résolveur PARTAGÉ (jamais recalculé ici) */
       role:'MANDATAIRE (p/o Bailleur)',
       nomCourt:(mand.nom.split(' ').slice(-1)[0]||'Mandataire'),
       header:'<strong>MANDATAIRE</strong> &mdash; '+mand.nom+' &mdash; <em>pour le compte de '+sciLabel+'</em>'
@@ -21731,7 +21765,7 @@ function previewBailData(bail, log, ref, opts) {
     sigNames.forEach(function(g,i){
       var roleSuffix = sigNames.length>1 ? ' '+(i+1) : '';
       signataires.push({
-        id:'bailleur-'+i,
+        id:(_bailleurSigners[i]&&_bailleurSigners[i].id)||('bailleur-'+i),   /* S1 : id PARTAGÉ */
         role: (sigNames.length>1 ? 'CO-GÉRANT'+roleSuffix : 'BAILLEUR / GÉRANT'),
         nomCourt: g.split(' ').slice(-1)[0]||g,
         header:'<strong>'+(sigNames.length>1?'CO-G\u00c9RANT'+roleSuffix:'LE BAILLEUR')+'</strong> &mdash; '+sciLabel+' &mdash; <em>repr\u00e9sent\u00e9e par '+g+'</em>'
@@ -21749,7 +21783,7 @@ function previewBailData(bail, log, ref, opts) {
   /* ── Helpers ─────────────────────────────────────────────── */
   var S  = function(s){ return String(s==null?'':s); };
   var fd2 = function(s){ return s ? new Date(s).toLocaleDateString('fr-FR') : '\u2014'; };
-  var fmtN2 = function(n){ return n ? parseFloat(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '0,00'; };
+  var fmtN2 = function(n){ return window.MontantDoc.fmtMontantDoc(n); };   /* S3 : formateur document partagé */
   var fmtNumFiscal = function(s){
     var t = S(s).trim();
     if (!t || t === '\u2013' || t === '-' || t === 'N/A' || t === 'NA') {
@@ -22426,6 +22460,14 @@ function previewBailData(bail, log, ref, opts) {
      dans le preview. Réutilise _bailStruct calculé plus haut pour le rendu HTML. */
   var bailStructureJson = JSON.stringify(_bailStruct);
   var scripts = '<script>'
+    /* SIGNATURE-SMOKE S1/S3 — helpers PURS sérialisés depuis les modules testés (source unique :
+       __tests__/helpers/*.js → js/helpers/*.global.js). La popup est un document about:blank :
+       elle ne peut pas charger js/helpers/ par URL relative, mais toString() garantit qu'on
+       n'entretient AUCUNE copie divergente du code. */
+    +'var _padSignersFor='+window.BailSignataires.padSignersFor.toString()+';'
+    +'var PDF_UNSAFE_MAP='+JSON.stringify(window.MontantDoc.PDF_UNSAFE_MAP)+';'
+    +'var pdfSafeText='+window.MontantDoc.pdfSafeText.toString()+';'
+    +'var hardenJsPdfText='+window.MontantDoc.hardenJsPdfText.toString()+';'
     +'var _SIGS='+sigsJson+';'
     +'var _BAIL_STRUCTURE='+bailStructureJson+';'
     +'var _BAIL_REF='+JSON.stringify(ref)+';' /* v13.02 : persistance signatures */
@@ -22579,6 +22621,16 @@ function previewBailData(bail, log, ref, opts) {
     +    'window._wizV2Phase2=false;'
     +    'window._wizV2SoloSigner=null;window._wizSignWithLocataires=false;'
     +  '}'
+    /* SIGNATURE-SMOKE S1 — GARDE : on refuse de démarrer un parcours MUET. Si le signataire
+       attendu est absent du document (ids désalignés) ou si personne n'est attendu, on le dit
+       explicitement au lieu de dérouler 26 pages sans le moindre pad de paraphe. */
+    +  'var _guard=_wizV2PadResult();'
+    +  'if(_guard.error){'
+    +    'console.error("[startSignatureWizardV2] "+_guard.error.code,_guard.error.message,{sigs:_SIGS,solo:window._wizV2SoloSigner});'
+    +    'alert("⛔ Signature impossible — "+_guard.error.message+"\\n\\nAucune case de paraphe ne peut être affichée. Vérifiez les signataires du bailleur (fiche de l\'entité) puis relancez la signature.");'
+    +    'window._wizV2SoloSigner=null;window._wizV2SignQueue=null;'
+    +    'return;'
+    +  '}'
     +  'var btn=document.querySelector(".btn-wiz");'
     +  'if(btn){btn.disabled=true;btn.textContent="⏳ Génération PDF...";}'
     +  'try{'
@@ -22614,21 +22666,15 @@ function previewBailData(bail, log, ref, opts) {
     +  'document.documentElement.scrollTop=0;'
     +  'document.body.scrollTop=0;'
     +'}'
+    /* SIGNATURE-SMOKE S1 — filtrage délégué au helper PUR testé (_padSignersFor, injecté plus haut).
+       Il renvoie {sigs, error} : une liste vide n'est JAMAIS silencieuse — elle porte un code
+       (SIGNER_INTROUVABLE / AUCUN_SIGNATAIRE) que le wizard affiche au lieu de rendre des pages
+       « à parapher » sans aucun pad (bug bloquant du smoke 13/08). */
+    +'function _wizV2PadResult(){'
+    +  'return _padSignersFor(_SIGS,{phase2:window._wizV2Phase2,withLocataires:window._wizSignWithLocataires,solo:window._wizV2SoloSigner});'
+    +'}'
     +'function _wizV2GetSigs(){'
-    /* Filtrer signataires : exclure caution (signe acte séparé).
-       v13.08 — Phase 2 : garder UNIQUEMENT les locataires (bailleur déjà signé).
-       Bailleur seul : garder bailleur uniquement.
-       Avec locataire : tous (bailleur + locataires). */
-    +  'var sigs=_SIGS.filter(function(s){return !/caution/i.test(s.role||s.id||"");});'
-    +  'if(window._wizV2Phase2){'
-    +    'sigs=sigs.filter(function(s){return /^loc/i.test(s.id||"");});'
-    +  '}else if(window._wizSignWithLocataires===false){'
-    +    'sigs=sigs.filter(function(s){return /bailleur|gerant|gérant/i.test(s.role||s.id||"");});'
-    +  '}'
-    /* FIL-ROUGE — filtre solo prioritaire : quand un signataire courant est isolé (chacun son
-       tour), le wizard ne rend QUE ses pads. Prime sur le filtrage par rôle ci-dessus. */
-    +  'if(window._wizV2SoloSigner){sigs=sigs.filter(function(s){return (s.id||"")===window._wizV2SoloSigner;});}'
-    +  'return sigs;'
+    +  'return _wizV2PadResult().sigs;'
     +'}'
     /* FIL-ROUGE — écran de transition entre deux signataires présentiels (chacun son tour).
        Réutilise _SIGS (nomCourt), l'overlay, .wizV2-card et .btn-wiz déjà présents. Corail = accent charte. */
@@ -22662,7 +22708,12 @@ function previewBailData(bail, log, ref, opts) {
     +    'else if(page.kind==="notice"){msg="📋 <b>Notice d\\u2019information</b> (arrêté du 29 mai 2015 modifié). Document légal remis au locataire, pas de paraphe requis.";}'
     +    'html+="<div class=\\"wizV2-no-paraphe\\">"+msg+"</div>";'
     +  '}else{'
-    +    'var sigs=_wizV2GetSigs();'
+    +    'var _pr=_wizV2PadResult();var sigs=_pr.sigs;'
+    /* S1 — filet visuel : si la liste est vide, on affiche l\'erreur DANS la page au lieu d\'une
+       page « à parapher » muette (le cas ne doit plus survenir grâce à la garde au démarrage). */
+    +    'if(_pr.error){'
+    +      'html+="<div class=\\"wizV2-no-paraphe\\" style=\\"background:#fee2e2;border-color:#dc2626;color:#991b1b\\">⛔ <b>Aucune case de paraphe à afficher.</b><br>"+_pr.error.message+"</div>";'
+    +    '}'
     /* v13.08 — bandeau Phase 2 : indique que le bailleur a déjà paraphé cette page */
     +    'if(window._wizV2Phase2){'
     +      'html+="<div style=\\"background:#eff6ff;border-left:4px solid #1a4b8c;border-radius:4px;padding:10px 12px;margin-top:14px;font-size:10.5pt;color:#1e3a8a\\">📨 <b>Le bailleur a déjà paraphé cette page.</b> Ajoutez votre paraphe ci-dessous pour valider la lecture en tant que locataire.</div>";'
@@ -22767,6 +22818,9 @@ function previewBailData(bail, log, ref, opts) {
     +  'var page=pages[cur-1];if(page.noParaphe)return true;'
     +  'var ov=document.getElementById("wizV2-overlay");if(!ov)return true;'
     +  'var canvases=ov.querySelectorAll("canvas.wizV2-pad-canvas");'
+    /* SIGNATURE-SMOKE S1 — une page « à parapher » SANS aucun pad ne doit plus être franchissable :
+       sinon le parcours se déroule en silence et le PDF sort sans le moindre paraphe. */
+    +  'if(!canvases.length){alert("⛔ Aucune case de paraphe sur cette page — signature interrompue.\\n\\nLes signataires du bailleur sont introuvables dans le document. Fermez cette fenêtre, vérifiez la fiche de l\'entité, puis relancez la signature.");return false;}'
     +  'var captured={};var allSigned=true;'
     +  'canvases.forEach(function(c){'
     +    'var data=c.getContext("2d").getImageData(0,0,c.width,c.height).data;'
@@ -23270,6 +23324,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'if(typeof window.jspdf==="undefined"){alert("jsPDF non chargé");return;}'
     +  'var jsPDFCls=window.jspdf.jsPDF;'
     +  'var pdf=new jsPDFCls({unit:"mm",format:"a4",orientation:"portrait"});'
+    +  'hardenJsPdfText(pdf);'   /* S3 : tout texte assaini avant encodage WinAnsi */
     +  'var x=PDF_NATIVE.MARGIN_LEFT,y=PDF_NATIVE.MARGIN_TOP;'
     +  'y=PDF_NATIVE.drawTitle(pdf,1,"TEST PDF NATIF — Phase A.2",x,y);'
     +  'y=PDF_NATIVE.drawText(pdf,"Smoke test de l\'architecture PDF native (refonte Phase A). Valide jsPDF + autotable + helpers core.",x,y);'
@@ -23305,6 +23360,7 @@ function previewBailData(bail, log, ref, opts) {
     +  '}'
     +  'var jsPDFCls=window.jspdf.jsPDF;'
     +  'var pdf=new jsPDFCls({unit:"mm",format:"a4",orientation:"portrait"});'
+    +  'hardenJsPdfText(pdf);'   /* S3 : tout texte assaini avant encodage WinAnsi */
     +  'var x=PDF_NATIVE.MARGIN_LEFT,y=PDF_NATIVE.MARGIN_TOP;'
     /* v12.93 → v13.00 : pré-scan pour TOUS les triggers no-paraphe (par kind) */
     +  'var _trigDefs=[{re:/^18\\s*[—-]\\s*Signatures/i,kind:"signatures"},{re:/^ANNEXE\\s+A/i,kind:"annexe-a"},{re:/^ANNEXE\\s+B/i,kind:"annexe-b"},{re:/^Notice/i,kind:"notice"}];'
@@ -23477,6 +23533,7 @@ function previewBailData(bail, log, ref, opts) {
     +  'window._sigBailleurFinalIdx=0;window._sigLocFinalIdx=0;'
     +  'var jsPDFCls=window.jspdf.jsPDF;'
     +  'var pdf=new jsPDFCls({unit:"mm",format:"a4",orientation:"portrait"});'
+    +  'hardenJsPdfText(pdf);'   /* S3 : tout texte assaini avant encodage WinAnsi */
     +  'var x=PDF_NATIVE.MARGIN_LEFT,y=PDF_NATIVE.MARGIN_TOP;'
     +  'for(var i=0;i<_BAIL_STRUCTURE.length;i++){'
     +    'var item=_BAIL_STRUCTURE[i];'
@@ -30274,7 +30331,7 @@ async function generateEDLPdfNative(edl) {
   const ent = log ? (DB.entites||[]).find(e => e.nom === log.entity) : null;
 
   const jsPDFCls = window.jspdf.jsPDF;
-  const pdf = new jsPDFCls({unit:'mm', format:'a4', orientation:'portrait'});
+  const pdf = window.MontantDoc.hardenJsPdfText(new jsPDFCls({unit:'mm', format:'a4', orientation:'portrait'}));   /* S3 */
   const M = 15, MR = 15, MT = 15, MB = 18;
   const PW = 210, PH = 297, CW = PW - M - MR;
 
@@ -37992,7 +38049,7 @@ async function _ddtRecapPDF() {
     const canvas = await html2canvas(content, { scale: 2, backgroundColor: '#ffffff' });
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pdf = window.MontantDoc.hardenJsPdfText(new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }));   /* S3 */
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const imgWidth = pageWidth - 16; // 8mm margin chaque côté
@@ -43639,7 +43696,7 @@ function _annoncePDF() {
   }
   try {
     const jsPDFCls = window.jspdf.jsPDF;
-    const pdf = new jsPDFCls({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const pdf = window.MontantDoc.hardenJsPdfText(new jsPDFCls({ unit: 'mm', format: 'a4', orientation: 'portrait' }));   /* S3 */
     const M = 15, PW = 210, CW = PW - 2 * M;
     let y = 18;
     pdf.setFont('helvetica', 'bold').setFontSize(13).setTextColor(20, 40, 80);
