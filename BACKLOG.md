@@ -34,7 +34,8 @@ Biens (simplification mapping — gros morceau) · Bail · Candidature · Signat
 
 **Transverse V1 (ajouts user 10/08)** :
 - **DOCS-UNIFIÉS** — gabarit de document unique Propryo (logo + charte + code PROPRYO) pour tous les documents émis : quittance, avis/courrier IRL, décomptes… → à traiter avec les CDC Quittances et Révisions/Bail.
-- **LIENS-LOCATAIRE-VISUEL** — refonte visuelle des pages publiques côté locataire : lien candidature en ligne + lien signature bail à distance → à traiter avec les CDC Candidature et Signature.
+- **LIENS-LOCATAIRE-VISUEL** — refonte visuelle des pages publiques côté locataire : lien candidature en ligne + lien signature bail à distance → à traiter avec les CDC Candidature et Signature. **⚠️ Élargi 13/08 (constat terrain user) : CONFIANCE, pas que cosmétique — plusieurs candidats réels ont REFUSÉ de renseigner leurs infos par peur de transmettre des documents sensibles.** La page doit rassurer : identité Propryo pro, qui reçoit quoi, mention RGPD/hébergement UE, finalité et durée de conservation, pas de champs intrusifs d'emblée.
+- **CANDIDAT-MULTI-LOCATAIRES** (noté 13/08) — impossible de créer 2 locataires sur une candidature (couple/colocation) → à traiter au CDC Candidature (candidature à plusieurs, chacun son dossier ou dossier commun).
 
 ## 🧊 Après V1 (gelé — détail dans docs/subjects/ et l'archive)
 
