@@ -31,11 +31,14 @@
     PARAPHE_BOX_Y: 279.5     // haut des cases = PAGE_H - MARGIN_BOTTOM + 5 + 2.5
   };
 
-  // Sections dont les pages ne portent PAS de case de paraphe. Depuis le retour user du 13/08,
-  // il n'en reste qu'une : la page §18, qui porte les cadres de signature — on n'y paraphe pas,
-  // on y signe. Les ANNEXES A et B (décrets 87-712 / 87-713) et la NOTICE d'information sont
-  // désormais paraphées comme le reste du bail : elles font partie du contrat remis au locataire.
-  const SECTIONS_SANS_PARAPHE = ['signatures'];
+  // Sections dont les pages ne portent PAS de case de paraphe — DÉCISION USER 13/08, confirmée
+  // explicitement (« les annexes ne doivent pas être paraphées ») :
+  //   • signatures (§18) : on y signe, on n'y paraphe pas ;
+  //   • annexe-a (décret 87-712), annexe-b (décret 87-713), notice (arrêté du 29 mai 2015) :
+  //     textes RÉGLEMENTAIRES reproduits littéralement, annexés au bail. Ce ne sont pas des
+  //     clauses négociées : le paraphe n'y ajoute rien.
+  // Le corps du bail (§1 à §17) reste paraphé page à page.
+  const SECTIONS_SANS_PARAPHE = ['signatures', 'annexe-a', 'annexe-b', 'notice'];
 
   /**
    * Sections repérées par leur titre de niveau h2. SOURCE UNIQUE : la même liste servait en
