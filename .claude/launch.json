@@ -20,6 +20,12 @@
       "port": 8770
     },
     {
+      "name": "mockups-all",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/mockups", "-p", "8806", "-c-1", "--silent"],
+      "port": 8806
+    },
+    {
       "name": "wt-filrouge-complet",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo-wt-filrouge-complet", "-p", "8812", "-c-1", "--silent"],
