@@ -138,6 +138,24 @@ const PAIRS = [
     exports: ['buildSignaturePlan'],
   },
   {
+    // SIGNATURE-SMOKE S1 — dérivation UNIQUE des signataires bailleur (file de signature
+    // ET _SIGS du document) + garde anti-parcours muet du wizard.
+    name: 'bail-signataires',
+    src: '__tests__/helpers/bail-signataires.js',
+    dst: 'js/helpers/bail-signataires.global.js',
+    globalName: 'BailSignataires',
+    exports: ['ID_MANDATAIRE', 'resolveBailleurSigners', 'bailleurSignerIds', 'padSignersFor'],
+  },
+  {
+    // SIGNATURE-SMOKE S3 — formateur de montants déterministe + assainisseur de texte PDF
+    // (U+202F d'ICU ≥ 72 casse l'encodage WinAnsi de jsPDF).
+    name: 'montant-doc',
+    src: '__tests__/helpers/montant-doc.js',
+    dst: 'js/helpers/montant-doc.global.js',
+    globalName: 'MontantDoc',
+    exports: ['NBSP', 'PDF_UNSAFE_MAP', 'isWinAnsiChar', 'pdfSafeText', 'hasPdfUnsafeChars', 'fmtMontantDoc', 'fmtEuroDoc', 'hardenJsPdfText'],
+  },
+  {
     // v15.428 DRY-FACTORISATION chantier 1 — catalogue canonique des règles d'alertes
     // (consommé par _computeUnifiedTodo, rAlertsSection et les widgets legacy).
     name: 'alert-rules',
