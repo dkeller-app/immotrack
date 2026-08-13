@@ -20,7 +20,11 @@ const _T = {
   ent:  { saved: 'imm' },
   imm:  { saved: 'log', back: 'ent' },
   log:  { saved: 'next', back: 'imm' },
-  next: { addLog: 'log', addImm: 'imm', finish: 'done' },
+  // Décision user 13/08 : la fin du fil MANUEL enchaîne sur la complétion (écran 'transition' →
+  // accordéon), exactement comme l'import d'acte. L'ancienne sortie 'done' (« tout est déjà en
+  // place ») faisait croire le bien terminé alors que 6 champs seulement avaient été saisis.
+  // 'done' reste dans STEPS (compat : _frContinueTo/_frOfferContinue hors fil y mènent encore).
+  next: { addLog: 'log', addImm: 'imm', finish: 'transition' },
   done: { createBail: 'bail' },
   bail: { back: 'done' },
 };

@@ -44483,6 +44483,13 @@ function _frOpenStep(step){
   // Fidélité mockup validé (décision user 2026-07-16) : CHAQUE étape est un écran PROPRE du fil
   // (rendu dans #ov-fr par _frShowFr), pas la grosse modale existante. La création écrit dans les
   // mêmes données : l'écran propre remplit les inputs réels cachés puis appelle le vrai save* (DRY).
+  // Fil COMPLET — état de reprise posé ICI, au FUNNEL de l'étape transition, pour que les DEUX
+  // entrées y passent : l'import d'acte (_frAfterActe le pose déjà juste avant — ré-écriture
+  // idempotente, mêmes entId/immName) ET la fin du fil manuel (next+finish→transition, décision
+  // user 13/08). Point choisi plutôt que _frNextChoice : un seul endroit couvre toute entrée
+  // future vers 'transition'. GARDE : jamais d'état posé sur un contexte incomplet — un couple
+  // (entId, immName) non résoluble donnerait un bandeau fantôme purgé au 1er rendu de la page Biens.
+  if(step==='transition' && _frCtx.entId!=null && _frCtx.immName) _frSetCompletionState(_frCtx.entId, _frCtx.immName);
   _frShowFr(step);
 }
 function _frStart(kind){ _frHideCont(); _frMode=true; _frCtx={entId:null,immName:null,bailDone:false,bailRef:null,created:_frResetCreated()}; _frOpenStep(window.FilRougeConductor.entryStep(kind||'bien')); }
@@ -44691,12 +44698,25 @@ function _frShowFr(kind){
       +'</div></div>';
     foot.innerHTML=stop;
   } else if(kind==='transition'){
-    // Fil COMPLET — soudure acte → complétion : remplace l'ex-arrivée « Succès » cul-de-sac.
+    // Fil COMPLET — soudure vers la complétion : remplace l'ex-arrivée « Succès » cul-de-sac.
+    // Écran COMMUN aux DEUX entrées (import d'acte ET fin du fil manuel, décision user 13/08) :
+    // il reprend le récap que l'étape 'done' montrait en fin de fil manuel (rien de perdu) et
+    // annonce ce qui reste à faire. Mockup fil-rouge-completion-v2 écran ① colonne « ✅ Proposé ».
     const _nb=((_frCtx.created&&_frCtx.created.logs)||[]).length;
-    body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Patrimoine créé — le fil continue</h3>'
-      +'<p>'+_nb+' bien'+(_nb>1?'s':'')+' posé'+(_nb>1?'s':'')+' par l’acte. Le fil rouge t’emmène maintenant compléter chaque fiche à 100 % — bailleur, immeuble, chaque bien, chaque bail.</p>'
+    // ⚖ Compte du palier LÉGAL SEUL (le fil ne pousse que le légal). Modèle PUR (_frCompModelFor) :
+    // pas de toast ni de purge sur un écran de succès — contexte non résoluble → pas de compte.
+    const _cmT=_frCompModelFor(_frCtx.entId, _frCtx.immName);
+    const _reste=_cmT?(_cmT.model.nodes||[]).reduce(function(n,nd){ return n+(nd.tasks||[]).filter(function(t){ return t.palier==='legal' && t.status!=='done'; }).length; },0):null;
+    const _phrase=(_reste==null)
+      ? 'La structure est posée. Le fil rouge t’emmène maintenant compléter chaque fiche — bailleur, immeuble, chaque bien.'
+      : (_reste===0
+        ? 'Tout est déjà en règle — tu peux compléter le reste quand tu veux.'
+        : 'La structure est posée. Il reste <b>'+_reste+' obligation'+(_reste>1?'s':'')+'</b> à mettre en place pour que '+(_nb>1?'ces biens soient louables':'ce bien soit louable')+' en règle.');
+    body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>'+(_nb>1?'Le patrimoine est créé':'Le bien est créé')+' — le fil continue</h3>'
+      +'<div class="fr-recap">'+_frRecapHtml({bail:false})+'</div>'
+      +'<p>'+_phrase+'</p>'
       +'<div class="fr-choices">'
-      +'<div class="fr-choice log" onclick="_frCompContinue()"><span class="ic">🧭</span><div class="tx"><b>Continuer — compléter à 100 %</b><s>le fil te guide fiche par fiche, dans l’ordre</s></div><span class="chev">›</span></div>'
+      +'<div class="fr-choice log" onclick="_frCompContinue()"><span class="ic">🧭</span><div class="tx"><b>Compléter maintenant</b><s>le fil te guide fiche par fiche, dans l’ordre</s></div><span class="chev">›</span></div>'
       +'<div class="fr-choice fin" onclick="_frClose()"><span class="ic">🕊</span><div class="tx"><b>Plus tard — c’est gardé</b><s>tout est enregistré · le fil t’attendra</s></div><span class="chev">›</span></div>'
       +'</div></div>';
     foot.innerHTML='<span class="fr-grow"></span><span class="fr-hint" style="margin:0">Rien d’obligatoire — tu peux t’arrêter à tout moment.</span>';
@@ -44714,7 +44734,7 @@ function _frShowFr(kind){
     body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Logement '+escHtml(_frLastLogRef()||'')+' ajouté</h3><p>Le fil rouge peut continuer. Qu’est-ce qu’on fait ?</p><div class="fr-choices">'
       +'<div class="fr-choice log" onclick="_frNextChoice(\'addLog\')"><span class="ic">🏠</span><div class="tx"><b>Un autre logement ici</b><s>'+escHtml(_frCtx.immName?('dans '+_frCtx.immName):'')+'</s></div><span class="chev">›</span></div>'
       +'<div class="fr-choice imm" onclick="_frNextChoice(\'addImm\')"><span class="ic">🏛</span><div class="tx"><b>Un autre immeuble</b><s>nouvelle adresse pour ce bailleur</s></div><span class="chev">›</span></div>'
-      +'<div class="fr-choice fin" onclick="_frNextChoice(\'finish\')"><span class="ic">✓</span><div class="tx"><b>C’est bon, terminer</b><s>voir le bien prêt et créer le bail</s></div><span class="chev">›</span></div></div></div>';
+      +'<div class="fr-choice fin" onclick="_frNextChoice(\'finish\')"><span class="ic">✓</span><div class="tx"><b>C’est bon, terminer</b><s>voir ce qu’il reste à mettre en règle</s></div><span class="chev">›</span></div></div></div>';
     foot.innerHTML=stop;
   } else if(kind==='done'){
     body.innerHTML='<div class="fr-done"><div class="big">🎉</div><h3>Ton bien est en place</h3><div class="fr-recap">'+_frRecapHtml()+'</div><p class="fr-qs" style="text-align:center">Un locataire arrive ? Continue vers le bail. Sinon, tout est déjà en place.</p></div>';
@@ -44917,7 +44937,11 @@ function _frRentableOptions(){ return _frRentableLogs().map(l=>'<option value="'
 // P4 fidélité mockup : le récap « bien prêt » ne montre que ce que CE fil a créé (immeubles
 // créés + immeubles ayant reçu un logement créé), jamais tout le patrimoine du bailleur.
 // P3 : « ✍ Bail » seulement si le logement est louable (identité complète) ET vacant.
-function _frRecapHtml(){
+// opts.bail=false : récap SANS le bouton « ✍ Bail » — utilisé par l'écran 'transition', où la
+// création du bail est une tâche de l'accordéon de complétion (le raccourci y mènerait à l'étape
+// 'bail' dont le « ‹ Retour » rouvre l'ex-écran 'done' « tout est déjà en place »).
+function _frRecapHtml(opts){
+  const withBail=!(opts && opts.bail===false);
   const ent=_frCurEnt(); if(!ent) return '';
   const created=_frCtx.created||_frResetCreated();
   const createdLogs=_frCreatedLogs().map(_frNormLog);
@@ -44929,7 +44953,7 @@ function _frRecapHtml(){
   let h='<div class="fr-rb">👤 '+escHtml(ent.nom)+'</div>';
   (tree.immeubles||[]).forEach(im=>{ h+='<div class="fr-rb sub">🏛 '+escHtml(im.nom)+'</div>';
     if(!im.logements.length){ h+='<div class="fr-rl muted">Aucun logement</div>'; }
-    im.logements.forEach(l=>{ const ok=l.completeness&&l.completeness.level==='complet'; h+='<div class="fr-rl">🏠 <b>'+escHtml(l.ref)+'</b> <span class="fr-meta">'+escHtml(_frLogMeta(l))+'</span><span class="fr-st '+(ok?'ok':'todo')+'">'+(ok?'✓ complet':'à compléter')+'</span>'+(rentable.has(l.ref)?'<button class="fr-bail-btn" onclick="_frOpenBailStep(\''+escHtml(_frAttr(l.ref))+'\')">✍ Bail</button>':'')+'</div>'; });
+    im.logements.forEach(l=>{ const ok=l.completeness&&l.completeness.level==='complet'; h+='<div class="fr-rl">🏠 <b>'+escHtml(l.ref)+'</b> <span class="fr-meta">'+escHtml(_frLogMeta(l))+'</span><span class="fr-st '+(ok?'ok':'todo')+'">'+(ok?'✓ complet':'à compléter')+'</span>'+((withBail&&rentable.has(l.ref))?'<button class="fr-bail-btn" onclick="_frOpenBailStep(\''+escHtml(_frAttr(l.ref))+'\')">✍ Bail</button>':'')+'</div>'; });
   });
   return h;
 }

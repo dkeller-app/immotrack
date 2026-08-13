@@ -23,7 +23,13 @@ describe('fil-rouge-conductor — transitions (auto-avance)', () => {
   it('logement enregistré → et ensuite', () => { expect(advance('log','saved')).toBe('next'); });
   it('et ensuite : autre logement → logement', () => { expect(advance('next','addLog')).toBe('log'); });
   it('et ensuite : autre immeuble → immeuble', () => { expect(advance('next','addImm')).toBe('imm'); });
-  it('et ensuite : terminer → bien prêt', () => { expect(advance('next','finish')).toBe('done'); });
+  // Décision user 13/08 : « C'est bon, terminer » ne clôt plus le fil sur « tout est déjà en
+  // place » — il enchaîne sur la transition puis la complétion, comme l'import d'acte.
+  it('et ensuite : terminer → transition (la complétion suit)', () => { expect(advance('next','finish')).toBe('transition'); });
+  it("'done' reste une étape connue (compat) mais n'est plus atteignable depuis 'next'", () => {
+    expect(STEPS).toContain('done');
+    expect(advance('next','finish')).not.toBe('done');
+  });
   it('bien prêt : créer le bail → bail', () => { expect(advance('done','createBail')).toBe('bail'); });
   it('événement inconnu → on reste sur place', () => { expect(advance('log','wat')).toBe('log'); });
   it('retour arrière explicite', () => { expect(advance('imm','back')).toBe('ent'); expect(advance('log','back')).toBe('imm'); });
