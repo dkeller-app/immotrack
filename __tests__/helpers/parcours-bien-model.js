@@ -79,6 +79,16 @@ function _hasRealValue(o) {
   });
 }
 
+// Le « gérant / représentant légal » n'existe que pour une personne MORALE : un bailleur
+// particulier signe le bail EN SON NOM. Le réclamer était faux (source « pour le compte de la
+// société ») ET bloquant (pctLegal jamais 100 ⇒ ni « Terminer », ni purge du bandeau de reprise).
+// `ent.type` est la valeur posée par l'app : 'Personne physique' (fil rouge / import d'acte) ou
+// une forme sociale ('SCI', 'SCI IS'…). Type inconnu ⇒ on garde la tâche (statu quo, jamais de
+// disparition silencieuse d'une obligation réelle pour une société mal typée).
+function _estPersonneMorale(ent) {
+  return !/physique/i.test(_s((ent || {}).type));
+}
+
 const ORPHAN_LABEL = '— Sans immeuble —';
 
 export function buildParcoursTree(entite, allLogements) {
@@ -128,15 +138,26 @@ function _decorateLog(l) {
  * lister les pièces manquantes : `.diags = {requis:[{key,label}],
  * indetermines:[{key,label,cause}], fournis:[key]}`. Aucune autre tâche ne porte ce champ.
  *
- * @param {object} p {entite, immeuble, logements[], bauxActifs:{ref:bail}, diagsParLot, dpeParLot}
- * @returns {{nodes:[{kind,id,name,sub,badge,full,tasks:[{id,label,detail,status,action,palier,src,diags?}]}], pct:number, pctLegal:number}}
+ * PÉRIMÈTRE (revue I1, 13/08) : le fil manuel permet « Un autre immeuble », le modèle doit donc
+ * couvrir TOUS les immeubles créés par ce fil — sinon l'écran affirme « louable en règle » pour des
+ * lots qu'il ne regarde pas. `immeubles:[…]` est la forme normale ; `immeuble` (singulier) reste
+ * accepté pour la rétro-compatibilité et garde le comportement d'origine (tous les logements reçus
+ * sont rattachés à cet immeuble, sans filtrage sur `l.imm`).
+ *
+ * @param {object} p {entite, immeubles[]|immeuble, logements[], bauxActifs:{ref:bail}, diagsParLot, dpeParLot}
+ * @returns {{nodes:[{kind,id,name,sub,badge,full,tasks:[{id,label,detail,status,action,palier,src,dep?,alerte?,diags?}]}], pct:number, pctLegal:number}}
  */
-export function completionModel({ entite, immeuble, logements, bauxActifs, diagsParLot, dpeParLot }) {
-  const ent = entite || {}, imm = immeuble || {}, logs = logements || [], baux = bauxActifs || {};
+export function completionModel({ entite, immeuble, immeubles, logements, bauxActifs, diagsParLot, dpeParLot }) {
+  const ent = entite || {}, logs = logements || [], baux = bauxActifs || {};
+  const multi = Array.isArray(immeubles);
+  const immList = multi ? immeubles.filter(Boolean) : [immeuble || {}];
   const diagsMap = diagsParLot || {}, dpeMap = dpeParLot || {};
+  // `dep: true` = ligne du palier légal qui n'est PAS une obligation mais une DÉPENDANCE (elle
+  // conditionne ce que l'app peut affirmer). Elle ne porte donc jamais de source et se rend en bleu.
   const T = (id, label, done, opts) => ({ id, label, detail: (opts && opts.detail) || '',
     status: done ? 'done' : ((opts && opts.warn) ? 'warn' : 'todo'), action: (opts && opts.action) || null,
-    palier: (opts && opts.palier) || 'confort', src: (opts && opts.src) || '' });
+    palier: (opts && opts.palier) || 'confort', src: (opts && opts.src) || '',
+    dep: !!(opts && opts.dep) });
   // Les `src` sont AFFICHÉES à l'utilisateur : elles CITENT une norme ou nomment une
   // fonction précise. Jamais de jugement (« aucun contournement »), jamais une date qu'on
   // ne peut pas soutenir (l'obligation déclarative d'occupation ne se date pas en une
@@ -145,28 +166,38 @@ export function completionModel({ entite, immeuble, logements, bauxActifs, diags
   const SRC_DPE = 'Loi Climat 2021 — calendrier d’interdiction de mise en location';
   const nodes = [];
 
-  nodes.push({ kind: 'ent', id: ent.id || null, name: ent.nom || 'Bailleur', sub: 'Bailleur', badge: null, tasks: [
-    T('identite', 'Identité', _s(ent.nom) !== '', { detail: 'nom, forme, SIREN', palier: 'legal', src: SRC_BAIL_TYPE }),
-    T('gerant', 'Gérant / représentant légal', !!((ent.gerants || []).length) || _s(ent.gerant) !== '', { detail: 'requis sur les baux', palier: 'legal', src: 'Signataire du bail pour le compte de la société' }),
+  const entTasks = [
+    // M3 : le décret 2015-587 (contrat type) exige le nom et la forme du bailleur, pas le SIREN —
+    // la source affichée ne doit pas porter ce qu'elle ne dit pas.
+    T('identite', 'Identité', _s(ent.nom) !== '', { detail: 'nom, forme juridique', palier: 'legal', src: SRC_BAIL_TYPE }),
+  ];
+  if (_estPersonneMorale(ent)) {
+    entTasks.push(T('gerant', 'Gérant / représentant légal', !!((ent.gerants || []).length) || _s(ent.gerant) !== '', { detail: 'requis sur les baux', palier: 'legal', src: 'Signataire du bail pour le compte de la société' }));
+  }
+  entTasks.push(
     T('siege', 'Siège social / domicile', _s(ent.siege) !== '', { palier: 'legal', src: SRC_BAIL_TYPE }),
     T('iban', 'IBAN', _s(ent.iban) !== '', { detail: 'quittances & appels de loyer' }),
     T('coordonnees', 'Coordonnées', _s(ent.emailEnvoi) !== '', { detail: 'email d’envoi' }),
     T('rcsCapital', 'RCS & capital', _s(ent.rcs) !== '' && _s(ent.capital) !== ''),
-    T('signatureLogo', 'Signature & logo', !!ent.signature && !!ent.logo),
-  ] });
+    T('signatureLogo', 'Signature & logo', !!ent.signature && !!ent.logo)
+  );
+  nodes.push({ kind: 'ent', id: ent.id || null, name: ent.nom || 'Bailleur', sub: 'Bailleur', badge: null, tasks: entTasks });
 
-  const hasEq = _hasRealValue(imm.equipementsCommuns);
-  nodes.push({ kind: 'imm', id: imm.id || null, name: imm.nom || 'Immeuble', sub: _s(imm.ville), badge: null, tasks: [
+  const _immNode = (imm) => ({ kind: 'imm', id: imm.id || null, name: imm.nom || 'Immeuble', sub: _s(imm.ville), badge: null, tasks: [
     T('adresse', 'Adresse', _s(imm.adr) !== '' && _s(imm.ville) !== '', { palier: 'legal', src: 'Désignation du logement — mention obligatoire du bail' }),
-    T('annee', 'Année de construction', _num(imm.annee) !== '', { palier: 'legal', src: 'Détermine les diagnostics amiante (permis avant juillet 1997) et plomb (avant 1949)', detail: 'tant qu’elle manque, l’app ne peut pas dire quels diagnostics sont exigés' }),
+    // I3 : renseigner une année N'EST PAS une obligation — c'est une DÉPENDANCE (mockup validé :
+    // rendue en bleu, sans bandeau de source). Elle reste dans le palier légal parce qu'elle
+    // conditionne les diagnostics exigibles. Le texte décrit ce que le moteur applique VRAIMENT
+    // (`_DIAGS_CATALOG_INLINE` teste `anneeConstruction`, pas la date du permis de construire).
+    T('annee', 'Année de construction', _num(imm.annee) !== '', { palier: 'legal', dep: true, detail: 'tant qu’elle manque, l’app ne peut pas dire si l’amiante (construction avant 1997) et le plomb (avant 1949) sont exigés' }),
     T('regime', 'Régime juridique (copropriété ?)', _s(imm.regimeJuridique) !== '', { palier: 'legal', src: 'Art. 3 loi du 6 juillet 1989 — extraits du règlement à annexer' }),
     T('syndic', 'Syndic', !!imm.syndic),
-    T('equipements', 'Équipements communs', hasEq),
+    T('equipements', 'Équipements communs', _hasRealValue(imm.equipementsCommuns)),
     T('valeur', 'Prix / valeur estimée', _num(imm.valeurEstimee) !== ''),
     T('surfaceTotale', 'Surface totale', _s(imm.surfaceTotale) !== ''),
   ] });
 
-  logs.forEach((l) => {
+  const _logNode = (l) => {
     const bail = baux[l.ref] || null;
     const repris = !!(bail && bail.source && bail.source.import === 'acte');
     let bailTask;
@@ -194,15 +225,18 @@ export function completionModel({ entite, immeuble, logements, bauxActifs, diags
       src: 'Dossier de diagnostic technique — art. 3-3 loi du 6 juillet 1989' });
     diagTask.diags = { requis: dgRequis, indetermines: dgIndet, fournis: dgFournis };
 
-    // DPE louable : le calendrier d'interdiction (loi Climat) est INJECTÉ. `interdit` ⇒ warn
-    // (le logement ne peut pas partir en location) ; classe posée ⇒ done.
+    // DPE : le calendrier d'interdiction (loi Climat) est INJECTÉ. Revue I4 — l'interdiction de
+    // louer n'est PAS une saisie manquante, c'est un ÉTAT DU BIEN que le bailleur ne peut pas
+    // « cocher » sans travaux : la laisser en `warn` bloquait `pctLegal` sous 100 À VIE (jamais de
+    // bouton « Terminer », bandeau de reprise éternel). La tâche ne compte donc QUE la PRÉSENCE
+    // d'une classe (ça, c'est bien l'obligation de saisie) ; l'interdiction devient une ALERTE
+    // HORS COMPTEUR portée par la tâche — l'UI DOIT la nommer, sinon 100 % mentirait.
     const dpe = dpeMap[l.ref] || {};
-    const dpeTask = dpe.interdit
-      ? T('dpeLouable', 'Classe DPE louable ?', false, { warn: true, detail: _s(dpe.raison), palier: 'legal', src: SRC_DPE })
-      : T('dpeLouable', 'Classe DPE louable ?', _s(dpe.classe) !== '', { palier: 'legal', src: SRC_DPE });
+    const dpeTask = T('dpeLouable', 'Classe DPE renseignée', _s(dpe.classe) !== '', { palier: 'legal', src: SRC_DPE });
+    if (dpe.interdit) dpeTask.alerte = { type: 'dpe-interdit', classe: _s(dpe.classe), message: _s(dpe.raison) };
 
     const hasAnx = _hasRealValue(l.annexes);
-    nodes.push({ kind: 'log', id: l.ref, name: l.ref,
+    return { kind: 'log', id: l.ref, name: l.ref,
       sub: [l.type, l.surf ? (l.surf + ' m²') : ''].filter(Boolean).join(' · '),
       badge: bail ? 'loue' : 'vac',
       tasks: [
@@ -219,8 +253,20 @@ export function completionModel({ entite, immeuble, logements, bauxActifs, diags
         T('annexes', 'Annexes', hasAnx),
         T('mobilier', 'Mobilier', (l.mobilier || []).length > 0),
         T('photos', 'Photos', (l.photos || []).length > 0),
-      ] });
+      ] };
+  };
+
+  // Ordre du fil : bailleur, puis CHAQUE immeuble suivi de ses lots (ordre de création). En mode
+  // `immeuble` (singulier, rétro-compat) tous les logements reçus tombent sous cet immeuble ; en
+  // mode `immeubles` on répartit par `l.imm` — et un lot dont l'immeuble n'est pas dans la liste
+  // n'est JAMAIS perdu (rendu en fin de fil plutôt que silencieusement omis).
+  const vus = new Set();
+  immList.forEach((imm) => {
+    nodes.push(_immNode(imm));
+    const mine = multi ? logs.filter((l) => l && _s(l.imm) === _s(imm.nom)) : logs.slice();
+    mine.forEach((l) => { vus.add(l); nodes.push(_logNode(l)); });
   });
+  if (multi) logs.filter((l) => l && !vus.has(l)).forEach((l) => nodes.push(_logNode(l)));
 
   // `full` = palier LÉGAL complet (décision user 13/08) : le confort restant n'empêche
   // plus la fiche de passer au vert. `pct` reste le ratio sur TOUTES les tâches (compat

@@ -237,10 +237,13 @@ describe('completionModel — 2 paliers (légal / confort)', () => {
     ['iban','coordonnees','rcsCapital','signatureLogo','syndic','equipements','valeur','surfaceTotale',
      'chauffageEcs','tantiemes','etage','annexes','mobilier','photos'].forEach(id => expect(legal(id)).toBe('confort'));
   });
+  // Deux tâches légales SANS source, et pour deux raisons différentes : `bail` (aboutissement du
+  // fil, aucune norme n'impose de créer un bail) et `annee` (revue I3 : renseigner une année n'est
+  // pas une obligation — c'est une DÉPENDANCE qui conditionne les diagnostics, `dep:true`).
   it('les tâches légales portent une source, jamais les tâches confort', () => {
     const m = completionModel(base);
     const all = m.nodes.flatMap(n => n.tasks);
-    expect(all.filter(t => t.palier==='legal' && t.id!=='bail').every(t => !!t.src)).toBe(true);
+    expect(all.filter(t => t.palier==='legal' && t.id!=='bail' && t.id!=='annee').every(t => !!t.src)).toBe(true);
     expect(all.filter(t => t.palier==='confort').every(t => !t.src)).toBe(true);
   });
   it('pctLegal ne compte QUE le palier légal (le confort ne le fait pas baisser)', () => {
@@ -264,12 +267,15 @@ describe('completionModel — 2 paliers (légal / confort)', () => {
     const ok = completionModel({ ...base, diagsParLot:{ 'F-102': { requis:[{key:'dpe',label:'DPE'}], indetermines:[], fournis:['dpe'] } } });
     expect(ok.nodes.flatMap(n=>n.tasks).find(t=>t.id==='diagnostics').status).toBe('done');
   });
-  it('DPE louable : interdit ⇒ warn + raison ; classe saine ⇒ done ; classe absente ⇒ todo', () => {
-    const ko = completionModel({ ...base, dpeParLot:{ 'F-102': { classe:'G', interdit:true, raison:'DPE G interdit…' } } });
-    const t = ko.nodes.flatMap(n=>n.tasks).find(x=>x.id==='dpeLouable');
-    expect(t.status).toBe('warn'); expect(t.detail).toContain('interdit');
+  // Revue I4 : la tâche ne compte QUE la PRÉSENCE d'une classe DPE (c'est ça, l'obligation de
+  // saisie). L'interdiction de louer est un ÉTAT DU BIEN, pas une case à cocher — elle sort du
+  // compteur et devient une ALERTE portée par la tâche.
+  it('DPE : la tâche compte la présence d’une classe (classe absente ⇒ todo, classe posée ⇒ done)', () => {
+    const m = completionModel(base);
+    expect(m.nodes.flatMap(n=>n.tasks).find(x=>x.id==='dpeLouable').status).toBe('todo');
     const ok = completionModel({ ...base, dpeParLot:{ 'F-102': { classe:'D', interdit:false, raison:'' } } });
-    expect(ok.nodes.flatMap(n=>n.tasks).find(x=>x.id==='dpeLouable').status).toBe('done');
+    const t = ok.nodes.flatMap(n=>n.tasks).find(x=>x.id==='dpeLouable');
+    expect(t.status).toBe('done'); expect(t.alerte).toBe(undefined);
   });
   it('entrées d\'injection absentes ⇒ pas de crash (diagnostics/DPE en todo)', () => {
     const m = completionModel({ entite:ENT, immeuble:IMM, logements:[LOG], bauxActifs:{} });
@@ -338,5 +344,128 @@ describe('isRentable — un logement ne propose « Créer le bail » que si son 
   });
   it('tolère null', () => {
     expect(isRentable(null)).toBe(false);
+  });
+});
+
+// ── Correctifs d'audit 13/08 (I1 à I4) ─────────────────────────────────────────────────
+// I1 : le fil manuel permet « Un autre immeuble ». Le modèle ne couvrait qu'UN immeuble, donc
+// l'écran affirmait « louable en règle » pour des lots qu'il ne regardait pas. Il accepte
+// désormais une LISTE d'immeubles (rétro-compat : `immeuble` seul reste supporté).
+describe('completionModel — multi-immeubles (revue I1)', () => {
+  const ENT = { id: 'e1', nom: 'SCI M', type: 'SCI' };
+  const IMA = { id: 'a', nom: 'A', adr: '1 rue A', ville: 'Ferrette' };
+  const IMB = { id: 'b', nom: 'B', adr: '2 rue B', ville: 'Ferrette' };
+  const LA = { ref: 'A-1', imm: 'A', type: 'T2', surf: 40, hc: 500 };
+  const LB = { ref: 'B-1', imm: 'B', type: 'T3', surf: 60, hc: 700 };
+
+  it('couvre TOUS les immeubles de la liste : bailleur, puis chaque immeuble suivi de ses lots', () => {
+    const m = completionModel({ entite: ENT, immeubles: [IMA, IMB], logements: [LA, LB], bauxActifs: {} });
+    expect(m.nodes.map(n => n.kind)).toEqual(['ent', 'imm', 'log', 'imm', 'log']);
+    expect(m.nodes.map(n => n.name)).toEqual(['SCI M', 'A', 'A-1', 'B', 'B-1']);
+  });
+  it('les lots sont rattachés à LEUR immeuble (jamais tous sous le dernier)', () => {
+    const m = completionModel({ entite: ENT, immeubles: [IMA, IMB],
+      logements: [LA, LB, { ...LA, ref: 'A-2' }], bauxActifs: {} });
+    expect(m.nodes.map(n => n.name)).toEqual(['SCI M', 'A', 'A-1', 'A-2', 'B', 'B-1']);
+  });
+  it('le compteur légal couvre les lots de TOUS les immeubles (plus de « 100 % » menteur)', () => {
+    const un = completionModel({ entite: ENT, immeubles: [IMB], logements: [LB], bauxActifs: {} });
+    const deux = completionModel({ entite: ENT, immeubles: [IMA, IMB], logements: [LA, LB], bauxActifs: {} });
+    const nbLegal = (m) => m.nodes.flatMap(n => n.tasks).filter(t => t.palier === 'legal').length;
+    expect(nbLegal(deux)).toBeGreaterThan(nbLegal(un));
+  });
+  it('rétro-compat : `immeuble` seul = comportement d’origine (tous les lots sous cet immeuble)', () => {
+    const m = completionModel({ entite: ENT, immeuble: IMA, logements: [LA, LB], bauxActifs: {} });
+    expect(m.nodes.map(n => n.kind)).toEqual(['ent', 'imm', 'log', 'log']);
+    expect(m.nodes[1].name).toBe('A');
+  });
+  it('un lot dont l’immeuble n’est pas dans la liste n’est jamais perdu (rendu en fin de fil)', () => {
+    const m = completionModel({ entite: ENT, immeubles: [IMA],
+      logements: [LA, { ...LB, imm: 'Z' }], bauxActifs: {} });
+    expect(m.nodes.map(n => n.name)).toEqual(['SCI M', 'A', 'A-1', 'B-1']);
+  });
+});
+
+// I2 : la tâche « Gérant / représentant légal » était émise INCONDITIONNELLEMENT, avec une source
+// « Signataire du bail pour le compte de la société ». Pour un bailleur particulier c'est faux ET
+// bloquant (pctLegal jamais 100 ⇒ ni bouton « Terminer », ni purge du bandeau de reprise).
+describe('completionModel — gérant réservé aux personnes morales (revue I2)', () => {
+  const IMM = { id: 'i1', nom: '12 rue X', adr: '12 rue X', ville: 'Ferrette', annee: 1971, regimeJuridique: 'mono' };
+  const LOG = { ref: 'F-102', imm: '12 rue X', type: 'T2', surf: 44, hc: 508, numFiscal: '99' };
+  const mk = (type) => completionModel({
+    entite: { id: 'e1', nom: 'Didier K.', type, siege: '1 rue Y' },
+    immeubles: [IMM], logements: [LOG], bauxActifs: { 'F-102': { ref: 'F-102' } },
+    diagsParLot: { 'F-102': { requis: [], indetermines: [], fournis: [] } },
+    dpeParLot: { 'F-102': { classe: 'D', interdit: false, raison: '' } },
+  });
+  it('personne physique ⇒ AUCUNE tâche gérant, et pctLegal peut atteindre 100 %', () => {
+    const m = mk('Personne physique');
+    expect(m.nodes.flatMap(n => n.tasks).find(t => t.id === 'gerant')).toBe(undefined);
+    expect(m.pctLegal).toBe(100);
+  });
+  it('société (SCI…) ⇒ tâche gérant présente, dans le palier légal', () => {
+    const m = mk('SCI');
+    const t = m.nodes.flatMap(n => n.tasks).find(x => x.id === 'gerant');
+    expect(t).toBeTruthy();
+    expect(t.palier).toBe('legal');
+    expect(m.pctLegal).toBeLessThan(100);
+  });
+});
+
+// I3 : renseigner une année de construction n'est pas une obligation légale — c'est une DÉPENDANCE
+// (mockup validé : rendue en bleu, sans bandeau de source). Et le texte affiché doit décrire ce que
+// le moteur applique réellement : le catalogue teste l'ANNÉE DE CONSTRUCTION, pas la date du permis.
+describe('completionModel — année de construction = dépendance, pas obligation (revue I3)', () => {
+  const m = completionModel({ entite: { id: 'e1', nom: 'SCI T', type: 'SCI' },
+    immeubles: [{ id: 'i1', nom: '12 rue X', adr: '12 rue X', ville: 'Ferrette' }],
+    logements: [], bauxActifs: {} });
+  const annee = m.nodes.flatMap(n => n.tasks).find(t => t.id === 'annee');
+  it('reste dans le palier légal (elle conditionne les diagnostics) mais SANS source', () => {
+    expect(annee.palier).toBe('legal');
+    expect(annee.src).toBe('');
+  });
+  it('porte le drapeau dep=true (rendu bleu « dépendance », pas bandeau ⚖)', () => {
+    expect(annee.dep).toBe(true);
+  });
+  it('son texte parle d’année de CONSTRUCTION (ce que le moteur teste), jamais de permis', () => {
+    expect(annee.detail).toMatch(/construction/i);
+    expect(annee.detail).not.toMatch(/permis/i);
+  });
+});
+
+// I4 : un DPE interdit à la location n'est PAS une saisie manquante — c'est un état du bien que le
+// bailleur ne peut pas « cocher » sans travaux. La tâche compte la présence de la classe ; l'
+// interdiction devient une ALERTE hors compteur, portée par la tâche pour que l'UI la nomme.
+describe('completionModel — DPE interdit = alerte hors compteur (revue I4)', () => {
+  const ENT = { id: 'e1', nom: 'Didier K.', type: 'Personne physique', siege: '1 rue Y' };
+  const IMM = { id: 'i1', nom: '12 rue X', adr: '12 rue X', ville: 'Ferrette', annee: 1971, regimeJuridique: 'mono' };
+  const LOG = { ref: 'F-102', imm: '12 rue X', type: 'T2', surf: 44, hc: 508, numFiscal: '99' };
+  const mk = (dpe) => completionModel({ entite: ENT, immeubles: [IMM], logements: [LOG],
+    bauxActifs: { 'F-102': { ref: 'F-102' } },
+    diagsParLot: { 'F-102': { requis: [], indetermines: [], fournis: [] } },
+    dpeParLot: { 'F-102': dpe } });
+  const task = (m) => m.nodes.flatMap(n => n.tasks).find(t => t.id === 'dpeLouable');
+
+  it('classe absente ⇒ todo, sans alerte', () => {
+    const t = task(mk({ classe: '', interdit: false, raison: '' }));
+    expect(t.status).toBe('todo');
+    expect(t.alerte).toBe(undefined);
+  });
+  it('classe saine ⇒ done, sans alerte', () => {
+    const t = task(mk({ classe: 'D', interdit: false, raison: '' }));
+    expect(t.status).toBe('done');
+    expect(t.alerte).toBe(undefined);
+  });
+  it('classe interdite ⇒ done (la saisie est faite) + alerte renseignée (type, classe, raison)', () => {
+    const t = task(mk({ classe: 'G', interdit: true, raison: 'Classe G — interdit à la location depuis 2025' }));
+    expect(t.status).toBe('done');
+    expect(t.alerte.type).toBe('dpe-interdit');
+    expect(t.alerte.classe).toBe('G');
+    expect(t.alerte.message).toContain('interdit');
+  });
+  it('pctLegal peut atteindre 100 % malgré un lot interdit (plus de blocage à vie)', () => {
+    const m = mk({ classe: 'G', interdit: true, raison: 'Classe G — interdit à la location depuis 2025' });
+    expect(m.pctLegal).toBe(100);
+    expect(m.nodes.every(n => n.full)).toBe(true);
   });
 });
