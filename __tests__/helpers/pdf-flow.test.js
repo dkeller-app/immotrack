@@ -16,7 +16,7 @@
 // Ce module porte l'arithmétique de la cause 2, seule partie extractible et donc testable.
 
 import { describe, it, expect } from 'vitest';
-import { bodyBottom, splitBlockAcrossPages, PDF_BODY } from './pdf-flow.js';
+import { bodyBottom, splitBlockAcrossPages, PDF_BODY, pageKinds, SECTIONS_SANS_PARAPHE } from './pdf-flow.js';
 
 const OPTS = { pageH: 297, marginTop: 15, marginBottom: 25 };
 
@@ -27,6 +27,53 @@ describe('bodyBottom — la limite que rien ne doit franchir', () => {
   it('reste sous le filet du pied de page (275 mm) et sous les cases de paraphe (279,5 mm)', () => {
     expect(bodyBottom(OPTS)).toBeLessThan(PDF_BODY.FOOT_LINE_Y);
     expect(bodyBottom(OPTS)).toBeLessThan(PDF_BODY.PARAPHE_BOX_Y);
+  });
+});
+
+describe('pageKinds — quelles pages portent une case de paraphe', () => {
+  // Bail réel « 102 » : 26 pages, §18 en page 13, annexe A en 14, annexe B en 20, notice en 23.
+  const REEL = { signatures: 13, 'annexe-a': 14, 'annexe-b': 20, notice: 23 };
+
+  it('RÉGRESSION 13/08 : les ANNEXES et la NOTICE sont paraphées', () => {
+    const k = pageKinds(26, REEL);
+    for (const p of [14, 19, 20, 22, 23, 26]) {
+      expect(k[p - 1].noParaphe).toBe(false);
+    }
+    // avant : tout ce qui suivait le §18 était exclu → 14 pages non paraphées sur 26
+    expect(k.filter(x => x.noParaphe)).toHaveLength(1);
+  });
+
+  it('la page §18 reste SANS paraphe : on y signe, on n\'y paraphe pas', () => {
+    const k = pageKinds(26, REEL);
+    expect(k[12]).toEqual({ page: 13, kind: 'signatures', noParaphe: true });
+  });
+
+  it('les pages du corps, avant toute section, sont à parapher', () => {
+    const k = pageKinds(26, REEL);
+    for (let p = 1; p <= 12; p++) expect(k[p - 1]).toEqual({ page: p, kind: 'paraphe', noParaphe: false });
+  });
+
+  it('chaque section couvre jusqu\'à la suivante', () => {
+    const k = pageKinds(26, REEL);
+    expect(k[13].kind).toBe('annexe-a');    // page 14
+    expect(k[18].kind).toBe('annexe-a');    // page 19, continuation sans titre répété
+    expect(k[19].kind).toBe('annexe-b');    // page 20
+    expect(k[25].kind).toBe('notice');      // page 26
+  });
+
+  it('un §18 qui déborde sur 2 pages n\'exclut que ses propres pages', () => {
+    const k = pageKinds(20, { signatures: 13, 'annexe-a': 15 });
+    expect(k[12].noParaphe).toBe(true);     // page 13
+    expect(k[13].noParaphe).toBe(true);     // page 14 : encore le §18
+    expect(k[14].noParaphe).toBe(false);    // page 15 : annexe A → paraphée
+  });
+
+  it('document sans aucune section : tout est à parapher', () => {
+    expect(pageKinds(3, {}).every(x => !x.noParaphe && x.kind === 'paraphe')).toBe(true);
+  });
+
+  it('la liste des sections sans paraphe se réduit au §18', () => {
+    expect(SECTIONS_SANS_PARAPHE).toEqual(['signatures']);
   });
 });
 

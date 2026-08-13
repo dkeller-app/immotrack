@@ -22459,6 +22459,9 @@ function previewBailData(bail, log, ref, opts) {
        __tests__/helpers/popup-signature-bundle.test.js rejoue exactement ce bundle : toute
        addition ici doit y être répercutée. */
     +'var _padSignersFor='+window.BailSignataires.padSignersFor.toString()+';'
+    +'var _pageKinds='+window.PdfFlow.pageKinds.toString()+';'
+    +'var SECTIONS_SANS_PARAPHE='+JSON.stringify(window.PdfFlow.SECTIONS_SANS_PARAPHE)+';'
+    +'var _BRAND_EMETTEUR='+JSON.stringify(sciLabel||'')+';'
     +'var BRAND='+JSON.stringify(window.DocBrand.BRAND)+';'
     +'var PROPRYO_MARK='+JSON.stringify(window.DocBrand.PROPRYO_MARK)+';'
     +'var _propryoMarkOps='+window.DocBrand.propryoMarkOps.toString()+';'
@@ -23269,6 +23272,25 @@ function previewBailData(bail, log, ref, opts) {
     +    'pdf.setTextColor(PDF_NATIVE.COLOR_TEXT[0],PDF_NATIVE.COLOR_TEXT[1],PDF_NATIVE.COLOR_TEXT[2]);'
     +    'return ruleY+7;'
     +  '},'
+    /* S4 — bandeau COMPACT repete en tete des pages 2+ (la page 1 porte le bandeau complet).
+       Dessine dans la MARGE HAUTE (0→15 mm), pas dans le corps : aucune hauteur consommee,
+       donc aucune repagination et les cases de paraphe ne bougent pas. */
+    +  'drawBrandzoneHeader:function(pdf,emetteur,ref){'
+    +    'var x=PDF_NATIVE.MARGIN_LEFT,right=PDF_NATIVE.PAGE_W-PDF_NATIVE.MARGIN_RIGHT,yTop=6.2,mark=4.6;'
+    +    'pdf.setFont(PDF_NATIVE.FONT_FAMILY,"normal");pdf.setFontSize(7.5);pdf.setTextColor(140,140,140);'
+    +    'pdf.text(String(emetteur||"")+(ref?"  \u2014  Bail "+ref:""),x,yTop+mark*0.72);'
+    +    'pdf.setFont(PDF_NATIVE.FONT_FAMILY,"bold");pdf.setFontSize(mark*0.58*2.83);'
+    +    'var wordW=pdf.getTextWidth("Propryo"),gap=mark*0.28;'
+    +    'var ops=_propryoMarkOps(right-wordW-gap-mark,yTop,mark);'
+    +    'for(var k=0;k<ops.length;k++){'
+    +      'var o=ops[k];'
+    +      'if(o.op==="roundedRect"){pdf.setDrawColor(o.color[0],o.color[1],o.color[2]);pdf.setLineWidth(o.lineWidth);pdf.roundedRect(o.x,o.y,o.w,o.h,o.r,o.r,"S");}'
+    +      'else{pdf.setFillColor(o.color[0],o.color[1],o.color[2]);pdf.circle(o.x,o.y,o.r,"F");}'
+    +    '}'
+    +    'pdf.setTextColor(16,21,33);'
+    +    'pdf.text("Propryo",right,yTop+mark*0.78,{align:"right"});'
+    +    'pdf.setTextColor(PDF_NATIVE.COLOR_TEXT[0],PDF_NATIVE.COLOR_TEXT[1],PDF_NATIVE.COLOR_TEXT[2]);'
+    +  '},'
     /* drawTable : wrapper autoTable. headers = [string]|null, rows = [[string]] */
     +  'drawTable:function(pdf,headers,rows,startY,opts){'
     +    'opts=opts||{};'
@@ -23498,9 +23520,6 @@ function previewBailData(bail, log, ref, opts) {
        tout zoom, ni canvas ni police en jeu. Geometrie testee (__tests__/helpers/doc-brand.js). */
     +    'else if(item.type==="brandzone"){'
     +      'y=PDF_NATIVE.drawBrandzone(pdf,item,y);'
-    +      'pdf.setDrawColor(220,220,220);pdf.setLineWidth(0.2);'
-    +      'pdf.line(PDF_NATIVE.MARGIN_LEFT,y+17,PDF_NATIVE.PAGE_W-PDF_NATIVE.MARGIN_RIGHT,y+17);'
-    +      'y+=20;'
     +    '}'
     /* v13.00 : capture la page jsPDF pour CHAQUE trigger kind (signatures / annexes / notice) */
     +    'for(var ki=0;ki<_trigDefs.length;ki++){'
@@ -23509,6 +23528,7 @@ function previewBailData(bail, log, ref, opts) {
     +    '}'
     +  '}'
     /* noParapheStartPage = page du 1er kind (généralement signatures §18) */
+    +  'for(var _hp=2;_hp<=pdf.internal.getNumberOfPages();_hp++){pdf.setPage(_hp);PDF_NATIVE.drawBrandzoneHeader(pdf,_BRAND_EMETTEUR,_BAIL_REF);}'   /* S4 : apercu wizard = PDF final */
     +  'var firstStart=Infinity;'
     +  'for(var kk in _trigPagesByKind){if(_trigPagesByKind[kk]<firstStart)firstStart=_trigPagesByKind[kk];}'
     +  'noParapheStartPage=firstStart;'
@@ -23532,14 +23552,9 @@ function previewBailData(bail, log, ref, opts) {
        plus grande mais <= p (le plus récent activé avant ou sur cette page). */
     +    'var textContent=await page.getTextContent();'
     +    'var pageText=textContent.items.map(function(it){return it.str;}).join(" ");'
-    +    'var noParaphe=(p>=noParapheStartPage);'
-    +    'var kind="paraphe";'
-    +    'if(noParaphe){'
-    +      'var bestStart=0;'
-    +      'for(var kn in _trigPagesByKind){'
-    +        'if(_trigPagesByKind[kn]<=p&&_trigPagesByKind[kn]>bestStart){bestStart=_trigPagesByKind[kn];kind=kn;}'
-    +      '}'
-    +    '}'
+    /* Retour user 13/08 : les ANNEXES et la NOTICE sont desormais PARAPHEES — elles font partie du contrat remis au locataire. Seule la page §18 reste sans paraphe : on y signe. Calcul des plages delegue au helper PUR teste _pageKinds (__tests__/helpers/pdf-flow.js). */
+    +    'var _pk=_pageKinds(totalPages,_trigPagesByKind)[p-1];'
+    +    'var noParaphe=_pk.noParaphe,kind=_pk.kind;'
     +    'results.push({pageNum:p,imgDataUrl:dataUrl,width:viewport.width,height:viewport.height,noParaphe:noParaphe,kind:kind,text:pageText.slice(0,200)});'
     +  '}'
     +  'return results;'
@@ -23722,9 +23737,6 @@ function previewBailData(bail, log, ref, opts) {
        tout zoom, ni canvas ni police en jeu. Geometrie testee (__tests__/helpers/doc-brand.js). */
     +    'else if(item.type==="brandzone"){'
     +      'y=PDF_NATIVE.drawBrandzone(pdf,item,y);'
-    +      'pdf.setDrawColor(220,220,220);pdf.setLineWidth(0.2);'
-    +      'pdf.line(PDF_NATIVE.MARGIN_LEFT,y+17,PDF_NATIVE.PAGE_W-PDF_NATIVE.MARGIN_RIGHT,y+17);'
-    +      'y+=20;'
     +    '}'
     +    'else{console.warn("[genPDFNative] type inconnu:",item.type);}'
     +  '}'
@@ -23755,7 +23767,10 @@ function previewBailData(bail, log, ref, opts) {
     +  'if(useWizV2){'
     +    'for(var p=1;p<=tot;p++){'
     +      'var pageMeta=window._wizV2Pages[p-1];'
-    +      'if(pageMeta&&pageMeta.noParaphe)continue;' /* aucun footer sur §18/ANNEXE/Notice */
+    /* S4 — le bandeau se pose sur TOUTES les pages, y compris §18 : il est dessiné AVANT le
+       « continue » qui saute le pied de paraphes. */
+    +      'if(p>1){pdf.setPage(p);PDF_NATIVE.drawBrandzoneHeader(pdf,_BRAND_EMETTEUR,_BAIL_REF);}'
+    +      'if(pageMeta&&pageMeta.noParaphe)continue;' /* pas de cases de paraphe sur la page §18 */
     +      'var capturedPage=window._wizV2Paraphes[p]||{};'
     /* v13.36 BUG-BAIL-PARAPHES-MULTI : ARRAYS au lieu de scalaires écrasés.
        Tri des keys pour ordre déterministe (bailleur-0, bailleur-1, loc-0, loc-1, …) */
@@ -23804,6 +23819,7 @@ function previewBailData(bail, log, ref, opts) {
     +    '}catch(e){console.warn("[genPDFNative] capture paraphes wizard legacy:",e);}'
     +    'for(var p=1;p<=tot;p++){'
     +      'pdf.setPage(p);'
+    +      'if(p>1)PDF_NATIVE.drawBrandzoneHeader(pdf,_BRAND_EMETTEUR,_BAIL_REF);'   /* S4 */
     /* Construit un array (1 entrée par signataire) en cyclant par modulo si bcp de pages */
     +      'var sigBPNGs=bailleurIds.map(function(id){var arr=bailleurById[id];return arr.length?arr[(p-1)%arr.length]:null;});'
     +      'var sigLPNGs=(window._wizSignWithLocataires)?locataireIds.map(function(id){var arr=locataireById[id];return arr.length?arr[(p-1)%arr.length]:null;}):[];'
