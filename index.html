@@ -3249,6 +3249,38 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .fr-comp-btn{background:#fff;border:1.5px solid #e6e9f0;border-radius:8px;padding:6px 11px;font:700 11.5px system-ui;color:#17233b;cursor:pointer}
 .fr-comp-btn:hover{border-color:#9098a8}
 .fr-comp-btn.prim{background:linear-gradient(135deg,#ff7a5c,#ff5a3c);border:none;color:#fff;box-shadow:0 4px 10px -5px rgba(255,90,60,.6)}
+/* Fil rouge LÉGAL (décision user 13/08 « sépare, il faut que le légal soit en place ») — 2 paliers
+   ⚖ obligations légales / 📋 confort de gestion. Contrat visuel = mockup fil-rouge-completion-v2
+   écran ② (.dual, .grp-h, .src, .gauge) transposé sur les classes fr-comp-* et leur palette hex. */
+.fr-comp-hero .pct{text-align:right;line-height:1.05}
+.fr-comp-hero .pct s{display:block;text-decoration:none;font:700 9.5px system-ui;color:#9098a8;letter-spacing:.05em}
+.fr-comp-dual{display:flex;gap:14px;margin-top:12px;flex-wrap:wrap}
+.fr-comp-dual .d{flex:1;min-width:180px}
+.fr-comp-dual .d .lbl{display:flex;align-items:center;gap:6px;font:700 11px system-ui;margin-bottom:5px}
+.fr-comp-dual .d .lbl .n{margin-left:auto;font:800 12px system-ui}
+.fr-comp-dual .d.legal .lbl{color:#ff5a3c}
+.fr-comp-dual .d.conf .lbl{color:#9098a8}
+.fr-comp-hero .fr-comp-dual .bar{margin-top:0}
+.fr-comp-hero .fr-comp-dual .bar.neu>i{background:#c3c9d4}
+.fr-comp-why{margin-top:10px;background:#fff;border:1px solid #e6e9f0;border-radius:8px;padding:7px 11px;font:400 11px system-ui;color:#556074;line-height:1.5}
+.fr-comp-why b{color:#17233b}
+.fr-comp-gauge.neu{color:#9098a8;background:#eef1f6;border-color:#e6e9f0}
+/* 2 jauges au lieu d'1 dans l'en-tête : sans ce max-width le groupe .sp est dimensionné en
+   max-content et déborde de la ligne sur laquelle il vient de passer (tablette, titres longs). */
+.fr-comp-card .hd .sp{max-width:100%}
+.fr-comp-grp{display:flex;align-items:center;gap:7px;font:800 10px system-ui;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 2px;padding-top:9px;border-top:1px solid #eef0f4}
+.fr-comp-grp:first-child{margin-top:0;padding-top:0;border-top:none}
+.fr-comp-grp.legal{color:#ff5a3c}
+.fr-comp-grp.conf{color:#9098a8}
+.fr-comp-grp .cnt{margin-left:auto;font-weight:700;letter-spacing:0;text-transform:none;font-size:10.5px}
+.fr-comp-task{align-items:flex-start}
+.fr-comp-task .st{margin-top:1px}
+.fr-comp-task .go{align-self:center}
+.fr-comp-task .tx span b{display:inline;font:700 10.5px system-ui;color:inherit}
+.fr-comp-task .tx span.fr-comp-src{display:block;margin-top:3px;font:400 10px system-ui;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:3px 7px;line-height:1.4}
+.fr-comp-task .tx span.fr-comp-dg{display:block;margin-top:1px;line-height:1.45}
+.fr-comp-task .tx span.fr-comp-dg b{color:#92400e}
+.fr-comp-task .tx span.fr-comp-dep{display:block;margin-top:2px;color:#1d4ed8;font-weight:600;line-height:1.45}
 /* Fil COMPLET Task 8 : bandeau de reprise page Biens (mockup fil-rouge-complet écran 6) */
 .fr-resume{display:flex;align-items:center;gap:12px;border:1.5px solid #ff5a3c;border-radius:12px;background:#fff7ed;padding:12px 15px;margin-bottom:14px;flex-wrap:wrap}
 .fr-resume .ic{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#ff7a5c,#ff5a3c);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
@@ -3259,7 +3291,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 .fr-resume .bar>i{display:block;height:100%;background:linear-gradient(90deg,#ff7a5c,#ff5a3c);border-radius:3px;transition:width .3s}
 .fr-resume-go{background:linear-gradient(135deg,#ff7a5c,#ff5a3c);border:none;border-radius:10px;padding:9px 16px;font:700 12.5px system-ui;color:#fff;cursor:pointer;box-shadow:0 4px 10px -5px rgba(255,90,60,.6);white-space:nowrap}
 .fr-resume-hide{background:none;border:none;color:#9098a8;font:600 11.5px system-ui;cursor:pointer;white-space:nowrap}
-@media (max-width:640px){ .fr-comp-task .go{margin-left:31px;width:100%} .fr-comp-hero .pct{font-size:19px} }
+@media (max-width:640px){ .fr-comp-task .go{margin-left:31px;width:100%} .fr-comp-hero .pct{font-size:19px}
+  /* mobile : les 2 jauges ⚖/📋 + le badge ne tiennent plus à droite du titre → ligne pleine largeur
+     (mockup fil-rouge-completion-v2 : .frame.mob .card .h .sp) */
+  .fr-comp-card .hd .sp{margin-left:0;width:100%} }
 </style>
 <div id="fr-bread" class="fr-bread" hidden></div>
 
@@ -44500,7 +44535,11 @@ function _frClearCompletionState(){ if(DB.params && DB.params.frCompletion){ del
 // Task 8 — reprise depuis la page Biens : % silencieux (null si l'état ne résout plus), reprise
 // (accordéon en position auto = premier nœud incomplet) et « Masquer » (dismissed persisté, l'état
 // reste réutilisable — un futur import d'acte le re-pose via _frSetCompletionState).
-function _frCompPct(entId, immName){ const cm=_frCompModelFor(entId, immName); return cm?cm.model.pct:null; }
+// ⚖ Le fil ne pousse QUE le légal (décision user 13/08) — le confort ne doit JAMAIS retenir le
+// bandeau de reprise : avec les tâches de confort, `pct` n'atteint quasi jamais 100 %, l'état de
+// reprise resterait donc à vie sur la page Biens. C'est `pctLegal` qui pilote le bandeau, sa barre,
+// l'auto-purge de l'état et le 🎉 de fin de fil.
+function _frCompPct(entId, immName){ const cm=_frCompModelFor(entId, immName); return cm?cm.model.pctLegal:null; }
 // Revue c6086b7 I1 : l'onclick du bandeau transmet entId en String, mais des consommateurs en aval
 // comparent STRICTEMENT sur des ids numériques (ex. openNewEnt : find(e=>e.id===id)) → on re-coerce
 // vers le nombre d'origine ; un id non-numérique (NaN) repasse tel quel.
@@ -44524,7 +44563,7 @@ function _frRenderResumeBanner(){
   if(fc.dismissed){ slot.innerHTML=''; return; }
   // entId transite en String par l'onclick — accepté par _frCurEnt/_frCompModelFor (+e.id===+entId).
   slot.innerHTML='<div class="fr-resume"><span class="ic">🧭</span><div class="tx"><b>Fil rouge en cours — '+escHtml(fc.immName||'')+'</b>'
-    +'<s>'+pct+' % — il reste des fiches à compléter. Reprends où tu t’étais arrêté.</s>'
+    +'<s>'+pct+' % en règle — il reste des obligations légales à mettre en place. Reprends où tu t’étais arrêté.</s>'
     +'<div class="bar"><i style="width:'+pct+'%"></i></div></div>'
     +'<button class="fr-resume-go" onclick="_frStartCompletion(\''+escHtml(_frAttr(String(fc.entId)))+'\',\''+escHtml(_frAttr(String(fc.immName||'')))+'\')">Reprendre →</button>'
     +'<button class="fr-resume-hide" onclick="_frDismissCompletion()">Masquer</button></div>';
@@ -44666,9 +44705,11 @@ function _frShowFr(kind){
     // fiches pleines repliées ✓, chaque bouton ouvre l'ÉCRAN EXISTANT — zéro formulaire recopié).
     // _cm est résolu (non-null) en tête de fonction, AVANT openM.
     _frDetachBread(); // le hero % remplace le fil d'Ariane sur cet écran (mockup)
-    if(_cm.model.pct===100) _frClearCompletionState(); // 100 % atteint → plus de reprise à proposer
+    // ⚖ pctLegal, jamais pct : le confort restant ne doit pas retenir l'état de reprise à vie
+    // (décision user 13/08 — le fil ne pousse que le légal).
+    if(_cm.model.pctLegal===100) _frClearCompletionState(); // légal en place → plus de reprise à proposer
     body.innerHTML=_frCompHtml(_cm);
-    foot.innerHTML=stop+'<span class="fr-grow"></span>'+(_cm.model.pct===100?'<button class="fr-prim" onclick="_frClose()">Terminer — voir mes biens</button>':'');
+    foot.innerHTML=stop+'<span class="fr-grow"></span>'+(_cm.model.pctLegal===100?'<button class="fr-prim" onclick="_frClose()">Terminer — voir mes biens</button>':'');
   } else if(kind==='next'){
     body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>Logement '+escHtml(_frLastLogRef()||'')+' ajouté</h3><p>Le fil rouge peut continuer. Qu’est-ce qu’on fait ?</p><div class="fr-choices">'
       +'<div class="fr-choice log" onclick="_frNextChoice(\'addLog\')"><span class="ic">🏠</span><div class="tx"><b>Un autre logement ici</b><s>'+escHtml(_frCtx.immName?('dans '+_frCtx.immName):'')+'</s></div><span class="chev">›</span></div>'
@@ -44690,6 +44731,39 @@ function _frNextChoice(ev){ _frOpenStep(window.FilRougeConductor.advance('next',
 // ── Fil COMPLET : écran de complétion (accordéon) — modèle pur + actions vers les ÉCRANS EXISTANTS ──
 // Entrée en complétion (depuis transition, ou reprise Task 8) : accordéon en position auto (premier incomplet).
 function _frCompContinue(){ _frCompOpen=null; _frOpenStep(window.FilRougeConductor.advance('transition','continue')); }
+// Fil rouge LÉGAL — diagnostics réclamés pour CE lot, d'après le catalogue légal EXISTANT
+// (_DIAGS_CATALOG_INLINE). AUCUNE duplication : on interroge le moteur déjà en place
+// (_estDiagApplicable = isApplicable + respect du « N/A » assumé ; _diagStatut = verdict affiché
+// sur la fiche logement).
+//   applicabilité : true = requis · false = sans objet (le fil n'en parle jamais) · null =
+//   indéterminable tant qu'une donnée manque (année de construction, âge des installations).
+// « FOURNI » (choix documenté) = _diagStatut ni 'manquant' ni 'expire'. On ne se contente PAS de
+//   « au moins un champ saisi » : _diagStatut est la définition que l'app applique déjà partout
+//   (elle exige une date, et un diagnostic périmé n'est pas annexable au bail — art. 3-3 loi 89-462).
+//   Un résultat légal « absence/anomalie » (presence/conforme false) compte donc bien comme fourni
+//   dès qu'il porte sa date, et 'na' (N/A assumé) est écarté en amont par _estDiagApplicable.
+function _frDiagsRequis(log, imm){
+  const out = { requis:[], indetermines:[], fournis:[] };
+  if (typeof _DIAGS_CATALOG_INLINE === 'undefined' || !log) return out;
+  // le catalogue lit l'année sur le LOT : repli sur l'année saisie sur la fiche IMMEUBLE
+  const ctx = Object.assign({}, log, { anneeConstruction: log.anneeConstruction || (imm && imm.annee) || 0 });
+  _DIAGS_CATALOG_INLINE.forEach(function(d){
+    let ap = null;
+    try { ap = (typeof _estDiagApplicable === 'function') ? _estDiagApplicable(d.key, ctx) : d.isApplicable(ctx); }
+    catch(e){ ap = null; }
+    if (ap === false) return;
+    const meta = (typeof _DIAG_UI_META !== 'undefined' && _DIAG_UI_META[d.key]) || null;
+    // libellé COURT (celui de la fiche logement) : la liste des diagnostics tient sur une ligne
+    const label = meta ? (((d.key==='dpe'||d.key==='erp') ? meta.tech : meta.clean) || d.label) : d.label;
+    const item = { key:d.key, label:label,
+      cause: (!ctx.anneeConstruction && (d.key==='amiante'||d.key==='crep')) ? 'annee' : 'donnee' };
+    if (ap === null) out.indetermines.push(item); else out.requis.push(item);
+    let st = 'manquant';
+    try { if (typeof _diagStatut === 'function') st = _diagStatut(d.key, ctx, new Date()); } catch(e){ st = 'manquant'; }
+    if (st !== 'manquant' && st !== 'expire') out.fournis.push(d.key);
+  });
+  return out;
+}
 // Task 8 : résolution PURE du modèle de complétion pour un couple bailleur/immeuble — AUCUN effet
 // de bord (ni toast ni purge). Partagée entre l'écran completion (_frCompModel, avec effets) et le
 // bandeau de reprise page Biens (_frCompPct, purge silencieuse côté rBiens). entId comparé en
@@ -44701,7 +44775,21 @@ function _frCompModelFor(entId, immName){
   const imm=(ent.immeubles||[]).find(i=>i&&!i._deleted&&i.nom===immName); if(!imm) return null;
   const logs=(DB.logements||[]).filter(l=>l&&!l._deleted&&l.entity===ent.nom&&l.imm===imm.nom);
   const bauxActifs={}; logs.forEach(l=>{ const b=_bienActiveBail(l.ref); if(b) bauxActifs[l.ref]=b; });
-  return { ent, imm, model: window.ParcoursBienModel.completionModel({entite:ent, immeuble:imm, logements:logs, bauxActifs}) };
+  // Le modèle reste PUR : le catalogue de diagnostics et le calendrier d'interdiction DPE (loi
+  // Climat) vivent inline ici → on les INJECTE par référence de lot. Sans injection le modèle
+  // dégrade proprement (tâches en 'todo'), jamais de crash.
+  const diagsParLot={}, dpeParLot={}, _now=new Date();
+  logs.forEach(function(l){
+    diagsParLot[l.ref]=_frDiagsRequis(l, imm);
+    // classe DPE : source canonique log.diagnostics.dpe via _diagGet (qui retombe DÉJÀ sur le legacy
+    // log.dpe objet|string + log.dpeDate) ; ultime repli direct pour les données jamais rouvertes.
+    const g=(typeof _diagGet==='function')?_diagGet(l,'dpe'):null;
+    let classe=(g&&g.classe)||'';
+    if(!classe) classe=(l.dpe&&typeof l.dpe==='object')?(l.dpe.classe||''):(typeof l.dpe==='string'?l.dpe:'');
+    const v=(typeof _dpeInterditLocationAuDate==='function')?_dpeInterditLocationAuDate(classe,_now):{interdit:false,raison:''};
+    dpeParLot[l.ref]={ classe:classe, interdit:!!v.interdit, raison:v.raison||'' };
+  });
+  return { ent, imm, model: window.ParcoursBienModel.completionModel({entite:ent, immeuble:imm, logements:logs, bauxActifs, diagsParLot, dpeParLot}) };
 }
 function _frCompModel(){
   const cm=_frCompModelFor(_frCtx.entId, _frCtx.immName);
@@ -44714,44 +44802,97 @@ function _frCompModel(){
   }
   return cm;
 }
+// Détail de la ligne « Diagnostics obligatoires » : le fil ne réclame QUE ce que le catalogue légal
+// dit applicable à ce bien, et nomme ce qu'il ne peut pas encore trancher (mockup écran ②, diagHtml).
+function _frCompDiagsHtml(dg){
+  const req=(dg&&dg.requis)||[], ind=(dg&&dg.indetermines)||[], fou=(dg&&dg.fournis)||[];
+  if(!req.length && !ind.length) return '<span>ouvre la fiche du bien pour renseigner les diagnostics</span>';
+  let s='<span class="fr-comp-dg">';
+  if(req.length) s+='<b>'+req.length+' requis</b> pour ce bien : '+req.map(function(r){ return (fou.indexOf(r.key)>=0?'✓ ':'')+escHtml(r.label); }).join(' · ');
+  else s+='aucun diagnostic déterminé pour l’instant';
+  s+='</span>';
+  // deux causes d'indétermination, deux consignes DIFFÉRENTES (la donnée manquante n'est pas la même) :
+  // 'annee' = année de construction de l'immeuble (amiante < 1997, plomb < 1949) · 'donnee' = année
+  // d'installation gaz/élec (diagnostic exigé au-delà de 15 ans), saisie sur la fiche du bien.
+  const _nm=function(l){ return l.map(function(r){ return escHtml(r.label); }).join(', '); };
+  const byAnnee=ind.filter(function(r){ return r.cause==='annee'; });
+  const byDonnee=ind.filter(function(r){ return r.cause!=='annee'; });
+  if(byAnnee.length) s+='<span class="fr-comp-dep">↳ '+byAnnee.length+' à déterminer ('+_nm(byAnnee)+') — renseigne l’<b>année de construction</b> de l’immeuble et je saurai lesquels s’appliquent.</span>';
+  if(byDonnee.length) s+='<span class="fr-comp-dep">↳ '+byDonnee.length+' à déterminer ('+_nm(byDonnee)+') — renseigne l’<b>année de l’installation</b> sur la fiche du bien et je saurai si le diagnostic est exigé.</span>';
+  return s;
+}
+// Une ligne de tâche. Les lignes LÉGALES portent leur SOURCE (bandeau ambre ⚖) — rien n'est réclamé
+// « au cas où » ; les lignes de confort n'en portent jamais et ne sont pas présentées comme un manque.
+function _frCompTaskHtml(t, refA){
+  const ico=t.status==='done'?'✓':(t.status==='warn'?'!':'○');
+  let act='';
+  if(t.status!=='done'&&t.action==='creer-bail') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'creer-bail\',\''+refA+'\')">✍️ Créer le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'vacant-assume\',\''+refA+'\')" title="Pas de locataire — assumé, jamais bloquant">Vacant assumé</button></span>';
+  else if(t.status!=='done'&&t.action==='verifier-repris') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'verifier-repris\',\''+refA+'\')">📋 Ouvrir le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'repris-ok\',\''+refA+'\')" title="Bail repris relu et conforme">✓ Vérifié</button></span>';
+  const body='<b>'+escHtml(t.label)+'</b>'
+    +((t.id==='diagnostics'&&t.diags) ? _frCompDiagsHtml(t.diags) : (t.detail?'<span>'+escHtml(t.detail)+'</span>':''));
+  const src=t.src?'<span class="fr-comp-src">⚖ '+escHtml(t.src)+'</span>':'';
+  return '<div class="fr-comp-task"><span class="st '+escHtml(t.status)+'">'+ico+'</span><div class="tx">'+body+src+'</div>'+act+'</div>';
+}
 // Corps HTML de l'accordéon (revue M4 : extrait de _frShowFr pour la lisibilité). Mute _frCompOpen :
-// normalise (nœud plein → repli auto + fil pousse à la suivante) puis MATÉRIALISE le choix auto,
-// pour que _frCompToggle replie le nœud auto-ouvert dès le 1er clic (revue M1).
+// normalise (nœud sans rien à faire → repli auto + fil pousse à la suivante) puis MATÉRIALISE le
+// choix auto, pour que _frCompToggle replie le nœud auto-ouvert dès le 1er clic (revue M1).
 function _frCompHtml(cm){
-  const nodes=cm.model.nodes||[], pct=cm.model.pct;
-  if(_frCompOpen!=null && _frCompOpen>=0 && (!nodes[_frCompOpen] || nodes[_frCompOpen].full)) _frCompOpen=null; // fiche finie → se replie
-  const firstInc=nodes.findIndex(n=>!n.full);
+  // 2 PALIERS (décision user 13/08) : le hero, la ligne de progression, les pastilles et le 🎉 se
+  // règlent sur le LÉGAL (pctLegal) ; `pct` (toutes tâches) ne sert plus qu'à la barre « fiche
+  // complète », informative, qui ne doit jamais faire passer un bien en règle pour incomplet.
+  const nodes=cm.model.nodes||[], pct=cm.model.pct, pctL=cm.model.pctLegal;
+  // `n.full` = palier LÉGAL complet → il ne veut PLUS dire « plus rien à voir » : un nœud vert peut
+  // garder des lignes de confort, il doit donc rester DÉPLIABLE. Seul un nœud où il ne reste
+  // strictement rien (légal + confort) se replie d'office et refuse de se rouvrir.
+  const _rien=n=>!!n && n.tasks.every(t=>t.status==='done');
+  if(_frCompOpen!=null && _frCompOpen>=0 && (!nodes[_frCompOpen] || _rien(nodes[_frCompOpen]))) _frCompOpen=null; // fiche finie → se replie
+  const firstInc=nodes.findIndex(n=>!n.full); // le fil pousse au 1er nœud dont le LÉGAL n'est pas en place
   const openIdx=(_frCompOpen==null)?firstInc:_frCompOpen; // -1 (tout replié par l'utilisateur) est respecté
   _frCompOpen=openIdx;
   const ICON={ent:'👤',imm:'🏛',log:'🏠'};
+  const _isL=t=>t.palier==='legal';
+  const _cnt=arr=>({done:arr.filter(t=>t.status==='done').length, total:arr.length});
+  const _allTasks=nodes.reduce((a,n)=>a.concat(n.tasks),[]);
+  const TL=_cnt(_allTasks.filter(_isL)), TA=_cnt(_allTasks);
   let h='<div class="fr-comp-hero"><div class="top"><span class="big">🧭</span>'
     +'<div><h4>Configuration du patrimoine</h4><div class="sub">'+escHtml(cm.ent.nom)+(cm.imm?(' · '+escHtml(cm.imm.nom)):'')+' — pause quand tu veux : c’est gardé.</div></div>'
-    +'<span class="pct">'+pct+'%</span></div>'
-    +'<div class="bar"><i style="width:'+pct+'%"></i></div></div>';
-  h+='<div class="fr-comp-wrap"><div class="fr-comp-line"><i style="height:'+pct+'%"></i></div>';
+    +'<span class="pct">'+pctL+'%<s>EN RÈGLE</s></span></div>'
+    +'<div class="fr-comp-dual">'
+    +'<div class="d legal"><div class="lbl">⚖ Obligations légales <span class="n">'+TL.done+'/'+TL.total+'</span></div><div class="bar"><i style="width:'+pctL+'%"></i></div></div>'
+    +'<div class="d conf"><div class="lbl">📋 Fiche complète <span class="n">'+TA.done+'/'+TA.total+'</span></div><div class="bar neu"><i style="width:'+pct+'%"></i></div></div>'
+    +'</div>'
+    +'<div class="fr-comp-why">⚖ <b>Le fil ne pousse qu’une chose : que le légal soit en place.</b> Tant que ces lignes sont rouges, le bien n’est pas louable en règle. Le reste se remplit quand tu veux et n’est jamais signalé comme un manque.</div></div>';
+  h+='<div class="fr-comp-wrap"><div class="fr-comp-line"><i style="height:'+pctL+'%"></i></div>';
   nodes.forEach((n,i)=>{
-    const done=n.tasks.filter(t=>t.status==='done').length, total=n.tasks.length;
-    const isOpen=(i===openIdx&&!n.full), here=(i===firstInc);
+    const L=_cnt(n.tasks.filter(_isL)), A=_cnt(n.tasks);
+    const isOpen=(i===openIdx&&!_rien(n)), here=(i===firstInc);
     const badge=n.badge==='loue'?'<span class="fr-comp-badge loue">🔑 Loué</span>':(n.badge==='vac'?'<span class="fr-comp-badge vac">🏠 Vacant</span>':'');
     h+='<div class="fr-comp-node"><div class="fr-comp-dot '+(n.full?'done':(here?'here':''))+'">'+(n.full?'✓':(i+1))+'</div>'
       +'<div class="fr-comp-card '+(isOpen?'here':'closed')+'">'
       +'<div class="hd" onclick="_frCompToggle('+i+')"><span>'+(ICON[n.kind]||'🏠')+'</span><div class="tx"><b>'+escHtml(n.name)+'</b>'+(n.sub?'<div class="meta">'+escHtml(n.sub)+'</div>':'')+'</div>'
-      +'<span class="sp">'+badge+((here&&!n.full)?'<span class="fr-comp-here">tu es ici</span>':'')+'<span class="fr-comp-gauge '+(n.full?'full':'part')+'">'+done+'/'+total+'</span><span class="chev">›</span></span></div>';
+      +'<span class="sp">'+badge+((here&&!n.full)?'<span class="fr-comp-here">tu es ici</span>':'')
+      +'<span class="fr-comp-gauge '+(n.full?'full':'part')+'" title="Obligations légales">⚖ '+L.done+'/'+L.total+'</span>'
+      +'<span class="fr-comp-gauge neu" title="Fiche complète (confort de gestion inclus)">📋 '+A.done+'/'+A.total+'</span>'
+      +'<span class="chev">›</span></span></div>';
     if(isOpen){
       const refA=(n.kind==='log')?escHtml(_frAttr(String(n.id))):'';
-      h+='<div class="bd"><div class="fr-comp-tasks">';
-      n.tasks.forEach(t=>{
-        const ico=t.status==='done'?'✓':(t.status==='warn'?'!':'○');
-        let act='';
-        if(t.status!=='done'&&t.action==='creer-bail') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'creer-bail\',\''+refA+'\')">✍️ Créer le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'vacant-assume\',\''+refA+'\')" title="Pas de locataire — assumé, jamais bloquant">Vacant assumé</button></span>';
-        else if(t.status!=='done'&&t.action==='verifier-repris') act='<span class="go"><button class="fr-comp-btn prim" onclick="_frCompAction(\'verifier-repris\',\''+refA+'\')">📋 Ouvrir le bail</button><button class="fr-comp-btn" onclick="_frCompAction(\'repris-ok\',\''+refA+'\')" title="Bail repris relu et conforme">✓ Vérifié</button></span>';
-        h+='<div class="fr-comp-task"><span class="st '+t.status+'">'+ico+'</span><div class="tx"><b>'+escHtml(t.label)+'</b>'+(t.detail?'<span>'+escHtml(t.detail)+'</span>':'')+'</div>'+act+'</div>';
-      });
+      const legalT=n.tasks.filter(_isL), confT=n.tasks.filter(t=>!_isL(t)), CF=_cnt(confT);
+      h+='<div class="bd"><div class="fr-comp-tasks">'
+        +'<div class="fr-comp-grp legal">⚖ Obligations légales — à mettre en place<span class="cnt">'+L.done+'/'+L.total+'</span></div>';
+      legalT.forEach(t=>{ h+=_frCompTaskHtml(t, refA); });
+      if(confT.length){
+        h+='<div class="fr-comp-grp conf">📋 Confort de gestion — quand tu veux<span class="cnt">'+CF.done+'/'+CF.total+'</span></div>';
+        confT.forEach(t=>{ h+=_frCompTaskHtml(t, refA); });
+      }
       h+='</div><div class="fr-comp-act"><button class="fr-comp-btn prim" onclick="_frCompAction(\''+n.kind+'\''+(n.kind==='log'?(',\''+refA+'\''):'')+')">Compléter la fiche →</button></div></div>';
     }
     h+='</div></div>';
   });
-  h+='<div class="fr-comp-node end"><div class="fr-comp-dot">'+(pct===100?'🎉':'🏁')+'</div>'+(pct===100?'100 % — <b>configuration terminée</b>. Bailleur, immeuble, biens et baux sont complets.':'Fin du fil — quand tout est vert, bailleur, immeuble, biens et baux sont à 100 %.')+'</div></div>';
+  h+='<div class="fr-comp-node end"><div class="fr-comp-dot">'+(pctL===100?'🎉':'⚖')+'</div>'
+    +(pctL===100
+      ? '100 % — <b>le bien est louable en règle</b> : bail signable, diagnostics annexés, déclarations à jour.'
+      : 'Quand les pastilles ⚖ sont vertes : <b>le bien est louable en règle</b> — bail signable, diagnostics annexés, déclarations à jour.')
+    +'</div></div>';
   return h;
 }
 function _frCompToggle(i){ _frCompOpen=(_frCompOpen===i)?-1:i; _frShowFr('completion'); }
