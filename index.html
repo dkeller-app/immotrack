@@ -3895,6 +3895,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/bail-signataires.global.js"></script>
 <!-- SIGNATURE-SMOKE S3 — montants déterministes (jamais toLocaleString) + assainisseur de texte PDF (U+202F casse jsPDF). -->
 <script src="js/helpers/montant-doc.global.js"></script>
+<!-- SIGNATURE-SMOKE — flux de texte du PDF : couper un bloc avant la bande du pied (paraphes). -->
+<script src="js/helpers/pdf-flow.global.js"></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
 <script src="js/helpers/alert-rules.global.js"></script>
@@ -22450,6 +22452,9 @@ function previewBailData(bail, log, ref, opts) {
        __tests__/helpers/popup-signature-bundle.test.js rejoue exactement ce bundle : toute
        addition ici doit y être répercutée. */
     +'var _padSignersFor='+window.BailSignataires.padSignersFor.toString()+';'
+    +'var bodyBottom='+window.PdfFlow.bodyBottom.toString()+';'
+    +'var PDF_BODY='+JSON.stringify(window.PdfFlow.PDF_BODY)+';'
+    +'var _splitBlockAcrossPages='+window.PdfFlow.splitBlockAcrossPages.toString()+';'
     +'var WINANSI_HIGH='+JSON.stringify(window.MontantDoc.WINANSI_HIGH)+';'
     +'var PDF_UNSAFE_MAP='+JSON.stringify(window.MontantDoc.PDF_UNSAFE_MAP)+';'
     +'var isWinAnsiChar='+window.MontantDoc.isWinAnsiChar.toString()+';'
@@ -23181,8 +23186,20 @@ function previewBailData(bail, log, ref, opts) {
     +    'var actualX=x;'
     +    'if(align==="center")actualX=x+maxWidth/2;'
     +    'else if(align==="right")actualX=x+maxWidth;'
-    +    'pdf.text(lines,actualX,y,{align:align,baseline:"top"});'
-    +    'return y+lines.length*lineHeight+0.5;'
+    /* SIGNATURE-SMOKE — le bloc était écrit d\'un seul pdf.text : un paragraphe plus haut que les
+       15 mm réservés par la boucle descendait sous 272 mm, donc SOUS les cases de paraphe (le pied
+       est dessiné après coup, à position fixe). On coupe désormais le bloc page par page via le
+       helper PUR testé _splitBlockAcrossPages (__tests__/helpers/pdf-flow.js). */
+    +    'var _chunks=_splitBlockAcrossPages(y,lines.length,lineHeight,{pageH:PDF_NATIVE.PAGE_H,marginTop:PDF_NATIVE.MARGIN_TOP,marginBottom:PDF_NATIVE.MARGIN_BOTTOM});'
+    +    'if(!_chunks.length)return y;'
+    +    'var _endY=y,_prevPage=0;'
+    +    'for(var _c=0;_c<_chunks.length;_c++){'
+    +      'var _ch=_chunks[_c];'
+    +      'while(_prevPage<_ch.page){pdf.addPage();_prevPage++;}'
+    +      'pdf.text(lines.slice(_ch.from,_ch.to),actualX,_ch.y,{align:align,baseline:"top"});'
+    +      '_endY=_ch.y+(_ch.to-_ch.from)*lineHeight;'
+    +    '}'
+    +    'return _endY+0.5;'
     +  '},'
     /* drawTitle : level 1 (centré 14pt bold), 2 (uppercase + bordure), 3 (bold inline) */
     +  'drawTitle:function(pdf,level,text,x,y,opts){'
@@ -23209,7 +23226,10 @@ function previewBailData(bail, log, ref, opts) {
     +    'var conf={'
     +      'body:rows,'
     +      'startY:startY,'
-    +      'margin:{left:PDF_NATIVE.MARGIN_LEFT,right:PDF_NATIVE.MARGIN_RIGHT},'
+    /* SIGNATURE-SMOKE — marge BASSE explicite : sans elle, autoTable paginait avec sa propre
+       valeur et posait des lignes de tableau à 272,9 mm, c'est-à-dire DANS la bande du pied
+       (filet 275 mm, cases de paraphe 279,5 mm) → « les paraphes sont sur le texte ». */
+    +      'margin:{top:PDF_NATIVE.MARGIN_TOP,left:PDF_NATIVE.MARGIN_LEFT,right:PDF_NATIVE.MARGIN_RIGHT,bottom:PDF_NATIVE.MARGIN_BOTTOM},'
     +      'styles:{font:PDF_NATIVE.FONT_FAMILY,fontSize:PDF_NATIVE.FONT_SIZE_BODY-0.5,cellPadding:1.5,textColor:PDF_NATIVE.COLOR_TEXT,lineColor:PDF_NATIVE.COLOR_BORDER,lineWidth:0.1},'
     +      'headStyles:{fillColor:PDF_NATIVE.COLOR_TABLE_HEADER_BG,textColor:PDF_NATIVE.COLOR_TITLE,fontStyle:"bold"}'
     +    '};'

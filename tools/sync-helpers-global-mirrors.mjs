@@ -147,6 +147,15 @@ const PAIRS = [
     exports: ['ID_MANDATAIRE', 'resolveBailleurSigners', 'bailleurSignerIds', 'padSignersFor'],
   },
   {
+    // SIGNATURE-SMOKE — flux de texte du PDF : couper un bloc AVANT la bande basse réservée
+    // au pied de page et aux cases de paraphe (dessinés après coup, à position fixe).
+    name: 'pdf-flow',
+    src: '__tests__/helpers/pdf-flow.js',
+    dst: 'js/helpers/pdf-flow.global.js',
+    globalName: 'PdfFlow',
+    exports: ['PDF_BODY', 'bodyBottom', 'splitBlockAcrossPages'],
+  },
+  {
     // SIGNATURE-SMOKE S3 — formateur de montants déterministe + assainisseur de texte PDF
     // (U+202F d'ICU ≥ 72 casse l'encodage WinAnsi de jsPDF).
     name: 'montant-doc',

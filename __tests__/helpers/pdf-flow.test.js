@@ -1,0 +1,85 @@
+// __tests__/helpers/pdf-flow.test.js
+// « Les paraphes sont sur le texte » (retour smoke 13/08, capture user).
+//
+// PREUVE (PDF re-généré, détecteur de débordement sous la marge basse de 272 mm) :
+//   page 1 : RECT top=272.9 bas=279.9 mm x=15 w=70  ← ligne de tableau DANS la bande du pied
+//            TXT  y=277.4 mm « Type d'habitat »      ← à la hauteur de « Paraphe bailleur »
+//   page 5 : TXT  y=272.2 mm « Persiennes métalliques » + 14 autres
+// Le pied (filet à 275 mm, cases de paraphe à 279,5 mm) est dessiné APRÈS coup sur chaque page,
+// à position fixe : tout contenu qui descend sous 272 mm se retrouve donc SOUS les paraphes.
+//
+// Deux causes, indépendantes :
+//   1. drawTable délègue à autoTable SANS marge basse → autoTable paginait dans la bande du pied ;
+//   2. drawText écrit TOUTES les lignes d'un bloc en un seul appel pdf.text, sans jamais couper :
+//      la boucle ne réserve que 15 mm avant le bloc, donc tout paragraphe plus haut déborde.
+//
+// Ce module porte l'arithmétique de la cause 2, seule partie extractible et donc testable.
+
+import { describe, it, expect } from 'vitest';
+import { bodyBottom, splitBlockAcrossPages, PDF_BODY } from './pdf-flow.js';
+
+const OPTS = { pageH: 297, marginTop: 15, marginBottom: 25 };
+
+describe('bodyBottom — la limite que rien ne doit franchir', () => {
+  it('vaut hauteur de page moins marge basse (272 mm en A4)', () => {
+    expect(bodyBottom(OPTS)).toBe(272);
+  });
+  it('reste sous le filet du pied de page (275 mm) et sous les cases de paraphe (279,5 mm)', () => {
+    expect(bodyBottom(OPTS)).toBeLessThan(PDF_BODY.FOOT_LINE_Y);
+    expect(bodyBottom(OPTS)).toBeLessThan(PDF_BODY.PARAPHE_BOX_Y);
+  });
+});
+
+describe('splitBlockAcrossPages — couper un bloc de texte au bon endroit', () => {
+  it('ne coupe pas un bloc qui tient', () => {
+    const c = splitBlockAcrossPages(100, 5, 4, OPTS);
+    expect(c).toEqual([{ page: 0, y: 100, from: 0, to: 5 }]);
+  });
+
+  it('RÉGRESSION : coupe le bloc qui déborderait sous 272 mm', () => {
+    // 10 lignes de 4 mm à partir de 260 → 300 mm sans coupure : 3 lignes tiennent, 7 passent à la page suivante.
+    const c = splitBlockAcrossPages(260, 10, 4, OPTS);
+    expect(c).toHaveLength(2);
+    expect(c[0]).toEqual({ page: 0, y: 260, from: 0, to: 3 });
+    expect(c[1]).toEqual({ page: 1, y: 15, from: 3, to: 10 });
+  });
+
+  it('aucune ligne ne dépasse jamais la limite, quel que soit le point de départ', () => {
+    for (let y = 15; y <= 271; y += 1) {
+      for (const n of [1, 3, 12, 60]) {
+        for (const c of splitBlockAcrossPages(y, n, 4, OPTS)) {
+          expect(c.y + (c.to - c.from) * 4).toBeLessThanOrEqual(bodyBottom(OPTS) + 1e-9);
+        }
+      }
+    }
+  });
+
+  it('bascule directement à la page suivante si plus rien ne tient', () => {
+    const c = splitBlockAcrossPages(271, 4, 4, OPTS);
+    expect(c).toEqual([{ page: 1, y: 15, from: 0, to: 4 }]);
+  });
+
+  it('étale un bloc plus haut qu\'une page sur autant de pages que nécessaire', () => {
+    const c = splitBlockAcrossPages(15, 200, 4, OPTS);          // 800 mm de texte
+    expect(c.length).toBeGreaterThan(2);
+    expect(c[0].from).toBe(0);
+    expect(c[c.length - 1].to).toBe(200);
+    // continuité : aucune ligne perdue ni dupliquée
+    for (let i = 1; i < c.length; i++) expect(c[i].from).toBe(c[i - 1].to);
+  });
+
+  it('ne boucle pas à l\'infini si une ligne est plus haute qu\'une page entière', () => {
+    const c = splitBlockAcrossPages(15, 3, 500, OPTS);
+    expect(c).toHaveLength(3);
+    for (const x of c) expect(x.to - x.from).toBe(1);
+  });
+
+  it('tolère les entrées dégénérées (0 ligne, hauteur nulle)', () => {
+    expect(splitBlockAcrossPages(100, 0, 4, OPTS)).toEqual([]);
+    expect(splitBlockAcrossPages(100, 2, 0, OPTS)).toEqual([{ page: 0, y: 100, from: 0, to: 2 }]);
+  });
+
+  it('est PUR et autonome (injectable tel quel dans la popup de signature)', () => {
+    expect(splitBlockAcrossPages.toString()).not.toMatch(/\b(require|import)\b/);
+  });
+});
