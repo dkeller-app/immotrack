@@ -38,12 +38,13 @@ describe('sectionKindFromTitle — UNE seule liste de titres pour le PDF et pour
     expect(sectionKindFromTitle('18.2 — Autre chose')).toBeNull();
   });
 
-  it('RÉGRESSION 13/08 : seul le §18 est sans paraphe — annexes et notice en portent', () => {
+  it('DÉCISION USER 13/08 : §18, annexes et notice sans paraphe — le corps du bail en porte', () => {
     expect(titreSansParaphe('18 — SIGNATURES')).toBe(true);
-    expect(titreSansParaphe('ANNEXE A — LISTE DES RÉPARATIONS LOCATIVES')).toBe(false);
-    expect(titreSansParaphe('ANNEXE B — LISTE DES CHARGES RÉCUPÉRABLES')).toBe(false);
-    expect(titreSansParaphe('Notice d\'information')).toBe(false);
+    expect(titreSansParaphe('ANNEXE A — LISTE DES RÉPARATIONS LOCATIVES')).toBe(true);
+    expect(titreSansParaphe('ANNEXE B — LISTE DES CHARGES RÉCUPÉRABLES')).toBe(true);
+    expect(titreSansParaphe('Notice d\'information')).toBe(true);
     expect(titreSansParaphe('1 — DÉSIGNATION DU LOGEMENT')).toBe(false);
+    expect(titreSansParaphe('17 — PIÈCES ANNEXÉES')).toBe(false);   // clause du bail, pas une annexe
   });
 });
 
@@ -63,16 +64,13 @@ describe('pageKinds — quelles pages portent une case de paraphe', () => {
   // Bail réel « 102 » : 26 pages, §18 en page 13, annexe A en 14, annexe B en 20, notice en 23.
   const REEL = { signatures: 13, 'annexe-a': 14, 'annexe-b': 20, notice: 23 };
 
-  it('RÉGRESSION 13/08 : les ANNEXES et la NOTICE sont paraphées', () => {
+  it('DÉCISION USER 13/08 : §18, annexes et notice sans paraphe (13 → 26)', () => {
     const k = pageKinds(26, REEL);
-    for (const p of [14, 19, 20, 22, 23, 26]) {
-      expect(k[p - 1].noParaphe).toBe(false);
-    }
-    // avant : tout ce qui suivait le §18 était exclu → 14 pages non paraphées sur 26
-    expect(k.filter(x => x.noParaphe)).toHaveLength(1);
+    for (const p of [13, 14, 19, 20, 22, 23, 26]) expect(k[p - 1].noParaphe).toBe(true);
+    expect(k.filter(x => x.noParaphe)).toHaveLength(14);
   });
 
-  it('la page §18 reste SANS paraphe : on y signe, on n\'y paraphe pas', () => {
+  it('la page §18 est SANS paraphe : on y signe, on n\'y paraphe pas', () => {
     const k = pageKinds(26, REEL);
     expect(k[12]).toEqual({ page: 13, kind: 'signatures', noParaphe: true });
   });
@@ -90,19 +88,27 @@ describe('pageKinds — quelles pages portent une case de paraphe', () => {
     expect(k[25].kind).toBe('notice');      // page 26
   });
 
-  it('un §18 qui déborde sur 2 pages n\'exclut que ses propres pages', () => {
+  it('les pages AVANT le §18 restent paraphées, celles d\'après ne le sont plus', () => {
     const k = pageKinds(20, { signatures: 13, 'annexe-a': 15 });
-    expect(k[12].noParaphe).toBe(true);     // page 13
-    expect(k[13].noParaphe).toBe(true);     // page 14 : encore le §18
-    expect(k[14].noParaphe).toBe(false);    // page 15 : annexe A → paraphée
+    expect(k[11].noParaphe).toBe(false);    // page 12 : corps du bail
+    expect(k[12].noParaphe).toBe(true);     // page 13 : §18
+    expect(k[13].noParaphe).toBe(true);     // page 14 : §18 qui déborde
+    expect(k[14].kind).toBe('annexe-a');    // page 15 : annexe A, sans paraphe elle aussi
+    expect(k[14].noParaphe).toBe(true);
+  });
+
+  it('une section NON listée resterait paraphée (la règle porte sur la liste, pas sur « après le §18 »)', () => {
+    const k = pageKinds(6, { signatures: 3, 'annexe-a': 5 }, ['signatures']);
+    expect(k[2].noParaphe).toBe(true);      // §18
+    expect(k[4].noParaphe).toBe(false);     // annexe A, exclue de la liste passée
   });
 
   it('document sans aucune section : tout est à parapher', () => {
     expect(pageKinds(3, {}).every(x => !x.noParaphe && x.kind === 'paraphe')).toBe(true);
   });
 
-  it('la liste des sections sans paraphe se réduit au §18', () => {
-    expect(SECTIONS_SANS_PARAPHE).toEqual(['signatures']);
+  it('la liste des sections sans paraphe : §18 + les 3 documents réglementaires annexés', () => {
+    expect(SECTIONS_SANS_PARAPHE).toEqual(['signatures', 'annexe-a', 'annexe-b', 'notice']);
   });
 });
 
