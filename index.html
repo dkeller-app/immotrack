@@ -20341,9 +20341,11 @@ function renderStructureAsHTML(structure, opts) {
       if (item.type === 'h2') {
         const t = item.text || '';
         cur.title = t;
-        if (/^18\s/.test(t) || /^ANNEXE/i.test(t) || /^Notice/i.test(t)) {
-          cur.noParaphe = true;
-        }
+        // Retour user 13/08 : les ANNEXES et la NOTICE sont paraphées comme le reste du bail ;
+        // seule la page §18 en est exemptée (on y signe). Cette liste de titres vivait EN DOUBLE
+        // (ici + le pré-scan du PDF) : corriger l'une sans l'autre laissait l'écran et le PDF en
+        // désaccord. Source unique désormais : window.PdfFlow.
+        cur.noParaphe = window.PdfFlow.titreSansParaphe(t);
       }
     }
     cur.blocks.push(item);
@@ -22460,6 +22462,9 @@ function previewBailData(bail, log, ref, opts) {
        addition ici doit y être répercutée. */
     +'var _padSignersFor='+window.BailSignataires.padSignersFor.toString()+';'
     +'var _pageKinds='+window.PdfFlow.pageKinds.toString()+';'
+    +'var SECTION_TITRES='+JSON.stringify(window.PdfFlow.SECTION_TITRES.map(function(x){return {kind:x.kind,src:x.re.source,flags:x.re.flags};}))+';'
+    +'SECTION_TITRES=SECTION_TITRES.map(function(x){return {kind:x.kind,re:new RegExp(x.src,x.flags)};});'
+    +'var _sectionKindFromTitle='+window.PdfFlow.sectionKindFromTitle.toString()+';'
     +'var SECTIONS_SANS_PARAPHE='+JSON.stringify(window.PdfFlow.SECTIONS_SANS_PARAPHE)+';'
     +'var _BRAND_EMETTEUR='+JSON.stringify(sciLabel||'')+';'
     +'var BRAND='+JSON.stringify(window.DocBrand.BRAND)+';'
@@ -23456,13 +23461,14 @@ function previewBailData(bail, log, ref, opts) {
     +  'hardenJsPdfText(pdf);'   /* S3 : tout texte assaini avant encodage WinAnsi */
     +  'var x=PDF_NATIVE.MARGIN_LEFT,y=PDF_NATIVE.MARGIN_TOP;'
     /* v12.93 → v13.00 : pré-scan pour TOUS les triggers no-paraphe (par kind) */
-    +  'var _trigDefs=[{re:/^18\\s*[—-]\\s*Signatures/i,kind:"signatures"},{re:/^ANNEXE\\s+A/i,kind:"annexe-a"},{re:/^ANNEXE\\s+B/i,kind:"annexe-b"},{re:/^Notice/i,kind:"notice"}];'
+    /* La liste des titres de section vient du helper PARTAGÉ (_sectionKindFromTitle) : c'est la
+       MÊME que celle du découpage de l'aperçu HTML. Elle vivait en double, et n'avoir corrigé
+       qu'un exemplaire le 13/08 laissait les annexes non paraphées à l'écran. */
     +  'var _trigIdxByKind={};'
     +  'for(var t=0;t<_BAIL_STRUCTURE.length;t++){'
     +    'var bt=_BAIL_STRUCTURE[t];if(bt.type!=="h2")continue;'
-    +    'for(var ti=0;ti<_trigDefs.length;ti++){'
-    +      'if(_trigDefs[ti].re.test(bt.text)&&_trigIdxByKind[_trigDefs[ti].kind]==null){_trigIdxByKind[_trigDefs[ti].kind]=t;}'
-    +    '}'
+    +    'var _k=_sectionKindFromTitle(bt.text);'
+    +    'if(_k&&_trigIdxByKind[_k]==null)_trigIdxByKind[_k]=t;'
     +  '}'
     /* compat ancien noParapheStartPage = 1er kind = signatures (généralement §18) */
     +  'var noParapheStartPage=Infinity;'
@@ -23522,8 +23528,7 @@ function previewBailData(bail, log, ref, opts) {
     +      'y=PDF_NATIVE.drawBrandzone(pdf,item,y);'
     +    '}'
     /* v13.00 : capture la page jsPDF pour CHAQUE trigger kind (signatures / annexes / notice) */
-    +    'for(var ki=0;ki<_trigDefs.length;ki++){'
-    +      'var k=_trigDefs[ki].kind;'
+    +    'for(var k in _trigIdxByKind){'
     +      'if(_trigIdxByKind[k]===i&&_trigPagesByKind[k]==null){_trigPagesByKind[k]=pdf.internal.getNumberOfPages();}'
     +    '}'
     +  '}'

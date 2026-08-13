@@ -162,7 +162,7 @@ const PAIRS = [
     src: '__tests__/helpers/pdf-flow.js',
     dst: 'js/helpers/pdf-flow.global.js',
     globalName: 'PdfFlow',
-    exports: ['PDF_BODY', 'SECTIONS_SANS_PARAPHE', 'bodyBottom', 'splitBlockAcrossPages', 'pageKinds'],
+    exports: ['PDF_BODY', 'SECTIONS_SANS_PARAPHE', 'SECTION_TITRES', 'sectionKindFromTitle', 'titreSansParaphe', 'bodyBottom', 'splitBlockAcrossPages', 'pageKinds'],
   },
   {
     // SIGNATURE-SMOKE S3 — formateur de montants déterministe + assainisseur de texte PDF
