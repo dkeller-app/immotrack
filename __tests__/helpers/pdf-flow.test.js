@@ -16,7 +16,36 @@
 // Ce module porte l'arithmétique de la cause 2, seule partie extractible et donc testable.
 
 import { describe, it, expect } from 'vitest';
-import { bodyBottom, splitBlockAcrossPages, PDF_BODY, pageKinds, SECTIONS_SANS_PARAPHE } from './pdf-flow.js';
+import {
+  bodyBottom, splitBlockAcrossPages, PDF_BODY, pageKinds, SECTIONS_SANS_PARAPHE,
+  sectionKindFromTitle, titreSansParaphe
+} from './pdf-flow.js';
+
+describe('sectionKindFromTitle — UNE seule liste de titres pour le PDF et pour l\'écran', () => {
+  // Le 13/08, cette liste existait EN DOUBLE dans index.html : le pré-scan du PDF et le
+  // découpage de l'aperçu HTML. Corriger l'une sans l'autre laissait les annexes non
+  // paraphées à l'écran alors qu'elles l'étaient dans le PDF.
+  it('reconnaît les titres réels du bail', () => {
+    expect(sectionKindFromTitle('18 — SIGNATURES')).toBe('signatures');
+    expect(sectionKindFromTitle('ANNEXE A — LISTE DES RÉPARATIONS LOCATIVES')).toBe('annexe-a');
+    expect(sectionKindFromTitle('ANNEXE B — LISTE DES CHARGES RÉCUPÉRABLES')).toBe('annexe-b');
+    expect(sectionKindFromTitle('Notice d\'information (arrêté du 29 mai 2015)')).toBe('notice');
+  });
+
+  it('ne confond pas un article numéroté avec le §18', () => {
+    expect(sectionKindFromTitle('1 — DÉSIGNATION DU LOGEMENT')).toBeNull();
+    expect(sectionKindFromTitle('8 — OBLIGATIONS DU BAILLEUR')).toBeNull();
+    expect(sectionKindFromTitle('18.2 — Autre chose')).toBeNull();
+  });
+
+  it('RÉGRESSION 13/08 : seul le §18 est sans paraphe — annexes et notice en portent', () => {
+    expect(titreSansParaphe('18 — SIGNATURES')).toBe(true);
+    expect(titreSansParaphe('ANNEXE A — LISTE DES RÉPARATIONS LOCATIVES')).toBe(false);
+    expect(titreSansParaphe('ANNEXE B — LISTE DES CHARGES RÉCUPÉRABLES')).toBe(false);
+    expect(titreSansParaphe('Notice d\'information')).toBe(false);
+    expect(titreSansParaphe('1 — DÉSIGNATION DU LOGEMENT')).toBe(false);
+  });
+});
 
 const OPTS = { pageH: 297, marginTop: 15, marginBottom: 25 };
 

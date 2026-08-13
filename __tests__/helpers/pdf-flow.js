@@ -24,6 +24,34 @@ export const PDF_BODY = {
 export const SECTIONS_SANS_PARAPHE = ['signatures'];
 
 /**
+ * Sections repérées par leur titre de niveau h2. SOURCE UNIQUE : la même liste servait en
+ * double dans index.html (pré-scan du PDF d'un côté, découpage de l'aperçu HTML de l'autre) —
+ * corriger l'une sans l'autre laissait les annexes non paraphées à l'écran alors qu'elles
+ * l'étaient dans le PDF. C'est exactement ce qui s'est produit le 13/08.
+ */
+export const SECTION_TITRES = [
+  { kind: 'signatures', re: /^18\s*[—\-]?\s*SIGNATURES/i },
+  { kind: 'annexe-a', re: /^ANNEXE\s+A/i },
+  { kind: 'annexe-b', re: /^ANNEXE\s+B/i },
+  { kind: 'notice', re: /^Notice/i }
+];
+
+/** Section correspondant à un titre h2, ou null si le titre n'en ouvre aucune. */
+export function sectionKindFromTitle(titre) {
+  var t = String(titre == null ? '' : titre);
+  for (var i = 0; i < SECTION_TITRES.length; i++) {
+    if (SECTION_TITRES[i].re.test(t)) return SECTION_TITRES[i].kind;
+  }
+  return null;
+}
+
+/** true si la section ouverte par ce titre ne porte PAS de case de paraphe (seul le §18). */
+export function titreSansParaphe(titre) {
+  var k = sectionKindFromTitle(titre);
+  return k != null && SECTIONS_SANS_PARAPHE.indexOf(k) !== -1;
+}
+
+/**
  * Étiquette chaque page du document : à quelle section elle appartient, et si elle porte
  * une case de paraphe. Une section couvre de sa page de début jusqu'à la section suivante.
  * @param {number} totalPages
