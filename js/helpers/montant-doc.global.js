@@ -62,6 +62,8 @@
   };
 
   // Caractères de la plage 0x80-0x9F de WinAnsi (Unicode > 0xFF mais bien encodables).
+  // EXPORTÉ : la popup de signature (document about:blank) reçoit ces helpers sérialisés par
+  // toString() — toute variable libre non exportée y serait un ReferenceError à l'exécution.
   const WINANSI_HIGH = '€‚ƒ„…†‡ˆ‰Š‹Œ'
     + 'Ž‘’“”•–—˜™š›œžŸ';
 
@@ -75,9 +77,15 @@
   }
 
   /**
-   * Assainit un texte destiné à jsPDF : remplace les caractères connus hors WinAnsi
-   * par leur équivalent sûr. Accepte une chaîne, un tableau de lignes (jsPDF le permet),
-   * null/undefined (→ '') ou un nombre.
+   * Assainit un texte destiné à une police standard (WinAnsi) : jsPDF ET pdf-lib.
+   * 1. remplace les caractères connus par leur équivalent sûr (table ci-dessus) ;
+   * 2. RETIRE tout caractère résiduel non encodable — sinon jsPDF rebascule la ligne
+   *    entière en 16 bits (bug S3) et pdf-lib LÈVE une exception (« WinAnsi cannot
+   *    encode … »), ce qui bloquait la génération du certificat de preuve.
+   * La table seule est une liste blanche fermée : le point 2 est ce qui garantit qu'un
+   * caractère jamais rencontré (emoji, ✅, écriture non latine collée par l'utilisateur)
+   * ne casse plus un document légal.
+   * Accepte une chaîne, un tableau de lignes (jsPDF l'autorise), null/undefined (→ ''), un nombre.
    */
   function pdfSafeText(txt) {
     if (Array.isArray(txt)) return txt.map(pdfSafeText);
@@ -86,7 +94,16 @@
     for (const bad in PDF_UNSAFE_MAP) {
       if (s.indexOf(bad) !== -1) s = s.split(bad).join(PDF_UNSAFE_MAP[bad]);
     }
-    return s;
+    if (!hasPdfUnsafeChars(s)) return s;
+    let out = '';
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (isWinAnsiChar(ch)) { out += ch; continue; }
+      // Décomposition Unicode : « ễ » → « e », « œ » déjà WinAnsi, etc. Sinon on retire.
+      const dec = typeof ch.normalize === 'function' ? ch.normalize('NFD') : ch;
+      for (let k = 0; k < dec.length; k++) if (isWinAnsiChar(dec[k])) out += dec[k];
+    }
+    return out.replace(/ {2,}/g, ' ').replace(/ +$/, '');
   }
 
   /** true si le texte contient au moins un caractère non encodable en WinAnsi. */
@@ -96,13 +113,19 @@
     return false;
   }
 
-  /** Parse un nombre tolérant : 12000 | '12000' | '1234,56' | '1 234,56' → Number. */
-  function toNumber(n) {
-    if (typeof n === 'number') return isFinite(n) ? n : 0;
-    if (n == null) return 0;
-    const s = String(n).replace(/[\s  ]/g, '').replace(',', '.');
+  /**
+   * Parse un nombre tolérant : 12000 | '12000' | '1234,56' | '1 234,56' → Number.
+   * Renvoie NaN — et NON 0 — pour une valeur aberrante (audit 13/08, finding 7) :
+   * dans une quittance ou un décompte, un « 0,00 » crédible est plus dangereux qu'un
+   * « – » visible. L'ABSENCE de valeur (null/undefined/'') vaut bien 0, elle.
+   */
+  function parseMontant(n) {
+    if (n == null || n === '') return 0;
+    if (typeof n === 'number') return isFinite(n) ? n : NaN;
+    const s = String(n).replace(/[\s\u00a0\u202f]/g, '').replace(',', '.');
+    if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return NaN;
     const v = parseFloat(s);
-    return isFinite(v) ? v : 0;
+    return isFinite(v) ? v : NaN;
   }
 
   /**
@@ -113,7 +136,8 @@
    */
   function fmtMontantDoc(n, decimals) {
     const d = decimals == null ? 2 : decimals;
-    const v = toNumber(n);
+    const v = parseMontant(n);
+    if (isNaN(v)) return '–';                        // valeur aberrante : visible, pas déguisée en 0
     const neg = v < 0;
     const fixed = Math.abs(v).toFixed(d);            // arrondi + décimales fixes
     const parts = fixed.split('.');
@@ -134,7 +158,15 @@
   function hardenJsPdfText(pdf) {
     if (!pdf || typeof pdf.text !== 'function' || pdf.__pdfTextHardened) return pdf;
     const orig = pdf.text.bind(pdf);
-    pdf.text = function (txt, ...rest) { return orig(pdfSafeText(txt), ...rest); };
+    pdf.text = function (txt, ...rest) {
+      // On SIGNALE ce qu'on a dû assainir : sans ça, un caractère non couvert disparaîtrait
+      // silencieusement d'un document légal (audit 13/08, finding 4).
+      if (hasPdfUnsafeChars(Array.isArray(txt) ? txt.join(' ') : (txt == null ? '' : txt))
+          && typeof console !== 'undefined' && console.warn) {
+        console.warn('[pdfSafeText] caractère non encodable assaini dans :', txt);
+      }
+      return orig(pdfSafeText(txt), ...rest);
+    };
     pdf.__pdfTextHardened = true;
     return pdf;
   }
@@ -142,10 +174,12 @@
   // ─── EXPORT GLOBAL ───────────────────────────────────────────────
   global.MontantDoc = {
     NBSP: NBSP,
+    WINANSI_HIGH: WINANSI_HIGH,
     PDF_UNSAFE_MAP: PDF_UNSAFE_MAP,
     isWinAnsiChar: isWinAnsiChar,
     pdfSafeText: pdfSafeText,
     hasPdfUnsafeChars: hasPdfUnsafeChars,
+    parseMontant: parseMontant,
     fmtMontantDoc: fmtMontantDoc,
     fmtEuroDoc: fmtEuroDoc,
     hardenJsPdfText: hardenJsPdfText

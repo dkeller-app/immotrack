@@ -45,11 +45,25 @@ describe('resolveBailleurSigners — dérivation UNIQUE des signataires bailleur
     expect(idsFile).toEqual(['bailleur-0']);
   });
 
-  it('mandataire actif → un seul signataire, id « bailleur » (convention historique)', () => {
+  it('RÉGRESSION AUDIT : mandataire → id bailleur-0 (INDEXÉ comme tous ses consommateurs)', () => {
+    // Avant : 'bailleur' sans index, alors que genPDFNative lit _wizV2FinalSignatures['bailleur-'+bIdx]
+    // et _footerSide lit capById['bailleur-'+i] → cadre §18 et paraphes du mandataire VIDES.
     const out = resolveBailleurSigners({
       names: ['Jean Dupont'], withMandataire: true, mandataireNom: 'Agence Martin', entityLabel: 'SCI KELLER'
     });
-    expect(out).toEqual([{ id: 'bailleur', nom: 'Agence Martin', kind: 'mandataire' }]);
+    expect(out).toEqual([{ id: 'bailleur-0', nom: 'Agence Martin', kind: 'mandataire' }]);
+  });
+
+  it('tous les cas bailleur produisent un id INDEXÉ (invariant des consommateurs PDF)', () => {
+    const cas = [
+      { names: [], entityLabel: 'SCI' },                                              // entité sans gérant
+      { names: ['Didier Keller'], entityLabel: 'SCI' },                               // 1 gérant
+      { names: ['A', 'B'], entityLabel: 'SCI' },                                      // co-gérants
+      { withMandataire: true, mandataireNom: 'Agence', entityLabel: 'SCI' }           // mandataire
+    ];
+    for (const c of cas) {
+      resolveBailleurSigners(c).forEach((s, i) => expect(s.id).toBe('bailleur-' + i));
+    }
   });
 
   it('1 gérant → id bailleur-0 au nom du gérant', () => {
@@ -125,10 +139,16 @@ describe('padSignersFor — qui doit parapher CETTE page (+ garde anti-parcours 
     expect(r.sigs.map(s => s.id)).toEqual(['bailleur-0']);
   });
 
-  it('mandataire (id « bailleur » sans index) reste reconnu comme côté bailleur', () => {
-    const sigs = [{ id: 'bailleur', nomCourt: 'Martin', role: 'MANDATAIRE (p/o Bailleur)' }, SIGS[1]];
-    expect(padSignersFor(sigs, { withLocataires: false }).sigs.map(s => s.id)).toEqual(['bailleur']);
-    expect(padSignersFor(sigs, { solo: 'bailleur' }).sigs.map(s => s.id)).toEqual(['bailleur']);
+  it('mandataire reste reconnu comme côté bailleur', () => {
+    const sigs = [{ id: 'bailleur-0', nomCourt: 'Martin', role: 'MANDATAIRE (p/o Bailleur)' }, SIGS[1]];
+    expect(padSignersFor(sigs, { withLocataires: false }).sigs.map(s => s.id)).toEqual(['bailleur-0']);
+    expect(padSignersFor(sigs, { solo: 'bailleur-0' }).sigs.map(s => s.id)).toEqual(['bailleur-0']);
+  });
+
+  it('un bail mandataire DÉJÀ signé (clé legacy « bailleur ») reste lisible côté bailleur', () => {
+    // Hydratation d'un ancien bail : _SIGS peut encore porter l'id sans index.
+    const legacy = [{ id: 'bailleur', nomCourt: 'Martin', role: 'MANDATAIRE (p/o Bailleur)' }, SIGS[1]];
+    expect(padSignersFor(legacy, { withLocataires: false }).sigs.map(s => s.id)).toEqual(['bailleur']);
   });
 
   it('phase 2 sans aucun locataire → erreur explicite', () => {

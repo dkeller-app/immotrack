@@ -53,13 +53,22 @@ describe('fmtMontantDoc — séparateur de milliers sûr pour les documents', ()
     expect(fmtMontantDoc(-1500.5)).toBe('-1' + NBSP + '500,50');
   });
 
-  it('rend « 0,00 » pour 0, null, undefined, NaN et chaîne vide', () => {
-    for (const v of [0, null, undefined, NaN, '']) expect(fmtMontantDoc(v)).toBe('0,00');
+  it('rend « 0,00 » pour une valeur ABSENTE (0, null, undefined, chaîne vide)', () => {
+    for (const v of [0, null, undefined, '']) expect(fmtMontantDoc(v)).toBe('0,00');
   });
 
-  it('accepte une chaîne numérique (données saisies)', () => {
+  it('AUDIT finding 7 : une valeur ABERRANTE rend « – », jamais un « 0,00 » crédible', () => {
+    // Dans une quittance, « 0,00 € » se lit comme un montant réel. « – » se voit.
+    for (const v of [NaN, Infinity, -Infinity, 'abc', '12 €uros', {}]) {
+      expect(fmtMontantDoc(v)).toBe('–');
+    }
+  });
+
+  it('accepte une chaîne numérique (données saisies), virgule décimale comprise', () => {
     expect(fmtMontantDoc('12000')).toBe('12' + NBSP + '000,00');
+    // parseFloat('1234,56') valait 1234 → le document affichait 1 234,00 (troncature silencieuse)
     expect(fmtMontantDoc('1234,56')).toBe('1' + NBSP + '234,56');
+    expect(fmtMontantDoc('1 234,56')).toBe('1' + NBSP + '234,56');
   });
 
   it('reste identique quel que soit l\'ICU (déterministe, pas de toLocaleString)', () => {
@@ -98,6 +107,23 @@ describe('pdfSafeText — filet de sécurité sur TOUT texte envoyé à jsPDF', 
   it('PRÉSERVE les caractères qui EXISTENT en WinAnsi (é, €, –, ’, œ)', () => {
     const ok = 'Généré · 12 000,00 € — l’entrée – œuvre';
     expect(pdfSafeText(ok)).toBe(ok);
+  });
+
+  it('AUDIT finding 2/4 : RETIRE tout caractère résiduel non encodable (liste ouverte)', () => {
+    // pdf-lib LÈVE « WinAnsi cannot encode … » → génération du certificat de preuve bloquée,
+    // et jsPDF rebascule la ligne entière en 16 bits (bug S3).
+    expect(hasPdfUnsafeChars(pdfSafeText('Contrat ⚠️ hors régime'))).toBe(false);
+    expect(hasPdfUnsafeChars(pdfSafeText('Bail ✅ signé'))).toBe(false);
+    expect(hasPdfUnsafeChars(pdfSafeText('Nguyễn Anh'))).toBe(false);
+    expect(hasPdfUnsafeChars(pdfSafeText('Владимир'))).toBe(false);
+  });
+
+  it('translittère les diacritiques hors WinAnsi au lieu de perdre la lettre', () => {
+    expect(pdfSafeText('Nguyễn')).toBe('Nguyen');   // ễ → e (NFD, marques combinantes retirées)
+  });
+
+  it('ne laisse pas de double espace après retrait d\'un caractère isolé', () => {
+    expect(pdfSafeText('Bail ✅ signé')).toBe('Bail signé');
   });
 
   it('est sûr sur les entrées non-chaînes', () => {
