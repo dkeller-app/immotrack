@@ -44440,6 +44440,21 @@ function _frResetCreated(){ return { imms: [], logs: [] }; }
 // posent qu'un : import d'acte, démarrage contextuel depuis une fiche).
 function _frScopeImms(){ const l=(_frCtx.immNames||[]).filter(Boolean); if(l.length) return l.slice(); return _frCtx.immName?[_frCtx.immName]:[]; }
 function _frTrackImm(nom){ if(!nom) return; if(!Array.isArray(_frCtx.immNames)) _frCtx.immNames=[]; if(_frCtx.immNames.indexOf(nom)<0) _frCtx.immNames.push(nom); }
+// ── Revue I4 : ALERTES HORS COMPTEUR (DPE interdit…) — source UNIQUE pour tous les écrans ──
+// Elles n'entrent pas dans pctLegal : aucun écran ne peut donc déduire la conformité du seul
+// compteur. Tout écran qui parle d'« en règle » DOIT passer par ici (accordéon ET transition).
+function _frAlertes(model){
+  const out=[]; ((model&&model.nodes)||[]).forEach((n,i)=>(n.tasks||[]).forEach(t=>{ if(t.alerte) out.push({idx:i, node:n, al:t.alerte}); }));
+  return out;
+}
+// Phrase qui NOMME l'exception (« F-102 (DPE G) reste interdit à la location… »). Rendue telle
+// quelle derrière un ⚠️ par l'appelant ; '' si aucune alerte.
+function _frAlertesTxt(alertes){
+  if(!alertes || !alertes.length) return '';
+  const pl=alertes.length>1;
+  return alertes.map(a=>'<b>'+escHtml(a.node.name)+'</b>'+(a.al.classe?(' (DPE '+escHtml(a.al.classe)+')'):'')).join(', ')
+    +(pl?' restent <b>interdits':' reste <b>interdit')+' à la location</b> tant que des travaux n’ont pas amélioré '+(pl?'leur classe':'sa classe')+'.';
+}
 function _frRenameImmInCtx(oldN, newN){
   if(!oldN||!newN||oldN===newN) return;
   const swap=(arr)=>{ if(!Array.isArray(arr)) return; const i=arr.indexOf(oldN); if(i>=0){ if(arr.indexOf(newN)>=0) arr.splice(i,1); else arr[i]=newN; } };
@@ -44517,7 +44532,7 @@ function _frOpenStep(step){
   if(step==='transition' && _frCtx.entId!=null && _frScopeImms().length) _frSetCompletionState(_frCtx.entId, _frScopeImms());
   _frShowFr(step);
 }
-function _frStart(kind){ _frHideCont(); _frMode=true; _frCtx={entId:null,immName:null,immNames:[],bailDone:false,bailRef:null,created:_frResetCreated()}; _frOpenStep(window.FilRougeConductor.entryStep(kind||'bien')); }
+function _frStart(kind){ _frHideCont(); _frMode=true; _frCompImmEdit=null; _frCtx={entId:null,immName:null,immNames:[],bailDone:false,bailRef:null,created:_frResetCreated()}; _frOpenStep(window.FilRougeConductor.entryStep(kind||'bien')); }
 // Choix « Importer l'acte » depuis l'écran de démarrage : on est DÉJÀ en _frMode (posé par _frStart),
 // donc à la fin du wizard d'import, _acteApply→_frAfterActe (branche _frMode) referme l'acte et
 // enchaîne sur le récap « bien prêt ». Une annulation de l'acte relâche _frMode (cf close hook ov-acte).
@@ -44527,7 +44542,7 @@ function _frStartActe(){ closeM('ov-fr'); if(typeof openActeImport==='function')
 function _frStartCtx(step, entId, immName, immNames){ _frHideCont(); _frMode=true; const _sc=Array.isArray(immNames)?immNames.filter(Boolean):(immName?[immName]:[]); _frCtx={entId:entId!=null?entId:null, immName:immName||_sc[0]||null, immNames:_sc, bailDone:false, bailRef:null, created:_frResetCreated()}; _frOpenStep(step); }
 // Depuis une fiche logement : on résout bailleur+immeuble du lot pour ajouter un autre lot au même immeuble.
 function _frStartFromLog(ref){ const l=(DB.logements||[]).find(x=>x&&x.ref===ref&&!x._deleted); if(!l){ _frStart('bien'); return; } const e=(DB.entites||[]).find(x=>x&&x.nom===l.entity); _frStartCtx('log', e?e.id:null, l.imm||null); }
-function _frClose(){ _frMode=false; _frStep=null; _frDetachBread(); ['ov-fr','ov-ent','ov-imm','ov-log'].forEach(id=>closeM(id)); _frHideCont(); if(typeof _refreshAfterMutation==='function') _refreshAfterMutation(); }
+function _frClose(){ _frMode=false; _frStep=null; _frCompImmEdit=null; _frDetachBread(); ['ov-fr','ov-ent','ov-imm','ov-log'].forEach(id=>closeM(id)); _frHideCont(); if(typeof _refreshAfterMutation==='function') _refreshAfterMutation(); }
 
 // ── hooks post-save GARDÉS : en fil rouge → auto-avance ; sinon, sur CRÉATION → continuité ──
 function _frAfterSave(kind, obj, isNew, ownerEnt){
@@ -44751,11 +44766,20 @@ function _frShowFr(kind){
     // pas de toast ni de purge sur un écran de succès — contexte non résoluble → pas de compte.
     const _cmT=_frCompModelFor(_frCtx.entId, _frScopeImms()); // revue I1 : le compte couvre TOUS les immeubles du fil
     const _reste=_cmT?(_cmT.model.nodes||[]).reduce(function(n,nd){ return n+(nd.tasks||[]).filter(function(t){ return t.palier==='legal' && t.status!=='done'; }).length; },0):null;
+    // Revue I4 (contre-audit) : l'interdiction DPE est HORS compteur — cet écran ne peut donc PAS
+    // déduire « louable en règle » du seul `_reste`. Cas atteignable dans le flux ordinaire : un
+    // import d'acte rattaché à un immeuble qui contient déjà un lot classé G (le périmètre couvre
+    // TOUS les lots de l'immeuble, pas seulement ceux créés). Les DEUX branches nomment l'exception.
+    const _alT=_frAlertes(_cmT&&_cmT.model), _alTxtT=_frAlertesTxt(_alT);
     const _phrase=(_reste==null)
       ? 'La structure est posée. Le fil rouge t’emmène maintenant compléter chaque fiche — bailleur, immeuble, chaque bien.'
       : (_reste===0
-        ? 'Tout est déjà en règle — tu peux compléter le reste quand tu veux.'
-        : 'La structure est posée. Il reste <b>'+_reste+' obligation'+(_reste>1?'s':'')+'</b> à mettre en place pour que '+(_nb>1?'ces biens soient louables':'ce bien soit louable')+' en règle.');
+        ? (_alT.length
+          ? 'Tout ce qui dépend de toi est déjà en place — tu peux compléter le reste quand tu veux. ⚠️ '+_alTxtT
+          : 'Tout est déjà en règle — tu peux compléter le reste quand tu veux.')
+        : (_alT.length
+          ? 'La structure est posée. Il reste <b>'+_reste+' obligation'+(_reste>1?'s':'')+'</b> à mettre en place. ⚠️ '+_alTxtT
+          : 'La structure est posée. Il reste <b>'+_reste+' obligation'+(_reste>1?'s':'')+'</b> à mettre en place pour que '+(_nb>1?'ces biens soient louables':'ce bien soit louable')+' en règle.'));
     body.innerHTML='<div class="fr-after"><div class="fr-chk">✓</div><h3>'+(_nb>1?'Le patrimoine est créé':'Le bien est créé')+' — le fil continue</h3>'
       +'<div class="fr-recap">'+_frRecapHtml({bail:false})+'</div>'
       +'<p>'+_phrase+'</p>'
@@ -44944,9 +44968,10 @@ function _frCompHtml(cm){
   const _immsN=(cm.imms||(cm.imm?[cm.imm]:[])).map(i=>i.nom);
   const _immsTxt=_immsN.length?(' · '+(_immsN.length>2?(_immsN.length+' immeubles'):escHtml(_immsN.join(' · ')))):'';
   // Revue I4 : alertes hors compteur (DPE interdit…) — elles n'entrent pas dans pctLegal mais
-  // interdisent d'écrire « louable en règle » sans nommer l'exception.
-  const _alertes=[]; nodes.forEach(n=>(n.tasks||[]).forEach(t=>{ if(t.alerte) _alertes.push({node:n, al:t.alerte}); }));
-  const _alNoms=new Set(_alertes.map(a=>a.node.name));
+  // interdisent d'écrire « louable en règle » sans nommer l'exception. Repérées par INDEX de nœud :
+  // un immeuble homonyme d'une référence de lot ferait fuiter le chip ⛔ sur le mauvais nœud.
+  const _alertes=_frAlertes(cm.model);
+  const _alIdx=new Set(_alertes.map(a=>a.idx));
   let h='<div class="fr-comp-hero"><div class="top"><span class="big">🧭</span>'
     +'<div><h4>Configuration du patrimoine</h4><div class="sub">'+escHtml(cm.ent.nom)+_immsTxt+' — pause quand tu veux : c’est gardé.</div></div>'
     +'<span class="pct">'+pctL+'%<s>EN RÈGLE</s></span></div>'
@@ -44960,7 +44985,7 @@ function _frCompHtml(cm){
     const L=_cnt(n.tasks.filter(_isL)), A=_cnt(n.tasks);
     const isOpen=(i===openIdx&&(!_rien(n)||_frCompForced)), here=(i===firstInc);
     const badge=n.badge==='loue'?'<span class="fr-comp-badge loue">🔑 Loué</span>':(n.badge==='vac'?'<span class="fr-comp-badge vac">🏠 Vacant</span>':'');
-    const alChip=_alNoms.has(n.name)?'<span class="fr-comp-badge alerte">⛔ Interdit à la location</span>':'';
+    const alChip=_alIdx.has(i)?'<span class="fr-comp-badge alerte">⛔ Interdit à la location</span>':'';
     h+='<div class="fr-comp-node"><div class="fr-comp-dot '+(n.full?'done':(here?'here':''))+'">'+(n.full?'✓':(i+1))+'</div>'
       +'<div class="fr-comp-card '+(isOpen?'here':'closed')+'">'
       +'<div class="hd" onclick="_frCompToggle('+i+')"><span>'+(ICON[n.kind]||'🏠')+'</span><div class="tx"><b>'+escHtml(n.name)+'</b>'+(n.sub?'<div class="meta">'+escHtml(n.sub)+'</div>':'')+'</div>'
@@ -44986,9 +45011,7 @@ function _frCompHtml(cm){
   });
   // Revue I4 : avec une alerte hors compteur, 100 % ne veut PAS dire « louable en règle » — le
   // texte de fin nomme l'exception au lieu de la taire (sinon l'écran ment sur la conformité).
-  const _pl=_alertes.length>1;
-  const _alTxt=_alertes.map(a=>'<b>'+escHtml(a.node.name)+'</b>'+(a.al.classe?(' (DPE '+escHtml(a.al.classe)+')'):'')).join(', ')
-    +(_pl?' restent <b>interdits' : ' reste <b>interdit')+' à la location</b> tant que des travaux n’ont pas amélioré '+(_pl?'leur classe':'sa classe')+'.';
+  const _alTxt=_frAlertesTxt(_alertes);
   h+='<div class="fr-comp-node end"><div class="fr-comp-dot">'+(pctL===100?(_alertes.length?'⚠':'🎉'):'⚖')+'</div>'
     +(pctL===100
       ? (_alertes.length
