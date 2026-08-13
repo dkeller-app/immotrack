@@ -147,6 +147,15 @@ const PAIRS = [
     exports: ['ID_MANDATAIRE', 'resolveBailleurSigners', 'bailleurSignerIds', 'padSignersFor'],
   },
   {
+    // S4 — bandeau d'identité des documents : logo bailleur + logo Propryo (gabarit
+    // DOCUMENTS-PROPRYO validé 12/08, logo « Le point » retenu).
+    name: 'doc-brand',
+    src: '__tests__/helpers/doc-brand.js',
+    dst: 'js/helpers/doc-brand.global.js',
+    globalName: 'DocBrand',
+    exports: ['BRAND', 'PROPRYO_MARK', 'PROPRYO_MARK_SVG', 'propryoMarkOps', 'propryoLockupWidth', 'brandzoneModel', 'brandzoneHtml'],
+  },
+  {
     // SIGNATURE-SMOKE — flux de texte du PDF : couper un bloc AVANT la bande basse réservée
     // au pied de page et aux cases de paraphe (dessinés après coup, à position fixe).
     name: 'pdf-flow',
