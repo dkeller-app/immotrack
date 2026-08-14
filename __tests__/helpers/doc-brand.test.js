@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   PROPRYO_MARK, PROPRYO_MARK_SVG, propryoMarkOps, propryoLockupWidth,
-  brandzoneModel, brandzoneHtml, BRAND
+  propryoRectSvgPath, brandzoneModel, brandzoneHtml, BRAND
 } from './doc-brand.js';
 
 describe('PROPRYO_MARK — le tracé retenu, pas un dessin de circonstance', () => {
@@ -53,6 +53,17 @@ describe('propryoMarkOps — le tracé mis à l\'échelle pour jsPDF (mm)', () =
         expect(right).toBeLessThanOrEqual(size + 1e-9);
       }
     }
+  });
+
+  it('le chemin SVG du pavé porte les MÊMES cotes que le tracé jsPDF', () => {
+    // pdf-lib (certificat de preuve) n'a pas de rectangle arrondi : sans ce chemin, le logo
+    // sortait à coins carrés alors qu'il est très arrondi (r = 7,5 sur un viewBox de 32).
+    const p = propryoRectSvgPath();
+    expect(p).toMatch(/^M 11 3\.5 H 21 A 7\.5 7\.5 /);          // départ + 1er arc
+    expect((p.match(/A 7\.5 7\.5 /g) || []).length).toBe(4);    // les 4 coins
+    expect(p.trim().endsWith('Z')).toBe(true);                  // chemin fermé
+    // aucune coordonnée ne sort du viewBox
+    for (const n of p.match(/-?\d+(\.\d+)?/g).map(Number)) expect(n).toBeLessThanOrEqual(32);
   });
 
   it('taille nulle ou négative → aucun tracé (pas de dessin dégénéré)', () => {

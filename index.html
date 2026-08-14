@@ -7442,10 +7442,15 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt) {
     const wordW = fontB.widthOfTextAtSize('Propryo', wordSize);
     const mx = W - 40 - wordW - mark * 0.28 - mark, my = y - 2;
     const cor = PDFLib.rgb(1, 90 / 255, 60 / 255);
-    for (const o of window.DocBrand.propryoMarkOps(0, 0, _m.propryo.markSize)) {
-      if (o.op === 'roundedRect') page.drawRectangle({ x: mx + o.x * PT, y: my + o.y * PT, width: o.w * PT, height: o.h * PT, borderColor: cor, borderWidth: o.lineWidth * PT });
-      else page.drawCircle({ x: mx + o.x * PT, y: my + o.y * PT, size: o.r * PT, color: cor });
-    }
+    // pdf-lib n'a pas de rectangle à coins arrondis : le pavé passe par drawSvgPath (le tracé
+    // exact du logo), sinon il sortait CARRÉ. Le point, lui, est un vrai cercle.
+    const _scale = _m.propryo.markSize * PT / window.DocBrand.PROPRYO_MARK.viewBox;
+    page.drawSvgPath(window.DocBrand.propryoRectSvgPath(), {
+      x: mx, y: my + mark, scale: _scale, borderColor: cor,
+      borderWidth: window.DocBrand.PROPRYO_MARK.rect.stroke * _scale
+    });
+    const _dot = window.DocBrand.PROPRYO_MARK.dot;
+    page.drawCircle({ x: mx + _dot.cx * _scale, y: my + mark - _dot.cy * _scale, size: _dot.r * _scale, color: cor });
     page.drawText('Propryo', { x: W - 40 - wordW, y: my + 1, size: wordSize, font: fontB });
     y -= 26;
     page.drawLine({ start: { x: 40, y }, end: { x: W - 40, y }, thickness: 0.6, color: PDFLib.rgb(.89, .91, .93) });

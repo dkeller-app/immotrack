@@ -51,6 +51,22 @@ export function propryoMarkOps(x, y, size) {
   ];
 }
 
+/**
+ * Le pavé du logo en chemin SVG, dans le repère du viewBox 32×32.
+ * pdf-lib n'a pas de rectangle à coins arrondis (drawRectangle est à angles droits) : sans ce
+ * chemin, le logo du certificat de preuve sortait CARRÉ alors qu'il est très arrondi (r = 7,5).
+ * Consommé par page.drawSvgPath ; jsPDF, lui, a roundedRect et utilise propryoMarkOps.
+ */
+export function propryoRectSvgPath() {
+  var R = PROPRYO_MARK.rect;
+  var x0 = R.x, y0 = R.y, x1 = R.x + R.w, y1 = R.y + R.h, r = R.r;
+  return 'M ' + (x0 + r) + ' ' + y0
+    + ' H ' + (x1 - r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + x1 + ' ' + (y0 + r)
+    + ' V ' + (y1 - r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + (x1 - r) + ' ' + y1
+    + ' H ' + (x0 + r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + x0 + ' ' + (y1 - r)
+    + ' V ' + (y0 + r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + (x0 + r) + ' ' + y0 + ' Z';
+}
+
 /** Largeur approchée du lockup « ▢ Propryo » en mm (marque + espace + mot). */
 export function propryoLockupWidth(markSize, wordWidthMm) {
   return markSize + markSize * 0.28 + (wordWidthMm || markSize * 2.6);
