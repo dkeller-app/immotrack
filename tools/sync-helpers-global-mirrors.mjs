@@ -153,7 +153,7 @@ const PAIRS = [
     src: '__tests__/helpers/doc-brand.js',
     dst: 'js/helpers/doc-brand.global.js',
     globalName: 'DocBrand',
-    exports: ['BRAND', 'PROPRYO_MARK', 'PROPRYO_MARK_SVG', 'propryoMarkOps', 'propryoLockupWidth', 'brandzoneModel', 'brandzoneHtml'],
+    exports: ['BRAND', 'PROPRYO_MARK', 'PROPRYO_MARK_SVG', 'propryoMarkOps', 'propryoRectSvgPath', 'propryoLockupWidth', 'brandzoneModel', 'brandzoneHtml'],
   },
   {
     // SIGNATURE-SMOKE — flux de texte du PDF : couper un bloc AVANT la bande basse réservée

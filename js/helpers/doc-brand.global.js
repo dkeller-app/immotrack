@@ -26,7 +26,7 @@
   //
   // En PDF, le tracé est rejoué en VECTORIEL (roundedRect + circle) plutôt que rastérisé :
   // net à tout zoom, aucun canvas ni police en jeu, et la géométrie reste testable.
-
+  
   /** Cotes du bandeau, reprises du gabarit (mm). */
   const BRAND = {
     LOGO_H: 13,        // hauteur du logo bailleur  (--logo-h du gabarit)
@@ -36,7 +36,7 @@
     BOTTOM_GAP: 7,     // espace sous le filet avant le contenu
     WORD_RATIO: 0.58   // taille du mot « Propryo » = 0,58 × hauteur du logo
   };
-
+  
   /** Le tracé retenu, en coordonnées du viewBox 32×32 d'origine. */
   const PROPRYO_MARK = {
     viewBox: 32,
@@ -44,13 +44,13 @@
     dot: { cx: 21, cy: 21, r: 4.2 },
     color: [255, 90, 60]                       // #ff5a3c — corail de la charte
   };
-
+  
   /** Le même tracé en SVG, pour les documents HTML et l'app. */
   const PROPRYO_MARK_SVG =
     '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">'
     + '<rect x="3.5" y="3.5" width="25" height="25" rx="7.5" fill="none" stroke="#ff5a3c" stroke-width="3"/>'
     + '<circle cx="21" cy="21" r="4.2" fill="#ff5a3c"/></svg>';
-
+  
   /**
    * Le tracé mis à l'échelle pour jsPDF, en mm, à poser en (x, y) dans un carré de `size`.
    * @returns {Array<{op:'roundedRect'|'circle', ...}>} opérations à rejouer telles quelles.
@@ -64,12 +64,28 @@
       { op: 'circle', x: x + D.cx * s, y: y + D.cy * s, r: D.r * s, color: C }
     ];
   }
-
+  
+  /**
+   * Le pavé du logo en chemin SVG, dans le repère du viewBox 32×32.
+   * pdf-lib n'a pas de rectangle à coins arrondis (drawRectangle est à angles droits) : sans ce
+   * chemin, le logo du certificat de preuve sortait CARRÉ alors qu'il est très arrondi (r = 7,5).
+   * Consommé par page.drawSvgPath ; jsPDF, lui, a roundedRect et utilise propryoMarkOps.
+   */
+  function propryoRectSvgPath() {
+    var R = PROPRYO_MARK.rect;
+    var x0 = R.x, y0 = R.y, x1 = R.x + R.w, y1 = R.y + R.h, r = R.r;
+    return 'M ' + (x0 + r) + ' ' + y0
+      + ' H ' + (x1 - r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + x1 + ' ' + (y0 + r)
+      + ' V ' + (y1 - r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + (x1 - r) + ' ' + y1
+      + ' H ' + (x0 + r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + x0 + ' ' + (y1 - r)
+      + ' V ' + (y0 + r) + ' A ' + r + ' ' + r + ' 0 0 1 ' + (x0 + r) + ' ' + y0 + ' Z';
+  }
+  
   /** Largeur approchée du lockup « ▢ Propryo » en mm (marque + espace + mot). */
   function propryoLockupWidth(markSize, wordWidthMm) {
     return markSize + markSize * 0.28 + (wordWidthMm || markSize * 2.6);
   }
-
+  
   /**
    * Modèle du bandeau. Ne renvoie JAMAIS un bandeau vide : sans logo ET sans nom d'entité,
    * la gauche affiche un libellé neutre.
@@ -96,12 +112,12 @@
       propryo: { mot: 'Propryo', markSize: BRAND.NOM_H, wordSize: BRAND.NOM_H * BRAND.WORD_RATIO }
     };
   }
-
+  
   function escBrand(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-
+  
   /** Bandeau prêt à insérer en tête d'un document HTML (quittance, IRL, décompte, cautionnement). */
   function brandzoneHtml(model) {
     var m = model || brandzoneModel({});
@@ -128,6 +144,7 @@
     PROPRYO_MARK: PROPRYO_MARK,
     PROPRYO_MARK_SVG: PROPRYO_MARK_SVG,
     propryoMarkOps: propryoMarkOps,
+    propryoRectSvgPath: propryoRectSvgPath,
     propryoLockupWidth: propryoLockupWidth,
     brandzoneModel: brandzoneModel,
     brandzoneHtml: brandzoneHtml
