@@ -191,12 +191,12 @@ describe('partiesCommunesDepuisImm — la clause vient du BÂTIMENT, pas du lot'
 
 describe('chaînage vers le bail — la liste devient une donnée CONTRACTUELLE', () => {
   it('la clause « Désignation des pièces » est générée, la surcharge libre gagne si remplie', () => {
-    expect(indexHtml).toContain("piecesDesc:      src.piecesDesc || _lbDesignationPieces(src),");
+    expect(indexHtml).toContain("piecesDesc:      src.piecesDesc || (_isSignedSnapshot ? '' : _lbDesignationPieces(src)),");
     expect(indexHtml).toContain('BP.designationPieces(src.edlTemplate.pieces || [])');
   });
 
   it('la clause « Parties communes » vient de l\'IMMEUBLE, la surcharge du logement gagne si remplie', () => {
-    expect(indexHtml).toContain("partiesCommunes: src.partiesCommunes || _lbPartiesCommunes(_imm),");
+    expect(indexHtml).toContain("partiesCommunes: src.partiesCommunes || (_isSignedSnapshot ? '' : _lbPartiesCommunes(_imm)),");
     expect(indexHtml).toContain('BP.partiesCommunesDepuisImm(imm)');
   });
 
@@ -223,8 +223,8 @@ describe('chaînage vers l\'état des lieux', () => {
   });
 
   it('loadLogEDLTemplate ré-ajoute les sections qui ne sont pas des pièces (DAAF)', () => {
-    expect(indexHtml).toContain('BP.SECTIONS_NON_PIECES.forEach(nom => {');
-    expect(indexHtml).toContain('_edlP.push({ nom: sec.nom, elements: (sec.e || []).map(BP.elementVide) });');
+    expect(indexHtml).toContain('sections.forEach(nom => {');
+    expect(indexHtml).toContain('_edlP.push({ nom: sec.nom, elements: (sec.e || []).map(vide) });');
   });
 
   it('la modale écrit dans log.edlTemplate.pieces — pas dans un nouveau champ — et préserve les clés', () => {

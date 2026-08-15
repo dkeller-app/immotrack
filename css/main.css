@@ -835,6 +835,9 @@ a{color:var(--blu);text-decoration:none}
 .logf-photos-mini, .entf-photos-mini{overflow:hidden}
 .logf-photos-mini > img, .entf-photos-mini > img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .bien-card-img > img{width:100%;height:100%;object-fit:cover}
+/* Repli de la vignette : tant que le binaire n'est pas chargé — ou s'il est introuvable —
+   c'est l'icône qui occupe la place, jamais un carré vide. */
+.cover-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
 .entf-donut-compact{
   display:flex;flex-direction:column;align-items:center;gap:4px;
   padding:6px 4px 0;align-self:flex-start;
@@ -1241,7 +1244,10 @@ a{color:var(--blu);text-decoration:none}
    d'onglets de fiche devient une GRILLE 2×2 au lieu d'une barre qui défile : 4 onglets, tous
    visibles, aucun geste caché. Zéro scroll horizontal à 390 px. */
 @media (max-width: 560px){
-  .logf-subtabs[role="tablist"]{display:grid;grid-template-columns:1fr 1fr;gap:2px;overflow-x:visible}
+  /* `auto-fit` plutôt que `1fr 1fr` : 4 onglets (fiche logement) → grille 2×2 ; 2 onglets
+     (fiche immeuble) → 2 colonnes ; 1 onglet (fiche bailleur) → pleine largeur au lieu d'un
+     bouton coincé sur la moitié gauche avec un vide à droite. */
+  .logf-subtabs[role="tablist"]{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:2px;overflow-x:visible}
   .logf-subtabs[role="tablist"] .logf-subtab{
     white-space:normal;justify-content:center;text-align:center;padding:10px 8px;
     font-size:12px;line-height:1.25;min-width:0;
