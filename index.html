@@ -33211,7 +33211,7 @@ function _renderBuildingCard(entNom, immNom, logs, ent, isArchived) {
       <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'building','${escHtml(firstRef||'')}','${escHtml(immNom||'')}')" aria-label="Actions">⋮</button>
     </div>
     <div class="bien-card-img">
-      <span aria-hidden="true">🏢</span>
+      ${im && im.id ? _coverImg('immeuble', im.id, '🏢') : '<span aria-hidden="true">🏢</span>'}
       <div class="bien-card-occup">
         <span class="bien-card-occup-label">${agg.nbOccupes} / ${agg.nbTotal} ${agg.nbTotal>1?'biens loués':'bien loué'}</span>
         <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
@@ -33257,7 +33257,7 @@ function _renderLogementCardFlat(l) {
       <button class="bien-card-menu" onclick="event.stopPropagation();openBienMenu(event,'logement','${escHtml(l.ref)}','${escHtml(l.imm||'')}')" aria-label="Actions">⋮</button>
     </div>
     <div class="bien-card-img">
-      <span aria-hidden="true">🏠</span>
+      ${_coverImg('logement', l.id, '🏠')}
       <div class="bien-card-occup">
         <span class="bien-card-occup-label">${occupLabel}</span>
         <span class="bien-card-occup-bar"><span class="bien-card-occup-fill ${fillCls}" style="width:${ratioPct}%"></span></span>
@@ -39882,7 +39882,7 @@ function rLogFiche() {
       <span class="sep">›</span><span>${escHtml(ref)}</span>
     </div>
     <div class="logf-hero logf-hero-compact">
-      <div class="logf-photos logf-photos-mini" aria-hidden="true">🏠</div>
+      <div class="logf-photos logf-photos-mini">${_coverImg('logement', log.id, '🏠')}</div>
       <div class="logf-info">
         <h1 class="logf-title">${escHtml(log.imm || ref)}${log.imm?` <span class="logf-title-suffix">— ${escHtml(ref)}</span>`:''}</h1>
         ${log.adr?`<div class="logf-adr">${escHtml(log.adr)}${log.etage?', '+escHtml(log.etage):''}</div>`:''}
@@ -40145,6 +40145,38 @@ function _renderEntIdentitePastille(ent) {
     + `<div style="margin-top:10px"><button class="btn bs bb" onclick="openNewEnt(${+ent.id})">✏ Modifier le bailleur</button></div>`;
 }
 
+// BIENS (P1-15, demande user 11/08) — PHOTO DE COUVERTURE. La donnée existait déjà (photo.isCover
+// + bouton ⭐ dans la galerie) mais n'était LUE NULLE PART : la vignette du hero et celle des bulles
+// affichaient une icône en dur. Règle du mockup : « la première photo sert de vignette — pour la
+// changer, remonte-la en tête », avec la désignation explicite ⭐ qui garde la priorité.
+//
+// Le binaire vit en IndexedDB / Drive (pas dans le document) → la vignette se charge en différé,
+// exactement comme la galerie (_loadPhotoThumbnailsLazy). Sans photo : l'icône d'avant.
+function _coverPhoto(parentType, parentId) {
+  const ph = (DB.documents || []).filter(d => d && !d._deleted
+    && d.parentType === parentType && d.parentId === parentId && d.category === 'photos')
+    .sort((a, b) => String(b.uploadedAt || '').localeCompare(String(a.uploadedAt || '')));
+  if (!ph.length) return null;
+  return ph.find(p => p.isCover) || ph[0];   // ⭐ explicite, sinon la première de la galerie
+}
+
+function _coverImg(parentType, parentId, iconeParDefaut) {
+  const p = _coverPhoto(parentType, parentId);
+  if (!p) return `<span aria-hidden="true">${iconeParDefaut}</span>`;
+  const domId = 'cover-' + parentType + '-' + parentId + '-' + p.id;
+  setTimeout(() => _loadCoverThumb(domId, p), 60);
+  return `<img id="${domId}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">`;
+}
+
+async function _loadCoverThumb(domId, photo) {
+  const img = document.getElementById(domId);
+  if (!img || img.src) return;
+  try {
+    const dataB64 = await _attachmentLoadBinary(photo);
+    if (dataB64 && img && !img.src) img.src = dataB64;
+  } catch (e) { console.warn('[cover thumb] load fail', domId, e); }
+}
+
 /** Compte les pièces jointes vivantes d'un parent (pour la pastille « Documents (4) »). */
 function _attCount(parentType, parentId, category) {
   return (DB.documents || []).filter(d => d && !d._deleted
@@ -40290,7 +40322,7 @@ function rImmFiche() {
     </div>
     <!-- v14.34 — hero compact 3 colonnes (option C). Plus de bande KPI séparée. -->
     <div class="logf-hero entf-hero-compact">
-      <div class="logf-photos entf-photos-mini" aria-hidden="true">🏢</div>
+      <div class="logf-photos entf-photos-mini">${_coverImg('immeuble', im.id, '🏢')}</div>
       <div class="logf-info">
         <h1 class="logf-title">${immNomEsc}</h1>
         ${adrLine}

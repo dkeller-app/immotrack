@@ -830,6 +830,11 @@ a{color:var(--blu);text-decoration:none}
   display:flex;align-items:center;justify-content:center;color:var(--t3);
 }
 [data-theme="dark"] .entf-photos-mini{background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02))}
+/* BIENS (P1-15) — photo de couverture dans la vignette du hero : l'image doit remplir le carré
+   sans deformer, et le bloc doit rogner (les vignettes sont carrees, les photos non). */
+.logf-photos-mini, .entf-photos-mini{overflow:hidden}
+.logf-photos-mini > img, .entf-photos-mini > img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.bien-card-img > img{width:100%;height:100%;object-fit:cover}
 .entf-donut-compact{
   display:flex;flex-direction:column;align-items:center;gap:4px;
   padding:6px 4px 0;align-self:flex-start;
