@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galerie — sign.html · signature de bail à distance (Variante B × 3 formats)</title>
+<style>
+  :root {
+    --accent: #1a1a8c;
+    --bg: #ececf2;
+    --surface: #fff;
+    --line: #d7d7e2;
+    --ink: #1a1a1a;
+    --ink-soft: #555;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header.gallery-head {
+    background: #11114d; color: #fff; padding: 22px 24px;
+  }
+  header.gallery-head h1 { margin: 0 0 4px; font-size: 21px; }
+  header.gallery-head p { margin: 0; opacity: .9; font-size: 14px; max-width: 940px; }
+
+  .legend {
+    display: grid; gap: 12px; padding: 18px 24px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+  .legend .v {
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    background: #fafaff;
+  }
+  .legend .v b { color: var(--accent); }
+  .legend .v small { color: var(--ink-soft); display: block; margin-top: 3px; }
+  .legend .note {
+    grid-column: 1 / -1; font-size: 13px; color: var(--ink-soft);
+    background: #fff7e6; border: 1px solid #f0dca8; border-radius: 8px; padding: 10px 12px;
+  }
+  .legend .note.flow {
+    background: #eef0fb; border-color: #c9c9dd;
+  }
+  .legend .note b { color: var(--accent); }
+
+  .variant { padding: 22px 24px 8px; }
+  .variant > h2 {
+    font-size: 18px; margin: 0 0 4px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .variant > h2 .tag {
+    background: var(--accent); color: #fff; border-radius: 6px;
+    font-size: 13px; padding: 2px 9px; font-weight: 700;
+  }
+  .variant > .desc { margin: 0 0 16px; color: var(--ink-soft); font-size: 14px; max-width: 860px; }
+
+  .frames {
+    display: flex; gap: 22px; align-items: flex-start;
+    overflow-x: auto; padding-bottom: 14px;
+  }
+  .frame { flex: none; }
+  .frame .cap {
+    font-size: 13px; font-weight: 600; margin: 0 0 7px;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .frame .cap span { color: var(--ink-soft); font-weight: 400; }
+  .frame iframe {
+    border: 1px solid var(--line); border-radius: 12px; background: #fff;
+    box-shadow: 0 6px 22px rgba(20,20,60,.10);
+    height: 760px;
+  }
+  .frame.phone  iframe { width: 375px; }
+  .frame.tablet iframe { width: 768px; }
+  .frame.pc     iframe { width: 1024px; }
+
+  .open-link { font-size: 13px; }
+  .open-link a { color: var(--accent); }
+
+  footer { padding: 20px 24px 40px; color: var(--ink-soft); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header class="gallery-head">
+  <h1>sign.html — Wizard de signature de bail à distance</h1>
+  <p>Mockup statique (zéro JS de logique). Une seule variante retenue : <b>B — barre d'action collée
+     en bas</b>. Le fichier couvre tout le parcours du locataire sur téléphone :
+     consentement → <b>lecture page par page avec paraphe</b> → <b>signature finale unique</b> →
+     confirmation → succès, plus les 4 états d'erreur (lien expiré · déjà signé · pas votre tour ·
+     échec réseau). Page tierce, mobile-first.</p>
+</header>
+
+<div class="legend">
+  <div class="v"><b>Barre d'action collée en bas</b><small>Le bouton primaire — et le pad de paraphe / signature — vivent dans une barre sticky en bas de l'écran, toujours à portée de pouce, comme une app native. Respecte l'encoche (safe-area).</small></div>
+  <div class="v"><b>Paraphe page par page</b><small>Chaque page « à parapher » affiche un <b>petit</b> pad de paraphe (= initiales « J.D. ») DANS la barre du bas + Effacer + « Page suivante » + indicateur « Page N / 3 ». Les pages annexes sont en « lecture seule ».</small></div>
+  <div class="v"><b>Signature finale distincte</b><small>Après la dernière page, un <b>seul</b> pad de signature (plus grand) tracé une fois. La signature complète est graphiquement <b>différente</b> du paraphe — jamais la même image.</small></div>
+  <div class="note flow">🧭 <b>Parcours :</b> Consentement (nom + 2 cases → « Lire et parapher ») → Page 1/3 <b>à parapher</b> → Page 2/3 <b>à parapher</b> → Page 3/3 <b>lecture seule</b> (annexe) → Signature finale (pad vide puis tracée) → Confirmation → Traitement → Succès → 4 erreurs.</div>
+  <div class="note">ℹ️ Tous les états sont empilés dans des <code>&lt;section&gt;</code> avec un bandeau « État : … ». Faites défiler chaque iframe pour parcourir tout le journey. Données factices en dur (BAIL-2026-0042 · Jean Dupont · locataire · Signataire 2/2 · bail 3 pages).</div>
+</div>
+
+<!-- ============ VARIANTE B (seule retenue) × 3 formats ============ -->
+<div class="variant">
+  <h2><span class="tag">B</span> Lecture page par page + barre d'action collée en bas <span class="open-link">— <a href="B.html" target="_blank">ouvrir en plein écran ↗</a></span></h2>
+  <p class="desc">Le bouton primaire (et le pad de paraphe à chaque page, puis le pad de signature finale) restent collés en bas, toujours à portée de pouce. Sensation d'app native sur mobile. Comparez le rendu aux 3 formats côte à côte.</p>
+  <div class="frames">
+    <div class="frame phone"><p class="cap">📱 Téléphone <span>375 px</span></p><iframe src="B.html" title="B téléphone" loading="lazy"></iframe></div>
+    <div class="frame tablet"><p class="cap">📲 Tablette <span>768 px</span></p><iframe src="B.html" title="B tablette" loading="lazy"></iframe></div>
+    <div class="frame pc"><p class="cap">🖥️ PC <span>1024 px</span></p><iframe src="B.html" title="B PC" loading="lazy"></iframe></div>
+  </div>
+</div>
+
+<footer>
+  Mockup-first · ImmoTrack · BAIL-SIGNATURE-DISTANCE — Task 0. Astuce : faites défiler chaque iframe pour voir tous les états empilés (paraphe page par page distinct de la signature finale).
+</footer>
+
+</body>
+</html>

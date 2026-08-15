@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Mockup — étape 1 « Consentement » + confirmation email (anti-transfert §5 #2)</title>
+<link rel="stylesheet" href="sign-mockup.css">
+<!--
+  AJOUT OPTION A — l'étape 1 « Consentement » de la variante B (déjà validée) gagne
+  un champ « Confirmez votre adresse email ». But légal : anti-transfert (§5 #2).
+  Le signataire confirme l'adresse à laquelle le bail lui a été envoyé. Le relais
+  compare le HASH (jamais l'email en clair) et, si match, horodate emailVerifiedAt
+  (autorité serveur). Le bouton « Lire et parapher » reste verrouillé tant que :
+  nom + email CONFIRMÉ + 2 cases cochées.
+
+  Interaction retenue (recommandée) : un petit bouton « Confirmer » À CÔTÉ du champ
+  email apparaît dès que la saisie ressemble à un email. Le résultat (✓ / ✗) s'affiche
+  EN LIGNE sous le champ — pas de pop-up. C'est explicite sur l'intention anti-transfert.
+
+  Mockup 100 % statique. Données factices : BAIL-2026-0042 · Jean Dupont · locataire · 2/2.
+  Seule l'ÉTAPE 1 est montrée (le reste du flux = B.html, inchangé).
+-->
+<style>
+  .screen-b { min-height: 90vh; display: flex; flex-direction: column; }
+  .screen-b .app { flex: 1; padding-bottom: 8px; }
+
+  /* --- Champ email + confirmation en ligne (ajout Option A) --------------- */
+  .field input[type="email"] {
+    width: 100%; min-height: var(--tap); font-size: 16px; font-family: inherit;
+    padding: 10px 12px; border: 1.5px solid var(--line);
+    border-radius: var(--radius); background: #fff; color: var(--ink);
+  }
+  .field input[type="email"]:focus {
+    outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .email-row { display: flex; gap: 8px; align-items: stretch; }
+  .email-row input { flex: 1; }
+  .email-row .btn { width: auto; flex: none; padding: 10px 16px; min-height: var(--tap); }
+
+  /* États du champ email */
+  .email-status { font-size: 12.5px; margin-top: 7px; display: flex; align-items: center; gap: 7px; }
+  .email-status .ico { flex: none; font-weight: 800; }
+  .email-status.ok   { color: var(--ok); }
+  .email-status.err  { color: var(--err); }
+  .email-status.busy { color: var(--ink-faint); }
+  .email-status .spin {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2.5px solid var(--line); border-top-color: var(--accent);
+    display: inline-block;
+  }
+  .field input.is-ok  { border-color: var(--ok);  box-shadow: 0 0 0 3px var(--ok-soft); }
+  .field input.is-err { border-color: var(--err); box-shadow: 0 0 0 3px var(--err-soft); }
+  .field input[readonly] { background: var(--ok-soft); color: var(--ink); }
+
+  .why { font-size: 12px; color: var(--ink-faint); margin: 4px 0 0; }
+</style>
+</head>
+<body>
+
+<!-- ============ ÉTAT 1a — vide (email non saisi, bouton « Confirmer » caché) ============ -->
+<section>
+  <div class="state-banner"><span class="dot"></span>Étape 1a — vide · rien de saisi</div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 2/2 · BAIL-2026-0042</div></div>
+      <h1>Signature de votre bail</h1>
+      <p class="lead">12 rue des Lilas, 69003 Lyon — vous signez en qualité de <b>locataire</b>.</p>
+
+      <div class="field">
+        <label for="nom1">Vos nom et prénom</label>
+        <input id="nom1" type="text" placeholder="Ex. Jean Dupont" autocomplete="name">
+        <div class="hint">Tels qu'ils figurent sur le bail.</div>
+      </div>
+
+      <div class="field">
+        <label for="em1">Confirmez votre adresse email</label>
+        <div class="email-row">
+          <input id="em1" type="email" placeholder="vous@exemple.fr" autocomplete="email">
+          <!-- « Confirmer » masqué tant que la saisie n'a pas l'air d'un email -->
+        </div>
+        <p class="why">🔒 L'adresse à laquelle ce bail vous a été envoyé. Permet de garantir que c'est bien vous qui signez (lien non transférable).</p>
+      </div>
+
+      <label class="check"><input type="checkbox"><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+      <label class="check"><input type="checkbox"><span class="ck-text">Je consens à signer par <b>procédé électronique</b> (art. 1366 C. civ.).</span></label>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 1 · Consentement<span class="spacer"></span>Inactif : nom + email confirmé + 2 cases</div>
+      <button class="btn btn-primary is-disabled" disabled>Lire et parapher</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÉTAT 1b — email saisi, pas encore confirmé (bouton « Confirmer » actif) ============ -->
+<section>
+  <div class="state-banner"><span class="dot"></span>Étape 1b — email saisi · à confirmer</div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 2/2 · BAIL-2026-0042</div></div>
+      <h1>Signature de votre bail</h1>
+      <p class="lead">12 rue des Lilas, 69003 Lyon — vous signez en qualité de <b>locataire</b>.</p>
+
+      <div class="field">
+        <label for="nom2">Vos nom et prénom</label>
+        <input id="nom2" type="text" value="Jean Dupont">
+      </div>
+
+      <div class="field">
+        <label for="em2">Confirmez votre adresse email</label>
+        <div class="email-row">
+          <input id="em2" type="email" value="jean@exemple.fr">
+          <button class="btn btn-ghost">Confirmer</button>
+        </div>
+        <p class="why">🔒 L'adresse à laquelle ce bail vous a été envoyé.</p>
+      </div>
+
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je consens à signer par <b>procédé électronique</b> (art. 1366 C. civ.).</span></label>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 1 · Consentement<span class="spacer"></span>Confirmez d'abord votre email</div>
+      <button class="btn btn-primary is-disabled" disabled>Lire et parapher</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÉTAT 1c — vérification en cours (spinner en ligne) ============ -->
+<section>
+  <div class="state-banner"><span class="dot"></span>Étape 1c — vérification en cours</div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 2/2 · BAIL-2026-0042</div></div>
+      <h1>Signature de votre bail</h1>
+      <p class="lead">12 rue des Lilas, 69003 Lyon — vous signez en qualité de <b>locataire</b>.</p>
+
+      <div class="field">
+        <label for="nom3">Vos nom et prénom</label>
+        <input id="nom3" type="text" value="Jean Dupont">
+      </div>
+
+      <div class="field">
+        <label for="em3">Confirmez votre adresse email</label>
+        <div class="email-row">
+          <input id="em3" type="email" value="jean@exemple.fr">
+          <button class="btn btn-ghost is-disabled" disabled><span class="spin"></span></button>
+        </div>
+        <div class="email-status busy"><span class="spin"></span> Vérification…</div>
+      </div>
+
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je consens à signer par <b>procédé électronique</b> (art. 1366 C. civ.).</span></label>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 1 · Consentement<span class="spacer"></span>Vérification de l'email…</div>
+      <button class="btn btn-primary is-disabled" disabled>Lire et parapher</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÉTAT 1d — email confirmé ✓ (champ verrouillé, bouton actif) ============ -->
+<section>
+  <div class="state-banner"><span class="dot"></span>Étape 1d — email confirmé · prêt à lire</div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 2/2 · BAIL-2026-0042</div></div>
+      <h1>Signature de votre bail</h1>
+      <p class="lead">12 rue des Lilas, 69003 Lyon — vous signez en qualité de <b>locataire</b>.</p>
+
+      <div class="field">
+        <label for="nom4">Vos nom et prénom</label>
+        <input id="nom4" type="text" value="Jean Dupont">
+      </div>
+
+      <div class="field">
+        <label for="em4">Confirmez votre adresse email</label>
+        <div class="email-row">
+          <input id="em4" type="email" class="is-ok" value="jean@exemple.fr" readonly>
+        </div>
+        <div class="email-status ok"><span class="ico">✓</span> Adresse confirmée — c'est bien vous.</div>
+      </div>
+
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je consens à signer par <b>procédé électronique</b> (art. 1366 C. civ.).</span></label>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 1 · Consentement<span class="spacer"></span>Prêt à lire et parapher</div>
+      <button class="btn btn-primary">Lire et parapher →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÉTAT 1e — email NE CORRESPOND PAS ✗ (anti-transfert) ============ -->
+<section>
+  <div class="state-banner"><span class="dot"></span>Étape 1e — email non concordant (anti-transfert)</div>
+  <div class="screen-b">
+    <main class="app">
+      <div class="brand"><div class="logo">IT</div><div class="name">ImmoTrack</div><div class="sub">Signataire 2/2 · BAIL-2026-0042</div></div>
+      <h1>Signature de votre bail</h1>
+      <p class="lead">12 rue des Lilas, 69003 Lyon — vous signez en qualité de <b>locataire</b>.</p>
+
+      <div class="field">
+        <label for="nom5">Vos nom et prénom</label>
+        <input id="nom5" type="text" value="Jean Dupont">
+      </div>
+
+      <div class="field">
+        <label for="em5">Confirmez votre adresse email</label>
+        <div class="email-row">
+          <input id="em5" type="email" class="is-err" value="pirate@autre.fr">
+          <button class="btn btn-ghost">Confirmer</button>
+        </div>
+        <div class="email-status err"><span class="ico">✗</span> Cette adresse ne correspond pas à celle à laquelle le bail a été envoyé. Vérifiez votre saisie, ou contactez l'expéditeur si le lien ne vous était pas destiné.</div>
+      </div>
+
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je reconnais signer ce bail en qualité de <b>locataire</b>.</span></label>
+      <label class="check is-checked"><input type="checkbox" checked><span class="ck-text">Je consens à signer par <b>procédé électronique</b> (art. 1366 C. civ.).</span></label>
+    </main>
+    <div class="sticky-bar">
+      <div class="ctx">Étape 1 · Consentement<span class="spacer"></span>Email non confirmé : action verrouillée</div>
+      <button class="btn btn-primary is-disabled" disabled>Lire et parapher</button>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+name = "bail-sign-relay"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+kv_namespaces = [
+  { binding = "SESSIONS_KV", id = "2aa3714428be4566a54d46d8ebe4740c" }
+]
+
+# Pas de R2 : les PDF sont stockés dans KV (voir src/storage.js). R2 exige une carte
+# bancaire à l'activation, qu'on refuse pour rester 100 % gratuit.
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+# URL publique du projet Supabase (pour récupérer la clé PUBLIQUE de vérif JWT via JWKS) — non secret.
+SUPABASE_URL = "https://xcbtashflclswyiyvfgn.supabase.co"
