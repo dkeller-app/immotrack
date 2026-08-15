@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createSession, loadSession, recordSignature, recordEmailVerified, recordReclaim } from './sessions.js';
+import { createSession, loadSession, recordSignature, recordEmailVerified, recordReclaim, recordOtpSent, recordOtpVerified, recordOtpAttempt } from './sessions.js';
 import { emailHash, randomHex, timingSafeEqualStr } from './crypto-utils.js';
 import { createToken, verifyToken } from './tokens.js';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { generateCode, hashCode, verifyCode, otpUsable, OTP_TTL_MS } from './otp.js';
+import { makeSender } from './email-sender.js';
 import { SESSION_TTL_SECONDS, getOriginalPdf, getSignedPdf, getPiece, candidatureTtl, deleteSession } from './storage.js';
 import { validatePdfUpload, validateSigners, validatePieceUpload, validateDossier, validateDossierComplete, validateCandidatureMeta } from './validate.js';
 import { renderSignPage, renderErrorPage } from './sign-page.js';
@@ -184,8 +186,36 @@ app.post('/api/sessions/:id/verify-email', async (c) => {
   const match = timingSafeEqualStr(await emailHash(email), signer.emailHash);
   if (!match) return c.json({ ok: false });
 
+  // emailVerifiedAt = email CONNU (preuve existante, conservée). L'OTP ci-dessous prouve en plus
+  // que le signataire CONTRÔLE la boîte (otpVerifiedAt, posé à verify-otp).
   await recordEmailVerified(c.env, sessionId);
-  return c.json({ ok: true });
+  // Match OK → génère + envoie un code OTP (email fourni par le signataire, jamais persisté en clair).
+  const code = generateCode();
+  const h = await hashCode(sessionId, code);
+  await recordOtpSent(c.env, sessionId, h, Date.now() + OTP_TTL_MS);
+  const sent = await makeSender(c.env).send({ to: email, code, bailRef: guard.session.bailRef });
+  // Audit point 7 : en mode resend, un échec d'envoi (ni sent ni devCode) doit remonter une erreur
+  // explicite — sinon le signataire attend un code jamais reçu, sans recours.
+  if (!sent.sent && !sent.devCode) return c.json({ ok: true, otpSent: false, error: 'send-failed' }, 502);
+  return c.json({ ok: true, otpSent: true, ...(sent.devCode ? { devCode: sent.devCode } : {}) });
+});
+
+// Vérifie le code OTP saisi par le signataire (TTL + max tentatives via otpUsable ; comparaison
+// constant-time). Succès → otpVerifiedAt (autorité serveur) + emailVerifiedAt. Échec → attempts++.
+app.post('/api/sessions/:id/verify-otp', async (c) => {
+  const sessionId = c.req.param('id');
+  const guard = await requireSigner(c, sessionId);
+  if (guard.error) return guard.error;
+
+  let body;
+  try { body = await c.req.json(); } catch { return c.json({ error: 'bad json' }, 400); }
+  const input = body && typeof body.code === 'string' ? body.code : '';
+  const signer = guard.session.signers[guard.session.currentIndex];
+  if (!otpUsable(signer.otp, Date.now())) return c.json({ verified: false, reason: 'expired-or-locked' }, 400);
+  const ok = await verifyCode(sessionId, input, signer.otp.hash);
+  if (!ok) { await recordOtpAttempt(c.env, sessionId); return c.json({ verified: false }); }
+  await recordOtpVerified(c.env, sessionId);
+  return c.json({ verified: true });
 });
 
 async function requireOwner(c, sessionId) {
@@ -204,6 +234,14 @@ app.post('/api/sessions/:id/signed', async (c) => {
   const sessionId = c.req.param('id');
   const guard = await requireSigner(c, sessionId);
   if (guard.error) return guard.error;
+
+  // OTP obligatoire (gardé serveur, staged comme EMAIL_MODE). Quand OTP_REQUIRED=true, l'identité
+  // (contrôle de la boîte email) DOIT être vérifiée avant la signature — l'UI seule ne suffit pas (un
+  // appel direct à l'API la contournerait). Audit point 9 : à activer AVEC EMAIL_MODE=resend + domaine.
+  if (c.env.OTP_REQUIRED === 'true') {
+    const _signer = guard.session.signers[guard.session.currentIndex];
+    if (!_signer || !_signer.otpVerifiedAt) return c.json({ error: 'otp-required' }, 403);
+  }
 
   const contentType = c.req.header('content-type') || '';
   const bytes = new Uint8Array(await c.req.arrayBuffer());
@@ -246,6 +284,8 @@ app.get('/api/sessions/:id', async (c) => {
     signers: s.signers.map((sg) => ({
       role: sg.role, ordre: sg.ordre, statut: sg.statut,
       emailVerifiedAt: sg.emailVerifiedAt || null,
+      otpVerifiedAt: sg.otpVerifiedAt || null,   // OTP : email CONTRÔLÉ (code saisi) → certificat app
+      otpChannel: sg.otpChannel || null,
       // Dossier de preuve complet exposé au propriétaire (§5 #1/#3/#6/#8).
       proof: sg.proof ? {
         signedAt: sg.proof.signedAt,

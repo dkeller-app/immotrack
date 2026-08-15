@@ -17,3 +17,14 @@ binding = "ASSETS"
 [vars]
 # URL publique du projet Supabase (pour récupérer la clé PUBLIQUE de vérif JWT via JWKS) — non secret.
 SUPABASE_URL = "https://xcbtashflclswyiyvfgn.supabase.co"
+# OTP email (vérification identité signataire).
+#   EMAIL_MODE = "dev"    → aucun envoi, le code est retourné/loggé (état par défaut tant qu'il n'y
+#                           a pas de domaine vérifié). Tout le flux est testable ainsi.
+#   EMAIL_MODE = "resend" → envoi réel via Resend. Bascule = changer cette var + redeploy.
+#   EMAIL_FROM  : expéditeur. Dev/test → "onboarding@resend.dev" ; prod → "code@propryo.fr".
+#   RESEND_API_KEY : SECRET, jamais ici → `npx wrangler secret put RESEND_API_KEY`.
+EMAIL_MODE = "dev"
+EMAIL_FROM = "onboarding@resend.dev"
+# OTP_REQUIRED = "true" → /signed refuse une signature sans OTP vérifié (garde serveur, audit point 9).
+# Défaut "false" pendant le staging ; flip à "true" à l'activation, AVEC EMAIL_MODE=resend + domaine.
+OTP_REQUIRED = "false"
