@@ -1241,8 +1241,8 @@ a{color:var(--blu);text-decoration:none}
    d'onglets de fiche devient une GRILLE 2×2 au lieu d'une barre qui défile : 4 onglets, tous
    visibles, aucun geste caché. Zéro scroll horizontal à 390 px. */
 @media (max-width: 560px){
-  .logf-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:2px;overflow-x:visible}
-  .logf-subtab{
+  .logf-subtabs[role="tablist"]{display:grid;grid-template-columns:1fr 1fr;gap:2px;overflow-x:visible}
+  .logf-subtabs[role="tablist"] .logf-subtab{
     white-space:normal;justify-content:center;text-align:center;padding:10px 8px;
     font-size:12px;line-height:1.25;min-width:0;
   }
@@ -1260,7 +1260,7 @@ a{color:var(--blu);text-decoration:none}
 .fiche-pastilles{display:flex;gap:6px;margin:0 0 4px}
 .fiche-pastille{
   flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px;
-  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rs, 6px);
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);
   padding:7px 10px;height:34px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--t2);
   font-family:'IBM Plex Sans',sans-serif;transition:color var(--t-fast),border-color var(--t-fast);
 }
@@ -1277,7 +1277,7 @@ a{color:var(--blu);text-decoration:none}
   .fiche-pastilles{display:grid;grid-template-columns:1fr 1fr}
 }
 /* Toggle Liste ⇄ Frise de l'onglet Logements (non mémorisé — geste ponctuel). */
-.immf-vue-toggle{display:inline-flex;border:1px solid var(--bor);border-radius:var(--rs, 6px);overflow:hidden}
+.immf-vue-toggle{display:inline-flex;border:1px solid var(--bor);border-radius:var(--r);overflow:hidden}
 .immf-vue-btn{
   background:var(--sur);border:none;padding:5px 14px;font-size:12.5px;font-weight:600;
   color:var(--t2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;

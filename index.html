@@ -33583,9 +33583,7 @@ function rEntFiche() {
         <div class="entf-donut-cap">Occupation</div>
       </div>
     </div>
-    ${/* BIENS étape 10 — l'entête absorbe le complément d'identité (IBAN/BIC, e-mail d'envoi,
-         signature, logo, co-gérants) et les DOCUMENTS JURIDIQUES (ex-onglet). Une ligne de 34 px
-         au lieu de panneaux dépliés : les bulles Immeubles restent visibles sans scroller. */''}
+    ${/* BIENS étape 10 — l'entête absorbe le complément d'identité (IBAN/BIC, e-mail d'envoi, signature, logo, co-gérants) et les DOCUMENTS JURIDIQUES (ex-onglet). Une ligne de 34 px au lieu de panneaux dépliés : les bulles Immeubles restent visibles sans scroller. */''}
     ${_renderFichePastilles('ent:' + (+ent.id), [
       { id: 'identite', label: 'Coordonnées & identité juridique', html: _renderEntIdentitePastille(ent) },
       { id: 'docs', label: 'Documents', count: _attCount('entite', ent.id, 'documents'),
@@ -33601,18 +33599,14 @@ function rEntFiche() {
     ${`
         <div class="flex-b" style="margin:14px 0 10px">
           <span class="mu sm">${nbImms} immeuble${nbImms>1?'s':''} pour ce bailleur</span>
-          ${/* BIENS (P1-13, retours user 11/08 : « pourquoi 2 boutons : Ajouter un bien et
-               + Immeuble ? bien = logement ou immeuble ? ») — « + Immeuble » retiré d'ici : le fil
-               rouge est déjà la porte unique et démarre à la bonne étape (＋ Ajouter un bien, dans
-               l'entête). addImmForm reste appelé depuis l'ÉTAT VIDE ci-dessous, seul endroit où la
-               création directe a du sens. */''}
+          ${/* BIENS (P1-13, retours user 11/08 : « pourquoi 2 boutons : Ajouter un bien et + Immeuble ? bien = logement ou immeuble ? ») — « + Immeuble » retiré d'ici : le fil rouge est déjà la porte unique et démarre à la bonne étape (＋ Ajouter un bien, dans l'entête). addImmForm reste appelé depuis l'ÉTAT VIDE ci-dessous, seul endroit où la création directe a du sens. */''}
         </div>
         ${nbImms
           ? _renderEntFicheImmeubles(ent)
           : `<div class="biens-empty">
               <div class="biens-empty-icon">🏢</div>
               <div class="biens-empty-title">Ce bailleur n'a pas encore d'immeuble</div>
-              <div class="biens-empty-msg">Cliquez « + Immeuble » ci-dessus pour en ajouter un.</div>
+              <div class="biens-empty-msg">Ajoutez le premier immeuble pour commencer le suivi.</div>
               <button class="btn bp" onclick="addImmForm(${+ent.id})">+ Ajouter un immeuble</button>
             </div>`
         }
@@ -34766,6 +34760,9 @@ function setLogFicheTab(t) {
       const _i = (_e && Array.isArray(_e.immeubles) && _l.imm) ? _e.immeubles.find(x => x && x.nom === _l.imm && !x._deleted) : null;
       if (_i && typeof openImmFiche === 'function') {
         _currentImmFicheTab = 'charges';
+        // audit (mineur) : arriver sur les relevés d'un AUTRE logement que celui qu'on quittait
+        // n'aurait aucun sens — on présélectionne celui d'origine dans le sélecteur.
+        if (_r && typeof _setImmCompteursRef === 'function') _immCompteursRef = _r;
         openImmFiche(_e.id, _i.id);
         return;
       }
@@ -38425,10 +38422,17 @@ function _renderAttachmentSection(opts) {
     accept = 'application/pdf,image/*,.doc,.docx,.xls,.xlsx'
   } = opts || {};
   if (!parentType || parentId == null) return '';
+  // BIENS (audit I1) — `category` était déstructuré, transmis à l'uploader… et JAMAIS appliqué au
+  // filtre : toutes les catégories du parent étaient listées. Sans conséquence tant qu'un parent
+  // n'avait qu'une catégorie ; l'étape 9 est le premier appel avec `category:'photos'` À CÔTÉ d'un
+  // appel `category:'documents'` sur le même immeuble → la pastille Photos listait les PDF
+  // juridiques, la pastille Documents listait les photos, et les compteurs (qui, eux, filtrent)
+  // contredisaient les listes.
   const docs = (DB.documents || []).filter(d =>
     d && !d._deleted &&
     d.parentType === parentType &&
-    d.parentId === parentId
+    d.parentId === parentId &&
+    (!category || d.category === category)
   ).sort((a, b) => (b.uploadedAt || '').localeCompare(a.uploadedAt || ''));
   const uploaderId = `att-up-${parentType}-${parentId}`;
   const listHtml = docs.length
@@ -39890,8 +39894,7 @@ function rLogFiche() {
           ${badgeBailleur}
           ${log.type?`<span class="logf-badge b-mute">${escHtml(log.type)}</span>`:''}
           ${log.surf?`<span class="logf-badge b-mute">${fmtN(log.surf)} m²</span>`:''}
-          ${/* BIENS étape 8 — l'ex-onglet « Général » est absorbé ici : aucun panneau d'entête,
-               les caractéristiques du bien deviennent des badges (mockup s3-logement). */''}
+          ${/* BIENS étape 8 — l'ex-onglet « Général » est absorbé ici : aucun panneau d'entête, les caractéristiques du bien deviennent des badges (mockup s3-logement). */''}
           ${(log.etage||log.numApt)?`<span class="logf-badge b-mute">${[log.etage, log.numApt?('appt '+log.numApt):''].filter(Boolean).map(escHtml).join(' · ')}</span>`:''}
           ${(()=>{ const _di=(typeof _diagGet==='function')?_diagGet(log,'dpe'):null; const _dc=_di?(_di.classe||''):((log.dpe&&typeof log.dpe==='object')?(log.dpe.classe||''):(typeof log.dpe==='string'?log.dpe:'')); return _dc?`<span class="logf-badge b-mute">DPE ${escHtml(_dc)}</span>`:''; })()}
           ${log.tantiemes?`<span class="logf-badge b-mute" title="Tantièmes de copropriété">${escHtml(String(log.tantiemes))} / 1000</span>`:''}
@@ -39900,9 +39903,7 @@ function rLogFiche() {
         ${_renderLogFicheHeroPulse(ref)}
         ${_renderLogFicheHeroStats(log, ref)}
         <div class="logf-actions">
-          ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne
-               contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge,
-               qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
+          ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge, qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
           <button class="btn bs" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>
           ${(!isArchived && !_bienActiveBail(ref)) ? `
             <!-- BIENS (P1-9, décision 7 du 11/08) — les 2 boutons Annonce et l'onglet Présentation
@@ -40344,8 +40345,7 @@ function rImmFiche() {
           <button class="btn bp" onclick="_frStartCtx('log', ${+ent.id}, '${escHtml(_frAttr(im.nom))}')">＋ Ajouter un bien</button>
           <!-- v14.34 fix : appel à editImm(idx, entId) au lieu d'openNewEnt qui ouvrait la modale bailleur -->
           ${immIdx >= 0 ? `<button class="btn bs" onclick="editImm(${immIdx},${+ent.id})">✏ Modifier l'immeuble</button>` : ''}
-          ${/* BIENS (P1-13, retour user 11/08) — « 🏛 Voir le bailleur » RETIRÉ : doublon strict du
-               bouton retour, qui affiche déjà « ← nom du bailleur ». */''}
+          ${/* BIENS (P1-13, retour user 11/08) — « 🏛 Voir le bailleur » RETIRÉ : doublon strict du bouton retour, qui affiche déjà « ← nom du bailleur ». */''}
         </div>
       </div>
       <div class="entf-donut-compact">
@@ -40353,9 +40353,7 @@ function rImmFiche() {
         <div class="entf-donut-cap">Occupation</div>
       </div>
     </div>
-    ${/* BIENS étape 9 — l'entête absorbe le bâti, les photos et les DOCUMENTS COMMUNS (ex-onglet),
-         l'assurance MRO/PNO comprise. DRY : _renderAttachmentSection est déjà paramétré par
-         parentType/parentId et se rafraîchit en place — seul son point d'accrochage change. */''}
+    ${/* BIENS étape 9 — l'entête absorbe le bâti, les photos et les DOCUMENTS COMMUNS (ex-onglet), l'assurance MRO/PNO comprise. DRY : _renderAttachmentSection est déjà paramétré par parentType/parentId et se rafraîchit en place — seul son point d'accrochage change. */''}
     ${_renderFichePastilles('imm:' + immId, [
       { id: 'bati', label: 'Bâti & parties communes', html: _renderImmBatiPastille(ent, im) },
       { id: 'photos', label: 'Photos', count: _attCount('immeuble', im.id, 'photos'),
@@ -40377,12 +40375,8 @@ function rImmFiche() {
             ? `
               <div class="flex-b" style="margin:14px 0 10px;gap:10px;flex-wrap:wrap">
                 <span class="mu sm">${nbLogs} logement${nbLogs>1?'s':''} dans cet immeuble</span>
-                ${/* BIENS (P1-13) — « + Logement » retiré ici : le fil rouge est déjà la porte unique
-                     et démarre à la bonne étape (＋ Ajouter un bien, dans l'entête). Le bouton reste
-                     dans l'ÉTAT VIDE ci-dessous, seul endroit où la création directe a du sens. */''}
-                ${/* BIENS étape 9 (P1-11) — toggle Liste ⇄ Frise. DRY : la vue Frise APPELLE
-                     _renderImmFichePlanGantt, le rendu du plan d'occupation existant (fonction
-                     autonome : ent, im, activeLogs) — seul l'appelant change, rien n'est réécrit. */''}
+                ${/* BIENS (P1-13) — « + Logement » retiré ici : le fil rouge est déjà la porte unique et démarre à la bonne étape (＋ Ajouter un bien, dans l'entête). Le bouton reste dans l'ÉTAT VIDE ci-dessous, seul endroit où la création directe a du sens. */''}
+                ${/* BIENS étape 9 (P1-11) — toggle Liste ⇄ Frise. DRY : la vue Frise APPELLE _renderImmFichePlanGantt, le rendu du plan d'occupation existant (fonction autonome : ent, im, activeLogs) — seul l'appelant change, rien n'est réécrit. */''}
                 <div class="immf-vue-toggle" role="group" aria-label="Affichage des logements">
                   <button type="button" class="immf-vue-btn${!_immVueFrise?' act':''}" aria-pressed="${!_immVueFrise}" onclick="_setImmVue(false)">Liste</button>
                   <button type="button" class="immf-vue-btn${_immVueFrise?' act':''}" aria-pressed="${_immVueFrise}" onclick="_setImmVue(true)">Frise</button>
@@ -44058,6 +44052,23 @@ function _logpRenderCustoms(group) {
     + `</span>`
   ).join('');
 }
+// ─── BIENS (audit C2 / I5) — shadow inline de js/core/preserve-fields.js ───
+// GARDER IDENTIQUE au module. __tests__/helpers/preserve-fields.test.js vérifie la non-divergence.
+// Les modales qui RECONSTRUISENT leur objet depuis le formulaire (saveImm, saveEnt) effaçaient
+// sans tombstone tout champ sans input : compteursCollectifs (= toutes les charges communes de
+// l'immeuble), contenance, surfaceTotale, capital, tombstones, tag multi-espace _espaceId.
+function _preserverChampsExistants(reconstruit, existant) {
+  if (!reconstruit || typeof reconstruit !== 'object') return reconstruit;
+  if (!existant || typeof existant !== 'object') return reconstruit;
+  var BAD = ['__proto__', 'constructor', 'prototype'];
+  Object.keys(existant).forEach(function (k) {
+    if (BAD.indexOf(k) >= 0) return;
+    if (Object.prototype.hasOwnProperty.call(reconstruit, k)) return;
+    reconstruit[k] = existant[k];
+  });
+  return reconstruit;
+}
+
 // ─── P0-1 (chantier BIENS) — shadow inline de js/core/logp-partial.js ───
 // GARDER IDENTIQUE au module (file:// ne charge pas les ES modules ; main.js réécrit les
 // mêmes fonctions sur window après coup). __tests__/helpers/logp-partial.test.js vérifie la
@@ -45049,9 +45060,17 @@ function saveImm() {
     syndic,                                                       // v15.230 (peut être null)
     driveFolderId: existingIm?.driveFolderId || null
   };
-  // MULTI-ESPACE : préserver le tag de provenance `_espaceId` (posé à l'hydrate) — sinon l'objet reconstruit
-  // route vers l'espace PROPRE au flush → un immeuble d'une SCI partagée partirait dans le mauvais espace.
-  if (existingIm && existingIm._espaceId != null) im._espaceId = existingIm._espaceId;
+  // BIENS (audit C2) — AUCUN CHAMP LAISSÉ DERRIÈRE. Cet objet est RECONSTRUIT de zéro depuis le
+  // formulaire puis remplace l'ancien (`ent.immeubles[idx] = im`) : tout champ sans input y
+  // disparaissait SANS TOMBSTONE ET SANS UNDO. Le pire : `compteursCollectifs`, SEUL stockage des
+  // compteurs collectifs, de leurs relevés et de leurs factures — ouvrir « Modifier l'immeuble » et
+  // enregistrer effaçait TOUTES les charges communes de l'immeuble. Aussi : contenance,
+  // surfaceTotale, les tombstones (_deleted*) et le tag multi-espace _espaceId (un immeuble de SCI
+  // partagée serait reparti dans le mauvais espace au flush).
+  // Correctif GÉNÉRIQUE volontairement : énumérer les champs à sauver laisse repasser le bug au
+  // prochain champ ajouté ailleurs — c'est précisément ce qui s'est produit ici, `_espaceId` étant
+  // protégé nommément et ses voisins non.
+  _preserverChampsExistants(im, existingIm);
   let _immRenameTouched = 0;
   if(idx !== '') {
     // v14.97 AUDIT-TRAIL (audit complétude)
@@ -45850,6 +45869,11 @@ function saveEnt() {
     // DRIVE-ARBORESCENCE : préserver l'id du dossier Drive de l'entité
     driveFolderId: existing?.driveFolderId||null
   };
+  // BIENS (audit I5) — même motif que saveImm : l'objet est RECONSTRUIT depuis le formulaire, donc
+  // tout champ sans input disparaissait. Ici `capital` (saisi ailleurs) et surtout `_espaceId`, le
+  // tag de provenance multi-espace posé à l'hydrate : sans lui, un bailleur d'un espace PARTAGÉ
+  // repartait vers l'espace propre au flush.
+  _preserverChampsExistants(ent, existing);
   if(!ent.nom){showToast('Nom requis','err');return;}
   _stamp(ent); // v13.18
   // v14.89 AUDIT-TRAIL : entité bailleur (RGPD si personne physique : nom, IBAN, gérant)
