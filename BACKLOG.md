@@ -15,11 +15,12 @@ Blindage connexion + partage AVANT tout · CDC + mockup 3 formats + validation u
 | — | Signature (finition + smoke-fixes) | ✅ **EN PROD v15.505** | ton re-smoke compte frais |
 | — | Fil rouge légal | ✅ **EN PROD v15.503/504** | ton smoke |
 | — | Source worker relais | ✅ **FUSIONNÉE dans main 14/08** (`6cdd609`, 58 fichiers `relay/` — tournait en prod sans être versionnée) | rien |
+| — | OTP email signature | ✅ **FUSIONNÉE dans main 14/08** (`88f63af`, 6 commits TDD + audit sécu) — **INERTE** : `EMAIL_MODE=dev`, `OTP_REQUIRED=false`, worker déployé inchangé (pas de redeploy). Conflits résolus en UNION à la main : §6 reclaim et OTP coexistent. Gates worker 202/202 + app 2378/2378 | activation = domaine propryo.fr + Resend + flip des 2 vars + redeploy (hors V1) |
 | 1 | **Biens simplifiés** | 🔨 en construction (session mockups, worktree `Immo-wt-biens` depuis v15.505) | son rapport → j'intègre → smoke 3 formats |
 | 2 | **Mouvements + règles** | 📋 CDC en revue avec toi | CDC → chantier code après Biens |
 | 3 | **Finances** | ✅ CDC figé `docs/CDC-FINANCES.md` | chantier code après Mouvements |
 
-**Certifié 14/08** : main = v15.505, suite **2378/2378**, inline 5/0, **1 seul worktree** (`Desktop\Immo`), 0 branche en attente d'intégration.
+**Certifié 14/08 (fin de journée)** : main = v15.505 (`88f63af`), app **2378/2378**, worker **202/202**, inline 5/0, **1 seul worktree**, **2 branches au total** (main + backup pilotage) — tout le reste archivé en tags. Aucun travail hors ligne principale.
 
 ## 🔄 En cours
 
