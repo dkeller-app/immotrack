@@ -47,15 +47,24 @@ describe('mrhEcheances', () => {
   })
 })
 
-describe('pnoEcheances — portées logement et immeuble', () => {
+// BIENS étape 9 (décision 1 du 11/08) — l'assurance MRO/PNO de l'IMMEUBLE n'a plus de rappel
+// d'échéance : elle se renouvelle automatiquement, et elle redevient un simple document de
+// l'entête de la fiche immeuble. Seule la portée LOGEMENT (PNO / GLI d'un lot) garde son alerte.
+describe('pnoEcheances — portée logement uniquement', () => {
   const logements = [{ ref: 'A', entity: 'SCI X', imm: 'Ferrette' }]
-  it('portée immeuble : label = immeuble, scope via les logements de l entité', () => {
+  it('portée immeuble : PLUS d aucune alerte, même expirée (donnée dormante, pas supprimée)', () => {
     const out = pnoEcheances([{ portee: 'immeuble', immeuble: 'Ferrette', echeance: '2026-06-30', compagnie: 'Groupama' }], logements, 'SCI X', TODAY)
-    expect(out[0]).toMatchObject({ label: 'Ferrette', expiree: true, compagnie: 'Groupama' })
-  })
-  it('portée immeuble hors entité active → exclue', () => {
-    const out = pnoEcheances([{ portee: 'immeuble', immeuble: 'Autre', echeance: '2026-06-30' }], logements, 'SCI X', TODAY)
     expect(out).toEqual([])
+  })
+  it('portée immeuble sans filtre entité : exclue aussi', () => {
+    expect(pnoEcheances([{ portee: 'immeuble', immeuble: 'Autre', echeance: '2026-06-30' }], logements, '', TODAY)).toEqual([])
+  })
+  it('portée LOGEMENT : l alerte reste entière (PNO / GLI d un lot)', () => {
+    const out = pnoEcheances([{ logement: 'A', echeance: '2026-06-30', compagnie: 'Groupama' }], logements, 'SCI X', TODAY)
+    expect(out[0]).toMatchObject({ label: 'A', expiree: true, compagnie: 'Groupama' })
+  })
+  it('portée logement hors entité active → exclue', () => {
+    expect(pnoEcheances([{ logement: 'Z', echeance: '2026-06-30' }], logements, 'SCI X', TODAY)).toEqual([])
   })
 })
 

@@ -82,17 +82,17 @@
     const out = []
     ;(assurances || []).filter(alive).forEach(a => {
       if (!a.echeance) return
-      let label
-      if (a.portee === 'immeuble') {
-        if (activeEnt && !(logements || []).some(l => alive(l) && l.entity === activeEnt && l.imm === a.immeuble)) return
-        label = a.immeuble || '?'
-      } else {
-        if (activeEnt) {
-          const log = (logements || []).find(l => alive(l) && l.ref === a.logement)
-          if (!log || log.entity !== activeEnt) return
-        }
-        label = a.logement
+      // BIENS étape 9 (décision 1 du 11/08) — plus d'alerte pour la portée IMMEUBLE : la MRO/PNO de
+      // l'immeuble se renouvelle AUTOMATIQUEMENT, le rappel n'a de sens que pour l'assurance
+      // habitation du LOCATAIRE (mrhEcheances, DB.mrh — non concernée). Ces assurances deviennent
+      // DORMANTES : rien n'est supprimé en base, elles n'ont plus ni écran ni alerte. La branche
+      // portée LOGEMENT (PNO / GLI d'un lot) reste entière — elle, reste utile.
+      if (a.portee === 'immeuble') return
+      if (activeEnt) {
+        const log = (logements || []).find(l => alive(l) && l.ref === a.logement)
+        if (!log || log.entity !== activeEnt) return
       }
+      const label = a.logement
       const jours = joursEntre(a.echeance, today)
       if (jours == null) return
       if (jours < 0) out.push({ label, compagnie: a.compagnie || '', echeance: a.echeance, jours, expiree: true })

@@ -1248,6 +1248,36 @@ a{color:var(--blu);text-decoration:none}
   background:var(--sur2);color:var(--t3);font-size:9.5px;font-weight:700;
   padding:1px 6px;border-radius:8px;letter-spacing:.4px;text-transform:uppercase;
 }
+/* BIENS étapes 9 et 10 — PASTILLES D'ENTÊTE (fiches bailleur et immeuble).
+   Rangée FIGÉE : `flex:1 1 0` + `min-width:0` → une pastille ne change ni de largeur ni de
+   place quand on l'ouvre. UNE SEULE montre son contenu, sous la rangée ENTIÈRE. Identique en
+   PC / tablette / téléphone (la rangée passe en grille 2 colonnes sous 560 px, sans scroll). */
+.fiche-pastilles{display:flex;gap:6px;margin:0 0 4px}
+.fiche-pastille{
+  flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px;
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rs, 6px);
+  padding:7px 10px;height:34px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--t2);
+  font-family:'IBM Plex Sans',sans-serif;transition:color var(--t-fast),border-color var(--t-fast);
+}
+.fiche-pastille:hover{color:var(--t1)}
+.fiche-pastille.act{color:var(--acc);border-color:var(--acc)}
+.fiche-pastille-lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:left}
+.fiche-pastille-n{background:var(--sur2);color:var(--t3);border-radius:8px;padding:0 6px;font-size:11px;flex:0 0 auto}
+.fiche-pastille-cx{flex:0 0 auto;font-size:11px;color:var(--t3)}
+.fiche-pastille-body{
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  padding:14px 16px;margin:0 0 14px;
+}
+@media (max-width: 560px){
+  .fiche-pastilles{display:grid;grid-template-columns:1fr 1fr}
+}
+/* Toggle Liste ⇄ Frise de l'onglet Logements (non mémorisé — geste ponctuel). */
+.immf-vue-toggle{display:inline-flex;border:1px solid var(--bor);border-radius:var(--rs, 6px);overflow:hidden}
+.immf-vue-btn{
+  background:var(--sur);border:none;padding:5px 14px;font-size:12.5px;font-weight:600;
+  color:var(--t2);cursor:pointer;font-family:'IBM Plex Sans',sans-serif;
+}
+.immf-vue-btn.act{background:var(--acc);color:#fff}
 .logf-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .logf-panel{
   background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
