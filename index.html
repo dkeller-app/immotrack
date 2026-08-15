@@ -33502,7 +33502,13 @@ function closeEntFiche() {
 let _currentEntFicheTab = 'immeubles';
 let _entFicheComptaYear = new Date().getFullYear();
 function setEntFicheTab(t) {
-  if(['immeubles','compta','documents'].indexOf(t) < 0) return;
+  // BIENS étape 10 — 3 onglets (+2 grisés) → 1. REDIRECTIONS de compat plutôt qu'un retrait sec :
+  //   'documents' → l'onglet est devenu la pastille « Documents » de l'entête (on la déplie) ;
+  //   'compta'    → la comptabilité globale du bailleur est SUPPRIMÉE (décision 2 du 11/08 : le
+  //                 P&L de Finances suffit) — on retombe sur l'unique onglet.
+  if(t === 'documents') { _fichePastilles['ent:' + (+_currentEntFiche || '')] = 'docs'; t = 'immeubles'; }
+  if(t === 'compta') t = 'immeubles';
+  if(t !== 'immeubles') return;
   _currentEntFicheTab = t;
   rEntFiche();
 }
@@ -33577,23 +33583,29 @@ function rEntFiche() {
         <div class="entf-donut-cap">Occupation</div>
       </div>
     </div>
+    ${/* BIENS étape 10 — l'entête absorbe le complément d'identité (IBAN/BIC, e-mail d'envoi,
+         signature, logo, co-gérants) et les DOCUMENTS JURIDIQUES (ex-onglet). Une ligne de 34 px
+         au lieu de panneaux dépliés : les bulles Immeubles restent visibles sans scroller. */''}
+    ${_renderFichePastilles('ent:' + (+ent.id), [
+      { id: 'identite', label: 'Coordonnées & identité juridique', html: _renderEntIdentitePastille(ent) },
+      { id: 'docs', label: 'Documents', count: _attCount('entite', ent.id, 'documents'),
+        html: _renderAttachmentSection({parentType:'entite', parentId:ent.id, parentRef:ent.nom, category:'documents', title:'📁 Documents juridiques', emptyText:'Aucun document. Ajoutez K-bis, statuts SCI, RIB, mandats, attestations…'}) }
+    ], 'rEntFiche')}
     <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche bailleur">
-      <button class="logf-subtab${_currentEntFicheTab==='immeubles'?' act':''}" role="tab" aria-selected="${_currentEntFicheTab==='immeubles'}" onclick="setEntFicheTab('immeubles')">🏢 Immeubles (${nbImms})</button>
-      <button class="logf-subtab${_currentEntFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentEntFicheTab==='documents'}" onclick="setEntFicheTab('documents')" title="Statuts, K-bis, RIB, mandats, attestations">📁 Documents juridiques</button>
-      <button class="logf-subtab${_currentEntFicheTab==='compta'?' act':''}" role="tab" aria-selected="${_currentEntFicheTab==='compta'}" onclick="setEntFicheTab('compta')">💰 Comptabilité globale</button>
-      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — partage / mandats inter-associés (lien ASSO-PARTAGE)">👥 Associés <span class="soon">À venir</span></button>
-      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — comparaison rendement par immeuble">📊 Performance <span class="soon">À venir</span></button>
+      <!-- BIENS étape 10 — UN SEUL onglet. Les documents juridiques remontent en entête ; la
+           comptabilité globale du bailleur est supprimée (décision 2 du 11/08 : le P&L de Finances
+           suffit) ; les 2 onglets grisés « À venir » partent (P1-12) — sur une fiche qui n'a plus
+           qu'un onglet actif, deux fantômes faisaient plus de bruit que de promesse. -->
+      <button class="logf-subtab act" role="tab" aria-selected="true" onclick="setEntFicheTab('immeubles')">🏢 Immeubles (${nbImms})</button>
     </div>
-    ${_currentEntFicheTab === 'compta'
-      ? _renderEntFichePanelComptaGlobale(ent, activeLogs)
-      : _currentEntFicheTab === 'documents'
-      ? _renderAttachmentSection({parentType:'entite', parentId:ent.id, parentRef:ent.nom, category:'documents', title:'📁 Documents juridiques', emptyText:'Aucun document. Ajoutez K-bis, statuts SCI, RIB, mandats, attestations…'})
-      : `
-        <!-- v14.27 — bouton + Immeuble accessible depuis la fiche bailleur (la modale entité ne contient
-             plus de section Immeubles, principe « 1 création = 1 bulle »). -->
+    ${`
         <div class="flex-b" style="margin:14px 0 10px">
           <span class="mu sm">${nbImms} immeuble${nbImms>1?'s':''} pour ce bailleur</span>
-          <button class="btn bp bb" onclick="addImmForm(${+ent.id})">+ Immeuble</button>
+          ${/* BIENS (P1-13, retours user 11/08 : « pourquoi 2 boutons : Ajouter un bien et
+               + Immeuble ? bien = logement ou immeuble ? ») — « + Immeuble » retiré d'ici : le fil
+               rouge est déjà la porte unique et démarre à la bonne étape (＋ Ajouter un bien, dans
+               l'entête). addImmForm reste appelé depuis l'ÉTAT VIDE ci-dessous, seul endroit où la
+               création directe a du sens. */''}
         </div>
         ${nbImms
           ? _renderEntFicheImmeubles(ent)
@@ -33605,8 +33617,7 @@ function rEntFiche() {
             </div>`
         }
         ${archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">📦 ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} chez ce bailleur — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
-      `
-    }
+      `}
   `;
 }
 
@@ -33760,6 +33771,12 @@ function _renderComptaSparkline(byMonth) {
 }
 
 // Panel principal "Compta globale"
+// BIENS étape 10 (décision 2 du 11/08) — CODE MORT ASSUMÉ : la COMPTABILITÉ GLOBALE du bailleur
+// est supprimée de l'écran, le P&L de Finances suffit. Partent avec elle : KPIs annuels, tableau
+// mensuel 12 mois, sparkline encaissé/dépensé, exports CSV annuel et mensuel par bailleur, part
+// bailleur 2044, sélecteur d'année. Le fiscal 2044 lui-même n'est PAS concerné (il ne passe pas
+// par ce panneau). Seul l'export CSV par bailleur n'a pas d'équivalent connu dans Finances
+// aujourd'hui — d'où la conservation de la fonction, sans appelant, plutôt que sa suppression.
 function _renderEntFichePanelComptaGlobale(ent, activeLogs) {
   const yr = _entFicheComptaYear || new Date().getFullYear();
   const data = _computeComptaBailleur(ent, yr, activeLogs);
@@ -40105,6 +40122,27 @@ function _renderFichePastilles(scope, items, refresh) {
   const corps = ouvert ? (vivants.find(it => it.id === ouvert) || {}).html : '';
   return `<div class="fiche-pastilles" role="group">${rangee}</div>`
     + (corps ? `<div class="fiche-pastille-body">${corps}</div>` : '');
+}
+
+/** Contenu de la pastille « Coordonnées & identité juridique » de la fiche bailleur.
+ *  Le hero porte l'identité VISIBLE (nom, type, siège, SIREN/RCS, gérant) ; le complément vit ici
+ *  pour que les bulles Immeubles restent au-dessus de la ligne de flottaison sur un écran PC. */
+function _renderEntIdentitePastille(ent) {
+  const ligne = (lbl, val) => val ? `<div class="logf-row"><span class="logf-label">${lbl}</span><span class="logf-value">${escHtml(String(val))}</span></div>` : '';
+  const coGerants = Array.isArray(ent.gerants) ? ent.gerants.filter(g => g && g !== ent.gerant) : [];
+  return '<div class="logf-bail-grid">'
+    + ligne('IBAN', ent.iban)
+    + ligne('BIC', ent.bic)
+    + ligne('Siège', ent.siege)
+    + ligne('SIREN', ent.siren)
+    + ligne('RCS', ent.rcs)
+    + ligne('Gérant', ent.gerant)
+    + (coGerants.length ? ligne(coGerants.length > 1 ? 'Co-gérants' : 'Co-gérant', coGerants.join(', ')) : '')
+    + ligne('E-mail d\'envoi', ent.emailEnvoi)
+    + ligne('Signature', ent.signature ? 'signature enregistrée' : '')
+    + ligne('Logo', ent.logo ? 'logo enregistré' : '')
+    + '</div>'
+    + `<div style="margin-top:10px"><button class="btn bs bb" onclick="openNewEnt(${+ent.id})">✏ Modifier le bailleur</button></div>`;
 }
 
 /** Compte les pièces jointes vivantes d'un parent (pour la pastille « Documents (4) »). */
