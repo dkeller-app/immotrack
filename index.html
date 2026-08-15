@@ -2282,10 +2282,41 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
            référence du bien vacant, RELOCALISÉ ici depuis l'onglet Présentation (mêmes ids logp-loc-hcRef/chRef
            → _logpFillFromLog/_logpReadFromForm/save les lisent par id, cf commentaire onglet Présentation).
            UNE seule source (pas de doublon) ; bien occupé → grisé, le loyer suit le bail. -->
-      <div id="logp-loc-theo-note" class="mu sm" style="display:none;margin:0 0 8px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">🔄 Loyer/charges synchronisés depuis le bail en cours — modifiables une fois le logement vacant.</div>
+      <div id="logp-loc-theo-note" class="mu sm" style="display:none;margin:0 0 8px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">🔄 Loyer, charges, dépôt de garantie et IRL synchronisés depuis le bail en cours — modifiables une fois le logement vacant.</div>
       <div class="fg2">
         <div class="fg"><label>Loyer hors charges (€) <span class="mu sm" style="font-weight:400">(bien vacant — futur bail + score candidat)</span></label><input class="inp" type="number" min="0" step="0.01" id="logp-loc-hcRef" placeholder="ex : 750"></div>
         <div class="fg"><label>Charges (€)</label><input class="inp" type="number" min="0" step="0.01" id="logp-loc-chRef" placeholder="ex : 80"></div>
+      </div>
+      <!-- BIENS étape 2 (P1-10) — DG théorique / IRL de référence / date de disponibilité / garanties
+           acceptées RELOCALISÉS ici depuis l'onglet Présentation (qui disparaît). Ce ne sont PAS des
+           données d'annonce : le DG pré-remplit le wizard bail (b-dg), l'IRL et la dispo servent le
+           futur bail, les garanties le dossier candidat. Ids inchangés — _logpFillFromLog /
+           _logpReadFromForm les lisent par id, quel que soit l'onglet hôte. -->
+      <div class="fg2">
+        <div class="fg">
+          <label>Dépôt de garantie théorique (€)</label>
+          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-dgRef" placeholder="ex : 750">
+        </div>
+        <div class="fg">
+          <label>IRL de référence</label>
+          <select class="inp" id="logp-loc-irlRef"><option value="">— Non renseigné —</option></select>
+        </div>
+      </div>
+      <div class="fg2">
+        <div class="fg">
+          <label>Date de disponibilité</label>
+          <input class="inp" type="date" id="logp-loc-dispo">
+        </div>
+        <div class="fg"></div>
+      </div>
+      <div class="fg">
+        <label>Garanties acceptées</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px 12px;font-size:12.5px;margin-top:4px">
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-caution_solidaire"> Caution solidaire</label>
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-visale"> Visale (gratuit)</label>
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-gli"> GLI</label>
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-garant_perso"> Garant personnel</label>
+        </div>
       </div>
       <!-- v15.230 ARCHI-FICHES-UNIFIED A2 — Étage + Numéro d'appartement (séparés). log.adr devient un override exceptionnel. -->
       <div class="fg2">
@@ -2698,44 +2729,6 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-haut-de-gamme"> 💎 Haut de gamme</label>
       </div>
 
-      <!-- ─── Conditions location ─── -->
-      <div class="logmod-section-title">💰 Conditions de location</div>
-      <!-- v15.249 B5 (D-B9) — loyer THÉORIQUE (cas logement vacant). Décision B1-a : poussé/écrasé
-           par le bail actif → grisé + note quand un bail pilote les valeurs ; éditable sur un
-           logement vacant pour alimenter l'annonce + pré-remplir le futur bail.
-           FIL-ROUGE FIDÉLITÉ 2026-07-15 : Loyer HC + Charges (logp-loc-hcRef/chRef) et leur note de
-           grisage (logp-loc-theo-note) RELOCALISÉS dans l'onglet Identité (loyer requis à la création,
-           mockup validé). DG théorique + IRL de référence + date de dispo restent ici. Les ids sont lus
-           par _logpFillFromLog/_logpReadFromForm quel que soit l'onglet hôte. -->
-      <!-- FIL-ROUGE FIDÉLITÉ : DG/IRL théoriques se grisent aussi quand un bail actif pilote les valeurs
-           (cf _logpFillFromLog) ; leur note de grisage est ici (celle du loyer/charges vit en Identité). -->
-      <div id="logp-loc-theo-note-dg" class="mu sm" style="display:none;margin:0 0 8px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">🔄 DG/IRL théoriques synchronisés depuis le bail en cours — modifiables une fois le logement vacant.</div>
-      <div class="fg2">
-        <div class="fg">
-          <label>Dépôt de garantie théorique (€)</label>
-          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-dgRef" placeholder="ex : 750">
-        </div>
-        <div class="fg">
-          <label>IRL de référence</label>
-          <select class="inp" id="logp-loc-irlRef"><option value="">— Non renseigné —</option></select>
-        </div>
-      </div>
-      <div class="fg2">
-        <div class="fg">
-          <label>Date de disponibilité</label>
-          <input class="inp" type="date" id="logp-loc-dispo">
-        </div>
-        <div class="fg"></div>
-      </div>
-      <div class="fg">
-        <label>Garanties acceptées</label>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px 12px;font-size:12.5px;margin-top:4px">
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-caution_solidaire"> Caution solidaire</label>
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-visale"> Visale (gratuit)</label>
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-gli"> GLI</label>
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-garant_perso"> Garant personnel</label>
-        </div>
-      </div>
     </div>
 
     <input type="hidden" id="log-edit-ref">
@@ -43643,9 +43636,7 @@ function _logpFillFromLog(log) {
   const _bailActif = !!(_b && !_b.cloture && !_b._deleted);
   ['logp-loc-hcRef','logp-loc-chRef','logp-loc-dgRef','logp-loc-irlRef'].forEach(id => { const e = el(id); if (e) e.disabled = _bailActif; });
   const _theoNote = el('logp-loc-theo-note'); if (_theoNote) _theoNote.style.display = _bailActif ? '' : 'none';
-  // FIL-ROUGE FIDÉLITÉ : la note du loyer/charges (logp-loc-theo-note) vit en onglet Identité ; DG/IRL
-  // restent en Présentation → note de grisage dédiée là-bas, togglée à l'identique.
-  const _theoNoteDg = el('logp-loc-theo-note-dg'); if (_theoNoteDg) _theoNoteDg.style.display = _bailActif ? '' : 'none';
+  // BIENS étape 2 : DG/IRL ont rejoint l'onglet Identité, la note de grisage logp-loc-theo-note les couvre.
 }
 
 function _logpToggleSurface(key) {
