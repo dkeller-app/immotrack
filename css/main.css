@@ -1232,6 +1232,16 @@ a{color:var(--blu);text-decoration:none}
   display:inline-flex;align-items:center;gap:6px;
 }
 .logf-subtab:hover:not(.disabled){color:var(--t1)}
+/* BIENS étape 8 (arbitrage « Nommer l'onglet Conformité », 13/08) — sur téléphone la barre
+   d'onglets de fiche devient une GRILLE 2×2 au lieu d'une barre qui défile : 4 onglets, tous
+   visibles, aucun geste caché. Zéro scroll horizontal à 390 px. */
+@media (max-width: 560px){
+  .logf-subtabs{display:grid;grid-template-columns:1fr 1fr;gap:2px;overflow-x:visible}
+  .logf-subtab{
+    white-space:normal;justify-content:center;text-align:center;padding:10px 8px;
+    font-size:12px;line-height:1.25;min-width:0;
+  }
+}
 .logf-subtab.act{color:var(--acc);border-bottom-color:var(--acc)}
 .logf-subtab.disabled{opacity:.5;cursor:not-allowed}
 .logf-subtab .soon{

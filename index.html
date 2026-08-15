@@ -34715,7 +34715,9 @@ function openLogFiche(ref, replace) {
 }
 
 // v14.13 A3 + v14.18 FICHES-PARITE-360 Session 1 — état du sous-onglet actif dans la fiche logement
-let _currentLogFicheTab = 'general';
+// BIENS étape 8 (P0-3) — « Général » était À LA FOIS l'onglet par défaut ET la branche finale du
+// ternaire de rLogFiche(). Le supprimer sans toucher aux deux endroits ouvrait une fiche VIDE.
+let _currentLogFicheTab = 'bail';
 let _logFicheComptaYear = new Date().getFullYear();
 
 function setLogFicheTab(t) {
@@ -34728,8 +34730,32 @@ function setLogFicheTab(t) {
   // v15.234 MODALE-LOGEMENT B2 : sous-onglet 'diagnostics' retiré de la fiche 360°
   //   (saisie consolidée dans la modale logement → onglet 🏷 Diagnostics). Deep-links
   //   repointés vers openLogModalOnTab(ref,'diag'). Compat : 'diagnostics' redirige.
-  if(t === 'diagnostics') { try { const _r=(typeof _currentLogFicheRef!=='undefined'&&_currentLogFicheRef)?_currentLogFicheRef:null; if(_r && typeof openLogModalOnTab==='function'){ openLogModalOnTab(_r,'diag'); return; } } catch(_){} t = 'general'; }
-  if(['general','bail','compta','conformite','agenda','documents','compteurs','edl','photos'].indexOf(t) < 0) return;
+  if(t === 'diagnostics') { try { const _r=(typeof _currentLogFicheRef!=='undefined'&&_currentLogFicheRef)?_currentLogFicheRef:null; if(_r && typeof openLogModalOnTab==='function'){ openLogModalOnTab(_r,'diag'); return; } } catch(_){} t = 'bail'; }
+  // BIENS étape 8 — 9 onglets → 4 : Bail (+ états des lieux) · Entretien & assurances · Documents
+  // (+ photos) · Comptabilité. REDIRECTIONS de compat plutôt qu'un retrait sec : ce setter fait
+  // `if(liste.indexOf(t)<0) return;`, donc un hash d'URL ou un favori existant deviendrait un clic
+  // SANS EFFET ni message (même motif que 'diagnostics' ci-dessus).
+  if(t === 'general') t = 'bail';        // l'ex-Général est absorbé par l'entête + l'onglet Bail
+  if(t === 'edl')     t = 'bail';        // les états des lieux vivent dans l'onglet Bail
+  if(t === 'photos')  t = 'documents';   // les photos vivent dans l'onglet Documents
+  if(t === 'agenda')  t = 'bail';        // onglet Agenda supprimé (la page globale Agenda reste)
+  // Les relevés de compteurs n'ont plus qu'UN écran : fiche immeuble → Charges communes (P1-7).
+  // Un logement sans immeuble n'a pas la fonction → on ne duplique pas le point d'entrée.
+  if(t === 'compteurs') {
+    try {
+      const _r = (typeof _currentLogFicheRef !== 'undefined' && _currentLogFicheRef) ? _currentLogFicheRef : null;
+      const _l = _r ? (DB.logements||[]).find(x => x && x.ref === _r) : null;
+      const _e = (_l && _l.entity) ? (DB.entites||[]).find(x => x && x.nom === _l.entity) : null;
+      const _i = (_e && Array.isArray(_e.immeubles) && _l.imm) ? _e.immeubles.find(x => x && x.nom === _l.imm && !x._deleted) : null;
+      if (_i && typeof openImmFiche === 'function') {
+        _currentImmFicheTab = 'charges';
+        openImmFiche(_e.id, _i.id);
+        return;
+      }
+    } catch(_){}
+    t = 'bail';
+  }
+  if(['bail','conformite','documents','compta'].indexOf(t) < 0) return;
   _currentLogFicheTab = t;
   rLogFiche();
 }
@@ -38210,6 +38236,9 @@ async function _ddtRecapPDF() {
 //   - Plus loin
 //   - Terminés (collapsé par défaut côté CSS, mais affiché ici)
 // Complète la version compacte _renderAgendaForLog utilisée ailleurs.
+// BIENS étape 8 — CODE MORT ASSUMÉ : l'onglet Agenda de la fiche logement est supprimé (l'agenda
+// est hors périmètre V1) mais la PAGE GLOBALE Agenda reste, et _goFromLogFiche('agenda') la vise.
+// Fonction conservée sans appelant : la rebrancher = remettre un onglet.
 function _renderLogFichePanelAgenda(log, ref) {
   const refSafe = (ref||'').replace(/'/g,"\\'");
   const today = new Date(); today.setHours(0,0,0,0);
@@ -38732,6 +38761,9 @@ function _lightboxKeyHandler(e) {
 }
 
 function _renderLogFichePanelDocuments(log, ref) {
+  // BIENS étape 8 — les PHOTOS rejoignent cet onglet (mockup s3). Seul des quatre sans page
+  // globale, il fallait les accueillir quelque part. DRY : le renderer existant est réutilisé
+  // tel quel, seul l'hôte change.
   const sections = [];
 
   // ── 1. Bail signé (snapshot Drive PDF si signé)
@@ -38841,19 +38873,13 @@ function _renderLogFichePanelDocuments(log, ref) {
   }
   sections.push({ title: `🧾 Quittances ${quitts.length?`(${quitts.length}+)`:''}`, icon: '🧾', html: quitSection });
 
-  // ── 5. Photos logement (LOG-PHOTOS si dispo, sinon placeholder)
-  const photos = (log.photos || []);
-  let photoSection = '';
-  if(photos.length) {
-    photoSection = `<div class="logf-doc-photos">${photos.map((p, i) => `<div class="logf-doc-photo">
-      <img src="${escHtml(p.url||p.dataB64||'')}" alt="Photo ${i+1}" loading="lazy">
-    </div>`).join('')}</div>`;
-  } else {
-    photoSection = `<div class="logf-doc-empty">Aucune photo enregistrée pour ce logement.
-      <div class="mu sm" style="margin-top:6px">Les photos seront stockées dans ton espace (sous-dossier <code>Photos/</code>) — feature LOG-PHOTOS à venir.</div>
-    </div>`;
-  }
-  sections.push({ title: `🖼 Photos ${photos.length?`(${photos.length})`:''}`, icon: '🖼', html: photoSection });
+  // ── 5. BIENS étape 8 — PHOTOS DU LOGEMENT, vraie galerie (mockup s3-logement).
+  // Le bloc d'ici était un PLACEHOLDER lisant `log.photos` — un champ que RIEN n'écrit dans
+  // l'app (« feature LOG-PHOTOS à venir »). La vraie galerie existe depuis longtemps :
+  // _renderLogFichePanelPhotos, sur DB.documents (category 'photos'), avec téléversement et
+  // désignation de la couverture (photo.isCover). DRY : on branche le renderer existant à la
+  // place du placeholder, on ne le recopie pas. `log.photos` reste intact en base.
+  sections.push({ title: '📷 Photos du logement', icon: '📷', html: _renderLogFichePanelPhotos(log, ref) });
 
   // ── 4. v15.00 DOC-PJ — Documents libres (PJ génériques attachées au logement)
   // Diagnostics (DPE/ERP/plomb/amiante/élec/gaz), plans, acte propriété, règlement copro, etc.
@@ -39145,6 +39171,10 @@ function _renderCompteurCard(type, releves, ref) {
   </div>`;
 }
 
+// BIENS étape 8 (P1-7) — CODE MORT ASSUMÉ : un seul écran de relevés, dans la fiche immeuble
+// (onglet Charges communes, avec sélecteur de logement). Un logement sans immeuble n'a pas la
+// fonction : on ne duplique pas le point d'entrée. setLogFicheTab('compteurs') redirige vers
+// l'immeuble parent. Les DONNÉES ne bougent pas (DB.compteursReleves[ref] + log.compteurs).
 function _renderLogFichePanelCompteurs(log, ref) {
   const refSafe = (ref||'').replace(/'/g,"\\'");
   const releves = _collectCompteurReleves(ref);
@@ -39819,12 +39849,19 @@ function rLogFiche() {
           ${badgeBailleur}
           ${log.type?`<span class="logf-badge b-mute">${escHtml(log.type)}</span>`:''}
           ${log.surf?`<span class="logf-badge b-mute">${fmtN(log.surf)} m²</span>`:''}
+          ${/* BIENS étape 8 — l'ex-onglet « Général » est absorbé ici : aucun panneau d'entête,
+               les caractéristiques du bien deviennent des badges (mockup s3-logement). */''}
+          ${(log.etage||log.numApt)?`<span class="logf-badge b-mute">${[log.etage, log.numApt?('appt '+log.numApt):''].filter(Boolean).map(escHtml).join(' · ')}</span>`:''}
+          ${(()=>{ const _di=(typeof _diagGet==='function')?_diagGet(log,'dpe'):null; const _dc=_di?(_di.classe||''):((log.dpe&&typeof log.dpe==='object')?(log.dpe.classe||''):(typeof log.dpe==='string'?log.dpe:'')); return _dc?`<span class="logf-badge b-mute">DPE ${escHtml(_dc)}</span>`:''; })()}
+          ${log.tantiemes?`<span class="logf-badge b-mute" title="Tantièmes de copropriété">${escHtml(String(log.tantiemes))} / 1000</span>`:''}
           ${statusBadge}
         </div>
         ${_renderLogFicheHeroPulse(ref)}
         ${_renderLogFicheHeroStats(log, ref)}
         <div class="logf-actions">
-          <button class="btn bp" onclick="_frStartFromLog('${refSafe}')">＋ Ajouter un bien</button>
+          ${/* BIENS (P1-13, retour user 11/08) — « ＋ Ajouter un bien » RETIRÉ d'ici : un bien ne
+               contient pas un bien. L'ajout part du bailleur ou de l'immeuble, par le fil rouge,
+               qui est déjà la porte unique. _frStartFromLog perd son seul appelant. */''}
           <button class="btn bs" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>
           ${(!isArchived && !_bienActiveBail(ref)) ? `
             <!-- BIENS (P1-9, décision 7 du 11/08) — les 2 boutons Annonce et l'onglet Présentation
@@ -39841,32 +39878,30 @@ function rLogFiche() {
       </div>
     </div>
     <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche bien">
-      <button class="logf-subtab${_currentLogFicheTab==='general'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='general'}" onclick="setLogFicheTab('general')">📋 Général</button>
-      <button class="logf-subtab${_currentLogFicheTab==='bail'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='bail'}" onclick="setLogFicheTab('bail')">📜 Bail</button>
+      <!-- BIENS étape 8 — 4 onglets (mockup s3-logement). L'ex-Général est absorbé par l'entête,
+           les états des lieux rejoignent Bail, les photos rejoignent Documents, l'Agenda est
+           supprimé (la page globale reste) et les compteurs partent en fiche immeuble. Sur
+           téléphone la barre devient une grille 2×2 (css/main.css) au lieu de défiler. -->
+      <button class="logf-subtab${_currentLogFicheTab==='bail'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='bail'}" onclick="setLogFicheTab('bail')" title="Bail en cours, historique et états des lieux">📜 Bail</button>
+      <button class="logf-subtab${_currentLogFicheTab==='conformite'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='conformite'}" onclick="setLogFicheTab('conformite')" title="Équipements à entretenir et assurances obligatoires">🛡 Entretien &amp; assurances</button>
+      <button class="logf-subtab${_currentLogFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='documents'}" onclick="setLogFicheTab('documents')" title="Documents et photos du logement">📁 Documents</button>
       <button class="logf-subtab${_currentLogFicheTab==='compta'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='compta'}" onclick="setLogFicheTab('compta')">💰 Comptabilité</button>
-      <button class="logf-subtab${_currentLogFicheTab==='conformite'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='conformite'}" onclick="setLogFicheTab('conformite')" title="Équipements à entretenir et assurances obligatoires">🛡 Conformité</button>
-      <button class="logf-subtab${_currentLogFicheTab==='agenda'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='agenda'}" onclick="setLogFicheTab('agenda')" title="Tous les événements liés à ce logement">📅 Agenda</button>
-      <button class="logf-subtab${_currentLogFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='documents'}" onclick="setLogFicheTab('documents')">📁 Documents</button>
-      <button class="logf-subtab${_currentLogFicheTab==='compteurs'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='compteurs'}" onclick="setLogFicheTab('compteurs')" title="Relevés compteurs (extraction EDL + saisie manuelle)">⚡ Compteurs</button>
-      <button class="logf-subtab${_currentLogFicheTab==='edl'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='edl'}" onclick="setLogFicheTab('edl')" title="États des lieux du logement + template par logement">📋 États des lieux</button>
-      <button class="logf-subtab${_currentLogFicheTab==='photos'?' act':''}" role="tab" aria-selected="${_currentLogFicheTab==='photos'}" onclick="setLogFicheTab('photos')" title="Galerie photos illustratives du logement">📷 Photos</button>
     </div>
     ${
-      _currentLogFicheTab === 'bail'        ? _renderLogFichePanelBail(log, bail, ref)
-    : _currentLogFicheTab === 'compta'      ? _renderLogFichePanelCompta(log, ref)
+      _currentLogFicheTab === 'compta'      ? _renderLogFichePanelCompta(log, ref)
     : _currentLogFicheTab === 'conformite'  ? _renderLogFichePanelConformite(log, ref)
-    : _currentLogFicheTab === 'agenda'      ? _renderLogFichePanelAgenda(log, ref)
     : _currentLogFicheTab === 'documents'   ? _renderLogFichePanelDocuments(log, ref)
-    : _currentLogFicheTab === 'compteurs'   ? _renderLogFichePanelCompteurs(log, ref)
-    : _currentLogFicheTab === 'edl'         ? _renderLogFichePanelEDL(log, ref)
-    : _currentLogFicheTab === 'photos'      ? _renderLogFichePanelPhotos(log, ref)
-    : _renderLogFichePanelGeneral(log, bail)
+    // P0-3 : le fallback DOIT être Bail — c'est la branche par défaut, pas un cas parmi d'autres.
+    : _renderLogFichePanelBail(log, bail, ref)
     }
   `;
 }
 
-// v14.13 A3 — onglet Général : Locataire actuel + Caractéristiques du bien (les conditions du bail
-// ont été migrées vers l'onglet Bail dédié pour clarifier la séparation locataire/contrat/bien).
+// BIENS étape 8 — CODE MORT ASSUMÉ. L'onglet « Général » a disparu (P0-3) : ses caractéristiques
+// sont devenues des badges d'entête et le contact du locataire est descendu dans l'onglet Bail.
+// La fonction est conservée sans appelant plutôt que supprimée : elle documente la composition
+// d'origine et resterait le point de départ si un panneau de synthèse revenait.
+// v14.13 A3 — onglet Général : Locataire actuel + Caractéristiques du bien.
 function _renderLogFichePanelGeneral(log, bail) {
   const refSafe = (log.ref||'').replace(/'/g,"\\'");
   // ── Panneau Locataire actuel
@@ -39963,6 +39998,10 @@ function _renderLogFichePanelBail(log, bail, ref) {
         ${depBanner}
         <div class="logf-bail-grid">
           <div class="logf-row"><span class="logf-label">Locataire(s)</span><span class="logf-value">${escHtml(locNoms)}</span></div>
+          ${/* BIENS étape 8 — CONTACT du locataire, descendu de l'ex-onglet Général (mockup s3). */''}
+          ${(locataires[0]&&locataires[0].email)?`<div class="logf-row"><span class="logf-label">E-mail</span><span class="logf-value">${escHtml(locataires[0].email)}</span></div>`:''}
+          ${(locataires[0]&&locataires[0].tel)?`<div class="logf-row"><span class="logf-label">Téléphone</span><span class="logf-value">${escHtml(locataires[0].tel)}</span></div>`:''}
+          ${locataires.length>1?`<div class="logf-row"><span class="logf-label">Co-locataires</span><span class="logf-value">+${locataires.length-1} autre${locataires.length>2?'s':''}</span></div>`:''}
           <div class="logf-row"><span class="logf-label">Type contrat</span><span class="logf-value">${escHtml(typeContratMap[bail.typeContrat] || bail.typeContrat || '—')}</span></div>
           <div class="logf-row"><span class="logf-label">Période</span><span class="logf-value">${fd(bail.debut)} → ${bail.fin?fd(bail.fin):'en cours'}</span></div>
           <div class="logf-row"><span class="logf-label">Modalité</span><span class="logf-value">${escHtml(bail.modalitePaiement === 'echeoir' ? 'À échoir' : (bail.modalitePaiement === 'terme_echu' ? 'Terme échu' : '—'))}</span></div>
@@ -39999,7 +40038,12 @@ function _renderLogFichePanelBail(log, bail, ref) {
   // devient des ÉVÉNEMENTS de la timeline, statut + CTA restitution préservés), la liste
   // « 🗂 Historique des baux » (+ timeline horizontale) et le tableau « 📈 Historique des
   // révisions IRL » — une seule vue, tous baux confondus. Cf _renderHistoBailSection.
-  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${_renderHistoBailSection(ref)}</div>`;
+  // BIENS étape 8 (P1-8bis) — les ÉTATS DES LIEUX rejoignent cet onglet, posés au MÊME NIVEAU que
+  // l'historique : hors du `if(bail)`. Écrits à l'intérieur, un logement vacant perdrait l'accès à
+  // ses EDL passés et à son template — exactement le moment où l'on consulte l'EDL de sortie.
+  // Sur un bien vacant, seules les infos du LOCATAIRE se vident (décision 11/08).
+  // DRY : on réutilise le renderer existant, on ne le réécrit pas — seul l'hôte change.
+  return `<div class="logf-panels" style="grid-template-columns:1fr">${currentSection}${_renderHistoBailSection(ref)}${_renderLogFichePanelEDL(log, ref)}</div>`;
 }
 
 // HISTORIQUE-BAIL-ONGLET (17/07) : _renderBailTimeline (timeline horizontale) et
