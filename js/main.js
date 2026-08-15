@@ -121,6 +121,8 @@ import { validateNewImmNom, renameImmeubleRefs } from './core/rename-immeuble.js
 import { _logpApplyPartial, _logpPushLoyerRef } from './core/logp-partial.js';
 // BIENS — migrations douces du chantier (n° lot copro, …).
 import { migrerNumLotVersLot } from './core/biens-migration.js';
+// BIENS etapes 5/6 — liste des pieces (kit derive de EDL_TPL/EDL_EXTRA, clauses de bail).
+import * as BiensPieces from './core/biens-pieces.js';
 
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
@@ -460,6 +462,8 @@ window._logpApplyPartial = _logpApplyPartial;
 window._logpPushLoyerRef = _logpPushLoyerRef;
 // BIENS — migrations douces (appelees par _bootDataJobs ; idempotentes).
 window._biensMigration = { numLotVersLot: migrerNumLotVersLot };
+// BIENS — liste des pieces + clauses generees (designation des pieces, parties communes).
+window.BiensPieces = BiensPieces;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

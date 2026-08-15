@@ -33,6 +33,29 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(b.legacy_raw.__key).toBe('F-1')
   })
 
+  // BIENS étapes 5/6 (migration 0045) — la liste des pièces et les 2 surcharges de clause sont
+  // des données CONTRACTUELLES (désignation des pièces + parties communes du bail) : elles ont
+  // désormais leur colonne typée, en plus de legacy_raw.
+  it('logements : edl_template / parties_communes / pieces_desc sont mappés (clauses de bail)', () => {
+    const rec = {
+      id: 10, ref: 'F-1', entity: 'SCI A',
+      edlTemplate: { pieces: [{ nom: 'Cuisine', elements: [{ nom: 'Sol' }] }], cles: [] },
+      piecesDesc: 'Entrée, séjour, 2 chambres',
+      partiesCommunes: 'Hall, escaliers'
+    }
+    const r = mapToRow('logements', rec, ctx())
+    expect(r.edl_template).toEqual(rec.edlTemplate)   // OBJET (pas string) → jsonb correct via supabase-js
+    expect(r.pieces_desc).toBe('Entrée, séjour, 2 chambres')
+    expect(r.parties_communes).toBe('Hall, escaliers')
+  })
+
+  it('logements : absence des clauses → null, jamais undefined', () => {
+    const r = mapToRow('logements', { id: 10, ref: 'F-1', entity: 'SCI A' }, ctx())
+    expect(r.edl_template).toBeNull()
+    expect(r.pieces_desc).toBeNull()
+    expect(r.parties_communes).toBeNull()
+  })
+
   it('logements : entité non résolue → null (skip)', () => {
     expect(mapToRow('logements', { id: 1, ref: 'X', entity: 'Inconnue' }, ctx())).toBeNull()
   })

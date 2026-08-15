@@ -2250,8 +2250,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         </div>
       </div>
       <div class="fg2">
-        <div class="fg"><label>Entité *</label><select class="inp" id="log-entity" onchange="refreshLogImmSelect(); _logRefreshInherited()"></select></div>
-        <div class="fg"><label>Immeuble *</label><select class="inp" id="log-imm" onchange="_logRefreshInherited()"><option value="">— sélectionner une entité d'abord —</option></select></div>
+        <div class="fg"><label>Entité *</label><select class="inp" id="log-entity" onchange="refreshLogImmSelect(); _logRefreshInherited(); _logPiecesRefreshClauses()"></select></div>
+        <div class="fg"><label>Immeuble *</label><select class="inp" id="log-imm" onchange="_logRefreshInherited(); _logPiecesRefreshClauses()"><option value="">— sélectionner une entité d'abord —</option></select></div>
       </div>
 
       <!-- v15.230 ARCHI-FICHES-UNIFIED Session 2 Commit 2 — Encart « 🏛 Hérité de l'immeuble » (décision C2)
@@ -2273,7 +2273,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       </div>
 
       <div class="fg2">
-        <div class="fg"><label>Type</label><input class="inp" id="log-type" placeholder="T2, T3, Local..."></div>
+        <div class="fg"><label>Type <span class="mu sm" style="font-weight:400">(déduit des pièces — onglet Équipements)</span></label><input class="inp" id="log-type" placeholder="T2, T3, Local..."></div>
         <div class="fg"><label>Surface (m²)</label><input class="inp" type="number" id="log-surf" min="0" step="0.1"></div>
       </div>
       <!-- FIL-ROUGE FIDÉLITÉ P2 (mockup validé — identité louable = réf/type/surface/loyer) : le loyer de
@@ -2386,7 +2386,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="logmod-section-title">📐 Composition</div>
       <div class="fg2">
         <div class="fg"><label>Nb pièces principales <span class="mu sm">(séjour + chambres + bureau)</span></label><input class="inp" id="log-npp" placeholder="ex: 3"></div>
-        <div class="fg"></div>
+        <div class="fg"><label>Type déduit</label><input class="inp" id="log-type-deduit" disabled placeholder="—"></div>
       </div>
       <!-- v15.249 B4 (D-B8) — Champ « Locaux accessoires à usage privatif » RETIRÉ de la modale.
            Les annexes privatives (cave/parking/garage/grenier…) se saisissent plus bas dans le bloc
@@ -2431,8 +2431,43 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div id="logmod-bati-inherited-note" class="mu sm" style="display:none;margin:0 0 10px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">
         🏛 <strong>Type d'habitat, régime juridique et période de construction</strong> sont hérités de l'immeuble (voir l'onglet « Identité » → encart « Hérité de l'immeuble parent »).
       </div>
-      <div class="fg"><label>Description des pièces</label><textarea class="inp" id="log-piecesDesc" rows="2" placeholder="Entrée, séjour, 2 chambres, cuisine équipée, salle de bains, WC…"></textarea></div>
-      <div class="fg"><label>Parties communes</label><input class="inp" id="log-partiesCommunes" placeholder="Hall, escaliers, jardin, parking visiteurs…"></div>
+      <!-- BIENS étapes 5 et 6 — LA LISTE DES PIÈCES EST LA SOURCE (décisions 8 et 9, 11 et 13/08).
+           Elle s'écrit dans log.edlTemplate.pieces, l'emplacement qui EXISTE DÉJÀ ({nom, elements[]}) et
+           n'était alimenté jusqu'ici qu'en enregistrant un EDL comme modèle. Un seul stockage, deux points
+           de saisie (ici + « 🗐 Sauv. template » depuis un EDL rempli), trois consommateurs : la fiche, la
+           clause de bail « Désignation des pièces » et la structure de départ de chaque état des lieux.
+           Vocabulaire : EDL_TPL / EDL_EXTRA VERBATIM (js/core/biens-pieces.js dérive le kit à l'exécution,
+           il n'écrit aucun libellé — un écart de nom dédoublerait la ligne dans l'EDL). -->
+      <div class="logmod-section-title">🧩 Pièces du logement <span class="mu sm">(kit de démarrage — ajoutez / retirez librement)</span></div>
+      <div class="mu sm" style="font-size:11px;color:var(--t3);margin:0 0 8px">
+        Les noms de pièces et d'éléments sont ceux de l'état des lieux, repris à l'identique : un seul vocabulaire, donc la reprise se fait sans traduction. Décocher un élément le retire de l'EDL de départ.
+      </div>
+      <div id="log-pieces-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
+        <button type="button" class="btn bs bb" onclick="_logPiecesAddChambre()">+ Chambre</button>
+        <select class="inp" id="log-pieces-add-sel" style="flex:1;min-width:150px"></select>
+        <button type="button" class="btn bs bb" onclick="_logPiecesAddFromSelect()">+ Ajouter la pièce</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input type="text" class="inp" id="log-pieces-custom-in" placeholder="+ Autre pièce (nom libre)" style="flex:1">
+        <button type="button" class="btn bs bb" onclick="_logPiecesAddCustom()">+ Ajouter</button>
+      </div>
+
+      <div class="logmod-section-title">📜 Désignation des pièces <span class="mu sm">— clause du bail, générée depuis la liste</span></div>
+      <div id="log-designation-preview" class="mu sm" style="padding:8px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px;font-size:12.5px"></div>
+      <div class="mu sm" style="font-size:11px;color:var(--t3);margin:4px 0 0">Une seule saisie : la liste ci-dessus alimente la clause du bail et la structure de départ de chaque état des lieux. La clause est figée dans le bail au moment de la signature.</div>
+      <details style="margin-top:6px">
+        <summary class="mu sm" style="cursor:pointer;font-size:11.5px">Surcharger avec un texte libre <span style="color:var(--t3)">(rare — laisser vide sauf cas particulier)</span></summary>
+        <textarea class="inp" id="log-piecesDesc" rows="2" style="margin-top:6px" oninput="_logPiecesRefreshClauses()" placeholder="Laisser vide : la clause est générée depuis la liste de pièces"></textarea>
+      </details>
+
+      <div class="logmod-section-title">🏢 Parties communes <span class="mu sm">— clause du bail, générée depuis l'immeuble</span></div>
+      <div id="log-parties-preview" class="mu sm" style="padding:8px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px;font-size:12.5px"></div>
+      <div class="mu sm" style="font-size:11px;color:var(--t3);margin:4px 0 0">Les parties communes appartiennent à l'<b>immeuble</b>, pas au logement : elles reprennent les équipements communs cochés sur la fiche immeuble — mêmes données pour tous les lots, saisies une fois.</div>
+      <details style="margin-top:6px">
+        <summary class="mu sm" style="cursor:pointer;font-size:11.5px">Surcharger pour ce logement <span style="color:var(--t3)">(cas rare — accès privatif différent)</span></summary>
+        <input class="inp" id="log-partiesCommunes" style="margin-top:6px" oninput="_logPiecesRefreshClauses()" placeholder="Laisser vide : la clause est générée depuis l'immeuble">
+      </details>
 
       <div class="logmod-section-title">🔥 Chauffage</div>
       <div class="logmod-checkbox-group">
@@ -23009,7 +23044,7 @@ function previewBailData(bail, log, ref, opts) {
     +        'periodeConstr:liveLog.periodeConstr,chauffage:liveLog.chauffage,ecs:liveLog.ecs,'
     +        'annexes:liveLog.annexes,lot:liveLog.lot,numFiscal:liveLog.numFiscal,'
     +        'mobilier:liveLog.mobilier,dpe:liveLog.dpe,etatRisques:liveLog.etatRisques,'
-    +        'equipements:liveLog.equipements'
+    +        'equipements:liveLog.equipements,edlTemplate:liveLog.edlTemplate'
     +      '}));'
     +      'bailSnapshot.capturedAt=nowISO;'
     +      'var liveEnt=(srcDB.entites||[]).find(function(e){return e&&e.nom===liveLog.entity;});'
@@ -32203,7 +32238,11 @@ function _captureBailSnapshot(ref, bail, log) {
     mobilier: log.mobilier,
     dpe: log.dpe,
     etatRisques: log.etatRisques,
-    equipements: log.equipements // v15.230 G2 — sous-objet équipements (LOG-ANNONCE v15.209)
+    equipements: log.equipements, // v15.230 G2 — sous-objet équipements (LOG-ANNONCE v15.209)
+    // BIENS étape 5 — la liste des pièces devient une donnée CONTRACTUELLE (elle génère la clause
+    // « Désignation des pièces »). Sans elle au snapshot, la clause d'un bail signé ne serait pas
+    // figée : violation directe de l'immutabilité que tout le reste du snapshot protège.
+    edlTemplate: log.edlTemplate
   }));
   // v15.230 G2 (audit v15.230) — capture aussi snapshot.imm (deep copy de l'immeuble parent
   // au moment de la signature). Cf F1/G2 audit : permet à _readLogForBail de résoudre
@@ -32293,6 +32332,23 @@ function _lbSerializeAnnexes(an) {
 // que la refacto des 149 sites de lecture ne nécessite QU'UN renommage de variable :
 // `bail.dpeClasse` → `bLog.dpe`. Pas de descente dans les sous-objets (bLog.dpe est la classe).
 // Cela évite un risque de régression PDF.
+// BIENS étapes 5/6 — génération des 2 clauses. Repli silencieux sur '' si le module n'est pas
+// chargé (file:// n'exécute pas les ES modules) : l'appelant retombe alors sur son défaut habituel.
+function _lbDesignationPieces(src) {
+  try {
+    const BP = (typeof window !== 'undefined') ? window.BiensPieces : null;
+    if (!BP || !src || !src.edlTemplate) return '';
+    return BP.designationPieces(src.edlTemplate.pieces || []);
+  } catch (e) { return ''; }
+}
+function _lbPartiesCommunes(imm) {
+  try {
+    const BP = (typeof window !== 'undefined') ? window.BiensPieces : null;
+    if (!BP || !imm) return '';
+    return BP.partiesCommunesDepuisImm(imm);
+  } catch (e) { return ''; }
+}
+
 function _readLogForBail(bail, log) {
   let src = log;
   // v15.230 F1 (P0 audit) — détection bail signé pour préserver l'immutabilité légale.
@@ -32436,6 +32492,13 @@ function _readLogForBail(bail, log) {
     equipCuisine:    _lbSerializeEquipSection(src.equipements && src.equipements.cuisine, _LB_EQUIP_LABELS.cuisine),
     equipSanitaires: _lbSerializeEquipSection(src.equipements && src.equipements.sanitaires, _LB_EQUIP_LABELS.sanitaires),
     techInfo:        _lbSerializeEquipSection(src.equipements && src.equipements.technologies, _LB_EQUIP_LABELS.technologies),
+    // BIENS étapes 5/6 — les 2 clauses du bail sont GÉNÉRÉES, la surcharge libre gagne si remplie.
+    //   « Désignation des pièces »  ← la liste de pièces du bien (log.edlTemplate.pieces)
+    //   « Parties communes »        ← imm.equipementsCommuns (la donnée appartient au bâtiment)
+    // Sur un bail SIGNÉ, src est le snapshot figé et _imm le snapshot.imm : la clause reste
+    // exactement celle du jour de la signature (immutabilité légale).
+    piecesDesc:      src.piecesDesc || _lbDesignationPieces(src),
+    partiesCommunes: src.partiesCommunes || _lbPartiesCommunes(_imm),
     // Annexes : sous-objet structuré → texte (v15.232 — corrige bug [object Object])
     annexes:         _lbSerializeAnnexes(src.annexes)
   });
@@ -39515,11 +39578,17 @@ function openNewEDLForLog(ref, type) {
           } catch(e){}
         }
       }
-      // Charger le template du logement si existe (proposer après pré-remplissage)
+      // BIENS étape 6 — la structure du logement remplace la structure générique.
+      // SANS question quand elle vient de la FICHE (_source:'fiche') : c'est la composition du bien,
+      // pas une proposition. La question ne garde son sens que pour un template sauvegardé APRÈS coup
+      // depuis un EDL rempli (« 🗐 Sauv. template »), qui peut être plus riche que la structure de base.
       if(log.edlTemplate && log.edlTemplate.pieces && log.edlTemplate.pieces.length) {
+        const _tpl = log.edlTemplate;
+        const _vientDeLaFiche = _tpl._source === 'fiche';
         // Délai supplémentaire pour laisser onEDLLogChange finir
         setTimeout(() => {
-          if(confirm2(`Un template EDL existe pour ce logement (${log.edlTemplate.pieces.length} pièces, ${log.edlTemplate.pieces.reduce((s,p)=>s+(p.elements||[]).length,0)} éléments).\n\nLe charger en remplaçant la structure par défaut ?`)) {
+          if(_vientDeLaFiche) { loadLogEDLTemplate(ref); return; }
+          if(confirm2(`Un template EDL existe pour ce logement (${_tpl.pieces.length} pièces, ${_tpl.pieces.reduce((s,p)=>s+(p.elements||[]).length,0)} éléments).\n\nLe charger en remplaçant la structure par défaut ?`)) {
             loadLogEDLTemplate(ref);
           }
         }, 120);
@@ -39593,6 +39662,20 @@ function loadLogEDLTemplate(ref) {
     _edlCles.push(...JSON.parse(JSON.stringify(tpl.cles||[])));
   }
   // Re-render
+  // BIENS étape 6 — « Extérieurs / Communs » n'est PAS une pièce du logement : elle ne figure pas
+  // dans la liste de la fiche, mais c'est LÀ que se constate le détecteur de fumée (DAAF), avec le
+  // garage, la cave, la terrasse, la boîte aux lettres… La perdre serait une régression
+  // réglementaire → l'EDL la ré-ajoute lui-même si le template ne la porte pas.
+  try {
+    const BP = (typeof window !== 'undefined') ? window.BiensPieces : null;
+    if (BP && typeof EDL_TPL !== 'undefined' && Array.isArray(_edlP)) {
+      BP.SECTIONS_NON_PIECES.forEach(nom => {
+        if (_edlP.some(p => p && p.nom === nom)) return;
+        const sec = EDL_TPL.find(p => p && p.nom === nom);
+        if (sec) _edlP.push({ nom: sec.nom, elements: (sec.e || []).map(BP.elementVide) });
+      });
+    }
+  } catch(e) { console.warn('[loadLogEDLTemplate sections communes]', e); }
   if(typeof _edlRenderAll === 'function') _edlRenderAll();
   showToast(`Template chargé (${tpl.pieces.length} pièces)`,'ok');
 }
@@ -40364,6 +40447,193 @@ function _logMobilierUpdateRow(idx, key, val) {
   _logModalMobilierDraft[idx][key] = val;
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// BIENS étapes 5 et 6 — LISTE DES PIÈCES DU LOGEMENT (modale → onglet Équipements)
+// ────────────────────────────────────────────────────────────────────────────
+// Décidé le 13/08 : l'ÉTAT DES LIEUX EST LA BASE. Aucun libellé n'est écrit ici ni dans le
+// module : le kit est DÉRIVÉ de EDL_TPL / EDL_EXTRA à l'exécution (js/core/biens-pieces.js).
+// Un seul écart de nom — « Meubles bas » vs « Meubles bas (portes, étagères, tiroirs) » —
+// dédoublerait la ligne dans l'état des lieux et ruinerait la reprise.
+//
+// Stockage : log.edlTemplate.pieces — l'emplacement qui existe DÉJÀ, pas un nouveau champ.
+// Brouillon tant que la modale est ouverte (respecte le bouton Annuler, comme le mobilier).
+let _logPiecesDraft = [];      // [{nom, elements:[{nom, etatE, obsE, photosE, etatS, obsS, photosS}]}]
+let _logPiecesOpen = {};       // index de pièce → dépliée ?
+
+/** Module pur (absent en file:// : les ES modules ne s'y chargent pas → dégradation propre). */
+function _bp() { return (typeof window !== 'undefined' && window.BiensPieces) ? window.BiensPieces : null; }
+function _bpTpl() { return (typeof EDL_TPL !== 'undefined') ? EDL_TPL : []; }
+function _bpExtra() { return (typeof EDL_EXTRA !== 'undefined') ? EDL_EXTRA : []; }
+
+/** Ouverture de la modale : brouillon = liste du logement, ou kit de démarrage pour un bien NEUF. */
+function _logPiecesInit(log) {
+  const BP = _bp();
+  const tpl = (log && log.edlTemplate && Array.isArray(log.edlTemplate.pieces)) ? log.edlTemplate.pieces : null;
+  if (tpl && tpl.length) {
+    _logPiecesDraft = JSON.parse(JSON.stringify(tpl));
+  } else if (!log && BP) {
+    // Bien NEUF : on part du kit. Un bien EXISTANT sans liste reste vide — c'est l'effet assumé
+    // de P1-17 (le fil rouge cesse d'annoncer « désignation OK » quand la clause serait vide) ;
+    // l'écran propose un bouton pour charger le kit.
+    _logPiecesDraft = BP.piecesParDefaut(_bpTpl());
+  } else {
+    _logPiecesDraft = [];
+  }
+  _logPiecesOpen = {};
+  _logPiecesFillAddSelect();
+  _logPiecesRender();
+}
+
+function _logPiecesFillAddSelect() {
+  const sel = el('log-pieces-add-sel'); const BP = _bp(); if (!sel || !BP) return;
+  const deja = _logPiecesDraft.map(p => p && p.nom);
+  const dispo = BP.catalogueKit(_bpTpl(), _bpExtra()).filter(p => deja.indexOf(p.nom) < 0);
+  sel.innerHTML = '<option value="">— Pièce du kit à ajouter —</option>'
+    + dispo.map(p => `<option value="${escHtml(p.nom)}">${escHtml(p.nom)} (${p.elements.length} éléments)</option>`).join('');
+  sel.disabled = !dispo.length;
+}
+
+/** Les libellés proposés pour une pièce : ceux du kit, plus ceux que l'utilisateur a ajoutés. */
+function _logPiecesElementsFor(i) {
+  const p = _logPiecesDraft[i]; if (!p) return [];
+  const BP = _bp();
+  const tous = BP ? BP.elementsModeleFor(p.nom, _bpTpl(), _bpExtra()).slice() : [];
+  (p.elements || []).forEach(x => { if (x && tous.indexOf(x.nom) < 0) tous.push(x.nom); });
+  return tous;
+}
+
+function _logPiecesRender() {
+  const box = el('log-pieces-list'); if (!box) return;
+  if (!_logPiecesDraft.length) {
+    box.innerHTML = '<div class="mu sm" style="padding:10px 12px;border:1px dashed var(--bor);border-radius:6px;font-size:12px">'
+      + 'Aucune pièce renseignée — la clause « Désignation des pièces » du bail serait vide. '
+      + '<button type="button" class="btn bs bb" style="margin-left:6px" onclick="_logPiecesChargerKit()">🧩 Charger le kit de démarrage</button>'
+      + '</div>';
+  } else {
+    box.innerHTML = _logPiecesDraft.map((p, i) => {
+      const tous = _logPiecesElementsFor(i);
+      const presents = (p.elements || []).map(x => x.nom);
+      const ouvert = !!_logPiecesOpen[i];
+      const corps = !ouvert ? '' :
+        '<div style="padding:6px 10px 10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:3px 12px;font-size:12px">'
+        + tous.map((n, j) => `<label class="flex-c" style="gap:5px"><input type="checkbox" ${presents.indexOf(n) >= 0 ? 'checked' : ''} onchange="_logPiecesToggleEl(${i},${j})"> ${escHtml(n)}</label>`).join('')
+        + '</div>'
+        + `<div style="display:flex;gap:6px;padding:0 10px 10px"><input type="text" class="inp" id="log-pieces-el-in-${i}" placeholder="+ Autre élément" style="flex:1;font-size:12px"><button type="button" class="btn bs bb" onclick="_logPiecesAddEl(${i})">+ Ajouter</button></div>`;
+      return '<div style="border:1px solid var(--bor);border-radius:6px;background:var(--sur)">'
+        + '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px">'
+        + `<button type="button" onclick="_logPiecesToggle(${i})" style="background:none;border:none;cursor:pointer;font-weight:600;font-size:13px;color:var(--t1);flex:1;text-align:left;padding:0">${ouvert ? '▾' : '▸'} ${escHtml(p.nom)}</button>`
+        + `<span class="mu sm" style="font-size:11px">${presents.length} élément${presents.length > 1 ? 's' : ''}</span>`
+        + `<button type="button" onclick="_logPiecesRemove(${i})" title="Retirer cette pièce" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:14px;line-height:1;padding:0 2px">✕</button>`
+        + '</div>' + corps + '</div>';
+    }).join('');
+  }
+  _logPiecesFillAddSelect();
+  _logPiecesRefreshClauses();
+}
+
+/** Aperçus des 2 clauses de bail + type déduit. Mêmes fonctions que celles lues par le bail. */
+function _logPiecesRefreshClauses() {
+  const BP = _bp();
+  const designation = BP ? BP.designationPieces(_logPiecesDraft) : '';
+  const surcharge = (v('log-piecesDesc') || '').trim();
+  const dp = el('log-designation-preview');
+  if (dp) {
+    dp.innerHTML = surcharge
+      ? '<b>Surcharge libre :</b> ' + escHtml(surcharge)
+      : (designation ? escHtml(designation) : '<i>Aucune pièce — la clause du bail resterait vide.</i>');
+  }
+  const td = el('log-type-deduit');
+  if (td) td.value = BP ? (BP.typeDeduit(_logPiecesDraft) || '') : '';
+  // Parties communes : générées depuis l'IMMEUBLE sélectionné (le bâtiment, pas le lot).
+  const pp = el('log-parties-preview');
+  if (pp) {
+    const surchPc = (v('log-partiesCommunes') || '').trim();
+    let genere = '';
+    try {
+      const entNom = v('log-entity'), immNom = v('log-imm');
+      const ent = (typeof DB !== 'undefined' && entNom) ? (DB.entites || []).find(e => e && e.nom === entNom) : null;
+      const imm = (ent && Array.isArray(ent.immeubles) && immNom) ? ent.immeubles.find(i => i && i.nom === immNom && !i._deleted) : null;
+      genere = (BP && imm) ? BP.partiesCommunesDepuisImm(imm) : '';
+    } catch (e) { genere = ''; }
+    pp.innerHTML = surchPc
+      ? '<b>Surcharge :</b> ' + escHtml(surchPc)
+      : (genere ? escHtml(genere)
+                : '<i>Néant — aucun équipement commun coché sur l\'immeuble (ou logement autonome).</i>');
+  }
+}
+
+function _logPiecesToggle(i) { _logPiecesOpen[i] = !_logPiecesOpen[i]; _logPiecesRender(); }
+
+function _logPiecesRemove(i) {
+  if (!_logPiecesDraft[i]) return;
+  _logPiecesDraft.splice(i, 1);
+  _logPiecesOpen = {};
+  _logPiecesRender();
+}
+
+function _logPiecesToggleEl(i, j) {
+  const p = _logPiecesDraft[i]; if (!p) return;
+  const ordre = _logPiecesElementsFor(i);
+  const nom = ordre[j]; if (!nom) return;
+  p.elements = Array.isArray(p.elements) ? p.elements : [];
+  const k = p.elements.findIndex(x => x && x.nom === nom);
+  if (k >= 0) { p.elements.splice(k, 1); }
+  else {
+    const BP = _bp();
+    p.elements.push(BP ? BP.elementVide(nom) : { nom: nom, etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [] });
+    p.elements.sort((a, b) => ordre.indexOf(a.nom) - ordre.indexOf(b.nom));
+  }
+  _logPiecesRender();
+}
+
+function _logPiecesAddEl(i) {
+  const p = _logPiecesDraft[i]; const inp = el('log-pieces-el-in-' + i);
+  if (!p || !inp) return;
+  const nom = (inp.value || '').trim(); if (!nom) return;
+  p.elements = Array.isArray(p.elements) ? p.elements : [];
+  if (p.elements.some(x => x && x.nom === nom)) { showToast('Élément déjà présent', 'err'); return; }
+  const BP = _bp();
+  p.elements.push(BP ? BP.elementVide(nom) : { nom: nom, etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [] });
+  inp.value = '';
+  _logPiecesOpen[i] = true;
+  _logPiecesRender();
+}
+
+function _logPiecesAjouterPiece(nom, elements) {
+  const t = (nom || '').trim(); if (!t) return;
+  if (_logPiecesDraft.some(p => p && p.nom === t)) { showToast('Pièce déjà présente', 'err'); return; }
+  const BP = _bp();
+  _logPiecesDraft.push({ nom: t, elements: (elements || []).map(n => BP ? BP.elementVide(n) : { nom: n, etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [] }) });
+  _logPiecesRender();
+}
+
+function _logPiecesAddChambre() {
+  const BP = _bp(); if (!BP) return;
+  const moule = BP.mouleChambre(_bpTpl(), _bpExtra());
+  _logPiecesAjouterPiece(BP.prochainNomChambre(_logPiecesDraft), moule.elements);
+}
+
+function _logPiecesAddFromSelect() {
+  const sel = el('log-pieces-add-sel'); const BP = _bp(); if (!sel || !BP) return;
+  const nom = sel.value; if (!nom) return;
+  _logPiecesAjouterPiece(nom, BP.elementsModeleFor(nom, _bpTpl(), _bpExtra()));
+  sel.value = '';
+}
+
+function _logPiecesAddCustom() {
+  const inp = el('log-pieces-custom-in'); const BP = _bp(); if (!inp) return;
+  const nom = (inp.value || '').trim(); if (!nom) return;
+  // un nom connu du kit récupère ses éléments verbatim, un nom libre part vide
+  _logPiecesAjouterPiece(nom, BP ? BP.elementsModeleFor(nom, _bpTpl(), _bpExtra()) : []);
+  inp.value = '';
+}
+
+function _logPiecesChargerKit() {
+  const BP = _bp(); if (!BP) return;
+  _logPiecesDraft = BP.piecesParDefaut(_bpTpl());
+  _logPiecesOpen = {};
+  _logPiecesRender();
+}
 function _logMobilierRender() {
   const list = el('log-mobilier-list'); if(!list) return;
   list.innerHTML = _logModalMobilierDraft.map((it, i) => `
@@ -43214,6 +43484,7 @@ function openNewLog(ref) {
 
     // ── Tab Présentation (v15.209 LOG-ANNONCE Étape 3) ──
     _logpFillFromLog(log);
+    _logPiecesInit(log);   // BIENS étapes 5/6 — liste des pièces (log.edlTemplate.pieces)
   } else {
     // Nouveau logement : tout reset
     setV('log-ref', ''); el('log-ref').readOnly = false;
@@ -43233,6 +43504,7 @@ function openNewLog(ref) {
     _logMobilierRender();
     refreshLogImmSelect();
     _logpFillFromLog(null); // reset tab Présentation
+    _logPiecesInit(null);   // BIENS étapes 5/6 — bien NEUF : kit de démarrage
   }
   // ── Tab Diagnostics (v15.234 B2) — init brouillon + rendu (log null = nouveau)
   try { _logDiagInitDraft(log); _logDiagRenderTab(); }
@@ -44058,6 +44330,22 @@ function saveParamLog() {
   // ── Tab Description
   log.npp = v('log-npp');
   log.piecesDesc = v('log-piecesDesc');
+  // BIENS étapes 5/6 — la liste des pièces s'écrit dans log.edlTemplate.pieces (emplacement
+  // existant). On n'écrit QUE si l'écran la portait (P0-1) et QUE si elle a changé (pas de
+  // _modifiedAt gratuit → pas de churn de synchro). Les clés (cles) du template sont préservées.
+  if (el('log-pieces-list')) {
+    const _pcs = (_logPiecesDraft || []).filter(p => p && String(p.nom || '').trim());
+    const _prev = JSON.stringify((log.edlTemplate && log.edlTemplate.pieces) || []);
+    const _next = JSON.stringify(_pcs);
+    if (_next !== _prev) {
+      log.edlTemplate = Object.assign({}, log.edlTemplate || {}, {
+        pieces: JSON.parse(_next),
+        cles: (log.edlTemplate && log.edlTemplate.cles) || [],
+        _modifiedAt: new Date().toISOString(),
+        _source: 'fiche'
+      });
+    }
+  }
   log.partiesCommunes = v('log-partiesCommunes');
   // v15.249 B4 (D-B7) — champ log-locauxPrivatifs retiré de l'UI ; on préserve la valeur existante en DB (pas d'écrasement)
   log.typeHabitat = v('log-typeHabitat');
