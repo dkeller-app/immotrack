@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mapToRow } from '../../js/core/store-mapping.js'
+import { mapToRow, COLONNES_CLAUSES_BAIL_0046 } from '../../js/core/store-mapping.js'
 
 // ctx minimal : ids déterministes simulés + resolvers (maps clé→uuid) injectés.
 const ctx = () => ({
@@ -33,10 +33,20 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
     expect(b.legacy_raw.__key).toBe('F-1')
   })
 
-  // BIENS étapes 5/6 (migration 0045) — la liste des pièces et les 2 surcharges de clause sont
-  // des données CONTRACTUELLES (désignation des pièces + parties communes du bail) : elles ont
-  // désormais leur colonne typée, en plus de legacy_raw.
-  it('logements : edl_template / parties_communes / pieces_desc sont mappés (clauses de bail)', () => {
+  // BIENS étapes 5/6 — la liste des pièces et les 2 surcharges de clause sont des données
+  // CONTRACTUELLES (désignation des pièces + parties communes du bail). Leurs colonnes typées
+  // arrivent avec la migration 0046, qui n'est PAS encore appliquée à la base.
+  it('les colonnes de 0046 ne sont PAS émises tant que la migration n\'est pas appliquée', () => {
+    // PostgREST refuse une colonne inconnue (PGRST204) : les émettre avant 0046 ferait échouer
+    // TOUTE écriture de logement. L'interrupteur se bascule dans la même passe que la migration.
+    expect(COLONNES_CLAUSES_BAIL_0046).toBe(false)
+    const r = mapToRow('logements', { id: 10, ref: 'F-1', entity: 'SCI A', edlTemplate: { pieces: [] }, partiesCommunes: 'Hall' }, ctx())
+    expect(r.edl_template).toBeUndefined()
+    expect(r.parties_communes).toBeUndefined()
+    expect(r.pieces_desc).toBeUndefined()
+  })
+
+  it('ZÉRO PERTE — la liste de pièces et les surcharges voyagent dans legacy_raw (que l\'hydrate relit)', () => {
     const rec = {
       id: 10, ref: 'F-1', entity: 'SCI A',
       edlTemplate: { pieces: [{ nom: 'Cuisine', elements: [{ nom: 'Sol' }] }], cles: [] },
@@ -44,16 +54,9 @@ describe('mapToRow — mapping legacy → ligne de table (pur)', () => {
       partiesCommunes: 'Hall, escaliers'
     }
     const r = mapToRow('logements', rec, ctx())
-    expect(r.edl_template).toEqual(rec.edlTemplate)   // OBJET (pas string) → jsonb correct via supabase-js
-    expect(r.pieces_desc).toBe('Entrée, séjour, 2 chambres')
-    expect(r.parties_communes).toBe('Hall, escaliers')
-  })
-
-  it('logements : absence des clauses → null, jamais undefined', () => {
-    const r = mapToRow('logements', { id: 10, ref: 'F-1', entity: 'SCI A' }, ctx())
-    expect(r.edl_template).toBeNull()
-    expect(r.pieces_desc).toBeNull()
-    expect(r.parties_communes).toBeNull()
+    expect(r.legacy_raw.edlTemplate).toEqual(rec.edlTemplate)
+    expect(r.legacy_raw.piecesDesc).toBe(rec.piecesDesc)
+    expect(r.legacy_raw.partiesCommunes).toBe(rec.partiesCommunes)
   })
 
   it('logements : entité non résolue → null (skip)', () => {

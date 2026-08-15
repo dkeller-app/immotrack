@@ -44,6 +44,18 @@ export function identiteParcours(fields) {
 
 /** Louable = identité du parcours complète (réf/type/surface/loyer). Le dpe n'y entre
  *  pas : il pèse sur le badge « complet », pas sur la possibilité de créer le bail. */
+/** P1-17 (décidé 13/08) — la DÉSIGNATION est enfin contrôlée. La tâche `caracteristiques`
+ *  promettait « Surface habitable + désignation » et citait l'art. 3 de la loi 89-462, mais ne
+ *  vérifiait que réf/type/surface/loyer. Depuis l'étape 5 du chantier BIENS, la clause
+ *  « Désignation des pièces » du bail est GÉNÉRÉE depuis log.edlTemplate.pieces : sans liste, la
+ *  clause est vide et le fil rouge afficherait quand même la tâche en vert.
+ *  DÉLIBÉRÉMENT HORS de isRentable/identiteParcours, qui sont la garde bloquante du formulaire
+ *  de création (lequel n'offre pas de liste de pièces). */
+export function hasDesignationPieces(log) {
+  const pieces = log && log.edlTemplate && log.edlTemplate.pieces;
+  return Array.isArray(pieces) && pieces.some((p) => p && _s(p.nom) !== '');
+}
+
 export function isRentable(log) {
   return identiteParcours(log).ok;
 }
@@ -242,7 +254,10 @@ export function completionModel({ entite, immeuble, immeubles, logements, bauxAc
       tasks: [
         // Caractéristiques = identité louable du parcours (réf/type/surface/loyer),
         // schéma logement stocké : `surf` → surface, `hc` → loyer.
-        T('caracteristiques', 'Surface habitable + désignation', isRentable({ ref: l.ref, type: l.type, surface: l.surf, loyer: l.hc }), { palier: 'legal', src: 'Surface habitable = mention obligatoire du bail (art. 3 loi 89-462)' }),
+        T('caracteristiques', 'Surface habitable + désignation',
+          isRentable({ ref: l.ref, type: l.type, surface: l.surf, loyer: l.hc }) && hasDesignationPieces(l),
+          { palier: 'legal', detail: 'la désignation vient de la liste de pièces (modale du bien → Équipements)',
+            src: 'Surface habitable + désignation des pièces = mentions obligatoires du bail (art. 3 loi 89-462)' }),
         diagTask,
         dpeTask,
         T('numFiscal', 'N° fiscal du logement', _s(l.numFiscal) !== '', { warn: true, detail: 'déclaration d’occupation des locaux', palier: 'legal', src: 'Obligation déclarative du propriétaire — service « Gérer mes biens immobiliers »' }),

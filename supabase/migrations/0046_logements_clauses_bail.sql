@@ -1,4 +1,4 @@
--- 0045 — LOGEMENTS : colonnes typées pour les deux clauses de bail générées depuis la fiche du bien.
+-- 0046 — LOGEMENTS : colonnes typées pour les deux clauses de bail générées depuis la fiche du bien.
 --
 -- CONTEXTE (chantier BIENS, étapes 5 et 6 — décisions 8 et 9 du 11-13/08). La modale logement
 -- devient le point de saisie direct de la LISTE DES PIÈCES (`log.edlTemplate.pieces`, l'emplacement

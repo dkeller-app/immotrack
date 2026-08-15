@@ -45007,6 +45007,9 @@ function _frLastLogRef(){ const ls=_frCreatedLogs(); return ls.length?ls[ls.leng
 // P3 fidélité mockup : « Créer le bail » ne se propose que pour un logement créé par ce fil,
 // VACANT (_bienActiveBail gère tombstone + clôture + finEffective) et à l'identité louable
 // complète (réf/type/surface/loyer — cf ParcoursBienModel.isRentable, le dpe n'y entre pas).
+// P1-17 : la TÂCHE « Surface habitable + désignation » exige en plus une liste de pièces non vide,
+// mais PAS cette garde-ci — le formulaire de création du fil rouge n'offre pas de liste de pièces,
+// l'y exiger empêcherait de créer un bien. La liste se saisit ensuite dans la modale (Équipements).
 function _frRentableLogs(){ if(!window.ParcoursBienModel) return []; return _frCreatedLogs().filter(l=>window.ParcoursBienModel.isRentable(_frNormLog(l)) && !_bienActiveBail(l.ref)); }
 function _frLogMeta(l){ const b=[]; if(l.type) b.push(l.type); const s=(l.surf!=null&&l.surf!=='')?l.surf:l.surface; if(s) b.push(s+' m²'); const loy=(l.hc!=null&&l.hc!=='')?l.hc:l.loyer; if(loy) b.push(loy+' €'); return b.join(' · '); }
 

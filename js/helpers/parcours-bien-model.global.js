@@ -56,6 +56,26 @@
     return { ok: missing.length === 0, missing };
   }
 
+  /** P1-17 (décidé 13/08) — la DÉSIGNATION est enfin contrôlée.
+   *  La tâche `caracteristiques` s'intitule « Surface habitable + désignation » et cite l'article 3
+   *  de la loi du 6 juillet 1989, mais son test ne vérifiait que réf/type/surface/loyer : la
+   *  désignation n'était jamais contrôlée. Sans conséquence tant qu'elle n'était qu'un texte libre
+   *  facultatif ; inacceptable depuis qu'elle est la SOURCE d'une clause du bail (étape 5 du
+   *  chantier BIENS : clause générée depuis log.edlTemplate.pieces). Sans liste, la clause est vide
+   *  — et le fil rouge afficherait quand même la tâche en vert.
+   *
+   *  EFFET ASSUMÉ (validé par le user) : tous les logements dont la liste est vide repassent en
+   *  « à faire » sur cette tâche et les pourcentages de complétion baissent d'un coup. C'est le prix
+   *  d'un compteur qui ne ment pas.
+   *
+   *  DÉLIBÉRÉMENT HORS de isRentable/identiteParcours : ceux-là sont la GARDE BLOQUANTE du
+   *  formulaire de création du fil rouge (_frSubmitLog), qui n'offre pas de liste de pièces —
+   *  les y ajouter empêcherait purement et simplement de créer un bien. */
+  function hasDesignationPieces(log) {
+    const pieces = log && log.edlTemplate && log.edlTemplate.pieces;
+    return Array.isArray(pieces) && pieces.some((p) => p && _s(p.nom) !== '');
+  }
+
   /** Louable = identité du parcours complète (réf/type/surface/loyer). Le dpe n'y entre
    *  pas : il pèse sur le badge « complet », pas sur la possibilité de créer le bail. */
   function isRentable(log) {
@@ -256,7 +276,10 @@
         tasks: [
           // Caractéristiques = identité louable du parcours (réf/type/surface/loyer),
           // schéma logement stocké : `surf` → surface, `hc` → loyer.
-          T('caracteristiques', 'Surface habitable + désignation', isRentable({ ref: l.ref, type: l.type, surface: l.surf, loyer: l.hc }), { palier: 'legal', src: 'Surface habitable = mention obligatoire du bail (art. 3 loi 89-462)' }),
+          T('caracteristiques', 'Surface habitable + désignation',
+            isRentable({ ref: l.ref, type: l.type, surface: l.surf, loyer: l.hc }) && hasDesignationPieces(l),
+            { palier: 'legal', detail: 'la désignation vient de la liste de pièces (modale du bien → Équipements)',
+              src: 'Surface habitable + désignation des pièces = mentions obligatoires du bail (art. 3 loi 89-462)' }),
           diagTask,
           dpeTask,
           T('numFiscal', 'N° fiscal du logement', _s(l.numFiscal) !== '', { warn: true, detail: 'déclaration d’occupation des locaux', palier: 'legal', src: 'Obligation déclarative du propriétaire — service « Gérer mes biens immobiliers »' }),
@@ -315,6 +338,7 @@
     LOG_OPTIONAL_KEY: LOG_OPTIONAL_KEY,
     identiteParcours: identiteParcours,
     isRentable: isRentable,
+    hasDesignationPieces: hasDesignationPieces,
     PARCOURS_IDENTITY: PARCOURS_IDENTITY,
     completionModel: completionModel
   };
