@@ -43547,11 +43547,10 @@ function _logpRenderCustoms(group) {
     + `</span>`
   ).join('');
 }
-
-// ─── P0-1 (chantier BIENS) — merge partiel : shadow inline de js/core/logp-partial.js ───
-// GARDER IDENTIQUE au module (file:// ne charge pas les ES modules ; main.js réécrit la
-// même fonction sur window après coup). __tests__/helpers/logp-partial.test.js vérifie
-// la non-divergence caractère par caractère.
+// ─── P0-1 (chantier BIENS) — shadow inline de js/core/logp-partial.js ───
+// GARDER IDENTIQUE au module (file:// ne charge pas les ES modules ; main.js réécrit les
+// mêmes fonctions sur window après coup). __tests__/helpers/logp-partial.test.js vérifie la
+// non-divergence caractère par caractère, fonction par fonction.
 function _logpApplyPartial(target, partial) {
   if (!target || typeof target !== 'object') return target;
   if (!partial || typeof partial !== 'object') return target;
@@ -43564,12 +43563,40 @@ function _logpApplyPartial(target, partial) {
     if (segs.some(function (s) { return BAD.indexOf(s) >= 0; })) return;
     var node = target;
     for (var i = 0; i < segs.length - 1; i++) {
-      if (!node[segs[i]] || typeof node[segs[i]] !== 'object') node[segs[i]] = {};
-      node = node[segs[i]];
+      var s = segs[i];
+      if (!node[s] || typeof node[s] !== 'object' || Array.isArray(node[s])) node[s] = {};
+      node = node[s];
     }
     node[segs[segs.length - 1]] = val;
   });
   return target;
+}
+
+/**
+ * LOYER-REFERENCE — bien VACANT : le loyer de référence saisi dans la modale EST le loyer
+ * courant du bien (lu par la fiche, le candidat, l'invitation, le prochain bail). On tient
+ * donc log.hc/ch/dg == loyer de référence. Bien OCCUPÉ : le bail pilote log.hc/ch (+ IRL),
+ * on n'y touche pas.
+ *
+ * P0-1 : ne pousse QUE les valeurs dont le champ était réellement dans le formulaire
+ * (clé présente dans `partial`) — sinon déplacer ces inputs recalculerait log.hc/ch/dg
+ * depuis des valeurs qui n'ont pas été éditées.
+ *
+ * irlRef est volontairement absent : l'IRL ne pilote ni hc, ni ch, ni dg (audit M1).
+ *
+ * @returns {boolean} true si au moins une valeur a été poussée → l'appelant re-score les candidats.
+ */
+function _logpPushLoyerRef(log, partial, occupe) {
+  if (!log || typeof log !== 'object') return false;
+  if (!partial || typeof partial !== 'object') return false;
+  if (occupe) return false;
+  var has = function (k) { return Object.prototype.hasOwnProperty.call(partial, k); };
+  var rempli = function (x) { return x !== null && x !== undefined && String(x).trim() !== ''; };
+  var pousse = false;
+  if (has('loyerHcRef') && rempli(log.loyerHcRef)) { log.hc = Number(log.loyerHcRef) || 0; pousse = true; }
+  if (has('chargesRef') && rempli(log.chargesRef)) { log.ch = Number(log.chargesRef) || 0; pousse = true; }
+  if (has('dgRef') && rempli(log.dgRef)) { log.dg = Number(log.dgRef) || 0; pousse = true; }
+  return pousse;
 }
 
 // Lit l’état UI des champs structurés du logement → carte { chemin pointé → valeur }.
@@ -44096,21 +44123,13 @@ function saveParamLog() {
   // logement, ni sur l'immeuble parent (equipementsCommuns).
   try {
     const presa = _logpReadFromForm();
-    const _inForm = (k) => Object.prototype.hasOwnProperty.call(presa.log, k);
     _logpApplyPartial(log, presa.log);
-    // v15.249 B5 (D-B9) — loyer théorique. Si un bail actif pilote ces champs ils sont grisés et
-    // .value = valeur poussée → réassignation sans effet (pas de clobber). Logement vacant → édition manuelle.
-    // LOYER-REFERENCE — bien VACANT : le loyer de référence édité ici EST le loyer courant du bien
-    // (lu par la fiche, le candidat, l'invitation, l'annonce, le prochain bail). On tient donc
-    // log.hc/ch/dg == loyer de référence. Bien OCCUPÉ : le bail pilote log.hc/ch (+ IRL) — on n'y
-    // touche pas (les champs étaient grisés, .value = valeur poussée → pas de clobber de toute façon).
-    const _lrOcc = !!_bienActiveBail(log.ref); // tombstone _deleted + cloture + finEffective (audit)
-    const _lrInForm = _inForm('loyerHcRef') || _inForm('chargesRef') || _inForm('dgRef') || _inForm('irlRef');
-    if(!_lrOcc && _lrInForm){
-      const _hv = vv => vv !== null && vv !== undefined && String(vv).trim() !== '';
-      if(_inForm('loyerHcRef') && _hv(log.loyerHcRef)) log.hc = Number(log.loyerHcRef)||0;
-      if(_inForm('chargesRef') && _hv(log.chargesRef)) log.ch = Number(log.chargesRef)||0;
-      if(_inForm('dgRef')      && _hv(log.dgRef))      log.dg = Number(log.dgRef)||0;
+    // v15.249 B5 (D-B9) — loyer théorique. Règle et garde-fous dans js/core/logp-partial.js
+    // (_logpPushLoyerRef) : seules les valeurs réellement présentes dans le formulaire sont poussées,
+    // et jamais sur un bien occupé (c'est le bail qui pilote log.hc/ch).
+    // tombstone _deleted + cloture + finEffective (audit)
+    const _lrOcc = !!_bienActiveBail(log.ref);
+    if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
       // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
       (DB.candidats||[]).filter(x=>x && !x._deleted && x.logRef===log.ref).forEach(x=>{
         try{ x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); }catch(e){}

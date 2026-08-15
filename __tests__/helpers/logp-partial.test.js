@@ -4,8 +4,12 @@
 // renvoyait '' / false quand l'input n'existait pas dans le DOM ; saveParamLog réaffectait
 // ensuite sans condition. Conséquence : retirer ou déplacer un pane effaçait
 //   log.presentation · log.quartier · log.locationInfo · log.dgRef · log.irlRef
-// et surtout imm.equipementsCommuns de l'IMMEUBLE PARENT, remis à tout-false au premier
-// enregistrement de n'importe quel logement — y compris à chaque bien créé par le fil rouge.
+// et imm.equipementsCommuns de l'IMMEUBLE PARENT.
+//
+// Portée exacte de P0-1 (audit 14/08) : ce correctif pose le GARDE-FOU. Il ne suffisait pas à
+// lui seul à fermer la perte d'imm.equipementsCommuns, puisque les cases logp-ec-* restaient
+// dans le DOM — c'est leur retrait (étape 4, suppression du pane Présentation) qui la ferme.
+// Le garde-fou reste indispensable : sans lui, ce même retrait EFFAÇAIT les données.
 //
 // Ces tests exécutent la VRAIE fonction extraite d'index.html (pas une réplique), avec un
 // DOM simulé, et vérifient qu'un champ absent du formulaire n'est plus jamais écrit.
@@ -15,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-import { _logpApplyPartial } from '../../js/core/logp-partial.js';
+import { _logpApplyPartial, _logpPushLoyerRef } from '../../js/core/logp-partial.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dir, '../..');
@@ -36,7 +40,7 @@ function makeEl(dom) {
   return (id) => (Object.prototype.hasOwnProperty.call(dom, id) ? dom[id] : null);
 }
 
-/** Formulaire Présentation COMPLET (tous les ids de l'onglet), valeurs neutres. */
+/** Formulaire COMPLET (tous les ids logp-* de la modale), valeurs neutres. */
 function domComplet(over) {
   const d = {};
   const chk = (id, v) => { d[id] = { checked: !!v }; };
@@ -105,27 +109,55 @@ describe('P0-1 — _logpReadFromForm() est PARTIEL (aucun champ absent du DOM n\
     const avant = JSON.parse(JSON.stringify(log));
     const presa = read({});
     _logpApplyPartial(log, presa.log);
+    _logpPushLoyerRef(log, presa.log, false);
     expect(log).toEqual(avant);
   });
 
   it('RÉGRESSION — l\'immeuble parent n\'est pas touché quand le bloc equipementsCommuns est absent', () => {
-    // Le pane retiré (ou seulement l'onglet Identité affiché) ne doit pas remettre
-    // imm.equipementsCommuns à tout-false — bug vécu à chaque bien créé par le fil rouge.
-    const presa = read(domComplet());       // formulaire complet mais SANS les cases ec
-    expect(presa.equipementsCommuns).toBeTruthy();
+    expect(read(domComplet()).equipementsCommuns).toBeTruthy();
     const sansEc = domComplet();
     ['ascenseur', 'interphone', 'digicode', 'gardien', 'videosurv', 'parking_commun', 'local_velos', 'jardin_commun']
       .forEach(k => { delete sansEc['logp-ec-' + k]; });
     expect(read(sansEc).equipementsCommuns).toBeUndefined();
   });
 
-  it('le garde-fou côté saveParamLog est bien en place (propagation conditionnée)', () => {
-    expect(indexHtml).toContain('if (presa.equipementsCommuns && log.entity && log.imm) {');
-    expect(indexHtml).toContain('_logpApplyPartial(log, presa.log);');
+  it('INVENTAIRE des clés produites par un formulaire complet — un champ oublié lors d\'un futur déplacement se voit ici', () => {
+    expect(Object.keys(read(domComplet()).log).sort()).toEqual([
+      'annexes.atelier', 'annexes.buanderie', 'annexes.cave', 'annexes.cellier', 'annexes.customs',
+      'annexes.garage', 'annexes.grenier', 'annexes.localVelos', 'annexes.parking',
+      'chargesRef', 'dgRef',
+      'equipements.cuisine', 'equipements.sanitaires', 'equipements.technologies',
+      'exterieurs.balcon', 'exterieurs.jardin_privatif', 'exterieurs.loggia', 'exterieurs.terrasse',
+      'irlRef',
+      'locationInfo.disponibilite', 'locationInfo.garanties_acceptees',
+      'loyerHcRef',
+      'presentation.calme', 'presentation.caractere_ancien', 'presentation.exposition',
+      'presentation.luminosite', 'presentation.vue',
+      'quartier.caractere', 'quartier.commerces', 'quartier.reperes', 'quartier.services', 'quartier.transports'
+    ]);
+  });
+
+  it('LIMITE CONNUE — la garde est au GROUPE, pas au champ : un groupe se déplace en ENTIER', () => {
+    // Documenté volontairement : si on ne sortait du DOM QUE `logp-cu-four`, les 6 autres
+    // cases cuisine repasseraient à false. Les groupes ne doivent donc jamais être scindés.
+    const dom = domComplet({ 'logp-cu-equipee': { checked: true } });
+    delete dom['logp-cu-four'];
+    expect(read(dom).log['equipements.cuisine']).toBeTruthy();
+    expect(read(dom).log['equipements.cuisine'].four).toBe(false);
+    // en revanche, sortir le GROUPE entier ne renvoie plus rien
+    ['equipee', 'four', 'plaques', 'hotte', 'lave_vaisselle', 'micro_ondes', 'frigo'].forEach(k => { delete dom['logp-cu-' + k]; });
+    expect(read(dom).log['equipements.cuisine']).toBeUndefined();
+  });
+
+  it('le garde-fou côté saveParamLog est bien en place', () => {
+    expect(indexHtml).toMatch(/if\s*\(presa\.equipementsCommuns\s*&&\s*log\.entity\s*&&\s*log\.imm\)/);
+    expect(indexHtml).toMatch(/_logpApplyPartial\(\s*log\s*,\s*presa\.log\s*\)/);
+    expect(indexHtml).toMatch(/_logpPushLoyerRef\(\s*log\s*,\s*presa\.log\s*,\s*_lrOcc\s*\)/);
     // plus aucune réaffectation inconditionnelle des groupes
-    expect(indexHtml).not.toContain('log.presentation = presa.log.presentation;');
-    expect(indexHtml).not.toContain('log.quartier = presa.log.quartier;');
-    expect(indexHtml).not.toContain('log.locationInfo = presa.log.locationInfo;');
+    [/log\.presentation\s*=\s*presa\./, /log\.quartier\s*=\s*presa\./, /log\.locationInfo\s*=\s*presa\./,
+     /log\.equipements\s*=\s*presa\./, /log\.annexes\s*=\s*presa\./, /log\.exterieurs\s*=\s*presa\./,
+     /log\.dgRef\s*=\s*presa\./, /log\.irlRef\s*=\s*presa\./]
+      .forEach(re => expect(indexHtml, 'réaffectation inconditionnelle restante : ' + re).not.toMatch(re));
   });
 
   it('un seul champ présent → une seule clé renvoyée', () => {
@@ -136,8 +168,7 @@ describe('P0-1 — _logpReadFromForm() est PARTIEL (aucun champ absent du DOM n\
 
   it('champ présent mais vidé/décoché → la valeur EST écrasée (pas de merge fantôme)', () => {
     const log = logPeuple();
-    const dom = domComplet();
-    _logpApplyPartial(log, read(dom).log);
+    _logpApplyPartial(log, read(domComplet()).log);
     expect(log.equipements.cuisine.equipee).toBe(false);
     expect(log.equipements.cuisine.four).toBe(false);
     expect(log.presentation.exposition).toBe('');
@@ -205,15 +236,16 @@ describe('_logpApplyPartial — merge par chemin pointé', () => {
     expect(t).toEqual({ a: 1 });
   });
 
-  it('écrase un intermédiaire non-objet plutôt que de planter', () => {
-    const t = { annexes: 'texte legacy' };
-    _logpApplyPartial(t, { 'annexes.cave': { present: true } });
+  it('écrase un intermédiaire non-objet ou tableau plutôt que de l\'indexer', () => {
+    const t = { annexes: 'texte legacy', exterieurs: ['legacy'] };
+    _logpApplyPartial(t, { 'annexes.cave': { present: true }, 'exterieurs.balcon': { present: true } });
     expect(t.annexes).toEqual({ cave: { present: true } });
+    expect(t.exterieurs).toEqual({ balcon: { present: true } });
   });
 
-  it('refuse les segments de pollution de prototype', () => {
+  it('refuse les segments de pollution de prototype, feuille comprise', () => {
     const t = {};
-    _logpApplyPartial(t, { '__proto__.pollue': 1, 'constructor.prototype.x': 2 });
+    _logpApplyPartial(t, { '__proto__.pollue': 1, 'constructor.prototype.x': 2, '__proto__': 3, 'a.constructor': 4 });
     expect({}.pollue).toBeUndefined();
     expect({}.x).toBeUndefined();
     expect(t).toEqual({});
@@ -224,13 +256,55 @@ describe('_logpApplyPartial — merge par chemin pointé', () => {
   });
 });
 
-describe('non-divergence — le shadow inline est identique au module', () => {
-  it('index.html porte exactement la fonction de js/core/logp-partial.js', () => {
-    const inline = extractFn(indexHtml, '_logpApplyPartial');
-    const moduleSrc = readFileSync(resolve(repoRoot, 'js/core/logp-partial.js'), 'utf8');
-    const fromModule = extractFn(moduleSrc.replace('export function _logpApplyPartial', 'function _logpApplyPartial'), '_logpApplyPartial');
-    expect(inline).toBeTruthy();
-    expect(fromModule).toBeTruthy();
-    expect(inline).toBe(fromModule);
+describe('_logpPushLoyerRef — le loyer de référence ne pilote log.hc/ch/dg que sur un bien vacant', () => {
+  const base = () => ({ ref: 'L1', loyerHcRef: '810', chargesRef: '75', dgRef: '810', irlRef: 'T1 2026', hc: 700, ch: 60, dg: 700 });
+  const tout = { loyerHcRef: '810', chargesRef: '75', dgRef: '810', irlRef: 'T1 2026' };
+
+  it('bien vacant + champs présents → pousse les 3 valeurs et signale le changement', () => {
+    const log = base();
+    expect(_logpPushLoyerRef(log, tout, false)).toBe(true);
+    expect([log.hc, log.ch, log.dg]).toEqual([810, 75, 810]);
+  });
+
+  it('bien OCCUPÉ → ne touche à rien (c\'est le bail qui pilote)', () => {
+    const log = base();
+    expect(_logpPushLoyerRef(log, tout, true)).toBe(false);
+    expect([log.hc, log.ch, log.dg]).toEqual([700, 60, 700]);
+  });
+
+  it('champ absent du formulaire → valeur stockée non repoussée', () => {
+    const log = base();
+    expect(_logpPushLoyerRef(log, { chargesRef: '75' }, false)).toBe(true);
+    expect([log.hc, log.ch, log.dg]).toEqual([700, 75, 700]);
+  });
+
+  it('champ présent mais vidé → l\'ancienne valeur de log.hc est conservée', () => {
+    const log = Object.assign(base(), { loyerHcRef: '' });
+    expect(_logpPushLoyerRef(log, { loyerHcRef: '' }, false)).toBe(false);
+    expect(log.hc).toBe(700);
+  });
+
+  it('irlRef seul ne déclenche RIEN — l\'IRL ne pilote ni hc, ni ch, ni dg (audit M1)', () => {
+    const log = base();
+    expect(_logpPushLoyerRef(log, { irlRef: 'T1 2026' }, false)).toBe(false);
+    expect([log.hc, log.ch, log.dg]).toEqual([700, 60, 700]);
+  });
+
+  it('entrées dégradées', () => {
+    expect(_logpPushLoyerRef(null, tout, false)).toBe(false);
+    expect(_logpPushLoyerRef({}, null, false)).toBe(false);
+  });
+});
+
+describe('non-divergence — les shadows inline sont identiques au module', () => {
+  it('index.html porte exactement les fonctions de js/core/logp-partial.js', () => {
+    const moduleSrc = readFileSync(resolve(repoRoot, 'js/core/logp-partial.js'), 'utf8').replace(/^export /gm, '');
+    ['_logpApplyPartial', '_logpPushLoyerRef'].forEach(nom => {
+      const inline = extractFn(indexHtml, nom);
+      const fromModule = extractFn(moduleSrc, nom);
+      expect(inline, 'shadow inline manquant : ' + nom).toBeTruthy();
+      expect(fromModule, 'fonction module manquante : ' + nom).toBeTruthy();
+      expect(inline, 'divergence shadow/module sur ' + nom).toBe(fromModule);
+    });
   });
 });
