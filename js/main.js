@@ -117,6 +117,8 @@ import {
 import { openEmailModal, _buildMailtoUrl, _emHandleAction } from './components/email-modal.js';
 import { validateNewRef, canRenameLogement, renameLogementRef } from './core/rename-logement.js';
 import { validateNewImmNom, renameImmeubleRefs } from './core/rename-immeuble.js';
+// P0-1 (chantier BIENS) — merge partiel des champs de formulaire du logement.
+import { _logpApplyPartial } from './core/logp-partial.js';
 
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
@@ -451,6 +453,8 @@ window._renameLogement = { validate: validateNewRef, canRename: canRenameLogemen
 // RENOMMER UN IMMEUBLE — propage le nouveau nom aux logements/mouvements/agenda/documents/regul (scopé
 // par espace) : sans ça, renommer un immeuble orpheline ses logements (« Logements isolés »).
 window._renameImmeuble = { validate: validateNewImmNom, propagate: renameImmeubleRefs };
+// BIENS P0-1 — merge partiel par chemin pointé (shadow inline identique dans index.html).
+window._logpApplyPartial = _logpApplyPartial;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

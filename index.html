@@ -43683,89 +43683,159 @@ function _logpRenderCustoms(group) {
   ).join('');
 }
 
-// Lit l'état UI du tab Présentation → objet structuré
+// ─── P0-1 (chantier BIENS) — merge partiel : shadow inline de js/core/logp-partial.js ───
+// GARDER IDENTIQUE au module (file:// ne charge pas les ES modules ; main.js réécrit la
+// même fonction sur window après coup). __tests__/helpers/logp-partial.test.js vérifie
+// la non-divergence caractère par caractère.
+function _logpApplyPartial(target, partial) {
+  if (!target || typeof target !== 'object') return target;
+  if (!partial || typeof partial !== 'object') return target;
+  var BAD = ['__proto__', 'constructor', 'prototype'];
+  Object.keys(partial).forEach(function (path) {
+    var val = partial[path];
+    if (val === undefined) return;
+    var segs = String(path).split('.').filter(Boolean);
+    if (!segs.length) return;
+    if (segs.some(function (s) { return BAD.indexOf(s) >= 0; })) return;
+    var node = target;
+    for (var i = 0; i < segs.length - 1; i++) {
+      if (!node[segs[i]] || typeof node[segs[i]] !== 'object') node[segs[i]] = {};
+      node = node[segs[i]];
+    }
+    node[segs[segs.length - 1]] = val;
+  });
+  return target;
+}
+
+// Lit l’état UI des champs structurés du logement → carte { chemin pointé → valeur }.
+//
+// P0-1 (chantier BIENS) — lecture PARTIELLE. Avant, tout était lu par el(id) et renvoyait
+// '' / false quand l'input n'existait pas ; saveParamLog réaffectait sans condition, donc
+// retirer ou déplacer un pane EFFAÇAIT log.presentation, log.quartier, log.locationInfo,
+// log.dgRef, log.irlRef — et imm.equipementsCommuns de l'immeuble parent, remis à tout-false
+// à chaque enregistrement d'un logement (fil rouge de création compris).
+//
+// Désormais : un groupe n'est renvoyé QUE si au moins un de ses inputs est dans le DOM.
+// Clé absente = champ non touché (cf _logpApplyPartial). Clé présente = écrase (une case
+// décochée doit bien passer à false). La granularité est fine exprès : chaque futur
+// déplacement de champ d'un onglet à l'autre est protégé sans retoucher cette fonction.
 function _logpReadFromForm() {
   const v = (id) => { const e = el(id); return e ? e.value : ''; };
   const ck = (id) => { const e = el(id); return !!(e && e.checked); };
+  const anyId = (ids) => ids.some((id) => !!el(id));
 
-  const equipementsCommuns = {
-    ascenseur: ck('logp-ec-ascenseur'), interphone: ck('logp-ec-interphone'),
-    digicode: ck('logp-ec-digicode'), gardien: ck('logp-ec-gardien'),
-    videosurv: ck('logp-ec-videosurv'), parking_commun: ck('logp-ec-parking_commun'),
-    local_velos: ck('logp-ec-local_velos'), jardin_commun: ck('logp-ec-jardin_commun'),
-    customs: Array.isArray(_logpCustomsDraft.ec) ? _logpCustomsDraft.ec.slice() : []
-  };
-  const cuisine = {
-    equipee: ck('logp-cu-equipee'), four: ck('logp-cu-four'), plaques: ck('logp-cu-plaques'),
-    hotte: ck('logp-cu-hotte'), lave_vaisselle: ck('logp-cu-lave_vaisselle'),
-    micro_ondes: ck('logp-cu-micro_ondes'), frigo: ck('logp-cu-frigo'),
-    customs: Array.isArray(_logpCustomsDraft.cu) ? _logpCustomsDraft.cu.slice() : []
-  };
-  const sanitaires = {
-    bain: ck('logp-sa-bain'), douche: ck('logp-sa-douche'),
-    wc_separe: ck('logp-sa-wc_separe'), lave_linge: ck('logp-sa-lave_linge'),
-    seche_linge: ck('logp-sa-seche_linge'),
-    customs: []
-  };
-  const technologies = {
-    fibre: ck('logp-te-fibre'), adsl: ck('logp-te-adsl'),
-    cable: ck('logp-te-cable'), tnt: ck('logp-te-tnt'),
-    customs: []
-  };
-  const ext = {
-    balcon: { present: v('logp-ext-balcon-p') === '1', surface: +v('logp-ext-balcon-s') || 0 },
-    terrasse: { present: v('logp-ext-terrasse-p') === '1', surface: +v('logp-ext-terrasse-s') || 0 },
-    loggia: { present: v('logp-ext-loggia-p') === '1' },
-    jardin_privatif: { present: v('logp-ext-jardin-p') === '1', surface: +v('logp-ext-jardin-s') || 0 }
-  };
-  const annexes = {
-    cave: { present: ck('logp-an-cave-p'), num: v('logp-an-cave-num') },
-    grenier: { present: ck('logp-an-grenier-p'), num: v('logp-an-grenier-num') },
-    parking: { present: ck('logp-an-parking-p'), num: v('logp-an-parking-num'), type: v('logp-an-parking-type') || 'place' },
-    garage: { present: ck('logp-an-garage-p'), num: v('logp-an-garage-num') },
-    buanderie: { present: ck('logp-an-buanderie-p'), num: v('logp-an-buanderie-num') },
-    cellier: { present: ck('logp-an-cellier-p'), num: v('logp-an-cellier-num') },
-    localVelos: { present: ck('logp-an-localVelos-p'), num: v('logp-an-localVelos-num') },
-    atelier: { present: ck('logp-an-atelier-p'), num: v('logp-an-atelier-num') },
-    customs: Array.isArray(_logpCustomsDraft.an) ? _logpCustomsDraft.an.slice() : []
-  };
-  const presentation = {
-    exposition: v('logp-pres-exposition'),
-    vue: v('logp-pres-vue'),
-    luminosite: v('logp-pres-luminosite'),
-    calme: v('logp-pres-calme'),
-    caractere_ancien: v('logp-pres-caractere')
-  };
-  const transports = {};
-  ['metro','tramway','bus','gare'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) transports[k] = x; });
-  const commerces = {};
-  ['boulangerie','marche'].forEach(k => { const x = v('logp-q-' + k); if (x) commerces[k] = x; });
-  ['supermarche','pharmacie'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) commerces[k] = x; });
-  const services = {};
-  ['ecoles_primaires','college','lycee','parc','restaurants','sport','hopital'].forEach(k => { if (ck('logp-q-s-' + k)) services[k] = true; });
-  const reperesTxt = v('logp-q-reperes') || '';
-  const reperes = reperesTxt.split('\n').map(s => s.trim()).filter(Boolean);
-  const caractere = [];
-  ['centre-historique','quartier-residentiel','quartier-etudiant','quartier-affaires','bord-de-mer','proche-nature','quartier-festif','haut-de-gamme'].forEach(k => { if (ck('logp-q-c-' + k)) caractere.push(k); });
-  const quartier = { transports, commerces, services, reperes, caractere };
+  const out = {};              // chemins pointés appliqués sur le logement
+  let equipementsCommuns;      // undefined = bloc absent du DOM → immeuble parent NON touché
 
-  const garanties_acceptees = [];
-  ['caution_solidaire','visale','gli','garant_perso'].forEach(k => { if (ck('logp-loc-g-' + k)) garanties_acceptees.push(k); });
-  const locationInfo = { disponibilite: v('logp-loc-dispo'), garanties_acceptees };
+  // ── Équipements communs (doublon de la modale Immeuble, qui les porte aussi) ──
+  if (anyId(['logp-ec-ascenseur','logp-ec-interphone','logp-ec-digicode','logp-ec-gardien',
+             'logp-ec-videosurv','logp-ec-parking_commun','logp-ec-local_velos','logp-ec-jardin_commun'])) {
+    equipementsCommuns = {
+      ascenseur: ck('logp-ec-ascenseur'), interphone: ck('logp-ec-interphone'),
+      digicode: ck('logp-ec-digicode'), gardien: ck('logp-ec-gardien'),
+      videosurv: ck('logp-ec-videosurv'), parking_commun: ck('logp-ec-parking_commun'),
+      local_velos: ck('logp-ec-local_velos'), jardin_commun: ck('logp-ec-jardin_commun'),
+      customs: Array.isArray(_logpCustomsDraft.ec) ? _logpCustomsDraft.ec.slice() : []
+    };
+  }
+
+  // ── Équipements internes ──
+  if (anyId(['logp-cu-equipee','logp-cu-four','logp-cu-plaques','logp-cu-hotte',
+             'logp-cu-lave_vaisselle','logp-cu-micro_ondes','logp-cu-frigo'])) {
+    out['equipements.cuisine'] = {
+      equipee: ck('logp-cu-equipee'), four: ck('logp-cu-four'), plaques: ck('logp-cu-plaques'),
+      hotte: ck('logp-cu-hotte'), lave_vaisselle: ck('logp-cu-lave_vaisselle'),
+      micro_ondes: ck('logp-cu-micro_ondes'), frigo: ck('logp-cu-frigo'),
+      customs: Array.isArray(_logpCustomsDraft.cu) ? _logpCustomsDraft.cu.slice() : []
+    };
+  }
+  if (anyId(['logp-sa-bain','logp-sa-douche','logp-sa-wc_separe','logp-sa-lave_linge','logp-sa-seche_linge'])) {
+    out['equipements.sanitaires'] = {
+      bain: ck('logp-sa-bain'), douche: ck('logp-sa-douche'),
+      wc_separe: ck('logp-sa-wc_separe'), lave_linge: ck('logp-sa-lave_linge'),
+      seche_linge: ck('logp-sa-seche_linge'),
+      customs: []
+    };
+  }
+  if (anyId(['logp-te-fibre','logp-te-adsl','logp-te-cable','logp-te-tnt'])) {
+    out['equipements.technologies'] = {
+      fibre: ck('logp-te-fibre'), adsl: ck('logp-te-adsl'),
+      cable: ck('logp-te-cable'), tnt: ck('logp-te-tnt'),
+      customs: []
+    };
+  }
+
+  // ── Extérieurs (un chemin par élément : ils peuvent se séparer d'un onglet à l'autre) ──
+  if (el('logp-ext-balcon-p'))   out['exterieurs.balcon']          = { present: v('logp-ext-balcon-p') === '1',   surface: +v('logp-ext-balcon-s') || 0 };
+  if (el('logp-ext-terrasse-p')) out['exterieurs.terrasse']        = { present: v('logp-ext-terrasse-p') === '1', surface: +v('logp-ext-terrasse-s') || 0 };
+  if (el('logp-ext-loggia-p'))   out['exterieurs.loggia']          = { present: v('logp-ext-loggia-p') === '1' };
+  if (el('logp-ext-jardin-p'))   out['exterieurs.jardin_privatif'] = { present: v('logp-ext-jardin-p') === '1',   surface: +v('logp-ext-jardin-s') || 0 };
+
+  // ── Annexes ──
+  const _AN = ['cave','grenier','parking','garage','buanderie','cellier','localVelos','atelier'];
+  _AN.forEach((k) => {
+    if (!el('logp-an-' + k + '-p')) return;
+    const o = { present: ck('logp-an-' + k + '-p'), num: v('logp-an-' + k + '-num') };
+    if (k === 'parking') o.type = v('logp-an-parking-type') || 'place';
+    out['annexes.' + k] = o;
+  });
+  if (anyId(_AN.map((k) => 'logp-an-' + k + '-p'))) {
+    out['annexes.customs'] = Array.isArray(_logpCustomsDraft.an) ? _logpCustomsDraft.an.slice() : [];
+  }
+
+  // ── Mise en valeur ──
+  if (el('logp-pres-exposition')) out['presentation.exposition']      = v('logp-pres-exposition');
+  if (el('logp-pres-vue'))        out['presentation.vue']             = v('logp-pres-vue');
+  if (el('logp-pres-luminosite')) out['presentation.luminosite']      = v('logp-pres-luminosite');
+  if (el('logp-pres-calme'))      out['presentation.calme']           = v('logp-pres-calme');
+  if (el('logp-pres-caractere'))  out['presentation.caractere_ancien'] = v('logp-pres-caractere');
+
+  // ── Quartier ──
+  if (anyId(['logp-q-metro','logp-q-tramway','logp-q-bus','logp-q-gare'])) {
+    const transports = {};
+    ['metro','tramway','bus','gare'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) transports[k] = x; });
+    out['quartier.transports'] = transports;
+  }
+  if (anyId(['logp-q-boulangerie','logp-q-marche','logp-q-supermarche','logp-q-pharmacie'])) {
+    const commerces = {};
+    ['boulangerie','marche'].forEach(k => { const x = v('logp-q-' + k); if (x) commerces[k] = x; });
+    ['supermarche','pharmacie'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) commerces[k] = x; });
+    out['quartier.commerces'] = commerces;
+  }
+  const _QS = ['ecoles_primaires','college','lycee','parc','restaurants','sport','hopital'];
+  if (anyId(_QS.map(k => 'logp-q-s-' + k))) {
+    const services = {};
+    _QS.forEach(k => { if (ck('logp-q-s-' + k)) services[k] = true; });
+    out['quartier.services'] = services;
+  }
+  if (el('logp-q-reperes')) {
+    out['quartier.reperes'] = (v('logp-q-reperes') || '').split('\n').map(s => s.trim()).filter(Boolean);
+  }
+  const _QC = ['centre-historique','quartier-residentiel','quartier-etudiant','quartier-affaires','bord-de-mer','proche-nature','quartier-festif','haut-de-gamme'];
+  if (anyId(_QC.map(k => 'logp-q-c-' + k))) {
+    const caractere = [];
+    _QC.forEach(k => { if (ck('logp-q-c-' + k)) caractere.push(k); });
+    out['quartier.caractere'] = caractere;
+  }
+
+  // ── Infos de location ──
+  if (el('logp-loc-dispo')) out['locationInfo.disponibilite'] = v('logp-loc-dispo');
+  const _GAR = ['caution_solidaire','visale','gli','garant_perso'];
+  if (anyId(_GAR.map(k => 'logp-loc-g-' + k))) {
+    const garanties = [];
+    _GAR.forEach(k => { if (ck('logp-loc-g-' + k)) garanties.push(k); });
+    out['locationInfo.garanties_acceptees'] = garanties;
+  }
 
   // v15.249 B5 (D-B9) — loyer théorique top-level (décision B1-a : push bail → théorique).
   // Round-trip no-op quand les champs sont grisés (bail actif) : .value vaut la valeur poussée,
   // donc on ne clobbe jamais une valeur pilotée par le bail. Éditable = logement vacant.
-  const loyerHcRef = v('logp-loc-hcRef');
-  const chargesRef = v('logp-loc-chRef');
-  const dgRef      = v('logp-loc-dgRef');
-  const irlRef     = v('logp-loc-irlRef');
+  if (el('logp-loc-hcRef'))  out['loyerHcRef'] = v('logp-loc-hcRef');
+  if (el('logp-loc-chRef'))  out['chargesRef'] = v('logp-loc-chRef');
+  if (el('logp-loc-dgRef'))  out['dgRef']      = v('logp-loc-dgRef');
+  if (el('logp-loc-irlRef')) out['irlRef']     = v('logp-loc-irlRef');
 
-  return {
-    equipementsCommuns,
-    log: { equipements: { cuisine, sanitaires, technologies }, exterieurs: ext, annexes, presentation, quartier, locationInfo,
-           loyerHcRef, chargesRef, dgRef, irlRef }
-  };
+  return { equipementsCommuns, log: out };
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -44152,38 +44222,37 @@ function saveParamLog() {
       etat:  r.etat || 'bon'
     }));
 
-  // ── Tab Présentation (v15.209 LOG-ANNONCE Étape 3) ──
+  // ── Champs structurés du logement (ex-tab Présentation, v15.209 LOG-ANNONCE Étape 3) ──
+  // P0-1 (chantier BIENS) : lecture PARTIELLE + merge par chemin. _logpReadFromForm ne renvoie
+  // que les groupes réellement présents dans le DOM ; _logpApplyPartial n'écrit que ceux-là.
+  // Retirer ou déplacer un pane ne peut donc plus effacer une donnée en silence — ni sur le
+  // logement, ni sur l'immeuble parent (equipementsCommuns).
   try {
     const presa = _logpReadFromForm();
-    log.equipements = presa.log.equipements;
-    log.exterieurs = presa.log.exterieurs;
-    log.annexes = presa.log.annexes;
-    log.presentation = presa.log.presentation;
-    log.quartier = presa.log.quartier;
-    log.locationInfo = presa.log.locationInfo;
+    const _inForm = (k) => Object.prototype.hasOwnProperty.call(presa.log, k);
+    _logpApplyPartial(log, presa.log);
     // v15.249 B5 (D-B9) — loyer théorique. Si un bail actif pilote ces champs ils sont grisés et
     // .value = valeur poussée → réassignation sans effet (pas de clobber). Logement vacant → édition manuelle.
-    log.loyerHcRef = presa.log.loyerHcRef;
-    log.chargesRef = presa.log.chargesRef;
-    log.dgRef      = presa.log.dgRef;
-    log.irlRef     = presa.log.irlRef;
     // LOYER-REFERENCE — bien VACANT : le loyer de référence édité ici EST le loyer courant du bien
     // (lu par la fiche, le candidat, l'invitation, l'annonce, le prochain bail). On tient donc
     // log.hc/ch/dg == loyer de référence. Bien OCCUPÉ : le bail pilote log.hc/ch (+ IRL) — on n'y
     // touche pas (les champs étaient grisés, .value = valeur poussée → pas de clobber de toute façon).
     const _lrOcc = !!_bienActiveBail(log.ref); // tombstone _deleted + cloture + finEffective (audit)
-    if(!_lrOcc){
+    const _lrInForm = _inForm('loyerHcRef') || _inForm('chargesRef') || _inForm('dgRef') || _inForm('irlRef');
+    if(!_lrOcc && _lrInForm){
       const _hv = vv => vv !== null && vv !== undefined && String(vv).trim() !== '';
-      if(_hv(log.loyerHcRef)) log.hc = Number(log.loyerHcRef)||0;
-      if(_hv(log.chargesRef)) log.ch = Number(log.chargesRef)||0;
-      if(_hv(log.dgRef))      log.dg = Number(log.dgRef)||0;
+      if(_inForm('loyerHcRef') && _hv(log.loyerHcRef)) log.hc = Number(log.loyerHcRef)||0;
+      if(_inForm('chargesRef') && _hv(log.chargesRef)) log.ch = Number(log.chargesRef)||0;
+      if(_inForm('dgRef')      && _hv(log.dgRef))      log.dg = Number(log.dgRef)||0;
       // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
       (DB.candidats||[]).filter(x=>x && !x._deleted && x.logRef===log.ref).forEach(x=>{
         try{ x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); }catch(e){}
       });
     }
-    // Propage equipementsCommuns vers l'immeuble parent
-    if (log.entity && log.imm) {
+    // Propage equipementsCommuns vers l'immeuble parent — UNIQUEMENT si le bloc était dans le DOM.
+    // (P0-2 : la modale Immeuble porte déjà ces cases ; ici c'est le doublon, qui ne doit surtout
+    // pas écraser l'immeuble avec des cases inexistantes.)
+    if (presa.equipementsCommuns && log.entity && log.imm) {
       const ent = (DB.entites || []).find(e => e && e.nom === log.entity);
       const imm = ent && Array.isArray(ent.immeubles) ? ent.immeubles.find(i => i && i.nom === log.imm) : null;
       if (imm) {
