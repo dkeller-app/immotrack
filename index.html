@@ -36110,6 +36110,28 @@ function _ccTotalConsoYear(cc, year) {
 }
 
 // ── Rendu : sous-onglet "⚡ Charges communes" sur fiche immeuble
+// BIENS étape 9 (P1-7, décision 3 du 11/08) — UN SEUL écran de relevés : ici, avec un sélecteur
+// de logement. Un logement sans immeuble n'a pas la fonction, on ne duplique pas le point d'entrée.
+// Les DONNÉES ne bougent pas (DB.compteursReleves[ref] + log.compteurs) : openCompteursInitModal,
+// openCompteurReleve et viewCcReleves sont REPOINTÉS, pas dupliqués. Mémoire seule, comme le reste
+// des états d'affichage.
+let _immCompteursRef = '';
+function _setImmCompteursRef(ref) { _immCompteursRef = ref || ''; rImmFiche(); }
+
+/** Section « Relevés compteurs des logements » — DRY : réutilise _renderLogFichePanelCompteurs. */
+function _renderImmRelevesLogements(activeLogs) {
+  const logs = (activeLogs || []).filter(Boolean);
+  if (!logs.length) return '';
+  const courant = logs.some(l => l.ref === _immCompteursRef) ? _immCompteursRef : logs[0].ref;
+  const log = logs.find(l => l.ref === courant);
+  const opts = logs.map(l => `<option value="${escHtml(l.ref)}"${l.ref === courant ? ' selected' : ''}>${escHtml(l.ref)}${l.locataire ? ' — ' + escHtml(l.locataire) : ''}</option>`).join('');
+  return '<div class="logf-section-head" style="margin-top:26px">'
+    + '<h3 class="logf-section-title">⚡ Relevés compteurs des logements</h3>'
+    + `<select class="inp" style="max-width:280px" onchange="_setImmCompteursRef(this.value)" aria-label="Logement dont on affiche les relevés">${opts}</select>`
+    + '</div>'
+    + (log ? _renderLogFichePanelCompteurs(log, log.ref) : '');
+}
+
 function _renderImmFichePanelCharges(ent, im, activeLogs) {
   // v14.71 : on garde le tableau brut pour préserver les ccIdx passés aux callbacks
   // (editCcForImm, delCcForImm, addCcReleve…). Les tombstones sont skippés au rendu.
@@ -36149,7 +36171,8 @@ function _renderImmFichePanelCharges(ent, im, activeLogs) {
       Aucun compteur collectif enregistré pour cet immeuble.
       <div class="mu sm" style="margin-top:6px">Saisissez ici les compteurs <b>généraux</b> de l'immeuble (eau froide générale, électricité parties communes, gaz collectif…) pour calculer automatiquement la quote-part de chaque logement à la régularisation annuelle.</div>
       <div style="margin-top:10px"><button class="btn bp bb" onclick="openNewCcForImm(${entIdSafe},${immIdSafe})">+ Premier compteur collectif</button></div>
-    </div>`;
+    </div>`
+    + _renderImmRelevesLogements(activeLogs);
   }
 
   const yr = new Date().getFullYear();
@@ -36240,7 +36263,8 @@ function _renderImmFichePanelCharges(ent, im, activeLogs) {
     ${headerActions}
   </div>
   ${banner}
-  <div class="cc-grid">${cards}</div>`;
+  <div class="cc-grid">${cards}</div>`
+    + _renderImmRelevesLogements(activeLogs);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -40049,12 +40073,80 @@ function _renderLogFichePanelBail(log, bail, ref) {
 // HISTORIQUE-BAIL-ONGLET (17/07) : _renderBailTimeline (timeline horizontale) et
 // _bailColorFromName retires (code mort) - remplaces par la timeline en accordeons.
 
+// ════════════════════════════════════════════════════════════════════════════
+// BIENS étapes 9 et 10 — PASTILLES D'ENTÊTE (fiches bailleur et immeuble)
+// ────────────────────────────────────────────────────────────────────────────
+// Règle du mockup, identique en PC / tablette / téléphone :
+//   · la rangée est FIGÉE — une pastille ne change ni de largeur ni de place quand on l'ouvre ;
+//   · UNE SEULE montre son contenu, sous la rangée ENTIÈRE (pas sous la pastille) ;
+//   · re-cliquer la referme.
+// C'est ce qui permet de remonter les documents dans l'entête sans repousser les bulles
+// (immeubles / logements) sous la ligne de flottaison : l'entête ne coûte qu'une ligne de 34 px.
+//
+// État en MÉMOIRE SEULE, comme _biensFilters : rien à persister, rien à purger au reset cloud.
+let _fichePastilles = {};   // clé de fiche → id de la pastille ouverte ('' = toutes repliées)
+
+/** @param {string} scope clé de fiche (ex: 'imm:12') · @param {Array} items [{id,label,count,html}]
+  * @param {string} refresh nom de la fonction de rendu à rappeler (rImmFiche / rEntFiche) */
+function _renderFichePastilles(scope, items, refresh) {
+  const vivants = (items || []).filter(Boolean);
+  if (!vivants.length) return '';
+  const ouvert = _fichePastilles[scope] || '';
+  const scopeAttr = String(scope).replace(/'/g, "\\'");
+  const rangee = vivants.map(it => {
+    const act = it.id === ouvert;
+    return `<button type="button" class="fiche-pastille${act ? ' act' : ''}" aria-expanded="${act}"`
+      + ` onclick="_toggleFichePastille('${scopeAttr}','${String(it.id).replace(/'/g, "\\'")}','${refresh}')">`
+      + `<span class="fiche-pastille-lbl">${escHtml(it.label)}</span>`
+      + (it.count != null ? `<span class="fiche-pastille-n">${escHtml(String(it.count))}</span>` : '')
+      + `<span class="fiche-pastille-cx" aria-hidden="true">${act ? '▾' : '▸'}</span>`
+      + '</button>';
+  }).join('');
+  const corps = ouvert ? (vivants.find(it => it.id === ouvert) || {}).html : '';
+  return `<div class="fiche-pastilles" role="group">${rangee}</div>`
+    + (corps ? `<div class="fiche-pastille-body">${corps}</div>` : '');
+}
+
+/** Compte les pièces jointes vivantes d'un parent (pour la pastille « Documents (4) »). */
+function _attCount(parentType, parentId, category) {
+  return (DB.documents || []).filter(d => d && !d._deleted
+    && d.parentType === parentType && d.parentId === parentId && d.category === category).length;
+}
+
+/** Contenu de la pastille « Bâti & parties communes » de la fiche immeuble.
+ *  Ces 3 informations (type d'habitat, régime juridique, période de construction) se saisissent
+ *  UNE SEULE FOIS ici et sont héritées par tous les logements — la période qualifie le BÂTIMENT,
+ *  pas le logement rénové (encadrement, CREP plomb 1949, amiante 1997 : trois critères bâtiment). */
+function _renderImmBatiPastille(ent, im) {
+  const immIdx = (ent.immeubles || []).findIndex(i => +i.id === +im.id);
+  const ecTxt = (typeof window !== 'undefined' && window.BiensPieces)
+    ? window.BiensPieces.partiesCommunesDepuisImm(im) : '';
+  const ligne = (lbl, val) => val ? `<div class="logf-row"><span class="logf-label">${lbl}</span><span class="logf-value">${escHtml(String(val))}</span></div>` : '';
+  return '<div class="logf-bail-grid">'
+    + ligne('Type d\'habitat', im.typeHabitat)
+    + ligne('Régime juridique', im.regimeJuridique)
+    + ligne('Année de construction', im.annee ? String(+im.annee) : '')
+    + ligne('Période de construction', im.periodeConstr)
+    + ligne('Nombre de lots', im.nbLots ? String(im.nbLots) : '')
+    + `<div class="logf-row" style="grid-column:1/-1"><span class="logf-label">Équipements communs</span><span class="logf-value">${ecTxt ? escHtml(ecTxt) : '<i>Aucun renseigné</i>'}</span></div>`
+    + '</div>'
+    + '<div class="mu sm" style="font-size:11px;color:var(--t3);margin-top:8px">Type d\'habitat, régime juridique et période de construction sont saisis une seule fois ici et hérités par les logements. Les équipements communs alimentent la clause « Parties communes » de chaque bail.</div>'
+    + (immIdx >= 0 ? `<div style="margin-top:10px"><button class="btn bs bb" onclick="editImm(${immIdx},${+ent.id})">✏ Modifier l'immeuble</button></div>` : '');
+}
+
+function _toggleFichePastille(scope, id, refresh) {
+  _fichePastilles[scope] = (_fichePastilles[scope] === id) ? '' : id;
+  const fn = (typeof window !== 'undefined') ? window[refresh] : null;
+  if (typeof fn === 'function') fn();
+}
+
 // v14.3 IMM-FICHE-360 Phase 1 — vue dédiée d'un immeuble (hub patrimoine intermédiaire).
 // Le hub manquant entre Bailleur et Logement. Drill-in cohérent : Bailleur > Immeuble > Logement.
 let _currentImmFiche = null; // { entId, immId }
 
 function openImmFiche(entId, immId) {
   if(!entId || !immId) return;
+  _immVueFrise = false;   // BIENS P1-11 : on ouvre TOUJOURS sur la liste des logements
   _currentImmFiche = { entId: +entId, immId: +immId };
   go('imm-fiche', null);
   try {
@@ -40167,7 +40259,7 @@ function rImmFiche() {
         <div class="logf-badges">
           <span class="logf-badge" onclick="openEntFiche(${+ent.id})" title="Voir le bailleur" style="cursor:pointer">🏛 ${entNomEsc}</span>
           ${im.regimeJuridique?`<span class="logf-badge b-mute">${escHtml(im.regimeJuridique)}</span>`:''}
-          ${im.periodeConstr?`<span class="logf-badge b-mute">${escHtml(im.periodeConstr)}</span>`:''}
+          ${/* BIENS étape 9 (compaction, mesuré) — badge « période de construction » RETIRÉ du hero :
         </div>
         <div class="logf-hero-stats logf-hero-stats-4">
           <div class="logf-stat" title="${nbCompteCharges} sur ${nbLogs} comptent dans la répartition charges immeuble (cocher/décocher dans la modale logement)">
@@ -40182,7 +40274,8 @@ function rImmFiche() {
           <button class="btn bp" onclick="_frStartCtx('log', ${+ent.id}, '${escHtml(_frAttr(im.nom))}')">＋ Ajouter un bien</button>
           <!-- v14.34 fix : appel à editImm(idx, entId) au lieu d'openNewEnt qui ouvrait la modale bailleur -->
           ${immIdx >= 0 ? `<button class="btn bs" onclick="editImm(${immIdx},${+ent.id})">✏ Modifier l'immeuble</button>` : ''}
-          <button class="btn bs" onclick="openEntFiche(${+ent.id})">🏛 Voir le bailleur</button>
+          ${/* BIENS (P1-13, retour user 11/08) — « 🏛 Voir le bailleur » RETIRÉ : doublon strict du
+               bouton retour, qui affiche déjà « ← nom du bailleur ». */''}
         </div>
       </div>
       <div class="entf-donut-compact">
@@ -40190,35 +40283,50 @@ function rImmFiche() {
         <div class="entf-donut-cap">Occupation</div>
       </div>
     </div>
+    ${/* BIENS étape 9 — l'entête absorbe le bâti, les photos et les DOCUMENTS COMMUNS (ex-onglet),
+         l'assurance MRO/PNO comprise. DRY : _renderAttachmentSection est déjà paramétré par
+         parentType/parentId et se rafraîchit en place — seul son point d'accrochage change. */''}
+    ${_renderFichePastilles('imm:' + immId, [
+      { id: 'bati', label: 'Bâti & parties communes', html: _renderImmBatiPastille(ent, im) },
+      { id: 'photos', label: 'Photos', count: _attCount('immeuble', im.id, 'photos'),
+        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'photos', title:'📷 Photos de l\'immeuble', emptyText:'Aucune photo. La première photo sert de vignette — ici et sur la bulle de la fiche bailleur.'}) },
+      { id: 'docs', label: 'Documents', count: _attCount('immeuble', im.id, 'documents'),
+        html: _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'📁 Documents communs', emptyText:'Aucun document. Ajoutez règlement de copropriété, PV d\'AG, diagnostics communs, attestation d\'assurance MRO/PNO…'}) }
+    ], 'rImmFiche')}
     <div class="logf-subtabs" role="tablist" aria-label="Sous-sections de la fiche immeuble">
+      <!-- BIENS étape 9 — 2 onglets. Le plan d'occupation devient la VUE FRISE de l'onglet Logements,
+           les documents communs remontent en entête, l'assurance MRO/PNO redevient un document
+           (décision 1 du 11/08 : pas de rappel d'échéance, ces contrats se renouvellent
+           automatiquement), et l'onglet grisé « À venir » part (P1-12 : une V1 qui a l'air finie). -->
       <button class="logf-subtab${_currentImmFicheTab==='logements'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='logements'}" onclick="setImmFicheTab('logements')">🏠 Logements (${nbLogs})</button>
-      <button class="logf-subtab${_currentImmFicheTab==='plan'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='plan'}" onclick="setImmFicheTab('plan')">📅 Plan d'occupation</button>
-      <button class="logf-subtab${_currentImmFicheTab==='charges'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='charges'}" onclick="setImmFicheTab('charges')" title="Compteurs collectifs et factures à répartir entre logements">⚡ Charges communes</button>
-      <button class="logf-subtab${_currentImmFicheTab==='documents'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='documents'}" onclick="setImmFicheTab('documents')" title="Règlement copro, PV d'AG, diagnostics communs">📁 Documents communs</button>
-      <button class="logf-subtab${_currentImmFicheTab==='assurances'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='assurances'}" onclick="setImmFicheTab('assurances')" title="PNO / multirisque qui couvre l'ensemble de l'immeuble">🛡 Assurances</button>
-      <button class="logf-subtab disabled" role="tab" aria-selected="false" disabled aria-disabled="true" title="Phase 2 — équipements partagés, travaux communs">🔧 Travaux & équipements <span class="soon">À venir</span></button>
+      <button class="logf-subtab${_currentImmFicheTab==='charges'?' act':''}" role="tab" aria-selected="${_currentImmFicheTab==='charges'}" onclick="setImmFicheTab('charges')" title="Compteurs collectifs, répartition des charges et relevés des logements">⚡ Charges communes</button>
     </div>
-    ${_currentImmFicheTab === 'plan'
-      ? _renderImmFichePlanGantt(ent, im, activeLogs)
-      : _currentImmFicheTab === 'documents'
-      ? _renderAttachmentSection({parentType:'immeuble', parentId:im.id, parentRef:im.nom, category:'documents', title:'📁 Documents communs', emptyText:'Aucun document. Ajoutez règlement de copropriété, PV d\'AG, diagnostics communs…'})
-      : _currentImmFicheTab === 'assurances'
-      ? _renderAssForImm(ent, im)
-      : (_currentImmFicheTab === 'charges'
-        ? _renderImmFichePanelCharges(ent, im, activeLogs)
-        : (nbLogs
+    ${_currentImmFicheTab === 'charges'
+      ? _renderImmFichePanelCharges(ent, im, activeLogs)
+      : (nbLogs
             ? `
-              <div class="flex-b" style="margin:14px 0 10px">
+              <div class="flex-b" style="margin:14px 0 10px;gap:10px;flex-wrap:wrap">
                 <span class="mu sm">${nbLogs} logement${nbLogs>1?'s':''} dans cet immeuble</span>
-                <button class="btn bp bb" onclick="_immFicheNewLog('${escHtml(ent.nom)}','${escHtml(im.nom)}')">+ Logement</button>
+                ${/* BIENS (P1-13) — « + Logement » retiré ici : le fil rouge est déjà la porte unique
+                     et démarre à la bonne étape (＋ Ajouter un bien, dans l'entête). Le bouton reste
+                     dans l'ÉTAT VIDE ci-dessous, seul endroit où la création directe a du sens. */''}
+                ${/* BIENS étape 9 (P1-11) — toggle Liste ⇄ Frise. DRY : la vue Frise APPELLE
+                     _renderImmFichePlanGantt, le rendu du plan d'occupation existant (fonction
+                     autonome : ent, im, activeLogs) — seul l'appelant change, rien n'est réécrit. */''}
+                <div class="immf-vue-toggle" role="group" aria-label="Affichage des logements">
+                  <button type="button" class="immf-vue-btn${!_immVueFrise?' act':''}" aria-pressed="${!_immVueFrise}" onclick="_setImmVue(false)">Liste</button>
+                  <button type="button" class="immf-vue-btn${_immVueFrise?' act':''}" aria-pressed="${_immVueFrise}" onclick="_setImmVue(true)">Frise</button>
+                </div>
               </div>
-              <div class="biens-grid">${activeLogs.map(_renderLogementCardFlat).join('')}</div>`
+              ${_immVueFrise
+                ? _renderImmFichePlanGantt(ent, im, activeLogs)
+                : `<div class="biens-grid">${activeLogs.map(_renderLogementCardFlat).join('')}</div>`}`
             : `<div class="biens-empty">
                 <div class="biens-empty-icon">🏠</div>
                 <div class="biens-empty-title">Cet immeuble n'a pas encore de logement</div>
                 <div class="biens-empty-msg">Ajoutez le premier logement pour commencer le suivi locatif.</div>
                 <button class="btn bp" onclick="_immFicheNewLog('${escHtml(ent.nom)}','${escHtml(im.nom)}')">+ Ajouter un logement</button>
-              </div>`))
+              </div>`)
     }
     ${_currentImmFicheTab === 'logements' && archivedLogs.length ? `<div class="mu sm" style="margin-top:18px;text-align:center">📦 ${archivedLogs.length} logement${archivedLogs.length>1?'s':''} archivé${archivedLogs.length>1?'s':''} — visible${archivedLogs.length>1?'s':''} dans Biens > tab "Archivés"</div>` : ''}
   `;
@@ -40227,14 +40335,31 @@ function rImmFiche() {
 // v14.38 — état du sous-onglet courant de la fiche immeuble + setter
 // v14.59 : ajout 'charges' (compteurs collectifs + répartition charges récupérables)
 let _currentImmFicheTab = 'logements';
+// BIENS étape 9 (P1-11, décision 5 du 11/08) — le toggle Liste ⇄ Frise n'est PAS mémorisé : la
+// fiche s'ouvre toujours sur la liste (les bulles), la frise est un geste ponctuel. Cohérent avec
+// l'existant : l'app ne persiste aucun état d'affichage (_biensFilters vit en mémoire seule).
+// Zéro ligne de persistance, zéro clé à purger au reset cloud.
+let _immVueFrise = false;
+function _setImmVue(frise) { _immVueFrise = !!frise; rImmFiche(); }
 function setImmFicheTab(tab) {
-  if(['logements','plan','charges','documents','assurances'].indexOf(tab) < 0) return;
+  // BIENS étape 9 — 5 onglets → 2 : Logements (avec toggle Liste ⇄ Frise) et Charges communes.
+  // REDIRECTIONS de compat plutôt qu'un retrait sec (sinon un deep-link devient un clic muet) :
+  if(tab === 'plan')       { _immVueFrise = true;  tab = 'logements'; }   // le plan devient la vue Frise
+  if(tab === 'documents')  { _fichePastilles['imm:' + ((_currentImmFiche||{}).immId||'')] = 'docs'; tab = 'logements'; }
+  if(tab === 'assurances') { _fichePastilles['imm:' + ((_currentImmFiche||{}).immId||'')] = 'docs'; tab = 'logements'; }
+  if(['logements','charges'].indexOf(tab) < 0) return;
   _currentImmFicheTab = tab;
   rImmFiche();
 }
 
+// BIENS étape 9 (décision 1 du 11/08) — CODE MORT ASSUMÉ. L'assurance MRO/PNO de l'immeuble
+// redevient un DOCUMENT comme un autre (pastille « Documents » de l'entête) : plus d'onglet, plus
+// de logique dédiée, plus de rappel d'échéance — ces contrats se renouvellent AUTOMATIQUEMENT.
+// Le rappel n'a de sens que pour l'assurance habitation du LOCATAIRE, qu'il faut redemander chaque
+// année : mrhEcheances (DB.mrh) n'est pas concernée et reste entière.
+// Les DB.assurances de portée immeuble ne sont PAS supprimées : elles deviennent dormantes
+// (plus d'écran, plus d'alerte) plutôt qu'effacées — réversible, aucune migration.
 // v15.246 V3-REFONTE-ASSURANCES : sous-onglet « Assurances » de la fiche immeuble.
-// Gère les assurances de portée immeuble (PNO / multirisque qui couvrent tout le bâtiment).
 function _renderAssForImm(ent, im) {
   const immNom = (im && im.nom) || '';
   const _immA = String(immNom).replace(/'/g, "\\'");
