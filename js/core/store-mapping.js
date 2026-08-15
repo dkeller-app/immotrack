@@ -39,6 +39,23 @@ const dateOnly = v => { const i = ts(v); return i ? i.slice(0, 10) : (typeof v =
 // ne le lit jamais (le Store multi le re-pose). NB : `__key`/`__entiteNom`/`__immeubleNom` sont conservés
 // (load-bearing : l'hydrate reconstruit la map baux et les FK depuis ces clés dans legacy_raw).
 const stripTag = o => { if (!o || typeof o !== 'object' || o._espaceId == null) return o; const { _espaceId, ...rest } = o; return rest }
+// BIENS étapes 5/6 — colonnes TYPÉES des deux clauses de bail générées depuis la fiche du bien
+// (`edl_template` = la liste de pièces, `parties_communes` et `pieces_desc` = les surcharges).
+// Elles arrivent avec la migration 0046_logements_clauses_bail.sql.
+//
+// INTERRUPTEUR VOLONTAIRE : PostgREST refuse une colonne inconnue (PGRST204) — émettre ces clés
+// AVANT que 0046 soit appliquée à la base ferait ÉCHOUER TOUTE écriture de logement. Tant que le
+// feu vert d'application n'est pas donné, on ne les émet pas. AUCUNE DONNÉE N'EST PERDUE pour
+// autant : `legacy_raw` (juste en dessous) embarque l'enregistrement legacy ENTIER, edlTemplate et
+// partiesCommunes compris, et l'hydrate reconstruit le DB depuis legacy_raw (js/core/store-supabase.js).
+// Les colonnes typées servent l'ETL relationnel et les requêtes SQL, pas la fidélité de l'app.
+//
+// À BASCULER À `true` DANS LA MÊME PASSE QUE L'APPLICATION DE 0046 — pas avant, pas après.
+const COLONNES_CLAUSES_BAIL_0046 = false
+const clausesBail = o => (COLONNES_CLAUSES_BAIL_0046
+  ? { pieces_desc: jb(o.piecesDesc ?? null), parties_communes: o.partiesCommunes ?? null, edl_template: jb(o.edlTemplate ?? null) }
+  : {})
+
 const base = (o, ctx) => ({ espace_id: ctx.espaceId, created_by: ctx.ownerId, legacy_raw: jb(stripTag(o)) })
 
 const MAPPERS = {
@@ -55,7 +72,7 @@ const MAPPERS = {
     const ent = ctx.entiteByNom.get(norm(o.entity)); if (!ent) return null
     if (!o.ref || !String(o.ref).trim()) return null
     const imm = o.imm ? ctx.immeubleByNom.get(norm(o.imm)) : null
-    return { id: ctx.detUuid('logement', norm(o.ref)), entite_id: ent, immeuble_id: imm ?? null, legacy_id: String(o.id ?? ''), ref: o.ref, type: o.type ?? null, type_usage: o.typeUsage ?? null, surface: num(o.surf), etage: o.etage ?? null, num_apt: o.numApt ?? null, adresse: o.adr ?? null, npp: o.npp ?? null, pieces_desc: jb(o.piecesDesc ?? null), parties_communes: o.partiesCommunes ?? null, edl_template: jb(o.edlTemplate ?? null), tantiemes: o.tantiemes != null ? String(o.tantiemes) : null, lot: o.lot ?? null, num_fiscal: o.numFiscal ?? null, loyer_hc_ref: num(o.loyerHcRef), charges_ref: num(o.chargesRef), chauffage: jb(o.chauffage ?? null), ecs: jb(o.ecs ?? null), diagnostics: jb(o.diagnostics ?? null), equipements: jb(o.equipements ?? null), mobilier: jb(o.mobilier ?? null), presentation: jb(o.presentation ?? null), drive_folders: jb(o.driveFolders ?? null), legacy_bail: jb({ locataire: o.locataire ?? null, hc: o.hc ?? null, ch: o.ch ?? null, dg: o.dg ?? null, irl: o.irl ?? null, debut: o.debut ?? null, fin: o.fin ?? null }), ...base(o, ctx) }
+    return { id: ctx.detUuid('logement', norm(o.ref)), entite_id: ent, immeuble_id: imm ?? null, legacy_id: String(o.id ?? ''), ref: o.ref, type: o.type ?? null, type_usage: o.typeUsage ?? null, surface: num(o.surf), etage: o.etage ?? null, num_apt: o.numApt ?? null, adresse: o.adr ?? null, npp: o.npp ?? null, ...clausesBail(o), tantiemes: o.tantiemes != null ? String(o.tantiemes) : null, lot: o.lot ?? null, num_fiscal: o.numFiscal ?? null, loyer_hc_ref: num(o.loyerHcRef), charges_ref: num(o.chargesRef), chauffage: jb(o.chauffage ?? null), ecs: jb(o.ecs ?? null), diagnostics: jb(o.diagnostics ?? null), equipements: jb(o.equipements ?? null), mobilier: jb(o.mobilier ?? null), presentation: jb(o.presentation ?? null), drive_folders: jb(o.driveFolders ?? null), legacy_bail: jb({ locataire: o.locataire ?? null, hc: o.hc ?? null, ch: o.ch ?? null, dg: o.dg ?? null, irl: o.irl ?? null, debut: o.debut ?? null, fin: o.fin ?? null }), ...base(o, ctx) }
   },
   documents(o, ctx) {
     let pid = null
@@ -138,6 +155,8 @@ const MAPPERS = {
     return { id: ctx.detUuid('candidat', String(o.id)), legacy_id: String(o.id ?? ''), entite_id: ctx.entiteByNom.get(norm(o.entity)) || null, logement_id: ctx.logementByRef.get(norm(o.logRef)) || null, ...base(o, ctx) }
   },
 }
+
+export { COLONNES_CLAUSES_BAIL_0046 }
 
 export function mapToRow(collection, rec, ctx) {
   const m = MAPPERS[collection]

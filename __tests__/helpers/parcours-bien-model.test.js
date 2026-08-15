@@ -134,7 +134,7 @@ describe('identiteParcours — garde bloquante du fil rouge (mockup validé, dé
   });
 });
 
-import { completionModel } from './parcours-bien-model.js';
+import { completionModel, isRentable, identiteParcours, hasDesignationPieces } from './parcours-bien-model.js';
 
 const ENT2 = { id: 'e1', nom: 'SCI DK', gerants: [], gerant: '', emailEnvoi: '', iban: '' };
 const IMM2 = { id: 'i1', nom: '16 rue des Tilleuls', adr: '16 rue des Tilleuls', ville: 'Mulhouse', annee: 0, valeurEstimee: 0, equipementsCommuns: { customs: [] } };
@@ -172,9 +172,49 @@ describe('completionModel', () => {
     expect(t.action).toBe('creer-bail');
     expect(m.nodes[3].tasks.find(x => x.id === 'numFiscal').status).toBe('warn');
   });
-  it('log C (vacantAssume) : tâche bail done, mais caractéristiques todo (type/surface vides)', () => {
+  it('log C (vacantAssume) : tâche bail done, mais caractéristiques todo (type/surface vides ET pas de liste de pièces)', () => {
     expect(m.nodes[4].tasks.find(x => x.id === 'bail').status).toBe('done');
     expect(m.nodes[4].tasks.find(x => x.id === 'caracteristiques').status).toBe('todo');
+  });
+
+  // P1-17 (décidé 13/08) — la tâche « Surface habitable + désignation » teste ENFIN la désignation.
+  // Elle ne le faisait pas : réf/type/surface/loyer seulement. Depuis l'étape 5 du chantier BIENS,
+  // la clause « Désignation des pièces » du bail est générée depuis log.edlTemplate.pieces — une
+  // tâche verte sur une clause vide serait un compteur qui ment.
+  it('P1-17 — logs A et B sont louables mais SANS liste de pièces → caractéristiques todo', () => {
+    // EFFET ASSUMÉ (validé par le user) : les logements existants sans liste repassent en « à faire »
+    // et les pourcentages de complétion baissent d'un coup.
+    expect(m.nodes[2].tasks.find(x => x.id === 'caracteristiques').status).toBe('todo');
+    expect(m.nodes[3].tasks.find(x => x.id === 'caracteristiques').status).toBe('todo');
+  });
+
+  it('P1-17 — louable + liste de pièces non vide → caractéristiques done', () => {
+    const avecPieces = { ...LOGS2[1], edlTemplate: { pieces: [{ nom: 'Séjour / Salon', elements: [] }, { nom: 'Chambre 1', elements: [] }] } };
+    const r = completionModel({ entite: ENT2, immeuble: IMM2, logements: [avecPieces], bauxActifs: {} });
+    expect(r.nodes[2].tasks.find(x => x.id === 'caracteristiques').status).toBe('done');
+  });
+
+  it('P1-17 — liste vide, absente ou aux noms blancs ne compte pas', () => {
+    const cas = [undefined, { pieces: [] }, { pieces: [{ nom: '   ' }] }, { pieces: 'nope' }, {}];
+    cas.forEach((edlTemplate) => {
+      const r = completionModel({ entite: ENT2, immeuble: IMM2, logements: [{ ...LOGS2[1], edlTemplate }], bauxActifs: {} });
+      expect(r.nodes[2].tasks.find(x => x.id === 'caracteristiques').status).toBe('todo');
+    });
+  });
+
+  it('P1-17 — la tâche nomme où se saisit la désignation et cite les DEUX mentions obligatoires', () => {
+    const t = m.nodes[2].tasks.find(x => x.id === 'caracteristiques');
+    expect(t.detail).toContain('liste de pièces');
+    expect(t.src).toContain('désignation des pièces');
+    expect(t.src).toContain('art. 3 loi 89-462');
+  });
+
+  it('P1-17 — la GARDE DE CRÉATION reste inchangée : sans liste de pièces on peut toujours créer un bien', () => {
+    // isRentable/identiteParcours pilotent _frSubmitLog, dont le formulaire n'offre PAS de liste
+    // de pièces. Les y étendre bloquerait purement et simplement la création.
+    expect(isRentable({ ref: 'X', type: 'T2', surface: 40, loyer: 500 })).toBe(true);
+    expect(identiteParcours({ ref: 'X', type: 'T2', surface: 40, loyer: 500 })).toEqual({ ok: true, missing: [] });
+    expect(hasDesignationPieces({ ref: 'X' })).toBe(false);
   });
   it('pct global cohérent (done/total, arrondi) et badges', () => {
     const done = m.nodes.flatMap(n => n.tasks).filter(t => t.status === 'done').length;
@@ -201,7 +241,9 @@ describe('completionModel', () => {
     const full = completionModel({
       entite: { ...ENT2, gerant: 'D. Keller', siege: '1 rue Y', emailEnvoi: 'x@y.z', iban: 'FR76...' },
       immeuble: { ...IMM2, annee: 1971, regimeJuridique: 'copro', valeurEstimee: 285000, equipementsCommuns: { customs: [], ascenseur: true } },
-      logements: [{ ...LOGS2[0], numFiscal: '123' }],
+      // P1-17 : « tout le légal rempli » inclut désormais la LISTE DE PIÈCES (elle génère la
+      // clause « Désignation des pièces » du bail) — sans elle, pctLegal ne peut plus atteindre 100.
+      logements: [{ ...LOGS2[0], numFiscal: '123', edlTemplate: { pieces: [{ nom: 'Séjour / Salon', elements: [] }] } }],
       bauxActifs: { A: { ref: 'A', source: { import: 'acte' }, reprisVerifie: true } },
       diagsParLot: { A: { requis: [{ key: 'dpe', label: 'DPE' }], indetermines: [], fournis: ['dpe'] } },
       dpeParLot: { A: { classe: 'D', interdit: false, raison: '' } },
@@ -391,7 +433,8 @@ describe('completionModel — multi-immeubles (revue I1)', () => {
 // bloquant (pctLegal jamais 100 ⇒ ni bouton « Terminer », ni purge du bandeau de reprise).
 describe('completionModel — gérant réservé aux personnes morales (revue I2)', () => {
   const IMM = { id: 'i1', nom: '12 rue X', adr: '12 rue X', ville: 'Ferrette', annee: 1971, regimeJuridique: 'mono' };
-  const LOG = { ref: 'F-102', imm: '12 rue X', type: 'T2', surf: 44, hc: 508, numFiscal: '99' };
+  // P1-17 : la liste de pièces fait partie du palier légal (clause « Désignation des pièces »).
+  const LOG = { ref: 'F-102', imm: '12 rue X', type: 'T2', surf: 44, hc: 508, numFiscal: '99', edlTemplate: { pieces: [{ nom: 'Séjour / Salon', elements: [] }] } };
   const mk = (type) => completionModel({
     entite: { id: 'e1', nom: 'Didier K.', type, siege: '1 rue Y' },
     immeubles: [IMM], logements: [LOG], bauxActifs: { 'F-102': { ref: 'F-102' } },
@@ -439,7 +482,8 @@ describe('completionModel — année de construction = dépendance, pas obligati
 describe('completionModel — DPE interdit = alerte hors compteur (revue I4)', () => {
   const ENT = { id: 'e1', nom: 'Didier K.', type: 'Personne physique', siege: '1 rue Y' };
   const IMM = { id: 'i1', nom: '12 rue X', adr: '12 rue X', ville: 'Ferrette', annee: 1971, regimeJuridique: 'mono' };
-  const LOG = { ref: 'F-102', imm: '12 rue X', type: 'T2', surf: 44, hc: 508, numFiscal: '99' };
+  // P1-17 : la liste de pièces fait partie du palier légal (clause « Désignation des pièces »).
+  const LOG = { ref: 'F-102', imm: '12 rue X', type: 'T2', surf: 44, hc: 508, numFiscal: '99', edlTemplate: { pieces: [{ nom: 'Séjour / Salon', elements: [] }] } };
   const mk = (dpe) => completionModel({ entite: ENT, immeubles: [IMM], logements: [LOG],
     bauxActifs: { 'F-102': { ref: 'F-102' } },
     diagsParLot: { 'F-102': { requis: [], indetermines: [], fournis: [] } },
