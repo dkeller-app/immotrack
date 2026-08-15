@@ -119,6 +119,8 @@ import { validateNewRef, canRenameLogement, renameLogementRef } from './core/ren
 import { validateNewImmNom, renameImmeubleRefs } from './core/rename-immeuble.js';
 // P0-1 (chantier BIENS) — merge partiel des champs de formulaire du logement.
 import { _logpApplyPartial } from './core/logp-partial.js';
+// BIENS — migrations douces du chantier (n° lot copro, …).
+import { migrerNumLotVersLot } from './core/biens-migration.js';
 
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
@@ -455,6 +457,8 @@ window._renameLogement = { validate: validateNewRef, canRename: canRenameLogemen
 window._renameImmeuble = { validate: validateNewImmNom, propagate: renameImmeubleRefs };
 // BIENS P0-1 — merge partiel par chemin pointé (shadow inline identique dans index.html).
 window._logpApplyPartial = _logpApplyPartial;
+// BIENS — migrations douces (appelees par _bootDataJobs ; idempotentes).
+window._biensMigration = { numLotVersLot: migrerNumLotVersLot };
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
