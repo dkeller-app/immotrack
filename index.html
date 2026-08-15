@@ -2227,10 +2227,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <!-- Tabs internes -->
   <div class="logmod-tabs" role="tablist" aria-label="Sections du logement">
     <button class="logmod-tab act" data-tab="ident" onclick="setLogModalTab('ident')" role="tab" aria-selected="true">📋 Identité</button>
-    <button class="logmod-tab" data-tab="desc" onclick="setLogModalTab('desc')" role="tab" aria-selected="false">📐 Description</button>
     <button class="logmod-tab" data-tab="diag" onclick="setLogModalTab('diag')" role="tab" aria-selected="false" title="DPE + risques + 9 diagnostics obligatoires (loi 89-462 art. 3-3) — saisie groupée">🏷 Diagnostics</button>
     <button class="logmod-tab" data-tab="equip" onclick="setLogModalTab('equip')" role="tab" aria-selected="false">🔧 Équipements</button>
-    <button class="logmod-tab" data-tab="presentation" onclick="setLogModalTab('presentation')" role="tab" aria-selected="false">📢 Présentation</button>
   </div>
 
   <div class="m-body">
@@ -2282,10 +2280,41 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
            référence du bien vacant, RELOCALISÉ ici depuis l'onglet Présentation (mêmes ids logp-loc-hcRef/chRef
            → _logpFillFromLog/_logpReadFromForm/save les lisent par id, cf commentaire onglet Présentation).
            UNE seule source (pas de doublon) ; bien occupé → grisé, le loyer suit le bail. -->
-      <div id="logp-loc-theo-note" class="mu sm" style="display:none;margin:0 0 8px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">🔄 Loyer/charges synchronisés depuis le bail en cours — modifiables une fois le logement vacant.</div>
+      <div id="logp-loc-theo-note" class="mu sm" style="display:none;margin:0 0 8px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">🔄 Loyer, charges, dépôt de garantie et IRL synchronisés depuis le bail en cours — modifiables une fois le logement vacant.</div>
       <div class="fg2">
         <div class="fg"><label>Loyer hors charges (€) <span class="mu sm" style="font-weight:400">(bien vacant — futur bail + score candidat)</span></label><input class="inp" type="number" min="0" step="0.01" id="logp-loc-hcRef" placeholder="ex : 750"></div>
         <div class="fg"><label>Charges (€)</label><input class="inp" type="number" min="0" step="0.01" id="logp-loc-chRef" placeholder="ex : 80"></div>
+      </div>
+      <!-- BIENS étape 2 (P1-10) — DG théorique / IRL de référence / date de disponibilité / garanties
+           acceptées RELOCALISÉS ici depuis l'onglet Présentation (qui disparaît). Ce ne sont PAS des
+           données d'annonce : le DG pré-remplit le wizard bail (b-dg), l'IRL et la dispo servent le
+           futur bail, les garanties le dossier candidat. Ids inchangés — _logpFillFromLog /
+           _logpReadFromForm les lisent par id, quel que soit l'onglet hôte. -->
+      <div class="fg2">
+        <div class="fg">
+          <label>Dépôt de garantie théorique (€)</label>
+          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-dgRef" placeholder="ex : 750">
+        </div>
+        <div class="fg">
+          <label>IRL de référence</label>
+          <select class="inp" id="logp-loc-irlRef"><option value="">— Non renseigné —</option></select>
+        </div>
+      </div>
+      <div class="fg2">
+        <div class="fg">
+          <label>Date de disponibilité</label>
+          <input class="inp" type="date" id="logp-loc-dispo">
+        </div>
+        <div class="fg"></div>
+      </div>
+      <div class="fg">
+        <label>Garanties acceptées</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px 12px;font-size:12.5px;margin-top:4px">
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-caution_solidaire"> Caution solidaire</label>
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-visale"> Visale (gratuit)</label>
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-gli"> GLI</label>
+          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-garant_perso"> Garant personnel</label>
+        </div>
       </div>
       <!-- v15.230 ARCHI-FICHES-UNIFIED A2 — Étage + Numéro d'appartement (séparés). log.adr devient un override exceptionnel. -->
       <div class="fg2">
@@ -2293,6 +2322,36 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <div class="fg"><label>N° appartement <span style="font-size:10.5px;color:var(--t2);font-weight:400">(localisation dans l'immeuble)</span></label><input class="inp" id="log-numApt" placeholder="ex: 3B, 12, Lot 5"></div>
       </div>
       <div class="fg"><label>Adresse — override <span style="font-size:10.5px;color:var(--t2);font-weight:400">(laissez vide pour hériter de l'immeuble — cas rare : bâtiment à entrées multiples)</span></label><input class="inp" id="log-adr" placeholder="Vide = hérite de l'immeuble"></div>
+
+      <!-- BIENS étape 4 — ex-onglet Description : fiscalité et charges communes remontent en Identité
+           (mockup s4-modale). Ids inchangés. N° lot copro : le champ historique log-lot est CONSERVÉ
+           (c'est lui qui a une colonne cloud dans js/core/store-mapping.js et que la clause de bail
+           « Numéro de lot copropriété » lit) ; le doublon log-numLot, jamais synchronisé, disparaît de
+           l'écran et sa valeur est reversée dans log.lot par une migration douce (js/core/biens-migration.js). -->
+      <div class="logmod-section-title">🧾 Fiscalité &amp; charges communes</div>
+      <div class="fg"><label>N° identifiant fiscal du logement</label><input class="inp" id="log-numFiscal" placeholder="Déclaration d’occupation des locaux"></div>
+      <div class="fg2">
+        <div class="fg">
+          <label>Tantièmes (millièmes) <span class="mu sm">copro</span></label>
+          <input class="inp" type="number" id="log-tantiemes" min="0" max="10000" step="1" placeholder="ex : 187 (sur 1000)">
+        </div>
+        <div class="fg">
+          <label>N° lot copro <span class="mu sm">(optionnel)</span></label>
+          <input class="inp" id="log-lot" placeholder="ex : Lot 12">
+        </div>
+      </div>
+      <div class="fg" style="margin-top:6px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">
+          <input type="checkbox" id="log-compteCharges" checked style="width:18px;height:18px;cursor:pointer">
+          <span>☑ Ce logement compte dans la répartition des charges communes</span>
+        </label>
+        <div class="mu sm" style="font-size:11px;color:var(--t3);margin-left:26px;margin-top:2px">
+          Décocher pour les <b>garages, caves, parkings isolés</b> qui ne supportent pas les charges immeuble (eau générale, élec parties communes…).
+        </div>
+      </div>
+      <div class="logmod-info-banner mu sm" style="font-size:11px;color:var(--t3);padding:6px 10px;background:var(--sur2);border-radius:4px;margin-top:8px">
+        💡 Les <b>tantièmes</b> servent à calculer la quote-part de ce logement sur les charges communes de l'immeuble (eau générale, élec parties communes, gaz collectif…). Modifiable par compteur dans la fiche immeuble.
+      </div>
 
       <!-- v15.230 — Décision C4 Session 1 ARCHI-FICHES-UNIFIED RESPECTÉE :
            SUPPRESSION de l'encart « Bail courant (legacy) » qui dupliquait les
@@ -2305,23 +2364,38 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="fg" style="margin-top:14px"><label>Notes (sur le logement)</label><textarea class="inp" id="log-notes" rows="2" placeholder="Notes libres sur le bien (équipements particuliers, accès, codes, …)"></textarea></div>
     </div>
 
-    <!-- ── Tab DESCRIPTION ────────────────────────────────────────────── -->
-    <div class="logmod-pane" id="logmod-desc" role="tabpanel">
-      <div class="fg2">
-        <div class="fg"><label>Nb pièces principales</label><input class="inp" id="log-npp" placeholder="ex: 3"></div>
-        <div class="fg"><label>N° lot copropriété</label><input class="inp" id="log-lot"></div>
+    <!-- ── Tab DIAGNOSTICS (unifié : ex-DPE + ex-Risques) ───────────────── -->
+    <!-- v15.234 MODALE-LOGEMENT-CONSOLIDATION B2 — onglet groupé "fill once".
+         Table des diagnostics applicables + détail DPE + contexte d'auto-détection.
+         Source de vérité = log.diagnostics. Rendu/lecture via _logDiagRenderTab /
+         _logDiagCommitToLog (cf JS). Remplace les ex-onglets DPE + Risques. -->
+    <div class="logmod-pane" id="logmod-diag" role="tabpanel">
+      <div id="logmod-diag-body"><!-- rendu dynamique par _logDiagRenderTab() --></div>
+    </div>
+
+    <!-- ── Tab ÉQUIPEMENTS ────────────────────────────────────────────── -->
+    <div class="logmod-pane" id="logmod-equip" role="tabpanel">
+      <!-- BIENS étape 4 — ex-onglet DESCRIPTION fusionné ici (mockup s4-modale) : tout ce qui décrit
+           physiquement le bien vit dans un seul onglet. Ids strictement inchangés (log-npp, log-piecesDesc,
+           log-partiesCommunes, log-typeHabitat, log-regimeJuridique, log-periodeConstr) — saveParamLog et
+           le remplissage lisent par id, peu importe l'onglet hôte (P2-11). -->
+      <div class="logmod-info-banner">
+        📐 Tout ce qui décrit physiquement le bien est ici : composition, chauffage / eau chaude, équipements, extérieurs et annexes.
       </div>
-      <div class="fg"><label>Description des pièces</label><textarea class="inp" id="log-piecesDesc" rows="2" placeholder="Entrée, séjour, 2 chambres, cuisine équipée, salle de bains, WC…"></textarea></div>
-      <div class="fg"><label>Parties communes</label><input class="inp" id="log-partiesCommunes" placeholder="Hall, escaliers, jardin, parking visiteurs…"></div>
+
+      <div class="logmod-section-title">📐 Composition</div>
+      <div class="fg2">
+        <div class="fg"><label>Nb pièces principales <span class="mu sm">(séjour + chambres + bureau)</span></label><input class="inp" id="log-npp" placeholder="ex: 3"></div>
+        <div class="fg"></div>
+      </div>
       <!-- v15.249 B4 (D-B8) — Champ « Locaux accessoires à usage privatif » RETIRÉ de la modale.
-           Les annexes privatives (cave/parking/garage/grenier…) se saisissent désormais dans
-           l'onglet Équipements → bloc structuré « Annexes privatives ». La donnée legacy
-           log.locauxPrivatifs reste conservée et alimente toujours la clause de bail
-           « Locaux et équipements accessoires à usage privatif » (éditable côté wizard Bail). -->
-      <!-- v15.249 B3 — Bâti (type d'habitat / régime / période) : éditable UNIQUEMENT pour un
-           logement autonome (sans immeuble lié). Si un immeuble est lié, ces 3 champs sont
-           hérités et affichés en lecture seule dans l'encart « 🏛 Hérité » (onglet Identité).
-           _logRefreshInherited() bascule l'affichage entre #logmod-bati-own et la note ci-dessous. -->
+           Les annexes privatives (cave/parking/garage/grenier…) se saisissent plus bas dans le bloc
+           structuré « Annexes privatives ». La donnée legacy log.locauxPrivatifs reste conservée et
+           alimente toujours la clause de bail (éditable côté wizard Bail). -->
+      <!-- v15.249 B3 / P2-12 — Bâti (type d'habitat / régime / période) : éditable UNIQUEMENT pour un
+           logement autonome (sans immeuble lié). Si un immeuble est lié, ces 3 champs sont hérités et
+           affichés en lecture seule dans l'encart « 🏛 Hérité » (onglet Identité). _logRefreshInherited()
+           bascule l'affichage entre #logmod-bati-own et la note ci-dessous — pilotage par id, inchangé. -->
       <div id="logmod-bati-own" style="display:none">
         <div class="mu sm" style="margin:0 0 6px">🏠 Logement autonome — renseigne ici le bâti (pas d'immeuble lié).</div>
         <div class="fg2">
@@ -2357,44 +2431,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div id="logmod-bati-inherited-note" class="mu sm" style="display:none;margin:0 0 10px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">
         🏛 <strong>Type d'habitat, régime juridique et période de construction</strong> sont hérités de l'immeuble (voir l'onglet « Identité » → encart « Hérité de l'immeuble parent »).
       </div>
-      <div class="fg"><label>N° identifiant fiscal du logement</label><input class="inp" id="log-numFiscal" placeholder="Déclaration d’occupation des locaux"></div>
-      <!-- v14.59 GANTT-CHARGES : tantièmes copro pour répartition charges communes -->
-      <div class="fg2">
-        <div class="fg">
-          <label>Tantièmes (millièmes) <span class="mu sm">copro</span></label>
-          <input class="inp" type="number" id="log-tantiemes" min="0" max="10000" step="1" placeholder="ex : 187 (sur 1000)">
-        </div>
-        <div class="fg">
-          <label>Nº lot copro <span class="mu sm">(optionnel)</span></label>
-          <input class="inp" id="log-numLot" placeholder="ex : Lot 12">
-        </div>
-      </div>
-      <!-- v14.61 CHARGES-COMMUNES : coche compte-charges (exclure garages/parkings) -->
-      <div class="fg" style="margin-top:6px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600">
-          <input type="checkbox" id="log-compteCharges" checked style="width:18px;height:18px;cursor:pointer">
-          <span>☑ Ce logement compte dans la répartition des charges communes</span>
-        </label>
-        <div class="mu sm" style="font-size:11px;color:var(--t3);margin-left:26px;margin-top:2px">
-          Décocher pour les <b>garages, caves, parkings isolés</b> qui ne supportent pas les charges immeuble (eau générale, élec parties communes…).
-        </div>
-      </div>
-      <div class="logmod-info-banner mu sm" style="font-size:11px;color:var(--t3);padding:6px 10px;background:var(--sur2);border-radius:4px;margin-top:8px">
-        💡 Les <b>tantièmes</b> servent à calculer la quote-part de ce logement sur les charges communes de l'immeuble (eau générale, élec parties communes, gaz collectif…). Modifiable par compteur dans la fiche immeuble.
-      </div>
-    </div>
+      <div class="fg"><label>Description des pièces</label><textarea class="inp" id="log-piecesDesc" rows="2" placeholder="Entrée, séjour, 2 chambres, cuisine équipée, salle de bains, WC…"></textarea></div>
+      <div class="fg"><label>Parties communes</label><input class="inp" id="log-partiesCommunes" placeholder="Hall, escaliers, jardin, parking visiteurs…"></div>
 
-    <!-- ── Tab DIAGNOSTICS (unifié : ex-DPE + ex-Risques) ───────────────── -->
-    <!-- v15.234 MODALE-LOGEMENT-CONSOLIDATION B2 — onglet groupé "fill once".
-         Table des diagnostics applicables + détail DPE + contexte d'auto-détection.
-         Source de vérité = log.diagnostics. Rendu/lecture via _logDiagRenderTab /
-         _logDiagCommitToLog (cf JS). Remplace les ex-onglets DPE + Risques. -->
-    <div class="logmod-pane" id="logmod-diag" role="tabpanel">
-      <div id="logmod-diag-body"><!-- rendu dynamique par _logDiagRenderTab() --></div>
-    </div>
-
-    <!-- ── Tab ÉQUIPEMENTS ────────────────────────────────────────────── -->
-    <div class="logmod-pane" id="logmod-equip" role="tabpanel">
       <div class="logmod-section-title">🔥 Chauffage</div>
       <div class="logmod-checkbox-group">
         <label><input type="checkbox" id="log-chauf-elec"> Électrique</label>
@@ -2557,186 +2596,12 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       </div>
     </div>
 
-    <!-- v15.209 LOG-ANNONCE Étape 3 — onglet Présentation/Annonce -->
-    <div class="logmod-pane" id="logmod-presentation" role="tabpanel">
-      <div class="logmod-info-banner">
-        📢 Ces informations enrichiront la <b>génération automatique d'annonces</b> de location pour les périodes de vacance. Saisies une fois, réutilisables pour toutes les futures annonces du bien. Règle d'or : ne renseignez que ce qui est valorisable (un défaut laissé vide ne sera jamais affiché).
-      </div>
-
-      <!-- ─── Équipements communs de l'immeuble ─── -->
-      <div class="logmod-section-title">🏢 Équipements communs <span class="mu sm">(de l'immeuble parent — partagés par tous les lots)</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px 14px;font-size:13px">
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-ascenseur"> 🛗 Ascenseur</label>
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-interphone"> 🔔 Interphone</label>
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-digicode"> 🔢 Digicode</label>
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-gardien"> 👮 Gardien</label>
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-videosurv"> 🎥 Vidéosurveillance</label>
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-parking_commun"> 🚗 Parking commun</label>
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-local_velos"> 🚲 Local vélos</label>
-        <label class="flex-c" style="gap:5px"><input type="checkbox" id="logp-ec-jardin_commun"> 🌳 Jardin commun</label>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <input type="text" id="logp-ec-custom-in" class="inp" placeholder="+ Autre équipement commun (ex : piscine, sauna...)" style="flex:1">
-        <button type="button" class="btn bs bb" onclick="_logpAddCustom('ec')">+ Ajouter</button>
-      </div>
-      <div id="logp-ec-customs" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px"></div>
-
-      <!-- v15.249 B4 (D-B7) — Équipements internes / Extérieurs / Annexes privatives DÉPLACÉS
-           vers l'onglet « Équipements » (tout l'équipement physique du bien y est désormais regroupé).
-           Les ids logp-cu-* / logp-sa-* / logp-te-* / logp-ext-* / logp-an-* sont inchangés :
-           _logpFillFromLog / _logpReadFromForm les lisent par id, peu importe l'onglet hôte. -->
-
-      <!-- ─── Mise en valeur (valeurs POSITIVES uniquement) ─── -->
-      <div class="logmod-section-title">✨ Mise en valeur <span class="mu sm">(laisser vide si non valorisable — anti-mensonge)</span></div>
-      <div class="fg2">
-        <div class="fg">
-          <label>Exposition</label>
-          <select class="inp" id="logp-pres-exposition">
-            <option value="">— Non renseigné —</option>
-            <option value="sud">☀️ Plein sud</option>
-            <option value="sud-est">🌅 Sud-est</option>
-            <option value="sud-ouest">🌄 Sud-ouest</option>
-            <option value="est">🌇 Est</option>
-            <option value="ouest">🌉 Ouest</option>
-            <option value="traversant-eo">🔄 Traversant est-ouest</option>
-            <option value="double-ns">↕ Double exposition nord-sud</option>
-            <option value="nord">🌆 Nord</option>
-          </select>
-        </div>
-        <div class="fg">
-          <label>Vue</label>
-          <select class="inp" id="logp-pres-vue">
-            <option value="">— Non renseigné —</option>
-            <option value="degagee">🏞 Vue dégagée</option>
-            <option value="jardin">🌳 Sur jardin</option>
-            <option value="cour">🏛 Sur cour intérieure</option>
-            <option value="parc">🌷 Sur parc</option>
-            <option value="monument">⛪ Sur monument</option>
-            <option value="mer-montagne">🌊 Vue mer / montagne</option>
-          </select>
-        </div>
-      </div>
-      <div class="fg2">
-        <div class="fg">
-          <label>Luminosité</label>
-          <select class="inp" id="logp-pres-luminosite">
-            <option value="">— Non renseigné —</option>
-            <option value="lumineux">💡 Lumineux</option>
-            <option value="tres-lumineux">🌞 Très lumineux</option>
-            <option value="traversant">🌅 Traversant</option>
-            <option value="baigne-lumiere">☀️ Baigné de lumière</option>
-          </select>
-        </div>
-        <div class="fg">
-          <label>Cadre / calme</label>
-          <select class="inp" id="logp-pres-calme">
-            <option value="">— Non renseigné —</option>
-            <option value="rue-calme">🤫 Rue calme</option>
-            <option value="cour-interieure">🌿 Cour intérieure (au calme)</option>
-            <option value="quartier-residentiel">🏘 Quartier résidentiel</option>
-            <option value="quartier-verdoyant">🌳 Quartier verdoyant</option>
-          </select>
-        </div>
-      </div>
-      <div class="fg">
-        <label>Caractère ancien</label>
-        <select class="inp" id="logp-pres-caractere">
-          <option value="">— Non renseigné —</option>
-          <option value="moulures-parquet">🏛 Moulures + parquet ancien</option>
-          <option value="cheminee-deco">🔥 Cheminée décorative</option>
-          <option value="hauts-plafonds">🪟 Hauts plafonds (3 m)</option>
-          <option value="batisse-caractere">🏰 Bâtisse de caractère</option>
-        </select>
-      </div>
-
-      <!-- ─── Quartier (POI) ─── -->
-      <div class="logmod-section-title">📍 À proximité <span class="mu sm">(vous connaissez le quartier mieux que personne)</span></div>
-      <div class="sm mu" style="margin-bottom:4px;font-weight:600;color:var(--t1)">Transports (distance à pied en minutes)</div>
-      <div class="fg2">
-        <div class="fg"><label>🚇 Métro</label><input class="inp" type="number" id="logp-q-metro" placeholder="min"></div>
-        <div class="fg"><label>🚊 Tramway</label><input class="inp" type="number" id="logp-q-tramway" placeholder="min"></div>
-      </div>
-      <div class="fg2">
-        <div class="fg"><label>🚌 Bus</label><input class="inp" type="number" id="logp-q-bus" placeholder="min"></div>
-        <div class="fg"><label>🚆 Gare SNCF</label><input class="inp" type="number" id="logp-q-gare" placeholder="min"></div>
-      </div>
-
-      <div class="sm mu" style="margin:10px 0 4px;font-weight:600;color:var(--t1)">Commerces (distance à pied en minutes)</div>
-      <div class="fg2">
-        <div class="fg"><label>🥐 Boulangerie</label><input class="inp" type="text" id="logp-q-boulangerie" placeholder="3 min ou 'dans la rue'"></div>
-        <div class="fg"><label>🛒 Supermarché</label><input class="inp" type="number" id="logp-q-supermarche" placeholder="min"></div>
-      </div>
-      <div class="fg2">
-        <div class="fg"><label>💊 Pharmacie</label><input class="inp" type="number" id="logp-q-pharmacie" placeholder="min"></div>
-        <div class="fg"><label>🥬 Marché</label><input class="inp" type="text" id="logp-q-marche" placeholder="jours (ex : mardi/samedi)"></div>
-      </div>
-
-      <div class="sm mu" style="margin:10px 0 4px;font-weight:600;color:var(--t1)">Services</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px 12px;font-size:12.5px">
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-s-ecoles_primaires"> 🎒 École maternelle/primaire</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-s-college"> 📚 Collège</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-s-lycee"> 🎓 Lycée</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-s-parc"> 🌳 Parc/espace vert</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-s-restaurants"> 🍴 Restaurants</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-s-sport"> 💪 Salle de sport</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-s-hopital"> 🏥 Médecins/hôpital</label>
-      </div>
-
-      <div class="fg" style="margin-top:10px">
-        <label>Repères du quartier (1 par ligne, ex : « Cathédrale (3 min) »)</label>
-        <textarea class="inp" id="logp-q-reperes" rows="3" placeholder="Cathédrale (3 min)&#10;Place Kléber (5 min)&#10;Métro Bastille (2 min)"></textarea>
-      </div>
-      <div class="sm mu" style="margin:10px 0 4px;font-weight:600;color:var(--t1)">Caractère du quartier</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px 12px;font-size:12.5px">
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-centre-historique"> 🏛 Centre historique</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-quartier-residentiel"> 🏘 Quartier résidentiel</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-quartier-etudiant"> 🎒 Quartier étudiant</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-quartier-affaires"> 💼 Quartier d'affaires</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-bord-de-mer"> 🌊 Bord de mer</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-proche-nature"> 🌿 Proche nature</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-quartier-festif"> 🍻 Quartier vivant/festif</label>
-        <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-q-c-haut-de-gamme"> 💎 Haut de gamme</label>
-      </div>
-
-      <!-- ─── Conditions location ─── -->
-      <div class="logmod-section-title">💰 Conditions de location</div>
-      <!-- v15.249 B5 (D-B9) — loyer THÉORIQUE (cas logement vacant). Décision B1-a : poussé/écrasé
-           par le bail actif → grisé + note quand un bail pilote les valeurs ; éditable sur un
-           logement vacant pour alimenter l'annonce + pré-remplir le futur bail.
-           FIL-ROUGE FIDÉLITÉ 2026-07-15 : Loyer HC + Charges (logp-loc-hcRef/chRef) et leur note de
-           grisage (logp-loc-theo-note) RELOCALISÉS dans l'onglet Identité (loyer requis à la création,
-           mockup validé). DG théorique + IRL de référence + date de dispo restent ici. Les ids sont lus
-           par _logpFillFromLog/_logpReadFromForm quel que soit l'onglet hôte. -->
-      <!-- FIL-ROUGE FIDÉLITÉ : DG/IRL théoriques se grisent aussi quand un bail actif pilote les valeurs
-           (cf _logpFillFromLog) ; leur note de grisage est ici (celle du loyer/charges vit en Identité). -->
-      <div id="logp-loc-theo-note-dg" class="mu sm" style="display:none;margin:0 0 8px;padding:7px 10px;background:var(--sur2);border:1px solid var(--bor);border-radius:5px">🔄 DG/IRL théoriques synchronisés depuis le bail en cours — modifiables une fois le logement vacant.</div>
-      <div class="fg2">
-        <div class="fg">
-          <label>Dépôt de garantie théorique (€)</label>
-          <input class="inp" type="number" min="0" step="0.01" id="logp-loc-dgRef" placeholder="ex : 750">
-        </div>
-        <div class="fg">
-          <label>IRL de référence</label>
-          <select class="inp" id="logp-loc-irlRef"><option value="">— Non renseigné —</option></select>
-        </div>
-      </div>
-      <div class="fg2">
-        <div class="fg">
-          <label>Date de disponibilité</label>
-          <input class="inp" type="date" id="logp-loc-dispo">
-        </div>
-        <div class="fg"></div>
-      </div>
-      <div class="fg">
-        <label>Garanties acceptées</label>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:5px 12px;font-size:12.5px;margin-top:4px">
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-caution_solidaire"> Caution solidaire</label>
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-visale"> Visale (gratuit)</label>
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-gli"> GLI</label>
-          <label class="flex-c" style="gap:4px"><input type="checkbox" id="logp-loc-g-garant_perso"> Garant personnel</label>
-        </div>
-      </div>
-    </div>
+    <!-- BIENS (P1-9) — onglet Présentation SUPPRIMÉ. Les équipements communs y faisaient doublon
+         avec la modale Immeuble (qui les porte vraiment) ; la mise en valeur et le quartier ne
+         servaient que le générateur d'annonces, débranché. DG théorique / IRL / date de dispo /
+         garanties acceptées ont été relocalisés en Identité (étape 2, P1-10). log.presentation et
+         log.quartier gardent leur colonne cloud et leurs valeurs : aucune migration, aucun effacement
+         (garanti par P0-1 : _logpReadFromForm ne renvoie plus les groupes absents du DOM). -->
 
     <input type="hidden" id="log-edit-ref">
   </div>
@@ -33185,9 +33050,9 @@ function _renderBuildingBlockA(entNom, immNom, logs, ent, isArchived) {
 
     // Bouton action : ouvrir + annonce si vacant
     const onOpen = `event.stopPropagation();openLogFiche('${refEsc}')`;
-    const annonceBtn = (isVacant && !isArchived)
-      ? `<button class="log-row-a-action-annonce" onclick="event.stopPropagation();openAnnonce('${refEsc}')" title="Générer une annonce sans IA (Leboncoin/SeLoger/PAP)">📢 Annonce</button>`
-      : '';
+    // BIENS (P1-9) — bouton « 📢 Annonce » débranché : le générateur reste en place (module + tests),
+    // il n'a simplement plus de porte d'entrée tant que les annonces dorment (« OUT après V1 »).
+    const annonceBtn = '';
     const openBtn = `<button class="log-row-a-action" onclick="${onOpen}">Ouvrir →</button>`;
 
     // v15.230 P1-D — Fix grid misalignment : émettre un placeholder vide si annonceBtn absent
@@ -39879,11 +39744,10 @@ function rLogFiche() {
           <button class="btn bp" onclick="_frStartFromLog('${refSafe}')">＋ Ajouter un bien</button>
           <button class="btn bs" onclick="openNewLog('${refSafe}')">✏ Modifier le bien</button>
           ${(!isArchived && !_bienActiveBail(ref)) ? `
-            <!-- v15.230 — Bouton dédié pour saisir les indications annonce (visibilité UX
-                 fix retour user : 'il est où l'onglet pour donner des indications ?').
-                 Ouvre la modale Logement directement sur l'onglet 📢 Présentation. -->
-            <button class="btn bs" onclick="openLogModalOnTab('${refSafe}','presentation')" title="Renseigner équipements / vue / luminosité / quartier / atouts pour enrichir l'annonce générée" style="background:#fef3c7;color:#92400e;border-color:#f59e0b">✏ Indications pour l'annonce</button>
-            <button class="btn bs bb" onclick="openAnnonce('${refSafe}')" title="Générer une annonce de location (sans IA, prête à coller dans Leboncoin) — utilise les indications saisies via le bouton ci-contre" style="background:#fde68a;color:#78350f;border-color:#d97706;font-weight:600">📢 Générer l'annonce</button>
+            <!-- BIENS (P1-9, décision 7 du 11/08) — les 2 boutons Annonce et l'onglet Présentation
+                 sont débranchés. Le module js/helpers/annonce-generator.global.js et ses tests RESTENT
+                 (le CDC classe les annonces « OUT après V1 », pas « supprimées ») : réactiver = remettre
+                 un bouton ici. log.presentation / log.quartier gardent leurs colonnes et leurs valeurs. -->
             <button class="btn bs bb" onclick="openInviteCandidat({logRef:'${refSafe}'})" title="Envoyer au candidat un lien de dépôt de dossier en ligne pour ce bien">🔗 Inviter un candidat</button>
           ` : ''}
           ${isArchived
@@ -40453,9 +40317,13 @@ function inlineEdit(span, ref, field) {
 function saveLogInline() { initFilters(); }
 
 // v14.15 ARCHI-DB-DOUBLONS Phase 3a — modale logement avec tabs internes
-// v15.209 LOG-ANNONCE Étape 3 — ajout tab 'presentation'
+// BIENS étape 4 — 5 onglets → 3. Chaque setter de l'app fait `if(liste.indexOf(t)<0) return;`, donc un
+// deep-link vers un onglet retiré deviendrait un clic SANS EFFET ni message. On redirige au lieu de
+// laisser mourir en silence (même motif que setLogFicheTab('diagnostics')).
 function setLogModalTab(tab) {
-  const ids = ['ident','desc','diag','equip','presentation']; // v15.234 B2 : dpe+risq fusionnés en 'diag'
+  if(tab === 'desc') tab = 'equip';                 // Description fusionnée dans Équipements
+  if(tab === 'presentation') tab = 'ident';         // onglet Présentation supprimé (annonces débranchées)
+  const ids = ['ident','diag','equip']; // v15.234 B2 : dpe+risq fusionnés en 'diag'
   if(!ids.includes(tab)) return;
   ids.forEach(t => {
     const btn = document.querySelector(`.logmod-tab[data-tab="${t}"]`);
@@ -43202,7 +43070,7 @@ function _logDiagDeriveRisqueString(diagKey, info) {
  *  qui doit pointer sur l'onglet 📢 Présentation directement (au lieu de
  *  forcer le user à cliquer 'Modifier' puis chercher l'onglet caché).
  *  @param {string} ref - ref logement
- *  @param {string} tab - 'ident' | 'desc' | 'diag' | 'equip' | 'presentation' */
+ *  @param {string} tab - 'ident' | 'diag' | 'equip' ('desc' et 'presentation' sont redirigés) */
 function openLogModalOnTab(ref, tab) {
   openNewLog(ref);
   // Petit délai pour laisser openNewLog finir l'init avant de switcher d'onglet
@@ -43309,7 +43177,6 @@ function openNewLog(ref) {
     setV('log-numFiscal', log.numFiscal);
     // v14.59 GANTT-CHARGES : tantièmes / lot copro
     setV('log-tantiemes', log.tantiemes);
-    setV('log-numLot', log.numLot);
     // v14.61 CHARGES-COMMUNES : coche compte-charges (default true)
     const _cb = el('log-compteCharges');
     if(_cb) _cb.checked = (log.compteCharges !== false); // true par défaut
@@ -43357,7 +43224,7 @@ function openNewLog(ref) {
     ['log-type','log-surf','log-etage','log-numApt','log-adr','log-notes',
      'log-npp','log-piecesDesc','log-partiesCommunes',
      'log-typeHabitat','log-regimeJuridique','log-periodeConstr','log-lot','log-numFiscal',
-     'log-tantiemes','log-numLot',
+     'log-tantiemes',
      'log-chauf-autre','log-chauf-label','log-ecs-label'
     ].forEach(id => setV(id, ''));
     ['log-chauf-elec','log-chauf-gaz','log-chauf-coll','log-ecs-elec','log-ecs-gaz','log-ecs-coll']
@@ -43643,9 +43510,7 @@ function _logpFillFromLog(log) {
   const _bailActif = !!(_b && !_b.cloture && !_b._deleted);
   ['logp-loc-hcRef','logp-loc-chRef','logp-loc-dgRef','logp-loc-irlRef'].forEach(id => { const e = el(id); if (e) e.disabled = _bailActif; });
   const _theoNote = el('logp-loc-theo-note'); if (_theoNote) _theoNote.style.display = _bailActif ? '' : 'none';
-  // FIL-ROUGE FIDÉLITÉ : la note du loyer/charges (logp-loc-theo-note) vit en onglet Identité ; DG/IRL
-  // restent en Présentation → note de grisage dédiée là-bas, togglée à l'identique.
-  const _theoNoteDg = el('logp-loc-theo-note-dg'); if (_theoNoteDg) _theoNoteDg.style.display = _bailActif ? '' : 'none';
+  // BIENS étape 2 : DG/IRL ont rejoint l'onglet Identité, la note de grisage logp-loc-theo-note les couvre.
 }
 
 function _logpToggleSurface(key) {
@@ -43682,90 +43547,187 @@ function _logpRenderCustoms(group) {
     + `</span>`
   ).join('');
 }
+// ─── P0-1 (chantier BIENS) — shadow inline de js/core/logp-partial.js ───
+// GARDER IDENTIQUE au module (file:// ne charge pas les ES modules ; main.js réécrit les
+// mêmes fonctions sur window après coup). __tests__/helpers/logp-partial.test.js vérifie la
+// non-divergence caractère par caractère, fonction par fonction.
+function _logpApplyPartial(target, partial) {
+  if (!target || typeof target !== 'object') return target;
+  if (!partial || typeof partial !== 'object') return target;
+  var BAD = ['__proto__', 'constructor', 'prototype'];
+  Object.keys(partial).forEach(function (path) {
+    var val = partial[path];
+    if (val === undefined) return;
+    var segs = String(path).split('.').filter(Boolean);
+    if (!segs.length) return;
+    if (segs.some(function (s) { return BAD.indexOf(s) >= 0; })) return;
+    var node = target;
+    for (var i = 0; i < segs.length - 1; i++) {
+      var s = segs[i];
+      if (!node[s] || typeof node[s] !== 'object' || Array.isArray(node[s])) node[s] = {};
+      node = node[s];
+    }
+    node[segs[segs.length - 1]] = val;
+  });
+  return target;
+}
 
-// Lit l'état UI du tab Présentation → objet structuré
+/**
+ * LOYER-REFERENCE — bien VACANT : le loyer de référence saisi dans la modale EST le loyer
+ * courant du bien (lu par la fiche, le candidat, l'invitation, le prochain bail). On tient
+ * donc log.hc/ch/dg == loyer de référence. Bien OCCUPÉ : le bail pilote log.hc/ch (+ IRL),
+ * on n'y touche pas.
+ *
+ * P0-1 : ne pousse QUE les valeurs dont le champ était réellement dans le formulaire
+ * (clé présente dans `partial`) — sinon déplacer ces inputs recalculerait log.hc/ch/dg
+ * depuis des valeurs qui n'ont pas été éditées.
+ *
+ * irlRef est volontairement absent : l'IRL ne pilote ni hc, ni ch, ni dg (audit M1).
+ *
+ * @returns {boolean} true si au moins une valeur a été poussée → l'appelant re-score les candidats.
+ */
+function _logpPushLoyerRef(log, partial, occupe) {
+  if (!log || typeof log !== 'object') return false;
+  if (!partial || typeof partial !== 'object') return false;
+  if (occupe) return false;
+  var has = function (k) { return Object.prototype.hasOwnProperty.call(partial, k); };
+  var rempli = function (x) { return x !== null && x !== undefined && String(x).trim() !== ''; };
+  var pousse = false;
+  if (has('loyerHcRef') && rempli(log.loyerHcRef)) { log.hc = Number(log.loyerHcRef) || 0; pousse = true; }
+  if (has('chargesRef') && rempli(log.chargesRef)) { log.ch = Number(log.chargesRef) || 0; pousse = true; }
+  if (has('dgRef') && rempli(log.dgRef)) { log.dg = Number(log.dgRef) || 0; pousse = true; }
+  return pousse;
+}
+
+// Lit l’état UI des champs structurés du logement → carte { chemin pointé → valeur }.
+//
+// P0-1 (chantier BIENS) — lecture PARTIELLE. Avant, tout était lu par el(id) et renvoyait
+// '' / false quand l'input n'existait pas ; saveParamLog réaffectait sans condition, donc
+// retirer ou déplacer un pane EFFAÇAIT log.presentation, log.quartier, log.locationInfo,
+// log.dgRef, log.irlRef — et imm.equipementsCommuns de l'immeuble parent, remis à tout-false
+// à chaque enregistrement d'un logement (fil rouge de création compris).
+//
+// Désormais : un groupe n'est renvoyé QUE si au moins un de ses inputs est dans le DOM.
+// Clé absente = champ non touché (cf _logpApplyPartial). Clé présente = écrase (une case
+// décochée doit bien passer à false). La granularité est fine exprès : chaque futur
+// déplacement de champ d'un onglet à l'autre est protégé sans retoucher cette fonction.
 function _logpReadFromForm() {
   const v = (id) => { const e = el(id); return e ? e.value : ''; };
   const ck = (id) => { const e = el(id); return !!(e && e.checked); };
+  const anyId = (ids) => ids.some((id) => !!el(id));
 
-  const equipementsCommuns = {
-    ascenseur: ck('logp-ec-ascenseur'), interphone: ck('logp-ec-interphone'),
-    digicode: ck('logp-ec-digicode'), gardien: ck('logp-ec-gardien'),
-    videosurv: ck('logp-ec-videosurv'), parking_commun: ck('logp-ec-parking_commun'),
-    local_velos: ck('logp-ec-local_velos'), jardin_commun: ck('logp-ec-jardin_commun'),
-    customs: Array.isArray(_logpCustomsDraft.ec) ? _logpCustomsDraft.ec.slice() : []
-  };
-  const cuisine = {
-    equipee: ck('logp-cu-equipee'), four: ck('logp-cu-four'), plaques: ck('logp-cu-plaques'),
-    hotte: ck('logp-cu-hotte'), lave_vaisselle: ck('logp-cu-lave_vaisselle'),
-    micro_ondes: ck('logp-cu-micro_ondes'), frigo: ck('logp-cu-frigo'),
-    customs: Array.isArray(_logpCustomsDraft.cu) ? _logpCustomsDraft.cu.slice() : []
-  };
-  const sanitaires = {
-    bain: ck('logp-sa-bain'), douche: ck('logp-sa-douche'),
-    wc_separe: ck('logp-sa-wc_separe'), lave_linge: ck('logp-sa-lave_linge'),
-    seche_linge: ck('logp-sa-seche_linge'),
-    customs: []
-  };
-  const technologies = {
-    fibre: ck('logp-te-fibre'), adsl: ck('logp-te-adsl'),
-    cable: ck('logp-te-cable'), tnt: ck('logp-te-tnt'),
-    customs: []
-  };
-  const ext = {
-    balcon: { present: v('logp-ext-balcon-p') === '1', surface: +v('logp-ext-balcon-s') || 0 },
-    terrasse: { present: v('logp-ext-terrasse-p') === '1', surface: +v('logp-ext-terrasse-s') || 0 },
-    loggia: { present: v('logp-ext-loggia-p') === '1' },
-    jardin_privatif: { present: v('logp-ext-jardin-p') === '1', surface: +v('logp-ext-jardin-s') || 0 }
-  };
-  const annexes = {
-    cave: { present: ck('logp-an-cave-p'), num: v('logp-an-cave-num') },
-    grenier: { present: ck('logp-an-grenier-p'), num: v('logp-an-grenier-num') },
-    parking: { present: ck('logp-an-parking-p'), num: v('logp-an-parking-num'), type: v('logp-an-parking-type') || 'place' },
-    garage: { present: ck('logp-an-garage-p'), num: v('logp-an-garage-num') },
-    buanderie: { present: ck('logp-an-buanderie-p'), num: v('logp-an-buanderie-num') },
-    cellier: { present: ck('logp-an-cellier-p'), num: v('logp-an-cellier-num') },
-    localVelos: { present: ck('logp-an-localVelos-p'), num: v('logp-an-localVelos-num') },
-    atelier: { present: ck('logp-an-atelier-p'), num: v('logp-an-atelier-num') },
-    customs: Array.isArray(_logpCustomsDraft.an) ? _logpCustomsDraft.an.slice() : []
-  };
-  const presentation = {
-    exposition: v('logp-pres-exposition'),
-    vue: v('logp-pres-vue'),
-    luminosite: v('logp-pres-luminosite'),
-    calme: v('logp-pres-calme'),
-    caractere_ancien: v('logp-pres-caractere')
-  };
-  const transports = {};
-  ['metro','tramway','bus','gare'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) transports[k] = x; });
-  const commerces = {};
-  ['boulangerie','marche'].forEach(k => { const x = v('logp-q-' + k); if (x) commerces[k] = x; });
-  ['supermarche','pharmacie'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) commerces[k] = x; });
-  const services = {};
-  ['ecoles_primaires','college','lycee','parc','restaurants','sport','hopital'].forEach(k => { if (ck('logp-q-s-' + k)) services[k] = true; });
-  const reperesTxt = v('logp-q-reperes') || '';
-  const reperes = reperesTxt.split('\n').map(s => s.trim()).filter(Boolean);
-  const caractere = [];
-  ['centre-historique','quartier-residentiel','quartier-etudiant','quartier-affaires','bord-de-mer','proche-nature','quartier-festif','haut-de-gamme'].forEach(k => { if (ck('logp-q-c-' + k)) caractere.push(k); });
-  const quartier = { transports, commerces, services, reperes, caractere };
+  const out = {};              // chemins pointés appliqués sur le logement
+  let equipementsCommuns;      // undefined = bloc absent du DOM → immeuble parent NON touché
 
-  const garanties_acceptees = [];
-  ['caution_solidaire','visale','gli','garant_perso'].forEach(k => { if (ck('logp-loc-g-' + k)) garanties_acceptees.push(k); });
-  const locationInfo = { disponibilite: v('logp-loc-dispo'), garanties_acceptees };
+  // ── Équipements communs (doublon de la modale Immeuble, qui les porte aussi) ──
+  if (anyId(['logp-ec-ascenseur','logp-ec-interphone','logp-ec-digicode','logp-ec-gardien',
+             'logp-ec-videosurv','logp-ec-parking_commun','logp-ec-local_velos','logp-ec-jardin_commun'])) {
+    equipementsCommuns = {
+      ascenseur: ck('logp-ec-ascenseur'), interphone: ck('logp-ec-interphone'),
+      digicode: ck('logp-ec-digicode'), gardien: ck('logp-ec-gardien'),
+      videosurv: ck('logp-ec-videosurv'), parking_commun: ck('logp-ec-parking_commun'),
+      local_velos: ck('logp-ec-local_velos'), jardin_commun: ck('logp-ec-jardin_commun'),
+      customs: Array.isArray(_logpCustomsDraft.ec) ? _logpCustomsDraft.ec.slice() : []
+    };
+  }
+
+  // ── Équipements internes ──
+  if (anyId(['logp-cu-equipee','logp-cu-four','logp-cu-plaques','logp-cu-hotte',
+             'logp-cu-lave_vaisselle','logp-cu-micro_ondes','logp-cu-frigo'])) {
+    out['equipements.cuisine'] = {
+      equipee: ck('logp-cu-equipee'), four: ck('logp-cu-four'), plaques: ck('logp-cu-plaques'),
+      hotte: ck('logp-cu-hotte'), lave_vaisselle: ck('logp-cu-lave_vaisselle'),
+      micro_ondes: ck('logp-cu-micro_ondes'), frigo: ck('logp-cu-frigo'),
+      customs: Array.isArray(_logpCustomsDraft.cu) ? _logpCustomsDraft.cu.slice() : []
+    };
+  }
+  if (anyId(['logp-sa-bain','logp-sa-douche','logp-sa-wc_separe','logp-sa-lave_linge','logp-sa-seche_linge'])) {
+    out['equipements.sanitaires'] = {
+      bain: ck('logp-sa-bain'), douche: ck('logp-sa-douche'),
+      wc_separe: ck('logp-sa-wc_separe'), lave_linge: ck('logp-sa-lave_linge'),
+      seche_linge: ck('logp-sa-seche_linge'),
+      customs: []
+    };
+  }
+  if (anyId(['logp-te-fibre','logp-te-adsl','logp-te-cable','logp-te-tnt'])) {
+    out['equipements.technologies'] = {
+      fibre: ck('logp-te-fibre'), adsl: ck('logp-te-adsl'),
+      cable: ck('logp-te-cable'), tnt: ck('logp-te-tnt'),
+      customs: []
+    };
+  }
+
+  // ── Extérieurs (un chemin par élément : ils peuvent se séparer d'un onglet à l'autre) ──
+  if (el('logp-ext-balcon-p'))   out['exterieurs.balcon']          = { present: v('logp-ext-balcon-p') === '1',   surface: +v('logp-ext-balcon-s') || 0 };
+  if (el('logp-ext-terrasse-p')) out['exterieurs.terrasse']        = { present: v('logp-ext-terrasse-p') === '1', surface: +v('logp-ext-terrasse-s') || 0 };
+  if (el('logp-ext-loggia-p'))   out['exterieurs.loggia']          = { present: v('logp-ext-loggia-p') === '1' };
+  if (el('logp-ext-jardin-p'))   out['exterieurs.jardin_privatif'] = { present: v('logp-ext-jardin-p') === '1',   surface: +v('logp-ext-jardin-s') || 0 };
+
+  // ── Annexes ──
+  const _AN = ['cave','grenier','parking','garage','buanderie','cellier','localVelos','atelier'];
+  _AN.forEach((k) => {
+    if (!el('logp-an-' + k + '-p')) return;
+    const o = { present: ck('logp-an-' + k + '-p'), num: v('logp-an-' + k + '-num') };
+    if (k === 'parking') o.type = v('logp-an-parking-type') || 'place';
+    out['annexes.' + k] = o;
+  });
+  if (anyId(_AN.map((k) => 'logp-an-' + k + '-p'))) {
+    out['annexes.customs'] = Array.isArray(_logpCustomsDraft.an) ? _logpCustomsDraft.an.slice() : [];
+  }
+
+  // ── Mise en valeur ──
+  if (el('logp-pres-exposition')) out['presentation.exposition']      = v('logp-pres-exposition');
+  if (el('logp-pres-vue'))        out['presentation.vue']             = v('logp-pres-vue');
+  if (el('logp-pres-luminosite')) out['presentation.luminosite']      = v('logp-pres-luminosite');
+  if (el('logp-pres-calme'))      out['presentation.calme']           = v('logp-pres-calme');
+  if (el('logp-pres-caractere'))  out['presentation.caractere_ancien'] = v('logp-pres-caractere');
+
+  // ── Quartier ──
+  if (anyId(['logp-q-metro','logp-q-tramway','logp-q-bus','logp-q-gare'])) {
+    const transports = {};
+    ['metro','tramway','bus','gare'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) transports[k] = x; });
+    out['quartier.transports'] = transports;
+  }
+  if (anyId(['logp-q-boulangerie','logp-q-marche','logp-q-supermarche','logp-q-pharmacie'])) {
+    const commerces = {};
+    ['boulangerie','marche'].forEach(k => { const x = v('logp-q-' + k); if (x) commerces[k] = x; });
+    ['supermarche','pharmacie'].forEach(k => { const x = +v('logp-q-' + k); if (x > 0) commerces[k] = x; });
+    out['quartier.commerces'] = commerces;
+  }
+  const _QS = ['ecoles_primaires','college','lycee','parc','restaurants','sport','hopital'];
+  if (anyId(_QS.map(k => 'logp-q-s-' + k))) {
+    const services = {};
+    _QS.forEach(k => { if (ck('logp-q-s-' + k)) services[k] = true; });
+    out['quartier.services'] = services;
+  }
+  if (el('logp-q-reperes')) {
+    out['quartier.reperes'] = (v('logp-q-reperes') || '').split('\n').map(s => s.trim()).filter(Boolean);
+  }
+  const _QC = ['centre-historique','quartier-residentiel','quartier-etudiant','quartier-affaires','bord-de-mer','proche-nature','quartier-festif','haut-de-gamme'];
+  if (anyId(_QC.map(k => 'logp-q-c-' + k))) {
+    const caractere = [];
+    _QC.forEach(k => { if (ck('logp-q-c-' + k)) caractere.push(k); });
+    out['quartier.caractere'] = caractere;
+  }
+
+  // ── Infos de location ──
+  if (el('logp-loc-dispo')) out['locationInfo.disponibilite'] = v('logp-loc-dispo');
+  const _GAR = ['caution_solidaire','visale','gli','garant_perso'];
+  if (anyId(_GAR.map(k => 'logp-loc-g-' + k))) {
+    const garanties = [];
+    _GAR.forEach(k => { if (ck('logp-loc-g-' + k)) garanties.push(k); });
+    out['locationInfo.garanties_acceptees'] = garanties;
+  }
 
   // v15.249 B5 (D-B9) — loyer théorique top-level (décision B1-a : push bail → théorique).
   // Round-trip no-op quand les champs sont grisés (bail actif) : .value vaut la valeur poussée,
   // donc on ne clobbe jamais une valeur pilotée par le bail. Éditable = logement vacant.
-  const loyerHcRef = v('logp-loc-hcRef');
-  const chargesRef = v('logp-loc-chRef');
-  const dgRef      = v('logp-loc-dgRef');
-  const irlRef     = v('logp-loc-irlRef');
+  if (el('logp-loc-hcRef'))  out['loyerHcRef'] = v('logp-loc-hcRef');
+  if (el('logp-loc-chRef'))  out['chargesRef'] = v('logp-loc-chRef');
+  if (el('logp-loc-dgRef'))  out['dgRef']      = v('logp-loc-dgRef');
+  if (el('logp-loc-irlRef')) out['irlRef']     = v('logp-loc-irlRef');
 
-  return {
-    equipementsCommuns,
-    log: { equipements: { cuisine, sanitaires, technologies }, exterieurs: ext, annexes, presentation, quartier, locationInfo,
-           loyerHcRef, chargesRef, dgRef, irlRef }
-  };
+  return { equipementsCommuns, log: out };
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -44107,7 +44069,9 @@ function saveParamLog() {
   log.tantiemes = parseInt(v('log-tantiemes'), 10) || 0;
   // v14.61 CHARGES-COMMUNES : coche compte-charges (default true)
   log.compteCharges = !!(el('log-compteCharges') && el('log-compteCharges').checked);
-  log.numLot = v('log-numLot') || '';
+  // BIENS étape 4 — log.numLot n'a plus d'input (doublon de log-lot, jamais synchronisé cloud :
+  // pas de colonne dans js/core/store-mapping.js). On ne l'écrit plus et on ne l'efface pas : la
+  // valeur reste dormante en base et la migration _biensMigration.numLotVersLot l'a reversée dans log.lot.
   // ── Tab Diagnostics (v15.234 MODALE-LOGEMENT B2) — source unique log.diagnostics.
   //    _logDiagCommitToLog écrit le canonique log.diagnostics + le contexte (année construction,
   //    installations gaz/élec, zones risques) DEPUIS le draft de la modale, PUIS régénère la
@@ -44152,38 +44116,29 @@ function saveParamLog() {
       etat:  r.etat || 'bon'
     }));
 
-  // ── Tab Présentation (v15.209 LOG-ANNONCE Étape 3) ──
+  // ── Champs structurés du logement (ex-tab Présentation, v15.209 LOG-ANNONCE Étape 3) ──
+  // P0-1 (chantier BIENS) : lecture PARTIELLE + merge par chemin. _logpReadFromForm ne renvoie
+  // que les groupes réellement présents dans le DOM ; _logpApplyPartial n'écrit que ceux-là.
+  // Retirer ou déplacer un pane ne peut donc plus effacer une donnée en silence — ni sur le
+  // logement, ni sur l'immeuble parent (equipementsCommuns).
   try {
     const presa = _logpReadFromForm();
-    log.equipements = presa.log.equipements;
-    log.exterieurs = presa.log.exterieurs;
-    log.annexes = presa.log.annexes;
-    log.presentation = presa.log.presentation;
-    log.quartier = presa.log.quartier;
-    log.locationInfo = presa.log.locationInfo;
-    // v15.249 B5 (D-B9) — loyer théorique. Si un bail actif pilote ces champs ils sont grisés et
-    // .value = valeur poussée → réassignation sans effet (pas de clobber). Logement vacant → édition manuelle.
-    log.loyerHcRef = presa.log.loyerHcRef;
-    log.chargesRef = presa.log.chargesRef;
-    log.dgRef      = presa.log.dgRef;
-    log.irlRef     = presa.log.irlRef;
-    // LOYER-REFERENCE — bien VACANT : le loyer de référence édité ici EST le loyer courant du bien
-    // (lu par la fiche, le candidat, l'invitation, l'annonce, le prochain bail). On tient donc
-    // log.hc/ch/dg == loyer de référence. Bien OCCUPÉ : le bail pilote log.hc/ch (+ IRL) — on n'y
-    // touche pas (les champs étaient grisés, .value = valeur poussée → pas de clobber de toute façon).
-    const _lrOcc = !!_bienActiveBail(log.ref); // tombstone _deleted + cloture + finEffective (audit)
-    if(!_lrOcc){
-      const _hv = vv => vv !== null && vv !== undefined && String(vv).trim() !== '';
-      if(_hv(log.loyerHcRef)) log.hc = Number(log.loyerHcRef)||0;
-      if(_hv(log.chargesRef)) log.ch = Number(log.chargesRef)||0;
-      if(_hv(log.dgRef))      log.dg = Number(log.dgRef)||0;
+    _logpApplyPartial(log, presa.log);
+    // v15.249 B5 (D-B9) — loyer théorique. Règle et garde-fous dans js/core/logp-partial.js
+    // (_logpPushLoyerRef) : seules les valeurs réellement présentes dans le formulaire sont poussées,
+    // et jamais sur un bien occupé (c'est le bail qui pilote log.hc/ch).
+    // tombstone _deleted + cloture + finEffective (audit)
+    const _lrOcc = !!_bienActiveBail(log.ref);
+    if (_logpPushLoyerRef(log, presa.log, _lrOcc)) {
       // le loyer courant du bien vacant a changé → recalcule le score de ses candidats (ratio)
       (DB.candidats||[]).filter(x=>x && !x._deleted && x.logRef===log.ref).forEach(x=>{
         try{ x.confianceScore = _calculConfiance(x, _loyerAttenduForCand(x).loyer, _candPiecesPts(x)); _stamp(x); }catch(e){}
       });
     }
-    // Propage equipementsCommuns vers l'immeuble parent
-    if (log.entity && log.imm) {
+    // Propage equipementsCommuns vers l'immeuble parent — UNIQUEMENT si le bloc était dans le DOM.
+    // (P0-2 : la modale Immeuble porte déjà ces cases ; ici c'est le doublon, qui ne doit surtout
+    // pas écraser l'immeuble avec des cases inexistantes.)
+    if (presa.equipementsCommuns && log.entity && log.imm) {
       const ent = (DB.entites || []).find(e => e && e.nom === log.entity);
       const imm = ent && Array.isArray(ent.immeubles) ? ent.immeubles.find(i => i && i.nom === log.imm) : null;
       if (imm) {
@@ -53857,6 +53812,16 @@ function _bootDataJobs() {
   // existant (baux/IRL intacts). Idempotent (flag). Les incohérences sont recalculées à l'écran.
   if (typeof _migrerLoyerBareme === 'function') {
     try { _migrerLoyerBareme(); } catch(e) { console.warn('[migration barème loyer]', e); }
+  }
+  // BIENS étape 4 — migration douce N° lot copro : la modale n'a plus qu'un champ (log.lot, le seul
+  // synchronisé cloud et lu par la clause de bail). Ce qui avait été saisi dans le doublon log.numLot
+  // est reversé une fois dans log.lot s'il est vide. Idempotente, ne supprime rien, ne réécrit jamais
+  // un log.lot déjà renseigné. Cœur pur testé : js/core/biens-migration.js.
+  if (window._biensMigration && typeof window._biensMigration.numLotVersLot === 'function') {
+    try {
+      const _mig = window._biensMigration.numLotVersLot(DB.logements || []);
+      if (_mig.migres > 0) { _mig.refs.forEach(r => { const l = (DB.logements||[]).find(x => x && x.ref === r); if (l) _stamp(l); }); saveDB(); }
+    } catch(e) { console.warn('[migration N° lot copro]', e); }
   }
   // v15.10 Phase A6 — Audit migration baux existants : détecte des incohérences entre
   // log.hc et le montant attendu selon DB.irlHistorique (legacy avant v15.10).
