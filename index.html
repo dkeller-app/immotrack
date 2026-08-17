@@ -3839,6 +3839,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/pdf-flow.global.js"></script>
 <!-- S4 — bandeau d'identité des documents : logo du bailleur + logo Propryo. -->
 <script src="js/helpers/doc-brand.global.js"></script>
+<!-- DOCS-UNIFIES — gabarit unique des documents émis (variante B validée le 12/08) :
+     feuille de style scopée .pro-doc + primitives titre/parties/lignes/mentions/pied. -->
+<script src="js/helpers/doc-template.global.js"></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
 <script src="js/helpers/alert-rules.global.js"></script>
@@ -6534,6 +6537,51 @@ function _docBrandzone(ent) {
   return window.DocBrand.brandzoneHtml(window.DocBrand.brandzoneModel({
     entLogo: (ent && ent.logo) || '', entNom: (ent && ent.nom) || ''
   }));
+}
+// DOCS-UNIFIES — LE point d'appel unique du gabarit (variante B validée le 12/08).
+// Chaque générateur de document HTML passe par ici : personne ne recompose bandeau + titre +
+// pied de son côté (c'est précisément la duplication qu'on supprime).
+// Le fond légal transite intact dans `opts.corps` — ce helper n'y touche jamais.
+// Repli : si js/helpers/doc-template.global.js n'est pas chargé (404 en cours de déploiement),
+// le document sort avec son bandeau et son titre, sans habillage, plutôt qu'en erreur.
+function _docPage(ent, opts) {
+  const o = opts || {};
+  const bandeau = _docBrandzone(ent);
+  if (!window.DocTemplate) {
+    return bandeau + (o.titre ? '<h1>' + o.titre + '</h1>' : '') + (o.corps || '');
+  }
+  return window.DocTemplate.docPage({
+    bandeau: bandeau, titre: o.titre, ctx: o.ctx, corps: o.corps,
+    ref: o.ref, date: o.date, pages: o.pages,
+    withStyle: o.withStyle, pageBreakAfter: o.pageBreakAfter
+  });
+}
+// La feuille de style du gabarit, pour les documents qui ouvrent leur propre fenêtre/iframe
+// et portent leur CSS dans un <head> (quittance). Vide si le module n'est pas chargé.
+function _docCss() {
+  return window.DocTemplate ? window.DocTemplate.docCss() : '';
+}
+// Raccourcis vers les primitives du gabarit. Évite de tester `window.DocTemplate` à chaque
+// ligne dans les générateurs.
+// ⚠️ Le repli ne rend JAMAIS '' : ces primitives portent le FOND (phrase d'attestation,
+// mentions légales, montants). Module absent = document sans habillage, jamais document
+// amputé d'une mention obligatoire.
+const _DT_REPLI = {
+  docActe:    a => '<p>' + (a == null ? '' : a) + '</p>',
+  docMention: a => '<p style="font-size:9pt;color:#555">' + (a == null ? '' : a) + '</p>',
+  docLieu:    a => '<p>' + (a == null ? '' : a) + '</p>',
+  docEncart:  a => '<div style="font-size:9pt;color:#555">' + (a == null ? '' : a) + '</div>',
+  docParties: a => (a || []).filter(Boolean).map(b =>
+    '<div><b>' + (b.label || '') + '</b><br>' + (b.qui ? '<b>' + b.qui + '</b><br>' : '') + (b.corps || '') + '</div>').join(''),
+  docLignes:  a => '<div>' + (a || []).filter(Boolean).map(r =>
+    '<div style="display:flex;justify-content:space-between"><span>' + (r.lab == null ? '' : r.lab)
+    + '</span><span><b>' + (r.val == null ? '' : r.val) + '</b></span></div>').join('') + '</div>',
+  docSignzone: a => '<div style="margin-top:24px">' + (a || []).filter(Boolean).map(b =>
+    '<div style="display:inline-block;width:220px;border-top:1px solid #999;padding-top:6px;text-align:center">' + b + '</div>').join(' ') + '</div>'
+};
+function _dt(fn, arg) {
+  if (window.DocTemplate && typeof window.DocTemplate[fn] === 'function') return window.DocTemplate[fn](arg);
+  return _DT_REPLI[fn] ? _DT_REPLI[fn](arg) : '';
 }
 function fmt(n) {
   if(n===null||n===undefined||isNaN(n)) return '–';
@@ -28254,19 +28302,21 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   const adrBien = bail.adrBien||log.adr||'–';
 
   // Locataires depuis bail (avec DDN et lieu de naissance) ou fallback string
+  // DOCS-UNIFIES — MÊMES clauses qu'avant, autre disposition (gabarit B) : le nom prend la
+  // ligne d'identité du bloc, le reste de la phrase suit. Aucun mot n'est retiré ni ajouté.
   const locsData = bail.locataires||(bail.nom?[{nom:bail.nom,ddn:bail.ddn,lieuNaiss:bail.lieuNaiss}]:null);
   let locsHtml = '';
   if(locsData && locsData.length) {
     locsHtml = locsData.map(l=>{
       const civ = l.civilite ? l.civilite+' ' : '';
-      let line = `${civ}${escHtml(l.nom||'–')}`;
-      if(l.ddn) line += `, né${l.civilite==='Mme'?'e':''} le ${fd(l.ddn)}`;
-      if(l.lieuNaiss) line += ` à ${escHtml(l.lieuNaiss)}`;
-      line += `, demeurant ${escHtml(adrBien)}`;
-      return `<p style="margin:0 0 4px">${line}&nbsp;;</p>`;
+      let suite = '';
+      if(l.ddn) suite += `né${l.civilite==='Mme'?'e':''} le ${fd(l.ddn)}`;
+      if(l.lieuNaiss) suite += ` à ${escHtml(l.lieuNaiss)}`;
+      suite += `${suite?', ':''}demeurant ${escHtml(adrBien)}`;
+      return `<span class="pro-qui">${civ}${escHtml(l.nom||'–')}</span><p>${suite}&nbsp;;</p>`;
     }).join('');
   } else {
-    locsHtml = `<p style="margin:0">${escHtml(q.locataire||'–')}, demeurant ${escHtml(adrBien)}&nbsp;;</p>`;
+    locsHtml = `<span class="pro-qui">${escHtml(q.locataire||'–')}</span><p>demeurant ${escHtml(adrBien)}&nbsp;;</p>`;
   }
 
   const gerant = ent.gerant||'–';
@@ -28278,101 +28328,95 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   const estNonPayé   = totalRecu <= 0;
   const status = estComplet ? 'complet' : (estPartiel ? 'partiel' : 'non-paye');
 
-  const enteteHtml = `
-<h2>1. Le(s) Bailleur(s)</h2>
-<p>${escHtml(ent.nom||q.entity||'–')}${typeEnt?', '+escHtml(typeEnt):''}${siegeStr?', dont le siège social est situé '+escHtml(siegeStr):''}${siren?',<br>immatriculée au registre du commerce et des sociétés sous le numéro d\'identification '+escHtml(siren):''}${gerant?',<br>représentée par '+escHtml(gerant)+' en sa qualité de Gérant, dument habilité':''}${siegeStr||siren||gerant?' ;':''}</p>
-<p>Désigné(s) ci-après, le &laquo;&nbsp;<b>Bailleur</b>&nbsp;&raquo;&nbsp;;<br>Et, d'autre part,</p>
-<h2>2. Le(s) Locataire(s)</h2>
-${locsHtml}
-<p>désigné(s) ci-après le &laquo;&nbsp;<b>Locataire</b>&nbsp;&raquo;.</p>`;
+  const _resteBailleur = `${typeEnt?', '+escHtml(typeEnt):''}${siegeStr?', dont le siège social est situé '+escHtml(siegeStr):''}${siren?',<br>immatriculée au registre du commerce et des sociétés sous le numéro d\'identification '+escHtml(siren):''}${gerant?',<br>représentée par '+escHtml(gerant)+' en sa qualité de Gérant, dument habilité':''}${siegeStr||siren||gerant?' ;':''}`.replace(/^,\s*/, '');
+  // DOCS-UNIFIES — les deux parties côte à côte (gabarit B). Mêmes clauses, même ordre,
+  // mêmes mentions « Bailleur »/« Locataire » : seule la disposition change.
+  const enteteHtml = _dt('docParties', [
+    { label: '1. Le(s) Bailleur(s)',
+      qui: escHtml(ent.nom||q.entity||'–'),
+      corps: `${_resteBailleur?'<p>'+_resteBailleur+'</p>':''}<p>Désigné(s) ci-après, le &laquo;&nbsp;<b>Bailleur</b>&nbsp;&raquo;&nbsp;;<br>Et, d'autre part,</p>` },
+    { label: '2. Le(s) Locataire(s)',
+      corps: `${locsHtml}<p>désigné(s) ci-après le &laquo;&nbsp;<b>Locataire</b>&nbsp;&raquo;.</p>` }
+  ]);
 
+  // DOCS-UNIFIES — le CSS Times/souligné cède la place au gabarit unique (variante B).
+  // `.alerte` reste : c'est un bandeau d'écran (no-print), pas une pièce du document.
   const css = `
 @page{size:A4;margin:1.8cm 2cm}
-*{box-sizing:border-box}
-body{font-family:'Times New Roman',serif;font-size:11.5pt;color:#111;line-height:1.45;max-width:700px;margin:0 auto}
-h1{font-size:16pt;text-align:center;font-weight:bold;margin:0 0 14px;text-decoration:underline}
-h2{font-size:11.5pt;font-weight:bold;margin:12px 0 4px;text-decoration:underline}
-p{margin:6px 0}
-.dotted{display:flex;align-items:baseline;margin:3px 0}
-.dotted .lab{white-space:nowrap;min-width:220px}
-.dotted .dots{flex:1;border-bottom:1px dotted #555;margin:0 6px;height:1em}
-.dotted .val{white-space:nowrap;font-weight:bold}
-.total-row{display:flex;align-items:baseline;margin:4px 0;border-top:2px solid #111;padding-top:3px}
-.total-row .lab{min-width:220px;font-weight:bold}
-.total-row .dots{flex:1;border-bottom:1px dotted #555;margin:0 6px;height:1em}
-.total-row .val{font-weight:bold;font-size:12pt}
-.mention{font-size:9.5pt;color:#444;margin-top:12px;font-style:italic;border-top:1px solid #ccc;padding-top:8px}
-.sign-area{margin-top:20px;display:flex;justify-content:flex-end}
-.sign-box{text-align:center;width:220px;border-top:1px solid #333;padding-top:6px;font-size:11pt}
-.alerte{border-radius:6px;padding:12px 16px;margin-bottom:16px;text-align:center}
-@media print{.no-print{display:none}}`;
+body{max-width:700px;margin:0 auto;background:#fff}
+.pro-doc .alerte{border-radius:2.5mm;padding:3mm 4mm;margin:0 0 6mm;text-align:center}
+@media print{.no-print{display:none}}
+${_docCss()}`;
 
-  let html = '';
+  let html = '', titreDoc = '', ctxDoc = '';
   if(estNonPayé) {
+    titreDoc = '⛔ Document non émissible';
+    ctxDoc = `Période de location ${periodeStr}`;
     html = `
-<div class="alerte no-print" style="background:#f8d7da;border:2px solid #dc3545;color:#721c24;font-size:14pt;font-weight:bold">
+<div class="alerte no-print" style="background:#f8d7da;border:.5mm solid #dc3545;color:#721c24;font-size:12pt;font-weight:bold">
   ⛔ AUCUN PAIEMENT ENREGISTRÉ<br>
-  <span style="font-size:10pt;font-weight:normal">Aucun encaissement Loyers trouvé pour <b>${escHtml(q.logement)}</b> en <b>${escHtml(q.mois)}</b>.<br>
+  <span style="font-size:9.5pt;font-weight:normal">Aucun encaissement Loyers trouvé pour <b>${escHtml(q.logement)}</b> en <b>${escHtml(q.mois)}</b>.<br>
   Impossible d'émettre une quittance ou un reçu. Enregistrer le paiement dans les mouvements d'abord.</span>
 </div>
-<h1 style="color:#dc3545">⛔ Document non émissible</h1>
 ${enteteHtml}
-<p style="margin-top:20px;color:#dc3545;font-weight:bold">Aucun paiement enregistré pour la période ${periodeStr}.<br>
+<p style="color:#dc3545;font-weight:bold">Aucun paiement enregistré pour la période ${periodeStr}.<br>
 Ce document ne peut être remis au locataire.</p>`;
   } else if(estPartiel) {
     const solde = total - totalRecu;
+    titreDoc = 'Reçu de paiement partiel';
+    ctxDoc = `Période de location ${periodeStr}`;
     html = `
-<div class="alerte no-print" style="background:#fff3cd;border:2px solid #f0a500;color:#7a4f00;font-size:13pt;font-weight:bold">
+<div class="alerte no-print" style="background:#fff3cd;border:.5mm solid #f0a500;color:#7a4f00;font-size:11pt;font-weight:bold">
   ⚠️ PAIEMENT PARTIEL — REÇU UNIQUEMENT (pas une quittance)<br>
-  <span style="font-size:10pt;font-weight:normal">Reçu : <b>${fmt(totalRecu)}</b> sur <b>${fmt(total)}</b> dû — Solde restant : <b style="color:#dc3545">${fmt(solde)}</b></span>
+  <span style="font-size:9.5pt;font-weight:normal">Reçu : <b>${fmt(totalRecu)}</b> sur <b>${fmt(total)}</b> dû — Solde restant : <b style="color:#dc3545">${fmt(solde)}</b></span>
 </div>
-<h1 style="color:#b8860b">Reçu de paiement partiel</h1>
 ${enteteHtml}
-<p style="margin-top:10px">Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme partielle de <b>${fmt(totalRecu)}</b> – <em>${escHtml(totalRecuLettres)}</em> se décomposant comme suit&nbsp;:</p>
-<div style="margin:16px 0 20px">
-  <div class="dotted"><span class="lab">Loyer (partiel)</span><span class="dots"></span><span class="val">${fmt(totalRecu > (q.ch||0) ? totalRecu-(q.ch||0) : totalRecu)}</span></div>
-  ${totalRecu>(q.hc||0)?`<div class="dotted"><span class="lab">Charges (partiel)</span><span class="dots"></span><span class="val">${fmt(totalRecu-(q.hc||0))}</span></div>`:''}
-  <div class="total-row"><span class="lab">Somme reçue</span><span class="dots"></span><span class="val">${fmt(totalRecu)}</span></div>
-</div>
+${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme partielle de <b>${fmt(totalRecu)}</b> – <em>${escHtml(totalRecuLettres)}</em> se décomposant comme suit&nbsp;:`)}
+${_dt('docLignes', [
+  { lab:'Loyer (partiel)', val: fmt(totalRecu > (q.ch||0) ? totalRecu-(q.ch||0) : totalRecu) },
+  totalRecu>(q.hc||0) ? { lab:'Charges (partiel)', val: fmt(totalRecu-(q.hc||0)) } : null,
+  { lab:'Somme reçue', val: fmt(totalRecu), tot:true }
+])}
 <p>Cette somme correspond à un <b>paiement partiel</b> du terme de <b>${periodeStr}</b>.<br>
 Solde restant dû&nbsp;: <b>${fmt(solde)}</b>.</p>
-<div class="mention" style="border:1.5px solid #b8860b;background:#fffbf0;padding:12px;border-radius:4px">
-  <b>Ce reçu ne vaut pas quittance.</b> Il ne libère pas le locataire de son obligation de payer le solde restant dû de ${fmt(solde)}. Le bailleur se réserve le droit de réclamer le paiement intégral du terme.
-</div>
-<p style="margin-top:12px">Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}</p>
-<div class="sign-area"><div class="sign-box">${_docSigImg(ent)}_______________<br>Le(s) Bailleur(s)</div></div>`;
+${_dt('docEncart', `<b>Ce reçu ne vaut pas quittance.</b> Il ne libère pas le locataire de son obligation de payer le solde restant dû de ${fmt(solde)}. Le bailleur se réserve le droit de réclamer le paiement intégral du terme.`)}
+${_dt('docLieu', `Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}`)}
+${_dt('docSignzone', [`${_docSigImg(ent)}Le(s) Bailleur(s)`])}`;
   } else {
     // v15.94 BUG-QUITTANCE-PRORATA — Si prorata détecté, afficher loyer prorata + détail jours
     // pour transparence juridique (Cass. 3e civ. : indiquer base de calcul du prorata).
     const prorataHC = isProrata && total > 0 ? Math.round((q.hc||0) * total / ((q.hc||0)+(q.ch||0)) * 100) / 100 : (q.hc||0);
     const prorataCH = isProrata ? (total - prorataHC) : (q.ch||0);
     const prorataLineHC = isProrata && joursOcc && joursMois
-      ? `<div class="dotted"><span class="lab">Loyer (prorata ${joursOcc}/${joursMois} j)</span><span class="dots"></span><span class="val">${fmt(prorataHC)}</span></div>`
-      : `<div class="dotted"><span class="lab">Loyer</span><span class="dots"></span><span class="val">${fmt(q.hc)}</span></div>`;
+      ? { lab: `Loyer (prorata ${joursOcc}/${joursMois} j)`, val: fmt(prorataHC) }
+      : { lab: 'Loyer', val: fmt(q.hc) };
     const prorataLineCH = isProrata && joursOcc && joursMois
-      ? `<div class="dotted"><span class="lab">Charges (prorata ${joursOcc}/${joursMois} j)</span><span class="dots"></span><span class="val">${fmt(prorataCH)}</span></div>`
-      : `<div class="dotted"><span class="lab">Charges</span><span class="dots"></span><span class="val">${fmt(q.ch)}</span></div>`;
+      ? { lab: `Charges (prorata ${joursOcc}/${joursMois} j)`, val: fmt(prorataCH) }
+      : { lab: 'Charges', val: fmt(q.ch) };
     const prorataMention = isProrata && joursOcc && joursMois
-      ? `<p style="margin:8px 0;font-size:10.5pt;color:#555;font-style:italic">Loyer calculé au prorata de ${joursOcc} jours d'occupation sur ${joursMois} jours du mois (entrée ou sortie intra-mois — loi du 6 juillet 1989).</p>`
+      ? _dt('docMention', `Loyer calculé au prorata de ${joursOcc} jours d'occupation sur ${joursMois} jours du mois (entrée ou sortie intra-mois — loi du 6 juillet 1989).`)
       : '';
+    titreDoc = 'Quittance de loyer';
+    ctxDoc = `Période de location ${periodeStr}`;
     html = `
-<h1 style="color:#003399">Quittance de loyer</h1>
 ${enteteHtml}
-<p style="margin-top:10px">Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme de <b>${fmt(total)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:</p>
-<div style="margin:10px 0 12px">
-  ${prorataLineHC}
-  ${prorataLineCH}
-  <div class="total-row"><span class="lab">Total des sommes payées</span><span class="dots"></span><span class="val">${fmt(total)}</span></div>
-</div>
+${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme de <b>${fmt(total)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:`)}
+${_dt('docLignes', [prorataLineHC, prorataLineCH, { lab:'Total des sommes payées', val: fmt(total), tot:true }])}
 ${prorataMention}
 <p>Cette somme correspond au règlement du loyer et des charges pour la période de location <b>${periodeStr}</b>. J'en donne quittance sous réserve du bon encaissement de cette somme.</p>
-<p style="margin-top:12px">Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}</p>
-<div class="sign-area"><div class="sign-box">${_docSigImg(ent)}_______________<br>Le(s) Bailleur(s)</div></div>
-<div class="mention">Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire.</div>`;
+${_dt('docMention', 'Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire.')}
+${_dt('docLieu', `Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}`)}
+${_dt('docSignzone', [`${_docSigImg(ent)}Le(s) Bailleur(s)`])}`;
   }
 
   const title = (estComplet?'Quittance':estPartiel?'Reçu partiel':'Non émissible') + ' — ' + escHtml(q.logement||'') + ' — ' + escHtml(q.mois||'');
-  return { html: _docBrandzone(ent) + html, css, title, status };   /* S4 : bandeau d'identité */
+  // DOCS-UNIFIES — un seul assemblage : bandeau + titre + corps + pied (gabarit B).
+  // La feuille de style part dans `css` (la quittance a son propre <head>), pas dans le corps.
+  const htmlPage = _docPage(ent, {
+    titre: titreDoc, ctx: ctxDoc, corps: html,
+    ref: escHtml(q.logement||''), date: `Émis le ${dateEmission}`, withStyle: false
+  });
+  return { html: htmlPage, css, title, status };
 }
 // Expose pour email-pdf-attachment.js (PJ PDF auto réutilise le rendu officiel)
 if (typeof window !== 'undefined') window._buildQuittanceHtml = _buildQuittanceHtml;
@@ -28705,23 +28749,19 @@ function _buildIRLLetterHtml(log, bail, ent, rev) {
   const ch = bail?.ch || log.ch || 0;
   const total = Math.round((nouveauHC + ch)*100)/100;
 
-  const html = `
-    <div style="line-height:1.4;font-family:Arial,sans-serif;font-size:11.5px">
-
-      <!-- En-tête bailleur -->
-      <div style="margin-bottom:14px">
-        <div><b>${ent?.nom||bail?.entity||'–'}</b></div>
-        <div>${ent?.siege||''}</div>
-        ${ent?.gerant?`<div>${ent.gerant}</div>`:''}
-      </div>
-
-      <!-- Destinataire -->
-      <div style="margin-bottom:14px">
-        <div><b>${_civNoms(bail?.locataires, log.locataire)}</b></div>
-        <div>${adrBien}</div>
-      </div>
-
-      <div style="text-align:right;margin-bottom:14px">Fait le ${dateLettre}</div>
+  // DOCS-UNIFIES — gabarit unique (variante B). Le fond est repris MOT POUR MOT : objet,
+  // formule légale, les 6 lignes de calcul, articles 17-1 et 21, référence INSEE, formule de
+  // politesse. Seuls la typographie (l'Arial et le tableau vert disparaissent), les gouttières
+  // et la disposition changent — c'est exactement l'incohérence que le gabarit corrige.
+  const corps = `
+${_dt('docParties', [
+  { label: 'Bailleur',
+    qui: `${ent?.nom||bail?.entity||'–'}`,
+    corps: `<p>${ent?.siege||''}${ent?.gerant?'<br>'+ent.gerant:''}</p>` },
+  { label: 'Locataire',
+    qui: `${_civNoms(bail?.locataires, log.locataire)}`,
+    corps: `<p>${adrBien}</p>` }
+])}
 
       <p style="text-decoration:underline"><b>Objet : Révision annuelle du loyer — Indice de Référence des Loyers (IRL)<br>
       Logement : ${adrBien} — Bail du ${dateBail}</b></p>
@@ -28736,15 +28776,14 @@ function _buildIRLLetterHtml(log, bail, ent, rev) {
       <p>La révision est calculée selon la formule légale :<br>
       <b>Nouveau loyer = Loyer actuel × IRL T${rev.T} ${rev.N} / IRL T${rev.T} ${rev.N-1}</b></p>
 
-      <table style="border-collapse:collapse;width:100%;margin:10px 0;font-size:11.5px;border:1px solid #ddd">
-        <tr style="background:#f0f0f0"><td style="padding:4px 8px;border-bottom:1px solid #ddd"><b>Élément</b></td><td style="padding:4px 8px;border-bottom:1px solid #ddd;text-align:right"><b>Valeur</b></td></tr>
-        <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px">Trimestre de référence (mois anniversaire du bail)</td><td style="padding:4px 8px;text-align:right">T${rev.T}</td></tr>
-        <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px">IRL de référence — ${irlRef.key} (N-1) — publié par l'INSEE</td><td style="padding:4px 8px;text-align:right">${irlRef.val}</td></tr>
-        <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px">IRL en vigueur — ${irlVigueur.key} (N) — publié par l'INSEE</td><td style="padding:4px 8px;text-align:right">${irlVigueur.val}</td></tr>
-        <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px">Variation annuelle de l'IRL</td><td style="padding:4px 8px;text-align:right">+ ${(variation*100).toFixed(2)} %</td></tr>
-        <tr style="border-bottom:1px solid #eee"><td style="padding:4px 8px">Loyer mensuel hors charges actuel</td><td style="padding:4px 8px;text-align:right">${fmt(log.hc)}</td></tr>
-        <tr style="font-weight:bold;background:#e8f4e8"><td style="padding:4px 8px;border-top:2px solid #4a9">Nouveau loyer mensuel hors charges</td><td style="padding:4px 8px;text-align:right;border-top:2px solid #4a9">${fmt(nouveauHC)}</td></tr>
-      </table>
+${_dt('docLignes', [
+  { lab: 'Trimestre de référence (mois anniversaire du bail)', val: `T${rev.T}` },
+  { lab: `IRL de référence — ${irlRef.key} (N-1) — publié par l'INSEE`, val: `${irlRef.val}` },
+  { lab: `IRL en vigueur — ${irlVigueur.key} (N) — publié par l'INSEE`, val: `${irlVigueur.val}` },
+  { lab: `Variation annuelle de l'IRL`, val: `+ ${(variation*100).toFixed(2)} %` },
+  { lab: 'Loyer mensuel hors charges actuel', val: fmt(log.hc) },
+  { lab: 'Nouveau loyer mensuel hors charges', val: fmt(nouveauHC), tot: true, hi: true }
+])}
 
       <p>Conformément à l'article 17-1 de la loi du 6 juillet 1989, ce nouveau loyer prend effet
       au <b>mois anniversaire du bail (${moisAnniv})</b>.</p>
@@ -28752,21 +28791,22 @@ function _buildIRLLetterHtml(log, bail, ent, rev) {
       ${ch>0?`<p>Les charges locatives provisionnelles restent inchangées à <b>${fmt(ch)}/mois</b>,
       portant le montant total mensuel (loyer + charges) à <b>${fmt(total)}/mois</b>.</p>`:''}
 
-      <p style="font-style:italic;font-size:10px;border-left:3px solid #ccc;padding-left:8px;color:#666;margin-top:10px">
-      Réf. : art. 17-1, loi n° 89-462 du 6/7/1989 — Indices INSEE série 001515333, hexagone, base 100 = T4 1998.<br>
-      À défaut de révision notifiée dans l'année suivant sa date d'effet, le bailleur est réputé avoir renoncé à la révision (art. 17-1 al. 3).</p>
+${_dt('docMention', `Réf. : art. 17-1, loi n° 89-462 du 6/7/1989 — Indices INSEE série 001515333, hexagone, base 100 = T4 1998.<br>
+      À défaut de révision notifiée dans l'année suivant sa date d'effet, le bailleur est réputé avoir renoncé à la révision (art. 17-1 al. 3).`)}
 
       <p>Nous vous prions d'agréer, ${_civConge(bail?.locataires)} l'expression de nos salutations distinguées.</p>
 
-      <div style="margin-top:32px;display:flex;justify-content:flex-end">
-        <div style="border-top:1px solid #999;padding-top:8px;width:220px;text-align:center">
-          Le bailleur<br><b>${ent?.gerant||ent?.nom||''}</b><br>${_docSigImg(ent)}
-        </div>
-      </div>
-    </div>
-    `;
+${_dt('docLieu', `Fait le ${dateLettre}`)}
+${_dt('docSignzone', [`Le bailleur<br><b>${ent?.gerant||ent?.nom||''}</b><br>${_docSigImg(ent)}`])}`;
 
-  return { html: _docBrandzone(ent) + html, css: '', title: 'Lettre IRL — ' + (log.ref || '–') + ' — ' + moisAnniv };   /* S4 */
+  const html = _docPage(ent, {
+    titre: 'Révision annuelle du loyer',
+    ctx: `Indice de Référence des Loyers · ${adrBien} — bail du ${dateBail}`,
+    corps: corps,
+    ref: log.ref || '', date: `Émis le ${dateLettre}`
+  });
+
+  return { html, css: '', title: 'Lettre IRL — ' + (log.ref || '–') + ' — ' + moisAnniv };
 }
 if (typeof window !== 'undefined') window._buildIRLLetterHtml = _buildIRLLetterHtml;
 
