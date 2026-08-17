@@ -880,91 +880,133 @@
   // Détection doublons
   // ────────────────────────────────────────────────────────────────────────────
 
+  /** FITID stocké sur un mouvement, quelle qu'en soit la forme (champ direct ou empreinte). */
+  function _bankMvFitid(m) {
+    if (!m) return '';
+    if (m.fitid && String(m.fitid).trim()) return String(m.fitid).trim();
+    const fp = String(m._fingerprint || '');
+    return fp.startsWith('fitid:') ? fp.slice(6) : '';
+  }
+
   /**
-   * Détecte les doublons d'import bancaire.
-   * v15.78 BUG-BANK-IMPORT-DEDUP : 2 stratégies en cascade :
-   *   1. Match par `_fingerprint` (priorité, robuste post-modification user)
-   *   2. Match legacy date±3j + montant±1€ + fitid (uniquement contre mouvements
-   *      existants SANS _fingerprint — compat v15.07)
+   * ⑥ DÉTECTION DES DOUBLONS — deux niveaux, deux traitements.
    *
-   * @returns {Array<{...line, isDuplicate, duplicateOf, duplicateReason}>}
+   * **⑥.1 · Le FITID est la stratégie n° 1 en OFX.** C'est l'identifiant unique de
+   * transaction fourni par la banque, plus fiable que toute empreinte calculée. Il
+   * tranche **avant** l'empreinte et **dans les deux sens** : identique = doublon
+   * certain ; différent = **pas** un doublon. Avant, il n'était consulté qu'en second
+   * rang et contre les seuls mouvements sans empreinte → une banque qui réémet un
+   * relevé avec un libellé retouché (« en cours » → « définitif ») passait pour du
+   * nouveau. L'empreinte reste la stratégie principale pour Excel, qui n'a pas
+   * d'identifiant de transaction.
+   *
+   * **⑥.2 · Certains écartés en silence, probables à trancher.**
+   * - `dupLevel:'certain'` (même FITID ou même empreinte) → écarté automatiquement,
+   *   replié en une ligne de résumé. Zéro clic.
+   * - `dupLevel:'probable'` (date ±3 j + montant ±1 €, ou somme des parts du jour) →
+   *   « à décider » : ni exclu ni inclus, et **l'import reste bloqué tant qu'il en
+   *   reste un non tranché**. Cas qui motive la décision : deux loyers de 850 € à deux
+   *   jours d'écart, deux locataires différents — avant, un vrai loyer disparaissait
+   *   sans que rien ne le signale.
+   *
+   * @returns {Array<{...line, isDuplicate, dupLevel, duplicateOf, duplicateReason}>}
    */
   function _bankDedup(newLines, mouvementsExistants, options = {}) {
     const toleranceDays = options.toleranceDays ?? 3;
     const toleranceAmount = options.toleranceAmount ?? 1;
     const legacyFallback = options.legacyFallback !== false;
+    const alive = (mouvementsExistants || []).filter(m => m && !m._deleted);
 
     // Index des fingerprints existants en DB (lookup O(1))
     const fpIndex = new Map();
-    for (const m of (mouvementsExistants || [])) {
-      if (!m || m._deleted || !m._fingerprint) continue;
-      if (!fpIndex.has(m._fingerprint)) fpIndex.set(m._fingerprint, m);
+    const fitidIndex = new Map();
+    for (const m of alive) {
+      if (m._fingerprint && !fpIndex.has(m._fingerprint)) fpIndex.set(m._fingerprint, m);
+      const f = _bankMvFitid(m);
+      if (f && !fitidIndex.has(f)) fitidIndex.set(f, m);
     }
 
     const out = [];
     for (const line of (newLines || [])) {
-      let isDuplicate = false;
-      let duplicateOf = '';
-      let duplicateReason = '';
+      let isDuplicate = false, dupLevel = '', duplicateOf = '', duplicateReason = '';
 
-      // Stratégie 1 — fingerprint (priorité)
-      if (line._fingerprint && fpIndex.has(line._fingerprint)) {
-        const m = fpIndex.get(line._fingerprint);
-        isDuplicate = true;
-        duplicateOf = String(m.id || '?');
-        duplicateReason = 'Empreinte CSV/OFX identique déjà importée';
+      // ── Stratégie 1 : FITID, dans les DEUX SENS ──────────────────────────────
+      if (line.fitid) {
+        const m = fitidIndex.get(String(line.fitid).trim());
+        if (m) {
+          out.push({ ...line, isDuplicate: true, dupLevel: 'certain',
+            duplicateOf: String(m.id || '?'),
+            duplicateReason: 'Même identifiant de transaction (FITID) — la banque dit que c’est la même opération' });
+          continue;
+        }
+        // FITID différent de tous ceux déjà en base → ce n'est PAS un doublon. On ne
+        // consulte cette preuve négative que si la base porte effectivement des FITID
+        // (sinon elle ne prouve rien : mouvements saisis à la main, imports Excel).
+        if (fitidIndex.size > 0) {
+          out.push({ ...line, isDuplicate: false, dupLevel: '', duplicateOf: '', duplicateReason: '' });
+          continue;
+        }
       }
 
-      // Stratégie 2 — fallback legacy (date+montant+fitid) UNIQUEMENT contre
-      // mouvements existants SANS _fingerprint (compat v15.07).
+      // ── Stratégie 2 : empreinte (principale pour Excel) ──────────────────────
+      if (line._fingerprint && fpIndex.has(line._fingerprint)) {
+        const m = fpIndex.get(line._fingerprint);
+        isDuplicate = true; dupLevel = 'certain';
+        duplicateOf = String(m.id || '?');
+        duplicateReason = 'Empreinte identique — opération déjà importée';
+      }
+
+      // ── Stratégie 3 : ressemblance (date ±3 j + montant ±1 €) → PROBABLE ─────
       if (!isDuplicate && legacyFallback) {
         const lineMontant = line.credit > 0 ? line.credit : -line.debit;
         const lineDate = line.date ? new Date(line.date + 'T00:00:00').getTime() : NaN;
-        for (const m of (mouvementsExistants || [])) {
-          if (!m || m._deleted) continue;
-          if (m._fingerprint) continue; // déjà couvert par stratégie 1
-          // Bonus fitid OFX
-          if (line.fitid && m.fitid && line.fitid === m.fitid) {
-            isDuplicate = true;
-            duplicateOf = String(m.id || '?');
-            duplicateReason = 'FITID OFX identique (legacy)';
-            break;
-          }
+        for (const m of alive) {
+          if (m._fingerprint && m._fingerprint === line._fingerprint) continue; // déjà couvert
           if (!m.date || !isFinite(lineDate)) continue;
           const mMontant = (m.cr || 0) > 0 ? (m.cr || 0) : -(m.db || 0);
           if (Math.abs(mMontant - lineMontant) > toleranceAmount) continue;
           const mDate = new Date(m.date + 'T00:00:00').getTime();
           const dayDiff = Math.abs((mDate - lineDate) / 86400000);
           if (dayDiff > toleranceDays) continue;
-          isDuplicate = true;
+          isDuplicate = true; dupLevel = 'probable';
           duplicateOf = String(m.id || '?');
-          duplicateReason = `Date ±${toleranceDays}j + montant ±${toleranceAmount}€ (legacy)`;
+          duplicateReason = `Même montant à ${Math.round(dayDiff)} jour(s) d’écart — à toi de dire si c’est la même opération`;
           break;
         }
       }
 
-      // Stratégie 3 — relevé déjà DÉCOUPÉ : la ligne source ne matche aucune part individuelle
-      // (montants différents) et n'a pas d'empreinte (CSV legacy). On détecte que son montant = la
-      // SOMME des parts d'import bancaire du MÊME jour (même compte si connu). Robuste sans empreinte.
+      // ── Stratégie 4 : relevé déjà importé PUIS DÉCOUPÉ ───────────────────────
+      // La ligne source ne matche aucune part individuelle (montants différents) : on
+      // détecte que son montant = la SOMME des parts d'import bancaire du même jour.
       if (!isDuplicate) {
         const lineMontant = line.credit > 0 ? line.credit : -line.debit;
         const acct = line._bankAccountId || null;
-        const parts = (mouvementsExistants || []).filter(m =>
-          m && !m._deleted && m.date === line.date && m._source === 'bank_import' &&
+        const parts = alive.filter(m =>
+          m.date === line.date && m._source === 'bank_import' &&
           (!acct || !m._bankAccountId || m._bankAccountId === acct));
         if (parts.length >= 2) {
           const sum = parts.reduce((s, m) => s + ((m.cr || 0) > 0 ? (m.cr || 0) : -(m.db || 0)), 0);
           if (Math.abs(sum - lineMontant) <= toleranceAmount) {
-            isDuplicate = true;
+            isDuplicate = true; dupLevel = 'probable';
             duplicateOf = String(parts[0].id || '?');
-            duplicateReason = 'Relevé déjà importé et découpé (somme des parts du jour)';
+            duplicateReason = 'Ce virement semble déjà importé puis découpé (la somme des lignes du jour correspond)';
           }
         }
       }
 
-      out.push({ ...line, isDuplicate, duplicateOf, duplicateReason });
+      out.push({ ...line, isDuplicate, dupLevel, duplicateOf, duplicateReason });
     }
     return out;
+  }
+
+  /**
+   * ⑥.2 / ⑧.1 — Compte les doublons **probables non tranchés** : tant qu'il en reste,
+   * la validation de l'import est bloquée (même logique que le garde-fou existant sur
+   * les « Reconnus »). Un doublon certain ne bloque rien : il est écarté sans clic.
+   */
+  function _bankUndecidedDuplicates(lines) {
+    return (Array.isArray(lines) ? lines : []).filter(l =>
+      l && l.isDuplicate && l.dupLevel === 'probable' && !l._userExclude && !l._userKeep && !l._dupConfirmed).length;
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -1260,9 +1302,16 @@
     _bankReadTable: _bankReadTable,
     _bankMatchHeuristic: _bankMatchHeuristic,
     _bankDedup: _bankDedup,
+    _bankUndecidedDuplicates: _bankUndecidedDuplicates,
     _bankMigrateFingerprints: _bankMigrateFingerprints,
     _bankExtractOFXAccount: _bankExtractOFXAccount,
     _bankExtractSheetAccount: _bankExtractSheetAccount,
+    _bankAccountBailleurOk: _bankAccountBailleurOk,
+    _bankAffectationConflict: _bankAffectationConflict,
+    _bankMigrateAccounts: _bankMigrateAccounts,
+    _BANK_FP_MEMORY: _BANK_FP_MEMORY,
+    _bankSliceAfterFingerprints: _bankSliceAfterFingerprints,
+    _bankIsRetroactive: _bankIsRetroactive,
     _bankSliceAfterFingerprint: _bankSliceAfterFingerprint,
     _bankComputeLastImport: _bankComputeLastImport
   };
