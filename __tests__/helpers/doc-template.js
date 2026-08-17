@@ -76,6 +76,11 @@ export function docCss() {
 .pro-doc .pro-lg.tot .lab{font-weight:700;font-size:10.5pt;color:${T.ENCRE_FORTE}}
 .pro-doc .pro-lg.tot .val{font-weight:800;font-size:13pt;color:${T.ENCRE_FORTE}}
 .pro-doc .pro-lg.hi .val{color:${T.ACCENT}}
+.pro-doc h3{font:700 11pt/1.25 ${DOC_FONT_TITRE};color:${T.ENCRE_FORTE};letter-spacing:-.01em;margin:7mm 0 3mm;padding-bottom:1.5mm;border-bottom:.35mm solid ${T.FILET};page-break-after:avoid}
+.pro-doc .pro-kv{width:100%;border-collapse:collapse;margin:0 0 4mm;page-break-inside:avoid}
+.pro-doc .pro-kv td{padding:2.5mm 3.5mm;border-bottom:.2mm solid ${T.FILET};vertical-align:top;font-size:9.5pt}
+.pro-doc .pro-kv tr:last-child td{border-bottom:0}
+.pro-doc .pro-kv td:first-child{background:${T.FOND_BLOC};font-weight:600;color:${T.ENCRE_FORTE};width:44%}
 .pro-doc .pro-tbl{width:100%;border-collapse:collapse;margin:0 0 6mm;font-size:9pt}
 .pro-doc .pro-tbl th{text-align:left;font:600 7.5pt/1 ${DOC_FONT_CORPS};letter-spacing:.13em;text-transform:uppercase;color:${T.GRIS_LABEL};padding:0 3mm 2mm;border-bottom:.35mm solid ${T.FILET};background:none}
 .pro-doc .pro-tbl td{padding:2.2mm 3mm;border-bottom:.2mm solid ${T.FILET};vertical-align:top}
