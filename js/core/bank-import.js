@@ -1056,6 +1056,102 @@ export function _bankExtractSheetAccount(rows, headerRow) {
 // BANK-IMPORT-V2 (v15.162 Phase D) — Pointeur de progression par compte
 // ────────────────────────────────────────────────────────────────────────────
 
+// ────────────────────────────────────────────────────────────────────────────
+// ④ LE COMPTE BANCAIRE — un compte appartient toujours à quelqu'un
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * ④.1 — Le **bailleur est obligatoire** sur un compte : ce n'est pas un filtre,
+ * c'est un fait. Il débloque la règle « bailleur du compte » (R-C), les biens
+ * proposés, et le garde-fou d'affectation ci-dessous.
+ * Échappatoire explicite : `mixte:true` (« compte mixte — plusieurs bailleurs »),
+ * qui désactive la règle dynamique et impose le classement manuel.
+ * @returns {{ok:boolean, reason:string}}
+ */
+export function _bankAccountBailleurOk(account) {
+  if (!account) return { ok: false, reason: 'aucun compte' };
+  if (account.mixte) return { ok: true, reason: 'compte mixte — plusieurs bailleurs' };
+  if (account.bailleur && String(account.bailleur).trim()) return { ok: true, reason: '' };
+  return { ok: false, reason: 'ce compte n’a pas encore de bailleur' };
+}
+
+/**
+ * ④.1 — Garde-fou : un mouvement du compte de la SCI X ne peut pas être affecté à
+ * un bien d'une **autre** entité (rien ne l'empêchait avant). Un compte mixte, ou
+ * un compte sans bailleur, ne bloque rien.
+ * Fonction PURE : l'appelant résout l'entité du bien avant d'appeler.
+ * @param {{bailleur?:string, mixte?:boolean}} account
+ * @param {string} entiteCible — entité du bien visé ('' si inconnue)
+ * @returns {{ok:boolean, message:string}}
+ */
+export function _bankAffectationConflict(account, entiteCible) {
+  const cible = String(entiteCible || '').trim();
+  if (!account || account.mixte || !account.bailleur || !cible) return { ok: true, message: '' };
+  if (_bankNormTxt(account.bailleur) === _bankNormTxt(cible)) return { ok: true, message: '' };
+  return {
+    ok: false,
+    message: 'Ce compte appartient à ' + account.bailleur + ' — un mouvement de ce compte ne peut pas être affecté à un bien de ' + cible + '.',
+  };
+}
+
+/**
+ * ⑤.1 — Migration DOUCE et IDEMPOTENTE des comptes : l'ancien pointeur unique
+ * (`lastImport.fingerprint`) devient une liste des **10 dernières empreintes**.
+ * Ne touche à rien d'autre : aucun compte n'est supprimé, aucun bailleur inventé.
+ * @param {object[]} accounts — DB.params.bankAccounts (modifié en place)
+ * @returns {{migrated:number, skipped:number}}
+ */
+export function _bankMigrateAccounts(accounts) {
+  let migrated = 0, skipped = 0;
+  for (const a of (Array.isArray(accounts) ? accounts : [])) {
+    if (!a || a._deleted) { skipped++; continue; }
+    const li = a.lastImport;
+    if (!li) { skipped++; continue; }
+    if (Array.isArray(li.fingerprints)) { skipped++; continue; }   // déjà migré
+    li.fingerprints = li.fingerprint ? [li.fingerprint] : [];
+    migrated++;
+  }
+  return { migrated, skipped };
+}
+
+/** Nombre d'empreintes de reprise mémorisées par compte (⑤.1). */
+export const _BANK_FP_MEMORY = 10;
+
+/**
+ * ⑤.1 — Coupe le fichier après **la plus récente des empreintes mémorisées**.
+ * Une seule suffit pour rester déterministe : un chevauchement partiel, une ligne
+ * disparue ou un libellé retouché ne cassent plus la reprise.
+ * @param {object[]} lines
+ * @param {string[]} fingerprints — les 10 dernières empreintes importées (plus récente en tête)
+ * @returns {{after:object[], found:boolean, idx:number, matched:string}}
+ */
+export function _bankSliceAfterFingerprints(lines, fingerprints) {
+  const fps = (Array.isArray(fingerprints) ? fingerprints : []).filter(Boolean);
+  const all = Array.isArray(lines) ? lines : [];
+  if (!fps.length) return { after: all, found: false, idx: -1, matched: '' };
+  // On garde la coupe qui laisse le MOINS de lignes : c'est l'empreinte la plus
+  // récente réellement présente dans le fichier.
+  let best = null;
+  for (const fp of fps) {
+    const r = _bankSliceAfterFingerprint(all, fp);
+    if (!r.found) continue;
+    if (!best || r.after.length < best.after.length) best = { ...r, matched: fp };
+  }
+  return best || { after: all, found: false, idx: -1, matched: '' };
+}
+
+/**
+ * ⑤.2 — Un fichier dont la ligne la plus récente est ANTÉRIEURE au pointeur est un
+ * import **rétroactif** : accepté, mais annoncé. Toutes les lignes sont proposées,
+ * les doublons déjà en base sont détectés.
+ */
+export function _bankIsRetroactive(lines, lastImport) {
+  if (!lastImport || !lastImport.date) return false;
+  const ds = (Array.isArray(lines) ? lines : []).map(l => l && l.date).filter(Boolean).sort();
+  if (!ds.length) return false;
+  return ds[ds.length - 1] < lastImport.date;
+}
+
 /**
  * Coupe une liste de lignes parsées à la position d'un fingerprint pointeur.
  * Sert au mode « imports suivants » : on récupère seulement ce qui est APRÈS la
@@ -1086,18 +1182,40 @@ export function _bankSliceAfterFingerprint(lines, fingerprint) {
  * Calcule le nouveau pointeur `lastImport` à partir d'un lot de lignes qu'on vient d'importer.
  * La « dernière ligne » est celle dont la `date` est la plus grande (pas l'ordre dans le fichier,
  * qui peut être DESC chez certaines banques).
+ *
+ * 🐛 **BUG 2 du CDC (⑤.2) — LE POINTEUR NE RECULE JAMAIS.** Avant, le pointeur était
+ * recalculé comme la date max du lot importé et **écrasait** l'ancien : importer juin
+ * après août faisait RECULER le pointeur de fin août à fin juin, et l'import suivant
+ * reproposait juillet-août en entier. On garde désormais la date la plus récente entre
+ * l'ancien pointeur et le nouveau, et l'empreinte qui va avec.
+ *
+ * ⑤.1 — On mémorise les **10 dernières empreintes** (plus récente en tête) au lieu
+ * d'une seule : un chevauchement partiel, une ligne disparue ou un libellé retouché
+ * ne cassent plus la reprise.
+ *
  * @param {object[]} acceptedLines — lignes effectivement importées (chacune avec date + _fingerprint)
  * @param {number} previousCount — compteur cumulé existant (avant cet import)
- * @returns {{date:string, fingerprint:string|null, count:number, at:string} | null}
- *   null si la liste est vide.
+ * @param {object} [previousLastImport] — pointeur existant, pour ne jamais reculer
+ * @returns {{date:string, fingerprint:string|null, fingerprints:string[], count:number, at:string} | null}
  */
-export function _bankComputeLastImport(acceptedLines, previousCount) {
-  if (!Array.isArray(acceptedLines) || !acceptedLines.length) return null;
+export function _bankComputeLastImport(acceptedLines, previousCount, previousLastImport) {
+  if (!Array.isArray(acceptedLines) || !acceptedLines.length) return previousLastImport || null;
+  const prev = previousLastImport || null;
   const sorted = acceptedLines.slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   const last = sorted[sorted.length - 1];
+  const newDate = last.date || '';
+  const prevDate = (prev && prev.date) || '';
+  // Les nouvelles empreintes passent en tête (plus récentes d'abord), les anciennes suivent.
+  const fresh = sorted.slice().reverse().map(l => l && l._fingerprint).filter(Boolean);
+  const prevFps = Array.isArray(prev && prev.fingerprints) ? prev.fingerprints
+    : ((prev && prev.fingerprint) ? [prev.fingerprint] : []);
+  const fingerprints = [...new Set([...fresh, ...prevFps])].slice(0, _BANK_FP_MEMORY);
+  // Le pointeur ne recule jamais : on garde la date la plus récente des deux.
+  const keepPrev = prevDate && newDate && prevDate > newDate;
   return {
-    date: last.date || '',
-    fingerprint: last._fingerprint || null,
+    date: keepPrev ? prevDate : newDate,
+    fingerprint: keepPrev ? (prev.fingerprint || null) : (last._fingerprint || null),
+    fingerprints,
     count: (Number(previousCount) || 0) + acceptedLines.length,
     at: new Date().toISOString()
   };
