@@ -112,12 +112,17 @@ export function resolveScope(selection, logements, opts) {
   const lots = _liveLots(logements);
   const cat = buildScopeCatalog(lots, o);
 
-  let fallback = null;
+  // P-6 : les replis sont CUMULÉS, jamais écrasés — si le bailleur ET l'immeuble sont
+  // retombés, l'UI doit pouvoir annoncer les deux.
+  const fallbacks = [];
 
   // ── Cran bailleur ─────────────────────────────────────────────────────────
   let entKey = _s(sel.ent);
   if (entKey && entKey !== SANS_BAILLEUR && !cat.entites.some((e) => e.key === entKey)) {
-    fallback = { raison: 'ent-inconnu', entDemande: entKey };   // P-6 : on le DIT
+    fallbacks.push({ raison: 'ent-inconnu', entDemande: entKey });   // P-6 : on le DIT
+    entKey = '';
+  } else if (entKey === SANS_BAILLEUR && !cat.entites.some((e) => e.key === SANS_BAILLEUR)) {
+    fallbacks.push({ raison: 'panier-vide', panier: SANS_BAILLEUR });  // plus aucun lot orphelin
     entKey = '';
   }
   // Lots du cran bailleur seul — passe par `lotInScope` (règle unique, paniers compris).
@@ -127,7 +132,10 @@ export function resolveScope(selection, logements, opts) {
   // ── Cran immeuble ─────────────────────────────────────────────────────────
   let immKey = _s(sel.imm);
   if (immKey && immKey !== SANS_IMMEUBLE && !entLots.some((l) => _s(l.imm) === immKey)) {
-    fallback = { raison: 'imm-hors-perimetre', immDemande: immKey };
+    fallbacks.push({ raison: 'imm-hors-perimetre', immDemande: immKey });
+    immKey = '';
+  } else if (immKey === SANS_IMMEUBLE && !entLots.some((l) => !_s(l.imm))) {
+    fallbacks.push({ raison: 'panier-vide', panier: SANS_IMMEUBLE });  // tous les lots sont rattachés
     immKey = '';
   }
 
@@ -137,7 +145,10 @@ export function resolveScope(selection, logements, opts) {
   // (parité `_finEntScope`) : elle ne sert QU'À la quote-part, jamais à l'appartenance des lots
   // — un lot de l'immeuble rattaché à un autre bailleur reste dans le périmètre (P-2).
   let ent = (entKey && entKey !== SANS_BAILLEUR) ? entKey : '';
-  if (!ent && immKey && immKey !== SANS_IMMEUBLE) {
+  // La dérivation ne vaut QUE si aucun cran bailleur n'est posé : dans le panier
+  // « Sans bailleur », aucun frais SCI ne peut se rattacher (sinon on importerait ceux d'un
+  // bailleur étranger au panier).
+  if (!entKey && immKey && immKey !== SANS_IMMEUBLE) {
     const porteur = lots.find((l) => _s(l.imm) === immKey && _s(l.entity));
     if (porteur) ent = _s(porteur.entity);
   }
@@ -146,9 +157,14 @@ export function resolveScope(selection, logements, opts) {
   const immsBailleur = Array.from(new Set(baseImm.map((l) => _s(l.imm)).filter(Boolean))).sort(_cmpFr);
   const nbImm = immsBailleur.length;
 
+  // Quote-part des frais de niveau bailleur (comptable, frais bancaires, CFE, assurance SCI).
+  // INVARIANT P-4 : Σ des vues immeuble = vue bailleur. Le panier « Sans immeuble » pèse donc
+  // ZÉRO — un frais SCI est par définition déjà réparti INTÉGRALEMENT sur les immeubles réels ;
+  // lui laisser un poids de 1 le comptait une 2ᵉ fois en entier (audit C1 : Σ = 2 pour 1).
   let sciWeight = 1;
   if (o.sciWeight != null) sciWeight = o.sciWeight;                      // P-4 (étape 7) injecté
-  else if (kind === SCOPE_KIND.IMM && immKey !== SANS_IMMEUBLE && nbImm > 0) sciWeight = 1 / nbImm;
+  else if (immKey === SANS_IMMEUBLE) sciWeight = 0;
+  else if (kind === SCOPE_KIND.IMM && nbImm > 0) sciWeight = 1 / nbImm;
 
   // Immeubles DU PÉRIMÈTRE (pour les mouvements de niveau immeuble).
   const imms = immKey === SANS_IMMEUBLE ? []
@@ -159,13 +175,57 @@ export function resolveScope(selection, logements, opts) {
     immFilter: (immKey && immKey !== SANS_IMMEUBLE) ? immKey : null,
     sansBailleur: entKey === SANS_BAILLEUR,
     sansImmeuble: immKey === SANS_IMMEUBLE,
-    imms, nbImm, sciWeight, fallback,
-    refs: [], nbLots: 0, label: ''
+    imms, nbImm, sciWeight,
+    fallbacks,
+    fallback: fallbacks.length ? fallbacks[0] : null,   // compat : le 1er repli
+    refs: [], refSet: null, refStricts: null, refAmbigus: null, nbLots: 0, label: ''
   };
   scope.refs = scopeRefs(scope, lots);
+  // Index des refs : `scopeWeight` est appelé une fois PAR MOUVEMENT par chaque moteur
+  // (60 lots × 8 000 mouvements = ~500 k normalisations par passe si on scanne).
+  scope.refSet = new Set(scope.refs.map(_nr));           // rapprochement TOLÉRANT (trim+casse)
+  scope.refStricts = new Set(scope.refs);                // rapprochement STRICT (parité prod)
+  // Refs AMBIGUËS du PARC : une ref normalisée qui désigne plusieurs lots (« M1 » et « m1 »).
+  // La tolérance ne doit jamais créer d'argent — sur ces refs on repasse en strict, sinon le
+  // même mouvement pèserait 1 dans deux vues immeuble et Σ vues > vue bailleur.
+  const vus = new Map();
+  lots.forEach((l) => {
+    const r = _s(l.ref); if (!r) return;
+    const n = _nr(r);
+    if (!vus.has(n)) vus.set(n, new Set());
+    vus.get(n).add(r);
+  });
+  scope.refAmbigus = new Set(Array.from(vus.keys()).filter((n) => vus.get(n).size > 1));
   scope.nbLots = scope.refs.length;
   scope.label = scopeLabel(scope);
   return scope;
+}
+
+/**
+ * INSTRUMENTATION (ne change AUCUN calcul) — compte l'argent que le cran « Tout » voit et
+ * qu'aucun sous-périmètre ne peut voir : mouvement sans `qui` ni `imm`, ou dont le `qui`
+ * désigne un lot inconnu/supprimé. C'est le constat I5 de l'audit : le héro « Tout » ne
+ * pourra pas égaler la Σ des bailleurs tant qu'il reste des orphelins. Décision produit en
+ * attente — ce compteur sert à la mesurer, pas à la trancher.
+ * @param {Array} mouvements DB.mouvements
+ * @param {Array} logements DB.logements
+ * @returns {{nb:number, montant:number, refsInconnues:string[]}}
+ */
+export function orphelinsHorsPerimetre(mouvements, logements) {
+  const refs = new Set(_liveLots(logements).map((l) => _nr(l.ref)).filter(Boolean));
+  const imms = new Set(_liveLots(logements).map((l) => _s(l.imm)).filter(Boolean));
+  const inconnues = new Set();
+  let nb = 0, montant = 0;
+  (Array.isArray(mouvements) ? mouvements : []).forEach((mv) => {
+    if (!mv || mv._deleted) return;
+    const qui = _s(mv.qui), imm = _s(mv.imm);
+    if (qui.indexOf('SCI:') === 0) return;                 // frais bailleur : rattaché par `ent`
+    if (qui) { if (refs.has(_nr(qui))) return; inconnues.add(qui); }
+    else if (imm && imms.has(imm)) return;
+    nb++;
+    montant += Math.abs((Number(mv.cr) || 0) - (Number(mv.db) || 0));
+  });
+  return { nb, montant: Math.round(montant * 100) / 100, refsInconnues: Array.from(inconnues).sort() };
 }
 
 /** Libellé affichable du périmètre (« SCI Alpha · Lilas », « Sans bailleur (à rattacher) »…). */
@@ -223,7 +283,17 @@ export function scopeWeight(scope, mv) {
   if (!mv || mv._deleted) return 0;
   if (!scope || scope.kind === SCOPE_KIND.ALL) return 1;
   const qui = _s(mv.qui);
-  if (qui && scope.refs.some((r) => _nr(r) === _nr(qui))) return 1;
+  // Index précalculé quand le scope vient de `resolveScope` ; repli scan pour un scope
+  // construit à la main (tests, appelants historiques). Sur une ref AMBIGUË du parc, la
+  // comparaison redevient STRICTE : la tolérance ne doit jamais dupliquer un montant.
+  if (qui) {
+    const n = _nr(qui);
+    if (scope.refAmbigus && scope.refAmbigus.has(n)) {
+      if (scope.refStricts.has(qui)) return 1;
+    } else if (scope.refSet ? scope.refSet.has(n) : (scope.refs || []).some((r) => _nr(r) === n)) {
+      return 1;
+    }
+  }
   if (scope.ent && qui === 'SCI:' + scope.ent) {
     const w = typeof scope.sciWeight === 'function' ? scope.sciWeight(mv) : scope.sciWeight;
     const n = Number(w);

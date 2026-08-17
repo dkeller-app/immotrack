@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   WINDOW_KIND,
   computeConstatWindow, computeExigibiliteWindow, alignPreviousYear,
   windowLabel, isFutureMonth, lastMovementMonth
 } from '../../js/core/finances-window.js';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
+import { _loyerTodayLocal } from '../../js/core/loyer-statut.js';
 
 // 13/09/2026 — le cas du CDC : 9 mois échus, un loyer déjà encaissé en octobre (post-daté).
 const TODAY = '2026-09-13';
@@ -231,5 +232,68 @@ describe('finances-window — composition avec le moteur mensuel (cible étape 2
   it('les mois de la fenêtre et ceux du moteur coïncident exactement', () => {
     const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
     expect(run(w.lastMonth).months.map(m => m.ym)).toEqual(w.months.map(m => m.ym));
+  });
+});
+
+// ── Corrections d'audit ───────────────────────────────────────────────────────
+describe('finances-window — robustesse (corrections d\'audit)', () => {
+  const catLigne = (c) => (c === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null);
+
+  it('I1 : la date du jour est LOCALE, jamais toISOString()/UTC', () => {
+    vi.useFakeTimers();
+    try {
+      // 1ᵉʳ janvier, 00 h 30 LOCAL : en UTC+X on est encore le 31/12 de l'exercice précédent.
+      // Avec l'UTC, l'exercice en cours basculait en « à venir » → fenêtre VIDE.
+      vi.setSystemTime(new Date(2026, 0, 1, 0, 30, 0));
+      const w = computeExigibiliteWindow({ year: 2026 });
+      expect(w.today).toBe(_loyerTodayLocal());
+      expect(w.today).toBe('2026-01-01');
+      expect(w.empty).toBe(false);
+      expect(w.lastMonth).toBe(1);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('I2 : CONTRAT de la fenêtre vide — l\'appelant DOIT court-circuiter le moteur mensuel', () => {
+    const w = computeExigibiliteWindow({ year: 2027, today: TODAY });
+    expect(w.empty).toBe(true);
+    expect(w.lastMonth).toBe(0);
+    expect(w.months).toEqual([]);
+    // Preuve du piège que l'étape 2 doit éviter : `lastMonth: 0` passé tel quel au moteur est
+    // remonté à 1 (finances-monthly.js:52-54) et fabrique un mois de janvier FANTÔME.
+    const r = _computeFinancesMonthly({
+      mouvements: [], year: 2027, scope: null, catLigne, today: TODAY, lastMonth: w.lastMonth
+    });
+    expect(r.months.map(m => m.ym)).toEqual(['2027-01']);   // ← absent de la fenêtre : à ne PAS afficher
+  });
+
+  it('M1 : en décembre de l\'exercice EN COURS, le libellé ne ment pas (« année complète »)', () => {
+    const enCours = computeConstatWindow({ year: 2026, today: '2026-12-05' });
+    expect(enCours.lastMonth).toBe(12);
+    expect(enCours.label).toBe('Exercice 2026 · tout ce qui est saisi au 05/12');
+    // Une fois l'exercice CLOS, le libellé devient légitime.
+    expect(computeConstatWindow({ year: 2026, today: '2027-01-05' }).label)
+      .toBe('Exercice 2026 · année complète');
+  });
+
+  it('M3 : isFutureMonth ignore les mois d\'un AUTRE exercice', () => {
+    const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
+    expect(isFutureMonth(w, '2026-10')).toBe(true);
+    expect(isFutureMonth(w, '2027-10')).toBe(false);   // même n° de mois, autre exercice
+    expect(isFutureMonth(w, '2025-10')).toBe(false);
+    expect(isFutureMonth(w, 10)).toBe(true);           // n° de mois nu : rétrocompatible
+    expect(isFutureMonth(null, '2026-10')).toBe(false);
+  });
+
+  it('M4 : un exercice non numérique donne une fenêtre VIDE, jamais des mois « NaN-01 »', () => {
+    ['abcd', '', null, undefined, NaN, 26].forEach(y => {
+      const w = computeExigibiliteWindow({ year: y, today: TODAY });
+      expect(w.empty).toBe(true);
+      expect(w.months).toEqual([]);
+      expect(w.fromYm).toBe('');
+      expect(JSON.stringify(w)).not.toContain('NaN');
+    });
+    const c = computeConstatWindow({ year: 'oups', today: TODAY, mouvements: MVTS });
+    expect(c.empty).toBe(true);
+    expect(c.months).toEqual([]);
   });
 });
