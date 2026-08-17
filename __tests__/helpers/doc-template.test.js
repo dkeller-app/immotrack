@@ -27,25 +27,74 @@ describe('doc-template — fidélité au mockup DOCUMENTS-PROPRYO (variante B)',
     expect(DOC_TPL.ACCENT).toBe('#ff5a3c');
   });
 
-  it('reprend les cotes du gabarit (titre 21pt, corps 10pt/1.55)', () => {
-    expect(DOC_TPL.TITRE_PT).toBe(21);
+  it('garde la typographie du gabarit (corps 10pt/1.55, étiquettes 7.5pt espacées)', () => {
     expect(DOC_TPL.CORPS_PT).toBe(10);
     expect(DOC_TPL.CORPS_LH).toBe(1.55);
     const css = docCss();
-    expect(css).toContain('font:800 21pt/1.1');       // .g-p h1
     expect(css).toContain('font-size:10pt;line-height:1.55');
     expect(css).toContain('font:600 7.5pt/1');        // .g-p h2 (étiquettes de bloc)
     expect(css).toContain('letter-spacing:.13em');
+    expect(css).toContain('letter-spacing:-.025em');  // titre serré du gabarit
   });
 
-  it('reprend les gouttières en mm du mockup', () => {
+  it('garde les traits de forme du gabarit (rayons, filet d’accent)', () => {
     const css = docCss();
     expect(css).toContain('border-radius:2.5mm');      // .partie / .lignes
-    expect(css).toContain('gap:5mm');                  // .parties
-    expect(css).toContain('padding:4mm 4.5mm');        // .partie
     expect(css).toContain('border-left:.9mm solid');   // .acte
-    expect(css).toContain('width:60mm');               // .signbox
-    expect(css).toContain('padding-top:8mm');          // .signzone
+    expect(css).toContain('font-variant-numeric:tabular-nums');
+  });
+
+  // ── ÉCART ASSUMÉ AU MOCKUP : le rythme vertical est resserré ────────────────────
+  // Le mockup dessine sur une planche sans contrainte de pagination. En production, les
+  // documents sont rastérisés puis découpés en pages A4 (281 mm utiles) : au rythme du
+  // mockup, la quittance, le reçu partiel, la lettre IRL et le décompte débordaient sur
+  // une 2e page qui ne portait que la fin du bloc de signature. Un locataire ne doit pas
+  // recevoir un document de 2 pages dont la seconde est vide.
+  // Les valeurs ci-dessous sont donc des PLAFONDS, pas des copies du mockup.
+  it('reste compact : aucune gouttière VERTICALE au-delà de 5 mm', () => {
+    // Seuls margin/padding haut et bas coûtent de la hauteur de page. `gap` est ici toujours
+    // horizontal (flex en ligne : parties côte à côte, cases de signature, pied) et la seule
+    // `height` du gabarit est l'espace où l'on signe à la main — tous deux hors de ce contrôle.
+    const trop = [];
+    const re = /(margin|padding)(-top|-bottom)?:([^;{}]*)/g;
+    let m;
+    while ((m = re.exec(docCss()))) {
+      const vals = m[3].trim().split(/\s+/);
+      // shorthand `a b c d` → haut = vals[0], bas = vals[2] (ou vals[0] si 2 valeurs)
+      const verticales = m[2] ? [vals[0]]
+        : (vals.length >= 3 ? [vals[0], vals[2]] : [vals[0]]);
+      for (const v of verticales) {
+        const mm = /^(\d*\.?\d+)mm$/.exec(v);
+        if (mm && parseFloat(mm[1]) > 5) trop.push(m[0]);
+      }
+    }
+    expect(trop).toEqual([]);
+  });
+
+  it('budget vertical global : la somme des gouttières reste sous plafond', () => {
+    // Garde-fou contre la reprise de poids par petites touches. Le contrôle unitaire
+    // ci-dessus ne verrait pas dix règles passées de 2 à 4 mm ; celui-ci si.
+    // Plafond calé sur la mesure navigateur du 17/08 : à ce budget, la lettre IRL (le plus
+    // long des documents courants) sort à 249 mm sur 281 mm utiles, et son pire cas
+    // (2 locataires aux noms longs + logo + signature) à 271 mm.
+    let total = 0;
+    const re = /(margin|padding)(-top|-bottom)?:([^;{}]*)/g;
+    let m;
+    while ((m = re.exec(docCss()))) {
+      const vals = m[3].trim().split(/\s+/);
+      const verticales = m[2] ? [vals[0]] : (vals.length >= 3 ? [vals[0], vals[2]] : [vals[0]]);
+      for (const v of verticales) {
+        const mm = /^(\d*\.?\d+)mm$/.exec(v);
+        if (mm) total += parseFloat(mm[1]);
+      }
+    }
+    expect(total).toBeLessThanOrEqual(80);
+  });
+
+  it('le titre reste dominant mais ne mange plus la page', () => {
+    expect(DOC_TPL.TITRE_PT).toBeLessThanOrEqual(18);
+    expect(DOC_TPL.TITRE_PT).toBeGreaterThanOrEqual(15);
+    expect(DOC_TPL.TITRE_PT).toBeGreaterThan(DOC_TPL.CORPS_PT * 1.5);
   });
 
   it('n’embarque aucune police distante (règle « aucun CDN au runtime »)', () => {
@@ -148,6 +197,24 @@ describe('doc-template — primitives', () => {
     expect((duo.match(/pro-signbox/g) || []).length).toBe(2);
     expect(docSignzone([])).toBe('');
     expect(docSignzone(['', null])).toBe('');
+  });
+
+  it('docSignzone : la signature se pose AU-DESSUS du filet, le libellé dessous', () => {
+    const h = docSignzone([{ sig: '<img src="s.png">', label: 'Le(s) Bailleur(s)' }]);
+    expect(h.indexOf('pro-sigspace')).toBeLessThan(h.indexOf('pro-signbox'));
+    expect(h.indexOf('s.png')).toBeLessThan(h.indexOf('Le(s) Bailleur(s)'));
+  });
+
+  it('docSignzone : sans image, l’espace de signature reste vierge (on signe à la main)', () => {
+    const h = docSignzone([{ sig: '', label: 'Le bailleur' }]);
+    expect(h).toContain('<div class="pro-sigspace"></div>');
+    expect(h).toContain('Le bailleur');
+    expect(h).not.toContain('<br>');
+  });
+
+  it('docSignzone : une case totalement vide ne crée pas de bloc fantôme', () => {
+    expect(docSignzone([{ sig: '', label: '' }])).toBe('');
+    expect(docSignzone([{}])).toBe('');
   });
 
   it('docPied n’affiche que les cases renseignées', () => {

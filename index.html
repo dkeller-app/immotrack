@@ -6512,11 +6512,10 @@ function _pdfDrawBrandzone(pdf, ent, x, y, right) {
   const m = window.DocBrand.brandzoneModel({ entLogo: (ent && ent.logo) || '', entNom: (ent && ent.nom) || '', logoRatio: ratio });
   let bandH = m.logoH;
   if (m.left.kind === 'logo') {
+    // Logo illisible : on n'ecrit PAS le nom a la place (consigne « si pas de logo, vide ») —
+    // la gauche reste vierge, l'identite du bailleur est portee par le corps du document.
     try { pdf.addImage(ent.logo, x, y, m.left.w, m.left.h); bandH = Math.max(bandH, m.left.h); }
-    catch (e) { pdf.setFont('helvetica','bold').setFontSize(13).setTextColor(16,21,33); pdf.text(String((ent && ent.nom) || ''), x, y + m.logoH * 0.75); }
-  } else {
-    pdf.setFont('helvetica','bold').setFontSize(13).setTextColor(16,21,33);
-    pdf.text(String(m.left.text || ''), x, y + m.logoH * 0.85);
+    catch (e) { console.warn('[brandzone] logo bailleur illisible', e); }
   }
   pdf.setFont('helvetica','bold').setFontSize(m.propryo.wordSize * 2.83);
   const wordW = pdf.getTextWidth(m.propryo.mot), mark = m.propryo.markSize, gap = mark * 0.28;
@@ -6590,7 +6589,10 @@ const _DT_REPLI = {
     '<div style="display:flex;justify-content:space-between"><span>' + (r.lab == null ? '' : r.lab)
     + '</span><span><b>' + (r.val == null ? '' : r.val) + '</b></span></div>').join('') + '</div>',
   docSignzone: a => '<div style="margin-top:24px">' + (a || []).filter(Boolean).map(b =>
-    '<div style="display:inline-block;width:220px;border-top:1px solid #999;padding-top:6px;text-align:center">' + b + '</div>').join(' ') + '</div>'
+    '<div style="display:inline-block;width:220px;text-align:center">'
+    + (typeof b === 'string' ? '<div style="border-top:1px solid #999;padding-top:6px">' + b + '</div>'
+       : '<div style="height:48px">' + (b.sig || '') + '</div><div style="border-top:1px solid #999;padding-top:6px">' + (b.label || '') + '</div>')
+    + '</div>').join(' ') + '</div>'
 };
 function _dt(fn, arg) {
   if (window.DocTemplate && typeof window.DocTemplate[fn] === 'function') return window.DocTemplate[fn](arg);
@@ -7412,13 +7414,15 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt) {
     y -= size + 6;
   };
   // S4 — bandeau d'identité. pdf-lib n'embarque pas d'image ici (le logo du bailleur est un
-  // data-URL de format libre) : on pose le NOM de l'entité à gauche et le tracé Propryo à
-  // droite, en vectoriel (rectangle arrondi + point), aux mêmes proportions que le helper commun.
+  // data-URL de format libre) : la gauche reste VIDE, comme sur tous les autres documents
+  // quand il n'y a pas de logo (consigne 17/08), et seul le tracé Propryo est posé à droite,
+  // en vectoriel (rectangle arrondi + point), aux proportions du helper commun.
+  // Le nom du bailleur, lui, descend dans le CORPS du certificat (ligne « Bailleur : … ») :
+  // c'est une pièce de preuve, l'émetteur doit y être nommé noir sur blanc.
+  const _entCert = (DB.entites || []).find(e => e && e.nom === bail.entity) || {};
   try {
-    const _ent = (DB.entites || []).find(e => e && e.nom === bail.entity) || {};
-    const _m = window.DocBrand.brandzoneModel({ entLogo: '', entNom: _ent.nom || bail.entity || '' });
+    const _m = window.DocBrand.brandzoneModel({ entLogo: '', entNom: _entCert.nom || bail.entity || '' });
     const PT = 72 / 25.4, W = 595.28;
-    page.drawText(window.MontantDoc.pdfSafeText(_m.left.text), { x: 40, y: y - 2, size: 13, font: fontB });
     const mark = _m.propryo.markSize * PT, wordSize = _m.propryo.wordSize * 2.83;
     const wordW = fontB.widthOfTextAtSize('Propryo', wordSize);
     const mx = W - 40 - wordW - mark * 0.28 - mark, my = y - 2;
@@ -7438,6 +7442,7 @@ async function _buildBailCertificatePdf(bail, proof, contentHash, completedAt) {
     y -= 16;
   } catch (e) { console.warn('[certificat] bandeau', e); }
   line('Certificat de preuve de signature electronique', 16, true); y -= 8;
+  line('Bailleur : ' + (_entCert.nom || bail.entity || '-'));
   line('Bail : ' + (bail.ref || ''));
   line('Date de completion : ' + (completedAt ? new Date(completedAt) : new Date()).toLocaleString('fr-FR'));
   line('Empreinte du document signe final (SHA-256) :', 10);
@@ -23337,14 +23342,11 @@ function previewBailData(bail, log, ref, opts) {
     +    'var m=_brandzoneModel({entLogo:item.logo,entNom:item.sciNom,logoRatio:ratio});'
     +    'var x=PDF_NATIVE.MARGIN_LEFT,right=PDF_NATIVE.PAGE_W-PDF_NATIVE.MARGIN_RIGHT;'
     +    'var bandH=m.logoH,topY=y;'
+    /* Sans logo : RIEN a gauche (consigne 17/08). L'identite du bailleur reste portee par la
+       table d'identification des parties, en page de garde. */
     +    'if(m.left.kind==="logo"){'
     +      'try{pdf.addImage(item.logo,PDF_NATIVE.MARGIN_LEFT,topY,m.left.w,m.left.h);bandH=Math.max(bandH,m.left.h);}'
-    +      'catch(e){console.warn("[brandzone] logo bailleur illisible",e);'
-    +        'pdf.setFont(PDF_NATIVE.FONT_FAMILY,"bold");pdf.setFontSize(13);pdf.setTextColor(16,21,33);'
-    +        'pdf.text(String(item.sciNom||""),x,topY+m.logoH*0.75);}'
-    +    '}else{'
-    +      'pdf.setFont(PDF_NATIVE.FONT_FAMILY,"bold");pdf.setFontSize(13);pdf.setTextColor(16,21,33);'
-    +      'pdf.text(String(m.left.text||""),x,topY+m.logoH*0.85);'
+    +      'catch(e){console.warn("[brandzone] logo bailleur illisible",e);}'
     +    '}'
     /* Lockup Propryo, cale a DROITE : le mot d'abord (mesure), la marque juste avant. */
     +    'var wordSize=m.propryo.wordSize*2.83;'
@@ -27185,8 +27187,8 @@ ${_dt('docLignes', [
   { lab:`SOLDE ${solde>=0?'(à votre crédit)':'(à payer)'}`, val:`${solde>=0?'+':''}${fmtN(solde)} €`, tot:true, hi:true }
 ])}
 ${_dt('docSignzone', [
-  `Le bailleur<br>${_docSigImg(ent)}`,
-  'Le locataire (signature + date)<br><br><br>'
+  { sig: _docSigOnly(ent), label: 'Le bailleur' },
+  { sig: '', label: 'Le locataire (signature + date)' }
 ])}
 ${_dt('docEncart', `<b>Mentions légales obligatoires</b><br>
       • <b>Justificatifs :</b> les pièces justificatives (factures, contrats d'entretien, relevés de charges de copropriété, etc.) sont tenues à votre disposition pendant <b>un mois</b> à compter de l'envoi du présent décompte — art. 23 al. 3 loi n°89-462 du 6 juillet 1989.<br>
@@ -28439,7 +28441,7 @@ ${_dt('docLignes', [
 Solde restant dû&nbsp;: <b>${fmt(solde)}</b>.</p>
 ${_dt('docEncart', `<b>Ce reçu ne vaut pas quittance.</b> Il ne libère pas le locataire de son obligation de payer le solde restant dû de ${fmt(solde)}. Le bailleur se réserve le droit de réclamer le paiement intégral du terme.`)}
 ${_dt('docLieu', `Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}`)}
-${_dt('docSignzone', [`${_docSigImg(ent)}Le(s) Bailleur(s)`])}`;
+${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
   } else {
     // v15.94 BUG-QUITTANCE-PRORATA — Si prorata détecté, afficher loyer prorata + détail jours
     // pour transparence juridique (Cass. 3e civ. : indiquer base de calcul du prorata).
@@ -28464,7 +28466,7 @@ ${prorataMention}
 <p>Cette somme correspond au règlement du loyer et des charges pour la période de location <b>${periodeStr}</b>. J'en donne quittance sous réserve du bon encaissement de cette somme.</p>
 ${_dt('docMention', 'Cette quittance annule tous les reçus qui auraient pu être établis précédemment en cas de paiement partiel du montant du présent terme. Elle est à conserver par le locataire.')}
 ${_dt('docLieu', `Fait à ${escHtml(villeTitre||'–')},<br>Le ${dateEmission}`)}
-${_dt('docSignzone', [`${_docSigImg(ent)}Le(s) Bailleur(s)`])}`;
+${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
   }
 
   const title = (estComplet?'Quittance':estPartiel?'Reçu partiel':'Non émissible') + ' — ' + escHtml(q.logement||'') + ' — ' + escHtml(q.mois||'');
@@ -28855,7 +28857,7 @@ ${_dt('docMention', `Réf. : art. 17-1, loi n° 89-462 du 6/7/1989 — Indices I
       <p>Nous vous prions d'agréer, ${_civConge(bail?.locataires)} l'expression de nos salutations distinguées.</p>
 
 ${_dt('docLieu', `Fait le ${dateLettre}`)}
-${_dt('docSignzone', [`Le bailleur<br><b>${ent?.gerant||ent?.nom||''}</b><br>${_docSigImg(ent)}`])}`;
+${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: `Le bailleur<br><b>${ent?.gerant||ent?.nom||''}</b>` }])}`;
 
   const html = _docPage(ent, {
     titre: 'Révision annuelle du loyer',
@@ -53911,11 +53913,15 @@ function _clearEntLogo() {
   _showEntLogoPreview(null);
 }
 
-// Helper document : bloc image signature ou espace vide
-function _docSigImg(ent) {
+// Image de signature seule — pour l'espace AU-DESSUS du filet du gabarit (on signe au-dessus
+// de la ligne). Rend '' quand l'entite n'a pas de signature enregistree : l'espace reste vierge
+// pour une signature manuscrite, sans <br> de remplissage.
+// (l'ancien _docSigImg, qui empilait l'image SOUS son propre libellé et rendait deux <br> de
+//  remplissage quand il n'y avait pas de signature, n'a plus d'appelant : il est supprimé.)
+function _docSigOnly(ent) {
   return ent?.signature
-    ? `<img src="${ent.signature}" style="max-width:200px;max-height:70px;display:block;margin:0 auto 4px">`
-    : '<br><br>';
+    ? `<img src="${ent.signature}" alt="" style="max-height:10mm;max-width:100%;display:block">`
+    : '';
 }
 
 // =================== MODE CLOUD (ex-Drive retiré) ===================

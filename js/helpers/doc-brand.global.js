@@ -20,7 +20,8 @@
   // SOURCE — rien n'est inventé ici :
   //   • Gabarit : mockups/DOCUMENTS-PROPRYO (variante B validée par Didier le 12/08) —
   //     émetteur à gauche, Propryo à droite, MÊME hauteur pilotée par une seule variable,
-  //     filet fin dessous. Sans logo bailleur, son NOM prend la place, et le bandeau se resserre.
+  //     filet fin dessous. Sans logo bailleur, la gauche reste VIDE et le bandeau se resserre
+  //     (consigne 17/08 — le repli « le nom prend la place » a été rejeté à l'usage).
   //   • Logo : piste 01 « Le point », tracé repris à l'identique de
   //     mockups/SIGNATURE-PAGE-LOCATAIRE/sign-propryo.css (déjà en prod, page locataire du relais).
   //
@@ -32,8 +33,9 @@
     LOGO_H: 13,        // hauteur du logo bailleur  (--logo-h du gabarit)
     NOM_H: 5.3,        // hauteur quand c'est le NOM qui occupe la gauche
     LOGO_MAX_W: 62,    // largeur maximale du logo bailleur
-    RULE_GAP: 4,       // espace sous le bandeau avant le filet
-    BOTTOM_GAP: 7,     // espace sous le filet avant le contenu
+    RULE_GAP: 2.5,     // espace sous le bandeau avant le filet — 4 mm au mockup, resserre pour
+                       // que les documents courants tiennent sur UNE page (regression 17/08)
+    BOTTOM_GAP: 4,     // espace sous le filet avant le contenu — 7 mm au mockup, meme raison
     WORD_RATIO: 0.58   // taille du mot « Propryo » = 0,58 × hauteur du logo
   };
   
@@ -87,14 +89,24 @@
   }
   
   /**
-   * Modèle du bandeau. Ne renvoie JAMAIS un bandeau vide : sans logo ET sans nom d'entité,
-   * la gauche affiche un libellé neutre.
+   * Modèle du bandeau.
+   *
+   * RÈGLE (consigne Didier, reformulée le 17/08) : « le document doit pouvoir avoir le logo du
+   * bailleur ; si pas de logo, VIDE ». Donc logo présent → le logo ; logo absent → RIEN à gauche,
+   * ni son nom, ni placeholder, ni cadre. Le lockup Propryo, lui, reste dans les deux cas.
+   *
+   * Une première version posait le NOM du bailleur en repli : rejeté à l'usage. L'identité du
+   * bailleur n'est pas perdue pour autant — elle est portée par le CORPS de chaque document
+   * (bloc « Le(s) Bailleur(s) » de la quittance, blocs Bailleur de l'IRL et du décompte, § I de
+   * l'acte, ligne « Bailleur » de l'EDL, table d'identification du bail, ligne « Bailleur » du
+   * certificat de preuve). C'est là qu'elle a sa valeur juridique, pas dans un bandeau.
+   *
    * @param {{entLogo?:string, entNom?:string, logoRatio?:number}} input
    *        logoRatio = largeur/hauteur de l'image du bailleur (1 si inconnu).
    */
   function brandzoneModel(input) {
     var o = input || {};
-    var nom = String(o.entNom == null ? '' : o.entNom).trim() || 'Le bailleur';
+    var nom = String(o.entNom == null ? '' : o.entNom).trim();
     var logo = String(o.entLogo == null ? '' : o.entLogo).trim();
     if (logo) {
       var ratio = o.logoRatio > 0 ? o.logoRatio : 1;
@@ -102,13 +114,14 @@
       if (w > BRAND.LOGO_MAX_W) { w = BRAND.LOGO_MAX_W; h = w / ratio; }   // bridé sans déformation
       return {
         logoH: BRAND.LOGO_H,
-        left: { kind: 'logo', src: logo, w: w, h: h, alt: nom },
+        left: { kind: 'logo', src: logo, w: w, h: h, alt: nom || 'Logo du bailleur' },
         propryo: { mot: 'Propryo', markSize: BRAND.LOGO_H, wordSize: BRAND.LOGO_H * BRAND.WORD_RATIO }
       };
     }
+    // Pas de logo : la gauche reste VIDE et le bandeau se resserre sur la hauteur du lockup.
     return {
       logoH: BRAND.NOM_H,
-      left: { kind: 'nom', text: nom, h: BRAND.NOM_H },
+      left: { kind: 'vide', h: BRAND.NOM_H },
       propryo: { mot: 'Propryo', markSize: BRAND.NOM_H, wordSize: BRAND.NOM_H * BRAND.WORD_RATIO }
     };
   }
@@ -121,11 +134,12 @@
   /** Bandeau prêt à insérer en tête d'un document HTML (quittance, IRL, décompte, cautionnement). */
   function brandzoneHtml(model) {
     var m = model || brandzoneModel({});
+    // Sans logo : RIEN à gauche (cf. brandzoneModel). Pas de <span> vide non plus, sinon le
+    // `gap` du flex laisserait un décrochage visible avant le lockup Propryo.
     var left = m.left.kind === 'logo'
       ? '<img src="' + escBrand(m.left.src) + '" alt="' + escBrand(m.left.alt) + '" style="height:'
         + m.left.h + 'mm;width:auto;max-width:' + BRAND.LOGO_MAX_W + 'mm;object-fit:contain;display:block">'
-      : '<span style="font:700 13pt/1.15 \'Schibsted Grotesk\',system-ui,sans-serif;color:#101521;letter-spacing:-.02em">'
-        + escBrand(m.left.text) + '</span>';
+      : '';
     return '<div style="display:flex;align-items:center;gap:8mm;padding-bottom:' + BRAND.RULE_GAP
       + 'mm;margin-bottom:' + BRAND.BOTTOM_GAP + 'mm;border-bottom:.35mm solid #e4e7ee">'
       + left

@@ -82,11 +82,13 @@ describe('brandzoneModel — qui occupe la gauche, et à quelle hauteur', () => 
     expect(m.left.w).toBeCloseTo(BRAND.LOGO_H * (200 / 56), 5);
   });
 
-  it('bailleur SANS logo : son NOM prend la même place, bandeau resserré', () => {
+  it('bailleur SANS logo : RIEN à gauche, bandeau resserré (consigne 17/08)', () => {
+    // « le document doit pouvoir avoir le logo du bailleur ; si pas de logo, vide ».
+    // Le repli « le nom prend la place » a été explicitement rejeté à l'usage.
     const m = brandzoneModel({ entLogo: '', entNom: 'SCI KELLER' });
-    expect(m.left.kind).toBe('nom');
-    expect(m.left.text).toBe('SCI KELLER');
-    expect(m.logoH).toBe(BRAND.NOM_H);                   // 5,3 mm
+    expect(m.left.kind).toBe('vide');
+    expect(m.left.text).toBeUndefined();
+    expect(m.logoH).toBe(BRAND.NOM_H);                   // 5,3 mm — hauteur du seul lockup
   });
 
   it('un logo très large est bridé à la largeur max, sans déformation', () => {
@@ -96,10 +98,15 @@ describe('brandzoneModel — qui occupe la gauche, et à quelle hauteur', () => 
     expect(m.left.h).toBeLessThan(BRAND.LOGO_H);         // hauteur réduite pour tenir
   });
 
-  it('sans nom d\'entité renseigné : jamais de bandeau vide', () => {
+  it('sans logo ET sans nom : gauche vide aussi, jamais de libellé de remplacement', () => {
     const m = brandzoneModel({ entLogo: '', entNom: '' });
-    expect(m.left.kind).toBe('nom');
-    expect(m.left.text).toBe('Le bailleur');
+    expect(m.left.kind).toBe('vide');
+    expect(JSON.stringify(m)).not.toContain('Le bailleur');
+  });
+
+  it('le nom ne sert plus qu\'au texte alternatif du logo', () => {
+    expect(brandzoneModel({ entLogo: 'data:x', entNom: 'SCI KELLER' }).left.alt).toBe('SCI KELLER');
+    expect(brandzoneModel({ entLogo: 'data:x', entNom: '' }).left.alt).toBe('Logo du bailleur');
   });
 
   it('Propryo est TOUJOURS présent, à la même hauteur que la marque de gauche', () => {
@@ -111,6 +118,22 @@ describe('brandzoneModel — qui occupe la gauche, et à quelle hauteur', () => 
   });
 });
 
+describe('brandzone — empreinte verticale (régression « 2 pages » du 17/08)', () => {
+  it('le bandeau coûte au plus 20 mm de hauteur, logo compris', () => {
+    // Les documents sont rastérisés puis découpés en pages A4 (281 mm utiles). Le bandeau est
+    // la première dépense de hauteur de chaque document : au rythme du mockup (4 + 7 mm autour
+    // du filet), quittance, reçu partiel, lettre IRL et décompte débordaient sur une 2e page.
+    expect(BRAND.LOGO_H + BRAND.RULE_GAP + BRAND.BOTTOM_GAP).toBeLessThanOrEqual(20);
+    expect(BRAND.NOM_H + BRAND.RULE_GAP + BRAND.BOTTOM_GAP).toBeLessThanOrEqual(12);
+  });
+
+  it("sans logo, le bandeau est bien PLUS COURT qu'avec", () => {
+    const avec = brandzoneModel({ entLogo: 'data:x', entNom: 'A', logoRatio: 3 });
+    const sans = brandzoneModel({ entLogo: '', entNom: 'A' });
+    expect(sans.logoH).toBeLessThan(avec.logoH);
+  });
+});
+
 describe('brandzoneHtml — rendu pour les documents HTML (quittance, IRL, décompte…)', () => {
   it('place le logo bailleur à gauche et le lockup Propryo à droite', () => {
     const h = brandzoneHtml(brandzoneModel({ entLogo: 'data:image/png;base64,AAA', entNom: 'SCI KELLER', logoRatio: 3 }));
@@ -119,8 +142,16 @@ describe('brandzoneHtml — rendu pour les documents HTML (quittance, IRL, déco
     expect(h).toContain('border-bottom');                // filet fin sous le bandeau
   });
 
-  it('sans logo, affiche le nom de l\'entité — échappé', () => {
-    const h = brandzoneHtml(brandzoneModel({ entLogo: '', entNom: 'SCI <script>x</script>' }));
+  it('sans logo : RIEN à gauche — ni nom, ni image, ni cadre', () => {
+    const h = brandzoneHtml(brandzoneModel({ entLogo: '', entNom: 'SCI KELLER' }));
+    expect(h).not.toContain('SCI KELLER');
+    expect(h).not.toContain('<img');
+    expect(h).toContain('Propryo');                      // le lockup reste, lui
+    expect(h).toContain('margin-left:auto');
+  });
+
+  it('le nom du bailleur reste échappé là où il sert encore (alt du logo)', () => {
+    const h = brandzoneHtml(brandzoneModel({ entLogo: 'data:x', entNom: 'SCI <script>x</script>' }));
     expect(h).not.toContain('<script>');
     expect(h).toContain('&lt;script&gt;');
   });
