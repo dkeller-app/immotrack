@@ -762,6 +762,158 @@ export function _bankReadTable(rows, opts = {}) {
   return { ok: lines.length > 0, lines, discarded, meta };
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// ⑦ LES RÈGLES — « L'app propose. Tu valides. Si tu veux que ce soit
+//    automatique, tu en fais une règle. »
+//
+// R-A v2 · AUCUNE RÈGLE LIVRÉE. La liste démarre vide et ne contient que ce que
+// l'utilisateur a créé. Une mise à jour de l'app ne peut JAMAIS créer, modifier ou
+// supprimer une règle : les règles sont les données de l'utilisateur, pas celles de
+// l'app. Les mots-clés du moteur de PROPOSITIONS (✨) ne sont donc pas des règles —
+// ils ne s'appliquent jamais seuls.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Sens d'une ligne bancaire : 'cr' (recette) ou 'db' (dépense). */
+export function _bankLineSens(line) {
+  return (Number(line && line.credit) || 0) > 0 ? 'cr' : 'db';
+}
+
+/** Une règle porte-t-elle une affectation ? (⑦.2 : l'affectation est UNE valeur, pas 4) */
+function _bankRuleHasAff(r) {
+  return !!(r && (r.bailleurDuCompte || r.qui || r.imm || r.compteurCcId));
+}
+function _bankRuleAffKey(r) {
+  return (r.bailleurDuCompte ? 'BDC' : '') + '|' + (r.qui || '') + '|' + (r.imm || '') + '|' + (r.compteurCcId || '');
+}
+
+/**
+ * ⑦.1 — Ce qu'une règle sait dire, en 3 critères :
+ * **Motif** (le libellé contient ce texte, insensible casse/accents) · **Sens**
+ * (dépense / recette / les deux — NOUVEAU) · **Compte** (optionnel).
+ *
+ * Le sens règle un vrai bug métier : une règle « EDF » attrapait le prélèvement ET
+ * le remboursement de trop-perçu, et classait le remboursement en charge.
+ *
+ * 🐛 **BUG 8 du CDC** : la restriction de compte TOMBAIT quand le compte était
+ * inconnu (`rule.compte && accountId && …`) — la règle d'un autre compte
+ * s'appliquait quand même. Une règle liée à un compte ne s'applique désormais
+ * QU'À ce compte.
+ */
+export function _bankRuleMatch(rule, line, accountId) {
+  if (!rule || rule._deleted || !rule.pattern || !line) return false;
+  if (rule.compte && String(rule.compte) !== String(accountId == null ? '' : accountId)) return false;
+  if (rule.sens && rule.sens !== _bankLineSens(line)) return false;
+  const pat = _bankNormTxt(rule.pattern);
+  if (!pat) return false;
+  return _bankNormTxt(line.libelle).includes(pat);
+}
+
+/**
+ * ⑦.2 v2 — Quand PLUSIEURS règles correspondent.
+ * - **Règles complémentaires** (champs différents) → on applique les deux, et
+ *   l'origine de chaque champ est affichée (« catégorie : règle SYNDIC · bien :
+ *   règle LES TILLEULS »). C'est le cas légitime, il ne doit pas être traité comme
+ *   une erreur.
+ * - **Règles en conflit** (même champ, valeurs différentes) → **aucun automatisme** :
+ *   la ligne reste « à compléter », les candidates sont affichées avec leur résultat,
+ *   l'utilisateur choisit.
+ * - Deux règles aboutissant à la même valeur ne sont pas un conflit.
+ *
+ * @returns {{matched:object[], cat:string, catRule:object|null, aff:object|null,
+ *            affRule:object|null, conflicts:{field:string, rules:object[]}[], byRule:boolean}}
+ */
+export function _bankApplyRules(rules, line, opts = {}) {
+  const accountId = opts.accountId;
+  const matched = (Array.isArray(rules) ? rules : []).filter(r => _bankRuleMatch(r, line, accountId));
+  const out = { matched, cat: '', catRule: null, aff: null, affRule: null, conflicts: [], byRule: false };
+
+  const catRules = matched.filter(r => r.cat);
+  const catVals = [...new Set(catRules.map(r => r.cat))];
+  if (catVals.length === 1) { out.cat = catVals[0]; out.catRule = catRules[0]; }
+  else if (catVals.length > 1) out.conflicts.push({ field: 'cat', rules: catRules });
+
+  const affRules = matched.filter(_bankRuleHasAff);
+  const affVals = [...new Set(affRules.map(_bankRuleAffKey))];
+  if (affVals.length === 1) {
+    const r = affRules[0];
+    out.aff = { bailleurDuCompte: !!r.bailleurDuCompte, qui: r.qui || '', imm: r.imm || '', compteurCcId: r.compteurCcId || '' };
+    out.affRule = r;
+  } else if (affVals.length > 1) out.conflicts.push({ field: 'aff', rules: affRules });
+
+  out.byRule = !!(out.cat || out.aff);
+  return out;
+}
+
+/**
+ * R-C — Cas multi-bailleur (ICARUS facture toutes les SCI) : **une seule** règle,
+ * dont l'affectation vaut « le bailleur du compte », résolu à l'import depuis le
+ * compte reconnu. Une ligne pour tous les bailleurs, et ça reste juste quand une SCI
+ * s'ajoute. Un compte mixte ne peut rien résoudre : l'affectation reste vide.
+ */
+export function _bankResolveAff(aff, account) {
+  if (!aff) return { qui: '', imm: '', compteurCcId: '' };
+  if (aff.bailleurDuCompte) {
+    const b = (account && !account.mixte && account.bailleur) ? account.bailleur : '';
+    return { qui: b ? 'SCI:' + b : '', imm: '', compteurCcId: '', unresolved: !b };
+  }
+  return { qui: aff.qui || '', imm: aff.imm || '', compteurCcId: aff.compteurCcId || '' };
+}
+
+/**
+ * ⑦.4 — APERÇU EN DIRECT à la création d'une règle. Aujourd'hui on tape le motif
+ * **à l'aveugle** dans un `prompt()`. Cible : voir, à chaque frappe, les lignes de
+ * l'import qui correspondent, le nombre de mouvements déjà en base concernés, et une
+ * alerte quand le motif est trop court ou attrape des lignes de natures différentes.
+ *
+ * ⑦.7 — Fonctionne **sans import** : il s'appuie alors sur les mouvements déjà
+ * enregistrés (« ce motif correspond à 17 mouvements existants »).
+ *
+ * @param {{pattern:string, sens?:string, compte?:string}} draft
+ * @param {{importLines?:object[], mouvements?:object[], accountId?:*}} ctx
+ * @returns {{lines:object[], nBase:number, baseCats:string[], tooShort:boolean,
+ *            mixed:boolean, ok:boolean, level:'', 'warn'|'ok'}}
+ */
+export function _bankRulePreview(draft, ctx = {}) {
+  const pattern = String((draft && draft.pattern) || '').trim();
+  const rule = { pattern, sens: (draft && draft.sens) || '', compte: (draft && draft.compte) || '' };
+  const out = { lines: [], nBase: 0, baseCats: [], tooShort: false, mixed: false, ok: false, level: '' };
+  if (!pattern) return out;
+  out.tooShort = pattern.length < 4;
+  out.lines = (ctx.importLines || []).filter(l => _bankRuleMatch(rule, l, ctx.accountId));
+  const baseHits = (ctx.mouvements || []).filter(m => {
+    if (!m || m._deleted) return false;
+    const line = { libelle: m.lib || '', credit: m.cr || 0, debit: m.db || 0 };
+    return _bankRuleMatch(rule, line, ctx.accountId != null ? ctx.accountId : m._bankAccountId);
+  });
+  out.nBase = baseHits.length;
+  out.baseCats = [...new Set(baseHits.map(m => m.cat).filter(Boolean))];
+  // « Natures différentes » = les lignes attrapées n'ont pas toutes le même sens, ou
+  // les mouvements déjà en base sont classés dans plusieurs catégories.
+  const senses = new Set(out.lines.map(_bankLineSens));
+  out.mixed = senses.size > 1 || out.baseCats.length > 1;
+  out.ok = !out.tooShort && !out.mixed && (out.lines.length > 0 || out.nBase > 0);
+  out.level = (out.tooShort || out.mixed) ? 'warn' : (out.ok ? 'ok' : '');
+  return out;
+}
+
+/**
+ * ⑦.7 — Colonne « utilisée » de la liste des règles : « 23 mouvements classés ·
+ * dernière fois le 12/08 ». Sert à repérer une règle obsolète ou trop large.
+ * S'appuie sur `_rules[]`, la trace laissée sur chaque mouvement importé.
+ */
+export function _bankRuleUsage(rule, mouvements) {
+  const pat = _bankNormTxt(rule && rule.pattern);
+  const out = { count: 0, lastDate: '' };
+  if (!pat) return out;
+  for (const m of (mouvements || [])) {
+    if (!m || m._deleted || !Array.isArray(m._rules)) continue;
+    if (!m._rules.some(p => _bankNormTxt(p) === pat)) continue;
+    out.count++;
+    if ((m.date || '') > out.lastDate) out.lastDate = m.date || '';
+  }
+  return out;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Matching heuristique vers (catégorie, qui) ImmoTrack
 // ────────────────────────────────────────────────────────────────────────────
