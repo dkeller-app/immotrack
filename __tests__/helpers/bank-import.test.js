@@ -401,10 +401,13 @@ describe("_bankDedup — strategie 1 fingerprint", () => {
     expect(out[0].isDuplicate).toBe(true); // toujours detecte malgre les modifs !
     expect(out[0].duplicateOf).toBe("99");
   });
-  it("pas duplicate si fingerprint different", () => {
+  it("empreinte differente mais meme date+montant → PROBABLE, pas certain (⑥.2)", () => {
+    // Avant, cette ligne etait ecartee d'office. Deux loyers identiques a deux jours
+    // d'ecart pour DEUX locataires differents faisaient disparaitre un vrai loyer.
     const newLines = [{ date:"2026-01-15", credit:650, debit:0, _fingerprint:"new-fp" }];
     const existing = [{ id:1, date:"2026-01-15", cr:650, _fingerprint:"other-fp" }];
-    expect(_bankDedup(newLines, existing)[0].isDuplicate).toBe(false);
+    const out = _bankDedup(newLines, existing);
+    expect(out[0].dupLevel).toBe('probable');
   });
 });
 
@@ -414,7 +417,7 @@ describe("_bankDedup — fallback legacy (mouvements sans fingerprint)", () => {
     const existing = [{ id:1, date:"2026-01-15", cr:650 }]; // pas de _fingerprint
     const out = _bankDedup(newLines, existing);
     expect(out[0].isDuplicate).toBe(true);
-    expect(out[0].duplicateReason).toMatch(/legacy/i);
+    expect(out[0].dupLevel).toBe('probable');   // ⑥.2 : a trancher, jamais ecarte d'office
   });
   it("mix legacy + modern dans meme DB → match les 2 strategies", () => {
     const newLines = [

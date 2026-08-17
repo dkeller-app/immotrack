@@ -38,17 +38,8 @@ const PAIRS = [
     dst: 'js/helpers/bank-import.global.js',
     globalName: 'BankImport',
     flatten: true,
-    exports: [
-      '_bankHashStable', '_bankFingerprintRow', '_bankFingerprintOFX',
-      '_BANK_MAX_FILE_SIZE', '_bankDetectFormat',
-      '_bankParseAmount', '_bankParseDate', '_bankIsDateLike', '_bankIsAmountLike', '_bankForeignCurrency',
-      '_bankOfxTag', '_bankOfxLabel', '_bankParseOFX', '_bankReadOFX',
-      '_bankFindHeaderRow', '_bankPickDateColumn', '_bankDetectOrientation',
-      '_bankCheckBalance', '_bankMarkDoubtfulDates', '_bankPickSheets', '_bankReadTable',
-      '_bankMatchHeuristic', '_bankDedup', '_bankMigrateFingerprints',
-      '_bankExtractOFXAccount', '_bankExtractSheetAccount',
-      '_bankSliceAfterFingerprint', '_bankComputeLastImport',
-    ],
+    // Liste DEDUITE des exports du module : rien a maintenir a la main.
+    exports: '*',
     // Sanity : autant de fonctions exportées en sortie qu'en source (aucune perdue
     // par le strip `export ` — c'est exactement ce qui rendait la réplique divergente).
     sanity: [
@@ -357,9 +348,16 @@ ${deps}
 
   // 5) Bloc final qui attache les exports publics sur global.X
   const footerLines = ['', '  // ─── EXPORT GLOBAL ───────────────────────────────────────────────'];
+  // `exports: '*'` → la liste est DÉDUITE des `export` du module source. Une liste
+  // tenue à la main est une bombe à retardement : ajouter une fonction au module sans
+  // penser au mirror la rend introuvable en mode file:// — et seulement là.
+  const exportNames = p.exports === '*'
+    ? [...srcContent.matchAll(/^export\s+(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/gm)].map(m => m[1])
+    : p.exports;
+  if (!exportNames.length) { console.error(`[${p.name}] ❌ aucun export détecté`); totalErrors++; }
   footerLines.push(`  global.${p.globalName} = {`);
-  p.exports.forEach((name, idx) => {
-    const comma = idx < p.exports.length - 1 ? ',' : '';
+  exportNames.forEach((name, idx) => {
+    const comma = idx < exportNames.length - 1 ? ',' : '';
     footerLines.push(`    ${name}: ${name}${comma}`);
   });
   footerLines.push('  };');

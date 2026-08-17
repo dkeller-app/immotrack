@@ -49632,9 +49632,12 @@ function _bankIdxByState() {
   });
   return { todo, ok, dup };
 }
-// Nb de doublons NON encore revus (ni forcés, ni confirmés) → badge de l'onglet.
+// Badge de l'onglet Doublons = nombre de décisions QUI RESTENT À PRENDRE (⑥.2).
+// Les doublons certains n'en demandent aucune : ils sont écartés sans clic.
 function _bankDupOpenCount(st) {
-  return st.dup.filter(i => { const l = _bankImportLines[i]; return l && !l._userKeep && !l._dupConfirmed; }).length;
+  return window._bankUndecidedDuplicates
+    ? window._bankUndecidedDuplicates(st.dup.map(i => _bankImportLines[i]))
+    : st.dup.filter(i => { const l = _bankImportLines[i]; return l && !l._userKeep && !l._dupConfirmed; }).length;
 }
 // ── Onglet « Doublons » : compare la ligne importée au mouvement déjà enregistré + override ──
 function _bankDupFmtDate(d) { return d ? String(d).split('-').reverse().join('/') : ''; }
@@ -49644,11 +49647,49 @@ function _bankDupMvAff(m) {
   if (m.imm) return '🏢 ' + escHtml(m.imm);
   return '';
 }
+// ⑥.2 — Deux traitements distincts :
+//  · doublons CERTAINS (même FITID, même empreinte) → écartés automatiquement, repliés
+//    en UNE ligne de résumé. Zéro clic : il n'y a aucun doute à lever.
+//  · doublons PROBABLES → carte de comparaison complète, à trancher un par un ; tant
+//    qu'il en reste un, l'import est bloqué (⑧.1).
+let _bankDupCertainOpen = false;
+function _bankToggleDupCertain() { _bankDupCertainOpen = !_bankDupCertainOpen; _bankRenderReviewBody(); }
+
 function _bankDupBodyHtml(dupIdx) {
   if (!dupIdx.length) return '<div class="mu sm" style="text-align:center;padding:24px">Aucun doublon détecté 🎉</div>';
-  const intro = '<div class="mu sm" style="margin:2px 0 10px;font-size:12px;line-height:1.55;background:var(--sur2,#f5f8fc);border-left:3px solid var(--cta,#3b7ef6);padding:9px 12px;border-radius:8px">'
-    + 'Ces lignes ressemblent à des mouvements <b>déjà enregistrés</b> → <b>ignorées par défaut</b>. Vérifie la comparaison ; si c\'est une vraie opération distincte (ex. même loyer payé deux fois), <b>force l\'import</b>.</div>';
-  return intro + '<div style="max-height:42vh;overflow:auto">' + dupIdx.map(i => _bankDupCardHtml(i)).join('') + '</div>';
+  const certains = dupIdx.filter(i => (_bankImportLines[i] || {}).dupLevel === 'certain');
+  const probables = dupIdx.filter(i => (_bankImportLines[i] || {}).dupLevel !== 'certain');
+  let h = '';
+  if (certains.length) {
+    h += '<div style="background:var(--sur2,#f5f8fc);border:1px solid var(--bor);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:12.5px">'
+      + '<span style="font-weight:700">🚫 ' + certains.length + ' doublon' + (certains.length > 1 ? 's écartés' : ' écarté') + ' — aucun doute</span>'
+      + ' <a onclick="_bankToggleDupCertain()" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6);margin-left:6px">voir le détail ' + (_bankDupCertainOpen ? '▴' : '▾') + '</a>'
+      + (_bankDupCertainOpen ? '<div style="margin-top:8px">' + certains.map(i => _bankDupCertainRow(i)).join('') + '</div>' : '')
+      + '</div>';
+  }
+  if (probables.length) {
+    const open = probables.filter(i => { const l = _bankImportLines[i]; return l && !l._userKeep && !l._dupConfirmed; }).length;
+    h += '<div class="mu sm" style="margin:2px 0 10px;font-size:12px;line-height:1.55;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);padding:9px 12px;border-radius:8px">'
+      + '<b>' + probables.length + ' opération' + (probables.length > 1 ? 's ressemblent' : ' ressemble') + ' à quelque chose de déjà enregistré</b> — mais rien ne le prouve. '
+      + 'Ni exclue, ni incluse : c\'est toi qui tranches. Un même loyer de 850 € à deux jours d\'écart peut très bien être <b>deux locataires différents</b>.'
+      + (open ? '<br><b style="color:var(--amb,#d97706)">L\'import reste bloqué tant qu\'il en reste ' + open + ' à trancher.</b>' : '')
+      + '</div>'
+      + '<div style="max-height:42vh;overflow:auto">' + probables.map(i => _bankDupCardHtml(i)).join('') + '</div>';
+  }
+  return h;
+}
+
+// Ligne compacte d'un doublon certain (déplié) : on montre ce qui a été écarté et pourquoi.
+function _bankDupCertainRow(i) {
+  const line = _bankImportLines[i]; if (!line) return '';
+  const amt = line.credit > 0 ? line.credit : line.debit;
+  return '<div style="display:flex;gap:9px;align-items:center;padding:5px 0;border-top:1px dashed var(--bor);font-size:11.5px;flex-wrap:wrap">'
+    + '<span class="mu sm" style="min-width:66px">' + _bankDupFmtDate(line.date) + '</span>'
+    + '<span style="flex:1;min-width:120px">' + escHtml(line.libelle || '') + '</span>'
+    + '<span style="font-weight:700;white-space:nowrap">' + (line.credit > 0 ? '+' : '−') + fmt(amt) + '</span>'
+    + '<span style="color:var(--t3);min-width:150px">' + escHtml(line.duplicateReason || '') + '</span>'
+    + '<a onclick="_bankKeepDup(' + i + ')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">importer quand même</a>'
+    + '</div>';
 }
 function _bankDupCardHtml(i) {
   const line = _bankImportLines[i]; if (!line) return '';
@@ -49663,7 +49704,7 @@ function _bankDupCardHtml(i) {
   }
   const m = (DB.mouvements || []).find(x => x && String(x.id) === String(line.duplicateOf));
   const reason = line.duplicateReason || 'Opération déjà enregistrée';
-  const certain = /identique|empreinte|fitid/i.test(reason);
+  const certain = line.dupLevel === 'certain';
   const exiHtml = m
     ? '<div style="font-family:var(--mono,monospace);font-size:12px;font-weight:600;margin-top:5px">' + escHtml(m.lib || '—') + '</div>'
       + '<div class="mu sm" style="font-size:11px;margin-top:3px">' + _bankDupFmtDate(m.date) + (_bankDupMvAff(m) ? ' · ' + _bankDupMvAff(m) : '') + '</div>'
@@ -50278,7 +50319,11 @@ function _bankUpdateImportBtn() {
   const btn = el('bank-import-btn');
   if (!btn) return;
   const needReview = st.ok.length > 0 && !_bankReviewedOk;   // A7 : reconnus pas encore vérifiés
-  if (st.todo.length > 0) { btn.disabled = true; btn.textContent = `${st.todo.length} ligne(s) à compléter`; }
+  // ⑧.1 — un doublon PROBABLE non tranché bloque la validation, au même titre qu'une
+  // ligne non classée : ni exclu ni inclus, il faut trancher (⑥.2).
+  const nDup = window._bankUndecidedDuplicates ? window._bankUndecidedDuplicates(_bankImportLines || []) : 0;
+  if (nDup > 0) { btn.disabled = true; btn.textContent = `🔁 ${nDup} doublon(s) probable(s) à trancher`; }
+  else if (st.todo.length > 0) { btn.disabled = true; btn.textContent = `${st.todo.length} ligne(s) à compléter`; }
   else if (st.ok.length === 0) { btn.disabled = true; btn.textContent = 'Aucun mouvement à importer'; }
   else if (needReview) { btn.disabled = true; btn.textContent = `🔎 Vérifie les ${st.ok.length} reconnu(s) (onglet Reconnus)`; }
   else { btn.disabled = false; btn.textContent = `✓ Valider et importer ${st.ok.length} mouvement${st.ok.length>1?'s':''}`; }
