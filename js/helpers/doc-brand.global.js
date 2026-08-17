@@ -31,7 +31,7 @@
   /** Cotes du bandeau, reprises du gabarit (mm). */
   const BRAND = {
     LOGO_H: 13,        // hauteur du logo bailleur  (--logo-h du gabarit)
-    NOM_H: 5.3,        // hauteur quand c'est le NOM qui occupe la gauche
+    NOM_H: 5.3,        // hauteur du bandeau quand il n'y a pas de logo (le lockup Propryo seul)
     LOGO_MAX_W: 62,    // largeur maximale du logo bailleur
     RULE_GAP: 2.5,     // espace sous le bandeau avant le filet — 4 mm au mockup, resserre pour
                        // que les documents courants tiennent sur UNE page (regression 17/08)

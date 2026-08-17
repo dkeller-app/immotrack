@@ -100,14 +100,15 @@
   .pro-doc .pro-tbl td{padding:1.4mm 2.5mm;border-bottom:.2mm solid ${T.FILET};vertical-align:top}
   .pro-doc .pro-tbl td.num,.pro-doc .pro-tbl th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
   .pro-doc .pro-tbl tr.tot td{border-bottom:0;border-top:.45mm solid ${T.ENCRE_FORTE};font-weight:700;color:${T.ENCRE_FORTE};padding-top:1.8mm}
-  .pro-doc .pro-mention{font-size:7.5pt;color:${T.GRIS_MENTION};line-height:1.38;margin:0 0 2mm;font-style:normal;border:0;padding:0}
-  .pro-doc .pro-encart{background:${T.FOND_BLOC};border-radius:2.5mm;padding:2.4mm 3.4mm;margin:0 0 4mm;font-size:7.5pt;color:${T.GRIS_MENTION};line-height:1.4}
+  .pro-doc .pro-mention{font-size:8pt;color:${T.GRIS_MENTION};line-height:1.45;margin:0 0 2mm;font-style:normal;border:0;padding:0}
+  .pro-doc .pro-encart{background:${T.FOND_BLOC};border-radius:2.5mm;padding:2.4mm 3.4mm;margin:0 0 4mm;font-size:8pt;color:${T.GRIS_MENTION};line-height:1.45}
   .pro-doc .pro-encart b{color:${T.ENCRE};font-weight:600}
   .pro-doc .pro-lieu{font-size:9pt;color:#3c4658;margin:0 0 1mm}
   .pro-doc .pro-signzone{padding-top:3mm;display:flex;justify-content:flex-end;gap:8mm}
   .pro-doc .pro-signzone.duo{justify-content:space-between}
-  .pro-doc .pro-sigspace{height:10mm;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
-  .pro-doc .pro-sigspace img{max-height:10mm;max-width:100%;display:block}
+  .pro-doc .pro-sigcase{page-break-inside:avoid}
+  .pro-doc .pro-sigspace{width:58mm;height:10mm;display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+  .pro-doc .pro-sigspace img{max-height:10mm;max-width:58mm;display:block}
   .pro-doc .pro-signbox{width:58mm;border-top:.3mm solid #b8c0cd;padding-top:1.4mm;text-align:center;font-size:8.5pt;line-height:1.35;color:${T.GRIS}}
   .pro-doc .pro-pied{margin-top:4mm;padding-top:1.8mm;border-top:.2mm solid ${T.FILET};display:flex;justify-content:space-between;gap:6mm;font-size:7.5pt;color:${T.GRIS_PIED}}
   .pro-doc .pro-pied .ref{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;letter-spacing:.06em}
@@ -205,7 +206,7 @@
     return '<div class="pro-signzone' + (list.length > 1 ? ' duo' : '') + '">'
       + list.map(function (b) {
         if (typeof b === 'string') return '<div class="pro-signbox">' + b + '</div>';
-        return '<div>'
+        return '<div class="pro-sigcase">'
           + '<div class="pro-sigspace">' + (b.sig || '') + '</div>'
           + '<div class="pro-signbox">' + (b.label || '') + '</div>'
           + '</div>';

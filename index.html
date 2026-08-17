@@ -6495,7 +6495,8 @@ function pf(id) { return parseFloat(v(id))||0; }
 function _fmtFallback(n) {
   return Number(n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).replace(/ /g,' ');
 }
-// S4 — bandeau d'identité d'un document : logo du bailleur (ou son nom) à gauche, logo Propryo
+// S4 — bandeau d'identité d'un document : logo du bailleur à gauche — RIEN s'il n'en a pas
+// (consigne 17/08) — et logo Propryo
 // à droite. Gabarit DOCUMENTS-PROPRYO validé 12/08. UN SEUL point d'appel pour tous les
 // documents émis : quittance, lettre IRL, décompte de charges, acte de cautionnement.
 // (Le bail et l'EDL passent par leur générateur PDF, qui appelle le même helper DocBrand.)
@@ -6514,8 +6515,10 @@ function _pdfDrawBrandzone(pdf, ent, x, y, right) {
   if (m.left.kind === 'logo') {
     // Logo illisible : on n'ecrit PAS le nom a la place (consigne « si pas de logo, vide ») —
     // la gauche reste vierge, l'identite du bailleur est portee par le corps du document.
+    // Et le bandeau se resserre a la hauteur du seul lockup : un echec ne doit pas couter
+    // PLUS de hauteur qu'une absence de logo (AUDIT M3).
     try { pdf.addImage(ent.logo, x, y, m.left.w, m.left.h); bandH = Math.max(bandH, m.left.h); }
-    catch (e) { console.warn('[brandzone] logo bailleur illisible', e); }
+    catch (e) { console.warn('[brandzone] logo bailleur illisible', e); bandH = window.DocBrand.BRAND.NOM_H; }
   }
   pdf.setFont('helvetica','bold').setFontSize(m.propryo.wordSize * 2.83);
   const wordW = pdf.getTextWidth(m.propryo.mot), mark = m.propryo.markSize, gap = mark * 0.28;
@@ -6588,7 +6591,8 @@ const _DT_REPLI = {
   docLignes:  a => '<div>' + (a || []).filter(Boolean).map(r =>
     '<div style="display:flex;justify-content:space-between"><span>' + (r.lab == null ? '' : r.lab)
     + '</span><span><b>' + (r.val == null ? '' : r.val) + '</b></span></div>').join('') + '</div>',
-  docSignzone: a => '<div style="margin-top:24px">' + (a || []).filter(Boolean).map(b =>
+  docSignzone: a => '<div style="margin-top:24px">' + (a || []).filter(b =>
+    b && !(typeof b === 'object' && !b.sig && !b.label)).map(b =>
     '<div style="display:inline-block;width:220px;text-align:center">'
     + (typeof b === 'string' ? '<div style="border-top:1px solid #999;padding-top:6px">' + b + '</div>'
        : '<div style="height:48px">' + (b.sig || '') + '</div><div style="border-top:1px solid #999;padding-top:6px">' + (b.label || '') + '</div>')
@@ -20390,7 +20394,7 @@ function blockToHTML(block) {
       return `<div style="border:1.5px dashed #ccc;border-radius:5px;padding:10px;margin:10px 0;background:#fafafa;text-align:center"><div style="font-size:9pt;font-style:italic;color:#888">${esc(block.label)}</div><div style="height:25mm;margin:6px 0"></div></div>`;
     case 'brandzone':
       // S4 — bandeau d'identité commun (gabarit DOCUMENTS-PROPRYO validé 12/08) : logo du
-      // bailleur — ou son nom s'il n'en a pas — à gauche, logo Propryo à droite, même hauteur.
+      // bailleur à gauche — RIEN s'il n'en a pas (consigne 17/08), logo Propryo à droite, même hauteur.
       // Remplace 'logo-header' (v13.28), qui n'apparaissait que si un logo était chargé.
       return `<div style="page-break-inside:avoid">${window.DocBrand.brandzoneHtml(
         window.DocBrand.brandzoneModel({ entLogo: block.logo, entNom: block.sciNom })
@@ -20705,7 +20709,7 @@ function buildBailStructure(bail, log, ref, ent, locs) {
 
   // v13.28 BAIL-PRINT-POLISH point 4 : logo entité en header si défini
   // S4 — bandeau d'identité (gabarit DOCUMENTS-PROPRYO validé 12/08) : logo du bailleur à gauche
-  // — ou son NOM s'il n'a pas chargé de logo — et le logo Propryo à droite, même hauteur.
+  // — RIEN s'il n'a pas chargé de logo (consigne 17/08) — et le logo Propryo à droite.
   // Remplace l'ancien 'logo-header', qui n'existait que si ent.logo était renseigné et ne portait
   // ni nom de repli ni Propryo. Page de garde uniquement : la pagination des 26 pages ne bouge pas.
   const headerBlocks = [{ type:'brandzone', logo: (ent && ent.logo) || '', sciNom: nomSci }];
@@ -23613,7 +23617,7 @@ function previewBailData(bail, log, ref, opts) {
     +    'else if(item.type==="signature-locataire-placeholder"){y=PDF_NATIVE.newPageIfNeeded(pdf,y,40);y=PDF_NATIVE.drawLocataireSignaturePlaceholder(pdf,x,y,90,30,item.label);y+=4;}'
     +    'else if(item.type==="p-mixed"){var ft=item.segments.map(function(s){return s.text;}).join("");y=PDF_NATIVE.drawText(pdf,ft,x,y)+PDF_NATIVE.PARAGRAPH_GAP;}'
     /* v13.28 BAIL-PRINT-POLISH point 4 : logo entité en header (top-left) + nom SCI (top-right) */
-    /* S4 — bandeau d'identite : logo bailleur (ou son nom) a gauche, logo Propryo a droite,
+    /* S4 — bandeau d'identite : logo bailleur a gauche (rien sans logo), logo Propryo a droite,
        meme hauteur. Le tracé Propryo est rejoue en VECTORIEL (roundedRect + circle) : net a
        tout zoom, ni canvas ni police en jeu. Geometrie testee (__tests__/helpers/doc-brand.js). */
     +    'else if(item.type==="brandzone"){'
@@ -23829,7 +23833,7 @@ function previewBailData(bail, log, ref, opts) {
     +    'else if(item.type==="table"){y=PDF_NATIVE.drawTable(pdf,item.headers,item.rows,y,{columnStyles:item.columnStyles||{},styles:item.styles||{}});}'
     +    'else if(item.type==="gap"){y+=item.size||3;}'
     /* v13.28 BAIL-PRINT-POLISH point 4 : logo entité en header (top-left) + nom SCI (top-right) */
-    /* S4 — bandeau d'identite : logo bailleur (ou son nom) a gauche, logo Propryo a droite,
+    /* S4 — bandeau d'identite : logo bailleur a gauche (rien sans logo), logo Propryo a droite,
        meme hauteur. Le tracé Propryo est rejoue en VECTORIEL (roundedRect + circle) : net a
        tout zoom, ni canvas ni police en jeu. Geometrie testee (__tests__/helpers/doc-brand.js). */
     +    'else if(item.type==="brandzone"){'
