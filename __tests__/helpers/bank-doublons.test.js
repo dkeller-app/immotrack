@@ -156,3 +156,28 @@ describe('R-B v2 _bankIsAutomatable — bug 10 : une proposition ne classe jamai
     expect(_bankIsAutomatable({ ...base, _byRule: true, _dateDouteuse: 'date éloignée…' })).toBe(true);
   });
 });
+
+describe('⑥.1 Le FITID n\'est unique QUE chez une banque — index limité au compte', () => {
+  it('Un même FITID sur un AUTRE compte ne fait pas doublon certain', () => {
+    // Deux banques peuvent émettre « 000000001 ». Sans filtrage par compte, une
+    // opération légitime serait écartée comme doublon certain, sans un clic.
+    const base = [mv({ id: 7, cr: 850, fitid: '000000001', _bankAccountId: 1 })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'VIR AUTRE BANQUE', debit: 0, credit: 500, fitid: '000000001' }],
+      base, { accountId: 2 });
+    expect(r[0].dupLevel).not.toBe('certain');
+  });
+
+  it('Sur le MÊME compte, le FITID tranche toujours', () => {
+    const base = [mv({ id: 7, cr: 850, fitid: '000000001', _bankAccountId: 1 })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'X', debit: 0, credit: 850, fitid: '000000001' }],
+      base, { accountId: 1 });
+    expect(r[0].dupLevel).toBe('certain');
+  });
+
+  it('Les mouvements legacy sans compte restent reconnus (aucune régression de dédup)', () => {
+    const base = [mv({ id: 7, cr: 850, fitid: 'TX-A' })];   // importé avant le suivi par compte
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'X', debit: 0, credit: 850, fitid: 'TX-A' }],
+      base, { accountId: 3 });
+    expect(r[0].dupLevel).toBe('certain');
+  });
+});
