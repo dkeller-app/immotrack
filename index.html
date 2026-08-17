@@ -49594,12 +49594,20 @@ let _bankImportFileName = ''; // V3-REFONTE-LOYERS C : nom du fichier importé (
 let _bankReviewFmt = '';       // format mémorisé (pour les re-rendus internes)
 let _bankReviewedOk = false;   // A7 : l'utilisateur a-t-il VÉRIFIÉ (scrollé) l'onglet « Reconnus » → débloque l'import
 
+// R-B v2 — TROIS ÉTATS. Une ligne ne bascule dans « Reconnus » que si elle a été
+// classée par une RÈGLE de l'utilisateur, ou validée par lui.
+//
+// 🐛 BUG 10 du CDC : `_bankLineDone` faisait basculer en « Reconnus » TOUTE ligne dont
+// catégorie + bien étaient remplis, **y compris par une simple proposition** — c'était
+// du classement automatique déguisé. Une proposition (✨) reste désormais dans
+// « À compléter » même complète : elle est toujours soumise.
 function _bankLineDone(line) {
   if (!line || line.isDuplicate) return true;                 // doublons : hors du flux de tri
-  // ③.3 v2 — une date illisible n'écarte plus la ligne : elle est importée et MARQUÉE.
-  // Mais un mouvement sans date n'est pas enregistrable (la synchro cloud le rejetterait
-  // en silence) → il reste dans « À compléter » tant que la date n'est pas saisie.
-  if (!line.date) return false;
+  // R-B v2 / bug 10 — décision testée dans js/core/bank-import.js : seule une RÈGLE
+  // (ou une validation de l'utilisateur) rend une ligne automatisable. Une proposition
+  // reste dans « À compléter » même complète. Couvre aussi date manquante, conflit de
+  // règles non arbitré et proposition ambiguë.
+  if (!window._bankIsAutomatable(line)) return false;
   if (Array.isArray(line._sp) && line._sp.length) {           // V3 Phase 4 — ligne découpée : « done » si le split équilibre le net
     const net = line._sp.reduce((s, r) => s + (r.sens === 'cr' ? (Number(r.montant) || 0) : -(Number(r.montant) || 0)), 0);
     const bankNet = (line.credit || 0) - (line.debit || 0);
@@ -49965,7 +49973,7 @@ function _bankRenderReviewBody() {
   } else {
     // V3-REFONTE-LOYERS C : plus d'auto-déplié inline — le clic sur une ligne ouvre la grande fenêtre « Renseigner ce mouvement ».
     // A6 : rappel que compléter une ligne la fait passer dans « Reconnus » (sinon « disparition » déroutante)
-    if (_bankReviewTab === 'todo') html = '<div class="mu sm" style="font-size:11px;color:var(--t3);margin-bottom:6px">💡 Une ligne complétée (catégorie + bien) passe automatiquement dans l\'onglet <b>Reconnus</b>.</div>';
+    if (_bankReviewTab === 'todo') html = '<div class="mu sm" style="font-size:11px;color:var(--t3);margin-bottom:6px">💡 <b>L\'app propose (✨), tu valides.</b> Une ligne passe dans <b>Reconnus</b> quand tu l\'as validée, ou quand une de <b>tes règles</b> (⚙) l\'a classée. Une proposition reste ici, même complète.</div>';
     else html = '';
     html += '<div id="bank-review-scroll" style="max-height:64vh;overflow:auto;padding:2px 2px 0">' + list.map(ri => _bankLineRow(ri)).join('') + '</div>';
   }
@@ -49994,6 +50002,27 @@ function _bankRestoreExcluded() {
   (_bankImportLines || []).forEach(l => { if (l) delete l._userExclude; });
   _bankImportRenderPreview(_bankReviewFmt, '');
 }
+// ⑧.1b — TOUT est modifiable sur un mouvement, Y COMPRIS LA DATE (cas réel : un loyer
+// payé le 30 du mois précédent). Mais la DATE D'ORIGINE DU RELEVÉ EST CONSERVÉE, avec
+// un retour possible — sinon un écart avec le relevé devient inexplicable six mois plus
+// tard, et la réconciliation bancaire ne boucle plus.
+function _bankSetDate(i, v) {
+  const l = _bankImportLines[i]; if (!l) return;
+  if (!l._dateReleve && l.date && v !== l.date) l._dateReleve = l.date;
+  l.date = v;
+  if (l._dateReleve && l._dateReleve === v) delete l._dateReleve;
+  if (v) delete l._dateDouteuse;
+  l._userEdited = true;
+  _bankUpdateCounts();
+}
+function _bankResetDate(i) {
+  const l = _bankImportLines[i]; if (!l || !l._dateReleve) return;
+  l.date = l._dateReleve;
+  delete l._dateReleve;
+  if (_bankMvIdx === i) _bankWalkRender(); else _bankRenderReviewBody();
+  _bankUpdateCounts();
+}
+
 // A3 — renomme le libellé d'une ligne d'import (utilisé au montage du mouvement). Pas de re-render
 // (sinon perte du focus pendant la frappe) : la ligne repliée se rafraîchit au prochain rendu.
 function _bankRenameLine(i, val) {
@@ -50016,11 +50045,12 @@ function _bankLineRow(i) {
   const aff = _bankAffLabel(line);
   const done = _bankLineDone(line);
   // Indice de source : règle ⚙ ; sinon proposition ✨ — le % (confiance catégorie) ne s'affiche QUE
-  // sur les lignes « à compléter » (il aide à choisir) ; une fois reconnue, on montre juste « ✨ auto ».
+  // sur les lignes « à compléter » (il aide à choisir). R-B v2 : « ✨ » est une PROPOSITION,
+  // « ⚙ » une règle — seule la règle classe automatiquement.
   const src = line._byRule
     ? '<span class="bimp-chip split">⚙ règle</span>'
     : (line.suggestedCat
-        ? (done ? '<span class="bimp-chip conf">✨ auto</span>' : '<span class="bimp-chip conf">✨ ' + Math.round((line.confidence || 0) * 100) + '%</span>')
+        ? (done ? '<span class="bimp-chip conf">✓ validé</span>' : '<span class="bimp-chip conf">✨ proposition ' + Math.round((line.confidence || 0) * 100) + '%</span>')
         : '<span class="bimp-chip todo">❓ à classer</span>');
   const catTxt = isSplit
     ? '<span class="bimp-cat" style="color:var(--pur,#7c3aed)">✂️ Découpé · ' + line._sp.length + ' ligne' + (line._sp.length > 1 ? 's' : '') + '</span>'
@@ -50196,7 +50226,11 @@ function _bankLineAffEditor(i) {
     </div>
     <div class="affv2-2col">
       <div>
-        <div style="margin-bottom:12px"><label class="affv2-lab">Date</label><input class="inp" type="date" value="${escHtml(line.date||'')}" oninput="_bankImportLines[${i}].date=this.value"></div>
+        <div style="margin-bottom:12px"><label class="affv2-lab">Date</label>
+          <input class="inp" type="date" value="${escHtml(line.date||'')}" oninput="_bankSetDate(${i},this.value)">
+          ${line._dateDouteuse ? `<div class="mu sm" style="font-size:11px;color:var(--ora);margin-top:4px">⚠ ${escHtml(line._dateDouteuse)} — corrige-la, ça ne bloque pas l'import.</div>` : ''}
+          ${line._dateReleve ? `<div class="mu sm" style="font-size:11px;margin-top:4px">📅 date modifiée · relevé : <b>${fd(line._dateReleve)}</b> · <a onclick="_bankResetDate(${i})" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">revenir à la date du relevé</a></div>` : ''}
+        </div>
         <div style="margin-bottom:12px"><label class="affv2-lab">Libellé (intitulé)</label><input class="inp" id="imp${i}-lib" value="${escHtml(line.libelle||'')}" oninput="_bankRenameLine(${i},this.value)" placeholder="Libellé du mouvement"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div><label class="affv2-lab">Débit (charge) €</label><input class="inp" type="number" step="0.01" value="${line.debit||''}" oninput="_bankImportLines[${i}].debit=parseFloat(this.value)||0"></div>
@@ -50259,9 +50293,13 @@ function _bankWalkRender() {
     + escHtml(line.date || '') + ' · <b style="color:' + accent + '">' + sign + fmt(amount) + '</b>';
   const body = el('bank-mv-body');
   if (body) {
-    const bn = reco
-      ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ok-bg,#ecfdf5);color:var(--grn,#16a34a);border:1px solid var(--grn,#16a34a)">✨ Reconnu automatiquement' + (line.confidence ? ' (' + Math.round(line.confidence * 100) + '%)' : '') + ' — vérifie et corrige si besoin.</div>'
-      : '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ora-bg,#fffbeb);color:var(--ora,#d97706);border:1px solid var(--ora,#d97706)">📝 À renseigner — choisis la catégorie, l\'app pose la bonne question.</div>';
+    // R-B v2 — le bandeau ne dit « classé » que pour une RÈGLE. Une proposition, même
+    // complète, n'est qu'une proposition : elle attend une validation, et le dit.
+    const bn = line._byRule
+      ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ok-bg,#ecfdf5);color:var(--grn,#16a34a);border:1px solid var(--grn,#16a34a)">⚙ Classé par une de tes règles — vérifie et corrige si besoin.</div>'
+      : (reco
+        ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--acc-bg,#eef4ff);color:#1a4fb0;border:1px solid var(--cta,#3b7ef6)">✨ Proposition — rien n\'est encore classé, valide ou corrige.</div>'
+        : '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ora-bg,#fffbeb);color:var(--ora,#d97706);border:1px solid var(--ora,#d97706)">📝 À renseigner — choisis la catégorie, l\'app pose la bonne question.</div>');
     body.innerHTML = bn + _bankLineAffEditor(i);
   }
   const last = (pos >= total - 1);
@@ -50334,7 +50372,7 @@ function _bankWalkDone() {
   if (foot) {
     let right = '';
     if (st.todo.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'todo\')">📝 Reprendre les ' + st.todo.length + ' à compléter</button>';
-    if (okToReview.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'ok\')">👁️ Vérifier les ' + okToReview.length + ' reconnu(s) auto</button>';
+    if (okToReview.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'ok\')">👁️ Revoir les ' + okToReview.length + ' ligne(s) classée(s) par tes règles</button>';
     right += '<button class="btn bp"' + (st.todo.length ? ' disabled title="Termine d\'abord les ' + st.todo.length + ' à compléter"' : '') + ' onclick="_bankWalk=null;closeM(\'ov-bank-mv\');_bankImportConfirm()">✓ Importer ' + st.ok.length + '</button>';
     foot.innerHTML = '<button class="btn bs" onclick="_bankCloseMvWindow()">Revoir la liste</button>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end">' + right + '</div>';
@@ -50693,6 +50731,9 @@ function _bankImportConfirm() {
         compteurCcId: p.cc || '',
         _source: 'bank_import',
         _importedAt: new Date().toISOString(),
+        // ⑧.1b / ⑩.1 — la date du relevé si elle a été déplacée (bloc Provenance).
+        _dateReleve: line._dateReleve || undefined,
+        _bankLibelleReleve: (line._libelleReleve && line._libelleReleve !== line.libelle) ? line._libelleReleve : undefined,
         // ⑦.7 — trace des règles qui ont classé ce mouvement : alimente la colonne
         // « utilisée » de la liste des règles et le bloc Provenance de la fiche (⑩.1).
         _rules: (Array.isArray(line._rules) && line._rules.length) ? line._rules.slice() : undefined
@@ -50733,49 +50774,100 @@ function _bankImportConfirm() {
   _bankImportRecap(createdMvts);
 }
 
-// V3-REFONTE-LOYERS Phase 5 — écran récap après import : agrège les mouvements créés → impact 2044
-// (recettes 211/213, charges 221-229, intérêts 250, récupérables hors 2044, special hors 2044).
+// ⑧.3 — LE RÉCAPITULATIF APRÈS IMPORT PARLE TRÉSORERIE, plus 2044.
+// Motif : le récap précédent était structuré par lignes 2044, ce qui contredit X-1
+// (l'app est agnostique du régime fiscal — en SCI la 2044 n'est même pas le bon
+// formulaire). Ce que l'utilisateur veut savoir en sortant d'un import, c'est ce qui
+// est entré, ce qui est sorti, ce qui reste à rattacher. L'impact fiscal reste
+// accessible, REPLIÉ.
+let _bankRecapFiscalOpen = false;
+let _bankRecapMvts = [];
+
 function _bankImportRecap(mvts) {
-  const body = el('ov-bank-import-body'); if (!body) { closeM('ov-bank-import'); _currentBankAccount = null; return; }
-  const agg = { recettes:0, charges:0, interets:0, recup:0, special:0, lines:{} };
-  (mvts||[]).forEach(m => {
-    if (m.compteurCcId) { agg.recup += Math.abs((m.db||0)-(m.cr||0)); return; }   // récupérable via compteur → hors 2044
-    const sc = (typeof _stdCategoryByName==='function') ? _stdCategoryByName(m.cat) : null;
-    if (!sc) return;                                                              // catégorie custom non mappée
-    if (!sc.ligne2044) { if (sc.recup) agg.recup += Math.abs((m.db||0)-(m.cr||0)); else agg.special += 1; return; }
-    const ln = sc.ligne2044;
-    if (sc.type === 'recette')       { const v=(m.cr||0)-(m.db||0); agg.recettes+=v; agg.lines[ln]=(agg.lines[ln]||0)+v; }
-    else if (sc.type === 'interet')  { const v=(m.db||0)-(m.cr||0); agg.interets+=v; agg.lines[ln]=(agg.lines[ln]||0)+v; }
-    else if (sc.type === 'deduction'){ const v=(m.db||0)-(m.cr||0); agg.charges -=v; agg.lines[ln]=(agg.lines[ln]||0)+v; } // ligne 230 : SE SOUSTRAIT des charges (miroir _compute2044)
-    else                             { const v=(m.db||0)-(m.cr||0); agg.charges +=v; agg.lines[ln]=(agg.lines[ln]||0)+v; } // charge
-  });
-  const _ib = el('bank-import-btn'); if (_ib) _ib.style.display = 'none'; // masque « Importer » pendant le récap
-  const apercu = agg.recettes - agg.charges - agg.interets;
-  const L211 = agg.lines['211']||0, L213 = agg.lines['213']||0;
-  const card = (bg, bd, icon, title, val, sub) => `<div style="display:flex;gap:10px;align-items:flex-start;background:${bg};border-left:3px solid ${bd};border-radius:8px;padding:11px 13px"><span style="font-size:17px">${icon}</span><div><div style="font-weight:700;font-size:13px">${title} — ${fmt(val)}</div><div class="mu sm" style="font-size:11.5px;margin-top:2px">${sub}</div></div></div>`;
-  body.innerHTML = `<div style="flex:1 1 auto;min-height:0;overflow:auto;padding-right:2px">
-    <div style="text-align:center;padding:6px 0 2px"><div style="font-size:38px">✅</div><div style="font-size:18px;font-weight:800;margin-top:4px">Import terminé</div><div class="mu sm" style="font-size:12.5px;margin-top:3px">${(mvts||[]).length} mouvement(s) classés et rattachés à tes biens.</div></div>
-    <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
-      ${card('var(--grn-bg,#ecfdf5)','var(--grn,#16a34a)','📥','Recettes foncières',agg.recettes,`2044 · ligne 211 loyers (${fmt(L211)})${L213?` + ligne 213 divers (${fmt(L213)})`:''}`)}
-      ${agg.charges?card('var(--acc-bg,#eef4ff)','var(--cta,#3b7ef6)','📤','Charges déductibles',agg.charges,'2044 · lignes 221–229 (gestion, assurances, travaux, taxe foncière, copropriété…)'):''}
-      ${agg.interets?card('var(--acc-bg,#eef4ff)','var(--cta,#3b7ef6)','🏦',"Intérêts d'emprunt",agg.interets,'2044 · ligne 250. Le capital reste hors 2044.'):''}
-      ${agg.recup?card('#fff8e6','var(--amb,#d97706)','👥','Charges récupérables',agg.recup,'Hors 2044 — à régulariser sur les locataires (compteurs collectifs).'):''}
-      ${agg.special?`<div style="display:flex;gap:10px;align-items:flex-start;background:var(--sur2,#f5f8fc);border-left:3px solid var(--t3,#94a3b8);border-radius:8px;padding:11px 13px"><span style="font-size:17px">📋</span><div><div style="font-weight:700;font-size:13px">Hors 2044 — ${agg.special} opération(s)</div><div class="mu sm" style="font-size:11.5px;margin-top:2px">Virements internes, capital de prêt, DG… : tracés, hors résultat foncier.</div></div></div>`:''}
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:12px 15px;border:1px solid var(--bor);border-radius:10px;background:var(--sur2,#f5f8fc)">
-      <div><div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.03em;font-weight:700">Aperçu 2044 (indicatif)</div><div class="mu sm" style="font-size:11.5px;margin-top:3px">recettes ${fmt(agg.recettes)} − charges ${fmt(agg.charges+agg.interets)}</div></div>
-      <div style="font-size:21px;font-weight:800;color:${apercu>=0?'var(--grn,#16a34a)':'var(--red,#dc2626)'}">${fmt(apercu)}</div>
-    </div>
-    <div class="mu sm" style="font-size:11px;color:var(--t3);margin-top:8px;text-align:center;line-height:1.5">À titre indicatif, avant abattements / choix de régime (micro vs réel). Le calcul complet se fait sur l'écran <b>Finances ▸ Déclaration 2044</b>.</div>
-    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center">
-      <button class="btn bp" onclick="_bankImportRecapClose(true)">📄 Voir ma 2044</button>
-      <button class="btn bs" onclick="_bankImportRecapClose(false)">Fermer</button>
-    </div></div>`;
+  _bankRecapMvts = mvts || [];
+  _bankRecapFiscalOpen = false;
+  _bankRenderRecap();
 }
-function _bankImportRecapClose(go2044) {
+
+function _bankToggleRecapFiscal() { _bankRecapFiscalOpen = !_bankRecapFiscalOpen; _bankRenderRecap(); }
+
+function _bankRenderRecap() {
+  const mvts = _bankRecapMvts || [];
+  const body = el('ov-bank-import-body');
+  if (!body) { closeM('ov-bank-import'); _currentBankAccount = null; return; }
+  const _ib = el('bank-import-btn'); if (_ib) _ib.style.display = 'none';
+
+  // ── Trésorerie : ce qui est entré, ce qui est sorti, ce qui reste à rattacher ──
+  let encaisse = 0, decaisse = 0, nonAffectes = 0;
+  mvts.forEach(m => {
+    encaisse += (m.cr || 0);
+    decaisse += (m.db || 0);
+    if (!m.qui && !m.imm && !m.compteurCcId) nonAffectes++;
+  });
+  const cash = encaisse - decaisse;
+
+  // ── Impact fiscal : conservé, mais REPLIÉ (X-1 : l'app n'impose aucun régime) ──
+  const agg = { recettes: 0, charges: 0, interets: 0, recup: 0, special: 0, lines: {} };
+  mvts.forEach(m => {
+    if (m.compteurCcId) { agg.recup += Math.abs((m.db || 0) - (m.cr || 0)); return; }
+    const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(m.cat) : null;
+    if (!sc) return;
+    if (!sc.ligne2044) { if (sc.recup) agg.recup += Math.abs((m.db || 0) - (m.cr || 0)); else agg.special += 1; return; }
+    const ln = sc.ligne2044;
+    if (sc.type === 'recette')       { const v = (m.cr||0) - (m.db||0); agg.recettes += v; agg.lines[ln] = (agg.lines[ln]||0) + v; }
+    else if (sc.type === 'interet')  { const v = (m.db||0) - (m.cr||0); agg.interets += v; agg.lines[ln] = (agg.lines[ln]||0) + v; }
+    else if (sc.type === 'deduction'){ const v = (m.db||0) - (m.cr||0); agg.charges  -= v; agg.lines[ln] = (agg.lines[ln]||0) + v; }
+    else                             { const v = (m.db||0) - (m.cr||0); agg.charges  += v; agg.lines[ln] = (agg.lines[ln]||0) + v; }
+  });
+  const apercu = agg.recettes - agg.charges - agg.interets;
+
+  const ligne = (icon, lbl, val, color) => '<div style="display:flex;align-items:center;gap:10px;padding:9px 13px;border:1px solid var(--bor);border-radius:10px;background:var(--sur,#fff)">'
+    + '<span style="font-size:16px">' + icon + '</span><span style="flex:1;font-size:13px">' + lbl + '</span>'
+    + '<b style="font-size:15px;color:' + color + '">' + val + '</b></div>';
+
+  body.innerHTML = '<div style="flex:1 1 auto;min-height:0;overflow:auto;padding-right:2px">'
+    + '<div style="text-align:center;padding:6px 0 2px"><div style="font-size:38px">✅</div>'
+    + '<div style="font-size:18px;font-weight:800;margin-top:4px">Import terminé</div>'
+    + '<div class="mu sm" style="font-size:12.5px;margin-top:3px">' + mvts.length + ' mouvement' + (mvts.length > 1 ? 's' : '') + ' enregistré' + (mvts.length > 1 ? 's' : '')
+    + (_currentBankAccount ? ' sur <b>' + escHtml(_currentBankAccount.label || '') + '</b>' : '') + '.</div></div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">'
+    +   ligne('📥', 'Encaissé', '+ ' + fmt(encaisse), 'var(--grn,#16a34a)')
+    +   ligne('📤', 'Décaissé', '− ' + fmt(decaisse), 'var(--red,#dc2626)')
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:12px 15px;border:1px solid var(--bor);border-radius:10px;background:var(--sur2,#f5f8fc)">'
+    +   '<div><div style="font-size:10.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.03em;font-weight:700">Cash-flow de cet import</div>'
+    +   '<div class="mu sm" style="font-size:11.5px;margin-top:3px">ce qui est entré moins ce qui est sorti</div></div>'
+    +   '<div style="font-size:21px;font-weight:800;color:' + (cash >= 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + (cash >= 0 ? '+ ' : '− ') + fmt(Math.abs(cash)) + '</div></div>'
+    + (nonAffectes
+        ? '<div style="margin-top:9px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 12px;font-size:12px">⚠ <b>' + nonAffectes + ' ligne' + (nonAffectes > 1 ? 's' : '') + ' non affectée' + (nonAffectes > 1 ? 's' : '') + ' à un bien</b> — retrouve-les dans Loyers &amp; Mouvements avec le filtre « à classer ».</div>'
+        : '')
+    + '<div style="margin-top:14px;border:1px solid var(--bor);border-radius:10px;overflow:hidden">'
+    +   '<div onclick="_bankToggleRecapFiscal()" style="cursor:pointer;padding:9px 13px;background:var(--sur2,#f5f8fc);font-size:12.5px;display:flex;align-items:center;gap:8px">'
+    +     '<span>🧾 <b>Impact fiscal</b> <span class="mu sm">(indicatif, avant choix de régime)</span></span>'
+    +     '<span style="margin-left:auto;text-decoration:underline;color:var(--cta,#3b7ef6);font-size:11.5px">' + (_bankRecapFiscalOpen ? 'replier ▴' : 'voir ▾') + '</span></div>'
+    +   (_bankRecapFiscalOpen
+        ? '<div style="padding:10px 13px;font-size:12px;line-height:1.7">'
+          + '<div>Recettes foncières : <b>' + fmt(agg.recettes) + '</b> <span class="mu sm">(2044 ligne 211' + (agg.lines['213'] ? ' + 213' : '') + ')</span></div>'
+          + (agg.charges ? '<div>Charges déductibles : <b>' + fmt(agg.charges) + '</b> <span class="mu sm">(lignes 221–229)</span></div>' : '')
+          + (agg.interets ? '<div>Intérêts d\'emprunt : <b>' + fmt(agg.interets) + '</b> <span class="mu sm">(ligne 250 ; le capital reste hors 2044)</span></div>' : '')
+          + (agg.recup ? '<div>Charges récupérables : <b>' + fmt(agg.recup) + '</b> <span class="mu sm">(hors 2044, à régulariser sur les locataires)</span></div>' : '')
+          + (agg.special ? '<div>Hors résultat foncier : <b>' + agg.special + ' opération(s)</b> <span class="mu sm">(virements internes, capital de prêt, dépôts de garantie…)</span></div>' : '')
+          + '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bor)">Aperçu du résultat foncier : <b style="color:' + (apercu >= 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + fmt(apercu) + '</b></div>'
+          + '<div class="mu sm" style="font-size:11px;margin-top:5px">Le calcul complet se fait sur l\'écran <b>Finances</b>. En SCI à l\'IS, la 2044 n\'est pas le bon formulaire — cet aperçu ne présume d\'aucun régime.</div>'
+          + '</div>'
+        : '')
+    + '</div>'
+    + '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;justify-content:center">'
+    +   '<button class="btn bp" onclick="_bankImportRecapClose(false)">Voir mes mouvements</button>'
+    +   '<button class="btn bs" onclick="_bankImportRecapClose(true)">📄 Ouvrir Finances</button>'
+    + '</div></div>';
+}
+function _bankImportRecapClose(goFinances) {
   _currentBankAccount = null;
+  _bankRecapMvts = [];
   closeM('ov-bank-import');
-  if (go2044 && typeof go === 'function') go('finances');
+  if (goFinances && typeof go === 'function') go('finances');
+  else if (typeof go === 'function') go('loyers');
 }
 
 // =================== FINANCES (v15.255 REPORTING-BAILLEUR PARTIE C) ===================

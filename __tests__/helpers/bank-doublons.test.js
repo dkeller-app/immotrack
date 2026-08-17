@@ -7,7 +7,7 @@
  *     qui BLOQUENT la validation tant qu'ils ne le sont pas.
  */
 import { describe, it, expect } from 'vitest';
-import { _bankDedup, _bankUndecidedDuplicates } from '../../js/core/bank-import.js';
+import { _bankDedup, _bankUndecidedDuplicates, _bankIsAutomatable } from '../../js/core/bank-import.js';
 
 const mv = (o) => ({ id: 1, date: '2026-08-05', lib: 'X', db: 0, cr: 0, _source: 'bank_import', ...o });
 
@@ -111,5 +111,48 @@ describe('⑧.1 _bankUndecidedDuplicates — un probable non tranché bloque la 
 
   it('Une ligne exclue à la main ne bloque plus', () => {
     expect(_bankUndecidedDuplicates([{ isDuplicate: true, dupLevel: 'probable', _userExclude: true }])).toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  R-B v2 / BUG 10 — « Reconnus » = règles uniquement
+// ═══════════════════════════════════════════════════════════════════
+
+describe('R-B v2 _bankIsAutomatable — bug 10 : une proposition ne classe jamais seule', () => {
+  const base = { date: '2026-08-05' };
+
+  it('BUG 10 — une ligne complétée par une PROPOSITION reste à compléter', () => {
+    // Avant : catégorie + bien remplis suffisaient à basculer en « Reconnus »,
+    // même quand c'était l'heuristique qui les avait posés.
+    expect(_bankIsAutomatable({ ...base, suggestedCat: 'Loyers encaissés', suggestedQui: 'FER-001', _byRule: false })).toBe(false);
+  });
+
+  it('Une ligne classée par une RÈGLE est automatisable', () => {
+    expect(_bankIsAutomatable({ ...base, _byRule: true })).toBe(true);
+  });
+
+  it("Une ligne validée ou éditée par l'utilisateur est automatisable", () => {
+    expect(_bankIsAutomatable({ ...base, _reviewed: true })).toBe(true);
+    expect(_bankIsAutomatable({ ...base, _userEdited: true })).toBe(true);
+  });
+
+  it('Un découpage est un acte de l\'utilisateur', () => {
+    expect(_bankIsAutomatable({ ...base, _sp: [{ montant: 10 }] })).toBe(true);
+  });
+
+  it('Sans date, jamais automatisable (la synchro rejetterait le mouvement en silence)', () => {
+    expect(_bankIsAutomatable({ date: '', _byRule: true })).toBe(false);
+  });
+
+  it('Un conflit de règles non arbitré bloque (⑦.2)', () => {
+    expect(_bankIsAutomatable({ ...base, _byRule: true, _ruleConflicts: [{ field: 'cat', rules: [{}, {}] }] })).toBe(false);
+  });
+
+  it('Une proposition ambiguë bloque (⑦.5 b)', () => {
+    expect(_bankIsAutomatable({ ...base, _reviewed: true, _ambiguous: true })).toBe(false);
+  });
+
+  it('Une DATE DOUTEUSE ne bloque PAS (⑧.1) — elle reste signalée par son badge', () => {
+    expect(_bankIsAutomatable({ ...base, _byRule: true, _dateDouteuse: 'date éloignée…' })).toBe(true);
   });
 });
