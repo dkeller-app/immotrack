@@ -156,6 +156,23 @@ const PAIRS = [
     exports: ['BRAND', 'PROPRYO_MARK', 'PROPRYO_MARK_SVG', 'propryoMarkOps', 'propryoRectSvgPath', 'propryoLockupWidth', 'brandzoneModel', 'brandzoneHtml'],
   },
   {
+    // DOCS-UNIFIES — gabarit unique des documents émis (variante B validée le 12/08) :
+    // feuille de style scopée + primitives de mise en page. Le bandeau reste chez DocBrand.
+    name: 'doc-template',
+    src: '__tests__/helpers/doc-template.js',
+    dst: 'js/helpers/doc-template.global.js',
+    globalName: 'DocTemplate',
+    exports: [
+      'DOC_TPL', 'DOC_FONT_TITRE', 'DOC_FONT_CORPS',
+      'docCss', 'docStyleTag', 'docTitre', 'docParties', 'docActe', 'docLignes',
+      'docMention', 'docEncart', 'docLieu', 'docSignzone', 'docPied', 'docPage'
+    ],
+    // Sanity : autant de déclarations `function ` en sortie qu'en source (tolère `export `).
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     // SIGNATURE-SMOKE — flux de texte du PDF : couper un bloc AVANT la bande basse réservée
     // au pied de page et aux cases de paraphe (dessinés après coup, à position fixe).
     name: 'pdf-flow',
