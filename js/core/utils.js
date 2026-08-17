@@ -365,3 +365,13 @@ export function _loyerProrataMois(log, yr, mi, bails, irlHistorique = [], todayR
   const s = _loyerProrataMoisSplit(log, yr, mi, bails, irlHistorique, todayRef);
   return s.hc + s.ch;
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Calendrier français — source unique (REFONTE-FINANCES socle, 2026-08)
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Noms des mois en français, index 0 = janvier. Consommé par finances-window.js.
+ *  (Des copies privées subsistent — quittances-actives.js:79, index.html:27402/28110 —
+ *  à replier sur celle-ci hors chantier Finances.) */
+export const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
