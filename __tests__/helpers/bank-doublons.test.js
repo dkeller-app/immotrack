@@ -181,3 +181,48 @@ describe('⑥.1 Le FITID n\'est unique QUE chez une banque — index limité au 
     expect(r[0].dupLevel).toBe('certain');
   });
 });
+
+describe('AUDIT C2 — la preuve négative du FITID ne vaut que face à un FITID', () => {
+  it('Une période importée en Excel puis recouverte par un OFX N\'EST PAS comptée deux fois', () => {
+    // Base mixte : un mouvement Excel (sans fitid) + un mouvement OFX (avec fitid) sur
+    // le même compte. La ligne OFX au FITID inconnu doit rester confrontée à l'empreinte
+    // et à l'heuristique — sinon l'argent est compté deux fois, sans un mot.
+    const base = [
+      mv({ id: 1, date: '2026-08-05', cr: 850, _bankAccountId: 1 }),                  // importé en Excel
+      mv({ id: 2, date: '2026-08-20', db: 40, fitid: 'TX-Z', _bankAccountId: 1 }),    // importé en OFX
+    ];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'VIR LOYER', debit: 0, credit: 850, fitid: 'TX-NEUF' }],
+      base, { accountId: 1 });
+    expect(r[0].isDuplicate).toBe(true);
+    expect(r[0].dupLevel).toBe('probable');
+  });
+
+  it('Face à un mouvement qui PORTE un autre FITID, la preuve négative joue', () => {
+    const base = [mv({ id: 1, date: '2026-08-05', cr: 850, fitid: 'TX-A', _bankAccountId: 1 })];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'VIR AUTRE LOCATAIRE', debit: 0, credit: 850, fitid: 'TX-B' }],
+      base, { accountId: 1 });
+    expect(r[0].isDuplicate).toBe(false);
+  });
+});
+
+describe('AUDIT I5 — la somme des parts du jour est scopée au compte importé', () => {
+  it("Les parts d'un AUTRE compte ne bloquent plus la validation", () => {
+    const base = [
+      mv({ id: 1, date: '2026-08-05', cr: 850, _bankAccountId: 2 }),
+      mv({ id: 2, date: '2026-08-05', cr: 600, _bankAccountId: 2 }),
+    ];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'VIR GERANCE', debit: 0, credit: 1450, _fingerprint: 'zz' }],
+      base, { accountId: 1 });
+    expect(r[0].isDuplicate).toBe(false);
+  });
+
+  it('Sur le même compte, la détection du relevé découpé joue toujours', () => {
+    const base = [
+      mv({ id: 1, date: '2026-08-05', cr: 850, _bankAccountId: 1 }),
+      mv({ id: 2, date: '2026-08-05', cr: 600, _bankAccountId: 1 }),
+    ];
+    const r = _bankDedup([{ date: '2026-08-05', libelle: 'VIR GERANCE', debit: 0, credit: 1450, _fingerprint: 'zz' }],
+      base, { accountId: 1 });
+    expect(r[0].dupLevel).toBe('probable');
+  });
+});

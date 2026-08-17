@@ -15904,7 +15904,7 @@ function _mvRenderProvenance(m) {
       + '<div class="mu sm" style="font-size:11px;margin-top:2px">Tant que les deux diffèrent, ce mouvement ne tombe pas en face de la bonne ligne du relevé.</div>');
     if (dr) dr.innerHTML = '<div class="mu sm" style="font-size:11px;margin-top:3px">relevé : <b>' + fd(m._dateReleve) + '</b></div>';
   }
-  if (m._bankLibelleReleve) {
+  if (m._bankLibelleReleve && m._bankLibelleReleve !== m.lib) {
     bits.push('✏️ <b>Libellé modifié</b> — relevé : <span class="mu sm">' + escHtml(m._bankLibelleReleve) + '</span>');
   }
 
@@ -15934,14 +15934,24 @@ function _mvResetDateReleve(id) {
 function _mvUndoSplit(groupId) {
   const parts = (DB.mouvements || []).filter(m => m && !m._deleted && m._splitGroup === groupId);
   if (parts.length < 2) { showToast('Découpage introuvable', 'warn'); return; }
-  if (!confirm2('Défaire ce découpage ?\n\nLes ' + parts.length + ' parts seront remplacées par le mouvement d\'origine (somme des parts).')) return;
+  // 🐛 AUDIT I6 — on annonce CE QU'ON PERD. Défaire un découpage ramène un seul
+  // mouvement : les classements propres à chaque part ne peuvent pas être conservés.
+  const nClasses = parts.filter(p => p.cat || p.qui || p.imm || p.compteurCcId).length;
+  if (!confirm2('Défaire ce découpage ?\n\nLes ' + parts.length + ' parts seront remplacées par UN mouvement (somme des parts).'
+    + (nClasses ? '\n\n⚠ ' + nClasses + ' part(s) sont classées : ce classement sera perdu, seul celui de la première part est repris.' : ''))) return;
   const src = parts[0];
   const net = parts.reduce((s, p) => s + ((p.cr || 0) - (p.db || 0)), 0);
   const mvt = {
     id: nid(), date: src._dateReleve || src.date,
     lib: src._splitSourceLib || src.lib,
-    cat: '', qui: '', imm: '', db: net < 0 ? -net : 0, cr: net > 0 ? net : 0, fac: '',
-    compteurCcId: '', _source: src._source || 'bank_import',
+    // On reprend le classement de la première part plutôt que de tout jeter.
+    cat: src.cat || '', qui: src.qui || '', imm: src.imm || '',
+    db: net < 0 ? -net : 0, cr: net > 0 ? net : 0,
+    fac: src.fac || '',
+    compteurCcId: src.compteurCcId || '',
+    // 🐛 AUDIT I6 — ne pas étiqueter « importé d'un relevé » un mouvement qui a toujours
+    // été saisi à la main : les parts d'un découpage manuel n'ont pas de `_source`.
+    _source: src._source || undefined,
     _bankAccountId: src._bankAccountId, _fingerprint: src._fingerprint, fitid: src.fitid,
   };
   parts.forEach(p => { Object.assign(p, _tombstoneObj({ id: p.id })); });
@@ -47130,8 +47140,8 @@ function getSalutation() {
 // ─── V3-REFONTE-LOYERS — éditeur de règles d'import : affectation via le bloc réutilisable _affZone ───
 // Une règle = une affectation (qui / imm / compteurCcId). On réutilise _affZone (comme le formulaire et
 // le split) → exclusivité qui↔compteur GARANTIE. Avant : 3 selects indépendants pouvaient poser qui ET
-// compteur simultanément, propagés tels quels à l'import (applyImportRules) → mouvement importé en
-// violation du contrat (et l'import court-circuite le garde-fou de saveMv). applyImportRules inchangé.
+// compteur simultanément, propagés tels quels à l'import → mouvement importé en violation du
+// contrat (et l'import court-circuite le garde-fou de saveMv).
 // Le hook _affHooks['rule'+i] recopie chaque pick dans DB.importRules[i].
 function _ruleDeriveNiv(r) {
   if (r.compteurCcId) return 'recup';
@@ -47217,24 +47227,9 @@ function delRule(i) {
 }
 
 
-// Applique les règles sur une ligne de staging (page « Import »).
-// DRY : délègue au MÊME moteur que l'import bancaire (js/core/bank-import.js) — deux
-// implémentations des règles finiraient par diverger, exactement comme le moteur de
-// propositions qui existait en double (bug 3 du CDC).
-function applyImportRules(row, accountId) {
-  const rules = (DB.importRules || []).filter(r => r && !r._deleted);
-  const line = { libelle: row.lib || '', credit: Number(row.cr) || 0, debit: Number(row.db) || 0 };
-  const res = window._bankApplyRules(rules, line, { accountId });
-  if (res.cat && !row.cat) row.cat = res.cat;
-  if (res.aff) {
-    const acct = (DB.params.bankAccounts || []).find(a => a && String(a.id) === String(accountId));
-    const aff = window._bankResolveAff(res.aff, acct);
-    if (aff.qui && !row.qui) row.qui = aff.qui;
-    if (aff.imm && !row.imm) row.imm = aff.imm;
-    if (aff.compteurCcId && !row.compteurCcId) row.compteurCcId = aff.compteurCcId;
-  }
-  return row;
-}
+// ⑦.6 — `applyImportRules` (moteur de règles de l'ancien staging) est SUPPRIMé :
+// il n'avait plus d'appelant depuis le retrait du staging de la page Import. Le seul
+// moteur de règles est désormais `_bankApplyRules` (js/core/bank-import.js), testé.
 
 // ══════════════════════════════════════════════════════════════
 // THÈME COULEURS
@@ -49253,9 +49248,21 @@ function _bankImportChangeFile() {
 let _bankRead = null;          // { lines, discarded, meta, sheets, sheetName }
 let _bankPendingSheets = null; // ①.4 : feuilles candidates quand plusieurs correspondent
 
+// Garde unique du module : si le mirror js/helpers/bank-import.global.js n'est pas
+// chargé, on le DIT (comme avant le chantier) au lieu de laisser un TypeError nu
+// remonter depuis le premier appel venu.
+function _bankModuleReady() {
+  const ok = typeof window._bankReadOFX === 'function' && typeof window._bankReadTable === 'function'
+    && typeof window._bankDedup === 'function' && typeof window._bankApplyRules === 'function'
+    && typeof window._bankIsAutomatable === 'function';
+  if (!ok) showToast("Module d'import bancaire non chargé — recharge la page.", 'err', 6000);
+  return ok;
+}
+
 function _bankImportFileLoaded(e) {
   const f = e.target.files && e.target.files[0];
   if (!f) return;
+  if (!_bankModuleReady()) return;
   _bankImportFileName = f.name;
   _bankRead = null; _bankPendingSheets = null;
   const maxSize = (typeof window._BANK_MAX_FILE_SIZE === 'number') ? window._BANK_MAX_FILE_SIZE : 5 * 1024 * 1024;
@@ -49563,7 +49570,11 @@ function _bankImportFirstImportConfirm(format) {
   if (choice === 'date') {
     const from = (el('bfi-from-date') || {}).value;
     if (!from) { showToast('Sélectionne une date', 'warn'); return; }
-    filtered = filtered.filter(l => (l.date || '') >= from);
+    // 🐛 AUDIT I2 — une ligne dont la date est ILLISIBLE ne doit pas disparaître ici :
+    // `'' >= from` est faux, donc elle était écartée sans trace ni compteur, en
+    // contradiction avec T-1 et ③.3 v2 (« on importe et on marque »). Elle passe, et
+    // arrive dans « À compléter » avec son badge ⚠ date douteuse.
+    filtered = filtered.filter(l => (l.date ? l.date >= from : true));
     banner = `<div style="padding:8px;background:rgba(22,163,74,.08);border:1px solid #16a34a;border-radius:6px;margin-bottom:10px;font-size:12px">📅 <b>À partir du ${fd(from)}</b> — ${filtered.length} ligne(s) filtrée(s) sur ${(_bankImportLines||[]).length}.</div>`;
   } else if (choice === 'all') {
     banner = '';   // V3-REFONTE-LOYERS C : redondant avec le compteur du récap → supprimé
@@ -49576,6 +49587,27 @@ function _bankImportFirstImportConfirm(format) {
   _bankImportFinalizePreview(filtered, format, banner);
 }
 
+// 🐛 AUDIT I3 / bug 7 du CDC — LES BAUX CLÔTURÉS DOIVENT ÊTRE CANDIDATS.
+// Le module sait les gérer (`bail.cloture` → mention « ancien locataire »), mais
+// `DB.baux` n'en contient JAMAIS : les deux chemins de clôture y laissent un tombstone
+// `{ref, _deleted:true}` et poussent le bail dans `DB.baux_historique`. Le correctif
+// n'était donc pas effectif dans l'app. On construit ici le contexte réel : baux actifs
+// + baux archivés (marqués clôturés), tombstones exclus. Sans ça, un arriéré versé
+// après le départ d'un locataire ne matche toujours rien.
+function _bankBauxContext() {
+  const out = {};
+  for (const [ref, b] of Object.entries(DB.baux || {})) {
+    if (!b || b._deleted) continue;
+    out[ref] = b;
+  }
+  for (const b of (DB.baux_historique || [])) {
+    if (!b || b._deleted || !b.ref) continue;
+    if (out[b.ref]) continue;              // un bail actif prime sur son archive
+    out[b.ref] = Object.assign({}, b, { cloture: true });
+  }
+  return out;
+}
+
 // Étape finale commune : règles → propositions → dédup → rendu.
 // R-B v2 — TROIS ÉTATS : une RÈGLE (validée par l'utilisateur) classe automatiquement
 // et part dans « Reconnus » ; une PROPOSITION (✨) est TOUJOURS soumise et reste dans
@@ -49584,10 +49616,16 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
   // ⑦.5 c — le dû comparé est celui du MOIS DU RELEVÉ : on passe le résolveur unique
   // de l'app (_duMoisLot → duMoisFromRaw), jamais le loyer d'aujourd'hui.
   const ctx = {
-    baux: DB.baux || {},
+    baux: _bankBauxContext(),
     duMois: (typeof _duMoisLot === 'function') ? ((ref, ym) => _duMoisLot(ref, ym)) : null,
   };
   lines.forEach(line => {
+    // 🐛 AUDIT C3 — CE QUE L'UTILISATEUR A SAISI NE SE FAIT JAMAIS ÉCRASER.
+    // Les règles étaient réappliquées à TOUTES les lignes : mémoriser une règle après
+    // avoir classé 20 lignes à la main faisait sauter les 20 classements (et une règle
+    // qui ne porte qu'une catégorie remettait même l'affectation à vide). Même chose
+    // avec « ⇄ les montants sont inversés », qui repasse tout le lot.
+    if (line._userEdited || line._reviewed) return;
     // Les RÈGLES de l'utilisateur d'abord (déterministe), sinon une PROPOSITION.
     if (!_bankApplyRule(line)) {
       const m = window._bankMatchHeuristic(line, ctx);
@@ -50038,7 +50076,10 @@ function _bankReadRecapHtml() {
   const anomalie = bal.checked && !bal.ok;
   const faible = m.orientationProof === 'convention';   // aucune preuve du sens
   const alerte = anomalie || faible;
-  if (alerte) _bankRecapOpen = true;
+  // En cas d'anomalie, le détail s'ouvre TOUT SEUL — mais une seule fois : forcer
+  // l'ouverture à chaque rendu rendait `_bankToggleRecap` sans effet, l'utilisateur ne
+  // pouvait plus jamais replier le détail (audit, mineur).
+  if (alerte && !r._recapAutoOpened) { _bankRecapOpen = true; r._recapAutoOpened = true; }
   const nDisc = (r.discarded || []).length;
   const nDoubt = (r.lines || []).filter(l => l && l._dateDouteuse).length;
   const bits = [];
@@ -50117,6 +50158,13 @@ function _bankDiscardedPanelHtml() {
 function _bankReintegrate(i) {
   const r = _bankRead; if (!r) return;
   const d = (r.discarded || [])[i]; if (!d) return;
+  // 🐛 AUDIT I4 — une ligne écartée pour DEVISE ÉTRANGÈRE ne peut pas être réintégrée
+  // telle quelle : son montant a été lu comme des euros (« 1200 USD » → 1200 €), c'est
+  // exactement le montant faux que ③.2 refuse. On la laisse écartée et on le dit.
+  if (/devise/i.test(d.reason || '')) {
+    showToast('Cette ligne est dans une autre devise : Propryo ne connaît pas le taux du jour. Saisis-la à la main avec le montant réellement débité en euros.', 'warn', 7000);
+    return;
+  }
   r.discarded.splice(i, 1);
   const amt = Number(d.amount) || 0;
   const line = {
@@ -50129,9 +50177,11 @@ function _bankReintegrate(i) {
     _dateDouteuse: d.date ? '' : 'date illisible dans le relevé',
     _reintegrated: d.reason,
   };
-  _bankImportLines.push(line);
+  // 🐛 AUDIT I4 — la ligne repasse par TOUT le circuit (règles, propositions, dédup) :
+  // avant, un simple `push` la faisait échapper au garde-fou des doublons, et elle
+  // pouvait doubler un mouvement déjà en base sans le moindre signalement.
   _bankReviewTab = 'todo';
-  _bankImportRenderPreview(_bankReviewFmt, '');
+  _bankImportFinalizePreview([..._bankImportLines, line], _bankReviewFmt, '');
   showToast('Ligne réintégrée — à compléter', 'ok', 3000);
 }
 
@@ -50282,7 +50332,11 @@ function _bankResetDate(i) {
 // (sinon perte du focus pendant la frappe) : la ligne repliée se rafraîchit au prochain rendu.
 function _bankRenameLine(i, val) {
   const l = _bankImportLines[i]; if (!l) return;
+  // ⑩.1 — on garde le libellé D'ORIGINE DU RELEVÉ dès la première retouche : sans lui,
+  // le bloc Provenance ne peut pas expliquer un écart avec le relevé six mois plus tard.
+  if (l._libelleReleve == null && l.libelle && val !== l.libelle) l._libelleReleve = l.libelle;
   l.libelle = val;
+  l._userEdited = true;
 }
 function _bankLineRow(i) {
   const line = _bankImportLines[i];

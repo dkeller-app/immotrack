@@ -2558,11 +2558,12 @@ textarea.field-modified-since-sig{
    qui débloque le bouton de confirmation, il ne doit jamais sortir de l'écran.
    ════════════════════════════════════════════════════════════════════════ */
 @media (max-width:768px){
-  #ov-sp-mv #sp-mv-rows > div > div{grid-template-columns:1fr !important}
-  #ov-sp-mv #sp-mv-rows .sp-cat-aff,
-  #ov-sp-mv #sp-mv-rows .sp-date-fac{grid-template-columns:1fr !important}
-  /* La rangée « sens · libellé · montant · ✕ » : le sens et la croix restent sur une ligne */
-  #ov-sp-mv #sp-mv-rows > div > div:first-child{gap:7px !important}
+  /* Chaque rangée passe en UNE colonne : sur 390 px, mettre le libellé à côté des deux
+     boutons de sens le réduisait à ~95 px, illisible. Ordre vertical : sens + croix,
+     libellé, montant, catégorie, affectation, date + facture. */
+  #ov-sp-mv #sp-mv-rows > div > div{grid-template-columns:1fr !important;gap:7px !important}
+  /* La croix « supprimer cette part » reste alignée à droite de la ligne du sens. */
+  #ov-sp-mv #sp-mv-rows > div > div:first-child > button[title]{justify-self:end}
   #ov-sp-mv .inp{width:100%}
   /* Le contrôle d'équilibre colle en bas : c'est lui qui débloque « Confirmer » */
   #ov-sp-mv #sp-mv-reste{
