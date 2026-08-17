@@ -930,49 +930,102 @@ export function _bankRuleUsage(rule, mouvements) {
  *   3. Match catégorie par mots-clés (ASSURANCE, ELECTRICITE, etc.)
  *   4. Fallback : catégorie "Autre" / qui ""
  */
-export function _bankMatchHeuristic(line, ctx = {}) {
-  const result = { cat: '', qui: '', confidence: 0, source: '' };
-  if (!line || !line.libelle) return result;
-  const lib = String(line.libelle).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-  const baux = ctx.baux || {};
-  const tolerance = ctx.tolerance ?? 5; // 5€ tolérance ≈ loyer attendu
+/** Le mot est-il présent COMME MOT ENTIER dans le libellé normalisé ? (⑦.5 a) */
+function _bankWordIn(libNorm, word) {
+  const w = String(word || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!w) return false;
+  return new RegExp('(^|[^a-z0-9])' + w + '([^a-z0-9]|$)').test(libNorm);
+}
 
-  // 1. Match locataire par nom + montant ≈ loyer
+/** Construit la proposition « loyer » pour un candidat, avec l'écart affiché (⑦.5 e). */
+function _bankProposeLoyer(result, c, candidates) {
+  const ecartAbs = c.ecart == null ? null : Math.abs(c.ecart);
+  result.cat = 'Loyers encaissés';
+  result.qui = c.ref;
+  result.candidates = candidates;
+  // Le montant GRADUE la confiance ; il ne disqualifie plus.
+  result.confidence = ecartAbs == null ? 0.7 : (ecartAbs < 1 ? 0.95 : (ecartAbs < 20 ? 0.85 : 0.75));
+  const parts = ['nom du locataire reconnu'];
+  if (c.ancien) parts.push('ancien locataire');
+  if (c.du > 0) {
+    parts.push('montant ' + _bankEur(c.du + (c.ecart || 0)) + ' · dû du mois ' + _bankEur(c.du));
+    if (ecartAbs != null && ecartAbs >= 1) parts.push(c.ecart > 0 ? 'avance de ' + _bankEur(c.ecart) : 'reste ' + _bankEur(-c.ecart));
+  }
+  result.source = parts.join(' · ');
+  return result;
+}
+
+/** Formatage minimal d'un montant pour les libellés de proposition (module PUR : pas d'Intl). */
+function _bankEur(v) {
+  const n = Math.round((Number(v) || 0) * 100) / 100;
+  return n.toFixed(2).replace('.', ',') + ' €';
+}
+
+export function _bankMatchHeuristic(line, ctx = {}) {
+  const result = { cat: '', qui: '', confidence: 0, source: '', candidates: [], ambiguous: false };
+  if (!line || !line.libelle) return result;
+  const lib = _bankNormTxt(line.libelle);
+  const baux = ctx.baux || {};
+
+  // ── ⑦.5 · LE MATCH LOCATAIRE, 5 corrections ────────────────────────────────
   if (line.credit > 0) {
+    const ym = String(line.date || '').slice(0, 7);
+    const cands = [];
     for (const [ref, bail] of Object.entries(baux)) {
-      if (!bail || bail.cloture) continue;
-      // On extrait les mots significatifs (≥3 chars) du nom locataire — l'ordre
-      // dans le libellé bancaire varie selon les banques ("VIR ALICE MARTIN" vs
-      // "VIRT MARTIN ALICE"). On considère qu'au moins 1 mot identifié = match.
-      const locNames = (bail.locataires||[{nom: bail.nom}])
-        .map(x => String(x.nom||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''))
-        .filter(Boolean);
+      if (!bail) continue;
+      // 🐛 d — LES BAUX CLÔTURÉS REDEVIENNENT CANDIDATS (bug 7). Un arriéré versé
+      // après le départ d'un locataire ne matchait plus rien : `if (bail.cloture) continue`.
+      const ancien = !!bail.cloture;
+      const rawNames = (bail.locataires || [{ nom: bail.nom }])
+        .map(x => String((x && x.nom) || '').trim()).filter(Boolean);
+      const locNames = rawNames.map(_bankNormTxt).filter(Boolean);
       const locWords = [];
       locNames.forEach(n => n.split(/[\s\-']+/).forEach(w => { if (w.length >= 3) locWords.push(w); }));
-      const loyerAttendu = (Number(bail.hc)||0) + (Number(bail.ch)||0);
-      const nameMatched = locWords.some(w => lib.includes(w));
-      const amountClose = loyerAttendu > 0 && Math.abs(line.credit - loyerAttendu) < tolerance;
-      if (nameMatched && amountClose) {
-        result.cat = 'Loyers encaissés';
-        result.qui = ref;
-        result.confidence = 0.95;
-        result.source = 'Nom locataire + montant exact';
-        return result;
-      }
-      if (nameMatched) {
-        result.cat = 'Loyers encaissés';
-        result.qui = ref;
-        result.confidence = 0.70;
-        result.source = 'Nom locataire (montant divergent)';
-        return result;
-      }
-      if (amountClose && /vir|vrt|virement/i.test(lib)) {
-        result.cat = 'Loyers encaissés';
-        result.qui = ref;
-        result.confidence = 0.60;
-        result.source = 'Montant exact + VIR';
-        return result;
-      }
+      // 🐛 a — FRONTIÈRE DE MOT (bug 4) : le nom est cherché comme MOT ENTIER, plus
+      // comme sous-chaîne. « Marc » matchait `SUPERMARCHE`, « Roy » matchait `ROYAL` —
+      // et le niveau 0,70 n'exigeait pas que le montant corresponde : un faux positif
+      // suffisait à proposer le mauvais lot.
+      const nameMatched = locWords.some(w => _bankWordIn(lib, w));
+      // 🐛 c — LE DÛ EST CELUI DU MOIS DU RELEVÉ (bug 6), plus le loyer d'aujourd'hui :
+      // après une indexation, les mois antérieurs chutaient de confiance pour un motif faux.
+      const du = (typeof ctx.duMois === 'function' && ym)
+        ? (Number((ctx.duMois(ref, ym) || {}).total) || 0)
+        : ((Number(bail.hc) || 0) + (Number(bail.ch) || 0));
+      const ecart = du > 0 ? (line.credit - du) : null;
+      cands.push({ ref, nom: rawNames.join(' / '), ancien, nameMatched, du, ecart });
+    }
+    // 🐛 e — LE MONTANT N'EST PLUS UN CRITÈRE MAIS UN INDICATEUR : le nom suffit à
+    // proposer, le montant gradue la confiance et l'écart s'affiche. Fin du seuil ±5 €
+    // qui disqualifiait paiements partiels, rattrapages et avances.
+    const exact = (c) => c.ecart != null && Math.abs(c.ecart) < 1;
+    const byName = cands.filter(c => c.nameMatched);
+    if (byName.length === 1) return _bankProposeLoyer(result, byName[0], byName);
+    if (byName.length > 1) {
+      // 🐛 b — TOUS LES BAUX SONT ÉVALUÉS (bug 5) : plus de « premier bail qui matche
+      // gagne » (sortie de boucle immédiate, ordre des clés). Si le montant désigne
+      // un seul candidat, il tranche ; sinon la proposition est AMBIGUË et les
+      // candidats sont affichés — jamais de gagnant arbitraire.
+      const exacts = byName.filter(exact);
+      if (exacts.length === 1) return _bankProposeLoyer(result, exacts[0], byName);
+      result.cat = 'Loyers encaissés';
+      result.qui = '';
+      result.confidence = 0.5;
+      result.ambiguous = true;
+      result.candidates = byName;
+      result.source = byName.length + ' locataires possibles — à toi de choisir';
+      return result;
+    }
+    // Aucun nom reconnu : un MONTANT SEUL ne propose que s'il n'y a QU'UN lot dont le
+    // dû corresponde (sinon on désignerait un bien au hasard).
+    const exacts = cands.filter(exact);
+    if (exacts.length === 1) {
+      const c = exacts[0];
+      result.cat = 'Loyers encaissés';
+      result.qui = c.ref;
+      result.confidence = 0.6;
+      result.candidates = [c];
+      result.source = 'Montant exactement égal au dû du mois de ' + c.ref + (c.ancien ? ' (ancien locataire)' : '');
+      return result;
     }
   }
 
