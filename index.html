@@ -49197,16 +49197,33 @@ function _bankAfterRead(format, identifier, hint) {
 function _bankImportRunPreview(lines, format) {
   // v15.163 safety : un compte courant doit être défini avant d'atteindre cette fonction
   if (!_currentBankAccount) { showToast("Erreur interne : aucun compte bancaire courant. Relance l'import.", 'err', 5000); return; }
-  // Phase C : 1er import du compte → UI 3 choix
+  // ④.1 — un compte appartient toujours à quelqu'un : sans bailleur (ni « compte mixte »),
+  // on demande avant d'aller plus loin. C'est ce qui débloque la règle « bailleur du
+  // compte », les biens proposés et le garde-fou d'affectation inter-entités.
+  if (!window._bankAccountBailleurOk(_currentBankAccount).ok) {
+    _pendingBankImport = { lines, format, identifier: null, hint: null };
+    _bankRenderBailleurChoice();
+    return;
+  }
+  // ⑤.1 — migration douce (idempotente) du pointeur unique vers les 10 empreintes.
+  if (typeof window._bankMigrateAccounts === 'function') window._bankMigrateAccounts(DB.params.bankAccounts || []);
   const li = _currentBankAccount && _currentBankAccount.lastImport;
-  if (!li || !li.fingerprint) {
+  const fps = li ? (Array.isArray(li.fingerprints) ? li.fingerprints : (li.fingerprint ? [li.fingerprint] : [])) : [];
+  // Phase C : 1er import du compte → UI 3 choix (⑤.3 : au premier import l'app ne peut pas deviner)
+  if (!fps.length) {
     _bankImportRenderFirstImportChoice(lines, format);
     return;
   }
+  // ⑤.2 — Import RÉTROACTIF : accepté et annoncé. On ne coupe rien (toutes les lignes
+  // sont proposées) ; les doublons déjà en base sont détectés par ⑥.
+  if (window._bankIsRetroactive(lines, li)) {
+    const ds = lines.map(l => l.date).filter(Boolean).sort();
+    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">📅 <b>Import rétroactif</b> — ce fichier couvre ${fd(ds[0])} → ${fd(ds[ds.length-1])}, antérieur à ton dernier import du ${fd(li.date)}. Toutes les lignes sont proposées, les doublons déjà en base sont détectés.</div>`;
+    _bankImportFinalizePreview(lines, format, banner);
+    return;
+  }
   // Phase D : imports suivants → pointeur de progression (helper pur, testé Vitest)
-  const sliced = (typeof window._bankSliceAfterFingerprint === 'function')
-    ? window._bankSliceAfterFingerprint(lines, li.fingerprint)
-    : { found: false, after: lines, idx: -1 };
+  const sliced = window._bankSliceAfterFingerprints(lines, fps);
   if (sliced.found) {
     const after = sliced.after;
     if (after.length === 0) {
@@ -49219,9 +49236,51 @@ function _bankImportRunPreview(lines, format) {
     _bankImportFinalizePreview(after, format, banner);
   } else {
     // Pointeur perdu (fichier d'une autre période, ou ligne pointeur supprimée localement)
-    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">⚠️ <b>Pointeur non retrouvé</b> dans ce fichier (autre période, ou ligne pointeur supprimée localement). Le dédup heuristique (±3j / ±1€) est appliqué en filet — vérifie attentivement les coches.</div>`;
+    const banner = `<div style="padding:10px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:6px;margin-bottom:12px;font-size:12px">⚠️ <b>Reprise non retrouvée</b> dans ce fichier — aucune des ${fps.length} dernière(s) opération(s) déjà importée(s) n'y figure (autre période, ou lignes supprimées localement). Toutes les lignes sont proposées ; la détection de doublons sert de filet.</div>`;
     _bankImportFinalizePreview(lines, format, banner);
   }
+}
+
+// ④.1 — Le bailleur d'un compte : demandé une fois, mémorisé. Échappatoire explicite
+// « compte mixte » quand un même compte sert à plusieurs bailleurs (elle désactive la
+// règle « bailleur du compte » et impose le classement manuel).
+function _bankRenderBailleurChoice() {
+  const preview = el('bank-import-preview'); if (!preview) return;
+  const intro = el('bank-import-intro'); if (intro) intro.style.display = 'none';
+  const ents = (DB.entites || []).filter(_isAlive);
+  const acct = _currentBankAccount || {};
+  const opts = ents.map((e, i) => `<label style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--bor);border-radius:6px;cursor:pointer;background:var(--sur2);margin-bottom:6px">
+      <input type="radio" name="bkBailleur" value="${escHtml(e.nom)}" ${acct.bailleur===e.nom||(!acct.bailleur&&i===0&&ents.length===1)?'checked':''}>
+      <span style="flex:1"><b>${escHtml(e.nom)}</b> <span class="mu sm">${escHtml(e.type||'')}</span></span></label>`).join('');
+  preview.innerHTML = `
+    <div style="padding:12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:12px;font-size:13px">
+      <b>À qui appartient le compte « ${escHtml(acct.label || 'ce compte')} » ?</b><br>
+      <span class="mu sm">Un compte appartient toujours à quelqu'un. Propryo s'en sert pour proposer les bons biens,
+      pour la règle « le bailleur du compte », et pour t'empêcher d'affecter une dépense au bien d'une autre entité.</span>
+    </div>
+    ${ents.length ? opts : '<div class="mu sm" style="padding:10px">Aucune entité enregistrée — crée d\'abord un bailleur dans Réglages.</div>'}
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:9px 11px;border:1px dashed var(--bor);border-radius:6px;cursor:pointer;margin-bottom:12px">
+      <input type="radio" name="bkBailleur" value="_mixte" ${acct.mixte?'checked':''} style="margin-top:3px">
+      <span style="flex:1"><b>Compte mixte — plusieurs bailleurs</b><br>
+      <span class="mu sm">Les mouvements de ce compte seront classés à la main : Propryo ne peut pas deviner l'entité.</span></span>
+    </label>
+    <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn bp" onclick="_bankConfirmBailleur()">Continuer →</button></div>`;
+}
+
+function _bankConfirmBailleur() {
+  const r = document.querySelector('input[name=bkBailleur]:checked');
+  if (!r) { showToast('Choisis le bailleur du compte (ou « compte mixte »)', 'warn', 4000); return; }
+  if (!_currentBankAccount) return;
+  if (r.value === '_mixte') { _currentBankAccount.mixte = true; _currentBankAccount.bailleur = ''; }
+  else { _currentBankAccount.mixte = false; _currentBankAccount.bailleur = r.value; }
+  saveDB();
+  const p = _pendingBankImport; _pendingBankImport = null;
+  if (p) { _bankImportRunPreview(p.lines, p.format); return; }
+  // Entré depuis « Mes comptes » : on y retourne (aucun import en cours).
+  closeM('ov-bank-import');
+  _currentBankAccount = null;
+  _bankAccountsOpen();
+  showToast('✓ Bailleur du compte enregistré', 'ok', 3000);
 }
 
 // v15.162 — Phase C : UI du 1er import pour un compte (3 choix : date / tout / sélection manuelle).
@@ -49362,6 +49421,12 @@ function _bankImportRenderAccountSelect(identifier, format, hint) {
       <span style="flex:1">
         <b style="color:var(--cta)">+ Nouveau compte</b><br>
         <input class="inp" id="bank-account-new-label" placeholder="ex : Crédit Mutuel — Compte courant" value="${escHtml(defaultLabel)}" style="margin-top:6px;width:100%" onfocus="(document.querySelector('input[name=bankAccountChoice][value=_new]')||{}).checked=true">
+        <label class="affv2-lab" style="margin-top:9px;display:block">Bailleur — <span class="mu">à qui appartient ce compte ?</span></label>
+        <select class="inp" id="bank-account-new-bailleur" style="width:100%" onfocus="(document.querySelector('input[name=bankAccountChoice][value=_new]')||{}).checked=true">
+          <option value="">— choisir —</option>
+          ${(DB.entites||[]).filter(_isAlive).map(e=>`<option value="${escHtml(e.nom)}">${escHtml(e.nom)}</option>`).join('')}
+          <option value="_mixte">Compte mixte — plusieurs bailleurs</option>
+        </select>
       </span>
     </label>
     <div style="display:flex;justify-content:flex-end;gap:8px">
@@ -49379,7 +49444,12 @@ function _bankImportConfirmAccount() {
   if (radio.value === '_new') {
     const newLabel = ((el('bank-account-new-label') || {}).value || '').trim();
     if (!newLabel) { showToast('Saisis un label pour le nouveau compte', 'warn', 4000); return; }
-    account = { id: nid(), label: newLabel, type: _pendingBankImport.format, identifiers: _pendingBankImport.identifier ? [_pendingBankImport.identifier] : [], createdAt: new Date().toISOString(), lastImport: null };
+    // ④.3 — l'écran de création de compte porte le choix du bailleur (④.1 : obligatoire).
+    const bail = ((el('bank-account-new-bailleur') || {}).value || '');
+    account = { id: nid(), label: newLabel, type: _pendingBankImport.format,
+      bailleur: bail === '_mixte' ? '' : bail, mixte: bail === '_mixte',
+      identifiers: _pendingBankImport.identifier ? [_pendingBankImport.identifier] : [],
+      createdAt: new Date().toISOString(), lastImport: null };
     if (!Array.isArray(DB.params.bankAccounts)) DB.params.bankAccounts = [];
     DB.params.bankAccounts.push(account);
   } else {
@@ -49424,18 +49494,26 @@ function _bankAccountsRender() {
     const nbIds = (a.identifiers || []).length;
     const nbMvts = mvtCounts[a.id] || 0;
     const lastLine = li
-      ? `<div class="mu sm" style="font-size:11.5px;margin-top:4px">↗ <b>Dernier import</b> : ${fd(li.date)} <span class="mu sm">(${li.count||'?'} mouvement${(li.count||0)>1?'s':''} cumulé${(li.count||0)>1?'s':''}, sync auto activée)</span></div>`
+      ? `<div class="mu sm" style="font-size:11.5px;margin-top:4px">↗ <b>Dernier import</b> : ${fd(li.date)} <span class="mu sm">(${li.count||'?'} mouvement${(li.count||0)>1?'s':''} cumulé${(li.count||0)>1?'s':''} · reprise sur les ${((li.fingerprints&&li.fingerprints.length)||(li.fingerprint?1:0))} dernière(s) opération(s))</span></div>`
       : `<div class="mu sm" style="font-size:11.5px;margin-top:4px;color:var(--ora)">⏳ <b>Jamais importé</b> — le prochain import proposera les 3 choix (date / tout / sélection manuelle).</div>`;
+    // ④.5 — « Mes comptes » affiche le bailleur : c'est un fait du compte, pas un réglage caché.
+    const bailLine = a.mixte
+      ? `<span style="color:var(--t2)">👥 Compte mixte — plusieurs bailleurs</span>`
+      : (a.bailleur
+          ? `<span style="color:var(--t1)">🏛️ <b>${escHtml(a.bailleur)}</b></span>`
+          : `<span style="color:var(--ora)">⚠ Bailleur non renseigné</span>`);
     return `<div style="background:var(--sur);border:1px solid var(--bor);border-radius:8px;padding:12px 14px;margin-bottom:10px">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1">
           <div style="font-weight:600;font-size:14px;color:var(--t1)">${escHtml(a.label || '(sans label)')}</div>
-          <div class="mu sm" style="font-size:11.5px;margin-top:2px">${escHtml(a.type||'?')} · ${nbIds} fichier${nbIds>1?'s':''} reconnu${nbIds>1?'s':''} · ${nbMvts} mouvement${nbMvts>1?'s':''} importé${nbMvts>1?'s':''}</div>
+          <div class="mu sm" style="font-size:12px;margin-top:3px">${bailLine}</div>
+          <div class="mu sm" style="font-size:11.5px;margin-top:2px">${escHtml(a.type||'?')} · ${nbIds} relevé${nbIds>1?'s':''} reconnu${nbIds>1?'s':''} · ${nbMvts} mouvement${nbMvts>1?'s':''} importé${nbMvts>1?'s':''}</div>
           ${lastLine}
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--bor2)">
         <button class="btn bs bb" onclick="_bankAccountRename(${a.id})" title="Renommer le compte">✏ Renommer</button>
+        <button class="btn bs bb" onclick="_bankAccountSetBailleur(${a.id})" title="Changer le bailleur de ce compte">🏛️ Bailleur</button>
         <button class="btn bs bb" onclick="_bankAccountResetPointer(${a.id})" title="Force le prochain import à passer par le choix « 1er import » (date / tout / manuel)"${li?'':' disabled style="opacity:.4;cursor:not-allowed"'}>🔄 Reset pointeur</button>
         <button class="btn br bb" onclick="_bankAccountDelete(${a.id})" title="Supprimer ce compte (les mouvements déjà importés sont CONSERVÉS)" style="margin-left:auto">🗑 Supprimer</button>
       </div>
@@ -49443,10 +49521,25 @@ function _bankAccountsRender() {
   }).join('');
   body.innerHTML = `
     <div class="mu sm" style="margin-bottom:12px;font-size:11.5px;line-height:1.5">
-      ${accounts.length} compte${accounts.length>1?'s':''} bancaire${accounts.length>1?'s':''}. Chaque compte mémorise un pointeur de progression : les imports suivants ne reprennent que les nouvelles lignes après le dernier import.
+      ${accounts.length} compte${accounts.length>1?'s':''} bancaire${accounts.length>1?'s':''}. Chaque compte appartient à un bailleur et mémorise ses <b>10 dernières opérations importées</b> :
+      l'import suivant reprend juste après, même si une ligne a disparu du relevé ou qu'un libellé a été retouché.
     </div>
     ${cardsHtml}
   `;
+}
+
+// ④.5 / ④.1 — changer le bailleur d'un compte depuis « Mes comptes » (même écran que
+// celui de l'import : un seul endroit où la question est posée).
+function _bankAccountSetBailleur(id) {
+  const a = (DB.params.bankAccounts || []).find(x => x && x.id === id);
+  if (!a) { showToast('Compte introuvable', 'err'); return; }
+  _currentBankAccount = a;
+  _pendingBankImport = null;
+  closeM('ov-bank-accounts');
+  const body = el('ov-bank-import-body');
+  if (body) body.innerHTML = '<div id="bank-import-intro" style="display:none"></div><div id="bank-import-preview" style="font-size:13px"></div>';
+  openM('ov-bank-import');
+  _bankRenderBailleurChoice();
 }
 
 function _bankAccountRename(id) {
@@ -49747,12 +49840,15 @@ function _bankImportRenderPreview(format, prefixHtml) {
   _bankReviewFmt = format || _bankReviewFmt || '';
   const total = (_bankImportLines || []).length;
   const st = _bankIdxByState();
-  // G1 : périmètre du picker = scope du compte s'il existe, SINON le bailleur actif (filtre global) —
-  // évite de proposer TOUS les logements du patrimoine quand on importe le compte d'une SCI donnée.
-  // Échappatoire « voir tout le patrimoine » toujours dispo (_affScopeAll).
-  _affScope = (_currentBankAccount && _currentBankAccount.scope && _currentBankAccount.scope.niv)
-    ? _currentBankAccount.scope
-    : ((typeof _finActiveEnt === 'function' && _finActiveEnt()) ? { niv: 'sci', cible: _finActiveEnt() } : null);
+  // ④.4 — le périmètre du picker découle du BAILLEUR DU COMPTE (④.1 : c'est un fait,
+  // pas un filtre), affinable par immeuble. Un compte mixte retombe sur le bailleur
+  // actif du filtre global. Échappatoire « voir tout le patrimoine » toujours dispo
+  // (_affScopeAll) — on ne verrouille rien, on propose juste ce qui a du sens.
+  const _acct = _currentBankAccount;
+  _affScope = (_acct && _acct.scope && _acct.scope.niv === 'imm' && _acct.scope.cible)
+    ? _acct.scope
+    : ((_acct && !_acct.mixte && _acct.bailleur) ? { niv: 'sci', cible: _acct.bailleur }
+       : ((typeof _finActiveEnt === 'function' && _finActiveEnt()) ? { niv: 'sci', cible: _finActiveEnt() } : null));
   _affScopeAll = false;
   const tabBtn = (key, lbl, n, bg) => `<button onclick="_bankSetTab('${key}')" style="border:0;border-bottom:2.5px solid ${_bankReviewTab===key?'var(--cta,#3b7ef6)':'transparent'};background:none;color:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--t2)'};padding:9px 12px;font-weight:700;font-size:13px;cursor:pointer">${lbl} <span id="bank-tab-${key}" style="display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:${_bankReviewTab===key?'var(--cta,#3b7ef6)':'var(--bor)'};color:${_bankReviewTab===key?'#fff':'var(--t2)'};font-size:11px;padding:0 5px">${n}</span></button>`;
   preview.innerHTML = `
@@ -49777,19 +49873,31 @@ function _bankImportRenderPreview(format, prefixHtml) {
   _bankUpdateImportBtn();
 }
 
+// ④.4 — La barre de périmètre reste, mais le BAILLEUR est affiché EN DUR : il vient du
+// compte, il ne se choisit pas ici (④.1). Ne reste qu'un affinage OPTIONNEL par immeuble.
 function _bankScopeBar() {
   const acct = _currentBankAccount;
   if (!acct) return '';
-  const sc = (acct.scope && acct.scope.niv) ? acct.scope : null;
-  const sciOpts = (DB.entites || []).filter(_isAlive).filter(e => e.type && e.type.startsWith('SCI')).map(e => `<option value="sci:${escHtml(e.nom)}" ${sc&&sc.niv==='sci'&&sc.cible===e.nom?'selected':''}>🏛️ ${escHtml(e.nom)}</option>`).join('');
-  const immOpts = (typeof immeubles==='function'?immeubles():[]).map(im => `<option value="imm:${escHtml(im)}" ${sc&&sc.niv==='imm'&&sc.cible===im?'selected':''}>🏢 ${escHtml(im)}</option>`).join('');
+  const sc = (acct.scope && acct.scope.niv === 'imm') ? acct.scope : null;
+  const bailTxt = acct.mixte
+    ? '<span title="Compte mixte : Propryo ne peut pas deviner l\'entité, classement manuel">👥 <b>Compte mixte</b></span>'
+    : (acct.bailleur ? '🏛️ <b>' + escHtml(acct.bailleur) + '</b>' : '<span style="color:var(--ora)">⚠ bailleur non renseigné</span>');
+  // Les immeubles proposés sont ceux du bailleur du compte (sauf compte mixte).
+  const immsAll = (typeof immeubles === 'function' ? immeubles() : []);
+  const imms = (acct.mixte || !acct.bailleur) ? immsAll : immsAll.filter(im => {
+    const e = (DB.entites || []).filter(_isAlive).find(x => (x.immeubles || []).some(y => y && y.nom === im));
+    return !e || e.nom === acct.bailleur;
+  });
+  const immOpts = imms.map(im => `<option value="imm:${escHtml(im)}" ${sc&&sc.cible===im?'selected':''}>🏢 ${escHtml(im)}</option>`).join('');
   return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--acc-bg,#eef4ff);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-size:12px">
     <span>📄 <b>Compte :</b> ${escHtml(acct.label||'Compte')}</span>
-    <span style="color:var(--t3)">→ périmètre</span>
+    <span style="color:var(--t3)">·</span>
+    <span>${bailTxt}</span>
+    <span style="color:var(--t3)">→ affiner</span>
     <select class="inp" style="font-size:12px;padding:4px 8px;width:auto" onchange="_bankSetScope(this.value)">
-      <option value="">🌐 Tout le patrimoine</option>${sciOpts}${immOpts}
+      <option value="">Tous ses immeubles</option>${immOpts}
     </select>
-    <span class="mu sm" style="font-size:11px">${sc?'Biens proposés limités à ce périmètre.':'Aucun filtre — tout le patrimoine proposé.'}</span>
+    <a onclick="_bankAccountSetBailleur(${acct.id})" style="cursor:pointer;text-decoration:underline;color:var(--t3);font-size:11px">changer de bailleur</a>
   </div>`;
 }
 function _bankSetScope(v) {
@@ -49886,6 +49994,9 @@ function _bankLineRow(i) {
     ? '<span class="bimp-chip todo" title="' + escHtml(line._dateDouteuse) + '">⚠ date douteuse</span>' : '';
   const reintChip = line._reintegrated
     ? '<span class="bimp-chip todo" title="' + escHtml(line._reintegrated) + '">↩ réintégrée</span>' : '';
+  // ④.1 — bien d'une autre entité que le bailleur du compte : signalé, jamais corrigé en douce.
+  const conflitChip = line._affConflit
+    ? '<span class="bimp-chip todo" title="' + escHtml(line._affConflit) + '">⚠ autre bailleur</span>' : '';
   return `<div class="bimp-row ${isCr ? 'cr' : 'db'}" onclick="_bankOpenMvWindow(${i})">
       <span class="bimp-ic">${icon}</span>
       <div class="bimp-mid">
@@ -49893,7 +50004,7 @@ function _bankLineRow(i) {
           <span class="bimp-lib" title="${escHtml(line.libelle)}">${escHtml(line.libelle)}</span>
           <span class="bimp-amt ${isCr ? 'cr' : 'db'}">${sign}${fmt(amount)}</span>
         </div>
-        <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}</div>
+        <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}${conflitChip}</div>
       </div>
       <span class="bimp-trash" onclick="event.stopPropagation();_bankExcludeLine(${i})" title="Ne pas importer cette ligne">🗑</span>
       <span class="bimp-go">›</span>
@@ -50113,11 +50224,37 @@ function _bankInitAff(i) {
   _affHooks['imp'+i] = () => _bankSyncAff(i);
   _affRender('imp'+i, 'imp'+i);
 }
+// ④.1 — Entité propriétaire d'une affectation (logement / immeuble / SCI:). '' si inconnue.
+function _bankEntiteOfAff(qui, imm) {
+  const q = String(qui || '');
+  if (q.startsWith('SCI:')) return q.slice(4);
+  if (q) { const l = (DB.logements || []).find(x => x && x.ref === q); if (l) return l.entity || ''; }
+  if (imm) {
+    const l = (DB.logements || []).filter(_isAlive).find(x => x && x.imm === imm);
+    if (l) return l.entity || '';
+    const e = (DB.entites || []).filter(_isAlive).find(x => (x.immeubles || []).some(y => y && y.nom === imm));
+    if (e) return e.nom;
+  }
+  return '';
+}
+
 function _bankSyncAff(i) {
   const line = _bankImportLines[i]; if (!line) return;
   line.suggestedQui = el('imp'+i+'-qui') ? el('imp'+i+'-qui').value : '';
   line.suggestedImm = el('imp'+i+'-imm') ? el('imp'+i+'-imm').value : '';
   line.suggestedCc  = el('imp'+i+'-cc')  ? el('imp'+i+'-cc').value  : '';
+  // ④.1 — GARDE-FOU : un mouvement du compte de la SCI X ne peut pas être affecté à
+  // un bien d'une autre entité. Rien ne l'empêchait avant. On avertit et on marque la
+  // ligne (elle reste modifiable — T-1 : on ne corrige rien en silence).
+  const conflit = window._bankAffectationConflict
+    ? window._bankAffectationConflict(_currentBankAccount, _bankEntiteOfAff(line.suggestedQui, line.suggestedImm))
+    : { ok: true };
+  if (!conflit.ok) {
+    if (line._affConflit !== conflit.message) showToast('⚠ ' + conflit.message, 'warn', 6000);
+    line._affConflit = conflit.message;
+  } else {
+    delete line._affConflit;
+  }
   _bankUpdateCounts();
 }
 function _bankSyncActiveAff() { if (_bankOpen >= 0) _bankSyncAff(_bankOpen); }
@@ -50252,9 +50389,12 @@ function _bankImportConfirm() {
     });
   }
   // v15.161-163 BANK-IMPORT-V2 : update lastImport (helper pur, testé Vitest)
+  // ⑤.1 / ⑤.2 (bug 2) — le pointeur mémorise les 10 dernières empreintes et NE RECULE
+  // JAMAIS : importer juin après août ne doit pas faire reproposer juillet-août ensuite.
   if (_currentBankAccount && toImport.length && typeof window._bankComputeLastImport === 'function') {
-    const prevCount = ((_currentBankAccount.lastImport || {}).count) || 0;
-    _currentBankAccount.lastImport = window._bankComputeLastImport(toImport, prevCount);
+    const prev = _currentBankAccount.lastImport || null;
+    const prevCount = (prev && prev.count) || 0;
+    _currentBankAccount.lastImport = window._bankComputeLastImport(toImport, prevCount, prev);
   }
   saveDB();
   if (typeof rMv === 'function') rMv();
