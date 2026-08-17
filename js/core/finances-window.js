@@ -29,12 +29,20 @@
  * Tests : __tests__/helpers/finances-window.test.js
  */
 
-import { _LOYER_TOLERANCE_JOUR } from './loyer-statut.js';
+import { _LOYER_TOLERANCE_JOUR, _loyerTodayLocal } from './loyer-statut.js';
 import { MOIS_FR } from './utils.js';
 
 export const WINDOW_KIND = { CONSTAT: 'constat', EXIGIBILITE: 'exigibilite' };
 
-const _today = (v) => String(v || new Date().toISOString().slice(0, 10)).slice(0, 10);
+// CONTRAT DE LA FENÊTRE VIDE (`empty: true`, `lastMonth: 0`) : l'appelant DOIT court-circuiter
+// le moteur mensuel. `_computeFinancesMonthly` remonte un `lastMonth` de 0 à 1
+// (finances-monthly.js:52-54, `Math.max(1, …)`) et produirait un mois de janvier fantôme sur
+// un exercice où rien n'est encore exigible. Voir le test « contrat de la fenêtre vide ».
+
+// Date du jour en ISO LOCAL, jamais toISOString() : en UTC, le 1er du mois avant ~2 h fait
+// perdre un mois à la fenêtre, et le 1er janvier fait basculer l'exercice en cours en
+// « à venir » (fenêtre VIDE). Le projet a déjà tranché ce piège — on réutilise sa fonction.
+const _today = (v) => (v ? String(v).slice(0, 10) : _loyerTodayLocal());
 const _ym = (year, mo) => String(year) + '-' + String(mo).padStart(2, '0');
 const _dernierJour = (year, mo) => new Date(Number(year), Number(mo), 0).getDate();
 
@@ -45,10 +53,17 @@ const _dernierJour = (year, mo) => new Date(Number(year), Number(mo), 0).getDate
  */
 function _dernierMoisEchu(year, todayIso) {
   const t = _today(todayIso);
-  const y = Number(year), curY = Number(t.slice(0, 4));
+  const y = _annee(year), curY = Number(t.slice(0, 4));
+  if (!y) return 0;                          // exercice non numérique → fenêtre vide, pas de NaN
   if (y < curY) return 12;
   if (y > curY) return 0;
   return parseInt(t.slice(5, 7), 10);
+}
+
+/** Exercice valide (année sur 4 chiffres) ou 0. */
+function _annee(year) {
+  const y = Number(year);
+  return (Number.isInteger(y) && y >= 1000 && y <= 9999) ? y : 0;
 }
 
 /**
@@ -76,8 +91,8 @@ export function lastMovementMonth(mouvements, year, inScope) {
 
 /** Assemble une fenêtre à partir de ses deux bornes de mois. */
 function _makeWindow(kind, year, todayIso, lastMonth, dueMonth, extra) {
-  const y = Number(year);
-  const last = Math.max(0, Math.min(12, lastMonth | 0));
+  const y = _annee(year);
+  const last = y ? Math.max(0, Math.min(12, lastMonth | 0)) : 0;
   const due = Math.max(0, Math.min(12, dueMonth | 0));
   const months = [];
   for (let mo = 1; mo <= last; mo++) months.push({ ym: _ym(y, mo), mo, future: mo > due });
@@ -142,7 +157,17 @@ export function alignPreviousYear(win) {
 /** `true` si le mois (ym ou numéro) est compté mais non échu — colonne à griser. */
 export function isFutureMonth(win, mois) {
   if (!win) return false;
-  const mo = typeof mois === 'number' ? mois : parseInt(String(mois).slice(5, 7), 10);
+  let mo;
+  if (typeof mois === 'number') mo = mois;
+  else {
+    const s = String(mois);
+    // Un 'YYYY-MM' d'un AUTRE exercice n'est pas « à venir » dans cette fenêtre : il n'y est
+    // simplement pas.
+    if (/^\d{4}-\d{2}/.test(s)) {
+      if (Number(s.slice(0, 4)) !== win.year) return false;
+      mo = parseInt(s.slice(5, 7), 10);
+    } else mo = parseInt(s, 10);
+  }
   return !!mo && mo > win.dueMonth && mo <= win.lastMonth;
 }
 
@@ -159,7 +184,11 @@ export function windowLabel(win) {
   if (win.aligned) return win.empty ? win.year + ' · aucun mois' : `${win.year} · même période (${win.nbMois} mois)`;
   if (win.kind === WINDOW_KIND.CONSTAT) {
     if (win.empty) return `Exercice ${win.year} · rien de saisi`;
-    if (win.lastMonth === 12 && win.dueMonth === 12) return `Exercice ${win.year} · année complète`;
+    // « année complète » ne vaut que pour un exercice CLOS : en décembre de l'exercice en
+    // cours, lastMonth vaut 12 alors que le mois n'est pas fini — le libellé mentirait.
+    if (win.lastMonth === 12 && win.year < Number(String(win.today).slice(0, 4))) {
+      return `Exercice ${win.year} · année complète`;
+    }
     const t = String(win.today);
     return `Exercice ${win.year} · tout ce qui est saisi au ${t.slice(8, 10)}/${t.slice(5, 7)}`;
   }

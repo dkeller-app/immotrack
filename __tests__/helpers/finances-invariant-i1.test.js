@@ -93,12 +93,17 @@ describe('INVARIANT I-1 — le harnais DÉTECTE (un test qui ne peut pas échoue
   });
 
   it('la surface « loyer moyen × jours d\'occupation » (attenduHCTheo, R-2) est aussi détectée', () => {
-    const moyenne = (ctx, ym) => {
-      const hc = Number(ctx.bails[0].hc) || 0;          // loyerMensuelMoyen de _computeBilanAnnuel
-      return Math.round(hc * (30.44 / 30.44) * 100) / 100;
+    // Reproduction fidèle de `loyerMensuelMoyen × occDays / 30,44` (legal-bilan.js:67 et :80) :
+    // le loyer COURANT du bail étalé sur les jours d'occupation du mois, qui écrase l'historique.
+    const attenduHCTheo = (ctx, ym) => {
+      const hc = Number(ctx.bails[0].hc) || 0;
+      const y = Number(ym.slice(0, 4)), mo = Number(ym.slice(5, 7));
+      const occDays = new Date(y, mo, 0).getDate();
+      return Math.round((occDays / 30.44) * hc * 100) / 100;
     };
-    expect(infractionsI1({ ...CAS, surfaces: { 'attenduHCTheo': moyenne } }).length)
-      .toBe(CAS.moisFiges.length);
+    const v = infractionsI1({ ...CAS, surfaces: { attenduHCTheo } });
+    expect(v.length).toBe(CAS.moisFiges.length);
+    expect(v[0].avant).not.toBe(v[0].apres);           // le chiffre de janvier a bel et bien bougé
   });
 
   it('une surface honnête et une surface fautive côte à côte : seule la fautive ressort', () => {
@@ -109,7 +114,17 @@ describe('INVARIANT I-1 — le harnais DÉTECTE (un test qui ne peut pas échoue
     expect(new Set(violations.map(v => v.surface))).toEqual(new Set(['fautive']));
   });
 
-  it('aucune surface / aucun mois figé → aucune infraction (harnais neutre)', () => {
+  it('une surface MUETTE est signalée, jamais silencieusement validée', () => {
+    // Sans ce garde-fou, une surface mal câblée « tient » l'invariant en ne mesurant rien —
+    // c'est précisément ce qui rendait le harnais aveugle hors de son millésime.
+    const muette = () => null;
+    const v = infractionsI1({ ...CAS, surfaces: { 'surface mal câblée': muette } });
+    expect(v.length).toBe(CAS.moisFiges.length);
+    expect(v[0].raison).toBe('surface-muette');
+    expect(formatInfractionsI1(v)).toContain('I-1 NON MESURÉ');
+  });
+
+  it('appels dégénérés : le harnais ne jette pas et n\'invente pas d\'infraction', () => {
     expect(infractionsI1({ ...CAS, surfaces: {} })).toEqual([]);
     expect(infractionsI1({ avant: CAS.avant, apres: CAS.apres, moisFiges: [], surfaces: SURFACES })).toEqual([]);
     expect(infractionsI1(null)).toEqual([]);
@@ -153,5 +168,54 @@ describe('INVARIANT I-1 — réutilisable sur d\'autres scénarios que le cas du
     expect(duMois(ctx3, '2026-07').hc).toBe(800);        // 1er palier intact
     expect(duMois(ctx3, '2026-10').hc).toBe(850);        // 2e palier intact
     expect(duMois(ctx3, '2026-11').hc).toBe(900);        // 3e palier appliqué
+  });
+});
+
+// ── I4 · le harnais doit rester MESURANT sur n'importe quel millésime ─────────
+describe('INVARIANT I-1 — le harnais n\'est pas aveugle hors de 2026', () => {
+  const casAn = (annee) => {
+    const c = casReferenceIRL({ annee });
+    const mvts = [];
+    for (let mo = 1; mo <= 12; mo++) {
+      mvts.push({ date: `${annee}-${String(mo).padStart(2, '0')}-05`, cat: 'Loyer', qui: c.ref, cr: 900, db: 0 });
+    }
+    return { c, surfaces: surfacesSocle({ mouvements: mvts }) };
+  };
+
+  it('2027 : les surfaces MESURENT vraiment (pas de null des deux côtés)', () => {
+    const { c, surfaces } = casAn(2027);
+    const pnl = surfaces['tableau P&L (_computeFinancesMonthly)'];
+    expect(pnl(c.avant, '2027-03')).not.toBeNull();
+    expect(pnl(c.avant, '2027-03').loyersHC).toBeGreaterThan(0);
+    expect(surfaces['recouvrement · dû CC cumulé (R-2)'](c.avant, '2027-03')).toBe(2700);
+  });
+
+  it('2027 et 2024 : l\'invariant tient ET reste mesuré', () => {
+    [2027, 2024].forEach(annee => {
+      const { c, surfaces } = casAn(annee);
+      const v = infractionsI1({ ...c, surfaces });
+      expect(v).toEqual([]);                                   // aucune infraction…
+      // …et aucune surface muette : la preuve que le zéro d'infractions veut dire quelque chose.
+      const pnl = surfaces['tableau P&L (_computeFinancesMonthly)'];
+      c.moisFiges.forEach(ym => expect(pnl(c.avant, ym)).toBeTruthy());
+    });
+  });
+
+  it('2027 : la surface fautive est TOUJOURS prise en flagrant délit', () => {
+    const { c } = casAn(2027);
+    expect(infractionsI1({ ...c, surfaces: { fautive: SURFACE_FAUTIVE_LOYER_ACTUEL } }).length)
+      .toBe(c.moisFiges.length);
+  });
+
+  it('le cache du P&L distingue les exercices (un ctx, deux années)', () => {
+    const c = casReferenceIRL({ annee: 2026 });
+    const mvts = [
+      { date: '2026-03-05', cat: 'Loyer', qui: c.ref, cr: 900, db: 0 },
+      { date: '2027-03-05', cat: 'Loyer', qui: c.ref, cr: 900, db: 0 }
+    ];
+    const pnl = surfacesSocle({ mouvements: mvts })['tableau P&L (_computeFinancesMonthly)'];
+    expect(pnl(c.avant, '2026-03').ym).toBe('2026-03');
+    expect(pnl(c.avant, '2027-03').ym).toBe('2027-03');        // ← renvoyait null avant correction
+    expect(pnl(c.avant, '2027-03').loyersBrut).toBe(900);
   });
 });

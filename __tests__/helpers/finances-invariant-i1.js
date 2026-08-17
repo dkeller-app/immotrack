@@ -85,21 +85,28 @@ export function casReferenceIRL(opts) {
 export function surfacesSocle(opts) {
   const o = opts || {};
   const mouvements = o.mouvements || [];
-  const today = o.today || '2026-12-31';
   const catLigne = (c) => (c === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null);
   const pnlCache = new Map();
 
+  // `today` DÉRIVÉ de l'exercice testé (31/12 de l'année du mois examiné) : un `today` figé en
+  // dur rendait toutes les surfaces muettes dès qu'on testait un autre millésime — donc
+  // l'invariant passait en ne mesurant rien. `opts.today` reste prioritaire si on veut forcer.
+  const todayFor = (ym) => o.today || (String(ym).slice(0, 4) + '-12-31');
+
   /** Tableau P&L mensuel réel : le bucket complet du mois (toutes ses lignes). */
   const pnl = (ctx, ym) => {
-    if (!pnlCache.has(ctx)) {
-      pnlCache.set(ctx, _computeFinancesMonthly({
-        mouvements, year: Number(String(ym).slice(0, 4)), scope: null, catLigne, today,
+    const annee = String(ym).slice(0, 4);
+    // Clé de cache = contexte ET année (le moteur est calculé par exercice).
+    let parAnnee = pnlCache.get(ctx);
+    if (!parAnnee) { parAnnee = new Map(); pnlCache.set(ctx, parAnnee); }
+    if (!parAnnee.has(annee)) {
+      parAnnee.set(annee, _computeFinancesMonthly({
+        mouvements, year: Number(annee), scope: null, catLigne, today: todayFor(ym),
         lastMonth: 12, activeLots: [ctx.ref],
         loyerDue: (qui, m) => duMois(ctx, m)
       }));
     }
-    const r = pnlCache.get(ctx);
-    const b = r.months.find((m) => m.ym === ym);
+    const b = parAnnee.get(annee).months.find((m) => m.ym === ym);
     return b ? Object.assign({}, b, { _loyerByLot: undefined }) : null;
   };
 
@@ -114,7 +121,7 @@ export function surfacesSocle(opts) {
     //    fenêtre d'exigibilité — une valeur cumulative attrape aussi les régressions
     //    qui se compensent d'un mois à l'autre.
     'recouvrement · dû CC cumulé (R-2)': (ctx, ym) => {
-      const w = computeExigibiliteWindow({ year: Number(String(ym).slice(0, 4)), today });
+      const w = computeExigibiliteWindow({ year: Number(String(ym).slice(0, 4)), today: todayFor(ym) });
       let cum = 0;
       for (const m of w.months) { if (m.ym > ym) break; cum += duMois(ctx, m.ym).total; }
       return _r2(cum);
@@ -135,8 +142,14 @@ export const SURFACE_FAUTIVE_LOYER_ACTUEL = (ctx, ym) => {
 /**
  * Détecte les infractions à I-1 : tout mois FIGÉ dont une surface change entre `avant`
  * et `apres`.
+ *
+ * Une surface MUETTE (null/undefined des deux côtés) est signalée comme infraction
+ * `surface-muette` : sans ça, une surface mal câblée « tient » l'invariant en ne mesurant
+ * rien — c'est exactement le piège qui rendait le harnais aveugle hors de son millésime.
+ *
  * @param {{avant, apres, moisFiges:string[], surfaces:Object}} input
- * @returns {Array<{surface:string, mois:string, avant:*, apres:*}>} vide = invariant tenu
+ * @returns {Array<{surface:string, mois:string, avant:*, apres:*, raison?:string}>}
+ *          vide = invariant tenu
  */
 export function infractionsI1(input) {
   const i = input || {};
@@ -147,6 +160,10 @@ export function infractionsI1(input) {
       const f = i.surfaces[nom];
       const a = f(i.avant, ym);
       const b = f(i.apres, ym);
+      if (a == null && b == null) {
+        out.push({ surface: nom, mois: ym, avant: a, apres: b, raison: 'surface-muette' });
+        return;
+      }
       if (JSON.stringify(a) !== JSON.stringify(b)) out.push({ surface: nom, mois: ym, avant: a, apres: b });
     });
   });
@@ -156,5 +173,7 @@ export function infractionsI1(input) {
 /** Rend une liste d'infractions lisible dans un message d'échec. */
 export function formatInfractionsI1(list) {
   if (!list || !list.length) return 'invariant I-1 tenu';
-  return list.map((v) => `I-1 VIOLÉ · ${v.surface} · ${v.mois} : ${JSON.stringify(v.avant)} → ${JSON.stringify(v.apres)}`).join('\n');
+  return list.map((v) => (v.raison === 'surface-muette'
+    ? `I-1 NON MESURÉ · ${v.surface} · ${v.mois} : la surface ne renvoie rien (harnais aveugle)`
+    : `I-1 VIOLÉ · ${v.surface} · ${v.mois} : ${JSON.stringify(v.avant)} → ${JSON.stringify(v.apres)}`)).join('\n');
 }

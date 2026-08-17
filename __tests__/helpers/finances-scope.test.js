@@ -3,7 +3,7 @@ import {
   SCOPE_KIND, SANS_BAILLEUR, SANS_IMMEUBLE,
   LABEL_SANS_BAILLEUR, LABEL_SANS_IMMEUBLE,
   buildScopeCatalog, resolveScope, lotInScope, scopeLots, scopeRefs,
-  scopeWeight, inScope
+  scopeWeight, inScope, orphelinsHorsPerimetre
 } from '../../js/core/finances-scope.js';
 
 // ── Parc de test ────────────────────────────────────────────────────────────
@@ -140,8 +140,29 @@ describe('finances-scope — résolution du périmètre (P-1)', () => {
     expect(s.fallback).toEqual({ raison: 'ent-inconnu', entDemande: 'Fantôme' });
   });
 
-  it('sans repli, `fallback` est null', () => {
-    expect(resolveScope({ ent: 'SCI Alpha' }, LOGEMENTS).fallback).toBeNull();
+  it('sans repli, `fallback` est null et `fallbacks` vide', () => {
+    const s = resolveScope({ ent: 'SCI Alpha' }, LOGEMENTS);
+    expect(s.fallback).toBeNull();
+    expect(s.fallbacks).toEqual([]);
+  });
+
+  it('DEUX replis à la fois : aucun n\'est écrasé (l\'UI doit annoncer les deux)', () => {
+    const s = resolveScope({ ent: 'Fantôme', imm: 'Nulle part' }, LOGEMENTS);
+    expect(s.fallbacks).toEqual([
+      { raison: 'ent-inconnu', entDemande: 'Fantôme' },
+      { raison: 'imm-hors-perimetre', immDemande: 'Nulle part' }
+    ]);
+    expect(s.kind).toBe(SCOPE_KIND.ALL);
+  });
+
+  it('panier VIDE demandé → repli annoncé, jamais un écran vide sans explication', () => {
+    const parcPropre = [{ ref: 'A1', entity: 'SCI Alpha', imm: 'Lilas' }];
+    const sb = resolveScope({ ent: SANS_BAILLEUR }, parcPropre);
+    expect(sb.fallbacks).toEqual([{ raison: 'panier-vide', panier: SANS_BAILLEUR }]);
+    expect(sb.kind).toBe(SCOPE_KIND.ALL);
+    const si = resolveScope({ ent: 'SCI Alpha', imm: SANS_IMMEUBLE }, parcPropre);
+    expect(si.fallbacks).toEqual([{ raison: 'panier-vide', panier: SANS_IMMEUBLE }]);
+    expect(si.refs).toEqual(['A1']);
   });
 });
 
@@ -256,6 +277,16 @@ describe('finances-scope — poids d\'un MOUVEMENT (fonction unique, P-3 / C7)',
     expect(scopeWeight(s, { qui: '', imm: 'Peupliers' })).toBe(1);
   });
 
+  it('panier « Sans bailleur » + immeuble : n\'importe PAS les frais SCI d\'un tiers', () => {
+    // « Peupliers » n'héberge que des lots sans bailleur ici ; on ajoute un lot de SCI Alpha
+    // dans le même immeuble pour armer le piège de la dérivation d'entité.
+    const parc = LOGEMENTS.concat([{ ref: 'A5', entity: 'SCI Alpha', imm: 'Peupliers' }]);
+    const s = resolveScope({ ent: SANS_BAILLEUR, imm: 'Peupliers' }, parc);
+    expect(s.ent).toBe('');
+    expect(scopeWeight(s, { qui: 'SCI:SCI Alpha' })).toBe(0);
+    expect(s.refs).toEqual(['O2']);          // le lot de SCI Alpha n'entre pas dans le panier
+  });
+
   it('mouvement supprimé → poids 0 partout (y compris au cran Tout)', () => {
     expect(scopeWeight(all, { qui: 'A1', _deleted: true })).toBe(0);
     expect(scopeWeight(alpha, { qui: 'A1', _deleted: true })).toBe(0);
@@ -280,6 +311,28 @@ describe('finances-scope — poids d\'un MOUVEMENT (fonction unique, P-3 / C7)',
     expect(scopeWeight(s, { qui: 'SCI:Seul' })).toBe(1);
   });
 
+  it('refs tolérantes : un mouvement écrit « a1 » retrouve le lot « A1 »', () => {
+    expect(scopeWeight(lilas, { qui: ' a1 ' })).toBe(1);
+  });
+
+  it('refs AMBIGUËS (2 lots, casse différente, 2 immeubles) : l\'argent n\'est JAMAIS compté 2×', () => {
+    // La tolérance ne doit pas créer d'argent : quand une ref normalisée désigne plusieurs
+    // lots du parc, on repasse en comparaison STRICTE (parité prod) pour cette ref-là.
+    const parc = [
+      { ref: 'M1', entity: 'E', imm: 'Un' },
+      { ref: 'm1', entity: 'E', imm: 'Deux' }
+    ];
+    const vues = ['Un', 'Deux'].map(i => resolveScope({ ent: 'E', imm: i }, parc));
+    expect(vues.map(s => scopeWeight(s, { qui: 'M1' }))).toEqual([1, 0]);
+    expect(vues.map(s => scopeWeight(s, { qui: 'm1' }))).toEqual([0, 1]);
+    // Σ des vues immeuble = vue bailleur, y compris sur ce cas dégénéré.
+    const bailleur = resolveScope({ ent: 'E' }, parc);
+    ['M1', 'm1', ' M1 '].forEach(qui => {
+      const somme = vues.reduce((s, v) => s + scopeWeight(v, { qui }), 0);
+      expect(somme).toBe(scopeWeight(bailleur, { qui }));
+    });
+  });
+
   it('le poids reste dans [0,1] pour tout mouvement', () => {
     const mvts = [{ qui: 'A1' }, { qui: 'SCI:SCI Alpha' }, { qui: '', imm: 'Lilas' }, { qui: 'zz' }];
     [all, alpha, lilas].forEach(s => mvts.forEach(m => {
@@ -289,9 +342,70 @@ describe('finances-scope — poids d\'un MOUVEMENT (fonction unique, P-3 / C7)',
     }));
   });
 
-  it('Σ des vues immeuble = vue bailleur pour un frais SCI (invariant P-4 amorcé)', () => {
-    const parts = ['Lilas', 'Roses']
-      .map(i => scopeWeight(resolveScope({ ent: 'SCI Alpha', imm: i }, LOGEMENTS), { qui: 'SCI:SCI Alpha' }));
-    expect(parts.reduce((a, b) => a + b, 0)).toBeCloseTo(scopeWeight(alpha, { qui: 'SCI:SCI Alpha' }), 10);
+  // INVARIANT P-4 — le test itère les vues RÉELLEMENT proposées par le catalogue (paniers
+  // « Sans immeuble » COMPRIS). Le coder en dur (['Lilas','Roses']) l'avait rendu aveugle au
+  // double comptage des frais SCI dans le panier (audit C1).
+  it('Σ des vues immeuble du catalogue = vue bailleur, pour un frais SCI (invariant P-4)', () => {
+    const cat = buildScopeCatalog(LOGEMENTS);
+    cat.entites.forEach(e => {
+      const vueBailleur = scopeWeight(resolveScope({ ent: e.key }, LOGEMENTS), { qui: 'SCI:' + e.key });
+      const somme = e.immeubles.reduce((s, i) =>
+        s + scopeWeight(resolveScope({ ent: e.key, imm: i.key }, LOGEMENTS), { qui: 'SCI:' + e.key }), 0);
+      expect(somme).toBeCloseTo(vueBailleur, 10);
+    });
+  });
+
+  it('C1 : le panier « Sans immeuble » ne réencaisse PAS les frais SCI (poids 0)', () => {
+    const panier = resolveScope({ ent: 'SCI Alpha', imm: SANS_IMMEUBLE }, LOGEMENTS);
+    expect(panier.sciWeight).toBe(0);
+    expect(scopeWeight(panier, { qui: 'SCI:SCI Alpha' })).toBe(0);
+    // ... alors que les lots du panier, eux, restent bien visibles.
+    expect(scopeWeight(panier, { qui: 'A4' })).toBe(1);
+  });
+
+  it('C1 : le détail des vues du catalogue (0,5 · 0,5 · 0) somme bien à 1', () => {
+    const alphaCat = buildScopeCatalog(LOGEMENTS).entites.find(e => e.key === 'SCI Alpha');
+    const poids = alphaCat.immeubles.map(i =>
+      scopeWeight(resolveScope({ ent: 'SCI Alpha', imm: i.key }, LOGEMENTS), { qui: 'SCI:SCI Alpha' }));
+    expect(poids).toEqual([0.5, 0.5, 0]);
+  });
+});
+
+// ── I5 · INSTRUMENTATION (aucun calcul modifié) ────────────────────────────────
+// Constat remonté à l'arbitrage produit : de l'argent visible au cran « Tout » est invisible
+// dans TOUS les sous-périmètres (parité exacte avec la prod). Ce compteur le MESURE ; il ne
+// tranche rien et n'entre dans aucun total.
+describe('finances-scope — compteur d\'orphelins (I5, mesure seulement)', () => {
+  const MVTS = [
+    { date: '2026-01-05', qui: 'A1', cr: 800, db: 0 },            // rattaché
+    { date: '2026-01-06', qui: '', imm: 'Lilas', cr: 0, db: 120 }, // niveau immeuble connu
+    { date: '2026-01-07', qui: 'SCI:SCI Alpha', cr: 0, db: 300 },  // frais bailleur
+    { date: '2026-01-08', qui: '', imm: '', cr: 0, db: 50 },       // ORPHELIN : ni lot ni immeuble
+    { date: '2026-01-09', qui: 'DISPARU', cr: 200, db: 0 },        // ORPHELIN : lot inconnu/supprimé
+    { date: '2026-01-10', qui: 'X9', cr: 90, db: 0 },              // ORPHELIN : lot tombstone
+    { date: '2026-01-11', qui: 'ZZ', cr: 10, db: 0, _deleted: true } // mvt supprimé : ignoré
+  ];
+
+  it('compte les mouvements qu\'aucun sous-périmètre ne peut voir, et leur montant', () => {
+    const o = orphelinsHorsPerimetre(MVTS, LOGEMENTS);
+    expect(o.nb).toBe(3);
+    expect(o.montant).toBe(340);                 // 50 + 200 + 90
+    expect(o.refsInconnues).toEqual(['DISPARU', 'X9']);
+  });
+
+  it('cohérent avec scopeWeight : ces mouvements pèsent 1 au cran Tout et 0 partout ailleurs', () => {
+    const tout = resolveScope({}, LOGEMENTS);
+    const sousPerimetres = buildScopeCatalog(LOGEMENTS).entites
+      .map(e => resolveScope({ ent: e.key }, LOGEMENTS));
+    MVTS.filter(m => !m._deleted && ['', 'DISPARU', 'X9'].includes(m.qui) && !m.imm).forEach(m => {
+      expect(scopeWeight(tout, m)).toBe(1);
+      sousPerimetres.forEach(s => expect(scopeWeight(s, m)).toBe(0));
+    });
+  });
+
+  it('parc sain → aucun orphelin', () => {
+    expect(orphelinsHorsPerimetre([{ date: '2026-01-05', qui: 'A1', cr: 800, db: 0 }], LOGEMENTS))
+      .toEqual({ nb: 0, montant: 0, refsInconnues: [] });
+    expect(orphelinsHorsPerimetre(null, null)).toEqual({ nb: 0, montant: 0, refsInconnues: [] });
   });
 });
