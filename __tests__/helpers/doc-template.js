@@ -97,7 +97,12 @@ export function docCss() {
 .pro-doc .pro-pied{margin-top:6mm;padding-top:2.5mm;border-top:.2mm solid ${T.FILET};display:flex;justify-content:space-between;gap:6mm;font-size:7.5pt;color:${T.GRIS_PIED}}
 .pro-doc .pro-pied .ref{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;letter-spacing:.06em}
 .pro-doc .pro-alerte{border-radius:2.5mm;padding:3mm 4mm;margin:0 0 6mm;font-size:9.5pt;line-height:1.45}
-@media print{.pro-doc .no-print{display:none}}`.trim();
+@media print{.pro-doc .no-print{display:none}}`
+    // AUDIT M4 — le générateur de mirror IIFE ré-indente tout le corps des fonctions de deux
+    // espaces, littéral gabarit compris : sans ce nettoyage, window.DocTemplate.docCss() rend
+    // des règles décalées là où le module ES n'en met pas. Sans conséquence en CSS, mais deux
+    // sorties divergentes pour une même source, ce n'est pas une source unique.
+    .replace(/^[ \t]+/gm, '').trim();
 }
 
 /** La feuille de style prête à insérer dans un fragment injecté par innerHTML. */

@@ -78,6 +78,13 @@ describe('doc-template — la feuille de style est scopée', () => {
     expect(css).not.toMatch(/(^|\n)\s*(body|html|\*)\s*\{/);
   });
 
+  it('aucune règle n’est indentée — le mirror IIFE doit rendre le MÊME texte', () => {
+    // AUDIT M4 : tools/sync-helpers-global-mirrors.mjs ré-indente le corps des fonctions ;
+    // docCss() renormalise pour que module ES et mirror rendent caractère pour caractère.
+    const css = docCss();
+    expect(css.split('\n').every(l => !/^[ \t]/.test(l))).toBe(true);
+  });
+
   it('docStyleTag emballe la feuille dans une balise style fermée', () => {
     const tag = docStyleTag();
     expect(tag.startsWith('<style>')).toBe(true);
