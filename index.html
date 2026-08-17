@@ -49324,13 +49324,19 @@ function _bankImportFirstImportConfirm(format) {
   _bankImportFinalizePreview(filtered, format, banner);
 }
 
-// v15.162 — Étape finale commune : matching heuristique + dédup heuristique (filet) + render.
+// Étape finale commune : règles → propositions → dédup → rendu.
+// R-B v2 — TROIS ÉTATS : une RÈGLE (validée par l'utilisateur) classe automatiquement
+// et part dans « Reconnus » ; une PROPOSITION (✨) est TOUJOURS soumise et reste dans
+// « À compléter » même complète ; le reste est à classer.
 function _bankImportFinalizePreview(lines, format, prefixHtml) {
-  const ctx = { baux: DB.baux || {} };
+  // ⑦.5 c — le dû comparé est celui du MOIS DU RELEVÉ : on passe le résolveur unique
+  // de l'app (_duMoisLot → duMoisFromRaw), jamais le loyer d'aujourd'hui.
+  const ctx = {
+    baux: DB.baux || {},
+    duMois: (typeof _duMoisLot === 'function') ? ((ref, ym) => _duMoisLot(ref, ym)) : null,
+  };
   lines.forEach(line => {
-    // V3-REFONTE-LOYERS Phase 3 : les RÈGLES utilisateur d'abord (déterministe, classement complet
-    // cat + affectation qui/imm/compteur), sinon la proposition heuristique (cat + qui seulement).
-    // Avant, le nouvel import ignorait totalement DB.importRules → l'éditeur de règles était sans effet.
+    // Les RÈGLES de l'utilisateur d'abord (déterministe), sinon une PROPOSITION.
     if (!_bankApplyRule(line)) {
       const m = window._bankMatchHeuristic(line, ctx);
       line.suggestedCat = m.cat || '';
@@ -49340,6 +49346,9 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
       line.confidence   = m.confidence || 0;
       line.matchSource  = m.source || '';
       line._byRule      = false;
+      // ⑦.5 b — proposition ambiguë : les candidats sont exposés, aucun gagnant.
+      line._ambiguous   = !!m.ambiguous;
+      line._candidates  = (m.candidates && m.candidates.length > 1) ? m.candidates : null;
     }
     // V3-REFONTE-LOYERS Phase 4 : détecte un relevé de gérance (1 virement agrégeant plusieurs loyers − frais)
     // → on proposera de le découper (split multi-sens). Accent-insensible.
@@ -50031,6 +50040,9 @@ function _bankLineRow(i) {
   const nRules = line._ruleConflicts ? Math.max(...line._ruleConflicts.map(c => c.rules.length)) : 0;
   const ruleConflictChip = nRules
     ? '<span class="bimp-chip todo" title="Plusieurs règles donnent des valeurs différentes — choisis dans la fenêtre">⚠ ' + nRules + ' règles possibles</span>' : '';
+  // ⑦.5 b — proposition ambiguë : on le dit dans la liste, on choisit dans la fenêtre.
+  const ambChip = line._ambiguous
+    ? '<span class="bimp-chip todo" title="' + escHtml(line.matchSource || '') + '">⚠ ' + ((line._candidates || []).length) + ' locataires possibles</span>' : '';
   return `<div class="bimp-row ${isCr ? 'cr' : 'db'}" onclick="_bankOpenMvWindow(${i})">
       <span class="bimp-ic">${icon}</span>
       <div class="bimp-mid">
@@ -50038,7 +50050,7 @@ function _bankLineRow(i) {
           <span class="bimp-lib" title="${escHtml(line.libelle)}">${escHtml(line.libelle)}</span>
           <span class="bimp-amt ${isCr ? 'cr' : 'db'}">${sign}${fmt(amount)}</span>
         </div>
-        <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}${conflitChip}${ruleConflictChip}</div>
+        <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}${conflitChip}${ruleConflictChip}${ambChip}</div>
       </div>
       <span class="bimp-trash" onclick="event.stopPropagation();_bankExcludeLine(${i})" title="Ne pas importer cette ligne">🗑</span>
       <span class="bimp-go">›</span>
@@ -50116,6 +50128,50 @@ function _bankPickRule(i, ruleIdx, field) {
   _bankUpdateCounts();
 }
 
+// ⑦.5 — Le bandeau « proposition » : ce que l'app a cru comprendre, et POURQUOI.
+// R-B v2 : une proposition n'applique jamais rien seule — elle est soumise, avec
+// l'écart au dû du mois affiché, et les candidats quand plusieurs lots correspondent
+// (jamais de gagnant arbitraire par ordre des clés).
+function _bankProposPanelHtml(i) {
+  const line = _bankImportLines[i]; if (!line) return '';
+  if (line._byRule || line._ruleConflicts) return '';       // le bandeau règles a déjà parlé
+  if (!line.matchSource && !line._candidates) return '';
+  const cands = line._candidates || [];
+  const rows = cands.map(c => {
+    const ecart = (c.ecart == null) ? '' : (Math.abs(c.ecart) < 1 ? 'montant exact'
+      : (c.ecart > 0 ? 'avance de ' + fmt(c.ecart) : 'reste ' + fmt(-c.ecart)));
+    return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 9px;border:1px solid var(--bor);border-radius:8px;margin-bottom:4px;font-size:12px;background:var(--sur,#fff)">'
+      + '<b>' + escHtml(c.ref) + '</b>'
+      + (c.nom ? '<span class="mu sm">' + escHtml(c.nom) + '</span>' : '')
+      + (c.ancien ? '<span class="mu sm" style="color:var(--ora)">ancien locataire</span>' : '')
+      + '<span style="flex:1"></span>'
+      + (c.du > 0 ? '<span class="mu sm">dû du mois ' + fmt(c.du) + (ecart ? ' · ' + ecart : '') + '</span>' : '')
+      + '<button class="btn bs" style="font-size:11px" onclick="_bankPickCandidate(' + i + ',\'' + escHtml(c.ref) + '\')">Choisir</button>'
+      + '</div>';
+  }).join('');
+  const amb = line._ambiguous;
+  return '<div style="background:' + (amb ? 'var(--amb-bg,#fff8e6)' : 'var(--sur2,#f5f8fc)') + ';border:1px solid ' + (amb ? 'var(--amb,#d97706)' : 'var(--bor)') + ';border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px">'
+    + '<b>✨ ' + (amb ? ((line._candidates || []).length + ' locataires possibles — à toi de choisir') : 'Proposition') + '</b>'
+    + (amb ? '' : '<span class="mu sm" style="margin-left:6px">' + escHtml(line.matchSource || '') + '</span>')
+    + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">C\'est une proposition, pas un classement : elle attend ta validation.</div>'
+    + (rows ? '<div style="margin-top:7px">' + rows + '</div>' : '')
+    + '</div>';
+}
+
+// Choisir un candidat de proposition ambiguë : on applique le lot retenu à CETTE ligne.
+function _bankPickCandidate(i, ref) {
+  const line = _bankImportLines[i]; if (!line) return;
+  line.suggestedQui = ref;
+  line.suggestedImm = '';
+  line.suggestedCc = '';
+  if (!line.suggestedCat) line.suggestedCat = 'Loyers encaissés';
+  line._ambiguous = false;
+  line._candidates = null;
+  line._userEdited = true;
+  if (_bankMvIdx === i) _bankWalkRender(); else _bankRenderReviewBody();
+  _bankUpdateCounts();
+}
+
 function _bankLineAffEditor(i) {
   const line = _bankImportLines[i];
   // V3 Phase 4 — ligne découpée (relevé de gérance / virement composite) : on montre le découpage en lecture + ré-éditer.
@@ -50133,6 +50189,7 @@ function _bankLineAffEditor(i) {
   }
   return `
     ${_bankRulePanelHtml(i)}
+    ${_bankProposPanelHtml(i)}
     <div class="affv2-seg">
       <button type="button" class="on" onclick="return false"><span class="e">🎯</span><span class="lab">Affecter à un poste<small>1 mouvement = 1 destination</small></span></button>
       <button type="button" onclick="_bankSplitLine(${i})"><span class="e">✂️</span><span class="lab">Découper en lignes<small>plusieurs biens / locataires</small></span></button>
