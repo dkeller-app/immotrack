@@ -303,7 +303,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <input class="inp" type="date" id="mvf-from" onchange="rMv()" style="width:130px" title="Date début">
         <input class="inp" type="date" id="mvf-to" onchange="rMv()" style="width:130px" title="Date fin">
         <button class="btn bs bb" onclick="clearMvFilters()">✕ Reset</button>
-        <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer depuis un fichier CSV/OFX bancaire (Crédit Mutuel, BNP, SG, LCL, CA…)">🏦 Importer banque</button>
+        <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)">🏦 Importer banque</button>
         <button class="btn bs bb" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo">🏦 Mes comptes</button>
         <button class="btn bp" onclick="openNewMv()" style="margin-left:auto">+ Mouvement</button>
       </div>
@@ -3853,6 +3853,10 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script src="js/helpers/fil-rouge-conductor.global.js"></script>
 <!-- Fil rouge COMPLET — rapprochement immeuble par adresse canon (import d'acte) -->
 <script src="js/helpers/acte-rapprochement.global.js"></script>
+<!-- IMPORT BANCAIRE — mirror généré depuis js/core/bank-import.js.
+     Remplace la RÉPLIQUE INLINE des helpers _bank* qui vivait dans ce fichier
+     (bug 3 du CDC-IMPORT : moteur en double, divergence garantie à terme). -->
+<script src="js/helpers/bank-import.global.js"></script>
 <!-- BASCULE SUPABASE (P3) — config publique (clé anon ; RLS protège) + entrée sous interrupteur.
      INERTE par défaut sur l'app de tous les jours ; ne s'active QUE via un opt-in explicite. -->
 <script src="js/app/supabase-config.js"></script>
@@ -48960,191 +48964,11 @@ function _procedureSave() {
 // Tests Vitest : __tests__/helpers/bank-import.test.js (52 tests)
 // ════════════════════════════════════════════════════════════════════════════
 
-// Shadow inline des helpers bank-import (réplique de js/core/bank-import.js)
-if (typeof window._bankParseCSV !== 'function') {
-  window._bankParseCSV = function(text) {
-    if (!text || typeof text !== 'string') return { headers:[], rows:[], delimiter:',' };
-    const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim().length > 0);
-    if (!lines.length) return { headers:[], rows:[], delimiter:',' };
-    const first = lines[0];
-    const counts = { ';': (first.match(/;/g)||[]).length, ',': (first.match(/,/g)||[]).length, '\t': (first.match(/\t/g)||[]).length };
-    const delimiter = counts[';'] >= counts[','] && counts[';'] >= counts['\t'] ? ';' : counts['\t'] > counts[','] ? '\t' : ',';
-    const parseRow = (line) => {
-      const out = []; let cur = '', inQuotes = false;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (ch === '"' && line[i+1] === '"' && inQuotes) { cur += '"'; i++; continue; }
-        if (ch === '"') { inQuotes = !inQuotes; continue; }
-        if (ch === delimiter && !inQuotes) { out.push(cur); cur = ''; continue; }
-        cur += ch;
-      }
-      out.push(cur);
-      return out.map(s => s.trim());
-    };
-    return { headers: parseRow(lines[0]), rows: lines.slice(1).map(parseRow), delimiter };
-  };
-
-  window._bankAutoDetectColumns = function(headers) {
-    const out = { date:-1, libelle:-1, debit:-1, credit:-1, montant:-1, solde:-1 };
-    if (!Array.isArray(headers)) return out;
-    headers.forEach((h, i) => {
-      const k = String(h || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-      if (out.date === -1 && /^(date|date op|date operation|date de valeur|valeur|trans date)/i.test(k)) out.date = i;
-      if (out.libelle === -1 && /^(libell|libelle|description|details|trans desc|memo|narrative|nature)/i.test(k)) out.libelle = i;
-      if (out.debit === -1 && /^(debit|montant debit|sortie|debit eur)/i.test(k)) out.debit = i;
-      if (out.credit === -1 && /^(credit|montant credit|entree|credit eur)/i.test(k)) out.credit = i;
-      if (out.montant === -1 && /^(montant|amount|trans amount|montant eur|valeur eur)$/i.test(k)) out.montant = i;
-      if (out.solde === -1 && /^(solde|balance|solde eur|running balance)/i.test(k)) out.solde = i;
-    });
-    return out;
-  };
-
-  window._bankParseAmount = function(s) {
-    if (s == null || s === '') return 0;
-    let v = String(s).replace(/[\s€$£]/g, '').trim();
-    const lastComma = v.lastIndexOf(','), lastDot = v.lastIndexOf('.');
-    if (lastComma >= 0 && lastDot >= 0) {
-      if (lastComma > lastDot) v = v.replace(/\./g,'').replace(',','.');
-      else                      v = v.replace(/,/g,'');
-    } else if (lastComma >= 0) {
-      if (/,\d{1,2}$/.test(v)) v = v.replace(',','.');
-      else                      v = v.replace(/,/g,'');
-    }
-    const n = parseFloat(v);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  window._bankParseDate = function(s) {
-    if (!s) return '';
-    const str = String(s).trim();
-    let m = str.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-    m = str.match(/^(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{4})/); if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-    m = str.match(/^(\d{4})(\d{2})(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-    m = str.match(/^(\d{2})[\/\-\.](\d{2})[\/\-\.](\d{2})$/); if (m) return `20${m[3]}-${m[2]}-${m[1]}`;
-    return '';
-  };
-
-  window._bankNormalizeCSV = function(parsed, cols) {
-    const out = [];
-    for (const r of (parsed.rows||[])) {
-      const date = cols.date >= 0 ? window._bankParseDate(r[cols.date]) : '';
-      if (!date) continue;
-      const libelle = cols.libelle >= 0 ? String(r[cols.libelle]||'').trim() : '';
-      let debit = 0, credit = 0;
-      if (cols.debit >= 0 || cols.credit >= 0) {
-        debit  = cols.debit  >= 0 ? Math.abs(window._bankParseAmount(r[cols.debit]))  : 0;
-        credit = cols.credit >= 0 ? Math.abs(window._bankParseAmount(r[cols.credit])) : 0;
-      } else if (cols.montant >= 0) {
-        const v = window._bankParseAmount(r[cols.montant]);
-        if (v >= 0) credit = v; else debit = -v;
-      }
-      if (debit === 0 && credit === 0) continue;
-      out.push({ date, libelle, debit, credit, signedAmount: credit - debit, raw: r });
-    }
-    return out;
-  };
-
-  window._bankParseOFX = function(text) {
-    if (!text || typeof text !== 'string') return [];
-    const out = [];
-    const tx = [...text.matchAll(/<STMTTRN>([\s\S]*?)(?:<\/STMTTRN>|<STMTTRN>|<\/BANKTRANLIST>)/gi)];
-    for (const m of tx) {
-      const body = m[1] || '';
-      const get = (tag) => {
-        const x = body.match(new RegExp(`<${tag}>([^<\\r\\n]*)`, 'i'));
-        return x ? x[1].trim() : '';
-      };
-      const date = window._bankParseDate(get('DTPOSTED'));
-      if (!date) continue;
-      const val = window._bankParseAmount(get('TRNAMT'));
-      if (val === 0) continue;
-      out.push({
-        date,
-        libelle: [get('NAME'), get('MEMO')].filter(Boolean).join(' — ').trim(),
-        debit:  val < 0 ? -val : 0,
-        credit: val > 0 ?  val : 0,
-        signedAmount: val,
-        fitid: get('FITID'),
-        raw: body.slice(0, 200)
-      });
-    }
-    return out;
-  };
-
-  window._bankMatchHeuristic = function(line, ctx) {
-    const result = { cat: '', qui: '', confidence: 0, source: '' };
-    ctx = ctx || {};
-    if (!line || !line.libelle) return result;
-    const lib = String(line.libelle).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-    const baux = ctx.baux || {};
-    const tolerance = ctx.tolerance != null ? ctx.tolerance : 5;
-    if (line.credit > 0) {
-      for (const ref of Object.keys(baux)) {
-        const bail = baux[ref];
-        if (!bail || bail.cloture) continue;
-        const locNames = (bail.locataires||[{nom: bail.nom}])
-          .map(x => String(x.nom||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''))
-          .filter(Boolean);
-        const locWords = [];
-        locNames.forEach(n => n.split(/[\s\-']+/).forEach(w => { if (w.length >= 3) locWords.push(w); }));
-        const loyerAttendu = (Number(bail.hc)||0) + (Number(bail.ch)||0);
-        const nameMatched = locWords.some(w => lib.includes(w));
-        const amountClose = loyerAttendu > 0 && Math.abs(line.credit - loyerAttendu) < tolerance;
-        if (nameMatched && amountClose) return { cat:'Loyers encaissés', qui:ref, confidence:0.95, source:'Nom locataire + montant exact' };
-        if (nameMatched) return { cat:'Loyers encaissés', qui:ref, confidence:0.70, source:'Nom locataire (montant divergent)' };
-        if (amountClose && /vir|vrt|virement/i.test(lib)) return { cat:'Loyers encaissés', qui:ref, confidence:0.60, source:'Montant exact + VIR' };
-      }
-    }
-    // V3-REFONTE-LOYERS : noms EXACTS de STD_CATEGORIES (réplique de js/core/bank-import.js).
-    // Fix du bug 2044 : plus de catégories inexistantes (« Taxes foncières », « Intérêts d'emprunt »,
-    // « Frais de gérance, rémunérations », « Autres ») qui tombaient en nonMappes = sous-déclaration.
-    const KEYWORDS = [
-      { rx: /\b(assurance|axa|maaf|matmut|aviva|allianz|maif|groupama|gli)\b/i, cat: 'Primes d\'assurance (PNO, GLI)', confidence: 0.85, src: 'Mot-clé assurance' },
-      { rx: /\b(frais bancaires|tenue de compte|cotisation carte|frais de compte|commission d.intervention|abonnement compte)\b/i, cat: 'Frais bancaires', confidence: 0.72, src: 'Mot-clé frais bancaires (forfait 222)' },
-      { rx: /\b(peage|autoroute|aprr|sanef|carburant|essence|station service)\b/i, cat: 'Divers (non déductible)', confidence: 0.6, src: 'Mot-clé péage/carburant (forfait 222 → Divers)' },
-      { rx: /\b(edf|engie|eni|enedis|electric|electricite|gaz de france|gdf|veolia|saur|suez|sde|smede|eaux|chauffage)\b/i, cat: 'Charges récupérables (eau, énergie…)', confidence: 0.80, src: 'Mot-clé énergie/eau' },
-      { rx: /\b(syndic|copropriete|copro|charges copro|appel de fonds)\b/i, cat: 'Charges de copropriété', confidence: 0.90, src: 'Mot-clé syndic' },
-      { rx: /\b(travaux|renovation|reno|peinture|plombier|electricien|chauffagiste|menuisier|charpentier|carreleur|macon|serrurier)\b/i, cat: 'Travaux (entretien, réparation, amélioration)', confidence: 0.80, src: 'Mot-clé travaux' },
-      { rx: /\b(taxe fonciere|tf )/i, cat: 'Taxe foncière (et taxes annexes)', confidence: 0.92, src: 'Mot-clé TF' },
-      { rx: /\b(comptable|expert.comptable|comptabilite|cabinet comptable)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.78, src: 'Mot-clé comptable' },
-      { rx: /\b(emprunt|pret|credit immo|credit immobilier|amortissement|echeance pret)\b/i, cat: 'Prêt', confidence: 0.72, src: 'Mot-clé emprunt (échéance ; intérêts via attestation)' },
-      { rx: /\b(notaire|frais notaire)\b/i, cat: 'Acquisition / cession de bien', confidence: 0.70, src: 'Mot-clé notaire' },
-      { rx: /\b(honoraires|gerance|gestion locative|agence immo)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.72, src: 'Mot-clé gestion' },
-      { rx: /\b(dpe|diagnostic|geometre|huissier|avocat|expertise)\b/i, cat: 'Frais de gestion / honoraires / comptabilité', confidence: 0.7, src: 'Mot-clé procédure/diagnostic' }
-    ];
-    for (const k of KEYWORDS) {
-      if (k.rx.test(lib)) return { cat: k.cat, qui:'', confidence: k.confidence, source: k.src };
-    }
-    return { cat:'', qui:'', confidence:0, source:'Aucun match — à classifier manuellement' };
-  };
-
-  window._bankDedup = function(newLines, mouvementsExistants, options) {
-    options = options || {};
-    const toleranceDays = options.toleranceDays != null ? options.toleranceDays : 3;
-    const toleranceAmount = options.toleranceAmount != null ? options.toleranceAmount : 1;
-    const out = [];
-    for (const line of (newLines||[])) {
-      let isDuplicate = false, duplicateOf = '';
-      const lineMontant = line.credit > 0 ? line.credit : -line.debit;
-      const lineDate = new Date(line.date + 'T00:00:00').getTime();
-      for (const m of (mouvementsExistants||[])) {
-        if (!m || m._deleted) continue;
-        if (line.fitid && m.fitid && line.fitid === m.fitid) {
-          isDuplicate = true; duplicateOf = String(m.id); break;
-        }
-        if (!m.date) continue;
-        const mMontant = (m.cr||0) > 0 ? (m.cr||0) : -(m.db||0);
-        if (Math.abs(mMontant - lineMontant) > toleranceAmount) continue;
-        const mDate = new Date(m.date + 'T00:00:00').getTime();
-        const dayDiff = Math.abs((mDate - lineDate) / 86400000);
-        if (dayDiff > toleranceDays) continue;
-        isDuplicate = true; duplicateOf = String(m.id || '?'); break;
-      }
-      out.push({ ...line, isDuplicate, duplicateOf });
-    }
-    return out;
-  };
-}
+// ①.1 / bug 3 du CDC — les helpers _bank* (lecture OFX + Excel, dedup, compte,
+// reprise) viennent d'UNE SEULE source : js/core/bank-import.js, exposee ici par
+// js/helpers/bank-import.global.js (mirror genere, charge plus haut) et par
+// js/main.js en mode module. La replique inline qui vivait ici a ete SUPPRIMEE :
+// elle divergeait deja du module (dedup sans empreinte, libelle OFX tronque).
 
 let _bankImportLines = []; // lignes parsées + matchées + dédupliquées (état temporaire)
 // v15.161 BANK-IMPORT-V2 Phase B : compte bancaire courant + import en attente de choix de compte
@@ -49155,6 +48979,7 @@ function _bankImportOpen() {
   _bankImportLines = [];
   _currentBankAccount = null;
   _pendingBankImport = null;
+  _bankRead = null; _bankPendingSheets = null; _bankRecapOpen = false; _bankDiscardedOpen = false;
   // v15.78 BUG-BANK-IMPORT-DEDUP : migration paresseuse des fingerprints sur
   // mouvements legacy (OFX avec fitid uniquement — CSV legacy = fallback à
   // l'import). Idempotent : pas de recalcul si déjà migré.
@@ -49169,11 +48994,12 @@ function _bankImportOpen() {
     body.innerHTML = `
       <div id="bank-import-intro">
         <div class="mu sm" style="line-height:1.6;margin-bottom:14px">
-          Importez un export <strong>CSV</strong> ou <strong>OFX</strong> depuis votre banque.
-          Compatible avec Crédit Mutuel, BNP, SG, LCL, Crédit Agricole, Boursorama, etc.
-          Les transactions seront analysées automatiquement et les loyers détectés par matching nom + montant.
+          Importe un relevé <strong>OFX</strong> (le format le plus fiable — ta banque y met la date,
+          le montant signé et un identifiant unique par opération) ou un fichier <strong>Excel</strong> (.xlsx / .xls).
+          Compatible Crédit Mutuel, BNP, SG, LCL, Crédit Agricole, Boursorama…
+          Propryo lit le fichier, te montre ce qu'il a compris, et te laisse tout corriger avant d'importer.
         </div>
-        <input class="inp" type="file" id="bank-import-file" accept=".csv,.ofx,.qfx,.txt" onchange="_bankImportFileLoaded(event)" style="margin-bottom:14px">
+        <input class="inp" type="file" id="bank-import-file" accept=".ofx,.qfx,.xlsx,.xls" onchange="_bankImportFileLoaded(event)" style="margin-bottom:14px">
       </div>
       <div id="bank-import-preview" style="font-size:13px"></div>
     `;
@@ -49183,83 +49009,186 @@ function _bankImportOpen() {
 
 // V3-REFONTE-LOYERS C : revenir au sélecteur de fichier depuis le récap (« Changer de fichier »).
 function _bankImportChangeFile() {
+  _bankRead = null; _bankPendingSheets = null; _bankRecapOpen = false; _bankDiscardedOpen = false;
   const intro = el('bank-import-intro'); if (intro) intro.style.display = '';
   const prev = el('bank-import-preview'); if (prev) prev.innerHTML = '';
   const f = el('bank-import-file'); if (f) { f.value = ''; f.click(); }
 }
+// ─── ①/② LECTURE DU FICHIER — OFX ou Excel, reconnus par leur SIGNATURE ───────
+// Le lecteur CSV a été retiré (①.1) : format libre, illisible pour l'utilisateur, à
+// l'origine de la totalité des bugs de lecture — un CSV mal lu n'échoue pas
+// franchement, il importe des montants faux sans le dire.
+// `_bankRead` porte le RÉCAPITULATIF DE LECTURE (③.1) : feuille retenue, date
+// retenue, orientation et ce qui l'a prouvée, lignes écartées avec leur motif.
+let _bankRead = null;          // { lines, discarded, meta, sheets, sheetName }
+let _bankPendingSheets = null; // ①.4 : feuilles candidates quand plusieurs correspondent
+
 function _bankImportFileLoaded(e) {
   const f = e.target.files && e.target.files[0];
   if (!f) return;
   _bankImportFileName = f.name;
-  if (f.size > 5 * 1024 * 1024) { // 5 MB max
-    showToast('Fichier trop lourd (max 5 MB)', 'err'); return;
-  }
+  _bankRead = null; _bankPendingSheets = null;
+  const maxSize = (typeof window._BANK_MAX_FILE_SIZE === 'number') ? window._BANK_MAX_FILE_SIZE : 5 * 1024 * 1024;
+  if (f.size > maxSize) { showToast('Fichier trop lourd (max 5 Mo)', 'err'); return; }
   const reader = new FileReader();
-  reader.onload = ev => {
-    // v15.165 BUG-CSV-ENCODING : auto-détection UTF-8 vs Windows-1252.
-    // Les exports CIC/Crédit Mutuel/BP/SG sont souvent en Windows-1252 (latin1),
-    // les exports BNP/Boursorama/N26 en UTF-8. Sans auto-détection, les accents
-    // des en-têtes (Débit/Crédit/Libellé) sont mangled → 0 colonne reconnue → 0 ligne.
-    // Stratégie : UTF-8 fatal first (throw si invalide) → fallback windows-1252.
-    let text;
-    const buf = ev.target.result;
-    try {
-      text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
-    } catch (err) {
-      // Séquence UTF-8 invalide → presque toujours du Windows-1252 (banques FR legacy)
-      try {
-        text = new TextDecoder('windows-1252').decode(buf);
-      } catch (err2) {
-        // Très vieux browsers sans windows-1252 → UTF-8 non-fatal (mieux que rien)
-        text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
-      }
-    }
-    let lines = [];
-    let format = '';
-    let identifier = null;
-    let hint = null;            // suggère un label par défaut pour création de compte
-    // Détection OFX vs CSV
-    if (/<OFX>|<STMTTRN>|OFXHEADER/i.test(text.slice(0, 500))) {
-      format = 'OFX';
-      if (typeof window._bankParseOFX !== 'function') { showToast('Module bank-import non chargé', 'err'); return; }
-      lines = window._bankParseOFX(text);
-      // v15.161 BANK-IMPORT-V2 Phase B : extraire ACCTID/BANKID pour identifier le compte
-      const acc = (typeof window._bankExtractOFXAccount === 'function') ? window._bankExtractOFXAccount(text) : null;
-      if (acc) {
-        identifier = acc.identifier;
-        const typeLabel = acc.acctType ? acc.acctType.toLowerCase() : 'compte';
-        hint = { label: 'Compte ' + typeLabel + ' ' + acc.acctId, bankId: acc.bankId, acctId: acc.acctId };
-      }
-    } else {
-      format = 'CSV';
-      const parsed = window._bankParseCSV(text);
-      const cols = window._bankAutoDetectColumns(parsed.headers);
-      lines = window._bankNormalizeCSV(parsed, cols);
-      if (!lines.length && parsed.rows.length > 0) {
-        showToast(`Détection auto échouée. En-têtes : ${parsed.headers.join(', ')}`, 'warn', 6000);
-      }
-      // v15.161 BANK-IMPORT-V2 Phase B : hash des en-têtes CSV = identifiant de schéma
-      if (typeof window._bankCsvHeaderHash === 'function') identifier = window._bankCsvHeaderHash(parsed);
-      hint = { label: f.name.replace(/\.[^.]+$/, '') };
-    }
-    if (!lines.length) {
-      const preview = el('bank-import-preview');
-      if (preview) preview.innerHTML = `<div style="padding:14px;background:#fee2e2;border:1px solid #dc2626;border-radius:var(--rl);color:#7f1d1d">Aucune transaction trouvée. Vérifiez le format (CSV avec colonnes Date/Libellé/Débit/Crédit, ou OFX standard).</div>`;
-      return;
-    }
-    // v15.161 BANK-IMPORT-V2 Phase B : cherche le compte associé à cet identifiant
-    const known = identifier ? (DB.params.bankAccounts || []).find(a => a && Array.isArray(a.identifiers) && a.identifiers.includes(identifier)) : null;
-    if (known) {
-      _currentBankAccount = known;
-      _bankImportRunPreview(lines, format);
-    } else {
-      _pendingBankImport = { lines, format, identifier, hint };
-      _bankImportRenderAccountSelect(identifier, format, hint);
-    }
-  };
   reader.onerror = () => showToast('Erreur lecture fichier', 'err');
-  // v15.165 : lecture en ArrayBuffer pour détection encodage robuste (cf onload)
+  reader.onload = ev => {
+    const buf = ev.target.result;
+    const bytes = new Uint8Array(buf);
+    const det = (typeof window._bankDetectFormat === 'function')
+      ? window._bankDetectFormat(bytes, f.name) : { format: 'unknown', reason: 'module non chargé' };
+    if (det.format === 'ofx') { _bankLoadOFX(buf, f); return; }
+    if (det.format === 'xlsx' || det.format === 'xls') { _bankLoadSheet(buf, f); return; }
+    _bankImportRefuseFile(f, det);
+  };
   reader.readAsArrayBuffer(f);
+}
+
+// ①.5 — Message d'échec réécrit pour le nouveau périmètre : on dit quoi faire.
+function _bankImportRefuseFile(f, det) {
+  const preview = el('bank-import-preview');
+  const intro = el('bank-import-intro'); if (intro) intro.style.display = 'none';
+  if (!preview) return;
+  preview.innerHTML = '<div style="padding:16px;background:rgba(220,38,38,.08);border:1px solid #dc2626;border-radius:var(--rl);color:var(--t1);line-height:1.6">'
+    + '<b style="font-size:14px">Ce fichier n&rsquo;est pas un relev&eacute; que Propryo sait lire</b><br>'
+    + '<span class="mu sm">' + escHtml((f && f.name) || '') + ' &mdash; ' + escHtml((det && det.reason) || '') + '</span>'
+    + '<div style="margin-top:10px">Exporte ton relev&eacute; en <b>OFX</b> depuis ta banque (le format le plus fiable : '
+    + 'la banque y met la date, le montant sign&eacute; et un identifiant unique par op&eacute;ration), '
+    + 'ou enregistre-le en <b>.xlsx</b>.</div>'
+    + '<div class="mu sm" style="margin-top:8px;font-size:11.5px">Le CSV n&rsquo;est plus accept&eacute; : format libre, '
+    + 'dont la lecture &eacute;choue sans le dire (montants invers&eacute;s, colonnes d&eacute;cal&eacute;es).</div>'
+    + '<div style="margin-top:12px"><button class="btn bs" onclick="_bankImportChangeFile()">&#10227; Choisir un autre fichier</button></div></div>';
+}
+
+function _bankDecodeText(buf) {
+  // v15.165 BUG-CSV-ENCODING : auto-détection UTF-8 vs Windows-1252. Les exports
+  // CIC/Crédit Mutuel/BP/SG sont souvent en Windows-1252 (l'OFX SGML français en a
+  // besoin, ①.3), les exports BNP/Boursorama/N26 en UTF-8.
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+  catch (err) {
+    try { return new TextDecoder('windows-1252').decode(buf); }
+    catch (err2) { return new TextDecoder('utf-8', { fatal: false }).decode(buf); }
+  }
+}
+
+function _bankLoadOFX(buf, f) {
+  const text = _bankDecodeText(buf);
+  const read = window._bankReadOFX(text);
+  read.sheetName = '';
+  _bankRead = read;
+  let identifier = null, hint = { label: String(f.name || '').replace(/\.[^.]+$/, '') };
+  const acc = window._bankExtractOFXAccount ? window._bankExtractOFXAccount(text) : null;
+  if (acc) {
+    identifier = acc.identifier;
+    hint = { label: 'Compte ' + (acc.acctType ? acc.acctType.toLowerCase() : 'bancaire') + ' ' + acc.acctId, bankId: acc.bankId, acctId: acc.acctId };
+  }
+  _bankAfterRead('OFX', identifier, hint);
+}
+
+function _bankLoadSheet(buf, f) {
+  if (typeof XLSX === 'undefined') { showToast('Lecteur Excel non chargé', 'err'); return; }
+  let wb;
+  try { wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }); }
+  catch (err) { _bankImportRefuseFile(f, { reason: 'fichier Excel illisible (' + ((err && err.message) || 'erreur') + ')' }); return; }
+  const sheets = (wb.SheetNames || []).map(n => ({
+    name: n,
+    rows: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '', raw: true, blankrows: true }),
+  }));
+  const picked = window._bankPickSheets(sheets).filter(s => s.isCandidate);
+  if (!picked.length) {
+    _bankImportRefuseFile(f, { reason: 'aucune feuille ne contient une colonne de dates et une colonne de montants' });
+    return;
+  }
+  if (picked.length > 1) {
+    // ①.4 — plusieurs feuilles correspondent : on affiche leur nom et le nombre de
+    // lignes, l'utilisateur choisit. Une seule → aucune question.
+    _bankPendingSheets = { sheets, picked };
+    _bankRenderSheetChoice();
+    return;
+  }
+  _bankUseSheet(sheets, picked[0].name, false);
+}
+
+function _bankRenderSheetChoice() {
+  const preview = el('bank-import-preview'); if (!preview || !_bankPendingSheets) return;
+  const intro = el('bank-import-intro'); if (intro) intro.style.display = 'none';
+  const opts = _bankPendingSheets.picked.map((s, i) => '<label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--bor);border-radius:6px;cursor:pointer;background:var(--sur2);margin-bottom:6px">'
+    + '<input type="radio" name="bkSheet" value="' + escHtml(s.name) + '"' + (i === 0 ? ' checked' : '') + '>'
+    + '<span style="flex:1"><b>' + escHtml(s.name) + '</b> <span class="mu sm">&mdash; ' + s.nRows + ' mouvement(s)</span></span></label>').join('');
+  preview.innerHTML = '<div style="padding:12px;background:rgba(59,126,246,.08);border:1px solid #3b7ef6;border-radius:8px;margin-bottom:12px;font-size:13px">'
+    + '<b>Ce classeur contient plusieurs feuilles de mouvements</b><br><span class="mu sm">Laquelle veux-tu importer ?</span></div>'
+    + opts
+    + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn bp" onclick="_bankConfirmSheet()">Continuer &rarr;</button></div>';
+}
+
+function _bankConfirmSheet() {
+  if (!_bankPendingSheets) return;
+  const r = document.querySelector('input[name=bkSheet]:checked');
+  if (!r) { showToast('Choisis une feuille', 'warn'); return; }
+  _bankUseSheet(_bankPendingSheets.sheets, r.value, false);
+}
+
+function _bankUseSheet(sheets, name, invert) {
+  const sh = sheets.find(s => s.name === name); if (!sh) return;
+  const read = window._bankReadTable(sh.rows, { sheetName: name, invert: !!invert });
+  if (!read.ok) {
+    _bankImportRefuseFile({ name: name }, { reason: read.error || 'aucun mouvement lisible dans cette feuille' });
+    return;
+  }
+  read.sheets = sheets; read.sheetName = name; read.invert = !!invert;
+  _bankRead = read;
+  _bankPendingSheets = null;
+  const acc = window._bankExtractSheetAccount ? window._bankExtractSheetAccount(sh.rows, read.meta.headerRow) : null;
+  _bankAfterRead('Excel', acc ? acc.identifier : null, { label: String(_bankImportFileName || '').replace(/\.[^.]+$/, '') });
+}
+
+// ③.5 — « ⇄ Les montants sont inversés » : corrige TOUT d'un coup, et se défait.
+// On retourne les lignes DÉJÀ chargées (et l'empreinte qui va avec) plutôt que de
+// relire le fichier : l'utilisateur reste exactement où il en est de sa revue, sans
+// repasser par le choix de compte ni par l'écran de premier import.
+function _bankToggleInvert() {
+  if (!_bankRead) return;
+  if (_bankRead.meta.source === 'ofx') { showToast('Un relevé OFX porte le signe donné par la banque — rien à inverser', 'warn', 4500); return; }
+  const flip = (l) => {
+    if (!l) return;
+    const d = l.debit || 0, c = l.credit || 0;
+    l.debit = c; l.credit = d; l.signedAmount = (l.credit || 0) - (l.debit || 0);
+    l._fingerprint = window._bankFingerprintRow(l.date || '', l.signedAmount, l.libelle || '');
+  };
+  (_bankRead.lines || []).forEach(flip);
+  (_bankImportLines || []).forEach(flip);
+  _bankRead.invert = !_bankRead.invert;
+  if (_bankRead.meta && _bankRead.meta.balance) _bankRead.meta.balance.inverted = _bankRead.invert;
+  // Le sens ayant changé, les propositions et les doublons doivent être recalculés.
+  if (_bankImportLines && _bankImportLines.length) {
+    _bankImportFinalizePreview(_bankImportLines.map(l => { const { isDuplicate, duplicateOf, duplicateReason, ...rest } = l; return rest; }), _bankReviewFmt, '');
+  } else {
+    _bankImportRenderPreview(_bankReviewFmt, '');
+  }
+  showToast(_bankRead.invert ? '⇄ Montants inversés' : '⇄ Inversion annulée', 'ok', 2500);
+}
+
+// Après lecture : reconnaissance du compte, puis reprise / premier import.
+function _bankAfterRead(format, identifier, hint) {
+  const read = _bankRead;
+  if (!read || !read.lines.length) {
+    const preview = el('bank-import-preview');
+    const intro = el('bank-import-intro'); if (intro) intro.style.display = 'none';
+    if (preview) preview.innerHTML = '<div style="padding:14px;background:rgba(220,38,38,.08);border:1px solid #dc2626;border-radius:var(--rl)">'
+      + '<b>Aucun mouvement trouvé dans ce fichier.</b>'
+      + ((read && read.discarded.length) ? '<div class="mu sm" style="margin-top:6px">' + read.discarded.length + ' ligne(s) écartée(s) — ' + escHtml(read.discarded[0].reason) + '</div>' : '')
+      + '</div>';
+    return;
+  }
+  if (_currentBankAccount) { _bankImportRunPreview(read.lines, format); return; }
+  const known = identifier ? (DB.params.bankAccounts || []).find(a => a && !a._deleted && Array.isArray(a.identifiers) && a.identifiers.includes(identifier)) : null;
+  if (known) {
+    _currentBankAccount = known;
+    _bankImportRunPreview(read.lines, format);
+  } else {
+    _pendingBankImport = { lines: read.lines, format, identifier, hint };
+    _bankImportRenderAccountSelect(identifier, format, hint);
+  }
 }
 
 // v15.162 BANK-IMPORT-V2 Phase C+D — Dispatcher : 1er import (3 choix UX) ou pointeur incrémental.
@@ -49422,7 +49351,7 @@ function _bankImportRenderAccountSelect(identifier, format, hint) {
   preview.innerHTML = `
     <div style="padding:12px;background:rgba(245,158,11,.10);border:1px solid #f59e0b;border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--t1)">
       <b>📋 Fichier non reconnu</b> — à quel compte bancaire Propryo le rattacher ?<br>
-      <span class="mu sm">Cette association sera mémorisée : les prochains imports du même fichier (ou du même schéma de colonnes) seront reconnus automatiquement.</span>
+      <span class="mu sm">Un compte appartient toujours à quelqu'un. Cette association sera mémorisée : les prochains relevés du même compte seront reconnus automatiquement.</span>
     </div>
     ${accounts.length ? `<div style="margin-bottom:10px">
       <h4 style="margin:0 0 8px;font-size:13px">Comptes existants</h4>
@@ -49576,6 +49505,10 @@ let _bankReviewedOk = false;   // A7 : l'utilisateur a-t-il VÉRIFIÉ (scrollé)
 
 function _bankLineDone(line) {
   if (!line || line.isDuplicate) return true;                 // doublons : hors du flux de tri
+  // ③.3 v2 — une date illisible n'écarte plus la ligne : elle est importée et MARQUÉE.
+  // Mais un mouvement sans date n'est pas enregistrable (la synchro cloud le rejetterait
+  // en silence) → il reste dans « À compléter » tant que la date n'est pas saisie.
+  if (!line.date) return false;
   if (Array.isArray(line._sp) && line._sp.length) {           // V3 Phase 4 — ligne découpée : « done » si le split équilibre le net
     const net = line._sp.reduce((s, r) => s + (r.sens === 'cr' ? (Number(r.montant) || 0) : -(Number(r.montant) || 0)), 0);
     const bankNet = (line.credit || 0) - (line.debit || 0);
@@ -49696,6 +49629,117 @@ function _bankAffLabel(line) {
   return '';
 }
 
+// ─── ③.1 RÉCAPITULATIF DE LECTURE ────────────────────────────────────────────
+// Deuxième ligne du bandeau fichier, REPLIÉE. Aucun écran ni clic supplémentaire.
+// En cas d'anomalie (solde qui ne boucle pas), la ligne passe en orange et le
+// détail s'ouvre TOUT SEUL — Didier : « normalement ce cas ne doit pas se
+// produire » → c'est une anomalie, pas un avertissement de confort.
+let _bankRecapOpen = false;
+
+function _bankReadRecapHtml() {
+  const r = _bankRead; if (!r || !r.meta) return '';
+  const m = r.meta;
+  const bal = m.balance || {};
+  const anomalie = bal.checked && !bal.ok;
+  const faible = m.orientationProof === 'convention';   // aucune preuve du sens
+  const alerte = anomalie || faible;
+  if (alerte) _bankRecapOpen = true;
+  const nDisc = (r.discarded || []).length;
+  const nDoubt = (r.lines || []).filter(l => l && l._dateDouteuse).length;
+  const bits = [];
+  bits.push(bal.checked
+    ? (bal.ok ? '✔ Solde vérifié sur ' + bal.count + ' lignes'
+              : '⚠ Le solde ne boucle pas' + (bal.brokenRow ? ' (ligne ' + bal.brokenRow + ')' : ''))
+    : (m.source === 'ofx' ? 'montants signés par la banque' : 'pas de colonne de solde à vérifier'));
+  if (m.dateColLabel) bits.push('date : ' + escHtml(m.dateColLabel));
+  if (m.sheetName) bits.push('feuille « ' + escHtml(m.sheetName) + ' »');
+  if (nDisc) bits.push('<a onclick="event.stopPropagation();_bankOpenDiscarded()" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6);font-weight:600">' + nDisc + ' ligne' + (nDisc > 1 ? 's' : '') + ' écartée' + (nDisc > 1 ? 's' : '') + '</a>');
+  if (nDoubt) bits.push('<b style="color:var(--amb,#d97706)">' + nDoubt + ' date' + (nDoubt > 1 ? 's' : '') + ' douteuse' + (nDoubt > 1 ? 's' : '') + '</b>');
+  return '<div style="flex-basis:100%;border-top:1px dashed var(--bor);margin-top:7px;padding-top:7px;font-size:11.5px;line-height:1.5;'
+    + (alerte ? 'color:var(--amb,#d97706)' : 'color:var(--t2)') + '">'
+    + '<span onclick="_bankToggleRecap()" style="cursor:pointer">' + bits.join(' · ')
+    + ' <span style="font-weight:600;text-decoration:underline">détail de la lecture ' + (_bankRecapOpen ? '▴' : '▾') + '</span></span>'
+    + (_bankRecapOpen ? _bankReadRecapDetail(r) : '')
+    + '</div>';
+}
+
+function _bankToggleRecap() { _bankRecapOpen = !_bankRecapOpen; _bankImportRenderPreview(_bankReviewFmt, ''); }
+
+function _bankReadRecapDetail(r) {
+  const m = r.meta, bal = m.balance || {};
+  const row = (k, v) => '<div style="display:flex;gap:8px;padding:2px 0"><span style="min-width:132px;color:var(--t3)">' + k + '</span><span style="flex:1;color:var(--t2)">' + v + '</span></div>';
+  let h = '<div style="margin-top:8px;background:var(--sur,#fff);border:1px solid var(--bor);border-radius:8px;padding:10px 12px">';
+  if (m.sheetName) {
+    const others = (r.sheets || []).filter(s => s.name !== m.sheetName).map(s => escHtml(s.name));
+    h += row('Feuille lue', '<b>' + escHtml(m.sheetName) + '</b>' + (others.length ? ' <span class="mu sm">— écartées : ' + others.join(', ') + ' (pas de colonne dates + montants)</span>' : ''));
+  }
+  if (m.headerRow != null) h += row('Ligne d\'en-tête', m.headerRow < 0 ? 'aucune — le fichier commence directement par les mouvements' : 'ligne ' + (m.headerRow + 1) + ' (trouvée par le contenu)');
+  const _kindLbl = { operation: 'date d\'opération', comptabilisation: 'date de comptabilisation', valeur: 'date de valeur' }[m.dateColKind] || '';
+  h += row('Date retenue', escHtml(m.dateColLabel || '—') + (_kindLbl ? ' <span class="mu sm">(' + _kindLbl + ')</span>' : ''));
+  h += row('Sens des montants', escHtml(m.orientationProofLabel || m.orientationProof || '—'));
+  h += row('Période', (m.period && m.period.from) ? (fd(m.period.from) + ' → ' + fd(m.period.to)) : '—');
+  if (bal.checked) {
+    h += row('Contrôle du solde', bal.ok
+      ? '<b style="color:var(--grn,#16a34a)">✔ le solde boucle sur les ' + bal.count + ' lignes</b> <span class="mu sm">(ordre ' + escHtml(bal.order || '') + ')</span>'
+      : '<b style="color:var(--amb,#d97706)">⚠ écart à la ligne ' + (bal.brokenRow || '?') + '</b> — ' + escHtml(bal.brokenLabel || '') + ' : le relevé varie de ' + fmt(bal.got) + ' alors que la ligne vaut ' + fmt(bal.expected) + '. Il manque peut-être une ligne, ou une colonne est mal lue.');
+  }
+  const first = (r.lines || []).slice(0, 3).map(l => '<div style="font-size:11.5px;padding:2px 0"><span class="mu sm">' + fd(l.date) + '</span> · ' + escHtml(String(l.libelle || '').slice(0, 60))
+    + ' → <b style="color:' + (l.credit > 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + (l.credit > 0 ? 'recette ' : 'dépense ') + fmt(l.credit > 0 ? l.credit : l.debit) + '</b></div>').join('');
+  if (first) h += '<div style="margin-top:8px;border-top:1px dashed var(--bor);padding-top:7px"><div style="color:var(--t3);margin-bottom:3px">Les 3 premières lignes, telles qu\'elles seront importées</div>' + first + '</div>';
+  if (m.source !== 'ofx') {
+    h += '<div style="margin-top:9px"><button class="btn bs" style="font-size:11.5px" onclick="_bankToggleInvert()">⇄ Les montants sont inversés</button>'
+      + (r.invert ? ' <span class="mu sm" style="font-size:11px">— inversion appliquée</span>' : '') + '</div>';
+  }
+  return h + '</div>';
+}
+
+// ③.3 — Le compteur « N lignes écartées » est CLIQUABLE : il liste les lignes non
+// retenues avec leur motif et permet de les réintégrer. Avant, elles disparaissaient
+// sans laisser de trace.
+let _bankDiscardedOpen = false;
+
+function _bankOpenDiscarded() { _bankDiscardedOpen = !_bankDiscardedOpen; _bankImportRenderPreview(_bankReviewFmt, ''); }
+
+function _bankDiscardedPanelHtml() {
+  const r = _bankRead;
+  if (!_bankDiscardedOpen || !r || !(r.discarded || []).length) return '';
+  const rows = r.discarded.map((d, i) => '<div style="display:flex;gap:10px;align-items:center;padding:7px 10px;border:1px solid var(--bor);border-radius:8px;margin-bottom:5px;font-size:12px;flex-wrap:wrap;background:var(--sur,#fff)">'
+    + '<span class="mu sm" style="min-width:66px">' + (d.rowNo ? 'ligne ' + d.rowNo : (d.date ? fd(d.date) : '—')) + '</span>'
+    + '<span style="flex:1;min-width:130px;font-family:var(--mono,monospace)">' + escHtml(d.libelle || '(sans libellé)') + '</span>'
+    + '<span style="font-weight:700;white-space:nowrap">' + fmt(Math.abs(Number(d.amount) || 0)) + '</span>'
+    + '<span style="color:var(--amb,#d97706);min-width:145px">' + escHtml(d.reason) + '</span>'
+    + '<button class="btn bs" style="font-size:11px" onclick="_bankReintegrate(' + i + ')">↩ Réintégrer</button>'
+    + '</div>').join('');
+  return '<div style="background:var(--sur2,#f5f8fc);border:1px solid var(--bor);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+    + '<b style="font-size:12.5px">🗂 ' + r.discarded.length + ' ligne(s) non retenue(s)</b>'
+    + '<a onclick="_bankOpenDiscarded()" style="margin-left:auto;cursor:pointer;text-decoration:underline;font-size:11.5px;color:var(--t3)">masquer</a></div>'
+    + '<div class="mu sm" style="margin-bottom:8px;font-size:11.5px;line-height:1.5">Rien n\'est caché : ces lignes du fichier n\'ont pas été retenues comme mouvements. '
+    + 'Tu peux en réintégrer une si Propryo s\'est trompé — elle arrivera dans « À compléter ».</div>'
+    + '<div style="max-height:32vh;overflow:auto">' + rows + '</div></div>';
+}
+
+function _bankReintegrate(i) {
+  const r = _bankRead; if (!r) return;
+  const d = (r.discarded || [])[i]; if (!d) return;
+  r.discarded.splice(i, 1);
+  const amt = Number(d.amount) || 0;
+  const line = {
+    date: d.date || '', libelle: d.libelle || '',
+    debit: amt < 0 ? Math.abs(amt) : 0,
+    credit: amt > 0 ? amt : 0,
+    signedAmount: amt,
+    raw: d.raw, _rowNo: d.rowNo, _importSource: r.meta.source,
+    _fingerprint: window._bankFingerprintRow(d.date || '', amt, d.libelle || ''),
+    _dateDouteuse: d.date ? '' : 'date illisible dans le relevé',
+    _reintegrated: d.reason,
+  };
+  _bankImportLines.push(line);
+  _bankReviewTab = 'todo';
+  _bankImportRenderPreview(_bankReviewFmt, '');
+  showToast('Ligne réintégrée — à compléter', 'ok', 3000);
+}
+
 function _bankImportRenderPreview(format, prefixHtml) {
   const preview = el('bank-import-preview');
   if (!preview) return;
@@ -49717,8 +49761,10 @@ function _bankImportRenderPreview(format, prefixHtml) {
       <span style="font-weight:700;font-size:13px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:330px">${escHtml(_bankImportFileName || 'Relevé importé')}</span>
       <span class="mu sm" style="font-size:11.5px">${escHtml(_bankReviewFmt)} · <strong>${total}</strong> ligne${total>1?'s':''}</span>
       <button class="btn bs" style="margin-left:auto;font-size:11.5px;padding:5px 11px" onclick="_bankImportChangeFile()">⟳ Changer de fichier</button>
+      ${_bankReadRecapHtml()}
     </div>
     ${prefixHtml || ''}
+    ${_bankDiscardedPanelHtml()}
     ${_bankScopeBar()}
     <div class="mu sm" style="margin:6px 0 8px;font-size:11px;line-height:1.4">💡 Clique une ligne pour la classer — <strong>tes règles</strong> (⚙) d'abord, sinon une proposition (✨). C'est <strong>toi</strong> qui valides.</div>
     <div style="display:flex;gap:4px;border-bottom:1px solid var(--bor);margin-bottom:10px">
@@ -49833,6 +49879,13 @@ function _bankLineRow(i) {
     ? '<span class="bimp-cat" style="color:var(--pur,#7c3aed)">✂️ Découpé · ' + line._sp.length + ' ligne' + (line._sp.length > 1 ? 's' : '') + '</span>'
     : (line.suggestedCat ? '<span class="bimp-cat">' + escHtml(line.suggestedCat) + '</span>' : '<span class="bimp-cat empty">— à classer —</span>');
   const affChip = aff ? '<span class="bimp-chip bien">' + aff + '</span>' : '';
+  // ③.3 v2 — la date douteuse est SIGNALÉE, pas cachée, et ne bloque pas la validation
+  // (⑧.1) : la date est modifiable dans la fenêtre. Idem pour une ligne réintégrée
+  // depuis les lignes écartées : on rappelle pourquoi elle avait été écartée.
+  const dateChip = line._dateDouteuse
+    ? '<span class="bimp-chip todo" title="' + escHtml(line._dateDouteuse) + '">⚠ date douteuse</span>' : '';
+  const reintChip = line._reintegrated
+    ? '<span class="bimp-chip todo" title="' + escHtml(line._reintegrated) + '">↩ réintégrée</span>' : '';
   return `<div class="bimp-row ${isCr ? 'cr' : 'db'}" onclick="_bankOpenMvWindow(${i})">
       <span class="bimp-ic">${icon}</span>
       <div class="bimp-mid">
@@ -49840,7 +49893,7 @@ function _bankLineRow(i) {
           <span class="bimp-lib" title="${escHtml(line.libelle)}">${escHtml(line.libelle)}</span>
           <span class="bimp-amt ${isCr ? 'cr' : 'db'}">${sign}${fmt(amount)}</span>
         </div>
-        <div class="bimp-l2">${catTxt}${affChip}${src}</div>
+        <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}</div>
       </div>
       <span class="bimp-trash" onclick="event.stopPropagation();_bankExcludeLine(${i})" title="Ne pas importer cette ligne">🗑</span>
       <span class="bimp-go">›</span>
@@ -50165,7 +50218,10 @@ function _bankImportConfirm() {
       const mvt = {
         id: nid(),
         date: line.date,
-        lib: String(p.lib || line.libelle).slice(0, 200),
+        // Bug 1 du CDC : le libellé était TRONQUÉ À 200 CARACTÈRES ici, en silence.
+        // I-2 « aucune troncature nulle part » : n'importe quel mot ou référence du
+        // relevé (RUM, n° de mandat, motif) doit pouvoir servir de motif de règle.
+        lib: String(p.lib || line.libelle || ''),
         cat: p.cat || '',
         qui: p.qui || '',
         imm: p.imm || '',

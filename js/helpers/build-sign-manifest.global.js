@@ -13,7 +13,7 @@
   'use strict';
 
   // __tests__/helpers/build-sign-manifest.js
-  
+
   // anchors: ancres mm jsPDF (top-left). Le manifeste les stocke TELLES QUELLES (mm).
   // BUG-DOUBLE-CONVERSION (2026-06-15) : NE PAS convertir mm→pt ici. Le relais
   // (relay/public/sign/stamp.js → rectFromJsPdf ; ses fallbackAnchors sont aussi en mm)

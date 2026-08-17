@@ -21,7 +21,7 @@
   // APRÈS coup, à position fixe, sur chaque page — filet à 275 mm, cases de paraphe à 279,5 mm.
   // Tout contenu qui franchit 272 mm se retrouve donc SOUS les paraphes. drawText écrivait
   // toutes les lignes d'un bloc en un seul pdf.text, sans jamais couper.
-  
+
   /** Repères du gabarit A4 du bail (mm) — alignés sur PDF_NATIVE du générateur. */
   const PDF_BODY = {
     PAGE_H: 297,
@@ -30,7 +30,7 @@
     FOOT_LINE_Y: 275,        // filet du pied  = PAGE_H - MARGIN_BOTTOM + 5 - 2
     PARAPHE_BOX_Y: 279.5     // haut des cases = PAGE_H - MARGIN_BOTTOM + 5 + 2.5
   };
-  
+
   // Sections dont les pages ne portent PAS de case de paraphe — DÉCISION USER 13/08, confirmée
   // explicitement (« les annexes ne doivent pas être paraphées ») :
   //   • signatures (§18) : on y signe, on n'y paraphe pas ;
@@ -39,7 +39,7 @@
   //     clauses négociées : le paraphe n'y ajoute rien.
   // Le corps du bail (§1 à §17) reste paraphé page à page.
   const SECTIONS_SANS_PARAPHE = ['signatures', 'annexe-a', 'annexe-b', 'notice'];
-  
+
   /**
    * Sections repérées par leur titre de niveau h2. SOURCE UNIQUE : la même liste servait en
    * double dans index.html (pré-scan du PDF d'un côté, découpage de l'aperçu HTML de l'autre) —
@@ -52,7 +52,7 @@
     { kind: 'annexe-b', re: /^ANNEXE\s+B/i },
     { kind: 'notice', re: /^Notice/i }
   ];
-  
+
   /** Section correspondant à un titre h2, ou null si le titre n'en ouvre aucune. */
   function sectionKindFromTitle(titre) {
     var t = String(titre == null ? '' : titre);
@@ -61,13 +61,13 @@
     }
     return null;
   }
-  
+
   /** true si la section ouverte par ce titre ne porte PAS de case de paraphe (seul le §18). */
   function titreSansParaphe(titre) {
     var k = sectionKindFromTitle(titre);
     return k != null && SECTIONS_SANS_PARAPHE.indexOf(k) !== -1;
   }
-  
+
   /**
    * Étiquette chaque page du document : à quelle section elle appartient, et si elle porte
    * une case de paraphe. Une section couvre de sa page de début jusqu'à la section suivante.
@@ -89,7 +89,7 @@
     }
     return out;
   }
-  
+
   /** Ordonnée à ne pas franchir pour le corps du document (272 mm en A4). */
   function bodyBottom(opts) {
     var o = opts || {};
@@ -97,7 +97,7 @@
     var mb = o.marginBottom == null ? PDF_BODY.MARGIN_BOTTOM : o.marginBottom;
     return pageH - mb;
   }
-  
+
   /**
    * Découpe un bloc de `nLines` lignes en tronçons qui tiennent chacun dans le corps de sa page.
    * @returns {Array<{page:number, y:number, from:number, to:number}>}
@@ -112,7 +112,7 @@
     if (!n) return [];
     var h = lineHeight > 0 ? lineHeight : 0;
     if (!h) return [{ page: 0, y: y, from: 0, to: n }];   // hauteur nulle : rien ne peut déborder
-  
+
     var out = [], page = 0, cur = y, done = 0;
     while (done < n) {
       var fit = Math.floor((bottom - cur) / h);

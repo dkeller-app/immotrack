@@ -147,15 +147,11 @@ import {
   ATTACHMENT_PARENT_TYPES, ATTACHMENT_CATEGORIES, ATTACHMENT_DEFAULT_MAX_SIZE
 } from './core/attachments.js';
 
-// v15.07 BANK-INTEGRATION V1 - import CSV/OFX + matching auto
-// v15.78 BUG-BANK-IMPORT-DEDUP - fingerprinting stable + migration legacy
-import {
-  _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
-  _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup,
-  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints,
-  _bankExtractOFXAccount, _bankCsvHeaderHash,
-  _bankSliceAfterFingerprint, _bankComputeLastImport
-} from './core/bank-import.js';
+// IMPORT BANCAIRE - lecture OFX + Excel, dedup, compte, reprise.
+// CDC docs/CDC-IMPORT.md : le lecteur CSV a ete retire (①.1).
+// NB : js/helpers/bank-import.global.js (mirror genere) expose deja les memes
+// symboles sur window pour le mode file:// ; meme source, aucune divergence possible.
+import * as BankImport from './core/bank-import.js';
 
 // v15.10 QUITTANCES-ACTIVES - statut dynamique + matching + escalade + génération auto
 import {
@@ -375,26 +371,10 @@ window.ATTACHMENT_PARENT_TYPES = ATTACHMENT_PARENT_TYPES;
 window.ATTACHMENT_CATEGORIES = ATTACHMENT_CATEGORIES;
 window.ATTACHMENT_DEFAULT_MAX_SIZE = ATTACHMENT_DEFAULT_MAX_SIZE;
 
-// BANK-INTEGRATION V1 (v15.07 Sprint 8) - import CSV/OFX manuel
-// + v15.78 BUG-BANK-IMPORT-DEDUP fingerprinting stable
-window._bankParseCSV = _bankParseCSV;
-window._bankAutoDetectColumns = _bankAutoDetectColumns;
-window._bankParseAmount = _bankParseAmount;
-window._bankParseDate = _bankParseDate;
-window._bankNormalizeCSV = _bankNormalizeCSV;
-window._bankParseOFX = _bankParseOFX;
-window._bankMatchHeuristic = _bankMatchHeuristic;
-window._bankDedup = _bankDedup;
-window._bankHashStable = _bankHashStable;
-window._bankFingerprintCSV = _bankFingerprintCSV;
-window._bankFingerprintOFX = _bankFingerprintOFX;
-window._bankMigrateFingerprints = _bankMigrateFingerprints;
-// v15.160 BANK-IMPORT-V2 Phase A : identification du compte source
-window._bankExtractOFXAccount = _bankExtractOFXAccount;
-window._bankCsvHeaderHash = _bankCsvHeaderHash;
-// v15.162-163 BANK-IMPORT-V2 Phase D : pointeur de progression
-window._bankSliceAfterFingerprint = _bankSliceAfterFingerprint;
-window._bankComputeLastImport = _bankComputeLastImport;
+// IMPORT BANCAIRE - un seul point d'exposition, derive des exports du module :
+// plus de liste a maintenir a la main (une omission = un helper introuvable a chaud).
+window.BankImport = BankImport;
+for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
 
 // QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
 window._statutQuittance = _statutQuittance;

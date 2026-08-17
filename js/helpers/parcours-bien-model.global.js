@@ -56,28 +56,20 @@
     return { ok: missing.length === 0, missing };
   }
 
-  /** P1-17 (décidé 13/08) — la DÉSIGNATION est enfin contrôlée.
-   *  La tâche `caracteristiques` s'intitule « Surface habitable + désignation » et cite l'article 3
-   *  de la loi du 6 juillet 1989, mais son test ne vérifiait que réf/type/surface/loyer : la
-   *  désignation n'était jamais contrôlée. Sans conséquence tant qu'elle n'était qu'un texte libre
-   *  facultatif ; inacceptable depuis qu'elle est la SOURCE d'une clause du bail (étape 5 du
-   *  chantier BIENS : clause générée depuis log.edlTemplate.pieces). Sans liste, la clause est vide
-   *  — et le fil rouge afficherait quand même la tâche en vert.
-   *
-   *  EFFET ASSUMÉ (validé par le user) : tous les logements dont la liste est vide repassent en
-   *  « à faire » sur cette tâche et les pourcentages de complétion baissent d'un coup. C'est le prix
-   *  d'un compteur qui ne ment pas.
-   *
-   *  DÉLIBÉRÉMENT HORS de isRentable/identiteParcours : ceux-là sont la GARDE BLOQUANTE du
-   *  formulaire de création du fil rouge (_frSubmitLog), qui n'offre pas de liste de pièces —
-   *  les y ajouter empêcherait purement et simplement de créer un bien. */
+  /** Louable = identité du parcours complète (réf/type/surface/loyer). Le dpe n'y entre
+   *  pas : il pèse sur le badge « complet », pas sur la possibilité de créer le bail. */
+  /** P1-17 (décidé 13/08) — la DÉSIGNATION est enfin contrôlée. La tâche `caracteristiques`
+   *  promettait « Surface habitable + désignation » et citait l'art. 3 de la loi 89-462, mais ne
+   *  vérifiait que réf/type/surface/loyer. Depuis l'étape 5 du chantier BIENS, la clause
+   *  « Désignation des pièces » du bail est GÉNÉRÉE depuis log.edlTemplate.pieces : sans liste, la
+   *  clause est vide et le fil rouge afficherait quand même la tâche en vert.
+   *  DÉLIBÉRÉMENT HORS de isRentable/identiteParcours, qui sont la garde bloquante du formulaire
+   *  de création (lequel n'offre pas de liste de pièces). */
   function hasDesignationPieces(log) {
     const pieces = log && log.edlTemplate && log.edlTemplate.pieces;
     return Array.isArray(pieces) && pieces.some((p) => p && _s(p.nom) !== '');
   }
 
-  /** Louable = identité du parcours complète (réf/type/surface/loyer). Le dpe n'y entre
-   *  pas : il pèse sur le badge « complet », pas sur la possibilité de créer le bail. */
   function isRentable(log) {
     return identiteParcours(log).ok;
   }
@@ -338,7 +330,6 @@
     LOG_OPTIONAL_KEY: LOG_OPTIONAL_KEY,
     identiteParcours: identiteParcours,
     isRentable: isRentable,
-    hasDesignationPieces: hasDesignationPieces,
     PARCOURS_IDENTITY: PARCOURS_IDENTITY,
     completionModel: completionModel
   };

@@ -32,7 +32,7 @@
   // affichés en clair, ce qui abîmerait le texte légal.
   //
   // PUR : aucune dépendance DOM. Testable, sérialisable.
-  
+
   /** Cotes et couleurs du gabarit, reprises telles quelles du mockup (variante B). */
   const DOC_TPL = Object.freeze({
     ENCRE: '#1a2030',        // .g-p       — couleur du corps
@@ -48,7 +48,7 @@
     CORPS_LH: 1.55,          // .g-sans line-height
     TITRE_PT: 17             // .g-p h1 — 21 pt au mockup, ramene a 17 pour tenir sur 1 page
   });
-  
+
   /**
    * Piles de polices. Aucune police n'est chargée depuis un CDN (règle « aucun CDN externe au
    * runtime ») : les documents retombent proprement sur la pile système si Schibsted Grotesk
@@ -56,7 +56,7 @@
    */
   const DOC_FONT_TITRE = '"Schibsted Grotesk","Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
   const DOC_FONT_CORPS = '"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
-  
+
   /**
    * La feuille de style du gabarit, entièrement scopée sous `.pro-doc`.
    * Scopée parce que trois documents sur quatre sont injectés par innerHTML DANS la page de
@@ -120,12 +120,12 @@
       // sorties divergentes pour une même source, ce n'est pas une source unique.
       .replace(/^[ \t]+/gm, '').trim();
   }
-  
+
   /** La feuille de style prête à insérer dans un fragment injecté par innerHTML. */
   function docStyleTag() {
     return '<style>' + docCss() + '</style>';
   }
-  
+
   /**
    * Titre du document + sa ligne de contexte en gris.
    * @param {string} h1  titre (fragment HTML)
@@ -136,7 +136,7 @@
     return '<div class="pro-titre"><h1>' + (h1 == null ? '' : String(h1)) + '</h1>'
       + (c ? '<p class="pro-ctx">' + c + '</p>' : '') + '</div>';
   }
-  
+
   /**
    * Les parties, côte à côte, chacune dans son bloc (mockup : « Même texte, autre disposition »).
    * @param {Array<{label:string, qui?:string, corps?:string}>} blocs
@@ -151,12 +151,12 @@
         + '</div>';
     }).join('') + '</div>';
   }
-  
+
   /** La phrase qui porte l'acte, mise en avant sans être réécrite. */
   function docActe(html) {
     return '<p class="pro-acte">' + (html == null ? '' : String(html)) + '</p>';
   }
-  
+
   /**
    * Bloc de chiffres. `tot` trace le filet de total, `hi` passe la valeur en corail.
    * @param {Array<{lab:string, val:string, tot?:boolean, hi?:boolean}>} rows
@@ -170,22 +170,22 @@
         + '</span><span class="val">' + (r.val == null ? '' : String(r.val)) + '</span></div>';
     }).join('') + '</div>';
   }
-  
+
   /** Mention en petit gris (celles du fond légal : elles ne sont jamais réécrites, juste posées). */
   function docMention(html) {
     return '<p class="pro-mention">' + (html == null ? '' : String(html)) + '</p>';
   }
-  
+
   /** Encart gris pour un bloc de mentions long (décompte : mentions légales obligatoires). */
   function docEncart(html) {
     return '<div class="pro-encart">' + (html == null ? '' : String(html)) + '</div>';
   }
-  
+
   /** « Fait à …, le … » */
   function docLieu(html) {
     return '<p class="pro-lieu">' + (html == null ? '' : String(html)) + '</p>';
   }
-  
+
   /**
    * Zone de signature. Une case → à droite ; deux cases → aux deux bords (mockup, bail).
    *
@@ -213,7 +213,7 @@
       }).join('')
       + '</div>';
   }
-  
+
   /**
    * Pied de page : référence du document à gauche, date d'émission à droite.
    *
@@ -231,7 +231,7 @@
     if (!parts.length) return '';
     return '<div class="pro-pied">' + parts.join('') + '</div>';
   }
-  
+
   /**
    * Le document complet, dans l'ordre du gabarit : bandeau d'identité, titre, corps, pied.
    * C'est LE point d'entrée : aucun générateur ne réassemble ces morceaux lui-même.

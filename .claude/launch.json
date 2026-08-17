@@ -84,6 +84,20 @@
         "--silent"
       ],
       "port": 8812
+    },
+    {
+      "name": "wt-import",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-import",
+        "-p",
+        "8816",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8816
     }
   ]
 }
