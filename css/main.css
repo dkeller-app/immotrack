@@ -2487,10 +2487,23 @@ textarea.field-modified-since-sig{
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   v15.145 MOBILE-AUDIT — Loyers / Mouvements : table 9 colonnes → cartes empilées
-   (la table dense scrollait horizontalement = mauvaise UX mobile). Pur CSS, repositionne
-   chaque colonne par nth-child (aucun changement de rendu). Montant : on n'affiche que la
-   cellule qui a une valeur (.pos crédit / .neg débit) et on masque le « – » de l'autre.
+   MOBILE — Loyers / Mouvements : la table devient des cartes empilées (la table dense
+   scrollait horizontalement = mauvaise UX mobile). Pur CSS, aucun rendu dupliqué.
+
+   ⚠️ REPRIS EN MÊME TEMPS QUE LA FUSION DES COLONNES (⑨.1 / bug 9 du CDC-IMPORT) :
+   ce CSS positionne chaque cellule PAR NUMÉRO DE COLONNE (nth-child). Passer de 9 à 7
+   colonnes le cassait — il ne pouvait pas être traité séparément.
+   Colonnes désormais : 1 Date · 2 Libellé · 3 Catégorie · 4 Affectation · 5 Montant ·
+   6 Facture · 7 Actions.
+
+   Adaptations validées sur mockup (mobile-mouvements.html) :
+   · la méta passe sur DEUX lignes (catégorie, puis affectation en gras) — plus aucune
+     troncature de deux informations mises bout à bout ;
+   · le nom de catégorie est coupé avant la parenthèse (« Charges récupérables (eau,
+     énergie…) » → « Charges récupérables ») : le complément est une aide à la saisie,
+     inutile dans une liste — géré par .badge (max-width + ellipsis) ;
+   · le libellé reste tronqué sur une ligne (60 à 200 caractères, illisible en entier
+     sur 390 px), complet au clic.
    ════════════════════════════════════════════════════════════════════════ */
 @media (max-width:768px){
   #p-loyers .tbl-wrap{border:none;box-shadow:none;background:transparent;overflow:visible}
@@ -2503,31 +2516,60 @@ textarea.field-modified-since-sig{
   }
   #p-loyers .tbl tr:hover,#p-loyers .tbl tr:hover td{background:transparent}
   #p-loyers .tbl td{display:block;border:none !important;padding:0 !important;white-space:normal}
-  /* Date (col1) : petite, en haut à gauche */
+  /* Date (col 1) : petite, en haut à gauche */
   #p-loyers .tbl td:nth-child(1){font-size:11.5px;color:var(--t3)}
-  /* Libellé (col2) : titre 1 ligne ellipsis, place réservée pour le montant à droite */
-  #p-loyers .tbl td:nth-child(2){font-size:14.5px;font-weight:700;color:var(--t1);line-height:1.25;padding-right:88px !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  /* Immeuble (3) · Catégorie (4) · Qui (5) : une seule ligne méta inline */
-  #p-loyers .tbl td:nth-child(3),#p-loyers .tbl td:nth-child(4),#p-loyers .tbl td:nth-child(5){
-    display:inline !important;font-size:12px;color:var(--t2);line-height:1.5;
+  /* Libellé (col 2) : titre 1 ligne ellipsis, place réservée pour le montant à droite */
+  #p-loyers .tbl td:nth-child(2){font-size:14.5px;font-weight:700;color:var(--t1);line-height:1.25;padding-right:96px !important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Catégorie (col 3) : 1re ligne de méta */
+  #p-loyers .tbl td:nth-child(3){
+    font-size:12px;color:var(--t2);line-height:1.5;margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:96px !important;
   }
-  #p-loyers .tbl td:nth-child(3){margin-top:2px}
-  #p-loyers .tbl td:nth-child(3)::after{content:" · ";color:var(--t3)}
-  #p-loyers .tbl td:nth-child(4)::after{content:" "}
-  /* Montant : seule la cellule avec valeur (.pos/.neg) s'affiche, en haut à droite */
-  #p-loyers .tbl td.num:not(.pos):not(.neg){display:none}
-  #p-loyers .tbl td.num.pos,#p-loyers .tbl td.num.neg{
-    position:absolute;top:9px;right:12px;font-size:15px;font-weight:700;text-align:right;
+  /* Le nom long des catégories est coupé avant la parenthèse explicative */
+  #p-loyers .tbl td:nth-child(3) .badge{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+  /* Affectation (col 4) : 2e ligne de méta, en gras — c'est l'info qu'on cherche */
+  #p-loyers .tbl td:nth-child(4){
+    font-size:12px;color:var(--t1);font-weight:600;line-height:1.5;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:96px !important;
   }
-  /* Facture (col8) : masquée en vue compacte (souvent vide, accessible sur fiche/desktop) */
-  #p-loyers .tbl td:nth-child(8){display:none}
-  /* Actions (col9) : rangée serrée alignée à droite */
+  /* Montant signé (col 5) : à droite, centré verticalement */
+  #p-loyers .tbl td:nth-child(5){
+    position:absolute;top:50%;transform:translateY(-50%);right:12px;
+    font-size:15px;font-weight:700;text-align:right;white-space:nowrap;
+  }
+  /* Facture (col 6) : masquée en vue compacte (souvent vide, accessible sur la fiche) */
+  #p-loyers .tbl td:nth-child(6){display:none}
+  /* Actions (col 7) : rangée serrée alignée à droite */
   #p-loyers .tbl td.act-cell{
     display:flex !important;justify-content:flex-end;gap:6px;margin-top:6px;
   }
   #p-loyers .tbl td.act-cell .btn{margin:0 !important;min-width:42px;min-height:34px;font-size:13px}
   /* État vide (colspan) */
   #p-loyers .tbl tr td[colspan]{display:block !important;text-align:center;padding:18px !important}
+  /* Ligne des filtres actifs (⑨.4) : les pastilles passent à la ligne, jamais de scroll */
+  #mv-active-filters{gap:5px !important}
+  #mv-active-filters .badge{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ⑩.2 MOBILE — VENTILATION (✂️ découper un mouvement). Les grilles de chaque part
+   passent EN COLONNE sous 768 px : sens + croix, libellé, montant, catégorie,
+   affectation, date + facture. Le bandeau d'équilibre reste collé en bas — c'est lui
+   qui débloque le bouton de confirmation, il ne doit jamais sortir de l'écran.
+   ════════════════════════════════════════════════════════════════════════ */
+@media (max-width:768px){
+  #ov-sp-mv #sp-mv-rows > div > div{grid-template-columns:1fr !important}
+  #ov-sp-mv #sp-mv-rows .sp-cat-aff,
+  #ov-sp-mv #sp-mv-rows .sp-date-fac{grid-template-columns:1fr !important}
+  /* La rangée « sens · libellé · montant · ✕ » : le sens et la croix restent sur une ligne */
+  #ov-sp-mv #sp-mv-rows > div > div:first-child{gap:7px !important}
+  #ov-sp-mv .inp{width:100%}
+  /* Le contrôle d'équilibre colle en bas : c'est lui qui débloque « Confirmer » */
+  #ov-sp-mv #sp-mv-reste{
+    position:sticky;bottom:0;z-index:2;
+    background:var(--sur);border-top:1px solid var(--bor);
+    margin:0 -14px;padding:9px 14px;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════════

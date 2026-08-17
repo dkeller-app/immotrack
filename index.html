@@ -302,6 +302,12 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <input class="inp" id="mvf-search" placeholder="🔍 Recherche..." oninput="rMv()" style="width:180px;font-weight:500">
         <input class="inp" type="date" id="mvf-from" onchange="rMv()" style="width:130px" title="Date début">
         <input class="inp" type="date" id="mvf-to" onchange="rMv()" style="width:130px" title="Date fin">
+        <!-- ⑨.4 — les DEUX FILTRES MANQUANTS : compte et état. Ils rejoignent la mécanique
+             des menus existants, ils ne remplacent et ne déplacent rien. L'immeuble reste
+             filtrable ici depuis que sa colonne a fusionné dans « Affectation » (⑨.1). -->
+        <button class="btn bs bb" onclick="openMvDD('compte',this)" title="Filtrer par compte bancaire (ou saisie manuelle)">🏦 Compte <span id="mvf-ind-compte" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb" onclick="openMvDD('etat',this)" title="Filtrer ce qui demande une action">⚠ État <span id="mvf-ind-etat" style="color:var(--acc)"></span>▼</button>
+        <button class="btn bs bb" onclick="openMvDD('imm',this)" title="Filtrer par immeuble">🏢 Immeuble <span id="mvf-ind-imm" style="color:var(--acc)"></span>▼</button>
         <button class="btn bs bb" onclick="clearMvFilters()">✕ Reset</button>
         <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)">🏦 Importer banque</button>
         <button class="btn bs bb" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo">🏦 Mes comptes</button>
@@ -330,15 +336,28 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <div class="tab" onclick="setMvTab('cr',this)">💰 Recettes</div>
         <div class="tab" onclick="setMvTab('db',this)">📤 Dépenses</div>
       </div>
+      <!-- ⑨.4 — LA LIGNE DES FILTRES ACTIFS. On ne DÉPLACE rien (onglets, menus dans les
+           en-têtes, recherche et dates restent où ils sont : rassembler les filtres dans
+           une barre unique, ce serait « juste déplacer le filtre »). Seul ajout : dire ce
+           qui filtre. Avant, une fois filtré, le seul indice était deux en-têtes passés en
+           bleu — on voyait 3 lignes sur 15 sans savoir pourquoi. -->
+      <div id="mv-active-filters" class="flex-c mb8" style="gap:6px;flex-wrap:wrap;font-size:11.5px"></div>
       <div id="mv-totals" class="flex-c mb8 mu sm"></div>
+      <!-- ⑨.1 — COLONNES 9 → 7. Immeuble + Qui fusionnent en « Affectation » (avec l'icône
+           du niveau) : deux colonnes disaient la même chose à deux niveaux, il fallait
+           deviner laquelle était remplie, et elles se répétaient (« Ferrette · … · Ferrette
+           · 001 »). Débit + Crédit fusionnent en « Montant » signé (rouge = sort, vert =
+           entre, code couleur validé côté Finances).
+           ⚠️ Le CSS mobile positionne les cellules par nth-child : il est repris DANS LE
+           MÊME LOT (css/main.css — bug 9 du CDC, il ne pouvait pas être traité à part). -->
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr>
           <th onclick="openMvDD('date',this)" style="cursor:pointer;white-space:nowrap">Date <span id="mvf-ind-date" style="color:var(--acc)"></span>▼</th>
           <th>Libellé</th>
-          <th onclick="openMvDD('imm',this)" style="cursor:pointer;white-space:nowrap">Immeuble <span id="mvf-ind-imm" style="color:var(--acc)"></span>▼</th>
           <th onclick="openMvDD('cat',this)" style="cursor:pointer;white-space:nowrap">Catégorie <span id="mvf-ind-cat" style="color:var(--acc)"></span>▼</th>
-          <th onclick="openMvDD('qui',this)" style="cursor:pointer;white-space:nowrap">Qui <span id="mvf-ind-qui" style="color:var(--acc)"></span>▼</th>
-          <th class="num">Débit</th><th class="num">Crédit</th><th>Facture</th><th></th>
+          <th onclick="openMvDD('qui',this)" style="cursor:pointer;white-space:nowrap">Affectation <span id="mvf-ind-qui" style="color:var(--acc)"></span>▼</th>
+          <th class="num">Montant</th>
+          <th>Fact.</th><th></th>
         </tr></thead>
         <tbody id="mv-tbody"></tbody>
       </table></div>
@@ -1346,8 +1365,15 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 <div class="modal">
   <div class="m-head"><h3 id="m-mv-title">Nouveau mouvement</h3><button class="m-close" onclick="closeM('ov-mv')">✕</button></div>
   <div class="m-body">
+    <!-- ⑩.1 — BLOC PROVENANCE. Il reçoit tout ce qui a été retiré de la liste (⑨.2 :
+         « trop de badges, on fait une app simple ») : origine et date d'import, la règle
+         qui a classé avec le lien pour la modifier, la ligne d'origine d'un découpage et
+         ses mouvements liés, la date du relevé si elle a été déplacée. Il ne pèse que sur
+         les mouvements qui ont une histoire : un mouvement saisi à la main tient en une
+         ligne. Le formulaire, lui, NE CHANGE PAS (⑩.1). -->
+    <div id="mv-provenance"></div>
     <div class="fg2">
-      <div class="fg"><label>Date *</label><input class="inp" type="date" id="mv-date"></div>
+      <div class="fg"><label>Date *</label><input class="inp" type="date" id="mv-date"><div id="mv-date-releve"></div></div>
       <div class="fg"><label>Catégorie *</label><input type="hidden" id="mv-cat"><div id="mv-cat-host"></div></div>
     </div>
     <div class="fg"><label>Libellé *</label><input class="inp" id="mv-lib" placeholder="Description du mouvement"></div>
@@ -15473,6 +15499,7 @@ function openNewMv() {
   _mvEnforceExclusivity();
   _affState['mv'] = {};            // V3-REFONTE-LOYERS B : reset + rend la zone d'affectation (niveau dérivé de la catégorie)
   _affRender('mv', 'mv');
+  _mvRenderProvenance(null);       // ⑩.1 — pas d'histoire sur un mouvement qu'on crée
   openM('ov-mv');
 }
 
@@ -15840,6 +15867,100 @@ function _catPkOverlay() {
     + '</div></div>';
 }
 
+// ⑩.1 — LE BLOC « PROVENANCE » de la fiche mouvement.
+// Ce que la liste ne montre plus (⑨.2) s'explique ici, au clic : d'où vient la ligne,
+// quelle règle l'a classée, si elle est une part de découpage, si sa date a été déplacée.
+function _mvRenderProvenance(m) {
+  const host = el('mv-provenance'); if (!host) return;
+  const dr = el('mv-date-releve'); if (dr) dr.innerHTML = '';
+  if (!m) { host.innerHTML = ''; return; }
+  const bits = [];
+
+  // Origine + date d'import
+  if (m._source === 'bank_import') {
+    const a = (DB.params.bankAccounts || []).find(x => x && String(x.id) === String(m._bankAccountId));
+    bits.push('🏦 <b>Importé</b> depuis ' + (a ? escHtml(a.label || 'un compte') : 'un relevé bancaire')
+      + (m._importedAt ? ' <span class="mu sm">le ' + fd(String(m._importedAt).slice(0, 10)) + '</span>' : ''));
+  } else {
+    bits.push('✋ <b>Saisi à la main</b>');
+  }
+
+  // La règle qui a classé, avec le lien « modifier la règle »
+  if (Array.isArray(m._rules) && m._rules.length) {
+    const links = m._rules.map(p => {
+      const idx = (DB.importRules || []).findIndex(r => r && !r._deleted && String(r.pattern || '').toLowerCase() === String(p).toLowerCase());
+      return idx >= 0
+        ? '<a onclick="closeM(\'ov-mv\');_bankRuleOpen(' + idx + ')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">« ' + escHtml(p) + ' »</a>'
+        : '<span class="mu sm">« ' + escHtml(p) + ' » (règle supprimée)</span>';
+    });
+    bits.push('⚙ <b>Classé par ' + (links.length > 1 ? 'les règles' : 'la règle') + '</b> ' + links.join(', '));
+  }
+
+  // Découpage : la ligne d'origine et les mouvements liés, avec « défaire »
+  if (m._splitGroup) {
+    const freres = (DB.mouvements || []).filter(x => x && !x._deleted && x._splitGroup === m._splitGroup);
+    bits.push('✂️ <b>' + freres.length + ' parts</b> issues du même virement'
+      + (m._splitSourceLib ? ' <span class="mu sm">(' + escHtml(m._splitSourceLib) + ')</span>' : '')
+      + ' · <a onclick="_mvUndoSplit(\'' + escHtml(m._splitGroup) + '\')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">↩ défaire le découpage</a>');
+  }
+
+  // ⑧.1b — date du relevé si elle a été déplacée, avec retour possible
+  if (m._dateReleve) {
+    bits.push('📅 <b>Date modifiée</b> — relevé : ' + fd(m._dateReleve)
+      + ' · <a onclick="_mvResetDateReleve(' + m.id + ')" style="cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6)">revenir à la date du relevé</a>'
+      + '<div class="mu sm" style="font-size:11px;margin-top:2px">Tant que les deux diffèrent, ce mouvement ne tombe pas en face de la bonne ligne du relevé.</div>');
+    if (dr) dr.innerHTML = '<div class="mu sm" style="font-size:11px;margin-top:3px">relevé : <b>' + fd(m._dateReleve) + '</b></div>';
+  }
+  if (m._bankLibelleReleve) {
+    bits.push('✏️ <b>Libellé modifié</b> — relevé : <span class="mu sm">' + escHtml(m._bankLibelleReleve) + '</span>');
+  }
+
+  host.innerHTML = '<div style="background:var(--sur2,#f5f8fc);border:1px solid var(--bor);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;line-height:1.65">'
+    + '<div class="mu sm" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">🧾 Provenance</div>'
+    + bits.map(b => '<div>' + b + '</div>').join('')
+    + '</div>';
+}
+
+// ⑧.1b — retour à la date du relevé depuis la fiche.
+function _mvResetDateReleve(id) {
+  const m = (DB.mouvements || []).find(x => x && x.id === id);
+  if (!m || !m._dateReleve) return;
+  el('mv-date').value = m._dateReleve;
+  m.date = m._dateReleve;
+  delete m._dateReleve;
+  _stamp(m);
+  saveDB();
+  _mvRenderProvenance(m);
+  if (typeof rMv === 'function') rMv();
+  showToast('📅 Date du relevé rétablie', 'ok', 2500);
+}
+
+// ⑩.1 — défaire un découpage : les parts repartent en UN mouvement (somme des parts).
+// Tombstones sur les parts (⑩.3 : la synchro entre appareils ne doit pas les ressusciter),
+// trace au journal d'audit, rafraîchissement de la liste.
+function _mvUndoSplit(groupId) {
+  const parts = (DB.mouvements || []).filter(m => m && !m._deleted && m._splitGroup === groupId);
+  if (parts.length < 2) { showToast('Découpage introuvable', 'warn'); return; }
+  if (!confirm2('Défaire ce découpage ?\n\nLes ' + parts.length + ' parts seront remplacées par le mouvement d\'origine (somme des parts).')) return;
+  const src = parts[0];
+  const net = parts.reduce((s, p) => s + ((p.cr || 0) - (p.db || 0)), 0);
+  const mvt = {
+    id: nid(), date: src._dateReleve || src.date,
+    lib: src._splitSourceLib || src.lib,
+    cat: '', qui: '', imm: '', db: net < 0 ? -net : 0, cr: net > 0 ? net : 0, fac: '',
+    compteurCcId: '', _source: src._source || 'bank_import',
+    _bankAccountId: src._bankAccountId, _fingerprint: src._fingerprint, fitid: src.fitid,
+  };
+  parts.forEach(p => { Object.assign(p, _tombstoneObj({ id: p.id })); });
+  _stamp(mvt);
+  DB.mouvements.push(mvt);
+  saveDB();
+  if (typeof _auditLog === 'function') _auditLog('update', 'mouvement', mvt.id, 'découpage défait (' + parts.length + ' parts)');
+  closeM('ov-mv');
+  if (typeof rMv === 'function') rMv();
+  showToast('↩ Découpage défait', 'ok', 3000);
+}
+
 function openEditMv(id) {
   const m = DB.mouvements.find(x=>x.id===id); if(!m) return;
   el('mv-edit-id').value = id;
@@ -15887,6 +16008,7 @@ function openEditMv(id) {
   _mvEnforceExclusivity();
   _affState['mv'] = { niv: m.compteurCcId ? 'recup' : (String(m.qui || '').startsWith('SCI:') ? 'sci' : ((m.imm && !m.qui) ? 'imm' : 'log')) }; // V3 B : niveau dérivé du mouvement édité
   _affRender('mv', 'mv');
+  _mvRenderProvenance(m);   // ⑩.1 — l'histoire du mouvement, en tête de fiche
   openM('ov-mv');
 }
 
@@ -16411,7 +16533,18 @@ function _spMvSyncDom() {
     const cs = el('sp'+j+'-cat'); if(cs) r.cat = cs.value;
     const lb = el('sp'+j+'-lib'); if(lb) r.lib = lb.value;
     const mt = el('sp'+j+'-mt');  if(mt) r.montant = mt.value;
+    const dt = el('sp'+j+'-date'); if(dt) r.date = dt.value;      // ⓪.2 date par part
+    const fc = el('sp'+j+'-fac');  if(fc) r.fac  = fc.value;      // ⓪.2 facture par part
   });
+}
+
+// ⓪.2 — marqueur « ≠ virement » dès que la date d'une part s'écarte de celle du virement.
+function renderSpMvDateFlag(j) {
+  const r = (window._spMvRows||[])[j]; const flag = el('sp'+j+'-dflag');
+  if (!r || !flag) return;
+  const srcDate = (_spMvSrc()||{}).date || '';
+  flag.innerHTML = (r.date && srcDate && r.date !== srcDate)
+    ? '<span style="color:var(--ora,#d97706);font-weight:700">📅 ≠ virement</span>' : '';
 }
 
 function renderSpMvRows() {
@@ -16427,9 +16560,20 @@ function renderSpMvRows() {
         <input class="inp" id="sp${j}-mt" type="number" step="0.01" min="0" placeholder="Montant" value="${r.montant}" oninput="window._spMvRows[${j}].montant=this.value;updateSpMvReste()" style="padding:6px 8px;font-size:12px">
         ${rows.length>2?`<button type="button" onclick="_spMvSyncDom();window._spMvRows.splice(${j},1);renderSpMvRows()" style="background:none;border:none;cursor:pointer;color:var(--red,#dc2626);font-size:15px" title="Supprimer cette ligne">✕</button>`:'<span></span>'}
       </div>
-      <div style="display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:start">
+      <div class="sp-cat-aff" style="display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:start">
         <input type="hidden" id="sp${j}-cat" value="${escHtml(r.cat||'')}">${_catBtn('sp'+j,'sp'+j,r.cat||'')}
         <div id="sp${j}-aff"></div>
+      </div>
+      <!-- ⓪.2 — une DATE et un N° DE FACTURE par part. Un relevé de gérance d'août peut
+           contenir le loyer de juillet d'un locataire en retard : sans date par part, les
+           parts héritaient toutes de la date du virement, ce loyer était compté en août et
+           le suivi devenait faux. Les frais de gestion, eux, sont une facture. -->
+      <div class="sp-date-fac" style="display:grid;grid-template-columns:180px 1fr;gap:8px;align-items:center;margin-top:8px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input class="inp" id="sp${j}-date" type="date" value="${escHtml(r.date || (_spMvSrc()||{}).date || '')}" oninput="window._spMvRows[${j}].date=this.value;renderSpMvDateFlag(${j})" style="padding:6px 8px;font-size:12px" title="Date de cette part">
+          <span id="sp${j}-dflag" class="mu sm" style="font-size:10.5px;white-space:nowrap"></span>
+        </div>
+        <input class="inp" id="sp${j}-fac" placeholder="N° de facture (optionnel)" value="${escHtml(r.fac||'')}" oninput="window._spMvRows[${j}].fac=this.value" style="padding:6px 8px;font-size:12px">
       </div>
       <input type="hidden" id="sp${j}-qui"><input type="hidden" id="sp${j}-imm"><input type="hidden" id="sp${j}-cc">
     </div>`).join('');
@@ -16440,6 +16584,7 @@ function renderSpMvRows() {
     if(el('sp'+j+'-cc'))  el('sp'+j+'-cc').value  = r.cc||'';
     _affState['sp'+j] = { niv: _spMvDeriveNiv(r) };
     _affRender('sp'+j, 'sp'+j);
+    renderSpMvDateFlag(j);
   });
   updateSpMvReste();
   _spMvSeedUI();
@@ -16539,7 +16684,10 @@ function confirmSplitMvList() {
   if (window._spMvImportIdx != null) {
     const line = (_bankImportLines||[])[window._spMvImportIdx];
     if (line) {
-      line._sp = rows.map(r => ({ sens:r.sens, lib:(r.lib||'').trim(), cat:r.cat||'', qui:r.qui||'', imm:r.imm||'', cc:r.cc||'', montant:parseFloat(r.montant)||0 }));
+      // ⓪.2 — la date et le n° de facture de chaque part sont conservés jusqu'à la
+      // création des mouvements (avant, toutes les parts héritaient de la date du virement).
+      line._sp = rows.map(r => ({ sens:r.sens, lib:(r.lib||'').trim(), cat:r.cat||'', qui:r.qui||'', imm:r.imm||'', cc:r.cc||'',
+        montant:parseFloat(r.montant)||0, date:r.date||line.date||'', fac:r.fac||'' }));
     }
     window._spMvImportIdx = null;
     closeM('ov-sp-mv');
@@ -16547,18 +16695,26 @@ function confirmSplitMvList() {
     showToast(`Relevé découpé en ${rows.length} ligne${rows.length>1?'s':''}`, 'ok');
     return;
   }
+  // ⓪.1 / ⓪.2 — les parts partagent un LIEN DE GROUPE : la fiche peut montrer les
+  // mouvements liés et proposer « défaire le découpage ».
+  const groupId = 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const nouvelles = rows.map(r=>{
     const hasAff = !!(r.qui || r.imm || r.cc);   // ligne non affectée → hérite de la source (parité ancien split)
     return {
-      id:nid(), date:src.date, lib:(r.lib||src.lib).trim(),
+      id:nid(), date:(r.date||src.date), lib:(r.lib||src.lib).trim(),
       cat: r.cat||src.cat,
       qui: hasAff ? (r.qui||'') : (src.qui||''),
       imm: hasAff ? (r.imm||'') : (src.imm||''),
       db: r.sens==='db' ? (parseFloat(r.montant)||0) : 0,
       cr: r.sens==='cr' ? (parseFloat(r.montant)||0) : 0,
-      fac: src.fac||'',
+      fac: r.fac || src.fac || '',
       // Propage le lien compteur collectif (sinon régul cassée) : affectation de la ligne, sinon source.
       compteurCcId: hasAff ? (r.cc||'') : (src.compteurCcId||''),
+      _splitGroup: groupId,
+      _splitSourceLib: src.lib || '',
+      _dateReleve: (r.date && src.date && r.date !== src.date) ? src.date : undefined,
+      _source: src._source || undefined,
+      _bankAccountId: src._bankAccountId || undefined,
     };
   });
   DB.mouvements = DB.mouvements.filter(x=>x.id!==window._spMvId);
@@ -16568,14 +16724,105 @@ function confirmSplitMvList() {
 }
 
 function clearMvFilters() {
-  window._mvFilters = {date:[], imm:[], cat:[], qui:[]};
+  window._mvFilters = {date:[], imm:[], cat:[], qui:[], compte:[], etat:[]};
   ['mvf-from','mvf-to','mvf-search'].forEach(id=>{ const e=el(id); if(e) e.value=''; });
-  ['date','imm','cat','qui'].forEach(col=>{ const ind=el('mvf-ind-'+col); if(ind) ind.textContent=''; });
+  ['date','imm','cat','qui','compte','etat'].forEach(col=>{ const ind=el('mvf-ind-'+col); if(ind) ind.textContent=''; });
   rMv();
 }
 
-// État des filtres multi-choix : tableau de valeurs sélectionnées, vide = tout
-if(!window._mvFilters) window._mvFilters = {date:[], imm:[], cat:[], qui:[]};
+// État des filtres multi-choix : tableau de valeurs sélectionnées, vide = tout.
+// ⑨.4 — deux filtres MANQUANTS ajoutés à la mécanique existante : `compte` et `état`.
+if(!window._mvFilters) window._mvFilters = {date:[], imm:[], cat:[], qui:[], compte:[], etat:[]};
+['compte','etat'].forEach(k => { if(!window._mvFilters[k]) window._mvFilters[k] = []; });
+
+// ⑨.5 — le nom de catégorie est COUPÉ AVANT LA PARENTHÈSE dans la liste
+// (« Charges récupérables (eau, énergie…) » → « Charges récupérables ») : le complément
+// est une aide à la saisie, il n'apporte rien dans une liste. Nom complet en info-bulle.
+function _mvCatCourt(cat) {
+  const s = String(cat || '');
+  const i = s.indexOf(' (');
+  return i > 0 ? s.slice(0, i) : s;
+}
+
+// Nom d'un compteur collectif (tous immeubles confondus), '' s'il n'existe plus.
+function _ccNom(ccId) {
+  let nom = '';
+  (DB.entites||[]).filter(_isAlive).forEach(e => (e.immeubles||[]).forEach(im => {
+    const c = (im.compteursCollectifs||[]).filter(_isAlive).find(x => x && x.id === ccId);
+    if (c) nom = c.nom || c.libelle || '';
+  }));
+  return nom;
+}
+
+// ⑨.1 — icône du NIVEAU d'affectation : ⌂ logement · ▤ immeuble · 🏛 SCI · ⚡ compteur.
+// Même sémantique que _AFF_NIV : les 4 niveaux ont une seule définition dans l'app.
+function _mvNiveauIcon(m) {
+  if (m.compteurCcId) return '⚡';
+  if (String(m.qui||'').startsWith('SCI:')) return '🏛';
+  if (m.qui) return '⌂';
+  if (m.imm) return '▤';
+  return '';
+}
+
+// ⑨.1 — la colonne « Affectation » : UNE information, au niveau où elle a été posée.
+// ⑨.2 — un SEUL badge dans la liste, affiché DANS LA COLONNE CONCERNÉE, là où
+// l'information manque : « ⚠ non affecté » ici, « ⚠ à classer » côté catégorie.
+function _mvAffLabel(m) {
+  const ic = _mvNiveauIcon(m);
+  if (m.compteurCcId) {
+    const nom = _ccNom(m.compteurCcId);
+    return `<span class="mu sm">${ic}</span> ${escHtml(nom || 'compteur collectif')}${m.imm ? ` <span class="mu sm">· ${escHtml(m.imm)}</span>` : ''}`;
+  }
+  if (String(m.qui||'').startsWith('SCI:')) return `<span class="mu sm">${ic}</span> ${escHtml(m.qui.slice(4))}`;
+  if (m.qui) {
+    const log = DB.logements.find(l => l.ref === m.qui);
+    return `<span class="mu sm">${ic}</span> ${escHtml(m.qui)}${log && log.locataire ? ` <span class="mu sm">· ${escHtml(log.locataire)}</span>` : ''}`;
+  }
+  if (m.imm) return `<span class="mu sm">${ic}</span> ${escHtml(m.imm)}`;
+  return '<span class="badge ora">⚠ non affecté</span>';
+}
+
+// ⑨.2 / ⑨.4 — « 🏦 compte » et « ✋ saisi » deviennent des FILTRES, pas des badges
+// répétés 140 fois. Ce sont les valeurs de ces deux menus.
+function _mvCompteLabel(m) {
+  if (!m || m._source !== 'bank_import') return '✋ Saisi à la main';
+  const a = (DB.params.bankAccounts||[]).find(x => x && String(x.id) === String(m._bankAccountId));
+  return a ? ('🏦 ' + (a.label || 'compte')) : '🏦 Import (compte inconnu)';
+}
+function _mvEtatLabel(m) {
+  if (!m.cat) return '⚠ À classer';
+  if (!m.qui && !m.imm && !m.compteurCcId) return '⚠ Non affecté';
+  return '✓ Classé';
+}
+
+// ⑨.4 — la ligne des filtres actifs : dire CE QUI filtre, et permettre de l'enlever.
+function _mvActiveFiltersHtml(nShown, nTotal) {
+  const F = window._mvFilters;
+  const chips = [];
+  const chip = (lbl, onclear) => `<span class="badge" style="border:1px solid var(--acc);color:var(--acc);background:transparent;font-weight:600">${lbl} <b style="cursor:pointer" onclick="${onclear}">✕</b></span>`;
+  const tab = window._mvTab || 'all';
+  if (tab !== 'all') chips.push(chip(tab === 'cr' ? '± Recettes' : '± Dépenses', "setMvTab('all',document.querySelector('#p-loyers .tabs .tab'))"));
+  // Les valeurs de `compte` et `etat` portent déjà leur icône : on ne la double pas.
+  const named = { cat: '🏷 ', qui: '🏠 ', imm: '🏢 ', date: '📅 ', compte: '', etat: '' };
+  Object.keys(named).forEach(k => {
+    const vals = F[k] || [];
+    if (!vals.length) return;
+    const lbl = named[k] + (vals.length > 2 ? vals.length + ' valeurs' : vals.map(x => escHtml(String(x).replace(/^SCI:/, ''))).join(', '));
+    chips.push(chip(lbl, `_mvClearFilter('${k}')`));
+  });
+  const search = v('mvf-search');
+  if (search) chips.push(chip('🔍 ' + escHtml(search), "el('mvf-search').value='';rMv()"));
+  const from = v('mvf-from'), to = v('mvf-to');
+  if (from || to) chips.push(chip('📆 ' + (from ? fd(from) : '…') + ' → ' + (to ? fd(to) : '…'), "el('mvf-from').value='';el('mvf-to').value='';rMv()"));
+  if (!chips.length) return '';
+  return chips.join(' ')
+    + `<span class="mu sm" style="margin-left:4px">${nShown} ligne${nShown>1?'s':''} sur ${nTotal} · <a onclick="clearMvFilters()" style="cursor:pointer;text-decoration:underline">tout effacer</a></span>`;
+}
+
+function _mvClearFilter(k) {
+  window._mvFilters[k] = [];
+  rMv();
+}
 
 function rMv() {
   const search = v('mvf-search').toLowerCase().trim();
@@ -16584,11 +16831,14 @@ function rMv() {
   const tab    = window._mvTab||'all';
   const F      = window._mvFilters;
 
-  let mvs = DB.mouvements.filter(_isAlive).filter(m=>{
+  const alive = DB.mouvements.filter(_isAlive);
+  let mvs = alive.filter(m=>{
     if(F.imm.length  && !F.imm.includes(m.imm||''))  return false;
     if(F.cat.length  && !F.cat.includes(m.cat||''))  return false;
     if(F.qui.length  && !F.qui.includes(m.qui||''))  return false;
     if(F.date.length && !F.date.some(d=>m.date?.startsWith(d))) return false;
+    if(F.compte.length && !F.compte.includes(_mvCompteLabel(m))) return false;   // ⑨.4
+    if(F.etat.length   && !F.etat.includes(_mvEtatLabel(m)))     return false;   // ⑨.4
     if(from && m.date<from) return false;
     if(to   && m.date>to)   return false;
     if(tab==='cr' && !(m.cr>0)) return false;
@@ -16605,20 +16855,26 @@ function rMv() {
 
   const totCr = mvs.reduce((s,m)=>s+(m.cr||0),0);
   const totDb = mvs.reduce((s,m)=>s+(m.db||0),0);
-  el('mv-totals').innerHTML = `<span>${mvs.length} mouvement(s)</span> <span class="pos">↑ ${fmt(totCr)}</span> <span class="neg">↓ ${fmt(totDb)}</span> <span class="${totCr-totDb>=0?'pos':'neg'}">= ${fmt(totCr-totDb)}</span>`;
+  // ⑨.3 — Crédits · Débits · Lignes affichées. LE « SOLDE » EST SUPPRIMÉ : additionner un
+  // dépôt de garantie, un loyer, du capital de prêt et des charges récupérables en transit
+  // ne produit rien d'interprétable (« on mélange des choux et des carottes »). Ce qui reste
+  // est assumé comme une SOMME DE CONTRÔLE : réconcilier avec le relevé (qui additionne lui
+  // aussi tout ce qui entre et tout ce qui sort) et vérifier qu'un filtre est homogène.
+  // Aucun indicateur de gestion ici — Finances reste maître des KPI (R-3).
+  el('mv-totals').innerHTML = `<span class="pos">↑ Crédits ${fmt(totCr)}</span> <span class="neg">↓ Débits ${fmt(totDb)}</span> <span>${mvs.length} ligne${mvs.length>1?'s':''} affichée${mvs.length>1?'s':''}</span>`;
+  const af = el('mv-active-filters');
+  if (af) af.innerHTML = _mvActiveFiltersHtml(mvs.length, alive.length);
 
   el('mv-tbody').innerHTML = mvs.map(m=>{
-    const log = DB.logements.find(l=>l.ref===m.qui);
-    const quiLabel = log ? `${escHtml(m.qui)} <span class="mu sm">${escHtml(log.locataire||'')}</span>` : escHtml(m.qui||'–');
+    // ⑨.1 — Débit + Crédit → « Montant » signé (rouge = sort, vert = entre).
+    const net = (m.cr||0) - (m.db||0);
     return `<tr>
     <td>${fd(m.date)}</td>
     <td>${escHtml(m.lib||'–')}</td>
-    <td>${escHtml(m.imm||'–')}</td>
-    <td><span class="badge gry">${escHtml(m.cat||'–')}</span></td>
-    <td>${quiLabel}</td>
-    <td class="num ${m.db>0?'neg':''}">${m.db>0?fmt(m.db):'–'}</td>
-    <td class="num ${m.cr>0?'pos':''}">${m.cr>0?fmt(m.cr):'–'}</td>
-    <td>${escHtml(m.fac||'–')}</td>
+    <td>${m.cat ? `<span class="badge gry" title="${escHtml(m.cat)}">${escHtml(_mvCatCourt(m.cat))}</span>` : '<span class="badge ora">⚠ à classer</span>'}</td>
+    <td>${_mvAffLabel(m)}</td>
+    <td class="num ${net>=0?'pos':'neg'}">${net>=0?'+ ':'− '}${fmt(Math.abs(net))}</td>
+    <td>${m.fac?`<span title="${escHtml(m.fac)}">📎</span>`:''}</td>
     <td class="act-cell">
       <button class="btn bs bb" onclick="openEditMv(${m.id})" title="Modifier">✏️</button>
       <button class="btn bs bb" onclick="openSplitMvList(${m.id})" title="Scinder ce mouvement">✂</button>
@@ -16627,8 +16883,8 @@ function rMv() {
   </tr>`;
   }).join('');
 
-  // Indicateurs ● sur colonnes filtrées
-  ['imm','cat','qui','date'].forEach(col=>{
+  // Indicateurs ● sur colonnes / menus filtrés
+  ['imm','cat','qui','date','compte','etat'].forEach(col=>{
     const ind = el('mvf-ind-'+col);
     if(ind) ind.textContent = (window._mvFilters[col]||[]).length ? '● ' : '';
   });
@@ -16641,11 +16897,14 @@ let _mvDDSel = null;  // null=tout, []=rien, [v1,v2]=sélection
 
 function openMvDD(col, thEl) {
   _mvDDCol = col;
-  const all = [...new Set(DB.mouvements.map(m=>{
-    if(col==='date') return m.date ? m.date.slice(0,7) : '';
-    if(col==='imm')  return m.imm||'';
-    if(col==='cat')  return m.cat||'';
-    if(col==='qui')  return m.qui||'';
+  const all = [...new Set(DB.mouvements.filter(_isAlive).map(m=>{
+    if(col==='date')   return m.date ? m.date.slice(0,7) : '';
+    if(col==='imm')    return m.imm||'';
+    if(col==='cat')    return m.cat||'';
+    if(col==='qui')    return m.qui||'';
+    // ⑨.4 — les deux filtres manquants, à la mécanique des menus existants.
+    if(col==='compte') return _mvCompteLabel(m);
+    if(col==='etat')   return _mvEtatLabel(m);
     return '';
   }))].filter(v=>v!=='').sort();
 
@@ -16653,7 +16912,7 @@ function openMvDD(col, thEl) {
   const currentFilter = window._mvFilters[col]||[];
   _mvDDSel = currentFilter.length === 0 ? null : [...currentFilter];
 
-  const titles = {date:'Mois', imm:'Immeuble', cat:'Catégorie', qui:'Logement / Entité'};
+  const titles = {date:'Mois', imm:'Immeuble', cat:'Catégorie', qui:'Affectation', compte:'Compte', etat:'État'};
   el('mv-dd-title').textContent = titles[col]||col;
   el('mv-dd-search').value = '';
   renderMvDDList(all);
@@ -50711,13 +50970,17 @@ function _bankImportConfirm() {
     // V3-REFONTE-LOYERS Phase 4 : ligne découpée (line._sp, relevé de gérance) → N mouvements signés
     // (sens → db/cr) ; sinon 1 mouvement = l'affectation de la ligne. fingerprint/fitid (dédup) seulement
     // sur la 1re part (sinon empreintes dupliquées au re-import).
+    // ⓪.2 — chaque part porte SA date et SON n° de facture ; ⓪.1 — elles partagent
+    // un lien de groupe pour que la fiche puisse montrer les mouvements liés.
+    const splitGroup = (Array.isArray(line._sp) && line._sp.length)
+      ? 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) : '';
     const parts = (Array.isArray(line._sp) && line._sp.length)
-      ? line._sp.map(r => ({ cat:r.cat||'', qui:r.qui||'', imm:r.imm||'', cc:r.cc||'', db:(r.sens==='db'?(Number(r.montant)||0):0), cr:(r.sens==='cr'?(Number(r.montant)||0):0), lib:(r.lib||line.libelle) }))
-      : [{ cat:line.suggestedCat||'', qui:line.suggestedQui||'', imm:line.suggestedImm||'', cc:line.suggestedCc||'', db:line.debit||0, cr:line.credit||0, lib:line.libelle }];
+      ? line._sp.map(r => ({ cat:r.cat||'', qui:r.qui||'', imm:r.imm||'', cc:r.cc||'', db:(r.sens==='db'?(Number(r.montant)||0):0), cr:(r.sens==='cr'?(Number(r.montant)||0):0), lib:(r.lib||line.libelle), date:r.date||line.date, fac:r.fac||'' }))
+      : [{ cat:line.suggestedCat||'', qui:line.suggestedQui||'', imm:line.suggestedImm||'', cc:line.suggestedCc||'', db:line.debit||0, cr:line.credit||0, lib:line.libelle, date:line.date, fac:'' }];
     parts.forEach((p, pi) => {
       const mvt = {
         id: nid(),
-        date: line.date,
+        date: p.date || line.date,
         // Bug 1 du CDC : le libellé était TRONQUÉ À 200 CARACTÈRES ici, en silence.
         // I-2 « aucune troncature nulle part » : n'importe quel mot ou référence du
         // relevé (RUM, n° de mandat, motif) doit pouvoir servir de motif de règle.
@@ -50727,8 +50990,10 @@ function _bankImportConfirm() {
         imm: p.imm || '',
         db: p.db || 0,
         cr: p.cr || 0,
-        fac: '',
+        fac: p.fac || '',
         compteurCcId: p.cc || '',
+        _splitGroup: splitGroup || undefined,
+        _splitSourceLib: splitGroup ? (line.libelle || '') : undefined,
         _source: 'bank_import',
         _importedAt: new Date().toISOString(),
         // ⑧.1b / ⑩.1 — la date du relevé si elle a été déplacée (bloc Provenance).
