@@ -14,7 +14,7 @@ import {
   _bankOfxTag, _bankOfxLabel, _bankParseOFX, _bankReadOFX,
   _bankFindHeaderRow, _bankPickDateColumn, _bankDetectOrientation,
   _bankCheckBalance, _bankMarkDoubtfulDates, _bankPickSheets, _bankReadTable,
-  _bankFingerprintRow, _bankExtractSheetAccount,
+  _bankFingerprintRow, _bankExtractSheetAccount, _bankPickAmountColumn,
 } from '../../js/core/bank-import.js';
 
 const u8 = (s) => new Uint8Array([...s].map(c => c.charCodeAt(0)));
@@ -495,5 +495,50 @@ describe('④.2 _bankExtractSheetAccount — les lignes écartées identifient l
   it('Ne regarde jamais après la ligne d\'en-tête (les mouvements ne sont pas un identifiant)', () => {
     const rows = [['Date', 'Libellé', 'Montant'], ['04/08/2026', 'VIR IBAN FR7630004000031234567890143', 100]];
     expect(_bankExtractSheetAccount(rows, 0)).toBeNull();
+  });
+});
+
+describe("T-1 — un fichier sans colonne de montant d'opération le dit franchement", () => {
+  it("Date + libellé + solde seulement → refus explicite, pas 'montant à 0 €' sur chaque ligne", () => {
+    const rows = [
+      ['Date', 'Libellé', 'Solde'],
+      ['04/08/2026', 'PRLV EDF', '5100,06'],
+      ['05/08/2026', 'VIR DUPONT', '5950,06'],
+      ['09/08/2026', 'CB COURSES', '5897,76'],
+    ];
+    const r = _bankReadTable(rows);
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/montant d'opération/);
+  });
+});
+
+describe("AUDIT C1 — une colonne de référence n'est pas un montant", () => {
+  const rows = [
+    ['Date', "N° opération", 'Libellé', 'Montant'],
+    ['01/06/2026', '4501231', 'VIR LOYER DUPONT', '850,00'],
+    ['03/06/2026', '4501232', 'PRLV EDF', '-399,94'],
+    ['05/06/2026', '4501233', 'CB COURSES', '-52,30'],
+  ];
+
+  it("Le n° d'opération ne devient plus le montant", () => {
+    const r = _bankReadTable(rows);
+    expect(r.lines[0].credit).toBe(850);
+    expect(r.lines[1].debit).toBe(399.94);
+  });
+
+  it("Sans en-tête parlant, la colonne qui porte décimales et négatifs l'emporte", () => {
+    const sansEntetes = [
+      ['01/06/2026', '4501231', 'VIR LOYER', '850,00'],
+      ['03/06/2026', '4501232', 'PRLV EDF', '-399,94'],
+      ['05/06/2026', '4501233', 'CB COURSES', '-52,30'],
+    ];
+    const r = _bankReadTable(sansEntetes);
+    expect(r.lines[0].credit).toBe(850);
+    expect(r.lines[1].debit).toBe(399.94);
+  });
+
+  it('_bankPickAmountColumn : entiers positifs de même largeur = identifiant, pas argent', () => {
+    const data = [['x', '4501231', '850,00'], ['x', '4501232', '-399,94']];
+    expect(_bankPickAmountColumn(data, [1, 2], [])).toBe(2);
   });
 });

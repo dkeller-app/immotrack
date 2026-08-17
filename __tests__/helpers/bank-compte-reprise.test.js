@@ -170,3 +170,24 @@ describe('⑤.2 _bankIsRetroactive — accepté et annoncé', () => {
     expect(_bankIsRetroactive([{ date: '2026-06-01' }], null)).toBe(false);
   });
 });
+
+describe('AUDIT I1 — un import rétroactif n\'efface pas la mémoire de reprise', () => {
+  it('Après juin importé derrière août, les empreintes d\'août sont TOUJOURS là', () => {
+    // Sinon l'import de septembre affiche « Reprise non retrouvée » — exactement ce
+    // que les 10 empreintes de ⑤.1 devaient supprimer, déclenché par ⑤.2.
+    const aout = Array.from({ length: 12 }, (_, i) => ({ date: '2026-08-' + String(i + 1).padStart(2, '0'), _fingerprint: 'aout' + i }));
+    let li = _bankComputeLastImport(aout, 0, null);
+    const juin = Array.from({ length: 12 }, (_, i) => ({ date: '2026-06-' + String(i + 1).padStart(2, '0'), _fingerprint: 'juin' + i }));
+    li = _bankComputeLastImport(juin, li.count, li);
+    expect(li.date).toBe('2026-08-12');            // le pointeur ne recule pas (bug 2)
+    expect(li.fingerprints[0]).toBe('aout11');     // et la mémoire reste du côté récent
+    expect(li.fingerprints).not.toContain('juin11');
+  });
+
+  it('Un import qui AVANCE met bien ses empreintes en tête', () => {
+    let li = _bankComputeLastImport([{ date: '2026-08-31', _fingerprint: 'a' }], 0, null);
+    li = _bankComputeLastImport([{ date: '2026-09-10', _fingerprint: 'b' }], li.count, li);
+    expect(li.fingerprints[0]).toBe('b');
+    expect(li.fingerprints).toContain('a');
+  });
+});

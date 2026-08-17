@@ -470,6 +470,46 @@
   }
 
   /**
+   * ②.4 — CHOIX DE LA COLONNE DE MONTANT quand il n'y a pas de couple débit/crédit.
+   *
+   * 🐛 **Prendre la colonne numérique la plus à gauche est faux** : beaucoup d'exports
+   * Excel de banques placent un « N° d'opération » ou une « Référence » avant le montant.
+   * Le numéro devenait le montant, et le sens de toutes les lignes avec (audit C1).
+   * Une colonne d'argent, ça se reconnaît : elle porte des décimales ou des négatifs.
+   * Un identifiant, ce sont des entiers positifs, tous de la même longueur.
+   *
+   * Ordre : en-tête explicite (« montant », « amount »…) → colonne qui contient des
+   * décimales ou des négatifs → la plus à droite (le montant suit les références).
+   */
+  function _bankPickAmountColumn(data, cols, headers) {
+    const list = (cols || []).slice();
+    if (!list.length) return -1;
+    const named = list.filter(c => _BANK_H_MONT.test(_bankHdr(headers, c)));
+    if (named.length) return named[0];
+    const money = (c) => {
+      let dec = 0, neg = 0, n = 0, widths = new Set();
+      for (const r of data) {
+        const raw = r && r[c];
+        if (raw == null || String(raw).trim() === '') continue;
+        const v = _bankParseAmount(raw);
+        if (v === 0) continue;
+        n++;
+        if (Math.abs(Math.round(v) - v) > 0.0001) dec++;
+        if (v < 0) neg++;
+        widths.add(String(Math.abs(Math.round(v))).length);
+      }
+      // Un identifiant : que des entiers positifs, tous de la même longueur.
+      const looksLikeId = n >= 2 && dec === 0 && neg === 0 && widths.size === 1;
+      return { n, score: (dec > 0 ? 2 : 0) + (neg > 0 ? 1 : 0), looksLikeId };
+    };
+    const scored = list.map(c => ({ c, ...money(c) }));
+    const real = scored.filter(s => !s.looksLikeId);
+    const pool = real.length ? real : scored;
+    pool.sort((a, b) => (b.score - a.score) || (b.c - a.c));   // à score égal, la plus à droite
+    return pool[0].c;
+  }
+
+  /**
    * ②.4 — ORIENTATION DÉBIT/CRÉDIT : prouvée, pas devinée.
    * Reconnaissance : deux colonnes jamais remplies ensemble = couple débit/crédit ;
    * une colonne avec des positifs ET des négatifs = montant signé ; une colonne texte
@@ -543,7 +583,7 @@
     }
 
     // ── Colonne unique de montant signé ──
-    const amountIdx = amountCols.length ? amountCols[0] : -1;
+    const amountIdx = _bankPickAmountColumn(data, amountCols, headers);
     out.mode = 'signed'; out.amountIdx = amountIdx;
     if (amountIdx < 0) { out.proofLabel = 'aucune colonne de montant trouvée'; return out; }
     let pos = 0, neg = 0;
@@ -695,6 +735,13 @@
     const oriData = head.data.filter(r => _bankParseDate(r[dcol.idx]));
     const ori = _bankDetectOrientation(oriData.length >= 2 ? oriData : head.data,
       { headers, amountCols: head.amountCols, textCols: head.textCols, soldeIdx });
+    // La seule colonne de montants est celle du SOLDE : il n'y a pas de montant
+    // d'opération à lire. On le dit franchement plutôt que d'écarter toutes les lignes
+    // avec le motif trompeur « montant à 0 € ».
+    if (ori.mode !== 'debitCredit' && ori.amountIdx < 0) {
+      return { ok: false, lines: [], discarded: [], meta,
+               error: "Cette feuille a une colonne de dates et une colonne de solde, mais aucune colonne de montant d'opération." };
+    }
     meta.orientation = ori.mode;
     meta.orientationProof = ori.proof;
     meta.orientationProofLabel = ori.proofLabel;
@@ -1145,36 +1192,40 @@
       let isDuplicate = false, dupLevel = '', duplicateOf = '', duplicateReason = '';
 
       // ── Stratégie 1 : FITID, dans les DEUX SENS ──────────────────────────────
-      if (line.fitid) {
-        const m = fitidIndex.get(String(line.fitid).trim());
+      const lineFitid = line.fitid ? String(line.fitid).trim() : '';
+      if (lineFitid) {
+        const m = fitidIndex.get(lineFitid);
         if (m) {
           out.push({ ...line, isDuplicate: true, dupLevel: 'certain',
             duplicateOf: String(m.id || '?'),
             duplicateReason: 'Même identifiant de transaction (FITID) — la banque dit que c’est la même opération' });
           continue;
         }
-        // FITID différent de tous ceux déjà en base → ce n'est PAS un doublon. On ne
-        // consulte cette preuve négative que si la base porte effectivement des FITID
-        // (sinon elle ne prouve rien : mouvements saisis à la main, imports Excel).
-        if (fitidIndex.size > 0) {
-          out.push({ ...line, isDuplicate: false, dupLevel: '', duplicateOf: '', duplicateReason: '' });
-          continue;
-        }
       }
+      // La preuve NÉGATIVE du FITID ne vaut que face à un mouvement qui PORTE un FITID :
+      // « celui-ci a un autre identifiant, ce n'est pas la même opération ». Elle ne dit
+      // rien d'un mouvement sans identifiant (import Excel, saisie manuelle).
+      // 🐛 Audit C2 : conclure globalement dès qu'UN mouvement du compte portait un FITID
+      // faisait sauter empreinte ET heuristique → une période importée en Excel puis
+      // recouverte par un relevé OFX était comptée DEUX FOIS, sans un mot.
+      const cands = lineFitid ? alive.filter(m => { const f = _bankMvFitid(m); return !f || f === lineFitid; }) : alive;
 
       // ── Stratégie 2 : empreinte (principale pour Excel) ──────────────────────
       if (line._fingerprint && fpIndex.has(line._fingerprint)) {
         const m = fpIndex.get(line._fingerprint);
-        isDuplicate = true; dupLevel = 'certain';
-        duplicateOf = String(m.id || '?');
-        duplicateReason = 'Empreinte identique — opération déjà importée';
+        const mf = _bankMvFitid(m);
+        if (!lineFitid || !mf || mf === lineFitid) {
+          isDuplicate = true; dupLevel = 'certain';
+          duplicateOf = String(m.id || '?');
+          duplicateReason = 'Empreinte identique — opération déjà importée';
+        }
       }
 
       // ── Stratégie 3 : ressemblance (date ±3 j + montant ±1 €) → PROBABLE ─────
       if (!isDuplicate && legacyFallback) {
         const lineMontant = line.credit > 0 ? line.credit : -line.debit;
         const lineDate = line.date ? new Date(line.date + 'T00:00:00').getTime() : NaN;
-        for (const m of alive) {
+        for (const m of cands) {
           if (m._fingerprint && m._fingerprint === line._fingerprint) continue; // déjà couvert
           if (!m.date || !isFinite(lineDate)) continue;
           const mMontant = (m.cr || 0) > 0 ? (m.cr || 0) : -(m.db || 0);
@@ -1194,10 +1245,14 @@
       // détecte que son montant = la SOMME des parts d'import bancaire du même jour.
       if (!isDuplicate) {
         const lineMontant = line.credit > 0 ? line.credit : -line.debit;
-        const acct = line._bankAccountId || null;
-        const parts = alive.filter(m =>
+        // 🐛 Audit I5 : `line._bankAccountId` n'est JAMAIS posé sur une ligne d'import
+        // (le champ n'existe qu'à la création du mouvement) — ce garde était mort, et la
+        // somme des parts du jour était comparée aux mouvements de TOUS les comptes.
+        // Depuis ⑥.2 ces faux positifs sont « probables » et BLOQUENT la validation.
+        const acct = line._bankAccountId || (accountId != null ? accountId : null);
+        const parts = cands.filter(m =>
           m.date === line.date && m._source === 'bank_import' &&
-          (!acct || !m._bankAccountId || m._bankAccountId === acct));
+          (acct == null || m._bankAccountId == null || String(m._bankAccountId) === String(acct)));
         if (parts.length >= 2) {
           const sum = parts.reduce((s, m) => s + ((m.cr || 0) > 0 ? (m.cr || 0) : -(m.db || 0)), 0);
           if (Math.abs(sum - lineMontant) <= toleranceAmount) {
@@ -1498,13 +1553,19 @@
     const last = sorted[sorted.length - 1];
     const newDate = last.date || '';
     const prevDate = (prev && prev.date) || '';
-    // Les nouvelles empreintes passent en tête (plus récentes d'abord), les anciennes suivent.
     const fresh = sorted.slice().reverse().map(l => l && l._fingerprint).filter(Boolean);
     const prevFps = Array.isArray(prev && prev.fingerprints) ? prev.fingerprints
       : ((prev && prev.fingerprint) ? [prev.fingerprint] : []);
-    const fingerprints = [...new Set([...fresh, ...prevFps])].slice(0, _BANK_FP_MEMORY);
     // Le pointeur ne recule jamais : on garde la date la plus récente des deux.
     const keepPrev = prevDate && newDate && prevDate > newDate;
+    // 🐛 Audit I1 — LES EMPREINTES SUIVENT LA MÊME RÈGLE QUE LA DATE. En mettant toujours
+    // le lot fraîchement importé en tête, un import RÉTROACTIF (⑤.2) chassait les 10
+    // empreintes d'août au profit de celles de juin : l'import de septembre ne retrouvait
+    // plus rien et affichait « Reprise non retrouvée » — précisément ce que ⑤.1 devait
+    // supprimer. On garde en tête les empreintes du côté le plus RÉCENT.
+    const fingerprints = keepPrev
+      ? [...new Set([...prevFps, ...fresh])].slice(0, _BANK_FP_MEMORY)
+      : [...new Set([...fresh, ...prevFps])].slice(0, _BANK_FP_MEMORY);
     return {
       date: keepPrev ? prevDate : newDate,
       fingerprint: keepPrev ? (prev.fingerprint || null) : (last._fingerprint || null),
@@ -1532,6 +1593,7 @@
     _bankReadOFX: _bankReadOFX,
     _bankFindHeaderRow: _bankFindHeaderRow,
     _bankPickDateColumn: _bankPickDateColumn,
+    _bankPickAmountColumn: _bankPickAmountColumn,
     _bankDetectOrientation: _bankDetectOrientation,
     _bankCheckBalance: _bankCheckBalance,
     _bankMarkDoubtfulDates: _bankMarkDoubtfulDates,
