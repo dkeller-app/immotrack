@@ -36,6 +36,14 @@ Blindage connexion + partage AVANT tout · CDC + mockup 3 formats + validation u
 | **Mouvements + règles d'import** (ORDRE user 14/08) | 🔄 **REVUE LANCÉE** — session Finances relancée (elle a la source « payé » en tête, zéro contexte à réexpliquer) : ancrages `p-import`/`p-loyers`, `bank-import.js`, `import-concurrents.js`, `_rule*` inline + dépouillement des 9 sujets backlog import/règles existants. À trancher en séance : cycle de vie d'une règle (priorité, rétroactivité), pouvoir d'une règle (catégorie / affectation / split), critère de doublon, virements groupés & paiements partiels, post-datés (cohérence F-1 v2), ce qui disparaît | CDC → `mockups/MOUVEMENTS-REGLES/CDC-MOUVEMENTS-VALIDE.md` → « où en est mouvements » → figé par le pilotage |
 | **Blindage connexion** | ✅ keep-alive VÉRIFIÉ 13/08 (cron quotidien 07h UTC, 3/3 succès) | E2E réel login PC + iPhone (post-pause Supabase) · ⚠️ **découvert 13/08 : aucun envoi d'email branché** (confirmation d'inscription n'arrive jamais → « Créer un compte » impossible pour un nouveau testeur ; même blocage que l'OTP : brancher Resend + domaine propryo.fr AVANT toute invitation bêta) |
 
+## 🎨 Lancé 18/08 — design (session en cours, livrables dans `mockups/`)
+
+| Sujet | Contenu | Suite |
+|---|---|---|
+| **Mouvements — charte Propryo** | Constat user : l'écran refondu ne « colle pas aux règles Propryo ». Vérifié par le pilotage : les tokens clairs de `css/main.css` **correspondent déjà** à la charte (fond/surface/encre/corail) et l'écran n'a aucune couleur en dur → les écarts réels sont ceux que la charte nomme elle-même : **mode sombre sans contraste** (tokens correctifs donnés) et **Schibsted Grotesk jamais embarquée** (interdiction de CDN → police système). Livrable : audit écart par écart + mockup re-skiné 3 formats × clair/sombre | validation user → chantier code |
+| **KPI** | Support de décision (même ergonomie que `revue-pnl.html`) : chaque KPI avec son calcul ancré fichier:ligne, sa provenance (bail/import), sa fenêtre, ce qui cloche, une recommandation ; + max 5 KPI manquants justifiés par un besoin réel. Contrainte dure : 1 écran PC | verdicts user → CDC → chantier |
+| **Fiche de résumé du mois** (NOUVEAU, demande user 18/08) | Document mensuel entrées/sorties destiné à un tiers (agence, mandant, associé) — « CRG simplifié ». DOIT utiliser le gabarit unique (variante B, logo bailleur optionnel) et tenir sur une page. Voisin à consulter : `docs/subjects/CRG-PDF-GERANCE.md`. Livrable : document mockupé (mois calme / mois chargé) + décisions à trancher (destinataire, périmètre, contenu exact, impayés/vacance, solde à reverser, déclenchement, format) | validation user → CDC → chantier |
+
 ## 🧪 Smoke user en attente (Didier)
 
 - **Historique bail** (v15.496) : onglet Bail — accordéons, DG, popup modif financière, correction IRL.
