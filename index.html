@@ -6548,7 +6548,20 @@ function _docPage(ent, opts) {
   const o = opts || {};
   const bandeau = _docBrandzone(ent);
   if (!window.DocTemplate) {
-    return bandeau + (o.titre ? '<h1>' + o.titre + '</h1>' : '') + (o.corps || '');
+    // AUDIT C1 — le repli portait le titre et le corps, mais JETAIT ctx, ref, date et le
+    // saut de page. `ctx` n'est pas de l'habillage : c'est du contenu que l'appelant confie
+    // (pour l'acte de cautionnement, ce sont ses références légales de tête). Le repli rend
+    // donc les MÊMES morceaux que le chemin nominal, dans le même conteneur .pro-doc — sans
+    // la feuille de style, mais sans rien perdre.
+    const brk = o.pageBreakAfter ? ' style="page-break-after:' + o.pageBreakAfter + '"' : '';
+    const pied = [o.ref, o.date, o.pages].filter(Boolean);
+    return '<div class="pro-doc"' + brk + '>'
+      + bandeau
+      + (o.titre ? '<div class="pro-titre"><h1>' + o.titre + '</h1>'
+          + (o.ctx ? '<p class="pro-ctx">' + o.ctx + '</p>' : '') + '</div>' : '')
+      + (o.corps || '')
+      + (pied.length ? '<div class="pro-pied">' + pied.map(function (p) { return '<span>' + p + '</span>'; }).join('') + '</div>' : '')
+      + '</div>';
   }
   return window.DocTemplate.docPage({
     bandeau: bandeau, titre: o.titre, ctx: o.ctx, corps: o.corps,
@@ -27174,9 +27187,15 @@ if (typeof window !== 'undefined') window._buildDecompteHtml = _buildDecompteHtm
 
 function _openRegulDoc(entryKeys, from, to) {
   // v15.113 — utilise le helper _buildDecompteHtml pour 1 entry à la fois, concatène
+  // AUDIT M6 — chaque décompte embarque la feuille du gabarit ; à k destinataires, k copies
+  // identiques. On ne garde que celle du premier (scopée, donc valable pour tous les autres).
+  let _styleVu = false;
   const parts = entryKeys.map(entryKey => {
     const built = _buildDecompteHtml(entryKey, from, to);
-    return built.error ? '' : built.html;
+    if (built.error) return '';
+    if (_styleVu) return built.html.replace(/^<style>[\s\S]*?<\/style>/, '');
+    _styleVu = /^<style>/.test(built.html);
+    return built.html;
   });
   el('regul-doc-content').innerHTML = parts.join('') || '<p class="mu">Aucune donnée</p>';
   openM('ov-regul-doc');
@@ -28268,6 +28287,10 @@ function genAllQuit() {
  * @param {object} [opts] - { mvsPay?: Array } — surcharge pour tests, sinon lu depuis DB.mouvements
  * @returns {{html:string, css:string, title:string, status:'complet'|'partiel'|'non-paye'}}
  */
+// AUDIT M3 — mise en page propre a la FENETRE d'impression/partage de la quittance.
+// Volontairement SEPAREE de `built.css` : ce dernier est injecte dans la page de l'app par
+// _rasterizeHtmlToPdfBlob, ou une regle `body`/`@page` nue repeindrait l'application.
+const QUIT_PRINT_CSS = '@page{size:A4;margin:1.8cm 2cm}body{margin:0;background:#fff}';
 function _buildQuittanceHtml(q, log, ent, bail, opts) {
   q = q || {}; log = log || {}; ent = ent || {}; bail = bail || {}; opts = opts || {};
 
@@ -28353,11 +28376,14 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
 
   // DOCS-UNIFIES — le CSS Times/souligné cède la place au gabarit unique (variante B).
   // `.alerte` reste : c'est un bandeau d'écran (no-print), pas une pièce du document.
+  // AUDIT M3 — PAS de règle `body` ni `@page` ici : ce CSS est injecté tel quel DANS la page
+  // de l'app par _rasterizeHtmlToPdfBlob (PJ email), où une règle nue repeindrait
+  // l'application. Tout est scopé sous .pro-doc ; la fenêtre d'impression pose sa propre
+  // mise en page (cf. QUIT_PRINT_CSS).
   const css = `
-@page{size:A4;margin:1.8cm 2cm}
-body{max-width:700px;margin:0 auto;background:#fff}
+.pro-doc{max-width:700px;margin:0 auto}
 .pro-doc .alerte{border-radius:2.5mm;padding:3mm 4mm;margin:0 0 6mm;text-align:center}
-@media print{.no-print{display:none}}
+@media print{.pro-doc .no-print{display:none}}
 ${_docCss()}`;
 
   let html = '', titreDoc = '', ctxDoc = '';
@@ -28450,7 +28476,7 @@ function previewQuit(id) {
   // Ouvre la modale puis injecte le HTML+CSS dans l'iframe via srcdoc
   // (sandbox allow-same-origin pour que le parent puisse encore lire _quitId)
   openM('ov-quit-preview');
-  const docHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${built.title}</title><style>${built.css}</style></head><body>${built.html}</body></html>`;
+  const docHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${built.title}</title><style>${QUIT_PRINT_CSS}${built.css}</style></head><body>${built.html}</body></html>`;
   iframe.srcdoc = docHtml;
 }
 
@@ -28569,7 +28595,7 @@ window._printQuittancePreviewModal = function() {
   if (!win) { showToast('Popup bloquée — autorise les popups pour imprimer', 'err', 5000); return; }
   win.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <title>${built.title}</title>
-<style>${built.css}</style></head><body>
+<style>${QUIT_PRINT_CSS}${built.css}</style></head><body>
 ${built.html}
 <script>window.onload=()=>setTimeout(()=>window.print(),300);<\/script>
 <\/body><\/html>`);
@@ -28815,7 +28841,7 @@ ${_dt('docSignzone', [`Le bailleur<br><b>${ent?.gerant||ent?.nom||''}</b><br>${_
     titre: 'Révision annuelle du loyer',
     ctx: `Indice de Référence des Loyers · ${adrBien} — bail du ${dateBail}`,
     corps: corps,
-    ref: log.ref || '', date: `Émis le ${dateLettre}`
+    ref: escHtml(log.ref || ''), date: `Émis le ${dateLettre}`
   });
 
   return { html, css: '', title: 'Lettre IRL — ' + (log.ref || '–') + ' — ' + moisAnniv };
@@ -34495,8 +34521,6 @@ function _print2044(entId, year) {
   const headerInfo = `
     <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:18px">
       <div>
-        <h1 style="font-size:18px;margin:0">Récapitulatif 2044 — ${escHtml(ent.nom)}</h1>
-        <p style="font-size:12px;margin:4px 0">Revenus fonciers — Année ${year}</p>
         <p style="font-size:11px;color:#666;margin:4px 0">${(ent.immeubles||[]).filter(_isAlive).length} immeuble${(ent.immeubles||[]).filter(_isAlive).length>1?'s':''} · ${activeLogs.length} logement${activeLogs.length>1?'s':''} · ${data.mvtsCount} mouvement${data.mvtsCount>1?'s':''} considéré${data.mvtsCount>1?'s':''}</p>
       </div>
       <div style="text-align:right;font-size:11px">
@@ -34557,11 +34581,11 @@ function _print2044(entId, year) {
     </div>`;
   const win = window.open('', '_blank');
   if(!win) { showToast('Popup bloquée — autorise les pop-ups pour ce site','err'); return; }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Récap 2044 — ${escHtml(ent.nom)} ${year}</title>
-<style>body{font-family:Arial,sans-serif;font-size:12px;margin:25px;color:#222;line-height:1.5}h1,h3,h4{color:#333}@media print{button{display:none}}.print-btn{position:fixed;top:10px;right:10px;background:#3b82f6;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px}</style>
-</head><body>
-<button class="print-btn" onclick="window.print()">🖨️ Imprimer / PDF</button>
-${headerInfo}
+  // DOCS-UNIFIES — ce récapitulatif est remis à un tiers (comptable, centre des impôts) :
+  // il prend la coquille du gabarit unique — bandeau d'identité, titre, ligne de contexte,
+  // pied. Les tableaux CERFA ne sont PAS re-composés : leurs colonnes de chiffres et leurs
+  // numéros de ligne sont le fond du document.
+  const _corps2044 = `${headerInfo}
 <h2 style="font-size:14px;margin-top:18px">Synthèse par ligne CERFA 2044</h2>
 ${linesTable(l=>l.type==='recette', 'TOTAL recettes — ligne 215', t.recettes215)}
 ${linesTable(l=>l.type==='charge', 'TOTAL charges — ligne 240', t.charges240)}
@@ -34570,7 +34594,15 @@ ${summary}
 ${_legal2044PerimetreHtml(data)}
 <h2 style="font-size:14px;margin-top:24px;page-break-before:always">Détail des mouvements par ligne</h2>
 ${detailsTable}
-${legalNote}
+${legalNote}`;
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Récap 2044 — ${escHtml(ent.nom)} ${year}</title>
+<style>body{margin:0;padding:16mm 20mm;background:#fff}@media print{button{display:none}}
+.print-btn{position:fixed;top:10px;right:10px;background:#ff5a3c;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px}
+${_docCss()}</style>
+</head><body>
+<button class="print-btn no-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+${/* AUDIT I2 : ni ref ni date au pied, headerInfo porte deja bailleur+SIREN+« Genere le » */''}
+${_docPage(ent, { titre: 'Récapitulatif 2044', ctx: escHtml(ent.nom) + ' — revenus fonciers, année ' + year, corps: _corps2044, withStyle: false })}
 </body></html>`);
   win.document.close();
 }
@@ -38331,10 +38363,23 @@ function _ddtRecapPrint() {
   if (!content) return;
   const w = window.open('', '_blank', 'width=900,height=700');
   if (!w) { showToast('Impossible d\'ouvrir la fenêtre d\'impression','err'); return; }
+  // DOCS-UNIFIES + AUDIT I1 — ce récap part au locataire en annexe du bail. Il porte DÉJÀ son
+  // propre titre (« Dossier de diagnostic technique ») et son propre pied : lui coller en plus
+  // le titre et le pied du gabarit faisait doublon. La seule chose qui lui manquait est le
+  // BANDEAU D'IDENTITÉ — c'est donc la seule chose qu'on ajoute, et on l'ajoute AUX DEUX
+  // sorties (impression ici, PDF dans _ddtRecapPDF) pour qu'elles restent identiques.
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Récap diagnostics</title>
     <style>@media print { body { margin: 0 } }</style></head>
-    <body>${content.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+    <body>${_ddtRecapBrandzone()}${content.outerHTML}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   w.document.close();
+}
+
+/** Bandeau d'identité du récap diagnostics — même helper que tous les autres documents. */
+function _ddtRecapBrandzone() {
+  const ref = (el('ov-ddt-recap-ref') && el('ov-ddt-recap-ref').value) || '';
+  const log = (DB.logements || []).find(l => l.ref === ref);
+  const bz = _docBrandzone(_entiteDeLogement(log));
+  return bz ? `<div style="max-width:760px;padding:0 22px">${bz}</div>` : '';
 }
 
 /** Génère un PDF natif via jsPDF + html2canvas du récap DDT. */
@@ -38346,8 +38391,16 @@ async function _ddtRecapPDF() {
     showToast('Bibliothèques PDF non chargées', 'err'); return;
   }
   showToast('Génération du PDF en cours…', 'info', 2000);
+  // AUDIT I1 — on rastérise le récap PRÉCÉDÉ du même bandeau d'identité que l'impression,
+  // sinon les deux sorties de la même pièce divergent. Conteneur hors écran, monté dans le
+  // document pour que les variables CSS de l'app se résolvent, démonté dans le finally.
+  const shell = document.createElement('div');
+  shell.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;z-index:-1';
+  shell.innerHTML = _ddtRecapBrandzone();
+  shell.appendChild(content.cloneNode(true));
+  document.body.appendChild(shell);
   try {
-    const canvas = await html2canvas(content, { scale: 2, backgroundColor: '#ffffff' });
+    const canvas = await html2canvas(shell, { scale: 2, backgroundColor: '#ffffff' });
     const imgData = canvas.toDataURL('image/png');
     const { jsPDF } = window.jspdf;
     const pdf = window.MontantDoc.hardenJsPdfText(new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }));   /* S3 */
@@ -38370,6 +38423,8 @@ async function _ddtRecapPDF() {
   } catch (e) {
     console.error('[Diagnostics PDF]', e);
     showToast('Erreur PDF : ' + (e.message || ''), 'err', 4000);
+  } finally {
+    if (shell.parentNode) shell.parentNode.removeChild(shell);
   }
 }
 
@@ -44588,6 +44643,9 @@ function _annoncePDF() {
     const pdf = window.MontantDoc.hardenJsPdfText(new jsPDFCls({ unit: 'mm', format: 'a4', orientation: 'portrait' }));   /* S3 */
     const M = 15, PW = 210, CW = PW - 2 * M;
     let y = 18;
+    // DOCS-UNIFIES — l'annonce part vers des candidats : elle porte le bandeau d'identité
+    // du bailleur comme tous les autres documents émis (même helper, aucune règle recopiée).
+    y = _pdfDrawBrandzone(pdf, _entiteDeLogement(_annonceCtx.log), M, y, PW - M);
     pdf.setFont('helvetica', 'bold').setFontSize(13).setTextColor(20, 40, 80);
     const titre = (el('an-titre') && el('an-titre').textContent) || '';
     const titreLines = pdf.splitTextToSize(titre, CW);

@@ -385,13 +385,32 @@ function _drawHeaderBlock(pdf, ctx, yStart) {
   const bail = ctx.bail || {};
   let y = yStart;
 
-  // En-tête bailleur
-  pdf.setFont('helvetica', 'bold').setFontSize(11);
-  pdf.text(ent.nom || '—', MARGIN, y); y += 5;
-  pdf.setFont('helvetica', 'normal').setFontSize(10);
-  if (ent.siege) { pdf.text(ent.siege, MARGIN, y); y += 5; }
-  if (ent.gerant) { pdf.text(ent.gerant, MARGIN, y); y += 5; }
-  y += 6;
+  // DOCS-UNIFIES — le bandeau d'identité vient du helper commun de l'app (logo du bailleur
+  // ou son nom à gauche, Propryo à droite, filet). Il remplace le nom en gras dessiné ici :
+  // c'était la 5e écriture du même bandeau. Repli si le helper n'est pas là (contexte hors
+  // monolithe ou chargement partiel) : on redessine juste le nom, comme avant.
+  if (typeof window !== 'undefined' && typeof window._pdfDrawBrandzone === 'function') {
+    const yBrand = window._pdfDrawBrandzone(pdf, ent, MARGIN, y, PAGE_W - MARGIN);
+    // AUDIT I4 — le bandeau n'affiche que le LOGO quand il y en a un. La raison sociale du
+    // bailleur doit rester lisible EN TEXTE sur ces PDF natifs : contrairement au rendu HTML,
+    // ils n'ont pas de bloc « Bailleur » qui la reprenne. Elle reste donc écrite, comme avant.
+    // (yBrand === y signifie que le bandeau n'a rien pu dessiner : on retombe sur l'ancien
+    //  en-tête complet plutôt que sur un document sans identité.)
+    y = yBrand > y ? yBrand : y;
+    pdf.setFont('helvetica', 'bold').setFontSize(11).setTextColor(20, 20, 20);
+    pdf.text(ent.nom || '—', MARGIN, y); y += 5;
+    pdf.setFont('helvetica', 'normal').setFontSize(10);
+    if (ent.siege) { pdf.text(ent.siege, MARGIN, y); y += 5; }
+    if (ent.gerant) { pdf.text(ent.gerant, MARGIN, y); y += 5; }
+    y += 6;
+  } else {
+    pdf.setFont('helvetica', 'bold').setFontSize(11);
+    pdf.text(ent.nom || '—', MARGIN, y); y += 5;
+    pdf.setFont('helvetica', 'normal').setFontSize(10);
+    if (ent.siege) { pdf.text(ent.siege, MARGIN, y); y += 5; }
+    if (ent.gerant) { pdf.text(ent.gerant, MARGIN, y); y += 5; }
+    y += 6;
+  }
 
   // Destinataire
   pdf.setFont('helvetica', 'bold').setFontSize(10);
