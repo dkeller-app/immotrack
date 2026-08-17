@@ -4,31 +4,85 @@
     {
       "name": "dashboard-mockups",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/docs/strategie/dashboard-mockups", "-p", "8765", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/docs/strategie/dashboard-mockups",
+        "-p",
+        "8765",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8765
     },
     {
       "name": "immotrack-sandbox",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo", "-p", "8766", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo",
+        "-p",
+        "8766",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8766
     },
     {
       "name": "immotrack-worktree-email-auto",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb", "-p", "8770", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/.claude/worktrees/adoring-morse-1565eb",
+        "-p",
+        "8770",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8770
     },
     {
       "name": "mockups-all",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo/mockups", "-p", "8806", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo/mockups",
+        "-p",
+        "8806",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8806
+    },
+    {
+      "name": "wt-sigfix",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-sigfix",
+        "-p",
+        "8814",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 8814
     },
     {
       "name": "wt-filrouge-complet",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "C:/Users/Did_K/Desktop/Immo-wt-filrouge-complet", "-p", "8812", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "C:/Users/Did_K/Desktop/Immo-wt-filrouge-complet",
+        "-p",
+        "8812",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8812
     }
   ]
