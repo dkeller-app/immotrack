@@ -50422,7 +50422,10 @@ function _bankProposPanelHtml(i) {
   if (line._byRule || line._ruleConflicts) return '';       // le bandeau règles a déjà parlé
   if (!line.matchSource && !line._candidates) return '';
   const cands = line._candidates || [];
-  const rows = cands.map(c => {
+  // On passe l'INDEX du candidat, jamais sa référence : une référence de logement peut
+  // contenir une apostrophe (« L'Orée-001 »), et escHtml la rend en &#39; — le parseur
+  // HTML la redécode en ' AVANT le parseur JS, ce qui casserait l'appel du bouton.
+  const rows = cands.map((c, ci) => {
     const ecart = (c.ecart == null) ? '' : (Math.abs(c.ecart) < 1 ? 'montant exact'
       : (c.ecart > 0 ? 'avance de ' + fmt(c.ecart) : 'reste ' + fmt(-c.ecart)));
     return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 9px;border:1px solid var(--bor);border-radius:8px;margin-bottom:4px;font-size:12px;background:var(--sur,#fff)">'
@@ -50431,7 +50434,7 @@ function _bankProposPanelHtml(i) {
       + (c.ancien ? '<span class="mu sm" style="color:var(--ora)">ancien locataire</span>' : '')
       + '<span style="flex:1"></span>'
       + (c.du > 0 ? '<span class="mu sm">dû du mois ' + fmt(c.du) + (ecart ? ' · ' + ecart : '') + '</span>' : '')
-      + '<button class="btn bs" style="font-size:11px" onclick="_bankPickCandidate(' + i + ',\'' + escHtml(c.ref) + '\')">Choisir</button>'
+      + '<button class="btn bs" style="font-size:11px" onclick="_bankPickCandidate(' + i + ',' + ci + ')">Choisir</button>'
       + '</div>';
   }).join('');
   const amb = line._ambiguous;
@@ -50444,9 +50447,11 @@ function _bankProposPanelHtml(i) {
 }
 
 // Choisir un candidat de proposition ambiguë : on applique le lot retenu à CETTE ligne.
-function _bankPickCandidate(i, ref) {
+// `ci` = index dans line._candidates (pas la référence : voir _bankProposPanelHtml).
+function _bankPickCandidate(i, ci) {
   const line = _bankImportLines[i]; if (!line) return;
-  line.suggestedQui = ref;
+  const c = (line._candidates || [])[ci]; if (!c) return;
+  line.suggestedQui = c.ref;
   line.suggestedImm = '';
   line.suggestedCc = '';
   if (!line.suggestedCat) line.suggestedCat = 'Loyers encaissés';
