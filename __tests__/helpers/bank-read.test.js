@@ -497,3 +497,17 @@ describe('④.2 _bankExtractSheetAccount — les lignes écartées identifient l
     expect(_bankExtractSheetAccount(rows, 0)).toBeNull();
   });
 });
+
+describe("T-1 — un fichier sans colonne de montant d'opération le dit franchement", () => {
+  it("Date + libellé + solde seulement → refus explicite, pas 'montant à 0 €' sur chaque ligne", () => {
+    const rows = [
+      ['Date', 'Libellé', 'Solde'],
+      ['04/08/2026', 'PRLV EDF', '5100,06'],
+      ['05/08/2026', 'VIR DUPONT', '5950,06'],
+      ['09/08/2026', 'CB COURSES', '5897,76'],
+    ];
+    const r = _bankReadTable(rows);
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/montant d'opération/);
+  });
+});

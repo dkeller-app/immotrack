@@ -695,6 +695,13 @@
     const oriData = head.data.filter(r => _bankParseDate(r[dcol.idx]));
     const ori = _bankDetectOrientation(oriData.length >= 2 ? oriData : head.data,
       { headers, amountCols: head.amountCols, textCols: head.textCols, soldeIdx });
+    // La seule colonne de montants est celle du SOLDE : il n'y a pas de montant
+    // d'opération à lire. On le dit franchement plutôt que d'écarter toutes les lignes
+    // avec le motif trompeur « montant à 0 € ».
+    if (ori.mode !== 'debitCredit' && ori.amountIdx < 0) {
+      return { ok: false, lines: [], discarded: [], meta,
+               error: "Cette feuille a une colonne de dates et une colonne de solde, mais aucune colonne de montant d'opération." };
+    }
     meta.orientation = ori.mode;
     meta.orientationProof = ori.proof;
     meta.orientationProofLabel = ori.proofLabel;
