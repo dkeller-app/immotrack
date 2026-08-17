@@ -27117,7 +27117,7 @@ function _buildDecompteHtml(entryKey, from, to) {
   const acompteDep = _regulAcompteDep(r);
   const solde = Math.round((r.provisions + acompteDep - r.charges)*100)/100;
   const detailsRows = r.details.map(d=>
-    `<tr><td>${fd(d.date)}</td><td>${escHtml(d.lib)}</td><td>${escHtml(d.repartition)}</td><td style="text-align:right">${fmtN(d.montant)} €</td></tr>`
+    `<tr><td>${fd(d.date)}</td><td>${escHtml(d.lib)}</td><td>${escHtml(d.repartition)}</td><td class="num">${fmtN(d.montant)} €</td></tr>`
   ).join('');
   const occPartiel = r.debutOcc && r.occDays < r.totalDays;
   const occBandeau = occPartiel
@@ -27127,36 +27127,48 @@ function _buildDecompteHtml(entryKey, from, to) {
        </p>` : '';
   const clotureBadge = r.isHistorique
     ? `<span style="display:inline-block;font-size:10px;padding:2px 8px;background:#e0e0e0;border-radius:8px;color:#555;margin-left:8px">Bail clôturé</span>` : '';
-  const html = `<div style="page-break-after:always;margin-bottom:40px">
-    <div style="text-align:right;margin-bottom:20px"><b>${escHtml(ent?.nom||'–')}</b><br>${escHtml(ent?.siege||'')}</div>
-    <p>${escHtml(r.loc||log?.locataire||'–')}${clotureBadge}<br>${escHtml(bail?.adrBien||log?.adr||'–')}</p>
-    <p style="margin-top:20px">Objet : Régularisation des charges locatives — ${escHtml(r.ref)}<br>Période du ${fd(from)} au ${fd(to)}</p>
+  // DOCS-UNIFIES — gabarit unique (variante B). Le fond est repris MOT POUR MOT : objet,
+  // article 23, tableau des charges réelles ligne à ligne, provisions/acompte/solde, les
+  // quatre mentions légales obligatoires, le bandeau d'occupation partielle et son décret.
+  // Seuls les filets gris, les polices et les gouttières changent.
+  const corps = `
+${_dt('docParties', [
+  { label: 'Bailleur', qui: escHtml(ent?.nom||'–'), corps: `<p>${escHtml(ent?.siege||'')}</p>` },
+  { label: 'Locataire', qui: `${escHtml(r.loc||log?.locataire||'–')}${clotureBadge}`,
+    corps: `<p>${escHtml(bail?.adrBien||log?.adr||'–')}</p>` }
+])}
+    <p>Objet : Régularisation des charges locatives — ${escHtml(r.ref)}<br>Période du ${fd(from)} au ${fd(to)}</p>
     ${occBandeau}
-    <p style="font-size:11px;margin-top:16px">Conformément à l'article 23 de la loi n°89-462 du 6 juillet 1989, nous vous adressons le décompte de régularisation des charges locatives pour la période mentionnée ci-dessus.</p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:12px">
-      <tr style="background:#f5f5f5"><th style="padding:6px;border:1px solid #ccc;text-align:left">Date</th><th style="padding:6px;border:1px solid #ccc;text-align:left">Libellé</th><th style="padding:6px;border:1px solid #ccc;text-align:left">Répartition</th><th style="padding:6px;border:1px solid #ccc;text-align:right">Montant</th></tr>
-      ${detailsRows||'<tr><td colspan="4" style="padding:6px;border:1px solid #ccc;text-align:center">Aucune charge enregistrée</td></tr>'}
-      <tr style="font-weight:bold"><td colspan="3" style="padding:6px;border:1px solid #ccc">TOTAL charges réelles</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${fmtN(r.charges)} €</td></tr>
+    <p>Conformément à l'article 23 de la loi n°89-462 du 6 juillet 1989, nous vous adressons le décompte de régularisation des charges locatives pour la période mentionnée ci-dessus.</p>
+    <table class="pro-tbl">
+      <tr><th>Date</th><th>Libellé</th><th>Répartition</th><th class="num">Montant</th></tr>
+      ${detailsRows||'<tr><td colspan="4" style="text-align:center">Aucune charge enregistrée</td></tr>'}
+      <tr class="tot"><td colspan="3">TOTAL charges réelles</td><td class="num">${fmtN(r.charges)} €</td></tr>
     </table>
-    <table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:12px">
-      <tr><td style="padding:6px;border:1px solid #ccc">Provisions versées</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${fmtN(r.provisions)} €</td></tr>
-      ${acompteDep>0?`<tr><td style="padding:6px;border:1px solid #ccc">Acompte de charges déjà versé</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${fmtN(acompteDep)} €</td></tr>`:''}
-      <tr><td style="padding:6px;border:1px solid #ccc">Charges réelles</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${fmtN(r.charges)} €</td></tr>
-      <tr style="font-weight:bold;background:${solde>=0?'#f0fff0':'#fff0f0'}"><td style="padding:6px;border:1px solid #ccc">SOLDE ${solde>=0?'(à votre crédit)':'(à payer)'}</td><td style="padding:6px;border:1px solid #ccc;text-align:right">${solde>=0?'+':''}${fmtN(solde)} €</td></tr>
-    </table>
-    <div style="margin-top:40px;display:flex;gap:40px">
-      <div style="flex:1;border-top:1px solid #ccc;padding-top:8px">Le bailleur<br>${_docSigImg(ent)}____________</div>
-      <div style="flex:1;border-top:1px solid #ccc;padding-top:8px">Le locataire (signature + date)<br><br><br>____________</div>
-    </div>
-    <div style="margin-top:32px;padding:10px 14px;border:1px solid #bbb;border-radius:4px;font-size:10px;color:#555;line-height:1.7;background:#fafafa">
-      <b>Mentions légales obligatoires</b><br>
+${_dt('docLignes', [
+  { lab:'Provisions versées', val:`${fmtN(r.provisions)} €` },
+  acompteDep>0 ? { lab:'Acompte de charges déjà versé', val:`${fmtN(acompteDep)} €` } : null,
+  { lab:'Charges réelles', val:`${fmtN(r.charges)} €` },
+  { lab:`SOLDE ${solde>=0?'(à votre crédit)':'(à payer)'}`, val:`${solde>=0?'+':''}${fmtN(solde)} €`, tot:true, hi:true }
+])}
+${_dt('docSignzone', [
+  `Le bailleur<br>${_docSigImg(ent)}`,
+  'Le locataire (signature + date)<br><br><br>'
+])}
+${_dt('docEncart', `<b>Mentions légales obligatoires</b><br>
       • <b>Justificatifs :</b> les pièces justificatives (factures, contrats d'entretien, relevés de charges de copropriété, etc.) sont tenues à votre disposition pendant <b>un mois</b> à compter de l'envoi du présent décompte — art. 23 al. 3 loi n°89-462 du 6 juillet 1989.<br>
       • <b>Contestation :</b> en cas de désaccord sur le montant ou la nature des charges, vous pouvez saisir la <b>Commission Départementale de Conciliation (CDC)</b> compétente avant toute action judiciaire — art. 20 loi 89-462.<br>
       • <b>Charges récupérables :</b> les charges portées au présent décompte sont celles figurant sur la liste limitative définie par le <b>décret n°87-713 du 26 août 1987</b> (art. 23 loi 89-462).<br>
-      ${solde < 0 ? '• <b>Paiement du solde :</b> le solde appelé est exigible dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).' : '• <b>Remboursement :</b> le trop-perçu vous sera restitué dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).'}
-    </div>
-  </div>`;
-  return { html: _docBrandzone(_entiteDeLogement(log)) + html, css: '', title: 'Décompte régul — ' + escHtml(r.ref || '–') };   /* S4 */
+      ${solde < 0 ? '• <b>Paiement du solde :</b> le solde appelé est exigible dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).' : '• <b>Remboursement :</b> le trop-perçu vous sera restitué dans le mois suivant l\'envoi du présent décompte (art. 23 al. 4 loi 89-462).'}`)}`;
+
+  const html = _docPage(_entiteDeLogement(log), {
+    titre: 'Régularisation des charges',
+    ctx: `Exercice du ${fd(from)} au ${fd(to)}`,
+    corps: corps,
+    ref: escHtml(r.ref || ''), date: `Émis le ${fd(td())}`,
+    pageBreakAfter: 'always'   // un décompte par destinataire, chacun sa page
+  });
+  return { html, css: '', title: 'Décompte régul — ' + escHtml(r.ref || '–') };
 }
 if (typeof window !== 'undefined') window._buildDecompteHtml = _buildDecompteHtml;
 
@@ -46458,26 +46470,24 @@ function _cautionnementBlock(bail, log, ent, garantNom, garantAdr, garantDdn, ga
   // v13.28 BAIL-PRINT-POLISH point 4 : logo entité en header de l'acte cautionnement
   // S4 — l'en-tête propre à l'acte (logo seul + nom en italique à droite) laisse place au
   // bandeau commun : le nom de l'entité reste dans le corps de l'acte, Propryo prend la droite.
-  const logoHeaderHtml = _docBrandzone(ent);
-  return `
-${logoHeaderHtml}
-<h1>ACTE DE CAUTIONNEMENT SOLIDAIRE<\/h1>
-<h2>Article\u00a02297 du Code civil \u2014 Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, article\u00a022-1<br>Ordonnance n\u00b0\u00a02021-1192 du 15\u00a0septembre\u00a02021 portant r\u00e9forme du droit des s\u00fbret\u00e9s<\/h2>
-
+  // DOCS-UNIFIES \u2014 le titre et ses r\u00e9f\u00e9rences l\u00e9gales deviennent le titre + la ligne de
+  // contexte du gabarit ; le CSS Times de l'acte c\u00e8de la place au gabarit unique. Le fond
+  // (les six paragraphes I \u00e0 VI, les mentions manuscrites, les articles cit\u00e9s) est intact.
+  const corpsActe = `
 <div class="alerte">
 <strong>\u26a0\u00a0Important \u2014 \u00e0 lire avant de signer<\/strong><br>
 Depuis l\u2019ordonnance du 15\u00a0septembre\u00a02021, la recopie manuscrite des trois mentions de l\u2019ancien r\u00e9gime n\u2019est plus obligatoire. La <strong>d\u00e9claration d\u2019engagement<\/strong> (§\u00a0IV) vaut engagement de caution d\u00e8s lors qu\u2019elle est dat\u00e9e et sign\u00e9e par le garant. Une <strong>mention manuscrite recommand\u00e9e<\/strong> (§\u00a0V) mat\u00e9rialise en outre la pleine connaissance de l\u2019engagement. L\u2019original sign\u00e9 doit \u00eatre remis au bailleur lors de la signature du bail.
 <\/div>
 
 <h3>I \u2014 Identification des parties<\/h3>
-<table>
+<table class="pro-kv">
 <tr><td>Bailleur<\/td><td><strong>${ent.nom||bail.entity||'\u2013'}<\/strong><br>${ent.siege||'\u2013'}<br>SIREN\u00a0: ${ent.siren||'\u2013'} \u2014 Repr\u00e9sent\u00e9 par ${ent.gerant||'\u2013'}<\/td><\/tr>
 <tr><td>Locataire(s)<\/td><td><strong>${locNames}<\/strong><\/td><\/tr>
 <tr><td>La Caution (Garant)<\/td><td><strong>${garantNom||'\u2013'}<\/strong>${garantDdn?'<br>N\u00e9(e) le '+fd2(garantDdn):''}${garantLieu?',\u00a0\u00e0\u00a0'+garantLieu:''}${garantAdr?'<br>Demeurant\u00a0'+garantAdr:''}<\/td><\/tr>
 <\/table>
 
 <h3>II \u2014 Objet du cautionnement<\/h3>
-<table>
+<table class="pro-kv">
 <tr><td>Logement<\/td><td>${bail.adrBien||log?.adr||'\u2013'}<\/td><\/tr>
 <tr><td>Date de prise d\u2019effet du bail<\/td><td>${fd2(bail.debut)}<\/td><\/tr>
 <tr><td>Loyer mensuel hors charges<\/td><td><strong>${fmtN(bail.hc||0)}\u00a0\u20ac<\/strong> (${loyerLettres})<\/td><\/tr>
@@ -46487,7 +46497,7 @@ Depuis l\u2019ordonnance du 15\u00a0septembre\u00a02021, la recopie manuscrite d
 <\/table>
 
 <h3>III \u2014 \u00c9tendue de l\u2019engagement<\/h3>
-<table>
+<table class="pro-kv">
 <tr><td>Plafond total de l\u2019engagement<\/td><td><strong>${plafondFmt}\u00a0\u20ac \u2014 ${plafondLettres}<\/strong><br><em style="font-size:9pt">(loyers\u00a0+\u00a0charges\u00a0+\u00a0r\u00e9parations locatives\u00a0+\u00a0indemnit\u00e9s d\u2019occupation)<\/em><\/td><\/tr>
 <tr><td>Dur\u00e9e de l\u2019engagement<\/td><td>Dur\u00e9e initiale du bail et de toutes ses reconductions \u00e9ventuelles<\/td><\/tr>
 <tr><td>Nature<\/td><td><strong>Solidaire<\/strong> \u2014 avec renonciation expresse au b\u00e9n\u00e9fice de discussion (art.\u00a02298 C.\u00a0civ.) et au b\u00e9n\u00e9fice de division (art.\u00a02303 C.\u00a0civ.)<\/td><\/tr>
@@ -46536,9 +46546,15 @@ Depuis l\u2019ordonnance du 15\u00a0septembre\u00a02021, la recopie manuscrite n
 <\/div>
 <\/div>
 
-<p style="font-size:8.5pt;color:#666;margin-top:20px;border-top:1px solid #ddd;padding-top:8px">
-R\u00e9f\u00e9rences l\u00e9gales\u00a0: Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, art.\u00a022-1 \u2014 Code civil art.\u00a02288, 2297, 2298, 2303 et suivants \u2014 Ordonnance n\u00b0\u00a02021-1192 du 15\u00a0septembre\u00a02021 portant r\u00e9forme du droit des s\u00fbret\u00e9s
-<\/p>`;
+${_dt('docMention', 'R\u00e9f\u00e9rences l\u00e9gales\u00a0: Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, art.\u00a022-1 \u2014 Code civil art.\u00a02288, 2297, 2298, 2303 et suivants \u2014 Ordonnance n\u00b0\u00a02021-1192 du 15\u00a0septembre\u00a02021 portant r\u00e9forme du droit des s\u00fbret\u00e9s')}`;
+
+  return _docPage(ent, {
+    titre: 'ACTE DE CAUTIONNEMENT SOLIDAIRE',
+    ctx: 'Article\u00a02297 du Code civil \u2014 Loi n\u00b0\u00a089-462 du 6\u00a0juillet\u00a01989, article\u00a022-1<br>Ordonnance n\u00b0\u00a02021-1192 du 15\u00a0septembre\u00a02021 portant r\u00e9forme du droit des s\u00fbret\u00e9s',
+    corps: corpsActe,
+    ref: escHtml(log?.ref || ''), date: 'Bail du ' + fd2(bail.debut),
+    withStyle: false   // la feuille du gabarit part dans le <head> de la fenetre d'impression
+  });
 }
 
 function genActeCautionnementDoc(bail, log, ref) {
@@ -46555,7 +46571,13 @@ function genActeCautionnementDoc(bail, log, ref) {
   // "En-têtes et pieds de page" dans Chrome/Edge — le print-hint l'informe.
   // Plus : page-break-inside:avoid sur tous les blocs longs (alerte, mention-bloc,
   // sig-bloc, grid2, table) pour éviter les coupures en pleine page.
-  const _css = `@page{size:A4;margin:1.8cm 2cm}*{box-sizing:border-box}body{font-family:'Times New Roman',serif;font-size:11pt;color:#111;line-height:1.55;padding:0;margin:0}h1{font-size:14pt;text-align:center;margin:0 0 4px;text-transform:uppercase;letter-spacing:.05em}h2{font-size:11pt;text-align:center;margin:0 0 16px;font-weight:normal;font-style:italic;color:#444}h3{font-size:11pt;border-bottom:1px solid #333;padding-bottom:3px;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.04em;page-break-after:avoid}table{width:100%;border-collapse:collapse;margin:8px 0;page-break-inside:avoid}td{border:1px solid #aaa;padding:6px 8px;vertical-align:top;font-size:10.5pt}td:first-child{background:#f4f4f4;font-weight:bold;width:44%}.alerte{background:#fffbe6;border:1.5px solid #c9a000;border-radius:4px;padding:10px 14px;margin:12px 0;font-size:10pt;page-break-inside:avoid}.mention-bloc{background:#fff8e1;border:1.5px dashed #c9a000;border-radius:4px;padding:8px 10px;margin:6px 0;font-size:10pt;line-height:1.55;page-break-inside:avoid}.mention-bloc strong{display:block;margin-bottom:3px;font-size:9.5pt;color:#7a5c00}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;page-break-inside:avoid}.sig-bloc{border:1px solid #888;border-radius:4px;min-height:88px;padding:10px;margin-top:6px;font-size:10pt;background:#fff;page-break-inside:avoid}.sig-bloc em{color:#888;font-size:9pt}.page-break{page-break-before:always;border-top:none;margin-top:0;padding-top:0}.print-hint{background:#eff6ff;border-left:3px solid #1a4b8c;padding:8px 12px;margin:12px 0;font-size:10pt;color:#1e3a8a;border-radius:4px}@media screen{body{max-width:780px;margin:20px auto;padding:1.8cm 2cm;background:#f9f9f9}}@media print{.no-print,.print-hint{display:none!important}body{background:#fff!important;max-width:none!important}.alerte,.mention-bloc{-webkit-print-color-adjust:exact;print-color-adjust:exact}td:first-child{background:#f4f4f4;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sig-bloc{background:#fff!important;border-color:#555!important}}`;
+  // DOCS-UNIFIES — le gabarit unique (variante B) remplace le CSS Times de l'acte.
+  // Les classes propres a l'acte (.alerte, .mention-bloc, .grid2, .sig-bloc, .page-break,
+  // .print-hint) sont conservees TELLES QUELLES cote balisage : seules leurs couleurs et
+  // leurs arrondis sont realignes sur la charte. Aucune mention n'est deplacee ni reecrite.
+  const _css = `@page{size:A4;margin:1.8cm 2cm}*{box-sizing:border-box}body{padding:0;margin:0;background:#fff}
+${_docCss()}
+.pro-doc .alerte{background:#fff8ef;border:.35mm solid #f0c987;border-radius:2.5mm;padding:3mm 4mm;margin:0 0 4mm;font-size:9pt;line-height:1.5;page-break-inside:avoid}.pro-doc .mention-bloc{background:#f7f8fb;border:.35mm dashed #b8c0cd;border-radius:2.5mm;padding:3mm 4mm;margin:0 0 3mm;font-size:9pt;line-height:1.55;page-break-inside:avoid}.pro-doc .mention-bloc strong{display:block;margin-bottom:1mm;font-size:8pt;color:#8b94a5;text-transform:uppercase;letter-spacing:.1em}.pro-doc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:3mm;page-break-inside:avoid}.pro-doc .sig-bloc{border:.3mm solid #b8c0cd;border-radius:2.5mm;min-height:88px;padding:3mm;margin-top:2mm;font-size:9pt;background:#fff;page-break-inside:avoid}.pro-doc .sig-bloc em{color:#8b94a5;font-size:8.5pt}.page-break{page-break-before:always;border-top:none;margin-top:0;padding-top:0}.print-hint{background:#f7f8fb;border-left:1mm solid #ff5a3c;padding:3mm 4mm;margin:0 0 4mm;font-size:9pt;color:#3c4658;border-radius:2.5mm;font-family:\"Inter\",system-ui,sans-serif}@media screen{body{max-width:780px;margin:20px auto;padding:1.8cm 2cm;background:#f4f5f8}.pro-doc{background:#fff}}@media print{.no-print,.print-hint{display:none!important}body{background:#fff!important;max-width:none!important}.pro-doc .alerte,.pro-doc .mention-bloc,.pro-doc .pro-lignes,.pro-doc .pro-partie,.pro-doc .pro-kv td:first-child{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pro-doc .sig-bloc{background:#fff!important;border-color:#555!important}}`;
   const bloc1 = _cautionnementBlock(bail, log, ent, bail.garant, bail.adrGarant, bail.ddnGarant, bail.lieuGarant);
   const bloc2 = bail.garant2
     ? `<div class="page-break">${_cautionnementBlock(bail, log, ent, bail.garant2, bail.adrGarant2, bail.ddnGarant2, bail.lieuGarant2)}<\/div>`

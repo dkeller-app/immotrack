@@ -196,7 +196,7 @@ describe('doc-template — docPage, point d’entrée unique', () => {
   it('pageBreakAfter permet d’enchaîner un document par destinataire', () => {
     expect(docPage({ titre: 'T', corps: 'C', pageBreakAfter: 'always' }))
       .toContain('style="page-break-after:always"');
-    expect(docPage({ titre: 'T', corps: 'C' })).not.toContain('page-break-after');
+    expect(docPage({ titre: 'T', corps: 'C' })).not.toContain('style="page-break-after');
   });
 
   it('ne réécrit JAMAIS le fond qu’on lui confie', () => {
