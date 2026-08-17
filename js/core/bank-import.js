@@ -1191,6 +1191,29 @@ export function _bankDedup(newLines, mouvementsExistants, options = {}) {
 }
 
 /**
+ * R-B v2 / ⑧ — Une ligne peut-elle rejoindre l'onglet « Reconnus » ?
+ *
+ * 🐛 **BUG 10 du CDC** : `_bankLineDone` faisait basculer en « Reconnus » toute ligne
+ * dont catégorie + bien étaient remplis, **y compris par une simple proposition** —
+ * du classement automatique déguisé. Les trois états sont :
+ * - **règle** (validée par l'utilisateur) → automatisable ;
+ * - **proposition** (✨) → TOUJOURS soumise, reste dans « À compléter » même complète ;
+ * - **non détecté** → à classer.
+ *
+ * Bloquent aussi : une date manquante (le mouvement serait rejeté par la synchro),
+ * un conflit de règles non arbitré (⑦.2), une proposition ambiguë (⑦.5 b).
+ * Ne bloque PAS : une date douteuse — elle reste signalée par son badge (⑧.1).
+ */
+export function _bankIsAutomatable(line) {
+  if (!line) return false;
+  if (!line.date) return false;
+  if (line._ruleConflicts && line._ruleConflicts.length) return false;
+  if (line._ambiguous) return false;
+  return !!(line._byRule || line._reviewed || line._userEdited
+    || (Array.isArray(line._sp) && line._sp.length));
+}
+
+/**
  * ⑥.2 / ⑧.1 — Compte les doublons **probables non tranchés** : tant qu'il en reste,
  * la validation de l'import est bloquée (même logique que le garde-fou existant sur
  * les « Reconnus »). Un doublon certain ne bloque rien : il est écarté sans clic.
