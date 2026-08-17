@@ -1,115 +1,19 @@
 /**
- * Tests pour BANK-INTEGRATION V1 v15.07 Sprint 8 V1.1.
- * Module js/core/bank-import.js — import CSV/OFX + matching auto.
+ * Tests du module js/core/bank-import.js — dédup, compte, reprise, propositions.
+ * La LECTURE des fichiers (OFX + Excel) est couverte par bank-read.test.js.
+ *
+ * ①.1 — le lecteur CSV a été RETIRÉ (docs/CDC-IMPORT.md) : les tests de
+ * `_bankParseCSV`, `_bankAutoDetectColumns`, `_bankNormalizeCSV`,
+ * `_bankFingerprintCSV` et `_bankCsvHeaderHash` ont disparu avec lui.
  */
 import { describe, it, expect } from 'vitest';
 import {
-  _bankParseCSV, _bankAutoDetectColumns, _bankParseAmount, _bankParseDate,
-  _bankNormalizeCSV, _bankParseOFX, _bankMatchHeuristic, _bankDedup,
-  _bankHashStable, _bankFingerprintCSV, _bankFingerprintOFX, _bankMigrateFingerprints,
-  _bankExtractOFXAccount, _bankCsvHeaderHash,
+  _bankParseAmount, _bankParseDate,
+  _bankParseOFX, _bankMatchHeuristic, _bankDedup,
+  _bankHashStable, _bankFingerprintOFX, _bankMigrateFingerprints,
+  _bankExtractOFXAccount,
   _bankSliceAfterFingerprint, _bankComputeLastImport
 } from '../../js/core/bank-import.js';
-
-// ═══════════════════════════════════════════════════════════════════
-//  _bankParseCSV — parsing CSV générique
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_bankParseCSV', () => {
-  it('Détecte le délimiteur point-virgule (norme FR)', () => {
-    const csv = 'Date;Libelle;Montant\n01/01/2026;TEST;100';
-    const r = _bankParseCSV(csv);
-    expect(r.delimiter).toBe(';');
-    expect(r.headers).toEqual(['Date','Libelle','Montant']);
-    expect(r.rows).toEqual([['01/01/2026','TEST','100']]);
-  });
-
-  it('Détecte la virgule (norme EN)', () => {
-    const csv = 'Date,Description,Amount\n2026-01-01,TEST,100.50';
-    const r = _bankParseCSV(csv);
-    expect(r.delimiter).toBe(',');
-    expect(r.headers).toEqual(['Date','Description','Amount']);
-  });
-
-  it('Détecte la tabulation', () => {
-    const csv = 'Date\tLibelle\tMontant\n01/01\tTEST\t100';
-    const r = _bankParseCSV(csv);
-    expect(r.delimiter).toBe('\t');
-  });
-
-  it('Gère les champs entre guillemets avec virgule interne', () => {
-    const csv = 'Date,Libelle,Montant\n2026-01-01,"VIR ALICE, MARTIN",650.00';
-    const r = _bankParseCSV(csv);
-    expect(r.rows[0][1]).toBe('VIR ALICE, MARTIN');
-    expect(r.rows[0][2]).toBe('650.00');
-  });
-
-  it('Gère les guillemets échappés ""', () => {
-    const csv = 'Libelle\n"Le ""beau"" loyer"';
-    const r = _bankParseCSV(csv);
-    expect(r.rows[0][0]).toBe('Le "beau" loyer');
-  });
-
-  it('Gère CRLF Windows et LF Unix', () => {
-    const csv = 'a,b\r\n1,2\r\n3,4\n5,6';
-    const r = _bankParseCSV(csv);
-    expect(r.rows.length).toBe(3);
-  });
-
-  it('Ignore les lignes vides', () => {
-    const csv = 'a,b\n1,2\n\n3,4\n';
-    expect(_bankParseCSV(csv).rows.length).toBe(2);
-  });
-
-  it('Texte vide → résultat vide', () => {
-    expect(_bankParseCSV('').rows).toEqual([]);
-    expect(_bankParseCSV(null).rows).toEqual([]);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  _bankAutoDetectColumns — heuristiques sur en-têtes
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_bankAutoDetectColumns', () => {
-  it('Détecte Date FR/EN', () => {
-    expect(_bankAutoDetectColumns(['Date','Libelle','Montant']).date).toBe(0);
-    expect(_bankAutoDetectColumns(['Date opération','Description','Amount']).date).toBe(0);
-    expect(_bankAutoDetectColumns(['Trans Date','Description','Amount']).date).toBe(0);
-  });
-
-  it('Détecte Libellé / Description', () => {
-    expect(_bankAutoDetectColumns(['Date','Libellé','Montant']).libelle).toBe(1);
-    expect(_bankAutoDetectColumns(['Date','Description','Amount']).libelle).toBe(1);
-    expect(_bankAutoDetectColumns(['Date','Nature','Amount']).libelle).toBe(1);
-  });
-
-  it('Détecte débit + crédit séparés', () => {
-    const r = _bankAutoDetectColumns(['Date','Libelle','Débit','Crédit']);
-    expect(r.debit).toBe(2);
-    expect(r.credit).toBe(3);
-  });
-
-  it('Détecte montant unique signé', () => {
-    expect(_bankAutoDetectColumns(['Date','Libelle','Montant']).montant).toBe(2);
-    expect(_bankAutoDetectColumns(['Date','Description','Amount']).montant).toBe(2);
-  });
-
-  it('Détecte solde', () => {
-    expect(_bankAutoDetectColumns(['Date','Lib','Montant','Solde']).solde).toBe(3);
-    expect(_bankAutoDetectColumns(['Date','Lib','Amount','Balance']).solde).toBe(3);
-  });
-
-  it('Insensible à la casse + accents', () => {
-    expect(_bankAutoDetectColumns(['DATE','LIBELLÉ','MONTANT']).date).toBe(0);
-  });
-
-  it('Headers vides → tous -1', () => {
-    const r = _bankAutoDetectColumns([]);
-    expect(r.date).toBe(-1);
-    expect(r.libelle).toBe(-1);
-  });
-});
 
 // ═══════════════════════════════════════════════════════════════════
 //  _bankParseAmount — parsing montants FR/EN
@@ -182,45 +86,6 @@ describe('_bankParseDate', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-//  _bankNormalizeCSV
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_bankNormalizeCSV', () => {
-  it('Avec débit + crédit séparés', () => {
-    const parsed = _bankParseCSV('Date;Libelle;Debit;Credit\n01/01/2026;VIR ALICE;0;650\n02/01/2026;ASSURANCE;120;0');
-    const cols = _bankAutoDetectColumns(parsed.headers);
-    const lines = _bankNormalizeCSV(parsed, cols);
-    expect(lines.length).toBe(2);
-    expect(lines[0].date).toBe('2026-01-01');
-    expect(lines[0].credit).toBe(650);
-    expect(lines[0].debit).toBe(0);
-    expect(lines[0].signedAmount).toBe(650);
-    expect(lines[1].debit).toBe(120);
-    expect(lines[1].signedAmount).toBe(-120);
-  });
-
-  it('Avec montant unique signé', () => {
-    const parsed = _bankParseCSV('Date,Libelle,Montant\n2026-01-01,LOYER,650\n2026-01-02,ASSURANCE,-120');
-    const cols = _bankAutoDetectColumns(parsed.headers);
-    const lines = _bankNormalizeCSV(parsed, cols);
-    expect(lines[0].credit).toBe(650);
-    expect(lines[1].debit).toBe(120);
-  });
-
-  it('Ignore lignes sans date', () => {
-    const parsed = _bankParseCSV('Date,Libelle,Montant\n,TOTAL,1000\n2026-01-01,VRAI,500');
-    const cols = _bankAutoDetectColumns(parsed.headers);
-    expect(_bankNormalizeCSV(parsed, cols).length).toBe(1);
-  });
-
-  it('Ignore lignes avec montant 0/0', () => {
-    const parsed = _bankParseCSV('Date,Libelle,Debit,Credit\n2026-01-01,VIDE,0,0\n2026-01-02,ASSUR,120,0');
-    const cols = _bankAutoDetectColumns(parsed.headers);
-    expect(_bankNormalizeCSV(parsed, cols).length).toBe(1);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════
 //  _bankParseOFX
 // ═══════════════════════════════════════════════════════════════════
 
@@ -271,10 +136,10 @@ DATA:OFXSGML
     expect(txs[1].debit).toBe(120);
   });
 
-  it('Texte non-OFX → []', () => {
-    expect(_bankParseOFX('blabla')).toEqual([]);
-    expect(_bankParseOFX('')).toEqual([]);
-    expect(_bankParseOFX(null)).toEqual([]);
+  it('Texte non-OFX → aucune transaction', () => {
+    expect(_bankParseOFX('blabla')).toHaveLength(0);
+    expect(_bankParseOFX('')).toHaveLength(0);
+    expect(_bankParseOFX(null)).toHaveLength(0);
   });
 });
 
@@ -489,28 +354,6 @@ describe("_bankHashStable", () => {
   });
 });
 
-describe("_bankFingerprintCSV — normalisation", () => {
-  it("meme empreinte pour casse differente", () => {
-    expect(_bankFingerprintCSV("VIR ALICE MARTIN 650"))
-      .toBe(_bankFingerprintCSV("vir alice martin 650"));
-  });
-  it("meme empreinte pour espaces multiples", () => {
-    expect(_bankFingerprintCSV("VIR ALICE  MARTIN   650"))
-      .toBe(_bankFingerprintCSV("VIR ALICE MARTIN 650"));
-  });
-  it("meme empreinte pour accents (NFKD)", () => {
-    expect(_bankFingerprintCSV("VIR MULLER 650"))
-      .toBe(_bankFingerprintCSV("VIR MÜLLER 650"));
-  });
-  it("empreintes differentes pour 2 lignes distinctes", () => {
-    expect(_bankFingerprintCSV("01/01/2026;VIR ALICE;650"))
-      .not.toBe(_bankFingerprintCSV("01/01/2026;VIR BOB;650"));
-  });
-  it("trim leading/trailing", () => {
-    expect(_bankFingerprintCSV("  test  ")).toBe(_bankFingerprintCSV("test"));
-  });
-});
-
 describe("_bankFingerprintOFX — priorite FITID", () => {
   it("utilise FITID si present (prefix fitid:)", () => {
     const body = "<TRNTYPE>CREDIT<DTPOSTED>20260315<TRNAMT>650<FITID>ABC123<NAME>VIR ALICE";
@@ -529,19 +372,6 @@ describe("_bankFingerprintOFX — priorite FITID", () => {
   it("body vide/null safe", () => {
     expect(_bankFingerprintOFX("")).toMatch(/^[0-9a-f]{16}$/);
     expect(_bankFingerprintOFX(null)).toMatch(/^[0-9a-f]{16}$/);
-  });
-});
-
-describe("_bankNormalizeCSV — ajout _fingerprint sur chaque ligne", () => {
-  it("chaque ligne normalisee a _fingerprint + _importSource csv", () => {
-    const parsed = _bankParseCSV("Date;Libelle;Montant\n01/01/2026;VIR ALICE;650\n02/01/2026;VIR BOB;-100");
-    const cols = _bankAutoDetectColumns(parsed.headers);
-    const out = _bankNormalizeCSV(parsed, cols);
-    expect(out.length).toBe(2);
-    expect(out[0]._fingerprint).toMatch(/^[0-9a-f]{16}$/);
-    expect(out[1]._fingerprint).toMatch(/^[0-9a-f]{16}$/);
-    expect(out[0]._fingerprint).not.toBe(out[1]._fingerprint);
-    expect(out[0]._importSource).toBe("csv");
   });
 });
 
@@ -681,38 +511,6 @@ describe('_bankExtractOFXAccount', () => {
   it('OFX sans ACCTID → null (compte non identifiable)', () => {
     const ofx = `<OFX><BANKACCTFROM><BANKID>30002</BANKACCTFROM></OFX>`;
     expect(_bankExtractOFXAccount(ofx)).toBeNull();
-  });
-});
-
-describe('_bankCsvHeaderHash', () => {
-  it('Même schéma de colonnes → même hash (stable)', () => {
-    const a = _bankCsvHeaderHash({ headers:['Date','Libelle','Debit','Credit'], delimiter:';' });
-    const b = _bankCsvHeaderHash({ headers:['Date','Libelle','Debit','Credit'], delimiter:';' });
-    expect(a).toBe(b);
-    expect(a).toMatch(/^csv:[a-f0-9]{16}$/);
-  });
-
-  it('Insensible à la casse + accents (variantes cosmétiques)', () => {
-    const a = _bankCsvHeaderHash({ headers:['Date','Libellé','Débit','Crédit'], delimiter:';' });
-    const b = _bankCsvHeaderHash({ headers:['DATE','LIBELLE','DEBIT','CREDIT'], delimiter:';' });
-    expect(a).toBe(b);
-  });
-
-  it('Schémas différents → hashes différents', () => {
-    const a = _bankCsvHeaderHash({ headers:['Date','Libelle','Montant'], delimiter:';' });
-    const b = _bankCsvHeaderHash({ headers:['Date','Libelle','Debit','Credit'], delimiter:';' });
-    expect(a).not.toBe(b);
-  });
-
-  it('Délimiteur différent → hash différent (banques distinctes peuvent partager les noms)', () => {
-    const a = _bankCsvHeaderHash({ headers:['Date','Lib','Montant'], delimiter:';' });
-    const b = _bankCsvHeaderHash({ headers:['Date','Lib','Montant'], delimiter:',' });
-    expect(a).not.toBe(b);
-  });
-
-  it("Pas d'en-têtes → null", () => {
-    expect(_bankCsvHeaderHash({ headers:[] })).toBeNull();
-    expect(_bankCsvHeaderHash(null)).toBeNull();
   });
 });
 

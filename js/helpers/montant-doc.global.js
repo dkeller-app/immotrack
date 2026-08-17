@@ -29,10 +29,10 @@
   //      évolutions d'ICU et rend les tests stables quel que soit le runtime.
   //   2. pdfSafeText — filet de sécurité appliqué à TOUT texte envoyé à jsPDF, y compris
   //      les données saisies par l'utilisateur (un nom copié-collé peut contenir U+202F).
-  
+
   /** Espace insécable WinAnsi (0xA0) — le seul séparateur de milliers sûr en PDF. */
   const NBSP = ' ';
-  
+
   /**
    * Caractères fréquents en saisie/typographie qui n'existent PAS en WinAnsi et
    * cassent l'encodage jsPDF → remplacés par leur équivalent sûr ('' = supprimé).
@@ -60,13 +60,13 @@
     '―': '-',    // horizontal bar
     '−': '-'     // minus sign
   };
-  
+
   // Caractères de la plage 0x80-0x9F de WinAnsi (Unicode > 0xFF mais bien encodables).
   // EXPORTÉ : la popup de signature (document about:blank) reçoit ces helpers sérialisés par
   // toString() — toute variable libre non exportée y serait un ReferenceError à l'exécution.
   const WINANSI_HIGH = '€‚ƒ„…†‡ˆ‰Š‹Œ'
     + 'Ž‘’“”•–—˜™š›œžŸ';
-  
+
   /** true si `ch` est encodable par une police standard jsPDF (WinAnsi / CP1252). */
   function isWinAnsiChar(ch) {
     const c = ch.charCodeAt(0);
@@ -75,7 +75,7 @@
     if (c >= 0xA0 && c <= 0xFF) return true;                   // Latin-1 supplement
     return WINANSI_HIGH.indexOf(ch) !== -1;
   }
-  
+
   /**
    * Assainit un texte destiné à une police standard (WinAnsi) : jsPDF ET pdf-lib.
    * 1. remplace les caractères connus par leur équivalent sûr (table ci-dessus) ;
@@ -105,14 +105,14 @@
     }
     return out.replace(/ {2,}/g, ' ').replace(/ +$/, '');
   }
-  
+
   /** true si le texte contient au moins un caractère non encodable en WinAnsi. */
   function hasPdfUnsafeChars(txt) {
     const s = String(txt == null ? '' : txt);
     for (let i = 0; i < s.length; i++) if (!isWinAnsiChar(s[i])) return true;
     return false;
   }
-  
+
   /**
    * Parse un nombre tolérant : 12000 | '12000' | '1234,56' | '1 234,56' → Number.
    * Renvoie NaN — et NON 0 — pour une valeur aberrante (audit 13/08, finding 7) :
@@ -127,7 +127,7 @@
     const v = parseFloat(s);
     return isFinite(v) ? v : NaN;
   }
-  
+
   /**
    * Montant français pour les DOCUMENTS : « 12 000,00 » (espace insécable WinAnsi,
    * virgule décimale). Déterministe — n'utilise ni Intl ni toLocaleString.
@@ -144,12 +144,12 @@
     const grouped = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
     return (neg ? '-' : '') + grouped + (parts[1] ? ',' + parts[1] : '');
   }
-  
+
   /** Montant + euro pour les documents : « 12 000,00 € » (espaces insécables). */
   function fmtEuroDoc(n, decimals) {
     return fmtMontantDoc(n, decimals) + NBSP + '€';
   }
-  
+
   /**
    * Blinde une instance jsPDF : tout texte passé à `pdf.text(...)` est assaini.
    * Filet de sécurité pour les 46 appels existants ET les données utilisateur.

@@ -30,6 +30,32 @@ const ROOT = path.resolve(__dirname, '..');
  */
 const PAIRS = [
   {
+    // CHANTIER IMPORT-MOUVEMENTS — bug 3 du CDC : « le moteur de propositions existe
+    // en double (module + réplique inline) ». La réplique inline d'index.html est
+    // supprimée, ce mirror la remplace : une seule source, js/core/bank-import.js.
+    name: 'bank-import',
+    src: 'js/core/bank-import.js',
+    dst: 'js/helpers/bank-import.global.js',
+    globalName: 'BankImport',
+    flatten: true,
+    exports: [
+      '_bankHashStable', '_bankFingerprintRow', '_bankFingerprintOFX',
+      '_BANK_MAX_FILE_SIZE', '_bankDetectFormat',
+      '_bankParseAmount', '_bankParseDate', '_bankIsDateLike', '_bankIsAmountLike', '_bankForeignCurrency',
+      '_bankOfxTag', '_bankOfxLabel', '_bankParseOFX', '_bankReadOFX',
+      '_bankFindHeaderRow', '_bankPickDateColumn', '_bankDetectOrientation',
+      '_bankCheckBalance', '_bankMarkDoubtfulDates', '_bankPickSheets', '_bankReadTable',
+      '_bankMatchHeuristic', '_bankDedup', '_bankMigrateFingerprints',
+      '_bankExtractOFXAccount', '_bankExtractSheetAccount',
+      '_bankSliceAfterFingerprint', '_bankComputeLastImport',
+    ],
+    // Sanity : autant de fonctions exportées en sortie qu'en source (aucune perdue
+    // par le strip `export ` — c'est exactement ce qui rendait la réplique divergente).
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     name: 'annonce-generator',
     src: '__tests__/helpers/annonce-generator.js',
     dst: 'js/helpers/annonce-generator.global.js',
@@ -250,7 +276,11 @@ for (const p of PAIRS) {
     continue;
   }
 
-  const srcContent = fs.readFileSync(srcAbs, 'utf8');
+  // Normalisation CRLF → LF à la lecture : sur un checkout Windows (core.autocrlf),
+  // chaque ligne se terminait par un '\r' résiduel, ce qui faisait indenter les
+  // lignes vides ('  \r') et polluait TOUS les mirrors d'un diff fantôme à chaque
+  // régénération — au point de noyer la vraie modification.
+  const srcContent = fs.readFileSync(srcAbs, 'utf8').replace(/\r\n/g, '\n');
 
   // 1) Strip "export " keyword (laisse les déclarations intactes).
   //    Gère également `import { ... } from './x.js'` qu'on transforme en TODO :
@@ -333,6 +363,16 @@ ${deps}
     footerLines.push(`    ${name}: ${name}${comma}`);
   });
   footerLines.push('  };');
+  if (p.flatten) {
+    // `flatten` : expose AUSSI chaque symbole à plat sur window (window._bankXxx).
+    // Sert aux modules dont index.html appelle les helpers par leur nom nu — et qui
+    // avaient jusqu'ici une RÉPLIQUE INLINE dans index.html (duplication garantie de
+    // diverger). Le mirror devient la seule source côté navigateur file://, le module
+    // ES la seule source côté http — même fichier d'origine dans les deux cas.
+    footerLines.push(`  for (var _k in global.${p.globalName}) {`);
+    footerLines.push(`    if (Object.prototype.hasOwnProperty.call(global.${p.globalName}, _k)) global[_k] = global.${p.globalName}[_k];`);
+    footerLines.push('  }');
+  }
   footerLines.push('})(typeof window !== \'undefined\' ? window : globalThis);');
 
   const out = header + indented + footerLines.join('\n') + '\n';
