@@ -305,6 +305,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         <button class="btn bs bb" onclick="clearMvFilters()">✕ Reset</button>
         <button class="btn bs bb" onclick="_bankImportOpen()" title="Importer un relevé bancaire OFX ou Excel (Crédit Mutuel, BNP, SG, LCL, CA…)">🏦 Importer banque</button>
         <button class="btn bs bb" onclick="_bankAccountsOpen()" title="Voir / gérer les comptes bancaires identifiés par Propryo">🏦 Mes comptes</button>
+        <button class="btn bs bb" onclick="_bankRulesOpen()" title="Mes règles de classement automatique — création et modification au moment où la règle sert">⚙ Mes règles</button>
         <button class="btn bp" onclick="openNewMv()" style="margin-left:auto">+ Mouvement</button>
       </div>
       <!-- Dropdown filtre multi-choix (style Excel) -->
@@ -15779,11 +15780,11 @@ function _catSet(id, tgt, v) {
   _catApplyChange(id, tgt, v);
 }
 // Déclenche le bon handler de changement selon le site (convention de préfixe du tgt) :
-// split sp<j> → _spMvOnCat ; règles rule<i> → _ruleOnCat ; import imp<i> → _bankOnCat ;
+// split sp<j> → _spMvOnCat ; écran de règle 'brule' → _bankRuleOnCat ; import imp<i> → _bankOnCat ;
 // sinon (formulaire mouvement 'mv') → _affOnCatChange. La valeur cachée <tgt>-cat est déjà posée.
 function _catApplyChange(id, tgt, v) {
   if (/^sp\d+$/.test(tgt) && typeof _spMvOnCat === 'function') _spMvOnCat(+tgt.slice(2), v);
-  else if (/^rule\d+$/.test(tgt) && typeof _ruleOnCat === 'function') _ruleOnCat(+tgt.slice(4));
+  else if (tgt === 'brule' && typeof _bankRuleOnCat === 'function') _bankRuleOnCat();   // ⑦.4 écran de règle
   else if (/^imp\d+$/.test(tgt) && typeof _bankOnCat === 'function') _bankOnCat(+tgt.slice(3));
   else if (typeof _affOnCatChange === 'function') _affOnCatChange(id, tgt);
 }
@@ -46872,19 +46873,6 @@ function getSalutation() {
 // ══════════════════════════════════════════════════════════════
 // RÈGLES D'IMPORT AUTOMATIQUE
 // ══════════════════════════════════════════════════════════════
-// Debounce interne pour les oninput texte des règles
-let _ruleSaveTimer = null;
-function _ruleFieldText(i, val) {
-  if(DB.importRules[i]) DB.importRules[i].pattern = val;
-  clearTimeout(_ruleSaveTimer);
-  _ruleSaveTimer = setTimeout(()=>saveDB(), 600);
-}
-// A9 — restreint une règle à un compte bancaire précis (sinon « tous les comptes »).
-// Permet d'avoir la MÊME règle (ex. « expert comptable ») affectée à la bonne SCI selon le compte importé.
-function _ruleFieldCompte(i, val) {
-  if(DB.importRules[i]) DB.importRules[i].compte = val || '';
-  saveDB();
-}
 // V3-REFONTE-LOYERS v15.319 : _ruleFieldSel supprimé (colonnes indépendantes remplacées par _affZone ; plus d'appelant).
 
 // ─── V3-REFONTE-LOYERS — éditeur de règles d'import : affectation via le bloc réutilisable _affZone ───
@@ -46908,67 +46896,58 @@ function _ccImmeuble(ccId) {
   }));
   return nom;
 }
-// Recopie l'affectation choisie via _affZone (champs cachés) dans la règle + sauvegarde.
-function _ruleSyncAff(i) {
-  const r = DB.importRules[i]; if(!r) return;
-  r.qui          = el('rule'+i+'-qui') ? el('rule'+i+'-qui').value : '';
-  r.imm          = el('rule'+i+'-imm') ? el('rule'+i+'-imm').value : '';
-  r.compteurCcId = el('rule'+i+'-cc')  ? el('rule'+i+'-cc').value  : '';
-  saveDB();
-}
-// Changement de catégorie d'une règle : enregistre + repart propre sur l'affectation (re-dérive le niveau).
-function _ruleOnCat(i) {
-  const r = DB.importRules[i]; if(!r) return;
-  r.cat = (el('rule'+i+'-cat') && el('rule'+i+'-cat').value) || '';
-  _affOnCatChange('rule'+i, 'rule'+i); // vide qui/imm/cc + re-dérive le niveau + re-render ; le hook _ruleSyncAff sauvegarde
-  saveDB();
-}
 
-function rParamsRules() {
+// ⑦.7 — La liste des règles : une seule liste, deux accès (ici et depuis la page
+// Loyers & Mouvements). Ajouté : le SENS, et la colonne « utilisée » (« 23 mouvements
+// classés · dernière fois le 12/08 ») pour repérer une règle obsolète ou trop large.
+// RETIRÉ : les flèches ↑↓ — il n'y a plus d'ordre à maintenir (⑦.2 : les règles
+// complémentaires s'additionnent, les règles en conflit ne s'appliquent pas).
+// L'édition passe par l'écran de règle avec aperçu (⑦.4), plus par des champs en ligne.
+// ⑦.7 — deuxième accès : la même liste, depuis la page Loyers & Mouvements.
+function _bankRulesOpen() { openM('ov-bank-rules'); rParamsRules('import-rules-list-modal'); }
+
+function rParamsRules(hostId) {
   if(!DB.importRules) DB.importRules = [];
-  // v15.186 : ne compter QUE les règles actives (exclure tombstones)
-  const aliveRules = DB.importRules.filter(r => r && !r._deleted);
-  if(!aliveRules.length) {
-    el('import-rules-list').innerHTML = '<div class="mu sm" style="padding:16px;text-align:center">Aucune règle — cliquez "+ Règle" pour commencer</div>';
+  const host = el(hostId || 'import-rules-list'); if (!host) return;
+  const aliveIdx = DB.importRules.map((r,i)=>({r,i})).filter(x => x.r && !x.r._deleted);
+  if(!aliveIdx.length) {
+    host.innerHTML = '<div class="mu sm" style="padding:16px;text-align:center;line-height:1.6">'
+      + '<b>Aucune règle.</b><br>Propryo ne livre aucune règle toute faite : ce sont <b>tes</b> données, pas les siennes.<br>'
+      + 'Crée-en une depuis une ligne d\'import (💾 Mémoriser la règle) ou avec « + Règle ».</div>';
     return;
   }
-  const _acctList = (DB.params.bankAccounts || []).filter(a => a && !a._deleted); // A9 : règle restreignable à un compte
-  el('import-rules-list').innerHTML = `<table class="tbl"><thead><tr>
-    <th style="width:30px">#</th><th>Motif (contenu dans le libellé)</th><th style="width:140px">Compte <span class="mu sm">(optionnel)</span></th><th style="width:160px">Catégorie</th><th>Affectation — <span class="mu sm">où ça va ?</span></th><th style="width:80px"></th>
+  const _acct = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
+  const sensLbl = s => s === 'db' ? '− dépense' : s === 'cr' ? '+ recette' : 'les deux';
+  const affLbl = r => r.bailleurDuCompte ? '🏛️ le bailleur du compte'
+    : (r.compteurCcId ? '⚡ compteur' : (String(r.qui||'').startsWith('SCI:') ? '🏛️ ' + escHtml(r.qui.slice(4))
+      : (r.qui ? '🚪 ' + escHtml(r.qui) : (r.imm ? '🏢 ' + escHtml(r.imm) : '<span class="mu sm">—</span>'))));
+  // La table est large (7 colonnes) : elle défile DANS son conteneur, la page ne
+  // scrolle jamais horizontalement (contrainte 3 formats, zéro scroll à 390 px).
+  host.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="tbl" style="min-width:720px"><thead><tr>
+    <th>Motif (contenu dans le libellé)</th><th style="width:96px">Sens</th><th style="width:130px">Compte</th>
+    <th style="width:170px">Catégorie</th><th style="width:170px">Affectation</th><th style="width:150px">Utilisée</th><th style="width:80px"></th>
   </tr></thead><tbody>
-  ${DB.importRules.map((r,i)=>r && r._deleted ? '' : `<tr>
-    <td class="mu sm">${i+1}</td>
-    <td><input class="inp" style="width:100%;padding:4px 8px;font-size:12px" value="${escHtml(r.pattern||'')}" oninput="_ruleFieldText(${i},this.value)"></td>
-    <td><select class="inp" style="width:100%;padding:4px 6px;font-size:12px" onchange="_ruleFieldCompte(${i},this.value)"><option value="">— Tous les comptes —</option>${_acctList.map(a=>`<option value="${escHtml(a.id)}" ${r.compte===a.id?'selected':''}>${escHtml(a.label||'(compte)')}</option>`).join('')}</select></td>
-    <td><input type="hidden" id="rule${i}-cat" value="${escHtml(r.cat||'')}">${_catBtn('rule'+i,'rule'+i,r.cat||'')}</td>
-    <td style="min-width:280px">
-      <div id="rule${i}-aff"></div>
-      <input type="hidden" id="rule${i}-qui"><input type="hidden" id="rule${i}-imm"><input type="hidden" id="rule${i}-cc">
-    </td>
+  ${aliveIdx.map(({r,i}) => {
+    const u = window._bankRuleUsage ? window._bankRuleUsage(r, DB.mouvements || []) : { count:0, lastDate:'' };
+    const acc = r.compte ? (_acct.find(a => String(a.id) === String(r.compte)) || null) : null;
+    return `<tr>
+    <td style="font-family:var(--mono,monospace);font-size:12px;font-weight:600">${escHtml(r.pattern||'(motif vide)')}</td>
+    <td class="mu sm">${sensLbl(r.sens)}</td>
+    <td class="mu sm">${acc ? escHtml(acc.label||'(compte)') : (r.compte ? '<span style="color:var(--ora)">compte supprimé</span>' : 'tous')}</td>
+    <td>${r.cat ? '<span class="badge gry">'+escHtml(r.cat)+'</span>' : '<span class="mu sm">—</span>'}</td>
+    <td>${affLbl(r)}</td>
+    <td class="mu sm" style="font-size:11.5px">${u.count ? u.count+' mouvement'+(u.count>1?'s':'')+'<br>dernière fois le '+fd(u.lastDate) : '<span style="color:var(--ora)">jamais utilisée</span>'}</td>
     <td class="act-cell">
-      <button class="btn bs bb" onclick="moveRule(${i},-1)" title="Monter" ${i===0?'disabled':''}>↑</button>
-      <button class="btn bs bb" onclick="moveRule(${i},1)" title="Descendre" ${i===DB.importRules.length-1?'disabled':''}>↓</button>
+      <button class="btn bs bb" onclick="_bankRuleOpen(${i})" title="Modifier cette règle">✏️</button>
       <button class="btn br bb" onclick="delRule(${i})" title="Supprimer">🗑</button>
     </td>
-  </tr>`).join('')}
-  </tbody></table>`;
-  // Branche une instance _affZone par règle (réutilise le bloc B1) → exclusivité qui↔compteur garantie.
-  DB.importRules.forEach((r,i)=>{
-    if(!r || r._deleted) return;
-    if(r.compteurCcId && !r.imm) { const im = _ccImmeuble(r.compteurCcId); if(im) r.imm = im; } // compat ancienne règle
-    if(el('rule'+i+'-qui')) el('rule'+i+'-qui').value = r.qui||'';
-    if(el('rule'+i+'-imm')) el('rule'+i+'-imm').value = r.imm||'';
-    if(el('rule'+i+'-cc'))  el('rule'+i+'-cc').value  = r.compteurCcId||'';
-    _affState['rule'+i] = { niv: _ruleDeriveNiv(r) };
-    _affHooks['rule'+i] = () => _ruleSyncAff(i);
-    _affRender('rule'+i, 'rule'+i);
-  });
+  </tr>`;}).join('')}
+  </tbody></table></div>`;
 }
 
 function addImportRule() {
   if(!DB.importRules) DB.importRules = [];
-  DB.importRules.push({pattern:'', cat:'', qui:'', imm:'', compteurCcId:''});
-  saveDB(); rParamsRules();
+  _bankRuleOpen(-1, null);   // ⑦.4 : création à froid, avec aperçu — plus de ligne vide à remplir
 }
 
 function delRule(i) {
@@ -46977,31 +46956,30 @@ function delRule(i) {
   // ressuscite la règle si un autre device l'a encore.
   const r = DB.importRules[i];
   if (!r) return;
+  if (!confirm2('Supprimer la règle « ' + (r.pattern || '') + ' » ?\n\nLes mouvements déjà classés ne changent pas.')) return;
   DB.importRules[i] = _tombstoneObj({ pattern: r.pattern });
-  saveDB(); rParamsRules();
+  saveDB();
+  if (typeof _auditLog === 'function') _auditLog('delete', 'import-rule', r.pattern || '', 'suppression');
+  // ⑦.3 — les lignes de l'import en cours se reclassent immédiatement.
+  _bankRuleAfterChange();
 }
 
-function moveRule(i, dir) {
-  const r = DB.importRules; if(i+dir<0||i+dir>=r.length) return;
-  [r[i],r[i+dir]] = [r[i+dir],r[i]];
-  saveDB(); rParamsRules();
-}
 
-// Appliquer les règles sur une ligne de staging
-// v14.71 — propage aussi compteurCcId pour répartition auto à la régul
+// Applique les règles sur une ligne de staging (page « Import »).
+// DRY : délègue au MÊME moteur que l'import bancaire (js/core/bank-import.js) — deux
+// implémentations des règles finiraient par diverger, exactement comme le moteur de
+// propositions qui existait en double (bug 3 du CDC).
 function applyImportRules(row, accountId) {
-  const rules = DB.importRules||[];
-  const lib = (row.lib||'').toLowerCase();
-  for(const rule of rules) {
-    if(!rule.pattern) continue;
-    if(rule.compte && accountId && rule.compte !== accountId) continue; // A9 : règle liée à un AUTRE compte → ignorée
-    const motif = rule.pattern.toLowerCase();
-    if(lib.includes(motif)) {
-      if(rule.cat          && !row.cat)          row.cat          = rule.cat;
-      if(rule.qui          && !row.qui)          row.qui          = rule.qui;
-      if(rule.imm          && !row.imm)          row.imm          = rule.imm;
-      if(rule.compteurCcId && !row.compteurCcId) row.compteurCcId = rule.compteurCcId;
-    }
+  const rules = (DB.importRules || []).filter(r => r && !r._deleted);
+  const line = { libelle: row.lib || '', credit: Number(row.cr) || 0, debit: Number(row.db) || 0 };
+  const res = window._bankApplyRules(rules, line, { accountId });
+  if (res.cat && !row.cat) row.cat = res.cat;
+  if (res.aff) {
+    const acct = (DB.params.bankAccounts || []).find(a => a && String(a.id) === String(accountId));
+    const aff = window._bankResolveAff(res.aff, acct);
+    if (aff.qui && !row.qui) row.qui = aff.qui;
+    if (aff.imm && !row.imm) row.imm = aff.imm;
+    if (aff.compteurCcId && !row.compteurCcId) row.compteurCcId = aff.compteurCcId;
   }
   return row;
 }
@@ -49373,22 +49351,33 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
   _bankImportRenderPreview(format, prefixHtml || '');
 }
 
-// Applique les règles d'import (DB.importRules) à une ligne bancaire. Adapte le shape (libelle→lib ;
-// suggested* ← cat/qui/imm/compteurCcId). Retourne true si une règle a matché (classement déterministe).
-// Réutilise applyImportRules → une seule logique de règles (form/import) ; exclusivité qui↔compteur déjà
-// garantie par l'éditeur de règles (_affZone, v15.319).
+// ⑦.2 v2 — Applique les règles de l'utilisateur à une ligne d'import.
+// Complémentaires (champs différents) → on applique les deux, avec l'ORIGINE de chaque
+// champ. En conflit (même champ, valeurs différentes) → aucun automatisme : la ligne
+// reste « à compléter », les candidates sont affichées, l'utilisateur choisit.
+// R-C : une affectation « le bailleur du compte » est résolue ici depuis le compte.
+// Retourne true si une règle a effectivement classé quelque chose.
 function _bankApplyRule(line) {
-  if (!Array.isArray(DB.importRules) || !DB.importRules.length) return false;
-  const tmp = { lib: line.libelle || '', cat: '', qui: '', imm: '', compteurCcId: '' };
-  applyImportRules(tmp, _currentBankAccount && _currentBankAccount.id);  // A9 : respecte la restriction de compte des règles
-  if (!tmp.cat && !tmp.qui && !tmp.imm && !tmp.compteurCcId) return false; // aucune règle ne matche
-  line.suggestedCat = tmp.cat || '';
-  line.suggestedQui = tmp.qui || '';
-  line.suggestedImm = tmp.imm || '';
-  line.suggestedCc  = tmp.compteurCcId || '';
-  line.confidence   = 1;                       // déterministe
+  const rules = (DB.importRules || []).filter(r => r && !r._deleted);
+  const acctId = _currentBankAccount && _currentBankAccount.id;
+  const res = window._bankApplyRules(rules, line, { accountId: acctId });
+  line._ruleConflicts = res.conflicts.length ? res.conflicts : null;
+  line._ruleOrigin = null;
+  line._rules = res.matched.map(r => r.pattern);
+  if (!res.byRule) return false;
+  const aff = window._bankResolveAff(res.aff, _currentBankAccount);
+  line.suggestedCat = res.cat || '';
+  line.suggestedQui = aff.qui || '';
+  line.suggestedImm = aff.imm || '';
+  line.suggestedCc  = aff.compteurCcId || '';
+  line.confidence   = 1;                       // déterministe : c'est une règle, pas une proposition
   line.matchSource  = 'Règle d\'import';
   line._byRule      = true;
+  line._ruleOrigin = {
+    cat: res.catRule ? res.catRule.pattern : '',
+    aff: res.affRule ? (res.affRule.bailleurDuCompte ? 'le bailleur du compte' : res.affRule.pattern) : '',
+    affUnresolved: !!aff.unresolved,
+  };
   return true;
 }
 
@@ -50038,6 +50027,10 @@ function _bankLineRow(i) {
   // ④.1 — bien d'une autre entité que le bailleur du compte : signalé, jamais corrigé en douce.
   const conflitChip = line._affConflit
     ? '<span class="bimp-chip todo" title="' + escHtml(line._affConflit) + '">⚠ autre bailleur</span>' : '';
+  // ⑦.2 — règles en conflit : aucun automatisme, la ligne reste à compléter et le dit.
+  const nRules = line._ruleConflicts ? Math.max(...line._ruleConflicts.map(c => c.rules.length)) : 0;
+  const ruleConflictChip = nRules
+    ? '<span class="bimp-chip todo" title="Plusieurs règles donnent des valeurs différentes — choisis dans la fenêtre">⚠ ' + nRules + ' règles possibles</span>' : '';
   return `<div class="bimp-row ${isCr ? 'cr' : 'db'}" onclick="_bankOpenMvWindow(${i})">
       <span class="bimp-ic">${icon}</span>
       <div class="bimp-mid">
@@ -50045,12 +50038,84 @@ function _bankLineRow(i) {
           <span class="bimp-lib" title="${escHtml(line.libelle)}">${escHtml(line.libelle)}</span>
           <span class="bimp-amt ${isCr ? 'cr' : 'db'}">${sign}${fmt(amount)}</span>
         </div>
-        <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}${conflitChip}</div>
+        <div class="bimp-l2">${catTxt}${affChip}${src}${dateChip}${reintChip}${conflitChip}${ruleConflictChip}</div>
       </div>
       <span class="bimp-trash" onclick="event.stopPropagation();_bankExcludeLine(${i})" title="Ne pas importer cette ligne">🗑</span>
       <span class="bimp-go">›</span>
     </div>`;
 }
+// ⑦.2 / ⑦.3 — Le bandeau « règles » de la fenêtre de classement.
+//  · règles complémentaires appliquées → on montre l'ORIGINE de chaque champ, avec un
+//    accès direct pour MODIFIER ou SUPPRIMER la règle qui s'est trompée ;
+//  · règles en conflit → aucun automatisme : les candidates sont affichées AVEC LEUR
+//    RÉSULTAT, l'utilisateur choisit celle qui s'applique.
+// « Une règle se corrige là où on la rencontre » — et après correction, les autres
+// lignes de l'import se reclassent immédiatement (_bankRuleAfterChange).
+function _bankRuleIdxOf(pattern) {
+  const p = String(pattern || '').toLowerCase();
+  return (DB.importRules || []).findIndex(r => r && !r._deleted && String(r.pattern || '').toLowerCase() === p);
+}
+
+function _bankRulePanelHtml(i) {
+  const line = _bankImportLines[i]; if (!line) return '';
+  const conflicts = line._ruleConflicts;
+  const org = line._ruleOrigin;
+  if (conflicts && conflicts.length) {
+    const cards = conflicts.map(c => {
+      const champ = c.field === 'cat' ? 'la catégorie' : 'le bien';
+      return '<div style="margin-top:7px"><div class="mu sm" style="font-size:11.5px;margin-bottom:4px">'
+        + c.rules.length + ' règles donnent ' + champ + ' :</div>'
+        + c.rules.map(r => {
+            const idx = _bankRuleIdxOf(r.pattern);
+            const val = c.field === 'cat' ? (r.cat || '—')
+              : (r.bailleurDuCompte ? 'le bailleur du compte' : (r.qui || r.imm || (r.compteurCcId ? 'compteur' : '—')));
+            return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 9px;border:1px solid var(--bor);border-radius:8px;margin-bottom:4px;font-size:12px;background:var(--sur,#fff)">'
+              + '<span style="font-family:var(--mono,monospace);font-weight:600">' + escHtml(r.pattern || '') + '</span>'
+              + '<span style="color:var(--t3)">→</span><span style="flex:1">' + escHtml(val) + '</span>'
+              + '<button class="btn bs" style="font-size:11px" onclick="_bankPickRule(' + i + ',' + idx + ',\'' + c.field + '\')">Choisir</button>'
+              + (idx >= 0 ? '<button class="btn bs" style="font-size:11px" onclick="_bankRuleOpen(' + idx + ')">✏️</button>' : '')
+              + '</div>';
+          }).join('') + '</div>';
+    }).join('');
+    return '<div style="background:var(--amb-bg,#fff8e6);border:1px solid var(--amb,#d97706);border-radius:10px;padding:10px 12px;margin-bottom:12px">'
+      + '<b style="font-size:12.5px;color:var(--amb,#d97706)">⚠ Plusieurs règles se contredisent — rien n\'a été appliqué</b>'
+      + '<div class="mu sm" style="font-size:11.5px;margin-top:3px">Choisis celle qui s\'applique, ou corrige la règle qui est trop large.</div>'
+      + cards + '</div>';
+  }
+  if (org && (org.cat || org.aff)) {
+    const bits = [];
+    if (org.cat) bits.push('catégorie : règle « ' + escHtml(org.cat) + ' »');
+    if (org.aff) bits.push('bien : règle « ' + escHtml(org.aff) + ' »');
+    const idx = _bankRuleIdxOf(org.cat || org.aff);
+    return '<div style="background:var(--acc-bg,#eef4ff);border:1px solid var(--bor);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+      + '<span>⚙ ' + bits.join(' · ') + '</span>'
+      + (org.affUnresolved ? '<span style="color:var(--ora)">⚠ « le bailleur du compte » n\'a pas pu être résolu (compte mixte)</span>' : '')
+      + (idx >= 0 ? '<a onclick="_bankRuleOpen(' + idx + ')" style="margin-left:auto;cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6);font-weight:600">modifier la règle</a>' : '')
+      + '</div>';
+  }
+  return '';
+}
+
+// ⑦.3 — « choisir celle qui s'applique » : on applique la règle retenue à CETTE ligne,
+// sans toucher aux règles elles-mêmes (l'utilisateur tranche un cas, il n'édite rien).
+function _bankPickRule(i, ruleIdx, field) {
+  const line = _bankImportLines[i]; const r = DB.importRules[ruleIdx];
+  if (!line || !r) return;
+  if (field === 'cat') line.suggestedCat = r.cat || '';
+  else {
+    const aff = window._bankResolveAff(
+      { bailleurDuCompte: !!r.bailleurDuCompte, qui: r.qui, imm: r.imm, compteurCcId: r.compteurCcId },
+      _currentBankAccount);
+    line.suggestedQui = aff.qui || ''; line.suggestedImm = aff.imm || ''; line.suggestedCc = aff.compteurCcId || '';
+  }
+  // Le conflit sur CE champ est tranché ; les autres restent à trancher.
+  line._ruleConflicts = (line._ruleConflicts || []).filter(c => c.field !== field);
+  if (!line._ruleConflicts.length) line._ruleConflicts = null;
+  line._userEdited = true;      // la ligne porte un choix de l'utilisateur : ne pas l'écraser au reclassement
+  if (_bankMvIdx === i) _bankWalkRender(); else _bankRenderReviewBody();
+  _bankUpdateCounts();
+}
+
 function _bankLineAffEditor(i) {
   const line = _bankImportLines[i];
   // V3 Phase 4 — ligne découpée (relevé de gérance / virement composite) : on montre le découpage en lecture + ré-éditer.
@@ -50067,6 +50132,7 @@ function _bankLineAffEditor(i) {
       </div>`;
   }
   return `
+    ${_bankRulePanelHtml(i)}
     <div class="affv2-seg">
       <button type="button" class="on" onclick="return false"><span class="e">🎯</span><span class="lab">Affecter à un poste<small>1 mouvement = 1 destination</small></span></button>
       <button type="button" onclick="_bankSplitLine(${i})"><span class="e">✂️</span><span class="lab">Découper en lignes<small>plusieurs biens / locataires</small></span></button>
@@ -50281,9 +50347,13 @@ function _bankEntiteOfAff(qui, imm) {
 
 function _bankSyncAff(i) {
   const line = _bankImportLines[i]; if (!line) return;
-  line.suggestedQui = el('imp'+i+'-qui') ? el('imp'+i+'-qui').value : '';
-  line.suggestedImm = el('imp'+i+'-imm') ? el('imp'+i+'-imm').value : '';
-  line.suggestedCc  = el('imp'+i+'-cc')  ? el('imp'+i+'-cc').value  : '';
+  const _q = el('imp'+i+'-qui') ? el('imp'+i+'-qui').value : '';
+  const _im = el('imp'+i+'-imm') ? el('imp'+i+'-imm').value : '';
+  const _cc = el('imp'+i+'-cc')  ? el('imp'+i+'-cc').value  : '';
+  // ⑦.3 — dès que l'affectation diffère de ce que la règle avait posé, la ligne devient
+  // « éditée par l'utilisateur » : un reclassement ultérieur ne l'écrasera pas.
+  if (_q !== (line.suggestedQui||'') || _im !== (line.suggestedImm||'') || _cc !== (line.suggestedCc||'')) line._userEdited = true;
+  line.suggestedQui = _q; line.suggestedImm = _im; line.suggestedCc = _cc;
   // ④.1 — GARDE-FOU : un mouvement du compte de la SCI X ne peut pas être affecté à
   // un bien d'une autre entité. Rien ne l'empêchait avant. On avertit et on marque la
   // ligne (elle reste modifiable — T-1 : on ne corrige rien en silence).
@@ -50303,6 +50373,8 @@ function _bankOnCat(i) {
   const line = _bankImportLines[i]; if (!line) return;
   line.suggestedCat = (el('imp'+i+'-cat') && el('imp'+i+'-cat').value) || '';
   line._byRule = false;                       // l'utilisateur a édité → plus « par règle »
+  line._userEdited = true;                    // ⑦.3 : un reclassement ne doit pas écraser son choix
+  line._ruleOrigin = null; line._ruleConflicts = null;
   _affOnCatChange('imp'+i, 'imp'+i);          // vide qui/imm/cc + re-dérive niveau + re-render ; le hook sync
   _bankUpdateCounts();
 }
@@ -50332,51 +50404,202 @@ function _bankUpdateImportBtn() {
 // V3-REFONTE-LOYERS Phase 3 : _bankImportToggle / _bankImportSetCat / _bankImportSetQui supprimés
 // (table à plat remplacée par l'assistant 2 onglets + _affZone ; plus aucun appelant).
 
-/**
- * v15.11 — À partir d'une ligne d'import, crée une règle d'import auto réutilisable.
- * Prompt utilisateur pour ajuster le pattern (mot-clé) extrait du libellé.
- * Pré-remplit catégorie + bail depuis le matching auto / les selects user.
- */
+// ⑦.4 — Le prompt() du navigateur a disparu : on ouvre l'écran de règle avec aperçu
+// en direct (motif pré-rempli, sens déduit du sens de la ligne, compte courant,
+// catégorie et affectation reprises de la ligne). On tapait le motif à l'aveugle,
+// sans voir ce qu'il attrape, sans pouvoir choisir le compte ni le sens.
 function _bankImportAddRule(i) {
   const line = _bankImportLines[i];
   if (!line) return;
-  // V3 Phase 3 : l'affectation vient de _affZone (champs cachés) → on sync d'abord, puis on lit la ligne.
-  // La règle capture l'affectation COMPLÈTE (qui/imm/compteurCcId), pas seulement le bail.
-  _bankSyncAff(i);
-  const cat = line.suggestedCat || '';
-  if (!cat) { showToast('Choisis une catégorie avant de créer la règle', 'warn', 4000); return; }
-  const SKIP = /^(vir|vrt|virement|prelev|prlv|sepa|carte|cb|crd|achat|paiement|chq|cheque|tra|tip)$/i;
-  const words = String(line.libelle||'').split(/[\s\-_,;:./]+/)
-    .filter(w => w.length >= 4 && !SKIP.test(w))
-    .sort((a,b) => b.length - a.length);
-  const defaultPattern = words[0] || (line.libelle||'').slice(0, 20);
-  const affTxt = (_bankAffLabel(line) || '').replace(/<[^>]+>/g, '') || '(aucune)';
+  _bankRuleOpen(-1, i);
+}
 
-  const pattern = prompt(
-    `Créer une règle d'import auto à partir de cette ligne :\n\n` +
-    `Libellé : ${line.libelle}\n` +
-    `Catégorie : ${cat}\n` +
-    `Affectation : ${affTxt}\n\n` +
-    `Quel mot-clé / motif détecter dans les futurs imports ?\n` +
-    `(toute ligne dont le libellé contient ce mot sera auto-classifiée)`,
-    defaultPattern
-  );
-  if (pattern == null || !pattern.trim()) return;
+// ════════════════════════════════════════════════════════════════════════════
+// ⑦.4 / ⑦.7 — ÉCRAN DE RÈGLE AVEC APERÇU EN DIRECT
+// « L'app propose. Tu valides. Si tu veux que ce soit automatique, tu en fais une
+// règle. » Deux accès (Réglages · page Loyers & Mouvements, y compris pendant un
+// import), une seule liste, un seul écran. L'aperçu fonctionne SANS import : il
+// s'appuie alors sur les mouvements déjà enregistrés.
+// ════════════════════════════════════════════════════════════════════════════
+let _bankRuleDraft = null;   // { idx, pattern, sens, compte, cat, qui, imm, cc, bdc, srcLine }
 
-  if (!DB.importRules) DB.importRules = [];
-  const pat = pattern.trim();
-  const fields = { cat: cat, qui: line.suggestedQui || '', imm: line.suggestedImm || '', compteurCcId: line.suggestedCc || '' };
-  const existing = DB.importRules.find(r => r && !r._deleted && r.pattern && r.pattern.toLowerCase() === pat.toLowerCase());
-  if (existing) {
-    Object.assign(existing, fields);
-    showToast(`✓ Règle « ${pat} » mise à jour → ${cat}`, 'ok', 4000);
-  } else {
-    DB.importRules.push(Object.assign({ pattern: pat }, fields));
-    showToast(`✓ Règle créée : « ${pat} » → ${cat}. Les prochains imports avec ce mot-clé seront auto-classifiés.`, 'ok', 6000);
+// Ouvre l'écran. `idx` = index dans DB.importRules (-1 = création).
+// `fromLine` = index de ligne d'import quand on crée la règle depuis une ligne.
+function _bankRuleOpen(idx, fromLine) {
+  if (!Array.isArray(DB.importRules)) DB.importRules = [];
+  const r = (idx != null && idx >= 0) ? DB.importRules[idx] : null;
+  if (idx != null && idx >= 0 && (!r || r._deleted)) { showToast('Règle introuvable', 'err'); return; }
+  const line = (fromLine != null && fromLine >= 0) ? _bankImportLines[fromLine] : null;
+  if (line) _bankSyncAff(fromLine);
+  _bankRuleDraft = r
+    ? { idx, pattern: r.pattern || '', sens: r.sens || '', compte: r.compte || '', cat: r.cat || '',
+        qui: r.qui || '', imm: r.imm || '', cc: r.compteurCcId || '', bdc: !!r.bailleurDuCompte, srcLine: null }
+    : { idx: -1, pattern: line ? _bankSuggestPattern(line.libelle) : '',
+        sens: line ? ((line.credit || 0) > 0 ? 'cr' : 'db') : '',
+        compte: (_currentBankAccount && _currentBankAccount.id) || '',
+        cat: line ? (line.suggestedCat || '') : '',
+        qui: line ? (line.suggestedQui || '') : '', imm: line ? (line.suggestedImm || '') : '',
+        cc: line ? (line.suggestedCc || '') : '', bdc: false,
+        srcLine: line ? { date: line.date, libelle: line.libelle, credit: line.credit, debit: line.debit } : null };
+  const t = el('bank-rule-title'); if (t) t.textContent = (idx != null && idx >= 0) ? '✏️ Modifier la règle' : '💾 Mémoriser une règle';
+  const d = el('bank-rule-del'); if (d) d.style.display = (idx != null && idx >= 0) ? '' : 'none';
+  const s = el('bank-rule-save'); if (s) s.textContent = (idx != null && idx >= 0) ? 'Enregistrer' : 'Créer la règle';
+  openM('ov-bank-rule');
+  _bankRuleRender();
+}
+
+// Motif proposé depuis un libellé : le mot le plus significatif, jamais un mot de
+// plomberie bancaire (VIR, PRLV, SEPA…) qui attraperait tout.
+function _bankSuggestPattern(lib) {
+  const SKIP = /^(vir|vrt|virement|prlv|prelev|prelevement|sepa|carte|cb|crd|achat|paiement|chq|cheque|tra|tip|ech|ref|id|emetteur|mandat|rum)$/i;
+  const words = String(lib || '').split(/[\s\-_,;:./]+/).filter(w => w.length >= 4 && !SKIP.test(w) && !/^\d+$/.test(w));
+  return words.sort((a, b) => b.length - a.length)[0] || String(lib || '').slice(0, 24).trim();
+}
+
+function _bankRuleRender() {
+  const body = el('ov-bank-rule-body'); const d = _bankRuleDraft;
+  if (!body || !d) return;
+  const accounts = (DB.params.bankAccounts || []).filter(a => a && !a._deleted);
+  const seg = (v, lbl) => '<button type="button" class="btn bs' + (d.sens === v ? ' bp' : '') + '" style="font-size:12px" onclick="_bankRuleSet(\'sens\',\'' + v + '\')">' + lbl + '</button>';
+  const src = d.srcLine
+    ? '<div style="background:var(--sur2);border:1px solid var(--bor);border-radius:9px;padding:9px 11px;margin-bottom:13px;font-size:12px">'
+      + '<div class="mu sm" style="font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">📥 À partir de cette ligne</div>'
+      + '<div style="font-family:var(--mono,monospace);font-size:11.5px;overflow-wrap:anywhere">' + fd(d.srcLine.date) + ' · ' + escHtml(d.srcLine.libelle) + '</div></div>'
+    : '';
+  body.innerHTML = src
+    + '<div style="margin-bottom:13px"><label class="affv2-lab">Motif — le libellé doit contenir</label>'
+    + '<input class="inp" id="bank-rule-pat" value="' + escHtml(d.pattern) + '" oninput="_bankRuleSet(\'pattern\',this.value)" style="font-family:var(--mono,monospace);font-weight:600" placeholder="ex : EDF CLIENTS PARTICULIERS">'
+    + '<div class="mu sm" style="font-size:11.5px;margin-top:4px">Insensible aux majuscules et aux accents. N\'importe quel mot ou référence du libellé.</div></div>'
+    + '<div style="margin-bottom:13px"><label class="affv2-lab">Sens</label><div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + seg('db', '− Dépense') + seg('cr', '+ Recette') + seg('', 'Les deux') + '</div>'
+    + '<div class="mu sm" style="font-size:11.5px;margin-top:4px">Sans le sens, une règle « EDF » attrape aussi le remboursement de trop-perçu et le classe en charge.</div></div>'
+    + '<div style="margin-bottom:13px"><label class="affv2-lab">Compte</label>'
+    + '<select class="inp" onchange="_bankRuleSet(\'compte\',this.value)"><option value="">Tous les comptes</option>'
+    + accounts.map(a => '<option value="' + escHtml(a.id) + '"' + (String(d.compte) === String(a.id) ? ' selected' : '') + '>' + escHtml(a.label || '(compte)') + (a.bailleur ? ' — ' + escHtml(a.bailleur) : '') + '</option>').join('')
+    + '</select></div>'
+    + '<div style="margin-bottom:13px"><label class="affv2-lab">Catégorie à appliquer</label>'
+    + '<input type="hidden" id="brule-cat" value="' + escHtml(d.cat) + '">' + _catBtn('brule', 'brule', d.cat)
+    + '<label class="affv2-lab" style="margin-top:11px;display:block">Affectation</label>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0 8px;padding:7px 10px;border:1px solid ' + (d.bdc ? 'var(--pur,#7c3aed)' : 'var(--bor)') + ';border-radius:8px;cursor:pointer">'
+    + '<input type="checkbox" ' + (d.bdc ? 'checked' : '') + ' onchange="_bankRuleSet(\'bdc\',this.checked)">'
+    + '<span><b>🏛️ Le bailleur du compte</b> — résolu à chaque import<br><span class="mu sm" style="font-size:11px">Une seule règle pour toutes tes SCI (cas du comptable qui facture chaque entité).</span></span></label>'
+    + (d.bdc ? '' : '<div id="brule-aff"></div><input type="hidden" id="brule-qui"><input type="hidden" id="brule-imm"><input type="hidden" id="brule-cc">')
+    + '</div>'
+    + '<label class="affv2-lab">Ce que cette règle va classer</label><div id="bank-rule-preview"></div>';
+  if (!d.bdc) {
+    if (el('brule-qui')) el('brule-qui').value = d.qui;
+    if (el('brule-imm')) el('brule-imm').value = d.imm;
+    if (el('brule-cc'))  el('brule-cc').value  = d.cc;
+    _affState['brule'] = { niv: _ruleDeriveNiv({ cat: d.cat, qui: d.qui, imm: d.imm, compteurCcId: d.cc }) };
+    _affHooks['brule'] = () => {
+      _bankRuleDraft.qui = el('brule-qui') ? el('brule-qui').value : '';
+      _bankRuleDraft.imm = el('brule-imm') ? el('brule-imm').value : '';
+      _bankRuleDraft.cc  = el('brule-cc')  ? el('brule-cc').value  : '';
+    };
+    _affRender('brule', 'brule');
   }
+  _bankRulePreviewRender();
+}
+
+// Hook du picker de catégorie (_catBtn tgt='brule') — voir _catPickApply.
+function _bankRuleOnCat() {
+  if (!_bankRuleDraft) return;
+  _bankRuleDraft.cat = (el('brule-cat') && el('brule-cat').value) || '';
+  _bankRuleDraft.qui = ''; _bankRuleDraft.imm = ''; _bankRuleDraft.cc = '';
+  _bankRuleRender();
+}
+
+function _bankRuleSet(k, v) {
+  if (!_bankRuleDraft) return;
+  _bankRuleDraft[k] = v;
+  if (k === 'pattern') { _bankRulePreviewRender(); return; }   // pas de re-render : on garde le focus
+  _bankRuleRender();
+}
+
+// ⑦.4 — l'aperçu, mis à jour à CHAQUE FRAPPE : les lignes de l'import en cours qui
+// correspondent, le nombre de mouvements déjà en base, et l'alerte quand le motif est
+// trop court ou attrape des lignes de natures différentes.
+function _bankRulePreviewRender() {
+  const host = el('bank-rule-preview'); const d = _bankRuleDraft;
+  if (!host || !d) return;
+  const p = window._bankRulePreview(
+    { pattern: d.pattern, sens: d.sens, compte: d.compte },
+    { importLines: _bankImportLines || [], mouvements: DB.mouvements || [], accountId: (_currentBankAccount && _currentBankAccount.id) });
+  const save = el('bank-rule-save'); if (save) save.disabled = !String(d.pattern || '').trim();
+  if (!String(d.pattern || '').trim()) {
+    host.innerHTML = '<div class="mu sm" style="border:1px solid var(--bor);border-radius:10px;padding:12px;text-align:center">Saisis un motif pour voir ce qu\'il attrape.</div>';
+    return;
+  }
+  const head = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--sur2);border-bottom:1px solid var(--bor);padding:7px 11px;font-size:12px">'
+    + '<b style="color:' + (p.lines.length ? 'var(--cta,#3b7ef6)' : 'var(--t3)') + '">' + p.lines.length + ' ligne' + (p.lines.length > 1 ? 's' : '') + '</b> de cet import'
+    + (p.nBase ? '<span style="color:var(--t3)">·</span><span><b>' + p.nBase + '</b> mouvement' + (p.nBase > 1 ? 's' : '') + ' déjà en base</span>' : '')
+    + (d.sens ? '<span style="color:var(--t3)">·</span><span>sens : ' + (d.sens === 'db' ? 'dépense' : 'recette') + '</span>' : '')
+    + '</div>';
+  const rows = p.lines.length
+    ? p.lines.slice(0, 40).map(l => '<div style="display:flex;gap:9px;justify-content:space-between;padding:5px 11px;border-top:1px solid var(--sur2,#f1f5f9);font-size:11.5px">'
+        + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + fd(l.date) + ' · ' + escHtml(l.libelle || '') + '</span>'
+        + '<span style="font-weight:700;white-space:nowrap;color:' + ((l.credit || 0) > 0 ? 'var(--grn,#16a34a)' : 'var(--red,#dc2626)') + '">' + ((l.credit || 0) > 0 ? '+' : '−') + fmt((l.credit || 0) > 0 ? l.credit : l.debit) + '</span></div>').join('')
+    : '<div class="mu sm" style="padding:10px 11px;font-size:11.5px">Aucune ligne de cet import ne correspond.</div>';
+  let verdict = '';
+  if (p.tooShort) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Motif très court (' + String(d.pattern).trim().length + ' caractères) — il risque d\'attraper des libellés sans rapport. Ajoute un mot.</div>';
+  else if (p.mixed) verdict = '<div style="margin-top:8px;background:var(--amb-bg,#fff8e6);border-left:3px solid var(--amb,#d97706);border-radius:8px;padding:9px 11px;font-size:12px">⚠ Ce motif attrape des lignes de <b>natures différentes</b>' + (p.baseCats.length > 1 ? ' (déjà classées en ' + p.baseCats.map(escHtml).join(', ') + ')' : '') + '. Précise le motif, ou fixe le sens.</div>';
+  else if (p.ok) verdict = '<div style="margin-top:8px;background:var(--grn-bg,#ecfdf5);border-left:3px solid var(--grn,#16a34a);border-radius:8px;padding:9px 11px;font-size:12px">✔ ' + p.lines.length + ' ligne(s) de cet import ser' + (p.lines.length > 1 ? 'ont' : 'a') + ' classée(s) automatiquement' + (p.nBase ? ', et ' + p.nBase + ' mouvement(s) déjà en base correspondent à ce motif' : '') + '.</div>';
+  host.innerHTML = '<div style="border:1px solid var(--bor);border-radius:10px;overflow:hidden"><div>' + head + '</div><div style="max-height:26vh;overflow:auto">' + rows + '</div></div>' + verdict;
+}
+
+function _bankRuleSave() {
+  const d = _bankRuleDraft; if (!d) return;
+  const pat = String(d.pattern || '').trim();
+  if (!pat) { showToast('Saisis un motif', 'warn'); return; }
+  if (!Array.isArray(DB.importRules)) DB.importRules = [];
+  const fields = { pattern: pat, sens: d.sens || '', compte: d.compte || '', cat: d.cat || '',
+    qui: d.bdc ? '' : (d.qui || ''), imm: d.bdc ? '' : (d.imm || ''),
+    compteurCcId: d.bdc ? '' : (d.cc || ''), bailleurDuCompte: !!d.bdc };
+  if (d.idx >= 0 && DB.importRules[d.idx]) Object.assign(DB.importRules[d.idx], fields);
+  else DB.importRules.push(fields);
   if (typeof _stamp === 'function') _stamp(DB);
   saveDB();
-  if (typeof _auditLog === 'function') _auditLog('create', 'import-rule', pat, `pattern="${pat}" cat=${cat}`);
+  if (typeof _auditLog === 'function') _auditLog(d.idx >= 0 ? 'update' : 'create', 'import-rule', pat, 'pattern="' + pat + '" cat=' + (d.cat || '—') + ' sens=' + (d.sens || 'les deux'));
+  closeM('ov-bank-rule');
+  showToast(d.idx >= 0 ? '✓ Règle « ' + pat + ' » enregistrée' : '✓ Règle « ' + pat + ' » créée', 'ok', 3500);
+  _bankRuleAfterChange();
+}
+
+function _bankRuleDelete() {
+  const d = _bankRuleDraft; if (!d || d.idx < 0) return;
+  const r = DB.importRules[d.idx]; if (!r) return;
+  if (!confirm2('Supprimer la règle « ' + (r.pattern || '') + ' » ?\n\nLes mouvements déjà classés ne changent pas.')) return;
+  // v15.186 : tombstone (préserve pattern) — sinon le merge cross-device ressuscite la règle.
+  DB.importRules[d.idx] = _tombstoneObj({ pattern: r.pattern });
+  saveDB();
+  if (typeof _auditLog === 'function') _auditLog('delete', 'import-rule', r.pattern || '', 'suppression');
+  closeM('ov-bank-rule');
+  showToast('🗑 Règle supprimée', 'ok', 3000);
+  _bankRuleAfterChange();
+}
+
+// ⑦.3 — « Après modification ou suppression, les autres lignes de l'import se
+// reclassent IMMÉDIATEMENT » — sinon on corrigerait dix fois la même chose.
+function _bankRuleAfterChange() {
+  if (el('import-rules-list')) rParamsRules();
+  if (el('import-rules-list-modal')) rParamsRules('import-rules-list-modal');
+  if (_bankImportLines && _bankImportLines.length) {
+    _bankReclassify();
+    showToast('↻ Les lignes de l\'import ont été reclassées', 'ok', 2500);
+  }
+  if (typeof rMv === 'function' && el('mv-tbody')) rMv();
+}
+
+// Rejoue règles + propositions sur l'import en cours, en PRÉSERVANT ce que
+// l'utilisateur a saisi à la main (une ligne qu'il a validée ne se fait pas écraser).
+function _bankReclassify() {
+  const lines = (_bankImportLines || []).map(l => {
+    if (l._userEdited || l._reviewed) return l;
+    const { suggestedCat, suggestedQui, suggestedImm, suggestedCc, confidence, matchSource,
+            _byRule, _ruleConflicts, _ruleOrigin, isDuplicate, duplicateOf, duplicateReason, dupLevel, ...rest } = l;
+    return rest;
+  });
+  _bankImportFinalizePreview(lines, _bankReviewFmt, '');
 }
 
 function _bankImportConfirm() {
@@ -50412,7 +50635,10 @@ function _bankImportConfirm() {
         fac: '',
         compteurCcId: p.cc || '',
         _source: 'bank_import',
-        _importedAt: new Date().toISOString()
+        _importedAt: new Date().toISOString(),
+        // ⑦.7 — trace des règles qui ont classé ce mouvement : alimente la colonne
+        // « utilisée » de la liste des règles et le bloc Provenance de la fiche (⑩.1).
+        _rules: (Array.isArray(line._rules) && line._rules.length) ? line._rules.slice() : undefined
       };
       if (pi === 0) {
         if (line.fitid) mvt.fitid = line.fitid;
@@ -55308,6 +55534,47 @@ window.addEventListener('DOMContentLoaded', ()=>{
 </div>
 
 <!-- v15.163 BANK-IMPORT-V2 Phase E : modale gestion des comptes bancaires identifiés -->
+<!-- ⑦.7 — Deux accès, UNE SEULE LISTE : Réglages ▸ Règles, et cette fenêtre depuis la
+     page Loyers & Mouvements (y compris pendant un import). Même rendu, même moteur. -->
+<div class="ov hidden" id="ov-bank-rules" onclick="closeBg(event,'ov-bank-rules')">
+  <div class="modal" style="max-width:900px;width:96%;max-height:88vh">
+    <div class="m-head">
+      <h3>⚙ Mes règles de classement</h3>
+      <button class="m-close" onclick="closeM('ov-bank-rules')">✕</button>
+    </div>
+    <div class="m-body" style="font-size:13px">
+      <div class="mu sm" style="margin-bottom:10px;line-height:1.55">
+        <b>L'app propose. Tu valides. Si tu veux que ce soit automatique, tu en fais une règle.</b><br>
+        Propryo ne livre aucune règle : ce sont tes données. Une mise à jour ne peut jamais en créer, en modifier ou en supprimer une.
+      </div>
+      <div id="import-rules-list-modal"></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn bp" onclick="_bankRuleOpen(-1,null)">+ Règle</button>
+      <button class="btn bs" onclick="closeM('ov-bank-rules')">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ⑦.4 — Écran de création / modification d'une règle, avec APERÇU EN DIRECT.
+     Remplace le prompt() du navigateur où l'on tapait un motif à l'aveugle, sans voir
+     ce qu'il attrape, sans pouvoir choisir le compte ni le sens. Deux accès (Réglages
+     et page Loyers & Mouvements), une seule liste, un seul écran. -->
+<div class="ov hidden" id="ov-bank-rule" onclick="closeBg(event,'ov-bank-rule')">
+  <div class="modal" style="max-width:640px;width:96%;max-height:90vh">
+    <div class="m-head">
+      <h3 id="bank-rule-title">💾 Mémoriser une règle</h3>
+      <button class="m-close" onclick="closeM('ov-bank-rule')">✕</button>
+    </div>
+    <div class="m-body" id="ov-bank-rule-body" style="font-size:13px"></div>
+    <div class="m-foot" style="gap:8px">
+      <button class="btn br bb" id="bank-rule-del" onclick="_bankRuleDelete()" style="margin-right:auto">🗑 Supprimer</button>
+      <button class="btn bs" onclick="closeM('ov-bank-rule')">Annuler</button>
+      <button class="btn bp" id="bank-rule-save" onclick="_bankRuleSave()">Créer la règle</button>
+    </div>
+  </div>
+</div>
+
 <div class="ov hidden" id="ov-bank-accounts" onclick="closeBg(event,'ov-bank-accounts')">
   <div class="modal" style="max-width:680px;width:96%;max-height:88vh">
     <div class="m-head">
