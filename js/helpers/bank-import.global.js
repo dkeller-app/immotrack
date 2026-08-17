@@ -1120,13 +1120,22 @@
     const toleranceDays = options.toleranceDays ?? 3;
     const toleranceAmount = options.toleranceAmount ?? 1;
     const legacyFallback = options.legacyFallback !== false;
+    const accountId = options.accountId;
     const alive = (mouvementsExistants || []).filter(m => m && !m._deleted);
 
     // Index des fingerprints existants en DB (lookup O(1))
     const fpIndex = new Map();
+    // ⑥.1 — Index des FITID limité au COMPTE COURANT quand on le connaît : un FITID
+    // n'est unique que **chez une banque**, pas dans l'absolu. Deux banques peuvent
+    // émettre le même identifiant (« 000000001 ») ; sans ce filtrage, une opération
+    // légitime d'un compte serait déclarée doublon certain d'une opération d'un autre
+    // compte — et écartée sans un clic. Les mouvements sans compte (legacy, saisis à la
+    // main) restent pris en compte : les exclure ferait perdre la reconnaissance des
+    // imports d'avant le suivi par compte.
     const fitidIndex = new Map();
     for (const m of alive) {
       if (m._fingerprint && !fpIndex.has(m._fingerprint)) fpIndex.set(m._fingerprint, m);
+      if (accountId != null && m._bankAccountId != null && String(m._bankAccountId) !== String(accountId)) continue;
       const f = _bankMvFitid(m);
       if (f && !fitidIndex.has(f)) fitidIndex.set(f, m);
     }

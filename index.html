@@ -49355,7 +49355,10 @@ function _bankImportFinalizePreview(lines, format, prefixHtml) {
     const libN = String(line.libelle || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     line._gerance = /\b(gerance|gestion locative|releve de gestion|gestion immo|crg)\b/.test(libN);
   });
-  _bankImportLines = window._bankDedup(lines, DB.mouvements || []);
+  // ⑥.1 — le compte courant est passé au dédup : un FITID n'est unique que chez une
+  // banque, l'index des identifiants doit être limité au compte qu'on importe.
+  _bankImportLines = window._bankDedup(lines, DB.mouvements || [],
+    { accountId: _currentBankAccount && _currentBankAccount.id });
   _bankReviewTab = 'todo'; _bankOpen = -1; _affScopeAll = false; _bankReviewedOk = false; // V3 Phase 3 : revue fraîche à chaque import (A7 : reconnus pas encore vérifiés)
   _bankImportRenderPreview(format, prefixHtml || '');
 }
