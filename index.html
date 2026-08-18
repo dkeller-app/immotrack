@@ -422,28 +422,6 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- v15.255 V3-REFONTE-ASSURANCES Étape 2 : page Assurances supprimée.
          PNO → fiche immeuble (sous-onglet Assurances) · MRH → fiche logement + page Locataires (badge 🔑). -->
 
-    <!-- PAGE: IRL — CDC-QUITTANCES-IRL D1/D19.
-         L'onglet « Loyer (IRL) » est ABSORBÉ par l'onglet « Loyers » :
-           · le sous-onglet « Révision & Lettres » (cartes, tableau legacy, panneau
-             « ✉ Aperçu lettre » et son sélecteur) → blocs Révisions de l'onglet Loyers ;
-           · le sous-onglet « Historique » et son bouton « 🗑 Effacer tout l'historique » →
-             timeline « Historique du bail » (v15.496). Rien ne justifie de pouvoir effacer
-             une trace financière d'un clic alors que le barème garde ses périodes (C6/C7).
-         Il ne reste que la TABLE INSEE, qui part dans Paramètres à l'étape 7 (D20). -->
-    <div class="page" id="p-irl">
-      <div class="flex-b mb12">
-        <span class="mu sm">Valeurs IRL INSEE (indice de référence des loyers)</span>
-        <div class="flex-c">
-          <button class="btn bp bb" onclick="addIRLRow()">+ Trimestre</button>
-          <button class="btn bs bb" onclick="resetIRLToDefault()" title="Ajouter les trimestres manquants et corriger les valeurs erronées (valeurs personnalisées hors IRL_DEFAULT préservées)">↺ Sync INSEE</button>
-        </div>
-      </div>
-      <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Trimestre</th><th class="num">Valeur INSEE</th><th class="num">Variation</th><th></th></tr></thead>
-        <tbody id="irl-table-tbody"></tbody>
-      </table></div>
-    </div>
-
     <!-- PAGE: ÉQUIPEMENTS -->
     <div class="page" id="p-equipements">
       <div class="flex-b mb16" style="flex-wrap:wrap;gap:10px">
@@ -1023,6 +1001,29 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
                est RETIRÉ : il émettait des quittances sans regarder si le loyer était payé.
                Un seul réglage survit, dans le bail : « le locataire demande une quittance
                mensuelle » (art. 21). Aucune quittance ne naît plus sans clic explicite. -->
+
+          <!-- CDC-QUITTANCES-IRL D20 — la TABLE IRL INSEE déménage ici (elle n'est pas une
+               tâche du mois, c'est un réglage) et se met à jour toute seule : lecture de
+               l'API BDM au démarrage, au plus une fois par jour, silencieuse. `IRL_DEFAULT`
+               reste le filet hors ligne. Une valeur saisie à la main n'est JAMAIS écrasée. -->
+          <div id="param-irl" style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
+            <div class="flex-b mb8" style="flex-wrap:wrap;gap:8px">
+              <div>
+                <div style="font-weight:700;color:var(--acc);margin-bottom:2px">📈 Indice de référence des loyers (IRL)</div>
+                <div class="mu sm" id="irl-sync-etat">Table INSEE — série 001515333.</div>
+              </div>
+              <div class="flex-c" style="gap:6px">
+                <button class="btn bs bb" onclick="addIRLRow()">+ Trimestre</button>
+                <button class="btn bs bb" onclick="_irlSyncInsee({ manuel: true })" title="Relire la série IRL sur l'API de l'INSEE">↺ Synchroniser maintenant</button>
+              </div>
+            </div>
+            <div id="irl-divergences"></div>
+            <div class="tbl-wrap"><table class="tbl">
+              <thead><tr><th>Trimestre</th><th class="num">Valeur INSEE</th><th class="num">Variation</th><th>Publié au JO</th><th>Source</th><th></th></tr></thead>
+              <tbody id="irl-table-tbody"></tbody>
+            </table></div>
+            <div class="mu sm" style="margin-top:8px;font-size:11px">Un trimestre est publié environ six semaines après sa fin : la colonne « Publié au JO » dit à partir de quand l'indice existe. Sans réseau, la table conserve ses valeurs et le filet interne complète ce qui manque.</div>
+          </div>
 
           <!-- BAIL-SIGNATURE-DISTANCE C3 (Task 14) : configuration du relais de signature à distance -->
           <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
@@ -5132,6 +5133,10 @@ function _applyParamDefaults() {
   // v15.10 Sprint 11 B4 — toggle génération auto mensuelle quittances
   // `quittancesAutoGen` : réglage RETIRÉ (CDC-QUITTANCES-IRL D21/I13). La valeur éventuellement
   // présente en base n'est plus lue ni écrite — on retire l'écran, pas la donnée.
+  // D20 — méta de la table IRL (source de chaque valeur, date de publication au JO, divergence
+  // signalée). Migration DOUCE et idempotente : un simple objet dans DB.params, déjà persisté
+  // par le blob de configuration — aucune collection nouvelle, aucune colonne cloud à créer.
+  if (!DB.params.irlMeta || typeof DB.params.irlMeta !== 'object') DB.params.irlMeta = {};
   // v15.13 DASH-PROFILES Phase 2 — onglet dashboard actif (4 vues persona)
   if (!('dashTab' in DB.params)) DB.params.dashTab = 'proprio'; // défaut : vue propriétaire
   // v15.29 Phase B — Système render version : v2 par défaut en SANDBOX (file test),
@@ -7982,6 +7987,10 @@ function _navSubtabsHtml(page) {
 }
 
 function go(page, elNav) {
+  // CDC-QUITTANCES-IRL D20 — la page « Loyer (IRL) » n'existe plus : la table INSEE est un
+  // RÉGLAGE, elle vit dans Paramètres. Alias pour que les liens et l'historique de navigation
+  // existants continuent d'aboutir quelque part de sensé.
+  if(page === 'irl') return go('params', elNav);
   // v14.3 PATRIMOINE-NAV-UNIFY : 'bailleurs' alias du hub Biens (mode bailleurs)
   if(page === 'bailleurs') {
     _biensViewMode = 'bailleurs';
@@ -8068,7 +8077,7 @@ function go(page, elNav) {
     agenda:()=>{initAgendaFilters();rAgenda();},
     equipements:()=>{initFilters();rEquipements();},
     baux:()=>{initFilters();const bauxActifTab=document.querySelector('#p-baux .tab.act');if(!bauxActifTab){const t=document.querySelector('#p-baux .tab');if(t)t.classList.add('act');}el('baux-tab-actifs').style.display='';el('baux-tab-historique').style.display='none';rBaux();}, candidats:()=>{ _candidatsTab = _candidatsTab || 'actifs'; rCandidats(); _autoPullCandidatures('open'); },
-    irl:()=>{rIRLParams();},   // CDC D1 : il ne reste que la table INSEE
+
     regul:()=>{initFilters();rRegulInit();},
     finances:()=>{ if (typeof rFinances === 'function') rFinances(); }, // v15.265 REPORTING-BAILLEUR
     quittances:()=>{initFilters();rLoyers();},   // CDC-QUITTANCES-IRL D1 : l'onglet « Loyers »
@@ -25415,42 +25424,138 @@ function resetIRLApply(ref) {
   showToast(toastMsg, 'ok');
 }
 
+/**
+ * CDC-QUITTANCES-IRL D20 — la table IRL, dans Paramètres.
+ * Chaque ligne dit d'où vient sa valeur (INSEE / saisie / filet interne) et à quelle date
+ * l'indice a été publié au Journal officiel : c'est cette date qui explique pourquoi un
+ * trimestre n'est pas encore disponible.
+ */
 function rIRLParams() {
-  // v14.31 BUG-DRIVE-RESURRECTION : exclure tombstones (valeurs tombstones sont
-  // des objets {_deleted:true}, les vraies valeurs IRL sont des nombres)
-  const entries = Object.entries(DB.irlTable).filter(([,v]) => typeof v === 'number' || _isAlive(v)).sort((a,b)=>{
-    const pa = k => { const [t,y]=k.split(' '); return parseInt(y)*10+parseInt(t[1]); };
-    return pa(a[0])-pa(b[0]);
+  const tb = el('irl-table-tbody');
+  if (!tb) return;
+  const meta = (DB.params && DB.params.irlMeta) || {};
+  // v14.31 BUG-DRIVE-RESURRECTION : exclure tombstones (les vraies valeurs sont des nombres)
+  const entries = Object.entries(DB.irlTable).filter(([, v]) => typeof v === 'number').sort((a, b) => {
+    const pa = k => { const [t, y] = k.split(' '); return parseInt(y) * 10 + parseInt(t[1]); };
+    return pa(a[0]) - pa(b[0]);
   });
-  // Calcul variations pour détecter anomalies
-  const vals = entries.map(([,v])=>v);
-  el('irl-table-tbody').innerHTML = entries.map(([k,val],i)=>{
-    const prev = i>0 ? vals[i-1] : null;
-    const variation = prev ? ((val-prev)/prev*100).toFixed(2) : '–';
-    const varColor = prev && val<prev ? 'var(--red)' : prev && val>prev ? 'var(--grn)' : 'var(--t3)';
+  const vals = entries.map(([, v]) => v);
+  const SRC = {
+    insee:  ['INSEE', 'var(--grn)'],
+    manuel: ['saisie', 'var(--ora,#b27a12)'],
+    filet:  ['filet interne', 'var(--t3)']
+  };
+  tb.innerHTML = entries.map(([k, val], i) => {
+    const prev = i > 0 ? vals[i - 1] : null;
+    const variation = prev ? ((val - prev) / prev * 100).toFixed(2) : '–';
+    const varColor = prev && val < prev ? 'var(--red)' : prev && val > prev ? 'var(--grn)' : 'var(--t3)';
+    const m = meta[k] || {};
+    const src = SRC[m.source] || SRC[(typeof IRL_DEFAULT !== 'undefined' && IRL_DEFAULT[k] === val) ? 'filet' : 'manuel'];
+    const diverge = (m.divergence != null && Math.abs(m.divergence - val) >= 0.005)
+      ? `<span title="L'INSEE publie ${m.divergence} pour ce trimestre — ta valeur est conservée" style="color:var(--ora,#b27a12);font-size:11px"> ⚠ INSEE : ${fmtN(m.divergence)}</span>` : '';
     return `<tr>
-    <td><b>${k}</b></td>
-    <td class="num"><input class="edit-inp" type="number" step="0.01" value="${val}" onblur="updateIRL('${k}',this.value)" style="width:100px;text-align:right"></td>
-    <td class="num" style="color:${varColor};font-size:12px">${prev ? (val>=prev?'+':'')+variation+' %' : '–'}</td>
-    <td class="act-cell"><button class="btn br bb" onclick="delIRL('${k}')">🗑</button></td>
+    <td><b>${escHtml(k)}</b></td>
+    <td class="num"><input class="edit-inp" type="number" step="0.01" value="${val}" onblur="updateIRL('${escHtml(k)}',this.value)" style="width:100px;text-align:right"></td>
+    <td class="num" style="color:${varColor};font-size:12px">${prev ? (val >= prev ? '+' : '') + variation + ' %' : '–'}</td>
+    <td style="font-size:11.5px">${m.dateJo ? fd(m.dateJo) : '<span class="mu">—</span>'}</td>
+    <td style="font-size:11px;color:${src[1]}">${src[0]}${diverge}</td>
+    <td class="act-cell"><button class="btn br bb" onclick="delIRL('${escHtml(k)}')">🗑</button></td>
   </tr>`;
-  }).join('');
+  }).join('') || '<tr><td colspan="6" class="mu" style="text-align:center;padding:16px">Aucun trimestre — la synchronisation INSEE les rapatriera.</td></tr>';
+
+  const et = el('irl-sync-etat');
+  if (et) {
+    const at = DB.params && DB.params.irlSyncAt;
+    et.innerHTML = at
+      ? `Table INSEE — série 001515333 · dernière lecture le ${fd(String(at).slice(0, 10))}.`
+      : 'Table INSEE — série 001515333 · pas encore synchronisée (elle le sera au prochain démarrage).';
+  }
+  const dv = el('irl-divergences');
+  if (dv) {
+    const liste = Object.entries(meta).filter(([k, m]) => m && m.divergence != null
+      && typeof DB.irlTable[k] === 'number' && Math.abs(m.divergence - DB.irlTable[k]) >= 0.005);
+    dv.innerHTML = liste.length
+      ? `<div style="background:rgba(217,119,6,.10);border:1px solid rgba(217,119,6,.35);border-radius:var(--rl);padding:9px 12px;margin-bottom:10px;font-size:12px;line-height:1.5">
+          ⚠ <b>${liste.length} valeur${liste.length > 1 ? 's' : ''} diverge${liste.length > 1 ? 'nt' : ''} de l'INSEE</b> — ta saisie est conservée, rien n'a été corrigé d'office :
+          ${liste.map(([k, m]) => `${escHtml(k)} : <b>${fmtN(DB.irlTable[k])}</b> ici, ${fmtN(m.divergence)} à l'INSEE`).join(' · ')}.
+        </div>` : '';
+  }
 }
 
-// CDC-QUITTANCES-IRL D19 — `rIRLHistorique()` est supprimé avec le sous-onglet
-// « Historique » de l'IRL : la timeline « Historique du bail » (v15.496) raconte déjà la
-// même chose, adossée au barème. Un seul historique, et il n'a pas de bouton pour l'effacer
-// (C6 : le barème garde ses périodes ; effacer `DB.irlHistorique` donnait un loyer sans
-// explication). Les données restent en base.
+/** Marque une valeur comme SAISIE À LA MAIN — c'est ce qui la protège d'une synchro (I11). */
+function _irlMarquerManuel(key) {
+  if (!DB.params) DB.params = {};
+  if (!DB.params.irlMeta) DB.params.irlMeta = {};
+  const m = DB.params.irlMeta[key] || {};
+  DB.params.irlMeta[key] = Object.assign({}, m, { source: 'manuel', divergence: null, saisiLe: td() });
+}
+
+/**
+ * D20 — la lecture de l'API BDM de l'INSEE. Appel DIRECT (CORS ouvert, aucune authentification,
+ * aucune dépendance : `DOMParser` natif). Au boot : silencieuse, au plus une fois par jour,
+ * et un échec ne se voit pas — hors ligne, la table garde ses valeurs et le filet complète (I12).
+ * En clic manuel (`opts.manuel`) : on parle, succès comme échec.
+ */
+async function _irlSyncInsee(opts) {
+  opts = opts || {};
+  const M = (typeof window !== 'undefined') ? window.IrlInsee : null;
+  if (!M) { if (opts.manuel) showToast('Module INSEE non chargé', 'err'); return 0; }
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  if (!DB.params) DB.params = {};
+  if (!opts.manuel && !M.doitSynchroniser(DB.params.irlSyncAt, today)) return 0;
+
+  let xml = '';
+  try {
+    const rep = await fetch(M.urlIrlBdm(M.anneeDepart(today)), { method: 'GET', mode: 'cors', cache: 'no-store' });
+    if (!rep.ok) throw new Error('HTTP ' + rep.status);
+    xml = await rep.text();
+  } catch (e) {
+    // I12 — échec SILENCIEUX au boot : file://, hors ligne, API indisponible. Rien ne casse.
+    if (opts.manuel) showToast("INSEE injoignable — la table garde ses valeurs (" + (e.message || 'réseau') + ')', 'warn', 6000);
+    return 0;
+  }
+  const obs = M.parseIrlSdmx(xml, { domParser: (typeof DOMParser !== 'undefined') ? new DOMParser() : null });
+  if (!obs.length) { if (opts.manuel) showToast('Réponse INSEE illisible — rien modifié', 'warn', 5000); return 0; }
+
+  const r = M.fusionnerIrlTable(DB.irlTable, obs, {
+    defaults: (typeof IRL_DEFAULT !== 'undefined') ? IRL_DEFAULT : {},
+    meta: DB.params.irlMeta || {}, todayIso: today
+  });
+  DB.irlTable = r.table;
+  DB.params.irlMeta = r.meta;
+  DB.params.irlSyncAt = today;
+  saveDB();
+  try { if (el('irl-table-tbody')) rIRLParams(); } catch (e) {}
+  try { if (typeof refreshAllIRL === 'function') refreshAllIRL(); } catch (e) {}
+  const n = r.ajouts.length + r.majs.length;
+  if (opts.manuel || n) {
+    const bout = r.divergences.length ? ` · ${r.divergences.length} divergence(s) signalée(s), rien corrigé d'office` : '';
+    showToast(n ? `✓ IRL à jour : ${r.ajouts.length} trimestre(s) ajouté(s), ${r.majs.length} corrigé(s)${bout}`
+                : `✓ IRL déjà à jour${bout}`, 'ok', 5000);
+  }
+  return n;
+}
+
+// CDC-QUITTANCES-IRL D19 — `rIRLHistorique()` est supprimé avec le sous-onglet « Historique »
+// de l'IRL : la timeline « Historique du bail » (v15.496) raconte déjà la même chose, adossée
+// au barème. Un seul historique, et il n'a pas de bouton pour l'effacer (C6). Données intactes.
 
 // Rafraîchit les deux surfaces qui restent : l'onglet Loyers (blocs Révisions + calendrier)
-// et la table INSEE. Ex-`rIRL(); rIRLParams(); rIRLHistorique();`.
+// et la table INSEE dans Paramètres. Ex-`rIRL(); rIRLParams(); rIRLHistorique();`.
 function refreshAllIRL() {
   try { if (typeof rLoyers === 'function' && currentPage === 'quittances') rLoyers(); } catch(e) {}
   try { if (el('irl-table-tbody')) rIRLParams(); } catch(e) {}
 }
 
-function updateIRL(key, val) { var n=parseFloat(String(val).replace(',','.'))||0; DB.irlTable[key]=Math.round(n*100)/100; saveDB(); refreshAllIRL(); }
+function updateIRL(key, val) {
+  var n = parseFloat(String(val).replace(',', '.')) || 0;
+  var v = Math.round(n * 100) / 100;
+  if (Math.abs((DB.irlTable[key] || 0) - v) < 0.005) return;
+  DB.irlTable[key] = v;
+  _irlMarquerManuel(key);          // I11 : protégée d'une synchronisation INSEE
+  saveDB(); refreshAllIRL();
+}
+
 function delIRL(key) {
   if(!confirm2('Supprimer ce trimestre IRL ?')) return;
   // UNDO-OP v14.23
@@ -25472,7 +25577,9 @@ function delIRL(key) {
 function addIRLRow() {
   var key = prompt('Trimestre (ex: T1 2026)'); if(!key) return;
   var val = parseFloat(prompt('Valeur IRL')); if(isNaN(val)) return;
-  DB.irlTable[key]=val; saveDB(); refreshAllIRL(); showToast('Trimestre ajouté','ok');
+  DB.irlTable[key]=val; _irlMarquerManuel(key); saveDB(); refreshAllIRL();
+  if (el('irl-table-tbody')) rIRLParams();
+  showToast('Trimestre ajouté','ok');
 }
 
 // Saisie rapide IRL depuis la ligne du tableau (bouton "⚠️ T1 2026 manquant")
@@ -54778,6 +54885,12 @@ function _bootDataJobs() {
   }, 3500);
   // CDC-QUITTANCES-IRL I13 — AUCUNE quittance n'est créée au démarrage. `_quittancesAutoGenAtBoot`
   // est supprimé : il émettait pour tout bail actif sans regarder le paiement.
+  // D20 — en revanche la table IRL, elle, se met à jour seule : lecture de l'API BDM de
+  // l'INSEE, au plus une fois par jour, SILENCIEUSE. Hors ligne : échec sans bruit, la table
+  // garde ses valeurs et `IRL_DEFAULT` complète (I12).
+  if (typeof _irlSyncInsee === 'function') {
+    try { _irlSyncInsee(); } catch(e) { /* I12 : jamais bloquant */ }
+  }
   agendaAutoSync();   // génération silencieuse des événements depuis les baux
   // Candidature — purge RGPD : tombstone des candidats refusés > 30 j (mesure précontractuelle).
   // Idempotent : ne fait rien si aucun refusé n'a dépassé la durée légale de conservation.

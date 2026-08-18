@@ -264,6 +264,52 @@ describe('D1/D3/D11 — l\'onglet Loyers remplace l\'onglet Quittances', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  Étape 7 — D20 : la table INSEE est un RÉGLAGE, et elle ne casse rien hors ligne
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('D20/I11/I12 — synchronisation INSEE', () => {
+  const code = codeOf('index.html');
+
+  it('la table IRL vit dans Paramètres — la page « Loyer (IRL) » a disparu', () => {
+    const brut = read('index.html');
+    expect(brut).not.toMatch(/<div class="page" id="p-irl">/);
+    expect(brut).toMatch(/id="param-irl"/);
+    expect(code).toMatch(/if\(page === 'irl'\) return go\('params', elNav\);/);
+  });
+
+  it('I12 — le filet IRL_DEFAULT existe toujours, jamais supprimé', () => {
+    expect(code).toMatch(/const IRL_DEFAULT = \{/);
+    // Il est bien REJOUÉ pour compléter les trimestres manquants.
+    expect(code).toMatch(/Object\.entries\(IRL_DEFAULT\)\.forEach/);
+  });
+
+  it('I12 — la lecture au boot ne peut jamais bloquer le démarrage', () => {
+    // Un `await` nu, ou un appel non gardé, ferait échouer le boot hors ligne.
+    expect(code).toMatch(/try \{ _irlSyncInsee\(\); \} catch/);
+    expect(code).not.toMatch(/await _irlSyncInsee/);
+  });
+
+  it('I11 — toute saisie manuelle est marquée : c’est ce qui la protège', () => {
+    expect((code.match(/function _irlMarquerManuel\(/g) || []).length).toBe(1);
+    expect(fnBody(code, 'updateIRL')).toMatch(/_irlMarquerManuel\(key\)/);
+    expect(fnBody(code, 'addIRLRow')).toMatch(/_irlMarquerManuel\(key\)/);
+  });
+
+  it('la fusion vient du module, elle n’est pas réimplémentée dans index.html', () => {
+    const body = fnBody(code, '_irlSyncInsee');
+    expect(body).toMatch(/M\.fusionnerIrlTable\(DB\.irlTable, obs/);
+    expect(body).toMatch(/M\.parseIrlSdmx\(xml/);
+    expect(body).toMatch(/M\.doitSynchroniser\(DB\.params\.irlSyncAt/);
+  });
+
+  it('aucune colonne cloud nouvelle : la méta IRL vit dans DB.params', () => {
+    // Un champ persistant hors params/blob exigerait une migration SQL — interdit ici.
+    expect(code).toMatch(/DB\.params\.irlMeta/);
+    expect(code).not.toMatch(/DB\.irlMeta/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  Garde-fou d'outillage : index.html doit rester en CRLF
 // ═══════════════════════════════════════════════════════════════════════════
 
