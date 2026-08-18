@@ -36,6 +36,14 @@ Blindage connexion + partage AVANT tout · CDC + mockup 3 formats + validation u
 | **Mouvements + règles d'import** (ORDRE user 14/08) | 🔄 **REVUE LANCÉE** — session Finances relancée (elle a la source « payé » en tête, zéro contexte à réexpliquer) : ancrages `p-import`/`p-loyers`, `bank-import.js`, `import-concurrents.js`, `_rule*` inline + dépouillement des 9 sujets backlog import/règles existants. À trancher en séance : cycle de vie d'une règle (priorité, rétroactivité), pouvoir d'une règle (catégorie / affectation / split), critère de doublon, virements groupés & paiements partiels, post-datés (cohérence F-1 v2), ce qui disparaît | CDC → `mockups/MOUVEMENTS-REGLES/CDC-MOUVEMENTS-VALIDE.md` → « où en est mouvements » → figé par le pilotage |
 | **Blindage connexion** | ✅ keep-alive VÉRIFIÉ 13/08 (cron quotidien 07h UTC, 3/3 succès) | E2E réel login PC + iPhone (post-pause Supabase) · ⚠️ **découvert 13/08 : aucun envoi d'email branché** (confirmation d'inscription n'arrive jamais → « Créer un compte » impossible pour un nouveau testeur ; même blocage que l'OTP : brancher Resend + domaine propryo.fr AVANT toute invitation bêta) |
 
+## 🎨 Design — 2 CDC VALIDÉS 18/08 et figés
+
+- **[docs/CDC-DESIGN-MOUVEMENTS.md](docs/CDC-DESIGN-MOUVEMENTS.md)** et **[docs/CDC-DESIGN-FINANCES.md](docs/CDC-DESIGN-FINANCES.md)** — validés par Didier, font foi pour les chantiers code.
+- **2 amendements à la charte** (transverses, ils dépassent Finances) : **5ᵉ couleur sémantique `--adv` (bleu = avance)**, retenue contre le violet sur mesure de contraste (5,17 clair / 7,35 sombre) · **calibration des couleurs sémantiques du mode clair** : mesuré, la grammaire actuelle tombait à **3,15:1** (sous le seuil d'accessibilité) — option 1 retenue, tout passe à 4,53.
+- **Préalables communs aux deux onglets** : **lot 0** socle de tokens (12 tokens orphelins, 7 crans typo, échelle de rayons) · **lot 1** polices (vendorisation Inter + Schibsted, **coupe des 2 points de chargement distant** → fin de la violation no-CDN).
+- ⚠️ **Recommandation structurante** : le re-skin Finances **n'a pas de lot à lui — il s'exécute DANS l'étape 2 (rebranchement)**, écran par écran, sinon on repasse deux fois sur le même code.
+- Gate de sortie design : smoke sur **4 formats** (PC, tablette, téléphone, **téléphone paysage**) × clair et sombre.
+
 ## 🎨 Lancé 18/08 — design (session en cours, livrables dans `mockups/`)
 
 | Sujet | Contenu | Suite |
