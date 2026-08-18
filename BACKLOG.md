@@ -57,6 +57,15 @@ Blindage connexion + partage AVANT tout · CDC + mockup 3 formats + validation u
 | **KPI** | Support de décision (même ergonomie que `revue-pnl.html`) : chaque KPI avec son calcul ancré fichier:ligne, sa provenance (bail/import), sa fenêtre, ce qui cloche, une recommandation ; + max 5 KPI manquants justifiés par un besoin réel. Contrainte dure : 1 écran PC | ✅ support livré · **SESSION DÉDIÉE prête : `PROMPT-SESSION-KPI.md`** (Opus) → revue avec Didier → CDC écrit dans `mockups/KPI-REVUE/CDC-KPI-VALIDE.md` → pilotage fige et lance le chantier |
 | **Fiche de résumé du mois** (NOUVEAU, demande user 18/08) | Document mensuel entrées/sorties destiné à un tiers (agence, mandant, associé) — « CRG simplifié ». DOIT utiliser le gabarit unique (variante B, logo bailleur optionnel) et tenir sur une page. Voisin à consulter : `docs/subjects/CRG-PDF-GERANCE.md`. Livrable : document mockupé (mois calme / mois chargé) + décisions à trancher (destinataire, périmètre, contenu exact, impayés/vacance, solde à reverser, déclenchement, format) | ✅ mockups livrés · **SESSION DÉDIÉE prête : `PROMPT-SESSION-RESUME-MENSUEL.md`** (Opus) → revue de `decisions.html` avec Didier → CDC écrit dans `mockups/RESUME-MENSUEL/CDC-RESUME-MENSUEL-VALIDE.md` → pilotage fige et lance le chantier |
 
+## 🔴 LEÇON GRAVÉE 20/08 — les mockups doivent être peuplés au VOLUME RÉEL
+
+Trois retours user sur l'onglet Loyers livré (v15.537), tous de la même cause : **les mockups validés ne contenaient que 2-3 lignes d'exemple**. Sur le parc réel (37 lots, 4 bailleurs, 6 immeubles), l'écran devient illisible — « tout est en bloc l'un en dessous de l'autre », « c'est dégueu et pas du tout séparé ».
+1. **La frise IRL est devenue une liste de 50 lignes** (le CDC D16 disait « un lot par ligne » — intenable à 37 lots ; il voulait une visu en UNE ligne).
+2. **Blocs empilés** sans hiérarchie, contrainte « 1 écran PC » perdue.
+3. **Modale « Faire une quittance »** : `<select>` natif à plat, 20+ logements, toutes SCI mélangées, sans séparation ni recherche.
+🔨 **Session mockup lancée 20/08** (`mockups/LOYERS-DENSITE/`) — **peuplée au volume réel obligatoire**, 3 formats × 2 thèmes, 2 variantes de frise compacte, modale refondue, page de décisions à cocher.
+**Règle pour tous les chantiers futurs : un mockup non éprouvé au volume réel du parc n'est pas validable.**
+
 ## 🧪 Smoke user en attente (Didier)
 
 - **Historique bail** (v15.496) : onglet Bail — accordéons, DG, popup modif financière, correction IRL.
