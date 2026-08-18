@@ -12510,11 +12510,16 @@ function _getActiveBailHcCh(ref, yr, monthIdx0) {
    Utiliser cette fonction (et NON _getActiveBailHcCh) pour TOUT calcul de
    montant attendu (impayés, progression, attendu vs encaissé). */
 // AUDIT-SUIVI-LOYERS étape 4 — LE dû d'un mois d'un lot, résolveur UNIQUE des 5 surfaces
-// (P&L, Suivi, Accueil, fiche/pilotage, quittance). Lit le BARÈME historisé (source de vérité) +
-// les QUITTANCES ÉMISES figées (B3 : dû d'un mois quittancé = la quittance) + l'occupation des
-// baux, via window.duMoisFromRaw (module). Fin des « 4 surfaces, 4 dûs » : le loyer d'un mois est
-// désormais une DONNÉE lue, plus une re-déduction du loyer courant. En file:// (module non chargé)
-// : repli sur l'ancien chemin prorata (barème non consulté) — dégradation propre, aucun crash.
+// (P&L, Suivi, Accueil, fiche/pilotage, quittance). Lit le BARÈME historisé (source de vérité)
+// + l'occupation des baux, via window.duMoisFromRaw (module). Fin des « 4 surfaces, 4 dûs » :
+// le loyer d'un mois est désormais une DONNÉE lue, plus une re-déduction du loyer courant.
+// ⚠️ DEUX SOURCES SEULEMENT (décision user 16/07, CDC-QUITTANCES-IRL §2) : le bail (→ le dû,
+// via le barème) et l'import (→ le payé). La QUITTANCE N'ENTRE PAS DANS LE DÛ — c'est un
+// document DÉRIVÉ. L'ancienne règle « B3 : dû d'un mois quittancé = la quittance figée » est
+// MORTE depuis le 16/07 (des quittances fausses faisaient naître des avances fantômes) ;
+// ne pas la ré-introduire, ce serait une 3ᵉ source.
+// En file:// (module non chargé) : repli sur l'ancien chemin prorata (barème non consulté)
+// — dégradation propre, aucun crash.
 function _duMoisLot(ref, ym) {
   if (typeof window !== 'undefined' && typeof window.duMoisFromRaw === 'function') {
     // DEUX sources SEULEMENT (décision user 16/07) : le bail (courant + archivés) + le barème
@@ -16340,22 +16345,15 @@ async function saveMv() {
     if(_bail?.quittAutoGen) {
       const _d = new Date(m.date+'T00:00:00');
       const _mois = MOIS_FR[_d.getMonth()]+' '+_d.getFullYear();
-      let _q = (DB.quittances||[]).find(q => q && !q._deleted && q.logement===m.qui && q.mois===_mois);
-      let _created = false;
-      if(!_q) {
-        // Création ad hoc (cas où auto-gen boot OFF ou quittance pas encore générée)
-        if(!DB.quittances) DB.quittances=[];
-        _q = {
-          id: nid(), logement: m.qui,
-          locataire: (_bail.locataires||[]).map(l=>l.nom).join(', ')||_bail.nom||'',
-          mois: _mois, hc: _bail.hc||0, ch: _bail.ch||0,
-          entity: _bail.entity||'', datePaiement: m.date, date: td()
-        };
-        DB.quittances.push(_q);
-        _created = true;
-        saveDB();
-        if(typeof rQuit==='function') rQuit();
-      }
+      // ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (I13 : aucune quittance sans clic explicite).
+      // En attendant, il passe par la fabrique unique : le montant vient du BARÈME du mois
+      // (C4), plus de `_bail.hc` qui est le loyer d'aujourd'hui.
+      const _ymQ = _d.getFullYear() + '-' + String(_d.getMonth()+1).padStart(2,'0');
+      const _r = _creerQuittance(m.qui, _ymQ, { verifierSolde: false });
+      const _q = _r.quittance;
+      const _created = !!(_r.ok && !_r.existante);
+      if (_created) { saveDB(); if(typeof rQuit==='function') rQuit(); }
+      if (!_q) return;
       const _msg = _created
         ? `📄 Loyer ${m.qui} — ${_mois} enregistré.\nOuvrir la quittance ?`
         : `📄 Quittance ${_mois} déjà générée pour ${m.qui}.\nOuvrir maintenant ?`;
@@ -28567,18 +28565,12 @@ function _quittancesAutoGenAtBoot() {
   if (!DB.quittances) DB.quittances = [];
   const plan = _planQuittancesAGenerer(DB.logements, DB.baux, DB.quittances, new Date());
   if (!plan.length) return 0;
+  // ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (I13). Montant = barème du mois (C4).
+  const _now = new Date();
+  const _ym = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0');
   for (const p of plan) {
-    DB.quittances.push({
-      id: nid(),
-      logement: p.ref,
-      locataire: p.locataire,
-      mois: p.mois,
-      hc: p.hc,
-      ch: p.ch,
-      entity: p.entity,
-      _autoGen: true,
-      _createdAt: new Date().toISOString()
-    });
+    const r = _creerQuittance(p.ref, _ym, { verifierSolde: false });
+    if (r.ok && r.quittance && !r.existante) r.quittance._autoGen = true;
   }
   saveDB();
   if (typeof _auditLog === 'function') _auditLog('quittances-auto-gen', 'system', '', `${plan.length} quittance(s) générée(s)`);
@@ -28612,17 +28604,69 @@ function envoyerQuittanceParEmail(id) {
   _docShareOpen('quittance', ctx, { entityType: 'quittance', entityId: id });
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// CDC-QUITTANCES-IRL étape 2 — LA FABRIQUE UNIQUE DE QUITTANCE.
+//
+// C4 : jusqu'ici les 3 chemins de création lisaient `bail.hc/ch`, c'est-à-dire le loyer
+// D'AUJOURD'HUI — une quittance de juin 2026 portait le tarif post-révision. Ici le montant
+// vient du BARÈME DU MOIS (`_duMoisLot(ref, ym)`, périodes datées) : une quittance de juin
+// porte le loyer de juin, quoi qu'il soit arrivé depuis (I5).
+//
+// D6/I4 : un mois non soldé ne produit JAMAIS de quittance — le garde-fou est
+// `peutQuittancer` (js/core/loyers-mois.js), pas une règle réécrite ici.
+// D8/I7 : un appel = UN mois = UN document. Jamais de document « juin à août ».
+// I13 : cette fonction n'est appelée que depuis un geste explicite (aucun boot, aucun save).
+//
+// `datePaiement` n'est plus écrit à la création (C1 : genAllQuit y mettait « aujourd'hui »,
+// ce qui faisait mentir le document) — la date affichée est résolue au rendu.
+//
+// @returns {{ok:boolean, quittance?:object, existante?:boolean, motif?:string}}
+//          N'ÉCRIT PAS en base au-delà du push : l'appelant fait saveDB() (permet d'émettre
+//          N mois en une seule écriture).
+function _creerQuittance(ref, ym, opts) {
+  opts = opts || {};
+  if (!/^\d{4}-\d{2}$/.test(String(ym || ''))) return { ok: false, motif: 'mois invalide' };
+  const mois = (typeof window !== 'undefined' && typeof window.ymToMoisFr === 'function')
+    ? window.ymToMoisFr(ym) : String(ym);
+  if (!mois) return { ok: false, motif: 'mois invalide' };
+  if (!DB.quittances) DB.quittances = [];
+  const deja = DB.quittances.find(q => q && !q._deleted && q.logement === ref && q.mois === mois);
+  if (deja) return { ok: true, quittance: deja, existante: true };   // jamais de doublon, jamais de recalcul
+
+  if (opts.verifierSolde !== false) {
+    const g = (typeof window !== 'undefined' && typeof window.peutQuittancer === 'function')
+      ? window.peutQuittancer(_loyerEtatLot(ref), ym)
+      : { ok: false, motif: 'module Loyers indisponible' };
+    if (!g.ok) return { ok: false, motif: g.motif };
+  }
+
+  const log = (DB.logements || []).find(l => l.ref === ref);
+  const bail = _findBailByRefTolerant(ref);
+  const du = _duMoisLot(ref, ym);
+  const q = {
+    id: nid(), logement: ref,
+    locataire: ((bail && bail.locataires) || []).map(l => l && l.nom).filter(Boolean).join(', ')
+      || (bail && bail.nom) || (log && log.locataire) || '',
+    mois, hc: du.hc || 0, ch: du.ch || 0,
+    entity: (bail && bail.entity) || (log && log.entity) || '',
+    date: td()
+  };
+  _stamp(q);
+  if (typeof _auditLog === 'function') _auditLog('create', 'quittance', q.id, q.logement + '/' + q.mois);
+  DB.quittances.push(q);
+  return { ok: true, quittance: q, existante: false };
+}
+
+// ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (D6 : « ⚡ Générer ce mois » émet sans regarder le
+// paiement). Conservé ici le temps d'une tranche, mais il passe par la fabrique unique :
+// le montant vient donc déjà du barème (C4 corrigé).
 function genAllQuit() {
   const now = new Date();
-  const moisLabel = MOIS_FR[now.getMonth()]+' '+now.getFullYear();
+  const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   let count = 0;
-  DB.logements.filter(l=>l.locataire).forEach(l=>{
-    const exists = DB.quittances.some(q=>q.logement===l.ref&&q.mois===moisLabel);
-    if(!exists) {
-      const bail = DB.baux[l.ref];
-      DB.quittances.push({ id:nid(), logement:l.ref, locataire:l.locataire, mois:moisLabel, hc:bail?.hc||l.hc||0, ch:bail?.ch||l.ch||0, entity:bail?.entity||l.entity||'', datePaiement:td(), date:td() });
-      count++;
-    }
+  DB.logements.filter(l => l.locataire).forEach(l => {
+    const r = _creerQuittance(l.ref, ym, { verifierSolde: false });
+    if (r.ok && !r.existante) count++;
   });
   saveDB(); rQuit(); showToast(`${count} quittance(s) générée(s)`,'ok');
 }
@@ -28664,21 +28708,35 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
     ? 'du '+dateDebut.toLocaleDateString('fr-FR')+' au '+dateFin.toLocaleDateString('fr-FR')
     : q.mois||'–';
 
-  // Calcul paiement réel dans mouvements pour ce logement ce mois
+  // CDC-QUITTANCES-IRL étape 2 (I6) — le MONTANT REÇU imputé à ce mois vient de la cascade
+  // unique (`_loyerPayeDuMois` → `_loyerArrearsPass`). Le document ne refait plus son propre
+  // rattachement « mouvements datés de ce mois calendaire » : c'était le 7ᵉ moteur (C3), et
+  // il déclarait « non payé » un loyer d'août réglé le 2 septembre.
   const prefixMois = moisIdx>=0
     ? anneeQ+'-'+(moisIdx+1).toString().padStart(2,'0')
     : null;
-  const mvsPay = opts.mvsPay || (prefixMois && typeof DB !== 'undefined'
-    ? DB.mouvements.filter(m=>m.qui===q.logement&&_isLoyerCategory(m.cat)&&(m.cr||0)>0&&(m.date||'').startsWith(prefixMois))
-    : []);
-  const totalRecu = mvsPay.reduce((s,m)=>s+(m.cr||0),0);
-  const datePayTrouvee = mvsPay.length ? mvsPay.slice().sort((a,b)=>b.date.localeCompare(a.date))[0].date : null;
+  const totalRecu = (opts.totalRecu != null)
+    ? (Number(opts.totalRecu) || 0)
+    : ((prefixMois && typeof _loyerPayeDuMois === 'function') ? _loyerPayeDuMois(q.logement, prefixMois) : 0);
+  // Date « reçu le » — AFFICHAGE seulement (aucune imputation) : dernier encaissement de
+  // loyer du lot connu à la clôture du mois quittancé.
+  const _finMois = dateFin ? (anneeQ+'-'+String(moisIdx+1).padStart(2,'0')+'-'+String(dateFin.getDate()).padStart(2,'0')) : null;
+  const _mvsLot = (opts.mvsPay != null) ? opts.mvsPay
+    : ((typeof DB !== 'undefined' && _finMois)
+        ? DB.mouvements.filter(m=>m && !m._deleted && m.qui===q.logement && _isLoyerCategory(m.cat) && (m.cr||0)>0 && m.date && m.date<=_finMois)
+        : []);
+  const datePayTrouvee = _mvsLot.length ? _mvsLot.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0].date : null;
   const datePay = datePayTrouvee ? fd(datePayTrouvee) : (q.datePaiement ? fd(q.datePaiement) : fd(q.date));
 
   // QUITTANCE FIGÉE (décision user 16/07) : la quittance est un DOCUMENT — elle affiche le montant
   // qu'elle porte (q.hc/q.ch stockés à l'émission), point. AUCUN recalcul à l'affichage : ré-imprimer
   // ≠ re-calculer, donc une révision IRL postérieure ne change jamais une quittance déjà émise.
   // (Le prorata entrée/sortie mi-mois est désormais figé à la CRÉATION, plus corrigé ici.)
+  // Repli (quittance legacy sans montant) : le BARÈME DU MOIS, jamais le bail courant (C4/I5).
+  if ((q.hc == null && q.ch == null) && prefixMois && typeof _duMoisLot === 'function') {
+    const _d = _duMoisLot(q.logement, prefixMois);
+    q = Object.assign({}, q, { hc: _d.hc || 0, ch: _d.ch || 0 });
+  }
   const total = (q.hc||0)+(q.ch||0);
   const isProrata = false;
   const joursOcc = null;
@@ -29051,8 +29109,18 @@ function saveQuit() {
       DB.quittances[i]=q;
     }
   } else {
-    if (typeof _auditLog === 'function') _auditLog('create', 'quittance', q.id, q.logement+'/'+q.mois);
-    DB.quittances.push(q);
+    // ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (D4 : « + Manuelle », montants tapés à la main,
+    // est remplacé par « Faire une quittance » qui lit le barème). En attendant, il passe par
+    // la fabrique unique : UNE seule porte d'écriture dans DB.quittances.
+    const _ymM = (typeof window !== 'undefined' && typeof window.moisFrToYm === 'function')
+      ? window.moisFrToYm(q.mois) : null;
+    const _rM = _ymM ? _creerQuittance(q.logement, _ymM, { verifierSolde: false }) : { ok: false, motif: 'mois invalide' };
+    if (!_rM.ok) { showToast('Quittance non créée : ' + _rM.motif, 'err'); return; }
+    Object.assign(_rM.quittance, {
+      locataire: q.locataire, hc: q.hc, ch: q.ch,
+      entity: q.entity, datePaiement: q.datePaiement, date: q.date
+    });
+    _stamp(_rM.quittance);
   }
   saveDB(); closeM('ov-quit'); rQuit();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
