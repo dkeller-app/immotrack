@@ -1,16 +1,21 @@
 /**
  * core/quittances-actives.js — Quittances actives v15.10 Sprint 11 V1.1
  *
- * Helpers purs (sans DB / DOM) pour transformer les quittances de passives
- * (génération manuelle, pas de suivi paiement) → actives (statut auto,
- * matching paiement, escalade rappels).
+ * Helpers purs (sans DB / DOM) : statut d'une quittance + escalade des rappels.
  *
- * Pré-requis : helpers temporels `_loyerHCAtDate` du Sprint 1D (BUG-DASH-001)
- * → les quittances utilisent le loyer applicable à la date du mois facturé
- * (cohérent avec la logique temporelle stricte IRL-REVISION-UX-FIX v15.10).
+ * CDC-QUITTANCES-IRL étape 1 (C3 / D7 / I6) — le 7ᵉ MOTEUR D'IMPUTATION EST SUPPRIMÉ.
+ * `_matcheMois()` rattachait un paiement au mois calendaire de sa propre date, et
+ * `_matchPaiementQuittance()` recollait un mouvement sur une quittance à ±5 € près.
+ * Les deux contredisaient le résolveur unique (décisions 09/07 et 14/07). Le
+ * rattachement paiement→mois vit désormais UNIQUEMENT dans `_loyerArrearsPass` /
+ * `_computeLoyerNetting` / `_computeLoyerStatut`, lus par js/core/loyers-mois.js.
+ * `_statutQuittance` ne compte donc plus les mouvements : il REÇOIT le montant déjà
+ * imputé au mois (`ctx.montantPaye`).
  *
  * Tests Vitest miroir : __tests__/helpers/quittances-actives.test.js
  */
+
+import { moisFrToYm, ymToMoisFr } from './loyers-mois.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Statut dynamique d'une quittance — 7 états
@@ -30,27 +35,20 @@ const QUITTANCE_STATUS = {
  * Calcule le statut d'une quittance à une date de référence.
  *
  * @param {object} quittance - { mois, logement, hc, ch, dateEcheance?, miseEnDemeureEnvoyee? }
- * @param {Array<object>} mouvements - DB.mouvements (filtré par cat Loyers + qui = ref bail)
+ * @param {object} ctx - { montantPaye } — montant DÉJÀ IMPUTÉ à ce mois par la cascade
+ *   unique (js/core/loyers-mois.js → `_loyerArrearsPass`). Ce module ne rattache plus
+ *   aucun mouvement à un mois : c'était le 7ᵉ moteur (C3), il est supprimé.
  * @param {Date|string} [dateRef=today] - date de référence pour le calcul
  * @returns {{ statut: string, montantAttendu: number, montantPaye: number, joursRetard: number }}
  */
-export function _statutQuittance(quittance, mouvements, dateRef) {
+export function _statutQuittance(quittance, ctx, dateRef) {
   if (!quittance) {
     return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu: 0, montantPaye: 0, joursRetard: 0 };
   }
   const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||new Date().toISOString().slice(0,10)) + 'T00:00:00');
   const montantAttendu = (Number(quittance.hc)||0) + (Number(quittance.ch)||0);
-
-  // Mouvements de paiement de loyer pour cette ref et ce mois
-  const ref = quittance.logement;
-  const mois = quittance.mois; // ex "janvier 2026" — format français
-  const paiements = (mouvements||[]).filter(m =>
-    m && !m._deleted &&
-    m.qui === ref &&
-    (m.cr||0) > 0 &&
-    _matcheMois(m, mois)
-  );
-  const montantPaye = paiements.reduce((s,m) => s + (Number(m.cr)||0), 0);
+  const montantPaye = Math.max(0, Number(ctx && ctx.montantPaye) || 0);
+  const mois = quittance.mois;
 
   // Cas spécial : mise en demeure déjà envoyée
   if (quittance.miseEnDemeureEnvoyee) {
@@ -76,69 +74,11 @@ export function _statutQuittance(quittance, mouvements, dateRef) {
   return { statut: QUITTANCE_STATUS.IMPAYEE_J30, montantAttendu, montantPaye, joursRetard };
 }
 
-const _MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-
-/** Convertit "janvier 2026" → Date(2026-01-01) pour calcul échéance. */
+/** Convertit « janvier 2026 » (ou « 2026-01 ») → Date(2026-01-01) pour le calcul d'échéance.
+ *  DRY : la reconnaissance du libellé vit dans loyers-mois.js (`moisFrToYm`), source unique. */
 function _moisToDate(moisStr) {
-  if (!moisStr) return null;
-  const s = String(moisStr).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-  // Cas FR : "janvier 2026"
-  for (let i = 0; i < _MOIS_FR.length; i++) {
-    const moisNorm = _MOIS_FR[i].normalize('NFD').replace(/[̀-ͯ]/g,'');
-    if (s.includes(moisNorm)) {
-      const m = s.match(/(\d{4})/);
-      if (m) return new Date(`${m[1]}-${String(i+1).padStart(2,'0')}-01T00:00:00`);
-    }
-  }
-  // Cas ISO : "2026-01"
-  const iso = s.match(/^(\d{4})-(\d{2})/);
-  if (iso) return new Date(`${iso[1]}-${iso[2]}-01T00:00:00`);
-  return null;
-}
-
-/** Vérifie si un mouvement est associable à un mois donné (par sa date.startsWith). */
-function _matcheMois(mvt, moisStr) {
-  if (!mvt || !mvt.date || !moisStr) return false;
-  const d = _moisToDate(moisStr);
-  if (!d) return false;
-  const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  return mvt.date.startsWith(ym);
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Matching automatique paiement → quittance
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Cherche la quittance attendue qui correspond à un nouveau mouvement de loyer.
- * Critères : même ref logement + mvt.date dans le mois de la quittance + montant ≈ attendu.
- *
- * @param {object} mvt - { qui, date, cr, cat }
- * @param {Array<object>} quittances - DB.quittances
- * @param {object} [opts] - { toleranceAmount: 5 }
- * @returns {object|null} La quittance matchée ou null
- */
-export function _matchPaiementQuittance(mvt, quittances, opts = {}) {
-  if (!mvt || !mvt.qui || !mvt.date || !((mvt.cr||0) > 0)) return null;
-  const tolerance = opts.toleranceAmount ?? 5;
-  // Format YYYY-MM du mouvement
-  const ym = mvt.date.slice(0, 7);
-  const targets = (quittances||[]).filter(q =>
-    q && !q._deleted &&
-    q.logement === mvt.qui
-  );
-  // Cherche d'abord match exact mois
-  for (const q of targets) {
-    const dQ = _moisToDate(q.mois);
-    if (!dQ) continue;
-    const qYM = `${dQ.getFullYear()}-${String(dQ.getMonth()+1).padStart(2,'0')}`;
-    if (qYM !== ym) continue;
-    const attendu = (Number(q.hc)||0) + (Number(q.ch)||0);
-    if (attendu > 0 && Math.abs(mvt.cr - attendu) < tolerance) return q;
-    // Si même mois mais montant divergent (partiel) → quand même match
-    return q;
-  }
-  return null;
+  const ym = moisFrToYm(moisStr);
+  return ym ? new Date(ym + '-01T00:00:00') : null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -189,7 +129,7 @@ export function _escaladeAlerte(statut) {
 export function _planQuittancesAGenerer(logements, baux, quittances, dateRef) {
   const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||new Date().toISOString().slice(0,10)) + 'T00:00:00');
   const moisIdx = today.getMonth();
-  const moisLabel = `${_MOIS_FR[moisIdx]} ${today.getFullYear()}`;
+  const moisLabel = ymToMoisFr(today.getFullYear() + '-' + String(moisIdx + 1).padStart(2, '0'));
   const out = [];
   for (const l of (logements||[])) {
     if (!l || l._deleted || l.archived) continue;

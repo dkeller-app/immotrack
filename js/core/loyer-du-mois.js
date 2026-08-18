@@ -165,6 +165,18 @@ export function duMois(ctx, ym) {
  *                       bareme:DB.loyerBareme } — la quittance n'entre PAS dans le dû (16/07).
  */
 export function duMoisFromRaw(ref, ym, raw) {
+  return duMois({ ref, bails: bailsFromRaw(ref, raw), bareme: (raw && raw.bareme) || [] }, ym);
+}
+
+/**
+ * Normalisation des baux d'un lot depuis les collections BRUTES — extraite de duMoisFromRaw
+ * pour être RÉUTILISÉE telle quelle par les autres consommateurs du même contexte
+ * (_debutSuivi, étage « mois soldé » de loyers-mois.js). Une seule définition de la forme,
+ * donc une seule règle d'occupation.
+ * @param {string} ref
+ * @param {Object} raw { currentBail, bauxHistorique }
+ */
+export function bailsFromRaw(ref, raw) {
   raw = raw || {};
   const want = _nr(ref);
   const bails = [];
@@ -178,7 +190,7 @@ export function duMoisFromRaw(ref, ym, raw) {
     if (!b || b._deleted || !b.debut || _nr(b.ref) !== want) continue;
     bails.push({ debut: b.debut, fin: b.fin || null, finEffective: b.finEffective || null, archive: true, hc: Number(b.hc) || 0, ch: Number(b.ch) || 0 });
   }
-  return duMois({ ref, bails, bareme: raw.bareme || [] }, ym);
+  return bails;
 }
 
 /**

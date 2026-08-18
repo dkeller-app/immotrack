@@ -85,7 +85,7 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
@@ -153,11 +153,20 @@ import {
 // symboles sur window pour le mode file:// ; meme source, aucune divergence possible.
 import * as BankImport from './core/bank-import.js';
 
-// v15.10 QUITTANCES-ACTIVES - statut dynamique + matching + escalade + génération auto
+// v15.10 QUITTANCES-ACTIVES - statut dynamique + escalade
+// CDC-QUITTANCES-IRL etape 1 : _matchPaiementQuittance / _matcheMois SUPPRIMES (7e moteur, C3).
 import {
-  _statutQuittance, _matchPaiementQuittance, _escaladeAlerte,
+  _statutQuittance, _escaladeAlerte,
   _planQuittancesAGenerer, QUITTANCE_STATUS
 } from './core/quittances-actives.js';
+
+// CDC-QUITTANCES-IRL etape 1 - LE socle du verdict « ce mois est-il solde ? » (D6/D7).
+// Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
+import {
+  etatMoisLot, peutQuittancer, moisProposables, moisAQuittancer,
+  retardLot, lignesRelance, niveauRelance,
+  moisFrToYm, ymToMoisFr, ymRange
+} from './core/loyers-mois.js';
 
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
@@ -293,6 +302,7 @@ window._LOYER_TOLERANCE_JOUR = _LOYER_TOLERANCE_JOUR;
 // Les surfaces basculeront dessus à l'étape 4 ; ici le barème est ALIMENTÉ par les writers.
 window.duMois = duMois;
 window.duMoisFromRaw = duMoisFromRaw;
+window.bailsFromRaw = bailsFromRaw;
 window._baremeOfLot = (ref) => _baremeOfLot(window.DB?.loyerBareme || [], ref);
 window._debutSuivi = _debutSuivi;
 window._computeLoyerNetting = _computeLoyerNetting;
@@ -378,10 +388,22 @@ for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
 
 // QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
 window._statutQuittance = _statutQuittance;
-window._matchPaiementQuittance = _matchPaiementQuittance;
 window._escaladeAlerte = _escaladeAlerte;
 window._planQuittancesAGenerer = _planQuittancesAGenerer;
 window.QUITTANCE_STATUS = QUITTANCE_STATUS;
+
+// LOYERS - verdict « mois solde » (CDC-QUITTANCES-IRL etape 1). Source unique consommee
+// par l'onglet Loyers ; index.html n'assemble que le contexte (du + encaisse).
+window.etatMoisLot = etatMoisLot;
+window.peutQuittancer = peutQuittancer;
+window.moisProposables = moisProposables;
+window.moisAQuittancer = moisAQuittancer;
+window.retardLot = retardLot;
+window.lignesRelance = lignesRelance;
+window.niveauRelance = niveauRelance;
+window.moisFrToYm = moisFrToYm;
+window.ymToMoisFr = ymToMoisFr;
+window.ymRange = ymRange;
 
 // GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
 window._dgStatut = _dgStatut;

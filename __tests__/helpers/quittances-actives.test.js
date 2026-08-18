@@ -1,10 +1,15 @@
 /**
  * Tests pour QUITTANCES-ACTIVES v15.10 Sprint 11 V1.1.
- * Module js/core/quittances-actives.js — helpers purs statut + matching + escalade + génération auto.
+ * Module js/core/quittances-actives.js — helpers purs statut + escalade + génération auto.
+ *
+ * CDC-QUITTANCES-IRL étape 1 : `_matchPaiementQuittance` et `_matcheMois` sont SUPPRIMÉS
+ * (7ᵉ moteur d'imputation, C3) — leurs tests miroir partent avec eux. `_statutQuittance`
+ * ne compte plus les mouvements : il reçoit `{ montantPaye }`, déjà imputé au mois par la
+ * cascade unique (js/core/loyers-mois.js).
  */
 import { describe, it, expect } from 'vitest';
 import {
-  _statutQuittance, _matchPaiementQuittance, _escaladeAlerte,
+  _statutQuittance, _escaladeAlerte,
   _planQuittancesAGenerer, QUITTANCE_STATUS
 } from '../../js/core/quittances-actives.js';
 
@@ -13,33 +18,26 @@ import {
 // ═══════════════════════════════════════════════════════════════════
 
 describe('_statutQuittance — payée', () => {
-  it('Paiement exact reçu → payée', () => {
+  it('Montant imputé au mois ≥ attendu → payée', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 };
-    const mvts = [{ qui: 'F-001', date: '2026-01-05', cr: 650, cat: 'Loyers', _deleted: false }];
-    const r = _statutQuittance(q, mvts, '2026-01-10');
+    const r = _statutQuittance(q, { montantPaye: 650 }, '2026-01-10');
     expect(r.statut).toBe(QUITTANCE_STATUS.PAYEE);
     expect(r.montantPaye).toBe(650);
   });
   it('Surplus → payée (pas trop-perçu calculé ici)', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 };
-    const mvts = [{ qui: 'F-001', date: '2026-01-05', cr: 700, cat: 'Loyers', _deleted: false }];
-    expect(_statutQuittance(q, mvts, '2026-01-10').statut).toBe(QUITTANCE_STATUS.PAYEE);
+    expect(_statutQuittance(q, { montantPaye: 700 }, '2026-01-10').statut).toBe(QUITTANCE_STATUS.PAYEE);
   });
 });
 
 describe('_statutQuittance — partielle', () => {
-  it('Paiement < montant attendu → partielle', () => {
+  it('Imputé < montant attendu → partielle', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 };
-    const mvts = [{ qui: 'F-001', date: '2026-01-05', cr: 300, cat: 'Loyers', _deleted: false }];
-    expect(_statutQuittance(q, mvts, '2026-01-10').statut).toBe(QUITTANCE_STATUS.PARTIELLE);
+    expect(_statutQuittance(q, { montantPaye: 300 }, '2026-01-10').statut).toBe(QUITTANCE_STATUS.PARTIELLE);
   });
-  it('Plusieurs paiements partiels cumulés < attendu', () => {
+  it('Le cumul est fait par la cascade, pas ici', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 };
-    const mvts = [
-      { qui: 'F-001', date: '2026-01-05', cr: 300, _deleted: false },
-      { qui: 'F-001', date: '2026-01-15', cr: 200, _deleted: false }
-    ];
-    const r = _statutQuittance(q, mvts, '2026-01-20');
+    const r = _statutQuittance(q, { montantPaye: 500 }, '2026-01-20');
     expect(r.statut).toBe(QUITTANCE_STATUS.PARTIELLE);
     expect(r.montantPaye).toBe(500);
   });
@@ -48,103 +46,49 @@ describe('_statutQuittance — partielle', () => {
 describe('_statutQuittance — escalade impayés', () => {
   it('J+2 → attendue (avant J+5)', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50, dateEcheance: '2026-01-05' };
-    expect(_statutQuittance(q, [], '2026-01-07').statut).toBe(QUITTANCE_STATUS.ATTENDUE);
+    expect(_statutQuittance(q, {}, '2026-01-07').statut).toBe(QUITTANCE_STATUS.ATTENDUE);
   });
   it('J+5 exactement → impayée_J5', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50, dateEcheance: '2026-01-05' };
-    expect(_statutQuittance(q, [], '2026-01-10').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J5);
+    expect(_statutQuittance(q, {}, '2026-01-10').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J5);
   });
   it('J+15 → impayée_J15', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50, dateEcheance: '2026-01-05' };
-    expect(_statutQuittance(q, [], '2026-01-20').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J15);
+    expect(_statutQuittance(q, {}, '2026-01-20').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J15);
   });
   it('J+30 → impayée_J30', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50, dateEcheance: '2026-01-05' };
-    expect(_statutQuittance(q, [], '2026-02-04').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J30);
+    expect(_statutQuittance(q, {}, '2026-02-04').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J30);
   });
   it('Mise en demeure envoyée → mise_en_demeure (état terminal)', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50, miseEnDemeureEnvoyee: true };
-    expect(_statutQuittance(q, [], '2026-02-15').statut).toBe(QUITTANCE_STATUS.MISE_EN_DEMEURE);
+    expect(_statutQuittance(q, {}, '2026-02-15').statut).toBe(QUITTANCE_STATUS.MISE_EN_DEMEURE);
   });
 });
 
 describe('_statutQuittance — sans date d\'échéance explicite', () => {
   it('Mois français → date par défaut = 1er du mois', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 };
-    // 1er janvier 2026 → J+10 = 11 jan → impayée_J5
-    expect(_statutQuittance(q, [], '2026-01-11').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J5);
+    expect(_statutQuittance(q, {}, '2026-01-11').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J5);
   });
   it('Format ISO YYYY-MM → idem', () => {
     const q = { mois: '2026-01', logement: 'F-001', hc: 600, ch: 50 };
-    expect(_statutQuittance(q, [], '2026-01-20').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J15);
+    expect(_statutQuittance(q, {}, '2026-01-20').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J15);
   });
 });
 
 describe('_statutQuittance — edge cases', () => {
   it('Quittance null → attendue', () => {
-    expect(_statutQuittance(null, [], '2026-01-10').statut).toBe(QUITTANCE_STATUS.ATTENDUE);
+    expect(_statutQuittance(null, {}, '2026-01-10').statut).toBe(QUITTANCE_STATUS.ATTENDUE);
   });
-  it('Mouvements vides + date future → attendue', () => {
+  it('Contexte absent → 0 imputé, pas de crash', () => {
     const q = { mois: 'décembre 2026', logement: 'F-001', hc: 600, ch: 50 };
-    expect(_statutQuittance(q, [], '2026-01-01').statut).toBe(QUITTANCE_STATUS.ATTENDUE);
+    expect(_statutQuittance(q, null, '2026-01-01').statut).toBe(QUITTANCE_STATUS.ATTENDUE);
   });
-  it('Ignore mouvements _deleted', () => {
+  it('Le module ne lit AUCUN mouvement : rien à filtrer ici (I6)', () => {
     const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 };
-    const mvts = [
-      { qui: 'F-001', date: '2026-01-05', cr: 650, _deleted: true },
-      { qui: 'F-001', date: '2026-01-06', cr: 300, _deleted: false }
-    ];
-    expect(_statutQuittance(q, mvts, '2026-01-10').statut).toBe(QUITTANCE_STATUS.PARTIELLE);
-  });
-  it('Ignore mouvements d\'autres logements', () => {
-    const q = { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 };
-    const mvts = [{ qui: 'F-002', date: '2026-01-05', cr: 650, _deleted: false }];
-    expect(_statutQuittance(q, mvts, '2026-01-15').statut).toBe(QUITTANCE_STATUS.IMPAYEE_J5);
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  _matchPaiementQuittance
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_matchPaiementQuittance', () => {
-  const quittances = [
-    { mois: 'janvier 2026', logement: 'F-001', hc: 600, ch: 50 },
-    { mois: 'février 2026', logement: 'F-001', hc: 600, ch: 50 },
-    { mois: 'janvier 2026', logement: 'F-002', hc: 800, ch: 80 }
-  ];
-
-  it('Match exact mois + ref + montant', () => {
-    const mvt = { qui: 'F-001', date: '2026-01-05', cr: 650, cat: 'Loyers' };
-    const q = _matchPaiementQuittance(mvt, quittances);
-    expect(q).not.toBeNull();
-    expect(q.mois).toBe('janvier 2026');
-    expect(q.logement).toBe('F-001');
-  });
-
-  it('Match partial (montant divergent même mois)', () => {
-    const mvt = { qui: 'F-001', date: '2026-02-08', cr: 300, cat: 'Loyers' };
-    const q = _matchPaiementQuittance(mvt, quittances);
-    expect(q).not.toBeNull();
-    expect(q.mois).toBe('février 2026');
-  });
-
-  it('Pas de match si autre ref', () => {
-    const mvt = { qui: 'F-003', date: '2026-01-05', cr: 650 };
-    expect(_matchPaiementQuittance(mvt, quittances)).toBeNull();
-  });
-
-  it('Pas de match si mois différent', () => {
-    const mvt = { qui: 'F-001', date: '2026-03-05', cr: 650 };
-    expect(_matchPaiementQuittance(mvt, quittances)).toBeNull();
-  });
-
-  it('Mvt sans cr → null', () => {
-    expect(_matchPaiementQuittance({ qui: 'F-001', date: '2026-01-05', cr: 0 }, quittances)).toBeNull();
-  });
-
-  it('Mvt débit → null', () => {
-    expect(_matchPaiementQuittance({ qui: 'F-001', date: '2026-01-05', db: 100 }, quittances)).toBeNull();
+    // Passer une liste de mouvements ne produit aucun montant : la source est ctx.montantPaye.
+    expect(_statutQuittance(q, [{ qui: 'F-001', cr: 650 }], '2026-01-15').montantPaye).toBe(0);
   });
 });
 
