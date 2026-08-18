@@ -29,8 +29,16 @@ describe('finances-window — fenêtre d\'EXIGIBILITÉ (F-1)', () => {
   });
 
   it("un mouvement post-daté N\'ÉTEND PAS l\'exigibilité (on n\'est pas en retard sur un dû à venir)", () => {
-    const w = computeExigibiliteWindow({ year: 2026, today: TODAY, mouvements: MVTS });
-    expect(w.lastMonth).toBe(9);
+    // L'assertion ne vaut que COMPAREE au constat : passer `mouvements` a une fonction
+    // qui ne les lit jamais ne prouvait rien (elle ne pouvait pas echouer). On oppose donc
+    // les DEUX fenetres sur exactement les memes entrees — c'est l'ecart qui porte le sens.
+    const entrees = { year: 2026, today: TODAY, mouvements: MVTS };
+    const exi = computeExigibiliteWindow(entrees);
+    const cons = computeConstatWindow(entrees);
+    expect(cons.lastMonth).toBe(10);      // le constat, lui, s'etend bien
+    expect(exi.lastMonth).toBe(9);        // l'exigibilite reste au dernier mois echu
+    expect(exi.lastMonth).toBe(exi.dueMonth);
+    expect(exi.lastMonth).toBeLessThan(cons.lastMonth);
   });
 
   it("aucun mois n\'est « à venir » dans la fenêtre d\'exigibilité", () => {
@@ -89,7 +97,7 @@ describe('finances-window — fenêtre de CONSTAT (F-1 v2, décision « B »)', 
   });
 
   it("les mouvements d\'un autre exercice n\'entrent pas dans le calcul", () => {
-    const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: [{ date: '2027-05-01' }] });
+    const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: [{ date: '2027-05-01', cr: 800, db: 0 }] });
     expect(w.lastMonth).toBe(9);
   });
 
@@ -113,7 +121,7 @@ describe('finances-window — fenêtre de CONSTAT (F-1 v2, décision « B »)', 
   });
 
   it('exercice à venir DÉJÀ saisi → borné au dernier mouvement, tout est « à venir »', () => {
-    const w = computeConstatWindow({ year: 2027, today: TODAY, mouvements: [{ date: '2027-03-01' }] });
+    const w = computeConstatWindow({ year: 2027, today: TODAY, mouvements: [{ date: '2027-03-01', cr: 800, db: 0 }] });
     expect(w.lastMonth).toBe(3);
     expect(w.months.every(m => m.future)).toBe(true);
   });
@@ -126,7 +134,7 @@ describe('finances-window — fenêtre de CONSTAT (F-1 v2, décision « B »)', 
   });
 
   it("une date malformée ne casse ni n\'étend la fenêtre", () => {
-    expect(lastMovementMonth([{ date: '2026-13-01' }, { date: 'n/a' }, { date: null }], 2026)).toBe(0);
+    expect(lastMovementMonth([{ date: '2026-13-01', cr: 800 }, { date: 'n/a', cr: 800 }, { date: null, cr: 800 }], 2026)).toBe(0);
   });
 });
 
@@ -319,7 +327,7 @@ describe('finances-window — robustesse (corrections d\'audit)', () => {
     expect(r.lastMonth).toBe(0);
   });
 
-  it("M1 : en décembre de l\'exercice EN COURS, le libellé ne ment pas (« année complète »)", () => {
+  it("en décembre de l\'exercice EN COURS, le libellé ne ment pas (« année complète »)", () => {
     const enCours = computeConstatWindow({ year: 2026, today: '2026-12-05' });
     expect(enCours.lastMonth).toBe(12);
     expect(enCours.label).toBe('Exercice 2026 · tout ce qui est saisi au 05/12');
@@ -328,7 +336,7 @@ describe('finances-window — robustesse (corrections d\'audit)', () => {
       .toBe('Exercice 2026 · année complète');
   });
 
-  it("M3 : isFutureMonth ignore les mois d\'un AUTRE exercice", () => {
+  it("isFutureMonth ignore les mois d\'un AUTRE exercice", () => {
     const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
     expect(isFutureMonth(w, '2026-10')).toBe(true);
     expect(isFutureMonth(w, '2027-10')).toBe(false);   // même n° de mois, autre exercice
@@ -337,7 +345,7 @@ describe('finances-window — robustesse (corrections d\'audit)', () => {
     expect(isFutureMonth(null, '2026-10')).toBe(false);
   });
 
-  it('M4 : un exercice non numérique donne une fenêtre VIDE, jamais des mois « NaN-01 »', () => {
+  it('M1 : un exercice non numérique donne une fenêtre VIDE, jamais des mois « NaN-01 »', () => {
     ['abcd', '', null, undefined, NaN, 26].forEach(y => {
       const w = computeExigibiliteWindow({ year: y, today: TODAY });
       expect(w.empty).toBe(true);
@@ -385,5 +393,62 @@ describe("finances-window — perimetre : garde-fou d’arite (I2)", () => {
 
   it("aucun perimetre = tout le patrimoine", () => {
     expect(win({}).lastMonth).toBe(11);
+  });
+});
+
+// ── M4 / M6 · cas manquants ───────────────────────────────────────────────────
+describe("finances-window — cas limites du constat (M4, M6)", () => {
+  const catLigne = (c) => (c === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null);
+
+  it("M4 : un mouvement a montant NUL n'ouvre pas de colonne", () => {
+    const vide = [{ date: '2026-10-02', cat: 'Loyer', qui: 'L1', cr: 0, db: 0 }];
+    expect(lastMovementMonth(vide, 2026)).toBe(0);
+    expect(computeConstatWindow({ year: 2026, today: TODAY, mouvements: vide }).lastMonth).toBe(9);
+    // ... alors qu'un centime, lui, compte (c'est de l'argent).
+    const centime = [{ date: '2026-10-02', cat: 'Loyer', qui: 'L1', cr: 0.01, db: 0 }];
+    expect(computeConstatWindow({ year: 2026, today: TODAY, mouvements: centime }).lastMonth).toBe(10);
+    // Un debit seul compte aussi (une charge payee d'avance).
+    const debit = [{ date: '2026-10-02', cat: 'Loyer', qui: 'L1', cr: 0, db: 300 }];
+    expect(lastMovementMonth(debit, 2026)).toBe(10);
+  });
+
+  it("M6 : mouvement date de DECEMBRE en septembre — 3 colonnes futures d'un coup", () => {
+    const tot = '2026-09-13';
+    const mvts = [{ date: '2026-12-20', cat: 'Loyer', qui: 'L1', cr: 800, db: 0 }];
+    const w = computeConstatWindow({ year: 2026, today: tot, mouvements: mvts });
+    expect(w.lastMonth).toBe(12);
+    expect(w.dueMonth).toBe(9);
+    expect(w.months.filter(m => m.future).map(m => m.ym))
+      .toEqual(['2026-10', '2026-11', '2026-12']);
+    expect(w.nbMois).toBe(12);
+    // Le libelle reste factuel : ce n'est PAS une « annee complete ».
+    expect(w.label).toBe('Exercice 2026 · tout ce qui est saisi au 13/09');
+
+    // Le pire cas de A1 : 3 mois non echus, AUCUN retard fantome, encaissement compte.
+    const r = _computeFinancesMonthly({
+      mouvements: mvts, year: 2026, scope: null, catLigne, today: tot,
+      activeLots: ['L1'], loyerDue: () => ({ hc: 800, ch: 0 }), window: w
+    });
+    expect(r.lastMonth).toBe(12);
+    expect(r.dueMonth).toBe(9);
+    ['2026-10', '2026-11', '2026-12'].forEach(ym => {
+      expect(r.months.find(m => m.ym === ym).loyerRetard).toBe(0);
+    });
+    expect(r.months.find(m => m.ym === '2026-12').loyersBrut).toBe(800);
+    // Le N-1 aligne couvre bien 12 mois, pas 9 (sinon la variation compare des durees).
+    expect(alignPreviousYear(w).nbMois).toBe(12);
+  });
+
+  it("M6 : la bascule UTC/locale ne change pas le nombre de colonnes", () => {
+    vi.useFakeTimers();
+    try {
+      // 1er octobre 00 h 30 LOCAL : en UTC+X on est encore le 30/09.
+      vi.setSystemTime(new Date(2026, 9, 1, 0, 30, 0));
+      const w = computeConstatWindow({ year: 2026, mouvements: [] });
+      expect(w.today).toBe(_loyerTodayLocal());
+      expect(w.lastMonth).toBe(10);      // octobre existe : on ne perd pas la colonne
+      expect(w.dueMonth).toBe(10);
+      expect(w.months.some(m => m.future)).toBe(false);
+    } finally { vi.useRealTimers(); }
   });
 });

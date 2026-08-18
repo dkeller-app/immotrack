@@ -422,3 +422,49 @@ describe("finances-scope — orphelins : frais d’un bailleur disparu", () => {
     expect(o.refsInconnues).toEqual(['SCI:SCI Disparue']);
   });
 });
+
+// ── M6 · cle de repartition defaillante (famille C1 : ne JAMAIS sur-compter) ──
+describe("finances-scope — cle de repartition P-4 defaillante", () => {
+  const fraisSCI = { qui: 'SCI:SCI Alpha', db: 1200, cr: 0 };
+
+  it("une cle qui JETTE remonte l'erreur — elle n'est pas avalee", () => {
+    const boum = () => { throw new Error('barème indisponible'); };
+    const s = resolveScope({ ent: 'SCI Alpha', imm: 'Lilas' }, LOGEMENTS, { sciWeight: boum });
+    expect(() => scopeWeight(s, fraisSCI)).toThrow('barème indisponible');
+    // Les autres mouvements ne sont pas affectes : seule la quote-part SCI consulte la cle.
+    expect(scopeWeight(s, { qui: 'A1' })).toBe(1);
+    expect(scopeWeight(s, { qui: 'D1' })).toBe(0);
+  });
+
+  it("une cle qui renvoie NaN/undefined ECHOUE au lieu de retomber sur 1", () => {
+    // Retomber sur 1 donnerait a CHAQUE immeuble la totalite du frais (Σ = nbImm × montant) :
+    // exactement le defaut C1, par un autre chemin.
+    [() => NaN, () => undefined, () => 'douze', () => Infinity].forEach(cle => {
+      const s = resolveScope({ ent: 'SCI Alpha', imm: 'Lilas' }, LOGEMENTS, { sciWeight: cle });
+      expect(() => scopeWeight(s, fraisSCI)).toThrow(TypeError);
+    });
+  });
+
+  it("une cle valide est bornee a [0,1] et respectee", () => {
+    const s = resolveScope({ ent: 'SCI Alpha', imm: 'Lilas' }, LOGEMENTS, { sciWeight: () => 0.42 });
+    expect(scopeWeight(s, fraisSCI)).toBe(0.42);
+    const trop = resolveScope({ ent: 'SCI Alpha', imm: 'Lilas' }, LOGEMENTS, { sciWeight: () => 7 });
+    expect(scopeWeight(trop, fraisSCI)).toBe(1);
+    const negatif = resolveScope({ ent: 'SCI Alpha', imm: 'Lilas' }, LOGEMENTS, { sciWeight: () => -3 });
+    expect(scopeWeight(negatif, fraisSCI)).toBe(0);
+  });
+
+  it("M3 : immeuble multi-bailleurs — l'entite porteuse suit l'ordre de DB.logements (parite prod)", () => {
+    // Comportement DOCUMENTE, pas corrige : le trancher est une decision produit (etape 7).
+    const ordreA = [
+      { ref: 'X1', entity: 'SCI Alpha', imm: 'Partage' },
+      { ref: 'Y1', entity: 'Dupont', imm: 'Partage' }
+    ];
+    const ordreB = [ordreA[1], ordreA[0]];
+    expect(resolveScope({ imm: 'Partage' }, ordreA).ent).toBe('SCI Alpha');
+    expect(resolveScope({ imm: 'Partage' }, ordreB).ent).toBe('Dupont');
+    // En revanche les LOTS du perimetre ne dependent pas de l'ordre (P-2 : aucun lot invisible).
+    expect(resolveScope({ imm: 'Partage' }, ordreA).refs.slice().sort())
+      .toEqual(resolveScope({ imm: 'Partage' }, ordreB).refs.slice().sort());
+  });
+});

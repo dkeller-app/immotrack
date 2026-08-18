@@ -148,6 +148,11 @@ export function resolveScope(selection, logements, opts) {
   // La dérivation ne vaut QUE si aucun cran bailleur n'est posé : dans le panier
   // « Sans bailleur », aucun frais SCI ne peut se rattacher (sinon on importerait ceux d'un
   // bailleur étranger au panier).
+  // LIMITE CONNUE, VOULUE (parité prod `_finEntScope`, PAS une régression) : si l'immeuble
+  // héberge des lots de PLUSIEURS bailleurs, on retient le PREMIER rencontré — `ent`, donc
+  // `nbImm` et la quote-part `sciWeight`, dépendent alors de l'ordre de `DB.logements`.
+  // Un immeuble multi-bailleurs n'a pas de porteur de frais évident : le trancher est une
+  // décision produit (étape 7 / P-4), pas un correctif de socle.
   if (!entKey && immKey && immKey !== SANS_IMMEUBLE) {
     const porteur = lots.find((l) => _s(l.imm) === immKey && _s(l.entity));
     if (porteur) ent = _s(porteur.entity);
@@ -306,7 +311,13 @@ export function scopeWeight(scope, mv) {
   if (scope.ent && qui === 'SCI:' + scope.ent) {
     const w = typeof scope.sciWeight === 'function' ? scope.sciWeight(mv) : scope.sciWeight;
     const n = Number(w);
-    return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
+    // Une clé de répartition cassée ne doit JAMAIS retomber sur 1 : elle donnerait à CHAQUE
+    // immeuble la totalité du frais (Σ vues = nbImm × le montant) — exactement la famille de
+    // défaut de C1. On échoue bruyamment plutôt que de sur-compter en silence.
+    if (!Number.isFinite(n)) {
+      throw new TypeError('finances-scope : cle de repartition sciWeight invalide (' + w + ')');
+    }
+    return Math.min(1, Math.max(0, n));
   }
   if (!qui) {
     const im = _s(mv.imm);

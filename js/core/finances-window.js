@@ -99,6 +99,7 @@ function _filtrePerimetre(perimetre) {
  * @param {number|string} year exercice
  * @param {Object|function} [perimetre] scope de finances-scope (recommandé) ou prédicat
  *        unaire — un mouvement post-daté HORS périmètre ne doit pas étendre la fenêtre.
+ *        Un mouvement à montant nul (cr=0 ET db=0) ne compte pas : il n'apporte aucun argent.
  */
 export function lastMovementMonth(mouvements, year, perimetre) {
   const inScope = _filtrePerimetre(perimetre);
@@ -110,6 +111,9 @@ export function lastMovementMonth(mouvements, year, perimetre) {
     if (!/^\d{4}-\d{2}/.test(d) || d.slice(0, 4) !== yr) return;
     const mo = parseInt(d.slice(5, 7), 10);
     if (!(mo >= 1 && mo <= 12)) return;
+    // M4 : une ligne a montant NUL n'est pas « de l'argent deja la ». Elle ouvrirait a elle
+    // seule une colonne de mois vide — et, avant le contrat A1, un mois de retard avec.
+    if (!(Number(mv.cr) || 0) && !(Number(mv.db) || 0)) return;
     if (typeof inScope === 'function' && !inScope(mv)) return;
     if (mo > last) last = mo;
   });
