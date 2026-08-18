@@ -577,6 +577,13 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-quittances .ly-fold:hover{color:var(--t1)}
         #p-quittances .ly-empty{padding:20px 14px;color:var(--t3);font-size:11.5px;text-align:center}
         #p-quittances .ly-empty b{color:var(--t1);display:block;font-size:13px;margin-bottom:4px}
+        /* Groupage à deux niveaux (bailleur > immeuble). Les en-têtes restent compacts :
+           trois blocs × deux niveaux, ça monte vite en hauteur — surtout à 390 px. */
+        #p-quittances .ly-grp-b{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--sur2);border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:800;color:var(--t1);letter-spacing:.01em}
+        #p-quittances .ly-grp-b .c{margin-left:auto;font-weight:700;font-size:10px;color:var(--t3);background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:1px 7px}
+        #p-quittances .ly-grp-i{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 20px;border-bottom:1px solid var(--bor);font-size:10.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+        #p-quittances .ly-grp-i .c{margin-left:auto;font-weight:700;letter-spacing:0;text-transform:none}
+        #p-quittances .ly-grp-orph{font-style:italic;text-transform:none;letter-spacing:0}
         /* D16 — le calendrier Gantt. Le CADRE défile horizontalement ; la page, jamais. */
         #p-quittances .ly-gt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px;max-width:100%}
         #p-quittances .ly-gt{display:grid;gap:2px;min-width:620px}
@@ -28111,14 +28118,14 @@ function rLoyers() {
       const detail = n === 1
         ? `${escHtml(window.ymToMoisFr(e.aQuittancer[0]))} soldé`
         : `${n} mois soldés, non encore quittancés : ${e.aQuittancer.map(y => escHtml(window.ymToMoisFr(y))).join(', ')}`;
-      return _lyRow({
+      return { log: e.log, html: _lyRow({
         titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
         badge: '<span class="ly-ask">🧾 demande mensuelle</span>',
         detail,
         montant: `<b>${fmt(du)}</b><br><span class="ly-pill ok">${n > 1 ? 'Soldés' : 'Soldé'}</span>`,
         actions: `<button class="btn bp bb" onclick="_lyEditerQuittances('${_lyQ(e.ref)}')">${libelle}</button>
           <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(e.ref)}')">Détail</button>`
-      });
+      }) };
     }),
     'Personne n\'attend de quittance ce mois-ci.');
 
@@ -28140,14 +28147,14 @@ function rLoyers() {
       const btnRecu = partiel.length
         ? `<button class="btn bs bb" onclick="_lyRecuPartiel('${_lyQ(e.ref)}','${partiel[partiel.length - 1].ym}')" title="Art. 21 : en cas de paiement partiel, le bailleur délivre un reçu">Reçu partiel</button>`
         : '';
-      return _lyRow({
+      return { log: e.log, html: _lyRow({
         titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
         detail,
         montant: `<b>${fmt(r.reste)}</b>${r.chargesSeules ? ' de charges' : ''}<br>${pill}`,
         actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Courrier de relance</button>
           ${btnRecu}
           <button class="btn bs bb" onclick="_impayesOpenVue()">Détail mois par mois</button>`
-      });
+      }) };
     }),
     'Tous les loyers et toutes les charges sont à jour.');
 
@@ -28180,13 +28187,68 @@ function _lyRow(o) {
   </div>`;
 }
 
-/** Un bloc replié à UNE ligne quand il est vide (D5). */
-function _lyBloc(titre, n, hint, rows, vide) {
+/**
+ * Un bloc replié à UNE ligne quand il est vide (D5).
+ * `horsCompteur` (D17) : la pastille reste neutre — ces lignes sont VISIBLES mais ne
+ * demandent rien, elles ne doivent pas gonfler le nombre de choses à faire.
+ * `items` = [{ log, html }] : le bloc pose lui-même les en-têtes de groupe (bailleur >
+ * immeuble). Un tableau de chaînes reste accepté (blocs qui ne listent pas des lots).
+ */
+function _lyBloc(titre, n, hint, items, horsCompteur) {
   const head = `<div class="ly-blk-h"><span class="t">${titre}</span>
-    <span class="n${n ? '' : ' z'}">${n}</span>
+    <span class="n${(n && !horsCompteur) ? '' : ' z'}">${n}</span>
     <span class="hint">${n ? hint : ''}</span></div>`;
   if (!n) return `<div class="ly-blk">${head.replace('<div class="ly-blk-h"', '<div class="ly-blk-h" style="border-bottom:0"')}</div>`;
-  return `<div class="ly-blk">${head}${rows.join('')}</div>`;
+  const corps = (items.length && typeof items[0] === 'string')
+    ? items.join('') : _lyGrouper(items);
+  return `<div class="ly-blk">${head}${corps}</div>`;
+}
+
+/**
+ * LE groupage des blocs qui listent des lots (décision user 18/08, remontée sur le parc réel :
+ * 37 lots de plusieurs immeubles et plusieurs SCI arrivaient mélangés, sans séparation).
+ *
+ *   · filtre entité sur « Toutes » → DEUX niveaux : bailleur, puis immeuble ;
+ *   · une seule SCI sélectionnée → immeuble seul (le niveau bailleur ne dirait rien et
+ *     mangerait de la hauteur — la contrainte « 1 écran PC » tient).
+ *
+ * Le groupage lui-même n'est pas réinventé : il vient de js/core/group-by-imm.js
+ * (`_grouperLotsParBailleurEtImmeuble`, qui compose `_groupLogementsByImm`).
+ * Les lots sans immeuble et sans bailleur restent VISIBLES dans un groupe nommé.
+ * L'en-tête d'IMMEUBLE est toujours posé : il porte le NOM de l'immeuble, information que
+ * la ligne du lot ne donne pas (même présentation que l'écran IRL que Didier connaît).
+ * L'en-tête de BAILLEUR est omis dans le seul cas où il ne sépare rien et ne nomme rien de
+ * nouveau : un unique bailleur, hors panier « Sans bailleur ».
+ *
+ * @param {Array<{log:object, html:string}>} items
+ */
+function _lyGrouper(items) {
+  const list = (items || []).filter(Boolean);
+  if (!list.length) return '';
+  const G = (typeof window !== 'undefined') ? window.GroupByImm : null;
+  if (!G || typeof G._grouperLotsParBailleurEtImmeuble !== 'function') {
+    return list.map(x => x.html).join('');   // module absent : jamais d'écran vide
+  }
+  const parBailleur = !(typeof _entActif === 'function' && _entActif());
+  const parRef = new Map(list.map(x => [x.log && x.log.ref, x.html]));
+  const groupes = G._grouperLotsParBailleurEtImmeuble(list.map(x => x.log), { parBailleur });
+  const plusieursBailleurs = groupes.length > 1;
+  let out = '';
+  for (const gb of groupes) {
+    const nb = gb.immeubles.reduce((s2, i) => s2 + i.logements.length, 0);
+    if (parBailleur && (plusieursBailleurs || gb.isUnassigned)) {
+      const nom = gb.isUnassigned
+        ? '<span class="ly-grp-orph">Sans bailleur</span>' : escHtml(gb.entite || '');
+      out += `<div class="ly-grp-b">🏛 ${nom}<span class="c">${nb} lot${nb > 1 ? 's' : ''}</span></div>`;
+    }
+    for (const gi of gb.immeubles) {
+      const nom = gi.isUnassigned
+        ? '<span class="ly-grp-orph">Sans immeuble</span>' : escHtml(gi.imm || '');
+      out += `<div class="ly-grp-i">${nom}<span class="c">${gi.logements.length}</span></div>`;
+      for (const l of gi.logements) out += (parRef.get(l && l.ref) || '');
+    }
+  }
+  return out;
 }
 
 function _lyFold(id, titre, contenu) {
@@ -28269,13 +28331,13 @@ function _lyBlocRevisions(etats) {
     const pill = retard
       ? `<span class="ly-pill wa">Effet passé</span>`
       : `<span class="ly-pill nu">Dans ${rev.joursAvantEffet} jour${rev.joursAvantEffet > 1 ? 's' : ''}</span>`;
-    return _lyRow({
+    return { log: e.log, html: _lyRow({
       titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
       detail,
       montant: `${fmt(e.log.hc)} → <b>${fmt(rev.nouveauHC)}</b><br>${pill}`,
       actions: `<button class="btn bp bb" onclick="applyIRL('${_lyQ(e.ref)}',${rev.nouveauHC})">Réviser</button>
         <button class="btn bs bb" onclick="skipIRL('${_lyQ(e.ref)}')">Renoncer</button>`
-    });
+    }) };
   };
 
   let html = _lyBloc('📈 Révisions à préparer', aPreparer.length, 'Effet le 1ᵉʳ du mois prochain',
@@ -28291,23 +28353,23 @@ function _lyBlocRevisions(etats) {
         // propose pas un geste qui ne serait pas opposable au locataire.
         const gain = (rev.nouveauHC != null && e.log.hc) ? Math.round((rev.nouveauHC - e.log.hc) * 100) / 100 : null;
         const prescritIso = (parseInt(rev.perdue.effetIso.slice(0, 4), 10) + 1) + rev.perdue.effetIso.slice(4);
-        return _lyRow({
+        return { log: e.log, html: _lyRow({
           titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
           detail: `Effet du ${fd(rev.perdue.effetIso)} jamais réclamé — présumé abandonné depuis le ${fd(prescritIso)}`,
           montant: gain != null ? `<span class="ly-pill nu">≈ ${fmt(gain)}/mois</span>` : '<span class="ly-pill nu">—</span>',
           actions: ''
-        });
+        }) };
       }), true);
   }
   if (muets.length) {
     html += _lyBloc('🔒 Non révisables', muets.length, 'Rien à faire — listés pour ne pas les chercher',
-      muets.map(({ e, rev }) => _lyRow({
+      muets.map(({ e, rev }) => ({ log: e.log, html: _lyRow({
         titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
         detail: escHtml(_lyMotifMuet(rev)),
         montant: `<span class="ly-pill nu">${escHtml(_lyPastilleMuet(rev))}</span>`,
         actions: rev.gelDpeFG || rev.dpeManquant
           ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')">Voir le DPE</button>` : ''
-      })), true);
+      }) })), true);
   }
   return html;
 }

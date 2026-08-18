@@ -3,7 +3,10 @@
  * Module js/core/group-by-imm.js — helpers purs groupage logements par immeuble.
  */
 import { describe, it, expect } from 'vitest';
-import { _groupLogementsByImm, _computeIRLGroupKPIs } from '../../js/core/group-by-imm.js';
+import {
+  _groupLogementsByImm, _computeIRLGroupKPIs,
+  _groupLogementsByEntite, _grouperLotsParBailleurEtImmeuble
+} from '../../js/core/group-by-imm.js';
 
 // ═══════════════════════════════════════════════════════════════════
 //  _groupLogementsByImm
@@ -160,5 +163,79 @@ describe('_computeIRLGroupKPIs — robustesse', () => {
   });
   it('logements vide → tous 0', () => {
     expect(_computeIRLGroupKPIs({ logements: [] }).nbLots).toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Groupage à DEUX niveaux — bailleur puis immeuble (décision user 18/08)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('_groupLogementsByEntite', () => {
+  const logs = [
+    { ref: 'A', entity: 'SCI Delle' },
+    { ref: 'B', entity: 'SCI Ferrette' },
+    { ref: 'C', entity: 'SCI Delle' },
+    { ref: 'D', entity: '' },
+    { ref: 'E' }
+  ];
+  it('groupe par bailleur, trié en français', () => {
+    const out = _groupLogementsByEntite(logs);
+    expect(out.map(g => g.key)).toEqual(['SCI Delle', 'SCI Ferrette', '__sans_bailleur__']);
+    expect(out[0].logements.map(l => l.ref)).toEqual(['A', 'C']);
+  });
+  it('les lots sans bailleur restent VISIBLES dans un panier explicite, en dernier', () => {
+    const out = _groupLogementsByEntite(logs);
+    const panier = out[out.length - 1];
+    expect(panier.isUnassigned).toBe(true);
+    expect(panier.logements.map(l => l.ref)).toEqual(['D', 'E']);
+    // Invariant : aucun lot ne disparaît.
+    expect(out.reduce((n, g) => n + g.logements.length, 0)).toBe(logs.length);
+  });
+  it('entrée invalide → tableau vide', () => {
+    expect(_groupLogementsByEntite(null)).toEqual([]);
+    expect(_groupLogementsByEntite([])).toEqual([]);
+  });
+});
+
+describe('_grouperLotsParBailleurEtImmeuble', () => {
+  const logs = [
+    { ref: 'A', entity: 'SCI Delle', imm: 'Damelevières' },
+    { ref: 'B', entity: 'SCI Delle', imm: 'Delle' },
+    { ref: 'C', entity: 'SCI Ferrette', imm: 'Ferrette' },
+    { ref: 'D', entity: 'SCI Delle' },              // sans immeuble
+    { ref: 'E', imm: 'Orphelin' }                    // sans bailleur
+  ];
+
+  it('« Toutes » les SCI → deux niveaux : bailleur, puis immeuble', () => {
+    const out = _grouperLotsParBailleurEtImmeuble(logs, { parBailleur: true });
+    expect(out.map(g => g.key)).toEqual(['SCI Delle', 'SCI Ferrette', '__sans_bailleur__']);
+    expect(out[0].immeubles.map(i => i.key)).toEqual(['Damelevières', 'Delle', '__unassigned__']);
+  });
+
+  it('une seule SCI sélectionnée → un seul niveau, les immeubles', () => {
+    const dansUneSci = logs.filter(l => l.entity === 'SCI Delle');
+    const out = _grouperLotsParBailleurEtImmeuble(dansUneSci, { parBailleur: false });
+    expect(out).toHaveLength(1);
+    expect(out[0].entite).toBeNull();
+    expect(out[0].immeubles.map(i => i.key)).toEqual(['Damelevières', 'Delle', '__unassigned__']);
+  });
+
+  it('aucun lot ne disparaît, quel que soit le mode', () => {
+    for (const parBailleur of [true, false]) {
+      const out = _grouperLotsParBailleurEtImmeuble(logs, { parBailleur });
+      const n = out.reduce((s, g) => s + g.immeubles.reduce((s2, i) => s2 + i.logements.length, 0), 0);
+      expect(n).toBe(logs.length);
+    }
+  });
+
+  it('le niveau immeuble délègue bien à _groupLogementsByImm (même tri, même panier)', () => {
+    const out = _grouperLotsParBailleurEtImmeuble(logs, { parBailleur: false });
+    expect(out[0].immeubles).toEqual(_groupLogementsByImm(logs));
+  });
+
+  it('liste vide → tableau vide', () => {
+    expect(_grouperLotsParBailleurEtImmeuble([], { parBailleur: true })).toEqual([]);
+    expect(_grouperLotsParBailleurEtImmeuble([], { parBailleur: false })).toEqual([]);
+    expect(_grouperLotsParBailleurEtImmeuble(null, { parBailleur: false })).toEqual([]);
   });
 });

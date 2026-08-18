@@ -170,6 +170,10 @@ import {
 // CDC-QUITTANCES-IRL etape 5 - LE calendrier des revisions (D12/D13/D15/D16/D17).
 import * as IrlCalendrier from './core/irl-calendrier.js';
 
+// Groupage des lots par bailleur / immeuble — module transverse deja consomme par le socle
+// Finances. L'onglet Loyers le CONSOMME aussi (jamais un groupement reinvente).
+import * as GroupByImm from './core/group-by-imm.js';
+
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG,
@@ -408,6 +412,7 @@ window.ymRange = ymRange;
 
 // IRL - LE calendrier des revisions : namespace expose (etatRevision, ganttRevisions, ETAT...).
 window.IrlCalendrier = IrlCalendrier;
+window.GroupByImm = GroupByImm;
 
 // GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
 window._dgStatut = _dgStatut;
