@@ -28658,11 +28658,11 @@ let _letterRef = null;
    L'injection dans #pdf-irl-content reste car printIRLLetter et envoyerLettreIRLParEmail
    (boutons du panneau latéral) lisent depuis ce nœud. */
 function previewIRLLetter(ref) {
-  genIRLLetter(ref);
-  const src = el('pdf-irl-content');
+  const html = genIRLLetter(ref);
   const dst = el('ov-irl-lettre-content');
-  if (!src || !dst) return;
-  dst.innerHTML = src.innerHTML;
+  if (!dst) { showToast('Modale lettre introuvable', 'err'); return; }
+  if (!html) { showToast('Lettre IRL non calculable pour ce lot', 'err'); return; }
+  dst.innerHTML = html;
   openM('ov-irl-lettre');
 }
 
@@ -28673,8 +28673,8 @@ function previewIRLLetter(ref) {
 // Ce wrapper force toujours la modale `#ov-irl-lettre` quel que soit le viewport.
 function previewIRLLetterFromLog(ref) {
   if(typeof genIRLLetter !== 'function') { showToast('Module IRL indisponible','err'); return; }
-  genIRLLetter(ref);
-  const src = el('pdf-irl-content');
+  const html = genIRLLetter(ref);
+  const src = html ? { innerHTML: html } : null;
   const dst = el('ov-irl-lettre-content');
   if(!src || !dst) {
     // Fallback : aller sur l'onglet IRL pour voir la lettre
@@ -28785,23 +28785,25 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: `Le bailleur<br><b>${ent?.
 }
 if (typeof window !== 'undefined') window._buildIRLLetterHtml = _buildIRLLetterHtml;
 
+// CDC-QUITTANCES-IRL étape 6 — la lettre ne transite plus par le panneau latéral de
+// l'ancien onglet IRL (`#pdf-irl-content`), qui n'existe plus : elle est GARDÉE ici et
+// servie aux trois consommateurs (aperçu modale, impression, e-mail). Sans ça, la lettre
+// jetait sur un nœud absent.
+let _irlLetterHtml = '';
 function genIRLLetter(ref) {
   _letterRef = ref;
-  const log = DB.logements.find(l=>l.ref===ref); if(!log) return;
+  _irlLetterHtml = '';
+  const log = DB.logements.find(l=>l.ref===ref); if(!log) return '';
   const bail = DB.baux[ref];
   const ent = DB.entites.find(e=>e.nom===(bail?.entity||log.entity));
   const rev = computeIRLRevision(log);
 
   const built = _buildIRLLetterHtml(log, bail, ent, rev);
-  if (built.error) {
-    if (built.alertMsg) alert(built.alertMsg);
-    el('pdf-irl-content').innerHTML = built.errorHtml;
-    return;
-  }
-  el('pdf-irl-content').innerHTML = built.html;
+  _irlLetterHtml = built.error ? (built.errorHtml || '') : built.html;
+  if (built.error && built.alertMsg) alert(built.alertMsg);
   // v13.33 IRL-VALIDATION : aucune zone validation injectée dans la lettre.
-  // Toute la validation se fait dans le tableau IRL (cellule Actions) et via la
-  // popup mois anniversaire. La lettre reste un document propre, prêt à imprimer.
+  // La lettre reste un document propre, prêt à imprimer.
+  return _irlLetterHtml;
 }
 /* v13.32 IRL-VALIDATION : marque/démarque la lettre IRL comme envoyée */
 function markIRLLetterSent(ref) {
@@ -29092,8 +29094,9 @@ window._shareIRLLetterWithPdf = async function(ref) {
 };
 
 function printIRLLetter() {
-  const content = el('pdf-irl-content');
-  if(!content||!content.innerHTML.trim()||content.innerHTML.includes('Sélectionner')) { showToast('Sélectionner un logement','err'); return; }
+  const html = _irlLetterHtml || (el('ov-irl-lettre-content') ? el('ov-irl-lettre-content').innerHTML : '');
+  const content = { innerHTML: html };
+  if(!html.trim()) { showToast('Aucune lettre ouverte', 'err'); return; }
   const win = window.open('','_blank');
   if(!win) { showToast('Popup bloquée','err'); return; }
   win.document.write(_injectPreviewCloseButton(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lettre IRL</title><style>
@@ -37452,14 +37455,19 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     const hb = ev.horsBail ? '<span class="hl-badge b-warn">hors bail ?</span>' : '';
     // Correction d'événement (décision user ⑤) : re-dater une date d'effet erronée — bail COURANT
     // uniquement (un bail clos est figé), garde-fous Q1 + bornes de périodes dans le module.
+    // CDC-QUITTANCES-IRL D19 — la lettre est un ACCESSOIRE de l'événement : elle se
+    // re-télécharge depuis la ligne, elle n'a pas besoin d'un écran à elle. Le sous-onglet
+    // « Historique » de l'IRL disparaît, la trace vit là où vit le loyer : sur le bail.
+    const lettre = `<span class="hl-lnk" onclick="previewIRLLetter('${refSafe}')" title="Ré-ouvrir la lettre de révision">✉ Revoir la lettre</span>`;
     const corr = (c.statut==='courant')
-      ? `<div class="hl-foot"><span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${escHtml(ev.date)}','${escHtml(ev.effet)}')">✏️ Corriger la date d'effet</span></div>` : '';
+      ? `<div class="hl-foot">${lettre}<span class="hl-lnk" onclick="_histoIrlCorrOpen('${refSafe}','${escHtml(ev.date)}','${escHtml(ev.effet)}')">✏️ Corriger la date d'effet</span></div>`
+      : `<div class="hl-foot">${lettre}</div>`;
     return `<div class="hl-card" data-dot="d-irl"><div class="tt"><h4>Révision IRL validée</h4><span class="hl-badge b-irl">IRL${ev.irlVigueur?' '+escHtml(String(ev.irlVigueur).replace(/\s.*$/,'')):''}</span>${etat}${hb}</div>
       <div class="hl-desc">${ev.irlRef?`Indice ${escHtml(ev.irlRef)} → ${escHtml(ev.irlVigueur)}. `:''}Nouveau loyer à compter du <b>${fd(ev.effet)}</b>${ev.dateEffetAjustee?' (date ajustée — jamais rétroactive)':''} — les mois quittancés font foi.</div>${move}${corr}</div>`;
   }
   if(t==='irl-renonce'){
     return `<div class="hl-card" style="opacity:.8" data-dot="d-renon"><div class="tt"><h4>Révision IRL — renoncée</h4><span class="hl-badge b-warn">⊘ renonciation</span></div>
-      <div class="hl-desc">Loyer maintenu à <b>${fmt(ev.ancienHC)} HC</b>. La renonciation ne modifie pas le barème.</div></div>`;
+      <div class="hl-desc">Loyer maintenu à <b>${fmt(ev.ancienHC)} HC</b>. La renonciation ne modifie pas le barème, et n'ouvre pas de nouveau cycle : la prochaine révision reste celle de l'année suivante.</div></div>`;
   }
   if(t==='modif'){
     return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4>Modification du loyer</h4><span class="hl-badge b-man">modification</span></div>
