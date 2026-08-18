@@ -1287,6 +1287,41 @@ export function _bankUndecidedDuplicates(lines) {
     l && l.isDuplicate && l.dupLevel === 'probable' && !l._userExclude && !l._userKeep && !l._dupConfirmed).length;
 }
 
+/**
+ * ⑧.1 v2 (SMOKE 14/08, décision user) — « il faut pouvoir valider et garder en mémoire ».
+ * Une ligne non prête ne bloque plus l'import : elle est GARDÉE en attente sur le compte
+ * (DB.params.bankPending) et re-proposée au prochain import. Snapshot JSON-sûr : on garde
+ * la donnée bancaire + la saisie non validée, on retire les drapeaux transitoires
+ * (_userExclude, _reviewed, _userEdited — sinon les règles créées entre-temps ne
+ * s'appliqueraient plus à la reprise).
+ */
+export function _bankPendingSnapshot(line) {
+  if (!line) return null;
+  const keep = ['date', 'libelle', 'debit', 'credit', 'signedAmount', 'fitid', 'raw',
+    '_fingerprint', '_importSource', 'suggestedCat', 'suggestedQui', 'suggestedImm', 'suggestedCc',
+    'confidence', 'matchSource', '_byRule', '_gerance', '_candidates', '_ambiguous', '_ruleConflicts', '_sp'];
+  const out = {};
+  keep.forEach(k => { if (line[k] !== undefined && line[k] !== null) out[k] = line[k]; });
+  out._pending = true;
+  return out;
+}
+
+/**
+ * ⑧.1 v2 — fusionne les lignes du fichier et le stock « en attente » du compte.
+ * Dédup par empreinte : si le nouveau fichier recontient une ligne en attente,
+ * LE FICHIER GAGNE (donnée plus fraîche) ; le stock n'ajoute que ce qui manque.
+ */
+export function _bankMergePendingLines(fileLines, pendingLines) {
+  const base = Array.isArray(fileLines) ? fileLines.slice() : [];
+  const fps = new Set(base.map(l => l && l._fingerprint).filter(Boolean));
+  (Array.isArray(pendingLines) ? pendingLines : []).forEach(p => {
+    if (!p) return;
+    if (p._fingerprint && fps.has(p._fingerprint)) return;
+    base.push(Object.assign({}, p, { _pending: true }));
+  });
+  return base;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // v15.78 — Migration rétroactive des fingerprints sur mouvements existants
 // ────────────────────────────────────────────────────────────────────────────
