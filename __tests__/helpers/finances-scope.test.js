@@ -409,3 +409,16 @@ describe('finances-scope — compteur d\'orphelins (I5, mesure seulement)', () =
     expect(orphelinsHorsPerimetre(null, null)).toEqual({ nb: 0, montant: 0, refsInconnues: [] });
   });
 });
+
+describe("finances-scope — orphelins : frais d’un bailleur disparu", () => {
+  it("un frais « SCI:<entite supprimee> » est compte comme orphelin", () => {
+    const mvts = [
+      { date: '2026-01-07', qui: 'SCI:SCI Alpha', cr: 0, db: 300 },   // entite vivante : OK
+      { date: '2026-01-08', qui: 'SCI:SCI Disparue', cr: 0, db: 250 } // plus aucun lot : orphelin
+    ];
+    const o = orphelinsHorsPerimetre(mvts, LOGEMENTS);
+    expect(o.nb).toBe(1);
+    expect(o.montant).toBe(250);
+    expect(o.refsInconnues).toEqual(['SCI:SCI Disparue']);
+  });
+});

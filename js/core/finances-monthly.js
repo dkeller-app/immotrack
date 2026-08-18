@@ -1,4 +1,4 @@
-import { _computeLoyerChargeAlloc, _LOYER_TOLERANCE_JOUR } from './loyer-statut.js';
+import { _computeLoyerChargeAlloc, _LOYER_TOLERANCE_JOUR, _loyerTodayLocal } from './loyer-statut.js';
 // AUDIT-SUIVI-LOYERS étape 4 — le RETARD affiché passe au netting avance↔retard (une avance
 // couvre les mois suivants avant de laisser naître un retard) : fin des « retard ET avance
 // simultanés » (C2, scénario user « 2 loyers payés en janvier, rien en février »).
@@ -22,7 +22,10 @@ import { _computeLoyerNetting } from './loyer-du-mois.js';
  *   - isEcheance(m) → bool (mouvement = échéance de prêt, en prod : m.cat === 'Prêt')
  *
  * @param {Object} input
- * @returns {{months: Array, annual: Object, interetsTotal: number, interetsKnown: boolean}}
+ * @param {Object} [input.window] fenêtre de finances-window.js — LA forme à utiliser :
+ *        `lastMonth` (constat) borne les mois produits, `dueMonth` (exigibilité) borne le retard.
+ * @returns {{months: Array, annual: Object, interetsTotal: number, interetsKnown: boolean,
+ *            lastMonth: number, dueMonth: number}}
  */
 export function _computeFinancesMonthly(input) {
   const i = input || {};
@@ -45,16 +48,38 @@ export function _computeFinancesMonthly(input) {
   // aucune recette : sans encaissement, sa cascade est 0/0/0, seul son arriéré compte.
   const activeLots = Array.isArray(i.activeLots) ? i.activeLots : [];
 
-  // Borne « mois écoulés » pour l'exercice en cours (B3/B5) : on ne projette pas l'avenir.
-  // `lastMonth` peut être forcé (ex. comparer le N-1 sur la MÊME période que l'exercice en cours).
-  const today = i.today || new Date().toISOString().slice(0, 10);
+  // ── LE CONTRAT : le moteur reçoit une FENÊTRE, pas un entier (audit A1) ───────────────
+  // Les deux bornes de F-1 / F-1 v2 ne sont PAS la même (finances-window.js) :
+  //   `lastMonth` = fenêtre de CONSTAT     → jusqu'où on produit des mois (post-datés compris) ;
+  //   `dueMonth`  = fenêtre d'EXIGIBILITÉ  → jusqu'où un dû peut être EN RETARD.
+  // Les confondre était le piège de la décision « B » : passer la borne de constat (octobre)
+  // faisait sauter la tolérance de début de mois et fabriquait un retard fantôme sur le mois
+  // courant (~800 €/lot). `i.window` est la forme À UTILISER ; `i.lastMonth` reste accepté
+  // pour les appelants historiques (les deux bornes valent alors le même mois).
+  const win = i.window || null;
+  // Horloge LOCALE, jamais toISOString()/UTC : le 1er du mois avant ~2 h, l'UTC recule d'un
+  // mois (et d'un an au 1er janvier). Même résolveur que le suivi des loyers (audit I6).
+  const today = i.today || (win && win.today) || _loyerTodayLocal();
   const curYear = today.slice(0, 4);
-  const lastMonth = (i.lastMonth != null)
-    ? Math.max(1, Math.min(12, i.lastMonth))
-    : ((yr === curYear) ? parseInt(today.slice(5, 7), 10) : 12);
-  // Tolérance début de mois (parité Suivi des loyers, constat 45) : tant qu'on est avant le 10 ET
-  // que le dernier mois affiché EST le mois courant, son loyer non encore payé n'est pas un « retard ».
-  const graceLast = (yr === curYear) && (lastMonth === parseInt(today.slice(5, 7), 10)) && (parseInt(today.slice(8, 10), 10) < _LOYER_TOLERANCE_JOUR);
+  const _clamp = (v) => Math.max(0, Math.min(12, v | 0));
+  let lastMonth, dueMonth;
+  if (win) {
+    // A2 : une fenêtre VIDE produit ZÉRO mois. Elle ne doit plus être promue en janvier
+    // fantôme — c'est un exercice où rien n'est encore exigible, pas un mois de janvier.
+    lastMonth = _clamp(win.lastMonth);
+    dueMonth = _clamp(win.dueMonth != null ? win.dueMonth : win.lastMonth);
+  } else if (i.lastMonth != null) {
+    lastMonth = _clamp(i.lastMonth);
+    dueMonth = lastMonth;
+  } else {
+    lastMonth = (yr === curYear) ? parseInt(today.slice(5, 7), 10) : 12;
+    dueMonth = lastMonth;
+  }
+  if (dueMonth > lastMonth) dueMonth = lastMonth;
+  // Tolérance début de mois (parité Suivi des loyers, constat 45) : tant qu'on est avant le 10
+  // ET que le dernier mois EXIGIBLE est le mois courant, son loyer non payé n'est pas un
+  // « retard ». Elle suit `dueMonth`, jamais la borne de constat.
+  const graceLast = dueMonth > 0 && (yr === curYear) && (dueMonth === parseInt(today.slice(5, 7), 10)) && (parseInt(today.slice(8, 10), 10) < _LOYER_TOLERANCE_JOUR);
 
   const blank = () => ({
     loyersBrut: 0, loyersHC: 0, provisions: 0, avance: 0, recettesDiverses: 0,
@@ -133,7 +158,10 @@ export function _computeFinancesMonthly(input) {
     // Retard orange : RÉSIDU du mois (manque encore dû attribué à son mois d'origine, net des
     // rattrapages) — colonne P&L par mois, on ne reporte pas (user 2026-07-13). L'annuel = SOMME
     // des mois (= dette ouverte de fin de période, puisque le résidu somme à l'arriéré final).
-    _computeLoyerNetting(lotMonths, graceLast).retardMois.forEach((rm, idx) => {
+    // Calculé sur les seuls mois EXIGIBLES : un mois non échu (compté au constat parce qu'il
+    // porte déjà un encaissement — décision « B ») ne peut pas être « en retard ». Les mois
+    // au-delà de `dueMonth` gardent donc un retard de 0.
+    _computeLoyerNetting(lotMonths.slice(0, dueMonth), graceLast).retardMois.forEach((rm, idx) => {
       const b = buckets[order[idx]];
       b.loyerRetard += rm.loyer; b.chargeRetard += rm.charge;
     });
@@ -162,5 +190,7 @@ export function _computeFinancesMonthly(input) {
   finalizeDerived(annual);
 
   const interetsTotal = annual.interets;
-  return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0 };
+  // Les bornes effectivement appliquées sont RENDUES : l'appelant (et les tests) peuvent
+  // vérifier quelle fenêtre a réellement piloté le calcul, au lieu de le supposer.
+  return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0, lastMonth, dueMonth };
 }

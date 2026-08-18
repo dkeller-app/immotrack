@@ -219,3 +219,15 @@ describe('INVARIANT I-1 — le harnais n\'est pas aveugle hors de 2026', () => {
     expect(pnl(c.avant, '2027-03').loyersBrut).toBe(900);
   });
 });
+
+describe("INVARIANT I-1 — garde-fous du harnais", () => {
+  it("une dateEffet hors de l’exercice est refusee (le harnais mesurerait a cote)", () => {
+    expect(() => casReferenceIRL({ annee: 2026, dateEffet: '2027-08-01' })).toThrow(RangeError);
+  });
+
+  it("une « surface » qui n’est pas une fonction est signalee, pas ignoree", () => {
+    const v = infractionsI1({ ...CAS, surfaces: { 'pas une fonction': 42 } });
+    expect(v.length).toBe(CAS.moisFiges.length);
+    expect(v[0].raison).toBe('surface-invalide');
+  });
+});

@@ -178,13 +178,14 @@ export function resolveScope(selection, logements, opts) {
     imms, nbImm, sciWeight,
     fallbacks,
     fallback: fallbacks.length ? fallbacks[0] : null,   // compat : le 1er repli
-    refs: [], refSet: null, refStricts: null, refAmbigus: null, nbLots: 0, label: ''
+    refs: [], refSet: null, refStricts: null, refAmbigus: null, immSet: null, nbLots: 0, label: ''
   };
   scope.refs = scopeRefs(scope, lots);
   // Index des refs : `scopeWeight` est appelé une fois PAR MOUVEMENT par chaque moteur
   // (60 lots × 8 000 mouvements = ~500 k normalisations par passe si on scanne).
   scope.refSet = new Set(scope.refs.map(_nr));           // rapprochement TOLÉRANT (trim+casse)
   scope.refStricts = new Set(scope.refs);                // rapprochement STRICT (parité prod)
+  scope.immSet = new Set(imms);                          // mouvements de niveau immeuble
   // Refs AMBIGUËS du PARC : une ref normalisée qui désigne plusieurs lots (« M1 » et « m1 »).
   // La tolérance ne doit jamais créer d'argent — sur ces refs on repasse en strict, sinon le
   // même mouvement pèserait 1 dans deux vues immeuble et Σ vues > vue bailleur.
@@ -214,12 +215,20 @@ export function resolveScope(selection, logements, opts) {
 export function orphelinsHorsPerimetre(mouvements, logements) {
   const refs = new Set(_liveLots(logements).map((l) => _nr(l.ref)).filter(Boolean));
   const imms = new Set(_liveLots(logements).map((l) => _s(l.imm)).filter(Boolean));
+  const ents = new Set(_liveLots(logements).map((l) => _s(l.entity)).filter(Boolean));
   const inconnues = new Set();
   let nb = 0, montant = 0;
   (Array.isArray(mouvements) ? mouvements : []).forEach((mv) => {
     if (!mv || mv._deleted) return;
     const qui = _s(mv.qui), imm = _s(mv.imm);
-    if (qui.indexOf('SCI:') === 0) return;                 // frais bailleur : rattaché par `ent`
+    // Frais de niveau bailleur : rattachés via `ent`… à condition que le bailleur EXISTE
+    // encore. « SCI:<entité supprimée> » n'est visible dans aucun périmètre : c'est un orphelin.
+    if (qui.indexOf('SCI:') === 0) {
+      if (ents.has(qui.slice(4))) return;
+      inconnues.add(qui);
+      nb++; montant += Math.abs((Number(mv.cr) || 0) - (Number(mv.db) || 0));
+      return;
+    }
     if (qui) { if (refs.has(_nr(qui))) return; inconnues.add(qui); }
     else if (imm && imms.has(imm)) return;
     nb++;
@@ -299,7 +308,10 @@ export function scopeWeight(scope, mv) {
     const n = Number(w);
     return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
   }
-  if (!qui && scope.imms.indexOf(_s(mv.imm)) >= 0) return 1;
+  if (!qui) {
+    const im = _s(mv.imm);
+    if (scope.immSet ? scope.immSet.has(im) : (scope.imms || []).indexOf(im) >= 0) return 1;
+  }
   return 0;
 }
 

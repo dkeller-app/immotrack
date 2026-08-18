@@ -30,6 +30,7 @@
  */
 
 import { _LOYER_TOLERANCE_JOUR, _loyerTodayLocal } from './loyer-statut.js';
+import { inScope as _mvDansScope } from './finances-scope.js';
 import { MOIS_FR } from './utils.js';
 
 export const WINDOW_KIND = { CONSTAT: 'constat', EXIGIBILITE: 'exigibilite' };
@@ -67,14 +68,40 @@ function _annee(year) {
 }
 
 /**
+ * Normalise un « périmètre » en PRÉDICAT UNAIRE `(mv) => bool`.
+ *
+ * Garde-fou d'arité (audit I2) : `finances-scope.inScope` est BINAIRE `(scope, mv)`. Le geste
+ * naturel — la passer ici telle quelle — la faisait appeler avec un seul argument : `mv`
+ * devenait `undefined`, tout mouvement sortait du périmètre, et la fenêtre de constat cessait
+ * SILENCIEUSEMENT de voir les post-datés (l'exact contraire de la décision « B »).
+ * On accepte donc l'OBJET scope (forme recommandée) et on refuse bruyamment la fonction
+ * binaire, plutôt que de renvoyer un chiffre faux.
+ *
+ * @param {Object|function|null} perimetre scope de finances-scope, ou prédicat unaire
+ * @returns {function|null}
+ */
+function _filtrePerimetre(perimetre) {
+  if (!perimetre) return null;
+  if (typeof perimetre === 'object') return (mv) => _mvDansScope(perimetre, mv);
+  if (typeof perimetre !== 'function') return null;
+  if (perimetre.length >= 2) {
+    throw new TypeError(
+      'finances-window : périmètre invalide — une fonction binaire (scope, mv) a été reçue. '
+      + "Passe l'OBJET scope (resolveScope(...)), pas finances-scope.inScope.");
+  }
+  return perimetre;
+}
+
+/**
  * Dernier mois de l'exercice contenant un mouvement CONNU (tombstones exclus, périmètre
  * respecté). 0 = aucun. Exposé : la fenêtre de constat en dépend entièrement.
  * @param {Array} mouvements DB.mouvements
  * @param {number|string} year exercice
- * @param {function} [inScope] prédicat de périmètre (cf finances-scope.inScope) — un
- *        mouvement post-daté HORS périmètre ne doit pas étendre la fenêtre affichée.
+ * @param {Object|function} [perimetre] scope de finances-scope (recommandé) ou prédicat
+ *        unaire — un mouvement post-daté HORS périmètre ne doit pas étendre la fenêtre.
  */
-export function lastMovementMonth(mouvements, year, inScope) {
+export function lastMovementMonth(mouvements, year, perimetre) {
+  const inScope = _filtrePerimetre(perimetre);
   const yr = String(year);
   let last = 0;
   (Array.isArray(mouvements) ? mouvements : []).forEach((mv) => {
@@ -132,13 +159,15 @@ export function computeExigibiliteWindow(input) {
  * S'étend jusqu'au dernier mois contenant un mouvement, mois non échus compris ; ceux-ci
  * portent `future: true` (l'UI les grise et les marque « à venir » — l'utilisateur doit
  * voir d'où vient le dépassement, pas le subir).
- * @param {{year:number|string, today?:string, mouvements?:Array, inScope?:function}} input
+ * @param {{year:number|string, today?:string, mouvements?:Array, scope?:Object,
+ *          filtreMouvement?:function}} input `scope` = sortie de resolveScope (recommandé).
  */
 export function computeConstatWindow(input) {
   const i = input || {};
   const t = _today(i.today);
   const due = _dernierMoisEchu(i.year, t);
-  const last = Math.max(due, lastMovementMonth(i.mouvements, i.year, i.inScope));
+  const perimetre = i.scope || i.filtreMouvement || i.inScope;
+  const last = Math.max(due, lastMovementMonth(i.mouvements, i.year, perimetre));
   return _makeWindow(WINDOW_KIND.CONSTAT, i.year, t, last, due);
 }
 

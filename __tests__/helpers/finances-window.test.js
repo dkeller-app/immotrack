@@ -6,6 +6,7 @@ import {
 } from '../../js/core/finances-window.js';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
 import { _loyerTodayLocal } from '../../js/core/loyer-statut.js';
+import { resolveScope, inScope } from '../../js/core/finances-scope.js';
 
 // 13/09/2026 — le cas du CDC : 9 mois échus, un loyer déjà encaissé en octobre (post-daté).
 const TODAY = '2026-09-13';
@@ -27,12 +28,12 @@ describe('finances-window — fenêtre d\'EXIGIBILITÉ (F-1)', () => {
     expect(w.nbMois).toBe(9);
   });
 
-  it('un mouvement post-daté N\'ÉTEND PAS l\'exigibilité (on n\'est pas en retard sur un dû à venir)', () => {
+  it("un mouvement post-daté N\'ÉTEND PAS l\'exigibilité (on n\'est pas en retard sur un dû à venir)", () => {
     const w = computeExigibiliteWindow({ year: 2026, today: TODAY, mouvements: MVTS });
     expect(w.lastMonth).toBe(9);
   });
 
-  it('aucun mois n\'est « à venir » dans la fenêtre d\'exigibilité', () => {
+  it("aucun mois n\'est « à venir » dans la fenêtre d\'exigibilité", () => {
     const w = computeExigibiliteWindow({ year: 2026, today: TODAY });
     expect(w.months.every(m => m.future === false)).toBe(true);
   });
@@ -43,7 +44,7 @@ describe('finances-window — fenêtre d\'EXIGIBILITÉ (F-1)', () => {
     expect(w.toYm).toBe('2025-12');
   });
 
-  it('exercice à venir → fenêtre VIDE (rien n\'est encore exigible)', () => {
+  it("exercice à venir → fenêtre VIDE (rien n\'est encore exigible)", () => {
     const w = computeExigibiliteWindow({ year: 2027, today: TODAY });
     expect(w.lastMonth).toBe(0);
     expect(w.months).toEqual([]);
@@ -82,17 +83,17 @@ describe('finances-window — fenêtre de CONSTAT (F-1 v2, décision « B »)', 
     expect(w.months.some(m => m.future)).toBe(false);
   });
 
-  it('un mouvement supprimé n\'étend jamais la fenêtre', () => {
+  it("un mouvement supprimé n\'étend jamais la fenêtre", () => {
     const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
     expect(w.lastMonth).toBe(10);          // novembre (tombstone) ignoré
   });
 
-  it('les mouvements d\'un autre exercice n\'entrent pas dans le calcul', () => {
+  it("les mouvements d\'un autre exercice n\'entrent pas dans le calcul", () => {
     const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: [{ date: '2027-05-01' }] });
     expect(w.lastMonth).toBe(9);
   });
 
-  it('la fenêtre respecte le PÉRIMÈTRE : un post-daté hors périmètre ne l\'étend pas', () => {
+  it("la fenêtre respecte le PÉRIMÈTRE : un post-daté hors périmètre ne l\'étend pas", () => {
     const inScope = (m) => m.qui === 'L1';
     const hors = MVTS.map(m => (m.date === '2026-10-02' ? { ...m, qui: 'AUTRE' } : m));
     expect(computeConstatWindow({ year: 2026, today: TODAY, mouvements: hors, inScope }).lastMonth).toBe(9);
@@ -124,7 +125,7 @@ describe('finances-window — fenêtre de CONSTAT (F-1 v2, décision « B »)', 
     expect(lastMovementMonth(null, 2026)).toBe(0);
   });
 
-  it('une date malformée ne casse ni n\'étend la fenêtre', () => {
+  it("une date malformée ne casse ni n\'étend la fenêtre", () => {
     expect(lastMovementMonth([{ date: '2026-13-01' }, { date: 'n/a' }, { date: null }], 2026)).toBe(0);
   });
 });
@@ -185,20 +186,20 @@ describe('finances-window — alignement du comparatif N-1', () => {
     expect(n1.dueMonth).toBe(n1.lastMonth);
   });
 
-  it('le libellé N-1 annonce l\'alignement', () => {
+  it("le libellé N-1 annonce l\'alignement", () => {
     const n1 = alignPreviousYear(computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS }));
     expect(n1.aligned).toBe(true);
     expect(n1.label).toBe('2025 · même période (10 mois)');
   });
 
-  it('alignement d\'une fenêtre d\'exigibilité : même règle', () => {
+  it("alignement d\'une fenêtre d\'exigibilité : même règle", () => {
     const n1 = alignPreviousYear(computeExigibiliteWindow({ year: 2026, today: TODAY }));
     expect(n1.kind).toBe(WINDOW_KIND.EXIGIBILITE);
     expect(n1.lastMonth).toBe(9);
     expect(n1.label).toBe('2025 · même période (9 mois)');
   });
 
-  it('alignement d\'une fenêtre vide → fenêtre vide', () => {
+  it("alignement d\'une fenêtre vide → fenêtre vide", () => {
     const n1 = alignPreviousYear(computeExigibiliteWindow({ year: 2027, today: TODAY }));
     expect(n1.empty).toBe(true);
     expect(n1.months).toEqual([]);
@@ -209,29 +210,79 @@ describe('finances-window — alignement du comparatif N-1', () => {
   });
 });
 
-describe('finances-window — composition avec le moteur mensuel (cible étape 2)', () => {
+describe('finances-window — composition avec le moteur mensuel (contrat étape 2)', () => {
   const catLigne = (c) => (c === 'Loyer' ? { ligne2044: '211', type: 'recette' } : null);
-  const run = (lastMonth) => _computeFinancesMonthly({
-    mouvements: MVTS, year: 2026, scope: null, catLigne, today: TODAY, lastMonth
-  });
+  // LE GESTE JUSTE : on passe la FENÊTRE, jamais un entier (audit A1). Le moteur y lit
+  // `lastMonth` (constat) pour les mois produits ET `dueMonth` (exigibilité) pour le retard.
+  const run = (window, extra) => _computeFinancesMonthly(Object.assign({
+    mouvements: MVTS, year: 2026, scope: null, catLigne, today: TODAY, window
+  }, extra || {}));
 
-  it('fenêtre de CONSTAT : le loyer post-daté d\'octobre entre enfin dans l\'exercice (constat 26)', () => {
-    const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
-    const r = run(w.lastMonth);
+  it("fenêtre de CONSTAT : le loyer post-daté d'octobre entre enfin dans l'exercice (constat 26)", () => {
+    const r = run(computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS }));
     expect(r.months.map(m => m.ym)).toContain('2026-10');
     expect(r.annual.loyersBrut).toBe(2400);          // janv + sept + oct
   });
 
-  it('fenêtre d\'EXIGIBILITÉ : octobre reste hors du dû (comportement actuel)', () => {
-    const w = computeExigibiliteWindow({ year: 2026, today: TODAY });
-    const r = run(w.lastMonth);
+  it("fenêtre d'EXIGIBILITÉ : octobre reste hors du dû", () => {
+    const r = run(computeExigibiliteWindow({ year: 2026, today: TODAY }));
     expect(r.months.map(m => m.ym)).not.toContain('2026-10');
     expect(r.annual.loyersBrut).toBe(1600);
   });
 
   it('les mois de la fenêtre et ceux du moteur coïncident exactement', () => {
     const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
-    expect(run(w.lastMonth).months.map(m => m.ym)).toEqual(w.months.map(m => m.ym));
+    expect(run(w).months.map(m => m.ym)).toEqual(w.months.map(m => m.ym));
+  });
+
+  it("A1 : le moteur RESTITUE les deux bornes qu'il a appliquées", () => {
+    const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
+    const r = run(w);
+    expect(r.lastMonth).toBe(10);      // constat
+    expect(r.dueMonth).toBe(9);        // exigibilité
+  });
+
+  // ── LE PIÈGE que la décision « B » posait, désormais fermé ──────────────────
+  it('A1 : la décision « B » ne fabrique PLUS de retard fantôme sur le mois courant', () => {
+    const tot = '2026-09-03';          // avant le 10 → tolérance de début de mois active
+    const loyerDue = () => ({ hc: 800, ch: 0 });
+    const mvtsPostDate = [{ date: '2026-10-02', cat: 'Loyer', qui: 'L1', cr: 800, db: 0 }];
+    const base = { mouvements: mvtsPostDate, year: 2026, scope: null, catLigne, today: tot,
+                   activeLots: ['L1'], loyerDue };
+    const w = computeConstatWindow({ year: 2026, today: tot, mouvements: mvtsPostDate });
+    expect(w.lastMonth).toBe(10);
+    expect(w.dueMonth).toBe(9);
+
+    const r = _computeFinancesMonthly({ ...base, window: w });
+    const sept = r.months.find(m => m.ym === '2026-09');
+    const octo = r.months.find(m => m.ym === '2026-10');
+    expect(sept.loyerRetard).toBe(0);   // tolérance respectée : elle suit dueMonth
+    expect(octo.loyerRetard).toBe(0);   // un mois NON ÉCHU ne peut pas être en retard
+    expect(octo.loyersBrut).toBe(800);  // …mais son encaissement est bien compté (décision B)
+
+    // Le geste fautif d'avant (entier de constat) fabriquait ~800 € de retard par lot.
+    const fautif = _computeFinancesMonthly({ ...base, lastMonth: w.lastMonth });
+    expect(fautif.months.find(m => m.ym === '2026-09').loyerRetard).toBe(800);
+  });
+
+  it('A2 : une fenêtre VIDE produit ZÉRO mois, plus de janvier fantôme', () => {
+    const w = computeExigibiliteWindow({ year: 2027, today: TODAY });
+    expect(w.empty).toBe(true);
+    const r = _computeFinancesMonthly({
+      mouvements: [], year: 2027, scope: null, catLigne, today: TODAY, window: w
+    });
+    expect(r.months).toEqual([]);
+    expect(r.lastMonth).toBe(0);
+    expect(r.annual.loyersBrut).toBe(0);
+    expect(r.annual.cashflowReel).toBe(0);
+  });
+
+  it('rétrocompatible : un entier `lastMonth` reste accepté (appelants historiques)', () => {
+    const r = _computeFinancesMonthly({
+      mouvements: MVTS, year: 2026, scope: null, catLigne, today: TODAY, lastMonth: 2
+    });
+    expect(r.months.map(m => m.ym)).toEqual(['2026-01', '2026-02']);
+    expect(r.dueMonth).toBe(2);        // les 2 bornes se confondent, comme avant
   });
 });
 
@@ -253,20 +304,22 @@ describe('finances-window — robustesse (corrections d\'audit)', () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it('I2 : CONTRAT de la fenêtre vide — l\'appelant DOIT court-circuiter le moteur mensuel', () => {
+  it("A2 : fenetre vide — le moteur ne fabrique plus de janvier fantome", () => {
     const w = computeExigibiliteWindow({ year: 2027, today: TODAY });
     expect(w.empty).toBe(true);
     expect(w.lastMonth).toBe(0);
     expect(w.months).toEqual([]);
-    // Preuve du piège que l'étape 2 doit éviter : `lastMonth: 0` passé tel quel au moteur est
-    // remonté à 1 (finances-monthly.js:52-54) et fabrique un mois de janvier FANTÔME.
+    // Avant A2, `lastMonth: 0` etait remonte a 1 par le moteur (Math.max(1, …)) et produisait
+    // un mois de janvier ABSENT de la fenetre. Passee en OBJET, la fenetre est desormais
+    // respectee a la lettre : zero mois exigible = zero mois produit.
     const r = _computeFinancesMonthly({
-      mouvements: [], year: 2027, scope: null, catLigne, today: TODAY, lastMonth: w.lastMonth
+      mouvements: [], year: 2027, scope: null, catLigne, today: TODAY, window: w
     });
-    expect(r.months.map(m => m.ym)).toEqual(['2027-01']);   // ← absent de la fenêtre : à ne PAS afficher
+    expect(r.months).toEqual([]);
+    expect(r.lastMonth).toBe(0);
   });
 
-  it('M1 : en décembre de l\'exercice EN COURS, le libellé ne ment pas (« année complète »)', () => {
+  it("M1 : en décembre de l\'exercice EN COURS, le libellé ne ment pas (« année complète »)", () => {
     const enCours = computeConstatWindow({ year: 2026, today: '2026-12-05' });
     expect(enCours.lastMonth).toBe(12);
     expect(enCours.label).toBe('Exercice 2026 · tout ce qui est saisi au 05/12');
@@ -275,7 +328,7 @@ describe('finances-window — robustesse (corrections d\'audit)', () => {
       .toBe('Exercice 2026 · année complète');
   });
 
-  it('M3 : isFutureMonth ignore les mois d\'un AUTRE exercice', () => {
+  it("M3 : isFutureMonth ignore les mois d\'un AUTRE exercice", () => {
     const w = computeConstatWindow({ year: 2026, today: TODAY, mouvements: MVTS });
     expect(isFutureMonth(w, '2026-10')).toBe(true);
     expect(isFutureMonth(w, '2027-10')).toBe(false);   // même n° de mois, autre exercice
@@ -295,5 +348,42 @@ describe('finances-window — robustesse (corrections d\'audit)', () => {
     const c = computeConstatWindow({ year: 'oups', today: TODAY, mouvements: MVTS });
     expect(c.empty).toBe(true);
     expect(c.months).toEqual([]);
+  });
+});
+
+// ── I2 · collision d’arite sur le perimetre ────────────────────────────────
+describe("finances-window — perimetre : garde-fou d’arite (I2)", () => {
+  const PARC = [
+    { ref: 'A1', entity: 'SCI Alpha', imm: 'Lilas' },
+    { ref: 'D1', entity: 'Dupont', imm: 'Chenes' }
+  ];
+  const MV = [
+    { date: '2026-09-03', qui: 'A1', cr: 800, db: 0 },
+    { date: '2026-10-02', qui: 'A1', cr: 800, db: 0 },   // post-date DANS le perimetre
+    { date: '2026-11-02', qui: 'D1', cr: 900, db: 0 }    // post-date HORS perimetre
+  ];
+  const win = (perimetre) => computeConstatWindow(
+    Object.assign({ year: 2026, today: TODAY, mouvements: MV }, perimetre));
+
+  it("l’OBJET scope est la forme attendue : le perimetre borne la fenetre", () => {
+    expect(win({ scope: resolveScope({ ent: 'SCI Alpha' }, PARC) }).lastMonth).toBe(10);
+    expect(win({ scope: resolveScope({ ent: 'Dupont' }, PARC) }).lastMonth).toBe(11);
+    expect(win({ scope: resolveScope({}, PARC) }).lastMonth).toBe(11);
+  });
+
+  it("passer finances-scope.inScope (binaire) LEVE une erreur au lieu de tout vider", () => {
+    // Avant correction : chaque mouvement sortait du perimetre en silence, la fenetre
+    // retombait a 9 et la decision « B » etait annulee sans que personne ne le voie.
+    expect(() => win({ inScope })).toThrow(TypeError);
+    expect(() => win({ inScope })).toThrow(/binaire/);
+    expect(() => lastMovementMonth(MV, 2026, inScope)).toThrow(/OBJET scope/);
+  });
+
+  it("un predicat UNAIRE reste accepte (echappatoire documentee)", () => {
+    expect(win({ filtreMouvement: (mv) => mv.qui === 'A1' }).lastMonth).toBe(10);
+  });
+
+  it("aucun perimetre = tout le patrimoine", () => {
+    expect(win({}).lastMonth).toBe(11);
   });
 });
