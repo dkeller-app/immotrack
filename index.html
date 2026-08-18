@@ -12534,6 +12534,67 @@ function _duMoisLot(ref, ym) {
     : { hc: 0, ch: 0 };
   return { hc: s.hc || 0, ch: s.ch || 0, total: (s.hc || 0) + (s.ch || 0), source: 'bail' };
 }
+// ════════════════════════════════════════════════════════════════════════════
+// CDC-QUITTANCES-IRL étape 1 — LE VERDICT « ce mois est-il soldé ? » d'un lot.
+//
+// Ici on n'assemble QUE le contexte : le dû vient de _duMoisLot (bail + barème historisé,
+// résolveur unique), le payé des mouvements de loyer encaissés. L'IMPUTATION — quel
+// paiement couvre quel mois — n'est PAS écrite ici : elle est déléguée à
+// js/core/loyers-mois.js, qui consomme `_loyerArrearsPass` (cascade loyer→charges→arriérés
+// FIFO + netting avance↔retard). C'est l'invariant I6 : une seule source d'imputation.
+// Le 7ᵉ moteur (_matcheMois, qui rattachait un paiement au mois de sa propre date) est
+// supprimé, pas corrigé (C3).
+//
+// Fenêtre de suivi = _debutSuivi → mois courant, la même borne que les 5 surfaces (B2) :
+// pas de dette fantôme sur des années sans données.
+// Retourne null si le module n'est pas chargé (file://) — les appelants dégradent.
+function _loyerEtatLot(ref, opts) {
+  opts = opts || {};
+  if (typeof window === 'undefined' || typeof window.etatMoisLot !== 'function'
+      || typeof window.ymRange !== 'function') return null;
+  const key = String(ref) + '|' + (opts.graceLast ? 'g' : 's');
+  const gen = ((typeof window._dbGen !== 'undefined') ? window._dbGen : 0) + '|'
+    + ((typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : '');
+  const C = window._loyerEtatCache || (window._loyerEtatCache = { gen: -1, map: {} });
+  if (C.gen !== gen) { C.gen = gen; C.map = {}; }
+  if (C.map[key]) return C.map[key];
+
+  const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
+  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const recuParYm = {};
+  let firstPaymentYm = null;
+  for (const m of (DB.mouvements || [])) {
+    if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
+    const ym = String(m.date).slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+    recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
+    if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
+  }
+  const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
+  const bails = (typeof window.bailsFromRaw === 'function') ? window.bailsFromRaw(ref, raw) : [];
+  const startYm = (typeof window._debutSuivi === 'function')
+    ? window._debutSuivi({ ref, bails, bareme: DB.loyerBareme || [] }, firstPaymentYm) : null;
+  const endYm = ((typeof window._loyerTodayLocal === 'function')
+    ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10)).slice(0, 7);
+  const months = (startYm && startYm <= endYm)
+    ? window.ymRange(startYm, endYm).map(ym => {
+        const d = _duMoisLot(ref, ym);
+        return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0 };
+      })
+    : [];
+  const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast });
+  C.map[key] = etat;
+  return etat;
+}
+
+// Montant DÉJÀ IMPUTÉ à un mois donné (dû − résidu). Seule porte d'entrée du « payé du mois »
+// pour les surfaces : personne ne re-somme les mouvements d'un mois calendaire.
+function _loyerPayeDuMois(ref, ym) {
+  const e = _loyerEtatLot(ref);
+  const m = e && e.byYm && e.byYm[ym];
+  return m ? Math.round((m.du - m.reste) * 100) / 100 : 0;
+}
+
 // Dû proraté d'un mois (total) — DÉLÈGUE au résolveur unique _duMoisLot (bail + barème).
 function _getActiveBailHcChProrated(ref, yr, monthIdx0) {
   const s = _getActiveBailHcChProratedSplit(ref, yr, monthIdx0);
@@ -14980,7 +15041,9 @@ function rAlertsSection(activeEnt) {
       const log = (DB.logements||[]).find(l => l.ref === q.logement);
       if (!log) continue;
       if (activeEnt && log.entity !== activeEnt) continue;
-      const s = _statutQuittance(q, DB.mouvements||[], today);
+      const _qYm = (typeof window !== 'undefined' && typeof window.moisFrToYm === 'function')
+        ? window.moisFrToYm(q.mois) : null;
+      const s = _statutQuittance(q, { montantPaye: _qYm ? _loyerPayeDuMois(q.logement, _qYm) : 0 }, today);
       const meta = _escaladeAlerte(s.statut);
       if (s.statut === QUITTANCE_STATUS.PAYEE || s.statut === QUITTANCE_STATUS.ATTENDUE) continue;
       const rEsc = escHtml(q.logement);
@@ -27714,8 +27777,12 @@ function rQuit() {
   // Calcul statuts pour chaque quittance (v15.14)
   const today = new Date();
   const quitWithStatut = quittances.map(q => {
+    // Le « payé » d'un mois vient de la cascade unique (_loyerPayeDuMois), plus d'un
+    // rattachement paiement→mois local (I6).
+    const _qYm = (typeof window !== 'undefined' && typeof window.moisFrToYm === 'function')
+      ? window.moisFrToYm(q.mois) : null;
     const r = (typeof _statutQuittance === 'function')
-      ? _statutQuittance(q, DB.mouvements || [], today)
+      ? _statutQuittance(q, { montantPaye: _qYm ? _loyerPayeDuMois(q.logement, _qYm) : 0 }, today)
       : { statut: 'attendue', montantPaye: 0, montantAttendu: (q.hc||0)+(q.ch||0), joursRetard: 0 };
     return { q, statut: r.statut, montantPaye: r.montantPaye, montantAttendu: r.montantAttendu, joursRetard: r.joursRetard };
   });
@@ -28391,26 +28458,17 @@ function _qaMoisToDate(moisStr) {
   return null;
 }
 
-function _qaMatcheMois(mvt, moisStr) {
-  if (!mvt || !mvt.date || !moisStr) return false;
-  const d = _qaMoisToDate(moisStr);
-  if (!d) return false;
-  const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  return mvt.date.startsWith(ym);
-}
-
-function _statutQuittance(quittance, mouvements, dateRef) {
+// CDC-QUITTANCES-IRL étape 1 (C3/I6) — `_qaMatcheMois` est SUPPRIMÉ : il rattachait un
+// paiement au mois calendaire de sa date (7ᵉ moteur d'imputation). Le montant imputé à un
+// mois vient désormais de la cascade unique, via `_loyerPayeDuMois(ref, ym)`.
+function _statutQuittance(quittance, ctx, dateRef) {
   if (!quittance) {
     return { statut: QUITTANCE_STATUS.ATTENDUE, montantAttendu: 0, montantPaye: 0, joursRetard: 0 };
   }
   const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
   const montantAttendu = (Number(quittance.hc)||0) + (Number(quittance.ch)||0);
-  const ref = quittance.logement;
   const mois = quittance.mois;
-  const paiements = (mouvements||[]).filter(m =>
-    m && !m._deleted && m.qui === ref && (m.cr||0) > 0 && _qaMatcheMois(m, mois)
-  );
-  const montantPaye = paiements.reduce((s,m) => s + (Number(m.cr)||0), 0);
+  const montantPaye = Math.max(0, Number(ctx && ctx.montantPaye) || 0);
   if (quittance.miseEnDemeureEnvoyee) {
     return { statut: QUITTANCE_STATUS.MISE_EN_DEMEURE, montantAttendu, montantPaye, joursRetard: 0 };
   }
