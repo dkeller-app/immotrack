@@ -4550,7 +4550,7 @@ function _isModuleEnabled(moduleKey, profile, overrides) {
   const p = profile || (DB && DB.params && DB.params.userProfile) || 'solo';
   // Modules toujours actifs (cœur fonctionnel)
   const CORE = ['dashboard-simple','biens','locataires','baux','mouvements',
-                'quittances','irl','edl','mrh','params','agenda','documents'];
+                'loyers','edl','mrh','params','agenda','documents'];
   if (CORE.includes(moduleKey)) return true;
   // Matrice par profil (Phase 6.1.2 complétera). Default conservatif :
   // solo masque les modules "pro" ; tous les autres profils activent tout.
@@ -5186,8 +5186,14 @@ function _applyDataDefaults() {
   if (!DB.edl) DB.edl = [];
   if (!DB.candidats) DB.candidats = []; // LOG-CANDIDATS — pipeline candidatures (jamais de données démo auto)
   if (!DB.irlTable || Object.keys(DB.irlTable).length === 0) DB.irlTable = {...IRL_DEFAULT};
-  // Réinjecter trimestres manquants sans écraser valeurs custom
-  Object.entries(IRL_DEFAULT).forEach(([k,v])=>{ if(!(k in DB.irlTable)) DB.irlTable[k]=v; });
+  // I12 — le FILET : compléter les trimestres inconnus sans jamais écraser une valeur locale.
+  // Une seule implémentation de cette règle, celle du module (js/core/irl-insee.js) ; la
+  // boucle inline qui la doublait est supprimée. Repli si le module n'est pas chargé (file://).
+  if (typeof window !== 'undefined' && window.IrlInsee && typeof window.IrlInsee.completerAvecFilet === 'function') {
+    DB.irlTable = window.IrlInsee.completerAvecFilet(DB.irlTable, IRL_DEFAULT);
+  } else {
+    Object.entries(IRL_DEFAULT).forEach(([k,v])=>{ if(!(k in DB.irlTable)) DB.irlTable[k]=v; });
+  }
   // Corrections silencieuses de valeurs erronées connues (bug copier-coller historique)
   // Correction auto des valeurs erronées connues (ancienne saisie incorrecte)
   const _irlFix = {
@@ -8014,7 +8020,10 @@ function go(page, elNav) {
   // d'aboutir. `quittances` désignait l'ancien onglet des quittances émises, absorbé par
   // « Loyers » ; la page « Loyer (IRL) » n'existe plus (sa table est un réglage).
   if(page === 'quittances') return go('loyers', elNav);
-  if(page === 'irl') return go('params', elNav);
+  // `irl` désignait l'onglet des RÉVISIONS : il est absorbé par « Loyers ». (Sa table
+  // d'indices, elle, est un réglage et vit dans Paramètres — on ne renvoie personne là-bas
+  // depuis une alerte de révision.)
+  if(page === 'irl') return go('loyers', elNav);
   // v14.3 PATRIMOINE-NAV-UNIFY : 'bailleurs' alias du hub Biens (mode bailleurs)
   if(page === 'bailleurs') {
     _biensViewMode = 'bailleurs';
@@ -10516,8 +10525,11 @@ function _renderDashV4Solo(ctx, wrap) {
     const subLine = mainLog.locataire ? esc(mainLog.locataire) : 'Vacant';
     const typoLine = typoBits.length ? ' · ' + typoBits.map(esc).join(' · ') : '';
     const addrLine = mainLog.adr ? '<div class="v4s-solo-addr">' + esc(mainLog.adr) + '</div>' : '';
-    // Action générer quittance : appelle la vraie fonction si dispo
-    const genFn = typeof openQuitGenerateFromLog === 'function' ? "openQuitGenerateFromLog('" + escRef.replace(/'/g,"\\'") + "')"
+    // CDC-QUITTANCES-IRL D4 — le geste d'émission est « ＋ Faire une quittance », pré-ciblé
+    // sur le lot. (`openQuitGenerateFromLog` était testé ici mais n'a jamais été défini dans
+    // ce fichier : la branche était morte, seul le repli s'exécutait.)
+    const genFn = typeof _openFaireQuittance === 'function'
+                ? "_openFaireQuittance('" + escRef.replace(/'/g,"\\'") + "')"
                 : "go('loyers')";
     // v15.38 fix : DPE est un OBJET ({classe, date, ...}) — extraire la lettre
     let dpeText = '';
@@ -10951,7 +10963,7 @@ function setParamsTab(tab, el2) {
   if(tab==='entites')   { go('bailleurs'); return; }
   setTab('#p-params',el2,'tp-');
   if(tab==='modele')  loadBailTemplateEditor();
-  if(tab==='global')  rParamsGlobal();
+  if(tab==='global')  { rParamsGlobal(); if (typeof rIRLParams === 'function') rIRLParams(); }
   if(tab==='partage') rParamsPartage();
   if(tab==='mandataire') rMandRef();
   if(tab==='rules')  rParamsRules();
@@ -25481,11 +25493,11 @@ function rIRLParams() {
       ? `<span title="L'INSEE publie ${m.divergence} pour ce trimestre — ta valeur est conservée" style="color:var(--ora,#b27a12);font-size:11px"> ⚠ INSEE : ${fmtN(m.divergence)}</span>` : '';
     return `<tr>
     <td><b>${escHtml(k)}</b></td>
-    <td class="num"><input class="edit-inp" type="number" step="0.01" value="${val}" onblur="updateIRL('${escHtml(k)}',this.value)" style="width:100px;text-align:right"></td>
+    <td class="num"><input class="edit-inp" type="number" step="0.01" value="${val}" onblur="updateIRL('${_lyQ(k)}',this.value)" style="width:100px;text-align:right"></td>
     <td class="num" style="color:${varColor};font-size:12px">${prev ? (val >= prev ? '+' : '') + variation + ' %' : '–'}</td>
     <td style="font-size:11.5px">${m.dateJo ? fd(m.dateJo) : '<span class="mu">—</span>'}</td>
     <td style="font-size:11px;color:${src[1]}">${src[0]}${diverge}</td>
-    <td class="act-cell"><button class="btn br bb" onclick="delIRL('${escHtml(k)}')">🗑</button></td>
+    <td class="act-cell"><button class="btn br bb" onclick="delIRL('${_lyQ(k)}')">🗑</button></td>
   </tr>`;
   }).join('') || '<tr><td colspan="6" class="mu" style="text-align:center;padding:16px">Aucun trimestre — la synchronisation INSEE les rapatriera.</td></tr>';
 
@@ -25617,6 +25629,7 @@ function quickAddIRL(key, ref) {
   const n = parseFloat(String(val).replace(',','.'));
   if(isNaN(n) || n <= 0) { showToast('Valeur invalide','err'); return; }
   DB.irlTable[key] = Math.round(n*100)/100;
+  _irlMarquerManuel(key);          // I11 : sans ça, la synchro INSEE l'écrase au prochain boot
   saveDB(); refreshAllIRL();
   showToast(`${key} = ${DB.irlTable[key]} enregistré ✓`,'ok');
 }
@@ -27800,12 +27813,16 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   const totalRecu = (opts.totalRecu != null)
     ? (Number(opts.totalRecu) || 0)
     : ((prefixMois && typeof _loyerPayeDuMois === 'function') ? _loyerPayeDuMois(q.logement, prefixMois) : 0);
-  // Date « reçu le » — AFFICHAGE seulement (aucune imputation) : dernier encaissement de
-  // loyer du lot connu à la clôture du mois quittancé.
-  const _finMois = dateFin ? (anneeQ+'-'+String(moisIdx+1).padStart(2,'0')+'-'+String(dateFin.getDate()).padStart(2,'0')) : null;
+  // Date « reçu le » — AFFICHAGE seulement (aucune imputation) : le dernier encaissement de
+  // loyer du lot connu À L'ÉMISSION du document.
+  // ⚠️ Borner à la fin du mois quittancé serait FAUX : un loyer d'août réglé le 2 septembre
+  // — le cas d'école de ce chantier — serait exclu, et la quittance d'août afficherait la
+  // date d'un versement de juillet. Une quittance ne naît que sur un mois soldé (D6), donc
+  // le paiement qui l'a soldée est antérieur à son émission.
+  const _borne = String(q.date || td()).slice(0, 10);
   const _mvsLot = (opts.mvsPay != null) ? opts.mvsPay
-    : ((typeof DB !== 'undefined' && _finMois)
-        ? DB.mouvements.filter(m=>m && !m._deleted && m.qui===q.logement && _isLoyerCategory(m.cat) && (m.cr||0)>0 && m.date && m.date<=_finMois)
+    : ((typeof DB !== 'undefined')
+        ? DB.mouvements.filter(m=>m && !m._deleted && m.qui===q.logement && _isLoyerCategory(m.cat) && (m.cr||0)>0 && m.date && m.date<=_borne)
         : []);
   const datePayTrouvee = _mvsLot.length ? _mvsLot.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0].date : null;
   const datePay = datePayTrouvee ? fd(datePayTrouvee) : (q.datePaiement ? fd(q.datePaiement) : fd(q.date));
@@ -27815,9 +27832,14 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   // ≠ re-calculer, donc une révision IRL postérieure ne change jamais une quittance déjà émise.
   // (Le prorata entrée/sortie mi-mois est désormais figé à la CRÉATION, plus corrigé ici.)
   // Repli (quittance legacy sans montant) : le BARÈME DU MOIS, jamais le bail courant (C4/I5).
-  if ((q.hc == null && q.ch == null) && prefixMois && typeof _duMoisLot === 'function') {
+  // CHAMP PAR CHAMP : une quittance qui ne porte que ses charges garde ses charges et
+  // récupère son loyer au barème (même politique de repli symétrique que `duMois`).
+  if ((q.hc == null || q.ch == null) && prefixMois && typeof _duMoisLot === 'function') {
     const _d = _duMoisLot(q.logement, prefixMois);
-    q = Object.assign({}, q, { hc: _d.hc || 0, ch: _d.ch || 0 });
+    q = Object.assign({}, q, {
+      hc: q.hc == null ? (_d.hc || 0) : q.hc,
+      ch: q.ch == null ? (_d.ch || 0) : q.ch
+    });
   }
   const total = (q.hc||0)+(q.ch||0);
   const isProrata = false;
@@ -28185,9 +28207,15 @@ function delQuit(id) {
 /** Les lots à considérer : vivants, dans l'entité active, avec un bail (occupés). */
 function _lyLots() {
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const _nr = (x) => String(x == null ? '' : x).trim().toLowerCase();
+  // Un bail ARCHIVÉ compte encore : une dette ne s'éteint pas au départ du locataire, et
+  // c'est justement là qu'on a besoin du courrier de relance (D9 : « jusqu'au solde »).
+  // Les lots soldés retombent naturellement hors des trois blocs.
+  const aEuUnBail = (ref) => !!_findBailByRefTolerant(ref)
+    || (DB.baux_historique || []).some(b => b && !b._deleted && _nr(b.ref) === _nr(ref));
   return (DB.logements || []).filter(alive)
     .filter(l => (typeof _logInEnt !== 'function') || _logInEnt(l))
-    .filter(l => !!_findBailByRefTolerant(l.ref));
+    .filter(l => aEuUnBail(l.ref));
 }
 
 /** Les 'YYYY-MM' déjà quittancés d'un lot. */
@@ -28309,8 +28337,20 @@ function rLoyers() {
   host.innerHTML = html;
 }
 
-/** Échappe une ref pour un attribut onclick entre apostrophes. */
-function _lyQ(s2) { return String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+/**
+ * Échappe une valeur destinée à une CHAÎNE JS placée DANS UN ATTRIBUT HTML
+ * (`onclick="f('…')"`). Les deux échappements sont nécessaires et dans cet ordre :
+ *   1. chaîne JS  — `\` et `'`, sinon une apostrophe ferme l'argument ;
+ *   2. attribut HTML — `"` `<` `&`, sinon un guillemet sort de l'attribut.
+ * Un seul des deux ne suffit pas : `escHtml` seul produit `&#39;`, que le parseur HTML
+ * redécode en `'` AVANT la compilation du JS — donc rétablit l'évasion qu'il devait fermer.
+ * Aujourd'hui mono-locataire, ce serait du self-XSS ; avec le partage SCI, la référence
+ * saisie par un membre est rendue dans le DOM des autres.
+ */
+function _lyQ(s2) {
+  const js = String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return (typeof escHtml === 'function') ? escHtml(js) : js;
+}
 
 function _lyRow(o) {
   return `<div class="ly-row">
@@ -28484,7 +28524,13 @@ function _lyBlocRevisions(etats) {
       perdues.map(({ e, rev }) => {
         // D15 — « ce qu'elle aurait rapporté », dit UNE FOIS. Jamais une action : l'app ne
         // propose pas un geste qui ne serait pas opposable au locataire.
-        const gain = (rev.nouveauHC != null && e.log.hc) ? Math.round((rev.nouveauHC - e.log.hc) * 100) / 100 : null;
+        // Le gain se calcule sur les indices du cycle PERDU, pas sur ceux du cycle en cours
+        // (autre année, autre ratio) — sinon on affiche un chiffre faux sous un libellé factuel.
+        const _aP = rev.perdue.annee;
+        const _vP = (typeof irlVal === 'function') ? irlVal(rev.T, _aP) : null;
+        const _vP1 = (typeof irlVal === 'function') ? irlVal(rev.T, _aP - 1) : null;
+        const gain = (_vP && _vP1 && e.log.hc)
+          ? Math.round((e.log.hc * _vP / _vP1 - e.log.hc) * 100) / 100 : null;
         const prescritIso = (parseInt(rev.perdue.effetIso.slice(0, 4), 10) + 1) + rev.perdue.effetIso.slice(4);
         return { log: e.log, html: _lyRow({
           titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
@@ -28810,9 +28856,9 @@ function previewIRLLetterFromLog(ref) {
   const src = html ? { innerHTML: html } : null;
   const dst = el('ov-irl-lettre-content');
   if(!src || !dst) {
-    // Fallback : aller sur l'onglet IRL pour voir la lettre
-    showToast('Aperçu IRL : ouverture de l\'onglet IRL','info');
-    _goFromLogFiche('irl');
+    // Repli : l'onglet Loyers, où vivent les révisions (la lettre suit le clic).
+    showToast('Aperçu de la lettre indisponible — ouverture de l\'onglet Loyers','info');
+    _goFromLogFiche('loyers');
     return;
   }
   dst.innerHTML = src.innerHTML;
@@ -32147,6 +32193,7 @@ function delEDL(id){
 // v14.2 NAV-RESTRUCTURE : rParams() ne render plus Biens/Bailleurs (sortis vers leurs propres pages).
 function rParams() {
   rParamsCats(); rParamsPieces(); rParamsGlobal(); rMandRef();
+  if (typeof rIRLParams === 'function') rIRLParams();   // audit C1 : la table IRL vit ici (D20)
   rParamsRules(); rParamsTheme(); updateDBSizeBadge();
   // v15.04 USER-PROFILE-FILTERS Phase 4 : rendu de l'onglet Profil utilisateur
   if (typeof rParamsProfile === 'function') rParamsProfile();

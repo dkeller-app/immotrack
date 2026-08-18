@@ -274,7 +274,7 @@ describe('D20/I11/I12 — synchronisation INSEE', () => {
     const brut = read('index.html');
     expect(brut).not.toMatch(/<div class="page" id="p-irl">/);
     expect(brut).toMatch(/id="param-irl"/);
-    expect(code).toMatch(/if\(page === 'irl'\) return go\('params', elNav\);/);
+    expect(code).toMatch(/if\(page === 'irl'\) return go\('loyers', elNav\);/);
   });
 
   it('I12 — le filet IRL_DEFAULT existe toujours, jamais supprimé', () => {
@@ -343,7 +343,7 @@ describe('D1/D2 — la zone Argent, et des identifiants qui disent ce qu’ils m
 
   it('les anciens identifiants restent joignables (favoris, historique du navigateur)', () => {
     expect(code).toMatch(/if\(page === 'quittances'\) return go\('loyers', elNav\);/);
-    expect(code).toMatch(/if\(page === 'irl'\) return go\('params', elNav\);/);
+    expect(code).toMatch(/if\(page === 'irl'\) return go\('loyers', elNav\);/);
   });
 
   it('le routeur rend bien chaque page renommée', () => {

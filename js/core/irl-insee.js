@@ -140,15 +140,23 @@ export function fusionnerIrlTable(table, obs, ctx) {
     const m = meta[k] || {};
     const estNombre = typeof actuel === 'number' && Number.isFinite(actuel);
 
-    if (!estNombre) {                       // trimestre inconnu (ou tombstone) → on l'ajoute
+    // Trimestre SUPPRIMÉ par l'utilisateur (tombstone) : on ne le ressuscite pas. Sinon le
+    // bouton 🗑 de la table ne supprimerait rien de durable — il reviendrait au prochain boot.
+    if (actuel && typeof actuel === 'object' && actuel._deleted) continue;
+
+    if (!estNombre) {                       // trimestre inconnu → on l'ajoute
       out[k] = o.valeur;
       meta[k] = { source: 'insee', dateJo: o.dateJo, syncAt: c.todayIso || '' };
       ajouts.push({ cle: k, valeur: o.valeur, dateJo: o.dateJo });
       continue;
     }
     const memeValeur = Math.abs(actuel - o.valeur) < 0.005;
+    // Sans méta (valeurs antérieures à cette méta), on déduit l'origine : une valeur qui
+    // S'ÉCARTE du filet a forcément été touchée, et une valeur ABSENTE du filet n'a pu venir
+    // que d'une saisie. Les deux sont donc protégées — sinon le trimestre saisi à la main
+    // pour débloquer une révision serait écrasé au boot suivant, en silence.
     const saisieMain = m.source === 'manuel'
-      || (m.source !== 'insee' && defaults[k] != null && Math.abs(defaults[k] - actuel) >= 0.005);
+      || (m.source !== 'insee' && (defaults[k] == null || Math.abs(defaults[k] - actuel) >= 0.005));
 
     if (memeValeur) {                       // rien à faire, mais on garde la date du JO
       meta[k] = Object.assign({}, m, { dateJo: o.dateJo || m.dateJo || '', syncAt: c.todayIso || m.syncAt || '' });
