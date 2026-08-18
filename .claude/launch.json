@@ -98,20 +98,6 @@
         "--silent"
       ],
       "port": 8816
-    },
-    {
-      "name": "wt-loyers",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": [
-        "--yes",
-        "http-server",
-        "C:/Users/Did_K/Desktop/Immo-wt-loyers",
-        "-p",
-        "8818",
-        "-c-1",
-        "--silent"
-      ],
-      "port": 8818
     }
   ]
 }
