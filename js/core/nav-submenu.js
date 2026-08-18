@@ -31,3 +31,40 @@ export function navSubmenuModel(navId, group, page, onSet, openSet) {
     children: children.map(t => ({ id: t[0], lb: t[1], active: t[0] === page }))
   };
 }
+
+/**
+ * CDC-QUITTANCES-IRL étape 8 (D1/D2) — MIGRATION des préférences de menu.
+ *
+ * Le menu personnalisable est persisté PAR APPAREIL (localStorage), sous forme d'une liste
+ * d'identifiants de page. L'étape 8 renomme ces identifiants pour qu'ils suivent enfin les
+ * libellés, et en supprime un :
+ *   `loyers`     (les mouvements)      → `mouvements`
+ *   `quittances` (l'ancien onglet)     → `loyers`   (l'onglet « Loyers » l'absorbe)
+ *   `irl`                              → retiré     (la table INSEE est un réglage)
+ *
+ * Sans cette migration, une préférence enregistrée avant la bascule ferait DISPARAÎTRE des
+ * entrées du menu (les anciens identifiants ne sont plus dans `_MENU_ALL`, donc filtrés) —
+ * l'utilisateur perdrait son menu sans comprendre pourquoi.
+ *
+ * PURE et IDEMPOTENTE : rejouée sur une liste déjà migrée, elle ne change rien.
+ * L'ordre d'origine est conservé, les doublons créés par le renommage sont fusionnés.
+ *
+ * @param {Array<string>} ids liste enregistrée
+ * @returns {Array<string>} liste migrée
+ */
+export function migrerIdsMenuLoyers(ids) {
+  if (!Array.isArray(ids)) return [];
+  const REN = { loyers: 'mouvements', quittances: 'loyers' };
+  const RETIRES = new Set(['irl']);
+  const dejaMigre = ids.includes('mouvements');
+  const out = [];
+  for (const raw of ids) {
+    const id = String(raw == null ? '' : raw);
+    if (!id || RETIRES.has(id)) continue;
+    // `loyers` est ambigu : AVANT la bascule il désignait les mouvements, APRÈS l'onglet
+    // Loyers. La présence de `mouvements` dans la liste prouve qu'elle est déjà migrée.
+    const cible = (!dejaMigre && Object.prototype.hasOwnProperty.call(REN, id)) ? REN[id] : id;
+    if (!out.includes(cible)) out.push(cible);
+  }
+  return out;
+}

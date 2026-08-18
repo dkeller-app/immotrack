@@ -178,6 +178,10 @@ import * as GroupByImm from './core/group-by-imm.js';
 // Module PUR : le fetch est fait par index.html, le XML arrive ici en argument.
 import * as IrlInsee from './core/irl-insee.js';
 
+// CDC-QUITTANCES-IRL etape 8 - migration des preferences de menu (identifiants de page
+// renommes : loyers->mouvements, quittances->loyers, irl retire).
+import { migrerIdsMenuLoyers } from './core/nav-submenu.js';
+
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG,
@@ -418,6 +422,7 @@ window.ymRange = ymRange;
 window.IrlCalendrier = IrlCalendrier;
 window.GroupByImm = GroupByImm;
 window.IrlInsee = IrlInsee;
+window.migrerIdsMenuLoyers = migrerIdsMenuLoyers;
 
 // GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
 window._dgStatut = _dgStatut;

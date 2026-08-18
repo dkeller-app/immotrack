@@ -71,7 +71,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <div class="ni act" data-module="accueil" data-tip="Accueil" onclick="go('accueil',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> Accueil</span></div>
     <div class="ni" data-module="dashboard-simple" data-tip="Tableau de bord" onclick="go('dashboard',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="3" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" stroke="currentColor" stroke-width="2"/></svg></span><span class="ni-label"> Tableau de bord</span></div>
     <div class="ni" data-module="import" data-tip="Import / Données" onclick="go('import',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> Import / Données</span></div>
-    <div class="ni" data-module="mouvements" data-tip="Loyers & Mouvements" onclick="go('loyers',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Loyers & Mouvements</span></div>
+    <div class="ni" data-module="mouvements" data-tip="Mouvements" onclick="go('mouvements',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Mouvements</span></div>
   </div>
 
   <!-- v14.3 PATRIMOINE-NAV-UNIFY : un seul hub "Biens" avec toggle 3 modes (Bailleurs/Immeubles/Logements) -->
@@ -89,7 +89,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- LOG-CANDIDATS : pipeline candidatures locataires + conversion directe en bail -->
     <div class="ni" data-module="candidats" data-tip="Candidats — candidatures & conversion en bail" onclick="go('candidats',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="9" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M3 20a6 6 0 0 1 12 0M17 8h4M19 6v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Candidats</span></div>
     <!-- v15.254 V3-REFONTE-ASSURANCES Étape 2 : onglet Assurances retiré (PNO → fiche immeuble, MRH → fiche logement + Locataires) -->
-    <div class="ni" data-module="quittances" data-tip="Quittances" onclick="go('quittances',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Quittances</span></div>
+    <div class="ni" data-module="loyers" data-tip="Loyers" onclick="go('loyers',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Loyers</span></div>
     <div class="ni" data-module="emails" data-tip="Communications — historique emails + modèles + tableau de bord" onclick="go('emails',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="m2 7 10 7 10-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Communications</span></div>
     <div class="ni" data-module="edl" data-tip="États des lieux" onclick="go('edl',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M9 4h6v3H9zM7 7h10v13H7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 12l1.5 1.5L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> États des lieux</span></div>
     <div class="ni" data-module="pilotage-matriciel" data-tip="Pilotage matriciel — vue multi-baux pour gestionnaire" onclick="go('pilotage',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.2-1.3L14 2h-4l-.3 2.4a7 7 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.2 1.3L10 22h4l.3-2.4a7 7 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.07-.43.1-.86.1-1.3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="ni-label"> Pilotage</span></div>
@@ -98,7 +98,6 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
   <div class="sb-section" data-module-section="finances">
     <div class="sb-section-title" onclick="toggleSbSection(this)" role="button" tabindex="0">Finances<span class="sb-chev" aria-hidden="true">▾</span></div>
     <div class="ni" data-module="finances-hub" data-tip="Finances — résultat net, charges, ratios" onclick="go('finances',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ni-label"> Finances</span></div>
-    <div class="ni" data-module="irl" data-tip="Révision IRL" onclick="go('irl',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M21 8a8 8 0 0 0-15-2M3 4v4h4M3 16a8 8 0 0 0 15 2m3 2v-4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> Révision IRL</span></div>
     <div class="ni" data-module="charges-regul" data-tip="Régularisation" onclick="go('regul',this)"><span class="ico"><svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M12 19V5m0 0 6 6m-6-6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ni-label"> Régularisation</span></div>
   </div>
 
@@ -285,12 +284,12 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         Le bouton <b>🏦 Importer banque</b> y lit ton relevé (OFX ou Excel), te montre ce qu'il a compris
         (colonnes retenues, contrôle du solde, lignes écartées et pourquoi), détecte les doublons et
         te laisse tout corriger avant d'enregistrer quoi que ce soit.
-        <div style="margin-top:10px"><button class="btn bp" onclick="go('loyers');_bankImportOpen()">🏦 Importer un relevé bancaire</button></div>
+        <div style="margin-top:10px"><button class="btn bp" onclick="go('mouvements');_bankImportOpen()">🏦 Importer un relevé bancaire</button></div>
       </div>
     </div>
 
     <!-- PAGE: LOYERS & MOUVEMENTS -->
-    <div class="page" id="p-loyers">
+    <div class="page" id="p-mouvements">
       <div class="filters">
         <input class="inp" id="mvf-search" placeholder="🔍 Recherche..." oninput="rMv()" style="width:180px;font-weight:500">
         <input class="inp" type="date" id="mvf-from" onchange="rMv()" style="width:130px" title="Date début">
@@ -526,70 +525,70 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
            3. 📈 Révisions à préparer   (D13)
          Plus deux lignes repliées : quittances éditées ce mois, calendrier des révisions.
          L'écran grandit avec les PROBLÈMES, pas avec le parc. -->
-    <div class="page" id="p-quittances">
+    <div class="page" id="p-loyers">
       <style>
-        #p-quittances .ly-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-        #p-quittances .ly-title{font-weight:800;font-size:16px;color:var(--t1)}
-        #p-quittances .ly-title span{font-weight:400;color:var(--t3);font-size:12.5px}
-        #p-quittances .ly-blk{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:10px;overflow:hidden}
-        #p-quittances .ly-blk-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
-        #p-quittances .ly-blk-h .t{font-weight:800;font-size:12.5px;color:var(--t1)}
-        #p-quittances .ly-blk-h .n{background:var(--acc);color:#fff;border-radius:999px;font-weight:800;font-size:10.5px;padding:1px 7px}
-        #p-quittances .ly-blk-h .n.z{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}
-        #p-quittances .ly-blk-h .hint{margin-left:auto;font-size:10.5px;color:var(--t3)}
-        #p-quittances .ly-row{display:grid;grid-template-columns:1.8fr 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bor)}
-        #p-quittances .ly-row:last-child{border-bottom:0}
-        #p-quittances .ly-who{min-width:0}
-        #p-quittances .ly-who b{color:var(--t1);font-size:12.5px}
-        #p-quittances .ly-who .m{color:var(--t3);font-size:11px;line-height:1.45}
-        #p-quittances .ly-amt{text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
-        #p-quittances .ly-amt b{color:var(--t1)}
-        #p-quittances .ly-acts{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}
-        #p-quittances .ly-ask{display:inline-flex;align-items:center;gap:4px;background:var(--sur2);color:var(--acc);border:1px solid var(--acc);border-radius:999px;font-weight:700;font-size:9.5px;padding:1px 7px;white-space:nowrap}
-        #p-quittances .ly-pill{display:inline-block;border-radius:999px;font-weight:700;font-size:10px;padding:2px 7px;white-space:nowrap;border:1px solid transparent}
-        #p-quittances .ly-pill.ok{background:rgba(22,163,74,.14);color:#16a34a;border-color:rgba(22,163,74,.35)}
-        #p-quittances .ly-pill.wa{background:rgba(217,119,6,.14);color:#d97706;border-color:rgba(217,119,6,.35)}
-        #p-quittances .ly-pill.er{background:rgba(220,38,38,.14);color:#dc2626;border-color:rgba(220,38,38,.35)}
-        #p-quittances .ly-pill.nu{background:var(--sur2);color:var(--t3);border-color:var(--bor)}
-        #p-quittances .ly-fold{padding:9px 12px;font-size:11.5px;color:var(--t3);display:flex;gap:8px;align-items:center;cursor:pointer}
-        #p-quittances .ly-fold:hover{color:var(--t1)}
-        #p-quittances .ly-empty{padding:20px 14px;color:var(--t3);font-size:11.5px;text-align:center}
-        #p-quittances .ly-empty b{color:var(--t1);display:block;font-size:13px;margin-bottom:4px}
+        #p-loyers .ly-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+        #p-loyers .ly-title{font-weight:800;font-size:16px;color:var(--t1)}
+        #p-loyers .ly-title span{font-weight:400;color:var(--t3);font-size:12.5px}
+        #p-loyers .ly-blk{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:10px;overflow:hidden}
+        #p-loyers .ly-blk-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+        #p-loyers .ly-blk-h .t{font-weight:800;font-size:12.5px;color:var(--t1)}
+        #p-loyers .ly-blk-h .n{background:var(--acc);color:#fff;border-radius:999px;font-weight:800;font-size:10.5px;padding:1px 7px}
+        #p-loyers .ly-blk-h .n.z{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}
+        #p-loyers .ly-blk-h .hint{margin-left:auto;font-size:10.5px;color:var(--t3)}
+        #p-loyers .ly-row{display:grid;grid-template-columns:1.8fr 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bor)}
+        #p-loyers .ly-row:last-child{border-bottom:0}
+        #p-loyers .ly-who{min-width:0}
+        #p-loyers .ly-who b{color:var(--t1);font-size:12.5px}
+        #p-loyers .ly-who .m{color:var(--t3);font-size:11px;line-height:1.45}
+        #p-loyers .ly-amt{text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+        #p-loyers .ly-amt b{color:var(--t1)}
+        #p-loyers .ly-acts{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}
+        #p-loyers .ly-ask{display:inline-flex;align-items:center;gap:4px;background:var(--sur2);color:var(--acc);border:1px solid var(--acc);border-radius:999px;font-weight:700;font-size:9.5px;padding:1px 7px;white-space:nowrap}
+        #p-loyers .ly-pill{display:inline-block;border-radius:999px;font-weight:700;font-size:10px;padding:2px 7px;white-space:nowrap;border:1px solid transparent}
+        #p-loyers .ly-pill.ok{background:rgba(22,163,74,.14);color:#16a34a;border-color:rgba(22,163,74,.35)}
+        #p-loyers .ly-pill.wa{background:rgba(217,119,6,.14);color:#d97706;border-color:rgba(217,119,6,.35)}
+        #p-loyers .ly-pill.er{background:rgba(220,38,38,.14);color:#dc2626;border-color:rgba(220,38,38,.35)}
+        #p-loyers .ly-pill.nu{background:var(--sur2);color:var(--t3);border-color:var(--bor)}
+        #p-loyers .ly-fold{padding:9px 12px;font-size:11.5px;color:var(--t3);display:flex;gap:8px;align-items:center;cursor:pointer}
+        #p-loyers .ly-fold:hover{color:var(--t1)}
+        #p-loyers .ly-empty{padding:20px 14px;color:var(--t3);font-size:11.5px;text-align:center}
+        #p-loyers .ly-empty b{color:var(--t1);display:block;font-size:13px;margin-bottom:4px}
         /* Groupage à deux niveaux (bailleur > immeuble). Les en-têtes restent compacts :
            trois blocs × deux niveaux, ça monte vite en hauteur — surtout à 390 px. */
-        #p-quittances .ly-grp-b{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--sur2);border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:800;color:var(--t1);letter-spacing:.01em}
-        #p-quittances .ly-grp-b .c{margin-left:auto;font-weight:700;font-size:10px;color:var(--t3);background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:1px 7px}
-        #p-quittances .ly-grp-i{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 20px;border-bottom:1px solid var(--bor);font-size:10.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
-        #p-quittances .ly-grp-i .c{margin-left:auto;font-weight:700;letter-spacing:0;text-transform:none}
-        #p-quittances .ly-grp-orph{font-style:italic;text-transform:none;letter-spacing:0}
+        #p-loyers .ly-grp-b{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--sur2);border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:800;color:var(--t1);letter-spacing:.01em}
+        #p-loyers .ly-grp-b .c{margin-left:auto;font-weight:700;font-size:10px;color:var(--t3);background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:1px 7px}
+        #p-loyers .ly-grp-i{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 20px;border-bottom:1px solid var(--bor);font-size:10.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+        #p-loyers .ly-grp-i .c{margin-left:auto;font-weight:700;letter-spacing:0;text-transform:none}
+        #p-loyers .ly-grp-orph{font-style:italic;text-transform:none;letter-spacing:0}
         /* D16 — le calendrier Gantt. Le CADRE défile horizontalement ; la page, jamais. */
-        #p-quittances .ly-gt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px;max-width:100%}
-        #p-quittances .ly-gt{display:grid;gap:2px;min-width:620px}
-        #p-quittances .ly-gt-c{font-size:10px;padding:4px 3px;border-radius:4px;text-align:center;min-height:22px}
-        #p-quittances .ly-gt-hd{color:var(--t3);font-weight:700;line-height:1.1}
-        #p-quittances .ly-gt-hd span{font-weight:400;font-size:8.5px}
-        #p-quittances .ly-gt-hd.now,#p-quittances .ly-gt-cell.now{box-shadow:inset 0 0 0 1px var(--bor)}
-        #p-quittances .ly-gt-lot{text-align:left;font-size:10.5px;line-height:1.25;padding-right:8px}
-        #p-quittances .ly-gt-lot b{display:block;color:var(--t1);font-size:11px}
-        #p-quittances .ly-gt-lot span{color:var(--t3);font-size:9.5px}
-        #p-quittances .ly-gt-cell{background:var(--sur2)}
-        #p-quittances .ly-gt-cell.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.20),rgba(255,90,60,.20) 4px,transparent 4px,transparent 8px);color:var(--acc);font-weight:700}
-        #p-quittances .ly-gt-cell.effet{background:var(--acc);color:#fff;font-weight:800}
-        #p-quittances .ly-gt-cell.faite{background:rgba(22,163,74,.22);color:#16a34a;font-weight:700}
-        #p-quittances .ly-gt-cell.gel{background:var(--bor);color:var(--t3);font-size:9px}
-        #p-quittances .ly-gt-leg{display:flex;flex-wrap:wrap;gap:10px;padding:0 12px 10px;font-size:10px;color:var(--t3)}
-        #p-quittances .ly-gt-leg i{display:inline-block;width:12px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--sur2)}
-        #p-quittances .ly-gt-leg i.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.35),rgba(255,90,60,.35) 3px,transparent 3px,transparent 6px)}
-        #p-quittances .ly-gt-leg i.effet{background:var(--acc)}
-        #p-quittances .ly-gt-leg i.faite{background:rgba(22,163,74,.5)}
-        #p-quittances .ly-gt-leg i.gel{background:var(--bor)}
-        #p-quittances .ly-gt-leg i.now{box-shadow:inset 0 0 0 1px var(--t3)}
+        #p-loyers .ly-gt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px;max-width:100%}
+        #p-loyers .ly-gt{display:grid;gap:2px;min-width:620px}
+        #p-loyers .ly-gt-c{font-size:10px;padding:4px 3px;border-radius:4px;text-align:center;min-height:22px}
+        #p-loyers .ly-gt-hd{color:var(--t3);font-weight:700;line-height:1.1}
+        #p-loyers .ly-gt-hd span{font-weight:400;font-size:8.5px}
+        #p-loyers .ly-gt-hd.now,#p-loyers .ly-gt-cell.now{box-shadow:inset 0 0 0 1px var(--bor)}
+        #p-loyers .ly-gt-lot{text-align:left;font-size:10.5px;line-height:1.25;padding-right:8px}
+        #p-loyers .ly-gt-lot b{display:block;color:var(--t1);font-size:11px}
+        #p-loyers .ly-gt-lot span{color:var(--t3);font-size:9.5px}
+        #p-loyers .ly-gt-cell{background:var(--sur2)}
+        #p-loyers .ly-gt-cell.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.20),rgba(255,90,60,.20) 4px,transparent 4px,transparent 8px);color:var(--acc);font-weight:700}
+        #p-loyers .ly-gt-cell.effet{background:var(--acc);color:#fff;font-weight:800}
+        #p-loyers .ly-gt-cell.faite{background:rgba(22,163,74,.22);color:#16a34a;font-weight:700}
+        #p-loyers .ly-gt-cell.gel{background:var(--bor);color:var(--t3);font-size:9px}
+        #p-loyers .ly-gt-leg{display:flex;flex-wrap:wrap;gap:10px;padding:0 12px 10px;font-size:10px;color:var(--t3)}
+        #p-loyers .ly-gt-leg i{display:inline-block;width:12px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--sur2)}
+        #p-loyers .ly-gt-leg i.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.35),rgba(255,90,60,.35) 3px,transparent 3px,transparent 6px)}
+        #p-loyers .ly-gt-leg i.effet{background:var(--acc)}
+        #p-loyers .ly-gt-leg i.faite{background:rgba(22,163,74,.5)}
+        #p-loyers .ly-gt-leg i.gel{background:var(--bor)}
+        #p-loyers .ly-gt-leg i.now{box-shadow:inset 0 0 0 1px var(--t3)}
         /* Téléphone : la ligne passe en colonne — jamais de scroll horizontal. */
         @media (max-width:700px){
-          #p-quittances .ly-row{grid-template-columns:1fr;gap:6px}
-          #p-quittances .ly-amt{text-align:left}
-          #p-quittances .ly-acts{justify-content:flex-start}
-          #p-quittances .ly-head .btn{width:100%;text-align:center}
+          #p-loyers .ly-row{grid-template-columns:1fr;gap:6px}
+          #p-loyers .ly-amt{text-align:left}
+          #p-loyers .ly-acts{justify-content:flex-start}
+          #p-loyers .ly-head .btn{width:100%;text-align:center}
         }
       </style>
       <div class="ly-head">
@@ -1219,9 +1218,8 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <button type="button" class="more-it" onclick="_moreGo('baux')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M6 3h9l3 3v15H6V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Locataires &amp; Baux</span></button>
       <button type="button" class="more-it" onclick="_moreGo('candidats')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="9" cy="8" r="3.5" stroke="currentColor" stroke-width="2"/><path d="M3 20a6 6 0 0 1 12 0M17 8h4M19 6v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Candidats <span id="more-candidats-badge" class="more-badge" style="display:none"></span></span></button>
       <button type="button" class="more-it" onclick="_moreGo('equipements')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M14 6a3 3 0 1 1-1 5.8L8 17l-2-2 5.2-5A3 3 0 0 1 14 6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span><span>Équipements</span></button>
-      <button type="button" class="more-it" onclick="_moreGo('irl')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M21 8a8 8 0 0 0-15-2M3 4v4h4M3 16a8 8 0 0 0 15 2m3 2v-4h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Révision IRL</span></button>
       <button type="button" class="more-it" onclick="_moreGo('regul')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M12 19V5m0 0 6 6m-6-6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Régularisation</span></button>
-      <button type="button" class="more-it" onclick="_moreGo('quittances')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Quittances</span></button>
+      <button type="button" class="more-it" onclick="_moreGo('loyers')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Loyers</span></button>
       <button type="button" class="more-it" onclick="_moreGo('emails')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="m2 7 10 7 10-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Communications</span></button>
       <button type="button" class="more-it" onclick="_moreGo('edl')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M9 4h6v3H9zM7 7h10v13H7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 12l1.5 1.5L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>États des lieux</span></button>
       <button type="button" class="more-it" onclick="_moreGo('pilotage')"><span class="more-ic"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2.2-1.3L14 2h-4l-.3 2.4a7 7 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2.2 1.3L10 22h4l.3-2.4a7 7 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.07-.43.1-.86.1-1.3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span>Pilotage</span></button>
@@ -4552,7 +4550,7 @@ function _isModuleEnabled(moduleKey, profile, overrides) {
   const p = profile || (DB && DB.params && DB.params.userProfile) || 'solo';
   // Modules toujours actifs (cœur fonctionnel)
   const CORE = ['dashboard-simple','biens','locataires','baux','mouvements',
-                'quittances','irl','edl','mrh','params','agenda','documents'];
+                'loyers','edl','mrh','params','agenda','documents'];
   if (CORE.includes(moduleKey)) return true;
   // Matrice par profil (Phase 6.1.2 complétera). Default conservatif :
   // solo masque les modules "pro" ; tous les autres profils activent tout.
@@ -5188,8 +5186,14 @@ function _applyDataDefaults() {
   if (!DB.edl) DB.edl = [];
   if (!DB.candidats) DB.candidats = []; // LOG-CANDIDATS — pipeline candidatures (jamais de données démo auto)
   if (!DB.irlTable || Object.keys(DB.irlTable).length === 0) DB.irlTable = {...IRL_DEFAULT};
-  // Réinjecter trimestres manquants sans écraser valeurs custom
-  Object.entries(IRL_DEFAULT).forEach(([k,v])=>{ if(!(k in DB.irlTable)) DB.irlTable[k]=v; });
+  // I12 — le FILET : compléter les trimestres inconnus sans jamais écraser une valeur locale.
+  // Une seule implémentation de cette règle, celle du module (js/core/irl-insee.js) ; la
+  // boucle inline qui la doublait est supprimée. Repli si le module n'est pas chargé (file://).
+  if (typeof window !== 'undefined' && window.IrlInsee && typeof window.IrlInsee.completerAvecFilet === 'function') {
+    DB.irlTable = window.IrlInsee.completerAvecFilet(DB.irlTable, IRL_DEFAULT);
+  } else {
+    Object.entries(IRL_DEFAULT).forEach(([k,v])=>{ if(!(k in DB.irlTable)) DB.irlTable[k]=v; });
+  }
   // Corrections silencieuses de valeurs erronées connues (bug copier-coller historique)
   // Correction auto des valeurs erronées connues (ancienne saisie incorrecte)
   const _irlFix = {
@@ -7923,11 +7927,13 @@ function _confirmBailSignatureFlow(ref) {
 // on réutilise les pages #p-<id> telles quelles + le routeur go(). En Phase 2a la sidebar garde ses
 // 17 items (rien d'injoignable) ; en Phase 2b elle passera aux parents + zones.
 const _NAV_GROUPS = [
-  { parent: 'Pilotage',            tabs: [['dashboard','Tableau de bord'], ['finances','Finances'], ['pilotage','Suivi']] },
+  { parent: 'Pilotage',            tabs: [['dashboard','Tableau de bord'], ['pilotage','Suivi']] },
   { parent: 'Locataires',          tabs: [['baux','Baux en cours'], ['candidats','Candidatures']] },
   { parent: 'Agenda',              tabs: [['agenda','Agenda'], ['equipements','Équipements']] },
-  { parent: 'Loyers & mouvements', tabs: [['loyers','Mouvements'], ['quittances','Loyers']] },
-  { parent: 'Révisions',           tabs: [['irl','Table IRL INSEE'], ['regul','Charges']] },
+  // D1 — la zone Argent tient en QUATRE entrées de plein droit : Mouvements · Loyers ·
+  // Charges · Finances. Plus de groupe « Loyers & mouvements » (les deux pages n'étaient
+  // pas de même nature) ni de groupe « Révisions » (l'IRL est absorbée par « Loyers » et sa
+  // table est un réglage). Finances quitte le groupe Pilotage pour rejoindre l'Argent.
 ];
 const _NAV_PAGE_GROUP = {};
 _NAV_GROUPS.forEach(g => g.tabs.forEach(([id]) => { _NAV_PAGE_GROUP[id] = g; }));
@@ -7949,22 +7955,44 @@ function _navSidebarLanding(id, on) {
 // REFONTE-NAV Phase 4 — Menu PERSONNALISABLE (par compte, localStorage `_lsKey`). Chaque page-feuille
 // on/off ; Accueil + Logements toujours ON (menu jamais vide). Filtre sidebar + feuille Plus +
 // sous-onglets. Une page masquée reste joignable en `#p-<id>` (on masque du menu, on ne supprime pas).
-const _MENU_ALL = ['accueil','dashboard','finances','pilotage','biens','baux','candidats','edl','agenda','equipements','loyers','quittances','irl','regul'];
+// D1 — 13 entrées au lieu de 14 : « Loyer (IRL) » disparaît, absorbée par « Loyers ».
+const _MENU_ALL = ['accueil','dashboard','pilotage','biens','baux','candidats','edl','agenda','equipements','mouvements','loyers','regul','finances'];
 const _MENU_LOCKED = ['accueil','biens'];
-const _MENU_LABELS = { accueil:'Accueil', dashboard:'Tableau de bord', finances:'Finances', pilotage:'Suivi', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', loyers:'Loyers & mouvements', quittances:'Loyers', irl:'Table IRL INSEE', regul:'Charges' };
+const _MENU_LABELS = { accueil:'Accueil', dashboard:'Tableau de bord', finances:'Finances', pilotage:'Suivi', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', mouvements:'Mouvements', loyers:'Loyers', regul:'Charges' };
 const _MENU_ZONES = [
-  { z:'Pilotage', ids:['accueil','dashboard','finances','pilotage'] },
+  { z:'Pilotage', ids:['accueil','dashboard','pilotage'] },
   { z:'Gestion locative', ids:['biens','baux','candidats','edl','agenda','equipements'] },
-  { z:'Argent', ids:['loyers','quittances','irl','regul'] },
+  { z:'Argent', ids:['mouvements','loyers','regul','finances'] },
 ];
 const _MENU_PRESETS = {
   'Propriétaire — tout': _MENU_ALL.slice(),
-  'Gestion locative': ['accueil','dashboard','pilotage','biens','baux','candidats','edl','agenda','equipements','loyers','quittances'],
-  'Comptable': ['accueil','biens','loyers','quittances','finances','irl','regul'],
+  'Gestion locative': ['accueil','dashboard','pilotage','biens','baux','candidats','edl','agenda','equipements','mouvements','loyers'],
+  'Comptable': ['accueil','biens','mouvements','loyers','finances','regul'],
 };
 function _menuKey() { return (typeof _lsKey === 'function') ? _lsKey('immo_menu_on') : 'immo_menu_on'; }
 function _menuGetOn() {
-  try { const raw = localStorage.getItem(_menuKey()); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) { const s = new Set(a.filter(x => _MENU_ALL.includes(x))); _MENU_LOCKED.forEach(x => s.add(x)); return s; } } } catch (e) {}
+  try {
+    const raw = localStorage.getItem(_menuKey());
+    if (raw) {
+      const a = JSON.parse(raw);
+      if (Array.isArray(a)) {
+        // CDC-QUITTANCES-IRL étape 8 — MIGRATION des préférences enregistrées avant le
+        // renommage des identifiants de page (loyers→mouvements, quittances→loyers, irl
+        // retiré). Sans elle, les anciens identifiants seraient simplement filtrés par
+        // `_MENU_ALL` et l'utilisateur verrait des entrées disparaître de son menu sans
+        // comprendre pourquoi. Pure, idempotente, testée (js/core/nav-submenu.js).
+        const migre = (typeof window !== 'undefined' && typeof window.migrerIdsMenuLoyers === 'function')
+          ? window.migrerIdsMenuLoyers(a) : a;
+        const s = new Set(migre.filter(x => _MENU_ALL.includes(x)));
+        _MENU_LOCKED.forEach(x => s.add(x));
+        // Ré-écriture une fois pour toutes : la prochaine lecture n'a plus rien à migrer.
+        if (migre.length !== a.length || migre.some((x, i) => x !== a[i])) {
+          try { localStorage.setItem(_menuKey(), JSON.stringify([...s])); } catch (e) {}
+        }
+        return s;
+      }
+    }
+  } catch (e) {}
   return new Set(_MENU_ALL);   // défaut : tout affiché
 }
 function _menuSetOn(set) { try { localStorage.setItem(_menuKey(), JSON.stringify([...set])); } catch (e) {} }
@@ -7987,10 +8015,15 @@ function _navSubtabsHtml(page) {
 }
 
 function go(page, elNav) {
-  // CDC-QUITTANCES-IRL D20 — la page « Loyer (IRL) » n'existe plus : la table INSEE est un
-  // RÉGLAGE, elle vit dans Paramètres. Alias pour que les liens et l'historique de navigation
-  // existants continuent d'aboutir quelque part de sensé.
-  if(page === 'irl') return go('params', elNav);
+  // CDC-QUITTANCES-IRL D1/D2/D20 — ALIAS des anciens identifiants de page. Un `#p-quittances`
+  // en favori, un lien enregistré, une entrée d'historique du navigateur : tout doit continuer
+  // d'aboutir. `quittances` désignait l'ancien onglet des quittances émises, absorbé par
+  // « Loyers » ; la page « Loyer (IRL) » n'existe plus (sa table est un réglage).
+  if(page === 'quittances') return go('loyers', elNav);
+  // `irl` désignait l'onglet des RÉVISIONS : il est absorbé par « Loyers ». (Sa table
+  // d'indices, elle, est un réglage et vit dans Paramètres — on ne renvoie personne là-bas
+  // depuis une alerte de révision.)
+  if(page === 'irl') return go('loyers', elNav);
   // v14.3 PATRIMOINE-NAV-UNIFY : 'bailleurs' alias du hub Biens (mode bailleurs)
   if(page === 'bailleurs') {
     _biensViewMode = 'bailleurs';
@@ -8038,10 +8071,10 @@ function go(page, elNav) {
     } catch(e){}
   }
   // Update title
-  const titles = {accueil:'Accueil',dashboard:'Tableau de bord',import:'Import de données',loyers:'Loyers & Mouvements',
+  const titles = {accueil:'Accueil',dashboard:'Tableau de bord',import:'Import de données',mouvements:'Mouvements',loyers:'Loyers',
     agenda:'Agenda',equipements:'Équipements & Entretiens',
-    baux:'Locataires',candidats:'Candidats',irl:'Table IRL INSEE',regul:'Régularisation charges',
-    quittances:'Loyers',edl:'États des lieux',
+    baux:'Locataires',candidats:'Candidats',regul:'Régularisation charges',
+    edl:'États des lieux',
     emails:'📧 Communications',          // v15.79 EMAIL-ONGLET-PERMANENT (Sprint 19B)
     biens:'Biens',bailleurs:'Bailleurs', // v14.2 NAV-RESTRUCTURE
     finances:'Finances',                 // v15.265 REPORTING-BAILLEUR
@@ -8073,14 +8106,14 @@ function go(page, elNav) {
   // Render page
   const renders = {
     accueil:rAccueil, // v15.73 — page d'entrée par défaut
-    dashboard:rDash, import:()=>{}, loyers:()=>{initFilters();rMv();},
+    dashboard:rDash, import:()=>{}, mouvements:()=>{initFilters();rMv();},
     agenda:()=>{initAgendaFilters();rAgenda();},
     equipements:()=>{initFilters();rEquipements();},
     baux:()=>{initFilters();const bauxActifTab=document.querySelector('#p-baux .tab.act');if(!bauxActifTab){const t=document.querySelector('#p-baux .tab');if(t)t.classList.add('act');}el('baux-tab-actifs').style.display='';el('baux-tab-historique').style.display='none';rBaux();}, candidats:()=>{ _candidatsTab = _candidatsTab || 'actifs'; rCandidats(); _autoPullCandidatures('open'); },
 
     regul:()=>{initFilters();rRegulInit();},
     finances:()=>{ if (typeof rFinances === 'function') rFinances(); }, // v15.265 REPORTING-BAILLEUR
-    quittances:()=>{initFilters();rLoyers();},   // CDC-QUITTANCES-IRL D1 : l'onglet « Loyers »
+    loyers:()=>{initFilters();rLoyers();},   // CDC-QUITTANCES-IRL D1 : l'onglet « Loyers »
     emails:()=>{ if (typeof rEmailsPage === 'function') rEmailsPage(); }, // v15.79 EMAIL-ONGLET-PERMANENT
     edl:()=>{initFilters();rEDLList();},
     biens:rBiens,         // v14.2 NAV-RESTRUCTURE
@@ -8653,10 +8686,10 @@ const _V4_NAV_ICONS = {
   equip:     '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
   baux:      '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   mrh:       '<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-  quittances:'<svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  recu:      '<svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
   edl:       '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
   pilotage:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-  irl:       '<svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  courbe:    '<svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
   regul:     '<svg viewBox="0 0 24 24"><line x1="12" y1="3" x2="12" y2="21"/><polyline points="5 12 12 5 19 12"/></svg>',
   finances:  '<svg viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>',
   loyers:    '<svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
@@ -8724,8 +8757,10 @@ const _V4_NAV_MODEL = [
   { id:'edl',       ic:'edl',       lb:'États des lieux' },
   { id:'agenda',    ic:'agenda',    lb:'Agenda' },
   { h6:'Argent' },
-  { id:'loyers',    ic:'loyers',    lb:'Loyers &amp; mouvements', badge:'loyers' },
-  { id:'irl',       ic:'irl',       lb:'Révisions' },
+  { id:'mouvements', ic:'loyers',   lb:'Mouvements', badge:'loyers' },
+  { id:'loyers',     ic:'recu',     lb:'Loyers' },
+  { id:'regul',      ic:'courbe',   lb:'Charges' },
+  { id:'finances',   ic:'finances', lb:'Finances' },
 ];
 // ─── NAV-SOUS-MENUS (chantier A) ────────────────────────────────────────────────
 // Sous-menus dépliables des onglets-groupes dans la sidebar. Réutilise _NAV_GROUPS
@@ -8749,7 +8784,7 @@ const _NAV_CHILD_ICON = { equipements: 'equip' };
 // Badge chiffré porté par un enfant précis (compteurs runtime, hors modèle pur).
 function _navChildBadge(id, counts, candUnread) {
   if (id === 'baux')   return '<span class="v4s-bd">' + (counts.locs || 0) + '</span>';
-  if (id === 'loyers') return '<span class="v4s-bd">' + (counts.loyers || 0) + '</span>';
+  if (id === 'mouvements') return '<span class="v4s-bd">' + (counts.loyers || 0) + '</span>';
   if (id === 'candidats') return '<span class="v4s-bd v4s-bd-new" id="v4s-cand-badge"' + (candUnread > 0 ? '' : ' style="display:none"') + '>' + (candUnread || '') + '</span>';
   return '';
 }
@@ -10490,9 +10525,12 @@ function _renderDashV4Solo(ctx, wrap) {
     const subLine = mainLog.locataire ? esc(mainLog.locataire) : 'Vacant';
     const typoLine = typoBits.length ? ' · ' + typoBits.map(esc).join(' · ') : '';
     const addrLine = mainLog.adr ? '<div class="v4s-solo-addr">' + esc(mainLog.adr) + '</div>' : '';
-    // Action générer quittance : appelle la vraie fonction si dispo
-    const genFn = typeof openQuitGenerateFromLog === 'function' ? "openQuitGenerateFromLog('" + escRef.replace(/'/g,"\\'") + "')"
-                : "go('quittances')";
+    // CDC-QUITTANCES-IRL D4 — le geste d'émission est « ＋ Faire une quittance », pré-ciblé
+    // sur le lot. (`openQuitGenerateFromLog` était testé ici mais n'a jamais été défini dans
+    // ce fichier : la branche était morte, seul le repli s'exécutait.)
+    const genFn = typeof _openFaireQuittance === 'function'
+                ? "_openFaireQuittance('" + escRef.replace(/'/g,"\\'") + "')"
+                : "go('loyers')";
     // v15.38 fix : DPE est un OBJET ({classe, date, ...}) — extraire la lettre
     let dpeText = '';
     if (mainLog.dpe && typeof mainLog.dpe === 'object') {
@@ -10925,7 +10963,7 @@ function setParamsTab(tab, el2) {
   if(tab==='entites')   { go('bailleurs'); return; }
   setTab('#p-params',el2,'tp-');
   if(tab==='modele')  loadBailTemplateEditor();
-  if(tab==='global')  rParamsGlobal();
+  if(tab==='global')  { rParamsGlobal(); if (typeof rIRLParams === 'function') rIRLParams(); }
   if(tab==='partage') rParamsPartage();
   if(tab==='mandataire') rMandRef();
   if(tab==='rules')  rParamsRules();
@@ -11213,7 +11251,7 @@ function _renderDashOnboarding() {
 // CDC-QUITTANCES-IRL : plus de filtre « impayée » à poser — le bloc « ⏳ Pas à jour »
 // EST la liste des retards, il n'y a rien à sélectionner.
 function _dashGoImpayes() {
-  if (typeof go === 'function') go('quittances');
+  if (typeof go === 'function') go('loyers');
 }
 
 // v15.13 DASH-PROFILES Phase 2 — onglet dashboard actif (4 vues persona)
@@ -14707,8 +14745,8 @@ function openDashDrill(titre, html) {
 
 function drillEntToLoyers() {
   closeM('ov-ent-detail');
-  const navEl = document.querySelector('.ni[onclick*="\'loyers\'"]');
-  go('loyers', navEl);
+  const navEl = document.querySelector('.ni[onclick*="\'mouvements\'"]');
+  go('mouvements', navEl);
   setTimeout(()=>{
     if(_drillEntImm) { el('mv-f-imm').value=_drillEntImm; }
     else if(_drillEntNom) {
@@ -25455,11 +25493,11 @@ function rIRLParams() {
       ? `<span title="L'INSEE publie ${m.divergence} pour ce trimestre — ta valeur est conservée" style="color:var(--ora,#b27a12);font-size:11px"> ⚠ INSEE : ${fmtN(m.divergence)}</span>` : '';
     return `<tr>
     <td><b>${escHtml(k)}</b></td>
-    <td class="num"><input class="edit-inp" type="number" step="0.01" value="${val}" onblur="updateIRL('${escHtml(k)}',this.value)" style="width:100px;text-align:right"></td>
+    <td class="num"><input class="edit-inp" type="number" step="0.01" value="${val}" onblur="updateIRL('${_lyQ(k)}',this.value)" style="width:100px;text-align:right"></td>
     <td class="num" style="color:${varColor};font-size:12px">${prev ? (val >= prev ? '+' : '') + variation + ' %' : '–'}</td>
     <td style="font-size:11.5px">${m.dateJo ? fd(m.dateJo) : '<span class="mu">—</span>'}</td>
     <td style="font-size:11px;color:${src[1]}">${src[0]}${diverge}</td>
-    <td class="act-cell"><button class="btn br bb" onclick="delIRL('${escHtml(k)}')">🗑</button></td>
+    <td class="act-cell"><button class="btn br bb" onclick="delIRL('${_lyQ(k)}')">🗑</button></td>
   </tr>`;
   }).join('') || '<tr><td colspan="6" class="mu" style="text-align:center;padding:16px">Aucun trimestre — la synchronisation INSEE les rapatriera.</td></tr>';
 
@@ -25543,7 +25581,7 @@ async function _irlSyncInsee(opts) {
 // Rafraîchit les deux surfaces qui restent : l'onglet Loyers (blocs Révisions + calendrier)
 // et la table INSEE dans Paramètres. Ex-`rIRL(); rIRLParams(); rIRLHistorique();`.
 function refreshAllIRL() {
-  try { if (typeof rLoyers === 'function' && currentPage === 'quittances') rLoyers(); } catch(e) {}
+  try { if (typeof rLoyers === 'function' && currentPage === 'loyers') rLoyers(); } catch(e) {}
   try { if (el('irl-table-tbody')) rIRLParams(); } catch(e) {}
 }
 
@@ -25591,6 +25629,7 @@ function quickAddIRL(key, ref) {
   const n = parseFloat(String(val).replace(',','.'));
   if(isNaN(n) || n <= 0) { showToast('Valeur invalide','err'); return; }
   DB.irlTable[key] = Math.round(n*100)/100;
+  _irlMarquerManuel(key);          // I11 : sans ça, la synchro INSEE l'écrase au prochain boot
   saveDB(); refreshAllIRL();
   showToast(`${key} = ${DB.irlTable[key]} enregistré ✓`,'ok');
 }
@@ -27774,12 +27813,16 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   const totalRecu = (opts.totalRecu != null)
     ? (Number(opts.totalRecu) || 0)
     : ((prefixMois && typeof _loyerPayeDuMois === 'function') ? _loyerPayeDuMois(q.logement, prefixMois) : 0);
-  // Date « reçu le » — AFFICHAGE seulement (aucune imputation) : dernier encaissement de
-  // loyer du lot connu à la clôture du mois quittancé.
-  const _finMois = dateFin ? (anneeQ+'-'+String(moisIdx+1).padStart(2,'0')+'-'+String(dateFin.getDate()).padStart(2,'0')) : null;
+  // Date « reçu le » — AFFICHAGE seulement (aucune imputation) : le dernier encaissement de
+  // loyer du lot connu À L'ÉMISSION du document.
+  // ⚠️ Borner à la fin du mois quittancé serait FAUX : un loyer d'août réglé le 2 septembre
+  // — le cas d'école de ce chantier — serait exclu, et la quittance d'août afficherait la
+  // date d'un versement de juillet. Une quittance ne naît que sur un mois soldé (D6), donc
+  // le paiement qui l'a soldée est antérieur à son émission.
+  const _borne = String(q.date || td()).slice(0, 10);
   const _mvsLot = (opts.mvsPay != null) ? opts.mvsPay
-    : ((typeof DB !== 'undefined' && _finMois)
-        ? DB.mouvements.filter(m=>m && !m._deleted && m.qui===q.logement && _isLoyerCategory(m.cat) && (m.cr||0)>0 && m.date && m.date<=_finMois)
+    : ((typeof DB !== 'undefined')
+        ? DB.mouvements.filter(m=>m && !m._deleted && m.qui===q.logement && _isLoyerCategory(m.cat) && (m.cr||0)>0 && m.date && m.date<=_borne)
         : []);
   const datePayTrouvee = _mvsLot.length ? _mvsLot.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0].date : null;
   const datePay = datePayTrouvee ? fd(datePayTrouvee) : (q.datePaiement ? fd(q.datePaiement) : fd(q.date));
@@ -27789,9 +27832,14 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   // ≠ re-calculer, donc une révision IRL postérieure ne change jamais une quittance déjà émise.
   // (Le prorata entrée/sortie mi-mois est désormais figé à la CRÉATION, plus corrigé ici.)
   // Repli (quittance legacy sans montant) : le BARÈME DU MOIS, jamais le bail courant (C4/I5).
-  if ((q.hc == null && q.ch == null) && prefixMois && typeof _duMoisLot === 'function') {
+  // CHAMP PAR CHAMP : une quittance qui ne porte que ses charges garde ses charges et
+  // récupère son loyer au barème (même politique de repli symétrique que `duMois`).
+  if ((q.hc == null || q.ch == null) && prefixMois && typeof _duMoisLot === 'function') {
     const _d = _duMoisLot(q.logement, prefixMois);
-    q = Object.assign({}, q, { hc: _d.hc || 0, ch: _d.ch || 0 });
+    q = Object.assign({}, q, {
+      hc: q.hc == null ? (_d.hc || 0) : q.hc,
+      ch: q.ch == null ? (_d.ch || 0) : q.ch
+    });
   }
   const total = (q.hc||0)+(q.ch||0);
   const isProrata = false;
@@ -28159,9 +28207,15 @@ function delQuit(id) {
 /** Les lots à considérer : vivants, dans l'entité active, avec un bail (occupés). */
 function _lyLots() {
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const _nr = (x) => String(x == null ? '' : x).trim().toLowerCase();
+  // Un bail ARCHIVÉ compte encore : une dette ne s'éteint pas au départ du locataire, et
+  // c'est justement là qu'on a besoin du courrier de relance (D9 : « jusqu'au solde »).
+  // Les lots soldés retombent naturellement hors des trois blocs.
+  const aEuUnBail = (ref) => !!_findBailByRefTolerant(ref)
+    || (DB.baux_historique || []).some(b => b && !b._deleted && _nr(b.ref) === _nr(ref));
   return (DB.logements || []).filter(alive)
     .filter(l => (typeof _logInEnt !== 'function') || _logInEnt(l))
-    .filter(l => !!_findBailByRefTolerant(l.ref));
+    .filter(l => aEuUnBail(l.ref));
 }
 
 /** Les 'YYYY-MM' déjà quittancés d'un lot. */
@@ -28283,8 +28337,20 @@ function rLoyers() {
   host.innerHTML = html;
 }
 
-/** Échappe une ref pour un attribut onclick entre apostrophes. */
-function _lyQ(s2) { return String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+/**
+ * Échappe une valeur destinée à une CHAÎNE JS placée DANS UN ATTRIBUT HTML
+ * (`onclick="f('…')"`). Les deux échappements sont nécessaires et dans cet ordre :
+ *   1. chaîne JS  — `\` et `'`, sinon une apostrophe ferme l'argument ;
+ *   2. attribut HTML — `"` `<` `&`, sinon un guillemet sort de l'attribut.
+ * Un seul des deux ne suffit pas : `escHtml` seul produit `&#39;`, que le parseur HTML
+ * redécode en `'` AVANT la compilation du JS — donc rétablit l'évasion qu'il devait fermer.
+ * Aujourd'hui mono-locataire, ce serait du self-XSS ; avec le partage SCI, la référence
+ * saisie par un membre est rendue dans le DOM des autres.
+ */
+function _lyQ(s2) {
+  const js = String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return (typeof escHtml === 'function') ? escHtml(js) : js;
+}
 
 function _lyRow(o) {
   return `<div class="ly-row">
@@ -28458,7 +28524,13 @@ function _lyBlocRevisions(etats) {
       perdues.map(({ e, rev }) => {
         // D15 — « ce qu'elle aurait rapporté », dit UNE FOIS. Jamais une action : l'app ne
         // propose pas un geste qui ne serait pas opposable au locataire.
-        const gain = (rev.nouveauHC != null && e.log.hc) ? Math.round((rev.nouveauHC - e.log.hc) * 100) / 100 : null;
+        // Le gain se calcule sur les indices du cycle PERDU, pas sur ceux du cycle en cours
+        // (autre année, autre ratio) — sinon on affiche un chiffre faux sous un libellé factuel.
+        const _aP = rev.perdue.annee;
+        const _vP = (typeof irlVal === 'function') ? irlVal(rev.T, _aP) : null;
+        const _vP1 = (typeof irlVal === 'function') ? irlVal(rev.T, _aP - 1) : null;
+        const gain = (_vP && _vP1 && e.log.hc)
+          ? Math.round((e.log.hc * _vP / _vP1 - e.log.hc) * 100) / 100 : null;
         const prescritIso = (parseInt(rev.perdue.effetIso.slice(0, 4), 10) + 1) + rev.perdue.effetIso.slice(4);
         return { log: e.log, html: _lyRow({
           titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
@@ -28784,9 +28856,9 @@ function previewIRLLetterFromLog(ref) {
   const src = html ? { innerHTML: html } : null;
   const dst = el('ov-irl-lettre-content');
   if(!src || !dst) {
-    // Fallback : aller sur l'onglet IRL pour voir la lettre
-    showToast('Aperçu IRL : ouverture de l\'onglet IRL','info');
-    _goFromLogFiche('irl');
+    // Repli : l'onglet Loyers, où vivent les révisions (la lettre suit le clic).
+    showToast('Aperçu de la lettre indisponible — ouverture de l\'onglet Loyers','info');
+    _goFromLogFiche('loyers');
     return;
   }
   dst.innerHTML = src.innerHTML;
@@ -32121,6 +32193,7 @@ function delEDL(id){
 // v14.2 NAV-RESTRUCTURE : rParams() ne render plus Biens/Bailleurs (sortis vers leurs propres pages).
 function rParams() {
   rParamsCats(); rParamsPieces(); rParamsGlobal(); rMandRef();
+  if (typeof rIRLParams === 'function') rIRLParams();   // audit C1 : la table IRL vit ici (D20)
   rParamsRules(); rParamsTheme(); updateDBSizeBadge();
   // v15.04 USER-PROFILE-FILTERS Phase 4 : rendu de l'onglet Profil utilisateur
   if (typeof rParamsProfile === 'function') rParamsProfile();
@@ -39122,11 +39195,11 @@ function _renderLogFichePanelDocuments(log, ref) {
       </div>
     </div>`).join('');
     if((DB.quittances||[]).filter(_isAlive).filter(q=>q.logement===ref).length > 6) {
-      quitSection += `<div class="mu sm" style="text-align:center;margin-top:8px">+ ${(DB.quittances||[]).filter(_isAlive).filter(q=>q.logement===ref).length-6} autres · <a onclick="_goFromLogFiche('quittances')return false" style="cursor:pointer;color:var(--acc)">voir toutes</a></div>`;
+      quitSection += `<div class="mu sm" style="text-align:center;margin-top:8px">+ ${(DB.quittances||[]).filter(_isAlive).filter(q=>q.logement===ref).length-6} autres · <a onclick="_goFromLogFiche('loyers')return false" style="cursor:pointer;color:var(--acc)">voir toutes</a></div>`;
     }
   } else {
     quitSection = `<div class="logf-doc-empty">Aucune quittance enregistrée pour ce logement.
-      <div style="margin-top:10px"><button class="btn bs bb" onclick="_goFromLogFiche('quittances')">↗ Onglet Quittances</button></div>
+      <div style="margin-top:10px"><button class="btn bs bb" onclick="_goFromLogFiche('loyers')">↗ Onglet Loyers</button></div>
     </div>`;
   }
   sections.push({ title: `🧾 Quittances ${quitts.length?`(${quitts.length}+)`:''}`, icon: '🧾', html: quitSection });
@@ -50943,7 +51016,7 @@ function _bankImportRecapClose(goFinances) {
   _bankRecapMvts = [];
   closeM('ov-bank-import');
   if (goFinances && typeof go === 'function') go('finances');
-  else if (typeof go === 'function') go('loyers');
+  else if (typeof go === 'function') go('mouvements');
 }
 
 // =================== FINANCES (v15.255 REPORTING-BAILLEUR PARTIE C) ===================

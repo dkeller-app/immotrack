@@ -129,13 +129,29 @@ export function etatRevision(input) {
   const suivant = cycleSuivant(debut, today);
   const cur = cycleEnCours(debut, today);
 
-  // D17 — bail de moins d'un an : visible, muet, avec sa première échéance.
+  // Bail encore dans sa première année.
   if (!cur) {
+    const premier = base.premiereEffetIso;
+    const rappelPremier = moisRappel(premier);
+    // D13/I9 — le rappel M-1 vaut AUSSI pour la toute première révision : sans ça, le lot
+    // reste « 🔒 Non révisable » pendant tout son mois de rappel, puis bascule le 1er du mois
+    // suivant directement en « ⚠ en retard ». Sur un parc qui se remplit au fil de l'eau,
+    // c'est la première révision de CHAQUE nouveau bail qui passe à la trappe.
+    if (rappelPremier && today.slice(0, 7) === rappelPremier && !i.indiceManquant) {
+      return Object.assign(base, {
+        etat: ETAT.A_PREPARER, cycleAnnee: _an(premier),
+        effetPrevuIso: premier, rappelYm: rappelPremier,
+        joursAvantEffet: _joursEntre(today, premier)
+      });
+    }
+    // D17 — sinon : visible, muet, avec sa première échéance.
     return Object.assign(base, {
-      etat: ETAT.TROP_JEUNE, muet: true,
-      effetPrevuIso: base.premiereEffetIso,
-      rappelYm: moisRappel(base.premiereEffetIso),
-      joursAvantEffet: _joursEntre(today, base.premiereEffetIso)
+      etat: (rappelPremier && today.slice(0, 7) === rappelPremier && i.indiceManquant)
+        ? ETAT.INDICE_MANQUANT : ETAT.TROP_JEUNE,
+      muet: true,
+      effetPrevuIso: premier,
+      rappelYm: rappelPremier,
+      joursAvantEffet: _joursEntre(today, premier)
     });
   }
 

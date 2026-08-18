@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { navSubmenuModel } from '../../js/core/nav-submenu.js';
+import { navSubmenuModel, migrerIdsMenuLoyers } from '../../js/core/nav-submenu.js';
 
 // Groupes échantillons (forme = _NAV_GROUPS[x])
 const pilotage = { parent: 'Pilotage', tabs: [['dashboard', 'Tableau de bord'], ['finances', 'Finances'], ['pilotage', 'Suivi']] };
@@ -53,5 +53,52 @@ describe('navSubmenuModel', () => {
     expect(m.kind).toBe('group');
     expect(m.children.map(c => c.id)).toEqual(['baux', 'candidats']);
     expect(m.children.find(c => c.active).id).toBe('candidats');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CDC-QUITTANCES-IRL étape 8 — migration des préférences de menu
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('migrerIdsMenuLoyers', () => {
+  it('renomme loyers→mouvements et quittances→loyers, et retire irl', () => {
+    expect(migrerIdsMenuLoyers(['accueil', 'loyers', 'quittances', 'irl', 'regul']))
+      .toEqual(['accueil', 'mouvements', 'loyers', 'regul']);
+  });
+
+  it('conserve l\'ordre d\'origine', () => {
+    expect(migrerIdsMenuLoyers(['quittances', 'biens', 'loyers']))
+      .toEqual(['loyers', 'biens', 'mouvements']);
+  });
+
+  it('IDEMPOTENTE : une liste déjà migrée ne bouge plus', () => {
+    const migre = migrerIdsMenuLoyers(['accueil', 'loyers', 'quittances', 'irl']);
+    expect(migrerIdsMenuLoyers(migre)).toEqual(migre);
+    expect(migrerIdsMenuLoyers(migrerIdsMenuLoyers(migre))).toEqual(migre);
+  });
+
+  it('une liste déjà migrée garde son `loyers` (= l\'onglet Loyers), sans le re-renommer', () => {
+    expect(migrerIdsMenuLoyers(['mouvements', 'loyers'])).toEqual(['mouvements', 'loyers']);
+  });
+
+  it('fusionne les doublons que le renommage pourrait créer', () => {
+    expect(migrerIdsMenuLoyers(['loyers', 'loyers', 'quittances', 'quittances']))
+      .toEqual(['mouvements', 'loyers']);
+  });
+
+  it('aucune entrée n\'est perdue par accident : seul `irl` disparaît', () => {
+    const avant = ['accueil', 'dashboard', 'pilotage', 'biens', 'baux', 'candidats', 'edl',
+      'agenda', 'equipements', 'loyers', 'quittances', 'irl', 'regul', 'finances'];
+    const apres = migrerIdsMenuLoyers(avant);
+    expect(apres).toHaveLength(avant.length - 1);
+    expect(apres).not.toContain('irl');
+    expect(apres).toContain('mouvements');
+    expect(apres).toContain('loyers');
+  });
+
+  it('entrées invalides tolérées', () => {
+    expect(migrerIdsMenuLoyers(null)).toEqual([]);
+    expect(migrerIdsMenuLoyers([])).toEqual([]);
+    expect(migrerIdsMenuLoyers(['', null, undefined, 'biens'])).toEqual(['biens']);
   });
 });

@@ -233,7 +233,7 @@ describe('D1/D3/D11 — l\'onglet Loyers remplace l\'onglet Quittances', () => {
     // file de travail — il ne montrait jamais un loyer encaissé restant à quittancer.
     expect(code).not.toMatch(/\brQuit\b/);
     expect((code.match(/function rLoyers\(/g) || []).length).toBe(1);
-    expect(code).toMatch(/quittances:\(\)=>\{initFilters\(\);rLoyers\(\);\}/);
+    expect(code).toMatch(/loyers:\(\)=>\{initFilters\(\);rLoyers\(\);\}/);
   });
 
   it('D3 — le bloc « Quittances demandées » est trié par la case du bail', () => {
@@ -274,7 +274,7 @@ describe('D20/I11/I12 — synchronisation INSEE', () => {
     const brut = read('index.html');
     expect(brut).not.toMatch(/<div class="page" id="p-irl">/);
     expect(brut).toMatch(/id="param-irl"/);
-    expect(code).toMatch(/if\(page === 'irl'\) return go\('params', elNav\);/);
+    expect(code).toMatch(/if\(page === 'irl'\) return go\('loyers', elNav\);/);
   });
 
   it('I12 — le filet IRL_DEFAULT existe toujours, jamais supprimé', () => {
@@ -306,6 +306,66 @@ describe('D20/I11/I12 — synchronisation INSEE', () => {
     // Un champ persistant hors params/blob exigerait une migration SQL — interdit ici.
     expect(code).toMatch(/DB\.params\.irlMeta/);
     expect(code).not.toMatch(/DB\.irlMeta/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Étape 8 — navigation (D1/D2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('D1/D2 — la zone Argent, et des identifiants qui disent ce qu’ils montrent', () => {
+  const code = codeOf('index.html');
+  const brut = read('index.html');
+
+  it('les pages portent les nouveaux identifiants', () => {
+    expect(brut).toMatch(/<div class="page" id="p-mouvements">/);
+    expect(brut).toMatch(/<div class="page" id="p-loyers">/);
+    expect(brut).not.toMatch(/<div class="page" id="p-quittances">/);
+    expect(brut).not.toMatch(/<div class="page" id="p-irl">/);
+  });
+
+  it('D2 — une SEULE entrée de menu contient le mot « Loyers »', () => {
+    const m = code.match(/const _MENU_LABELS = \{[^}]*\}/);
+    expect(m).toBeTruthy();
+    const avecLoyers = m[0].split(',').filter(x => /Loyers/.test(x));
+    expect(avecLoyers).toHaveLength(1);
+    expect(m[0]).toMatch(/mouvements:'Mouvements'/);
+  });
+
+  it('D1 — 13 entrées de menu au lieu de 14, et la zone Argent en compte 4', () => {
+    const all = code.match(/const _MENU_ALL = \[([^\]]*)\]/)[1].split(',').filter(Boolean);
+    expect(all).toHaveLength(13);
+    expect(all.join(',')).not.toMatch(/'irl'/);
+    const argent = code.match(/\{ z:'Argent', ids:\[([^\]]*)\] \}/)[1];
+    expect(argent.split(',')).toHaveLength(4);
+    expect(argent).toBe("'mouvements','loyers','regul','finances'");
+  });
+
+  it('les anciens identifiants restent joignables (favoris, historique du navigateur)', () => {
+    expect(code).toMatch(/if\(page === 'quittances'\) return go\('loyers', elNav\);/);
+    expect(code).toMatch(/if\(page === 'irl'\) return go\('loyers', elNav\);/);
+  });
+
+  it('le routeur rend bien chaque page renommée', () => {
+    expect(code).toMatch(/mouvements:\(\)=>\{initFilters\(\);rMv\(\);\}/);
+    expect(code).toMatch(/loyers:\(\)=>\{initFilters\(\);rLoyers\(\);\}/);
+  });
+
+  it('les préférences de menu enregistrées sont MIGRÉES, pas silencieusement filtrées', () => {
+    const body = fnBody(code, '_menuGetOn');
+    expect(body).toMatch(/window\.migrerIdsMenuLoyers\(a\)/);
+    // La migration est appliquée AVANT le filtre par _MENU_ALL, sinon elle ne servirait à rien.
+    expect(body.indexOf('migrerIdsMenuLoyers')).toBeLessThan(body.indexOf('_MENU_ALL.includes'));
+  });
+
+  it('aucun identifiant de page mort ne traîne dans les modèles de navigation', () => {
+    for (const bloc of ['_MENU_ALL', '_MENU_ZONES', '_MENU_PRESETS', '_V4_NAV_MODEL', '_V4_BOTTOM']) {
+      const i = code.indexOf('const ' + bloc);
+      expect(i).toBeGreaterThan(-1);
+      const extrait = code.slice(i, code.indexOf(';', i));
+      expect(extrait).not.toMatch(/'quittances'/);
+      expect(extrait).not.toMatch(/'irl'/);
+    }
   });
 });
 

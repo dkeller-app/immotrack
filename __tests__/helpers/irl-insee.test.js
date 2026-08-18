@@ -212,3 +212,36 @@ describe('I12 — sans réseau, IRL_DEFAULT prend le relais et rien ne casse', (
     expect(t['T1 2025']).toBe(143.46);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Constats d'audit — I11 troué sur les clés hors filet, et tombstones ressuscités
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('Audit — la fusion ne perd ni n\'écrase rien', () => {
+  const DEF = { 'T1 2025': 143.46, 'T2 2025': 145.30, 'T1 2026': 147.02 };
+  const obs = parseIrlSdmx(XML);
+
+  it('I11 — un trimestre saisi à la main ABSENT du filet est protégé', () => {
+    // C'est le cas de `quickAddIRL` : on saisit le trimestre qui manque pour débloquer une
+    // révision. Sans méta et sans défaut, il était écrasé en silence au boot suivant.
+    const r = fusionnerIrlTable({ ...DEF, 'T2 2026': 999 }, obs, { defaults: DEF });
+    expect(r.table['T2 2026']).toBe(999);
+    expect(r.divergences).toEqual([
+      { cle: 'T2 2026', valeurLocale: 999, valeurInsee: 148.37, dateJo: '2026-07-12' }
+    ]);
+  });
+
+  it('un trimestre SUPPRIMÉ (tombstone) n\'est pas ressuscité par la synchronisation', () => {
+    const table = { ...DEF, 'T1 2026': { _deleted: true, _deletedAt: '2026-08-01' } };
+    const r = fusionnerIrlTable(table, obs, { defaults: DEF });
+    expect(r.table['T1 2026']).toEqual({ _deleted: true, _deletedAt: '2026-08-01' });
+    expect(r.ajouts.map(a => a.cle)).not.toContain('T1 2026');
+    expect(r.majs.map(a => a.cle)).not.toContain('T1 2026');
+  });
+
+  it('un tombstone n\'empêche pas les AUTRES trimestres d\'arriver', () => {
+    const table = { ...DEF, 'T1 2026': { _deleted: true } };
+    const r = fusionnerIrlTable(table, obs, { defaults: DEF });
+    expect(r.table['T2 2026']).toBe(148.37);
+  });
+});

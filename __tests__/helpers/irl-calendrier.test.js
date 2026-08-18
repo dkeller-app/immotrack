@@ -230,3 +230,47 @@ describe('D16 — douze mois glissants, un lot par ligne', () => {
     expect(ganttRevisions([], 'nope').mois).toEqual([]);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  D13/I9 — le rappel M-1 vaut aussi pour la PREMIÈRE révision (constat d'audit)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('I9 — la première révision d\'un bail a droit à son mois de rappel', () => {
+  // Bail du 15/09/2023 : premier effet au 01/09/2024, donc rappel sur tout août 2024.
+  const at = (today) => etatRevision({ debut: OHL, todayISO: today });
+
+  it('avant le mois de rappel : muet, listé comme non révisable', () => {
+    const r = at('2024-07-15');
+    expect(r.etat).toBe(ETAT.TROP_JEUNE);
+    expect(r.muet).toBe(true);
+  });
+
+  it('le 01/08 : la ligne apparaît dans « à préparer », et elle n\'est PAS muette', () => {
+    const r = at('2024-08-01');
+    expect(r.etat).toBe(ETAT.A_PREPARER);
+    expect(r.muet).toBe(false);
+    expect(r.effetPrevuIso).toBe('2024-09-01');
+    expect(r.cycleAnnee).toBe(2024);
+  });
+
+  it('le 31/08 : dernier jour de la fenêtre', () => {
+    expect(at('2024-08-31').etat).toBe(ETAT.A_PREPARER);
+  });
+
+  it('le 01/09 : le cycle est en cours — en retard seulement s\'il n\'a pas été fait', () => {
+    expect(at('2024-09-01').etat).toBe(ETAT.EN_RETARD);
+    expect(etatRevision({ debut: OHL, todayISO: '2024-09-01', derniereApplicationIso: '2024-09-01' }).etat)
+      .toBe(ETAT.FAITE);
+  });
+
+  it('sans l\'indice, le rappel reste muet plutôt que de proposer un calcul impossible', () => {
+    const r = etatRevision({ debut: OHL, todayISO: '2024-08-10', indiceManquant: true });
+    expect(ETATS_MUETS).toContain(r.etat);
+    expect(r.muet).toBe(true);
+    expect(r.effetPrevuIso).toBe('2024-09-01');
+  });
+
+  it('un bail gelé DPE F/G n\'entre jamais dans ce rappel', () => {
+    expect(etatRevision({ debut: OHL, todayISO: '2024-08-10', gel: true }).etat).toBe(ETAT.GEL);
+  });
+});
