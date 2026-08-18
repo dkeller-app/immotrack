@@ -15614,7 +15614,14 @@ function _affRender(id, tgt) {
         && DB.entites.some(e => _isAlive(e) && e.type && e.type.startsWith('SCI') && e.nom === _currentBankAccount.bailleur)) {
       quiSci = 'SCI:' + _currentBankAccount.bailleur;
       if (el(tgt + '-qui')) el(tgt + '-qui').value = quiSci;      // écrit la valeur cible, pas juste l'affichage
-      const _hk = _affHooks[id]; if (_hk) setTimeout(_hk, 0);     // sync ligne + rafraîchit « Valider »
+      // AUDIT I2 — on écrit AUSSI la ligne, au rang de PROPOSITION : DOM et ligne restent égaux,
+      // _bankSyncAff ne posera donc pas _userEdited → pas de bascule silencieuse en « Reconnus »
+      // au simple passage sur la ligne (R-B v2). Le bouton « Valider » se rafraîchit via son
+      // probe DOM, sans passer par le hook (qui, lui, marquerait _userEdited).
+      const _pli = parseInt(tgt.slice(3), 10);
+      const _pln = (typeof _bankImportLines !== 'undefined' && _bankImportLines) ? _bankImportLines[_pli] : null;
+      if (_pln && !_pln.suggestedQui && !_pln.suggestedImm && !_pln.suggestedCc) _pln.suggestedQui = quiSci;
+      if (typeof _bankWalkRefreshValidate === 'function') setTimeout(_bankWalkRefreshValidate, 0);
     }
     const o = DB.entites.filter(_isAlive).filter(e => e.type && e.type.startsWith('SCI')).map(e => opt('SCI:' + e.nom, e.nom, quiSci === 'SCI:' + e.nom)).join('');
     field = '<select class="inp" onchange="_affPick(\'' + id + '\',\'' + tgt + '\',\'sci\',this.value)"><option value="">— quelle entité ? —</option>' + o + '</select>';
@@ -49792,26 +49799,8 @@ let _bankReviewedOk = false;   // A7 : l'utilisateur a-t-il VÉRIFIÉ (scrollé)
 // (deadlock : une proposition complète ne pouvait JAMAIS être validée).
 function _bankLineComplete(line) {
   if (!line) return false;
+  if (!line.date) return false;                               // AUDIT M2 — pas de « Valider » armé sur une ligne sans date
   if (Array.isArray(line._sp) && line._sp.length) {           // V3 Phase 4 — ligne découpée : complète si le split équilibre le net
-    const net = line._sp.reduce((s, r) => s + (r.sens === 'cr' ? (Number(r.montant) || 0) : -(Number(r.montant) || 0)), 0);
-    const bankNet = (line.credit || 0) - (line.debit || 0);
-    return Math.abs(bankNet - net) < 0.01 && line._sp.every(r => (Number(r.montant) || 0) > 0);
-  }
-  const cat = line.suggestedCat || '';
-  if (!cat) return false;
-  const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(cat) : null;
-  const needsTarget = !sc || sc.type !== 'special' || sc.recup || !!sc.niv;
-  if (!needsTarget) return true;
-  return !!(line.suggestedQui || line.suggestedImm || line.suggestedCc);
-}
-function _bankLineDone(line) {
-  if (!line || line.isDuplicate) return true;                 // doublons : hors du flux de tri
-  // R-B v2 / bug 10 — décision testée dans js/core/bank-import.js : seule une RÈGLE
-  // (ou une validation de l'utilisateur) rend une ligne automatisable. Une proposition
-  // reste dans « À compléter » même complète. Couvre aussi date manquante, conflit de
-  // règles non arbitré et proposition ambiguë.
-  if (!window._bankIsAutomatable(line)) return false;
-  if (Array.isArray(line._sp) && line._sp.length) {           // V3 Phase 4 — ligne découpée : « done » si le split équilibre le net
     const net = line._sp.reduce((s, r) => s + (r.sens === 'cr' ? (Number(r.montant) || 0) : -(Number(r.montant) || 0)), 0);
     const bankNet = (line.credit || 0) - (line.debit || 0);
     return Math.abs(bankNet - net) < 0.01 && line._sp.every(r => (Number(r.montant) || 0) > 0);
@@ -49823,10 +49812,21 @@ function _bankLineDone(line) {
   // ET les 'special' qui ont un niveau d'affectation par défaut (niv) — ex. Prêt→immeuble,
   // Frais bancaires→SCI, Dépôt de garantie→logement, Acquisition→immeuble, CCA→SCI. A5 : sans ça,
   // un mouvement de prêt finissait « Reconnu » sans immeuble. Seuls les 'special' SANS niv
-  // (virement interne, divers, construction) sont « done » sans cible.
+  // (virement interne, divers, construction) sont complets sans cible.
   const needsTarget = !sc || sc.type !== 'special' || sc.recup || !!sc.niv;
   if (!needsTarget) return true;
   return !!(line.suggestedQui || line.suggestedImm || line.suggestedCc);
+}
+function _bankLineDone(line) {
+  if (!line || line.isDuplicate) return true;                 // doublons : hors du flux de tri
+  // R-B v2 / bug 10 — décision testée dans js/core/bank-import.js : seule une RÈGLE
+  // (ou une validation de l'utilisateur) rend une ligne automatisable. Une proposition
+  // reste dans « À compléter » même complète. Couvre aussi date manquante, conflit de
+  // règles non arbitré et proposition ambiguë.
+  if (!window._bankIsAutomatable(line)) return false;
+  // AUDIT I4 (DRY) — un seul juge de la complétude : _bankLineComplete. La copie qui vivait
+  // ici aurait fini par diverger du bouton « Valider » (règle projet : réutiliser, jamais recopier).
+  return _bankLineComplete(line);
 }
 function _bankIdxByState() {
   const todo = [], ok = [], dup = [];
@@ -50617,7 +50617,11 @@ function _bankWalkDone() {
     let right = '';
     if (st.todo.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'todo\')">📝 Reprendre les ' + st.todo.length + ' à compléter</button>';
     if (okToReview.length) right += '<button class="btn bs" onclick="_bankWalkRestart(\'ok\')">👁️ Revoir les ' + okToReview.length + ' ligne(s) classée(s) par tes règles</button>';
-    right += '<button class="btn bp"' + (st.todo.length ? ' disabled title="Termine d\'abord les ' + st.todo.length + ' à compléter"' : '') + ' onclick="_bankWalk=null;closeM(\'ov-bank-mv\');_bankImportConfirm()">✓ Importer ' + st.ok.length + '</button>';
+    // AUDIT I1 / ⑧.1 v2 — cet écran bloquait encore l'import partiel (« Termine d'abord les
+    // X à compléter ») : même décision que le bouton principal — rien ne bloque, l'attente se garde.
+    right += '<button class="btn bp"' + (st.ok.length ? '' : ' disabled title="Aucune ligne prête à importer"')
+      + ' onclick="_bankWalk=null;closeM(\'ov-bank-mv\');_bankImportConfirm()">✓ Importer ' + st.ok.length
+      + (st.todo.length ? ' · garder ' + st.todo.length + ' en attente' : '') + '</button>';
     foot.innerHTML = '<button class="btn bs" onclick="_bankCloseMvWindow()">Revoir la liste</button>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end">' + right + '</div>';
   }
