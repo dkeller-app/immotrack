@@ -156,8 +156,7 @@ import * as BankImport from './core/bank-import.js';
 // v15.10 QUITTANCES-ACTIVES - statut dynamique + escalade
 // CDC-QUITTANCES-IRL etape 1 : _matchPaiementQuittance / _matcheMois SUPPRIMES (7e moteur, C3).
 import {
-  _statutQuittance, _escaladeAlerte,
-  _planQuittancesAGenerer, QUITTANCE_STATUS
+  _statutQuittance, _escaladeAlerte, QUITTANCE_STATUS
 } from './core/quittances-actives.js';
 
 // CDC-QUITTANCES-IRL etape 1 - LE socle du verdict « ce mois est-il solde ? » (D6/D7).
@@ -389,7 +388,6 @@ for (const _bk of Object.keys(BankImport)) window[_bk] = BankImport[_bk];
 // QUITTANCES-ACTIVES (v15.10 Sprint 11) - statut dynamique + escalade + auto-gen
 window._statutQuittance = _statutQuittance;
 window._escaladeAlerte = _escaladeAlerte;
-window._planQuittancesAGenerer = _planQuittancesAGenerer;
 window.QUITTANCE_STATUS = QUITTANCE_STATUS;
 
 // LOYERS - verdict « mois solde » (CDC-QUITTANCES-IRL etape 1). Source unique consommee
