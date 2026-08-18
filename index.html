@@ -422,133 +422,26 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
     <!-- v15.255 V3-REFONTE-ASSURANCES Étape 2 : page Assurances supprimée.
          PNO → fiche immeuble (sous-onglet Assurances) · MRH → fiche logement + page Locataires (badge 🔑). -->
 
-    <!-- PAGE: IRL -->
+    <!-- PAGE: IRL — CDC-QUITTANCES-IRL D1/D19.
+         L'onglet « Loyer (IRL) » est ABSORBÉ par l'onglet « Loyers » :
+           · le sous-onglet « Révision & Lettres » (cartes, tableau legacy, panneau
+             « ✉ Aperçu lettre » et son sélecteur) → blocs Révisions de l'onglet Loyers ;
+           · le sous-onglet « Historique » et son bouton « 🗑 Effacer tout l'historique » →
+             timeline « Historique du bail » (v15.496). Rien ne justifie de pouvoir effacer
+             une trace financière d'un clic alors que le barème garde ses périodes (C6/C7).
+         Il ne reste que la TABLE INSEE, qui part dans Paramètres à l'étape 7 (D20). -->
     <div class="page" id="p-irl">
       <div class="flex-b mb12">
-        <div class="tabs" style="margin-bottom:0;border-bottom:none">
-          <div class="tab act" onclick="setIRLTab('calc',this)">📈 Révision &amp; Lettres</div>
-          <div class="tab" onclick="setIRLTab('table',this)">📋 Table IRL INSEE</div>
-          <div class="tab" onclick="setIRLTab('histo',this)">📜 Historique</div>
-        </div>
-        <select class="inp" id="irl-f-imm" onchange="rIRL()" style="width:180px"><option value="">Tous immeubles</option></select>
-      </div>
-      <div style="border-top:1px solid var(--bor);margin-bottom:16px"></div>
-
-      <!-- Tab : Révision & Lettres -->
-      <div class="tab-panel act" id="tp-irl-calc">
-        <!-- v15.11 IRL-UX-FIX : toggle vue compact + grid plus dense -->
-        <style>
-          /* Grid responsive cartes IRL — v15.76 : groupage par immeuble.
-             Le container devient un flow de groupes ; chaque groupe a son propre
-             grid 1/2/3/4 cols pour les cards (responsive identique à avant). */
-          #irl-cards-grid { display: block; margin-bottom: 12px; }
-          .irl-grp { margin-bottom: 14px; }
-          .irl-grp:last-child { margin-bottom: 0; }
-          .irl-grp-head {
-            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-            padding: 9px 12px;
-            background: var(--sur);
-            border: 1px solid var(--bor);
-            border-radius: var(--rl);
-            cursor: pointer;
-            user-select: none;
-            transition: background 0.15s ease;
-            font-size: 12.5px;
-          }
-          .irl-grp-head:hover { background: var(--sur2, var(--sur)); }
-          .irl-grp-head .chev { color: var(--mu, #888); font-size: 11px; transition: transform 0.2s ease; flex-shrink: 0; width: 10px; text-align: center; }
-          .irl-grp.collapsed .irl-grp-head .chev { transform: rotate(-90deg); }
-          .irl-grp-head .ic { font-size: 14px; flex-shrink: 0; }
-          .irl-grp-head .nm { font-weight: 700; color: var(--tx, inherit); }
-          .irl-grp-head .ad { color: var(--mu, #888); font-size: 10.5px; font-style: italic; }
-          .irl-grp-head .kpis { display: flex; gap: 12px; align-items: center; margin-left: auto; flex-wrap: wrap; }
-          .irl-grp-head .kpi { font-size: 11px; color: var(--mu, #888); white-space: nowrap; }
-          .irl-grp-head .kpi b { color: var(--tx, inherit); font-weight: 700; font-variant-numeric: tabular-nums; }
-          .irl-grp-head .kpi.alert { color: #d97706; }
-          .irl-grp-head .kpi.alert b { color: #d97706; }
-          .irl-grp-body {
-            display: grid; grid-template-columns: 1fr; gap: 10px; padding: 10px 0 2px;
-          }
-          .irl-grp.collapsed .irl-grp-body { display: none; }
-          @media (min-width: 700px)  { .irl-grp-body { grid-template-columns: repeat(2, 1fr); } }
-          @media (min-width: 1100px) { .irl-grp-body { grid-template-columns: repeat(3, 1fr); } }
-          @media (min-width: 1500px) { .irl-grp-body { grid-template-columns: repeat(4, 1fr); } }
-          @media (max-width: 600px) {
-            .irl-grp-head .ad { display: none; }
-            .irl-grp-head .kpis { gap: 8px; margin-left: 0; width: 100%; }
-          }
-        </style>
-        <div class="flex-b mb8" style="gap:8px;flex-wrap:wrap">
-          <div id="irl-view-toggle" class="flex-c" style="gap:4px;font-size:11px"></div>
-          <button class="btn bs bb" onclick="_irlToggleLetterPane()" id="irl-letter-toggle-btn" style="font-size:11px;padding:3px 8px" title="Afficher / masquer l'aperçu lettre">✉ Aperçu lettre</button>
-        </div>
-        <div id="irl-cards-grid"></div>
-
-        <div class="irl-calc-grid">
-          <!-- Tableau révision (vue legacy, masquée par défaut) -->
-          <div>
-            <div class="tbl-wrap"><table class="tbl" id="irl-table">
-              <thead><tr>
-                <th>Logement</th><th>Locataire</th>
-                <th>IRL contrat (T, N-1)</th><th>IRL vigueur (T, N)</th>
-                <th>Date anniversaire</th>
-                <th class="num">Loyer actuel</th><th class="num">Nouveau loyer</th><th class="num">+/-</th>
-                <th></th>
-              </tr></thead>
-              <tbody id="irl-tbody"></tbody>
-            </table></div>
-          </div>
-          <!-- Aperçu lettre (v15.11 : escamotable par bouton "✉ Aperçu lettre" en haut)
-               v15.74 BUG-IRL-APERCU-LETTRE-V15 : ajout sélecteur de bail + auto-load 1ère lettre à l'ouverture. -->
-          <div class="irl-letter-pane" id="irl-letter-pane" style="display:none">
-            <div class="flex-b mb8" style="gap:8px;flex-wrap:wrap">
-              <div class="ct" style="margin:0">✉ Aperçu lettre</div>
-              <select id="irl-letter-selector" onchange="_irlOnSelectorChange()" class="inp" style="flex:1;min-width:160px;max-width:340px;font-size:12px;padding:4px 6px" title="Choisir le bail à prévisualiser" aria-label="Sélection du bail à prévisualiser">
-                <option value="">— Aucun bail prévisualisable —</option>
-              </select>
-              <div style="display:flex;gap:4px">
-                <button class="btn bs bb" onclick="envoyerLettreIRLParEmail()" title="Télécharger le PDF">📥 Télécharger</button>
-                <button class="btn bs bb" onclick="printIRLLetter()">🖨 Imprimer</button>
-                <button class="btn bs bb" onclick="_irlToggleLetterPane()" title="Masquer">✕</button>
-              </div>
-            </div>
-            <div id="pdf-irl-content" style="background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);padding:16px;min-height:200px;font-size:12px;line-height:1.7;max-height:75vh;overflow-y:auto">
-              <span class="mu">Cliquer sur <b>👁 Aperçu</b> dans une carte pour afficher la lettre.</span>
-            </div>
-          </div>
+        <span class="mu sm">Valeurs IRL INSEE (indice de référence des loyers)</span>
+        <div class="flex-c">
+          <button class="btn bp bb" onclick="addIRLRow()">+ Trimestre</button>
+          <button class="btn bs bb" onclick="resetIRLToDefault()" title="Ajouter les trimestres manquants et corriger les valeurs erronées (valeurs personnalisées hors IRL_DEFAULT préservées)">↺ Sync INSEE</button>
         </div>
       </div>
-
-      <!-- Tab : Table IRL -->
-      <div class="tab-panel" id="tp-irl-table">
-        <div class="flex-b mb12">
-          <span class="mu sm">Valeurs IRL INSEE (indice de référence des loyers)</span>
-          <div class="flex-c">
-            <button class="btn bp bb" onclick="addIRLRow()">+ Trimestre</button>
-            <button class="btn bs bb" onclick="resetIRLToDefault()" title="Ajouter les trimestres manquants et corriger les valeurs erronées (valeurs personnalisées hors IRL_DEFAULT préservées)">↺ Sync INSEE</button>
-          </div>
-        </div>
-        <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Trimestre</th><th class="num">Valeur INSEE</th><th class="num">Variation</th><th></th></tr></thead>
-          <tbody id="irl-table-tbody"></tbody>
-        </table></div>
-      </div>
-
-      <!-- Tab : Historique révisions -->
-      <div class="tab-panel" id="tp-irl-histo">
-        <div class="flex-b mb12">
-          <span class="mu sm">Traçabilité de toutes les révisions IRL appliquées</span>
-          <button class="btn br bb" onclick="if(confirm2('Effacer tout l\'historique IRL ?')){DB.irlHistorique=[];saveDB();rIRLHistorique();}" title="Effacer l'historique">🗑 Effacer</button>
-        </div>
-        <div class="tbl-wrap"><table class="tbl">
-          <thead><tr>
-            <th>Date appli.</th><th>Logement</th><th>Locataire</th>
-            <th>IRL réf. (N-1)</th><th>IRL vigueur (N)</th>
-            <th class="num">Ancien loyer</th><th class="num">Nouveau loyer</th><th class="num">+/-</th>
-          </tr></thead>
-          <tbody id="irl-histo-tbody"></tbody>
-        </table></div>
-      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Trimestre</th><th class="num">Valeur INSEE</th><th class="num">Variation</th><th></th></tr></thead>
+        <tbody id="irl-table-tbody"></tbody>
+      </table></div>
     </div>
 
     <!-- PAGE: ÉQUIPEMENTS -->
@@ -684,6 +577,35 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-quittances .ly-fold:hover{color:var(--t1)}
         #p-quittances .ly-empty{padding:20px 14px;color:var(--t3);font-size:11.5px;text-align:center}
         #p-quittances .ly-empty b{color:var(--t1);display:block;font-size:13px;margin-bottom:4px}
+        /* Groupage à deux niveaux (bailleur > immeuble). Les en-têtes restent compacts :
+           trois blocs × deux niveaux, ça monte vite en hauteur — surtout à 390 px. */
+        #p-quittances .ly-grp-b{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--sur2);border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:800;color:var(--t1);letter-spacing:.01em}
+        #p-quittances .ly-grp-b .c{margin-left:auto;font-weight:700;font-size:10px;color:var(--t3);background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:1px 7px}
+        #p-quittances .ly-grp-i{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 20px;border-bottom:1px solid var(--bor);font-size:10.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+        #p-quittances .ly-grp-i .c{margin-left:auto;font-weight:700;letter-spacing:0;text-transform:none}
+        #p-quittances .ly-grp-orph{font-style:italic;text-transform:none;letter-spacing:0}
+        /* D16 — le calendrier Gantt. Le CADRE défile horizontalement ; la page, jamais. */
+        #p-quittances .ly-gt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px;max-width:100%}
+        #p-quittances .ly-gt{display:grid;gap:2px;min-width:620px}
+        #p-quittances .ly-gt-c{font-size:10px;padding:4px 3px;border-radius:4px;text-align:center;min-height:22px}
+        #p-quittances .ly-gt-hd{color:var(--t3);font-weight:700;line-height:1.1}
+        #p-quittances .ly-gt-hd span{font-weight:400;font-size:8.5px}
+        #p-quittances .ly-gt-hd.now,#p-quittances .ly-gt-cell.now{box-shadow:inset 0 0 0 1px var(--bor)}
+        #p-quittances .ly-gt-lot{text-align:left;font-size:10.5px;line-height:1.25;padding-right:8px}
+        #p-quittances .ly-gt-lot b{display:block;color:var(--t1);font-size:11px}
+        #p-quittances .ly-gt-lot span{color:var(--t3);font-size:9.5px}
+        #p-quittances .ly-gt-cell{background:var(--sur2)}
+        #p-quittances .ly-gt-cell.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.20),rgba(255,90,60,.20) 4px,transparent 4px,transparent 8px);color:var(--acc);font-weight:700}
+        #p-quittances .ly-gt-cell.effet{background:var(--acc);color:#fff;font-weight:800}
+        #p-quittances .ly-gt-cell.faite{background:rgba(22,163,74,.22);color:#16a34a;font-weight:700}
+        #p-quittances .ly-gt-cell.gel{background:var(--bor);color:var(--t3);font-size:9px}
+        #p-quittances .ly-gt-leg{display:flex;flex-wrap:wrap;gap:10px;padding:0 12px 10px;font-size:10px;color:var(--t3)}
+        #p-quittances .ly-gt-leg i{display:inline-block;width:12px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--sur2)}
+        #p-quittances .ly-gt-leg i.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.35),rgba(255,90,60,.35) 3px,transparent 3px,transparent 6px)}
+        #p-quittances .ly-gt-leg i.effet{background:var(--acc)}
+        #p-quittances .ly-gt-leg i.faite{background:rgba(22,163,74,.5)}
+        #p-quittances .ly-gt-leg i.gel{background:var(--bor)}
+        #p-quittances .ly-gt-leg i.now{box-shadow:inset 0 0 0 1px var(--t3)}
         /* Téléphone : la ligne passe en colonne — jamais de scroll horizontal. */
         @media (max-width:700px){
           #p-quittances .ly-row{grid-template-columns:1fr;gap:6px}
@@ -6734,7 +6656,7 @@ function initFilters() {
         .filter(l=>l.entity===_activeEntity).map(l=>l.imm).filter(Boolean))]
     : immeubles();
   // Update mv-f-imm — Q2 : « Tous immeubles » toujours en tête.
-  ['mv-f-imm','baux-f','ass-f-imm','irl-f-imm','equip-f-imm','reg-imm'].forEach(id=>{
+  ['mv-f-imm','baux-f','ass-f-imm','equip-f-imm','reg-imm'].forEach(id=>{
     const s = el(id); if(!s) return;
     const cur = s.value;
     s.innerHTML = `<option value="">Tous immeubles</option>`+imms.map(i=>`<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
@@ -8000,7 +7922,7 @@ const _NAV_GROUPS = [
   { parent: 'Locataires',          tabs: [['baux','Baux en cours'], ['candidats','Candidatures']] },
   { parent: 'Agenda',              tabs: [['agenda','Agenda'], ['equipements','Équipements']] },
   { parent: 'Loyers & mouvements', tabs: [['loyers','Mouvements'], ['quittances','Loyers']] },
-  { parent: 'Révisions',           tabs: [['irl','Loyer (IRL)'], ['regul','Charges']] },
+  { parent: 'Révisions',           tabs: [['irl','Table IRL INSEE'], ['regul','Charges']] },
 ];
 const _NAV_PAGE_GROUP = {};
 _NAV_GROUPS.forEach(g => g.tabs.forEach(([id]) => { _NAV_PAGE_GROUP[id] = g; }));
@@ -8024,7 +7946,7 @@ function _navSidebarLanding(id, on) {
 // sous-onglets. Une page masquée reste joignable en `#p-<id>` (on masque du menu, on ne supprime pas).
 const _MENU_ALL = ['accueil','dashboard','finances','pilotage','biens','baux','candidats','edl','agenda','equipements','loyers','quittances','irl','regul'];
 const _MENU_LOCKED = ['accueil','biens'];
-const _MENU_LABELS = { accueil:'Accueil', dashboard:'Tableau de bord', finances:'Finances', pilotage:'Suivi', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', loyers:'Loyers & mouvements', quittances:'Loyers', irl:'Loyer (IRL)', regul:'Charges' };
+const _MENU_LABELS = { accueil:'Accueil', dashboard:'Tableau de bord', finances:'Finances', pilotage:'Suivi', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', loyers:'Loyers & mouvements', quittances:'Loyers', irl:'Table IRL INSEE', regul:'Charges' };
 const _MENU_ZONES = [
   { z:'Pilotage', ids:['accueil','dashboard','finances','pilotage'] },
   { z:'Gestion locative', ids:['biens','baux','candidats','edl','agenda','equipements'] },
@@ -8109,7 +8031,7 @@ function go(page, elNav) {
   // Update title
   const titles = {accueil:'Accueil',dashboard:'Tableau de bord',import:'Import de données',loyers:'Loyers & Mouvements',
     agenda:'Agenda',equipements:'Équipements & Entretiens',
-    baux:'Locataires',candidats:'Candidats',irl:'Révision IRL',regul:'Régularisation charges',
+    baux:'Locataires',candidats:'Candidats',irl:'Table IRL INSEE',regul:'Régularisation charges',
     quittances:'Loyers',edl:'États des lieux',
     emails:'📧 Communications',          // v15.79 EMAIL-ONGLET-PERMANENT (Sprint 19B)
     biens:'Biens',bailleurs:'Bailleurs', // v14.2 NAV-RESTRUCTURE
@@ -8146,10 +8068,7 @@ function go(page, elNav) {
     agenda:()=>{initAgendaFilters();rAgenda();},
     equipements:()=>{initFilters();rEquipements();},
     baux:()=>{initFilters();const bauxActifTab=document.querySelector('#p-baux .tab.act');if(!bauxActifTab){const t=document.querySelector('#p-baux .tab');if(t)t.classList.add('act');}el('baux-tab-actifs').style.display='';el('baux-tab-historique').style.display='none';rBaux();}, candidats:()=>{ _candidatsTab = _candidatsTab || 'actifs'; rCandidats(); _autoPullCandidatures('open'); },
-    irl:()=>{initFilters();rIRL();rIRLParams();rIRLHistorique();
-      // v13.33 IRL-VALIDATION : à l'ouverture de l'onglet IRL, popup si révisions en attente
-      try { _checkIRLRappelsAuLogin('tab'); } catch(e) {}
-    },
+    irl:()=>{rIRLParams();},   // CDC D1 : il ne reste que la table INSEE
     regul:()=>{initFilters();rRegulInit();},
     finances:()=>{ if (typeof rFinances === 'function') rFinances(); }, // v15.265 REPORTING-BAILLEUR
     quittances:()=>{initFilters();rLoyers();},   // CDC-QUITTANCES-IRL D1 : l'onglet « Loyers »
@@ -10989,7 +10908,7 @@ function setMvTab(type, el2) {
   rMv();
 }
 
-function setIRLTab(tab, el2) { setTab('#p-irl',el2,'tp-irl-'); rIRL(); rIRLParams(); rIRLHistorique(); }
+// CDC-QUITTANCES-IRL D1 — la page IRL n'a plus de sous-onglets (il ne reste que la table).
 // v15.255 V3-REFONTE-ASSURANCES Étape 2 : setAssTab supprimé (page Assurances retirée).
 function setParamsTab(tab, el2) {
   // v14.2 NAV-RESTRUCTURE : redirects pour deeplinks legacy (Logements/Entités déplacés)
@@ -24932,6 +24851,19 @@ function irlVal(T, Y) {
 function _isoLocal(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+/**
+ * CDC-QUITTANCES-IRL étape 5 — le CALENDRIER de la révision vient désormais de
+ * js/core/irl-calendrier.js (D12 effet au 1er du mois de l'anniversaire · D13 rappel dès le
+ * 1er du mois précédent · D15 prescription art. 17-1 · D17 non-révisables muets). Ici on ne
+ * garde que ce qui est propre à l'app : les garde-fous DPE et le CALCUL de l'indice.
+ *
+ * ⚠️ Deux écarts assumés avec la version d'avant (décidés au CDC, validés le 18/08) :
+ *   - `dateRevision` est le 1er du mois de l'anniversaire, plus le jour anniversaire (D12) ;
+ *   - `N` est l'année du CYCLE concerné, plus « toujours l'année en cours » : un oubli de
+ *     deux ans ne propose plus un ratio calculé sur le mauvais millésime (C8).
+ * La forme du retour est inchangée pour les 5 appelants (dashboard, matrice, agenda, fiche,
+ * drill) ; les champs `etat`/`perdue`/`effetPrevuIso` sont AJOUTÉS.
+ */
 function computeIRLRevision(log) {
   const bail = DB.baux[log.ref];
   const debut = bail?.debut || log.debut;
@@ -24941,34 +24873,47 @@ function computeIRLRevision(log) {
   const moisAnniv = debutD.getMonth();
   const jourAnniv = debutD.getDate();
   const debutYear = debutD.getFullYear();
+  const IRLC = (typeof window !== 'undefined') ? window.IrlCalendrier : null;
+  const today = (typeof window !== 'undefined' && typeof window._loyerTodayLocal === 'function')
+    ? window._loyerTodayLocal() : new Date().toISOString().slice(0,10);
 
   // v13.31 IRL-DPE-FG : check DPE avant tout calcul (loi Climat 2021-1104, art. 23,
   // décret 2022-945, applicable depuis 24 août 2022).
-  // - Logements DPE F ou G : loyer GELÉ, pas de révision possible
-  // - Pas de DPE renseigné : alerter, pas de calcul
-  // - DPE > 10 ans : warning (pas bloquant)
-  // v15.305 LIEN-CASSÉ-DPE-IRL : depuis v15.233 (MODALE-LOGEMENT-CONSOLIDATION) la source de
-  //   vérité du DPE est le BIEN (log.diagnostics.dpe), plus le bail. On résout donc depuis le bien
-  //   via _diagGet quand bail.dpe est vide — même pattern que toutes les autres lectures DPE
-  //   (bail.dpe || _lbFill.dpe). Sans ce fallback : « DPE manquant » à tort alors qu'il est saisi.
+  // v15.305 LIEN-CASSÉ-DPE-IRL : la source de vérité du DPE est le BIEN (log.diagnostics.dpe).
   const _logDpe = (typeof _diagGet === 'function') ? _diagGet(log, 'dpe') : null;
   const dpe = (bail?.dpe || (_logDpe && _logDpe.classe) || '').toUpperCase().trim();
   const dpeDate = bail?.dpeDate || (_logDpe && _logDpe.date) || null;
+  const premiereAnnivD = IRLC
+    ? new Date(IRLC.premierEffet(debut) + 'T00:00:00')
+    : new Date(debutYear+1, moisAnniv, jourAnniv);
+
+  // Le CALENDRIER est calculé même pour un lot non révisable : le bloc « 🔒 Non révisables »
+  // et le calendrier Gantt doivent dire « pourquoi pas lui », à la bonne colonne (D16/D17).
+  const _calNu = IRLC ? IRLC.etatRevision({
+    debut, todayISO: today, derniereApplicationIso: log.irlDerniereApplication || ''
+  }) : null;
+  const _quand = {
+    effetPrevuIso: (_calNu && _calNu.effetPrevuIso) || '',
+    rappelYm: (_calNu && _calNu.rappelYm) || '',
+    joursAvantEffet: (_calNu && _calNu.joursAvantEffet) != null ? _calNu.joursAvantEffet : null
+  };
+
   if (!dpe) {
-    return {
-      dpeManquant: true, T: Math.ceil((moisAnniv+1)/3),
-      premiereAnniv: new Date(debutYear+1, moisAnniv, jourAnniv),
+    return Object.assign({
+      dpeManquant: true, muet: true, etat: 'dpe-manquant', T: Math.ceil((moisAnniv+1)/3),
+      premiereAnniv: premiereAnnivD, perdue: null, isApplicable: false,
       message: 'DPE non renseigné — saisir le DPE sur la fiche du bien (onglet Diagnostics) avant de calculer la révision IRL'
-    };
+    }, _quand);
   }
+  // I10 — loyer GELÉ : jamais dans « à réviser », applyIRL reste bloqué.
   if (dpe === 'F' || dpe === 'G') {
-    return {
-      gelDpeFG: true, dpe, T: Math.ceil((moisAnniv+1)/3),
-      premiereAnniv: new Date(debutYear+1, moisAnniv, jourAnniv),
+    return Object.assign({
+      gelDpeFG: true, dpe, muet: true, etat: 'gel',
+      T: Math.ceil((moisAnniv+1)/3), premiereAnniv: premiereAnnivD, perdue: null,
+      isApplicable: false,
       message: `Loyer GELÉ — DPE ${dpe} (loi Climat & Résilience 2021, art. 23 — applicable depuis 24/08/2022)`
-    };
+    }, _quand);
   }
-  // Note : DPE expiré (>10 ans) calculé après mais en warning seulement
 
   // Trimestre inscrit au contrat (art. 17-1 loi 89-462)
   const bailIRL = bail?.irl || '';
@@ -24977,37 +24922,42 @@ function computeIRLRevision(log) {
     ? TFromContract
     : Math.ceil((moisAnniv+1)/3);
 
-  const today         = new Date();
-  const N             = today.getFullYear(); // Toujours l'année en cours
-  const premiereAnniv = new Date(debutYear+1, moisAnniv, jourAnniv);
+  const cal = IRLC ? IRLC.etatRevision({
+    debut, todayISO: today, derniereApplicationIso: log.irlDerniereApplication || ''
+  }) : null;
 
-  // Bail < 1 an : pas encore possible
-  if(today < premiereAnniv) {
+  // D17 — bail de moins d'un an : visible, muet.
+  if (!cal || cal.etat === 'trop-jeune') {
     return {
-      insuffisant: false, pasEncoreApplicable: true, T, premiereAnniv,
-      message: `Première révision possible le ${premiereAnniv.toLocaleDateString('fr-FR')} (bail < 1 an)`
+      insuffisant: false, pasEncoreApplicable: true, muet: true, etat: 'trop-jeune',
+      T, premiereAnniv: premiereAnnivD, perdue: (cal && cal.perdue) || null,
+      effetPrevuIso: (cal && cal.effetPrevuIso) || '', joursAvantEffet: (cal && cal.joursAvantEffet) ?? null,
+      isApplicable: false,
+      message: `Première révision possible le ${premiereAnnivD.toLocaleDateString('fr-FR')} (bail < 1 an)`
     };
   }
 
-  // Index de l'année en cours manquant
+  // N = l'année du CYCLE (plus « l'année en cours ») : c'est ce cycle-là qu'on réclame.
+  const N = cal.cycleAnnee;
   const valN  = irlVal(T, N);
   const valN1 = irlVal(T, N-1);
-  if(!valN)  return { insuffisant: true, T, missingKey: `T${T} ${N}`,   premiereAnniv };
-  if(!valN1) return { insuffisant: true, T, missingKey: `T${T} ${N-1}`, premiereAnniv };
+  if(!valN || !valN1) {
+    // D17 — indice non publié : listé, muet, avec la date de l'effet concerné.
+    return { insuffisant: true, muet: true, etat: 'indice-manquant', T, N,
+      missingKey: !valN ? `T${T} ${N}` : `T${T} ${N-1}`,
+      premiereAnniv: premiereAnnivD, effetPrevuIso: cal.effetPrevuIso,
+      rappelYm: cal.rappelYm, perdue: cal.perdue, isApplicable: false };
+  }
 
-  const dateRevision = new Date(N, moisAnniv, jourAnniv);
+  const dateRevision = new Date(cal.effetPrevuIso + 'T00:00:00');   // D12 : 1er du mois
   const variation    = (valN - valN1) / valN1;
   const nouveauHC    = Math.round(log.hc * valN / valN1 * 100) / 100;
-
-  const _dernApp     = log.irlDerniereApplication
-    ? new Date(log.irlDerniereApplication + 'T00:00:00')
-    : null;
-  const dejaApplique = _dernApp !== null && _dernApp >= dateRevision;
+  const dejaApplique = (cal.etat === 'faite');
+  const isApplicable = (cal.etat === 'a-preparer' || cal.etat === 'en-retard');
 
   // v15.408 BUG-IRL-RENONCE-AFFICHAGE — distinguer une révision RENONCÉE (skipIRL) d'une
   // vraie application : skipIRL pose le même irlDerniereApplication qu'applyIRL, seule
-  // l'entrée d'historique porte action:'renonciation'. Sans ce flag, la carte affichait
-  // « ✅ Appliquée » en vert avec un faux nouveau loyer.
+  // l'entrée d'historique porte action:'renonciation'.
   const renonce = dejaApplique && (DB.irlHistorique || []).some(h =>
     h && !h._deleted && h.ref === log.ref && h.action === 'renonciation'
     && h.dateRevision === log.irlDerniereApplication);
@@ -25026,10 +24976,12 @@ function computeIRLRevision(log) {
     T, N,
     irlRef:      { key: `T${T} ${N-1}`, val: valN1 },
     irlVigueur:  { key: `T${T} ${N}`,   val: valN  },
-    dateRevision, premiereAnniv, variation, nouveauHC,
+    dateRevision, premiereAnniv: premiereAnnivD, variation, nouveauHC,
     diff:        dejaApplique ? 0 : nouveauHC - log.hc,
-    isApplicable: dejaApplique ? false : today >= dateRevision,
-    dejaApplique, renonce, dpe, dpeExpire,
+    isApplicable, dejaApplique, renonce, dpe, dpeExpire,
+    // CDC étape 5 — le calendrier, tel que le module l'a tranché.
+    etat: cal.etat, muet: !!cal.muet, effetPrevuIso: cal.effetPrevuIso,
+    rappelYm: cal.rappelYm, joursAvantEffet: cal.joursAvantEffet, perdue: cal.perdue
   };
 }
 
@@ -25044,7 +24996,11 @@ function _irlLettreState(log, rev) {
   const today = new Date(); today.setHours(0,0,0,0);
   const dRev = new Date(rev.dateRevision); dRev.setHours(0,0,0,0);
   const diffJ = Math.round((dRev - today) / 86400000);
-  const sent = !!(log.irlLettreEnvoyee && log.irlLettreEnvoyeePour === _isoLocal(rev.dateRevision));
+  // CDC étape 5 : la clé de cycle passe du JOUR anniversaire au 1er du mois (D12). Les valeurs
+  // déjà enregistrées portent l'ancien format — on compare donc au MOIS, sinon toutes les
+  // lettres marquées « envoyée » repasseraient à « à envoyer » sur les données réelles.
+  const _cycleYm = _isoLocal(rev.dateRevision).slice(0, 7);
+  const sent = !!(log.irlLettreEnvoyee && String(log.irlLettreEnvoyeePour || '').slice(0, 7) === _cycleYm);
   if (sent) return {
     sent:true, urgency:'sent', diffJ,
     color:'#16a34a', bg:'rgba(22,163,74,.12)', border:'#16a34a',
@@ -25090,795 +25046,15 @@ function _irlEnvelopeBtn(log, st) {
    Pour les états où l'IRL n'est pas calculable (DPE manquant/F/G, index manquant, bail<1an),
    les colonnes 3-4 sont fusionnées (colspan=2) et reçoivent un .irl-badge. */
 
-function _irlBaseCells(l) {
-  // v14.80 SECU-INNERHTML : escape ref et locataire (champs user libres)
-  return `<td><b>${escHtml(l.ref)}</b></td><td>${escHtml(l.locataire||'–')}</td>`;
-}
-function _irlActionsCell(html) {
-  return `<td class="act-cell"><div class="flex-c irl-actions" style="gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center">${html||'<span class="mu sm" style="font-size:11px">—</span>'}</div></td>`;
-}
+// CDC-QUITTANCES-IRL D1/D16 — le RENDU de l'ancien onglet « Loyer (IRL) » est supprimé :
+// `rIRL()` et sa vue cartes, le groupage par immeuble et ses KPI, le drill par immeuble,
+// le tableau legacy, le panneau « ✉ Aperçu lettre » et son sélecteur de bail. Tout cela
+// vivait dans une page qui n'existe plus : l'onglet « Loyers » montre les révisions
+// à préparer / en retard / perdues / non révisables, et le calendrier Gantt (D16).
+// Sont CONSERVÉS et toujours joints : `computeIRLRevision`, `_irlLettreState`,
+// `applyIRL`/`_irlValidConfirm` (D18), `genIRLLetter`/`previewIRLLetter` (la lettre suit
+// le clic), `skipIRL`, `resetIRLApply`, la table INSEE (`rIRLParams`).
 
-// v15.10 Sprint 11 IRL-REVISION-UX-FIX Phase A1+A2 — Refonte UX cartes IRL
-//
-// Le user a demandé (2026-05-14) :
-//   1. UX cartes cohérente design system (LOG-LISTE-CARDS / PILOTAGE-MATRICIEL)
-//   2. Bouton unique "Valider et envoyer la lettre IRL" (vs 2 boutons distincts)
-//   3. Logique temporelle stricte → cf Phase A3 (applyIRL modifié)
-//
-// rIRL() rend désormais :
-//   - Soit le grid de cartes (#irl-cards-grid) — vue primaire
-//   - Soit le tableau legacy (#irl-tbody) si l'utilisateur veut la vue dense (toggle)
-let _irlView = 'cards'; // 'cards' | 'table' — persisté localStorage
-try { _irlView = localStorage.getItem(_lsKey('irl_view')) || 'cards'; } catch(e){}
-
-function _setIrlView(v) {
-  if (v !== 'cards' && v !== 'table') return;
-  _irlView = v;
-  try { localStorage.setItem(_lsKey('irl_view'), v); } catch(e){}
-  rIRL();
-}
-
-// ─── BUG-IRL-APERCU-LETTRE-V15 (v15.74) ────────────────────────────────────
-// Helpers prévisualisables. Logique pure dans js/core/irl-preview.js (testée).
-// Ici on assemble la liste depuis DB.logements (filtrée comme rIRL) + branche
-// le selector du panneau aperçu lettre.
-
-/** Liste des baux prévisualisables pour le selector — respecte le filtre immeuble courant. */
-function _irlPreviewableRefs() {
-  const fimm = (typeof v === 'function') ? v('irl-f-imm') : '';
-  const logs = (DB.logements || [])
-    .filter(_isAlive)
-    .filter(l => (!fimm || l.imm === fimm) && l.locataire);
-  const out = [];
-  for (const l of logs) {
-    const rev = computeIRLRevision(l);
-    if (!rev) continue;
-    if (rev.dpeManquant || rev.gelDpeFG || rev.insuffisant) continue;
-    let etat = 'applicable';
-    if (rev.dejaApplique) etat = 'applique';
-    else if (rev.pasEncoreApplicable) etat = 'anticipe';
-    else if (rev.isApplicable === false) etat = 'a-venir';
-    out.push({ ref: l.ref, label: `${l.ref}${l.locataire ? ' — ' + l.locataire : ''}`, etat });
-  }
-  return out;
-}
-
-/** Choisit la 1ʳᵉ ref à afficher : applicable > à venir > déjà appliqué > anticipé. */
-function _irlFirstPreviewableRef(list) {
-  const arr = Array.isArray(list) ? list : _irlPreviewableRefs();
-  if (!arr.length) return null;
-  const order = ['applicable', 'a-venir', 'applique', 'anticipe'];
-  for (const etat of order) {
-    const found = arr.find(p => p.etat === etat);
-    if (found) return found.ref;
-  }
-  return arr[0].ref;
-}
-
-/** Peuple le <select> du panneau aperçu lettre — préserve la sélection si encore valide. */
-function _irlRefreshSelector(currentRef) {
-  const sel = el('irl-letter-selector');
-  if (!sel) return;
-  const list = _irlPreviewableRefs();
-  const previousValue = currentRef || sel.value || '';
-  if (!list.length) {
-    sel.innerHTML = '<option value="">— Aucun bail prévisualisable —</option>';
-    sel.value = '';
-    sel.disabled = true;
-    return;
-  }
-  sel.disabled = false;
-  const meta = { applicable: '✓ révision applicable', 'a-venir': '⏱ à venir', applique: '✅ déjà appliquée', anticipe: '⏳ bail < 1 an (anticipé)' };
-  const opts = list.map(p => `<option value="${escHtml(p.ref)}">${escHtml(p.label)} — ${meta[p.etat] || ''}</option>`).join('');
-  sel.innerHTML = opts;
-  if (previousValue && list.some(p => p.ref === previousValue)) {
-    sel.value = previousValue;
-  } else {
-    sel.value = list[0].ref;
-  }
-}
-
-/**
- * v15.75 — Aperçu inline dans le panneau latéral SANS ouvrir de modale.
- * Utilisé par le selector + l'auto-load du toggle header (l'utilisateur reste
- * dans la vue cartes/tableau, le panneau lui donne un aperçu compact).
- */
-function _irlPreviewInPane(ref) {
-  if (typeof genIRLLetter === 'function') genIRLLetter(ref);
-}
-
-/** Handler changement de selector → injecte la lettre dans le panneau (pas de modale). */
-function _irlOnSelectorChange() {
-  const sel = el('irl-letter-selector');
-  const ref = sel && sel.value;
-  if (ref) _irlPreviewInPane(ref);
-}
-
-/**
- * v15.11 — Toggle d'affichage du panneau "Aperçu lettre".
- * v15.74 BUG-IRL-APERCU-LETTRE-V15 : à l'ouverture, refresh selector + auto-load
- * 1ʳᵉ lettre prévisualisable si rien n'est encore affiché (workflow 1-clic).
- */
-function _irlToggleLetterPane() {
-  const pane = el('irl-letter-pane');
-  if (!pane) return;
-  const visible = pane.style.display !== 'none';
-  pane.style.display = visible ? 'none' : '';
-  const btn = el('irl-letter-toggle-btn');
-  if (btn) btn.classList.toggle('act', !visible);
-  if (visible) return; // on vient juste de masquer → rien d'autre à faire
-
-  // v15.74 : ouverture du panneau → alimenter le selector + auto-load 1ère lettre
-  // si aucune lettre n'est encore affichée. Détection placeholder : un seul enfant
-  // <span class="mu">…</span> = soit placeholder initial, soit "Données IRL
-  // insuffisantes" (cas pasEncoreApplicable). Une vraie lettre IRL a >1 enfant.
-  _irlRefreshSelector();
-  const list = _irlPreviewableRefs();
-  if (!list.length) return;
-  const content = el('pdf-irl-content');
-  const onlyPlaceholder = content
-    && content.children.length <= 1
-    && content.firstElementChild
-    && content.firstElementChild.tagName === 'SPAN'
-    && content.firstElementChild.classList.contains('mu');
-  if (content && !onlyPlaceholder) return; // vraie lettre déjà affichée → garde
-  const ref = _irlFirstPreviewableRef(list);
-  if (ref) {
-    _irlPreviewInPane(ref); // v15.75 : injection panneau seul, pas de modale
-    const sel = el('irl-letter-selector');
-    if (sel) sel.value = ref;
-  }
-}
-
-/**
- * v15.11 — Wrapper boutons "👁 Aperçu" sur les cards/lignes IRL.
- * v15.75 BUG-IRL-APERCU-LETTRE-V15 Bug 1 : clic carte → modale plein écran
- * (workflow ciblé sur un bail précis, plus lisible que panneau latéral étroit).
- * Le selector est synchronisé pour cohérence si l'utilisateur ouvre le panneau
- * juste après.
- */
-function _irlPreviewWithPane(ref) {
-  if (typeof previewIRLLetter === 'function') previewIRLLetter(ref);
-  const sel = el('irl-letter-selector');
-  if (sel) {
-    if (!Array.from(sel.options).some(o => o.value === ref)) _irlRefreshSelector(ref);
-    sel.value = ref;
-  }
-}
-
-function _renderIRLCard(l, rev) {
-  const refSafe = escHtml(l.ref);
-  const locName = escHtml(l.locataire || '—');
-  const immName = escHtml(l.imm || '');
-  const dpeWarn = rev?.dpeExpire ? '<div style="color:#92400e;font-size:10.5px;margin-top:3px">⚠ DPE expiré</div>' : '';
-
-  // ─── Helpers d'affichage des badges statut (v15.11 compacts)
-  const badge = (txt, color, bg, border) =>
-    `<span style="background:${bg};color:${color};border:1px solid ${border};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">${txt}</span>`;
-
-  // Cas spéciaux
-  if (!rev) {
-    return `<div class="irl-card" style="border:1px solid var(--bor);border-radius:var(--rl);padding:14px;background:var(--sur);display:flex;flex-direction:column;gap:8px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-        <div><div style="font-weight:700;font-size:14px">${refSafe}</div><div class="mu sm" style="font-size:11.5px">${locName} · ${immName}</div></div>
-        ${badge('⚠ Bail incomplet','#7f1d1d','#fee2e2','#dc2626')}
-      </div>
-      <div class="mu sm" style="font-size:11.5px;line-height:1.5">Date de bail manquante — révision IRL non calculable.</div>
-      <button class="btn bs bb" onclick="openBail('${refSafe}')" style="font-size:12px">📋 Ouvrir le bail</button>
-    </div>`;
-  }
-  if (rev.dpeManquant) {
-    return `<div class="irl-card" style="border:1px solid var(--bor);border-radius:var(--rl);padding:14px;background:var(--sur)">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div><div style="font-weight:700;font-size:14px">${refSafe}</div><div class="mu sm" style="font-size:11.5px">${locName} · ${immName}</div></div>
-        ${badge('📋 DPE non renseigné','#78350f','#fef3c7','#d97706')}
-      </div>
-      <div class="mu sm" style="font-size:11.5px;line-height:1.5;margin-bottom:8px">Le DPE est requis pour calculer la révision IRL (loi Climat 2021).</div>
-      <button class="btn bs bb" onclick="openLogModalOnTab('${refSafe}','diag')" title="Saisir le DPE sur la fiche du bien (onglet Diagnostics)" style="font-size:12px">📋 Saisir DPE</button>
-    </div>`;
-  }
-  if (rev.gelDpeFG) {
-    return `<div class="irl-card" style="border:2px solid #dc2626;border-radius:var(--rl);padding:14px;background:#fee2e2">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div><div style="font-weight:700;font-size:14px;color:#7f1d1d">${refSafe}</div><div style="font-size:11.5px;color:#991b1b">${locName} · ${immName}</div></div>
-        ${badge('🔒 Loyer gelé DPE '+rev.dpe,'#7f1d1d','#fee2e2','#dc2626')}
-      </div>
-      <div style="font-size:11.5px;line-height:1.5;color:#7f1d1d">Loi Climat 2021 art. 23 — révision interdite depuis le 24/08/2022.<br>Loyer figé à <strong>${fmt(l.hc)}/mois</strong> tant que le DPE n'est pas remonté à E.</div>
-    </div>`;
-  }
-  if (rev.insuffisant) {
-    return `<div class="irl-card" style="border:1px solid var(--bor);border-radius:var(--rl);padding:14px;background:var(--sur)">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div><div style="font-weight:700;font-size:14px">${refSafe}</div><div class="mu sm" style="font-size:11.5px">${locName} · ${immName}</div></div>
-        ${badge('⚠ Indice manquant','#78350f','#fef3c7','#d97706')}
-      </div>
-      <div class="mu sm" style="font-size:11.5px;line-height:1.5;margin-bottom:8px">Indice ${escHtml(rev.missingKey||'')} non disponible dans la table IRL.</div>
-      ${rev.missingKey ? `<button class="btn bs bb" onclick="quickAddIRL('${escHtml(rev.missingKey)}','${refSafe}')" style="font-size:12px;background:#fef3c7;color:#78350f;border:1px solid #d97706">+ Ajouter ${escHtml(rev.missingKey)}</button>` : ''}
-    </div>`;
-  }
-  if (rev.pasEncoreApplicable) {
-    const anniv = rev.premiereAnniv;
-    const dj = Math.round((new Date(anniv).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
-    return `<div class="irl-card" style="border:1px solid var(--bor);border-radius:var(--rl);padding:14px;background:var(--sur)">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div><div style="font-weight:700;font-size:14px">${refSafe}</div><div class="mu sm" style="font-size:11.5px">${locName} · ${immName}</div></div>
-        ${badge('⏳ Bail &lt; 1 an','#1e3a8a','#dbeafe','#3b82f6')}
-      </div>
-      <div class="mu sm" style="font-size:11.5px;line-height:1.6">1ʳᵉ révision dans <strong>${dj}j</strong> · ${anniv.toLocaleDateString('fr-FR')}</div>
-      ${dpeWarn}
-      <button class="btn bs bb" onclick="_irlPreviewWithPane('${refSafe}')" style="font-size:12px;margin-top:8px">👁 Aperçu lettre (anticipé)</button>
-    </div>`;
-  }
-
-  // ─── Cas normaux : révision calculée ────────────────────────────────────
-  const { dateRevision, nouveauHC, isApplicable, dejaApplique, diff, irlRef, irlVigueur } = rev;
-  const dateRevIso = dateRevision instanceof Date ? _isoLocal(dateRevision) : dateRevision;
-  const variationPct = l.hc > 0 ? ((nouveauHC - l.hc) / l.hc * 100) : 0;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const dateRevD = new Date(dateRevIso + 'T00:00:00');
-
-  // Statut visuel selon l'état
-  let cardBorder = 'var(--bor)';
-  let cardBg = 'var(--sur)';
-  let statusBadge = '';
-
-  // v15.10 : vérifie s'il y a une révision pending dans irlHistorique pour ce ref
-  const pendingRev = (DB.irlHistorique||[]).find(h => h && !h._deleted && h.ref === l.ref && h.pendingApply === true);
-
-  if (dejaApplique && rev.renonce) {
-    // v15.408 BUG-IRL-RENONCE-AFFICHAGE — renoncement ≠ application : orange, pas vert.
-    cardBorder = '#d97706'; cardBg = '#fef3c7';
-    statusBadge = badge('⊘ IRL renoncée le '+fd(l.irlDerniereApplication||''),'#78350f','#fef3c7','#d97706');
-  } else if (dejaApplique) {
-    cardBorder = '#16a34a'; cardBg = '#dcfce7';
-    statusBadge = badge('✅ Appliquée le '+fd(l.irlDerniereApplication||''),'#14532d','#dcfce7','#16a34a');
-  } else if (pendingRev) {
-    cardBorder = '#d97706'; cardBg = '#fef3c7';
-    statusBadge = badge('🟡 Envoyée — application le '+fd(pendingRev.dateApplication||''),'#78350f','#fef3c7','#d97706');
-  } else if (isApplicable) {
-    cardBorder = '#16a34a'; cardBg = '#f0fdf4';
-    statusBadge = badge('🟢 À valider et envoyer','#14532d','#dcfce7','#16a34a');
-  } else {
-    cardBorder = 'var(--bor)';
-    const dj = Math.round((dateRevD - today) / 86400000);
-    statusBadge = badge(`⏳ Dans ${dj}j`,'#9a3412','#fef3c7','#d97706');
-  }
-
-  // Actions (1 bouton unique pour la révision applicable, sauf si déjà appliquée)
-  let actionsHtml = '';
-  if (dejaApplique) {
-    actionsHtml = `<button class="btn bs bb" onclick="resetIRLApply('${refSafe}')" style="font-size:11.5px" title="Annuler l'application IRL">↩ Reset</button>`;
-  } else if (pendingRev) {
-    actionsHtml = `<button class="btn bs bb" onclick="_validerEtEnvoyerIRLDetails('${refSafe}')" style="font-size:11.5px">👁 Détails</button>
-      <button class="btn br bb" onclick="_cancelPendingIRL('${refSafe}')" style="font-size:11.5px" title="Annuler la révision validée">🚫 Annuler</button>`;
-  } else if (isApplicable) {
-    actionsHtml = `<button class="btn bp bb" onclick="_validerEtEnvoyerIRL('${refSafe}')" style="font-size:11.5px;font-weight:600;flex:1">✦ Valider & envoyer</button>
-      <button class="btn bs bb" onclick="_irlPreviewWithPane('${refSafe}')" style="font-size:11px;padding:3px 6px" title="Aperçu lettre">👁</button>
-      <button class="btn br bb" onclick="skipIRL('${refSafe}')" style="font-size:11px;padding:3px 6px" title="Renoncer">🚫</button>`;
-  } else {
-    actionsHtml = `<button class="btn bs bb" onclick="_irlPreviewWithPane('${refSafe}')" style="font-size:11px;padding:3px 6px">👁 Aperçu</button>`;
-  }
-
-  // Couleur variation
-  const varColor = variationPct > 0 ? 'var(--grn)' : variationPct < 0 ? 'var(--red)' : 'var(--mut)';
-  const varSign  = variationPct > 0 ? '+' : '';
-
-  // v15.11 — Carte compacte : padding 10px, infos en grille dense
-  return `<div class="irl-card" style="border:1.5px solid ${cardBorder};border-radius:var(--rl);padding:10px 12px;background:${cardBg};display:flex;flex-direction:column;gap:6px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
-      <div style="min-width:0;flex:1">
-        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📜 ${refSafe}</div>
-        <div class="mu sm" style="font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${locName}</div>
-      </div>
-      ${statusBadge}
-    </div>
-
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:11.5px;padding:6px 8px;background:var(--sur2);border-radius:var(--rl)">
-      <div class="mu sm" style="font-size:10px">Anniv.</div>
-      <div style="text-align:right;font-weight:600">${dateRevD.toLocaleDateString('fr-FR')}</div>
-      ${rev.renonce
-        ? `<div class="mu sm" style="font-size:10px">Loyer</div>
-      <div style="text-align:right;font-weight:700">${fmt(l.hc)} <span style="font-size:10px;font-weight:500;color:#b45309">(inchangé — hausse abandonnée)</span></div>`
-        : `<div class="mu sm" style="font-size:10px">${fmt(l.hc)} →</div>
-      <div style="text-align:right;font-weight:700;color:${varColor}">${fmt(nouveauHC)} <span style="font-size:10px;font-weight:500">(${varSign}${variationPct.toFixed(2)}%)</span></div>`}
-    </div>
-
-    <div class="mu sm" style="font-size:9.5px;line-height:1.3">
-      ${escHtml(irlRef.key)} (${irlRef.val}) → ${escHtml(irlVigueur.key)} (${irlVigueur.val})
-    </div>
-    ${dpeWarn}
-
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">
-      ${actionsHtml}
-    </div>
-  </div>`;
-}
-
-/** v15.10 — Ouvre la modale "Valider et envoyer la lettre IRL" pour un logement. */
-function _validerEtEnvoyerIRL(ref) {
-  const log = (DB.logements||[]).find(l => l.ref === ref);
-  if (!log) return;
-  const rev = computeIRLRevision(log);
-  if (!rev || !rev.isApplicable) {
-    showToast('Révision non applicable pour ce bail', 'err'); return;
-  }
-  // Pré-génère la lettre (réutilise pdf-irl-content)
-  if (typeof previewIRLLetter === 'function') previewIRLLetter(ref);
-  // Affiche la modale aperçu structurée
-  const body = el('ov-irl-valider-body');
-  const dateRevIso = rev.dateRevision instanceof Date ? _isoLocal(rev.dateRevision) : rev.dateRevision;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const futureApplication = new Date(dateRevIso + 'T00:00:00').getTime() > today.getTime();
-  const variationPct = log.hc > 0 ? ((rev.nouveauHC - log.hc) / log.hc * 100) : 0;
-  if (body) {
-    body.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px">
-        <div style="padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl)">
-          <div class="mu sm" style="font-size:10.5px;letter-spacing:.5px;text-transform:uppercase">Bail concerné</div>
-          <div style="font-weight:700;font-size:14px;margin-top:3px">${escHtml(ref)}</div>
-          <div class="mu sm" style="font-size:11.5px">${escHtml(log.locataire||'')}</div>
-        </div>
-        <div style="padding:10px 12px;background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rl)">
-          <div class="mu sm" style="font-size:10.5px;letter-spacing:.5px;text-transform:uppercase">Date d'application</div>
-          <div style="font-weight:700;font-size:14px;margin-top:3px;color:${futureApplication?'#d97706':'#14532d'}">${fd(dateRevIso)}</div>
-          <div class="mu sm" style="font-size:11.5px">${futureApplication ? 'Anniversaire bail (futur)' : 'Anniversaire passé — application immédiate'}</div>
-        </div>
-      </div>
-      <div style="padding:12px;background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:14px">
-        <div style="font-weight:700;font-size:13px;margin-bottom:8px">📊 Calcul de la révision</div>
-        <table style="width:100%;font-size:12px;border-collapse:collapse">
-          <tr><td style="padding:4px 0;width:50%">Ancien loyer HC</td><td style="text-align:right;font-weight:600">${fmt(log.hc)}</td></tr>
-          <tr><td style="padding:4px 0">Nouveau loyer HC</td><td style="text-align:right;font-weight:700;color:${variationPct>=0?'var(--grn)':'var(--red)'}">${fmt(rev.nouveauHC)}</td></tr>
-          <tr><td style="padding:4px 0">Variation</td><td style="text-align:right;color:${variationPct>=0?'var(--grn)':'var(--red)'}">${variationPct>=0?'+':''}${variationPct.toFixed(2)}%</td></tr>
-          <tr><td colspan="2" style="padding-top:6px;border-top:1px dashed var(--bor)"><span class="mu sm">Indice ${escHtml(rev.irlRef.key)} (${rev.irlRef.val}) → ${escHtml(rev.irlVigueur.key)} (${rev.irlVigueur.val})</span></td></tr>
-        </table>
-      </div>
-      ${futureApplication ? `
-        <div style="padding:10px 12px;background:#fef3c7;border:1px solid #d97706;border-radius:var(--rl);color:#78350f;font-size:11.5px;line-height:1.55;margin-bottom:10px">
-          ℹ <strong>Application différée</strong> : le loyer actuel (${fmt(log.hc)}) reste appliqué jusqu'au ${fd(dateRevIso)}.
-          Quittances en cours = ancien tarif ; quittances après = nouveau tarif (loi 89-462 art. 17-1).
-        </div>` : ''}
-      <div class="mu sm" style="font-size:11.5px;line-height:1.5">
-        En cliquant <strong>"Confirmer"</strong>, vous validez l'envoi de la lettre IRL au locataire et l'application de la révision à compter de la date d'anniversaire du bail. La révision sera tracée dans l'historique (audit-trail RGPD).
-      </div>`;
-    el('ov-irl-valider-ref').value = ref;
-    el('ov-irl-valider-newhc').value = String(rev.nouveauHC);
-  }
-  openM('ov-irl-valider');
-}
-
-function _validerEtEnvoyerIRLConfirm() {
-  const ref = el('ov-irl-valider-ref')?.value;
-  const newHC = parseFloat(el('ov-irl-valider-newhc')?.value);
-  if (!ref || !Number.isFinite(newHC)) return;
-  closeM('ov-irl-valider');
-  applyIRL(ref, newHC);
-}
-
-/** Annule une révision IRL pending (validée mais pas encore appliquée).
- *  v15.186 FIX BUG CRITIQUE : tombstone au lieu de splice() brut, sinon la révision
- *  ressuscite au prochain pull Drive (irlHistorique est dans _buildEntityPayload). */
-function _cancelPendingIRL(ref) {
-  if (!confirm2(`Annuler la révision IRL validée pour ${ref} ?\n\nLa lettre est considérée comme non envoyée et le loyer reste à sa valeur actuelle.`)) return;
-  const idx = (DB.irlHistorique||[]).findIndex(h => h && h.ref === ref && h.pendingApply === true);
-  if (idx < 0) { showToast('Aucune révision en attente trouvée','err'); return; }
-  const old = DB.irlHistorique[idx];
-  DB.irlHistorique[idx] = _tombstoneObj({ ref: old.ref, date: old.date });
-  saveDB();
-  if (typeof _auditLog === 'function') _auditLog('irl-pending-cancelled', 'bail', ref, '');
-  refreshAllIRL();
-  showToast(`Révision IRL annulée pour ${ref}`, 'warn', 3000);
-}
-
-/** v15.10 — Affiche les détails d'une révision pending. */
-function _validerEtEnvoyerIRLDetails(ref) {
-  const pending = (DB.irlHistorique||[]).find(h => h && h.ref === ref && h.pendingApply === true);
-  if (!pending) { showToast('Aucune révision en attente','warn'); return; }
-  alert(`Révision IRL en attente d'application :\n\n` +
-    `• Bail : ${ref}\n` +
-    `• Date validation : ${fd(pending.date||'')}\n` +
-    `• Date d'application prévue : ${fd(pending.dateApplication||'')}\n` +
-    `• Ancien loyer : ${fmt(pending.ancienHC)}\n` +
-    `• Nouveau loyer : ${fmt(pending.nouveauHC)}\n` +
-    `• Variation : ${pending.diff > 0 ? '+' : ''}${fmtN(pending.diff)} €\n` +
-    `• Indices : ${pending.irlRef} → ${pending.irlVigueur}`);
-}
-
-// ─── UX-GROUP-BY-IMMEUBLE v15.76 — groupage cards IRL par immeuble ────────
-// Module pur testable miroir : js/core/group-by-imm.js (utilisé par Vitest).
-// Les 2 helpers ci-dessous sont inlinés (pattern shadow) car index.html n'est
-// pas chargé en mode <script type="module"> ; la duplication est intentionnelle
-// et couverte par 18 tests Vitest sur le module pur.
-
-function _groupLogementsByImm(logements) {
-  if (!Array.isArray(logements)) return [];
-  const buckets = new Map();
-  const unassigned = [];
-  for (const l of logements) {
-    if (!l) continue;
-    const imm = typeof l.imm === 'string' ? l.imm.trim() : '';
-    if (!imm) { unassigned.push(l); }
-    else { if (!buckets.has(imm)) buckets.set(imm, []); buckets.get(imm).push(l); }
-  }
-  const keys = Array.from(buckets.keys()).sort((a, b) =>
-    a.localeCompare(b, 'fr', { numeric: true, sensitivity: 'base' })
-  );
-  const out = keys.map(imm => ({ key: imm, imm, logements: buckets.get(imm), isUnassigned: false }));
-  if (unassigned.length) out.push({ key: '__unassigned__', imm: null, logements: unassigned, isUnassigned: true });
-  return out;
-}
-
-function _computeIRLGroupKPIs(group, computeRevisionFn) {
-  const empty = { nbLots: 0, loyerTotalHC: 0, nbAlertesGel: 0, nbInsuffisant: 0, nbDpeManquant: 0 };
-  if (!group || !Array.isArray(group.logements)) return empty;
-  let loyerTotalHC = 0, nbAlertesGel = 0, nbInsuffisant = 0, nbDpeManquant = 0;
-  for (const l of group.logements) {
-    if (typeof l.hc === 'number' && isFinite(l.hc)) loyerTotalHC += l.hc;
-    if (typeof computeRevisionFn === 'function') {
-      const rev = computeRevisionFn(l);
-      if (rev && rev.gelDpeFG) nbAlertesGel++;
-      if (rev && rev.insuffisant) nbInsuffisant++;
-      if (rev && rev.dpeManquant) nbDpeManquant++;
-    }
-  }
-  return {
-    nbLots: group.logements.length,
-    loyerTotalHC: Math.round(loyerTotalHC * 100) / 100,
-    nbAlertesGel, nbInsuffisant, nbDpeManquant,
-  };
-}
-
-/** État collapse par groupe d'immeuble (localStorage). */
-function _irlGrpCollapsedSet() {
-  try { const raw = localStorage.getItem(_lsKey('irl_grp_collapsed')); return new Set(raw ? JSON.parse(raw) : []); }
-  catch(e) { return new Set(); }
-}
-function _irlGrpToggleCollapse(key) {
-  const s = _irlGrpCollapsedSet();
-  s.has(key) ? s.delete(key) : s.add(key);
-  try { localStorage.setItem(_lsKey('irl_grp_collapsed'), JSON.stringify(Array.from(s))); } catch(e) {}
-  const grp = document.querySelector(`.irl-grp[data-imm-key="${CSS.escape(key)}"]`);
-  if (grp) grp.classList.toggle('collapsed');
-}
-
-/** Groupe les logements + calcule les KPI par groupe (inline, utilise les helpers purs). */
-function _irlBuildGroups(logements) {
-  if (typeof _groupLogementsByImm !== 'function') {
-    // Fallback si le module pur n'est pas chargé : 1 seul groupe "Tous"
-    return [{ key: '__all__', imm: null, logements, isUnassigned: false, kpis: { nbLots: logements.length, loyerTotalHC: 0, nbAlertesGel: 0, nbInsuffisant: 0, nbDpeManquant: 0 } }];
-  }
-  const groups = _groupLogementsByImm(logements);
-  return groups.map(g => ({ ...g, kpis: _computeIRLGroupKPIs(g, computeIRLRevision) }));
-}
-
-/** Rendu d'un header de groupe IRL avec KPI condensés inline. */
-function _irlRenderGroupHeader(g) {
-  const collapsedSet = _irlGrpCollapsedSet();
-  const collapsed = collapsedSet.has(g.key);
-  const ic = g.isUnassigned ? '⊘' : '🏛';
-  const nm = g.isUnassigned
-    ? '<span class="nm" style="font-style:italic;color:var(--mu, #888)">Sans immeuble</span>'
-    : `<span class="nm">${escHtml(g.imm)}</span>`;
-  const kpis = g.kpis || {};
-  const nbAlerts = (kpis.nbAlertesGel || 0) + (kpis.nbDpeManquant || 0) + (kpis.nbInsuffisant || 0);
-  const alertText = [];
-  if (kpis.nbAlertesGel) alertText.push(`${kpis.nbAlertesGel} gelé${kpis.nbAlertesGel > 1 ? 's' : ''} DPE F/G`);
-  if (kpis.nbDpeManquant) alertText.push(`${kpis.nbDpeManquant} DPE manquant${kpis.nbDpeManquant > 1 ? 's' : ''}`);
-  if (kpis.nbInsuffisant) alertText.push(`${kpis.nbInsuffisant} index manquant${kpis.nbInsuffisant > 1 ? 's' : ''}`);
-  // v15.77 — KPI drillables : clic ouvre la modale ov-irl-drill (3 vues : lots/alerts/loyer).
-  // event.stopPropagation pour ne pas déclencher le collapse du group-head parent.
-  // Bucket "Sans immeuble" : pas de drill (pas de fiche imm à ouvrir).
-  const safeKey = escHtml(g.key).replace(/'/g, "\\'");
-  const drillable = !g.isUnassigned;
-  const drillCls = drillable ? ' drillable' : '';
-  const onclickLots = drillable ? `onclick="event.stopPropagation();_irlOpenDrill('lots','${safeKey}')"` : '';
-  const onclickLoyer = drillable ? `onclick="event.stopPropagation();_irlOpenDrill('loyer','${safeKey}')"` : '';
-  const onclickAlerts = drillable ? `onclick="event.stopPropagation();_irlOpenDrill('alerts','${safeKey}')"` : '';
-  const lotsTitle = drillable ? ' title="Voir la fiche immeuble"' : '';
-  const loyerTitle = drillable ? ' title="Voir la compta de cet immeuble"' : '';
-  const alertsTitle = nbAlerts > 0 ? ` title="${escHtml(alertText.join(' · ') + ' — voir détail')}"` : '';
-
-  const alertChip = nbAlerts > 0
-    ? `<span class="kpi alert${drillCls}" ${onclickAlerts}${alertsTitle}><b>${nbAlerts}</b> ⚠</span>`
-    : '';
-  const lots = `<span class="kpi${drillCls}" ${onclickLots}${lotsTitle}><b>${kpis.nbLots || 0}</b> ${kpis.nbLots > 1 ? 'lots' : 'lot'}</span>`;
-  const loyer = (kpis.loyerTotalHC && kpis.loyerTotalHC > 0)
-    ? `<span class="kpi${drillCls}" ${onclickLoyer}${loyerTitle}><b>${fmt(kpis.loyerTotalHC)}</b> HC</span>`
-    : '';
-  return `<div class="irl-grp${collapsed ? ' collapsed' : ''}" data-imm-key="${escHtml(g.key)}">
-    <div class="irl-grp-head" onclick="_irlGrpToggleCollapse('${safeKey}')" role="button" tabindex="0" aria-expanded="${collapsed ? 'false' : 'true'}">
-      <span class="chev">▼</span>
-      <span class="ic">${ic}</span>
-      ${nm}
-      <span class="kpis">${lots}${loyer}${alertChip}</span>
-    </div>
-    <div class="irl-grp-body">
-      ${g.logements.map(l => _renderIRLCard(l, computeIRLRevision(l))).join('')}
-    </div>
-  </div>`;
-}
-
-// ─── v15.77 UX-GROUP-BY-IMMEUBLE drill-downs ─── (module pur miroir : js/core/irl-drill.js)
-function _irlDeltaImm(logements, computeRevisionFn) {
-  if (!Array.isArray(logements) || typeof computeRevisionFn !== 'function') return 0;
-  let delta = 0;
-  for (const l of logements) {
-    if (!l) continue;
-    const rev = computeRevisionFn(l);
-    if (!rev || !rev.isApplicable || rev.dejaApplique) continue;
-    if (typeof rev.nouveauHC === 'number' && typeof l.hc === 'number') delta += rev.nouveauHC - l.hc;
-  }
-  return Math.round(delta * 100) / 100;
-}
-function _irlListAlertes(logements, computeRevisionFn) {
-  if (!Array.isArray(logements) || typeof computeRevisionFn !== 'function') return [];
-  const out = [];
-  for (const l of logements) {
-    if (!l) continue;
-    const rev = computeRevisionFn(l);
-    if (!rev) continue;
-    if (rev.gelDpeFG) out.push({ ref: l.ref, locataire: l.locataire || '', type: 'gel', detail: `DPE ${rev.dpe || 'F/G'} — loi Climat 2021 art. 23` });
-    else if (rev.dpeManquant) out.push({ ref: l.ref, locataire: l.locataire || '', type: 'dpeManquant', detail: 'DPE non renseigné dans le bail' });
-    else if (rev.insuffisant) out.push({ ref: l.ref, locataire: l.locataire || '', type: 'insuffisant', detail: `Index IRL ${rev.missingKey || ''} manquant en table` });
-  }
-  return out;
-}
-function _irlProjectionAnnuelle(loyerMensuelHC) {
-  if (typeof loyerMensuelHC !== 'number' || !isFinite(loyerMensuelHC)) return 0;
-  return Math.round(loyerMensuelHC * 12 * 100) / 100;
-}
-function _irlListLotsForDrill(logements, computeRevisionFn) {
-  if (!Array.isArray(logements)) return [];
-  return logements.filter(l => l && l.ref).map(l => {
-    const rev = (typeof computeRevisionFn === 'function') ? computeRevisionFn(l) : null;
-    let statut = '—'; let nouveauHC = null;
-    if (rev) {
-      if (rev.gelDpeFG) statut = `🔒 Gelé DPE ${rev.dpe || 'F/G'}`;
-      else if (rev.dpeManquant) statut = '📋 DPE manquant';
-      else if (rev.insuffisant) statut = `⚠ Index ${rev.missingKey || ''} manquant`;
-      else if (rev.pasEncoreApplicable) statut = '⏳ Bail < 1 an';
-      else if (rev.renonce) statut = '⊘ Renoncée';
-      else if (rev.dejaApplique) statut = '✅ Appliquée';
-      else if (rev.isApplicable) { statut = '✓ Applicable'; if (typeof rev.nouveauHC === 'number') nouveauHC = Math.round(rev.nouveauHC * 100) / 100; }
-      else statut = '⏱ À venir';
-    } else statut = '⚠ Bail incomplet';
-    return { ref: l.ref, locataire: l.locataire || '', hc: typeof l.hc === 'number' ? l.hc : 0, statut, nouveauHC };
-  });
-}
-
-function _irlOpenDrill(kind, immKey) {
-  if (!immKey || immKey === '__unassigned__') return;
-  const fimm = (typeof v === 'function') ? v('irl-f-imm') : '';
-  const logsAll = (DB.logements || []).filter(_isAlive).filter(l => (!fimm || l.imm === fimm) && l.locataire);
-  const groupLogs = logsAll.filter(l => (l.imm || '').trim() === immKey);
-  if (!groupLogs.length) return;
-
-  const titleEl = el('ov-irl-drill-title');
-  const subEl = el('ov-irl-drill-sub');
-  const bodyEl = el('ov-irl-drill-body');
-  const footEl = el('ov-irl-drill-foot');
-  if (!titleEl || !bodyEl) return;
-
-  const safeImmJs = String(immKey).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  const tabPills = ['lots', 'alerts', 'loyer'].map(k => {
-    const lbl = k === 'lots' ? '🏛 Lots' : k === 'alerts' ? '⚠ Alertes' : '💰 Compta';
-    const act = k === kind ? 'act' : '';
-    return `<button class="btn bs bb ${act}" onclick="_irlOpenDrill('${k}','${safeImmJs}')" style="font-size:11.5px">${lbl}</button>`;
-  }).join('');
-
-  let title, body, foot;
-  if (kind === 'lots') {
-    title = '🏛 ' + immKey;
-    const lots = _irlListLotsForDrill(groupLogs, computeIRLRevision);
-    const rows = lots.map(l => `<div class="irl-drill-lot">
-      <div style="font-weight:700">${escHtml(l.ref)} <span class="mu sm" style="font-weight:400">· ${escHtml(l.locataire || '—')}</span></div>
-      <div style="font-size:11.5px" class="mu">${escHtml(l.statut)}${l.nouveauHC ? ' · ' + fmt(l.hc) + ' → <b style="color:var(--ok,#16a34a)">' + fmt(l.nouveauHC) + '</b>' : ''}</div>
-    </div>`).join('');
-    body = `<div class="irl-drill-section">
-      <h4>Synthèse</h4>
-      <div class="irl-drill-stats"><div class="irl-drill-stat"><div class="v">${groupLogs.length}</div><div class="l">lots gérés</div></div></div>
-      <h4 style="margin-top:14px">Lots de l'immeuble</h4>
-      <div class="irl-drill-lots-list">${rows || '<div class="mu">Aucun lot</div>'}</div>
-    </div>`;
-    foot = `<button class="btn bs" onclick="closeM('ov-irl-drill')">Fermer</button>`;
-  } else if (kind === 'alerts') {
-    const alertes = _irlListAlertes(groupLogs, computeIRLRevision);
-    title = '⚠ Lots en alerte';
-    if (!alertes.length) {
-      body = `<div class="irl-drill-section"><div class="mu" style="text-align:center;padding:16px">✓ Aucun lot en alerte pour cet immeuble.</div></div>`;
-    } else {
-      const rows = alertes.map(a => {
-        const typeLabel = a.type === 'gel' ? '🔒 Gelé DPE F/G' : a.type === 'dpeManquant' ? '📋 DPE manquant' : '⚠ Index IRL manquant';
-        return `<div class="irl-drill-alert">
-          <div style="font-weight:700">${escHtml(a.ref)} <span class="mu sm" style="font-weight:400">· ${escHtml(a.locataire || '—')}</span></div>
-          <div style="font-size:11.5px;color:#d97706;margin-top:2px">${typeLabel}</div>
-          <div style="font-size:11px" class="mu">${escHtml(a.detail)}</div>
-        </div>`;
-      }).join('');
-      body = `<div class="irl-drill-section">
-        <h4>${alertes.length} lot${alertes.length > 1 ? 's' : ''} ${alertes.length > 1 ? 'nécessitent' : 'nécessite'} une action</h4>
-        <div class="irl-drill-alerts-list">${rows}</div>
-      </div>`;
-    }
-    foot = `<button class="btn bs" onclick="closeM('ov-irl-drill')">Fermer</button>`;
-  } else if (kind === 'loyer') {
-    title = '💰 ' + immKey;
-    let loyerTot = 0;
-    for (const l of groupLogs) if (typeof l.hc === 'number') loyerTot += l.hc;
-    loyerTot = Math.round(loyerTot * 100) / 100;
-    const delta = _irlDeltaImm(groupLogs, computeIRLRevision);
-    const projAnn = _irlProjectionAnnuelle(loyerTot);
-    const deltaCls = delta > 0 ? 'pos' : (delta < 0 ? 'neg' : '');
-    const deltaSign = delta > 0 ? '+' : '';
-    body = `<div class="irl-drill-section">
-      <h4>Revenus actuels</h4>
-      <div class="irl-drill-stats">
-        <div class="irl-drill-stat"><div class="v">${fmt(loyerTot)}</div><div class="l">loyer HC mensuel total</div></div>
-        <div class="irl-drill-stat"><div class="v">${fmt(projAnn)}</div><div class="l">projection annuelle HC</div></div>
-        <div class="irl-drill-stat ${deltaCls}"><div class="v">${deltaSign}${fmt(delta)}</div><div class="l">Δ post-révisions IRL applicables</div></div>
-      </div>
-    </div>`;
-    foot = `<button class="btn bs" onclick="closeM('ov-irl-drill')">Fermer</button>`;
-  } else {
-    return;
-  }
-
-  titleEl.textContent = title;
-  if (subEl) subEl.innerHTML = `<div class="irl-drill-tabs">${tabPills}</div>`;
-  bodyEl.innerHTML = body;
-  if (footEl) footEl.innerHTML = foot;
-  if (typeof openM === 'function') openM('ov-irl-drill');
-}
-// ────────────────────────────────────────────────────────────────────────────
-
-function rIRL() {
-  const fimm = v('irl-f-imm');
-  // v15.234 NAV-FILTRE-ENTITE-GLOBAL : filtre entité active (_logInEnt) en plus de l'immeuble.
-  const logs = DB.logements.filter(_isAlive).filter(l=>_logInEnt(l)&&(!fimm||l.imm===fimm)&&l.locataire);
-
-  // v15.10 IRL-REVISION-UX-FIX : nouvelle vue cartes — rendu dans #irl-cards-grid si présent
-  // v15.76 UX-GROUP-BY-IMMEUBLE : cards groupées par immeuble avec headers collapsibles + KPI
-  const cardsGrid = el('irl-cards-grid');
-  if (cardsGrid && _irlView === 'cards') {
-    if (logs.length) {
-      const groups = _irlBuildGroups(logs);
-      cardsGrid.innerHTML = groups.map(_irlRenderGroupHeader).join('');
-    } else {
-      cardsGrid.innerHTML = '<div class="mu" style="text-align:center;padding:24px">Aucun logement occupé</div>';
-    }
-    cardsGrid.style.display = '';
-    const tblWrap = el('irl-table')?.closest('.tbl-wrap');
-    if (tblWrap) tblWrap.style.display = 'none';
-    const toggle = el('irl-view-toggle');
-    if (toggle) toggle.innerHTML = `<span class="mu sm" style="font-size:11px">Vue :</span>
-      <button class="btn bs bb act" style="font-size:11px;padding:3px 8px" onclick="_setIrlView('cards')">📇 Cartes</button>
-      <button class="btn bs bb" style="font-size:11px;padding:3px 8px" onclick="_setIrlView('table')">📊 Tableau</button>`;
-    return;
-  } else if (cardsGrid && _irlView === 'table') {
-    cardsGrid.style.display = 'none';
-    const tblWrap = el('irl-table')?.closest('.tbl-wrap');
-    if (tblWrap) tblWrap.style.display = '';
-    const toggle = el('irl-view-toggle');
-    if (toggle) toggle.innerHTML = `<span class="mu sm" style="font-size:11px">Vue :</span>
-      <button class="btn bs bb" style="font-size:11px;padding:3px 8px" onclick="_setIrlView('cards')">📇 Cartes</button>
-      <button class="btn bs bb act" style="font-size:11px;padding:3px 8px" onclick="_setIrlView('table')">📊 Tableau</button>`;
-  }
-
-  // Fallback / vue tableau legacy
-  el('irl-tbody').innerHTML = logs.map(l=>{
-    const rev  = computeIRLRevision(l);
-    const base = _irlBaseCells(l);
-
-    // v13.34 : DPE expiré warning (commun à tous les cas calculables)
-    const dpeWarn = rev?.dpeExpire ? '<span class="irl-anniv-sub" style="color:#92400e">⚠️ DPE > 10 ans</span>' : '';
-
-    /* — Cas A : pas de date de bail (rev null) — */
-    if(!rev) return `<tr class="irl-row-warn">${base}
-      <td colspan="2" data-label="Statut"><span class="irl-badge warn">⚠ Date de bail manquante</span></td>
-      <td data-label="Anniversaire" class="mu sm">–</td>
-      <td data-label="Loyer actuel" class="num">${fmt(l.hc)}</td>
-      <td data-label="Nouveau loyer" class="num mu">–</td>
-      <td data-label="Variation" class="num mu">–</td>
-      ${_irlActionsCell(`<button class="btn bs bb" onclick="openBail('${l.ref}')" title="Compléter le bail">📋 Ouvrir le bail</button>`)}
-    </tr>`;
-
-    /* — Cas B : DPE non renseigné — */
-    if(rev.dpeManquant) return `<tr class="irl-row-warn">${base}
-      <td colspan="2" data-label="Statut"><span class="irl-badge warn">📋 DPE non renseigné</span></td>
-      <td data-label="Anniversaire" class="mu sm">–</td>
-      <td data-label="Loyer actuel" class="num">${fmt(l.hc)}</td>
-      <td data-label="Nouveau loyer" class="num mu">–</td>
-      <td data-label="Variation" class="num mu">–</td>
-      ${_irlActionsCell(`<button class="btn bs bb" onclick="openLogModalOnTab('${l.ref}','diag')" title="Saisir le DPE sur la fiche du bien (onglet Diagnostics)">📋 Saisir DPE</button>`)}
-    </tr>`;
-
-    /* — Cas C : Loyer GELÉ DPE F/G (loi Climat 2021) — */
-    if(rev.gelDpeFG) return `<tr class="irl-row-frozen">${base}
-      <td colspan="2" data-label="Statut"><span class="irl-badge frozen">🔒 Loyer gelé — DPE ${rev.dpe}</span></td>
-      <td data-label="Anniversaire" class="mu sm" title="Loi Climat & Résilience 2021, art. 23 — applicable depuis 24/08/2022">Non révisable</td>
-      <td data-label="Loyer actuel" class="num">${fmt(l.hc)}</td>
-      <td data-label="Nouveau loyer" class="num mu">–</td>
-      <td data-label="Variation" class="num mu">–</td>
-      ${_irlActionsCell('')}
-    </tr>`;
-
-    /* — Cas D : index IRL manquant pour le calcul — */
-    if(rev.insuffisant) return `<tr class="irl-row-warn">${base}
-      <td colspan="2" data-label="Statut"><span class="irl-badge warn">⚠ Index ${rev.missingKey||''} manquant</span></td>
-      <td data-label="Anniversaire" class="mu sm">–</td>
-      <td data-label="Loyer actuel" class="num">${fmt(l.hc)}</td>
-      <td data-label="Nouveau loyer" class="num mu">–</td>
-      <td data-label="Variation" class="num mu">–</td>
-      ${_irlActionsCell(rev.missingKey
-        ? `<button class="btn bs bb" onclick="quickAddIRL('${rev.missingKey}','${l.ref}')" style="background:rgba(234,88,12,.10);color:#ea580c;border:1.5px solid rgba(234,88,12,.30);font-weight:600" title="Ajouter l'indice ${rev.missingKey} dans la table IRL">+ Ajouter ${rev.missingKey}</button>`
-        : '')}
-    </tr>`;
-
-    /* — Cas E : Bail < 1 an, pas encore applicable — */
-    if(rev.pasEncoreApplicable) {
-      const anniv = rev.premiereAnniv;
-      const annivD = new Date(anniv); annivD.setHours(0,0,0,0);
-      const today = new Date(); today.setHours(0,0,0,0);
-      const dj = Math.round((annivD - today) / 86400000);
-      return `<tr class="irl-row-wait">${base}
-        <td colspan="2" data-label="Statut"><span class="irl-badge wait">⏳ Bail < 1 an</span></td>
-        <td data-label="Anniversaire" class="irl-status-cell"><span class="irl-anniv">${anniv.toLocaleDateString('fr-FR')}</span><span class="irl-anniv-sub" style="color:#3b7ef6">1ʳᵉ révision dans ${dj}j</span>${dpeWarn}</td>
-        <td data-label="Loyer actuel" class="num">${fmt(l.hc)}</td>
-        <td data-label="Nouveau loyer" class="num mu">–</td>
-        <td data-label="Variation" class="num mu">–</td>
-        ${_irlActionsCell(`<button class="btn bs bb" onclick="previewIRLLetter('${l.ref}')" title="Aperçu de la lettre (anticipé)">👁 Aperçu</button>`)}
-      </tr>`;
-    }
-
-    /* — Cas F : révision calculée (acté / applicable / à venir) — */
-    const {irlRef, irlVigueur, dateRevision, diff, nouveauHC, isApplicable, dejaApplique} = rev;
-    const st = _irlLettreState(l, rev);
-
-    let rowCls, statutHtml, actionsHtml;
-    if(dejaApplique && rev.renonce) {
-      // v15.408 BUG-IRL-RENONCE-AFFICHAGE — renoncement en orange, pas en vert « acté »
-      rowCls = 'irl-row-acted';
-      const dateRenon = l.irlDerniereApplication ? fd(l.irlDerniereApplication) : '?';
-      statutHtml  = `<span class="irl-anniv-sub" style="color:var(--ora,#b27a12);font-weight:600">⊘ Renoncée le ${dateRenon}</span>`;
-      actionsHtml = `<button class="btn bs bb" onclick="resetIRLApply('${l.ref}')" title="Annuler la renonciation (la révision redevient applicable)">↩ Reset</button>`;
-    } else if(dejaApplique) {
-      rowCls = 'irl-row-acted';
-      const dateAppli = l.irlDerniereApplication ? fd(l.irlDerniereApplication) : '?';
-      statutHtml  = `<span class="irl-anniv-sub" style="color:var(--grn);font-weight:600">✓ Acté le ${dateAppli}</span>`;
-      actionsHtml = `<button class="btn bs bb" onclick="resetIRLApply('${l.ref}')" title="Réinitialiser la révision (annule l'application)">↩ Reset</button>`;
-    } else if(isApplicable) {
-      rowCls = 'irl-row-applicable';
-      statutHtml  = `<span class="irl-anniv-sub" style="color:var(--grn);font-weight:600">✓ Applicable</span>`;
-      actionsHtml =
-        _irlEnvelopeBtn(l, st) +
-        `<button class="btn bg bb" onclick="applyIRL('${l.ref}',${nouveauHC})" title="Appliquer le nouveau loyer (${fmt(nouveauHC)})" style="font-weight:600">💶 Valider IRL</button>` +
-        `<button class="btn bs bb" onclick="previewIRLLetter('${l.ref}')" title="Aperçu lettre">👁</button>` +
-        `<button class="btn br bb" onclick="skipIRL('${l.ref}')" title="Renoncer à cette révision">🚫</button>`;
-    } else {
-      rowCls = 'irl-row-future';
-      statutHtml  = `<span class="irl-anniv-sub" style="color:var(--ora);font-weight:600">⏳ Dans ${st?st.diffJ:'?'}j</span>`;
-      actionsHtml =
-        _irlEnvelopeBtn(l, st) +
-        `<button class="btn bs bb" onclick="previewIRLLetter('${l.ref}')" title="Aperçu lettre (anticipé)">👁</button>`;
-    }
-
-    return `<tr class="${rowCls}">
-      <td><b>${l.ref}</b></td>
-      <td>${l.locataire||'–'}</td>
-      <td data-label="IRL réf. (N-1)" title="IRL de référence (N-1)"><span class="irl-anniv">${irlRef.key}</span><span class="irl-anniv-sub mu">${irlRef.val}</span></td>
-      <td data-label="IRL vigueur (N)" title="IRL en vigueur (N)"><span class="irl-anniv">${irlVigueur.key}</span><span class="irl-anniv-sub mu">${irlVigueur.val}</span></td>
-      <td data-label="Anniversaire" class="irl-status-cell"><span class="irl-anniv">${dateRevision.toLocaleDateString('fr-FR')}</span>${statutHtml}${dpeWarn}</td>
-      <td data-label="Loyer actuel" class="num">${fmt(l.hc)}</td>
-      <td data-label="Nouveau loyer" class="num ${diff>0?'pos':diff<0?'neg':''}">${dejaApplique?'<span class="mu">–</span>':fmt(nouveauHC)}</td>
-      <td data-label="Variation" class="num ${diff>0?'pos':diff<0?'neg':''}">${dejaApplique?'<span class="mu">–</span>':(diff>0?'+':'')+fmtN(diff)+' €'}</td>
-      ${_irlActionsCell(actionsHtml)}
-    </tr>`;
-  }).join('') || '<tr><td colspan="9" class="mu" style="text-align:center;padding:20px">Aucun logement occupé</td></tr>';
-}
-
-// AUDIT-SUIVI-LOYERS étape 2 — helpers du BARÈME DE LOYER (source de vérité du dû dans le temps).
-// Le dernier mois QUITTANCÉ d'un lot (ym 'YYYY-MM'), pour le garde-fou Q1 « une date d'effet IRL
-// n'est jamais antérieure à un mois déjà quittancé ». Les quittances stockent mois="mars 2026".
 function _dernierMoisQuittanceYm(ref) {
   const want = String(ref == null ? '' : ref).trim().toLowerCase();
   let max = null;
@@ -25997,7 +25173,7 @@ function applyIRL(ref, newHC) {
   }
   if (!log) return;
   const rev = computeIRLRevision(log);
-  const annivIso = rev?.dateRevision ? _isoLocal(rev.dateRevision) : '';
+  const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   const todayLocal = _todayIsoLocal();
   // AUDIT-SUIVI-LOYERS Q1 (décision user 14/07) : la révision porte une DATE D'EFFET EXPLICITE,
   // jamais rétroactive, jamais avant un mois déjà quittancé. Pré-remplie : validée avant/au
@@ -26016,9 +25192,12 @@ function applyIRL(ref, newHC) {
   el('iv-move').innerHTML = `<div class="bv-row"><span class="bv-lbl">Loyer hors charges</span>
     <span class="hl-move" style="margin-top:0"><span class="old">${fmt(log.hc)}</span><span>→</span><span class="new">${fmt(newHC)}</span></span></div>`;
   el('iv-effet').value = dateEffetIso;
-  el('iv-effet-hint').textContent = _eff.ajustee
-    ? 'Date pré-remplie AJUSTÉE (jamais rétroactive, jamais sur un mois déjà quittancé). Modifiable — mêmes garde-fous.'
-    : 'Pré-remplie selon la règle Q1 (anniversaire ou 1er du mois suivant la validation). Modifiable — jamais rétroactive, jamais dans un mois quittancé.';
+  // D18 — la fenêtre est conservée telle quelle. UNE chose est ajoutée : dire ce qui NE
+  // change pas. C'est la question que tout le monde se pose devant une révision.
+  el('iv-effet-hint').innerHTML = (_eff.ajustee
+    ? '1<sup>er</sup> jour du mois de l\'anniversaire du bail. Date pré-remplie AJUSTÉE (jamais rétroactive, jamais sur un mois déjà quittancé). Modifiable — mêmes garde-fous.'
+    : '1<sup>er</sup> jour du mois de l\'anniversaire du bail. Modifiable, mais jamais antérieure à cette date ni à un mois déjà quittancé.')
+    + '<br><b>Les mois passés ne changent pas</b> — aucune quittance déjà émise, aucun loyer déjà dû n\'est recalculé.';
   openM('ov-irl-valid');
 }
 
@@ -26030,7 +25209,7 @@ function _irlValidConfirm() {
   let effet = v('iv-effet');
   if (!effet) { showToast('Date d\'effet requise', 'err'); return; }
   const rev = computeIRLRevision(log);
-  const annivIso = rev?.dateRevision ? _isoLocal(rev.dateRevision) : '';
+  const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   if (typeof window !== 'undefined' && typeof window._baremeClampDateEffet === 'function') {
     const cl = window._baremeClampDateEffet(effet, {
       annivMoisPremierIso: annivIso ? window._premierDuMois(annivIso) : undefined,
@@ -26054,7 +25233,7 @@ function _irlValidConfirm() {
 function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   const log = DB.logements.find(l => l.ref === ref); if (!log) return;
   const rev = computeIRLRevision(log);
-  const annivIso = rev?.dateRevision ? _isoLocal(rev.dateRevision) : '';
+  const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   const todayLocal = _todayIsoLocal();
   const futureApplication = dateEffetIso > todayLocal;
   const ancienHC = log.hc;                   // capturé AVANT toute mutation (M1 audit)
@@ -26258,46 +25437,17 @@ function rIRLParams() {
   }).join('');
 }
 
-function rIRLHistorique() {
-  const rows = (DB.irlHistorique||[]).filter(_isAlive).slice().reverse();
-  el('irl-histo-tbody').innerHTML = rows.length ? rows.map(h=>{
-    const diff = h.diff ?? (h.nouveauHC - h.ancienHC);
-    const variation = h.irlRefVal && h.irlVigueurVal
-      ? ((h.irlVigueurVal - h.irlRefVal) / h.irlRefVal * 100).toFixed(2) + ' %'
-      : '–';
-    const isRenonciation = h.action === 'renonciation';
-    // v14.80 SECU-INNERHTML : escape h.ref, h.locataire, h.irlRef, h.irlVigueur (champs historique user)
-    return `<tr style="${isRenonciation?'opacity:.7':''}">
-      <td>${fd(h.date)}</td>
-      <td><b>${escHtml(h.ref)}</b>${isRenonciation?'<br><span class="badge" style="background:var(--ora);color:#fff;font-size:9px">Renonciation</span>':''}</td>
-      <td>${escHtml(h.locataire||'–')}</td>
-      <td title="${escHtml(h.irlRef||'')}">${escHtml(h.irlRef||'–')} <span class="mu sm">${escHtml(h.irlRefVal||'')}</span></td>
-      <td title="${escHtml(h.irlVigueur||'')}">${escHtml(h.irlVigueur||'–')} <span class="mu sm">${escHtml(h.irlVigueurVal||'')}</span> <span class="mu sm">(${variation})</span></td>
-      <td class="num">${fmt(h.ancienHC)}</td>
-      <td class="num">${isRenonciation?'<span class="mu">inchangé</span>':fmt(h.nouveauHC)}</td>
-      <td class="num ${diff>0?'pos':diff<0?'neg':''}">${isRenonciation?'<span class="mu">–</span>':(diff>0?'+':'')+(fmtN(diff)+' €')}</td>
-    </tr>`;
-  }).join('')
-  : '<tr><td colspan="8" class="mu" style="text-align:center;padding:20px">Aucune révision appliquée</td></tr>';
-}
+// CDC-QUITTANCES-IRL D19 — `rIRLHistorique()` est supprimé avec le sous-onglet
+// « Historique » de l'IRL : la timeline « Historique du bail » (v15.496) raconte déjà la
+// même chose, adossée au barème. Un seul historique, et il n'a pas de bouton pour l'effacer
+// (C6 : le barème garde ses périodes ; effacer `DB.irlHistorique` donnait un loyer sans
+// explication). Les données restent en base.
 
+// Rafraîchit les deux surfaces qui restent : l'onglet Loyers (blocs Révisions + calendrier)
+// et la table INSEE. Ex-`rIRL(); rIRLParams(); rIRLHistorique();`.
 function refreshAllIRL() {
-  rIRL(); rIRLParams(); rIRLHistorique();
-}
-
-function resetIRLToDefault() {
-  // Fusion intelligente : ajoute les trimestres manquants + met à jour les valeurs connues INSEE
-  // Préserve les trimestres personnalisés absents de IRL_DEFAULT
-  const added = [], updated = [];
-  Object.entries(IRL_DEFAULT).forEach(([k,v]) => {
-    if(!(k in DB.irlTable)) { DB.irlTable[k]=v; added.push(k); }
-    else if(DB.irlTable[k] !== v) { DB.irlTable[k]=v; updated.push(k); }
-  });
-  saveDB(); refreshAllIRL();
-  const parts = [];
-  if(added.length)   parts.push(`${added.length} trimestre(s) ajouté(s) : ${added.join(', ')}`);
-  if(updated.length) parts.push(`${updated.length} valeur(s) corrigée(s) : ${updated.join(', ')}`);
-  showToast(parts.length ? parts.join(' — ') : 'Table IRL déjà à jour ✓', 'ok');
+  try { if (typeof rLoyers === 'function' && currentPage === 'quittances') rLoyers(); } catch(e) {}
+  try { if (el('irl-table-tbody')) rIRLParams(); } catch(e) {}
 }
 
 function updateIRL(key, val) { var n=parseFloat(String(val).replace(',','.'))||0; DB.irlTable[key]=Math.round(n*100)/100; saveDB(); refreshAllIRL(); }
@@ -28968,14 +28118,14 @@ function rLoyers() {
       const detail = n === 1
         ? `${escHtml(window.ymToMoisFr(e.aQuittancer[0]))} soldé`
         : `${n} mois soldés, non encore quittancés : ${e.aQuittancer.map(y => escHtml(window.ymToMoisFr(y))).join(', ')}`;
-      return _lyRow({
+      return { log: e.log, html: _lyRow({
         titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
         badge: '<span class="ly-ask">🧾 demande mensuelle</span>',
         detail,
         montant: `<b>${fmt(du)}</b><br><span class="ly-pill ok">${n > 1 ? 'Soldés' : 'Soldé'}</span>`,
         actions: `<button class="btn bp bb" onclick="_lyEditerQuittances('${_lyQ(e.ref)}')">${libelle}</button>
           <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(e.ref)}')">Détail</button>`
-      });
+      }) };
     }),
     'Personne n\'attend de quittance ce mois-ci.');
 
@@ -28997,14 +28147,14 @@ function rLoyers() {
       const btnRecu = partiel.length
         ? `<button class="btn bs bb" onclick="_lyRecuPartiel('${_lyQ(e.ref)}','${partiel[partiel.length - 1].ym}')" title="Art. 21 : en cas de paiement partiel, le bailleur délivre un reçu">Reçu partiel</button>`
         : '';
-      return _lyRow({
+      return { log: e.log, html: _lyRow({
         titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
         detail,
         montant: `<b>${fmt(r.reste)}</b>${r.chargesSeules ? ' de charges' : ''}<br>${pill}`,
         actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Courrier de relance</button>
           ${btnRecu}
           <button class="btn bs bb" onclick="_impayesOpenVue()">Détail mois par mois</button>`
-      });
+      }) };
     }),
     'Tous les loyers et toutes les charges sont à jour.');
 
@@ -29037,13 +28187,68 @@ function _lyRow(o) {
   </div>`;
 }
 
-/** Un bloc replié à UNE ligne quand il est vide (D5). */
-function _lyBloc(titre, n, hint, rows, vide) {
+/**
+ * Un bloc replié à UNE ligne quand il est vide (D5).
+ * `horsCompteur` (D17) : la pastille reste neutre — ces lignes sont VISIBLES mais ne
+ * demandent rien, elles ne doivent pas gonfler le nombre de choses à faire.
+ * `items` = [{ log, html }] : le bloc pose lui-même les en-têtes de groupe (bailleur >
+ * immeuble). Un tableau de chaînes reste accepté (blocs qui ne listent pas des lots).
+ */
+function _lyBloc(titre, n, hint, items, horsCompteur) {
   const head = `<div class="ly-blk-h"><span class="t">${titre}</span>
-    <span class="n${n ? '' : ' z'}">${n}</span>
+    <span class="n${(n && !horsCompteur) ? '' : ' z'}">${n}</span>
     <span class="hint">${n ? hint : ''}</span></div>`;
   if (!n) return `<div class="ly-blk">${head.replace('<div class="ly-blk-h"', '<div class="ly-blk-h" style="border-bottom:0"')}</div>`;
-  return `<div class="ly-blk">${head}${rows.join('')}</div>`;
+  const corps = (items.length && typeof items[0] === 'string')
+    ? items.join('') : _lyGrouper(items);
+  return `<div class="ly-blk">${head}${corps}</div>`;
+}
+
+/**
+ * LE groupage des blocs qui listent des lots (décision user 18/08, remontée sur le parc réel :
+ * 37 lots de plusieurs immeubles et plusieurs SCI arrivaient mélangés, sans séparation).
+ *
+ *   · filtre entité sur « Toutes » → DEUX niveaux : bailleur, puis immeuble ;
+ *   · une seule SCI sélectionnée → immeuble seul (le niveau bailleur ne dirait rien et
+ *     mangerait de la hauteur — la contrainte « 1 écran PC » tient).
+ *
+ * Le groupage lui-même n'est pas réinventé : il vient de js/core/group-by-imm.js
+ * (`_grouperLotsParBailleurEtImmeuble`, qui compose `_groupLogementsByImm`).
+ * Les lots sans immeuble et sans bailleur restent VISIBLES dans un groupe nommé.
+ * L'en-tête d'IMMEUBLE est toujours posé : il porte le NOM de l'immeuble, information que
+ * la ligne du lot ne donne pas (même présentation que l'écran IRL que Didier connaît).
+ * L'en-tête de BAILLEUR est omis dans le seul cas où il ne sépare rien et ne nomme rien de
+ * nouveau : un unique bailleur, hors panier « Sans bailleur ».
+ *
+ * @param {Array<{log:object, html:string}>} items
+ */
+function _lyGrouper(items) {
+  const list = (items || []).filter(Boolean);
+  if (!list.length) return '';
+  const G = (typeof window !== 'undefined') ? window.GroupByImm : null;
+  if (!G || typeof G._grouperLotsParBailleurEtImmeuble !== 'function') {
+    return list.map(x => x.html).join('');   // module absent : jamais d'écran vide
+  }
+  const parBailleur = !(typeof _entActif === 'function' && _entActif());
+  const parRef = new Map(list.map(x => [x.log && x.log.ref, x.html]));
+  const groupes = G._grouperLotsParBailleurEtImmeuble(list.map(x => x.log), { parBailleur });
+  const plusieursBailleurs = groupes.length > 1;
+  let out = '';
+  for (const gb of groupes) {
+    const nb = gb.immeubles.reduce((s2, i) => s2 + i.logements.length, 0);
+    if (parBailleur && (plusieursBailleurs || gb.isUnassigned)) {
+      const nom = gb.isUnassigned
+        ? '<span class="ly-grp-orph">Sans bailleur</span>' : escHtml(gb.entite || '');
+      out += `<div class="ly-grp-b">🏛 ${nom}<span class="c">${nb} lot${nb > 1 ? 's' : ''}</span></div>`;
+    }
+    for (const gi of gb.immeubles) {
+      const nom = gi.isUnassigned
+        ? '<span class="ly-grp-orph">Sans immeuble</span>' : escHtml(gi.imm || '');
+      out += `<div class="ly-grp-i">${nom}<span class="c">${gi.logements.length}</span></div>`;
+      for (const l of gi.logements) out += (parRef.get(l && l.ref) || '');
+    }
+  }
+  return out;
 }
 
 function _lyFold(id, titre, contenu) {
@@ -29085,64 +28290,139 @@ function _lyQuittancesDuMois(ymCourant) {
   };
 }
 
-// ── Révisions : version d'étape 4 (le calendrier complet et la prescription arrivent à
-//    l'étape 5). On consomme le `computeIRLRevision` existant, sans le dupliquer. ──
+// ── Révisions IRL (D13/D15/D16/D17) ────────────────────────────────────────
+// Le CALENDRIER est tranché par js/core/irl-calendrier.js via `computeIRLRevision` (qui le
+// consomme). Ici : de l'affichage, et le tri en quatre blocs — à préparer / en retard /
+// perdues / non révisables. Rien n'est recalculé.
 
-/** Les lots dont la révision est à préparer maintenant (règle actuelle ; D13 à l'étape 5). */
-function _lyRevisionsAPreparer(etats) {
+/** Toutes les révisions du parc, avec leur état de calendrier. */
+function _lyRevisions(etats) {
   if (typeof computeIRLRevision !== 'function') return [];
   const out = [];
   for (const e of etats) {
     let rev = null;
     try { rev = computeIRLRevision(e.log); } catch (err) { rev = null; }
-    if (!rev || rev.gelDpeFG || rev.dpeManquant || rev.insuffisant || rev.pasEncoreApplicable) continue;
-    if (rev.dejaApplique || !rev.isApplicable) continue;
-    out.push({ e, rev });
+    if (rev) out.push({ e, rev });
   }
   return out;
 }
 
-function _lyBlocRevisions(etats) {
-  const rows = _lyRevisionsAPreparer(etats);
-  return _lyBloc('📈 Révisions à préparer', rows.length, 'Le nouveau loyer ne s\'applique jamais rétroactivement',
-    rows.map(({ e, rev }) => {
-      const pct = ((rev.variation || 0) * 100).toFixed(2).replace('.', ',');
-      const dbut = (e.bail && e.bail.debut) ? fd(e.bail.debut) : '–';
-      return _lyRow({
-        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
-        detail: `Bail du ${dbut} · IRL ${escHtml(rev.irlVigueur.key)} (${rev.irlVigueur.val}) ÷ ${escHtml(rev.irlRef.key)} (${rev.irlRef.val}) = ${(rev.variation >= 0 ? '+' : '')}${pct} %`,
-        montant: `${fmt(e.log.hc)} → <b>${fmt(rev.nouveauHC)}</b><br><span class="ly-pill nu">${fmt(rev.diff)}/mois</span>`,
-        actions: `<button class="btn bp bb" onclick="applyIRL('${_lyQ(e.ref)}',${rev.nouveauHC})">Réviser</button>
-          <button class="btn bs bb" onclick="skipIRL('${_lyQ(e.ref)}')">Renoncer</button>`
-      });
-    }),
-    'Aucune révision à préparer.');
+/** D13 — ce qui est proposé maintenant : le rappel M-1 ET les cycles en retard encore ouverts. */
+function _lyRevisionsAPreparer(etats) {
+  return _lyRevisions(etats).filter(({ rev }) => rev.isApplicable && !rev.muet);
 }
 
-/** Résumé d'une ligne pour la ligne repliée « Calendrier des révisions à venir ». */
-function _lyCalendrierResume(etats) {
-  if (typeof computeIRLRevision !== 'function') return { count: 0, resume: '', html: '' };
-  const futures = [];
-  for (const e of etats) {
-    let rev = null;
-    try { rev = computeIRLRevision(e.log); } catch (err) { rev = null; }
-    if (!rev) continue;
-    if (rev.gelDpeFG) { futures.push({ ref: e.ref, loc: e.log.locataire, quand: null, note: `loyer gelé — DPE ${rev.dpe}` }); continue; }
-    if (rev.pasEncoreApplicable && rev.premiereAnniv) { futures.push({ ref: e.ref, loc: e.log.locataire, quand: rev.premiereAnniv, note: 'première révision' }); continue; }
-    if (rev.dateRevision) futures.push({ ref: e.ref, loc: e.log.locataire, quand: rev.dateRevision, note: rev.dejaApplique ? 'révision faite' : 'à préparer' });
+function _lyBlocRevisions(etats) {
+  const toutes = _lyRevisions(etats);
+  const aPreparer = toutes.filter(({ rev }) => rev.etat === 'a-preparer');
+  const enRetard  = toutes.filter(({ rev }) => rev.etat === 'en-retard');
+  // D17 — visibles, HORS du compteur, sans action demandée.
+  const muets     = toutes.filter(({ rev }) => rev.muet);
+  // D15 — les cycles fermés par la prescription d'un an : informatif, une seule fois.
+  const perdues   = toutes.filter(({ rev }) => rev.perdue);
+
+  const ligneRev = ({ e, rev }, retard) => {
+    const pct = ((rev.variation || 0) * 100).toFixed(2).replace('.', ',');
+    const dbut = (e.bail && e.bail.debut) ? fd(e.bail.debut) : '–';
+    const effet = rev.effetPrevuIso ? fd(rev.effetPrevuIso) : '–';
+    const detail = retard
+      ? `Effet prévu au <b>${effet}</b> — jamais réclamé · IRL ${escHtml(rev.irlVigueur.key)} ÷ ${escHtml(rev.irlRef.key)} = ${(rev.variation >= 0 ? '+' : '')}${pct} %<br><span class="mu sm">Ne s'appliquera pas rétroactivement : la date d'effet sera recalée à la validation.</span>`
+      : `Bail du ${dbut} → effet au <b>${effet}</b> · IRL ${escHtml(rev.irlVigueur.key)} (${fmtN(rev.irlVigueur.val)}) ÷ ${escHtml(rev.irlRef.key)} (${fmtN(rev.irlRef.val)}) = ${(rev.variation >= 0 ? '+' : '')}${pct} %`;
+    const pill = retard
+      ? `<span class="ly-pill wa">Effet passé</span>`
+      : `<span class="ly-pill nu">Dans ${rev.joursAvantEffet} jour${rev.joursAvantEffet > 1 ? 's' : ''}</span>`;
+    return { log: e.log, html: _lyRow({
+      titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
+      detail,
+      montant: `${fmt(e.log.hc)} → <b>${fmt(rev.nouveauHC)}</b><br>${pill}`,
+      actions: `<button class="btn bp bb" onclick="applyIRL('${_lyQ(e.ref)}',${rev.nouveauHC})">Réviser</button>
+        <button class="btn bs bb" onclick="skipIRL('${_lyQ(e.ref)}')">Renoncer</button>`
+    }) };
+  };
+
+  let html = _lyBloc('📈 Révisions à préparer', aPreparer.length, 'Effet le 1ᵉʳ du mois prochain',
+    aPreparer.map(x => ligneRev(x, false)), '');
+  if (enRetard.length) {
+    html += _lyBloc('⚠ Révisions en retard', enRetard.length, 'Effet prévu passé, lettre pas faite',
+      enRetard.map(x => ligneRev(x, true)), '');
   }
-  if (!futures.length) return { count: 0, resume: '', html: '' };
-  const datees = futures.filter(f => f.quand).sort((a, b) => a.quand - b.quand);
-  const prochaine = datees[0];
+  if (perdues.length) {
+    html += _lyBloc('⌛ Perdues', perdues.length, 'Plus d\'un an — art. 17-1, présumées abandonnées',
+      perdues.map(({ e, rev }) => {
+        // D15 — « ce qu'elle aurait rapporté », dit UNE FOIS. Jamais une action : l'app ne
+        // propose pas un geste qui ne serait pas opposable au locataire.
+        const gain = (rev.nouveauHC != null && e.log.hc) ? Math.round((rev.nouveauHC - e.log.hc) * 100) / 100 : null;
+        const prescritIso = (parseInt(rev.perdue.effetIso.slice(0, 4), 10) + 1) + rev.perdue.effetIso.slice(4);
+        return { log: e.log, html: _lyRow({
+          titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
+          detail: `Effet du ${fd(rev.perdue.effetIso)} jamais réclamé — présumé abandonné depuis le ${fd(prescritIso)}`,
+          montant: gain != null ? `<span class="ly-pill nu">≈ ${fmt(gain)}/mois</span>` : '<span class="ly-pill nu">—</span>',
+          actions: ''
+        }) };
+      }), true);
+  }
+  if (muets.length) {
+    html += _lyBloc('🔒 Non révisables', muets.length, 'Rien à faire — listés pour ne pas les chercher',
+      muets.map(({ e, rev }) => ({ log: e.log, html: _lyRow({
+        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
+        detail: escHtml(_lyMotifMuet(rev)),
+        montant: `<span class="ly-pill nu">${escHtml(_lyPastilleMuet(rev))}</span>`,
+        actions: rev.gelDpeFG || rev.dpeManquant
+          ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')">Voir le DPE</button>` : ''
+      }) })), true);
+  }
+  return html;
+}
+
+function _lyMotifMuet(rev) {
+  if (rev.gelDpeFG) return `DPE ${rev.dpe} — loyer gelé (loi Climat & Résilience, art. 23)`;
+  if (rev.dpeManquant) return 'DPE non renseigné — à saisir sur la fiche du bien avant tout calcul';
+  if (rev.etat === 'trop-jeune') return `Bail de moins d'un an — première révision au ${rev.effetPrevuIso ? fd(rev.effetPrevuIso) : (rev.premiereAnniv ? rev.premiereAnniv.toLocaleDateString('fr-FR') : '–')}`;
+  if (rev.etat === 'indice-manquant') return `Indice ${rev.missingKey} pas encore publié par l'INSEE`;
+  return '—';
+}
+function _lyPastilleMuet(rev) {
+  if (rev.gelDpeFG) return 'Gelé';
+  if (rev.dpeManquant) return 'DPE manquant';
+  if (rev.etat === 'trop-jeune') return rev.joursAvantEffet != null ? `Dans ${rev.joursAvantEffet} j` : 'Bail < 1 an';
+  if (rev.etat === 'indice-manquant') return 'Indice manquant';
+  return '—';
+}
+
+/**
+ * D16 — LE CALENDRIER type Gantt, replié en bas de l'onglet. Douze mois glissants, un lot par
+ * ligne : bande hachurée = mois de rappel, pavé plein = mois d'effet, gris = non révisable.
+ * Sur téléphone il défile DANS SON PROPRE CADRE (overflow-x sur le cadre, jamais sur la page).
+ */
+function _lyCalendrierResume(etats) {
+  if (typeof window === 'undefined' || !window.IrlCalendrier) return { count: 0, resume: '', html: '' };
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const toutes = _lyRevisions(etats);
+  if (!toutes.length) return { count: 0, resume: '', html: '' };
+  const lots = toutes.map(({ e, rev }) => ({
+    ref: e.ref,
+    libelle: (e.log.locataire || '') + (e.bail && e.bail.debut ? ' · bail du ' + fd(e.bail.debut) : ''),
+    etat: {
+      etat: rev.etat, effetPrevuIso: rev.effetPrevuIso || '',
+      rappelYm: rev.rappelYm || '', muet: !!rev.muet
+    }
+  }));
+  const g = window.IrlCalendrier.ganttRevisions(lots, today);
+  const _M = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+  const head = '<div class="ly-gt-c ly-gt-lot"></div>' + g.mois.map(m =>
+    `<div class="ly-gt-c ly-gt-hd${m.courant ? ' now' : ''}">${_M[m.mois - 1]}${m.mois === 1 || m.courant ? '<br><span>' + String(m.annee).slice(2) + '</span>' : ''}</div>`).join('');
+  const lignes = g.lignes.map(l =>
+    `<div class="ly-gt-c ly-gt-lot"><b>${escHtml(l.ref)}</b><span>${escHtml(l.libelle)}</span></div>`
+    + l.cells.map(c => `<div class="ly-gt-c ly-gt-cell${c.kind ? ' ' + c.kind : ''}">${escHtml(c.label || '')}</div>`).join('')
+  ).join('');
+  const nbEffets = g.lignes.filter(l => l.cells.some(c => c.kind === 'effet')).length;
+  const _MC = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   return {
-    count: futures.length,
-    resume: prochaine ? `prochaine : ${prochaine.ref} le ${prochaine.quand.toLocaleDateString('fr-FR')}` : '',
-    html: futures.map(f => _lyRow({
-      titre: `${escHtml(f.ref)} · ${escHtml(f.loc || '—')}`,
-      detail: f.quand ? `Anniversaire du bail le ${f.quand.toLocaleDateString('fr-FR')}` : '—',
-      montant: `<span class="ly-pill nu">${escHtml(f.note)}</span>`,
-      actions: ''
-    })).join('')
+    count: g.lignes.length,
+    resume: nbEffets ? `${nbEffets} révision${nbEffets > 1 ? 's' : ''} d'ici ${_MC[g.mois[11].mois - 1]} ${g.mois[11].annee}` : 'aucune d\'ici 12 mois',
+    html: `<div class="ly-gt-wrap"><div class="ly-gt" style="grid-template-columns:minmax(120px,1.4fr) repeat(12,minmax(38px,1fr))">${head}${lignes}</div></div>
+      <div class="ly-gt-leg"><span><i class="rappel"></i>mois de rappel (M-1)</span><span><i class="effet"></i>effet (1ᵉʳ du mois)</span>
+        <span><i class="faite"></i>révision faite</span><span><i class="gel"></i>non révisable</span><span><i class="now"></i>mois en cours</span></div>`
   };
 }
 
@@ -29533,7 +28813,7 @@ function markIRLLetterSent(ref) {
   log.irlLettreEnvoyeeDate = new Date().toISOString().slice(0, 10);
   log.irlLettreEnvoyeePour = _isoLocal(rev.dateRevision);
   saveDB();
-  rIRL();
+  refreshAllIRL();
   // v13.33 : si la popup rappel est ouverte, rafraîchir son contenu
   if (!el('ov-irl-rappel')?.classList.contains('hidden')) _renderIRLRappelModal();
   try { rDash(); } catch(e) {}
@@ -29549,7 +28829,7 @@ function unmarkIRLLetterSent(ref) {
   delete log.irlLettreEnvoyeeDate;
   delete log.irlLettreEnvoyeePour;
   saveDB();
-  rIRL();
+  refreshAllIRL();
   if (!el('ov-irl-rappel')?.classList.contains('hidden')) _renderIRLRappelModal();
   try { rDash(); } catch(e) {}
   if (_letterRef === ref) genIRLLetter(ref);
