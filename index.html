@@ -15705,7 +15705,7 @@ function _affPkListHtml(id, tgt, q) {
   if (inImport && _affScope && _affScope.niv) {
     banner = _affScopeAll
       ? '<div style="padding:7px 16px;font-size:11.5px;background:#fff8e6;color:#92400e;border-bottom:1px solid var(--bd2,#e2e8f0)">🌐 Tout le patrimoine · <a onclick="_affScopeAll=false;_affPkFill()" style="color:var(--pri,#2563eb);cursor:pointer;text-decoration:underline">revenir au compte</a></div>'
-      : '<div style="padding:7px 16px;font-size:11.5px;background:var(--acc-bg,#eef4ff);color:#1a4fb0;border-bottom:1px solid var(--bd2,#e2e8f0)">📍 Limité au compte : ' + (_affScope.niv === 'sci' ? '🏛️ ' : '🏢 ') + escHtml(_affScope.cible) + ' · <a onclick="_affScopeAll=true;_affPkFill()" style="color:var(--pri,#2563eb);cursor:pointer;text-decoration:underline">voir tout le patrimoine</a></div>';
+      : '<div style="padding:7px 16px;font-size:11.5px;background:var(--acc-bg);color:var(--t1);border-bottom:1px solid var(--bd2,#e2e8f0)">📍 Limité au compte : ' + (_affScope.niv === 'sci' ? '🏛️ ' : '🏢 ') + escHtml(_affScope.cible) + ' · <a onclick="_affScopeAll=true;_affPkFill()" style="color:var(--pri,#2563eb);cursor:pointer;text-decoration:underline">voir tout le patrimoine</a></div>';
   }
   if (!logs.length) return banner + '<div style="padding:12px 16px;color:var(--t3,#94a3b8);font-size:13px">Aucun logement' + (q ? ' pour « ' + escHtml(q) + ' »' : ' dans ce périmètre') + '</div>';
   const byImm = {};
@@ -49753,7 +49753,7 @@ function _bankDupCardHtml(i) {
   if (line._userKeep || line._dupConfirmed) {              // état résolu → bandeau + annuler
     const kept = !!line._userKeep;
     return '<div style="border:1px solid var(--bor);border-radius:10px;margin:10px 0;padding:11px 14px;display:flex;align-items:center;gap:10px;font-size:12.5px;'
-      + (kept ? 'background:var(--acc-bg,#eef4ff);color:#1a4fb0' : 'background:var(--sur2,#f5f8fc);color:var(--t3)') + '">'
+      + (kept ? 'background:var(--acc-bg);color:var(--t1)' : 'background:var(--sur2,#f5f8fc);color:var(--t3)') + '">'
       + '<span style="font-weight:700">' + (kept ? '✅ Forcé — ajouté à « À compléter ».' : '🚫 Doublon confirmé — non importé.') + '</span>'
       + '<a onclick="_bankUndoDup(' + i + ')" style="margin-left:auto;cursor:pointer;text-decoration:underline;font-weight:600;color:' + (kept ? 'var(--cta,#3b7ef6)' : 'var(--t3)') + '">annuler</a></div>';
   }
@@ -50359,7 +50359,7 @@ function _bankWalkRender() {
   }
   const t = el('bank-mv-title'); if (t) t.textContent = reco ? 'Vérifier ce mouvement' : 'Renseigner ce mouvement';
   const sub = el('bank-mv-sub');
-  if (sub) sub.innerHTML = '<span style="color:#1a4fb0;background:var(--acc-bg,#eef4ff);border-radius:6px;padding:1px 7px;font-size:10.5px;font-weight:700">🏦 Import banque</span> '
+  if (sub) sub.innerHTML = '<span style="color:var(--t1);background:var(--acc-bg);border-radius:6px;padding:1px 7px;font-size:10.5px;font-weight:700">🏦 Import banque</span> '
     + escHtml(line.date || '') + ' · <b style="color:' + accent + '">' + sign + fmt(amount) + '</b>';
   const body = el('bank-mv-body');
   if (body) {
@@ -50368,7 +50368,7 @@ function _bankWalkRender() {
     const bn = line._byRule
       ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ok-bg,#ecfdf5);color:var(--grn,#16a34a);border:1px solid var(--grn,#16a34a)">⚙ Classé par une de tes règles — vérifie et corrige si besoin.</div>'
       : (reco
-        ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--acc-bg,#eef4ff);color:#1a4fb0;border:1px solid var(--cta,#3b7ef6)">✨ Proposition — rien n\'est encore classé, valide ou corrige.</div>'
+        ? '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--acc-bg);color:var(--t1);border:1px solid var(--cta)">✨ Proposition — rien n\'est encore classé, valide ou corrige.</div>'
         : '<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;margin-bottom:12px;background:var(--ora-bg,#fffbeb);color:var(--ora,#d97706);border:1px solid var(--ora,#d97706)">📝 À renseigner — choisis la catégorie, l\'app pose la bonne question.</div>');
     body.innerHTML = bn + _bankLineAffEditor(i);
   }
