@@ -674,8 +674,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         </div>
         <div class="flex-c" style="gap:7px">
           <div id="quit-view-toggle" class="flex-c" style="gap:4px;font-size:11px"></div>
-          <button class="btn bs bb" onclick="genAllQuit()" style="font-size:12.5px">⚡ Générer ce mois</button>
-          <button class="btn bp" onclick="openQuitManuelle()" style="font-size:12.5px">+ Manuelle</button>
+          <button class="btn bp" onclick="_openFaireQuittance()" style="font-size:12.5px">＋ Faire une quittance</button>
         </div>
       </div>
       <div id="quit-cards-grid"></div>
@@ -772,17 +771,18 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <!-- Sous-panneau Automatisations -->
       <div class="tab-panel" id="tp-pil-automatisations">
         <div class="mu sm mb10" style="line-height:1.6">
-          8 automatisations par bail. Les toggles héritent de la configuration du bailleur (entité) au 1er load.
+          6 automatisations par bail. Les toggles héritent de la configuration du bailleur (entité) au 1er load.
           Modifier un toggle ici = <strong>override</strong> spécifique à ce bail (icône ⇧).
           Bouton "Reset bail" = restaure les valeurs héritées du bailleur.
+          <!-- CDC-QUITTANCES-IRL C2/C11 : la colonne « 🧾 quittance auto » (3ᵉ réglage pour la même
+               idée — seule la case du bail survit, D21) et la colonne « 📈 révision IRL automatique »
+               (interrupteur branché sur rien : aucun moteur ne l'a jamais lue) sont RETIRÉES. -->
         </div>
         <div class="tbl-wrap"><table class="tbl" id="pil-autom-tbl">
           <thead>
             <tr>
               <th>Locataire · Bien</th>
-              <th style="text-align:center" title="Quittance générée auto à chaque encaissement">🧾</th>
               <th style="text-align:center" title="Avis d'échéance envoyé avant date de paiement">📨</th>
-              <th style="text-align:center" title="Révision IRL annuelle automatique">📈</th>
               <th style="text-align:center" title="Demande attestation assurance habitation à l'expiration">🛡</th>
               <th style="text-align:center" title="Rappel entretien chaudière annuel">🔥</th>
               <th style="text-align:center" title="Notification fin de bail T-3 mois">📜</th>
@@ -1082,16 +1082,10 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
             <button class="btn bp bb" onclick="saveGlobalParams()">💾 Enregistrer</button>
           </div>
 
-          <!-- v15.10 Sprint 11 B4 — Génération auto quittances mensuelles -->
-          <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
-            <div style="font-weight:700;color:var(--acc);margin-bottom:4px">🧾 Génération automatique des quittances</div>
-            <div class="mu sm mb8">Si activé, à chaque ouverture de l'app, génère automatiquement les quittances du mois en cours pour tous les baux actifs (idempotent : ne re-génère pas si déjà existante).</div>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-              <input type="checkbox" id="param-quittances-auto-gen" onchange="saveGlobalParams()">
-              <span>Activer la génération auto mensuelle</span>
-            </label>
-            <div class="mu sm" style="margin-top:6px;font-size:11px">Compatible avec le suivi paiement et les alertes d'escalade (avis échéance / rappels J+5/J+15/J+30 / mise en demeure).</div>
-          </div>
+          <!-- CDC-QUITTANCES-IRL D21/I13 — le réglage global « génération auto mensuelle »
+               est RETIRÉ : il émettait des quittances sans regarder si le loyer était payé.
+               Un seul réglage survit, dans le bail : « le locataire demande une quittance
+               mensuelle » (art. 21). Aucune quittance ne naît plus sans clic explicite. -->
 
           <!-- BAIL-SIGNATURE-DISTANCE C3 (Task 14) : configuration du relais de signature à distance -->
           <div style="border:1px solid var(--bor);border-radius:var(--r);padding:16px;margin-bottom:16px">
@@ -1597,16 +1591,16 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         </div>
         <div class="fg"><label>Jour paiement</label><input class="inp" type="number" id="b-jpay" min="1" max="28" value="5"></div>
       </div>
+      <!-- CDC-QUITTANCES-IRL D21 — UN SEUL réglage de quittance survit, et c'est une QUESTION
+           posée une fois, au moment du bail. La case « 📄 proposer quittance automatiquement à
+           réception du loyer » (bail.quittAutoGen) est retirée de l'écran : elle émettait sans
+           regarder si le mois était soldé. Sa valeur en base n'est pas détruite. -->
       <div class="fg" style="align-items:center;margin-top:-4px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-size:13px">
-          <input type="checkbox" id="b-quittAutoGen">
-          <span>📄 Proposer quittance automatiquement à réception du loyer</span>
-        </label>
-        <!-- v15.414 BUG-DASH-GESTIONNAIRE-PARC : flag distinct de quittAutoGen (assistance) —
-             il pilote la colonne Quittance du dashboard gestionnaire (point si demandée, sinon –). -->
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:6px 0 0;font-size:13px" title="Art. 21 loi du 6 juillet 1989 : le bailleur doit transmettre gratuitement une quittance au locataire qui en fait la demande">
-          <input type="checkbox" id="b-quittanceDemandee">
-          <span>🧾 Le locataire demande une quittance mensuelle (art. 21 loi 1989)</span>
+        <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;margin:0;font-size:13px;border:1px solid var(--bor);border-radius:var(--r);padding:10px 12px;background:var(--sur2)" title="Art. 21 loi du 6 juillet 1989 : le bailleur doit transmettre gratuitement une quittance au locataire qui en fait la demande">
+          <input type="checkbox" id="b-quittanceDemandee" style="margin-top:2px">
+          <span>🧾 <b>Le locataire demande une quittance mensuelle&nbsp;?</b>
+            <span class="mu sm" style="display:block;font-size:11.5px;margin-top:2px">Art. 21 loi du 6 juillet 1989 — le bailleur la transmet gratuitement à qui en fait la demande. Si la case est cochée, le lot apparaît chaque mois dans l'onglet Loyers dès que le mois est soldé.</span>
+          </span>
         </label>
       </div>
       <hr style="border:none;border-top:1px solid var(--bor);margin:12px 0">
@@ -3440,26 +3434,29 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 </div></div>
 
 <!-- MODAL: QUITTANCE MANUELLE -->
-<div class="ov hidden" id="ov-quit" onclick="closeBg(event,'ov-quit')">
+<!-- CDC-QUITTANCES-IRL D4 — « Faire une quittance » remplace la « quittance manuelle ».
+     DEUX choix : le logement, puis le mois. AUCUN montant à saisir — il est lu au barème du
+     mois choisi. Les mois non soldés restent VISIBLES mais non sélectionnables, avec leur motif. -->
+<div class="ov hidden" id="ov-quit-faire" onclick="closeBg(event,'ov-quit-faire')">
 <div class="modal">
-  <div class="m-head"><h3>Quittance manuelle</h3><button class="m-close" onclick="closeM('ov-quit')">✕</button></div>
+  <div class="m-head"><h3>Faire une quittance</h3><button class="m-close" onclick="closeM('ov-quit-faire')">✕</button></div>
   <div class="m-body">
-    <div class="fg"><label>Logement *</label><select class="inp" id="quit-log"></select></div>
-    <div class="fg"><label>Locataire</label><input class="inp" id="quit-loc"></div>
-    <div class="fg"><label>Mois *</label><input class="inp" id="quit-mois" placeholder="ex: janvier 2025"></div>
     <div class="fg2">
-      <div class="fg"><label>Loyer HC (€)</label><input class="inp" type="number" id="quit-hc" min="0" step="0.01"></div>
-      <div class="fg"><label>Charges (€)</label><input class="inp" type="number" id="quit-ch" min="0" step="0.01"></div>
+      <div class="fg"><label>Logement *</label><select class="inp" id="fq-log" onchange="_fqSetLot(this.value)"></select></div>
+      <div class="fg"><label>Année</label><select class="inp" id="fq-year" onchange="_fqSetYear(this.value)"></select></div>
     </div>
-    <div class="fg2">
-      <div class="fg"><label>Date de paiement reçu *</label><input class="inp" type="date" id="quit-datepay"></div>
-      <div class="fg"><label>Entité</label><select class="inp" id="quit-entity"></select></div>
+    <div class="fg" style="margin-bottom:0">
+      <label id="fq-mois-label">Mois</label>
+      <div id="fq-mois-list" style="display:flex;flex-direction:column;gap:5px;max-height:44vh;overflow:auto"></div>
     </div>
-    <input type="hidden" id="quit-edit-id">
+    <div class="mu sm" style="font-size:11.5px;line-height:1.45;background:var(--sur2);border-left:3px solid var(--acc);border-radius:var(--rs,6px);padding:8px 10px;margin-top:10px">
+      Le montant est celui du <b>barème du mois choisi</b>, pas le loyer d'aujourd'hui : une quittance
+      de juin&nbsp;2026 porte le loyer de juin&nbsp;2026, même s'il a été révisé depuis.
+    </div>
   </div>
   <div class="m-foot">
-    <button class="btn bs" onclick="closeM('ov-quit')">Annuler</button>
-    <button class="btn bp" onclick="saveQuit()">Enregistrer</button>
+    <button class="btn bs" onclick="closeM('ov-quit-faire')">Annuler</button>
+    <button class="btn bp" id="fq-ok" onclick="_fqValider()">Éditer la quittance</button>
   </div>
 </div></div>
 
@@ -5196,7 +5193,8 @@ function _applyParamDefaults() {
   }
   if (!('profileWizardDone' in DB.params)) DB.params.profileWizardDone = false;
   // v15.10 Sprint 11 B4 — toggle génération auto mensuelle quittances
-  if (!('quittancesAutoGen' in DB.params)) DB.params.quittancesAutoGen = false;
+  // `quittancesAutoGen` : réglage RETIRÉ (CDC-QUITTANCES-IRL D21/I13). La valeur éventuellement
+  // présente en base n'est plus lue ni écrite — on retire l'écran, pas la donnée.
   // v15.13 DASH-PROFILES Phase 2 — onglet dashboard actif (4 vues persona)
   if (!('dashTab' in DB.params)) DB.params.dashTab = 'proprio'; // défaut : vue propriétaire
   // v15.29 Phase B — Système render version : v2 par défaut en SANDBOX (file test),
@@ -16307,59 +16305,20 @@ async function saveMv() {
   } else {
     _auditLog('create', 'mouvement', m.id, m.lib||m.fac||String(m.id));
     DB.mouvements.push(m);
-    // v15.10 Sprint 11 B2 — Matching auto paiement → quittance attendue.
-    // Si le mouvement est un paiement de loyer (cat Loyers/Loyers encaissés + cr > 0)
-    // et que la quittance correspondante existe → associer.
-    try {
-      if ((m.cr||0) > 0 && m.qui && typeof _isLoyerCategory === 'function' && _isLoyerCategory(m.cat)) {
-        const ym = (m.date||'').slice(0,7);
-        const q = (DB.quittances||[]).find(x => {
-          if (!x || x._deleted || x.logement !== m.qui) return false;
-          const d = _qaMoisToDate ? _qaMoisToDate(x.mois) : null;
-          if (!d) return false;
-          return ym === `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        });
-        if (q && !q.paymentMatchedMvtId) {
-          q.paymentMatchedMvtId = m.id;
-          q._modifiedAt = new Date().toISOString();
-          if (typeof showToast === 'function') {
-            showToast(`✓ Paiement associé à la quittance ${q.mois} de ${q.logement}`, 'ok', 3000);
-          }
-        }
-      }
-    } catch(e) { console.warn('[quittance matching]', e); }
+    // CDC-QUITTANCES-IRL I6/I13 — l'association automatique « ce paiement = cette quittance »
+    // est SUPPRIMÉE : elle rattachait un mouvement au mois calendaire de sa date (7ᵉ moteur, C3)
+    // et faisait exister un lien que rien ne lisait. Le rattachement vit dans la cascade.
   }
   saveDB(); closeM('ov-mv'); rMv();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE (KPIs et listes mvts dans fiches 360°)
   showToast('Mouvement enregistré','ok');
   // v14.61 CHARGES-COMMUNES — info répartition au save d'une charge sur immeuble
   try { _mvShowChargeRepartitionInfo(m); } catch(e) { console.warn('[charge info]', e); }
-  // ── Auto-quittance ───────────────────────────────────────────────────────
-  // v15.20 Phase A2 BUG-POPUP-QUITTANCE — fix régression v15.10 Sprint 11 :
-  // L'auto-gen boot + matching auto silencieux faisaient que la quittance existait
-  // déjà au moment du saveMv. L'ancien code affichait juste un toast "déjà existante"
-  // au lieu du popup demandant d'ouvrir la quittance.
-  // Fix : si toggle bail quittAutoGen actif, TOUJOURS proposer popup (créer OU ouvrir).
-  if(!eid && _isLoyerCategory(m.cat) && (m.cr||0)>0) {
-    const _bail = DB.baux[m.qui];
-    if(_bail?.quittAutoGen) {
-      const _d = new Date(m.date+'T00:00:00');
-      const _mois = MOIS_FR[_d.getMonth()]+' '+_d.getFullYear();
-      // ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (I13 : aucune quittance sans clic explicite).
-      // En attendant, il passe par la fabrique unique : le montant vient du BARÈME du mois
-      // (C4), plus de `_bail.hc` qui est le loyer d'aujourd'hui.
-      const _ymQ = _d.getFullYear() + '-' + String(_d.getMonth()+1).padStart(2,'0');
-      const _r = _creerQuittance(m.qui, _ymQ, { verifierSolde: false });
-      const _q = _r.quittance;
-      const _created = !!(_r.ok && !_r.existante);
-      if (_created) { saveDB(); if(typeof rQuit==='function') rQuit(); }
-      if (!_q) return;
-      const _msg = _created
-        ? `📄 Loyer ${m.qui} — ${_mois} enregistré.\nOuvrir la quittance ?`
-        : `📄 Quittance ${_mois} déjà générée pour ${m.qui}.\nOuvrir maintenant ?`;
-      if(confirm2(_msg)) previewQuit(_q.id);
-    }
-  }
+  // ── Auto-quittance : SUPPRIMÉE ───────────────────────────────────────────
+  // CDC-QUITTANCES-IRL I13 — aucune quittance ne naît d'un enregistrement de mouvement.
+  // Le toggle `bail.quittAutoGen` et son popup partent avec (D21 : un seul réglage survit,
+  // la case « le locataire demande une quittance mensuelle »). Pour éditer une quittance :
+  // onglet Loyers › « ＋ Faire une quittance ».
 }
 
 function delMv(id) {
@@ -19051,7 +19010,7 @@ function copyBailFrom(srcRef, fromHist) {
   // CHECKBOXES — copie via .checked (booléen)
   const checkboxMap = {
     zoneTendue:'b-zoneTendue', encadrementLoyers:'b-encadrementLoyers',
-    quittAutoGen:'b-quittAutoGen', withMandataire:'b-withMandataire',
+    withMandataire:'b-withMandataire',
     // v15.414 (fix audit) : quittanceDemandee NON copiée — la demande de quittance appartient
     // au locataire SORTANT ; un bail dupliqué pour un nouveau locataire repart décoché.
   };
@@ -19205,7 +19164,6 @@ function openBail(ref, opts) {
   el('b-ch').value = bail.ch||log?.ch||'';
   el('b-dg').value = bail.dg||log?.dg||'';
   el('b-jpay').value = bail.jpay||'5'; // v15.249 B6 (D-B6) : défaut jour paiement = 5 ; champ b-fiscal retiré (D-B5)
-  if(el('b-quittAutoGen')) el('b-quittAutoGen').checked = bail.quittAutoGen||false;
   if(el('b-quittanceDemandee')) el('b-quittanceDemandee').checked = bail.quittanceDemandee||false; // v15.414
 
   // IRL auto depuis date début
@@ -19412,7 +19370,6 @@ const _BAIL_FIELD_MAP = [
   ['b-dg','dg','text'],
   // v15.249 B6 (D-B5) : ['b-fiscal','fiscal','text'] retiré (champ supprimé de la modale)
   ['b-jpay','jpay','text'],
-  ['b-quittAutoGen','quittAutoGen','checkbox'],
   // v15.414 (fix audit) : quittanceDemandee VOLONTAIREMENT exclue de ce map — c'est un flag de
   // gestion coché en cours de bail (art. 21), pas une clause : le mettre ici déclencherait à vie
   // le surlignage « modifié depuis signature » (_highlightBailFormDiffs) sur un usage légitime.
@@ -20375,7 +20332,9 @@ function saveBail() {
     lieuNaiss: locs[0].lieuNaiss,
     locataires: locs, // override formData.locataires pour utiliser la version filtrée
     signataires: getBailSignataireSelection(),
-    quittAutoGen: el('b-quittAutoGen') ? el('b-quittAutoGen').checked : false,
+    // D21 : l'écran de ce réglage est retiré, la DONNÉE ne l'est pas — on la reporte telle
+    // quelle pour ne rien effacer au prochain enregistrement du bail.
+    quittAutoGen: !!(DB.baux[ref] && DB.baux[ref].quittAutoGen),
     quittanceDemandee: el('b-quittanceDemandee') ? el('b-quittanceDemandee').checked : false, // v15.414
     // Champs liés à la clôture du bail (modale "Clôturer bail")
     finEffective: v('b-fin-effective'),
@@ -28500,31 +28459,6 @@ function _escaladeAlerte(statut) {
   }
 }
 
-function _planQuittancesAGenerer(logements, baux, quittances, dateRef) {
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||td()) + 'T00:00:00');
-  const moisLabel = `${_QA_MOIS_FR[today.getMonth()]} ${today.getFullYear()}`;
-  const out = [];
-  for (const l of (logements||[])) {
-    if (!l || l._deleted || l.archived) continue;
-    if (!l.locataire) continue;
-    const bail = baux && baux[l.ref];
-    if (!bail || bail.cloture) continue;
-    if (bail.debut) {
-      const dDebut = new Date(bail.debut + 'T00:00:00');
-      if (dDebut > today) continue;
-    }
-    if (bail.fin) {
-      const dFin = new Date(bail.fin + 'T23:59:59');
-      if (dFin < today) continue;
-    }
-    const exists = (quittances||[]).some(q => q && !q._deleted && q.logement === l.ref && q.mois === moisLabel);
-    if (exists) continue;
-    out.push({ ref: l.ref, locataire: l.locataire, hc: Number(bail.hc)||Number(l.hc)||0,
-               ch: Number(bail.ch)||Number(l.ch)||0, mois: moisLabel, entity: bail.entity || l.entity || '' });
-  }
-  return out;
-}
-
 /** v15.10 Phase B3 — Lance un email d'escalade quittance impayée. */
 function _quittanceActionEmail(ref, mois, emailType, ev) {
   if (ev) { try { ev.preventDefault(); ev.stopPropagation(); } catch(e){} }
@@ -28557,27 +28491,6 @@ function _quittanceActionEmail(ref, mois, emailType, ev) {
   };
   window._openEmailModal(emailType, ctx, { entityType: 'logement', entityId: ref });
   // Pour mise en demeure (rappel-impaye-3), marquer la quittance après envoi (handled côté EmailModal logEmailSent)
-}
-
-/** v15.10 Phase B4 — Trigger boot : auto-génération mensuelle si toggle activé. */
-function _quittancesAutoGenAtBoot() {
-  if (!DB.params || !DB.params.quittancesAutoGen) return 0;
-  if (!DB.quittances) DB.quittances = [];
-  const plan = _planQuittancesAGenerer(DB.logements, DB.baux, DB.quittances, new Date());
-  if (!plan.length) return 0;
-  // ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (I13). Montant = barème du mois (C4).
-  const _now = new Date();
-  const _ym = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0');
-  for (const p of plan) {
-    const r = _creerQuittance(p.ref, _ym, { verifierSolde: false });
-    if (r.ok && r.quittance && !r.existante) r.quittance._autoGen = true;
-  }
-  saveDB();
-  if (typeof _auditLog === 'function') _auditLog('quittances-auto-gen', 'system', '', `${plan.length} quittance(s) générée(s)`);
-  if (typeof showToast === 'function') {
-    showToast(`✓ ${plan.length} quittance${plan.length>1?'s':''} générée${plan.length>1?'s':''} automatiquement pour ${plan[0].mois}`, 'ok', 5000);
-  }
-  return plan.length;
 }
 
 function envoyerQuittanceParEmail(id) {
@@ -28617,7 +28530,7 @@ function envoyerQuittanceParEmail(id) {
 // D8/I7 : un appel = UN mois = UN document. Jamais de document « juin à août ».
 // I13 : cette fonction n'est appelée que depuis un geste explicite (aucun boot, aucun save).
 //
-// `datePaiement` n'est plus écrit à la création (C1 : genAllQuit y mettait « aujourd'hui »,
+// `datePaiement` n'est plus écrit à la création (C1 : l'ancien « ⚡ Générer ce mois » y mettait « aujourd'hui »,
 // ce qui faisait mentir le document) — la date affichée est résolue au rendu.
 //
 // @returns {{ok:boolean, quittance?:object, existante?:boolean, motif?:string}}
@@ -28655,20 +28568,6 @@ function _creerQuittance(ref, ym, opts) {
   if (typeof _auditLog === 'function') _auditLog('create', 'quittance', q.id, q.logement + '/' + q.mois);
   DB.quittances.push(q);
   return { ok: true, quittance: q, existante: false };
-}
-
-// ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (D6 : « ⚡ Générer ce mois » émet sans regarder le
-// paiement). Conservé ici le temps d'une tranche, mais il passe par la fabrique unique :
-// le montant vient donc déjà du barème (C4 corrigé).
-function genAllQuit() {
-  const now = new Date();
-  const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  let count = 0;
-  DB.logements.filter(l => l.locataire).forEach(l => {
-    const r = _creerQuittance(l.ref, ym, { verifierSolde: false });
-    if (r.ok && !r.existante) count++;
-  });
-  saveDB(); rQuit(); showToast(`${count} quittance(s) générée(s)`,'ok');
 }
 
 /**
@@ -29079,52 +28978,109 @@ function delQuit(id) {
   _undoToast('Quittance supprimée');
 }
 
-function openQuitManuelle() {
-  fillSel('quit-log', DB.logements, l=>l.ref, l=>`${l.ref} – ${l.locataire||'Vacant'}`);
-  fillSel('quit-entity', DB.entites, e=>e.nom, e=>e.nom);
-  const now = new Date();
-  el('quit-mois').value = MOIS_FR[now.getMonth()]+' '+now.getFullYear();
-  el('quit-datepay').value = td();
-  el('quit-loc').value=''; el('quit-hc').value=''; el('quit-ch').value=''; el('quit-edit-id').value='';
-  el('quit-log').onchange = function(){
-    const l=DB.logements.find(x=>x.ref===this.value);
-    if(l){ el('quit-loc').value=l.locataire||''; el('quit-hc').value=l.hc||''; el('quit-ch').value=l.ch||'';
-           const ent=DB.entites.find(e=>e.nom===l.entity); if(ent) el('quit-entity').value=ent.nom; }
-  };
-  openM('ov-quit');
+// ============================================================================
+// CDC-QUITTANCES-IRL D4 — « ＋ Faire une quittance ».
+//
+// Remplace « + Manuelle » (montants tapés à la main) et « ⚡ Générer ce mois » (émission en
+// masse sans regarder le paiement). Deux choix : le LOGEMENT, puis le MOIS. Le montant vient
+// du barème (`_creerQuittance`). Les mois non soldés sont affichés avec leur motif mais ne
+// sont pas sélectionnables (D6/I4). D8 : N mois cochés = N documents datés, jamais un
+// document « juin à août ».
+// ============================================================================
+let _fqRef = '';
+let _fqYear = null;
+const _fqSel = new Set();
+
+/** Les mois proposables d'un lot, verdict compris (délégué au module). */
+function _fqProposables(ref) {
+  if (typeof window === 'undefined' || typeof window.moisProposables !== 'function') return [];
+  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const dejaYm = (DB.quittances || [])
+    .filter(q => alive(q) && q.logement === ref)
+    .map(q => window.moisFrToYm(q.mois))
+    .filter(Boolean);
+  return window.moisProposables(_loyerEtatLot(ref), dejaYm);
 }
 
-function saveQuit() {
-  const id = el('quit-edit-id').value;
-  const q = { id:id?parseInt(id):nid(), logement:v('quit-log'), locataire:v('quit-loc'),
-    mois:v('quit-mois'), hc:pf('quit-hc'), ch:pf('quit-ch'), entity:v('quit-entity'),
-    datePaiement:v('quit-datepay')||td(), date:td() };
-  if(!q.logement) { showToast('Logement requis','err'); return; }
-  _stamp(q); // v13.18
-  // v14.97 AUDIT-TRAIL (audit complétude) : quittance = lien locataire (RGPD)
-  if(id){
-    const i=DB.quittances.findIndex(x=>x.id===parseInt(id));
-    if(i>=0) {
-      if (typeof _auditLog === 'function') _auditLog('update', 'quittance', q.id, q.logement+'/'+q.mois, DB.quittances[i], q);
-      DB.quittances[i]=q;
-    }
-  } else {
-    // ⚠️ CHEMIN LEGACY — retiré à l'étape 3 (D4 : « + Manuelle », montants tapés à la main,
-    // est remplacé par « Faire une quittance » qui lit le barème). En attendant, il passe par
-    // la fabrique unique : UNE seule porte d'écriture dans DB.quittances.
-    const _ymM = (typeof window !== 'undefined' && typeof window.moisFrToYm === 'function')
-      ? window.moisFrToYm(q.mois) : null;
-    const _rM = _ymM ? _creerQuittance(q.logement, _ymM, { verifierSolde: false }) : { ok: false, motif: 'mois invalide' };
-    if (!_rM.ok) { showToast('Quittance non créée : ' + _rM.motif, 'err'); return; }
-    Object.assign(_rM.quittance, {
-      locataire: q.locataire, hc: q.hc, ch: q.ch,
-      entity: q.entity, datePaiement: q.datePaiement, date: q.date
-    });
-    _stamp(_rM.quittance);
+function _openFaireQuittance(ref) {
+  if (typeof window === 'undefined' || typeof window.moisProposables !== 'function') {
+    showToast("Module Loyers non chargé — ouvre l'app via http (npx http-server)", 'err', 6000); return;
   }
-  saveDB(); closeM('ov-quit'); rQuit();
-  _refreshAfterMutation(); // v14.28 REFRESH-LIVE
-  showToast('Quittance enregistrée','ok');
+  const sel = el('fq-log');
+  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const lots = (DB.logements || []).filter(alive)
+    .filter(l => (typeof _logInEnt !== 'function') || _logInEnt(l))
+    .filter(l => l.locataire || _findBailByRefTolerant(l.ref));
+  if (!lots.length) { showToast("Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 5000); return; }
+  sel.innerHTML = lots.map(l => `<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml(l.locataire || 'Vacant')}</option>`).join('');
+  const want = (ref && lots.some(l => l.ref === ref)) ? ref : lots[0].ref;
+  sel.value = want;
+  _fqSetLot(want);
+  openM('ov-quit-faire');
+}
+
+function _fqSetLot(ref) {
+  _fqRef = ref; _fqSel.clear(); _fqYear = null;
+  const props = _fqProposables(ref);
+  const years = [...new Set(props.map(m => m.ym.slice(0, 4)))].sort().reverse();
+  const ys = el('fq-year');
+  ys.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('') || '<option value="">—</option>';
+  _fqYear = years[0] || null;
+  if (_fqYear) ys.value = _fqYear;
+  _fqRender();
+}
+
+function _fqSetYear(y) { _fqYear = y || null; _fqSel.clear(); _fqRender(); }
+
+function _fqToggle(ym) {
+  if (_fqSel.has(ym)) _fqSel.delete(ym); else _fqSel.add(ym);
+  _fqRender();
+}
+
+function _fqRender() {
+  const host = el('fq-mois-list'); if (!host) return;
+  const props = _fqProposables(_fqRef).filter(m => !_fqYear || m.ym.slice(0, 4) === _fqYear).reverse();
+  const nbLibres = props.filter(m => m.selectable && !m.dejaQuittance).length;
+  const lab = el('fq-mois-label');
+  if (lab) lab.textContent = nbLibres
+    ? `Mois — ${nbLibres} soldé${nbLibres > 1 ? 's' : ''}, non encore quittancé${nbLibres > 1 ? 's' : ''}`
+    : 'Mois';
+  host.innerHTML = props.length ? props.map(m => {
+    const on = _fqSel.has(m.ym);
+    const dispo = m.selectable && !m.dejaQuittance;
+    const bg = on ? 'var(--acc-halo,rgba(255,90,60,.12))' : 'var(--sur2)';
+    const bor = on ? 'var(--acc)' : 'var(--bor)';
+    return `<div onclick="${dispo ? `_fqToggle('${m.ym}')` : ''}"
+      style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;align-items:center;padding:7px 10px;border:1px solid ${bor};border-radius:var(--rs,6px);background:${bg};font-size:12.5px;${dispo ? 'cursor:pointer' : 'opacity:.55'}">
+      <span style="white-space:nowrap">${dispo ? (on ? '☑' : '☐') : '　'} <b>${escHtml(m.mois)}</b> · ${fmt(m.du)}</span>
+      <span class="mu sm" style="font-size:10.5px;margin-left:auto">${escHtml(m.motif)}</span>
+    </div>`;
+  }).join('') : `<div class="mu sm" style="padding:14px;text-align:center">Aucun mois à quittancer pour ce logement.</div>`;
+  const btn = el('fq-ok');
+  if (btn) {
+    btn.textContent = _fqSel.size > 1 ? `Éditer les ${_fqSel.size}` : 'Éditer la quittance';
+    btn.disabled = _fqSel.size === 0;
+    btn.style.opacity = _fqSel.size === 0 ? '.5' : '';
+  }
+}
+
+/** D8/I7 — un document PAR MOIS. Une seule écriture en base pour N documents. */
+function _fqValider() {
+  if (!_fqRef || !_fqSel.size) { showToast('Choisis au moins un mois soldé', 'err'); return; }
+  const yms = [..._fqSel].sort();
+  const faites = [], refusees = [];
+  for (const ym of yms) {
+    const r = _creerQuittance(_fqRef, ym);
+    if (r.ok && !r.existante) faites.push(r.quittance);
+    else if (!r.ok) refusees.push(window.ymToMoisFr(ym) + ' — ' + r.motif);
+  }
+  if (faites.length) saveDB();
+  closeM('ov-quit-faire');
+  if (typeof rLoyers === 'function') rLoyers();
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  if (refusees.length) showToast('Non émis : ' + refusees.join(' · '), 'err', 7000);
+  if (faites.length === 1) { showToast('Quittance éditée ✓', 'ok'); previewQuit(faites[0].id); }
+  else if (faites.length > 1) showToast(`${faites.length} quittances éditées ✓`, 'ok', 5000);
 }
 
 // =================== LETTRES IRL ===================
@@ -38099,7 +38055,7 @@ function _renderLogFichePanelCompta(log, ref) {
       </div>
       <div class="compta-toolbar-right">
         <button class="btn bs bb" onclick="openNewMv();showToast('Pensez à sélectionner « ${escHtml(ref)} » dans le champ Logement','info',4000)">+ Mouvement</button>
-        <button class="btn bs bb" onclick="openQuitManuelle();showToast('Pensez à sélectionner « ${escHtml(ref)} »','info',4000)">+ Quittance</button>
+        <button class="btn bs bb" onclick="_openFaireQuittance('${escHtml(ref)}')">＋ Faire une quittance</button>
         <button class="btn bs bb" onclick="_goFromLogFiche('mouvements')" title="Voir tous les mouvements dans l'onglet">↗ Onglet Mouvements</button>
       </div>
     </div>
@@ -46864,9 +46820,6 @@ function rParamsGlobal() {
   if(g) g.value = DB.params.gerantDefaut || '';
   const u = el('param-user-name');
   if(u) u.value = DB.params.userName || '';
-  // v15.10 Sprint 11 B4 — toggle quittances auto-gen
-  const qag = el('param-quittances-auto-gen');
-  if(qag) qag.checked = !!DB.params.quittancesAutoGen;
   // BAIL-SIGNATURE-DISTANCE : URL du relais (auth = jeton de session, aucune clé à saisir).
   const ru = el('param-bailsign-relay-url'); if (ru) ru.value = (DB.params.bailSignRelayUrl || '');
 }
@@ -47237,9 +47190,6 @@ function saveGlobalParams() {
   const userName = (el('param-user-name') ? v('param-user-name').trim() : '');
   DB.params.gerantDefaut     = gerant || '';
   DB.params.userName         = userName;
-  // v15.10 Sprint 11 B4 — toggle génération auto mensuelle quittances
-  const autoGenEl = el('param-quittances-auto-gen');
-  if (autoGenEl) DB.params.quittancesAutoGen = autoGenEl.checked;
   // BAIL-SIGNATURE-DISTANCE C3 (Task 14) : relais signature distance. APP_KEY non trimée (clé exacte).
   // Relais : URL du worker = config LOCAL-USER (jamais synchronisée — strip extractConfig), écrite en
   // localStorage par appareil. L'authentification se fait par jeton de session — aucune clé à enregistrer.
@@ -48859,11 +48809,14 @@ function _rPilDocs() {
 }
 
 // ─── Phase 4 : sous-onglet Automatisations ──────────────────────────────────
-const _PIL_AUTOM_KEYS = ['quittance','avis_echeance','revision_irl','assurance_mrh','entretien_chauffage','fin_bail','impaye','virement'];
+// CDC-QUITTANCES-IRL C2/C11 — `quittance` et `revision_irl` retirés : le premier était le
+// 3ᵉ réglage pour la même idée (seule `bail.quittanceDemandee` survit, D21), le second un
+// interrupteur qu'aucun moteur ne lisait. Les valeurs stockées ne sont pas détruites.
+const _PIL_AUTOM_KEYS = ['avis_echeance','assurance_mrh','entretien_chauffage','fin_bail','impaye','virement'];
 
 function _pilAutomGet(bail, ent) {
   // Retourne un objet { key: bool } combinant hérité + override.
-  const heritedDefault = { quittance:true, avis_echeance:false, revision_irl:true, assurance_mrh:true, entretien_chauffage:true, fin_bail:true, impaye:true, virement:false };
+  const heritedDefault = { avis_echeance:false, assurance_mrh:true, entretien_chauffage:true, fin_bail:true, impaye:true, virement:false };
   const herited = (ent && ent.automatisations) ? { ...heritedDefault, ...ent.automatisations } : { ...heritedDefault };
   const override = (bail && bail.automatisations) || {};
   const merged = {}; const isOverride = {};
@@ -48879,7 +48832,7 @@ function _rPilAutom() {
   if (!tbody) return;
   const rows = _pilGetFilteredRows();
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="padding:24px;text-align:center;color:var(--mut)">Aucun bail correspondant aux filtres.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--mut)">Aucun bail correspondant aux filtres.</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(({log, bail}) => {
@@ -48888,7 +48841,7 @@ function _rPilAutom() {
     const adr = escHtml(log.adr || log.imm || '');
     const ent = (DB.entites||[]).find(e => e.nom === log.entity);
     const { merged, isOverride } = _pilAutomGet(bail, ent);
-    const automLabels = {quittance:'Quittance', avis_echeance:'Avis échéance', revision_irl:'Révision IRL', assurance_mrh:'Ass. hab.', entretien_chauffage:'Chauffage', fin_bail:'Fin de bail', impaye:'Impayé', virement:'Virement'};
+    const automLabels = {avis_echeance:'Avis échéance', assurance_mrh:'Ass. hab.', entretien_chauffage:'Chauffage', fin_bail:'Fin de bail', impaye:'Impayé', virement:'Virement'};
     const cells = _PIL_AUTOM_KEYS.map(k => {
       const checked = merged[k] ? 'checked' : '';
       const ovIcon = isOverride[k] ? '<span style="display:block;font-size:8px;color:var(--acc);margin-top:-3px;line-height:1" title="Override par bail">⇧</span>' : '';
@@ -55253,11 +55206,8 @@ function _bootDataJobs() {
       }
     } catch(e) { console.warn('[IRL audit]', e); }
   }, 3500);
-  // v15.10 Sprint 11 B4 — génération auto mensuelle des quittances si toggle activé.
-  // Idempotent : ne re-génère pas une quittance déjà existante pour le mois en cours.
-  if (typeof _quittancesAutoGenAtBoot === 'function') {
-    try { _quittancesAutoGenAtBoot(); } catch(e) { console.warn('[quittances auto-gen]', e); }
-  }
+  // CDC-QUITTANCES-IRL I13 — AUCUNE quittance n'est créée au démarrage. `_quittancesAutoGenAtBoot`
+  // est supprimé : il émettait pour tout bail actif sans regarder le paiement.
   agendaAutoSync();   // génération silencieuse des événements depuis les baux
   // Candidature — purge RGPD : tombstone des candidats refusés > 30 j (mesure précontractuelle).
   // Idempotent : ne fait rien si aucun refusé n'a dépassé la durée légale de conservation.

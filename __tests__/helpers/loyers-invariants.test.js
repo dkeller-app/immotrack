@@ -24,12 +24,27 @@ function jsFiles(dir = 'js', out = []) {
   return out;
 }
 
-/** Retire les commentaires (// et bloc) pour ne scanner que du code exécutable. */
+/**
+ * Retire les commentaires (// et bloc) pour ne scanner que du code exécutable.
+ * ⚠️ Le `/*` doit être suivi d'une espace, d'une étoile ou d'un `!` : sinon
+ * `accept="image/*"` ouvrirait un faux commentaire qui avalerait 45 000 caractères
+ * d'index.html (piège rencontré pendant l'écriture de ces tests).
+ */
 function stripComments(src) {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  return src
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s*!][\s\S]*?\*\//g, '')
+    .replace(/^[ \t]*\/\/.*$/gm, '');
 }
 
 const SOURCES = ['index.html', ...jsFiles()];
+
+/** Source sans commentaires, MÉMOÏSÉE : index.html fait 3,7 Mo, le stripper est cher. */
+const _stripCache = new Map();
+const codeOf = (rel) => {
+  if (!_stripCache.has(rel)) _stripCache.set(rel, stripComments(read(rel)));
+  return _stripCache.get(rel);
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  I6 — Une seule source d'imputation paiement → mois
@@ -44,7 +59,7 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
     it(`${nom} n'existe plus nulle part dans le code`, () => {
       const coupables = [];
       for (const f of SOURCES) {
-        const code = stripComments(read(f));
+        const code = codeOf(f);
         if (new RegExp('\\b' + nom + '\\b').test(code)) coupables.push(f);
       }
       expect(coupables).toEqual([]);
@@ -75,7 +90,7 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
   });
 
   it('index.html n\'assemble le contexte du verdict qu\'en un seul endroit', () => {
-    const code = stripComments(read('index.html'));
+    const code = codeOf('index.html');
     expect((code.match(/function _loyerEtatLot\(/g) || []).length).toBe(1);
     expect((code.match(/function _loyerPayeDuMois\(/g) || []).length).toBe(1);
     // et il délègue bien au module (pas de re-implémentation locale)
@@ -83,7 +98,7 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
   });
 
   it('le document quittance ne re-somme plus les mouvements d\'un mois calendaire', () => {
-    const code = stripComments(read('index.html'));
+    const code = codeOf('index.html');
     // L'ancien scan `(m.date||'').startsWith(prefixMois)` de _buildQuittanceHtml était un
     // rattachement paiement→mois déguisé : il déclarait « non payé » un loyer d'août réglé
     // le 2 septembre. Le montant reçu vient désormais de _loyerPayeDuMois.
@@ -97,7 +112,7 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('C4/I5 — une seule fabrique de quittance, adossée au barème', () => {
-  const code = stripComments(read('index.html'));
+  const code = codeOf('index.html');
 
   it('_creerQuittance est l\'unique fabrique et lit _duMoisLot', () => {
     expect((code.match(/function _creerQuittance\(/g) || []).length).toBe(1);
@@ -117,8 +132,110 @@ describe('C4/I5 — une seule fabrique de quittance, adossée au barème', () =>
   });
 
   it('la fabrique passe par le garde-fou peutQuittancer (I4)', () => {
-    const body = code.slice(code.indexOf('function _creerQuittance('),
-      code.indexOf('function genAllQuit('));
+    const body = fnBody(code, '_creerQuittance');
     expect(body).toMatch(/window\.peutQuittancer\(_loyerEtatLot\(ref\), ym\)/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  I13 — aucune quittance sans clic explicite
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Corps approximatif d'une fonction top-level d'index.html (jusqu'à la suivante). */
+function fnBody(code, nom) {
+  const i = code.indexOf('function ' + nom + '(');
+  if (i < 0) return '';
+  const j = code.indexOf('\nfunction ', i + 1);
+  return code.slice(i, j < 0 ? code.length : j);
+}
+
+/** Noms des fonctions top-level qui contiennent chaque occurrence de `needle`. */
+function appelantsDe(code, needle) {
+  const out = new Set();
+  const fns = [...code.matchAll(/\nfunction ([A-Za-z_$][\w$]*)\s*\(/g)]
+    .map(m => ({ nom: m[1], i: m.index }));
+  let pos = 0;
+  for (;;) {
+    const k = code.indexOf(needle, pos);
+    if (k < 0) break;
+    pos = k + needle.length;
+    if (code.slice(Math.max(0, k - 9), k) === 'function ') continue;   // la déclaration, pas un appel
+    let cur = '(hors fonction)';
+    for (const f of fns) { if (f.i < k) cur = f.nom; else break; }
+    out.add(cur);
+  }
+  return out;
+}
+
+describe('I13 — aucun chemin de code ne crée une quittance sans clic explicite', () => {
+  const code = codeOf('index.html');
+
+  // Les 3 chemins d'émission automatique du constat C1, plus leurs 3 réglages (C2).
+  const DISPARUS = [
+    'genAllQuit',                 // « ⚡ Générer ce mois » : émettait pour tout lot occupé
+    '_quittancesAutoGenAtBoot',   // émission au démarrage
+    '_planQuittancesAGenerer',    // son planificateur
+    'openQuitManuelle', 'saveQuit', // « + Manuelle » : montants tapés à la main (D4)
+    'quittancesAutoGen',          // réglage global (C2)
+    'paymentMatchedMvtId'         // association auto paiement→quittance au save d'un mouvement
+  ];
+  for (const nom of DISPARUS) {
+    it(`${nom} n'existe plus dans le code`, () => {
+      expect(new RegExp('\\b' + nom + '\\b').test(code)).toBe(false);
+      for (const f of jsFiles()) {
+        expect(new RegExp('\\b' + nom + '\\b').test(codeOf(f))).toBe(false);
+      }
+    });
+  }
+
+  it('`bail.quittAutoGen` ne pilote plus rien — la donnée est seulement reportée', () => {
+    // D21 : on retire l'écran, jamais la donnée. La seule mention restante doit être le report
+    // défensif dans saveBail (sinon un enregistrement de bail effacerait le champ).
+    const occ = code.match(/quittAutoGen/g) || [];
+    expect(occ.length).toBe(2);   // `DB.baux[ref].quittAutoGen` + la clé recopiée
+    expect(fnBody(code, 'saveBail')).toMatch(/quittAutoGen: !!\(DB\.baux\[ref\]/);
+  });
+
+  it('enregistrer un mouvement ne crée aucune quittance', () => {
+    const body = fnBody(code, 'saveMv');
+    expect(body).not.toMatch(/_creerQuittance/);
+    expect(body).not.toMatch(/DB\.quittances\.push/);
+  });
+
+  it('le démarrage de l\'app ne crée aucune quittance', () => {
+    // Tout ce qui tourne au boot est hors des handlers de clic : aucune fabrique ne doit
+    // y être appelée, ni directement ni via un ancien planificateur.
+    expect(code).not.toMatch(/_quittancesAutoGenAtBoot/);
+    const horsFonction = appelantsDe(code, '_creerQuittance(');
+    expect(horsFonction.has('(hors fonction)')).toBe(false);
+  });
+
+  it('la fabrique n\'est appelée que depuis le geste explicite « Faire une quittance »', () => {
+    const appelants = [...appelantsDe(code, '_creerQuittance(')]
+      .filter(n => n !== '_creerQuittance');
+    // Chaque appelant doit être joignable par un onclick (geste utilisateur).
+    for (const nom of appelants) {
+      expect(code).toMatch(new RegExp('onclick="[^"]*\\b' + nom + '\\('));
+    }
+    expect(appelants.length).toBeGreaterThan(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Garde-fou d'outillage : index.html doit rester en CRLF
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('index.html reste en CRLF', () => {
+  it('aucune ligne en LF nu', () => {
+    // Piège récurrent du projet : un `sed -i` ou un formateur reflippe le fichier en LF,
+    // ce qui casse la parité data-defaults et les extracteurs de gabarits, qui cherchent
+    // un backtick suivi d'un point-virgule et d'un CRLF.
+    const buf = fs.readFileSync(path.join(ROOT, 'index.html'));
+    let lf = 0, crlf = 0;
+    for (let i = 0; i < buf.length; i++) {
+      if (buf[i] === 0x0a) { if (i > 0 && buf[i - 1] === 0x0d) crlf++; else lf++; }
+    }
+    expect(crlf).toBeGreaterThan(0);
+    expect(lf).toBe(0);
   });
 });

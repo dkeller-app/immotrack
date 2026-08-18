@@ -9,8 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  _statutQuittance, _escaladeAlerte,
-  _planQuittancesAGenerer, QUITTANCE_STATUS
+  _statutQuittance, _escaladeAlerte, QUITTANCE_STATUS
 } from '../../js/core/quittances-actives.js';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -122,64 +121,5 @@ describe('_escaladeAlerte', () => {
     const r = _escaladeAlerte(QUITTANCE_STATUS.MISE_EN_DEMEURE);
     expect(r.severity).toBe('err');
     expect(r.emailType).toBeNull();
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════
-//  _planQuittancesAGenerer
-// ═══════════════════════════════════════════════════════════════════
-
-describe('_planQuittancesAGenerer', () => {
-  const logements = [
-    { ref: 'F-001', locataire: 'MARTIN', hc: 600, ch: 50, entity: 'SCI A' },
-    { ref: 'F-002', locataire: 'DUPONT', hc: 800, ch: 80, entity: 'SCI A' },
-    { ref: 'F-003', locataire: null, hc: 700 },  // vacant
-    { ref: 'F-004', archived: true, locataire: 'OLD' },  // archivé
-  ];
-  const baux = {
-    'F-001': { debut: '2025-01-01', fin: '2028-01-01', hc: 600, ch: 50, entity: 'SCI A' },
-    'F-002': { debut: '2025-06-01', hc: 800, ch: 80, entity: 'SCI A' },
-    'F-003': { debut: '2025-01-01', cloture: true },
-  };
-
-  it('Génère pour baux actifs sans quittance déjà existante', () => {
-    const plan = _planQuittancesAGenerer(logements, baux, [], new Date('2026-01-15'));
-    expect(plan.length).toBe(2);  // F-001 + F-002 (F-003 vacant + F-004 archivé)
-    expect(plan[0].mois).toBe('janvier 2026');
-  });
-
-  it('Skip si quittance déjà existante', () => {
-    const quittances = [{ logement: 'F-001', mois: 'janvier 2026' }];
-    const plan = _planQuittancesAGenerer(logements, baux, quittances, new Date('2026-01-15'));
-    expect(plan.length).toBe(1);
-    expect(plan[0].ref).toBe('F-002');
-  });
-
-  it('Skip bail futur (debut > today)', () => {
-    const bauxF = {
-      'F-001': { debut: '2027-01-01', hc: 600, ch: 50 }
-    };
-    const plan = _planQuittancesAGenerer([logements[0]], bauxF, [], new Date('2026-01-15'));
-    expect(plan.length).toBe(0);
-  });
-
-  it('Skip bail terminé (fin < today)', () => {
-    const bauxF = {
-      'F-001': { debut: '2024-01-01', fin: '2025-06-30', hc: 600, ch: 50 }
-    };
-    const plan = _planQuittancesAGenerer([logements[0]], bauxF, [], new Date('2026-01-15'));
-    expect(plan.length).toBe(0);
-  });
-
-  it('Skip bail clôturé', () => {
-    const plan = _planQuittancesAGenerer([logements[2]], baux, [], new Date('2026-01-15'));
-    expect(plan.length).toBe(0);
-  });
-
-  it('Idempotent : 2e appel ne re-génère rien si quittances déjà créées', () => {
-    const plan1 = _planQuittancesAGenerer(logements, baux, [], new Date('2026-01-15'));
-    const quittances = plan1.map(p => ({ logement: p.ref, mois: p.mois }));
-    const plan2 = _planQuittancesAGenerer(logements, baux, quittances, new Date('2026-01-15'));
-    expect(plan2.length).toBe(0);
   });
 });

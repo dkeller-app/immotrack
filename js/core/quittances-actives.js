@@ -3,6 +3,9 @@
  *
  * Helpers purs (sans DB / DOM) : statut d'une quittance + escalade des rappels.
  *
+ * CDC-QUITTANCES-IRL étape 3 (I13) — plus aucun planificateur ici : `_planQuittancesAGenerer`
+ * alimentait la génération automatique au démarrage, qui émettait sans regarder le paiement.
+ *
  * CDC-QUITTANCES-IRL étape 1 (C3 / D7 / I6) — le 7ᵉ MOTEUR D'IMPUTATION EST SUPPRIMÉ.
  * `_matcheMois()` rattachait un paiement au mois calendaire de sa propre date, et
  * `_matchPaiementQuittance()` recollait un mouvement sur une quittance à ±5 € près.
@@ -15,7 +18,7 @@
  * Tests Vitest miroir : __tests__/helpers/quittances-actives.test.js
  */
 
-import { moisFrToYm, ymToMoisFr } from './loyers-mois.js';
+import { moisFrToYm } from './loyers-mois.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Statut dynamique d'une quittance — 7 états
@@ -112,53 +115,11 @@ export function _escaladeAlerte(statut) {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Génération auto mensuelle — planificateur idempotent
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * Liste les baux actifs pour lesquels une quittance du mois courant DOIT être générée
- * (et n'existe pas déjà). Helper pur — la création effective est faite côté UI.
- *
- * @param {Array} logements - DB.logements
- * @param {object} baux - DB.baux
- * @param {Array} quittances - DB.quittances
- * @param {Date|string} [dateRef=today]
- * @returns {Array<{ref, locataire, hc, ch, mois}>}
- */
-export function _planQuittancesAGenerer(logements, baux, quittances, dateRef) {
-  const today = dateRef instanceof Date ? dateRef : new Date(String(dateRef||new Date().toISOString().slice(0,10)) + 'T00:00:00');
-  const moisIdx = today.getMonth();
-  const moisLabel = ymToMoisFr(today.getFullYear() + '-' + String(moisIdx + 1).padStart(2, '0'));
-  const out = [];
-  for (const l of (logements||[])) {
-    if (!l || l._deleted || l.archived) continue;
-    if (!l.locataire) continue;
-    const bail = baux && baux[l.ref];
-    if (!bail || bail.cloture) continue;
-    // bail actif ce mois ?
-    if (bail.debut) {
-      const dDebut = new Date(bail.debut + 'T00:00:00');
-      if (dDebut > today) continue;
-    }
-    if (bail.fin) {
-      const dFin = new Date(bail.fin + 'T23:59:59');
-      if (dFin < today) continue;
-    }
-    // Quittance déjà existe ?
-    const exists = (quittances||[]).some(q => q && !q._deleted && q.logement === l.ref && q.mois === moisLabel);
-    if (exists) continue;
-    out.push({
-      ref: l.ref,
-      locataire: l.locataire,
-      hc: Number(bail.hc)||Number(l.hc)||0,
-      ch: Number(bail.ch)||Number(l.ch)||0,
-      mois: moisLabel,
-      entity: bail.entity || l.entity || ''
-    });
-  }
-  return out;
-}
+// CDC-QUITTANCES-IRL etape 3 (I13) — `_planQuittancesAGenerer` est SUPPRIME.
+// Il listait les baux actifs a quittancer « ce mois », sans jamais regarder si le loyer
+// etait paye ; c'etait le carburant de la generation automatique au demarrage. Aucune
+// quittance ne naît plus sans clic explicite : la seule fabrique est `_creerQuittance`,
+// appelee par « ＋ Faire une quittance ».
 
 // Constantes exposées
 export { QUITTANCE_STATUS };
