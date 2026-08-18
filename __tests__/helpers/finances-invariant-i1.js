@@ -49,6 +49,11 @@ export function casReferenceIRL(opts) {
   const ch = o.ch != null ? o.ch : 100;
   const hcApres = o.hcApres != null ? o.hcApres : 850;
   const dateEffet = o.dateEffet || (annee + '-08-01');
+  // Le cas de référence est INTRA-annuel : une date d'effet d'un autre millésime rendrait
+  // `moisFiges` incohérent (et le harnais mesurerait à côté sans le dire).
+  if (Number(dateEffet.slice(0, 4)) !== Number(annee)) {
+    throw new RangeError(`casReferenceIRL : dateEffet ${dateEffet} hors de l'exercice ${annee}`);
+  }
   const moEffet = parseInt(dateEffet.slice(5, 7), 10);
 
   const bail = { ref, debut: annee + '-01-01', hc, ch };
@@ -158,6 +163,10 @@ export function infractionsI1(input) {
   (i.moisFiges || []).forEach((ym) => {
     noms.forEach((nom) => {
       const f = i.surfaces[nom];
+      if (typeof f !== 'function') {
+        out.push({ surface: nom, mois: ym, avant: null, apres: null, raison: 'surface-invalide' });
+        return;
+      }
       const a = f(i.avant, ym);
       const b = f(i.apres, ym);
       if (a == null && b == null) {

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { _computeFinancesMonthly } from '../../js/core/finances-monthly.js';
+import { _loyerTodayLocal } from '../../js/core/loyer-statut.js';
 
 // Résolveurs stub (en prod : _finCatLigne / _finScopeWeight / _finBailHcChAt / m.cat==='Prêt').
 const catLigne = (cat) => ({
@@ -278,5 +279,23 @@ describe('_computeFinancesMonthly — modèle prêt entier', () => {
     // TF janv pondérée 0,5 → 50 ; réel janv = 1000 − (600 + 50) = 350
     expect(r.months[0].taxe).toBe(50);
     expect(r.months[0].reel).toBe(350);
+  });
+});
+
+// ── I6 · horloge LOCALE (jamais toISOString/UTC) ───────────────────────────
+describe('_computeFinancesMonthly — horloge locale (I6)', () => {
+  it('sans `today` injecte, la borne suit la date LOCALE, pas l’UTC', () => {
+    vi.useFakeTimers();
+    try {
+      // 1er mars, 00 h 30 LOCAL : en UTC+X on est encore le 28/02 — l’UTC bornait a fevrier
+      // et faisait DISPARAITRE le mois de mars du tableau.
+      vi.setSystemTime(new Date(2026, 2, 1, 0, 30, 0));
+      expect(_loyerTodayLocal()).toBe('2026-03-01');
+      const r = _computeFinancesMonthly({
+        mouvements: [], year: 2026, scope: null, catLigne: () => null
+      });
+      expect(r.lastMonth).toBe(3);
+      expect(r.months[r.months.length - 1].ym).toBe('2026-03');
+    } finally { vi.useRealTimers(); }
   });
 });
