@@ -167,6 +167,9 @@ import {
   moisFrToYm, ymToMoisFr, ymRange
 } from './core/loyers-mois.js';
 
+// CDC-QUITTANCES-IRL etape 5 - LE calendrier des revisions (D12/D13/D15/D16/D17).
+import * as IrlCalendrier from './core/irl-calendrier.js';
+
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG,
@@ -402,6 +405,9 @@ window.niveauRelance = niveauRelance;
 window.moisFrToYm = moisFrToYm;
 window.ymToMoisFr = ymToMoisFr;
 window.ymRange = ymRange;
+
+// IRL - LE calendrier des revisions : namespace expose (etatRevision, ganttRevisions, ETAT...).
+window.IrlCalendrier = IrlCalendrier;
 
 // GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
 window._dgStatut = _dgStatut;
