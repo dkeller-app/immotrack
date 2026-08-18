@@ -647,41 +647,56 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <div class="em-tab-pane" id="em-pane-modeles" role="tabpanel"></div>
     </div>
 
+    <!-- ═══ PAGE : LOYERS (CDC-QUITTANCES-IRL D1/D5) ═══
+         Un seul onglet, qui ne montre que CE QU'IL Y A À FAIRE CE MOIS-CI sur les loyers.
+         Trois blocs, chacun replié à une ligne quand il est vide (D5) :
+           1. 🧾 Quittances demandées   (case du bail cochée + mois soldé — D3/D6)
+           2. ⏳ Pas à jour             (loyer ET charges — D9/D10)
+           3. 📈 Révisions à préparer   (D13)
+         Plus deux lignes repliées : quittances éditées ce mois, calendrier des révisions.
+         L'écran grandit avec les PROBLÈMES, pas avec le parc. -->
     <div class="page" id="p-quittances">
-      <!-- v15.14 — refonte UX cartes avec statut dynamique (Sprint 11 _statutQuittance) -->
       <style>
-        #quit-cards-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 10px;
-          margin-bottom: 12px;
+        #p-quittances .ly-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+        #p-quittances .ly-title{font-weight:800;font-size:16px;color:var(--t1)}
+        #p-quittances .ly-title span{font-weight:400;color:var(--t3);font-size:12.5px}
+        #p-quittances .ly-blk{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:10px;overflow:hidden}
+        #p-quittances .ly-blk-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+        #p-quittances .ly-blk-h .t{font-weight:800;font-size:12.5px;color:var(--t1)}
+        #p-quittances .ly-blk-h .n{background:var(--acc);color:#fff;border-radius:999px;font-weight:800;font-size:10.5px;padding:1px 7px}
+        #p-quittances .ly-blk-h .n.z{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}
+        #p-quittances .ly-blk-h .hint{margin-left:auto;font-size:10.5px;color:var(--t3)}
+        #p-quittances .ly-row{display:grid;grid-template-columns:1.8fr 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bor)}
+        #p-quittances .ly-row:last-child{border-bottom:0}
+        #p-quittances .ly-who{min-width:0}
+        #p-quittances .ly-who b{color:var(--t1);font-size:12.5px}
+        #p-quittances .ly-who .m{color:var(--t3);font-size:11px;line-height:1.45}
+        #p-quittances .ly-amt{text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+        #p-quittances .ly-amt b{color:var(--t1)}
+        #p-quittances .ly-acts{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}
+        #p-quittances .ly-ask{display:inline-flex;align-items:center;gap:4px;background:var(--sur2);color:var(--acc);border:1px solid var(--acc);border-radius:999px;font-weight:700;font-size:9.5px;padding:1px 7px;white-space:nowrap}
+        #p-quittances .ly-pill{display:inline-block;border-radius:999px;font-weight:700;font-size:10px;padding:2px 7px;white-space:nowrap;border:1px solid transparent}
+        #p-quittances .ly-pill.ok{background:rgba(22,163,74,.14);color:#16a34a;border-color:rgba(22,163,74,.35)}
+        #p-quittances .ly-pill.wa{background:rgba(217,119,6,.14);color:#d97706;border-color:rgba(217,119,6,.35)}
+        #p-quittances .ly-pill.er{background:rgba(220,38,38,.14);color:#dc2626;border-color:rgba(220,38,38,.35)}
+        #p-quittances .ly-pill.nu{background:var(--sur2);color:var(--t3);border-color:var(--bor)}
+        #p-quittances .ly-fold{padding:9px 12px;font-size:11.5px;color:var(--t3);display:flex;gap:8px;align-items:center;cursor:pointer}
+        #p-quittances .ly-fold:hover{color:var(--t1)}
+        #p-quittances .ly-empty{padding:20px 14px;color:var(--t3);font-size:11.5px;text-align:center}
+        #p-quittances .ly-empty b{color:var(--t1);display:block;font-size:13px;margin-bottom:4px}
+        /* Téléphone : la ligne passe en colonne — jamais de scroll horizontal. */
+        @media (max-width:700px){
+          #p-quittances .ly-row{grid-template-columns:1fr;gap:6px}
+          #p-quittances .ly-amt{text-align:left}
+          #p-quittances .ly-acts{justify-content:flex-start}
+          #p-quittances .ly-head .btn{width:100%;text-align:center}
         }
-        @media (min-width: 700px)  { #quit-cards-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1100px) { #quit-cards-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (min-width: 1500px) { #quit-cards-grid { grid-template-columns: repeat(4, 1fr); } }
       </style>
-      <div class="flex-b mb12" style="flex-wrap:wrap;gap:9px">
-        <div class="flex-c" style="gap:8px;flex-wrap:wrap">
-          <select class="inp" id="quit-f-imm" onchange="rQuit()" style="width:170px"><option value="">Tous immeubles</option></select>
-          <select class="inp" id="quit-f-log" onchange="rQuit()" style="width:190px"><option value="">Tous logements</option></select>
-          <select class="inp" id="quit-f-statut" onchange="rQuit()" style="width:160px">
-            <option value="">Tous statuts</option>
-            <option value="payée">✓ Payées</option>
-            <option value="partielle">⚠ Partielles</option>
-            <option value="attendue">⏳ Attendues</option>
-            <option value="impayée">🚨 Impayées</option>
-          </select>
-        </div>
-        <div class="flex-c" style="gap:7px">
-          <div id="quit-view-toggle" class="flex-c" style="gap:4px;font-size:11px"></div>
-          <button class="btn bp" onclick="_openFaireQuittance()" style="font-size:12.5px">＋ Faire une quittance</button>
-        </div>
+      <div class="ly-head">
+        <div class="ly-title">Loyers <span id="ly-sub"></span></div>
+        <button class="btn bp" onclick="_openFaireQuittance()">＋ Faire une quittance</button>
       </div>
-      <div id="quit-cards-grid"></div>
-      <div class="tbl-wrap" id="quit-table-wrap"><table class="tbl">
-        <thead><tr><th>Logement</th><th>Locataire</th><th>Mois</th><th class="num">HC</th><th class="num">Charges</th><th class="num">Total</th><th>Statut</th><th>Date émission</th><th></th></tr></thead>
-        <tbody id="quit-tbody"></tbody>
-      </table></div>
+      <div id="ly-blocs"></div>
     </div>
 
     <!-- PAGE: EDL -->
@@ -6719,7 +6734,7 @@ function initFilters() {
         .filter(l=>l.entity===_activeEntity).map(l=>l.imm).filter(Boolean))]
     : immeubles();
   // Update mv-f-imm — Q2 : « Tous immeubles » toujours en tête.
-  ['mv-f-imm','baux-f','ass-f-imm','irl-f-imm','quit-f-imm','equip-f-imm','reg-imm'].forEach(id=>{
+  ['mv-f-imm','baux-f','ass-f-imm','irl-f-imm','equip-f-imm','reg-imm'].forEach(id=>{
     const s = el(id); if(!s) return;
     const cur = s.value;
     s.innerHTML = `<option value="">Tous immeubles</option>`+imms.map(i=>`<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
@@ -7984,7 +7999,7 @@ const _NAV_GROUPS = [
   { parent: 'Pilotage',            tabs: [['dashboard','Tableau de bord'], ['finances','Finances'], ['pilotage','Suivi']] },
   { parent: 'Locataires',          tabs: [['baux','Baux en cours'], ['candidats','Candidatures']] },
   { parent: 'Agenda',              tabs: [['agenda','Agenda'], ['equipements','Équipements']] },
-  { parent: 'Loyers & mouvements', tabs: [['loyers','Mouvements'], ['quittances','Quittances']] },
+  { parent: 'Loyers & mouvements', tabs: [['loyers','Mouvements'], ['quittances','Loyers']] },
   { parent: 'Révisions',           tabs: [['irl','Loyer (IRL)'], ['regul','Charges']] },
 ];
 const _NAV_PAGE_GROUP = {};
@@ -8009,7 +8024,7 @@ function _navSidebarLanding(id, on) {
 // sous-onglets. Une page masquée reste joignable en `#p-<id>` (on masque du menu, on ne supprime pas).
 const _MENU_ALL = ['accueil','dashboard','finances','pilotage','biens','baux','candidats','edl','agenda','equipements','loyers','quittances','irl','regul'];
 const _MENU_LOCKED = ['accueil','biens'];
-const _MENU_LABELS = { accueil:'Accueil', dashboard:'Tableau de bord', finances:'Finances', pilotage:'Suivi', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', loyers:'Loyers & mouvements', quittances:'Quittances', irl:'Loyer (IRL)', regul:'Charges' };
+const _MENU_LABELS = { accueil:'Accueil', dashboard:'Tableau de bord', finances:'Finances', pilotage:'Suivi', biens:'Logements', baux:'Locataires', candidats:'Candidatures', edl:'États des lieux', agenda:'Agenda', equipements:'Équipements', loyers:'Loyers & mouvements', quittances:'Loyers', irl:'Loyer (IRL)', regul:'Charges' };
 const _MENU_ZONES = [
   { z:'Pilotage', ids:['accueil','dashboard','finances','pilotage'] },
   { z:'Gestion locative', ids:['biens','baux','candidats','edl','agenda','equipements'] },
@@ -8095,7 +8110,7 @@ function go(page, elNav) {
   const titles = {accueil:'Accueil',dashboard:'Tableau de bord',import:'Import de données',loyers:'Loyers & Mouvements',
     agenda:'Agenda',equipements:'Équipements & Entretiens',
     baux:'Locataires',candidats:'Candidats',irl:'Révision IRL',regul:'Régularisation charges',
-    quittances:'Quittances',edl:'États des lieux',
+    quittances:'Loyers',edl:'États des lieux',
     emails:'📧 Communications',          // v15.79 EMAIL-ONGLET-PERMANENT (Sprint 19B)
     biens:'Biens',bailleurs:'Bailleurs', // v14.2 NAV-RESTRUCTURE
     finances:'Finances',                 // v15.265 REPORTING-BAILLEUR
@@ -8137,7 +8152,7 @@ function go(page, elNav) {
     },
     regul:()=>{initFilters();rRegulInit();},
     finances:()=>{ if (typeof rFinances === 'function') rFinances(); }, // v15.265 REPORTING-BAILLEUR
-    quittances:()=>{initFilters();rQuit();},
+    quittances:()=>{initFilters();rLoyers();},   // CDC-QUITTANCES-IRL D1 : l'onglet « Loyers »
     emails:()=>{ if (typeof rEmailsPage === 'function') rEmailsPage(); }, // v15.79 EMAIL-ONGLET-PERMANENT
     edl:()=>{initFilters();rEDLList();},
     biens:rBiens,         // v14.2 NAV-RESTRUCTURE
@@ -11266,14 +11281,11 @@ function _renderDashOnboarding() {
     + '</div>';
 }
 
-// v15.18 — Navigation directe vers Quittances filtré "impayée" depuis le hero dashboard.
-// Stop propagation pour éviter d'ouvrir le drill cash-flow parent.
+// v15.18 — Navigation directe vers l'onglet Loyers depuis le hero dashboard.
+// CDC-QUITTANCES-IRL : plus de filtre « impayée » à poser — le bloc « ⏳ Pas à jour »
+// EST la liste des retards, il n'y a rien à sélectionner.
 function _dashGoImpayes() {
   if (typeof go === 'function') go('quittances');
-  setTimeout(() => {
-    const s = el('quit-f-statut');
-    if (s) { s.value = 'impayée'; if (typeof rQuit === 'function') rQuit(); }
-  }, 100);
 }
 
 // v15.13 DASH-PROFILES Phase 2 — onglet dashboard actif (4 vues persona)
@@ -27688,17 +27700,8 @@ function printRegulDoc() {
 // =================== QUITTANCES ===================
 const MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
-// v15.14 — Refonte UX Quittances : vue cartes (par défaut) + vue tableau (legacy via toggle).
-let _quitView = 'cards';
-try { _quitView = localStorage.getItem(_lsKey('quit_view')) || 'cards'; } catch(e){}
-
-function _setQuitView(v) {
-  if (v !== 'cards' && v !== 'table') return;
-  _quitView = v;
-  try { localStorage.setItem(_lsKey('quit_view'), v); } catch(e){}
-  rQuit();
-}
-
+// CDC-QUITTANCES-IRL C5/D1 — la bascule cartes/tableau de l'onglet « Quittances » disparaît
+// avec lui. `_QUIT_STATUT_STYLE` reste : les alertes de l'Accueil s'en servent encore.
 const _QUIT_STATUT_STYLE = {
   'payée':          { color:'#14532d', bg:'#dcfce7', border:'#16a34a', label:'✓ Payée' },
   'partielle':      { color:'#78350f', bg:'#fef3c7', border:'#d97706', label:'⚠ Partielle' },
@@ -27709,114 +27712,11 @@ const _QUIT_STATUT_STYLE = {
   'mise_en_demeure':{ color:'#450a0a', bg:'#fca5a5', border:'#7f1d1d', label:'🚨 Mise en demeure' }
 };
 
-function rQuit() {
-  const fimm = v('quit-f-imm');
-  let flog = v('quit-f-log');
-  const fstatut = v('quit-f-statut');
-  const ql = el('quit-f-log');
-  // v15.234 NAV-FILTRE-ENTITE-GLOBAL : cascade entité → logements de (entité ∩ immeuble) + reset Q1.
-  if (ql) {
-    const cur = ql.value;
-    const opts = DB.logements.filter(_isAlive).filter(l => _logInEnt(l) && (!fimm || l.imm === fimm));
-    ql.innerHTML = '<option value="">Tous logements</option>' +
-      opts.map(l => `<option value="${escHtml(l.ref)}">${escHtml(l.ref)} – ${escHtml(l.locataire||'Vacant')}</option>`).join('');
-    ql.value = (cur && opts.some(l => l.ref === cur)) ? cur : '';
-    flog = ql.value;
-  }
-  // refs des logements de l'entité active (filtrage des quittances par entité)
-  const _entQuitRefs = _activeEntity ? new Set(DB.logements.filter(_logInEnt).map(l=>l.ref)) : null;
-  let quittances = DB.quittances.filter(_isAlive)
-    .filter(q => (!_entQuitRefs || _entQuitRefs.has(q.logement))
-              && (!fimm || DB.logements.find(l => l.ref === q.logement)?.imm === fimm)
-              && (!flog || q.logement === flog));
-  quittances.sort((a,b) => (b.date||'').localeCompare(a.date||''));
-
-  // Calcul statuts pour chaque quittance (v15.14)
-  const today = new Date();
-  const quitWithStatut = quittances.map(q => {
-    // Le « payé » d'un mois vient de la cascade unique (_loyerPayeDuMois), plus d'un
-    // rattachement paiement→mois local (I6).
-    const _qYm = (typeof window !== 'undefined' && typeof window.moisFrToYm === 'function')
-      ? window.moisFrToYm(q.mois) : null;
-    const r = (typeof _statutQuittance === 'function')
-      ? _statutQuittance(q, { montantPaye: _qYm ? _loyerPayeDuMois(q.logement, _qYm) : 0 }, today)
-      : { statut: 'attendue', montantPaye: 0, montantAttendu: (q.hc||0)+(q.ch||0), joursRetard: 0 };
-    return { q, statut: r.statut, montantPaye: r.montantPaye, montantAttendu: r.montantAttendu, joursRetard: r.joursRetard };
-  });
-  const filtered = fstatut
-    ? quitWithStatut.filter(x => fstatut === 'impayée'
-        ? x.statut.startsWith('impayée') || x.statut === 'mise_en_demeure'
-        : x.statut === fstatut)
-    : quitWithStatut;
-
-  // Toggle cartes/tableau
-  const toggle = el('quit-view-toggle');
-  if (toggle) toggle.innerHTML = `
-    <span class="mu sm" style="font-size:11px">Vue :</span>
-    <button class="btn bs bb${_quitView==='cards'?' act':''}" style="font-size:11px;padding:3px 8px" onclick="_setQuitView('cards')">📇 Cartes</button>
-    <button class="btn bs bb${_quitView==='table'?' act':''}" style="font-size:11px;padding:3px 8px" onclick="_setQuitView('table')">📊 Tableau</button>`;
-
-  const cardsGrid = el('quit-cards-grid');
-  const tableWrap = el('quit-table-wrap');
-  if (_quitView === 'cards') {
-    if (cardsGrid) cardsGrid.style.display = '';
-    if (tableWrap) tableWrap.style.display = 'none';
-    if (cardsGrid) {
-      cardsGrid.innerHTML = filtered.length
-        ? filtered.map(({q, statut, montantPaye, montantAttendu, joursRetard}) => {
-            const meta = _QUIT_STATUT_STYLE[statut] || _QUIT_STATUT_STYLE['attendue'];
-            const total = (q.hc||0) + (q.ch||0);
-            const refSafe = (q.logement||'').replace(/'/g,"\\'");
-            const restant = Math.max(0, montantAttendu - montantPaye);
-            return `<div style="border:2px solid ${meta.border};border-radius:var(--rl);padding:12px;background:${meta.bg}33;display:flex;flex-direction:column;gap:6px">
-              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-                <div style="flex:1;min-width:0">
-                  <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(q.logement||'—')}</div>
-                  <div class="mu sm" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(q.locataire||'—')}</div>
-                </div>
-                <span style="background:${meta.bg};color:${meta.color};border:1px solid ${meta.border};border-radius:12px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">${meta.label}</span>
-              </div>
-              <div style="padding:6px 8px;background:var(--sur);border-radius:var(--rl);font-size:11.5px;display:grid;grid-template-columns:auto 1fr;gap:2px 10px">
-                <div class="mu sm" style="font-size:10px">Mois</div>
-                <div style="text-align:right;font-weight:600">${escHtml(q.mois||'—')}</div>
-                <div class="mu sm" style="font-size:10px">Total</div>
-                <div style="text-align:right;font-weight:700">${fmt(total)}</div>
-                ${statut === 'partielle' ? `<div class="mu sm" style="font-size:10px">Reçu / Reste</div><div style="text-align:right;font-size:11px;color:${meta.color}">${fmt(montantPaye)} / <b>${fmt(restant)}</b></div>` : ''}
-                ${(statut.startsWith('impayée') || statut === 'mise_en_demeure') ? `<div class="mu sm" style="font-size:10px">Retard</div><div style="text-align:right;font-size:11px;color:${meta.color};font-weight:600">${joursRetard}j</div>` : ''}
-              </div>
-              <div class="mu sm" style="font-size:10px">Émise le ${fd(q.date)}</div>
-              <div style="display:flex;gap:4px;flex-wrap:wrap">
-                <button class="btn bs bb" onclick="previewQuit(${q.id})" style="font-size:11px;padding:3px 8px" title="Aperçu">👁 Aperçu</button>
-                <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" style="font-size:11px;padding:3px 8px" title="Télécharger le PDF">📥 </button>
-                <button class="btn br bb" onclick="delQuit(${q.id})" style="font-size:11px;padding:3px 6px" title="Supprimer">🗑</button>
-              </div>
-            </div>`;
-          }).join('')
-        : `<div class="mu" style="grid-column:1/-1;text-align:center;padding:24px;font-size:13px">Aucune quittance correspondant aux filtres.</div>`;
-    }
-  } else {
-    // Vue tableau (legacy)
-    if (cardsGrid) cardsGrid.style.display = 'none';
-    if (tableWrap) tableWrap.style.display = '';
-    el('quit-tbody').innerHTML = filtered.map(({q, statut}) => {
-      const meta = _QUIT_STATUT_STYLE[statut] || _QUIT_STATUT_STYLE['attendue'];
-      return `<tr>
-        <td><b>${escHtml(q.logement)}</b></td>
-        <td>${escHtml(q.locataire||'–')}</td>
-        <td>${escHtml(q.mois||'–')}</td>
-        <td class="num">${fmt(q.hc)}</td>
-        <td class="num">${fmt(q.ch)}</td>
-        <td class="num"><b>${fmt((q.hc||0)+(q.ch||0))}</b></td>
-        <td><span style="background:${meta.bg};color:${meta.color};border:1px solid ${meta.border};border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:700">${meta.label}</span></td>
-        <td>${fd(q.date)}</td>
-        <td class="act-cell">
-          <button class="btn bs bb" onclick="previewQuit(${q.id})" title="Aperçu">👁</button>
-          <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" title="Télécharger le PDF">📥 </button>
-          <button class="btn br bb" onclick="delQuit(${q.id})" title="Supprimer">🗑</button>
-        </td></tr>`;
-    }).join('') || '<tr><td colspan="9" class="mu" style="text-align:center;padding:20px">Aucune quittance</td></tr>';
-  }
-}
+// CDC-QUITTANCES-IRL C5/D1 — `rQuit()` est SUPPRIMÉ avec l'onglet « Quittances ».
+// C'était un HISTORIQUE, pas une file de travail : il ne montrait que les quittances DÉJÀ
+// émises, jamais un loyer encaissé restant à quittancer. L'onglet « Loyers » (`rLoyers`) montre
+// ce qu'il y a à FAIRE ; les quittances émises restent consultables sur la fiche du logement
+// (`_renderQuitForLog`) et dans la ligne repliée « Quittances éditées ce mois ».
 
 // v14.97 EMAIL-AUTO.4 : envoi quittance par email (mode "proposition" — mailto/clipboard)
 // Construit le contexte (locataire, bail, logement, entité, quittance) et ouvre
@@ -28781,6 +28681,10 @@ function previewQuit(id) {
   if (!iframe) { showToast('Modale aperçu introuvable','err'); return; }
   // Stocke l'id sur l'iframe pour boutons footer
   iframe._quitId = id;
+  iframe._docBuilt = built;
+  const _h = document.querySelector('#ov-quit-preview .m-head h3');
+  if (_h) _h.textContent = '📄 Aperçu quittance';
+  const _ov = el('ov-quit-preview'); if (_ov) delete _ov.dataset.ephemere;
   // Ouvre la modale puis injecte le HTML+CSS dans l'iframe via srcdoc
   // (sandbox allow-same-origin pour que le parent puisse encore lire _quitId)
   openM('ov-quit-preview');
@@ -28890,13 +28794,20 @@ window._emailQuittancePreviewModal = function() {
   envoyerQuittanceParEmail(id);
 };
 window._printQuittancePreviewModal = function() {
-  const id = el('ov-quit-preview-iframe')?._quitId;
-  if (!id) { showToast('Aucune quittance ouverte', 'err'); return; }
-  const q = DB.quittances.find(x => x.id === id); if (!q) return;
-  const log = DB.logements.find(l => l.ref === q.logement);
-  const ent = DB.entites.find(e => e.nom === (q.entity || log?.entity));
-  const bail = DB.baux[q.logement];
-  const built = _buildQuittanceHtml(q, log, ent, bail);
+  const iframe = el('ov-quit-preview-iframe');
+  const id = iframe?._quitId;
+  // Document éphémère (reçu partiel, courrier de relance) : on imprime le rendu déjà construit.
+  let built = null;
+  if (!id) {
+    built = iframe && iframe._docBuilt;
+    if (!built) { showToast('Aucun document ouvert', 'err'); return; }
+  } else {
+    const q = DB.quittances.find(x => x.id === id); if (!q) return;
+    const log = DB.logements.find(l => l.ref === q.logement);
+    const ent = DB.entites.find(e => e.nom === (q.entity || log?.entity));
+    const bail = DB.baux[q.logement];
+    built = _buildQuittanceHtml(q, log, ent, bail);
+  }
   // Ouvre une fenêtre dédiée pour impression (window.print() standard).
   // L'aperçu modale reste ouvert en arrière-plan.
   const win = window.open('', '_blank');
@@ -28972,10 +28883,381 @@ function delQuit(id) {
         logement: old.logement || ''  // pour _buildEntityPayload (refs.has(q.logement))
       };
     }
-    saveDB(); rQuit();
+    saveDB();
+    if (typeof rLoyers === 'function') rLoyers();
     _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   });
   _undoToast('Quittance supprimée');
+}
+
+
+// ============================================================================
+// ONGLET LOYERS (CDC-QUITTANCES-IRL D1/D3/D5/D9/D10/D11)
+//
+// Cet écran ne DÉTIENT aucune donnée : il lit le verdict du mois (`_loyerEtatLot`,
+// qui consomme la cascade unique) et la case du bail. Il ne calcule ni dû, ni payé,
+// ni imputation. Trois blocs, repliés à une ligne quand ils sont vides.
+// ============================================================================
+
+/** Les lots à considérer : vivants, dans l'entité active, avec un bail (occupés). */
+function _lyLots() {
+  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  return (DB.logements || []).filter(alive)
+    .filter(l => (typeof _logInEnt !== 'function') || _logInEnt(l))
+    .filter(l => !!_findBailByRefTolerant(l.ref));
+}
+
+/** Les 'YYYY-MM' déjà quittancés d'un lot. */
+function _lyDejaYm(ref) {
+  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  return (DB.quittances || []).filter(q => alive(q) && q.logement === ref)
+    .map(q => window.moisFrToYm(q.mois)).filter(Boolean);
+}
+
+/** L'état complet d'un lot pour l'écran : verdict + case du bail + retard. */
+function _lyEtatLot(l) {
+  const bail = _findBailByRefTolerant(l.ref);
+  const etat = _loyerEtatLot(l.ref);
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const tol = (typeof window._loyerToleranceActive === 'function') ? window._loyerToleranceActive(today) : false;
+  return {
+    log: l, ref: l.ref, bail,
+    demande: !!(bail && bail.quittanceDemandee),
+    etat,
+    aQuittancer: etat ? window.moisAQuittancer(etat, _lyDejaYm(l.ref)) : [],
+    retard: etat ? window.retardLot(etat, { toleranceActive: tol }) : { enRetard: false }
+  };
+}
+
+function rLoyers() {
+  const host = el('ly-blocs'); if (!host) return;
+  const sub = el('ly-sub');
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const ymCourant = today.slice(0, 7);
+  const moisCourant = window.ymToMoisFr ? window.ymToMoisFr(ymCourant) : ymCourant;
+
+  if (typeof window.moisAQuittancer !== 'function') {
+    host.innerHTML = `<div class="ly-blk"><div class="ly-empty"><b>Module Loyers non chargé</b>
+      Ouvre l'application via http (les modules ES ne se chargent pas en file://).</div></div>`;
+    return;
+  }
+
+  const lots = _lyLots();
+  if (sub) sub.textContent = `· ${moisCourant} · ${lots.length} lot${lots.length > 1 ? 's' : ''}`;
+
+  if (!lots.length) {
+    host.innerHTML = `<div class="ly-blk"><div class="ly-empty"><b>Aucun bail en cours</b>
+      Les loyers apparaîtront ici dès qu'un logement sera loué.
+      <div style="margin-top:10px"><button class="btn bp" onclick="go('baux')">Créer un bail</button></div></div></div>`;
+    return;
+  }
+
+  const etats = lots.map(_lyEtatLot);
+  let html = '';
+
+  // ── 1. Quittances demandées (D3 : la case du bail décide de ce qui s'affiche) ──
+  const demandes = etats.filter(e => e.demande && e.aQuittancer.length);
+  html += _lyBloc('🧾 Quittances demandées', demandes.length,
+    'Mois soldé — la quittance peut être remise',
+    demandes.map(e => {
+      const n = e.aQuittancer.length;
+      const du = e.aQuittancer.reduce((s2, ym) => s2 + ((e.etat.byYm[ym] || {}).du || 0), 0);
+      const libelle = n === 1
+        ? `Quittance de ${escHtml(window.ymToMoisFr(e.aQuittancer[0]))}`
+        : `Éditer les ${n}`;
+      const detail = n === 1
+        ? `${escHtml(window.ymToMoisFr(e.aQuittancer[0]))} soldé`
+        : `${n} mois soldés, non encore quittancés : ${e.aQuittancer.map(y => escHtml(window.ymToMoisFr(y))).join(', ')}`;
+      return _lyRow({
+        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
+        badge: '<span class="ly-ask">🧾 demande mensuelle</span>',
+        detail,
+        montant: `<b>${fmt(du)}</b><br><span class="ly-pill ok">${n > 1 ? 'Soldés' : 'Soldé'}</span>`,
+        actions: `<button class="btn bp bb" onclick="_lyEditerQuittances('${_lyQ(e.ref)}')">${libelle}</button>
+          <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(e.ref)}')">Détail</button>`
+      });
+    }),
+    'Personne n\'attend de quittance ce mois-ci.');
+
+  // ── 2. Pas à jour — loyer ET charges (D9/D10), une ligne par lot ──
+  const retards = etats.filter(e => e.retard.enRetard);
+  html += _lyBloc('⏳ Pas à jour', retards.length,
+    'Loyer ou charges — aucun document n\'est émis pour ces lignes',
+    retards.map(e => {
+      const r = e.retard;
+      const depuis = r.depuisYm ? window.ymToMoisFr(r.depuisYm) : '';
+      const quoi = r.chargesSeules ? 'charges non réglées'
+        : (r.loyerSeul ? 'loyer non réglé' : 'loyer <b>et</b> charges');
+      const detail = r.nbMois > 1
+        ? `${r.nbMois} mois non soldés depuis ${escHtml(depuis)} · ${quoi}`
+        : `${escHtml(depuis)} · ${quoi}`;
+      const pill = r.chargesSeules ? '<span class="ly-pill wa">Charges en retard</span>'
+        : `<span class="ly-pill er">Retard · ${r.nbMois} mois</span>`;
+      const partiel = e.etat.list.filter(m => m.partiel);
+      const btnRecu = partiel.length
+        ? `<button class="btn bs bb" onclick="_lyRecuPartiel('${_lyQ(e.ref)}','${partiel[partiel.length - 1].ym}')" title="Art. 21 : en cas de paiement partiel, le bailleur délivre un reçu">Reçu partiel</button>`
+        : '';
+      return _lyRow({
+        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
+        detail,
+        montant: `<b>${fmt(r.reste)}</b>${r.chargesSeules ? ' de charges' : ''}<br>${pill}`,
+        actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Courrier de relance</button>
+          ${btnRecu}
+          <button class="btn bs bb" onclick="_impayesOpenVue()">Détail mois par mois</button>`
+      });
+    }),
+    'Tous les loyers et toutes les charges sont à jour.');
+
+  // ── 3. Révisions à préparer (le calendrier complet arrive à l'étape 5) ──
+  html += _lyBlocRevisions(etats);
+
+  // ── Lignes repliées ──
+  html += _lyFold('ly-fold-quit', 'Quittances éditées ce mois', _lyQuittancesDuMois(ymCourant));
+  html += _lyFold('ly-fold-cal', 'Calendrier des révisions à venir', _lyCalendrierResume(etats));
+
+  // ── L'état le plus fréquent : rien à faire ──
+  const rien = !demandes.length && !retards.length && !_lyRevisionsAPreparer(etats).length;
+  if (rien) {
+    html = `<div class="ly-blk"><div class="ly-empty"><b>Rien à faire pour ${escHtml(moisCourant)}</b>
+      Les loyers encaissés sont à jour, aucune quittance n'est attendue, aucune révision n'est à préparer.</div></div>`
+      + _lyFold('ly-fold-quit', 'Quittances éditées ce mois', _lyQuittancesDuMois(ymCourant))
+      + _lyFold('ly-fold-cal', 'Calendrier des révisions à venir', _lyCalendrierResume(etats));
+  }
+  host.innerHTML = html;
+}
+
+/** Échappe une ref pour un attribut onclick entre apostrophes. */
+function _lyQ(s2) { return String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+function _lyRow(o) {
+  return `<div class="ly-row">
+    <div class="ly-who"><b>${o.titre}</b> ${o.badge || ''}<div class="m">${o.detail || ''}</div></div>
+    <div class="ly-amt">${o.montant || ''}</div>
+    <div class="ly-acts">${o.actions || ''}</div>
+  </div>`;
+}
+
+/** Un bloc replié à UNE ligne quand il est vide (D5). */
+function _lyBloc(titre, n, hint, rows, vide) {
+  const head = `<div class="ly-blk-h"><span class="t">${titre}</span>
+    <span class="n${n ? '' : ' z'}">${n}</span>
+    <span class="hint">${n ? hint : ''}</span></div>`;
+  if (!n) return `<div class="ly-blk">${head.replace('<div class="ly-blk-h"', '<div class="ly-blk-h" style="border-bottom:0"')}</div>`;
+  return `<div class="ly-blk">${head}${rows.join('')}</div>`;
+}
+
+function _lyFold(id, titre, contenu) {
+  const n = contenu && contenu.count ? contenu.count : 0;
+  return `<div class="ly-blk">
+    <div class="ly-fold" onclick="_lyToggleFold('${id}')"><span id="${id}-chev">▸</span>
+      <span>${titre}${n ? ` (${n})` : ''}${contenu && contenu.resume ? ' · ' + contenu.resume : ''}</span></div>
+    <div id="${id}" style="display:none">${(contenu && contenu.html) || ''}</div>
+  </div>`;
+}
+function _lyToggleFold(id) {
+  const d = el(id), c = el(id + '-chev');
+  if (!d) return;
+  const on = d.style.display === 'none';
+  d.style.display = on ? '' : 'none';
+  if (c) c.textContent = on ? '▾' : '▸';
+}
+
+/** Les quittances émises ce mois-ci (ligne repliée). */
+function _lyQuittancesDuMois(ymCourant) {
+  const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
+  const refsEnt = (typeof _logInEnt === 'function')
+    ? new Set((DB.logements || []).filter(alive).filter(_logInEnt).map(l => l.ref)) : null;
+  const qs = (DB.quittances || []).filter(q => alive(q) && String(q.date || '').startsWith(ymCourant))
+    .filter(q => !refsEnt || refsEnt.has(q.logement))
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  if (!qs.length) return { count: 0, resume: 'aucune', html: '' };
+  return {
+    count: qs.length,
+    resume: qs.slice(0, 3).map(q => `${q.logement} ${q.mois}`).join(', '),
+    html: qs.map(q => _lyRow({
+      titre: `${escHtml(q.logement)} · ${escHtml(q.locataire || '—')}`,
+      detail: `${escHtml(q.mois || '')} · éditée le ${fd(q.date)}`,
+      montant: `<b>${fmt((q.hc || 0) + (q.ch || 0))}</b>`,
+      actions: `<button class="btn bs bb" onclick="previewQuit(${q.id})">👁 Aperçu</button>
+        <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" title="Télécharger le PDF">📥</button>
+        <button class="btn br bb" onclick="delQuit(${q.id})" title="Supprimer">🗑</button>`
+    })).join('')
+  };
+}
+
+// ── Révisions : version d'étape 4 (le calendrier complet et la prescription arrivent à
+//    l'étape 5). On consomme le `computeIRLRevision` existant, sans le dupliquer. ──
+
+/** Les lots dont la révision est à préparer maintenant (règle actuelle ; D13 à l'étape 5). */
+function _lyRevisionsAPreparer(etats) {
+  if (typeof computeIRLRevision !== 'function') return [];
+  const out = [];
+  for (const e of etats) {
+    let rev = null;
+    try { rev = computeIRLRevision(e.log); } catch (err) { rev = null; }
+    if (!rev || rev.gelDpeFG || rev.dpeManquant || rev.insuffisant || rev.pasEncoreApplicable) continue;
+    if (rev.dejaApplique || !rev.isApplicable) continue;
+    out.push({ e, rev });
+  }
+  return out;
+}
+
+function _lyBlocRevisions(etats) {
+  const rows = _lyRevisionsAPreparer(etats);
+  return _lyBloc('📈 Révisions à préparer', rows.length, 'Le nouveau loyer ne s\'applique jamais rétroactivement',
+    rows.map(({ e, rev }) => {
+      const pct = ((rev.variation || 0) * 100).toFixed(2).replace('.', ',');
+      const dbut = (e.bail && e.bail.debut) ? fd(e.bail.debut) : '–';
+      return _lyRow({
+        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
+        detail: `Bail du ${dbut} · IRL ${escHtml(rev.irlVigueur.key)} (${rev.irlVigueur.val}) ÷ ${escHtml(rev.irlRef.key)} (${rev.irlRef.val}) = ${(rev.variation >= 0 ? '+' : '')}${pct} %`,
+        montant: `${fmt(e.log.hc)} → <b>${fmt(rev.nouveauHC)}</b><br><span class="ly-pill nu">${fmt(rev.diff)}/mois</span>`,
+        actions: `<button class="btn bp bb" onclick="applyIRL('${_lyQ(e.ref)}',${rev.nouveauHC})">Réviser</button>
+          <button class="btn bs bb" onclick="skipIRL('${_lyQ(e.ref)}')">Renoncer</button>`
+      });
+    }),
+    'Aucune révision à préparer.');
+}
+
+/** Résumé d'une ligne pour la ligne repliée « Calendrier des révisions à venir ». */
+function _lyCalendrierResume(etats) {
+  if (typeof computeIRLRevision !== 'function') return { count: 0, resume: '', html: '' };
+  const futures = [];
+  for (const e of etats) {
+    let rev = null;
+    try { rev = computeIRLRevision(e.log); } catch (err) { rev = null; }
+    if (!rev) continue;
+    if (rev.gelDpeFG) { futures.push({ ref: e.ref, loc: e.log.locataire, quand: null, note: `loyer gelé — DPE ${rev.dpe}` }); continue; }
+    if (rev.pasEncoreApplicable && rev.premiereAnniv) { futures.push({ ref: e.ref, loc: e.log.locataire, quand: rev.premiereAnniv, note: 'première révision' }); continue; }
+    if (rev.dateRevision) futures.push({ ref: e.ref, loc: e.log.locataire, quand: rev.dateRevision, note: rev.dejaApplique ? 'révision faite' : 'à préparer' });
+  }
+  if (!futures.length) return { count: 0, resume: '', html: '' };
+  const datees = futures.filter(f => f.quand).sort((a, b) => a.quand - b.quand);
+  const prochaine = datees[0];
+  return {
+    count: futures.length,
+    resume: prochaine ? `prochaine : ${prochaine.ref} le ${prochaine.quand.toLocaleDateString('fr-FR')}` : '',
+    html: futures.map(f => _lyRow({
+      titre: `${escHtml(f.ref)} · ${escHtml(f.loc || '—')}`,
+      detail: f.quand ? `Anniversaire du bail le ${f.quand.toLocaleDateString('fr-FR')}` : '—',
+      montant: `<span class="ly-pill nu">${escHtml(f.note)}</span>`,
+      actions: ''
+    })).join('')
+  };
+}
+
+// ── Gestes ──────────────────────────────────────────────────────────────────
+
+/** D8/I7 — édite TOUS les mois soldés en attente d'un lot : N mois = N documents. */
+function _lyEditerQuittances(ref) {
+  const yms = window.moisAQuittancer(_loyerEtatLot(ref), _lyDejaYm(ref));
+  if (!yms.length) { showToast('Aucun mois soldé à quittancer', 'info'); return; }
+  const faites = [];
+  for (const ym of yms) {
+    const r = _creerQuittance(ref, ym);
+    if (r.ok && !r.existante) faites.push(r.quittance);
+  }
+  if (!faites.length) { showToast('Aucune quittance émise', 'err'); return; }
+  saveDB(); rLoyers();
+  if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
+  if (faites.length === 1) { showToast('Quittance éditée ✓', 'ok'); previewQuit(faites[0].id); }
+  else showToast(`${faites.length} quittances éditées ✓`, 'ok', 5000);
+}
+
+/**
+ * D6 — le REÇU de paiement partiel. Art. 21 : « dans tous les cas de paiement partiel, le
+ * bailleur délivre un reçu ». Ce n'est PAS une quittance : rien n'est écrit en base, le
+ * document est éphémère (il ne libère pas le locataire, il ne doit donc pas devenir un titre).
+ */
+function _lyRecuPartiel(ref, ym) {
+  const etat = _loyerEtatLot(ref);
+  const m = etat && etat.byYm && etat.byYm[ym];
+  if (!m) { showToast('Mois introuvable', 'err'); return; }
+  const log = (DB.logements || []).find(l => l.ref === ref);
+  const bail = _findBailByRefTolerant(ref);
+  const ent = (DB.entites || []).find(e => e.nom === ((bail && bail.entity) || (log && log.entity)));
+  const q = {
+    logement: ref, mois: window.ymToMoisFr(ym), hc: m.hcDue, ch: m.chDue,
+    locataire: (log && log.locataire) || '', entity: (ent && ent.nom) || '', date: td()
+  };
+  const built = _buildQuittanceHtml(q, log, ent, bail, { totalRecu: Math.round((m.du - m.reste) * 100) / 100 });
+  _lyPreviewEphemere(built, 'Reçu de paiement partiel');
+}
+
+/** Aperçu d'un document NON persisté (reçu partiel, courrier de relance). */
+function _lyPreviewEphemere(built, titre) {
+  const iframe = el('ov-quit-preview-iframe');
+  if (!iframe) { showToast('Modale aperçu introuvable', 'err'); return; }
+  iframe._quitId = null;
+  iframe._docBuilt = built;
+  const h = document.querySelector('#ov-quit-preview .m-head h3');
+  if (h) h.textContent = '📄 ' + (titre || 'Aperçu');
+  const ov = el('ov-quit-preview'); if (ov) ov.dataset.ephemere = '1';
+  openM('ov-quit-preview');
+  iframe.srcdoc = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${built.title}</title><style>${QUIT_PRINT_CSS}${built.css}</style></head><body>${built.html}</body></html>`;
+}
+
+/**
+ * D11 — LE courrier de relance, unique. Son TABLEAU détaille ce qui manque, ligne par ligne,
+ * d'après la cascade (`lignesRelance`) : loyer, charges, arriérés. Que le manque porte sur le
+ * loyer, les charges ou les deux, c'est le même bouton et le même document — seul le tableau
+ * change. Pas de second document « rappel de charges ».
+ * Le TON suit l'ancienneté (rappel → relance → mise en demeure), via les modèles existants.
+ */
+function _lyRelance(ref) {
+  const etat = _loyerEtatLot(ref);
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const tol = (typeof window._loyerToleranceActive === 'function') ? window._loyerToleranceActive(today) : false;
+  const lignes = window.lignesRelance(etat, { toleranceActive: tol });
+  if (!lignes.length) { showToast('Rien à réclamer — ce lot est à jour', 'info'); return; }
+  const r = window.retardLot(etat, { toleranceActive: tol });
+  const niveau = window.niveauRelance(r.depuisYm, today);
+  _lyPreviewEphemere(_buildRelanceHtml(ref, lignes, r, niveau, today), 'Courrier de relance');
+}
+
+const _LY_RELANCE_TON = {
+  'rappel-impaye-1': { titre: 'Rappel — sommes restant dues',
+    corps: 'Nous vous remercions de bien vouloir régulariser cette situation. Si le règlement a été effectué entre-temps, merci de ne pas tenir compte de ce courrier.' },
+  'rappel-impaye-2': { titre: 'Relance — sommes restant dues',
+    corps: 'Malgré un premier rappel, ces sommes demeurent impayées. Nous vous demandons de procéder au règlement sans délai, ou de nous contacter pour convenir d\'un échéancier.' },
+  'rappel-impaye-3': { titre: 'Mise en demeure de payer',
+    corps: 'À défaut de règlement sous quinze jours à compter de la réception du présent courrier, nous nous réservons le droit d\'engager toute procédure utile au recouvrement de ces sommes, ainsi que la mise en œuvre de la clause résolutoire du bail.' }
+};
+
+function _buildRelanceHtml(ref, lignes, retard, niveau, todayIso) {
+  const log = (DB.logements || []).find(l => l.ref === ref) || {};
+  const bail = _findBailByRefTolerant(ref) || {};
+  const ent = (DB.entites || []).find(e => e.nom === (bail.entity || log.entity)) || {};
+  const ton = _LY_RELANCE_TON[niveau] || _LY_RELANCE_TON['rappel-impaye-1'];
+  const adrBien = bail.adrBien || log.adr || '–';
+  const siegeStr = ent.siege || '';
+  const villeMatch = siegeStr.match(/\d{5}\s+(.+)/);
+  const ville = villeMatch ? villeMatch[1].split(',')[0].trim() : siegeStr;
+  const villeTitre = ville ? ville.charAt(0).toUpperCase() + ville.slice(1).toLowerCase() : '';
+  const locs = (bail.locataires || []).map(l => l && l.nom).filter(Boolean).join(', ') || log.locataire || '–';
+
+  const corps = `
+${_dt('docParties', [
+  { label: '1. Le(s) Bailleur(s)', qui: escHtml(ent.nom || '–'),
+    corps: `${siegeStr ? '<p>' + escHtml(siegeStr) + '</p>' : ''}` },
+  { label: '2. Le(s) Locataire(s)', qui: escHtml(locs),
+    corps: `<p>demeurant ${escHtml(adrBien)}&nbsp;;</p>` }
+])}
+${_dt('docActe', `Sauf erreur de notre part, les sommes suivantes restent dues au titre du logement sis <b>${escHtml(adrBien)}</b>&nbsp;:`)}
+${_dt('docLignes', lignes.map(l => ({ lab: escHtml(l.libelle), val: fmt(l.montant) }))
+  .concat([{ lab: `Total restant dû au ${fd(todayIso)}`, val: fmt(retard.reste), tot: true }]))}
+<p>${ton.corps}</p>
+${_dt('docMention', 'Ce courrier ne vaut pas quittance. Les sommes réglées après son envoi viennent en déduction du total ci-dessus.')}
+${_dt('docLieu', `Fait à ${escHtml(villeTitre || '–')},<br>Le ${fd(todayIso)}`)}
+${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
+
+  const css = `.pro-doc{max-width:700px;margin:0 auto}\n${_docCss()}`;
+  const html = _docPage(ent, {
+    titre: ton.titre,
+    ctx: `${retard.nbMois} mois non soldé${retard.nbMois > 1 ? 's' : ''}${retard.depuisYm ? ' depuis ' + escHtml(window.ymToMoisFr(retard.depuisYm)) : ''}`,
+    corps, ref: escHtml(ref), date: `Émis le ${fd(todayIso)}`, withStyle: false
+  });
+  return { html, css, title: `Relance — ${escHtml(ref)}`, status: 'relance' };
 }
 
 // ============================================================================
@@ -55775,6 +56057,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
 <!-- v15.104 — Modale aperçu quittance (alignement avec IRL).
      Utilise un IFRAME pour isoler le CSS Times New Roman de la page principale
      (sinon les styles globaux body/h1/h2 polluaient l'app entière). -->
+<!-- `data-ephemere="1"` : document NON persisté (reçu de paiement partiel, courrier de
+     relance). Archiver/Partager/Télécharger s'appuient sur un id de quittance en base — ils
+     n'ont pas de sens ici et sont masqués plutôt que de répondre « aucune quittance ouverte ». -->
+<style>#ov-quit-preview[data-ephemere="1"] .qp-persist{display:none}</style>
 <div class="ov hidden" id="ov-quit-preview" onclick="closeBg(event,'ov-quit-preview')">
   <div class="modal" style="max-width:780px;width:96%">
     <div class="m-head">
@@ -55786,9 +56072,9 @@ window.addEventListener('DOMContentLoaded', ()=>{
     </div>
     <div class="m-foot">
       <button class="btn bs" onclick="closeM('ov-quit-preview')">Fermer</button>
-      <button class="btn" onclick="window._archiveQuittancePreviewModal && window._archiveQuittancePreviewModal()" title="Enregistrer le PDF dans les documents">💾 Archiver</button>
-      <button class="btn" onclick="window._shareQuittancePreviewModal && window._shareQuittancePreviewModal()" title="Partager avec PDF">🔗 Partager</button>
-      <button class="btn" onclick="window._emailQuittancePreviewModal && window._emailQuittancePreviewModal()">📥 Télécharger</button>
+      <button class="btn qp-persist" onclick="window._archiveQuittancePreviewModal && window._archiveQuittancePreviewModal()" title="Enregistrer le PDF dans les documents">💾 Archiver</button>
+      <button class="btn qp-persist" onclick="window._shareQuittancePreviewModal && window._shareQuittancePreviewModal()" title="Partager avec PDF">🔗 Partager</button>
+      <button class="btn qp-persist" onclick="window._emailQuittancePreviewModal && window._emailQuittancePreviewModal()">📥 Télécharger</button>
       <button class="btn bp" onclick="window._printQuittancePreviewModal && window._printQuittancePreviewModal()">🖨 Imprimer</button>
     </div>
   </div>

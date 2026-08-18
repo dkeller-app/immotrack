@@ -222,6 +222,48 @@ describe('I13 — aucun chemin de code ne crée une quittance sans clic explicit
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  Étape 4 — l'onglet « Loyers » (D1/D3/D5/D11)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('D1/D3/D11 — l\'onglet Loyers remplace l\'onglet Quittances', () => {
+  const code = codeOf('index.html');
+
+  it('rQuit() a disparu, rLoyers() le remplace', () => {
+    // C5 : l'onglet Quittances était un HISTORIQUE (les quittances déjà émises), pas une
+    // file de travail — il ne montrait jamais un loyer encaissé restant à quittancer.
+    expect(code).not.toMatch(/\brQuit\b/);
+    expect((code.match(/function rLoyers\(/g) || []).length).toBe(1);
+    expect(code).toMatch(/quittances:\(\)=>\{initFilters\(\);rLoyers\(\);\}/);
+  });
+
+  it('D3 — le bloc « Quittances demandées » est trié par la case du bail', () => {
+    const body = fnBody(code, 'rLoyers');
+    expect(body).toMatch(/e\.demande && e\.aQuittancer\.length/);
+    expect(fnBody(code, '_lyEtatLot')).toMatch(/bail\.quittanceDemandee/);
+  });
+
+  it('D11 — UN seul courrier de relance, aucun « rappel de charges » séparé', () => {
+    expect((code.match(/function _lyRelance\(/g) || []).length).toBe(1);
+    expect((code.match(/function _buildRelanceHtml\(/g) || []).length).toBe(1);
+    expect(code).not.toMatch(/[Rr]appel de charges/);
+    // Le tableau vient de la cascade, pas d'un calcul local.
+    expect(fnBody(code, '_lyRelance')).toMatch(/window\.lignesRelance\(etat/);
+  });
+
+  it('l\'écran ne recalcule rien : il lit le verdict et la case du bail', () => {
+    const body = fnBody(code, 'rLoyers');
+    expect(body).not.toMatch(/DB\.mouvements/);
+    expect(body).not.toMatch(/_duMoisLot/);
+  });
+
+  it('le reçu de paiement partiel n\'écrit RIEN en base (art. 21 : un reçu, pas un titre)', () => {
+    const body = fnBody(code, '_lyRecuPartiel');
+    expect(body).toMatch(/_buildQuittanceHtml/);
+    expect(body).not.toMatch(/_creerQuittance|DB\.quittances\.push|saveDB/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  Garde-fou d'outillage : index.html doit rester en CRLF
 // ═══════════════════════════════════════════════════════════════════════════
 
