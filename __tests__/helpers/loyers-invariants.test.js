@@ -81,4 +81,44 @@ describe('I6 — aucun rattachement paiement→mois hors des 3 moteurs sanctionn
     // et il délègue bien au module (pas de re-implémentation locale)
     expect(code).toMatch(/window\.etatMoisLot\(months/);
   });
+
+  it('le document quittance ne re-somme plus les mouvements d\'un mois calendaire', () => {
+    const code = stripComments(read('index.html'));
+    // L'ancien scan `(m.date||'').startsWith(prefixMois)` de _buildQuittanceHtml était un
+    // rattachement paiement→mois déguisé : il déclarait « non payé » un loyer d'août réglé
+    // le 2 septembre. Le montant reçu vient désormais de _loyerPayeDuMois.
+    expect(code).not.toMatch(/startsWith\(prefixMois\)/);
+    expect(code).toMatch(/_loyerPayeDuMois\(q\.logement, prefixMois\)/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Étape 2 — C4 : le montant d'une quittance vient du BARÈME, pas du bail courant
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('C4/I5 — une seule fabrique de quittance, adossée au barème', () => {
+  const code = stripComments(read('index.html'));
+
+  it('_creerQuittance est l\'unique fabrique et lit _duMoisLot', () => {
+    expect((code.match(/function _creerQuittance\(/g) || []).length).toBe(1);
+    const body = code.slice(code.indexOf('function _creerQuittance('),
+      code.indexOf('function genAllQuit('));
+    expect(body).toMatch(/_duMoisLot\(ref, ym\)/);
+    // C4 : plus jamais le loyer d'aujourd'hui comme montant d'une quittance
+    expect(body).not.toMatch(/hc:\s*bail\.hc/);
+    expect(body).not.toMatch(/bail\?\.hc/);
+  });
+
+  it('aucun push direct dans DB.quittances hors de la fabrique', () => {
+    // Une seule porte d'écriture : impossible de créer une quittance sans passer par
+    // le garde-fou du solde et le barème du mois.
+    const pushes = code.match(/DB\.quittances\.push\(/g) || [];
+    expect(pushes.length).toBe(1);
+  });
+
+  it('la fabrique passe par le garde-fou peutQuittancer (I4)', () => {
+    const body = code.slice(code.indexOf('function _creerQuittance('),
+      code.indexOf('function genAllQuit('));
+    expect(body).toMatch(/window\.peutQuittancer\(_loyerEtatLot\(ref\), ym\)/);
+  });
 });
