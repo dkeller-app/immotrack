@@ -1,0 +1,11 @@
+# M6 — le garde-fou CRLF d'index.html (__tests__/helpers/loyers-invariants.test.js) lit la COPIE
+# DE TRAVAIL. Sans ce fichier, ce qu'elle contient dépend du core.autocrlf de chaque machine :
+# le blob git, lui, est en LF pur et l'a toujours été. La preuve « 0 LF nu » ne valait donc que
+# pour la machine qui la produisait. Ces deux fichiers sont réécrits par script (les chantiers
+# design découpent sur \r\n) et un checkout en LF casserait la parité data-defaults.
+index.html    text eol=crlf
+css/main.css  text eol=crlf
+
+# Polices vendorisées : jamais de conversion de fin de ligne sur du binaire.
+*.woff2 binary
+*.woff  binary

@@ -15,10 +15,13 @@
 };
 console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(window._BAIL_PDF_LIBS||{}), "jspdf len:", (window._BAIL_PDF_LIBS&&window._BAIL_PDF_LIBS.jspdf||"").length, "html2canvas len:", (window._BAIL_PDF_LIBS&&window._BAIL_PDF_LIBS.html2canvas||"").length);
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- v15.38 DASH-REFONTE-GLOBALE-V4 : fonts Inter + JetBrains Mono ajoutées pour V4 Stripe -->
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<!-- M5 — les 2 sous-ensembles LATIN sont préchargés : ils sont demandés par la toute
+     première ligne de texte rendue, et sans ça le navigateur ne les découvre qu'après
+     avoir parsé css/main.css (titres en police système pendant un instant). Les
+     sous-ensembles latin-ext et vietnamien ne le sont PAS : ils sont conditionnels. -->
+<link rel="preload" href="css/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="css/fonts/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<!-- LOT 1 : les 5 familles Google Fonts et leurs 2 preconnect sont retirés — Inter et Schibsted Grotesk sont vendorisées dans css/fonts/, déclarées en @font-face en tête de css/main.css. Règle projet : aucun CDN au runtime. -->
 <link rel="stylesheet" href="css/main.css?v=15.537">
 <!-- BOOT GATE (cutover Connexion B) : empêche de voir l'app AVANT l'overlay de login cloud. Dès le 1er
      rendu, on masque tout le body et on ne laisse voir que #imsb-overlay (overlay de connexion injecté par
@@ -251,7 +254,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
       <div id="agenda-view-cal-pane" style="display:none">
         <div class="flex-b mb12" style="gap:8px">
           <button class="btn bs bb" onclick="agendaCalNav(-1)">‹ Mois préc.</button>
-          <strong id="agenda-cal-title" style="font-family:'Manrope',sans-serif;font-size:16px"></strong>
+          <strong id="agenda-cal-title" style="font-family:var(--display);font-size:16px"></strong>
           <button class="btn bs bb" onclick="agendaCalNav(1)">Mois suiv. ›</button>
         </div>
         <div id="agenda-cal-grid"></div>
@@ -2020,7 +2023,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 #ov-invite-candidat .segd button{background:transparent;border:none;color:var(--t2);font-size:13px;font-weight:600;padding:7px 16px;border-radius:6px;cursor:pointer;font-family:inherit}
 #ov-invite-candidat .segd button.act{background:var(--acc);color:#fff}
 #ov-invite-candidat .linkbox{display:flex;gap:8px;align-items:stretch}
-#ov-invite-candidat .linkbox .url{flex:1;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
+#ov-invite-candidat .linkbox .url{flex:1;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:12.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
 #ov-invite-candidat .linkbox .url.ok{border-color:var(--grn);background:var(--bg-success)}
 #ov-invite-candidat .chans{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px}
 #ov-invite-candidat .chan{display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 6px;border:1.5px solid var(--bor);border-radius:var(--rl);background:var(--sur2);cursor:pointer;transition:all .15s;text-align:center}
@@ -2067,7 +2070,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 #ov-fiche-candidat .fc-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
 #ov-fiche-candidat .fc-id{display:flex;align-items:center;gap:14px}
 #ov-fiche-candidat .fc-av{width:48px;height:48px;font-size:17px}
-#ov-fiche-candidat .fc-name{font-size:19px;font-weight:700;font-family:'Manrope',sans-serif;margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.25}
+#ov-fiche-candidat .fc-name{font-size:19px;font-weight:700;font-family:var(--display);margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.25}
 #ov-fiche-candidat .fc-sub{font-size:12.5px;color:var(--t2);margin-top:3px}
 #ov-fiche-candidat .fc-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 #ov-fiche-candidat .kv-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:13px;align-items:baseline}
@@ -2078,7 +2081,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 #ov-fiche-candidat .step{display:flex;flex-direction:column;align-items:center;flex:1;min-width:78px;position:relative;text-align:center}
 #ov-fiche-candidat .step:not(:last-child)::after{content:'';position:absolute;top:15px;left:50%;width:100%;height:2px;background:var(--bor);z-index:0}
 #ov-fiche-candidat .step.done:not(:last-child)::after{background:var(--grn)}
-#ov-fiche-candidat .step .dot{width:32px;height:32px;border-radius:50%;background:var(--sur2);border:2px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t3);z-index:1;position:relative;font-family:'Manrope',sans-serif}
+#ov-fiche-candidat .step .dot{width:32px;height:32px;border-radius:50%;background:var(--sur2);border:2px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t3);z-index:1;position:relative;font-family:var(--display)}
 #ov-fiche-candidat .step.done .dot{background:var(--grn);border-color:var(--grn);color:#fff}
 #ov-fiche-candidat .step.current .dot{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 0 0 4px rgba(59,126,246,.18)}
 #ov-fiche-candidat .step .lbl{font-size:11px;margin-top:7px;color:var(--t2);font-weight:600}
@@ -2095,14 +2098,14 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
 #ov-fiche-candidat .score-hero>div:not(.score-ring){min-width:0;width:100%}
 #ov-fiche-candidat .score-ring{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center}
 #ov-fiche-candidat .score-ring .inner{width:74px;height:74px;border-radius:50%;background:var(--sur);display:flex;align-items:center;justify-content:center;flex-direction:column}
-#ov-fiche-candidat .score-ring .sv{font-family:'Manrope',sans-serif;font-weight:800;font-size:26px;line-height:1}
+#ov-fiche-candidat .score-ring .sv{font-family:var(--display);font-weight:800;font-size:26px;line-height:1}
 #ov-fiche-candidat .score-ring .sl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:2px}
 #ov-fiche-candidat .crit{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--bor2)}
 #ov-fiche-candidat .crit:last-child{border-bottom:none}
 #ov-fiche-candidat .crit .cname{flex:1;min-width:0;font-size:13px}
 #ov-fiche-candidat .crit .cbar{width:84px;height:6px;background:var(--bor);border-radius:3px;overflow:hidden;flex-shrink:0}
 #ov-fiche-candidat .crit .cbar i{display:block;height:100%;background:var(--acc);border-radius:3px}
-#ov-fiche-candidat .crit .cpts{font-family:'Manrope',sans-serif;font-weight:700;font-size:13px;width:54px;text-align:right;flex-shrink:0}
+#ov-fiche-candidat .crit .cpts{font-family:var(--display);font-weight:700;font-size:13px;width:54px;text-align:right;flex-shrink:0}
 /* Tooltip transparence */
 #ov-fiche-candidat .tip-wrap{position:relative;display:inline-flex}
 #ov-fiche-candidat .tip-ic{width:18px;height:18px;border-radius:50%;background:var(--sur3);color:var(--t2);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;cursor:help;border:1px solid var(--bor)}
@@ -9417,7 +9420,7 @@ function _renderAccueil(ctx) {
     +     '<circle cx="90" cy="90" r="72" fill="none" stroke="var(--bor, var(--sur3, #EEF1F6))" stroke-width="20"/>'
     +     '<circle cx="90" cy="90" r="72" fill="none" stroke="' + (pctPaid >= 90 ? 'var(--pos)' : pctPaid >= 70 ? 'var(--fg-warning,#F59E0B)' : 'var(--neg)') + '" stroke-width="20" '
     +       'stroke-dasharray="' + filled.toFixed(1) + ' ' + empty.toFixed(1) + '" stroke-dashoffset="-10" stroke-linecap="round" transform="rotate(-90 90 90)"/>'
-    +     '<text x="90" y="84" text-anchor="middle" font-family="Manrope,Inter,sans-serif" font-size="34" font-weight="800" fill="var(--t1)">' + pctPaid + '</text>'
+    +     '<text x="90" y="84" text-anchor="middle" font-family="var(--display)" font-size="34" font-weight="800" fill="var(--t1)">' + pctPaid + '</text>'
     +     '<text x="90" y="108" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="var(--t3)" letter-spacing="2">% PAYÉ</text>'
     +   '</svg>'
     +   '<div class="v4h-donut-info">'
@@ -9615,7 +9618,7 @@ function _renderDashV4Premium(ctx, wrap) {
         : '';
       let statut;
       if (st.vacant) statut = '<span style="color:var(--t3)">Vacant</span>';
-      else if (st.cls === 'ok') statut = '<span style="color:var(--fg-success);font-weight:600"' + (st.coverNote ? ' title="' + escHtml(st.coverNote) + '"' : '') + '>✓ Payé' + (st.coverNote ? ' <span style="color:#1a4fb0">↳ couvert par avance</span>' : '') + (st.enAvance ? ' <span style="color:#1a4fb0" title="Loyer payé d\'avance">· avance +' + (typeof fmt === 'function' ? fmt(st.avance) : st.avance) + '</span>' : '') + '</span>';
+      else if (st.cls === 'ok') statut = '<span style="color:var(--fg-success);font-weight:600"' + (st.coverNote ? ' title="' + escHtml(st.coverNote) + '"' : '') + '>✓ Payé' + (st.coverNote ? ' <span style="color:var(--adv)">↳ couvert par avance</span>' : '') + (st.enAvance ? ' <span style="color:var(--adv)" title="Loyer payé d\'avance">· avance +' + (typeof fmt === 'function' ? fmt(st.avance) : st.avance) + '</span>' : '') + '</span>';
       else if (st.cls === 'warn') statut = '<span style="color:var(--fg-warning);font-weight:600">~ Partiel (' + Math.round(st.ratio*100) + '%)</span>';
       else statut = '<span style="color:var(--fg-danger);font-weight:600">⚠ Impayé</span>';
       return '<tr><td><b>' + esc(l.ref) + '</b>' + proInfo + '</td>'
@@ -10028,18 +10031,18 @@ function _renderDashV4Premium(ctx, wrap) {
     // 3 cards summary
     const summary = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">'
       + '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +   '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Charges</div>'
-      +   '<div style="font:900 26px/1.1 \'Manrope\',sans-serif;color:var(--fg-danger);margin-top:8px;letter-spacing:-.02em">' + fmt(totalDb) + '</div>'
+      +   '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Charges</div>'
+      +   '<div style="font:900 26px/1.1 var(--display);color:var(--fg-danger);margin-top:8px;letter-spacing:-.02em">' + fmt(totalDb) + '</div>'
       +   '<div style="font-size:11.5px;color:var(--t2);margin-top:5px">' + sorted.length + ' catégorie' + (sorted.length > 1 ? 's' : '') + '</div>'
       + '</div>'
       + '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +   '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Loyers</div>'
-      +   '<div style="font:900 26px/1.1 \'Manrope\',sans-serif;color:var(--fg-success);margin-top:8px;letter-spacing:-.02em">' + fmt(loyersTot) + '</div>'
+      +   '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Loyers</div>'
+      +   '<div style="font:900 26px/1.1 var(--display);color:var(--fg-success);margin-top:8px;letter-spacing:-.02em">' + fmt(loyersTot) + '</div>'
       +   '<div style="font-size:11.5px;color:var(--t2);margin-top:5px">' + occupiedLogs.length + ' lots loués</div>'
       + '</div>'
       + '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +   '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Ratio</div>'
-      +   '<div style="font:900 26px/1.1 \'Manrope\',sans-serif;color:' + ratioColorHex + ';margin-top:8px;letter-spacing:-.02em">' + (ratioCh !== null ? ratioCh.toFixed(1) + ' %' : 'N/C') + '</div>'
+      +   '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Ratio</div>'
+      +   '<div style="font:900 26px/1.1 var(--display);color:' + ratioColorHex + ';margin-top:8px;letter-spacing:-.02em">' + (ratioCh !== null ? ratioCh.toFixed(1) + ' %' : 'N/C') + '</div>'
       +   '<div style="font-size:11.5px;color:var(--t2);margin-top:5px">' + (ratioCh === null ? 'Pas de loyer' : (ratioCh <= 30 ? '✓ Excellent' : (ratioCh <= 50 ? '⚠ Acceptable' : '⚠ Élevé'))) + '</div>'
       + '</div>'
       + '</div>';
@@ -10049,7 +10052,7 @@ function _renderDashV4Premium(ctx, wrap) {
       table = '<div style="padding:24px;text-align:center;color:var(--t3);background:var(--sur2);border-radius:10px;border:1px solid var(--bor)">Aucune dépense sur la période</div>';
     } else {
       const maxV = Math.max(...sorted.map(e => e[1]));
-      table = '<div style="font:700 13.5px/1 \'Manrope\',sans-serif;color:var(--t1);margin-bottom:10px">Détail des charges par catégorie</div>'
+      table = '<div style="font:700 13.5px/1 var(--display);color:var(--t1);margin-bottom:10px">Détail des charges par catégorie</div>'
         + '<table class="tbl" style="width:100%"><thead><tr><th>Catégorie</th><th style="text-align:right">Montant</th><th style="text-align:right">% des charges</th><th style="text-align:right">% des loyers</th><th>Poids</th></tr></thead><tbody>'
         + sorted.map(([cat, amt]) => {
             const pctCharges = totalDb > 0 ? Math.round(amt / totalDb * 100) : 0;
@@ -10266,18 +10269,18 @@ function _renderDashV4Premium(ctx, wrap) {
       // Header 3 grandes cards
       + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">'
       +   '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +     '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Projection</div>'
-      +     '<div style="font:900 28px/1.1 \'Manrope\',sans-serif;color:' + projColorHex + ';margin-top:8px;letter-spacing:-.02em">' + fmt(projection) + '</div>'
+      +     '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Projection</div>'
+      +     '<div style="font:900 28px/1.1 var(--display);color:' + projColorHex + ';margin-top:8px;letter-spacing:-.02em">' + fmt(projection) + '</div>'
       +     '<div style="font-size:11.5px;color:var(--t2);margin-top:5px">' + ratioProj + ' % de l\'objectif</div>'
       +   '</div>'
       +   '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +     '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Objectif</div>'
-      +     '<div style="font:900 28px/1.1 \'Manrope\',sans-serif;color:var(--t1);margin-top:8px;letter-spacing:-.02em">' + fmt(objAnnuel) + '</div>'
+      +     '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Objectif</div>'
+      +     '<div style="font:900 28px/1.1 var(--display);color:var(--t1);margin-top:8px;letter-spacing:-.02em">' + fmt(objAnnuel) + '</div>'
       +     '<div style="font-size:11.5px;color:var(--t2);margin-top:5px">' + scopeLogs.length + ' lot' + (scopeLogs.length > 1 ? 's' : '') + (occupiedLogs.length < scopeLogs.length ? ' (' + (scopeLogs.length - occupiedLogs.length) + ' vacant' + ((scopeLogs.length - occupiedLogs.length) > 1 ? 's' : '') + ')' : '') + ' × 12 mois théorique</div>'
       +   '</div>'
       +   '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +     '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Écart</div>'
-      +     '<div style="font:900 28px/1.1 \'Manrope\',sans-serif;color:' + projColorHex + ';margin-top:8px;letter-spacing:-.02em">' + (ecartProj >= 0 ? '+' : '') + fmt(ecartProj) + '</div>'
+      +     '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Écart</div>'
+      +     '<div style="font:900 28px/1.1 var(--display);color:' + projColorHex + ';margin-top:8px;letter-spacing:-.02em">' + (ecartProj >= 0 ? '+' : '') + fmt(ecartProj) + '</div>'
       +     '<div style="font-size:11.5px;color:var(--t2);margin-top:5px">' + (ratioProj >= 100 ? '✓ En avance' : (ratioProj >= 85 ? '⚠ Dans la cible' : '⚠ En retard')) + '</div>'
       +   '</div>'
       + '</div>'
@@ -10307,7 +10310,7 @@ function _renderDashV4Premium(ctx, wrap) {
       +   '</div>'
       + '</div>'
       // Détail par entité avec barres horizontales
-      + (projRows.length ? '<div style="font:700 13.5px/1 \'Manrope\',sans-serif;color:var(--t1);margin-bottom:10px">Détail par entité</div>'
+      + (projRows.length ? '<div style="font:700 13.5px/1 var(--display);color:var(--t1);margin-bottom:10px">Détail par entité</div>'
           + '<div style="display:flex;flex-direction:column;gap:10px">'
           + projRows.map(r => {
               const wReal = Math.round(r.realise / maxBar * 100);
@@ -10317,7 +10320,7 @@ function _renderDashV4Premium(ctx, wrap) {
               return '<div style="padding:12px 14px;background:var(--sur2);border-radius:10px;border:1px solid var(--bor)">'
                 + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'
                 +   '<div style="font:700 13px \'Inter\',sans-serif;color:var(--t1)">' + esc(r.nom) + '</div>'
-                +   '<div style="font:700 13px \'JetBrains Mono\',monospace;color:' + rRatioColor + '">' + r.ratio + ' %</div>'
+                +   '<div style="font:700 13px var(--mono);color:' + rRatioColor + '">' + r.ratio + ' %</div>'
                 + '</div>'
                 + '<div style="position:relative;height:10px;background:var(--sur3,var(--bor));border-radius:5px;overflow:visible">'
                 +   '<div style="position:absolute;left:0;top:0;height:100%;width:' + wReal + '%;background:#34D399;border-radius:5px 0 0 5px"></div>'
@@ -10361,16 +10364,16 @@ function _renderDashV4Premium(ctx, wrap) {
     html: ''
       + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">'
       +   '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +     '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Attendu (écoulé)</div>'
-      +     '<div style="font:900 28px/1.1 \'Manrope\',sans-serif;color:var(--t1);margin-top:8px">' + (typeof fmt==='function'?fmt(attenduEcoule):attenduEcoule) + '</div>'
+      +     '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Attendu (écoulé)</div>'
+      +     '<div style="font:900 28px/1.1 var(--display);color:var(--t1);margin-top:8px">' + (typeof fmt==='function'?fmt(attenduEcoule):attenduEcoule) + '</div>'
       +   '</div>'
       +   '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +     '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Encaissé</div>'
-      +     '<div style="font:900 28px/1.1 \'Manrope\',sans-serif;color:var(--t1);margin-top:8px">' + (typeof fmt==='function'?fmt(encaisseTotal):encaisseTotal) + '</div>'
+      +     '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Encaissé</div>'
+      +     '<div style="font:900 28px/1.1 var(--display);color:var(--t1);margin-top:8px">' + (typeof fmt==='function'?fmt(encaisseTotal):encaisseTotal) + '</div>'
       +   '</div>'
       +   '<div style="padding:16px 18px;background:var(--sur2);border-radius:12px;border:1px solid var(--bor)">'
-      +     '<div style="font:700 10.5px/1 \'JetBrains Mono\',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Écart</div>'
-      +     '<div style="font:900 28px/1.1 \'Manrope\',sans-serif;color:' + (ecartAE >= 0 ? 'var(--pos)' : 'var(--neg)') + ';margin-top:8px">' + (ecartAE >= 0 ? '+' : '') + (typeof fmt==='function'?fmt(ecartAE):ecartAE) + '</div>'
+      +     '<div style="font:700 10.5px/1 var(--mono);color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Écart</div>'
+      +     '<div style="font:900 28px/1.1 var(--display);color:' + (ecartAE >= 0 ? 'var(--pos)' : 'var(--neg)') + ';margin-top:8px">' + (ecartAE >= 0 ? '+' : '') + (typeof fmt==='function'?fmt(ecartAE):ecartAE) + '</div>'
       +   '</div>'
       + '</div>'
       + '<div style="padding:14px;background:var(--sur2);border-radius:10px;border:1px solid var(--bor);font-size:12.5px;color:var(--t2);line-height:1.6;margin-bottom:16px">'
@@ -10892,7 +10895,7 @@ function _renderDashV4Gestionnaire(ctx, wrap) {
     +   '</div>'
     +   '<div class="v4s-gest2-right">'
     +     '<div class="v4s-card">'
-    +       '<h3 style="font:700 13.5px Manrope,Inter,sans-serif;margin:0 0 8px">Agenda 15 jours</h3>'
+    +       '<h3 style="font:700 13.5px var(--display);margin:0 0 8px">Agenda 15 jours</h3>'
     +       calendarHtml
     +     '</div>'
     +     actionsCardHtml
@@ -18584,13 +18587,13 @@ function openFicheCandidat(id){
   if(c.statut==='converti'){
     convHtml = `<div class="card" style="border:1.5px solid rgba(124,58,237,.35);background:rgba(124,58,237,.05)">
       <div class="flex-b" style="flex-wrap:wrap;gap:12px">
-        <div><div style="font-weight:700;font-size:15px;font-family:'Manrope',sans-serif">Converti en bail${c.bailRef?(' — '+escHtml(c.bailRef)):''}</div>
+        <div><div style="font-weight:700;font-size:15px;font-family:var(--display)">Converti en bail${c.bailRef?(' — '+escHtml(c.bailRef)):''}</div>
         <div class="mu sm" style="margin-top:3px">Ce candidat a déjà été transformé en locataire.</div></div>
       </div></div>`;
   } else if(c.statut==='valide'){
     convHtml = `<div class="card" style="border:1.5px solid rgba(22,163,74,.35);background:rgba(22,163,74,.05)">
       <div class="flex-b" style="flex-wrap:wrap;gap:12px">
-        <div><div style="font-weight:700;font-size:15px;font-family:'Manrope',sans-serif">Candidat validé — prêt pour le bail</div>
+        <div><div style="font-weight:700;font-size:15px;font-family:var(--display)">Candidat validé — prêt pour le bail</div>
         <div class="mu sm" style="margin-top:3px">La création du bail reprendra l'identité, le bien et les conditions saisies.</div></div>
         <button class="btn bp" onclick="if(typeof convertCandidatToBail==='function'){convertCandidatToBail('${c.id}')}else{showToast('Conversion en bail : disponible à la prochaine étape (Phase 6).','info',5000)}">Créer le bail à partir de ce candidat →</button>
       </div></div>`;
@@ -22377,7 +22380,7 @@ function previewBailData(bail, log, ref, opts) {
           const premLabel = bail.premiereLoc==='relocation'
             ?'Remise en location (vacant &lt; 18 mois) \u2014 loyer plafonn\u00e9 au dernier loyer'+(bail.dernierLoyerPrec?' de '+bail.dernierLoyerPrec+'\u00a0\u20ac':'')+'.'
             :'Premi\u00e8re mise en location \u2014 loyer fix\u00e9 librement (art. 17, II, 1\u00b0).';
-          zoneSect='<p style="font-size:9.5pt;padding:6px 10px;background:#f0f4ff;border-left:3px solid var(--acc);border-radius:2px;margin-top:6px">'
+          zoneSect='<p style="font-size:9.5pt;padding:6px 10px;background:#f0f4ff;border-left:3px solid #ff5a3c;border-radius:2px;margin-top:6px">'
             +'<strong>Zone tendue (art. 17 loi 89-462)\u00a0:</strong> '+premLabel+'</p>';
         }
       }
@@ -40646,7 +40649,7 @@ function _renderOccupationDonut(loues, total, sizePx) {
       stroke-dasharray="${filled.toFixed(2)} ${empty.toFixed(2)}" stroke-dashoffset="${(c/4).toFixed(2)}"
       transform="rotate(-90 ${half} ${half})" stroke-linecap="round"
       style="transition:stroke-dasharray .6s ease-out"/>
-    <text x="${half}" y="${(half - 2).toFixed(0)}" text-anchor="middle" font-size="${(sizePx*0.22).toFixed(0)}" font-weight="700" fill="var(--t1)" font-family="Manrope, sans-serif">${pctTxt}</text>
+    <text x="${half}" y="${(half - 2).toFixed(0)}" text-anchor="middle" font-size="${(sizePx*0.22).toFixed(0)}" font-weight="700" fill="var(--t1)" font-family="var(--display)">${pctTxt}</text>
     <text x="${half}" y="${(half + 18).toFixed(0)}" text-anchor="middle" font-size="${(sizePx*0.1).toFixed(0)}" fill="var(--t3)">${loues}/${total||0}</text>
   </svg>`;
 }
@@ -50070,7 +50073,7 @@ function _bankScopeBar() {
     return !e || e.nom === acct.bailleur;
   });
   const immOpts = imms.map(im => `<option value="imm:${escHtml(im)}" ${sc&&sc.cible===im?'selected':''}>🏢 ${escHtml(im)}</option>`).join('');
-  return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--acc-bg,#eef4ff);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-size:12px">
+  return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--acc-bg);border:1px solid var(--bor);border-radius:10px;padding:8px 12px;font-size:12px">
     <span>📄 <b>Compte :</b> ${escHtml(acct.label||'Compte')}</span>
     <span style="color:var(--t3)">·</span>
     <span>${bailTxt}</span>
@@ -50267,7 +50270,7 @@ function _bankRulePanelHtml(i) {
     if (org.cat) bits.push('catégorie : règle « ' + escHtml(org.cat) + ' »');
     if (org.aff) bits.push('bien : règle « ' + escHtml(org.aff) + ' »');
     const idx = _bankRuleIdxOf(org.cat || org.aff);
-    return '<div style="background:var(--acc-bg,#eef4ff);border:1px solid var(--bor);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    return '<div style="background:var(--acc-bg);border:1px solid var(--bor);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
       + '<span>⚙ ' + bits.join(' · ') + '</span>'
       + (org.affUnresolved ? '<span style="color:var(--ora)">⚠ « le bailleur du compte » n\'a pas pu être résolu (compte mixte)</span>' : '')
       + (idx >= 0 ? '<a onclick="_bankRuleOpen(' + idx + ')" style="margin-left:auto;cursor:pointer;text-decoration:underline;color:var(--cta,#3b7ef6);font-weight:600">modifier la règle</a>' : '')
@@ -50507,7 +50510,7 @@ function _bankWalkDone() {
   const body = el('bank-mv-body');
   if (body) body.innerHTML = '<div style="text-align:center;padding:34px 16px">'
     + '<div style="font-size:46px">🎉</div>'
-    + '<h2 style="font-family:Manrope,sans-serif;margin:10px 0 6px;font-size:21px">Tu as parcouru tous les mouvements</h2>'
+    + '<h2 style="font-family:var(--display);margin:10px 0 6px;font-size:21px">Tu as parcouru tous les mouvements</h2>'
     + '<p class="mu" style="margin:0 0 4px;font-size:13.5px"><b style="color:var(--grn,#16a34a)">' + st.ok.length + '</b> prêt(s) à importer'
     + (st.todo.length ? ' · <b style="color:var(--ora,#d97706)">' + st.todo.length + '</b> à compléter' : '')
     + (okToReview.length ? ' · <b>' + okToReview.length + '</b> reconnu(s) auto à vérifier' : '') + '.</p></div>';
@@ -51034,25 +51037,25 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .hero{background:linear-gradient(135deg,var(--sur),var(--sur2));border:1px solid var(--bor2,var(--bor));border-radius:var(--rl,12px);padding:20px 24px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap}
 #p-finances .hero .hero-l{position:relative;min-width:220px}
 #p-finances .hero::before{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,.18),transparent 70%)}
-#p-finances .hero .big{font:800 40px/1 'Manrope',sans-serif;letter-spacing:-.03em;margin:6px 0 4px}
+#p-finances .hero .big{font:800 40px/1 var(--display);letter-spacing:-.03em;margin:6px 0 4px}
 #p-finances .hero .big.pos{color:var(--pos)}
 #p-finances .hero .big.neg{color:var(--neg)}
 #p-finances .hero .decomp{display:flex;gap:22px;flex-wrap:wrap;position:relative}
 #p-finances .hero .decomp .it{display:flex;flex-direction:column;gap:3px}
 #p-finances .hero .decomp .it .k{font:600 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
-#p-finances .hero .decomp .it .v{font:800 17px/1 'Manrope',sans-serif;color:var(--t1)}
+#p-finances .hero .decomp .it .v{font:800 17px/1 var(--display);color:var(--t1)}
 #p-finances .hero .decomp .it .v.neg{color:var(--neg)}
 #p-finances .fin-ratios{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
 #p-finances .ratio{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r,10px);padding:13px 14px}
 #p-finances .ratio .rl{font:600 10px/1.2 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
-#p-finances .ratio .rv{font:800 21px/1 'Manrope',sans-serif;margin:7px 0 4px}
+#p-finances .ratio .rv{font:800 21px/1 var(--display);margin:7px 0 4px}
 #p-finances .ratio .meter{height:6px;border-radius:6px;background:var(--sur2);overflow:hidden;margin:7px 0 5px}
 #p-finances .ratio .meter i{display:block;height:100%;border-radius:6px}
 #p-finances .ratio .rt{font-size:11px;color:var(--t2)}
 #p-finances .pl,#ov-dash-drill .pl{width:100%;border-collapse:collapse;font-size:13px}
 #p-finances .pl th,#ov-dash-drill .pl th{text-align:right;font:700 10px/1 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3);padding:8px 12px;border-bottom:1px solid var(--bor)}
 #p-finances .pl th:first-child,#ov-dash-drill .pl th:first-child{text-align:left}
-#p-finances .pl td,#ov-dash-drill .pl td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--bor);font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+#p-finances .pl td,#ov-dash-drill .pl td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--bor);font-family:var(--font);font-variant-numeric:tabular-nums}
 #p-finances .pl td:first-child,#ov-dash-drill .pl td:first-child{text-align:left;font-family:'Inter',sans-serif;color:var(--t2);font-weight:500}
 #p-finances .pl tr.grp td,#ov-dash-drill .pl tr.grp td{background:var(--sur2);font:700 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3);text-align:left;padding:7px 12px}
 #p-finances .pl tr.tot td,#ov-dash-drill .pl tr.tot td{font-weight:800;color:var(--t1);border-top:1px solid var(--bor2,var(--bor))}
@@ -51074,13 +51077,13 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #ov-dash-drill .fdr-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:5px;margin-bottom:18px}
 #ov-dash-drill .fdr-tile{flex:0 0 auto;min-width:92px;border:1px solid var(--bor);border-radius:var(--r);padding:7px 11px;background:var(--sur)}
 #ov-dash-drill .fdr-tile .n{font:600 11px/1.2 'Inter';color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
-#ov-dash-drill .fdr-tile .v{font:700 13px/1 'Manrope',sans-serif;color:var(--t1);margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#ov-dash-drill .fdr-tile .v{font:700 13px/1 var(--font);color:var(--t1);margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap}
 #ov-dash-drill .fdr-tile .v .p{color:var(--t3);font-weight:600;font-size:11px;margin-left:5px}
 #ov-dash-drill .fdr-dt{color:var(--t3);font-weight:600;font-size:11.5px;margin-right:8px;font-variant-numeric:tabular-nums}
 #ov-dash-drill .fdr-lib{font-family:'Inter',sans-serif;color:var(--t1);font-weight:500}
 #ov-dash-drill .fdr-nv{background:var(--warn-soft,rgba(178,122,18,.14));border:1px solid rgba(178,122,18,.35);border-radius:var(--r);padding:14px 16px;margin-bottom:16px;font-size:12px;color:var(--warn,#b27a12)}
 #ov-dash-drill .fdr-nv .hd{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:5px}
-#ov-dash-drill .fdr-nv .am{font:800 18px/1 'Manrope',sans-serif}
+#ov-dash-drill .fdr-nv .am{font:800 18px/1 var(--display)}
 #ov-dash-drill .fdr-nv .mv{font-size:11.5px;color:var(--t2);background:var(--sur);border:1px solid var(--bor);border-radius:7px;padding:6px 10px;margin:8px 0 13px;line-height:1.5}
 #ov-dash-drill .fdr-nv .lead{font:700 11px/1 'Inter';text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px}
 #ov-dash-drill .fdr-nv .act{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px}
@@ -51095,7 +51098,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .leakrow .tx s{display:block;font-size:11px;color:var(--t3);text-decoration:none}
 #p-finances .leakrow .dest{font-size:10.5px;color:#5c8aff;font-weight:600;margin-top:2px;opacity:0;transition:opacity .12s}
 #p-finances .leakrow:hover .dest{opacity:1}
-#p-finances .leakrow .am{font:800 16px/1 'Manrope',sans-serif;white-space:nowrap}
+#p-finances .leakrow .am{font:800 16px/1 var(--display);white-space:nowrap}
 #p-finances .leakrow .am.neg{color:var(--neg)}
 #p-finances .leakrow .am.warn{color:var(--warn)}
 #p-finances .leakrow .am.pos{color:var(--pos)}
@@ -51417,7 +51420,7 @@ function rFinances() {
   const capitalPret  = Math.round((echeancesPret - interetsPret) * 100) / 100;      // équité (si intérêts saisis)
   const cashFlow     = Math.round((S.resultatNet - capitalPret) * 100) / 100;       // retire l'échéance entière de la tréso
   const hasInterets  = interetsPret > 0 && capitalPret >= 0;                         // intérêts saisis → on peut couper le prêt en deux
-  const _enrCard = (k, v, h, vcolor, bg) => '<div style="flex:1;min-width:150px;padding:12px 14px;background:' + (bg || 'var(--sur2)') + '"><div style="font:700 10px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3)">' + k + '</div><div style="font:800 18px \'Manrope\',monospace;color:' + vcolor + ';margin-top:6px">' + v + '</div><div style="font-size:10px;color:var(--t2);margin-top:4px">' + h + '</div></div>';
+  const _enrCard = (k, v, h, vcolor, bg) => '<div style="flex:1;min-width:150px;padding:12px 14px;background:' + (bg || 'var(--sur2)') + '"><div style="font:700 10px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3)">' + k + '</div><div style="font:800 18px var(--display);color:' + vcolor + ';margin-top:6px">' + v + '</div><div style="font-size:10px;color:var(--t2);margin-top:4px">' + h + '</div></div>';
   const _enrOp = s => '<div style="display:flex;align-items:center;justify-content:center;font:800 18px Inter;color:var(--t3);padding:0 4px;background:var(--sur2)">' + s + '</div>';
   let _enrichHtml = '';
   if (echeancesPret > 0) {
@@ -51893,7 +51896,6 @@ function _finCompare2Mois(yr, moA, moB) {
   const mA = cur.months.find(m => m.mo === moA) || {}, mB = cur.months.find(m => m.mo === moB) || {};
   const _M = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const _MF = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-  const MONO = "'JetBrains Mono',ui-monospace,monospace";
   const ROWS = [
     { lbl: 'Loyers hors charges', k: 'loyersHC', kind: 'loyers', inc: true },
     ...(((mA.recettesDiverses || 0) || (mB.recettesDiverses || 0)) ? [{ lbl: 'Recettes diverses', k: 'recettesDiverses', kind: 'recettesDiverses', inc: true }] : []),
@@ -51985,7 +51987,7 @@ function _finOpenParLogement(yr) {
     + '<th style="text-align:left">Logement</th><th style="text-align:left">Locataire</th>'
     + '<th>Revenus</th><th>Charges</th><th>Cash-flow</th><th>Occ.</th></tr></thead><tbody>'
     + rows.map(l => '<tr>'
-        + '<td style="text-align:left;font-family:\'Manrope\',sans-serif">' + (l.ref || '') + '</td>'
+        + '<td style="text-align:left;font-family:var(--display)">' + (l.ref || '') + '</td>'
         + '<td style="text-align:left">' + (l.locataire || '—') + '</td>'
         + '<td class="num">' + f(l.revenus || 0) + '</td>'
         + '<td class="num neg">' + f(l.charges || 0) + '</td>'
@@ -52270,7 +52272,7 @@ function _finDrillLigne(kind, yr, mo) {
         const st = Math.round(_byMonth[ym].reduce((s, x) => s + x.montant, 0) * 100) / 100;
         const ss = _sgn(st), mi = parseInt(ym.slice(5, 7), 10) - 1;
         body += '<tr class="grp"><td>' + _DMOIS[mi] + ' ' + ym.slice(0, 4) + ' · ' + _byMonth[ym].length + ' mvt' + (_byMonth[ym].length > 1 ? 's' : '') + '</td>'
-          + '<td style="text-align:right;font-family:\'Manrope\',sans-serif;color:var(--' + (ss.cls === 'pos' ? 'pos' : 'neg') + ')">' + ss.txt + '</td></tr>';
+          + '<td style="text-align:right;font-family:var(--font);font-variant-numeric:tabular-nums;color:var(--' + (ss.cls === 'pos' ? 'pos' : 'neg') + ')">' + ss.txt + '</td></tr>';
         body += _byMonth[ym].map(_mvRow).join('');
       });
     }
@@ -52368,7 +52370,7 @@ function _finDrillRetard(kind, yr, mo) {
     if (!(arrear > 0.005)) continue;
     total += arrear;
     const chips = cause.map(c =>
-      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:Manrope,sans-serif;padding:6px 10px;border-radius:9px;background:var(--bg-warning);color:var(--ora);border:1px solid rgba(178,122,18,.25);min-width:62px">'
+      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:var(--bg-warning);color:var(--ora);border:1px solid rgba(178,122,18,.25);min-width:62px">'
       + '<span style="font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.03em;opacity:.85">' + _FIN_MOIS[c.idx] + '</span>'
       + '<span style="font-weight:800;font-size:13px">− ' + f(c.short) + '</span>'
       + '<span style="font:600 10px Inter;color:var(--t3)">dû ' + f(c.due) + '</span></div>').join('');
@@ -52407,7 +52409,7 @@ function _finDrillAvance(yr, mo) {
     if (!(lotAv > 0.005)) continue;
     total += lotAv;
     const chips = avM.map(x =>
-      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:Manrope,sans-serif;padding:6px 10px;border-radius:9px;background:rgba(24,95,165,.11);color:#185fa5;border:1px solid rgba(24,95,165,.25);min-width:62px">'
+      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:rgba(24,95,165,.11);color:#185fa5;border:1px solid rgba(24,95,165,.25);min-width:62px">'
       + '<span style="font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.03em;opacity:.85">' + _FIN_MOIS[x.idx] + '</span>'
       + '<span style="font-weight:800;font-size:13px">+ ' + f(x.av) + '</span></div>').join('');
     blocks.push('<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
@@ -55237,7 +55239,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 .affv2-lab .mu{font-weight:400;color:var(--t3)}
 .affv2-seg{display:flex;gap:10px;margin:2px 0 16px}
 .affv2-seg button{flex:1;border:1.5px solid var(--bor);background:var(--sur2);color:var(--t2);border-radius:var(--r,8px);
-  padding:12px 12px;cursor:pointer;font:700 13px 'IBM Plex Sans',-apple-system,sans-serif;display:flex;align-items:center;
+  padding:12px 12px;cursor:pointer;font:700 13px var(--font);display:flex;align-items:center;
   justify-content:center;gap:9px;line-height:1.2;transition:border-color .12s,background .12s}
 .affv2-seg button:hover{border-color:var(--t3)}
 .affv2-seg button .e{font-size:19px;flex:0 0 auto}
@@ -55249,7 +55251,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 @media(max-width:760px){.affv2-2col{grid-template-columns:1fr;gap:0}}
 .affv2-lvl{display:flex;gap:8px;margin-bottom:13px;flex-wrap:wrap}
 .affv2-lvl button{position:relative;flex:1;min-width:88px;border:1.5px solid var(--bor);background:var(--sur2);color:var(--t2);
-  border-radius:var(--r,8px);padding:11px 8px;cursor:pointer;font:600 12.5px 'IBM Plex Sans',-apple-system,sans-serif;
+  border-radius:var(--r,8px);padding:11px 8px;cursor:pointer;font:600 12.5px var(--font);
   display:flex;flex-direction:column;align-items:center;gap:4px;line-height:1.2;transition:transform .12s,border-color .12s,background .12s}
 .affv2-lvl button:hover{border-color:var(--t3);transform:translateY(-1px)}
 .affv2-lvl button .e{font-size:20px}
@@ -55260,14 +55262,14 @@ window.addEventListener('DOMContentLoaded', ()=>{
 .affv2-dest .ic{font-size:21px;line-height:1;flex:0 0 auto}
 .affv2-dest .ttl{font-weight:700;font-size:13.5px;margin-bottom:3px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--t1)}
 .affv2-dest .det{font-size:12px;color:var(--t2);line-height:1.5}
-.affv2-dest .tag2044{font-family:'Manrope',sans-serif;font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:2px 8px;border-radius:7px;white-space:nowrap}
+.affv2-dest .tag2044{font-family:var(--display);font-size:10.5px;font-weight:800;letter-spacing:.3px;padding:2px 8px;border-radius:7px;white-space:nowrap}
 .affv2-dest.tax{background:var(--bg-success);border-color:rgba(22,163,74,.25)}
 .affv2-dest.tax .tag2044{background:var(--grn,#16a34a);color:#fff}
 .affv2-dest.recu{background:rgba(124,58,237,.10);border-color:rgba(124,58,237,.25)} .affv2-dest.recu .ttl{color:var(--pur,#7c3aed)}
 .affv2-dest.recu .tag2044{background:var(--pur,#7c3aed);color:#fff}
 .affv2-dest.none{background:var(--sur2);border-color:var(--bor)}
 @media(max-width:560px){.affv2-seg{flex-direction:column}}
-/* liste d'import — lignes au look v2 (tile icône, libellé SANS, montant Manrope, chips colorées) */
+/* liste d'import — lignes au look v2 (tile icône, libellé SANS, montant en display, chips colorées) */
 .bimp-row{display:flex;align-items:center;gap:13px;padding:12px 14px;border:1px solid var(--bor);border-radius:var(--rl,14px);
   margin-bottom:9px;background:var(--sur2);cursor:pointer;border-left:3px solid transparent;
   transition:box-shadow .12s,transform .12s,border-color .12s}
@@ -55278,8 +55280,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
 .bimp-row.cr .bimp-ic{background:var(--bg-success)} .bimp-row.db .bimp-ic{background:var(--bg-danger,rgba(220,38,38,.10))}
 .bimp-mid{flex:1;min-width:0}
 .bimp-l1{display:flex;align-items:baseline;gap:10px;justify-content:space-between}
-.bimp-lib{font-size:13.5px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.1px;flex:1;min-width:0;font-family:'IBM Plex Sans',-apple-system,sans-serif}
-.bimp-amt{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;flex:0 0 auto;font-variant-numeric:tabular-nums;letter-spacing:-.2px;white-space:nowrap}
+.bimp-lib{font-size:13.5px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.1px;flex:1;min-width:0;font-family:var(--font)}
+.bimp-amt{font-family:var(--font);font-weight:800;font-size:15px;flex:0 0 auto;font-variant-numeric:tabular-nums;letter-spacing:-.2px;white-space:nowrap}
 .bimp-amt.cr{color:var(--grn,#16a34a)} .bimp-amt.db{color:var(--red,#dc2626)}
 .bimp-l2{display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap}
 .bimp-cat{font-size:12px;color:var(--t2);font-weight:600}
@@ -55301,7 +55303,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 #ov-bank-import #bank-review-scroll{flex:1 1 auto;min-height:0;max-height:none!important;overflow:auto}
 /* barre de progression du parcours (Phase 2) en tête de la fenêtre « Renseigner » */
 .bmvprog{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--bor);background:var(--sur2);border-radius:14px 14px 0 0}
-.bmvprog-step{font-family:'Manrope',sans-serif;font-weight:800;font-size:13.5px;white-space:nowrap;color:var(--t1)}
+.bmvprog-step{font-family:var(--display);font-weight:800;font-size:13.5px;white-space:nowrap;color:var(--t1)}
 .bmvprog-bar{flex:1;height:8px;border-radius:5px;background:var(--sur3);overflow:hidden;min-width:50px}
 .bmvprog-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--cta,#3b7ef6),#2d6de0);width:0;transition:width .25s}
 .bmvprog-dots{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:42%}
@@ -55591,7 +55593,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 #ov-bss-share .bss-ctx-t{font-weight:700;color:var(--t1)}
 #ov-bss-share .bss-ctx-s{font-size:12.5px;color:var(--t2);margin-top:2px}
 #ov-bss-share .bss-linkbox{display:flex;gap:8px;align-items:stretch}
-#ov-bss-share .bss-linkbox .url{flex:1;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
+#ov-bss-share .bss-linkbox .url{flex:1;background:var(--sur2);border:1.5px solid var(--bor);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:12.5px;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center}
 #ov-bss-share .bss-linkbox .url.ok{border-color:var(--grn);background:var(--bg-success)}
 #ov-bss-share .bss-chans{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px}
 #ov-bss-share .bss-chan{display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 6px;border:1.5px solid var(--bor);border-radius:var(--rl);background:var(--sur2);cursor:pointer;transition:all .15s;text-align:center}

@@ -1415,16 +1415,9 @@ function injectStyles() {
   const s = document.createElement('style'); s.id = 'imsb-style'; s.textContent = css
   document.head.appendChild(s)
 
-  // Polices de la charte (Schibsted Grotesk + Inter), idempotent.
-  try {
-    if (!document.getElementById('imsb-fonts')) {
-      const pre1 = document.createElement('link'); pre1.rel = 'preconnect'; pre1.href = 'https://fonts.googleapis.com'
-      const pre2 = document.createElement('link'); pre2.rel = 'preconnect'; pre2.href = 'https://fonts.gstatic.com'; pre2.crossOrigin = 'anonymous'
-      const f = document.createElement('link'); f.id = 'imsb-fonts'; f.rel = 'stylesheet'
-      f.href = 'https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap'
-      document.head.appendChild(pre1); document.head.appendChild(pre2); document.head.appendChild(f)
-    }
-  } catch (e) {}
+  // LOT 1 — l'injection d'un SECOND lien Google Fonts est supprimée : Schibsted Grotesk
+  // et Inter sont vendorisées (css/fonts/, @font-face en tête de css/main.css), qui est
+  // chargée par index.html avant cet écran. Règle projet : aucun CDN au runtime.
 }
 
 // ── Démarrage (en dernier : toutes les déclarations const/function sont initialisées) ───────────
