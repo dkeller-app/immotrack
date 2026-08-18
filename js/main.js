@@ -174,6 +174,10 @@ import * as IrlCalendrier from './core/irl-calendrier.js';
 // Finances. L'onglet Loyers le CONSOMME aussi (jamais un groupement reinvente).
 import * as GroupByImm from './core/group-by-imm.js';
 
+// CDC-QUITTANCES-IRL etape 7 (D20) - lecture de la serie IRL sur l'API BDM de l'INSEE.
+// Module PUR : le fetch est fait par index.html, le XML arrive ici en argument.
+import * as IrlInsee from './core/irl-insee.js';
+
 // v15.12 GESTION DG & IMPAYÉS Sprint 12 - tracking DG + plan apurement + procédure judiciaire
 import {
   _dgStatut, _calculerDelaiRestitution, _calculerSoldeDG,
@@ -413,6 +417,7 @@ window.ymRange = ymRange;
 // IRL - LE calendrier des revisions : namespace expose (etatRevision, ganttRevisions, ETAT...).
 window.IrlCalendrier = IrlCalendrier;
 window.GroupByImm = GroupByImm;
+window.IrlInsee = IrlInsee;
 
 // GESTION DG & IMPAYÉS (v15.12 Sprint 12) - tracking DG + plan apurement + procédure
 window._dgStatut = _dgStatut;
