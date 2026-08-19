@@ -18,6 +18,37 @@
 Rappel des 2 sources (règle existante, confirmée) : **le bail donne le dû** (barème historisé,
 `duMois` / `_duMoisLot`), **l'import bancaire donne le payé**. La quittance ne pilote aucun calcul.
 
+### 0bis · **FINANCES EST L'ONGLET MAÎTRE** (arbitré par Didier le 19/08)
+
+> **Finances détient le moteur. Toutes les autres surfaces le LISENT — aucune ne recalcule.**
+
+Déclencheur : la passe de vérification a mis à nu **deux moteurs concurrents qui répondent différemment à
+la même question**. Sur le même parc, le même exercice : l'Accueil annonce « Loyers 2026 · 69 % ·
+145 491 € sur 210 880 € attendu · écart −65 389 € », Finances annonce « 83,1 % · 29 365 € de retard ».
+**36 024 € d'écart, deux écrans, une seule question.** Le coupable est `_projectionLogement`
+(`index.html:10160-10236`) et son heuristique « un paiement est la preuve d'un attendu » (`:10205-10206`).
+Même racine pour la **dette fantôme de 21 777 €** affichée sur une année future avec « 31 relances pour
+atteindre 100 % » : le repli `objMensuel = Σ(hc+ch) actuels` (`index.html:9549`, libellé `:9751`,
+alerte `:9753`) — qui est en plus une infraction directe à I-1 (valeur actuelle appliquée au passé).
+
+**Conséquence, opposable à tout chantier futur :**
+1. Le dû, le payé, le retard, le taux d'encaissement et le taux d'occupation ont **une seule
+   implémentation**, celle de Finances : `duMois`/`_duMoisLot` pour le dû, le moteur mensuel pour le reste,
+   `finances-scope.js` pour le périmètre, `finances-window.js` pour les fenêtres.
+2. **Aucune heuristique de repli n'a le droit d'inventer un attendu.** Si le dû n'est pas connu pour un
+   mois, il vaut zéro et l'écran le dit — il ne se déduit ni d'un paiement observé, ni d'un montant actuel
+   projeté en arrière.
+3. Accueil, Tableau de bord, fiches entité, fiches logement et Suivi des loyers **consomment** ce moteur.
+   Un chiffre d'argent qui apparaît sur deux écrans doit être **le même octet**, pas deux calculs qui
+   convergent.
+4. **Test d'invariant permanent** : pour un périmètre et un exercice donnés, le taux d'encaissement, le
+   montant de retard et le compte d'impayés de l'Accueil sont **identiques au centime** à ceux de
+   Finances. Toute divergence est un défaut bloquant, jamais un arrondi.
+
+Reste à faire (lot « Finances = onglet maître », après l'intégration de l'étape 2) : supprimer
+`_projectionLogement` comme source de vérité et brancher l'Accueil sur le moteur, tuer le repli
+`objMensuel`.
+
 ### I-1 · Invariant HISTORIQUE DES BAUX — testable, à re-vérifier à chaque évolution
 
 Aucune surface de Finances ne lit un loyer « actuel » ou « moyen » pour un mois passé. Toute valeur de dû
