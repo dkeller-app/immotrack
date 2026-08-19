@@ -91,7 +91,10 @@ Gates : **3250/3250** (3 runs), inline 5|0, CRLF 0 LF nu, fuzz **2,4 M de scéna
 - 🟠 **R3** (`:50161`) la restitution DG sans date écrit un **demi-état** et affiche « ✓ DG restitué » alors que le bail reste **non restitué** sur toutes les surfaces.
 - 🟠 **R4** (`:39061`) le champ « Fin de la période » ajouté pour C1 est un **no-op silencieux** — toast de succès, barème intact.
 Plus R5 (l'aperçu contredit le document sur un mois déjà forcé), R6 (préexistant : date **et** montant → **deux périodes vivantes** au même début), R7, R8.
-🔨 **Renvoyé au chantier**, R1 en premier, chacun re-vérifié au navigateur sur le geste qui le déclenche.
+✅ **LES 8 CORRIGÉS ET RE-VÉRIFIÉS sur leur geste déclencheur** (tête `1f5f5bf`, **3267 tests**) : R1 le reçu **reste un reçu à 300 €**, jamais 800 (chemin réel reproduit) · R2 réf `L'Or-01` intacte, **0 période orpheline** · R3 « restitution **INCOMPLÈTE** », le bail reste « à restituer » · R4 la fin s'écrit vraiment · R5 aperçu **et** PDF concordent · R6 **une seule** ligne vivante · R7 montants **vides** + avertissement · R8 dû lu après le repli.
+🚩 **9ᵉ défaut trouvé en déroulant les 8 combinaisons du geste ✏️** : déplacer une période dans le passé, au milieu d'une période close, créait **deux lignes vivantes sur les mêmes mois** → dû ambigu. L'ancien geste « ＋ Corriger » avait ce garde-fou, **le geste unifié l'avait perdu**. Nouveau `chevauchements()` pur et testé : il nomme la période qui gêne et dit quoi faire — **7 combinaisons sur 8 écrivent, la 8ᵉ est refusée avec son message**, 0 chevauchement.
+Gates : 3267/3267, inline 5|0, CRLF 0 LF nu, fuzz 2,4 M scénarios → 0 divergence, parcours **21 étapes** × 3 formats × 2 thèmes, écran inchangé (**914 / 711 / 960 px**).
+🔍 **3ᵉ passe d'audit en cours** — le pilotage a demandé confirmation que son périmètre est bien figé sur la tête réelle (audit annoncé sur `e4d07d0`, tête `1f5f5bf`).
 
 ## 🔨 EDL TERRAIN — lancé 19/08 (ordre user, en attendant `propryo.fr`)
 
