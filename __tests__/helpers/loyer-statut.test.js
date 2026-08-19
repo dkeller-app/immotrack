@@ -263,43 +263,43 @@ describe('_computeLoyerChargeAlloc — cascade CUMULATIVE, dettes avant avance (
   const sum = (out) => out.reduce((a, b) => ({ hc: a.hc + b.loyersHC, prov: a.prov + b.provisions, av: a.av + b.avance }), { hc: 0, prov: 0, av: 0 });
   it('SCÉNARIO USER : mai partiel 515, juin 615 → juin récupère les 15 d\'arriéré, avance 70 (PAS 85)', () => {
     const out = _computeLoyerChargeAlloc([M(530), M(530), M(530), M(530), M(515), M(615)]);
-    expect(out[4]).toEqual({ loyersHC: 500, provisions: 15, avance: 0 });    // mai : 500 loyer + 15 charges (arriéré 15)
-    expect(out[5]).toEqual({ loyersHC: 570, provisions: 45, avance: 70 });   // juin : 500 loyer + 70 avance ; 30 courant + 15 récup
+    expect(out[4]).toEqual({ loyersHC: 500, provisions: 15, avance: 0, rattrapage: 0 });    // mai : 500 loyer + 15 charges (arriéré 15)
+    expect(out[5]).toEqual({ loyersHC: 570, provisions: 45, avance: 70, rattrapage: 15 });   // 15 d'arriéré de charges récupéré en juin   // juin : 500 loyer + 70 avance ; 30 courant + 15 récup
     expect(sum(out)).toEqual({ hc: 3070, prov: 180, av: 70 });               // annuel : arriéré comblé, avance 70
   });
   it('à jour → provisions pleines, 0 avance', () => {
     expect(_computeLoyerChargeAlloc([M(530), M(530)])).toEqual([
-      { loyersHC: 500, provisions: 30, avance: 0 }, { loyersHC: 500, provisions: 30, avance: 0 }]);
+      { loyersHC: 500, provisions: 30, avance: 0, rattrapage: 0 }, { loyersHC: 500, provisions: 30, avance: 0, rattrapage: 0 }]);
   });
   it('mois impayé au milieu → AUCUN pull-back négatif (janv payé, févr 0)', () => {
     const out = _computeLoyerChargeAlloc([M(530), M(0)]);
-    expect(out[0]).toEqual({ loyersHC: 500, provisions: 30, avance: 0 });
-    expect(out[1]).toEqual({ loyersHC: 0, provisions: 0, avance: 0 });       // févr impayé, PAS de −30
+    expect(out[0]).toEqual({ loyersHC: 500, provisions: 30, avance: 0, rattrapage: 0 });
+    expect(out[1]).toEqual({ loyersHC: 0, provisions: 0, avance: 0, rattrapage: 0 });       // févr impayé, PAS de −30
   });
   it('loyer priorité : paie 500 sur 530 → 500 loyer, 0 charges (charges en arriéré)', () => {
-    expect(_computeLoyerChargeAlloc([M(500)])[0]).toEqual({ loyersHC: 500, provisions: 0, avance: 0 });
+    expect(_computeLoyerChargeAlloc([M(500)])[0]).toEqual({ loyersHC: 500, provisions: 0, avance: 0, rattrapage: 0 });
   });
   it('excédent franc : paie 545 → 500 loyer + 30 charges + 15 avance (loyersHC = 515)', () => {
-    expect(_computeLoyerChargeAlloc([M(545)])[0]).toEqual({ loyersHC: 515, provisions: 30, avance: 15 });
+    expect(_computeLoyerChargeAlloc([M(545)])[0]).toEqual({ loyersHC: 515, provisions: 30, avance: 15, rattrapage: 0 });
   });
   it('arriéré de loyer récupéré AVANT charges (loyer priorité) : janv 0, févr 1060 → tout comblé', () => {
     const out = _computeLoyerChargeAlloc([M(0), M(1060)]);
-    expect(out[1]).toEqual({ loyersHC: 1000, provisions: 60, avance: 0 });   // févr : 500 courant + 500 récup loyer, 30+30 charges
+    expect(out[1]).toEqual({ loyersHC: 1000, provisions: 60, avance: 0, rattrapage: 530 });   // févr : 500 courant + 500 récup loyer, 30+30 charges
   });
   it('lot SANS bail (dû 0/0) : tout en loyer, AUCUNE avance (un arriéré n\'est pas une avance)', () => {
-    expect(_computeLoyerChargeAlloc([{ hcDue: 0, chDue: 0, received: 500 }])[0]).toEqual({ loyersHC: 500, provisions: 0, avance: 0 });
+    expect(_computeLoyerChargeAlloc([{ hcDue: 0, chDue: 0, received: 500 }])[0]).toEqual({ loyersHC: 500, provisions: 0, avance: 0, rattrapage: 0 });
   });
   it('prorata d\'entrée : janv dû 327,50 (mi-mois), paie 327,50 → tout loyer HC, 0 charge', () => {
-    expect(_computeLoyerChargeAlloc([{ hcDue: 327.5, chDue: 0, received: 327.5 }])[0]).toEqual({ loyersHC: 327.5, provisions: 0, avance: 0 });
+    expect(_computeLoyerChargeAlloc([{ hcDue: 327.5, chDue: 0, received: 327.5 }])[0]).toEqual({ loyersHC: 327.5, provisions: 0, avance: 0, rattrapage: 0 });
   });
   it('CHANGEMENT DE LOCATAIRE : un paiement sur un mois SANS dû (ancien bail non résolu) n\'est PAS une avance', () => {
     // mois 1 : ancien locataire paie 530, mais dû du mois = 0 (bail historique absent) ; mois 2 : nouveau, dû 500/30
     const out = _computeLoyerChargeAlloc([{ hcDue: 0, chDue: 0, received: 530 }, { hcDue: 500, chDue: 30, received: 530 }]);
-    expect(out[0]).toEqual({ loyersHC: 530, provisions: 0, avance: 0 });   // PAS 530 « perçu d'avance »
-    expect(out[1]).toEqual({ loyersHC: 500, provisions: 30, avance: 0 });
+    expect(out[0]).toEqual({ loyersHC: 530, provisions: 0, avance: 0, rattrapage: 0 });   // PAS 530 « perçu d'avance »
+    expect(out[1]).toEqual({ loyersHC: 500, provisions: 30, avance: 0, rattrapage: 0 });
   });
   it('avance LÉGITIME conservée : trop-payé un mois AVEC dû actif reste une avance', () => {
-    expect(_computeLoyerChargeAlloc([{ hcDue: 500, chDue: 30, received: 700 }])[0]).toEqual({ loyersHC: 670, provisions: 30, avance: 170 });
+    expect(_computeLoyerChargeAlloc([{ hcDue: 500, chDue: 30, received: 700 }])[0]).toEqual({ loyersHC: 670, provisions: 30, avance: 170, rattrapage: 0 });
   });
 });
 

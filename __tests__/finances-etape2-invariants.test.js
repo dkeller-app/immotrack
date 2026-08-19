@@ -194,3 +194,70 @@ describe('étape 2 · tranche 2 — R-2 : recouvrement sur le dû du barème (su
     expect(Math.round((du - retard) / du * 1000) / 10).toBeCloseTo(88.9, 1);
   });
 });
+
+describe('étape 2 · tranche 3 — tableau (L-2/L-4/L-5, rattrapage, H-2, H-7)', () => {
+  it('L-5 : le « resté à ta charge » bascule en Autres (225) et le cash-flow réel ne bouge pas d\'un centime', () => {
+    const mvts = mouvementsJusquA(9).concat([
+      { date: '2026-04-12', cat: 'Eau', db: 300, qui: LOT },        // récupérable, bail actif → transit
+      { date: '2026-05-20', cat: 'Eau', db: 120, qui: 'LOT-VIDE' }  // récupérable, lot SANS bail → à charge
+    ]);
+    const isRecup = (m) => m.cat === 'Eau';
+    const base = { mouvements: mvts, year: YEAR, scope: null, catLigne, loyerDue, activeLots: [LOT], today: TODAY };
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const sans = _computeFinancesMonthly(Object.assign({}, base, { window: win, isRecupCharge: isRecup }));
+    const avec = _computeFinancesMonthly(Object.assign({}, base, { window: win, isRecupCharge: isRecup, isRecupACharge: (m) => m.qui === 'LOT-VIDE' }));
+    expect(avec.annual.recupACharge).toBe(120);
+    expect(avec.annual.autres).toBe(120);            // bascule ligne 225
+    expect(avec.annual.recup).toBe(300);             // seul le récupérable reste au transit
+    expect(avec.annual.recupSolde).toBe(sans.annual.recupSolde + 120);
+    expect(avec.annual.cashflowReel).toBe(sans.annual.cashflowReel);   // déplacement, pas ajout
+    // L-4 : total charges = somme exacte des lignes affichées
+    const m5 = avec.months.find((m) => m.mo === 5);
+    expect(m5.charges).toBeCloseTo(m5.pret + m5.taxe + m5.travaux + m5.honoraires + m5.assurance + m5.gestionHF + m5.autres, 2);
+  });
+
+  it('rattrapage : l\'arriéré de mars encaissé en juin apparaît en sous-ligne du mois de juin', () => {
+    const mvts = [];
+    for (let m = 1; m <= 9; m++) {
+      if (m === 3) continue;                                   // mars impayé
+      mvts.push(mvLoyer(YEAR + '-' + String(m).padStart(2, '0'), m === 6 ? 1800 : 900));  // juin paie double
+    }
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const r = run(mvts, win);
+    const juin = r.months.find((m) => m.mo === 6);
+    expect(juin.rattrapage).toBe(900);                         // le mois qui reçoit porte le rattrapage
+    const mars = r.months.find((m) => m.mo === 3);
+    expect(mars.loyerRetard + mars.chargeRetard).toBe(0);      // arriéré soldé (netting)
+    expect(r.annual.rattrapage).toBe(900);
+  });
+
+  it('H-2 : un encaissement de loyer SANS lot est compté au total ET rendu visible (nonAffecte)', () => {
+    const mvts = mouvementsJusquA(9).concat([{ date: '2026-06-15', cat: 'Loyer', cr: 750, qui: '' }]);
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const r = run(mvts, win);
+    const juin = r.months.find((m) => m.mo === 6);
+    expect(juin.nonAffecte).toBe(750);
+    expect(r.annual.nonAffecte).toBe(750);
+    expect(r.annual.loyersBrut).toBe(9 * 900 + 750);           // total juste (rien ne disparaît)
+  });
+
+  it('H-7 : des intérêts datés 31/12 sont répartis au prorata des échéances payées et n\'étendent pas le constat', () => {
+    const mvts = mouvementsJusquA(9).concat([
+      { date: '2026-01-05', cat: 'Prêt', db: 600 }, { date: '2026-02-05', cat: 'Prêt', db: 600 },
+      { date: '2026-12-31', cat: 'Interets', db: 1200 }
+    ]);
+    const cat3 = (c) => (c === 'Loyer' ? { ligne2044: '211', type: 'recette' } : (c === 'Interets' ? { ligne2044: '250', type: 'interet' } : null));
+    // La fenêtre de constat EXCLUT les intérêts de son extension (côté app : filtreMouvement).
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts, filtreMouvement: (mv) => mv.cat !== 'Interets' });
+    expect(win.lastMonth).toBe(9);                             // pas de décembre fantôme
+    const r = _computeFinancesMonthly({
+      mouvements: mvts, year: YEAR, scope: null, catLigne: cat3, loyerDue,
+      activeLots: [LOT], today: TODAY, window: win, isEcheance: (m) => m.cat === 'Prêt'
+    });
+    const jan = r.months.find((m) => m.mo === 1), fev = r.months.find((m) => m.mo === 2);
+    expect(jan.interets).toBe(600);                            // 1200 × (600/1200)
+    expect(fev.interets).toBe(600);
+    expect(r.annual.interets).toBe(1200);
+    expect(r.interetsKnown).toBe(true);
+  });
+});

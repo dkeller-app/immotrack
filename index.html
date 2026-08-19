@@ -4097,7 +4097,7 @@ const STD_CATEGORIES = [
   { nom: 'Travaux de construction / agrandissement (non déductible)', ligne2044:'', type:'special', icon:'🧱', editable:false, deletable:false, std:true, descHors:'Construction / reconstruction / agrandissement — NON déductible des revenus fonciers (≠ entretien). S\'ajoute au prix de revient pour la plus-value.' },
   { nom: 'Virement interne (non déclarable)',               ligne2044:'',    type:'special', icon:'🔁', editable:false, deletable:false, std:true, descHors:'Transfert entre 2 comptes du bailleur — ne rien déclarer (détection auto des paires = sujet FEAT-VIR-INTERNE).' },
   { nom: 'CCA / distribution SCI',                          ligne2044:'',    type:'special', niv:'sci', icon:'🏦', editable:false, deletable:false, std:true, descHors:'Compte courant d\'associé (apport / retrait) ou distribution de résultat — trésorerie entre la SCI et ses associés, hors résultat foncier.' },
-  { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso, régularisation de solde locataire… — hors champ foncier (déplacement/matériel déjà dans le forfait 222).' },
+  { nom: 'Divers (non déductible)',                         ligne2044:'',    type:'special', icon:'📋', editable:false, deletable:false, std:true, descHors:'Péage, carburant, tablette/matériel, repas, dépenses perso… — hors champ foncier (déplacement/matériel déjà dans le forfait 222). Le règlement d\'un solde de régularisation de charges par un locataire se classe en « Charges récupérables (eau, énergie…) », pas ici.' },
   { nom: 'Acompte de charges (départ)',                     ligne2044:'',    type:'special', niv:'log', icon:'🏁', editable:false, deletable:false, std:true, descHors:'Acompte versé par un locataire partant, en anticipation de la régularisation des charges. Neutre au 2044 ; imputé sur le décompte final. À ne PAS confondre avec un loyer (sinon compté deux fois).' },
   // ── AUTO — calculées par l'app (régul), HORS menu de saisie ; gardées pour le mapping 2044 ──
   { nom: 'Charges récupérables non récupérées',             ligne2044:'225', type:'charge',  auto:true, icon:'⚡', editable:false, deletable:false, std:true, descHors:'Part avancée par le bailleur et non remboursée au départ du locataire — calculée automatiquement par la régularisation (computeRegul). Tu ne la tagues jamais.' },
@@ -49797,16 +49797,23 @@ let _bankReviewedOk = false;   // A7 : l'utilisateur a-t-il VÉRIFIÉ (scrollé)
 // SANS le critère « automatisable ». C'est elle qui arme « Valider l'opération » : avant,
 // le bouton exigeait _bankLineDone → _bankIsAutomatable → _reviewed… posé PAR ce bouton
 // (deadlock : une proposition complète ne pouvait JAMAIS être validée).
+// H-2b (CDC FINANCES §4) : un encaissement de LOYER sans lot rattaché bloque la validation de
+// l'import tant qu'il n'est pas réparti — le total serait juste mais le détail faux (les
+// locataires concernés apparaîtraient en impayé). CAF/APL : la ventilation devient obligatoire,
+// l'écran de répartition (✂️ découpage) existe déjà. Aucune donnée nouvelle à saisir.
+function _bankIsLoyerCat(c) { const r = (typeof _finCatLigne === 'function') ? _finCatLigne(c) : null; return !!(r && r.ligne2044 === '211'); }
 function _bankLineComplete(line) {
   if (!line) return false;
   if (!line.date) return false;                               // AUDIT M2 — pas de « Valider » armé sur une ligne sans date
   if (Array.isArray(line._sp) && line._sp.length) {           // V3 Phase 4 — ligne découpée : complète si le split équilibre le net
     const net = line._sp.reduce((s, r) => s + (r.sens === 'cr' ? (Number(r.montant) || 0) : -(Number(r.montant) || 0)), 0);
     const bankNet = (line.credit || 0) - (line.debit || 0);
+    if (!line._sp.every(r => !(r.sens === 'cr' && _bankIsLoyerCat(r.cat)) || !!r.qui)) return false;   // H-2b : chaque part de loyer désigne SON lot
     return Math.abs(bankNet - net) < 0.01 && line._sp.every(r => (Number(r.montant) || 0) > 0);
   }
   const cat = line.suggestedCat || '';
   if (!cat) return false;
+  if ((Number(line.credit) || 0) > 0 && _bankIsLoyerCat(cat) && !line.suggestedQui) return false;      // H-2b : loyer encaissé → lot obligatoire (imm/SCI insuffisant)
   const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(cat) : null;
   // Cible (logement/immeuble/SCI/compteur) requise pour : recette/charge/intérêt, récupérable,
   // ET les 'special' qui ont un niveau d'affectation par défaut (niv) — ex. Prêt→immeuble,
@@ -51666,13 +51673,42 @@ function _finLoyersHC(year, scope, win) {
 //   n1           → N-1 aligné sur la MÊME étendue de mois que N (T-2)
 function _finWindows(yr, scope) {
   if (typeof window._finWindowConstat !== 'function') return null;
-  const constat = window._finWindowConstat({ year: yr, mouvements: DB.mouvements || [], scope: scope || undefined });
+  // H-7 : un mouvement d'INTÉRÊTS (ligne 250, souvent daté 31/12) est une donnée annuelle, pas
+  // un flux — il n'étend JAMAIS la fenêtre de constat (sinon décembre s'ouvre toute l'année).
+  const _horsConstat = (mv) => { const r = _finCatLigne(mv && mv.cat); return !!(r && r.ligne2044 === '250'); };
+  const constat = window._finWindowConstat({
+    year: yr, mouvements: DB.mouvements || [],
+    filtreMouvement: (mv) => !_horsConstat(mv) && (!scope || window._finScopeWeightCore(scope, mv) > 0)
+  });
   const exigibilite = window._finWindowExigibilite({ year: yr });
   return { constat, exigibilite, n1: window._finWindowAlignN1(constat) };
 }
 // ---- B4 : entrée DRY vers le calcul mensuel pur (modèle prêt entier). `win` = fenêtre de
 // finances-window.js (LA forme à utiliser : lastMonth borne le constat, dueMonth le retard) ;
 // un nombre reste accepté pour les appelants historiques (les 2 bornes valent ce mois). ----
+// L-5 — une charge récupérable AVANCÉE reste À TA CHARGE quand aucun locataire ne peut la
+// rembourser : lot précis → compte-charges désactivé OU aucun dû ce mois-là (vacance / sans
+// bail, lu sur le barème via _finBailHcChAt) ; niveau immeuble → immeuble entièrement vide ce
+// mois. Elle bascule alors dans « Autres charges propriétaire » (ligne 225) — cash-flow réel
+// inchangé au centime (déplacement, pas ajout). Le détail fin par compteur reste l'affaire de
+// la page Régularisation (computeRegul), pas du P&L.
+function _finIsRecupACharge(m) {
+  if (!m || !m.date) return false;
+  const ym = String(m.date).slice(0, 7);
+  const qui = m.qui || '';
+  if (qui && qui.indexOf('SCI:') !== 0) {
+    const lg = (DB.logements || []).find(l => l && !l._deleted && l.ref === qui);
+    if (lg && lg.compteCharges === false) return true;
+    const d = _finBailHcChAt(qui, ym);
+    return ((d.hc || 0) + (d.ch || 0)) <= 0.005;
+  }
+  if (!qui && m.imm) {
+    const lots = (DB.logements || []).filter(l => l && !l._deleted && l.imm === m.imm && l.ref);
+    if (!lots.length) return false;
+    return !lots.some(l => { const d = _finBailHcChAt(l.ref, ym); return ((d.hc || 0) + (d.ch || 0)) > 0.005; });
+  }
+  return false;
+}
 function _finMonthly(yr, scope, win) {
   if (typeof window._computeFinancesMonthly !== 'function') return null;
   const isWin = !!(win && typeof win === 'object');
@@ -51687,6 +51723,7 @@ function _finMonthly(yr, scope, win) {
     isEcheance: m => !!m && m.cat === 'Prêt',   // « 1 ligne = mensualité entière » (convention user)
     isGestionCharge: m => { const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(m && m.cat) : null; return !!(sc && sc.gestionCharge); }, // CFE/taxe vacance (réel mais hors 2044)
     isRecupCharge: m => { const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(m && m.cat) : null; return !!(sc && sc.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
+    isRecupACharge: _finIsRecupACharge,         // L-5 : vacance / sans bail / non récupérable → « Resté à ta charge » (225)
     window: isWin ? win : undefined,
     lastMonth: isWin ? undefined : win
   });
@@ -51715,33 +51752,54 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   const _MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
   const R = (label, v, o) => Object.assign({ label, v }, o || {});
+  // L-3 / H-6 : la ligne « Prêt » = échéance ENTIÈRE ; info-bulle « dont intérêts » quand ils
+  // sont saisis ; « prêt non importé » si des intérêts existent SANS échéance (jamais un
+  // capital négatif).
+  const _intAnnuel = Math.round(((a && a.interets) || 0) * 100) / 100;
+  const _pretTitle = (_intAnnuel > 0 && ((a && a.pret) || 0) <= 0) ? 'Des intérêts sont saisis mais aucune échéance : prêt non importé'
+    : (_intAnnuel > 0 ? 'dont intérêts : ' + f(_intAnnuel) + ' (répartis au prorata des échéances payées)' : 'Intérêts non saisis — utile seulement pour déclarer (module déclaratif en bas de page)');
   const ROWS = [
     { grp: 'Revenus locatifs' },
-    R('Loyers hors charges encaissés', o => o.loyersHC, { kind: 'loyers', oraSrc: o => o.loyerRetard }),
-    ...(((a && a.loyerRetard) || 0) > 0.005 ? [R('<span style="color:var(--ora)">↳ dont loyer en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.loyerRetard, { retardSub: true, drill: 'loyer' })] : []),
-    ...(((a && a.avance) || 0) > 0 ? [R('<span style="color:#185fa5">↳ dont loyer perçu d\'avance</span> <span class="b4-x">bascule sur le mois suivant · voir qui</span>', o => o.avance, { avanceSub: true, drill: 'avance' })] : []),
+    R('Loyers hors charges encaissés', o => o.loyersHC, { kind: 'loyers', oraSrc: o => o.loyerRetard, advSrc: o => o.avance }),
+    ...(((a && a.loyerRetard) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ dont loyer en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.loyerRetard, { retardSub: true, drill: 'loyer' })] : []),
+    ...(((a && a.avance) || 0) > 0 ? [R('<span style="color:var(--adv,#2e6db1)">↳ dont loyer perçu d\'avance</span> <span class="b4-x">bascule sur le mois suivant · voir qui</span>', o => o.avance, { avanceSub: true, drill: 'avance' })] : []),
+    // NOUVELLE sous-ligne (§4 CDC) : le P&L reste tenu À L'ENCAISSEMENT — cette ligne explique
+    // pourquoi un mois peut dépasser son dû (arriéré d'un mois antérieur encaissé ce mois-ci).
+    ...(((a && a.rattrapage) || 0) > 0.005 ? [R('<span style="color:var(--t3)">↳ dont rattrapage d\'un mois antérieur</span> <span class="b4-x">arriéré encaissé ce mois-ci · voir les mouvements</span>', o => o.rattrapage, { rattrapSub: true, kind: 'loyers' })] : []),
+    // H-2 : le total est juste, le détail était faux — l'encaissement SANS lot devient visible
+    // au niveau de la ligne (le drill « Loyers » porte l'affectation sur place).
+    ...(Math.abs((a && a.nonAffecte) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ ⚠️ Encaissements non affectés</span> <span class="b4-x">sans lot rattaché · clique pour affecter</span>', o => o.nonAffecte, { nonAffSub: true, kind: 'loyers' })] : []),
     ...(((a && a.recettesDiverses) || 0) !== 0 ? [R('Recettes diverses <span class="b4-x">parking, GLI, indemnités… (ligne 213, imposable)</span>', o => o.recettesDiverses, { kind: 'recettesDiverses' })] : []),
     { grp: 'Charges propriétaire <span class="b4-x">(à ta charge — non récupérables)</span>' },
-    R('Prêt <span class="b4-x">capital + intérêts — mensualité entière</span>', o => o.pret, { charge: true, kind: 'pret' }),
+    R('Prêt <span class="b4-x">capital + intérêts — mensualité entière</span>', o => o.pret, { charge: true, kind: 'pret', expl: _pretTitle }),
     R('Taxe foncière', o => o.taxe, { charge: true, kind: 'taxeFonciere' }),
     R('Travaux &amp; entretien', o => o.travaux, { charge: true, kind: 'travaux' }),
     R('Honoraires &amp; gestion', o => o.honoraires, { charge: true, kind: 'honoraires' }),
     R('Assurance PNO / GLI', o => o.assurance, { charge: true, kind: 'assurance' }),
-    ...(((a && a.gestionHF) || 0) > 0 ? [R('Charges de gestion hors foncier <span class="b4-x">(CFE, taxe vacance — hors 2044)</span>', o => o.gestionHF, { charge: true, kind: 'gestionHF' })] : []),
-    R('Total charges propriétaire', o => o.charges, { tot: true, neg: true }),
+    ...(Math.abs((a && a.gestionHF) || 0) > 0.005 ? [R('Charges de gestion hors foncier <span class="b4-x">(CFE, taxe vacance — hors 2044)</span>', o => o.gestionHF, { charge: true, kind: 'gestionHF' })] : []),
+    // L-2 : ces montants entraient dans le Total sans qu'aucune ligne ne les affiche — la somme
+    // des lignes visibles ne pouvait pas égaler le total (constat 25).
+    ...(Math.abs((a && a.autres) || 0) > 0.005 ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à ta charge' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
+    // L-4 : total VÉRIFIABLE À L'ŒIL = somme exacte des lignes visibles (les masquées valent 0).
+    R('Total charges propriétaire', o => o.charges, { tot: true, neg: true, expl: 'Somme exacte des lignes visibles ci-dessus' }),
     { grp: 'Charges récupérables <span class="b4-x">(argent du locataire qui transite)</span>' },
     R('Payées par les locataires <span class="b4-x">provisions encaissées</span>', o => o.provisions, { pos: true, kind: 'provisions', oraSrc: o => o.chargeRetard }),
-    ...(((a && a.chargeRetard) || 0) > 0.005 ? [R('<span style="color:var(--ora)">↳ dont charges en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.chargeRetard, { retardSub: true, drill: 'charge' })] : []),
-    R('Payées par toi pour eux <span class="b4-x">charges récupérables avancées</span>', o => o.recup, { flowOut: true, kind: 'recup' }),
-    R('Solde <span class="b4-x">− tu as avancé (à récupérer) · + trop-perçu (à rendre)</span>', o => o.recupSolde, { sub: true }),
+    ...(((a && a.chargeRetard) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ dont charges en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.chargeRetard, { retardSub: true, drill: 'charge' })] : []),
+    // L-5 : SCINDÉE — seul l'avancé vraiment récupérable entre dans le solde ; le reste bascule
+    // en « Autres charges propriétaire » (225) et n'est montré ici que pour la traçabilité.
+    R('Avancé pour les locataires <span class="b4-x">récupérable — seul à entrer dans le solde</span>', o => o.recup, { flowOut: true, kind: 'recup' }),
+    ...(Math.abs((a && a.recupACharge) || 0) > 0.005 ? [R('<span style="color:var(--t3)">Resté à ta charge</span> <span class="b4-x">vacance / non récupérable → déjà compté dans « Autres charges propriétaire » (225)</span>', o => o.recupACharge, { mut: true, kind: 'recupACharge' })] : []),
+    // L-6 : « Solde » renommé — un NET DE TRÉSORERIE signé sur la période, pas la créance
+    // contractuelle de la page Régularisation (les deux ne peuvent pas coïncider).
+    R('Solde de trésorerie des charges <span class="b4-x">− tu as avancé (à récupérer) · + trop-perçu (à rendre)</span>', o => o.recupSolde, { sub: true }),
     // L-8 : la ligne « Base imposable foncier [2044] » est SORTIE du tableau — le P&L n'est pas
     // la 2044 ; le fiscal vit dans sa prévisualisation dédiée (Z-1). Conséquence : la saisie des
     // intérêts n'est plus un pré-requis pour LIRE Finances, seulement pour déclarer (D-6).
-    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur ton compte</span>', o => o.cashflowReel, { net: true, expl: 'Cash-flow réel = ce qui bouge vraiment sur ton compte : loyers + provisions − tes charges (prêt entier) − charges récupérables avancées.' }),
+    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur ton compte</span>', o => o.cashflowReel, { net: true, expl: 'Cash-flow réel = ce qui bouge vraiment sur ton compte : loyers + provisions − tes charges (prêt entier) − charges récupérables avancées. Si un règlement de régularisation de charges arrive, classe-le en « Charges récupérables (eau, énergie…) », jamais en Loyers.' }),
     R('Cash-flow net <span class="b4-x">ton résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true, expl: 'Cash-flow net = ton résultat propre, hors transit locataire (charges récupérables).' })
   ];
   const lk = () => false;   // plus aucune ligne verrouillée depuis L-8
-  const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.avanceSub || row.retardSub) ? 'b4-info' : ''));
+  const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.avanceSub || row.retardSub || row.rattrapSub || row.nonAffSub) ? 'b4-info' : ''));
   // drill-down par ligne : sous-lignes retard/avance → cause (_finDrillRetard/_finDrillAvance) ;
   // lignes principales (kind) → détail des mouvements (_finDrillLigne, 'pret' inclus).
   const clk = row => row.drill
@@ -51749,22 +51807,35 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     : (row.kind ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ')" title="Voir le détail des mouvements"' : '');
   const col = (v, row, isLk, src) => {
     if (isLk) return '<span style="color:var(--t3)">–</span>';
-    if (row.avanceSub) return v ? '<span style="color:#185fa5">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
-    if (row.retardSub) return (v > 0.005) ? '<span style="color:var(--ora);font-weight:700">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
+    // C-1 : l'avance porte le BLEU sémantique --adv (5ᵉ couleur de la charte), le retard
+    // l'orange --warn — jamais un hexa en dur.
+    if (row.avanceSub) return v ? '<span style="color:var(--adv,#2e6db1)">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
+    if (row.retardSub) return (v > 0.005) ? '<span style="color:var(--warn);font-weight:700">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
+    if (row.rattrapSub) return (v > 0.005) ? '<span style="color:var(--t3)">' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
+    if (row.nonAffSub) return (Math.abs(v) > 0.005) ? '<span style="color:var(--warn);font-weight:700">' + f(v) + '</span>' : '<span style="color:var(--t3)">–</span>';
     if (row.net) return '<b style="color:' + (v >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</b>';
     if (row.sub) return '<span style="font-weight:600;color:' + (v >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</span>';
     if (row.dim) return '<span style="color:var(--t2)">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</span>';
-    // retard sur la ligne (au moins un locataire) → chiffre principal en ORANGE (pas vert/neutre).
-    const retard = (row.oraSrc && src) ? (Number(row.oraSrc(src)) || 0) : 0;
-    if (row.pos) return v ? '<span style="color:' + (retard > 0.005 ? 'var(--ora)' : 'var(--grn)') + '">+ ' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
+    // C-1 : la COULEUR DU TEXTE dit le FLUX (vert = entre, rouge = sort, gris = informatif) ;
+    // le SIGNALEMENT (retard/avance) est porté par le FOND de la case (_finSigCls), jamais par
+    // le texte — les deux canaux ne se mélangent plus.
+    if (row.pos) return v ? '<span style="color:var(--grn)">+ ' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
     if (row.flowOut) return v ? '<span style="color:var(--red)">− ' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
     if (!v && !row.tot) return '<span style="color:var(--t3)">–</span>';
     if (row.neg) return '<span style="color:var(--red)">' + f(v) + '</span>';
     if (row.mut) return '<span style="color:var(--t3)">' + f(v) + '</span>';
-    if (retard > 0.005) return '<span style="color:var(--ora)">' + f(v) + '</span>';
     return f(v);
   };
 
+  // C-1 : fond de case = SIGNALEMENT (ce chiffre s'écarte du dû) — orange retard, bleu avance.
+  // Retard : aucune tolérance de montant (0,01 € = seuil technique anti-arrondi). Avance : fond
+  // coloré aussi (décision Didier — « une avance doit être vue et comprise »).
+  const sigCls = (row, src) => {
+    if (!src) return '';
+    if (row.oraSrc && (Number(row.oraSrc(src)) || 0) > 0.005) return ' b4-sig-warn';
+    if (row.advSrc && (Number(row.advSrc(src)) || 0) > 0.005) return ' b4-sig-adv';
+    return '';
+  };
   const pctL = v => a.loyersHC > 0 ? (Math.round(v / a.loyersHC * 1000) / 10).toString().replace('.', ',') + ' %' : '—';
   const varCol = (n, n1) => (n1 > 0) ? '<span style="color:' + ((n - n1) >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + ((n - n1) >= 0 ? '+' : '−') + Math.abs(Math.round((n - n1) / n1 * 1000) / 10).toString().replace('.', ',') + ' %</span>' : '<span style="color:var(--t3)">—</span>';
   const n1head = (yr - 1) + (lastMonth < 12 ? '<br><span class="b4-en">même période</span>' : '');
@@ -51775,28 +51846,35 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   // Mois courant (marqué dans l'EN-TÊTE seulement) ≠ dernier mois de constat (peut être post-daté).
   const curMo = (yr === cy) ? (new Date().getMonth() + 1) : 0;
   const isFut = mo => !!W && mo > W.constat.dueMonth && mo <= W.constat.lastMonth;   // T-5 : compté mais « à venir »
+  // RS-1 : sous le breakpoint, un SÉLECTEUR DE MOIS remplace les colonnes — une seule colonne
+  // affichée, cases toujours cliquables (les popups restent accessibles sur téléphone).
+  const selMo = (() => {
+    const v = parseInt(window._FIN_B4_MOSEL, 10);
+    if (v && months.some(m => m.mo === v)) return v;
+    return (curMo && months.some(m => m.mo === curMo)) ? curMo : (months.length ? months[0].mo : 0);
+  })();
 
   let bodyHtml;
   if (detailOn && months.length) {
     // ===== Détail ON : 3 panneaux — Poste+Année figés | mois (fenêtre + barre) | 2025+Var+% figés =====
     let L = '<table class="b4-pane b4-left"><thead><tr><th class="b4-poste">Poste</th><th class="b4-y26">Année ' + yr + '</th></tr></thead><tbody>';
     ROWS.forEach(row => {
-      if (row.grp) { L += '<tr class="b4-grp"><td class="b4-poste">' + row.grp + '</td><td class="b4-y26"></td></tr>'; return; }
-      L += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '><td class="b4-poste"' + (row.expl ? ' title="' + row.expl + '"' : '') + '>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td><td class="b4-y26">' + col(row.v(a), row, false, a) + '</td></tr>';
+      if (row.grp) { L += '<tr class="b4-grp"><td class="b4-poste">' + row.grp + '</td><td class="b4-y26">&nbsp;</td></tr>'; return; }
+      L += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '><td class="b4-poste"' + (row.expl ? ' title="' + row.expl + '"' : '') + '>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td><td class="b4-y26' + sigCls(row, a) + '">' + col(row.v(a), row, false, a) + '</td></tr>';
     });
     L += '</tbody></table>';
     let M = '<table class="b4-pane b4-mid"><thead><tr>';
-    months.forEach(m => { const isCur = (m.mo === curMo); const fut = isFut(m.mo); M += '<th class="b4-mo' + (isCur ? ' b4-cur' : '') + (fut ? ' b4-fut' : '') + '">' + _MOIS[m.mo - 1] + ' ' + String(yr).slice(2) + (isCur ? '<br><span class="b4-en">en cours</span>' : (fut ? '<br><span class="b4-en">à venir</span>' : '')) + '</th>'; });
+    months.forEach(m => { const isCur = (m.mo === curMo); const fut = isFut(m.mo); M += '<th class="b4-mo' + (isCur ? ' b4-cur' : '') + (fut ? ' b4-fut' : '') + (m.mo === selMo ? ' b4-selmo' : '') + '" data-mo="' + m.mo + '">' + _MOIS[m.mo - 1] + ' ' + String(yr).slice(2) + (isCur ? '<br><span class="b4-en">en cours</span>' : (fut ? '<br><span class="b4-en">à venir</span>' : '')) + '</th>'; });
     M += '</tr></thead><tbody>';
     ROWS.forEach(row => {
-      if (row.grp) { M += '<tr class="b4-grp">' + months.map(() => '<td class="b4-mo"></td>').join('') + '</tr>'; return; }
-      M += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '">' + months.map(m => { const fut = isFut(m.mo); const cclk = row.drill ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="Voir la cause"' : ((row.kind && !lk(row)) ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"' : ''); return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>'; }).join('') + '</tr>';
+      if (row.grp) { M += '<tr class="b4-grp">' + months.map(m => '<td class="b4-mo' + (m.mo === selMo ? ' b4-selmo' : '') + '" data-mo="' + m.mo + '">&nbsp;</td>').join('') + '</tr>'; return; }
+      M += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '">' + months.map(m => { const fut = isFut(m.mo); const cclk = row.drill ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="Voir la cause"' : ((row.kind && !lk(row)) ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"' : ''); return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + (m.mo === selMo ? ' b4-selmo' : '') + sigCls(row, m) + '" data-mo="' + m.mo + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>'; }).join('') + '</tr>';
     });
     M += '</tbody></table>';
     const _n1Th = hasN1 ? '<th class="b4-y25">' + (yr - 1) + (lastMonth < 12 ? '<br><span class="b4-en">même période</span>' : '') + '</th><th class="b4-var">Var.</th>' : '';
     let RT = '<table class="b4-pane b4-right"><thead><tr>' + _n1Th + '<th class="b4-pct">% loyers</th></tr></thead><tbody>';
     ROWS.forEach(row => {
-      if (row.grp) { RT += '<tr class="b4-grp">' + (hasN1 ? '<td class="b4-y25"></td><td class="b4-var"></td>' : '') + '<td class="b4-pct"></td></tr>'; return; }
+      if (row.grp) { RT += '<tr class="b4-grp">' + (hasN1 ? '<td class="b4-y25">&nbsp;</td><td class="b4-var">&nbsp;</td>' : '') + '<td class="b4-pct">&nbsp;</td></tr>'; return; }
       const isLk = lk(row);
       const _n1Td = hasN1 ? '<td class="b4-y25">' + col(row.v(p), row, isLk, p) + '</td><td class="b4-var">' + (isLk ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>' : '';
       RT += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '>' + _n1Td + '<td class="b4-pct">' + (row.mut ? '<span style="color:var(--t3)">—</span>' : pctL(row.v(a))) + '</td></tr>';
@@ -51831,13 +51909,19 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     + '<div class="card-h" style="padding:14px 18px 10px;align-items:center;gap:12px;flex-wrap:wrap">'
     +   '<h3 style="font-size:14px;font-weight:700;margin:0">' + periodLbl + '</h3>'
     +   '<span class="b4-toggle' + (detailOn ? ' on' : '') + '" onclick="_finToggleB4Detail()"><span class="b4-pill"></span>Détail mensuel</span>'
+    // RS-1 : sélecteur de mois (visible sous le breakpoint uniquement — remplace les colonnes).
+    +   (detailOn && months.length ? '<select id="fin-mo-pick" class="inp b4-mo-pick" onchange="_finB4PickMo(this.value)" aria-label="Mois affiché">' + months.map(m => '<option value="' + m.mo + '"' + (m.mo === selMo ? ' selected' : '') + '>' + _MOIS[m.mo - 1] + ' ' + yr + '</option>').join('') + '</select>' : '')
     +   (detailOn ? '<span class="b4-hint">↔ glisse la barre pour parcourir les mois</span>' : '')
     +   '<span style="font-size:11px;color:var(--t3);margin-left:auto">prêt entier en charge</span>'
     + '</div>'
     + bodyHtml
+    // RS-3 : la disparition des colonnes n'est plus muette — le repli est écrit.
+    + (detailOn ? '<div class="b4-rotmsg">↔ Détail mensuel complet : fais pivoter l\'écran ou ouvre sur un écran plus large.</div>' : '')
     + '</div>';
   if (detailOn) _finB4Sync();
 }
+// RS-1 : changement du mois affiché (mobile) — re-rendu léger de la page Finances.
+function _finB4PickMo(v) { window._FIN_B4_MOSEL = parseInt(v, 10) || 0; if (typeof rFinances === 'function') rFinances(); }
 
 // Synchronise la hauteur des lignes entre les 3 panneaux (alignement visuel).
 function _finB4Sync() {
@@ -51877,8 +51961,13 @@ function _finB4InjectCss() {
     // T-5 : mois compté mais non échu (post-daté, décision « B ») → grisé « à venir ».
     + '.b4-pane thead th.b4-mo.b4-fut{color:var(--t3)}'
     + '.b4-pane td.b4-fut{opacity:.55}'
+    // C-1 : le FOND de case porte le signalement — orange = retard, bleu = avance (--adv).
+    + '.b4-pane td.b4-sig-warn{background:var(--warn-soft,rgba(143,98,14,.10))}'
+    + '.b4-pane td.b4-sig-adv{background:var(--adv-bg,rgba(46,109,177,.12))}'
     + '.b4-y25{width:122px;border-left:1px solid var(--bor)}.b4-var{width:84px}.b4-pct{width:84px}'
-    + '.b4-pane tr.b4-grp td{background:var(--sur3);font:700 9.5px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);text-align:left}'
+    // §3.2 : hauteur EXPLICITE des lignes de groupe (les cellules vides des 2 autres panneaux
+    // s'effondraient : 26 px contre 15, 11 px de dérive par groupe) — combinée au &nbsp; émis.
+    + '.b4-pane tr.b4-grp td{background:var(--sur3);font:700 9.5px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);text-align:left;height:26px;padding-top:0;padding-bottom:0}'
     + '.b4-left tr.b4-grp .b4-y26{background:var(--acc-soft,rgba(255,90,60,.12))}'
     + '.b4-pane tr.b4-tot td{font-weight:700;border-top:1px solid var(--bor)}'
     + '.b4-pane tr.b4-net td{font-weight:800;border-top:2px solid var(--t1);background:var(--bg-success,rgba(22,163,74,.08))}'
@@ -51892,7 +51981,18 @@ function _finB4InjectCss() {
     + '.b4-toggle .b4-pill::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:.18s}'
     + '.b4-toggle.on{color:var(--acc-hover,var(--acc));border-color:var(--acc)}.b4-toggle.on .b4-pill{background:var(--acc)}.b4-toggle.on .b4-pill::after{left:15px}'
     + '.b4-hint{font-size:10.5px;color:var(--acc-hover,var(--acc));font-weight:600}'
-    + '@media(max-width:680px){.b4-midwrap{display:none}.b4-hint{display:none}}';
+    + '.b4-mo-pick{display:none;font-size:12px;padding:4px 8px;width:auto}'
+    + '.b4-rotmsg{display:none}'
+    // RS-1/RS-3 : sous LA bascule unique (680), sélecteur de mois + une colonne (cases toujours
+    // cliquables), panneau droit masqué (~230 px rendus), et le repli est ÉCRIT, plus muet.
+    + '@media(max-width:680px){'
+    +   '.b4-mid th.b4-mo,.b4-mid td.b4-mo{display:none}'
+    +   '.b4-mid th.b4-mo.b4-selmo,.b4-mid td.b4-mo.b4-selmo{display:table-cell}'
+    +   '.b4-right{display:none}'
+    +   '.b4-mo-pick{display:inline-block}'
+    +   '.b4-hint{display:none}'
+    +   '.b4-rotmsg{display:block;font-size:11px;color:var(--t3);padding:8px 18px 12px}'
+    + '}';
   document.head.appendChild(s);
 }
 
@@ -51988,11 +52088,12 @@ function _finDrillLigne(kind, yr, mo) {
     travaux:      { titre: 'Travaux & entretien',         rec: false, test: r => r.ligne2044 === '224' || r.ligne2044 === '224bis' },
     honoraires:   { titre: 'Honoraires & gestion',        rec: false, test: r => r.ligne2044 === '221' },
     assurance:    { titre: 'Assurance PNO / GLI',         rec: false, test: r => r.ligne2044 === '223' },
-    autres:       { titre: 'Autres charges propriétaire', rec: false, test: r => r.ligne2044 === '225' || r.ligne2044 === '226' },
+    autres:       { titre: 'Autres charges propriétaire', rec: false, test: r => r.ligne2044 === '225' || r.ligne2044 === '226' }, // + récupérables restées à charge (L-5), matchées dans la boucle
     gestionHF:    { titre: 'Charges de gestion hors foncier (CFE, taxe vacance)', rec: false, test: () => false }, // matché par flag gestionCharge dans la boucle
     pret:         { titre: 'Prêt — échéances (capital + intérêts)', rec: false, test: () => false }, // B4 : matché par m.cat === 'Prêt' (mensualité entière)
     provisions:   { titre: 'Provisions de charges encaissées', prov: true, rec: false, test: () => false }, // #2 : part CH du loyer 211
-    recup:        { titre: 'Charges récupérables payées', rec: false, test: () => false }, // #2 : 229/230 copro + flag recup (eau/énergie)
+    recup:        { titre: 'Charges récupérables avancées (récupérables)', rec: false, test: () => false }, // #2 : 229/230 copro + flag recup — part restée à charge EXCLUE (L-5)
+    recupACharge: { titre: 'Charges récupérables restées à ta charge (225)', rec: false, test: () => false }, // L-5 : vacance / sans bail / non récupérable
     recettesDiverses: { titre: 'Recettes diverses (parking, GLI, indemnités)', div: true, rec: false, test: () => false } // ligne 213
   };
   const def = LIG[kind];
@@ -52046,9 +52147,13 @@ function _finDrillLigne(kind, yr, mo) {
       if (!r || r.ligne2044 !== '213') return;
       montant = ((Number(m.cr) || 0) - (Number(m.db) || 0)) * _w;
     } else {                                         // charges (db − cr, crédits/remboursements inclus)
+      const _isRecupMv = ((r && (r.ligne2044 === '229' || r.ligne2044 === '230')) || (_sc && _sc.recup)); // #2 copro 229/230 + flag recup (eau/énergie)
       const ok = (kind === 'recup')
-        ? ((r && (r.ligne2044 === '229' || r.ligne2044 === '230')) || (_sc && _sc.recup)) // #2 copro 229/230 + flag recup (eau/énergie)
-        : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && m.cat === 'Prêt')); // CFE/TLV ; pret = cat Prêt
+        ? (_isRecupMv && !_finIsRecupACharge(m))                                          // L-5 : la part restée à charge est EXCLUE du transit
+        : (kind === 'recupACharge')
+        ? (_isRecupMv && _finIsRecupACharge(m))
+        : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && m.cat === 'Prêt')
+           || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));                // L-5 : « Autres » inclut le resté-à-charge (total = ligne)
       if (!ok) return;
       // v15.398 (BUG-PRET-REMBOURSEMENT) : crédits/ristournes inclus → drill = total ligne P&L (db−cr).
       if (!((m.db || 0) > 0) && !((m.cr || 0) > 0)) return;
@@ -52066,6 +52171,8 @@ function _finDrillLigne(kind, yr, mo) {
   total = Math.round(total * 100) / 100;
 
   // Drill enrichi (v15.309) : N-1 (même filtre, total seul) + répartition par bien — affichage, pas de logique fiscale
+  // D-1 / constat 28 : le total N-1 du drill suit EXACTEMENT le même filtre que les lignes
+  // (avoirs/crédits inclus en net db−cr — avant, N les incluait et N-1 les excluait).
   const sumYear = (Y) => {
     Y = String(Y); let t = 0;
     (DB.mouvements || []).forEach(m => {
@@ -52074,9 +52181,14 @@ function _finDrillLigne(kind, yr, mo) {
       const r = _finCatLigne(m.cat);
       if (def.rec) { if (!r || r.type !== 'recette' || r.ligne2044 !== '211') return; t += ((Number(m.cr) || 0) - (Number(m.db) || 0)) * _w; }
       else {
-        if (!((m.db || 0) > 0)) return;
+        if (!((m.db || 0) > 0) && !((m.cr || 0) > 0)) return;
         const _sc = _stdCategoryByName(m.cat);
-        if (!((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && m.cat === 'Prêt'))) return; // parité avec la boucle rows (CFE/TLV/pret)
+        const _isRecupMv = ((r && (r.ligne2044 === '229' || r.ligne2044 === '230')) || (_sc && _sc.recup));
+        const ok = (kind === 'recup') ? (_isRecupMv && !_finIsRecupACharge(m))
+          : (kind === 'recupACharge') ? (_isRecupMv && _finIsRecupACharge(m))
+          : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && m.cat === 'Prêt')
+             || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));
+        if (!ok) return; // parité avec la boucle rows (CFE/TLV/pret/L-5)
         t += ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w;
       }
     });
@@ -52324,7 +52436,7 @@ function _finDrillAvance(yr, mo) {
   const scopeLbl = mo ? (' · ' + _FIN_MOIS[mo - 1] + ' ' + String(yr).slice(2)) : '';
   const titre = "Cause de l'avance sur loyer" + scopeLbl + ' · ' + f(total);
   const body = blocks.length
-    ? '<div style="padding:2px">' + blocks.join('') + '<div class="note" style="margin-top:2px">Loyer <b>imposable dès l\'encaissement</b> (2044 à l\'encaissement) — l\'avance bascule sur les mois suivants.</div></div>'
+    ? '<div style="padding:2px">' + blocks.join('') + '<div class="note" style="margin-top:2px">Loyer <b>imposable dès l\'encaissement</b> (2044 à l\'encaissement) — l\'avance bascule sur les mois suivants.<br>💡 Si ce montant est en réalité un <b>solde de charges (régularisation)</b>, reclasse le mouvement en « Charges récupérables (eau, énergie…) » — sinon l\'avance roulera de mois en mois.</div></div>'
     : '<div class="note" style="padding:18px 4px">Aucune avance' + (mo ? ' en ' + _FIN_MOIS[mo - 1] : '') + ' sur ' + yr + '.</div>';
   if (typeof openDashDrill === 'function') openDashDrill(titre, body);
 }

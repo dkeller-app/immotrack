@@ -37,6 +37,11 @@ export function _computeFinancesMonthly(input) {
   const isEcheance = i.isEcheance || (() => false);
   const isGestionCharge = i.isGestionCharge || (() => false); // CFE / taxe logements vacants : charge proprio HORS 2044
   const isRecupCharge = i.isRecupCharge || (() => false);     // charges récupérables payées en direct (flag recup, ligne 2044 vide) : transit locataire
+  // L-5 : une charge récupérable AVANCÉE n'est « récupérable » que si un locataire peut la
+  // rembourser — mois de vacance / lot sans bail / lot non récupérable → elle RESTE À CHARGE
+  // et bascule dans « Autres charges propriétaire » (ligne 225). Injecté par l'app ; défaut =
+  // tout récupérable (parité historique).
+  const isRecupACharge = i.isRecupACharge || (() => false);
   // CASCADE d'imputation CUMULATIVE (décision user 2026-07-09 : « effacer les dettes avant
   // l'avance »). On collecte l'encaissé par (lot, mois) puis on impute chronologiquement PAR LOT
   // (loyer → charges → arriérés → avance) via _computeLoyerChargeAlloc. Injecté :
@@ -85,6 +90,9 @@ export function _computeFinancesMonthly(input) {
     loyersBrut: 0, loyersHC: 0, provisions: 0, avance: 0, recettesDiverses: 0,
     loyerRetard: 0, chargeRetard: 0,   // arriérés (retard orange) — running au mois, fin de période à l'année
     duHC: 0, duCH: 0,                  // R-2 : dû du mois (barème historisé, Σ lots) — dénominateur du recouvrement
+    rattrapage: 0,                     // part du reçu qui a servi des arriérés de mois ANTÉRIEURS (sous-ligne grise)
+    nonAffecte: 0,                     // H-2 : encaissements de loyer SANS lot rattaché (comptés au total, détail faux)
+    recupACharge: 0,                   // L-5 : charges récupérables restées à ta charge (sous-ensemble de `autres`)
     pret: 0, taxe: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, gestionHF: 0, recup: 0, interets: 0,
     charges: 0, reel: 0, recupSolde: 0, cashflowNet: 0, cashflowReel: 0, base2044: 0,
     _loyerByLot: null   // { qui → total encaissé du mois } — cascadé au finalize (non exporté)
@@ -98,11 +106,21 @@ export function _computeFinancesMonthly(input) {
     order.push(ym);
   }
 
+  let intHorsFenetre = 0;                   // H-7 : intérêts datés HORS fenêtre (souvent 31/12) — donnée annuelle
   mvts.forEach(mv => {
     if (!mv || mv._deleted || !mv.date || mv.date.slice(0, 4) !== yr) return;
     const ym = mv.date.slice(0, 7);
     const b = buckets[ym];
-    if (!b) return;                         // mois hors période écoulée
+    if (!b) {                               // mois hors fenêtre de constat
+      // H-7 : les intérêts d'emprunt (250) sont une donnée ANNUELLE, pas un flux — datés 31/12
+      // ils restaient invisibles toute l'année (constat 26). On les capte pour les répartir.
+      const r0 = catLigne(mv.cat);
+      if (r0 && r0.ligne2044 === '250') {
+        const w0 = scopeWeight(scope, mv);
+        if (w0) intHorsFenetre += ((Number(mv.db) || 0) - (Number(mv.cr) || 0)) * w0;
+      }
+      return;
+    }
     const w = scopeWeight(scope, mv);
     if (!w) return;                         // hors périmètre
 
@@ -115,7 +133,13 @@ export function _computeFinancesMonthly(input) {
     if (isGestionCharge(mv)) { b.gestionHF += (db - cr) * w; return; }
     // Charges récupérables payées en direct (eau/énergie, flag recup, ligne 2044 vide) :
     // transit locataire, captées AVANT catLigne (qui renverrait null). Voir aussi 229/230 (copro).
-    if (isRecupCharge(mv)) { b.recup += (db - cr) * w; return; }
+    if (isRecupCharge(mv)) {
+      const v = (db - cr) * w;
+      // L-5 : « resté à ta charge » sort du transit locataire et devient une charge propriétaire
+      // (ligne 225) — le cash-flow réel ne bouge pas d'un centime (déplacement, pas ajout).
+      if (isRecupACharge(mv)) { b.recupACharge += v; b.autres += v; } else { b.recup += v; }
+      return;
+    }
 
     const r = catLigne(mv.cat);
     if (!r || !r.ligne2044) return;         // non mappée / special → hors résultat
@@ -125,6 +149,7 @@ export function _computeFinancesMonthly(input) {
       const amt = (cr - db) * w;
       b.loyersBrut += amt;
       const q = mv.qui || '';
+      if (!q) b.nonAffecte += amt;      // H-2 : total juste, détail faux — rendu VISIBLE (sous-ligne)
       if (!b._loyerByLot) b._loyerByLot = {};
       b._loyerByLot[q] = (b._loyerByLot[q] || 0) + amt;
       return;
@@ -136,9 +161,24 @@ export function _computeFinancesMonthly(input) {
     else if (l === '224' || l === '224bis') b.travaux += v;
     else if (l === '221') b.honoraires += v;
     else if (l === '223') b.assurance += v;
-    else if (l === '229' || l === '230') b.recup += v; // charges récupérables payées par le bailleur (transit locataire)
+    else if (l === '229' || l === '230') { if (isRecupACharge(mv)) { b.recupACharge += v; b.autres += v; } else { b.recup += v; } } // charges récupérables payées par le bailleur (transit locataire, sauf part restée à charge L-5)
     else if (l === '226' || l === '225') b.autres += v;
   });
+
+  // H-7 : les intérêts d'emprunt sont une DONNÉE ANNUELLE, pas un flux de compte (souvent datés
+  // 31/12 → hors fenêtre toute l'année, constat 26). Ils sont RÉPARTIS au prorata des échéances
+  // de prêt payées ; sans échéance connue, ils restent datés (repli à l'identique).
+  {
+    let totInt = intHorsFenetre, totPret = 0;
+    order.forEach(ym => { totInt += buckets[ym].interets; totPret += buckets[ym].pret; });
+    if (totInt !== 0 && totPret > 0) {
+      order.forEach(ym => { const b = buckets[ym]; b.interets = totInt * (b.pret / totPret); });
+    } else if (intHorsFenetre !== 0 && order.length) {
+      // Aucune échéance connue : pas de prorata possible — on rattache au dernier mois produit
+      // plutôt que de PERDRE la donnée (l'annuel = Σ des mois).
+      buckets[order[order.length - 1]].interets += intHorsFenetre;
+    }
+  }
 
   const round2 = n => Math.round(n * 100) / 100;
   // (1) Cascade d'imputation CUMULATIVE par LOT sur toute la période : chaque mois comble son
@@ -158,6 +198,7 @@ export function _computeFinancesMonthly(input) {
     _computeLoyerChargeAlloc(lotMonths).forEach((a, idx) => {
       const b = buckets[order[idx]];
       b.loyersHC += a.loyersHC; b.provisions += a.provisions; b.avance += a.avance;
+      b.rattrapage += a.rattrapage || 0;
     });
     // Retard orange : RÉSIDU du mois (manque encore dû attribué à son mois d'origine, net des
     // rattrapages) — colonne P&L par mois, on ne reporte pas (user 2026-07-13). L'annuel = SOMME
@@ -178,7 +219,7 @@ export function _computeFinancesMonthly(input) {
     b.cashflowNet = b.reel;                                           // ton résultat propre (hors transit locataire)
     b.cashflowReel = b.reel + b.recupSolde;                           // vrai cash sur le compte (transit inclus)
     b.base2044 = b.loyersHC + b.recettesDiverses - (b.interets + b.taxe + b.travaux + b.honoraires + b.assurance + b.autres); // 213 imposable ; capital ET gestionHF exclus
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets', 'charges', 'reel', 'recupSolde', 'cashflowNet', 'cashflowReel', 'base2044']
       .forEach(k => { b[k] = round2(b[k]); });
     return b;
   };
@@ -188,7 +229,7 @@ export function _computeFinancesMonthly(input) {
   // Agrégat annuel (Σ des mois — loyersHC/provisions/avance inclus, PAS de re-cascade)
   const annual = Object.assign({ ym: yr, mo: 0 }, blank());
   months.forEach(b => {
-    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets']
+    ['loyersBrut', 'loyersHC', 'provisions', 'avance', 'recettesDiverses', 'loyerRetard', 'chargeRetard', 'duHC', 'duCH', 'rattrapage', 'nonAffecte', 'recupACharge', 'pret', 'taxe', 'travaux', 'honoraires', 'assurance', 'autres', 'gestionHF', 'recup', 'interets']
       .forEach(k => { annual[k] += b[k]; });   // retard : Σ des résidus mensuels = dette ouverte de fin de période
   });
   finalizeDerived(annual);
