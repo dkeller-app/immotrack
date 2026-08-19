@@ -179,7 +179,7 @@ import {
 // Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
 import {
   etatMoisLot, peutQuittancer, moisProposables, moisAQuittancer,
-  retardLot, lignesRelance, niveauRelance, datePaiementMois,
+  retardLot, lignesRelance, niveauRelance, datePaiementMois, mentionDateRecu,
   moisFrToYm, ymToMoisFr, ymRange
 } from './core/loyers-mois.js';
 
@@ -234,6 +234,14 @@ import {
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
 // export JSON préalable, appel RPC via __immoPurgeEspace) vit inline dans index.html.
 import { confirmNameMatches, purgeUiState, purgeErrorMessage } from './core/espace-purge.js';
+
+// CDC-LOYERS-DESIGN §4 (surfaces 6/7/8) — les dates PROPOSÉES dans les documents viennent
+// des faits (mouvement DG, EDL de sortie), jamais de « aujourd'hui ».
+import { dateVersementDG, dateRestitutionDG, dateEDLSortie, dateLiberation } from './core/dates-defaut.js';
+window.dateVersementDG = dateVersementDG;
+window.dateRestitutionDG = dateRestitutionDG;
+window.dateEDLSortie = dateEDLSortie;
+window.dateLiberation = dateLiberation;
 
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
@@ -454,6 +462,7 @@ window.niveauRelance = niveauRelance;
 // I-DATE (CDC-LOYERS-DESIGN V5) — LA porte unique de la date de paiement d'un mois.
 // Aucune surface ne recompose cette date ; null = on n'affiche RIEN.
 window.datePaiementMois = datePaiementMois;
+window.mentionDateRecu = mentionDateRecu;
 window.moisFrToYm = moisFrToYm;
 window.ymToMoisFr = ymToMoisFr;
 window.ymRange = ymRange;

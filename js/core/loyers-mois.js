@@ -180,6 +180,33 @@ export function datePaiementMois(etat, ym) {
 }
 
 /**
+ * I-DATE, surfaces 1 et 2 du §4 — LA mention « reçu le … » des documents.
+ *
+ * L'article 21 de la loi du 6 juillet 1989 fait de la quittance un REÇU : la date qu'elle
+ * porte engage le bailleur. Elle doit donc être celle du paiement qui a soldé CE mois —
+ * jamais le dernier encaissement du lot, jamais la date d'émission, jamais « aujourd'hui ».
+ * Sans rattachement daté, la phrase se dit SANS date : « déclare avoir reçu du locataire ».
+ *
+ * @param {{date:string|null, dates:string[], nb:number}} info sortie de datePaiementMois
+ * @param {(iso:string)=>string} [fmtDate] formateur JJ/MM/AAAA (identité par défaut)
+ * @returns {{avecDate:boolean, mention:string, dateAffichee:string|null}}
+ *          `mention` s'insère après « déclare avoir reçu » : « le 14/06/2026 », ou
+ *          « en 2 versements, le dernier le 19/01/2026 », ou '' (rien).
+ */
+export function mentionDateRecu(info, fmtDate) {
+  const f = (typeof fmtDate === 'function') ? fmtDate : ((x) => String(x));
+  const i = info || {};
+  const dates = Array.isArray(i.dates) ? i.dates : [];
+  if (i.date) return { avecDate: true, mention: ` le ${f(i.date)}`, dateAffichee: f(i.date) };
+  if (dates.length === 1) return { avecDate: true, mention: ` le ${f(dates[0])}`, dateAffichee: f(dates[0]) };
+  if (dates.length > 1) {
+    const dernier = f(dates[dates.length - 1]);
+    return { avecDate: true, mention: ` en ${dates.length} versements, le dernier le ${dernier}`, dateAffichee: dernier };
+  }
+  return { avecDate: false, mention: '', dateAffichee: null };
+}
+
+/**
  * I4 — LE garde-fou d'émission. Aucune quittance ne peut naître d'un mois non soldé.
  * @param {{byYm:Object}} etat sortie de etatMoisLot
  * @param {string} ym

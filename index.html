@@ -10668,15 +10668,22 @@ function _renderDashV4Solo(ctx, wrap) {
     const refYr = yr || (new Date().getFullYear());
     const moStr = String(refMo).padStart(2,'0');
     const yrMoPrefix = refYr + '-' + moStr;
-    const moPayments = (mvs||[]).filter(m =>
-      m.qui === mainLog.ref && (m.cr||0) > 0
-      && typeof _isLoyerCategory === 'function' && _isLoyerCategory(m.cat)
-      && m.date && m.date.startsWith(yrMoPrefix)
-    );
-    const lastPay = moPayments.length ? moPayments.sort((a,b) => b.date.localeCompare(a.date))[0] : null;
-    const statutVal = lastPay
-      ? '<span class="v pos">✓ Payé ' + lastPay.date.slice(8,10) + '/' + moStr + '</span>'
-      : (mainLog.locataire ? '<span class="v neg">⚠ En attente</span>' : '<span class="v neg">⚠ Vacant</span>');
+    // I-DATE, surface 4 du §4 — cette carte rattachait un encaissement au mois CALENDAIRE de
+    // sa propre date : c'était le 7ᵉ moteur d'imputation, résiduel. Un loyer d'août réglé le
+    // 2 septembre affichait « en attente » en août, puis « Payé 02/09 » en septembre alors que
+    // septembre restait dû. On LIT désormais la source unique (cascade → `_loyerEtatLot`) :
+    // soldé veut dire soldé, et la date est celle du versement qui l'a soldé — sinon rien.
+    const _etM = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(mainLog.ref) : null;
+    const _moM = (_etM && _etM.byYm) ? _etM.byYm[yrMoPrefix] : null;
+    const _payM = (_etM && typeof window !== 'undefined' && typeof window.datePaiementMois === 'function')
+      ? window.datePaiementMois(_etM, yrMoPrefix) : null;
+    const statutVal = !mainLog.locataire
+      ? '<span class="v neg">⚠ Vacant</span>'
+      : (_moM && _moM.solde
+          ? '<span class="v pos">✓ Payé' + (_payM && _payM.date ? ' le ' + fd(_payM.date) : '') + '</span>'
+          : (_moM && _moM.partiel
+              ? '<span class="v neg">~ Partiel — reste ' + fmt(_moM.reste) + '</span>'
+              : '<span class="v neg">⚠ En attente</span>'));
     // Prochaine quittance = 1er du mois suivant
     const nextMo = refMo === 12 ? 1 : (parseInt(refMo) + 1);
     const nextYr = refMo === 12 ? (parseInt(refYr) + 1) : refYr;
@@ -27520,7 +27527,11 @@ function _commsHubSend(ref, type) {
       extra.dateEDLSortie = extra.dateEDL;
       break; }
     case 'dg-recu': {
-      extra.dateVersement = promptVal('Date du versement DG (YYYY-MM-DD) :', td());
+      // I-DATE, surface 6 du §4 : pré-remplir « aujourd'hui » faisait partir un accusé de
+      // réception daté du jour de l'envoi, pas du jour du versement. On propose le mouvement
+      // de DG réellement encaissé ; s'il n'existe pas, on ne propose RIEN.
+      extra.dateVersement = promptVal('Date du versement DG (YYYY-MM-DD) :',
+        (typeof window.dateVersementDG === 'function' ? window.dateVersementDG(DB.mouvements || [], ref) : null) || '');
       break; }
     case 'demande-attest-entretien-chauffage': {
       extra.annee = promptVal('Année concernée :', String(new Date().getFullYear()));
@@ -27608,8 +27619,14 @@ function _commsHubSend(ref, type) {
         : 'Merci de régler par virement à l\'IBAN bailleur sous 15 jours.';
       break; }
     case 'attestation-logement-libere': {
-      extra.dateLiberation = promptVal('Date de libération du logement :', td());
-      extra.dateEDLSortie = promptVal('Date EDL sortie :', td());
+      // I-DATE, surface 8 du §4 : une ATTESTATION datée du jour où on l'imprime n'atteste rien.
+      // On propose la sortie réellement déclarée et l'EDL de sortie réel ; sinon rien.
+      const _edlSortieIso = (typeof window.dateEDLSortie === 'function')
+        ? window.dateEDLSortie(DB.edl || [], ref) : null;
+      const _libIso = (typeof window.dateLiberation === 'function')
+        ? window.dateLiberation((DB.baux && DB.baux[ref]) || null, _edlSortieIso) : null;
+      extra.dateLiberation = promptVal('Date de libération du logement :', _libIso || '');
+      extra.dateEDLSortie = promptVal('Date EDL sortie :', _edlSortieIso || '');
       extra.modaliteRemiseClef = promptVal('Modalité de remise des clés (ex en main propre / par courrier) :', 'en main propre');
       extra.dateAttestation = td();
       break; }
@@ -27979,7 +27996,8 @@ function _creerQuittance(ref, ym, opts) {
  * @param {object} log - Entrée DB.logements
  * @param {object} ent - Entrée DB.entites
  * @param {object} bail - Entrée DB.baux[ref]
- * @param {object} [opts] - { mvsPay?: Array } — surcharge pour tests, sinon lu depuis DB.mouvements
+ * @param {object} [opts] - { totalRecu?: number, infoPaiement?: {date, dates, nb} } — surcharge
+ *        explicite (reçu partiel, tests) ; sinon la date vient de la cascade unique (I-DATE).
  * @returns {{html:string, css:string, title:string, status:'complet'|'partiel'|'non-paye'}}
  */
 // AUDIT M3 — mise en page propre a la FENETRE d'impression/partage de la quittance.
@@ -28018,19 +28036,28 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   const totalRecu = (opts.totalRecu != null)
     ? (Number(opts.totalRecu) || 0)
     : ((prefixMois && typeof _loyerPayeDuMois === 'function') ? _loyerPayeDuMois(q.logement, prefixMois) : 0);
-  // Date « reçu le » — AFFICHAGE seulement (aucune imputation) : le dernier encaissement de
-  // loyer du lot connu À L'ÉMISSION du document.
-  // ⚠️ Borner à la fin du mois quittancé serait FAUX : un loyer d'août réglé le 2 septembre
-  // — le cas d'école de ce chantier — serait exclu, et la quittance d'août afficherait la
-  // date d'un versement de juillet. Une quittance ne naît que sur un mois soldé (D6), donc
-  // le paiement qui l'a soldée est antérieur à son émission.
-  const _borne = String(q.date || td()).slice(0, 10);
-  const _mvsLot = (opts.mvsPay != null) ? opts.mvsPay
-    : ((typeof DB !== 'undefined')
-        ? DB.mouvements.filter(m=>m && !m._deleted && m.qui===q.logement && _isLoyerCategory(m.cat) && (m.cr||0)>0 && m.date && m.date<=_borne)
-        : []);
-  const datePayTrouvee = _mvsLot.length ? _mvsLot.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0].date : null;
-  const datePay = datePayTrouvee ? fd(datePayTrouvee) : (q.datePaiement ? fd(q.datePaiement) : fd(q.date));
+  // I-DATE (CDC-LOYERS-DESIGN V5, surfaces 1 et 2 du §4) — LA date « reçu le ».
+  //
+  // AVANT : le dernier encaissement de loyer DU LOT antérieur à l'émission, avec deux replis
+  // (champ legacy `datePaiement`, puis la DATE D'ÉMISSION). Trois façons d'être faux : un
+  // rattrapage de cinq mois donnait la même date aux cinq quittances sans que ce soit dit,
+  // un lot qui paie deux loyers voyait la quittance de mai dater du versement de juin, et
+  // à défaut de tout, la quittance certifiait un paiement le jour où on l'imprimait.
+  //
+  // MAINTENANT : la date du (ou des) versement(s) que la cascade unique a IMPUTÉ(S) À CE MOIS
+  // (lot 0 du chantier). Aucun rattachement daté ⇒ la phrase se dit SANS date. On n'invente
+  // rien : l'article 21 de la loi du 6 juillet 1989 fait de ce document un reçu, la date qu'il
+  // porte engage le bailleur.
+  const _infoPay = (opts.infoPaiement != null) ? opts.infoPaiement
+    : ((prefixMois && typeof _loyerEtatLot === 'function' && typeof window !== 'undefined'
+        && typeof window.datePaiementMois === 'function')
+        ? window.datePaiementMois(_loyerEtatLot(q.logement), prefixMois)
+        : { date: null, dates: [], nb: 0 });
+  const _mention = (typeof window !== 'undefined' && typeof window.mentionDateRecu === 'function')
+    ? window.mentionDateRecu(_infoPay, fd)
+    : { avecDate: false, mention: '', dateAffichee: null };
+  // La phrase d'acte, avec ou sans date — jamais « reçu le — », jamais une date inventée.
+  const recuLe = `déclare avoir reçu${_mention.mention} du locataire`;
 
   // QUITTANCE FIGÉE (décision user 16/07) : la quittance est un DOCUMENT — elle affiche le montant
   // qu'elle porte (q.hc/q.ch stockés à l'émission), point. AUCUN recalcul à l'affichage : ré-imprimer
@@ -28127,7 +28154,7 @@ Ce document ne peut être remis au locataire.</p>`;
   <span style="font-size:9.5pt;font-weight:normal">Reçu : <b>${fmt(totalRecu)}</b> sur <b>${fmt(total)}</b> dû — Solde restant : <b style="color:#dc3545">${fmt(solde)}</b></span>
 </div>
 ${enteteHtml}
-${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme partielle de <b>${fmt(totalRecu)}</b> – <em>${escHtml(totalRecuLettres)}</em> se décomposant comme suit&nbsp;:`)}
+${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, ${recuLe}, la somme partielle de <b>${fmt(totalRecu)}</b> – <em>${escHtml(totalRecuLettres)}</em> se décomposant comme suit&nbsp;:`)}
 ${_dt('docLignes', [
   { lab:'Loyer (partiel)', val: fmt(totalRecu > (q.ch||0) ? totalRecu-(q.ch||0) : totalRecu) },
   totalRecu>(q.hc||0) ? { lab:'Charges (partiel)', val: fmt(totalRecu-(q.hc||0)) } : null,
@@ -28156,7 +28183,7 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
     ctxDoc = `Période de location ${periodeStr}`;
     html = `
 ${enteteHtml}
-${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, déclare avoir reçu le <b>${datePay}</b> du locataire, la somme de <b>${fmt(total)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:`)}
+${_dt('docActe', `Je, soussigné(e) le Bailleur du logement sis <b>${escHtml(adrBien)}</b>, ${recuLe}, la somme de <b>${fmt(total)}</b> – <em>${escHtml(totalLettres)}</em> se décomposant comme suit&nbsp;:`)}
 ${_dt('docLignes', [prorataLineHC, prorataLineCH, { lab:'Total des sommes payées', val: fmt(total), tot:true }])}
 ${prorataMention}
 <p>Cette somme correspond au règlement du loyer et des charges pour la période de location <b>${periodeStr}</b>. J'en donne quittance sous réserve du bon encaissement de cette somme.</p>
@@ -28946,7 +28973,17 @@ function _lyRecuPartiel(ref, ym) {
     logement: ref, mois: window.ymToMoisFr(ym), hc: m.hcDue, ch: m.chDue,
     locataire: (log && log.locataire) || '', entity: (ent && ent.nom) || '', date: td()
   };
-  const built = _buildQuittanceHtml(q, log, ent, bail, { totalRecu: Math.round((m.du - m.reste) * 100) / 100 });
+  // I-DATE, surface 2 du §4 : un reçu partiel émis sur un mois EN RETARD affichait la date
+  // du dernier encaissement du lot bornée à aujourd'hui — donc faux presque toujours. On
+  // passe les versements réellement imputés À CE MOIS ; s'il n'y en a pas de daté, le
+  // document se dit sans date.
+  const info = (typeof window.datePaiementMois === 'function')
+    ? window.datePaiementMois(etat, ym) : { date: null, dates: [], nb: 0 };
+  const built = _buildQuittanceHtml(q, log, ent, bail, {
+    totalRecu: Math.round((m.du - m.reste) * 100) / 100,
+    // Un reçu partiel n'est jamais « soldé » : c'est la LISTE des versements qui parle.
+    infoPaiement: { date: null, dates: info.dates, nb: info.nb }
+  });
   _lyPreviewEphemere(built, 'Reçu de paiement partiel');
 }
 
@@ -37709,9 +37746,20 @@ function _renderQuitForLog(ref, year) {
   if(!quits.length) return `<div class="compta-empty">Aucune quittance en ${year}</div>`;
   const rows = quits.map(q => {
     const total = (+q.hc||0) + (+q.ch||0);
-    const paidBadge = q.datePaiement
-      ? `<span class="badge grn" title="Paiement reçu le ${fd(q.datePaiement)}">✓</span>`
-      : `<span class="badge ora" title="Paiement non confirmé">⏳</span>`;
+    // I-DATE, surface 3 du §4 — le badge « ✓ payé / ⏳ non confirmé » lisait `q.datePaiement`,
+    // un champ LEGACY qui n'est plus jamais écrit depuis C1 : toutes les quittances portaient
+    // donc ⏳ « paiement non confirmé », y compris des mois soldés au centime. Il ne s'agit pas
+    // de le réparer mais de le SUPPRIMER : l'état réel du mois existe déjà, il vient de la
+    // cascade unique, et il est affiché ici même à partir d'elle.
+    const _e = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(ref) : null;
+    const _ym = (typeof window.moisFrToYm === 'function') ? window.moisFrToYm(q.mois) : null;
+    const _mo = (_e && _ym && _e.byYm) ? _e.byYm[_ym] : null;
+    const _dp = (_mo && typeof window.datePaiementMois === 'function')
+      ? window.datePaiementMois(_e, _ym) : null;
+    const paidBadge = !_mo ? ''
+      : (_mo.solde
+          ? `<span class="badge grn" title="Mois soldé${_dp && _dp.date ? ' — payé le ' + fd(_dp.date) : ''}">soldé</span>`
+          : `<span class="badge ora" title="Reste ${fmt(_mo.reste)} sur ce mois">reste ${fmt(_mo.reste)}</span>`);
     return `<div class="compta-row">
       <span class="compta-row-date">${escHtml(q.mois||'—')}</span>
       <span class="compta-row-lib">${escHtml(q.locataire||'—')} ${paidBadge}</span>
@@ -39498,7 +39546,7 @@ function _renderLogFichePanelDocuments(log, ref) {
       <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3Z"/><path d="M9 8h6M9 12h5"/>',22)}</div>
       <div class="logf-doc-info">
         <div class="logf-doc-name">Quittance ${escHtml(q.mois||'—')}</div>
-        <div class="logf-doc-meta">${fmt((+q.hc||0)+(+q.ch||0))} · ${q.locataire?escHtml(q.locataire):'—'}${q.date?` · ${fd(q.date)}`:''}</div>
+        <div class="logf-doc-meta">${fmt((+q.hc||0)+(+q.ch||0))} · ${q.locataire?escHtml(q.locataire):'—'}${q.date?` · éditée le ${fd(q.date)}`:''}</div>
       </div>
       <div class="logf-doc-actions">
         <button class="btn bs bb" onclick="previewQuit('${q.id}');" title="Aperçu de la quittance">👁 Aperçu</button>
@@ -48992,6 +49040,11 @@ function _dgOpenRestitution(ref) {
   const delaiMois = _calculerDelaiRestitution(bail);
   const body = el('ov-dg-restitution-body');
   if (!body) return;
+  // I-DATE, surface 7 du §4 : ce champ était pré-rempli à `td()` et jamais confronté au
+  // virement réel — le solde de tout compte partait daté du jour de l'édition. On propose
+  // le décaissement de DG s'il existe ; sinon le champ reste VIDE.
+  const _dgDateVirement = (typeof window.dateRestitutionDG === 'function')
+    ? window.dateRestitutionDG(DB.mouvements || [], ref) : null;
   body.innerHTML = `
     <div class="mu sm" style="margin-bottom:14px;line-height:1.55">
       Restitution du dépôt de garantie selon l'article 22 de la loi 89-462 modifiée par ALUR 2014.
@@ -49036,8 +49089,11 @@ function _dgOpenRestitution(ref) {
     </div>
 
     <div class="fg" style="margin-bottom:0">
-      <label style="font-size:11.5px;font-weight:600">Date de versement prévue</label>
-      <input class="inp" type="date" id="dg-restit-date" value="${td()}" style="width:180px">
+      <label style="font-size:11.5px;font-weight:600">Date du virement de restitution</label>
+      <input class="inp" type="date" id="dg-restit-date" value="${_dgDateVirement || ''}" style="width:180px">
+      <div class="mu sm" style="font-size:10.5px;margin-top:4px">${_dgDateVirement
+        ? 'Reprise du mouvement de restitution déjà enregistré.'
+        : 'Aucun virement de restitution n’est encore enregistré — saisis la date réelle du virement, l’app n’en invente pas.'}</div>
     </div>
   `;
   el('ov-dg-restitution-ref').value = ref;
@@ -49064,7 +49120,14 @@ function _dgConfirmerRestitution() {
   const retenues = parseFloat(v('dg-restit-retenues')) || 0;
   const detailRetenues = v('dg-restit-detail-retenues') || '';
   const iban = v('dg-restit-iban') || '';
-  const dateRestitution = v('dg-restit-date') || td();
+  // I-DATE : plus de repli silencieux sur `td()`. Une restitution de DG datée du jour de
+  // l'édition fausse le délai de l'article 22 et la pénalité de 10 %/mois qui en découle.
+  // On demande la date réelle — c'est une saisie à faire, pas un mur : le champ est là.
+  const dateRestitution = v('dg-restit-date') || '';
+  if (!dateRestitution) {
+    showToast('Saisis la date réelle du virement de restitution — l’app ne la devine pas', 'err', 6000);
+    return;
+  }
   const solde = _calculerSoldeDG({ ...bail, dgRetenu: retenues }, DB.mouvements || []);
 
   if (!confirm2(`Confirmer la restitution DG ?\n\nMontant restitué : ${fmt(solde.soldeRestitue)}\nDate : ${dateRestitution}\n\nLe bail sera marqué comme "DG restitué" + entrée audit-trail.`)) return;
