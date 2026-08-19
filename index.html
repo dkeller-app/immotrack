@@ -51283,13 +51283,30 @@ function _finActiveImm() {
 // P-1/P-2/P-3) : plus aucun filtrage maison. `_finEntScope` n'est qu'un adaptateur DB → module.
 // Retourne toujours un objet scope (kind 'all' pour « Tout ») ; null uniquement en file://
 // (modules non chargés — la page se dégrade déjà proprement dans ce mode).
+// P-4 — adaptateur DB → tauxPleinMois (potentiel locatif d'un lot à bail actif : le loyer HC
+// du barème AU TAUX PLEIN du mois, jamais le prorata d'entrée/sortie, jamais rétroactif).
+function _finTauxPleinMois(ref, ym) {
+  if (typeof window.tauxPleinMoisFromRaw !== 'function') return { hc: 0, ch: 0, occupied: false };
+  return window.tauxPleinMoisFromRaw(ref, ym, {
+    currentBail: _findBailByRefTolerant(ref),
+    bauxHistorique: DB.baux_historique || [],
+    bareme: DB.loyerBareme || []
+  });
+}
 function _finEntScope(entNom, immNom) {
   if (typeof window._finScopeResolve !== 'function') return null;
-  return window._finScopeResolve(
-    { ent: entNom || '', imm: immNom || '' },
-    DB.logements || [],
-    { entites: (DB.entites || []).filter(e => e && !e._deleted) }
-  );
+  const args = { ent: entNom || '', imm: immNom || '' };
+  const liveEnts = (DB.entites || []).filter(e => e && !e._deleted);
+  let scope = window._finScopeResolve(args, DB.logements || [], { entites: liveEnts });
+  // P-4 : en VUE IMMEUBLE, la quote-part des frais bailleur (comptable, frais bancaires, CFE,
+  // assurance SCI) passe de 1/nbImm à LA CLÉ MENSUELLE AU POTENTIEL LOCATIF — chaque frais est
+  // réparti avec les poids du mois où il tombe. Invariant : Σ vues immeuble = vue bailleur.
+  if (scope && scope.kind === 'imm' && scope.ent && scope.immFilter && typeof window._finSciWeightMensuel === 'function') {
+    const lotsBailleur = (DB.logements || []).filter(l => l && !l._deleted && String(l.entity || '').trim() === scope.ent);
+    const fn = window._finSciWeightMensuel({ lots: lotsBailleur, immKey: scope.immFilter, duPlein: _finTauxPleinMois });
+    scope = window._finScopeResolve(args, DB.logements || [], { entites: liveEnts, sciWeight: fn });
+  }
+  return scope;
 }
 // Poids d'un mouvement dans le périmètre — DÉLÈGUE à finances-scope.scopeWeight (P-3).
 // scope null (file://) = tout le patrimoine, tombstones exclus (parité module).
@@ -51530,6 +51547,10 @@ function rFinances() {
     : '';
   // F-1 : la fenêtre effective est écrite EN CLAIR en haut de page, jamais devinée.
   const _winLbl = W ? _esc(W.constat.label) : '';
+  // P-4 : la clé de répartition des frais bailleur est ANNONCÉE (vue immeuble seulement).
+  const _cleNote = (scope && scope.kind === 'imm' && scope.ent && scope.immFilter)
+    ? '<div style="font-size:11px;color:var(--t3);margin:-8px 0 12px">Clé de répartition des frais bailleur (comptable, frais bancaires, CFE…) : <b>potentiel locatif mensuel</b> — chaque frais est réparti avec les poids du mois où il tombe.</div>'
+    : '';
   const headHtml =
     '<div class="fin-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">'
     + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' + _entSelect + _immSelect + '</div>'
@@ -51662,7 +51683,7 @@ function rFinances() {
   // K-1 : le bloc « Argent à récupérer » a DISPARU — chaque information vit dans le tableau
   // (sous-lignes retard), le ratio d'occupation (vacance, K-2), la ligne Solde (régul) et la
   // page Révision IRL. Aucun total reconstruit (ces créances ne s'additionnent pas).
-  root.innerHTML = headHtml + _fbNote + _mapBanner + heroHtml + ratiosHtml
+  root.innerHTML = headHtml + _cleNote + _fbNote + _mapBanner + heroHtml + ratiosHtml
     + '<div id="fin-pl"></div>'
     + '<div id="fin-exports"></div>';
 
@@ -52364,7 +52385,7 @@ function _finDrillLigne(kind, yr, mo) {
       const bienCell = x.lot
         ? ' <span class="badge gry">' + esc(_short(x.lot)) + '</span>'
         : ' <span class="badge ora">non ventilé</span>' + (x.id != null ? ' <a onclick="_finVentiler(' + JSON.stringify(x.id) + ')" style="cursor:pointer;color:var(--pur);font-size:11px;text-decoration:underline">✂️</a>' : '');
-      const sciBadge = x.sci ? ' <span class="badge ora" title="Frais SCI réparti sur ' + x.sci.nb + ' immeuble' + (x.sci.nb > 1 ? 's' : '') + ' · total ' + f(x.sci.brut) + '">⚠ SCI ' + Math.round(x.sci.part * 100) + ' %</span>' : '';
+      const sciBadge = x.sci ? ' <span class="badge ora" title="Quote-part au POTENTIEL LOCATIF du mois du mouvement (clé P-4 : loyer du barème au taux plein, ou loyer de référence si vacant) · ' + x.sci.nb + ' immeuble' + (x.sci.nb > 1 ? 's' : '') + ' du bailleur · total brut ' + f(x.sci.brut) + '">⚠ SCI ' + Math.round(x.sci.part * 100) + ' %</span>' : '';
       return '<tr><td><span class="fdr-dt">' + esc(dfr(x.date).slice(0, 5)) + '</span><span class="fdr-lib">' + esc(x.lib || x.cat || '—') + '</span>' + bienCell + sciBadge + '</td>'
         + '<td class="' + s.cls + '">' + s.txt + '</td></tr>';
     };

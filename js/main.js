@@ -90,6 +90,10 @@ import {
   alignPreviousYear as _finWindowAlignN1M, isFutureMonth as _finWindowIsFutureM,
   windowLabel as _finWindowLabelM
 } from './core/finances-window.js';
+// P-4 — clé MENSUELLE de répartition des frais bailleur (potentiel locatif, plus jamais 1/nbImm)
+import {
+  buildSciWeightMensuel as _finSciWeightMensuelM, poidsMensuels as _finPoidsMensuelsM
+} from './core/finances-repartition.js';
 
 // SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
 import {
@@ -97,7 +101,7 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
@@ -305,6 +309,10 @@ window._isEraseEligible = _isEraseEligible;
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
 window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupation sous le socle
+window.tauxPleinMois = tauxPleinMois;                     // P-4 — taux plein du mois (potentiel)
+window.tauxPleinMoisFromRaw = tauxPleinMoisFromRaw;
+window._finSciWeightMensuel = _finSciWeightMensuelM;      // P-4 — clé mensuelle au potentiel locatif
+window._finPoidsMensuels = _finPoidsMensuelsM;
 
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;

@@ -325,3 +325,100 @@ describe('étape 2 · tranche 6 — catégories (M-2 : le mapping passe au bilan
     expect(avec.kpis.totalCharges).toBe(somme);
   });
 });
+
+describe('étape 2 · tranche 7 — P-4 : clé mensuelle au potentiel locatif', () => {
+  const mkDuPlein = (rates) => (ref, ym) => {
+    const r = rates[ref];
+    if (!r) return { hc: 0, ch: 0, occupied: false };
+    const v = typeof r === 'function' ? r(ym) : r;
+    return v == null ? { hc: 0, ch: 0, occupied: false } : { hc: v, ch: 0, occupied: true };
+  };
+
+  it('Σ des poids des immeubles = 1 chaque mois, et la clé suit le barème du mois (jamais rétroactif)', async () => {
+    const { buildSciWeightMensuel } = await import('../js/core/finances-repartition.js');
+    const lots = [
+      { ref: 'A1', imm: 'Alpha', loyerHcRef: 800 },
+      { ref: 'A2', imm: 'Alpha', loyerHcRef: 600 },
+      { ref: 'B1', imm: 'Beta', loyerHcRef: 700 }
+    ];
+    // A1 : 800 jan→juil, indexé 850 au 1er août. A2 vacant (ref 600). B1 occupé 700.
+    const duPlein = mkDuPlein({ A1: (ym) => (parseInt(ym.slice(5, 7), 10) >= 8 ? 850 : 800), B1: 700 });
+    const wA = buildSciWeightMensuel({ lots, immKey: 'Alpha', duPlein });
+    const wB = buildSciWeightMensuel({ lots, immKey: 'Beta', duPlein });
+    for (let mo = 1; mo <= 12; mo++) {
+      const ym = '2026-' + String(mo).padStart(2, '0');
+      const a = wA.poidsDuMois(ym), b = wB.poidsDuMois(ym);
+      expect(a + b, 'Σ poids ' + ym).toBeCloseTo(1, 10);
+    }
+    // I-1 : l'IRL d'août ne change PAS les poids de janvier→juillet.
+    expect(wA.poidsDuMois('2026-07')).toBeCloseTo(1400 / 2100, 10);
+    expect(wA.poidsDuMois('2026-08')).toBeCloseTo(1450 / 2150, 10);
+  });
+
+  it('repli au NOMBRE DE LOTS quand le potentiel total du mois est nul', async () => {
+    const { buildSciWeightMensuel } = await import('../js/core/finances-repartition.js');
+    const lots = [{ ref: 'A1', imm: 'Alpha' }, { ref: 'B1', imm: 'Beta' }, { ref: 'B2', imm: 'Beta' }];
+    const w = buildSciWeightMensuel({ lots, immKey: 'Beta', duPlein: () => ({ hc: 0, occupied: false }) });
+    expect(w.poidsDuMois('2026-03')).toBeCloseTo(2 / 3, 10);
+  });
+
+  it('INVARIANT CDC §4 : Σ vues immeuble = vue bailleur, mois par mois ET sur l\'année (frais SCI compris)', async () => {
+    const { buildSciWeightMensuel } = await import('../js/core/finances-repartition.js');
+    const { scopeWeight } = await import('../js/core/finances-scope.js');
+    const lots = [
+      { ref: 'A1', imm: 'Alpha', entity: 'SCI', loyerHcRef: 800 },
+      { ref: 'B1', imm: 'Beta', entity: 'SCI', loyerHcRef: 400 }
+    ];
+    const duPlein = mkDuPlein({ A1: 800, B1: 400 });
+    const due3 = (qui) => (qui === 'A1' ? { hc: 800, ch: 0 } : (qui === 'B1' ? { hc: 400, ch: 0 } : { hc: 0, ch: 0 }));
+    const mvts = [];
+    for (let m = 1; m <= 9; m++) {
+      mvts.push({ date: '2026-' + String(m).padStart(2, '0') + '-03', cat: 'Loyer', cr: 800, qui: 'A1' });
+      mvts.push({ date: '2026-' + String(m).padStart(2, '0') + '-04', cat: 'Loyer', cr: 400, qui: 'B1' });
+    }
+    mvts.push({ date: '2026-04-10', cat: 'Compta', db: 480, qui: 'SCI:SCI' });   // frais bailleur
+    const cat4 = (c) => (c === 'Loyer' ? { ligne2044: '211', type: 'recette' } : (c === 'Compta' ? { ligne2044: '221', type: 'charge' } : null));
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const mkScope = (immKey) => {
+      const refs = lots.filter((l) => !immKey || l.imm === immKey).map((l) => l.ref);
+      return {
+        kind: immKey ? 'imm' : 'ent', entKey: 'SCI', ent: 'SCI', immKey: immKey || '',
+        immFilter: immKey || null, imms: immKey ? [immKey] : ['Alpha', 'Beta'], nbImm: 2,
+        refs, refSet: null, refStricts: new Set(refs), refAmbigus: new Set(), immSet: new Set(immKey ? [immKey] : ['Alpha', 'Beta']),
+        sciWeight: immKey ? buildSciWeightMensuel({ lots, immKey, duPlein }) : 1
+      };
+    };
+    const runScope = (scope) => _computeFinancesMonthly({
+      mouvements: mvts, year: YEAR, scope, scopeWeight, catLigne: cat4,
+      loyerDue: due3, activeLots: scope.refs, today: TODAY, window: win
+    });
+    const bailleur = runScope(mkScope(''));
+    const alpha = runScope(mkScope('Alpha'));
+    const beta = runScope(mkScope('Beta'));
+    const KEYS = ['loyersHC', 'provisions', 'honoraires', 'charges', 'cashflowReel', 'loyerRetard'];
+    bailleur.months.forEach((mb, idx) => {
+      KEYS.forEach((k) => {
+        const somme = Math.round((alpha.months[idx][k] + beta.months[idx][k]) * 100) / 100;
+        expect(somme, 'Σ immeubles = bailleur · ' + k + ' · ' + mb.ym).toBeCloseTo(mb[k], 2);
+      });
+    });
+    KEYS.forEach((k) => {
+      const somme = Math.round((alpha.annual[k] + beta.annual[k]) * 100) / 100;
+      expect(somme, 'Σ immeubles = bailleur · ' + k + ' · année').toBeCloseTo(bailleur.annual[k], 2);
+    });
+    // Le frais SCI d'avril est bien réparti 800/1200 · 400/1200 (potentiel du mois d'avril).
+    expect(alpha.months[3].honoraires).toBeCloseTo(480 * (800 / 1200), 2);
+    expect(beta.months[3].honoraires).toBeCloseTo(480 * (400 / 1200), 2);
+  });
+
+  it('taux plein du mois : un bail qui ENTRE le 15 pèse son loyer PLEIN (pas le prorata)', async () => {
+    const { tauxPleinMois } = await import('../js/core/loyer-du-mois.js');
+    const { duMois } = await import('../js/core/loyer-du-mois.js');
+    const ctx = { ref: 'X', bails: [{ debut: '2026-03-15', finEffective: null, archive: false, hc: 900, ch: 100 }], bareme: [] };
+    expect(duMois(ctx, '2026-03').hc).toBeLessThan(900);        // le dû, lui, reste proraté
+    const tp = tauxPleinMois(ctx, '2026-03');
+    expect(tp.occupied).toBe(true);
+    expect(tp.hc).toBe(900);                                    // le potentiel P-4 est au taux plein
+    expect(tauxPleinMois(ctx, '2026-02').occupied).toBe(false);
+  });
+});
