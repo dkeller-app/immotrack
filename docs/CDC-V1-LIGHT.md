@@ -114,6 +114,27 @@ Garder l'actuel : encaissement, cash flow, occupation, rendement brut, dépôts 
 - **Documents unifiés** : un gabarit unique Propryo (logo + charte + code PROPRYO) pour tous les documents émis — quittance, avis/courrier IRL, décomptes… Traité avec les CDC Quittances et Bail/Révisions.
 - **Visuels des liens locataire** : les pages publiques ouvertes par le locataire (lien candidature, lien signature bail) passent au design Propryo. Traité avec les CDC Candidature et Signature à distance.
 
+## 5bis. SOLIDITÉ — 5 règles gravées le 20/08 (après le smoke qui a révélé un trou majeur)
+
+Constat : les trous récents n'ont pas été trouvés par les tests, mais par Didier en cliquant. Les 2 996 tests
+étaient verts pendant que la table IRL s'affichait blanche, que la lettre de révision plantait, et que
+l'écran Loyers faisait 3 691 px. Ces 5 règles s'appliquent à TOUS les chantiers, sans exception.
+
+1. **Parcours réel de bout en bout avant tout « prêt ».** La session exécute le geste complet de
+   l'utilisateur (créer → éditer → imprimer → rouvrir), pas des vérifications d'écran isolées. Un écran qui
+   s'affiche n'est pas un parcours qui fonctionne.
+2. **Smoke au VOLUME RÉEL du parc** : 37 lots, 4 bailleurs, 6 immeubles, des vacants, un lot sans immeuble,
+   un lot sans bailleur, des noms longs. **Un mockup ou un écran non éprouvé à ce volume n'est pas
+   validable** — c'est l'erreur qui a produit les 3 691 px (32 lignes de données pour 45 lignes d'en-tête).
+3. **L'audit passe AVANT l'intégration, sans exception.** Des tranches ont été déployées avant audit : c'est
+   ainsi que le lot 0 design a envoyé une régression en production (4 bandeaux à 1,74:1 en thème sombre).
+4. **Tout écran retiré exige la preuve que sa fonction est atteignable ailleurs.** Motif exact de trois trous
+   récents : la lettre IRL écrivait dans un nœud supprimé, la table INSEE n'était plus peinte, les quittances
+   éditées sont devenues inatteignables.
+5. **Passe de vérification par un SECOND agent sur le parcours utilisateur avant chaque intégration**
+   (validé par Didier le 20/08). Elle coûte du temps machine, pas son attention. Le premier agent construit,
+   le second rejoue le parcours en aveugle et cherche ce qui manque.
+
 ## 6. Validation par onglet (gate de sortie, non négociable)
 
 Fonctionnel complet sur **téléphone + tablette + PC** · 0 erreur console · données réelles intactes · tests verts · audit agent SÛR · smoke explicite du user. Onglet validé = figé.

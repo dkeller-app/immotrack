@@ -66,6 +66,10 @@ Trois retours user sur l'onglet Loyers livré (v15.537), tous de la même cause 
 🔨 **Session mockup lancée 20/08** (`mockups/LOYERS-DENSITE/`) — **peuplée au volume réel obligatoire**, 3 formats × 2 thèmes, 2 variantes de frise compacte, modale refondue, page de décisions à cocher.
 **Règle pour tous les chantiers futurs : un mockup non éprouvé au volume réel du parc n'est pas validable.**
 
+## ✅ v15.539 — IMPORT smoke-fixes intégré (20/08)
+
+Branche `chantier/import-smoke-fixes` fusionnée et déployée : **fin du deadlock de validation** + **import partiel** + 4 correctifs d'audit (I1/I2/I4/M2). Gates pilotage : **2996 tests**, inline 5/0, CRLF. Worktree détruit, branche supprimée. **Trouvé par le smoke user, pas par les tests** — d'où les 5 règles de solidité gravées au CDC §5bis.
+
 ## 🧪 Smoke user en attente (Didier)
 
 - **Historique bail** (v15.496) : onglet Bail — accordéons, DG, popup modif financière, correction IRL.
