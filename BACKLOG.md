@@ -61,6 +61,18 @@ Doc de référence : [docs/strategie/MISE-EN-PROD.md](docs/strategie/MISE-EN-PRO
 | **KPI** | Support de décision (même ergonomie que `revue-pnl.html`) : chaque KPI avec son calcul ancré fichier:ligne, sa provenance (bail/import), sa fenêtre, ce qui cloche, une recommandation ; + max 5 KPI manquants justifiés par un besoin réel. Contrainte dure : 1 écran PC | ✅ support livré · **SESSION DÉDIÉE prête : `PROMPT-SESSION-KPI.md`** (Opus) → revue avec Didier → CDC écrit dans `mockups/KPI-REVUE/CDC-KPI-VALIDE.md` → pilotage fige et lance le chantier |
 | **Fiche de résumé du mois** (NOUVEAU, demande user 18/08) | Document mensuel entrées/sorties destiné à un tiers (agence, mandant, associé) — « CRG simplifié ». DOIT utiliser le gabarit unique (variante B, logo bailleur optionnel) et tenir sur une page. Voisin à consulter : `docs/subjects/CRG-PDF-GERANCE.md`. Livrable : document mockupé (mois calme / mois chargé) + décisions à trancher (destinataire, périmètre, contenu exact, impayés/vacance, solde à reverser, déclenchement, format) | ✅ mockups livrés · **SESSION DÉDIÉE prête : `PROMPT-SESSION-RESUME-MENSUEL.md`** (Opus) → revue de `decisions.html` avec Didier → CDC écrit dans `mockups/RESUME-MENSUEL/CDC-RESUME-MENSUEL-VALIDE.md` → pilotage fige et lance le chantier |
 
+## 🔨 LOYERS — design VALIDÉ, chantier LANCÉ 19/08
+
+✅ **CDC FIGÉ : [docs/CDC-LOYERS-DESIGN.md](docs/CDC-LOYERS-DESIGN.md)** — 21 décisions prises une par une par Didier sur maquettes **peuplées au volume réel**, hauteurs **mesurées** au navigateur. `docs/CDC-QUITTANCES-IRL.md` amendé en tête : **D6 abrogée** (« quittance seulement si le mois est soldé » ne s'applique plus).
+
+**Principe directeur gravé** : *« l'app doit prévenir mais pas bloquer tout le temps l'utilisateur ; on garde des garde-fous partout, mais pas bloquants »* et *« on ne retrouve pas une quittance, on la réédite — l'app retient l'état, pas le document »*.
+
+**Le chiffre** : l'écran livré v15.537 mesure **3 691 px (4,1 écrans)** ; la composition **M5** retenue est mesurée à **736 px**. Cause ancrée : `_lyBloc` appelle `_lyGrouper` dans chaque bloc (`index.html:28378`/`:28404`) → **45 lignes d'en-tête pour 32 lignes de données**. Le groupement bailleur > immeuble devient **une colonne**.
+
+Décisions structurantes : écran = tableau de bord à 3 tuiles (Impayés · À remettre · À préparer), **une seule liste à la fois**, impayés par défaut · frise IRL = **ruban de 12 tuiles toujours affiché** · densité Confort, lignes qui ne répètent pas leur en-tête · éditeur de quittance direction « Le document » (pré-rempli, rail des mois, réédition, saisie libre) · l'app retient **l'état, pas l'archive**.
+
+🔨 **CHANTIER LANCÉ (Opus, worktree `Immo-wt-loyers`, branche `feat/loyers-design`)** — 8 lots du §5, **lot 0 = socle des dates** en prérequis (sans lui les lots 3 et 4 ne peuvent pas être justes ; si une date est irrécupérable, l'acter — jamais en inventer une). 5 règles de solidité appliquées, gate = hauteur mesurée + 3 formats × 2 thèmes + 0 débordement à 390 px.
+
 ## 🔨 EDL TERRAIN — lancé 19/08 (ordre user, en attendant `propryo.fr`)
 
 Constat vérifié dans le code avant lancement : **aucun mécanisme de brouillon n'existe** (`edlAutosave` / `_edlDraft` / `edl-draft` → **0 occurrence**), **aucun test EDL**, **aucun module `js/`** — 976 occurrences de « edl » toutes inline. Un reload, un appel entrant, une veille : la visite est perdue. Or l'EDL se fait debout, sur un téléphone, souvent sans réseau.
