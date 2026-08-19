@@ -73,6 +73,8 @@ Décisions structurantes : écran = tableau de bord à 3 tuiles (Impayés · À 
 
 🔨 **CHANTIER LANCÉ (Opus, worktree `Immo-wt-loyers`, branche `feat/loyers-design`)** — 8 lots du §5, **lot 0 = socle des dates** en prérequis (sans lui les lots 3 et 4 ne peuvent pas être justes ; si une date est irrécupérable, l'acter — jamais en inventer une). 5 règles de solidité appliquées, gate = hauteur mesurée + 3 formats × 2 thèmes + 0 débordement à 390 px.
 
+**Lot 0 vert (`01d5bba`, 3027 tests, +23)** : socle des dates — **les dates d'imputation sont RÉCUPÉRABLES**, l'option « acter l'absence » n'a pas été retenue. `_loyerArrearsPass` porte `sources` → `imputations`, `etatMoisLot` expose `datePaiement`/`paiements`, porte unique `window.datePaiementMois(etat, ym)`. **Arithmétique inchangée au centime** (testée avec et sans sources, report actif et inactif). Suite : lot 1 (vocabulaire).
+
 ## 🔨 EDL TERRAIN — lancé 19/08 (ordre user, en attendant `propryo.fr`)
 
 Constat vérifié dans le code avant lancement : **aucun mécanisme de brouillon n'existe** (`edlAutosave` / `_edlDraft` / `edl-draft` → **0 occurrence**), **aucun test EDL**, **aucun module `js/`** — 976 occurrences de « edl » toutes inline. Un reload, un appel entrant, une veille : la visite est perdue. Or l'EDL se fait debout, sur un téléphone, souvent sans réseau.
