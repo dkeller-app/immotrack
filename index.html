@@ -530,74 +530,229 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
          L'écran grandit avec les PROBLÈMES, pas avec le parc. -->
     <div class="page" id="p-loyers">
       <style>
-        #p-loyers .ly-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-        #p-loyers .ly-title{font-weight:800;font-size:16px;color:var(--t1)}
-        #p-loyers .ly-title span{font-weight:400;color:var(--t3);font-size:12.5px}
-        #p-loyers .ly-blk{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:10px;overflow:hidden}
-        #p-loyers .ly-blk-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
-        #p-loyers .ly-blk-h .t{font-weight:800;font-size:12.5px;color:var(--t1)}
-        #p-loyers .ly-blk-h .n{background:var(--acc);color:#fff;border-radius:999px;font-weight:800;font-size:10.5px;padding:1px 7px}
-        #p-loyers .ly-blk-h .n.z{background:var(--sur2);color:var(--t3);border:1px solid var(--bor)}
-        #p-loyers .ly-blk-h .hint{margin-left:auto;font-size:10.5px;color:var(--t3)}
-        #p-loyers .ly-row{display:grid;grid-template-columns:1.8fr 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--bor)}
-        #p-loyers .ly-row:last-child{border-bottom:0}
-        #p-loyers .ly-who{min-width:0}
-        #p-loyers .ly-who b{color:var(--t1);font-size:12.5px}
-        #p-loyers .ly-who .m{color:var(--t3);font-size:11px;line-height:1.45}
-        #p-loyers .ly-amt{text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
-        #p-loyers .ly-amt b{color:var(--t1)}
-        #p-loyers .ly-acts{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}
-        #p-loyers .ly-ask{display:inline-flex;align-items:center;gap:4px;background:var(--sur2);color:var(--acc);border:1px solid var(--acc);border-radius:999px;font-weight:700;font-size:9.5px;padding:1px 7px;white-space:nowrap}
-        #p-loyers .ly-pill{display:inline-block;border-radius:999px;font-weight:700;font-size:10px;padding:2px 7px;white-space:nowrap;border:1px solid transparent}
-        #p-loyers .ly-pill.ok{background:rgba(22,163,74,.14);color:#16a34a;border-color:rgba(22,163,74,.35)}
-        #p-loyers .ly-pill.wa{background:rgba(217,119,6,.14);color:#d97706;border-color:rgba(217,119,6,.35)}
-        #p-loyers .ly-pill.er{background:rgba(220,38,38,.14);color:#dc2626;border-color:rgba(220,38,38,.35)}
-        #p-loyers .ly-pill.nu{background:var(--sur2);color:var(--t3);border-color:var(--bor)}
-        #p-loyers .ly-fold{padding:9px 12px;font-size:11.5px;color:var(--t3);display:flex;gap:8px;align-items:center;cursor:pointer}
-        #p-loyers .ly-fold:hover{color:var(--t1)}
-        #p-loyers .ly-empty{padding:20px 14px;color:var(--t3);font-size:11.5px;text-align:center}
-        #p-loyers .ly-empty b{color:var(--t1);display:block;font-size:13px;margin-bottom:4px}
-        /* Groupage à deux niveaux (bailleur > immeuble). Les en-têtes restent compacts :
-           trois blocs × deux niveaux, ça monte vite en hauteur — surtout à 390 px. */
-        #p-loyers .ly-grp-b{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--sur2);border-bottom:1px solid var(--bor);font-size:11.5px;font-weight:800;color:var(--t1);letter-spacing:.01em}
-        #p-loyers .ly-grp-b .c{margin-left:auto;font-weight:700;font-size:10px;color:var(--t3);background:var(--sur);border:1px solid var(--bor);border-radius:999px;padding:1px 7px}
-        #p-loyers .ly-grp-i{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 20px;border-bottom:1px solid var(--bor);font-size:10.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
-        #p-loyers .ly-grp-i .c{margin-left:auto;font-weight:700;letter-spacing:0;text-transform:none}
-        #p-loyers .ly-grp-orph{font-style:italic;text-transform:none;letter-spacing:0}
-        /* D16 — le calendrier Gantt. Le CADRE défile horizontalement ; la page, jamais. */
-        #p-loyers .ly-gt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 12px;max-width:100%}
-        #p-loyers .ly-gt{display:grid;gap:2px;min-width:620px}
-        #p-loyers .ly-gt-c{font-size:10px;padding:4px 3px;border-radius:4px;text-align:center;min-height:22px}
-        #p-loyers .ly-gt-hd{color:var(--t3);font-weight:700;line-height:1.1}
-        #p-loyers .ly-gt-hd span{font-weight:400;font-size:8.5px}
-        #p-loyers .ly-gt-hd.now,#p-loyers .ly-gt-cell.now{box-shadow:inset 0 0 0 1px var(--bor)}
-        #p-loyers .ly-gt-lot{text-align:left;font-size:10.5px;line-height:1.25;padding-right:8px}
-        #p-loyers .ly-gt-lot b{display:block;color:var(--t1);font-size:11px}
-        #p-loyers .ly-gt-lot span{color:var(--t3);font-size:9.5px}
-        #p-loyers .ly-gt-cell{background:var(--sur2)}
-        #p-loyers .ly-gt-cell.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.20),rgba(255,90,60,.20) 4px,transparent 4px,transparent 8px);color:var(--acc);font-weight:700}
-        #p-loyers .ly-gt-cell.effet{background:var(--acc);color:#fff;font-weight:800}
-        #p-loyers .ly-gt-cell.faite{background:rgba(22,163,74,.22);color:#16a34a;font-weight:700}
-        #p-loyers .ly-gt-cell.gel{background:var(--bor);color:var(--t3);font-size:9px}
-        #p-loyers .ly-gt-leg{display:flex;flex-wrap:wrap;gap:10px;padding:0 12px 10px;font-size:10px;color:var(--t3)}
-        #p-loyers .ly-gt-leg i{display:inline-block;width:12px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--sur2)}
-        #p-loyers .ly-gt-leg i.rappel{background:repeating-linear-gradient(45deg,rgba(255,90,60,.35),rgba(255,90,60,.35) 3px,transparent 3px,transparent 6px)}
-        #p-loyers .ly-gt-leg i.effet{background:var(--acc)}
-        #p-loyers .ly-gt-leg i.faite{background:rgba(22,163,74,.5)}
-        #p-loyers .ly-gt-leg i.gel{background:var(--bor)}
-        #p-loyers .ly-gt-leg i.now{box-shadow:inset 0 0 0 1px var(--t3)}
-        /* Téléphone : la ligne passe en colonne — jamais de scroll horizontal. */
+        /* ══ ONGLET LOYERS — composition M5 (CDC-LOYERS-DESIGN V1/V2/V15) ══════════════
+           Portée à la lettre depuis la maquette validée `mockups/LOYERS-DENSITE/_src/apres.css`.
+           Ce qu'elle corrige, mesuré : l'écran livré en v15.537 faisait 3 691 px (4,1 écrans)
+           parce que `_lyBloc` posait le groupement bailleur > immeuble EN LIGNES, dans CHAQUE
+           bloc — 45 lignes d'en-tête pour 32 lignes de données. Ici le groupement est une
+           COLONNE (`.ly2-gut`) : zéro ligne consommée.
+           Les points de rupture sont en @container : c'est le cadre qui décide, pas la fenêtre
+           — l'onglet vit aussi dans une sidebar ouverte ou fermée.
+           Aucune couleur en dur : uniquement les jetons de css/main.css. --adv (bleu) reste
+           réservé à l'AVANCE, 5ᵉ couleur sémantique. */
+        #p-loyers{container-type:inline-size}
+        #p-loyers .ly2{font-family:var(--font);color:var(--t1)}
+        #p-loyers .ly2 *{box-sizing:border-box}
+
+        /* ── 1. La ligne de commande : titre + filtre + bouton, 46 px ─────────────── */
+        #p-loyers .ly2-cmd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+          background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+          padding:6px 10px;margin-bottom:8px;position:sticky;top:0;z-index:15;box-shadow:var(--shadow-card)}
+        #p-loyers .ly2-cmd .ttl{font-family:var(--display);font-weight:800;font-size:15px;color:var(--t1);white-space:nowrap}
+        #p-loyers .ly2-cmd .ttl em{font-style:normal;font-weight:500;font-size:11.5px;color:var(--t3);margin-left:6px}
+        #p-loyers .ly2-cmd .sp{flex:1;min-width:4px}
+        #p-loyers .ly2-sel{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--t2);
+          background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rp);padding:5px 11px;cursor:pointer;white-space:nowrap}
+        #p-loyers .ly2-sel:hover{border-color:var(--acc);color:var(--acc)}
+
+        /* ── 2. Les trois tuiles EN TOUTES LETTRES (V1 + I-MOT) ───────────────────── */
+        #p-loyers .m5tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px}
+        #p-loyers .m5t{background:var(--sur);border:1.5px solid var(--bor);border-radius:var(--rl);padding:10px 14px;
+          text-align:left;cursor:pointer;min-width:0;transition:all .14s;font-family:var(--font)}
+        #p-loyers .m5t:hover{border-color:var(--t3)}
+        #p-loyers .m5t .k{display:block;font:800 10px var(--font);text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
+        #p-loyers .m5t .v{display:block;font-family:var(--display);font-weight:800;font-size:19px;color:var(--t1);margin:2px 0 1px;
+          font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #p-loyers .m5t .d{display:block;font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #p-loyers .m5t.t-neg .v{color:var(--neg)}
+        #p-loyers .m5t.t-acc .v{color:var(--acc)}
+        #p-loyers .m5t.t-pos .v{color:var(--pos)}
+        #p-loyers .m5t.on{box-shadow:0 0 0 2px var(--acc-soft)}
+        #p-loyers .m5t.on.t-neg{border-color:var(--neg)}
+        #p-loyers .m5t.on.t-acc{border-color:var(--acc)}
+        #p-loyers .m5t.on.t-pos{border-color:var(--pos)}
+        #p-loyers .m5t:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+
+        /* ── 3. Les blocs ─────────────────────────────────────────────────────────── */
+        #p-loyers .ly2-blk{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:8px;overflow:hidden}
+        #p-loyers .ly2-blk-h{display:flex;align-items:center;gap:8px;padding:5px 11px;cursor:pointer;
+          border-bottom:1px solid var(--bor);background:var(--sur)}
+        #p-loyers .ly2-blk-h .chev{color:var(--t3);font-size:10px;width:10px;transition:transform .15s}
+        #p-loyers .ly2-blk.closed .ly2-blk-h .chev{transform:rotate(-90deg)}
+        #p-loyers .ly2-blk.closed .ly2-blk-h{border-bottom:0}
+        #p-loyers .ly2-blk.closed .ly2-body{display:none}
+        #p-loyers .ly2-blk-h .t{font-weight:800;font-size:12.5px;color:var(--t1)}
+        #p-loyers .ly2-blk-h .n{border-radius:var(--rp);font-weight:800;font-size:10.5px;padding:1px 7px;
+          background:var(--sur2);color:var(--t3);border:1px solid var(--bor);font-variant-numeric:tabular-nums}
+        #p-loyers .ly2-blk-h .hint{margin-left:auto;font-size:10.5px;color:var(--t3);text-align:right}
+        #p-loyers .ly2-blk-h .vide{margin-left:auto;font-size:10.5px;color:var(--t3);font-style:italic}
+        #p-loyers .ly2-blk.t-quit .n{background:var(--acc-bg);color:var(--acc);border-color:color-mix(in srgb,var(--acc) 35%,transparent)}
+        #p-loyers .ly2-blk.t-retard .n{background:var(--neg-soft);color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,transparent)}
+        #p-loyers .ly2-blk.t-prep .n{background:var(--pos-soft);color:var(--pos);border-color:color-mix(in srgb,var(--pos) 35%,transparent)}
+        #p-loyers .ly2-blk.t-ret-irl .n{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+        /* Un liseré de 3 px sur le flanc : la famille se lit sans lire le titre. */
+        #p-loyers .ly2-blk.t-quit{border-left:3px solid var(--acc)}
+        #p-loyers .ly2-blk.t-retard{border-left:3px solid var(--neg)}
+        #p-loyers .ly2-blk.t-prep{border-left:3px solid var(--pos)}
+        #p-loyers .ly2-blk.t-ret-irl{border-left:3px solid var(--warn)}
+        #p-loyers .ly2-blk.t-info{border-left:3px solid var(--bor)}
+
+        /* ── 4. LE GROUPEMENT, EN COLONNE (V2) — zéro ligne d'en-tête ────────────── */
+        #p-loyers .ly2-run{display:grid;grid-template-columns:154px minmax(0,1fr);border-bottom:1px solid var(--bor2)}
+        #p-loyers .ly2-run:last-child{border-bottom:0}
+        #p-loyers .ly2-run.newb{border-top:1px solid var(--bor)}
+        #p-loyers .ly2-run.newb:first-child{border-top:0}
+        #p-loyers .ly2-gut{padding:3px 8px 3px 10px;background:var(--sur2);border-right:1px solid var(--bor);min-width:0}
+        #p-loyers .ly2-run.alt .ly2-gut{background:var(--sur3)}
+        #p-loyers .ly2-gut b{display:block;font-size:10px;font-weight:800;color:var(--t1);line-height:1.15;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #p-loyers .ly2-gut b.orph{font-style:italic;font-weight:700;color:var(--t3)}
+        #p-loyers .ly2-gut span{display:block;font-size:9px;color:var(--t3);line-height:1.15;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #p-loyers .ly2-gut span.orph{font-style:italic}
+        #p-loyers .ly2-gut .k{display:none}
+        #p-loyers .ly2-rows{min-width:0}
+
+        /* ── 5. La ligne : 4 colonnes, une seule ligne de texte (V15) ─────────────── */
+        #p-loyers .ly2-r{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1.7fr) 122px auto;
+          gap:10px;align-items:center;padding:4px 11px;min-height:32px;border-bottom:1px solid var(--bor2)}
+        #p-loyers .ly2-r:last-child{border-bottom:0}
+        #p-loyers .ly2-r:hover{background:var(--sur2)}
+        #p-loyers .ly2-r .c1{min-width:0;display:flex;align-items:baseline;gap:6px;overflow:hidden}
+        #p-loyers .ly2-r .c1 b{font-size:12px;color:var(--t1);font-weight:700;white-space:nowrap}
+        #p-loyers .ly2-r .c1 span{font-size:11.5px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #p-loyers .ly2-r .c2{min-width:0;font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #p-loyers .ly2-r .c2 b{color:var(--t2);font-weight:700}
+        #p-loyers .ly2-r .c3{text-align:right;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+        #p-loyers .ly2-r .c3 b{color:var(--t1);font-weight:700}
+        #p-loyers .ly2-r .c4{display:flex;gap:4px;justify-content:flex-end;align-items:center}
+        #p-loyers .ly2-ask{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);flex:none}
+
+        /* Pastilles d'état — la 5ᵉ couleur (--adv) reste réservée à l'avance. */
+        #p-loyers .ly2-p{display:inline-block;border-radius:var(--rp);font-weight:700;font-size:10px;padding:1px 7px;
+          white-space:nowrap;border:1px solid transparent;line-height:1.5}
+        #p-loyers .ly2-p.ok{background:var(--pos-soft);color:var(--pos);border-color:color-mix(in srgb,var(--pos) 35%,transparent)}
+        #p-loyers .ly2-p.wa{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+        #p-loyers .ly2-p.er{background:var(--neg-soft);color:var(--neg);border-color:color-mix(in srgb,var(--neg) 35%,transparent)}
+        #p-loyers .ly2-p.nu{background:var(--sur2);color:var(--t3);border-color:var(--bor)}
+        #p-loyers .ly2-p.ac{background:var(--acc-bg);color:var(--acc);border-color:color-mix(in srgb,var(--acc) 35%,transparent)}
+        #p-loyers .ly2-p.av{background:var(--adv-bg);color:var(--adv);border-color:color-mix(in srgb,var(--adv) 35%,transparent)}
+
+        /* ── 6. La bande « Suivi » : 5 pastilles au lieu de 5 blocs empilés ───────── */
+        #p-loyers .ly2-suivi{display:flex;gap:7px;flex-wrap:wrap;align-items:center;background:var(--sur);
+          border:1px solid var(--bor);border-radius:var(--rl);padding:5px 9px}
+        #p-loyers .ly2-suivi .lg{font:800 9.5px var(--font);text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-right:2px}
+        #p-loyers .ly2-s{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--t2);font-weight:600;
+          background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rp);padding:4px 10px;cursor:pointer;white-space:nowrap}
+        #p-loyers .ly2-s:hover{border-color:var(--acc);color:var(--acc)}
+        #p-loyers .ly2-s b{font-family:var(--display);font-weight:800;font-size:12px;color:var(--t1);font-variant-numeric:tabular-nums}
+        #p-loyers .ly2-s.open{border-color:var(--acc);color:var(--acc)}
+
+        #p-loyers .ly2-empty{padding:18px 14px;color:var(--t3);font-size:11.5px;text-align:center}
+        #p-loyers .ly2-empty b{color:var(--t1);display:block;font-family:var(--display);font-size:14px;margin-bottom:4px}
+
+        /* ── 7. La frise IRL : 12 tuiles, toujours affichée (V3/V4) ───────────────── */
+        #p-loyers .ly2-frise{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);margin-bottom:8px;overflow:hidden}
+        #p-loyers .ly2-frise-h{display:flex;align-items:center;gap:8px;padding:6px 11px;border-bottom:1px solid var(--bor);flex-wrap:wrap}
+        #p-loyers .ly2-frise-h .t{font-weight:800;font-size:12px;color:var(--t1)}
+        #p-loyers .ly2-frise-h .s{font-size:10.5px;color:var(--t3);margin-left:auto}
+        #p-loyers .fr-ruban{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;padding:9px 11px 6px}
+        #p-loyers .fr-m{border:1px solid var(--bor);border-radius:8px;background:var(--sur2);padding:4px 3px 5px;
+          text-align:center;cursor:pointer;min-width:0;transition:all .12s;position:relative;font-family:var(--font)}
+        #p-loyers .fr-m:hover{border-color:var(--acc)}
+        #p-loyers .fr-m .lbl{font-size:9.5px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
+        #p-loyers .fr-m .an{font-size:8px;color:var(--t3);font-weight:600;display:block}
+        #p-loyers .fr-m .n{font-family:var(--display);font-weight:800;font-size:17px;line-height:1.15;color:var(--t1);
+          font-variant-numeric:tabular-nums;margin-top:2px}
+        #p-loyers .fr-m .n.z{color:var(--bor);font-weight:700}
+        #p-loyers .fr-m .u{font-size:8.5px;color:var(--t3)}
+        #p-loyers .fr-m.eff{background:var(--acc-bg);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+        #p-loyers .fr-m.eff .n{color:var(--acc)}
+        #p-loyers .fr-m.rap{background:repeating-linear-gradient(45deg,var(--acc-bg),var(--acc-bg) 5px,transparent 5px,transparent 10px);
+          border-color:color-mix(in srgb,var(--acc) 30%,transparent)}
+        #p-loyers .fr-m.now{box-shadow:inset 0 0 0 2px var(--t1)}
+        #p-loyers .fr-m.sel{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc-soft)}
+        #p-loyers .fr-m .gel{position:absolute;right:3px;top:3px;font-size:8px;color:var(--t3)}
+        #p-loyers .fr-leg{display:flex;flex-wrap:wrap;gap:9px;padding:0 12px 9px;font-size:10px;color:var(--t3)}
+        #p-loyers .fr-leg i{display:inline-block;width:12px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--sur2);border:1px solid var(--bor)}
+        #p-loyers .fr-leg i.eff{background:var(--acc);border-color:var(--acc)}
+        #p-loyers .fr-leg i.rap{background:repeating-linear-gradient(45deg,var(--acc-bg),var(--acc-bg) 3px,transparent 3px,transparent 6px)}
+        #p-loyers .fr-leg i.gel{background:var(--bor)}
+        #p-loyers .fr-leg i.now{box-shadow:inset 0 0 0 1px var(--t3)}
+
+        /* Le détail post-clic : un panneau, jamais un nouvel écran. */
+        #p-loyers .fr-det{border-top:1px solid var(--bor);background:var(--sur2)}
+        #p-loyers .fr-det .h{display:flex;align-items:center;gap:8px;padding:6px 11px;font-size:11.5px;font-weight:800;color:var(--t1)}
+        #p-loyers .fr-det .h .x{margin-left:auto;cursor:pointer;color:var(--t3);font-size:13px;background:none;border:0}
+        #p-loyers .fr-det .ln{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 116px auto;gap:9px;align-items:center;
+          padding:0 11px;min-height:30px;border-top:1px solid var(--bor2);font-size:11.5px}
+        #p-loyers .fr-det .ln b{color:var(--t1);font-weight:700;font-size:11.5px}
+        #p-loyers .fr-det .ln .mu{color:var(--t3);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        #p-loyers .fr-det .ln .am{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+        #p-loyers .fr-det .ln .ac{display:flex;gap:4px;justify-content:flex-end}
+        #p-loyers .fr-det .foot{padding:6px 11px;font-size:10.5px;color:var(--t3);border-top:1px solid var(--bor2)}
+
+        /* ── 8. Densité « Confort » (V15 — « trop serré ») : lignes de 40 px ──────── */
+        #p-loyers .ly2.cft .ly2-r{min-height:40px;padding:5px 12px;gap:14px}
+        #p-loyers .ly2.cft .ly2-r .c1 b{font-size:12.5px}
+        #p-loyers .ly2.cft .ly2-r .c1 span{font-size:12px}
+        #p-loyers .ly2.cft .ly2-r .c2{font-size:11.5px}
+        #p-loyers .ly2.cft .ly2-r .c3{font-size:12.5px}
+        #p-loyers .ly2.cft .ly2-blk-h{padding:8px 12px;gap:9px}
+        #p-loyers .ly2.cft .ly2-blk-h .t{font-size:13px}
+        #p-loyers .ly2.cft .ly2-gut{padding:8px 10px 8px 12px}
+        #p-loyers .ly2.cft .ly2-gut b{font-size:10.5px}
+        #p-loyers .ly2.cft .ly2-gut span{font-size:9.5px;margin-top:1px}
+        #p-loyers .ly2.cft .ly2-suivi{padding:7px 11px;gap:8px}
+
+        /* ── 9. Adaptations de format (container queries) ─────────────────────────── */
+        @container (max-width:900px){
+          #p-loyers .m5tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+        }
+        @container (max-width:820px){
+          #p-loyers .ly2-r{grid-template-columns:minmax(0,1.3fr) minmax(0,1.4fr) 108px auto}
+          #p-loyers .ly2-run{grid-template-columns:132px minmax(0,1fr)}
+          #p-loyers .fr-ruban{grid-template-columns:repeat(6,minmax(0,1fr));row-gap:4px}
+        }
+        @container (max-width:560px){
+          /* Téléphone : la colonne de contexte ne tient plus — le groupe redevient UNE
+             ligne fusionnée « bailleur · immeuble », jamais deux (V2). */
+          #p-loyers .m5tiles{grid-template-columns:minmax(0,1fr)}
+          #p-loyers .ly2-cmd{padding:8px 10px;gap:8px}
+          #p-loyers .ly2-cmd .ttl{font-size:14px;width:100%}
+          #p-loyers .ly2-cmd .sp{display:none}
+          #p-loyers .ly2-cmd .btn{width:100%;justify-content:center}
+          #p-loyers .ly2-run{display:block}
+          #p-loyers .ly2-gut{display:flex;align-items:baseline;gap:6px;border-right:0;border-bottom:1px solid var(--bor);padding:5px 10px}
+          #p-loyers .ly2-gut b,#p-loyers .ly2-gut span{display:inline;white-space:normal}
+          #p-loyers .ly2-gut span::before{content:'\00b7 '}
+          #p-loyers .ly2-r{grid-template-columns:1fr auto;grid-template-areas:'a c' 'b b' 'd d';gap:2px 8px;padding:7px 10px;min-height:0}
+          #p-loyers .ly2-r .c1{grid-area:a;flex-wrap:wrap}
+          #p-loyers .ly2-r .c1 span{white-space:normal;text-overflow:clip}
+          #p-loyers .ly2-r .c2{grid-area:b;white-space:normal;text-overflow:clip;line-height:1.4}
+          #p-loyers .ly2-r .c3{grid-area:c;text-align:right}
+          #p-loyers .ly2-r .c4{grid-area:d;justify-content:flex-start;margin-top:4px}
+          #p-loyers .fr-ruban{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:4px}
+          #p-loyers .fr-det .ln{grid-template-columns:1fr auto;grid-template-areas:'a c' 'b b' 'd d';padding:7px 11px;gap:2px 8px;min-height:0}
+          #p-loyers .fr-det .ln .who{grid-area:a}
+          #p-loyers .fr-det .ln .mu{grid-area:b;white-space:normal}
+          #p-loyers .fr-det .ln .am{grid-area:c}
+          #p-loyers .fr-det .ln .ac{grid-area:d;margin-top:4px;justify-content:flex-start}
+        }
+        /* Repli sans @container (navigateur ancien) : mêmes règles à la fenêtre. */
         @media (max-width:700px){
-          #p-loyers .ly-row{grid-template-columns:1fr;gap:6px}
-          #p-loyers .ly-amt{text-align:left}
-          #p-loyers .ly-acts{justify-content:flex-start}
-          #p-loyers .ly-head .btn{width:100%;text-align:center}
+          #p-loyers .m5tiles{grid-template-columns:minmax(0,1fr)}
+          #p-loyers .ly2-run{display:block}
+          #p-loyers .ly2-gut{display:flex;align-items:baseline;gap:6px;border-right:0;border-bottom:1px solid var(--bor);padding:5px 10px}
+          #p-loyers .ly2-gut b,#p-loyers .ly2-gut span{display:inline;white-space:normal}
+          #p-loyers .ly2-r{grid-template-columns:1fr auto;grid-template-areas:'a c' 'b b' 'd d';gap:2px 8px;padding:7px 10px;min-height:0}
+          #p-loyers .ly2-r .c1{grid-area:a;flex-wrap:wrap}
+          #p-loyers .ly2-r .c2{grid-area:b;white-space:normal;text-overflow:clip;line-height:1.4}
+          #p-loyers .ly2-r .c3{grid-area:c;text-align:right}
+          #p-loyers .ly2-r .c4{grid-area:d;justify-content:flex-start;margin-top:4px}
+          #p-loyers .fr-ruban{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:4px}
         }
       </style>
-      <div class="ly-head">
-        <div class="ly-title">Loyers <span id="ly-sub"></span></div>
-        <button class="btn bp" onclick="_openFaireQuittance()">＋ Faire une quittance</button>
-      </div>
       <div id="ly-blocs"></div>
     </div>
 
@@ -28290,103 +28445,112 @@ function _lyEtatLot(l) {
   };
 }
 
+/* ══ ÉTAT D'INTERFACE (V1) ══════════════════════════════════════════════════
+   L'écran est un tableau de bord : trois tuiles en toutes lettres, UNE SEULE liste
+   dessous — celle de la tuile cliquée, les impayés par défaut. Motif de Didier :
+   « on mélange des quittances (document obligatoire) avec des loyers non payés —
+   2 niveaux de priorités ».
+   Rien de tout cela n'est une donnée : c'est de l'état d'écran, volatil, jamais en base. */
+var _lyUI = { tuile: 'retard', suivi: null, frise: null, blocs: {} };
+function _lyVoir(k) { _lyUI.tuile = k; rLoyers(); }
+function _lyOuvrirSuivi(k) { _lyUI.suivi = (_lyUI.suivi === k) ? null : k; rLoyers(); }
+function _lyOuvrirMois(ym) { _lyUI.frise = (_lyUI.frise === ym) ? null : ym; rLoyers(); }
+/** Replier/déplier un bloc — dans le DOM, sans re-render : la liste ne clignote pas. */
+function _lyToggleBlk(id) {
+  const d = el(id); if (!d) return;
+  const off = d.classList.toggle('closed');
+  _lyUI.blocs[id] = !off;
+}
+
+/** Les six familles de l'écran — libellés figés par V14 (jamais d'icône sans mot). */
+const _LY_FAM = {
+  quit:      { ico: '🧾', t: 'Quittances demandées', hint: 'Mois soldé — la quittance peut être remise' },
+  retard:    { ico: '💸', t: 'Impayés',              hint: 'Loyer ou charges non réglés — aucun document n\'est émis' },
+  prep:      { ico: '📈', t: 'Révisions à préparer', hint: 'Effet le 1ᵉʳ du mois prochain' },
+  'ret-irl': { ico: '⚠',  t: 'Révisions en retard',  hint: 'Effet prévu passé, lettre pas faite' }
+};
+
 function rLoyers() {
   const host = el('ly-blocs'); if (!host) return;
-  const sub = el('ly-sub');
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
   const ymCourant = today.slice(0, 7);
   const moisCourant = window.ymToMoisFr ? window.ymToMoisFr(ymCourant) : ymCourant;
 
   if (typeof window.moisAQuittancer !== 'function') {
-    host.innerHTML = `<div class="ly-blk"><div class="ly-empty"><b>Module Loyers non chargé</b>
-      Ouvre l'application via http (les modules ES ne se chargent pas en file://).</div></div>`;
+    host.innerHTML = `<div class="ly2 cft"><div class="ly2-blk t-info"><div class="ly2-empty"><b>Module Loyers non chargé</b>
+      Ouvre l'application via http (les modules ES ne se chargent pas en file://).</div></div></div>`;
     return;
   }
 
   const lots = _lyLots();
-  if (sub) sub.textContent = `· ${moisCourant} · ${lots.length} lot${lots.length > 1 ? 's' : ''}`;
-
   if (!lots.length) {
-    host.innerHTML = `<div class="ly-blk"><div class="ly-empty"><b>Aucun bail en cours</b>
+    host.innerHTML = `<div class="ly2 cft"><div class="ly2-blk t-info"><div class="ly2-empty"><b>Aucun bail en cours</b>
       Les loyers apparaîtront ici dès qu'un logement sera loué.
-      <div style="margin-top:10px"><button class="btn bp" onclick="go('baux')">Créer un bail</button></div></div></div>`;
+      <div style="margin-top:10px"><button class="btn bp" onclick="go('baux')">Créer un bail</button></div></div></div></div>`;
     return;
   }
 
   const etats = lots.map(_lyEtatLot);
-  let html = '';
-
-  // ── 1. Quittances demandées (D3 : la case du bail décide de ce qui s'affiche) ──
   const demandes = etats.filter(e => e.demande && e.aQuittancer.length);
-  html += _lyBloc('🧾 Quittances demandées', demandes.length,
-    'Mois soldé — la quittance peut être remise',
-    demandes.map(e => {
-      const n = e.aQuittancer.length;
-      const du = e.aQuittancer.reduce((s2, ym) => s2 + ((e.etat.byYm[ym] || {}).du || 0), 0);
-      const libelle = n === 1
-        ? `Quittance de ${escHtml(window.ymToMoisFr(e.aQuittancer[0]))}`
-        : `Éditer les ${n}`;
-      const detail = n === 1
-        ? `${escHtml(window.ymToMoisFr(e.aQuittancer[0]))} soldé`
-        : `${n} mois soldés, non encore quittancés : ${e.aQuittancer.map(y => escHtml(window.ymToMoisFr(y))).join(', ')}`;
-      return { log: e.log, html: _lyRow({
-        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
-        badge: '<span class="ly-ask">🧾 demande mensuelle</span>',
-        detail,
-        montant: `<b>${fmt(du)}</b><br><span class="ly-pill ok">${n > 1 ? 'Soldés' : 'Soldé'}</span>`,
-        actions: `<button class="btn bp bb" onclick="_lyEditerQuittances('${_lyQ(e.ref)}')">${libelle}</button>
-          <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(e.ref)}')">Détail</button>`
-      }) };
-    }),
-    'Personne n\'attend de quittance ce mois-ci.');
+  const retards  = etats.filter(e => e.retard.enRetard);
+  const rev      = _lyRevisionsTriees(etats);
+  const nbRev    = rev.aPreparer.length + rev.enRetard.length;
+  const duRetard = retards.reduce((s2, e) => s2 + (e.retard.reste || 0), 0);
+  const loues    = etats.filter(e => e.bail).length;
 
-  // ── 2. Impayés — loyer ET charges (D9/D10), une ligne par lot ──
-  // V14 (CDC-LOYERS-DESIGN) : « Impayés » remplace « Pas à jour » — arbitrage Didier 19/08,
-  // « ça ne veut rien dire, il faut un terme punch ».
-  const retards = etats.filter(e => e.retard.enRetard);
-  html += _lyBloc('💸 Impayés', retards.length,
-    'Loyer ou charges non réglés — aucun document n\'est émis',
-    retards.map(e => {
-      const r = e.retard;
-      const depuis = r.depuisYm ? window.ymToMoisFr(r.depuisYm) : '';
-      const quoi = r.chargesSeules ? 'charges non réglées'
-        : (r.loyerSeul ? 'loyer non réglé' : 'loyer <b>et</b> charges');
-      const detail = r.nbMois > 1
-        ? `${r.nbMois} mois non soldés depuis ${escHtml(depuis)} · ${quoi}`
-        : `${escHtml(depuis)} · ${quoi}`;
-      const pill = r.chargesSeules ? '<span class="ly-pill wa">Charges en retard</span>'
-        : `<span class="ly-pill er">Retard · ${r.nbMois} mois</span>`;
-      const partiel = e.etat.list.filter(m => m.partiel);
-      const btnRecu = partiel.length
-        ? `<button class="btn bs bb" onclick="_lyRecuPartiel('${_lyQ(e.ref)}','${partiel[partiel.length - 1].ym}')" title="Art. 21 : en cas de paiement partiel, le bailleur délivre un reçu">Reçu partiel</button>`
-        : '';
-      return { log: e.log, html: _lyRow({
-        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
-        detail,
-        montant: `<b>${fmt(r.reste)}</b>${r.chargesSeules ? ' de charges' : ''}<br>${pill}`,
-        actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Courrier de relance</button>
-          ${btnRecu}
-          <button class="btn bs bb" onclick="_impayesOpenVue()">Détail mois par mois</button>`
-      }) };
-    }),
-    'Tous les loyers et toutes les charges sont à jour.');
+  // ── 1. La ligne de commande : titre, contexte, bouton. Une seule ligne. ──
+  let html = `<div class="ly2-cmd">
+    <div class="ttl">Loyers<em>${escHtml(moisCourant)} · ${loues} lot${loues > 1 ? 's' : ''} loué${loues > 1 ? 's' : ''} sur ${lots.length} suivi${lots.length > 1 ? 's' : ''}</em></div>
+    <div class="sp"></div>
+    <button class="btn bp" onclick="_openFaireQuittance()">＋ Faire une quittance</button></div>`;
 
-  // ── 3. Révisions à préparer (le calendrier complet arrive à l'étape 5) ──
-  html += _lyBlocRevisions(etats);
+  // ── 2. Les trois tuiles EN TOUTES LETTRES (V1 + I-MOT) ──
+  const tuile = (k, ton, cle, valeur, dit) =>
+    `<button class="m5t t-${ton}${_lyUI.tuile === k ? ' on' : ''}" onclick="_lyVoir('${k}')" aria-pressed="${_lyUI.tuile === k}">
+      <span class="k">${cle}</span><span class="v">${valeur}</span><span class="d">${dit}</span></button>`;
+  html += '<div class="m5tiles">'
+    + tuile('retard', 'neg', 'Impayés', retards.length ? fmt(duRetard) : '0 €',
+        retards.length ? `de retard sur ${retards.length} lot${retards.length > 1 ? 's' : ''}` : 'tout est payé')
+    + tuile('quit', 'acc', 'À remettre', `${demandes.length} quittance${demandes.length > 1 ? 's' : ''}`,
+        demandes.length ? 'des locataires attendent leur document' : 'personne n\'attend')
+    + tuile('rev', 'pos', 'À préparer', `${nbRev} révision${nbRev > 1 ? 's' : ''}`, 'effet le 1ᵉʳ du mois — IRL')
+    + '</div>';
 
-  // ── Lignes repliées ──
-  html += _lyFold('ly-fold-quit', 'Quittances éditées ce mois', _lyQuittancesDuMois(ymCourant));
-  html += _lyFold('ly-fold-cal', 'Calendrier des révisions à venir', _lyCalendrierResume(etats));
-
-  // ── L'état le plus fréquent : rien à faire ──
-  const rien = !demandes.length && !retards.length && !_lyRevisionsAPreparer(etats).length;
-  if (rien) {
-    html = `<div class="ly-blk"><div class="ly-empty"><b>Rien à faire pour ${escHtml(moisCourant)}</b>
-      Les loyers encaissés sont à jour, aucune quittance n'est attendue, aucune révision n'est à préparer.</div></div>`
-      + _lyFold('ly-fold-quit', 'Quittances éditées ce mois', _lyQuittancesDuMois(ymCourant))
-      + _lyFold('ly-fold-cal', 'Calendrier des révisions à venir', _lyCalendrierResume(etats));
+  // ── 3. UNE SEULE liste : celle de la tuile choisie ──
+  if (_lyUI.tuile === 'quit') {
+    html += _lyBloc('quit', demandes.length, demandes.map(_lyLigneQuittance),
+      'Personne n\'attend de quittance ce mois-ci.');
+  } else if (_lyUI.tuile === 'rev') {
+    html += _lyBloc('prep', rev.aPreparer.length, rev.aPreparer.map(x => _lyLigneRev(x, false)),
+      'Aucune révision à préparer ce mois-ci.');
+    // Les révisions EN RETARD arrivent repliées — sauf s'il n'y a rien à préparer :
+    // sinon la tuile annonce « 13 révisions » et la liste dessous est vide (constaté au
+    // smoke sur le parc réel, où tous les cycles ouverts sont en retard).
+    if (rev.enRetard.length) {
+      html += _lyBloc('ret-irl', rev.enRetard.length, rev.enRetard.map(x => _lyLigneRev(x, true)),
+        '', rev.aPreparer.length > 0);
+    }
+  } else {
+    html += _lyBloc('retard', retards.length, retards.map(_lyLigneRetard),
+      'Tous les loyers et toutes les charges sont à jour.');
   }
-  host.innerHTML = html;
+
+  // ── 4. La frise IRL : toujours affichée, jamais repliée (V3/V4) ──
+  html += _lyFriseRuban(etats);
+
+  // ── 5. La bande « Suivi » : ce qui ne demande AUCUN geste, chiffré, à un clic ──
+  const nQuitMois = _lyQuittancesDuMois(ymCourant).count;
+  const pastille = (k, lbl, n) =>
+    `<button class="ly2-s${_lyUI.suivi === k ? ' open' : ''}" onclick="_lyOuvrirSuivi('${k}')">${lbl}${n !== '' ? ` <b>${n}</b>` : ''}</button>`;
+  html += '<div class="ly2-suivi"><span class="lg">Suivi</span>'
+    + pastille('perdue', '⏸ IRL non appliquées', rev.perdues.length)
+    + pastille('muet', '🔒 Non révisables', rev.muets.length)
+    + pastille('quit-mois', '🧾 Quittances éditées ce mois', nQuitMois)
+    + pastille('suivi12', '📊 Suivi mois par mois', '')
+    + '</div>';
+  if (_lyUI.suivi) html += _lyPanneauSuivi(_lyUI.suivi, rev, ymCourant, moisCourant);
+
+  host.innerHTML = `<div class="ly2 cft">${html}</div>`;
 }
 
 /**
@@ -28400,50 +28564,60 @@ function rLoyers() {
  * saisie par un membre est rendue dans le DOM des autres.
  */
 function _lyQ(s2) {
-  const js = String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  return (typeof escHtml === 'function') ? escHtml(js) : js;
+  return escHtml(String(s2 == null ? '' : s2).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
 
+/**
+ * V15 — LA ligne : quatre colonnes, UNE ligne de texte, 40 px en densité Confort.
+ * Elle ne répète JAMAIS ce que dit l'en-tête de son bloc (« juillet 2026 », pas
+ * « juillet 2026 soldé, non quittancé ») ; le détail du calcul vit dans la fenêtre
+ * de validation, pas dans la liste.
+ * @param {{log:object, ref:string, loc:string, demande:boolean,
+ *          contexte:string, montant:string, actions:string}} o
+ */
 function _lyRow(o) {
-  return `<div class="ly-row">
-    <div class="ly-who"><b>${o.titre}</b> ${o.badge || ''}<div class="m">${o.detail || ''}</div></div>
-    <div class="ly-amt">${o.montant || ''}</div>
-    <div class="ly-acts">${o.actions || ''}</div>
+  return `<div class="ly2-r">
+    <div class="c1"><b>${escHtml(o.ref)}</b><span>${escHtml(o.loc || '—')}</span>${o.demande ? '<span class="ly2-ask" title="Le locataire demande une quittance chaque mois"></span>' : ''}</div>
+    <div class="c2">${o.contexte || ''}</div>
+    <div class="c3">${o.montant || ''}</div>
+    <div class="c4">${o.actions || ''}</div>
   </div>`;
 }
 
 /**
- * Un bloc replié à UNE ligne quand il est vide (D5).
- * `horsCompteur` (D17) : la pastille reste neutre — ces lignes sont VISIBLES mais ne
- * demandent rien, elles ne doivent pas gonfler le nombre de choses à faire.
- * `items` = [{ log, html }] : le bloc pose lui-même les en-têtes de groupe (bailleur >
- * immeuble). Un tableau de chaînes reste accepté (blocs qui ne listent pas des lots).
+ * Un bloc de famille. Vide : il reste, replié à sa seule ligne d'en-tête, avec son
+ * compteur à 0 et la mention « rien ce mois-ci » — l'utilisateur voit que la question
+ * a été posée et qu'il n'y a rien, il ne se demande pas où c'est passé.
+ * @param {string} fam clé de _LY_FAM
+ * @param {number} n
+ * @param {Array<{log:object, html:string}>} items
+ * @param {string} vide phrase de l'état vide
+ * @param {boolean} [replie] ouvrir replié (révisions en retard : présentes, pas au premier plan)
  */
-function _lyBloc(titre, n, hint, items, horsCompteur) {
-  const head = `<div class="ly-blk-h"><span class="t">${titre}</span>
-    <span class="n${(n && !horsCompteur) ? '' : ' z'}">${n}</span>
-    <span class="hint">${n ? hint : ''}</span></div>`;
-  if (!n) return `<div class="ly-blk">${head.replace('<div class="ly-blk-h"', '<div class="ly-blk-h" style="border-bottom:0"')}</div>`;
-  const corps = (items.length && typeof items[0] === 'string')
-    ? items.join('') : _lyGrouper(items);
-  return `<div class="ly-blk">${head}${corps}</div>`;
+function _lyBloc(fam, n, items, vide, replie) {
+  const f = _LY_FAM[fam];
+  const id = 'ly-blk-' + fam;
+  const memo = _lyUI.blocs[id];
+  const closed = !n || (memo === undefined ? !!replie : !memo);
+  return `<div class="ly2-blk t-${fam}${closed ? ' closed' : ''}" id="${id}">
+    <div class="ly2-blk-h" onclick="_lyToggleBlk('${id}')"><span class="chev">▾</span>
+      <span class="t">${f.ico} ${f.t}</span><span class="n">${n}</span>
+      ${n ? `<span class="hint">${f.hint}</span>` : `<span class="vide">${escHtml(vide || 'rien ce mois-ci')}</span>`}</div>
+    ${n ? `<div class="ly2-body">${_lyGrouper(items)}</div>` : ''}
+  </div>`;
 }
 
 /**
- * LE groupage des blocs qui listent des lots (décision user 18/08, remontée sur le parc réel :
- * 37 lots de plusieurs immeubles et plusieurs SCI arrivaient mélangés, sans séparation).
+ * V2 — LE GROUPEMENT BAILLEUR > IMMEUBLE EST UNE COLONNE, PAS DES LIGNES.
  *
- *   · filtre entité sur « Toutes » → DEUX niveaux : bailleur, puis immeuble ;
- *   · une seule SCI sélectionnée → immeuble seul (le niveau bailleur ne dirait rien et
- *     mangerait de la hauteur — la contrainte « 1 écran PC » tient).
+ * L'écran livré en v15.537 dépensait 45 lignes d'en-tête pour 32 lignes de données,
+ * parce que `_lyBloc` rappelait les mêmes 4 bailleurs et les mêmes 6 immeubles DANS
+ * CHAQUE bloc. Ici le contexte vit dans une gouttière à gauche des lignes : zéro ligne
+ * consommée. À 390 px la gouttière redevient UNE ligne fusionnée « bailleur · immeuble ».
  *
  * Le groupage lui-même n'est pas réinventé : il vient de js/core/group-by-imm.js
- * (`_grouperLotsParBailleurEtImmeuble`, qui compose `_groupLogementsByImm`).
- * Les lots sans immeuble et sans bailleur restent VISIBLES dans un groupe nommé.
- * L'en-tête d'IMMEUBLE est toujours posé : il porte le NOM de l'immeuble, information que
- * la ligne du lot ne donne pas (même présentation que l'écran IRL que Didier connaît).
- * L'en-tête de BAILLEUR est omis dans le seul cas où il ne sépare rien et ne nomme rien de
- * nouveau : un unique bailleur, hors panier « Sans bailleur ».
+ * (`_grouperLotsParBailleurEtImmeuble`). Les lots sans immeuble et sans bailleur restent
+ * VISIBLES, dans un groupe nommé.
  *
  * @param {Array<{log:object, html:string}>} items
  */
@@ -28457,42 +28631,86 @@ function _lyGrouper(items) {
   const parBailleur = !(typeof _entActif === 'function' && _entActif());
   const parRef = new Map(list.map(x => [x.log && x.log.ref, x.html]));
   const groupes = G._grouperLotsParBailleurEtImmeuble(list.map(x => x.log), { parBailleur });
-  const plusieursBailleurs = groupes.length > 1;
-  let out = '';
+  let out = '', alt = false;
   for (const gb of groupes) {
-    const nb = gb.immeubles.reduce((s2, i) => s2 + i.logements.length, 0);
-    if (parBailleur && (plusieursBailleurs || gb.isUnassigned)) {
-      const nom = gb.isUnassigned
-        ? '<span class="ly-grp-orph">Sans bailleur</span>' : escHtml(gb.entite || '');
-      out += `<div class="ly-grp-b">🏛 ${nom}<span class="c">${nb} lot${nb > 1 ? 's' : ''}</span></div>`;
-    }
+    let premier = true;
     for (const gi of gb.immeubles) {
-      const nom = gi.isUnassigned
-        ? '<span class="ly-grp-orph">Sans immeuble</span>' : escHtml(gi.imm || '');
-      out += `<div class="ly-grp-i">${nom}<span class="c">${gi.logements.length}</span></div>`;
-      for (const l of gi.logements) out += (parRef.get(l && l.ref) || '');
+      const bail = premier
+        ? (gb.isUnassigned ? '<b class="orph">Sans bailleur</b>' : `<b>${escHtml(gb.entite || '')}</b>`)
+        : '';
+      const imm = gi.isUnassigned ? '<span class="orph">Sans immeuble</span>' : `<span>${escHtml(gi.imm || '')}</span>`;
+      const lignes = gi.logements.map(l => parRef.get(l && l.ref) || '').join('');
+      out += `<div class="ly2-run${premier ? ' newb' : ''}${alt ? ' alt' : ''}">
+        <div class="ly2-gut">${parBailleur ? bail : ''}${imm}</div>
+        <div class="ly2-rows">${lignes}</div></div>`;
+      premier = false;
     }
+    alt = !alt;
   }
   return out;
 }
 
-function _lyFold(id, titre, contenu) {
-  const n = contenu && contenu.count ? contenu.count : 0;
-  return `<div class="ly-blk">
-    <div class="ly-fold" onclick="_lyToggleFold('${id}')"><span id="${id}-chev">▸</span>
-      <span>${titre}${n ? ` (${n})` : ''}${contenu && contenu.resume ? ' · ' + contenu.resume : ''}</span></div>
-    <div id="${id}" style="display:none">${(contenu && contenu.html) || ''}</div>
-  </div>`;
-}
-function _lyToggleFold(id) {
-  const d = el(id), c = el(id + '-chev');
-  if (!d) return;
-  const on = d.style.display === 'none';
-  d.style.display = on ? '' : 'none';
-  if (c) c.textContent = on ? '▾' : '▸';
+/* ── Les lignes des trois familles ────────────────────────────────────────── */
+
+/** D3/D8 — un lot dont la case « quittance demandée » est cochée et qui a des mois soldés. */
+function _lyLigneQuittance(e) {
+  const n = e.aQuittancer.length;
+  const mois = e.aQuittancer.map(y => window.ymToMoisFr(y));
+  const du = e.aQuittancer.reduce((s2, ym) => s2 + ((e.etat.byYm[ym] || {}).du || 0), 0);
+  const contexte = n === 1 ? escHtml(mois[0])
+    : `${n} mois · ${escHtml(mois[0])} → ${escHtml(mois[n - 1])}`;
+  return { log: e.log, html: _lyRow({
+    ref: e.ref, loc: e.log.locataire, demande: true, contexte,
+    montant: `<b>${fmt(du)}</b>`,
+    actions: `<button class="btn bp bb" onclick="_lyEditerQuittances('${_lyQ(e.ref)}')">${n === 1 ? 'Quittance' : 'Éditer les ' + n}</button>
+      <button class="btn bs bb" onclick="_openFaireQuittance('${_lyQ(e.ref)}')" title="Détail mois par mois">⋯</button>`
+  }) };
 }
 
-/** Les quittances émises ce mois-ci (ligne repliée). */
+/** D9/D10 — UNE ligne par lot, quel que soit le nombre de mois, loyer ET charges. */
+function _lyLigneRetard(e) {
+  const r = e.retard;
+  const depuis = r.depuisYm ? window.ymToMoisFr(r.depuisYm) : '';
+  const quoi = r.chargesSeules ? 'charges non réglées'
+    : (r.loyerSeul ? 'loyer non réglé' : 'loyer <b>et</b> charges');
+  const contexte = r.nbMois > 1
+    ? `depuis ${escHtml(depuis)} · ${quoi}`
+    : `${escHtml(depuis)} · ${quoi}`;
+  const pastille = r.chargesSeules
+    ? '<span class="ly2-p wa">charges</span>'
+    : `<span class="ly2-p er">${r.nbMois} mois</span>`;
+  const partiel = e.etat.list.filter(m => m.partiel);
+  const btnRecu = partiel.length
+    ? `<button class="btn bs bb" onclick="_lyRecuPartiel('${_lyQ(e.ref)}','${partiel[partiel.length - 1].ym}')" title="Art. 21 : en cas de paiement partiel, le bailleur délivre un reçu">Reçu partiel</button>`
+    : '';
+  return { log: e.log, html: _lyRow({
+    ref: e.ref, loc: e.log.locataire, demande: !!e.demande, contexte,
+    montant: `<b>${fmt(r.reste)}</b> ${pastille}`,
+    actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Relance</button>${btnRecu}
+      <button class="btn bs bb" onclick="_impayesOpenVue()" title="Détail mois par mois">⋯</button>`
+  }) };
+}
+
+/**
+ * V15 — la ligne de révision ALLÉGÉE : la date d'effet et le pourcentage, rien de plus.
+ * La date de bail et les deux indices vivent dans la fenêtre de validation (`applyIRL`),
+ * pas dans la liste — c'est là qu'on en a besoin pour décider.
+ */
+function _lyLigneRev({ e, rev }, tard) {
+  const pct = ((rev.variation || 0) * 100).toFixed(2).replace('.', ',');
+  const effet = rev.effetPrevuIso ? fd(rev.effetPrevuIso) : '–';
+  const contexte = tard
+    ? `prévu au <b>${effet}</b>, jamais appliqué · ${rev.variation >= 0 ? '+' : ''}${pct} %`
+    : `effet au <b>${effet}</b> · ${rev.variation >= 0 ? '+' : ''}${pct} %`;
+  return { log: e.log, html: _lyRow({
+    ref: e.ref, loc: e.log.locataire, demande: !!e.demande, contexte,
+    montant: `<span class="ly2-p nu">${fmt(e.log.hc).replace(' €', '')}</span> → <b>${fmt(rev.nouveauHC)}</b>`,
+    actions: `<button class="btn bp bb" onclick="applyIRL('${_lyQ(e.ref)}',${rev.nouveauHC})">Réviser</button>
+      <button class="btn bs bb" onclick="skipIRL('${_lyQ(e.ref)}')" title="Renoncer">⋯</button>`
+  }) };
+}
+
+/** Les quittances émises ce mois-ci — l'ÉTAT du mois courant (V13, point 1). */
 function _lyQuittancesDuMois(ymCourant) {
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   const refsEnt = (typeof _logInEnt === 'function')
@@ -28504,14 +28722,12 @@ function _lyQuittancesDuMois(ymCourant) {
   return {
     count: qs.length,
     resume: qs.slice(0, 3).map(q => `${q.logement} ${q.mois}`).join(', '),
-    html: qs.map(q => _lyRow({
-      titre: `${escHtml(q.logement)} · ${escHtml(q.locataire || '—')}`,
-      detail: `${escHtml(q.mois || '')} · éditée le ${fd(q.date)}`,
-      montant: `<b>${fmt((q.hc || 0) + (q.ch || 0))}</b>`,
-      actions: `<button class="btn bs bb" onclick="previewQuit(${q.id})">👁 Aperçu</button>
+    html: qs.map(q => `<div class="ln"><span class="who"><b>${escHtml(q.logement)}</b> <span class="mu" style="display:inline">${escHtml(q.locataire || '—')}</span></span>
+      <span class="mu">${escHtml(q.mois || '')} · éditée le ${fd(q.date)}</span>
+      <span class="am"><b>${fmt((q.hc || 0) + (q.ch || 0))}</b></span>
+      <span class="ac"><button class="btn bs bb" onclick="previewQuit(${q.id})" title="Aperçu">👁</button>
         <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" title="Télécharger le PDF">📥</button>
-        <button class="btn br bb" onclick="delQuit(${q.id})" title="Supprimer">🗑</button>`
-    })).join('')
+        <button class="btn br bb" onclick="delQuit(${q.id})" title="Supprimer">🗑</button></span></div>`).join('')
   };
 }
 
@@ -28532,84 +28748,75 @@ function _lyRevisions(etats) {
   return out;
 }
 
-/** D13 — ce qui est proposé maintenant : le rappel M-1 ET les cycles en retard encore ouverts. */
-function _lyRevisionsAPreparer(etats) {
-  return _lyRevisions(etats).filter(({ rev }) => rev.isApplicable && !rev.muet);
+/**
+ * Le tri des révisions en quatre familles, une seule fois par rendu (D13/D15/D17).
+ * Rien n'est recalculé ici : `computeIRLRevision` — qui consomme js/core/irl-calendrier.js —
+ * a déjà tranché ; on range.
+ */
+function _lyRevisionsTriees(etats) {
+  const toutes = _lyRevisions(etats);
+  return {
+    toutes,
+    aPreparer: toutes.filter(({ rev }) => rev.etat === 'a-preparer'),
+    enRetard:  toutes.filter(({ rev }) => rev.etat === 'en-retard'),
+    // D15 — les cycles éteints par le délai d'un an (art. 17-1). V14 : « IRL non appliquées ».
+    perdues:   toutes.filter(({ rev }) => rev.perdue),
+    // D17 — visibles, hors du compteur, aucun geste demandé pour l'instant (V20/V21 au lot 7).
+    muets:     toutes.filter(({ rev }) => rev.muet)
+  };
 }
 
-function _lyBlocRevisions(etats) {
-  const toutes = _lyRevisions(etats);
-  const aPreparer = toutes.filter(({ rev }) => rev.etat === 'a-preparer');
-  const enRetard  = toutes.filter(({ rev }) => rev.etat === 'en-retard');
-  // D17 — visibles, HORS du compteur, sans action demandée.
-  const muets     = toutes.filter(({ rev }) => rev.muet);
-  // D15 — les cycles fermés par la prescription d'un an : informatif, une seule fois.
-  const perdues   = toutes.filter(({ rev }) => rev.perdue);
+/** Le manque à gagner d'un cycle éteint, calculé sur les indices DE CE CYCLE (jamais ceux
+ *  du cycle en cours : autre année, autre ratio — ce serait un chiffre faux sous un
+ *  libellé factuel). Retourne null si l'indice de l'époque n'est pas connu. */
+function _lyGainCyclePerdu(e, rev) {
+  const aP = rev.perdue.annee;
+  const vP = (typeof irlVal === 'function') ? irlVal(rev.T, aP) : null;
+  const vP1 = (typeof irlVal === 'function') ? irlVal(rev.T, aP - 1) : null;
+  return (vP && vP1 && e.log.hc) ? Math.round((e.log.hc * vP / vP1 - e.log.hc) * 100) / 100 : null;
+}
 
-  const ligneRev = ({ e, rev }, retard) => {
-    const pct = ((rev.variation || 0) * 100).toFixed(2).replace('.', ',');
-    const dbut = (e.bail && e.bail.debut) ? fd(e.bail.debut) : '–';
-    const effet = rev.effetPrevuIso ? fd(rev.effetPrevuIso) : '–';
-    const detail = retard
-      ? `Effet prévu au <b>${effet}</b> — jamais réclamé · IRL ${escHtml(rev.irlVigueur.key)} ÷ ${escHtml(rev.irlRef.key)} = ${(rev.variation >= 0 ? '+' : '')}${pct} %<br><span class="mu sm">Ne s'appliquera pas rétroactivement : la date d'effet sera recalée à la validation.</span>`
-      : `Bail du ${dbut} → effet au <b>${effet}</b> · IRL ${escHtml(rev.irlVigueur.key)} (${fmtN(rev.irlVigueur.val)}) ÷ ${escHtml(rev.irlRef.key)} (${fmtN(rev.irlRef.val)}) = ${(rev.variation >= 0 ? '+' : '')}${pct} %`;
-    const pill = retard
-      ? `<span class="ly-pill wa">Effet passé</span>`
-      : `<span class="ly-pill nu">Dans ${rev.joursAvantEffet} jour${rev.joursAvantEffet > 1 ? 's' : ''}</span>`;
-    return { log: e.log, html: _lyRow({
-      titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
-      detail,
-      montant: `${fmt(e.log.hc)} → <b>${fmt(rev.nouveauHC)}</b><br>${pill}`,
-      actions: `<button class="btn bp bb" onclick="applyIRL('${_lyQ(e.ref)}',${rev.nouveauHC})">Réviser</button>
-        <button class="btn bs bb" onclick="skipIRL('${_lyQ(e.ref)}')">Renoncer</button>`
-    }) };
-  };
-
-  let html = _lyBloc('📈 Révisions à préparer', aPreparer.length, 'Effet le 1ᵉʳ du mois prochain',
-    aPreparer.map(x => ligneRev(x, false)), '');
-  if (enRetard.length) {
-    html += _lyBloc('⚠ Révisions en retard', enRetard.length, 'Effet prévu passé, lettre pas faite',
-      enRetard.map(x => ligneRev(x, true)), '');
+/**
+ * V13 (point 1) + D15/D17 — LA BANDE « SUIVI ».
+ * Les familles qui ne demandent AUCUN geste ne méritent pas un bloc chacune : elles
+ * vivent dans une bande de pastilles chiffrées, et le clic ouvre le détail sous la bande.
+ * L'information n'est pas perdue — elle est à un clic, et elle NE GROSSIT PAS l'écran.
+ */
+function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
+  let head = '', rows = '', foot = '';
+  if (kind === 'perdue') {
+    head = `⏸ IRL non appliquées — ${rev.perdues.length} lot${rev.perdues.length > 1 ? 's' : ''}`;
+    rows = rev.perdues.map(({ e, rev: r }) => {
+      const prescritIso = (parseInt(r.perdue.effetIso.slice(0, 4), 10) + 1) + r.perdue.effetIso.slice(4);
+      const gain = _lyGainCyclePerdu(e, r);
+      return `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
+        <span class="mu">Cycle du ${fd(r.perdue.effetIso)} non appliqué, éteint le ${fd(prescritIso)} (délai d'un an)</span>
+        <span class="am">${gain != null ? `<span class="ly2-p nu">≈ ${fmt(gain)}/mois non appliqués</span>` : '<span class="ly2-p nu">—</span>'}</span>
+        <span class="ac"></span></div>`;
+    }).join('');
+    foot = 'La révision revient de toute façon à chaque anniversaire du bail, sur les indices du moment. Seul le cycle passé s\'éteint (art. 17-1).';
+  } else if (kind === 'muet') {
+    head = `🔒 Non révisables — ${rev.muets.length} lot${rev.muets.length > 1 ? 's' : ''}`;
+    rows = rev.muets.map(({ e, rev: r }) =>
+      `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
+        <span class="mu">${escHtml(_lyMotifMuet(r))}</span>
+        <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(r))}</span></span>
+        <span class="ac">${(r.gelDpeFG || r.dpeManquant)
+          ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')">Voir le DPE</button>` : ''}</span></div>`).join('');
+    foot = 'Gel légal (DPE F/G) et DPE absent sont des <b>avertissements</b>, pas des verrous. Bail de moins d\'un an et indice non publié n\'ont rien à débloquer : la date ou l\'indice manquent.';
+  } else if (kind === 'quit-mois') {
+    const q = _lyQuittancesDuMois(ymCourant);
+    head = `🧾 ${escHtml(moisCourant.charAt(0).toUpperCase() + moisCourant.slice(1))} — quittances éditées`;
+    rows = q.html || '<div class="foot" style="border-top:0">Aucune quittance éditée ce mois-ci.</div>';
+    foot = 'Un état par (lot, mois) : le document n\'est pas stocké, chaque action le regénère depuis le barème du mois. Un mois plus ancien se réédite depuis la fiche du bien.';
+  } else if (kind === 'suivi12') {
+    head = '📊 Suivi mois par mois';
+    rows = `<div class="foot" style="border-top:0">Le tableau 12 mois × lots, avec le détail d'un mois au clic, est l'écran <b>Suivi des loyers</b> — déjà en prod, inchangé par ce chantier.
+      <div style="margin-top:8px"><button class="btn bs" onclick="_impayesOpenVue()">Ouvrir le suivi mois par mois</button></div></div>`;
   }
-  if (perdues.length) {
-    // V14 — « IRL non appliquées » remplace « Perdues » : ne PAS appliquer une révision peut
-    // être un CHOIX, et la révision revient à chaque anniversaire du bail sur les indices du
-    // moment — seul le CYCLE passé s'éteint (art. 17-1). « Perdues » jugeait à la place de
-    // l'utilisateur et annonçait un définitif que la loi ne dit pas.
-    html += _lyBloc('⏸ IRL non appliquées', perdues.length,
-      'Cycle éteint (délai d\'un an) — la révision revient à chaque anniversaire, aux indices du moment',
-      perdues.map(({ e, rev }) => {
-        // D15 — « ce qu'elle aurait rapporté », dit UNE FOIS. Jamais une action : l'app ne
-        // propose pas un geste qui ne serait pas opposable au locataire.
-        // Le gain se calcule sur les indices du cycle PERDU, pas sur ceux du cycle en cours
-        // (autre année, autre ratio) — sinon on affiche un chiffre faux sous un libellé factuel.
-        const _aP = rev.perdue.annee;
-        const _vP = (typeof irlVal === 'function') ? irlVal(rev.T, _aP) : null;
-        const _vP1 = (typeof irlVal === 'function') ? irlVal(rev.T, _aP - 1) : null;
-        const gain = (_vP && _vP1 && e.log.hc)
-          ? Math.round((e.log.hc * _vP / _vP1 - e.log.hc) * 100) / 100 : null;
-        const prescritIso = (parseInt(rev.perdue.effetIso.slice(0, 4), 10) + 1) + rev.perdue.effetIso.slice(4);
-        return { log: e.log, html: _lyRow({
-          titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
-          // Libellé de ligne figé par V14, au mot près.
-          detail: `Cycle du ${fd(rev.perdue.effetIso)} non appliqué, éteint le ${fd(prescritIso)} (délai d'un an)`,
-          montant: gain != null ? `<span class="ly-pill nu">≈ ${fmt(gain)}/mois non appliqués</span>` : '<span class="ly-pill nu">—</span>',
-          actions: ''
-        }) };
-      }), true);
-  }
-  if (muets.length) {
-    html += _lyBloc('🔒 Non révisables', muets.length,
-      'Gel légal, DPE absent ou indice non publié — avertissement, jamais blocage',
-      muets.map(({ e, rev }) => ({ log: e.log, html: _lyRow({
-        titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
-        detail: escHtml(_lyMotifMuet(rev)),
-        montant: `<span class="ly-pill nu">${escHtml(_lyPastilleMuet(rev))}</span>`,
-        actions: rev.gelDpeFG || rev.dpeManquant
-          ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')">Voir le DPE</button>` : ''
-      }) })), true);
-  }
-  return html;
+  return `<div class="ly2-blk t-info" style="margin-top:8px"><div class="fr-det" style="border-top:0">
+    <div class="h">${head}<button class="x" onclick="_lyOuvrirSuivi('${kind}')" title="Fermer">✕</button></div>
+    ${rows}${foot ? `<div class="foot">${foot}</div>` : ''}</div></div>`;
 }
 
 function _lyMotifMuet(rev) {
@@ -28628,40 +28835,81 @@ function _lyPastilleMuet(rev) {
 }
 
 /**
- * D16 — LE CALENDRIER type Gantt, replié en bas de l'onglet. Douze mois glissants, un lot par
- * ligne : bande hachurée = mois de rappel, pavé plein = mois d'effet, gris = non révisable.
- * Sur téléphone il défile DANS SON PROPRE CADRE (overflow-x sur le cadre, jamais sur la page).
+ * V3/V4 — LA FRISE DES RÉVISIONS : un ruban de douze tuiles, un chiffre par mois,
+ * posé sous les révisions et TOUJOURS AFFICHÉ (ni replié, ni optionnel).
+ *
+ * Il remplace le Gantt « 1 lot × 12 mois » : sur le parc réel c'étaient 33 lignes,
+ * l'un des postes qui portaient l'écran à 3 691 px. L'information n'est pas perdue —
+ * cliquer un mois donne la liste des lots concernés, avec le bouton « Réviser ».
+ *
+ * Aucun calendrier n'est recalculé : `ganttRevisions` (js/core/irl-calendrier.js) reste
+ * la source, `rubanRevisions` n'en fait que l'agrégation par colonne.
  */
-function _lyCalendrierResume(etats) {
-  if (typeof window === 'undefined' || !window.IrlCalendrier) return { count: 0, resume: '', html: '' };
+const _LY_MOIS_COURT = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+
+function _lyFriseRuban(etats) {
+  if (typeof window === 'undefined' || !window.IrlCalendrier
+      || typeof window.IrlCalendrier.rubanRevisions !== 'function') return '';
   const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
   const toutes = _lyRevisions(etats);
-  if (!toutes.length) return { count: 0, resume: '', html: '' };
+  if (!toutes.length) return '';
   const lots = toutes.map(({ e, rev }) => ({
     ref: e.ref,
     libelle: (e.log.locataire || '') + (e.bail && e.bail.debut ? ' · bail du ' + fd(e.bail.debut) : ''),
-    etat: {
-      etat: rev.etat, effetPrevuIso: rev.effetPrevuIso || '',
-      rappelYm: rev.rappelYm || '', muet: !!rev.muet
-    }
+    etat: { etat: rev.etat, effetPrevuIso: rev.effetPrevuIso || '', rappelYm: rev.rappelYm || '', muet: !!rev.muet }
   }));
-  const g = window.IrlCalendrier.ganttRevisions(lots, today);
-  const _M = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
-  const head = '<div class="ly-gt-c ly-gt-lot"></div>' + g.mois.map(m =>
-    `<div class="ly-gt-c ly-gt-hd${m.courant ? ' now' : ''}">${_M[m.mois - 1]}${m.mois === 1 || m.courant ? '<br><span>' + String(m.annee).slice(2) + '</span>' : ''}</div>`).join('');
-  const lignes = g.lignes.map(l =>
-    `<div class="ly-gt-c ly-gt-lot"><b>${escHtml(l.ref)}</b><span>${escHtml(l.libelle)}</span></div>`
-    + l.cells.map(c => `<div class="ly-gt-c ly-gt-cell${c.kind ? ' ' + c.kind : ''}">${escHtml(c.label || '')}</div>`).join('')
-  ).join('');
-  const nbEffets = g.lignes.filter(l => l.cells.some(c => c.kind === 'effet')).length;
-  const _MC = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  return {
-    count: g.lignes.length,
-    resume: nbEffets ? `${nbEffets} révision${nbEffets > 1 ? 's' : ''} d'ici ${_MC[g.mois[11].mois - 1]} ${g.mois[11].annee}` : 'aucune d\'ici 12 mois',
-    html: `<div class="ly-gt-wrap"><div class="ly-gt" style="grid-template-columns:minmax(120px,1.4fr) repeat(12,minmax(38px,1fr))">${head}${lignes}</div></div>
-      <div class="ly-gt-leg"><span><i class="rappel"></i>mois de rappel (M-1)</span><span><i class="effet"></i>effet (1ᵉʳ du mois)</span>
-        <span><i class="faite"></i>révision faite</span><span><i class="gel"></i>non révisable</span><span><i class="now"></i>mois en cours</span></div>`
-  };
+  const r = window.IrlCalendrier.rubanRevisions(window.IrlCalendrier.ganttRevisions(lots, today));
+  if (!r.mois.length) return '';
+
+  const tuiles = r.mois.map(m => {
+    const n = m.nbEffet;
+    const cls = 'fr-m' + (n ? ' eff' : '') + (!n && m.nbRappel ? ' rap' : '')
+      + (m.courant ? ' now' : '') + (_lyUI.frise === m.ym ? ' sel' : '');
+    const titre = `${_LY_MOIS_COURT[m.mois - 1]} ${m.annee} — ${n} révision${n > 1 ? 's' : ''}`
+      + (m.nbGel ? `, ${m.nbGel} lot${m.nbGel > 1 ? 's' : ''} non révisable${m.nbGel > 1 ? 's' : ''}` : '');
+    return `<button class="${cls}" onclick="_lyOuvrirMois('${m.ym}')" title="${escHtml(titre)}">
+      <span class="lbl">${_LY_MOIS_COURT[m.mois - 1]}<span class="an">${m.annee}</span></span>
+      <div class="n${n ? '' : ' z'}">${n || '·'}</div>
+      <span class="u">${n ? (n > 1 ? 'révisions' : 'révision') : '—'}</span>
+      ${m.nbGel ? `<span class="gel">🔒${m.nbGel}</span>` : ''}</button>`;
+  }).join('');
+
+  const parRef = new Map(toutes.map(({ e, rev }) => [e.ref, { e, rev }]));
+  let detail = '';
+  const sel = _lyUI.frise ? r.mois.find(m => m.ym === _lyUI.frise) : null;
+  if (sel) {
+    const lignes = sel.effet.concat(sel.gel).map(x => {
+      const o = parRef.get(x.ref);
+      if (!o) return '';
+      const gele = sel.gel.indexOf(x) >= 0;
+      const pct = o.rev.variation != null ? ((o.rev.variation || 0) * 100).toFixed(2).replace('.', ',') : null;
+      // Le ruban PROJETTE un effet passé sur sa prochaine occurrence annuelle (« quand ça
+      // retombe », pas « quand ça aurait dû ») : la ligne doit donc annoncer la date de la
+      // tuile, et dire séparément que le cycle d'origine n'a pas été appliqué. Sans ça, on
+      // lisait « effet au 01/09/2025 » sous une tuile de septembre 2026.
+      const effetProj = sel.ym + '-01';
+      const decale = o.rev.effetPrevuIso && String(o.rev.effetPrevuIso).slice(0, 7) !== sel.ym;
+      const quand = `effet au <b>${fd(effetProj)}</b>${pct != null ? ` · ${o.rev.variation >= 0 ? '+' : ''}${pct} %` : ''}`
+        + (decale ? ` — cycle du ${fd(o.rev.effetPrevuIso)} non appliqué` : '');
+      return `<div class="ln"><span class="who"><b>${escHtml(x.ref)}</b> <span class="mu" style="display:inline">${escHtml(x.libelle || '')}</span></span>
+        <span class="mu">${gele ? escHtml(_lyMotifMuet(o.rev)) : quand}</span>
+        <span class="am">${gele ? `<span class="ly2-p nu">${escHtml(_lyPastilleMuet(o.rev))}</span>` : `<b>${fmt(o.rev.nouveauHC)}</b>`}</span>
+        <span class="ac">${gele ? '' : `<button class="btn bp bb" onclick="applyIRL('${_lyQ(x.ref)}',${o.rev.nouveauHC})">Réviser</button>`}</span></div>`;
+    }).join('');
+    detail = `<div class="fr-det"><div class="h">${_LY_MOIS_COURT[sel.mois - 1]} ${sel.annee} — ${sel.nbEffet} révision${sel.nbEffet > 1 ? 's' : ''}${sel.nbGel ? ` · ${sel.nbGel} non révisable${sel.nbGel > 1 ? 's' : ''}` : ''}
+      <button class="x" onclick="_lyOuvrirMois('${sel.ym}')" title="Fermer">✕</button></div>
+      ${lignes || '<div class="foot" style="border-top:0">Rien ce mois-ci.</div>'}</div>`;
+  }
+
+  const gelTot = r.totalGel;
+  return `<div class="ly2-frise">
+    <div class="ly2-frise-h"><span class="t">📅 Révisions IRL — 12 mois glissants</span>
+      <span class="s">${r.totalEffet} révision${r.totalEffet > 1 ? 's' : ''} à faire${gelTot ? ` · ${gelTot} lot${gelTot > 1 ? 's' : ''} non révisable${gelTot > 1 ? 's' : ''}` : ''}</span></div>
+    <div class="fr-ruban">${tuiles}</div>
+    <div class="fr-leg"><span><i class="eff"></i>mois d'effet (1ᵉʳ du mois)</span>
+      <span><i class="rap"></i>mois de rappel (M-1)</span><span><i class="gel"></i>🔒 non révisable</span>
+      <span><i class="now"></i>mois en cours</span><span>Clic sur un mois = la liste des lots concernés.</span></div>
+    ${detail}</div>`;
 }
 
 // ── Gestes ──────────────────────────────────────────────────────────────────

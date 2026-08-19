@@ -269,3 +269,43 @@ export function ganttRevisions(lots, todayISO) {
   });
   return { mois, lignes };
 }
+
+/**
+ * V3/V4 (CDC-LOYERS-DESIGN) — LE RUBAN DES RÉVISIONS : douze tuiles, un chiffre par mois.
+ *
+ * Il REMPLACE le Gantt « 1 lot × 12 mois » (33 lignes sur le parc réel, l'un des postes
+ * qui faisaient monter l'écran Loyers à 3 691 px). Aucun calendrier n'est recalculé :
+ * ce ruban n'est qu'une AGRÉGATION en colonnes de `ganttRevisions` — même fenêtre, mêmes
+ * projections, mêmes états. Le détail par mois (quels lots) reste atteignable au clic, ce
+ * que le Gantt donnait en occupant douze fois plus de place.
+ *
+ * @param {{mois:Array, lignes:Array}} gantt sortie de ganttRevisions
+ * @returns {{mois:Array<{ym:string, mois:number, annee:number, courant:boolean,
+ *            nbEffet:number, nbFaite:number, nbGel:number, nbRappel:number,
+ *            effet:Array, faite:Array, gel:Array}>, totalEffet:number, totalGel:number}}
+ */
+export function rubanRevisions(gantt) {
+  const g = gantt || { mois: [], lignes: [] };
+  const par = new Map();
+  (g.mois || []).forEach((m) => par.set(m.ym, {
+    ym: m.ym, mois: m.mois, annee: m.annee, courant: !!m.courant,
+    nbEffet: 0, nbFaite: 0, nbGel: 0, nbRappel: 0, effet: [], faite: [], gel: []
+  }));
+  for (const l of (g.lignes || [])) {
+    for (const c of (l.cells || [])) {
+      const b = par.get(c.ym);
+      if (!b || !c.kind) continue;
+      const info = { ref: l.ref, libelle: l.libelle, etat: l.etat, label: c.label };
+      if (c.kind === 'effet') { b.nbEffet++; b.effet.push(info); }
+      else if (c.kind === 'faite') { b.nbFaite++; b.faite.push(info); }
+      else if (c.kind === 'gel') { b.nbGel++; b.gel.push(info); }
+      else if (c.kind === 'rappel') { b.nbRappel++; }
+    }
+  }
+  const mois = [...par.values()];
+  return {
+    mois,
+    totalEffet: mois.reduce((s, m) => s + m.nbEffet, 0),
+    totalGel: mois.reduce((s, m) => s + m.nbGel, 0)
+  };
+}
