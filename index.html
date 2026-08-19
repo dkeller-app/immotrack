@@ -46525,6 +46525,19 @@ function _writeCatMap(nom, ln) {
   else { delete DB.catMapping[nom]; delete DB.params.legal2044Mapping[nom]; }
 }
 function _setCustomCatMap(nom, ln) {
+  // Audit R1 : pas de RÉTROGRADATION silencieuse — une catégorie rattachée à une famille
+  // hors-2044 SPÉCIFIQUE (Prêt, dépôt de garantie, virement interne…) ne doit pas être
+  // écrasée sur « Divers » par le choix « Hors résultat » de l'éditeur Réglages (qui ne
+  // sait pas exprimer ces familles). On refuse et on renvoie vers le rattachement Finances.
+  if (ln === '__ignore') {
+    const _cur = (DB.catAlias || {})[nom];
+    const _curMere = _cur ? _stdCategoryByName(_cur) : null;
+    if (_curMere && !_curMere.ligne2044 && _curMere.nom !== 'Divers (non déductible)') {
+      if (typeof showToast === 'function') showToast('« ' + nom + ' » est rattachée à « ' + _curMere.nom + ' » (hors 2044). Ce choix resterait perdu — change sa famille via le rattachement de Finances.', 'warn', 6500);
+      if (typeof rParamsCats === 'function') rParamsCats();
+      return;
+    }
+  }
   // M-1 bis : une catégorie ne redevient JAMAIS flottante — pas de « dé-rattachement ».
   if (!ln) { if (typeof showToast === 'function') showToast('Une catégorie reste toujours rattachée — choisis une ligne, ou « Hors résultat »', 'warn', 4500); if (typeof rParamsCats === 'function') rParamsCats(); return; }
   _writeCatMap(nom, ln);
@@ -51309,6 +51322,13 @@ function _finActiveEnt() {
 function _finActiveImm() {
   try { const s = (typeof el === 'function') ? el('fin-imm') : null; return (s && s.value) || ''; } catch (e) { return ''; }
 }
+// D2 (audit) — LE cran bailleur DE LA PAGE : #fin-ent s'il existe (sélecteur P-1, paniers
+// compris), sinon le filtre global. Toutes les surfaces post-clic (drills, prévisu 2044)
+// DOIVENT lire ce périmètre-là — celui de la cellule cliquée — jamais le filtre global seul.
+function _finPageEnt() {
+  try { const s = (typeof el === 'function') ? el('fin-ent') : null; if (s) return s.value || ''; } catch (e) {}
+  return _finActiveEnt();
+}
 // ÉTAPE 2 REFONTE FINANCES — le périmètre vient du RÉSOLVEUR UNIQUE (js/core/finances-scope.js,
 // P-1/P-2/P-3) : plus aucun filtrage maison. `_finEntScope` n'est qu'un adaptateur DB → module.
 // Retourne toujours un objet scope (kind 'all' pour « Tout ») ; null uniquement en file://
@@ -51365,7 +51385,9 @@ function _finCatMere(catNom) {
   if (std) return std;                                  // STD = figée, un alias ne peut pas la remapper
   const alias = (DB.catAlias || {})[catNom];
   if (alias) { const mere = _stdCategoryByName(alias); if (mere) return mere; }
-  const m = (DB.catMapping || {})[catNom];              // repli legacy {nom: ligne}
+  // Replis legacy {nom: ligne} — les DEUX magasins, comme _catLigne2044 (audit R2) : un vieux
+  // snapshot cloud peut n'avoir peuplé que legal2044Mapping.
+  const m = (DB.catMapping || {})[catNom] || ((DB.params && DB.params.legal2044Mapping) || {})[catNom];
   if (m === '__ignore') return _stdCategoryByName('Divers (non déductible)');
   if (m) { const mere = _finStdByLigne(m); if (mere) return mere; }
   return null;
@@ -52193,7 +52215,7 @@ function _finCreditCreate(which) {
 function _finDrillLigne(kind, yr, mo) {
   yr = String(yr);
   mo = (mo != null && mo !== '') ? parseInt(mo, 10) : 0;   // #6 : mois-scopé (0 = tout l'exercice)
-  const scope = _finEntScope(_finActiveEnt(), _finActiveImm()); // scope|null — parité exacte avec rFinances/_finChargeBuckets (entité + immeuble B6)
+  const scope = _finEntScope(_finPageEnt(), _finActiveImm()); // scope|null — parité exacte avec rFinances/_finChargeBuckets (entité + immeuble B6)
   const f = (typeof fmt === 'function') ? fmt : (x => x + '');
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
   const dfr = d => { const p = String(d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(d || ''); };
@@ -52420,7 +52442,7 @@ function _finDrillLigne(kind, yr, mo) {
     body += '<tr class="tot"><td>Total' + (mo ? ' ' + _DMOIS[mo - 1] + ' ' + yr : ' exercice') + '</td><td>' + gt.txt + '</td></tr>';
     body += '</tbody></table>';
     if (def.rec && !mo) {   // note HC/prov = concept annuel → masquée en vue mois (évite un split annuel sous un total mensuel)
-      const split = _finLoyersHC(yr, scope);
+      const split = _finLoyersHC(yr, scope, _Wd && _Wd.constat);   // même fenêtre que la ligne du tableau (audit R3)
       body += '<div class="note">Total encaissé charges comprises. Réparti au prorata du bail : '
         + '<b>' + f(split.hc) + '</b> en loyers HC + <b>' + f(split.provisions) + '</b> en provisions de charges (récupérables, neutres au résultat).</div>';
     }
@@ -52492,7 +52514,7 @@ function _finDrillRetard(kind, yr, mo) {
   yr = String(yr);
   mo = (mo != null && mo !== '') ? parseInt(mo, 10) : 0;   // 0 = année (tout) ; sinon le mois cliqué seulement
   const isLoy = (kind === 'loyer');
-  const scope = _finEntScope(_finActiveEnt(), _finActiveImm());
+  const scope = _finEntScope(_finPageEnt(), _finActiveImm());
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
   // LE RETARD SUIT LA FENÊTRE D'EXIGIBILITÉ (F-1) : on ne peut pas être en retard sur un loyer
@@ -52523,7 +52545,7 @@ function _finDrillRetard(kind, yr, mo) {
     blocks.push('<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
       + '<div style="font-weight:700;font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(_finLotNomAt(q, yr, cause[0].idx))
       + ' <span style="font:700 11px Inter;color:var(--warn);background:var(--warn-soft,rgba(143,98,14,.10));padding:2px 8px;border-radius:6px">' + f(arrear) + ' en retard</span>'
-      + (_canRelance ? '<button type="button" class="btn bs" style="margin-left:auto;font-size:11.5px;padding:4px 10px" onclick="closeM(\'ov-dash-drill\');_lyRelance(' + JSON.stringify(esc(q)) + ')">📨 Créer une relance</button>' : '')
+      + (_canRelance ? '<button type="button" class="btn bs" style="margin-left:auto;font-size:11.5px;padding:4px 10px" onclick="closeM(\'ov-dash-drill\');_lyRelance(\'' + _lyQ(q) + '\')">📨 Créer une relance</button>' : '')
       + '</div>'
       + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + chips + '</div></div>');
   }
@@ -52541,7 +52563,7 @@ function _finDrillRetard(kind, yr, mo) {
 function _finDrillAvance(yr, mo) {
   yr = String(yr);
   mo = (mo != null && mo !== '') ? parseInt(mo, 10) : 0;   // 0 = année (tout) ; sinon le mois cliqué seulement
-  const scope = _finEntScope(_finActiveEnt(), _finActiveImm());
+  const scope = _finEntScope(_finPageEnt(), _finActiveImm());
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
   const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s == null ? '' : s));
   // L'avance suit la fenêtre de CONSTAT (un encaissement post-daté peut en porter une).
@@ -52652,7 +52674,9 @@ function _finOpen2044Previsu() {
     return;
   }
   const yr = (el('fin-year') && el('fin-year').value) ? parseInt(el('fin-year').value, 10) : new Date().getFullYear();   // F-1 : défaut unique = exercice en cours
-  const entNom = (typeof _finActiveEnt === 'function') ? _finActiveEnt() : '';
+  // D2 (audit) : la prévisu suit le périmètre DE LA PAGE (#fin-ent), comme sa note le promet.
+  const _pe = (typeof _finPageEnt === 'function') ? _finPageEnt() : ((typeof _finActiveEnt === 'function') ? _finActiveEnt() : '');
+  const entNom = (_pe === window._FIN_SANS_BAILLEUR) ? '' : _pe;
   const opts = _legal2044BuildOpts(yr, entNom);
   const r = window._compute2044(DB.mouvements || [], STD_CATEGORIES, opts);
   _fin2044Opts = opts;

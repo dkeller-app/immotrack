@@ -35,10 +35,10 @@ import { MOIS_FR } from './utils.js';
 
 export const WINDOW_KIND = { CONSTAT: 'constat', EXIGIBILITE: 'exigibilite' };
 
-// CONTRAT DE LA FENÊTRE VIDE (`empty: true`, `lastMonth: 0`) : l'appelant DOIT court-circuiter
-// le moteur mensuel. `_computeFinancesMonthly` remonte un `lastMonth` de 0 à 1
-// (finances-monthly.js:52-54, `Math.max(1, …)`) et produirait un mois de janvier fantôme sur
-// un exercice où rien n'est encore exigible. Voir le test « contrat de la fenêtre vide ».
+// CONTRAT DE LA FENÊTRE VIDE (`empty: true`, `lastMonth: 0`) : depuis l'étape 2, le moteur
+// mensuel qui reçoit une FENÊTRE clampe à 0 et produit ZÉRO mois (plus de promotion 0→1 —
+// elle ne subsiste que sur le chemin historique sans fenêtre). L'appelant court-circuite
+// quand même pour afficher un état vide plutôt qu'un tableau creux. Test « fenêtre vide ».
 
 // Date du jour en ISO LOCAL, jamais toISOString() : en UTC, le 1er du mois avant ~2 h fait
 // perdre un mois à la fenêtre, et le 1er janvier fait basculer l'exercice en cours en
