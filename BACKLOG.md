@@ -73,7 +73,7 @@ Décisions structurantes : écran = tableau de bord à 3 tuiles (Impayés · À 
 
 🔨 **CHANTIER LANCÉ (Opus, worktree `Immo-wt-loyers`, branche `feat/loyers-design`)** — 8 lots du §5, **lot 0 = socle des dates** en prérequis (sans lui les lots 3 et 4 ne peuvent pas être justes ; si une date est irrécupérable, l'acter — jamais en inventer une). 5 règles de solidité appliquées, gate = hauteur mesurée + 3 formats × 2 thèmes + 0 débordement à 390 px.
 
-**Lot 0 vert (`01d5bba`, 3027 tests, +23)** : socle des dates — **les dates d'imputation sont RÉCUPÉRABLES**, l'option « acter l'absence » n'a pas été retenue. `_loyerArrearsPass` porte `sources` → `imputations`, `etatMoisLot` expose `datePaiement`/`paiements`, porte unique `window.datePaiementMois(etat, ym)`. **Arithmétique inchangée au centime** (testée avec et sans sources, report actif et inactif). Suite : lot 1 (vocabulaire).
+**Lot 0 vert (`01d5bba`, 3027 tests, +23)** : socle des dates — **les dates d'imputation sont RÉCUPÉRABLES**, l'option « acter l'absence » n'a pas été retenue. `_loyerArrearsPass` porte `sources` → `imputations`, `etatMoisLot` expose `datePaiement`/`paiements`, porte unique `window.datePaiementMois(etat, ym)`. **Arithmétique inchangée au centime** (testée avec et sans sources, report actif et inactif). **Lot 1 vert (`90becd2`, 3039 tests)** : vocabulaire V14 (« Impayés », « IRL non appliquées », « avertissement jamais blocage »), aucune logique touchée. Constat honnête du chantier : les « compteurs muets » que V14 fait supprimer **n'existaient pas dans l'app livrée** (c'était une variante de maquette écartée) → interdiction **encodée en test** plutôt que suppression de vide. Suite : lot 2 (écran M5).
 
 ## 🔨 EDL TERRAIN — lancé 19/08 (ordre user, en attendant `propryo.fr`)
 
