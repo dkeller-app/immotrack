@@ -68,7 +68,11 @@ export function moisRailLot(etat, quittancesYm, annee, todayYm, editeesLe) {
     const du = e ? _r2(e.du) : 0;
     const reste = e ? _r2(e.reste) : 0;
     let st;
-    if (!e || e.vacance) st = MOIS_ETAT.OFF;
+    // Un mois À VENIR n'a pas encore d'entrée dans l'état (la fenêtre de suivi s'arrête au
+    // mois courant) : il n'est pas « hors bail » pour autant. L'écran doit le dire tel qu'il
+    // est — à venir — sinon les mois de fin d'année se lisent comme si le bail était fini.
+    if (!e && todayYm && ym > String(todayYm)) st = MOIS_ETAT.FUT;
+    else if (!e || e.vacance) st = MOIS_ETAT.OFF;
     else if (deja.has(ym)) st = MOIS_ETAT.DONE;
     else if (e.solde) st = MOIS_ETAT.OK;
     else if (todayYm && ym > String(todayYm)) st = MOIS_ETAT.FUT;

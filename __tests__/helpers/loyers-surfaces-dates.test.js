@@ -52,8 +52,14 @@ describe('Surface 3 — fiche 360 · Compta : le badge « ✓ payé / ⏳ non co
     expect(has('title="Paiement reçu le ${fd(q.datePaiement)}"')).toBe(false);
     expect(has('title="Paiement non confirmé"')).toBe(false);
   });
-  it('affiche l\'état réel du mois, issu de la cascade', () => {
-    expect(has('const _mo = (_e && _ym && _e.byYm) ? _e.byYm[_ym] : null;')).toBe(true);
+  it('la liste des quittances qui le portait a été remplacée par l\'état 12 mois (V13)', () => {
+    // Le badge ne pouvait pas être « réparé » : il annonçait un paiement à partir d'un champ
+    // mort. La surface entière est remplacée par la bande de douze cases, qui lit l'état réel.
+    expect(has('function _renderQuitForLog')).toBe(false);
+    expect(has('function _renderEtat12Mois(ref, year)')).toBe(true);
+  });
+  it('l\'état affiché vient de la cascade, pas d\'un champ stocké', () => {
+    expect(has('const rail = window.moisRailLot(etat, deja.yms, year, today.slice(0, 7), deja.dates);')).toBe(true);
   });
 });
 

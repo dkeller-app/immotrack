@@ -27336,7 +27336,7 @@ const _QUIT_STATUT_STYLE = {
 // C'était un HISTORIQUE, pas une file de travail : il ne montrait que les quittances DÉJÀ
 // émises, jamais un loyer encaissé restant à quittancer. L'onglet « Loyers » (`rLoyers`) montre
 // ce qu'il y a à FAIRE ; les quittances émises restent consultables sur la fiche du logement
-// (`_renderQuitForLog`) et dans la ligne repliée « Quittances éditées ce mois ».
+// (`_renderEtat12Mois`, la bande de 12 cases) et dans la pastille « Quittances éditées ce mois ».
 
 // v14.97 EMAIL-AUTO.4 : envoi quittance par email (mode "proposition" — mailto/clipboard)
 // Construit le contexte (locataire, bail, logement, entité, quittance) et ouvre
@@ -38230,39 +38230,83 @@ function _renderMvForLog(ref, year) {
   return `<div class="compta-list">${rows}</div>`;
 }
 
-// ── Liste compacte des quittances d'un logement pour une année donnée
-// v14.18.1 fix : ajout bouton 👁 Aperçu PDF (previewQuit existante l.15387)
-function _renderQuitForLog(ref, year) {
-  const yearPrefix = String(year);
-  const quits = (DB.quittances||[])
-    .filter(q => q.logement === ref && (q.mois||'').includes(yearPrefix))
-    .sort((a,b)=>(b.mois||'').localeCompare(a.mois||''));
-  if(!quits.length) return `<div class="compta-empty">Aucune quittance en ${year}</div>`;
-  const rows = quits.map(q => {
-    const total = (+q.hc||0) + (+q.ch||0);
-    // I-DATE, surface 3 du §4 — le badge « ✓ payé / ⏳ non confirmé » lisait `q.datePaiement`,
-    // un champ LEGACY qui n'est plus jamais écrit depuis C1 : toutes les quittances portaient
-    // donc ⏳ « paiement non confirmé », y compris des mois soldés au centime. Il ne s'agit pas
-    // de le réparer mais de le SUPPRIMER : l'état réel du mois existe déjà, il vient de la
-    // cascade unique, et il est affiché ici même à partir d'elle.
-    const _e = (typeof _loyerEtatLot === 'function') ? _loyerEtatLot(ref) : null;
-    const _ym = (typeof window.moisFrToYm === 'function') ? window.moisFrToYm(q.mois) : null;
-    const _mo = (_e && _ym && _e.byYm) ? _e.byYm[_ym] : null;
-    const _dp = (_mo && typeof window.datePaiementMois === 'function')
-      ? window.datePaiementMois(_e, _ym) : null;
-    const paidBadge = !_mo ? ''
-      : (_mo.solde
-          ? `<span class="badge grn" title="Mois soldé${_dp && _dp.date ? ' — payé le ' + fd(_dp.date) : ''}">soldé</span>`
-          : `<span class="badge ora" title="Reste ${fmt(_mo.reste)} sur ce mois">reste ${fmt(_mo.reste)}</span>`);
-    return `<div class="compta-row">
-      <span class="compta-row-date">${escHtml(q.mois||'—')}</span>
-      <span class="compta-row-lib">${escHtml(q.locataire||'—')} ${paidBadge}</span>
-      <span class="compta-row-cat"><span class="mu sm">${fmt(q.hc||0)} HC + ${fmt(q.ch||0)} ch</span></span>
-      <span class="compta-row-amt pos">${fmt(total)}</span>
-      <span class="compta-row-act"><button class="btn bs bb" onclick="previewQuit(${+q.id})" title="Aperçu PDF de cette quittance">👁</button></span>
-    </div>`;
+/**
+ * V13 (point 2) — L'ÉTAT DU QUITTANCEMENT SUR LA FICHE DU BIEN : douze cases par année.
+ *
+ * Ce qui remplace la LISTE des quittances (qui grossissait à chaque mois : 12 lignes par an,
+ * 60 après cinq ans). Calque de l'écran EDL du logement : une bande fixe, lisible d'un coup
+ * d'œil, qui NE GROSSIT PAS avec l'historique — c'est la contrainte dure du CDC.
+ *
+ * Principe directeur : « on ne garde pas le document en visuel ; si l'utilisateur veut une
+ * quittance passée, il la réédite ». Chaque case est donc un BOUTON qui ouvre l'éditeur sur
+ * ce mois-là — le document se regénère depuis le barème de ce mois (I5).
+ *
+ * Les données ne sont pas recalculées : `moisRailLot` (js/core/quittance-editeur.js) sert le
+ * rail de l'éditeur ET cette bande. Une seule lecture de l'état, deux surfaces.
+ */
+function _renderEtat12Mois(ref, year) {
+  if (typeof window === 'undefined' || typeof window.moisRailLot !== 'function') {
+    return `<div class="compta-empty">Module Loyers non chargé — ouvre l'app via http.</div>`;
+  }
+  const etat = _loyerEtatLot(ref);
+  if (!etat) return `<div class="compta-empty">Aucun suivi de loyer pour ce logement.</div>`;
+  const deja = _qeDeja(ref);
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const rail = window.moisRailLot(etat, deja.yms, year, today.slice(0, 7), deja.dates);
+  const M1 = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+  const nbFaites = rail.filter(m => m.etat === 'done').length;
+  const nbAFaire = rail.filter(m => m.etat === 'ok').length;
+  const nbDus = rail.filter(m => m.etat === 'no').length;
+
+  const cases = rail.map((m, i) => {
+    const meta = _qeMeta(ref, m.ym);
+    const et = window.etiquetteSansPaiement(meta, fd);
+    let bas, titre;
+    if (m.etat === 'done') {
+      bas = m.editeeLe ? fd(m.editeeLe).slice(0, 5) : '✓';
+      titre = `${m.mois} — quittancé${m.editeeLe ? ' le ' + fd(m.editeeLe) : ''}${et.visible ? ' · ' + et.survol : ''}. Clic : rééditer.`;
+    } else if (m.etat === 'ok') {
+      bas = 'à faire';
+      titre = `${m.mois} — soldé, pas encore quittancé (${fmt(m.du)}). Clic : éditer la quittance.`;
+    } else if (m.etat === 'no') {
+      bas = fmt(m.reste).replace(/\s?€$/, '');
+      titre = `${m.mois} — reste ${fmt(m.reste)} sur ${fmt(m.du)}. Clic : ouvrir l'éditeur (l'app prévient, elle ne bloque pas).`;
+    } else if (m.etat === 'fut') {
+      bas = 'à venir';
+      titre = `${m.mois} — à venir, non couvert.`;
+    } else {
+      bas = '—';
+      titre = `${m.mois} — hors bail.`;
+    }
+    return `<button class="e12-c e12-${m.etat}${et.visible ? ' e12-forcee' : ''}" title="${escHtml(titre)}"
+      ${m.etat === 'off' ? 'disabled' : `onclick="_ouvrirQuittanceSurMois('${_lyQ(ref)}','${m.ym}')"`}>
+      <span class="m">${M1[i]}</span><span class="b">${escHtml(bas)}</span></button>`;
   }).join('');
-  return `<div class="compta-list">${rows}</div>`;
+
+  return `<div class="e12">
+    <div class="e12-h">
+      <span class="t">Quittancement ${escHtml(String(year))}</span>
+      <span class="s">${nbFaites} quittancé${nbFaites > 1 ? 's' : ''} · ${nbAFaire} à faire${nbDus ? ' · ' + nbDus + ' mois avec un reste dû' : ''}</span>
+    </div>
+    <div class="e12-g">${cases}</div>
+    <div class="e12-l">
+      <span><i class="done"></i>quittancé (date d'édition)</span>
+      <span><i class="ok"></i>soldé, à quittancer</span>
+      <span><i class="no"></i>reste dû</span>
+      <span><i class="fut"></i>à venir</span>
+      <span>Clic sur un mois = l'éditeur s'ouvre dessus. Rien n'est stocké : le document se regénère.</span>
+    </div>
+  </div>`;
+}
+
+/** V13 — la case du bien et la pastille du mois ouvrent LE MÊME éditeur, sur CE mois. */
+function _ouvrirQuittanceSurMois(ref, ym) {
+  if (typeof _openFaireQuittance !== 'function') return;
+  _openFaireQuittance(ref);
+  if (!_qe || _qe.ref !== ref) return;
+  _qe.an = String(ym).slice(0, 4);
+  _qe.sel.clear(); _qe.sel.add(ym); _qe.confirme = false; _qe.onglet = 0;
+  _qeRender();
 }
 
 // HISTORIQUE-BAIL-ONGLET (17/07) : _renderIrlForLog supprimé — l'historique IRL est
@@ -38671,9 +38715,9 @@ function _renderLogFichePanelCompta(log, ref) {
     ${_renderMvForLog(ref, year)}
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none">
-      <span class="logf-subtab act" style="cursor:default">🧾 Quittances ${year}</span>
+      <span class="logf-subtab act" style="cursor:default">🧾 Quittancement ${year}</span>
     </div>
-    ${_renderQuitForLog(ref, year)}
+    ${_renderEtat12Mois(ref, year)}
 
     <div class="logf-subtabs" style="margin-top:18px;border-bottom:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span class="logf-subtab act" style="cursor:default">🕒 Historique du loyer</span>
@@ -40030,31 +40074,18 @@ function _renderLogFichePanelDocuments(log, ref) {
   }
   sections.push({ title: '📈 Lettres IRL', icon: '📈', html: irlSection });
 
-  // ── 4. Quittances générées
-  const quitts = (DB.quittances||[]).filter(_isAlive).filter(q => q.logement === ref)
-    .sort((a,b) => (b.date||'').localeCompare(a.date||''))
-    .slice(0, 6);
-  let quitSection = '';
-  if(quitts.length) {
-    quitSection = quitts.map(q => `<div class="logf-doc-card">
-      <div class="logf-doc-icon">${_monoSvg('<path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3Z"/><path d="M9 8h6M9 12h5"/>',22)}</div>
-      <div class="logf-doc-info">
-        <div class="logf-doc-name">Quittance ${escHtml(q.mois||'—')}</div>
-        <div class="logf-doc-meta">${fmt((+q.hc||0)+(+q.ch||0))} · ${q.locataire?escHtml(q.locataire):'—'}${q.date?` · éditée le ${fd(q.date)}`:''}</div>
-      </div>
-      <div class="logf-doc-actions">
-        <button class="btn bs bb" onclick="previewQuit('${q.id}');" title="Aperçu de la quittance">👁 Aperçu</button>
-      </div>
-    </div>`).join('');
-    if((DB.quittances||[]).filter(_isAlive).filter(q=>q.logement===ref).length > 6) {
-      quitSection += `<div class="mu sm" style="text-align:center;margin-top:8px">+ ${(DB.quittances||[]).filter(_isAlive).filter(q=>q.logement===ref).length-6} autres · <a onclick="_goFromLogFiche('loyers')return false" style="cursor:pointer;color:var(--acc)">voir toutes</a></div>`;
-    }
-  } else {
-    quitSection = `<div class="logf-doc-empty">Aucune quittance enregistrée pour ce logement.
-      <div style="margin-top:10px"><button class="btn bs bb" onclick="_goFromLogFiche('loyers')">↗ Onglet Loyers</button></div>
-    </div>`;
-  }
-  sections.push({ title: `🧾 Quittances ${quitts.length?`(${quitts.length}+)`:''}`, icon: '🧾', html: quitSection });
+  // ── 4. Quittancement — L'ÉTAT, PAS L'ARCHIVE (CDC-LOYERS-DESIGN V13, §2).
+  // La GALERIE de documents disparaît : « on ne garde pas le document en visuel ; si
+  // l'utilisateur veut une quittance passée, il la réédite ». Elle grossissait à chaque
+  // mois et laissait croire qu'un fichier était stocké quelque part — rien ne l'est.
+  // À la place : la même bande de douze cases que le sous-onglet Compta, dont chaque case
+  // rouvre l'éditeur sur ce mois. Taille FIXE, quel que soit l'historique.
+  const _annQuit = new Date().getFullYear();
+  sections.push({ title: '🧾 Quittancement', icon: '🧾',
+    html: _renderEtat12Mois(ref, _annQuit)
+      + `<div class="mu sm" style="margin-top:8px;line-height:1.5">Aucune quittance n'est stockée :
+         l'app retient un <b>état</b> par (lot, mois) — qui, quand — et regenère le document depuis le
+         barème de ce mois à chaque fois. Clic sur un mois pour l'éditer ou le rééditer.</div>` });
 
   // ── 5. BIENS étape 8 — PHOTOS DU LOGEMENT, vraie galerie (mockup s3-logement).
   // Le bloc d'ici était un PLACEHOLDER lisant `log.photos` — un champ que RIEN n'écrit dans

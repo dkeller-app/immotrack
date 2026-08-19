@@ -31,9 +31,19 @@ describe('V6 — le rail des mois : douze cases, chacune dit son état', () => {
   const etat = etatBase();
   const rail = moisRailLot(etat, ['2026-01'], 2026, '2026-06', { '2026-01': '2026-02-03' });
 
-  it('les douze mois de l\'année sont présents, même hors bail', () => {
+  it('les douze mois de l\'année sont présents', () => {
     expect(rail.length).toBe(12);
-    expect(rail[11].etat).toBe(MOIS_ETAT.OFF);   // décembre : pas de bail
+  });
+  it('les mois À VENIR se lisent « à venir », pas « hors bail »', () => {
+    // La fenêtre de suivi s'arrête au mois courant : décembre n'a pas d'entrée. Ce n'est
+    // pas pour autant un mois hors bail — le dire ferait croire que la location est finie.
+    expect(rail[11].etat).toBe(MOIS_ETAT.FUT);
+  });
+  it('un mois réellement hors bail reste « off »', () => {
+    const court = etatMoisLot([mois('2026-05', 600, S('2026-05-05', 600))]);
+    const r = moisRailLot(court, [], 2026, '2026-06');
+    expect(r[0].etat).toBe(MOIS_ETAT.OFF);   // janvier : avant le bail, et passé
+    expect(r[4].etat).toBe(MOIS_ETAT.OK);    // mai
   });
   it('un mois déjà quittancé se rouvre — c\'est ça, rééditer', () => {
     expect(rail[0].etat).toBe(MOIS_ETAT.DONE);
