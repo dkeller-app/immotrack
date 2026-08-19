@@ -79,6 +79,22 @@ import {
   _computeFinancesMonthly
 } from './core/finances-monthly.js';
 
+// REFONTE FINANCES étape 2 — LE résolveur de périmètre unique (P-1/P-2/P-3) + les deux
+// fenêtres nommées (F-1 / F-1 v2). Consommés par rFinances et toutes ses surfaces.
+import {
+  resolveScope as _finScopeResolveM, buildScopeCatalog as _finScopeCatalogM,
+  scopeWeight as _finScopeWeightCoreM, lotInScope as _finScopeLotInM,
+  scopeLots as _finScopeLotsM, scopeLabel as _finScopeLabelM,
+  orphelinsHorsPerimetre as _finScopeOrphelinsM,
+  SANS_BAILLEUR as _FIN_SANS_BAILLEUR_M, SANS_IMMEUBLE as _FIN_SANS_IMMEUBLE_M,
+  LABEL_SANS_BAILLEUR as _FIN_LBL_SANS_BAILLEUR_M, LABEL_SANS_IMMEUBLE as _FIN_LBL_SANS_IMMEUBLE_M
+} from './core/finances-scope.js';
+import {
+  computeConstatWindow as _finWindowConstatM, computeExigibiliteWindow as _finWindowExigibiliteM,
+  alignPreviousYear as _finWindowAlignN1M, isFutureMonth as _finWindowIsFutureM,
+  windowLabel as _finWindowLabelM
+} from './core/finances-window.js';
+
 // SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
 import {
   _computeLoyerStatut, _loyerChipVerdict, _loyerToleranceActive, _loyerTodayLocal, _loyerSoldeAjuste, _computeLoyerCumul, _computeLoyerChargeAlloc, _computeLoyerArrears, _loyerSplitCascade, _LOYER_TOLERANCE_JOUR
@@ -298,6 +314,25 @@ window._computeFinancesSummary = _computeFinancesSummary;
 
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;
+
+// REFONTE FINANCES étape 2 — socle périmètre + fenêtres (jamais window.MOIS_FR : le
+// `const MOIS_FR` lexical d'index.html masquerait la propriété — piège documenté).
+window._finScopeResolve = _finScopeResolveM;
+window._finScopeCatalog = _finScopeCatalogM;
+window._finScopeWeightCore = _finScopeWeightCoreM;
+window._finScopeLotIn = _finScopeLotInM;
+window._finScopeLots = _finScopeLotsM;
+window._finScopeLabel = _finScopeLabelM;
+window._finScopeOrphelins = _finScopeOrphelinsM;
+window._FIN_SANS_BAILLEUR = _FIN_SANS_BAILLEUR_M;
+window._FIN_SANS_IMMEUBLE = _FIN_SANS_IMMEUBLE_M;
+window._FIN_LBL_SANS_BAILLEUR = _FIN_LBL_SANS_BAILLEUR_M;
+window._FIN_LBL_SANS_IMMEUBLE = _FIN_LBL_SANS_IMMEUBLE_M;
+window._finWindowConstat = _finWindowConstatM;
+window._finWindowExigibilite = _finWindowExigibiliteM;
+window._finWindowAlignN1 = _finWindowAlignN1M;
+window._finWindowIsFuture = _finWindowIsFutureM;
+window._finWindowLabel = _finWindowLabelM;
 
 // SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
 window._computeLoyerStatut = _computeLoyerStatut;
