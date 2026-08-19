@@ -70,10 +70,6 @@ import {
   _computeBilanAnnuel, _formatBilanTexte
 } from './core/legal-bilan.js';
 
-import {
-  _computeFinancesSummary
-} from './core/finances-summary.js';
-
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
 import {
   _computeFinancesMonthly
@@ -309,9 +305,6 @@ window._isEraseEligible = _isEraseEligible;
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
 
-// REPORTING-BAILLEUR — agrégat onglet Finances
-window._computeFinancesSummary = _computeFinancesSummary;
-
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;
 
@@ -543,8 +536,7 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean',
     '_compute2044', '_format2044Recap', '_2044ToCsv',
     '_findPersonalDataForRef', '_generateGdprExport', '_planErasure', '_isEraseEligible',
-    '_computeBilanAnnuel', '_formatBilanTexte',
-    '_computeFinancesSummary'
+    '_computeBilanAnnuel', '_formatBilanTexte'
   ]
 };
 

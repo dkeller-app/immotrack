@@ -139,3 +139,58 @@ describe('étape 2 · tranche 1 — invariant I-1 (IRL d\'août, janvier→juill
     expect(duMois(cas.avant, YEAR + '-08').hc).toBe(800);
   });
 });
+
+describe('étape 2 · tranche 2 — R-2 : recouvrement sur le dû du barème (suppressions §9)', () => {
+  const duCCsur = (r, dueMonth) => {
+    let du = 0, retard = 0;
+    r.months.forEach((m) => { if (m.mo <= dueMonth) { du += m.duHC + m.duCH; retard += m.loyerRetard + m.chargeRetard; } });
+    return { du: Math.round(du * 100) / 100, retard: Math.round(retard * 100) / 100 };
+  };
+
+  it('le moteur REND le dû du mois (duHC/duCH) — le dénominateur unique, fini attenduHCTheo', () => {
+    const mvts = mouvementsJusquA(9);
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const r = run(mvts, win);
+    const { du, retard } = duCCsur(r, win.dueMonth);
+    expect(du).toBe(9 * 900);
+    expect(retard).toBe(0);
+    // recouvrement = (dû − retard) / dû = 100 %
+    expect(Math.round((du - retard) / du * 1000) / 10).toBe(100);
+  });
+
+  it('un loyer payé D\'AVANCE ne fait jamais dépasser 100 % (dénominateur = exigibilité)', () => {
+    // Tout l'exercice payé en janvier (10 800 € d'un coup).
+    const mvts = [mvLoyer('2026-01', 10800)];
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const r = run(mvts, win);
+    const { du, retard } = duCCsur(r, win.dueMonth);
+    expect(du).toBe(9 * 900);
+    expect(retard).toBe(0);                       // le netting : l'avance couvre les mois suivants
+    const recouv = Math.round((du - retard) / du * 1000) / 10;
+    expect(recouv).toBeLessThanOrEqual(100);
+    expect(recouv).toBe(100);
+  });
+
+  it('zéro paiement = pire retard : recouvrement 0 %, retard = dû complet (loyers + charges)', () => {
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: [] });
+    // Fenêtre sans mouvement mais exercice en cours : dernier mois échu quand même (dueMonth=9).
+    expect(win.dueMonth).toBe(9);
+    const r = run([], win);
+    const { du, retard } = duCCsur(r, win.dueMonth);
+    expect(du).toBe(9 * 900);
+    expect(retard).toBe(9 * 900);
+  });
+
+  it('paiement PARTIEL : le manque tombe d\'abord sur les charges (H-1), le retard CC le capte', () => {
+    // 800 versés sur 900 dus chaque mois → charges en retard de 100/mois.
+    const mvts = mouvementsJusquA(9, 800);
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const r = run(mvts, win);
+    const { du, retard } = duCCsur(r, win.dueMonth);
+    expect(retard).toBe(9 * 100);
+    const sept = r.months.find((m) => m.mo === 9);
+    expect(sept.chargeRetard).toBe(100);          // la cascade sert le loyer d'abord
+    expect(sept.loyerRetard).toBe(0);
+    expect(Math.round((du - retard) / du * 1000) / 10).toBeCloseTo(88.9, 1);
+  });
+});

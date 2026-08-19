@@ -51157,10 +51157,10 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .sec-title::after{content:"";flex:1;height:1px;background:var(--bor)}
 #p-finances .note{font-size:11.5px;color:var(--t3);margin-top:8px;line-height:1.5}
 #p-finances .note .lnk,#p-finances .lnk{color:#5c8aff;cursor:pointer;font-weight:600}
-#p-finances .hero{background:linear-gradient(135deg,var(--sur),var(--sur2));border:1px solid var(--bor2,var(--bor));border-radius:var(--rl,12px);padding:20px 24px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap}
+/* F-b2 : surfaces NEUTRES — halo vert décoratif et dégradé supprimés (la charte ne prévoit pas de décor coloré) */
+#p-finances .hero{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl,14px);padding:20px 24px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap}
 #p-finances .hero .hero-l{position:relative;min-width:220px}
-#p-finances .hero::before{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(52,211,153,.18),transparent 70%)}
-#p-finances .hero .big{font:800 40px/1 var(--display);letter-spacing:-.03em;margin:6px 0 4px}
+#p-finances .hero .big{font:800 var(--fs-hero,36px)/1 var(--display);letter-spacing:-.03em;margin:6px 0 4px}
 #p-finances .hero .big.pos{color:var(--pos)}
 #p-finances .hero .big.neg{color:var(--neg)}
 #p-finances .hero .decomp{display:flex;gap:22px;flex-wrap:wrap;position:relative}
@@ -51168,7 +51168,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .hero .decomp .it .k{font:600 10.5px/1 'Inter';text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
 #p-finances .hero .decomp .it .v{font:800 17px/1 var(--display);color:var(--t1)}
 #p-finances .hero .decomp .it .v.neg{color:var(--neg)}
-#p-finances .fin-ratios{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+#p-finances .fin-ratios{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 #p-finances .ratio{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r,10px);padding:13px 14px}
 #p-finances .ratio .rl{font:600 10px/1.2 'Inter';text-transform:uppercase;letter-spacing:.05em;color:var(--t3)}
 #p-finances .ratio .rv{font:800 21px/1 var(--display);margin:7px 0 4px}
@@ -51232,13 +51232,17 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .bridge a .ic{font-size:20px}
 #p-finances .bridge a .tx b{display:block;font-size:13px;font-weight:700}
 #p-finances .bridge a .tx s{display:block;font-size:11px;color:var(--t3);text-decoration:none;margin-top:2px}
-@media(max-width:760px){
-  #p-finances .fin-ratios{grid-template-columns:1fr 1fr}
-  #p-finances .hero{gap:18px}
-  #p-finances .hero .big{font-size:32px}
-}
 @media(max-width:480px){
   #p-finances .fin-ratios{grid-template-columns:1fr}
+  #p-finances .hero{gap:18px}
+}
+/* RS-2 : compactage en HAUTEUR (téléphone paysage) — le héro rend ~100 px au tableau */
+@media(max-height:480px){
+  #p-finances .hero{padding:10px 16px;gap:10px}
+  #p-finances .hero .big{font-size:22px;margin:2px 0}
+  #p-finances .ratio .meter{display:none}
+  #p-finances .ratio{padding:8px 12px}
+  #p-finances .ratio .rv{font-size:16px;margin:3px 0 2px}
 }
 /* Export page: highlight target when navigating from Finances */
 #p-export .fin-hl{outline:2px solid var(--acc);outline-offset:3px;transition:outline .2s;border-radius:12px}
@@ -51385,7 +51389,7 @@ function _finCollect(year, entNom) {
 // ---- C3: Ratio card renderer ----
 function _finRatio(label, val, unit, color, tip) {
   const colorVar = ({pos:'var(--pos)',neg:'var(--neg)',warn:'var(--warn)',acc:'var(--acc)'})[color] || 'var(--t1)';
-  const pctW = Math.max(0, Math.min(100, val));
+  const pctW = Math.max(0, Math.min(100, Number(val) || 0));   // val peut être « — » (aucun dû)
   return '<div class="ratio"><div class="rl">' + label + '</div>'
     + '<div class="rv num" style="color:' + colorVar + '">' + String(val).replace('.', ',') + ' ' + unit + '</div>'
     + '<div class="meter"><i style="width:' + pctW + '%;background:' + colorVar + '"></i></div>'
@@ -51396,13 +51400,14 @@ function _finRatio(label, val, unit, color, tip) {
 function rFinances() {
   const root = el('fin-root');
   if (!root) return;
-  // Graceful degradation (file:// mode: ESM modules not loaded)
-  if (typeof window._computeFinancesSummary !== 'function' || typeof window._computeBilanAnnuel !== 'function') {
+  // Dégradation file:// : sans les modules ES (moteur mensuel + résolveur de périmètre),
+  // aucun chiffre n'est calculable — on le dit, on n'affiche pas de faux zéros.
+  if (typeof window._computeFinancesMonthly !== 'function' || typeof window._finScopeResolve !== 'function') {
     root.innerHTML = '<div class="card" style="padding:20px"><div class="ct">Analyse financière indisponible</div>'
       + '<p style="color:var(--t2);font-size:13px;margin-top:8px">Ouvre l\'application via le serveur local (http-server) pour activer les calculs financiers.</p></div>';
     return;
   }
-  // Année : sélecteur #fin-year si présent, sinon ANNÉE EN COURS par défaut (B5).
+  // Année : sélecteur #fin-year si présent, sinon ANNÉE EN COURS par défaut (F-1 : défaut unique).
   const cy = new Date().getFullYear();
   const yrSel = el('fin-year');
   const yr = (yrSel && yrSel.value) ? parseInt(yrSel.value, 10) : cy;
@@ -51416,155 +51421,15 @@ function rFinances() {
   window._finEntBase = globalEnt;
   const immSel = _finActiveImm();                    // '' = tous, nom, ou panier « Sans immeuble »
   // LE résolveur unique (P-3). Les gardes-fous « hors périmètre » sont DANS resolveScope :
-  // ils posent scope.fallbacks au lieu d'agir en silence (P-6) — on les annonce plus bas.
+  // ils posent scope.fallbacks au lieu d'agir en silence (P-6) — annoncés dans la barre.
   const scope = _finEntScope(entSel, immSel);
   const entNom = scope ? (scope.sansBailleur ? '' : scope.entKey) : (entSel || '');
-  const immNom = scope ? (scope.immFilter || '') : (immSel || '');
-  // Sélections re-résolues (un repli P-6 a pu retomber sur « Tout ») → les selects reflètent l'état réel.
   const entKey = scope ? scope.entKey : (entSel || '');
   const immKey = scope ? scope.immKey : (immSel || '');
   // F-1 / F-1 v2 — LES DEUX FENÊTRES de la page, construites une fois (fin des lastMonth à la main).
   const W = _finWindows(yr, scope);
-  const { bilans } = _finCollect(yr, entNom);
-
-  // --- Agrégats portefeuille ---
-  // ⚠ L'app enregistre le loyer CHARGES COMPRISES : ligne 211 = loyers BRUTS = loyer HC +
-  // provisions de charges encaissées du locataire (cf _calculerLoyerImpayeCumule = hc+ch,
-  // dataset démo cr=hc+ch). On répartit chaque loyer encaissé entre HC et charges selon le ratio
-  // hc/(hc+ch) du bail du lot (_finLoyersHC). Ainsi le résultat net ne compte QUE le HC, et le
-  // revenu « provisions » (part CH du 211) comme la charge récupérable copro (229, exclue des
-  // buckets) sont neutres des deux côtés — spec « charges récupérables neutres », honnêteté compta.
-  const LHC = _finLoyersHC(yr, scope, W && W.constat);
-  const loyersHC = LHC.hc;
-  const provisions = LHC.provisions;
-  // B6 : en vue immeuble, on recompose occupation / vacance depuis les lots de cet immeuble.
-  const _finLots = immNom ? bilans.reduce((a, b) => a.concat((b.parLogement || []).filter(l => l.imm === immNom)), []) : null;
-  const nbTotal = _finLots ? _finLots.length
-    : bilans.reduce((s, b) => s + ((b.kpis && b.kpis.nbLogements) || 0), 0);
-  const tauxOccMoyen = _finLots
-    ? (() => { const o = _finLots.reduce((s, l) => s + (Number(l.occDays) || 0), 0), va = _finLots.reduce((s, l) => s + (Number(l.vacanceDays) || 0), 0); return (o + va) > 0 ? o / (o + va) * 100 : 0; })()
-    : (nbTotal > 0 ? bilans.reduce((s, b) => s + ((b.kpis && b.kpis.tauxOccupationGlobal) || 0) * ((b.kpis && b.kpis.nbLogements) || 0), 0) / nbTotal : 0);
-  // Fractionnel (pas Math.round) : nbOcc/nbTotal × 100 ramène exactement à tauxOccMoyen.
-  const nbOcc = tauxOccMoyen / 100 * nbTotal;
-  const vacance = _finLots ? _finLots.reduce((s, l) => s + (Number(l.manqueAGagner) || 0), 0)
-    : bilans.reduce((s, b) => s + ((b.kpis && b.kpis.totalManqueAGagner) || 0), 0);
-
-  // N-1 — même répartition HC/charges par logement que l'exercice, MÊME étendue de mois (T-2).
-  const loyersHCN1 = _finLoyersHC(yr - 1, scope, W && W.n1).hc;
-
-  // Charge buckets (C4 helper — defined below)
-  const chargeBuckets = _finChargeBuckets(yr, scope);
-
-  // Impayé de l'exercice (B2) : agrégé sur les lots occupés (neutralise les versements de gérance
-  // NON ventilés par locataire) et borné aux MOIS ÉCOULÉS de l'exercice (aucune projection sur les
-  // mois à venir : si on est en juin, on ne compte que janv→juin). ≠ _calculerLoyerImpayeCumule
-  // (cumul vie entière du bail) qui reste réservé au dépôt de garantie + à la page « Impayés actifs ».
-  const scopedLogs = (DB.logements || []).filter(l => l && (!entNom || l.entity === entNom) && (!immNom || l.imm === immNom));
-  const impayes = (typeof _listerImpayesActifs === 'function')   // liste = COMPTE de baux en impayé (plausible) ; le MONTANT du KPI = impayeExercice (ci-dessous)
-    ? _listerImpayesActifs(scopedLogs, DB.baux || {}, DB.mouvements || []) : [];
-  const _impWinStart = new Date(yr, 0, 1);
-  const _impWinEnd = (yr === cy) ? new Date() : new Date(yr, 11, 31);
-  const _moisEcoules = (debut, finStr) => {
-    if (!debut) return 0;
-    const bS = new Date(debut + 'T00:00:00');
-    const bE = finStr ? new Date(finStr + 'T00:00:00') : _impWinEnd;
-    const s = bS > _impWinStart ? bS : _impWinStart;
-    const e = bE < _impWinEnd ? bE : _impWinEnd;
-    if (e < s) return 0;
-    return (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()) + 1; // mois inclusifs
-  };
-  let _attenduHCEcoule = 0;
-  scopedLogs.forEach(l => {
-    const bail = (DB.baux && DB.baux[l.ref]) || null;
-    if (!bail || !bail.debut) return;
-    const _hc = Number(bail.hc) || 0;
-    if (_hc <= 0) return;
-    _attenduHCEcoule += _hc * _moisEcoules(bail.debut, bail.finEffective || bail.fin);
-  });
-  const impayeExercice = Math.max(0, Math.round(_attenduHCEcoule) - loyersHC);
-
-  // IRL + Régul (C5 helpers — defined below). La fenêtre d'EXIGIBILITÉ est enfin PASSÉE à
-  // _finRegulAFaire (le 4ᵉ paramètre existait, implémenté, jamais fourni → régul année pleine
-  // même en cours d'exercice, constat F-1 du CDC).
-  const irlTotal = _finIrlSousIndexation(entNom, immNom);
-  const regulTotal = _finRegulAFaire(yr, entNom, immNom, W ? W.exigibilite.lastMonth : null);
-
-  // attenduHC = loyers HC THÉORIQUES dus sur l'exercice (loyer HC mensuel × mois occupés).
-  // Base homogène avec encaisseHC (HC, même année, lots occupés) : exclut la vacance (pas un
-  // problème de recouvrement) et capte les impayés (occupé mais non encaissé → théo > encaissé).
-  // On NE réutilise PAS impayeTotal ici : il est cumulé sur toute la durée du bail et inclut
-  // les charges (CH), donc incohérent avec un encaissé HC mono-exercice (cf audit REPORTING-BAILLEUR).
-  const attenduHCTheo = bilans.reduce((s, b) => s + (b.parLogement || []).reduce(
-    (ss, l) => ss + ((!immNom || l.imm === immNom) ? (Number(l.loyerMensuelMoyen) || 0) * ((Number(l.occDays) || 0) / 30.44) : 0), 0), 0);
-  // Plancher = loyersHC : si la théorie manque (baux sans date) ou si des arriérés N-1 encaissés
-  // cette année gonflent le 211 au-dessus du théorique, on borne le recouvrement à 100 %.
-  const attenduHC = Math.max(Math.round(attenduHCTheo), loyersHC);
-
-  // Résultat net N-1 — sur la MÊME base que l'exercice : charges propriétaire = buckets par
-  // ligne2044 (récupérables 229/230 exclus, intérêts inclus). Ne PAS réutiliser kpis.totalCharges
-  // (base fiscale : inclut 229, exclut les intérêts) → sinon variation N/N-1 incohérente.
-  const bucketsN1 = _finChargeBuckets(yr - 1, scope);
-  const ownerChargesN1 = bucketsN1.interets + bucketsN1.taxeFonciere + bucketsN1.travaux + bucketsN1.honoraires + bucketsN1.assurance + bucketsN1.autres;
-  // Résultat net N-1 sur la MÊME base que N : on déduit aussi le régul N-1 (sinon comparaison net-avec-régul vs net-sans-régul faussée). Même étendue de mois que N (T-2).
-  const regulN1 = _finRegulAFaire(yr - 1, entNom, immNom, W ? W.n1.lastMonth : null);
-  const resultatNetN1 = (loyersHCN1 - ownerChargesN1) - regulN1;
-
-  // --- Synthèse via _computeFinancesSummary ---
-  const S = window._computeFinancesSummary({
-    loyersHC,
-    provisions,
-    charges: chargeBuckets,
-    loyersHCN1,
-    resultatNetN1,
-    nbOcc,
-    nbTotal,
-    attenduHC,
-    encaisseHC: loyersHC,
-    recuperer: { vacance, impaye: impayeExercice, irl: irlTotal, regul: regulTotal }
-  });
-
   const f = (typeof fmt === 'function') ? fmt : (x => x + ' €');
-  const sign = S.varPct >= 0 ? '▲ +' : '▼ ';
   const _esc = (typeof esc === 'function') ? esc : (x => x);
-
-  // Enrichissement réel (B1, modèle validé user) — « Prêt » = échéance ENTIÈRE (capital + intérêts).
-  //  • Cash-flow réel = résultat net − capital remboursé (retire l'échéance entière de la trésorerie) → TOUJOURS calculable.
-  //  • Capital remboursé = échéances « Prêt » − intérêts (250) → connu SEULEMENT si les intérêts sont saisis.
-  //  • Enrichissement = cash-flow + capital = résultat net avant impôts (le capital ne s'ajoute PAS en double).
-  // Sans intérêts saisis → vue cash-flow seule (déjà juste : on connaît l'échéance). Affichage pur, pas de logique fiscale.
-  let echeancesPret = 0;
-  (DB.mouvements || []).forEach(m => {
-    if (!m || m._deleted || !m.date || !m.date.startsWith(String(yr))) return;
-    const _wp = _finScopeWeight(scope, m); if (!_wp || m.cat !== 'Prêt') return;
-    echeancesPret += ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _wp;
-  });
-  echeancesPret = Math.round(echeancesPret * 100) / 100;
-  const interetsPret = Math.round((chargeBuckets.interets || 0) * 100) / 100;       // Σ ligne 250 (saisis via ov-fincredit)
-  const capitalPret  = Math.round((echeancesPret - interetsPret) * 100) / 100;      // équité (si intérêts saisis)
-  const cashFlow     = Math.round((S.resultatNet - capitalPret) * 100) / 100;       // retire l'échéance entière de la tréso
-  const hasInterets  = interetsPret > 0 && capitalPret >= 0;                         // intérêts saisis → on peut couper le prêt en deux
-  const _enrCard = (k, v, h, vcolor, bg) => '<div style="flex:1;min-width:150px;padding:12px 14px;background:' + (bg || 'var(--sur2)') + '"><div style="font:700 10px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3)">' + k + '</div><div style="font:800 18px var(--display);color:' + vcolor + ';margin-top:6px">' + v + '</div><div style="font-size:10px;color:var(--t2);margin-top:4px">' + h + '</div></div>';
-  const _enrOp = s => '<div style="display:flex;align-items:center;justify-content:center;font:800 18px Inter;color:var(--t3);padding:0 4px;background:var(--sur2)">' + s + '</div>';
-  let _enrichHtml = '';
-  if (echeancesPret > 0) {
-    _enrichHtml = '<div class="sec-title" style="margin-top:18px">Enrichissement réel sur l\'année</div>'
-      + '<div style="display:flex;align-items:stretch;flex-wrap:wrap;border:1px solid #3b7ef633;border-radius:12px;overflow:hidden;margin-bottom:4px">'
-      + _enrCard('Cash-flow réel', (cashFlow >= 0 ? '+ ' : '') + f(cashFlow), 'en poche, échéance de prêt payée', (cashFlow >= 0 ? '#16a34a' : '#dc2626'));
-    if (hasInterets) {
-      _enrichHtml += _enrOp('+')
-        + _enrCard('Capital remboursé', '+ ' + f(capitalPret), 'dette remboursée = patrimoine', 'var(--acc)')
-        + _enrOp('=')
-        + _enrCard('Enrichissement', (S.resultatNet >= 0 ? '+ ' : '') + f(S.resultatNet), 'cash-flow + équité (= résultat net)', '#1a4fb0', '#eef4ff')
-        + '</div>';
-    } else {
-      _enrichHtml += _enrOp('+')
-        + _enrCard('Capital remboursé', 'à débloquer', 'saisis tes intérêts', 'var(--t3)')
-        + _enrOp('=')
-        + _enrCard('Enrichissement', 'à débloquer', 'cash-flow + capital', 'var(--t3)')
-        + '</div>'
-        + '<div class="note" style="margin-top:8px">💡 Vue <b>cash-flow</b> uniquement (juste : l\'échéance entière est connue). Saisis tes <b>intérêts d\'emprunt</b> (bouton « 🧮 Renseigner les intérêts ») pour débloquer ton <b>enrichissement patrimonial</b> = cash-flow + capital remboursé.</div>';
-    }
-  }
 
   // ── BARRE DE PÉRIMÈTRE (P-1..P-6 + F-1) — catalogue du résolveur, jamais un filtre maison ──
   const yearOpts = [cy, cy - 1, cy - 2, cy - 3].map(y =>
@@ -51593,7 +51458,19 @@ function rFinances() {
             : 'Ce panier « à rattacher » est vide — affichage « Tout ».')).join(' ')
       + '</div>'
     : '';
-  // Catégories non reliées à une ligne 2044 → non comptées tant que non mappées.
+  // F-1 : la fenêtre effective est écrite EN CLAIR en haut de page, jamais devinée.
+  const _winLbl = W ? _esc(W.constat.label) : '';
+  const headHtml =
+    '<div class="fin-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">'
+    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' + _entSelect + _immSelect + '</div>'
+    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+    +   '<label style="' + _selLbl + '">Exercice'
+    +     ' <select id="fin-year" class="inp" onchange="rFinances()" style="width:auto;display:inline-block">' + yearOpts + '</select></label>'
+    +   (_winLbl ? '<span style="font-size:12px;color:var(--t3)">' + _winLbl + '</span>' : '')
+    + '</div>'
+    + '</div>';
+
+  // Catégories non reliées à une ligne 2044 → non comptées tant que non mappées (M-1 à l'étape 6).
   const _unmapped = _finUnmappedCats();
   const _mapBanner = _unmapped.length
     ? '<div class="note" style="margin-bottom:12px;border-left:3px solid var(--warn);background:var(--sur2);padding:10px 12px;border-radius:8px">'
@@ -51603,92 +51480,110 @@ function rFinances() {
       + '<span class="lnk" onclick="_finOpenCatMapping()" style="cursor:pointer;text-decoration:underline;color:var(--acc);font-weight:600">Associer mes catégories →</span></div>'
     : '';
 
-  // B4 : héro = Cash-flow réel partout + enrichissement conditionnel (fusionne la carte enrichissement).
-  const _b4 = !!W && typeof window._computeFinancesMonthly === 'function';
-  let _enrichOut = _enrichHtml;
-  let heroHtml = '<div class="hero">'
-    + '<div class="hero-l">'
-    +   '<div class="eyebrow">Résultat net avant impôts · exercice ' + yr + '</div>'
-    +   '<div class="big num ' + (S.resultatNet >= 0 ? 'pos' : 'neg') + '">' + (S.resultatNet >= 0 ? '+' : '') + f(S.resultatNet) + '</div>'
-    +   '<div style="margin-top:6px"><span class="pill ' + (S.varPct >= 0 ? 'up' : 'down') + '">' + sign + Math.abs(S.varPct).toString().replace('.', ',') + ' %</span>'
-    +     '<span style="color:var(--t2);font-size:12.5px;margin-left:8px">vs ' + (yr - 1) + ' (' + f(S.resultatNetN1) + ') · marge nette ' + S.margePct + ' %</span></div>'
-    +   '<div style="margin-top:8px;font-size:11px;color:var(--t3);font-style:italic;line-height:1.4;max-width:520px">Résultat avant impôts, donné à titre indicatif. Il ne se substitue pas à votre déclaration fiscale ni à l\'avis d\'un expert-comptable.</div>'
-    + '</div>'
-    + '<div class="decomp">'
-    +   '<div class="it"><span class="k">Loyers encaissés (HC)</span><span class="v num">' + f(S.loyersHC) + '</span></div>'
-    +   '<div class="it"><span class="k">− Charges propriétaire</span><span class="v num neg">' + f(S.totalCharges) + '</span></div>'
-    +   (S.regulImpact > 0
-        ? '<div class="it"><span class="k">= Résultat de gestion</span><span class="v num">' + f(S.resultatGestion) + '</span></div>'
-          + '<div class="it"><span class="k">− Régul. charges (à récupérer)</span><span class="v num neg">' + f(S.regulImpact) + '</span></div>'
-        : '')
-    +   '<div class="it"><span class="k">= Résultat net avant impôts</span><span class="v num ' + (S.resultatNet >= 0 ? '' : 'neg') + '">' + f(S.resultatNet) + '</span></div>'
-    + '</div>'
-    + '</div>';
-  if (_b4) {
-    // Fenêtre de CONSTAT pour les encaissements/cash-flow, N-1 aligné sur la même étendue (T-2).
-    const _cm = _finMonthly(yr, scope, W.constat), _pm = _finMonthly(yr - 1, scope, W.n1);
-    const _am = (_cm && _cm.annual) || {}, _pa = (_pm && _pm.annual) || {};
-    const _reel = _am.reel || 0;                                                 // résultat propre = cash-flow net
-    const _solde = _am.recupSolde || 0;                                          // transit locataire : + trop-perçu / − avancé
-    const _cf = _am.cashflowReel || 0;                                           // cash-flow réel = réel + solde récupérables (vrai cash)
-    const _cap = Math.round(((_am.pret || 0) - (_am.interets || 0)) * 100) / 100; // capital remboursé = échéance − intérêts
-    const _enr = Math.round((_cf + _cap) * 100) / 100;                          // enrichissement = cash-flow + capital
-    const _know = !!(_cm && _cm.interetsKnown);
-    const _cfN1 = _pa.cashflowReel || 0;
-    const _vcf = _cfN1 !== 0 ? Math.round((_cf - _cfN1) / Math.abs(_cfN1) * 1000) / 10 : 0;
-    heroHtml = '<div class="hero"><div class="hero-l">'
-      + '<div class="eyebrow">Cash-flow réel · exercice ' + yr + '</div>'
-      + '<div class="big num ' + (_cf >= 0 ? 'pos' : 'neg') + '">' + (_cf >= 0 ? '+' : '') + f(_cf) + '</div>'
-      + '<div style="margin-top:6px"><span class="pill ' + (_vcf >= 0 ? 'up' : 'down') + '">' + (_vcf >= 0 ? '▲ +' : '▼ ') + Math.abs(_vcf).toString().replace('.', ',') + ' %</span>'
-      +   '<span style="color:var(--t2);font-size:12.5px;margin-left:8px">en poche après avoir tout payé — prêt entier inclus · vs ' + (yr - 1) + ' (' + f(_cfN1) + ')</span></div>'
-      + (_know
-          ? '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:10px;background:#eef4ff;border:1px solid #cfe0fb;border-radius:10px;padding:8px 13px;flex-wrap:wrap"><span style="font:700 10px Inter;text-transform:uppercase;letter-spacing:.04em;color:var(--t3)">Enrichissement</span><span class="num" style="font:800 18px Inter;color:#1a4fb0">' + (_enr >= 0 ? '+ ' : '') + f(_enr) + '</span><span style="font-size:11px;color:var(--t2)">cash-flow + capital remboursé (' + f(_cap) + ')</span></div>'
-          : '<div class="note" style="margin-top:10px">💡 Saisis tes <b>intérêts d\'emprunt</b> (bouton « 🧮 Renseigner les intérêts » dans le compte de résultat) pour voir ton <b>enrichissement patrimonial</b> = cash-flow + capital remboursé.</div>')
-      + '<div style="margin-top:8px;font-size:11px;color:var(--t3);font-style:italic;line-height:1.4;max-width:520px">Indicateur de trésorerie. La base imposable (déclaration 2044) est distincte — voir le compte de résultat ci-dessous.</div>'
-      + '</div>'
-      + '<div class="decomp">'
-      +   '<div class="it"><span class="k">Loyers encaissés (HC)</span><span class="v num">' + f(_am.loyersHC || 0) + '</span></div>'
-      +   (((_am.recettesDiverses || 0) !== 0) ? '<div class="it"><span class="k">+ Recettes diverses (parking, GLI…)</span><span class="v num">' + f(_am.recettesDiverses || 0) + '</span></div>' : '')
-      +   '<div class="it"><span class="k">− Charges propriétaire (prêt entier)</span><span class="v num neg">' + f(_am.charges || 0) + '</span></div>'
-      +   '<div class="it"><span class="k">= Cash-flow net</span><span class="v num ' + (_reel >= 0 ? '' : 'neg') + '">' + (_reel >= 0 ? '+' : '') + f(_reel) + '</span></div>'
-      +   (_solde !== 0 ? '<div class="it"><span class="k">' + (_solde >= 0 ? '+ Charges récup. (trop-perçu)' : '− Charges récup. (avancées)') + '</span><span class="v num ' + (_solde >= 0 ? '' : 'neg') + '">' + (_solde >= 0 ? '+ ' : '− ') + f(Math.abs(_solde)) + '</span></div>' : '')
-      +   '<div class="it" style="border-top:1px solid var(--bor);margin-top:2px;padding-top:4px"><span class="k"><b>= Cash-flow réel</b></span><span class="v num ' + (_cf >= 0 ? '' : 'neg') + '"><b>' + (_cf >= 0 ? '+' : '') + f(_cf) + '</b></span></div>'
-      + '</div>'
+  // ── F-e1 · ÉTATS VIDES — fenêtre vide ⇒ on N'APPELLE PAS le moteur (janvier fantôme sinon) ──
+  if (!W || W.constat.empty) {
+    const appNeuve = !(DB.mouvements || []).some(m => m && !m._deleted);
+    root.innerHTML = headHtml + _fbNote
+      + '<div class="card" style="padding:28px;text-align:center">'
+      + (appNeuve
+        ? '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Deux sources, zéro saisie comptable</div>'
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le <b>bail</b> donne le dû, l\'<b>import bancaire</b> donne le payé — Finances se remplit dès ton premier relevé importé. Aucune écriture comptable à saisir.</p>'
+        : '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Exercice ' + yr + ' : rien de saisi</div>'
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le périmètre est bon, la période est creuse. Change d\'exercice ci-dessus, ou importe un relevé bancaire couvrant cette année.</p>')
       + '</div>';
-    _enrichOut = '';   // carte « Enrichissement réel » fusionnée dans le héro
+    return;
   }
 
-  // F-1 : la fenêtre effective est écrite EN CLAIR en haut de page, jamais devinée.
-  const _winLbl = W ? _esc(W.constat.label) : '';
-  root.innerHTML =
-    '<div class="fin-head" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">'
-    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">' + _entSelect + _immSelect + '</div>'
-    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
-    +   '<label style="' + _selLbl + '">Exercice'
-    +     ' <select id="fin-year" class="inp" onchange="rFinances()" style="width:auto;display:inline-block">' + yearOpts + '</select></label>'
-    +   (_winLbl ? '<span style="font-size:12px;color:var(--t3)">' + _winLbl + '</span>' : '')
+  // ── LE MOTEUR MENSUEL — l'unique source des chiffres de la page (R-1) ──
+  const cur = _finMonthly(yr, scope, W.constat);
+  const prev = _finMonthly(yr - 1, scope, W.n1);
+  const a = (cur && cur.annual) || {};
+  const pa = (prev && prev.annual) || {};
+
+  // F-e1 (suite) : exercice OUVERT mais réellement creux — aucun mouvement de l'année dans le
+  // périmètre ET aucun dû (pas de bail actif) → état vide plutôt qu'un tableau de zéros.
+  const _hasYearMv = (DB.mouvements || []).some(m => m && !m._deleted && String(m.date || '').slice(0, 4) === String(yr) && _finScopeWeight(scope, m) > 0);
+  const _hasDu = ((a.duHC || 0) + (a.duCH || 0)) > 0.005;
+  if (!_hasYearMv && !_hasDu) {
+    const appNeuve = !(DB.mouvements || []).some(m => m && !m._deleted);
+    root.innerHTML = headHtml + _fbNote
+      + '<div class="card" style="padding:28px;text-align:center">'
+      + (appNeuve
+        ? '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Deux sources, zéro saisie comptable</div>'
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le <b>bail</b> donne le dû, l\'<b>import bancaire</b> donne le payé — Finances se remplit dès ton premier relevé importé. Aucune écriture comptable à saisir.</p>'
+        : '<div style="font-size:15px;font-weight:700;margin-bottom:8px">Exercice ' + yr + ' : rien à montrer sur ce périmètre</div>'
+          + '<p style="color:var(--t2);font-size:13px;line-height:1.6;max-width:560px;margin:0 auto">Le périmètre est bon, la période est creuse. Change d\'exercice ou de périmètre ci-dessus, ou importe un relevé bancaire couvrant cette année.</p>')
+      + '</div>';
+    return;
+  }
+
+  // ── HÉRO (H-4 / H-4 v2 / H-5) : UN SEUL chiffre, toujours calculable ──
+  const _cf = a.cashflowReel || 0;
+  const _reel = a.reel || 0;
+  const _solde = a.recupSolde || 0;
+  const _cfN1 = pa.cashflowReel || 0;
+  // H-5 : règle UNIQUE de variation — N-1 même période ; « n/a » EXPLICITE si N-1 nul ou négatif
+  // (jamais un « 0 % » qui ressemble à de la stabilité).
+  let varHtml;
+  if (_cfN1 > 0) {
+    const _v = Math.round((_cf - _cfN1) / _cfN1 * 1000) / 10;
+    varHtml = '<span class="pill ' + (_v >= 0 ? 'up' : 'down') + '">' + (_v >= 0 ? '▲ +' : '▼ ') + Math.abs(_v).toString().replace('.', ',') + ' %</span>'
+      + '<span style="color:var(--t2);font-size:12.5px;margin-left:8px">vs ' + (yr - 1) + ' (' + f(_cfN1) + ' · même période)</span>';
+  } else {
+    varHtml = '<span class="pill" style="background:var(--sur3);color:var(--t2)">n/a</span>'
+      + '<span style="color:var(--t2);font-size:12.5px;margin-left:8px">vs ' + (yr - 1) + ' — pas de base de comparaison (' + (Math.abs(_cfN1) < 0.005 ? 'exercice vide' : 'négatif : ' + f(_cfN1)) + ')</span>';
+  }
+  const heroHtml = '<div class="hero"><div class="hero-l">'
+    + '<div class="eyebrow">Cash-flow réel · exercice ' + yr + '</div>'
+    + '<div class="big num ' + (_cf >= 0 ? 'pos' : 'neg') + '" title="Ce qui bouge vraiment sur ton compte : loyers + provisions − tes charges (prêt entier) − charges récupérables avancées">' + (_cf >= 0 ? '+' : '') + f(_cf) + '</div>'
+    + '<div style="margin-top:6px">' + varHtml + '</div>'
+    + '<div style="margin-top:8px;font-size:11px;color:var(--t3);font-style:italic;line-height:1.4;max-width:520px">Indicateur de trésorerie — en poche après avoir tout payé, mensualité de prêt entière incluse.</div>'
     + '</div>'
-    + '</div>'
-    + _fbNote
-    + _mapBanner
-    + heroHtml
-    + '<div class="fin-ratios">'
-    +   _finRatio('Recouvrement', S.ratios.recouvrement, '%',
-        S.ratios.recouvrement >= 95 ? 'pos' : (S.ratios.recouvrement >= 85 ? 'warn' : 'neg'),
-        impayes.length + ' impayé' + (impayes.length > 1 ? 's' : ''))
-    +   _finRatio('Occupation', S.ratios.occupation, '%', 'acc',
-        'moyenne sur l\'exercice · ' + nbTotal + ' lot' + (nbTotal > 1 ? 's' : ''))
-    +   _finRatio('Poids des charges', S.ratios.poidsCharges, '%',
-        S.ratios.poidsCharges <= 40 ? 'pos' : 'warn',
-        f(S.totalCharges) + ' / ' + f(S.loyersHC))
-    + '</div>'
-    + _enrichOut
+    + '<div class="decomp">'
+    + '<div class="it"><span class="k">Loyers encaissés (HC)</span><span class="v num">' + f(a.loyersHC || 0) + '</span></div>'
+    + (((a.recettesDiverses || 0) !== 0) ? '<div class="it"><span class="k">+ Recettes diverses</span><span class="v num">' + f(a.recettesDiverses || 0) + '</span></div>' : '')
+    + '<div class="it"><span class="k">− Charges propriétaire (prêt entier)</span><span class="v num neg">' + f(a.charges || 0) + '</span></div>'
+    + '<div class="it"><span class="k">= Cash-flow net</span><span class="v num ' + (_reel >= 0 ? '' : 'neg') + '" title="Ton résultat propre, hors transit locataire (charges récupérables)">' + (_reel >= 0 ? '+' : '') + f(_reel) + '</span></div>'
+    + (_solde !== 0 ? '<div class="it"><span class="k">' + (_solde >= 0 ? '+ Charges récup. (trop-perçu)' : '− Charges récup. (avancées)') + '</span><span class="v num ' + (_solde >= 0 ? '' : 'neg') + '">' + (_solde >= 0 ? '+ ' : '− ') + f(Math.abs(_solde)) + '</span></div>' : '')
+    + '<div class="it" style="border-top:1px solid var(--bor);margin-top:2px;padding-top:4px"><span class="k"><b>= Cash-flow réel</b></span><span class="v num ' + (_cf >= 0 ? '' : 'neg') + '"><b>' + (_cf >= 0 ? '+' : '') + f(_cf) + '</b></span></div>'
+    + '</div></div>';
+
+  // ── 2 RATIOS — R-5 : la jauge « Poids des charges » est SUPPRIMÉE (fausse sans intérêts saisis).
+  // R-2 : recouvrement = encaissé imputé au dû ÷ dû CC (barème historisé), CHARGES COMPRISES,
+  // fenêtre d'EXIGIBILITÉ (un loyer payé d'avance ne peut pas faire dépasser 100 %).
+  // Couvert = dû − retard résiduel (netting du moteur) : même source que les sous-lignes du tableau.
+  let _duCC = 0, _retardCC = 0;
+  (cur.months || []).forEach(m => { if (m.mo <= W.constat.dueMonth) { _duCC += m.duHC + m.duCH; _retardCC += m.loyerRetard + m.chargeRetard; } });
+  _retardCC = Math.round(_retardCC * 100) / 100;
+  const recouv = _duCC > 0 ? Math.round((_duCC - _retardCC) / _duCC * 1000) / 10 : null;
+  // Occupation : moyenne de la période — bascule intégralement sous le socle à l'étape 4 (R-4/K-2).
+  const { bilans } = _finCollect(yr, entNom);
+  const immNomOcc = scope ? (scope.immFilter || '') : '';
+  const _finLots = immNomOcc ? bilans.reduce((acc, b) => acc.concat((b.parLogement || []).filter(l => l.imm === immNomOcc)), []) : null;
+  const nbTotal = _finLots ? _finLots.length : bilans.reduce((s, b) => s + ((b.kpis && b.kpis.nbLogements) || 0), 0);
+  const tauxOccMoyen = _finLots
+    ? (() => { const o = _finLots.reduce((s, l) => s + (Number(l.occDays) || 0), 0), va = _finLots.reduce((s, l) => s + (Number(l.vacanceDays) || 0), 0); return (o + va) > 0 ? o / (o + va) * 100 : 0; })()
+    : (nbTotal > 0 ? bilans.reduce((s, b) => s + ((b.kpis && b.kpis.tauxOccupationGlobal) || 0) * ((b.kpis && b.kpis.nbLogements) || 0), 0) / nbTotal : 0);
+  // Compteur d'impayés du même moteur à l'étape 4 — interim : liste existante sur les lots du périmètre.
+  const scopedLogs = (typeof window._finScopeLots === 'function' && scope) ? window._finScopeLots(scope, DB.logements || []) : (DB.logements || []).filter(l => l && !l._deleted);
+  const impayes = (typeof _listerImpayesActifs === 'function') ? _listerImpayesActifs(scopedLogs, DB.baux || {}, DB.mouvements || []) : [];
+  const ratiosHtml = '<div class="fin-ratios">'
+    + _finRatio('Recouvrement', recouv == null ? '—' : recouv, recouv == null ? '' : '%',
+        recouv == null ? 'acc' : (recouv >= 95 ? 'pos' : (recouv >= 85 ? 'warn' : 'neg')),
+        recouv == null ? 'aucun dû sur la période' :
+        (_retardCC > 0.005 ? (f(_retardCC) + ' de retard (loyers + charges) · ' + impayes.length + ' impayé' + (impayes.length > 1 ? 's' : '')) : 'encaissé ÷ dû du barème, charges comprises'))
+    + _finRatio('Occupation', Math.round(tauxOccMoyen * 10) / 10, '%', 'acc',
+        'moyenne sur la période · ' + nbTotal + ' lot' + (nbTotal > 1 ? 's' : ''))
+    + '</div>';
+
+  // K-1 : le bloc « Argent à récupérer » a DISPARU — chaque information vit dans le tableau
+  // (sous-lignes retard), le ratio d'occupation (vacance, K-2), la ligne Solde (régul) et la
+  // page Révision IRL. Aucun total reconstruit (ces créances ne s'additionnent pas).
+  root.innerHTML = headHtml + _fbNote + _mapBanner + heroHtml + ratiosHtml
     + '<div id="fin-pl"></div>'
-    + '<div id="fin-leaks"></div>'
     + '<div id="fin-exports"></div>';
 
-  _finRenderPL(yr, S, scope, W);
-  _finRenderLeaks(S, impayes);
+  _finRenderPLv2(yr, scope, W, cur, prev);
   _finRenderExports();
 }
 
@@ -51763,36 +51658,6 @@ function _finLoyersHC(year, scope, win) {
   };
 }
 
-// ---- C4: Charge buckets by ligne2044 (audit-proof, récupérables excluded) ----
-function _finChargeBuckets(year, scope) {
-  const yr = String(year);
-  const b = { interets: 0, taxeFonciere: 0, travaux: 0, honoraires: 0, assurance: 0, autres: 0, gestionHF: 0 };
-  (DB.mouvements || []).forEach(m => {
-    if (!m || m._deleted || !m.date || !m.date.startsWith(yr) || !((m.db || 0) > 0)) return;
-    const _w = _finScopeWeight(scope, m); if (!_w) return; // périmètre (poids SCI réparti en vue immeuble)
-    // CFE / taxe logements vacants : charge de gestion HORS foncier (special + flag gestionCharge) →
-    // compte dans le résultat de gestion (bucket « autres ») mais exclue de la 2044 (_compute2044 l'ignore via ligne2044 vide).
-    const _sc = _stdCategoryByName(m.cat);
-    if (_sc && _sc.gestionCharge) { const _v = ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w; b.autres += _v; b.gestionHF += _v; return; } // gestionHF = sous-ensemble d'autres, pour l'affichage distinct (n'altère PAS le total)
-    const r = _finCatLigne(m.cat); // STD + mapping user
-    if (!r || !r.ligne2044) return; // non mappée / ignorée → skip
-    const ligne = r.ligne2044;
-    const v = ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w; // net (remboursements partiels), cohérent _compute2044
-    if (ligne === '250') b.interets += v;
-    else if (ligne === '227') b.taxeFonciere += v;
-    else if (ligne === '224' || ligne === '224bis') b.travaux += v;
-    else if (ligne === '221') b.honoraires += v;
-    else if (ligne === '223') b.assurance += v;
-    else if (ligne === '229' || ligne === '230') { /* récupérables copro — exclu propriétaire */ }
-    else if (ligne === '226') b.autres += v; // indemnités éviction = charge propriétaire
-    else if (ligne === '225') b.autres += v; // charges récup non récupérées = à charge bailleur
-    // 222 (forfait légal 20€) est ajouté dynamiquement dans _compute2044 ; pas de mvt direct → skip
-    // Recettes (211, 213) et special (vides) déjà filtrées par db>0 + ligne2044 check
-  });
-  // Round to 2 decimals
-  Object.keys(b).forEach(k => { b[k] = Math.round(b[k] * 100) / 100; });
-  return b;
-}
 
 // ---- ÉTAPE 2 : LES DEUX FENÊTRES NOMMÉES de la page (F-1 / F-1 v2, js/core/finances-window.js),
 // construites UNE fois par rendu — fin des 9 recalculs de `lastMonth` à la main. ----
@@ -51827,66 +51692,9 @@ function _finMonthly(yr, scope, win) {
   });
 }
 
-// ---- C4: P&L table render (N vs N-1) ----
-function _finRenderPL(yr, S, scope, W) {
-  const host = el('fin-pl');
-  if (!host) return;
-  // B4 : modèle « prêt entier en charge » + N-1 même période — voie unique quand le moteur est là.
-  if (typeof window._computeFinancesMonthly === 'function') { _finRenderPLv2(yr, scope, W); return; }
-  const f = (typeof fmt === 'function') ? fmt : (x => x + '');
-  const cur = _finChargeBuckets(yr, scope);
-  const prev = _finChargeBuckets(yr - 1, scope);
-  const pctL = v => S.loyersHC > 0 ? (Math.round(v / S.loyersHC * 1000) / 10).toString().replace('.', ',') + ' %' : '—';
-  const varPct = (a, b2) => b2 > 0 ? (a >= b2 ? '+' : '−') + Math.abs(Math.round((a - b2) / b2 * 1000) / 10).toString().replace('.', ',') + ' %' : '—';
-  const clk = kind => kind ? ' class="clk" role="button" tabindex="0" onclick="_finDrillLigne(\'' + kind + '\',' + yr + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finDrillLigne(\'' + kind + '\',' + yr + ')}"' : '';
-  const row = (label, n, n1, neg, kind) => '<tr' + clk(kind) + '><td>' + label + '</td>'
-    + '<td class="num' + (neg ? ' neg' : '') + '">' + f(n) + '</td>'
-    + '<td class="num">' + f(n1) + '</td>'
-    + '<td class="num">' + varPct(n, n1) + '</td>'
-    + '<td class="pct">' + pctL(n) + '</td></tr>';
-  const prevTotalCharges = prev.interets + prev.taxeFonciere + prev.travaux + prev.honoraires + prev.assurance + prev.autres;
-  host.innerHTML =
-    '<div class="sec-title">Compte de résultat détaillé</div>'
-    + '<div class="card"><div class="card-h"><h3 style="font-size:14px;font-weight:700">Du 01/01/' + yr + ' au 31/12/' + yr + '</h3>'
-    +   '<span style="font-size:11.5px;color:var(--t3);margin-left:auto;font-weight:500">montants réels · % = part des loyers</span></div>'
-    + '<div class="tbl-scroll"><table class="pl"><thead><tr><th>Poste</th><th>' + yr + '</th><th>' + (yr - 1) + '</th><th>Var.</th><th>% loyers</th></tr></thead><tbody>'
-    +   '<tr class="grp"><td colspan="5">Revenus locatifs</td></tr>'
-    +   row('Loyers hors charges encaissés', S.loyersHC, S.loyersHCN1, false, 'loyers')
-    +   '<tr' + clk('loyers') + '><td>Provisions sur charges encaissées</td><td class="num">' + f(S.provisions) + '</td><td class="num">—</td><td class="num">—</td><td class="pct">—</td></tr>'
-    +   '<tr class="tot"><td>Total encaissé</td><td class="num">' + f(S.totalEncaisse) + '</td><td class="num">—</td><td class="num">—</td><td class="pct">—</td></tr>'
-    +   '<tr class="grp"><td colspan="5">Charges propriétaire (non récupérables)</td></tr>'
-    +   row('Intérêts d\'emprunt <button onclick="event.stopPropagation();_finCreditOpen()" title="Renseigner / calculer les intérêts d\'emprunt" style="margin-left:7px;font-size:10.5px;padding:1px 7px;border-radius:6px;border:0;background:var(--acc);color:#fff;cursor:pointer">🧮 renseigner</button>', cur.interets, prev.interets, true, 'interets')
-    +   row('Taxe foncière', cur.taxeFonciere, prev.taxeFonciere, true, 'taxeFonciere')
-    +   row('Travaux & entretien', cur.travaux, prev.travaux, true, 'travaux')
-    +   row('Honoraires & gestion', cur.honoraires, prev.honoraires, true, 'honoraires')
-    +   row('Assurance PNO / GLI', cur.assurance, prev.assurance, true, 'assurance')
-    +   (cur.gestionHF > 0 ? row('Charges de gestion hors foncier <span style="font-weight:400;color:var(--t3);font-size:10.5px">(CFE, taxe vacance — hors 2044)</span>', cur.gestionHF, prev.gestionHF, true, 'gestionHF') : '')
-    +   ((cur.autres - cur.gestionHF) > 0 ? row('Autres charges propriétaire', cur.autres - cur.gestionHF, prev.autres - prev.gestionHF, true, 'autres') : '')
-    +   '<tr class="tot"><td>Total charges propriétaire</td><td class="num neg">' + f(S.totalCharges) + '</td>'
-    +   '<td class="num">' + f(prevTotalCharges) + '</td><td class="num">—</td>'
-    +   '<td class="pct">' + S.ratios.poidsCharges.toString().replace('.', ',') + ' %</td></tr>'
-    +   (S.regulImpact > 0
-        ? '<tr class="tot"><td>= Résultat de gestion <span style="font-weight:400;color:var(--t3);font-size:11px">(loyers HC − charges)</span></td>'
-          + '<td class="num">' + (S.resultatGestion >= 0 ? '+' : '') + f(S.resultatGestion) + '</td><td class="num">—</td><td class="num">—</td><td class="pct">—</td></tr>'
-          + '<tr role="button" tabindex="0" style="cursor:pointer" onclick="var e=el(\'fin-leaks\');if(e)e.scrollIntoView({behavior:\'smooth\'})"><td>− Régularisation charges récupérables <span style="color:#92400e;font-size:11px">avancée, non récupérée → à récupérer ↓</span></td>'
-          + '<td class="num neg">' + f(S.regulImpact) + '</td><td class="num">—</td><td class="num">—</td><td class="pct">—</td></tr>'
-        : '')
-    +   '<tr class="net"><td>Résultat net avant impôts</td>'
-    +   '<td class="num">' + (S.resultatNet >= 0 ? '+' : '') + f(S.resultatNet) + '</td>'
-    +   '<td class="num">' + f(S.resultatNetN1) + '</td>'
-    +   '<td class="num">' + (S.varPct >= 0 ? '+' : '') + S.varPct.toString().replace('.', ',') + ' %</td>'
-    +   '<td class="pct">' + S.margePct + ' %</td></tr>'
-    + '</tbody></table></div>'
-    + '<div class="note">Charges récupérables exclues (le locataire rembourse). '
-    +   (S.regulImpact > 0
-        ? 'Le solde de régul non encore récupéré (' + f(S.regulImpact) + ') est déduit du résultat — « pas récupéré, pas de résultat » : récupère-le dans « Argent à récupérer » et le résultat remonte. Les trop-perçus à restituer au locataire ne sont pas déduits. '
-        : 'Résultat net = loyers HC − charges propriétaire. ')
-    +   '<span class="lnk" onclick="_finOpenParLogement(' + yr + ')">Voir par logement →</span></div>'
-    + '</div>';
-}
 
 // ---- B4 : compte de résultat « réel après prêt » (prêt entier en charge, N-1 même période) ----
-function _finRenderPLv2(yr, scope, W) {
+function _finRenderPLv2(yr, scope, W, cur, prev) {
   const host = el('fin-pl');
   if (!host) return;
   _finB4InjectCss();
@@ -51896,15 +51704,14 @@ function _finRenderPLv2(yr, scope, W) {
   // Fenêtre de CONSTAT : borne les colonnes produites (post-datés compris, décision « B ») ;
   // le retard suit la fenêtre d'EXIGIBILITÉ portée par la même structure (dueMonth).
   const lastMonth = W ? W.constat.lastMonth : ((yr === cy) ? (new Date().getMonth() + 1) : 12);
-  const cur = _finMonthly(yr, scope, W ? W.constat : lastMonth);
-  const prev = _finMonthly(yr - 1, scope, W ? W.n1 : lastMonth);   // N-1 sur la MÊME période
+  if (!cur) cur = _finMonthly(yr, scope, W ? W.constat : lastMonth);
+  if (!prev) prev = _finMonthly(yr - 1, scope, W ? W.n1 : lastMonth);   // N-1 sur la MÊME période
   if (!cur) { host.innerHTML = ''; return; }
   const a = cur.annual, p = (prev && prev.annual) || {};
-  // Colonnes N-1 (2025 même période) + Var affichées SEULEMENT si l'entité a un historique sur la période.
+  // Colonnes N-1 (même période) + Var affichées SEULEMENT si l'entité a un historique sur la période.
   const hasN1 = !!(prev && prev.annual && ((prev.annual.loyersHC || 0) !== 0 || (prev.annual.charges || 0) !== 0 || (prev.annual.pret || 0) !== 0));
   const months = cur.months.slice().reverse();   // mois courant à gauche, on remonte à l'envers
   const detailOn = window._FIN_B4_DETAIL !== false;
-  const locked = !cur.interetsKnown;              // base 2044 verrouillée si intérêts non saisis
   const _MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
   const R = (label, v, o) => Object.assign({ label, v }, o || {});
@@ -51927,12 +51734,13 @@ function _finRenderPLv2(yr, scope, W) {
     ...(((a && a.chargeRetard) || 0) > 0.005 ? [R('<span style="color:var(--ora)">↳ dont charges en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.chargeRetard, { retardSub: true, drill: 'charge' })] : []),
     R('Payées par toi pour eux <span class="b4-x">charges récupérables avancées</span>', o => o.recup, { flowOut: true, kind: 'recup' }),
     R('Solde <span class="b4-x">− tu as avancé (à récupérer) · + trop-perçu (à rendre)</span>', o => o.recupSolde, { sub: true }),
-    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur ton compte</span>', o => o.cashflowReel, { net: true }),
-    R('Cash-flow net <span class="b4-x">ton résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true }),
-    R('Base imposable foncier <span class="b4-tag">2044</span> <span class="b4-x" title="Estimation : ne reprend pas le forfait de 20 €/local, le déficit foncier plafonné, les recettes diverses, etc. Le chiffre officiel est dans ta déclaration 2044.">(estimation)</span>', o => o.base2044, { info: true })
+    // L-8 : la ligne « Base imposable foncier [2044] » est SORTIE du tableau — le P&L n'est pas
+    // la 2044 ; le fiscal vit dans sa prévisualisation dédiée (Z-1). Conséquence : la saisie des
+    // intérêts n'est plus un pré-requis pour LIRE Finances, seulement pour déclarer (D-6).
+    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur ton compte</span>', o => o.cashflowReel, { net: true, expl: 'Cash-flow réel = ce qui bouge vraiment sur ton compte : loyers + provisions − tes charges (prêt entier) − charges récupérables avancées.' }),
+    R('Cash-flow net <span class="b4-x">ton résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true, expl: 'Cash-flow net = ton résultat propre, hors transit locataire (charges récupérables).' })
   ];
-  const lockedLabel = 'Base imposable foncier <span class="b4-tag b4-tag-off">2044</span> <span class="b4-x">🔒 <span class="lnk" style="cursor:pointer" onclick="_finCreditOpen()">renseigne tes intérêts</span></span>';
-  const lk = row => !!(row.info && locked);
+  const lk = () => false;   // plus aucune ligne verrouillée depuis L-8
   const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.avanceSub || row.retardSub) ? 'b4-info' : ''));
   // drill-down par ligne : sous-lignes retard/avance → cause (_finDrillRetard/_finDrillAvance) ;
   // lignes principales (kind) → détail des mouvements (_finDrillLigne, 'pret' inclus).
@@ -51946,7 +51754,6 @@ function _finRenderPLv2(yr, scope, W) {
     if (row.net) return '<b style="color:' + (v >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</b>';
     if (row.sub) return '<span style="font-weight:600;color:' + (v >= 0 ? 'var(--grn)' : 'var(--red)') + '">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</span>';
     if (row.dim) return '<span style="color:var(--t2)">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</span>';
-    if (row.info) return '<span style="color:#2563eb;font-weight:700">' + (v >= 0 ? '+ ' : '− ') + f(Math.abs(v)) + '</span>';
     // retard sur la ligne (au moins un locataire) → chiffre principal en ORANGE (pas vert/neutre).
     const retard = (row.oraSrc && src) ? (Number(row.oraSrc(src)) || 0) : 0;
     if (row.pos) return v ? '<span style="color:' + (retard > 0.005 ? 'var(--ora)' : 'var(--grn)') + '">+ ' + f(Math.abs(v)) + '</span>' : '<span style="color:var(--t3)">–</span>';
@@ -51975,7 +51782,7 @@ function _finRenderPLv2(yr, scope, W) {
     let L = '<table class="b4-pane b4-left"><thead><tr><th class="b4-poste">Poste</th><th class="b4-y26">Année ' + yr + '</th></tr></thead><tbody>';
     ROWS.forEach(row => {
       if (row.grp) { L += '<tr class="b4-grp"><td class="b4-poste">' + row.grp + '</td><td class="b4-y26"></td></tr>'; return; }
-      L += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + (lk(row) ? ' b4-locked' : '') + '"' + clk(row) + '><td class="b4-poste">' + (lk(row) ? lockedLabel : row.label) + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td><td class="b4-y26">' + col(row.v(a), row, lk(row), a) + '</td></tr>';
+      L += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '><td class="b4-poste"' + (row.expl ? ' title="' + row.expl + '"' : '') + '>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td><td class="b4-y26">' + col(row.v(a), row, false, a) + '</td></tr>';
     });
     L += '</tbody></table>';
     let M = '<table class="b4-pane b4-mid"><thead><tr>';
@@ -51983,7 +51790,7 @@ function _finRenderPLv2(yr, scope, W) {
     M += '</tr></thead><tbody>';
     ROWS.forEach(row => {
       if (row.grp) { M += '<tr class="b4-grp">' + months.map(() => '<td class="b4-mo"></td>').join('') + '</tr>'; return; }
-      M += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + (lk(row) ? ' b4-locked' : '') + '">' + months.map(m => { const fut = isFut(m.mo); const cclk = row.drill ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="Voir la cause"' : ((row.kind && !lk(row)) ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"' : ''); return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>'; }).join('') + '</tr>';
+      M += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '">' + months.map(m => { const fut = isFut(m.mo); const cclk = row.drill ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="Voir la cause"' : ((row.kind && !lk(row)) ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"' : ''); return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>'; }).join('') + '</tr>';
     });
     M += '</tbody></table>';
     const _n1Th = hasN1 ? '<th class="b4-y25">' + (yr - 1) + (lastMonth < 12 ? '<br><span class="b4-en">même période</span>' : '') + '</th><th class="b4-var">Var.</th>' : '';
@@ -51992,7 +51799,7 @@ function _finRenderPLv2(yr, scope, W) {
       if (row.grp) { RT += '<tr class="b4-grp">' + (hasN1 ? '<td class="b4-y25"></td><td class="b4-var"></td>' : '') + '<td class="b4-pct"></td></tr>'; return; }
       const isLk = lk(row);
       const _n1Td = hasN1 ? '<td class="b4-y25">' + col(row.v(p), row, isLk, p) + '</td><td class="b4-var">' + (isLk ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>' : '';
-      RT += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + (isLk ? ' b4-locked' : '') + '"' + clk(row) + '>' + _n1Td + '<td class="b4-pct">' + (isLk || row.mut ? '<span style="color:var(--t3)">—</span>' : pctL(row.v(a))) + '</td></tr>';
+      RT += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '>' + _n1Td + '<td class="b4-pct">' + (row.mut ? '<span style="color:var(--t3)">—</span>' : pctL(row.v(a))) + '</td></tr>';
     });
     RT += '</tbody></table>';
     bodyHtml = '<div class="b4-plgrid">' + L + '<div class="b4-midwrap">' + M + '</div>' + RT + '</div>';
@@ -52005,7 +51812,7 @@ function _finRenderPLv2(yr, scope, W) {
       const isLk = lk(row);
       const rcls = row.tot ? 'tot' : (row.net ? 'net' : '');
       const _n1Cells = hasN1 ? ('<td class="num">' + col(row.v(p), row, isLk, p) + '</td><td class="num">' + (isLk ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>') : '';
-      T += '<tr class="' + rcls + (row.kind ? ' clk' : '') + '"' + clk(row) + '><td>' + (isLk ? lockedLabel : row.label) + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td>'
+      T += '<tr class="' + rcls + (row.kind ? ' clk' : '') + '"' + clk(row) + '><td' + (row.expl ? ' title="' + row.expl + '"' : '') + '>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td>'
         + '<td class="num">' + col(row.v(a), row, isLk, a) + '</td>'
         + _n1Cells
         + '<td class="pct">' + (isLk || row.mut ? '—' : pctL(row.v(a))) + '</td></tr>';
@@ -52015,19 +51822,19 @@ function _finRenderPLv2(yr, scope, W) {
   }
 
   host.innerHTML =
+    // E-1 : PLUS de note de bas de carte — ses contenus sont redistribués (cash-flow → info-bulle
+    // de sa ligne, « même période » → en-tête N-1, 2044 → prévisualisation dédiée). D-4 : le bouton
+    // « Comparer 2 mois » est supprimé (la comparaison est native). D-5 : « Voir par logement »
+    // est supprimé (la maille s'arrête à l'immeuble).
     '<div class="sec-title">Compte de résultat détaillé</div>'
     + '<div class="card" style="padding:0;overflow:hidden">'
     + '<div class="card-h" style="padding:14px 18px 10px;align-items:center;gap:12px;flex-wrap:wrap">'
     +   '<h3 style="font-size:14px;font-weight:700;margin:0">' + periodLbl + '</h3>'
     +   '<span class="b4-toggle' + (detailOn ? ' on' : '') + '" onclick="_finToggleB4Detail()"><span class="b4-pill"></span>Détail mensuel</span>'
-    +   (months.length >= 2 ? '<button onclick="_finCompare2Mois(' + yr + ')" style="font:600 12px Inter;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:20px;padding:5px 12px;cursor:pointer">⇄ Comparer 2 mois</button>' : '')
     +   (detailOn ? '<span class="b4-hint">↔ glisse la barre pour parcourir les mois</span>' : '')
     +   '<span style="font-size:11px;color:var(--t3);margin-left:auto">prêt entier en charge</span>'
     + '</div>'
     + bodyHtml
-    + '<div class="note" style="margin:0;border-radius:0"><b>Cash-flow réel</b> = ce qui bouge vraiment sur ton compte (loyers + provisions − tes charges − charges récupérables que tu avances). <b>Cash-flow net</b> = ton résultat propre, hors transit locataire. La <b>base 2044</b> ne déduit que les intérêts (capital non déductible) — <b>estimation indicative</b>, le chiffre officiel est dans ta déclaration 2044. '
-    +   (lastMonth < 12 ? 'N-1 sur la <b>même période</b>. ' : '')
-    +   '<span class="lnk" onclick="_finOpenParLogement(' + yr + ')">Voir par logement →</span></div>'
     + '</div>';
   if (detailOn) _finB4Sync();
 }
@@ -52045,67 +51852,6 @@ function _finB4Sync() {
 function _finToggleB4Detail() { window._FIN_B4_DETAIL = !(window._FIN_B4_DETAIL !== false); if (typeof rFinances === 'function') rFinances(); }
 if (!window._finB4ResizeBound) { window._finB4ResizeBound = true; window.addEventListener('resize', () => { try { _finB4Sync(); } catch (e) { } }); }
 
-// C4 — Comparer 2 mois du compte de résultat (diagnostic « pourquoi mes charges ont changé »).
-// DRY : valeurs par poste = _finMonthly(yr).months (déjà calculé) ; post-clic = drill mois-scopé existant.
-function _finCompare2Mois(yr, moA, moB) {
-  yr = parseInt(yr);
-  const f = (typeof fmt === 'function') ? fmt : (x => x + '');
-  const scope = (typeof _finEntScope === 'function') ? _finEntScope(_finActiveEnt(), _finActiveImm()) : null;
-  const cy = new Date().getFullYear();
-  const _W = _finWindows(yr, scope);
-  const lastMonth = _W ? _W.constat.lastMonth : ((yr === cy) ? (new Date().getMonth() + 1) : 12);
-  const cur = _finMonthly(yr, scope, _W ? _W.constat : lastMonth);
-  if (!cur || !cur.months || cur.months.length < 2) { if (typeof showToast === 'function') showToast('Pas assez de mois écoulés à comparer', 'warn'); return; }
-  const avail = cur.months.map(m => m.mo);
-  const isCurYr = (yr === cy);
-  const complete = avail.filter(mo => !(isCurYr && mo === lastMonth));   // exclut le mois EN COURS (partiel) du défaut
-  const pool = complete.length >= 2 ? complete : avail;
-  moB = (moB != null && moB !== '') ? parseInt(moB) : pool[pool.length - 1];
-  moA = (moA != null && moA !== '') ? parseInt(moA) : pool[Math.max(0, pool.length - 2)];
-  const mA = cur.months.find(m => m.mo === moA) || {}, mB = cur.months.find(m => m.mo === moB) || {};
-  const _M = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  const _MF = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-  const ROWS = [
-    { lbl: 'Loyers hors charges', k: 'loyersHC', kind: 'loyers', inc: true },
-    ...(((mA.recettesDiverses || 0) || (mB.recettesDiverses || 0)) ? [{ lbl: 'Recettes diverses', k: 'recettesDiverses', kind: 'recettesDiverses', inc: true }] : []),
-    { lbl: 'Prêt', k: 'pret', kind: 'pret' },
-    { lbl: 'Taxe foncière', k: 'taxe', kind: 'taxeFonciere' },
-    { lbl: 'Travaux &amp; entretien', k: 'travaux', kind: 'travaux' },
-    { lbl: 'Honoraires &amp; gestion', k: 'honoraires', kind: 'honoraires' },
-    { lbl: 'Assurance', k: 'assurance', kind: 'assurance' },
-    ...(((mA.gestionHF || 0) || (mB.gestionHF || 0)) ? [{ lbl: 'Charges gestion hors foncier', k: 'gestionHF', kind: 'gestionHF' }] : []),
-    { lbl: 'Provisions encaissées', k: 'provisions', kind: 'provisions', inc: true },
-    { lbl: 'Charges récup. payées', k: 'recup', kind: 'recup' }
-  ];
-  const D = ROWS.map(r => { const a = mA[r.k] || 0, b = mB[r.k] || 0; return Object.assign({}, r, { a, b, d: Math.round((b - a) * 100) / 100 }); });
-  const cause = D.slice().sort((x, y) => Math.abs(y.d) - Math.abs(x.d))[0];
-  const dCol = (r) => { if (Math.abs(r.d) < 0.5) return 'var(--t3)'; return (r.inc ? r.d > 0 : r.d < 0) ? 'var(--grn)' : 'var(--red)'; };
-  const dTxt = (d) => Math.abs(d) < 0.5 ? '—' : ((d > 0 ? '+ ' : '− ') + f(Math.abs(d)));
-  const nb = (v) => v ? f(v) : '<span style="color:var(--t3)">—</span>';
-  const opts = (sel) => avail.map(mo => '<option value="' + mo + '"' + (mo === sel ? ' selected' : '') + '>' + _MF[mo - 1] + ' ' + yr + (isCurYr && mo === lastMonth ? ' (en cours)' : '') + '</option>').join('');
-  const selS = 'font:600 12.5px Inter;padding:6px 10px;border:1px solid var(--bor);border-radius:9px;background:var(--sur);color:var(--t1);cursor:pointer';
-  const head = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px">'
-    + '<select id="fcmpA" onchange="_finCompare2Mois(' + yr + ',this.value,document.getElementById(\'fcmpB\').value)" style="' + selS + '">' + opts(moA) + '</select>'
-    + '<span style="color:var(--t3);font-size:13px;font-weight:600">vs</span>'
-    + '<select id="fcmpB" onchange="_finCompare2Mois(' + yr + ',document.getElementById(\'fcmpA\').value,this.value)" style="' + selS + '">' + opts(moB) + '</select></div>';
-  const dClass = (r) => { if (Math.abs(r.d) < 0.5) return ''; return (r.inc ? r.d > 0 : r.d < 0) ? 'pos' : 'neg'; };
-  const row = (r) => { const hl = !!(cause && r.k === cause.k && Math.abs(r.d) >= 0.5); const hlS = hl ? 'background:var(--acc-soft);' : '';
-    return '<tr' + (r.kind ? ' class="clk" onclick="_finDrillLigne(\'' + r.kind + '\',' + yr + ',' + moB + ')" title="Voir les mouvements de ' + _MF[moB - 1] + '"' : '') + '>'
-      + '<td style="' + hlS + (hl ? 'font-weight:700' : '') + '">' + r.lbl + '</td>'
-      + '<td style="' + hlS + '">' + nb(r.a) + '</td>'
-      + '<td style="' + hlS + '">' + nb(r.b) + '</td>'
-      + '<td class="' + dClass(r) + '" style="' + hlS + 'font-weight:700">' + dTxt(r.d) + '</td></tr>'; };
-  const tot = (lbl, a, b, inc) => { const d = Math.round((b - a) * 100) / 100; const dc = Math.abs(d) < 0.5 ? '' : ((inc ? d > 0 : d < 0) ? 'pos' : 'neg');
-    return '<tr class="tot"><td>' + lbl + '</td><td>' + f(a) + '</td><td>' + f(b) + '</td>'
-      + '<td class="' + dc + '">' + (Math.abs(d) < 0.5 ? '—' : ((d > 0 ? '+ ' : '− ') + f(Math.abs(d)))) + '</td></tr>'; };
-  const table = '<table class="pl"><thead><tr><th>Poste</th><th>' + _M[moA - 1] + '</th><th>' + _M[moB - 1] + '</th><th>Écart</th></tr></thead>'
-    + '<tbody>' + D.map(row).join('') + tot('Total charges', mA.charges || 0, mB.charges || 0, false) + tot('Cash-flow réel', mA.cashflowReel || 0, mB.cashflowReel || 0, true) + '</tbody></table>';
-  const causeHtml = (cause && Math.abs(cause.d) >= 0.5)
-    ? '<div style="margin-top:14px;padding:12px 15px;background:var(--acc-soft);border-radius:var(--r);font-size:12.5px;color:var(--t2);line-height:1.5"><span style="background:var(--acc);color:#fff;font-weight:700;font-size:11px;padding:2px 8px;border-radius:6px;margin-right:7px">Cause n°1</span>Le plus gros écart vient de <b style="color:var(--t1)">' + cause.lbl.replace(/<[^>]+>/g, '') + '</b> : <b class="' + dClass(cause) + '">' + dTxt(cause.d) + '</b> (' + f(cause.a) + ' → ' + f(cause.b) + '). <span style="color:var(--t3)">Clique une ligne pour voir ses mouvements.</span></div>'
-    : '';
-  const foot = '<div class="note" style="margin-top:9px">Charge en <b style="color:var(--red)">hausse</b> = rouge · en <b style="color:var(--grn)">baisse</b> = vert · le poste le plus impactant est surligné.</div>';
-  if (typeof openDashDrill === 'function') openDashDrill('Comparer ' + _MF[moA - 1] + ' vs ' + _MF[moB - 1] + ' ' + yr, '<div style="padding:2px">' + head + table + causeHtml + foot + '</div>');
-}
 
 // CSS du sous-P&L mensuel B4 (injectée une fois). Préfixe b4- pour ne rien percuter.
 function _finB4InjectCss() {
@@ -52136,13 +51882,11 @@ function _finB4InjectCss() {
     + '.b4-left tr.b4-grp .b4-y26{background:var(--acc-soft,rgba(255,90,60,.12))}'
     + '.b4-pane tr.b4-tot td{font-weight:700;border-top:1px solid var(--bor)}'
     + '.b4-pane tr.b4-net td{font-weight:800;border-top:2px solid var(--t1);background:var(--bg-success,rgba(22,163,74,.08))}'
-    + '.b4-pane tr.b4-info td{font-size:10.5px;background:#fafcff;border-top:1px dashed #cfe0fb}'
-    + '.b4-pane tr.b4-locked td{background:#f5f6f8}'
+    + '.b4-pane tr.b4-info td{font-size:10.5px;background:var(--sur2);border-top:1px dashed var(--bor2,var(--bor))}'
     + '.b4-x{color:var(--t3);font-weight:400;font-size:10px}'
     + '.b4-clk{cursor:pointer}.b4-pane tr.b4-clk:hover td{background:rgba(255,90,60,.06)}'
     + '.b4-chev{color:var(--acc);font-weight:700;opacity:.45;margin-left:3px}.b4-clk:hover .b4-chev{opacity:1}'
     + '.b4-en{font-size:9px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0}'
-    + '.b4-tag{font:700 8.5px Inter;background:#2563eb;color:#fff;border-radius:4px;padding:1px 5px}.b4-tag-off{background:var(--t3)}'
     + '.b4-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font:600 12px Inter;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:20px;padding:5px 12px 5px 10px}'
     + '.b4-toggle .b4-pill{width:30px;height:17px;border-radius:10px;background:var(--sur3);position:relative;transition:.18s;flex:none}'
     + '.b4-toggle .b4-pill::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:.18s}'
@@ -52152,26 +51896,6 @@ function _finB4InjectCss() {
   document.head.appendChild(s);
 }
 
-// ---- C4: Drill « par logement » ----
-function _finOpenParLogement(yr) {
-  const { bilans } = _finCollect(yr, _finActiveEnt());
-  const rows = [];
-  bilans.forEach(b => (b.parLogement || []).forEach(l => rows.push(l)));
-  const f = (typeof fmt === 'function') ? fmt : (x => x + '');
-  const html = '<div style="overflow-x:auto"><table class="pl"><thead><tr>'
-    + '<th style="text-align:left">Logement</th><th style="text-align:left">Locataire</th>'
-    + '<th>Revenus</th><th>Charges</th><th>Cash-flow</th><th>Occ.</th></tr></thead><tbody>'
-    + rows.map(l => '<tr>'
-        + '<td style="text-align:left;font-family:var(--display)">' + (l.ref || '') + '</td>'
-        + '<td style="text-align:left">' + (l.locataire || '—') + '</td>'
-        + '<td class="num">' + f(l.revenus || 0) + '</td>'
-        + '<td class="num neg">' + f(l.charges || 0) + '</td>'
-        + '<td class="num">' + f(l.cashFlow || 0) + '</td>'
-        + '<td class="num">' + (l.tauxOccupation || 0).toString().replace('.', ',') + ' %</td>'
-        + '</tr>').join('')
-    + '</tbody></table></div>';
-  if (typeof openDashDrill === 'function') openDashDrill('Résultat par logement — ' + yr, html);
-}
 
 // ---- Fenêtre « Renseigner les intérêts / crédit » (saisir / calculer / importer) ----
 // Math pur d'amortissement : intérêts + capital amorti + capital restant dû pour l'année yr.
@@ -52635,75 +52359,8 @@ function _finAffecter(ids, kind, yr, mo) {
   _finDrillLigne(kind, yr, mo);   // rouvre le drill à jour (le bloc « non ventilé » disparaît, la répartition intègre le bien)
 }
 
-// ---- C5: IRL sous-indexation ----
-function _finIrlSousIndexation(entNom, immNom) {
-  if (typeof computeIRLRevision !== 'function') return 0;
-  let total = 0;
-  (DB.logements || []).filter(l => l && !l._deleted && l.locataire && (!entNom || l.entity === entNom) && (!immNom || l.imm === immNom)).forEach(l => {
-    try {
-      const rev = computeIRLRevision(l);
-      if (rev && rev.isApplicable && !rev.dejaApplique && rev.diff > 0) total += rev.diff * 12; // gain annuel projeté
-    } catch(e) { /* skip if IRL data missing */ }
-  });
-  return Math.round(total);
-}
 
-// ---- C5: Régularisation à faire ----
-function _finRegulAFaire(yr, entNom, immNom, lastMonth) {
-  if (typeof computeRegul !== 'function') return 0;
-  try {
-    // Borne fin de période : mois écoulés si lastMonth fourni (parité N / N-1 sur la même période,
-    // cf B4 cash-flow), sinon année pleine. Dernier jour réel du mois (sûr en comparaison string ET Date).
-    const _to = (lastMonth != null && lastMonth < 12)
-      ? (String(yr) + '-' + String(lastMonth).padStart(2, '0') + '-' + String(new Date(Number(yr), lastMonth, 0).getDate()).padStart(2, '0'))
-      : (String(yr) + '-12-31');
-    // computeRegul returns { entries, bailleur } (v14.73)
-    const result = computeRegul(String(yr) + '-01-01', _to);
-    const regul = result.entries || result; // robustness: handle old API if ever reverted
-    // Périmètre entité active (parité avec _finLoyersHC/_finChargeBuckets, sinon le régul des
-    // AUTRES SCI amputerait le résultat de la SCI affichée — cf audit B1). On filtre par immeuble
-    // de l'entité, comme rRegul (_entRegImms.has(r.imm)).
-    const entImms = entNom
-      ? new Set((DB.logements || []).filter(l => l && l.entity === entNom).map(l => l.imm).filter(Boolean))
-      : null;
-    let total = 0;
-    Object.values(regul || {}).forEach(r => {
-      if (entImms && !entImms.has(r.imm)) return; // hors périmètre entité
-      if (immNom && r.imm !== immNom) return;      // B6 : filtre immeuble
-      const solde = (Number(r.charges) || 0) - (Number(r.provisions) || 0); // charges > provisions → à récupérer
-      if (solde > 0) total += solde;
-    });
-    return Math.round(total);
-  } catch(e) { console.warn('[finances] regul', e); return 0; }
-}
 
-// ---- C5: Argent à récupérer (4 lignes — règle d'or : chaque ligne navigue vers page opérationnelle) ----
-function _finRenderLeaks(S, impayes) {
-  const host = el('fin-leaks');
-  if (!host) return;
-  const f = (typeof fmt === 'function') ? fmt : (x => x + '');
-  const R = S.aRecuperer;
-  const nbImp = (impayes || []).length;
-  const leak = (icon, title, sub, dest, amount, cls, onclick) =>
-    '<div class="leakrow" onclick="' + onclick + '" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){' + onclick + '}">'
-    + '<span class="ic">' + icon + '</span>'
-    + '<span class="tx"><b>' + title + '</b><s>' + sub + '</s><span class="dest">' + dest + '</span></span>'
-    + '<span class="am ' + cls + ' num">' + amount + '</span>'
-    + '<span class="go">→</span></div>';
-  host.innerHTML =
-    '<div class="sec-title">Argent à récupérer · ' + f(R.total) + '</div>'
-    + '<div class="card" style="padding:8px">'
-    +   leak('⏳', 'Vacance locative', 'manque à gagner sur lots vides', '→ va dans Biens pour relouer',
-           '−' + f(R.vacance), 'neg', "go('biens',null)")
-    +   leak('🚩', 'Loyer impayé', nbImp + ' locataire' + (nbImp > 1 ? 's' : '') + ' en retard', '→ va dans Suivi des loyers pour relancer',
-           f(R.impaye), 'neg', "_dashGoImpayes()")
-    +   leak('📈', 'Loyers sous-indexés (IRL)', 'baux non révisés', '→ va dans Révision IRL pour indexer',
-           '+' + f(R.irl) + '/an', 'pos', "go('irl',null)")
-    +   leak('⚖️', 'Régularisation de charges', 'provisions < charges réelles · déjà déduit du résultat net', '→ va dans Régularisation pour éditer',
-           '+' + f(R.regul), 'warn', "go('regul',null)")
-    + '</div>'
-    + '<div class="note">⚠️ Règle d\'or : Finances <b>chiffre</b> l\'argent à récupérer, mais chaque ligne t\'envoie <b>agir sur la page opérationnelle</b> — jamais de cul-de-sac dans Finances.</div>';
-}
 
 // ---- C6: Navigate to Export page and highlight a card ----
 function _finGoExport(anchorId) {
@@ -52730,10 +52387,13 @@ function _finRenderExports() {
     '<div class="sec-title">Exports &amp; déclaratif</div>'
     + '<div class="bridge">'
     +   '<a onclick="_finOpen2044Previsu()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finOpen2044Previsu()}"><span class="ic">🧾</span><span class="tx"><b>Déclaration 2044</b><s>Prévisualiser &amp; générer</s></span></a>'
+    // D-6 : « Renseigner les intérêts » a QUITTÉ le compte de résultat (L-8 : plus rien sur la
+    // page n'en a besoin) — l'accès vit ici, dans le module déclaratif (seul consommateur).
+    +   '<a onclick="_finCreditOpen()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finCreditOpen()}"><span class="ic">🧮</span><span class="tx"><b>Intérêts d\'emprunt</b><s>Pour la déclaration (ligne 250)</s></span></a>'
     +   item('📚', 'Bilan annuel', 'Synthèse comptable', 'exp-card-bilan')
     +   item('🗄️', 'Export FEC', 'Écritures comptables', 'exp-card-fec')
     + '</div>'
-    + '<div class="note">La 2044 s\'ouvre en <b>prévisualisation</b> ici (calcul live · périmètre = exercice + entité choisis ci-dessus). Bilan / FEC réutilisent la page Export.</div>';
+    + '<div class="note">La 2044 s\'ouvre en <b>prévisualisation</b> ici (calcul live · <b>année civile pleine</b> — seul bloc de la page hors fenêtre d\'exercice, et c\'est assumé · périmètre = exercice + entité choisis ci-dessus). Les intérêts ne servent qu\'à déclarer, jamais à lire cette page. Bilan / FEC réutilisent la page Export.</div>';
 }
 
 // ===== Prévisualisation 2044 (depuis Finances) — réutilise _compute2044 + _legal2044BuildOpts =====
