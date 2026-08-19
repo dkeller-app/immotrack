@@ -172,6 +172,26 @@ signalait devient impossible.
 une fois, de façon bloquante (sinon des montants déjà saisis restent invisibles).
 Effet de bord : `DB.catMapping` comme table parallèle n'a plus lieu d'être.
 
+**M-1 bis · Le rattachement est OBLIGATOIRE À LA CRÉATION, et l'app ne devine RIEN** (arbitré par Didier le
+19/08, après mockup `mockups/FINANCES-CATEGORIES/categories-flottantes.html`).
+Constat qui a déclenché la décision : aujourd'hui le rattachement n'est pas obligatoire, il est **deviné**.
+`_catPkCreate` (`index.html:15882`) appelle `_finSuggestLigne` (`index.html:51322`), qui cherche des mots
+(loyer, assurance, taxe, travaux, réno, entretien, syndic, charge, divers…) dans le nom tapé ; si aucun ne
+correspond, elle rend `''` et **rien n'est rattaché, en silence** — les montants de cette catégorie sortent
+du compte de résultat sans un mot (cas réel : « Ravalement 2026 »).
+
+Décision, en trois points :
+1. **Aucune catégorie ne peut naître sans sa mère.** Le picker de création demande la famille au moment où la
+   catégorie est créée ; sans réponse, pas de création. L'état « flottant » devient impossible **par
+   construction**, et non plus rattrapé après coup.
+2. **Zéro devinette : `_finSuggestLigne` ne pré-remplit plus rien** — ni au picker, ni dans le modal de
+   rattachement, ni à l'import. Aucune ligne 2044, aucune catégorie mère n'est pré-sélectionnée par
+   heuristique de nom. Le choix est celui de l'utilisateur, toujours explicite. L'heuristique disparaît des
+   chemins d'écriture (elle ne doit plus appeler `_writeCatMap`).
+3. **Conséquence : pas de ligne de rappel** (variante A du mockup **écartée**) et pas de rattachement par
+   défaut : il n'y a plus rien à rappeler ni à deviner. La migration one-shot ci-dessus reste, pour les
+   catégories déjà créées avant la règle — sans suggestion pré-cochée elle non plus.
+
 **M-2 · Le mapping doit être passé au bilan.** Vérifié en séance : la prévisualisation 2044 honore bien le
 mapping (`_legal2044BuildOpts`), mais **`legal-bilan.js:50` et `:57` appellent `_compute2044` sans
 `mapping`** → une charge dans une catégorie maison est comptée dans le tableau et **disparaît du drill
