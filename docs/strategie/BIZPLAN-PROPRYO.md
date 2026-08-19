@@ -18,7 +18,7 @@
 | **Ça se lance quand ?** | Bêta privée **septembre 2026**, lancement public **14 octobre 2026**. |
 | **Ça coûte combien ?** | **< 10 K€ de cash** pour la première année commerciale. Aucune levée de fonds nécessaire : projet bootstrappé, break-even visé ~12-15 mois après lancement. |
 | **Ça rapporte quoi ?** | Scénario médian à 3 ans : **~3 200 clients payants, ~365 K€ d'ARR, EBITDA ~35 %**. Valorisation potentielle à la revente : 1,1-1,8 M€ (3-5× ARR, multiples proptech FR). Scénario haut : ARR ~850 K€, valorisation 3,5-5 M€. |
-| **Pourquoi maintenant ?** | Marché B2C fragmenté sans leader (fenêtre d'entrée), consolidation B2B en cours (Septeo, Manda), pression réglementaire qui pousse les bailleurs vers le logiciel (DPE, encadrement, fiscalité), et un produit avec ~2,5 ans d'avance d'usage réel. |
+| **Pourquoi maintenant ?** | Marché B2C fragmenté sans leader (fenêtre d'entrée), consolidation B2B en cours (Septeo, Manda), pression réglementaire qui pousse les bailleurs vers le logiciel (DPE, encadrement, fiscalité), et un produit déjà construit et éprouvé sur un parc réel — l'avance d'exécution est faite. |
 
 ---
 
@@ -59,7 +59,7 @@ Ce chapitre est la différence majeure avec un business plan classique : **il n'
 - **~3 000 tests automatisés** exécutés à chaque livraison ; chaque chantier passe un audit par un agent relecteur indépendant avant intégration ; invariants financiers encodés en tests (« Σ vues immeuble = vue bailleur au centime »).
 - **Hébergement Union européenne** (Supabase/PostgreSQL, isolation par entité via Row Level Security), **zéro CDN externe au runtime** (toutes les dépendances embarquées, polices comprises), zéro tracker.
 - **PWA responsive** : PC, tablette, téléphone (+ paysage), thèmes clair/sombre — chaque écran validé sur les 4 formats avant livraison.
-- **Dogfooding total** : le créateur gère son propre patrimoine avec l'app depuis ~2,5 ans. Chaque bug de production est un bug qui le touche personnellement.
+- **Dogfooding total** : le créateur gère son propre patrimoine avec l'app, au quotidien. Chaque bug de production est un bug qui le touche personnellement.
 
 ### 3.3 — Ce qui reste avant le lancement (le chemin est court)
 
