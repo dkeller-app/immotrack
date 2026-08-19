@@ -51666,15 +51666,15 @@ function rFinances() {
   }
   const heroHtml = '<div class="hero"><div class="hero-l">'
     + '<div class="eyebrow">Cash-flow réel · exercice ' + yr + '</div>'
-    + '<div class="big num ' + (_cf >= 0 ? 'pos' : 'neg') + '" title="Ce qui bouge vraiment sur ton compte : loyers + provisions − tes charges (prêt entier) − charges récupérables avancées">' + (_cf >= 0 ? '+' : '') + f(_cf) + '</div>'
+    + '<div class="big num ' + (_cf >= 0 ? 'pos' : 'neg') + '">' + (_cf >= 0 ? '+' : '') + f(_cf) + '</div>'
     + '<div style="margin-top:6px">' + varHtml + '</div>'
-    + '<div style="margin-top:8px;font-size:11px;color:var(--t3);font-style:italic;line-height:1.4;max-width:520px">Indicateur de trésorerie — en poche après avoir tout payé, mensualité de prêt entière incluse.</div>'
+    + '<div style="margin-top:8px;font-size:11px;color:var(--t3);font-style:italic;line-height:1.4;max-width:520px">Ce qui bouge vraiment sur ton compte — loyers + provisions − tes charges, mensualité de prêt entière incluse.</div>'
     + '</div>'
     + '<div class="decomp">'
     + '<div class="it"><span class="k">Loyers encaissés (HC)</span><span class="v num">' + f(a.loyersHC || 0) + '</span></div>'
     + (((a.recettesDiverses || 0) !== 0) ? '<div class="it"><span class="k">+ Recettes diverses</span><span class="v num">' + f(a.recettesDiverses || 0) + '</span></div>' : '')
     + '<div class="it"><span class="k">− Charges propriétaire (prêt entier)</span><span class="v num neg">' + f(a.charges || 0) + '</span></div>'
-    + '<div class="it"><span class="k">= Cash-flow net</span><span class="v num ' + (_reel >= 0 ? '' : 'neg') + '" title="Ton résultat propre, hors transit locataire (charges récupérables)">' + (_reel >= 0 ? '+' : '') + f(_reel) + '</span></div>'
+    + '<div class="it"><span class="k">= Cash-flow net</span><span class="v num ' + (_reel >= 0 ? '' : 'neg') + '">' + (_reel >= 0 ? '+' : '') + f(_reel) + '</span></div>'
     + (_solde !== 0 ? '<div class="it"><span class="k">' + (_solde >= 0 ? '+ Charges récup. (trop-perçu)' : '− Charges récup. (avancées)') + '</span><span class="v num ' + (_solde >= 0 ? '' : 'neg') + '">' + (_solde >= 0 ? '+ ' : '− ') + f(Math.abs(_solde)) + '</span></div>' : '')
     + '<div class="it" style="border-top:1px solid var(--bor);margin-top:2px;padding-top:4px"><span class="k"><b>= Cash-flow réel</b></span><span class="v num ' + (_cf >= 0 ? '' : 'neg') + '"><b>' + (_cf >= 0 ? '+' : '') + f(_cf) + '</b></span></div>'
     + '</div></div>';
@@ -51706,7 +51706,7 @@ function rFinances() {
       + (_vac.length === 1 && _vac[0].depuis ? ' depuis le ' + _dfr(_vac[0].depuis) : '')
     : '';
   const _occTip = 'moyenne sur ' + W.exigibilite.nbMois + ' mois · ' + OCC.nbLots + ' lot' + (OCC.nbLots > 1 ? 's' : '')
-    + (OCC.manqueAGagner > 0.005 ? ' · <b title="Théorique : le loyer que le lot aurait produit s\'il avait été loué (loyer de référence × jours vides — même base que la clé de répartition P-4, même fenêtre que la page)">' + f(OCC.manqueAGagner) + ' de manque à gagner</b>' : '')
+    + (OCC.manqueAGagner > 0.005 ? ' · <b>' + f(OCC.manqueAGagner) + ' de manque à gagner</b> <span style="color:var(--t3)">(théorique : loyer de référence × jours vides, même base que la clé P-4)</span>' : '')
     + _vacTxt;
   const ratiosHtml = '<div class="fin-ratios">'
     + _finRatio('Recouvrement', recouv == null ? '—' : recouv, recouv == null ? '' : '%',
@@ -51887,12 +51887,12 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   const _MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
   const R = (label, v, o) => Object.assign({ label, v }, o || {});
-  // L-3 / H-6 : la ligne « Prêt » = échéance ENTIÈRE ; info-bulle « dont intérêts » quand ils
-  // sont saisis ; « prêt non importé » si des intérêts existent SANS échéance (jamais un
-  // capital négatif).
+  // L-3 / H-6 : la ligne « Prêt » = échéance ENTIÈRE ; le « dont intérêts » (ou « prêt non
+  // importé ») est VISIBLE dans le sous-libellé — une infobulle title n'existe pas au doigt
+  // (E-1, passe de vérif). Le détail complet vit dans le drill de la ligne.
   const _intAnnuel = Math.round(((a && a.interets) || 0) * 100) / 100;
-  const _pretTitle = (_intAnnuel > 0 && ((a && a.pret) || 0) <= 0) ? 'Des intérêts sont saisis mais aucune échéance : prêt non importé'
-    : (_intAnnuel > 0 ? 'dont intérêts : ' + f(_intAnnuel) + ' (répartis au prorata des échéances payées)' : 'Intérêts non saisis — utile seulement pour déclarer (module déclaratif en bas de page)');
+  const _pretSub = (_intAnnuel > 0 && ((a && a.pret) || 0) <= 0) ? ' · ⚠ intérêts saisis sans échéance : prêt non importé'
+    : (_intAnnuel > 0 ? ' · dont intérêts ' + f(_intAnnuel) : '');
   const ROWS = [
     { grp: 'Revenus locatifs' },
     R('Loyers hors charges encaissés', o => o.loyersHC, { kind: 'loyers', oraSrc: o => o.loyerRetard, advSrc: o => o.avance }),
@@ -51906,7 +51906,7 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     ...(Math.abs((a && a.nonAffecte) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ ⚠️ Encaissements non affectés</span> <span class="b4-x">sans lot rattaché · clique pour affecter</span>', o => o.nonAffecte, { nonAffSub: true, kind: 'loyers' })] : []),
     ...(((a && a.recettesDiverses) || 0) !== 0 ? [R('Recettes diverses <span class="b4-x">parking, GLI, indemnités… (ligne 213, imposable)</span>', o => o.recettesDiverses, { kind: 'recettesDiverses' })] : []),
     { grp: 'Charges propriétaire <span class="b4-x">(à ta charge — non récupérables)</span>' },
-    R('Prêt <span class="b4-x">capital + intérêts — mensualité entière</span>', o => o.pret, { charge: true, kind: 'pret', expl: _pretTitle }),
+    R('Prêt <span class="b4-x">capital + intérêts — mensualité entière' + _pretSub + '</span>', o => o.pret, { charge: true, kind: 'pret' }),
     R('Taxe foncière', o => o.taxe, { charge: true, kind: 'taxeFonciere' }),
     R('Travaux &amp; entretien', o => o.travaux, { charge: true, kind: 'travaux' }),
     R('Honoraires &amp; gestion', o => o.honoraires, { charge: true, kind: 'honoraires' }),
@@ -51916,7 +51916,7 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     // des lignes visibles ne pouvait pas égaler le total (constat 25).
     ...(Math.abs((a && a.autres) || 0) > 0.005 ? [R('Autres charges propriétaire <span class="b4-x">2044 · 225/226' + (Math.abs((a && a.recupACharge) || 0) > 0.005 ? ' — dont récupérables restées à ta charge' : '') + '</span>', o => o.autres, { charge: true, kind: 'autres' })] : []),
     // L-4 : total VÉRIFIABLE À L'ŒIL = somme exacte des lignes visibles (les masquées valent 0).
-    R('Total charges propriétaire', o => o.charges, { tot: true, neg: true, expl: 'Somme exacte des lignes visibles ci-dessus' }),
+    R('Total charges propriétaire <span class="b4-x">somme exacte des lignes visibles</span>', o => o.charges, { tot: true, neg: true }),
     { grp: 'Charges récupérables <span class="b4-x">(argent du locataire qui transite)</span>' },
     R('Payées par les locataires <span class="b4-x">provisions encaissées</span>', o => o.provisions, { pos: true, kind: 'provisions', oraSrc: o => o.chargeRetard }),
     ...(((a && a.chargeRetard) || 0) > 0.005 ? [R('<span style="color:var(--warn)">↳ dont charges en retard</span> <span class="b4-x">non encaissé · voir la cause</span>', o => o.chargeRetard, { retardSub: true, drill: 'charge' })] : []),
@@ -51930,8 +51930,8 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     // L-8 : la ligne « Base imposable foncier [2044] » est SORTIE du tableau — le P&L n'est pas
     // la 2044 ; le fiscal vit dans sa prévisualisation dédiée (Z-1). Conséquence : la saisie des
     // intérêts n'est plus un pré-requis pour LIRE Finances, seulement pour déclarer (D-6).
-    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur ton compte</span>', o => o.cashflowReel, { net: true, expl: 'Cash-flow réel = ce qui bouge vraiment sur ton compte : loyers + provisions − tes charges (prêt entier) − charges récupérables avancées. Si un règlement de régularisation de charges arrive, classe-le en « Charges récupérables (eau, énergie…) », jamais en Loyers.' }),
-    R('Cash-flow net <span class="b4-x">ton résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true, expl: 'Cash-flow net = ton résultat propre, hors transit locataire (charges récupérables).' })
+    R('Cash-flow réel <span class="b4-x">tout compté = vrai mouvement sur ton compte</span>', o => o.cashflowReel, { net: true, explain: 'cfReel' }),
+    R('Cash-flow net <span class="b4-x">ton résultat propre, hors transit locataire</span>', o => o.cashflowNet, { dim: true, explain: 'cfNet' })
   ];
   const lk = () => false;   // plus aucune ligne verrouillée depuis L-8
   const cls = row => row.tot ? 'b4-tot' : (row.net ? 'b4-net' : ((row.info || row.avanceSub || row.retardSub || row.rattrapSub || row.nonAffSub) ? 'b4-info' : ''));
@@ -51939,7 +51939,7 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
   // lignes principales (kind) → détail des mouvements (_finDrillLigne, 'pret' inclus).
   const clk = row => row.drill
     ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ')') + '" title="Voir la cause"'
-    : (row.kind ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ')" title="Voir le détail des mouvements"' : '');
+    : (row.explain ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finExplique(\'' + row.explain + '\')" title="Comprendre ce chiffre"' : (row.kind ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ')" title="Voir le détail des mouvements"' : ''));
   const col = (v, row, isLk, src) => {
     if (isLk) return '<span style="color:var(--t3)">–</span>';
     // C-1 : l'avance porte le BLEU sémantique --adv (5ᵉ couleur de la charte), le retard
@@ -51995,7 +51995,7 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     let L = '<table class="b4-pane b4-left"><thead><tr><th class="b4-poste">Poste</th><th class="b4-y26">Année ' + yr + '</th></tr></thead><tbody>';
     ROWS.forEach(row => {
       if (row.grp) { L += '<tr class="b4-grp"><td class="b4-poste">' + row.grp + '</td><td class="b4-y26">&nbsp;</td></tr>'; return; }
-      L += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '><td class="b4-poste"' + (row.expl ? ' title="' + row.expl + '"' : '') + '>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td><td class="b4-y26' + sigCls(row, a) + '">' + col(row.v(a), row, false, a) + '</td></tr>';
+      L += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '"' + clk(row) + '><td class="b4-poste">' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td><td class="b4-y26' + sigCls(row, a) + '">' + col(row.v(a), row, false, a) + '</td></tr>';
     });
     L += '</tbody></table>';
     let M = '<table class="b4-pane b4-mid"><thead><tr>';
@@ -52037,7 +52037,7 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
       const isLk = lk(row);
       const rcls = row.tot ? 'tot' : (row.net ? 'net' : '');
       const _n1Cells = hasN1 ? ('<td class="num">' + col(row.v(p), row, isLk, p) + '</td><td class="num">' + (isLk ? '<span style="color:var(--t3)">–</span>' : varCol(row.v(a), row.v(p))) + '</td>') : '';
-      T += '<tr class="' + rcls + (row.kind ? ' clk' : '') + '"' + clk(row) + '><td' + (row.expl ? ' title="' + row.expl + '"' : '') + '>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td>'
+      T += '<tr class="' + rcls + (row.kind ? ' clk' : '') + '"' + clk(row) + '><td>' + row.label + (row.kind ? ' <span class="b4-chev">›</span>' : '') + '</td>'
         + '<td class="num">' + col(row.v(a), row, isLk, a) + '</td>'
         + _n1Cells
         + '<td class="pct">' + (isLk || row.mut ? '—' : pctL(row.v(a))) + '</td></tr>';
@@ -52067,6 +52067,17 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     + '</div>';
   if (detailOn) _finB4Sync();
 }
+// E-1 (passe de vérif) — l'explication d'un chiffre se PORTE AU DOIGT : un popup, pas un
+// title. C-2 : il explique, il ne navigue pas.
+function _finExplique(kind) {
+  const T = {
+    cfReel: ['Cash-flow réel', '<p style="margin:0 0 10px"><b>Ce qui bouge vraiment sur ton compte</b> : loyers encaissés (HC) + provisions des locataires − tes charges (mensualité de prêt ENTIÈRE incluse) − les charges récupérables que tu avances.</p><p style="margin:0 0 10px">Il répond à « est-ce que je dois remettre de ma poche ? » et se recoupe avec ton relevé bancaire.</p><div class="note" style="margin:0">💡 Si un locataire te règle un <b>solde de régularisation de charges</b>, classe ce mouvement en « Charges récupérables (eau, énergie…) », jamais en Loyers — sinon une fausse avance roule de mois en mois.</div>'],
+    cfNet: ['Cash-flow net', '<p style="margin:0"><b>Ton résultat propre</b> : loyers HC + recettes diverses − tes charges. Le transit locataire (provisions encaissées, charges récupérables avancées) en est EXCLU — il vit dans « Charges récupérables » et ne fait que traverser ton compte.</p>']
+  };
+  const t = T[kind];
+  if (!t) return;
+  if (typeof openDashDrill === 'function') openDashDrill(t[0] + ' — comprendre ce chiffre', '<div style="font-size:13px;color:var(--t2);line-height:1.55;padding:2px">' + t[1] + '</div>');
+}
 // RS-1 : changement du mois affiché (mobile) — re-rendu léger de la page Finances.
 function _finB4PickMo(v) { window._FIN_B4_MOSEL = parseInt(v, 10) || 0; if (typeof rFinances === 'function') rFinances(); }
 
@@ -52095,7 +52106,11 @@ function _finB4InjectCss() {
     + '.b4-midwrap::-webkit-scrollbar{height:10px}'
     + '.b4-midwrap::-webkit-scrollbar-track{background:var(--sur3)}'
     + '.b4-midwrap::-webkit-scrollbar-thumb{background:var(--t3);border-radius:8px;border:3px solid var(--sur3)}'
-    + '.b4-mid{table-layout:fixed;min-width:100%;width:max-content}.b4-left{table-layout:fixed}'
+    // §3.2 (CDC design, « erreur commise puis corrigée en séance ») : la largeur se fixe SUR LA
+    // TABLE — table-layout:fixed sans width laisse les libellés nowrap imposer la leur (587 px
+    // mesurés au lieu de 316 → panneaux mois/droit hors écran en tablette et paysage).
+    + '.b4-mid{table-layout:fixed;min-width:100%;width:max-content}.b4-left{table-layout:fixed;width:316px}'
+    + '.b4-right{table-layout:fixed;width:290px}'
     + '.b4-pane th,.b4-pane td{padding:7px 12px;font-size:12.5px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--bor2);overflow:hidden}'
     + '.b4-pane thead th{font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bor);vertical-align:bottom;padding-bottom:8px;background:var(--sur)}'
     + '.b4-poste{width:208px;text-align:left;white-space:normal}'
@@ -52134,12 +52149,25 @@ function _finB4InjectCss() {
     // cliquables), panneau droit masqué (~230 px rendus), et le repli est ÉCRIT, plus muet.
     + '@media(max-width:680px){'
     +   '.b4-mid th.b4-mo,.b4-mid td.b4-mo{display:none}'
-    +   '.b4-mid th.b4-mo.b4-selmo,.b4-mid td.b4-mo.b4-selmo{display:table-cell}'
+    +   '.b4-mid th.b4-mo.b4-selmo,.b4-mid td.b4-mo.b4-selmo{display:table-cell;width:92px}'
     +   '.b4-right{display:none}'
     +   '.b4-mo-pick{display:inline-block}'
     +   '.b4-hint{display:none}'
     +   '.b4-rotmsg{display:block;font-size:11px;color:var(--t3);padding:8px 18px 12px}'
-    + '}';
+    // RS-1 (suite, passe de vérif) : le panneau gauche devient FLUIDE — Poste prend le reste,
+    // les libellés replient, Année et le mois se resserrent : les MONTANTS restent à l'écran
+    // sur 375 px (avant : 420 px imposés dans 343, chiffres invisibles).
+    +   '.b4-left{flex:1 1 auto;min-width:0;width:auto}'
+    +   '.b4-midwrap{flex:0 0 auto}'
+    +   '.b4-left .b4-poste{width:auto;white-space:normal}'
+    +   '.b4-pane th,.b4-pane td{padding:6px 5px;font-size:11.5px}'
+    +   '.b4-y26{width:88px}'
+    + '}'
+    // RS-2 (complément, passe de vérif) : en TÉLÉPHONE PAYSAGE la sidebar consomme ~220 px —
+    // gauche (316) + droit (290) > contenu (601) et le panneau des mois tombait à 0 px. Sous
+    // 480 px de haut, le panneau droit CÈDE (le comparatif N-1 reste dans le popup, même
+    // principe que RS-1) : les mois redeviennent lisibles et défilables.
+    + '@media(max-height:480px){.b4-right{display:none}}';
   document.head.appendChild(s);
 }
 
@@ -52247,12 +52275,14 @@ function _finDrillLigne(kind, yr, mo) {
   if (!def) return;
   const rows = [];
   let total = 0;
-  // def.prov : sous la CASCADE CUMULATIVE, la provision de chaque (lot, mois) sort de l'allocation
-  // par lot sur toute l'année (arriérés avant avance). On pré-calcule provision + total payé par
-  // (lot, mois) puis on distribue au prorata des mouvements du mois → total du drill = cellule tableau.
-  let _paidByKey = null, _provByKey = null;
-  if (def.prov) {
-    _paidByKey = {}; _provByKey = {};
+  // def.prov / def.rec : sous la CASCADE CUMULATIVE, la part HC et la provision de chaque
+  // (lot, mois) sortent de l'allocation par lot sur toute l'année (arriérés avant avance).
+  // On pré-calcule part HC + provision + total payé par (lot, mois) puis on distribue au
+  // prorata des mouvements du mois → TOTAL DU DRILL = CELLULE DU TABLEAU (D-1, passe de
+  // vérif : le drill Loyers affichait l'encaissé CC — 146 241 — face à la ligne HC 127 181).
+  let _paidByKey = null, _provByKey = null, _hcByKey = null;
+  if (def.prov || def.rec) {
+    _paidByKey = {}; _provByKey = {}; _hcByKey = {};
     const _recvByLot = {};
     const _Wp = _finWindows(parseInt(yr, 10), scope);
     const _lastM = _Wp ? _Wp.constat.lastMonth : ((parseInt(yr, 10) === new Date().getFullYear()) ? (new Date().getMonth() + 1) : 12);
@@ -52270,7 +52300,7 @@ function _finDrillLigne(kind, yr, mo) {
     for (const q in _recvByLot) {
       const months = [];
       for (let mm = 1; mm <= _lastM; mm++) { const ymk = yr + '-' + String(mm).padStart(2, '0'); const d = _finBailHcChAt(q, ymk); months.push({ hcDue: d.hc || 0, chDue: d.ch || 0, received: _recvByLot[q][ymk] || 0 }); }
-      if (_alloc) _alloc(months).forEach((a, idx) => { _provByKey[q + '|' + (yr + '-' + String(idx + 1).padStart(2, '0'))] = a.provisions; });
+      if (_alloc) _alloc(months).forEach((a, idx) => { const k = q + '|' + (yr + '-' + String(idx + 1).padStart(2, '0')); _provByKey[k] = a.provisions; _hcByKey[k] = a.loyersHC; });
     }
   }
   (DB.mouvements || []).forEach(m => {
@@ -52280,9 +52310,13 @@ function _finDrillLigne(kind, yr, mo) {
     const r = _finCatLigne(m.cat);
     const _sc = _finCatMere(m.cat);            // M-1 : flags hérités de la mère (alias compris)
     let montant;
-    if (def.rec) {                                   // loyers 211 (encaissé CC)
+    if (def.rec) {                                   // loyers = part HC de la cascade (D-1 : total = cellule)
       if (!r || r.type !== 'recette' || r.ligne2044 !== '211') return;
-      montant = ((Number(m.cr) || 0) - (Number(m.db) || 0)) * _w;
+      const key = (m.qui || '') + '|' + m.date.slice(0, 7);
+      const monthPaid = _paidByKey[key] || 0, monthHc = _hcByKey[key] || 0;
+      const amt = ((Number(m.cr) || 0) - (Number(m.db) || 0)) * _w;
+      montant = (monthPaid !== 0) ? (monthHc * (amt / monthPaid)) : 0;
+      if (Math.abs(montant) < 0.005) return;   // pièce sans part loyer (tout en charges) → elle vit dans le drill Provisions (symétrie)
     } else if (def.prov) {                           // #2 provisions = part CH (CASCADE, distribuée au prorata du mois)
       if (!r || r.type !== 'recette' || r.ligne2044 !== '211') return;
       const key = (m.qui || '') + '|' + m.date.slice(0, 7);
@@ -52345,7 +52379,9 @@ function _finDrillLigne(kind, yr, mo) {
     });
     return Math.round(t * 100) / 100;
   };
-  const totalN1 = sumYear(Number(yr) - 1);
+  const totalN1 = (kind === 'loyers' && typeof _finLoyersHC === 'function')
+    ? _finLoyersHC(Number(yr) - 1, scope, _Wd && _Wd.n1).hc          // D-1 : même calcul que la ligne, même période
+    : sumYear(Number(yr) - 1);
   const parBien = {};
   let nvSum = 0, nvCount = 0; const nvIds = [];
   rows.forEach(x => {
@@ -52421,7 +52457,7 @@ function _finDrillLigne(kind, yr, mo) {
       const bienCell = x.lot
         ? ' <span class="badge gry">' + esc(_short(x.lot)) + '</span>'
         : ' <span class="badge ora">non ventilé</span>' + (x.id != null ? ' <a onclick="_finVentiler(' + JSON.stringify(x.id) + ')" style="cursor:pointer;color:var(--pur);font-size:11px;text-decoration:underline">✂️</a>' : '');
-      const sciBadge = x.sci ? ' <span class="badge ora" title="Quote-part au POTENTIEL LOCATIF du mois du mouvement (clé P-4 : loyer du barème au taux plein, ou loyer de référence si vacant) · ' + x.sci.nb + ' immeuble' + (x.sci.nb > 1 ? 's' : '') + ' du bailleur · total brut ' + f(x.sci.brut) + '">⚠ SCI ' + Math.round(x.sci.part * 100) + ' %</span>' : '';
+      const sciBadge = x.sci ? ' <span class="badge ora">⚠ SCI ' + Math.round(x.sci.part * 100) + ' % de ' + f(x.sci.brut) + '</span>' : '';
       return '<tr><td><span class="fdr-dt">' + esc(dfr(x.date).slice(0, 5)) + '</span><span class="fdr-lib">' + esc(x.lib || x.cat || '—') + '</span>' + bienCell + sciBadge + '</td>'
         + '<td class="' + s.cls + '">' + s.txt + '</td></tr>';
     };
@@ -52438,12 +52474,31 @@ function _finDrillLigne(kind, yr, mo) {
         body += _byMonth[ym].map(_mvRow).join('');
       });
     }
+    // E-1 : les explications portées au doigt — clé P-4 si des quotes-parts SCI figurent,
+    // « dont intérêts » / « prêt non importé » (L-3/H-6) sur le drill du Prêt.
+    if (rows.some(x => x.sci)) {
+      body += '<div class="note">⚠ SCI n % = quote-part des frais bailleur pour CET immeuble, au <b>potentiel locatif du mois du mouvement</b> (clé P-4 : loyer du barème au taux plein, loyer de référence si vacant) — le montant complet est affiché sur le badge.</div>';
+    }
+    if (kind === 'pret') {
+      let _intAn = 0;
+      (DB.mouvements || []).forEach(m2 => {
+        if (!m2 || m2._deleted || !m2.date || !m2.date.startsWith(yr)) return;
+        const w2 = _finScopeWeight(scope, m2); if (!w2) return;
+        const r2 = _finCatLigne(m2.cat);
+        if (r2 && r2.ligne2044 === '250') _intAn += ((Number(m2.db) || 0) - (Number(m2.cr) || 0)) * w2;
+      });
+      _intAn = Math.round(_intAn * 100) / 100;
+      body += '<div class="note">' + (_intAn > 0
+        ? (total > 0.005 ? 'Dont <b>intérêts : ' + f(_intAn) + '</b> — répartis au prorata des échéances payées (H-7). Le capital = échéances − intérêts.'
+                         : '⚠ Des intérêts sont saisis (' + f(_intAn) + ') mais aucune échéance : <b>prêt non importé</b>.')
+        : 'Intérêts non saisis — utiles seulement pour déclarer (module déclaratif en bas de page), jamais pour lire cette page.') + '</div>';
+    }
     const gt = _sgn(total);
     body += '<tr class="tot"><td>Total' + (mo ? ' ' + _DMOIS[mo - 1] + ' ' + yr : ' exercice') + '</td><td>' + gt.txt + '</td></tr>';
     body += '</tbody></table>';
     if (def.rec && !mo) {   // note HC/prov = concept annuel → masquée en vue mois (évite un split annuel sous un total mensuel)
       const split = _finLoyersHC(yr, scope, _Wd && _Wd.constat);   // même fenêtre que la ligne du tableau (audit R3)
-      body += '<div class="note">Total encaissé charges comprises. Réparti au prorata du bail : '
+      body += '<div class="note">Chaque pièce est comptée pour sa <b>part loyer HC</b> (cascade d’imputation) — le total retombe sur la ligne du tableau. Sur l’encaissé charges comprises : '
         + '<b>' + f(split.hc) + '</b> en loyers HC + <b>' + f(split.provisions) + '</b> en provisions de charges (récupérables, neutres au résultat).</div>';
     }
   }
@@ -52658,6 +52713,10 @@ function _finRenderExports() {
     // D-6 : « Renseigner les intérêts » a QUITTÉ le compte de résultat (L-8 : plus rien sur la
     // page n'en a besoin) — l'accès vit ici, dans le module déclaratif (seul consommateur).
     +   '<a onclick="_finCreditOpen()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){_finCreditOpen()}"><span class="ic">🧮</span><span class="tx"><b>Intérêts d\'emprunt</b><s>Pour la déclaration (ligne 250)</s></span></a>'
+    // K-1 (passe de vérif) : la sous-indexation IRL doit rester ATTEIGNABLE EN UN CLIC depuis
+    // Finances — l'info vit sur la page Révision IRL (aucun chiffre recalculé ici, pas de
+    // résurrection du widget : un point d'accès, rien d'autre).
+    +   '<a onclick="go(\'irl\',null)" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){go(\'irl\',null)}"><span class="ic">📈</span><span class="tx"><b>Révision IRL</b><s>Loyers sous-indexés — page dédiée</s></span></a>'
     +   item('📚', 'Bilan annuel', 'Synthèse comptable', 'exp-card-bilan')
     +   item('🗄️', 'Export FEC', 'Écritures comptables', 'exp-card-fec')
     + '</div>'
