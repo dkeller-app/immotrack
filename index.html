@@ -3531,28 +3531,140 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- CDC-QUITTANCES-IRL D4 — « Faire une quittance » remplace la « quittance manuelle ».
      DEUX choix : le logement, puis le mois. AUCUN montant à saisir — il est lu au barème du
      mois choisi. Les mois non soldés restent VISIBLES mais non sélectionnables, avec leur motif. -->
-<div class="ov hidden" id="ov-quit-faire" onclick="closeBg(event,'ov-quit-faire')">
-<div class="modal">
-  <div class="m-head"><h3>Faire une quittance</h3><button class="m-close" onclick="closeM('ov-quit-faire')">✕</button></div>
-  <div class="m-body">
-    <div class="fg2">
-      <div class="fg"><label>Logement *</label><select class="inp" id="fq-log" onchange="_fqSetLot(this.value)"></select></div>
-      <div class="fg"><label>Année</label><select class="inp" id="fq-year" onchange="_fqSetYear(this.value)"></select></div>
-    </div>
-    <div class="fg" style="margin-bottom:0">
-      <label id="fq-mois-label">Mois</label>
-      <div id="fq-mois-list" style="display:flex;flex-direction:column;gap:5px;max-height:44vh;overflow:auto"></div>
-    </div>
-    <div class="mu sm" style="font-size:11.5px;line-height:1.45;background:var(--sur2);border-left:3px solid var(--acc);border-radius:var(--rs,6px);padding:8px 10px;margin-top:10px">
-      Le montant est celui du <b>barème du mois choisi</b>, pas le loyer d'aujourd'hui : une quittance
-      de juin&nbsp;2026 porte le loyer de juin&nbsp;2026, même s'il a été révisé depuis.
-    </div>
-  </div>
-  <div class="m-foot">
-    <button class="btn bs" onclick="closeM('ov-quit-faire')">Annuler</button>
-    <button class="btn bp" id="fq-ok" onclick="_fqValider()">Éditer la quittance</button>
-  </div>
-</div></div>
+<!-- ÉDITEUR DE QUITTANCE — direction « Le document » (CDC-LOYERS-DESIGN V6/V10).
+     On n'ouvre pas un formulaire, on ouvre LA QUITTANCE elle-même, plein écran, déjà remplie
+     depuis le barème du mois — transposition littérale du geste EDL (`openNewEDL` ouvre
+     l'objet, `_edlPrefill` le remplit). Le rail de gauche ne porte que le choix du MOIS.
+     UNE SEULE PORTE (V10) : la quittance libre est un MODE à l'intérieur, jamais un second
+     bouton dans l'écran Loyers. -->
+<div class="ov hidden" id="ov-quit-editeur">
+<div class="qd" id="qd-root"></div>
+</div>
+<style>
+#ov-quit-editeur{padding:0;align-items:stretch;justify-content:stretch;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
+.qd{position:relative;flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg);
+  font-family:var(--font);color:var(--t1);container-type:inline-size}
+.qd *{box-sizing:border-box}
+.qd-top{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--sur);
+  border-bottom:1px solid var(--bor);flex:none}
+.qd-top .bk{background:none;border:0;color:var(--t3);font-size:14px;cursor:pointer;padding:2px 4px}
+.qd-top h3{font-family:var(--display);font-weight:800;font-size:14.5px;margin:0}
+.qd-top .who{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.qd-top .x{margin-left:auto;background:none;border:0;color:var(--t3);font-size:16px;cursor:pointer;line-height:1}
+.qd-body{flex:1;display:flex;min-height:0}
+.qd-rail{width:272px;flex:none;border-right:1px solid var(--bor);background:var(--sur);
+  display:flex;flex-direction:column;min-height:0}
+.qd-lot{padding:10px 12px;border-bottom:1px solid var(--bor)}
+.qd-lot .rf{display:block;font:800 13px var(--display);color:var(--t1)}
+.qd-lot .lo{display:block;font-size:11.5px;color:var(--t2);margin-top:1px}
+.qd-lot .ct{display:block;font-size:10.5px;color:var(--t3);margin-top:1px}
+.qd-lot .chg{margin-top:7px;display:inline-flex;align-items:center;gap:6px;font:600 11px var(--font);
+  color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rp);
+  padding:3px 10px;cursor:pointer}
+.qd-lot .chg:hover{border-color:var(--acc);color:var(--acc)}
+.qd-an{display:flex;gap:3px;padding:8px 12px 4px;flex:none;flex-wrap:wrap}
+.qd-an button{flex:1;min-width:52px;border:1px solid var(--bor);background:var(--sur2);color:var(--t2);
+  font:700 11.5px var(--font);border-radius:var(--rp);padding:4px 0;cursor:pointer}
+.qd-an button.on{background:var(--t1);border-color:var(--t1);color:var(--sur)}
+.qd-mois{flex:1;overflow-y:auto;padding:4px 8px 8px;min-height:0}
+.qd-m{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:7px;align-items:center;
+  width:100%;text-align:left;border:1px solid transparent;background:none;border-radius:var(--r);
+  padding:4px 7px;cursor:pointer;font-family:var(--font);min-height:34px}
+.qd-m:hover{background:var(--sur2)}
+.qd-m .bx{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--bor);background:var(--sur);
+  font-size:9px;color:transparent;display:flex;align-items:center;justify-content:center;flex:none}
+.qd-m .nm{font-size:12px;font-weight:700;color:var(--t1);line-height:1.2}
+.qd-m .st{display:block;font-size:9.5px;font-weight:500;color:var(--t3);line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qd-m .am{font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.qd-m.ok .bx{border-color:var(--acc)}
+.qd-m.ok .st{color:var(--acc);font-weight:600}
+.qd-m.done .bx{background:var(--pos);border-color:var(--pos);color:#fff}
+.qd-m.done .st{color:var(--pos);font-weight:600}
+.qd-m.no .st{color:var(--neg)}
+.qd-m.no .bx{border-style:dashed}
+.qd-m.fut{opacity:.7}
+.qd-m.fut .bx{border-style:dashed}
+.qd-m.off{opacity:.45;cursor:default}
+.qd-m.off .bx{visibility:hidden}
+.qd-m.sel{border-color:var(--acc);background:var(--acc-bg)}
+.qd-m.sel .bx{background:var(--acc);border-color:var(--acc);color:#fff}
+.qd-m:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.qd-doc{flex:1;overflow-y:auto;padding:14px 16px 18px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.qd-doc iframe{width:100%;flex:1;min-height:420px;border:1px solid var(--bor);border-radius:var(--rl);background:#fff}
+.qd-tabs{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.qd-tabs button{border:1px solid var(--bor);background:var(--sur2);color:var(--t2);border-radius:var(--rp);
+  padding:3px 10px;font:600 11.5px var(--font);cursor:pointer}
+.qd-tabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.qd-tabs .k{font-size:10.5px;color:var(--t3);margin-left:4px}
+.qd-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--bor);
+  background:var(--sur);flex:none;flex-wrap:wrap}
+.qd-foot .rec{font-size:11.5px;color:var(--t2)}
+.qd-foot .rec b{color:var(--t1);font-weight:800}
+.qd-foot .sp{flex:1;min-width:4px}
+/* Le garde-fou NON BLOQUANT (V7) : il explique, il propose une porte de sortie,
+   il demande une confirmation — il ne grise jamais le bouton. */
+.q-warn{display:flex;gap:9px;padding:10px 12px;border-radius:var(--rl);font-size:12px;line-height:1.5}
+.q-warn.w{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);color:var(--t1)}
+.q-warn.i{background:var(--info-soft);border:1px solid color-mix(in srgb,var(--info) 35%,transparent);color:var(--t1)}
+.q-warn .ic{font-size:15px;flex:none;line-height:1.2}
+.q-warn b{font-weight:800}
+.q-warn .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.q-warn .cf{display:flex;align-items:flex-start;gap:7px;margin-top:9px;font-size:12px;font-weight:600;cursor:pointer}
+.q-warn .cf input{margin-top:2px;flex:none;width:15px;height:15px;accent-color:var(--acc)}
+/* Le sélecteur de lot — se pose PAR-DESSUS le rail, jamais dans une seconde fenêtre. */
+.qd-pick{position:absolute;left:8px;top:52px;width:340px;max-width:calc(100% - 16px);z-index:5;
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);
+  box-shadow:0 16px 48px rgba(0,0,0,.22);overflow:hidden;display:flex;flex-direction:column;max-height:70vh}
+.qd-pick .srch{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid var(--bor);flex:none}
+.qd-pick .srch input{flex:1;border:0;background:none;color:var(--t1);font:500 12.5px var(--font);outline:none;min-width:0}
+.qd-pick .list{overflow-y:auto;min-height:0}
+.qd-pick .gb{padding:5px 11px;background:var(--sur2);font:800 11px var(--font);color:var(--t1);
+  border-top:1px solid var(--bor);display:flex;gap:6px;align-items:center}
+.qd-pick .gb .c{margin-left:auto;font-weight:700;font-size:10px;color:var(--t3)}
+.qd-pick .gi{padding:3px 11px 3px 20px;font:700 10px var(--font);color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+.qd-pick .orph{font-style:italic;text-transform:none;letter-spacing:0}
+.qd-pick .it{display:flex;align-items:center;gap:7px;padding:6px 11px;cursor:pointer;font-size:12px;width:100%;
+  border:0;background:none;text-align:left;color:var(--t1);font-family:var(--font)}
+.qd-pick .it:hover{background:var(--sur2)}
+.qd-pick .it .rf{font-weight:700;white-space:nowrap}
+.qd-pick .it .lo{color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.qd-pick .it .bg{font:700 9.5px var(--font);border-radius:var(--rp);padding:1px 7px;white-space:nowrap;
+  background:var(--sur2);border:1px solid var(--bor);color:var(--t3)}
+.qd-pick .it .bg.on{background:var(--acc-bg);border-color:color-mix(in srgb,var(--acc) 35%,transparent);color:var(--acc)}
+.qd-pick .it .bg.ask{background:var(--acc-bg);border-color:var(--acc);color:var(--acc)}
+.qd-pick .sugg{padding:5px 11px;font:800 10px var(--font);text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
+/* La saisie libre (V11/V12) : le même écran, document vierge, champs sur la feuille. */
+.qd-libre{background:#fff;color:#111;border:1px solid var(--bor);border-radius:var(--rl);padding:22px 26px;
+  font-family:Georgia,'Times New Roman',serif;font-size:13px;line-height:1.6;max-width:760px}
+.qd-libre h4{font-size:16px;margin:14px 0 10px;text-align:center;letter-spacing:.02em}
+.qd-libre .ed{border:0;border-bottom:1px dashed #9aa3b2;background:transparent;font:inherit;color:inherit;
+  padding:1px 2px;outline:none}
+.qd-libre .ed:focus{border-bottom-color:var(--acc);background:rgba(255,90,60,.06)}
+.qd-libre table{width:100%;border-collapse:collapse;margin:10px 0}
+.qd-libre td{padding:4px 0;border-bottom:1px solid #e6e8ee}
+.qd-libre td.r{text-align:right}
+.qd-libre tr.t td{font-weight:700;border-bottom:0;border-top:2px solid #111}
+.qd-libre .q{font-size:11px;color:#6b7280;font-family:var(--font)}
+.qd-libre .mn{font-size:11px;color:#374151;margin-top:12px}
+.qd-libre .sg{margin-top:22px;text-align:right}
+@container (max-width:760px){
+  .qd-body{flex-direction:column}
+  .qd-rail{width:100%;border-right:0;border-bottom:1px solid var(--bor);flex:none}
+  .qd-lot{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;padding:8px 12px}
+  .qd-lot .lo,.qd-lot .ct{margin-top:0}
+  .qd-lot .chg{margin-top:0;margin-left:auto}
+  .qd-mois{display:grid;grid-auto-flow:column;grid-template-rows:1fr;gap:4px;overflow-x:auto;
+    overflow-y:hidden;padding:4px 10px 8px;scrollbar-width:thin;max-height:88px}
+  .qd-m{grid-template-columns:14px auto;grid-template-areas:'b n' 'b a';min-width:104px;
+    border:1px solid var(--bor);background:var(--sur2);padding:4px 8px}
+  .qd-m .bx{grid-area:b}.qd-m .nm{grid-area:n;font-size:11px}
+  .qd-m .st{display:none}
+  .qd-m .am{grid-area:a;font-size:10px;text-align:left}
+  .qd-doc iframe{min-height:320px}
+  .qd-foot .btn{flex:1;justify-content:center}
+}
+</style>
 
 <!-- MODAL: EDL -->
 <div class="ov hidden" id="ov-edl" onclick="closeBg(event,'ov-edl')">
@@ -29064,108 +29176,490 @@ ${_dt('docSignzone', [{ sig: _docSigOnly(ent), label: 'Le(s) Bailleur(s)' }])}`;
 }
 
 // ============================================================================
-// CDC-QUITTANCES-IRL D4 — « ＋ Faire une quittance ».
+// L'ÉDITEUR DE QUITTANCE — direction « Le document » (CDC-LOYERS-DESIGN V6→V12).
 //
-// Remplace « + Manuelle » (montants tapés à la main) et « ⚡ Générer ce mois » (émission en
-// masse sans regarder le paiement). Deux choix : le LOGEMENT, puis le MOIS. Le montant vient
-// du barème (`_creerQuittance`). Les mois non soldés sont affichés avec leur motif mais ne
-// sont pas sélectionnables (D6/I4). D8 : N mois cochés = N documents datés, jamais un
-// document « juin à août ».
+// « On ne retrouve pas une quittance. On permet à l'utilisateur d'éditer, comme pour l'EDL.
+//   On ne fait pas de liste infinie. Quand on a édité une quittance, l'app retient (pour le
+//   KPI de suivi) mais on ne garde pas le document en visuel. Si l'utilisateur veut une
+//   quittance passée, il la réédite. »
+//
+// V6  — on ouvre L'OBJET, pas un formulaire : la quittance, plein écran, déjà remplie depuis
+//       le barème du mois. Le rail ne porte que le choix du MOIS. Rééditer = revenir sur un
+//       mois passé, même geste.
+// V10 — UNE SEULE PORTE. La quittance libre est un MODE à l'intérieur, jamais un 2ᵉ bouton.
+// V7  — un mois non soldé s'ouvre quand même : bandeau nommant les mois et le reste, reçu
+//       partiel proposé en un clic, et une case à cocher. AUCUN bouton grisé.
+// V9  — l'étiquette « sans paiement constaté » vit DANS L'APP (rail, fiche, panneau), avec
+//       qui a confirmé et quand. Le document remis au locataire, lui, ne change pas.
+//
+// La logique pure est dans js/core/quittance-editeur.js (testée). Ici : le DOM.
 // ============================================================================
-let _fqRef = '';
-let _fqYear = null;
-const _fqSel = new Set();
+const _qe = {
+  ref: null, an: null, sel: new Set(), libre: false, confirme: false,
+  pick: false, filtre: '', pile: [], onglet: 0,
+  saisie: null, rejoue: null
+};
 
-/** Les mois proposables d'un lot, verdict compris (délégué au module). */
-function _fqProposables(ref) {
-  if (typeof window === 'undefined' || typeof window.moisProposables !== 'function') return [];
+/** Les mois déjà quittancés d'un lot + leur date d'édition (pour l'état « done » du rail). */
+function _qeDeja(ref) {
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
-  const dejaYm = (DB.quittances || [])
-    .filter(q => alive(q) && q.logement === ref)
-    .map(q => window.moisFrToYm(q.mois))
-    .filter(Boolean);
-  return window.moisProposables(_loyerEtatLot(ref), dejaYm);
+  const yms = [], dates = {};
+  for (const q of (DB.quittances || [])) {
+    if (!alive(q) || q.logement !== ref) continue;
+    const ym = window.moisFrToYm(q.mois);
+    if (!ym) continue;
+    yms.push(ym);
+    if (!dates[ym] || String(q.date || '') > dates[ym]) dates[ym] = String(q.date || '');
+  }
+  return { yms, dates };
 }
 
-function _openFaireQuittance(ref) {
-  if (typeof window === 'undefined' || typeof window.moisProposables !== 'function') {
-    showToast("Module Loyers non chargé — ouvre l'app via http (npx http-server)", 'err', 6000); return;
-  }
-  const sel = el('fq-log');
+/** V9/§6 — la trace du geste forcé, dans le blob de configuration (pas de colonne cloud neuve). */
+function _qeMeta(ref, ym) {
+  const m = (DB.params && DB.params.quittancesMeta) || {};
+  return m[window.cleMeta(ref, ym)] || null;
+}
+function _qeSetMeta(ref, ym, val) {
+  if (!DB.params) DB.params = {};
+  if (!DB.params.quittancesMeta) DB.params.quittancesMeta = {};
+  DB.params.quittancesMeta[window.cleMeta(ref, ym)] = val;
+}
+/** Qui édite — utile au partage SCI : la trace nomme la personne, pas « quelqu'un ». */
+function _qeQui() {
+  const p = (DB.params && DB.params.userProfile) || {};
+  return p.nom || p.prenom || p.email
+    || (typeof window !== 'undefined' && window._authEmail) || 'l’utilisateur de cet espace';
+}
+
+/** Les lots quittançables (a un bail, courant ou archivé) — la pile de la porte globale. */
+function _qeLots() {
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
-  const lots = (DB.logements || []).filter(alive)
+  return (DB.logements || []).filter(alive)
     .filter(l => (typeof _logInEnt !== 'function') || _logInEnt(l))
     .filter(l => l.locataire || _findBailByRefTolerant(l.ref));
-  if (!lots.length) { showToast("Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 5000); return; }
-  sel.innerHTML = lots.map(l => `<option value="${escHtml(l.ref)}">${escHtml(l.ref)} — ${escHtml(l.locataire || 'Vacant')}</option>`).join('');
-  const want = (ref && lots.some(l => l.ref === ref)) ? ref : lots[0].ref;
-  sel.value = want;
-  _fqSetLot(want);
-  openM('ov-quit-faire');
 }
 
-function _fqSetLot(ref) {
-  _fqRef = ref; _fqSel.clear(); _fqYear = null;
-  const props = _fqProposables(ref);
-  const years = [...new Set(props.map(m => m.ym.slice(0, 4)))].sort().reverse();
-  const ys = el('fq-year');
-  ys.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('') || '<option value="">—</option>';
-  _fqYear = years[0] || null;
-  if (_fqYear) ys.value = _fqYear;
-  _fqRender();
-}
-
-function _fqSetYear(y) { _fqYear = y || null; _fqSel.clear(); _fqRender(); }
-
-function _fqToggle(ym) {
-  if (_fqSel.has(ym)) _fqSel.delete(ym); else _fqSel.add(ym);
-  _fqRender();
-}
-
-function _fqRender() {
-  const host = el('fq-mois-list'); if (!host) return;
-  const props = _fqProposables(_fqRef).filter(m => !_fqYear || m.ym.slice(0, 4) === _fqYear).reverse();
-  const nbLibres = props.filter(m => m.selectable && !m.dejaQuittance).length;
-  const lab = el('fq-mois-label');
-  if (lab) lab.textContent = nbLibres
-    ? `Mois — ${nbLibres} soldé${nbLibres > 1 ? 's' : ''}, non encore quittancé${nbLibres > 1 ? 's' : ''}`
-    : 'Mois';
-  host.innerHTML = props.length ? props.map(m => {
-    const on = _fqSel.has(m.ym);
-    const dispo = m.selectable && !m.dejaQuittance;
-    const bg = on ? 'var(--acc-halo,rgba(255,90,60,.12))' : 'var(--sur2)';
-    const bor = on ? 'var(--acc)' : 'var(--bor)';
-    return `<div onclick="${dispo ? `_fqToggle('${m.ym}')` : ''}"
-      style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;align-items:center;padding:7px 10px;border:1px solid ${bor};border-radius:var(--rs,6px);background:${bg};font-size:12.5px;${dispo ? 'cursor:pointer' : 'opacity:.55'}">
-      <span style="white-space:nowrap">${dispo ? (on ? '☑' : '☐') : '　'} <b>${escHtml(m.mois)}</b> · ${fmt(m.du)}</span>
-      <span class="mu sm" style="font-size:10.5px;margin-left:auto">${escHtml(m.motif)}</span>
-    </div>`;
-  }).join('') : `<div class="mu sm" style="padding:14px;text-align:center">Aucun mois à quittancer pour ce logement.</div>`;
-  const btn = el('fq-ok');
-  if (btn) {
-    btn.textContent = _fqSel.size > 1 ? `Éditer les ${_fqSel.size}` : 'Éditer la quittance';
-    btn.disabled = _fqSel.size === 0;
-    btn.style.opacity = _fqSel.size === 0 ? '.5' : '';
+/**
+ * LA PORTE UNIQUE. `ref` absent = on entre par la porte globale : l'app constitue la pile des
+ * lots qui attendent une quittance et propose l'enchaînement « lot suivant » (repris de la
+ * direction « la tournée »).
+ */
+function _openFaireQuittance(ref) {
+  if (typeof window === 'undefined' || typeof window.moisRailLot !== 'function') {
+    showToast("Module Loyers non chargé — ouvre l'app via http (npx http-server)", 'err', 6000); return;
   }
+  const lots = _qeLots();
+  if (!lots.length) {
+    showToast("Aucun bail en cours — les quittances apparaîtront dès qu'un logement sera loué", 'info', 5000);
+    return;
+  }
+  // La pile : les lots qui ont au moins un mois soldé non quittancé, demandes mensuelles en tête.
+  _qe.pile = lots.map(l => {
+    const etat = _loyerEtatLot(l.ref);
+    const nb = etat ? window.moisAQuittancer(etat, _qeDeja(l.ref).yms).length : 0;
+    const bail = _findBailByRefTolerant(l.ref);
+    return { ref: l.ref, nb, demande: !!(bail && bail.quittanceDemandee) };
+  }).filter(x => x.nb > 0)
+    .sort((a, b) => (b.demande - a.demande) || (b.nb - a.nb));
+
+  const want = (ref && lots.some(l => l.ref === ref)) ? ref
+    : (_qe.pile.length ? _qe.pile[0].ref : lots[0].ref);
+  _qe.libre = false; _qe.saisie = null;
+  _qeSetLot(want);
+  _qe.pick = !ref && !_qe.pile.length;   // rien n'attend : on ouvre le sélecteur de lot
+  openM('ov-quit-editeur');
+  _qeRender();
 }
 
-/** D8/I7 — un document PAR MOIS. Une seule écriture en base pour N documents. */
-function _fqValider() {
-  if (!_fqRef || !_fqSel.size) { showToast('Choisis au moins un mois soldé', 'err'); return; }
-  const yms = [..._fqSel].sort();
+function _qeSetLot(ref) {
+  _qe.ref = ref; _qe.sel.clear(); _qe.confirme = false; _qe.pick = false; _qe.onglet = 0;
+  const etat = _loyerEtatLot(ref);
+  const deja = _qeDeja(ref);
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  _qe.an = window.anneeParDefaut(etat, deja.yms, today.slice(0, 7));
+  const rail = _qeRail();
+  const def = window.moisParDefaut(rail);
+  if (def) _qe.sel.add(def);
+}
+
+function _qeRail() {
+  const etat = _loyerEtatLot(_qe.ref);
+  const deja = _qeDeja(_qe.ref);
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  return window.moisRailLot(etat, deja.yms, _qe.an, today.slice(0, 7), deja.dates);
+}
+
+function _qeSetAn(an) { _qe.an = String(an); _qe.sel.clear(); _qe.confirme = false; _qeRender(); }
+function _qeToggle(ym) {
+  // V7 : TOUS les mois sont cochables, y compris non soldés. Le garde-fou avertit, il n'interdit pas.
+  if (_qe.sel.has(ym)) _qe.sel.delete(ym); else _qe.sel.add(ym);
+  _qe.confirme = false; _qe.onglet = 0;
+  _qeRender();
+}
+function _qeTogglePick() { _qe.pick = !_qe.pick; _qe.filtre = ''; _qeRender(); }
+function _qeFiltre(v) { _qe.filtre = String(v || ''); _qeRenderPick(); }
+function _qeChoisirLot(ref) { _qe.libre = false; _qe.saisie = null; _qeSetLot(ref); _qeRender(); }
+function _qeSetConfirme(on) { _qe.confirme = !!on; _qeFootBtn(); }
+function _qeOnglet(i) { _qe.onglet = i; _qeRenderDoc(); }
+function _qeFermer() { closeM('ov-quit-editeur'); if (typeof rLoyers === 'function' && currentPage === 'loyers') rLoyers(); }
+
+/** V10/V11 — bascule vers la SAISIE LIBRE, à l'intérieur du même écran. */
+function _qeModeLibre(depuisLot) {
+  const l = depuisLot ? (DB.logements || []).find(x => x.ref === depuisLot) : null;
+  const bail = depuisLot ? _findBailByRefTolerant(depuisLot) : null;
+  const ent = (DB.entites || []).find(e => e.nom === ((bail && bail.entity) || (l && l.entity)));
+  // V12 — la quittance libre peut PARTIR d'un logement existant ; tout reste modifiable ensuite.
+  _qe.libre = true; _qe.pick = false; _qe.confirme = false; _qe.rejoue = null;
+  _qe.saisie = {
+    bailleurNom: (ent && ent.nom) || '', bailleurAdresse: (ent && ent.siege) || '',
+    locataireNom: (l && l.locataire) || '', adresse: (bail && bail.adrBien) || (l && l.adr) || '',
+    ville: '', debut: '', fin: '',
+    hc: (bail && bail.hc) || (l && l.hc) || 0, ch: (bail && bail.ch) || (l && l.ch) || 0,
+    datePaiement: ''
+  };
+  _qeRender();
+}
+function _qeSaisie(champ, val) { if (_qe.saisie) _qe.saisie[champ] = val; _qeFootBtn(); }
+
+/** V11 — rouvrir une saisie libre retenue : c'est la SAISIE qui est l'état, le document se
+ *  regarde regeneré. Rééditer écrase l'entrée (un état, pas une pile de versions). */
+function _qeRejouerLibre(id) {
+  const l = ((DB.params || {}).quittancesLibres || []).find(x => String(x.id) === String(id));
+  if (!l) { showToast('Saisie introuvable', 'err'); return; }
+  _qe.libre = true; _qe.pick = false; _qe.confirme = false;
+  _qe.saisie = Object.assign({}, l);
+  _qe.rejoue = l.id;
+  _qeRender();
+}
+
+/* ── Le rendu ─────────────────────────────────────────────────────────────── */
+
+function _qeRender() {
+  const root = el('qd-root'); if (!root) return;
+  const libre = _qe.libre;
+  const log = libre ? null : (DB.logements || []).find(l => l.ref === _qe.ref);
+  const bail = libre ? null : _findBailByRefTolerant(_qe.ref);
+  const titreLot = libre
+    ? `<div class="qd-lot"><span class="rf">Saisie libre</span>
+        <span class="lo">aucun bail requis — tout se remplit sur la feuille</span>
+        <button class="chg" onclick="_qeTogglePick()">Partir d'un logement existant ▾</button></div>`
+    : `<div class="qd-lot"><span class="rf">${escHtml(_qe.ref || '')}</span>
+        <span class="lo">${escHtml((log && log.locataire) || '— vacant —')}</span>
+        <span class="ct">${escHtml((log && log.imm) || 'sans immeuble')} · ${escHtml((bail && bail.entity) || (log && log.entity) || 'sans bailleur')}</span>
+        <button class="chg" onclick="_qeTogglePick()">Changer de lot ▾</button></div>`;
+
+  let rail = titreLot;
+  if (!libre) {
+    const etat = _loyerEtatLot(_qe.ref);
+    const deja = _qeDeja(_qe.ref);
+    const annees = window.anneesDisponibles(etat, deja.yms);
+    rail += `<div class="qd-an">${annees.map(a =>
+      `<button class="${a === String(_qe.an) ? 'on' : ''}" onclick="_qeSetAn('${a}')">${a}</button>`).join('')}</div>`;
+    rail += `<div class="qd-mois">${_qeRail().map(m => {
+      const on = _qe.sel.has(m.ym);
+      const meta = _qeMeta(_qe.ref, m.ym);
+      const et = window.etiquetteSansPaiement(meta, fd);
+      const st = m.etat === 'done' ? ('éditée le ' + (m.editeeLe ? fd(m.editeeLe) : '—'))
+        : m.etat === 'ok' ? 'soldé — à quittancer'
+        : m.etat === 'no' ? ('reste ' + fmt(m.reste))
+        : m.etat === 'fut' ? 'à venir, non couvert' : 'hors bail';
+      return `<button class="qd-m ${m.etat}${on ? ' sel' : ''}" ${m.etat === 'off' ? 'disabled' : `onclick="_qeToggle('${m.ym}')"`}>
+        <span class="bx">✓</span>
+        <span><span class="nm">${escHtml(m.nom.charAt(0).toUpperCase() + m.nom.slice(1))}</span>
+        <span class="st"${et.visible ? ` title="${escHtml(et.survol)}"` : ''}>${escHtml(st)}${et.visible ? ' · ' + escHtml(et.libelle) : ''}</span></span>
+        <span class="am">${m.etat === 'off' ? '—' : fmt(m.du)}</span></button>`;
+    }).join('')}</div>`;
+  }
+
+  root.innerHTML = `<div class="qd-top">
+      <button class="bk" onclick="_qeFermer()" title="Revenir">‹</button>
+      <h3>Quittance de loyer</h3>
+      <span class="who">${libre ? 'saisie libre' : escHtml(_qe.ref || '') + ' · ' + escHtml((log && log.locataire) || '—')}</span>
+      <button class="x" onclick="_qeFermer()" title="Fermer">✕</button></div>
+    <div class="qd-body">
+      <div class="qd-rail">${rail}</div>
+      <div class="qd-doc" id="qd-doc"></div>
+    </div>
+    <div class="qd-foot" id="qd-foot"></div>
+    <div id="qd-pick-host"></div>`;
+  _qeRenderDoc();
+  _qeRenderFoot();
+  _qeRenderPick();
+}
+
+/** Le bandeau du garde-fou (V7) + le document lui-même. */
+function _qeRenderDoc() {
+  const host = el('qd-doc'); if (!host) return;
+  if (_qe.libre) { host.innerHTML = _qeDocLibre(); return; }
+  const rail = _qeRail();
+  const v = window.verdictEmission(rail, [..._qe.sel]);
+  let warn = '';
+  if (v.risques.length) {
+    // V7 — l'avertissement NOMME les mois et le reste dû, propose le reçu partiel en un clic,
+    // et demande une confirmation explicite. Fondement : l'article 21 de la loi du 6 juillet
+    // 1989 fait de la quittance un REÇU — remise à un locataire qui n'a pas payé, elle vaut
+    // preuve de paiement CONTRE le bailleur.
+    const noms = v.risques.map(m => `${escHtml(m.mois)} (${m.etat === 'fut' ? 'à venir, non couvert' : 'reste ' + fmt(m.reste)})`).join(', ');
+    const premier = v.risques[0];
+    warn = `<div class="q-warn w"><span class="ic">⚠</span><div>
+      <b>${v.risques.length > 1 ? v.risques.length + ' mois non soldés sélectionnés' : escHtml(premier.mois) + ' n’est pas soldé'}</b> — ${noms}.
+      Une quittance atteste que le loyer <b>a été payé</b> : remise au locataire, elle vaut reçu et éteint
+      la dette du mois. Le document sortira <b>sans</b> ligne « payé le » — aucun paiement n'y est rattachable.
+      <div class="act">
+        <button class="btn bs bb" onclick="_qeRecuPartiel('${premier.ym}')">Émettre un reçu de paiement partiel à la place</button>
+        <button class="btn bs bb" onclick="_qeToggle('${premier.ym}')">Décocher ${escHtml(premier.nom)}</button>
+      </div>
+      <label class="cf"><input type="checkbox" ${_qe.confirme ? 'checked' : ''} onchange="_qeSetConfirme(this.checked)">
+        Je sais que ce document vaut reçu et éteint la dette de ${v.risques.length > 1 ? 'ces mois' : 'ce mois'}</label>
+    </div></div>`;
+  } else if (v.reedits.length) {
+    const r = v.reedits[0];
+    warn = `<div class="q-warn i"><span class="ic">↺</span><div>
+      <b>${escHtml(r.mois.charAt(0).toUpperCase() + r.mois.slice(1))} a déjà été quittancé${r.editeeLe ? ' (éditée le ' + fd(r.editeeLe) + ')' : ''}.</b>
+      Rééditer regénère le document depuis le barème de ce mois — mêmes montants, nouvelle date d'édition.
+      L'app retiendra la nouvelle date ; rien d'autre n'est conservé.</div></div>`;
+  }
+
+  const choisis = rail.filter(m => _qe.sel.has(m.ym) && m.etat !== 'off');
+  if (!choisis.length) {
+    host.innerHTML = warn + `<div class="q-warn i"><span class="ic">📄</span><div>
+      Choisis un mois dans le rail pour voir la quittance. Le document est regénéré depuis le
+      <b>barème de ce mois</b> — jamais depuis le loyer d'aujourd'hui.</div></div>`;
+    return;
+  }
+  const i = Math.min(_qe.onglet, choisis.length - 1);
+  const tabs = choisis.length > 1
+    ? `<div class="qd-tabs">${choisis.map((m, k) =>
+        `<button class="${k === i ? 'on' : ''}" onclick="_qeOnglet(${k})">${escHtml(m.mois)}</button>`).join('')}
+        <span class="k">${choisis.length} documents — un par mois (I7)</span></div>`
+    : '';
+  host.innerHTML = warn + tabs + `<iframe id="qd-iframe" title="Aperçu de la quittance"></iframe>`;
+  _qeInjecterDoc(choisis[i]);
+}
+
+/** Le document réel, construit par le MÊME builder que l'impression et le PDF (I5). */
+function _qeInjecterDoc(m) {
+  const iframe = el('qd-iframe'); if (!iframe) return;
+  const log = (DB.logements || []).find(l => l.ref === _qe.ref);
+  const bail = _findBailByRefTolerant(_qe.ref) || {};
+  const ent = (DB.entites || []).find(e => e.nom === (bail.entity || (log && log.entity)));
+  const du = _duMoisLot(_qe.ref, m.ym);
+  const q = {
+    logement: _qe.ref, mois: m.mois, hc: du.hc || 0, ch: du.ch || 0,
+    locataire: ((bail.locataires || []).map(x => x && x.nom).filter(Boolean).join(', ')) || (log && log.locataire) || '',
+    entity: (bail.entity || (log && log.entity) || ''), date: td()
+  };
+  const built = _buildQuittanceHtml(q, log, ent, bail);
+  iframe.srcdoc = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${built.title}</title><style>${QUIT_PRINT_CSS}${built.css}</style></head><body>${built.html}</body></html>`;
+}
+
+/** V11/V12 — la feuille de saisie libre : le même écran, document vierge, champs éditables. */
+function _qeDocLibre() {
+  const s = _qe.saisie || {};
+  const ch = (k, v, size, ph) => `<input class="ed" size="${size}" value="${escHtml(v || '')}" placeholder="${escHtml(ph || '')}" oninput="_qeSaisie('${k}',this.value)">`;
+  return `<div class="q-warn i"><span class="ic">✎</span><div>
+      <b>Saisie libre.</b> Aucun bail n'est requis : tout se remplit sur la feuille. L'app retient la
+      <b>saisie</b>, pas le document — elle est rejouable et rééditable. Elle est <b>exclue de tous les
+      calculs</b> (ni suivi des loyers, ni 2044) : elle ne prouve aucun encaissement.</div></div>
+    <div class="qd-libre">
+      <div>${ch('bailleurNom', s.bailleurNom, 28, 'Bailleur — nom / raison sociale')}<br>
+        ${ch('bailleurAdresse', s.bailleurAdresse, 34, 'Adresse du bailleur')}</div>
+      <div style="text-align:right;margin-top:-34px">${ch('ville', s.ville, 12, 'Ville')}, le ${fd(td())}</div>
+      <h4>Quittance de loyer</h4>
+      <div style="text-align:center">Période du ${ch('debut', s.debut, 10, 'JJ/MM/AAAA')} au ${ch('fin', s.fin, 10, 'JJ/MM/AAAA')}</div>
+      <p><b>${ch('locataireNom', s.locataireNom, 28, 'Locataire — nom')}</b><br>
+        ${ch('adresse', s.adresse, 40, 'Adresse du logement loué')}</p>
+      <table>
+        <tr><td>Loyer hors charges</td><td class="r">${ch('hc', s.hc, 8, '0,00')} €</td></tr>
+        <tr><td>Provision sur charges</td><td class="r">${ch('ch', s.ch, 8, '0,00')} €</td></tr>
+        <tr class="t"><td>Total</td><td class="r">${fmt((Number(s.hc) || 0) + (Number(s.ch) || 0))}</td></tr>
+      </table>
+      <div>Payé le ${ch('datePaiement', s.datePaiement, 10, 'facultatif')}
+        <span class="q">— vide : la ligne ne sort pas sur le document (I-DATE)</span></div>
+      <div class="mn">Cette quittance annule et remplace tout reçu antérieur pour la même période.
+        Elle est délivrée sans préjudice des droits du bailleur (art. 21, loi n° 89-462 du 6 juillet 1989).</div>
+      <div class="sg">Le bailleur<br><b>${escHtml(s.bailleurNom || '—')}</b></div>
+    </div>`;
+}
+
+function _qeRenderFoot() {
+  const foot = el('qd-foot'); if (!foot) return;
+  if (_qe.libre) {
+    const v = window.validerSaisieLibre(_qe.saisie);
+    foot.innerHTML = `<span class="rec"><b>1</b> document · <b>${fmt(v.normalisee.total)}</b>
+        ${v.valide ? '' : `<span class="mu sm"> — il manque ${escHtml(v.manquants.join(', '))}</span>`}</span>
+      <span class="sp"></span>
+      <button class="btn bs" onclick="_qeFermer()">Annuler</button>
+      <button class="btn bp" id="qd-ok" onclick="_qeEditer()">✓ Éditer la quittance (PDF)</button>`;
+  } else {
+    const v = window.verdictEmission(_qeRail(), [..._qe.sel]);
+    const lbl = v.reedits.length ? 'Rééditer — nouvelle date d\'édition'
+      : v.nbDocs > 1 ? `Éditer les ${v.nbDocs} quittances (PDF)`
+      : 'Éditer la quittance (PDF)';
+    const suiv = window.lotSuivant(_qe.pile, _qe.ref);
+    foot.innerHTML = `<span class="rec"><b>${v.nbDocs}</b> document${v.nbDocs > 1 ? 's' : ''} · <b>${fmt(v.total)}</b></span>
+      <span class="sp"></span>
+      <button class="btn bs" onclick="_qeFermer()">Annuler</button>
+      ${suiv ? `<button class="btn bs" onclick="_qeEditer(true)" title="Éditer, puis passer au lot suivant de la pile">Éditer &amp; lot suivant (${escHtml(suiv.ref)})</button>` : ''}
+      <button class="btn bp" id="qd-ok" onclick="_qeEditer()">✓ ${lbl}</button>`;
+  }
+  _qeFootBtn();
+}
+
+/** Le bouton principal : jamais grisé par une RÈGLE, seulement par une saisie incomplète. */
+function _qeFootBtn() {
+  const btn = el('qd-ok'); if (!btn) return;
+  let off = false, why = '';
+  if (_qe.libre) {
+    const v = window.validerSaisieLibre(_qe.saisie);
+    off = !v.valide; why = v.valide ? '' : 'Il manque ' + v.manquants.join(', ');
+  } else {
+    const v = window.verdictEmission(_qeRail(), [..._qe.sel]);
+    if (!v.nbDocs) { off = true; why = 'Choisis au moins un mois'; }
+    // V7 : la SEULE condition posée par une règle est une case à cocher — pas un refus.
+    else if (v.confirmationRequise && !_qe.confirme) { off = true; why = 'Coche la confirmation ci-dessus'; }
+  }
+  btn.disabled = off;
+  btn.style.opacity = off ? '.5' : '';
+  btn.title = why;
+}
+
+/** V7 — la porte de sortie proposée dans le bandeau : le reçu partiel, en un clic. */
+function _qeRecuPartiel(ym) {
+  closeM('ov-quit-editeur');
+  _lyRecuPartiel(_qe.ref, ym);
+}
+
+/**
+ * I7 — N mois cochés = N documents. Une seule écriture en base pour N documents.
+ * V7 — le mois non soldé passe (`verifierSolde:false`) et laisse une TRACE : qui a confirmé,
+ * quand. C'est cette trace qui alimente l'étiquette « sans paiement constaté » (V9).
+ */
+function _qeEditer(enchainer) {
+  if (_qe.libre) return _qeEditerLibre();
+  const rail = _qeRail();
+  const v = window.verdictEmission(rail, [..._qe.sel]);
+  if (!v.nbDocs) { showToast('Choisis au moins un mois', 'err'); return; }
+  if (v.confirmationRequise && !_qe.confirme) { showToast('Coche la confirmation avant d\'éditer', 'err', 5000); return; }
+  const forces = new Set(v.risques.map(m => m.ym));
   const faites = [], refusees = [];
-  for (const ym of yms) {
-    const r = _creerQuittance(_fqRef, ym);
-    if (r.ok && !r.existante) faites.push(r.quittance);
-    else if (!r.ok) refusees.push(window.ymToMoisFr(ym) + ' — ' + r.motif);
+  for (const ym of [..._qe.sel].sort()) {
+    const m = rail.find(x => x.ym === ym);
+    if (!m || m.etat === 'off') continue;
+    const r = _creerQuittance(_qe.ref, ym, { verifierSolde: false });
+    if (r.ok) {
+      if (r.existante) {                      // réédition : nouvelle date d'édition, rien d'autre
+        r.quittance.date = td();
+        if (typeof _stamp === 'function') _stamp(r.quittance);
+      }
+      if (forces.has(ym)) _qeSetMeta(_qe.ref, ym, { forceePar: _qeQui(), forceeLe: td() });
+      faites.push(r.quittance);
+    } else refusees.push(window.ymToMoisFr(ym) + ' — ' + r.motif);
   }
   if (faites.length) saveDB();
-  closeM('ov-quit-faire');
-  if (typeof rLoyers === 'function') rLoyers();
   if (typeof _refreshAfterMutation === 'function') _refreshAfterMutation();
   if (refusees.length) showToast('Non émis : ' + refusees.join(' · '), 'err', 7000);
-  if (faites.length === 1) { showToast('Quittance éditée ✓', 'ok'); previewQuit(faites[0].id); }
-  else if (faites.length > 1) showToast(`${faites.length} quittances éditées ✓`, 'ok', 5000);
+  showToast(faites.length > 1 ? `${faites.length} quittances éditées ✓` : 'Quittance éditée ✓', 'ok');
+
+  const suiv = enchainer ? window.lotSuivant(_qe.pile, _qe.ref) : null;
+  if (suiv) { _qeSetLot(suiv.ref); _qeRender(); return; }
+  _qeFermer();
+  if (faites.length === 1) previewQuit(faites[0].id);
+}
+
+/**
+ * V11 — la SAISIE LIBRE est retenue (rejouable, rééditable) et étiquetée. Elle n'entre dans
+ * AUCUN calcul (I-LIBRE) : elle ne va pas dans DB.quittances, qui alimente le suivi et la
+ * 2044 — elle vit dans le blob de configuration, à part.
+ */
+function _qeEditerLibre() {
+  const v = window.validerSaisieLibre(_qe.saisie);
+  if (!v.valide) { showToast('Il manque ' + v.manquants.join(', '), 'err', 6000); return; }
+  if (!DB.params) DB.params = {};
+  if (!Array.isArray(DB.params.quittancesLibres)) DB.params.quittancesLibres = [];
+  const entree = Object.assign({ id: _qe.rejoue || nid(), editeeLe: td() }, v.normalisee);
+  const i = DB.params.quittancesLibres.findIndex(x => String(x.id) === String(entree.id));
+  if (i >= 0) DB.params.quittancesLibres[i] = entree; else DB.params.quittancesLibres.push(entree);
+  _qe.rejoue = null;
+  saveDB();
+  const built = _qeBuildLibre(entree);
+  closeM('ov-quit-editeur');
+  _lyPreviewEphemere(built, 'Quittance — saisie libre');
+  showToast('Quittance libre éditée ✓ — saisie retenue, exclue des calculs', 'ok', 6000);
+}
+
+/** Le document d'une saisie libre : le MÊME gabarit que les autres (jamais un second modèle). */
+function _qeBuildLibre(s) {
+  const q = { logement: '', mois: `${s.debut} → ${s.fin}`, hc: s.hc, ch: s.ch,
+    locataire: s.locataireNom, entity: s.bailleurNom, date: s.editeeLe };
+  const log = { ref: '', adr: s.adresse, locataire: s.locataireNom };
+  const ent = { nom: s.bailleurNom, siege: s.bailleurAdresse };
+  const bail = { adrBien: s.adresse, locataires: [{ nom: s.locataireNom }], entity: s.bailleurNom };
+  return _buildQuittanceHtml(q, log, ent, bail, {
+    totalRecu: s.total,
+    // I-DATE : sans date saisie, la ligne « payé le » ne sort pas.
+    infoPaiement: { date: s.datePaiement || null, dates: s.datePaiement ? [s.datePaiement] : [], nb: s.datePaiement ? 1 : 0 }
+  });
+}
+
+/** Le sélecteur de lot — par-dessus le rail, jamais une seconde fenêtre (V10). */
+function _qeRenderPick() {
+  const host = el('qd-pick-host'); if (!host) return;
+  if (!_qe.pick) { host.innerHTML = ''; return; }
+  host.innerHTML = `<div class="qd-pick">
+    <div class="srch"><span>🔍</span>
+      <input id="qd-pick-q" value="${escHtml(_qe.filtre)}" placeholder="Chercher un lot, un locataire, un immeuble, un bailleur…" oninput="_qeFiltre(this.value)">
+      <button class="btn bs bb" onclick="_qeTogglePick()">✕</button></div>
+    <div class="list" id="qd-pick-list"></div></div>`;
+  _qeRenderPickList();
+  const inp = el('qd-pick-q'); if (inp) inp.focus();
+}
+function _qeRenderPickList() {
+  const host = el('qd-pick-list'); if (!host) return;
+  const f = _qe.filtre.trim().toLowerCase();
+  const match = (l) => !f || [l.ref, l.locataire, l.imm, l.entity].some(x => String(x || '').toLowerCase().includes(f));
+  const lots = _qeLots().filter(match);
+  const nbLibre = (ref) => { const e = _loyerEtatLot(ref); return e ? window.moisAQuittancer(e, _qeDeja(ref).yms).length : 0; };
+  const item = (l) => {
+    const n = nbLibre(l.ref);
+    const bail = _findBailByRefTolerant(l.ref);
+    return `<button class="it" onclick="_qeChoisirLot('${_lyQ(l.ref)}')">
+      <span class="rf">${escHtml(l.ref)}</span><span class="lo">${escHtml(l.locataire || '— vacant —')}</span>
+      ${(bail && bail.quittanceDemandee) ? '<span class="bg ask">🧾 mensuelle</span>' : ''}
+      <span class="bg ${n ? 'on' : ''}">${n ? n + ' mois libre' + (n > 1 ? 's' : '') : 'à jour'}</span></button>`;
+  };
+  let h = '';
+  const attente = lots.filter(l => nbLibre(l.ref) > 0);
+  if (attente.length) h += `<div class="sugg">Ce qui attend une quittance · ${attente.length} lot${attente.length > 1 ? 's' : ''}</div>`
+    + attente.slice(0, 5).map(item).join('');
+  const G = window.GroupByImm;
+  if (G && typeof G._grouperLotsParBailleurEtImmeuble === 'function') {
+    const parBailleur = !(typeof _entActif === 'function' && _entActif());
+    for (const gb of G._grouperLotsParBailleurEtImmeuble(lots, { parBailleur })) {
+      const nb = gb.immeubles.reduce((s, i) => s + i.logements.length, 0);
+      h += `<div class="gb">🏛 ${gb.isUnassigned ? '<span class="orph">Sans bailleur</span>' : escHtml(gb.entite || '')}<span class="c">${nb}</span></div>`;
+      for (const gi of gb.immeubles) {
+        h += `<div class="gi">${gi.isUnassigned ? '<span class="orph">Sans immeuble</span>' : escHtml(gi.imm || '')}</div>`
+          + gi.logements.map(item).join('');
+      }
+    }
+  } else h += lots.map(item).join('');
+  // V10 — la quittance libre est la DERNIÈRE entrée du sélecteur, pas un second bouton d'écran.
+  h += `<div class="gb" style="border-top:1px solid var(--bor)">✎ Autre</div>
+    <button class="it" onclick="_qeModeLibre(${_qe.ref ? `'${_lyQ(_qe.ref)}'` : 'null'})">
+      <span class="rf">Quittance libre</span>
+      <span class="lo">${_qe.ref ? 'partir de ' + escHtml(_qe.ref) + ', tout reste modifiable' : 'sans bail — tout se remplit sur la feuille'}</span></button>`;
+  // V11 — les saisies libres retenues sont REJOUABLES : l'app garde la SAISIE (pas le
+  // document), on la rouvre et on la réédite. Pas de liste infinie : les cinq dernières.
+  const libres = ((DB.params || {}).quittancesLibres || []).slice().reverse();
+  if (libres.length) {
+    h += `<div class="gi">saisies libres retenues — ${libres.length > 5 ? 'les 5 plus récentes sur ' + libres.length : libres.length}</div>`
+      + libres.slice(0, 5).map((x) => `<button class="it" onclick="_qeRejouerLibre('${_lyQ(x.id)}')">
+          <span class="rf">${escHtml(x.locataireNom || '—')}</span>
+          <span class="lo">${escHtml(x.debut || '?')} → ${escHtml(x.fin || '?')} · ${fmt(x.total)}</span>
+          <span class="bg">↺ rééditer</span></button>`).join('');
+  }
+  host.innerHTML = h || '<div class="sugg">Aucun lot ne correspond.</div>';
 }
 
 // =================== LETTRES IRL ===================

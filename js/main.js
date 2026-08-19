@@ -238,6 +238,24 @@ import { confirmNameMatches, purgeUiState, purgeErrorMessage } from './core/espa
 // CDC-LOYERS-DESIGN §4 (surfaces 6/7/8) — les dates PROPOSÉES dans les documents viennent
 // des faits (mouvement DG, EDL de sortie), jamais de « aujourd'hui ».
 import { dateVersementDG, dateRestitutionDG, dateEDLSortie, dateLiberation } from './core/dates-defaut.js';
+
+// CDC-LOYERS-DESIGN V6→V12 — l'éditeur de quittance, direction « Le document ».
+// Le module ne dessine rien : il dit ce que le rail des mois doit afficher et ce que
+// l'émission doit avertir. Aucun dû, aucun payé, aucune imputation n'y est recalculé.
+import {
+  MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
+  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta
+} from './core/quittance-editeur.js';
+window.MOIS_ETAT = MOIS_ETAT;
+window.moisRailLot = moisRailLot;
+window.moisParDefaut = moisParDefaut;
+window.anneeParDefaut = anneeParDefaut;
+window.anneesDisponibles = anneesDisponibles;
+window.verdictEmission = verdictEmission;
+window.etiquetteSansPaiement = etiquetteSansPaiement;
+window.validerSaisieLibre = validerSaisieLibre;
+window.lotSuivant = lotSuivant;
+window.cleMeta = cleMeta;
 window.dateVersementDG = dateVersementDG;
 window.dateRestitutionDG = dateRestitutionDG;
 window.dateEDLSortie = dateEDLSortie;
