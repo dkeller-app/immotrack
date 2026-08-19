@@ -166,7 +166,11 @@ export function _computeLoyerChargeAlloc(months) {
     return {
       loyersHC: r2(loyerCur + loyerRecov + leftover + negAdj),
       provisions: r2(chargeCur + chargeRecov),
-      avance: r2(monthHasDue ? leftover : 0)
+      avance: r2(monthHasDue ? leftover : 0),
+      // FINANCES étape 2 (sous-ligne « dont rattrapage d'un mois antérieur ») : la part du reçu
+      // du mois qui a servi des ARRIÉRÉS de mois précédents — le P&L reste tenu à l'encaissement
+      // (le mois qui reçoit porte le montant), la sous-ligne explique le dépassement du dû.
+      rattrapage: r2(loyerRecov + chargeRecov)
     };
   });
 }

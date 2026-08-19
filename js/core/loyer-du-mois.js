@@ -154,6 +154,43 @@ export function duMois(ctx, ym) {
 }
 
 /**
+ * REFONTE FINANCES étape 2 · P-4 — le TAUX PLEIN du mois : le loyer HC du barème applicable
+ * ce mois-là, SANS prorata d'entrée/sortie (« Taux plein du mois », CDC §1 P-4). Sert de
+ * potentiel locatif à la clé de répartition mensuelle des frais bailleur — jamais au dû
+ * (le dû reste duMois, proraté). Mois à cheval sur deux périodes de barème : le taux du
+ * DERNIER sous-segment occupé (valeur post-changement — Q1 ne produit que des 1ers du mois).
+ * @returns {{hc:number, ch:number, occupied:boolean}}
+ */
+export function tauxPleinMois(ctx, ym) {
+  const empty = { hc: 0, ch: 0, occupied: false };
+  if (!ctx || !/^\d{4}-\d{2}$/.test(String(ym || ''))) return empty;
+  ym = String(ym);
+  const y = parseInt(ym.slice(0, 4), 10);
+  const m = parseInt(ym.slice(5, 7), 10);
+  const first = ym + '-01';
+  const last = ym + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0');
+  const periods = _baremeOfLot(ctx.bareme, ctx.ref);
+  let hit = null;
+  for (const seg of _occupation(ctx.bails)) {
+    const d0 = seg.debut > first ? seg.debut : first;
+    const d1 = (seg.end && seg.end < last) ? seg.end : last;
+    if (d0 > d1) continue;
+    const p = _periodeAt(periods, d1);        // taux applicable au dernier jour occupé du segment
+    hit = {
+      hc: p && p.hc != null ? (Number(p.hc) || 0) : seg.hc,
+      ch: p && p.ch != null ? (Number(p.ch) || 0) : seg.ch,
+      occupied: true
+    };
+  }
+  return hit || empty;
+}
+
+/** Adaptateur collections brutes → tauxPleinMois (même forme que duMoisFromRaw). */
+export function tauxPleinMoisFromRaw(ref, ym, raw) {
+  return tauxPleinMois({ ref, bails: bailsFromRaw(ref, raw), bareme: (raw && raw.bareme) || [] }, ym);
+}
+
+/**
  * AUDIT-SUIVI-LOYERS étape 4 — assemble le ctx duMois depuis les collections BRUTES de l'app,
  * puis délègue à duMois(). POINT D'ENTRÉE UNIQUE des 5 surfaces (via l'inline _duMoisLot).
  * La forme des baux est le point sensible : un bail COURANT à fin contractuelle passée reste

@@ -67,17 +67,33 @@ import {
 } from './core/rgpd.js';
 
 import {
-  _computeBilanAnnuel, _formatBilanTexte
+  _computeBilanAnnuel, _formatBilanTexte, _computeOccupationLots
 } from './core/legal-bilan.js';
-
-import {
-  _computeFinancesSummary
-} from './core/finances-summary.js';
 
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
 import {
   _computeFinancesMonthly
 } from './core/finances-monthly.js';
+
+// REFONTE FINANCES étape 2 — LE résolveur de périmètre unique (P-1/P-2/P-3) + les deux
+// fenêtres nommées (F-1 / F-1 v2). Consommés par rFinances et toutes ses surfaces.
+import {
+  resolveScope as _finScopeResolveM, buildScopeCatalog as _finScopeCatalogM,
+  scopeWeight as _finScopeWeightCoreM, lotInScope as _finScopeLotInM,
+  scopeLots as _finScopeLotsM, scopeLabel as _finScopeLabelM,
+  orphelinsHorsPerimetre as _finScopeOrphelinsM,
+  SANS_BAILLEUR as _FIN_SANS_BAILLEUR_M, SANS_IMMEUBLE as _FIN_SANS_IMMEUBLE_M,
+  LABEL_SANS_BAILLEUR as _FIN_LBL_SANS_BAILLEUR_M, LABEL_SANS_IMMEUBLE as _FIN_LBL_SANS_IMMEUBLE_M
+} from './core/finances-scope.js';
+import {
+  computeConstatWindow as _finWindowConstatM, computeExigibiliteWindow as _finWindowExigibiliteM,
+  alignPreviousYear as _finWindowAlignN1M, isFutureMonth as _finWindowIsFutureM,
+  windowLabel as _finWindowLabelM
+} from './core/finances-window.js';
+// P-4 — clé MENSUELLE de répartition des frais bailleur (potentiel locatif, plus jamais 1/nbImm)
+import {
+  buildSciWeightMensuel as _finSciWeightMensuelM, poidsMensuels as _finPoidsMensuelsM
+} from './core/finances-repartition.js';
 
 // SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
 import {
@@ -85,7 +101,7 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
@@ -292,12 +308,33 @@ window._isEraseEligible = _isEraseEligible;
 // LEGAL-BILAN-ANNUEL (Sprint 3C) - bilan par entité
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
-
-// REPORTING-BAILLEUR — agrégat onglet Finances
-window._computeFinancesSummary = _computeFinancesSummary;
+window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupation sous le socle
+window.tauxPleinMois = tauxPleinMois;                     // P-4 — taux plein du mois (potentiel)
+window.tauxPleinMoisFromRaw = tauxPleinMoisFromRaw;
+window._finSciWeightMensuel = _finSciWeightMensuelM;      // P-4 — clé mensuelle au potentiel locatif
+window._finPoidsMensuels = _finPoidsMensuelsM;
 
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;
+
+// REFONTE FINANCES étape 2 — socle périmètre + fenêtres (jamais window.MOIS_FR : le
+// `const MOIS_FR` lexical d'index.html masquerait la propriété — piège documenté).
+window._finScopeResolve = _finScopeResolveM;
+window._finScopeCatalog = _finScopeCatalogM;
+window._finScopeWeightCore = _finScopeWeightCoreM;
+window._finScopeLotIn = _finScopeLotInM;
+window._finScopeLots = _finScopeLotsM;
+window._finScopeLabel = _finScopeLabelM;
+window._finScopeOrphelins = _finScopeOrphelinsM;
+window._FIN_SANS_BAILLEUR = _FIN_SANS_BAILLEUR_M;
+window._FIN_SANS_IMMEUBLE = _FIN_SANS_IMMEUBLE_M;
+window._FIN_LBL_SANS_BAILLEUR = _FIN_LBL_SANS_BAILLEUR_M;
+window._FIN_LBL_SANS_IMMEUBLE = _FIN_LBL_SANS_IMMEUBLE_M;
+window._finWindowConstat = _finWindowConstatM;
+window._finWindowExigibilite = _finWindowExigibiliteM;
+window._finWindowAlignN1 = _finWindowAlignN1M;
+window._finWindowIsFuture = _finWindowIsFutureM;
+window._finWindowLabel = _finWindowLabelM;
 
 // SUIVI-LOYERS-SOURCE-UNIQUE Phase A — moteur unique de statut de paiement
 window._computeLoyerStatut = _computeLoyerStatut;
@@ -508,8 +545,7 @@ window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
     '_auditEntry', '_auditDiffShallowPure', '_auditFilter', '_auditToCsv', '_auditClean',
     '_compute2044', '_format2044Recap', '_2044ToCsv',
     '_findPersonalDataForRef', '_generateGdprExport', '_planErasure', '_isEraseEligible',
-    '_computeBilanAnnuel', '_formatBilanTexte',
-    '_computeFinancesSummary'
+    '_computeBilanAnnuel', '_formatBilanTexte'
   ]
 };
 

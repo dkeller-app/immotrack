@@ -47,15 +47,19 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     .filter(b => isAlive(b) && b.entity === entityNom && (b.fin >= from && b.fin <= to));
 
   // Calcul fiscal 2044 pour l'entité (filtre via STD_CATEGORIES)
+  // M-2 (CDC FINANCES §3) : le mapping des catégories perso est ENFIN passé au bilan — sans
+  // lui, une charge de catégorie maison comptait dans le tableau et disparaissait du détail
+  // par logement (le total ne pouvait pas égaler la somme des logements).
+  const mapping = (opts && opts.mapping) || null;
   const fiscal = _compute2044(db.mouvements || [], stdCategories, {
-    from, to, entityNom, refs
+    from, to, entityNom, refs, mapping
   });
 
   // KPIs métier par logement
   const parLogement = logements.map(l => {
     const lRefs = [l.ref];
     const lFiscal = _compute2044(db.mouvements || [], stdCategories, {
-      from, to, entityNom, refs: lRefs
+      from, to, entityNom, refs: lRefs, mapping
     });
     // Détecter période de vacance (bail courant + historiques de cette année)
     const bailCourant = (db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;
@@ -112,6 +116,51 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     fiscal,
     parLogement,
     generatedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * REFONTE FINANCES étape 2 — R-4 / K-2 : occupation & vacance d'un JEU DE LOTS injecté.
+ * « Passe sous le socle » : le périmètre vient de finances-scope (scopeLots), jamais d'un
+ * filtre `l.entity === X` maison — les lots sans bailleur comptent enfin (P-2, constat 21).
+ *   R-4 · « Occupation » = MOYENNE de la période (jours loués ÷ jours louables sur [from..to]),
+ *         plus jamais un instantané. L'état du jour est rendu à part (`vacantsJour`).
+ *   K-2 · manque à gagner THÉORIQUE = jours vides × loyer de référence du lot
+ *         (`loyerHcRef`, repli `hc`) ÷ 30,44 — même base que la clé P-4 pour un mois sans bail,
+ *         même fenêtre que le reste de la page. Il QUALIFIE le taux, ce n'est pas une créance.
+ * @param {Object} db  DB (baux, baux_historique)
+ * @param {Array} lots lots du périmètre (déjà filtrés par le socle)
+ * @param {{from:string, to:string}} opts fenêtre ISO (YYYY-MM-DD, bornes incluses)
+ */
+export function _computeOccupationLots(db, lots, opts) {
+  const o = opts || {};
+  const from = o.from, to = o.to;
+  const isAlive = (e) => e && !e._deleted;
+  const r2 = (n) => Math.round(n * 100) / 100;
+  let occ = 0, louable = 0, manque = 0;
+  const vacantsJour = [];
+  if (!from || !to || to < from) return { occDays: 0, louableDays: 0, taux: 0, manqueAGagner: 0, vacantsJour, nbLots: 0 };
+  let nb = 0;
+  (lots || []).forEach((l) => {
+    if (!isAlive(l) || !l.ref) return;
+    nb++;
+    const bailCourant = (db && db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;
+    const hists = ((db && db.baux_historique) || []).filter((b) => isAlive(b) && b.ref === l.ref);
+    const allBails = [...(bailCourant ? [bailCourant] : []), ...hists];
+    const occDays = _calcOccDays(allBails, from, to);
+    const totalDays = _daysBetween(from, to);
+    const vac = Math.max(0, totalDays - occDays);
+    occ += occDays; louable += totalDays;
+    manque += (vac / 30.44) * (Number(l.loyerHcRef) || Number(l.hc) || 0);
+    if (!bailCourant && !l.locataire) {
+      const fins = hists.map((b) => b.finEffective || b.fin).filter(Boolean).sort();
+      vacantsJour.push({ ref: l.ref, depuis: fins.length ? fins[fins.length - 1] : null });
+    }
+  });
+  return {
+    occDays: occ, louableDays: louable,
+    taux: louable > 0 ? r2(occ / louable * 100) : 0,
+    manqueAGagner: r2(manque), vacantsJour, nbLots: nb
   };
 }
 
