@@ -51163,7 +51163,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .sec-title{font:700 11px/1 'Inter';text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin:24px 0 12px;display:flex;align-items:center;gap:10px}
 #p-finances .sec-title::after{content:"";flex:1;height:1px;background:var(--bor)}
 #p-finances .note{font-size:11.5px;color:var(--t3);margin-top:8px;line-height:1.5}
-#p-finances .note .lnk,#p-finances .lnk{color:#5c8aff;cursor:pointer;font-weight:600}
+#p-finances .note .lnk,#p-finances .lnk{color:var(--acc);cursor:pointer;font-weight:600}
 /* F-b2 : surfaces NEUTRES — halo vert décoratif et dégradé supprimés (la charte ne prévoit pas de décor coloré) */
 #p-finances .hero{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl,14px);padding:20px 24px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap}
 #p-finances .hero .hero-l{position:relative;min-width:220px}
@@ -51196,7 +51196,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .pl .pct,#ov-dash-drill .pl .pct{color:var(--t3);font-size:11.5px}
 #p-finances .pl tbody tr.clk,#ov-dash-drill .pl tbody tr.clk{cursor:pointer}
 #p-finances .pl tbody tr.clk:hover td,#ov-dash-drill .pl tbody tr.clk:hover td{background:var(--sur2)}
-#p-finances .pl tbody tr.clk td:first-child::after,#ov-dash-drill .pl tbody tr.clk td:first-child::after{content:" ›";color:#5c8aff;font-weight:700}
+#p-finances .pl tbody tr.clk td:first-child::after,#ov-dash-drill .pl tbody tr.clk td:first-child::after{content:" ›";color:var(--acc);font-weight:700}
 /* ── Drill Finances (#ov-dash-drill) : récap 1 ligne + bande répartition condensée — réutilise .pl / .badge / .note ── */
 #ov-dash-drill .note{font-size:11.5px;color:var(--t3);margin-top:10px;line-height:1.5}
 #ov-dash-drill .fdr-recap{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px}
@@ -51226,7 +51226,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #p-finances .leakrow .tx{min-width:0;flex:1}
 #p-finances .leakrow .tx b{display:block;font-size:13px;font-weight:700}
 #p-finances .leakrow .tx s{display:block;font-size:11px;color:var(--t3);text-decoration:none}
-#p-finances .leakrow .dest{font-size:10.5px;color:#5c8aff;font-weight:600;margin-top:2px;opacity:0;transition:opacity .12s}
+#p-finances .leakrow .dest{font-size:10.5px;color:var(--acc);font-weight:600;margin-top:2px;opacity:0;transition:opacity .12s}
 #p-finances .leakrow:hover .dest{opacity:1}
 #p-finances .leakrow .am{font:800 16px/1 var(--display);white-space:nowrap}
 #p-finances .leakrow .am.neg{color:var(--neg)}
@@ -51865,7 +51865,19 @@ function _finRenderPLv2(yr, scope, W, cur, prev) {
     M += '</tr></thead><tbody>';
     ROWS.forEach(row => {
       if (row.grp) { M += '<tr class="b4-grp">' + months.map(m => '<td class="b4-mo' + (m.mo === selMo ? ' b4-selmo' : '') + '" data-mo="' + m.mo + '">&nbsp;</td>').join('') + '</tr>'; return; }
-      M += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '">' + months.map(m => { const fut = isFut(m.mo); const cclk = row.drill ? ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="Voir la cause"' : ((row.kind && !lk(row)) ? ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"' : ''); return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + (m.mo === selMo ? ' b4-selmo' : '') + sigCls(row, m) + '" data-mo="' + m.mo + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>'; }).join('') + '</tr>';
+      M += '<tr class="' + cls(row) + (row.kind ? ' b4-clk' : '') + '">' + months.map(m => {
+        const fut = isFut(m.mo);
+        // C-2 : une cellule SIGNALÉE (fond orange/bleu) doit EXPLIQUER sa couleur — elle ouvre
+        // la cause (retard/avance), pas la liste brute des mouvements.
+        const _sw = row.oraSrc && (Number(row.oraSrc(m)) || 0) > 0.005;
+        const _sa = !_sw && row.advSrc && (Number(row.advSrc(m)) || 0) > 0.005;
+        let cclk = '';
+        if (row.drill) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="' + (row.drill === 'avance' ? '_finDrillAvance(' + yr + ',' + m.mo + ')' : '_finDrillRetard(\'' + row.drill + '\',' + yr + ',' + m.mo + ')') + '" title="Voir la cause"';
+        else if (_sw && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillRetard(\'' + (row.kind === 'provisions' ? 'charge' : 'loyer') + '\',' + yr + ',' + m.mo + ')" title="Pourquoi cette case est orange (retard)"';
+        else if (_sa && row.kind) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillAvance(' + yr + ',' + m.mo + ')" title="Pourquoi cette case est bleue (avance)"';
+        else if (row.kind && !lk(row)) cclk = ' role="button" tabindex="0" style="cursor:pointer" onclick="_finDrillLigne(\'' + row.kind + '\',' + yr + ',' + m.mo + ')" title="Détail ' + _MOIS[m.mo - 1] + '"';
+        return '<td class="b4-mo' + (fut ? ' b4-fut' : '') + (m.mo === selMo ? ' b4-selmo' : '') + sigCls(row, m) + '" data-mo="' + m.mo + '"' + cclk + '>' + col(row.v(m), row, lk(row), m) + '</td>';
+      }).join('') + '</tr>';
     });
     M += '</tbody></table>';
     const _n1Th = hasN1 ? '<th class="b4-y25">' + (yr - 1) + (lastMonth < 12 ? '<br><span class="b4-en">même période</span>' : '') + '</th><th class="b4-var">Var.</th>' : '';
@@ -51941,16 +51953,16 @@ function _finB4InjectCss() {
   s.textContent = '.b4-plgrid{display:flex;align-items:flex-start;border-top:1px solid var(--bor)}'
     + '.b4-pane{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}'
     + '.b4-left,.b4-right{flex:none}'
-    + '.b4-midwrap{flex:1;min-width:0;overflow-x:auto;scrollbar-color:var(--acc) var(--sur3)}'
-    + '.b4-midwrap::-webkit-scrollbar{height:13px}'
+    + '.b4-midwrap{flex:1;min-width:0;overflow-x:auto;scrollbar-color:var(--t3) var(--sur3)}'   // F-b3 : mobilier neutre, jamais corail
+    + '.b4-midwrap::-webkit-scrollbar{height:10px}'
     + '.b4-midwrap::-webkit-scrollbar-track{background:var(--sur3)}'
-    + '.b4-midwrap::-webkit-scrollbar-thumb{background:var(--acc);border-radius:8px;border:3px solid var(--sur3)}'
+    + '.b4-midwrap::-webkit-scrollbar-thumb{background:var(--t3);border-radius:8px;border:3px solid var(--sur3)}'
     + '.b4-mid{table-layout:fixed;min-width:100%;width:max-content}.b4-left{table-layout:fixed}'
     + '.b4-pane th,.b4-pane td{padding:7px 12px;font-size:12.5px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--bor2);overflow:hidden}'
     + '.b4-pane thead th{font:700 10px Inter;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--bor);vertical-align:bottom;padding-bottom:8px;background:var(--sur)}'
     + '.b4-poste{width:208px;text-align:left;white-space:normal}'
-    + '.b4-y26{width:108px;background:var(--acc-soft,rgba(255,90,60,.08));font-weight:700}'
-    + '.b4-pane thead th.b4-y26{color:var(--acc-hover,var(--acc))}'
+    + '.b4-y26{width:108px;background:var(--acc-soft);font-weight:700}'
+    + '.b4-pane thead th.b4-y26{color:var(--acc2)}'   // F-c4 : --acc-hover n'existe pas, --acc2 oui
     // §3.1 CDC-DESIGN : le mois courant se marque dans l'EN-TÊTE seulement (libellé plein + filet
     // corail) — AUCUNE case peinte : le fond de case reste le canal du SIGNALEMENT (retard/avance).
     + '.b4-mo{width:104px}'
@@ -51965,19 +51977,19 @@ function _finB4InjectCss() {
     // §3.2 : hauteur EXPLICITE des lignes de groupe (les cellules vides des 2 autres panneaux
     // s'effondraient : 26 px contre 15, 11 px de dérive par groupe) — combinée au &nbsp; émis.
     + '.b4-pane tr.b4-grp td{background:var(--sur3);font:700 9.5px Inter;text-transform:uppercase;letter-spacing:.05em;color:var(--t2);text-align:left;height:26px;padding-top:0;padding-bottom:0}'
-    + '.b4-left tr.b4-grp .b4-y26{background:var(--acc-soft,rgba(255,90,60,.12))}'
+    + '.b4-left tr.b4-grp .b4-y26{background:var(--acc-soft)}'
     + '.b4-pane tr.b4-tot td{font-weight:700;border-top:1px solid var(--bor)}'
     + '.b4-pane tr.b4-net td{font-weight:800;border-top:2px solid var(--t1);background:var(--bg-success,rgba(22,163,74,.08))}'
     + '.b4-pane tr.b4-info td{font-size:10.5px;background:var(--sur2);border-top:1px dashed var(--bor2,var(--bor))}'
     + '.b4-x{color:var(--t3);font-weight:400;font-size:10px}'
-    + '.b4-clk{cursor:pointer}.b4-pane tr.b4-clk:hover td{background:rgba(255,90,60,.06)}'
+    + '.b4-clk{cursor:pointer}.b4-pane tr.b4-clk:hover td{background:var(--sur2)}'   // F-b4 : survol par token, pas d'accent en dur
     + '.b4-chev{color:var(--acc);font-weight:700;opacity:.45;margin-left:3px}.b4-clk:hover .b4-chev{opacity:1}'
     + '.b4-en{font-size:9px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0}'
     + '.b4-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;font:600 12px Inter;color:var(--t2);background:var(--sur2);border:1px solid var(--bor);border-radius:20px;padding:5px 12px 5px 10px}'
     + '.b4-toggle .b4-pill{width:30px;height:17px;border-radius:10px;background:var(--sur3);position:relative;transition:.18s;flex:none}'
-    + '.b4-toggle .b4-pill::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:.18s}'
-    + '.b4-toggle.on{color:var(--acc-hover,var(--acc));border-color:var(--acc)}.b4-toggle.on .b4-pill{background:var(--acc)}.b4-toggle.on .b4-pill::after{left:15px}'
-    + '.b4-hint{font-size:10.5px;color:var(--acc-hover,var(--acc));font-weight:600}'
+    + '.b4-toggle .b4-pill::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--sur);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:.18s}'
+    + '.b4-toggle.on{color:var(--acc2);border-color:var(--acc)}.b4-toggle.on .b4-pill{background:var(--acc)}.b4-toggle.on .b4-pill::after{left:15px}'
+    + '.b4-hint{font-size:10.5px;color:var(--acc2);font-weight:600}'
     + '.b4-mo-pick{display:none;font-size:12px;padding:4px 8px;width:auto}'
     + '.b4-rotmsg{display:none}'
     // RS-1/RS-3 : sous LA bascule unique (680), sélecteur de mois + une colonne (cases toujours
@@ -52169,11 +52181,15 @@ function _finDrillLigne(kind, yr, mo) {
 
   // Drill enrichi (v15.309) : N-1 (même filtre, total seul) + répartition par bien — affichage, pas de logique fiscale
   // D-1 / constat 28 : le total N-1 du drill suit EXACTEMENT le même filtre que les lignes
-  // (avoirs/crédits inclus en net db−cr — avant, N les incluait et N-1 les excluait).
+  // (avoirs/crédits inclus en net db−cr — avant, N les incluait et N-1 les excluait) ET la
+  // MÊME étendue de mois que N (T-2 : jamais 12 mois de N-1 contre 8 de N).
+  const _Wd = _finWindows(parseInt(yr, 10), scope);
+  const _n1MaxMo = _Wd ? _Wd.constat.lastMonth : 12;
   const sumYear = (Y) => {
     Y = String(Y); let t = 0;
     (DB.mouvements || []).forEach(m => {
       if (!m || m._deleted || !m.date || !m.date.startsWith(Y)) return;
+      if (parseInt(m.date.slice(5, 7), 10) > _n1MaxMo) return;   // même période que N
       const _w = _finScopeWeight(scope, m); if (!_w) return;
       const r = _finCatLigne(m.cat);
       if (def.rec) { if (!r || r.type !== 'recette' || r.ligne2044 !== '211') return; t += ((Number(m.cr) || 0) - (Number(m.db) || 0)) * _w; }
@@ -52381,20 +52397,25 @@ function _finDrillRetard(kind, yr, mo) {
     if (!(arrear > 0.005)) continue;
     total += arrear;
     const chips = cause.map(c =>
-      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:var(--bg-warning);color:var(--ora);border:1px solid rgba(178,122,18,.25);min-width:62px">'
+      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:var(--warn-soft,rgba(143,98,14,.10));color:var(--warn);border:1px solid var(--warn-soft,rgba(143,98,14,.25));min-width:62px">'
       + '<span style="font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.03em;opacity:.85">' + _FIN_MOIS[c.idx] + '</span>'
       + '<span style="font-weight:800;font-size:13px">− ' + f(c.short) + '</span>'
       + '<span style="font:600 10px Inter;color:var(--t3)">dû ' + f(c.due) + '</span></div>').join('');
+    // C-2 : le popup explique ET porte L'action issue de l'anomalie — « 📨 Créer une relance »
+    // (le courrier de relance existe côté Quittance : _lyRelance, réutilisé, jamais recopié).
+    const _canRelance = (typeof _lyRelance === 'function') && !String(q).startsWith('SCI:');
     blocks.push('<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
       + '<div style="font-weight:700;font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(_finLotNomAt(q, yr, cause[0].idx))
-      + ' <span style="font:700 11px Inter;color:var(--ora);background:var(--bg-warning);padding:2px 8px;border-radius:6px">' + f(arrear) + ' en retard</span></div>'
+      + ' <span style="font:700 11px Inter;color:var(--warn);background:var(--warn-soft,rgba(143,98,14,.10));padding:2px 8px;border-radius:6px">' + f(arrear) + ' en retard</span>'
+      + (_canRelance ? '<button type="button" class="btn bs" style="margin-left:auto;font-size:11.5px;padding:4px 10px" onclick="closeM(\'ov-dash-drill\');_lyRelance(' + JSON.stringify(esc(q)) + ')">📨 Créer une relance</button>' : '')
+      + '</div>'
       + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + chips + '</div></div>');
   }
   total = Math.round(total * 100) / 100;
   const scopeLbl = mo ? (' · ' + _FIN_MOIS[mo - 1] + ' ' + String(yr).slice(2)) : '';
   const titre = (isLoy ? 'Cause du retard de loyer' : 'Cause du retard de charges') + scopeLbl + ' · ' + f(total);
   const body = blocks.length
-    ? '<div style="padding:2px">' + blocks.join('') + '<div class="note" style="margin-top:2px">Réutilise le moteur <b>Suivi des loyers</b> (dû ↔ encaissé, mois par mois). Va dans <b>Suivi des loyers</b> pour relancer.</div></div>'
+    ? '<div style="padding:2px">' + blocks.join('') + '<div class="note" style="margin-top:2px">Réutilise le moteur <b>Suivi des loyers</b> (dû ↔ encaissé, mois par mois).</div></div>'
     : '<div class="note" style="padding:18px 4px">Aucun retard ' + (isLoy ? 'de loyer' : 'de charges') + (mo ? ' en ' + _FIN_MOIS[mo - 1] : '') + ' sur ' + yr + '.</div>';
   if (typeof openDashDrill === 'function') openDashDrill(titre, body);
 }
@@ -52421,12 +52442,12 @@ function _finDrillAvance(yr, mo) {
     if (!(lotAv > 0.005)) continue;
     total += lotAv;
     const chips = avM.map(x =>
-      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:rgba(24,95,165,.11);color:#185fa5;border:1px solid rgba(24,95,165,.25);min-width:62px">'
+      '<div style="display:inline-flex;flex-direction:column;gap:1px;font-family:var(--display);padding:6px 10px;border-radius:9px;background:var(--adv-bg);color:var(--adv);border:1px solid var(--adv-bg);min-width:62px">'
       + '<span style="font:700 10.5px Inter;text-transform:uppercase;letter-spacing:.03em;opacity:.85">' + _FIN_MOIS[x.idx] + '</span>'
       + '<span style="font-weight:800;font-size:13px">+ ' + f(x.av) + '</span></div>').join('');
     blocks.push('<div style="border:1px solid var(--bor);border-radius:12px;padding:12px;margin-bottom:10px">'
       + '<div style="font-weight:700;font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + esc(_finLotNomAt(q, yr, avM[0].idx))
-      + ' <span style="font:700 11px Inter;color:#185fa5;background:rgba(24,95,165,.11);padding:2px 8px;border-radius:6px">' + f(lotAv) + ' perçu d\'avance</span></div>'
+      + ' <span style="font:700 11px Inter;color:var(--adv);background:var(--adv-bg);padding:2px 8px;border-radius:6px">' + f(lotAv) + ' perçu d\'avance</span></div>'
       + '<div style="display:flex;gap:7px;flex-wrap:wrap">' + chips + '</div></div>');
   }
   total = Math.round(total * 100) / 100;
