@@ -72,20 +72,6 @@
       "port": 8814
     },
     {
-      "name": "wt-finances2",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": [
-        "--yes",
-        "http-server",
-        "C:/Users/Did_K/Desktop/Immo-wt-finances2",
-        "-p",
-        "8816",
-        "-c-1",
-        "--silent"
-      ],
-      "port": 8816
-    },
-    {
       "name": "wt-filrouge-complet",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
