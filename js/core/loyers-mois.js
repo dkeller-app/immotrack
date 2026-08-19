@@ -231,7 +231,7 @@ export function moisAQuittancer(etat, quittancesYm) {
 }
 
 /**
- * D9/D10 — la ligne « Pas à jour » d'un lot : UNE ligne quel que soit le nombre de mois,
+ * D9/D10 — la ligne « Impayés » d'un lot (V14 : ex « Pas à jour ») : UNE ligne quel que soit le nombre de mois,
  * loyer ET charges. `toleranceActive` (règle partagée `_loyerToleranceActive`, jour < 10)
  * neutralise le manque NEUF du mois courant sans masquer les arriérés antérieurs.
  * @returns {{enRetard:boolean, resteLoyer:number, resteCharge:number, reste:number,

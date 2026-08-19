@@ -524,7 +524,7 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
          Un seul onglet, qui ne montre que CE QU'IL Y A À FAIRE CE MOIS-CI sur les loyers.
          Trois blocs, chacun replié à une ligne quand il est vide (D5) :
            1. 🧾 Quittances demandées   (case du bail cochée + mois soldé — D3/D6)
-           2. ⏳ Pas à jour             (loyer ET charges — D9/D10)
+           2. 💸 Impayés                (loyer ET charges — D9/D10 ; V14 remplace « Pas à jour »)
            3. 📈 Révisions à préparer   (D13)
          Plus deux lignes repliées : quittances éditées ce mois, calendrier des révisions.
          L'écran grandit avec les PROBLÈMES, pas avec le parc. -->
@@ -11257,7 +11257,7 @@ function _renderDashOnboarding() {
 }
 
 // v15.18 — Navigation directe vers l'onglet Loyers depuis le hero dashboard.
-// CDC-QUITTANCES-IRL : plus de filtre « impayée » à poser — le bloc « ⏳ Pas à jour »
+// CDC-QUITTANCES-IRL : plus de filtre « impayée » à poser — le bloc « 💸 Impayés »
 // EST la liste des retards, il n'y a rien à sélectionner.
 function _dashGoImpayes() {
   if (typeof go === 'function') go('loyers');
@@ -25147,7 +25147,7 @@ function _irlEnvelopeBtn(log, st) {
 // `rIRL()` et sa vue cartes, le groupage par immeuble et ses KPI, le drill par immeuble,
 // le tableau legacy, le panneau « ✉ Aperçu lettre » et son sélecteur de bail. Tout cela
 // vivait dans une page qui n'existe plus : l'onglet « Loyers » montre les révisions
-// à préparer / en retard / perdues / non révisables, et le calendrier Gantt (D16).
+// à préparer / en retard / IRL non appliquées / non révisables, et le calendrier Gantt (D16).
 // Sont CONSERVÉS et toujours joints : `computeIRLRevision`, `_irlLettreState`,
 // `applyIRL`/`_irlValidConfirm` (D18), `genIRLLetter`/`previewIRLLetter` (la lettre suit
 // le clic), `skipIRL`, `resetIRLApply`, la table INSEE (`rIRLParams`).
@@ -28340,10 +28340,12 @@ function rLoyers() {
     }),
     'Personne n\'attend de quittance ce mois-ci.');
 
-  // ── 2. Pas à jour — loyer ET charges (D9/D10), une ligne par lot ──
+  // ── 2. Impayés — loyer ET charges (D9/D10), une ligne par lot ──
+  // V14 (CDC-LOYERS-DESIGN) : « Impayés » remplace « Pas à jour » — arbitrage Didier 19/08,
+  // « ça ne veut rien dire, il faut un terme punch ».
   const retards = etats.filter(e => e.retard.enRetard);
-  html += _lyBloc('⏳ Pas à jour', retards.length,
-    'Loyer ou charges — aucun document n\'est émis pour ces lignes',
+  html += _lyBloc('💸 Impayés', retards.length,
+    'Loyer ou charges non réglés — aucun document n\'est émis',
     retards.map(e => {
       const r = e.retard;
       const depuis = r.depuisYm ? window.ymToMoisFr(r.depuisYm) : '';
@@ -28516,7 +28518,7 @@ function _lyQuittancesDuMois(ymCourant) {
 // ── Révisions IRL (D13/D15/D16/D17) ────────────────────────────────────────
 // Le CALENDRIER est tranché par js/core/irl-calendrier.js via `computeIRLRevision` (qui le
 // consomme). Ici : de l'affichage, et le tri en quatre blocs — à préparer / en retard /
-// perdues / non révisables. Rien n'est recalculé.
+// IRL non appliquées / non révisables. Rien n'est recalculé.
 
 /** Toutes les révisions du parc, avec leur état de calendrier. */
 function _lyRevisions(etats) {
@@ -28570,7 +28572,12 @@ function _lyBlocRevisions(etats) {
       enRetard.map(x => ligneRev(x, true)), '');
   }
   if (perdues.length) {
-    html += _lyBloc('⌛ Perdues', perdues.length, 'Plus d\'un an — art. 17-1, présumées abandonnées',
+    // V14 — « IRL non appliquées » remplace « Perdues » : ne PAS appliquer une révision peut
+    // être un CHOIX, et la révision revient à chaque anniversaire du bail sur les indices du
+    // moment — seul le CYCLE passé s'éteint (art. 17-1). « Perdues » jugeait à la place de
+    // l'utilisateur et annonçait un définitif que la loi ne dit pas.
+    html += _lyBloc('⏸ IRL non appliquées', perdues.length,
+      'Cycle éteint (délai d\'un an) — la révision revient à chaque anniversaire, aux indices du moment',
       perdues.map(({ e, rev }) => {
         // D15 — « ce qu'elle aurait rapporté », dit UNE FOIS. Jamais une action : l'app ne
         // propose pas un geste qui ne serait pas opposable au locataire.
@@ -28584,14 +28591,16 @@ function _lyBlocRevisions(etats) {
         const prescritIso = (parseInt(rev.perdue.effetIso.slice(0, 4), 10) + 1) + rev.perdue.effetIso.slice(4);
         return { log: e.log, html: _lyRow({
           titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
-          detail: `Effet du ${fd(rev.perdue.effetIso)} jamais réclamé — présumé abandonné depuis le ${fd(prescritIso)}`,
-          montant: gain != null ? `<span class="ly-pill nu">≈ ${fmt(gain)}/mois</span>` : '<span class="ly-pill nu">—</span>',
+          // Libellé de ligne figé par V14, au mot près.
+          detail: `Cycle du ${fd(rev.perdue.effetIso)} non appliqué, éteint le ${fd(prescritIso)} (délai d'un an)`,
+          montant: gain != null ? `<span class="ly-pill nu">≈ ${fmt(gain)}/mois non appliqués</span>` : '<span class="ly-pill nu">—</span>',
           actions: ''
         }) };
       }), true);
   }
   if (muets.length) {
-    html += _lyBloc('🔒 Non révisables', muets.length, 'Rien à faire — listés pour ne pas les chercher',
+    html += _lyBloc('🔒 Non révisables', muets.length,
+      'Gel légal, DPE absent ou indice non publié — avertissement, jamais blocage',
       muets.map(({ e, rev }) => ({ log: e.log, html: _lyRow({
         titre: `${escHtml(e.ref)} · ${escHtml(e.log.locataire || '—')}`,
         detail: escHtml(_lyMotifMuet(rev)),
