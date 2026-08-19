@@ -179,7 +179,7 @@ import {
 // Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
 import {
   etatMoisLot, peutQuittancer, moisProposables, moisAQuittancer,
-  retardLot, lignesRelance, niveauRelance,
+  retardLot, lignesRelance, niveauRelance, datePaiementMois,
   moisFrToYm, ymToMoisFr, ymRange
 } from './core/loyers-mois.js';
 
@@ -451,6 +451,9 @@ window.moisAQuittancer = moisAQuittancer;
 window.retardLot = retardLot;
 window.lignesRelance = lignesRelance;
 window.niveauRelance = niveauRelance;
+// I-DATE (CDC-LOYERS-DESIGN V5) — LA porte unique de la date de paiement d'un mois.
+// Aucune surface ne recompose cette date ; null = on n'affiche RIEN.
+window.datePaiementMois = datePaiementMois;
 window.moisFrToYm = moisFrToYm;
 window.ymToMoisFr = ymToMoisFr;
 window.ymRange = ymRange;

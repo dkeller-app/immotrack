@@ -265,7 +265,19 @@ export function _debutSuivi(ctx, firstPaymentYm) {
  * (avance) est REPORTÉ sur les mois suivants et couvre leurs dûs AVANT de laisser naître
  * un retard (netting avance↔retard, C2/CAS 6 — décision user 14/07). Sans `carry`,
  * comportement legacy à l'identique (consommé par _computeLoyerArrears jusqu'à l'étape 4).
- * @param {Array<{hcDue:number, chDue:number, received:number}>} months chronologiques (échus)
+ * LOT 0 « socle des dates » (CDC-LOYERS-DESIGN §4) — la cascade DÉTRUISAIT les dates :
+ * `received` est un scalaire, donc aucune surface ne pouvait dire « le mois M a été soldé
+ * par le mouvement du JJ/MM ». Correctif : chaque mois peut porter `sources`, la liste des
+ * mouvements encaissés qui composent son `received`. Le pool scalaire est DOUBLÉ d'une file
+ * de fragments FIFO (même ordre, mêmes montants) : à chaque prélèvement du scalaire on
+ * prélève la même somme sur les fragments, ce qui donne `imputations[idx]` — qui a payé quoi.
+ * L'arithmétique du scalaire n'est pas touchée d'un centime : les fragments ne décident rien,
+ * ils suivent. Sans `sources`, un fragment anonyme (`date:null`) est créé : l'app n'invente
+ * aucune date, elle dit « pas de rattachement » (I-DATE).
+ *
+ * @param {Array<{hcDue:number, chDue:number, received:number,
+ *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
+ *        chronologiques (échus) ; `sources` optionnel, trié ou non (trié ici par date).
  * @param {{carry?:boolean, graceLast?:boolean}} [opts]
  */
 export function _loyerArrearsPass(months, opts) {
@@ -275,23 +287,71 @@ export function _loyerArrearsPass(months, opts) {
   const lastIdx = ms.length - 1;
   const loyerQ = [], chargeQ = [];                  // files des manques : {idx, short, due, recv}
   const sumQ = (q) => q.reduce((s, e) => s + e.short, 0);
-  const recover = (q, amt) => { let a = amt; for (const e of q) { if (a <= 0.0000001) break; const t = Math.min(a, e.short); e.short -= t; a -= t; } };
   let avanceCarry = 0;
+
+  // ── Traçabilité (lot 0) : le miroir en fragments du pool scalaire ──────────
+  const imput = ms.map(() => []);                   // imput[idx] = [{date,id,montant,poste}]
+  let frags = [];                                   // [{date,id,reste}] FIFO, le plus ancien devant
+  /** Fragments d'un mois : ses `sources` (triées par date), complétées/rognées pour
+   *  coller EXACTEMENT au scalaire `Math.max(0, received)` — jamais l'inverse. */
+  const fragsOf = (m) => {
+    const recvPos = Math.max(0, Number(m.received) || 0);
+    const src = Array.isArray(m.sources) ? m.sources : null;
+    const out = [];
+    if (src) {
+      src.slice()
+        .filter((s) => s && (Number(s.montant) || 0) > 0)
+        .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
+        .forEach((s) => out.push({ date: s.date || null, id: (s.id != null ? s.id : null), reste: Number(s.montant) || 0 }));
+    }
+    let som = out.reduce((s, f) => s + f.reste, 0);
+    while (som > recvPos + 0.0000001 && out.length) {  // sources > received : on rogne par la fin
+      const f = out[out.length - 1];
+      const t = Math.min(f.reste, som - recvPos);
+      f.reste -= t; som -= t;
+      if (f.reste <= 0.0000001) out.pop();
+    }
+    if (som < recvPos - 0.0000001) out.push({ date: null, id: null, reste: recvPos - som });
+    return out;
+  };
+  /** Prélève `amt` sur les fragments (FIFO) et l'impute au mois `idx`, poste `poste`. */
+  const drawTo = (idx, poste, amt) => {
+    let a = amt;
+    while (a > 0.0000001 && frags.length) {
+      const f = frags[0];
+      const t = Math.min(a, f.reste);
+      if (t > 0.0000001) imput[idx].push({ date: f.date, id: f.id, montant: t, poste });
+      f.reste -= t; a -= t;
+      if (f.reste <= 0.0000001) frags.shift();
+    }
+  };
+  const recover = (q, amt, poste) => {
+    let a = amt;
+    for (const e of q) {
+      if (a <= 0.0000001) break;
+      const t = Math.min(a, e.short);
+      e.short -= t; a -= t;
+      drawTo(e.idx, poste, t);
+    }
+  };
+
   const perMonth = ms.map((m, idx) => {
     const hcDue = Math.max(0, Number(m.hcDue) || 0);
     const chDue = Math.max(0, Number(m.chDue) || 0);
     const recv = Number(m.received) || 0;
     const grace = graceLast && idx === lastIdx;     // mois courant sous tolérance : manque neuf non compté
     let pool = Math.max(0, recv) + (carry ? avanceCarry : 0);
+    // Le miroir : sans `carry` le reliquat du mois précédent est jeté (comme le scalaire).
+    frags = carry ? frags.concat(fragsOf(m)) : fragsOf(m);
     if (carry) avanceCarry = 0;
-    const loyerCur = Math.min(pool, hcDue); pool -= loyerCur;
+    const loyerCur = Math.min(pool, hcDue); pool -= loyerCur; drawTo(idx, 'loyer', loyerCur);
     const loyerShort = hcDue - loyerCur;
     if (loyerShort > 0.005 && !grace) loyerQ.push({ idx, short: loyerShort, due: hcDue, recv });
-    const chargeCur = Math.min(pool, chDue); pool -= chargeCur;
+    const chargeCur = Math.min(pool, chDue); pool -= chargeCur; drawTo(idx, 'charge', chargeCur);
     const chargeShort = chDue - chargeCur;
     if (chargeShort > 0.005 && !grace) chargeQ.push({ idx, short: chargeShort, due: chDue, recv });
-    const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL);   // arriérés loyer (priorité)
-    const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC);
+    const recL = Math.min(pool, sumQ(loyerQ)); pool -= recL; recover(loyerQ, recL, 'loyer');   // arriérés loyer (priorité)
+    const recC = Math.min(pool, sumQ(chargeQ)); pool -= recC; recover(chargeQ, recC, 'charge');
     const out = { loyerArrear: _r2(sumQ(loyerQ)), chargeArrear: _r2(sumQ(chargeQ)) };
     if (carry) { avanceCarry = pool; out.avance = _r2(avanceCarry); }
     return out;
@@ -303,7 +363,22 @@ export function _loyerArrearsPass(months, opts) {
   const residual = (q) => { const a = ms.map(() => 0); q.forEach((e) => { if (e.short > 0.005) a[e.idx] = _r2(a[e.idx] + e.short); }); return a; };
   const loyerRes = residual(loyerQ), chargeRes = residual(chargeQ);
   const retardMois = ms.map((m, idx) => ({ loyer: loyerRes[idx], charge: chargeRes[idx] }));
-  const res = { months: perMonth, retardMois, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
+  // Traçabilité : on fusionne les prélèvements successifs d'un même mouvement sur un même
+  // mois/poste (la file peut être entamée en plusieurs fois), puis on trie par date.
+  const imputations = imput.map((parts) => {
+    const m = new Map();
+    for (const p of parts) {
+      if (p.montant <= 0.005) continue;
+      const k = (p.id == null ? '~' : 'i' + p.id) + '|' + (p.date || '~') + '|' + p.poste;
+      const prev = m.get(k);
+      if (prev) prev.montant += p.montant;
+      else m.set(k, { date: p.date, id: p.id, montant: p.montant, poste: p.poste });
+    }
+    return [...m.values()]
+      .map((p) => ({ date: p.date, id: p.id, montant: _r2(p.montant), poste: p.poste }))
+      .sort((a, b) => String(a.date || '9999').localeCompare(String(b.date || '9999')));
+  });
+  const res = { months: perMonth, retardMois, imputations, loyerArrear: last.loyerArrear, chargeArrear: last.chargeArrear, causeLoyer: clean(loyerQ), causeCharge: clean(chargeQ) };
   if (carry) res.avance = _r2(avanceCarry);
   return res;
 }

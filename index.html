@@ -12555,12 +12555,19 @@ function _loyerEtatLot(ref, opts) {
   const isLoy = (typeof _isLoyerCategory === 'function') ? _isLoyerCategory : (c => c === 'Loyers');
   const alive = (typeof _isAlive === 'function') ? _isAlive : (x => x && !x._deleted);
   const recuParYm = {};
+  // LOT 0 (CDC-LOYERS-DESIGN §4) — on ne jette plus la date : `recuParYm` gardait le
+  // montant seul, si bien qu'aucune surface ne pouvait dire « ce mois a été soldé par le
+  // mouvement du JJ/MM » (et la quittance retombait sur sa propre date d'émission, faux).
+  // `srcParYm` transporte les mouvements eux-mêmes jusqu'à la cascade, qui les rend
+  // imputés mois par mois. Le montant reste la seule chose qui DÉCIDE : les dates suivent.
+  const srcParYm = {};
   let firstPaymentYm = null;
   for (const m of (DB.mouvements || [])) {
     if (!alive(m) || m.qui !== ref || !((m.cr || 0) > 0) || !isLoy(m.cat) || !m.date) continue;
     const ym = String(m.date).slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(ym)) continue;
     recuParYm[ym] = (recuParYm[ym] || 0) + (m.cr || 0);
+    (srcParYm[ym] || (srcParYm[ym] = [])).push({ date: String(m.date).slice(0, 10), id: (m.id != null ? m.id : null), montant: m.cr || 0 });
     if (!firstPaymentYm || ym < firstPaymentYm) firstPaymentYm = ym;
   }
   const raw = { currentBail: _findBailByRefTolerant(ref), bauxHistorique: DB.baux_historique || [] };
@@ -12572,7 +12579,7 @@ function _loyerEtatLot(ref, opts) {
   const months = (startYm && startYm <= endYm)
     ? window.ymRange(startYm, endYm).map(ym => {
         const d = _duMoisLot(ref, ym);
-        return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0 };
+        return { ym, hcDue: d.hc || 0, chDue: d.ch || 0, received: recuParYm[ym] || 0, sources: srcParYm[ym] || [] };
       })
     : [];
   const etat = window.etatMoisLot(months, { graceLast: !!opts.graceLast });

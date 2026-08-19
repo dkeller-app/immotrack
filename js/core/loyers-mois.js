@@ -86,7 +86,14 @@ export function ymRange(startYm, endYm) {
  * LE verdict par mois d'un lot — délègue l'imputation à `_loyerArrearsPass`
  * (carry:true = netting avance↔retard, la politique cible des 5 surfaces).
  *
- * @param {Array<{ym:string, hcDue:number, chDue:number, received:number}>} months
+ * LOT 0 « socle des dates » : si l'appelant fournit `sources` (les mouvements encaissés
+ * qui composent `received`), chaque mois porte en retour ses `paiements` — les versements
+ * RÉELLEMENT imputés à CE mois par la cascade — et `datePaiement`, la date à laquelle il a
+ * été soldé. I-DATE : sans rattachement daté, `datePaiement` vaut `null` et les surfaces
+ * n'affichent RIEN. Aucune date n'est inventée, aucun repli sur « aujourd'hui ».
+ *
+ * @param {Array<{ym:string, hcDue:number, chDue:number, received:number,
+ *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
  *        chronologiques, ÉCHUS (l'appelant borne au mois courant).
  * @param {{graceLast?:boolean}} [opts] graceLast : neutralise le manque NEUF du
  *        dernier mois (tolérance début de mois, `_loyerToleranceActive`). NE JAMAIS
@@ -98,7 +105,7 @@ export function ymRange(startYm, endYm) {
 export function etatMoisLot(months, opts) {
   const ms = (months || []).filter((m) => m && /^\d{4}-\d{2}$/.test(String(m.ym)));
   const pass = _loyerArrearsPass(
-    ms.map((m) => ({ hcDue: m.hcDue, chDue: m.chDue, received: m.received })),
+    ms.map((m) => ({ hcDue: m.hcDue, chDue: m.chDue, received: m.received, sources: m.sources })),
     { carry: true, graceLast: !!(opts && opts.graceLast) }
   );
   const list = ms.map((m, i) => {
@@ -110,6 +117,17 @@ export function etatMoisLot(months, opts) {
     const resteCharge = _r2(r.charge);
     const reste = _r2(resteLoyer + resteCharge);
     const vacance = du <= EPS_CENTIME;
+    const solde = !vacance && reste <= EPS_CENTIME;
+    // I-DATE — les versements RÉELLEMENT imputés à ce mois par la cascade, datés.
+    // Un versement sans date connue (`date:null`) n'entre pas dans `paiements` : il ne
+    // peut rien prouver. `datePaiement` n'existe que si le mois est soldé ET que tout
+    // ce qui l'a soldé est daté — sinon `null`, et l'écran n'affiche rien.
+    const brut = (pass.imputations && pass.imputations[i]) || [];
+    const paiements = brut.filter((p) => p.date).map((p) => ({ date: p.date, id: p.id, montant: p.montant, poste: p.poste }));
+    const totalImpute = _r2(brut.reduce((s, p) => s + p.montant, 0));
+    const totalDate = _r2(paiements.reduce((s, p) => s + p.montant, 0));
+    const complet = totalImpute - totalDate <= EPS_CENTIME;
+    const datesVersements = [...new Set(paiements.map((p) => p.date))].sort();
     return {
       ym: String(m.ym),
       hcDue: _r2(hcDue), chDue: _r2(chDue), du,
@@ -117,9 +135,14 @@ export function etatMoisLot(months, opts) {
       resteLoyer, resteCharge, reste,
       // D6 : soldé = plus AUCUN résidu, au centime. Un mois sans dû (vacance) n'est
       // pas « soldé » : il n'y a rien à quittancer.
-      solde: !vacance && reste <= EPS_CENTIME,
+      solde,
       partiel: !vacance && reste > EPS_CENTIME && reste < du - EPS_CENTIME,
-      vacance
+      vacance,
+      paiements,
+      montantImpute: totalImpute,
+      datesVersements,
+      nbVersements: datesVersements.length,
+      datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null
     };
   });
   const byYm = {};
@@ -133,6 +156,26 @@ export function etatMoisLot(months, opts) {
     avance: _r2(pass.avance || 0),
     nbMoisNonSoldes: nonSoldes.length,
     premierMoisNonSolde: nonSoldes.length ? nonSoldes[0].ym : null
+  };
+}
+
+/**
+ * I-DATE (V5, CDC-LOYERS-DESIGN) — LA porte unique de la « date de paiement » d'un mois.
+ * Aucune surface ne recompose cette date : elle la demande ici, et si la réponse est
+ * `null` elle n'affiche RIEN (jamais la date d'émission, jamais `aujourd'hui`).
+ * @param {{byYm:Object}} etat sortie de etatMoisLot
+ * @param {string} ym
+ * @returns {{date:string|null, dates:string[], nb:number, solde:boolean, montant:number}}
+ */
+export function datePaiementMois(etat, ym) {
+  const e = etat && etat.byYm && etat.byYm[String(ym)];
+  if (!e) return { date: null, dates: [], nb: 0, solde: false, montant: 0 };
+  return {
+    date: e.datePaiement || null,
+    dates: e.datesVersements || [],
+    nb: e.nbVersements || 0,
+    solde: !!e.solde,
+    montant: e.montantImpute || 0
   };
 }
 
