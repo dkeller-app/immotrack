@@ -15894,9 +15894,12 @@ function _catPkCreate() {
   if (!v) return;
   if (_isStdCategory(v)) { showToast('« ' + v + ' » existe déjà comme catégorie standard', 'warn'); return; }
   if ((DB.categories || []).includes(v)) { showToast('« ' + v + ' » existe déjà', 'warn'); return; }
+  // M-1 bis (arbitrage Didier 19/08) : AUCUNE catégorie ne naît sans sa famille, et l'app ne
+  // devine RIEN — le choix est explicite, l'état « flottant » devient impossible par construction.
+  const _mereSel = el('cat-pk-mere');
+  if (!_mereSel || !_mereSel.value) { showToast('Choisis la famille de « ' + v + ' » — sans famille, pas de création', 'warn', 4500); return; }
   DB.categories.push(v);
-  const _sug = (typeof _finSuggestLigne === 'function') ? _finSuggestLigne(v) : '';
-  if (_sug && typeof _writeCatMap === 'function') _writeCatMap(v, _sug); // « la ligne dit tout » : suggère la ligne 2044
+  _finRattacheCategorie(v, _mereSel.value);
   saveDB();
   const id = _catPk.id, tgt = _catPk.tgt;
   _catClosePk();
@@ -15918,7 +15921,7 @@ function _catPkListHtml() {
     });
     if (gr.k === 'cust') {
       h += _catPk.adding
-        ? '<div style="padding:10px 16px;border-top:1px dashed var(--bd2,#e2e8f0);display:flex;gap:8px"><input class="inp" id="cat-pk-new" placeholder="Nom de la catégorie…" value="' + escHtml(_catPk.q || '') + '" onkeydown="if(event.key===\'Enter\')_catPkCreate()" style="flex:1;font-size:14px;padding:9px 11px;width:auto"><button type="button" class="btn bp" onclick="_catPkCreate()" style="white-space:nowrap">Créer</button></div>'
+        ? '<div style="padding:10px 16px;border-top:1px dashed var(--bd2,#e2e8f0);display:flex;flex-direction:column;gap:8px"><input class="inp" id="cat-pk-new" placeholder="Nom de la catégorie…" value="' + escHtml(_catPk.q || '') + '" onkeydown="if(event.key===\'Enter\')_catPkCreate()" style="font-size:14px;padding:9px 11px;width:auto"><div style="display:flex;gap:8px"><select class="inp" id="cat-pk-mere" style="flex:1;font-size:13px;padding:8px 10px;width:auto">' + _finMereOptionsHtml() + '</select><button type="button" class="btn bp" onclick="_catPkCreate()" style="white-space:nowrap">Créer</button></div></div>'
         : '<div style="padding:10px 16px;border-top:1px dashed var(--bd2,#e2e8f0)"><button type="button" onclick="_catPk.adding=true;_catPkFill();setTimeout(function(){var n=el(\'cat-pk-new\');if(n)n.focus()},20)" style="display:flex;align-items:center;gap:8px;width:100%;border:1px dashed var(--bd2,#cbd5e1);background:var(--sur2,#f5f8fc);border-radius:9px;padding:10px 12px;font:inherit;font-size:13.5px;font-weight:600;color:var(--pri,#2563eb);cursor:pointer">＋ Créer une catégorie</button></div>';
     }
   });
@@ -46456,7 +46459,7 @@ function rParamsCats() {
         <span style="display:block;font-size:10px;color:var(--t3);margin-top:2px;font-style:italic">Personnalisée · sa ligne 2044 détermine son traitement (loyer / charge / hors 2044).</span>
       </span>
       <select data-cat="${escHtml(nom)}" onchange="_setCustomCatMap(this.getAttribute('data-cat'), this.value)" style="font-size:11px;padding:5px 7px;border-radius:6px;border:1px solid var(--bor);background:#fff;max-width:240px">
-        <option value="">— ligne 2044 à définir —</option>${opts}
+        <option value="">— (non rattachée : à corriger) —</option>${opts}
       </select>
       <div class="flex-c">
         <button class="btn br bb" onclick="delCat(${idx})" title="Supprimer cette catégorie personnalisée">🗑</button>
@@ -46522,7 +46525,13 @@ function _writeCatMap(nom, ln) {
   else { delete DB.catMapping[nom]; delete DB.params.legal2044Mapping[nom]; }
 }
 function _setCustomCatMap(nom, ln) {
+  // M-1 bis : une catégorie ne redevient JAMAIS flottante — pas de « dé-rattachement ».
+  if (!ln) { if (typeof showToast === 'function') showToast('Une catégorie reste toujours rattachée — choisis une ligne, ou « Hors résultat »', 'warn', 4500); if (typeof rParamsCats === 'function') rParamsCats(); return; }
   _writeCatMap(nom, ln);
+  // Cohérence avec les ALIAS M-1 (qui priment dans _finCatMere) : le choix Réglages met
+  // aussi la mère à jour, sinon un alias existant écraserait silencieusement ce choix.
+  const _mere = (ln === '__ignore') ? _stdCategoryByName('Divers (non déductible)') : (typeof _finStdByLigne === 'function' ? _finStdByLigne(ln) : null);
+  if (_mere) { if (!DB.catAlias) DB.catAlias = {}; DB.catAlias[nom] = _mere.nom; }
   saveDB();
   if (typeof rParamsCats === 'function') rParamsCats();
 }
@@ -46541,13 +46550,28 @@ function addCat(){
     showToast(`« ${trimmed} » existe déjà`,'warn');
     return;
   }
-  DB.categories.push(trimmed);
-  // v15.291 « la ligne dit tout » : on suggère la ligne 2044 dès la création (écrite dans les 2 magasins).
-  const _sug = (typeof _finSuggestLigne === 'function') ? _finSuggestLigne(trimmed) : '';
-  if (_sug && typeof _writeCatMap === 'function') _writeCatMap(trimmed, _sug);
+  // M-1 bis (arbitrage Didier 19/08) : AUCUNE catégorie ne naît sans sa famille, et l'app ne
+  // devine RIEN — la création passe par le choix EXPLICITE d'une famille du référentiel.
+  const _e2 = (typeof escHtml === 'function') ? escHtml : (x => x);
+  window._finNewCatNom = trimmed;
+  const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">« <b>' + _e2(trimmed) + '</b> » doit être rattachée à une famille du référentiel — elle en hérite le traitement fiscal <b>et</b> cash-flow. Sans famille, pas de création. Rien n\'est pré-rempli.</div>'
+    + '<select class="inp" id="newcat-mere" style="width:100%">' + _finMereOptionsHtml() + '</select>'
+    + '<div style="margin-top:16px;text-align:right"><button class="btn bp" onclick="_finCreerCatConfirm()">✓ Créer la catégorie</button></div>';
+  if (typeof openDashDrill === 'function') openDashDrill('Créer « ' + _e2(trimmed) + ' »', html);
+}
+// M-1 bis — confirme la création APRÈS le choix de la famille (Réglages).
+function _finCreerCatConfirm() {
+  const nom = window._finNewCatNom || '';
+  const sel = el('newcat-mere');
+  if (!nom) return;
+  if (!sel || !sel.value) { showToast('Choisis la famille — sans famille, pas de création', 'warn', 4000); return; }
+  DB.categories.push(nom);
+  _finRattacheCategorie(nom, sel.value);
+  window._finNewCatNom = '';
   saveDB();
-  rParamsCats();
-  if (typeof showToast === 'function') showToast((_sug && _sug !== '__ignore') ? `« ${trimmed} » créée · ligne ${_sug} suggérée — ajuste si besoin` : `« ${trimmed} » créée · choisis sa ligne 2044`, 'ok');
+  if (typeof closeM === 'function') closeM('ov-dash-drill');
+  if (typeof rParamsCats === 'function') rParamsCats();
+  showToast('« ' + nom + ' » créée · famille : ' + sel.value, 'ok');
 }
 
 // v14.72 BUG #13 — Tombstone des catégories pour résister à la résurrection Drive.
@@ -51380,29 +51404,6 @@ function _finMapping2044() {
   Object.keys((DB.params && DB.params.legal2044Mapping) || {}).forEach(cat => { const l = DB.params.legal2044Mapping[cat]; if (l && l !== '__ignore') add(cat, l); });
   return out;
 }
-// Suggestion (heuristique) de catégorie MÈRE pour une catégorie perso — l'user valide/corrige.
-function _finSuggestMere(nom) {
-  const s = (nom || '').toLowerCase();
-  if (/caution|dépôt|depot|\bdg\b/.test(s)) return 'Dépôt de garantie (reçu / restitué)';
-  if (/capital|échéance|echeance|mensualité|mensualite/.test(s)) return 'Prêt';
-  if (/virement interne|vir\.? interne/.test(s)) return 'Virement interne (non déclarable)';
-  if (/frais banc|tenue de compte|carte banc/.test(s)) return 'Frais bancaires';
-  if (/\bcca\b|apport|associé|associe|distribution/.test(s)) return 'CCA / distribution SCI';
-  if (/acquisition|achat.*bien|notaire/.test(s)) return 'Acquisition / cession de bien';
-  if (/\bnd\b|non.?déduct|non.?deduct/.test(s)) return 'Divers (non déductible)';
-  if (/eau|énergie|energie|électric|electric|gaz|ordures|\btom\b/.test(s)) return 'Charges récupérables (eau, énergie…)';
-  if (/remb|indemnit|sinistre|subvention|anah/.test(s)) return 'Recettes diverses';
-  if (/loyer/.test(s)) return 'Loyers encaissés';
-  if (/intérêt|interet|emprunt/.test(s)) return 'Prêt — Intérêts d\'emprunt';
-  if (/prêt|pret/.test(s)) return 'Prêt';
-  if (/assurance|pno|gli/.test(s)) return 'Primes d\'assurance (PNO, GLI)';
-  if (/taxe|foncièr|foncier|cfe/.test(s)) return 'Taxe foncière (et taxes annexes)';
-  if (/travaux|réno|reno|entretien|réparation|reparation/.test(s)) return 'Travaux (entretien, réparation, amélioration)';
-  if (/gestion|honoraire|syndic|comptable|procédure|procedure/.test(s)) return 'Frais de gestion / honoraires / comptabilité';
-  if (/copro/.test(s)) return 'Charges de copropriété';
-  if (/charge/.test(s)) return 'Charges récupérables (eau, énergie…)';
-  return '';
-}
 // Catégories présentes dans les mouvements et rattachées à AUCUNE mère (→ à traiter, bloquant).
 function _finUnmappedCats() {
   const seen = {};
@@ -51419,34 +51420,46 @@ function _finOpenCatMapping() {
   const _e = (typeof escHtml === 'function') ? escHtml : (x => x); // échappe " → clé data-cat correcte + pas d'injection
   const unmapped = _finUnmappedCats();
   if (!unmapped.length) { if (typeof showToast === 'function') showToast('Toutes tes catégories sont déjà rattachées ✓', 'ok'); return; }
-  const opts = (sug) => (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : [])
-    .map(c => '<option value="' + _e(c.nom) + '"' + (c.nom === sug ? ' selected' : '') + '>' + _e(c.nom) + (c.ligne2044 ? ' (2044 · ' + c.ligne2044 + ')' : ' (hors 2044)') + '</option>').join('');
+  // M-1 bis : AUCUNE suggestion pré-cochée — « l'app ne devine rien », le choix est explicite.
   const rows = unmapped.map((c, i) => {
-    const sug = _finSuggestMere(c.nom);
     return '<tr><td style="text-align:left;padding:6px 8px">' + _e(c.nom) + ' <span style="color:var(--t3);font-size:11px">(' + c.count + ' mvt' + (c.count > 1 ? 's' : '') + ')</span></td>'
-      + '<td style="padding:6px 8px"><select class="inp" id="catmap-' + i + '" data-cat="' + _e(c.nom) + '" style="width:100%"><option value="">— choisir —</option>' + opts(sug) + '</select></td></tr>';
+      + '<td style="padding:6px 8px"><select class="inp" id="catmap-' + i + '" data-cat="' + _e(c.nom) + '" style="width:100%">' + _finMereOptionsHtml() + '</select></td></tr>';
   }).join('');
-  const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Chaque catégorie doit être rattachée à l\'une des <b>' + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES.length : 23) + ' catégories du référentiel</b> — elle en hérite le traitement fiscal <b>et</b> cash-flow. Le nom que tu as choisi reste affiché partout. Les suggestions sont pré-remplies — <b>vérifie-les</b>, rien n\'est appliqué sans ta validation.</div>'
+  const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Chaque catégorie doit être rattachée à l\'une des <b>' + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES.length : 23) + ' catégories du référentiel</b> — elle en hérite le traitement fiscal <b>et</b> cash-flow. Le nom que tu as choisi reste affiché partout. Rien n\'est pré-rempli : le choix est le tien, toujours explicite.</div>'
     + '<div style="overflow-x:auto"><table class="pl" style="width:100%"><thead><tr><th style="text-align:left">Ta catégorie</th><th style="text-align:left">Catégorie du référentiel</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
     + '<div style="margin-top:16px;text-align:right"><button class="btn bp" onclick="_finSaveCatMapping()">✓ Rattacher ces catégories</button></div>';
   if (typeof openDashDrill === 'function') openDashDrill('Rattacher tes catégories au référentiel', html);
 }
-// Persiste les alias choisis + recalcule Finances. Miroir vers les magasins 2044 legacy
+// M-1 bis — LE geste de rattachement, unique : alias + miroir vers les magasins 2044 legacy
 // (catMapping / legal2044Mapping) pour les lecteurs historiques (_catLigne2044, wizard).
+function _finRattacheCategorie(nom, mereNom) {
+  const mere = _stdCategoryByName(mereNom);
+  if (!nom || !mere) return false;
+  if (!DB.catAlias) DB.catAlias = {};
+  DB.catAlias[nom] = mere.nom;
+  if (!DB.catMapping) DB.catMapping = {};
+  if (!DB.params) DB.params = {};
+  if (!DB.params.legal2044Mapping || typeof DB.params.legal2044Mapping !== 'object') DB.params.legal2044Mapping = {};
+  if (mere.ligne2044) { DB.catMapping[nom] = mere.ligne2044; DB.params.legal2044Mapping[nom] = mere.ligne2044; }
+  else { DB.catMapping[nom] = '__ignore'; DB.params.legal2044Mapping[nom] = '__ignore'; }
+  return true;
+}
+// Options du sélecteur de famille — M-1 bis : AUCUNE pré-sélection (« l'app ne devine rien »).
+function _finMereOptionsHtml() {
+  const _e = (typeof escHtml === 'function') ? escHtml : (x => x);
+  return '<option value="">— choisir la famille —</option>'
+    + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : [])
+      .map(c => '<option value="' + _e(c.nom) + '">' + _e(c.nom) + (c.ligne2044 ? ' (2044 · ' + c.ligne2044 + ')' : ' (hors 2044)') + '</option>').join('');
+}
+// Persiste les alias choisis + recalcule Finances (le miroir passe par _finRattacheCategorie).
 function _finSaveCatMapping() {
   if (!DB.catAlias) DB.catAlias = {};
   let manque = 0;
   document.querySelectorAll('[id^="catmap-"]').forEach(sel => {
     const cat = sel.getAttribute('data-cat');
     if (!cat) return;
-    if (!sel.value) { manque++; return; }               // M-1 : rattachement OBLIGATOIRE, pas de trou
-    DB.catAlias[cat] = sel.value;
-    const mere = _stdCategoryByName(sel.value);
-    if (!DB.catMapping) DB.catMapping = {};
-    if (!DB.params) DB.params = {};
-    if (!DB.params.legal2044Mapping || typeof DB.params.legal2044Mapping !== 'object') DB.params.legal2044Mapping = {};
-    if (mere && mere.ligne2044) { DB.catMapping[cat] = mere.ligne2044; DB.params.legal2044Mapping[cat] = mere.ligne2044; }
-    else { DB.catMapping[cat] = '__ignore'; DB.params.legal2044Mapping[cat] = '__ignore'; }
+    if (!sel.value) { manque++; return; }               // M-1 bis : rattachement OBLIGATOIRE, pas de trou
+    _finRattacheCategorie(cat, sel.value);
   });
   if (manque) { if (typeof showToast === 'function') showToast(manque + ' catégorie' + (manque > 1 ? 's' : '') + ' sans rattachement — choisis une catégorie mère pour chacune', 'warn', 5000); return; }
   if (typeof saveDB === 'function') saveDB();
@@ -51463,11 +51476,6 @@ function _ligne2044Type(l) {
   if (l === '250') return 'interet';
   if (l === '230') return 'deduction';
   return 'charge';
-}
-function _finSuggestLigne(nom) {
-  const mere = _finSuggestMere(nom) ? _stdCategoryByName(_finSuggestMere(nom)) : null;
-  if (!mere) return '';
-  return mere.ligne2044 || '__ignore';
 }
 const _FIN_2044_OPTIONS = [
   ['211', '211 · Loyers encaissés'], ['213', '213 · Recettes diverses (subv./indemnités/GLI reçue)'],
