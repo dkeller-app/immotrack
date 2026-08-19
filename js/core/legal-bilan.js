@@ -47,15 +47,19 @@ export function _computeBilanAnnuel(db, stdCategories, entityNom, year, opts) {
     .filter(b => isAlive(b) && b.entity === entityNom && (b.fin >= from && b.fin <= to));
 
   // Calcul fiscal 2044 pour l'entité (filtre via STD_CATEGORIES)
+  // M-2 (CDC FINANCES §3) : le mapping des catégories perso est ENFIN passé au bilan — sans
+  // lui, une charge de catégorie maison comptait dans le tableau et disparaissait du détail
+  // par logement (le total ne pouvait pas égaler la somme des logements).
+  const mapping = (opts && opts.mapping) || null;
   const fiscal = _compute2044(db.mouvements || [], stdCategories, {
-    from, to, entityNom, refs
+    from, to, entityNom, refs, mapping
   });
 
   // KPIs métier par logement
   const parLogement = logements.map(l => {
     const lRefs = [l.ref];
     const lFiscal = _compute2044(db.mouvements || [], stdCategories, {
-      from, to, entityNom, refs: lRefs
+      from, to, entityNom, refs: lRefs, mapping
     });
     // Détecter période de vacance (bail courant + historiques de cette année)
     const bailCourant = (db.baux && db.baux[l.ref] && isAlive(db.baux[l.ref])) ? db.baux[l.ref] : null;

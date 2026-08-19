@@ -4250,6 +4250,9 @@ function _catLigne2044(cat) {
   if (!cat) return null;
   const std = _stdCategoryByName(cat);
   if (std) return std.ligne2044 || null;
+  // M-1 : les ALIAS (catAlias {nom: mère}) priment — puis les 2 magasins legacy.
+  const al = (DB.catAlias || {})[cat];
+  if (al && typeof _stdCategoryByName === 'function') { const mere = _stdCategoryByName(al); if (mere) return mere.ligne2044 || null; }
   const m = (DB.catMapping || {})[cat] || ((DB.params && DB.params.legal2044Mapping) || {})[cat] || null;
   return (m === '__ignore') ? null : m; // '__ignore' = hors 2044 (cohérent avec _finCatLigne)
 }
@@ -4267,6 +4270,9 @@ function _isChargeRecupCategory(cat) {
   // récup jamais refacturées). Source unifiée avec js/core/utils.js + tests charges.test.js.
   const std = _stdCategoryByName(cat);
   if (std && std.recup) return true;
+  // M-1 : un ALIAS d'une catégorie récupérable hérite du flag de sa mère.
+  const al = (DB.catAlias || {})[cat];
+  if (al) { const mere = _stdCategoryByName(al); if (mere && mere.recup) return true; }
   // 229 Provisions copro + 230 Régul N-1 = charges récupérables refacturables.
   // 225 = part bailleur (non refacturable) → exclu. 224/221/223 = charges propriétaire → exclu.
   const ln = _catLigne2044(cat);
@@ -51293,55 +51299,152 @@ function _finScopeWeight(scope, m) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Correspondance catégories perso → ligne 2044 (interim, en attendant l'éditeur
-// unifié de la session V3-REFONTE-LOYERS). Stockée dans DB.catMapping {nom: ligne}.
-// Permet à Finances de fonctionner sur des données aux catégories non standard.
-// Règle : suggestion auto VALIDÉE par l'user, jamais d'auto-mapping silencieux.
+// M-1 (CDC FINANCES §3) — PLUS AUCUNE CATÉGORIE « NON CLASSÉE » POSSIBLE.
+// Toute catégorie perso est un ALIAS d'une des 23 catégories mères du référentiel
+// STD_CATEGORIES. Rattachement à une CATÉGORIE, pas à une ligne 2044 : c'est ce qui rend
+// exprimables les 10 catégories hors-2044 (Prêt, dépôt de garantie, virement interne, CCA,
+// acquisition, construction, frais bancaires, charges récupérables, acompte de départ,
+// divers non déductible). L'alias hérite du traitement fiscal ET cash-flow de sa mère.
+// Stock : DB.catAlias { nomPerso: nomMère }. L'ancien DB.catMapping {nom: ligne2044} est
+// MIGRÉ une fois (_finMigrateCatAlias) et encore lu en repli (vieux snapshot cloud).
 // ════════════════════════════════════════════════════════════════════════════
+function _finStdByLigne(ligne) {
+  return (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : []).find(c => c && c.ligne2044 === ligne) || null;
+}
+// LA catégorie MÈRE d'un nom de catégorie (STD elle-même, ou la mère de l'alias). null = non rattachée.
+function _finCatMere(catNom) {
+  if (!catNom) return null;
+  const std = _stdCategoryByName(catNom);
+  if (std) return std;                                  // STD = figée, un alias ne peut pas la remapper
+  const alias = (DB.catAlias || {})[catNom];
+  if (alias) { const mere = _stdCategoryByName(alias); if (mere) return mere; }
+  const m = (DB.catMapping || {})[catNom];              // repli legacy {nom: ligne}
+  if (m === '__ignore') return _stdCategoryByName('Divers (non déductible)');
+  if (m) { const mere = _finStdByLigne(m); if (mere) return mere; }
+  return null;
+}
+// Migration one-shot : catMapping {nom: ligne2044|'__ignore'} → catAlias {nom: mère}.
+// Idempotente, silencieuse (les valeurs avaient déjà été VALIDÉES par l'utilisateur —
+// même sémantique, exprimée sur la mère au lieu de la ligne).
+function _finMigrateCatAlias() {
+  const src = DB.catMapping || {};
+  let n = 0;
+  Object.keys(src).forEach(cat => {
+    if ((DB.catAlias || {})[cat]) return;
+    const mere = (src[cat] === '__ignore') ? _stdCategoryByName('Divers (non déductible)') : _finStdByLigne(src[cat]);
+    if (!mere) return;
+    if (!DB.catAlias) DB.catAlias = {};
+    DB.catAlias[cat] = mere.nom; n++;
+  });
+  if (n && typeof saveDB === 'function') saveDB();
+  return n;
+}
+// Résout {ligne2044, type} pour une catégorie — via la MÈRE, source unique. Une mère
+// 'special' (ligne vide : capital de prêt, DG, virement interne…) reste HORS résultat
+// foncier, mais la catégorie est bien CLASSÉE (échéance/récupérable/gestion via ses flags).
+function _finCatLigne(catNom) {
+  const mere = _finCatMere(catNom);
+  if (!mere) return null;
+  return mere.ligne2044 ? { ligne2044: mere.ligne2044, type: mere.type } : null;
+}
+// M-2 — mapping {catégorie non-STD → ligne 2044} dérivé des alias, pour _compute2044
+// (prévisualisation Z-1 ET bilan annuel : les DEUX reçoivent enfin le même mapping).
+function _finMapping2044() {
+  const out = {};
+  const add = (cat, ligne) => { if (cat && ligne && !_stdCategoryByName(cat) && !(cat in out)) out[cat] = ligne; };
+  Object.keys(DB.catAlias || {}).forEach(cat => { const mere = _stdCategoryByName(DB.catAlias[cat]); if (mere && mere.ligne2044) add(cat, mere.ligne2044); });
+  Object.keys(DB.catMapping || {}).forEach(cat => { const l = DB.catMapping[cat]; if (l && l !== '__ignore') add(cat, l); });
+  Object.keys((DB.params && DB.params.legal2044Mapping) || {}).forEach(cat => { const l = DB.params.legal2044Mapping[cat]; if (l && l !== '__ignore') add(cat, l); });
+  return out;
+}
+// Suggestion (heuristique) de catégorie MÈRE pour une catégorie perso — l'user valide/corrige.
+function _finSuggestMere(nom) {
+  const s = (nom || '').toLowerCase();
+  if (/caution|dépôt|depot|\bdg\b/.test(s)) return 'Dépôt de garantie (reçu / restitué)';
+  if (/capital|échéance|echeance|mensualité|mensualite/.test(s)) return 'Prêt';
+  if (/virement interne|vir\.? interne/.test(s)) return 'Virement interne (non déclarable)';
+  if (/frais banc|tenue de compte|carte banc/.test(s)) return 'Frais bancaires';
+  if (/\bcca\b|apport|associé|associe|distribution/.test(s)) return 'CCA / distribution SCI';
+  if (/acquisition|achat.*bien|notaire/.test(s)) return 'Acquisition / cession de bien';
+  if (/\bnd\b|non.?déduct|non.?deduct/.test(s)) return 'Divers (non déductible)';
+  if (/eau|énergie|energie|électric|electric|gaz|ordures|\btom\b/.test(s)) return 'Charges récupérables (eau, énergie…)';
+  if (/remb|indemnit|sinistre|subvention|anah/.test(s)) return 'Recettes diverses';
+  if (/loyer/.test(s)) return 'Loyers encaissés';
+  if (/intérêt|interet|emprunt/.test(s)) return 'Prêt — Intérêts d\'emprunt';
+  if (/prêt|pret/.test(s)) return 'Prêt';
+  if (/assurance|pno|gli/.test(s)) return 'Primes d\'assurance (PNO, GLI)';
+  if (/taxe|foncièr|foncier|cfe/.test(s)) return 'Taxe foncière (et taxes annexes)';
+  if (/travaux|réno|reno|entretien|réparation|reparation/.test(s)) return 'Travaux (entretien, réparation, amélioration)';
+  if (/gestion|honoraire|syndic|comptable|procédure|procedure/.test(s)) return 'Frais de gestion / honoraires / comptabilité';
+  if (/copro/.test(s)) return 'Charges de copropriété';
+  if (/charge/.test(s)) return 'Charges récupérables (eau, énergie…)';
+  return '';
+}
+// Catégories présentes dans les mouvements et rattachées à AUCUNE mère (→ à traiter, bloquant).
+function _finUnmappedCats() {
+  const seen = {};
+  (DB.mouvements || []).forEach(m => {
+    if (!m || m._deleted || !m.cat) return;
+    if (_finCatMere(m.cat)) return;                     // STD, alias, ou legacy mappée
+    seen[m.cat] = (seen[m.cat] || 0) + 1;
+  });
+  return Object.keys(seen).map(c => ({ nom: c, count: seen[c] })).sort((a, b) => b.count - a.count);
+}
+// Ouvre le rattachement OBLIGATOIRE (modal drill réutilisé). M-1 : bloquant — tant que des
+// catégories flottent, des montants déjà saisis restent invisibles du compte de résultat.
+function _finOpenCatMapping() {
+  const _e = (typeof escHtml === 'function') ? escHtml : (x => x); // échappe " → clé data-cat correcte + pas d'injection
+  const unmapped = _finUnmappedCats();
+  if (!unmapped.length) { if (typeof showToast === 'function') showToast('Toutes tes catégories sont déjà rattachées ✓', 'ok'); return; }
+  const opts = (sug) => (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES : [])
+    .map(c => '<option value="' + _e(c.nom) + '"' + (c.nom === sug ? ' selected' : '') + '>' + _e(c.nom) + (c.ligne2044 ? ' (2044 · ' + c.ligne2044 + ')' : ' (hors 2044)') + '</option>').join('');
+  const rows = unmapped.map((c, i) => {
+    const sug = _finSuggestMere(c.nom);
+    return '<tr><td style="text-align:left;padding:6px 8px">' + _e(c.nom) + ' <span style="color:var(--t3);font-size:11px">(' + c.count + ' mvt' + (c.count > 1 ? 's' : '') + ')</span></td>'
+      + '<td style="padding:6px 8px"><select class="inp" id="catmap-' + i + '" data-cat="' + _e(c.nom) + '" style="width:100%"><option value="">— choisir —</option>' + opts(sug) + '</select></td></tr>';
+  }).join('');
+  const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Chaque catégorie doit être rattachée à l\'une des <b>' + (typeof STD_CATEGORIES !== 'undefined' ? STD_CATEGORIES.length : 23) + ' catégories du référentiel</b> — elle en hérite le traitement fiscal <b>et</b> cash-flow. Le nom que tu as choisi reste affiché partout. Les suggestions sont pré-remplies — <b>vérifie-les</b>, rien n\'est appliqué sans ta validation.</div>'
+    + '<div style="overflow-x:auto"><table class="pl" style="width:100%"><thead><tr><th style="text-align:left">Ta catégorie</th><th style="text-align:left">Catégorie du référentiel</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '<div style="margin-top:16px;text-align:right"><button class="btn bp" onclick="_finSaveCatMapping()">✓ Rattacher ces catégories</button></div>';
+  if (typeof openDashDrill === 'function') openDashDrill('Rattacher tes catégories au référentiel', html);
+}
+// Persiste les alias choisis + recalcule Finances. Miroir vers les magasins 2044 legacy
+// (catMapping / legal2044Mapping) pour les lecteurs historiques (_catLigne2044, wizard).
+function _finSaveCatMapping() {
+  if (!DB.catAlias) DB.catAlias = {};
+  let manque = 0;
+  document.querySelectorAll('[id^="catmap-"]').forEach(sel => {
+    const cat = sel.getAttribute('data-cat');
+    if (!cat) return;
+    if (!sel.value) { manque++; return; }               // M-1 : rattachement OBLIGATOIRE, pas de trou
+    DB.catAlias[cat] = sel.value;
+    const mere = _stdCategoryByName(sel.value);
+    if (!DB.catMapping) DB.catMapping = {};
+    if (!DB.params) DB.params = {};
+    if (!DB.params.legal2044Mapping || typeof DB.params.legal2044Mapping !== 'object') DB.params.legal2044Mapping = {};
+    if (mere && mere.ligne2044) { DB.catMapping[cat] = mere.ligne2044; DB.params.legal2044Mapping[cat] = mere.ligne2044; }
+    else { DB.catMapping[cat] = '__ignore'; DB.params.legal2044Mapping[cat] = '__ignore'; }
+  });
+  if (manque) { if (typeof showToast === 'function') showToast(manque + ' catégorie' + (manque > 1 ? 's' : '') + ' sans rattachement — choisis une catégorie mère pour chacune', 'warn', 5000); return; }
+  if (typeof saveDB === 'function') saveDB();
+  if (typeof closeM === 'function') closeM('ov-dash-drill');
+  if (typeof rFinances === 'function') rFinances();
+  if (typeof showToast === 'function') showToast('Catégories rattachées ✓ — Finances recalculé', 'ok');
+}
+// ── LEGACY (Réglages « catégories » + picker de création) — l'éditeur historique raisonne
+// encore en ligne 2044 ; ses écritures (_writeCatMap → catMapping/legal2044Mapping) sont
+// résolues par _finCatMere en repli, donc restent des rattachements valides. À unifier sur
+// les alias quand l'éditeur de catégories sera refondu (hors périmètre étape 2).
 function _ligne2044Type(l) {
   if (l === '211' || l === '213') return 'recette';
   if (l === '250') return 'interet';
   if (l === '230') return 'deduction';
   return 'charge';
 }
-// Résout {ligne2044, type} pour une catégorie : STD d'abord, sinon mapping user.
-function _finCatLigne(catNom) {
-  const std = _stdCategoryByName(catNom);
-  // Catégorie STD = mapping FIGÉ. type:'special' (ligne2044 vide, ex. capital prêt, DG,
-  // virement interne, construction non déd., régul de solde…) = TOUJOURS hors résultat
-  // foncier : un catMapping utilisateur ne peut PAS la remapper sur une ligne, sinon
-  // double-compte (B1 / coordination maître : special PRIME sur catMapping).
-  if (std) return std.ligne2044 ? { ligne2044: std.ligne2044, type: std.type } : null;
-  const m = (DB.catMapping || {})[catNom];
-  if (m && m !== '__ignore') return { ligne2044: m, type: _ligne2044Type(m) };
-  return null; // non mappée ou explicitement ignorée → hors résultat
-}
-// Suggestion (heuristique) de ligne 2044 pour une catégorie perso — l'user valide/corrige.
 function _finSuggestLigne(nom) {
-  const s = (nom || '').toLowerCase();
-  if (/caution|dépôt|depot|\bdg\b|capital/.test(s)) return '__ignore';
-  if (/\bnd\b|non.?déduct|non.?deduct/.test(s)) return '__ignore';
-  if (/remb|indemnit|sinistre|subvention|anah/.test(s)) return '213';
-  if (/loyer/.test(s)) return '211';
-  if (/prêt|pret|intérêt|interet|emprunt/.test(s)) return '250';
-  if (/assurance|pno/.test(s)) return '223';
-  if (/taxe|foncièr|foncier/.test(s)) return '227';
-  if (/travaux|réno|reno|entretien|réparation|reparation/.test(s)) return '224';
-  if (/gestion|honoraire|syndic|comptable|procédure|procedure/.test(s)) return '221';
-  if (/charge/.test(s)) return '229';
-  if (/divers/.test(s)) return '213';
-  return '';
-}
-// Catégories présentes dans les mouvements, ni standard, ni déjà mappées (→ à traiter).
-function _finUnmappedCats() {
-  const seen = {};
-  (DB.mouvements || []).forEach(m => {
-    if (!m || m._deleted || !m.cat) return;
-    if (_stdCategoryByName(m.cat)) return;            // déjà standard
-    if ((DB.catMapping || {})[m.cat]) return;          // déjà mappée (y compris __ignore)
-    seen[m.cat] = (seen[m.cat] || 0) + 1;
-  });
-  return Object.keys(seen).map(c => ({ nom: c, count: seen[c] })).sort((a, b) => b.count - a.count);
+  const mere = _finSuggestMere(nom) ? _stdCategoryByName(_finSuggestMere(nom)) : null;
+  if (!mere) return '';
+  return mere.ligne2044 || '__ignore';
 }
 const _FIN_2044_OPTIONS = [
   ['211', '211 · Loyers encaissés'], ['213', '213 · Recettes diverses (subv./indemnités/GLI reçue)'],
@@ -51351,34 +51454,6 @@ const _FIN_2044_OPTIONS = [
   ['229', '229 · Provisions copropriété (récupérable)'], ['230', '230 · Régul copro N-1 (déduction)'],
   ['250', '250 · Intérêts d\'emprunt'], ['__ignore', '— Hors résultat (caution, capital, non déductible…)']
 ];
-// Ouvre l'éditeur de correspondance (modal drill réutilisé).
-function _finOpenCatMapping() {
-  const _e = (typeof escHtml === 'function') ? escHtml : (x => x); // escHtml échappe " → clé data-cat correcte au relire + pas d'injection
-  const unmapped = _finUnmappedCats();
-  if (!unmapped.length) { if (typeof showToast === 'function') showToast('Toutes tes catégories sont déjà reliées ✓', 'ok'); return; }
-  const rows = unmapped.map((c, i) => {
-    const sug = _finSuggestLigne(c.nom);
-    const opts = _FIN_2044_OPTIONS.map(o => '<option value="' + o[0] + '"' + (o[0] === sug ? ' selected' : '') + '>' + o[1] + '</option>').join('');
-    return '<tr><td style="text-align:left;padding:6px 8px">' + _e(c.nom) + ' <span style="color:var(--t3);font-size:11px">(' + c.count + ' mvt' + (c.count > 1 ? 's' : '') + ')</span></td>'
-      + '<td style="padding:6px 8px"><select class="inp" id="catmap-' + i + '" data-cat="' + _e(c.nom) + '" style="width:100%">' + opts + '</select></td></tr>';
-  }).join('');
-  const html = '<div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.5">Associe chaque catégorie à sa <b>ligne fiscale 2044</b>. Les suggestions sont pré-remplies — <b>vérifie-les</b>, rien n\'est appliqué sans ta validation. Tu pourras corriger plus tard.</div>'
-    + '<div style="overflow-x:auto"><table class="pl" style="width:100%"><thead><tr><th style="text-align:left">Ta catégorie</th><th style="text-align:left">Ligne fiscale 2044</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-    + '<div style="margin-top:16px;text-align:right"><button class="btn bp" onclick="_finSaveCatMapping()">✓ Enregistrer la correspondance</button></div>';
-  if (typeof openDashDrill === 'function') openDashDrill('Associer mes catégories aux lignes fiscales', html);
-}
-// Persiste le mapping choisi + recalcule Finances.
-function _finSaveCatMapping() {
-  if (!DB.catMapping) DB.catMapping = {};
-  document.querySelectorAll('[id^="catmap-"]').forEach(sel => {
-    const cat = sel.getAttribute('data-cat');
-    if (cat) DB.catMapping[cat] = sel.value; // y compris '__ignore' (décision prise)
-  });
-  if (typeof saveDB === 'function') saveDB();
-  if (typeof closeM === 'function') closeM('ov-dash-drill');
-  if (typeof rFinances === 'function') rFinances();
-  if (typeof showToast === 'function') showToast('Catégories associées ✓ — Finances recalculé', 'ok');
-}
 
 
 // ---- C3: Ratio card renderer ----
@@ -51465,15 +51540,19 @@ function rFinances() {
     + '</div>'
     + '</div>';
 
-  // Catégories non reliées à une ligne 2044 → non comptées tant que non mappées (M-1 à l'étape 6).
+  // M-1 : le bandeau « N catégories non reliées » est SUPPRIMÉ — l'état qu'il signalait devient
+  // impossible : migration one-shot du legacy, puis rattachement BLOQUANT (le modal se rouvre
+  // tant qu'une catégorie flotte : des montants déjà saisis resteraient invisibles sinon).
+  _finMigrateCatAlias();
   const _unmapped = _finUnmappedCats();
-  const _mapBanner = _unmapped.length
-    ? '<div class="note" style="margin-bottom:12px;border-left:3px solid var(--warn);background:var(--sur2);padding:10px 12px;border-radius:8px">'
-      + '⚠️ <b>' + _unmapped.length + ' catégorie' + (_unmapped.length > 1 ? 's' : '') + '</b> de tes mouvements '
-      + (_unmapped.length > 1 ? 'ne sont pas reliées' : 'n\'est pas reliée') + ' à une ligne fiscale → '
-      + (_unmapped.length > 1 ? 'non comptées' : 'non comptée') + ' dans le compte de résultat. '
-      + '<span class="lnk" onclick="_finOpenCatMapping()" style="cursor:pointer;text-decoration:underline;color:var(--acc);font-weight:600">Associer mes catégories →</span></div>'
-    : '';
+  const _mapBanner = '';
+  if (_unmapped.length) {
+    const _sigCats = _unmapped.map(c => c.nom).join('|');
+    if (window._finCatModalSig !== _sigCats) {
+      window._finCatModalSig = _sigCats;
+      setTimeout(() => { try { _finOpenCatMapping(); } catch (e) {} }, 0);
+    }
+  } else window._finCatModalSig = '';
 
   // ── F-e1 · ÉTATS VIDES — fenêtre vide ⇒ on N'APPELLE PAS le moteur (janvier fantôme sinon) ──
   if (!W || W.constat.empty) {
@@ -51717,9 +51796,11 @@ function _finMonthly(yr, scope, win) {
     catLigne: _finCatLigne,
     loyerDue: _finBailHcChAt,                   // dû {hc,ch} proraté du mois → cascade CUMULATIVE dans le module (arriérés avant avance, user 2026-07-09)
     activeLots: _finActiveLotsInScope(yr, scope), // lots à bail actif sans mouvement → retard « zéro paiement » visible (user 2026-07-12)
-    isEcheance: m => !!m && m.cat === 'Prêt',   // « 1 ligne = mensualité entière » (convention user)
-    isGestionCharge: m => { const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(m && m.cat) : null; return !!(sc && sc.gestionCharge); }, // CFE/taxe vacance (réel mais hors 2044)
-    isRecupCharge: m => { const sc = (typeof _stdCategoryByName === 'function') ? _stdCategoryByName(m && m.cat) : null; return !!(sc && sc.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
+    // M-1 : les résolveurs passent par la catégorie MÈRE — un alias de « Prêt » est une
+    // échéance, un alias de « Charges récupérables » un transit, etc. (héritage cash-flow).
+    isEcheance: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.nom === 'Prêt'); },   // « 1 ligne = mensualité entière » (convention user)
+    isGestionCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.gestionCharge); }, // CFE/taxe vacance (réel mais hors 2044)
+    isRecupCharge: m => { const mere = _finCatMere(m && m.cat); return !!(mere && mere.recup); }, // charges récupérables directes (eau/énergie) : transit locataire
     isRecupACharge: _finIsRecupACharge,         // L-5 : vacance / sans bail / non récupérable → « Resté à ta charge » (225)
     window: isWin ? win : undefined,
     lastMonth: isWin ? undefined : win
@@ -52140,7 +52221,7 @@ function _finDrillLigne(kind, yr, mo) {
     if (mo && parseInt(m.date.slice(5, 7), 10) !== mo) return;   // #6 : borne au mois cliqué
     const _w = _finScopeWeight(scope, m); if (!_w) return; // poids SCI réparti en vue immeuble
     const r = _finCatLigne(m.cat);
-    const _sc = _stdCategoryByName(m.cat);
+    const _sc = _finCatMere(m.cat);            // M-1 : flags hérités de la mère (alias compris)
     let montant;
     if (def.rec) {                                   // loyers 211 (encaissé CC)
       if (!r || r.type !== 'recette' || r.ligne2044 !== '211') return;
@@ -52161,7 +52242,7 @@ function _finDrillLigne(kind, yr, mo) {
         ? (_isRecupMv && !_finIsRecupACharge(m))                                          // L-5 : la part restée à charge est EXCLUE du transit
         : (kind === 'recupACharge')
         ? (_isRecupMv && _finIsRecupACharge(m))
-        : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && m.cat === 'Prêt')
+        : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
            || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));                // L-5 : « Autres » inclut le resté-à-charge (total = ligne)
       if (!ok) return;
       // v15.398 (BUG-PRET-REMBOURSEMENT) : crédits/ristournes inclus → drill = total ligne P&L (db−cr).
@@ -52195,11 +52276,11 @@ function _finDrillLigne(kind, yr, mo) {
       if (def.rec) { if (!r || r.type !== 'recette' || r.ligne2044 !== '211') return; t += ((Number(m.cr) || 0) - (Number(m.db) || 0)) * _w; }
       else {
         if (!((m.db || 0) > 0) && !((m.cr || 0) > 0)) return;
-        const _sc = _stdCategoryByName(m.cat);
+        const _sc = _finCatMere(m.cat);        // M-1 : flags hérités de la mère (alias compris)
         const _isRecupMv = ((r && (r.ligne2044 === '229' || r.ligne2044 === '230')) || (_sc && _sc.recup));
         const ok = (kind === 'recup') ? (_isRecupMv && !_finIsRecupACharge(m))
           : (kind === 'recupACharge') ? (_isRecupMv && _finIsRecupACharge(m))
-          : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && m.cat === 'Prêt')
+          : ((r && def.test(r)) || (kind === 'gestionHF' && _sc && _sc.gestionCharge) || (kind === 'pret' && _sc && _sc.nom === 'Prêt')
              || (kind === 'autres' && _isRecupMv && _finIsRecupACharge(m)));
         if (!ok) return; // parité avec la boucle rows (CFE/TLV/pret/L-5)
         t += ((Number(m.db) || 0) - (Number(m.cr) || 0)) * _w;
@@ -53396,7 +53477,10 @@ function _legal2044BuildOpts(yrArg, entArg) {
   } catch (e) { console.warn('[_legal2044BuildOpts] partBailleur', e); }
   partBailleur225 = Math.round(partBailleur225 * 100) / 100;
 
-  return { yr, from, to, entityNom, refs, imms, nbLocaux, partBailleur225, exclus: _split.exclus, flagues: _split.flagues };
+  // M-2 / Z-2 : mapping des catégories perso (alias M-1 + magasins legacy) → la prévisualisation
+  // 2044 de Finances honore les rattachements utilisateur, comme le wizard.
+  const mapping = (typeof _finMapping2044 === 'function') ? _finMapping2044() : null;
+  return { yr, from, to, entityNom, refs, imms, nbLocaux, partBailleur225, mapping, exclus: _split.exclus, flagues: _split.flagues };
 }
 function openLegal2044() {
   if (typeof window._compute2044 !== 'function') {
@@ -53602,7 +53686,7 @@ function openBilanAnnuel() {
   const yr = v('bilan-year') || String(new Date().getFullYear() - 1);
   const entNom = v('bilan-ent');
   if (!entNom) { showToast('Sélectionnez une entité', 'warn'); return; }
-  const bilan = window._computeBilanAnnuel(DB, STD_CATEGORIES, entNom, yr);
+  const bilan = window._computeBilanAnnuel(DB, STD_CATEGORIES, entNom, yr, { mapping: (typeof _finMapping2044 === 'function') ? _finMapping2044() : null });   // M-2 : le mapping passe ENFIN au bilan
   if (!bilan) { showToast('Entité introuvable ou bilan vide', 'err'); return; }
   const txt = window._formatBilanTexte(bilan);
   const out = el('bilan-result');

@@ -296,3 +296,32 @@ describe('étape 2 · tranche 4 — ratios sous le socle (R-2 compteur, R-4 occu
     expect(r.vacantsJour.find(v => v.ref === 'VIDE').depuis).toBe('2026-03-31');
   });
 });
+
+describe('étape 2 · tranche 6 — catégories (M-2 : le mapping passe au bilan)', () => {
+  it('une charge de catégorie MAISON mappée compte dans le total ET dans le détail par logement', async () => {
+    const { _computeBilanAnnuel } = await import('../js/core/legal-bilan.js');
+    const STD = [
+      { nom: 'Loyers encaissés', ligne2044: '211', type: 'recette' },
+      { nom: 'Travaux (entretien, réparation, amélioration)', ligne2044: '224', type: 'charge' }
+    ];
+    const db = {
+      entites: [{ id: 1, nom: 'SCI T' }],
+      logements: [{ id: 11, ref: 'X-1', entity: 'SCI T', imm: 'A', locataire: 'M' }],
+      baux: { 'X-1': { ref: 'X-1', entity: 'SCI T', debut: '2025-01-01', hc: 800 } },
+      baux_historique: [],
+      mouvements: [
+        { id: 1, date: '2025-02-10', cat: 'Loyers encaissés', cr: 800, qui: 'X-1' },
+        { id: 2, date: '2025-05-10', cat: 'Ma plomberie perso', db: 300, qui: 'X-1' }   // catégorie maison
+      ]
+    };
+    const sans = _computeBilanAnnuel(db, STD, 'SCI T', 2025);
+    const avec = _computeBilanAnnuel(db, STD, 'SCI T', 2025, { mapping: { 'Ma plomberie perso': '224' } });
+    // Constat M-2 (avant correctif) : la charge maison disparaissait du détail par logement.
+    expect(sans.parLogement[0].charges).toBe(0);
+    expect(avec.parLogement[0].charges).toBe(300);
+    expect(avec.kpis.totalCharges).toBe(300);
+    // Le total égale ENFIN la somme des logements.
+    const somme = avec.parLogement.reduce((s, l) => s + l.charges, 0);
+    expect(avec.kpis.totalCharges).toBe(somme);
+  });
+});
