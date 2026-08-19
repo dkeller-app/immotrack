@@ -1,8 +1,8 @@
-# Propryo — Business plan (août 2026)
+# Propryo — Business plan (v2, 19 août 2026)
 
-> **Objet** : démontrer l'ambition du projet, sa faisabilité et son potentiel concret.
-> **Remplace** [BIZPLAN.md](BIZPLAN.md) (avril 2026, sous le nom « ImmoTrack ») — périmé sur le nom, l'architecture, les différenciants et la roadmap.
-> **Annexes** : [CARTE_POSITIONNEMENT.md](CARTE_POSITIONNEMENT.md) (concurrence détaillée, avril 2026 — prix à re-vérifier avant publication de la page Tarifs) · [MISE-EN-PROD.md](MISE-EN-PROD.md) (décisions et étapes d'exécution, figées 19/08) · [PROJECTIONS.md](PROJECTIONS.md) (méthodologie des scénarios).
+> **Objet** : démontrer l'ambition du projet, sa faisabilité et son potentiel concret — chiffres **dérivés d'un modèle sourcé**, jamais posés.
+> **v2 du 19/08/2026** : chapitre « Moteur d'acquisition » (SEO = le cœur), funnel aux benchmarks publiés, concurrence **re-vérifiée le jour même** sur les pages tarifs, projections reconstruites de bas en haut. Remplace la v1 du même jour et [BIZPLAN.md](BIZPLAN.md) (avril 2026).
+> **Annexes** : [MISE-EN-PROD.md](MISE-EN-PROD.md) (décisions et étapes figées) · [CARTE_POSITIONNEMENT.md](CARTE_POSITIONNEMENT.md) (panorama avril, dépassé sur les prix — voir §5) · sources en fin de document.
 
 ---
 
@@ -10,261 +10,267 @@
 
 **Propryo** est une application de gestion locative pour bailleurs particuliers et SCI familiales.
 
-> **Le WHY : « Gérer son parc doit être simple dans toutes les situations, et ne pas me donner un deuxième métier. »**
+> **Le WHY : « Gérer son parc immobilier ne devrait pas être un deuxième métier. »**
 
 | Question | Réponse |
 |---|---|
-| **C'est faisable ?** | **C'est fait.** Le produit existe, tourne en production, et gère quotidiennement le parc réel de son créateur : **37 lots, 4 bailleurs (SCI + nom propre), 6 immeubles**. ~3 000 tests automatisés, données hébergées en Union européenne, zéro dépendance à un CDN tiers. |
-| **Ça se lance quand ?** | Bêta privée **septembre 2026**, lancement public **14 octobre 2026**. |
-| **Ça coûte combien ?** | **< 10 K€ de cash** pour la première année commerciale. Aucune levée de fonds nécessaire : projet bootstrappé, break-even visé ~12-15 mois après lancement. |
-| **Ça rapporte quoi ?** | Scénario médian à 3 ans : **~3 200 clients payants, ~365 K€ d'ARR, EBITDA ~35 %**. Valorisation potentielle à la revente : 1,1-1,8 M€ (3-5× ARR, multiples proptech FR). Scénario haut : ARR ~850 K€, valorisation 3,5-5 M€. |
-| **Pourquoi maintenant ?** | Marché B2C fragmenté sans leader (fenêtre d'entrée), consolidation B2B en cours (Septeo, Manda), pression réglementaire qui pousse les bailleurs vers le logiciel (DPE, encadrement, fiscalité), et un produit déjà construit et éprouvé sur un parc réel — l'avance d'exécution est faite. |
+| **C'est faisable ?** | **C'est fait.** Le produit tourne en production et gère le parc réel de son créateur : 37 lots, 4 bailleurs, 6 immeubles. ~3 000 tests automatisés, données hébergées en UE. Il ne reste sur le chemin du lancement que du non-produit : domaine, statut, CGV, paiement. |
+| **Le plan d'acquisition ?** | **SEO par pages-outils** — le plan Gratuit *fait* les documents (bail, quittance, EDL) que des dizaines de milliers de bailleurs cherchent chaque mois. C'est le modèle exact qui a construit BailFacile (~1 400 pages → ~110-220 k visites/mois, organique 1er canal — §8). |
+| **Ça se lance quand ?** | Bêta privée septembre, **lancement public 14 octobre 2026**, 45 pages SEO publiées avant le jour J. |
+| **Ça coûte combien ?** | **< 10 K€ la première année.** Aucune levée : bootstrappé, coûts fixes ~600 €/mois. |
+| **Ça rapporte quoi ?** | Scénarios **dérivés du modèle** (§10) à fin 2029 : prudent ~950 clients / ~110 K€ ARR · central ~1 900 / ~215 K€ · ambitieux ~3 200 / ~365 K€. Rentable dans les trois cas ; valorisation potentielle 0,3-1,8 M€ (3-5× ARR, multiples proptech FR). |
+| **Pourquoi maintenant ?** | Marché B2C sans leader installé, concurrents passés au **prix par bien** (2 à 4× plus chers que Propryo à 5 lots — §5), pression réglementaire continue (DPE, IRL, 2044), et un produit déjà construit. |
 
 ---
 
 ## 2. Le problème
 
-Le bailleur particulier français (2-3 millions de personnes, ~6,8 M de logements locatifs privés — INSEE 2025) a aujourd'hui trois options, toutes mauvaises :
+Le bailleur particulier français (2-3 millions de personnes, ~6,8 M de logements locatifs privés — INSEE 2025) a trois options, toutes mauvaises :
 
-1. **Excel + classeurs** : gratuit, mais tout est manuel — quittances, révisions IRL, régularisations, déclaration 2044, relances. C'est le « deuxième métier ».
-2. **Une agence** : 5-10 % des loyers + perte de contrôle. Pour un parc de 5 lots à 600 €/mois, c'est 1 800-3 600 €/an.
-3. **Les logiciels existants** : soit trop simples (le bailleur retombe sur Excel pour la moitié des cas), soit une accumulation de modules et d'options qui recrée la complexité qu'on fuyait. Aucun ne couvre le cycle complet — de l'acte d'achat à la déclaration fiscale — avec la même exigence de simplicité.
+1. **Excel + classeurs** : tout est manuel — quittances, IRL, régularisations, 2044, relances. Le « deuxième métier ».
+2. **Une agence** : 5-10 % des loyers + perte de contrôle (1 800-3 600 €/an pour 5 lots à 600 €).
+3. **Les logiciels existants** : simplistes (retour à Excel pour la moitié des cas) ou usines à gaz — et depuis 2026, presque tous facturent **au bien** : le prix grimpe à chaque lot (§5).
 
-**La conviction Propryo** : chaque situation de la vie d'un bailleur (nouveau bien, nouveau locataire, signature, impayé, révision, régularisation, déclaration) doit se traiter en quelques minutes, guidée, sans rien deviner et sans rien recalculer à la main. La simplicité n'est pas un « plan d'entrée de gamme » : c'est le produit.
+**La conviction Propryo** : chaque situation (nouveau bien, signature, impayé, révision, régularisation, déclaration) doit se traiter en minutes, guidée, sans rien deviner ni recalculer. La simplicité n'est pas un plan d'entrée de gamme : c'est le produit — et le prix est **forfaitaire**, pas un compteur.
 
 ---
 
-## 3. Le produit aujourd'hui — la preuve de faisabilité
+## 3. Le produit — la preuve de faisabilité
 
-Ce chapitre est la différence majeure avec un business plan classique : **il n'y a pas de risque produit**. Tout ce qui suit est en production en août 2026 (v15.539), testé et utilisé sur un parc réel.
+Tout ce qui suit est **en production** (août 2026, v15.540), testé, utilisé sur un parc réel de 37 lots.
 
-### 3.1 — Couverture fonctionnelle
-
-| Domaine | Ce qui existe en prod |
+| Domaine | En prod |
 |---|---|
-| **Biens** | Fiches bailleur / immeuble / logement simplifiées ; **création d'un bien par import de l'acte notarié** (rapprochement automatique bailleur/immeuble, complétion guidée avec obligations légales et diagnostics) |
-| **Bail** | Wizard complet, clauses, snapshot signé inaltérable, **historique du bail en timeline** (barème de loyer daté, dépôt de garantie, événements) |
-| **Signature** | **Signature du bail à distance** (chacun signe de son côté via un lien relais, présentiel + distant mixables), OTP email type Yousign construit (activation au branchement du domaine) |
-| **Candidatures** | Dossier candidat en ligne par lien public, multi-candidats |
-| **EDL** | État des lieux entrée/sortie, photos, comparatif pièce par pièce |
-| **Loyers** | Quittances (émises seulement si le mois est soldé — sinon reçu, conformité art. 1342-9), révision **IRL au 1er du mois anniversaire, jamais rétroactive, prescription 1 an (art. 17-1)**, table INSEE synchronisée par API, relances |
-| **Mouvements** | **Import bancaire OFX et Excel natif** (détection des colonnes par le contenu, contrôle par le solde, dédoublonnage FITID), règles d'affectation éditables — « l'app ne devine rien, on ne cache rien » |
-| **Finances** | **Moteur financier unique** : cash-flow réel, recouvrement sur le dû du barème, P&L par bailleur/immeuble/logement — invariant permanent : le même chiffre au centime sur tous les écrans |
-| **Fiscal** | Aide à la déclaration 2044 (mapping des catégories vers les lignes fiscales) |
-| **Multi-utilisateurs** | **Partage par SCI** : chaque associé voit les entités partagées avec lui (sécurité au niveau base de données, ligne par ligne) |
-| **Documents** | 8 documents au gabarit professionnel unifié (quittance, lettre IRL, décompte de charges, cautionnement, diagnostics, 2044…), logo du bailleur, 1 page garantie |
+| **Biens** | Fiches simplifiées ; **création d'un bien par import de l'acte notarié** (rapprochement bailleur/immeuble automatique, complétion guidée avec obligations légales et diagnostics) |
+| **Bail** | Wizard complet, snapshot signé inaltérable, **historique en timeline** (barème daté, DG, événements) |
+| **Signature** | **À distance incluse** (relais, présentiel + distant mixables) ; OTP email construit (activation au domaine) |
+| **Candidatures** | Dossier en ligne par lien public, multi-candidats |
+| **EDL** | Entrée/sortie, photos, comparatif pièce par pièce |
+| **Loyers** | Quittance seulement si le mois est **soldé** (sinon reçu — art. 1342-9), **IRL au 1er du mois anniversaire, jamais rétroactive, prescription 1 an (art. 17-1)**, table INSEE synchronisée par API, relances |
+| **Mouvements** | **Import bancaire OFX + Excel natif** (détection colonnes, contrôle par le solde, dédoublonnage FITID), règles éditables — « l'app ne devine rien » |
+| **Finances** | **Un seul moteur** : cash-flow réel, recouvrement sur le dû du barème, P&L par bailleur/immeuble/lot — le même chiffre au centime sur tous les écrans |
+| **Fiscal** | Aide 2044 (mapping catégories → lignes fiscales) |
+| **Multi-utilisateurs** | **Partage par SCI** : isolation par entité au niveau base de données (RLS), chaque associé son accès |
+| **Documents** | 8 documents au gabarit pro unifié, logo bailleur, 1 page garantie |
 
-### 3.2 — Qualité et souveraineté technique
-
-- **~3 000 tests automatisés** exécutés à chaque livraison ; chaque chantier passe un audit par un agent relecteur indépendant avant intégration ; invariants financiers encodés en tests (« Σ vues immeuble = vue bailleur au centime »).
-- **Hébergement Union européenne** (Supabase/PostgreSQL, isolation par entité via Row Level Security), **zéro CDN externe au runtime** (toutes les dépendances embarquées, polices comprises), zéro tracker.
-- **PWA responsive** : PC, tablette, téléphone (+ paysage), thèmes clair/sombre — chaque écran validé sur les 4 formats avant livraison.
-- **Dogfooding total** : le créateur gère son propre patrimoine avec l'app, au quotidien. Chaque bug de production est un bug qui le touche personnellement.
-
-### 3.3 — Ce qui reste avant le lancement (le chemin est court)
-
-Cf [MISE-EN-PROD.md](MISE-EN-PROD.md) : domaine `propryo.fr` (achat fin août) → emails transactionnels (Resend) → site vitrine + `app.propryo.fr` → CGU/RGPD (avocat, ~3 K€) → bêta privée → Stripe → lancement. **Aucun développement produit majeur n'est sur le chemin critique.**
+**Qualité & souveraineté** : ~3 000 tests automatisés à chaque livraison, audit par agent relecteur indépendant avant intégration, invariants financiers testés (« Σ vues immeuble = vue bailleur au centime ») ; hébergement UE (Supabase/PostgreSQL, RLS), **zéro CDN externe, zéro tracker** ; PWA vérifiée sur 4 formats × 2 thèmes. Dogfooding : le créateur gère son propre patrimoine dans l'app.
 
 ---
 
-## 4. Le marché
+## 4. Marché — TAM / SAM / SOM
 
-### 4.1 — Taille (France)
-
-| Métrique | Valeur | Source |
+| Niveau | Estimation | Méthode |
 |---|---|---|
-| Logements locatifs privés (résidences principales) | **~6,8 M** (22,8 % du parc) | INSEE Focus 359, 2025 |
-| Bailleurs particuliers + SCI familiales | ~2-3 M de ménages | INSEE (24 % des ménages détiennent 68 % des logements) |
-| Logements détenus en SCI (location) | ~820 K | INSEE |
-| Pénétration logicielle estimée | ~30 % des logements « digitalisables » | estimation d'après bases concurrents (~470 K biens captés sur ~1,5 M) |
-| Marché mondial logiciels de gestion locative | $10,5 Md (2024) → $21,8 Md (2033), **CAGR 8,6 %** | Verified Market Reports |
+| **TAM** — bailleurs privés France | ~6,8 M logements · 2-3 M bailleurs | INSEE Focus 359 (2025) ; 24 % des ménages détiennent 68 % des logements |
+| **SAM** — gestion autonome digitalisable | ~1,5 M logements « gérables par logiciel » · ~500-700 K bailleurs | ~20-25 % du parc estimé gérable en SaaS ; ~470 K biens déjà captés par les acteurs en place (bases publiées Rentila/Gererseul + estimations) → **~1 M de logements pas encore équipés** |
+| **SOM** — cible 3 ans | 950-3 200 clients (scénarios §10) | = **0,15-0,5 % du SAM bailleurs** — la modestie de la part de marché requise est un argument : le plan ne suppose aucune conquête héroïque |
 
-**Lecture** : ~1 M de logements adressables ne sont pas encore digitalisés. C'est un marché **en cours de digitalisation** — la croissance vient des bailleurs qui quittent Excel, pas d'une guerre de parts entre logiciels.
-
-### 4.2 — Vents porteurs réglementaires
-
-- **Loi Climat** : interdiction de louer les DPE G (2025), F (2028), E (2034) → le bailleur DOIT outiller le suivi de ses diagnostics (Propryo intègre le verdict d'interdiction et bloque la révision d'un F/G).
-- **Fiscalité 2044/2072** : complexité croissante → demande de préparation automatique.
-- **RGPD / souveraineté** : sensibilité croissante des locataires ET des bailleurs à l'endroit où vivent leurs données — Propryo héberge en UE et l'affiche.
+**Vents porteurs** : Loi Climat (interdictions DPE G 2025 / F 2028 / E 2034 — le bailleur doit s'outiller), complexité 2044/2072, sensibilité croissante à la localisation des données. Marché mondial du logiciel de gestion locative : +8,6 %/an (2024-2033, Verified Market Reports).
 
 ---
 
-## 5. Concurrence et positionnement
+## 5. Concurrence — re-vérifiée le 19/08/2026 sur les pages tarifs
 
-### 5.1 — Le panel B2C (détail : [CARTE_POSITIONNEMENT.md](CARTE_POSITIONNEMENT.md), avril 2026)
+> Méthode : pages tarifs consultées en direct le jour même (sliders BailFacile et ImmobilierLoyer manipulés pour extraire les paliers). Écart majeur vs avril : **le marché est passé au prix par bien.**
 
-| Outil | Entrée | Multi | Positionnement | Faiblesse exploitable |
-|---|---|---|---|---|
-| Qalimo | 0-5 € | 5-15 € | meilleure note du marché (4,9/5) | aucun différenciant exclusif, SCI limitée |
-| Gererseul | 9,75 € | dégressif | SCI + fiscaliste humain, 42 K users | interface datée, pas d'app mobile |
-| Rentila | 0-8 € | 8 € | low-cost, 50 K bailleurs | vieillissant, freemium bridé (2 baux) |
-| BailFacile | 9,90 € | 19,90 € | moderne, très bon SEO | couverture fonctionnelle moyenne |
-| Smartloc | 6,50 € | 12,50-20 € | GLI intégrée | 5 lots = déjà 20 €/mois |
-| ImmobilierLoyer | 7,70 € | 12,50 € | liasse 2072 SCI | interface 2010, app à télécharger |
+### 5.1 — Prix réels à parc donné (€/mois, engagement annuel)
 
-Le B2B (Septeo 86 % de couverture, sur devis 80-300 €/mois/utilisateur) se consolide à coups d'acquisitions — il valide la valeur du secteur mais ne descend pas sur le particulier. **Aucun acteur B2C ne combine : couverture complète + simplicité réelle + multi-utilisateurs + prix < 20 €.** C'est le vide que Propryo occupe.
+| Outil | 1 lot | 5 lots | 10 lots | Signature électronique | Multi-utilisateurs |
+|---|---|---|---|---|---|
+| Rentila | 0 € | ~4,90 € TTC (Silver 49 € HT/an) | ~9,90 € HT (Gold) | **incluse, même en gratuit** | oui, dès Silver |
+| ImmobilierLoyer | 7,70 € | 11,00 € | 16,50 € | quota 1/an par 10 biens | multi-propriétaires (+ option SCI 5 €/mois) |
+| Smartloc | 7,00 € | 20,00 € | 20,00 € | incluse (annuel), sinon 4 €/signataire | non affiché |
+| Qalimo | 4,90 € | 24,50 € (4,90 €/bien) | 34,30 € (forfait Pro) | **payante : 2,90 €/document** | plan Business (devis) seulement |
+| BailFacile | 9,99 € | 25,99 € (9,99 + 4 €/bien) | 45,99 € | incluse, illimitée | non affiché |
+| Gererseul | 9,75 € | ~41 € (117 €/an/bien, −15 %) | devis | **payante : 4,99 €/document** | non affiché |
+| **Propryo** | **2,99 €** (ou 0 € documents) | **9,90 € forfait** | **19,90 € forfait (≤ 30 lots)** | **incluse** (+ OTP prêt) | **inclus au plan Patrimoine** |
 
-### 5.2 — Les différenciants Propryo (tous en production, vérifiables en démo)
+**Lecture** : à 5 lots, **seul Rentila (l'ancre low-cost historique, interface datée) est moins cher** ; tous les outils modernes sont 2 à 4× plus chers que Propryo. À 10 lots, Propryo 19,90 € contre BailFacile 45,99 € et Qalimo 34,30 €. Le **forfait par palier** (vs compteur par bien) est un argument de simplicité et de prévisibilité aligné avec le WHY.
 
-1. **Signature du bail à distance incluse** dans l'abonnement — chez les concurrents : module payant à l'acte, ou absent. Avec OTP email (valeur probante renforcée) prêt à activer.
-2. **Créer un bien en important l'acte notarié** — onboarding unique sur le marché : le moment où un bailleur cherche un outil, c'est quand il achète.
-3. **Partage SCI multi-utilisateurs dès la V1** — chez les B2C, le multi-utilisateurs n'existe pas (c'est l'apanage du B2B à 80 €+/mois). Sécurité au niveau base (RLS par entité).
-4. **Un seul moteur financier, juste au centime** — « un chiffre d'argent présent sur deux écrans est le même octet ». Import bancaire sans connexion DSP2 à la banque (OFX/Excel, contrôle par le solde) : posture souveraine.
-5. **Conformité loyers native** : quittance seulement si le mois est soldé, IRL jamais rétroactive avec prescription d'un an appliquée, verdict DPE bloquant — le logiciel empêche le bailleur de se mettre en faute.
-6. **Historique du bail en timeline** : barème daté, chaque révision/avenant tracé — la preuve en cas de litige.
-7. **Souveraineté démontrable** : hébergement UE, zéro CDN, zéro tracker, documents générés localement.
+Changements notables depuis avril : Qalimo a **supprimé son plan gratuit** ; BailFacile est passé à 9,99 € + 4 €/bien ; Rentila s'est restructuré (Silver/Gold, signature incluse partout, multi-utilisateurs dès Silver).
 
-### 5.3 — Phrase de positionnement
+### 5.2 — Différenciants Propryo qui survivent à l'examen
 
-> **Propryo est l'outil du bailleur qui veut gérer seul sans que ça devienne un deuxième métier : le cycle complet — de l'acte d'achat à la déclaration — guidé, conforme et juste au centime, de 0 à 30 lots, pour moins de 20 €/mois.**
+L'examen honnête du panel retire deux « exclusivités » v1 (la signature incluse existe chez Rentila/BailFacile ; le multi-utilisateurs existe chez Rentila et Smovin). Restent, vérifiables en démo :
 
-### 5.4 — Personas
+1. **Import de l'acte notarié → création du bien** — introuvable ailleurs ; l'onboarding au moment exact où un bailleur cherche un outil.
+2. **Un seul moteur financier, juste au centime** — « en + ou en − ? » : cash-flow réel, retards expliqués, N-1 à période comparable ; import bancaire par relevé (OFX/Excel) sans connexion DSP2 à la banque.
+3. **Conformité automatique** — quittance seulement si soldé, IRL jamais rétroactive + prescription 1 an, verdict DPE bloquant : l'app empêche la faute.
+4. **Timeline du bail** — chaque révision/avenant tracé, la preuve en cas de litige.
+5. **Souveraineté démontrable** — UE, zéro CDN, zéro tracker, documents générés localement.
+6. **Prix forfaitaire simple** — 4 paliers, pas de compteur par bien, tout inclus dès 2,99 €.
+7. Signature à distance **incluse** (vs 2,90-4,99 €/document chez Qalimo/Gererseul) et partage SCI avec **isolation par entité au niveau base** — pas exclusifs, mais au meilleur niveau du panel.
 
-| Persona | Description | Plan visé |
+### 5.3 — Personas
+
+| Persona | Description | Plan |
 |---|---|---|
-| **Le primo-bailleur** | 25-45 ans, 1er bien (souvent hérité ou 1er investissement), cherche « faire un bail gratuit » | Gratuit → Essentiel 2,99 € |
-| **Le bailleur autonome** | 35-55 ans, 2-5 lots, gère sans agence, veut du fiable | Investisseur 9,90 € |
-| **La SCI familiale** | 45-70 ans, 6-30 lots, plusieurs associés, sensibilité fiscale et patrimoniale | Patrimoine 19,90 € |
+| Le primo-bailleur | 25-45 ans, 1er bien, cherche « faire un bail gratuit » | Gratuit → Essentiel 2,99 € |
+| Le bailleur autonome | 35-55 ans, 2-5 lots, gère sans agence | Investisseur 9,90 € |
+| La SCI familiale | 45-70 ans, 6-30 lots, plusieurs associés | Patrimoine 19,90 € |
 
 ---
 
 ## 6. L'offre (grille figée le 19/08/2026)
 
-| Plan | Lots | Périmètre | Mensuel | Annuel (**2 mois offerts**) |
+| Plan | Lots | Périmètre | Mensuel | Annuel (2 mois offerts) |
 |---|---|---|---|---|
-| **Gratuit** | 1 | Les documents : bail conforme, EDL, quittance — PDF illimités, sans limite de durée | 0 € | — |
-| **Essentiel** | 1 | Tout Propryo : suivi des loyers, import bancaire, Finances, IRL, signature à distance, candidatures | 2,99 € | 29 € |
-| **Investisseur** | jusqu'à 5 | Tout Propryo, multi-bailleurs (nom propre + SCI) | 9,90 € | 99 € |
-| **Patrimoine** | jusqu'à 30 | + partage SCI multi-utilisateurs | 19,90 € | 199 € |
+| **Gratuit** | 1 | Documents : bail conforme, EDL, quittance — PDF illimités | 0 € | — |
+| **Essentiel** | 1 | Tout Propryo | 2,99 € | 29 € |
+| **Investisseur** | ≤ 5 | Tout Propryo, multi-bailleurs | 9,90 € | 99 € |
+| **Patrimoine** | ≤ 30 | + partage SCI multi-utilisateurs | 19,90 € | 199 € |
 
-Au-delà de 30 lots / agences : « nous contacter » (offre pro ultérieure).
-
-**Logique de la grille** :
-- **Le gratuit fait du flux** : il capte l'intention de recherche la plus massive (« modèle de bail gratuit », « EDL gratuit ») et fait entrer le bailleur dans le produit. La frontière est nette : gratuit = ce qui ne coûte rien à servir (documents locaux) ; payant = la valeur récurrente (suivi, import, signature, finances).
-- **2,99 € casse le ticket d'entrée** sur le segment le plus nombreux (le mono-lot) — sous le prix de tous les concurrents payants.
-- **9,90 € / 5 lots** : aligné sur la structure du marché (Smartloc 2-4, Qalimo 2-6, BailFacile 1-5) et moins cher que tout le panel sauf Rentila à parc égal (un 5-lots paie 20 € chez Smartloc).
-- **19,90 € / 30 lots + partage** : le multi-utilisateurs, introuvable en B2C, justifie le palier autrement que par le volume. Un 7-lots reste moins cher chez Propryo que chez Smartloc ou Gererseul.
-- **Lancement** : offre early bird 50 % sur la 1re année pour les 100 premiers clients (promo ponctuelle, le prix catalogue ne bouge pas).
+Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La frontière est nette : gratuit = documents générés localement (coût de service nul) ; payant = la valeur récurrente. Early bird au lancement : −50 % la 1re année pour les 100 premiers.
 
 ---
 
-## 7. Modèle économique
+## 7. Modèle économique — hypothèses sourcées
 
-### 7.1 — Hypothèses unitaires
+> Chaque taux vient d'un benchmark publié (sources en annexe). Valeur « prudente » = celle du modèle central §10.
 
-| Métrique | Valeur | Base |
+| Maillon | Prudent | Benchmark publié | Source |
+|---|---|---|---|
+| Visiteur → inscrit (landing-outil dédiée) | **4 %** blended | landing pages : médiane 6,6 % (41 000 pages) ; SaaS 3,8 % ; sites entiers 1-5 % | Unbounce 2024, Klipfolio |
+| Inscrit gratuit → payant | **3 %** | freemium « bon » 3-5 %, médian B2C 2,2 %, top 6-8 % | OpenView/Lenny 2023, RevenueCat 2025 |
+| Activation (inscrit → actif) | 30 % | médiane SaaS ~30-35 % | Userpilot, ProductLed |
+| Churn mensuel | **5 %** | SaaS réel 3,2 %/mois (Recurly 07/2026), B2C ~6,5 % | Recurly, Vitally |
+| ARPU pondéré | **9,50 €/mois** | mix 35 % Essentiel · 45 % Investisseur · 20 % Patrimoine | grille §6 |
+| Marge brute | ~85 % | Stripe ~2 %, hébergement marginal | — |
+| LTV nette | ~160 € | 9,50 × 20 mois × 0,85 | dérivé |
+| CAC paid ads | **120-150 €** | CPC FR ~2 € ÷ 5 % ÷ 3 % (reconstruction) | Talyco/Junto 2025-26 |
+| CAC organique | ~15-30 € | coût du contenu amorti (§8.4) | interne |
+
+**Conséquence structurante — assumée** : au vu du CAC paid (120-150 €) face à une LTV de ~160 €, **la publicité ne peut être qu'un appoint d'amorçage**. L'acquisition est organique par construction, pas par préférence. C'est le chapitre suivant.
+
+*Note de rigueur : la v1 de ce BP utilisait 15 % de conversion freemium→payant et un CAC de 25 € — indéfendables face aux données publiées. Les cibles clients ont été recalculées en conséquence (§10).*
+
+---
+
+## 8. Le moteur d'acquisition — SEO par pages-outils (le cœur du plan)
+
+### 8.1 — La preuve que le canal construit une entreprise (données du 19/08/2026)
+
+- **BailFacile** — l'acteur qui a exécuté exactement cette stratégie : sitemap compté en direct = **1 391 pages** (1 209 guides + **39 pages-outils documents** + **7 générateurs de bail** + 126 pages locales dont ~15 « encadrement des loyers {ville} »). Résultat : **~110-220 k visites/mois** (SimilarWeb 07/2026 : 110,5 k, organique = 55,8 % = 1er canal ; Semrush 2025 : 218 k), ~2 900 mots-clés positionnés. Leur page `/documents/quittance-loyer` (« quittance de loyer **gratuite** », générateur → essai payant) est le modèle : **la page-outil ranke ET convertit**.
+- **La contre-preuve : Rentila** — 214-235 k visites/mois mais **organique ~33 k seulement, 100 % marque** (« rentila » 27 100 recherches/mois), 13 pages + 200 articles de blog, **zéro page-outil**. Sans générateurs, pas de captation d'intention : son trafic, c'est ses utilisateurs existants qui se connectent.
+- **Qalimo** applique la thèse BailFacile à échelle 1/10 (181 pages, dont `/quittance-de-loyer/`, `/etat-des-lieux/`) — le chemin est praticable en partant petit.
+
+### 8.2 — L'avantage structurel de Propryo sur ce canal
+
+Chez BailFacile, la page-outil est un **entonnoir vers un essai payant**. Chez Propryo, la page-outil **EST le produit** : le plan Gratuit génère le bail, la quittance, l'EDL — vraiment, sans carte bancaire, sans limite de durée. Trois effets :
+1. **Meilleure réponse à la requête** → meilleur comportement utilisateur → meilleur ranking (un générateur réel bat un modèle Word à télécharger).
+2. **La quittance est mensuelle** : le bailleur du Gratuit *revient tous les mois* — pression de conversion récurrente, là où un téléchargement de modèle est un one-shot.
+3. **Fraîcheur réglementaire automatique** : l'IRL est synchronisée sur l'API INSEE (en prod), le verdict DPE est intégré — nos pages « indice IRL » et « DPE location » peuvent afficher la donnée du jour sans maintenance.
+
+### 8.3 — Le plan de bataille (3 piliers)
+
+| Pilier | Contenu | Pourquoi ça ranke |
 |---|---|---|
-| Mix payants attendu | 35 % Essentiel · 45 % Investisseur · 20 % Patrimoine | structure du parc FR (majorité de petits bailleurs) |
-| **ARPU pondéré** | **~9,50 €/mois** | 0,35×2,99 + 0,45×9,90 + 0,20×19,90 |
-| Conversion gratuit → payant | 15 % (hypothèse à calibrer sur les 3 premiers mois) | benchmark SaaS B2C niche 5-25 % ; le palier 2,99 € devrait la tirer vers le haut (upside non modélisé) |
-| Churn mensuel | 5 % (durée de vie moyenne 20 mois) | benchmark B2C immo 4-8 % ; marché réputé fidèle |
-| CAC moyen pondéré | 25 € (60 % SEO/organique à 12 €, 40 % paid à 45 €) | benchmarks proptech |
-| Marge brute | **~85 %** | Stripe ~2 % (vs Paddle 5 % au BP d'avril) + Supabase + Resend + support |
-| **LTV nette** | ~160 € | 9,50 × 20 × 0,85 |
-| **LTV/CAC** | **~6,5** | sain > 3, excellent > 5 |
-| **Payback CAC** | **~3 mois** | sain < 12 |
+| **P1 — Générateurs** (~10 pages) | bail vide / meublé / mobilité / étudiant / colocation / parking · quittance · EDL entrée & sortie · caution | Intention maximale (« gratuit », « modèle », « PDF ») ; l'outil réel bat l'article |
+| **P2 — Guides longue traîne** (12-15/mois) | la carte des 1 209 guides BailFacile : variantes par cas (« quittance colocation », « EDL sortie meublé », « IRL bail commercial »…), réglementaire daté (IRL du trimestre, calendrier DPE, 2044 ligne à ligne) | Ahrefs 2025 : seules 1,74 % des pages neuves atteignent le top 10 en < 1 an, MAIS 40,8 % de celles qui y arrivent le font **en < 1 mois** — la longue traîne à faible concurrence monte vite ; les têtes de requêtes viendront à 12-24 mois |
+| **P3 — Comparatifs & local** | « Propryo vs Rentila/BailFacile/Qalimo », « meilleur logiciel 2026 », « encadrement des loyers {ville} » (modèle des 15 pages locales BailFacile) | Faible volume, intention d'achat maximale |
 
-### 7.2 — Ce qui a changé vs le BP d'avril
+**Production** : chaîne IA (celle qui a construit le produit) + relecture humaine (rédacteur spécialisé, 400 €/mois) + validation juridique par sondage. Cadence : **45 pages avant le lancement** (10 générateurs + 30 guides + 5 comparatifs), puis 12-15 guides/mois → **~300 pages fin 2027, ~500 fin 2028**. Coût marginal ~30 €/page contre 100-150 € au prix du marché — un avantage de coût structurel.
 
-- ARPU **11,40 € → 9,50 €** (ajout du palier 2,99 € et limite 5 lots à 9,90 €) — compensé par : une conversion attendue plus forte (ticket d'entrée à 2,99 €), une marge brute meilleure (Stripe vs Paddle : +3 points), et l'upsell mécanique Investisseur → Patrimoine au 6e lot.
-- Les revenus complémentaires (partenariats GLI/MRH/expert-comptable, 5-15 % de rétrocession) restent un upside hors cas central.
+### 8.4 — Le modèle de montée du trafic (calibré sur le panel)
 
----
+Calibrage : BailFacile ≈ 80-160 visites/page/mois (domaine âgé, autorité) ; Gererseul 48 k visites pour ~1 400 mots-clés ; un domaine neuf fait moins bien les 18 premiers mois (Ahrefs). Hypothèses prudentes :
 
-## 8. Projections — 3 scénarios (rebasés grille 2026)
+| Fin de période | Pages publiées | Visites/mois (organique + amorçage) | Justification |
+|---|---|---|---|
+| déc. 2026 | ~60 | **6 000** | longue traîne naissante (20-40/page) + ads 600 €/mois + communautés |
+| déc. 2027 | ~300 | **15 000** | ~40-50/page en moyenne, domaine 15 mois, premières têtes de requêtes |
+| déc. 2028 | ~500 | **32 000** | autorité installée, quittance mensuelle = trafic récurrent |
+| déc. 2029 | ~650 | **55 000** | ≈ la moitié du BailFacile bas — jamais supposé le dépasser |
 
-Méthodologie et courbes d'acquisition : [PROJECTIONS.md](PROJECTIONS.md) (les volumes clients sont conservés, l'ARR est recalculé à l'ARPU 9,50 €).
-
-| Scénario | Fin 2026 | Fin 2027 | Fin 2028 | Fin 2029 | Break-even cumulé |
-|---|---|---|---|---|---|
-| 🔻 **Bas** | 60 clients · 7 K€ ARR | 250 · 28 K€ | 600 · 68 K€ | 1 100 · 125 K€ | fin 2028 |
-| ▶ **Médian** | 150 clients · 17 K€ ARR | 700 · **80 K€** | 1 800 · 205 K€ | 3 200 · **365 K€** | ~Q4 2027 |
-| 🔺 **Haut** | 350 clients · 40 K€ ARR | 1 600 · 182 K€ | 4 000 · 456 K€ | 7 500 · **855 K€** | Q1 2027 |
-
-- **Médian = 3 200 clients fin 2029** ≈ 1,5 % de la base Gererseul + Rentila cumulée — objectif volontairement non agressif.
-- Cash maximum à engager avant break-even : **< 15 K€ cumulés** (voir §10) — le projet est bootstrappable dans les trois scénarios ; seul le scénario haut justifierait une levée pre-seed optionnelle (150-300 K€, Q1-Q2 2027) pour accélérer.
-- **Valorisation potentielle fin 2029** (multiples observés proptech FR 3-5× ARR ; 4-6× en croissance forte) : médian **1,1-1,8 M€**, haut **3,5-5 M€**.
+**Risques du canal, nommés** : (a) **AI Overviews** — Ahrefs (02/2026) mesure −58 % de CTR en position 1 quand un encart IA est présent ; mitigation : les pages-**outils** résistent (Google ne génère pas un bail signé conforme), la longue traîne est moins exposée ; (b) dépendance Google — mitigation : le produit lui-même est viral (chaque signature à distance et chaque candidature met un locataire devant une page Propryo), plus newsletter et marque ; (c) **les volumes de recherche exacts ne sont pas publiés** — action immédiate : les tirer de Google Keyword Planner (gratuit) pour calibrer le plan éditorial page par page avant septembre.
 
 ---
 
-## 9. Go-to-market
+## 9. Le funnel dérivé
 
-**Canal principal : le SEO d'intention forte** — le bailleur cherche au moment du besoin (« calcul IRL 2026 », « modèle bail meublé », « déclaration 2044 SCI », « DPE G interdiction location », « état des lieux gratuit ») et le plan Gratuit répond exactement à ces requêtes. 30 articles avant lancement puis 3/mois (rédacteur sous-traité 400 €/mois), 5 comparatifs « Propryo vs X ».
+```
+visites/mois (modèle §8.4)
+  × 4 % visiteur → inscrit        (landing-outil, Unbounce/Klipfolio)
+  × 3 à 5 % inscrit → payant      (benchmark freemium, tiré vers le haut
+                                    par la quittance mensuelle et le palier 2,99 €)
+  − churn 5 %/mois sur la base    (Recurly/Vitally)
+  = clients payants (cohortes)
+```
 
-**Appui payant au lancement** : Meta + Google Ads 600 €/mois sur 3-6 mois, le temps que l'organique prenne.
-
-**Communautés** : r/vosfinances (200 K membres), forums bailleurs, LinkedIn build-in-public, Product Hunt au jour J.
-
-**Le produit comme canal** : chaque signature à distance et chaque candidature en ligne met un locataire ou un candidat devant une page Propryo — des dizaines de contacts organiques par bailleur actif et par an.
-
-**Funnel cible fin 2026 (médian)** : 12 000 visiteurs/mois → 6 % d'inscriptions → 70 % d'activation → 30 % de conversion payante sur activés → **150 clients payants, MRR ~1 400 €**.
-
-**Calendrier commercial** : bêta privée septembre (10-30 testeurs, allowlist en place) → lancement public **14 octobre 2026** → bilan de calibration à 3 mois (janvier 2027 : conversion, churn, mix réel) → décision d'accélération.
+Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **18-30 nouveaux payants/mois** selon le taux de conversion. C'est ce flux, cumulé en cohortes avec churn, qui produit les scénarios ci-dessous — dans ce sens-là, jamais l'inverse.
 
 ---
 
-## 10. Exécution, ressources, cash
+## 10. Projections — trois scénarios dérivés
 
-### 10.1 — L'équipe : un fondateur-développeur outillé
+| Hypothèses | Prudent | Central | Ambitieux |
+|---|---|---|---|
+| Conversion inscrit → payant | 3 % | 4 % | 5 % |
+| Vélocité contenu | plan nominal | nominal | ×1,5 + partenariats |
+| Churn mensuel | 5 % | 5 % | 4 % |
 
-Didier Keller, développeur solo — **mais pas artisanal** : le produit est développé avec une chaîne d'agents IA (développement, audit de code systématique par agent indépendant, ~3 000 tests). Cette organisation a livré en 4 mois (mai-août 2026) ce que le plan d'avril chiffrait en 2 trimestres. C'est un avantage de coût structurel : la capacité de production d'une petite équipe, au coût d'une personne.
+| Fin de période | Prudent | Central | Ambitieux |
+|---|---|---|---|
+| **2026** (3 mois) | ~25 clients · MRR 240 € | ~40 · 380 € | ~60 · 570 € |
+| **2027** | ~150 · **ARR 17 K€** | ~280 · **32 K€** | ~480 · **55 K€** |
+| **2028** | ~450 · 51 K€ | ~900 · 103 K€ | ~1 600 · 182 K€ |
+| **2029** | ~950 · **108 K€** | ~1 900 · **217 K€** | ~3 200 · **365 K€** |
 
-### 10.2 — Cash-out année 1 (rebasé — vs 11,5 K€ au plan d'avril)
+- **Break-even opérationnel** (MRR > ~600 € de coûts fixes) : courant 2027 dans les trois scénarios. **Break-even cumulé** (~10 K€ investis récupérés) : fin 2028 prudent · mi-2028 central · fin 2027 ambitieux.
+- **Valorisation indicative fin 2029** (3-5× ARR) : 0,3-0,5 M€ prudent · **0,65-1,1 M€ central** · 1,1-1,8 M€ ambitieux.
+- **Sensibilité** (les vrais leviers) : +1 point de conversion freemium = **+33 % de clients** partout · churn 5 → 3,5 % = +40 % de base à 3 ans · ×2 sur la vélocité contenu ≈ +60-80 % de trafic fin 2027. Les trois leviers sont pilotables (produit, rétention, contenu) — la calibration de janvier 2027 (§11) dira lequel pousser.
+- *La v1 de ce BP affichait 700 clients fin 2027 et 3 200 fin 2029 en « médian » : ces chiffres supposaient 15 % de conversion freemium. Dérivés proprement, ils correspondent à l'actuel scénario **ambitieux**. Le plan reste le même ; la promesse est désormais démontrable.*
 
-| Poste | Montant € HT |
+---
+
+## 11. Exécution
+
+### 11.1 — Calendrier (décisions figées, [MISE-EN-PROD.md](MISE-EN-PROD.md))
+
+| Quand | Quoi |
 |---|---|
-| Domaine + emails (Resend) + infra (Supabase Pro) | ~450 |
-| Avocat : CGU, CGV, politique de confidentialité, DPA | 3 000 |
-| Logo / finitions identité (la charte design existe déjà) | 500-1 000 |
-| Ads lancement (oct-déc, 3 × 600 €) | 1 800 |
-| Rédaction SEO sous-traitée (oct-déc, 3 × 400 €) | 1 200 |
-| Comptabilité (outil + accompagnement AE) | ~600 |
-| Outils support (Crisp, Plausible, Sentry : offres gratuites au départ) | ~200 |
-| Buffer 10 % | ~750 |
-| **Total an 1** | **~8 500-9 500 €** |
+| Août | Domaine propryo.fr · statut micro-entreprise (comptable) · **volumes Keyword Planner tirés → plan éditorial calibré** |
+| Septembre | Emails (Resend) · site + `app.propryo.fr` · CGU/CGV/RGPD (avocat ~3 K€) · **bêta privée** · production des 45 pages SEO |
+| Octobre | Stripe + quotas de plans branchés · **lancement public 14/10** avec les 45 pages en ligne · early bird |
+| Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page — le scénario se choisit là, pas avant |
 
-### 10.3 — Cadre juridique et paiement (décisions du 19/08)
+### 11.2 — L'équipe : un fondateur outillé
 
-- **Micro-entreprise** au lancement (à confirmer avec le comptable) — création immédiate, franchise de TVA au départ ; **bascule en société (SASU)** dès ~2 000-2 500 € de MRR, avec apport formalisé du logiciel.
-- **Stripe** pour l'encaissement (~2 % ; réévaluation de Paddle si assujettissement TVA ou expansion Europe).
-- RGPD : hébergement UE, registre, DPA sous-traitants (Supabase, Resend, Stripe) — posture assumée et affichée : c'est un argument commercial, plus seulement une conformité.
+Développeur solo **avec une chaîne d'agents IA** (développement, audit systématique par agent indépendant, ~3 000 tests) : capacité d'une petite équipe au coût d'une personne. La même chaîne produit le contenu SEO à ~30 €/page. Ce qui a livré en 4 mois (mai-août) ce que le plan d'avril chiffrait en 2 trimestres.
 
-### 10.4 — Recrutements (déclenchés par des seuils, jamais en avance)
+### 11.3 — Cash an 1 (~9 K€)
 
-| Profil | Déclencheur | Coût |
+Avocat 3 000 · rédacteur SEO 4 mois 1 600 · ads amorçage 1 800 · domaine/infra/outils 650 · comptabilité 600 · logo/finitions 750 · buffer 800. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
+
+---
+
+## 12. Risques et parades
+
+| Risque | Prob. | Parade |
 |---|---|---|
-| Rédacteur SEO (freelance) | dès le lancement | 4 800 €/an |
-| Support/customer success (freelance) | > 300 clients payants | ~5 K€/an puis CDI > 800 clients |
-| Dev complément (freelance) | chantiers V2 (portail locataire, module agence) | à la mission |
+| **AI Overviews / évolution Google** (−58 % CTR pos. 1 mesuré, Ahrefs 02/2026) | élevée sur les requêtes info | pages-**outils** en cœur de plan (un encart IA ne génère pas un bail conforme signé) ; produit-viral (signatures, candidatures) ; newsletter ; ne jamais dépendre d'un seul pilier |
+| Conversion freemium < 3 % | possible | le palier 2,99 € et la quittance mensuelle sont faits pour ça ; sinon : bascule vers essai limité, mesurée en janvier 2027 |
+| Dépendance au fondateur | structurelle | chaîne d'agents + 3 000 tests + docs de chantier = transmissible ; seuils de recrutement définis |
+| Rentila écrase les prix (4,90 € / 5 lots) | actée | ne pas se battre sur son terrain : modernité + conformité + acte→bien + finance au centime ; Rentila est l'ancre low-cost depuis 10 ans sans empêcher BailFacile de croître à 26 €/5 lots |
+| Un acteur copie l'import d'acte | moyenne à 18 mois | avance d'exécution ; la copie d'une feature ne copie pas la simplicité du tout |
+| Seuils AE / TVA | souhaitable | bascule SASU préparée, prix pensés TTC |
+| Dépendance Supabase | faible | PostgreSQL standard exportable, sauvegardes |
 
 ---
 
-## 11. Risques et parades
+## 13. L'ambition
 
-| Risque | Probabilité | Parade |
-|---|---|---|
-| **Dépendance au fondateur** (dev solo) | structurelle | chaîne d'agents + 3 000 tests + docs de chantier = le projet est transmissible ; seuils de recrutement définis |
-| Acquisition plus lente que prévu | moyenne | coûts fixes quasi nuls : le scénario bas reste viable ; pivot possible vers monétisation partenariats (GLI/MRH/EC, +30-40 % d'ARR possible) |
-| Un gros acteur copie la signature à distance / l'import d'acte | moyenne à 18 mois | avance d'exécution + positionnement simplicité (une copie de feature ne copie pas le produit) ; accélérer le portail locataire pour rendre la base captive |
-| Rentila élargit son gratuit | moyenne | ne pas se battre sur le prix : se battre sur « complet ET simple » (le gratuit Propryo est déjà plus généreux en usage documentaire) |
-| Dépendance Supabase | faible | PostgreSQL standard, exportable ; sauvegardes ; pas de lock-in propriétaire |
-| Seuils AE / TVA atteints | souhaitable | bascule SASU préparée (cf §10.3), prix affichés pensés TTC |
-| Réglementaire (modèle de bail, IRL, DPE) | continue | c'est un atout : chaque évolution légale rend l'outil plus indispensable et pénalise les bailleurs sous Excel |
+**Fin 2027** : le projet vit de lui-même (break-even opérationnel dans les trois scénarios), 150-480 clients selon la conversion réelle, un actif SEO de ~300 pages qui travaille tout seul.
+
+**Fin 2029** : 950-3 200 clients, 108-365 K€ ARR, EBITDA ~35 % en régime — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
+
+**Ce qui rend ce plan crédible** : le produit est construit et prouvé ; le canal d'acquisition a une preuve de marché documentée (BailFacile) et un avantage structurel (l'outil EST le produit) ; chaque taux du modèle a une source publiée ; le cash engagé est < 10 K€ ; et le scénario **prudent** — celui où tout est au plancher des benchmarks — reste un projet rentable.
 
 ---
 
-## 12. L'ambition
+## Annexe — sources principales
 
-**À 12 mois** (fin 2027) : ~700 clients payants, ~80 K€ ARR, break-even atteint — Propryo est un produit rentable géré par son fondateur.
-
-**À 3 ans** (fin 2029) : 3 200+ clients, ~365 K€ ARR, EBITDA ~35 % — Propryo est l'outil de référence du bailleur autonome français, avec deux options ouvertes :
-- **poursuivre** : extension portail locataire, module petites agences, Belgique/Luxembourg ;
-- **céder** : le marché consolide (Septeo : 8 acquisitions en 2024 ; Manda : 43 M€ levés, 9 acquisitions) — une base de clients B2C fidèle avec un produit souverain UE est une cible naturelle, valorisée 3-5× l'ARR.
-
-Le scénario haut (855 K€ ARR) ne demande pas un autre produit — seulement un product-market fit confirmé dès Q1 2027 et du carburant marketing.
-
-**Ce qui rend ce plan crédible** : le produit est fini, testé et utilisé en production réelle ; le cash nécessaire est inférieur à 10 K€ ; chaque hypothèse commerciale (conversion, churn, mix) a un point de calibration daté (janvier 2027) et un scénario bas qui reste viable.
-
----
-
-*Sources marché et concurrence : voir [CARTE_POSITIONNEMENT.md](CARTE_POSITIONNEMENT.md) §9 et [PROJECTIONS.md](PROJECTIONS.md) (INSEE Focus 359, Verified Market Reports, sites éditeurs, presse spécialisée — avril 2026 ; prix concurrents à re-vérifier avant publication de la page Tarifs).*
+**Concurrence** (consultées le 19/08/2026) : rentila.com/tarifs · bailfacile.fr/tarifs · qalimo.fr/tarif · smartloc.fr/tarifs · gererseul.com/tarifs · immobilierloyer.com/acheter.php · smovin.app/fr/tarifs.
+**SEO** : sitemaps bailfacile.fr (1 391 URLs), qalimo.fr (181), rentila.com (comptés le 19/08/2026) · SimilarWeb bailfacile.fr & rentila.com (07/2026) · Semrush public rentila.com (12/08/2026) · Ahrefs « How long does it take to rank » (maj 15/05/2025) · Ahrefs AI Overviews CTR (02/2026).
+**Funnel** : Unbounce Conversion Benchmark Report (Q4 2024) · Klipfolio signup benchmarks · OpenView/Lenny's Newsletter free-to-paid (2023) · RevenueCat State of Subscription Apps (2025) · Userpilot/ProductLed activation · Recurly churn benchmarks (07/2026) · Vitally B2B/B2C · Talyco/Junto/Leo Marchal CPC-CPL France (2025-26).
+**Marché** : INSEE Focus 359 (2025) · Verified Market Reports (2024).
