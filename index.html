@@ -12064,10 +12064,11 @@ function _heroCashflowSeries(ctx, nMonths) {
   const scope = (typeof _finEntScope === 'function') ? _finEntScope(ctx.activeEnt || '', '') : null;
   if (typeof _finMonthly === 'function') {
     const years = [...new Set(order.map(ym => parseInt(ym.slice(0, 4), 10)))];
-    const cyN = today.getFullYear();
     years.forEach(y => {
-      const lm = (y === cyN) ? (today.getMonth() + 1) : 12;
-      const r = _finMonthly(y, scope, lm);
+      // R-3 (étape 8) : la série lit LE socle — fenêtre de constat du module, plus de
+      // lastMonth recalculé à la main (les mois post-datés comptent, décision « B »).
+      const Wy = (typeof _finWindows === 'function') ? _finWindows(y, scope) : null;
+      const r = _finMonthly(y, scope, Wy ? Wy.constat : ((y === today.getFullYear()) ? (today.getMonth() + 1) : 12));
       if (r && r.months) r.months.forEach(mm => {
         const ym = y + '-' + String(mm.mo).padStart(2, '0');
         if (buckets[ym]) buckets[ym].value = mm.cashflowReel || 0;
@@ -12100,12 +12101,14 @@ function _dashCfReel(ctx) {
   const y = parseInt(ctx.yr, 10);
   if (!y) return null;
   const scope = _finEntScope(ctx.activeEnt || '', '');
-  const cyN = new Date().getFullYear();
-  const lm = (y === cyN) ? (new Date().getMonth() + 1) : 12;   // borne « mois écoulés » (= Finances)
-  const cur = _finMonthly(y, scope, lm);
+  // R-3 (étape 8) : le BLOC UNIQUE lit le socle — mêmes fenêtres que l'onglet Finances
+  // (constat pour le réalisé, N-1 aligné sur la même étendue). Un exercice à venir
+  // (#dash-year offre cy+1) donne une fenêtre VIDE → zéros, plus de janvier fantôme.
+  const Wd = (typeof _finWindows === 'function') ? _finWindows(y, scope) : null;
+  const cur = _finMonthly(y, scope, Wd ? Wd.constat : ((y === new Date().getFullYear()) ? (new Date().getMonth() + 1) : 12));
   if (!cur) return null;
   const A = cur.annual;
-  const pv = _finMonthly(y - 1, scope, lm);                    // N-1 même période (pour le delta)
+  const pv = _finMonthly(y - 1, scope, Wd ? Wd.n1 : null);     // N-1 même période (pour le delta)
   return {
     recettes: (A.loyersHC || 0) + (A.provisions || 0) + (A.recettesDiverses || 0),
     charges: (A.charges || 0) + (A.recup || 0),
@@ -33992,10 +33995,13 @@ function _computeComptaBailleur(ent, year, activeLogs) {
   // Manque à gagner : pour chaque logement, loyer attendu - loyer encaissé sur la période
   let loyerAttendu = 0;
   let loyerEncaisse = 0;
+  // R-3 (étape 8) : la borne « mois échus » vient de LA fenêtre d'exigibilité du socle
+  // (finances-window), plus d'un calcul de date maison — même règle que l'onglet Finances.
+  const _wExF = (typeof window._finWindowExigibilite === 'function') ? window._finWindowExigibilite({ year: yr }) : null;
   (activeLogs||[]).forEach(l => {
     const today = new Date();
     const isCurYr = today.getFullYear() === yr;
-    const lastMonth = isCurYr ? today.getMonth() + 1 : 12;
+    const lastMonth = _wExF ? _wExF.lastMonth : (isCurYr ? today.getMonth() + 1 : 12);
     if(typeof _computeExpectedRent === 'function') {
       loyerAttendu += _computeExpectedRent(l.ref, yr, lastMonth) || 0;
     }
