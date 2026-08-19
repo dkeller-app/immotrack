@@ -3531,6 +3531,41 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- CDC-QUITTANCES-IRL D4 — « Faire une quittance » remplace la « quittance manuelle ».
      DEUX choix : le logement, puis le mois. AUCUN montant à saisir — il est lu au barème du
      mois choisi. Les mois non soldés restent VISIBLES mais non sélectionnables, avec leur motif. -->
+<!-- LE GARDE-FOU NON BLOQUANT (CDC-LOYERS-DESIGN V20/V21).
+     « L'app doit prévenir mais pas bloquer tout le temps l'utilisateur. On garde des
+     garde-fous partout, mais pas bloquants. » La fenêtre cite la règle, dit ce que ça
+     engage, demande une confirmation à cocher — et laisse passer. -->
+<div class="ov hidden" id="ov-irl-garde" onclick="closeBg(event,'ov-irl-garde')">
+<div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
+  <div class="m-head"><h3 id="gf-titre">Avertissement</h3><button class="m-close" onclick="closeM('ov-irl-garde')">✕</button></div>
+  <div class="m-body">
+    <div class="mu sm" id="gf-sub" style="margin-bottom:12px"></div>
+    <div class="gf-law"><span class="i">⚖</span><span id="gf-loi"></span></div>
+    <div class="gf-cons"><div class="k">Ce que ça engage</div><div id="gf-cons"></div></div>
+    <label class="gf-cf"><input type="checkbox" id="gf-ok" onchange="_gfSetOk(this.checked)"><span id="gf-case"></span></label>
+  </div>
+  <div class="m-foot">
+    <button class="btn bs" onclick="closeM('ov-irl-garde')">Annuler</button>
+    <button class="btn bp" id="gf-cta" onclick="_gfForcer()" disabled style="opacity:.5">Continuer</button>
+  </div>
+</div></div>
+<style>
+#ov-irl-garde .gf-law{display:flex;gap:9px;align-items:flex-start;background:var(--warn-soft);
+  border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:var(--rl);
+  padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--t1)}
+#ov-irl-garde .gf-law .i{font-size:15px;flex:none;line-height:1.2}
+#ov-irl-garde .gf-cons{margin-top:10px;background:var(--sur2);border:1px solid var(--bor);
+  border-radius:var(--rl);padding:10px 12px;font-size:12.5px;line-height:1.55;color:var(--t1)}
+#ov-irl-garde .gf-cons .k{font:800 10px var(--font);text-transform:uppercase;letter-spacing:.07em;
+  color:var(--t3);margin-bottom:5px}
+#ov-irl-garde .gf-cf{display:flex;align-items:flex-start;gap:9px;margin-top:12px;
+  font-size:12.5px;font-weight:600;cursor:pointer;line-height:1.45}
+#ov-irl-garde .gf-cf input{margin-top:2px;flex:none;width:16px;height:16px;accent-color:var(--acc)}
+/* Le cas SANS bouton (V21) : on explique, il n'y a rien à débloquer. */
+#ov-irl-garde .gf-vide{background:var(--info-soft);border:1px solid color-mix(in srgb,var(--info) 35%,transparent);
+  border-radius:var(--rl);padding:12px 14px;font-size:12.5px;line-height:1.6;color:var(--t1)}
+</style>
+
 <!-- ÉDITEUR DE QUITTANCE — direction « Le document » (CDC-LOYERS-DESIGN V6/V10).
      On n'ouvre pas un formulaire, on ouvre LA QUITTANCE elle-même, plein écran, déjà remplie
      depuis le barème du mois — transposition littérale du geste EDL (`openNewEDL` ouvre
@@ -25235,7 +25270,13 @@ function _isoLocal(d) {
  * La forme du retour est inchangée pour les 5 appelants (dashboard, matrice, agenda, fiche,
  * drill) ; les champs `etat`/`perdue`/`effetPrevuIso` sont AJOUTÉS.
  */
-function computeIRLRevision(log) {
+function computeIRLRevision(log, opts) {
+  // V20/V21 (CDC-LOYERS-DESIGN) — `opts.force` ne CHANGE AUCUN CALCUL : il franchit seulement
+  // les deux sorties anticipees qui venaient d'une REGLE (gel DPE F/G, DPE absent). Les indices
+  // existent, la variation est calculable : c'est la loi qui disait non, pas l'arithmetique.
+  // Aucun appelant « honnete » (liste, ruban, calendrier) ne passe force : l'ecran continue de
+  // dire « non revisable ». Seul le geste explicitement confirme par l'utilisateur le passe.
+  const _force = !!(opts && opts.force);
   const bail = DB.baux[log.ref];
   const debut = bail?.debut || log.debut;
   if(!debut) return null;
@@ -25269,7 +25310,7 @@ function computeIRLRevision(log) {
     joursAvantEffet: (_calNu && _calNu.joursAvantEffet) != null ? _calNu.joursAvantEffet : null
   };
 
-  if (!dpe) {
+  if (!dpe && !_force) {
     return Object.assign({
       dpeManquant: true, muet: true, etat: 'dpe-manquant', T: Math.ceil((moisAnniv+1)/3),
       premiereAnniv: premiereAnnivD, perdue: null, isApplicable: false,
@@ -25277,7 +25318,7 @@ function computeIRLRevision(log) {
     }, _quand);
   }
   // I10 — loyer GELÉ : jamais dans « à réviser », applyIRL reste bloqué.
-  if (dpe === 'F' || dpe === 'G') {
+  if ((dpe === 'F' || dpe === 'G') && !_force) {
     return Object.assign({
       gelDpeFG: true, dpe, muet: true, etat: 'gel',
       T: Math.ceil((moisAnniv+1)/3), premiereAnniv: premiereAnnivD, perdue: null,
@@ -25529,21 +25570,138 @@ function _migrerLoyerBareme() {
 //   et bail.hc/log.hc n'est mué qu'à partir de cette date (au boot via _applyPendingIRLRevisions).
 //   Les quittances/mouvements à mois M utilisent _loyerHCAtDate(log, premier_du_mois_M) pour
 //   être cohérents avec la révision applicable à cette date (helper Sprint 1D v14.83).
-function applyIRL(ref, newHC) {
-  const log = DB.logements.find(l=>l.ref===ref);
-  if (log) {
-    const rev = computeIRLRevision(log);
-    if (rev?.gelDpeFG) {
-      alert(`🔒 Loyer GELÉ — DPE ${rev.dpe}\n\nLoi Climat 2021 : révision IRL interdite pour les logements F/G. Application annulée.`);
-      return;
-    }
-    if (rev?.dpeManquant) {
-      alert('⚠️ DPE non renseigné — saisir le DPE avant d\'appliquer la révision.');
-      return;
-    }
+// ============================================================================
+// LES GARDE-FOUS NON BLOQUANTS DE LA RÉVISION IRL (CDC-LOYERS-DESIGN V20/V21).
+//
+// Avant : `applyIRL` s'arrêtait sur deux `alert()` — « Application annulée » sur un DPE F/G,
+// « saisir le DPE » sur un DPE absent. L'utilisateur n'avait aucune issue.
+// Maintenant : la règle est CITÉE, ce que ça engage est DIT, une case est cochée, et le
+// geste passe. « On garde des garde-fous partout, mais pas bloquants. »
+//
+// Deux cas gardent l'ancien comportement — et ce n'en est pas un : « bail de moins d'un an »
+// et « indice non publié » ne sont pas des verrous, c'est le vide. L'écran l'explique et
+// n'offre AUCUN bouton (exception assumée V21).
+//
+// La logique et les textes vivent dans js/core/irl-garde-fou.js (testé).
+// ============================================================================
+let _gfCtx = null;
+
+/** Le manque à gagner d'un cycle éteint, calculé sur les indices DE CE CYCLE. */
+function _gfGainCycle(log, rev) {
+  if (!rev || !rev.perdue || typeof irlVal !== 'function') return null;
+  const a = rev.perdue.annee;
+  const v = irlVal(rev.T, a), v1 = irlVal(rev.T, a - 1);
+  return (v && v1 && log && log.hc) ? Math.round((log.hc * v / v1 - log.hc) * 100) / 100 : null;
+}
+
+/** Le nouveau loyer d'un cycle éteint appliqué aujourd'hui : les indices DE CE CYCLE. */
+function _gfHcCycleEteint(log, rev) {
+  const g = _gfGainCycle(log, rev);
+  return (g != null && log) ? Math.round((log.hc + g) * 100) / 100 : null;
+}
+
+/**
+ * Ouvre la fenêtre d'avertissement d'un lot. Si le garde-fou n'offre PAS de geste
+ * (bail < 1 an, indice non publié), la fenêtre explique et ne montre aucun bouton.
+ */
+function _gfOuvrir(ref) {
+  const log = (DB.logements || []).find(l => l.ref === ref);
+  if (!log) { showToast('Logement introuvable', 'err'); return; }
+  const rev = (typeof computeIRLRevision === 'function') ? computeIRLRevision(log) : null;
+  const g = (typeof window.gardeFouRevision === 'function')
+    ? window.gardeFouRevision(rev, { gainMensuel: _gfGainCycle(log, rev), fmtMontant: fmt }) : null;
+  if (!g) {                                  // aucune règle ne s'y oppose : geste ordinaire
+    if (rev && rev.nouveauHC) applyIRL(ref, rev.nouveauHC);
+    return;
   }
+  // V21 — quand il n'y a rien à débloquer, le titre ne doit PAS sonner comme un mur :
+  // ce n'est pas « impossible », c'est « pas encore ».
+  el('gf-titre').textContent = (g.ico ? g.ico + ' ' : '') + (g.titre || '⏳ Rien à réviser pour l’instant');
+  el('gf-sub').textContent = ref + (log.locataire ? ' — ' + log.locataire : '')
+    + ' · ' + (log.imm || 'sans immeuble');
+  const foot = document.querySelector('#ov-irl-garde .m-foot');
+  if (!g.peut) {
+    // V21 — il n'y a rien à débloquer : on explique, et on n'offre pas de bouton menteur.
+    el('gf-loi').parentNode.style.display = 'none';
+    el('gf-cons').parentNode.style.display = 'none';
+    document.querySelector('#ov-irl-garde .gf-cf').style.display = 'none';
+    let vide = el('gf-vide');
+    if (!vide) {
+      vide = document.createElement('div');
+      vide.id = 'gf-vide'; vide.className = 'gf-vide';
+      el('gf-sub').parentNode.appendChild(vide);
+    }
+    vide.style.display = ''; vide.innerHTML = g.pourquoi || '';
+    el('gf-cta').style.display = 'none';
+    foot.querySelector('.btn.bs').textContent = 'Fermer';
+    _gfCtx = null;
+    openM('ov-irl-garde');
+    return;
+  }
+  const vide = el('gf-vide'); if (vide) vide.style.display = 'none';
+  el('gf-loi').parentNode.style.display = '';
+  el('gf-cons').parentNode.style.display = '';
+  document.querySelector('#ov-irl-garde .gf-cf').style.display = '';
+  el('gf-cta').style.display = '';
+  foot.querySelector('.btn.bs').textContent = 'Annuler';
+  el('gf-loi').innerHTML = g.loi || '';
+  el('gf-cons').innerHTML = g.consequence || '';
+  el('gf-case').textContent = g.confirmation || '';
+  el('gf-cta').textContent = g.cta || 'Continuer';
+  el('gf-ok').checked = false;
+  _gfSetOk(false);
+  // Le loyer proposé. Pour un cycle éteint : les indices DE CE CYCLE. Pour un lot gelé ou
+  // sans DPE : la révision est parfaitement calculable, c'est la RÈGLE qui la refusait — on
+  // recalcule donc en mode forcé (aucun chiffre n'est inventé, les indices sont les vrais).
+  let hc = null;
+  if (g.kind === 'cycle-eteint') hc = _gfHcCycleEteint(log, rev);
+  else {
+    const revF = computeIRLRevision(log, { force: true });
+    hc = (revF && revF.nouveauHC) || null;
+  }
+  _gfCtx = { ref, hc, kind: g.kind };
+  openM('ov-irl-garde');
+}
+
+function _gfSetOk(on) {
+  const b = el('gf-cta'); if (!b) return;
+  b.disabled = !on;
+  b.style.opacity = on ? '' : '.5';
+}
+
+/** La confirmation cochée : on laisse passer, et `applyIRL` prend le relais en mode forcé. */
+function _gfForcer() {
+  const c = _gfCtx; if (!c) { closeM('ov-irl-garde'); return; }
+  if (c.hc == null) {
+    showToast('Le nouveau loyer n’est pas calculable pour ce cycle — indice manquant', 'err', 6000);
+    return;
+  }
+  closeM('ov-irl-garde');
+  _gfCtx = null;
+  applyIRL(c.ref, c.hc, { force: true });
+}
+
+function applyIRL(ref, newHC, opts) {
+  const log = DB.logements.find(l=>l.ref===ref);
   if (!log) return;
-  const rev = computeIRLRevision(log);
+  // V20/V21 — LES DEUX `alert()` QUI DISAIENT « Application annulée » SONT PARTIS.
+  // Un gel DPE F/G ou un DPE absent ne ferment plus la porte : ils ouvrent la fenêtre
+  // d'avertissement, qui cite la règle, dit ce que ça engage et demande une confirmation.
+  // Une fois cochée, `_gfForcer` rappelle ici avec `force` — et le geste passe.
+  if (!(opts && opts.force)) {
+    const rev0 = computeIRLRevision(log);
+    const g = (typeof window !== 'undefined' && typeof window.gardeFouRevision === 'function')
+      ? window.gardeFouRevision(rev0, { gainMensuel: _gfGainCycle(log, rev0), fmtMontant: fmt }) : null;
+    if (g) { _gfOuvrir(ref); return; }
+  }
+  const _forceIrl = !!(opts && opts.force);
+  const rev = computeIRLRevision(log, { force: _forceIrl });
+  if (_forceIrl) {
+    // V20/V9 — la trace du geste forcé : elle dit QUI et QUAND, elle débloque la lettre, et
+    // elle reste visible. Sans elle, la révision serait indiscernable d'une révision ordinaire.
+    log.irlForceeLe = td();
+    log.irlForceePar = (typeof _qeQui === 'function') ? _qeQui() : '';
+  }
   const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   const todayLocal = _todayIsoLocal();
   // AUDIT-SUIVI-LOYERS Q1 (décision user 14/07) : la révision porte une DATE D'EFFET EXPLICITE,
@@ -28931,17 +29089,19 @@ function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
       return `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">Cycle du ${fd(r.perdue.effetIso)} non appliqué, éteint le ${fd(prescritIso)} (délai d'un an)</span>
         <span class="am">${gain != null ? `<span class="ly2-p nu">≈ ${fmt(gain)}/mois non appliqués</span>` : '<span class="ly2-p nu">—</span>'}</span>
-        <span class="ac"></span></div>`;
+        <span class="ac"><button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}')">Appliquer quand même</button></span></div>`;
     }).join('');
-    foot = 'La révision revient de toute façon à chaque anniversaire du bail, sur les indices du moment. Seul le cycle passé s\'éteint (art. 17-1).';
+    foot = 'La révision revient de toute façon à chaque anniversaire du bail, sur les indices du moment. Seul le cycle passé s\'éteint (art. 17-1). <b>Appliquer un cycle éteint reste possible</b> : la fenêtre dit alors ce que ça engage.';
   } else if (kind === 'muet') {
     head = `🔒 Non révisables — ${rev.muets.length} lot${rev.muets.length > 1 ? 's' : ''}`;
     rows = rev.muets.map(({ e, rev: r }) =>
       `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">${escHtml(_lyMotifMuet(r))}</span>
         <span class="am"><span class="ly2-p nu">${escHtml(_lyPastilleMuet(r))}</span></span>
-        <span class="ac">${(r.gelDpeFG || r.dpeManquant)
-          ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')">Voir le DPE</button>` : ''}</span></div>`).join('');
+        <span class="ac">${(typeof window.revisionForcable === 'function' && window.revisionForcable(r))
+          ? `<button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}')">${escHtml(window.libelleForcage(r) || 'Continuer quand même')}</button>`
+            + ((r.gelDpeFG || r.dpeManquant) ? `<button class="btn bs bb" onclick="openLogModalOnTab('${_lyQ(e.ref)}','diag')" title="Voir le DPE">📄</button>` : '')
+          : `<button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}')" title="Pourquoi ce lot n’est pas révisable">Pourquoi ?</button>`}</span></div>`).join('');
     foot = 'Gel légal (DPE F/G) et DPE absent sont des <b>avertissements</b>, pas des verrous. Bail de moins d\'un an et indice non publié n\'ont rien à débloquer : la date ou l\'indice manquent.';
   } else if (kind === 'quit-mois') {
     const q = _lyQuittancesDuMois(ymCourant);
@@ -29711,18 +29871,21 @@ function previewIRLLetterFromLog(ref) {
  *
  * Copy-paste EXACT du HTML actuel — aucune modification visuelle.
  */
-function _buildIRLLetterHtml(log, bail, ent, rev) {
+function _buildIRLLetterHtml(log, bail, ent, rev, opts) {
+  // V20 — « la lettre part quand même si tu le décides » : sur un lot gelé ou sans DPE, le
+  // refus dur devient franchissable DÈS LORS que l'utilisateur a coché la confirmation.
+  const _force = !!(opts && opts.force);
   if (!log || !rev || rev.insuffisant || rev.pasEncoreApplicable) {
     return { error: 'insuffisant', errorHtml: '<span class="mu">Données IRL insuffisantes ou révision non encore applicable.</span>' };
   }
-  if (rev.dpeManquant) {
+  if (rev.dpeManquant && !_force) {
     return {
       error: 'dpe-manquant',
       errorHtml: '<span class="mu">⚠️ DPE non renseigné — saisir le DPE sur la fiche du bien avant la révision IRL.</span>',
       alertMsg: '⚠️ DPE non renseigné\n\nImpossible de générer la lettre de révision IRL : le diagnostic de performance énergétique (DPE) n\'est pas saisi pour ce bien.\n\nLa loi Climat 2021 impose de vérifier le DPE avant toute révision (les classes F et G sont gelées).\n\nVeuillez ouvrir la fiche du bien (onglet Diagnostics) et saisir le DPE avant de réessayer.'
     };
   }
-  if (rev.gelDpeFG) {
+  if (rev.gelDpeFG && !_force) {
     return {
       error: 'dpe-fg-gel',
       errorHtml: `<div style="background:#fee2e2;border:2px solid #dc2626;border-radius:6px;padding:14px;color:#991b1b;font-weight:bold">🔒 Loyer GELÉ — DPE ${rev.dpe}<br><span style="font-weight:normal;font-size:12px">Loi Climat 2021 — révision IRL interdite pour les passoires thermiques (classes F et G) depuis le 24/08/2022. Aucune lettre ne peut être générée.</span></div>`,
@@ -29813,9 +29976,11 @@ function genIRLLetter(ref) {
   const log = DB.logements.find(l=>l.ref===ref); if(!log) return '';
   const bail = DB.baux[ref];
   const ent = DB.entites.find(e=>e.nom===(bail?.entity||log.entity));
-  const rev = computeIRLRevision(log);
+  // V20 — un lot revise « quand même » garde la trace du geste : la lettre suit.
+  const _forcee = !!(log.irlForceeLe);
+  const rev = computeIRLRevision(log, { force: _forcee });
 
-  const built = _buildIRLLetterHtml(log, bail, ent, rev);
+  const built = _buildIRLLetterHtml(log, bail, ent, rev, { force: _forcee });
   _irlLetterHtml = built.error ? (built.errorHtml || '') : built.html;
   if (built.error && built.alertMsg) alert(built.alertMsg);
   // v13.33 IRL-VALIDATION : aucune zone validation injectée dans la lettre.

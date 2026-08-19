@@ -246,6 +246,14 @@ import {
   MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
   verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta
 } from './core/quittance-editeur.js';
+
+// CDC-LOYERS-DESIGN V20/V21 — les garde-fous NON BLOQUANTS de la révision IRL.
+// Les textes de loi et de conséquence vivent ici, pas dans l'écran.
+import { GARDE, gardeFouRevision, revisionForcable, libelleForcage } from './core/irl-garde-fou.js';
+window.GARDE_IRL = GARDE;
+window.gardeFouRevision = gardeFouRevision;
+window.revisionForcable = revisionForcable;
+window.libelleForcage = libelleForcage;
 window.MOIS_ETAT = MOIS_ETAT;
 window.moisRailLot = moisRailLot;
 window.moisParDefaut = moisParDefaut;
