@@ -1,5 +1,11 @@
 # CDC — Quittances & Révisions de loyer (IRL)
 
+> ⚠️ **AMENDÉ le 19/08/2026 par [docs/CDC-LOYERS-DESIGN.md](CDC-LOYERS-DESIGN.md)** (session design, 21 décisions
+> prises sur maquettes peuplées au volume réel). En cas de contradiction, **le CDC design fait foi**.
+> Amendement principal : la décision **D6 (« quittance seulement si le mois est soldé ») est ABROGÉE** —
+> principe retenu par Didier : *« l'app doit prévenir mais pas bloquer tout le temps l'utilisateur ;
+> on garde des garde-fous partout, mais pas bloquants »*.
+
 **Statut : VALIDÉ par Didier le 18/08/2026** — session dédiée « quittances & IRL ».
 Maquettes de référence, dans `mockups/QUITTANCES-IRL/` (gitignoré) :
 
