@@ -653,3 +653,30 @@ reçoit enfin le `mapping` (M-2).
 **Gate de sortie** : audit par `superpowers:code-reviewer`, tests d'invariants (Σ immeubles = bailleur mois
 par mois · Σ lignes = total charges · annuel = Σ mois · IRL d'août ne modifie aucun mois antérieur),
 smoke sur les 3 formats.
+
+---
+
+## 12. Complément 14/08 — le paiement des charges APRÈS régularisation (validé)
+
+**Le circuit** (mécanique existante, confirmée dans le code) :
+1. La régul produit une **créance signée** (écran Régularisation — détail hors V1, le solde suffit).
+2. Le règlement du solde par le locataire ne doit **JAMAIS être classé « Loyers encaissés »** : la cascade
+   le confronterait au dû du barème, n'y trouverait rien à couvrir → **fausse avance qui roule** de mois
+   en mois (mécanisme Yardin, mais infondé).
+3. **Bonne catégorie : « Charges récupérables (eau, énergie…) », en crédit.** Le moteur mensuel calcule ce
+   poste **en net** (`db − cr`, finances-monthly.js:117) : l'encaissement nette « Avancé pour les
+   locataires » → le « Solde de trésorerie des charges » remonte vers zéro → compté dans le **cash-flow
+   réel**, neutre pour le **cash-flow net** (transit) et pour la 2044 (la part jamais récupérée remonte
+   seule en ligne 225 via la catégorie automatique).
+4. **Trop-perçu remboursé au locataire** : symétrique — débit sur la même catégorie.
+5. **Loyer + solde payés en un seul virement** : rôle du **✂️ découpage** (2 parts : 211 + récupérable).
+
+**Correctifs V1 validés (deux textes, zéro moteur) :**
+- **T1** · le `descHors` de « Divers (non déductible) » cite « régularisation de solde locataire »
+  (index.html:4100) → oriente vers une catégorie qui rend le paiement **invisible** du P&L. À réécrire :
+  pointer vers « Charges récupérables (eau, énergie…) ».
+- **T2** · le **popup d'avance** gagne une ligne : « si ce montant est un solde de charges
+  (régularisation), reclasse-le en Charges récupérables ».
+
+**Évolution notée, pas V1** : l'import propose la catégorie récupérable quand un crédit d'un locataire ne
+colle à aucun dû ET qu'une régularisation signée du même montant existe pour ce lot.
