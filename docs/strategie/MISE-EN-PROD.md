@@ -11,7 +11,7 @@
 | **Forme juridique** | **Micro-entreprise (AE)** — à confirmer avec le comptable | Bascule SASU envisagée au seuil (~2 000-2 500 € MRR). Le jour de la bascule : formaliser l'apport du logiciel à la société |
 | **Paiement** | **Stripe** (conditionné au statut AE) | En franchise de TVA, pas de TVA à facturer → Stripe (~1,5-2,9 % + 0,25 €) plus simple et moins cher que Paddle (5 %). Re-évaluer Paddle si passage en société assujettie ou ouverture Europe |
 | **Business plan** | Réécriture destinée à **démontrer l'ambition du projet, sa faisabilité et son potentiel concret** | Pas un dossier bancaire formaté : un dossier de conviction. Réécriture lancée dès la grille tarifaire validée |
-| **Pricing — cadre** | 4 niveaux : **Gratuit** (objectif = faire du flux : créer un bail, un EDL, une quittance) · **2,99 €/mois** (1 lot) · **9,90 €** · **19,90 €** | Grille détaillée (nombre de lots, périmètre exact du gratuit, tarifs annuels) **EN PROPOSITION — pas figée** |
+| **Pricing — GRILLE FIGÉE 19/08** | **Gratuit** (1 lot, documents : bail + EDL + quittance, PDF illimités — objectif = faire du flux) · **Essentiel 2,99 €/mois** (1 lot, tout Propryo) · **Investisseur 9,90 €/mois** (jusqu'à **5 lots** — arbitrage Didier vs les 10 du BP d'avril, aligné sur la structure du marché : Smartloc 2-4, Qalimo 2-6, BailFacile 1-5) · **Patrimoine 19,90 €/mois** (jusqu'à 30 lots + **partage SCI multi-utilisateurs**) · au-delà de 30 / agences : « nous contacter ». **Annuel = 2 mois offerts** : 29 € / 99 € / 199 € | La page Tarifs raconte le 19,90 comme « SCI/Patrimoine + partage », pas « le 6e lot coûte 10 € ». Prix concurrents re-vérifiés à l'étape 4 (données d'avril) |
 
 ## 2. Étapes (ordre validé)
 
@@ -37,9 +37,9 @@
 
 ## 4. Points ouverts
 
-- [ ] **Grille tarifaire détaillée** (proposition soumise dans le chat du 19/08 — attente validation Didier) : périmètre exact du gratuit, nombre de lots par palier, tarifs annuels, placement du partage SCI.
+- [x] ~~Grille tarifaire détaillée~~ — **FIGÉE 19/08** (cf tableau §1).
 - [ ] Confirmation AE par le comptable (seuils micro/franchise TVA à jour — les seuils ont bougé en 2025, à faire vérifier par le comptable).
-- [ ] Format de sortie du BP : dossier markdown + version présentable (deck/PDF) — à trancher à la livraison.
+- [ ] Format présentable du BP (deck/PDF) — le dossier source est [BIZPLAN-PROPRYO.md](BIZPLAN-PROPRYO.md) (livré 19/08, remplace BIZPLAN.md d'avril) ; version présentation à produire sur demande.
 
 ## 5. Notes de risque
 
