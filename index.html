@@ -51380,18 +51380,6 @@ function _finSaveCatMapping() {
   if (typeof showToast === 'function') showToast('Catégories associées ✓ — Finances recalculé', 'ok');
 }
 
-function _finCollect(year, entNom) {
-  const yr = year || new Date().getFullYear();   // F-1 : défaut unique = exercice en cours (fin des 3 défauts contradictoires)
-  const ents = (DB.entites || []).filter(e => e && !e._deleted && (!entNom || e.nom === entNom));
-  const bilans = [];
-  if (typeof window._computeBilanAnnuel === 'function') {
-    ents.forEach(e => {
-      const b = window._computeBilanAnnuel(DB, STD_CATEGORIES, e.nom, yr);
-      if (b) bilans.push(b);
-    });
-  }
-  return { yr, bilans };
-}
 
 // ---- C3: Ratio card renderer ----
 function _finRatio(label, val, unit, color, tip) {
@@ -51563,24 +51551,33 @@ function rFinances() {
   (cur.months || []).forEach(m => { if (m.mo <= W.constat.dueMonth) { _duCC += m.duHC + m.duCH; _retardCC += m.loyerRetard + m.chargeRetard; } });
   _retardCC = Math.round(_retardCC * 100) / 100;
   const recouv = _duCC > 0 ? Math.round((_duCC - _retardCC) / _duCC * 1000) / 10 : null;
-  // Occupation : moyenne de la période — bascule intégralement sous le socle à l'étape 4 (R-4/K-2).
-  const { bilans } = _finCollect(yr, entNom);
-  const immNomOcc = scope ? (scope.immFilter || '') : '';
-  const _finLots = immNomOcc ? bilans.reduce((acc, b) => acc.concat((b.parLogement || []).filter(l => l.imm === immNomOcc)), []) : null;
-  const nbTotal = _finLots ? _finLots.length : bilans.reduce((s, b) => s + ((b.kpis && b.kpis.nbLogements) || 0), 0);
-  const tauxOccMoyen = _finLots
-    ? (() => { const o = _finLots.reduce((s, l) => s + (Number(l.occDays) || 0), 0), va = _finLots.reduce((s, l) => s + (Number(l.vacanceDays) || 0), 0); return (o + va) > 0 ? o / (o + va) * 100 : 0; })()
-    : (nbTotal > 0 ? bilans.reduce((s, b) => s + ((b.kpis && b.kpis.tauxOccupationGlobal) || 0) * ((b.kpis && b.kpis.nbLogements) || 0), 0) / nbTotal : 0);
-  // Compteur d'impayés du même moteur à l'étape 4 — interim : liste existante sur les lots du périmètre.
+  // R-2 : le compteur « N impayés » vient du MÊME moteur (lots à retard résiduel > 0).
+  const _nbImp = (cur.lotsEnRetard || []).length;
+  // R-4 / K-2 : occupation = MOYENNE de la période, calculée SOUS LE SOCLE (lots du périmètre
+  // via scopeLots — les lots sans bailleur comptent enfin, constat 21) ; le manque à gagner
+  // THÉORIQUE de la vacance s'affiche SOUS le taux (il le qualifie, ce n'est pas une créance).
   const scopedLogs = (typeof window._finScopeLots === 'function' && scope) ? window._finScopeLots(scope, DB.logements || []) : (DB.logements || []).filter(l => l && !l._deleted);
-  const impayes = (typeof _listerImpayesActifs === 'function') ? _listerImpayesActifs(scopedLogs, DB.baux || {}, DB.mouvements || []) : [];
+  const _todayIso = W.constat.today || new Date().toISOString().slice(0, 10);
+  const _occTo = (String(yr) === _todayIso.slice(0, 4)) ? _todayIso : (yr + '-12-31');
+  const OCC = (typeof window._computeOccupationLots === 'function')
+    ? window._computeOccupationLots(DB, scopedLogs, { from: yr + '-01-01', to: _occTo })
+    : { taux: 0, manqueAGagner: 0, vacantsJour: [], nbLots: scopedLogs.length };
+  const _dfr = d => { const p = String(d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
+  // État du jour, information DISTINCTE de la moyenne (R-4) : « 1 lot vide depuis le 12/05 ».
+  const _vac = OCC.vacantsJour || [];
+  const _vacTxt = _vac.length
+    ? ' · ' + _vac.length + ' lot' + (_vac.length > 1 ? 's' : '') + ' vide' + (_vac.length > 1 ? 's' : '')
+      + (_vac.length === 1 && _vac[0].depuis ? ' depuis le ' + _dfr(_vac[0].depuis) : '')
+    : '';
+  const _occTip = 'moyenne sur ' + W.exigibilite.nbMois + ' mois · ' + OCC.nbLots + ' lot' + (OCC.nbLots > 1 ? 's' : '')
+    + (OCC.manqueAGagner > 0.005 ? ' · <b title="Théorique : le loyer que le lot aurait produit s\'il avait été loué (loyer de référence × jours vides — même base que la clé de répartition P-4, même fenêtre que la page)">' + f(OCC.manqueAGagner) + ' de manque à gagner</b>' : '')
+    + _vacTxt;
   const ratiosHtml = '<div class="fin-ratios">'
     + _finRatio('Recouvrement', recouv == null ? '—' : recouv, recouv == null ? '' : '%',
         recouv == null ? 'acc' : (recouv >= 95 ? 'pos' : (recouv >= 85 ? 'warn' : 'neg')),
         recouv == null ? 'aucun dû sur la période' :
-        (_retardCC > 0.005 ? (f(_retardCC) + ' de retard (loyers + charges) · ' + impayes.length + ' impayé' + (impayes.length > 1 ? 's' : '')) : 'encaissé ÷ dû du barème, charges comprises'))
-    + _finRatio('Occupation', Math.round(tauxOccMoyen * 10) / 10, '%', 'acc',
-        'moyenne sur la période · ' + nbTotal + ' lot' + (nbTotal > 1 ? 's' : ''))
+        (_retardCC > 0.005 ? (f(_retardCC) + ' de retard (loyers + charges) · ' + _nbImp + ' impayé' + (_nbImp > 1 ? 's' : '')) : 'encaissé ÷ dû du barème, charges comprises'))
+    + _finRatio('Occupation', Math.round(OCC.taux * 10) / 10, '%', 'acc', _occTip)
     + '</div>';
 
   // K-1 : le bloc « Argent à récupérer » a DISPARU — chaque information vit dans le tableau

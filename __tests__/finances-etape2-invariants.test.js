@@ -261,3 +261,38 @@ describe('étape 2 · tranche 3 — tableau (L-2/L-4/L-5, rattrapage, H-2, H-7)'
     expect(r.interetsKnown).toBe(true);
   });
 });
+
+describe('étape 2 · tranche 4 — ratios sous le socle (R-2 compteur, R-4 occupation, K-2 vacance)', () => {
+  it('R-2 : « N impayés » vient du moteur — lots à retard résiduel > 0, rien d\'autre', async () => {
+    const { _computeFinancesMonthly: eng } = await import('../js/core/finances-monthly.js');
+    const due2 = (qui) => (qui === 'A' || qui === 'B' ? { hc: 500, ch: 50 } : { hc: 0, ch: 0 });
+    const mvts = [];
+    for (let m = 1; m <= 9; m++) mvts.push({ date: YEAR + '-' + String(m).padStart(2, '0') + '-03', cat: 'Loyer', cr: 550, qui: 'A' });
+    // B ne paie rien : pire retard, il doit compter. A est à jour : il ne compte pas.
+    const win = computeConstatWindow({ year: YEAR, today: TODAY, mouvements: mvts });
+    const r = eng({ mouvements: mvts, year: YEAR, scope: null, catLigne, loyerDue: due2, activeLots: ['A', 'B'], today: TODAY, window: win });
+    expect(r.lotsEnRetard).toEqual(['B']);
+  });
+
+  it('R-4/K-2 : occupation = moyenne de la période, sous le socle (lots injectés) ; manque à gagner théorique = jours vides × loyer de référence', async () => {
+    const { _computeOccupationLots } = await import('../js/core/legal-bilan.js');
+    const db = {
+      baux: { OCC: { ref: 'OCC', debut: '2025-01-01', hc: 800, ch: 100 } },
+      baux_historique: [{ ref: 'VIDE', debut: '2024-01-01', fin: '2026-03-31', finEffective: '2026-03-31', archive: true, hc: 600 }]
+    };
+    const lots = [
+      { ref: 'OCC', locataire: 'X', loyerHcRef: 800 },
+      { ref: 'VIDE', locataire: '', loyerHcRef: 600 },           // vide depuis le 31/03
+      { ref: 'SANS-BAILLEUR', locataire: '', loyerHcRef: 500 }   // P-2 : il COMPTE (constat 21)
+    ];
+    const r = _computeOccupationLots(db, lots, { from: '2026-01-01', to: '2026-06-30' });
+    expect(r.nbLots).toBe(3);
+    // OCC : 181 jours · VIDE : 90 (jan→mars) · SANS-BAILLEUR : 0 → (181+90)/543
+    expect(r.taux).toBeCloseTo((181 + 90) / (3 * 181) * 100, 0);
+    // K-2 : VIDE 91 jours vides × 600/30,44 + SANS-BAILLEUR 181 × 500/30,44
+    expect(r.manqueAGagner).toBeCloseTo(91 / 30.44 * 600 + 181 / 30.44 * 500, 0);
+    // État du jour (information distincte de la moyenne, R-4)
+    expect(r.vacantsJour.map(v => v.ref).sort()).toEqual(['SANS-BAILLEUR', 'VIDE']);
+    expect(r.vacantsJour.find(v => v.ref === 'VIDE').depuis).toBe('2026-03-31');
+  });
+});

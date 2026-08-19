@@ -184,6 +184,7 @@ export function _computeFinancesMonthly(input) {
   // (1) Cascade d'imputation CUMULATIVE par LOT sur toute la période : chaque mois comble son
   //     loyer+charges, récupère les arriérés (loyer d'abord), reliquat = avance. Les résultats
   //     mensuels somment exactement à l'annuel (le mois qui reçoit porte la récup + l'avance).
+  const lotsEnRetard = [];       // R-2 : lots à retard résiduel > 0 (compteur « N impayés »)
   const allLots = new Set();
   order.forEach(ym => { const lots = buckets[ym]._loyerByLot; if (lots) for (const q in lots) allLots.add(q); });
   activeLots.forEach(q => allLots.add(q));   // + lots à bail actif sans mouvement (retard « zéro paiement »)
@@ -206,10 +207,15 @@ export function _computeFinancesMonthly(input) {
     // Calculé sur les seuls mois EXIGIBLES : un mois non échu (compté au constat parce qu'il
     // porte déjà un encaissement — décision « B ») ne peut pas être « en retard ». Les mois
     // au-delà de `dueMonth` gardent donc un retard de 0.
+    let _retardLot = 0;
     _computeLoyerNetting(lotMonths.slice(0, dueMonth), graceLast).retardMois.forEach((rm, idx) => {
       const b = buckets[order[idx]];
       b.loyerRetard += rm.loyer; b.chargeRetard += rm.charge;
+      _retardLot += rm.loyer + rm.charge;
     });
+    // R-2 : le compteur « N impayés » vient du MÊME moteur (lots à retard résiduel > 0),
+    // plus d'une liste calculée à part.
+    if (_retardLot > 0.005 && q) lotsEnRetard.push(q);
   });
   // (2) Champs dérivés (loyersHC/provisions/avance déjà posés : par cascade au mois, par somme à l'année).
   const finalizeDerived = b => {
@@ -237,5 +243,5 @@ export function _computeFinancesMonthly(input) {
   const interetsTotal = annual.interets;
   // Les bornes effectivement appliquées sont RENDUES : l'appelant (et les tests) peuvent
   // vérifier quelle fenêtre a réellement piloté le calcul, au lieu de le supposer.
-  return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0, lastMonth, dueMonth };
+  return { months, annual, interetsTotal, interetsKnown: interetsTotal > 0, lastMonth, dueMonth, lotsEnRetard };
 }

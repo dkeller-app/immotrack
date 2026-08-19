@@ -67,7 +67,7 @@ import {
 } from './core/rgpd.js';
 
 import {
-  _computeBilanAnnuel, _formatBilanTexte
+  _computeBilanAnnuel, _formatBilanTexte, _computeOccupationLots
 } from './core/legal-bilan.js';
 
 // B4 — sous-P&L mensuel (modèle prêt entier en charge)
@@ -304,6 +304,7 @@ window._isEraseEligible = _isEraseEligible;
 // LEGAL-BILAN-ANNUEL (Sprint 3C) - bilan par entité
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
+window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupation sous le socle
 
 // B4 — sous-P&L mensuel (prêt entier en charge + base 2044 conditionnelle)
 window._computeFinancesMonthly = _computeFinancesMonthly;
