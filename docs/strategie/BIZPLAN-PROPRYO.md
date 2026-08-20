@@ -122,6 +122,8 @@ L'examen honnête du panel retire deux « exclusivités » v1 (la signature incl
 
 Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La frontière est nette : gratuit = documents générés localement (coût de service nul) ; payant = la valeur récurrente.
 
+**Cogestion (règle figée 19/08)** : **1 co-gestionnaire inclus dans tout plan payant** ; sièges supplémentaires **2,99 €/mois** ; et **gratuit si le co-gestionnaire possède son propre compte payant ≥ Investisseur (9,90 €)** — deux associés abonnés cogèrent sans surcoût, ce qui pousse chaque associé à avoir son compte (boucle virale interne aux SCI).
+
 **Essai et avantages (figés 19/08)** :
 - **Essai 30 jours, toutes fonctions, sans carte bancaire** — 30 jours car le cycle de valeur d'un bailleur est mensuel (loyer → rapprochement → quittance) : un essai de 15 jours ne le couvre pas. À J+30, **retombée automatique sur le plan Gratuit** : aucune donnée perdue, la quittance mensuelle ramène l'utilisateur — une sortie d'essai qu'aucun concurrent n'offre (leurs essais expirent sur un mur payant). Benchmark : un essai complet convertit 8-12 % contre 3-5 % en freemium seul (OpenView/Lenny) — c'est un levier direct vers le scénario central.
 - **Parrainage client** : 1 mois offert au parrain par filleul devenu payant (cumulable), 1 mois au filleul.
@@ -256,14 +258,15 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 | Fin de période | Prudent | Central | Ambitieux |
 |---|---|---|---|
 | **2026** (3 mois) | 24 clients · ARR 3 K€ | 34 · 4 K€ | 56 · 6 K€ |
-| **2027** | 135 · **ARR 14 K€** | 181 · **19 K€** | 337 · **36 K€** |
-| **2028** | 351 · 37 K€ | 468 · 50 K€ | 893 · 95 K€ |
-| **2029** | 710 · **75 K€** | 947 · **101 K€** | 1 828 · **194 K€** |
+| **2027** | 135 · **ARR 15 K€** | 181 · **20 K€** | 337 · **37 K€** |
+| **2028** | 351 · 38 K€ | 468 · 51 K€ | 893 · 97 K€ |
+| **2029** | 710 · **77 K€** | 947 · **103 K€** | 1 828 · **199 K€** |
 
 - **Résultat mensuel positif** : juillet 2027 (prudent) · mai 2027 (central) · avril 2027 (ambitieux) — le projet s'autofinance dans les trois cas dès l'été 2027.
 - **Avance de trésorerie maximale : ~12 K€** (point bas −11,6 / −10,9 / −9,8 K€ selon le scénario), remboursée entre janvier et décembre 2028. Aucune levée nécessaire.
 - **Valorisation indicative fin 2029** (3-5× ARR) : 0,23-0,38 M€ prudent · **0,30-0,50 M€ central** · 0,58-0,97 M€ ambitieux.
 - **Sensibilité** (les vrais leviers, pilotables dans le classeur) : +1 point de conversion freemium = **+33 % de clients** partout · churn 5 → 3,5 % = +40 % de base à 3 ans · ×2 sur la vélocité contenu ≈ +60-80 % de trafic fin 2027. La calibration de janvier 2027 (§11) dira lequel pousser.
+- **Bascule société calculée automatiquement** (au franchissement du plafond micro sur 12 mois glissants) : prudent et central **restent en micro-entreprise jusqu'à fin 2029** (le central frôle le plafond — la bascule est pour début 2030) ; l'ambitieux bascule en **mars 2029** (création de société + expert-comptable + prélèvements ~28 % comptés). Hébergement évolutif inclus (base Supabase/Resend + 0,10 €/client/mois) ; revenus de cogestion inclus (règle §6).
 - **Upside non modélisé, volontairement** : les clients apportés par les prescripteurs (§8.5) n'entrent pas dans le funnel modélisé (seules leurs commissions sont provisionnées en charge) — chaque filleul réel s'ajoute à ces chiffres.
 - *Trajectoire de rigueur : la v1 posait 700 clients fin 2027 (conversion 15 %, indéfendable) ; la v2 en dérivait 280 mais oubliait cotisations et remise annuelle ; cette v3 sort du classeur, complet. C'est moins flatteur — et c'est défendable ligne à ligne.*
 
@@ -288,7 +291,7 @@ Développeur solo **avec une chaîne d'agents IA** (développement, audit systé
 
 ### 11.3 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
 
-Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · domaine/infra/outils ~550 · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs). **Avance de trésorerie maximale ~12 K€** (point bas mi-2027), remboursée courant 2028. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
+Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · **hébergement évolutif** (Supabase Pro + Resend 45 €/mois + 0,10 €/client/mois) + outils 15 €/mois · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs) — et à la bascule société (automatique dans le modèle) : création ~800 €, expert-comptable ~150 €/mois, prélèvements ~28 % (approximation à affiner comptable). **Avance de trésorerie maximale ~12 K€** (point bas mi-2027), remboursée courant 2028. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
 
 ---
 
