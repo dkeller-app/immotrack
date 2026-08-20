@@ -152,6 +152,10 @@ import * as EdlPhotos from './core/edl-photos.js';
 // jamais a la frappe, jamais sur un EDL signe, jamais 2 ecritures en moins de 2 s.
 import * as EdlAutosave from './core/edl-autosave.js';
 
+// EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
+// installation, Safari purge photos et miroir a 7 jours).
+import * as PwaInstall from './core/pwa-install.js';
+
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
   _base64UrlEncode, _emailEncodeMimeHeader, _emailMakeBoundary,
@@ -581,6 +585,8 @@ window.BiensPieces = BiensPieces;
 window.EdlPhotos = EdlPhotos;
 // EDL TERRAIN lot 1 — minuteur d'autosave de l'etat des lieux.
 window.EdlAutosave = EdlAutosave;
+// EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
+window.PwaInstall = PwaInstall;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

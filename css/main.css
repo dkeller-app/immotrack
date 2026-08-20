@@ -8874,6 +8874,29 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 }
 @media (max-width:640px){ .edl-thumb{ width:72px; height:72px; } }
 
+/* ── EDL TERRAIN lot 2 · invitation à installer l'app ──────────────────────
+   CDC §3 verrou 4. Bandeau discret, au-dessus de la barre du bas, jamais
+   par-dessus le contenu de saisie. Téléphone uniquement (le module refuse
+   au-delà de 767 px, la media query le redit côté rendu). */
+.pwa-invite{
+  position:fixed;
+  left:12px;right:12px;
+  bottom:calc(env(safe-area-inset-bottom, 8px) + 76px);
+  z-index:1500;
+  display:flex;flex-direction:column;gap:10px;
+  background:var(--sur);
+  border:1px solid var(--bor);
+  border-radius:14px;
+  box-shadow:0 8px 28px rgba(20,25,54,.18);
+  padding:14px 16px;
+}
+.pwa-invite-txt{display:flex;flex-direction:column;gap:4px}
+.pwa-invite-txt strong{font-size:14px;color:var(--t1)}
+.pwa-invite-txt span{font-size:12.5px;line-height:1.5;color:var(--t2)}
+.pwa-invite-act{display:flex;gap:8px;justify-content:flex-end}
+.pwa-invite-act .btn{min-height:40px}
+@media (min-width:768px){ .pwa-invite{ display:none; } }
+
 /* EDL TERRAIN lot 1 (CDC docs/CDC-EDL.md §1) — sur téléphone, l'enregistrement
    est AUTOMATIQUE : le bouton « 💾 Enregistrer » n'y a plus de rôle et il prend
    une place précieuse dans un pied de page utilisé d'une seule main. Il reste

@@ -22,7 +22,18 @@ self.addEventListener('install', e => {
   const base = self.registration.scope;
   e.waitUntil(
     caches.open(CACHE_VER).then(c =>
-      c.addAll([base, base + 'index.html']).catch(() => {}) // Échec silencieux si offline
+      // EDL TERRAIN lot 2 : le manifeste et les icônes entrent au pré-cache.
+      // Sans eux en cache, une app installée qui démarre sans réseau n'a ni
+      // icône ni manifeste — et l'installation est justement ce qui empêche
+      // Safari de purger photos et miroir à 7 jours (CDC §3 verrou 4).
+      c.addAll([
+        base, base + 'index.html',
+        base + 'manifest.webmanifest',
+        base + 'assets/icons/icon-192.png',
+        base + 'assets/icons/icon-512.png',
+        base + 'assets/icons/icon-maskable-512.png',
+        base + 'assets/icons/apple-touch-icon-180.png'
+      ]).catch(() => {}) // Échec silencieux si offline
     )
   );
 });
@@ -63,8 +74,17 @@ self.addEventListener('fetch', e => {
 
   // 3) Autres assets same-origin (icons, manifest, images, fonts) → cache-first
   //    Garde l'expérience PWA offline-friendly pour les assets statiques.
+  //    EDL TERRAIN lot 2 : ce qu'on va chercher au réseau est désormais MIS EN
+  //    CACHE. Avant, un asset absent du pré-cache repartait au réseau à chaque
+  //    fois et manquait donc hors ligne, pour toujours.
   e.respondWith(
-    caches.match(request).then(cached => cached || fetch(request))
+    caches.match(request).then(cached => cached || fetch(request).then(res => {
+      if (res && res.ok && res.type === 'basic') {
+        const copie = res.clone();
+        caches.open(CACHE_VER).then(c => c.put(request, copie)).catch(() => {});
+      }
+      return res;
+    }))
   );
 });
 
