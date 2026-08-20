@@ -17,6 +17,100 @@
 /** Les 8 emplacements de photos de compteurs (entrée + sortie). */
 export const EDL_COMPTEUR_PHOTO_KEYS = ['elec', 'gaz', 'eauC', 'eauF', 'elecS', 'gazS', 'eauCS', 'eauFS'];
 
+/* ══ LOT 3 ══════════════════════════════════════════════════════════════════
+   Le calibre de la prise de vue, la sérialisation, et « à l'abri ».
+   CDC §2 : le redimensionnement 1600 px / JPEG 0,8 n'est PAS rouvert — mais il
+   était recopié à l'identique en CINQ endroits (le CDC en comptait quatre).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Côté maximal d'une photo d'EDL. Calibre de preuve, non rouvert (CDC §2). */
+export const PHOTO_MAX_PX = 1600;
+/** Qualité JPEG. Même statut. */
+export const PHOTO_QUALITE = 0.8;
+
+/**
+ * Les dimensions après redimensionnement, en préservant les proportions.
+ * Une photo plus petite que le maximum n'est jamais AGRANDIE.
+ */
+export function dimensionsRedimensionnees(w, h, max = PHOTO_MAX_PX) {
+  const lw = Number(w) || 0, lh = Number(h) || 0;
+  if (lw <= 0 || lh <= 0) return { w: 0, h: 0 };
+  if (lw <= max && lh <= max) return { w: lw, h: lh };
+  return lw > lh
+    ? { w: max, h: Math.round(lh * max / lw) }
+    : { w: Math.round(lw * max / lh), h: max };
+}
+
+/**
+ * La sérialisation d'une photo dans l'enregistrement d'EDL — SOURCE UNIQUE.
+ *
+ * Le bug qu'elle ferme : trois copies de ce mappage vivaient dans index.html
+ * (deux `_phMeta` + `_edlCptPhMeta`) et AUCUNE ne recopiait `cloudKey`. Donc
+ * chaque enregistrement effaçait la preuve que la photo était dans le cloud —
+ * ce qui explique le constat du CDC : « 0 sur 182 avec un cloudKey ». La photo
+ * repartait à l'envoi indéfiniment, et la relecture, faute de chemin, devinait
+ * un chemin qui n'existe pas.
+ */
+export function metaPhoto(ph) {
+  const p = ph || {};
+  return {
+    name: p.name || '',
+    idbKey: p.idbKey || '',
+    ts: p.ts || '',
+    // Le SEUL juge de « à l'abri » (invariant 7) : il ne doit jamais se perdre.
+    cloudKey: p.cloudKey || '',
+    // Héritages Google Drive : conservés pour ne rien détruire, jamais lus.
+    synced: !!p.synced,
+    driveFileId: p.driveFileId || '',
+    driveFileName: p.driveFileName || '',
+  };
+}
+
+/**
+ * Invariant 7 : « une photo est à l'abri SI ET SEULEMENT SI elle porte un cloudKey ».
+ * `synced` est un héritage de Drive : une photo `synced:true` SANS cloudKey était
+ * exclue à vie de l'envoi par l'ancien filtre `!ph.synced`.
+ */
+export function estAlAbri(ph) {
+  return !!(ph && ph.cloudKey);
+}
+
+/** Le compteur de l'en-tête : « 34 / 77 photos à l'abri ». */
+export function compterAlAbri(photos) {
+  const l = photos || [];
+  const alAbri = l.filter(estAlAbri).length;
+  return { total: l.length, alAbri, restantes: l.length - alAbri };
+}
+
+/** Ce qu'il reste à envoyer : tout ce qui n'a pas de cloudKey. Rien d'autre. */
+export function photosAEnvoyer(photos) {
+  return (photos || []).filter(ph => ph && ph.idbKey && !estAlAbri(ph));
+}
+
+/**
+ * Invariant 8 : le chemin lu à la relecture est CELUI écrit à l'envoi.
+ * Sans cloudKey, on ne DEVINE pas : l'envoi écrit `<espace>/<entité>/files/<clé>`
+ * et la devinette visait `<espace>/files/<clé>` — deux chemins qui ne se croisent
+ * jamais, donc un 404 silencieux à chaque relecture.
+ */
+export function cheminRelecture(ph) {
+  return estAlAbri(ph) ? ph.cloudKey : null;
+}
+
+/**
+ * Invariant 12 : libérer les photos locales d'un EDL est IMPOSSIBLE tant qu'une
+ * seule d'entre elles n'a pas de cloudKey — et on dit lesquelles manquent.
+ * Invariant 11 : aucun chemin ne libère automatiquement ; cette fonction ne
+ * libère rien, elle répond seulement « est-ce permis ».
+ */
+export function peutLibererLocal(photos) {
+  const l = photos || [];
+  const manquantes = l.filter(ph => !estAlAbri(ph));
+  if (!l.length) return { peut: false, manquantes: [], motif: 'aucune-photo' };
+  if (manquantes.length) return { peut: false, manquantes, motif: 'photos-hors-cloud' };
+  return { peut: true, manquantes: [], motif: 'ok' };
+}
+
 function _push(out, seen, arr) {
   if (!Array.isArray(arr)) return;
   for (const ph of arr) {
@@ -54,6 +148,12 @@ export function collectEdlPhotos(edlRec) {
 
   const cpt = edlRec.compteursPhotos || {};
   EDL_COMPTEUR_PHOTO_KEYS.forEach(k => _push(out, seen, cpt[k]));
+  // Le détecteur de fumée : ses photos vivent dans `daaf.photos` sur
+  // l'enregistrement, mais dans `_edlCptPhotos.daaf` dans le formulaire.
+  // Les deux comptent — sans ça, la photo du DAAF n'était ni comptée « à
+  // l'abri », ni hydratée, ni envoyée.
+  _push(out, seen, cpt.daaf);
+  if (edlRec.daaf) _push(out, seen, edlRec.daaf.photos);
 
   const mob = (edlRec.mobilier && Array.isArray(edlRec.mobilier.elements)) ? edlRec.mobilier.elements : [];
   mob.forEach(m => {

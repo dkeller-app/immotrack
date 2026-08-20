@@ -169,3 +169,101 @@ describe('photoIndexByKey — retrouver le cloudKey d’une vignette à hydrater
     expect(Object.keys(idx)).toEqual(['a']);
   });
 });
+
+/* ══ LOT 3 — le calibre, la sérialisation, « à l'abri » ═══════════════════ */
+
+import {
+  PHOTO_MAX_PX, PHOTO_QUALITE, dimensionsRedimensionnees, metaPhoto,
+  estAlAbri, compterAlAbri, photosAEnvoyer, cheminRelecture, peutLibererLocal,
+} from '../../js/core/edl-photos.js';
+
+describe('dimensionsRedimensionnees — invariant 10 : UN seul calibre', () => {
+  it('le calibre du CDC est 1600 px / JPEG 0,8', () => {
+    expect(PHOTO_MAX_PX).toBe(1600);
+    expect(PHOTO_QUALITE).toBe(0.8);
+  });
+  it('une photo paysage d’iPhone (4032×3024) tient dans 1600 sans déformation', () => {
+    const d = dimensionsRedimensionnees(4032, 3024);
+    expect(d).toEqual({ w: 1600, h: 1200 });
+    expect(d.w / d.h).toBeCloseTo(4032 / 3024, 3);
+  });
+  it('une photo portrait est réduite par sa hauteur', () => {
+    expect(dimensionsRedimensionnees(3024, 4032)).toEqual({ w: 1200, h: 1600 });
+  });
+  it('une photo carrée reste carrée', () => {
+    expect(dimensionsRedimensionnees(2000, 2000)).toEqual({ w: 1600, h: 1600 });
+  });
+  it('une petite photo n’est JAMAIS agrandie', () => {
+    expect(dimensionsRedimensionnees(640, 480)).toEqual({ w: 640, h: 480 });
+  });
+  it('une image sans dimensions ne fait pas planter la prise de vue', () => {
+    expect(dimensionsRedimensionnees(0, 0)).toEqual({ w: 0, h: 0 });
+    expect(dimensionsRedimensionnees(undefined, undefined)).toEqual({ w: 0, h: 0 });
+  });
+});
+
+describe('metaPhoto — le cloudKey ne se perd plus à l’enregistrement', () => {
+  it('conserve le cloudKey (les 3 copies inline le jetaient : « 0 sur 182 »)', () => {
+    const m = metaPhoto({ name: 'a.jpg', idbKey: 'ph_1', ts: '2026-05-03', cloudKey: 'esp/ent/files/ph_1' });
+    expect(m.cloudKey).toBe('esp/ent/files/ph_1');
+  });
+  it('900 ré-enregistrements ne perdent pas le cloudKey (l’autosave rejoue le mappage)', () => {
+    let ph = { name: 'a.jpg', idbKey: 'ph_1', ts: '2026-05-03', cloudKey: 'esp/ent/files/ph_1' };
+    for (let i = 0; i < 900; i++) ph = metaPhoto(ph);
+    expect(ph.cloudKey).toBe('esp/ent/files/ph_1');
+  });
+  it('ne fabrique jamais de cloudKey quand il n’y en a pas', () => {
+    expect(metaPhoto({ idbKey: 'ph_2' }).cloudKey).toBe('');
+  });
+  it('ne plante pas sur une photo nulle', () => {
+    expect(metaPhoto(null).idbKey).toBe('');
+  });
+});
+
+describe('estAlAbri / photosAEnvoyer — invariant 7 : le cloudKey seul juge', () => {
+  it('une photo avec cloudKey est à l’abri', () => {
+    expect(estAlAbri({ idbKey: 'a', cloudKey: 'esp/ent/files/a' })).toBe(true);
+  });
+  it('une photo marquée synced SANS cloudKey n’est PAS à l’abri (elle était exclue à vie)', () => {
+    const ph = { idbKey: 'a', synced: true };
+    expect(estAlAbri(ph)).toBe(false);
+    expect(photosAEnvoyer([ph])).toHaveLength(1);
+  });
+  it('sur les 77 photos réelles, le compteur dit ce qui reste', () => {
+    const photos = Array.from({ length: 77 }, (_, i) => ({ idbKey: 'ph_' + i, cloudKey: i < 34 ? 'esp/ent/files/ph_' + i : '' }));
+    expect(compterAlAbri(photos)).toEqual({ total: 77, alAbri: 34, restantes: 43 });
+    expect(photosAEnvoyer(photos)).toHaveLength(43);
+  });
+  it('une photo sans idbKey n’est pas envoyable', () => {
+    expect(photosAEnvoyer([{ name: 'orpheline' }])).toHaveLength(0);
+  });
+});
+
+describe('cheminRelecture — invariant 8 : lire là où on a écrit', () => {
+  it('rend le chemin exact stocké à l’envoi', () => {
+    expect(cheminRelecture({ idbKey: 'a', cloudKey: 'esp/ent/files/a' })).toBe('esp/ent/files/a');
+  });
+  it('sans cloudKey, ne DEVINE aucun chemin (la devinette visait <espace>/files/<clé>)', () => {
+    expect(cheminRelecture({ idbKey: 'a' })).toBeNull();
+    expect(cheminRelecture({ idbKey: 'a', synced: true })).toBeNull();
+  });
+});
+
+describe('peutLibererLocal — invariants 11 et 12', () => {
+  it('interdit tant qu’une seule photo n’est pas dans le cloud, et nomme lesquelles', () => {
+    const photos = [{ idbKey: 'a', cloudKey: 'x' }, { idbKey: 'b' }, { idbKey: 'c' }];
+    const r = peutLibererLocal(photos);
+    expect(r.peut).toBe(false);
+    expect(r.manquantes.map(p => p.idbKey)).toEqual(['b', 'c']);
+  });
+  it('autorise quand 100 % des 77 photos portent un cloudKey', () => {
+    const photos = Array.from({ length: 77 }, (_, i) => ({ idbKey: 'ph_' + i, cloudKey: 'esp/ent/files/ph_' + i }));
+    expect(peutLibererLocal(photos).peut).toBe(true);
+  });
+  it('un EDL sans photo n’a rien à libérer', () => {
+    expect(peutLibererLocal([]).peut).toBe(false);
+  });
+  it('« synced » ne suffit toujours pas à autoriser la libération', () => {
+    expect(peutLibererLocal([{ idbKey: 'a', synced: true }]).peut).toBe(false);
+  });
+});

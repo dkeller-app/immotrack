@@ -3726,6 +3726,8 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
       <div class="mu sm">Décret n°2016-382 du 30 mars 2016 — Art. 3-2 loi n°89-462 du 6 juillet 1989</div>
       <!-- EDL TERRAIN lot 1 : l'état des lieux s'autosauve, l'en-tête le dit. -->
       <div class="mu sm" id="edl-autosave-etat" style="margin-top:2px"></div>
+      <!-- EDL TERRAIN lot 3 : « 34 / 77 photos à l'abri », visible en permanence. -->
+      <div class="mu sm" id="edl-photos-abri" style="margin-top:2px"></div>
     </div>
     <!-- Fermer ENREGISTRE (CDC §1) : aucune popup « voulez-vous enregistrer ? ». -->
     <button class="m-close" onclick="edlCloseModal()">✕</button>
@@ -31152,6 +31154,13 @@ function rEDLList() {
   el('edl-tbody').innerHTML=list.map(e=>{
     const nb=(e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).length,0);
     const nph=(e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).reduce((s2,x)=>s2+(x.photosE?.length||0)+(x.photosS?.length||0),0),0);
+    // EDL TERRAIN lot 3 : « le compteur reste visible sur la ligne de l'EDL
+    // dans la liste tant que tout n'est pas monté » (CDC §2).
+    const _EPl = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+    const _cAbri = _EPl ? _EPl.compterAlAbri(_EPl.collectEdlPhotos(e)) : { total: 0, alAbri: 0, restantes: 0 };
+    const abri = _cAbri.restantes
+      ? ' <span class="edl-photos-attente" title="' + _cAbri.restantes + ' photo(s) pas encore dans le cloud">' + _cAbri.alAbri + '/' + _cAbri.total + ' à l\'abri</span>'
+      : '';
     const sig=e.signatures?.bailleur||e.signatures?.locataire?' ✍️':'';
     // EDL TERRAIN lot 1 (CDC §1) : « Brouillon » tant qu'aucune signature
     // n'existe. Ce n'est pas un autre magasin — c'est le même EDL, en cours.
@@ -31161,7 +31170,7 @@ function rEDLList() {
       <td><b>${escHtml(e.logement||'–')}</b></td><td>${escHtml(e.locataire||'–')}</td>
       <td><span class="badge ${e.type==='Entrée'?'grn':'ora'}">${e.type}</span> ${brouillon}</td>
       <td>${fd(e.date)}</td>
-      <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${e.cloudPdfKey?' ☁️':''}</td>
+      <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${abri}${e.cloudPdfKey?' ☁️':''}</td>
       <td class="act-cell">
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier">✏️</button>
         <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id})" title="Télécharger le PDF (envoi mail / WhatsApp)">📥 PDF</button>
@@ -31188,6 +31197,7 @@ function openNewEDL() {
   if (typeof _edlApplyLockUI === 'function') _edlApplyLockUI(false);
   openM('ov-edl');
   _edlAutosaveReset();   // lot 1 : nouvel EDL = rien d'enregistré pour l'instant
+  _edlMajCompteurPhotos();
 }
 
 async function openEditEDL(id) {
@@ -31235,6 +31245,8 @@ async function openEditEDL(id) {
   if (typeof _edlApplyLockUI === 'function') _edlApplyLockUI(_edlIsSigned(e), e.signatures && e.signatures.signedAt);
   openM('ov-edl');
   _edlAutosaveReset();   // lot 1 : minuteur propre + écouteurs armés
+  _edlMajCompteurPhotos();
+  _edlReenfilerPhotos(e); // lot 3 : ce qui n'a pas de cloudKey repart à l'envoi
 }
 
 function _edlFill(e) {
@@ -31570,21 +31582,8 @@ async function edlMobAddPhoto(idx, side) {
   _edlPickPhoto(async (files) => {
     const arr = side === 'E' ? _edlMobElements[idx].photosE : _edlMobElements[idx].photosS;
     for (const f of files) {
-      const b64 = await new Promise(res => {
-        const img = new Image();
-        img.onload = () => {
-          const MAX = 1600; let w = img.width, h = img.height;
-          if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h * MAX / w); w = MAX; } else { w = Math.round(w * MAX / h); h = MAX; } }
-          const c = document.createElement('canvas'); c.width = w; c.height = h;
-          c.getContext('2d').drawImage(img, 0, 0, w, h);
-          res(c.toDataURL('image/jpeg', 0.8));
-        };
-        img.src = URL.createObjectURL(f);
-      });
-      const k = _idbKey();
-      await _idbPut(k, b64);
-      _photoCache[k] = b64;
-      arr.push({ name: f.name, idbKey: k, ts: td(), synced: false });
+      try { const ph = await _edlIngestPhoto(f); arr.push(ph); _edlEnvoyerPhoto(ph); }
+      catch (e) { _edlPhotoErreurStockage(f, e); }
     }
     _edlMobRender();
   });
@@ -31609,7 +31608,7 @@ async function edlMobViewPhoto(idx, side, phi) {
 function _edlReadMobilierFromForm() {
   if (!el('edl-mob-enabled')?.checked) return null; // toggle off
   // Sérialise les photos en métadonnées (cf pattern pièces EDL : pas de data, juste idbKey + meta)
-  const _phMeta = ph => ({ name: ph.name || '', idbKey: ph.idbKey || '', ts: ph.ts || '', synced: !!ph.synced, driveFileId: ph.driveFileId || '', driveFileName: ph.driveFileName || '' });
+  const _phMeta = _edlPhMeta;   // lot 3 : source unique (js/core/edl-photos.js)
   return {
     elements: _edlMobElements.map(m => ({
       nom:    m.nom || '',
@@ -32736,25 +32735,62 @@ function _edlPickPhoto(onPhotos) {
   inp.click();
 }
 
+/* ── EDL TERRAIN lot 3 — LA PRISE DE VUE, EN UN SEUL ENDROIT ─────────────────
+   CDC §2, invariant 10 : « il n'existe qu'un seul bloc de redimensionnement
+   dans tout le code ». Il en existait CINQ, identiques au caractère près
+   (pièces, mobilier, clés, compteurs, DAAF) — le CDC en comptait quatre.
+   Le calibre (1600 px / JPEG 0,8) n'est pas rouvert : il vient du module testé
+   js/core/edl-photos.js, comme la sérialisation.
+
+   Ordre non négociable : redimensionner → ÉCRIRE EN INDEXEDDB → seulement
+   ensuite exposer la photo. Le local est le socle (CDC §2) : une photo est
+   d'abord une preuve sur l'appareil, l'envoi vient après. */
+async function _edlIngestPhoto(f) {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  const b64 = await new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const d = _EP
+        ? _EP.dimensionsRedimensionnees(img.width, img.height)
+        : { w: img.width, h: img.height };
+      const c = document.createElement('canvas');
+      c.width = d.w; c.height = d.h;
+      c.getContext('2d').drawImage(img, 0, 0, d.w, d.h);
+      res(c.toDataURL('image/jpeg', _EP ? _EP.PHOTO_QUALITE : 0.8));
+      try { URL.revokeObjectURL(img.src); } catch (_) {}
+    };
+    img.onerror = () => rej(new Error('Image illisible : ' + (f && f.name ? f.name : '')));
+    img.src = URL.createObjectURL(f);
+  });
+  const k = _idbKey();
+  await _idbPut(k, b64);           // si ça refuse (mémoire pleine), on remonte l'erreur
+  _photoCache[k] = b64;
+  return { name: (f && f.name) || '', idbKey: k, ts: td(), cloudKey: '' };
+}
+
+/* Mémoire pleine : le CDC exige un message qui NOMME ce qui n'a pas pu être
+   ajouté, et surtout : les photos déjà écrites ne sont jamais perdues, le reste
+   du lot n'est pas abandonné en silence (invariant 9). */
+function _edlPhotoErreurStockage(f, e) {
+  const plein = e && (e.name === 'QuotaExceededError' || /quota/i.test(String(e && e.message)));
+  const nom = (f && f.name) ? ' « ' + f.name + ' »' : '';
+  console.error('[edl photo]', e);
+  if (plein) {
+    const attente = (typeof _edlPhotosEnAttente === 'function') ? _edlPhotosEnAttente() : 0;
+    showToast("Ton téléphone n'a plus de place : la photo" + nom + " n'a pas été ajoutée."
+      + (attente ? ' Envoie les ' + attente + ' photos en attente ou libère de l\'espace.' : ' Libère de l\'espace, puis reprends.'),
+      'err', 10000);
+  } else {
+    showToast('Photo' + nom + ' non ajoutée : ' + ((e && e.message) || 'erreur inconnue'), 'err', 8000);
+  }
+}
+
 function edlAddPhoto(pi,ei,side){
   _edlPickPhoto(async (files) => {
     const arr=side==='E'?_edlP[pi].elements[ei].photosE:_edlP[pi].elements[ei].photosS;
     for(const f of files){
-      const b64=await new Promise(res=>{
-        const img=new Image();
-        img.onload=()=>{
-          const MAX=1600;let w=img.width,h=img.height;
-          if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
-          const c=document.createElement('canvas');c.width=w;c.height=h;
-          c.getContext('2d').drawImage(img,0,0,w,h);
-          res(c.toDataURL('image/jpeg',0.8));
-        };
-        img.src=URL.createObjectURL(f);
-      });
-      const k=_idbKey();
-      await _idbPut(k,b64);
-      _photoCache[k]=b64;
-      arr.push({name:f.name,idbKey:k,ts:td(),synced:false});
+      try { const ph = await _edlIngestPhoto(f); arr.push(ph); _edlEnvoyerPhoto(ph); }
+      catch (e) { _edlPhotoErreurStockage(f, e); }
     }
     _edlRenderPieces();
   });
@@ -32820,11 +32856,140 @@ function _edlPropagateSyncedToForm(syncedEdlId, idbKey, result) {
     (c.photos || []).forEach(apply);
     (c.photosS || []).forEach(apply);
   }
-  // _edlCptPhotos : 8 catégories
-  for (const k of ['elec','gaz','eauC','eauF','elecS','gazS','eauCS','eauFS']) {
+  // _edlCptPhotos : 8 catégories + DAAF (lot 3 : le DAAF manquait, sa photo
+  // repartait donc à l'envoi à chaque fois).
+  for (const k of ['elec','gaz','eauC','eauF','elecS','gazS','eauCS','eauFS','daaf']) {
     (_edlCptPhotos[k] || []).forEach(apply);
   }
+  // _edlMobElements (lot 3 : manquait aussi — même conséquence).
+  for (const m of (typeof _edlMobElements !== 'undefined' ? (_edlMobElements || []) : [])) {
+    (m.photosE || []).forEach(apply);
+    (m.photosS || []).forEach(apply);
+  }
 }
+
+/* ── EDL TERRAIN lot 3 — LA FILE D'ENVOI DES PHOTOS ─────────────────────────
+   CDC §2 : « chaque photo part dès qu'elle est prise, une à la fois, en tâche
+   de fond, DÉCOUPLÉE DE L'AUTOSAVE » — sinon l'envoi post-enregistrement
+   deviendrait une tentative permanente au rythme de 2 s (lot 1).
+   « Un échec ne fait pas de bruit mais LAISSE LA PHOTO DANS LA FILE, retentée
+   au retour du réseau et à la prochaine ouverture de l'EDL. »
+   Invariant 7 : à l'abri ⇔ cloudKey. Invariant 8 : on relit le chemin écrit. */
+
+/** À l'abri ⇔ cloudKey (le module tranche ; repli identique si absent). */
+function _edlPhotoAlAbri(ph) {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  return _EP ? _EP.estAlAbri(ph) : !!(ph && ph.cloudKey);
+}
+
+/** Les photos du formulaire OUVERT (pas de l'enregistrement : la dernière
+    photo prise n'y est pas encore, l'autosave a 2 s de retard). */
+function _edlPhotosDuFormulaire() {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP) return [];
+  return _EP.collectEdlPhotos({
+    pieces: (typeof _edlP !== 'undefined') ? _edlP : [],
+    cles: (typeof _edlCles !== 'undefined') ? _edlCles : [],
+    compteursPhotos: (typeof _edlCptPhotos !== 'undefined') ? _edlCptPhotos : {},
+    mobilier: { elements: (typeof _edlMobElements !== 'undefined') ? _edlMobElements : [] }
+  });
+}
+
+/** Combien de photos attendent encore leur place dans le cloud. */
+function _edlPhotosEnAttente() {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP) return 0;
+  return _EP.compterAlAbri(_edlPhotosDuFormulaire()).restantes;
+}
+
+/** L'en-tête porte « 34 / 77 photos à l'abri », en permanence (CDC §2). */
+function _edlMajCompteurPhotos() {
+  const z = el('edl-photos-abri');
+  if (!z) return;
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP) { z.textContent = ''; return; }
+  const c = _EP.compterAlAbri(_edlPhotosDuFormulaire());
+  if (!c.total) { z.textContent = ''; return; }
+  z.textContent = c.restantes
+    ? '📷 ' + c.alAbri + ' / ' + c.total + ' photos à l\'abri'
+    : '📷 ' + c.total + '/' + c.total + ' à l\'abri';
+  z.className = 'mu sm' + (c.restantes ? ' edl-photos-attente' : '');
+}
+
+let _edlFileEnvoi = [];          // [{idbKey, edlId}] — ordre de prise de vue
+let _edlFileEnvoiBusy = false;
+
+/** Met une photo dans la file et lance le drainage (sans l'attendre). */
+function _edlEnvoyerPhoto(ph) {
+  _edlMajCompteurPhotos();
+  if (!ph || !ph.idbKey || _edlPhotoAlAbri(ph)) return;
+  if (_edlFileEnvoi.some(j => j.idbKey === ph.idbKey)) return;
+  _edlFileEnvoi.push({ idbKey: ph.idbKey, edlId: (el('edl-edit-id') ? el('edl-edit-id').value : '') });
+  _edlDrainerFileEnvoi();
+}
+
+/** À l'ouverture d'un EDL : tout ce qui n'a pas de cloudKey repart dans la file. */
+function _edlReenfilerPhotos(edlRec) {
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP || !edlRec) return;
+  _EP.photosAEnvoyer(_EP.collectEdlPhotos(edlRec)).forEach(ph => {
+    if (_edlFileEnvoi.some(j => j.idbKey === ph.idbKey)) return;
+    _edlFileEnvoi.push({ idbKey: ph.idbKey, edlId: edlRec.id });
+  });
+  _edlMajCompteurPhotos();
+  _edlDrainerFileEnvoi();
+}
+
+async function _edlDrainerFileEnvoi() {
+  if (_edlFileEnvoiBusy) return;
+  if (typeof window.__immoCloudUpload !== 'function') return;   // pas de cloud : la file attend
+  _edlFileEnvoiBusy = true;
+  try {
+    while (_edlFileEnvoi.length) {
+      const job = _edlFileEnvoi[0];
+      const ok = await _edlEnvoyerUnePhoto(job);
+      if (!ok) break;               // échec (réseau) : la photo RESTE en tête de file
+      _edlFileEnvoi.shift();
+      _edlMajCompteurPhotos();
+    }
+  } finally {
+    _edlFileEnvoiBusy = false;
+    // Le compteur dit la vérité même quand la file s'arrête sur un échec réseau.
+    _edlMajCompteurPhotos();
+  }
+}
+
+/** @returns {Promise<boolean>} true = traitée (à retirer de la file). */
+async function _edlEnvoyerUnePhoto(job) {
+  try {
+    const eid = job.edlId || (el('edl-edit-id') ? el('edl-edit-id').value : '');
+    const rec = eid ? (DB.edl || []).find(x => x.id === parseInt(eid)) : null;
+    if (!rec) return false;         // l'EDL n'est pas encore enregistré : on réessaiera
+    let data = _photoCache[job.idbKey];
+    if (!data) data = await _idbGet(job.idbKey).catch(() => null);
+    if (!data) { console.warn('[edl envoi] binaire introuvable', job.idbKey); return true; }
+    const mm = /^data:([^;]+);base64,(.*)$/.exec(data);
+    if (!mm) return true;
+    const bs = atob(mm[2]); const by = new Uint8Array(bs.length);
+    for (let i = 0; i < bs.length; i++) by[i] = bs.charCodeAt(i);
+    const seg = _cloudEntiteSeg(_cloudEntiteNomForEdl(rec));
+    const chemin = await window.__immoCloudUpload(job.idbKey, new Blob([by], { type: mm[1] }), mm[1], seg);
+    if (!chemin) return false;      // réseau absent ou refus : on garde la photo en file
+    // Le chemin RETOURNÉ est stocké, des deux côtés : l'enregistrement (ce qui
+    // sera synchronisé) et le formulaire ouvert (ce qui sera ré-enregistré).
+    const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+    if (_EP) _EP.collectEdlPhotos(rec).forEach(p => { if (p.idbKey === job.idbKey) p.cloudKey = chemin; });
+    _edlPropagateSyncedToForm(rec.id, job.idbKey, { cloudKey: chemin });
+    saveDB({ autosave: true });     // pas d'audit, pas de capture d'annulation (F6/F7)
+    return true;
+  } catch (e) {
+    console.warn('[edl envoi photo]', e);
+    return false;
+  }
+}
+
+// Retour du réseau : on reprend la file là où elle s'était arrêtée.
+window.addEventListener('online', () => { try { _edlDrainerFileEnvoi(); } catch (e) {} });
 
 async function edlSyncDrive(forcedId, silentMode){
   // v14.39 Phase 2 : mutex anti-concurrence (Bug 9 audit)
@@ -32857,18 +33022,18 @@ async function edlSyncDrive(forcedId, silentMode){
     (p.elements||[]).forEach((x,ei)=>{
       (x.photosE||[]).forEach((ph,phi)=>{
         const d=_photoCache[ph.idbKey]||ph.data;
-        if(!ph.synced&&d) photos.push({ph,data:d,label:`${p.nom}_${x.nom||'elem'+ei}_Entree_${phi+1}`});
+        if(!_edlPhotoAlAbri(ph)&&d) photos.push({ph,data:d,label:`${p.nom}_${x.nom||'elem'+ei}_Entree_${phi+1}`});
       });
       (x.photosS||[]).forEach((ph,phi)=>{
         const d=_photoCache[ph.idbKey]||ph.data;
-        if(!ph.synced&&d) photos.push({ph,data:d,label:`${p.nom}_${x.nom||'elem'+ei}_Sortie_${phi+1}`});
+        if(!_edlPhotoAlAbri(ph)&&d) photos.push({ph,data:d,label:`${p.nom}_${x.nom||'elem'+ei}_Sortie_${phi+1}`});
       });
     });
   });
   (edl.cles||[]).forEach((c,i)=>{
     (c.photos||[]).forEach((ph,phi)=>{
       const d=_photoCache[ph.idbKey]||ph.data;
-      if(!ph.synced&&d) photos.push({ph,data:d,label:`Cles_${c.type||'cle'+i}_${phi+1}`});
+      if(!_edlPhotoAlAbri(ph)&&d) photos.push({ph,data:d,label:`Cles_${c.type||'cle'+i}_${phi+1}`});
     });
   });
   // v14.3.1 BUG-EDL-COMPTEURS-PHOTOS : photos des compteurs jamais syncées vers Drive.
@@ -32882,7 +33047,7 @@ async function edlSyncDrive(forcedId, silentMode){
   Object.keys(_cpLabels).forEach(k => {
     ((edl.compteursPhotos||{})[k]||[]).forEach((ph, phi) => {
       const d = _photoCache[ph.idbKey] || ph.data;
-      if (!ph.synced && d) photos.push({ph, data:d, label: `${_cpLabels[k]}_${phi+1}`});
+      if (!_edlPhotoAlAbri(ph) && d) photos.push({ph, data:d, label: `${_cpLabels[k]}_${phi+1}`});
     });
   });
   // v15.205 BAIL-TYPES option A : photos d'inventaire mobilier (par élément, entrée + sortie)
@@ -32891,11 +33056,11 @@ async function edlSyncDrive(forcedId, silentMode){
     const _nomSafe = (m && m.nom ? String(m.nom).replace(/[^a-zA-Z0-9_-]+/g,'_') : 'elem'+mi).slice(0,40);
     (m.photosE || []).forEach((ph, phi) => {
       const d = _photoCache[ph.idbKey] || ph.data;
-      if (!ph.synced && d) photos.push({ph, data:d, label: 'Mobilier_'+_nomSafe+'_Entree_'+(phi+1)});
+      if (!_edlPhotoAlAbri(ph) && d) photos.push({ph, data:d, label: 'Mobilier_'+_nomSafe+'_Entree_'+(phi+1)});
     });
     (m.photosS || []).forEach((ph, phi) => {
       const d = _photoCache[ph.idbKey] || ph.data;
-      if (!ph.synced && d) photos.push({ph, data:d, label: 'Mobilier_'+_nomSafe+'_Sortie_'+(phi+1)});
+      if (!_edlPhotoAlAbri(ph) && d) photos.push({ph, data:d, label: 'Mobilier_'+_nomSafe+'_Sortie_'+(phi+1)});
     });
   });
 
@@ -32997,18 +33162,8 @@ function edlCleAddPhoto(i, side='E') {
   _edlPickPhoto(async (files) => {
     const arr=side==='E'?_edlCles[i].photos:_edlCles[i].photosS;
     for(const f of files){
-      const b64=await new Promise(res=>{
-        const img=new Image();
-        img.onload=()=>{
-          const MAX=1600;let w=img.width,h=img.height;
-          if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
-          const c2=document.createElement('canvas');c2.width=w;c2.height=h;
-          c2.getContext('2d').drawImage(img,0,0,w,h);res(c2.toDataURL('image/jpeg',0.8));
-        };img.src=URL.createObjectURL(f);
-      });
-      const k=_idbKey();
-      await _idbPut(k,b64);_photoCache[k]=b64;
-      arr.push({name:f.name,idbKey:k,ts:td(),synced:false});
+      try { const ph = await _edlIngestPhoto(f); arr.push(ph); _edlEnvoyerPhoto(ph); }
+      catch (e) { _edlPhotoErreurStockage(f, e); }
     }
     _edlRedrawCles();
   });
@@ -33355,22 +33510,12 @@ function _edlDaafChange() {
 function edlAddDaafPhoto() {
   _edlPickPhoto(async (files) => {
     for (const f of files) {
-      const b64 = await new Promise(res => {
-        const img = new Image();
-        img.onload = () => {
-          const MAX=1600; let w=img.width, h=img.height;
-          if(w>MAX||h>MAX){ if(w>h){h=Math.round(h*MAX/w);w=MAX;} else {w=Math.round(w*MAX/h);h=MAX;} }
-          const c = document.createElement('canvas'); c.width=w; c.height=h;
-          c.getContext('2d').drawImage(img,0,0,w,h);
-          res(c.toDataURL('image/jpeg',0.8));
-        };
-        img.src = URL.createObjectURL(f);
-      });
-      const k = _idbKey();
-      await _idbPut(k, b64);
-      _photoCache[k] = b64;
-      if (!_edlCptPhotos.daaf) _edlCptPhotos.daaf = [];
-      _edlCptPhotos.daaf.push({ name: f.name, idbKey: k, ts: td(), synced: false });
+      try {
+        const ph = await _edlIngestPhoto(f);
+        if (!_edlCptPhotos.daaf) _edlCptPhotos.daaf = [];
+        _edlCptPhotos.daaf.push(ph);
+        _edlEnvoyerPhoto(ph);
+      } catch (e) { _edlPhotoErreurStockage(f, e); }
     }
     _edlCptRenderThumbs('daaf');
     _edlDaafChange(); // recalcule warning (la présence de photo retire le warning)
@@ -33381,17 +33526,12 @@ function edlCptAddPhoto(key){
   // v14.41 Phase 4a : utilise _edlPickPhoto (iOS Safari camera fix)
   _edlPickPhoto(async (files) => {
     for(const f of files){
-      const b64=await new Promise(res=>{
-        const img=new Image();img.onload=()=>{
-          const MAX=1600;let w=img.width,h=img.height;
-          if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
-          const c=document.createElement('canvas');c.width=w;c.height=h;
-          c.getContext('2d').drawImage(img,0,0,w,h);res(c.toDataURL('image/jpeg',0.8));
-        };img.src=URL.createObjectURL(f);
-      });
-      const k=_idbKey();await _idbPut(k,b64);_photoCache[k]=b64;
-      if(!_edlCptPhotos[key])_edlCptPhotos[key]=[];
-      _edlCptPhotos[key].push({name:f.name,idbKey:k,ts:td(),synced:false});
+      try {
+        const ph = await _edlIngestPhoto(f);
+        if(!_edlCptPhotos[key])_edlCptPhotos[key]=[];
+        _edlCptPhotos[key].push(ph);
+        _edlEnvoyerPhoto(ph);
+      } catch (e) { _edlPhotoErreurStockage(f, e); }
     }
     _edlCptRenderThumbs(key);
   });
@@ -33405,7 +33545,15 @@ async function edlCptViewPhoto(key,phi){
   const ph=(_edlCptPhotos[key]||[])[phi];if(!ph)return;
   await _showEDLPhotoLightbox(ph);
 }
-function _edlCptPhMeta(ph){return{name:ph.name||'',idbKey:ph.idbKey||'',ts:ph.ts||'',synced:!!ph.synced,driveFileId:ph.driveFileId||'',driveFileName:ph.driveFileName||''};}
+/** Lot 3 : la sérialisation d'une photo, DÉLÉGUÉE au module testé. */
+function _edlPhMeta(ph){
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (_EP) return _EP.metaPhoto(ph);
+  // Repli sans le module : on n'invente rien, on ne PERD rien non plus.
+  const p = ph || {};
+  return {name:p.name||'',idbKey:p.idbKey||'',ts:p.ts||'',cloudKey:p.cloudKey||'',synced:!!p.synced,driveFileId:p.driveFileId||'',driveFileName:p.driveFileName||''};
+}
+const _edlCptPhMeta = _edlPhMeta;
 function _edlGetCptPhotos(){
   const r={};
   ['elec','gaz','eauC','eauF','elecS','gazS','eauCS','eauFS'].forEach(k=>{if((_edlCptPhotos[k]||[]).length)r[k]=_edlCptPhotos[k].map(_edlCptPhMeta);});
@@ -33497,7 +33645,13 @@ function saveEDL(opts){
     // Sérialiser _edlP en nettoyant pour éviter les références circulaires
     // Photos stockées dans IndexedDB — on ne garde que les métadonnées (idbKey, pas data)
     // v14.5 : préserver driveFileId/driveFileName pour permettre re-download cross-device
-    const _phMeta=ph=>({name:ph.name||'',idbKey:ph.idbKey||'',ts:ph.ts||'',synced:!!ph.synced,driveFileId:ph.driveFileId||'',driveFileName:ph.driveFileName||''});
+    // EDL TERRAIN lot 3 — SOURCE UNIQUE de la sérialisation d'une photo.
+    // Les trois copies qui vivaient ici, dans _edlReadMobilierFromForm et dans
+    // _edlCptPhMeta ne recopiaient PAS `cloudKey` : chaque enregistrement
+    // effaçait la preuve que la photo était dans le cloud. C'est l'explication
+    // du constat du CDC — « 0 sur 182 avec un cloudKey » — et, avec l'autosave,
+    // ça se serait rejoué toutes les 2 secondes.
+    const _phMeta=_edlPhMeta;
     const piecesClean = _edlP.map(p=>({
       nom: p.nom,
       elements: (p.elements||[]).map(x=>({

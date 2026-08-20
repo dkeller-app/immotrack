@@ -8874,6 +8874,10 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 }
 @media (max-width:640px){ .edl-thumb{ width:72px; height:72px; } }
 
+/* EDL TERRAIN lot 3 — « 34 / 77 photos à l'abri ». Tant qu'il en reste, le
+   compteur se signale (couleur d'attention de la charte, pas un fond coloré). */
+.edl-photos-attente{color:var(--ora);font-weight:600}
+
 /* ── EDL TERRAIN lot 2 · invitation à installer l'app ──────────────────────
    CDC §3 verrou 4. Bandeau discret, au-dessus de la barre du bas, jamais
    par-dessus le contenu de saisie. Téléphone uniquement (le module refuse
