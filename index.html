@@ -38864,6 +38864,15 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Dépôt de garantie restitué</h4><span class="hl-badge b-dg">DG</span></div>
       <div class="hl-desc"><b>${fmt(ev.montant)}</b> restitué${retenue>0?` (${fmt(ev.dgVerse)} versés − <b>${fmt(retenue)}</b> de retenues${ev.retenues?` : ${escHtml(ev.retenues)}`:''})`:' intégralement'}.</div>${move}</div>`;
   }
+  // I-DATE, surface 7 — une restitution enregistrée SANS date de virement : on le dit, on ne
+  // fabrique pas une date. La carte reste distincte de « restitué le … » tant qu'elle manque.
+  if(t==='dg-restitue-sans-date'){
+    const retenue = (ev.dgVerse||0)-(ev.montant||0);
+    return `<div class="hl-card" data-dot="d-dg"><div class="tt"><h4>Restitution du dépôt de garantie — enregistrée</h4><span class="hl-badge b-warn">date manquante</span></div>
+      <div class="hl-desc"><b>${fmt(ev.montant)}</b> à restituer${retenue>0?` (${fmt(ev.dgVerse)} versés − <b>${fmt(retenue)}</b> de retenues)`:''}.
+      <b>La date du virement n'est pas renseignée</b> : le délai de l'article 22 et la pénalité de 10 %/mois
+      restent incalculables, et le bail compte toujours comme « à restituer ».</div></div>`;
+  }
   if(t==='irl'){
     const pct = (ev.ancienHC>0) ? ((ev.nouveauHC-ev.ancienHC)/ev.ancienHC*100) : null;
     const move = `<div class="hl-move"><span class="old">${fmt(ev.ancienHC)}</span><span>→</span><span class="new">${fmt(ev.nouveauHC)}</span>${pct!=null?`<span class="pct">${pct>=0?'+':''}${pct.toFixed(2)} %</span>`:''}</div>`;

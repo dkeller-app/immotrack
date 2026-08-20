@@ -100,12 +100,24 @@ export function construireHistoriqueBail(input) {
     if ((Number(b.dg) || 0) > 0) {
       _pushEv(c.rail, { type: 'dg-verse', date: c.debut, montant: Number(b.dg) || 0 }, c.debut);
     }
-    if (b.dgRestitueAt || b.dgRestitueMontant != null) {
+    // I-DATE (CDC-LOYERS-DESIGN §4, surface 7) — une restitution N'EST DATÉE QUE PAR SON
+    // VIREMENT. Avant, la carte se déclenchait aussi sur `dgRestitueMontant` et se datait de
+    // la fin du bail : une restitution enregistrée sans date faisait apparaître « Dépôt de
+    // garantie restitué le <fin du bail> » — une date FABRIQUÉE — sur le même rail que la
+    // carte « ⏳ À restituer », qui elle disait vrai. Deux cartes contradictoires.
+    // Le montant seul ne date rien : il donne une carte distincte, qui dit ce qui manque.
+    if (_ymd(b.dgRestitueAt)) {
       _pushEv(c.rail, {
-        type: 'dg-restitue', date: _ymd(b.dgRestitueAt) || c.fin || c.debut,
+        type: 'dg-restitue', date: _ymd(b.dgRestitueAt),
         montant: Number(b.dgRestitueMontant) || 0, dgVerse: Number(b.dg) || 0,
         retenues: b.dgDetailRetenues || ''
-      }, _ymd(b.dgRestitueAt) || c.fin || c.debut);
+      }, _ymd(b.dgRestitueAt));
+    } else if (b.dgRestitueMontant != null) {
+      _pushEv(c.rail, {
+        type: 'dg-restitue-sans-date',
+        montant: Number(b.dgRestitueMontant) || 0, dgVerse: Number(b.dg) || 0,
+        retenues: b.dgDetailRetenues || ''
+      }, c.fin || c.debut);
     }
     if (c.statut === 'clos') {
       _pushEv(c.rail, {
