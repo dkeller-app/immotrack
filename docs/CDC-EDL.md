@@ -565,6 +565,28 @@ A.2 avait conservé le **délai de restitution (1 ou 2 mois)** au motif que c'es
 
 **Règle générale qui en découle, opposable à tout le chantier** : avant d'ajouter quoi que ce soit à l'EDL, se demander *« est-ce que je remets ça au locataire, signé ? »*. L'EDL **constate l'état du logement**. Tout ce qui relève de la **conséquence** — argent, délais, obligations du bailleur — est une affaire de l'app, pas du document.
 
+### A.0 · CORRECTION DE MÉTHODE — l'existant n'avait pas été lu (relevé par Didier, 20/08)
+> « et tu as regardé ce qui existe déjà ? »
+
+**Non. Ni la session de maquette, ni le pilotage.** Vérification faite après coup dans le code de prod — et elle change la nature de deux des trois retours :
+
+| Ce que la maquette « proposait » | Ce que la PROD fait déjà |
+|---|---|
+| Une vue tableau dense sur PC (A.4) | **Elle existe.** `_edlPieceHTML` (`index.html:31819`) rend `<table class="tbl">` avec **Élément · État · Observations · 📷 · ✕**, et **7 colonnes en mode sortie** (État entrée · Obs. entrée · 📷 Entrée · État sortie · Obs. sortie · 📷 Sortie) |
+| Un champ d'observation toujours ouvert (A.3) | **Il l'est déjà.** `_edlElemRow` (`index.html:31798`) rend un `<textarea>` éditable directement, `min-height:26px`, `resize:vertical` |
+| Des cartes sur téléphone | **Elles existent déjà** : `css/main.css` (~3060-3120) convertit les tableaux EDL en cartes sous le point de rupture, avec pied collant et boutons à 44 px |
+
+**Conclusion, qui vaut correction de cap :** les « bulles sur PC » et le « ＋ Observation » **n'existent pas dans l'app** — ce sont des inventions de la maquette, qui a redessiné par-dessus un existant déjà correct. Les retours A.3 et A.4 de Didier ne demandent donc pas de construire : ils demandent de **ne pas détruire**.
+
+**A.3 et A.4 se relisent ainsi :**
+- **A.4 → le tableau PC est CONSERVÉ tel quel** ; le chantier n'a rien à bâtir dessus. Améliorations admissibles et bornées : l'en-tête de tableau collant par pièce, le sommaire d'ancres qui passe à la ligne, l'ordre de tabulation, les couleurs d'état aux jetons sémantiques. **Aucune réécriture du rendu.**
+- **A.3 → le `<textarea>` existant est CONSERVÉ**, avec pour seul ajout qu'il grandisse à la saisie. Il est **interdit** d'introduire un bouton qui le révèle : ce serait une **régression** inventée par la maquette.
+- **Le vrai travail de conception restant** est ailleurs, et il est réel : le **parcours une-pièce-à-la-fois sur téléphone** avec le rail C, et surtout **le mode SORTIE à 7 colonnes sur téléphone** — comparer entrée et sortie élément par élément sur 375 px est le seul écran que l'existant ne résout pas.
+
+**Règle rappelée, non négociable** (`feedback_ground_in_real_app`, `feedback_dry_reuse_no_copy`) : **on lit l'implémentation réelle AVANT de mocker une feature existante.** Une maquette qui redécrit ce qui marche déjà fait perdre un tour à tout le monde — et pire, elle fait valider des régressions.
+
+---
+
 ### A.4 · Le PC n'est PAS le téléphone en plus large — deux usages, deux écrans
 > « vraiment pas convaincu des bulles pour le PC ! on doit bien distinguer utilisation PC et téléphone / tablette ! »
 
