@@ -36,6 +36,38 @@ export function _premierDuMoisSuivant(iso) {
   return `${y}-${String(m).padStart(2, '0')}-01`;
 }
 
+/**
+ * « Montant réellement saisi » — CDC Finances §M-1 bis : l'app ne devine rien. Un champ VIDE
+ * n'est pas un zéro, et un zéro doit être une SAISIE EXPLICITE.
+ *
+ * Ce qui se passait sans cette distinction (mesuré en prod le 2026-08-20) : un import de
+ * fichier de référence dont la colonne « charges » est vide pose bail.ch = '' ; `''` passe le
+ * test `!= null` puis `Number('') || 0` vaut 0 — la provision du barème tombait à 0 € pour
+ * tous les mois suivants, à la première révision IRL comme au premier enregistrement du bail.
+ *
+ * @param {*} v valeur brute (champ de formulaire, cellule importée, valeur stockée)
+ * @returns {number|null} le nombre saisi, ou null si rien ne l'a été
+ */
+export function montantSaisi(v) {
+  if (v == null) return null;
+  if (typeof v === 'string' && v.trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Premier montant réellement saisi de la chaîne des sources (bail → lot → barème en vigueur).
+ * Rend null si AUCUNE source ne sait : c'est à l'appelant d'assumer son plancher, pas au
+ * helper d'inventer un 0.
+ */
+export function premierMontantSaisi(...candidats) {
+  for (const c of candidats) {
+    const n = montantSaisi(c);
+    if (n != null) return n;
+  }
+  return null;
+}
+
 /** Veille d'une date ISO. */
 function _veille(iso) {
   const d = new Date(_ymd(iso) + 'T00:00:00');
@@ -178,12 +210,18 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
 export function synchroniserPeriodeBail(periods, bail) {
   const arr = (periods || []).map((p) => ({ ...p }));
   if (!bail || !bail.debut) return arr;
-  const hc = Number(bail.hc) || 0;
-  const ch = Number(bail.ch) || 0;
+  const hcSaisi = montantSaisi(bail.hc);
+  const chSaisi = montantSaisi(bail.ch);
   // source absente = barème d'avant l'introduction du champ : c'est une période de bail.
   const idx = _openPeriodIdxWhere(arr, bail.ref, (p) => (p.source || 'bail') === 'bail');
   if (idx >= 0) {
     const cur = arr[idx];
+    // LOT 3 — une valeur NON SAISIE ne remplace jamais une valeur connue. `pf()` rend 0 pour
+    // un champ vide et un import à colonne vide pose '' : sans ce garde-fou, un simple
+    // enregistrement mettait la provision (ou le loyer) du barème à 0 € pour tous les mois
+    // suivants, sans popup ni avertissement. Un 0 réellement saisi, lui, écrit bien 0.
+    const hc = hcSaisi != null ? hcSaisi : (montantSaisi(cur.hc) != null ? montantSaisi(cur.hc) : 0);
+    const ch = chSaisi != null ? chSaisi : (montantSaisi(cur.ch) != null ? montantSaisi(cur.ch) : 0);
     if ((Number(cur.hc) || 0) === hc && (Number(cur.ch) || 0) === ch) return arr;  // idempotent
     arr[idx] = { ...cur, hc, ch };
     return arr;

@@ -65,6 +65,18 @@ function _periodeAt(periods, iso) {
 }
 
 /**
+ * Période du barème en vigueur pour un lot à une date donnée. Composition des deux
+ * sélecteurs existants (_baremeOfLot + _periodeAt) — AUCUN moteur concurrent : c'est le
+ * même chemin que duMois(). Exposé pour les ÉCRITURES qui ont besoin de savoir ce qui est
+ * en vigueur avant d'inscrire une nouvelle période (révision IRL : reprendre la provision
+ * en cours plutôt que d'inventer un 0 quand personne ne la connaît).
+ * @returns {object|null} la période, ou null si le lot n'en a aucune à cette date
+ */
+export function periodeEnVigueurA(bareme, ref, iso) {
+  return _periodeAt(_baremeOfLot(bareme, ref), String(iso == null ? '' : iso).slice(0, 10));
+}
+
+/**
  * Segments d'occupation normalisés depuis les baux du lot (vivants, triés, TRONQUÉS).
  * end = null → occupation ouverte (bail courant, tacite reconduction incluse).
  */

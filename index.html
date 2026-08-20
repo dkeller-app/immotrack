@@ -20747,6 +20747,20 @@ function saveBail() {
   // isNewBail : à la création / au re-bail on ne préserve RIEN (archiverBail laisse l'ancien bail
   // en place ; sinon le nouveau locataire hériterait du départ et des signatures du précédent).
   _preserverBailExistant(bail, DB.baux[ref], isNewBail);
+  // LOT 3 (écritures destructrices) — `pf()` rend 0 pour un champ VIDE. Sur un bail dont la
+  // provision de charges n'a JAMAIS été saisie (import à colonne vide : ch = ''), ouvrir la
+  // fiche puis Enregistrer sans rien toucher lui attribuait 0 € — un chiffre que personne
+  // n'a tapé, et qui écrasait ensuite la provision du barème (mesuré : 655+95 → 655+0).
+  // On garde donc l'ABSENCE telle quelle. Ce garde-fou ne concerne QUE les baux déjà sans
+  // provision : vider un champ qui portait un montant reste un geste explicite, et passe par
+  // la popup de validation qui affiche « X → 0 » avant d'écrire quoi que ce soit.
+  // Sans effet sur les lecteurs (tous font `Number(x) || 0`) ni sur le cloud (store-mapping
+  // `num('')` rend NULL, cas déjà prévu).
+  if (typeof window !== 'undefined' && typeof window._montantSaisi === 'function'
+      && DB.baux[ref] && window._montantSaisi(v('b-ch')) == null
+      && window._montantSaisi(DB.baux[ref].ch) == null) {
+    bail.ch = DB.baux[ref].ch;
+  }
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
   DB.baux[ref] = bail;
   if (_resetSignaturesAfterSave) {
@@ -20781,7 +20795,12 @@ function saveBail() {
         source: 'manuel', bailDebut: bail.debut, note: _validCtx.motif
       });
     } else {
-      DB.loyerBareme = window._baremeSynchroniserPeriodeBail(DB.loyerBareme || [], { ref, debut: bail.debut, hc: bail.hc, ch: bail.ch });
+      // LOT 3 — on transmet la valeur BRUTE du formulaire : `pf()` a déjà collapsé un champ
+      // vide en 0, et le barème ne doit pas prendre ce 0 pour une saisie. synchroniserPeriodeBail
+      // distingue « non saisi » (garde la valeur connue) de « 0 saisi » (écrit 0).
+      const _hcBrut = (typeof window._montantSaisi === 'function') ? v('b-hc') : bail.hc;
+      const _chBrut = (typeof window._montantSaisi === 'function') ? v('b-ch') : bail.ch;
+      DB.loyerBareme = window._baremeSynchroniserPeriodeBail(DB.loyerBareme || [], { ref, debut: bail.debut, hc: _hcBrut, ch: _chBrut });
     }
     // Trace DG (append-only, hors barème : le DG n'entre pas dans le dû mensuel).
     if (_validCtx) {
@@ -25524,7 +25543,21 @@ function _todayIsoLocal() {
 // file:// (main.js absent) l'app dégrade proprement (barème non alimenté, aucun crash).
 function _baremeRecordRevision(log, ref, newHC, dateEffetIso, opts) {
   opts = opts || {};
-  const ch = (DB.baux[ref] && DB.baux[ref].ch != null) ? DB.baux[ref].ch : (log ? log.ch : 0);
+  // LOT 3 (écritures destructrices) — LA PROVISION DE CHARGES DE LA NOUVELLE PÉRIODE.
+  // Avant : `DB.baux[ref].ch != null ? … : log.ch`. Une CHAÎNE VIDE passe `!= null`, puis
+  // appliquerNouvellePeriode fait `Number('') || 0` — la provision tombait à 0 €. Mesuré en
+  // prod : un fichier de référence importé avec la colonne « charges » vide pose ch = '' sur
+  // le bail ET sur le lot ; la première révision IRL écrivait alors 2026-09-01 620 + 0 alors
+  // que la période en cours portait 136 € — pour tous les mois suivants, sans avertissement.
+  // Maintenant : chaîne des sources (bail → lot → période EN VIGUEUR au barème), et 0 seulement
+  // si personne ne sait. Un 0 réellement saisi reste un 0 (montantSaisi le distingue de '').
+  // Le résolveur du barème est celui de duMois() — aucun moteur concurrent.
+  const _pvIso = (typeof window !== 'undefined' && typeof window._loyerPeriodeEnVigueurA === 'function')
+    ? window._loyerPeriodeEnVigueurA(DB.loyerBareme || [], ref, dateEffetIso) : null;
+  const _chSaisi = (typeof window !== 'undefined' && typeof window._premierMontantSaisi === 'function')
+    ? window._premierMontantSaisi(DB.baux[ref] && DB.baux[ref].ch, log && log.ch, _pvIso && _pvIso.ch)
+    : ((DB.baux[ref] && DB.baux[ref].ch != null) ? DB.baux[ref].ch : (log ? log.ch : 0));
+  const ch = _chSaisi != null ? _chSaisi : 0;
   const bailDebut = (DB.baux[ref] && DB.baux[ref].debut) || (log && log.debut) || dateEffetIso;
   if (typeof window !== 'undefined' && typeof window._baremeAppliquerNouvellePeriode === 'function') {
     DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme || [], {

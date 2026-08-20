@@ -101,11 +101,12 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, tombstonerPeriodesDuBail,
+  montantSaisi, premierMontantSaisi,
   _premierDuMois, _premierDuMoisSuivant
 } from './core/loyer-bareme.js';
 // HISTORIQUE-BAIL-ONGLET (17/07) - chapitres/rail de l'historique du bail (onglet Bail inline)
@@ -392,6 +393,7 @@ window.duMois = duMois;
 window.duMoisFromRaw = duMoisFromRaw;
 window.bailsFromRaw = bailsFromRaw;
 window._baremeOfLot = (ref) => _baremeOfLot(window.DB?.loyerBareme || [], ref);
+window._loyerPeriodeEnVigueurA = periodeEnVigueurA;
 window._debutSuivi = _debutSuivi;
 window._computeLoyerNetting = _computeLoyerNetting;
 window._baremeComputeDateEffetIRL = computeDateEffetIRL;
@@ -399,6 +401,8 @@ window._baremeClampDateEffet = clampDateEffet;
 window._baremePeriodeInitialeBail = periodeInitialeBail;
 window._baremeAppliquerNouvellePeriode = appliquerNouvellePeriode;
 window._baremeSynchroniserPeriodeBail = synchroniserPeriodeBail;
+window._montantSaisi = montantSaisi;
+window._premierMontantSaisi = premierMontantSaisi;
 window._baremeCloturer = cloturerBareme;
 window._baremeCloturerParDebut = cloturerPeriodeParDebut;   // audit 17/07 : cloture ciblee (correction avec fin)
 window._baremeTombstonerBail = tombstonerPeriodesDuBail;
