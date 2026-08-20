@@ -546,6 +546,34 @@ prendre une photo est un geste ponctuel, pas une saisie.
 
 ---
 
+### A.2 bis · AUCUNE mention de la restitution du dépôt dans l'EDL — durcissement du 20/08
+> « on enlève tous les commentaires de restitution de dépôt de garantie de l'EDL c'est dans l'app. là tu donnes des choses au locataire pour te faire taper dessus ! »
+
+A.2 avait conservé le **délai de restitution (1 ou 2 mois)** au motif que c'est une échéance et non une somme. **C'était une erreur d'analyse, et Didier a raison.** Le raisonnement qui manquait : **l'EDL est un document SIGNÉ et REMIS AU LOCATAIRE.** Y écrire le délai, c'est remettre au locataire, de sa propre main, l'échéance qui **contraint le bailleur** — et la qualifier à chaud, le jour du constat, avant toute vérification. Un délai annoncé à 1 mois puis tenu à 2 devient une contradiction écrite et signée, opposable.
+
+**Décision, sans exception :**
+- **zéro mention** du dépôt de garantie, de sa restitution, de son délai ou de ses retenues **dans l'EDL** — ni à l'écran, ni dans le PDF, ni dans un récapitulatif de fin de parcours ;
+- **le bloc « Ce que ça déclenche » disparaît entièrement.** Ce n'est plus « le bloc sans les € » : il n'existe plus ;
+- **ces informations vivent dans l'app, côté bailleur** : écran de restitution du dépôt, décompte, assistant Départ. C'est là que `_calculerDelaiRestitution` (`index.html:28034`) est lu, et nulle part ailleurs ;
+- **la passerelle reste**, mais c'est un **déplacement vers un écran de l'app**, jamais une information imprimée dans le document. Elle ne doit pas apparaître sur le PDF remis.
+
+**Règle générale qui en découle, opposable à tout le chantier** : avant d'ajouter quoi que ce soit à l'EDL, se demander *« est-ce que je remets ça au locataire, signé ? »*. L'EDL **constate l'état du logement**. Tout ce qui relève de la **conséquence** — argent, délais, obligations du bailleur — est une affaire de l'app, pas du document.
+
+### A.4 · Le PC n'est PAS le téléphone en plus large — deux usages, deux écrans
+> « vraiment pas convaincu des bulles pour le PC ! on doit bien distinguer utilisation PC et téléphone / tablette ! »
+
+Les maquettes rendaient les éléments en **cartes** (« bulles ») sur les trois formats, en changeant seulement le nombre de colonnes. C'est une grammaire **mobile** — conçue pour le pouce et le défilement vertical — posée sur un écran de bureau où elle **coûte** : chaque carte répète son cadre, ses marges et ses boutons, donc peu d'éléments à l'écran, aucun alignement d'une ligne à l'autre, et l'œil ne peut plus balayer une colonne d'états pour repérer ce qui manque.
+
+**Les deux usages sont différents, et c'est le CDC lui-même qui le dit** : le téléphone, c'est **la visite** — debout, une main, une pièce à la fois. Le PC, c'est **la préparation et la relecture** — assis, au clavier, vue d'ensemble, on compare et on corrige.
+
+**Décision :**
+- **PC (≥ 1024) : une VUE TABLEAU dense**, une ligne par élément, colonnes alignées (élément · état · observation · photos), lisible en balayage vertical, navigation **au clavier** (tabulation d'un champ au suivant), et **toutes les pièces** accessibles par le sommaire d'ancres. C'est aussi la forme d'un EDL tel qu'il s'imprime et se relit ;
+- **téléphone ET tablette : les cartes**, une pièce à la fois, avec la navigation retenue en A.1. Didier range explicitement la tablette **avec** le téléphone : elle se tient en main sur le terrain ;
+- **une seule source de données, deux rendus.** Pas de second modèle, pas de duplication de logique : la même structure d'éléments rendue de deux façons, comme le fait déjà le CSS existant de conversion tableau↔cartes (`css/main.css:2966`, `:3001`, `:3070`) — **qui est à réutiliser, pas à refaire** ;
+- **à mockuper et à mesurer** au volume réel (110 éléments) : combien d'éléments tiennent à l'écran en tableau contre en cartes, sur un écran PC de 900 px de haut.
+
+---
+
 ## 4. L'ergonomie à une main — décision B.4
 
 **Décision : sur téléphone, une pièce à l'écran à la fois. PC et tablette gardent la vue complète.**
