@@ -146,15 +146,86 @@ describe('synchroniserPeriodeBail — saveBail (création OU édition) : la pér
     expect(out[0].ch).toBe(60);
     expect(out[0].fin).toBe(null);
   });
-  it('la période ouverte peut être une révision IRL : l\'édition met à jour son hc, garde fin ouverte', () => {
+  // ── LOT 2 (chantier ÉCRITURES DESTRUCTRICES, 2026-08-20) ──────────────────────────────
+  // Le test qui occupait ces lignes affirmait le contraire : « la période ouverte peut être une
+  // révision IRL : l'édition met à jour son hc ». Il verrouillait le défaut. Mesuré dans le
+  // navigateur sur origin/main : barème FER-001 = 2024-01-01→2026-08-31 700+100 puis
+  // 2026-09-01→ouverte 730+100 [irl] ; un saveBail SANS le moindre changement financier
+  // (un numéro de téléphone) ramenait la période de révision à 700+100. La révision
+  // disparaissait du barème et de la timeline jusqu'au redémarrage suivant (pendingApply la
+  // remettait), et une quittance émise dans cette fenêtre partait au mauvais tarif.
+  //
+  // CONTRAT : un saveBail sans changement financier ne touche QUE la période de source 'bail' —
+  // celle que le bail a lui-même créée. Les révisions IRL ('irl') et les corrections datées
+  // ('manuel') ont leur propre chemin d'écriture (appliquerNouvellePeriode) ; elles ne sont
+  // jamais réécrites ici. Aucune date du jour n'entre dans la décision : le résultat ne dépend
+  // pas du moment où l'on enregistre.
+  it('RÉVISION IRL PROGRAMMÉE : un save sans changement financier ne la ramène pas au tarif du bail', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2026-08-31', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+      { ref: 'F-001', debut: '2026-09-01', fin: null, hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' }
+    ];
+    const out = synchroniserPeriodeBail(bareme, { ref: 'F-001', debut: '2024-01-01', hc: 700, ch: 100 });
+    expect(out.length).toBe(2);
+    expect(out[0].fin).toBe('2026-08-31');   // période close intacte
+    expect(out[1].hc).toBe(730);             // LA RÉVISION SURVIT
+    expect(out[1].ch).toBe(100);
+    expect(out[1].fin).toBe(null);
+  });
+
+  it('RÉVISION IRL DÉJÀ EN VIGUEUR : elle n\'est pas davantage réécrite', () => {
+    // même invariant, révision passée : le tarif en vigueur appartient à la révision, pas au bail.
     const bareme = [
       { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 50, source: 'bail', bailDebut: '2024-03-01' },
       { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 505.15, ch: 50, source: 'irl', bailDebut: '2024-03-01' }
     ];
     const out = synchroniserPeriodeBail(bareme, { ref: 'F-001', debut: '2024-03-01', hc: 510, ch: 50 });
+    expect(out.map(p => p.hc)).toEqual([500, 505.15]);
+    expect(out.length).toBe(2);              // et surtout : aucune période créée en douce
+  });
+
+  it('CORRECTION MANUELLE DATÉE : elle survit aussi (même chemin d\'écriture que l\'IRL)', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2026-02-28', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+      { ref: 'F-001', debut: '2026-03-01', fin: null, hc: 750, ch: 110, source: 'manuel', bailDebut: '2024-01-01', note: 'accord amiable' }
+    ];
+    const out = synchroniserPeriodeBail(bareme, { ref: 'F-001', debut: '2024-01-01', hc: 700, ch: 100 });
+    expect(out[1].hc).toBe(750);
+    expect(out[1].ch).toBe(110);
+    expect(out[1].note).toBe('accord amiable');
+  });
+
+  it('la période de source \'bail\' reste, elle, synchronisée même si une période close la précède', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2022-01-01', fin: '2023-12-31', hc: 650, ch: 90, source: 'bail', bailDebut: '2022-01-01' },
+      { ref: 'F-001', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' }
+    ];
+    const out = synchroniserPeriodeBail(bareme, { ref: 'F-001', debut: '2024-01-01', hc: 712, ch: 105 });
+    expect(out[1].hc).toBe(712);
+    expect(out[1].ch).toBe(105);
+    expect(out[0].hc).toBe(650);
+  });
+
+  it('RE-BAIL : une période ouverte laissée par un AUTRE bail ne sert pas de période au nouveau', () => {
+    // bailDebut différent → ce n'est pas la période de ce bail ; on en crée une plutôt que de
+    // repeindre celle du locataire précédent avec le loyer du nouveau.
+    const bareme = [
+      { ref: 'F-001', debut: '2022-01-01', fin: null, hc: 650, ch: 90, source: 'irl', bailDebut: '2021-01-01' }
+    ];
+    const out = synchroniserPeriodeBail(bareme, { ref: 'F-001', debut: '2026-07-01', hc: 800, ch: 120 });
     expect(out.length).toBe(2);
-    expect(out[0].fin).toBe('2026-06-30');           // période close intacte
-    expect(out[1].hc).toBe(510);                     // période ouverte mise à jour
+    expect(out[0].hc).toBe(650);
+    expect(out[1]).toMatchObject({ debut: '2026-07-01', fin: null, hc: 800, ch: 120, source: 'bail' });
+  });
+
+  it('DÉTERMINISME : le résultat ne dépend pas de la date du jour', () => {
+    // aucune horloge dans la décision — deux appels identiques rendent le même barème.
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2026-08-31', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+      { ref: 'F-001', debut: '2026-09-01', fin: null, hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' }
+    ];
+    const bail = { ref: 'F-001', debut: '2024-01-01', hc: 700, ch: 100 };
+    expect(synchroniserPeriodeBail(bareme, bail)).toEqual(synchroniserPeriodeBail(bareme, bail));
   });
   it('idempotent : re-save à l\'identique ne change rien', () => {
     const p0 = { ref: 'F-001', debut: '2024-03-01', fin: null, hc: 500, ch: 50, source: 'bail', bailDebut: '2024-03-01', note: '' };
@@ -165,6 +236,27 @@ describe('synchroniserPeriodeBail — saveBail (création OU édition) : la pér
     const arr = [{ ref: 'F-001', debut: '2024-03-01', fin: null, hc: 500, ch: 50, source: 'bail', bailDebut: '2024-03-01' }];
     synchroniserPeriodeBail(arr, { ref: 'F-001', debut: '2024-03-01', hc: 999, ch: 50 });
     expect(arr[0].hc).toBe(500);
+  });
+});
+
+describe('appliquerNouvellePeriode — la période clôturée est celle que la nouvelle SUIT', () => {
+  // Trou de couverture trouvé par mutation le 2026-08-20 : la borne de date de la sélection
+  // (`_openPeriodIdx(arr, ref, veille(debut))`) pouvait être retirée sans faire rougir un seul
+  // test du dépôt. Elle compte pourtant dès que deux périodes ouvertes coexistent (insertion
+  // d'une période intercalaire) : sans elle, on regarde la période la PLUS TARDIVE, le garde-fou
+  // `debut <` la rejette, et plus AUCUNE période n'est clôturée — deux périodes ouvertes se
+  // chevauchent alors et duMois() a deux tarifs pour le même mois.
+  it('DEUX PÉRIODES OUVERTES : une insertion intercalaire clôture celle qu\'elle suit, pas la plus tardive', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+      { ref: 'F-001', debut: '2026-09-01', fin: null, hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' }
+    ];
+    const out = appliquerNouvellePeriode(bareme, { ref: 'F-001', debut: '2026-03-01', hc: 715, ch: 100, source: 'manuel' });
+    expect(out.length).toBe(3);
+    expect(out[0].fin).toBe('2026-02-28');   // clôturée à la veille de l'insertion
+    expect(out[1].fin).toBe(null);           // la période tardive reste intacte
+    expect(out[1].hc).toBe(730);
+    expect(out[2]).toMatchObject({ debut: '2026-03-01', fin: null, hc: 715 });
   });
 });
 

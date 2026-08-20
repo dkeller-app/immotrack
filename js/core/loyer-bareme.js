@@ -94,18 +94,26 @@ export function periodeInitialeBail(bail) {
   };
 }
 
-/** Période vivante ouverte (fin==null) du lot dont le début est ≤ dateLimite (ref tolérante). */
-function _openPeriodIdx(periods, ref, dateLimite) {
+/**
+ * Période vivante OUVERTE (fin==null) du lot, la plus tardive, filtrée par `ok(p)` (ref tolérante).
+ * Base commune des trois sélecteurs du module — une seule boucle, un seul comportement.
+ */
+function _openPeriodIdxWhere(periods, ref, ok) {
   const want = _nr(ref);
   let idx = -1, best = '';
   for (let i = 0; i < periods.length; i++) {
     const p = periods[i];
     if (!p || p._deleted || _nr(p.ref) !== want || p.fin != null) continue;
+    if (ok && !ok(p)) continue;
     const d = _ymd(p.debut);
-    if (dateLimite && d > dateLimite) continue;
     if (d >= best) { best = d; idx = i; }
   }
   return idx;
+}
+
+/** Période vivante ouverte (fin==null) du lot dont le début est ≤ dateLimite (ref tolérante). */
+function _openPeriodIdx(periods, ref, dateLimite) {
+  return _openPeriodIdxWhere(periods, ref, dateLimite ? (p) => _ymd(p.debut) <= dateLimite : null);
 }
 
 /**
@@ -141,27 +149,51 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
 
 /**
  * Synchronise le barème avec le bail courant à chaque saveBail (création OU édition). PUR.
- *   - aucune période ouverte du lot → crée la période initiale (bail neuf / après clôture) ;
- *   - période ouverte présente → met à jour son hc/ch/bailDebut EN PLACE (édition des termes
- *     courants du bail via « Modifier bail » — le loyer courant change, pas une révision datée).
- * Les révisions IRL passent par appliquerNouvellePeriode (période datée), pas par ici.
+ *
+ * LA PÉRIODE DU BAIL EST CELLE QUE LE BAIL A CRÉÉE — source 'bail'. C'est la seule que cette
+ * fonction a le droit de réécrire. Les révisions IRL et les corrections datées ont leur propre
+ * chemin d'écriture (appliquerNouvellePeriode, appelé sous popup de validation) : elles portent
+ * le tarif en vigueur ou à venir, jamais celui des champs du formulaire de bail.
+ *
+ * CE QUI SE PASSAIT AVANT (mesuré en prod le 2026-08-20, v15.541) : la sélection prenait « la
+ * période ouverte de plus grand début », sans distinction de source. Dès qu'une révision était
+ * PROGRAMMÉE pour une date future, elle était la seule période ouverte du lot — un saveBail sans
+ * le moindre changement financier (un numéro de téléphone) la ramenait au tarif du bail :
+ *     AVANT  2024-01-01→2026-08-31 700+100 · 2026-09-01→ouverte 730+100 [irl]
+ *     APRÈS  2024-01-01→2026-08-31 700+100 · 2026-09-01→ouverte 700+100 [irl]
+ * La révision disparaissait du barème et de la timeline. Elle revenait seule au démarrage suivant
+ * (pendingApply), mais entre-temps l'écran mentait et une quittance émise dans cette fenêtre
+ * partait au mauvais tarif.
+ *
+ * Aucune horloge n'entre dans la décision : le résultat d'un enregistrement ne dépend pas de
+ * l'heure à laquelle on enregistre (et reste testable sans figer la date du jour).
+ *
+ *   - période ouverte de source 'bail' → son hc/ch suit les termes du formulaire ;
+ *   - sinon, période ouverte appartenant à CE bail (même bailDebut) → on n'y touche pas ;
+ *   - sinon → création de la période initiale (bail neuf, ou re-bail après clôture).
+ *
  * @param {Array} periods barème courant
  * @param {{ref, debut, hc, ch}} bail
  */
 export function synchroniserPeriodeBail(periods, bail) {
   const arr = (periods || []).map((p) => ({ ...p }));
   if (!bail || !bail.debut) return arr;
-  const idx = _openPeriodIdx(arr, bail.ref, null);
   const hc = Number(bail.hc) || 0;
   const ch = Number(bail.ch) || 0;
-  if (idx < 0) {
-    const p = periodeInitialeBail(bail);
-    if (p) arr.push(p);
+  // source absente = barème d'avant l'introduction du champ : c'est une période de bail.
+  const idx = _openPeriodIdxWhere(arr, bail.ref, (p) => (p.source || 'bail') === 'bail');
+  if (idx >= 0) {
+    const cur = arr[idx];
+    if ((Number(cur.hc) || 0) === hc && (Number(cur.ch) || 0) === ch) return arr;  // idempotent
+    arr[idx] = { ...cur, hc, ch };
     return arr;
   }
-  const cur = arr[idx];
-  if ((Number(cur.hc) || 0) === hc && (Number(cur.ch) || 0) === ch) return arr;  // idempotent
-  arr[idx] = { ...cur, hc, ch };
+  // Pas de période de bail ouverte : si une période ouverte appartient quand même à CE bail
+  // (révision IRL programmée ou en vigueur, correction manuelle datée), elle porte le tarif
+  // courant du lot — on la laisse. Sans ce garde-fou on lui repeindrait le loyer du formulaire.
+  if (_openPeriodIdxWhere(arr, bail.ref, (p) => _ymd(p.bailDebut) === _ymd(bail.debut)) >= 0) return arr;
+  const p = periodeInitialeBail(bail);
+  if (p) arr.push(p);
   return arr;
 }
 
