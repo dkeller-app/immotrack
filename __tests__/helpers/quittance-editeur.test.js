@@ -11,7 +11,8 @@ import { describe, it, expect } from 'vitest';
 import { etatMoisLot } from '../../js/core/loyers-mois.js';
 import {
   MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
-  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta
+  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta,
+  metaApresEmission, metaApresSuppression
 } from '../../js/core/quittance-editeur.js';
 
 /** Un lot loué de janvier à juin 2026, 500 HC + 100 CH. */
@@ -193,5 +194,56 @@ describe('V6 — l\'enchaînement « lot suivant » quand on entre par la porte 
   it('un lot hors pile ouvre la pile par son début', () => {
     expect(lotSuivant(pile, 'Z-99').ref).toBe('A-01');
     expect(lotSuivant([], 'A-01')).toBeNull();
+  });
+});
+
+describe('V9 — le CYCLE DE VIE de la trace : elle suit le geste, dans les deux sens', () => {
+  // Poser la trace sans jamais la retirer laissait l'étiquette « émise sans paiement rattaché »
+  // collée à un mois depuis PAYÉ, pour toujours — et faisait sortir une quittance « forcée »
+  // là où le paiement existe. Une étiquette qui survit à son motif est un mensonge.
+  const geste = (moisEmis, moisForces) => ({ ref: 'A-01', moisEmis, moisForces, par: 'Didier', le: '2026-08-19' });
+
+  it('un mois forcé reçoit sa trace, avec qui et quand', () => {
+    const m = metaApresEmission({}, geste(['2026-05'], ['2026-05']));
+    expect(m['A-01|2026-05']).toEqual({ forceePar: 'Didier', forceeLe: '2026-08-19' });
+    expect(etiquetteSansPaiement(m['A-01|2026-05']).visible).toBe(true);
+  });
+
+  it('rééditer le MÊME mois, une fois payé, RETIRE la trace', () => {
+    const avant = { 'A-01|2026-05': { forceePar: 'Didier', forceeLe: '2026-08-19' } };
+    const apres = metaApresEmission(avant, geste(['2026-05'], []));
+    expect(apres['A-01|2026-05']).toBeUndefined();
+    expect(etiquetteSansPaiement(apres['A-01|2026-05']).visible).toBe(false);
+  });
+
+  it('les mois NON touchés par le geste gardent la leur', () => {
+    const avant = { 'A-01|2026-03': { forceePar: 'D', forceeLe: 'x' }, 'A-01|2026-05': { forceePar: 'D', forceeLe: 'x' } };
+    const apres = metaApresEmission(avant, geste(['2026-05'], []));
+    expect(apres['A-01|2026-03']).toBeDefined();
+    expect(apres['A-01|2026-05']).toBeUndefined();
+  });
+
+  it('un autre lot n est jamais impacté', () => {
+    const avant = { 'B-02|2026-05': { forceePar: 'D', forceeLe: 'x' } };
+    expect(metaApresEmission(avant, geste(['2026-05'], []))['B-02|2026-05']).toBeDefined();
+  });
+
+  it('supprimer la quittance supprime sa trace', () => {
+    const avant = { 'A-01|2026-05': { forceePar: 'D', forceeLe: 'x' }, 'A-01|2026-06': { forceePar: 'D', forceeLe: 'x' } };
+    const apres = metaApresSuppression(avant, 'A-01', '2026-05');
+    expect(apres['A-01|2026-05']).toBeUndefined();
+    expect(apres['A-01|2026-06']).toBeDefined();
+  });
+
+  it('les deux fonctions ne mutent jamais la map reçue', () => {
+    const avant = { 'A-01|2026-05': { forceePar: 'D', forceeLe: 'x' } };
+    metaApresEmission(avant, geste(['2026-05'], []));
+    metaApresSuppression(avant, 'A-01', '2026-05');
+    expect(avant['A-01|2026-05']).toBeDefined();
+  });
+
+  it('émission multiple : chaque mois reçoit le sort qui lui revient', () => {
+    const m = metaApresEmission({}, geste(['2026-05', '2026-06', '2026-07'], ['2026-06']));
+    expect(Object.keys(m)).toEqual(['A-01|2026-06']);
   });
 });

@@ -551,9 +551,6 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-loyers .ly2-cmd .ttl{font-family:var(--display);font-weight:800;font-size:15px;color:var(--t1);white-space:nowrap}
         #p-loyers .ly2-cmd .ttl em{font-style:normal;font-weight:500;font-size:11.5px;color:var(--t3);margin-left:6px}
         #p-loyers .ly2-cmd .sp{flex:1;min-width:4px}
-        #p-loyers .ly2-sel{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--t2);
-          background:var(--sur2);border:1px solid var(--bor);border-radius:var(--rp);padding:5px 11px;cursor:pointer;white-space:nowrap}
-        #p-loyers .ly2-sel:hover{border-color:var(--acc);color:var(--acc)}
 
         /* ── 2. Les trois tuiles EN TOUTES LETTRES (V1 + I-MOT) ───────────────────── */
         #p-loyers .m5tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px}
@@ -10805,7 +10802,11 @@ function _renderDashV4Solo(ctx, wrap) {
     ? 'Aucune action en attente. Tout est à jour.'
     : (nbActions + ' point' + (nbActions > 1 ? 's' : '') + ' à traiter ce mois-ci.');
 
-  // Card du logement principal (1er occupé, sinon 1er) — enrichie style mockup Solo
+  // Card du logement principal (1er occupé, sinon 1er) — style mockup Solo.
+  // ⚠️ CODE MORT depuis v15.140 : la migration index.html:5320 rebascule tout `dashV4Mode`
+  // « solo » en « premium », donc `_renderDashV4Solo` n'est jamais atteint. Corrigé quand même
+  // au lot 3 (un mauvais motif ne reste pas dans le code) ; le retrait du renderer est un
+  // follow-on du chantier, pas son objet.
   const mainLog = occupied[0] || scopeLogs[0];
   let cardLogHtml;
   if (mainLog) {
@@ -25586,6 +25587,45 @@ function _migrerLoyerBareme() {
 // ============================================================================
 let _gfCtx = null;
 
+/**
+ * AUDIT I1 — LA TRACE D'UN FORÇAGE DE RÉVISION, portée par le CYCLE et par l'espace.
+ *
+ * Avant : un booléen `log.irlForceeLe` posé pour TOUS les forçages (y compris « cycle éteint »,
+ * sans aucun rapport avec le DPE) et JAMAIS effacé — toutes les lettres futures du lot
+ * contournaient le contrôle DPE, pour toujours. Et `markIRLLetterSent`, qui ne le lisait pas,
+ * refusait de marquer envoyée la lettre qu'on venait d'éditer (« Révision IRL non calculable »).
+ *
+ * Maintenant : `{cycle, le, par, motif}` par lot, dans `DB.params` (blob espace_config — donc
+ * partagé en SCI, et pas une colonne cloud inexistante). Le mode forcé ne s'applique qu'au
+ * cycle qui a été explicitement confirmé ; le cycle suivant repose la question.
+ */
+function _irlForcage(ref) {
+  const m = (DB.params && DB.params.irlForcee) || {};
+  return m[String(ref)] || null;
+}
+function _irlSetForcage(ref, val) {
+  if (!DB.params) DB.params = {};
+  if (!DB.params.irlForcee) DB.params.irlForcee = {};
+  DB.params.irlForcee[String(ref)] = val;
+}
+/** Le forçage vaut-il pour CE cycle ? (jamais « pour toujours ») */
+function _irlForcePourCycle(ref, cycleIso) {
+  const t = _irlForcage(ref);
+  if (!t || !t.cycle) return false;
+  return String(t.cycle).slice(0, 10) === String(cycleIso || '').slice(0, 10);
+}
+/** Le mode à utiliser pour LIRE une révision : forcé seulement si le cycle courant l'a été. */
+function _irlModeLecture(log) {
+  if (!log) return { force: false };
+  const t = _irlForcage(log.ref);
+  if (!t || !t.cycle) return { force: false };
+  // On recalcule le cycle SANS force pour savoir où on en est ; s'il est muet (gel/DPE), son
+  // `effetPrevuIso` est quand même renseigné (bloc `_quand` de computeIRLRevision).
+  const nu = computeIRLRevision(log);
+  const cyc = (nu && nu.effetPrevuIso) || '';
+  return { force: _irlForcePourCycle(log.ref, cyc) };
+}
+
 /** Le manque à gagner d'un cycle éteint, calculé sur les indices DE CE CYCLE. */
 function _gfGainCycle(log, rev) {
   if (!rev || !rev.perdue || typeof irlVal !== 'function') return null;
@@ -25604,14 +25644,25 @@ function _gfHcCycleEteint(log, rev) {
  * Ouvre la fenêtre d'avertissement d'un lot. Si le garde-fou n'offre PAS de geste
  * (bail < 1 an, indice non publié), la fenêtre explique et ne montre aucun bouton.
  */
-function _gfOuvrir(ref) {
+function _gfOuvrir(ref, opts) {
   const log = (DB.logements || []).find(l => l.ref === ref);
   if (!log) { showToast('Logement introuvable', 'err'); return; }
   const rev = (typeof computeIRLRevision === 'function') ? computeIRLRevision(log) : null;
+  // AUDIT C2 — `surCyclePerdu` n'est vrai QUE sur le geste explicite « Appliquer quand même »
+  // de la pastille « IRL non appliquées ». Sans ce drapeau, un lot dont un vieux cycle dort
+  // (cas très courant : cycle N-1 jamais appliqué, cycle N ouvert) voyait sa révision ORDINAIRE
+  // murée par un avertissement qui ne la concernait pas, et se voyait proposer le loyer du
+  // MAUVAIS cycle.
   const g = (typeof window.gardeFouRevision === 'function')
-    ? window.gardeFouRevision(rev, { gainMensuel: _gfGainCycle(log, rev), fmtMontant: fmt }) : null;
+    ? window.gardeFouRevision(rev, { gainMensuel: _gfGainCycle(log, rev), fmtMontant: fmt,
+        surCyclePerdu: !!(opts && opts.surCyclePerdu) }) : null;
   if (!g) {                                  // aucune règle ne s'y oppose : geste ordinaire
-    if (rev && rev.nouveauHC) applyIRL(ref, rev.nouveauHC);
+    if (rev && rev.nouveauHC) { applyIRL(ref, rev.nouveauHC); return; }
+    // Ni règle ni calcul : un clic muet laisserait croire à une panne. On dit ce qui manque.
+    showToast(rev && rev.missingKey
+      ? `Révision non calculable : l'indice ${rev.missingKey} n'est pas encore publié par l'INSEE.`
+      : 'Révision non calculable pour ce lot — vérifie la date de début du bail et le trimestre IRL.',
+      'info', 7000);
     return;
   }
   // V21 — quand il n'y a rien à débloquer, le titre ne doit PAS sonner comme un mur :
@@ -25659,7 +25710,13 @@ function _gfOuvrir(ref) {
     const revF = computeIRLRevision(log, { force: true });
     hc = (revF && revF.nouveauHC) || null;
   }
-  _gfCtx = { ref, hc, kind: g.kind };
+  // AUDIT I4 — pour un cycle ÉTEINT, `hc` est calculé sur les indices du cycle PERDU : la
+  // trace doit désigner CE cycle-là, pas le courant. Sinon elle nomme autre chose que ce
+  // qu'elle a servi à appliquer.
+  const _cycleApplique = (g.kind === 'cycle-eteint' && rev && rev.perdue && rev.perdue.effetIso)
+    ? String(rev.perdue.effetIso).slice(0, 10)
+    : ((rev && rev.effetPrevuIso) || '');
+  _gfCtx = { ref, hc, kind: g.kind, cycle: _cycleApplique };
   openM('ov-irl-garde');
 }
 
@@ -25678,7 +25735,7 @@ function _gfForcer() {
   }
   closeM('ov-irl-garde');
   _gfCtx = null;
-  applyIRL(c.ref, c.hc, { force: true });
+  applyIRL(c.ref, c.hc, { force: true, motif: c.kind, cycle: c.cycle });
 }
 
 function applyIRL(ref, newHC, opts) {
@@ -25690,6 +25747,8 @@ function applyIRL(ref, newHC, opts) {
   // Une fois cochée, `_gfForcer` rappelle ici avec `force` — et le geste passe.
   if (!(opts && opts.force)) {
     const rev0 = computeIRLRevision(log);
+    // AUDIT C2 : pas de `surCyclePerdu` ici — la révision ordinaire ne doit JAMAIS être
+    // détournée vers l'avertissement d'un cycle éteint qu'on ne lui a pas demandé d'appliquer.
     const g = (typeof window !== 'undefined' && typeof window.gardeFouRevision === 'function')
       ? window.gardeFouRevision(rev0, { gainMensuel: _gfGainCycle(log, rev0), fmtMontant: fmt }) : null;
     if (g) { _gfOuvrir(ref); return; }
@@ -25697,10 +25756,18 @@ function applyIRL(ref, newHC, opts) {
   const _forceIrl = !!(opts && opts.force);
   const rev = computeIRLRevision(log, { force: _forceIrl });
   if (_forceIrl) {
-    // V20/V9 — la trace du geste forcé : elle dit QUI et QUAND, elle débloque la lettre, et
-    // elle reste visible. Sans elle, la révision serait indiscernable d'une révision ordinaire.
-    log.irlForceeLe = td();
-    log.irlForceePar = (typeof _qeQui === 'function') ? _qeQui() : '';
+    // AUDIT I4 — la trace n'est PAS posée ici : la modale de validation peut encore être
+    // annulée, et une trace survivante laisserait le lot en lecture forcée pour ce cycle sans
+    // qu'aucune révision n'ait été appliquée. On la MÉMORISE, `_applyIRLValidated` la pose.
+    _irlForcageEnAttente = {
+      ref,
+      // Le cycle QU'ON APPLIQUE : pour un cycle éteint, c'est le cycle perdu, pas le courant.
+      cycle: String((opts && opts.cycle) || rev?.effetPrevuIso || '').slice(0, 10),
+      le: td(), par: (typeof _qeQui === 'function') ? _qeQui() : '',
+      motif: (opts && opts.motif) || ''
+    };
+  } else if (_irlForcageEnAttente && _irlForcageEnAttente.ref === ref) {
+    _irlForcageEnAttente = null;                 // un geste ordinaire annule un forçage en attente
   }
   const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   const todayLocal = _todayIsoLocal();
@@ -25731,13 +25798,15 @@ function applyIRL(ref, newHC, opts) {
 }
 
 let _irlValidCtx = null;
+/** AUDIT I4 — le forçage confirmé mais PAS ENCORE validé : la modale peut être annulée. */
+let _irlForcageEnAttente = null;
 function _irlValidConfirm() {
   const ctx = _irlValidCtx; if (!ctx) { closeM('ov-irl-valid'); return; }
   const log = DB.logements.find(l => l.ref === ctx.ref);
   if (!log) { _irlValidCtx = null; closeM('ov-irl-valid'); return; }
   let effet = v('iv-effet');
   if (!effet) { showToast('Date d\'effet requise', 'err'); return; }
-  const rev = computeIRLRevision(log);
+  const rev = computeIRLRevision(log, _irlModeLecture(log));
   const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   if (typeof window !== 'undefined' && typeof window._baremeClampDateEffet === 'function') {
     const cl = window._baremeClampDateEffet(effet, {
@@ -25761,7 +25830,16 @@ function _irlValidConfirm() {
 // par les garde-fous de _irlValidConfirm.
 function _applyIRLValidated(ref, newHC, dateEffetIso, dateAjustee) {
   const log = DB.logements.find(l => l.ref === ref); if (!log) return;
-  const rev = computeIRLRevision(log);
+  // AUDIT I4 — la trace du geste forcé se pose ICI, quand la révision est réellement appliquée.
+  // Et elle doit être posée AVANT de lire la révision : sans elle, `_irlModeLecture` renvoie
+  // le mode honnête, `rev` est l'objet muet, et l'entrée d'historique perd ses indices — la
+  // seule révision qui aurait besoin d'être traçable serait la seule à ne pas l'être.
+  if (_irlForcageEnAttente && _irlForcageEnAttente.ref === ref) {
+    const f = _irlForcageEnAttente;
+    _irlSetForcage(ref, { cycle: f.cycle, le: f.le, par: f.par, motif: f.motif });
+    _irlForcageEnAttente = null;
+  }
+  const rev = computeIRLRevision(log, _irlModeLecture(log));
   const annivIso = rev?.effetPrevuIso || (rev?.dateRevision ? _isoLocal(rev.dateRevision) : '');
   const todayLocal = _todayIsoLocal();
   const futureApplication = dateEffetIso > todayLocal;
@@ -27838,7 +27916,9 @@ function _commsHubSend(ref, type) {
       extra.dureePreavis = promptVal('Durée préavis (mois) :', '3');
       extra.dateFinPreavis = promptVal('Date de fin du préavis (YYYY-MM-DD) :', '');
       extra.motifReduction = promptVal('Motif de réduction si applicable :', '');
-      extra.dateEDLSortie = promptVal('Date EDL sortie proposée :', '');
+      // I-DATE : l'EDL de sortie est connu de l'app quand il existe — on le propose, sinon rien.
+      extra.dateEDLSortie = promptVal('Date EDL sortie proposée :',
+        (typeof window.dateEDLSortie === 'function' ? window.dateEDLSortie(DB.edl || [], ref) : null) || '');
       extra.heureEDLSortie = '14h00';
       break; }
     case 'rappel-impaye-1':
@@ -28323,11 +28403,6 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
         && typeof window.datePaiementMois === 'function')
         ? window.datePaiementMois(_loyerEtatLot(q.logement), prefixMois)
         : { date: null, dates: [], nb: 0 });
-  const _mention = (typeof window !== 'undefined' && typeof window.mentionDateRecu === 'function')
-    ? window.mentionDateRecu(_infoPay, fd)
-    : { avecDate: false, mention: '', dateAffichee: null };
-  // La phrase d'acte, avec ou sans date — jamais « reçu le — », jamais une date inventée.
-  const recuLe = `déclare avoir reçu${_mention.mention} du locataire`;
 
   // QUITTANCE FIGÉE (décision user 16/07) : la quittance est un DOCUMENT — elle affiche le montant
   // qu'elle porte (q.hc/q.ch stockés à l'émission), point. AUCUN recalcul à l'affichage : ré-imprimer
@@ -28344,6 +28419,31 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
     });
   }
   const total = (q.hc||0)+(q.ch||0);
+
+  // AUDIT I-3/S-2 — ce bloc vit APRÈS `total`, donc après le repli legacy champ par champ.
+  // Le lire avant obligeait à recalculer un dû à part (`_duDoc`), qui n'était pas symétrique :
+  // une quittance mixte (hc stocké, ch nul) donnait un total faux, donc un reçu partiel privé
+  // de sa mention de versements. Une seule lecture, une seule source, un seul `_forceeV7`.
+  //
+  // AUDIT C3 — le document sait ce qu'il EST, et la règle de date en dépend :
+  //  · QUITTANCE (terme payé en entier) → une date SEULEMENT si le mois est soldé. Sur un mois
+  //    partiellement payé (garde-fou V7), la liste des versements ne prouve rien : le document
+  //    sortait « reçu le 14/06 la somme de 800 € » alors que 300 € seulement étaient arrivés,
+  //    et le bandeau affiché juste au-dessus promettait l'inverse. Sur un document que
+  //    l'article 21 rend opposable au bailleur, c'était pire qu'avant le chantier.
+  //  · REÇU DE PAIEMENT PARTIEL → la liste des versements FAIT foi : c'est exactement ce que
+  //    le document reconnaît avoir reçu.
+  const _forceeV7 = (opts.forceeV7 != null)
+    ? !!opts.forceeV7
+    : !!(prefixMois && typeof _qeMeta === 'function' && _qeMeta(q.logement, prefixMois));
+  const _docPartiel = (opts.partiel != null)
+    ? !!opts.partiel
+    : (!_forceeV7 && totalRecu > 0 && totalRecu < total - 0.01);
+  const _mention = (typeof window !== 'undefined' && typeof window.mentionDateRecu === 'function')
+    ? window.mentionDateRecu(_infoPay, fd, { partiel: _docPartiel })
+    : { avecDate: false, mention: '', dateAffichee: null };
+  // La phrase d'acte, avec ou sans date — jamais « reçu le — », jamais une date inventée.
+  const recuLe = `déclare avoir reçu${_mention.mention} du locataire`;
   const isProrata = false;
   const joursOcc = null;
   const joursMois = null;
@@ -28373,9 +28473,19 @@ function _buildQuittanceHtml(q, log, ent, bail, opts) {
   const typeEnt = ent.type||'';
   const dateEmission = fd(q.date||td());
 
-  const estComplet   = totalRecu >= total - 0.01;
+  // V7 (CDC-LOYERS-DESIGN) — UNE QUITTANCE FORCÉE EST UNE QUITTANCE.
+  //
+  // Défaut trouvé à la re-vérification : l'utilisateur cochait « je sais que ce document vaut
+  // reçu », cliquait « Éditer la quittance », l'app enregistrait bien un état « quittancé »… et
+  // le document qui sortait était un « Reçu de paiement partiel », parce que `totalRecu < total`.
+  // L'état disait quittancé, le papier disait reçu : V7 n'était pas honorée, et le geste que
+  // Didier a explicitement demandé (« tu arrêtes de bloquer les quittances ») ne produisait pas
+  // ce qu'il promet. Quand la trace du geste forcé existe, le document est une QUITTANCE
+  // pleine — et, le mois n'étant pas soldé, elle sort SANS ligne « payé le » (exactement ce que
+  // le bandeau annonce). L'étiquette « sans paiement constaté » reste, elle, DANS L'APP (V9).
+  const estComplet   = totalRecu >= total - 0.01 || _forceeV7;
   const estPartiel   = totalRecu > 0 && !estComplet;
-  const estNonPayé   = totalRecu <= 0;
+  const estNonPayé   = totalRecu <= 0 && !_forceeV7;
   const status = estComplet ? 'complet' : (estPartiel ? 'partiel' : 'non-paye');
 
   const _resteBailleur = `${typeEnt?', '+escHtml(typeEnt):''}${siegeStr?', dont le siège social est situé '+escHtml(siegeStr):''}${siren?',<br>immatriculée au registre du commerce et des sociétés sous le numéro d\'identification '+escHtml(siren):''}${gerant?',<br>représentée par '+escHtml(gerant)+' en sa qualité de Gérant, dument habilité':''}${siegeStr||siren||gerant?' ;':''}`.replace(/^,\s*/, '');
@@ -28682,6 +28792,13 @@ function delQuit(id) {
       const old = DB.quittances[idx];
       // v15.03 AUDIT-FIX : trace delete (RGPD : quittance = lien locataire)
       if (typeof _auditLog === 'function') _auditLog('delete', 'quittance', id, (old.logement||'')+'/'+(old.mois||''));
+      // AUDIT I-2 — la trace du geste forcé meurt avec la quittance, dans la MÊME opération
+      // (donc annulable d'un bloc). Sans ça, après suppression le bandeau disait « ce mois
+      // n'est pas soldé » pendant que l'aperçu sortait une quittance pleine.
+      if (typeof _qeDelMeta === 'function' && typeof window.moisFrToYm === 'function') {
+        const _ymSupp = window.moisFrToYm(old.mois);
+        if (_ymSupp) _qeDelMeta(old.logement, _ymSupp);
+      }
       DB.quittances[idx] = {
         id: old.id, _deleted: true,
         _deletedAt: new Date().toISOString(),
@@ -29022,7 +29139,8 @@ function _lyQuittancesDuMois(ymCourant) {
     html: qs.map(q => `<div class="ln"><span class="who"><b>${escHtml(q.logement)}</b> <span class="mu" style="display:inline">${escHtml(q.locataire || '—')}</span></span>
       <span class="mu">${escHtml(q.mois || '')} · éditée le ${fd(q.date)}</span>
       <span class="am"><b>${fmt((q.hc || 0) + (q.ch || 0))}</b></span>
-      <span class="ac"><button class="btn bs bb" onclick="previewQuit(${q.id})" title="Aperçu">👁</button>
+      <span class="ac"><button class="btn bs bb" onclick="_ouvrirQuittanceSurMois('${_lyQ(q.logement)}','${_lyQ(window.moisFrToYm(q.mois) || '')}')" title="Rééditer : l'éditeur s'ouvre sur ce mois, le document se regénère">↺ Rééditer</button>
+        <button class="btn bs bb" onclick="previewQuit(${q.id})" title="Aperçu">👁</button>
         <button class="btn bs bb" onclick="envoyerQuittanceParEmail(${q.id})" title="Télécharger le PDF">📥</button>
         <button class="btn br bb" onclick="delQuit(${q.id})" title="Supprimer">🗑</button></span></div>`).join('')
   };
@@ -29089,7 +29207,7 @@ function _lyPanneauSuivi(kind, rev, ymCourant, moisCourant) {
       return `<div class="ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml(e.log.locataire || '—')}</span></span>
         <span class="mu">Cycle du ${fd(r.perdue.effetIso)} non appliqué, éteint le ${fd(prescritIso)} (délai d'un an)</span>
         <span class="am">${gain != null ? `<span class="ly2-p nu">≈ ${fmt(gain)}/mois non appliqués</span>` : '<span class="ly2-p nu">—</span>'}</span>
-        <span class="ac"><button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}')">Appliquer quand même</button></span></div>`;
+        <span class="ac"><button class="btn bs bb" onclick="_gfOuvrir('${_lyQ(e.ref)}',{surCyclePerdu:true})">Appliquer quand même</button></span></div>`;
     }).join('');
     foot = 'La révision revient de toute façon à chaque anniversaire du bail, sur les indices du moment. Seul le cycle passé s\'éteint (art. 17-1). <b>Appliquer un cycle éteint reste possible</b> : la fenêtre dit alors ce que ça engage.';
   } else if (kind === 'muet') {
@@ -29254,7 +29372,14 @@ function _lyRecuPartiel(ref, ym) {
   const built = _buildQuittanceHtml(q, log, ent, bail, {
     totalRecu: Math.round((m.du - m.reste) * 100) / 100,
     // Un reçu partiel n'est jamais « soldé » : c'est la LISTE des versements qui parle.
-    infoPaiement: { date: null, dates: info.dates, nb: info.nb }
+    infoPaiement: { date: null, dates: info.dates, nb: info.nb },
+    partiel: true,
+    // AUDIT R1 — et il n'est JAMAIS forcé, par définition. Sans ce `false`, le builder
+    // retombait sur la trace V7 du mois : un mois déjà quittancé de force puis partiellement
+    // payé (la cascade impute un versement de juin sur mai) faisait sortir, sous une fenêtre
+    // « Reçu de paiement partiel », une QUITTANCE PLEINE de 800 € datée du 14/06 pour 300 €
+    // réellement reçus. Un document juridiquement faux, dans les deux sens à la fois.
+    forceeV7: false
   });
   _lyPreviewEphemere(built, 'Reçu de paiement partiel');
 }
@@ -29384,6 +29509,19 @@ function _qeSetMeta(ref, ym, val) {
   if (!DB.params.quittancesMeta) DB.params.quittancesMeta = {};
   DB.params.quittancesMeta[window.cleMeta(ref, ym)] = val;
 }
+/** Le cycle de vie de la trace, délégué au module testé : posée quand le mois est forcé,
+ *  RETIRÉE quand il ne l'est plus. Une étiquette qui survit à son motif est un mensonge. */
+function _qeAppliquerMeta(ref, moisEmis, forces) {
+  if (!DB.params) DB.params = {};
+  DB.params.quittancesMeta = window.metaApresEmission(DB.params.quittancesMeta || {}, {
+    ref, moisEmis, moisForces: [...forces], par: _qeQui(), le: td()
+  });
+}
+/** La trace meurt avec la quittance — même geste, même opération annulable. */
+function _qeDelMeta(ref, ym) {
+  if (!DB.params) DB.params = {};
+  DB.params.quittancesMeta = window.metaApresSuppression(DB.params.quittancesMeta || {}, ref, ym);
+}
 /** Qui édite — utile au partage SCI : la trace nomme la personne, pas « quelqu'un ». */
 function _qeQui() {
   const p = (DB.params && DB.params.userProfile) || {};
@@ -29459,9 +29597,27 @@ function _qeToggle(ym) {
 function _qeTogglePick() { _qe.pick = !_qe.pick; _qe.filtre = ''; _qeRender(); }
 function _qeFiltre(v) { _qe.filtre = String(v || ''); _qeRenderPick(); }
 function _qeChoisirLot(ref) { _qe.libre = false; _qe.saisie = null; _qeSetLot(ref); _qeRender(); }
-function _qeSetConfirme(on) { _qe.confirme = !!on; _qeFootBtn(); }
+/**
+ * Cocher la confirmation V7 CHANGE LE DOCUMENT : il passe de « reçu de paiement partiel »
+ * à une QUITTANCE pleine, sans ligne « payé le ». L'aperçu doit donc se refaire — sinon
+ * l'utilisateur coche, voit toujours un reçu partiel, et émet sans savoir ce qui sortira.
+ */
+function _qeSetConfirme(on) { _qe.confirme = !!on; _qeRenderDoc(); _qeFootBtn(); }
 function _qeOnglet(i) { _qe.onglet = i; _qeRenderDoc(); }
 function _qeFermer() { closeM('ov-quit-editeur'); if (typeof rLoyers === 'function' && currentPage === 'loyers') rLoyers(); }
+
+/**
+ * Un versement a-t-il été imputé à ce mois ? Le bandeau V7 ne propose « émettre un reçu de
+ * paiement partiel à la place » que dans ce cas : sur un mois où RIEN n'est arrivé, ce reçu
+ * n'existe pas (il n'y a rien à reconnaître avoir reçu) et le bouton menait à un document
+ * « non émissible » — une impasse. Le vrai choix reste alors : quittancer quand même (case
+ * à cocher), décocher le mois, ou enregistrer le paiement d'abord.
+ */
+function _qeAPaiement(ym) {
+  const e = _loyerEtatLot(_qe.ref);
+  const m = e && e.byYm && e.byYm[ym];
+  return !!(m && (m.montantImpute || 0) > 0.005);
+}
 
 /** V10/V11 — bascule vers la SAISIE LIBRE, à l'intérieur du même écran. */
 function _qeModeLibre(depuisLot) {
@@ -29566,7 +29722,9 @@ function _qeRenderDoc() {
       Une quittance atteste que le loyer <b>a été payé</b> : remise au locataire, elle vaut reçu et éteint
       la dette du mois. Le document sortira <b>sans</b> ligne « payé le » — aucun paiement n'y est rattachable.
       <div class="act">
-        <button class="btn bs bb" onclick="_qeRecuPartiel('${premier.ym}')">Émettre un reçu de paiement partiel à la place</button>
+        ${_qeAPaiement(premier.ym)
+          ? `<button class="btn bs bb" onclick="_qeRecuPartiel('${premier.ym}')">Émettre un reçu de paiement partiel à la place</button>`
+          : ''}
         <button class="btn bs bb" onclick="_qeToggle('${premier.ym}')">Décocher ${escHtml(premier.nom)}</button>
       </div>
       <label class="cf"><input type="checkbox" ${_qe.confirme ? 'checked' : ''} onchange="_qeSetConfirme(this.checked)">
@@ -29609,7 +29767,15 @@ function _qeInjecterDoc(m) {
     locataire: ((bail.locataires || []).map(x => x && x.nom).filter(Boolean).join(', ')) || (log && log.locataire) || '',
     entity: (bail.entity || (log && log.entity) || ''), date: td()
   };
-  const built = _buildQuittanceHtml(q, log, ent, bail);
+  // L'aperçu doit montrer LE document qui sortira : si la confirmation V7 est cochée, c'est
+  // déjà une quittance pleine, sans date de paiement.
+  const built = _buildQuittanceHtml(q, log, ent, bail, {
+    // AUDIT R5 — un mois DÉJÀ quittancé de force porte sa trace : sans la lire, réouvrir
+    // l'éditeur dessus (« ↺ Rééditer », case du bien) affichait « Document non émissible »
+    // alors que l'aperçu, le PDF et la PJ e-mail sortent une quittance pleine.
+    forceeV7: ((m.etat === 'no' || m.etat === 'fut') && _qe.confirme)
+      || !!(typeof _qeMeta === 'function' && _qeMeta(_qe.ref, m.ym))
+  });
   iframe.srcdoc = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>${built.title}</title><style>${QUIT_PRINT_CSS}${built.css}</style></head><body>${built.html}</body></html>`;
 }
 
@@ -29712,7 +29878,11 @@ function _qeEditer(enchainer) {
         r.quittance.date = td();
         if (typeof _stamp === 'function') _stamp(r.quittance);
       }
-      if (forces.has(ym)) _qeSetMeta(_qe.ref, ym, { forceePar: _qeQui(), forceeLe: td() });
+      // AUDIT I-2 — la trace suit le GESTE, dans les deux sens. Sans le `else`, rééditer un
+      // mois autrefois forcé et DEPUIS PAYÉ laissait l'étiquette « émise sans paiement rattaché »
+      // collée à un mois soldé, pour toujours — et faisait sortir une quittance « forcée » là
+      // où le paiement existe.
+      _qeAppliquerMeta(_qe.ref, [ym], forces);
       faites.push(r.quittance);
     } else refusees.push(window.ymToMoisFr(ym) + ' — ' + r.motif);
   }
@@ -29976,8 +30146,9 @@ function genIRLLetter(ref) {
   const log = DB.logements.find(l=>l.ref===ref); if(!log) return '';
   const bail = DB.baux[ref];
   const ent = DB.entites.find(e=>e.nom===(bail?.entity||log.entity));
-  // V20 — un lot revise « quand même » garde la trace du geste : la lettre suit.
-  const _forcee = !!(log.irlForceeLe);
+  // V20 — un lot révisé « quand même » garde la trace du geste : la lettre suit, mais
+  // SEULEMENT pour le cycle qui a été confirmé (audit I1). Le cycle suivant repose la question.
+  const _forcee = _irlModeLecture(log).force;
   const rev = computeIRLRevision(log, { force: _forcee });
 
   const built = _buildIRLLetterHtml(log, bail, ent, rev, { force: _forcee });
@@ -29991,7 +30162,9 @@ function genIRLLetter(ref) {
 function markIRLLetterSent(ref) {
   const log = DB.logements.find(l => l.ref === ref);
   if (!log) return;
-  const rev = computeIRLRevision(log);
+  // AUDIT I1 — le MÊME mode de lecture que `genIRLLetter` : sinon la lettre d'un lot gelé
+  // s'édite mais ne peut jamais être marquée envoyée (« Révision IRL non calculable »).
+  const rev = computeIRLRevision(log, _irlModeLecture(log));
   if (!rev || !rev.dateRevision) { showToast('Révision IRL non calculable', 'err'); return; }
   log.irlLettreEnvoyee = true;
   log.irlLettreEnvoyeeDate = new Date().toISOString().slice(0, 10);
@@ -30151,12 +30324,14 @@ function envoyerLettreIRLParEmail() {
   if (!log) { showToast('Logement introuvable', 'err'); return; }
   const bail = DB.baux[ref];
   const ent = DB.entites.find(e => e.nom === (bail?.entity || log.entity));
-  const rev = computeIRLRevision(log);
+  const rev = computeIRLRevision(log, _irlModeLecture(log));
   if (!rev || rev.insuffisant || rev.pasEncoreApplicable) {
     showToast('Données IRL insuffisantes ou révision non applicable', 'err');
     return;
   }
   if (rev.dpeManquant || rev.gelDpeFG) {
+    // V20 : « la lettre part quand même si tu le décides ». Ce refus ne vaut donc QUE si le
+    // geste n'a pas été confirmé — auquel cas `rev.gelDpeFG`/`dpeManquant` ne sont même plus posés.
     showToast('Lettre IRL non envoyable (DPE manquant ou gel F/G)', 'err', 5000);
     return;
   }
@@ -30200,7 +30375,7 @@ window._shareIRLLetterWithPdf = async function(ref) {
   if (!log) { showToast('Logement introuvable', 'err'); return; }
   const bail = DB.baux[ref];
   const ent = DB.entites.find(e => e.nom === (bail?.entity || log.entity));
-  const rev = computeIRLRevision(log);
+  const rev = computeIRLRevision(log, _irlModeLecture(log));
   if (!rev || rev.insuffisant || rev.pasEncoreApplicable) {
     showToast('Données IRL insuffisantes ou révision non applicable', 'err');
     return;
@@ -49287,6 +49462,8 @@ function _pilBulkMajLoyersSimule(baux, dateApplication) {
     if (!log || !log.ref) continue;
     // Utilise computeIRLRevision déjà éprouvé. Si bail null, skip.
     if (typeof computeIRLRevision !== 'function') continue;
+    // Surface de LISTE : lecture HONNÊTE, jamais le mode forcé (il n'appartient qu'au geste
+    // explicite — sinon un lot gelé disparaîtrait des « non révisables »).
     const rev = computeIRLRevision(log);
     if (!rev) {
       out.baux.push({ ref:log.ref, exclu:true, raison:'Indice IRL non disponible' });
@@ -49561,6 +49738,8 @@ function _pilConfirmBulkMajIrl() {
     if (!log) { skipped++; continue; }
     if (typeof computeIRLRevision !== 'function' || typeof applyIRL !== 'function') { skipped++; continue; }
     try {
+      // Application EN MASSE : lecture HONNÊTE. Le mode forcé n'appartient qu'au geste
+      // explicite, un par un, avec sa case à cocher — jamais à un traitement de lot.
       const rev = computeIRLRevision(log);
       if (!rev || rev.gelDpeFG || rev.dejaApplique || rev.insuffisant || rev.pasEncoreApplicable) { skipped++; continue; }
       // AUDIT-SUIVI-LOYERS Q1 : date d'effet explicite par lot (jamais rétroactive, jamais avant un
@@ -49813,14 +49992,24 @@ function _dgConfirmerRestitution() {
   // I-DATE : plus de repli silencieux sur `td()`. Une restitution de DG datée du jour de
   // l'édition fausse le délai de l'article 22 et la pénalité de 10 %/mois qui en découle.
   // On demande la date réelle — c'est une saisie à faire, pas un mur : le champ est là.
+  // AUDIT I5 — on PRÉVIENT, on ne BLOQUE PAS (§0 du CDC). Sans date saisie, l'enregistrement
+  // reste possible : le délai de l'article 22 sera simplement incalculable tant qu'elle manque,
+  // et l'écran le dit. Ce qui a disparu, c'est le repli SILENCIEUX sur `td()`, qui faisait
+  // porter au document une date qui n'était celle de rien.
   const dateRestitution = v('dg-restit-date') || '';
-  if (!dateRestitution) {
-    showToast('Saisis la date réelle du virement de restitution — l’app ne la devine pas', 'err', 6000);
-    return;
-  }
   const solde = _calculerSoldeDG({ ...bail, dgRetenu: retenues }, DB.mouvements || []);
 
-  if (!confirm2(`Confirmer la restitution DG ?\n\nMontant restitué : ${fmt(solde.soldeRestitue)}\nDate : ${dateRestitution}\n\nLe bail sera marqué comme "DG restitué" + entrée audit-trail.`)) return;
+  // AUDIT R3 — `dgRestitueAt` EST le drapeau de restitution, partout (fiche départ, statut DG,
+  // gestion des impayés, timeline du bail). Sans date, il reste vide : le bail demeure
+  // « à restituer » sur toutes les surfaces. On ne peut donc PAS faire confirmer « le bail sera
+  // marqué DG restitué » puis afficher « ✓ DG restitué » : ce serait un demi-état annoncé comme
+  // complet. L'écran dit exactement ce qui sera écrit — et ce qui ne le sera pas.
+  const _msgConfirm = dateRestitution
+    ? `Confirmer la restitution DG ?\n\nMontant restitué : ${fmt(solde.soldeRestitue)}\nDate du virement : ${fd(dateRestitution)}\n\nLe bail sera marqué comme "DG restitué" + entrée audit-trail.`
+    : `Enregistrer une restitution INCOMPLÈTE ?\n\nMontant restitué : ${fmt(solde.soldeRestitue)}\nDate du virement : non renseignée\n\nLe montant, les retenues et l'entrée audit-trail sont conservés, `
+      + `mais le bail restera « à restituer » tant que la date manque — c'est elle qui déclenche le `
+      + `délai de l'article 22. Reviens la compléter dès que le virement est fait.`;
+  if (!confirm2(_msgConfirm)) return;
 
   bail.dgRetenu = retenues;
   bail.dgDetailRetenues = detailRetenues;
@@ -49834,7 +50023,10 @@ function _dgConfirmerRestitution() {
   }
   saveDB();
   closeM('ov-dg-restitution');
-  showToast(`✓ DG restitué : ${fmt(solde.soldeRestitue)} à ${bail.nom||'—'}`, 'ok', 4500);
+  showToast(dateRestitution
+    ? `✓ DG restitué : ${fmt(solde.soldeRestitue)} à ${bail.nom||'—'}`
+    : `Restitution enregistrée SANS date : ${fmt(solde.soldeRestitue)} à ${bail.nom||'—'} — le bail reste « à restituer » tant que la date du virement manque.`,
+    dateRestitution ? 'ok' : 'warn', dateRestitution ? 4500 : 8000);
   if (typeof rDash === 'function') setTimeout(() => rDash(), 200);
 }
 

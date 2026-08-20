@@ -187,22 +187,36 @@ export function datePaiementMois(etat, ym) {
  * jamais le dernier encaissement du lot, jamais la date d'émission, jamais « aujourd'hui ».
  * Sans rattachement daté, la phrase se dit SANS date : « déclare avoir reçu du locataire ».
  *
+ * ⚠️ DEUX documents, DEUX règles (audit 19/08, défaut C3) :
+ *   · une QUITTANCE atteste que le terme est payé EN ENTIER. Elle ne peut porter une date
+ *     que si le mois est réellement soldé (`info.date`). Sur un mois partiellement payé, la
+ *     liste des versements ne prouve rien : le document sortirait « reçu le 14/06 la somme
+ *     de 800 € » alors que 300 € seulement sont arrivés — et le bandeau V7 affiché juste
+ *     au-dessus promet l'inverse. Sans solde : AUCUNE date.
+ *   · un REÇU DE PAIEMENT PARTIEL parle des versements réellement encaissés : là, c'est la
+ *     LISTE qui fait foi, puisque le montant du document est celui de ces versements.
+ *
  * @param {{date:string|null, dates:string[], nb:number}} info sortie de datePaiementMois
  * @param {(iso:string)=>string} [fmtDate] formateur JJ/MM/AAAA (identité par défaut)
+ * @param {{partiel?:boolean}} [opts] `partiel` : le document n'atteste qu'un versement partiel
  * @returns {{avecDate:boolean, mention:string, dateAffichee:string|null}}
  *          `mention` s'insère après « déclare avoir reçu » : « le 14/06/2026 », ou
  *          « en 2 versements, le dernier le 19/01/2026 », ou '' (rien).
  */
-export function mentionDateRecu(info, fmtDate) {
+export function mentionDateRecu(info, fmtDate, opts) {
   const f = (typeof fmtDate === 'function') ? fmtDate : ((x) => String(x));
   const i = info || {};
+  const partiel = !!(opts && opts.partiel);
   const dates = Array.isArray(i.dates) ? i.dates : [];
-  if (i.date) return { avecDate: true, mention: ` le ${f(i.date)}`, dateAffichee: f(i.date) };
-  if (dates.length === 1) return { avecDate: true, mention: ` le ${f(dates[0])}`, dateAffichee: f(dates[0]) };
-  if (dates.length > 1) {
-    const dernier = f(dates[dates.length - 1]);
-    return { avecDate: true, mention: ` en ${dates.length} versements, le dernier le ${dernier}`, dateAffichee: dernier };
+  // Le repli sur la liste n'est ouvert QUE si le document est un reçu partiel, ou si le mois
+  // est réellement soldé (auquel cas la liste EST la décomposition de ce solde).
+  const utilisables = (partiel || i.date) ? dates : [];
+  if (utilisables.length > 1) {
+    const dernier = f(utilisables[utilisables.length - 1]);
+    return { avecDate: true, mention: ` en ${utilisables.length} versements, le dernier le ${dernier}`, dateAffichee: dernier };
   }
+  if (utilisables.length === 1) return { avecDate: true, mention: ` le ${f(utilisables[0])}`, dateAffichee: f(utilisables[0]) };
+  if (i.date) return { avecDate: true, mention: ` le ${f(i.date)}`, dateAffichee: f(i.date) };
   return { avecDate: false, mention: '', dateAffichee: null };
 }
 

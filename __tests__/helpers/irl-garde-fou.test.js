@@ -34,8 +34,13 @@ describe('V20 — le gel DPE F/G devient un avertissement', () => {
   });
 });
 
-describe('V20 — le cycle éteint devient un avertissement', () => {
-  const g = gardeFouRevision({ perdue: { effetIso: '2024-03-01', annee: 2024 } }, { gainMensuel: 12.4 });
+describe('V20 — le cycle éteint devient un avertissement, SUR DEMANDE EXPLICITE', () => {
+  // AUDIT C2 — `perdue` n'est pas un ÉTAT qui mure le lot, c'est un GESTE : « appliquer quand
+  // même le cycle du JJ/MM ». `etatRevision` attache `perdue` aussi bien à un lot `en-retard`
+  // qu'à un lot `a-preparer` parfaitement révisable ; se déclencher sur sa seule présence
+  // murait la révision ORDINAIRE et proposait en plus le loyer du mauvais cycle.
+  const g = gardeFouRevision({ perdue: { effetIso: '2024-03-01', annee: 2024 } },
+    { gainMensuel: 12.4, surCyclePerdu: true });
   it('le geste reste offert', () => {
     expect(g.kind).toBe(GARDE.CYCLE_ETEINT);
     expect(g.peut).toBe(true);
@@ -52,8 +57,19 @@ describe('V20 — le cycle éteint devient un avertissement', () => {
     expect(g.consequence).toContain('pour l’avenir');
   });
   it('sans gain calculable, elle ne l\'invente pas', () => {
-    const s = gardeFouRevision({ perdue: { effetIso: '2024-03-01', annee: 2024 } }, {});
+    const s = gardeFouRevision({ perdue: { effetIso: '2024-03-01', annee: 2024 } }, { surCyclePerdu: true });
     expect(s.consequence).not.toMatch(/≈/);
+  });
+  it('SANS le geste explicite, un cycle éteint ne déclenche RIEN — la révision ordinaire passe', () => {
+    // Le cas courant sur le parc réel : cycle N-1 jamais appliqué, cycle N ouvert et révisable.
+    const ordinaire = { etat: 'a-preparer', isApplicable: true, nouveauHC: 725,
+      perdue: { effetIso: '2024-03-01', annee: 2024 } };
+    expect(gardeFouRevision(ordinaire, {})).toBeNull();
+    expect(revisionForcable(ordinaire, {})).toBe(false);
+    expect(gardeFouRevision(ordinaire, { surCyclePerdu: true }).kind).toBe(GARDE.CYCLE_ETEINT);
+  });
+  it('un lot EN RETARD avec cycle éteint ne mure pas non plus sa révision courante', () => {
+    expect(gardeFouRevision({ etat: 'en-retard', perdue: { effetIso: '2024-05-01', annee: 2024 } }, {})).toBeNull();
   });
 });
 
@@ -111,10 +127,12 @@ describe('Une révision ordinaire n\'a pas de garde-fou du tout', () => {
   });
 });
 
-describe('Ordre de priorité — le cycle éteint prime sur le reste', () => {
-  it('un lot gelé ET dont un cycle est éteint annonce d\'abord le cycle éteint', () => {
-    // C'est celui qui coûte de l'argent tout de suite ; le gel reste dit dans la révision suivante.
-    const g = gardeFouRevision({ gelDpeFG: true, dpe: 'F', perdue: { effetIso: '2024-05-01', annee: 2024 } });
-    expect(g.kind).toBe(GARDE.CYCLE_ETEINT);
+describe('Ordre de priorité — c\'est le GESTE demandé qui prime, jamais l\'état le plus bruyant', () => {
+  const lot = { gelDpeFG: true, dpe: 'F', perdue: { effetIso: '2024-05-01', annee: 2024 } };
+  it('sur le geste « appliquer le cycle éteint », c\'est ce cycle qui est annoncé', () => {
+    expect(gardeFouRevision(lot, { surCyclePerdu: true }).kind).toBe(GARDE.CYCLE_ETEINT);
+  });
+  it('sur le geste ORDINAIRE, le même lot annonce son gel — pas un cycle qu\'on n\'a pas demandé', () => {
+    expect(gardeFouRevision(lot, {}).kind).toBe(GARDE.GEL);
   });
 });

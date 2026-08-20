@@ -56,7 +56,10 @@ describe('V7 — le garde-fou est un bandeau + une case, JAMAIS un verrou', () =
   });
   it('l\'émission passe outre le contrôle de solde et laisse une trace', () => {
     expect(has('_creerQuittance(_qe.ref, ym, { verifierSolde: false })')).toBe(true);
-    expect(has('_qeSetMeta(_qe.ref, ym, { forceePar: _qeQui(), forceeLe: td() })')).toBe(true);
+    // AUDIT I-2 : la pose ET le retrait de la trace passent par le module testé — le cycle de
+    // vie complet est vérifié par le COMPORTEMENT dans quittance-editeur.test.js.
+    expect(has('_qeAppliquerMeta(_qe.ref, [ym], forces);')).toBe(true);
+    expect(has('window.metaApresEmission(DB.params.quittancesMeta || {}, {')).toBe(true);
   });
   it('le bandeau propose le reçu partiel en un clic', () => {
     expect(has('onclick="_qeRecuPartiel(')).toBe(true);
@@ -78,7 +81,10 @@ describe('V9 — l\'étiquette « sans paiement constaté » vit DANS L\'APP', (
     // `_buildQuittanceHtml` ne reçoit ni la meta ni l'étiquette : par construction, le
     // document ne peut pas devenir un document bâtard, ni quittance ni reçu.
     expect(has('sans paiement constaté</')).toBe(false);
-    const build = SRC.slice(SRC.indexOf('function _buildQuittanceHtml'), SRC.indexOf('function _buildQuittanceHtml') + 12000);
+    const i = SRC.indexOf('function _buildQuittanceHtml');
+    // On retire les commentaires : le builder EXPLIQUE la règle V9 en toutes lettres, mais il
+    // ne doit jamais l'IMPRIMER — une mention de ce genre ferait un document bâtard.
+    const build = SRC.slice(i, i + 14000).replace(/^[ \t]*\/\/.*$/gm, '');
     expect(build.includes('sans paiement constaté')).toBe(false);
     expect(build.includes('etiquetteSansPaiement')).toBe(false);
   });
@@ -116,5 +122,72 @@ describe('V6 — l\'enchaînement « lot suivant » quand plusieurs lots attende
   });
   it('la pile met les demandes mensuelles en tête', () => {
     expect(has('.sort((a, b) => (b.demande - a.demande) || (b.nb - a.nb))')).toBe(true);
+  });
+});
+
+describe('AUDIT — correctifs de la passe de vérification', () => {
+  it('C3 — le document déclare s\'il est partiel, et la règle de date en dépend', () => {
+    expect(has('window.mentionDateRecu(_infoPay, fd, { partiel: _docPartiel })')).toBe(true);
+    expect(has('const _docPartiel = (opts.partiel != null)')).toBe(true);
+    expect(has('partiel: true')).toBe(true);            // le reçu partiel le déclare
+  });
+  it('V7 — le bouton « reçu partiel » n\'est proposé QUE si un versement existe', () => {
+    // Sur un mois où RIEN n'est arrivé, ce reçu n'existe pas : le bouton menait à un document
+    // « non émissible » — une impasse, au milieu d'un bandeau censé offrir une porte de sortie.
+    expect(has('function _qeAPaiement(ym)')).toBe(true);
+    expect(has('${_qeAPaiement(premier.ym)')).toBe(true);
+  });
+  it('V13 — le panneau du mois porte « ↺ Rééditer », comme le CDC l\'écrit', () => {
+    expect(has('↺ Rééditer</button>')).toBe(true);
+    expect(has("_ouvrirQuittanceSurMois('${_lyQ(q.logement)}'")).toBe(true);
+  });
+});
+
+describe('V7 — une quittance FORCÉE est une quittance, pas un reçu partiel', () => {
+  // Défaut trouvé à la re-vérification navigateur : l'utilisateur cochait « je sais que ce
+  // document vaut reçu », l'app enregistrait un état « quittancé »… et le papier qui sortait
+  // était un « Reçu de paiement partiel » de 300 € sur un terme de 800 €. L'état disait
+  // quittancé, le document disait reçu : le geste que le CDC rend possible ne produisait pas
+  // ce qu'il promet.
+  it('la trace du geste forcé fait basculer le document en quittance pleine', () => {
+    expect(has('const estComplet   = totalRecu >= total - 0.01 || _forceeV7;')).toBe(true);
+    expect(has('const estNonPayé   = totalRecu <= 0 && !_forceeV7;')).toBe(true);
+  });
+  it('elle se lit dans la trace V9, ou se déclare explicitement pour l\'aperçu', () => {
+    expect(has('const _forceeV7 = (opts.forceeV7 != null)')).toBe(true);
+    expect(has("!!(prefixMois && typeof _qeMeta === 'function' && _qeMeta(q.logement, prefixMois))")).toBe(true);
+  });
+  it('le mois n\'étant pas soldé, elle sort SANS ligne « payé le » — ce que le bandeau promet', () => {
+    // `_docPartiel` retombe à false quand c'est forcé → `mentionDateRecu` n'a plus le droit
+    // au repli sur `dates` → I-DATE s'applique et la date disparaît.
+    expect(has('(!_forceeV7 && totalRecu > 0 && totalRecu < total - 0.01)')).toBe(true);
+  });
+  it('cocher la case REFAIT l\'aperçu : on voit ce qui sortira, pas l\'ancien document', () => {
+    expect(has('function _qeSetConfirme(on) { _qe.confirme = !!on; _qeRenderDoc(); _qeFootBtn(); }')).toBe(true);
+    expect(has("forceeV7: ((m.etat === 'no' || m.etat === 'fut') && _qe.confirme)")).toBe(true);
+  });
+});
+
+describe('CONTRE-AUDIT — R1/R5/R8 : le bon document, dans le bon contexte', () => {
+  it('R1 — un reçu partiel n\'est JAMAIS forcé, par définition', () => {
+    // Sans ce `false`, le builder retombait sur la trace V7 du mois : un mois déjà quittancé
+    // de force puis partiellement payé (la cascade impute un versement de juin sur mai)
+    // faisait sortir, sous une fenêtre « Reçu de paiement partiel », une QUITTANCE PLEINE de
+    // 800 € datée du 14/06 pour 300 € réellement reçus.
+    const i = SRC.indexOf('function _lyRecuPartiel');
+    const fn = SRC.slice(i, SRC.indexOf('function _lyPreviewEphemere', i));
+    expect(fn.includes('partiel: true')).toBe(true);
+    expect(fn.includes('forceeV7: false')).toBe(true);
+  });
+  it('R5 — l\'aperçu d\'un mois DÉJÀ forcé montre le document réel, pas « non émissible »', () => {
+    expect(has("|| !!(typeof _qeMeta === 'function' && _qeMeta(_qe.ref, m.ym))")).toBe(true);
+  });
+  it('R8 — le dû du document est lu APRÈS le repli legacy des montants', () => {
+    // AUDIT I-3 : plus de dû calculé à part — le bloc vit APRÈS `total`, donc après le repli
+    // legacy champ par champ, et il n'y a plus qu'UNE évaluation de `_forceeV7` (S-2).
+    expect(has('const _duDoc')).toBe(false);
+    expect(has('const _totalDu = (q.hc || 0) + (q.ch || 0);')).toBe(false);
+    expect(has('const _forceeV7Pre')).toBe(false);
+    expect(SRC.split('const _forceeV7 = (opts.forceeV7 != null)').length - 1).toBe(1);
   });
 });

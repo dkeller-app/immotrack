@@ -16,7 +16,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { _loyerArrearsPass } from '../../js/core/loyer-du-mois.js';
-import { etatMoisLot, datePaiementMois } from '../../js/core/loyers-mois.js';
+import { etatMoisLot, datePaiementMois, mentionDateRecu } from '../../js/core/loyers-mois.js';
 
 /** Un mois de 500 HC + 100 CH. */
 const M = (ym, received, sources) => ({ ym, hcDue: 500, chDue: 100, received, sources });
@@ -180,5 +180,42 @@ describe('LOT 0 — I-DATE : la date affichée est celle du mouvement qui a sold
     const e = etatMoisLot([M('2026-01', 600, [{ date: '2026-01-05', id: 'v', montant: 600 }])]);
     const postes = e.byYm['2026-01'].paiements.map((p) => p.poste).sort();
     expect(postes).toEqual(['charge', 'loyer']);
+  });
+});
+
+describe('AUDIT C3 — une QUITTANCE ne porte une date que si le mois est réellement soldé', () => {
+  // Le défaut : sur un mois partiellement payé (800 € dus, 300 € reçus le 14/06), la quittance
+  // sortait « déclare avoir reçu LE 14/06/2026 … la somme de 800 € » — alors que le bandeau V7
+  // affiché juste au-dessus promet « le document sortira SANS ligne payé le ». Sur un document
+  // que l'article 21 rend opposable au bailleur, c'était pire qu'avant le chantier.
+  const fr = (iso) => String(iso).split('-').reverse().join('/');
+
+  it('mois NON soldé + un versement daté → la quittance ne dit AUCUNE date', () => {
+    const m = mentionDateRecu({ date: null, dates: ['2026-06-14'], nb: 1 }, fr);
+    expect(m.avecDate).toBe(false);
+    expect(m.mention).toBe('');
+  });
+  it('le même cas sur un REÇU PARTIEL → la date du versement, car c'.concat("'est ce qu'il reconnaît avoir reçu"), () => {
+    const m = mentionDateRecu({ date: null, dates: ['2026-06-14'], nb: 1 }, fr, { partiel: true });
+    expect(m.avecDate).toBe(true);
+    expect(m.mention).toBe(' le 14/06/2026');
+  });
+  it('mois soldé par DEUX versements → la branche multi-versements est atteinte (S1)', () => {
+    const m = mentionDateRecu({ date: '2026-01-19', dates: ['2026-01-04', '2026-01-19'], nb: 2 }, fr);
+    expect(m.mention).toBe(' en 2 versements, le dernier le 19/01/2026');
+  });
+  it('mois soldé par un seul versement → la date simple', () => {
+    expect(mentionDateRecu({ date: '2026-01-05', dates: ['2026-01-05'], nb: 1 }, fr).mention).toBe(' le 05/01/2026');
+  });
+  it('mois soldé mais dont une part n\'a pas d\'origine datée → rien (I-DATE)', () => {
+    expect(mentionDateRecu({ date: null, dates: [], nb: 0 }, fr).avecDate).toBe(false);
+  });
+  it('bout en bout : un mois partiel n\'expose jamais de date de solde', () => {
+    const etat = etatMoisLot([{ ym: '2026-06', hcDue: 700, chDue: 100, received: 300,
+      sources: [{ date: '2026-06-14', id: 'p', montant: 300 }] }]);
+    const info = datePaiementMois(etat, '2026-06');
+    expect(info.date).toBeNull();
+    expect(mentionDateRecu(info, fr).avecDate).toBe(false);                    // quittance
+    expect(mentionDateRecu(info, fr, { partiel: true }).avecDate).toBe(true);  // reçu partiel
   });
 });

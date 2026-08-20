@@ -170,6 +170,38 @@ export function etiquetteSansPaiement(meta, fmtDate) {
   };
 }
 
+/**
+ * LE CYCLE DE VIE DE LA TRACE V9 — elle suit le geste, dans les DEUX sens.
+ *
+ * Poser la trace sans jamais la retirer laissait l'étiquette « émise sans paiement rattaché »
+ * collée à un mois depuis payé, pour toujours — et faisait sortir une quittance « forcée » là
+ * où le paiement existe. Symétriquement, supprimer une quittance sans retirer sa trace faisait
+ * dire au bandeau « ce mois n'est pas soldé » pendant que l'aperçu sortait une quittance pleine.
+ * Une étiquette qui survit à son motif est un mensonge.
+ *
+ * @param {Object} meta map courante { 'REF|YYYY-MM': {forceePar, forceeLe} }
+ * @param {{ref:string, moisEmis:string[], moisForces:string[], par:string, le:string}} geste
+ * @returns {Object} la NOUVELLE map (l'entrée n'est pas mutée)
+ */
+export function metaApresEmission(meta, geste) {
+  const out = Object.assign({}, meta || {});
+  const g = geste || {};
+  const forces = new Set((g.moisForces || []).map(String));
+  for (const ym of (g.moisEmis || [])) {
+    const k = cleMeta(g.ref, ym);
+    if (forces.has(String(ym))) out[k] = { forceePar: g.par || '', forceeLe: g.le || '' };
+    else delete out[k];                       // le mois n'est plus émis « sans paiement »
+  }
+  return out;
+}
+
+/** La trace meurt avec la quittance : même geste, même opération annulable. */
+export function metaApresSuppression(meta, ref, ym) {
+  const out = Object.assign({}, meta || {});
+  delete out[cleMeta(ref, ym)];
+  return out;
+}
+
 /** La clé de la trace d'un couple (lot, mois) dans le blob de configuration. */
 export function cleMeta(ref, ym) { return String(ref) + '|' + String(ym); }
 

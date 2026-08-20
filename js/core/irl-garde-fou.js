@@ -34,9 +34,18 @@ const _fr = (iso) => {
 /**
  * LE garde-fou d'un lot, d'après l'état de sa révision.
  *
+ * ⚠️ `ctx.surCyclePerdu` (audit 19/08, défaut C2) — le cycle éteint n'est PAS un état du lot,
+ * c'est un GESTE : « appliquer quand même le cycle du JJ/MM ». `etatRevision` attache `perdue`
+ * aussi bien à un lot `en-retard` qu'à un lot `a-preparer` (cas très courant : le cycle N-1 n'a
+ * jamais été appliqué, le cycle N est ouvert et parfaitement révisable). Déclencher la branche
+ * `perdue` sur la seule présence du champ murait donc la révision ORDINAIRE — exactement ce que
+ * le §0 du CDC interdit — et proposait en plus le loyer du mauvais cycle. La branche ne s'ouvre
+ * désormais que sur demande explicite, depuis la pastille « IRL non appliquées ».
+ *
  * @param {Object} rev sortie de computeIRLRevision : { gelDpeFG, dpe, dpeManquant, etat,
  *        effetPrevuIso, missingKey, perdue:{effetIso, annee}, premiereAnniv }
- * @param {{gainMensuel?:number|null, typeLot?:string, fmtMontant?:Function}} [ctx]
+ * @param {{gainMensuel?:number|null, typeLot?:string, fmtMontant?:Function,
+ *          surCyclePerdu?:boolean}} [ctx]
  * @returns {{kind:string, peut:boolean, ico?:string, titre?:string, loi?:string,
  *            consequence?:string, confirmation?:string, cta?:string, pourquoi?:string}|null}
  *          null = aucun garde-fou, la révision est ordinaire.
@@ -48,7 +57,9 @@ export function gardeFouRevision(rev, ctx) {
     ? c.fmtMontant(n) : (Math.round((Number(n) || 0) * 100) / 100).toFixed(2).replace('.', ',') + ' €';
 
   // ── V20 — cycle éteint : les mois passés ne se rattrapent plus, mais l'avenir, si.
-  if (r.perdue && r.perdue.effetIso) {
+  // UNIQUEMENT sur le geste explicite : sinon un lot dont un vieux cycle dort verrait sa
+  // révision courante bloquée par un avertissement qui ne la concerne pas.
+  if (c.surCyclePerdu && r.perdue && r.perdue.effetIso) {
     const prescritIso = (parseInt(String(r.perdue.effetIso).slice(0, 4), 10) + 1) + String(r.perdue.effetIso).slice(4);
     const gain = (c.gainMensuel != null) ? c.gainMensuel : null;
     return {

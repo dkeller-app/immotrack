@@ -244,7 +244,8 @@ import { dateVersementDG, dateRestitutionDG, dateEDLSortie, dateLiberation } fro
 // l'émission doit avertir. Aucun dû, aucun payé, aucune imputation n'y est recalculé.
 import {
   MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
-  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta
+  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta,
+  metaApresEmission, metaApresSuppression
 } from './core/quittance-editeur.js';
 
 // CDC-LOYERS-DESIGN V20/V21 — les garde-fous NON BLOQUANTS de la révision IRL.
@@ -264,6 +265,8 @@ window.etiquetteSansPaiement = etiquetteSansPaiement;
 window.validerSaisieLibre = validerSaisieLibre;
 window.lotSuivant = lotSuivant;
 window.cleMeta = cleMeta;
+window.metaApresEmission = metaApresEmission;
+window.metaApresSuppression = metaApresSuppression;
 window.dateVersementDG = dateVersementDG;
 window.dateRestitutionDG = dateRestitutionDG;
 window.dateEDLSortie = dateEDLSortie;
