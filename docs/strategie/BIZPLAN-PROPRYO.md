@@ -17,8 +17,8 @@
 | **C'est faisable ?** | **C'est fait.** Le produit tourne en production et gère le parc réel de son créateur : 37 lots, 4 bailleurs, 6 immeubles. ~3 000 tests automatisés, données hébergées en UE. Il ne reste sur le chemin du lancement que du non-produit : domaine, statut, CGV, paiement. |
 | **Le plan d'acquisition ?** | **SEO par pages-outils** — le plan Gratuit *fait* les documents (bail, quittance, EDL) que des dizaines de milliers de bailleurs cherchent chaque mois ; le modèle exact qui a construit BailFacile (§8). **+ canal 2 : le réseau de prescripteurs** (CGP, comptables, professionnels de la transaction — §8.5), qui apporte la confiance et le segment SCI. |
 | **Ça se lance quand ?** | Bêta privée septembre, **lancement public 14 octobre 2026**, 45 pages SEO publiées avant le jour J. |
-| **Ça coûte combien ?** | **< 10 K€ la première année.** Aucune levée : bootstrappé, coûts fixes ~600 €/mois. |
-| **Ça rapporte quoi ?** | Scénarios **dérivés du modèle** (§10) à fin 2029 : prudent ~950 clients / ~110 K€ ARR · central ~1 900 / ~215 K€ · ambitieux ~3 200 / ~365 K€. Rentable dans les trois cas ; valorisation potentielle 0,3-1,8 M€ (3-5× ARR, multiples proptech FR). |
+| **Ça coûte combien ?** | ~9,3 K€ de dépenses externes la 1re année ; **avance de trésorerie maximale ~12 K€** (cotisations sociales incluses), remboursée courant 2028. Aucune levée : bootstrappé. |
+| **Ça rapporte quoi ?** | Scénarios **sortis du modèle financier joint** (§10) : **résultat mensuel positif entre avril et juillet 2027 dans les trois scénarios**. Fin 2029 : prudent 710 clients / 75 K€ ARR · central ~950 / ~100 K€ · ambitieux ~1 830 / ~194 K€ — hors apport des prescripteurs (non modélisé). Valorisation indicative 0,23-0,97 M€ (3-5× ARR). |
 | **Pourquoi maintenant ?** | Marché B2C sans leader installé, concurrents passés au **prix par bien** (2 à 4× plus chers que Propryo à 5 lots — §5), pression réglementaire continue (DPE, IRL, 2044), et un produit déjà construit. |
 
 ---
@@ -139,7 +139,7 @@ Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La fronti
 | Inscrit gratuit → payant | **3 %** | freemium « bon » 3-5 %, médian B2C 2,2 %, top 6-8 % | OpenView/Lenny 2023, RevenueCat 2025 |
 | Activation (inscrit → actif) | 30 % | médiane SaaS ~30-35 % | Userpilot, ProductLed |
 | Churn mensuel | **5 %** | SaaS réel 3,2 %/mois (Recurly 07/2026), B2C ~6,5 % | Recurly, Vitally |
-| ARPU pondéré | **9,50 €/mois** | mix 35 % Essentiel · 45 % Investisseur · 20 % Patrimoine | grille §6 |
+| ARPU catalogue / **effectif** | 9,50 € / **8,85 €/mois** | mix 35/45/20 ; remise annuelle (2 mois offerts) déduite au prorata des 40 % d'abonnés annuels | grille §6 |
 | Marge brute | ~85 % | Stripe ~2 %, hébergement marginal | — |
 | LTV nette | ~160 € | 9,50 × 20 mois × 0,85 | dérivé |
 | CAC paid ads | **120-150 €** | CPC FR ~2 € ÷ 5 % ÷ 3 % (reconstruction) | Talyco/Junto 2025-26 |
@@ -251,17 +251,21 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 | Vélocité contenu | plan nominal | nominal | ×1,5 + prescripteurs actifs (§8.5) |
 | Churn mensuel | 5 % | 5 % | 4 % |
 
+> **Source : le classeur `propryo-modele-financier.xlsx`** (cohortes mensuelles août 2026 → déc. 2029, toutes hypothèses modifiables). Ces chiffres incluent ce que les versions précédentes oubliaient : **les cotisations de micro-entreprise (21,2 % du CA, à confirmer comptable)** et **la remise annuelle dans l'ARPU** (2 mois offerts × 40 % d'annuels → ARPU effectif 8,85 €).
+
 | Fin de période | Prudent | Central | Ambitieux |
 |---|---|---|---|
-| **2026** (3 mois) | ~25 clients · MRR 240 € | ~40 · 380 € | ~60 · 570 € |
-| **2027** | ~150 · **ARR 17 K€** | ~280 · **32 K€** | ~480 · **55 K€** |
-| **2028** | ~450 · 51 K€ | ~900 · 103 K€ | ~1 600 · 182 K€ |
-| **2029** | ~950 · **108 K€** | ~1 900 · **217 K€** | ~3 200 · **365 K€** |
+| **2026** (3 mois) | 24 clients · ARR 3 K€ | 34 · 4 K€ | 56 · 6 K€ |
+| **2027** | 135 · **ARR 14 K€** | 181 · **19 K€** | 337 · **36 K€** |
+| **2028** | 351 · 37 K€ | 468 · 50 K€ | 893 · 95 K€ |
+| **2029** | 710 · **75 K€** | 947 · **101 K€** | 1 828 · **194 K€** |
 
-- **Break-even opérationnel** (MRR > ~600 € de coûts fixes) : courant 2027 dans les trois scénarios. **Break-even cumulé** (~10 K€ investis récupérés) : fin 2028 prudent · mi-2028 central · fin 2027 ambitieux.
-- **Valorisation indicative fin 2029** (3-5× ARR) : 0,3-0,5 M€ prudent · **0,65-1,1 M€ central** · 1,1-1,8 M€ ambitieux.
-- **Sensibilité** (les vrais leviers) : +1 point de conversion freemium = **+33 % de clients** partout · churn 5 → 3,5 % = +40 % de base à 3 ans · ×2 sur la vélocité contenu ≈ +60-80 % de trafic fin 2027. Les trois leviers sont pilotables (produit, rétention, contenu) — la calibration de janvier 2027 (§11) dira lequel pousser.
-- *La v1 de ce BP affichait 700 clients fin 2027 et 3 200 fin 2029 en « médian » : ces chiffres supposaient 15 % de conversion freemium. Dérivés proprement, ils correspondent à l'actuel scénario **ambitieux**. Le plan reste le même ; la promesse est désormais démontrable.*
+- **Résultat mensuel positif** : juillet 2027 (prudent) · mai 2027 (central) · avril 2027 (ambitieux) — le projet s'autofinance dans les trois cas dès l'été 2027.
+- **Avance de trésorerie maximale : ~12 K€** (point bas −11,6 / −10,9 / −9,8 K€ selon le scénario), remboursée entre janvier et décembre 2028. Aucune levée nécessaire.
+- **Valorisation indicative fin 2029** (3-5× ARR) : 0,23-0,38 M€ prudent · **0,30-0,50 M€ central** · 0,58-0,97 M€ ambitieux.
+- **Sensibilité** (les vrais leviers, pilotables dans le classeur) : +1 point de conversion freemium = **+33 % de clients** partout · churn 5 → 3,5 % = +40 % de base à 3 ans · ×2 sur la vélocité contenu ≈ +60-80 % de trafic fin 2027. La calibration de janvier 2027 (§11) dira lequel pousser.
+- **Upside non modélisé, volontairement** : les clients apportés par les prescripteurs (§8.5) n'entrent pas dans le funnel modélisé (seules leurs commissions sont provisionnées en charge) — chaque filleul réel s'ajoute à ces chiffres.
+- *Trajectoire de rigueur : la v1 posait 700 clients fin 2027 (conversion 15 %, indéfendable) ; la v2 en dérivait 280 mais oubliait cotisations et remise annuelle ; cette v3 sort du classeur, complet. C'est moins flatteur — et c'est défendable ligne à ligne.*
 
 ---
 
@@ -282,9 +286,9 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 
 Développeur solo **avec une chaîne d'agents IA** (développement, audit systématique par agent indépendant, ~3 000 tests) : capacité d'une petite équipe au coût d'une personne. La même chaîne produit le contenu SEO à ~30 €/page. Ce qui a livré en 4 mois (mai-août) ce que le plan d'avril chiffrait en 2 trimestres.
 
-### 11.3 — Cash an 1 (~9 K€)
+### 11.3 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
 
-Avocat 3 000 · rédacteur SEO 4 mois 1 600 · ads amorçage 1 800 · domaine/infra/outils 650 · comptabilité 600 · logo/finitions 750 · buffer 800. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
+Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · domaine/infra/outils ~550 · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs). **Avance de trésorerie maximale ~12 K€** (point bas mi-2027), remboursée courant 2028. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
 
 ---
 
@@ -304,11 +308,11 @@ Avocat 3 000 · rédacteur SEO 4 mois 1 600 · ads amorçage 1 800 · domaine/in
 
 ## 13. L'ambition
 
-**Fin 2027** : le projet vit de lui-même (break-even opérationnel dans les trois scénarios), 150-480 clients selon la conversion réelle, un actif SEO de ~300 pages qui travaille tout seul.
+**Fin 2027** : le projet s'autofinance (résultat mensuel positif entre avril et juillet 2027 dans les trois scénarios), 135-337 clients selon la conversion réelle, un actif SEO de ~300 pages qui travaille tout seul — et les prescripteurs en plus, non comptés.
 
-**Fin 2029** : 950-3 200 clients, 108-365 K€ ARR, EBITDA ~35 % en régime — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
+**Fin 2029** : 710-1 830 clients, 75-194 K€ ARR, résultat cumulé +37 à +142 K€ — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
 
-**Ce qui rend ce plan crédible** : le produit est construit et prouvé ; le canal d'acquisition a une preuve de marché documentée (BailFacile) et un avantage structurel (l'outil EST le produit) ; chaque taux du modèle a une source publiée ; le cash engagé est < 10 K€ ; et le scénario **prudent** — celui où tout est au plancher des benchmarks — reste un projet rentable.
+**Ce qui rend ce plan crédible** : le produit est construit et prouvé ; le canal d'acquisition a une preuve de marché documentée (BailFacile) et un avantage structurel (l'outil EST le produit) ; chaque taux du modèle a une source publiée et **chaque chiffre sort d'un classeur vérifiable, cotisations sociales comprises** ; l'avance de trésorerie maximale est ~12 K€ ; et le scénario **prudent** — celui où tout est au plancher des benchmarks — reste un projet rentable.
 
 ---
 
