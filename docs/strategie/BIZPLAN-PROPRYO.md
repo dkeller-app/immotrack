@@ -83,9 +83,12 @@ Tout ce qui suit est **en production** (août 2026, v15.540), testé, utilisé s
 | Qalimo | 4,90 € | 24,50 € (4,90 €/bien) | 34,30 € (forfait Pro) | **payante : 2,90 €/document** | plan Business (devis) seulement |
 | BailFacile | 9,99 € | 25,99 € (9,99 + 4 €/bien) | 45,99 € | incluse, illimitée | non affiché |
 | Gererseul | 9,75 € | ~41 € (117 €/an/bien, −15 %) | devis | **payante : 4,99 €/document** | non affiché |
+| Monsieur Hugo (hybride logiciel + services) | 14,90 € | 74,50 € (14,9 €/bien) | ~145 € (dégressif dès le 8e) | **9,90 €/bail en sus** (offre à la carte) + EDL 5,99 € | non affiché |
 | **Propryo** | **2,99 €** (ou 0 € documents) | **9,90 € forfait** | **19,90 € forfait (≤ 30 lots)** | **incluse** (+ OTP prêt) | **inclus au plan Patrimoine** |
 
-**Lecture** : à 5 lots, **seul Rentila (l'ancre low-cost historique, interface datée) est moins cher** ; tous les outils modernes sont 2 à 4× plus chers que Propryo. À 10 lots, Propryo 19,90 € contre BailFacile 45,99 € et Qalimo 34,30 €. Le **forfait par palier** (vs compteur par bien) est un argument de simplicité et de prévisibilité aligné avec le WHY.
+**Lecture** : à 5 lots, **seul Rentila (l'ancre low-cost historique, interface datée) est moins cher** ; tous les outils modernes sont 2 à 4× plus chers que Propryo, et l'hybride Monsieur Hugo (qui vend la protection juridique et le dépannage avec le logiciel, engagement 12 mois) est 7× plus cher. À 10 lots, Propryo 19,90 € contre BailFacile 45,99 € et Qalimo 34,30 €. Le **forfait par palier** (vs compteur par bien) est un argument de simplicité et de prévisibilité aligné avec le WHY.
+
+**Les pros et la gestion déléguée — le référentiel de l'étape agences (§11)** : Septeo (ICS/Crypto/ADB, 86 % de couverture fonctionnelle) et LOCKimmo se vendent **sur devis à ~80-300 €/mois/utilisateur** (relevé avril 2026) ; les agences en ligne facturent au loyer (Manda 5,9 % TTC) ; Monsieur Hugo occupe l'entre-deux « tranquillité ». Deux lectures : (a) le plafond de prix du marché est très au-dessus de Propryo — notre grille a de la marge ; (b) pour l'attaque du marché des agences en 2028, un module Propryo à ~49 €/mois/utilisateur resterait **2 à 6× sous les pros** avec le socle déjà construit (CRG au backlog produit).
 
 Changements notables depuis avril : Qalimo a **supprimé son plan gratuit** ; BailFacile est passé à 9,99 € + 4 €/bien ; Rentila s'est restructuré (Silver/Gold, signature incluse partout, multi-utilisateurs dès Silver).
 
@@ -284,6 +287,9 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 | Novembre | **Canal prescripteurs — cercle 1** : page partenaires + kit + codes Stripe · 10 partenaires signés dans le réseau en propre (§8.5) |
 | Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page, apport prescripteurs — le scénario se choisit là, pas avant |
 | T1 2027 | **Prescripteurs — cercle 2 Alsace** (~10 démos/mois) · **webinar 2044 de saison fiscale** (mars-mai) pour EC et CGP |
+| S2 2027 | **Portail locataire (bêta)** — rétention + boucle virale (chaque locataire voit Propryo) |
+| **2028** | **🎯 Attaque du marché des agences immobilières** : module pilote mandants + CRG + honoraires (le CRG de gérance est déjà au backlog produit), **10-20 cabinets pilotes recrutés via les agents déjà prescripteurs** (§8.5 — la tête de pont commerciale existe), pricing cible ~49 €/mois/utilisateur = 2-6× sous Septeo/LOCKimmo. Déclenchement conditionné à la calibration 2027 |
+| 2029 | Échelle agences · ouverture Belgique/Luxembourg si les indicateurs sont verts |
 
 ### 11.2 — L'équipe : un fondateur outillé
 
@@ -291,7 +297,7 @@ Développeur solo **avec une chaîne d'agents IA** (développement, audit systé
 
 ### 11.3 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
 
-Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · **hébergement évolutif** (Supabase Pro + Resend 45 €/mois + 0,10 €/client/mois) + outils 15 €/mois · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs) — et à la bascule société (automatique dans le modèle) : création ~800 €, expert-comptable ~150 €/mois, prélèvements ~28 % (approximation à affiner comptable). **Avance de trésorerie maximale ~12 K€** (point bas mi-2027), remboursée courant 2028. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
+Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · **hébergement évolutif** (Supabase Pro + Resend 45 €/mois + 0,15 €/client/mois — tarifs vérifiés sur supabase.com le 19/08) + outils 15 €/mois · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs) — et à la bascule société (automatique dans le modèle) : création ~800 €, expert-comptable ~150 €/mois, prélèvements ~28 % (approximation à affiner comptable). **Avance de trésorerie maximale ~12 K€** (point bas mi-2027), remboursée courant 2028. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
 
 ---
 
