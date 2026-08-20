@@ -505,7 +505,13 @@ de « où j'en suis ». C'est un geste à deux mains, sur un écran qui doit s'u
   complète des pièces** (feuille qui monte du bas, chaque pièce avec son avancement et ses écarts) ;
 - **avancer / reculer se fait par le pied de page**, dans la zone du pouce, jamais par une barre en haut ;
 - **zéro défilement horizontal**, aucune cible sous 44 px.
-Au moins **2 variantes** à présenter à Didier, mesurées. PC et tablette gardent la barre en sommaire d'ancres :
+✅ **TRANCHÉ PAR DIDIER le 20/08 : c'est la VARIANTE C — le rail du pouce.**
+`[←] [⤒ Cuisine · 3 / 8] [→]`, **collé en bas de l'écran** (sticky, ~64 px), mesuré 52×48 / 231×48 / 52×48.
+- **reculer, sauter et avancer sont au même endroit**, dans la zone du pouce, et **ne sont jamais emportés par le défilement** — c'est ce qui manquait à la variante A, dont le déclencheur était en haut d'un écran de 812 px, donc hors de portée : le reproche exact fait à la barre de chips ;
+- le bouton du milieu **ouvre la feuille des 8 pièces** (avancement + écarts, 8 lignes de 56 px, sans défilement) — on peut donc **sauter directement** à n'importe quelle pièce, jamais balayer les 7 autres ;
+- **coût assumé et accepté** : le bouton « suivant » perd son libellé (flèche seule).
+Variantes **A et B écartées** — elles restent dans la maquette pour mémoire, jamais à implémenter.
+⚠️ Vigilance héritée du bug de prod : le rail est **sticky, pas un second conteneur de défilement**. La feuille qui monte ne doit ajouter **aucun** défilement imbriqué non borné — `overscroll-behavior` du lot 0 s'applique aussi à elle. PC et tablette gardent la barre en sommaire d'ancres :
 le rejet ne concerne **que** le téléphone.
 
 ### A.2 · AUCUN montant dans l'EDL — l'argent est à part
