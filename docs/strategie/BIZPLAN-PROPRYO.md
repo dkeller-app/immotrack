@@ -120,7 +120,12 @@ L'examen honnête du panel retire deux « exclusivités » v1 (la signature incl
 | **Investisseur** | ≤ 5 | Tout Propryo, multi-bailleurs | 9,90 € | 99 € |
 | **Patrimoine** | ≤ 30 | + partage SCI multi-utilisateurs | 19,90 € | 199 € |
 
-Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La frontière est nette : gratuit = documents générés localement (coût de service nul) ; payant = la valeur récurrente. Early bird au lancement : −50 % la 1re année pour les 100 premiers.
+Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La frontière est nette : gratuit = documents générés localement (coût de service nul) ; payant = la valeur récurrente.
+
+**Essai et avantages (figés 19/08)** :
+- **Essai 30 jours, toutes fonctions, sans carte bancaire** — 30 jours car le cycle de valeur d'un bailleur est mensuel (loyer → rapprochement → quittance) : un essai de 15 jours ne le couvre pas. À J+30, **retombée automatique sur le plan Gratuit** : aucune donnée perdue, la quittance mensuelle ramène l'utilisateur — une sortie d'essai qu'aucun concurrent n'offre (leurs essais expirent sur un mur payant). Benchmark : un essai complet convertit 8-12 % contre 3-5 % en freemium seul (OpenView/Lenny) — c'est un levier direct vers le scénario central.
+- **Parrainage client** : 1 mois offert au parrain par filleul devenu payant (cumulable), 1 mois au filleul.
+- **Early bird** au lancement : −50 % la 1re année pour les 100 premiers.
 
 ---
 
@@ -194,7 +199,10 @@ Le SEO apporte le volume ; les prescripteurs apportent **la confiance et le segm
 | **CGP** (conseiller en gestion de patrimoine) | Il vend le projet locatif puis laisse le client seul avec la gestion ; Propryo est le « service après-vente » qui sécurise le projet — un client qui voit son cash-flow réel est un client rassuré, qui réinvestit avec son CGP | Le moteur Finances « en + ou en −, au centime » |
 | **Vendeur de biens / agent immobilier / notaire** | Au closing, le client repart avec son acte — et **Propryo crée le bien depuis l'acte notarié** : le prescripteur offre un démarrage en 5 minutes, un cadeau de clôture qui ne lui coûte rien | L'import d'acte, introuvable ailleurs |
 
-**Mécanique V1 (volontairement simple, zéro développement)** : page `propryo.fr/partenaires` + **code partenaire** (coupon Stripe : 3 mois offerts au filleul) + kit d'une page + démo de 15 minutes + suivi manuel des attributions. Plus tard, si le canal prouve : tableau de bord partenaire et rétrocession (les programmes GLI/MRH/EC identifiés en avril restent l'étage d'après).
+**Mécanique V1 (figée 19/08, volontairement simple)** : page `propryo.fr/partenaires` + **code partenaire** + kit d'une page + démo de 15 minutes + suivi manuel des attributions. **Rémunération à deux volets** :
+- **Commission 30 % de la première année d'abonnement** (CGP, vendeurs de biens, agents — SIREN requis pour facturer) : sur encaissé uniquement, paiement trimestriel sur facture (minimum 50 €), contrat d'apporteur simple **sans mandat** (l'apporteur ne négocie ni ne signe rien au nom de Propryo — contrat type produit par l'avocat des CGU). Coût par client : ~9-60 € selon le plan, soit 3-4× moins que l'acquisition publicitaire.
+- **Avantage 100 % reversé au client** (notaire, expert-comptable, dont la déontologie encadre ou interdit les commissions) : le filleul reçoit 6 mois offerts au lieu de 3.
+Le filleul d'un prescripteur reçoit **3 mois offerts** (remplace l'essai standard). Plus tard, si le canal prouve : tableau de bord partenaire (les programmes GLI/MRH/EC identifiés en avril restent l'étage d'après).
 
 **Réalisme** : cycle long (6-12 mois pour qu'un cabinet prescrive régulièrement), démarrage par le **réseau en propre** (comptable du fondateur, notaires et agences d'Alsace) — objectif année 1 : 20-30 prescripteurs actifs. **Ce canal n'est pas modélisé dans le scénario central** (aucune donnée pour le chiffrer honnêtement) : il fait partie, avec l'accélération contenu, de ce qui sépare le central de l'ambitieux — et c'est le premier candidat de calibration de janvier 2027.
 
@@ -245,7 +253,7 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 |---|---|
 | Août | Domaine propryo.fr · statut micro-entreprise (comptable) · **volumes Keyword Planner tirés → plan éditorial calibré** |
 | Septembre | Emails (Resend) · site + `app.propryo.fr` · CGU/CGV/RGPD (avocat ~3 K€) · **bêta privée** · production des 45 pages SEO |
-| Octobre | Stripe + quotas de plans branchés · **lancement public 14/10** avec les 45 pages en ligne · early bird |
+| Octobre | **Chantier PLANS-QUOTAS-ESSAI** (l'app n'a pas encore de notion de plan : matrice de gating Gratuit/payant, essai 30 j, retombée Gratuit, webhooks Stripe, application côté serveur) · **lancement public 14/10** avec les 45 pages en ligne · early bird |
 | Novembre | **Canal prescripteurs ouvert** : page partenaires + kit + codes Stripe · 10 premiers partenaires du réseau en propre (comptable, notaires, agences d'Alsace) |
 | Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page, apport prescripteurs — le scénario se choisit là, pas avant |
 
