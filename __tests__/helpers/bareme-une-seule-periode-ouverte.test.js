@@ -92,6 +92,37 @@ describe('synchroniserPeriodeBail — jamais deux périodes ouvertes', () => {
   });
 });
 
+describe('MÊME DATE D’EFFET — la seconde révision supersède la première', () => {
+  // Reproduit à l'écran : _applyIRLValidated(ref, 730, '2026-09-01') puis (ref, 742, '2026-09-01')
+  // laissait DEUX périodes ouvertes au même jour. Corriger le montant puis revalider est un geste
+  // ordinaire ; c'était le dernier chemin par lequel l'invariant tombait.
+  const base = () => ([{ ref: 'F', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' }]);
+
+  it('deux révisions à la même date : une seule période vivante, la dernière', () => {
+    let b = appliquerNouvellePeriode(base(), { ref: 'F', debut: '2026-09-01', hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' });
+    b = appliquerNouvellePeriode(b, { ref: 'F', debut: '2026-09-01', hc: 742, ch: 100, source: 'irl', bailDebut: '2024-01-01' });
+    const vivantes = b.filter((p) => !p._deleted && p.ref === 'F');
+    expect(vivantes.filter((p) => p.fin == null)).toHaveLength(1);
+    expect(vivantes.filter((p) => p.fin == null)[0].hc).toBe(742);
+    expect(b.filter((p) => p._deleted)).toHaveLength(1);   // l'historique garde la ligne
+    expect(b.filter((p) => p._deleted)[0].hc).toBe(730);
+  });
+
+  it('rejouer la MÊME révision ne tombstone rien (idempotence)', () => {
+    const nouvelle = { ref: 'F', debut: '2026-09-01', hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' };
+    let b = appliquerNouvellePeriode(base(), nouvelle);
+    const apres = appliquerNouvellePeriode(b, nouvelle);
+    expect(apres).toEqual(b);
+    expect(apres.filter((p) => p._deleted)).toHaveLength(0);
+  });
+
+  it('le lot voisin n’est pas touché', () => {
+    const b0 = base().concat([{ ref: 'AUTRE', debut: '2026-09-01', fin: null, hc: 1, ch: 1, source: 'bail' }]);
+    const b = appliquerNouvellePeriode(b0, { ref: 'F', debut: '2026-09-01', hc: 742, ch: 100, source: 'irl' });
+    expect(b.find((p) => p.ref === 'AUTRE')._deleted).toBeUndefined();
+  });
+});
+
 describe('changement de la DATE DE DÉBUT du bail — re-ancrage (2e audit)', () => {
   // `debut` n'est pas un terme financier (CHAMPS_FINANCIERS = hc/ch/dg) : aucune popup ne
   // s'interpose. Les périodes du bail gardaient donc leur ancien `bailDebut`, devenaient

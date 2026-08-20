@@ -181,6 +181,19 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
   const exists = arr.some((p) => p && !p._deleted && _nr(p.ref) === want && _ymd(p.debut) === debut
     && p.source === src && (Number(p.hc) || 0) === hc && (Number(p.ch) || 0) === ch);
   if (exists) return arr;
+  // MÊME DATE DE DÉBUT — la nouvelle SUPERSÈDE l'ancienne. Deux révisions validées pour la
+  // même date d'effet (on corrige le montant puis on revalide) laissaient DEUX périodes
+  // ouvertes au même jour : reproduit à l'écran le 2026-08-20 via _applyIRLValidated appelé
+  // deux fois sur 2026-09-01 (730 puis 742). Ni la clôture « à la veille » ni la borne sur la
+  // suivante ne peuvent traiter ce cas — l'une donnerait fin < debut, l'autre ne voit que les
+  // débuts STRICTEMENT postérieurs. Tombstone, convention du module (cf. tombstonerPeriodesDuBail) :
+  // la ligne reste dans l'historique, _baremeOfLot la filtre. L'idempotence ci-dessus a déjà
+  // écarté le cas « strictement identique », donc on ne supersède que sur un vrai changement.
+  for (let i = 0; i < arr.length; i++) {
+    const q = arr[i];
+    if (!q || q._deleted || _nr(q.ref) !== want || _ymd(q.debut) !== debut) continue;
+    arr[i] = { ...q, _deleted: true };
+  }
   // Clôture de la période ouverte précédente (début < nouveau début).
   const idx = _openPeriodIdx(arr, nouvelle.ref, _veille(debut));
   if (idx >= 0 && _ymd(arr[idx].debut) < debut) arr[idx] = { ...arr[idx], fin: _veille(debut) };
