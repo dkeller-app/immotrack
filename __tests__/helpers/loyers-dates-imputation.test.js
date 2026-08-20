@@ -219,3 +219,46 @@ describe('AUDIT C3 — une QUITTANCE ne porte une date que si le mois est réell
     expect(mentionDateRecu(info, fr, { partiel: true }).avecDate).toBe(true);  // reçu partiel
   });
 });
+
+describe('LOT 0 — le scalaire FAIT FOI : des `sources` désalignées ne peuvent pas gonfler le pool', () => {
+  // AUDIT DE RETRAIT (I2c) — cette branche de rognage n'était exercée par aucun test. Elle est
+  // inatteignable aujourd'hui (l'unique site de production construit `received` comme la somme
+  // des mêmes mouvements), mais c'est exactement le genre de garde qui saute en silence quand un
+  // appelant futur passe autre chose : la cascade imputerait alors PLUS que ce qui est entré en
+  // banque, et le locataire verrait des mois soldés qu'il n'a pas payés.
+  const M2 = (ym, received, sources) => ({ ym, hcDue: 500, chDue: 100, received, sources });
+
+  it('sources supérieures au reçu : elles sont ROGNÉES par la fin, le total imputé suit le scalaire', () => {
+    const r = _loyerArrearsPass([
+      M2('2026-01', 600, [{ date: '2026-01-05', id: 'a', montant: 600 },
+                          { date: '2026-01-20', id: 'b', montant: 400 }])   // 1000 déclarés, 600 reçus
+    ]);
+    const total = (r.imputations[0] || []).reduce((s, i) => s + i.montant, 0);
+    expect(Math.round(total * 100) / 100).toBe(600);
+    // Le plus ANCIEN versement fait foi en entier ; c'est le dernier qui est rogné.
+    expect((r.imputations[0] || []).every((i) => i.id === 'a')).toBe(true);
+  });
+
+  it('le rognage ne change AUCUN montant du calcul : mêmes soldes qu’en scalaire pur', () => {
+    const avecSources = _loyerArrearsPass([
+      M2('2026-01', 600, [{ date: '2026-01-05', id: 'a', montant: 600 },
+                          { date: '2026-01-20', id: 'b', montant: 400 }]),
+      M2('2026-02', 600, [{ date: '2026-02-05', id: 'c', montant: 900 }])
+    ]);
+    const scalaire = _loyerArrearsPass([
+      { ym: '2026-01', hcDue: 500, chDue: 100, received: 600 },
+      { ym: '2026-02', hcDue: 500, chDue: 100, received: 600 }
+    ]);
+    expect(avecSources.months.map((m) => [m.hcShort, m.chShort, m.arrears]))
+      .toEqual(scalaire.months.map((m) => [m.hcShort, m.chShort, m.arrears]));
+  });
+
+  it('sources INFÉRIEURES au reçu : le complément est anonyme, jamais daté d’office', () => {
+    const r = _loyerArrearsPass([
+      M2('2026-01', 600, [{ date: '2026-01-05', id: 'a', montant: 200 }])
+    ]);
+    const imp = r.imputations[0] || [];
+    expect(Math.round(imp.reduce((s, i) => s + i.montant, 0) * 100) / 100).toBe(600);
+    expect(imp.some((i) => i.date === null)).toBe(true);          // I-DATE : on n'invente rien
+  });
+});

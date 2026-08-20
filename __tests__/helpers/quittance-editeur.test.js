@@ -81,6 +81,20 @@ describe('V6 — le rail des mois : douze cases, chacune dit son état', () => {
     const fini = etatMoisLot([mois('2023-04', 600, S('2023-04-05', 600))]);
     expect(anneeParDefaut(fini, [], '2026-06')).toBe('2023');
   });
+  it('une quittance d’AVANCE sur l’an prochain n’ouvre pas l’éditeur sur 2027', () => {
+    // SONDE DISCRIMINANTE (audit de retrait, I2a) — les autres cas de ce bloc ont une année
+    // courante qui est AUSSI l’année utile la plus récente : les deux branches y donnent la
+    // même réponse, et neutraliser la règle « l’année courante d’abord » laissait toute la
+    // suite au vert. V8 autorise de quittancer un mois futur couvert par une avance : il
+    // suffit donc d’une quittance sur 2027-01 pour que l’éditeur s’ouvre sur 2027 — devant
+    // un utilisateur qui vient faire la quittance du mois en cours.
+    const avecAvance = etatMoisLot([
+      mois('2026-05', 600, S('2026-05-05', 600)),
+      mois('2026-06', 600, S('2026-06-05', 600))
+    ]);
+    expect(anneesDisponibles(avecAvance, ['2027-01'])).toEqual(['2026', '2027']);
+    expect(anneeParDefaut(avecAvance, ['2027-01'], '2026-06')).toBe('2026');
+  });
 });
 
 describe('V8 — le critère est PAYÉ, pas ÉCHU', () => {

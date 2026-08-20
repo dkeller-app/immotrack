@@ -55,7 +55,7 @@ export function anneesDisponibles(etat, quittancesYm) {
  * @param {string|number} annee
  * @param {string} todayYm 'YYYY-MM' — borne du « futur »
  * @param {Object} [editeesLe] map ym → date d'édition ('YYYY-MM-DD'), pour l'état DONE
- * @returns {Array<{ym, mois, nom, etat, du, reste, editeeLe, sansPaiement}>}
+ * @returns {Array<{ym, mois, nom, etat, du, reste, editeeLe}>}
  */
 export function moisRailLot(etat, quittancesYm, annee, todayYm, editeesLe) {
   const deja = new Set([...(quittancesYm instanceof Set ? quittancesYm : (quittancesYm || []))].map(String));
@@ -80,9 +80,7 @@ export function moisRailLot(etat, quittancesYm, annee, todayYm, editeesLe) {
     out.push({
       ym, mois: ymToMoisFr(ym), nom: ymToMoisFr(ym).split(' ')[0],
       etat: st, du, reste,
-      editeeLe: ed[ym] || null,
-      // V9 — l'étiquette de l'app (jamais du document remis au locataire).
-      sansPaiement: !!e && !e.vacance && !(e.paiements && e.paiements.length)
+      editeeLe: ed[ym] || null
     });
   }
   return out;

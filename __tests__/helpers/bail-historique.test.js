@@ -260,4 +260,17 @@ describe('I-DATE surface 7 — une restitution de DG n’est datée que par son 
     expect(t).not.toContain('dg-restitue');
     expect(t).not.toContain('dg-restitue-sans-date');
   });
+
+  it('le TRI garde une date, mais elle ne doit jamais devenir un affichage', () => {
+    // AUDIT DE RETRAIT (IMPORTANT 1) — `dateTri` vaut toujours quelque chose (au besoin la date
+    // de signature) : c'est ce qui ordonne le rail. L'écran l'affichait dans la gouttière pour
+    // TOUS les événements, ce qui redonnait la date fabriquée que la carte venait de retirer.
+    // La règle testable côté module : l'événement sans date le dit par `ev.date === undefined`,
+    // et `dateTri` ne lui ressemble en rien. L'écran s'appuie là-dessus (`_hlGouttiere`).
+    const r = construire(bailDG({ dgRestitueAt: '', dgRestitueMontant: 800 }));
+    const item = r.chapitres.flatMap((c) => c.rail)
+      .find((x) => x.kind === 'evenement' && x.ev.type === 'dg-restitue-sans-date');
+    expect(item.ev.date).toBeUndefined();
+    expect(item.dateTri).toBe('2024-01-01');      // = la SIGNATURE : à trier, pas à montrer
+  });
 });

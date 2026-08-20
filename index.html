@@ -29499,16 +29499,26 @@ function _qeDeja(ref) {
   return { yms, dates };
 }
 
-/** V9/§6 — la trace du geste forcé, dans le blob de configuration (pas de colonne cloud neuve). */
+/**
+ * V9/§6 — la trace du geste forcé, dans le blob de configuration (pas de colonne cloud neuve).
+ *
+ * AUDIT DE RETRAIT (I1) — l'appel était NU : en `file://` les modules ne sont pas chargés,
+ * `window.cleMeta` n'existe pas, et l'aperçu, l'impression, le partage et la pièce jointe
+ * e-mail de N'IMPORTE QUELLE quittance tombaient sur un `TypeError`. Le `typeof _qeMeta ===
+ * 'function'` qui précède l'appel ne protégeait rien : `_qeMeta` est inline, donc toujours là.
+ * Une clé de blob est une concaténation : elle n'a pas besoin d'un module pour exister.
+ */
+function _qeCleMeta(ref, ym) {
+  return (typeof window !== 'undefined' && typeof window.cleMeta === 'function')
+    ? window.cleMeta(ref, ym) : (String(ref) + '|' + String(ym));
+}
 function _qeMeta(ref, ym) {
   const m = (DB.params && DB.params.quittancesMeta) || {};
-  return m[window.cleMeta(ref, ym)] || null;
+  return m[_qeCleMeta(ref, ym)] || null;
 }
-function _qeSetMeta(ref, ym, val) {
-  if (!DB.params) DB.params = {};
-  if (!DB.params.quittancesMeta) DB.params.quittancesMeta = {};
-  DB.params.quittancesMeta[window.cleMeta(ref, ym)] = val;
-}
+// (AUDIT DE RETRAIT, M1 — `_qeSetMeta` a été SUPPRIMÉE : plus aucun appelant, et c'était la
+//  version sans branche `else` qu'un audit avait épinglée — une étiquette qui survivait à son
+//  motif. Le cycle de vie passe par `_qeAppliquerMeta` / `metaApresEmission`, testés.)
 /** Le cycle de vie de la trace, délégué au module testé : posée quand le mois est forcé,
  *  RETIRÉE quand il ne l'est plus. Une étiquette qui survit à son motif est un mensonge. */
 function _qeAppliquerMeta(ref, moisEmis, forces) {
@@ -38794,7 +38804,7 @@ function _histoBailChapHtml(c, ref, refSafe, bailForDg){
     : '<span class="hbc-status old">Clos</span>';
   const railHtml = c.rail.length
     ? `<div class="hl-tl">${c.rail.map(r=> r.kind==='periode' ? _histoBailPeriodeHtml(r.periode, ref)
-        : `<div class="hl-ev"><div class="hl-date"><b>${_hlDateParts(r.dateTri).j}</b>${_hlDateParts(r.dateTri).a}</div><div class="hl-dot ${_hlDotOf(_histoBailEventHtml(r.ev, c, refSafe, bailForDg))}"></div>${_histoBailEventHtml(r.ev, c, refSafe, bailForDg)}</div>`).join('')}</div>`
+        : `<div class="hl-ev"><div class="hl-date">${_hlGouttiere(r)}</div><div class="hl-dot ${_hlDotOf(_histoBailEventHtml(r.ev, c, refSafe, bailForDg))}"></div>${_histoBailEventHtml(r.ev, c, refSafe, bailForDg)}</div>`).join('')}</div>`
     : `<div class="logf-panel-empty">Aucun événement.</div>`;
   return `
     <div class="hbc${open?' open':''}${c.statut==='clos'?' hbc-old':''}" id="${_histoBailChapId(key)}">
@@ -38825,6 +38835,20 @@ function _histoBailPeriodeHtml(p, ref){
 
 // Carte d'un événement du rail — types : bail-debut, dg-verse, dg-restitue, irl,
 // irl-renonce, modif (barème manuel), fin-bail, traces bailEvents (modif-dg…).
+/**
+ * La GOUTTIÈRE de date du rail. `dateTri` sert à ORDONNER — il vaut toujours quelque chose,
+ * au besoin la date de signature du bail. L'afficher tel quel redonnait à l'écran la date
+ * fabriquée que la carte venait justement de retirer : une restitution de DG enregistrée sans
+ * date de virement s'affichait « 12 mars 2024 » dans la marge, soit le jour de la SIGNATURE,
+ * relu comme départ du délai de l'article 22. Un événement qui n'a pas de date n'en affiche
+ * aucune (audit de retrait, IMPORTANT 1).
+ */
+function _hlGouttiere(r){
+  const ev = r && r.ev;
+  if (ev && ev.date === undefined) return '<b>—</b>';
+  const d = _hlDateParts(r.dateTri);
+  return `<b>${d.j}</b>${d.a}`;
+}
 function _histoBailEventHtml(ev, c, refSafe, bailForDg){
   const t = ev.type;
   if(t==='bail-debut'){
@@ -49921,8 +49945,15 @@ function _dgOpenRestitution(ref) {
   // I-DATE, surface 7 du §4 : ce champ était pré-rempli à `td()` et jamais confronté au
   // virement réel — le solde de tout compte partait daté du jour de l'édition. On propose
   // le décaissement de DG s'il existe ; sinon le champ reste VIDE.
-  const _dgDateVirement = (typeof window.dateRestitutionDG === 'function')
+  const _dgMouvement = (typeof window.dateRestitutionDG === 'function')
     ? window.dateRestitutionDG(DB.mouvements || [], ref) : null;
+  // AUDIT DE RETRAIT (IMPORTANT 2) — la date DÉJÀ ENREGISTRÉE fait foi avant le mouvement.
+  // Sans elle, rouvrir la fenêtre pour relire un montant affichait un champ VIDE (un virement
+  // fait à la main n'est jamais importé en banque) : valider écrivait `dgRestitueAt = ''`, le
+  // bail retombait « à restituer », l'alerte de retard revenait et la carte de la timeline
+  // basculait sur « date manquante ». Un chemin restitué → non-restitué que la prod n'avait pas.
+  const _dgDejaSaisie = String(bail.dgRestitueAt || '').slice(0, 10);
+  const _dgDateVirement = _dgDejaSaisie || _dgMouvement || null;
   body.innerHTML = `
     <div class="mu sm" style="margin-bottom:14px;line-height:1.55">
       Restitution du dépôt de garantie selon l'article 22 de la loi 89-462 modifiée par ALUR 2014.
@@ -49969,9 +50000,11 @@ function _dgOpenRestitution(ref) {
     <div class="fg" style="margin-bottom:0">
       <label style="font-size:11.5px;font-weight:600">Date du virement de restitution</label>
       <input class="inp" type="date" id="dg-restit-date" value="${_dgDateVirement || ''}" style="width:180px">
-      <div class="mu sm" style="font-size:10.5px;margin-top:4px">${_dgDateVirement
-        ? 'Reprise du mouvement de restitution déjà enregistré.'
-        : 'Aucun virement de restitution n’est encore enregistré — saisis la date réelle du virement, l’app n’en invente pas.'}</div>
+      <div class="mu sm" style="font-size:10.5px;margin-top:4px">${_dgDejaSaisie
+        ? 'Date déjà enregistrée pour cette restitution — la modifier réécrit le point de départ du délai de l’article 22.'
+        : (_dgMouvement
+          ? 'Reprise du mouvement de restitution déjà enregistré.'
+          : 'Aucun virement de restitution n’est encore enregistré — saisis la date réelle du virement, l’app n’en invente pas.')}</div>
     </div>
   `;
   el('ov-dg-restitution-ref').value = ref;
