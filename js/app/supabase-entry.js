@@ -9,6 +9,11 @@
 // Ne touche PAS window.DB ni le rendu (ça vient à l'étape 2b). Donc zéro interférence avec l'app derrière.
 
 import { BREADCRUMB_KEY, appendCrumb } from '../core/login-breadcrumb.js'
+// EDL TERRAIN lot 1, faille F5 (CDC docs/CDC-EDL.md §3ter, invariant 19j) :
+// une modification fraîche ne réarme plus le backoff de réessai. Avec l'autosave
+// de l'EDL (une écriture toutes les 2 s), l'ancien `schedule` replanifiait un
+// flush à 800 ms en permanence → ~1 800 requêtes en échec sur une heure hors ligne.
+import { planFlush, FLUSH_DEBOUNCE_MS } from '../core/sync-schedule.js'
 
 const FLAG = (() => {
   try {
@@ -669,6 +674,9 @@ async function onLoggedIn(api, overlay, user) {
         if (s.errors && s.errors.some(er => /jwt|401|token .*(expired|invalid)|expired.*token/i.test(String(er.message)))) _sessionDead()
         if (!_deadShown) setSync('warn', bad + ' modif' + (bad > 1 ? 's' : '') + ' non synchronisée' + (bad > 1 ? 's' : '') + ' — réessai auto')
       } else if (!_deadShown) setSync('ok')
+      // F5 : flush entièrement propre → le réseau est revenu, le plancher de
+      // réessai tombe (sinon la modification suivante attendrait le backoff pour rien).
+      if (!bad) backoffUntil = 0
       // SYNCHRO LIVE (M4, audit v15.460) : signale aux AUTRES appareils dès que le flush a RÉELLEMENT
       // écrit quelque chose (upserts/removes/config) — un poison isolé (P1.2) n'étouffe plus le signal.
       // Repli sans le helper (import raté) : ancienne condition « flush 100 % propre ».
@@ -691,15 +699,30 @@ async function onLoggedIn(api, overlay, user) {
   // REPOUSSE jamais un timer déjà plus proche : si une modif utilisateur attend son debounce 800 ms
   // pendant qu'un flush échoue, le retry (jusqu'à 60 s) ne doit pas la retarder — le timer court reste,
   // et son flush couvre TOUT le diff (y compris ce que le retry aurait retenté).
+  // F5 : `backoffUntil` est le PLANCHER de réessai posé par le moteur après un
+  // échec. Une modification locale fraîche est toujours honorée — mais jamais
+  // AVANT ce plancher : le flush qui partira couvre tout le diff, elle comprise.
+  // La décision est dans js/core/sync-schedule.js (fonction pure, testée).
   let flushDueAt = 0
+  let backoffUntil = 0
   const schedule = (fn, opts) => {
     _lastFlushFn = fn
-    const delay = (opts && opts.immediate) ? 0 : ((opts && opts.retryDelayMs) || 800)
-    if (opts && opts.retryDelayMs && flushTimer && flushDueAt <= Date.now() + delay) return
+    const now = Date.now()
+    const p = planFlush({
+      now,
+      delay: (opts && opts.retryDelayMs) || FLUSH_DEBOUNCE_MS,
+      isRetry: !!(opts && opts.retryDelayMs),
+      immediate: !!(opts && opts.immediate),
+      hasTimer: !!flushTimer,
+      flushDueAt,
+      backoffUntil,
+    })
+    backoffUntil = p.backoffUntil
+    if (p.action === 'keep') return
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
-    if (opts && opts.immediate) { runFlush(fn); return }
-    flushDueAt = Date.now() + delay
-    flushTimer = setTimeout(() => runFlush(fn), delay)
+    if (p.action === 'run-now') { runFlush(fn); return }
+    flushDueAt = p.at
+    flushTimer = setTimeout(() => runFlush(fn), Math.max(0, p.at - Date.now()))
   }
   // ── P1.3 RE-PULL — la boucle de sync se FERME enfin (audit C-A : pull uniquement au login) ──────
   // Trois déclencheurs, une seule routine : (1) conflit de version (runFlush) ; (2) broadcast Realtime

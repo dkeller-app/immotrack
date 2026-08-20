@@ -8874,6 +8874,12 @@ body[data-dash-v4="on"] .v4h-todo-empty {
 }
 @media (max-width:640px){ .edl-thumb{ width:72px; height:72px; } }
 
+/* EDL TERRAIN lot 1 (CDC docs/CDC-EDL.md §1) — sur téléphone, l'enregistrement
+   est AUTOMATIQUE : le bouton « 💾 Enregistrer » n'y a plus de rôle et il prend
+   une place précieuse dans un pied de page utilisé d'une seule main. Il reste
+   sur tablette et PC. Fermer (✕) enregistre, sur tous les formats. */
+@media (max-width:640px){ #edl-btn-save{ display:none; } }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    v15.414 DASH-ACTIONS-REFONTE + BUG-DASH-GESTIONNAIRE-PARC — dashboard
    Gestionnaire refondu (mockup B validé user 2026-07-05) :

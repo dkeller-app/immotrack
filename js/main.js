@@ -148,6 +148,10 @@ import * as BiensPieces from './core/biens-pieces.js';
 // invariants 22 et 34i : ouvrir un EDL ne charge plus les 98 binaires d'un coup).
 import * as EdlPhotos from './core/edl-photos.js';
 
+// EDL TERRAIN lot 1 — quand ecrire (CDC §1, invariants 1 a 5) : l'EDL s'autosauve,
+// jamais a la frappe, jamais sur un EDL signe, jamais 2 ecritures en moins de 2 s.
+import * as EdlAutosave from './core/edl-autosave.js';
+
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
   _base64UrlEncode, _emailEncodeMimeHeader, _emailMakeBoundary,
@@ -575,6 +579,8 @@ window._biensMigration = { numLotVersLot: migrerNumLotVersLot };
 window.BiensPieces = BiensPieces;
 // EDL TERRAIN lot 0 — collecte des photos d'un EDL + selection « a la demande ».
 window.EdlPhotos = EdlPhotos;
+// EDL TERRAIN lot 1 — minuteur d'autosave de l'etat des lieux.
+window.EdlAutosave = EdlAutosave;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {

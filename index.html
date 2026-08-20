@@ -3705,8 +3705,11 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <div>
       <h3 id="m-edl-title" style="margin:0">État des lieux</h3>
       <div class="mu sm">Décret n°2016-382 du 30 mars 2016 — Art. 3-2 loi n°89-462 du 6 juillet 1989</div>
+      <!-- EDL TERRAIN lot 1 : l'état des lieux s'autosauve, l'en-tête le dit. -->
+      <div class="mu sm" id="edl-autosave-etat" style="margin-top:2px"></div>
     </div>
-    <button class="m-close" onclick="closeM('ov-edl')">✕</button>
+    <!-- Fermer ENREGISTRE (CDC §1) : aucune popup « voulez-vous enregistrer ? ». -->
+    <button class="m-close" onclick="edlCloseModal()">✕</button>
   </div>
 
   <!-- v14.42 EDL-AUDIT-CRITIQUE Phase 4b : bandeau verrouillage EDL signé.
@@ -4052,10 +4055,14 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   </div><!-- fin scroll -->
 
   <div class="m-foot" style="flex-shrink:0">
-    <button class="btn bs" onclick="closeM('ov-edl')">Annuler</button>
+    <!-- EDL TERRAIN lot 1 (CDC §1) : « Annuler » RETIRÉ — il n'a plus de sens
+         quand tout est déjà écrit. Supprimer un EDL reste possible depuis la
+         liste (bouton 🗑 → delEDL, avec sa confirmation). Fermer = ✕ en haut,
+         qui enregistre. « 💾 Enregistrer » reste sur PC et tablette, il est
+         masqué sur téléphone (l'enregistrement y est automatique). -->
     <button class="btn bs" onclick="downloadEDLPdfFromForm()" title="Télécharger le PDF (envoi mail / WhatsApp au locataire)">📥 Télécharger PDF</button>
     <button class="btn bs" onclick="uploadEDLPDFToDriveFromForm()" title="Génère le PDF de l'EDL et l'enregistre dans le cloud">☁️ Enregistrer le PDF</button>
-    <button class="btn bp" onclick="saveEDL()">💾 Enregistrer</button>
+    <button class="btn bp" id="edl-btn-save" onclick="saveEDL()">💾 Enregistrer</button>
     <input type="hidden" id="edl-edit-id">
   </div>
 </div></div>
@@ -6414,7 +6421,15 @@ function _undoUIInit() {
 }
 /* ═══ FIN UNDO-OP cœur ═════════════════════════════════════════════════════ */
 
-function saveDB() {
+function saveDB(opts) {
+  // EDL TERRAIN lot 1 — `opts.autosave` : l'autosave de l'EDL écrit toutes les
+  // 2 s. F6 du CDC (§3ter) : _undoOnSaveDB/_undoOnSaveDBSuccess font un
+  // structuredClone(DB) COMPLET (1 à 2 Mo) à chaque appel et gardent 20 états —
+  // jusqu'à ~40 Mo retenus sur un téléphone, et les 20 emplacements d'annulation
+  // remplis de « Modification » d'une seule visite. En autosave, on ne capture
+  // rien : la fermeture de la modale fait un enregistrement NORMAL, qui repose
+  // une base d'annulation propre pour toute la visite.
+  const _autosave = !!(opts && opts.autosave);
   // DEPART-ESTIM (perf) : génération DB incrémentée à chaque persistance → invalide les caches dérivés
   // (ex. _departEstimDu) sans dépendre du contenu. Tout au début pour couvrir tous les chemins de sortie.
   if (typeof window !== 'undefined') window._dbGen = (window._dbGen || 0) + 1;
@@ -6423,21 +6438,26 @@ function saveDB() {
   // secours tenu à jour (filet 2.1 → couper le mode cloud repart sur des données à jour, jamais
   // figées). Drive PAS écrit (retiré à l'étape 4). Undo/audit conservés.
   if (typeof window !== 'undefined' && window.__immoSupabaseMode) {
-    if (typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
+    if (!_autosave && typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
     if (typeof _auditFlushPending === 'function') _auditFlushPending();
-    try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {}   // 2.1 FILET : miroir localStorage a jour en mode cloud -> rollback instantane (jamais fige)
+    // F8 (§3ter) : l'échec d'écriture du miroir était AVALÉ (catch vide) et
+    // saveDB rendait `true` quand même — l'app croyait avoir enregistré.
+    // Invariant 19l : un saveDB qui échoue sur quota renvoie FAUX et le dit.
+    let _miroirOk = true;
+    try { localStorage.setItem(KEY, JSON.stringify(DB)); }
+    catch (e) { _miroirOk = false; _saveDBQuotaWarn(e); }
     if (typeof window.__immoMarkDirty === 'function') window.__immoMarkDirty();
-    if (typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
-    return true;
+    if (!_autosave && typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
+    return _miroirOk;
   }
   // P1.3 (audit C-C) : boot CLOUD **avant login** (__immoSupabaseMode pas encore posé) → NE RIEN écrire
   // dans le miroir prod. initDB ne lit plus le miroir : le DB mémoire est VIDE (défauts seuls) — l'écrire
   // ici (initDB se termine par saveDB) écraserait le filet de rollback, et d'éventuelles données non
   // encore synchronisées d'un utilisateur précédent, à la SIMPLE OUVERTURE de la page. Undo/audit gardés.
   if (typeof window !== 'undefined' && _CLOUD_BOOT) {
-    if (typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
+    if (!_autosave && typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
     if (typeof _auditFlushPending === 'function') _auditFlushPending();
-    if (typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
+    if (!_autosave && typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
     return true;
   }
   // v15.116 DRIVE-CONFIANCE-UX Étape A (OFFLINE-FIRST) : on NE bloque PLUS l'écriture
@@ -6449,22 +6469,38 @@ function saveDB() {
   // local/Drive est gérée par le merge horodaté (_drvWins / _modifiedAt, Phase 2B).
   // UNDO-OP v14.21 : push l'ancienne snapshot dans la stack avec le bon label
   // (avant l'écriture localStorage pour respecter la sémantique pré-modif)
-  if (typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
+  if (!_autosave && typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
   // v14.89 AUDIT-TRAIL : flush la file d'attente d'audit (entries empilées
   // par les save<X> avant de saveDB). Garantit que l'audit reflète l'état
   // qui sera écrit en localStorage.
   if (typeof _auditFlushPending === 'function') _auditFlushPending();
   const data = JSON.stringify(DB);
+  let _ecrit = true;
   try {
     localStorage.setItem(KEY, data);
   } catch(e) {
-    // Quota dépassé (photos sont dans IndexedDB, ne devrait plus arriver)
-    showToast('⚠️ Stockage plein.','warn');
+    // F8 / invariant 19l : on ne prétend PAS avoir écrit.
+    _ecrit = false;
+    _saveDBQuotaWarn(e);
   }
   // (chemin harnais de test uniquement — Drive retiré, plus de push à planifier)
   // UNDO-OP v14.21 : capture l'état post-saveDB comme prev pour la prochaine modif
-  if (typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
-  return true;
+  if (!_autosave && typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
+  return _ecrit;
+}
+
+/* F8 — un stockage plein doit être NOMMÉ, pas avalé. Message unique (DRY) pour
+   les trois chemins d'écriture de saveDB. Le mot « QuotaExceededError » ne dit
+   rien à personne : on dit ce qui se passe et ce qu'il faut faire. */
+let _saveDBQuotaAt = 0;
+function _saveDBQuotaWarn(e) {
+  console.error('[saveDB] écriture locale refusée :', e);
+  const now = Date.now();
+  if (now - _saveDBQuotaAt < 10000) return;   // pas de matraquage pendant une visite
+  _saveDBQuotaAt = now;
+  if (typeof showToast === 'function') {
+    showToast("⚠️ Mémoire pleine : cette modification n'est PAS enregistrée sur cet appareil. Libère de l'espace, puis reprends.", 'err', 10000);
+  }
 }
 
 // === BASCULE SUPABASE (P3) — points d'injection pour le module externe js/app/supabase-entry.js ===
@@ -31098,9 +31134,13 @@ function rEDLList() {
     const nb=(e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).length,0);
     const nph=(e.pieces||[]).reduce((s,p)=>s+(p.elements||[]).reduce((s2,x)=>s2+(x.photosE?.length||0)+(x.photosS?.length||0),0),0);
     const sig=e.signatures?.bailleur||e.signatures?.locataire?' ✍️':'';
+    // EDL TERRAIN lot 1 (CDC §1) : « Brouillon » tant qu'aucune signature
+    // n'existe. Ce n'est pas un autre magasin — c'est le même EDL, en cours.
+    const brouillon = (e.signatures && (e.signatures.bailleur || e.signatures.locataire))
+      ? '' : '<span class="badge gry" title="État des lieux en cours — il s\'enregistre tout seul">Brouillon</span>';
     return `<tr>
       <td><b>${escHtml(e.logement||'–')}</b></td><td>${escHtml(e.locataire||'–')}</td>
-      <td><span class="badge ${e.type==='Entrée'?'grn':'ora'}">${e.type}</span></td>
+      <td><span class="badge ${e.type==='Entrée'?'grn':'ora'}">${e.type}</span> ${brouillon}</td>
       <td>${fd(e.date)}</td>
       <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${e.cloudPdfKey?' ☁️':''}</td>
       <td class="act-cell">
@@ -31128,6 +31168,7 @@ function openNewEDL() {
   // v14.42 Phase 4b : nouveau EDL = pas signé, on s'assure que le mode édition est actif
   if (typeof _edlApplyLockUI === 'function') _edlApplyLockUI(false);
   openM('ov-edl');
+  _edlAutosaveReset();   // lot 1 : nouvel EDL = rien d'enregistré pour l'instant
 }
 
 async function openEditEDL(id) {
@@ -31174,6 +31215,7 @@ async function openEditEDL(id) {
   // v14.42 Phase 4b : applique le lock UI si EDL signé (bandeau + CSS désactive inputs)
   if (typeof _edlApplyLockUI === 'function') _edlApplyLockUI(_edlIsSigned(e), e.signatures && e.signatures.signedAt);
   openM('ov-edl');
+  _edlAutosaveReset();   // lot 1 : minuteur propre + écouteurs armés
 }
 
 function _edlFill(e) {
@@ -32650,6 +32692,10 @@ function _edlPickPhoto(onPhotos) {
     consumed = true;
     try {
       await onPhotos(Array.from(inp.files || []));
+      // EDL TERRAIN lot 1 : la photo est maintenant DANS l'EDL — on déclenche
+      // ici, et pas au clic, sinon le minuteur partirait avant elle (F9).
+      // Point unique : les 5 chemins d'ajout de photo passent par ce picker.
+      if (typeof _edlAutosaveTrigger === 'function') _edlAutosaveTrigger('photo');
     } catch (e) {
       console.warn('[edlPickPhoto] callback error:', e);
       showToast('Erreur ajout photo : ' + (e.message || e), 'err', 5000);
@@ -33105,6 +33151,103 @@ function _edlIsSigned(edl) {
   return !!(edl && edl.signatures && edl.signatures.signedAt);
 }
 
+/** Remet l'indicateur et le minuteur à zéro à chaque ouverture d'un EDL. */
+function _edlAutosaveReset() {
+  const a = _edlAutosaveInstance();
+  if (a) a.annuler();
+  _edlBindAutosave();
+  const z = el('edl-autosave-etat');
+  if (z) z.textContent = '';
+}
+
+/* ── EDL TERRAIN lot 1 — L'ÉTAT DES LIEUX S'AUTOSAUVE ────────────────────────
+   CDC §1 : il n'y a pas de brouillon. Dès que le logement et la date sont
+   saisis, l'EDL existe dans DB.edl ; chaque saisie TERMINÉE réarme un minuteur
+   de 2 s. Jamais à la frappe. Un EDL signé n'est jamais autosauvé.
+   La décision de QUAND écrire est dans js/core/edl-autosave.js (module testé). */
+let _edlAutosave = null;
+let _edlAutosaveLie = false;
+
+/** L'EDL ouvert est-il signé ? (le verrou _edlIsSigned reste maître) */
+function _edlCourantSigne() {
+  const idv = el('edl-edit-id') ? el('edl-edit-id').value : '';
+  if (!idv) return false;
+  const rec = (DB.edl || []).find(x => x.id === parseInt(idv));
+  return _edlIsSigned(rec);
+}
+
+/** Le formulaire porte-t-il de quoi écrire un enregistrement ? (logement + date) */
+function _edlCourantPret() {
+  if (!el('ov-edl') || el('ov-edl').classList.contains('hidden')) return false;
+  if (!v('edl-log')) return false;
+  return !!(_edlSortie ? v('edl-date-sortie') : v('edl-date-entree'));
+}
+
+function _edlAutosaveInstance() {
+  if (_edlAutosave) return _edlAutosave;
+  const M = (typeof window !== 'undefined') ? window.EdlAutosave : null;
+  if (!M) { console.error('[edlAutosave] module js/core/edl-autosave.js absent — pas d\'autosave'); return null; }
+  _edlAutosave = M.createEdlAutosave({
+    save: () => { saveEDL({ keepOpen: true, silent: true, autosave: true }); },
+    isSigned: _edlCourantSigne,
+    isReady: _edlCourantPret,
+  });
+  return _edlAutosave;
+}
+
+/** Une saisie vient de se terminer. Appelé par les écouteurs délégués. */
+function _edlAutosaveTrigger(motif) {
+  const a = _edlAutosaveInstance();
+  if (a) a.declencher(motif || 'saisie');
+}
+
+/** L'en-tête dit l'heure du dernier enregistrement — pas de popup, jamais. */
+function _edlMarquerEnregistre(d) {
+  const z = el('edl-autosave-etat');
+  if (!z) return;
+  try {
+    z.textContent = 'Enregistré à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+  } catch (_) { z.textContent = 'Enregistré'; }
+}
+
+/** Fermer la modale ENREGISTRE. Aucune question posée (CDC §1). */
+function edlCloseModal() {
+  const a = _edlAutosaveInstance();
+  // Fermeture = enregistrement NORMAL : une entrée d'audit et une base
+  // d'annulation pour toute la visite (et non 1 800, cf. F6/F7).
+  if (a) { a.annuler(); }
+  try {
+    if (_edlCourantPret() && !_edlCourantSigne()) saveEDL({ keepOpen: true, silent: true });
+  } catch (e) { console.warn('[edlCloseModal] enregistrement de fermeture :', e); }
+  closeM('ov-edl');
+}
+
+/** Écouteurs délégués, posés une seule fois sur la modale. */
+function _edlBindAutosave() {
+  if (_edlAutosaveLie) return;
+  const root = el('ov-edl');
+  if (!root) return;
+  _edlAutosaveLie = true;
+  // « change » = valeur modifiée ET champ quitté : la saisie est TERMINÉE.
+  // Jamais « input » : 110 éléments × frappes = des centaines d'écritures.
+  root.addEventListener('change', (e) => {
+    if (!e.target || !e.target.closest) return;
+    if (!e.target.closest('input, select, textarea')) return;
+    _edlAutosaveTrigger('champ');
+  }, true);
+  // Boutons qui MODIFIENT l'EDL (états, éléments, pièces, clés, photos).
+  // Les boutons de consultation (agrandir une photo, envoyer au cloud) sont exclus.
+  const NON_MUTANTS = /^edl(ViewPhoto|MobViewPhoto|CptViewPhoto|CleViewPhoto|SyncDrive)/;
+  root.addEventListener('click', (e) => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    const h = b.getAttribute('onclick') || '';
+    if (!/^\s*edl[A-Z]/.test(h)) return;
+    if (NON_MUTANTS.test(h.trim())) return;
+    _edlAutosaveTrigger('bouton');
+  }, true);
+}
+
 function _edlApplyLockUI(isSigned, signedAt) {
   const modal = el('ov-edl');
   const banner = el('edl-locked-banner');
@@ -33292,7 +33435,14 @@ function _edlDrawSig(id,data){const c=el(id);if(!c||!data)return;const img=new I
 // ni afficher de toast, pour pouvoir chaîner avec génération PDF / upload Drive.
 // Retourne l'id du record sauvé (ou null si validation/save a échoué).
 function saveEDL(opts){
-  const {keepOpen=false, silent=false} = opts || {};
+  // EDL TERRAIN lot 1 — `autosave` : écriture automatique toutes les 2 s.
+  // F7 du CDC (§3ter) : saveEDL écrivait une entrée d'audit à CHAQUE
+  // enregistrement. Une heure de visite ≈ 1 800 entrées = 18 % du plafond de
+  // 10 000 → les vraies traces (signatures, suppressions) élaguées par le bruit
+  // de l'EDL. Invariant 19k : l'autosave n'écrit AUCUNE entrée d'audit.
+  // La fermeture de la modale, elle, fait un enregistrement normal : une entrée
+  // d'audit et une base d'annulation pour toute la visite.
+  const {keepOpen=false, silent=false, autosave=false} = opts || {};
   // v15.116 DRIVE-CONFIANCE-UX Étape A (offline-first) : plus de blocage read-only.
   // L'EDL est désormais TOUJOURS sauvé en local (saveDB persiste sans condition) puis
   // synchronisé vers Drive à la reconnexion. L'ancien blocage (v14.3 D2) causait la
@@ -33413,30 +33563,48 @@ function saveEDL(opts){
     }
 
     _stamp(record); // v13.18
+    // EDL TERRAIN lot 1, invariant 5 (CDC §9) : « ré-enregistrer un EDL ne le
+    // fait JAMAIS disparaître de l'espace partagé ». saveEDL reconstruit le
+    // record de zéro puis remplace l'objet (DB.edl[i] = record) : le tag
+    // `_espaceId` posé à l'hydratation est PERDU — c'est le geste qui a détruit
+    // l'EDL d'entrée FERRETTE 001 de l'espace de Marion le 18/07 à 09:16 UTC.
+    // La réadoption D1b (store-sync.js) reste le filet ; ici on ferme la cause,
+    // et ça devient vital quand l'autosave rejoue ce remplacement toutes les 2 s.
+    // Réutilise le correctif générique de l'audit BIENS — on ne recopie pas.
+    if (_existingEdl && typeof _preserverChampsExistants === 'function') {
+      _preserverChampsExistants(record, _existingEdl);
+    }
     // v14.97 AUDIT-TRAIL (audit complétude) : EDL = preuve photographique + PII locataire
+    const _audit = (!autosave && typeof _auditLog === 'function') ? _auditLog : null;
     if(eid){
       const i=DB.edl.findIndex(x=>x.id===parseInt(eid));
       if(i>=0) {
-        if (typeof _auditLog === 'function') _auditLog('update', 'edl', record.id, record.logement+'/'+(record.type||''), DB.edl[i], record);
+        if (_audit) _audit('update', 'edl', record.id, record.logement+'/'+(record.type||''), DB.edl[i], record);
         DB.edl[i]=record;
       } else {
-        if (typeof _auditLog === 'function') _auditLog('create', 'edl', record.id, record.logement+'/'+(record.type||''));
+        if (_audit) _audit('create', 'edl', record.id, record.logement+'/'+(record.type||''));
         DB.edl.push(record);
       }
     } else {
-      if (typeof _auditLog === 'function') _auditLog('create', 'edl', record.id, record.logement+'/'+(record.type||''));
+      if (_audit) _audit('create', 'edl', record.id, record.logement+'/'+(record.type||''));
       DB.edl.push(record);
     }
-    saveDB();
+    const _ecrit = saveDB({ autosave });
     // v14.12.2 : MAJ edl-edit-id avec l'id du record sauvé pour que les actions
     // ultérieures (PDF, Drive) trouvent bien le record fraîchement créé/modifié.
     el('edl-edit-id').value = record.id;
     rEDLList();
     if (!keepOpen) closeM('ov-edl');
-    if (!silent) showToast('EDL enregistré ✓','ok');
-    suggestSave('EDL');
-    // Auto-sauvegarde des photos dans le cloud (silencieuse) si le stockage cloud est prêt.
-    if (typeof window.__immoCloudUpload === 'function') setTimeout(()=>edlSyncDrive(record.id,true),400);
+    // F8 : si l'écriture locale a été refusée, on ne dit surtout pas « enregistré ».
+    if (_ecrit) _edlMarquerEnregistre(new Date());
+    if (!silent && _ecrit) showToast('EDL enregistré ✓','ok');
+    // L'autosave ne propose pas de sauvegarde de sécurité et ne relance pas
+    // l'envoi des photos : sinon l'envoi post-enregistrement deviendrait une
+    // tentative permanente au rythme de 2 s (CDC §2).
+    if (!autosave) {
+      suggestSave('EDL');
+      if (typeof window.__immoCloudUpload === 'function') setTimeout(()=>edlSyncDrive(record.id,true),400);
+    }
     return record.id;
   } catch(err) {
     console.error('saveEDL erreur:', err);
