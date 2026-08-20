@@ -18,7 +18,7 @@
 | **Le plan d'acquisition ?** | **SEO par pages-outils** — le plan Gratuit *fait* les documents (bail, quittance, EDL) que des dizaines de milliers de bailleurs cherchent chaque mois ; le modèle exact qui a construit BailFacile (§8). **+ canal 2 : le réseau de prescripteurs** (CGP, comptables, professionnels de la transaction — §8.5), qui apporte la confiance et le segment SCI. |
 | **Ça se lance quand ?** | Bêta privée septembre, **lancement public 14 octobre 2026**, 45 pages SEO publiées avant le jour J. |
 | **Ça coûte combien ?** | ~9,3 K€ de dépenses externes la 1re année ; **avance de trésorerie maximale ~15 K€** (cotisations sociales et synchro bancaire incluses), remboursée en 2028-2029. Aucune levée : bootstrappé. |
-| **Ça rapporte quoi ?** | Scénarios **sortis du modèle financier joint** (§10), avec un démarrage à notoriété nulle assumé (800 visites au lancement) : **résultat mensuel positif entre août 2027 et janvier 2028**. Fin 2029 : prudent 613 clients / 67 K€ ARR · central 818 / 89 K€ · ambitieux 1 572 / 171 K€ — hors apport des prescripteurs (non modélisé). Valorisation indicative 0,20-0,86 M€ (3-5× ARR). |
+| **Ça rapporte quoi ?** | Scénarios **sortis du modèle financier joint** (§10), avec un démarrage à notoriété nulle assumé (800 visites au lancement) : **résultat mensuel positif entre août 2027 et janvier 2028**. Fin 2029 : prudent 613 clients / 67 K€ ARR · central 818 / 89 K€ · ambitieux 1 572 / 171 K€ — hors prescripteurs, et **hors option B2B agences qui, activée au go/no-go de T4 2027, porte la trajectoire combinée à 114-218 K€** (§10 bis). Valorisation indicative 0,20-0,86 M€, davantage avec le B2B. |
 | **Pourquoi maintenant ?** | Marché B2C sans leader installé, concurrents passés au **prix par bien** (2 à 4× plus chers que Propryo à 5 lots — §5), pression réglementaire continue (DPE, IRL, 2044), et un produit déjà construit. |
 
 ---
@@ -278,6 +278,31 @@ Exemple au régime de fin 2027 (12 000 visites/mois) : ~480 inscrits/mois → **
 
 ---
 
+## 10 bis. Le levier B2B — l'option agences, datée et chiffrée
+
+Le scénario central est du B2C pur : c'est le plancher démontrable. **Le levier de taille du dossier est le B2B**, traité ici en option réelle — avec des jalons, des critères et un chiffrage — pas en vœu.
+
+**Pourquoi c'est LE levier** :
+- **ARPU ~98 €/mois par cabinet** (2 utilisateurs × 49 €) = **10× l'ARPU B2C** — et le marché pro paie aujourd'hui 80-300 €/mois/utilisateur (Septeo, LOCKimmo, sur devis).
+- **Le socle produit est déjà en prod** : multi-entités avec isolation RLS, candidatures en ligne, signature à distance, documents au gabarit pro — et surtout **le pont existe déjà au backlog : le CRG de gérance** (relevé mensuel pour mandants, mockups faits) — le document exact qu'une agence produit chaque mois.
+- **La tête de pont commerciale aussi** : les agents et vendeurs de biens du canal prescripteurs (§8.5) sont les premiers cabinets à convertir.
+
+**Le chemin en 5 jalons** :
+
+| Quand | Jalon |
+|---|---|
+| S2 2027 | **CRG de gérance en bêta** chez les gérants du réseau — teste la demande sans rien construire de neuf |
+| T4 2027 | **GO/NO-GO B2B**, critères chiffrés : conversion B2C ≥ 3 % confirmée · ≥ 10 agents/vendeurs prescripteurs actifs · ≥ 5 gérants utilisant le CRG bêta |
+| S1 2028 | Module agences **co-construit avec 3-5 cabinets** (mandants, honoraires, multi-utilisateurs agence) |
+| S2 2028 | **10-20 cabinets pilotes payants** à ~49 €/mois/utilisateur |
+| 2029 | Échelle : groupements, réseaux d'indépendants |
+
+**Ce que ça ajoute** (feuille « Option B2B » du classeur, hypothèses modestes : 2 utilisateurs/cabinet, 40 cabinets fin 2029 = **1,25 % de la seule base Septeo ADB**) : **+11,8 K€ d'ARR fin 2028, +47 K€ fin 2029** → trajectoire combinée fin 2029 : **114 K€ (prudent) · 136 K€ (central) · 218 K€ (ambitieux)**, avec un revenu B2B qui se valorise mieux que le B2C à la revente.
+
+**Pourquoi hors scénario central** : rien n'est prouvé avant le go/no-go de T4 2027 — le central reste défendable seul. C'est la construction qu'un lecteur exigeant attend : **le réalisme dans le modèle, le levier documenté et daté à côté.**
+
+---
+
 ## 11. Exécution
 
 ### 11.1 — Calendrier (décisions figées, [MISE-EN-PROD.md](MISE-EN-PROD.md))
@@ -291,9 +316,11 @@ Exemple au régime de fin 2027 (12 000 visites/mois) : ~480 inscrits/mois → **
 | Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page, apport prescripteurs — le scénario se choisit là, pas avant |
 | T4 2026 | **Synchro bancaire — dogfood** : Enable Banking gratuit sur les comptes du fondateur (CM+CA), toute la chaîne validée sur données réelles à 0 € |
 | T1 2027 | **Prescripteurs — cercle 2 Alsace** (~10 démos/mois) · **webinar 2044 de saison fiscale** (mars-mai) · **synchro bancaire ouverte aux clients** (provider retenu sur devis, arrangement agent + DPA — incluse dès Investisseur) |
-| S2 2027 | **Portail locataire (bêta)** — rétention + boucle virale (chaque locataire voit Propryo) |
-| **2028** | **🎯 Attaque du marché des agences immobilières** : module pilote mandants + CRG + honoraires (le CRG de gérance est déjà au backlog produit), **10-20 cabinets pilotes recrutés via les agents déjà prescripteurs** (§8.5 — la tête de pont commerciale existe), pricing cible ~49 €/mois/utilisateur = 2-6× sous Septeo/LOCKimmo. Déclenchement conditionné à la calibration 2027 |
-| 2029 | Échelle agences · ouverture Belgique/Luxembourg si les indicateurs sont verts |
+| S2 2027 | **Portail locataire (bêta)** — rétention + boucle virale · **CRG de gérance en bêta chez les gérants** (le pont vers le B2B, §10 bis) |
+| T4 2027 | **GO/NO-GO B2B** — critères chiffrés du §10 bis |
+| S1 2028 | **Module agences co-construit avec 3-5 cabinets** (mandants, honoraires, multi-utilisateurs agence) |
+| S2 2028 | **10-20 cabinets pilotes payants** ~49 €/mois/utilisateur — recrutés via les agents déjà prescripteurs (§8.5) |
+| 2029 | Échelle agences (groupements, réseaux) · ouverture Belgique/Luxembourg si les indicateurs sont verts |
 
 ### 11.2 — L'équipe : un fondateur outillé
 
@@ -323,7 +350,7 @@ Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept
 
 **Fin 2027** : le cap du vrai démarrage — 76-187 clients selon la conversion réelle, le résultat mensuel devient positif entre août 2027 et janvier 2028, un actif SEO de ~300 pages travaille tout seul — et les prescripteurs en plus, non comptés.
 
-**Fin 2029** : 613-1 572 clients, 67-171 K€ ARR, résultat cumulé +19 à +90 K€ — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
+**Fin 2029** : 613-1 572 clients, 67-171 K€ ARR — **114-218 K€ avec l'option B2B agences activée** (§10 bis) —, résultat cumulé +19 à +90 K€ — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
 
 **Ce qui rend ce plan crédible** : le produit est construit et prouvé ; le canal d'acquisition a une preuve de marché documentée (BailFacile) et un avantage structurel (l'outil EST le produit) ; chaque taux du modèle a une source publiée et **chaque chiffre sort d'un classeur vérifiable, cotisations sociales comprises** ; l'avance de trésorerie maximale est ~12 K€ ; et le scénario **prudent** — celui où tout est au plancher des benchmarks — reste un projet rentable.
 
