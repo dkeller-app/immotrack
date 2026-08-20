@@ -179,7 +179,7 @@ import {
 // Consomme _loyerArrearsPass ; n'ecrit AUCUN rattachement paiement->mois (I6).
 import {
   etatMoisLot, peutQuittancer, moisProposables, moisAQuittancer,
-  retardLot, lignesRelance, niveauRelance,
+  retardLot, lignesRelance, niveauRelance, datePaiementMois, mentionDateRecu,
   moisFrToYm, ymToMoisFr, ymRange
 } from './core/loyers-mois.js';
 
@@ -234,6 +234,43 @@ import {
 // messages d'erreur RPC). Exposé sous window._espacePurge ; l'orchestration IMPURE (modale,
 // export JSON préalable, appel RPC via __immoPurgeEspace) vit inline dans index.html.
 import { confirmNameMatches, purgeUiState, purgeErrorMessage } from './core/espace-purge.js';
+
+// CDC-LOYERS-DESIGN §4 (surfaces 6/7/8) — les dates PROPOSÉES dans les documents viennent
+// des faits (mouvement DG, EDL de sortie), jamais de « aujourd'hui ».
+import { dateVersementDG, dateRestitutionDG, dateEDLSortie, dateLiberation } from './core/dates-defaut.js';
+
+// CDC-LOYERS-DESIGN V6→V12 — l'éditeur de quittance, direction « Le document ».
+// Le module ne dessine rien : il dit ce que le rail des mois doit afficher et ce que
+// l'émission doit avertir. Aucun dû, aucun payé, aucune imputation n'y est recalculé.
+import {
+  MOIS_ETAT, moisRailLot, moisParDefaut, anneeParDefaut, anneesDisponibles,
+  verdictEmission, etiquetteSansPaiement, validerSaisieLibre, lotSuivant, cleMeta,
+  metaApresEmission, metaApresSuppression
+} from './core/quittance-editeur.js';
+
+// CDC-LOYERS-DESIGN V20/V21 — les garde-fous NON BLOQUANTS de la révision IRL.
+// Les textes de loi et de conséquence vivent ici, pas dans l'écran.
+import { GARDE, gardeFouRevision, revisionForcable, libelleForcage } from './core/irl-garde-fou.js';
+window.GARDE_IRL = GARDE;
+window.gardeFouRevision = gardeFouRevision;
+window.revisionForcable = revisionForcable;
+window.libelleForcage = libelleForcage;
+window.MOIS_ETAT = MOIS_ETAT;
+window.moisRailLot = moisRailLot;
+window.moisParDefaut = moisParDefaut;
+window.anneeParDefaut = anneeParDefaut;
+window.anneesDisponibles = anneesDisponibles;
+window.verdictEmission = verdictEmission;
+window.etiquetteSansPaiement = etiquetteSansPaiement;
+window.validerSaisieLibre = validerSaisieLibre;
+window.lotSuivant = lotSuivant;
+window.cleMeta = cleMeta;
+window.metaApresEmission = metaApresEmission;
+window.metaApresSuppression = metaApresSuppression;
+window.dateVersementDG = dateVersementDG;
+window.dateRestitutionDG = dateRestitutionDG;
+window.dateEDLSortie = dateEDLSortie;
+window.dateLiberation = dateLiberation;
 
 // Expose les helpers à window pour compatibilité onclick inline + ev handlers.
 // Ces helpers sont aussi définis inline dans index-test.html actuellement.
@@ -451,6 +488,10 @@ window.moisAQuittancer = moisAQuittancer;
 window.retardLot = retardLot;
 window.lignesRelance = lignesRelance;
 window.niveauRelance = niveauRelance;
+// I-DATE (CDC-LOYERS-DESIGN V5) — LA porte unique de la date de paiement d'un mois.
+// Aucune surface ne recompose cette date ; null = on n'affiche RIEN.
+window.datePaiementMois = datePaiementMois;
+window.mentionDateRecu = mentionDateRecu;
 window.moisFrToYm = moisFrToYm;
 window.ymToMoisFr = ymToMoisFr;
 window.ymRange = ymRange;

@@ -1612,6 +1612,42 @@ a{color:var(--acc);text-decoration:none}
 .compta-row-fac-active:hover{
   transform:scale(1.15);opacity:1;
 }
+/* ══ V13 (CDC-LOYERS-DESIGN) — L'ÉTAT DU QUITTANCEMENT, DOUZE CASES PAR ANNÉE ═══
+   Ce qui remplace la LISTE des quittances de la fiche du bien. Contrainte dure du CDC :
+   compact, très compréhensible, et NE GROSSIT PAS avec l'historique — une bande de taille
+   fixe quel que soit le nombre d'années. Calque de l'écran EDL du logement. */
+.e12{background:var(--sur);border:1px solid var(--bor);border-radius:var(--rl);overflow:hidden}
+.e12-h{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;padding:7px 11px;border-bottom:1px solid var(--bor)}
+.e12-h .t{font-weight:800;font-size:12.5px;color:var(--t1)}
+.e12-h .s{font-size:10.5px;color:var(--t3);margin-left:auto;text-align:right}
+.e12-g{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;padding:9px 11px 6px}
+.e12-c{border:1px solid var(--bor);border-radius:8px;background:var(--sur2);padding:5px 2px 6px;
+  text-align:center;cursor:pointer;min-width:0;font-family:var(--font);transition:all .12s}
+.e12-c:hover{border-color:var(--acc)}
+.e12-c:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.e12-c .m{display:block;font:800 11px var(--font);color:var(--t2);line-height:1.1}
+.e12-c .b{display:block;font-size:9px;color:var(--t3);line-height:1.25;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.e12-done{background:var(--pos-soft);border-color:color-mix(in srgb,var(--pos) 45%,transparent)}
+.e12-done .m,.e12-done .b{color:var(--pos)}
+.e12-ok{background:var(--acc-bg);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.e12-ok .m,.e12-ok .b{color:var(--acc)}
+.e12-no{background:var(--neg-soft);border-color:color-mix(in srgb,var(--neg) 40%,transparent)}
+.e12-no .m,.e12-no .b{color:var(--neg)}
+.e12-fut{opacity:.65}
+.e12-off{opacity:.4;cursor:default}
+/* V9 — le geste forcé se voit : liseré, et le survol dit qui a confirmé et quand. */
+.e12-forcee{box-shadow:inset 0 -3px 0 var(--warn)}
+.e12-l{display:flex;flex-wrap:wrap;gap:9px;padding:0 12px 9px;font-size:10px;color:var(--t3)}
+.e12-l i{display:inline-block;width:12px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;
+  background:var(--sur2);border:1px solid var(--bor)}
+.e12-l i.done{background:var(--pos);border-color:var(--pos)}
+.e12-l i.ok{background:var(--acc);border-color:var(--acc)}
+.e12-l i.no{background:var(--neg);border-color:var(--neg)}
+.e12-l i.fut{opacity:.5}
+@media (max-width:820px){ .e12-g{grid-template-columns:repeat(6,minmax(0,1fr));row-gap:4px} }
+@media (max-width:520px){ .e12-g{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:4px} }
+
 .compta-empty{
   text-align:center;color:var(--t3);font-style:italic;
   padding:14px;background:var(--sur2);border-radius:var(--r);

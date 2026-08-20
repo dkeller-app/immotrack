@@ -220,3 +220,57 @@ describe('audit 17/07 — mineur 2 : « Loyer initial » = première période so
     expect(ev.hc0).toBe(505.15);
   });
 });
+
+describe('I-DATE surface 7 — une restitution de DG n’est datée que par son VIREMENT', () => {
+  // Dépendance du lot 3 : depuis que l’écran permet d’enregistrer une restitution SANS date
+  // (on prévient, on ne bloque pas), le montant seul ne suffit plus à dater la carte. Avant,
+  // elle se datait de `c.fin || c.debut` : la timeline affichait « Dépôt de garantie restitué »
+  // au 1ᵉʳ janvier 2024 — le jour de la SIGNATURE — pour un virement qui n’a pas eu lieu.
+  const bailDG = (extra) => ({ ...{ ref: 'DG-01', debut: '2024-01-01', hc: 800, ch: 100, dg: 800,
+    locataires: [{ nom: 'M. Test' }] }, ...extra });
+  const construire = (b) => construireHistoriqueBail({
+    ref: 'DG-01', bailCourant: b, bauxHistorique: [], bareme: [], irlHistorique: [],
+    bailEvents: [], today: TODAY });
+  const evs = (b) => construire(b).chapitres.flatMap((c) => c.rail)
+    .filter((r) => r.kind === 'evenement').map((r) => r.ev.type);
+  const ev1 = (b, type) => construire(b).chapitres.flatMap((c) => c.rail)
+    .filter((r) => r.kind === 'evenement').map((r) => r.ev).find((e) => e.type === type);
+
+  it('sans date de virement : AUCUNE carte « restitué », et le manque est dit', () => {
+    const t = evs(bailDG({ dgRestitueAt: '', dgRestitueMontant: 800 }));
+    expect(t).not.toContain('dg-restitue');
+    expect(t).toContain('dg-restitue-sans-date');
+  });
+
+  it('la carte sans date ne porte AUCUNE date fabriquée', () => {
+    const ev = ev1(bailDG({ dgRestitueAt: '', dgRestitueMontant: 800 }), 'dg-restitue-sans-date');
+    expect(ev.date).toBeUndefined();
+    expect(ev.montant).toBe(800);
+  });
+
+  it('avec la date du virement : la carte « restitué » revient, à SA date', () => {
+    const ev = ev1(bailDG({ dgRestitueAt: '2026-05-12', dgRestitueMontant: 800 }), 'dg-restitue');
+    expect(ev.date).toBe('2026-05-12');
+    expect(evs(bailDG({ dgRestitueAt: '2026-05-12', dgRestitueMontant: 800 })))
+      .not.toContain('dg-restitue-sans-date');
+  });
+
+  it('aucune restitution du tout : ni l’une ni l’autre', () => {
+    const t = evs(bailDG({}));
+    expect(t).not.toContain('dg-restitue');
+    expect(t).not.toContain('dg-restitue-sans-date');
+  });
+
+  it('le TRI garde une date, mais elle ne doit jamais devenir un affichage', () => {
+    // AUDIT DE RETRAIT (IMPORTANT 1) — `dateTri` vaut toujours quelque chose (au besoin la date
+    // de signature) : c'est ce qui ordonne le rail. L'écran l'affichait dans la gouttière pour
+    // TOUS les événements, ce qui redonnait la date fabriquée que la carte venait de retirer.
+    // La règle testable côté module : l'événement sans date le dit par `ev.date === undefined`,
+    // et `dateTri` ne lui ressemble en rien. L'écran s'appuie là-dessus (`_hlGouttiere`).
+    const r = construire(bailDG({ dgRestitueAt: '', dgRestitueMontant: 800 }));
+    const item = r.chapitres.flatMap((c) => c.rail)
+      .find((x) => x.kind === 'evenement' && x.ev.type === 'dg-restitue-sans-date');
+    expect(item.ev.date).toBeUndefined();
+    expect(item.dateTri).toBe('2024-01-01');      // = la SIGNATURE : à trier, pas à montrer
+  });
+});

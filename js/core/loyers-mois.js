@@ -86,7 +86,14 @@ export function ymRange(startYm, endYm) {
  * LE verdict par mois d'un lot — délègue l'imputation à `_loyerArrearsPass`
  * (carry:true = netting avance↔retard, la politique cible des 5 surfaces).
  *
- * @param {Array<{ym:string, hcDue:number, chDue:number, received:number}>} months
+ * LOT 0 « socle des dates » : si l'appelant fournit `sources` (les mouvements encaissés
+ * qui composent `received`), chaque mois porte en retour ses `paiements` — les versements
+ * RÉELLEMENT imputés à CE mois par la cascade — et `datePaiement`, la date à laquelle il a
+ * été soldé. I-DATE : sans rattachement daté, `datePaiement` vaut `null` et les surfaces
+ * n'affichent RIEN. Aucune date n'est inventée, aucun repli sur « aujourd'hui ».
+ *
+ * @param {Array<{ym:string, hcDue:number, chDue:number, received:number,
+ *                sources?:Array<{date:string, id?:string, montant:number}>}>} months
  *        chronologiques, ÉCHUS (l'appelant borne au mois courant).
  * @param {{graceLast?:boolean}} [opts] graceLast : neutralise le manque NEUF du
  *        dernier mois (tolérance début de mois, `_loyerToleranceActive`). NE JAMAIS
@@ -98,7 +105,7 @@ export function ymRange(startYm, endYm) {
 export function etatMoisLot(months, opts) {
   const ms = (months || []).filter((m) => m && /^\d{4}-\d{2}$/.test(String(m.ym)));
   const pass = _loyerArrearsPass(
-    ms.map((m) => ({ hcDue: m.hcDue, chDue: m.chDue, received: m.received })),
+    ms.map((m) => ({ hcDue: m.hcDue, chDue: m.chDue, received: m.received, sources: m.sources })),
     { carry: true, graceLast: !!(opts && opts.graceLast) }
   );
   const list = ms.map((m, i) => {
@@ -110,6 +117,17 @@ export function etatMoisLot(months, opts) {
     const resteCharge = _r2(r.charge);
     const reste = _r2(resteLoyer + resteCharge);
     const vacance = du <= EPS_CENTIME;
+    const solde = !vacance && reste <= EPS_CENTIME;
+    // I-DATE — les versements RÉELLEMENT imputés à ce mois par la cascade, datés.
+    // Un versement sans date connue (`date:null`) n'entre pas dans `paiements` : il ne
+    // peut rien prouver. `datePaiement` n'existe que si le mois est soldé ET que tout
+    // ce qui l'a soldé est daté — sinon `null`, et l'écran n'affiche rien.
+    const brut = (pass.imputations && pass.imputations[i]) || [];
+    const paiements = brut.filter((p) => p.date).map((p) => ({ date: p.date, id: p.id, montant: p.montant, poste: p.poste }));
+    const totalImpute = _r2(brut.reduce((s, p) => s + p.montant, 0));
+    const totalDate = _r2(paiements.reduce((s, p) => s + p.montant, 0));
+    const complet = totalImpute - totalDate <= EPS_CENTIME;
+    const datesVersements = [...new Set(paiements.map((p) => p.date))].sort();
     return {
       ym: String(m.ym),
       hcDue: _r2(hcDue), chDue: _r2(chDue), du,
@@ -117,9 +135,14 @@ export function etatMoisLot(months, opts) {
       resteLoyer, resteCharge, reste,
       // D6 : soldé = plus AUCUN résidu, au centime. Un mois sans dû (vacance) n'est
       // pas « soldé » : il n'y a rien à quittancer.
-      solde: !vacance && reste <= EPS_CENTIME,
+      solde,
       partiel: !vacance && reste > EPS_CENTIME && reste < du - EPS_CENTIME,
-      vacance
+      vacance,
+      paiements,
+      montantImpute: totalImpute,
+      datesVersements,
+      nbVersements: datesVersements.length,
+      datePaiement: (solde && complet && datesVersements.length) ? datesVersements[datesVersements.length - 1] : null
     };
   });
   const byYm = {};
@@ -134,6 +157,67 @@ export function etatMoisLot(months, opts) {
     nbMoisNonSoldes: nonSoldes.length,
     premierMoisNonSolde: nonSoldes.length ? nonSoldes[0].ym : null
   };
+}
+
+/**
+ * I-DATE (V5, CDC-LOYERS-DESIGN) — LA porte unique de la « date de paiement » d'un mois.
+ * Aucune surface ne recompose cette date : elle la demande ici, et si la réponse est
+ * `null` elle n'affiche RIEN (jamais la date d'émission, jamais `aujourd'hui`).
+ * @param {{byYm:Object}} etat sortie de etatMoisLot
+ * @param {string} ym
+ * @returns {{date:string|null, dates:string[], nb:number, solde:boolean, montant:number}}
+ */
+export function datePaiementMois(etat, ym) {
+  const e = etat && etat.byYm && etat.byYm[String(ym)];
+  if (!e) return { date: null, dates: [], nb: 0, solde: false, montant: 0 };
+  return {
+    date: e.datePaiement || null,
+    dates: e.datesVersements || [],
+    nb: e.nbVersements || 0,
+    solde: !!e.solde,
+    montant: e.montantImpute || 0
+  };
+}
+
+/**
+ * I-DATE, surfaces 1 et 2 du §4 — LA mention « reçu le … » des documents.
+ *
+ * L'article 21 de la loi du 6 juillet 1989 fait de la quittance un REÇU : la date qu'elle
+ * porte engage le bailleur. Elle doit donc être celle du paiement qui a soldé CE mois —
+ * jamais le dernier encaissement du lot, jamais la date d'émission, jamais « aujourd'hui ».
+ * Sans rattachement daté, la phrase se dit SANS date : « déclare avoir reçu du locataire ».
+ *
+ * ⚠️ DEUX documents, DEUX règles (audit 19/08, défaut C3) :
+ *   · une QUITTANCE atteste que le terme est payé EN ENTIER. Elle ne peut porter une date
+ *     que si le mois est réellement soldé (`info.date`). Sur un mois partiellement payé, la
+ *     liste des versements ne prouve rien : le document sortirait « reçu le 14/06 la somme
+ *     de 800 € » alors que 300 € seulement sont arrivés — et le bandeau V7 affiché juste
+ *     au-dessus promet l'inverse. Sans solde : AUCUNE date.
+ *   · un REÇU DE PAIEMENT PARTIEL parle des versements réellement encaissés : là, c'est la
+ *     LISTE qui fait foi, puisque le montant du document est celui de ces versements.
+ *
+ * @param {{date:string|null, dates:string[], nb:number}} info sortie de datePaiementMois
+ * @param {(iso:string)=>string} [fmtDate] formateur JJ/MM/AAAA (identité par défaut)
+ * @param {{partiel?:boolean}} [opts] `partiel` : le document n'atteste qu'un versement partiel
+ * @returns {{avecDate:boolean, mention:string, dateAffichee:string|null}}
+ *          `mention` s'insère après « déclare avoir reçu » : « le 14/06/2026 », ou
+ *          « en 2 versements, le dernier le 19/01/2026 », ou '' (rien).
+ */
+export function mentionDateRecu(info, fmtDate, opts) {
+  const f = (typeof fmtDate === 'function') ? fmtDate : ((x) => String(x));
+  const i = info || {};
+  const partiel = !!(opts && opts.partiel);
+  const dates = Array.isArray(i.dates) ? i.dates : [];
+  // Le repli sur la liste n'est ouvert QUE si le document est un reçu partiel, ou si le mois
+  // est réellement soldé (auquel cas la liste EST la décomposition de ce solde).
+  const utilisables = (partiel || i.date) ? dates : [];
+  if (utilisables.length > 1) {
+    const dernier = f(utilisables[utilisables.length - 1]);
+    return { avecDate: true, mention: ` en ${utilisables.length} versements, le dernier le ${dernier}`, dateAffichee: dernier };
+  }
+  if (utilisables.length === 1) return { avecDate: true, mention: ` le ${f(utilisables[0])}`, dateAffichee: f(utilisables[0]) };
+  if (i.date) return { avecDate: true, mention: ` le ${f(i.date)}`, dateAffichee: f(i.date) };
+  return { avecDate: false, mention: '', dateAffichee: null };
 }
 
 /**
@@ -188,7 +272,7 @@ export function moisAQuittancer(etat, quittancesYm) {
 }
 
 /**
- * D9/D10 — la ligne « Pas à jour » d'un lot : UNE ligne quel que soit le nombre de mois,
+ * D9/D10 — la ligne « Impayés » d'un lot (V14 : ex « Pas à jour ») : UNE ligne quel que soit le nombre de mois,
  * loyer ET charges. `toleranceActive` (règle partagée `_loyerToleranceActive`, jour < 10)
  * neutralise le manque NEUF du mois courant sans masquer les arriérés antérieurs.
  * @returns {{enRetard:boolean, resteLoyer:number, resteCharge:number, reste:number,
