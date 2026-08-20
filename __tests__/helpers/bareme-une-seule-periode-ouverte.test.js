@@ -173,6 +173,13 @@ describe('CORRECTION DE PÉRIODE — la date de fin SAISIE fait foi (3e audit)',
     expect(b.find((x) => x.debut === '2025-01-01').fin).toBe('2025-12-31');
   });
 
+  it('une fin ANTÉRIEURE au début est ignorée, pas écrite (période impossible)', () => {
+    const b = appliquerNouvellePeriode(base(), { ref: 'F', debut: '2025-01-01', fin: '2024-06-30', hc: 715, ch: 100, source: 'manuel' });
+    const corr = b.find((x) => x.debut === '2025-01-01');
+    expect(corr.fin).toBe('2025-12-31');            // repli sur la borne, jamais fin < debut
+    expect(b.every((x) => x.fin == null || x.fin >= x.debut)).toBe(true);
+  });
+
   it('aucune période suivante : une fin explicite reste telle quelle', () => {
     const b = appliquerNouvellePeriode([{ ref: 'F', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail' }],
       { ref: 'F', debut: '2025-01-01', fin: '2025-03-31', hc: 715, ch: 100, source: 'manuel' });

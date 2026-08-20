@@ -200,7 +200,11 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
   // était silencieusement remplacée par la borne — cloturerPeriodeParDebut exige `fin == null`
   // et devenait un no-op, donc 9 mois surfacturés sur le cas mesuré. Une fin explicite plus
   // TARDIVE que la borne reste ramenée à la borne : deux périodes ouvertes restent interdites.
-  const finExplicite = nouvelle.fin != null && _ymd(nouvelle.fin) ? _ymd(nouvelle.fin) : null;
+  let finExplicite = nouvelle.fin != null && _ymd(nouvelle.fin) ? _ymd(nouvelle.fin) : null;
+  // Une fin ANTÉRIEURE au début est un non-sens : on l'ignore plutôt que d'écrire une période
+  // impossible. cloturerPeriodeParDebut porte déjà ce garde ; l'appelant UI aussi — mais
+  // l'invariant doit tenir dans le MODULE, pas reposer sur la discipline de qui l'appelle.
+  if (finExplicite != null && finExplicite < debut) finExplicite = null;
   const fin = finExplicite != null
     ? (borne && finExplicite > borne ? borne : finExplicite)
     : borne;
