@@ -28922,10 +28922,23 @@ function rLoyers() {
   const tuile = (k, ton, cle, valeur, dit) =>
     `<button class="m5t t-${ton}${_lyUI.tuile === k ? ' on' : ''}" onclick="_lyVoir('${k}')" aria-pressed="${_lyUI.tuile === k}">
       <span class="k">${cle}</span><span class="v">${valeur}</span><span class="d">${dit}</span></button>`;
+  // AUDIT (vérification) I-1 — l'écran Loyers regarde les baux EN COURS ; la dette d'un locataire
+  // PARTI vit dans Finances, sur l'exercice. Ce périmètre est antérieur au chantier et n'est pas
+  // touché ici. Mais « tout est payé » en faisait une AFFIRMATION, là où l'écran d'avant se
+  // taisait (« ⏸ Pas à jour 0 ») : sur le jeu réel, la tuile disait 0 € pendant que Finances
+  // comptait 6 737,04 € sur deux baux archivés. Une tuile ne doit pas dire faux sur de l'argent :
+  // elle dit ce qu'elle couvre, et NOMME ce qu'elle ne couvre pas.
+  const partis = etats.filter(e => !e.bail).length;
+  const _ditRetard = retards.length
+    ? `de retard sur ${retards.length} lot${retards.length > 1 ? 's' : ''}`
+    : (partis
+        ? `aucun retard sur les baux en cours — hors ${partis} locataire${partis > 1 ? 's' : ''} parti${partis > 1 ? 's' : ''}`
+        : 'tout est payé');
   html += '<div class="m5tiles">'
-    + tuile('retard', 'neg', 'Impayés', retards.length ? fmt(duRetard) : '0 €',
-        retards.length ? `de retard sur ${retards.length} lot${retards.length > 1 ? 's' : ''}` : 'tout est payé')
-    + tuile('quit', 'acc', 'À remettre', `${demandes.length} quittance${demandes.length > 1 ? 's' : ''}`,
+    + tuile('retard', 'neg', 'Impayés', retards.length ? fmt(duRetard) : '0 €', _ditRetard)
+    // AUDIT (vérification) I-2 — `demandes` compte des LOTS, pas des documents : la liste dessous
+    // propose « Éditer les 47 », « Éditer les 67 »… soit 295 quittances annoncées comme « 8 ».
+    + tuile('quit', 'acc', 'À remettre', `${demandes.length} demande${demandes.length > 1 ? 's' : ''}`,
         demandes.length ? 'des locataires attendent leur document' : 'personne n\'attend')
     + tuile('rev', 'pos', 'À préparer', `${nbRev} révision${nbRev > 1 ? 's' : ''}`, 'effet le 1ᵉʳ du mois — IRL')
     + '</div>';
@@ -29101,7 +29114,7 @@ function _lyLigneRetard(e) {
     ref: e.ref, loc: e.log.locataire, demande: !!e.demande, contexte,
     montant: `<b>${fmt(r.reste)}</b> ${pastille}`,
     actions: `<button class="btn bp bb" onclick="_lyRelance('${_lyQ(e.ref)}')">Relance</button>${btnRecu}
-      <button class="btn bs bb" onclick="_impayesOpenVue()" title="Détail mois par mois">⋯</button>`
+      <button class="btn bs bb" onclick="_impayesOuvrirSur('${_lyQ(e.ref)}')" title="Détail mois par mois">⋯</button>`
   }) };
 }
 
@@ -38845,7 +38858,9 @@ function _histoBailPeriodeHtml(p, ref){
  */
 function _hlGouttiere(r){
   const ev = r && r.ev;
-  if (ev && ev.date === undefined) return '<b>—</b>';
+  // Une date ABSENTE (`undefined`) comme une date VIDE (`''`) : dans les deux cas l'événement
+  // n'en a pas. Ne tester que `undefined` laissait une gouttière vide — muette au lieu d'explicite.
+  if (ev && !ev.date) return '<b>—</b>';
   const d = _hlDateParts(r.dateTri);
   return `<b>${d.j}</b>${d.a}`;
 }
@@ -50108,6 +50123,19 @@ function _suiviDetailHtml(log, s, yr) {
 }
 // SUIVI DES LOYERS (H1) — ex « Impayés actifs », étendu : tous les locataires occupés avec leur
 // échéancier mois par mois (bande 12 mois colorée) + solde courant (retard / avance / à jour).
+/**
+ * Le « ⋯ » d'une ligne d'impayé ouvre le suivi SUR CETTE LIGNE.
+ *
+ * AUDIT (vérification) I-3 — il appelait `_impayesOpenVue()` sans référence : la fenêtre
+ * s'ouvrait sur la liste des 33 locataires, et comme `_suiviOpen` est rémanent elle pouvait
+ * afficher déplié un AUTRE locataire que celui dont on venait de cliquer la ligne. Le `title`
+ * promet « Détail mois par mois » : il parle de CE locataire.
+ */
+function _impayesOuvrirSur(ref) {
+  _suiviOpen = String(ref || '');
+  _suiviMonth = 0;
+  _impayesOpenVue();
+}
 function _impayesOpenVue() {
   const body = el('ov-impayes-vue-body');
   if (!body) return;
