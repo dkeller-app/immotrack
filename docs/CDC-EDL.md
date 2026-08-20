@@ -487,6 +487,65 @@ retour en ligne avec l'EDL dedans.
 
 ---
 
+## 3quater. AMENDEMENT DIDIER du 20/08 — trois retours sur maquette, qui priment
+
+> Retours donnés captures à l'appui après lecture de `edl-terrain.html`. **Ils priment sur les décisions
+> correspondantes ci-dessous** : partout où le CDC les contredit, ce sont ces trois lignes qui font foi.
+
+### A.1 · La barre de pièces défilante est REJETÉE sur téléphone
+> « dans le mockup EDL la side bar n'est pas pratique sur téléphone ! il faut une autre proposition »
+
+Le défaut est structurel, pas cosmétique : à **8 pièces**, la barre de chips oblige à un défilement
+**horizontal** pour atteindre une pièce, les libellés sont tronqués par les bords, et on perd la notion
+de « où j'en suis ». C'est un geste à deux mains, sur un écran qui doit s'utiliser d'une seule.
+**Rappel du §bug de prod** : tout défilement horizontal ou imbriqué de plus est un risque en soi.
+
+**Cible à mockuper (au volume réel, 8 pièces / 110 éléments), recommandation du pilotage :**
+- l'en-tête porte **le nom de la pièce courante + « 3 / 8 »** ; **un appui dessus ouvre la liste
+  complète des pièces** (feuille qui monte du bas, chaque pièce avec son avancement et ses écarts) ;
+- **avancer / reculer se fait par le pied de page**, dans la zone du pouce, jamais par une barre en haut ;
+- **zéro défilement horizontal**, aucune cible sous 44 px.
+Au moins **2 variantes** à présenter à Didier, mesurées. PC et tablette gardent la barre en sommaire d'ancres :
+le rejet ne concerne **que** le téléphone.
+
+### A.2 · AUCUN montant dans l'EDL — l'argent est à part
+> « on ne met pas d'€ dans EDL c'est à part. surtout que dans ton exemple on a des dégradations et tu dis
+> qu'on rend toute la caution ! »
+
+Le bloc « Ce que ça déclenche » affichait **« Dépôt de garantie 1 100,00 € »** à côté de dégradations
+constatées — donc un chiffre qui laisse croire à une restitution intégrale alors que le constat dit
+l'inverse. **Deux fautes en une** : de l'argent dans un document qui n'en porte pas, et un montant
+contredit par le constat au-dessus de lui.
+
+**Décision :**
+- **aucun montant, aucun €, nulle part dans l'EDL** — ni le dépôt de garantie, ni les retenues, ni un
+  quelconque solde. L'EDL **constate**, il ne chiffre pas. Le chiffrage vit dans la restitution du dépôt
+  et le décompte, qui sont d'autres surfaces ;
+- **ce qui reste** : le **délai de restitution (1 ou 2 mois)** avec sa raison (art. 22 loi 89-462), parce
+  que c'est une **échéance**, pas une somme, et qu'elle découle directement du constat. Toujours lu de
+  `_calculerDelaiRestitution` (`index.html:28034`), jamais recalculé ;
+- **la passerelle vers le décompte et la restitution reste** (lot 7) : un lien, pas un chiffre.
+Si un montant devait un jour apparaître, ce serait une décision à reprendre avec Didier, pas un effet de bord.
+
+### A.3 · Pas de « ＋ » pour les observations — le champ est TOUJOURS ouvert
+> « dans EDL il ne faut pas un + pour observations ! ça ajoute plein de clics énervants ! on en met partout
+> des observations ! »
+
+Usage réel mesuré : l'observation n'est **pas** l'exception, c'est le geste courant — sur l'EDL réel,
+l'observation la plus longue fait 277 caractères et il y en a sur une grande partie des éléments saisis.
+Un « ＋ » qui révèle le champ, c'est **un clic par élément**, debout, une main prise.
+
+**Décision : le champ d'observation est visible et éditable d'emblée sur chaque élément.** Une seule
+ligne au repos, qui **grandit à la saisie** (pas de hauteur fixe, pas de modale, pas de bouton pour ouvrir).
+
+**Conséquence assumée sur la compaction** : la « carte repliée à 127 px » de §4 reposait sur la ligne
+« ＋ Observation ／ 📷 Photo ». Elle **tombe** pour l'observation. À la place : champ d'une ligne toujours
+présent, et **la hauteur réelle est à re-mesurer au volume réel** dans les nouvelles maquettes — on ne
+troque pas un clic par élément contre quelques pixels. Le « 📷 Photo », lui, **reste un bouton** :
+prendre une photo est un geste ponctuel, pas une saisie.
+
+---
+
 ## 4. L'ergonomie à une main — décision B.4
 
 **Décision : sur téléphone, une pièce à l'écran à la fois. PC et tablette gardent la vue complète.**
