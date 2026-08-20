@@ -17,8 +17,8 @@
 | **C'est faisable ?** | **C'est fait.** Le produit tourne en production et gère le parc réel de son créateur : 37 lots, 4 bailleurs, 6 immeubles. ~3 000 tests automatisés, données hébergées en UE. Il ne reste sur le chemin du lancement que du non-produit : domaine, statut, CGV, paiement. |
 | **Le plan d'acquisition ?** | **SEO par pages-outils** — le plan Gratuit *fait* les documents (bail, quittance, EDL) que des dizaines de milliers de bailleurs cherchent chaque mois ; le modèle exact qui a construit BailFacile (§8). **+ canal 2 : le réseau de prescripteurs** (CGP, comptables, professionnels de la transaction — §8.5), qui apporte la confiance et le segment SCI. |
 | **Ça se lance quand ?** | Bêta privée septembre, **lancement public 14 octobre 2026**, 45 pages SEO publiées avant le jour J. |
-| **Ça coûte combien ?** | **< 10 K€ la première année.** Aucune levée : bootstrappé, coûts fixes ~600 €/mois. |
-| **Ça rapporte quoi ?** | Scénarios **dérivés du modèle** (§10) à fin 2029 : prudent ~950 clients / ~110 K€ ARR · central ~1 900 / ~215 K€ · ambitieux ~3 200 / ~365 K€. Rentable dans les trois cas ; valorisation potentielle 0,3-1,8 M€ (3-5× ARR, multiples proptech FR). |
+| **Ça coûte combien ?** | ~9,3 K€ de dépenses externes la 1re année ; **avance de trésorerie maximale ~12 K€** (cotisations sociales incluses), remboursée courant 2028. Aucune levée : bootstrappé. |
+| **Ça rapporte quoi ?** | Scénarios **sortis du modèle financier joint** (§10) : **résultat mensuel positif entre avril et juillet 2027 dans les trois scénarios**. Fin 2029 : prudent 710 clients / 75 K€ ARR · central ~950 / ~100 K€ · ambitieux ~1 830 / ~194 K€ — hors apport des prescripteurs (non modélisé). Valorisation indicative 0,23-0,97 M€ (3-5× ARR). |
 | **Pourquoi maintenant ?** | Marché B2C sans leader installé, concurrents passés au **prix par bien** (2 à 4× plus chers que Propryo à 5 lots — §5), pression réglementaire continue (DPE, IRL, 2044), et un produit déjà construit. |
 
 ---
@@ -120,7 +120,14 @@ L'examen honnête du panel retire deux « exclusivités » v1 (la signature incl
 | **Investisseur** | ≤ 5 | Tout Propryo, multi-bailleurs | 9,90 € | 99 € |
 | **Patrimoine** | ≤ 30 | + partage SCI multi-utilisateurs | 19,90 € | 199 € |
 
-Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La frontière est nette : gratuit = documents générés localement (coût de service nul) ; payant = la valeur récurrente. Early bird au lancement : −50 % la 1re année pour les 100 premiers.
+Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La frontière est nette : gratuit = documents générés localement (coût de service nul) ; payant = la valeur récurrente.
+
+**Cogestion (règle figée 19/08)** : **1 co-gestionnaire inclus dans tout plan payant** ; sièges supplémentaires **2,99 €/mois** ; et **gratuit si le co-gestionnaire possède son propre compte payant ≥ Investisseur (9,90 €)** — deux associés abonnés cogèrent sans surcoût, ce qui pousse chaque associé à avoir son compte (boucle virale interne aux SCI).
+
+**Essai et avantages (figés 19/08)** :
+- **Essai 30 jours, toutes fonctions, sans carte bancaire** — 30 jours car le cycle de valeur d'un bailleur est mensuel (loyer → rapprochement → quittance) : un essai de 15 jours ne le couvre pas. À J+30, **retombée automatique sur le plan Gratuit** : aucune donnée perdue, la quittance mensuelle ramène l'utilisateur — une sortie d'essai qu'aucun concurrent n'offre (leurs essais expirent sur un mur payant). Benchmark : un essai complet convertit 8-12 % contre 3-5 % en freemium seul (OpenView/Lenny) — c'est un levier direct vers le scénario central.
+- **Parrainage client** : 1 mois offert au parrain par filleul devenu payant (cumulable), 1 mois au filleul.
+- **Early bird** au lancement : −50 % la 1re année pour les 100 premiers.
 
 ---
 
@@ -134,7 +141,7 @@ Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La fronti
 | Inscrit gratuit → payant | **3 %** | freemium « bon » 3-5 %, médian B2C 2,2 %, top 6-8 % | OpenView/Lenny 2023, RevenueCat 2025 |
 | Activation (inscrit → actif) | 30 % | médiane SaaS ~30-35 % | Userpilot, ProductLed |
 | Churn mensuel | **5 %** | SaaS réel 3,2 %/mois (Recurly 07/2026), B2C ~6,5 % | Recurly, Vitally |
-| ARPU pondéré | **9,50 €/mois** | mix 35 % Essentiel · 45 % Investisseur · 20 % Patrimoine | grille §6 |
+| ARPU catalogue / **effectif** | 9,50 € / **8,85 €/mois** | mix 35/45/20 ; remise annuelle (2 mois offerts) déduite au prorata des 40 % d'abonnés annuels | grille §6 |
 | Marge brute | ~85 % | Stripe ~2 %, hébergement marginal | — |
 | LTV nette | ~160 € | 9,50 × 20 mois × 0,85 | dérivé |
 | CAC paid ads | **120-150 €** | CPC FR ~2 € ÷ 5 % ÷ 3 % (reconstruction) | Talyco/Junto 2025-26 |
@@ -194,9 +201,32 @@ Le SEO apporte le volume ; les prescripteurs apportent **la confiance et le segm
 | **CGP** (conseiller en gestion de patrimoine) | Il vend le projet locatif puis laisse le client seul avec la gestion ; Propryo est le « service après-vente » qui sécurise le projet — un client qui voit son cash-flow réel est un client rassuré, qui réinvestit avec son CGP | Le moteur Finances « en + ou en −, au centime » |
 | **Vendeur de biens / agent immobilier / notaire** | Au closing, le client repart avec son acte — et **Propryo crée le bien depuis l'acte notarié** : le prescripteur offre un démarrage en 5 minutes, un cadeau de clôture qui ne lui coûte rien | L'import d'acte, introuvable ailleurs |
 
-**Mécanique V1 (volontairement simple, zéro développement)** : page `propryo.fr/partenaires` + **code partenaire** (coupon Stripe : 3 mois offerts au filleul) + kit d'une page + démo de 15 minutes + suivi manuel des attributions. Plus tard, si le canal prouve : tableau de bord partenaire et rétrocession (les programmes GLI/MRH/EC identifiés en avril restent l'étage d'après).
+**Mécanique V1 (figée 19/08, volontairement simple)** : page `propryo.fr/partenaires` + **code partenaire** + kit d'une page + démo de 15 minutes + suivi manuel des attributions. **Rémunération à deux volets** :
+- **Commission 30 % de la première année d'abonnement** (CGP, vendeurs de biens, agents — SIREN requis pour facturer) : sur encaissé uniquement, paiement trimestriel sur facture (minimum 50 €), contrat d'apporteur simple **sans mandat** (l'apporteur ne négocie ni ne signe rien au nom de Propryo — contrat type produit par l'avocat des CGU). Coût par client : ~9-60 € selon le plan, soit 3-4× moins que l'acquisition publicitaire.
+- **Avantage 100 % reversé au client** (notaire, expert-comptable, dont la déontologie encadre ou interdit les commissions) : le filleul reçoit 6 mois offerts au lieu de 3.
+Le filleul d'un prescripteur reçoit **3 mois offerts** (remplace l'essai standard). Plus tard, si le canal prouve : tableau de bord partenaire (les programmes GLI/MRH/EC identifiés en avril restent l'étage d'après).
 
-**Réalisme** : cycle long (6-12 mois pour qu'un cabinet prescrive régulièrement), démarrage par le **réseau en propre** (comptable du fondateur, notaires et agences d'Alsace) — objectif année 1 : 20-30 prescripteurs actifs. **Ce canal n'est pas modélisé dans le scénario central** (aucune donnée pour le chiffrer honnêtement) : il fait partie, avec l'accélération contenu, de ce qui sépare le central de l'ambitieux — et c'est le premier candidat de calibration de janvier 2027.
+**L'approche — en 3 cercles, du chaud vers le froid** :
+
+| Cercle | Quand | Qui et comment | Objectif |
+|---|---|---|---|
+| **1 — Réseau en propre** | nov. 2026 | Le comptable du fondateur, les notaires de ses propres actes, les agences avec lesquelles il travaille. RDV de 15 min, démo ciblée sur LE déclencheur du prescripteur (acte / 2044 / Finance), kit + code. Crédibilité maximale : le fondateur utilise l'app sur son propre parc de 37 lots | **10 partenaires signés** |
+| **2 — Local Alsace** | T1 2027 | Cabinets EC orientés immobilier, CGP indépendants (annuaires CNCGP/ANACOFI), agences indépendantes, chambre des notaires. Email personnalisé + LinkedIn + relance, ~10 démos/mois par le fondateur (~2 j/mois). **Webinar de saison « préparez la 2044 de vos clients bailleurs » (mars-mai)** — le moment exact où EC et CGP ont le problème entre les mains | 20-30 prescripteurs actifs |
+| **3 — Échelle** | 2027+ **si le canal prouve** | Groupements CGP, réseaux d'agences, salon Patrimonia (sept.) — jamais avant les chiffres des cercles 1-2 | selon calibration |
+
+**KPI du canal** (mesurés dès janvier 2027) : partenaires *actifs* (≥ 1 filleul/trimestre), filleuls/partenaire, conversion filleul → payant.
+
+**Réalisme** : cycle long (6-12 mois pour qu'un cabinet prescrive régulièrement). **Ce canal n'est pas modélisé dans le scénario central** (aucune donnée pour le chiffrer honnêtement) : il fait partie, avec l'accélération contenu, de ce qui sépare le central de l'ambitieux — et c'est le premier candidat de calibration de janvier 2027.
+
+### 8.6 — Notoriété : fabriquée, pas espérée
+
+Ni pari sur un bouche-à-oreille spontané, ni pub massive (le CAC publicitaire de 120-150 € pour 160 € de valeur-vie l'interdit — §7). Le mix, par ordre d'investissement :
+1. **SEO** — l'investissement principal : un actif qui se cumule (chaque page continue de travailler), contrairement à la pub qui s'évapore.
+2. **Pub d'amorçage seulement** — 600 €/mois pendant 3-6 mois, pour exister pendant que le SEO monte ; maintenue ou coupée à la calibration de janvier 2027.
+3. **Les boucles virales sont dans le produit** — chaque quittance envoyée, chaque signature à distance, chaque candidature en ligne expose un locataire (futur bailleur ou prescripteur d'un bailleur) à Propryo ; le parrainage (1 mois/1 mois) donne au bouche-à-oreille une raison d'accélérer.
+4. **Un coup de lancement gratuit** — Product Hunt, r/vosfinances, presse spécialisée immobilier.
+
+Réalisme Google assumé : la longue traîne peut ranker en < 1 mois, les têtes de requêtes prendront 12-24 mois sur un domaine neuf (Ahrefs, §8.3) — c'est précisément ce trou de 12 mois que couvrent l'amorçage publicitaire, les prescripteurs (indépendants de Google) et les boucles produit.
 
 ---
 
@@ -223,17 +253,22 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 | Vélocité contenu | plan nominal | nominal | ×1,5 + prescripteurs actifs (§8.5) |
 | Churn mensuel | 5 % | 5 % | 4 % |
 
+> **Source : le classeur `propryo-modele-financier.xlsx`** (cohortes mensuelles août 2026 → déc. 2029, toutes hypothèses modifiables). Ces chiffres incluent ce que les versions précédentes oubliaient : **les cotisations de micro-entreprise (21,2 % du CA, à confirmer comptable)** et **la remise annuelle dans l'ARPU** (2 mois offerts × 40 % d'annuels → ARPU effectif 8,85 €).
+
 | Fin de période | Prudent | Central | Ambitieux |
 |---|---|---|---|
-| **2026** (3 mois) | ~25 clients · MRR 240 € | ~40 · 380 € | ~60 · 570 € |
-| **2027** | ~150 · **ARR 17 K€** | ~280 · **32 K€** | ~480 · **55 K€** |
-| **2028** | ~450 · 51 K€ | ~900 · 103 K€ | ~1 600 · 182 K€ |
-| **2029** | ~950 · **108 K€** | ~1 900 · **217 K€** | ~3 200 · **365 K€** |
+| **2026** (3 mois) | 24 clients · ARR 3 K€ | 34 · 4 K€ | 56 · 6 K€ |
+| **2027** | 135 · **ARR 15 K€** | 181 · **20 K€** | 337 · **37 K€** |
+| **2028** | 351 · 38 K€ | 468 · 51 K€ | 893 · 97 K€ |
+| **2029** | 710 · **77 K€** | 947 · **103 K€** | 1 828 · **199 K€** |
 
-- **Break-even opérationnel** (MRR > ~600 € de coûts fixes) : courant 2027 dans les trois scénarios. **Break-even cumulé** (~10 K€ investis récupérés) : fin 2028 prudent · mi-2028 central · fin 2027 ambitieux.
-- **Valorisation indicative fin 2029** (3-5× ARR) : 0,3-0,5 M€ prudent · **0,65-1,1 M€ central** · 1,1-1,8 M€ ambitieux.
-- **Sensibilité** (les vrais leviers) : +1 point de conversion freemium = **+33 % de clients** partout · churn 5 → 3,5 % = +40 % de base à 3 ans · ×2 sur la vélocité contenu ≈ +60-80 % de trafic fin 2027. Les trois leviers sont pilotables (produit, rétention, contenu) — la calibration de janvier 2027 (§11) dira lequel pousser.
-- *La v1 de ce BP affichait 700 clients fin 2027 et 3 200 fin 2029 en « médian » : ces chiffres supposaient 15 % de conversion freemium. Dérivés proprement, ils correspondent à l'actuel scénario **ambitieux**. Le plan reste le même ; la promesse est désormais démontrable.*
+- **Résultat mensuel positif** : juillet 2027 (prudent) · mai 2027 (central) · avril 2027 (ambitieux) — le projet s'autofinance dans les trois cas dès l'été 2027.
+- **Avance de trésorerie maximale : ~12 K€** (point bas −11,6 / −10,9 / −9,8 K€ selon le scénario), remboursée entre janvier et décembre 2028. Aucune levée nécessaire.
+- **Valorisation indicative fin 2029** (3-5× ARR) : 0,23-0,38 M€ prudent · **0,30-0,50 M€ central** · 0,58-0,97 M€ ambitieux.
+- **Sensibilité** (les vrais leviers, pilotables dans le classeur) : +1 point de conversion freemium = **+33 % de clients** partout · churn 5 → 3,5 % = +40 % de base à 3 ans · ×2 sur la vélocité contenu ≈ +60-80 % de trafic fin 2027. La calibration de janvier 2027 (§11) dira lequel pousser.
+- **Bascule société calculée automatiquement** (au franchissement du plafond micro sur 12 mois glissants) : prudent et central **restent en micro-entreprise jusqu'à fin 2029** (le central frôle le plafond — la bascule est pour début 2030) ; l'ambitieux bascule en **mars 2029** (création de société + expert-comptable + prélèvements ~28 % comptés). Hébergement évolutif inclus (base Supabase/Resend + 0,10 €/client/mois) ; revenus de cogestion inclus (règle §6).
+- **Upside non modélisé, volontairement** : les clients apportés par les prescripteurs (§8.5) n'entrent pas dans le funnel modélisé (seules leurs commissions sont provisionnées en charge) — chaque filleul réel s'ajoute à ces chiffres.
+- *Trajectoire de rigueur : la v1 posait 700 clients fin 2027 (conversion 15 %, indéfendable) ; la v2 en dérivait 280 mais oubliait cotisations et remise annuelle ; cette v3 sort du classeur, complet. C'est moins flatteur — et c'est défendable ligne à ligne.*
 
 ---
 
@@ -245,17 +280,18 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 |---|---|
 | Août | Domaine propryo.fr · statut micro-entreprise (comptable) · **volumes Keyword Planner tirés → plan éditorial calibré** |
 | Septembre | Emails (Resend) · site + `app.propryo.fr` · CGU/CGV/RGPD (avocat ~3 K€) · **bêta privée** · production des 45 pages SEO |
-| Octobre | Stripe + quotas de plans branchés · **lancement public 14/10** avec les 45 pages en ligne · early bird |
-| Novembre | **Canal prescripteurs ouvert** : page partenaires + kit + codes Stripe · 10 premiers partenaires du réseau en propre (comptable, notaires, agences d'Alsace) |
+| Octobre | **Chantier PLANS-QUOTAS-ESSAI** (l'app n'a pas encore de notion de plan : matrice de gating Gratuit/payant, essai 30 j, retombée Gratuit, webhooks Stripe, application côté serveur) · **lancement public 14/10** avec les 45 pages en ligne · early bird |
+| Novembre | **Canal prescripteurs — cercle 1** : page partenaires + kit + codes Stripe · 10 partenaires signés dans le réseau en propre (§8.5) |
 | Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page, apport prescripteurs — le scénario se choisit là, pas avant |
+| T1 2027 | **Prescripteurs — cercle 2 Alsace** (~10 démos/mois) · **webinar 2044 de saison fiscale** (mars-mai) pour EC et CGP |
 
 ### 11.2 — L'équipe : un fondateur outillé
 
 Développeur solo **avec une chaîne d'agents IA** (développement, audit systématique par agent indépendant, ~3 000 tests) : capacité d'une petite équipe au coût d'une personne. La même chaîne produit le contenu SEO à ~30 €/page. Ce qui a livré en 4 mois (mai-août) ce que le plan d'avril chiffrait en 2 trimestres.
 
-### 11.3 — Cash an 1 (~9 K€)
+### 11.3 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
 
-Avocat 3 000 · rédacteur SEO 4 mois 1 600 · ads amorçage 1 800 · domaine/infra/outils 650 · comptabilité 600 · logo/finitions 750 · buffer 800. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
+Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · **hébergement évolutif** (Supabase Pro + Resend 45 €/mois + 0,10 €/client/mois) + outils 15 €/mois · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs) — et à la bascule société (automatique dans le modèle) : création ~800 €, expert-comptable ~150 €/mois, prélèvements ~28 % (approximation à affiner comptable). **Avance de trésorerie maximale ~12 K€** (point bas mi-2027), remboursée courant 2028. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
 
 ---
 
@@ -275,11 +311,11 @@ Avocat 3 000 · rédacteur SEO 4 mois 1 600 · ads amorçage 1 800 · domaine/in
 
 ## 13. L'ambition
 
-**Fin 2027** : le projet vit de lui-même (break-even opérationnel dans les trois scénarios), 150-480 clients selon la conversion réelle, un actif SEO de ~300 pages qui travaille tout seul.
+**Fin 2027** : le projet s'autofinance (résultat mensuel positif entre avril et juillet 2027 dans les trois scénarios), 135-337 clients selon la conversion réelle, un actif SEO de ~300 pages qui travaille tout seul — et les prescripteurs en plus, non comptés.
 
-**Fin 2029** : 950-3 200 clients, 108-365 K€ ARR, EBITDA ~35 % en régime — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
+**Fin 2029** : 710-1 830 clients, 75-194 K€ ARR, résultat cumulé +37 à +142 K€ — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
 
-**Ce qui rend ce plan crédible** : le produit est construit et prouvé ; le canal d'acquisition a une preuve de marché documentée (BailFacile) et un avantage structurel (l'outil EST le produit) ; chaque taux du modèle a une source publiée ; le cash engagé est < 10 K€ ; et le scénario **prudent** — celui où tout est au plancher des benchmarks — reste un projet rentable.
+**Ce qui rend ce plan crédible** : le produit est construit et prouvé ; le canal d'acquisition a une preuve de marché documentée (BailFacile) et un avantage structurel (l'outil EST le produit) ; chaque taux du modèle a une source publiée et **chaque chiffre sort d'un classeur vérifiable, cotisations sociales comprises** ; l'avance de trésorerie maximale est ~12 K€ ; et le scénario **prudent** — celui où tout est au plancher des benchmarks — reste un projet rentable.
 
 ---
 
