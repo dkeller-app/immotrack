@@ -204,7 +204,27 @@ Le SEO apporte le volume ; les prescripteurs apportent **la confiance et le segm
 - **Avantage 100 % reversé au client** (notaire, expert-comptable, dont la déontologie encadre ou interdit les commissions) : le filleul reçoit 6 mois offerts au lieu de 3.
 Le filleul d'un prescripteur reçoit **3 mois offerts** (remplace l'essai standard). Plus tard, si le canal prouve : tableau de bord partenaire (les programmes GLI/MRH/EC identifiés en avril restent l'étage d'après).
 
-**Réalisme** : cycle long (6-12 mois pour qu'un cabinet prescrive régulièrement), démarrage par le **réseau en propre** (comptable du fondateur, notaires et agences d'Alsace) — objectif année 1 : 20-30 prescripteurs actifs. **Ce canal n'est pas modélisé dans le scénario central** (aucune donnée pour le chiffrer honnêtement) : il fait partie, avec l'accélération contenu, de ce qui sépare le central de l'ambitieux — et c'est le premier candidat de calibration de janvier 2027.
+**L'approche — en 3 cercles, du chaud vers le froid** :
+
+| Cercle | Quand | Qui et comment | Objectif |
+|---|---|---|---|
+| **1 — Réseau en propre** | nov. 2026 | Le comptable du fondateur, les notaires de ses propres actes, les agences avec lesquelles il travaille. RDV de 15 min, démo ciblée sur LE déclencheur du prescripteur (acte / 2044 / Finance), kit + code. Crédibilité maximale : le fondateur utilise l'app sur son propre parc de 37 lots | **10 partenaires signés** |
+| **2 — Local Alsace** | T1 2027 | Cabinets EC orientés immobilier, CGP indépendants (annuaires CNCGP/ANACOFI), agences indépendantes, chambre des notaires. Email personnalisé + LinkedIn + relance, ~10 démos/mois par le fondateur (~2 j/mois). **Webinar de saison « préparez la 2044 de vos clients bailleurs » (mars-mai)** — le moment exact où EC et CGP ont le problème entre les mains | 20-30 prescripteurs actifs |
+| **3 — Échelle** | 2027+ **si le canal prouve** | Groupements CGP, réseaux d'agences, salon Patrimonia (sept.) — jamais avant les chiffres des cercles 1-2 | selon calibration |
+
+**KPI du canal** (mesurés dès janvier 2027) : partenaires *actifs* (≥ 1 filleul/trimestre), filleuls/partenaire, conversion filleul → payant.
+
+**Réalisme** : cycle long (6-12 mois pour qu'un cabinet prescrive régulièrement). **Ce canal n'est pas modélisé dans le scénario central** (aucune donnée pour le chiffrer honnêtement) : il fait partie, avec l'accélération contenu, de ce qui sépare le central de l'ambitieux — et c'est le premier candidat de calibration de janvier 2027.
+
+### 8.6 — Notoriété : fabriquée, pas espérée
+
+Ni pari sur un bouche-à-oreille spontané, ni pub massive (le CAC publicitaire de 120-150 € pour 160 € de valeur-vie l'interdit — §7). Le mix, par ordre d'investissement :
+1. **SEO** — l'investissement principal : un actif qui se cumule (chaque page continue de travailler), contrairement à la pub qui s'évapore.
+2. **Pub d'amorçage seulement** — 600 €/mois pendant 3-6 mois, pour exister pendant que le SEO monte ; maintenue ou coupée à la calibration de janvier 2027.
+3. **Les boucles virales sont dans le produit** — chaque quittance envoyée, chaque signature à distance, chaque candidature en ligne expose un locataire (futur bailleur ou prescripteur d'un bailleur) à Propryo ; le parrainage (1 mois/1 mois) donne au bouche-à-oreille une raison d'accélérer.
+4. **Un coup de lancement gratuit** — Product Hunt, r/vosfinances, presse spécialisée immobilier.
+
+Réalisme Google assumé : la longue traîne peut ranker en < 1 mois, les têtes de requêtes prendront 12-24 mois sur un domaine neuf (Ahrefs, §8.3) — c'est précisément ce trou de 12 mois que couvrent l'amorçage publicitaire, les prescripteurs (indépendants de Google) et les boucles produit.
 
 ---
 
@@ -254,8 +274,9 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 | Août | Domaine propryo.fr · statut micro-entreprise (comptable) · **volumes Keyword Planner tirés → plan éditorial calibré** |
 | Septembre | Emails (Resend) · site + `app.propryo.fr` · CGU/CGV/RGPD (avocat ~3 K€) · **bêta privée** · production des 45 pages SEO |
 | Octobre | **Chantier PLANS-QUOTAS-ESSAI** (l'app n'a pas encore de notion de plan : matrice de gating Gratuit/payant, essai 30 j, retombée Gratuit, webhooks Stripe, application côté serveur) · **lancement public 14/10** avec les 45 pages en ligne · early bird |
-| Novembre | **Canal prescripteurs ouvert** : page partenaires + kit + codes Stripe · 10 premiers partenaires du réseau en propre (comptable, notaires, agences d'Alsace) |
+| Novembre | **Canal prescripteurs — cercle 1** : page partenaires + kit + codes Stripe · 10 partenaires signés dans le réseau en propre (§8.5) |
 | Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page, apport prescripteurs — le scénario se choisit là, pas avant |
+| T1 2027 | **Prescripteurs — cercle 2 Alsace** (~10 démos/mois) · **webinar 2044 de saison fiscale** (mars-mai) pour EC et CGP |
 
 ### 11.2 — L'équipe : un fondateur outillé
 
