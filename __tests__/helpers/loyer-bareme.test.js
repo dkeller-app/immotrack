@@ -206,15 +206,20 @@ describe('synchroniserPeriodeBail — saveBail (création OU édition) : la pér
     expect(out[0].hc).toBe(650);
   });
 
-  it('RE-BAIL : une période ouverte laissée par un AUTRE bail ne sert pas de période au nouveau', () => {
+  it('RE-BAIL : une période laissée ouverte par un AUTRE bail est CLÔTURÉE, pas doublée', () => {
     // bailDebut différent → ce n'est pas la période de ce bail ; on en crée une plutôt que de
-    // repeindre celle du locataire précédent avec le loyer du nouveau.
+    // repeindre celle du locataire précédent avec le loyer du nouveau. Mais on la FERME d'abord :
+    // la première version de ce test se contentait de compter deux périodes et laissait donc
+    // passer DEUX périodes ouvertes — l'état qui repeint le passé (cf.
+    // __tests__/helpers/bareme-une-seule-periode-ouverte.test.js).
     const bareme = [
       { ref: 'F-001', debut: '2022-01-01', fin: null, hc: 650, ch: 90, source: 'irl', bailDebut: '2021-01-01' }
     ];
     const out = synchroniserPeriodeBail(bareme, { ref: 'F-001', debut: '2026-07-01', hc: 800, ch: 120 });
     expect(out.length).toBe(2);
     expect(out[0].hc).toBe(650);
+    expect(out[0].fin).toBe('2026-06-30');
+    expect(out.filter((x) => x.fin == null)).toHaveLength(1);
     expect(out[1]).toMatchObject({ debut: '2026-07-01', fin: null, hc: 800, ch: 120, source: 'bail' });
   });
 

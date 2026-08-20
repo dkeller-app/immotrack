@@ -25,6 +25,8 @@
  * _import/repro-audit-suivi-loyers.mjs, encodés en comportement ATTENDU).
  */
 
+import { premierMontantSaisi } from './loyer-bareme.js';
+
 const _r2 = (n) => Math.round(n * 100) / 100;
 const _isAlive = (o) => !!o && !o._deleted;
 // Ref TOLÉRANTE (trim + minuscule), même politique que _loyerHCAtDate/_findBailByRefTolerant :
@@ -74,6 +76,22 @@ function _periodeAt(periods, iso) {
  */
 export function periodeEnVigueurA(bareme, ref, iso) {
   return _periodeAt(_baremeOfLot(bareme, ref), String(iso == null ? '' : iso).slice(0, 10));
+}
+
+/**
+ * Provision de charges à inscrire sur la période d'une RÉVISION de loyer (IRL ou batch), quand
+ * la révision ne porte que le loyer HC. Chaîne des sources, dans cet ordre :
+ *   1. la période EN VIGUEUR au barème à la date d'effet — c'est la provision réellement due,
+ *      et la seule que met à jour une correction manuelle datée (_histoSaveCorrPeriode n'écrit
+ *      QUE dans le barème : reprendre bail.ch ici annulerait silencieusement la correction) ;
+ *   2. le bail, puis le lot, pour un barème lacunaire (lot non migré) ;
+ *   3. 0 en dernier recours seulement — personne ne sait, et c'est dit.
+ * Un champ VIDE n'est pas un zéro (montantSaisi) ; un 0 réellement saisi, lui, vaut 0.
+ */
+export function provisionPourRevision(bareme, ref, dateEffetIso, bailCh, logCh) {
+  const p = periodeEnVigueurA(bareme, ref, dateEffetIso);
+  const n = premierMontantSaisi(p && p.ch, bailCh, logCh);
+  return n != null ? n : 0;
 }
 
 /**

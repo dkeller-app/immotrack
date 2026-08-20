@@ -40,10 +40,13 @@ export function _premierDuMoisSuivant(iso) {
  * « Montant réellement saisi » — CDC Finances §M-1 bis : l'app ne devine rien. Un champ VIDE
  * n'est pas un zéro, et un zéro doit être une SAISIE EXPLICITE.
  *
- * Ce qui se passait sans cette distinction (mesuré en prod le 2026-08-20) : un import de
- * fichier de référence dont la colonne « charges » est vide pose bail.ch = '' ; `''` passe le
- * test `!= null` puis `Number('') || 0` vaut 0 — la provision du barème tombait à 0 € pour
- * tous les mois suivants, à la première révision IRL comme au premier enregistrement du bail.
+ * Ce qui se passait sans cette distinction (mesuré le 2026-08-20) : `''` passe le test
+ * `!= null` puis `Number('') || 0` vaut 0 — la provision du barème tombait à 0 € pour tous les
+ * mois suivants, à la première révision IRL comme au premier enregistrement du bail.
+ * Le producteur de cet état est openAnnonce (index.html) : il prenait une RÉFÉRENCE VIVANTE
+ * sur DB.baux[ref] et y écrivait `bail.ch = log.chargesRef || log.ch || ''` — ouvrir la modale
+ * « Annonce » modifiait donc le bail en base. (Le fichier de référence importé, lui, écrit
+ * `parseFloat(...)||0`, donc un 0 : il ne produit pas de chaîne vide.)
  *
  * @param {*} v valeur brute (champ de formulaire, cellule importée, valeur stockée)
  * @returns {number|null} le nombre saisi, ou null si rien ne l'a été
@@ -130,12 +133,22 @@ export function periodeInitialeBail(bail) {
  * Période vivante OUVERTE (fin==null) du lot, la plus tardive, filtrée par `ok(p)` (ref tolérante).
  * Base commune des trois sélecteurs du module — une seule boucle, un seul comportement.
  */
-function _openPeriodIdxWhere(periods, ref, ok) {
+/** Indices de TOUTES les périodes vivantes ouvertes (fin==null) du lot (ref tolérante). */
+function _openPeriodIdxs(periods, ref) {
   const want = _nr(ref);
-  let idx = -1, best = '';
+  const out = [];
   for (let i = 0; i < periods.length; i++) {
     const p = periods[i];
     if (!p || p._deleted || _nr(p.ref) !== want || p.fin != null) continue;
+    out.push(i);
+  }
+  return out;
+}
+
+function _openPeriodIdxWhere(periods, ref, ok) {
+  let idx = -1, best = '';
+  for (const i of _openPeriodIdxs(periods, ref)) {
+    const p = periods[i];
     if (ok && !ok(p)) continue;
     const d = _ymd(p.debut);
     if (d >= best) { best = d; idx = i; }
@@ -193,9 +206,10 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
  * le moindre changement financier (un numéro de téléphone) la ramenait au tarif du bail :
  *     AVANT  2024-01-01→2026-08-31 700+100 · 2026-09-01→ouverte 730+100 [irl]
  *     APRÈS  2024-01-01→2026-08-31 700+100 · 2026-09-01→ouverte 700+100 [irl]
- * La révision disparaissait du barème et de la timeline. Elle revenait seule au démarrage suivant
- * (pendingApply), mais entre-temps l'écran mentait et une quittance émise dans cette fenêtre
- * partait au mauvais tarif.
+ * La révision disparaissait du barème et de la timeline — DÉFINITIVEMENT :
+ * _applyPendingIRLRevisions (index.html) ne réécrit jamais le barème, il ne touche que log.hc,
+ * DB.baux[ref].hc et ses drapeaux. Contrairement à ce qui avait été supposé au cadrage, rien ne
+ * la remettait au démarrage suivant. Toute quittance émise ensuite partait au mauvais tarif.
  *
  * Aucune horloge n'entre dans la décision : le résultat d'un enregistrement ne dépend pas de
  * l'heure à laquelle on enregistre (et reste testable sans figer la date du jour).
@@ -226,12 +240,33 @@ export function synchroniserPeriodeBail(periods, bail) {
     arr[idx] = { ...cur, hc, ch };
     return arr;
   }
-  // Pas de période de bail ouverte : si une période ouverte appartient quand même à CE bail
-  // (révision IRL programmée ou en vigueur, correction manuelle datée), elle porte le tarif
-  // courant du lot — on la laisse. Sans ce garde-fou on lui repeindrait le loyer du formulaire.
-  if (_openPeriodIdxWhere(arr, bail.ref, (p) => _ymd(p.bailDebut) === _ymd(bail.debut)) >= 0) return arr;
-  const p = periodeInitialeBail(bail);
-  if (p) arr.push(p);
+  // Pas de période de bail ouverte.
+  //
+  // RÈGLE ABSOLUE ICI : ne jamais laisser DEUX périodes ouvertes sur un lot. _periodeAt()
+  // retient la plus tardive dont le début est passé — une seconde période ouverte commençant
+  // AVANT elle REPEINT donc tout le passé au tarif du bail courant, ce qu'interdit
+  // l'invariant I-1. Mesuré (audit du 2026-08-20, sur les modules réels) : barème
+  // 2024-01-01→2026-08-31 700+100 puis 2026-09-01 ouverte 730+100 [irl] ; corriger la DATE DE
+  // DÉBUT du bail (2024-01-01 → 2024-01-15) — qui n'est pas un terme financier, donc aucune
+  // popup — poussait une seconde période ouverte : juin 2025 passait de 800 € à 830 €, puis à
+  // 1050 € après le re-bail suivant. Trois ans de l'ancien locataire au loyer du nouveau.
+  const ouvertes = _openPeriodIdxs(arr, bail.ref);
+  if (!ouvertes.length) {
+    const p = periodeInitialeBail(bail);
+    if (p) arr.push(p);
+    return arr;
+  }
+  // Toutes les périodes ouvertes commencent AVANT ce bail (barème mal refermé au bail
+  // précédent) : on les clôture à la veille et on crée la période du bail. Une seule ouverte.
+  const veilleDebut = _veille(_ymd(bail.debut));
+  if (ouvertes.every((i) => _ymd(arr[i].debut) <= veilleDebut)) {
+    ouvertes.forEach((i) => { arr[i] = { ...arr[i], fin: veilleDebut }; });
+    const p = periodeInitialeBail(bail);
+    if (p) arr.push(p);
+    return arr;
+  }
+  // Sinon une période ouverte couvre déjà ce bail (révision IRL programmée, correction datée) :
+  // elle porte le tarif à venir. On n'y touche pas, et on n'en crée surtout pas une seconde.
   return arr;
 }
 

@@ -101,7 +101,7 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
@@ -394,6 +394,7 @@ window.duMoisFromRaw = duMoisFromRaw;
 window.bailsFromRaw = bailsFromRaw;
 window._baremeOfLot = (ref) => _baremeOfLot(window.DB?.loyerBareme || [], ref);
 window._loyerPeriodeEnVigueurA = periodeEnVigueurA;
+window._loyerProvisionPourRevision = provisionPourRevision;
 window._debutSuivi = _debutSuivi;
 window._computeLoyerNetting = _computeLoyerNetting;
 window._baremeComputeDateEffetIRL = computeDateEffetIRL;

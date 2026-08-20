@@ -1,9 +1,13 @@
 // LOT 3 du chantier ÉCRITURES DESTRUCTRICES — « une provision vidée écrit 0 € dans le barème ».
 //
 // MESURÉ dans le navigateur sur origin/main (v15.541), lot MUL-002 :
-//   1. import d'un fichier de référence dont la colonne « charges » est VIDE
-//      → DB.baux['MUL-002'].ch === ''  (chaîne vide, pas 0), log.ch === '' ;
+//   1. un bail dont la provision vaut '' (chaîne vide) et log.ch === '' ;
 //      → le barème garde sa période 2022-04-01 544 + 136.
+//      PROVENANCE de cet état (rectifiée par l'audit) : ce n'est PAS l'import du fichier de
+//      référence — celui-ci écrit `parseFloat(...)||0`, donc un 0. C'est openAnnonce
+//      (index.html) qui prenait une RÉFÉRENCE VIVANTE sur DB.baux[ref] et y écrivait
+//      `bail.ch = log.chargesRef || log.ch || ''` : ouvrir la modale « Annonce » modifiait le
+//      bail en base. Corrigé dans le même chantier (travail sur une copie).
 //   2. première révision IRL (620 € au 01/09/2026)
 //      → 2022-04-01 544+136 (close) · 2026-09-01 620 + 0  ← LA PROVISION A DISPARU
 //   3. et sans même une révision : ouvrir ce bail puis Enregistrer, sans rien toucher
@@ -19,7 +23,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { montantSaisi, premierMontantSaisi, synchroniserPeriodeBail } from '../../js/core/loyer-bareme.js';
-import { periodeEnVigueurA } from '../../js/core/loyer-du-mois.js';
+import { periodeEnVigueurA, provisionPourRevision } from '../../js/core/loyer-du-mois.js';
 
 describe('montantSaisi — « rien de saisi » ≠ « zéro »', () => {
   it('rend null quand rien n\'a été saisi', () => {
@@ -80,7 +84,7 @@ describe('synchroniserPeriodeBail — une provision non saisie n\'écrase plus c
     { ref: 'MUL-005', debut: '2023-09-01', fin: null, hc: 655, ch: 95, source: 'bail', bailDebut: '2023-09-01' }
   ]);
 
-  it('CAS VÉCU : bail dont la provision est VIDE (import) → le barème garde 95, pas 0', () => {
+  it('CAS VÉCU : bail dont la provision est VIDE → le barème garde 95, pas 0', () => {
     const out = synchroniserPeriodeBail(periodeConnue(), { ref: 'MUL-005', debut: '2023-09-01', hc: 655, ch: '' });
     expect(out[0].ch).toBe(95);
     expect(out[0].hc).toBe(655);
@@ -92,7 +96,7 @@ describe('synchroniserPeriodeBail — une provision non saisie n\'écrase plus c
   });
 
   it('même règle sur le LOYER : un hc non saisi ne met pas le loyer à 0', () => {
-    // un import à colonne « loyer » vide mettait le loyer du lot à 0 € pour tous les mois suivants.
+    // même producteur, même dégât : le loyer du lot passait à 0 € pour tous les mois suivants.
     const out = synchroniserPeriodeBail(periodeConnue(), { ref: 'MUL-005', debut: '2023-09-01', hc: '', ch: 95 });
     expect(out[0].hc).toBe(655);
     expect(out[0].ch).toBe(95);
@@ -118,29 +122,38 @@ describe('synchroniserPeriodeBail — une provision non saisie n\'écrase plus c
   });
 });
 
-describe('la chaîne complète d\'une révision IRL (ce que _baremeRecordRevision compose)', () => {
-  // bail → lot → période en vigueur au barème → 0. C'est la composition câblée dans index.html ;
-  // on la vérifie ici sur les pièces pures, avec l'état exactement mesuré sur MUL-002.
+describe('provisionPourRevision — la chaîne réellement appelée par _baremeRecordRevision', () => {
+  // La première version de ce bloc RECOPIAIT la composition dans le test : inverser deux
+  // sources dans index.html l'aurait laissé vert. On appelle maintenant la fonction exportée,
+  // celle que le monolithe invoque (window._loyerProvisionPourRevision).
   const bareme = [{ ref: 'MUL-002', debut: '2022-04-01', fin: null, hc: 544, ch: 136, source: 'bail' }];
-  const provisionPour = (bailCh, logCh, dateEffet) => {
-    const p = periodeEnVigueurA(bareme, 'MUL-002', dateEffet);
-    const n = premierMontantSaisi(bailCh, logCh, p && p.ch);
-    return n != null ? n : 0;
-  };
+  const pour = (bailCh, logCh, dateEffet) => provisionPourRevision(bareme, 'MUL-002', dateEffet, bailCh, logCh);
 
   it('CAS VÉCU : bail.ch === \'\' et log.ch === \'\' → la révision reprend 136, plus 0', () => {
-    expect(provisionPour('', '', '2026-09-01')).toBe(136);
+    expect(pour('', '', '2026-09-01')).toBe(136);
   });
-  it('le bail sait → le bail gagne', () => {
-    expect(provisionPour(150, '', '2026-09-01')).toBe(150);
+  it('LE BARÈME EN VIGUEUR PASSE EN TÊTE : une correction manuelle datée n\'est pas annulée', () => {
+    // _histoSaveCorrPeriode (index.html) n'écrit QUE dans le barème ; bail.ch reste sur l'ancienne
+    // valeur. Reprendre bail.ch ici annulerait la correction à la révision suivante.
+    expect(pour(136, 136, '2026-09-01')).toBe(136);
+    const corrige = [{ ref: 'MUL-002', debut: '2022-04-01', fin: null, hc: 544, ch: 110, source: 'manuel' }];
+    expect(provisionPourRevision(corrige, 'MUL-002', '2026-09-01', 136, 136)).toBe(110);
   });
-  it('le bail ne sait pas mais le lot sait → le lot gagne', () => {
-    expect(provisionPour('', 120, '2026-09-01')).toBe(120);
+  it('barème lacunaire (lot non migré) → repli sur le bail, puis sur le lot', () => {
+    expect(provisionPourRevision([], 'MUL-002', '2026-09-01', 150, 120)).toBe(150);
+    expect(provisionPourRevision([], 'MUL-002', '2026-09-01', '', 120)).toBe(120);
   });
-  it('un 0 saisi sur le bail reste 0', () => {
-    expect(provisionPour(0, 120, '2026-09-01')).toBe(0);
+  it('un 0 réellement saisi au barème reste 0', () => {
+    const zero = [{ ref: 'MUL-002', debut: '2022-04-01', fin: null, hc: 544, ch: 0, source: 'manuel' }];
+    expect(provisionPourRevision(zero, 'MUL-002', '2026-09-01', 136, 136)).toBe(0);
   });
-  it('personne ne sait (aucune période antérieure) → 0, plancher assumé', () => {
-    expect(provisionPour('', '', '2020-01-01')).toBe(0);
+  it('personne ne sait (aucune période antérieure, rien sur le bail ni le lot) → 0 assumé', () => {
+    expect(pour('', '', '2020-01-01')).toBe(0);
+  });
+  it('PAS DE CONTAMINATION entre locataires : un trou avant la date d\'effet ne remonte rien', () => {
+    const avecTrou = [
+      { ref: 'MUL-002', debut: '2020-01-01', fin: '2021-12-31', hc: 400, ch: 200, source: 'bail' }
+    ];
+    expect(provisionPourRevision(avecTrou, 'MUL-002', '2026-09-01', '', '')).toBe(0);
   });
 });

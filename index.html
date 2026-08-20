@@ -15446,6 +15446,12 @@ window._mvTab = 'all';
 
 // v14.19 — état temporaire de la PJ pendant l'édition d'un mouvement
 let _mvDocPending = null;
+// Chantier ÉCRITURES DESTRUCTRICES (audit) — « l'utilisateur a RETIRÉ la pièce jointe » est un
+// GESTE, pas une absence. _mvDocPending vaut null aussi bien après un clic sur « Supprimer »
+// qu'avant la fin du chargement asynchrone du binaire (IndexedDB / Storage), ou quand le binaire
+// est introuvable (2e appareil, après cache-purge). Confondre les deux déliait la PJ à chaque
+// édition dans ces cas-là. Ce drapeau ne se lève QUE sur le geste.
+let _mvDocCleared = false;
 
 // v14.99 Sprint 5A — BUG-PJ-LOCALSTORAGE : PJ migrées en IndexedDB + Drive.
 // Source de vérité métadonnées : DB.documents[] (collection plate, déjà sync Drive bidir v14.35).
@@ -15480,6 +15486,7 @@ function _mvDocLoad(input) {
 
 function _mvDocClear() {
   _mvDocPending = null;
+  _mvDocCleared = true;   // geste explicite de retrait — cf. saveMv
   const inp = el('mv-doc-file'); if(inp) inp.value = '';
   _mvDocSyncUI();
 }
@@ -15853,6 +15860,7 @@ function openNewMv() {
   el('mv-fac').value = '';
   // Reset PJ
   _mvDocPending = null;
+  _mvDocCleared = false;
   _mvDocSyncUI();
   // Fill cat — picker catégorie (champ caché mv-cat + bouton-déclencheur rendu dans mv-cat-host)
   el('mv-cat').value = '';
@@ -16376,6 +16384,7 @@ function openEditMv(id) {
   // Nouvelle voie : m.pjId → DB.documents → IDB (binaire lazy). Legacy : m.pj.dataB64 direct.
   (async () => {
     _mvDocPending = null;
+    _mvDocCleared = false;
     const pj = _mvPjResolve(m);
     if (pj) {
       if (pj._legacy) {
@@ -16629,9 +16638,13 @@ async function saveMv() {
     if(i>=0) {
       // FAMILLE « écritures destructrices » — le mouvement est RECONSTRUIT depuis le formulaire
       // puis remplace l'ancien : tout champ sans input (tags d'import bancaire, _espaceId,
-      // tombstones, champs ajoutés ailleurs) disparaissait à chaque édition. Le bloc pièce
-      // jointe ci-dessus est SEUL décideur de pj / pjId — on ne le contredit pas.
-      _preserverSaufChampsPilotes(m, DB.mouvements[i], ['pj', 'pjId']);
+      // tombstones, champs ajoutés ailleurs) disparaissait à chaque édition.
+      // pj / pjId : le lien vers la pièce jointe se PRÉSERVE comme le reste. Il ne se retire que
+      // sur le geste explicite « Supprimer » (_mvDocCleared) — sinon un enregistrement fait avant
+      // la fin du chargement asynchrone du binaire, ou sur un appareil où il est absent, déliait
+      // la PJ en silence. Quand le bloc ci-dessus a créé un nouveau document, `m.pjId` est présent
+      // et gagne de toute façon (la préservation ne touche pas une clé déjà là).
+      _preserverSaufChampsPilotes(m, DB.mouvements[i], _mvDocCleared ? ['pj', 'pjId'] : []);
       _auditLog('update', 'mouvement', m.id, m.lib||m.fac||String(m.id), DB.mouvements[i], m);
       DB.mouvements[i]=m;
     }
@@ -20756,10 +20769,13 @@ function saveBail() {
   // la popup de validation qui affiche « X → 0 » avant d'écrire quoi que ce soit.
   // Sans effet sur les lecteurs (tous font `Number(x) || 0`) ni sur le cloud (store-mapping
   // `num('')` rend NULL, cas déjà prévu).
-  if (typeof window !== 'undefined' && typeof window._montantSaisi === 'function'
-      && DB.baux[ref] && window._montantSaisi(v('b-ch')) == null
-      && window._montantSaisi(DB.baux[ref].ch) == null) {
-    bail.ch = DB.baux[ref].ch;
+  // Étendu à hc après audit : ne protéger que ch laissait bail.hc = 0 face à un barème resté à
+  // 655 — et _applyPendingIRLRevisions refuse d'appliquer une révision quand log.hc ≠ ancienHC.
+  // La révision programmée cessait donc de s'appliquer, sans autre trace qu'un warn console.
+  if (typeof window !== 'undefined' && typeof window._montantSaisi === 'function' && DB.baux[ref]) {
+    const _pb = DB.baux[ref];
+    if (window._montantSaisi(v('b-ch')) == null && window._montantSaisi(_pb.ch) == null) bail.ch = _pb.ch;
+    if (window._montantSaisi(v('b-hc')) == null && window._montantSaisi(_pb.hc) == null) bail.hc = _pb.hc;
   }
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
   DB.baux[ref] = bail;
@@ -25552,12 +25568,14 @@ function _baremeRecordRevision(log, ref, newHC, dateEffetIso, opts) {
   // Maintenant : chaîne des sources (bail → lot → période EN VIGUEUR au barème), et 0 seulement
   // si personne ne sait. Un 0 réellement saisi reste un 0 (montantSaisi le distingue de '').
   // Le résolveur du barème est celui de duMois() — aucun moteur concurrent.
-  const _pvIso = (typeof window !== 'undefined' && typeof window._loyerPeriodeEnVigueurA === 'function')
-    ? window._loyerPeriodeEnVigueurA(DB.loyerBareme || [], ref, dateEffetIso) : null;
-  const _chSaisi = (typeof window !== 'undefined' && typeof window._premierMontantSaisi === 'function')
-    ? window._premierMontantSaisi(DB.baux[ref] && DB.baux[ref].ch, log && log.ch, _pvIso && _pvIso.ch)
+  // La chaîne des sources est une FONCTION PURE testée (js/core/loyer-du-mois.js) : période EN
+  // VIGUEUR au barème → bail → lot → 0. Le barème passe en tête (audit) parce que la correction
+  // manuelle d'une période (_histoSaveCorrPeriode) n'écrit QUE dans le barème : reprendre bail.ch
+  // ici annulerait silencieusement la correction à la révision suivante.
+  const ch = (typeof window !== 'undefined' && typeof window._loyerProvisionPourRevision === 'function')
+    ? window._loyerProvisionPourRevision(DB.loyerBareme || [], ref, dateEffetIso,
+        DB.baux[ref] && DB.baux[ref].ch, log && log.ch)
     : ((DB.baux[ref] && DB.baux[ref].ch != null) ? DB.baux[ref].ch : (log ? log.ch : 0));
-  const ch = _chSaisi != null ? _chSaisi : 0;
   const bailDebut = (DB.baux[ref] && DB.baux[ref].debut) || (log && log.debut) || dateEffetIso;
   if (typeof window !== 'undefined' && typeof window._baremeAppliquerNouvellePeriode === 'function') {
     DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme || [], {
@@ -46016,7 +46034,14 @@ function openAnnonce(ref) {
   if (!window.AnnonceGenerator) { showToast('Module annonce non chargé', 'err'); return; }
   const ent = (DB.entites || []).find(e => e && e.nom === log.entity);
   const imm = ent && Array.isArray(ent.immeubles) ? ent.immeubles.find(i => i && i.nom === log.imm) : null;
-  const bail = (DB.baux || {})[ref] || {};
+  // FAMILLE « écritures destructrices » (audit) — ces trois lignes travaillaient sur une RÉFÉRENCE
+  // VIVANTE de DB.baux[ref] : ouvrir la modale « Annonce » MODIFIAIT le bail en base. Deux dégâts
+  // mesurés, tous deux silencieux, sur un bail dont la provision vaut 0 (`!bail.ch` est vrai pour
+  // 0) : soit bail.ch prenait log.chargesRef — un montant que le locataire ne doit pas, reporté
+  // ensuite au barème au prochain enregistrement, sans popup puisque le formulaire affiche déjà
+  // cette valeur ; soit bail.ch devenait '' et la première révision IRL inscrivait 0 € de charges.
+  // L'annonce est un écran de LECTURE : elle travaille sur une copie.
+  const bail = Object.assign({}, (DB.baux || {})[ref] || {});
   // Si pas de bail actif : le loyer THÉORIQUE (v15.249 B5 / D-B9) alimente l'annonce, sinon legacy log.hc.
   if (!bail.hc) bail.hc = log.loyerHcRef || log.hc || '';
   if (!bail.ch) bail.ch = log.chargesRef || log.ch || '';
@@ -55628,7 +55653,14 @@ function validateImportRef() {
     // que juste au-dessus entités / immeubles / logements sont fusionnés (Object.assign). Sur un
     // lot déjà géré, ré-importer le fichier de référence effaçait le dossier de départ, la
     // restitution du DG et les signatures. Les colonnes importées gagnent, le reste survit.
-    _preserverChampsExistants(bail, DB.baux[ref]);
+    // Variante GATÉE (audit) : un bail SUPPRIMÉ laisse un tombstone { ref, _deleted:true, … } en
+    // place. Préserver depuis lui ferait naître le bail importé DÉJÀ SUPPRIMÉ — invisible partout
+    // (_isAlive), alors que le toast annonce « 1 ajout » et que le logement, lui, est mis à jour.
+    // _preserverBailExistant refuse un tombstone comme source : l'import recrée bien un bail vivant.
+    _preserverBailExistant(bail, DB.baux[ref], false);
+    // Et l'import doit dater sa propre écriture : sans _stamp, le bail hérite du _modifiedAt de
+    // celui qu'il remplace et une copie distante plus ancienne peut le réécraser au merge.
+    if (typeof _stamp === 'function') _stamp(bail);
     DB.baux[ref]=bail; added++;
     if(log){
       const locs=bail.locataires||[];

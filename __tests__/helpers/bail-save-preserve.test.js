@@ -129,6 +129,19 @@ describe('LOT 1 — saveBail ne détruit plus le dossier de départ ni la restit
     expect(reconstruit.depart).toBeUndefined();
   });
 
+  it('IMPORT sur une réf dont le bail a été SUPPRIMÉ : le bail importé naît VIVANT', () => {
+    // validateImportRef utilise la même variante gatée. Sans elle, le tombstone laissé par
+    // terminerBail / saveBailClore ({ ref, _deleted:true, … }) était recopié sur le bail importé :
+    // il naissait DÉJÀ SUPPRIMÉ, invisible partout (_isAlive), pendant que le toast annonçait
+    // « 1 ajout » et que le logement, lui, était bien mis à jour depuis ce bail fantôme.
+    const tombstone = { ref: 'FER-001', _deleted: true, _deletedAt: '2026-02-01', _archivedAt: '2026-02-01' };
+    const importe = { hc: 560, ch: 80, debut: '2026-07-01', locataires: [{ nom: 'Fric Marc' }] };
+    _preserverBailExistant(importe, tombstone, false);
+    expect(importe._deleted).toBeUndefined();
+    expect(importe._archivedAt).toBeUndefined();
+    expect(importe.hc).toBe(560);
+  });
+
   it('ENTRÉES DÉGRADÉES : aucun crash, la cible est rendue telle quelle', () => {
     const r = { a: 1 };
     expect(_preserverBailExistant(r, null, false)).toBe(r);
