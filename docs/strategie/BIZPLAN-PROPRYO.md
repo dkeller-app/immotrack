@@ -15,7 +15,7 @@
 | Question | Réponse |
 |---|---|
 | **C'est faisable ?** | **C'est fait.** Le produit tourne en production et gère le parc réel de son créateur : 37 lots, 4 bailleurs, 6 immeubles. ~3 000 tests automatisés, données hébergées en UE. Il ne reste sur le chemin du lancement que du non-produit : domaine, statut, CGV, paiement. |
-| **Le plan d'acquisition ?** | **SEO par pages-outils** — le plan Gratuit *fait* les documents (bail, quittance, EDL) que des dizaines de milliers de bailleurs cherchent chaque mois. C'est le modèle exact qui a construit BailFacile (~1 400 pages → ~110-220 k visites/mois, organique 1er canal — §8). |
+| **Le plan d'acquisition ?** | **SEO par pages-outils** — le plan Gratuit *fait* les documents (bail, quittance, EDL) que des dizaines de milliers de bailleurs cherchent chaque mois ; le modèle exact qui a construit BailFacile (§8). **+ canal 2 : le réseau de prescripteurs** (CGP, comptables, professionnels de la transaction — §8.5), qui apporte la confiance et le segment SCI. |
 | **Ça se lance quand ?** | Bêta privée septembre, **lancement public 14 octobre 2026**, 45 pages SEO publiées avant le jour J. |
 | **Ça coûte combien ?** | **< 10 K€ la première année.** Aucune levée : bootstrappé, coûts fixes ~600 €/mois. |
 | **Ça rapporte quoi ?** | Scénarios **dérivés du modèle** (§10) à fin 2029 : prudent ~950 clients / ~110 K€ ARR · central ~1 900 / ~215 K€ · ambitieux ~3 200 / ~365 K€. Rentable dans les trois cas ; valorisation potentielle 0,3-1,8 M€ (3-5× ARR, multiples proptech FR). |
@@ -184,6 +184,20 @@ Calibrage : BailFacile ≈ 80-160 visites/page/mois (domaine âgé, autorité) ;
 
 **Risques du canal, nommés** : (a) **AI Overviews** — Ahrefs (02/2026) mesure −58 % de CTR en position 1 quand un encart IA est présent ; mitigation : les pages-**outils** résistent (Google ne génère pas un bail signé conforme), la longue traîne est moins exposée ; (b) dépendance Google — mitigation : le produit lui-même est viral (chaque signature à distance et chaque candidature met un locataire devant une page Propryo), plus newsletter et marque ; (c) **les volumes de recherche exacts ne sont pas publiés** — action immédiate : les tirer de Google Keyword Planner (gratuit) pour calibrer le plan éditorial page par page avant septembre.
 
+### 8.5 — Canal 2 : le réseau de prescripteurs (CGP, comptables, professionnels de la transaction)
+
+Le SEO apporte le volume ; les prescripteurs apportent **la confiance et le segment SCI** (l'ARPU le plus élevé de la grille). Trois familles, chacune avec une raison *propre* de prescrire — pas une commission plaquée :
+
+| Prescripteur | Pourquoi il prescrit | Le déclencheur produit |
+|---|---|---|
+| **Expert-comptable / comptable** | Ses clients bailleurs arrivent avec des relevés en vrac ; Propryo importe le relevé (OFX/Excel), catégorise selon des règles validées et prépare la 2044 → dossier propre, moins d'heures ingrates | L'aide 2044 et l'import bancaire, déjà en prod |
+| **CGP** (conseiller en gestion de patrimoine) | Il vend le projet locatif puis laisse le client seul avec la gestion ; Propryo est le « service après-vente » qui sécurise le projet — un client qui voit son cash-flow réel est un client rassuré, qui réinvestit avec son CGP | Le moteur Finances « en + ou en −, au centime » |
+| **Vendeur de biens / agent immobilier / notaire** | Au closing, le client repart avec son acte — et **Propryo crée le bien depuis l'acte notarié** : le prescripteur offre un démarrage en 5 minutes, un cadeau de clôture qui ne lui coûte rien | L'import d'acte, introuvable ailleurs |
+
+**Mécanique V1 (volontairement simple, zéro développement)** : page `propryo.fr/partenaires` + **code partenaire** (coupon Stripe : 3 mois offerts au filleul) + kit d'une page + démo de 15 minutes + suivi manuel des attributions. Plus tard, si le canal prouve : tableau de bord partenaire et rétrocession (les programmes GLI/MRH/EC identifiés en avril restent l'étage d'après).
+
+**Réalisme** : cycle long (6-12 mois pour qu'un cabinet prescrive régulièrement), démarrage par le **réseau en propre** (comptable du fondateur, notaires et agences d'Alsace) — objectif année 1 : 20-30 prescripteurs actifs. **Ce canal n'est pas modélisé dans le scénario central** (aucune donnée pour le chiffrer honnêtement) : il fait partie, avec l'accélération contenu, de ce qui sépare le central de l'ambitieux — et c'est le premier candidat de calibration de janvier 2027.
+
 ---
 
 ## 9. Le funnel dérivé
@@ -206,7 +220,7 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 | Hypothèses | Prudent | Central | Ambitieux |
 |---|---|---|---|
 | Conversion inscrit → payant | 3 % | 4 % | 5 % |
-| Vélocité contenu | plan nominal | nominal | ×1,5 + partenariats |
+| Vélocité contenu | plan nominal | nominal | ×1,5 + prescripteurs actifs (§8.5) |
 | Churn mensuel | 5 % | 5 % | 4 % |
 
 | Fin de période | Prudent | Central | Ambitieux |
@@ -232,7 +246,8 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 | Août | Domaine propryo.fr · statut micro-entreprise (comptable) · **volumes Keyword Planner tirés → plan éditorial calibré** |
 | Septembre | Emails (Resend) · site + `app.propryo.fr` · CGU/CGV/RGPD (avocat ~3 K€) · **bêta privée** · production des 45 pages SEO |
 | Octobre | Stripe + quotas de plans branchés · **lancement public 14/10** avec les 45 pages en ligne · early bird |
-| Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page — le scénario se choisit là, pas avant |
+| Novembre | **Canal prescripteurs ouvert** : page partenaires + kit + codes Stripe · 10 premiers partenaires du réseau en propre (comptable, notaires, agences d'Alsace) |
+| Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page, apport prescripteurs — le scénario se choisit là, pas avant |
 
 ### 11.2 — L'équipe : un fondateur outillé
 
