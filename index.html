@@ -30669,26 +30669,20 @@ function _idbKey(){return'ph_'+Date.now()+'_'+Math.random().toString(36).slice(2
 // driveFileId est connu (photo uploadée depuis un autre device), télécharge
 // depuis Drive et met en cache local. Permet aux photos faites sur PC d'être
 // visibles sur tél après pull.
-async function _edlPreloadPhotos(edlRec){
-  // Collecte tous les objets photo (avec idbKey + driveFileId potentiel)
-  const allPhotos = [];
-  (edlRec.pieces||[]).forEach(p=>(p.elements||[]).forEach(x=>{
-    (x.photosE||[]).forEach(ph=>{if(ph.idbKey)allPhotos.push(ph);});
-    (x.photosS||[]).forEach(ph=>{if(ph.idbKey)allPhotos.push(ph);});
-  }));
-  (edlRec.cles||[]).forEach(c=>{
-    (c.photos||[]).forEach(ph=>{if(ph.idbKey)allPhotos.push(ph);});
-    (c.photosS||[]).forEach(ph=>{if(ph.idbKey)allPhotos.push(ph);});
-  });
-  ['elec','gaz','eauC','eauF','elecS','gazS','eauCS','eauFS'].forEach(k=>{
-    ((edlRec.compteursPhotos||{})[k]||[]).forEach(ph=>{if(ph.idbKey)allPhotos.push(ph);});
-  });
-  // v15.205 BAIL-TYPES option A : photos d'inventaire mobilier (par élément, entrée + sortie)
-  const _mobEls = (edlRec.mobilier && Array.isArray(edlRec.mobilier.elements)) ? edlRec.mobilier.elements : [];
-  _mobEls.forEach(m => {
-    (m.photosE || []).forEach(ph => { if (ph && ph.idbKey) allPhotos.push(ph); });
-    (m.photosS || []).forEach(ph => { if (ph && ph.idbKey) allPhotos.push(ph); });
-  });
+async function _edlPreloadPhotos(edlRec, opts){
+  // EDL TERRAIN lot 0 (CDC docs/CDC-EDL.md §3bis) — la collecte des photos vit
+  // désormais dans le module testé js/core/edl-photos.js : source unique, plus
+  // de collecteur recopié ici (règle DRY du projet).
+  // `opts.keys` restreint le chargement à des vignettes précises (hydratation à
+  // la demande). SANS `opts`, on charge tout : c'est le chemin PDF, qui a besoin
+  // des N binaires — et lui seul. L'ouverture d'un EDL passe par
+  // _edlArmLazyPhotos (invariants 22 et 34i).
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP) { console.error('[edlPreloadPhotos] module js/core/edl-photos.js absent — aucune photo préchargée'); return; }
+  const _tous = _EP.collectEdlPhotos(edlRec);
+  const allPhotos = (opts && opts.keys)
+    ? _EP.photosToHydrate({ photos: _tous, visibleKeys: opts.keys, cache: {} })
+    : _tous;
   // Étape 1 : tenter de charger depuis IDB en parallèle (rapide)
   await Promise.all(allPhotos.map(ph =>
     _idbGet(ph.idbKey).then(d => { if (d) _photoCache[ph.idbKey] = d; }).catch(() => {})
@@ -30724,6 +30718,98 @@ async function _edlPreloadPhotos(edlRec){
     im.src = src;
   })));
 }
+/* ── EDL TERRAIN lot 0 — vignettes hydratées À LA DEMANDE ────────────────────
+   Avant : ouvrir un EDL appelait _edlPreloadPhotos, qui montait TOUTES les
+   photos en base64 dans _photoCache (98 photos de l'EDL F3 réel ≈ 60 Mo de
+   chaînes JS). iOS décharge l'onglet sous pression mémoire → rechargement →
+   retour sur l'Accueil → visite perdue : c'est le facteur aggravant du §3bis
+   du CDC, celui qui frappe SANS aucun geste de l'utilisateur.
+   Invariants 22 et 34i : on ne monte que les vignettes visibles.
+   Le « quoi charger » est dans js/core/edl-photos.js (module testé) ; ici, le
+   « comment » : IntersectionObserver + IDB + repli cloud, inchangé par ailleurs. */
+let _edlLazyIndex = {};      // idbKey → objet photo (pour retrouver son cloudKey)
+let _edlThumbObserver = null;
+
+/* Indexe les photos d'un EDL sans en charger AUCUNE. Fusionne : _photoCache
+   n'est volontairement pas vidé entre deux EDL (cf. v14.44 Bug 11), l'index le
+   suit. Il ne contient que des métadonnées (quelques octets par photo). */
+function _edlArmLazyPhotos(edlRec){
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP) { console.error('[edlArmLazyPhotos] module js/core/edl-photos.js absent'); return; }
+  Object.assign(_edlLazyIndex, _EP.photoIndexByKey(_EP.collectEdlPhotos(edlRec)));
+}
+
+/* Hydrate UNE vignette : mémoire → IndexedDB → cloud (photo prise sur un autre
+   appareil). Aucune photo n'est jamais supprimée par ce chemin. */
+async function _edlHydrateThumb(img){
+  if (!img || img.dataset.phLoading === '1') return;
+  const k = img.getAttribute('data-ph');
+  if (!k) return;
+  img.dataset.phLoading = '1';
+  try {
+    let src = _photoCache[k];
+    if (!src) {
+      src = await _idbGet(k).catch(() => null);
+      if (src) _photoCache[k] = src;
+    }
+    if (!src && typeof window.__immoCloudFileUrl === 'function') {
+      const meta = _edlLazyIndex[k] || {};
+      src = await _downloadPhotoFromDrive(null, k, meta.cloudKey).catch(() => null);
+      if (src) { _photoCache[k] = src; try { await _idbPut(k, src); } catch(e) {} }
+    }
+    if (src && img.getAttribute('data-ph') === k) img.src = src;
+  } finally { img.dataset.phLoading = ''; }
+}
+
+/* Hydrate tout de suite ce qui est DÉJÀ à l'écran, sans attendre la première
+   notification de l'IntersectionObserver (elle n'arrive pas quand l'onglet est
+   masqué, et un rendu déclenché en arrière-plan laisserait des cases vides).
+   La bande visible est calculée par le module testé (keysInViewband). */
+function _edlHydrateVisibleNow(imgs){
+  const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
+  if (!_EP) return;
+  const vus = [];
+  const parKey = {};
+  imgs.forEach(im => {
+    const k = im.getAttribute('data-ph');
+    if (!k || _photoCache[k] || parKey[k]) return;
+    const r = im.getBoundingClientRect();
+    parKey[k] = im;
+    vus.push({ idbKey: k, top: r.top, bottom: r.bottom });
+  });
+  if (!vus.length) return;
+  _EP.keysInViewband(vus, { viewportHeight: window.innerHeight || 0, margin: 300 })
+     .forEach(k => { if (parKey[k]) _edlHydrateThumb(parKey[k]); });
+}
+
+/* Arme l'observation sur les vignettes encore vides de la modale EDL.
+   Appelé à la fin de chaque rendu qui produit des vignettes. */
+function _edlObserveThumbs(){
+  const root = el('ov-edl');
+  if (!root) return;
+  const imgs = root.querySelectorAll('img.edl-thumb[data-ph]');
+  if (!imgs.length) return;
+  _edlHydrateVisibleNow(imgs);
+  if (typeof IntersectionObserver !== 'function') {
+    imgs.forEach(im => { if (!_photoCache[im.getAttribute('data-ph')]) _edlHydrateThumb(im); });
+    return;
+  }
+  if (!_edlThumbObserver) {
+    _edlThumbObserver = new IntersectionObserver(ents => {
+      ents.forEach(en => {
+        if (!en.isIntersecting) return;
+        _edlThumbObserver.unobserve(en.target);
+        _edlHydrateThumb(en.target);
+      });
+    }, { rootMargin: '300px 0px' });
+  }
+  imgs.forEach(im => { if (!_photoCache[im.getAttribute('data-ph')]) _edlThumbObserver.observe(im); });
+}
+
+/* Pixel transparent : une vignette pas encore hydratée reste une case vide
+   bordée (style .edl-thumb), jamais une icône d'image cassée. */
+const _EDL_PH_VIDE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 // Migration photo ancienne (champ .data) → IDB ; retourne photo sans .data
 async function _migratePhoto(ph){
   if(!ph.data)return ph;
@@ -31079,8 +31165,9 @@ async function openEditEDL(id) {
     if(idx>=0){DB.edl[idx].pieces=JSON.parse(JSON.stringify(_edlP));DB.edl[idx].cles=clesMig;}
     saveDB();
   }
-  // Précharger depuis IDB (pièces + clés + compteurs E et S)
-  await _edlPreloadPhotos(migrated?{pieces:_edlP,cles:clesMig,compteursPhotos:e.compteursPhotos}:e);
+  // EDL TERRAIN lot 0 — on INDEXE les photos, on n'en charge aucune : les
+  // vignettes s'hydratent quand elles arrivent à l'écran (invariants 22 / 34i).
+  _edlArmLazyPhotos(migrated?{pieces:_edlP,cles:clesMig,compteursPhotos:e.compteursPhotos}:e);
   _edlFill({...e, cles:clesMig});
   _edlLoadCptPhotos(e.compteursPhotos);
   _edlRenderAll(e.signatures);
@@ -31326,7 +31413,7 @@ function _edlMobRender() {
   list.innerHTML = _edlMobElements.map((m, idx) => {
     const _ph = (arr, side) => (arr || []).map((ph, phi) =>
       '<div style="position:relative;display:inline-block">'
-      + '<img src="' + escHtml(_photoCache[ph.idbKey] || '') + '" alt="" class="edl-thumb" onclick="edlMobViewPhoto(' + idx + ',\'' + side + '\',' + phi + ')">'
+      + '<img src="' + escHtml(_photoCache[ph.idbKey] || _EDL_PH_VIDE) + '" data-ph="' + escHtml(ph.idbKey || '') + '" alt="" class="edl-thumb" onclick="edlMobViewPhoto(' + idx + ',\'' + side + '\',' + phi + ')">'
       + '<button type="button" onclick="edlMobDelPhoto(' + idx + ',\'' + side + '\',' + phi + ')" style="position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:11px;line-height:1;padding:0" title="Supprimer">✕</button>'
       + '</div>'
     ).join('');
@@ -31374,6 +31461,7 @@ function _edlMobRender() {
       +   '</div>'
       + '</div>';
   }).join('');
+  _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
 }
 
 function edlMobAddElement() {
@@ -31527,8 +31615,9 @@ async function edlLoadRef(type) {
   }
   if(!confirm2(confirmMsg))return;
 
-  // Pré-charger les photos IDB de l'EDL source dans le cache
-  await _edlPreloadPhotos(src);
+  // EDL TERRAIN lot 0 — indexation seule : les photos reprises portent les
+  // mêmes idbKey, elles s'hydratent à l'affichage (invariants 22 / 34i).
+  _edlArmLazyPhotos(src);
 
   // Copie des pièces (v14.38 : in-place pour préserver la référence JS — cf _edlResetGlobalState)
   _edlP.length = 0;
@@ -31676,6 +31765,7 @@ function _edlRenderPieces() {
     EDL_ETATS.map(et=>{const c=EDL_COLORS[et];return `<span style="padding:2px 8px;border-radius:10px;border:1px solid ${c};color:${c};font-weight:700">${EDL_ABBREV[et]}</span><span style="color:var(--t2)"> ${EDL_DESC[et]}</span>`;}).join('<span style="color:var(--bor)"> │ </span>')+
   `</div>`;
   wrap.innerHTML=legend+_edlP.map((p,pi)=>_edlPieceHTML(p,pi)).join('');
+  _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
 }
 
 function _edlBtns(pi,ei,field,cur) {
@@ -31694,7 +31784,7 @@ function _edlPhotoCell(pi,ei,side) {
       ?`<span style="position:absolute;bottom:0;left:0;right:0;background:${ph._source==='Entrée'?'rgba(56,139,253,.85)':'rgba(240,136,62,.85)'};color:#fff;font-size:8px;text-align:center;padding:0 1px;border-radius:0 0 3px 3px">${ph._source}</span>`
       :'';
     return `<div style="position:relative;display:inline-block;margin:1px;vertical-align:top">
-      <img src="${_photoCache[ph.idbKey]||ph.data||''}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
+      <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
       ${srcBadge}
       <button onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" style="position:absolute;top:-5px;right:-5px;background:var(--red);color:white;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;padding:0;line-height:15px;text-align:center">✕</button>
     </div>`;
@@ -32813,7 +32903,7 @@ function _edlRedrawCles() {
     const arr=side==='E'?_edlCles[i].photos:_edlCles[i].photosS;
     return `<div style="text-align:center;padding:2px">
       ${arr.map((ph,phi)=>`<div style="position:relative;display:inline-block;margin:1px">
-        <img src="${_photoCache[ph.idbKey]||ph.data||''}" class="edl-thumb" onclick="edlCleViewPhoto(${i},${phi},'${side}')" title="${escHtml(ph.name||'')}">
+        <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCleViewPhoto(${i},${phi},'${side}')" title="${escHtml(ph.name||'')}">
         <button onclick="edlCleDelPhoto(${i},${phi},'${side}')" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:13px;height:13px;font-size:8px;cursor:pointer;padding:0;line-height:13px;text-align:center">✕</button>
       </div>`).join('')}
       <button onclick="edlCleAddPhoto(${i},'${side}')" style="background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:10px;padding:1px 5px;display:block;margin:2px auto">📷</button>
@@ -32831,6 +32921,7 @@ function _edlRedrawCles() {
     <td data-label="Commentaires"><input class="inp" style="width:100%" value="${escHtml(c.obs)}" placeholder="Commentaires" onchange="_edlCles[${i}].obs=this.value"></td>
     <td><button onclick="edlRemoveCle(${i})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:15px">✕</button></td>
   </tr>`).join('');
+  _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
 }
 function edlAddCle() { _edlCles.push({type:'',nb:'',nbS:'',obs:'',photos:[],photosS:[]}); _edlRedrawCles(); }
 function edlRemoveCle(i) { _edlCles.splice(i,1); _edlRedrawCles(); }
@@ -33073,10 +33164,11 @@ function _edlCptRenderThumbs(key){
   const wrap=el('edl-cpt-'+key+'-thumbs');if(!wrap)return;
   wrap.innerHTML=(_edlCptPhotos[key]||[]).map((ph,phi)=>
     `<div style="position:relative;display:inline-block">
-      <img src="${_photoCache[ph.idbKey]||ph.data||''}" class="edl-thumb" onclick="edlCptViewPhoto('${key}',${phi})" title="${escHtml(ph.name||'')}">
+      <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlCptViewPhoto('${key}',${phi})" title="${escHtml(ph.name||'')}">
       <button onclick="edlCptDelPhoto('${key}',${phi})" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border:none;border-radius:50%;width:13px;height:13px;font-size:8px;cursor:pointer;padding:0;line-height:13px;text-align:center">✕</button>
     </div>`
   ).join('');
+  _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
 }
 // v15.08 Sprint 9 EQUIP-CONTROLES-PERIODIQUES Phase 4 — DAAF EDL handlers
 //

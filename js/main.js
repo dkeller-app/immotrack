@@ -144,6 +144,10 @@ import { migrerNumLotVersLot } from './core/biens-migration.js';
 // BIENS etapes 5/6 — liste des pieces (kit derive de EDL_TPL/EDL_EXTRA, clauses de bail).
 import * as BiensPieces from './core/biens-pieces.js';
 
+// EDL TERRAIN lot 0 — quelles photos monter en memoire (CDC docs/CDC-EDL.md §3bis,
+// invariants 22 et 34i : ouvrir un EDL ne charge plus les 98 binaires d'un coup).
+import * as EdlPhotos from './core/edl-photos.js';
+
 // v15.80 EMAIL-SMTP-CONNECT - envoi direct via Gmail API
 import {
   _base64UrlEncode, _emailEncodeMimeHeader, _emailMakeBoundary,
@@ -569,6 +573,8 @@ window.choisirCouverture = choisirCouverture;
 window._biensMigration = { numLotVersLot: migrerNumLotVersLot };
 // BIENS — liste des pieces + clauses generees (designation des pieces, parties communes).
 window.BiensPieces = BiensPieces;
+// EDL TERRAIN lot 0 — collecte des photos d'un EDL + selection « a la demande ».
+window.EdlPhotos = EdlPhotos;
 
 // Marqueur pour les tests d'intégration
 window.__IMMOTRACK_MODULE_BOOTSTRAP__ = {
