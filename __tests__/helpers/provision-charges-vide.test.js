@@ -150,6 +150,16 @@ describe('provisionPourRevision — la chaîne réellement appelée par _baremeR
   it('personne ne sait (aucune période antérieure, rien sur le bail ni le lot) → 0 assumé', () => {
     expect(pour('', '', '2020-01-01')).toBe(0);
   });
+  it('BARÈME LEGACY (période sans bailDebut) : la borne ne s’applique pas', () => {
+    // Les barèmes antérieurs au champ bailDebut sont précisément ceux qui ont le plus besoin du
+    // correctif « la période en vigueur d'abord » : les rejeter faute d'étiquette le leur retirerait.
+    const legacy = [
+      { ref: 'L', debut: '2022-04-01', fin: null, hc: 544, ch: 136, source: 'bail' }
+    ];
+    expect(provisionPourRevision(legacy, 'L', '2026-09-01', '', '', '2022-04-01')).toBe(136);
+    expect(provisionPourRevision(legacy, 'L', '2026-09-01', 150, 150, '2027-01-01')).toBe(136);
+  });
+
   it('BORNE bailDebut : la période ouverte du locataire PRÉCÉDENT ne dicte pas la provision', () => {
     // barème mal refermé : la période de l'ancien bail court toujours à la date d'effet. Sans
     // borne, elle gagnait sur le bail courant (100 au lieu de 150) — le nouveau locataire héritait

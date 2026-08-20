@@ -20819,6 +20819,13 @@ function saveBail() {
   // NOUVELLE PÉRIODE DATÉE (date d'effet + motif, source 'manuel') — fini la maj silencieuse
   // de la période ouverte. Les révisions IRL datées passent par applyIRL, jamais par ici.
   if (typeof window !== 'undefined' && typeof window._baremeSynchroniserPeriodeBail === 'function') {
+    // Ré-ancrage AVANT la bifurcation (audit) : changer la date de début EN MÊME TEMPS qu'un
+    // terme financier passe par la popup, donc par appliquerNouvellePeriode — la branche qui ne
+    // reçoit pas la date précédente. Sans cet appel, le bailDebut des périodes restait périmé
+    // pour toujours (l'enregistrement suivant a prec === debut). Idempotent.
+    if (typeof window._baremeReancrerBail === 'function') {
+      DB.loyerBareme = window._baremeReancrerBail(DB.loyerBareme || [], ref, _debutPrecedentBail, bail.debut);
+    }
     const _hcChChange = _validCtx && _finChanges.some(c => c.champ === 'hc' || c.champ === 'ch');
     if (_hcChChange && typeof window._baremeAppliquerNouvellePeriode === 'function') {
       DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme || [], {
@@ -39169,8 +39176,13 @@ function _histoSaveCorrPeriode(){
     return;
   }
   if(typeof window!=='undefined' && typeof window._baremeAppliquerNouvellePeriode==='function'){
+    // `fin` passe DANS la période (audit) : depuis que appliquerNouvellePeriode borne la nouvelle
+    // période sur celle qui la suit, elle peut naître CLOSE — et cloturerPeriodeParDebut, qui
+    // exige `fin == null`, devenait alors un no-op silencieux. La fin saisie par l'utilisateur
+    // était jetée et la correction courait jusqu'à la période suivante (9 mois surfacturés sur
+    // le cas mesuré). L'appel ci-dessous reste le filet quand la période existait déjà.
     DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme||[], {
-      ref, debut, hc, ch: Number.isFinite(ch)?ch:0, source:'manuel',
+      ref, debut, fin: fin || null, hc, ch: Number.isFinite(ch)?ch:0, source:'manuel',
       bailDebut:(DB.baux[ref]&&DB.baux[ref].debut)||debut, note:motif });
     if(fin){ // fin explicite → clôturer LA période insérée (ciblage ref+debut — audit 17/07 :
       // _baremeCloturer visait la période ouverte la plus récente du lot = la VIVANTE, qui

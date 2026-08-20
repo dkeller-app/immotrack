@@ -106,7 +106,7 @@ import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, tombstonerPeriodesDuBail,
-  montantSaisi, premierMontantSaisi,
+  montantSaisi, premierMontantSaisi, reancrerPeriodesDuBail,
   _premierDuMois, _premierDuMoisSuivant
 } from './core/loyer-bareme.js';
 // HISTORIQUE-BAIL-ONGLET (17/07) - chapitres/rail de l'historique du bail (onglet Bail inline)
@@ -402,6 +402,7 @@ window._baremeClampDateEffet = clampDateEffet;
 window._baremePeriodeInitialeBail = periodeInitialeBail;
 window._baremeAppliquerNouvellePeriode = appliquerNouvellePeriode;
 window._baremeSynchroniserPeriodeBail = synchroniserPeriodeBail;
+window._baremeReancrerBail = reancrerPeriodesDuBail;
 window._montantSaisi = montantSaisi;
 window._premierMontantSaisi = premierMontantSaisi;
 window._baremeCloturer = cloturerBareme;

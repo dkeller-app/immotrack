@@ -22,7 +22,8 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  synchroniserPeriodeBail, appliquerNouvellePeriode, cloturerBareme, periodeInitialeBail
+  synchroniserPeriodeBail, appliquerNouvellePeriode, cloturerBareme, periodeInitialeBail,
+  cloturerPeriodeParDebut, reancrerPeriodesDuBail
 } from '../../js/core/loyer-bareme.js';
 import { duMois } from '../../js/core/loyer-du-mois.js';
 import { casReferenceIRL, surfacesSocle, infractionsI1 } from './finances-invariant-i1.js';
@@ -133,6 +134,87 @@ describe('changement de la DATE DE DÉBUT du bail — re-ancrage (2e audit)', ()
     const entree = avecRevisionAVenir();
     const out = synchroniserPeriodeBail(entree, { ref: 'F-001', debut: '2024-01-01', hc: 700, ch: 100 }, '2024-01-01');
     expect(out).toEqual(entree);
+  });
+});
+
+
+describe('CORRECTION DE PÉRIODE — la date de fin SAISIE fait foi (3e audit)', () => {
+  // La borne automatique introduite pour l'invariant « une seule ouverte » a un effet de bord :
+  // la période insérée peut naître CLOSE. Or _histoSaveCorrPeriode posait la fin dans un second
+  // temps, via cloturerPeriodeParDebut — qui exige `fin == null` et devenait donc un no-op
+  // SILENCIEUX. La fin saisie était jetée et la correction courait jusqu'à la période suivante.
+  // Mesuré : correction du 01/01/2025 au 31/03/2025 à 715+100 sur un barème portant une révision
+  // au 01/01/2026 → la correction courait jusqu'au 31/12/2025, soit 9 mois surfacturés.
+  // La borne redevient un DÉFAUT : une fin explicite fait foi, sauf si elle dépasse la borne.
+  const base = () => ([
+    { ref: 'F', debut: '2024-01-01', fin: '2025-12-31', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+    { ref: 'F', debut: '2026-01-01', fin: null, hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' },
+  ]);
+
+  it('la séquence complète de _histoSaveCorrPeriode respecte la fin saisie', () => {
+    let b = appliquerNouvellePeriode(base(), {
+      ref: 'F', debut: '2025-01-01', fin: '2025-03-31', hc: 715, ch: 100, source: 'manuel', note: 'accord amiable'
+    });
+    b = cloturerPeriodeParDebut(b, 'F', '2025-01-01', '2025-03-31');   // filet, no-op désormais
+    const corr = b.find((x) => x.debut === '2025-01-01');
+    expect(corr.fin).toBe('2025-03-31');
+    expect(corr.note).toBe('accord amiable');
+    expect(ouvertes(b, 'F')).toHaveLength(1);
+  });
+
+  it('une fin explicite PLUS TARDIVE que la suivante est ramenée à la borne (jamais deux ouvertes)', () => {
+    const b = appliquerNouvellePeriode(base(), { ref: 'F', debut: '2025-01-01', fin: '2027-12-31', hc: 715, ch: 100, source: 'manuel' });
+    expect(b.find((x) => x.debut === '2025-01-01').fin).toBe('2025-12-31');
+    expect(ouvertes(b, 'F')).toHaveLength(1);
+  });
+
+  it('sans fin explicite, la borne automatique s’applique toujours', () => {
+    const b = appliquerNouvellePeriode(base(), { ref: 'F', debut: '2025-01-01', hc: 715, ch: 100, source: 'manuel' });
+    expect(b.find((x) => x.debut === '2025-01-01').fin).toBe('2025-12-31');
+  });
+
+  it('aucune période suivante : une fin explicite reste telle quelle', () => {
+    const b = appliquerNouvellePeriode([{ ref: 'F', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail' }],
+      { ref: 'F', debut: '2025-01-01', fin: '2025-03-31', hc: 715, ch: 100, source: 'manuel' });
+    expect(b.find((x) => x.debut === '2025-01-01').fin).toBe('2025-03-31');
+  });
+});
+
+describe('reancrerPeriodesDuBail — l’étiquette suit le bail, AUCUN montant ne bouge', () => {
+  const base = () => ([
+    { ref: 'F', debut: '2020-01-01', fin: '2023-12-31', hc: 500, ch: 80, source: 'bail', bailDebut: '2020-01-01' },
+    { ref: 'F', debut: '2024-01-01', fin: '2026-06-30', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+    { ref: 'F', debut: '2026-07-01', fin: null, hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' },
+  ]);
+
+  it('ne change QUE bailDebut (et le debut de la plus ancienne si le bail recule)', () => {
+    const out = reancrerPeriodesDuBail(base(), 'F', '2024-01-01', '2023-06-01');
+    expect(out.map((x) => [x.hc, x.ch])).toEqual([[500, 80], [700, 100], [730, 100]]);
+    expect(out[1].debut).toBe('2023-06-01');            // étendue vers l'arrière
+    expect(out[1].bailDebut).toBe('2023-06-01');
+    expect(out[2].bailDebut).toBe('2023-06-01');
+    expect(out[0].bailDebut).toBe('2020-01-01');        // le bail précédent n'est pas touché
+  });
+
+  it('début AVANCÉ : les périodes entièrement antérieures gardent leur étiquette', () => {
+    const out = reancrerPeriodesDuBail(base(), 'F', '2024-01-01', '2026-09-01');
+    expect(out[1].bailDebut).toBe('2024-01-01');        // fin 2026-06-30 < 2026-09-01 → hors bail
+    expect(out[2].bailDebut).toBe('2026-09-01');        // ouverte → suit le bail
+    expect(out[1].debut).toBe('2024-01-01');            // aucune date déplacée vers l'avant
+  });
+
+  it('no-op quand rien ne change, et entrées dégradées sans crash', () => {
+    const b = base();
+    expect(reancrerPeriodesDuBail(b, 'F', '2024-01-01', '2024-01-01')).toEqual(b);
+    expect(reancrerPeriodesDuBail(b, 'F', null, '2024-01-01')).toEqual(b);
+    expect(reancrerPeriodesDuBail(null, 'F', '2024-01-01', '2023-01-01')).toEqual([]);
+  });
+
+  it('PUR : le tableau d’entrée n’est pas muté', () => {
+    const b = base();
+    reancrerPeriodesDuBail(b, 'F', '2024-01-01', '2023-06-01');
+    expect(b[1].bailDebut).toBe('2024-01-01');
+    expect(b[1].debut).toBe('2024-01-01');
   });
 });
 

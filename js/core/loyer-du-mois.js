@@ -93,8 +93,11 @@ export function provisionPourRevision(bareme, ref, dateEffetIso, bailCh, logCh, 
   // Borne (audit) : une période encore ouverte du locataire PRÉCÉDENT (barème mal refermé)
   // imposerait sa provision au bail courant. Quand on sait à quel bail on a affaire, on
   // n'accepte la période que si elle est la sienne.
-  const pOk = p && (bailDebut == null
-    || String(p.bailDebut == null ? '' : p.bailDebut).slice(0, 10) === String(bailDebut).slice(0, 10));
+  // `p.bailDebut` absent = barème antérieur au champ : on ne peut rien conclure, la borne ne
+  // s'applique pas (sinon le correctif « la période en vigueur d'abord » ne vaudrait pas pour
+  // les barèmes legacy, qui sont précisément ceux qui en ont le plus besoin).
+  const pOk = p && (bailDebut == null || p.bailDebut == null
+    || String(p.bailDebut).slice(0, 10) === String(bailDebut).slice(0, 10));
   const n = premierMontantSaisi(pOk ? p.ch : null, bailCh, logCh);
   return n != null ? n : 0;
 }

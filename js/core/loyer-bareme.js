@@ -194,11 +194,55 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
     .filter((q) => q && !q._deleted && _nr(q.ref) === want && _ymd(q.debut) > debut)
     .map((q) => _ymd(q.debut))
     .sort()[0];
+  const borne = suivante ? _veille(suivante) : null;
+  // La borne est un DÉFAUT, pas une règle : une fin EXPLICITE fournie par l'appelant fait foi
+  // (correction de période avec date de fin saisie). Sans cette distinction, la fin demandée
+  // était silencieusement remplacée par la borne — cloturerPeriodeParDebut exige `fin == null`
+  // et devenait un no-op, donc 9 mois surfacturés sur le cas mesuré. Une fin explicite plus
+  // TARDIVE que la borne reste ramenée à la borne : deux périodes ouvertes restent interdites.
+  const finExplicite = nouvelle.fin != null && _ymd(nouvelle.fin) ? _ymd(nouvelle.fin) : null;
+  const fin = finExplicite != null
+    ? (borne && finExplicite > borne ? borne : finExplicite)
+    : borne;
   arr.push({
-    ref: nouvelle.ref, debut, fin: suivante ? _veille(suivante) : null, hc, ch, source: src,
+    ref: nouvelle.ref, debut, fin, hc, ch, source: src,
     bailDebut: nouvelle.bailDebut != null ? _ymd(nouvelle.bailDebut) : debut,
     note: nouvelle.note || ''
   });
+  return arr;
+}
+
+/**
+ * RÉ-ANCRAGE — la date de début d'un bail vient de changer. `debut` n'est pas un terme financier
+ * (CHAMPS_FINANCIERS = hc/ch/dg) : aucune popup ne s'interpose, et sans ce geste les périodes du
+ * bail gardaient l'ancien `bailDebut`. Elles devenaient « étrangères » à leur propre bail, se
+ * faisaient clôturer, et une révision IRL programmée était éteinte par la porte de service.
+ *
+ * PUR, et volontairement PAUVRE : on ne touche QUE l'étiquette `bailDebut` — plus le `debut` de la
+ * période la plus ancienne quand le bail RECULE, sans quoi les mois entre les deux dates n'ont
+ * plus de période et duMois retombe sur le repli « bail », c'est-à-dire le tarif d'aujourd'hui
+ * appliqué au passé. AUCUN MONTANT NE BOUGE, aucune période n'est créée ni clôturée : cette
+ * fonction est appelable sur les DEUX branches de saveBail (avec ou sans popup) sans risque.
+ */
+export function reancrerPeriodesDuBail(periods, ref, debutPrecedent, debutNouveau) {
+  const arr = (periods || []).map((p) => ({ ...p }));
+  const prec = _ymd(debutPrecedent);
+  const debut = _ymd(debutNouveau);
+  if (!prec || !debut || prec === debut) return arr;
+  const want = _nr(ref);
+  let plusAncienne = -1;
+  for (let i = 0; i < arr.length; i++) {
+    const p = arr[i];
+    if (!p || p._deleted || _nr(p.ref) !== want || _ymd(p.bailDebut) !== prec) continue;
+    // Une période entièrement ANTÉRIEURE au nouveau début n'appartient plus à ce bail : la
+    // ré-étiqueter la ferait apparaître sous lui dans la timeline alors qu'elle le précède.
+    if (p.fin != null && _ymd(p.fin) < debut) continue;
+    arr[i] = { ...p, bailDebut: debut };
+    if (plusAncienne < 0 || _ymd(arr[i].debut) < _ymd(arr[plusAncienne].debut)) plusAncienne = i;
+  }
+  if (plusAncienne >= 0 && debut < _ymd(arr[plusAncienne].debut)) {
+    arr[plusAncienne] = { ...arr[plusAncienne], debut };
+  }
   return arr;
 }
 
@@ -233,7 +277,7 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
  * @param {string} [debutPrecedent] date de début du bail AVANT cette édition, quand elle change
  */
 export function synchroniserPeriodeBail(periods, bail, debutPrecedent) {
-  const arr = (periods || []).map((p) => ({ ...p }));
+  let arr = (periods || []).map((p) => ({ ...p }));
   if (!bail || !bail.debut) return arr;
   const want = _nr(bail.ref);
   const debut = _ymd(bail.debut);
@@ -242,24 +286,7 @@ export function synchroniserPeriodeBail(periods, bail, debutPrecedent) {
   // devenaient « étrangères » à leur propre bail, et une révision IRL programmée se faisait
   // clôturer puis remplacer par le tarif du formulaire — le défaut du LOT 2 par la porte de
   // service. Le re-ancrage est de la pure comptabilité d'étiquette : aucun montant ne bouge.
-  const prec = _ymd(debutPrecedent);
-  if (prec && prec !== debut) {
-    let plusAncienne = -1;
-    for (let i = 0; i < arr.length; i++) {
-      const p = arr[i];
-      if (!p || p._deleted || _nr(p.ref) !== want || _ymd(p.bailDebut) !== prec) continue;
-      arr[i] = { ...p, bailDebut: debut };
-      if (plusAncienne < 0 || _ymd(arr[i].debut) < _ymd(arr[plusAncienne].debut)) plusAncienne = i;
-    }
-    // Début RECULÉ : la période la plus ancienne du bail s'étend jusqu'à la nouvelle date, sinon
-    // les mois entre les deux dates n'ont plus de période et duMois retombe sur le repli « bail »,
-    // c'est-à-dire le tarif d'aujourd'hui appliqué au passé. Début AVANCÉ : on ne déplace rien
-    // (ça traverserait les périodes suivantes) — les périodes antérieures deviennent hors
-    // occupation, et duMois rend « vacance » avant le début du bail, donc elles sont inertes.
-    if (plusAncienne >= 0 && debut < _ymd(arr[plusAncienne].debut)) {
-      arr[plusAncienne] = { ...arr[plusAncienne], debut };
-    }
-  }
+  arr = reancrerPeriodesDuBail(arr, bail.ref, debutPrecedent, debut);
   const hcSaisi = montantSaisi(bail.hc);
   const chSaisi = montantSaisi(bail.ch);
   // source absente = barème d'avant l'introduction du champ : c'est une période de bail.
