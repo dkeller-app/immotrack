@@ -132,7 +132,8 @@ Le Gratuit n'est pas une démo : c'est **l'arme d'acquisition** (§8). La fronti
 **Essai et avantages (figés 19/08)** :
 - **Essai 30 jours, toutes fonctions, sans carte bancaire** — 30 jours car le cycle de valeur d'un bailleur est mensuel (loyer → rapprochement → quittance) : un essai de 15 jours ne le couvre pas. À J+30, **retombée automatique sur le plan Gratuit** : aucune donnée perdue, la quittance mensuelle ramène l'utilisateur — une sortie d'essai qu'aucun concurrent n'offre (leurs essais expirent sur un mur payant). Benchmark : un essai complet convertit 8-12 % contre 3-5 % en freemium seul (OpenView/Lenny) — c'est un levier direct vers le scénario central.
 - **Parrainage client** : 1 mois offert au parrain par filleul devenu payant (cumulable), 1 mois au filleul.
-- **Early bird** au lancement : −50 % la 1re année pour les 100 premiers.
+- **Fondateurs (figé 20/08)** : les **10-15 bêta-testeurs proches** reçoivent un statut « Fondateur » — **gratuit à vie**, nominatif, non transférable, plafonné à 15 comptes, tous plans jusqu'à Patrimoine. Coût théorique ~130 €/mois à terme, contre des retours de terrain qui valent bien plus — les smokes réels trouvent ce que les tests automatisés ne voient pas.
+- **Offre de lancement** : **tout abonnement pris en 2026 garde son tarif à vie** (prix garanti, aucune démarque). Le comparatif §5 montre une marge de hausse réelle (12,90/24,90 resteraient sous le marché) : « bloqué à vie » a une valeur croissante, coûte zéro aujourd'hui, crée l'urgence sans ancrer de prix cassé — l'essai 30 jours fait déjà le dérisquage. *(Remplace l'« early bird −50 % pour 100 » du plan d'avril, écarté le 20/08 : trop cher, doublon avec l'essai, et ancre un prix bradé.)*
 
 ---
 
@@ -311,7 +312,7 @@ Le scénario central est du B2C pur : c'est le plancher démontrable. **Le levie
 |---|---|
 | Août | Domaine propryo.fr · statut micro-entreprise (comptable) · **volumes Keyword Planner tirés → plan éditorial calibré** |
 | Septembre | Emails (Resend) · site + `app.propryo.fr` · CGU/CGV/RGPD (avocat ~3 K€) · **bêta privée** · production des 45 pages SEO |
-| Octobre | **Chantier PLANS-QUOTAS-ESSAI** (l'app n'a pas encore de notion de plan : matrice de gating Gratuit/payant, essai 30 j, retombée Gratuit, webhooks Stripe, application côté serveur) · **lancement public 14/10** avec les 45 pages en ligne · early bird |
+| Octobre | **Chantier PLANS-QUOTAS-ESSAI** (l'app n'a pas encore de notion de plan : matrice de gating Gratuit/payant, essai 30 j, retombée Gratuit, webhooks Stripe, application côté serveur) · **lancement public 14/10** avec les 45 pages en ligne · offre de lancement « tarif 2026 garanti à vie » |
 | Novembre | **Canal prescripteurs — cercle 1** : page partenaires + kit + codes Stripe · 10 partenaires signés dans le réseau en propre (§8.5) |
 | Janvier 2027 | **Calibration sur données réelles** : conversion, churn, mix, trafic/page, apport prescripteurs — le scénario se choisit là, pas avant |
 | T4 2026 | **Synchro bancaire — dogfood** : Enable Banking gratuit sur les comptes du fondateur (CM+CA), toute la chaîne validée sur données réelles à 0 € |
