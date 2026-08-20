@@ -17,8 +17,8 @@
 | **C'est faisable ?** | **C'est fait.** Le produit tourne en production et gère le parc réel de son créateur : 37 lots, 4 bailleurs, 6 immeubles. ~3 000 tests automatisés, données hébergées en UE. Il ne reste sur le chemin du lancement que du non-produit : domaine, statut, CGV, paiement. |
 | **Le plan d'acquisition ?** | **SEO par pages-outils** — le plan Gratuit *fait* les documents (bail, quittance, EDL) que des dizaines de milliers de bailleurs cherchent chaque mois ; le modèle exact qui a construit BailFacile (§8). **+ canal 2 : le réseau de prescripteurs** (CGP, comptables, professionnels de la transaction — §8.5), qui apporte la confiance et le segment SCI. |
 | **Ça se lance quand ?** | Bêta privée septembre, **lancement public 14 octobre 2026**, 45 pages SEO publiées avant le jour J. |
-| **Ça coûte combien ?** | ~9,3 K€ de dépenses externes la 1re année ; **avance de trésorerie maximale ~12 K€** (cotisations sociales incluses), remboursée courant 2028. Aucune levée : bootstrappé. |
-| **Ça rapporte quoi ?** | Scénarios **sortis du modèle financier joint** (§10) : **résultat mensuel positif entre avril et août 2027 dans les trois scénarios**, synchronisation bancaire provisionnée. Fin 2029 : prudent 710 clients / 77 K€ ARR · central ~950 / ~103 K€ · ambitieux ~1 830 / ~199 K€ — hors apport des prescripteurs (non modélisé). Valorisation indicative 0,23-0,97 M€ (3-5× ARR). |
+| **Ça coûte combien ?** | ~9,3 K€ de dépenses externes la 1re année ; **avance de trésorerie maximale ~15 K€** (cotisations sociales et synchro bancaire incluses), remboursée en 2028-2029. Aucune levée : bootstrappé. |
+| **Ça rapporte quoi ?** | Scénarios **sortis du modèle financier joint** (§10), avec un démarrage à notoriété nulle assumé (800 visites au lancement) : **résultat mensuel positif entre août 2027 et janvier 2028**. Fin 2029 : prudent 613 clients / 67 K€ ARR · central 818 / 89 K€ · ambitieux 1 572 / 171 K€ — hors apport des prescripteurs (non modélisé). Valorisation indicative 0,20-0,86 M€ (3-5× ARR). |
 | **Pourquoi maintenant ?** | Marché B2C sans leader installé, concurrents passés au **prix par bien** (2 à 4× plus chers que Propryo à 5 lots — §5), pression réglementaire continue (DPE, IRL, 2044), et un produit déjà construit. |
 
 ---
@@ -189,10 +189,11 @@ Calibrage : BailFacile ≈ 80-160 visites/page/mois (domaine âgé, autorité) ;
 
 | Fin de période | Pages publiées | Visites/mois (organique + amorçage) | Justification |
 |---|---|---|---|
-| déc. 2026 | ~60 | **6 000** | longue traîne naissante (20-40/page) + ads 600 €/mois + communautés |
-| déc. 2027 | ~300 | **15 000** | ~40-50/page en moyenne, domaine 15 mois, premières têtes de requêtes |
-| déc. 2028 | ~500 | **32 000** | autorité installée, quittance mensuelle = trafic récurrent |
-| déc. 2029 | ~650 | **55 000** | ≈ la moitié du BailFacile bas — jamais supposé le dépasser |
+| oct. 2026 (lancement) | 45 | **800** | **notoriété nulle assumée** : ~300 clics d'ads (600 € à ~2 €/clic) + pic de lancement (Product Hunt, communautés) qui retombe + SEO en cours d'indexation |
+| déc. 2026 | ~60 | **1 500** | la longue traîne commence à sortir (Ahrefs : < 1 mois possible sur faible concurrence), ads maintenues |
+| déc. 2027 | ~300 | **12 000** | ~40 visites/page en moyenne, domaine 15 mois, premières têtes de requêtes |
+| déc. 2028 | ~500 | **28 000** | autorité installée (2 ans), quittance mensuelle = trafic récurrent |
+| déc. 2029 | ~650 | **50 000** | ≈ la moitié du BailFacile bas — jamais supposé le dépasser |
 
 **Risques du canal, nommés** : (a) **AI Overviews** — Ahrefs (02/2026) mesure −58 % de CTR en position 1 quand un encart IA est présent ; mitigation : les pages-**outils** résistent (Google ne génère pas un bail signé conforme), la longue traîne est moins exposée ; (b) dépendance Google — mitigation : le produit lui-même est viral (chaque signature à distance et chaque candidature met un locataire devant une page Propryo), plus newsletter et marque ; (c) **les volumes de recherche exacts ne sont pas publiés** — action immédiate : les tirer de Google Keyword Planner (gratuit) pour calibrer le plan éditorial page par page avant septembre.
 
@@ -246,7 +247,7 @@ visites/mois (modèle §8.4)
   = clients payants (cohortes)
 ```
 
-Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **18-30 nouveaux payants/mois** selon le taux de conversion. C'est ce flux, cumulé en cohortes avec churn, qui produit les scénarios ci-dessous — dans ce sens-là, jamais l'inverse.
+Exemple au régime de fin 2027 (12 000 visites/mois) : ~480 inscrits/mois → **14-24 nouveaux payants/mois** selon le taux de conversion. C'est ce flux, cumulé en cohortes avec churn, qui produit les scénarios ci-dessous — dans ce sens-là, jamais l'inverse.
 
 ---
 
@@ -262,18 +263,18 @@ Exemple au régime de fin 2027 (15 000 visites/mois) : 600 inscrits/mois → **1
 
 | Fin de période | Prudent | Central | Ambitieux |
 |---|---|---|---|
-| **2026** (3 mois) | 24 clients · ARR 3 K€ | 34 · 4 K€ | 56 · 6 K€ |
-| **2027** | 135 · **ARR 15 K€** | 181 · **20 K€** | 337 · **37 K€** |
-| **2028** | 351 · 38 K€ | 468 · 51 K€ | 893 · 97 K€ |
-| **2029** | 710 · **77 K€** | 947 · **103 K€** | 1 828 · **199 K€** |
+| **2026** (3 mois) | 13 clients · ARR 1,4 K€ | 19 · 2,1 K€ | 28 · 3,1 K€ |
+| **2027** | 76 · **ARR 8 K€** | 102 · **11 K€** | 187 · **20 K€** |
+| **2028** | 275 · 30 K€ | 367 · 40 K€ | 695 · 76 K€ |
+| **2029** | 613 · **67 K€** | 818 · **89 K€** | 1 572 · **171 K€** |
 
-- **Résultat mensuel positif** : août 2027 (prudent) · juin 2027 (central) · avril 2027 (ambitieux) — le projet s'autofinance dans les trois cas à l'été 2027, **coût de la synchronisation bancaire provisionné** (forfait agrégateur + coût par compte dès avril 2027 — placeholders jaunes en attendant les devis Phase 0).
-- **Avance de trésorerie maximale : ~12 K€** (point bas −11,6 / −10,9 / −9,8 K€ selon le scénario), remboursée entre janvier et décembre 2028. Aucune levée nécessaire.
-- **Valorisation indicative fin 2029** (3-5× ARR) : 0,23-0,38 M€ prudent · **0,30-0,50 M€ central** · 0,58-0,97 M€ ambitieux.
+- **Résultat mensuel positif** : janvier 2028 (prudent) · novembre 2027 (central) · août 2027 (ambitieux) — le projet s'autofinance dans les trois cas, **synchronisation bancaire provisionnée** (placeholders jaunes en attendant les devis Phase 0).
+- **Avance de trésorerie maximale : ~15 K€** (point bas −14,8 / −13,7 / −11,7 K€ selon le scénario, atteint fin 2027), remboursée entre juillet 2028 et juin 2029. Aucune levée nécessaire.
+- **Valorisation indicative fin 2029** (3-5× ARR) : 0,20-0,33 M€ prudent · **0,27-0,44 M€ central** · 0,51-0,86 M€ ambitieux.
 - **Sensibilité** (les vrais leviers, pilotables dans le classeur) : +1 point de conversion freemium = **+33 % de clients** partout · churn 5 → 3,5 % = +40 % de base à 3 ans · ×2 sur la vélocité contenu ≈ +60-80 % de trafic fin 2027. La calibration de janvier 2027 (§11) dira lequel pousser.
-- **Bascule société calculée automatiquement** (au franchissement du plafond micro sur 12 mois glissants) : prudent et central **restent en micro-entreprise jusqu'à fin 2029** (le central frôle le plafond — la bascule est pour début 2030) ; l'ambitieux bascule en **mars 2029** (création de société + expert-comptable + prélèvements ~28 % comptés). Hébergement évolutif inclus (base Supabase/Resend + 0,10 €/client/mois) ; revenus de cogestion inclus (règle §6).
+- **Bascule société calculée automatiquement** (au franchissement du plafond micro sur 12 mois glissants) : prudent et central **restent en micro-entreprise sur toute la période** ; l'ambitieux bascule en **juin 2029** (création de société + expert-comptable + prélèvements ~28 % comptés). Hébergement évolutif inclus (base Supabase/Resend + 0,10 €/client/mois) ; revenus de cogestion inclus (règle §6).
 - **Upside non modélisé, volontairement** : les clients apportés par les prescripteurs (§8.5) n'entrent pas dans le funnel modélisé (seules leurs commissions sont provisionnées en charge) — chaque filleul réel s'ajoute à ces chiffres.
-- *Trajectoire de rigueur : la v1 posait 700 clients fin 2027 (conversion 15 %, indéfendable) ; la v2 en dérivait 280 mais oubliait cotisations et remise annuelle ; cette v3 sort du classeur, complet. C'est moins flatteur — et c'est défendable ligne à ligne.*
+- *Trajectoire de rigueur : la v1 posait 700 clients fin 2027 (conversion 15 %, indéfendable) ; la v2 en dérivait 280 mais oubliait cotisations et remise annuelle ; la v3 les comptait mais faisait démarrer le trafic à 3 000 visites dès le mois du lancement — irréaliste pour un domaine que personne ne connaît (objection Didier, 20/08). Cette v4 démarre à 800 visites et sort intégralement du classeur. C'est la version qu'on peut défendre ligne à ligne devant n'importe qui.*
 
 ---
 
@@ -300,7 +301,7 @@ Développeur solo **avec une chaîne d'agents IA** (développement, audit systé
 
 ### 11.3 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
 
-Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · **hébergement évolutif** (Supabase Pro + Resend 45 €/mois + 0,15 €/client/mois — tarifs vérifiés sur supabase.com le 19/08) + outils 15 €/mois · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs) — et à la bascule société (automatique dans le modèle) : création ~800 €, expert-comptable ~150 €/mois, prélèvements ~28 % (approximation à affiner comptable). **Avance de trésorerie maximale ~12 K€** (point bas mi-2027), remboursée courant 2028. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
+Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · **hébergement évolutif** (Supabase Pro + Resend 45 €/mois + 0,15 €/client/mois — tarifs vérifiés sur supabase.com le 19/08) + outils 15 €/mois · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs) — et à la bascule société (automatique dans le modèle) : création ~800 €, expert-comptable ~150 €/mois, prélèvements ~28 % (approximation à affiner comptable). **Avance de trésorerie maximale ~15 K€** (point bas fin 2027), remboursée en 2028-2029. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
 
 ---
 
@@ -320,9 +321,9 @@ Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept
 
 ## 13. L'ambition
 
-**Fin 2027** : le projet s'autofinance (résultat mensuel positif entre avril et août 2027 dans les trois scénarios, synchro bancaire provisionnée), 135-337 clients selon la conversion réelle, un actif SEO de ~300 pages qui travaille tout seul — et les prescripteurs en plus, non comptés.
+**Fin 2027** : le cap du vrai démarrage — 76-187 clients selon la conversion réelle, le résultat mensuel devient positif entre août 2027 et janvier 2028, un actif SEO de ~300 pages travaille tout seul — et les prescripteurs en plus, non comptés.
 
-**Fin 2029** : 710-1 830 clients, 77-199 K€ ARR, résultat cumulé +35 à +127 K€ — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
+**Fin 2029** : 613-1 572 clients, 67-171 K€ ARR, résultat cumulé +19 à +90 K€ — et deux portes, toutes deux bonnes : **poursuivre** (portail locataire, petites agences, Belgique/Luxembourg) ou **céder** dans un marché qui consolide à coups d'acquisitions (Septeo : 8 en 2024 ; Manda : 43 M€ levés), à 3-5× l'ARR.
 
 **Ce qui rend ce plan crédible** : le produit est construit et prouvé ; le canal d'acquisition a une preuve de marché documentée (BailFacile) et un avantage structurel (l'outil EST le produit) ; chaque taux du modèle a une source publiée et **chaque chiffre sort d'un classeur vérifiable, cotisations sociales comprises** ; l'avance de trésorerie maximale est ~12 K€ ; et le scénario **prudent** — celui où tout est au plancher des benchmarks — reste un projet rentable.
 
