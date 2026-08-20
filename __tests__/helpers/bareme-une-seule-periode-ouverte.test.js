@@ -91,6 +91,51 @@ describe('synchroniserPeriodeBail — jamais deux périodes ouvertes', () => {
   });
 });
 
+describe('changement de la DATE DE DÉBUT du bail — re-ancrage (2e audit)', () => {
+  // `debut` n'est pas un terme financier (CHAMPS_FINANCIERS = hc/ch/dg) : aucune popup ne
+  // s'interpose. Les périodes du bail gardaient donc leur ancien `bailDebut`, devenaient
+  // « étrangères » à leur propre bail, et la branche de clôture les fermait — éteignant une
+  // révision IRL programmée par la porte de service. saveBail passe désormais la date
+  // précédente en 3e argument.
+  const avecRevisionAVenir = () => ([
+    { ref: 'F-001', debut: '2024-01-01', fin: '2026-06-30', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+    { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' },
+  ]);
+
+  it('début AVANCÉ : la révision IRL programmée survit (elle était éteinte)', () => {
+    // mesuré avant correctif : la période irl était clôturée puis remplacée par 700 → duMois
+    // d'octobre 2026 retombait à 800 EUR au lieu de 830.
+    const out = synchroniserPeriodeBail(avecRevisionAVenir(), { ref: 'F-001', debut: '2026-09-01', hc: 700, ch: 100 }, '2024-01-01');
+    const vivantes = ouvertes(out, 'F-001');
+    expect(vivantes).toHaveLength(1);
+    expect(vivantes[0].hc).toBe(730);
+    expect(vivantes[0].source).toBe('irl');
+    expect(vivantes[0].bailDebut).toBe('2026-09-01');   // ré-ancrée sur la nouvelle date
+  });
+
+  it('début RECULÉ : la période la plus ancienne du bail est étendue, pas de trou de barème', () => {
+    // sans extension, les mois entre l'ancienne et la nouvelle date n'ont plus de période et
+    // duMois retombe sur le repli « bail » — c'est-à-dire le tarif d'AUJOURD'HUI sur le passé.
+    const out = synchroniserPeriodeBail(avecRevisionAVenir(), { ref: 'F-001', debut: '2023-09-01', hc: 700, ch: 100 }, '2024-01-01');
+    expect(ouvertes(out, 'F-001')).toHaveLength(1);
+    expect(out[0].debut).toBe('2023-09-01');
+    const bails = [{ debut: '2023-09-01', fin: null, finEffective: null, hc: 730, ch: 100, archive: false }];
+    expect(duMois({ ref: 'F-001', bails, bareme: out }, '2023-10')).toMatchObject({ hc: 700, ch: 100, total: 800 });
+  });
+
+  it('sans 3e argument, rien ne régresse : la révision reste protégée', () => {
+    const out = synchroniserPeriodeBail(avecRevisionAVenir(), { ref: 'F-001', debut: '2024-01-01', hc: 700, ch: 100 });
+    expect(ouvertes(out, 'F-001')).toHaveLength(1);
+    expect(ouvertes(out, 'F-001')[0].hc).toBe(730);
+  });
+
+  it('date de début inchangée : le re-ancrage ne se déclenche pas', () => {
+    const entree = avecRevisionAVenir();
+    const out = synchroniserPeriodeBail(entree, { ref: 'F-001', debut: '2024-01-01', hc: 700, ch: 100 }, '2024-01-01');
+    expect(out).toEqual(entree);
+  });
+});
+
 describe('INVARIANT I-1 branché sur synchroniserPeriodeBail (le trou du harnais)', () => {
   // Le harnais ne construisait ses barèmes qu'avec periodeInitialeBail + appliquerNouvellePeriode.
   // synchroniserPeriodeBail — l'écrivain de CHAQUE saveBail — n'y passait jamais : c'est pour ça

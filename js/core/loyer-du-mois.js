@@ -88,9 +88,14 @@ export function periodeEnVigueurA(bareme, ref, iso) {
  *   3. 0 en dernier recours seulement — personne ne sait, et c'est dit.
  * Un champ VIDE n'est pas un zéro (montantSaisi) ; un 0 réellement saisi, lui, vaut 0.
  */
-export function provisionPourRevision(bareme, ref, dateEffetIso, bailCh, logCh) {
+export function provisionPourRevision(bareme, ref, dateEffetIso, bailCh, logCh, bailDebut) {
   const p = periodeEnVigueurA(bareme, ref, dateEffetIso);
-  const n = premierMontantSaisi(p && p.ch, bailCh, logCh);
+  // Borne (audit) : une période encore ouverte du locataire PRÉCÉDENT (barème mal refermé)
+  // imposerait sa provision au bail courant. Quand on sait à quel bail on a affaire, on
+  // n'accepte la période que si elle est la sienne.
+  const pOk = p && (bailDebut == null
+    || String(p.bailDebut == null ? '' : p.bailDebut).slice(0, 10) === String(bailDebut).slice(0, 10));
+  const n = premierMontantSaisi(pOk ? p.ch : null, bailCh, logCh);
   return n != null ? n : 0;
 }
 

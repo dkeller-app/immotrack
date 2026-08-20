@@ -150,6 +150,18 @@ describe('provisionPourRevision — la chaîne réellement appelée par _baremeR
   it('personne ne sait (aucune période antérieure, rien sur le bail ni le lot) → 0 assumé', () => {
     expect(pour('', '', '2020-01-01')).toBe(0);
   });
+  it('BORNE bailDebut : la période ouverte du locataire PRÉCÉDENT ne dicte pas la provision', () => {
+    // barème mal refermé : la période de l'ancien bail court toujours à la date d'effet. Sans
+    // borne, elle gagnait sur le bail courant (100 au lieu de 150) — le nouveau locataire héritait
+    // de la provision de l'ancien.
+    const malReferme = [
+      { ref: 'L', debut: '2020-01-01', fin: null, hc: 500, ch: 100, source: 'bail', bailDebut: '2020-01-01' }
+    ];
+    expect(provisionPourRevision(malReferme, 'L', '2027-06-01', 150, 150, '2027-01-01')).toBe(150);
+    // sans bailDebut connu, comportement inchangé (la borne ne s'applique pas)
+    expect(provisionPourRevision(malReferme, 'L', '2027-06-01', 150, 150)).toBe(100);
+  });
+
   it('PAS DE CONTAMINATION entre locataires : un trou avant la date d\'effet ne remonte rien', () => {
     const avecTrou = [
       { ref: 'MUL-002', debut: '2020-01-01', fin: '2021-12-31', hc: 400, ch: 200, source: 'bail' }

@@ -16572,6 +16572,9 @@ async function saveMv() {
     showToast('« Qui » et « Compteur lié » sont exclusifs — vide l\'un des deux','err',4500);
     return;
   }
+  // PJ attachée AVANT ce save : `m` est reconstruit de zéro et ne la porte pas. C'est le seul
+  // état qui permette de tombstoner correctement un document remplacé ou retiré.
+  const _mvOldPjId = eid ? (((DB.mouvements || []).find(x => x && x.id === parseInt(eid)) || {}).pjId) : null;
   const m = {
     id: eid ? parseInt(eid) : nid(),
     date: v('mv-date')||td(),
@@ -16605,9 +16608,13 @@ async function saveMv() {
         size: _mvDocPending.size || 0,
         dataB64: _mvDocPending.dataB64
       });
-      // Tombstone ancien attachement si remplacement
-      if (m.pjId != null && m.pjId !== newDoc.id) {
-        const oldDoc = (DB.documents||[]).find(d => d && !d._deleted && d.id === m.pjId);
+      // Tombstone ancien attachement si remplacement.
+      // AUDIT — la condition portait sur `m.pjId`, or `m` est reconstruit de zéro et ne l'a jamais :
+      // elle était TOUJOURS fausse, et chaque remplacement laissait l'ancien document orphelin
+      // (vivant, synchronisé, embarqué dans le payload). On lit donc la PJ de l'enregistrement
+      // EXISTANT (_mvOldPjId), seul état qui dise ce qui était attaché avant ce save.
+      if (_mvOldPjId != null && _mvOldPjId !== newDoc.id) {
+        const oldDoc = (DB.documents||[]).find(d => d && !d._deleted && d.id === _mvOldPjId);
         if (oldDoc) {
           Object.assign(oldDoc, { _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString() });
           if (oldDoc.idbKey) { try { await _idbDel(oldDoc.idbKey); } catch(e) {} }
@@ -16619,10 +16626,13 @@ async function saveMv() {
       console.error('[saveMv] échec attachment PJ', e);
       showToast('PJ non sauvegardée : ' + (e.message || 'erreur'), 'err', 6000);
     }
-  } else if (m.pj || m.pjId != null) {
-    // User a cliqué Supprimer (clear) : si une PJ existait → tombstone
-    if (m.pjId != null) {
-      const oldDoc = (DB.documents||[]).find(d => d && !d._deleted && d.id === m.pjId);
+  } else if (_mvDocCleared && _mvOldPjId != null) {
+    // User a cliqué Supprimer (clear) : la PJ existante est tombstonée. AUDIT — la condition
+    // portait sur `m.pj || m.pjId`, jamais renseignés sur l'objet reconstruit : la branche ne
+    // s'exécutait jamais et le document restait vivant après un retrait. Le geste se lit
+    // maintenant sur _mvDocCleared, et la PJ sur l'enregistrement existant.
+    {
+      const oldDoc = (DB.documents||[]).find(d => d && !d._deleted && d.id === _mvOldPjId);
       if (oldDoc) {
         Object.assign(oldDoc, { _deleted: true, _deletedAt: new Date().toISOString(), _modifiedAt: new Date().toISOString() });
         if (oldDoc.idbKey) { try { await _idbDel(oldDoc.idbKey); } catch(e) {} }
@@ -20741,6 +20751,9 @@ function saveBail() {
   // date d'effet Q1, motif). Le save est suspendu ; _bailValidConfirm relance saveBail
   // avec _bailValidPending rempli. Création (isNewBail) : jamais de popup.
   const _prevFin = (!isNewBail && DB.baux[editRef] && !DB.baux[editRef]._deleted) ? DB.baux[editRef] : null;
+  // Capturé AVANT l'écriture : le barème en a besoin pour re-ancrer les périodes de ce bail si
+  // la date de début vient de changer (cf. plus bas).
+  const _debutPrecedentBail = _prevFin ? _prevFin.debut : null;
   const _finChanges = (typeof _bailModifDetecterChangements === 'function')
     ? _bailModifDetecterChangements(_prevFin, bail) : [];
   let _validCtx = null;
@@ -20774,8 +20787,10 @@ function saveBail() {
   // La révision programmée cessait donc de s'appliquer, sans autre trace qu'un warn console.
   if (typeof window !== 'undefined' && typeof window._montantSaisi === 'function' && DB.baux[ref]) {
     const _pb = DB.baux[ref];
-    if (window._montantSaisi(v('b-ch')) == null && window._montantSaisi(_pb.ch) == null) bail.ch = _pb.ch;
-    if (window._montantSaisi(v('b-hc')) == null && window._montantSaisi(_pb.hc) == null) bail.hc = _pb.hc;
+    // `?? ''` : quand l'ancienne valeur est absente (undefined), l'écrire telle quelle ferait
+    // disparaître la clé au premier JSON.stringify — on normalise sur la chaîne vide, stable.
+    if (window._montantSaisi(v('b-ch')) == null && window._montantSaisi(_pb.ch) == null) bail.ch = _pb.ch == null ? '' : _pb.ch;
+    if (window._montantSaisi(v('b-hc')) == null && window._montantSaisi(_pb.hc) == null) bail.hc = _pb.hc == null ? '' : _pb.hc;
   }
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
   DB.baux[ref] = bail;
@@ -20816,7 +20831,11 @@ function saveBail() {
       // distingue « non saisi » (garde la valeur connue) de « 0 saisi » (écrit 0).
       const _hcBrut = (typeof window._montantSaisi === 'function') ? v('b-hc') : bail.hc;
       const _chBrut = (typeof window._montantSaisi === 'function') ? v('b-ch') : bail.ch;
-      DB.loyerBareme = window._baremeSynchroniserPeriodeBail(DB.loyerBareme || [], { ref, debut: bail.debut, hc: _hcBrut, ch: _chBrut });
+      // 3e argument (audit) : la date de début AVANT cette édition. Corriger une date de début
+      // n'est pas un terme financier — sans elle, le barème ne peut pas re-ancrer les périodes du
+      // bail et une révision IRL programmée se faisait éteindre par la porte de service.
+      DB.loyerBareme = window._baremeSynchroniserPeriodeBail(DB.loyerBareme || [],
+        { ref, debut: bail.debut, hc: _hcBrut, ch: _chBrut }, _debutPrecedentBail);
     }
     // Trace DG (append-only, hors barème : le DG n'entre pas dans le dû mensuel).
     if (_validCtx) {
@@ -25572,10 +25591,16 @@ function _baremeRecordRevision(log, ref, newHC, dateEffetIso, opts) {
   // VIGUEUR au barème → bail → lot → 0. Le barème passe en tête (audit) parce que la correction
   // manuelle d'une période (_histoSaveCorrPeriode) n'écrit QUE dans le barème : reprendre bail.ch
   // ici annulerait silencieusement la correction à la révision suivante.
+  const _bailDebutRef = (DB.baux[ref] && DB.baux[ref].debut) || (log && log.debut) || null;
   const ch = (typeof window !== 'undefined' && typeof window._loyerProvisionPourRevision === 'function')
     ? window._loyerProvisionPourRevision(DB.loyerBareme || [], ref, dateEffetIso,
-        DB.baux[ref] && DB.baux[ref].ch, log && log.ch)
-    : ((DB.baux[ref] && DB.baux[ref].ch != null) ? DB.baux[ref].ch : (log ? log.ch : 0));
+        DB.baux[ref] && DB.baux[ref].ch, log && log.ch, _bailDebutRef)
+    // Repli file:// (main.js absent) : même règle « vide ≠ zéro », sans le barème.
+    : (function () {
+        const _c = [DB.baux[ref] && DB.baux[ref].ch, log && log.ch]
+          .find((x) => x != null && !(typeof x === 'string' && x.trim() === '') && Number.isFinite(Number(x)));
+        return _c != null ? Number(_c) : 0;
+      })();
   const bailDebut = (DB.baux[ref] && DB.baux[ref].debut) || (log && log.debut) || dateEffetIso;
   if (typeof window !== 'undefined' && typeof window._baremeAppliquerNouvellePeriode === 'function') {
     DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme || [], {
@@ -55657,7 +55682,16 @@ function validateImportRef() {
     // place. Préserver depuis lui ferait naître le bail importé DÉJÀ SUPPRIMÉ — invisible partout
     // (_isAlive), alors que le toast annonce « 1 ajout » et que le logement, lui, est mis à jour.
     // _preserverBailExistant refuse un tombstone comme source : l'import recrée bien un bail vivant.
-    _preserverBailExistant(bail, DB.baux[ref], false);
+    //
+    // Et le gate isNewBail se DÉRIVE, il ne se force pas (2e audit) : une ligne du classeur qui
+    // décrit un AUTRE bail (nouveau locataire) doit repartir vierge. Sinon le bail importé naissait
+    // signé par le locataire précédent (signatures + bailSnapshot), déjà clôturé (cloture,
+    // finEffective) et porteur de son départ et de son DG restitué — et « Voir le bail signé »
+    // affichait le contrat de l'ancien. La date de début est le discriminateur porté par la donnée
+    // importée elle-même.
+    const _memeBail = !!(DB.baux[ref] && !DB.baux[ref]._deleted
+      && String(DB.baux[ref].debut || '').slice(0, 10) === String(bail.debut || '').slice(0, 10));
+    _preserverBailExistant(bail, DB.baux[ref], !_memeBail);
     // Et l'import doit dater sa propre écriture : sans _stamp, le bail hérite du _modifiedAt de
     // celui qu'il remplace et une copie distante plus ancienne peut le réécraser au merge.
     if (typeof _stamp === 'function') _stamp(bail);

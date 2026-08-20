@@ -244,24 +244,51 @@ describe('synchroniserPeriodeBail — saveBail (création OU édition) : la pér
   });
 });
 
-describe('appliquerNouvellePeriode — la période clôturée est celle que la nouvelle SUIT', () => {
-  // Trou de couverture trouvé par mutation le 2026-08-20 : la borne de date de la sélection
-  // (`_openPeriodIdx(arr, ref, veille(debut))`) pouvait être retirée sans faire rougir un seul
-  // test du dépôt. Elle compte pourtant dès que deux périodes ouvertes coexistent (insertion
-  // d'une période intercalaire) : sans elle, on regarde la période la PLUS TARDIVE, le garde-fou
-  // `debut <` la rejette, et plus AUCUNE période n'est clôturée — deux périodes ouvertes se
-  // chevauchent alors et duMois() a deux tarifs pour le même mois.
-  it('DEUX PÉRIODES OUVERTES : une insertion intercalaire clôture celle qu\'elle suit, pas la plus tardive', () => {
+describe('appliquerNouvellePeriode — au plus UNE période ouverte, quel que soit le sens', () => {
+  // Trou de couverture trouvé par mutation (borne de date de la sélection), puis élargi par le
+  // 2e audit : une période INTERCALAIRE — insérée avant une période déjà présente, cas de la
+  // révision rétro-datée — restait ouverte À CÔTÉ de celle qui la suit. _periodeAt retenant la
+  // plus tardive dont le début est passé, le dû divergeait selon le mois consulté. Le garde-fou
+  // borneMinEffetBareme existe, mais il n'est branché que sur la popup de modification du bail
+  // (index.html:20566 et :20593) : ni applyIRL ni _baremeRecordRevision n'en bénéficient.
+  // L'invariant est donc porté par le MODULE, pas par la discipline des appelants.
+  it('insertion en AVANT : la période ouverte précédente est clôturée à la veille', () => {
     const bareme = [
-      { ref: 'F-001', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+      { ref: 'F-001', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' }
+    ];
+    const out = appliquerNouvellePeriode(bareme, { ref: 'F-001', debut: '2026-03-01', hc: 715, ch: 100, source: 'manuel' });
+    expect(out).toHaveLength(2);
+    expect(out[0].fin).toBe('2026-02-28');
+    expect(out[1].fin).toBe(null);
+    expect(out.filter((p) => p.fin == null)).toHaveLength(1);
+  });
+
+  it('insertion INTERCALAIRE (révision rétro-datée) : la nouvelle est bornée par celle qui la suit', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2026-08-31', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
       { ref: 'F-001', debut: '2026-09-01', fin: null, hc: 730, ch: 100, source: 'irl', bailDebut: '2024-01-01' }
     ];
     const out = appliquerNouvellePeriode(bareme, { ref: 'F-001', debut: '2026-03-01', hc: 715, ch: 100, source: 'manuel' });
-    expect(out.length).toBe(3);
-    expect(out[0].fin).toBe('2026-02-28');   // clôturée à la veille de l'insertion
-    expect(out[1].fin).toBe(null);           // la période tardive reste intacte
-    expect(out[1].hc).toBe(730);
-    expect(out[2]).toMatchObject({ debut: '2026-03-01', fin: null, hc: 715 });
+    expect(out).toHaveLength(3);
+    expect(out.filter((p) => p.fin == null)).toHaveLength(1);   // JAMAIS deux ouvertes
+    expect(out[2]).toMatchObject({ debut: '2026-03-01', fin: '2026-08-31', hc: 715 });
+    expect(out[1]).toMatchObject({ debut: '2026-09-01', fin: null, hc: 730 });  // la révision intacte
+  });
+
+  it('aucune période après : la nouvelle reste ouverte (cas nominal)', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2026-06-30', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' }
+    ];
+    const out = appliquerNouvellePeriode(bareme, { ref: 'F-001', debut: '2026-07-01', hc: 730, ch: 100, source: 'irl' });
+    expect(out[1].fin).toBe(null);
+  });
+
+  it('la borne ne regarde que le MÊME lot', () => {
+    const bareme = [
+      { ref: 'AUTRE', debut: '2026-09-01', fin: null, hc: 1, ch: 1, source: 'bail' }
+    ];
+    const out = appliquerNouvellePeriode(bareme, { ref: 'F-001', debut: '2026-03-01', hc: 715, ch: 100, source: 'manuel' });
+    expect(out.find((p) => p.ref === 'F-001').fin).toBe(null);
   });
 });
 

@@ -184,8 +184,18 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
   // Clôture de la période ouverte précédente (début < nouveau début).
   const idx = _openPeriodIdx(arr, nouvelle.ref, _veille(debut));
   if (idx >= 0 && _ymd(arr[idx].debut) < debut) arr[idx] = { ...arr[idx], fin: _veille(debut) };
+  // AUDIT 2026-08-20 — INVARIANT DU MODULE : un lot n'a jamais deux périodes ouvertes.
+  // Une période INTERCALAIRE (insérée avant une période déjà présente — révision rétro-datée,
+  // correction) restait ouverte À CÔTÉ de celle qui la suit : _periodeAt retenant la plus
+  // tardive dont le début est passé, le dû divergeait silencieusement selon le mois consulté.
+  // C'était à chaque appelant de s'en garder (borneMinEffetBareme n'est branché que sur la
+  // popup de modification du bail) ; c'est désormais garanti ici, pour les trois écrivains.
+  const suivante = arr
+    .filter((q) => q && !q._deleted && _nr(q.ref) === want && _ymd(q.debut) > debut)
+    .map((q) => _ymd(q.debut))
+    .sort()[0];
   arr.push({
-    ref: nouvelle.ref, debut, fin: null, hc, ch, source: src,
+    ref: nouvelle.ref, debut, fin: suivante ? _veille(suivante) : null, hc, ch, source: src,
     bailDebut: nouvelle.bailDebut != null ? _ymd(nouvelle.bailDebut) : debut,
     note: nouvelle.note || ''
   });
@@ -220,10 +230,36 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
  *
  * @param {Array} periods barème courant
  * @param {{ref, debut, hc, ch}} bail
+ * @param {string} [debutPrecedent] date de début du bail AVANT cette édition, quand elle change
  */
-export function synchroniserPeriodeBail(periods, bail) {
+export function synchroniserPeriodeBail(periods, bail, debutPrecedent) {
   const arr = (periods || []).map((p) => ({ ...p }));
   if (!bail || !bail.debut) return arr;
+  const want = _nr(bail.ref);
+  const debut = _ymd(bail.debut);
+  // RE-ANCRAGE (audit) — corriger la DATE DE DÉBUT du bail n'est pas un terme financier : aucune
+  // popup ne s'interpose. Sans re-ancrage, les périodes de ce bail gardaient l'ancien bailDebut,
+  // devenaient « étrangères » à leur propre bail, et une révision IRL programmée se faisait
+  // clôturer puis remplacer par le tarif du formulaire — le défaut du LOT 2 par la porte de
+  // service. Le re-ancrage est de la pure comptabilité d'étiquette : aucun montant ne bouge.
+  const prec = _ymd(debutPrecedent);
+  if (prec && prec !== debut) {
+    let plusAncienne = -1;
+    for (let i = 0; i < arr.length; i++) {
+      const p = arr[i];
+      if (!p || p._deleted || _nr(p.ref) !== want || _ymd(p.bailDebut) !== prec) continue;
+      arr[i] = { ...p, bailDebut: debut };
+      if (plusAncienne < 0 || _ymd(arr[i].debut) < _ymd(arr[plusAncienne].debut)) plusAncienne = i;
+    }
+    // Début RECULÉ : la période la plus ancienne du bail s'étend jusqu'à la nouvelle date, sinon
+    // les mois entre les deux dates n'ont plus de période et duMois retombe sur le repli « bail »,
+    // c'est-à-dire le tarif d'aujourd'hui appliqué au passé. Début AVANCÉ : on ne déplace rien
+    // (ça traverserait les périodes suivantes) — les périodes antérieures deviennent hors
+    // occupation, et duMois rend « vacance » avant le début du bail, donc elles sont inertes.
+    if (plusAncienne >= 0 && debut < _ymd(arr[plusAncienne].debut)) {
+      arr[plusAncienne] = { ...arr[plusAncienne], debut };
+    }
+  }
   const hcSaisi = montantSaisi(bail.hc);
   const chSaisi = montantSaisi(bail.ch);
   // source absente = barème d'avant l'introduction du champ : c'est une période de bail.
@@ -251,14 +287,19 @@ export function synchroniserPeriodeBail(periods, bail) {
   // popup — poussait une seconde période ouverte : juin 2025 passait de 800 € à 830 €, puis à
   // 1050 € après le re-bail suivant. Trois ans de l'ancien locataire au loyer du nouveau.
   const ouvertes = _openPeriodIdxs(arr, bail.ref);
+  // Une période ouverte APPARTENANT À CE BAIL (révision IRL programmée, correction datée) porte
+  // le tarif à venir : on n'y touche pas, et on ne lui en oppose pas une seconde. C'est le test
+  // qui compte — pas la comparaison de dates, qui fermait la révision d'un bail dont on venait
+  // de reculer la date de début (audit, résidu 1a).
+  if (ouvertes.some((i) => _ymd(arr[i].bailDebut) === debut)) return arr;
   if (!ouvertes.length) {
     const p = periodeInitialeBail(bail);
     if (p) arr.push(p);
     return arr;
   }
-  // Toutes les périodes ouvertes commencent AVANT ce bail (barème mal refermé au bail
+  // Les périodes ouvertes restantes appartiennent à un AUTRE bail (barème mal refermé au bail
   // précédent) : on les clôture à la veille et on crée la période du bail. Une seule ouverte.
-  const veilleDebut = _veille(_ymd(bail.debut));
+  const veilleDebut = _veille(debut);
   if (ouvertes.every((i) => _ymd(arr[i].debut) <= veilleDebut)) {
     ouvertes.forEach((i) => { arr[i] = { ...arr[i], fin: veilleDebut }; });
     const p = periodeInitialeBail(bail);
