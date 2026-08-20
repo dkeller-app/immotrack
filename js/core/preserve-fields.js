@@ -30,3 +30,51 @@ export function _preserverChampsExistants(reconstruit, existant) {
   });
   return reconstruit;
 }
+
+/**
+ * BAIL — même remède, gaté sur l'ÉDITION. saveBail reconstruit lui aussi son objet depuis le
+ * formulaire (getBailDataFromForm) puis remplace l'ancien : `DB.baux[ref] = bail`. Y passaient à
+ * la trappe le DOSSIER DE DÉPART complet (bail.depart : congé, date de sortie, motif, avancement)
+ * et la RESTITUTION DU DÉPÔT DE GARANTIE (dgRestitueAt — le drapeau lu par toutes les surfaces —,
+ * dgDetailRetenues, dgRestitueMontant, locNouvIban). Un simple changement de téléphone suffisait.
+ *
+ * Le gate n'est PAS une commodité. `archiverBail` ne supprime pas DB.baux[ref] au re-bail : il en
+ * pousse une copie dans baux_historique et laisse l'ancien bail en place jusqu'à l'écrasement.
+ * Préserver sans distinguer ferait donc hériter au bail du NOUVEAU locataire le dossier de départ,
+ * la restitution de DG et les signatures de l'ANCIEN. On préserve à l'ÉDITION, jamais à la création.
+ * Un bail tombstoné n'est pas non plus une source : on ne ressuscite rien.
+ *
+ * @param {object} reconstruit objet bail issu du formulaire (il gagne toujours sur ses propres clés)
+ * @param {object} existant    DB.baux[ref] avant écriture
+ * @param {boolean} isNewBail  true = création / re-bail → aucune préservation
+ */
+export function _preserverBailExistant(reconstruit, existant, isNewBail) {
+  if (isNewBail) return reconstruit;
+  if (!existant || typeof existant !== 'object') return reconstruit;
+  if (existant._deleted) return reconstruit;
+  return _preserverChampsExistants(reconstruit, existant);
+}
+
+
+/**
+ * Variante pour les enregistrements où un BLOC DE CODE EN AMONT fait déjà autorité sur
+ * quelques clés. Cas vécu : saveMv gère la pièce jointe (`pj` / `pjId`) dans un bloc dédié
+ * qui la crée, la remplace ou la retire ; une préservation aveugle ressusciterait la PJ que
+ * ce bloc vient de retirer. La règle reste la même pour TOUT LE RESTE : un champ sans input
+ * garde sa valeur. Seules les clés pilotées voient leur présence/absence rétablie à l'état
+ * décidé par le bloc — la préservation ne le contredit jamais.
+ *
+ * @param {object} reconstruit objet issu du formulaire
+ * @param {object} existant    enregistrement en base avant écriture
+ * @param {string[]} champsPilotes clés dont un bloc amont est seul décideur
+ */
+export function _preserverSaufChampsPilotes(reconstruit, existant, champsPilotes) {
+  if (!reconstruit || typeof reconstruit !== 'object') return reconstruit;
+  var pilotes = champsPilotes || [];
+  var etat = pilotes.map(function (k) {
+    return { k: k, present: Object.prototype.hasOwnProperty.call(reconstruit, k), val: reconstruit[k] };
+  });
+  _preserverChampsExistants(reconstruit, existant);
+  etat.forEach(function (e) { if (e.present) reconstruit[e.k] = e.val; else delete reconstruit[e.k]; });
+  return reconstruit;
+}

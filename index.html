@@ -16627,6 +16627,11 @@ async function saveMv() {
   if(eid) {
     const i=DB.mouvements.findIndex(x=>x.id===parseInt(eid));
     if(i>=0) {
+      // FAMILLE « écritures destructrices » — le mouvement est RECONSTRUIT depuis le formulaire
+      // puis remplace l'ancien : tout champ sans input (tags d'import bancaire, _espaceId,
+      // tombstones, champs ajoutés ailleurs) disparaissait à chaque édition. Le bloc pièce
+      // jointe ci-dessus est SEUL décideur de pj / pjId — on ne le contredit pas.
+      _preserverSaufChampsPilotes(m, DB.mouvements[i], ['pj', 'pjId']);
       _auditLog('update', 'mouvement', m.id, m.lib||m.fac||String(m.id), DB.mouvements[i], m);
       DB.mouvements[i]=m;
     }
@@ -18022,6 +18027,11 @@ function saveCandidat(){
       cand.bailRef      = DB.candidats[i].bailRef || '';
       cand.notes        = DB.candidats[i].notes || '';
       cand.piecesVerifiees = DB.candidats[i].piecesVerifiees || false;
+      // FAMILLE « écritures destructrices » — les 6 lignes ci-dessus sont nécessaires (le
+      // formulaire ÉMET ces clés avec une valeur par défaut, il faut donc les réécrire), mais
+      // pas suffisantes : énumérer laisse repasser le bug au prochain champ ajouté ailleurs.
+      // Filet générique pour tout le reste (pièces jointes, tags multi-espace, tombstones…).
+      _preserverChampsExistants(cand, DB.candidats[i]);
       DB.candidats[i] = cand;
     } else DB.candidats.push(cand);
   } else DB.candidats.push(cand);
@@ -20725,6 +20735,18 @@ function saveBail() {
     if (!_pendingVal) { _openBailValidModal(ref, _finChanges); return; }
     _validCtx = _pendingVal;
   }
+  // LOT 1 (écritures destructrices) — AUCUN CHAMP LAISSÉ DERRIÈRE, comme saveImm/saveEnt.
+  // Le bail est RECONSTRUIT de zéro (getBailDataFromForm + overlay) puis remplace l'ancien juste
+  // en dessous : tout champ sans input y disparaissait SANS TOMBSTONE ET SANS UNDO. Mesuré en
+  // prod : déclarer un départ, restituer le DG, puis corriger le seul téléphone effaçait
+  // bail.depart, dgRestitueAt, dgDetailRetenues, dgRestitueMontant et locNouvIban — l'assistant
+  // repassait de « 3/6 étapes · sortie 30/06/2026 » à « Déclarer le départ » et le DG de
+  // « ✓ Restitué » à « ❓ Non versé ». Correctif GÉNÉRIQUE : énumérer les champs à sauver laisse
+  // repasser le bug au prochain champ ajouté ailleurs (les lignes nominatives ci-dessus —
+  // cloture, signatures, _ARCHI_V4B_DESC_FIELDS, fiscal, dateSignaturePrevue — le prouvent).
+  // isNewBail : à la création / au re-bail on ne préserve RIEN (archiverBail laisse l'ancien bail
+  // en place ; sinon le nouveau locataire hériterait du départ et des signatures du précédent).
+  _preserverBailExistant(bail, DB.baux[ref], isNewBail);
   _stamp(bail); // v13.18 : timestamp de modif pour merge Drive intelligent
   DB.baux[ref] = bail;
   if (_resetSignaturesAfterSave) {
@@ -25118,6 +25140,9 @@ function saveAss() {
   if(id) {
     const i=DB.assurances.findIndex(x=>x.id===parseInt(id));
     if(i>=0) {
+      // FAMILLE « écritures destructrices » — objet reconstruit puis remplacé : tout champ sans
+      // input (tag multi-espace, tombstones, champs d'un futur écran) partait sans undo.
+      _preserverChampsExistants(a, DB.assurances[i]);
       if (typeof _auditLog === 'function') _auditLog('update', 'assurance', a.id, _auditRef, DB.assurances[i], a);
       DB.assurances[i]=a;
     }
@@ -25185,6 +25210,10 @@ function saveMrh() {
   if(id) {
     const i=DB.mrh.findIndex(x=>x.id===parseInt(id));
     if(i>=0) {
+      // FAMILLE « écritures destructrices » — cas VÉRIFIÉ : le champ `prime` a été retiré de la
+      // modale en v15.239 ; sans filet, ré-enregistrer une assurance habitation existante
+      // effaçait la prime déjà saisie. On retire des ÉCRANS, jamais des DONNÉES.
+      _preserverChampsExistants(m, DB.mrh[i]);
       if (typeof _auditLog === 'function') _auditLog('update', 'mrh', m.id, m.logement+'/'+(m.locataire||''), DB.mrh[i], m);
       DB.mrh[i]=m;
     }
@@ -33320,6 +33349,15 @@ function saveEDL(opts){
       console.log('[saveEDL] 🔒 EDL signé pour la 1re fois → snapshot capturé');
     }
 
+    // FAMILLE « écritures destructrices » — le record est reconstruit puis remplace l'ancien.
+    // Les signatures sont préservées nommément ci-dessus (immutabilité légale) ; le reste ne
+    // l'était pas : clés d'artefact cloud (cloudPdfKey / driveWebViewLink), tag multi-espace,
+    // tombstones. Placé APRÈS la capture d'edlSnapshot pour que le snapshot légal reste
+    // exactement celui d'aujourd'hui.
+    if (eid) {
+      const _edlOld = (DB.edl||[]).find(x => x && x.id === parseInt(eid));
+      if (_edlOld) _preserverChampsExistants(record, _edlOld);
+    }
     _stamp(record); // v13.18
     // v14.97 AUDIT-TRAIL (audit complétude) : EDL = preuve photographique + PII locataire
     if(eid){
@@ -45722,6 +45760,33 @@ function _preserverChampsExistants(reconstruit, existant) {
   return reconstruit;
 }
 
+// ─── LOT 1 (écritures destructrices) — shadow inline de js/core/preserve-fields.js ───
+// GARDER IDENTIQUE au module. __tests__/helpers/bail-save-preserve.test.js vérifie la
+// non-divergence. saveBail reconstruit son bail depuis le formulaire puis remplace l'ancien :
+// le dossier de départ (bail.depart) et la restitution du DG (dgRestitueAt / dgDetailRetenues /
+// dgRestitueMontant / locNouvIban) disparaissaient au moindre enregistrement. Gate isNewBail :
+// archiverBail laisse l'ancien bail en place au re-bail — sans gate, le nouveau locataire
+// hériterait du départ et des signatures du précédent.
+function _preserverBailExistant(reconstruit, existant, isNewBail) {
+  if (isNewBail) return reconstruit;
+  if (!existant || typeof existant !== 'object') return reconstruit;
+  if (existant._deleted) return reconstruit;
+  return _preserverChampsExistants(reconstruit, existant);
+}
+
+// Variante « un bloc amont fait autorité sur quelques clés » — shadow inline du module.
+// GARDER IDENTIQUE. Utilisée par saveMv (le bloc pièce jointe décide seul de pj / pjId).
+function _preserverSaufChampsPilotes(reconstruit, existant, champsPilotes) {
+  if (!reconstruit || typeof reconstruit !== 'object') return reconstruit;
+  var pilotes = champsPilotes || [];
+  var etat = pilotes.map(function (k) {
+    return { k: k, present: Object.prototype.hasOwnProperty.call(reconstruit, k), val: reconstruit[k] };
+  });
+  _preserverChampsExistants(reconstruit, existant);
+  etat.forEach(function (e) { if (e.present) reconstruit[e.k] = e.val; else delete reconstruit[e.k]; });
+  return reconstruit;
+}
+
 // ─── P0-1 (chantier BIENS) — shadow inline de js/core/logp-partial.js ───
 // GARDER IDENTIQUE au module (file:// ne charge pas les ES modules ; main.js réécrit les
 // mêmes fonctions sur window après coup). __tests__/helpers/logp-partial.test.js vérifie la
@@ -49334,6 +49399,11 @@ function saveAgendaEvt() {
   _stamp(evt); // v13.18
   if(_agendaEditId) {
     const idx = DB.agenda.findIndex(x=>x.id===_agendaEditId);
+    // FAMILLE « écritures destructrices » — l'événement est reconstruit puis remplace l'ancien.
+    // `auto` / `autoKey` sont volontairement remis à zéro par le formulaire (une édition manuelle
+    // détache l'événement de l'auto-sync) : ces clés sont PRÉSENTES, la préservation ne les touche
+    // donc pas. Elle rattrape le reste (tag multi-espace, tombstones, champs ajoutés ailleurs).
+    if(idx>=0) _preserverChampsExistants(evt, DB.agenda[idx]);
     if(idx>=0) DB.agenda[idx]=evt; else DB.agenda.push(evt);
   } else {
     DB.agenda.push(evt);
@@ -55521,6 +55591,11 @@ function validateImportRef() {
     const log=DB.logements.find(l=>l.ref===ref);
     if(!bail.entity&&log) bail.entity=log.entity;
     if(!bail.adrBien&&log) bail.adrBien=log.adr;
+    // FAMILLE « écritures destructrices » — l'import REMPLAÇAIT le bail existant en entier, alors
+    // que juste au-dessus entités / immeubles / logements sont fusionnés (Object.assign). Sur un
+    // lot déjà géré, ré-importer le fichier de référence effaçait le dossier de départ, la
+    // restitution du DG et les signatures. Les colonnes importées gagnent, le reste survit.
+    _preserverChampsExistants(bail, DB.baux[ref]);
     DB.baux[ref]=bail; added++;
     if(log){
       const locs=bail.locataires||[];

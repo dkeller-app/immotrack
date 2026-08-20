@@ -136,7 +136,7 @@ import { validateNewImmNom, renameImmeubleRefs } from './core/rename-immeuble.js
 // P0-1 (chantier BIENS) — merge partiel des champs de formulaire du logement.
 import { _logpApplyPartial, _logpPushLoyerRef } from './core/logp-partial.js';
 // BIENS (audit C2/I5) — « aucun champ laissé derrière » sur les modales qui reconstruisent l'objet.
-import { _preserverChampsExistants } from './core/preserve-fields.js';
+import { _preserverChampsExistants, _preserverBailExistant, _preserverSaufChampsPilotes } from './core/preserve-fields.js';
 // BIENS P1-15 — quelle photo sert de vignette (⭐ prioritaire, sinon la plus récente).
 import { choisirCouverture } from './core/cover-photo.js';
 // BIENS — migrations douces du chantier (n° lot copro, …).
@@ -564,6 +564,8 @@ window._renameImmeuble = { validate: validateNewImmNom, propagate: renameImmeubl
 window._logpApplyPartial = _logpApplyPartial;
 window._logpPushLoyerRef = _logpPushLoyerRef;
 window._preserverChampsExistants = _preserverChampsExistants;
+window._preserverBailExistant = _preserverBailExistant;
+window._preserverSaufChampsPilotes = _preserverSaufChampsPilotes;
 window.choisirCouverture = choisirCouverture;
 // BIENS — migrations douces (appelees par _bootDataJobs ; idempotentes).
 window._biensMigration = { numLotVersLot: migrerNumLotVersLot };
