@@ -620,14 +620,20 @@ Le modèle `EDL_TPL` (`index.html:30526`) compte **127 éléments sur 7 pièces*
 | **Sangle volet fusionnée avec la ligne Volet** | Séjour, Chambre | −2 |
 | **VMC / Aération seulement en Cuisine, Salle de bain, WC** | retirée d'Entrée, Séjour, Chambre | −3 |
 
-**Résultat : 127 → 110 éléments.** Par pièce : Entrée/Couloir **12** · Séjour/Salon **13** · Cuisine **25** · WC **15** · Salle de bain **20** · Chambre **14** · Extérieurs/Communs **11**.
+**Résultat : 127 → 109 éléments** (110 après regroupements, moins la ligne DAAF ci-dessous). Par pièce : Entrée/Couloir **12** · Séjour/Salon **13** · Cuisine **25** · WC **15** · Salle de bain **20** · Chambre **14** · Extérieurs/Communs **10**.
 
 #### Deux points d'exécution, non négociables
 1. **Le modèle ne vaut que pour les NOUVEAUX EDL.** Les EDL existants gardent leurs éléments tels quels — ils sont signés ou en cours, **on n'y touche pas**, et surtout on ne fusionne **jamais** rétroactivement deux lignes qui portent chacune leur état, leur observation et leurs photos. Aucune migration de données.
 2. **Un regroupement n'est pas une suppression** : la ligne fusionnée doit **nommer les deux objets** (ex. « Porte, clé et poignée », « Radiateur et thermostat », « Volet, sangle / chaîne ») pour que le constat reste opposable : on ne doit pas pouvoir dire plus tard que la poignée n'avait pas été constatée.
 
-#### Question encore ouverte
-⏳ **Le détecteur de fumée reste-t-il en double ?** « Extérieurs / Communs » étant conservée, sa ligne « Détecteur de fumée (DAAF) » (`index.html:30596`) l'est aussi — alors qu'une **section dédiée** avec ses trois états existe (`index.html:3809-3836`). C'est le seul point où le pilotage maintient une réserve : deux réponses possibles au même constat, sur un document signé, dont l'absence expose le bailleur à des sanctions pénales (loi 2010-238). **À trancher par Didier.**
+#### ✅ DÉTECTEUR DE FUMÉE — tranché : la ligne d'« Extérieurs » est RETIRÉE
+> « on retire le detecteur de fumée d'extérieur »
+
+La ligne « Détecteur de fumée (DAAF) » de « Extérieurs / Communs » (`index.html:30596`) **disparaît du modèle**. La **section dédiée** reste seule à porter le constat (`index.html:3809-3836`, trois états : présent et fonctionnel / présent mais à vérifier / absent).
+
+Pourquoi ce point méritait d'être tranché et pas laissé : deux réponses possibles au même constat, sur un document **signé**, dont l'absence expose le bailleur à des **sanctions pénales** (loi 2010-238). En cas d'incendie, une ligne « DAAF » laissée vide au milieu du garage et des poubelles, à côté d'une section qui dit « présent et fonctionnel », est une contradiction écrite exploitable contre lui.
+
+**Conséquences :** « Extérieurs / Communs » passe de **11 à 10** éléments, et le modèle de **110 à 109**. La règle d'exécution 1 s'applique : **les EDL existants ne sont pas touchés** — si un ancien EDL porte cette ligne renseignée, elle reste.
 
 ---
 
