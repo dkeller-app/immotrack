@@ -602,6 +602,35 @@ Les maquettes rendaient les éléments en **cartes** (« bulles ») sur les troi
 
 ---
 
+### A.5 · LE MÉNAGE DU MODÈLE — tranché par Didier le 20/08
+
+Le modèle `EDL_TPL` (`index.html:30526`) compte **127 éléments sur 7 pièces**. Extrait et relu ligne par ligne avec Didier. **Ce qu'il garde est aussi important que ce qu'il retire** — les deux sont gravés ici.
+
+#### Ce qu'il GARDE (propositions du pilotage ÉCARTÉES)
+- **« Extérieurs / Communs » reste entièrement** (11 éléments), **malgré 0 renseigné** sur l'EDL réel. Ma proposition de ne plus la créer d'office est **rejetée**.
+- **« Autres observations » reste** dans les 7 pièces : *« c'est un champ libre »*. Ce n'est pas un doublon du champ d'observation par élément — c'est la note de la pièce.
+- **« Prise Internet (RJ45) » reste** dans les 4 pièces.
+- **« Réfrigérateur » et « Lave-vaisselle » restent** en cuisine.
+
+#### Ce qui est REGROUPÉ ou RETIRÉ — **17 lignes**
+| Décision | Portée | Lignes |
+|---|---|---|
+| **Porte et clé/poignée = UNE seule ligne**, partout | les 6 pièces intérieures ; l'entrée passe de **4 lignes de porte à 1** | −8 |
+| **Thermostat fusionné avec la ligne Radiateur** | Entrée, Séjour, Cuisine, Chambre | −4 |
+| **Sangle volet fusionnée avec la ligne Volet** | Séjour, Chambre | −2 |
+| **VMC / Aération seulement en Cuisine, Salle de bain, WC** | retirée d'Entrée, Séjour, Chambre | −3 |
+
+**Résultat : 127 → 110 éléments.** Par pièce : Entrée/Couloir **12** · Séjour/Salon **13** · Cuisine **25** · WC **15** · Salle de bain **20** · Chambre **14** · Extérieurs/Communs **11**.
+
+#### Deux points d'exécution, non négociables
+1. **Le modèle ne vaut que pour les NOUVEAUX EDL.** Les EDL existants gardent leurs éléments tels quels — ils sont signés ou en cours, **on n'y touche pas**, et surtout on ne fusionne **jamais** rétroactivement deux lignes qui portent chacune leur état, leur observation et leurs photos. Aucune migration de données.
+2. **Un regroupement n'est pas une suppression** : la ligne fusionnée doit **nommer les deux objets** (ex. « Porte, clé et poignée », « Radiateur et thermostat », « Volet, sangle / chaîne ») pour que le constat reste opposable : on ne doit pas pouvoir dire plus tard que la poignée n'avait pas été constatée.
+
+#### Question encore ouverte
+⏳ **Le détecteur de fumée reste-t-il en double ?** « Extérieurs / Communs » étant conservée, sa ligne « Détecteur de fumée (DAAF) » (`index.html:30596`) l'est aussi — alors qu'une **section dédiée** avec ses trois états existe (`index.html:3809-3836`). C'est le seul point où le pilotage maintient une réserve : deux réponses possibles au même constat, sur un document signé, dont l'absence expose le bailleur à des sanctions pénales (loi 2010-238). **À trancher par Didier.**
+
+---
+
 ## 4. L'ergonomie à une main — décision B.4
 
 **Décision : sur téléphone, une pièce à l'écran à la fois. PC et tablette gardent la vue complète.**
