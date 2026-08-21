@@ -71,6 +71,13 @@ export function premierMontantSaisi(...candidats) {
   return null;
 }
 
+/** Lendemain d'une date ISO. */
+function _lendemain(iso) {
+  const d = new Date(_ymd(iso) + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 /** Veille d'une date ISO. */
 function _veille(iso) {
   const d = new Date(_ymd(iso) + 'T00:00:00');
@@ -337,8 +344,24 @@ export function synchroniserPeriodeBail(periods, bail, debutPrecedent) {
   // de reculer la date de début (audit, résidu 1a).
   if (ouvertes.some((i) => _ymd(arr[i].bailDebut) === debut)) return arr;
   if (!ouvertes.length) {
+    // Aucune période ouverte : le barème du lot est refermé (correction datée bornée, clôture).
+    // Créer la période du bail à sa date de début REPASSERAIT PAR-DESSUS ce qui est déjà écrit.
+    // Mesuré à l'écran : après une correction 2024-01-01→2025-12-31 à 677 € validée avec motif,
+    // le saveBail suivant recréait une période 2024-01-01 au loyer du bail (662 €) et duMois
+    // rendait 740 € au lieu de 755 € — la correction datée, motivée et tracée était annulée par
+    // un simple enregistrement. Même famille que tout ce chantier : une saisie utilisateur
+    // détruite en silence. On démarre donc APRÈS la dernière période vivante du lot.
+    let finMax = '';
+    for (const q of arr) {
+      if (!q || q._deleted || _nr(q.ref) !== want || q.fin == null) continue;
+      const f = _ymd(q.fin);
+      if (f > finMax) finMax = f;
+    }
     const p = periodeInitialeBail(bail);
-    if (p) arr.push(p);
+    if (p) {
+      if (finMax && finMax >= debut) p.debut = _lendemain(finMax);
+      arr.push(p);
+    }
     return arr;
   }
   // Les périodes ouvertes restantes appartiennent à un AUTRE bail (barème mal refermé au bail

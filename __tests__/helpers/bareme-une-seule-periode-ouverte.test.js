@@ -92,6 +92,46 @@ describe('synchroniserPeriodeBail — jamais deux périodes ouvertes', () => {
   });
 });
 
+describe('BARÈME REFERMÉ — un saveBail ne repasse plus par-dessus une correction datée', () => {
+  // Trouvé par le smoke, pas par l'audit. Une correction de période BORNÉE (« Corriger une
+  // période » avec date de fin) laisse le lot SANS période ouverte. Le saveBail suivant recréait
+  // alors la période du bail à sa date de début — par-dessus la correction.
+  // Mesuré à l'écran : correction 2024-01-01→2025-12-31 à 677 € validée avec motif, puis un
+  // changement de téléphone → une période 2024-01-01 à 662 € réapparaissait et duMois rendait
+  // 740 € au lieu de 755 €. La saisie datée, motivée et tracée était annulée sans un mot.
+  const apresCorrectionBornee = () => ([
+    { ref: 'F-001', debut: '2024-01-01', fin: '2025-12-31', hc: 677, ch: 78, source: 'manuel', bailDebut: '2024-01-01', note: 'erreur de saisie' },
+  ]);
+
+  it('la période du bail démarre APRÈS la dernière période vivante, pas par-dessus', () => {
+    const out = synchroniserPeriodeBail(apresCorrectionBornee(), { ref: 'F-001', debut: '2024-01-01', hc: 662, ch: 78 });
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ debut: '2024-01-01', fin: '2025-12-31', hc: 677 });   // intacte
+    expect(out[1]).toMatchObject({ debut: '2026-01-01', fin: null, hc: 662, source: 'bail' });
+    expect(ouvertes(out, 'F-001')).toHaveLength(1);
+  });
+
+  it('et le dû suit : la correction vaut pour sa fenêtre, le bail pour la suite', () => {
+    const bareme = synchroniserPeriodeBail(apresCorrectionBornee(), { ref: 'F-001', debut: '2024-01-01', hc: 662, ch: 78 });
+    const bails = [{ debut: '2024-01-01', fin: null, finEffective: null, hc: 662, ch: 78, archive: false }];
+    expect(duMois({ ref: 'F-001', bails, bareme }, '2024-06').total).toBe(755);   // 677 + 78, la correction
+    expect(duMois({ ref: 'F-001', bails, bareme }, '2026-06').total).toBe(740);   // 662 + 78, le bail
+  });
+
+  it('RE-BAIL : quand le barème est refermé AVANT le nouveau bail, rien ne se décale', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2026-06-30', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+    ];
+    const out = synchroniserPeriodeBail(bareme, { ref: 'F-001', debut: '2027-01-01', hc: 900, ch: 150 });
+    expect(out[1]).toMatchObject({ debut: '2027-01-01', fin: null, hc: 900 });
+  });
+
+  it('BAIL NEUF sur lot vierge : la période démarre bien à la date du bail', () => {
+    const out = synchroniserPeriodeBail([], { ref: 'F-001', debut: '2026-09-01', hc: 640, ch: 95 });
+    expect(out[0]).toMatchObject({ debut: '2026-09-01', fin: null, hc: 640, ch: 95, source: 'bail' });
+  });
+});
+
 describe('MÊME DATE D’EFFET — la seconde révision supersède la première', () => {
   // Reproduit à l'écran : _applyIRLValidated(ref, 730, '2026-09-01') puis (ref, 742, '2026-09-01')
   // laissait DEUX périodes ouvertes au même jour. Corriger le montant puis revalider est un geste
