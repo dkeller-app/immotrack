@@ -337,7 +337,7 @@ Développeur solo **avec une chaîne d'agents IA** (développement, audit systé
 - **Maintien de l'ARE = le pilier** : à CA faible, ~0,35 € d'allocation perdue par € de CA seulement → le revenu personnel du fondateur est sécurisé pendant toute la rampe. ⚠️ Un plafond à 60 % des droits restants peut s'appliquer (convention 04/2025) — **question posée à France Travail en action n°1**. L'**ARCE est écartée** (irréversible, perdante à CA faible).
 - **ACRE nouvelle formule** (décret 02/2026 : exonération réduite à 25 %) : cotisations **15,9 %** au lieu de 21,2 % jusqu'à fin sept. 2027 en créant au 1er octobre — intégrée au classeur ; gain modeste, le plan ne repose pas dessus.
 - **CFE 0 € en 2026** (déclaration 1447-C avant le 31/12), franchise de TVA (seuil 37 500 €), Activ'Créa gratuit.
-- **Financements possibles du besoin de trésorerie** : prêt d'honneur **Initiative Sud Alsace 5-30 K€ à taux 0** (dossier = ce BP + le classeur) ; **Bourse French Tech jusqu'à 30 K€** (micro admise si accompagnée par un incubateur — Quest for change, KMØ ; déposer avant d'engager les dépenses).
+- **Financements possibles du besoin de trésorerie** : prêt d'honneur **Initiative Strasbourg 3-15 K€ à taux 0** (dossier = ce BP + le classeur) ; **Bourse French Tech jusqu'à 30 K€** (micro admise si accompagnée par un incubateur — Quest for change/SEMIA (Strasbourg) ; déposer avant d'engager les dépenses).
 
 ### 11.4 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
 

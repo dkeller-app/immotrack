@@ -1,4 +1,4 @@
-# Aides à la création — dossier opérationnel (profil : demandeur d'emploi indemnisé, micro-entreprise, Haut-Rhin)
+# Aides à la création — dossier opérationnel (profil : demandeur d'emploi indemnisé, micro-entreprise, Bas-Rhin (Strasbourg))
 
 > Recherche sourcée du 24/08/2026 (service-public.gouv.fr, francetravail.fr, unedic.org, Infogreffe/les-aides.fr — chaque fiche cite sa source et sa date). Synthèse au BP §11.4.
 > ⚠️ **Deux alertes réglementaires 2026** : ① le décret du 06/02/2026 a **réduit l'ACRE à 25 % d'exonération** pour les micro créées ≥ 01/07/2026 (fini le 50 %) ; ② la convention chômage du 01/04/2025 peut **plafonner le cumul ARE+création à 60 % des droits restants** selon la date de fin du contrat ayant ouvert les droits.
@@ -14,8 +14,8 @@
 | **Franchise TVA** | ✅ de droit | Pas de TVA jusqu'à **37 500 €** de CA services (réforme du seuil 25 000 € **abandonnée**, loi du 03/11/2025). TVA non récupérable sur les achats |
 | **Activ'Créa (France Travail)** | ✅ | Accompagnement gratuit ≤ 3 mois, **ARE maintenue intégralement pendant la prestation** ; sert de preuve d'accompagnement aux dossiers financiers |
 | **Be Est Entreprendre #Parcours (Région)** | 🟡 | Accompagnement gratuit (préparation ≤ 6 mois, montage financier, suivi ≤ 3 ans) via BGE/CCI/Initiative — critère « inscrit > 6 mois » à vérifier. Pas de cash direct, mais ouvre prêts d'honneur/garanties |
-| **Prêt d'honneur Initiative Sud Alsace** | 🟡 dossier sur BP | **5 000-30 000 € à taux 0, sans garantie** (moyenne réseau ~9 700 €), comité sur business plan, effet levier bancaire ×9,5 |
-| **Bourse French Tech (Bpifrance)** | 🟡 conditionnée | Subvention jusqu'à **30 000 €** (50-70 % des dépenses), entreprise < 1 an ; micro admise **si accompagnée par un incubateur/accélérateur** (Quest for change, KMØ Mulhouse, Village by CA) ; **aucune dépense engagée avant le dépôt n'est éligible** — à reconfirmer auprès de Bpifrance (site officiel inaccessible au fetch) |
+| **Prêt d'honneur Initiative Strasbourg** (Eurométropole + Erstein) | 🟡 dossier sur BP | **Création : 3 000-15 000 € à taux 0, sans garantie personnelle**, remboursement 2-5 ans, systématiquement couplé à un prêt bancaire (levier ×9,5), comité sur business plan — [initiative-strasbourg.eu](https://www.initiative-strasbourg.eu/nos-prets-dhonneur.html) (vérifié 24/08) |
+| **Bourse French Tech (Bpifrance)** | 🟡 conditionnée | Subvention jusqu'à **30 000 €** (50-70 % des dépenses), entreprise < 1 an ; micro admise **si accompagnée par un incubateur/accélérateur** (Quest for change/SEMIA à Strasbourg, Village by CA Alsace) ; **aucune dépense engagée avant le dépôt n'est éligible** — à reconfirmer auprès de Bpifrance (site officiel inaccessible au fetch) |
 | Réseau Entreprendre Alsace | ❌ pour l'instant | 10-90 K€ mais exige une société + 10 K€ d'apport + créations d'emplois → à revoir au stade SASU |
 | Aide jeunes Grand Est (6-8 K€) | ❌ si > 29 ans | — |
 | Adie / prime d'activité | 🟡 secours | Microcrédit ≤ ~12-15 K€ (payant) ; prime d'activité selon foyer (simulateur CAF) |
@@ -27,7 +27,7 @@
 1. **MAINTENANT — France Travail, par écrit** : demander (a) le **reliquat exact de droits ARE** et la date de fin, (b) si le **plafond 60 %** s'applique (fin de contrat avant ou après le 01/04/2025). C'est la variable qui dimensionne toute la trésorerie personnelle pendant la rampe.
 2. S'inscrire à **Activ'Créa** et/ou **Be Est #Parcours** (gratuits, ARE maintenue, attestation utile aux dossiers).
 3. Si la **Bourse French Tech** est visée : prendre contact avec un incubateur labellisé AVANT toute dépense (la condition d'accompagnement se règle avant le dépôt).
-4. Monter le dossier **prêt d'honneur Initiative Sud Alsace** (le BP + le classeur financier sont prêts).
+4. Monter le dossier **prêt d'honneur Initiative Strasbourg** (le BP + le classeur financier sont prêts).
 5. **Arbitrer la date d'immatriculation : recommandation 1er octobre 2026** (12 mois pleins d'ACRE ; compatible Stripe avant le 14/10 — KYC en quelques jours — mais à confirmer avec le comptable).
 6. Informer France Travail du projet et **choisir explicitement le maintien ARE** (pas l'ARCE).
 
