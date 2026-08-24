@@ -12,7 +12,7 @@ import { createMultiStore } from '../core/store-multi.js'
 // errors+conflicts+skipped), donc non testée, pendant que la version testée du
 // module ne servait à personne : deux expressions de la même règle, la vivante
 // non vérifiée et la vérifiée morte. Une seule subsiste, celle qui est testée.
-import { peutSeDeconnecter } from '../core/offline-boot.js'
+import { classerResumeFlush, verdictDeconnexion, MIROIR_KEY, MIROIR_ECRIT_KEY, FLUSH_OK_KEY } from '../core/offline-boot.js'
 
 export function createBoot(client) {
   if (!client || !client.auth || typeof client.from !== 'function') throw new Error('createBoot: client supabase-js requis')
@@ -52,26 +52,32 @@ export function createBoot(client) {
     // On refuse désormais, en le disant. `opts.forcer` = l'utilisateur a lu le
     // message et choisit quand même — un acte explicite, jamais un défaut.
     try {
-      if (_sync && !(opts && opts.forcer)) {
-        const s = await _sync.flush()
-        const errs = (s && s.errors) || [], confs = (s && s.conflicts) || [], skips = (s && s.skipped) || []
-        const reste = errs.length + confs.length + skips.length + ((s && s.config === 'error') ? 1 : 0)
-        // Un enregistrement « skipped » (clé étrangère non résoluble) est un
-        // blocage STABLE : le moteur le retente sans fin. Répéter « attends le
-        // réseau » à chaque déconnexion serait faux, et une question qui revient
-        // toujours apprend à cliquer sans lire — le jour où elle portera sur un
-        // vrai EDL, elle sera balayée par réflexe. On la distingue, et on NOMME
-        // les enregistrements concernés (le résumé n'était lu par personne).
-        const seulementBloquees = skips.length > 0 && errs.length === 0 && confs.length === 0 && !(s && s.config === 'error')
-        const v = peutSeDeconnecter({ ecrituresEnAttente: reste, forcer: false })
+      if (!(opts && opts.forcer)) {
+        // ⚠️ LE CAS SANS MOTEUR EST TRAITÉ ICI, pas seulement chez l'appelant.
+        // `_sync` est nul sur le chemin HORS LIGNE : l'ancienne condition
+        // `if (_sync && …)` sautait donc la garde et rendait { ok: true }. Deux
+        // portes (« utiliser un autre compte » d'une invitation, page de test)
+        // appellent `logout` sans passer par la garde de l'entrée : elles
+        // n'étaient sauvées par rien. Le verdict est le même dans les deux
+        // modes, et il vient du module testé.
+        const s = _sync ? await _sync.flush() : null
+        const c = classerResumeFlush(s)
+        let miroirPresent = false, miroirEcritA = 0, dernierFlushA = 0
+        try {
+          miroirPresent = !!localStorage.getItem(MIROIR_KEY)
+          miroirEcritA = parseInt(localStorage.getItem(MIROIR_ECRIT_KEY) || '0', 10) || 0
+          dernierFlushA = parseInt(localStorage.getItem(FLUSH_OK_KEY) || '0', 10) || 0
+        } catch (e) {}
+        const v = verdictDeconnexion({
+          forcer: false,
+          moteurPresent: !!_sync,
+          horsLigne: !!(typeof window !== 'undefined' && window.__immoHorsLigne),
+          miroirPresent, miroirEcritA, dernierFlushA,
+          ecrituresEnAttente: c.enAttente,
+          seulementBloquees: c.seulementBloquees,
+        })
         if (!v.peut) {
-          return {
-            ok: false,
-            raison: seulementBloquees ? 'blocage-chronique' : 'non-synchronise',
-            enAttente: v.enAttente || 1,
-            quoi: [...errs, ...confs, ...skips].map(x => (x && x.coll) || '?').filter((c, i, t) => t.indexOf(c) === i),
-            resume: s,
-          }
+          return { ok: false, raison: v.raison, enAttente: v.enAttente || 1, quoi: c.quoi, resume: s }
         }
       }
     } catch (e) {

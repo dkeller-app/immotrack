@@ -14,6 +14,10 @@ import { BREADCRUMB_KEY, appendCrumb } from '../core/login-breadcrumb.js'
 // de l'EDL (une écriture toutes les 2 s), l'ancien `schedule` replanifiait un
 // flush à 800 ms en permanence → ~1 800 requêtes en échec sur une heure hors ligne.
 import { planFlush, FLUSH_DEBOUNCE_MS } from '../core/sync-schedule.js'
+// Clé PROD du miroir localStorage — SOURCE UNIQUE (l'entry ne tourne jamais en
+// mode test). Elle était redéclarée ici ET dans le module ; deux définitions
+// d'une même clé de stockage finissent toujours par diverger.
+import { MIROIR_KEY as MIRROR_KEY } from '../core/offline-boot.js'
 
 const FLAG = (() => {
   try {
@@ -62,7 +66,6 @@ let _resolveEntiteOwner = null, _resolveEspaceOfSeg = null   // résolveurs PURS
 // Le miroir localStorage (écrit par saveDB en mode cloud, filet de rollback) et l'IndexedDB photos ne
 // doivent JAMAIS survivre à un changement d'utilisateur ni à un logout (cause C-C : un révoqué gardait
 // une copie lisible à vie). Décisions PURES dans js/core/cache-purge.js (testé) ; exécution ici.
-const MIRROR_KEY = 'immotrack_v4'          // clé PROD du miroir (l'entry ne tourne jamais en mode test)
 const MIRROR_TAG_KEY = 'immotrack_v4_tag'  // = cache-purge.MIRROR_TAG_KEY (contrat verrouillé par test)
 // BUG-LOGIN-DOUBLE — storageKey EXPLICITE du token de session (persistSession:true). Clé DÉTERMINISTE
 // (au lieu du défaut sb-<projectref>-auth-token, dérivé de l'URL) → purge FIABLE au logout / changement
@@ -245,7 +248,7 @@ async function boot() {
     // Les horodatages partent AVEC le miroir : une clé résiduelle après une purge
     // RGPD n'a pas de raison d'exister, et un horodatage orphelin ferait croire à
     // F1, au prochain login, qu'il reste du travail hors ligne à rejouer.
-    try { if (_offlineBoot) { localStorage.removeItem(_offlineBoot.MIROIR_ECRIT_KEY); localStorage.removeItem(_offlineBoot.FLUSH_OK_KEY) } } catch (e) {}
+    try { if (_offlineBoot) { localStorage.removeItem(_offlineBoot.MIROIR_ECRIT_KEY); localStorage.removeItem(_offlineBoot.FLUSH_OK_KEY); localStorage.removeItem(_offlineBoot.ESPACES_KEY) } } catch (e) {}
     // BUG-LOGIN-DOUBLE volet sécurité : le token de session (persistSession:true) DOIT partir aussi.
     _purgeAuthTokenKeys()
     // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).
@@ -708,7 +711,16 @@ async function acceptInviteFlow(api, client, overlay, token) {
 async function onHorsLigne(api, overlay, session) {
   try {
     const raw = localStorage.getItem(MIRROR_KEY)
-    const db = raw ? JSON.parse(raw) : null
+    let db = raw ? JSON.parse(raw) : null
+    // ⚠️ RGPD — le miroir est filtré AVANT d'être affiché. Il ne suffit pas de
+    // protéger la remontée : Logements, Locataires et les fiches 360 sont
+    // OUVERTS hors ligne, et le miroir peut contenir un espace dont on a été
+    // retiré. Sans ce filtre, une associée révoquée revoit tout, sans réseau.
+    if (db && _offlineBoot) {
+      let permis = null
+      try { permis = JSON.parse(localStorage.getItem(_offlineBoot.ESPACES_KEY) || 'null') } catch (e) { permis = null }
+      db = _offlineBoot.filtrerMiroirParEspacesAutorises(db, permis || [])
+    }
     if (!db || typeof window.__immoSetDB !== 'function' || typeof window.__immoRender !== 'function') {
       // Rien de lisible : on retombe sur le comportement d'aujourd'hui.
       try { window.__immoCrumb && window.__immoCrumb('hors-ligne-abandon:miroir-vide') } catch (e) {}
@@ -843,6 +855,7 @@ async function _remonterTravailHorsLigne({ api, db, setSync, tagMiroir, espacesA
       : null
     const f = _offlineBoot.fusionnerEdlHorsLigne(db, miroirFiltre, {
       cleDe: rec => (_recordKey ? _recordKey('edl', rec) : String(rec.id)),
+      dernierFlushA: flushA,   // un EDL antérieur au dernier envoi et absent du cloud a été SUPPRIMÉ ailleurs
     })
     if (!f.ajoutes.length && !f.majs.length) return rien
     console.info('[Supabase] F1 — travail hors ligne à remonter :', f.ajoutes.length, 'EDL ajouté(s),', f.majs.length, 'mis à jour')
@@ -1078,6 +1091,10 @@ async function onLoggedIn(api, overlay, user) {
       // `edl` en conflit voient leur version locale survivre à côté, nommée et
       // datée. Aucune fusion n'est tentée (invariant 32).
       let _conserves = []
+      // ⚠️ L'INSTANTANÉ SERVEUR, gardé AVANT toute conservation. Même contrat que
+      // la remontée F1, et pour la même raison : la baseline doit être semée
+      // depuis ce que le SERVEUR a, jamais depuis ce qu'on vient d'y ajouter.
+      let _edlServeur = null
       try {
         const conflitsEdl = (_conflitsEdlEnAttente || []).filter(Boolean)
         if (conflitsEdl.length && _edlConflit && _recordKey && liveDB && typeof window.__immoNouvelId === 'function') {
@@ -1088,14 +1105,26 @@ async function onLoggedIn(api, overlay, user) {
             cleDe: rec => _recordKey('edl', rec),
             nouvelId: () => window.__immoNouvelId(),
           })
-          if (r.conserves.length) { Object.assign(db, { edl: r.db.edl }); _conserves = r.conserves }
+          if (r.conserves.length) {
+            _edlServeur = Array.isArray(db.edl) ? db.edl.slice() : []
+            Object.assign(db, { edl: r.db.edl })
+            _conserves = r.conserves
+          }
         }
       } catch (e) { console.warn('[Supabase] conservation des versions EDL', e) }
       if (typeof window.__immoSetDB !== 'function' || window.__immoSetDB(db) === false) return
       _pendingConflictBanner = false
       liveDB = db
       _liveDBRef = db
-      api.seed(db)                                        // baseline neuve (purge aussi les conflits M2)
+      // ⚠️ BASELINE = LE SERVEUR, pas la mémoire. `db` porte désormais les versions
+      // conservées ; les semer les déclarerait « déjà synchronisées », le diff du
+      // flush suivant serait VIDE pour elles, et le prochain re-pull — un
+      // rechargement suffit — les effacerait. La bannière aurait promis « ta
+      // saisie n'a PAS été écrasée » quelques minutes avant qu'elle disparaisse.
+      // C'est le défaut corrigé sur F1, qui vivait aussi ici.
+      api.seed(_edlServeur ? Object.assign({}, db, { edl: _edlServeur }) : db)
+      // …et on marque sale pour que l'envoi parte, sans attendre une saisie.
+      if (_conserves.length) { try { api.markDirty(); _dirtySeq++ } catch (e) {} }
       _lastHydrateAt = Date.now()
       try { (typeof window.__immoRerenderCurrent === 'function' ? window.__immoRerenderCurrent : window.__immoRender)() } catch (e) { console.warn('[Supabase] re-render post-pull', e) }
       if (!_deadShown) setSync('ok')
@@ -1186,6 +1215,11 @@ async function onLoggedIn(api, overlay, user) {
       if (cls !== 'same') { try { localStorage.removeItem(MIRROR_KEY) } catch (e) {} }
       if (cls === 'other-user') await _deletePhotosDb()
       try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge ? _cachePurge.mirrorTag(user.id, esp.espaceId) : JSON.stringify({ userId: user.id, espaceId: esp.espaceId })) } catch (e) {}
+      // EDL TERRAIN lot 4 — on MÉMORISE les espaces auxquels ce login donne accès.
+      // Hors ligne on ne peut rien demander au serveur : sans cette liste, le
+      // miroir serait affiché en entier, espaces révoqués compris (incident du
+      // 12/07). Le tag ne suffit pas, il n'enregistre que l'espace PROPRE (F13).
+      try { if (_offlineBoot) localStorage.setItem(_offlineBoot.ESPACES_KEY, JSON.stringify(Object.keys(_espaceOwners || {}))) } catch (e) {}
     } catch (e) { console.warn('[Supabase] purge cache au login', e) }
     api.wireStores({ espaces: _espaces, getDB: () => liveDB, schedule })   // MULTI-ESPACE : 1 store/espace agrégé (N=1 = mono)
     // SYNCHRO LIVE — canal Realtime PRIVÉ de l'espace (policies P0-D). Un autre appareil qui modifie des

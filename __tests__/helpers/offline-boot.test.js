@@ -372,3 +372,130 @@ describe('classerMiroirHorsLigne — RGPD hors ligne (invariant 16)', () => {
     expect(classerMiroirHorsLigne(tag('u1', 'esp1'), '')).toBe('untagged');
   });
 });
+
+import {
+  filtrerMiroirParEspacesAutorises, classerResumeFlush, MIROIR_KEY, MIROIR_ECRIT_KEY,
+  COLLECTIONS_TAGUEES,
+} from '../../js/core/offline-boot.js';
+
+describe('filtrerMiroirParEspacesAutorises — la fenêtre RGPD du hors ligne', () => {
+  // Le filtre d'espace protégeait la REMONTÉE, pas l'AFFICHAGE : `onHorsLigne`
+  // injectait le miroir ENTIER, et Logements/Locataires/fiches 360 sont ouverts
+  // hors ligne. Une associée révoquée, sans réseau, revoyait tout — l'incident
+  // du 12/07 à l'identique, sur un chemin neuf.
+  const miroir = () => ({
+    edl:        [{ id: 1, _espaceId: 'perdu' }, { id: 2, _espaceId: 'ok' }, { id: 3 }],
+    logements:  [{ ref: 'A', _espaceId: 'perdu' }, { ref: 'B' }],
+    entites:    [{ nom: 'SCI PERDUE', _espaceId: 'perdu' }, { nom: 'MOI' }],
+    mouvements: [{ id: 9, _espaceId: 'perdu' }],
+    baux:       { 'A-1': { loyer: 700, _espaceId: 'perdu' }, 'B-1': { loyer: 500 } },
+    params:     { dashRenderV: 'v2' },
+  });
+
+  it('LE POINT DUR — un espace révoqué disparaît de TOUTES les collections', () => {
+    const r = filtrerMiroirParEspacesAutorises(miroir(), ['ok']);
+    expect(r.edl.map(e => e.id).sort()).toEqual([2, 3]);
+    expect(r.logements.map(l => l.ref)).toEqual(['B']);
+    expect(r.entites.map(e => e.nom)).toEqual(['MOI']);
+    expect(r.mouvements).toEqual([]);
+    expect(Object.keys(r.baux)).toEqual(['B-1']);
+  });
+
+  it('`baux` est une MAP, pas un tableau : la traiter comme les autres la viderait', () => {
+    const r = filtrerMiroirParEspacesAutorises(miroir(), ['ok']);
+    expect(Array.isArray(r.baux)).toBe(false);
+    expect(r.baux['B-1'].loyer).toBe(500);
+  });
+
+  it('l’espace PROPRE (sans tag) passe toujours — sinon l’app serait vide chez soi', () => {
+    const r = filtrerMiroirParEspacesAutorises(miroir(), []);
+    expect(r.edl.map(e => e.id)).toEqual([3]);
+    expect(r.logements.map(l => l.ref)).toEqual(['B']);
+  });
+
+  it('un espace PARTAGÉ légitime reste visible — on ne casse pas la SCI', () => {
+    const r = filtrerMiroirParEspacesAutorises(miroir(), ['ok', 'perdu']);
+    expect(r.edl).toHaveLength(3);
+    expect(Object.keys(r.baux).sort()).toEqual(['A-1', 'B-1']);
+  });
+
+  it('fail-safe : liste inconnue → on ne garde que ce qu’on sait justifier', () => {
+    for (const permis of [null, undefined]) {
+      const r = filtrerMiroirParEspacesAutorises(miroir(), permis);
+      expect(r.edl.map(e => e.id)).toEqual([3]);
+    }
+  });
+
+  it('les collections NON taguées ne sont jamais touchées', () => {
+    const r = filtrerMiroirParEspacesAutorises(miroir(), ['ok']);
+    expect(r.params).toEqual({ dashRenderV: 'v2' });
+  });
+
+  it('un DB absent ou mal formé ne casse rien', () => {
+    expect(filtrerMiroirParEspacesAutorises(null, ['ok'])).toBeNull();
+    expect(filtrerMiroirParEspacesAutorises({}, ['ok'])).toEqual({});
+  });
+
+  it('la liste des collections taguées ne prétend pas couvrir `baux`', () => {
+    // `baux` est traité à part (c'est une map) : l'inclure ici la viderait.
+    expect(COLLECTIONS_TAGUEES).not.toContain('baux');
+    expect(COLLECTIONS_TAGUEES).toContain('logements');
+    expect(COLLECTIONS_TAGUEES).toContain('edl');
+  });
+});
+
+describe('classerResumeFlush — une règle, un endroit', () => {
+  it('compte erreurs, conflits, refus et configuration en échec', () => {
+    const c = classerResumeFlush({ errors: [{ coll: 'edl' }], conflicts: [{ coll: 'baux' }], skipped: [{ coll: 'edl' }], config: 'error' });
+    expect(c.enAttente).toBe(4);
+  });
+  it('« seulement bloquées » exige des refus ET RIEN D’AUTRE', () => {
+    expect(classerResumeFlush({ skipped: [{ coll: 'edl' }] }).seulementBloquees).toBe(true);
+    expect(classerResumeFlush({ skipped: [{ coll: 'edl' }], errors: [{ coll: 'edl' }] }).seulementBloquees).toBe(false);
+    expect(classerResumeFlush({ skipped: [{ coll: 'edl' }], config: 'error' }).seulementBloquees).toBe(false);
+    expect(classerResumeFlush({ errors: [{ coll: 'edl' }] }).seulementBloquees).toBe(false);
+  });
+  it('nomme les collections, sans doublon', () => {
+    const c = classerResumeFlush({ errors: [{ coll: 'edl' }, { coll: 'edl' }], conflicts: [{ coll: 'baux' }], skipped: [] });
+    expect(c.quoi.sort()).toEqual(['baux', 'edl']);
+  });
+  it('un résumé propre ou absent ne bloque rien', () => {
+    expect(classerResumeFlush({ upserts: [{ coll: 'edl' }] }).enAttente).toBe(0);
+    expect(classerResumeFlush(null).enAttente).toBe(0);
+    expect(classerResumeFlush(null).seulementBloquees).toBe(false);
+  });
+});
+
+describe('F1 — un EDL SUPPRIMÉ ailleurs ne ressuscite pas', () => {
+  it('LE PIÈGE — absent du cloud ne veut pas dire jamais monté', () => {
+    // L'hydratation exclut les soft-deleted : un EDL supprimé sur le PC est
+    // ABSENT du DB serveur. Le reverser le ressuscite, et le moteur le repousse
+    // en `revived`. On n'ajoute que ce qui a été écrit APRÈS le dernier envoi.
+    const cloud = { edl: [] };
+    const supprimeAilleurs = { id: 5, _modifiedAt: '2026-08-10T08:00:00Z' };   // antérieur au flush
+    const faitHorsLigne  = { id: 6, _modifiedAt: '2026-08-20T10:00:00Z' };     // postérieur
+    const r = fusionnerEdlHorsLigne(cloud, { edl: [supprimeAilleurs, faitHorsLigne] },
+      { dernierFlushA: Date.parse('2026-08-15T00:00:00Z') });
+    expect(r.ajoutes).toEqual([6]);
+    expect(r.ignoresSupprimes).toEqual([5]);
+  });
+
+  it('sans dernier envoi connu, on remonte quand même — ne rien remonter serait la perte', () => {
+    const r = fusionnerEdlHorsLigne({ edl: [] }, { edl: [{ id: 5, _modifiedAt: '2026-08-10T08:00:00Z' }] });
+    expect(r.ajoutes).toEqual([5]);
+  });
+
+  it('un EDL sans date d’écriture remonte (on ne le condamne pas sur une absence)', () => {
+    const r = fusionnerEdlHorsLigne({ edl: [] }, { edl: [{ id: 5 }] }, { dernierFlushA: Date.now() });
+    expect(r.ajoutes).toEqual([5]);
+  });
+});
+
+describe('MIROIR_KEY — une seule définition de la clé du miroir', () => {
+  it('vaut la clé de PROD', () => {
+    expect(MIROIR_KEY).toBe('immotrack_v4');
+  });
+  it('les clés dérivées en découlent, elles ne sont pas réécrites', () => {
+    expect(MIROIR_ECRIT_KEY).toBe(MIROIR_KEY + '_ecrit_at');
+  });
+});

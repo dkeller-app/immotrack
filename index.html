@@ -31407,6 +31407,41 @@ function rEDLList() {
 }
 
 // ── Ouverture ─────────────────────────────────────────────────
+/* EDL TERRAIN lot 4bis, invariant 30 — QUAND poser la question du doublon.
+   Repéré par l'audit : depuis le lot 1, la PREMIÈRE persistance d'un EDL neuf
+   est l'AUTOSAVE. Elle crée le record et pose `edl-edit-id` ; toutes les
+   écritures suivantes sont donc des mises à jour, et le contrôle placé à
+   l'enregistrement ne se déclenchait JAMAIS. L'invariant 30 était mort.
+   Le bon moment n'est ni l'ouverture (aucun logement n'est encore choisi) ni
+   l'enregistrement (trop tard) : c'est l'instant où logement ET date sont
+   renseignés. On ne demande qu'UNE FOIS par combinaison — reposer la question
+   à chaque frappe apprendrait à cliquer sans lire. */
+let _edlDoublonVu = null;
+function _edlControleDoublon() {
+  try {
+    if (el('edl-edit-id').value) return;             // EDL existant : ce n'est pas une création
+    const C = (typeof window !== 'undefined') ? window.EdlConflit : null;
+    if (!C) return;
+    const log = v('edl-log');
+    const type = _edlSortie ? 'Sortie' : 'Entrée';
+    const date = _edlSortie ? v('edl-date-sortie') : v('edl-date-entree');
+    if (!log || !date) return;
+    const signature = log + '|' + type + '|' + String(date).slice(0, 10);
+    if (_edlDoublonVu === signature) return;          // déjà posée pour cette combinaison
+    _edlDoublonVu = signature;
+    const d = C.detecterDoublon({ edls: DB.edl || [], logement: log, type, date, creation: true });
+    if (d) showToast('⚠️ ' + d.message.split(String.fromCharCode(10))[0], 'warn', 9000);
+  } catch (e) { console.warn('[EDL] contrôle de doublon', e); }
+}
+function _edlArmerControleDoublon() {
+  _edlDoublonVu = null;
+  ['edl-log', 'edl-date-entree', 'edl-date-sortie'].forEach(id => {
+    const x = el(id); if (!x || x._doublonArme) return;
+    x._doublonArme = true;
+    x.addEventListener('change', _edlControleDoublon);
+  });
+}
+
 function openNewEDL() {
   // v14.38 EDL-AUDIT-CRITIQUE Phase 1 : reset INCONDITIONNEL des globales avant
   // tout autre travail pour empêcher la cross-contamination entre 2 EDL successifs
@@ -31422,6 +31457,7 @@ function openNewEDL() {
   if (typeof _edlApplyLockUI === 'function') _edlApplyLockUI(false);
   openM('ov-edl');
   _edlAutosaveReset();   // lot 1 : nouvel EDL = rien d'enregistré pour l'instant
+  _edlArmerControleDoublon();   // lot 4bis, invariant 30
   _edlMajCompteurPhotos();
 }
 
@@ -32797,6 +32833,13 @@ async function generateEDLPdfNative(edl) {
 /* Génère le PDF de l'EDL et l'archive dans Supabase Storage (chemin par-SCI).
    v14.10.3 : versionning actif (jamais d'écrasement, une nouvelle version à chaque génération). */
 async function uploadEDLPDFToDrive(id) {
+  // Invariant 19 — hors ligne, cette action ne peut pas aboutir. On le dit au
+  // lieu de la tenter puis de conseiller « réessayez », conseil impossible à
+  // suivre sans réseau. Le PDF reste téléchargeable sur l'appareil.
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) {
+    showToast('Hors ligne : le PDF ne peut pas partir dans le cloud. Il reste téléchargeable ici.', 'warn', 5000);
+    return null;
+  }
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   // CLOUD-ONLY (Drive retiré) — archive le PDF EDL dans Supabase Storage. Clé déterministe par EDL
@@ -33242,6 +33285,23 @@ async function _edlEnvoyerUnePhoto(job) {
 window.addEventListener('online', () => { try { _edlDrainerFileEnvoi(); } catch (e) {} });
 
 async function edlSyncDrive(forcedId, silentMode){
+  // EDL TERRAIN lot 4 — HORS LIGNE, ON NE TENTE MÊME PAS.
+  // `__immoCloudUpload` est assigné au boot : il EXISTE hors ligne, seul
+  // `_cloudEspaceId` est nul, et rien ne court-circuitait. La boucle allait donc
+  // au bout — décodant en base64 et emballant en Blob jusqu'à 77 photos pour
+  // zéro résultat, exactement la pression mémoire que F6 combat — puis son
+  // `saveDB()` non étiqueté se faisait refuser par le garde 19a et affichait
+  // « cette modification n'est PAS enregistrée ».
+  // Le geste réel : fermer la modale après une pièce enregistre l'EDL, puis
+  // 400 ms plus tard un message rouge dit le contraire. À CHAQUE fermeture.
+  // C'est le pire message possible : il détruit la confiance que ce chantier
+  // existe pour construire, et il apprend à ignorer un avertissement qui, un
+  // autre jour, sera vrai. Les photos repartiront au retour du réseau
+  // (`_edlReenfilerPhotos` à la réouverture) : rien n'est perdu à ne rien tenter.
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) {
+    if (!silentMode) showToast('Hors ligne : les photos partiront au retour du réseau.', 'warn', 4000);
+    return;
+  }
   // v14.39 Phase 2 : mutex anti-concurrence (Bug 9 audit)
   if (_edlSyncing) {
     if (!silentMode) showToast('☁️ Sync Drive déjà en cours, patiente quelques secondes…','warn',4000);
@@ -33342,7 +33402,7 @@ async function edlSyncDrive(forcedId, silentMode){
         if (_pathPh) { ph.synced = true; ph.cloudKey = _pathPh; _edlPropagateSyncedToForm(edl.id, ph.idbKey, { cloudKey: _pathPh }); _okCloud++; }
       } catch (e) { console.warn('[edlSyncCloud]', e); }
     }
-    try { saveDB(); } catch (e) {}
+    try { saveDB({ quoi: 'edl-photo' }); } catch (e) {}   // invariant 19a : ce sont des cloudKey d'EDL
     if (!silentMode) showToast(`✓ ${_okCloud}/${photos.length} photo(s) sauvegardée(s) dans le cloud`, _okCloud === photos.length ? 'ok' : 'warn', 4000);
   } finally {
     // libération mutex + restore bouton UI dans tous les cas
@@ -33872,23 +33932,11 @@ function saveEDL(opts){
     const log=v('edl-log');
     if(!log){showToast('Sélectionnez un logement','err');return null;}
     if(!date){showToast('Indiquez une date','err');return null;}
-    // EDL TERRAIN lot 4bis, invariant 30 — CRÉER un EDL alors qu'il en existe
-    // déjà un pour ce logement, ce type et cette date : on avertit en nommant
-    // l'appareil et l'heure. C'est la situation ① du CDC §7.3, la plus
-    // fréquente : l'EDL de la tablette n'est pas remonté, le PC ne le voit pas,
-    // on le recrée. On n'empêche JAMAIS — deux issues, attendre ou créer en
-    // connaissance de cause. Jamais sur un autosave (il ne crée rien), jamais
-    // sur une ré-écriture (idCourant exclut l'enregistrement de soi-même).
-    if (!autosave && typeof window !== 'undefined' && window.EdlConflit) {
-      try {
-        const _dbl = window.EdlConflit.detecterDoublon({
-          edls: DB.edl || [], logement: log, type, date,
-          idCourant: eid ? parseInt(eid) : null,
-          creation: !eid,   // l'invariant 30 vise la création, pas chaque ré-écriture
-        });
-        if (_dbl && !confirm2(_dbl.message + '\n\nCréer quand même ?')) return null;
-      } catch (e) { console.warn('[saveEDL] détection de doublon', e); }
-    }
+    // (Invariant 30 — l'avertissement de doublon a QUITTÉ cet endroit. Depuis le
+    //  lot 1, la première persistance d'un EDL neuf est l'AUTOSAVE : elle crée le
+    //  record et pose edl-edit-id, donc ce contrôle voyait toujours une mise à
+    //  jour et ne se déclenchait JAMAIS. Il vit désormais dans
+    //  _edlControleDoublon, à l'instant où logement et date sont choisis.)
     // v14.3 D2 : warning si le logement n'appartient à aucune entité.
     // L'EDL ne sera PAS inclus dans le payload Drive (filtre _buildEntityPayload
     // = `refs.has(e.logement)` où refs = logements de l'entité). Sans ce check,
@@ -34084,7 +34132,12 @@ function delEDL(id){
       _modifiedAt: new Date().toISOString(),
       logement: old.logement || ''
     };
-    saveDB();
+    // Invariant 19a — supprimer un EDL EST une opération d'EDL. Non étiquetée,
+    // elle était refusée : l'EDL disparaissait de la liste, un message affirmait
+    // « seul l'état des lieux peut être modifié » (faux), et il revenait au
+    // rechargement. Pire, le tombstone restait en mémoire et serait parti au
+    // premier enregistrement étiqueté suivant — une suppression fantôme.
+    saveDB({ quoi: 'edl' });
     rEDLList();
     _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   });
@@ -57157,6 +57210,14 @@ if('serviceWorker' in navigator && location.hostname.includes('github.io')){
 let _bootDataJobsDone = false;
 function _bootDataJobs() {
   if (_bootDataJobsDone) return;   // one-shot : no-op aux re-pulls suivants (__immoSetDB rappelé à chaque pull)
+  // EDL TERRAIN lot 4 — HORS LIGNE, ces travaux d'entretien ne tournent PAS.
+  // Ils ÉCRIVENT (révisions IRL, barème, migrations, purges) : le garde 19a les
+  // refuse, et l'utilisateur reçoit une volée de messages rouges qu'il n'a rien
+  // fait pour provoquer, à l'instant même où il ouvre l'app dans l'appartement.
+  // Pire, _applyPendingIRLRevisions annonçait « ✓ N révisions appliquées » sans
+  // lire le retour de saveDB : un succès affiché sur une écriture refusée
+  // (invariant 19l). On ne pose PAS le drapeau : ils tourneront au retour.
+  if (typeof window !== 'undefined' && window.__immoHorsLigne) return;
   _bootDataJobsDone = true;
   // v15.10 IRL-REVISION-UX-FIX Phase A3 : applique automatiquement les révisions IRL
   // dont la date anniversaire (dateApplication) est atteinte. Idempotent.

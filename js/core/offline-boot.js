@@ -16,6 +16,20 @@
 
 /** Horodatage de la dernière écriture dans le miroir localStorage. */
 export const MIROIR_ECRIT_KEY = 'immotrack_v4_ecrit_at';
+/**
+ * Les espaces auxquels le dernier login EN LIGNE donnait accès.
+ *
+ * Hors ligne, on ne peut RIEN demander au serveur : sans cette mémoire, le
+ * miroir serait affiché en entier, y compris les données d'un espace dont on a
+ * été RETIRÉ depuis. C'est l'incident du 12/07 (une associée révoquée voyait
+ * encore les biens d'un autre) et le tag du miroir ne le couvre pas — il
+ * n'enregistre que l'espace PROPRE (faille F13 du CDC).
+ */
+export const ESPACES_KEY = 'immotrack_v4_espaces';
+/** Le miroir localStorage lui-même. Défini ICI, une seule fois : il était
+ *  redéclaré dans supabase-entry.js, et deux définitions d'une même clé de
+ *  stockage finissent toujours par diverger. */
+export const MIROIR_KEY = 'immotrack_v4';
 /** Horodatage du dernier flush cloud RÉUSSI. */
 export const FLUSH_OK_KEY = 'immotrack_v4_flush_at';
 
@@ -201,6 +215,29 @@ export function messageDeconnexionRefusee({ enAttente = 0, raison = '', quoi = n
 }
 
 /**
+ * Ce que dit un résumé de flush : combien reste-t-il, et POURQUOI.
+ *
+ * La règle était écrite à la main dans `js/app/supabase-boot.js` pendant que le
+ * paramètre `seulementBloquees` de `verdictDeconnexion` n'était jamais passé —
+ * la faute même qu'on venait de corriger un cran plus haut, reproduite un cran
+ * plus bas. Une règle, un endroit.
+ *
+ * @returns {{enAttente:number, seulementBloquees:boolean, quoi:string[]}}
+ */
+export function classerResumeFlush(s) {
+  const errs = (s && s.errors) || [], confs = (s && s.conflicts) || [], skips = (s && s.skipped) || [];
+  const configKO = !!(s && s.config === 'error');
+  const enAttente = errs.length + confs.length + skips.length + (configKO ? 1 : 0);
+  // « Bloqué » = refusé de façon STABLE (clé étrangère non résoluble) : le moteur
+  // retentera sans fin. Ce n'est pas le réseau, et le dire serait mentir.
+  const seulementBloquees = skips.length > 0 && errs.length === 0 && confs.length === 0 && !configKO;
+  const quoi = [...errs, ...confs, ...skips]
+    .map(x => (x && x.coll) || '?')
+    .filter((c, i, t) => t.indexOf(c) === i);
+  return { enAttente, seulementBloquees, quoi };
+}
+
+/**
  * F2, LE VERDICT COMPLET — « puis-je me déconnecter ? »
  *
  * ═══ LE TROU QUE L'AUDIT A TROUVÉ, ET POURQUOI IL EXISTAIT ════════════════
@@ -260,6 +297,62 @@ export function filtrerEdlParEspacesAutorises(edls, espacesAutorises) {
 }
 
 /**
+ * Les collections qui portent un tag d'espace. Source unique, alignée sur
+ * `COLLECTIONS` de store-sync.js. `baux` est une MAP (clé → bail), pas un
+ * tableau : la traiter comme les autres la viderait silencieusement.
+ */
+export const COLLECTIONS_TAGUEES = [
+  'entites', 'immeubles', 'logements', 'documents', 'mouvements',
+  'quittances', 'edl', 'mrh', 'agenda', 'candidats',
+];
+
+/** Un enregistrement appartient-il à un espace qu'on a encore le droit de voir ? */
+function espaceAutorise(rec, permis) {
+  if (!rec || typeof rec !== 'object') return false;
+  if (rec._espaceId == null) return true;          // espace PROPRE : toujours à soi
+  return permis.has(String(rec._espaceId));
+}
+
+/**
+ * RGPD HORS LIGNE — ne JAMAIS AFFICHER les données d'un espace qu'on n'a plus.
+ *
+ * ═══ LA FENÊTRE QUE L'AUDIT A TROUVÉE ════════════════════════════════════
+ * Le filtre d'espace protégeait la REMONTÉE ; il ne protégeait pas
+ * l'AFFICHAGE. `onHorsLigne` injectait le miroir ENTIER, et les onglets
+ * Logements, Locataires et les fiches 360 sont ouverts hors ligne. Une
+ * associée révoquée, sans réseau, revoyait donc les biens et les locataires
+ * de l'autre : l'incident du 12/07 à l'identique, sur un chemin neuf.
+ *
+ * ⚠️ CE QUI RESTE, ET QU'IL FAUT SAVOIR : la liste des espaces permis date du
+ * dernier login EN LIGNE. Une révocation prononcée pendant qu'on est hors
+ * ligne n'est donc pas connue — elle ne peut pas l'être, il n'y a pas de
+ * réseau pour l'apprendre. La fenêtre se referme au prochain démarrage en
+ * ligne. Ce qui est fermé ici, c'est le cas réel et durable : rouvrir l'app
+ * hors ligne, des semaines après une révocation, et tout revoir.
+ *
+ * Fail-safe : liste inconnue (jamais écrite, illisible) → on ne garde que
+ * l'espace PROPRE. On n'affiche jamais un espace qu'on ne sait pas justifier.
+ */
+export function filtrerMiroirParEspacesAutorises(db, espacesAutorises) {
+  if (!db || typeof db !== 'object') return db;
+  const permis = espacesAutorises instanceof Set
+    ? new Set([...espacesAutorises].map(String))
+    : new Set((Array.isArray(espacesAutorises) ? espacesAutorises : Object.keys(espacesAutorises || {})).map(String));
+  const sortie = Object.assign({}, db);
+  for (const coll of COLLECTIONS_TAGUEES) {
+    if (!Array.isArray(sortie[coll])) continue;
+    sortie[coll] = sortie[coll].filter(r => espaceAutorise(r, permis));
+  }
+  // `baux` est une map : on filtre ses VALEURS, en gardant la forme.
+  if (sortie.baux && typeof sortie.baux === 'object' && !Array.isArray(sortie.baux)) {
+    const gardes = {};
+    for (const [k, v] of Object.entries(sortie.baux)) if (espaceAutorise(v, permis)) gardes[k] = v;
+    sortie.baux = gardes;
+  }
+  return sortie;
+}
+
+/**
  * F1, la mécanique — comment le travail hors ligne remonte SANS rien détruire.
  *
  * Tentation à écarter : « charger le miroir en mémoire puis flusher ». Le
@@ -292,6 +385,11 @@ export function fusionnerEdlHorsLigne(cloud, miroir, opts) {
   const cleDe = (opts && typeof opts.cleDe === 'function')
     ? (r => { try { return opts.cleDe(r); } catch (_e) { return String(r.id); } })
     : (r => String(r.id));
+  // Depuis quand une écriture locale est-elle « du travail hors ligne » ? Depuis
+  // le dernier envoi réussi. Tout ce qui est plus ancien a DÉJÀ été synchronisé
+  // une fois : son absence du cloud n'est pas un oubli, c'est une SUPPRESSION
+  // délibérée faite ailleurs (cf. la garde ci-dessous).
+  const depuis = Number((opts && opts.dernierFlushA) || 0) || 0;
 
   const parCle = new Map();
   edlCloud.forEach((e, i) => { if (e && e.id != null) parCle.set(cleDe(e), i); });
@@ -311,7 +409,17 @@ export function fusionnerEdlHorsLigne(cloud, miroir, opts) {
     // suppression propagée à tort — ne se rattrape pas.
     if (local._deleted) { ignoresSupprimes.push(local.id); continue; }
     const k = cleDe(local);
-    if (!parCle.has(k)) { fusion.push(local); ajoutes.push(local.id); continue; }
+    if (!parCle.has(k)) {
+      // ⚠️ ABSENT DU CLOUD ≠ JAMAIS MONTÉ. Un EDL supprimé sur le PC est absent
+      // de l'hydratation (elle exclut les soft-deleted) : le reverser le
+      // RESSUSCITE, et le moteur le repousse en `revived`. On n'ajoute donc que
+      // ce qui a été écrit APRÈS le dernier envoi réussi — le vrai travail hors
+      // ligne. Sans `dernierFlushA` connu, on garde l'ancien comportement
+      // (ajouter) : ne rien remonter serait la perte que ce lot combat.
+      const quand = Date.parse(local._modifiedAt || '') || 0;
+      if (depuis && quand && quand <= depuis) { ignoresSupprimes.push(local.id); continue; }
+      fusion.push(local); ajoutes.push(local.id); continue;
+    }
     const i = parCle.get(k);
     const dCloud = Date.parse((fusion[i] && fusion[i]._modifiedAt) || '') || 0;
     const dLocal = Date.parse(local._modifiedAt || '') || 0;

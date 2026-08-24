@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as OfflineBoot from '../../js/core/offline-boot.js';
+import * as EdlConflit from '../../js/core/edl-conflit.js';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -553,5 +554,256 @@ describe('_refusDeconnexionLocale — F2 sur le chemin HORS LIGNE (invariant 19g
 
   it('le passage en FORCE reste possible — on prévient, on n’enferme pas', () => {
     expect(monterRefus({ moteur: null, horsLigne: true })(true)).toBeNull();
+  });
+});
+
+/* ══ BLOQUANT A — la version conservée doit être ENVOYÉE, pas seulement affichée ══
+   `_repullCloud` n'était exécuté par aucun test : l'auditeur a supprimé la ligne
+   qui applique la conservation et les 3 501 tests sont restés verts. C'est dans
+   ce trou que vivait le bloquant. On extrait la fonction réelle et on l'exécute. */
+
+/**
+ * Monte `_repullCloud` avec ses dépendances de closure injectées, et rend de
+ * quoi observer ce qui a été SEMÉ, INJECTÉ et MARQUÉ SALE.
+ */
+function monterRepull({ dbServeur, edlLocaux = [], conflits = [], setDBRend = true } = {}) {
+  const seq = [];
+  const vus = { seed: null, setDB: null, banniere: null, marqueSale: 0 };
+  const api = {
+    hydrate: async () => { seq.push('hydrate'); return dbServeur; },
+    seed: (d) => { seq.push('seed'); vus.seed = d; },
+    markDirty: () => { seq.push('markDirty'); vus.marqueSale++; },
+  };
+  const ctx = {
+    api,
+    fenetre: {
+      __immoSetDB: (d) => { seq.push('setDB'); vus.setDB = d; return setDBRend; },
+      __immoNouvelId: (() => { let n = 900000; return () => ++n; })(),
+      __immoRender: () => { seq.push('render'); },
+    },
+    edlConflit: EdlConflit,
+    recordKey: (coll, rec) => String(rec.id) + (rec._espaceId != null ? '@@' + rec._espaceId : ''),
+    liveDB: { edl: edlLocaux },
+    conflits,
+    seq, vus,
+  };
+  const usine = new Function('ctx', `
+    const api = ctx.api, window = ctx.fenetre, _edlConflit = ctx.edlConflit, _recordKey = ctx.recordKey;
+    const console = { warn(){}, info(){} };
+    const setSync = () => {};
+    const _showRefreshBanner = (m) => { ctx.vus.banniere = m; ctx.seq.push('banniere'); };
+    const _repullSoon = () => { ctx.seq.push('repullSoon'); };
+    const runFlush = async () => { ctx.seq.push('runFlush'); };
+    const clearTimeout = () => {};
+    let _repullBusy = false, liveDB = ctx.liveDB, _pendingConflictBanner = false;
+    let _dirtySeq = 0, _liveDBRef = null, _lastHydrateAt = 0, _deadShown = false;
+    let flushTimer = null, _lastFlushFn = null;
+    let _conflitsEdlEnAttente = ctx.conflits;
+    ${SRC_REPULL}
+    return { fn: _repullCloud, etat: () => ({ liveDB, conflitsRestants: _conflitsEdlEnAttente }) };
+  `);
+  const { fn, etat } = usine(ctx);
+  return { lancer: (o) => fn(o || { flushFirst: false, banner: true }), seq, vus, etat };
+}
+
+let SRC_REPULL;
+beforeAll(() => { SRC_REPULL = extraireFonction(SRC_ENTRY, '_repullCloud'); });
+
+describe('_repullCloud — la version conservée est réellement ENVOYÉE (invariant 29)', () => {
+  const localEnConflit = () => ({
+    id: 7, logement: 'FERRETTE-101', _modifiedAt: '2026-08-20T16:12:00Z',
+    _appareil: { id: 'ap-tab', nom: 'la tablette', quand: Date.parse('2026-08-20T16:12:00Z') },
+    pieces: [{ nom: 'Séjour', elements: [{ nom: 'Mur', etatE: 'bon', photosE: [{ idbKey: 'p1' }], photosS: [] }] }],
+  });
+  const serveur = () => ({ edl: [{ id: 7, _modifiedAt: '2026-08-20T17:00:00Z', marque: 'serveur' }], baux: {} });
+
+  it('LE BLOQUANT — la baseline est semée SANS les copies conservées', async () => {
+    // `Object.assign(db, …)` mute `db` EN PLACE : semer `db` ferait entrer les
+    // copies dans la baseline comme « déjà synchronisées », le diff du flush
+    // suivant serait VIDE pour elles, et le prochain re-pull les effacerait —
+    // quelques minutes après la bannière qui promettait le contraire.
+    const m = monterRepull({ dbServeur: serveur(), edlLocaux: [localEnConflit()], conflits: ['7'] });
+    await m.lancer();
+    expect(m.vus.setDB.edl).toHaveLength(2);          // affiché : serveur + copie
+    expect(m.vus.seed.edl).toHaveLength(1);           // baseline : le SERVEUR seul
+    expect(m.vus.seed.edl[0].marque).toBe('serveur');
+  });
+
+  it('…et l’envoi est AMORCÉ, sans attendre une saisie de l’utilisateur', async () => {
+    const m = monterRepull({ dbServeur: serveur(), edlLocaux: [localEnConflit()], conflits: ['7'] });
+    await m.lancer();
+    expect(m.vus.marqueSale).toBeGreaterThan(0);
+  });
+
+  it('la copie conservée porte bien l’heure de terrain, pas un résidu', async () => {
+    const m = monterRepull({ dbServeur: serveur(), edlLocaux: [localEnConflit()], conflits: ['7'] });
+    await m.lancer();
+    const copie = m.vus.setDB.edl.find(e => e.id !== 7);
+    expect(copie._versionConservee.idOrigine).toBe(7);
+    expect(copie.pieces[0].elements[0].photosE).toHaveLength(1);
+  });
+
+  it('la bannière annonce la conservation, pas « revérifie ta modif »', async () => {
+    const m = monterRepull({ dbServeur: serveur(), edlLocaux: [localEnConflit()], conflits: ['7'] });
+    await m.lancer();
+    expect(m.vus.banniere).toMatch(/n’a PAS été écrasée/);
+    expect(m.vus.banniere).not.toMatch(/revérifie ta modif/);
+  });
+
+  it('SANS conflit, rien ne change : le serveur gagne, à l’identique (invariant 33)', async () => {
+    const s = serveur();
+    const m = monterRepull({ dbServeur: s, edlLocaux: [localEnConflit()], conflits: [] });
+    await m.lancer();
+    expect(m.vus.setDB).toBe(s);
+    expect(m.vus.seed).toBe(s);                       // baseline = le DB hydraté lui-même
+    expect(m.vus.marqueSale).toBe(0);
+    expect(m.vus.banniere).toMatch(/revérifie ta modif/);
+  });
+
+  it('les clés conflictées sont CONSOMMÉES — elles ne fuient pas au re-pull suivant', async () => {
+    const m = monterRepull({ dbServeur: serveur(), edlLocaux: [localEnConflit()], conflits: ['7'] });
+    await m.lancer();
+    expect(m.etat().conflitsRestants).toEqual([]);
+  });
+
+  it('un DB refusé par le garde-fou ne sème ni ne marque rien', async () => {
+    const m = monterRepull({ dbServeur: serveur(), edlLocaux: [localEnConflit()], conflits: ['7'], setDBRend: false });
+    await m.lancer();
+    expect(m.vus.seed).toBeNull();
+    expect(m.vus.marqueSale).toBe(0);
+  });
+});
+
+/* ══ CÂBLAGE 4bis — l'avertissement de doublon, EXÉCUTÉ ════════════════════
+   L'audit a montré qu'il ne se déclenchait JAMAIS : depuis le lot 1, la
+   première persistance d'un EDL neuf est l'AUTOSAVE, qui crée le record et pose
+   `edl-edit-id` ; le contrôle placé à l'enregistrement voyait donc toujours une
+   mise à jour. L'invariant 30 était mort. Il vit maintenant au moment où
+   logement et date sont choisis — et ce test l'exécute là. */
+
+let SRC_DOUBLON;
+beforeAll(() => {
+  const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
+  SRC_DOUBLON = extraireFonction(html, '_edlControleDoublon');
+});
+
+function monterDoublon({ edls = [], edinId = '', log = 'FERRETTE-101', date = '2026-08-20', sortie = false } = {}) {
+  const toasts = [];
+  const champs = { 'edl-edit-id': edinId, 'edl-log': log, 'edl-date-entree': date, 'edl-date-sortie': sortie ? date : '' };
+  const usine = new Function(
+    'window', 'el', 'v', '_edlSortie', 'DB', 'showToast', 'console', 'etat',
+    'let _edlDoublonVu = etat.vu;\n' + SRC_DOUBLON +
+    '\nreturn () => { _edlControleDoublon(); etat.vu = _edlDoublonVu; };'
+  );
+  const etat = { vu: null };
+  const fn = usine(
+    { EdlConflit },
+    (id) => ({ value: champs[id] != null ? champs[id] : '' }),
+    (id) => champs[id] != null ? champs[id] : '',
+    sortie, { edl: edls },
+    (msg, type, dur) => toasts.push({ msg, type, dur }),
+    { warn: () => {} }, etat
+  );
+  return { fn, toasts, etat };
+}
+
+const edlTablette = (o = {}) => Object.assign({
+  id: 1, logement: 'FERRETTE-101', type: 'Entrée', date: '2026-08-20',
+  _appareil: { id: 'ap-tab', nom: 'la tablette', quand: new Date(2026, 7, 20, 14, 32).getTime() },
+}, o);
+
+describe('_edlControleDoublon — invariant 30, enfin atteignable', () => {
+  it('LE POINT DUR — il se déclenche à la SÉLECTION, sans qu’aucun enregistrement ait eu lieu', () => {
+    const m = monterDoublon({ edls: [edlTablette()] });
+    m.fn();
+    expect(m.toasts).toHaveLength(1);
+    expect(m.toasts[0].msg).toContain('la tablette');
+    expect(m.toasts[0].msg).toContain('14h32');
+  });
+
+  it('sur un EDL EXISTANT, aucune question : ce n’est pas une création', () => {
+    const m = monterDoublon({ edls: [edlTablette()], edinId: '1' });
+    m.fn();
+    expect(m.toasts).toHaveLength(0);
+  });
+
+  it('il ne se répète JAMAIS pour la même combinaison — sinon on clique sans lire', () => {
+    const m = monterDoublon({ edls: [edlTablette()] });
+    m.fn(); m.fn(); m.fn();
+    expect(m.toasts).toHaveLength(1);
+  });
+
+  it('pas de jumeau, pas de bruit', () => {
+    const m = monterDoublon({ edls: [edlTablette({ date: '2026-07-01' })] });
+    m.fn();
+    expect(m.toasts).toHaveLength(0);
+  });
+
+  it('tant que logement OU date manque, on ne demande rien', () => {
+    expect(monterDoublon({ edls: [edlTablette()], log: '' }).fn === undefined).toBe(false);
+    const a = monterDoublon({ edls: [edlTablette()], log: '' }); a.fn();
+    const b = monterDoublon({ edls: [edlTablette()], date: '' }); b.fn();
+    expect(a.toasts).toHaveLength(0);
+    expect(b.toasts).toHaveLength(0);
+  });
+
+  it('un EDL de SORTIE ne se signale pas comme doublon d’une ENTRÉE', () => {
+    const m = monterDoublon({ edls: [edlTablette()], sortie: true });
+    m.fn();
+    expect(m.toasts).toHaveLength(0);
+  });
+
+  it('sans le module, aucun faux avertissement', () => {
+    const usine = new Function(
+      'window', 'el', 'v', '_edlSortie', 'DB', 'showToast', 'console',
+      'let _edlDoublonVu = null;\n' + SRC_DOUBLON + '\nreturn _edlControleDoublon;'
+    );
+    const toasts = [];
+    usine({}, () => ({ value: '' }), (id) => (id === 'edl-log' ? 'F-1' : '2026-08-20'),
+      false, { edl: [edlTablette()] }, (m) => toasts.push(m), { warn: () => {} })();
+    expect(toasts).toHaveLength(0);
+  });
+});
+
+/* ══ Le miroir est FILTRÉ avant d'être affiché (fenêtre RGPD) ══════════════ */
+
+describe('onHorsLigne — le miroir affiché est filtré (RGPD)', () => {
+  it('LE POINT DUR — un espace révoqué n’atteint jamais __immoSetDB', async () => {
+    // Il ne suffit pas de protéger la remontée : Logements, Locataires et les
+    // fiches 360 sont OUVERTS hors ligne. Sans filtre à l'affichage, une
+    // associée révoquée revoit tout, sans réseau et sans limite de temps.
+    const seq = [];
+    let injecte = null;
+    const stockage = new Map([
+      ['immotrack_v4', JSON.stringify({
+        edl: [{ id: 1, _espaceId: 'perdu' }, { id: 2 }],
+        logements: [{ ref: 'A', _espaceId: 'perdu' }, { ref: 'B' }],
+        baux: { 'A-1': { _espaceId: 'perdu' }, 'B-1': {} },
+      })],
+      ['immotrack_v4_espaces', JSON.stringify([])],
+      ['immotrack_v4_ecrit_at', String(Date.now())],
+    ]);
+    const win = {
+      __immoSetDB: (db) => { injecte = db; seq.push('setDB'); return true; },
+      __immoRender: () => seq.push('render'),
+      __immoEntrerHorsLigne: () => seq.push('bandeau'),
+      __immoCrumb: () => {},
+    };
+    const usine = new Function(
+      'window', 'localStorage', 'document', 'MIRROR_KEY', '_offlineBoot', '_liftDriveGate',
+      'wireLoginForm', 'console',
+      extraireFonction(SRC_ENTRY, 'onHorsLigne') + '\nreturn onHorsLigne;'
+    );
+    const fn = usine(
+      win,
+      { getItem: k => (stockage.has(k) ? stockage.get(k) : null), setItem: () => {}, removeItem: () => {} },
+      { documentElement: { removeAttribute() {} } },
+      'immotrack_v4', OfflineBoot, () => {}, () => seq.push('login'), { warn: () => {} }
+    );
+    await fn({ localSession: async () => null }, { remove() {} }, { user: { email: 'd@e.fr' } });
+    expect(seq).toContain('setDB');
+    expect(injecte.edl.map(e => e.id)).toEqual([2]);
+    expect(injecte.logements.map(l => l.ref)).toEqual(['B']);
+    expect(Object.keys(injecte.baux)).toEqual(['B-1']);
   });
 });
