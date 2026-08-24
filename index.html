@@ -6459,6 +6459,29 @@ function saveDB(opts) {
   // secours tenu à jour (filet 2.1 → couper le mode cloud repart sur des données à jour, jamais
   // figées). Drive PAS écrit (retiré à l'étape 4). Undo/audit conservés.
   if (typeof window !== 'undefined' && window.__immoSupabaseMode) {
+    // ═══ EDL TERRAIN lot 4, invariant 19a ═══════════════════════════════════
+    // « Hors ligne, AUCUNE écriture n'aboutit en dehors de l'EDL et des
+    // signatures présentielles. »
+    //
+    // La règle existait dans le module et n'était appliquée NULLE PART (constat
+    // d'audit). Conséquence concrète : hors ligne, « Logements » et
+    // « Locataires » restent ouverts pour qu'on puisse CONSULTER sur place ;
+    // rien n'empêchait d'y corriger un téléphone ou un loyer. Ça s'écrivait
+    // dans le miroir, la pastille ne disait rien, et au retour du réseau la
+    // remontée ne reverse que les EDL : la correction était effacée par
+    // l'hydratation, SANS UN MESSAGE. Exactement le genre de perte muette que
+    // ce chantier existe pour supprimer.
+    //
+    // Le garde est ici parce que `saveDB` est le point de passage UNIQUE de
+    // toute persistance : gater les portes une par une laisserait repasser le
+    // bug à la prochaine porte ajoutée (la leçon de js/core/preserve-fields.js).
+    // Il est FAIL-CLOSED : une écriture non étiquetée est refusée hors ligne.
+    // Il est INERTE en ligne — `__immoHorsLigne` n'est vrai que sur le chemin
+    // du démarrage hors ligne.
+    if (window.__immoHorsLigne && typeof window.__immoEcritureHorsLigneOK === 'function'
+        && !window.__immoEcritureHorsLigneOK(opts && opts.quoi)) {
+      return false;
+    }
     if (!_autosave && typeof _undoOnSaveDB === 'function') _undoOnSaveDB();
     if (typeof _auditFlushPending === 'function') _auditFlushPending();
     // F8 (§3ter) : l'échec d'écriture du miroir était AVALÉ (catch vide) et
@@ -6595,6 +6618,24 @@ function _hlMotifOnglet(page) {
   try { return _hlApi.motifOnglet(page); } catch (e) { return 'Disponible dès que tu as du réseau.'; }
 }
 
+/* Invariant 19a — LE GARDE D'ÉCRITURE, consulté par saveDB. Le verdict vient du
+   module testé (`ecritureAutoriseeHorsLigne`) ; ici on ne fait que le demander
+   et l'ANNONCER. Fail-closed : hors ligne, une écriture sans étiquette est
+   refusée. Rend `true` (donc laisse tout passer) si le module n'a pas chargé —
+   on ne bloque jamais l'app sur une règle qu'on ne peut pas évaluer. */
+function _hlEcritureOK(quoi) {
+  if (!_hlApi || typeof _hlApi.ecritureAutorisee !== 'function') return true;
+  let ok = true;
+  try { ok = !!_hlApi.ecritureAutorisee(quoi); } catch (e) { return true; }
+  if (ok) return true;
+  // Refus ANNONCÉ, jamais muet — c'est tout l'intérêt du garde. Le message dit
+  // que la modification n'est PAS enregistrée, sinon on aurait simplement
+  // déplacé la perte silencieuse d'un cran.
+  _hlRefuser('Hors ligne, seul l’état des lieux peut être modifié. '
+    + 'Cette modification n’est PAS enregistrée — refais-la une fois reconnecté.');
+  return false;
+}
+
 /* Le refus, ANNONCÉ. Invariant 19 : « aucune action nécessitant le réseau n'est
    cliquable sans afficher sa raison ». On réutilise showToast (le canal de
    message de l'app), on n'en crée pas un deuxième. */
@@ -6632,6 +6673,16 @@ function _hlDecorerNav() {
 window.__immoEntrerHorsLigne = function(opts) {
   if (_hlApi) return;                         // idempotent : une seule installation
   _hlApi = opts || {};
+  // Invariant 19a — le garde d'écriture est posé AVANT tout le reste : saveDB le
+  // consulte, et rien ne doit pouvoir s'écrire pendant l'installation.
+  //
+  // `__immoHorsLigne` est reposé ICI, et pas seulement par supabase-entry :
+  // repéré au smoke, le garde dépendait d'un drapeau posé par un AUTRE fichier,
+  // en amont. Entrer en mode hors ligne sans que ce drapeau soit vrai laissait
+  // toutes les écritures passer, en silence. Une entrée qui ne peut pas se
+  // rater : la fonction qui installe le mode déclare elle-même le mode.
+  window.__immoHorsLigne = true;
+  window.__immoEcritureHorsLigneOK = _hlEcritureOK;
 
   // ── 1. Le bandeau permanent (invariant 19c) ───────────────────────────────
   // Il entre dans le FLUX en tête de <body>, comme #readonly-banner, et il est
@@ -31407,7 +31458,7 @@ async function openEditEDL(id) {
   if(migrated){
     const idx=DB.edl.findIndex(x=>x.id===id);
     if(idx>=0){DB.edl[idx].pieces=JSON.parse(JSON.stringify(_edlP));DB.edl[idx].cles=clesMig;}
-    saveDB();
+    saveDB({ quoi: 'edl-photo' });   // migration des photos de l'EDL ouvert (invariant 19a)
   }
   // EDL TERRAIN lot 0 — on INDEXE les photos, on n'en charge aucune : les
   // vignettes s'hydratent quand elles arrivent à l'écran (invariants 22 / 34i).
@@ -33179,7 +33230,7 @@ async function _edlEnvoyerUnePhoto(job) {
     const _EP = (typeof window !== 'undefined') ? window.EdlPhotos : null;
     if (_EP) _EP.collectEdlPhotos(rec).forEach(p => { if (p.idbKey === job.idbKey) p.cloudKey = chemin; });
     _edlPropagateSyncedToForm(rec.id, job.idbKey, { cloudKey: chemin });
-    saveDB({ autosave: true });     // pas d'audit, pas de capture d'annulation (F6/F7)
+    saveDB({ autosave: true, quoi: 'edl-photo' });   // pas d'audit, pas de capture d'annulation (F6/F7)
     return true;
   } catch (e) {
     console.warn('[edl envoi photo]', e);
@@ -33644,6 +33695,7 @@ function _edlApplyLockUI(isSigned, signedAt) {
 /* Bouton "🔓 Réinitialiser signature" : double-confirm fort avec warning
    légal car ça invalide la signature et permet de modifier l'EDL signé. */
 function _edlResetSignatureUI() {
+  const _quoiEDL = { quoi: 'edl-signature-presentielle' };   // invariant 19a
   const eid = el('edl-edit-id') ? el('edl-edit-id').value : '';
   if (!eid) return;
   if (!confirm2(
@@ -33670,7 +33722,7 @@ function _edlResetSignatureUI() {
     edl.signatures.locataire = null;
   }
   if (typeof _stamp === 'function') _stamp(edl);
-  saveDB();
+  saveDB(_quoiEDL);
   // Réouvrir l'EDL en mode édition pour rafraîchir l'UI déverrouillée
   closeM('ov-edl');
   setTimeout(() => openEditEDL(edl.id), 100);
@@ -33984,7 +34036,7 @@ function saveEDL(opts){
       if (_audit) _audit('create', 'edl', record.id, record.logement+'/'+(record.type||''));
       DB.edl.push(record);
     }
-    const _ecrit = saveDB({ autosave });
+    const _ecrit = saveDB({ autosave, quoi: 'edl' });   // invariant 19a : étiquetée, donc autorisée hors ligne
     // v14.12.2 : MAJ edl-edit-id avec l'id du record sauvé pour que les actions
     // ultérieures (PDF, Drive) trouvent bien le record fraîchement créé/modifié.
     el('edl-edit-id').value = record.id;
@@ -41910,7 +41962,10 @@ function openNewEDLForLog(ref, type) {
 //   { pieces: [...], cles: [...], notes: '...', _modifiedAt: ISO }
 // Les VALEURS (états, observations, photos) sont effacées — on garde juste
 // la STRUCTURE (noms de pièces et d'éléments).
+// Écrit la composition des pièces DE L'EDL en retour sur le logement : c'est
+// « edl-pieces » au sens de l'invariant 19a, donc autorisé hors ligne.
 function saveLogEDLTemplateFromEDL(edlId) {
+  const _quoiEDL = { quoi: 'edl-pieces' };   // invariant 19a
   const edl = (DB.edl||[]).find(e => e.id === edlId);
   if(!edl) { showToast('EDL introuvable','err'); return; }
   const log = (DB.logements||[]).find(l => l.ref === edl.logement);
@@ -41945,7 +42000,7 @@ function saveLogEDLTemplateFromEDL(edlId) {
     _sourceEDLId: edlId
   };
   if(typeof _stamp === 'function') _stamp(log);
-  saveDB();
+  saveDB(_quoiEDL);
   rLogFiche();
   showToast(`Template enregistré pour ${edl.logement} (${piecesTpl.length} pièces, ${piecesTpl.reduce((s,p)=>s+p.elements.length,0)} éléments)`,'ok');
 }

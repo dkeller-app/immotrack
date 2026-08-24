@@ -133,3 +133,115 @@ describe('la clé lue par le lot 4 est bien celle qu’écrit la PROD', () => {
     expect(st.getItem(MIROIR_ECRIT_KEY)).toBeTruthy();
   });
 });
+
+/* ═══ Invariant 19a — LE GARDE D'ÉCRITURE HORS LIGNE ════════════════════════
+   « Hors ligne, AUCUNE écriture n'aboutit en dehors de l'EDL et des signatures
+   présentielles » (CDC §9). La règle vivait dans le module et n'était appliquée
+   NULLE PART — un audit l'a relevée : test vert, règle absente. Elle est
+   désormais appliquée dans `saveDB`, le point de passage unique de toute
+   persistance. Ces tests l'EXÉCUTENT. */
+describe('saveDB — invariant 19a : hors ligne, seul l’EDL s’écrit', () => {
+  /** Monte saveDB avec le garde réel branché sur le vrai module. */
+  function avecGarde({ horsLigne }) {
+    const st = fauxStockage();
+    const refus = [];
+    const { saveDB, win } = faireSaveDB({ KEY: 'immotrack_v4', stockage: st });
+    win.__immoHorsLigne = horsLigne;
+    return { st, refus, saveDB, win };
+  }
+
+  it('en LIGNE, le garde est inerte : rien ne change', async () => {
+    const { st, saveDB, win } = avecGarde({ horsLigne: false });
+    win.__immoEcritureHorsLigneOK = () => { throw new Error('ne doit pas être consulté en ligne'); };
+    expect(saveDB()).toBe(true);
+    expect(st.getItem('immotrack_v4')).toBeTruthy();
+  });
+
+  it('LE POINT DUR — hors ligne, une écriture NON étiquetée est REFUSÉE et rien n’est écrit', async () => {
+    // Le scénario réel : hors ligne, « Logements » reste ouvert pour consulter
+    // sur place. Rien n'empêchait d'y corriger un téléphone. Ça s'écrivait dans
+    // le miroir, puis la remontée ne reverse que les EDL : la correction était
+    // effacée par l'hydratation, SANS UN MESSAGE.
+    const { ecritureAutoriseeHorsLigne } = await import('../../js/core/offline-boot.js');
+    const { st, saveDB, win } = avecGarde({ horsLigne: true });
+    const vus = [];
+    win.__immoEcritureHorsLigneOK = (quoi) => { vus.push(quoi); return ecritureAutoriseeHorsLigne(quoi); };
+    expect(saveDB()).toBe(false);
+    expect(st.cles()).toEqual([]);                 // RIEN n'a été écrit
+    expect(vus).toEqual([undefined]);              // le garde a bien été consulté
+  });
+
+  it('hors ligne, une écriture d’EDL passe — sinon on bloquerait la visite elle-même', async () => {
+    const { ecritureAutoriseeHorsLigne } = await import('../../js/core/offline-boot.js');
+    const { st, saveDB, win } = avecGarde({ horsLigne: true });
+    win.__immoEcritureHorsLigneOK = (quoi) => ecritureAutoriseeHorsLigne(quoi);
+    for (const quoi of ['edl', 'edl-photo', 'edl-pieces', 'edl-signature-presentielle']) {
+      st.cles().forEach(k => st.removeItem(k));
+      expect(saveDB({ quoi })).toBe(true);
+      expect(st.getItem('immotrack_v4')).toBeTruthy();
+    }
+  });
+
+  it('hors ligne, une écriture de BAIL ou de loyer est refusée (invariants 19a, 19d)', async () => {
+    const { ecritureAutoriseeHorsLigne } = await import('../../js/core/offline-boot.js');
+    const { st, saveDB, win } = avecGarde({ horsLigne: true });
+    win.__immoEcritureHorsLigneOK = (quoi) => ecritureAutoriseeHorsLigne(quoi);
+    for (const quoi of ['bail', 'bail-signature', 'quittance', 'loyer', 'logement']) {
+      expect(saveDB({ quoi })).toBe(false);
+    }
+    expect(st.cles()).toEqual([]);
+  });
+
+  it('sans garde installé, on n’invente aucune règle : tout passe', () => {
+    // Un blocage inventé sans verdict rendrait l'app inutilisable sans que rien
+    // ne l'explique — pire que la fuite qu'on cherche à fermer.
+    const { st, saveDB } = avecGarde({ horsLigne: true });   // pas de __immoEcritureHorsLigneOK
+    expect(saveDB()).toBe(true);
+    expect(st.getItem('immotrack_v4')).toBeTruthy();
+  });
+});
+
+/* ═══ Invariant 19k — F6 / F7 : l'autosave ne capture rien, n'audite rien ═══ */
+describe('saveDB — invariant 19k : l’autosave ne prend AUCUNE capture d’annulation', () => {
+  /** Monte saveDB en observant les crochets d'annulation et d'audit. */
+  function avecCrochets(opts) {
+    const st = fauxStockage();
+    const vus = [];
+    const html = readFileSync(resolve(repoRoot, 'index.html'), 'utf8');
+    const src = extraireFonction(html, 'saveDB');
+    const usine = new Function(
+      'window', 'localStorage', 'KEY', 'DB', '_CLOUD_BOOT', '_saveDBQuotaWarn',
+      '_undoOnSaveDB', '_undoOnSaveDBSuccess', '_auditFlushPending',
+      src + '\nreturn saveDB;'
+    );
+    const fn = usine(
+      { __immoSupabaseMode: true }, st, 'immotrack_v4', { baux: {}, logements: [] }, false, () => {},
+      () => vus.push('capture-avant'), () => vus.push('capture-apres'), () => vus.push('audit')
+    );
+    return { fn, vus, st };
+  }
+
+  it('une écriture NORMALE capture bien l’annulation et vide la file d’audit', () => {
+    const { fn, vus } = avecCrochets();
+    fn();
+    expect(vus).toContain('capture-avant');
+    expect(vus).toContain('capture-apres');
+    expect(vus).toContain('audit');
+  });
+
+  it('LE POINT DUR — en AUTOSAVE, aucune capture d’annulation n’est prise', () => {
+    // F6 : `structuredClone(DB)` complet (1 à 2 Mo) toutes les 2 s, 20 états
+    // retenus — jusqu'à ~40 Mo sur un téléphone, et les 20 emplacements
+    // d'annulation remplis de « Modification » d'une seule visite.
+    const { fn, vus } = avecCrochets();
+    fn({ autosave: true });
+    expect(vus).not.toContain('capture-avant');
+    expect(vus).not.toContain('capture-apres');
+  });
+
+  it('l’écriture a bien lieu malgré l’absence de capture', () => {
+    const { fn, st } = avecCrochets();
+    expect(fn({ autosave: true })).toBe(true);
+    expect(st.getItem('immotrack_v4')).toBeTruthy();
+  });
+});

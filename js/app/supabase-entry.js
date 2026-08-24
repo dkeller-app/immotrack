@@ -112,7 +112,7 @@ async function _accepteDePerdre(r) {
   let msg
   try {
     msg = _offlineBoot
-      ? _offlineBoot.messageDeconnexionRefusee({ enAttente: r && r.enAttente, raison: r && r.raison }).question
+      ? _offlineBoot.messageDeconnexionRefusee({ enAttente: r && r.enAttente, raison: r && r.raison, quoi: r && r.quoi }).question
       : 'Des modifications ne sont pas encore enregistrées dans le cloud. Se déconnecter les perdrait.\n\nSe déconnecter quand même ?'
   } catch (e) {
     msg = 'Des modifications ne sont pas encore enregistrées dans le cloud. Se déconnecter les perdrait.\n\nSe déconnecter quand même ?'
@@ -213,6 +213,22 @@ async function boot() {
       // parties au cloud, on ne purge rien et on rend la main. Sans ça, la
       // purge du miroir (juste dessous, inconditionnelle) emportait le travail
       // hors ligne, et laissait les photos orphelines en IndexedDB.
+      //
+      // ⚠️ GARDE HORS LIGNE — corrigée après audit ; elle manquait, et c'était le
+      // trou le plus destructeur du lot. `api.logout` interroge le MOTEUR de
+      // synchro ; or le moteur n'est câblé que par `onLoggedIn`. Sur le chemin
+      // HORS LIGNE il vaut `null` : la garde de `logout` était donc fausse, la
+      // déconnexion passait, et les deux `removeItem` juste en dessous
+      // emportaient l'EDL de la visite. Le menu Compte est joignable depuis
+      // n'importe quelle page — rien n'empêchait le geste. On pose donc la
+      // question AVANT, sur les HORODATAGES : eux existent dans les deux modes,
+      // contrairement au moteur. Le verdict vient du module testé.
+      const _refus = _refusDeconnexionLocale({ api, forcer })
+      if (_refus) {
+        window.__immoLoggingOut = false
+        try { window.__immoCrumb && window.__immoCrumb('logout-refuse:' + _refus.raison) } catch (e) {}
+        return _refus
+      }
       let r = null
       try { r = await api.logout({ forcer: !!forcer }) }
       catch (e) { console.warn('[Supabase] logout', e); r = { ok: false, raison: 'flush-impossible', enAttente: 1 } }
@@ -226,6 +242,10 @@ async function boot() {
     // P1.3 volet RGPD (audit C-C) : le miroir localStorage est TOUJOURS purgé au logout — sinon le
     // dernier saveDB laisse une copie intégrale du DB lisible à vie sur la machine (cas Marion).
     try { localStorage.removeItem(MIRROR_KEY); localStorage.removeItem(MIRROR_TAG_KEY) } catch (e) {}
+    // Les horodatages partent AVEC le miroir : une clé résiduelle après une purge
+    // RGPD n'a pas de raison d'exister, et un horodatage orphelin ferait croire à
+    // F1, au prochain login, qu'il reste du travail hors ligne à rejouer.
+    try { if (_offlineBoot) { localStorage.removeItem(_offlineBoot.MIROIR_ECRIT_KEY); localStorage.removeItem(_offlineBoot.FLUSH_OK_KEY) } } catch (e) {}
     // BUG-LOGIN-DOUBLE volet sécurité : le token de session (persistSession:true) DOIT partir aussi.
     _purgeAuthTokenKeys()
     // IndexedDB photos : purgée SEULEMENT si aucun binaire « idb-only » (sans copie Supabase Storage).
@@ -728,6 +748,7 @@ async function onHorsLigne(api, overlay, session) {
           ongletDisponible: id => _offlineBoot.ongletDisponibleHorsLigne(id),
           motifOnglet: id => _offlineBoot.motifOnglet(id),
           motif: quoi => _offlineBoot.motifIndisponible(quoi),
+          ecritureAutorisee: quoi => _offlineBoot.ecritureAutoriseeHorsLigne(quoi),
         })
       }
     } catch (e) { console.warn('[Supabase] bandeau hors ligne', e) }
@@ -738,10 +759,123 @@ async function onHorsLigne(api, overlay, session) {
   }
 }
 
+/**
+ * EDL TERRAIN lot 4, faille F2 (invariant 19g) — LA DÉCONNEXION EST-ELLE SÛRE ?
+ *
+ * ═══ LE TROU QUE L'AUDIT A TROUVÉ ═════════════════════════════════════════
+ * `api.logout` interroge le MOTEUR de synchro pour savoir s'il reste des
+ * écritures en attente. Or le moteur n'est câblé que par `onLoggedIn` : sur le
+ * chemin HORS LIGNE il vaut `null`, la garde était donc fausse, la déconnexion
+ * passait — et la purge du miroir qui suit emportait l'EDL de la visite. Les
+ * photos survivaient en IndexedDB, mais ORPHELINES. C'est exactement la faille
+ * F2 du CDC, reproduite là où elle fait le plus de dégâts : dans l'appartement.
+ *
+ * La bonne question n'est pas « y a-t-il un moteur ? » mais « le miroir
+ * porte-t-il du travail qui n'est pas parti ? ». Elle se pose sur des
+ * HORODATAGES, qui existent dans les deux modes.
+ *
+ * Fonction NOMMÉE, au niveau du module, pour être exécutable par un test : la
+ * version précédente vivait dans une fonction fléchée du boot, inatteignable.
+ *
+ * @returns {null|{ok:false, raison:string, enAttente:number}} null = on peut partir
+ */
+function _refusDeconnexionLocale({ api, forcer }) {
+  if (forcer || !_offlineBoot) return null
+  try {
+    const miroir = localStorage.getItem(MIRROR_KEY)
+    const v = _offlineBoot.verdictDeconnexion({
+      forcer: false,
+      moteurPresent: !!(api && api.sync),
+      horsLigne: !!window.__immoHorsLigne,
+      miroirPresent: !!miroir,
+      miroirEcritA: parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0,
+      dernierFlushA: parseInt(localStorage.getItem(_offlineBoot.FLUSH_OK_KEY) || '0', 10) || 0,
+    })
+    if (v.peut) return null
+    return { ok: false, raison: v.raison, enAttente: v.enAttente }
+  } catch (e) {
+    console.warn('[Supabase] verdict de déconnexion', e)
+    return null   // on ne bloque jamais sur une règle qu'on n'a pas pu évaluer
+  }
+}
+
+/**
+ * EDL TERRAIN lot 4, faille F1 (invariants 18, 19f) — LE TRAVAIL HORS LIGNE
+ * REMONTE AVANT QUE LE CLOUD ÉCRASE LA MÉMOIRE.
+ *
+ * Le miroir localStorage est en ÉCRITURE SEULE en mode cloud : personne ne le
+ * relit jamais. Séquence vécue : EDL saisi hors ligne → l'app est fermée →
+ * retour à la maison AVEC réseau → hydratation → le DB cloud remplace la
+ * mémoire. L'EDL hors ligne n'a jamais existé.
+ *
+ * On ne « charge pas le miroir puis on flushe » : le moteur diffe la baseline
+ * contre le DB vivant, donc tout ce qui est au cloud et absent du miroir
+ * partirait en SUPPRESSION — on effacerait le travail d'un associé. On part du
+ * cloud et on n'y REVERSE que les états des lieux du miroir absents ou plus
+ * récents, puis on pousse.
+ *
+ * ⚠️ L'ORDRE EST LE CONTRAT : baseline = SERVEUR, vivant = fusionné, ENVOI, et
+ * seulement ensuite la ré-hydratation. Deux inversions de cet ordre ont déjà
+ * détruit du travail réel — c'est pourquoi cette séquence est une fonction
+ * nommée, testable, et non plus quarante lignes noyées dans le boot.
+ *
+ * @returns {{db:object, dbServeur:object|null, ajoutes:number, majs:number, envoiOk:boolean}}
+ */
+async function _remonterTravailHorsLigne({ api, db, setSync, tagMiroir, espacesAutorises }) {
+  const rien = { db, dbServeur: null, ajoutes: 0, majs: 0, envoiOk: true }
+  try {
+    if (!_offlineBoot) return rien
+    const ecritA = parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0
+    const flushA = parseInt(localStorage.getItem(_offlineBoot.FLUSH_OK_KEY) || '0', 10) || 0
+    // ⚠️ `tagMiroir` est le verdict d'AVANT le login : `onLoggedIn` réécrit le tag
+    // du miroir avec l'utilisateur et l'espace courants. Le relire ici rendrait
+    // forcément 'same' — une tautologie, pas une protection (constat d'audit).
+    if (!_offlineBoot.doitPousserAvantHydratation({ tagMiroir, miroirEcritA: ecritA, dernierFlushA: flushA })) return rien
+    const raw = localStorage.getItem(MIRROR_KEY)
+    const miroir = raw ? JSON.parse(raw) : null
+    // RGPD — on ne reverse JAMAIS un EDL d'un espace qu'on n'a plus. Le tag du
+    // miroir n'enregistre que l'espace PROPRE (faille F13 du CDC) : après
+    // révocation d'un partage il rend 'same', le miroir n'est donc pas purgé, et
+    // il contient encore les EDL de l'espace perdu. C'est l'incident du 12/07 ;
+    // sans ce filtre, F1 les ré-affichait ET les remontait au cloud.
+    const miroirFiltre = miroir
+      ? Object.assign({}, miroir, { edl: _offlineBoot.filtrerEdlParEspacesAutorises(miroir.edl, espacesAutorises) })
+      : null
+    const f = _offlineBoot.fusionnerEdlHorsLigne(db, miroirFiltre, {
+      cleDe: rec => (_recordKey ? _recordKey('edl', rec) : String(rec.id)),
+    })
+    if (!f.ajoutes.length && !f.majs.length) return rien
+    console.info('[Supabase] F1 — travail hors ligne à remonter :', f.ajoutes.length, 'EDL ajouté(s),', f.majs.length, 'mis à jour')
+    try { window.__immoCrumb && window.__immoCrumb('f1-remontee:' + (f.ajoutes.length + f.majs.length)) } catch (e) {}
+    const dbServeur = db          // on GARDE l'instantané serveur (il re-sèmera la baseline)
+    api.seed(dbServeur)           // baseline = ce que le serveur a
+    const vivant = f.db           // vivant = serveur + travail hors ligne
+    const sF1 = await api.flush(vivant)   // la file locale part AVANT toute ré-hydratation
+    // ⚠️ On LIT le résumé. `FLUSH_OK_KEY` était posée quoi qu'il arrive : un envoi
+    // refusé (clé étrangère non résolue, conflit, erreur) devenait « déjà
+    // synchronisé », et F1 ne réessayait JAMAIS au démarrage suivant. Un EDL de
+    // terrain qui ne remonte pas ne doit pas être muet — c'était la faille F1 en
+    // train de se reproduire elle-même.
+    const badF1 = sF1 ? (((sF1.errors && sF1.errors.length) || 0) + ((sF1.conflicts && sF1.conflicts.length) || 0) + ((sF1.skipped && sF1.skipped.length) || 0)) : 0
+    if (!badF1) {
+      try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {}
+    } else {
+      console.warn('[Supabase] F1 — le travail hors ligne n’est PAS remonté', sF1)
+      try { window.__immoCrumb && window.__immoCrumb('f1-echec:' + badF1) } catch (e) {}
+      try { setSync && setSync('warn', badF1 + ' modification' + (badF1 > 1 ? 's' : '') + ' hors ligne pas encore enregistrée' + (badF1 > 1 ? 's' : '')) } catch (e) {}
+    }
+    return { db: vivant, dbServeur, ajoutes: f.ajoutes.length, majs: f.majs.length, envoiOk: !badF1 }
+  } catch (e) {
+    console.warn('[Supabase] F1 remontée hors ligne', e)
+    return rien
+  }
+}
+
 async function onLoggedIn(api, overlay, user) {
   renderLoading(overlay, user)
   let esp, liveDB = null, flushTimer = null, _lastFlushFn = null, _liveChannel = null
   let _conflitsEdlEnAttente = []   // lot 4bis : clés `edl` conflictées au dernier flush
+  let _tagMiroirAvantLogin = 'untagged'   // lot 4 (F1) : verdict du miroir AVANT réécriture du tag
 
   // ── P1.1 SYNC HONNÊTE (audit 2026-07-12, cause C-B) — pastille topbar RÉELLE. L'ancien #imsb-sync
   // vivait dans le bandeau bleu supprimé au cutover → setSync était un no-op = échecs 100 % invisibles
@@ -957,7 +1091,6 @@ async function onLoggedIn(api, overlay, user) {
           if (r.conserves.length) { Object.assign(db, { edl: r.db.edl }); _conserves = r.conserves }
         }
       } catch (e) { console.warn('[Supabase] conservation des versions EDL', e) }
-      _conflitsEdlEnAttente = []
       if (typeof window.__immoSetDB !== 'function' || window.__immoSetDB(db) === false) return
       _pendingConflictBanner = false
       liveDB = db
@@ -974,7 +1107,14 @@ async function onLoggedIn(api, overlay, user) {
       else if (typeof window.showToast === 'function') { try { window.showToast('🔄 Données actualisées', 'ok', 3500) } catch (e) {} }
     } catch (e) {
       console.warn('[Supabase] re-hydratation échouée (retentée au prochain signal)', e)
-    } finally { _repullBusy = false }
+    } finally {
+      _repullBusy = false
+      // Les clés conflictées sont consommées ICI, pas dans le corps : une sortie
+      // anticipée (_repullBusy, saisie concurrente) ou un hydrate qui rejette
+      // les laissait vivre et les faisait appliquer à un re-pull ultérieur, sans
+      // rapport avec le conflit qui les avait produites.
+      _conflitsEdlEnAttente = []
+    }
   }
   // Re-pull de CONFORT (realtime / visibilité) : coalescé (1,2 s) et JAMAIS pendant une saisie — tant
   // qu'une modale .ov est ouverte, on re-vérifie toutes les 5 s (le flush de la modale partira d'abord,
@@ -1017,7 +1157,10 @@ async function onLoggedIn(api, overlay, user) {
       if (!_offlineBoot) { if (evt === 'SIGNED_OUT' || !session) _sessionDead(); return }
       const enLigne = !(typeof navigator !== 'undefined' && navigator.onLine === false)
       const v = _offlineBoot.verdictAuthChange({ evt, session, enLigne })
-      if (v === 'hors-ligne') { setSync('offline'); return }
+      // Convention du fichier (audit M3) : on n'écrase JAMAIS l'état « session
+      // morte » — sinon la pastille dirait « hors ligne » pendant que la bannière
+      // rouge « ta session a expiré » est toujours à l'écran.
+      if (v === 'hors-ligne') { if (!_deadShown) setSync('offline'); return }
       if (v === 'morte') _sessionDead()
     })
   } catch (e) { console.warn('[Supabase] onAuthChange', e) }
@@ -1036,6 +1179,10 @@ async function onLoggedIn(api, overlay, user) {
       // (audit M-b) SANS le module (import raté) : verdict 'untagged' forcé → miroir purgé quand même
       // (fail-safe RGPD ; seule la purge IDB 'other-user', qui exige la PREUVE du tag, devient inerte).
       const cls = _cachePurge ? _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp.espaceId) : 'untagged'
+      // EDL TERRAIN lot 4 (F1) — on RETIENT ce verdict AVANT la réécriture du tag
+      // juste en dessous. Relu après, il rendrait forcément 'same' : F1 croirait
+      // vérifier l'appartenance du miroir alors qu'il ne vérifierait plus rien.
+      _tagMiroirAvantLogin = cls
       if (cls !== 'same') { try { localStorage.removeItem(MIRROR_KEY) } catch (e) {} }
       if (cls === 'other-user') await _deletePhotosDb()
       try { localStorage.setItem(MIRROR_TAG_KEY, _cachePurge ? _cachePurge.mirrorTag(user.id, esp.espaceId) : JSON.stringify({ userId: user.id, espaceId: esp.espaceId })) } catch (e) {}
@@ -1086,26 +1233,19 @@ async function onLoggedIn(api, overlay, user) {
     // appareil ou d'un associé. On part du cloud et on n'y REVERSE que les
     // états des lieux du miroir absents ou plus récents (js/core/offline-boot.js,
     // testé), puis on pousse. Aucune suppression n'est dérivée du miroir.
-    try {
-      if (_offlineBoot && _cachePurge) {
-        const tag = _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp && esp.espaceId)
-        const ecritA = parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0
-        const flushA = parseInt(localStorage.getItem(_offlineBoot.FLUSH_OK_KEY) || '0', 10) || 0
-        if (_offlineBoot.doitPousserAvantHydratation({ tagMiroir: tag, miroirEcritA: ecritA, dernierFlushA: flushA })) {
-          const raw = localStorage.getItem(MIRROR_KEY)
-          const miroir = raw ? JSON.parse(raw) : null
-          const f = _offlineBoot.fusionnerEdlHorsLigne(db, miroir)
-          if (f.ajoutes.length || f.majs.length) {
-            console.info('[Supabase] F1 — travail hors ligne à remonter :', f.ajoutes.length, 'EDL ajouté(s),', f.majs.length, 'mis à jour')
-            try { window.__immoCrumb && window.__immoCrumb('f1-remontee:' + (f.ajoutes.length + f.majs.length)) } catch (e) {}
-            api.seed(db)              // baseline = ce que le serveur a
-            db = f.db                 // vivant = serveur + travail hors ligne
-            await api.flush(db)       // la file locale part AVANT toute ré-hydratation
-            try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {}
-          }
-        }
-      }
-    } catch (e) { console.warn('[Supabase] F1 remontée hors ligne', e) }
+    // EDL TERRAIN lot 4 (F1) — la remontée vit dans une FONCTION NOMMÉE, au niveau
+    // du module, et non plus en ligne au milieu de `onLoggedIn`. Raison : cette
+    // séquence (baseline = serveur, vivant = fusionné, ENVOI, puis seulement
+    // ré-hydratation) est un ORDRE D'EXÉCUTION dont deux inversions ont détruit
+    // du travail réel. Inline, elle n'était atteignable par aucun test ; nommée,
+    // elle s'exécute dans __tests__/helpers/offline-cablage.test.js.
+    const _f1 = await _remonterTravailHorsLigne({
+      api, db, setSync,
+      tagMiroir: _tagMiroirAvantLogin,
+      espacesAutorises: _espaceOwners,
+    })
+    db = _f1.db
+    const _dbServeurF1 = _f1.dbServeur
     // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
     // cloud EN MÉMOIRE + re-render + brancher la SAUVEGARDE cloud (2c). Sinon (page de test dédiée
     // index-supabase.html) → écran de compteurs + bouton.
@@ -1114,7 +1254,14 @@ async function onLoggedIn(api, overlay, user) {
       if (window.__immoSetDB(db) === false) { renderProof(overlay, api, user, esp, db); return }   // DB invalide → fallback
       liveDB = db                                 // le sync lit CE DB (l'app le mute EN PLACE → diff = vraies modifs)
       _liveDBRef = db                             // réf pour résoudre l'espace/owner d'une SCI (Storage + uuid par-SCI)
-      api.seed(db)                                // baseline = état hydraté (aucun diff au départ)
+      // ⚠️ Après une remontée F1, la baseline se re-sème depuis l'instantané
+      // SERVEUR, pas depuis `db` — corrigé après audit. `db` contient désormais
+      // le travail hors ligne : re-semer depuis lui le déclarait « déjà
+      // synchronisé » et supprimait le filet du moteur (qui, lui, n'avance sa
+      // baseline que sur succès). Un EDL jamais parti disparaissait alors à la
+      // ré-hydratation suivante. Re-semer depuis le serveur peut provoquer un
+      // upsert en trop : c'est idempotent, et c'est le sens fail-safe.
+      api.seed(_dbServeurF1 || db)                // baseline = état hydraté (aucun diff au départ)
       _lastHydrateAt = Date.now()                 // P1.3 : référence de fraîcheur pour le re-pull visibilité
       // P1.3 volet RGPD : le miroir est RE-BASÉ immédiatement sur la vue AUTORISÉE courante (RLS) — l'ancien
       // contenu (potentiellement un périmètre révoqué depuis) ne survit jamais à un login, même sans saveDB.

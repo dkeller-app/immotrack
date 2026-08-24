@@ -7,6 +7,12 @@ import { createSupabaseAdapter } from '../core/store-supabase-adapter.js'
 import { createStoreSync } from '../core/store-sync.js'
 import { makeDetUuid } from '../core/det-uuid.js'
 import { createMultiStore } from '../core/store-multi.js'
+// EDL TERRAIN lot 4 (F2, invariant 19g) — la règle « puis-je me déconnecter ? »
+// vient du module testé. Elle était RÉÉCRITE À LA MAIN ici (un comptage
+// errors+conflicts+skipped), donc non testée, pendant que la version testée du
+// module ne servait à personne : deux expressions de la même règle, la vivante
+// non vérifiée et la vérifiée morte. Une seule subsiste, celle qui est testée.
+import { peutSeDeconnecter } from '../core/offline-boot.js'
 
 export function createBoot(client) {
   if (!client || !client.auth || typeof client.from !== 'function') throw new Error('createBoot: client supabase-js requis')
@@ -48,9 +54,24 @@ export function createBoot(client) {
     try {
       if (_sync && !(opts && opts.forcer)) {
         const s = await _sync.flush()
-        const reste = s ? (((s.errors && s.errors.length) || 0) + ((s.conflicts && s.conflicts.length) || 0) + ((s.skipped && s.skipped.length) || 0)) : 0
-        if (reste || (s && s.config === 'error')) {
-          return { ok: false, raison: 'non-synchronise', enAttente: reste || 1, resume: s }
+        const errs = (s && s.errors) || [], confs = (s && s.conflicts) || [], skips = (s && s.skipped) || []
+        const reste = errs.length + confs.length + skips.length + ((s && s.config === 'error') ? 1 : 0)
+        // Un enregistrement « skipped » (clé étrangère non résoluble) est un
+        // blocage STABLE : le moteur le retente sans fin. Répéter « attends le
+        // réseau » à chaque déconnexion serait faux, et une question qui revient
+        // toujours apprend à cliquer sans lire — le jour où elle portera sur un
+        // vrai EDL, elle sera balayée par réflexe. On la distingue, et on NOMME
+        // les enregistrements concernés (le résumé n'était lu par personne).
+        const seulementBloquees = skips.length > 0 && errs.length === 0 && confs.length === 0 && !(s && s.config === 'error')
+        const v = peutSeDeconnecter({ ecrituresEnAttente: reste, forcer: false })
+        if (!v.peut) {
+          return {
+            ok: false,
+            raison: seulementBloquees ? 'blocage-chronique' : 'non-synchronise',
+            enAttente: v.enAttente || 1,
+            quoi: [...errs, ...confs, ...skips].map(x => (x && x.coll) || '?').filter((c, i, t) => t.indexOf(c) === i),
+            resume: s,
+          }
         }
       }
     } catch (e) {

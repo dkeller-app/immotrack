@@ -259,15 +259,36 @@ describe('conserverLesDeuxVersions — invariants 29, 32, 33, 34', () => {
   });
 
   it('la copie repart par un INSERT, donc SANS conflit possible (invariant 34)', () => {
-    // Un identifiant neuf ⇒ aucune ligne serveur correspondante ⇒ INSERT. Et
-    // la version trackée de l'original ne doit surtout pas être héritée.
+    // Un identifiant neuf ⇒ aucune ligne serveur correspondante ⇒ INSERT.
     const local = edlReel({ id: 7, appareil: TABLETTE });
-    local._espaceId = 'esp-1';
     const r = monter({ locaux: [local], cloud: { edl: [] }, conflits: ['7'] });
     const copie = r.db.edl[0];
     expect(copie.id).toBeGreaterThan(1000);
-    expect('_espaceId' in copie).toBe(false);
     expect(copie._modifiedAt).toBe(new Date(T(20, 8, 17, 0)).toISOString());
+  });
+
+  it('LE PIÈGE DE L’ESPACE PARTAGÉ — la copie GARDE son `_espaceId`', () => {
+    // Le premier jet le supprimait, en pensant que la réadoption D1b le
+    // reposerait. C'est faux : la réadoption ne s'applique qu'à une clé déjà
+    // connue de la baseline, et la copie porte un identifiant NEUF. Sans son
+    // tag, une version conservée d'un EDL de SCI partagée partait vers l'espace
+    // PROPRE, sa clé étrangère « logement » n'y résolvait pas, et elle restait
+    // refusée à chaque envoi — indéfiniment — pendant que la bannière affirmait
+    // « ta saisie est conservée ». Elle l'était : sur ce seul appareil.
+    const local = Object.assign(edlReel({ id: 7, appareil: TABLETTE }), { _espaceId: 'esp-sci' });
+    const r = monter({ locaux: [local], cloud: { edl: [] }, conflits: ['7'] });
+    expect(r.db.edl[0]._espaceId).toBe('esp-sci');
+  });
+
+  it('une date d’exécution absurde ne date jamais la copie de 1970', () => {
+    // C'est cette date qui NOMME la version à l'écran.
+    for (const mauvais of [0, NaN, 'hier', -1]) {
+      const r = conserverLesDeuxVersions({
+        dbCloud: { edl: [] }, edlsLocaux: [edlReel({ id: 7 })], clesEnConflit: ['7'],
+        cleDe, nouvelId, maintenant: mauvais,
+      });
+      expect(new Date(r.db.edl[0]._modifiedAt).getFullYear()).toBeGreaterThan(2020);
+    }
   });
 
   it('AUCUNE collection autre que « edl » n’est touchée (invariant 33)', () => {

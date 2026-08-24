@@ -168,20 +168,95 @@ export function verdictAuthChange({ evt = '', session = null, enLigne = true } =
  *
  * @returns {{titre:string, texte:string, question:string}}
  */
-export function messageDeconnexionRefusee({ enAttente = 0, raison = '' } = {}) {
+export function messageDeconnexionRefusee({ enAttente = 0, raison = '', quoi = null } = {}) {
   const n = Math.max(1, Number(enAttente) || 0);
   const pl = n > 1;
-  const quoi = n + ' modification' + (pl ? 's' : '')
+  const combien = n + ' modification' + (pl ? 's' : '')
     + (pl ? ' ne sont pas encore enregistrées' : " n'est pas encore enregistrée") + ' dans le cloud';
-  const titre = 'Déconnexion impossible : ' + quoi + '.';
-  const cause = raison === 'flush-impossible'
-    ? "L'envoi au cloud n'a pas pu aboutir — le plus souvent, c'est le réseau."
-    : 'Ces modifications attendent encore leur envoi.';
-  const texte = titre + '\n\n' + cause + '\n\n'
-    + 'Reconnecte-toi à un réseau et attends que la pastille affiche « Enregistré ».\n\n'
+  const titre = 'Déconnexion impossible : ' + combien + '.';
+  const nomme = Array.isArray(quoi) && quoi.length ? ' (' + quoi.join(', ') + ')' : '';
+  let cause;
+  if (raison === 'hors-ligne-non-synchronise') {
+    // Le cas de l'appartement : la saisie n'existe QUE sur cet appareil, et la
+    // déconnexion efface la copie locale. C'est la perte la plus complète, et
+    // c'est le chemin que l'audit a trouvé grand ouvert.
+    cause = "Tu es hors ligne : ce travail n'existe QUE sur cet appareil" + nomme + '.';
+  } else if (raison === 'blocage-chronique') {
+    // Ne PAS dire « attends le réseau » : ce serait faux, et l'attente serait
+    // sans fin. On nomme le vrai problème pour que quelqu'un puisse le traiter.
+    cause = 'Une modification' + nomme + " ne peut pas être envoyée — ce n'est pas le réseau."
+      + " Elle restera bloquée tant que sa cause n'est pas corrigée.";
+  } else if (raison === 'flush-impossible') {
+    cause = "L'envoi au cloud n'a pas pu aboutir — le plus souvent, c'est le réseau." + nomme;
+  } else {
+    cause = 'Ces modifications attendent encore leur envoi' + nomme + '.';
+  }
+  const remede = raison === 'blocage-chronique'
+    ? 'Signale-le : se déconnecter maintenant perdrait cette modification.'
+    : 'Reconnecte-toi à un réseau et attends que la pastille affiche « Enregistré ».';
+  const texte = titre + '\n\n' + cause + '\n\n' + remede + '\n\n'
     + 'Se déconnecter QUAND MÊME perdrait ce travail : la déconnexion efface la copie locale, '
     + "et les photos déjà prises resteraient sur l'appareil sans état des lieux pour les relier.";
   return { titre, texte, question: texte + '\n\nSe déconnecter quand même ?' };
+}
+
+/**
+ * F2, LE VERDICT COMPLET — « puis-je me déconnecter ? »
+ *
+ * ═══ LE TROU QUE L'AUDIT A TROUVÉ, ET POURQUOI IL EXISTAIT ════════════════
+ * Le premier jet posait la question au MOTEUR DE SYNCHRO : « reste-t-il des
+ * écritures en attente ? ». Or le moteur n'est câblé que par `onLoggedIn`.
+ * Sur le chemin HORS LIGNE il vaut `null` — donc la garde était fausse, donc
+ * la déconnexion était ACCEPTÉE, donc le miroir était purgé, donc la visite
+ * était détruite. Le lot 4 reproduisait la faille F2 exactement là où elle
+ * fait le plus de dégâts : dans l'appartement, sans réseau.
+ *
+ * La question n'est pas « y a-t-il un moteur ? » mais « le miroir porte-t-il du
+ * travail qui n'est pas parti ? ». Elle se pose donc sur des HORODATAGES, qui
+ * existent dans les deux modes, et pas sur la présence d'un objet.
+ *
+ * @returns {{peut:boolean, raison:string, enAttente:number}}
+ */
+export function verdictDeconnexion({
+  forcer = false, moteurPresent = true, horsLigne = false,
+  miroirPresent = false, miroirEcritA = 0, dernierFlushA = 0,
+  ecrituresEnAttente = 0, seulementBloquees = false,
+} = {}) {
+  if (forcer) return { peut: true, raison: 'force-par-utilisateur', enAttente: Number(ecrituresEnAttente) || 0 };
+  // Hors ligne, ou moteur absent : le miroir est le seul juge. S'il porte des
+  // écritures postérieures au dernier envoi réussi, elles n'existent QUE là.
+  if ((horsLigne || !moteurPresent) && miroirPresent
+      && Number(miroirEcritA) > Number(dernierFlushA || 0)) {
+    return { peut: false, raison: 'hors-ligne-non-synchronise', enAttente: 1 };
+  }
+  const r = peutSeDeconnecter({ ecrituresEnAttente, forcer: false });
+  if (!r.peut && seulementBloquees) {
+    // 🟠 audit : un enregistrement chroniquement refusé (clé étrangère non
+    // résoluble) est retenté sans fin. Répéter « attends le réseau » serait un
+    // mensonge, et une question qui revient à chaque déconnexion apprend à
+    // cliquer sans lire — c'est ce que ce module condamne ailleurs.
+    return { peut: false, raison: 'blocage-chronique', enAttente: r.enAttente };
+  }
+  return r;
+}
+
+/**
+ * RGPD — ne jamais reverser dans le DB un EDL d'un espace qu'on n'a PLUS.
+ *
+ * L'incident du 12/07 : une associée révoquée voyait encore les données d'un
+ * autre espace. Le tag du miroir n'enregistre que l'espace PROPRE (faille F13
+ * du CDC) : après révocation d'un partage, l'espace propre n'a pas changé, le
+ * miroir n'est donc pas purgé — et il contient encore les EDL de l'espace
+ * perdu. Sans ce filtre, F1 les réinjecte en mémoire et les REMONTE.
+ *
+ * Un EDL sans `_espaceId` est un EDL de l'espace propre : il passe.
+ */
+export function filtrerEdlParEspacesAutorises(edls, espacesAutorises) {
+  const liste = Array.isArray(edls) ? edls : [];
+  if (!espacesAutorises) return liste;
+  const ok = espacesAutorises instanceof Set ? espacesAutorises : new Set(Object.keys(espacesAutorises || {}));
+  if (!ok.size) return liste.filter(e => e && e._espaceId == null);
+  return liste.filter(e => e && (e._espaceId == null || ok.has(String(e._espaceId))));
 }
 
 /**
@@ -203,30 +278,48 @@ export function messageDeconnexionRefusee({ enAttente = 0, raison = '' } = {}) {
  * @param {object} miroir  le DB lu dans le miroir localStorage
  * @returns {{db:object, ajoutes:Array<string|number>, majs:Array<string|number>}}
  */
-export function fusionnerEdlHorsLigne(cloud, miroir) {
+export function fusionnerEdlHorsLigne(cloud, miroir, opts) {
   const base = cloud && typeof cloud === 'object' ? cloud : {};
   const mir = miroir && typeof miroir === 'object' ? miroir : {};
   const edlCloud = Array.isArray(base.edl) ? base.edl : [];
   const edlMiroir = Array.isArray(mir.edl) ? mir.edl : [];
-  if (!edlMiroir.length) return { db: base, ajoutes: [], majs: [] };
+  if (!edlMiroir.length) return { db: base, ajoutes: [], majs: [], ignoresSupprimes: [] };
 
-  const parId = new Map();
-  edlCloud.forEach((e, i) => { if (e && e.id != null) parId.set(String(e.id), i); });
+  // La clé d'IDENTITÉ. Par défaut l'identifiant seul, mais l'appelant passe
+  // `recordKey` (store-sync) : le moteur identifie un EDL par `id@@espaceId`,
+  // et deux EDL homonymes de deux espaces PARTAGÉS ne doivent pas se confondre.
+  // On ne recopie pas la convention ici — c'est pour ça que recordKey existe.
+  const cleDe = (opts && typeof opts.cleDe === 'function')
+    ? (r => { try { return opts.cleDe(r); } catch (_e) { return String(r.id); } })
+    : (r => String(r.id));
+
+  const parCle = new Map();
+  edlCloud.forEach((e, i) => { if (e && e.id != null) parCle.set(cleDe(e), i); });
 
   const fusion = edlCloud.slice();
-  const ajoutes = [], majs = [];
+  const ajoutes = [], majs = [], ignoresSupprimes = [];
   for (const local of edlMiroir) {
     if (!local || local.id == null) continue;
-    const k = String(local.id);
-    if (!parId.has(k)) { fusion.push(local); ajoutes.push(local.id); continue; }
-    const i = parId.get(k);
+    // ⚠️ TRANCHÉ APRÈS AUDIT — un TOMBSTONE du miroir n'est jamais reversé.
+    // `delEDL` supprime en place (`_deleted:true` + `_modifiedAt` neuf). Sans
+    // cette porte, un tombstone plus récent que la version cloud écrasait la
+    // ligne vivante, disparaissait de l'instantané (le moteur exclut les
+    // tombstones) et repartait donc en SUPPRESSION au cloud : le module
+    // DÉRIVAIT une suppression du miroir, ce que son en-tête promet de ne
+    // jamais faire. On choisit la voie qui ne détruit rien : l'EDL survit, et
+    // l'utilisateur peut le re-supprimer en ligne d'un geste. L'inverse — une
+    // suppression propagée à tort — ne se rattrape pas.
+    if (local._deleted) { ignoresSupprimes.push(local.id); continue; }
+    const k = cleDe(local);
+    if (!parCle.has(k)) { fusion.push(local); ajoutes.push(local.id); continue; }
+    const i = parCle.get(k);
     const dCloud = Date.parse((fusion[i] && fusion[i]._modifiedAt) || '') || 0;
     const dLocal = Date.parse(local._modifiedAt || '') || 0;
     // Égalité → on garde le cloud : on ne réécrit jamais pour rien.
     if (dLocal > dCloud) { fusion[i] = local; majs.push(local.id); }
   }
-  if (!ajoutes.length && !majs.length) return { db: base, ajoutes: [], majs: [] };
-  return { db: Object.assign({}, base, { edl: fusion }), ajoutes, majs };
+  if (!ajoutes.length && !majs.length) return { db: base, ajoutes: [], majs: [], ignoresSupprimes };
+  return { db: Object.assign({}, base, { edl: fusion }), ajoutes, majs, ignoresSupprimes };
 }
 
 /* ── Le périmètre du hors ligne (décision du 20/08) ────────────────────────── */

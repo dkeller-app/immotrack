@@ -226,6 +226,11 @@ const estSigne = e => !!(e && e.signatures && (e.signatures.signedAt || e.signat
 export function conserverLesDeuxVersions({
   dbCloud, edlsLocaux = [], clesEnConflit = [], cleDe, nouvelId, maintenant = Date.now(),
 } = {}) {
+  // Le défaut de déstructuration ne couvre QUE `undefined` : un `maintenant`
+  // valant 0, NaN ou une chaîne aurait daté la version conservée de 1970, et
+  // c'est cette date qui la nomme à l'écran (« version tablette du 01/01 »).
+  const now = Number(maintenant);
+  maintenant = Number.isFinite(now) && now > 0 ? now : Date.now();
   const db = (dbCloud && typeof dbCloud === 'object') ? dbCloud : {};
   const cles = clesEnConflit instanceof Set ? clesEnConflit : new Set(clesEnConflit || []);
   if (!cles.size || typeof cleDe !== 'function' || typeof nouvelId !== 'function') {
@@ -252,7 +257,16 @@ export function conserverLesDeuxVersions({
       _versionConservee: { idOrigine: local.id, appareil: m ? m.nom : '', quand, nom },
       _modifiedAt: new Date(maintenant).toISOString(),
     });
-    delete copie._espaceId;                              // réadopté à l'écriture (D1b)
+    // ⚠️ `_espaceId` est CONSERVÉ — corrigé après audit. Le premier jet le
+    // supprimait en pensant que la réadoption D1b le reposerait ; c'est faux :
+    // `_adoptTags` ne réadopte que sur une clé NUE déjà connue de la baseline,
+    // et la copie porte un identifiant NEUF. Sans son tag, une version conservée
+    // d'un EDL de SCI PARTAGÉE était routée vers l'espace propre, sa clé
+    // étrangère « logement » n'y résolvait pas, et elle restait donc « skipped »
+    // à chaque envoi, indéfiniment — pendant que la bannière affirmait « ta
+    // saisie est conservée ». Elle l'était : sur ce seul appareil.
+    // Un identifiant neuf dans le MÊME espace ne peut pas heurter un tombstone :
+    // l'insertion passe, la clé étrangère résout, l'invariant 34 est mieux servi.
     copies.push(copie);
     conserves.push({ idOrigine: local.id, idNouveau: idNeuf, nom, resume: resumerSaisie(local) });
   }
