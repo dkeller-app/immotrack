@@ -133,6 +133,19 @@ async function sealSignedBaux(db) {
 const CONFIG_EXCLUDED = new Set([...TABLE_COLLECTIONS, '_modifiedAt'])
 export const SYNCED_COLLECTIONS = COLLECTIONS.map(c => c.coll)
 
+// EDL TERRAIN lot 4bis — la CLÉ D'IDENTITÉ d'un enregistrement dans sa collection,
+// telle que la calcule le moteur : c'est elle qui apparaît dans `summary.conflicts`.
+// Exportée parce que le lot 4bis doit retrouver QUEL enregistrement local a
+// conflicté pour en conserver la version. Sans ça l'appelant devrait recopier la
+// convention `String(id) + '@@' + espaceId` — et une copie dérive : deux EDL
+// homonymes de deux espaces partagés seraient confondus. Rend null pour une
+// collection inconnue, jamais une clé inventée.
+export function recordKey(coll, rec) {
+  const c = COLLECTIONS.find(x => x.coll === coll)
+  if (!c || !rec) return null
+  try { return c.key(rec) } catch (_e) { return null }
+}
+
 // M4 (audit v15.460, chantier P1.3) : « le flush a-t-il réellement écrit quelque chose au cloud ? »
 // Sert au broadcast Realtime `changed` : un poison isolé (P1.2) ne doit PAS étouffer le signal quand des
 // upserts/removes/config VIENNENT d'aboutir dans le même flush — sinon les autres appareils restent figés

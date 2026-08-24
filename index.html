@@ -6538,6 +6538,39 @@ function _saveDBQuotaWarn(e) {
   }
 }
 
+/* ═══ EDL TERRAIN lot 4bis — DEUX APPAREILS, UN ÉTAT DES LIEUX ══════════════
+   Les décisions vivent dans js/core/edl-conflit.js (module pur, testé, exposé
+   par js/main.js sous window.EdlConflit). Ici : l'identité de CET appareil, et
+   les deux points où l'app doit poser la question.
+   CDC docs/CDC-EDL.md §7 · invariants 29 à 34. */
+
+/* L'identité de cet appareil. Elle est LOCALE et le reste : elle ne sert qu'à
+   dire « commencé sur la tablette à 14h32 », jamais à autoriser quoi que ce
+   soit. Par appareil (donc via _lsKey : la sandbox a la sienne). */
+function _edlAppareilId() {
+  const k = _lsKey('immo_appareil_id');
+  try {
+    let v = localStorage.getItem(k);
+    if (!v) { v = 'ap-' + nid().toString(36); localStorage.setItem(k, v); }
+    return v;
+  } catch (e) { return 'ap-volatil'; }   // stockage refusé : on n'empêche rien pour autant
+}
+function _edlAppareilNom() {
+  const C = (typeof window !== 'undefined') ? window.EdlConflit : null;
+  if (!C) return 'un autre appareil';
+  try { return C.nommerAppareil(navigator.userAgent, navigator.platform); } catch (e) { return 'un autre appareil'; }
+}
+/* L'empreinte à poser sur un enregistrement d'EDL à chaque écriture. Elle voyage
+   dans `legacy_raw` (store-mapping) : AUCUNE colonne cloud nouvelle. */
+function _edlEmpreinteAppareil() {
+  const C = (typeof window !== 'undefined') ? window.EdlConflit : null;
+  if (!C) return null;
+  try { return C.empreinteAppareil({ id: _edlAppareilId(), nom: _edlAppareilNom() }); } catch (e) { return null; }
+}
+// Le lot 4bis fabrique un identifiant local neuf pour la version conservée : la
+// copie repart alors par un INSERT, qui ne peut pas conflicter (invariant 34).
+window.__immoNouvelId = function() { return nid(); };
+
 /* ═══ EDL TERRAIN lot 4 — MODE HORS LIGNE, la moitié ÉCRAN ══════════════════
    La moitié DÉCISION vit dans js/core/offline-boot.js (module pur, testé). Ici
    on n'applique que des verdicts : quel onglet est consultable, quel motif
@@ -31385,6 +31418,31 @@ async function openEditEDL(id) {
   // v14.42 Phase 4b : applique le lock UI si EDL signé (bandeau + CSS désactive inputs)
   if (typeof _edlApplyLockUI === 'function') _edlApplyLockUI(_edlIsSigned(e), e.signatures && e.signatures.signedAt);
   openM('ov-edl');
+  // EDL TERRAIN lot 4bis, invariant 31 — OUVERT AILLEURS. Situation ② du CDC
+  // §7.3 : le même EDL est ouvert sur deux appareils, et rien ne le signale.
+  // On le signale, en nommant l'appareil et l'heure.
+  //
+  // ⚠️ Le verrou n'est JAMAIS bloquant : tablette perdue, batterie morte, envie
+  // de finir au calme — reprendre est toujours possible, on est seulement
+  // prévenu. Refuser ne verrouille rien non plus : ça referme la modale, l'EDL
+  // reste intact et ré-ouvrable dans la seconde.
+  //
+  // PORTÉE VOLONTAIREMENT LIMITÉE : le CDC §7.4 ② décrit en plus une ouverture
+  // « en lecture seule par défaut ». Ce mode-là demande un bandeau et un état
+  // désactivé SUR L'ÉCRAN DE L'EDL — territoire des lots 5 à 8, GELÉS (§A.0 à
+  // §A.5 : ces écrans ont été rejetés puis ré-arbitrés). On livre donc
+  // l'avertissement, qui porte l'invariant ; l'état lecture seule attend le
+  // lot 5. Ce qui compte est déjà acquis : personne n'écrit sans savoir.
+  try {
+    const _C = (typeof window !== 'undefined') ? window.EdlConflit : null;
+    if (_C && !_edlIsSigned(e)) {
+      const _v = _C.verrouOuverture(e, _edlAppareilId());
+      if (_v.avertir && !confirm2(_v.message + '\n\nReprendre ici quand même ?')) {
+        closeM('ov-edl');
+        return;
+      }
+    }
+  } catch (err) { console.warn('[openEditEDL] verrou d\'appareil', err); }
   _edlAutosaveReset();   // lot 1 : minuteur propre + écouteurs armés
   _edlMajCompteurPhotos();
   _edlReenfilerPhotos(e); // lot 3 : ce qui n'a pas de cloudKey repart à l'envoi
@@ -33762,6 +33820,23 @@ function saveEDL(opts){
     const log=v('edl-log');
     if(!log){showToast('Sélectionnez un logement','err');return null;}
     if(!date){showToast('Indiquez une date','err');return null;}
+    // EDL TERRAIN lot 4bis, invariant 30 — CRÉER un EDL alors qu'il en existe
+    // déjà un pour ce logement, ce type et cette date : on avertit en nommant
+    // l'appareil et l'heure. C'est la situation ① du CDC §7.3, la plus
+    // fréquente : l'EDL de la tablette n'est pas remonté, le PC ne le voit pas,
+    // on le recrée. On n'empêche JAMAIS — deux issues, attendre ou créer en
+    // connaissance de cause. Jamais sur un autosave (il ne crée rien), jamais
+    // sur une ré-écriture (idCourant exclut l'enregistrement de soi-même).
+    if (!autosave && typeof window !== 'undefined' && window.EdlConflit) {
+      try {
+        const _dbl = window.EdlConflit.detecterDoublon({
+          edls: DB.edl || [], logement: log, type, date,
+          idCourant: eid ? parseInt(eid) : null,
+          creation: !eid,   // l'invariant 30 vise la création, pas chaque ré-écriture
+        });
+        if (_dbl && !confirm2(_dbl.message + '\n\nCréer quand même ?')) return null;
+      } catch (e) { console.warn('[saveEDL] détection de doublon', e); }
+    }
     // v14.3 D2 : warning si le logement n'appartient à aucune entité.
     // L'EDL ne sera PAS inclus dans le payload Drive (filtre _buildEntityPayload
     // = `refs.has(e.logement)` où refs = logements de l'entité). Sans ce check,
@@ -33877,6 +33952,12 @@ function saveEDL(opts){
     }
 
     _stamp(record); // v13.18
+    // EDL TERRAIN lot 4bis — QUI a écrit, et QUAND. Sans cette marque, les
+    // invariants 30 et 31 ne peuvent rien dire de précis (« un autre appareil »
+    // au lieu de « la tablette à 14h32 ») et le verrou consultatif n'existe pas.
+    // Voyage dans `legacy_raw` : aucune colonne cloud nouvelle.
+    const _emp = _edlEmpreinteAppareil();
+    if (_emp) record._appareil = _emp;
     // EDL TERRAIN lot 1, invariant 5 (CDC §9) : « ré-enregistrer un EDL ne le
     // fait JAMAIS disparaître de l'espace partagé ». saveEDL reconstruit le
     // record de zéro puis remplace l'objet (DB.edl[i] = record) : le tag

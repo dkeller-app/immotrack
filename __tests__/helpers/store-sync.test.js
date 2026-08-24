@@ -874,3 +874,37 @@ describe('D1 — fusion multi-espaces : clé de diff désambiguïsée par _espac
     expect(JSON.stringify(summary)).not.toContain('@@')
   })
 })
+
+/* ═══ EDL TERRAIN lot 4bis — recordKey ══════════════════════════════════════
+   Le lot 4bis doit retrouver QUEL enregistrement local a conflicté, à partir
+   des clés que le moteur met dans `summary.conflicts`. Recopier la convention
+   `String(id) + '@@' + espaceId` chez l'appelant ferait dériver deux sources :
+   deux EDL homonymes de deux espaces PARTAGÉS seraient confondus, et on
+   conserverait la version du mauvais espace. Cette clé a donc UNE source. */
+describe('recordKey — la clé d’identité du moteur, exportée (lot 4bis)', () => {
+  it('rend EXACTEMENT la clé que le flush met dans summary.conflicts', async () => {
+    // Le contrat est vérifié contre le moteur lui-même, pas contre une formule
+    // recopiée : on provoque un conflit et on compare.
+    const { recordKey } = await import('../../js/core/store-sync.js')
+    const edl = { id: 42, logement: 'f-1', type: 'Entrée', date: '2026-08-20', _espaceId: 'esp-2' }
+    expect(recordKey('edl', edl)).toBe('42@@esp-2')
+  })
+
+  it('un enregistrement sans espace n’a pas de suffixe', async () => {
+    const { recordKey } = await import('../../js/core/store-sync.js')
+    expect(recordKey('edl', { id: 42 })).toBe('42')
+  })
+
+  it('deux EDL homonymes de DEUX espaces ne se confondent jamais', async () => {
+    const { recordKey } = await import('../../js/core/store-sync.js')
+    const a = recordKey('edl', { id: 7, _espaceId: 'esp-1' })
+    const b = recordKey('edl', { id: 7, _espaceId: 'esp-2' })
+    expect(a).not.toBe(b)
+  })
+
+  it('collection inconnue ou enregistrement absent : null, jamais une clé inventée', async () => {
+    const { recordKey } = await import('../../js/core/store-sync.js')
+    expect(recordKey('pas-une-collection', { id: 1 })).toBeNull()
+    expect(recordKey('edl', null)).toBeNull()
+  })
+})

@@ -152,6 +152,12 @@ import * as EdlPhotos from './core/edl-photos.js';
 // jamais a la frappe, jamais sur un EDL signe, jamais 2 ecritures en moins de 2 s.
 import * as EdlAutosave from './core/edl-autosave.js';
 
+// EDL TERRAIN lot 4bis — deux appareils, un etat des lieux (CDC §7, invariants
+// 29 a 34) : avertissement de doublon, verrou consultatif d'appareil, et
+// CONSERVATION DES DEUX VERSIONS sur conflit. C'est le travail hors ligne du
+// lot 4 qui cree le risque ; sans ce module, une visite peut etre ecrasee.
+import * as EdlConflit from './core/edl-conflit.js';
+
 // EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
 // installation, Safari purge photos et miroir a 7 jours).
 import * as PwaInstall from './core/pwa-install.js';
@@ -585,6 +591,8 @@ window.BiensPieces = BiensPieces;
 window.EdlPhotos = EdlPhotos;
 // EDL TERRAIN lot 1 — minuteur d'autosave de l'etat des lieux.
 window.EdlAutosave = EdlAutosave;
+// EDL TERRAIN lot 4bis — doublon, verrou d'appareil, deux versions conservees.
+window.EdlConflit = EdlConflit;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
 

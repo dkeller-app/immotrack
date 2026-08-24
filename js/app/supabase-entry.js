@@ -72,6 +72,11 @@ const AUTH_STORAGE_KEY = 'immo-supabase-auth'
 let _cachePurge = null           // module cache-purge (importé au boot, best-effort)
 let _teardownSession = null      // dépose de session ({flush}) — posée au boot, utilisée par logout + purge espace
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
+// EDL TERRAIN lot 4bis — deux appareils, un état des lieux. Imports best-effort
+// comme leurs voisins : sans eux le comportement d'AVANT le lot est conservé
+// (le serveur gagne, à l'identique) — on ne casse rien, on ne protège juste plus.
+let _edlConflit = null           // module edl-conflit (décisions pures, testées)
+let _recordKey = null            // store-sync.recordKey — la clé d'identité du moteur
 // EDL TERRAIN lot 4 — décisions PURES du mode hors ligne (js/core/offline-boot.js,
 // testé). Import best-effort comme ses voisins : sans lui, aucun mode hors ligne
 // n'est proposé et le comportement reste EXACTEMENT celui d'aujourd'hui.
@@ -262,7 +267,8 @@ async function boot() {
   // Realtime retombe sur l'ancienne condition « flush 100 % propre ».
   try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
   try { _offlineBoot = await import('../core/offline-boot.js') } catch (e) { console.warn('[Supabase] offline-boot', e) }
-  try { _hasCloudWrites = (await import('../core/store-sync.js')).summaryHasCloudWrites } catch (e) { console.warn('[Supabase] store-sync helpers', e) }
+  try { const _ss = await import('../core/store-sync.js'); _hasCloudWrites = _ss.summaryHasCloudWrites; _recordKey = _ss.recordKey } catch (e) { console.warn('[Supabase] store-sync helpers', e) }
+  try { _edlConflit = await import('../core/edl-conflit.js') } catch (e) { console.warn('[Supabase] edl-conflit', e) }
 
   const _normNom = s => String(s == null ? '' : s).trim().toLowerCase()
   // MULTI-ESPACE — délégation aux résolveurs PURS (store-multi.js, testés) : owner de l'espace où vit une SCI
@@ -735,6 +741,7 @@ async function onHorsLigne(api, overlay, session) {
 async function onLoggedIn(api, overlay, user) {
   renderLoading(overlay, user)
   let esp, liveDB = null, flushTimer = null, _lastFlushFn = null, _liveChannel = null
+  let _conflitsEdlEnAttente = []   // lot 4bis : clés `edl` conflictées au dernier flush
 
   // ── P1.1 SYNC HONNÊTE (audit 2026-07-12, cause C-B) — pastille topbar RÉELLE. L'ancien #imsb-sync
   // vivait dans le bandeau bleu supprimé au cutover → setSync était un no-op = échecs 100 % invisibles
@@ -831,7 +838,13 @@ async function onLoggedIn(api, overlay, user) {
       // retenter à l'identique est une impasse éternelle (audit C-A). On re-hydrate TOUT (serveur gagne),
       // on re-render, et la bannière avertit que la modif locale doit être revérifiée. Fire-and-forget :
       // le résumé est rendu au caller tout de suite, la ré-hydratation suit (gardée _repullBusy).
-      if (s && s.conflicts && s.conflicts.length) _repullCloud({ flushFirst: false, banner: true })
+      // EDL TERRAIN lot 4bis — on RETIENT quelles clés `edl` ont conflicté AVANT
+      // de re-hydrater : le résumé du flush est le seul endroit où l'information
+      // existe, et la ré-hydratation qui suit efface la baseline (api.seed).
+      if (s && s.conflicts && s.conflicts.length) {
+        try { _conflitsEdlEnAttente = s.conflicts.filter(c => c && c.coll === 'edl').map(c => c.key) } catch (e) { _conflitsEdlEnAttente = [] }
+        _repullCloud({ flushFirst: false, banner: true })
+      }
       return s
     } catch (e) {
       console.error('[Supabase] flush', e)
@@ -922,6 +935,29 @@ async function onLoggedIn(api, overlay, user) {
       // re-programme (la modif sera flushée d'abord). Chemin CONFLIT → on continue (le serveur gagne,
       // c'est le contrat annoncé par la bannière — abandonner laisserait le conflit sans résolution).
       if (!wantBanner && _dirtySeq !== seq0) { _repullSoon(); return }
+      // ── EDL TERRAIN lot 4bis — LES DEUX VERSIONS VIVENT (invariant 29) ────
+      // C'est ICI que la saisie locale était écrasée : `__immoSetDB(db)` juste
+      // en dessous remplace tout le DB par le snapshot serveur. Défendable pour
+      // une modification de 30 secondes sur un loyer ; pour une heure de terrain
+      // (110 éléments, 77 photos), non. On ne change RIEN pour les autres
+      // collections (invariant 33) : le serveur gagne, à l'identique. Seuls les
+      // `edl` en conflit voient leur version locale survivre à côté, nommée et
+      // datée. Aucune fusion n'est tentée (invariant 32).
+      let _conserves = []
+      try {
+        const conflitsEdl = (_conflitsEdlEnAttente || []).filter(Boolean)
+        if (conflitsEdl.length && _edlConflit && _recordKey && liveDB && typeof window.__immoNouvelId === 'function') {
+          const r = _edlConflit.conserverLesDeuxVersions({
+            dbCloud: db,
+            edlsLocaux: Array.isArray(liveDB.edl) ? liveDB.edl : [],
+            clesEnConflit: conflitsEdl,
+            cleDe: rec => _recordKey('edl', rec),
+            nouvelId: () => window.__immoNouvelId(),
+          })
+          if (r.conserves.length) { Object.assign(db, { edl: r.db.edl }); _conserves = r.conserves }
+        }
+      } catch (e) { console.warn('[Supabase] conservation des versions EDL', e) }
+      _conflitsEdlEnAttente = []
       if (typeof window.__immoSetDB !== 'function' || window.__immoSetDB(db) === false) return
       _pendingConflictBanner = false
       liveDB = db
@@ -930,7 +966,11 @@ async function onLoggedIn(api, overlay, user) {
       _lastHydrateAt = Date.now()
       try { (typeof window.__immoRerenderCurrent === 'function' ? window.__immoRerenderCurrent : window.__immoRender)() } catch (e) { console.warn('[Supabase] re-render post-pull', e) }
       if (!_deadShown) setSync('ok')
-      if (wantBanner) _showRefreshBanner('Données actualisées — revérifie ta modif : une modification concurrente a été conservée à ta place.')
+      // Le message DIT ce qui vient de se passer. « Revérifie ta modif » était
+      // le message d'un écrasement ; quand la version locale a été conservée,
+      // c'est le contraire qu'il faut annoncer (lot 4bis).
+      if (_conserves.length) _showRefreshBanner(_edlConflit.messageVersionsConservees(_conserves))
+      else if (wantBanner) _showRefreshBanner('Données actualisées — revérifie ta modif : une modification concurrente a été conservée à ta place.')
       else if (typeof window.showToast === 'function') { try { window.showToast('🔄 Données actualisées', 'ok', 3500) } catch (e) {} }
     } catch (e) {
       console.warn('[Supabase] re-hydratation échouée (retentée au prochain signal)', e)
