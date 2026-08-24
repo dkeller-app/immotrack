@@ -23,7 +23,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   synchroniserPeriodeBail, appliquerNouvellePeriode, cloturerBareme, periodeInitialeBail,
-  cloturerPeriodeParDebut, reancrerPeriodesDuBail
+  cloturerPeriodeParDebut, reancrerPeriodesDuBail, impactCloture
 } from '../../js/core/loyer-bareme.js';
 import { duMois } from '../../js/core/loyer-du-mois.js';
 import { casReferenceIRL, surfacesSocle, infractionsI1 } from './finances-invariant-i1.js';
@@ -92,23 +92,41 @@ describe('synchroniserPeriodeBail — jamais deux périodes ouvertes', () => {
   });
 });
 
-describe('cloturerBareme — ne pose jamais une fin antérieure au début', () => {
+describe('cloturerBareme — la clôture est ENREGISTRÉE, jamais une fin impossible', () => {
   // Trouvé par un balayage exhaustif que j'ai lancé faute d'audit disponible (limite API) :
   // 21 cas sur 41 783 produisaient `fin < debut`, et ils étaient INTRODUITS par le chantier.
   // Le chemin : une correction datée bornée loin dans le futur repousse le début de la période
   // du bail au lendemain de cette borne ; si le locataire part AVANT cette échéance,
   // cloturerBareme posait une fin antérieure au début — une période impossible.
-  // Elle ne s'appliquera jamais : on la tombstone plutôt que d'écrire une incohérence.
-  it('la période qui commence après la clôture est tombstonée, pas rendue impossible', () => {
+  //
+  // AUDIT 24/08 (I3) : la parade tombstonait cette période puis SORTAIT, sans jamais poser de
+  // fin. Le barème ne portait alors AUCUNE trace de la sortie du locataire, et la période qui
+  // débordait gardait sa fin lointaine — c'est le mécanisme de B2 (le nouveau locataire facturé
+  // au tarif de l'ancien). Une clôture ARRÊTE le barème du lot : ce qui déborde est ramené à la
+  // date de sortie, ce qui commence après ne s'appliquera jamais et le dit.
+  it('ce qui déborde la sortie est ramené à la date de sortie, ce qui la suit est annulé AVEC sa raison', () => {
     const bareme = [
       { ref: 'F-001', debut: '2024-01-01', fin: '2027-12-31', hc: 677, ch: 78, source: 'manuel', bailDebut: '2024-01-01' },
       { ref: 'F-001', debut: '2028-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
     ];
     const out = cloturerBareme(bareme, 'F-001', '2026-06-30');
     expect(out.every((x) => x.fin == null || x.fin >= x.debut)).toBe(true);
+    expect(out[0].fin).toBe('2026-06-30');                 // la clôture est ENREGISTRÉE
     expect(out[1]._deleted).toBe(true);
+    expect(out[1]._annuleeParCloture).toBe('2026-06-30');   // et elle dit pourquoi
     expect(ouvertes(out, 'F-001')).toHaveLength(0);
-    expect(out[0].fin).toBe('2027-12-31');   // la correction n'est pas touchée
+  });
+
+  it('impactCloture ANNONCE la même chose, sans rien modifier', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2027-12-31', hc: 677, ch: 78, source: 'manuel', bailDebut: '2024-01-01' },
+      { ref: 'F-001', debut: '2028-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+    ];
+    const fige = JSON.stringify(bareme);
+    const im = impactCloture(bareme, 'F-001', '2026-06-30');
+    expect(im.annulees.map((p) => p.debut)).toEqual(['2028-01-01']);
+    expect(im.tronquees.map((p) => p.debut)).toEqual(['2024-01-01']);
+    expect(JSON.stringify(bareme)).toBe(fige);
   });
 
   it('clôture NORMALE inchangée : la fin est posée sur la période ouverte', () => {
@@ -116,6 +134,18 @@ describe('cloturerBareme — ne pose jamais une fin antérieure au début', () =
     const out = cloturerBareme(bareme, 'F-001', '2026-06-30');
     expect(out[0].fin).toBe('2026-06-30');
     expect(out[0]._deleted).toBeUndefined();
+  });
+
+  it('une période DÉJÀ refermée avant la sortie n’est pas touchée', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2020-01-01', fin: '2023-12-31', hc: 500, ch: 80, source: 'bail', bailDebut: '2020-01-01' },
+      { ref: 'F-001', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+      { ref: 'AUTRE', debut: '2024-01-01', fin: null, hc: 1, ch: 1, source: 'bail' },
+    ];
+    const out = cloturerBareme(bareme, 'F-001', '2026-06-30');
+    expect(out[0].fin).toBe('2023-12-31');
+    expect(out[1].fin).toBe('2026-06-30');
+    expect(out[2].fin).toBe(null);                          // le lot voisin est hors de portée
   });
 
   it('clôture le JOUR du début : autorisée (période d’un jour)', () => {

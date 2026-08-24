@@ -11483,9 +11483,7 @@ function saveBailClore() {
   if(log) { log.locataire = ''; log.fin = finEff; }
   // AUDIT-SUIVI-LOYERS : clôturer les périodes de barème du lot à la date de fin effective
   // (source de vérité du dû — le loyer cesse d'être dû après le départ).
-  if (typeof window !== 'undefined' && typeof window._baremeCloturer === 'function') {
-    DB.loyerBareme = window._baremeCloturer(DB.loyerBareme || [], ref, finEff);
-  }
+  _baremeCloturerLot(ref, finEff);
   saveDB(); closeM('ov-bail-clore'); initFilters(); rBaux();
   // v15.14 Fix bug refresh : on est probablement sur la fiche logement quand on clôture
   // (bouton "🔚 Clôturer" du panneau Bail LOG-FICHE-360). Sans ce refresh, le bail
@@ -20282,9 +20280,7 @@ function terminerBail() {
   const log = DB.logements.find(l=>l.ref===ref);
   if(log) { log.locataire=''; log.fin=finEff; }
   // AUDIT-SUIVI-LOYERS : clôturer le barème à la fin effective (cohérence avec saveBailClore/archiverBail).
-  if (typeof window !== 'undefined' && typeof window._baremeCloturer === 'function') {
-    DB.loyerBareme = window._baremeCloturer(DB.loyerBareme || [], ref, finEff);
-  }
+  _baremeCloturerLot(ref, finEff);
   saveDB(); closeM('ov-bail'); initFilters(); rBaux();
   _refreshAfterMutation(); // v14.28 REFRESH-LIVE
   // v14.48 GANTT-PREAVIS : nettoyer les events auto fin-de-bail + préavis du bail clôturé
@@ -20828,6 +20824,16 @@ function saveBail() {
     }
     const _hcChChange = _validCtx && _finChanges.some(c => c.champ === 'hc' || c.champ === 'ch');
     if (_hcChChange && typeof window._baremeAppliquerNouvellePeriode === 'function') {
+      // GARANTIE DE COUVERTURE (audit 24/08, B1) — sur un barème vierge ou lacunaire, poser
+      // seulement la période DATÉE laisse tous les mois d'AVANT la date d'effet sans période :
+      // duMois retombe sur le repli « bail », c'est-à-dire le loyer QUI VIENT D'ÊTRE SAISI
+      // appliqué au passé. On complète d'abord, avec les termes ENCORE en vigueur (_prevFin,
+      // capturé avant l'écrasement) — pas ceux du formulaire, qui ne valent qu'à partir de la
+      // date d'effet. Ne réécrit jamais une période existante.
+      if (_prevFin && typeof window._baremeGarantirCouverture === 'function') {
+        DB.loyerBareme = window._baremeGarantirCouverture(DB.loyerBareme || [],
+          { ref, debut: bail.debut, hc: _prevFin.hc, ch: _prevFin.ch });
+      }
       DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme || [], {
         ref, debut: _validCtx.dateEffet, hc: bail.hc, ch: bail.ch,
         source: 'manuel', bailDebut: bail.debut, note: _validCtx.motif
@@ -20867,6 +20873,31 @@ function saveBail() {
   if (_pendingCandidatConv) { const _cc = _pendingCandidatConv; _pendingCandidatConv = null; _finalizeCandidatConversion(_cc, ref); }
 }
 
+// AUDIT 24/08 (I3) — CLÔTURER LE BARÈME EN LE DISANT. Une clôture ARRÊTE le barème du lot :
+// ce qui débordait la date de sortie y est ramené, ce qui commence après ne s'appliquera jamais.
+// Ramener une période corrigée à la main, ou annuler une révision IRL déjà programmée, n'est pas
+// anodin — et se faisait sans un mot ni un bandeau. « Prévenir, pas bloquer » : on annonce ce qui
+// vient d'être fait et on le trace. Une seule définition pour les TROIS portes de sortie
+// (saveBailClore, terminerBail, archiverBail), jamais trois copies.
+function _baremeCloturerLot(ref, finEff) {
+  if (typeof window === 'undefined' || typeof window._baremeCloturer !== 'function') return;
+  const im = (typeof window._baremeImpactCloture === 'function')
+    ? window._baremeImpactCloture(DB.loyerBareme || [], ref, finEff)
+    : { annulees: [], tronquees: [] };
+  DB.loyerBareme = window._baremeCloturer(DB.loyerBareme || [], ref, finEff);
+  if (im.annulees.length) {
+    const p0 = im.annulees[0];
+    showToast(`⚠️ ${im.annulees.length} période(s) de loyer programmée(s) après le ${fd(finEff)} sont annulées par la clôture `
+      + `(à partir du ${fd(p0.debut)} : ${fmt((Number(p0.hc) || 0) + (Number(p0.ch) || 0))}). Elles restent dans l'historique du bail.`, 'warn', 9000);
+  }
+  if (im.tronquees.length) {
+    showToast(`Le barème de ${ref} s'arrête au ${fd(finEff)} — ${im.tronquees.length} période(s) ramenée(s) à cette date.`, 'info', 5000);
+  }
+  if (typeof _auditLog === 'function') {
+    _auditLog('update', 'bareme', ref, `clôture au ${finEff} : ${im.tronquees.length} ramenée(s), ${im.annulees.length} annulée(s)`);
+  }
+}
+
 // Archiver le bail actif dans DB.baux_historique
 function archiverBail(ref, nouveauDebut) {
   const bail = DB.baux[ref];
@@ -20892,9 +20923,11 @@ function archiverBail(ref, nouveauDebut) {
     _archivedAuto: true,
   });
   // Clôture des périodes de barème du lot à la même date (source de vérité du dû).
-  if (finEff && typeof window !== 'undefined' && typeof window._baremeCloturer === 'function') {
-    DB.loyerBareme = window._baremeCloturer(DB.loyerBareme || [], ref, finEff);
-  }
+  // AUDIT 24/08 (B2) — c'est CE point qui facturait le nouveau locataire au tarif de l'ancien :
+  // quand une révision IRL était programmée pour plus tard, cloturerBareme la tombstonait et
+  // sortait SANS refermer la période en cours, qui gardait sa fin lointaine ; la période du
+  // nouveau bail était alors décalée jusque-là (mars→août 2026 à 800 € au lieu de 980 €).
+  if (finEff) _baremeCloturerLot(ref, finEff);
 }
 
 function previewBail() {
@@ -25609,6 +25642,16 @@ function _baremeRecordRevision(log, ref, newHC, dateEffetIso, opts) {
         return _c != null ? Number(_c) : 0;
       })();
   const bailDebut = (DB.baux[ref] && DB.baux[ref].debut) || (log && log.debut) || dateEffetIso;
+  // GARANTIE DE COUVERTURE (audit 24/08, B1) — une révision datée pose une période à sa date
+  // d'effet et laisse le DÉBUT du bail à découvert quand le barème est vierge ou lacunaire.
+  // duMois retombe alors sur le repli « bail » : le loyer RÉVISÉ (opts.applyNow écrit log.hc
+  // quelques lignes plus bas) s'applique rétroactivement aux mois d'avant la révision —
+  // l'infraction I-1. On complète AVANT, avec les termes ENCORE en vigueur. Ne réécrit rien.
+  if (typeof window !== 'undefined' && typeof window._baremeGarantirCouverture === 'function'
+    && DB.baux[ref] && !DB.baux[ref]._deleted && DB.baux[ref].debut) {
+    DB.loyerBareme = window._baremeGarantirCouverture(DB.loyerBareme || [],
+      { ref, debut: DB.baux[ref].debut, hc: DB.baux[ref].hc, ch: DB.baux[ref].ch });
+  }
   if (typeof window !== 'undefined' && typeof window._baremeAppliquerNouvellePeriode === 'function') {
     DB.loyerBareme = window._baremeAppliquerNouvellePeriode(DB.loyerBareme || [], {
       ref, debut: dateEffetIso, hc: newHC, ch, source: opts.source || 'irl', bailDebut, note: opts.note || ''
@@ -39062,6 +39105,19 @@ function _histoBailEventHtml(ev, c, refSafe, bailForDg){
     return `<div class="hl-card" data-dot="d-bail"><div class="tt"><h4>Fin de bail</h4><span class="hl-badge b-bail">fin de bail</span></div>
       <div class="hl-desc">Sortie effective le <b>${fd(ev.date)}</b>${ev.finTheorique?` <span class="mu" style="font-size:11px">(prévu jusqu'au ${fd(ev.finTheorique)})</span>`:''}${ev.motif?` · ${escHtml(ev.motif)}`:(ev.auto?' · clôture automatique':'')}. Le dû s'arrête à cette date.</div></div>`;
   }
+  // AUDIT 24/08 (I2) — une période REMPLACÉE (deux révisions à la même date d'effet, correction
+  // re-corrigée) était tombstonée, et construireHistoriqueBail filtre `_deleted` : la ligne
+  // DISPARAISSAIT de la timeline. Une saisie détruite en silence — la raison d'être du chantier.
+  // Elle revient, en tant qu'événement, avec ce qui l'a remplacée.
+  if(t==='periode-remplacee'){
+    return `<div class="hl-card" data-dot="d-man"><div class="tt"><h4>Période remplacée</h4><span class="hl-badge b-man">remplacée</span></div>
+      <div class="hl-desc">Au <b>${fd(ev.date)}</b>, <b>${fmt(ev.avant)}</b> a été remplacé par <b>${fmt(ev.apres)}</b>${ev.motif?' — '+escHtml(ev.motif):''}. La ligne précédente ne s'applique plus, elle reste ici.</div>
+      <div class="hl-move"><span class="old">${fmt(ev.avant)}</span><span>→</span><span class="new">${fmt(ev.apres)}</span></div></div>`;
+  }
+  if(t==='periode-annulee'){
+    return `<div class="hl-card" style="opacity:.85" data-dot="d-bail"><div class="tt"><h4>Période annulée par la clôture</h4><span class="hl-badge b-warn">⊘ annulée</span></div>
+      <div class="hl-desc">La période prévue à partir du <b>${fd(ev.date)}</b> (<b>${fmt(ev.avant)}</b>) ne s'appliquera jamais : le bail a été clôturé au <b>${fd(ev.dateEffet)}</b>.</div></div>`;
+  }
   // Traces génériques (DB.bailEvents : modif-dg, corrections…)
   const titre = t==='modif-dg' ? 'Dépôt de garantie modifié' : (t==='correction' ? 'Correction' : 'Événement');
   const move = (ev.avant!=null && ev.apres!=null)
@@ -39160,6 +39216,18 @@ function _histoSaveCorrPeriode(){
   if(dq && String(debut).slice(0,7) <= dq){
     if(!confirm2(`Le mois ${String(debut).slice(0,7)} est déjà quittancé (dernier : ${dq}). La quittance émise fait foi et ne sera pas recalculée. Enregistrer quand même une correction à partir de ${fd(debut)} ?`)) return;
   }
+  // I1 (audit 24/08) : « Corriger une période » laisse la date LIBRE, et la période est rattachée
+  // au CHAPITRE DU BAIL COURANT (bailDebut). Une date antérieure au début de ce bail appartient au
+  // locataire précédent : l'écrire supprimait SA période (le filtre de supersession ne regardait
+  // que ref + debut). borneMinEffetBareme protège la popup de modification du bail, pas cet écran.
+  // Le module refuse désormais d'écrire une telle période — ici on le DIT, plutôt que de laisser
+  // un no-op muet derrière un toast « Période corrigée ».
+  const _bailDebutCorr = (DB.baux[ref] && !DB.baux[ref]._deleted && DB.baux[ref].debut)
+    ? String(DB.baux[ref].debut).slice(0,10) : '';
+  if(_bailDebutCorr && String(debut).slice(0,10) < _bailDebutCorr){
+    showToast(`Cette période commencerait le ${fd(debut)}, avant le début du bail (${fd(_bailDebutCorr)}) : elle appartiendrait au locataire précédent. Corrigez la date de début.`,'err',8000);
+    return;
+  }
   // R1 (re-audit 17/07) : fin < debut → cloturerPeriodeParDebut no-op silencieux → la
   // correction resterait OUVERTE à côté de la vivante (l'état interdit). Refus explicite.
   if(fin && String(fin).slice(0,10) < String(debut).slice(0,10)){
@@ -39190,6 +39258,15 @@ function _histoSaveCorrPeriode(){
       DB.loyerBareme = (typeof window._baremeCloturerParDebut==='function')
         ? window._baremeCloturerParDebut(DB.loyerBareme, ref, debut, fin)
         : DB.loyerBareme;
+    }
+    // GARANTIE DE COUVERTURE (audit 24/08, B1) — une correction BORNÉE laisse le reste du bail
+    // sans période : duMois retombe sur le repli « bail », donc le tarif d'aujourd'hui appliqué
+    // au passé dès la révision suivante. On complète tout de suite. Ne réécrit jamais la
+    // correction qu'on vient d'enregistrer.
+    if(DB.baux[ref] && !DB.baux[ref]._deleted && DB.baux[ref].debut
+      && typeof window._baremeGarantirCouverture==='function'){
+      DB.loyerBareme = window._baremeGarantirCouverture(DB.loyerBareme,
+        { ref, debut: DB.baux[ref].debut, hc: DB.baux[ref].hc, ch: DB.baux[ref].ch });
     }
   }
   if(typeof _auditLog==='function') _auditLog('update','bareme',ref,`correction manuelle ${debut} ${hc}+${ch||0} : ${motif}`);

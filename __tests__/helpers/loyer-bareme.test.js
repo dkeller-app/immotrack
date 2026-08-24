@@ -6,7 +6,6 @@ import {
   appliquerNouvellePeriode,
   synchroniserPeriodeBail,
   cloturerBareme,
-  tombstonerPeriodesDuBail,
   _premierDuMois,
   _premierDuMoisSuivant
 } from '../../js/core/loyer-bareme.js';
@@ -306,18 +305,6 @@ describe('cloturerBareme — clôture de bail (re-bail / départ) : la période 
   it('ref tolérante', () => {
     const out = cloturerBareme([p0], ' f-001 ', '2026-06-30');
     expect(out[0].fin).toBe('2026-06-30');
-  });
-});
-
-describe('tombstonerPeriodesDuBail — au re-bail, les périodes de l\'ANCIEN bail sont tombstonées si on repart de zéro', () => {
-  it('marque _deleted les périodes du bailDebut donné, laisse les autres', () => {
-    const bareme = [
-      { ref: 'F-001', debut: '2024-03-01', fin: '2026-06-30', hc: 500, ch: 50, bailDebut: '2024-03-01' },
-      { ref: 'F-001', debut: '2026-07-01', fin: null, hc: 520, ch: 50, bailDebut: '2026-07-01' }
-    ];
-    const out = tombstonerPeriodesDuBail(bareme, 'F-001', '2024-03-01');
-    expect(out[0]._deleted).toBe(true);
-    expect(out[1]._deleted).toBeFalsy();
   });
 });
 
