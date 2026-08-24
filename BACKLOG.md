@@ -1,5 +1,20 @@
 # Propryo — Backlog actif
 
+## 🚦 ÉTAT AU 24/08 (passation)
+
+**PROD = v15.543** (`d407c50`). Un seul worktree : `Immo-wt-savebail` (`fix/ecritures-destructrices`, `faf5868`).
+
+✅ **EDL lots 1à4bis EN PROD v15.543** — autosave, PWA installable, photos qui remontent vraiment au cloud, hors ligne, conflit 2 appareils. Audit code-reviewer SÛR, 5 mutations attrapées, mode normal inchangé, 3533 tests. **RESTE smoke user** : ① connexion sur rechargement propre (ce lot a touché l'auth) ② conflit à 2 appareils réels (seul point non prouvable par agent).
+
+🔼 **RETOUR USER 24/08 sur le mockup `mockups/EDL-TERRAIN/edl-global.html`** : « ne fonctionne pas bien » et **ne gère pas les photos portrait ET paysage** (le cadre de la visionneuse est bloqué en 4/3). À reprendre avant de figer les lots 5à8 (parcours téléphone rail C, comparatif entrée/sortie, ménage du modèle à 109 éléments).
+
+⛔ **saveBail (`Immo-wt-savebail`, `faf5868`) NON INTÉGRÉ** — corrige 1,8 M€ de loyers passés recalculables (I-1) mais **dernier audit DANGEREUX** : B1 augmentation qui expire en silence et revient au tarif d'avant dès 2028 · B2 correction sur lot sans bail courant → 2 périodes vivantes · cause : la queue de couverture pose un tarif d'avant l'édition et `bmin` est calculé avant la couverture. **Leçon : la fenêtre de mesure était trop courte (0/0 sur 72 mois, 4032€ à 2030).** À reprendre jusqu'à audit SÛR sur fenêtre LARGE.
+
+**Chantiers prêts à lancer (CDC figés, non démarrés)** : Finances = onglet maître (CDC §0bis) · timeline barème = geste « corriger une période » (`PROMPT-SESSION-TIMELINE-BAREME.md`). Sessions user à ouvrir : KPI, résumé mensuel.
+
+---
+
+
 > **Hub de pilotage court.** Document maître : [docs/CDC-V1-LIGHT.md](docs/CDC-V1-LIGHT.md) (règles + périmètre + CDC par onglet + modèles).
 > Historique complet : [docs/archive/BACKLOG-integral-2026-08-10.md](docs/archive/BACKLOG-integral-2026-08-10.md) · branches archivées : tags `archive-20260810/*` · ancienne lignée pilotage : branche `backup/pilotage-pre-realign-2026-08-10`.
 > Règle : valider dans le chat → figer en UNE écriture. Une session de chantier à la fois.
