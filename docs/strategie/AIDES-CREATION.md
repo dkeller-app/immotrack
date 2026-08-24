@@ -48,6 +48,14 @@
 6. Arbitrage **versement libératoire** et l'articulation IR (l'ARE est imposable).
 7. Plafond exact du microcrédit Adie (12 ou 15 K€ — sources divergentes).
 
+## Données Didier (24/08/2026) : 315 jours d'indemnisation restants
+
+- **Reliquat = 315 × allocation journalière (AJ)** : AJ 50 € → 15 750 € · AJ 60 € → 18 900 € · AJ 70 € → 22 050 € · AJ 80 € → 25 200 €. *(AJ exacte à relever sur l'espace France Travail.)*
+- **Sans plafond 60 %** (fin de contrat < 01/04/2025) : à CA faible, ~2 jours/mois seulement non indemnisés → **~11 mois de couverture** : immatriculation au 1er octobre 2026 → **ARE jusqu'à ~septembre 2027**, soit un pont quasi complet vers la rentabilité mensuelle du modèle (juil. 2027 ambitieux / nov. 2027 central / janv. 2028 prudent). Trou résiduel : 0 à 4 mois selon le scénario.
+- **Avec plafond 60 %** : 189 jours mobilisables → **~6,5 mois** (→ ~avril 2027) ; trou de 3 à 9 mois jusqu'à la rentabilité → le **prêt d'honneur Initiative Strasbourg (3-15 K€ à 0 %)** devient central, + saisine de l'Instance Paritaire Régionale (dans les 6 mois) pour débloquer les 40 % restants, activité démontrée à l'appui.
+- **ARCE pour mémoire** : ≈ 58 % du reliquat en capital (ex. : ~11 000 € pour AJ 60 €), irréversible — reste écartée.
+- **Onglet « ARE (trésorerie perso) » ajouté au classeur** : saisir l'AJ exacte et le plafond (1 ou 0,6), tout se recalcule (ARE nette/mois, durée, date de fin).
+
 ## Impact intégré au modèle financier
 
 - **ACRE au nouveau taux** (15,9 % du CA du 01/10/2026 au 30/09/2027, puis 21,2 %) : intégrée au classeur `propryo-modele-financier.xlsx` (section ACRE des Hypothèses). Gain modeste (~150-300 € cumulés — le CA de la fenêtre est petit) : **on ne construit pas le plan sur l'ACRE**.
