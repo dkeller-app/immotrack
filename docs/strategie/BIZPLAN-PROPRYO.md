@@ -84,9 +84,12 @@ Tout ce qui suit est **en production** (août 2026, v15.540), testé, utilisé s
 | BailFacile | 9,99 € | 25,99 € (9,99 + 4 €/bien) | 45,99 € | incluse, illimitée | non affiché |
 | Gererseul | 9,75 € | ~41 € (117 €/an/bien, −15 %) | devis | **payante : 4,99 €/document** | non affiché |
 | Monsieur Hugo (hybride logiciel + services) | 14,90 € | 74,50 € (14,9 €/bien) | ~145 € (dégressif dès le 8e) | **9,90 €/bail en sus** (offre à la carte) + EDL 5,99 € | non affiché |
+| **Locataire.live** (Michaël Ferrari / Esprit Riche — nouvel entrant, relevé 20/08) | 0 € (gestion complète 1 lot) | 8,25 € (Solo 99 €/an, **annuel seul**) | 16,60 € (Pilote 199 €/an lancement « bloqué à vie », 299 € ensuite, illimité) | incluse | rôles équipe dès Solo |
 | **Propryo** | **2,99 €** (ou 0 € documents) | **9,90 € forfait** | **19,90 € forfait (≤ 30 lots)** | **incluse** (+ OTP prêt) | **inclus au plan Patrimoine** |
 
 **Lecture** : à 5 lots, **seul Rentila (l'ancre low-cost historique, interface datée) est moins cher** ; tous les outils modernes sont 2 à 4× plus chers que Propryo, et l'hybride Monsieur Hugo (qui vend la protection juridique et le dépannage avec le logiciel, engagement 12 mois) est 7× plus cher. **La synchronisation bancaire automatique est un standard de marché** : Rentila l'inclut jusque dans son gratuit, Qalimo dans tous ses plans (GoCardless + Linxo, confirmé par leurs mentions légales) — Propryo la livre **T1 2027, incluse dès Investisseur** (§11), sans add-on payant (la leçon Qalimo : la facturer à part paraît chiche). À 10 lots, Propryo 19,90 € contre BailFacile 45,99 € et Qalimo 34,30 €. Le **forfait par palier** (vs compteur par bien) est un argument de simplicité et de prévisibilité aligné avec le WHY.
+
+**⚠️ Le nouvel entrant à suivre de près : Locataire.live** (Michaël Ferrari, le formateur immo d'Esprit Riche — 3 000+ investisseurs formés, ~40 lots en propre). Prix quasi calqués sur les nôtres (99 €/an ≤ 5 lots ; illimité 199 €/an en lancement, « tarif bloqué à vie »), gratuit 1 lot en gestion complète, signature incluse, scoring IA des candidatures, espace locataire. **Sa force n'est pas le produit, c'est la distribution** (son école est son canal d'acquisition intégré). **Ses trous, vérifiés le 20/08 : aucun import bancaire ni synchro** (juste un import Excel du parc ; sa « comptabilité » = exports 2044/2072 — donc pas de payé réel, pas de cash-flow réel, pas de rapprochement), **annuel uniquement** (pas de mensuel sans engagement), pas d'import d'acte. Notre point fort n°1 — la finance au centime nourrie par la banque — est exactement ce qui lui manque.
 
 **Les pros et la gestion déléguée — le référentiel de l'étape agences (§11)** : Septeo (ICS/Crypto/ADB, 86 % de couverture fonctionnelle) et LOCKimmo se vendent **sur devis à ~80-300 €/mois/utilisateur** (relevé avril 2026) ; les agences en ligne facturent au loyer (Manda 5,9 % TTC) ; Monsieur Hugo occupe l'entre-deux « tranquillité ». Deux lectures : (a) le plafond de prix du marché est très au-dessus de Propryo — notre grille a de la marge ; (b) pour l'attaque du marché des agences en 2028, un module Propryo à ~49 €/mois/utilisateur resterait **2 à 6× sous les pros** avec le socle déjà construit (CRG au backlog produit).
 
@@ -207,6 +210,7 @@ Le SEO apporte le volume ; les prescripteurs apportent **la confiance et le segm
 | **Expert-comptable / comptable** | Ses clients bailleurs arrivent avec des relevés en vrac ; Propryo importe le relevé (OFX/Excel), catégorise selon des règles validées et prépare la 2044 → dossier propre, moins d'heures ingrates | L'aide 2044 et l'import bancaire, déjà en prod |
 | **CGP** (conseiller en gestion de patrimoine) | Il vend le projet locatif puis laisse le client seul avec la gestion ; Propryo est le « service après-vente » qui sécurise le projet — un client qui voit son cash-flow réel est un client rassuré, qui réinvestit avec son CGP | Le moteur Finances « en + ou en −, au centime » |
 | **Vendeur de biens / agent immobilier / notaire** | Au closing, le client repart avec son acte — et **Propryo crée le bien depuis l'acte notarié** : le prescripteur offre un démarrage en 5 minutes, un cadeau de clôture qui ne lui coûte rien | L'import d'acte, introuvable ailleurs |
+| **Formateurs & influenceurs immo** (hors M. Ferrari, devenu concurrent — §5) | Ils vendent « gérez seul, sans agence » : Propryo est l'outil de leur thèse, et la commission 30 % correspond au modèle d'affiliation dont ils vivent déjà. **Urgence : les signer avant que Locataire.live ne les affilie** | Le produit complet qui rend leur promesse tenable |
 
 **Mécanique V1 (figée 19/08, volontairement simple)** : page `propryo.fr/partenaires` + **code partenaire** + kit d'une page + démo de 15 minutes + suivi manuel des attributions. **Rémunération à deux volets** :
 - **Commission 30 % de la première année d'abonnement** (CGP, vendeurs de biens, agents — SIREN requis pour facturer) : sur encaissé uniquement, paiement trimestriel sur facture (minimum 50 €), contrat d'apporteur simple **sans mandat** (l'apporteur ne négocie ni ne signe rien au nom de Propryo — contrat type produit par l'avocat des CGU). Coût par client : ~9-60 € selon le plan, soit 3-4× moins que l'acquisition publicitaire.
@@ -310,7 +314,8 @@ Le scénario central est du B2C pur : c'est le plancher démontrable. **Le levie
 
 | Quand | Quoi |
 |---|---|
-| Août | Domaine propryo.fr · statut micro-entreprise (comptable) · **volumes Keyword Planner tirés → plan éditorial calibré** |
+| Août | Domaine propryo.fr · **France Travail par écrit : reliquat ARE + application ou non du plafond 60 %** (la variable qui dimensionne la trésorerie personnelle — [AIDES-CREATION.md](AIDES-CREATION.md)) · inscription Activ'Créa · RDV comptable · **volumes Keyword Planner tirés → plan éditorial calibré** |
+| Sept.-oct. | **Immatriculation micro : recommandée au 1er OCTOBRE** (12 mois pleins d'ACRE nouvelle formule — compatible Stripe avant le 14/10, à confirmer comptable) · choix explicite du **maintien ARE** (ARCE écartée) · demande ACRE ≤ 60 j · déclaration CFE 1447-C avant le 31/12 |
 | Septembre | Emails (Resend) · site + `app.propryo.fr` · CGU/CGV/RGPD (avocat ~3 K€) · **bêta privée** · production des 45 pages SEO |
 | Octobre | **Chantier PLANS-QUOTAS-ESSAI** (l'app n'a pas encore de notion de plan : matrice de gating Gratuit/payant, essai 30 j, retombée Gratuit, webhooks Stripe, application côté serveur) · **lancement public 14/10** avec les 45 pages en ligne · offre de lancement « tarif 2026 garanti à vie » |
 | Novembre | **Canal prescripteurs — cercle 1** : page partenaires + kit + codes Stripe · 10 partenaires signés dans le réseau en propre (§8.5) |
@@ -327,7 +332,14 @@ Le scénario central est du B2C pur : c'est le plancher démontrable. **Le levie
 
 Développeur solo **avec une chaîne d'agents IA** (développement, audit systématique par agent indépendant, ~3 000 tests) : capacité d'une petite équipe au coût d'une personne. La même chaîne produit le contenu SEO à ~30 €/page. Ce qui a livré en 4 mois (mai-août) ce que le plan d'avril chiffrait en 2 trimestres.
 
-### 11.3 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
+### 11.3 — Aides à la création mobilisées ([AIDES-CREATION.md](AIDES-CREATION.md), recherche sourcée 24/08)
+
+- **Maintien de l'ARE = le pilier** : à CA faible, ~0,35 € d'allocation perdue par € de CA seulement → le revenu personnel du fondateur est sécurisé pendant toute la rampe. ⚠️ Un plafond à 60 % des droits restants peut s'appliquer (convention 04/2025) — **question posée à France Travail en action n°1**. L'**ARCE est écartée** (irréversible, perdante à CA faible).
+- **ACRE nouvelle formule** (décret 02/2026 : exonération réduite à 25 %) : cotisations **15,9 %** au lieu de 21,2 % jusqu'à fin sept. 2027 en créant au 1er octobre — intégrée au classeur ; gain modeste, le plan ne repose pas dessus.
+- **CFE 0 € en 2026** (déclaration 1447-C avant le 31/12), franchise de TVA (seuil 37 500 €), Activ'Créa gratuit.
+- **Financements possibles du besoin de trésorerie** : prêt d'honneur **Initiative Sud Alsace 5-30 K€ à taux 0** (dossier = ce BP + le classeur) ; **Bourse French Tech jusqu'à 30 K€** (micro admise si accompagnée par un incubateur — Quest for change, KMØ ; déposer avant d'engager les dépenses).
+
+### 11.4 — Cash (détail complet : classeur financier, feuilles P&L et modèles)
 
 Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept.-déc.) · ads amorçage 1 800 · **RC professionnelle 450/an** · **hébergement évolutif** (Supabase Pro + Resend 45 €/mois + 0,15 €/client/mois — tarifs vérifiés sur supabase.com le 19/08) + outils 15 €/mois · comptabilité 250 · logo/finitions 750 · buffer 800. S'y ajoutent les charges proportionnelles au CA (Stripe 2 %, **cotisations micro ~21,2 %**, commissions apporteurs) — et à la bascule société (automatique dans le modèle) : création ~800 €, expert-comptable ~150 €/mois, prélèvements ~28 % (approximation à affiner comptable). **Avance de trésorerie maximale ~15 K€** (point bas fin 2027), remboursée en 2028-2029. **Recrutements à seuils** : support freelance > 300 clients ; rien d'autre avant.
 
@@ -342,6 +354,7 @@ Dépenses externes 2026 (~9,3 K€) : avocat 3 000 · rédacteur SEO 1 600 (sept
 | Dépendance au fondateur | structurelle | chaîne d'agents + 3 000 tests + docs de chantier = transmissible ; seuils de recrutement définis |
 | Rentila écrase les prix (4,90 € / 5 lots) | actée | ne pas se battre sur son terrain : modernité + conformité + acte→bien + finance au centime ; Rentila est l'ancre low-cost depuis 10 ans sans empêcher BailFacile de croître à 26 €/5 lots |
 | Un acteur copie l'import d'acte | moyenne à 18 mois | avance d'exécution ; la copie d'une feature ne copie pas la simplicité du tout |
+| **Concurrent-influenceur : Locataire.live** (M. Ferrari) — distribution énorme via son école, prix calqués, « tarif bloqué à vie » déjà en place | **réalisée** (constatée 20/08) | se battre là où il ne peut pas suivre vite : **import bancaire + cash-flow réel** (absents chez lui), import d'acte, cogestion SCI, mensuel sans engagement ; **signer les AUTRES formateurs immo en prescripteurs avant qu'il ne les affilie** (§8.5) |
 | Seuils AE / TVA | souhaitable | bascule SASU préparée, prix pensés TTC |
 | Dépendance Supabase | faible | PostgreSQL standard exportable, sauvegardes |
 
