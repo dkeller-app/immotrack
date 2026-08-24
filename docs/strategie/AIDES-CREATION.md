@@ -48,13 +48,15 @@
 6. Arbitrage **versement libératoire** et l'articulation IR (l'ARE est imposable).
 7. Plafond exact du microcrédit Adie (12 ou 15 K€ — sources divergentes).
 
-## Données Didier (24/08/2026) : 315 jours d'indemnisation restants
+## Données Didier (24/08/2026) — chiffres réels figés
 
-- **Reliquat = 315 × allocation journalière (AJ)** : AJ 50 € → 15 750 € · AJ 60 € → 18 900 € · AJ 70 € → 22 050 € · AJ 80 € → 25 200 €. *(AJ exacte à relever sur l'espace France Travail.)*
-- **Sans plafond 60 %** (fin de contrat < 01/04/2025) : à CA faible, ~2 jours/mois seulement non indemnisés → **~11 mois de couverture** : immatriculation au 1er octobre 2026 → **ARE jusqu'à ~septembre 2027**, soit un pont quasi complet vers la rentabilité mensuelle du modèle (juil. 2027 ambitieux / nov. 2027 central / janv. 2028 prudent). Trou résiduel : 0 à 4 mois selon le scénario.
-- **Avec plafond 60 %** : 189 jours mobilisables → **~6,5 mois** (→ ~avril 2027) ; trou de 3 à 9 mois jusqu'à la rentabilité → le **prêt d'honneur Initiative Strasbourg (3-15 K€ à 0 %)** devient central, + saisine de l'Instance Paritaire Régionale (dans les 6 mois) pour débloquer les 40 % restants, activité démontrée à l'appui.
-- **ARCE pour mémoire** : ≈ 58 % du reliquat en capital (ex. : ~11 000 € pour AJ 60 €), irréversible — reste écartée.
-- **Onglet « ARE (trésorerie perso) » ajouté au classeur** : saisir l'AJ exacte et le plafond (1 ou 0,6), tout se recalcule (ARE nette/mois, durée, date de fin).
+- **Allocation journalière : 188,20 €** · **315 jours restants** → reliquat total = **59 283 €**.
+- **Fin du dernier contrat : 30/11/2025** — postérieure au 01/04/2025 → **le plafond de 60 % S'APPLIQUE** (à faire confirmer par écrit par France Travail, mais la règle est nette).
+- **En cumul création** : mobilisable = 189 jours = **35 570 €**, versés ~**5 600 €/mois** (déduction quasi nulle à CA faible) sur **~6,3 mois** → immatriculation au 1er octobre 2026 → **couverture jusqu'à ~avril 2027**.
+- **La réserve des 40 % = 23 713 €** : déblocable par **saisine de l'Instance Paritaire Régionale** (dans les 6 mois suivant l'arrêt des versements, activité effective démontrée — le tableau de bord Stripe/Propryo sera la preuve) ; sinon mobilisable en cas de cessation.
+- **Le pont avril 2027 → rentabilité** (juil. 27 ambitieux / nov. 27 central / janv. 28 prudent) : ① **saisine IPR** planifiée dès mars 2027 ② **prêt d'honneur Initiative Strasbourg** (3-15 K€ à 0 %) — dossier à déposer plutôt à l'automne 2026 pour l'avoir en réserve ③ revenus fonciers personnels du parc.
+- **ARCE définitivement écartée avec ces chiffres** : elle donnerait **34 503 €** (60 % − 3 %, en 2 versements) — soit LE MÊME montant que le plafond du maintien, mais **irréversible et sans l'option IPR** sur les 23,7 K€ restants. Le maintien domine strictement.
+- **Onglet « ARE (trésorerie perso) » du classeur** : pré-rempli avec ces chiffres réels, tout reste modifiable.
 
 ## Impact intégré au modèle financier
 

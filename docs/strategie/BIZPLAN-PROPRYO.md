@@ -334,7 +334,7 @@ Développeur solo **avec une chaîne d'agents IA** (développement, audit systé
 
 ### 11.3 — Aides à la création mobilisées ([AIDES-CREATION.md](AIDES-CREATION.md), recherche sourcée 24/08)
 
-- **Maintien de l'ARE = le pilier** : à CA faible, ~0,35 € d'allocation perdue par € de CA seulement → le revenu personnel du fondateur est sécurisé pendant toute la rampe. ⚠️ Un plafond à 60 % des droits restants peut s'appliquer (convention 04/2025) — **question posée à France Travail en action n°1**. L'**ARCE est écartée** (irréversible, perdante à CA faible).
+- **Maintien de l'ARE = le pilier, chiffré sur données réelles (24/08)** : reliquat 59 283 € (315 j × 188,20 €), plafond 60 % applicable (fin de contrat 30/11/2025) → **~5 600 €/mois pendant ~6,3 mois, jusqu'à ~avril 2027** ; réserve de **23 713 €** déblocable par saisine de l'Instance Paritaire Régionale (activité démontrée) pour couvrir le pont jusqu'à la rentabilité (juil. 2027-janv. 2028). L'**ARCE est écartée** : même montant que le plafond (34,5 K€) mais irréversible et sans l'option IPR.
 - **ACRE nouvelle formule** (décret 02/2026 : exonération réduite à 25 %) : cotisations **15,9 %** au lieu de 21,2 % jusqu'à fin sept. 2027 en créant au 1er octobre — intégrée au classeur ; gain modeste, le plan ne repose pas dessus.
 - **CFE 0 € en 2026** (déclaration 1447-C avant le 31/12), franchise de TVA (seuil 37 500 €), Activ'Créa gratuit.
 - **Financements possibles du besoin de trésorerie** : prêt d'honneur **Initiative Strasbourg 3-15 K€ à taux 0** (dossier = ce BP + le classeur) ; **Bourse French Tech jusqu'à 30 K€** (micro admise si accompagnée par un incubateur — Quest for change/SEMIA (Strasbourg) ; déposer avant d'engager les dépenses).
