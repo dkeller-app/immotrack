@@ -37,9 +37,30 @@ export function createBoot(client) {
   // logout : FLUSH d'abord (pousse toute modif non encore synchronisée → pas de perte si l'utilisateur
   // se déconnecte juste après une modif), puis signOut + reset. L'app doit AUSSI annuler son timer de
   // debounce en attente (sinon un flush programmé tirerait après le reset). Best-effort (catch).
-  async function logout() {
+  async function logout(opts) {
+    // EDL TERRAIN lot 4, faille F2 (CDC §3ter, invariant 19g) — la déconnexion
+    // DÉTRUISAIT le travail hors ligne : le flush ci-dessous échoue toujours sans
+    // réseau, le code se contentait d'un console.warn (« la modif restée à quai est
+    // perdue à la fermeture »), puis _teardownSession purgeait le miroir sans
+    // condition. Les photos survivaient en IndexedDB mais devenaient ORPHELINES.
+    // On refuse désormais, en le disant. `opts.forcer` = l'utilisateur a lu le
+    // message et choisit quand même — un acte explicite, jamais un défaut.
     try {
-      if (_sync) {
+      if (_sync && !(opts && opts.forcer)) {
+        const s = await _sync.flush()
+        const reste = s ? (((s.errors && s.errors.length) || 0) + ((s.conflicts && s.conflicts.length) || 0) + ((s.skipped && s.skipped.length) || 0)) : 0
+        if (reste || (s && s.config === 'error')) {
+          return { ok: false, raison: 'non-synchronise', enAttente: reste || 1, resume: s }
+        }
+      }
+    } catch (e) {
+      if (!(opts && opts.forcer)) {
+        console.warn('[Supabase] logout refusé : flush impossible', e)
+        return { ok: false, raison: 'flush-impossible', enAttente: 1, erreur: e }
+      }
+    }
+    try {
+      if (_sync && (opts && opts.forcer)) {
         const s = await _sync.flush()
         // P1.1 (audit C-B : « logout avale le résumé ») : un flush final incomplet est au moins TRACÉ —
         // la modif restée à quai est perdue à la fermeture (pas de file persistée avant P2.3).
@@ -49,8 +70,27 @@ export function createBoot(client) {
     } catch (_e) { console.warn('[Supabase] logout : flush final en échec', _e) }
     await client.auth.signOut()
     _store = _sync = _ctx = null
+    return { ok: true }
   }
   async function currentUser() { const { data } = await client.auth.getUser(); return (data && data.user) || null }
+  // EDL TERRAIN lot 4 (CDC §3, verrou 2) — `getUser()` est un APPEL RÉSEAU, et c'est
+  // lui qui décide au boot si on passe ou si on voit l'écran de connexion. Sans réseau
+  // il échoue → null → formulaire de connexion → qui a besoin du réseau lui aussi :
+  // cul-de-sac. `currentUser()` AVALE l'erreur, donc l'appelant ne peut pas distinguer
+  // « pas de réseau » de « jeton refusé ». Cette variante la rend — c'est tout ce qui
+  // change, le comportement en ligne est identique.
+  async function currentUserOrError() {
+    try {
+      const { data, error } = await client.auth.getUser()
+      return { user: (data && data.user) || null, error: error || null }
+    } catch (e) { return { user: null, error: e } }
+  }
+  // La session lue EN LOCAL, sans réseau (prouvé : cf. __tests__/helpers/supabase-offline-auth.test.js).
+  // Elle existait déjà dans le fichier, mais n'était utilisée que pour le jeton du worker de signature.
+  async function localSession() {
+    try { const { data } = await client.auth.getSession(); return (data && data.session) || null }
+    catch (e) { return null }
+  }
   // onAuthChange : renvoie l'ABONNEMENT directement (appeler .unsubscribe() pour résilier). À appeler UNE
   // SEULE FOIS au boot de l'app et garder pour toute sa vie (ne PAS ré-abonner à chaque login → fuite).
   // cb(session, evt) : evt = 'SIGNED_OUT' | 'TOKEN_REFRESHED' | … (session morte ⇒ SIGNED_OUT / session null).
@@ -135,6 +175,7 @@ export function createBoot(client) {
 
   return {
     loginEmail, signUpEmail, loginGoogle, sendPasswordReset, logout, currentUser, onAuthChange,
+    currentUserOrError, localSession,
     resolveEspace, resolveEspaces, wireStore, wireStores, hydrate, seed, markDirty, flush,
     get store() { return _store }, get sync() { return _sync }, get ctx() { return _ctx },
   }

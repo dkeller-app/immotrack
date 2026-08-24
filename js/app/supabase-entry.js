@@ -72,6 +72,10 @@ const AUTH_STORAGE_KEY = 'immo-supabase-auth'
 let _cachePurge = null           // module cache-purge (importé au boot, best-effort)
 let _teardownSession = null      // dépose de session ({flush}) — posée au boot, utilisée par logout + purge espace
 let _hasCloudWrites = null       // summaryHasCloudWrites (store-sync) — M4 : émission Realtime honnête
+// EDL TERRAIN lot 4 — décisions PURES du mode hors ligne (js/core/offline-boot.js,
+// testé). Import best-effort comme ses voisins : sans lui, aucun mode hors ligne
+// n'est proposé et le comportement reste EXACTEMENT celui d'aujourd'hui.
+let _offlineBoot = null
 // Suppression de la base binaire locale. `onblocked` résolu quand même : la suppression reste PENDANTE
 // tant qu'une connexion est ouverte et s'exécute dès leur fermeture (le reload qui suit les ferme).
 function _deletePhotosDb() {
@@ -90,6 +94,25 @@ function _purgeAuthTokenKeys() {
     const keys = _cachePurge ? _cachePurge.authStorageKeys(AUTH_STORAGE_KEY) : [AUTH_STORAGE_KEY, AUTH_STORAGE_KEY + '-code-verifier']
     keys.forEach(k => { try { localStorage.removeItem(k) } catch (e) {} })
   } catch (e) {}
+}
+
+// EDL TERRAIN lot 4, F2 — LE SEUL endroit qui annonce un refus de déconnexion.
+// Trois chemins déconnectent (menu Compte, « utiliser un autre compte » d'une
+// invitation, page de test) et deux d'entre eux AVALAIENT le refus : ils
+// enchaînaient purge et rechargement comme si de rien n'était, ce qui est
+// exactement l'échec muet que le CDC interdit. Le texte vient du module testé
+// (js/core/offline-boot.js) : un message recopié trois fois dérive.
+// Rend `true` si la personne a lu et choisit de perdre le travail quand même.
+async function _accepteDePerdre(r) {
+  let msg
+  try {
+    msg = _offlineBoot
+      ? _offlineBoot.messageDeconnexionRefusee({ enAttente: r && r.enAttente, raison: r && r.raison }).question
+      : 'Des modifications ne sont pas encore enregistrées dans le cloud. Se déconnecter les perdrait.\n\nSe déconnecter quand même ?'
+  } catch (e) {
+    msg = 'Des modifications ne sont pas encore enregistrées dans le cloud. Se déconnecter les perdrait.\n\nSe déconnecter quand même ?'
+  }
+  try { return !!window.confirm(msg) } catch (e) { return false }
 }
 
 // BOOT-GATE — le <head> d'index.html pose `html[data-lpboot]` qui masque tout le body SAUF #imsb-overlay
@@ -177,10 +200,23 @@ async function boot() {
   // supprimé) → ces binaires locaux sont la seule copie restante, récupérable via restauration —
   // c'est la promesse affichée par la modale, audit #1). Var MODULE : onLoggedIn (autre portée)
   // la réutilise pour __immoPurgeEspace.
-  _teardownSession = async ({ flush, keepPhotos }) => {
+  _teardownSession = async ({ flush, keepPhotos, forcer }) => {
     window.__immoLoggingOut = true   // le SIGNED_OUT qui suit est VOULU → pas de bannière « session expirée »
     try { window.__immoCrumb && window.__immoCrumb('logout') } catch (e) {}
-    if (flush) { try { await api.logout() } catch (e) { console.warn('[Supabase] logout', e) } }
+    if (flush) {
+      // EDL TERRAIN lot 4, F2 (invariant 19g) : si des écritures ne sont PAS
+      // parties au cloud, on ne purge rien et on rend la main. Sans ça, la
+      // purge du miroir (juste dessous, inconditionnelle) emportait le travail
+      // hors ligne, et laissait les photos orphelines en IndexedDB.
+      let r = null
+      try { r = await api.logout({ forcer: !!forcer }) }
+      catch (e) { console.warn('[Supabase] logout', e); r = { ok: false, raison: 'flush-impossible', enAttente: 1 } }
+      if (r && r.ok === false) {
+        window.__immoLoggingOut = false
+        try { window.__immoCrumb && window.__immoCrumb('logout-refuse:' + r.raison) } catch (e) {}
+        return r
+      }
+    }
     else { try { await _supaClient.auth.signOut() } catch (e) { console.warn('[Supabase] signOut', e) } }
     // P1.3 volet RGPD (audit C-C) : le miroir localStorage est TOUJOURS purgé au logout — sinon le
     // dernier saveDB laisse une copie intégrale du DB lisible à vie sur la machine (cas Marion).
@@ -202,7 +238,18 @@ async function boot() {
     } catch (e) { console.warn('[Supabase] logout purge IndexedDB', e) }
     try { location.reload() } catch (e) {}
   }
-  window.__immoLogout = () => _teardownSession({ flush: true })
+  // EDL TERRAIN lot 4, F2 — la déconnexion est REFUSÉE tant qu'il reste des
+  // écritures non synchronisées, et le motif est affiché. Le passage en force
+  // reste possible, mais il faut le vouloir : la confirmation dit ce qui sera
+  // perdu (l'état des lieux d'une visite, ses photos deviendraient orphelines).
+  window.__immoLogout = async () => {
+    const r = await _teardownSession({ flush: true })
+    if (r && r.ok === false) {
+      if (await _accepteDePerdre(r)) return _teardownSession({ flush: true, forcer: true })
+      return r
+    }
+    return r
+  }
   // ESPACE PROPRE (getter — posé au login) : sert au code inline à distinguer un renommage d'un objet de
   // l'espace propre (config own-only re-keyable, records non tagués = propres) d'un objet d'une SCI TIERS.
   window.__immoOwnEspaceId = () => _cloudEspaceId
@@ -214,6 +261,7 @@ async function boot() {
   // la preuve du tag) et la rétention IDB au logout (exige l'inventaire) deviennent inertes, et l'émission
   // Realtime retombe sur l'ancienne condition « flush 100 % propre ».
   try { _cachePurge = await import('../core/cache-purge.js') } catch (e) { console.warn('[Supabase] cache-purge', e) }
+  try { _offlineBoot = await import('../core/offline-boot.js') } catch (e) { console.warn('[Supabase] offline-boot', e) }
   try { _hasCloudWrites = (await import('../core/store-sync.js')).summaryHasCloudWrites } catch (e) { console.warn('[Supabase] store-sync helpers', e) }
 
   const _normNom = s => String(s == null ? '' : s).trim().toLowerCase()
@@ -429,8 +477,27 @@ async function boot() {
 
   // déjà connecté (session persistée) → enchaîner direct. C'EST le chemin qui tue le double-login :
   // après un reload, la session persistée est retrouvée ici → Accueil sans re-saisir le mot de passe.
-  const user = await api.currentUser()
+  const { user, error: _errAuth } = await api.currentUserOrError()
   if (user) { try { window.__immoCrumb && window.__immoCrumb('already-connected') } catch (e) {} return onLoggedIn(api, overlay, user) }
+
+  // ── EDL TERRAIN lot 4 — « on ne peut pas SE CONNECTER hors ligne, on peut
+  // RESTER connecté hors ligne » (CDC §3, verrou 2). getUser() est un appel
+  // RÉSEAU : sans réseau il échoue, et l'écran de connexion qui suit a besoin
+  // du réseau lui aussi. Cul-de-sac — et l'état des lieux en cours avec.
+  // Les verdicts sont pris par le module testé js/core/offline-boot.js ; ici on
+  // ne fait qu'aller chercher les trois éléments dont il a besoin.
+  if (_offlineBoot) {
+    try {
+      const sessionLocale = await api.localSession()
+      const tagMiroir = _offlineBoot.classerMiroirHorsLigne(
+        localStorage.getItem(MIRROR_TAG_KEY),
+        sessionLocale && sessionLocale.user && sessionLocale.user.id
+      )
+      const d = _offlineBoot.decideDemarrage({ user: null, erreur: _errAuth, sessionLocale, tagMiroir })
+      try { window.__immoCrumb && window.__immoCrumb('boot-' + d.mode + ':' + d.motif) } catch (e) {}
+      if (d.mode === 'hors-ligne') return onHorsLigne(api, overlay, sessionLocale)
+    } catch (e) { console.warn('[Supabase] décision hors ligne', e) }
+  }
 
   try { window.__immoCrumb && window.__immoCrumb('login-form-shown') } catch (e) {}
   wireLoginForm(api, overlay)
@@ -557,7 +624,19 @@ async function acceptInviteFlow(api, client, overlay, token) {
       <button class="imsb-btn imsb-primary" id="imsb-join" type="button">Rejoindre en tant que ${escapeHtml(user.email)}</button>
       <a class="imsb-btn imsb-ghost" id="imsb-join-other" href="#" style="text-decoration:none;margin-top:6px">Utiliser un autre compte</a></div>`
     left.querySelector('#imsb-join').onclick = async (ev) => { ev.target.disabled = true; if (!(await accept())) ev.target.disabled = false }
-    left.querySelector('#imsb-join-other').onclick = async (ev) => { ev.preventDefault(); try { await api.logout() } catch (e) {} _purgeAuthTokenKeys(); acceptInviteFlow(api, client, overlay, token) }
+    // EDL TERRAIN lot 4, F2 — changer de compte, c'est une déconnexion : la purge du
+    // jeton juste dessous rend le travail non synchronisé irrécupérable. Le refus
+    // était AVALÉ ici (`catch (e) {}` puis on purgeait quand même).
+    left.querySelector('#imsb-join-other').onclick = async (ev) => {
+      ev.preventDefault()
+      let r = null
+      try { r = await api.logout() } catch (e) { r = { ok: false, raison: 'flush-impossible', enAttente: 1 } }
+      if (r && r.ok === false) {
+        if (!(await _accepteDePerdre(r))) return          // on reste connecté : rien n'est purgé
+        try { await api.logout({ forcer: true }) } catch (e) {}
+      }
+      _purgeAuthTokenKeys(); acceptInviteFlow(api, client, overlay, token)
+    }
     return
   }
   left.innerHTML = `${brand()}<form id="imsb-iform" class="imsb-mid" autocomplete="on">
@@ -587,6 +666,69 @@ async function acceptInviteFlow(api, client, overlay, token) {
       return fail('Compte créé : il reste à confirmer ton email (l\'envoi d\'emails n\'est pas encore activé — préviens la personne qui t\'a invité).')
     }
     if (!(await accept())) btn.disabled = false
+  }
+}
+
+/**
+ * EDL TERRAIN lot 4 — DÉMARRAGE HORS LIGNE (CDC §3).
+ *
+ * On n'arrive ici que si les trois conditions du CDC sont réunies : `getUser()`
+ * a échoué FAUTE DE RÉSEAU (et pas parce que le jeton est refusé), une session
+ * persistée existe en local, et le miroir porte le tag de CET utilisateur.
+ *
+ * Rien de nouveau n'est divulgué : ces données sont DÉJÀ sur l'appareil, écrites
+ * par saveDB. On autorise leur lecture, on ne les fait pas apparaître.
+ */
+async function onHorsLigne(api, overlay, session) {
+  try {
+    const raw = localStorage.getItem(MIRROR_KEY)
+    const db = raw ? JSON.parse(raw) : null
+    if (!db || typeof window.__immoSetDB !== 'function' || typeof window.__immoRender !== 'function') {
+      // Rien de lisible : on retombe sur le comportement d'aujourd'hui.
+      try { window.__immoCrumb && window.__immoCrumb('hors-ligne-abandon:miroir-vide') } catch (e) {}
+      return wireLoginForm(api, overlay)
+    }
+    // F3 (invariant 19h) — LE DRAPEAU D'ABORD. saveDB teste `__immoSupabaseMode`
+    // avant `_CLOUD_BOOT` ; sans lui, la branche boot-cloud sort en n'écrivant
+    // RIEN : chaque autosave serait un no-op et la visite disparaîtrait au
+    // premier rechargement, sans un message.
+    window.__immoSupabaseMode = true
+    window.__immoHorsLigne = true
+    window.__immoMarkDirty = () => {}   // pas de destination : le miroir suffit
+    if (window.__immoSetDB(db) === false) {
+      try { window.__immoCrumb && window.__immoCrumb('hors-ligne-abandon:db-invalide') } catch (e) {}
+      window.__immoSupabaseMode = false
+      window.__immoHorsLigne = false
+      return wireLoginForm(api, overlay)
+    }
+    window.__immoRender()
+    // F10 (invariant 19m) — sans ça, `data-lpboot` masque tout : app blanche.
+    _liftDriveGate()
+    overlay.remove()
+    // Le bandeau permanent + le verrouillage des onglets vivent dans l'app
+    // (index.html) : elle seule connaît sa navigation. On lui passe la date des
+    // données affichées (invariant 19c).
+    let ecritA = 0
+    try { ecritA = parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0 } catch (e) {}
+    try {
+      if (typeof window.__immoEntrerHorsLigne === 'function') {
+        // On passe les FONCTIONS du module, pas des listes recopiées : index.html
+        // ne peut pas importer un module ES depuis son script inline, et une
+        // seconde copie des règles dériverait de la première (règle DRY).
+        window.__immoEntrerHorsLigne({
+          donneesDu: ecritA || Date.now(),
+          email: (session && session.user && session.user.email) || '',
+          libelle: _offlineBoot.libelleDonneesDu(ecritA || Date.now()),
+          ongletDisponible: id => _offlineBoot.ongletDisponibleHorsLigne(id),
+          motifOnglet: id => _offlineBoot.motifOnglet(id),
+          motif: quoi => _offlineBoot.motifIndisponible(quoi),
+        })
+      }
+    } catch (e) { console.warn('[Supabase] bandeau hors ligne', e) }
+    try { window.__immoCrumb && window.__immoCrumb('hors-ligne-ouvert') } catch (e) {}
+  } catch (e) {
+    console.warn('[Supabase] démarrage hors ligne', e)
+    try { return wireLoginForm(api, overlay) } catch (_e) {}
   }
 }
 
@@ -677,6 +819,9 @@ async function onLoggedIn(api, overlay, user) {
       // F5 : flush entièrement propre → le réseau est revenu, le plancher de
       // réessai tombe (sinon la modification suivante attendrait le backoff pour rien).
       if (!bad) backoffUntil = 0
+      // F1 : horodate le dernier flush RÉUSSI. C'est lui qu'on comparera à la
+      // dernière écriture du miroir, au prochain démarrage en ligne.
+      if (!bad && _offlineBoot) { try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {} }
       // SYNCHRO LIVE (M4, audit v15.460) : signale aux AUTRES appareils dès que le flush a RÉELLEMENT
       // écrit quelque chose (upserts/removes/config) — un poison isolé (P1.2) n'étouffe plus le signal.
       // Repli sans le helper (import raté) : ancienne condition « flush 100 % propre ».
@@ -824,7 +969,16 @@ async function onLoggedIn(api, overlay, user) {
   try {
     api.onAuthChange((session, evt) => {
       if (window.__immoLoggingOut) return
-      if (evt === 'SIGNED_OUT' || !session) _sessionDead()
+      // EDL TERRAIN lot 4, F4 (invariant 19i). Le verdict est pris par le module
+      // testé js/core/offline-boot.js — ce chemin a déjà mordu deux fois en prod
+      // (BUG-AUTH-BOUNCE v15.457, BUG-LOGIN-DOUBLE v15.470), il ne porte plus de
+      // condition écrite à la main. Sans le module (import raté) : comportement
+      // d'AVANT le lot, à l'identique.
+      if (!_offlineBoot) { if (evt === 'SIGNED_OUT' || !session) _sessionDead(); return }
+      const enLigne = !(typeof navigator !== 'undefined' && navigator.onLine === false)
+      const v = _offlineBoot.verdictAuthChange({ evt, session, enLigne })
+      if (v === 'hors-ligne') { setSync('offline'); return }
+      if (v === 'morte') _sessionDead()
     })
   } catch (e) { console.warn('[Supabase] onAuthChange', e) }
   try {
@@ -879,7 +1033,39 @@ async function onLoggedIn(api, overlay, user) {
           if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') console.warn('[Supabase] realtime', st)
         })
     } catch (e) { console.warn('[Supabase] realtime subscribe', e) }
-    const db = await api.hydrate()
+    let db = await api.hydrate()
+    // ── EDL TERRAIN lot 4, faille F1 (invariant 19f) ────────────────────────
+    // Le miroir localStorage est en ÉCRITURE SEULE en mode cloud : personne ne
+    // le relit jamais. Séquence vécue : EDL saisi hors ligne → l'app est fermée
+    // → retour à la maison AVEC réseau → hydratation → le DB cloud remplace la
+    // mémoire. L'EDL hors ligne n'a jamais existé.
+    //
+    // On ne « charge pas le miroir puis on flushe » : le moteur diffe la
+    // baseline contre le DB vivant, donc tout ce qui est au cloud et absent du
+    // miroir partirait en SUPPRESSION — on effacerait le travail d'un autre
+    // appareil ou d'un associé. On part du cloud et on n'y REVERSE que les
+    // états des lieux du miroir absents ou plus récents (js/core/offline-boot.js,
+    // testé), puis on pousse. Aucune suppression n'est dérivée du miroir.
+    try {
+      if (_offlineBoot && _cachePurge) {
+        const tag = _cachePurge.classifyMirrorTag(localStorage.getItem(MIRROR_TAG_KEY), user.id, esp && esp.espaceId)
+        const ecritA = parseInt(localStorage.getItem(_offlineBoot.MIROIR_ECRIT_KEY) || '0', 10) || 0
+        const flushA = parseInt(localStorage.getItem(_offlineBoot.FLUSH_OK_KEY) || '0', 10) || 0
+        if (_offlineBoot.doitPousserAvantHydratation({ tagMiroir: tag, miroirEcritA: ecritA, dernierFlushA: flushA })) {
+          const raw = localStorage.getItem(MIRROR_KEY)
+          const miroir = raw ? JSON.parse(raw) : null
+          const f = _offlineBoot.fusionnerEdlHorsLigne(db, miroir)
+          if (f.ajoutes.length || f.majs.length) {
+            console.info('[Supabase] F1 — travail hors ligne à remonter :', f.ajoutes.length, 'EDL ajouté(s),', f.majs.length, 'mis à jour')
+            try { window.__immoCrumb && window.__immoCrumb('f1-remontee:' + (f.ajoutes.length + f.majs.length)) } catch (e) {}
+            api.seed(db)              // baseline = ce que le serveur a
+            db = f.db                 // vivant = serveur + travail hors ligne
+            await api.flush(db)       // la file locale part AVANT toute ré-hydratation
+            try { localStorage.setItem(_offlineBoot.FLUSH_OK_KEY, String(Date.now())) } catch (e) {}
+          }
+        }
+      }
+    } catch (e) { console.warn('[Supabase] F1 remontée hors ligne', e) }
     // Si on tourne DANS l'app complète (points d'injection exposés par index.html) → injecter le DB
     // cloud EN MÉMOIRE + re-render + brancher la SAUVEGARDE cloud (2c). Sinon (page de test dédiée
     // index-supabase.html) → écran de compteurs + bouton.
@@ -965,7 +1151,17 @@ function renderProof(overlay, api, user, esp, db, err) {
     location.href = 'index.html?sandbox=1'
   }
   const lo = overlay.querySelector('#imsb-logout')
-  if (lo) lo.onclick = async () => { await api.logout(); location.reload() }
+  // EDL TERRAIN lot 4, F2 — le refus était avalé : on rechargeait la page en
+  // laissant croire à une déconnexion qui n'avait pas eu lieu.
+  if (lo) lo.onclick = async () => {
+    let r = null
+    try { r = await api.logout() } catch (e) { r = { ok: false, raison: 'flush-impossible', enAttente: 1 } }
+    if (r && r.ok === false) {
+      if (!(await _accepteDePerdre(r))) return
+      try { await api.logout({ forcer: true }) } catch (e) {}
+    }
+    location.reload()
+  }
 }
 
 function renderLoading(overlay, user) {

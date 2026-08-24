@@ -6465,7 +6465,21 @@ function saveDB(opts) {
     // saveDB rendait `true` quand même — l'app croyait avoir enregistré.
     // Invariant 19l : un saveDB qui échoue sur quota renvoie FAUX et le dit.
     let _miroirOk = true;
-    try { localStorage.setItem(KEY, JSON.stringify(DB)); }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(DB));
+      // EDL TERRAIN lot 4 (F1) : on horodate la derniere ecriture du miroir.
+      // Au prochain demarrage EN LIGNE, si cette date est posterieure au dernier
+      // flush reussi, le travail fait hors ligne est remonte AVANT l'hydratation
+      // (sinon le DB cloud le remplace et il n'a jamais existe).
+      //
+      // La cle est DERIVEE de KEY, jamais ecrite en dur : KEY vaut
+      // `_test_immotrack_v4` en sandbox. Une cle en dur ferait horodater le
+      // NAMESPACE DE PROD par chaque passage en `?sandbox=1` — au demarrage prod
+      // suivant, F1 croirait a du travail non flushe et rejouerait un miroir
+      // perime sur les vraies donnees. Contrat encode par
+      // __tests__/helpers/saveDB-miroir-horodate.test.js.
+      localStorage.setItem(KEY + '_ecrit_at', String(Date.now()));
+    }
     catch (e) { _miroirOk = false; _saveDBQuotaWarn(e); }
     if (typeof window.__immoMarkDirty === 'function') window.__immoMarkDirty();
     if (!_autosave && typeof _undoOnSaveDBSuccess === 'function') _undoOnSaveDBSuccess();
@@ -6523,6 +6537,128 @@ function _saveDBQuotaWarn(e) {
     showToast("⚠️ Mémoire pleine : cette modification n'est PAS enregistrée sur cet appareil. Libère de l'espace, puis reprends.", 'err', 10000);
   }
 }
+
+/* ═══ EDL TERRAIN lot 4 — MODE HORS LIGNE, la moitié ÉCRAN ══════════════════
+   La moitié DÉCISION vit dans js/core/offline-boot.js (module pur, testé). Ici
+   on n'applique que des verdicts : quel onglet est consultable, quel motif
+   afficher, quelle date portent les données. Aucune règle n'est réécrite —
+   supabase-entry passe les fonctions du module dans `__immoEntrerHorsLigne`.
+
+   Tout ce bloc est INERTE tant que le mode hors ligne n'est pas entré : il
+   n'installe ses enveloppes (`go`, rendus de nav, signature du bail) qu'à ce
+   moment-là. En ligne, pas une ligne de comportement ne change.
+
+   CDC docs/CDC-EDL.md §3 (périmètre du hors ligne) et §9 (invariants 19 à 19d). */
+let _hlApi = null;               // { libelle, ongletDisponible, motifOnglet, motif, email }
+
+/* Un onglet est-il consultable ? Sans le module (import raté), on n'invente
+   AUCUNE règle : on laisse passer. Un faux blocage serait pire qu'un onglet
+   ouvert sur des données datées — et le bandeau, lui, est déjà là pour le dire. */
+function _hlOngletOk(page) {
+  if (!_hlApi || typeof _hlApi.ongletDisponible !== 'function') return true;
+  try { return !!_hlApi.ongletDisponible(page); } catch (e) { return true; }
+}
+function _hlMotifOnglet(page) {
+  try { return _hlApi.motifOnglet(page); } catch (e) { return 'Disponible dès que tu as du réseau.'; }
+}
+
+/* Le refus, ANNONCÉ. Invariant 19 : « aucune action nécessitant le réseau n'est
+   cliquable sans afficher sa raison ». On réutilise showToast (le canal de
+   message de l'app), on n'en crée pas un deuxième. */
+function _hlRefuser(motif) {
+  if (typeof showToast === 'function') showToast('🚫 ' + motif, 'err', 6000);
+  else { try { alert(motif); } catch (e) {} }
+}
+
+/* DÉCORATION de la navigation. On ne touche pas au HTML produit par
+   _renderSidebarV4 / _renderBottomNav (§A.0 : ne pas détruire l'existant) —
+   on repasse DERRIÈRE eux pour marquer ce qui est fermé. Idempotent : chaque
+   re-render efface les marques, on les repose. */
+function _hlDecorerNav() {
+  if (!_hlApi) return;
+  const marquer = (n, page) => {
+    if (!n || !page) return;
+    const ok = _hlOngletOk(page);
+    n.classList.toggle('hl-off', !ok);
+    if (ok) { n.removeAttribute('aria-disabled'); return; }
+    n.setAttribute('aria-disabled', 'true');
+    n.title = _hlMotifOnglet(page);           // la raison, au survol comme au clic
+  };
+  try {
+    // Sidebar V4 : parents (data-nav), enfants et nav du bas (data-page).
+    document.querySelectorAll('.v4s-a[data-nav]').forEach(n => marquer(n, n.getAttribute('data-nav')));
+    document.querySelectorAll('.v4s-child[data-page], .v4-bn[data-page]').forEach(n => {
+      const p = n.getAttribute('data-page');
+      if (p !== 'more') marquer(n, p);        // « Plus » ouvre une feuille, pas une page
+    });
+  } catch (e) { console.warn('[hors ligne] décoration nav', e); }
+}
+
+/* ENTRÉE EN MODE HORS LIGNE — appelée par js/app/supabase-entry.js une fois le
+   miroir chargé en mémoire (et APRÈS que __immoSupabaseMode a été posé : F3). */
+window.__immoEntrerHorsLigne = function(opts) {
+  if (_hlApi) return;                         // idempotent : une seule installation
+  _hlApi = opts || {};
+
+  // ── 1. Le bandeau permanent (invariant 19c) ───────────────────────────────
+  // Il entre dans le FLUX en tête de <body>, comme #readonly-banner, et il est
+  // déclaré à _v4SyncBannersHeight : c'est ce qui fait que .layout prend la
+  // hauteur restante au lieu de passer dessous. Mécanisme existant, réutilisé.
+  try {
+    if (!document.getElementById('hl-bar')) {
+      const b = document.createElement('div');
+      b.id = 'hl-bar';
+      b.setAttribute('role', 'status');
+      const libelle = (typeof _hlApi.libelle === 'string' && _hlApi.libelle)
+        ? _hlApi.libelle : 'Hors ligne — données locales';
+      b.innerHTML = '<span class="hl-ic" aria-hidden="true">📴</span>'
+        + '<span class="hl-tx">' + escHtml(libelle) + '</span>'
+        + '<span class="hl-sub">Ta saisie est enregistrée sur cet appareil. '
+        + 'Rouvre Propryo une fois rentré, sur le wifi, pour qu’elle remonte.</span>';
+      document.body.insertBefore(b, document.body.firstChild);
+    }
+    if (typeof _v4SyncBannersHeight === 'function') _v4SyncBannersHeight();
+  } catch (e) { console.warn('[hors ligne] bandeau', e); }
+
+  // ── 2. Les onglets fermés (invariants 19b, 19) ────────────────────────────
+  // On enveloppe `go` plutôt que d'éditer ses appelants : il est LE routeur
+  // unique de l'app, et tous les onclick des navs passent par lui.
+  try {
+    const _goEnLigne = window.go;
+    if (typeof _goEnLigne === 'function' && !window.go.__hl) {
+      window.go = function(page, elNav) {
+        if (!_hlOngletOk(page)) { _hlRefuser(_hlMotifOnglet(page)); return; }
+        const r = _goEnLigne.apply(this, arguments);
+        _hlDecorerNav();                      // les rendus de nav effacent les marques
+        return r;
+      };
+      window.go.__hl = true;
+    }
+  } catch (e) { console.warn('[hors ligne] routeur', e); }
+
+  // ── 3. Signer un bail est REFUSÉ (invariant 19d, CDC §3.1) ────────────────
+  // Une seule porte (`openBailSignatureFlow`) → un seul point de refus. Le
+  // message RENVOIE vers ce qui existe : l'envoi pour signature à distance.
+  try {
+    const _signerEnLigne = window.openBailSignatureFlow;
+    if (typeof _signerEnLigne === 'function' && !window.openBailSignatureFlow.__hl) {
+      window.openBailSignatureFlow = function() {
+        if (_hlApi) { _hlRefuser(_hlApi.motif ? _hlApi.motif('bail-signature') : 'Signer un bail demande du réseau.'); return; }
+        return _signerEnLigne.apply(this, arguments);
+      };
+      window.openBailSignatureFlow.__hl = true;
+    }
+  } catch (e) { console.warn('[hors ligne] signature bail', e); }
+
+  // ── 4. Quitter tout de suite un onglet fermé ──────────────────────────────
+  // Le miroir peut rouvrir sur la dernière page visitée (Finances, par exemple) :
+  // on n'y reste pas, sinon des montants périmés s'affichent malgré tout.
+  try {
+    const cur = (typeof currentPage !== 'undefined') ? currentPage : null;
+    if (cur && !_hlOngletOk(cur)) window.go('edl');
+    else _hlDecorerNav();
+  } catch (e) { _hlDecorerNav(); }
+};
 
 // === BASCULE SUPABASE (P3) — points d'injection pour le module externe js/app/supabase-entry.js ===
 // Le module tourne dans un scope séparé (<script type=module>) et ne peut pas accéder à `DB` ni aux
@@ -8848,9 +8984,14 @@ function _initSidebarV2() {
 // v15.38 — Mesure la hauteur des bannières top (sandbox-banner + readonly-banner)
 // et set --top-banners-h pour que .layout V4 prenne la hauteur restante (footer DK
 // reste toujours visible quel que soit le nombre de bannières).
+// Les bandeaux qui prennent de la hauteur EN TÊTE de page. Liste unique : elle
+// était recopiée ici et dans le MutationObserver plus bas, et une seule des deux
+// copies aurait été mise à jour (EDL TERRAIN lot 4 ajoute 'hl-bar', le bandeau
+// hors ligne — sans quoi .layout garde 100vh et le bandeau recouvre l'app).
+const _V4_TOP_BANNERS = ['sandbox-banner', 'readonly-banner', 'hl-bar'];
 function _v4SyncBannersHeight() {
   let h = 0;
-  ['sandbox-banner', 'readonly-banner'].forEach(id => {
+  _V4_TOP_BANNERS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     // Exclus si .hidden, display:none, ou class hidden (legacy)
@@ -8874,7 +9015,7 @@ if (typeof window !== 'undefined') {
   setTimeout(() => {
     try {
       const obs = new MutationObserver(() => { _v4SyncBannersHeight(); });
-      ['sandbox-banner', 'readonly-banner'].forEach(id => {
+      _V4_TOP_BANNERS.forEach(id => {
         const el = document.getElementById(id);
         if (el) obs.observe(el, {attributes: true, attributeFilter: ['class', 'style']});
       });

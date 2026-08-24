@@ -8978,3 +8978,47 @@ body[data-dash-v4="on"] .v4s-gest2-pill.warn{background:#fef3c7;color:#92400e}
 }
 /* Dark mode : les pastilles sévérité gardent leurs teintes (lisibles sur fond sombre) */
 [data-theme="dark"] body[data-dash-v4="on"] .v4s-gest2-chip.open{background:var(--sur3);color:var(--t1);border-color:var(--bor)}
+
+/* ═══ EDL TERRAIN lot 4 — MODE HORS LIGNE ═══════════════════════════════════
+   Bandeau permanent (invariant 19c) + onglets fermés annoncés (19, 19b).
+   Même mécanique que #readonly-banner : le bandeau est DANS LE FLUX en tête de
+   <body>, et sa hauteur entre dans --top-banners-h (cf. _v4SyncBannersHeight)
+   → .layout prend la hauteur restante au lieu de passer dessous.
+   Couleurs prises aux TOKENS de la charte. Le fond porte la teinte d’alerte
+   (--warn-soft) mais le TEXTE reste l’encre principale (--t1 / --t2) : l’encre
+   --warn sur ce fond ne donnait que 4,31:1 en thème clair, sous le seuil 4,5:1.
+   Seule l’icône garde --warn. Les deux thèmes suivent, sans règle dupliquée. */
+#hl-bar{
+  position:sticky; top:0; z-index:60;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:8px 18px;
+  background:var(--warn-soft); color:var(--t1);
+  border-bottom:1px solid var(--bor);
+  font-size:var(--fs-base); font-weight:600; line-height:1.35;
+}
+#hl-bar .hl-ic{font-size:15px;flex-shrink:0;color:var(--warn)}
+#hl-bar .hl-tx{white-space:nowrap}
+/* La 2e ligne garde l’encre PRINCIPALE, la hiérarchie passe par la graisse et
+   la taille. --t2 serait le choix naturel, mais body[data-dash-v4="on"] le force
+   à #CDD4E5 SANS condition de thème (correctif v15.37) : en thème clair la
+   consigne tombait à 1,2:1, illisible. Defaut pre-existant, signale au pilotage. */
+#hl-bar .hl-sub{font-weight:400;color:var(--t1);font-size:var(--fs-sm)}
+@media(max-width:768px){
+  /* Téléphone : le libellé daté reste la ligne 1 (c'est l'invariant), la
+     consigne de retour passe dessous plutôt que d'être tronquée. */
+  #hl-bar{padding:7px 12px;gap:6px}
+  #hl-bar .hl-sub{flex-basis:100%;font-size:var(--fs-xs);line-height:1.3}
+}
+
+/* Onglet fermé hors ligne : visiblement inactif, mais TOUJOURS cliquable —
+   le clic est ce qui affiche la raison (invariant 19 : « aucune action n'est
+   cliquable sans afficher sa raison » ; un pointer-events:none rendrait le
+   bouton muet, exactement ce que le CDC refuse). */
+.v4s-a.hl-off, .v4s-child.hl-off, .v4-bn.hl-off{
+  opacity:.42;
+  cursor:not-allowed;
+}
+.v4s-a.hl-off:hover, .v4s-child.hl-off:hover, .v4-bn.hl-off:hover{
+  opacity:.55;
+  background:transparent;
+}
