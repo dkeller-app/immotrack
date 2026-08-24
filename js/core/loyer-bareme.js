@@ -384,7 +384,14 @@ export function cloturerBareme(periods, ref, finIso) {
   const fin = _ymd(finIso);
   if (!fin) return arr;
   const idx = _openPeriodIdx(arr, ref, null);
-  if (idx >= 0) arr[idx] = { ...arr[idx], fin };
+  if (idx < 0) return arr;
+  // La période ouverte commence APRÈS la clôture : lui poser cette fin écrirait `fin < debut`,
+  // une période impossible. Le cas devient atteignable depuis que la période d'un bail démarre
+  // au lendemain du barème déjà refermé (correction datée bornée loin dans le futur, puis départ
+  // du locataire avant cette échéance). Cette période ne s'appliquera jamais : on la tombstone,
+  // convention du module — la ligne reste dans l'historique, _baremeOfLot la filtre.
+  if (fin < _ymd(arr[idx].debut)) { arr[idx] = { ...arr[idx], _deleted: true }; return arr; }
+  arr[idx] = { ...arr[idx], fin };
   return arr;
 }
 

@@ -92,6 +92,40 @@ describe('synchroniserPeriodeBail — jamais deux périodes ouvertes', () => {
   });
 });
 
+describe('cloturerBareme — ne pose jamais une fin antérieure au début', () => {
+  // Trouvé par un balayage exhaustif que j'ai lancé faute d'audit disponible (limite API) :
+  // 21 cas sur 41 783 produisaient `fin < debut`, et ils étaient INTRODUITS par le chantier.
+  // Le chemin : une correction datée bornée loin dans le futur repousse le début de la période
+  // du bail au lendemain de cette borne ; si le locataire part AVANT cette échéance,
+  // cloturerBareme posait une fin antérieure au début — une période impossible.
+  // Elle ne s'appliquera jamais : on la tombstone plutôt que d'écrire une incohérence.
+  it('la période qui commence après la clôture est tombstonée, pas rendue impossible', () => {
+    const bareme = [
+      { ref: 'F-001', debut: '2024-01-01', fin: '2027-12-31', hc: 677, ch: 78, source: 'manuel', bailDebut: '2024-01-01' },
+      { ref: 'F-001', debut: '2028-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' },
+    ];
+    const out = cloturerBareme(bareme, 'F-001', '2026-06-30');
+    expect(out.every((x) => x.fin == null || x.fin >= x.debut)).toBe(true);
+    expect(out[1]._deleted).toBe(true);
+    expect(ouvertes(out, 'F-001')).toHaveLength(0);
+    expect(out[0].fin).toBe('2027-12-31');   // la correction n'est pas touchée
+  });
+
+  it('clôture NORMALE inchangée : la fin est posée sur la période ouverte', () => {
+    const bareme = [{ ref: 'F-001', debut: '2024-01-01', fin: null, hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' }];
+    const out = cloturerBareme(bareme, 'F-001', '2026-06-30');
+    expect(out[0].fin).toBe('2026-06-30');
+    expect(out[0]._deleted).toBeUndefined();
+  });
+
+  it('clôture le JOUR du début : autorisée (période d’un jour)', () => {
+    const bareme = [{ ref: 'F-001', debut: '2026-06-30', fin: null, hc: 700, ch: 100, source: 'bail' }];
+    const out = cloturerBareme(bareme, 'F-001', '2026-06-30');
+    expect(out[0].fin).toBe('2026-06-30');
+    expect(out[0]._deleted).toBeUndefined();
+  });
+});
+
 describe('BARÈME REFERMÉ — un saveBail ne repasse plus par-dessus une correction datée', () => {
   // Trouvé par le smoke, pas par l'audit. Une correction de période BORNÉE (« Corriger une
   // période » avec date de fin) laisse le lot SANS période ouverte. Le saveBail suivant recréait
