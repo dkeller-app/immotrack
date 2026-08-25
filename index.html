@@ -32491,7 +32491,17 @@ function _edlBtns(pi,ei,field,cur) {
   }).join('');
 }
 
+/* §A.6 / valeur probante — l'entrée signée est verrouillée en sortie. Le RÈGLE vit dans
+   le module testé js/core/edl-parcours.js ; ces deux relais lisent _edlSortie et
+   dégradent proprement en file:// (module absent). */
+function _edlEntreeVerrouillee(){ const P=(typeof window!=='undefined')?window.EdlParcours:null; return (P&&P.entreeVerrouillee)?P.entreeVerrouillee(_edlSortie):!!_edlSortie; }
+function _edlPhotoEntreeVerrouillee(side){ const P=(typeof window!=='undefined')?window.EdlParcours:null; return (P&&P.photoEntreeVerrouillee)?P.photoEntreeVerrouillee(side,_edlSortie):(side==='E'&&!!_edlSortie); }
+
 function _edlPhotoCell(pi,ei,side) {
+  // §A.6 / valeur probante : les photos d'ENTRÉE sont SIGNÉES en mode sortie → consultation
+  // seule. Le ✕ (suppression) et le bouton d'ajout sont RETIRÉS DU DOM (pas seulement
+  // masqués) — défense en profondeur, en plus de la garde fonction d'edlDelPhoto/edlAddPhoto.
+  const locked = _edlPhotoEntreeVerrouillee(side);
   const photos=(side==='E'?_edlP[pi]?.elements[ei]?.photosE:_edlP[pi]?.elements[ei]?.photosS)||[];
   const thumbs=photos.map((ph,phi)=>{
     const srcBadge=ph._source
@@ -32500,12 +32510,12 @@ function _edlPhotoCell(pi,ei,side) {
     return `<div style="position:relative;display:inline-block;margin:1px;vertical-align:top">
       <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
       ${srcBadge}
-      <button onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" style="position:absolute;top:-5px;right:-5px;background:var(--red);color:white;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;padding:0;line-height:15px;text-align:center">✕</button>
+      ${locked?'':`<button onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" style="position:absolute;top:-5px;right:-5px;background:var(--red);color:white;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;padding:0;line-height:15px;text-align:center">✕</button>`}
     </div>`;
   }).join('');
   return `<td style="padding:4px;text-align:center;vertical-align:top;min-width:60px">
     <div>${thumbs}</div>
-    <button onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap">📷${photos.length?' +':''}</button>
+    ${locked?'':`<button onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap">📷${photos.length?' +':''}</button>`}
   </td>`;
 }
 
@@ -32546,7 +32556,7 @@ function _edlElemRow(pi,ei,x,isSortie) {
   if(isSortie) return `<tr>
     <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
     <td class="edl-cell-etatE" style="text-align:center"><span class="edl-etatE-view">${_edlEtatPastille(x.etatE)}</span>${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
-    <td class="edl-cell-obsE"><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsE',this.value)" placeholder="...">${escHtml(x.obsE||'')}</textarea></td>
+    <td class="edl-cell-obsE"><textarea readonly aria-label="Observation d'entrée (signée, lecture seule)" style="${ta}" placeholder="—">${escHtml(x.obsE||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'E')}
     <td style="text-align:center">${_edlBtns(pi,ei,'etatS',x.etatS)}</td>
     <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsS',this.value)" placeholder="...">${escHtml(x.obsS||'')}</textarea></td>
@@ -32600,6 +32610,10 @@ function _edlPieceHTML(p,pi) {
 function edlEtat(pi,ei,field,idx,btn) {
   const val=EDL_ETATS[idx];
   if(!_edlP[pi]?.elements[ei])return;
+  // §A.6 / VALEUR PROBANTE : le constat d'ENTRÉE est SIGNÉ en mode sortie — « ni
+  // modifiable ni supprimable sur aucun format ». Garde au niveau FONCTION (verrouille
+  // aussi le tableau PC, où les boutons d'état d'entrée restent affichés).
+  if(field==='etatE' && _edlEntreeVerrouillee()){ showToast('État d\'entrée signé : non modifiable en sortie.','warn',3500); return; }
   _edlP[pi].elements[ei][field]=val;
   const row=btn.closest('tr');if(!row)return;
   row.querySelectorAll(`button[onclick*="'${field}'"]`).forEach((b,i)=>{
@@ -32615,7 +32629,14 @@ function edlEtat(pi,ei,field,idx,btn) {
   if(badge&&_edlP[pi]){badge.outerHTML=_edlPieceBadge(_edlP[pi]);}
 }
 function edlElemNom(pi,ei,v2){if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei].nom=v2;}
-function edlObs(pi,ei,f,v2){if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei][f]=v2;if(f==='obsS'||f==='etatS'||f==='etatE')_edlRefreshVerdict(pi,ei);}
+function edlObs(pi,ei,f,v2){
+  // §A.6 / VALEUR PROBANTE : l'observation d'ENTRÉE est SIGNÉE en sortie — non éditable
+  // sur aucun format. Le <textarea> est readonly, mais un verrou de document signé ne
+  // repose JAMAIS sur le DOM/CSS seul : la garde fonction refuse l'écriture partout.
+  if(f==='obsE' && _edlEntreeVerrouillee()) return;
+  if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei][f]=v2;
+  if(f==='obsS'||f==='etatS'||f==='etatE')_edlRefreshVerdict(pi,ei);
+}
 function edlPieceNom(pi,v2){if(_edlP[pi])_edlP[pi].nom=v2;}
 function edlAddElem(pi){if(!_edlP[pi])return;_edlP[pi].elements.push({nom:'',etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]});_edlRenderPieces();}
 function edlRemoveElem(pi,ei){if(!_edlP[pi])return;_edlP[pi].elements.splice(ei,1);_edlRenderPieces();}
@@ -33509,6 +33530,11 @@ function edlAddPhoto(pi,ei,side){
   });
 }
 function edlDelPhoto(pi,ei,side,phi){
+  // §A.6 / VALEUR PROBANTE — LE POINT LE PLUS GRAVE : supprimer une photo d'ENTRÉE en
+  // mode sortie appelle _idbDel(ph.idbKey), qui DÉTRUIT DÉFINITIVEMENT le binaire ; et le
+  // même idbKey peut être partagé avec l'EDL d'entrée SIGNÉ → on effacerait une preuve.
+  // Garde au niveau fonction (tous formats) ; le bouton ✕ est aussi retiré du DOM en sortie.
+  if(_edlPhotoEntreeVerrouillee(side)){ showToast('Photo d\'entrée signée : non supprimable en sortie.','warn',4000); return; }
   const arr=side==='E'?_edlP[pi].elements[ei].photosE:_edlP[pi].elements[ei].photosS;
   const ph=arr[phi];if(ph?.idbKey){_idbDel(ph.idbKey);delete _photoCache[ph.idbKey];}
   arr.splice(phi,1);_edlRenderPieces();

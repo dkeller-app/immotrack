@@ -143,6 +143,17 @@ export function aSuivante(i, n) { return indexClamp(i, n) < n - 1; }
 export function aPrecedente(i, n) { return indexClamp(i, n) > 0; }
 
 /**
+ * §A.6 / VALEUR PROBANTE — le constat d'ENTRÉE est SIGNÉ dès qu'on est en mode sortie :
+ * ni son état, ni son observation, ni ses photos ne sont modifiables ou supprimables,
+ * sur AUCUN format. Ces prédicats purs pilotent les gardes fonction de edlEtat / edlObs /
+ * edlDelPhoto / _edlPhotoCell (inline) — un verrou de document signé ne repose jamais sur
+ * le CSS seul. `entreeVerrouillee` : état + observation d'entrée. `photoEntreeVerrouillee` :
+ * suppression d'une photo d'entrée (le geste le plus grave — il détruit un binaire probant).
+ */
+export function entreeVerrouillee(isSortie) { return !!isSortie; }
+export function photoEntreeVerrouillee(side, isSortie) { return side === 'E' && !!isSortie; }
+
+/**
  * §A.6 — la pellicule de la visionneuse tronque au-delà de `cap` vignettes et ouvre
  * le reste par un « +N » (un élément peut porter jusqu'à 8 photos). Pur et testable.
  * @returns {{visibles:number, plusN:number}}

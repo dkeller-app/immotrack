@@ -15,6 +15,7 @@ import {
   progressionPiece, compterEcarts, compterAConstater, statsPiece, statsGlobales,
   railLabel, indexClamp, suivante, precedente, aSuivante, aPrecedente,
   edlSortieQuiFaitFoi, troncaturePellicule, layoutVisionneuse,
+  entreeVerrouillee, photoEntreeVerrouillee,
 } from '../../js/core/edl-parcours.js';
 
 const elem = (o = {}) => ({ nom: 'x', etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [], ...o });
@@ -50,6 +51,26 @@ describe('verdictDe — le verdict est DÉDUIT (§A.6), jamais présumé', () =>
     expect(Object.keys(x)).toEqual(['etatE', 'etatS', 'obsE', 'obsS']);
     // et il se recalcule à l'identique, encore et encore (aucun état caché)
     expect(verdictDe(x.etatE, x.etatS)).toBe(v);
+  });
+});
+
+describe('§A.6 / valeur probante — l\'entrée SIGNÉE est verrouillée en sortie (état, obs, photos)', () => {
+  it('entreeVerrouillee : verrouillée dès qu\'on est en mode sortie, jamais en entrée', () => {
+    expect(entreeVerrouillee(true)).toBe(true);   // sortie → état + obs d'entrée figés
+    expect(entreeVerrouillee(false)).toBe(false); // entrée → on saisit normalement
+  });
+  it('photoEntreeVerrouillee : SEULE la photo d\'ENTRÉE en SORTIE est protégée', () => {
+    expect(photoEntreeVerrouillee('E', true)).toBe(true);   // photo d'entrée en sortie → jamais supprimable
+    expect(photoEntreeVerrouillee('S', true)).toBe(false);  // photo de sortie → éditable
+    expect(photoEntreeVerrouillee('E', false)).toBe(false); // en entrée, la photo d'entrée s'édite
+    expect(photoEntreeVerrouillee('S', false)).toBe(false);
+  });
+  it('ces prédicats sont ce qui empêche edlObs/edlEtat/edlDelPhoto de muter le constat signé', () => {
+    // le geste réel (obsE / delete non mutants en sortie) est prouvé au navigateur ;
+    // ici on verrouille la DÉCISION : entrée verrouillée ⇔ isSortie, photo ⇔ (E ∧ sortie).
+    for (const s of [true, false]) expect(entreeVerrouillee(s)).toBe(s);
+    for (const side of ['E', 'S']) for (const s of [true, false])
+      expect(photoEntreeVerrouillee(side, s)).toBe(side === 'E' && s);
   });
 });
 
