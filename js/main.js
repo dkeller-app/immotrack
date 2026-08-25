@@ -160,6 +160,11 @@ import * as EdlAutosave from './core/edl-autosave.js';
 // lot 4 qui cree le risque ; sans ce module, une visite peut etre ecrasee.
 import * as EdlConflit from './core/edl-conflit.js';
 
+// EDL TERRAIN lots 5 et 7 — le parcours (CDC §4, §6, §A.1, §A.6) : progression
+// par piece, comptage des ecarts, navigation bornee, et surtout le VERDICT
+// DEDUIT (verdictDe(entree, sortie)) qui n'est ni stocke ni saisi.
+import * as EdlParcours from './core/edl-parcours.js';
+
 // EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
 // installation, Safari purge photos et miroir a 7 jours).
 import * as PwaInstall from './core/pwa-install.js';
@@ -604,6 +609,8 @@ window.EdlPhotos = EdlPhotos;
 window.EdlAutosave = EdlAutosave;
 // EDL TERRAIN lot 4bis — doublon, verrou d'appareil, deux versions conservees.
 window.EdlConflit = EdlConflit;
+// EDL TERRAIN lots 5 et 7 — progression, ecarts, navigation, verdict DEDUIT.
+window.EdlParcours = EdlParcours;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
 

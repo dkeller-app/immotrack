@@ -4086,6 +4086,34 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <button class="btn bp" id="edl-btn-save" onclick="saveEDL()">💾 Enregistrer</button>
     <input type="hidden" id="edl-edit-id">
   </div>
+
+  <!-- EDL TERRAIN lot 5 (§A.1) — LE RAIL DU POUCE, variante C tranchée par Didier.
+       [←] [⤒ Cuisine · 3 / 8] [→], collé en bas, TÉLÉPHONE UNIQUEMENT (CSS < 768).
+       Reculer / sauter / avancer au même endroit, jamais emportés par le défilement :
+       le rail est un enfant direct de la modale (pas un second conteneur de scroll,
+       cf. avertissement §A.1 hérité du bug de prod). Le bouton du milieu ouvre la
+       feuille des pièces. Masqué par défaut ; affiché par _edlSyncParcours(). -->
+  <div id="edl-rail" class="edl-rail" style="display:none">
+    <button id="edl-rail-prev" class="edl-rail-arrow" onclick="_edlRailNav(-1)" aria-label="Pièce précédente" title="Pièce précédente">←</button>
+    <button id="edl-rail-mid" class="edl-rail-mid" onclick="_edlOpenPieceSheet()" aria-label="Choisir une pièce" title="Toutes les pièces">
+      <span class="edl-rail-jump">⤒</span>
+      <span class="edl-rail-txt"><span id="edl-rail-label" class="edl-rail-label">Pièce</span><span id="edl-rail-global" class="edl-rail-global"></span></span>
+    </button>
+    <button id="edl-rail-next" class="edl-rail-arrow" onclick="_edlRailNav(1)" aria-label="Pièce suivante" title="Pièce suivante">→</button>
+  </div>
+
+  <!-- La feuille des pièces (§A.1) : monte du bas, chaque pièce avec son avancement
+       et ses écarts, on saute directement. AUCUN défilement imbriqué non borné —
+       overscroll-behavior:contain hérité du lot 0. -->
+  <div id="edl-piece-sheet" class="edl-piece-sheet" style="display:none" onclick="if(event.target===this)_edlClosePieceSheet()">
+    <div class="edl-sheet-panel">
+      <div class="edl-sheet-head">
+        <b>Pièces de l'état des lieux</b>
+        <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer">✕</button>
+      </div>
+      <div id="edl-piece-sheet-list" class="edl-sheet-list"></div>
+    </div>
+  </div>
 </div></div>
 
 
@@ -30953,6 +30981,15 @@ function printIRLLetter() {
 
 const EDL_ETATS  = ['Neuf','Bon état',"État d'usage",'Mauvais état','Absent'];
 const EDL_COLORS = {'Neuf':'#3fb950',"Bon état":'#58a6ff',"État d'usage":'#d29922','Mauvais état':'#f85149','Absent':'#8b949e'};
+// EDL TERRAIN lot 5 (§7ter, §9 inv. 34j/34k/34l) — les 5 états quittent la palette
+// GitHub (contrastes 2,5:1, figée dans les deux thèmes) pour les tokens sémantiques de
+// la charte, recalibrés à 4,5:1. À L'ÉCRAN : variables CSS qui SUIVENT le thème.
+const EDL_CSSVAR = {'Neuf':'var(--e-neuf)',"Bon état":'var(--e-bon)',"État d'usage":'var(--e-usage)','Mauvais état':'var(--e-mauvais)','Absent':'var(--e-absent)'};
+const _edlEtatBg = et => `color-mix(in srgb, ${EDL_CSSVAR[et]} 22%, transparent)`;
+// DANS LE PDF : mêmes couleurs, en valeurs d'impression FIGÉES (un PDF n'a pas de thème)
+// = exactement les tokens CLAIRS de la charte. Aucune coordonnée de signature n'est
+// déplacée par ce changement (§7ter) — c'est ce qui l'autorise hors du gate PDF.
+const EDL_PDF_RGB = {'Neuf':[22,121,94],"Bon état":[46,109,177],"État d'usage":[143,98,14],'Mauvais état':[201,47,47],'Absent':[66,80,106]};
 const EDL_ABBREV = {'Neuf':'N',"Bon état":'B',"État d'usage":'U','Mauvais état':'M','Absent':'–'};
 const EDL_DESC   = {'Neuf':'Jamais utilisé',"Bon état":'Propre et fonctionnel',"État d'usage":'Vétusté normale, non imputable','Mauvais état':'Dégradation anormale à charge du locataire','Absent':'Absent ou non applicable'};
 
@@ -32259,7 +32296,42 @@ function _edlApplySortieVis() {
   const naw=el('edl-nouv-adr-wrap');if(naw)naw.style.display=_edlSortie?'':'none';
   _edlRedrawCles();
 }
+/* EDL TERRAIN lot 5 — P4 (§7bis) : clavier NUMÉRIQUE pour les relevés de compteurs.
+   Les champs à type="number" (surface, nb pièces, quantités de clés) ouvrent déjà
+   le pavé numérique sur mobile ; les relevés (edl-cpt-*) sont de simples .inp SANS
+   type → clavier alphabétique. inputmode="decimal" (pas type="number" : il avale
+   les zéros de tête d'un n° de compteur et casse la saisie décimale selon la locale). */
+function _edlApplyNumericInputs() {
+  document.querySelectorAll('#ov-edl input[id^="edl-cpt-"]').forEach(inp => {
+    if (!inp.getAttribute('inputmode')) inp.setAttribute('inputmode', 'decimal');
+  });
+}
+
+/* EDL TERRAIN lot 5 — P5 (§7bis) : le rail du pouce suit le VISUAL VIEWPORT.
+   iOS ne redimensionne pas le viewport de mise en page à l'ouverture du clavier ;
+   un élément collé en bas passe DERRIÈRE le clavier. On mesure le décalage
+   (hauteur fenêtre − bas visible du visual viewport) et on remonte le rail d'autant
+   via --edl-vv-offset. Idempotent : un seul écouteur pour toute la vie de la page. */
+let _edlVVBound = false;
+function _edlBindVisualViewport() {
+  if (_edlVVBound || typeof window === 'undefined' || !window.visualViewport) return;
+  _edlVVBound = true;
+  const vv = window.visualViewport;
+  const sync = () => {
+    const rail = el('edl-rail'); if (!rail) return;
+    // décalage = ce que le clavier recouvre en bas de la fenêtre
+    const off = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
+    document.documentElement.style.setProperty('--edl-vv-offset', off + 'px');
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+}
+
 function _edlRenderAll(sigs) {
+  _edlCurPiece = 0; // lot 5 : à l'ouverture, le parcours démarre sur la 1re pièce
+  _edlApplyNumericInputs(); // lot 5 P4 : pavé numérique pour les relevés
+  _edlBindVisualViewport();  // lot 5 P5 : le rail suit le clavier
   _edlRenderPieces();
   _edlFillPieceSelect();
   _edlApplySortieVis();
@@ -32285,17 +32357,85 @@ function _edlRenderPieces() {
   const wrap=el('edl-pieces-section');if(!wrap)return;
   const legend=`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px;font-size:11px;align-items:center">
     <b style="margin-right:4px;color:var(--t1)">États :</b>`+
-    EDL_ETATS.map(et=>{const c=EDL_COLORS[et];return `<span style="padding:2px 8px;border-radius:10px;border:1px solid ${c};color:${c};font-weight:700">${EDL_ABBREV[et]}</span><span style="color:var(--t2)"> ${EDL_DESC[et]}</span>`;}).join('<span style="color:var(--bor)"> │ </span>')+
+    EDL_ETATS.map(et=>{const c=EDL_CSSVAR[et];return `<span style="padding:2px 8px;border-radius:10px;border:1px solid ${c};color:${c};font-weight:700">${EDL_ABBREV[et]}</span><span style="color:var(--t2)"> ${EDL_DESC[et]}</span>`;}).join('<span style="color:var(--bor)"> │ </span>')+
   `</div>`;
+  // lot 5 : marqueur de mode pour scoper les cartes mobiles à 7 colonnes (sortie).
+  // Sans lui, la règle td:nth-child(5) « État sortie : » débordait sur la cellule ✕
+  // des lignes d'ENTRÉE (5 td, la 5e = suppression) — étiquette fantôme sur chaque carte.
+  wrap.classList.toggle('edl-sortie-mode', !!_edlSortie);
   wrap.innerHTML=legend+_edlP.map((p,pi)=>_edlPieceHTML(p,pi)).join('');
   _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
+  _edlSyncParcours(); // lot 5 : sur téléphone, n'afficher qu'une pièce + rail du pouce
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * EDL TERRAIN lot 5 — le parcours une-pièce-à-la-fois sur téléphone (§4, §A.1).
+ * Le rail du pouce [←] [⤒ Cuisine · 3/8] [→] est collé en bas ; le bouton du
+ * milieu ouvre la feuille des pièces (sauter directement). Toute la logique de
+ * comptage/navigation vit dans js/core/edl-parcours.js (module testé). Ici :
+ * le branchement au DOM. PC et tablette (≥ 768) ignorent tout ceci — CSS.
+ * ──────────────────────────────────────────────────────────────────────── */
+let _edlCurPiece = 0;
+function _edlPhoneMode() { return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:767px)').matches; }
+function _edlSyncParcours() {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const n = _edlP.length;
+  if (P) _edlCurPiece = P.indexClamp(_edlCurPiece, n);
+  const phone = _edlPhoneMode();
+  document.querySelectorAll('#edl-pieces-section .edl-piece-block').forEach(b => {
+    const idx = parseInt(b.getAttribute('data-pidx'), 10);
+    b.classList.toggle('edl-cur', idx === _edlCurPiece);
+  });
+  const rail = el('edl-rail');
+  if (rail) rail.style.display = (phone && n > 0) ? 'flex' : 'none';
+  _edlUpdateRail();
+}
+function _edlUpdateRail() {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const n = _edlP.length; if (!P || !n) return;
+  const cur = _edlP[_edlCurPiece];
+  const lbl = el('edl-rail-label'); if (lbl) lbl.textContent = P.railLabel(cur ? cur.nom : '', _edlCurPiece, n);
+  const g = P.statsGlobales(_edlP, _edlSortie);
+  const gl = el('edl-rail-global'); if (gl) gl.textContent = `${g.remplis}/${g.total}` + (_edlSortie && g.ecarts ? ` · ${g.ecarts} écart${g.ecarts > 1 ? 's' : ''}` : '');
+  const prev = el('edl-rail-prev'), next = el('edl-rail-next');
+  if (prev) prev.disabled = !P.aPrecedente(_edlCurPiece, n);
+  if (next) next.disabled = !P.aSuivante(_edlCurPiece, n);
+}
+function _edlGoPiece(idx) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  _edlCurPiece = P ? P.indexClamp(idx, _edlP.length) : 0;
+  _edlSyncParcours();
+  _edlClosePieceSheet();
+  // amener le haut de la pièce courante dans le cadre (sans faire défiler le body)
+  const b = document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${_edlCurPiece}"]`);
+  const scroll = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
+  if (b && scroll) scroll.scrollTo({ top: Math.max(0, b.offsetTop - 8), behavior: 'smooth' });
+}
+function _edlRailNav(delta) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null; if (!P) return;
+  _edlGoPiece(delta > 0 ? P.suivante(_edlCurPiece, _edlP.length) : P.precedente(_edlCurPiece, _edlP.length));
+}
+function _edlOpenPieceSheet() {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const sheet = el('edl-piece-sheet'), list = el('edl-piece-sheet-list'); if (!sheet || !list || !P) return;
+  list.innerHTML = _edlP.map((p, i) => {
+    const s = P.statsPiece(p, _edlSortie);
+    const ec = (_edlSortie && s.ecarts > 0) ? `<span class="edl-pecart">${s.ecarts} écart${s.ecarts > 1 ? 's' : ''}</span>` : '';
+    const done = s.complete ? ' done' : '';
+    return `<button class="edl-sheet-row${done}${i === _edlCurPiece ? ' cur' : ''}" onclick="_edlGoPiece(${i})">
+      <span class="edl-sheet-nom">${escHtml(p.nom)}</span>
+      <span class="edl-sheet-meta"><span class="edl-pcount">${s.remplis}/${s.total}</span>${ec}</span>
+    </button>`;
+  }).join('');
+  sheet.style.display = 'flex';
+}
+function _edlClosePieceSheet() { const s = el('edl-piece-sheet'); if (s) s.style.display = 'none'; }
 
 function _edlBtns(pi,ei,field,cur) {
   return EDL_ETATS.map((et,idx)=>{
-    const c=EDL_COLORS[et],active=cur===et;
+    const c=EDL_CSSVAR[et],active=cur===et;
     return `<button onclick="edlEtat(${pi},${ei},'${field}',${idx},this)"
-      style="padding:3px 10px;border-radius:10px;border:${active?`2px solid ${c}`:'1px solid var(--bor)'};background:${active?c+'33':'transparent'};color:${active?c:'var(--t2)'};font-size:12px;cursor:pointer;font-weight:${active?700:400};margin:1px;min-width:32px"
+      style="padding:3px 10px;border-radius:10px;border:${active?`2px solid ${c}`:'1px solid var(--bor)'};background:${active?_edlEtatBg(et):'transparent'};color:${active?c:'var(--t2)'};font-size:12px;cursor:pointer;font-weight:${active?700:400};margin:1px;min-width:32px"
       title="${et} — ${EDL_DESC[et]}">${EDL_ABBREV[et]}</button>`;
   }).join('');
 }
@@ -32339,16 +32479,33 @@ function _edlElemRow(pi,ei,x,isSortie) {
     ${del}</tr>`;
 }
 
+/* EDL TERRAIN lot 5 (§A.1) — pastille d'avancement d'une pièce, calculée par le
+   module testé js/core/edl-parcours.js (jamais recopiée ici). « 12/15 · 1 écart ».
+   Le compte d'écarts n'apparaît qu'en sortie (le verdict est déduit, cf §A.6). */
+function _edlPieceBadge(p) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if (!P) return '';
+  const s = P.statsPiece(p, _edlSortie);
+  let html = `<span class="edl-pcount">${s.remplis}/${s.total}</span>`;
+  if (_edlSortie && s.ecarts > 0) html += `<span class="edl-pecart">${s.ecarts} écart${s.ecarts > 1 ? 's' : ''}</span>`;
+  return `<span class="edl-pbadge${s.complete ? ' ok' : ''}">${html}</span>`;
+}
+
 function _edlPieceHTML(p,pi) {
   const isSortie=_edlSortie;
   const thead=isSortie
     ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">📷 Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">📷 Sortie</th><th style="width:20px"></th></tr>`
     :`<tr style="background:var(--sur2)"><th style="min-width:140px">Élément</th><th style="width:100px;text-align:center">État</th><th>Observations</th><th style="width:65px;text-align:center">📷</th><th style="width:20px"></th></tr>`;
   const rows=(p.elements||[]).map((x,ei)=>_edlElemRow(pi,ei,x,isSortie)).join('');
-  return `<div style="border:2px solid var(--bor);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
-    <div style="background:var(--sur2);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bor)">
-      <input style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;width:260px" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
-      <div class="flex-c" style="gap:5px">
+  // lot 5 : chaque pièce est un BLOC adressable (data-pidx) — sur téléphone, le
+  // parcours n'en montre qu'un à la fois (§4, §9 inv. 23). Le rendu reste celui-ci.
+  return `<div class="edl-piece-block" data-pidx="${pi}" style="border:2px solid var(--bor);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
+    <div class="edl-piece-head" style="background:var(--sur2);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bor);gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <input style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;flex:1;min-width:0" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
+        ${_edlPieceBadge(p)}
+      </div>
+      <div class="flex-c" style="gap:5px;flex:none">
         <button class="btn bs bb" onclick="edlAddElem(${pi})" style="font-size:11px">+ Élément</button>
         <button class="btn br bb" onclick="edlRemovePiece(${pi})" style="font-size:11px">🗑</button>
       </div>
@@ -32364,9 +32521,9 @@ function edlEtat(pi,ei,field,idx,btn) {
   _edlP[pi].elements[ei][field]=val;
   const row=btn.closest('tr');if(!row)return;
   row.querySelectorAll(`button[onclick*="'${field}'"]`).forEach((b,i)=>{
-    const et=EDL_ETATS[i],c=EDL_COLORS[et],active=et===val;
+    const et=EDL_ETATS[i],c=EDL_CSSVAR[et],active=et===val;
     b.style.border=active?`2px solid ${c}`:'1px solid var(--bor)';
-    b.style.background=active?c+'33':'transparent';
+    b.style.background=active?_edlEtatBg(et):'transparent';
     b.style.color=active?c:'var(--t2)';
     b.style.fontWeight=active?700:400;
   });
@@ -32615,8 +32772,8 @@ async function generateEDLPdfNative(edl) {
   // ─── Légende des états (clé de lecture, juste avant l'inventaire des pièces) ───
   // EDL-LEGENDE : les codes N/B/U/M/– n'avaient aucune légende dans le PDF (le lecteur
   // voyait des lettres nues). L'état conditionne l'imputation des dégradations → portée juridique.
-  // Réutilise les constantes globales EDL_ETATS/EDL_ABBREV/EDL_DESC/EDL_COLORS (source unique, pas de recopie).
-  const _edlHexRgb = h => { const n = parseInt(String(h||'').replace('#',''), 16); return isNaN(n) ? [255,255,255] : [(n>>16)&255, (n>>8)&255, n&255]; };
+  // Réutilise les constantes globales EDL_ETATS/EDL_ABBREV/EDL_DESC (source unique, pas de recopie).
+  // Couleurs d'impression : EDL_PDF_RGB (tokens charte 4,5:1), lot 5 §7ter.
   y = newPageIfNeeded(y, 54); // réserve titre (~10) + tableau 6 lignes (~42) → jamais coupée en 2 pages
   y = drawTitle(y, 'Légende des états', 2);
   pdf.autoTable({
@@ -32633,7 +32790,7 @@ async function generateEDLPdfNative(edl) {
     },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 0) {
-        data.cell.styles.fillColor = _edlHexRgb(EDL_COLORS[EDL_ETATS[data.row.index]]);
+        data.cell.styles.fillColor = EDL_PDF_RGB[EDL_ETATS[data.row.index]] || [255,255,255]; // lot 5 §7ter : couleurs charte 4,5:1
       }
     }
   });
