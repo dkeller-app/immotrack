@@ -106,7 +106,7 @@ import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, impactCloture,
-  garantirCouvertureBail,
+  garantirCouvertureBail, chapitrePour,
   montantSaisi, premierMontantSaisi, reancrerPeriodesDuBail,
   _premierDuMois, _premierDuMoisSuivant
 } from './core/loyer-bareme.js';
@@ -408,7 +408,8 @@ window._montantSaisi = montantSaisi;
 window._premierMontantSaisi = premierMontantSaisi;
 window._baremeCloturer = cloturerBareme;
 window._baremeCloturerParDebut = cloturerPeriodeParDebut;   // audit 17/07 : cloture ciblee (correction avec fin)
-window._baremeGarantirCouverture = garantirCouvertureBail;   // audit 24/08 : combler les trous SANS toucher a l'existant
+window._baremeGarantirCouverture = garantirCouvertureBail;
+window._baremeChapitrePour = chapitrePour;   // audit 24/08 : le chapitre d'une ecriture datee, meme bail clos
 window._baremeImpactCloture = impactCloture;   // audit 24/08 : dire ce qu'une cloture va faire au bareme AVANT de le faire
 window._premierDuMois = _premierDuMois;
 window._premierDuMoisSuivant = _premierDuMoisSuivant;

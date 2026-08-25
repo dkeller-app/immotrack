@@ -88,10 +88,21 @@ function _veille(iso) {
 /**
  * Applique les garde-fous Q1 à une date d'effet (pré-remplie OU saisie par l'utilisateur) :
  *   1. jamais avant le 1er du mois de l'anniversaire de l'année en cours ;
- *   2. jamais avant/dans un mois déjà quittancé (effet ≥ 1er du mois SUIVANT le dernier quittancé).
- * Normalise toujours au 1er du mois. `ajustee` = la date a dû être remontée (à signaler dans l'UI).
+ *   2. jamais avant/dans un mois déjà quittancé (effet ≥ 1er du mois SUIVANT le dernier quittancé) ;
+ *   3. jamais avant le DÉBUT DU BAIL qu'elle modifie (audit 2026-08-24).
+ *
+ * Le point 3 rend INATTEIGNABLE la ceinture muette d'appliquerNouvellePeriode (`debut < bailDebut`
+ * → `return arr`). Mesuré sans lui : une révision datée avant le bail courant était refusée EN
+ * SILENCE par le barème pendant que `log.hc` et `DB.baux[ref].hc`, eux, étaient bien mis à jour —
+ * l'enregistrement suivant repeignait alors la période du bail au tarif de la révision fantôme
+ * (172 mois, 26 088 € sur 4 051 séquences). Un refus muet dans le module, une divergence dans les
+ * données : exactement ce que ce chantier combat.
+ *
+ * Normalise toujours au 1er du mois, SAUF quand c'est le début du bail qui borne (un bail peut
+ * commencer le 15 ; la période prend alors effet ce jour-là, duMois proratise déjà).
+ * `ajustee` = la date a dû être remontée (à signaler dans l'UI).
  * @param {string} effetIso date d'effet proposée
- * @param {{annivMoisPremierIso?:string, dernierMoisQuittanceYm?:string}} opts
+ * @param {{annivMoisPremierIso?:string, dernierMoisQuittanceYm?:string, debutBailIso?:string}} opts
  * @returns {{effetIso:string, ajustee:boolean}}
  */
 export function clampDateEffet(effetIso, opts) {
@@ -104,6 +115,8 @@ export function clampDateEffet(effetIso, opts) {
     const minLibre = _premierDuMoisSuivant(o.dernierMoisQuittanceYm + '-01');
     if (minLibre && effet < minLibre) effet = minLibre;
   }
+  const debutBail = o.debutBailIso ? _ymd(o.debutBailIso) : '';
+  if (debutBail && effet < debutBail) effet = debutBail;
   return { effetIso: effet, ajustee: effet !== propose };
 }
 
@@ -182,7 +195,11 @@ function _openPeriodIdx(periods, ref, dateLimite) {
  * Ajoute une nouvelle période et clôture la période ouverte précédente du même lot à la veille
  * du nouveau début. PUR (retourne un nouveau tableau, copies des objets modifiés).
  * Idempotent : une période vivante identique (ref+debut+FIN+source+hc+ch+bailDebut) existe déjà
- * → no-op (le boot _applyPendingIRLRevisions rejoue les révisions à chaque démarrage).
+ * → no-op. CE QUE CETTE IDEMPOTENCE PROTÈGE (corrigé le 2026-08-24) : la même écriture rejouée —
+ * double validation d'une correction, re-validation d'une révision au même montant, fusion de
+ * deux appareils par le blob cloud. Elle NE protège PAS d'un rejeu au démarrage : contrairement
+ * à ce que disait ce commentaire, `_applyPendingIRLRevisions` (index.html) n'écrit JAMAIS le
+ * barème — il ne touche que log.hc, DB.baux[ref].hc et ses drapeaux.
  *
  * AUDIT 2026-08-24 (I4) — la clé d'idempotence ne contenait PAS `fin` : corriger uniquement la
  * date de fin d'une période était un no-op COMPLET, avec toast « Période corrigée » et entrée
@@ -194,6 +211,25 @@ function _openPeriodIdx(periods, ref, dateLimite) {
  * @param {Array} periods barème courant
  * @param {{ref, debut, fin?, hc, ch, source, bailDebut?, note?}} nouvelle
  */
+/**
+ * REPRISE — la période `q` que l'on vient de couper (split) ou de remplacer (supersession)
+ * courait au-delà de la nouvelle : sa tranche restante repart au lendemain de `fin`, AVEC SON
+ * PROPRE TARIF. Rien n'est perdu, rien n'est doublé. Ne fait rien si la nouvelle période court
+ * jusqu'au bout (fin null), si `q` s'arrêtait avant, ou si la reprise mordrait sur la période
+ * suivante (barème déjà chevauchant en entrée).
+ */
+function _reprendreApres(arr, q, fin, suivante) {
+  if (fin == null) return;
+  const qFin = q.fin == null ? null : _ymd(q.fin);
+  if (qFin != null && qFin <= fin) return;
+  const reprise = _lendemain(fin);
+  if (suivante && reprise >= suivante) return;
+  const copie = { ...q, debut: reprise, fin: qFin };
+  delete copie._deleted;
+  delete copie._remplaceePar;
+  arr.push(copie);
+}
+
 export function appliquerNouvellePeriode(periods, nouvelle) {
   const arr = (periods || []).map((p) => ({ ...p }));
   if (!nouvelle || !nouvelle.debut) return arr;
@@ -205,18 +241,33 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
   const bd = (nouvelle.bailDebut != null && _ymd(nouvelle.bailDebut)) ? _ymd(nouvelle.bailDebut) : debut;
   // `bailDebut` BORNE DES DEUX CÔTÉS (règle du projet) : d'où viennent les voisines ET où
   // atterrit celle qu'on pose. Une période datée AVANT le bail auquel on la rattache
-  // appartiendrait au bail précédent — l'écrire chevaucherait le chapitre d'à côté. Le refus
-  // PARLANT est porté par l'UI (_histoSaveCorrPeriode) ; ici c'est la ceinture du module,
-  // comme pour `fin < debut` juste en dessous.
+  // appartiendrait au bail précédent — l'écrire chevaucherait le chapitre d'à côté.
+  //
+  // CEINTURE, PAS MESSAGE : un `return` nu est un échec muet, et le silence est pire qu'un
+  // refus. Ce chemin doit rester INATTEIGNABLE depuis l'écran, et il l'est par construction :
+  // le seul écrivain dont la date est libre (_histoSaveCorrPeriode) résout son chapitre par
+  // `chapitrePour` — qui rend le chapitre de la période qu'on corrige ou celui du bail qui
+  // occupe la date, jamais un chapitre postérieur à elle — puis refuse À VOIX HAUTE si la date
+  // précède le bail. Les deux autres (popup de modification, révision IRL) partent d'une date
+  // d'effet clampée. Vérifié par __tests__/helpers/bareme-composition-savebail.test.js.
   if (debut < bd) return arr;
-  // Borne : début de la prochaine période vivante du lot (calculée AVANT toute supersession —
-  // celle-ci ne touche que des périodes au MÊME début, qui ne sont jamais « la suivante »).
+  // UNE PÉRIODE DÉRIVÉE DU BAIL NE BORNE JAMAIS UNE DÉCISION DATÉE (audit 2026-08-24, cause
+  // racine de B1/I1). Une période `source:'bail'` du même chapitre n'est pas une décision de
+  // l'utilisateur : c'est la CONTINUATION du loyer du bail, posée par la garantie de couverture
+  // ou par la reprise d'une période coupée (_reprendreApres). La laisser jouer « la suivante »
+  // bornait la période qu'on écrit — mesuré à l'écran sur MUL-002 : une correction 05/2026→12/2029
+  // laissait une reprise ouverte au 01/01/2030 ; l'augmentation validée ensuite s'y arrêtait et le
+  // loyer retombait au tarif d'avant en 2030, POUR TOUJOURS. Ces continuations sont donc écartées
+  // du calcul de la borne, puis SUPERSÉDÉES plus bas si la nouvelle période les recouvre. Une
+  // révision IRL ou une correction manuelle, elles, bornent toujours : ce sont des décisions.
+  const _derivee = (q) => (q.source || 'bail') === 'bail' && _memeChapitre(q, bd);
+  // Borne : début de la prochaine DÉCISION datée du lot (calculée AVANT toute supersession —
+  // celle-ci ne touche que des périodes au MÊME début, jamais « la suivante »).
   // AUDIT 2026-08-20 — INVARIANT DU MODULE : un lot n'a jamais deux périodes ouvertes.
-  // Une période INTERCALAIRE (insérée avant une période déjà présente — révision rétro-datée,
-  // correction) restait ouverte À CÔTÉ de celle qui la suit : _periodeAt retenant la plus
-  // tardive dont le début est passé, le dû divergeait silencieusement selon le mois consulté.
+  // Une période INTERCALAIRE (révision rétro-datée, correction) restait ouverte À CÔTÉ de celle
+  // qui la suit : _periodeAt retenant la plus tardive dont le début est passé, le dû divergeait.
   const suivante = arr
-    .filter((q) => q && !q._deleted && _nr(q.ref) === want && _ymd(q.debut) > debut)
+    .filter((q) => q && !q._deleted && _nr(q.ref) === want && _ymd(q.debut) > debut && !_derivee(q))
     .map((q) => _ymd(q.debut))
     .sort()[0];
   const borne = suivante ? _veille(suivante) : null;
@@ -261,6 +312,11 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
     if (!q || q._deleted || _nr(q.ref) !== want || _ymd(q.debut) !== debut) continue;
     if (!_memeChapitre(q, bd)) continue;
     arr[i] = { ...q, _deleted: true, _remplaceePar: { hc, ch, source: src, fin } };
+    // La remplacée couvrait PLUS LOIN que la nouvelle (on corrige janvier-mars d'une période qui
+    // courait jusqu'en décembre) : le reste n'a pas disparu pour autant, il reprend au lendemain
+    // avec SON tarif. Sans cette reprise, la fenêtre libérée retombait sur le repli « bail », donc
+    // sur le tarif d'aujourd'hui appliqué au passé (mesuré : 14 séquences, 316 mois découverts).
+    _reprendreApres(arr, q, fin, suivante);
   }
   // La période EN VIGUEUR au nouveau début lui cède la place. Elle n'était cherchée que parmi
   // les périodes OUVERTES : poser une correction À L'INTÉRIEUR d'une période FERMÉE ne la coupait
@@ -280,14 +336,20 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
   }
   if (enVigueur >= 0) {
     const q = arr[enVigueur];
-    const qFin = q.fin == null ? null : _ymd(q.fin);
     arr[enVigueur] = { ...q, fin: _veille(debut) };
-    // Reprise après la nouvelle période — sauf si la nouvelle court jusqu'au bout (fin null),
-    // ou si la reprise mordrait sur la période suivante (barème déjà chevauchant en entrée).
-    if (fin != null && (qFin == null || qFin > fin)
-      && !(suivante && _lendemain(fin) >= suivante)) {
-      arr.push({ ...q, debut: _lendemain(fin), fin: qFin });
-    }
+    _reprendreApres(arr, q, fin, suivante);
+  }
+  // Les continuations DÉRIVÉES que la nouvelle période RECOUVRE cèdent la place : à partir de sa
+  // date d'effet, c'est SON tarif qui vaut, plus la continuation du bail. Sans quoi la dérivée
+  // survivait EN CHEVAUCHEMENT (dû dépendant de l'ordre du tableau) et rallumait la borne au
+  // prochain passage. Une décision datée, elle, n'entre pas dans `_derivee` : elle survit.
+  for (let i = 0; i < arr.length; i++) {
+    const q = arr[i];
+    if (!q || q._deleted || _nr(q.ref) !== want || !_derivee(q)) continue;
+    const qd = _ymd(q.debut);
+    if (qd <= debut) continue;                       // avant/au nouveau début : géré par enVigueur
+    if (fin != null && qd > fin) continue;           // au-delà de la nouvelle période : intacte
+    arr[i] = { ...q, _deleted: true, _remplaceePar: { hc, ch, source: src, fin } };
   }
   arr.push({
     ref: nouvelle.ref, debut, fin, hc, ch, source: src,
@@ -338,13 +400,16 @@ export function reancrerPeriodesDuBail(periods, ref, debutPrecedent, debutNouvea
 }
 
 /**
- * Les tranches de [debut, +∞[ qu'AUCUNE période vivante du lot ne couvre — la brique de la
+ * Les tranches de [debut, jusquAu] qu'AUCUNE période vivante du lot ne couvre — la brique de la
  * garantie de couverture. Ne lit rien, n'écrit rien : elle DIT où sont les trous. PUR.
- * Le dernier segment est toujours ouvert (fin null) ; s'il existe déjà une période ouverte,
- * elle couvre tout le reste et on s'arrête là.
+ *
+ * `jusquAu` (optionnel) est l'HORIZON : jusqu'où on a besoin de geler. Les écrivains DATÉS le
+ * fournissent (la veille de leur date d'effet) — au-delà, c'est la période qu'ils s'apprêtent à
+ * écrire qui fait foi, et poser quoi que ce soit là-bas la bornerait. Sans horizon, le dernier
+ * segment est OUVERT ; s'il existe déjà une période ouverte, elle couvre tout le reste.
  * @returns {Array<{debut:string, fin:string|null}>}
  */
-export function _segmentsManquants(periods, ref, debut) {
+export function _segmentsManquants(periods, ref, debut, jusquAu) {
   const want = _nr(ref);
   const vivantes = (periods || [])
     .filter((q) => q && !q._deleted && _nr(q.ref) === want && q.debut)
@@ -353,18 +418,23 @@ export function _segmentsManquants(periods, ref, debut) {
   const segs = [];
   let curseur = _ymd(debut);
   if (!curseur) return segs;
+  const horizon = _ymd(jusquAu) || null;
+  const pousser = (d, f) => {
+    if (horizon && d > horizon) return;                              // au-delà : rien à geler
+    segs.push({ debut: d, fin: f == null ? horizon : (horizon && f > horizon ? horizon : f) });
+  };
   for (const q of vivantes) {
     if (q.fin == null) {
       // Une période ouverte couvre tout ce qui suit son début : le seul trou possible est
       // AVANT elle.
-      if (q.debut > curseur) segs.push({ debut: curseur, fin: _veille(q.debut) });
+      if (q.debut > curseur) pousser(curseur, _veille(q.debut));
       return segs;
     }
     if (q.fin < curseur) continue;                                   // entièrement derrière nous
-    if (q.debut > curseur) segs.push({ debut: curseur, fin: _veille(q.debut) });
+    if (q.debut > curseur) pousser(curseur, _veille(q.debut));
     curseur = _lendemain(q.fin);
   }
-  segs.push({ debut: curseur, fin: null });
+  pousser(curseur, null);
   return segs;
 }
 
@@ -424,18 +494,36 @@ export function synchroniserPeriodeBail(periods, bail, debutPrecedent) {
  * repeignait les mois d'AVANT la date d'effet au tarif qu'on venait de saisir (72 mois,
  * 4 986 € sur 4 008 séquences).
  */
-export function garantirCouvertureBail(periods, bail) {
+export function garantirCouvertureBail(periods, bail, avantLe) {
   if (!bail || !bail.debut) return (periods || []).map((p) => ({ ...p }));
-  return _couvrirDepuisLeDebutDuBail((periods || []).map((p) => ({ ...p })), bail);
+  return _couvrirDepuisLeDebutDuBail((periods || []).map((p) => ({ ...p })), bail, avantLe);
 }
 
-function _couvrirDepuisLeDebutDuBail(arr, bail) {
+function _couvrirDepuisLeDebutDuBail(arr, bail, avantLe) {
   const want = _nr(bail.ref);
   const debut = _ymd(bail.debut);
-  const segs = _segmentsManquants(arr, bail.ref, debut);
+  const jusquAu = _ymd(avantLe) ? _veille(avantLe) : null;
+  const segs = _segmentsManquants(arr, bail.ref, debut, jusquAu);
   if (!segs.length) return arr;
   const out = arr.slice();
   for (const seg of segs) {
+    // LA QUEUE OUVERTE N'EST PAS UN TROU (audit 2026-08-24). Quand la dernière période vivante
+    // est fermée DANS LE FUTUR (une correction longue « 2023-01-01→2027-12-31 »), le « trou »
+    // qui la suit commence lui aussi dans le futur. Y poser une période ouverte au tarif
+    // d'AVANT l'édition a trois effets, tous mesurés :
+    //   · elle devient `suivante` et BORNE la période qu'on s'apprête à écrire → l'augmentation
+    //     validée expirait au 31/12/2027 et le loyer revenait à 790 € au lieu de 870 € POUR
+    //     TOUJOURS (2 880 € sur 2028-2030 par la popup, 1 512 € par la révision IRL) ;
+    //   · elle gonfle `borneMinEffetBareme` → la popup repoussait la date d'effet de 17 mois
+    //     avec un motif faux (1 360 € non facturés, sans recours) ;
+    //   · portant source:'bail', elle offrait une cible à la branche « la période de bail
+    //     ouverte suit le formulaire » → un changement de NUMÉRO DE TÉLÉPHONE la repeignait.
+    // Or `duMois` résout déjà ces mois-là au tarif du bail (repli « bail ») : il n'y a rien à
+    // geler APRÈS la dernière période connue, seulement AVANT. La queue n'est donc posée que
+    // lorsqu'elle commence à la date du bail lui-même — bail neuf, re-bail, barème vierge :
+    // là, elle EST la période du bail. Les mois entre la dernière période et la prochaine
+    // écriture datée sont gelés par l'HORIZON de cette écriture, au tarif d'alors.
+    if (seg.fin == null && seg.debut !== debut) continue;
     const prec = _periodeJusteAvant(out, want, seg.debut);
     const p = periodeInitialeBail(bail);
     if (!p) break;
@@ -588,6 +676,54 @@ export function impactCloture(periods, ref, finIso) {
     else if (p.fin != null && _ymd(p.fin) > fin) tronquees.push(p);
   }
   return { annulees, tronquees };
+}
+
+/**
+ * LE CHAPITRE (bailDebut) auquel rattacher une écriture datée sur un lot. PUR.
+ *
+ * AUDIT 2026-08-24 (B2) — « Corriger une période » calculait `bailDebut` par
+ * `(DB.baux[ref] && DB.baux[ref].debut) || debut`. Après une clôture, `DB.baux[ref]` est un
+ * TOMBSTONE : il existe, il n'a pas de `debut`, et le repli tombait sur LA DATE DE LA CORRECTION
+ * ELLE-MÊME — un chapitre inventé qui ne correspond à aucun bail. La supersession, qui compare
+ * les chapitres, répondait « non » : deux périodes vivantes au même jour, donc un dû qui dépend
+ * de l'ordre du tableau, donc DEUX MONTANTS SUR DEUX APPAREILS (mesuré : 767 € contre 820 €).
+ * L'idempotence, qui compare aussi le chapitre, ne mordait pas davantage : rejouer la même
+ * correction empilait des périodes identiques.
+ *
+ * Ordre de résolution :
+ *   1. la période vivante EN VIGUEUR à cette date — c'est elle qu'on corrige, son chapitre fait
+ *      foi (y compris sur un lot dont le bail est clos : l'historique reste corrigeable) ;
+ *   2. sinon le bail (courant OU archivé) qui occupe la date ;
+ *   3. sinon '' — aucun bail ne couvre cette date, à l'appelant de refuser à voix haute.
+ * @param {Array} periods barème
+ * @param {string} ref
+ * @param {string} dateIso date de l'écriture
+ * @param {Array<{debut,fin,finEffective,_deleted}>} baux baux du lot (courant + archivés)
+ * @returns {string} bailDebut ISO, ou ''
+ */
+export function chapitrePour(periods, ref, dateIso, baux) {
+  const want = _nr(ref);
+  const d = _ymd(dateIso);
+  if (!d) return '';
+  let hit = null;
+  for (const p of (periods || [])) {
+    if (!p || p._deleted || _nr(p.ref) !== want || !p.debut) continue;
+    const pd = _ymd(p.debut);
+    if (pd > d) continue;
+    if (p.fin != null && _ymd(p.fin) < d) continue;
+    if (!hit || pd > _ymd(hit.debut)) hit = p;
+  }
+  if (hit && _ymd(hit.bailDebut)) return _ymd(hit.bailDebut);
+  let best = '';
+  for (const b of (baux || [])) {
+    if (!b || b._deleted || !b.debut) continue;
+    const bd = _ymd(b.debut);
+    if (bd > d) continue;
+    const f = _ymd(b.finEffective || b.fin || '');
+    if (f && f < d) continue;
+    if (bd > best) best = bd;
+  }
+  return best;
 }
 
 /**

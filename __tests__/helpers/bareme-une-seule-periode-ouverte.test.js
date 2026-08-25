@@ -167,12 +167,15 @@ describe('BARÈME REFERMÉ — un saveBail ne repasse plus par-dessus une correc
     { ref: 'F-001', debut: '2024-01-01', fin: '2025-12-31', hc: 677, ch: 78, source: 'manuel', bailDebut: '2024-01-01', note: 'erreur de saisie' },
   ]);
 
-  it('la période du bail démarre APRÈS la dernière période vivante, pas par-dessus', () => {
+  it('un saveBail n\'écrit RIEN par-dessus, et rien derrière non plus', () => {
     const out = synchroniserPeriodeBail(apresCorrectionBornee(), { ref: 'F-001', debut: '2024-01-01', hc: 662, ch: 78 });
-    expect(out).toHaveLength(2);
-    expect(out[0]).toMatchObject({ debut: '2024-01-01', fin: '2025-12-31', hc: 677 });   // intacte
-    expect(out[1]).toMatchObject({ debut: '2026-01-01', fin: null, hc: 662, source: 'bail' });
-    expect(ouvertes(out, 'F-001')).toHaveLength(1);
+    expect(out).toEqual(apresCorrectionBornee());
+    // AUDIT 24/08 : la version précédente posait ici une période OUVERTE au 01/01/2026, au tarif
+    // du bail. Elle bornait la prochaine augmentation (qui expirait donc), gonflait
+    // borneMinEffetBareme, et se faisait repeindre au changement de téléphone suivant. Les mois
+    // d'après la correction sont résolus par le repli « bail » — et GELÉS, au tarif d'alors, par
+    // l'horizon de la prochaine écriture datée (cf. bareme-composition-savebail.test.js).
+    expect(ouvertes(out, 'F-001')).toHaveLength(0);
   });
 
   it('et le dû suit : la correction vaut pour sa fenêtre, le bail pour la suite', () => {

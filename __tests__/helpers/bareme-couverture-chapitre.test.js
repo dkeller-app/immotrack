@@ -40,8 +40,11 @@ describe('B1 — le DÉBUT du bail ne reste jamais à découvert', () => {
   //         repli « bail », et à la révision IRL suivante 2023-09 et 2023-11 passaient de
   //         790 € à 870 €. Le passé recalculé au tarif d'aujourd'hui : infraction I-1.
   const bail = { ref: REF, debut: '2023-09-01', hc: 700, ch: 90 };
+  // La chaîne RÉELLE de _histoSaveCorrPeriode : on gèle d'abord ce qui PRÉCÈDE la correction
+  // (horizon = sa date de début), puis on l'écrit, puis le saveBail « téléphone » ne fait rien.
   const apresCorrectionPuisTelephone = () => {
-    let b = appliquerNouvellePeriode([], {
+    let b = garantirCouvertureBail([], bail, '2024-01-01');
+    b = appliquerNouvellePeriode(b, {
       ref: REF, debut: '2024-01-01', fin: '2024-03-31', hc: 600, ch: 90,
       source: 'manuel', bailDebut: bail.debut, note: 'geste commercial'
     });
@@ -55,9 +58,11 @@ describe('B1 — le DÉBUT du bail ne reste jamais à découvert', () => {
     expect(v.map((p) => [p.debut, p.fin, p.hc, p.source])).toEqual([
       ['2023-09-01', '2023-12-31', 700, 'bail'],   // ← le segment qui manquait
       ['2024-01-01', '2024-03-31', 600, 'manuel'], // ← la correction, intacte
-      ['2024-04-01', null, 700, 'bail'],
     ]);
-    expect(ouvertes(out)).toHaveLength(1);
+    // AUDIT 24/08 : et RIEN après le 31/03/2024. Une période ouverte posée là au tarif du
+    // moment bornerait la prochaine augmentation et la ferait expirer. duMois résout déjà ces
+    // mois au tarif du bail ; ils seront GELÉS par l'horizon de la prochaine écriture datée.
+    expect(ouvertes(out)).toHaveLength(0);
   });
 
   it('et les euros suivent : sept→déc 2023 viennent du BARÈME, plus du repli', () => {
@@ -70,7 +75,10 @@ describe('B1 — le DÉBUT du bail ne reste jamais à découvert', () => {
   });
 
   it('INVARIANT I-1 : la révision IRL suivante ne repeint plus 2023 (790 €, pas 870 €)', () => {
-    const bareme = appliquerNouvellePeriode(apresCorrectionPuisTelephone(), {
+    // _baremeRecordRevision gèle [début du bail, veille de la date d'effet] AVANT d'écrire :
+    // c'est ce geste qui fige les mois laissés au repli par la correction bornée.
+    const bareme = appliquerNouvellePeriode(
+      garantirCouvertureBail(apresCorrectionPuisTelephone(), bail, '2026-09-01'), {
       ref: REF, debut: '2026-09-01', hc: 780, ch: 90, source: 'irl', bailDebut: bail.debut
     });
     // saveBail a écrit le loyer révisé sur le bail : c'est LUI que le repli appliquait au passé.
@@ -78,7 +86,15 @@ describe('B1 — le DÉBUT du bail ne reste jamais à découvert', () => {
     for (const ym of ['2023-09', '2023-10', '2023-11', '2023-12']) {
       expect(duMois({ ref: REF, bails, bareme }, ym).total).toBe(790);
     }
+    // … et les mois laissés au repli par la correction bornée sont gelés eux aussi.
+    for (const ym of ['2024-04', '2025-06', '2026-08']) {
+      expect(duMois({ ref: REF, bails, bareme }, ym)).toMatchObject({ total: 790, source: 'bareme' });
+    }
     expect(duMois({ ref: REF, bails, bareme }, '2026-09').total).toBe(870);   // la révision, à sa date
+    // Et elle ne s'éteint pas : le loyer révisé tient au-delà de toute période antérieure.
+    for (const ym of ['2028-01', '2030-12', '2033-06']) {
+      expect(duMois({ ref: REF, bails, bareme }, ym).total).toBe(870);
+    }
   });
 
   it('sur un barème DÉJÀ complet, la garantie ne touche à rien (idempotence)', () => {
@@ -340,16 +356,68 @@ describe('garantirCouvertureBail — les écrivains DATÉS comblent sans jamais 
     expect(out[2]).toMatchObject({ debut: '2024-07-01', fin: '2024-12-31', hc: 999 });
   });
 
-  it('LOT 3 — un champ NON SAISI reprend la valeur connue au lieu d\'inventer un 0', () => {
+  it('LOT 3 — une PROVISION non saisie reprend la valeur connue au lieu d\'inventer un 0', () => {
     const base = [{ ref: REF, debut: '2024-01-01', fin: '2024-06-30', hc: 700, ch: 136, source: 'bail', bailDebut: '2024-01-01' }];
-    const out = garantirCouvertureBail(base, { ref: REF, debut: '2024-01-01', hc: 700, ch: '' });
+    const out = garantirCouvertureBail(base, { ref: REF, debut: '2024-01-01', hc: 700, ch: '' }, '2025-01-01');
     expect(out[1]).toMatchObject({ debut: '2024-07-01', hc: 700, ch: 136 });
+  });
+
+  it('LOT 3 — un LOYER non saisi aussi (le champ hc, pas seulement ch)', () => {
+    // Mutant survivant de la passe précédente : retirer le repli `prec && prec.hc` ne faisait
+    // rougir personne, le test ne couvrait que la provision. Un bail dont le loyer est vide
+    // (import à colonne manquante) écrivait alors 0 € de loyer sur tout le segment comblé.
+    const base = [{ ref: REF, debut: '2024-01-01', fin: '2024-06-30', hc: 655, ch: 136, source: 'bail', bailDebut: '2024-01-01' }];
+    const out = garantirCouvertureBail(base, { ref: REF, debut: '2024-01-01', hc: '', ch: 136 }, '2025-01-01');
+    expect(out[1]).toMatchObject({ debut: '2024-07-01', hc: 655, ch: 136 });
+  });
+
+  it('un 0 réellement SAISI reste un 0 (montantSaisi distingue vide et zéro)', () => {
+    const base = [{ ref: REF, debut: '2024-01-01', fin: '2024-06-30', hc: 655, ch: 136, source: 'bail', bailDebut: '2024-01-01' }];
+    const out = garantirCouvertureBail(base, { ref: REF, debut: '2024-01-01', hc: 655, ch: 0 }, '2025-01-01');
+    expect(out[1]).toMatchObject({ debut: '2024-07-01', hc: 655, ch: 0 });
   });
 
   it('le segment comblé DIT pourquoi il ne commence pas à la date du bail', () => {
     const base = [{ ref: REF, debut: '2024-01-01', fin: '2024-06-30', hc: 700, ch: 90, source: 'bail', bailDebut: '2024-01-01' }];
-    const out = garantirCouvertureBail(base, { ref: REF, debut: '2024-01-01', hc: 700, ch: 90 });
+    const out = garantirCouvertureBail(base, { ref: REF, debut: '2024-01-01', hc: 700, ch: 90 }, '2025-01-01');
     expect(out[1].note).toBe('Complété : période non couverte par le barème');
+  });
+
+  it('HORIZON — rien n\'est écrit au-delà de la date d\'effet annoncée', () => {
+    const base = [{ ref: REF, debut: '2023-01-01', fin: '2027-12-31', hc: 677, ch: 90, source: 'manuel', bailDebut: '2023-01-01' }];
+    // le trou commence APRÈS l'horizon : rien à geler
+    expect(garantirCouvertureBail(base, { ref: REF, debut: '2023-01-01', hc: 700, ch: 90 }, '2026-09-01')).toEqual(base);
+    // et sans horizon, la queue ouverte n'est pas posée non plus (elle ne commence pas au bail)
+    expect(garantirCouvertureBail(base, { ref: REF, debut: '2023-01-01', hc: 700, ch: 90 })).toEqual(base);
+  });
+
+  it('… mais la période du bail LUI-MÊME est bien posée (bail neuf, re-bail)', () => {
+    expect(garantirCouvertureBail([], { ref: REF, debut: '2026-09-01', hc: 640, ch: 95 }))
+      .toEqual([expect.objectContaining({ debut: '2026-09-01', fin: null, hc: 640, ch: 95, source: 'bail' })]);
+    const apresCloture = [{ ref: REF, debut: '2024-01-01', fin: '2026-02-28', hc: 700, ch: 100, source: 'bail', bailDebut: '2024-01-01' }];
+    const out = garantirCouvertureBail(apresCloture, { ref: REF, debut: '2026-03-01', hc: 850, ch: 130 });
+    expect(out[1]).toMatchObject({ debut: '2026-03-01', fin: null, hc: 850, bailDebut: '2026-03-01' });
+  });
+
+  it('DEUX trous, DEUX segments : la tête ET l\'intervalle, pas seulement le dernier', () => {
+    // Le cas reel : une correction bornee au milieu de rien. Le bail commence avant elle (trou de
+    // tete) et la revision qu'on s'apprete a ecrire vient apres (trou intermediaire). Les DEUX
+    // doivent etre geles - n'en poser qu'un laisse le debut du bail au repli « bail », donc au
+    // tarif d'aujourd'hui applique au passe des la revision suivante.
+    const base = [{ ref: REF, debut: '2024-01-01', fin: '2024-03-31', hc: 600, ch: 90, source: 'manuel', bailDebut: '2023-09-01' }];
+    const bailB1 = { ref: REF, debut: '2023-09-01', hc: 700, ch: 90 };
+    const out = garantirCouvertureBail(base, bailB1, '2025-01-01');
+    const v = vivantes(out).slice().sort((a, b) => a.debut.localeCompare(b.debut));
+    expect(v.map((p) => [p.debut, p.fin, p.hc])).toEqual([
+      ['2023-09-01', '2023-12-31', 700],
+      ['2024-01-01', '2024-03-31', 600],
+      ['2024-04-01', '2024-12-31', 700],
+    ]);
+    const bails = [{ debut: '2023-09-01', fin: null, finEffective: null, archive: false, hc: 700, ch: 90 }];
+    for (const ym of ['2023-09', '2023-12', '2024-04', '2024-12']) {
+      expect(duMois({ ref: REF, bails, bareme: out }, ym)).toMatchObject({ total: 790, source: 'bareme' });
+    }
+    expect(duMois({ ref: REF, bails, bareme: out }, '2024-02').total).toBe(690);
   });
 
   it('PUR : le tableau d\'entrée n\'est pas muté', () => {
