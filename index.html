@@ -26981,7 +26981,7 @@ function _departDeadlineDG(bail){
   // par défaut) → on affiche le MAXIMUM légal (2 mois) pour ne pas annoncer une échéance trop optimiste.
   // Une fois l'EDL réalisé, _calculerDelaiRestitution tranche (1 mois conforme / 2 mois retenues).
   const edlExists = !!(bail && bail.ref && (DB.edl||[]).some(e=>e && !e._deleted && e.logement===bail.ref && e.type==='Sortie'));
-  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail) : 2) : 2;
+  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2) : 2;
   // Construction locale (sans suffixe TZ) puis ajout calendaire → évite le décalage UTC de toISOString().
   const day = +m[3];
   const lim = new Date(+m[1], +m[2]-1, day); lim.setMonth(lim.getMonth()+mois);
@@ -27006,7 +27006,7 @@ function _departState(bail){
   const edlSortie = _P9
     ? _P9.edlSortieQuiFaitFoi(bail, DB.edl||[])
     : ((DB.edl||[]).find(e=>e && !e._deleted && e.logement===ref && e.type==='Sortie') || null);
-  const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail) : 2;
+  const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2;
   const deadline = _departDeadlineDG(bail);
   const d = bail.depart || null;
   const jsRef = (ref||'').replace(/'/g,"\\'");
@@ -32142,7 +32142,39 @@ function _edlReadMobilierFromForm() {
   };
 }
 
-function onEDLLogChange() { _edlPrefill(v('edl-log'),false); }
+function onEDLLogChange() {
+  const ref = v('edl-log');
+  // P1 (§7bis, §9 inv. 34a) — sur un EDL DÉJÀ SAISI, changer de logement ne doit JAMAIS
+  // garder en silence la structure de l'ancien bien (l'EDL pouvait partir signé avec la
+  // mauvaise composition). On DEMANDE, jamais un choix implicite : recharger la composition
+  // du nouveau bien (perte de la saisie) ou garder la saisie et sa structure actuelle.
+  if (ref && typeof _edlAUneSaisie === 'function' && _edlAUneSaisie()) {
+    const recharger = confirm2(
+      "Cet état des lieux contient déjà des saisies (états, observations ou photos).\n\n" +
+      "Vous changez de logement pour « " + ref + " ».\n\n" +
+      "• OK : recharger la composition de ce logement — LES SAISIES EN COURS SERONT PERDUES.\n" +
+      "• Annuler : garder vos saisies (elles conservent la structure actuelle)."
+    );
+    if (recharger) {
+      // vider la saisie → _edlPrefill peut alors recharger la structure du nouveau bien
+      _edlP.forEach(p => (p.elements || []).forEach(x => {
+        x.etatE = ''; x.obsE = ''; x.photosE = []; x.etatS = ''; x.obsS = ''; x.photosS = [];
+      }));
+      // Si le nouveau bien n'a PAS de composition enregistrée, sa « structure » est le
+      // modèle générique — on y repart (sinon on garderait la structure de l'ancien bien).
+      const log = (DB.logements || []).find(l => l.ref === ref);
+      const aTemplate = log && log.edlTemplate && Array.isArray(log.edlTemplate.pieces) && log.edlTemplate.pieces.length;
+      if (!aTemplate) {
+        _edlP.length = 0;
+        _edlP.push(...EDL_TPL.map(p => ({ nom: p.nom, elements: (p.e || []).map(n => ({ nom: n, etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [] })) })));
+      }
+    }
+    _edlPrefill(ref, false);   // en-têtes du nouveau bien ; charge son template s'il en a un (saisie vidée)
+    _edlRenderPieces();
+    return;
+  }
+  _edlPrefill(ref, false);
+}
 
 function edlTypeChange() {
   _edlSortie=el('edl-type-sortie').checked;
@@ -51193,7 +51225,7 @@ function _dgOpenRestitution(ref) {
   if (!bail) { showToast('Bail introuvable', 'err'); return; }
   const dgInfo = _dgStatut(bail);
   const solde = _calculerSoldeDG(bail, DB.mouvements || []);
-  const delaiMois = _calculerDelaiRestitution(bail);
+  const delaiMois = _calculerDelaiRestitution(bail, DB.edl);
   const body = el('ov-dg-restitution-body');
   if (!body) return;
   // I-DATE, surface 7 du §4 : ce champ était pré-rempli à `td()` et jamais confronté au

@@ -147,10 +147,16 @@ export function aPrecedente(i, n) { return indexClamp(i, n) > 0; }
  * pour un bail. Le bug : `edls.find(e => e.type === 'Sortie')` rend le PREMIER dans
  * l'ordre d'insertion. Sur un logement reloué, c'est la sortie du locataire PRÉCÉDENT
  * qui pilotait le délai de restitution du locataire actuel — une échéance légale
- * déplacée en silence. La règle : le plus RÉCENT dans la fenêtre du bail, jamais le
+ * déplacée en silence. La règle : le plus RÉCENT à partir du début du bail, jamais le
  * premier trouvé. Source unique, comme `duMois` pour les loyers.
  *
- * @param {{ref?:string, debut?:string, fin?:string, finEffective?:string}} bail
+ * Fenêtre = [bail.debut, +∞[ : on borne par le BAS (exclut la sortie du locataire
+ * précédent, le bug traité). Pas de borne haute — la sortie du locataire qui part est
+ * de toute façon la plus récente. Limite connue : consulter le délai d'un bail ANCIEN
+ * alors qu'un bail POSTÉRIEUR a déjà sa propre sortie choisirait cette dernière ; cas
+ * non rencontré en pratique (le délai se calcule à la sortie, avant le bail suivant).
+ *
+ * @param {{ref?:string, debut?:string}} bail
  * @param {Array} edls   la collection DB.edl
  * @returns {object|null} l'EDL de sortie qui fait foi, ou null
  */
