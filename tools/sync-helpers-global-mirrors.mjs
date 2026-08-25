@@ -208,6 +208,21 @@ const PAIRS = [
     exports: ['NBSP', 'WINANSI_HIGH', 'PDF_UNSAFE_MAP', 'isWinAnsiChar', 'pdfSafeText', 'hasPdfUnsafeChars', 'parseMontant', 'fmtMontantDoc', 'fmtEuroDoc', 'hardenJsPdfText'],
   },
   {
+    // CDC-QUITTANCES-IRL D26 — moteur d'écriture NATIF partagé des documents émis (fini la
+    // rasterisation html2canvas). PDF_NATIVE (sous-ensemble « document » du moteur du bail) +
+    // pont HTML `.pro-doc` → texte natif. Dépend de PdfFlow (pagination) et DocBrand (bandeau).
+    name: 'doc-native',
+    src: '__tests__/helpers/doc-native.js',
+    dst: 'js/helpers/doc-native.global.js',
+    globalName: 'DocNative',
+    exports: [
+      'htmlToText', 'htmlToWords', 'splitTopLevelBlocks', 'classifyBlock',
+      'parseDocDoc', 'docWords', 'PDF_NATIVE', 'renderDocToPdf', 'docHtmlToPdfBlob'
+    ],
+    // Pas de sanity « function count » : le module importe 3 deps (PdfFlow/DocBrand) → 3
+    // trampolines générés gonflent le compte de fonctions (comme log-immeuble-resolver).
+  },
+  {
     // v15.428 DRY-FACTORISATION chantier 1 — catalogue canonique des règles d'alertes
     // (consommé par _computeUnifiedTodo, rAlertsSection et les widgets legacy).
     name: 'alert-rules',
@@ -307,6 +322,9 @@ for (const p of PAIRS) {
                             depModule === 'annonce-generator' ? 'AnnonceGenerator' :
                             depModule === 'log-immeuble-resolver' ? 'LogImmResolver' :
                             depModule === 'bail-sign-coords' ? 'BailSignCoords' :
+                            depModule === 'pdf-flow' ? 'PdfFlow' :
+                            depModule === 'doc-brand' ? 'DocBrand' :
+                            depModule === 'montant-doc' ? 'MontantDoc' :
                             null;
       if (!moduleGlobal) throw new Error(`[${p.name}] Dépendance inconnue : ./${depModule}.js`);
       depBlocks.push(`  // ─── DÉPENDANCES IMPORTÉES depuis ./${depModule}.js (résolues via global) ───\n` +

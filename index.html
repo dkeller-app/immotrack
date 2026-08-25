@@ -4153,6 +4153,9 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <!-- DOCS-UNIFIES — gabarit unique des documents émis (variante B validée le 12/08) :
      feuille de style scopée .pro-doc + primitives titre/parties/lignes/mentions/pied. -->
 <script src="js/helpers/doc-template.global.js"></script>
+<!-- CDC-QUITTANCES-IRL D26 — moteur d'écriture NATIF partagé (window.DocNative) : PDF_NATIVE (sous-ensemble
+     document du moteur du bail) + pont HTML .pro-doc → texte natif. Après pdf-flow + doc-brand (ses deps). -->
+<script src="js/helpers/doc-native.global.js"></script>
 <!-- v15.424 DRY-FACTORISATION chantier 1 — catalogue CANONIQUE des règles d'alertes (window.AlertRules) :
      source unique consommée par _computeUnifiedTodo + rAlertsSection + widgets legacy (3 divergences résolues) -->
 <script src="js/helpers/alert-rules.global.js"></script>
@@ -41175,49 +41178,79 @@ function _ddtRecapBrandzone() {
   return bz ? `<div style="max-width:760px;padding:0 22px">${bz}</div>` : '';
 }
 
-/** Génère un PDF natif via jsPDF + html2canvas du récap DDT. */
+/** CDC-QUITTANCES-IRL D26 — récap DDT en TEXTE NATIF (fini html2canvas). Dessiné depuis les
+ *  mêmes données que `_buildDdtRecapHTML` : bandeau d'identité vectoriel, page de garde, tableau
+ *  natif des diagnostics, cadre légal. 1 page nette, quelques Ko, accents/€ WinAnsi. Tout le
+ *  texte passe par hardenJsPdfText ; les libellés de statut (emoji) sont assainis en amont via
+ *  DocNative.htmlToText → 0 avertissement [pdfSafeText]. */
 async function _ddtRecapPDF() {
   const ref = el('ov-ddt-recap-ref')?.value;
   if (!ref) return;
-  const content = el('ddt-recap-content');
-  if (!content || typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
-    showToast('Bibliothèques PDF non chargées', 'err'); return;
+  const log = (DB.logements || []).find(l => l.ref === ref);
+  if (!log) return;
+  if (typeof window.jspdf === 'undefined' || !window.DocNative) {
+    showToast('Bibliothèque PDF non chargée', 'err'); return;
   }
-  showToast('Génération du PDF en cours…', 'info', 2000);
-  // AUDIT I1 — on rastérise le récap PRÉCÉDÉ du même bandeau d'identité que l'impression,
-  // sinon les deux sorties de la même pièce divergent. Conteneur hors écran, monté dans le
-  // document pour que les variables CSS de l'app se résolvent, démonté dans le finally.
-  const shell = document.createElement('div');
-  shell.style.cssText = 'position:fixed;left:-10000px;top:0;background:#fff;z-index:-1';
-  shell.innerHTML = _ddtRecapBrandzone();
-  shell.appendChild(content.cloneNode(true));
-  document.body.appendChild(shell);
+  showToast('Génération du PDF en cours…', 'info', 1500);
   try {
-    const canvas = await html2canvas(shell, { scale: 2, backgroundColor: '#ffffff' });
-    const imgData = canvas.toDataURL('image/png');
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('fr-FR');
+    const ddt = _ddtComplet(log, today);
+    const ent = _entiteDeLogement(log);
+    const PN = window.DocNative.PDF_NATIVE;
+    const clean = window.DocNative.htmlToText;   // assainit (emoji → retirés, accents/€ gardés)
     const { jsPDF } = window.jspdf;
-    const pdf = window.MontantDoc.hardenJsPdfText(new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }));   /* S3 */
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth - 16; // 8mm margin chaque côté
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let position = 8;
-    let heightLeft = imgHeight;
-    pdf.addImage(imgData, 'PNG', 8, position, imgWidth, imgHeight);
-    heightLeft -= (pageHeight - 16);
-    while (heightLeft > 0) {
-      position = -heightLeft + 8;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 8, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 16);
-    }
+    const pdf = window.MontantDoc.hardenJsPdfText(new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true }));
+    const x = PN.MARGIN_LEFT, right = PN.PAGE_W - PN.MARGIN_RIGHT;
+    let y = PN.MARGIN_TOP;
+    // Bandeau d'identité (vectoriel — même helper que tous les documents)
+    try { y = _pdfDrawBrandzone(pdf, ent, x, y, right) + 2; } catch (e) { y = PN.MARGIN_TOP + 8; }
+    // Page de garde
+    y = PN.drawText(pdf, 'DOSSIER DE DIAGNOSTIC TECHNIQUE', x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'center' });
+    y = PN.drawTitle(pdf, 1, 'Logement ' + (log.ref || '—'), x, y);
+    y = PN.drawText(pdf, log.adr || log.imm || '—', x, y, { color: PN.COLOR_MUTED, align: 'center' });
+    y = PN.drawText(pdf, "Date d'édition : " + todayStr, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED, align: 'center' }) + 3;
+    // Identité bailleur + logement
+    const bailleurNom = (ent && ent.nom) || log.entity || '—';
+    const bailLine = 'Bailleur : ' + bailleurNom
+      + ((ent && ent.siege) ? ' — ' + ent.siege : '')
+      + ((ent && ent.siren) ? ' — SIREN ' + ent.siren : '');
+    y = PN.drawText(pdf, bailLine, x, y, { size: PN.FONT_SIZE_NOTE }) + 1;
+    // Verdict global
+    const verdict = ddt.complet
+      ? 'Diagnostics complets — tous les diagnostics applicables sont valides'
+      : 'Diagnostics incomplets — ' + (ddt.manquants.length + ddt.expires.length) + ' diagnostic(s) à régulariser';
+    y = PN.drawText(pdf, verdict, x, y, { style: 'bold', color: ddt.complet ? [21, 83, 45] : [127, 29, 29] }) + 2;
+    // Tableau des diagnostics
+    const rows = _DIAGS_CATALOG_INLINE.map(entry => {
+      const statut = _diagStatut(entry.key, log, today);
+      const info = _diagGet(log, entry.key) || {};
+      const exp = _diagDateExpiration(entry.key, info);
+      const meta = _DIAG_STATUT_LABEL[statut] || _DIAG_STATUT_LABEL.manquant;
+      const validityTxt = entry.validityYears == null
+        ? (entry.key === 'crep' ? 'Illimitée (1 an si plomb)' : 'Illimitée')
+        : entry.validityYears < 1 ? Math.round(entry.validityYears * 12) + ' mois' : entry.validityYears + ' ans';
+      let detail = '—';
+      if (info.date) { detail = 'Réalisé le ' + fd(info.date); if (exp) detail += ' · Expire le ' + fd(exp); }
+      else if (statut === 'inapplicable') detail = 'Non concerné (auto-détecté)';
+      else if (statut === 'na') detail = 'Marqué N/A par le bailleur';
+      const classeTxt = entry.key === 'dpe' && info.classe ? ' (Classe ' + info.classe + ')' : '';
+      const col1 = entry.label + classeTxt + '\n' + entry.legal + ' · Validité ' + validityTxt;
+      return [col1, clean(meta.txt), detail, info.diagnostiqueur || '—'];
+    });
+    y = PN.drawTable(pdf, ['Diagnostic', 'Statut', 'Détail', 'Diagnostiqueur'], rows, y,
+      { columnStyles: { 0: { cellWidth: 74 } } }) + 2;
+    // Cadre légal
+    const legende = "Cadre légal : le Dossier de diagnostic technique est obligatoire (loi 89-462 art. 3-3) et doit être annexé au bail à la signature. L'absence ou la péremption d'un diagnostic applicable peut entraîner la nullité du bail.\n"
+      + "Auto-détection : CREP, Amiante, Gaz, Élec, Termites, Mérule et Bruit aérien sont marqués applicables ou non selon l'année de construction et les zones réglementaires déclarées.\n"
+      + "Limite : ce récap atteste de la complétude côté gestion. Les PDF source de chaque diagnostic doivent être joints individuellement au bail.";
+    y = PN.newPageIfNeeded(pdf, y, 32);
+    PN.drawText(pdf, legende, x, y, { size: PN.FONT_SIZE_SMALL, color: PN.COLOR_MUTED });
     pdf.save(`Diagnostics-${ref}-${td()}.pdf`);
-    showToast('✓ PDF téléchargé', 'ok', 2500);
+    showToast('PDF téléchargé', 'ok', 2500);
   } catch (e) {
     console.error('[Diagnostics PDF]', e);
     showToast('Erreur PDF : ' + (e.message || ''), 'err', 4000);
-  } finally {
-    if (shell.parentNode) shell.parentNode.removeChild(shell);
   }
 }
 
