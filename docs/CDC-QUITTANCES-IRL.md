@@ -1,12 +1,9 @@
 # CDC — Quittances & Révisions de loyer (IRL)
 
-> ⚠️ **AMENDÉ le 19/08/2026 par [docs/CDC-LOYERS-DESIGN.md](CDC-LOYERS-DESIGN.md)** (session design, 21 décisions
-> prises sur maquettes peuplées au volume réel). En cas de contradiction, **le CDC design fait foi**.
-> Amendement principal : la décision **D6 (« quittance seulement si le mois est soldé ») est ABROGÉE** —
-> principe retenu par Didier : *« l'app doit prévenir mais pas bloquer tout le temps l'utilisateur ;
-> on garde des garde-fous partout, mais pas bloquants »*.
-
 **Statut : VALIDÉ par Didier le 18/08/2026** — session dédiée « quittances & IRL ».
+**Révisé le 25/08/2026** après retour sur l'écran réel : D22 (aucune fenêtre au démarrage), D23 (le DPE informe,
+il ne bloque pas), D24 (ruban à trois états), D25 (l'IRL en tête), D26 (les documents passent au **texte natif** :
+2,4 Ko et 1 page, contre 449 Ko et 2 pages) — et D16/D17 corrigées en conséquence.
 Maquettes de référence, dans `mockups/QUITTANCES-IRL/` (gitignoré) :
 
 | Fichier | Ce qu'il fixe |
@@ -15,6 +12,9 @@ Maquettes de référence, dans `mockups/QUITTANCES-IRL/` (gitignoré) :
 | `etats-loyers.html` | L'écran du mois, le tri par « quittance demandée », « Faire une quittance », états vides |
 | `revision-irl.html` | Le calendrier Gantt, les états de révision, la fenêtre de validation, l'historique, la lettre |
 | `retraits-et-rappels.html` | Le courrier de relance unique + l'inventaire complet des retraits |
+| `demarrage-sans-popup.html` | Le démarrage sans fenêtre + la pastille de menu et ce qu'elle compte (D22) |
+| `ruban-et-dpe.html` | Le ruban des révisions lisible, l'ordre des blocs, le rappel DPE (D23 à D25) |
+| `pdf-rendu.html` | Le diagnostic du PDF actuel : d'où viennent le flou (184 DPI) et la 2ᵉ page (marges comptées deux fois). ⚠️ Ses correctifs « garder l'image » sont **caducs** — voir D26 |
 
 Aucun code n'a été modifié par cette session. Ce fichier et les 4 maquettes sont les seuls livrables.
 
@@ -23,7 +23,7 @@ Aucun code n'a été modifié par cette session. Ce fichier et les 4 maquettes s
 ## 1. Le constat qui justifie le chantier
 
 Les deux onglets actuels **ne détiennent aucune donnée en propre**. Le dû est dans le bail et le barème
-(`duMois`, [js/core/loyer-du-mois.js:96](../../js/core/loyer-du-mois.js)), le payé dans les mouvements, l'historique
+(`duMois`, [js/core/loyer-du-mois.js:96](../js/core/loyer-du-mois.js)), le payé dans les mouvements, l'historique
 dans la timeline du bail (v15.496). Ce sont deux **listes de tâches** — donc deux endroits à visiter pour savoir
 qu'il n'y a rien à faire.
 
@@ -75,6 +75,15 @@ visibles mais non sélectionnables, avec leur motif (« reste 120,00 € »).
 
 Plus deux lignes repliées : « Quittances éditées ce mois » et « Calendrier des révisions à venir ».
 
+**D25 — L'ordre des blocs de l'onglet Loyers : l'IRL en premier.**
+*(Ajouté le 25/08, demande explicite.)* Remplace l'ordre de D5 :
+1. 📈 **Révisions à préparer** — 2. 🏷 **DPE à compléter** (information, D23) — 3. 🧾 **Quittances demandées** —
+4. ⏳ **Pas à jour** (loyer et charges).
+Puis, repliés : le calendrier des révisions · les non révisables · les quittances éditées ce mois · le suivi mois
+par mois. **Pourquoi cet ordre** : une révision arrive une fois par an et par bail et **se perd** si on l'oublie
+(prescription d'un an, D15) ; une quittance se rattrape à tout moment. Le rare et périssable passe avant le
+fréquent et rattrapable. Le rappel DPE est juste sous l'IRL parce qu'il parle du bloc du dessus.
+
 ### Quand une quittance est possible
 
 **D6 — Mois soldé = quittance ; sinon, reçu.** La quittance n'est proposée que si le cumul encaissé imputé au mois
@@ -84,12 +93,12 @@ atteint le dû du mois, **au centime**. En dessous : bouton « Reçu de paiement
 **D7 — L'imputation n'est pas réinventée : elle est consommée.** Le rattachement d'un paiement à un mois est déjà
 tranché (décisions du 09/07 et 14/07) et codé :
 - cascade **loyer HC du mois → charges du mois → arriérés de loyer les plus vieux d'abord → arriérés de charges**
-  (`_loyerArrearsPass`, [js/core/loyer-du-mois.js:212](../../js/core/loyer-du-mois.js)) ;
+  (`_loyerArrearsPass`, [js/core/loyer-du-mois.js:212](../js/core/loyer-du-mois.js)) ;
 - **netting avance↔retard** (`_computeLoyerNetting`, idem:263) : une avance couvre les mois suivants avant qu'un
   retard naisse ;
 - « un paiement n'est pas rattaché au mois calendaire de sa date, il comble d'abord le plus vieux mois non couvert »
-  (`_computeLoyerStatut`, [js/core/loyer-statut.js:31](../../js/core/loyer-statut.js)) ;
-- écrit dans [docs/CDC-FINANCES.md § H-1](../../docs/CDC-FINANCES.md).
+  (`_computeLoyerStatut`, [js/core/loyer-statut.js:31](../js/core/loyer-statut.js)) ;
+- écrit dans [docs/CDC-FINANCES.md § H-1](../docs/CDC-FINANCES.md).
 
 **Un mois est quittançable quand il ne porte plus aucun résidu** : `retardMois[idx].loyer === 0 && retardMois[idx].charge === 0`.
 Ce seul prédicat donne gratuitement le rattrapage, le paiement en plusieurs fois et l'avance.
@@ -132,13 +141,50 @@ la révision de ce cycle **n'est plus proposée**. Elle bascule dans un bloc inf
 fois ce qu'elle aurait rapporté (« ≈ 14,80 €/mois »). Seul le **cycle en cours** reste révisable, sur le loyer
 **actuel** — pas sur celui qu'on aurait eu sans l'oubli. L'app ne propose jamais un geste non opposable au locataire.
 
-**D16 — Un calendrier type Gantt.** Douze mois glissants, un lot par ligne : bande hachurée = mois de rappel,
-pavé plein = mois d'effet, ligne grise = non révisable (DPE F/G gelé, bail < 1 an). Replié en bas de l'onglet Loyers,
-déplié à la demande. Sur téléphone il défile **dans son propre cadre** ; la page ne déborde pas.
+**D16 — Un calendrier des révisions, replié en bas de l'onglet Loyers.** Douze mois glissants.
+*(Révisé le 25/08 — le chantier a remplacé le Gantt « 1 lot × 12 mois » par un **ruban de 12 tuiles** agrégées,
+`IrlCalendrier.rubanRevisions` : 33 lignes sur le parc réel faisaient monter l'écran à 3 691 px. Le remplacement
+est conservé ; voir **D24** pour ses états.)* Sur téléphone le ruban défile **dans son propre cadre** ; la page ne
+déborde pas. Clic sur une tuile = la liste des lots de ce mois.
 
-**D17 — Les non-révisables sont visibles mais muets.** DPE F/G gelé (loi Climat), bail de moins d'un an, indice non
-publié : listés dans un bloc « 🔒 Non révisables », **hors du compteur**, sans action demandée. Ils évitent la
-question « pourquoi celui-là n'est pas dans la liste ? ».
+**D17 — Les non-révisables sont visibles mais muets — et il n'y en a que deux sortes.**
+*(Corrigé le 25/08 : « on ne bloque pas l'IRL à cause du DPE, on informe ».)*
+Deux motifs seulement retiennent un lot hors des révisions :
+- **DPE renseigné F ou G** → loyer gelé. C'est la **loi** (Climat & Résilience, art. 23) qui interdit, pas l'app.
+- **Bail de moins d'un an** → la première révision n'est pas encore due.
+
+Un **indice non encore publié** n'est pas un blocage non plus : le lot reste annoncé, avec la date de publication
+attendue de l'INSEE (D20).
+
+**D23 — Un DPE absent ou périmé n'empêche AUCUNE révision : il informe.**
+*(Ajouté le 25/08. Maquette : `ruban-et-dpe.html`, sections 3 et 4.)*
+Aujourd'hui `computeIRLRevision` renvoie `{dpeManquant:true}` **sans rien calculer**, et `applyIRL` refuse
+d'appliquer (index.html:24925 et 25957) : sur le parc réel, 6 lots sont sortis des révisions parce qu'un DPE
+n'a jamais été saisi. Désormais :
+- la révision est **calculée et proposée normalement**, avec une pastille « DPE inconnu » et la phrase
+  « à vérifier avant d'envoyer : un F ou G ne se révise pas » ;
+- un bloc d'information **« 🏷 DPE à compléter »**, placé juste sous les révisions, dit combien de lots n'ont pas
+  de DPE en base — **sans retenir quoi que ce soit** ;
+- **saisie rapide sur place** : une ligne par lot, la classe en un clic (A→G) + la date de réalisation, écrite sur
+  la **fiche du bien** (`log.diagnostics.dpe`, la source de vérité depuis v15.233), pas dans un champ local ;
+- **case « non concerné »** pour les garages, caves et parkings : pas de DPE exigible, donc plus jamais réclamé ;
+- **DPE de plus de 10 ans** traité comme un DPE manquant (il n'est plus valable) — l'app sait déjà le détecter
+  (`dpeExpire`), elle se contentait d'un avertissement discret ;
+- saisir un **F ou un G** est la seule chose qui change quelque chose : le lot bascule immédiatement en loyer gelé
+  et sort des révisions (D17).
+
+Sur le parc réel, cette seule décision fait passer les non révisables de **16 lots à 10**.
+
+**D24 — Le ruban n'a que trois états : à faire, faite, rien.**
+*(Ajouté le 25/08, après constat sur l'écran réel : six tuiles rayées orange affichant « — ».)*
+- La **hachure « mois de rappel (M-1) » disparaît** du ruban. Elle avait un sens sur le Gantt, où la bande était
+  collée à son pavé d'effet sur la même ligne ; agrégée en tuiles, elle produit une case rayée sans voisin ni
+  chiffre. Le rappel M-1 reste ce qu'il est : ce qui fait apparaître la ligne dans « Révisions à préparer » (D13).
+- Les révisions **déjà faites** deviennent visibles : tuile verte, chiffre + « faite ». Aujourd'hui la tuile lit
+  `const n = m.nbEffet` (index.html:29755) alors que `nbFaite` est calculé et **jamais rendu** — un mois dont la
+  révision est appliquée affiche « — » comme s'il ne s'y était rien passé.
+- Le 🔒 des non-révisables reste en coin de tuile, hors compteur.
+- **Règle** : toute tuile colorée porte un chiffre et un mot. Le gris veut dire « rien ce mois-ci », et c'est vrai.
 
 **D18 — La fenêtre de validation est conservée telle quelle** (`ov-irl-valid`, `_irlValidConfirm`), avec sa date
 d'effet modifiable et ses garde-fous. Une seule chose est ajoutée : la phrase **« Les mois passés ne changent pas —
@@ -147,6 +193,81 @@ aucune quittance déjà émise, aucun loyer déjà dû n'est recalculé. »**
 **D19 — Un seul historique : celui du bail.** La révision écrit son événement dans la timeline « Historique du bail »
 (v15.496). La lettre s'y re-télécharge depuis la ligne. Le sous-onglet « Historique » de l'IRL et son bouton
 « 🗑 Effacer tout l'historique » disparaissent — rien ne justifie de pouvoir effacer une trace financière (C6).
+
+### Les documents produits
+
+**D26 — TOUS les documents passent au TEXTE NATIF. La rasterisation est abandonnée.**
+*(Décidé le 25/08/2026. Remplace la première version de D26, qui conservait l'image : elle reposait sur une
+lecture erronée d'une remarque de Didier sur le copier-coller. Critères réels, énoncés par lui : « un PDF qui rend
+bien et qui ne soit pas trop lourd ». Le texte sélectionnable ou non n'est pas un critère.)*
+
+**Mesure faite le 25/08 sur la lettre de révision IRL, les deux versions côte à côte :**
+
+| | Image (aujourd'hui) | Texte natif (démo) |
+|---|---|---|
+| Poids | **449 Ko** | **2,4 Ko** — 190 fois moins |
+| Pages | 2 (dont une bande de 4,9 mm) | 1 |
+| Netteté | 184 DPI, pixellise dès le zoom | vectoriel, net à tout zoom et à l'impression |
+| Accents et € | — | encodés nativement (WinAnsi), **aucune police à embarquer** |
+
+Démo produite avec pdf-lib (présent dans `node_modules`) ; l'app utilise jsPDF — même principe, mêmes ordres de
+grandeur. Fichier : `Downloads/Lettre-revision-IRL-NATIVE-demo.pdf`.
+
+**Le moteur existe déjà et tourne en production** — c'est le point qui rend la décision facile.
+`PDF_NATIVE` (index.html:24313) porte marges, format A4, `FONT_FAMILY: "helvetica"`, tailles, couleurs, bordures,
+fonds de tableau, et un `drawText` avec retour à la ligne, alignement et couleur. Le bail y est passé en **v13.05**
+(commentaire index.html:24310 : « anciennes fonctions html2canvas supprimées, remplacées par `genPDFNative` »), et
+il gère déjà les **signatures et paraphes en image** posés sur du texte vectoriel — la seule vraie objection au
+natif tombe donc d'elle-même.
+
+**Portée : TOUS les documents émis** *(étendu le 25/08 : « on fait ça pour tous les documents »)*.
+Inventaire complet des générateurs PDF de l'app, vérifié fichier par fichier :
+
+| Document | Chemin | État |
+|---|---|---|
+| Bail | `genPDFNative` (v13.05), paraphes/signatures en image | ✅ déjà natif |
+| EDL entrée / sortie | `generateEDLPdfNative` — index.html:32461, **zéro html2canvas**, `addImage` seulement pour les photos | ✅ déjà natif |
+| Acte de cautionnement signé | `_genPdfCautionnement` — email-pdf-attachment.js:662 | ✅ déjà natif |
+| Récap bail signé (annexe mail) | `_genPdfBailSigne` — idem:524 | ✅ déjà natif |
+| Récap EDL signé (annexe mail) | `_genPdfEdlSigne` — idem:591 | ✅ déjà natif |
+| **Quittance** | `_genPdfQuittance` — idem:245 → `_rasterizeHtmlToPdfBlob` | ❌ **à convertir** |
+| **Lettre de révision IRL** | `_genPdfIrlRevision` — idem:729 → idem | ❌ **à convertir** |
+| **Décompte de régularisation de charges** | `_genPdfDecompteRegul` — idem:435 → idem | ❌ **à convertir** |
+| **Récap DDT (diagnostics)** | `_ddtRecapPDF` — index.html:40789, jsPDF **+ html2canvas** sur `#ddt-recap-content` | ⚠️ **mixte, à convertir** |
+
+**Quatre documents à convertir, pas neuf.** L'**EDL est le modèle** : texte natif partout, `addImage` uniquement
+là où c'est vraiment une image (photos, signature, logo).
+
+**Garde-fou obligatoire, déjà écrit** : `MontantDoc.hardenJsPdfText` (js/helpers/montant-doc.global.js:158)
+enveloppe `pdf.text` pour assainir les caractères que les polices standard n'encodent pas **et les signaler en
+console** — posé après l'audit du 13/08 (« sans ça, un caractère non couvert disparaîtrait silencieusement d'un
+document légal »). EDL et DDT l'utilisent déjà ; les quatre conversions **doivent** passer par lui. C'est la
+différence entre jsPDF, qui laisse tomber le caractère en silence, et un document juste.
+
+**Ce qu'il faut faire** (DRY, cf. la règle « réutiliser, jamais recopier ») :
+1. **Extraire `PDF_NATIVE` en module partagé** (`js/helpers/pdf-native.global.js`). Aujourd'hui il est défini
+   **dans la source stringifiée** de la fenêtre d'aperçu du bail, donc inatteignable depuis la fenêtre principale.
+   C'est le seul vrai travail de ce chantier.
+2. **Un builder de structure par document**, sur le modèle de `buildBailStructure` (qui produit déjà des
+   `{type:'p'|'h3'|…, text}`) : quittance, lettre IRL, décompte. Le gabarit unique (`doc-template.global.js`)
+   reste la référence de mise en page ; il décrit désormais une structure, plus seulement du HTML.
+3. **`_rasterizeHtmlToPdfBlob` n'est plus appelé du tout** — et `_ddtRecapPDF` abandonne lui aussi html2canvas.
+   Une fois les quatre convertis, la fonction est **supprimée**, et html2canvas cesse d'être décodé depuis base64
+   (~200 Ko) à chaque téléchargement de document.
+4. **Le logo bailleur et la signature** restent des images, posées par `addImage` sur leur seule zone — comme le
+   fait déjà l'EDL pour ses photos.
+5. **Tout passe par `MontantDoc.hardenJsPdfText`**, sans exception.
+
+**Ce qu'on perd, et qui est assumé** : le PDF n'est plus le décalque pixel du HTML d'aperçu. Deux rendus à tenir
+alignés — l'aperçu écran et le PDF. C'est le prix d'un document qui pèse 2 Ko et reste net ; le bail le paie déjà
+depuis la v13.05.
+
+**Police** : Helvetica standard, comme le bail. Embarquer Schibsted Grotesk pour coller à la charte ajouterait
+100 à 300 Ko par document et n'est **pas** V1 — à rouvrir seulement si la charte l'exige sur les documents émis.
+
+**Hors V1** : rien de particulier. Un document de deux pages pleines ne pose plus le problème de découpe qu'avait
+l'image : le moteur natif pagine sur les sauts de ligne, comme il le fait déjà pour le bail (des dizaines de pages).
+
 
 ### Indice INSEE
 
@@ -173,12 +294,30 @@ Règles d'usage :
 - l'écran affiche la **date de publication au JO** de chaque indice : c'est elle qui explique pourquoi un trimestre
   n'est pas encore disponible (publication ~6 semaines après la fin du trimestre).
 
-### Réglages
+### Réglages et signalement
 
 **D21 — Un seul interrupteur survit : la case du bail.** `bail.quittanceDemandee` devient le seul réglage lié aux
 quittances, et c'est lui qui décide de ce qui s'affiche (D3). Il doit devenir une question posée **une fois, au
 moment du bail** (« ce locataire veut-il sa quittance chaque mois ? »), pas une case perdue dans un formulaire.
 Les trois autres réglages (C2) disparaissent.
+
+**D22 — Aucune fenêtre ne s'ouvre au démarrage ; un compteur attend sur le menu.**
+*(Ajouté le 25/08/2026 — oubli de la première rédaction, constaté par Didier : la popup était toujours là.
+Maquette : `demarrage-sans-popup.html`.)*
+La modale de rappel IRL ouverte au boot (`ov-irl-rappel`, via `_checkIRLRappelsAuLogin`, index.html:30755,
+programmée index.html:57583) est **supprimée**. Elle contredisait trois décisions : elle se déclenche sur
+`rev.isApplicable` — donc **après** l'anniversaire, jamais au rappel M-1 de D13 ; elle porte un bouton
+« 💶 Valider IRL » qui **applique une révision depuis une fenêtre ouverte automatiquement**, hors de la fenêtre
+de validation de D18 ; et elle interrompt là où D5 met le travail dans l'écran.
+
+À la place : une **pastille rouge sur l'entrée de menu « Loyers »**, qui compte **exactement les lignes de
+l'écran** — quittances demandées prêtes à éditer + lots pas à jour + révisions à préparer. Ni les
+« non révisables » (gelé DPE, bail < 1 an, indice non publié) ni les « perdues » (D15) n'y entrent : rien à y
+faire, rien à compter. Écran vide = pas de pastille. Info-bulle au survol détaillant les trois nombres.
+
+**Rien à inventer** : le mécanisme existe et couvre déjà les trois surfaces (sidebar, barre du bas quand la page
+est masquée, feuille « Plus ») — `_renderInboxSurfaces` (index.html:18727, candidatures) et
+`_updateAgendaBadge` (index.html:50294, agenda). On y branche « Loyers ».
 
 ---
 
@@ -201,6 +340,7 @@ quittances d'un logement restent consultables depuis sa fiche.
 | Onglet « Loyer (IRL) » et ses 3 sous-onglets | index.html:426 · `rIRL()` | absorbé par « Loyers » |
 | Sous-onglet « Historique » de l'IRL + bouton « 🗑 Effacer tout l'historique » | index.html:538-541 | doublon + destruction de trace (C6, C7) |
 | Panneau « ✉ Aperçu lettre » et son sélecteur de bail | `irl-letter-pane` — index.html:502 | l'aperçu suit le clic |
+| **Popup de rappel IRL au démarrage** + son toast | `ov-irl-rappel` · `_checkIRLRappelsAuLogin` — index.html:30755 · 57583 | remplacée par la pastille de menu (D22) |
 | `_matcheMois()` / `_matchPaiementQuittance()` | js/core/quittances-actives.js:100 · 121 | 7ᵉ moteur d'imputation (C3) |
 
 ### Déménage
@@ -239,6 +379,11 @@ sa fiche (`_renderQuitForLog`, index.html:37567) · timeline « Historique du ba
 | **I11** | **L'API INSEE n'écrase rien.** Une valeur d'indice saisie à la main survit à une synchronisation ; une divergence est signalée, pas corrigée. |
 | **I12** | **Hors ligne.** Sans réseau, `IRL_DEFAULT` prend le relais et aucun écran ne casse. |
 | **I13** | **Pas d'émission automatique.** Aucun chemin de code ne crée une quittance sans clic explicite (ni au boot, ni au save d'un mouvement). |
+| **I14** | **Aucune modale au démarrage.** Après un boot complet (legacy, sandbox et cloud post-hydratation), aucun overlay n'est ouvert : `document.querySelectorAll('.ov:not(.hidden)')` est vide, quel que soit le nombre de révisions en attente. |
+| **I15** | **La pastille égale l'écran.** Le compteur de l'entrée « Loyers » = nombre de lignes actionnables de l'écran Loyers (quittances demandées prêtes + lots pas à jour + révisions à préparer), et vaut 0 — donc pas de pastille — quand l'écran n'a rien à proposer. Les non-révisables et les révisions perdues n'y entrent jamais. |
+| **I16** | **Le DPE ne retient rien.** Un lot sans DPE, ou dont le DPE a plus de 10 ans, produit une révision calculée et proposable ; seul un DPE **renseigné F ou G** l'en exclut. `applyIRL` ne refuse plus pour DPE manquant. |
+| **I17** | **Le DPE saisi depuis Loyers est écrit sur le bien** (`log.diagnostics.dpe`) et nulle part ailleurs ; un lot marqué « non concerné » ne réapparaît jamais dans le rappel. |
+| **I18** | **Aucune tuile colorée sans chiffre.** Toute tuile non grise du ruban porte un nombre ≥ 1 et un libellé ; `nbFaite` est rendu ; aucune tuile n'est hachurée. |
 
 ---
 
@@ -268,6 +413,30 @@ Relevées pendant l'audit, à ne pas perdre :
 4. **`computeIRLRevision`** doit changer de calendrier (D12/D13) : anniversaire → 1ᵉʳ du mois, alerte 30 jours
    glissants → 1ᵉʳ du mois précédent. Vérifier les 5 appelants (dashboard, matrice, agenda, fiche, drill).
 5. **`IRL_DEFAULT`** doit rester (filet hors ligne) mais cesse d'être la source de vérité.
+5bis. **Le blocage DPE est à défaire en deux endroits** (D23) : `computeIRLRevision` sort en
+   `{dpeManquant:true}` **avant tout calcul** (index.html:24925) et `applyIRL` refuse d'appliquer
+   (index.html:25957). Le calcul n'a jamais eu besoin du DPE — seul le **gel F/G** doit continuer à exclure.
+   Vérifier au passage les 5 appelants qui testent `rev.dpeManquant` pour afficher « 📋 Saisir DPE ».
+5ter. **Le ruban** (D24) : retirer la classe `.rap` posée par index.html:29755
+   (`(!n && m.nbRappel ? ' rap' : '')`), rendre `nbFaite` (calculé irl-calendrier.js:302, jamais affiché),
+   et mettre la légende à jour. `nbRappel` peut rester calculé pour d'autres surfaces, mais ne colore plus rien.
+6. **Les PDF émis sont des images, et débordent sur une 2ᵉ page** (constaté le 25/08/2026 sur un
+   `Lettre-revision-IRL-F-201.pdf` réel : jsPDF 2.5.1, 2 pages, un seul XObject JPEG 1402 × 2066 px,
+   zéro caractère de texte — les 14 polices `Type1` déclarées sont les polices standard que jsPDF met
+   toujours dans le dictionnaire, aucune n'est utilisée).
+   - **Cause « image »** : `_emailGenIRLPdf` → `_buildIRLLetterHtml` → `_rasterizeHtmlToPdfBlob`
+     (js/core/email-pdf-attachment.js:115) → html2canvas `scale:2` → JPEG 0.95 → `addImage`.
+     Choix v15.107/v15.111 « Option A » (fidélité à l'aperçu). Un chemin **texte natif** existe en secours
+     (même fichier, l. 760+) mais n'est jamais emprunté en usage normal.
+     **→ Ce diagnostic reste utile pour comprendre l'existant, mais la voie retenue est D26 : texte natif.**
+   - **Cause « 2 pages »** : marges cumulées. imgW = 210−16 = 194 mm → imgH = 2066×194/1402 = **285,9 mm**,
+     pour une hauteur utile de 297−16 = **281 mm** → débordement de **4,9 mm** (≈ 18 px), et la boucle
+     `while (renderedMm < imgH)` ouvre une page pour cette bande. Le conteneur de rendu applique
+     `padding:30px` (≈ 8,3 mm) **en plus** des 8 mm de jsPDF, alors que le chemin impression du même
+     document utilise `@page{margin:1.8cm 2cm}` (`QUIT_PRINT_CSS`, index.html:28814) : deux jeux de marges
+     pour un seul document.
+   - **Cause « flou »** : 1402 px étalés sur 194 mm = **184 DPI** (un document se lit à partir de 300), et un
+     encodage **JPEG** — le pire format pour du texte noir sur blanc, il crée des halos autour des glyphes.
 
 ---
 
@@ -282,7 +451,9 @@ Chaque étape est livrable et testable seule. Worktree dédié, détruit après 
 | **2. La quittance lit le barème** | `_buildQuittanceHtml` prend son montant de `duMois(ref, ym)` au lieu de `bail.hc/ch`. | Tests I1, I5 ; ré-édition d'une quittance ancienne identique à l'originale |
 | **3. Couper les émissions automatiques** | Retirer `genAllQuit`, `_quittancesAutoGenAtBoot`, le popup au save de mouvement, les trois réglages (D21). | Test I13 ; smoke : aucune quittance n'apparaît sans clic |
 | **4. L'onglet « Loyers »** | Nouvelle page : 3 blocs (D5), tri par `quittanceDemandee` (D3), « Faire une quittance » (D4), courrier de relance unique (D11). Retrait de l'onglet Quittances. | Gate 3 formats + 1 écran PC |
-| **5. Le calendrier IRL** | Nouveau calendrier (D12/D13/D16/D17), prescription (D15), bloc « à préparer » dans l'onglet Loyers. Retrait de l'onglet IRL et de ses sous-onglets sauf la table. | Tests I8, I9, I10 ; gate 3 formats |
+| **5. Le calendrier IRL** | Nouveau calendrier (D12/D13/D16/D17), prescription (D15), bloc « à préparer » dans l'onglet Loyers. Retrait de l'onglet IRL et de ses sous-onglets sauf la table. **Retrait de la popup de démarrage + pastille de menu (D22)**, branchée sur le mécanisme existant `_renderInboxSurfaces`. | Tests I8, I9, I10, **I14, I15** ; gate 3 formats ; smoke : lancer l'app deux jours de suite, aucune fenêtre |
+| **4bis. Tous les documents en texte natif** | Extraire `PDF_NATIVE` (index.html:24313) en module partagé ; un builder de structure par document sur le modèle de `buildBailStructure` ; convertir les **4 restants** — quittance, lettre IRL, décompte de charges, récap DDT ; tout via `MontantDoc.hardenJsPdfText` ; logo et signature en `addImage` ; **supprimer `_rasterizeHtmlToPdfBlob`** et le chargement de html2canvas au téléchargement (**D26**). | Smoke sur les 4 : **1 page** quand c'est prévu, **< 20 Ko**, net au zoom 400 %, accents et € corrects, aucun avertissement `[pdfSafeText]` en console ; l'aperçu écran reste fidèle au PDF |
+| **5bis. DPE informatif, ruban lisible, IRL en tête** | Défaire le blocage DPE dans `computeIRLRevision` + `applyIRL`, bloc « DPE à compléter » et sa saisie rapide écrite sur le bien (**D23**) ; ruban à trois états, hachure retirée, `nbFaite` rendu (**D24**) ; ordre des blocs IRL → DPE → quittances → pas à jour (**D25**). | Tests **I16, I17, I18** ; gate 3 formats ; smoke : les 6 lots « DPE non renseigné » réapparaissent en révisables, non révisables 16 → 10 |
 | **6. Historique unifié** | La révision écrit dans la timeline du bail ; retrait du sous-onglet Historique et du bouton d'effacement (D19). | Test I2 ; smoke : révision visible sur la fiche |
 | **7. API INSEE** | Table déplacée dans Paramètres, synchronisation au boot (D20), `IRL_DEFAULT` en filet. | Tests I11, I12 ; smoke hors ligne |
 | **8. Navigation** | Renommage « Mouvements » (D2), zone Argent à 4 entrées, sidebar + barre du bas + feuille Plus + menu personnalisable. | Gate 3 formats ; audit agent SÛR |
