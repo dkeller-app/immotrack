@@ -141,3 +141,31 @@ export function precedente(i, n) { return indexClamp(indexClamp(i, n) - 1, n); }
 /** Y a-t-il une pièce après / avant l'index courant ? (griser les flèches du rail). */
 export function aSuivante(i, n) { return indexClamp(i, n) < n - 1; }
 export function aPrecedente(i, n) { return indexClamp(i, n) > 0; }
+
+/**
+ * P9 (§7bis, §9 inv. 34h) — LE résolveur unique de « l'EDL de sortie qui fait foi »
+ * pour un bail. Le bug : `edls.find(e => e.type === 'Sortie')` rend le PREMIER dans
+ * l'ordre d'insertion. Sur un logement reloué, c'est la sortie du locataire PRÉCÉDENT
+ * qui pilotait le délai de restitution du locataire actuel — une échéance légale
+ * déplacée en silence. La règle : le plus RÉCENT dans la fenêtre du bail, jamais le
+ * premier trouvé. Source unique, comme `duMois` pour les loyers.
+ *
+ * @param {{ref?:string, debut?:string, fin?:string, finEffective?:string}} bail
+ * @param {Array} edls   la collection DB.edl
+ * @returns {object|null} l'EDL de sortie qui fait foi, ou null
+ */
+export function edlSortieQuiFaitFoi(bail, edls) {
+  if (!bail || !bail.ref) return null;
+  const debut = bail.debut ? String(bail.debut) : null;
+  let best = null;
+  for (const e of (edls || [])) {
+    if (!e || e._deleted || e.type !== 'Sortie' || e.logement !== bail.ref) continue;
+    // une sortie ne peut pas précéder le début du bail : elle appartient au bail
+    // précédent. (Une sortie sans date reste candidate — mieux vaut la garder.)
+    if (debut && e.date && String(e.date) < debut) continue;
+    if (!best) { best = e; continue; }
+    // le plus récent gagne ; à date égale, on garde le premier rencontré (stable)
+    if (String(e.date || '') > String(best.date || '')) best = e;
+  }
+  return best;
+}

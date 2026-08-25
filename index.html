@@ -27001,7 +27001,11 @@ function _departState(bail){
   const ref = bail.ref;
   const log = (DB.logements||[]).find(l=>l.ref===ref) || {};
   const reg = (typeof _rgImmRegime==='function') ? _rgImmRegime({bail, imm: log.imm||''}) : {collectif:true, applies20:true, label:''};
-  const edlSortie = (DB.edl||[]).find(e=>e && !e._deleted && e.logement===ref && e.type==='Sortie') || null;
+  // P9 (§7bis) : même résolveur unique que _calculerDelaiRestitution (le plus récent).
+  const _P9 = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const edlSortie = _P9
+    ? _P9.edlSortieQuiFaitFoi(bail, DB.edl||[])
+    : ((DB.edl||[]).find(e=>e && !e._deleted && e.logement===ref && e.type==='Sortie') || null);
   const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail) : 2;
   const deadline = _departDeadlineDG(bail);
   const d = bail.depart || null;
@@ -28522,7 +28526,12 @@ function _calculerDelaiRestitution(bail, edls) {
   if (!bail) return 2;
   if (Number(bail.dgRetenu) > 0) return 2;
   const sourceEdls = edls || (DB && DB.edl) || [];
-  const edlSortie = sourceEdls.find(e => e && !e._deleted && e.logement === bail.ref && e.type === 'Sortie');
+  // P9 (§7bis) : LE résolveur unique — le plus récent de la fenêtre du bail, jamais le
+  // premier trouvé (sinon la sortie du locataire précédent pilote le délai de l'actuel).
+  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const edlSortie = _P
+    ? _P.edlSortieQuiFaitFoi(bail, sourceEdls)
+    : sourceEdls.find(e => e && !e._deleted && e.logement === bail.ref && e.type === 'Sortie');
   if (edlSortie) {
     const hasDegradation = (edlSortie.pieces||[]).some(p =>
       (p.elements||[]).some(el =>
@@ -32468,6 +32477,27 @@ function _edlPhotoCell(pi,ei,side) {
   </td>`;
 }
 
+/* EDL TERRAIN lot 7 (§A.6) — le VERDICT d'un élément de sortie, DÉDUIT et jamais
+   stocké : verdictDe(entrée, sortie) via le module testé. La cellule se recalcule à
+   chaque changement d'état (edlEtat) ou d'observation de sortie (edlObs). Reco §A.6
+   appliquée : une observation de sortie sans écart affiche « état inchangé ? » —
+   on prévient, on ne décide pas. */
+function _edlVerdictInner(x) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if (!P || !x) return '';
+  const v = P.verdictDe(x.etatE, x.etatS);
+  const map = { 'a-constater': ['À constater', 'vc-att'], 'conforme': ['Conforme', 'vc-ok'], 'ecart': ['ÉCART', 'vc-ko'] };
+  const [lbl, cls] = map[v] || map['a-constater'];
+  let h = `<span class="edl-vbadge ${cls}">${lbl}</span>`;
+  if (P.avertObsSortie(x)) h += `<span class="edl-vwarn" title="Une observation de sortie est notée alors que l'état n'a pas changé — l'état est-il toujours le même ?">état inchangé ?</span>`;
+  return h;
+}
+function _edlRefreshVerdict(pi, ei) {
+  if (!_edlSortie) return;
+  const cell = document.querySelector(`.edl-verdict-cell[data-vpi="${pi}"][data-vei="${ei}"]`);
+  if (cell) cell.innerHTML = _edlVerdictInner(_edlP[pi] && _edlP[pi].elements[ei]);
+}
+
 function _edlElemRow(pi,ei,x,isSortie) {
   const inp='width:100%;background:transparent;border:none;color:var(--t1);font-size:12px;padding:1px 2px';
   const ta='width:100%;background:transparent;border:none;color:var(--t1);font-size:11px;resize:vertical;min-height:26px';
@@ -32480,6 +32510,7 @@ function _edlElemRow(pi,ei,x,isSortie) {
     <td style="text-align:center">${_edlBtns(pi,ei,'etatS',x.etatS)}</td>
     <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsS',this.value)" placeholder="...">${escHtml(x.obsS||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'S')}
+    <td class="edl-verdict-cell" data-vpi="${pi}" data-vei="${ei}" style="text-align:center;white-space:nowrap">${_edlVerdictInner(x)}</td>
     ${del}</tr>`;
   return `<tr>
     <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
@@ -32504,7 +32535,7 @@ function _edlPieceBadge(p) {
 function _edlPieceHTML(p,pi) {
   const isSortie=_edlSortie;
   const thead=isSortie
-    ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">📷 Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">📷 Sortie</th><th style="width:20px"></th></tr>`
+    ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">📷 Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">📷 Sortie</th><th style="width:88px;text-align:center">Verdict</th><th style="width:20px"></th></tr>`
     :`<tr style="background:var(--sur2)"><th style="min-width:140px">Élément</th><th style="width:100px;text-align:center">État</th><th>Observations</th><th style="width:65px;text-align:center">📷</th><th style="width:20px"></th></tr>`;
   const rows=(p.elements||[]).map((x,ei)=>_edlElemRow(pi,ei,x,isSortie)).join('');
   // lot 5 : chaque pièce est un BLOC adressable (data-pidx) — sur téléphone, le
@@ -32537,9 +32568,13 @@ function edlEtat(pi,ei,field,idx,btn) {
     b.style.color=active?c:'var(--t2)';
     b.style.fontWeight=active?700:400;
   });
+  _edlRefreshVerdict(pi,ei); // lot 7 : le verdict est déduit, il se recalcule au clic
+  // lot 5 : la pastille d'avancement de la pièce bouge quand un état change
+  const badge=row.closest('.edl-piece-block')?.querySelector('.edl-pbadge');
+  if(badge&&_edlP[pi]){badge.outerHTML=_edlPieceBadge(_edlP[pi]);}
 }
 function edlElemNom(pi,ei,v2){if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei].nom=v2;}
-function edlObs(pi,ei,f,v2){if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei][f]=v2;}
+function edlObs(pi,ei,f,v2){if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei][f]=v2;if(f==='obsS'||f==='etatS'||f==='etatE')_edlRefreshVerdict(pi,ei);}
 function edlPieceNom(pi,v2){if(_edlP[pi])_edlP[pi].nom=v2;}
 function edlAddElem(pi){if(!_edlP[pi])return;_edlP[pi].elements.push({nom:'',etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]});_edlRenderPieces();}
 function edlRemoveElem(pi,ei){if(!_edlP[pi])return;_edlP[pi].elements.splice(ei,1);_edlRenderPieces();}

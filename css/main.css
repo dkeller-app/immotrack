@@ -3211,6 +3211,16 @@ textarea.field-modified-since-sig{
     font-size:11px;color:var(--ora);font-weight:600;
     text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;
   }
+  /* Lot 7 : la cellule Verdict (8e) sur mobile — étiquetée, alignée à gauche comme les autres */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{
+    text-align:left !important;padding:8px 0 4px !important;white-space:normal !important;
+    border-top:1px dashed var(--bor) !important;margin-top:4px;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell::before{
+    content:'Verdict';display:block;font-size:11px;color:var(--t3);font-weight:600;
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell .edl-vwarn{max-width:none}
   /* Bouton ✕ supprimer élément (dernière cellule, width:20px) en absolute */
   #edl-pieces-section .tbl-wrap table.tbl td[style*="width:20px"]{
     position:absolute !important;top:8px;right:8px;
@@ -3287,6 +3297,17 @@ textarea.field-modified-since-sig{
   background:color-mix(in srgb,var(--pos) 10%,transparent)}
 .edl-pecart{font:700 11px var(--font);color:var(--neg);background:color-mix(in srgb,var(--neg) 12%,transparent);
   border:1px solid color-mix(in srgb,var(--neg) 45%,transparent);border-radius:999px;padding:1px 8px;white-space:nowrap}
+
+/* Lot 7 (§A.6, §6) — le VERDICT déduit d'un élément de sortie : à constater (ambre) /
+   conforme (atténué) / écart (rouge). Jamais saisi ; recalculé par verdictDe(). */
+.edl-vbadge{display:inline-block;font:700 10.5px var(--font);border-radius:999px;padding:2px 9px;
+  white-space:nowrap;border:1px solid transparent}
+.edl-vbadge.vc-att{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);
+  border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.edl-vbadge.vc-ok{color:var(--t2);background:var(--sur);border-color:var(--bor)}
+.edl-vbadge.vc-ko{color:var(--neg);background:color-mix(in srgb,var(--neg) 14%,transparent);
+  border-color:color-mix(in srgb,var(--neg) 50%,transparent);font-weight:800}
+.edl-vwarn{display:block;margin-top:4px;font:600 9.5px var(--font);color:var(--warn);white-space:normal;max-width:96px;line-height:1.25}
 
 /* Le rail du pouce : enfant direct de la modale, masqué par défaut, montré
    sous 768 px par _edlSyncParcours(). JAMAIS un conteneur de défilement. */

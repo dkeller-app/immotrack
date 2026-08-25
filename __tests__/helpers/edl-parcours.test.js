@@ -11,6 +11,7 @@ import {
   VERDICTS, verdictDe, elementRenseigne, aUneObs, aUnePhoto, avertObsSortie,
   progressionPiece, compterEcarts, compterAConstater, statsPiece, statsGlobales,
   railLabel, indexClamp, suivante, precedente, aSuivante, aPrecedente,
+  edlSortieQuiFaitFoi,
 } from '../../js/core/edl-parcours.js';
 
 const elem = (o = {}) => ({ nom: 'x', etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [], ...o });
@@ -142,5 +143,45 @@ describe('navigation — bornée, jamais de boucle (§9 inv. 23-24)', () => {
     expect(aSuivante(7, 8)).toBe(false);
     expect(aSuivante(0, 8)).toBe(true);
     expect(aPrecedente(7, 8)).toBe(true);
+  });
+});
+
+describe('edlSortieQuiFaitFoi — P9 (§9 inv. 34h) : le plus récent de la fenêtre, jamais le premier', () => {
+  const bail = { ref: 'FERRETTE-101', debut: '2025-01-01' };
+  it('sans EDL de sortie → null', () => {
+    expect(edlSortieQuiFaitFoi(bail, [])).toBe(null);
+    expect(edlSortieQuiFaitFoi(bail, [{ logement: 'FERRETTE-101', type: 'Entrée', date: '2025-01-01' }])).toBe(null);
+  });
+  it('LE BUG P9 : logement reloué → ignore la sortie du locataire PRÉCÉDENT (avant le début du bail)', () => {
+    const edls = [
+      { id: 1, logement: 'FERRETTE-101', type: 'Sortie', date: '2024-06-30' }, // locataire précédent
+      { id: 2, logement: 'FERRETTE-101', type: 'Sortie', date: '2026-05-15' }, // locataire actuel
+    ];
+    // l'ordre d'insertion mettait la sortie 2024 en premier → find() la prenait (bug)
+    expect(edlSortieQuiFaitFoi(bail, edls).id).toBe(2);
+  });
+  it('plusieurs sorties dans la fenêtre → la PLUS RÉCENTE', () => {
+    const edls = [
+      { id: 1, logement: 'FERRETTE-101', type: 'Sortie', date: '2026-02-01' },
+      { id: 2, logement: 'FERRETTE-101', type: 'Sortie', date: '2026-05-15' },
+      { id: 3, logement: 'FERRETTE-101', type: 'Sortie', date: '2026-03-10' },
+    ];
+    expect(edlSortieQuiFaitFoi(bail, edls).id).toBe(2);
+  });
+  it('ignore les EDL supprimés, d\'un autre logement, ou d\'entrée', () => {
+    const edls = [
+      { id: 1, logement: 'FERRETTE-101', type: 'Sortie', date: '2026-09-01', _deleted: true },
+      { id: 2, logement: 'AUTRE-002', type: 'Sortie', date: '2026-09-02' },
+      { id: 3, logement: 'FERRETTE-101', type: 'Entrée', date: '2026-09-03' },
+      { id: 4, logement: 'FERRETTE-101', type: 'Sortie', date: '2026-04-04' },
+    ];
+    expect(edlSortieQuiFaitFoi(bail, edls).id).toBe(4);
+  });
+  it('bail sans début : garde le plus récent sans filtre de fenêtre', () => {
+    const edls = [
+      { id: 1, logement: 'X', type: 'Sortie', date: '2020-01-01' },
+      { id: 2, logement: 'X', type: 'Sortie', date: '2026-01-01' },
+    ];
+    expect(edlSortieQuiFaitFoi({ ref: 'X' }, edls).id).toBe(2);
   });
 });
