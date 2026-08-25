@@ -25,6 +25,8 @@
  * _import/repro-audit-suivi-loyers.mjs, encodés en comportement ATTENDU).
  */
 
+import { premierMontantSaisi } from './loyer-bareme.js';
+
 const _r2 = (n) => Math.round(n * 100) / 100;
 const _isAlive = (o) => !!o && !o._deleted;
 // Ref TOLÉRANTE (trim + minuscule), même politique que _loyerHCAtDate/_findBailByRefTolerant :
@@ -62,6 +64,42 @@ function _periodeAt(periods, iso) {
     else hit = null;                        // trou entre deux périodes → repli bail
   }
   return hit;
+}
+
+/**
+ * Période du barème en vigueur pour un lot à une date donnée. Composition des deux
+ * sélecteurs existants (_baremeOfLot + _periodeAt) — AUCUN moteur concurrent : c'est le
+ * même chemin que duMois(). Exposé pour les ÉCRITURES qui ont besoin de savoir ce qui est
+ * en vigueur avant d'inscrire une nouvelle période (révision IRL : reprendre la provision
+ * en cours plutôt que d'inventer un 0 quand personne ne la connaît).
+ * @returns {object|null} la période, ou null si le lot n'en a aucune à cette date
+ */
+export function periodeEnVigueurA(bareme, ref, iso) {
+  return _periodeAt(_baremeOfLot(bareme, ref), String(iso == null ? '' : iso).slice(0, 10));
+}
+
+/**
+ * Provision de charges à inscrire sur la période d'une RÉVISION de loyer (IRL ou batch), quand
+ * la révision ne porte que le loyer HC. Chaîne des sources, dans cet ordre :
+ *   1. la période EN VIGUEUR au barème à la date d'effet — c'est la provision réellement due,
+ *      et la seule que met à jour une correction manuelle datée (_histoSaveCorrPeriode n'écrit
+ *      QUE dans le barème : reprendre bail.ch ici annulerait silencieusement la correction) ;
+ *   2. le bail, puis le lot, pour un barème lacunaire (lot non migré) ;
+ *   3. 0 en dernier recours seulement — personne ne sait, et c'est dit.
+ * Un champ VIDE n'est pas un zéro (montantSaisi) ; un 0 réellement saisi, lui, vaut 0.
+ */
+export function provisionPourRevision(bareme, ref, dateEffetIso, bailCh, logCh, bailDebut) {
+  const p = periodeEnVigueurA(bareme, ref, dateEffetIso);
+  // Borne (audit) : une période encore ouverte du locataire PRÉCÉDENT (barème mal refermé)
+  // imposerait sa provision au bail courant. Quand on sait à quel bail on a affaire, on
+  // n'accepte la période que si elle est la sienne.
+  // `p.bailDebut` absent = barème antérieur au champ : on ne peut rien conclure, la borne ne
+  // s'applique pas (sinon le correctif « la période en vigueur d'abord » ne vaudrait pas pour
+  // les barèmes legacy, qui sont précisément ceux qui en ont le plus besoin).
+  const pOk = p && (bailDebut == null || p.bailDebut == null
+    || String(p.bailDebut).slice(0, 10) === String(bailDebut).slice(0, 10));
+  const n = premierMontantSaisi(pOk ? p.ch : null, bailCh, logCh);
+  return n != null ? n : 0;
 }
 
 /**

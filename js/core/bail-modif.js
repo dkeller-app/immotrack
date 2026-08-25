@@ -60,6 +60,14 @@ export function borneMinEffetBareme(bareme, ref) {
   let max = '';
   for (const p of (bareme || [])) {
     if (!p || p._deleted || _nr(p.ref) !== want) continue;
+    // AUDIT 2026-08-24 — les périodes `source:'bail'` sont EXCLUES. Ce ne sont pas des décisions
+    // datées mais les continuations DÉRIVÉES du loyer du bail (garantie de couverture, reprise
+    // d'une période coupée) ; appliquerNouvellePeriode les supersède désormais au lieu de s'y
+    // arrêter. Les compter ici repoussait la date d'effet d'une augmentation de plusieurs années
+    // derrière une ligne que l'app venait elle-même de fabriquer, avec un motif faux dans la popup
+    // (« mois quittancé / période existante »). Mesuré à l'écran sur MUL-002 : borne au 01/02/2030
+    // pour une augmentation demandée au 01/01/2027.
+    if ((p.source || 'bail') === 'bail') continue;
     const d = _ymd(p.debut);
     if (d > max) max = d;
   }

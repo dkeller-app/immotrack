@@ -101,11 +101,13 @@ import {
 } from './core/loyer-statut.js';
 
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
-import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
+import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
-  appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, tombstonerPeriodesDuBail,
+  appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, impactCloture,
+  garantirCouvertureBail, chapitrePour,
+  montantSaisi, premierMontantSaisi, reancrerPeriodesDuBail,
   _premierDuMois, _premierDuMoisSuivant
 } from './core/loyer-bareme.js';
 // HISTORIQUE-BAIL-ONGLET (17/07) - chapitres/rail de l'historique du bail (onglet Bail inline)
@@ -136,7 +138,7 @@ import { validateNewImmNom, renameImmeubleRefs } from './core/rename-immeuble.js
 // P0-1 (chantier BIENS) — merge partiel des champs de formulaire du logement.
 import { _logpApplyPartial, _logpPushLoyerRef } from './core/logp-partial.js';
 // BIENS (audit C2/I5) — « aucun champ laissé derrière » sur les modales qui reconstruisent l'objet.
-import { _preserverChampsExistants } from './core/preserve-fields.js';
+import { _preserverChampsExistants, _preserverBailExistant, _preserverSaufChampsPilotes } from './core/preserve-fields.js';
 // BIENS P1-15 — quelle photo sert de vignette (⭐ prioritaire, sinon la plus récente).
 import { choisirCouverture } from './core/cover-photo.js';
 // BIENS — migrations douces du chantier (n° lot copro, …).
@@ -410,6 +412,8 @@ window.duMois = duMois;
 window.duMoisFromRaw = duMoisFromRaw;
 window.bailsFromRaw = bailsFromRaw;
 window._baremeOfLot = (ref) => _baremeOfLot(window.DB?.loyerBareme || [], ref);
+window._loyerPeriodeEnVigueurA = periodeEnVigueurA;
+window._loyerProvisionPourRevision = provisionPourRevision;
 window._debutSuivi = _debutSuivi;
 window._computeLoyerNetting = _computeLoyerNetting;
 window._baremeComputeDateEffetIRL = computeDateEffetIRL;
@@ -417,9 +421,14 @@ window._baremeClampDateEffet = clampDateEffet;
 window._baremePeriodeInitialeBail = periodeInitialeBail;
 window._baremeAppliquerNouvellePeriode = appliquerNouvellePeriode;
 window._baremeSynchroniserPeriodeBail = synchroniserPeriodeBail;
+window._baremeReancrerBail = reancrerPeriodesDuBail;
+window._montantSaisi = montantSaisi;
+window._premierMontantSaisi = premierMontantSaisi;
 window._baremeCloturer = cloturerBareme;
 window._baremeCloturerParDebut = cloturerPeriodeParDebut;   // audit 17/07 : cloture ciblee (correction avec fin)
-window._baremeTombstonerBail = tombstonerPeriodesDuBail;
+window._baremeGarantirCouverture = garantirCouvertureBail;
+window._baremeChapitrePour = chapitrePour;   // audit 24/08 : le chapitre d'une ecriture datee, meme bail clos
+window._baremeImpactCloture = impactCloture;   // audit 24/08 : dire ce qu'une cloture va faire au bareme AVANT de le faire
 window._premierDuMois = _premierDuMois;
 window._premierDuMoisSuivant = _premierDuMoisSuivant;
 window.reconstruireBaremeLot = reconstruireBaremeLot;   // étape 3 — migration de l'existant
@@ -582,6 +591,8 @@ window._renameImmeuble = { validate: validateNewImmNom, propagate: renameImmeubl
 window._logpApplyPartial = _logpApplyPartial;
 window._logpPushLoyerRef = _logpPushLoyerRef;
 window._preserverChampsExistants = _preserverChampsExistants;
+window._preserverBailExistant = _preserverBailExistant;
+window._preserverSaufChampsPilotes = _preserverSaufChampsPilotes;
 window.choisirCouverture = choisirCouverture;
 // BIENS — migrations douces (appelees par _bootDataJobs ; idempotentes).
 window._biensMigration = { numLotVersLot: migrerNumLotVersLot };

@@ -130,7 +130,30 @@ export function construireHistoriqueBail(input) {
 
   // ── Périodes du barème (+ événements 'modif' pour les périodes source:'manuel').
   for (const p of (i.bareme || [])) {
-    if (!p || p._deleted || _nr(p.ref) !== want) continue;
+    if (!p || _nr(p.ref) !== want) continue;
+    if (p._deleted) {
+      // AUDIT 24/08 (I2) — un tombstone QUI PORTE SA RAISON n'est pas un néant : c'est une
+      // saisie que l'app a écartée, et elle doit le dire. Le commentaire du module de barème
+      // affirmait « la ligne reste dans l'historique » ; c'était faux, ce filtre l'effaçait.
+      // Mesuré : après deux validations IRL à la même date d'effet, la ligne 730 € disparaissait
+      // de la timeline. Les tombstones SANS raison (stock legacy, purges) restent invisibles.
+      const cd = _byBailDebut(p.bailDebut) || _byRange(p.debut) || chapitres[0];
+      const dd = _ymd(p.debut);
+      const total = (Number(p.hc) || 0) + (Number(p.ch) || 0);
+      if (p._remplaceePar) {
+        const r = p._remplaceePar;
+        _pushEv(cd.rail, {
+          type: 'periode-remplacee', date: dd, avant: total,
+          apres: (Number(r.hc) || 0) + (Number(r.ch) || 0), motif: p.note || ''
+        }, dd);
+      } else if (p._annuleeParCloture) {
+        _pushEv(cd.rail, {
+          type: 'periode-annulee', date: dd, avant: total,
+          dateEffet: _ymd(p._annuleeParCloture), motif: p.note || ''
+        }, dd);
+      }
+      continue;
+    }
     const c = _byBailDebut(p.bailDebut) || _byRange(p.debut) || chapitres[0];
     const debut = _ymd(p.debut);
     const fin = p.fin != null ? _ymd(p.fin) : null;
