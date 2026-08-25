@@ -637,6 +637,26 @@ Pourquoi ce point méritait d'être tranché et pas laissé : deux réponses pos
 
 ---
 
+## A.6 · ÉCRAN DE SORTIE + VISIONNEUSE PHOTO — VALIDÉ EN PRINCIPE par Didier le 25/08
+
+> « je suis ok sur le principe » (le mockup `mockups/EDL-TERRAIN/edl-global.html` avait des bugs de rendu ; il a servi à trancher, il ne fait PAS foi à la ligne près — c'est ce CDC qui fait foi).
+
+### L'écran de sortie (le seul que l'app ne résout pas aujourd'hui)
+- **PC et tablette** : le tableau **7 colonnes** existant (`_edlPieceHTML`, mode sortie) est **conservé** — élément · état entrée · obs. entrée · photos entrée | état sortie · obs. sortie · photos sortie. Il **défile dans son propre conteneur** (`overflow-x:auto`) si l'écran est étroit : **jamais la page**. Ajout : une **colonne verdict**.
+- **Téléphone** : les 7 colonnes ne tiennent pas → **deux colonnes côte à côte**, entrée à gauche (grise, verrouillée, elle est signée), sortie à droite (éditable). L'état d'entrée est **une pastille en lecture seule**, pas les 5 lettres. Les 5 boutons d'état de sortie passent sur 2 rangs pour tenir la demi-largeur, cible tactile ≥ 44 px.
+- **Le verdict est DÉDUIT, jamais saisi** : rien de constaté → *à constater* (ambre) ; même état → *conforme* ; état différent → *écart* (rouge). L'état de sortie reste **vide tant que rien n'est constaté** : on ne présume jamais « conforme ». **À trancher au chantier** : une observation de sortie non vide sans changement d'état déclenche-t-elle un avertissement « l'état est-il toujours le même ? » (reco pilotage : oui, prévenir sans décider).
+
+### La visionneuse photo (entrée vs sortie)
+- Les prises de vue d'entrée et de sortie **ne sont pas cadrées pareil** : **aucune superposition, aucun rideau avant/après** (rejeté en séance — c'était un trompe-l'œil). On montre les deux, on passe de l'une à l'autre.
+- La grande image s'affiche **EN ENTIER, portrait comme paysage** (`contain`, fond neutre) — **jamais rognée**. C'est le retour explicite du 25/08 : le cadre était bloqué en 4/3 `cover` et coupait les photos verticales.
+- **PC/tablette** : les deux colonnes (entrée | sortie), une vignette change la grande image de sa colonne. **Téléphone** : une grande image, la **pellicule des deux séries au-dessus** (entrée nommée, sortie nommée), on tape pour passer de l'une à l'autre. Les vignettes de liste restent carrées (`cover`) ; **le clic ouvre toujours l'entier**. Au-delà de 2–3 vignettes, un « +N » ouvre la série complète (un élément réel porte jusqu'à 8 photos).
+- **Aucun montant, aucune mention de restitution du DG** nulle part (cf §A.2 bis, non négociable).
+
+### Invariant testable ajouté
+Le verdict d'un élément de sortie **égale toujours** `verdictDe(étatEntrée, étatSortie)` — il n'est jamais stocké ni saisi. Une photo portrait rend une image de hauteur > largeur **entièrement visible** (pas de recadrage). La page ne défile jamais horizontalement sur aucun format.
+
+---
+
 ## 4. L'ergonomie à une main — décision B.4
 
 **Décision : sur téléphone, une pièce à l'écran à la fois. PC et tablette gardent la vue complète.**
