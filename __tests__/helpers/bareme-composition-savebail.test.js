@@ -381,6 +381,54 @@ describe('CAUSE RACINE — une période dérivée du bail (source:"bail") ne bor
     }
   });
 
+  it('une reprise fermée PARTIELLEMENT recouverte garde sa queue (pas de trou intérieur)', () => {
+    // ANGLE MORT du test de composition (audit 2026-08-25) : la boucle de supersession des
+    // dérivées supprimait EN BLOC une reprise `source:'bail'` que la nouvelle période ne recouvre
+    // que PARTIELLEMENT — sa queue était perdue, la fenêtre libérée retombait sur le repli
+    // « bail », et dès que le hc du bail avait dérivé du tarif figé de la reprise, l'infraction
+    // I-1 réapparaissait. La reprise doit être SPLITTÉE comme aux deux autres découpes.
+    const base = () => ([
+      { ref: REF, debut: '2023-01-01', fin: '2026-12-31', hc: 650, ch: 90, source: 'manuel', bailDebut: '2023-01-01' },
+      { ref: REF, debut: '2027-01-01', fin: '2027-12-31', hc: 700, ch: 90, source: 'bail', bailDebut: '2023-01-01' },
+      { ref: REF, debut: '2028-01-01', fin: '2029-12-31', hc: 800, ch: 90, source: 'manuel', bailDebut: '2023-01-01' },
+    ]);
+    // correction 2026-06 -> 2027-06 (fin explicite) : mord sur la reprise 2027-01..2027-12
+    let b = appliquerNouvellePeriode(base(), { ref: REF, debut: '2026-06-01', fin: '2027-06-30', hc: 670, ch: 90, source: 'manuel', bailDebut: '2023-01-01' });
+    b = cloturerPeriodeParDebut(b, REF, '2026-06-01', '2027-06-30');
+    // la queue de la reprise (2027-07..2027-12) survit, au tarif de la reprise
+    const queue = vivantes(b).find((p) => p.debut === '2027-07-01');
+    expect(queue).toMatchObject({ fin: '2027-12-31', hc: 700, source: 'bail' });
+    // et le dû ne retombe JAMAIS sur le repli « bail », même quand le hc du bail a dérivé à 990
+    const bails = [{ debut: '2023-01-01', fin: null, finEffective: null, archive: false, hc: 990, ch: 90 }];
+    for (const ym of ['2027-07', '2027-09', '2027-12']) {
+      expect(duMois({ ref: REF, bails, bareme: b }, ym)).toMatchObject({ total: 790, source: 'bareme' });
+    }
+    // aucun chevauchement introduit par le split
+    const v = vivantes(b);
+    for (let i = 0; i < v.length; i++) for (let j = i + 1; j < v.length; j++) {
+      const a = v[i], c = v[j];
+      expect(a.debut <= (c.fin || '9999-12-31') && c.debut <= (a.fin || '9999-12-31')).toBe(false);
+    }
+    // la décision manuelle de 2028 n'est pas touchée
+    expect(vivantes(b).find((p) => p.debut === '2028-01-01')).toMatchObject({ hc: 800, source: 'manuel' });
+  });
+
+  it('HORIZON — garantirCouvertureBail clot le segment comble a la veille de la date effet', () => {
+    // ANGLE MORT #2 (audit 2026-08-25), ISOLE dans le fichier d'altitude. Le barème ne couvre que
+    // 2023-01..2023-06 ; le reste du bail est un trou. Une modif au 2026-09 doit d'abord GELER
+    // 2023-07..2026-08 au tarif du bail — et s'ARRETER a la veille de la date d'effet (l'horizon).
+    // Sans horizon, ce segment naitrait OUVERT ; il ne commence pas a la date du bail, donc la
+    // garde « queue ouverte n'est pas un trou » le jette -> 2023-07..2026-08 retombe sur le repli
+    // « bail » (retour de I-1). L'horizon le rend FERME, donc pose.
+    const base = [{ ref: REF, debut: '2023-01-01', fin: '2023-06-30', hc: 640, ch: 90, source: 'manuel', bailDebut: '2023-01-01' }];
+    const bail = { ref: REF, debut: '2023-01-01', hc: 700, ch: 90 };
+    const out = garantirCouvertureBail(base, bail, '2026-09-01');
+    const comble = out.find((p) => p.debut === '2023-07-01');
+    expect(comble).toBeTruthy();                               // le trou amont EST comble
+    expect(comble).toMatchObject({ fin: '2026-08-31', hc: 700, source: 'bail' });   // clos a l'horizon
+    expect(out.some((p) => p.fin == null)).toBe(false);       // rien d'ouvert au-dela de l'horizon
+  });
+
   it('une DÉCISION datée (révision IRL), elle, borne toujours', () => {
     // pour ne pas jeter le bébé : une vraie révision programmée continue de borner une écriture
     // antérieure — c'est source:'irl', pas source:'bail'.

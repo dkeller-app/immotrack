@@ -350,6 +350,14 @@ export function appliquerNouvellePeriode(periods, nouvelle) {
     if (qd <= debut) continue;                       // avant/au nouveau début : géré par enVigueur
     if (fin != null && qd > fin) continue;           // au-delà de la nouvelle période : intacte
     arr[i] = { ...q, _deleted: true, _remplaceePar: { hc, ch, source: src, fin } };
+    // SYMÉTRIE avec les deux autres découpes (même-début, split en vigueur) — audit
+    // 2026-08-25 : cette boucle supprimait EN BLOC une continuation dérivée que la nouvelle
+    // période ne recouvre que PARTIELLEMENT (la reprise finit APRÈS `fin`), perdant sa queue →
+    // trou intérieur → repli « bail » → l'infraction I-1 que _reprendreApres existe justement
+    // pour empêcher, réintroduite par le seul chemin de découpe qui l'oubliait. La queue
+    // reprend au lendemain de `fin`, avec le tarif de la reprise. (fin==null ⇒ la nouvelle
+    // recouvre tout : _reprendreApres ne fait rien, c'est bien « recouvre entièrement ».)
+    _reprendreApres(arr, q, fin, suivante);
   }
   arr.push({
     ref: nouvelle.ref, debut, fin, hc, ch, source: src,
