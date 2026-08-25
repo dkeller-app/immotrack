@@ -30980,7 +30980,6 @@ function printIRLLetter() {
 // =================== EDL ===================
 
 const EDL_ETATS  = ['Neuf','Bon état',"État d'usage",'Mauvais état','Absent'];
-const EDL_COLORS = {'Neuf':'#3fb950',"Bon état":'#58a6ff',"État d'usage":'#d29922','Mauvais état':'#f85149','Absent':'#8b949e'};
 // EDL TERRAIN lot 5 (§7ter, §9 inv. 34j/34k/34l) — les 5 états quittent la palette
 // GitHub (contrastes 2,5:1, figée dans les deux thèmes) pour les tokens sémantiques de
 // la charte, recalibrés à 4,5:1. À L'ÉCRAN : variables CSS qui SUIVENT le thème.
@@ -32397,7 +32396,8 @@ function _edlSyncParcours() {
     b.classList.toggle('edl-cur', idx === _edlCurPiece);
   });
   const rail = el('edl-rail');
-  if (rail) rail.style.display = (phone && n > 0) ? 'flex' : 'none';
+  // rail visible seulement si le module de parcours est là (sinon boutons inertes)
+  if (rail) rail.style.display = (phone && n > 0 && P) ? 'flex' : 'none';
   _edlUpdateRail();
 }
 function _edlUpdateRail() {
