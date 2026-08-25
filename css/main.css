@@ -3443,6 +3443,40 @@ textarea.field-modified-since-sig{
 .edl-sheet-nom{font:700 14px var(--font);color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .edl-sheet-meta{display:flex;align-items:center;gap:6px;flex:none}
 
+/* ══ Lot 7 (§A.6) — LA VISIONNEUSE PHOTO entrée/sortie ════════════════════════
+   Grande image EN ENTIER (contain, fond neutre, jamais rognée), portrait comme
+   paysage. PC/tablette : 2 colonnes entrée|sortie ; téléphone : grande image +
+   pellicule des 2 séries. Vignettes carrées (cover). Aucun rideau avant/après. */
+#edl-photo-viewer{position:fixed;inset:0;z-index:10001;display:none;flex-direction:column;
+  background:rgba(10,11,14,.96);padding:14px 14px 16px;gap:10px}
+.epv-x{position:absolute;top:12px;right:12px;width:40px;height:40px;border-radius:50%;
+  background:#fff;color:#000;border:none;font-size:24px;line-height:1;cursor:pointer;z-index:3;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.epv-title{color:#fff;font:700 15px var(--font);text-align:center;padding:2px 52px;flex:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epv-2col{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0}
+.epv-col{display:flex;flex-direction:column;min-height:0;gap:8px}
+.epv-col-head{color:#cdd3e0;font:700 12px var(--font);text-transform:uppercase;letter-spacing:.5px;text-align:center;flex:none}
+.epv-big{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+  background:#22252c;border-radius:10px;overflow:hidden}
+/* EN ENTIER : contain garde portrait ET paysage entièrement visibles (jamais rognés). */
+.epv-big-img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+.epv-big-empty{color:#8a90a0;font:500 13px var(--font)}
+.epv-strip,.epv-pell-thumbs{display:flex;gap:6px;overflow-x:auto;overscroll-behavior:contain;padding:2px;flex:none}
+.epv-strip{justify-content:center}
+.epv-thumb{flex:0 0 auto;width:54px;height:54px;border-radius:8px;overflow:hidden;
+  border:2px solid transparent;background:#22252c;cursor:pointer;padding:0}
+/* Vignette de liste CARRÉE (cover) — le clic ouvre l'entier (grande image contain). */
+.epv-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.epv-thumb-act{border-color:var(--acc)}
+.epv-more{display:flex;align-items:center;justify-content:center;color:#cdd3e0;font:700 14px var(--font)}
+.epv-empty{color:#8a90a0;font:500 12px var(--font);padding:8px}
+/* Téléphone : pellicule des 2 séries au-dessus, grande image au centre, légende dessous. */
+.epv-pellicule{display:flex;gap:14px;flex:none;overflow-x:auto;overscroll-behavior:contain;padding-bottom:2px;justify-content:center}
+.epv-pell-group{display:flex;flex-direction:column;gap:4px;flex:none}
+.epv-pell-lbl{color:#cdd3e0;font:700 10px var(--font);text-transform:uppercase;letter-spacing:.4px}
+.epv-caption{color:#cdd3e0;font:600 12px var(--font);text-align:center;flex:none}
+
 @media (max-width:1023px){
   /* Téléphone ET tablette (< 1024, §A.4) — parcours cartes une-pièce-à-la-fois + rail.
      Le modal EDL est plein écran : il doit passer AU-DESSUS de la barre de navigation
@@ -9074,7 +9108,8 @@ body[data-dash-v4="on"] .v4h-todo-empty {
    Le fond/bord suivent les tokens → s'adaptent au mode sombre. */
 .edl-thumb{
   width:96px; height:96px;
-  object-fit:contain;
+  /* §A.6 : vignette de liste CARRÉE (cover) — le clic ouvre l'image entière (contain). */
+  object-fit:cover;
   background:var(--bg);
   border:1px solid var(--bor);
   border-radius:6px;

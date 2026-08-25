@@ -7,11 +7,14 @@
  * l'invariant clé est « verdict = verdictDe(entrée, sortie), jamais stocké ».
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import {
   VERDICTS, verdictDe, elementRenseigne, aUneObs, aUnePhoto, avertObsSortie,
   progressionPiece, compterEcarts, compterAConstater, statsPiece, statsGlobales,
   railLabel, indexClamp, suivante, precedente, aSuivante, aPrecedente,
-  edlSortieQuiFaitFoi,
+  edlSortieQuiFaitFoi, troncaturePellicule, layoutVisionneuse,
 } from '../../js/core/edl-parcours.js';
 
 const elem = (o = {}) => ({ nom: 'x', etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [], ...o });
@@ -36,6 +39,71 @@ describe('verdictDe — le verdict est DÉDUIT (§A.6), jamais présumé', () =>
     for (const e of ['Neuf', 'Bon état', "État d'usage", 'Mauvais état', 'Absent', '']) {
       expect(verdictDe(e, '')).toBe(VERDICTS.A_CONSTATER);
     }
+  });
+  it('§A.6 invariant — le verdict est DÉDUIT, JAMAIS STOCKÉ : calculer ne mute pas l\'élément', () => {
+    const x = Object.freeze({ etatE: 'Neuf', etatS: 'Mauvais état', obsE: '', obsS: '' });
+    // si verdictDe (ou un appelant) écrivait x.verdict, Object.freeze le ferait échouer
+    // en mode strict ; ici on vérifie surtout qu'aucune propriété « verdict » n'apparaît.
+    const v = verdictDe(x.etatE, x.etatS);
+    expect(v).toBe(VERDICTS.ECART);
+    expect('verdict' in x).toBe(false);
+    expect(Object.keys(x)).toEqual(['etatE', 'etatS', 'obsE', 'obsS']);
+    // et il se recalcule à l'identique, encore et encore (aucun état caché)
+    expect(verdictDe(x.etatE, x.etatS)).toBe(v);
+  });
+});
+
+describe('§A.6 visionneuse — troncaturePellicule (« +N » au-delà de 3, jusqu\'à 8 photos)', () => {
+  it('série courte : tout visible, pas de +N', () => {
+    expect(troncaturePellicule(0)).toEqual({ visibles: 0, plusN: 0 });
+    expect(troncaturePellicule(3)).toEqual({ visibles: 3, plusN: 0 });
+  });
+  it('série longue : 3 visibles + le reste en +N', () => {
+    expect(troncaturePellicule(5)).toEqual({ visibles: 3, plusN: 2 });
+    expect(troncaturePellicule(8)).toEqual({ visibles: 3, plusN: 5 }); // le max réel (Séjour > Murs)
+  });
+  it('cap paramétrable', () => {
+    expect(troncaturePellicule(8, 2)).toEqual({ visibles: 2, plusN: 6 });
+  });
+});
+
+describe('§A.6 visionneuse — layoutVisionneuse (téléphone = pellicule, PC/tablette = colonnes)', () => {
+  it('sous 768 → pellicule ; à partir de 768 → colonnes', () => {
+    expect(layoutVisionneuse(375)).toBe('pellicule');
+    expect(layoutVisionneuse(767)).toBe('pellicule');
+    expect(layoutVisionneuse(768)).toBe('colonnes'); // tablette AVEC PC pour la visionneuse (§A.6)
+    expect(layoutVisionneuse(1280)).toBe('colonnes');
+  });
+});
+
+/* §A.6 invariant « la photo portrait rend une image ENTIÈREMENT VISIBLE » — son
+   mécanisme est object-fit:contain sur la grande image (et cover sur les vignettes
+   de liste). jsdom ne calcule pas de layout : la preuve numérique (portrait 120×240
+   rendu entier dans son cadre) est faite au navigateur, sur 3 formats. Ici, un garde
+   qui échoue si la grande image passait en `cover` (le bug exact signalé par Didier :
+   cadre 4/3 cover qui coupait les photos verticales). On lit la DÉCLARATION, pas un
+   extrait figé : on isole la règle .epv-big-img et on vérifie sa propriété. */
+describe('§A.6 CSS — la grande image est en contain (jamais rognée), les vignettes en cover', () => {
+  const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', 'css', 'main.css'), 'utf8');
+  const ruleBody = (selector) => {
+    const i = css.indexOf(selector + '{');
+    if (i < 0) return null;
+    return css.slice(i + selector.length + 1, css.indexOf('}', i));
+  };
+  const objectFit = (selector) => {
+    const body = ruleBody(selector);
+    if (body == null) return null;
+    const m = body.match(/object-fit\s*:\s*([a-z-]+)/);
+    return m ? m[1] : null;
+  };
+  it('.epv-big-img est en object-fit:contain', () => {
+    expect(objectFit('.epv-big-img'), 'la grande image doit être contain, jamais cover').toBe('contain');
+  });
+  it('.epv-thumb img (pellicule de la visionneuse) est en object-fit:cover', () => {
+    expect(objectFit('.epv-thumb img')).toBe('cover');
+  });
+  it('.edl-thumb (vignette de liste dans l\'élément) est en object-fit:cover', () => {
+    expect(objectFit('.edl-thumb'), 'la vignette de liste doit être cover ; l\'entier s\'ouvre au clic').toBe('cover');
   });
 });
 

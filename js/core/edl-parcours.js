@@ -143,6 +143,25 @@ export function aSuivante(i, n) { return indexClamp(i, n) < n - 1; }
 export function aPrecedente(i, n) { return indexClamp(i, n) > 0; }
 
 /**
+ * §A.6 — la pellicule de la visionneuse tronque au-delà de `cap` vignettes et ouvre
+ * le reste par un « +N » (un élément peut porter jusqu'à 8 photos). Pur et testable.
+ * @returns {{visibles:number, plusN:number}}
+ */
+export function troncaturePellicule(total, cap = 3) {
+  const t = Math.max(0, Math.trunc(Number(total) || 0));
+  const c = Math.max(0, Math.trunc(Number(cap) || 0));
+  return t <= c ? { visibles: t, plusN: 0 } : { visibles: c, plusN: t - c };
+}
+
+/**
+ * §A.6 — la visionneuse : « pellicule » (téléphone, une grande image + les 2 séries
+ * au-dessus) sous le seuil, « colonnes » (PC/tablette, entrée | sortie) au-dessus.
+ */
+export function layoutVisionneuse(largeur, seuil = 768) {
+  return (Number(largeur) || 0) < seuil ? 'pellicule' : 'colonnes';
+}
+
+/**
  * P9 (§7bis, §9 inv. 34h) — LE résolveur unique de « l'EDL de sortie qui fait foi »
  * pour un bail. Le bug : `edls.find(e => e.type === 'Sortie')` rend le PREMIER dans
  * l'ordre d'insertion. Sur un logement reloué, c'est la sortie du locataire PRÉCÉDENT

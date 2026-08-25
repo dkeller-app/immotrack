@@ -33513,10 +33513,130 @@ function edlDelPhoto(pi,ei,side,phi){
   const ph=arr[phi];if(ph?.idbKey){_idbDel(ph.idbKey);delete _photoCache[ph.idbKey];}
   arr.splice(phi,1);_edlRenderPieces();
 }
+/* EDL TERRAIN lot 7 (§A.6) — LA VISIONNEUSE entrée/sortie.
+   Cliquer une vignette d'un élément ouvre les DEUX séries (entrée + sortie) :
+   - aucune superposition, aucun rideau avant/après (rejeté par Didier) ;
+   - la grande image EN ENTIER, portrait comme paysage (contain, fond neutre) ;
+   - PC/tablette (≥ 768) : 2 colonnes entrée | sortie, chacune sa grande image ;
+   - téléphone (< 768) : une grande image + la pellicule des 2 séries au-dessus ;
+   - vignettes carrées (cover) ; « +N » ouvre la série au-delà de 3 (jusqu'à 8 photos).
+   Le chargement de la grande image réutilise le même chemin cache→IDB→cloud que la
+   lightbox simple (facteur commun _edlPhotoSrc). */
+async function _edlPhotoSrc(ph) {
+  if (!ph) return '';
+  let src = _photoCache[ph.idbKey] || ph.data || '';
+  if (!src && ph.idbKey && typeof _idbGet === 'function') {
+    try { src = await _idbGet(ph.idbKey); if (src) _photoCache[ph.idbKey] = src; } catch (e) {}
+  }
+  if (!src && (ph.cloudKey || ph.idbKey) && typeof _downloadPhotoFromDrive === 'function') {
+    try {
+      src = await _downloadPhotoFromDrive(null, ph.idbKey, ph.cloudKey);
+      if (src) { _photoCache[ph.idbKey] = src; if (typeof _idbPut === 'function' && ph.idbKey) { try { await _idbPut(ph.idbKey, src); } catch (e) {} } }
+    } catch (e) { console.warn('[edl viewer] cloud download fail:', e); }
+  }
+  return src;
+}
+function _edlThumbSrc(ph) { return (ph && (_photoCache[ph.idbKey] || ph.data)) || _EDL_PH_VIDE; }
+
+let _edlViewerState = null;
+const _EDL_VIEWER_CAP = 3;
+
+async function _edlOpenPhotoViewer(pi, ei, side, phi) {
+  const x = _edlP[pi] && _edlP[pi].elements[ei];
+  if (!x) return;
+  const seriesE = x.photosE || [], seriesS = x.photosS || [];
+  if (!seriesE.length && !seriesS.length) return;
+  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const phone = _P && _P.layoutVisionneuse
+    ? _P.layoutVisionneuse(window.innerWidth) === 'pellicule'
+    : (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:767px)').matches);
+  const s0 = side || (seriesE.length ? 'E' : 'S');
+  _edlViewerState = {
+    seriesE, seriesS, phone, nom: x.nom || '',
+    bigE: side === 'E' ? (phi || 0) : 0,
+    bigS: side === 'S' ? (phi || 0) : 0,
+    cur: { side: s0, phi: phi || 0 },
+    expandedE: false, expandedS: false,
+  };
+  _edlRenderPhotoViewer();
+}
+function _edlViewerStripHTML(series, sideCode, activeIdx, expanded) {
+  if (!series.length) return '<span class="epv-empty">Aucune photo</span>';
+  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  // §A.6 : troncature « +N » calculée par le module testé (jamais recopiée ici).
+  const t = (_P && _P.troncaturePellicule && !expanded)
+    ? _P.troncaturePellicule(series.length, _EDL_VIEWER_CAP)
+    : { visibles: series.length, plusN: 0 };
+  const shown = series.slice(0, t.visibles);
+  let html = shown.map((ph, i) =>
+    `<button class="epv-thumb${i === activeIdx ? ' epv-thumb-act' : ''}" onclick="_edlViewerShow('${sideCode}',${i})" title="${escHtml(ph.name || '')}"><img src="${_edlThumbSrc(ph)}" alt=""></button>`
+  ).join('');
+  if (t.plusN > 0) {
+    html += `<button class="epv-thumb epv-more" onclick="_edlViewerExpand('${sideCode}')" title="Voir les ${series.length} photos">+${t.plusN}</button>`;
+  }
+  return html;
+}
+function _edlViewerColHTML(sideCode, label, series, bigIdx, expanded) {
+  const n = series.length;
+  const big = n
+    ? `<div class="epv-big"><img id="epv-big-img-${sideCode}" class="epv-big-img" alt=""></div>`
+    : `<div class="epv-big epv-big-empty">Aucune photo ${label.toLowerCase()}</div>`;
+  const strip = n ? `<div class="epv-strip">${_edlViewerStripHTML(series, sideCode, bigIdx, expanded)}</div>` : '';
+  return `<div class="epv-col"><div class="epv-col-head">${label} · ${n} photo${n > 1 ? 's' : ''}</div>${big}${strip}</div>`;
+}
+function _edlRenderPhotoViewer() {
+  const st = _edlViewerState; if (!st) return;
+  let ov = el('edl-photo-viewer');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'edl-photo-viewer'; document.body.appendChild(ov); }
+  ov.onclick = (e) => { if (e.target === ov) _edlCloseViewer(); };
+  const head = `<button class="epv-x" onclick="_edlCloseViewer()" aria-label="Fermer">×</button><div class="epv-title">${escHtml(st.nom || 'Photos')}</div>`;
+  let body;
+  if (st.phone) {
+    const pell = `<div class="epv-pellicule">
+      <div class="epv-pell-group"><span class="epv-pell-lbl">Entrée</span><div class="epv-pell-thumbs">${_edlViewerStripHTML(st.seriesE, 'E', st.cur.side === 'E' ? st.cur.phi : -1, st.expandedE)}</div></div>
+      <div class="epv-pell-group"><span class="epv-pell-lbl">Sortie</span><div class="epv-pell-thumbs">${_edlViewerStripHTML(st.seriesS, 'S', st.cur.side === 'S' ? st.cur.phi : -1, st.expandedS)}</div></div>
+    </div>`;
+    const cs = st.cur.side === 'E' ? st.seriesE : st.seriesS;
+    const cur = cs[st.cur.phi];
+    const cap = `${st.cur.side === 'E' ? 'Entrée' : 'Sortie'} ${st.cur.phi + 1}/${cs.length}${cur && cur.name ? ' · ' + escHtml(cur.name) : ''}`;
+    body = `${pell}<div class="epv-big"><img id="epv-big-img" class="epv-big-img" alt=""></div><div class="epv-caption">${cap}</div>`;
+  } else {
+    body = `<div class="epv-2col">${_edlViewerColHTML('E', 'Entrée', st.seriesE, st.bigE, st.expandedE)}${_edlViewerColHTML('S', 'Sortie', st.seriesS, st.bigS, st.expandedS)}</div>`;
+  }
+  ov.innerHTML = head + body;
+  ov.style.display = 'flex';
+  if (st.phone) { _edlViewerLoadBig(st.cur.side); }
+  else { if (st.seriesE.length) _edlViewerLoadBig('E'); if (st.seriesS.length) _edlViewerLoadBig('S'); }
+}
+async function _edlViewerLoadBig(sideCode) {
+  const st = _edlViewerState; if (!st) return;
+  const series = sideCode === 'E' ? st.seriesE : st.seriesS;
+  const idx = st.phone ? (st.cur.side === sideCode ? st.cur.phi : 0) : (sideCode === 'E' ? st.bigE : st.bigS);
+  const ph = series[idx]; if (!ph) return;
+  const imgId = st.phone ? 'epv-big-img' : ('epv-big-img-' + sideCode);
+  const src = await _edlPhotoSrc(ph);
+  if (!_edlViewerState) return;               // viewer refermée entre-temps
+  const img = el(imgId); if (!img) return;
+  if (src) { img.src = src; img.alt = ph.name || ''; }
+  else { showToast('⚠️ Photo non disponible (pas encore dans le cloud).', 'warn', 5000); }
+}
+function _edlViewerShow(sideCode, phi) {
+  const st = _edlViewerState; if (!st) return;
+  if (st.phone) { st.cur = { side: sideCode, phi: phi }; }
+  else { if (sideCode === 'E') st.bigE = phi; else st.bigS = phi; }
+  _edlRenderPhotoViewer();
+}
+function _edlViewerExpand(sideCode) {
+  const st = _edlViewerState; if (!st) return;
+  if (sideCode === 'E') st.expandedE = true; else st.expandedS = true;
+  _edlRenderPhotoViewer();
+}
+function _edlCloseViewer() { _edlViewerState = null; const ov = el('edl-photo-viewer'); if (ov) ov.style.display = 'none'; }
+
 async function edlViewPhoto(pi,ei,side,phi){
   const arr=side==='E'?_edlP[pi].elements[ei].photosE:_edlP[pi].elements[ei].photosS;
   const ph=arr[phi];if(!ph)return;
-  await _showEDLPhotoLightbox(ph);
+  await _edlOpenPhotoViewer(pi, ei, side, phi);   // §A.6 : les 2 séries, jamais un rideau
 }
 
 // Sync Drive — silentMode=true pour auto-sync après save (pas de toast si 0 photos)
