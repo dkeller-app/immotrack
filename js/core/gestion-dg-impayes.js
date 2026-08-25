@@ -18,6 +18,11 @@
  * Tests Vitest miroir : __tests__/helpers/gestion-dg-impayes.test.js
  */
 
+// P9 (§7bis EDL, §9 inv. 34h) — LE résolveur unique de « l'EDL de sortie qui fait foi ».
+// On RÉUTILISE celui du module edl-parcours (jamais une seconde copie du choix) : le
+// délai de restitution doit lire le plus récent de la fenêtre du bail, pas le premier.
+import { edlSortieQuiFaitFoi } from './edl-parcours.js';
+
 // ────────────────────────────────────────────────────────────────────────────
 // Bloc A — Gestion DG
 // ────────────────────────────────────────────────────────────────────────────
@@ -81,8 +86,14 @@ export function _calculerDelaiRestitution(bail, edls) {
   if (!bail) return 2;
   // Si le bail a une indication explicite de dégradations → 2 mois
   if (Number(bail.dgRetenu) > 0) return 2;
-  // Si l'EDL sortie a des dégradations comparées à entrée → 2 mois
-  const edlSortie = (edls||[]).find(e => e && !e._deleted && e.logement === bail.ref && e.type === 'Sortie');
+  // Si l'EDL sortie a des dégradations comparées à entrée → 2 mois.
+  // P9 : le plus récent de la fenêtre du bail (résolveur unique), pas le premier trouvé.
+  // Repli sur window.DB.edl quand l'appelant ne passe pas la collection — SANS lui, cette
+  // copie (qui fait autorité au runtime via main.js) recevait `edls=undefined` → résolveur
+  // null → la branche « dégradation → 2 mois » restait MORTE en prod. La copie inline avait
+  // déjà `edls || DB.edl` ; on aligne, comme audit-trail.js / email-compose.js lisent window.DB.
+  const sourceEdls = edls || ((typeof window !== 'undefined' && window.DB && window.DB.edl) || []);
+  const edlSortie = edlSortieQuiFaitFoi(bail, sourceEdls);
   if (edlSortie) {
     const hasDegradation = (edlSortie.pieces||[]).some(p =>
       (p.elements||[]).some(el =>

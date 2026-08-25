@@ -4086,6 +4086,34 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <button class="btn bp" id="edl-btn-save" onclick="saveEDL()">💾 Enregistrer</button>
     <input type="hidden" id="edl-edit-id">
   </div>
+
+  <!-- EDL TERRAIN lot 5 (§A.1) — LE RAIL DU POUCE, variante C tranchée par Didier.
+       [←] [⤒ Cuisine · 3 / 8] [→], collé en bas, TÉLÉPHONE UNIQUEMENT (CSS < 768).
+       Reculer / sauter / avancer au même endroit, jamais emportés par le défilement :
+       le rail est un enfant direct de la modale (pas un second conteneur de scroll,
+       cf. avertissement §A.1 hérité du bug de prod). Le bouton du milieu ouvre la
+       feuille des pièces. Masqué par défaut ; affiché par _edlSyncParcours(). -->
+  <div id="edl-rail" class="edl-rail" style="display:none">
+    <button id="edl-rail-prev" class="edl-rail-arrow" onclick="_edlRailNav(-1)" aria-label="Pièce précédente" title="Pièce précédente">←</button>
+    <button id="edl-rail-mid" class="edl-rail-mid" onclick="_edlOpenPieceSheet()" aria-label="Choisir une pièce" title="Toutes les pièces">
+      <span class="edl-rail-jump">⤒</span>
+      <span class="edl-rail-txt"><span id="edl-rail-label" class="edl-rail-label">Pièce</span><span id="edl-rail-global" class="edl-rail-global"></span></span>
+    </button>
+    <button id="edl-rail-next" class="edl-rail-arrow" onclick="_edlRailNav(1)" aria-label="Pièce suivante" title="Pièce suivante">→</button>
+  </div>
+
+  <!-- La feuille des pièces (§A.1) : monte du bas, chaque pièce avec son avancement
+       et ses écarts, on saute directement. AUCUN défilement imbriqué non borné —
+       overscroll-behavior:contain hérité du lot 0. -->
+  <div id="edl-piece-sheet" class="edl-piece-sheet" style="display:none" onclick="if(event.target===this)_edlClosePieceSheet()">
+    <div class="edl-sheet-panel">
+      <div class="edl-sheet-head">
+        <b>Pièces de l'état des lieux</b>
+        <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer">✕</button>
+      </div>
+      <div id="edl-piece-sheet-list" class="edl-sheet-list"></div>
+    </div>
+  </div>
 </div></div>
 
 
@@ -26953,7 +26981,7 @@ function _departDeadlineDG(bail){
   // par défaut) → on affiche le MAXIMUM légal (2 mois) pour ne pas annoncer une échéance trop optimiste.
   // Une fois l'EDL réalisé, _calculerDelaiRestitution tranche (1 mois conforme / 2 mois retenues).
   const edlExists = !!(bail && bail.ref && (DB.edl||[]).some(e=>e && !e._deleted && e.logement===bail.ref && e.type==='Sortie'));
-  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail) : 2) : 2;
+  const mois = edlExists ? ((typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2) : 2;
   // Construction locale (sans suffixe TZ) puis ajout calendaire → évite le décalage UTC de toISOString().
   const day = +m[3];
   const lim = new Date(+m[1], +m[2]-1, day); lim.setMonth(lim.getMonth()+mois);
@@ -26973,8 +27001,12 @@ function _departState(bail){
   const ref = bail.ref;
   const log = (DB.logements||[]).find(l=>l.ref===ref) || {};
   const reg = (typeof _rgImmRegime==='function') ? _rgImmRegime({bail, imm: log.imm||''}) : {collectif:true, applies20:true, label:''};
-  const edlSortie = (DB.edl||[]).find(e=>e && !e._deleted && e.logement===ref && e.type==='Sortie') || null;
-  const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail) : 2;
+  // P9 (§7bis) : même résolveur unique que _calculerDelaiRestitution (le plus récent).
+  const _P9 = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const edlSortie = _P9
+    ? _P9.edlSortieQuiFaitFoi(bail, DB.edl||[])
+    : ((DB.edl||[]).find(e=>e && !e._deleted && e.logement===ref && e.type==='Sortie') || null);
+  const delaiMois = (typeof _calculerDelaiRestitution==='function') ? _calculerDelaiRestitution(bail, DB.edl) : 2;
   const deadline = _departDeadlineDG(bail);
   const d = bail.depart || null;
   const jsRef = (ref||'').replace(/'/g,"\\'");
@@ -28494,7 +28526,12 @@ function _calculerDelaiRestitution(bail, edls) {
   if (!bail) return 2;
   if (Number(bail.dgRetenu) > 0) return 2;
   const sourceEdls = edls || (DB && DB.edl) || [];
-  const edlSortie = sourceEdls.find(e => e && !e._deleted && e.logement === bail.ref && e.type === 'Sortie');
+  // P9 (§7bis) : LE résolveur unique — le plus récent de la fenêtre du bail, jamais le
+  // premier trouvé (sinon la sortie du locataire précédent pilote le délai de l'actuel).
+  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const edlSortie = _P
+    ? _P.edlSortieQuiFaitFoi(bail, sourceEdls)
+    : sourceEdls.find(e => e && !e._deleted && e.logement === bail.ref && e.type === 'Sortie');
   if (edlSortie) {
     const hasDegradation = (edlSortie.pieces||[]).some(p =>
       (p.elements||[]).some(el =>
@@ -30952,7 +30989,15 @@ function printIRLLetter() {
 // =================== EDL ===================
 
 const EDL_ETATS  = ['Neuf','Bon état',"État d'usage",'Mauvais état','Absent'];
-const EDL_COLORS = {'Neuf':'#3fb950',"Bon état":'#58a6ff',"État d'usage":'#d29922','Mauvais état':'#f85149','Absent':'#8b949e'};
+// EDL TERRAIN lot 5 (§7ter, §9 inv. 34j/34k/34l) — les 5 états quittent la palette
+// GitHub (contrastes 2,5:1, figée dans les deux thèmes) pour les tokens sémantiques de
+// la charte, recalibrés à 4,5:1. À L'ÉCRAN : variables CSS qui SUIVENT le thème.
+const EDL_CSSVAR = {'Neuf':'var(--e-neuf)',"Bon état":'var(--e-bon)',"État d'usage":'var(--e-usage)','Mauvais état':'var(--e-mauvais)','Absent':'var(--e-absent)'};
+const _edlEtatBg = et => `color-mix(in srgb, ${EDL_CSSVAR[et]} 22%, transparent)`;
+// DANS LE PDF : mêmes couleurs, en valeurs d'impression FIGÉES (un PDF n'a pas de thème)
+// = exactement les tokens CLAIRS de la charte. Aucune coordonnée de signature n'est
+// déplacée par ce changement (§7ter) — c'est ce qui l'autorise hors du gate PDF.
+const EDL_PDF_RGB = {'Neuf':[22,121,94],"Bon état":[46,109,177],"État d'usage":[143,98,14],'Mauvais état':[201,47,47],'Absent':[66,80,106]};
 const EDL_ABBREV = {'Neuf':'N',"Bon état":'B',"État d'usage":'U','Mauvais état':'M','Absent':'–'};
 const EDL_DESC   = {'Neuf':'Jamais utilisé',"Bon état":'Propre et fonctionnel',"État d'usage":'Vétusté normale, non imputable','Mauvais état':'Dégradation anormale à charge du locataire','Absent':'Absent ou non applicable'};
 
@@ -30982,42 +31027,49 @@ const EDL_SIGINTRO_TPL = (dateFmt) => `Les soussignés certifient exacts les ren
 // - Cuisine : meubles bas/haut détaillés, Crédence
 // - SDB : Robinetterie baignoire/douche, Sous-bassement lavabo/vasque
 // - WC : Lave-mains
+// EDL TERRAIN §A.5 — LE MÉNAGE DU MODÈLE, tranché par Didier le 20/08 : 127 → 109.
+// Un REGROUPEMENT n'est pas une suppression : la ligne fusionnée NOMME les deux objets
+// (« Porte, clé et poignée », « Radiateur et thermostat », « Volet / store, sangle /
+// chaîne ») pour rester opposable. VMC seulement en Cuisine / Salle de bain / WC ; la
+// ligne DAAF quitte « Extérieurs » (la section dédiée sécurité incendie reste seule).
+// NE VAUT QUE POUR LES NOUVEAUX EDL : aucune migration, on ne fusionne JAMAIS
+// rétroactivement deux lignes existantes qui portent chacune état, observation, photos.
+// Comptes par pièce : 12 · 13 · 25 · 15 · 20 · 14 · 10 = 109.
 const EDL_TPL = [
   {nom:"Entrée / Couloir",  e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Porte d'entrée","Clé et poignée","Serrure / Verrou",
-    "Porte / Menuiserie","Clé et poignée (autres portes)",
-    "Radiateur","Thermostat radiateur",
+    "Portes, clés et poignées","Serrure / Verrou",
+    "Radiateur et thermostat",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","VMC / Aération",
+    "Éclairage",
     "Autres observations"
   ]},
   {nom:"Séjour / Salon",    e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Fenêtres","Volets / Stores","Sangle volet / Chaîne",
-    "Porte / Menuiserie","Clé et poignée",
-    "Radiateur","Thermostat radiateur",
+    "Fenêtres","Volets / stores, sangle / chaîne",
+    "Porte, clé et poignée",
+    "Radiateur et thermostat",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","VMC / Aération",
+    "Éclairage",
     "Autres observations"
   ]},
   {nom:"Cuisine",           e:[
     "Sol","Plinthes","Murs","Plafond",
     "Fenêtre","Volet / Store",
-    "Porte / Menuiserie","Clé et poignée",
+    "Porte, clé et poignée",
     "Évier","Robinetterie évier",
     "Meubles bas (portes, étagères, tiroirs)",
     "Meubles hauts (portes, étagères, tiroirs)",
     "Plan de travail","Crédence",
     "Plaques de cuisson","Hotte aspirante","Four","Réfrigérateur","Lave-vaisselle",
-    "Radiateur","Thermostat radiateur",
+    "Radiateur et thermostat",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
     "Éclairage","VMC / Aération",
     "Autres observations"
   ]},
   {nom:"WC",                e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Porte / Menuiserie","Clé et poignée",
+    "Porte, clé et poignée",
     "Cuvette WC","Chasse d'eau","Abattant",
     "Lave-mains","Robinetterie lave-mains",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)",
@@ -31027,7 +31079,7 @@ const EDL_TPL = [
   {nom:"Salle de bain",     e:[
     "Sol","Plinthes","Murs","Plafond",
     "Fenêtre","Volet / Store",
-    "Porte / Menuiserie","Clé et poignée",
+    "Porte, clé et poignée",
     "Baignoire / Douche","Robinetterie baignoire / douche","Paroi / Rideau",
     "Lavabo / Vasque","Sous-bassement lavabo / vasque","Robinetterie lavabo",
     "Miroir","Radiateur sèche-serviette",
@@ -31037,11 +31089,11 @@ const EDL_TPL = [
   ]},
   {nom:"Chambre 1",         e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Fenêtre","Volet / Store","Sangle volet / Chaîne",
-    "Porte / Menuiserie","Clé et poignée",
-    "Radiateur","Thermostat radiateur",
+    "Fenêtre","Volet / store, sangle / chaîne",
+    "Porte, clé et poignée",
+    "Radiateur et thermostat",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","Placard / Penderie","VMC / Aération",
+    "Éclairage","Placard / Penderie",
     "Autres observations"
   ]},
   {nom:"Extérieurs / Communs", e:[
@@ -31052,64 +31104,67 @@ const EDL_TPL = [
     "Clôture / Portail",
     "Sonnette / Interphone",
     "Boîte aux lettres",
-    "Détecteur de fumée (DAAF)",
     "Poubelles / Tri sélectif (multiflux)",
     "Éclairage extérieur",
     "Autres observations"
   ]},
 ];
+// EDL_EXTRA — pièces ajoutables. Mêmes regroupements que §A.5 « partout » : porte + clé/
+// poignée en UNE ligne nommant les deux, radiateur + thermostat, volet + sangle/chaîne.
+// (VMC laissée là où elle a un sens : Buanderie.) Nouveaux EDL seulement, aucune migration.
 const EDL_EXTRA = [
   {nom:"Chambre",   e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Fenêtre","Volet / Store","Sangle volet / Chaîne",
-    "Porte / Menuiserie","Clé et poignée",
-    "Radiateur","Thermostat radiateur",
+    "Fenêtre","Volet / store, sangle / chaîne",
+    "Porte, clé et poignée",
+    "Radiateur et thermostat",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
-    "Éclairage","Placard / Penderie","VMC / Aération",
+    "Éclairage","Placard / Penderie",
     "Autres observations"
   ]},
   {nom:"Balcon / Terrasse",e:[
-    "Sol","Murs / Façade","Garde-corps","Porte-fenêtre","Clé et poignée","Volet / Store","Sangle volet / Chaîne",
+    "Sol","Murs / Façade","Garde-corps",
+    "Porte-fenêtre, clé et poignée","Volet / store, sangle / chaîne",
     "Éclairage","Robinet extérieur","Autres observations"
   ]},
   {nom:"Cave / Garage",    e:[
-    "Sol","Murs","Plafond","Porte / Portail","Clé et poignée","Serrure",
+    "Sol","Murs","Plafond","Porte / portail, clé et poignée","Serrure",
     "Éclairage","Prises électriques","Autres observations"
   ]},
   {nom:"Bureau",   e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Fenêtre","Volet","Sangle volet / Chaîne",
-    "Porte / Menuiserie","Clé et poignée",
-    "Radiateur","Thermostat radiateur",
+    "Fenêtre","Volet / store, sangle / chaîne",
+    "Porte, clé et poignée",
+    "Radiateur et thermostat",
     "Prises électriques (+ caches)","Interrupteurs (+ caches)","Prise Internet (RJ45)",
     "Éclairage","Autres observations"
   ]},
   {nom:"Dressing", e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Porte / Menuiserie","Clé et poignée",
+    "Porte, clé et poignée",
     "Rangements (étagères, tiroirs, penderies)",
     "Éclairage","Prises électriques","Autres observations"
   ]},
   {nom:"Couloir",  e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Porte / Menuiserie","Clé et poignée",
+    "Porte, clé et poignée",
     "Éclairage","Prises électriques (+ caches)","Interrupteurs (+ caches)",
     "Autres observations"
   ]},
   {nom:"Cellier",  e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Porte / Menuiserie","Clé et poignée",
+    "Porte, clé et poignée",
     "Étagères","Éclairage","Prises électriques","Autres observations"
   ]},
   {nom:"Buanderie",e:[
     "Sol","Plinthes","Murs","Plafond",
-    "Porte / Menuiserie","Clé et poignée",
+    "Porte, clé et poignée",
     "Évier / Bac à laver","Robinetterie",
     "Prises électriques (+ caches)","VMC / Aération","Éclairage",
     "Autres observations"
   ]},
   {nom:"Jardin",   e:[
-    "Clôture / Portail","Clé et poignée","Pelouse / Espaces verts","Allées",
+    "Clôture / portail, clé et poignée","Pelouse / Espaces verts","Allées",
     "Robinet extérieur","Éclairage extérieur","Autres observations"
   ]},
 ];
@@ -32087,7 +32142,39 @@ function _edlReadMobilierFromForm() {
   };
 }
 
-function onEDLLogChange() { _edlPrefill(v('edl-log'),false); }
+function onEDLLogChange() {
+  const ref = v('edl-log');
+  // P1 (§7bis, §9 inv. 34a) — sur un EDL DÉJÀ SAISI, changer de logement ne doit JAMAIS
+  // garder en silence la structure de l'ancien bien (l'EDL pouvait partir signé avec la
+  // mauvaise composition). On DEMANDE, jamais un choix implicite : recharger la composition
+  // du nouveau bien (perte de la saisie) ou garder la saisie et sa structure actuelle.
+  if (ref && typeof _edlAUneSaisie === 'function' && _edlAUneSaisie()) {
+    const recharger = confirm2(
+      "Cet état des lieux contient déjà des saisies (états, observations ou photos).\n\n" +
+      "Vous changez de logement pour « " + ref + " ».\n\n" +
+      "• OK : recharger la composition de ce logement — LES SAISIES EN COURS SERONT PERDUES.\n" +
+      "• Annuler : garder vos saisies (elles conservent la structure actuelle)."
+    );
+    if (recharger) {
+      // vider la saisie → _edlPrefill peut alors recharger la structure du nouveau bien
+      _edlP.forEach(p => (p.elements || []).forEach(x => {
+        x.etatE = ''; x.obsE = ''; x.photosE = []; x.etatS = ''; x.obsS = ''; x.photosS = [];
+      }));
+      // Si le nouveau bien n'a PAS de composition enregistrée, sa « structure » est le
+      // modèle générique — on y repart (sinon on garderait la structure de l'ancien bien).
+      const log = (DB.logements || []).find(l => l.ref === ref);
+      const aTemplate = log && log.edlTemplate && Array.isArray(log.edlTemplate.pieces) && log.edlTemplate.pieces.length;
+      if (!aTemplate) {
+        _edlP.length = 0;
+        _edlP.push(...EDL_TPL.map(p => ({ nom: p.nom, elements: (p.e || []).map(n => ({ nom: n, etatE: '', obsE: '', photosE: [], etatS: '', obsS: '', photosS: [] })) })));
+      }
+    }
+    _edlPrefill(ref, false);   // en-têtes du nouveau bien ; charge son template s'il en a un (saisie vidée)
+    _edlRenderPieces();
+    return;
+  }
+  _edlPrefill(ref, false);
+}
 
 function edlTypeChange() {
   _edlSortie=el('edl-type-sortie').checked;
@@ -32259,7 +32346,42 @@ function _edlApplySortieVis() {
   const naw=el('edl-nouv-adr-wrap');if(naw)naw.style.display=_edlSortie?'':'none';
   _edlRedrawCles();
 }
+/* EDL TERRAIN lot 5 — P4 (§7bis) : clavier NUMÉRIQUE pour les relevés de compteurs.
+   Les champs à type="number" (surface, nb pièces, quantités de clés) ouvrent déjà
+   le pavé numérique sur mobile ; les relevés (edl-cpt-*) sont de simples .inp SANS
+   type → clavier alphabétique. inputmode="decimal" (pas type="number" : il avale
+   les zéros de tête d'un n° de compteur et casse la saisie décimale selon la locale). */
+function _edlApplyNumericInputs() {
+  document.querySelectorAll('#ov-edl input[id^="edl-cpt-"]').forEach(inp => {
+    if (!inp.getAttribute('inputmode')) inp.setAttribute('inputmode', 'decimal');
+  });
+}
+
+/* EDL TERRAIN lot 5 — P5 (§7bis) : le rail du pouce suit le VISUAL VIEWPORT.
+   iOS ne redimensionne pas le viewport de mise en page à l'ouverture du clavier ;
+   un élément collé en bas passe DERRIÈRE le clavier. On mesure le décalage
+   (hauteur fenêtre − bas visible du visual viewport) et on remonte le rail d'autant
+   via --edl-vv-offset. Idempotent : un seul écouteur pour toute la vie de la page. */
+let _edlVVBound = false;
+function _edlBindVisualViewport() {
+  if (_edlVVBound || typeof window === 'undefined' || !window.visualViewport) return;
+  _edlVVBound = true;
+  const vv = window.visualViewport;
+  const sync = () => {
+    const rail = el('edl-rail'); if (!rail) return;
+    // décalage = ce que le clavier recouvre en bas de la fenêtre
+    const off = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
+    document.documentElement.style.setProperty('--edl-vv-offset', off + 'px');
+  };
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+}
+
 function _edlRenderAll(sigs) {
+  _edlCurPiece = 0; // lot 5 : à l'ouverture, le parcours démarre sur la 1re pièce
+  _edlApplyNumericInputs(); // lot 5 P4 : pavé numérique pour les relevés
+  _edlBindVisualViewport();  // lot 5 P5 : le rail suit le clavier
   _edlRenderPieces();
   _edlFillPieceSelect();
   _edlApplySortieVis();
@@ -32285,22 +32407,101 @@ function _edlRenderPieces() {
   const wrap=el('edl-pieces-section');if(!wrap)return;
   const legend=`<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bor);margin-bottom:10px;font-size:11px;align-items:center">
     <b style="margin-right:4px;color:var(--t1)">États :</b>`+
-    EDL_ETATS.map(et=>{const c=EDL_COLORS[et];return `<span style="padding:2px 8px;border-radius:10px;border:1px solid ${c};color:${c};font-weight:700">${EDL_ABBREV[et]}</span><span style="color:var(--t2)"> ${EDL_DESC[et]}</span>`;}).join('<span style="color:var(--bor)"> │ </span>')+
+    EDL_ETATS.map(et=>{const c=EDL_CSSVAR[et];return `<span style="padding:2px 8px;border-radius:10px;border:1px solid ${c};color:${c};font-weight:700">${EDL_ABBREV[et]}</span><span style="color:var(--t2)"> ${EDL_DESC[et]}</span>`;}).join('<span style="color:var(--bor)"> │ </span>')+
   `</div>`;
+  // lot 5 : marqueur de mode pour scoper les cartes mobiles à 7 colonnes (sortie).
+  // Sans lui, la règle td:nth-child(5) « État sortie : » débordait sur la cellule ✕
+  // des lignes d'ENTRÉE (5 td, la 5e = suppression) — étiquette fantôme sur chaque carte.
+  wrap.classList.toggle('edl-sortie-mode', !!_edlSortie);
   wrap.innerHTML=legend+_edlP.map((p,pi)=>_edlPieceHTML(p,pi)).join('');
   _edlObserveThumbs(); // lot 0 : hydratation des vignettes à la demande
+  _edlSyncParcours(); // lot 5 : sur téléphone, n'afficher qu'une pièce + rail du pouce
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * EDL TERRAIN lot 5 — le parcours une-pièce-à-la-fois sur téléphone (§4, §A.1).
+ * Le rail du pouce [←] [⤒ Cuisine · 3/8] [→] est collé en bas ; le bouton du
+ * milieu ouvre la feuille des pièces (sauter directement). Toute la logique de
+ * comptage/navigation vit dans js/core/edl-parcours.js (module testé). Ici :
+ * le branchement au DOM. PC et tablette (≥ 768) ignorent tout ceci — CSS.
+ * ──────────────────────────────────────────────────────────────────────── */
+let _edlCurPiece = 0;
+function _edlPhoneMode() { return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:1023px)').matches; }
+function _edlSyncParcours() {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const n = _edlP.length;
+  if (P) _edlCurPiece = P.indexClamp(_edlCurPiece, n);
+  const phone = _edlPhoneMode();
+  document.querySelectorAll('#edl-pieces-section .edl-piece-block').forEach(b => {
+    const idx = parseInt(b.getAttribute('data-pidx'), 10);
+    b.classList.toggle('edl-cur', idx === _edlCurPiece);
+  });
+  const rail = el('edl-rail');
+  // rail visible seulement si le module de parcours est là (sinon boutons inertes)
+  if (rail) rail.style.display = (phone && n > 0 && P) ? 'flex' : 'none';
+  _edlUpdateRail();
+}
+function _edlUpdateRail() {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const n = _edlP.length; if (!P || !n) return;
+  const cur = _edlP[_edlCurPiece];
+  const lbl = el('edl-rail-label'); if (lbl) lbl.textContent = P.railLabel(cur ? cur.nom : '', _edlCurPiece, n);
+  const g = P.statsGlobales(_edlP, _edlSortie);
+  const gl = el('edl-rail-global'); if (gl) gl.textContent = `${g.remplis}/${g.total}` + (_edlSortie && g.ecarts ? ` · ${g.ecarts} écart${g.ecarts > 1 ? 's' : ''}` : '');
+  const prev = el('edl-rail-prev'), next = el('edl-rail-next');
+  if (prev) prev.disabled = !P.aPrecedente(_edlCurPiece, n);
+  if (next) next.disabled = !P.aSuivante(_edlCurPiece, n);
+}
+function _edlGoPiece(idx) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  _edlCurPiece = P ? P.indexClamp(idx, _edlP.length) : 0;
+  _edlSyncParcours();
+  _edlClosePieceSheet();
+  // amener le haut de la pièce courante dans le cadre (sans faire défiler le body)
+  const b = document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${_edlCurPiece}"]`);
+  const scroll = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
+  if (b && scroll) scroll.scrollTo({ top: Math.max(0, b.offsetTop - 8), behavior: 'smooth' });
+}
+function _edlRailNav(delta) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null; if (!P) return;
+  _edlGoPiece(delta > 0 ? P.suivante(_edlCurPiece, _edlP.length) : P.precedente(_edlCurPiece, _edlP.length));
+}
+function _edlOpenPieceSheet() {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const sheet = el('edl-piece-sheet'), list = el('edl-piece-sheet-list'); if (!sheet || !list || !P) return;
+  list.innerHTML = _edlP.map((p, i) => {
+    const s = P.statsPiece(p, _edlSortie);
+    const ec = (_edlSortie && s.ecarts > 0) ? `<span class="edl-pecart">${s.ecarts} écart${s.ecarts > 1 ? 's' : ''}</span>` : '';
+    const done = s.complete ? ' done' : '';
+    return `<button class="edl-sheet-row${done}${i === _edlCurPiece ? ' cur' : ''}" onclick="_edlGoPiece(${i})">
+      <span class="edl-sheet-nom">${escHtml(p.nom)}</span>
+      <span class="edl-sheet-meta"><span class="edl-pcount">${s.remplis}/${s.total}</span>${ec}</span>
+    </button>`;
+  }).join('');
+  sheet.style.display = 'flex';
+}
+function _edlClosePieceSheet() { const s = el('edl-piece-sheet'); if (s) s.style.display = 'none'; }
 
 function _edlBtns(pi,ei,field,cur) {
   return EDL_ETATS.map((et,idx)=>{
-    const c=EDL_COLORS[et],active=cur===et;
+    const c=EDL_CSSVAR[et],active=cur===et;
     return `<button onclick="edlEtat(${pi},${ei},'${field}',${idx},this)"
-      style="padding:3px 10px;border-radius:10px;border:${active?`2px solid ${c}`:'1px solid var(--bor)'};background:${active?c+'33':'transparent'};color:${active?c:'var(--t2)'};font-size:12px;cursor:pointer;font-weight:${active?700:400};margin:1px;min-width:32px"
+      style="padding:3px 10px;border-radius:10px;border:${active?`2px solid ${c}`:'1px solid var(--bor)'};background:${active?_edlEtatBg(et):'transparent'};color:${active?c:'var(--t2)'};font-size:12px;cursor:pointer;font-weight:${active?700:400};margin:1px;min-width:32px"
       title="${et} — ${EDL_DESC[et]}">${EDL_ABBREV[et]}</button>`;
   }).join('');
 }
 
+/* §A.6 / valeur probante — l'entrée signée est verrouillée en sortie. Le RÈGLE vit dans
+   le module testé js/core/edl-parcours.js ; ces deux relais lisent _edlSortie et
+   dégradent proprement en file:// (module absent). */
+function _edlEntreeVerrouillee(){ const P=(typeof window!=='undefined')?window.EdlParcours:null; return (P&&P.entreeVerrouillee)?P.entreeVerrouillee(_edlSortie):!!_edlSortie; }
+function _edlPhotoEntreeVerrouillee(side){ const P=(typeof window!=='undefined')?window.EdlParcours:null; return (P&&P.photoEntreeVerrouillee)?P.photoEntreeVerrouillee(side,_edlSortie):(side==='E'&&!!_edlSortie); }
+
 function _edlPhotoCell(pi,ei,side) {
+  // §A.6 / valeur probante : les photos d'ENTRÉE sont SIGNÉES en mode sortie → consultation
+  // seule. Le ✕ (suppression) et le bouton d'ajout sont RETIRÉS DU DOM (pas seulement
+  // masqués) — défense en profondeur, en plus de la garde fonction d'edlDelPhoto/edlAddPhoto.
+  const locked = _edlPhotoEntreeVerrouillee(side);
   const photos=(side==='E'?_edlP[pi]?.elements[ei]?.photosE:_edlP[pi]?.elements[ei]?.photosS)||[];
   const thumbs=photos.map((ph,phi)=>{
     const srcBadge=ph._source
@@ -32309,13 +32510,43 @@ function _edlPhotoCell(pi,ei,side) {
     return `<div style="position:relative;display:inline-block;margin:1px;vertical-align:top">
       <img src="${_photoCache[ph.idbKey]||ph.data||_EDL_PH_VIDE}" data-ph="${escHtml(ph.idbKey||'')}" class="edl-thumb" onclick="edlViewPhoto(${pi},${ei},'${side}',${phi})" title="${escHtml(ph.name||'')}${ph._source?' ['+ph._source+' '+fd(ph._sourceDate)+']':''}">
       ${srcBadge}
-      <button onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" style="position:absolute;top:-5px;right:-5px;background:var(--red);color:white;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;padding:0;line-height:15px;text-align:center">✕</button>
+      ${locked?'':`<button onclick="edlDelPhoto(${pi},${ei},'${side}',${phi})" style="position:absolute;top:-5px;right:-5px;background:var(--red);color:white;border:none;border-radius:50%;width:15px;height:15px;font-size:9px;cursor:pointer;padding:0;line-height:15px;text-align:center">✕</button>`}
     </div>`;
   }).join('');
   return `<td style="padding:4px;text-align:center;vertical-align:top;min-width:60px">
     <div>${thumbs}</div>
-    <button onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap">📷${photos.length?' +':''}</button>
+    ${locked?'':`<button onclick="edlAddPhoto(${pi},${ei},'${side}')" style="margin-top:2px;background:none;border:1px dashed var(--bor);border-radius:4px;cursor:pointer;color:var(--t2);font-size:11px;padding:2px 6px;white-space:nowrap">📷${photos.length?' +':''}</button>`}
   </td>`;
+}
+
+/* EDL TERRAIN lot 7 (§A.6) — le VERDICT d'un élément de sortie, DÉDUIT et jamais
+   stocké : verdictDe(entrée, sortie) via le module testé. La cellule se recalcule à
+   chaque changement d'état (edlEtat) ou d'observation de sortie (edlObs). Reco §A.6
+   appliquée : une observation de sortie sans écart affiche « état inchangé ? » —
+   on prévient, on ne décide pas. */
+/* EDL TERRAIN lot 7 (§A.6) — l'état d'ENTRÉE en SORTIE est SIGNÉ : sur la carte
+   (téléphone + tablette) il se lit en PASTILLE lecture seule, pas les 5 lettres.
+   Les 5 boutons restent rendus pour le tableau PC (masqués en carte par CSS). */
+function _edlEtatPastille(etat) {
+  if (!etat) return `<span class="edl-pastille edl-pastille-vide" title="État d'entrée non renseigné">—</span>`;
+  const cv = EDL_CSSVAR[etat] || 'var(--t2)';
+  return `<span class="edl-pastille" style="color:${cv};border-color:color-mix(in srgb, ${cv} 45%, transparent);background:${_edlEtatBg(etat)}" title="${escHtml(etat)} (signé à l'entrée)">${escHtml(EDL_ABBREV[etat] || '')} · ${escHtml(etat)}</span>`;
+}
+
+function _edlVerdictInner(x) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if (!P || !x) return '';
+  const v = P.verdictDe(x.etatE, x.etatS);
+  const map = { 'a-constater': ['À constater', 'vc-att'], 'conforme': ['Conforme', 'vc-ok'], 'ecart': ['ÉCART', 'vc-ko'] };
+  const [lbl, cls] = map[v] || map['a-constater'];
+  let h = `<span class="edl-vbadge ${cls}">${lbl}</span>`;
+  if (P.avertObsSortie(x)) h += `<span class="edl-vwarn" title="Une observation de sortie est notée alors que l'état n'a pas changé — l'état est-il toujours le même ?">état inchangé ?</span>`;
+  return h;
+}
+function _edlRefreshVerdict(pi, ei) {
+  if (!_edlSortie) return;
+  const cell = document.querySelector(`.edl-verdict-cell[data-vpi="${pi}"][data-vei="${ei}"]`);
+  if (cell) cell.innerHTML = _edlVerdictInner(_edlP[pi] && _edlP[pi].elements[ei]);
 }
 
 function _edlElemRow(pi,ei,x,isSortie) {
@@ -32324,12 +32555,13 @@ function _edlElemRow(pi,ei,x,isSortie) {
   const del=`<td style="width:20px"><button onclick="edlRemoveElem(${pi},${ei})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px">✕</button></td>`;
   if(isSortie) return `<tr>
     <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
-    <td style="text-align:center">${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
-    <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsE',this.value)" placeholder="...">${escHtml(x.obsE||'')}</textarea></td>
+    <td class="edl-cell-etatE" style="text-align:center"><span class="edl-etatE-view">${_edlEtatPastille(x.etatE)}</span>${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
+    <td class="edl-cell-obsE"><textarea readonly aria-label="Observation d'entrée (signée, lecture seule)" style="${ta}" placeholder="—">${escHtml(x.obsE||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'E')}
     <td style="text-align:center">${_edlBtns(pi,ei,'etatS',x.etatS)}</td>
     <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsS',this.value)" placeholder="...">${escHtml(x.obsS||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'S')}
+    <td class="edl-verdict-cell" data-vpi="${pi}" data-vei="${ei}" style="text-align:center;white-space:nowrap">${_edlVerdictInner(x)}</td>
     ${del}</tr>`;
   return `<tr>
     <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
@@ -32339,16 +32571,33 @@ function _edlElemRow(pi,ei,x,isSortie) {
     ${del}</tr>`;
 }
 
+/* EDL TERRAIN lot 5 (§A.1) — pastille d'avancement d'une pièce, calculée par le
+   module testé js/core/edl-parcours.js (jamais recopiée ici). « 12/15 · 1 écart ».
+   Le compte d'écarts n'apparaît qu'en sortie (le verdict est déduit, cf §A.6). */
+function _edlPieceBadge(p) {
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if (!P) return '';
+  const s = P.statsPiece(p, _edlSortie);
+  let html = `<span class="edl-pcount">${s.remplis}/${s.total}</span>`;
+  if (_edlSortie && s.ecarts > 0) html += `<span class="edl-pecart">${s.ecarts} écart${s.ecarts > 1 ? 's' : ''}</span>`;
+  return `<span class="edl-pbadge${s.complete ? ' ok' : ''}">${html}</span>`;
+}
+
 function _edlPieceHTML(p,pi) {
   const isSortie=_edlSortie;
   const thead=isSortie
-    ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">📷 Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">📷 Sortie</th><th style="width:20px"></th></tr>`
+    ?`<tr style="background:var(--sur2)"><th style="min-width:120px">Élément</th><th style="width:100px;text-align:center">État entrée</th><th style="min-width:80px">Obs. entrée</th><th style="width:65px;text-align:center">📷 Entrée</th><th style="width:100px;text-align:center">État sortie</th><th style="min-width:80px">Obs. sortie</th><th style="width:65px;text-align:center">📷 Sortie</th><th style="width:88px;text-align:center">Verdict</th><th style="width:20px"></th></tr>`
     :`<tr style="background:var(--sur2)"><th style="min-width:140px">Élément</th><th style="width:100px;text-align:center">État</th><th>Observations</th><th style="width:65px;text-align:center">📷</th><th style="width:20px"></th></tr>`;
   const rows=(p.elements||[]).map((x,ei)=>_edlElemRow(pi,ei,x,isSortie)).join('');
-  return `<div style="border:2px solid var(--bor);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
-    <div style="background:var(--sur2);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bor)">
-      <input style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;width:260px" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
-      <div class="flex-c" style="gap:5px">
+  // lot 5 : chaque pièce est un BLOC adressable (data-pidx) — sur téléphone, le
+  // parcours n'en montre qu'un à la fois (§4, §9 inv. 23). Le rendu reste celui-ci.
+  return `<div class="edl-piece-block" data-pidx="${pi}" style="border:2px solid var(--bor);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
+    <div class="edl-piece-head" style="background:var(--sur2);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bor);gap:8px">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+        <input style="font-weight:700;font-size:13px;background:transparent;border:none;color:var(--t1);padding:0;flex:1;min-width:0" value="${escHtml(p.nom)}" onchange="edlPieceNom(${pi},this.value)" placeholder="Nom de la pièce">
+        ${_edlPieceBadge(p)}
+      </div>
+      <div class="flex-c" style="gap:5px;flex:none">
         <button class="btn bs bb" onclick="edlAddElem(${pi})" style="font-size:11px">+ Élément</button>
         <button class="btn br bb" onclick="edlRemovePiece(${pi})" style="font-size:11px">🗑</button>
       </div>
@@ -32361,18 +32610,33 @@ function _edlPieceHTML(p,pi) {
 function edlEtat(pi,ei,field,idx,btn) {
   const val=EDL_ETATS[idx];
   if(!_edlP[pi]?.elements[ei])return;
+  // §A.6 / VALEUR PROBANTE : le constat d'ENTRÉE est SIGNÉ en mode sortie — « ni
+  // modifiable ni supprimable sur aucun format ». Garde au niveau FONCTION (verrouille
+  // aussi le tableau PC, où les boutons d'état d'entrée restent affichés).
+  if(field==='etatE' && _edlEntreeVerrouillee()){ showToast('État d\'entrée signé : non modifiable en sortie.','warn',3500); return; }
   _edlP[pi].elements[ei][field]=val;
   const row=btn.closest('tr');if(!row)return;
   row.querySelectorAll(`button[onclick*="'${field}'"]`).forEach((b,i)=>{
-    const et=EDL_ETATS[i],c=EDL_COLORS[et],active=et===val;
+    const et=EDL_ETATS[i],c=EDL_CSSVAR[et],active=et===val;
     b.style.border=active?`2px solid ${c}`:'1px solid var(--bor)';
-    b.style.background=active?c+'33':'transparent';
+    b.style.background=active?_edlEtatBg(et):'transparent';
     b.style.color=active?c:'var(--t2)';
     b.style.fontWeight=active?700:400;
   });
+  _edlRefreshVerdict(pi,ei); // lot 7 : le verdict est déduit, il se recalcule au clic
+  // lot 5 : la pastille d'avancement de la pièce bouge quand un état change
+  const badge=row.closest('.edl-piece-block')?.querySelector('.edl-pbadge');
+  if(badge&&_edlP[pi]){badge.outerHTML=_edlPieceBadge(_edlP[pi]);}
 }
 function edlElemNom(pi,ei,v2){if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei].nom=v2;}
-function edlObs(pi,ei,f,v2){if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei][f]=v2;}
+function edlObs(pi,ei,f,v2){
+  // §A.6 / VALEUR PROBANTE : l'observation d'ENTRÉE est SIGNÉE en sortie — non éditable
+  // sur aucun format. Le <textarea> est readonly, mais un verrou de document signé ne
+  // repose JAMAIS sur le DOM/CSS seul : la garde fonction refuse l'écriture partout.
+  if(f==='obsE' && _edlEntreeVerrouillee()) return;
+  if(_edlP[pi]?.elements[ei])_edlP[pi].elements[ei][f]=v2;
+  if(f==='obsS'||f==='etatS'||f==='etatE')_edlRefreshVerdict(pi,ei);
+}
 function edlPieceNom(pi,v2){if(_edlP[pi])_edlP[pi].nom=v2;}
 function edlAddElem(pi){if(!_edlP[pi])return;_edlP[pi].elements.push({nom:'',etatE:'',obsE:'',photosE:[],etatS:'',obsS:'',photosS:[]});_edlRenderPieces();}
 function edlRemoveElem(pi,ei){if(!_edlP[pi])return;_edlP[pi].elements.splice(ei,1);_edlRenderPieces();}
@@ -32615,8 +32879,8 @@ async function generateEDLPdfNative(edl) {
   // ─── Légende des états (clé de lecture, juste avant l'inventaire des pièces) ───
   // EDL-LEGENDE : les codes N/B/U/M/– n'avaient aucune légende dans le PDF (le lecteur
   // voyait des lettres nues). L'état conditionne l'imputation des dégradations → portée juridique.
-  // Réutilise les constantes globales EDL_ETATS/EDL_ABBREV/EDL_DESC/EDL_COLORS (source unique, pas de recopie).
-  const _edlHexRgb = h => { const n = parseInt(String(h||'').replace('#',''), 16); return isNaN(n) ? [255,255,255] : [(n>>16)&255, (n>>8)&255, n&255]; };
+  // Réutilise les constantes globales EDL_ETATS/EDL_ABBREV/EDL_DESC (source unique, pas de recopie).
+  // Couleurs d'impression : EDL_PDF_RGB (tokens charte 4,5:1), lot 5 §7ter.
   y = newPageIfNeeded(y, 54); // réserve titre (~10) + tableau 6 lignes (~42) → jamais coupée en 2 pages
   y = drawTitle(y, 'Légende des états', 2);
   pdf.autoTable({
@@ -32633,7 +32897,7 @@ async function generateEDLPdfNative(edl) {
     },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 0) {
-        data.cell.styles.fillColor = _edlHexRgb(EDL_COLORS[EDL_ETATS[data.row.index]]);
+        data.cell.styles.fillColor = EDL_PDF_RGB[EDL_ETATS[data.row.index]] || [255,255,255]; // lot 5 §7ter : couleurs charte 4,5:1
       }
     }
   });
@@ -33266,14 +33530,139 @@ function edlAddPhoto(pi,ei,side){
   });
 }
 function edlDelPhoto(pi,ei,side,phi){
+  // §A.6 / VALEUR PROBANTE — LE POINT LE PLUS GRAVE : supprimer une photo d'ENTRÉE en
+  // mode sortie appelle _idbDel(ph.idbKey), qui DÉTRUIT DÉFINITIVEMENT le binaire ; et le
+  // même idbKey peut être partagé avec l'EDL d'entrée SIGNÉ → on effacerait une preuve.
+  // Garde au niveau fonction (tous formats) ; le bouton ✕ est aussi retiré du DOM en sortie.
+  if(_edlPhotoEntreeVerrouillee(side)){ showToast('Photo d\'entrée signée : non supprimable en sortie.','warn',4000); return; }
   const arr=side==='E'?_edlP[pi].elements[ei].photosE:_edlP[pi].elements[ei].photosS;
   const ph=arr[phi];if(ph?.idbKey){_idbDel(ph.idbKey);delete _photoCache[ph.idbKey];}
   arr.splice(phi,1);_edlRenderPieces();
 }
+/* EDL TERRAIN lot 7 (§A.6) — LA VISIONNEUSE entrée/sortie.
+   Cliquer une vignette d'un élément ouvre les DEUX séries (entrée + sortie) :
+   - aucune superposition, aucun rideau avant/après (rejeté par Didier) ;
+   - la grande image EN ENTIER, portrait comme paysage (contain, fond neutre) ;
+   - PC/tablette (≥ 768) : 2 colonnes entrée | sortie, chacune sa grande image ;
+   - téléphone (< 768) : une grande image + la pellicule des 2 séries au-dessus ;
+   - vignettes carrées (cover) ; « +N » ouvre la série au-delà de 3 (jusqu'à 8 photos).
+   Le chargement de la grande image réutilise le même chemin cache→IDB→cloud que la
+   lightbox simple (facteur commun _edlPhotoSrc). */
+async function _edlPhotoSrc(ph) {
+  if (!ph) return '';
+  let src = _photoCache[ph.idbKey] || ph.data || '';
+  if (!src && ph.idbKey && typeof _idbGet === 'function') {
+    try { src = await _idbGet(ph.idbKey); if (src) _photoCache[ph.idbKey] = src; } catch (e) {}
+  }
+  if (!src && (ph.cloudKey || ph.idbKey) && typeof _downloadPhotoFromDrive === 'function') {
+    try {
+      src = await _downloadPhotoFromDrive(null, ph.idbKey, ph.cloudKey);
+      if (src) { _photoCache[ph.idbKey] = src; if (typeof _idbPut === 'function' && ph.idbKey) { try { await _idbPut(ph.idbKey, src); } catch (e) {} } }
+    } catch (e) { console.warn('[edl viewer] cloud download fail:', e); }
+  }
+  return src;
+}
+function _edlThumbSrc(ph) { return (ph && (_photoCache[ph.idbKey] || ph.data)) || _EDL_PH_VIDE; }
+
+let _edlViewerState = null;
+const _EDL_VIEWER_CAP = 3;
+
+async function _edlOpenPhotoViewer(pi, ei, side, phi) {
+  const x = _edlP[pi] && _edlP[pi].elements[ei];
+  if (!x) return;
+  const seriesE = x.photosE || [], seriesS = x.photosS || [];
+  if (!seriesE.length && !seriesS.length) return;
+  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  const phone = _P && _P.layoutVisionneuse
+    ? _P.layoutVisionneuse(window.innerWidth) === 'pellicule'
+    : (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:767px)').matches);
+  const s0 = side || (seriesE.length ? 'E' : 'S');
+  _edlViewerState = {
+    seriesE, seriesS, phone, nom: x.nom || '',
+    bigE: side === 'E' ? (phi || 0) : 0,
+    bigS: side === 'S' ? (phi || 0) : 0,
+    cur: { side: s0, phi: phi || 0 },
+    expandedE: false, expandedS: false,
+  };
+  _edlRenderPhotoViewer();
+}
+function _edlViewerStripHTML(series, sideCode, activeIdx, expanded) {
+  if (!series.length) return '<span class="epv-empty">Aucune photo</span>';
+  const _P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  // §A.6 : troncature « +N » calculée par le module testé (jamais recopiée ici).
+  const t = (_P && _P.troncaturePellicule && !expanded)
+    ? _P.troncaturePellicule(series.length, _EDL_VIEWER_CAP)
+    : { visibles: series.length, plusN: 0 };
+  const shown = series.slice(0, t.visibles);
+  let html = shown.map((ph, i) =>
+    `<button class="epv-thumb${i === activeIdx ? ' epv-thumb-act' : ''}" onclick="_edlViewerShow('${sideCode}',${i})" title="${escHtml(ph.name || '')}"><img src="${_edlThumbSrc(ph)}" alt=""></button>`
+  ).join('');
+  if (t.plusN > 0) {
+    html += `<button class="epv-thumb epv-more" onclick="_edlViewerExpand('${sideCode}')" title="Voir les ${series.length} photos">+${t.plusN}</button>`;
+  }
+  return html;
+}
+function _edlViewerColHTML(sideCode, label, series, bigIdx, expanded) {
+  const n = series.length;
+  const big = n
+    ? `<div class="epv-big"><img id="epv-big-img-${sideCode}" class="epv-big-img" alt=""></div>`
+    : `<div class="epv-big epv-big-empty">Aucune photo ${label.toLowerCase()}</div>`;
+  const strip = n ? `<div class="epv-strip">${_edlViewerStripHTML(series, sideCode, bigIdx, expanded)}</div>` : '';
+  return `<div class="epv-col"><div class="epv-col-head">${label} · ${n} photo${n > 1 ? 's' : ''}</div>${big}${strip}</div>`;
+}
+function _edlRenderPhotoViewer() {
+  const st = _edlViewerState; if (!st) return;
+  let ov = el('edl-photo-viewer');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'edl-photo-viewer'; document.body.appendChild(ov); }
+  ov.onclick = (e) => { if (e.target === ov) _edlCloseViewer(); };
+  const head = `<button class="epv-x" onclick="_edlCloseViewer()" aria-label="Fermer">×</button><div class="epv-title">${escHtml(st.nom || 'Photos')}</div>`;
+  let body;
+  if (st.phone) {
+    const pell = `<div class="epv-pellicule">
+      <div class="epv-pell-group"><span class="epv-pell-lbl">Entrée</span><div class="epv-pell-thumbs">${_edlViewerStripHTML(st.seriesE, 'E', st.cur.side === 'E' ? st.cur.phi : -1, st.expandedE)}</div></div>
+      <div class="epv-pell-group"><span class="epv-pell-lbl">Sortie</span><div class="epv-pell-thumbs">${_edlViewerStripHTML(st.seriesS, 'S', st.cur.side === 'S' ? st.cur.phi : -1, st.expandedS)}</div></div>
+    </div>`;
+    const cs = st.cur.side === 'E' ? st.seriesE : st.seriesS;
+    const cur = cs[st.cur.phi];
+    const cap = `${st.cur.side === 'E' ? 'Entrée' : 'Sortie'} ${st.cur.phi + 1}/${cs.length}${cur && cur.name ? ' · ' + escHtml(cur.name) : ''}`;
+    body = `${pell}<div class="epv-big"><img id="epv-big-img" class="epv-big-img" alt=""></div><div class="epv-caption">${cap}</div>`;
+  } else {
+    body = `<div class="epv-2col">${_edlViewerColHTML('E', 'Entrée', st.seriesE, st.bigE, st.expandedE)}${_edlViewerColHTML('S', 'Sortie', st.seriesS, st.bigS, st.expandedS)}</div>`;
+  }
+  ov.innerHTML = head + body;
+  ov.style.display = 'flex';
+  if (st.phone) { _edlViewerLoadBig(st.cur.side); }
+  else { if (st.seriesE.length) _edlViewerLoadBig('E'); if (st.seriesS.length) _edlViewerLoadBig('S'); }
+}
+async function _edlViewerLoadBig(sideCode) {
+  const st = _edlViewerState; if (!st) return;
+  const series = sideCode === 'E' ? st.seriesE : st.seriesS;
+  const idx = st.phone ? (st.cur.side === sideCode ? st.cur.phi : 0) : (sideCode === 'E' ? st.bigE : st.bigS);
+  const ph = series[idx]; if (!ph) return;
+  const imgId = st.phone ? 'epv-big-img' : ('epv-big-img-' + sideCode);
+  const src = await _edlPhotoSrc(ph);
+  if (!_edlViewerState) return;               // viewer refermée entre-temps
+  const img = el(imgId); if (!img) return;
+  if (src) { img.src = src; img.alt = ph.name || ''; }
+  else { showToast('⚠️ Photo non disponible (pas encore dans le cloud).', 'warn', 5000); }
+}
+function _edlViewerShow(sideCode, phi) {
+  const st = _edlViewerState; if (!st) return;
+  if (st.phone) { st.cur = { side: sideCode, phi: phi }; }
+  else { if (sideCode === 'E') st.bigE = phi; else st.bigS = phi; }
+  _edlRenderPhotoViewer();
+}
+function _edlViewerExpand(sideCode) {
+  const st = _edlViewerState; if (!st) return;
+  if (sideCode === 'E') st.expandedE = true; else st.expandedS = true;
+  _edlRenderPhotoViewer();
+}
+function _edlCloseViewer() { _edlViewerState = null; const ov = el('edl-photo-viewer'); if (ov) ov.style.display = 'none'; }
+
 async function edlViewPhoto(pi,ei,side,phi){
   const arr=side==='E'?_edlP[pi].elements[ei].photosE:_edlP[pi].elements[ei].photosS;
   const ph=arr[phi];if(!ph)return;
-  await _showEDLPhotoLightbox(ph);
+  await _edlOpenPhotoViewer(pi, ei, side, phi);   // §A.6 : les 2 séries, jamais un rideau
 }
 
 // Sync Drive — silentMode=true pour auto-sync après save (pas de toast si 0 photos)
@@ -50991,7 +51380,7 @@ function _dgOpenRestitution(ref) {
   if (!bail) { showToast('Bail introuvable', 'err'); return; }
   const dgInfo = _dgStatut(bail);
   const solde = _calculerSoldeDG(bail, DB.mouvements || []);
-  const delaiMois = _calculerDelaiRestitution(bail);
+  const delaiMois = _calculerDelaiRestitution(bail, DB.edl);
   const body = el('ov-dg-restitution-body');
   if (!body) return;
   // I-DATE, surface 7 du §4 : ce champ était pré-rempli à `td()` et jamais confronté au

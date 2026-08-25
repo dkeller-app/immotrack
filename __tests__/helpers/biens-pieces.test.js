@@ -91,11 +91,16 @@ describe('« Extérieurs / Communs » (dont le DAAF) reste à l\'EDL, jamais dan
     expect(catalogueKit(EDL_TPL, EDL_EXTRA).map(p => p.nom)).not.toContain('Extérieurs / Communs');
   });
 
-  it('RÉGRESSION RÉGLEMENTAIRE — la section porte bien le détecteur de fumée et reste dans EDL_TPL', () => {
+  it('RÉGRESSION RÉGLEMENTAIRE — la section reste dans EDL_TPL, et le DAAF se constate TOUJOURS (§A.5)', () => {
     const sec = EDL_TPL.find(p => p.nom === 'Extérieurs / Communs');
     expect(sec, 'section supprimée de EDL_TPL — le DAAF ne se constaterait plus').toBeTruthy();
-    expect(sec.e).toContain('Détecteur de fumée (DAAF)');
-    // l'EDL générique continue de l'ajouter lui-même
+    // §A.5 (Didier, 20/08) : la LIGNE « Détecteur de fumée (DAAF) » QUITTE Extérieurs —
+    // deux constats possibles du même détecteur sur un document signé = contradiction
+    // exploitable (sanction pénale, loi 2010-238). La section dédiée reste seule à le porter.
+    expect(sec.e).not.toContain('Détecteur de fumée (DAAF)');
+    // …mais le constat n'est JAMAIS perdu : la section dédiée « sécurité incendie » existe.
+    expect(indexHtml).toContain('id="edl-daaf-section"');
+    // l'EDL générique continue d'ajouter la section « Extérieurs / Communs » lui-même
     expect(indexHtml).toContain('_edlP.push(...EDL_TPL.map(');
   });
 
