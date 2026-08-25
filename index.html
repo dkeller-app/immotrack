@@ -32426,7 +32426,7 @@ function _edlRenderPieces() {
  * le branchement au DOM. PC et tablette (≥ 768) ignorent tout ceci — CSS.
  * ──────────────────────────────────────────────────────────────────────── */
 let _edlCurPiece = 0;
-function _edlPhoneMode() { return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:767px)').matches; }
+function _edlPhoneMode() { return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width:1023px)').matches; }
 function _edlSyncParcours() {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
   const n = _edlP.length;
@@ -32514,6 +32514,15 @@ function _edlPhotoCell(pi,ei,side) {
    chaque changement d'état (edlEtat) ou d'observation de sortie (edlObs). Reco §A.6
    appliquée : une observation de sortie sans écart affiche « état inchangé ? » —
    on prévient, on ne décide pas. */
+/* EDL TERRAIN lot 7 (§A.6) — l'état d'ENTRÉE en SORTIE est SIGNÉ : sur la carte
+   (téléphone + tablette) il se lit en PASTILLE lecture seule, pas les 5 lettres.
+   Les 5 boutons restent rendus pour le tableau PC (masqués en carte par CSS). */
+function _edlEtatPastille(etat) {
+  if (!etat) return `<span class="edl-pastille edl-pastille-vide" title="État d'entrée non renseigné">—</span>`;
+  const cv = EDL_CSSVAR[etat] || 'var(--t2)';
+  return `<span class="edl-pastille" style="color:${cv};border-color:color-mix(in srgb, ${cv} 45%, transparent);background:${_edlEtatBg(etat)}" title="${escHtml(etat)} (signé à l'entrée)">${escHtml(EDL_ABBREV[etat] || '')} · ${escHtml(etat)}</span>`;
+}
+
 function _edlVerdictInner(x) {
   const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
   if (!P || !x) return '';
@@ -32536,8 +32545,8 @@ function _edlElemRow(pi,ei,x,isSortie) {
   const del=`<td style="width:20px"><button onclick="edlRemoveElem(${pi},${ei})" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px">✕</button></td>`;
   if(isSortie) return `<tr>
     <td><input style="${inp}" value="${escHtml(x.nom)}" onchange="edlElemNom(${pi},${ei},this.value)" placeholder="Élément"></td>
-    <td style="text-align:center">${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
-    <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsE',this.value)" placeholder="...">${escHtml(x.obsE||'')}</textarea></td>
+    <td class="edl-cell-etatE" style="text-align:center"><span class="edl-etatE-view">${_edlEtatPastille(x.etatE)}</span>${_edlBtns(pi,ei,'etatE',x.etatE)}</td>
+    <td class="edl-cell-obsE"><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsE',this.value)" placeholder="...">${escHtml(x.obsE||'')}</textarea></td>
     ${_edlPhotoCell(pi,ei,'E')}
     <td style="text-align:center">${_edlBtns(pi,ei,'etatS',x.etatS)}</td>
     <td><textarea style="${ta}" onchange="edlObs(${pi},${ei},'obsS',this.value)" placeholder="...">${escHtml(x.obsS||'')}</textarea></td>

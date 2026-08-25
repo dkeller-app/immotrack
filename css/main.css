@@ -2976,8 +2976,11 @@ textarea.field-modified-since-sig{
   #tp-irl-histo .tbl tr td[colspan]{display:block !important;text-align:center;padding:20px !important}
 }
 
-/* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────── */
-@media (max-width:600px){
+/* ── B) FORMULAIRE EDL — modal mobile plein écran + cards verticales ──────────
+   §A.4 (Didier) : la TABLETTE va AVEC le téléphone (cartes, une pièce à la fois).
+   Point de rupture porté de 600 à 1023 px : téléphone (375) ET tablette (768) →
+   cartes + parcours ; PC (≥ 1024) garde le tableau dense. */
+@media (max-width:1023px){
   /* Modal plein écran (override des inline styles max-width:980px;width:96vw) */
   #ov-edl{padding:0 !important;align-items:stretch}
   #ov-edl > .modal{
@@ -3221,6 +3224,90 @@ textarea.field-modified-since-sig{
     text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
   }
   #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell .edl-vwarn{max-width:none}
+
+  /* ══ Lot 7 (§A.6) — CARTE DE SORTIE en DEUX COLONNES côte à côte ══════════════
+     Entrée SIGNÉE à gauche (grise, verrouillée, état en pastille lecture seule) |
+     sortie éditable à droite | verdict déduit en pleine largeur. Remplace le rendu
+     empilé de la carte de sortie ; le tableau PC (≥ 1024) n'est PAS concerné. */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl tbody tr{
+    display:grid !important;grid-template-columns:1fr 1fr;
+    grid-template-areas:'nom nom' 'etatE etatS' 'obsE obsS' 'photoE photoS' 'verdict verdict';
+    column-gap:0;row-gap:0;align-items:stretch;padding:10px 12px !important;position:relative;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td{border-top:none !important;margin-top:0 !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(1){grid-area:nom;padding:0 0 8px !important;border-bottom:1px solid var(--bor) !important;margin-bottom:8px !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2){grid-area:etatE}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE{grid-area:obsE}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4){grid-area:photoE}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5){grid-area:etatS}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6){grid-area:obsS}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){grid-area:photoS}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{grid-area:verdict}
+
+  /* colonne ENTRÉE (gauche) : fond gris + séparateur = « signé, verrouillé » */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2),
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE,
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4){
+    background:var(--sur2) !important;border-right:2px solid var(--bor) !important;padding:7px 10px 7px 4px !important;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5),
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6),
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7){padding:7px 4px 7px 10px !important}
+
+  /* état d'entrée : PASTILLE lecture seule, PAS les 5 boutons */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2){display:block !important;text-align:left !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2) button{display:none !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2) .edl-etatE-view{display:inline-flex !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(2)::before{
+    content:'Entrée — signé';display:block;font:700 10px var(--font);color:var(--t3);
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;
+  }
+  /* obs + photos entrée : verrouillées (visibles, non éditables) */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE::before{
+    content:'Obs. entrée';display:block;font:600 10px var(--font);color:var(--t3);
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-cell-obsE textarea{
+    pointer-events:none;background:var(--sur) !important;color:var(--t2) !important;
+    border:1px solid var(--bor) !important;border-radius:6px;padding:5px 7px !important;
+    font-size:14px !important;width:100% !important;opacity:.9;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4)::before{
+    content:'📷 Entrée';display:block;font:600 10px var(--font);color:var(--t3);
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(4) button[onclick*="edlAddPhoto"]{display:none !important}
+
+  /* état de SORTIE : 5 boutons sur 2 rangs, cible ≥ 44 px */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5){
+    display:flex !important;flex-wrap:wrap;gap:6px;align-content:flex-start;border-top:none !important;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5)::before{
+    content:'Sortie — état';display:block;width:100%;font:700 10px var(--font);color:var(--ora);
+    text-transform:uppercase;letter-spacing:.4px;margin:0 0 4px;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(5) button{
+    flex:0 0 calc(33.333% - 4px);min-width:0 !important;min-height:44px !important;
+    margin:0 !important;font-size:15px !important;padding:0 !important;
+  }
+  /* obs sortie : éditable */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6){display:block !important;width:auto !important}
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6)::before{
+    content:'Obs. sortie';display:block;font:600 10px var(--font);color:var(--ora);
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(6) textarea{
+    background:var(--sur) !important;border:1px solid var(--bor) !important;border-radius:6px;
+    padding:5px 7px !important;font-size:14px !important;width:100% !important;min-height:42px;
+  }
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td:nth-child(7)::before{
+    content:'📷 Sortie';display:block;font:600 10px var(--font);color:var(--ora);
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;
+  }
+  /* verdict : pleine largeur, séparé */
+  #edl-pieces-section.edl-sortie-mode .tbl-wrap table.tbl td.edl-verdict-cell{
+    border-top:1px dashed var(--bor) !important;margin-top:8px !important;padding:8px 0 0 !important;text-align:left !important;
+  }
   /* Bouton ✕ supprimer élément (dernière cellule, width:20px) en absolute */
   #edl-pieces-section .tbl-wrap table.tbl td[style*="width:20px"]{
     position:absolute !important;top:8px;right:8px;
@@ -3309,6 +3396,14 @@ textarea.field-modified-since-sig{
   border-color:color-mix(in srgb,var(--neg) 50%,transparent);font-weight:800}
 .edl-vwarn{display:block;margin-top:4px;font:600 9.5px var(--font);color:var(--warn);white-space:normal;max-width:96px;line-height:1.25}
 
+/* Lot 7 (§A.6) — l'état d'ENTRÉE en sortie : PASTILLE lecture seule (signé).
+   Masquée par défaut → le tableau PC garde ses 5 boutons ; la carte (< 1024) la
+   montre et masque les boutons (voir bloc .edl-sortie-mode plus bas). */
+.edl-etatE-view{display:none}
+.edl-pastille{display:inline-flex;align-items:center;gap:5px;font:700 12px var(--font);
+  border:1px solid var(--bor);border-radius:999px;padding:4px 11px;white-space:nowrap;line-height:1.1}
+.edl-pastille-vide{color:var(--t3);background:var(--sur);border-style:dashed}
+
 /* Le rail du pouce : enfant direct de la modale, masqué par défaut, montré
    sous 768 px par _edlSyncParcours(). JAMAIS un conteneur de défilement. */
 .edl-rail{align-items:stretch;gap:8px;padding:8px 10px;flex:none;
@@ -3348,10 +3443,11 @@ textarea.field-modified-since-sig{
 .edl-sheet-nom{font:700 14px var(--font);color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .edl-sheet-meta{display:flex;align-items:center;gap:6px;flex:none}
 
-@media (max-width:767px){
-  /* Le modal EDL est plein écran sur téléphone : il doit passer AU-DESSUS de la
-     barre de navigation du bas (nav.v4-bnav, z-index 999), sinon le rail du pouce
-     se retrouve caché derrière elle. Plein écran = la nav n'a pas à rester visible. */
+@media (max-width:1023px){
+  /* Téléphone ET tablette (< 1024, §A.4) — parcours cartes une-pièce-à-la-fois + rail.
+     Le modal EDL est plein écran : il doit passer AU-DESSUS de la barre de navigation
+     du bas (nav.v4-bnav, z-index 999), sinon le rail du pouce se retrouve caché
+     derrière elle. Plein écran = la nav n'a pas à rester visible. */
   #ov-edl{z-index:1001}
   /* Une pièce à l'écran à la fois (§4, §9 inv. 23) : les autres blocs sont retirés
      du flux, seul .edl-cur reste. La légende des états (1er enfant) reste visible. */
