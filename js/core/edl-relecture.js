@@ -95,7 +95,9 @@ export function recapSignature(c = {}) {
   const cle = Math.max(0, Math.trunc(Number(c.clesNonRendues) || 0));
   const points = [];
   if (isSortie && ecarts > 0) points.push({ key: 'ecarts', n: ecarts, texte: ecarts + ' écart' + (ecarts > 1 ? 's' : '') + ' constaté' + (ecarts > 1 ? 's' : '') + ' par rapport à l\'entrée' });
-  if (nonR > 0) points.push({ key: 'nonRenseignes', n: nonR, texte: nonR + ' élément' + (nonR > 1 ? 's' : '') + ' non renseigné' + (nonR > 1 ? 's' : '') });
+  // Sortie : le compte est celui des « à constater » → on dit « non constaté(s) », comme la bannière
+  // (alertesRelecture). Entrée : ce sont les champs vides → « non renseigné(s) ». Même concept, même mot.
+  if (nonR > 0) points.push({ key: 'nonRenseignes', n: nonR, texte: nonR + ' élément' + (nonR > 1 ? 's' : '') + (isSortie ? (' non constaté' + (nonR > 1 ? 's' : '')) : (' non renseigné' + (nonR > 1 ? 's' : ''))) });
   if (isSortie && cle > 0) points.push({ key: 'cles', n: cle, texte: cle + ' clé' + (cle > 1 ? 's' : '') + ' non restituée' + (cle > 1 ? 's' : '') });
   const clean = points.length === 0;
   return { clean, points, titre: clean ? 'Confirmer la signature' : 'Avant de signer' };

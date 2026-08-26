@@ -32668,7 +32668,15 @@ function _edlApplyStepVisibility() {
     // PC (≥1024) OU modules absents (file://) : tout visible — aucun parcours, pas de
     // collapse trompeur (§2.9 aucune régression ; dégradation propre hors serveur).
     // relecture (§2.7) : écran MOBILE only → hors phone (ou modules absents) toujours masqué
-    if (!phone || !S) { node.style.display = (node.getAttribute('data-edl-step') === 'relecture') ? 'none' : disp; return; }
+    if (!phone || !S) {
+      const st0 = node.getAttribute('data-edl-step');
+      // relecture = écran mobile only, toujours masquée hors phone
+      if (st0 === 'relecture') { node.style.display = 'none'; return; }
+      // #edl-ref-banner n'a pas de data-edl-disp : le forcer à disp('') rétablirait sa
+      // barre bleue VIDE (régression PC §2.9). Il ne se montre que s'il porte un message.
+      if (node.id === 'edl-ref-banner') { node.style.display = node.innerHTML.trim() ? disp : 'none'; return; }
+      node.style.display = disp; return;
+    }
     const g = node.getAttribute('data-edl-step');
     let vis;
     if (S && node.id === 'edl-mobilier-section') vis = S.sectionVisible(g, curGroup, mobOn, true);

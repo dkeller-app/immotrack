@@ -98,4 +98,10 @@ describe('recapSignature — le pop-up « en connaissance de cause »', () => {
     const r = recapSignature({ isSortie: false, ecarts: 5, nonRenseignes: 3, clesNonRendues: 4 });
     expect(r.points.map(p => p.key)).toEqual(['nonRenseignes']); // écarts/clés ignorés hors sortie
   });
+  it('libellé aligné sur la bannière : sortie « non constaté(s) », entrée « non renseigné(s) »', () => {
+    const s = recapSignature({ isSortie: true, nonRenseignes: 2 });
+    expect(s.points[0].texte).toBe('2 éléments non constatés');
+    const e = recapSignature({ isSortie: false, nonRenseignes: 1 });
+    expect(e.points[0].texte).toBe('1 élément non renseigné');
+  });
 });
