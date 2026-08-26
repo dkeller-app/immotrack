@@ -84,6 +84,13 @@ par mois. **Pourquoi cet ordre** : une révision arrive une fois par an et par b
 (prescription d'un an, D15) ; une quittance se rattrape à tout moment. Le rare et périssable passe avant le
 fréquent et rattrapable. Le rappel DPE est juste sous l'IRL parce qu'il parle du bloc du dessus.
 
+**D25 — arbitrage tranché le 26/08 (Didier, sur maquette `d25-ordre-blocs.html` au volume réel) : OPTION A.**
+D25 se réalise **sur le socle « tableau de bord à tuiles »** validé le 18/08 (une seule liste à l'écran), en réordonnant
+les tuiles **Révisions à préparer → Quittances demandées → Pas à jour** (défaut = Révisions), puis dessous le ruban,
+le bloc DPE et le lien Suivi. L'IRL est bien en tête. **Écartée : l'option B** (les 4 familles empilées d'un coup) —
+mesurée à 1729 px sur PC en mois chargé contre 1252 px pour A, et elle reviendrait sur le socle tuiles déjà en prod.
+B ne serait rouverte que par une maquette dédiée si « voir les 4 familles sans un clic » devenait prioritaire.
+
 ### Quand une quittance est possible
 
 **D6 — Mois soldé = quittance ; sinon, reçu.** La quittance n'est proposée que si le cumul encaissé imputé au mois
