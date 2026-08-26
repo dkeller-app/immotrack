@@ -3508,6 +3508,12 @@ textarea.field-modified-since-sig{
   font-size:12.5px;line-height:1.45;background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid var(--warn);color:var(--t1)}
 .edl-rl-banner .ic{font-size:16px;flex:none}
 .edl-rl-banner b{color:var(--warn)}
+/* Récap des sections admin (détecteur / compteurs / clés) dans la relecture (AUDIT 26/08) */
+.edl-rl-admin{background:var(--sur2);border:1px solid var(--bor);border-radius:10px;padding:4px 12px;margin-bottom:12px}
+.edl-rl-arow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;font-size:13px;
+  color:var(--t2);border-bottom:1px solid var(--bor)}
+.edl-rl-arow:last-child{border-bottom:none}
+.edl-rl-arow b{color:var(--t1);font-weight:700;white-space:nowrap}
 .edl-rl-sec{border:1px solid var(--bor);border-radius:10px;margin-bottom:9px;overflow:hidden;background:var(--sur)}
 .edl-rl-sech{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;cursor:pointer;
   font-weight:700;font-size:14px;background:var(--sur2);gap:8px}

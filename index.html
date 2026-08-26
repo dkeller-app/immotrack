@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.552</title>
+<title>Propryo v15.553</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4215,7 +4215,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.552';
+const IMMOTRACK_VERSION = '15.553';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31823,9 +31823,9 @@ function rEDLList() {
       <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${abri}${e.cloudPdfKey?' ☁️':''}</td>
       <td class="act-cell">
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier">✏️</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id})" title="Télécharger le PDF (envoi mail / WhatsApp)">📥 PDF</button>
-        <button class="btn bs bb" onclick="uploadEDLPDFToDrive(${e.id})" title="Générer le PDF de l'EDL et l'enregistrer">☁️ Générer PDF</button>
-        ${e.cloudPdfKey ? `<button class="btn bs bb" onclick="openLastEDLPDF(${e.id})" title="Ouvrir le PDF de l'EDL" style="background:rgba(59,126,246,.10);color:var(--acc);border:1px solid rgba(59,126,246,.25)">📄 PDF EDL</button>` : ''}
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id})" title="Télécharger le PDF (envoi mail / WhatsApp)">📥 Télécharger</button>
+        <button class="btn bs bb" onclick="uploadEDLPDFToDrive(${e.id})" title="Générer le PDF de l'EDL et l'enregistrer">☁️ Archiver au cloud</button>
+        ${e.cloudPdfKey ? `<button class="btn bs bb" onclick="openLastEDLPDF(${e.id})" title="Ouvrir le PDF de l'EDL" style="background:rgba(59,126,246,.10);color:var(--acc);border:1px solid rgba(59,126,246,.25)">📄 Ouvrir le PDF (cloud)</button>` : ''}
         <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">🗑</button>
       </td></tr>`;
   }).join('')||'<tr><td colspan="6" class="mu" style="text-align:center;padding:20px">Aucun état des lieux</td></tr>';
@@ -32892,10 +32892,21 @@ function _edlRenderRelecture() {
     const badge = isS ? (flag ? `<span class="edl-rl-badge ko">${flag} à voir</span>` : '<span class="edl-rl-badge ok">RAS</span>') : '';
     return `<div class="edl-rl-sec${opened ? ' open' : ''}"><div class="edl-rl-sech" onclick="this.parentElement.classList.toggle('open')"><span class="edl-rl-secnom">${escHtml(p.nom)}</span><span class="edl-rl-secmeta">${badge}<span class="edl-rl-caret">▶</span></span></div><div class="edl-rl-secb">${lines || '<div class="edl-rl-li"><span class="nm" style="color:var(--t3)">Aucun élément à afficher</span></div>'}</div></div>`;
   }).join('');
+  // AUDIT 26/08 — récap des sections ADMIN (détecteur / compteurs / clés) : on pouvait signer sans
+  // les avoir revues. Résumé compact, read-only, avant l'inventaire des pièces.
+  const _daafSt = (typeof _edlDaafState !== 'undefined' && _edlDaafState && _edlDaafState.statut) || null;
+  const _daafLbl = { present: '✅ présent et fonctionnel', defaut: '⚠️ présent, à vérifier', absent: '❌ absent' }[_daafSt] || '— non renseigné';
+  const _cptCount = ['edl-cpt-elec-hp','edl-cpt-elec-hc','edl-cpt-gaz','edl-cpt-eau-c','edl-cpt-eau-f'].filter(id => (typeof v === 'function' && v(id))).length;
+  const _clesCount = ((typeof _edlGetCles === 'function' ? _edlGetCles() : []) || []).filter(c => c && (c.type || c.nb || c.nbS)).length;
+  const adminHtml = `<div class="edl-rl-admin">
+    <div class="edl-rl-arow"><span>🚨 Détecteur de fumée</span><b>${_daafLbl}</b></div>
+    <div class="edl-rl-arow"><span>🔢 Compteurs relevés</span><b>${_cptCount} / 5</b></div>
+    <div class="edl-rl-arow"><span>🔑 Clés renseignées</span><b>${_clesCount}</b></div>
+  </div>`;
   host.innerHTML = `<div class="edl-rl">
     <div class="edl-rl-title">Relecture avant signature</div>
     <div class="edl-rl-hint">${isS ? 'Vérifier tout avant de signer. Les états identiques entrée/sortie sont conformes ; seuls les changements sont des écarts.' : 'Relecture du constat d\'entrée. Vérifier chaque état et chaque observation avant de signer.'}</div>
-    ${chips}${alertHtml}${roomHtml}
+    ${chips}${alertHtml}${adminHtml}${roomHtml}
     <div class="edl-rl-after">Quand tout est vérifié, touchez <b>« Signer l'état des lieux »</b> en bas : un récapitulatif s'affiche, puis viennent l'engagement et les signatures.</div>
   </div>`;
 }
@@ -32930,7 +32941,7 @@ function _edlConfirmSign() {
 // #1 (retour Didier 26/08) — le bouton « Enregistrer l'état des lieux » du rail « ne faisait rien »
 // quand le logement (ou la date) manquait : saveEDL toaste puis sort, la modale reste ouverte. On
 // guide désormais : retour à l'étape Infos + champ manquant mis en évidence. Sinon, saveEDL normal.
-function _edlFinalize() {
+async function _edlFinalize() {
   const log = v('edl-log');
   const date = _edlSortie ? v('edl-date-sortie') : v('edl-date-entree');
   if (!log || !date) {
@@ -32943,7 +32954,13 @@ function _edlFinalize() {
     if (typeof showToast === 'function') showToast(!log ? 'Sélectionnez d\'abord le logement (étape « Infos »)' : 'Indiquez la date (étape « Infos »)', 'warn', 4000);
     return;
   }
-  saveEDL(); // succès : enregistre, ferme la modale et toaste « EDL enregistré ✓ »
+  // #5 (retour Didier 26/08) — une fois signé/enregistré, le PDF doit APPARAÎTRE directement.
+  // On enregistre (sans fermer), on génère + ouvre le PDF, puis on ferme la modale.
+  const savedId = saveEDL({ keepOpen: true, silent: true });
+  if (!savedId) return; // (ne devrait pas arriver : logement + date vérifiés ci-dessus)
+  if (typeof showToast === 'function') showToast('EDL enregistré ✓ — le PDF va s\'ouvrir…', 'ok', 2500);
+  try { await downloadEDLPdfNative(savedId); } catch (e) { console.warn('[_edlFinalize] PDF', e); }
+  if (typeof closeM === 'function') closeM('ov-edl');
 }
 
 function _edlBtns(pi,ei,field,cur) {
@@ -33217,6 +33234,55 @@ async function generateEDLPdfNative(edl) {
     return y + (level===2 ? 10 : 8);
   };
 
+  // §2.11bis — helpers photo/verdict, définis TÔT pour servir aussi les compteurs et le détecteur
+  // (rendus avant les pièces). `_isSortiePdf` : mode sortie. `drawSectionPhotos` : deux encadrés
+  // « entrée » / « sortie » sous une section. `_photoItem` : {src,ratio,cap} depuis le cache.
+  const _isSortiePdf = edl.type === 'Sortie';
+  const verdictLabel = (etatE, etatS) => {
+    const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+    if (!P) return '';
+    const v = P.verdictDe(etatE, etatS);
+    return v === 'ecart' ? 'Écart' : (v === 'conforme' ? 'Conforme' : 'À constater');
+  };
+  const drawPhotoEncadre = (label, dateStr, items) => {
+    if (!items || !items.length) return;
+    const CELL = 40, GAP = 4, pad = 3, headH = 6.5, rowH = CELL + 4 + 3;
+    const cols = Math.max(1, Math.floor((CW - 2 * pad + GAP) / (CELL + GAP)));
+    let idx = 0, first = true;
+    while (idx < items.length) {
+      const avail = (PH - MB) - y - headH - pad - 4;
+      if (avail < rowH + 2) { pdf.addPage(); y = MT; continue; }
+      const maxRows = Math.max(1, Math.floor(avail / rowH));
+      const chunk = items.slice(idx, idx + maxRows * cols);
+      const nRows = Math.ceil(chunk.length / cols);
+      const boxH = headH + pad + nRows * rowH;
+      const y0 = y;
+      pdf.setDrawColor(210, 214, 222); pdf.setLineWidth(0.4); pdf.rect(M, y0, CW, boxH);
+      pdf.setFillColor(246, 247, 249); pdf.rect(M, y0, CW, headH, 'F');
+      pdf.setDrawColor(210, 214, 222); pdf.line(M, y0 + headH, M + CW, y0 + headH);
+      pdf.setFont('helvetica', 'bold').setFontSize(8).setTextColor(70, 70, 70);
+      pdf.text(label + (first ? '' : ' (suite)'), M + 3, y0 + 4.4);
+      if (dateStr) { pdf.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(140); pdf.text(dateStr, M + CW - 3, y0 + 4.4, { align: 'right' }); }
+      const iy = y0 + headH + pad;
+      chunk.forEach((it, i) => {
+        const col = i % cols, row = Math.floor(i / cols);
+        const ix = M + pad + col * (CELL + GAP), py = iy + row * rowH;
+        try { const f = _pdfContain(it.ratio, CELL); pdf.addImage(it.src, 'JPEG', ix + f.dx, py + f.dy, f.dw, f.dh); }
+        catch (e) { console.warn('[edl pdf] encadre img', e); }
+        pdf.setDrawColor(210, 214, 222); pdf.setLineWidth(0.3); pdf.rect(ix, py, CELL, CELL);
+        pdf.setFont('helvetica', 'normal').setFontSize(6.8).setTextColor(110);
+        pdf.text(pdf.splitTextToSize(it.cap || '', CELL), ix, py + CELL + 3);
+      });
+      y = y0 + boxH + 4;
+      idx += chunk.length; first = false;
+    }
+  };
+  const drawSectionPhotos = (entItems, sorItems) => {
+    drawPhotoEncadre('Photos — entrée', _isSortiePdf ? '' : (fd(edl.date) || ''), entItems);
+    drawPhotoEncadre('Photos — sortie', _isSortiePdf ? (fd(edl.date) || '') : '', sorItems);
+  };
+  const _photoItem = (ph, cap) => { const src = _photoCache[ph.idbKey] || ph.data; return src ? { src, ratio: _photoRatio[ph.idbKey], cap } : null; };
+
   let y = MT;
 
   // ─── 1. En-tête : bandeau d'identité + titre ────────────────────
@@ -33285,6 +33351,16 @@ async function generateEDLPdfNative(edl) {
     });
     y = pdf.lastAutoTable.finalY + 6;
   }
+  // AUDIT 26/08 — les PHOTOS des compteurs (preuve visuelle de l'index) manquaient au PDF. On les
+  // rend sous le tableau, en deux encadrés entrée/sortie, comme les pièces et les clés.
+  {
+    const cptPhotos = edl.compteursPhotos || {};
+    const cptCap = { elec: 'Électricité', gaz: 'Gaz', eauC: 'Eau chaude', eauF: 'Eau froide' };
+    const cptEnt = [], cptSor = [];
+    ['elec','gaz','eauC','eauF'].forEach(k => (cptPhotos[k] || []).forEach(ph => { const it = _photoItem(ph, 'Compteur ' + cptCap[k]); if (it) cptEnt.push(it); }));
+    ['elecS','gazS','eauCS','eauFS'].forEach(k => (cptPhotos[k] || []).forEach(ph => { const it = _photoItem(ph, 'Compteur ' + cptCap[k.replace('S','')]); if (it) cptSor.push(it); }));
+    if (cptEnt.length || cptSor.length) drawSectionPhotos(cptEnt, cptSor);
+  }
 
   // ─── 4. Chauffage & ECS ─────────────────────────────────────────
   // v14.10.6 : section ajoutée (n'apparaissait pas dans le PDF avant)
@@ -33340,6 +33416,34 @@ async function generateEDLPdfNative(edl) {
     y += 8;
   }
 
+  // ─── Détecteur de fumée (DAAF) — AUDIT 26/08 : totalement absent du PDF alors qu'il est
+  //     « juridiquement essentiel » (loi 2010-238 art. R129-12) et que le formulaire promet une
+  //     « preuve datée ». On rend le statut, les notes et la/les photo(s). ────────────────────
+  {
+    const daaf = edl.daaf;
+    if (daaf && (daaf.statut || (daaf.notes || '').trim() || (daaf.photos || []).length)) {
+      y = newPageIfNeeded(y, 24);
+      y = drawTitle(y, 'Détecteur de fumée (DAAF)', 2);
+      const statutLbl = { present: 'Présent et fonctionnel', defaut: 'Présent, à vérifier', absent: 'Absent (à installer par le bailleur)' }[daaf.statut] || 'Non renseigné';
+      pdf.autoTable({
+        startY: y,
+        head: [['Constat', 'Valeur']],
+        body: [
+          ['État du détecteur', statutLbl],
+          ...((daaf.notes && daaf.notes.trim()) ? [['Emplacement / marque / notes', daaf.notes.trim()]] : [])
+        ],
+        margin: { left: M, right: MR },
+        styles: { fontSize: 9, cellPadding: 1.8 },
+        headStyles: { fillColor: [60,60,60], textColor: [255,255,255] },
+        columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold', fillColor: [240,240,240] } }
+      });
+      y = pdf.lastAutoTable.finalY + 4;
+      const dItems = (daaf.photos || []).map(ph => _photoItem(ph, 'Détecteur de fumée')).filter(Boolean);
+      drawPhotoEncadre('Photo du détecteur de fumée', fd(edl.date) || '', dItems);
+      y += 2;
+    }
+  }
+
   // ─── Légende des états (clé de lecture, juste avant l'inventaire des pièces) ───
   // EDL-LEGENDE : les codes N/B/U/M/– n'avaient aucune légende dans le PDF (le lecteur
   // voyait des lettres nues). L'état conditionne l'imputation des dégradations → portée juridique.
@@ -33370,57 +33474,6 @@ async function generateEDLPdfNative(edl) {
   // ─── 5. Pièces (1 par page pour lisibilité) ─────────────────────
   // v14.10.6 : nouvelle page systématique avant chaque pièce (sauf 1ère si y==MT)
   const stateLabel = (etat) => etat ? (EDL_ABBREV[etat]||'?') : '';
-  // §2.11bis — colonne Verdict au PDF (mode sortie), DÉDUITE via le module testé (jamais stockée).
-  const _isSortiePdf = edl.type === 'Sortie';
-  const verdictLabel = (etatE, etatS) => {
-    const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
-    if (!P) return '';
-    const v = P.verdictDe(etatE, etatS);
-    return v === 'ecart' ? 'Écart' : (v === 'conforme' ? 'Conforme' : 'À constater');
-  };
-  // §2.11bis — les photos sous chaque section, dans un ENCADRÉ sobre on-brand (filet fin +
-  // en-tête gris clair). Aucun état/verdict sur les photos (légende = nom d'élément). Paginable :
-  // un chunk par page, en-tête « … (suite) » au-delà. items = [{src, ratio, cap}].
-  const drawPhotoEncadre = (label, dateStr, items) => {
-    if (!items || !items.length) return;
-    const CELL = 40, GAP = 4, pad = 3, headH = 6.5, rowH = CELL + 4 + 3;
-    const cols = Math.max(1, Math.floor((CW - 2 * pad + GAP) / (CELL + GAP)));
-    let idx = 0, first = true;
-    while (idx < items.length) {
-      const avail = (PH - MB) - y - headH - pad - 4;
-      if (avail < rowH + 2) { pdf.addPage(); y = MT; continue; }
-      const maxRows = Math.max(1, Math.floor(avail / rowH));
-      const chunk = items.slice(idx, idx + maxRows * cols);
-      const nRows = Math.ceil(chunk.length / cols);
-      const boxH = headH + pad + nRows * rowH;
-      const y0 = y;
-      pdf.setDrawColor(210, 214, 222); pdf.setLineWidth(0.4); pdf.rect(M, y0, CW, boxH);
-      pdf.setFillColor(246, 247, 249); pdf.rect(M, y0, CW, headH, 'F');
-      pdf.setDrawColor(210, 214, 222); pdf.line(M, y0 + headH, M + CW, y0 + headH);
-      pdf.setFont('helvetica', 'bold').setFontSize(8).setTextColor(70, 70, 70);
-      pdf.text(label + (first ? '' : ' (suite)'), M + 3, y0 + 4.4);
-      if (dateStr) { pdf.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(140); pdf.text(dateStr, M + CW - 3, y0 + 4.4, { align: 'right' }); }
-      const iy = y0 + headH + pad;
-      chunk.forEach((it, i) => {
-        const col = i % cols, row = Math.floor(i / cols);
-        const ix = M + pad + col * (CELL + GAP), py = iy + row * rowH;
-        try { const f = _pdfContain(it.ratio, CELL); pdf.addImage(it.src, 'JPEG', ix + f.dx, py + f.dy, f.dw, f.dh); }
-        catch (e) { console.warn('[edl pdf] encadre img', e); }
-        pdf.setDrawColor(210, 214, 222); pdf.setLineWidth(0.3); pdf.rect(ix, py, CELL, CELL);
-        pdf.setFont('helvetica', 'normal').setFontSize(6.8).setTextColor(110);
-        pdf.text(pdf.splitTextToSize(it.cap || '', CELL), ix, py + CELL + 3);
-      });
-      y = y0 + boxH + 4;
-      idx += chunk.length; first = false;
-    }
-  };
-  // Deux encadrés « entrée » puis « sortie » sous une section. `dateEntree`/`dateSortie` : la date
-  // n'est affichée que du côté dont on connaît la date (celui du présent EDL).
-  const drawSectionPhotos = (entItems, sorItems) => {
-    drawPhotoEncadre('Photos — entrée', _isSortiePdf ? '' : (fd(edl.date) || ''), entItems);
-    drawPhotoEncadre('Photos — sortie', _isSortiePdf ? (fd(edl.date) || '') : '', sorItems);
-  };
-  const _photoItem = (ph, cap) => { const src = _photoCache[ph.idbKey] || ph.data; return src ? { src, ratio: _photoRatio[ph.idbKey], cap } : null; };
   let _firstPiece = true;
   for (const piece of (edl.pieces || [])) {
     // Force nouvelle page sauf si on est tout en haut d'une page vide
@@ -41556,7 +41609,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.552 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.553 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -43076,8 +43129,8 @@ function _renderLogFichePanelEDL(log, ref) {
     const typeColor = edl.type === 'Entrée' ? '#16a34a' : '#ea580c';
     const typeIcon = edl.type === 'Entrée' ? '🟢' : '🟠';
     const driveBtn = edl.cloudPdfKey
-      ? `<button class="btn bs bb" onclick="openLastEDLPDF(${edl.id})" style="background:rgba(59,126,246,.10);color:var(--acc);border:1px solid rgba(59,126,246,.25)" title="Ouvrir le PDF de l'EDL">📄 PDF EDL</button>`
-      : `<button class="btn bs bb" onclick="uploadEDLPDFToDrive(${edl.id})" title="Générer le PDF de l'EDL et l'enregistrer">☁️ Générer PDF</button>`;
+      ? `<button class="btn bs bb" onclick="openLastEDLPDF(${edl.id})" style="background:rgba(59,126,246,.10);color:var(--acc);border:1px solid rgba(59,126,246,.25)" title="Ouvrir le PDF de l'EDL">📄 Ouvrir le PDF (cloud)</button>`
+      : `<button class="btn bs bb" onclick="uploadEDLPDFToDrive(${edl.id})" title="Générer le PDF de l'EDL et l'enregistrer">☁️ Archiver au cloud</button>`;
     const bailLink = edl._bailRef ? '' : ''; // hook futur
     return `<div class="logf-edl-card" style="border-left:3px solid ${typeColor}">
       <div class="logf-edl-card-head">
@@ -43094,7 +43147,7 @@ function _renderLogFichePanelEDL(log, ref) {
       </div>
       <div class="logf-edl-card-actions">
         <button class="btn bp bb" onclick="openEditEDL(${edl.id})" title="Modifier l'EDL">✏️ Modifier</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id})" title="Télécharger PDF (envoi mail / WhatsApp)">📥 PDF</button>
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id})" title="Télécharger PDF (envoi mail / WhatsApp)">📥 Télécharger</button>
         ${driveBtn}
         <button class="btn bs bb" onclick="saveLogEDLTemplateFromEDL(${edl.id})" title="Sauvegarder la structure de cet EDL comme template par défaut pour ce logement (réutilisable au prochain bail)">🗐 Sauv. template</button>
         <button class="btn br bb" onclick="delEDL(${edl.id})" title="Supprimer">🗑</button>
