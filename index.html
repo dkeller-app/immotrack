@@ -51888,15 +51888,17 @@ function _pilStatutDoc(bail, log, type, dateRef) {
     return _ok;
   }
   if (type === 'chauffage') {
-    // Présence d'un équipement chaudière + dernier contrôle < 13 mois
-    const eq = (DB.equipements && DB.equipements[log.ref]) || [];
-    const ch = eq.find(e => /chaud|chauff/i.test(e.type||e.nom||''));
-    if (!ch) return _na;
-    if (!ch.dernierControle) return _absent;
-    const last = new Date(ch.dernierControle + 'T00:00:00');
-    const days = (today - last) / 86400000;
-    if (days > 395) return _expire; // 13 mois
-    return _ok;
+    // KPI Lot 0 — statut d'entretien sur les 12 obligations EQUIP_RULES (module pur testé).
+    // Corrige le crash `eq.find` (equipData est un OBJET, pas un tableau), le filtre
+    // `/chaud|chauff/` qui ratait 8 règles, et la lecture de `dernierControle` (le champ écrit
+    // est `lastDate`). Repli défensif si le module n'est pas chargé.
+    if (typeof computeEntretienStatut !== 'function' || typeof EQUIP_RULES === 'undefined') return _na;
+    const equipData = (DB.equipements && DB.equipements[log.ref]) || {};
+    const r = computeEntretienStatut({ equipData, rules: EQUIP_RULES, bail, log, today });
+    if (r.statut === 'na') return _na;
+    if (r.statut === 'ok') return _ok;
+    if (r.statut === 'ko') return _absent;   // au moins une obligation jamais contrôlée
+    return _expire;                          // 'wn' : au moins un contrôle dépassé
   }
   if (type === 'caution') {
     // Garant déclaré dans le bail OU acte signé

@@ -103,6 +103,7 @@ import {
 // AUDIT-SUIVI-LOYERS étape 1/2 — barème de loyer historisé (source de vérité du dû dans le temps)
 import { duMois, duMoisFromRaw, bailsFromRaw, _baremeOfLot, periodeEnVigueurA, provisionPourRevision, _debutSuivi, _computeLoyerNetting, tauxPleinMois, tauxPleinMoisFromRaw } from './core/loyer-du-mois.js';
 import { reconstruireBaremeLot } from './core/loyer-migration.js';
+import { computeEntretienStatut } from './core/entretien-statut.js';
 import {
   computeDateEffetIRL, clampDateEffet, periodeInitialeBail,
   appliquerNouvellePeriode, synchroniserPeriodeBail, cloturerBareme, cloturerPeriodeParDebut, impactCloture,
@@ -381,6 +382,7 @@ window._isEraseEligible = _isEraseEligible;
 window._computeBilanAnnuel = _computeBilanAnnuel;
 window._formatBilanTexte = _formatBilanTexte;
 window._computeOccupationLots = _computeOccupationLots;   // R-4/K-2 — occupation sous le socle
+window.computeEntretienStatut = computeEntretienStatut;   // KPI Lot 0 — statut d'entretien (12 obligations)
 window.tauxPleinMois = tauxPleinMois;                     // P-4 — taux plein du mois (potentiel)
 window.tauxPleinMoisFromRaw = tauxPleinMoisFromRaw;
 window._finSciWeightMensuel = _finSciWeightMensuelM;      // P-4 — clé mensuelle au potentiel locatif
