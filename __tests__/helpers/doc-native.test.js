@@ -67,6 +67,24 @@ function makeFakePdf() {
 const textWords = (pdf) => pdf.calls.filter(c => c[0] === 'text').map(c => c[1]).join(' ')
   .split(/\s+/).filter(Boolean);
 
+// Référence INDÉPENDANTE du tokenizer : strip de balises À PLAT du corps (titre inclus, bandeau et
+// pied exclus), sans jamais passer par splitTopLevelBlocks/classifyBlock/parseDocDoc. Un strip à
+// plat ne peut pas "sauter" un élément de premier niveau — donc si le tokenizer en laisse tomber un,
+// ses mots restent ici et le test rougit. Comparaison au niveau du MOT (robuste espace/NBSP).
+function independentCorpsWords(html) {
+  let h = String(html).replace(/<style[\s\S]*?<\/style>/gi, ' ');
+  const it = h.indexOf('<div class="pro-titre"');
+  if (it >= 0) h = h.slice(it);                                    // enlève le bandeau (avant le titre)
+  const ip = h.lastIndexOf('<div class="pro-pied"');
+  if (ip >= 0) h = h.slice(0, ip);                                 // enlève le pied (ref/date comptés à part)
+  h = h.replace(/<div class="[^"]*(?:no-print|alerte)[^"]*"[\s\S]*?<\/div>/g, ' ');
+  h = h.replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&laquo;/g, '«').replace(/&raquo;/g, '»')
+    .replace(/&eacute;/g, 'é').replace(/&egrave;/g, 'è').replace(/&agrave;/g, 'à')
+    .replace(/&ccedil;/g, 'ç').replace(/&ecirc;/g, 'ê').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  return h.split(/\s+/).filter(Boolean);
+}
+
 describe('htmlToText / htmlToWords', () => {
   it('retire le balisage et décode les entités WinAnsi', () => {
     expect(htmlToText('Je, <b>soussigné(e)</b> le Bailleur')).toBe('Je, soussigné(e) le Bailleur');
@@ -160,18 +178,16 @@ describe('docWords / renderDocToPdf — zéro mot perdu ni ajouté (D26)', () =>
     + docSignzone([{ sig: '', label: 'Le Bailleur' }]);
   const html = docPage({ bandeau: '', titre: 'Quittance de loyer', ctx: 'Période avril 2026', corps, ref: 'X-1', date: 'Émis le 25/08/2026' });
 
-  it('renderDocToPdf envoie exactement les mots de docWords à pdf.text()', () => {
-    const parsed = parseDocDoc(html);
-    const expected = docWords(parsed);
+  it('rend en PDF TOUS les mots du HTML source — référence INDÉPENDANTE du tokenizer (D26)', () => {
+    // La référence des mots attendus vient d'un strip de balises À PLAT du HTML source, qui NE
+    // PASSE PAS par splitTopLevelBlocks/classifyBlock/parseDocDoc : un mot que le tokenizer
+    // laisserait tomber resterait donc dans la référence → le test ROUGIRAIT (fin de la tautologie).
+    const refWords = independentCorpsWords(html);
     const pdf = makeFakePdf();
-    renderDocToPdf(pdf, { nom: 'SCI DEMO' }, parsed, PDF_NATIVE);
+    renderDocToPdf(pdf, { nom: 'SCI DEMO' }, parseDocDoc(html), PDF_NATIVE);
     const got = textWords(pdf);
-    // Tout mot attendu (fond juridique) doit avoir été rendu : zéro mot perdu (D26).
-    expect(expected.every(w => got.includes(w))).toBe(true);
-    // Zéro mot AJOUTÉ : le rendu n'introduit aucun mot hors du document sauf le lockup « Propryo »
-    // du bandeau (dessiné en vectoriel, hors fond juridique).
-    const extra = got.filter(w => !expected.includes(w) && w !== 'Propryo');
-    expect(extra).toEqual([]);
+    const missing = refWords.filter(w => !got.includes(w));
+    expect(missing).toEqual([]);   // zéro mot du HTML source perdu à l'écriture native
   });
 
   it('exclut les bandeaux no-print du compte de mots', () => {
@@ -180,5 +196,38 @@ describe('docWords / renderDocToPdf — zéro mot perdu ni ajouté (D26)', () =>
     const words = docWords(parseDocDoc(html2));
     expect(words.join(' ')).not.toContain('AUCUN');
     expect(words.join(' ')).toContain('Corps');
+  });
+});
+
+describe('Non-régression — AUCUN contenu de premier niveau avalé en silence (audit 26/08)', () => {
+  // Un futur générateur qui poserait un <h2>, un <ul> ou du TEXTE NU au premier niveau du corps
+  // ne doit pas faire disparaître des mots d'un document opposable. Le tokenizer doit les RENDRE
+  // (aucun mot perdu) ET les SIGNALER (avertissement console). Ces deux exigences échouent si on
+  // revient au tokenizer div/p/table-only : ces éléments seraient droppés (mots absents du PDF).
+  const corps = docActe('Phrase liminaire du document.')
+    + '<h2>Clause de solidarité</h2>'
+    + '<ul><li>premier engagement indivis</li><li>second engagement solidaire</li></ul>'
+    + 'texte nu résiduel hors balise'
+    + docSignzone([{ sig: '', label: 'Le Bailleur' }]);
+  const html = docPage({ bandeau: '', titre: 'Bail', ctx: '', corps, ref: 'R', date: 'd' });
+
+  it('les mots d\'un <h2>/<ul>/texte nu de premier niveau arrivent bien dans le PDF', () => {
+    const pdf = makeFakePdf();
+    renderDocToPdf(pdf, {}, parseDocDoc(html), PDF_NATIVE);
+    const got = textWords(pdf).join(' ');
+    for (const w of ['Clause', 'solidarité', 'premier', 'indivis', 'second', 'solidaire', 'texte', 'nu', 'résiduel']) {
+      expect(got).toContain(w);
+    }
+  });
+
+  it('le tokenizer SIGNALE (console.warn [docNative]) tout contenu de premier niveau non géré', () => {
+    const warns = [];
+    const orig = console.warn;
+    console.warn = (...a) => { warns.push(a.map(String).join(' ')); };
+    try { parseDocDoc(html).blocks.forEach(() => {}); }
+    finally { console.warn = orig; }
+    expect(warns.some(w => w.includes('[docNative]'))).toBe(true);
+    // et les blocs non gérés sont marqués _unhandled (les tests d'intégration au gabarit peuvent l'exiger)
+    expect(parseDocDoc(html).blocks.some(b => b._unhandled)).toBe(true);
   });
 });

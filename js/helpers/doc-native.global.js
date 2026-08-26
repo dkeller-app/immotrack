@@ -129,35 +129,45 @@
   // 2. Tokenizer SANS DOM du corps d'un document du gabarit
   // ────────────────────────────────────────────────────────────────────────────
 
+  /** Éléments HTML sans balise fermante (auto-fermants). */
+  const _VOID_TAGS = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'source', 'col', 'area', 'base', 'wbr']);
+
   /**
-   * Découpe une chaîne HTML en blocs de PREMIER niveau (div / p / table), en respectant
-   * l'imbrication (un `<div class="pro-parties">` qui contient des `<p>` reste un seul bloc ;
-   * une `<table>` reste atomique). Le texte inter-blocs (espaces/retours) est ignoré.
+   * Découpe une chaîne HTML en segments de PREMIER niveau, en respectant l'imbrication (un
+   * `<div class="pro-parties">` qui contient des `<p>` reste UN seul segment ; une `<table>` reste
+   * atomique). CONTRAT (audit 26/08, documents opposables) : AUCUN contenu de premier niveau n'est
+   * jamais perdu — TOUT élément (quel que soit son tag, pas seulement div/p/table) ET tout texte nu
+   * non blanc entre les éléments sont renvoyés. Ce qui n'est pas reconnu par `classifyBlock` y est
+   * rendu en paragraphe ET signalé bruyamment (jamais avalé en silence). Le texte purement blanc
+   * (indentation, retours) est le seul écarté.
    */
   function splitTopLevelBlocks(html) {
     const s = String(html || '');
     const blocks = [];
-    const tagRe = /<(\/?)(?:(div|p|table))\b[^>]*>/gi;
-    let depth = 0, start = -1, m;
-    while ((m = tagRe.exec(s))) {
+    let i = 0; const n = s.length;
+    while (i < n) {
+      const lt = s.indexOf('<', i);
+      if (lt < 0) { const t = s.slice(i); if (t.trim()) blocks.push(t); break; }
+      if (lt > i) { const t = s.slice(i, lt); if (t.trim()) blocks.push(t); }   // texte nu de 1er niveau
+      const m = /^<\s*(\/?)([a-zA-Z][\w-]*)\b[^>]*?(\/?)\s*>/.exec(s.slice(lt));
+      if (!m) { const t = s.slice(lt); if (t.trim()) blocks.push(t); break; }   // '<' isolé : rien perdu
       const closing = m[1] === '/';
       const tag = m[2].toLowerCase();
-      if (!closing) {
-        if (depth === 0) start = m.index;
-        // Une table de premier niveau est atomique : on saute jusqu'à </table> (ses cellules
-        // peuvent contenir des <span>/<td>, jamais des blocs qu'on veut isoler).
-        if (tag === 'table' && depth === 0) {
-          const close = s.toLowerCase().indexOf('</table>', tagRe.lastIndex);
-          const end = close < 0 ? s.length : close + 8;
-          blocks.push(s.slice(m.index, end));
-          start = -1; tagRe.lastIndex = end;
-          continue;
-        }
-        depth++;
-      } else {
-        depth--;
-        if (depth <= 0 && start >= 0) { blocks.push(s.slice(start, tagRe.lastIndex)); start = -1; depth = 0; }
+      const selfClose = m[3] === '/' || _VOID_TAGS.has(tag);
+      const tagEnd = lt + m[0].length;
+      if (closing) { i = tagEnd; continue; }                                    // fermante orpheline
+      if (selfClose) { blocks.push(s.slice(lt, tagEnd)); i = tagEnd; continue; }
+      // Fin de CET élément : on matche la fermeture du MÊME tag, en respectant son imbrication.
+      const re = new RegExp('<\\s*(/?)' + tag + '\\b[^>]*>', 'gi');
+      re.lastIndex = tagEnd;
+      let depth = 1, mm, closeEnd = -1;
+      while ((mm = re.exec(s))) {
+        if (mm[1] === '/') { if (--depth === 0) { closeEnd = re.lastIndex; break; } }
+        else depth++;
       }
+      if (closeEnd < 0) closeEnd = n;                                            // non fermé : jusqu'au bout
+      blocks.push(s.slice(lt, closeEnd));
+      i = closeEnd;
     }
     return blocks;
   }
@@ -221,6 +231,7 @@
   /** Classe un bloc de premier niveau du corps d'un document. */
   function classifyBlock(raw) {
     const s = String(raw || '').trim();
+    if (!s) return { t: 'para', v: '' };
     if (_hasClass(s, 'no-print') || _hasClass(s, 'alerte')) return { t: 'alerte', v: s, screenOnly: true };
     if (_hasClass(s, 'pro-parties')) return { t: 'parties', blocs: _parseParties(s) };
     if (_hasClass(s, 'pro-lignes')) return { t: 'lignes', rows: _parseLignes(s) };
@@ -230,7 +241,16 @@
     if (_hasClass(s, 'pro-encart')) return { t: 'encart', v: _inner(s) };
     if (_hasClass(s, 'pro-lieu')) return { t: 'lieu', v: _inner(s) };
     if (_hasClass(s, 'pro-signzone')) return { t: 'signzone', boxes: _parseSignzone(s) };
-    return { t: 'para', v: _inner(s) };
+    if (/^<p[\s>]/i.test(s)) return { t: 'para', v: _inner(s) };   // paragraphe nu du gabarit : connu
+    // TOUT le reste — élément de premier niveau NON PRÉVU par le gabarit (<h2>, <ul>, <blockquote>…)
+    // ou texte nu — est RENDU en paragraphe (aucun mot perdu) ET SIGNALÉ bruyamment. Un document
+    // opposable ne doit jamais perdre un mot en silence : on rend d'abord, on avertit ensuite, et le
+    // drapeau `_unhandled` permet aux tests d'exiger l'intégration au gabarit (audit 26/08).
+    const asText = /^</.test(s) ? _inner(s) : s;
+    if (String(asText).trim() && typeof console !== 'undefined' && console.warn) {
+      console.warn('[docNative] contenu de premier niveau non géré par le gabarit, rendu en paragraphe (à intégrer) :', s.slice(0, 140));
+    }
+    return { t: 'para', v: asText, _unhandled: true };
   }
 
   /** Contenu à l'intérieur du conteneur `.pro-doc`. */

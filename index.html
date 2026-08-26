@@ -29531,28 +29531,23 @@ function rLoyers() {
 // Réutilise LES MÊMES calculs que rLoyers (jamais une 2ᵉ source qui divergerait).
 function _lyBadgeCount() {
   try {
-    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function') return 0;
+    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function' || typeof window.loyersBadgeCount !== 'function') return 0;
     const lots = _lyLots();
     if (!lots.length) return 0;
     const etats = lots.map(_lyEtatLot);
-    const demandes = etats.filter(e => e.demande && e.aQuittancer.length).length;   // quittances prêtes
-    const retards  = etats.filter(e => e.retard.enRetard).length;                    // pas à jour
-    const rev      = _lyRevisionsTriees(etats);
-    const nbRev    = rev.aPreparer.length + rev.enRetard.length;                      // révisions à préparer
-    return demandes + retards + nbRev;
+    // I15 encodé dans le module pur js/core/loyers-badge.js (testé) : l'écran fournit les mêmes
+    // états + révisions triées qu'il affiche, le module fait la somme des lignes actionnables.
+    return window.loyersBadgeCount(etats, _lyRevisionsTriees(etats));
   } catch (e) { return 0; }
 }
-// Détail des trois nombres, pour l'info-bulle de la pastille (D22).
+// Détail des trois nombres, pour l'info-bulle de la pastille (D22) — même source que le compteur.
 function _lyBadgeTip(n) {
   try {
-    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function') return '';
+    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function' || typeof window.loyersBadgeBreakdown !== 'function') return '';
     const lots = _lyLots(); if (!lots.length) return '';
     const etats = lots.map(_lyEtatLot);
-    const d = etats.filter(e => e.demande && e.aQuittancer.length).length;
-    const r = etats.filter(e => e.retard.enRetard).length;
-    const rv = _lyRevisionsTriees(etats);
-    const nr = rv.aPreparer.length + rv.enRetard.length;
-    return `Loyers — ${n} à traiter : ${nr} révision${nr > 1 ? 's' : ''} à préparer · ${d} quittance${d > 1 ? 's' : ''} demandée${d > 1 ? 's' : ''} · ${r} lot${r > 1 ? 's' : ''} pas à jour`;
+    const b = window.loyersBadgeBreakdown(etats, _lyRevisionsTriees(etats));
+    return `Loyers — ${n} à traiter : ${b.revisions} révision${b.revisions > 1 ? 's' : ''} à préparer · ${b.quittances} quittance${b.quittances > 1 ? 's' : ''} demandée${b.quittances > 1 ? 's' : ''} · ${b.pasAJour} lot${b.pasAJour > 1 ? 's' : ''} pas à jour`;
   } catch (e) { return ''; }
 }
 
