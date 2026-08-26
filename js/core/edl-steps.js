@@ -50,6 +50,9 @@ export function buildSteps(opts = {}) {
     });
   }
 
+  // Relecture avant signature (CDC §2.7, le « +1 ») : aperçu lecture seule de tout,
+  // juste avant la signature. Écran MOBILE uniquement (masqué sur PC par _edlApplyStepVisibility).
+  steps.push({ id: 'relecture', group: 'relecture', kind: 'admin', nom: 'Relecture avant signature' });
   steps.push({ id: 'fin', group: 'fin', kind: 'admin', nom: 'Observations + Signatures' });
   return steps;
 }

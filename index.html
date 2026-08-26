@@ -4039,6 +4039,11 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
     <!-- Pièces -->
     <div id="edl-pieces-section" data-edl-step="pieces"></div>
 
+    <!-- Relecture avant signature (EDL-TÉLÉPHONE §2.7) — écran MOBILE (< 1024), rendu
+         dynamiquement par _edlRenderRelecture() quand l'étape « relecture » est active.
+         Masqué sur PC (aucune régression §2.9) : _edlApplyStepVisibility le force à none. -->
+    <div id="edl-step-relecture" data-edl-step="relecture" style="display:none"></div>
+
     <!-- §5 Observations -->
     <div data-edl-step="fin" style="border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:12px">
       <div style="font-weight:700;color:var(--acc);font-size:13px;margin-bottom:6px">Observations générales</div>
@@ -4125,6 +4130,20 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
         <button class="edl-sheet-close" onclick="_edlClosePieceSheet()" aria-label="Fermer">✕</button>
       </div>
       <div id="edl-piece-sheet-list" class="edl-sheet-list"></div>
+    </div>
+  </div>
+
+  <!-- Pop-up de confirmation « en connaissance de cause » (EDL-TÉLÉPHONE §2.7).
+       Récapitule écarts / non-constatés / clés non rendues avant la signature.
+       Contenu calculé par le module testé js/core/edl-relecture.js. -->
+  <div id="edl-sign-confirm" class="edl-signmodal" style="display:none" onclick="if(event.target===this)_edlCloseSignConfirm()">
+    <div class="edl-sm-box">
+      <div class="edl-sm-title" id="edl-sm-title">Avant de signer</div>
+      <div class="edl-sm-body" id="edl-sm-body"></div>
+      <div class="edl-sm-actions">
+        <button class="edl-sm-btn back" id="edl-sm-back" onclick="_edlCloseSignConfirm()">Revenir corriger</button>
+        <button class="edl-sm-btn go" onclick="_edlConfirmSign()">Confirmer et signer</button>
+      </div>
     </div>
   </div>
 </div></div>
@@ -32629,7 +32648,8 @@ function _edlApplyStepVisibility() {
     const disp = node.getAttribute('data-edl-disp') || '';   // display « naturel » (flex pour la barre d'actions)
     // PC (≥1024) OU modules absents (file://) : tout visible — aucun parcours, pas de
     // collapse trompeur (§2.9 aucune régression ; dégradation propre hors serveur).
-    if (!phone || !S) { node.style.display = disp; return; }
+    // relecture (§2.7) : écran MOBILE only → hors phone (ou modules absents) toujours masqué
+    if (!phone || !S) { node.style.display = (node.getAttribute('data-edl-step') === 'relecture') ? 'none' : disp; return; }
     const g = node.getAttribute('data-edl-step');
     let vis;
     if (S && node.id === 'edl-mobilier-section') vis = S.sectionVisible(g, curGroup, mobOn, true);
@@ -32649,6 +32669,9 @@ function _edlSyncParcours() {
     const idx = parseInt(b.getAttribute('data-pidx'), 10);
     b.classList.toggle('edl-cur', idx === pi);
   });
+  // rendre l'aperçu de relecture quand son étape devient courante (§2.7)
+  const _cs = steps[_edlCurStep];
+  if (_cs && _cs.group === 'relecture') _edlRenderRelecture();
   _edlApplyStepVisibility();
   const phone = _edlPhoneMode();
   const rail = el('edl-rail');
@@ -32729,6 +32752,117 @@ function _edlBindResize() {
   window.addEventListener('resize', () => {
     const ov = el('ov-edl'); if (ov && !ov.classList.contains('hidden')) _edlSyncParcours();
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * EDL-TÉLÉPHONE (§2.7) — LA RELECTURE AVANT SIGNATURE.
+ * Aperçu LECTURE SEULE de tout ce qui est rempli : bilan chiffré, sections
+ * repliables au volume réel, lignes signalées (écart / à constater) qu'on touche
+ * pour corriger, alerte NON bloquante, et le pop-up « en connaissance de cause ».
+ * Toute la logique de comptage/déduction vient du module testé edl-relecture.js
+ * (verdict toujours DÉDUIT, jamais stocké). Écran MOBILE (< 1024) uniquement.
+ * ═════════════════════════════════════════════════════════════════════════ */
+function _edlAbbr(etat) { return (typeof EDL_ABBREV !== 'undefined' && EDL_ABBREV[etat]) || etat || '—'; }
+function _edlClesNonRendues() {
+  if (!_edlSortie) return 0;
+  let n = 0;
+  for (const c of (typeof _edlCles !== 'undefined' ? _edlCles : [])) {
+    const rem = Number(c.nb) || 0, rendu = Number(c.nbS) || 0;
+    if (rem > rendu) n += (rem - rendu);
+  }
+  return n;
+}
+// Toucher une ligne signalée → revenir à l'élément (sur son étape de pièce) et le surligner.
+function _edlGoToElement(pi, ei) {
+  _edlGoPiece(pi);
+  setTimeout(() => {
+    const block = document.querySelector(`#edl-pieces-section .edl-piece-block[data-pidx="${pi}"]`);
+    const row = block ? block.querySelectorAll('tbody tr')[ei] : null;
+    const scroll = document.querySelector('#ov-edl > .modal > div[style*="overflow-y"]');
+    if (row && scroll) {
+      row.style.transition = 'background .8s';
+      row.style.background = 'var(--acc-bg)';
+      setTimeout(() => { row.style.background = ''; }, 1200);
+      scroll.scrollTo({ top: Math.max(0, row.offsetTop - 60), behavior: 'smooth' });
+    }
+  }, 140);
+}
+function _edlRenderRelecture() {
+  const host = el('edl-step-relecture'); if (!host) return;
+  const R = (typeof window !== 'undefined') ? window.EdlRelecture : null;
+  const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+  if (!R || !P) { host.innerHTML = ''; return; }
+  const isS = !!_edlSortie;
+  const b = R.bilanRelecture(_edlP, isS);
+  const alerts = R.alertesRelecture(_edlP, isS, { clesNonRendues: _edlClesNonRendues() });
+  const chips = isS
+    ? `<div class="edl-rl-chips"><div class="edl-rl-chip ok"><span class="n">${b.conformes}</span><span class="l">conformes</span></div><div class="edl-rl-chip ko"><span class="n">${b.ecarts}</span><span class="l">écarts</span></div><div class="edl-rl-chip att"><span class="n">${b.aConstater}</span><span class="l">à constater</span></div></div>`
+    : `<div class="edl-rl-chips"><div class="edl-rl-chip ok"><span class="n">${b.renseignes}</span><span class="l">renseignés</span></div><div class="edl-rl-chip att"><span class="n">${b.nonRenseignes}</span><span class="l">non renseignés</span></div></div>`;
+  const alertHtml = alerts.length
+    ? `<div class="edl-rl-banner"><span class="ic">⚠️</span><span><b>À vérifier avant de signer :</b> ${alerts.map(escHtml).join(' · ')}. Toucher une ligne signalée pour la corriger — sinon la signature les confirme en connaissance de cause.</span></div>`
+    : '';
+  const roomHtml = _edlP.map((p, pi) => {
+    const opened = isS && R.pieceAUnEcart(p);
+    let lines = '';
+    (p.elements || []).forEach((x, ei) => {
+      if (R.estNote(x && x.nom)) {
+        if (x.obsE || x.obsS) lines += `<div class="edl-rl-li"><span class="nm">${escHtml(x.nom)}${x.obsE ? `<span class="obs e">${escHtml(x.obsE)}</span>` : ''}${x.obsS ? `<span class="obs s">${escHtml(x.obsS)}</span>` : ''}</span></div>`;
+        return;
+      }
+      let right = '', obs = '', flagged = false;
+      if (isS) {
+        const v = P.verdictDe(x.etatE, x.etatS);
+        const arrow = x.etatS ? `${escHtml(_edlAbbr(x.etatE))} → ${escHtml(_edlAbbr(x.etatS))}` : `${escHtml(_edlAbbr(x.etatE))} → <span class="att">à constater</span>`;
+        const vb = v === 'ecart' ? '<span class="vb ko">ÉCART</span>' : (v === 'a-constater' ? '<span class="vb att">à constater</span>' : '');
+        right = `<span class="trans">${arrow}${vb}</span>`;
+        flagged = (v === 'ecart' || v === 'a-constater');
+        if (x.obsE) obs += `<span class="obs e"><b>entrée :</b> ${escHtml(x.obsE)}</span>`;
+        if (x.obsS) obs += `<span class="obs s"><b>sortie :</b> ${escHtml(x.obsS)}</span>`;
+      } else {
+        right = `<span class="trans">${x.etatE ? escHtml(x.etatE) : '<span class="att">—</span>'}</span>`;
+        if (x.obsE) obs += `<span class="obs e">${escHtml(x.obsE)}</span>`;
+      }
+      lines += `<div class="edl-rl-li${flagged ? ' flag' : ''}"${flagged ? ` onclick="_edlGoToElement(${pi},${ei})"` : ''}><span class="nm">${escHtml(x.nom)}${obs}${flagged ? '<span class="fix">✎ corriger →</span>' : ''}</span>${right}</div>`;
+    });
+    const flag = isS ? R.lignesSignalees([p]).length : 0;
+    const badge = isS ? (flag ? `<span class="edl-rl-badge ko">${flag} à voir</span>` : '<span class="edl-rl-badge ok">RAS</span>') : '';
+    return `<div class="edl-rl-sec${opened ? ' open' : ''}"><div class="edl-rl-sech" onclick="this.parentElement.classList.toggle('open')"><span class="edl-rl-secnom">${escHtml(p.nom)}</span><span class="edl-rl-secmeta">${badge}<span class="edl-rl-caret">▶</span></span></div><div class="edl-rl-secb">${lines || '<div class="edl-rl-li"><span class="nm" style="color:var(--t3)">Aucun élément à afficher</span></div>'}</div></div>`;
+  }).join('');
+  host.innerHTML = `<div class="edl-rl">
+    <div class="edl-rl-title">Relecture avant signature</div>
+    <div class="edl-rl-hint">${isS ? 'Vérifier tout avant de signer. Les états identiques entrée/sortie sont conformes ; seuls les changements sont des écarts.' : 'Relecture du constat d\'entrée. Vérifier chaque état et chaque observation avant de signer.'}</div>
+    ${chips}${alertHtml}${roomHtml}
+    <div class="edl-rl-after">Après cette relecture viennent, à l'étape suivante, le cadre d'engagement, le « Fait à … le … » et les zones de signature.</div>
+    <button class="edl-rl-cta" onclick="_edlOpenSignConfirm()">Signer l'état des lieux</button>
+  </div>`;
+}
+// Le pop-up de confirmation « en connaissance de cause ».
+function _edlOpenSignConfirm() {
+  const R = (typeof window !== 'undefined') ? window.EdlRelecture : null; if (!R) return;
+  const isS = !!_edlSortie;
+  const b = R.bilanRelecture(_edlP, isS);
+  const recap = R.recapSignature({
+    isSortie: isS,
+    ecarts: b.ecarts,
+    nonRenseignes: isS ? b.aConstater : b.nonRenseignes,
+    clesNonRendues: _edlClesNonRendues(),
+  });
+  const t = el('edl-sm-title'); if (t) t.textContent = recap.titre;
+  const body = recap.clean
+    ? '<p>Cet état des lieux est complet et sans écart. En signant, les parties reconnaissent son exactitude.</p>'
+    : '<p>Cet état des lieux comporte :</p><ul>' + recap.points.map(p => `<li><b>${escHtml(p.texte)}</b></li>`).join('') + '</ul><p>En signant, les parties reconnaissent l\'état des lieux et ces éléments <b>en connaissance de cause</b>.</p>';
+  const bd = el('edl-sm-body'); if (bd) bd.innerHTML = body;
+  const back = el('edl-sm-back'); if (back) back.style.display = recap.clean ? 'none' : '';
+  const m = el('edl-sign-confirm'); if (m) m.style.display = 'flex';
+}
+function _edlCloseSignConfirm() { const m = el('edl-sign-confirm'); if (m) m.style.display = 'none'; }
+function _edlConfirmSign() {
+  _edlCloseSignConfirm();
+  // Aller à l'étape signatures (fin). La CAPTURE des signatures (valeur probante) est
+  // un chantier dédié — le parcours ne fait que PLACER l'étape (§2.8).
+  const steps = _edlSteps(); const fin = steps.findIndex(s => s.id === 'fin');
+  _edlGoStep(fin >= 0 ? fin : _edlCurStep);
+  if (typeof showToast === 'function') showToast('Relecture confirmée — apposer les signatures ci-dessous.', 'ok', 3500);
 }
 
 function _edlBtns(pi,ei,field,cur) {

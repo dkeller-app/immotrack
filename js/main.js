@@ -169,6 +169,10 @@ import * as EdlParcours from './core/edl-parcours.js';
 // étape au même titre qu'une pièce (fin du mur de 6 884 px d'admin permanent).
 import * as EdlSteps from './core/edl-steps.js';
 
+// EDL-TÉLÉPHONE — la relecture avant signature : bilan, lignes signalées, alertes,
+// pop-up « en connaissance de cause » (verdict toujours déduit).
+import * as EdlRelecture from './core/edl-relecture.js';
+
 // EDL TERRAIN lot 2 — invitation a installer l'app (CDC §3 verrou 4 : sans
 // installation, Safari purge photos et miroir a 7 jours).
 import * as PwaInstall from './core/pwa-install.js';
@@ -621,6 +625,8 @@ window.EdlConflit = EdlConflit;
 window.EdlParcours = EdlParcours;
 // EDL-TELEPHONE — la liste ordonnee des etapes de l'EDL entier (admin + pieces + fin).
 window.EdlSteps = EdlSteps;
+// EDL-TELEPHONE — la relecture avant signature (bilan, lignes signalees, pop-up).
+window.EdlRelecture = EdlRelecture;
 // EDL TERRAIN lot 2 — qui inviter a installer, quand, et sous quelle forme.
 window.PwaInstall = PwaInstall;
 

@@ -11,23 +11,24 @@ import {
 } from '../../js/core/edl-steps.js';
 
 describe('buildSteps — l\'ordre validé (CDC §2.2)', () => {
-  it('logement nu, 7 pièces → 12 étapes, admin puis pièces puis fin', () => {
+  it('logement nu, 7 pièces → 13 étapes (12 + relecture), admin/pièces/relecture/fin', () => {
     const steps = buildSteps({ mobilierEnabled: false, pieceCount: 7 });
-    expect(steps).toHaveLength(12);
+    expect(steps).toHaveLength(13);
     expect(steps.map(s => s.id)).toEqual([
       'infos', 'compteurs', 'cles', 'daaf',
       'piece:0', 'piece:1', 'piece:2', 'piece:3', 'piece:4', 'piece:5', 'piece:6',
-      'fin',
+      'relecture', 'fin',
     ]);
     // ordre exact des 4 têtes administratives
     expect(steps.slice(0, 4).map(s => s.id)).toEqual(['infos', 'compteurs', 'cles', 'daaf']);
-    // la fin est TOUJOURS la dernière
+    // la relecture précède TOUJOURS la fin (signature)
+    expect(steps[steps.length - 2].id).toBe('relecture');
     expect(steps[steps.length - 1].id).toBe('fin');
   });
 
-  it('logement meublé → l\'étape mobilier s\'insère APRÈS le DAAF, AVANT les pièces (13 étapes)', () => {
+  it('logement meublé → l\'étape mobilier s\'insère APRÈS le DAAF, AVANT les pièces (14 étapes)', () => {
     const steps = buildSteps({ mobilierEnabled: true, pieceCount: 7 });
-    expect(steps).toHaveLength(13);
+    expect(steps).toHaveLength(14);
     const ids = steps.map(s => s.id);
     expect(ids.indexOf('mobilier')).toBe(4);            // juste après daaf (index 3)
     expect(ids.indexOf('mobilier')).toBeLessThan(ids.indexOf('piece:0'));
@@ -50,9 +51,9 @@ describe('buildSteps — l\'ordre validé (CDC §2.2)', () => {
     expect(steps.filter(s => s.kind === 'piece').map(p => p.nom)).toEqual(['Pièce 1', 'Pièce 2']);
   });
 
-  it('zéro pièce → juste les 4 admin + fin', () => {
+  it('zéro pièce → les 4 admin + relecture + fin', () => {
     const steps = buildSteps({ pieceCount: 0 });
-    expect(steps.map(s => s.id)).toEqual(['infos', 'compteurs', 'cles', 'daaf', 'fin']);
+    expect(steps.map(s => s.id)).toEqual(['infos', 'compteurs', 'cles', 'daaf', 'relecture', 'fin']);
   });
 
   it('ADMIN_HEAD fige l\'ordre des 4 sections administratives de tête', () => {

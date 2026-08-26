@@ -3455,6 +3455,62 @@ textarea.field-modified-since-sig{
 .edl-sheet-tag.adm{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
 .edl-sheet-tag.pce{color:var(--pos);background:color-mix(in srgb,var(--pos) 12%,transparent)}
 
+/* ══ EDL-TÉLÉPHONE (§2.7) — LA RELECTURE AVANT SIGNATURE (écran mobile < 1024) ══ */
+.edl-rl{padding:2px}
+.edl-rl-title{font:800 17px var(--font);color:var(--t1);margin:0 0 2px}
+.edl-rl-hint{font-size:12px;color:var(--t3);margin:0 0 12px;line-height:1.4}
+.edl-rl-chips{display:flex;gap:7px;margin-bottom:12px}
+.edl-rl-chip{flex:1;text-align:center;border:1px solid var(--bor);border-radius:10px;padding:8px 4px;background:var(--sur2)}
+.edl-rl-chip .n{display:block;font:800 18px var(--font)}
+.edl-rl-chip .l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.4px}
+.edl-rl-chip.ko .n{color:var(--neg)} .edl-rl-chip.ok .n{color:var(--pos)} .edl-rl-chip.att .n{color:var(--warn)}
+.edl-rl-banner{display:flex;gap:8px;align-items:flex-start;border-radius:10px;padding:11px 12px;margin-bottom:12px;
+  font-size:12.5px;line-height:1.45;background:color-mix(in srgb,var(--warn) 12%,transparent);border:1px solid var(--warn);color:var(--t1)}
+.edl-rl-banner .ic{font-size:16px;flex:none}
+.edl-rl-banner b{color:var(--warn)}
+.edl-rl-sec{border:1px solid var(--bor);border-radius:10px;margin-bottom:9px;overflow:hidden;background:var(--sur)}
+.edl-rl-sech{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;cursor:pointer;
+  font-weight:700;font-size:14px;background:var(--sur2);gap:8px}
+.edl-rl-secnom{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.edl-rl-secmeta{display:flex;align-items:center;gap:8px;flex:none}
+.edl-rl-badge{font:800 11px var(--font);border-radius:999px;padding:2px 9px;border:1px solid}
+.edl-rl-badge.ko{color:var(--neg);border-color:var(--neg);background:color-mix(in srgb,var(--neg) 12%,transparent)}
+.edl-rl-badge.ok{color:var(--t3);border-color:var(--bor);background:var(--sur)}
+.edl-rl-caret{color:var(--t3);font-size:12px;transition:transform .15s}
+.edl-rl-sec.open .edl-rl-caret{transform:rotate(90deg)}
+.edl-rl-secb{padding:4px 12px 10px;display:none}
+.edl-rl-sec.open .edl-rl-secb{display:block}
+.edl-rl-li{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:7px 0;border-top:1px solid var(--bor);font-size:13px}
+.edl-rl-li:first-child{border-top:none}
+.edl-rl-li.flag{cursor:pointer;margin:0 -12px;padding:8px 12px}
+.edl-rl-li.flag:active{background:var(--sur2)}
+.edl-rl-li .nm{color:var(--t1);flex:1;min-width:0}
+.edl-rl-li .obs{display:block;font-size:11.5px;color:var(--t3);font-style:italic;margin-top:2px;line-height:1.35}
+.edl-rl-li .obs.s{color:var(--ora);font-style:normal}
+.edl-rl-li .obs b{font-style:normal}
+.edl-rl-li .fix{display:inline-block;font:800 10px var(--font);color:var(--acc);margin-top:3px}
+.edl-rl-li .trans{font-size:12px;font-weight:700;white-space:nowrap;color:var(--t2);display:flex;align-items:center;gap:6px;flex:none}
+.edl-rl-li .trans .att{color:var(--warn);font-weight:600}
+.edl-rl-li .vb{font:800 9.5px var(--font);border-radius:999px;padding:2px 7px;border:1px solid}
+.edl-rl-li .vb.ko{color:var(--neg);border-color:var(--neg);background:color-mix(in srgb,var(--neg) 12%,transparent)}
+.edl-rl-li .vb.att{color:var(--warn);border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.edl-rl-after{border:1px dashed var(--bor);border-radius:10px;padding:11px 12px;margin:8px 0 12px;color:var(--t3);font-size:12px;line-height:1.5}
+.edl-rl-cta{width:100%;border:none;background:var(--ora);color:#fff;border-radius:var(--r);font:800 15px var(--font);
+  padding:14px;cursor:pointer;font-family:var(--font)}
+
+/* le pop-up « en connaissance de cause » (§2.7) — au-dessus du rail et de la feuille */
+.edl-signmodal{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:18px}
+.edl-sm-box{background:var(--sur);border:1px solid var(--bor);border-radius:16px;padding:18px;width:100%;max-width:340px}
+.edl-sm-title{font:800 16px var(--font);color:var(--t1);margin-bottom:10px}
+.edl-sm-body{font-size:13px;color:var(--t2);line-height:1.5}
+.edl-sm-body ul{margin:8px 0;padding-left:18px}
+.edl-sm-body li{margin:5px 0;color:var(--t1)}
+.edl-sm-body b{color:var(--t1)}
+.edl-sm-actions{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.edl-sm-btn{border:none;border-radius:10px;padding:13px;font:800 14px var(--font);cursor:pointer;font-family:var(--font)}
+.edl-sm-btn.go{background:var(--ora);color:#fff}
+.edl-sm-btn.back{background:var(--sur2);color:var(--t2);border:1px solid var(--bor)}
+
 /* ══ Lot 7 (§A.6) — LA VISIONNEUSE PHOTO entrée/sortie ════════════════════════
    Grande image EN ENTIER (contain, fond neutre, jamais rognée), portrait comme
    paysage. PC/tablette : 2 colonnes entrée|sortie ; téléphone : grande image +
