@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Propryo v15.553</title>
+<title>Propryo v15.554</title>
 <!-- ── EDL TERRAIN lot 2 · APPLICATION INSTALLABLE ──────────────────────────
      CDC docs/CDC-EDL.md §3 verrou 4 : sur iPhone, un site NON installé voit
      Safari purger localStorage ET IndexedDB après 7 jours sans visite —
@@ -4101,8 +4101,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
          liste (bouton 🗑 → delEDL, avec sa confirmation). Fermer = ✕ en haut,
          qui enregistre. « 💾 Enregistrer » reste sur PC et tablette, il est
          masqué sur téléphone (l'enregistrement y est automatique). -->
-    <button class="btn bs" onclick="downloadEDLPdfFromForm()" title="Télécharger le PDF (envoi mail / WhatsApp au locataire)">📥 Télécharger PDF</button>
-    <button class="btn bs" onclick="uploadEDLPDFToDriveFromForm()" title="Génère le PDF de l'EDL et l'enregistre dans le cloud">☁️ Enregistrer le PDF</button>
+    <button class="btn bs" onclick="downloadEDLPdfFromForm()" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager le PDF</button>
     <button class="btn bp" id="edl-btn-save" onclick="saveEDL()">💾 Enregistrer</button>
     <input type="hidden" id="edl-edit-id">
   </div>
@@ -4159,7 +4158,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
   <div class="m-foot">
     <button class="btn bs" onclick="closeM('ov-regul-doc')">Fermer</button>
     <button class="btn" onclick="window._shareDecompteWithPdf && window._shareDecompteWithPdf()" title="Partager avec PDF">🔗 Partager</button>
-    <button class="btn" onclick="window._emailDecompteFromModal && window._emailDecompteFromModal()">📥 Télécharger</button>
+    <button class="btn" onclick="window._emailDecompteFromModal && window._emailDecompteFromModal()">📤 Partager</button>
     <button class="btn bp" onclick="printRegulDoc()">🖨 Imprimer</button>
   </div>
 </div></div>
@@ -4215,7 +4214,7 @@ tr.cand-row-new td{background:linear-gradient(90deg,rgba(59,126,246,.06),transpa
 <script>
 // v15.81 — Constante version centralisée (évite désync title/footer/sidebarV4).
 // À bumper UNIQUEMENT ici + dans <title> + <em> footer legacy au boot.
-const IMMOTRACK_VERSION = '15.553';
+const IMMOTRACK_VERSION = '15.554';
 
 // Sync runtime du footer sidebar legacy (l'élément <em>v15.498</em> statique
 // dans le HTML sera écrasé au boot si la constante diffère).
@@ -31823,9 +31822,7 @@ function rEDLList() {
       <td class="mu sm">${(e.pieces||[]).length} pièce(s) / ${nb} élém.${sig}${nph?' 📷'+nph:''}${abri}${e.cloudPdfKey?' ☁️':''}</td>
       <td class="act-cell">
         <button class="btn bs bb" onclick="openEditEDL(${e.id})" title="Modifier">✏️</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id})" title="Télécharger le PDF (envoi mail / WhatsApp)">📥 Télécharger</button>
-        <button class="btn bs bb" onclick="uploadEDLPDFToDrive(${e.id})" title="Générer le PDF de l'EDL et l'enregistrer">☁️ Archiver au cloud</button>
-        ${e.cloudPdfKey ? `<button class="btn bs bb" onclick="openLastEDLPDF(${e.id})" title="Ouvrir le PDF de l'EDL" style="background:rgba(59,126,246,.10);color:var(--acc);border:1px solid rgba(59,126,246,.25)">📄 Ouvrir le PDF (cloud)</button>` : ''}
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${e.id}, {share:true})" title="Partager le PDF (WhatsApp, mail…) ou le télécharger">📤 Partager</button>
         <button class="btn br bb" onclick="delEDL(${e.id})" title="Supprimer">🗑</button>
       </td></tr>`;
   }).join('')||'<tr><td colspan="6" class="mu" style="text-align:center;padding:20px">Aucun état des lieux</td></tr>';
@@ -32958,8 +32955,8 @@ async function _edlFinalize() {
   // On enregistre (sans fermer), on génère + ouvre le PDF, puis on ferme la modale.
   const savedId = saveEDL({ keepOpen: true, silent: true });
   if (!savedId) return; // (ne devrait pas arriver : logement + date vérifiés ci-dessus)
-  if (typeof showToast === 'function') showToast('EDL enregistré ✓ — le PDF va s\'ouvrir…', 'ok', 2500);
-  try { await downloadEDLPdfNative(savedId); } catch (e) { console.warn('[_edlFinalize] PDF', e); }
+  if (typeof showToast === 'function') showToast('EDL enregistré ✓ — partage du PDF…', 'ok', 2500);
+  try { await downloadEDLPdfNative(savedId, { share: true }); } catch (e) { console.warn('[_edlFinalize] PDF', e); }
   if (typeof closeM === 'function') closeM('ov-edl');
 }
 
@@ -33325,7 +33322,30 @@ async function generateEDLPdfNative(edl) {
   });
   y = pdf.lastAutoTable.finalY + 6;
 
-  // ─── 3. Compteurs ───────────────────────────────────────────────
+  // ─── Légende des états — PAGE 1, sous l'encadré d'identité (retour Didier 26/08 : la clé de
+  //     lecture des codes N/B/U/M/– doit être visible d'emblée). Constantes EDL_ETATS/ABBREV/DESC.
+  y = drawTitle(y, 'Légende des états', 2);
+  pdf.autoTable({
+    startY: y,
+    head: [['Code', 'État', 'Signification']],
+    body: EDL_ETATS.map(e => [EDL_ABBREV[e] || '', e, EDL_DESC[e] || '']),
+    margin: { left: M, right: MR },
+    styles: { fontSize: 8.5, cellPadding: 1.8, valign: 'middle' },
+    headStyles: { fillColor: [80,80,80], textColor: [255,255,255], fontSize: 9 },
+    columnStyles: {
+      0: { cellWidth: 14, halign: 'center', fontStyle: 'bold', textColor: [255,255,255] },
+      1: { cellWidth: 42, fontStyle: 'bold' },
+      2: { cellWidth: 'auto' }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 0) {
+        data.cell.styles.fillColor = EDL_PDF_RGB[EDL_ETATS[data.row.index]] || [255,255,255];
+      }
+    }
+  });
+  y = pdf.lastAutoTable.finalY + 6;
+
+  // ─── 3. Compteurs (page dédiée) ─────────────────────────────────
   const cptLabels = {
     'elec-num':'N° Compteur élec','elec-hp':'Élec HP (kWh)','elec-hc':'Élec HC (kWh)',
     'gaz-num':'N° Compteur gaz','gaz':'Gaz (m³)',
@@ -33340,6 +33360,7 @@ async function generateEDLPdfNative(edl) {
     if (e || s) cptRows.push([cptLabels[k], e||'—', s||'—']);
   });
   if (cptRows.length) {
+    pdf.addPage(); y = MT;   // Compteurs sur sa PROPRE page (retour Didier 26/08)
     y = drawTitle(y, 'Compteurs', 2);
     pdf.autoTable({
       startY: y,
@@ -33422,7 +33443,7 @@ async function generateEDLPdfNative(edl) {
   {
     const daaf = edl.daaf;
     if (daaf && (daaf.statut || (daaf.notes || '').trim() || (daaf.photos || []).length)) {
-      y = newPageIfNeeded(y, 24);
+      pdf.addPage(); y = MT;   // Détecteur sur sa PROPRE page (retour Didier 26/08)
       y = drawTitle(y, 'Détecteur de fumée (DAAF)', 2);
       const statutLbl = { present: 'Présent et fonctionnel', defaut: 'Présent, à vérifier', absent: 'Absent (à installer par le bailleur)' }[daaf.statut] || 'Non renseigné';
       pdf.autoTable({
@@ -33443,33 +33464,6 @@ async function generateEDLPdfNative(edl) {
       y += 2;
     }
   }
-
-  // ─── Légende des états (clé de lecture, juste avant l'inventaire des pièces) ───
-  // EDL-LEGENDE : les codes N/B/U/M/– n'avaient aucune légende dans le PDF (le lecteur
-  // voyait des lettres nues). L'état conditionne l'imputation des dégradations → portée juridique.
-  // Réutilise les constantes globales EDL_ETATS/EDL_ABBREV/EDL_DESC (source unique, pas de recopie).
-  // Couleurs d'impression : EDL_PDF_RGB (tokens charte 4,5:1), lot 5 §7ter.
-  y = newPageIfNeeded(y, 54); // réserve titre (~10) + tableau 6 lignes (~42) → jamais coupée en 2 pages
-  y = drawTitle(y, 'Légende des états', 2);
-  pdf.autoTable({
-    startY: y,
-    head: [['Code', 'État', 'Signification']],
-    body: EDL_ETATS.map(e => [EDL_ABBREV[e] || '', e, EDL_DESC[e] || '']),
-    margin: { left: M, right: MR },
-    styles: { fontSize: 8.5, cellPadding: 1.8, valign: 'middle' },
-    headStyles: { fillColor: [80,80,80], textColor: [255,255,255], fontSize: 9 },
-    columnStyles: {
-      0: { cellWidth: 14, halign: 'center', fontStyle: 'bold', textColor: [255,255,255] },
-      1: { cellWidth: 42, fontStyle: 'bold' },
-      2: { cellWidth: 'auto' }
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 0) {
-        data.cell.styles.fillColor = EDL_PDF_RGB[EDL_ETATS[data.row.index]] || [255,255,255]; // lot 5 §7ter : couleurs charte 4,5:1
-      }
-    }
-  });
-  y = pdf.lastAutoTable.finalY + 6;
 
   // ─── 5. Pièces (1 par page pour lisibilité) ─────────────────────
   // v14.10.6 : nouvelle page systématique avant chaque pièce (sauf 1ère si y==MT)
@@ -33534,7 +33528,7 @@ async function generateEDLPdfNative(edl) {
   // v14.10.6 : ajout colonne NB Sortie + galerie photos clés (E + S)
   const cles = (edl.cles||[]).filter(c => c.type || c.nb || c.nbS || (c.photos||[]).length || (c.photosS||[]).length);
   if (cles.length) {
-    y = newPageIfNeeded(y, 30);
+    pdf.addPage(); y = MT;   // Clés sur leur PROPRE page (retour Didier 26/08)
     y = drawTitle(y, 'Clés et accès remis', 2);
     pdf.autoTable({
       startY: y,
@@ -33844,19 +33838,31 @@ async function openLastEDLPDF(id) {
 /* v14.10.5 : télécharge le PDF EDL en local (mail / WhatsApp / archive perso).
    Pas d'upload Drive — pour ça utiliser uploadEDLPDFToDrive séparément.
    Pas besoin de Drive connecté pour télécharger. */
-async function downloadEDLPdfNative(id) {
+async function downloadEDLPdfNative(id, opts) {
+  const { share = false } = opts || {};
   const edl = DB.edl.find(e => e.id === id && !e._deleted);
   if (!edl) { showToast('EDL introuvable', 'err'); return; }
   showToast('⌛ Génération du PDF…', 'info', 30000);
   try {
     await _ensurePDFLibsLoaded();
     await _edlPreloadPhotos(edl);
-    // On génère le pdf directement (pas via generateEDLPdfNative qui retourne blob)
-    // pour pouvoir appeler pdf.save() qui déclenche un download navigateur natif.
-    // Solution simple : on appelle generateEDLPdfNative pour obtenir le blob, puis
-    // on crée un lien <a download> et on click dessus.
     const blob = await generateEDLPdfNative(edl);
     const fileName = `EDL_${_edlSanitize(edl.logement)}_${edl.type}_${edl.date}.pdf`;
+    // #1 (retour Didier 26/08) — PARTAGE direct (WhatsApp, mail, AirDrop…) via l'API Web Share
+    // avec fichiers : marche sur iOS, Android ET tablette. Repli téléchargement sur PC ou
+    // navigateur sans support. (AbortError = l'utilisateur a fermé la feuille → on ne fait rien.)
+    if (share && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function') {
+      try {
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'État des lieux', text: `État des lieux ${edl.type} — ${edl.logement}` });
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        console.warn('[edl pdf] partage indisponible, repli téléchargement', e);
+      }
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -33925,8 +33931,8 @@ async function downloadEDLPdfFromForm() {
   if (warnings && !confirm2(warnings + '\n\nGénérer le PDF quand même ?')) return;
   const savedId = saveEDL({keepOpen: true, silent: true});
   if (!savedId) return; // validation (logement/date) ou read-only a échoué
-  showToast('💾 Enregistré — génération PDF...', 'info', 1800);
-  await downloadEDLPdfNative(savedId);
+  showToast('💾 Enregistré — préparation du PDF...', 'info', 1800);
+  await downloadEDLPdfNative(savedId, { share: true });
 }
 
 async function uploadEDLPDFToDriveFromForm() {
@@ -41609,7 +41615,7 @@ function _buildDdtRecapHTML(log) {
       </div>
 
       <div style="margin-top:14px;font-size:10px;color:#999;text-align:right">
-        Propryo v15.553 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
+        Propryo v15.554 — Récap diagnostics généré automatiquement le ${escHtml(todayStr)}
       </div>
     </div>`;
 }
@@ -43128,9 +43134,7 @@ function _renderLogFichePanelEDL(log, ref) {
     const sig = _edlSignatureStatus(edl);
     const typeColor = edl.type === 'Entrée' ? '#16a34a' : '#ea580c';
     const typeIcon = edl.type === 'Entrée' ? '🟢' : '🟠';
-    const driveBtn = edl.cloudPdfKey
-      ? `<button class="btn bs bb" onclick="openLastEDLPDF(${edl.id})" style="background:rgba(59,126,246,.10);color:var(--acc);border:1px solid rgba(59,126,246,.25)" title="Ouvrir le PDF de l'EDL">📄 Ouvrir le PDF (cloud)</button>`
-      : `<button class="btn bs bb" onclick="uploadEDLPDFToDrive(${edl.id})" title="Générer le PDF de l'EDL et l'enregistrer">☁️ Archiver au cloud</button>`;
+    const driveBtn = ''; // boutons cloud PDF retirés (retour Didier 26/08) — le PDF se régénère à la demande
     const bailLink = edl._bailRef ? '' : ''; // hook futur
     return `<div class="logf-edl-card" style="border-left:3px solid ${typeColor}">
       <div class="logf-edl-card-head">
@@ -43147,7 +43151,7 @@ function _renderLogFichePanelEDL(log, ref) {
       </div>
       <div class="logf-edl-card-actions">
         <button class="btn bp bb" onclick="openEditEDL(${edl.id})" title="Modifier l'EDL">✏️ Modifier</button>
-        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id})" title="Télécharger PDF (envoi mail / WhatsApp)">📥 Télécharger</button>
+        <button class="btn bs bb" onclick="downloadEDLPdfNative(${edl.id}, {share:true})" title="Télécharger PDF (envoi mail / WhatsApp)">📤 Partager</button>
         ${driveBtn}
         <button class="btn bs bb" onclick="saveLogEDLTemplateFromEDL(${edl.id})" title="Sauvegarder la structure de cet EDL comme template par défaut pour ce logement (réutilisable au prochain bail)">🗐 Sauv. template</button>
         <button class="btn br bb" onclick="delEDL(${edl.id})" title="Supprimer">🗑</button>
@@ -59096,7 +59100,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     <div class="m-foot">
       <button class="btn bs" onclick="closeM('ov-irl-lettre')">Fermer</button>
       <button class="btn" onclick="window._shareIRLLetterWithPdf && window._shareIRLLetterWithPdf()" title="Partager avec PDF (Web Share API + fallback download)">🔗 Partager</button>
-      <button class="btn" onclick="envoyerLettreIRLParEmail()">📥 Télécharger</button>
+      <button class="btn" onclick="envoyerLettreIRLParEmail()">📤 Partager</button>
       <button class="btn bp" onclick="printIRLLetter()">🖨 Imprimer</button>
     </div>
   </div>
@@ -59122,7 +59126,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
       <button class="btn bs" onclick="closeM('ov-quit-preview')">Fermer</button>
       <button class="btn qp-persist" onclick="window._archiveQuittancePreviewModal && window._archiveQuittancePreviewModal()" title="Enregistrer le PDF dans les documents">💾 Archiver</button>
       <button class="btn qp-persist" onclick="window._shareQuittancePreviewModal && window._shareQuittancePreviewModal()" title="Partager avec PDF">🔗 Partager</button>
-      <button class="btn qp-persist" onclick="window._emailQuittancePreviewModal && window._emailQuittancePreviewModal()">📥 Télécharger</button>
+      <button class="btn qp-persist" onclick="window._emailQuittancePreviewModal && window._emailQuittancePreviewModal()">📤 Partager</button>
       <button class="btn bp" onclick="window._printQuittancePreviewModal && window._printQuittancePreviewModal()">🖨 Imprimer</button>
     </div>
   </div>
