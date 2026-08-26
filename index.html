@@ -697,6 +697,18 @@ console.log("[Bail-libs] inline executed, _BAIL_PDF_LIBS keys:", Object.keys(win
         #p-loyers .fr-leg i.gel{background:var(--bor)}
         #p-loyers .fr-leg i.now{box-shadow:inset 0 0 0 1px var(--t3)}
 
+        /* D23 — bloc « DPE à compléter » : saisie rapide classe + date, compacte. */
+        #p-loyers .ly-dpe-body{padding:2px 12px 8px}
+        #p-loyers .ly-dpe-ln{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--bor)}
+        #p-loyers .ly-dpe-ln:first-child{border-top:0}
+        #p-loyers .ly-dpe-ln .who{flex:1;min-width:120px;font-size:12.5px}
+        #p-loyers .ly-dpe-ln .pick{display:flex;align-items:center;gap:3px;flex-wrap:wrap}
+        #p-loyers .ly-dpe-d{font-size:11px;padding:2px 4px;border:1px solid var(--bor);border-radius:5px;background:var(--sur);color:var(--t1);margin-right:4px}
+        #p-loyers .ly-dpe-c{width:22px;height:24px;font-weight:800;font-size:12px;border:1px solid var(--bor);border-radius:5px;background:var(--sur2);color:var(--t1);cursor:pointer}
+        #p-loyers .ly-dpe-c:hover{border-color:var(--acc);color:var(--acc)}
+        #p-loyers .ly-dpe-c.fg{border-color:color-mix(in srgb,var(--red) 50%,transparent);color:var(--red)}
+        #p-loyers .ly-dpe-c.fg:hover{background:var(--red);color:#fff}
+
         /* Le détail post-clic : un panneau, jamais un nouvel écran. */
         #p-loyers .fr-det{border-top:1px solid var(--bor);background:var(--sur2)}
         #p-loyers .fr-det .h{display:flex;align-items:center;gap:8px;padding:6px 11px;font-size:11.5px;font-weight:800;color:var(--t1)}
@@ -29489,6 +29501,10 @@ function rLoyers() {
   // ── 4. La frise IRL : toujours affichée, jamais repliée (V3/V4) ──
   html += _lyFriseRuban(etats);
 
+  // ── 4bis. DPE à compléter (D23/D25) — juste SOUS les révisions : il parle du bloc du dessus.
+  // Informe (compte les lots sans DPE), ne retient rien ; saisie rapide écrite sur le bien.
+  html += _lyDpeBlock(etats);
+
   // ── 5. La bande « Suivi » : ce qui ne demande AUCUN geste, chiffré, à un clic ──
   const nQuitMois = _lyQuittancesDuMois(ymCourant).count;
   const pastille = (k, lbl, n) =>
@@ -29534,6 +29550,73 @@ function _lyBadgeTip(n) {
     const nr = rv.aPreparer.length + rv.enRetard.length;
     return `Loyers — ${n} à traiter : ${nr} révision${nr > 1 ? 's' : ''} à préparer · ${d} quittance${d > 1 ? 's' : ''} demandée${d > 1 ? 's' : ''} · ${r} lot${r > 1 ? 's' : ''} pas à jour`;
   } catch (e) { return ''; }
+}
+
+// CDC-QUITTANCES-IRL D23 — LE BLOC « 🏷 DPE à compléter », juste sous les révisions. Il INFORME
+// (compte les lots dont le DPE est absent ou périmé) et ne retient RIEN : la révision reste
+// proposable (D23). Saisie rapide en un clic (classe A→G + date), écrite sur le BIEN
+// (log.diagnostics.dpe, la source de vérité depuis v15.233) et nulle part ailleurs (I17). Un lot
+// « non concerné » (garage/cave/parking) ne réapparaît jamais. Un DPE > 10 ans = manquant.
+function _lyDpeBlock(etats) {
+  const today = (typeof window._loyerTodayLocal === 'function') ? window._loyerTodayLocal() : new Date().toISOString().slice(0, 10);
+  const gate = (window.IrlDpeGate && typeof window.IrlDpeGate.irlDpeGate === 'function') ? window.IrlDpeGate.irlDpeGate : null;
+  const aCompleter = [];
+  for (const e of etats) {
+    if (!e.bail) continue;                                   // lots loués (même périmètre que les révisions)
+    const d = (typeof _diagGet === 'function') ? _diagGet(e.log, 'dpe') : null;
+    if (d && d.na) continue;                                 // « non concerné » : jamais réclamé (I17)
+    const cls = (d && d.classe) || '';
+    const dat = (d && d.date) || '';
+    const g = gate ? gate({ dpe: cls, dpeDate: dat, todayISO: today }) : { dpeManquant: !cls, dpeExpire: false };
+    if (g.dpeManquant) aCompleter.push({ e, expire: !!g.dpeExpire });
+  }
+  const n = aCompleter.length;
+  if (!n) {
+    return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">🏷 DPE à compléter</span>`
+      + `<span class="c">tous les DPE des lots loués sont renseignés</span></div></div>`;
+  }
+  const rows = aCompleter.map(({ e, expire }) => {
+    const ref = _lyQ(e.ref);
+    const classes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(c =>
+      `<button type="button" class="ly-dpe-c${(c === 'F' || c === 'G') ? ' fg' : ''}" onclick="_lyDpeRapide('${ref}','${c}',this)" `
+      + `title="${(c === 'F' || c === 'G') ? 'Classe ' + c + ' — loyer gelé (loi Climat art. 23)' : 'Classe ' + c}">${c}</button>`).join('');
+    return `<div class="ly-dpe-ln"><span class="who"><b>${escHtml(e.ref)}</b> <span class="mu" style="display:inline">${escHtml((e.log && e.log.adr) || '')}</span>`
+      + `${expire ? ' <span class="mu" style="display:inline">· DPE > 10 ans</span>' : ''}</span>`
+      + `<span class="pick"><input type="date" class="ly-dpe-d" title="Date de réalisation du DPE" />${classes}`
+      + `<button type="button" class="btn bs bb" onclick="_lyDpeNonConcerne('${ref}')" title="Garage, cave, parking — pas de DPE exigible par nature">non concerné</button></span></div>`;
+  }).join('');
+  return `<div class="ly2-blk t-info"><div class="ly2-h"><span class="t">🏷 DPE à compléter</span>`
+    + `<span class="c">${n} lot${n > 1 ? 's' : ''} sans DPE en base — la révision reste possible, mais un F ou G ne se révise pas</span></div>`
+    + `<div class="ly-dpe-body">${rows}</div></div>`;
+}
+// I17 — écrit la classe + la date sur le BIEN (log.diagnostics.dpe), source de vérité. La date
+// est OBLIGATOIRE (un DPE sans date de réalisation ne prouve pas sa validité).
+function _lyDpeRapide(ref, classe, btn) {
+  const log = DB.logements.find(l => l.ref === ref); if (!log) return;
+  const row = (btn && btn.closest) ? btn.closest('.ly-dpe-ln') : null;
+  const di = row ? row.querySelector('.ly-dpe-d') : null;
+  const date = (di && di.value) || '';
+  if (!date) { try { showToast('Saisir d\'abord la date de réalisation du DPE', 'warn', 3000); } catch (e) {} if (di) di.focus(); return; }
+  if (!log.diagnostics) log.diagnostics = {};
+  const cur = (log.diagnostics.dpe && typeof log.diagnostics.dpe === 'object') ? log.diagnostics.dpe : {};
+  log.diagnostics.dpe = Object.assign({}, cur, { classe: classe, date: date, na: false });
+  if (typeof _stamp === 'function') _stamp(log);
+  saveDB();
+  try { showToast('DPE ' + classe + ' enregistré sur ' + ref + ((classe === 'F' || classe === 'G') ? ' — loyer gelé' : ''), 'ok', 3000); } catch (e) {}
+  try { rLoyers(); } catch (e) {}
+  try { _renderInboxSurfaces(); } catch (e) {}
+}
+// I17 — « non concerné » : marque le DPE na sur le bien ; le lot ne réapparaît jamais dans le rappel.
+function _lyDpeNonConcerne(ref) {
+  const log = DB.logements.find(l => l.ref === ref); if (!log) return;
+  if (!log.diagnostics) log.diagnostics = {};
+  const cur = (log.diagnostics.dpe && typeof log.diagnostics.dpe === 'object') ? log.diagnostics.dpe : {};
+  log.diagnostics.dpe = Object.assign({}, cur, { na: true });
+  if (typeof _stamp === 'function') _stamp(log);
+  saveDB();
+  try { showToast(ref + ' — DPE marqué « non concerné »', 'ok', 2500); } catch (e) {}
+  try { rLoyers(); } catch (e) {}
+  try { _renderInboxSurfaces(); } catch (e) {}
 }
 
 /**
