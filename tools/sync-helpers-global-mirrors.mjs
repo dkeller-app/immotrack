@@ -261,6 +261,18 @@ const PAIRS = [
     exports: ['STEPS', 'entryStep', 'advance', 'breadcrumb'],
   },
   {
+    // CDC-QUITTANCES-IRL D23 / I16 — décision réglementaire DPE de la révision (gel F/G valide vs
+    // à compléter). Consommé par computeIRLRevision (index.html).
+    name: 'irl-dpe-gate',
+    src: '__tests__/helpers/irl-dpe-gate.js',
+    dst: 'js/helpers/irl-dpe-gate.global.js',
+    globalName: 'IrlDpeGate',
+    exports: ['irlDpeGate'],
+    sanity: [
+      { name: 'function declarations', pattern: /[\s\S]*/, marker: /^\s*(?:export\s+)?function\s+\w+/gm }
+    ]
+  },
+  {
     // Fil rouge COMPLET — rapprochement immeuble par adresse canon (import d'acte).
     name: 'acte-rapprochement',
     src: '__tests__/helpers/acte-rapprochement.js',
