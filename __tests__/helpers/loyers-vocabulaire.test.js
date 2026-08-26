@@ -81,8 +81,10 @@ describe('V1 — l\'écran est un tableau de bord : trois tuiles, UNE seule list
     expect(has("'À remettre'")).toBe(true);
     expect(has("'À préparer'")).toBe(true);
   });
-  it('les impayés sont la liste affichée par défaut', () => {
-    expect(matches(/_lyUI = \{ tuile: 'retard'/)).toBe(true);
+  it('D25 — les révisions (À préparer) sont la liste affichée par défaut (l\'IRL en premier)', () => {
+    // Le rare et périssable (une révision se perd à un an de prescription) passe avant le fréquent
+    // et rattrapable (un impayé, une quittance). Changé de 'retard' → 'rev' au 26/08 (D25).
+    expect(matches(/_lyUI = \{ tuile: 'rev'/)).toBe(true);
   });
   it('une seule liste est rendue à la fois (if / else if / else sur la tuile)', () => {
     expect(has("if (_lyUI.tuile === 'quit')")).toBe(true);
