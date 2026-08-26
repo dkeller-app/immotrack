@@ -9411,6 +9411,9 @@ function _navChildBadge(id, counts, candUnread) {
   if (id === 'baux')   return '<span class="v4s-bd">' + (counts.locs || 0) + '</span>';
   if (id === 'mouvements') return '<span class="v4s-bd">' + (counts.loyers || 0) + '</span>';
   if (id === 'candidats') return '<span class="v4s-bd v4s-bd-new" id="v4s-cand-badge"' + (candUnread > 0 ? '' : ' style="display:none"') + '>' + (candUnread || '') + '</span>';
+  // CDC-QUITTANCES-IRL D22 — ancre de la pastille rouge « à traiter » de Loyers (remplie/vidée à
+  // chaud par _renderInboxSurfaces via _lyBadgeCount). Masquée tant qu'il n'y a rien (I15).
+  if (id === 'loyers') return '<span class="v4s-bd v4s-bd-new" id="v4s-loyers-badge" style="display:none"></span>';
   return '';
 }
 // Persistance (par appareil) des groupes dépliés. Clés = 1re page-enfant du groupe.
@@ -18779,6 +18782,26 @@ function _renderInboxSurfaces(){
   // Sidebar V4 (réelle) : badge rouge sur l'item Candidats
   const cb = el('v4s-cand-badge');
   if(cb){ if(n > 0){ cb.textContent = n; cb.style.display = ''; } else { cb.textContent = ''; cb.style.display = 'none'; } }
+  // CDC-QUITTANCES-IRL D22 — la PASTILLE « Loyers » (remplace la popup au boot). Même mécanisme,
+  // trois surfaces : sidebar legacy (.ni), barre du bas (.v4-bn), sidebar V4 (#v4s-loyers-badge).
+  // La pastille = _lyBadgeCount() (= les lignes actionnables de l'écran, I15) ; 0 → pas de pastille.
+  let nL = 0; try { if (typeof _lyBadgeCount === 'function') nL = _lyBadgeCount(); } catch(e){ nL = 0; }
+  const tip = nL > 0 ? (typeof _lyBadgeTip === 'function' ? _lyBadgeTip(nL) : '') : '';
+  const niL = document.querySelector('.ni[data-module="loyers"]');
+  if(niL){
+    if(tip) niL.setAttribute('title', tip); else niL.removeAttribute('title');
+    let b = niL.querySelector('.ni-pastille');
+    if(nL > 0){ if(!b){ b = document.createElement('span'); b.className = 'ni-pastille'; niL.appendChild(b); } b.textContent = nL; }
+    else if(b){ b.remove(); }
+  }
+  const bnL = document.querySelector('.v4-bnav .v4-bn[data-page="loyers"]');
+  if(bnL){
+    let b = bnL.querySelector('.v4-bn-badge');
+    if(nL > 0){ if(!b){ b = document.createElement('span'); b.className = 'v4-bn-badge'; bnL.appendChild(b); } b.textContent = nL; }
+    else if(b){ b.remove(); }
+  }
+  const v4L = el('v4s-loyers-badge');
+  if(v4L){ if(nL > 0){ v4L.textContent = nL; v4L.style.display = ''; if(tip) v4L.setAttribute('title', tip); } else { v4L.textContent = ''; v4L.style.display = 'none'; } }
   _renderCandInboxBanner();
 }
 function _candMarkAllSeen(){
@@ -29481,6 +29504,38 @@ function rLoyers() {
   host.innerHTML = `<div class="ly2 cft">${html}</div>`;
 }
 
+// CDC-QUITTANCES-IRL D22 / I15 — LE COMPTEUR de l'entrée de menu « Loyers ». Il vaut EXACTEMENT
+// le nombre de LIGNES ACTIONNABLES de l'écran : quittances demandées prêtes à éditer + lots pas à
+// jour + révisions à préparer. Ni les « non révisables » (gelé/bail<1an/indice) ni les « perdues »
+// (D15) n'y entrent — rien à y faire, rien à compter. Écran vide → 0 → pas de pastille (I15).
+// Réutilise LES MÊMES calculs que rLoyers (jamais une 2ᵉ source qui divergerait).
+function _lyBadgeCount() {
+  try {
+    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function') return 0;
+    const lots = _lyLots();
+    if (!lots.length) return 0;
+    const etats = lots.map(_lyEtatLot);
+    const demandes = etats.filter(e => e.demande && e.aQuittancer.length).length;   // quittances prêtes
+    const retards  = etats.filter(e => e.retard.enRetard).length;                    // pas à jour
+    const rev      = _lyRevisionsTriees(etats);
+    const nbRev    = rev.aPreparer.length + rev.enRetard.length;                      // révisions à préparer
+    return demandes + retards + nbRev;
+  } catch (e) { return 0; }
+}
+// Détail des trois nombres, pour l'info-bulle de la pastille (D22).
+function _lyBadgeTip(n) {
+  try {
+    if (typeof window.moisAQuittancer !== 'function' || typeof _lyLots !== 'function') return '';
+    const lots = _lyLots(); if (!lots.length) return '';
+    const etats = lots.map(_lyEtatLot);
+    const d = etats.filter(e => e.demande && e.aQuittancer.length).length;
+    const r = etats.filter(e => e.retard.enRetard).length;
+    const rv = _lyRevisionsTriees(etats);
+    const nr = rv.aPreparer.length + rv.enRetard.length;
+    return `Loyers — ${n} à traiter : ${nr} révision${nr > 1 ? 's' : ''} à préparer · ${d} quittance${d > 1 ? 's' : ''} demandée${d > 1 ? 's' : ''} · ${r} lot${r > 1 ? 's' : ''} pas à jour`;
+  } catch (e) { return ''; }
+}
+
 /**
  * Échappe une valeur destinée à une CHAÎNE JS placée DANS UN ATTRIBUT HTML
  * (`onclick="f('…')"`). Les deux échappements sont nécessaires et dans cet ordre :
@@ -30815,29 +30870,14 @@ function _renderIRLRappelModal() {
    - condition stricte : isApplicable && !dejaApplique (mois anniversaire dépassé)
    Si déjà affichée pour la session (même source), on n'ouvre pas la popup mais on
    maintient le toast léger pour signaler discrètement les révisions à traiter. */
-function _checkIRLRappelsAuLogin(source) {
-  source = source || 'login';
-  // v14.1.2 : Drive connect prend la priorité absolue. Pas de popup IRL si :
-  const list = _collectIRLRappels();
-  if (!list.length) return;
-  const today = new Date().toISOString().slice(0,10);
-  // Anti-spam : 1 popup par jour max, quelle que soit la source
-  const alreadyShown = sessionStorage.getItem('irlRappelShown') === today;
-  if (!alreadyShown) {
-    sessionStorage.setItem('irlRappelShown', today);
-    _renderIRLRappelModal();
-    openM('ov-irl-rappel');
-  }
-  // Toast léger en complément (informatif si popup déjà vue)
-  if (source === 'login' || !alreadyShown) {
-    const n = list.length;
-    const nNonEnv = list.filter(({log,rev}) => !(log.irlLettreEnvoyee && log.irlLettreEnvoyeePour === _isoLocal(rev.dateRevision))).length;
-    const msg = nNonEnv > 0
-      ? `📈 ${n} révision${n>1?'s':''} IRL · ${nNonEnv} lettre${nNonEnv>1?'s':''} à envoyer`
-      : `📈 ${n} révision${n>1?'s':''} IRL prête${n>1?'s':''} à appliquer`;
-    try { showToast(msg, 'warn', 4500); } catch(e) {}
-  }
-}
+// CDC-QUITTANCES-IRL D22 / I14 — `_checkIRLRappelsAuLogin` SUPPRIMÉE. Elle ouvrait au boot la
+// modale `ov-irl-rappel` (+ un toast), ce qui contredisait trois décisions : déclenchée sur
+// `rev.isApplicable` (après l'anniversaire, jamais au rappel M-1 de D13), elle portait un bouton
+// « Valider IRL » qui appliquait une révision depuis une fenêtre ouverte automatiquement (hors de
+// la fenêtre de validation D18), et elle interrompait là où D5 met le travail dans l'écran. Le
+// rappel vit désormais sur la PASTILLE de l'entrée de menu « Loyers » (_lyBadgeCount). Preuve
+// d'atteignabilité : `openM('ov-irl-rappel')` n'était appelé que d'ici, et cette fonction n'était
+// planifiée qu'au boot — la modale est donc désormais inatteignable (reste masquée, I14).
 
 // v15.249 B8 (D-B12) — Rappel au login : diagnostics expirés. Toast léger (PAS de modale,
 // pour ne pas empiler sur la popup IRL). Anti-spam : 1 toast/jour max (sessionStorage).
@@ -58044,8 +58084,9 @@ function _bootDataJobs() {
       _migratePjMouvementsToAttachments().catch(e => console.warn('[migration PJ] fail', e));
     }
   }, 1500);
-  // v13.32 IRL-VALIDATION : toast au login si rappels IRL en attente
-  setTimeout(_checkIRLRappelsAuLogin, 1500);
+  // CDC-QUITTANCES-IRL D22 / I14 — AUCUNE fenêtre ni toast IRL au démarrage. Le rappel des
+  // révisions n'ouvre plus de modale au boot (`_checkIRLRappelsAuLogin` supprimée) : il attend
+  // sur une PASTILLE de l'entrée de menu « Loyers » (_lyBadgeCount → _renderInboxSurfaces).
   // BAIL-SIGNATURE-DISTANCE C3 (Task 12) : poll des sessions de signature distance en attente.
   setTimeout(() => { try { _pollRemoteSignSessions({ force: true }); } catch (e) {} }, 2500);
   // v14.52 BUG-ENT-ORPHANS-CLEANUP Phase 1 : audit des rattachements orphelins
