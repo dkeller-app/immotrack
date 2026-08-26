@@ -31185,6 +31185,19 @@ const EDL_DESC   = {'Neuf':'Jamais utilisé',"Bon état":'Propre et fonctionnel'
 const EDL_ENGAGEMENT_TITRE = 'Engagement des locataires :';
 const EDL_ENGAGEMENT_TXT1 = "Les locataires s'engagent à restituer le logement dans son état initial (murs, plafonds, sols). L'usure normale n'est pas retenue. Réf. décret n°2016-382 du 30/03/2016 (vétusté).";
 const EDL_ENGAGEMENT_TXT2 = "Les soussignés reconnaissent les constatations sur l'état du logement, sous réserve du bon fonctionnement des canalisations, appareils et installations sanitaires, électriques et du chauffage qui n'ont pu être vérifiés ce jour, toute défectuosité dans le fonctionnement de ceux-ci devant être signalée dans le délai maximum de dix jours, et pendant le premier mois de la période de chauffe en ce qui concerne les éléments de chauffage. Les cosignataires aux présentes ont convenu du caractère probant et indiscutable des signatures y figurant pour être recueillies selon procédé informatique sécurisé au contradictoire des parties, ils s'accordent pour y faire référence lors du départ du locataire. Le présent état des lieux établi contradictoirement entre les parties qui le reconnaissent exact, fait partie intégrante du contrat de location dont il ne peut être dissocié.";
+// EDL-TÉLÉPHONE (CDC §2.8) — l'engagement de SORTIE est DISTINCT de celui d'entrée : on ne
+// remet pas au locataire sortant un texte qui l'engage à « restituer le logement » (absurde à
+// la sortie). Ici les parties reconnaissent le constat de sortie et les écarts vs l'entrée.
+// AUCUN montant, aucune mention de dépôt (invariant §2.10). Sélection par _edlEngagement(isSortie).
+const EDL_ENGAGEMENT_SORTIE_TITRE = "Accord des parties sur l'état des lieux de sortie :";
+const EDL_ENGAGEMENT_SORTIE_TXT1 = "Le présent état des lieux de sortie, établi contradictoirement, décrit l'état du logement au départ du locataire. Les parties reconnaissent les écarts constatés par rapport à l'état des lieux d'entrée. L'usure normale et la vétusté ne sont pas retenues (décret n°2016-382 du 30/03/2016).";
+const EDL_ENGAGEMENT_SORTIE_TXT2 = "Les cosignataires conviennent du caractère probant et indiscutable des signatures recueillies par procédé informatique sécurisé au contradictoire des parties. Le présent état des lieux de sortie est comparé à l'état des lieux d'entrée et fait partie intégrante du dossier de location dont il ne peut être dissocié. Aucun montant, ni retenue ou restitution de dépôt de garantie, ne figure dans le présent document.";
+// Sélecteur unique (écran + PDF) du triplet d'engagement selon le type d'EDL.
+function _edlEngagement(isSortie) {
+  return isSortie
+    ? { titre: EDL_ENGAGEMENT_SORTIE_TITRE, txt1: EDL_ENGAGEMENT_SORTIE_TXT1, txt2: EDL_ENGAGEMENT_SORTIE_TXT2 }
+    : { titre: EDL_ENGAGEMENT_TITRE, txt1: EDL_ENGAGEMENT_TXT1, txt2: EDL_ENGAGEMENT_TXT2 };
+}
 
 // v14.12.7 — "Fait à Ville le Date" + intro signatures (templates dynamiques).
 // Mêmes formules que celles imprimées dans le PDF natif. Source unique de vérité.
@@ -32378,6 +32391,12 @@ function _edlUpdateLegalTexts() {
     const fdate = (typeof fd === 'function' && date) ? fd(date) : (date || '');
     const fl = el('edl-faitle-text');    if (fl) fl.textContent = EDL_FAITLE_TPL(ville, fdate);
     const si = el('edl-sigintro-text');  if (si) si.textContent = EDL_SIGINTRO_TPL(fdate);
+    // §2.8 — le cadre d'engagement bascule avec le type (entrée : « Engagement des locataires » ;
+    // sortie : « Accord des parties sur l'état des lieux de sortie »). Même source que le PDF.
+    const _eng = _edlEngagement(_edlSortie);
+    const et = el('edl-engagement-titre'); if (et) et.textContent = _eng.titre;
+    const e1 = el('edl-engagement-txt1');  if (e1) e1.textContent = _eng.txt1;
+    const e2 = el('edl-engagement-txt2');  if (e2) e2.textContent = _eng.txt2;
   } catch(e) { console.warn('[_edlUpdateLegalTexts] fail:', e); }
 }
 
@@ -33289,6 +33308,57 @@ async function generateEDLPdfNative(edl) {
   // ─── 5. Pièces (1 par page pour lisibilité) ─────────────────────
   // v14.10.6 : nouvelle page systématique avant chaque pièce (sauf 1ère si y==MT)
   const stateLabel = (etat) => etat ? (EDL_ABBREV[etat]||'?') : '';
+  // §2.11bis — colonne Verdict au PDF (mode sortie), DÉDUITE via le module testé (jamais stockée).
+  const _isSortiePdf = edl.type === 'Sortie';
+  const verdictLabel = (etatE, etatS) => {
+    const P = (typeof window !== 'undefined') ? window.EdlParcours : null;
+    if (!P) return '';
+    const v = P.verdictDe(etatE, etatS);
+    return v === 'ecart' ? 'Écart' : (v === 'conforme' ? 'Conforme' : 'À constater');
+  };
+  // §2.11bis — les photos sous chaque section, dans un ENCADRÉ sobre on-brand (filet fin +
+  // en-tête gris clair). Aucun état/verdict sur les photos (légende = nom d'élément). Paginable :
+  // un chunk par page, en-tête « … (suite) » au-delà. items = [{src, ratio, cap}].
+  const drawPhotoEncadre = (label, dateStr, items) => {
+    if (!items || !items.length) return;
+    const CELL = 40, GAP = 4, pad = 3, headH = 6.5, rowH = CELL + 4 + 3;
+    const cols = Math.max(1, Math.floor((CW - 2 * pad + GAP) / (CELL + GAP)));
+    let idx = 0, first = true;
+    while (idx < items.length) {
+      const avail = (PH - MB) - y - headH - pad - 4;
+      if (avail < rowH + 2) { pdf.addPage(); y = MT; continue; }
+      const maxRows = Math.max(1, Math.floor(avail / rowH));
+      const chunk = items.slice(idx, idx + maxRows * cols);
+      const nRows = Math.ceil(chunk.length / cols);
+      const boxH = headH + pad + nRows * rowH;
+      const y0 = y;
+      pdf.setDrawColor(210, 214, 222); pdf.setLineWidth(0.4); pdf.rect(M, y0, CW, boxH);
+      pdf.setFillColor(246, 247, 249); pdf.rect(M, y0, CW, headH, 'F');
+      pdf.setDrawColor(210, 214, 222); pdf.line(M, y0 + headH, M + CW, y0 + headH);
+      pdf.setFont('helvetica', 'bold').setFontSize(8).setTextColor(70, 70, 70);
+      pdf.text(label + (first ? '' : ' (suite)'), M + 3, y0 + 4.4);
+      if (dateStr) { pdf.setFont('helvetica', 'normal').setFontSize(7.5).setTextColor(140); pdf.text(dateStr, M + CW - 3, y0 + 4.4, { align: 'right' }); }
+      const iy = y0 + headH + pad;
+      chunk.forEach((it, i) => {
+        const col = i % cols, row = Math.floor(i / cols);
+        const ix = M + pad + col * (CELL + GAP), py = iy + row * rowH;
+        try { const f = _pdfContain(it.ratio, CELL); pdf.addImage(it.src, 'JPEG', ix + f.dx, py + f.dy, f.dw, f.dh); }
+        catch (e) { console.warn('[edl pdf] encadre img', e); }
+        pdf.setDrawColor(210, 214, 222); pdf.setLineWidth(0.3); pdf.rect(ix, py, CELL, CELL);
+        pdf.setFont('helvetica', 'normal').setFontSize(6.8).setTextColor(110);
+        pdf.text(pdf.splitTextToSize(it.cap || '', CELL), ix, py + CELL + 3);
+      });
+      y = y0 + boxH + 4;
+      idx += chunk.length; first = false;
+    }
+  };
+  // Deux encadrés « entrée » puis « sortie » sous une section. `dateEntree`/`dateSortie` : la date
+  // n'est affichée que du côté dont on connaît la date (celui du présent EDL).
+  const drawSectionPhotos = (entItems, sorItems) => {
+    drawPhotoEncadre('Photos — entrée', _isSortiePdf ? '' : (fd(edl.date) || ''), entItems);
+    drawPhotoEncadre('Photos — sortie', _isSortiePdf ? (fd(edl.date) || '') : '', sorItems);
+  };
+  const _photoItem = (ph, cap) => { const src = _photoCache[ph.idbKey] || ph.data; return src ? { src, ratio: _photoRatio[ph.idbKey], cap } : null; };
   let _firstPiece = true;
   for (const piece of (edl.pieces || [])) {
     // Force nouvelle page sauf si on est tout en haut d'une page vide
@@ -33298,65 +33368,51 @@ async function generateEDLPdfNative(edl) {
     }
     _firstPiece = false;
     y = drawTitle(y, piece.nom, 2);
-    const rows = (piece.elements||[]).map(x => [
-      x.nom||'',
-      stateLabel(x.etatE),
-      x.obsE||'',
-      stateLabel(x.etatS),
-      x.obsS||''
-    ]);
+    const rows = (piece.elements||[]).map(x => _isSortiePdf
+      ? [x.nom||'', stateLabel(x.etatE), x.obsE||'', stateLabel(x.etatS), x.obsS||'', verdictLabel(x.etatE, x.etatS)]
+      : [x.nom||'', stateLabel(x.etatE), x.obsE||'', stateLabel(x.etatS), x.obsS||'']);
     if (rows.length) {
       pdf.autoTable({
         startY: y,
-        head: [['Élément', 'É', 'Observations entrée', 'S', 'Observations sortie']],
+        head: [_isSortiePdf
+          ? ['Élément', 'É', 'Observations entrée', 'S', 'Observations sortie', 'Verdict']
+          : ['Élément', 'É', 'Observations entrée', 'S', 'Observations sortie']],
         body: rows,
         margin: { left: M, right: MR },
         styles: { fontSize: 8.5, cellPadding: 1.5, valign: 'middle' },
         headStyles: { fillColor: [80,80,80], textColor: [255,255,255], fontSize: 9 },
-        columnStyles: {
+        columnStyles: _isSortiePdf ? {
+          0: { cellWidth: 42, fontStyle:'bold' },
+          1: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
+          4: { cellWidth: 44 },
+          5: { cellWidth: 26, halign: 'center', fontStyle: 'bold' }
+        } : {
           0: { cellWidth: 50, fontStyle:'bold' },
           1: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
           2: { cellWidth: 55 },
           3: { cellWidth: 10, halign: 'center', fontStyle: 'bold' },
           4: { cellWidth: 55 }
+        },
+        // Verdict color-codé (Écart rouge / Conforme gris / À constater ambre) — colonne 5, sortie.
+        didParseCell: (d) => {
+          if (_isSortiePdf && d.section === 'body' && d.column.index === 5) {
+            const v = d.cell.raw;
+            d.cell.styles.textColor = v === 'Écart' ? [198,40,40] : (v === 'Conforme' ? [90,90,90] : [150,110,20]);
+          }
         }
       });
       y = pdf.lastAutoTable.finalY + 4;
     }
-    // Galerie photos de la pièce (si présentes)
-    const piecePhotos = [];
+    // §2.11bis — photos SOUS la pièce, en DEUX encadrés « Photos — entrée » / « Photos — sortie »
+    // (jamais mélangées), légende = nom d'élément seul, aucun état/verdict sur les photos.
+    const pEnt = [], pSor = [];
     (piece.elements||[]).forEach(x => {
-      (x.photosE||[]).forEach(ph => piecePhotos.push({ph, side:'E', elem:x.nom}));
-      (x.photosS||[]).forEach(ph => piecePhotos.push({ph, side:'S', elem:x.nom}));
+      (x.photosE||[]).forEach(ph => { const it = _photoItem(ph, x.nom); if (it) pEnt.push(it); });
+      (x.photosS||[]).forEach(ph => { const it = _photoItem(ph, x.nom); if (it) pSor.push(it); });
     });
-    if (piecePhotos.length) {
-      y = newPageIfNeeded(y, 35);
-      pdf.setFont('helvetica','italic').setFontSize(8).setTextColor(110);
-      pdf.text(`Photos (${piecePhotos.length})`, M, y);
-      y += 3;
-      const CELL = 55, GAP = 4;
-      const perRow = Math.floor((CW + GAP) / (CELL + GAP)); // 3
-      let col = 0;
-      for (const {ph, side, elem} of piecePhotos) {
-        const src = _photoCache[ph.idbKey] || ph.data;
-        if (!src) continue;
-        const x = M + col * (CELL + GAP);
-        if (col === 0) y = newPageIfNeeded(y, CELL + 6);
-        try {
-          const f = _pdfContain(_photoRatio[ph.idbKey], CELL);
-          pdf.addImage(src, 'JPEG', x + f.dx, y + f.dy, f.dw, f.dh);
-          pdf.setFont('helvetica','normal').setFontSize(6).setTextColor(120);
-          pdf.text(`${elem.slice(0,20)} (${side})`, x, y+CELL+2.5, {maxWidth: CELL});
-        } catch(e) { console.warn('[edl pdf] addImage fail', e); }
-        col++;
-        if (col >= perRow) {
-          col = 0;
-          y += CELL + 6;
-        }
-      }
-      if (col > 0) y += CELL + 6;
-      y += 4;
-    }
+    drawSectionPhotos(pEnt, pSor);
   }
 
   // ─── 6. Clés remises (avec photos) ──────────────────────────────
@@ -33381,36 +33437,13 @@ async function generateEDLPdfNative(edl) {
     });
     y = pdf.lastAutoTable.finalY + 4;
 
-    // Galerie photos clés (Entrée + Sortie)
-    const allClePhotos = [];
+    // §2.11bis — photos des clés en DEUX encadrés « entrée » / « sortie », légende = type de clé.
+    const cEnt = [], cSor = [];
     cles.forEach(c => {
-      (c.photos||[]).forEach(ph => allClePhotos.push({ph, type:c.type||'Clé', side:'E'}));
-      (c.photosS||[]).forEach(ph => allClePhotos.push({ph, type:c.type||'Clé', side:'S'}));
+      (c.photos||[]).forEach(ph => { const it = _photoItem(ph, c.type||'Clé'); if (it) cEnt.push(it); });
+      (c.photosS||[]).forEach(ph => { const it = _photoItem(ph, c.type||'Clé'); if (it) cSor.push(it); });
     });
-    if (allClePhotos.length) {
-      pdf.setFont('helvetica','italic').setFontSize(8).setTextColor(110);
-      pdf.text(`Photos clés (${allClePhotos.length})`, M, y);
-      y += 3;
-      const PHK_CELL = 55, GAPK = 4;
-      const perRowK = Math.floor((CW + GAPK) / (PHK_CELL + GAPK)); // 3
-      let colK = 0;
-      for (const {ph, type, side} of allClePhotos) {
-        const src = _photoCache[ph.idbKey] || ph.data;
-        if (!src) continue;
-        const x = M + colK * (PHK_CELL + GAPK);
-        if (colK === 0) y = newPageIfNeeded(y, PHK_CELL + 6);
-        try {
-          const f = _pdfContain(_photoRatio[ph.idbKey], PHK_CELL);
-          pdf.addImage(src, 'JPEG', x + f.dx, y + f.dy, f.dw, f.dh);
-          pdf.setFont('helvetica','normal').setFontSize(6).setTextColor(120);
-          pdf.text(`${(type||'').slice(0,18)} (${side})`, x, y+PHK_CELL+2.5, {maxWidth: PHK_CELL});
-        } catch(e) { console.warn('[edl pdf] addImage clé fail', e); }
-        colK++;
-        if (colK >= perRowK) { colK = 0; y += PHK_CELL + 6; }
-      }
-      if (colK > 0) y += PHK_CELL + 6;
-      y += 4;
-    }
+    drawSectionPhotos(cEnt, cSor);
   }
 
   // ─── 6. Observations générales (edl.notes) ─────────────────────
@@ -33434,9 +33467,11 @@ async function generateEDLPdfNative(edl) {
   // Section "Photos / Commentaires / Réserve :" titre supprimée (redondante).
   // v14.12.6 : utilise les constantes globales (source unique de vérité,
   // partagées avec le cadre jaune affiché dans le formulaire EDL).
-  const engTitleTxt = EDL_ENGAGEMENT_TITRE;
-  const engText1 = EDL_ENGAGEMENT_TXT1;
-  const engText2 = EDL_ENGAGEMENT_TXT2;
+  // §2.8 — engagement DISTINCT entrée / sortie (le PDF de sortie affichait le texte d'entrée).
+  const _eng = _edlEngagement(edl.type === 'Sortie');
+  const engTitleTxt = _eng.titre;
+  const engText1 = _eng.txt1;
+  const engText2 = _eng.txt2;
 
   // Calcul du wrap (font size 9, largeur CW - 6 pour padding 3mm chaque côté)
   pdf.setFont('helvetica','normal').setFontSize(9);
